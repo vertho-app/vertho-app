@@ -17,8 +17,11 @@ const competenciasPorCargo = new Map(
 );
 
 describe('roster escolar: a Rede de Escolas ACME', () => {
-  it('tem os três cargos com prefixo próprio e cinco competências cada', () => {
-    expect(ROSTER_ESCOLAR.cargosConstruidos).toHaveLength(3);
+  it('tem os cargos com matriz, cada um com prefixo próprio e cinco competências', () => {
+    // Dois: professor e coordenação. A direção administra o programa (papel
+    // `rh`) e não percorre jornada, então não tem matriz — cargo sem
+    // participante apareceria vazio no ranking.
+    expect(ROSTER_ESCOLAR.cargosConstruidos).toHaveLength(2);
     const prefixos = ROSTER_ESCOLAR.cargosConstruidos.map((cargo) => cargo.codPrefix);
     expect(new Set(prefixos).size).toBe(prefixos.length);
     for (const cargo of ROSTER_ESCOLAR.cargosConstruidos) {
@@ -32,21 +35,29 @@ describe('roster escolar: a Rede de Escolas ACME', () => {
   });
 
   // A heurística antiga do motor (`startsWith('Analista')`, `includes('Coordenador')`)
-  // daria 'GER' para dois destes três cargos, colidindo o `cod_comp`.
-  it('não herdaria prefixo utilizável da derivação por nome', () => {
+  // carimbaria estes cargos com os prefixos do elenco COMERCIAL: "Professor(a)"
+  // cairia no `else` e levaria 'GER', o do Gerente Comercial.
+  it('não herdaria da derivação por nome os prefixos que declara', () => {
     const antigo = (nome: string) => (nome.startsWith('Analista') ? 'FIN'
       : nome.startsWith('Coordenador') ? 'OPS' : 'GER');
-    const derivados = ROSTER_ESCOLAR.cargosConstruidos.map((cargo) => antigo(cargo.nome));
-    expect(new Set(derivados).size).toBeLessThan(derivados.length);
+    for (const cargo of ROSTER_ESCOLAR.cargosConstruidos) {
+      expect(antigo(cargo.nome), `${cargo.nome} coincidiria por acaso`).not.toBe(cargo.codPrefix);
+    }
   });
 
-  it('põe a competência com acervo dentro do Top 5 de quem tem jornada', () => {
-    // Sem isso a trilha nasce sem conteúdo: o resolver casa por
-    // (competência × descritor), e o acervo de origem vive nestas duas.
-    expect(competenciasPorCargo.get('Diretor(a) Escolar'))
-      .toContain('Planejamento e Organização');
-    expect(competenciasPorCargo.get('Coordenador(a) Pedagógico(a)'))
-      .toContain('Colaboração docente e cultura formativa');
+  it('quem percorre a jornada é o professor, e a coordenação acompanha', () => {
+    // Decisão do dono (01/09): a jornada completa é do professor; coordenação
+    // não faz avaliação nem trilha, e por isso não responde competência
+    // nenhuma. Ela continua no ranking de adequação, que lê as colunas
+    // comportamentais e não os assessments.
+    const completos = ROSTER_ESCOLAR.personas.filter((p) => p.scenario === 'completo');
+    expect(completos).toHaveLength(1);
+    expect(completos[0].cargo).toBe('Professor(a)');
+    for (const persona of ROSTER_ESCOLAR.personas) {
+      if (persona.role === 'gestor') {
+        expect(persona.responder, `${persona.key} não deveria responder`).toHaveLength(0);
+      }
+    }
   });
 
   it('o foco de cada cargo é uma competência dele', () => {

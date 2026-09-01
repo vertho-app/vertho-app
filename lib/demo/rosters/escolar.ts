@@ -37,16 +37,17 @@ export const UNIDADES_ESCOLARES = [
 const VILA_NOVA = UNIDADES_ESCOLARES[0].nome;
 const PARQUE = UNIDADES_ESCOLARES[1].nome;
 
-const DIRETORA = {
-  nome: 'Cláudia Amorim',
-  email: 'claudia.demo@vertho.ai',
+/**
+ * A coordenação de cada unidade. É ela que acompanha os professores no dia a
+ * dia, então é ela que responde como gestora deles — na escola quem faz o papel
+ * de gestor do produto é o coordenador, não a direção.
+ */
+const COORDENACAO_VILA_NOVA = {
+  nome: 'Renata Coelho',
+  email: 'renata.demo@vertho.ai',
   whatsapp: null as string | null,
 };
 
-/**
- * A coordenação da segunda unidade. É ela que acompanha os professores de lá no
- * dia a dia, então é ela que responde como gestora deles.
- */
 const COORDENACAO_PARQUE = {
   nome: 'Sérgio Bastos',
   email: 'sergio.demo@vertho.ai',
@@ -54,28 +55,26 @@ const COORDENACAO_PARQUE = {
 };
 
 /**
- * Quem administra o programa na rede. No cliente escolar esse papel é da
- * MANTENEDORA, não de um RH: ela consome o panorama das unidades e os
- * relatórios, e não percorre jornada nenhuma.
+ * Quem administra o programa na escola. Na rede escolar o papel de RH é da
+ * DIREÇÃO (decisão do dono, 01/09): ela abre o panorama, os relatórios e o
+ * acompanhamento da equipe, e não percorre jornada — exatamente como a persona
+ * de RH do elenco comercial.
+ *
+ * ⚠️ Consequência que vale lembrar antes de mexer: o produto EXCLUI `role='rh'`
+ * das métricas de participação. Pôr alguém aqui é tirá-lo do funil que ele
+ * mesmo consulta, então quem precisa aparecer como participante não pode ser
+ * a conta de administração.
  */
-export const MANTENEDORA_PERSONA = {
-  key: 'elisa',
-  nome_completo: 'Elisa Tavares',
-  email: 'elisa.demo@vertho.ai',
-  cargo: 'Mantenedora',
+export const DIRECAO_PERSONA = {
+  key: 'claudia',
+  nome_completo: 'Cláudia Amorim',
+  email: 'claudia.demo@vertho.ai',
+  cargo: DIRECAO,
   role: 'rh',
-  area_depto: 'Mantenedora',
+  area_depto: 'Escola ACME Vila Nova',
 } as const;
 
 /** Top 5 do roster, por cargo. A 5ª de cada um é a que tem acervo. */
-const TOP5_DIRECAO = [
-  'Liderança pedagógica',
-  'Gestão democrática e cultura colaborativa',
-  'Gestão de Desempenho e Avaliação',
-  'Gestão da Comunidade Escolar',
-  'Planejamento e Organização',
-];
-
 const TOP5_COORDENACAO = [
   'Gestão da Aprendizagem',
   'Desenvolvimento Docente',
@@ -92,28 +91,15 @@ const TOP5_DOCENCIA = [
   'Observação e Contexto',
 ];
 
+/**
+ * Os cargos com MATRIZ, isto é, os que têm competências, cenários e gente
+ * avaliada. A direção não está aqui: ela administra o programa (papel `rh`) e
+ * não percorre a jornada, então uma matriz de direção ficaria sem nenhum
+ * participante — e cargo vazio no ranking é ruído na tela, não capacidade.
+ * A régua dela segue guardada em `escolas-descritores.json`, se um dia a
+ * direção passar a participar.
+ */
 export const CARGOS_ESCOLARES = [
-  {
-    nome: DIRECAO,
-    codPrefix: 'DIR',
-    ehLideranca: true,
-    area_depto: 'Direção',
-    pilar: 'Gestão Escolar',
-    descricao: 'Profissional responsável por conduzir o projeto pedagógico da unidade, liderar a equipe docente e administrativa, sustentar a relação com as famílias e garantir que as decisões do dia a dia sustentem a aprendizagem dos estudantes.',
-    principais_entregas: 'Direção pedagógica clara e acompanhada; equipe orientada e com devolutivas; rotina e calendário sob controle; relação de confiança com famílias; indicadores lidos e transformados em plano de ação.',
-    stakeholders: 'Equipe docente, coordenação pedagógica, famílias, estudantes, secretaria da escola, mantenedora e parceiros da comunidade.',
-    decisoes_recorrentes: 'O que priorizar quando a urgência do dia atropela o plano; quando entrar numa sala e quando confiar na coordenação; como responder a uma família sem quebrar um combinado da equipe; que indicador cobrar primeiro.',
-    tensoes_comuns: 'Demanda administrativa competindo com a pedagógica; conflito entre famílias e professores; equipe sobrecarregada; recursos limitados; pressão por resultado num prazo mais curto do que o da aprendizagem.',
-    contexto_cultural: 'Rede privada de porte médio, com unidades de perfis diferentes, gestão próxima das famílias e expectativa de consistência pedagógica entre as escolas.',
-    competencias_foco: ['Planejamento e Organização'],
-    competencias: [
-      ['Liderança pedagógica', 'Define direção pedagógica clara para a escola, acompanha a qualidade do ensino com base em evidências, oferece devolutivas à equipe docente e ajusta estratégias para garantir a aprendizagem dos estudantes.'],
-      ['Gestão democrática e cultura colaborativa', 'Cria espaço real para participação nas decisões, compartilha informações com transparência, considera múltiplas perspectivas, constrói acordos e estimula corresponsabilidade.'],
-      ['Gestão de Desempenho e Avaliação', 'Estabelece critérios e metas de desempenho, acompanha indicadores institucionais e pedagógicos, analisa resultados com a equipe e transforma evidências em decisões de melhoria contínua.'],
-      ['Gestão da Comunidade Escolar', 'Promove participação das famílias, escuta com abertura, comunica-se com clareza, gere expectativas, responde demandas e articula com atores da comunidade e da rede institucional.'],
-      ['Planejamento e Organização', 'Define metas e prioridades, organiza planos de ação, acompanha a execução, antecipa riscos e garante consistência entre planejamento, rotina e resultados da escola.'],
-    ],
-  },
   {
     nome: COORDENACAO,
     codPrefix: 'COO',
@@ -170,80 +156,38 @@ export const CARGOS_ESCOLARES = [
  */
 export const PERSONAS_ESCOLARES = [
   {
-    key: 'claudia',
-    nome_completo: DIRETORA.nome,
-    email: DIRETORA.email,
-    cargo: DIRECAO,
-    role: 'gestor',
-    area_depto: VILA_NOVA,
-    gestor_nome: null as string | null,
-    gestor_email: null as string | null,
-    gestor_whatsapp: null as string | null,
-    perfil_dominante: 'DI',
-    d_natural: 62, i_natural: 58, s_natural: 42, c_natural: 38,
-    scenario: 'completo',
-    estiloResposta: 'forte' as const,
-    responder: TOP5_DIRECAO,
-  },
-  {
-    // O papel da régua eliminatória: aderência alta e, ainda assim, bloqueado
-    // por uma premissa do cargo. Fica na COORDENAÇÃO, e não na direção, porque
-    // é lá que a demo tem duas pessoas no mesmo cargo para comparar — um
-    // ranking de adequação com uma pessoa só não mostra o que ele faz.
-    key: 'sergio',
-    nome_completo: COORDENACAO_PARQUE.nome,
-    email: COORDENACAO_PARQUE.email,
-    cargo: COORDENACAO,
-    role: 'gestor',
-    area_depto: PARQUE,
-    gestor_nome: null as string | null,
-    gestor_email: null as string | null,
-    gestor_whatsapp: null as string | null,
-    // DISC CALIBRADO com o motor como oráculo (01/09), não escolhido a olho: o
-    // primeiro palpite (D46 I76 S20 C58) dava 77,7 com ZERO premissas
-    // reprovadas — o papel da régua eliminatória não existia de fato. A busca
-    // em grade varreu os perfis que somam 200, derivou as colunas
-    // comportamentais pela régua do produto e perguntou ao `calcularFitUnificado`:
-    // 3.074 bloqueiam, 956 deles na faixa plausível para uma pessoa. Este é o
-    // de maior aderência entre os que preservam o perfil IC.
-    // `Medido:` fit 83,8 · "Não recomendado" por Persistência insuficiente —
-    // a premissa que o gabarito do cargo descreve como "sustentar processos
-    // lentos de mudança de prática sob pressão por resultado rápido".
-    perfil_dominante: 'IC',
-    d_natural: 24, i_natural: 74, s_natural: 30, c_natural: 72,
-    scenario: 'parcial',
-    responder: ['Gestão da Aprendizagem', 'Desenvolvimento Docente'],
-  },
-  {
-    key: 'renata',
-    nome_completo: 'Renata Coelho',
-    email: 'renata.demo@vertho.ai',
-    cargo: COORDENACAO,
-    role: 'colaborador',
-    area_depto: VILA_NOVA,
-    gestor_nome: DIRETORA.nome,
-    gestor_email: DIRETORA.email,
-    gestor_whatsapp: DIRETORA.whatsapp,
-    perfil_dominante: 'SC',
-    d_natural: 24, i_natural: 44, s_natural: 66, c_natural: 66,
-    scenario: 'completo',
-    estiloResposta: 'forte' as const,
-    responder: TOP5_COORDENACAO,
-  },
-  {
+    // A JORNADA COMPLETA é do professor (decisão do dono, 01/09). É ele quem
+    // faz avaliação e trilha; coordenação e direção existem para ver a equipe e
+    // administrar o programa, não para percorrer o percurso.
     key: 'marina',
     nome_completo: 'Marina Rocha',
     email: 'marina.demo@vertho.ai',
     cargo: DOCENCIA,
     role: 'colaborador',
     area_depto: VILA_NOVA,
-    gestor_nome: DIRETORA.nome,
-    gestor_email: DIRETORA.email,
-    gestor_whatsapp: DIRETORA.whatsapp,
+    gestor_nome: COORDENACAO_VILA_NOVA.nome,
+    gestor_email: COORDENACAO_VILA_NOVA.email,
+    gestor_whatsapp: COORDENACAO_VILA_NOVA.whatsapp,
     perfil_dominante: 'SI',
     d_natural: 22, i_natural: 64, s_natural: 70, c_natural: 44,
-    scenario: 'novo',
-    responder: [] as string[],
+    scenario: 'completo',
+    estiloResposta: 'forte' as const,
+    responder: TOP5_DOCENCIA,
+  },
+  {
+    key: 'paula',
+    nome_completo: 'Paula Nakamura',
+    email: 'paula.demo@vertho.ai',
+    cargo: DOCENCIA,
+    role: 'colaborador',
+    area_depto: VILA_NOVA,
+    gestor_nome: COORDENACAO_VILA_NOVA.nome,
+    gestor_email: COORDENACAO_VILA_NOVA.email,
+    gestor_whatsapp: COORDENACAO_VILA_NOVA.whatsapp,
+    perfil_dominante: 'SC',
+    d_natural: 28, i_natural: 48, s_natural: 66, c_natural: 58,
+    scenario: 'parcial',
+    responder: ['Didática e estratégias de ensino', 'Diversidade e Inclusão'],
   },
   {
     key: 'tiago',
@@ -261,19 +205,48 @@ export const PERSONAS_ESCOLARES = [
     responder: [] as string[],
   },
   {
-    key: 'paula',
-    nome_completo: 'Paula Nakamura',
-    email: 'paula.demo@vertho.ai',
-    cargo: DOCENCIA,
-    role: 'colaborador',
+    // Coordenação NÃO faz avaliação nem trilha: ela acompanha a equipe. Tem
+    // DISC e entra no ranking de adequação (o fit lê as colunas
+    // comportamentais, não os assessments), como a persona de gestão do elenco
+    // comercial — cujo Top 5 também é vazio, e por decisão.
+    key: 'renata',
+    nome_completo: COORDENACAO_VILA_NOVA.nome,
+    email: COORDENACAO_VILA_NOVA.email,
+    cargo: COORDENACAO,
+    role: 'gestor',
     area_depto: VILA_NOVA,
-    gestor_nome: DIRETORA.nome,
-    gestor_email: DIRETORA.email,
-    gestor_whatsapp: DIRETORA.whatsapp,
+    gestor_nome: null as string | null,
+    gestor_email: null as string | null,
+    gestor_whatsapp: null as string | null,
     perfil_dominante: 'SC',
-    d_natural: 28, i_natural: 48, s_natural: 66, c_natural: 58,
-    scenario: 'parcial',
-    responder: ['Didática e estratégias de ensino'],
+    d_natural: 24, i_natural: 44, s_natural: 66, c_natural: 66,
+    scenario: 'gestor',
+    responder: [] as string[],
+  },
+  {
+    // O papel da RÉGUA ELIMINATÓRIA. Ele não percorre jornada; o que a demo
+    // mostra nele é a ADEQUAÇÃO ao cargo: aderência alta e, ainda assim,
+    // bloqueado por uma premissa. DISC calibrado com o motor como oráculo —
+    // ver o comentário do bloco abaixo.
+    key: 'sergio',
+    nome_completo: COORDENACAO_PARQUE.nome,
+    email: COORDENACAO_PARQUE.email,
+    cargo: COORDENACAO,
+    role: 'gestor',
+    area_depto: PARQUE,
+    gestor_nome: null as string | null,
+    gestor_email: null as string | null,
+    gestor_whatsapp: null as string | null,
+    // `Medido:` fit 83,8 · "Não recomendado" por "Persistência insuficiente
+    // para sustentar processos lentos de mudança de prática docente sob pressão
+    // por resultado rápido". O primeiro palpite (D46 I76 S20 C58) dava 77,7 com
+    // ZERO premissas reprovadas: o papel não existia de fato. A busca em grade
+    // varreu os perfis que somam 200 e perguntou ao `calcularFitUnificado`;
+    // este é o de maior aderência entre os que bloqueiam e preservam o IC.
+    perfil_dominante: 'IC',
+    d_natural: 24, i_natural: 74, s_natural: 30, c_natural: 72,
+    scenario: 'gestor',
+    responder: [] as string[],
   },
 ];
 
@@ -284,8 +257,8 @@ export const PERSONAS_ESCOLARES = [
  */
 export const SALA_ESCOLAR = [
   { presentationRoleKey: 'usuario', visao: 'Professor(a)', nome: 'Marina Rocha', email: 'marina.demo@vertho.ai', role: 'colaborador', nextPath: '/dashboard' },
-  { presentationRoleKey: 'gestor', visao: 'Direção', nome: DIRETORA.nome, email: DIRETORA.email, role: 'gestor', nextPath: '/dashboard/gestor' },
-  { presentationRoleKey: 'rh', visao: 'Mantenedora', nome: MANTENEDORA_PERSONA.nome_completo, email: MANTENEDORA_PERSONA.email, role: MANTENEDORA_PERSONA.role, nextPath: '/dashboard' },
+  { presentationRoleKey: 'gestor', visao: 'Coordenação', nome: 'Renata Coelho', email: 'renata.demo@vertho.ai', role: 'gestor', nextPath: '/dashboard/gestor' },
+  { presentationRoleKey: 'rh', visao: 'Direção', nome: DIRECAO_PERSONA.nome_completo, email: DIRECAO_PERSONA.email, role: DIRECAO_PERSONA.role, nextPath: '/dashboard' },
 ] as const;
 
 /**
@@ -385,7 +358,7 @@ export const ROSTER_ESCOLAR: DemoRoster = {
   cargosExcluidosDoFixture: new Set<string>(),
   cargosConstruidos: CARGOS_ESCOLARES,
   personas: PERSONAS_ESCOLARES,
-  administradora: MANTENEDORA_PERSONA,
+  administradora: DIRECAO_PERSONA,
   salaApresentacao: SALA_ESCOLAR.map((acesso) => ({ ...acesso })),
   respostas: {
     padrao: (competencia) => respostaEscolarPadrao(competencia),

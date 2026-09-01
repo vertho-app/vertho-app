@@ -67,8 +67,8 @@ export const DEMO_PRESENTATION_ROOMS = {
     // mas ninguém numa escola se reconhece como "RH".
     roles: [
       { key: 'usuario', label: 'Professor(a)', hostSlug: 'professor-escolas', homePath: '/dashboard' },
-      { key: 'gestor', label: 'Direção', hostSlug: 'direcao-escolas', homePath: '/dashboard/gestor' },
-      { key: 'rh', label: 'Mantenedora', hostSlug: 'mantenedora-escolas', homePath: '/dashboard' },
+      { key: 'gestor', label: 'Coordenação', hostSlug: 'coordenacao-escolas', homePath: '/dashboard/gestor' },
+      { key: 'rh', label: 'Direção', hostSlug: 'direcao-escolas', homePath: '/dashboard' },
     ],
   },
 } as const;
