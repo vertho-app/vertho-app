@@ -1,6 +1,8 @@
 export type LocalAsrState = 'checking' | 'offline' | 'starting' | 'ready' | 'error';
 
-export const LOCAL_ASR_LAUNCH_URI = 'vertho-whisper://start';
+export const LOCAL_ASR_EXTENSION_ID = 'eigabofjjdigicbphdgdolhelcaiebfo';
+
+export type LocalAsrStartResult = 'started' | 'extension_missing' | 'failed';
 
 type ProbeSocket = {
   onopen: (() => void) | null;
@@ -79,4 +81,69 @@ export async function waitForLocalAsr(
     if (!await wait(Math.min(intervalMs, remaining), options.signal)) return false;
   }
   return false;
+}
+
+type NativeStartResponse = {
+  ok?: boolean;
+};
+
+export type LocalAsrChromeRuntime = {
+  lastError?: { message?: string };
+  sendMessage: (
+    extensionId: string,
+    message: { type: 'start' },
+    callback: (response?: NativeStartResponse) => void,
+  ) => void;
+};
+
+type RequestLocalAsrStartOptions = {
+  timeoutMs?: number;
+  signal?: AbortSignal;
+  runtime?: LocalAsrChromeRuntime | null;
+};
+
+function chromeRuntime(): LocalAsrChromeRuntime | null {
+  const chrome = (globalThis as typeof globalThis & {
+    chrome?: { runtime?: LocalAsrChromeRuntime };
+  }).chrome;
+  return chrome?.runtime?.sendMessage ? chrome.runtime : null;
+}
+
+export function requestLocalAsrStart(
+  options: RequestLocalAsrStartOptions = {},
+): Promise<LocalAsrStartResult> {
+  const runtime = options.runtime === undefined ? chromeRuntime() : options.runtime;
+  if (!runtime) return Promise.resolve('extension_missing');
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result: LocalAsrStartResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', abort);
+      resolve(result);
+    };
+    const abort = () => finish('failed');
+    const timer = setTimeout(() => finish('failed'), options.timeoutMs ?? 7_000);
+    options.signal?.addEventListener('abort', abort, { once: true });
+
+    if (options.signal?.aborted) {
+      finish('failed');
+      return;
+    }
+
+    try {
+      runtime.sendMessage(LOCAL_ASR_EXTENSION_ID, { type: 'start' }, (response) => {
+        // Ler lastError dentro do callback evita o aviso não tratado do Chrome.
+        if (runtime.lastError) {
+          finish('extension_missing');
+          return;
+        }
+        finish(response?.ok ? 'started' : 'failed');
+      });
+    } catch {
+      finish('extension_missing');
+    }
+  });
 }

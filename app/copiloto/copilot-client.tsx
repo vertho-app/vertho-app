@@ -24,10 +24,10 @@ import {
 } from './audio-capture';
 import {
   probeLocalAsr,
+  requestLocalAsrStart,
   waitForLocalAsr,
   type LocalAsrState,
 } from './local-asr';
-import { LocalAsrLaunchLink } from './local-asr-launch-link';
 import {
   addAudioEvidence, assessAudioInputHealth, EMPTY_AUDIO_EVIDENCE,
   type AudioInputEvidence, type AudioInputHealth,
@@ -1000,7 +1000,7 @@ export default function CopilotClient({
     }
   }
 
-  async function awaitLocalAsrActivation() {
+  async function activateLocalAsr() {
     if (localAsrState === 'starting') return;
     setError(null);
     setLocalAsrReadyNotice(false);
@@ -1009,16 +1009,33 @@ export default function CopilotClient({
     const controller = new AbortController();
     asrActivationRef.current = controller;
 
+    const requested = await requestLocalAsrStart({
+      timeoutMs: 7_000,
+      signal: controller.signal,
+    });
+    if (controller.signal.aborted) {
+      asrActivationRef.current = null;
+      return;
+    }
+    if (requested !== 'started') {
+      asrActivationRef.current = null;
+      setLocalAsrState('error');
+      setError(requested === 'extension_missing'
+        ? 'O complemento “Vertho Whisper Local” não está ativo no Chrome. Abra chrome://extensions e carregue a pasta indicada pelo instalador.'
+        : 'O Chrome encontrou o complemento, mas não conseguiu iniciar o Whisper local. Execute novamente o instalador e tente de novo.');
+      return;
+    }
+
     const ready = await waitForLocalAsr(ASR_URL, {
       timeoutMs: 90_000,
       signal: controller.signal,
     });
-    if (controller.signal.aborted) return;
     asrActivationRef.current = null;
+    if (controller.signal.aborted) return;
 
     if (!ready) {
       setLocalAsrState('error');
-      setError('O navegador não abriu o Whisper local. Clique novamente em “Iniciar conversa” e confirme “Abrir Vertho Whisper Local” se o aviso aparecer.');
+      setError('O host iniciou, mas o Chrome não alcançou o Whisper. Nas permissões de app.vertho.ai, libere “Acesso à rede local”; se já estiver permitido, reinstale o Whisper local.');
       return;
     }
 
@@ -1214,12 +1231,12 @@ export default function CopilotClient({
     : localAsrState === 'starting'
       ? {
           title: 'Iniciando Whisper local…',
-          detail: 'O modelo está carregando na GPU. Se o navegador perguntar, permita abrir “Vertho Whisper Local”.',
+          detail: 'O Chrome acionou o host sob demanda. Se ele pedir “Acesso à rede local”, permita; o modelo está carregando na GPU.',
         }
       : localAsrState === 'error'
         ? {
-            title: 'O iniciador local não respondeu',
-            detail: 'Clique novamente em “Iniciar conversa”. O botão agora abre o protocolo local diretamente.',
+            title: 'Não foi possível acionar o Whisper',
+            detail: 'Confira se o complemento “Vertho Whisper Local” está ativo no Chrome e tente novamente.',
           }
         : localAsrState === 'checking'
           ? {
@@ -1228,7 +1245,7 @@ export default function CopilotClient({
             }
           : {
               title: 'Whisper desligado — será iniciado sob demanda',
-              detail: 'Clique em “Iniciar conversa”. O modelo liga somente para a reunião e desliga após ficar ocioso.',
+              detail: 'Clique em “Iniciar conversa”. O Chrome liga o modelo somente para a reunião; nada inicia no login do Windows.',
             };
 
   return (
@@ -1411,9 +1428,9 @@ export default function CopilotClient({
                   <LoaderCircle size={17} className={styles.spin} /> Iniciando Whisper…
                 </button>
               ) : localAsrState !== 'ready' ? (
-                <LocalAsrLaunchLink className={styles.startButton} onLaunch={awaitLocalAsrActivation}>
+                <button className={styles.startButton} onClick={() => void activateLocalAsr()}>
                   <Mic size={17} /> Iniciar conversa
-                </LocalAsrLaunchLink>
+                </button>
               ) : (
                 <button ref={startCaptureButtonRef} className={styles.startButton} onClick={startCapture} disabled={captureState === 'conectando'}>
                   {captureState === 'conectando'

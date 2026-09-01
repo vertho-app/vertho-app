@@ -1,10 +1,10 @@
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import { LocalAsrLaunchLink } from '@/app/copiloto/local-asr-launch-link';
 import {
+  LOCAL_ASR_EXTENSION_ID,
   probeLocalAsr,
+  requestLocalAsrStart,
   waitForLocalAsr,
+  type LocalAsrChromeRuntime,
 } from '@/app/copiloto/local-asr';
 
 type FakeSocket = {
@@ -56,13 +56,36 @@ describe('acionamento local do Whisper', () => {
     expect(attempts).toBe(3);
   });
 
-  it('renderiza o acionamento como link real para preservar o gesto do usuário', () => {
-    const html = renderToStaticMarkup(createElement(
-      LocalAsrLaunchLink,
-      { onLaunch: vi.fn() },
-      'Iniciar conversa',
-    ));
+  it('solicita o modelo ao host nativo por meio do complemento do Chrome', async () => {
+    const sendMessage = vi.fn((_id, _message, callback) => callback({ ok: true }));
+    const runtime: LocalAsrChromeRuntime = { sendMessage };
 
-    expect(html).toContain('<a href="vertho-whisper://start">');
+    await expect(requestLocalAsrStart({ runtime })).resolves.toBe('started');
+    expect(sendMessage).toHaveBeenCalledWith(
+      LOCAL_ASR_EXTENSION_ID,
+      { type: 'start' },
+      expect.any(Function),
+    );
+  });
+
+  it('informa que o complemento não está instalado', async () => {
+    await expect(requestLocalAsrStart({ runtime: null })).resolves.toBe('extension_missing');
+  });
+
+  it('trata o erro de conexão do Chrome como complemento ausente', async () => {
+    const runtime: LocalAsrChromeRuntime = {
+      lastError: { message: 'Could not establish connection.' },
+      sendMessage: (_id, _message, callback) => callback(),
+    };
+
+    await expect(requestLocalAsrStart({ runtime })).resolves.toBe('extension_missing');
+  });
+
+  it('informa falha quando o host nativo rejeita o acionamento', async () => {
+    const runtime: LocalAsrChromeRuntime = {
+      sendMessage: (_id, _message, callback) => callback({ ok: false }),
+    };
+
+    await expect(requestLocalAsrStart({ runtime })).resolves.toBe('failed');
   });
 });

@@ -16,25 +16,42 @@ O instalador:
 
 - copia o sidecar para `%LOCALAPPDATA%\Vertho\Whisper`;
 - instala as dependências Python com `uv`;
-- registra `vertho-whisper://` apenas para o usuário atual (`HKCU`);
-- inicia o Whisper para validar a instalação.
+- registra um host nativo do Chrome apenas para o usuário atual (`HKCU`);
+- prepara a extensão em `%LOCALAPPDATA%\Vertho\Whisper\extension`.
 
-Não há tarefa no login do Windows. Quando o Copiloto detecta a porta `8765`
-fechada, o clique em **Iniciar conversa** abre o protocolo local e aguarda o
-modelo carregar. Assim que o status ficar pronto, um segundo clique abre o
-seletor de compartilhamento de áudio exigido pelo navegador.
+Ele não inicia o modelo. Para validar o carregamento durante a instalação, use o
+parâmetro opcional `-Validar`.
 
-O processo encerra sozinho após cinco minutos sem nenhum cliente conectado,
+Depois, no Chrome:
+
+1. abra `chrome://extensions`;
+2. ative **Modo do desenvolvedor**;
+3. clique em **Carregar sem compactação** e selecione
+   `%LOCALAPPDATA%\Vertho\Whisper\extension`;
+4. recarregue `app.vertho.ai`.
+
+Esse carregamento é feito uma única vez. A chave pública embutida no manifesto
+mantém o ID da extensão estável: `eigabofjjdigicbphdgdolhelcaiebfo`.
+
+## Funcionamento sob demanda
+
+Não há tarefa, serviço ou processo no login do Windows. Ao clicar em **Iniciar
+conversa**, a página envia um pedido à extensão. O Chrome cria o host nativo por
+poucos milissegundos; ele aciona `launcher.ps1` e encerra. Só então o modelo é
+carregado na porta `8765`.
+
+O Whisper encerra sozinho após cinco minutos sem nenhum cliente conectado,
 liberando a GPU. Durante uma conversa, a conexão WebSocket impede o desligamento.
 
 ## Diagnóstico
 
 Os arquivos ficam em `%LOCALAPPDATA%\Vertho\Whisper\.runtime`:
 
+- `native-host.err.log`: falha na ponte entre o Chrome e o iniciador;
 - `launcher.err.log`: falha ao iniciar o processo;
 - `whisper.err.log`: erros do Python/CUDA;
 - `whisper.out.log`: carregamento do modelo, conexões e desligamento ocioso;
 - `processo.json`: PID e horário do último acionamento.
 
-Após atualizar `tools/copiloto-whisper`, execute novamente o instalador para
-sincronizar a cópia local e suas dependências.
+Após atualizar `tools/copiloto-whisper`, execute novamente o instalador e use o
+botão **Recarregar** da extensão em `chrome://extensions`.
