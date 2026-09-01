@@ -1230,7 +1230,7 @@ export async function prepararAudioPersonalizado({ contentId, colab }: { content
  * Gemini TTS (voz masculina pt-BR), sobe o MP3 final pro Storage e linka url/storage_path.
  * Mesmo fluxo do PDF; a narração usa o bloco de TEXTO LIMPO do roteiro.
  */
-export async function gerarPodcastAudio(id: string) {
+export async function gerarPodcastAudio(id: string): Promise<import('@/lib/conteudo-podcast-core').PodcastAudioResult> {
   try {
     if (!id) return { success: false, error: 'id obrigatório' };
     const { sb, linha: c } = await requireLinhaSupabase<any>(
@@ -1244,26 +1244,11 @@ export async function gerarPodcastAudio(id: string) {
       return { success: false, error: 'Conteúdo sem roteiro inline para narrar' };
     }
 
-    const { extractNarration, generatePodcastAudio } = await import('@/lib/gemini-tts');
-    const narracao = extractNarration(c.conteudo_inline);
-    if (!narracao || narracao.length < 20) {
-      return { success: false, error: 'Não foi possível extrair a narração do roteiro' };
-    }
-
-    const audio = await generatePodcastAudio(narracao, { feature: 'tts_podcast', empresaId: c.empresa_id });
-
-    const slug = String(c.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
-    const path = `final/audio/${slug}/${c.id}-${Date.now()}.${audio.extension}`;
-    const { error: upErr } = await sb.storage.from('conteudos').upload(path, audio.buffer, {
-      contentType: audio.contentType, upsert: true,
-    });
-    if (upErr) return { success: false, error: `Upload falhou: ${upErr.message}` };
-
-    const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(path);
-    const updAud = await updateConteudoInTenantDaLinha(sb, id, { url: publicUrl, storage_path: path, ativo: true });
-    if (updAud === null) return { success: false, error: 'Conteúdo não encontrado' };
-
-    return { success: true, url: publicUrl, message: `Áudio com vinheta gerado para "${c.titulo}"` };
+    // Narração, TTS, upload e publicação vivem no núcleo headless
+    // (`lib/conteudo-podcast-core`), que o seed de demo também usa. Aqui fica
+    // só o gate e a resolução da linha.
+    const { gerarPodcastAudioCore } = await import('@/lib/conteudo-podcast-core');
+    return await gerarPodcastAudioCore(sb, c, (linhaId, patch) => updateConteudoInTenantDaLinha(sb, linhaId, patch));
   } catch (err) {
     console.error('[gerarPodcastAudio]', err);
     return { success: false, error: err?.message || 'Erro' };
@@ -1274,7 +1259,7 @@ export async function gerarPodcastAudio(id: string) {
  * Etapa editorial do podcast: salva o roteiro revisado pelo admin e, em seguida,
  * gera o áudio final. Usado pelo modal pós-geração de roteiro.
  */
-export async function aprovarRoteiroPodcastEGerarAudio(id: string, roteiro: string) {
+export async function aprovarRoteiroPodcastEGerarAudio(id: string, roteiro: string): Promise<import('@/lib/conteudo-podcast-core').PodcastAudioResult> {
   try {
     if (!id) return { success: false, error: 'id obrigatório' };
     if (!roteiro?.trim() || roteiro.trim().length < 20) {
