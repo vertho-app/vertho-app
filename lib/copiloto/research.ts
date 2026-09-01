@@ -10,12 +10,28 @@ const researchFormat = {
     type: 'object',
     additionalProperties: false,
     required: [
-      'empresa_identificada', 'resumo_empresa', 'fatos_relevantes', 'tendencias_setor',
+      'empresa_identificada', 'resumo_empresa', 'retrato_conta', 'fatos_relevantes', 'tendencias_setor',
       'hipoteses', 'objetivos', 'metricas_roi', 'perguntas_estrategicas', 'riscos',
     ],
     properties: {
       empresa_identificada: { type: 'string' },
       resumo_empresa: { type: 'string' },
+      retrato_conta: {
+        type: 'object', additionalProperties: false,
+        required: ['porte', 'estrutura', 'momento', 'base_do_momento', 'evento_critico', 'procedencia', 'fonte_url'],
+        properties: {
+          porte: { type: 'string' },
+          estrutura: { type: 'string' },
+          momento: {
+            type: 'string',
+            enum: ['expansao', 'pos_aquisicao', 'pressao_de_custo', 'troca_de_lideranca', 'transformacao', 'crise', 'indefinido'],
+          },
+          base_do_momento: { type: 'string' },
+          evento_critico: { type: 'string' },
+          procedencia: { type: 'string', enum: ['confirmado', 'inferencia', 'nao_confirmado'] },
+          fonte_url: { type: ['string', 'null'] },
+        },
+      },
       fatos_relevantes: {
         type: 'array',
         items: {
@@ -121,7 +137,8 @@ function parseJson(text: string): any {
 
 function emptyPublicResearch(company: string): any {
   return {
-    empresa_identificada: company || 'Cliente informado', resumo_empresa: '', fatos_relevantes: [],
+    empresa_identificada: company || 'Cliente informado', resumo_empresa: '', retrato_conta: null,
+    fatos_relevantes: [],
     tendencias_setor: [], hipoteses: [], objetivos: {}, metricas_roi: [], perguntas_estrategicas: [], riscos: [],
   };
 }
@@ -143,6 +160,16 @@ notícias nesta etapa; outra pesquisa separada cuidará da cobertura externa. De
 Data da pesquisa: ${today}
 Empresa informada: ${company || 'não informada'}
 Site informado: ${site || 'não informado'}
+
+Monte também o RETRATO DA CONTA, que decide ticket, formato e quem assina:
+- porte: colaboradores, unidades, praças e receita, SOMENTE quando houver fonte pública;
+- estrutura: grupo ou independente, capital aberto ou fechado, matriz;
+- momento: uma das etiquetas do enum, com a base que a sustenta em uma frase;
+- evento_critico: o fato dos últimos 180 dias que explica por que esta conversa é agora;
+- procedencia: "confirmado" quando houver fonte pública direta, "inferencia" quando for
+  leitura sua a partir de sinais, "nao_confirmado" quando não achar. Nunca preencha porte
+  ou receita plausível: escreva "não encontrado" e marque nao_confirmado. Um retrato honesto
+  vale mais que um número errado dito na frente do cliente.
 
 Regras:
 - diferencie fatos pesquisados de hipóteses a validar;

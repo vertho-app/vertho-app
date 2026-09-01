@@ -8,6 +8,8 @@ import type { CopilotConversationAnalysis } from './types';
 const SYSTEM = `Você consolida a memória comercial de uma conta para o Copiloto PACE da Vertho.
 Use somente o que está sustentado pela transcrição, pelo CRM ou pelo histórico fornecido.
 Não transforme hipótese em fato, não invente orçamento, decisor, prazo, dor ou compromisso.
+"anchorAnswers" recebe a fala do CLIENTE copiada da transcrição, sem parafrasear e sem corrigir:
+é o vocabulário dele que faz o follow-up soar como continuação da conversa. Vazio se ele não disse.
 "Memória consolidada" deve preservar informação anterior ainda válida e atualizar somente quando a
 nova conversa trouxer evidência. "Evolução" descreve o que ficou novo, confirmado, mudou ou segue
 pendente nesta conversa. Escreva em português do Brasil, de forma objetiva.
@@ -49,7 +51,8 @@ Gere este JSON:
     "timing": ["prazo ou janela explícita"],
     "objections": ["objeção explícita"],
     "commitments": ["combinado assumido por alguém"],
-    "nextStep": "próximo passo acordado; vazio quando não houve acordo"
+    "nextStep": "próximo passo acordado; vazio quando não houve acordo",
+    "anchorAnswers": ["frase do CLIENTE, transcrita literalmente, que responde ao que a conversa precisava descobrir"]
   },
   "evolution": [
     {"status":"novo|confirmado|mudou|pendente","text":"o que evoluiu","evidence":"trecho curto ou base factual"}

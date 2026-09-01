@@ -11,11 +11,14 @@ import {
 } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import {
-  DEFAULT_VERTHO_OFFER, DISCOVERY_CHECKLIST, MEETING_KINDS, PACE_PHASES,
-  type CopilotAccountListItem, type CopilotOpportunity, type CopilotPlan, type CopilotPlay, type CopilotSource,
-  type CopilotSourceKind, type LiveReading, type LiveUtterance, type MeetingKind, type PacePhase, type SupernormalPost,
+  CONVERSATION_GOALS, DEFAULT_VERTHO_OFFER, DISCOVERY_CHECKLIST, MEETING_KINDS, PACE_PHASES,
+  type AccountSnapshot, type ConversationGoal, type CopilotAccountListItem, type CopilotOpportunity,
+  type CopilotPlan, type CopilotPlay, type CopilotSource, type CopilotSourceKind, type LiveReading,
+  type AccountMoment, type EvidenceConfidence,
+  type LiveUtterance, type MeetingKind, type PacePhase, type SupernormalPost,
   type SupernormalPostDetail,
 } from '@/lib/copiloto/types';
+import { normalizeConversationGoal } from '@/lib/copiloto/dossier';
 import { inferMeetingKind } from '@/lib/copiloto/play';
 import { mesclarPerfisSociais } from '@/lib/copiloto/social-discovery';
 import {
@@ -123,6 +126,50 @@ function hostVisivel(value: string): string {
 }
 
 
+const CONFIDENCE_LABELS: Record<EvidenceConfidence, string> = {
+  confirmado: 'confirmado',
+  inferencia: 'inferência',
+  nao_confirmado: 'a confirmar',
+};
+
+const MOMENT_LABELS: Record<AccountMoment, string> = {
+  expansao: 'em expansão',
+  pos_aquisicao: 'pós-aquisição',
+  pressao_de_custo: 'sob pressão de custo',
+  troca_de_lideranca: 'trocando liderança',
+  transformacao: 'em transformação',
+  crise: 'em crise',
+  indefinido: 'momento não identificado',
+};
+
+/**
+ * Porte e momento: o que decide ticket, formato e quem assina.
+ *
+ * Cada linha mostra o proprio rotulo de procedencia porque o que esta "a confirmar" nao
+ * vira frase de abertura, vira pergunta.
+ */
+function SnapshotCard({ snapshot }: { snapshot: AccountSnapshot }) {
+  return (
+    <section className={styles.snapshot} aria-label="Retrato da conta">
+      <div className={styles.snapshotTop}>
+        <span><Building2 size={13} /> Retrato da conta</span>
+        <strong data-moment={snapshot.moment}>{MOMENT_LABELS[snapshot.moment]}</strong>
+        <em data-confidence={snapshot.confidence}>{CONFIDENCE_LABELS[snapshot.confidence]}</em>
+      </div>
+      <dl className={styles.snapshotGrid}>
+        <div><dt>Porte</dt><dd>{snapshot.size}</dd></div>
+        <div><dt>Estrutura</dt><dd>{snapshot.structure}</dd></div>
+        {snapshot.criticalEvent && <div><dt>Por que agora</dt><dd>{snapshot.criticalEvent}</dd></div>}
+        {snapshot.momentBasis && <div><dt>Base da leitura</dt><dd>{snapshot.momentBasis}</dd></div>}
+      </dl>
+      {snapshot.paceAdaptation && <p className={styles.snapshotAdaptation}>{snapshot.paceAdaptation}</p>}
+      {snapshot.sourceUrl && (
+        <a href={snapshot.sourceUrl} target="_blank" rel="noreferrer">Ver fonte <ExternalLink size={12} /></a>
+      )}
+    </section>
+  );
+}
+
 function PlayCard({ play }: { play: CopilotPlay }) {
   return (
     <section className={styles.playCard} aria-label="Play desta reunião">
@@ -138,6 +185,14 @@ function PlayCard({ play }: { play: CopilotPlay }) {
           {play.fallbackGoal && <em>Se travar: {play.fallbackGoal}</em>}
         </div>
       </header>
+
+      {play.anchorQuestion && (
+        <div className={styles.playAnchor}>
+          <span><MessageSquareQuote size={13} /> Precisa sair respondida</span>
+          <strong>{play.anchorQuestion}</strong>
+          <small>A resposta dele, nas palavras dele, alimenta o follow-up e o próximo planejamento.</small>
+        </div>
+      )}
 
       <div className={styles.playOpeners}>
         <div className={styles.playSectionLabel}><MessageSquareQuote size={14} /><span>Abra com</span></div>
@@ -203,6 +258,12 @@ function LivePlayStrip({ play, reading }: { play: CopilotPlay; reading: LiveRead
           );
         })}
       </ol>
+      {play.anchorQuestion && (
+        <div className={styles.livePlayAnchor}>
+          <span>Precisa sair respondida</span>
+          <strong>{play.anchorQuestion}</strong>
+        </div>
+      )}
       {reading.phase === 'engajar' && (
         <div className={styles.livePlayClose}>
           <span>Feche pedindo</span>
@@ -220,7 +281,10 @@ function LiveFocusCompass({ play, reading }: { play: CopilotPlay; reading: LiveR
     <aside className={styles.liveFocusCompass} aria-label="Direção da conversa">
       <div className={styles.liveFocusGoal}>
         <span><Target size={13} /> {reading.phase === 'engajar' ? 'Compromisso a pedir' : 'Objetivo desta hora'}</span>
-        <strong>{reading.phase === 'engajar' ? play.closeWith : play.goalThisHour}</strong>
+        {/* `title` porque em coluna estreita o texto pode passar de tres linhas. */}
+        <strong title={reading.phase === 'engajar' ? play.closeWith : play.goalThisHour}>
+          {reading.phase === 'engajar' ? play.closeWith : play.goalThisHour}
+        </strong>
       </div>
       <div className={styles.liveFocusProgress}>
         <span>{reading.covered.length}/{DISCOVERY_CHECKLIST.length} sinais</span>
@@ -293,6 +357,8 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
         </div>
       </header>
 
+      {plan.snapshot && <SnapshotCard snapshot={plan.snapshot} />}
+
       {plan.play
         ? <PlayCard play={plan.play} />
         : <div className={styles.objectives}>
@@ -350,9 +416,32 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
         <section className={classNames(styles.dossierBlock, styles.wideBlock)}>
           <div className={styles.blockTitle}>
             <div><span>01</span><h3>Sinais encontrados</h3></div>
-            <small>Fato público ≠ hipótese</small>
+            <small>{plan.hooks?.length ? 'fato → implicação → pergunta' : 'Fato público ≠ hipótese'}</small>
           </div>
-          {plan.facts.length ? (
+          {plan.hooks?.length ? (
+            <div className={styles.hookRail}>
+              {plan.hooks.map((hook, index) => {
+                const fact = plan.facts[hook.factIndex];
+                if (!fact) return null;
+                return (
+                  <article key={`${hook.askToTest}-${index}`} className={styles.hook}>
+                    <b>F{hook.factIndex + 1}</b>
+                    <div>
+                      <div className={styles.evidenceTop}><h4>{fact.title}</h4>{fact.publishedAt && <time>{fact.publishedAt}</time>}</div>
+                      <p>{fact.fact}</p>
+                      <dl>
+                        <dt>Implicação</dt><dd>{hook.implication}</dd>
+                        {hook.hypothesis && <><dt>Hipótese</dt><dd>{hook.hypothesis}</dd></>}
+                        <dt>Pergunte</dt><dd className={styles.hookAsk}>{hook.askToTest}</dd>
+                        {hook.bridgeIfConfirmed && <><dt className={styles.hookBridge}>Só se confirmar</dt><dd>{hook.bridgeIfConfirmed}</dd></>}
+                      </dl>
+                      {fact.sourceUrl && <a href={fact.sourceUrl} target="_blank" rel="noreferrer">Ver evidência <ExternalLink size={12} /></a>}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : plan.facts.length ? (
             <div className={styles.evidenceRail}>
               {plan.facts.map((fact, index) => (
                 <article key={`${fact.title}-${index}`} className={styles.evidence}>
@@ -383,11 +472,41 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
         </section>
 
         <section className={styles.dossierBlock}>
-          <div className={styles.blockTitle}><div><span>03</span><h3>ROI para dimensionar</h3></div></div>
-          <ul className={styles.plainList}>
-            {plan.roiMetrics.map((item, index) => <li key={`${item.metric}-${index}`}><strong>{item.metric}</strong><span>{item.howToMeasure}</span></li>)}
-            {!plan.roiMetrics.length && <li><span>Valide volume, frequência, tempo perdido e efeito sobre resultado durante a conversa.</span></li>}
-          </ul>
+          <div className={styles.blockTitle}><div><span>03</span><h3>{plan.valueMath?.length ? 'Aritmética do valor' : 'ROI para dimensionar'}</h3></div></div>
+          {plan.valueMath?.length ? (
+            <div className={styles.valueMath}>
+              {plan.valueMath.map((formula, index) => (
+                <article key={`${formula.name}-${index}`}>
+                  <h4>{formula.name}</h4>
+                  <code>{formula.formula}</code>
+                  {!!formula.known.length && (
+                    <ul className={styles.mathKnown}>
+                      {formula.known.map((item, position) => (
+                        <li key={`${item.variable}-${position}`}>
+                          <span>{item.variable}</span><strong>{item.value}</strong>
+                          <em data-confidence={item.confidence}>{CONFIDENCE_LABELS[item.confidence]}</em>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <ul className={styles.mathOpen}>
+                    {formula.open.map((item, position) => (
+                      <li key={`${item.variable}-${position}`}>
+                        <span>falta {item.variable}</span>
+                        <strong>{item.ask}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+              <p className={styles.mathNote}>O total é do cliente. O copiloto não estima nenhum número aqui.</p>
+            </div>
+          ) : (
+            <ul className={styles.plainList}>
+              {plan.roiMetrics.map((item, index) => <li key={`${item.metric}-${index}`}><strong>{item.metric}</strong><span>{item.howToMeasure}</span></li>)}
+              {!plan.roiMetrics.length && <li><span>Valide volume, frequência, tempo perdido e efeito sobre resultado durante a conversa.</span></li>}
+            </ul>
+          )}
         </section>
 
         <section className={classNames(styles.dossierBlock, styles.wideBlock)}>
@@ -402,11 +521,37 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
           </div>
         </section>
 
-        <section className={styles.dossierBlock}>
-          <div className={styles.blockTitle}><div><span>05</span><h3>Objeções prováveis</h3></div></div>
-          <ul className={styles.plainList}>
-            {plan.objections.map((item, index) => <li key={`${item.objection}-${index}`}><strong>{item.objection}</strong><span>Pergunte: {item.question}</span></li>)}
-          </ul>
+        <section className={classNames(styles.dossierBlock, plan.objectionRoutes?.length ? styles.wideBlock : '')}>
+          <div className={styles.blockTitle}>
+            <div><span>05</span><h3>{plan.objectionRoutes?.length ? 'Rotas de objeção' : 'Objeções prováveis'}</h3></div>
+            {!!plan.objectionRoutes?.length && <small>explore antes de responder</small>}
+          </div>
+          {plan.objectionRoutes?.length ? (
+            <div className={styles.routeRail}>
+              {plan.objectionRoutes.map((route, index) => (
+                <article key={`${route.symptom}-${index}`} className={styles.route}>
+                  <header>
+                    <q>{route.symptom}</q>
+                    <span>{route.seat}</span>
+                  </header>
+                  {route.cause && <p className={styles.routeCause}>Causa provável: {route.cause}</p>}
+                  <ol>
+                    {route.acknowledge && <li data-step="acolha">{route.acknowledge}</li>}
+                    <li data-step="explore">{route.explore}</li>
+                    <li data-step="prova" data-missing={route.evidence ? undefined : 'true'}>
+                      {route.evidence || 'Não temos prova para esta objeção. Não invente uma na hora.'}
+                    </li>
+                    {route.alternative && <li data-step="alternativa">{route.alternative}</li>}
+                    {route.advance && <li data-step="avance">{route.advance}</li>}
+                  </ol>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <ul className={styles.plainList}>
+              {plan.objections.map((item, index) => <li key={`${item.objection}-${index}`}><strong>{item.objection}</strong><span>Pergunte: {item.question}</span></li>)}
+            </ul>
+          )}
         </section>
 
         <section className={styles.dossierBlock}>
@@ -477,6 +622,8 @@ export default function CopilotClient({
   const [audience, setAudience] = useState('');
   const [audienceOptions, setAudienceOptions] = useState<string[]>([]);
   const [goalThisHour, setGoalThisHour] = useState('');
+  const [conversationGoal, setConversationGoal] = useState<ConversationGoal>('entender_momento');
+  const [showSetupDetails, setShowSetupDetails] = useState(false);
   const [socialDiscovery, setSocialDiscovery] = useState<SocialDiscoveryState>({ status: 'idle' });
   const [activePlanningId, setActivePlanningId] = useState('');
   const [planPersisted, setPlanPersisted] = useState(false);
@@ -564,6 +711,7 @@ export default function CopilotClient({
           setAudienceOptions(parsed.audienceOptions.filter((item: unknown) => typeof item === 'string').slice(0, 20));
         }
         if (typeof parsed?.goalThisHour === 'string') setGoalThisHour(parsed.goalThisHour);
+        if (normalizeConversationGoal(parsed?.conversationGoal)) setConversationGoal(parsed.conversationGoal);
         if (typeof parsed?.planningId === 'string') {
           setActivePlanningId(parsed.planningId);
           setPlanPersisted(!!parsed.planningId);
@@ -780,7 +928,7 @@ export default function CopilotClient({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           company, site, socialProfiles, context, offer, opportunityId, accountId,
-          meetingKind, audience, goalThisHour,
+          meetingKind, audience, goalThisHour, conversationGoal,
         }),
       });
       const data = await res.json();
@@ -807,7 +955,7 @@ export default function CopilotClient({
             body: JSON.stringify({
               plan: generatedPlan,
               opportunityId,
-              inputs: { company, site, socialProfiles, context, offer, meetingKind, audience, goalThisHour },
+              inputs: { company, site, socialProfiles, context, offer, meetingKind, audience, goalThisHour, conversationGoal },
             }),
           });
           const saved = await saveRes.json();
@@ -823,7 +971,7 @@ export default function CopilotClient({
         localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify({
           plan: generatedPlan, company, site, socialProfiles, context, offer, opportunityId,
           accountId: linkedAccountId, planningId: savedPlanningId, persisted: !!savedPlanningId,
-          meetingKind, audience, audienceOptions, goalThisHour,
+          meetingKind, audience, audienceOptions, goalThisHour, conversationGoal,
         }));
       } catch {
         // O plano continua utilizável na sessão se o navegador bloquear storage.
@@ -1322,7 +1470,23 @@ export default function CopilotClient({
       {tab === 'planejamento' && (
         <div className={styles.workspace}>
           <form className={styles.setupPanel} onSubmit={generatePlan}>
-            <header><span>01 · INPUT</span><h2>Prepare esta hora</h2><p>Defina o tipo, quem estará na conversa e o avanço desejado. A pesquisa sustenta o Play — não substitui a condução.</p></header>
+            <header><span>01 · INPUT</span><h2>Que avanço esta conversa precisa produzir?</h2><p>A escolha decide o que a pesquisa prioriza, o que o Play enfatiza e qual compromisso é o padrão. O resto vem do CRM.</p></header>
+
+            <div className={styles.goalDoors} role="radiogroup" aria-label="Avanço desta conversa">
+              {CONVERSATION_GOALS.map((item, index) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={conversationGoal === item.key}
+                  className={conversationGoal === item.key ? styles.goalDoorActive : ''}
+                  onClick={() => setConversationGoal(item.key)}
+                >
+                  <span>{index + 1}</span>
+                  <span><b>{item.label}</b><small>{item.hint}</small></span>
+                </button>
+              ))}
+            </div>
 
             {!!opportunities.length && (
               <label>Oportunidade no CRM
@@ -1334,17 +1498,10 @@ export default function CopilotClient({
             )}
 
             <fieldset className={styles.playSetup}>
-              <legend><Target size={14} /><span>Play desta hora</span><small>30 segundos</small></legend>
-              <div className={styles.playSetupGrid}>
-                <label>Tipo da reunião
-                  <select value={meetingKind} onChange={(event) => setMeetingKind(event.target.value as MeetingKind)}>
-                    {MEETING_KINDS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-                  </select>
-                </label>
-                <label>Quem vai estar
-                  <input value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="Ex.: Maria Souza, Head de T&D" maxLength={1000} />
-                </label>
-              </div>
+              <legend><UsersRound size={14} /><span>Quem estará na conversa</span><small>basta o cargo</small></legend>
+              <label className={styles.audienceField}>
+                <input value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="Ex.: Maria Souza, Head de T&D" maxLength={1000} />
+              </label>
               {!!audienceOptions.length && (
                 <div className={styles.audienceChips} aria-label="Contatos desta empresa">
                   {audienceOptions.map((option) => {
@@ -1353,14 +1510,26 @@ export default function CopilotClient({
                   })}
                 </div>
               )}
-              <label className={styles.hourGoal}>O que precisa sair desta hora <em>opcional</em>
-                <textarea value={goalThisHour} onChange={(event) => setGoalThisHour(event.target.value)} rows={2} maxLength={1200} placeholder="Ex.: sair com uma demo de 25 min marcada até sexta. Se vazio, o Copiloto infere pelo estágio e pelo playbook." />
-              </label>
             </fieldset>
 
             <div className={styles.twoFields}>
               <label>Empresa<input value={company} onChange={(event) => changeCompany(event.target.value)} placeholder="Ex.: Grupo Sinal" maxLength={200} /></label>
               <label>Site público<input value={site} onChange={(event) => setSite(event.target.value)} placeholder="empresa.com.br" inputMode="url" maxLength={320} /></label>
+            </div>
+
+            <details className={styles.setupDetails} open={showSetupDetails}
+              onToggle={(event) => setShowSetupDetails((event.target as HTMLDetailsElement).open)}>
+              <summary>Dados usados <small>tipo, redes, briefing e oferta</small></summary>
+
+            <div className={styles.playSetupGrid}>
+              <label>Tipo da reunião
+                <select value={meetingKind} onChange={(event) => setMeetingKind(event.target.value as MeetingKind)}>
+                  {MEETING_KINDS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+                </select>
+              </label>
+              <label>O que precisa sair desta hora <em>opcional</em>
+                <textarea value={goalThisHour} onChange={(event) => setGoalThisHour(event.target.value)} rows={2} maxLength={1200} placeholder="Se vazio, o Copiloto infere pelo avanço escolhido e pelo estágio." />
+              </label>
             </div>
 
             <div className={styles.identityField}>
@@ -1412,6 +1581,7 @@ export default function CopilotClient({
               <textarea value={offer} onChange={(event) => setOffer(event.target.value)} rows={5} maxLength={12000} />
               <small><Sparkles size={12} /> Pré-preenchido com os serviços Vertho; ajuste para esta conversa.</small>
             </label>
+            </details>
 
             <div className={styles.formActions}>
               <button type="submit" disabled={planning || (!company.trim() && !site.trim() && !socialProfiles.trim() && context.trim().length < 20)}>

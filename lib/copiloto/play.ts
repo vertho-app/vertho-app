@@ -1,6 +1,7 @@
 import {
   DISCOVERY_CHECKLIST,
   MEETING_KINDS,
+  type ConversationGoal,
   type CopilotPlay,
   type DiscoveryKey,
   type MeetingKind,
@@ -75,6 +76,20 @@ function fallbackAlternativeGoal(kind: MeetingKind): string {
   return 'Se não houver aderência para uma demo, sair com a área e a pessoa certa para uma conversa futura.';
 }
 
+/**
+ * A pergunta que o vendedor quer ter respondida ao sair, por avanco escolhido.
+ *
+ * Ela nao compete com as tres essenciais: e a que da o VOCABULARIO do cliente para o
+ * follow-up, e por isso a resposta e guardada literal na memoria da conta.
+ */
+function fallbackAnchorQuestion(goal: ConversationGoal | undefined): string {
+  if (goal === 'confirmar_dor') return 'Quanto isso custa hoje para vocês, em tempo ou em dinheiro?';
+  if (goal === 'construir_valor') return 'O que precisaria ficar provado para isso virar prioridade aqui?';
+  if (goal === 'destravar_decisao') return 'O que ainda impede uma decisão segura neste momento?';
+  if (goal === 'abrir_frente') return 'Onde mais na operação de vocês esse mesmo problema aparece?';
+  return 'O que mudou aí nos últimos meses que fez isso virar assunto agora?';
+}
+
 function fallbackClose(kind: MeetingKind): string {
   if (kind === 'retorno') return 'Podemos registrar agora o próximo passo, quem assume e a data?';
   if (kind === 'demonstracao') return 'Podemos definir o recorte do piloto e marcar a conversa com os envolvidos?';
@@ -139,10 +154,11 @@ export function normalizeCopilotPlay(
     hasPrivateContext?: boolean;
     covered: DiscoveryKey[];
     fallbackQuestions: PaceQuestion[];
+    conversationGoal?: ConversationGoal;
   },
   // `fallbackGoal` e opcional no tipo para planos ja salvos, mas quem passa por aqui
   // sempre sai com ele preenchido: e o que permite o objetivo reserva ter valor proprio.
-): CopilotPlay & { fallbackGoal: string } {
+): CopilotPlay & { fallbackGoal: string; anchorQuestion: string } {
   const raw: any = value && typeof value === 'object' ? value : {};
   // The user's editable meeting kind is authoritative; the model cannot silently
   // turn a return or negotiation into another script shape.
@@ -243,6 +259,8 @@ export function normalizeCopilotPlay(
     goalThisHour,
     fallbackGoal: text(raw.fallbackGoal ?? raw.fallback_goal ?? raw.objetivo_reserva, 700)
       || fallbackAlternativeGoal(kind),
+    anchorQuestion: text(raw.anchorQuestion ?? raw.anchor_question ?? raw.pergunta_ancora, 220)
+      || fallbackAnchorQuestion(options.conversationGoal),
     openers,
     mustAsk: mustAsk.slice(0, 3),
     doNot,

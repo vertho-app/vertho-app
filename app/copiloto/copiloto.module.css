@@ -352,6 +352,25 @@
 .playSetup .playSetupGrid label, .playSetup .hourGoal { margin-bottom: 14px; }
 .playSetup .hourGoal { position: relative; }
 .playSetup .hourGoal em { position: absolute; top: 1px; right: 0; color: #648096; font-size: 8px; font-style: normal; font-weight: 650; letter-spacing: .06em; }
+/* A pergunta de entrada: a porta escolhida roteia pesquisa, Play e compromisso. */
+.goalDoors { display: grid; gap: 7px; margin-bottom: 22px; }
+.goalDoors button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 1px solid rgba(164,194,216,.16); background: rgba(255,255,255,.018); padding: 11px 13px; cursor: pointer; border-radius: 4px; transition: border-color .16s, background .16s; }
+.goalDoors button > span:first-child { flex: 0 0 26px; height: 26px; display: grid; place-items: center; border: 1px solid rgba(66,212,215,.24); color: var(--cyan); background: rgba(66,212,215,.05); font: 750 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.goalDoors button > span:last-child { min-width: 0; display: grid; gap: 2px; }
+.goalDoors b { color: #dbe9f1; font-size: 12.5px; font-weight: 650; }
+.goalDoors small { color: #7e99ad; font-size: 9.5px; line-height: 1.4; text-transform: none; letter-spacing: normal; }
+.goalDoors .goalDoorActive { border-color: rgba(66,212,215,.5); background: rgba(66,212,215,.07); }
+.goalDoors .goalDoorActive > span:first-child { border-color: var(--cyan); background: rgba(66,212,215,.16); }
+.goalDoors .goalDoorActive b { color: #f0fbfd; }
+.goalDoors button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+.setupPanel .audienceField { margin-bottom: 14px; }
+.setupDetails { margin-bottom: 20px; border-top: 1px solid var(--line); padding-top: 14px; }
+.setupDetails > summary { display: flex; align-items: center; gap: 8px; color: #7e99ad; cursor: pointer; font: 750 9px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
+.setupDetails > summary small { color: #5d7791; font-size: 8.5px; letter-spacing: .05em; text-transform: none; }
+.setupDetails > summary:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.setupDetails[open] > summary { margin-bottom: 16px; color: var(--cyan); }
+
 .audienceChips { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 14px; }
 .audienceChips button { min-height: 27px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(164,194,216,.16); border-radius: 999px; padding: 0 9px; color: #88a2b6; background: rgba(255,255,255,.02); cursor: pointer; font: 700 8px/1 var(--font-inter); }
 .audienceChips button[aria-pressed="true"] { border-color: rgba(138,217,201,.42); color: var(--mint); background: rgba(138,217,201,.075); }
@@ -407,6 +426,16 @@
 .playCloseFlag span { color: var(--amber); font: 800 8px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
 .playCloseFlag strong { color: #f0e5c8; font-size: 11px; line-height: 1.55; }
 .playCloseFlag em { padding-top: 8px; border-top: 1px dashed rgba(242,184,75,.22); color: #b9ab8c; font-size: 9.5px; font-style: normal; line-height: 1.5; }
+/* A ancora nao compete com as tres essenciais: e a que da o vocabulario do cliente. */
+.playAnchor { display: grid; gap: 5px; padding: 15px 26px; border-bottom: 1px solid var(--line); background: rgba(138,217,201,.045); border-left: 3px solid var(--mint); }
+.playAnchor > span { display: flex; align-items: center; gap: 6px; color: var(--mint); font: 800 8px/1 var(--font-inter); letter-spacing: .13em; text-transform: uppercase; }
+.playAnchor > strong { color: #eaf7f4; font-size: 13px; line-height: 1.45; }
+.playAnchor > small { color: #7e99ad; font-size: 9px; line-height: 1.5; }
+
+.livePlayAnchor { display: grid; gap: 4px; padding: 11px 14px; border-top: 1px solid var(--line); background: rgba(138,217,201,.05); }
+.livePlayAnchor > span { color: var(--mint); font: 800 7.5px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
+.livePlayAnchor > strong { color: #dff0ec; font-size: 10.5px; line-height: 1.45; }
+
 .playOpeners, .playQuestions { display: grid; grid-template-columns: 135px minmax(0, 1fr); gap: 18px; padding: 21px 26px; border-bottom: 1px solid var(--line); }
 .playSectionLabel { align-self: start; padding-top: 2px; color: #7e9aaf; }
 .playOpeners > div:last-child { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -472,6 +501,66 @@
 .hypothesisList strong { display: block; color: #e6f2f6; font-size: 11px; line-height: 1.45; }
 .hypothesisList p, .hypothesisList em { display: block; margin: 5px 0 0; color: #839eb3; font-size: 10px; line-height: 1.5; font-style: normal; }
 .hypothesisList em { color: var(--mint); }
+/* Retrato da conta: porte e momento decidem ticket, formato e quem assina. */
+.snapshot { margin-bottom: 18px; border: 1px solid rgba(164,194,216,.16); border-left: 3px solid var(--mint); background: rgba(138,217,201,.035); padding: 16px 18px; }
+.snapshotTop { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 13px; }
+.snapshotTop > span { display: flex; align-items: center; gap: 6px; color: var(--mint); font: 800 8px/1 var(--font-inter); letter-spacing: .13em; text-transform: uppercase; }
+.snapshotTop > strong { color: #e8f4f1; font-size: 12px; }
+.snapshotTop > em, .mathKnown em { font-style: normal; border: 1px solid rgba(164,194,216,.2); border-radius: 999px; padding: 2px 7px; color: #7e99ad; font: 700 7.5px/1.35 var(--font-inter); letter-spacing: .08em; text-transform: uppercase; }
+.snapshotTop > em[data-confidence="confirmado"], .mathKnown em[data-confidence="confirmado"] { border-color: rgba(138,217,201,.4); color: var(--mint); }
+.snapshotTop > em[data-confidence="inferencia"], .mathKnown em[data-confidence="inferencia"] { border-color: rgba(242,184,75,.4); color: var(--amber); }
+.snapshotGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px 18px; margin: 0; }
+.snapshotGrid dt { color: #68839b; font: 750 8px/1 var(--font-inter); letter-spacing: .11em; text-transform: uppercase; }
+.snapshotGrid dd { margin: 4px 0 0; color: #cadcea; font-size: 11px; line-height: 1.5; }
+.snapshotAdaptation { margin: 13px 0 0; padding-top: 11px; border-top: 1px solid rgba(177,205,228,.09); color: #a9bfce; font-size: 10.5px; line-height: 1.55; }
+.snapshot > a { display: inline-flex; gap: 5px; align-items: center; margin-top: 9px; color: var(--cyan); font-size: 9px; font-weight: 700; }
+
+/* Ganchos: o fato so vira conversa com a cadeia inteira, e a ponte e condicional. */
+.hookRail { display: grid; gap: 0; }
+.hook { display: grid; grid-template-columns: 38px 1fr; gap: 14px; padding: 17px 0; border-bottom: 1px solid rgba(177,205,228,.09); }
+.hook:last-child { border-bottom: 0; padding-bottom: 0; }
+.hook > b { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid rgba(242,184,75,.36); color: var(--amber); font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.hook h4 { margin: 0; color: #edf6fb; font-size: 12px; }
+.hook time { color: #607b91; font-size: 9px; white-space: nowrap; }
+.hook > div > p { margin: 6px 0 10px; color: #a9bfce; font-size: 11px; line-height: 1.55; }
+.hook dl { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 5px 12px; margin: 0; }
+.hook dt { color: #68839b; font: 750 8px/1.4 var(--font-inter); letter-spacing: .09em; text-transform: uppercase; }
+.hook dd { margin: 0; color: #bed2df; font-size: 10.5px; line-height: 1.5; }
+.hook .hookAsk { color: #f0fbfd; font-weight: 600; }
+/* O destaque e da PONTE (condicional), nao de "o ultimo rotulo": sem ela, `:last-of-type`
+   pintava "Pergunte" de ambar e o realce passava a significar outra coisa. */
+.hook .hookBridge { color: var(--amber); }
+.hook a { display: inline-flex; gap: 5px; align-items: center; margin-top: 9px; color: var(--cyan); font-size: 9px; font-weight: 700; }
+
+/* Rota de objecao: o fluxo inteiro, e a prova pode faltar de propósito. */
+.routeRail { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.route { min-width: 0; border: 1px solid rgba(240,127,133,.2); background: rgba(240,127,133,.03); padding: 14px; }
+.route > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 9px; }
+.route q { color: #f5e3e4; font-size: 11.5px; font-style: italic; }
+.route > header span { color: #f0989d; border: 1px solid rgba(240,127,133,.3); border-radius: 999px; padding: 2px 7px; font: 700 7.5px/1.35 var(--font-inter); letter-spacing: .08em; text-transform: uppercase; }
+.routeCause { margin: 0 0 10px; color: #9fb3c2; font-size: 10px; line-height: 1.5; }
+.route ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.route li { position: relative; padding-left: 62px; color: #c3d6e2; font-size: 10.5px; line-height: 1.5; }
+.route li::before { content: attr(data-step); position: absolute; left: 0; top: 1px; width: 54px; color: #68839b; font: 750 7.5px/1.5 var(--font-inter); letter-spacing: .08em; text-transform: uppercase; }
+.route li[data-step="explore"] { color: #f0fbfd; font-weight: 600; }
+.route li[data-step="explore"]::before { color: var(--cyan); }
+.route li[data-missing="true"] { color: #c79a54; font-style: italic; }
+
+/* Aritmetica: o total e do cliente; o copiloto so mostra o que falta perguntar. */
+.valueMath { display: grid; gap: 14px; }
+.valueMath article { border: 1px solid rgba(164,194,216,.14); background: rgba(255,255,255,.015); padding: 13px; }
+.valueMath h4 { margin: 0 0 7px; color: #e8f2f8; font-size: 11.5px; }
+.valueMath code { display: block; margin-bottom: 10px; color: #9fd7d9; background: rgba(66,212,215,.05); border-left: 2px solid rgba(66,212,215,.35); padding: 7px 9px; font: 500 10px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-word; }
+.mathKnown, .mathOpen { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mathKnown { margin-bottom: 9px; }
+.mathKnown li { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.mathKnown span { color: #7e99ad; font-size: 9.5px; }
+.mathKnown strong { color: var(--mint); font-size: 10.5px; }
+.mathOpen li { display: grid; gap: 3px; border-left: 2px solid rgba(242,184,75,.4); padding-left: 9px; }
+.mathOpen span { color: #c79a54; font: 750 8px/1.4 var(--font-inter); letter-spacing: .08em; text-transform: uppercase; }
+.mathOpen strong { color: #eef7fb; font-size: 11px; font-weight: 600; line-height: 1.45; }
+.mathNote { margin: 0; color: #68839b; font-size: 9.5px; line-height: 1.5; }
+
 .plainList, .riskList { list-style: none; padding: 0; margin: 0; display: grid; gap: 13px; }
 .plainList li { display: flex; flex-direction: column; gap: 4px; }
 .plainList strong { color: #e5eff5; font-size: 11px; }
@@ -697,6 +786,25 @@
   .playCloseFlag { border-top: 1px solid var(--line); border-left: 0; }
   .playOpeners, .playQuestions { grid-template-columns: 1fr; }
   .playQuestionGrid { grid-template-columns: 1fr; }
+}
+
+/*
+ * O apoio ao vivo e usado ancorado a direita, no snap de 4 zonas do Windows:
+ * ~640px num monitor de 1920 e ~850px num de 2560. A bussola nasceu em duas colunas
+ * com o objetivo em `nowrap`, e nessa largura ele perdia 43% da frase em reticencias
+ * (medido: caixa de 363px para um texto de 639px) — justo a parte que diz o
+ * compromisso. Aqui ela empilha e o objetivo passa a quebrar.
+ */
+@media (max-width: 900px) {
+  .liveFocusCompass { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 11px; padding: 13px 16px; }
+  .liveFocusGoal > strong {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    white-space: normal;
+    text-overflow: clip;
+  }
+  .liveFocusProgress { justify-content: flex-start; }
 }
 
 @media (max-width: 600px) {

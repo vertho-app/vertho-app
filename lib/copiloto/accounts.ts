@@ -57,6 +57,8 @@ export function normalizeConversationAnalysis(value: unknown): CopilotConversati
       objections: textList(memory.objections),
       commitments: textList(memory.commitments),
       nextStep: shortText(memory.nextStep, 600),
+      // Literal de proposito: a parafrase troca o vocabulario do cliente pelo do produto.
+      anchorAnswers: textList(memory.anchorAnswers),
     },
     evolution: (Array.isArray(raw.evolution) ? raw.evolution : []).map((item: any) => ({
       status: EVOLUTION_STATUSES.has(item?.status) ? item.status as CopilotEvolutionStatus : COPILOTO_EVOLUCAO.PENDENTE,
@@ -114,6 +116,8 @@ export type CopilotPlanningMemory = {
   pains: string[];
   objections: string[];
   commitments: string[];
+  /** Respostas da Pergunta-Âncora, nas palavras do cliente, das conversas anteriores. */
+  anchorAnswers: string[];
 };
 
 function uniqueText(values: unknown[], maxItems = 8): string[] {
@@ -144,6 +148,7 @@ export function compactCopilotPlanningMemory(rows: unknown): CopilotPlanningMemo
     pains: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.pains) ? memory.pains : [])),
     objections: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.objections) ? memory.objections : [])),
     commitments: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.commitments) ? memory.commitments : [])),
+    anchorAnswers: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.anchorAnswers) ? memory.anchorAnswers : []), 4),
   };
 }
 
@@ -155,6 +160,7 @@ export function formatCopilotPlanningMemory(memory: CopilotPlanningMemory): stri
     `dores: ${memory.pains.length ? memory.pains.join(' | ') : 'não registradas'}`,
     `objecoes: ${memory.objections.length ? memory.objections.join(' | ') : 'não registradas'}`,
     `combinados: ${memory.commitments.length ? memory.commitments.join(' | ') : 'não registrados'}`,
+    `nas_palavras_dele: ${memory.anchorAnswers.length ? memory.anchorAnswers.join(' | ') : 'não registrado'}`,
   ].join('\n');
 }
 

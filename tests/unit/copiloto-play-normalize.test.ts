@@ -16,6 +16,53 @@ const execution = {
   socialCompleted: true,
 };
 
+describe('avanço escolhido no plano', () => {
+  const memoriaVazia = {
+    hasConversations: false, covered: [], pending: [],
+    nextStep: '', pains: [], objections: [], commitments: [], anchorAnswers: [],
+  };
+  const pesquisaVazia = {
+    empresa_identificada: 'Conta', resumo_empresa: '', fatos_relevantes: [], tendencias_setor: [],
+    hipoteses: [], metricas_roi: [], perguntas_estrategicas: [], riscos: [],
+  };
+  const banco = {
+    play: { must_ask: [], openers: [] },
+    perguntas: [
+      { fase: 'analisar', descoberta: 'situacao_atual', texto: 'Como funciona hoje?', porque: 'Situação' },
+      { fase: 'engajar', descoberta: 'decisor', texto: 'Quem decide?', porque: 'Decisão' },
+      { fase: 'analisar', descoberta: 'impacto', texto: 'Qual o impacto?', porque: 'Impacto' },
+    ],
+    objecoes_provaveis: [],
+  };
+
+  function planoCom(goal: any) {
+    return normalizePlan(pesquisaVazia, banco, [], [], '', execution, {
+      meetingKind: 'primeira_conversa', conversationGoal: goal,
+      audience: '', goalThisHour: '', memory: { ...memoriaVazia },
+    });
+  }
+
+  // O teste que prova que a porta nao e so mais um campo: duas portas, mesma empresa,
+  // bancos em ordem diferente.
+  it('duas portas diferentes produzem ordens diferentes no banco', () => {
+    const dor = planoCom('confirmar_dor').questions.map((item) => item.discovery);
+    const decisao = planoCom('destravar_decisao').questions.map((item) => item.discovery);
+
+    expect(dor[0]).toBe('impacto');
+    expect(decisao[0]).toBe('decisor');
+    expect(dor).not.toEqual(decisao);
+  });
+
+  it('carimba o avanço no plano, para o apoio ao vivo e o histórico saberem qual era', () => {
+    expect(planoCom('construir_valor').goal).toBe('construir_valor');
+  });
+
+  it('gera a pergunta-âncora a partir do avanço quando o modelo não devolve uma', () => {
+    expect(planoCom('destravar_decisao').play?.anchorQuestion).toContain('impede uma decisão segura');
+    expect(planoCom('confirmar_dor').play?.anchorQuestion).toContain('Quanto isso custa');
+  });
+});
+
 describe('normalização do Play da reunião', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -78,6 +125,7 @@ describe('normalização do Play da reunião', () => {
         pains: ['PDI sem acompanhamento.'],
         objections: [],
         commitments: ['Enviar one-pager.'],
+        anchorAnswers: [],
       },
     });
 
@@ -122,7 +170,7 @@ describe('normalização do Play da reunião', () => {
         covered: [...covered],
         pending: [],
         nextStep: 'Retomar contrato.',
-        pains: [], objections: [], commitments: [],
+        pains: [], objections: [], commitments: [], anchorAnswers: [],
       },
     });
 
@@ -158,7 +206,7 @@ describe('normalização do Play da reunião', () => {
       memory: {
         hasConversations: false, covered: [],
         pending: ['situacao_atual', 'dor_principal', 'impacto', 'tentativas', 'criterio', 'decisor', 'orcamento', 'prazo'],
-        nextStep: '', pains: [], objections: [], commitments: [],
+        nextStep: '', pains: [], objections: [], commitments: [], anchorAnswers: [],
       },
     });
 

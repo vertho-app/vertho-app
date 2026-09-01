@@ -131,6 +131,7 @@ describe('rota de apoio ao vivo', () => {
       ],
       doNot: ['Não repetir o diagnóstico.'], closeWith: 'Abrir a agenda e marcar a demo.',
       fallbackGoal: 'Se a demo não fechar, sair com a lista de quem precisa participar.',
+      anchorQuestion: 'O que precisaria ficar provado para isso virar prioridade?',
       landmine: { objection: 'Já temos plataforma.', ask: 'O que ela ainda não comprova?' },
     };
 
@@ -175,6 +176,64 @@ describe('rota de apoio ao vivo', () => {
     expect(prompt).not.toContain('Quarta hipótese');
     // O objetivo reserva do PACE: o avanco que ainda salva a reuniao.
     expect(prompt).toContain('Se o objetivo não sair: Se a demo não fechar, sair com a lista de quem precisa participar.');
+    expect(prompt).toContain('Pergunta que precisa sair respondida: O que precisaria ficar provado');
+  });
+
+  it('leva a rota de objeção inteira e a aritmética só depois da dor', async () => {
+    vi.mocked(callAI).mockResolvedValue(JSON.stringify({
+      fase: 'cocriar', sinal: 'neutro', objecao: null, descobertas_cobertas: [],
+      alerta: null, foco: 'Valide o cálculo com ele.', perguntas: [],
+    }));
+    const plan = {
+      questions: [],
+      objections: [{ objection: 'Objeção legada', question: 'Pergunta legada' }],
+      objectionRoutes: [{
+        symptom: 'O RH já tem uma ferramenta.', seat: 'RH',
+        cause: 'Confunde registro com desenvolvimento.',
+        acknowledge: 'Faz sentido.',
+        explore: 'Depois que a avaliação fecha, o que acontece com o resultado?',
+        evidence: '', alternative: 'Amostra com três cargos.', advance: 'Leitura na quinta.',
+      }],
+      valueMath: [{
+        name: 'Custo do ciclo manual', formula: '(gestores) x (horas) x (custo hora)',
+        known: [], open: [{ variable: 'gestores', ask: 'Quantos gestores entram no ciclo?', discovery: 'decisor' }],
+      }],
+    };
+
+    await POST(request({ phase: 'cocriar', plan }));
+    const prompt = vi.mocked(callAI).mock.calls[0][1];
+
+    // A rota completa substitui a linha legada de objecao.
+    expect(prompt).toContain('explore ANTES de responder: Depois que a avaliação fecha');
+    expect(prompt).toContain('alternativa: Amostra com três cargos.');
+    expect(prompt).not.toContain('Pergunta legada');
+    // Prova ausente e um resultado legitimo, e precisa chegar dito.
+    expect(prompt).toContain('NÃO TEMOS prova para isso');
+    expect(prompt).toContain('falta gestores → pergunte: Quantos gestores entram no ciclo?');
+  });
+
+  it('segura a aritmética enquanto a dor não foi validada', async () => {
+    vi.mocked(callAI).mockResolvedValue(JSON.stringify({
+      fase: 'analisar', sinal: 'neutro', objecao: null, descobertas_cobertas: [],
+      alerta: null, foco: 'Ouça.', perguntas: [],
+    }));
+
+    await POST(request({
+      phase: 'analisar',
+      plan: {
+        questions: [],
+        valueMath: [{
+          name: 'Custo do ciclo manual', formula: '(gestores) x (horas)',
+          known: [], open: [{ variable: 'gestores', ask: 'Quantos gestores?', discovery: null }],
+        }],
+      },
+    }));
+    const prompt = vi.mocked(callAI).mock.calls[0][1];
+
+    // Em analisar, a aritmetica empurraria o vendedor para a proposta antes de o
+    // cliente ter validado o problema.
+    expect(prompt).not.toContain('Aritmética do valor');
+    expect(prompt).not.toContain('Quantos gestores?');
   });
 
   it('não anuncia hipótese quando o plano não tem nenhuma', async () => {
