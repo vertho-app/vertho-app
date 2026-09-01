@@ -116,6 +116,71 @@ export function semanaCalendarioDoPlano(
 }
 
 /**
+ * Semanas de AVALIAÇÃO do plano persistido, em ordem crescente.
+ *
+ * Regular/DUO = [13, 14] · piloto = [3] · jornada = [7] · custom = [semanas+1].
+ * Plano ausente/vazio → lista vazia (o caller decide o fallback).
+ */
+export function semanasAvaliacaoDoPlano(plano: any): number[] {
+  if (!Array.isArray(plano)) return [];
+  return plano
+    .filter((s: any) => s?.tipo === 'avaliacao')
+    .map((s: any) => Number(s?.semana))
+    // `>= 1`, e não `isFinite`: `Number(null)` é **0**, então um slot de
+    // avaliação sem número entrava na lista como semana 0 e virava uma
+    // "qualitativa" fantasma. Semana começa em 1.
+    .filter((n: number) => Number.isFinite(n) && n >= 1)
+    .sort((a, b) => a - b);
+}
+
+/**
+ * A semana do CENÁRIO B (o fechamento) = a ÚLTIMA avaliação do plano.
+ *
+ * 🔴 POR QUE ELA EXISTE (medido 01/09/2026). O número vivia escrito à mão em
+ * `app/dashboard/temporada/semana/[week]/page.tsx`: `semanaNum === 14`
+ * redirecionava para o wizard e `=== 13` / `=== 14` escolhiam qual card
+ * explicativo mostrar. Isso vale só no formato de 14 semanas — e são DOIS os
+ * formatos que já não cabem nele: `PROGRAMA_JORNADA` põe o fechamento na semana
+ * **7** (38 trilhas de Macaé, nenhuma chegou lá ainda) e o encerramento de
+ * Ibipeba o põe na **9**. Nos dois casos a pessoa abriria o link da cadência e
+ * cairia numa tela SEM o wizard e SEM nenhum dos cards: nada quebra, nada
+ * avisa, a semana só aparece vazia.
+ *
+ * A lista de semanas (`app/dashboard/temporada/page.tsx`) e o wizard
+ * (`sem14/page.tsx`) já derivavam do plano cada um com sua cópia da conta. Esta
+ * é a mesma régua, num lugar só — a divergência entre portas é exatamente o que
+ * a F-I21 documenta.
+ */
+export function semanaCenarioBDoPlano(plano: any, fallback = 14): number {
+  const avaliacoes = semanasAvaliacaoDoPlano(plano);
+  return avaliacoes.length ? avaliacoes[avaliacoes.length - 1] : fallback;
+}
+
+/**
+ * Esta semana de avaliação é a CONVERSA QUALITATIVA (a "sem 13"), e não o
+ * fechamento? Verdade só quando o plano tem 2+ slots de avaliação e este não é
+ * o último.
+ *
+ * Nos modos sem conversa qualitativa separada (piloto, jornada, custom) o único
+ * slot de avaliação É o fechamento, então isto devolve `false` para ele — que é
+ * o comportamento certo: lá a acumulada roda em background sobre a última
+ * semana de CONTEÚDO, sem tela própria.
+ *
+ * ⚠️ O `length < 2` abaixo é EXPLICITAÇÃO, não necessidade: a prova de mutação
+ * (01/09) removeu a linha e os 17 casos seguiram verdes, porque com um slot só
+ * ele já é o último e a segunda condição sozinha decide. Fica porque nomeia a
+ * regra de produto ("qualitativa exige duas avaliações"), mas não conte com ela
+ * como proteção — quem protege é a comparação com o ÚLTIMO, e essa a mutação
+ * mata na hora.
+ */
+export function ehSemanaQualitativa(plano: any, semana: number | string): boolean {
+  const avaliacoes = semanasAvaliacaoDoPlano(plano);
+  if (avaliacoes.length < 2) return false;
+  const n = Number(semana);
+  return avaliacoes.includes(n) && n !== avaliacoes[avaliacoes.length - 1];
+}
+
+/**
  * Gates de acesso a uma semana (temporal + progressão). Retorna null quando
  * liberada; senão `{ error, status }` pra rota mapear em NextResponse.
  */

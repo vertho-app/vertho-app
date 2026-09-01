@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, use } from 'react';
+import { useEffect, useMemo, useRef, useState, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { formatarLiberacao, avaliarAcessoSemana, turnosIaNecessarios, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
-import { totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { totalSemanasDoPlano, semanaCenarioBDoPlano, ehSemanaQualitativa } from '@/lib/season-engine/trilha-runtime';
 import ReactMarkdown from 'react-markdown';
 import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle, Lock, Eye } from 'lucide-react';
 import BackButton from '@/components/back-button';
@@ -69,6 +69,25 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const [chatBusy, setChatBusy] = useState(false);
   const [chatFinished, setChatFinished] = useState(false);
   const [chatStarted, setChatStarted] = useState(false);
+
+  /**
+   * ONDE FICAM AS SEMANAS DE AVALIAÇÃO NESTE PLANO.
+   *
+   * 🔴 Esta tela decidia isso por número literal em OITO lugares (`=== 13` /
+   * `=== 14`), e o formato de 14 semanas deixou de ser o único: a jornada põe o
+   * fechamento na **7** (38 trilhas de Macaé) e o encerramento de Ibipeba na
+   * **9**, com a conversa qualitativa na **8**. O mais caro dos oito era o
+   * endpoint: `isEvalSemana` mandava qualquer avaliação fora de 13/14 para
+   * `/reflection` em vez de `/evaluation` — a conversa de fechamento chamaria a
+   * rota de conteúdo, gravaria no slot errado e a semana nunca concluiria.
+   *
+   * A régua agora sai do PLANO carimbado na geração (fonte única em
+   * `trilha-runtime`), que é o mesmo lugar de onde a lista de semanas e o wizard
+   * já liam. `?? 14` cobre trilha legada sem plano — comportamento anterior.
+   */
+  const planoTrilha = data?.trilha?.temporada_plano;
+  const semCenarioB = useMemo(() => semanaCenarioBDoPlano(planoTrilha, 14), [planoTrilha]);
+  const ehQualitativa = useMemo(() => ehSemanaQualitativa(planoTrilha, semanaNum), [planoTrilha, semanaNum]);
 
   // Telemetria: loga a ABERTURA do conteúdo (uma vez), com atribuição por pílula
   // (?p=1|2) e formato (?formato=) vindos do deep-link. Best-effort, nunca quebra.
@@ -165,9 +184,13 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
         const fmtParam = searchParams.get('formato');
         setFormatoAtivo(fmtParam || semana?.conteudo?.formato_core || null);
         const prog = (r.progresso || []).find(p => p.semana === semanaNum);
-        // Sem 14 guarda dados em `feedback`, mesmo sendo tipo='avaliacao'.
-        // Sem 13 em `reflexao`. Aplicação (4/8/12) em `feedback`. Conteúdo em `reflexao`.
-        const slot = (semana?.tipo === 'aplicacao' || semanaNum === 14) ? 'feedback' : 'reflexao';
+        // O fechamento (cenário B) guarda em `feedback`, mesmo sendo
+        // tipo='avaliacao'; a conversa qualitativa em `reflexao`. Aplicação em
+        // `feedback`, conteúdo em `reflexao`. Mesma conta que a rota
+        // /evaluation faz com `semCenarioB` — aqui derivada do plano de `r`,
+        // que é o dado fresco (o memo ainda reflete o render anterior).
+        const semFechamento = semanaCenarioBDoPlano(r.trilha?.temporada_plano, 14);
+        const slot = (semana?.tipo === 'aplicacao' || semanaNum === semFechamento) ? 'feedback' : 'reflexao';
         const transcript = prog?.[slot]?.transcript_completo || [];
         if (transcript.length > 0) {
           setChatHistory(transcript);
@@ -184,16 +207,24 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     })();
   }, [colaboradorAlvo, router, sb, searchParams, semanaNum]);
 
-  // Sem 14 tem UI própria (idêntica ao mapeamento). A avaliação é mutativa e
-  // não entra na prévia de terceiros; o card correspondente já fica desabilitado.
-  if (semanaNum === 14) {
+  if (loading) return <Center><Loader2 className="animate-spin text-brand-400" /></Center>;
+  if (!data?.trilha) return <Center><p className="text-gray-400">{t('errors.seasonNotFound')}</p></Center>;
+
+  // A semana do cenário B tem UI própria (idêntica ao mapeamento). A avaliação é
+  // mutativa e não entra na prévia de terceiros; o card correspondente já fica
+  // desabilitado.
+  //
+  // ⚠️ `semCenarioB` vem do PLANO, não da constante 14: regular=14, jornada=7,
+  // encerramento de Ibipeba=9. Enquanto era literal, a semana de fechamento de
+  // qualquer outro formato caía aqui e renderizava a tela de conteúdo vazia, sem
+  // wizard e sem erro. Por isso o redirect passou para DEPOIS do carregamento —
+  // ele precisa do plano para saber qual é a semana.
+  if (semanaNum === semCenarioB) {
     router.replace(visaoLeitura && colaboradorAlvo
       ? `/dashboard/temporada?colaborador=${encodeURIComponent(colaboradorAlvo)}&origem=gestor`
       : '/dashboard/temporada/sem14');
     return <Center><Loader2 className="animate-spin text-brand-400" /></Center>;
   }
-  if (loading) return <Center><Loader2 className="animate-spin text-brand-400" /></Center>;
-  if (!data?.trilha) return <Center><p className="text-gray-400">{t('errors.seasonNotFound')}</p></Center>;
 
   const semana = (data.trilha.temporada_plano || []).find(s => s.semana === semanaNum);
   if (!semana) return <Center><p className="text-gray-400">{t('errors.invalidWeek')}</p></Center>;
@@ -259,8 +290,11 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     setData(r);
   }
 
-  // Escolhe endpoint conforme tipo da semana
-  const isEvalSemana = semanaNum === 13 || semanaNum === 14;
+  // Escolhe endpoint conforme tipo da semana. TODA semana de avaliação do plano
+  // fala com /evaluation — a qualitativa e o fechamento. Enquanto isto era
+  // `13 || 14`, a conversa de fechamento de qualquer outro formato ia para
+  // /reflection, que a trata como semana de conteúdo.
+  const isEvalSemana = ehQualitativa || semanaNum === semCenarioB;
   const endpoint = isEvalSemana ? '/api/temporada/evaluation' : '/api/temporada/reflection';
 
   /**
@@ -334,8 +368,8 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
     if (r.history) setChatHistory(r.history);
     setChatFinished(!!r.finished);
     setChatBusy(false);
-    // Sem 14: init grava cenario no feedback — recarrega pra renderizar na tela.
-    if (semanaNum === 14 && r.cenario) {
+    // Fechamento: o init grava o cenário no feedback — recarrega pra renderizar.
+    if (semanaNum === semCenarioB && r.cenario) {
       const user = (await sb.auth.getUser()).data.user;
       if (!user) { router.replace('/login'); return; }
       const fresh = await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum });
@@ -865,7 +899,10 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
         );
       })()}
 
-      {isAvaliacao && semanaNum === 13 && (
+      {/* Conversa qualitativa: a avaliação que NÃO é o fechamento (regular=13,
+          encerramento de Ibipeba=8). Nos modos de um slot só (piloto, jornada)
+          isto é `false` — lá a acumulada roda em background, sem tela. */}
+      {ehSemanaQualitativa(data.trilha.temporada_plano, semanaNum) && (
         <GlassCard className="mb-4 border-purple-500/30 bg-purple-500/5">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles size={16} className="text-purple-400" />
@@ -877,7 +914,11 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
         </GlassCard>
       )}
 
-      {isAvaliacao && semanaNum === 14 && (() => {
+      {/* Fechamento. Hoje inalcançável na prática — a semana do cenário B
+          redireciona para o wizard antes de chegar aqui —, mas mantido pela
+          régua do plano em vez de um literal: ramo morto amarrado a um número
+          é o que volta a mentir quando o redirect muda. */}
+      {isAvaliacao && semanaNum === semCenarioB && (() => {
         // Se já tem cenário em feedback, mostra. Senão, placeholder informativo.
         const cenarioTexto = progressoSemana?.feedback?.cenario;
         return (
@@ -978,8 +1019,8 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
           <div className="flex items-center gap-2 mb-3">
             <Sparkles size={16} className="text-purple-400" />
             <span className="text-xs uppercase text-purple-400 font-bold">
-              {semanaNum === 13 ? t('evidence.closingConversation')
-               : semanaNum === 14 ? t('evidence.finalScenario')
+              {ehQualitativa ? t('evidence.closingConversation')
+               : semanaNum === semCenarioB ? t('evidence.finalScenario')
                : isAplicacao
                  ? (progressoSemana?.feedback?.modo === 'pratica' ? t('evidence.missionReport') : t('evidence.feedback'))
                  : t('evidence.title')}
@@ -1036,8 +1077,8 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                   title={aplicacaoSemModo ? t('evidence.chooseMissionFirst') : ''}
                   className="w-full px-4 py-3 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold"
                 >
-                  {semanaNum === 13 ? t('evidence.startClosing')
-                   : semanaNum === 14 ? t('evidence.viewFinalScenario')
+                  {ehQualitativa ? t('evidence.startClosing')
+                   : semanaNum === semCenarioB ? t('evidence.viewFinalScenario')
                    : isAplicacao ? t('evidence.sendAnswer')
                    : t('evidence.start')}
                 </button>
