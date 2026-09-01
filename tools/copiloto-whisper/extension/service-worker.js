@@ -1,16 +1,20 @@
 const NATIVE_HOST = 'ai.vertho.whisper';
 const ALLOWED_ORIGINS = new Set([
   'https://app.vertho.ai',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
 ]);
 
-function senderIsAllowed(sender) {
+function originIsAllowed(value) {
   try {
-    return ALLOWED_ORIGINS.has(new URL(sender.url).origin);
+    const url = new URL(value);
+    return ALLOWED_ORIGINS.has(url.origin)
+      || (url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname));
   } catch {
     return false;
   }
+}
+
+function senderIsAllowed(sender) {
+  return originIsAllowed(sender.origin) || originIsAllowed(sender.url);
 }
 
 chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {

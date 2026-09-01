@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Vertho Whisper Local",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Inicia o Whisper local somente quando o Copiloto Vertho solicitar.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuR95JOr7cLyaOpAjcb7zcLR114tnAbSeinh0ZNkpBTdkU9d2nAo/JycbWlf68v/3lTzLnjem66rxSmJu/SEU+f4VigQNZ1TIeeIkPiPXBxUPao0tKyfWA3/6WNzy2cUL9Ndb9EpQ3P3D2SE1CneX1c5V7wW2T03aYmCEL4Q+rhYIiJKQqfgWu/w9C1UspJvVocAm2C4P9C3H558ReEJ4CTrMAV5o3OQF3YC7bgnzPxGFfxQdu0F+pWwNmgKOI9MzeRJIDrXHJsA77VxHha72pqm6sh7eVDfuSUiiwyQuIDmecDR2/hcK9pUnIsoziHjAb7MhgWnRLeV3ghywZn0qOQIDAQAB",
   "permissions": ["nativeMessaging"],
