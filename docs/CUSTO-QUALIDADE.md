@@ -1712,3 +1712,65 @@ medido:** `C:\GAS\Simulador` (copiloto PACE) chama a Claude direto em
 **Não medido ainda:** o efeito das duas correções. A verificação é comparar, daqui
 a alguns dias, `frio` caindo e `lido` subindo em `cena_turno`, e `escrito` perto
 de zero nos três `conteudo_*`.
+
+## 01/09 — O catálogo de custos alinha com a plataforma que existe (Copiloto PACE, Kit, Blueprint, Fase 3/5) — e o RadarBett sai
+
+O `CALLS` de `lib/ia-cost-catalog.ts` tinha parado de ser a foto da plataforma:
+os fluxos que NASCERAM em agosto (Copiloto PACE, Kit Semanal, Development
+Blueprint, chat de avaliação da Fase 3, reavaliação da Fase 5, arguição partida,
+`pdi_check`) rodavam com `taskKey` no ledger mas sem linha no catálogo — o
+espelho INVERTIDO do problema do §27/07 (`taskkey-declarada-guard`): lá era
+tarefa sem catálogo de modelos; aqui é etiqueta sem linha de preço, e o
+Simulador de custo respondia com zero sobre coisa que gasta.
+
+### O que entrou (27 linhas novas)
+
+| Fluxo | Entradas | Fonte dos números |
+|---|---|---|
+| Copiloto PACE | 6 (pesquisa pública/notícias/redes, planejamento, ao vivo, memória) | tetos do código (`route.ts`/`research.ts`) + pinos `DEFAULT_TASK_MODELS`; escala nova `reuniao` |
+| Kit Semanal | 3 (núcleo, desafio por DISC, tarefa do par) | tetos `kit/brief.ts` (1.500/800) + medidos §16/08 e §27/08 |
+| Blueprint | 2 (gerador, auditor) | teto 64k do batch + §26/08 (teto do auditor 4k→7k); gerador em lote = −50% (`costMultiplier`) |
+| Fase 3 — chat de avaliação | 3 (turno, avaliação, auditoria) | tetos `app/api/chat/route.ts` (1.024/8.192) |
+| Fase 5 — reavaliação | 3 (fusão, plenária, chat) | tetos `actions/fase5/*` (8.192/4.096) |
+| Sem casa antes | arguição (2), `pdi-check`, `cenarios-lote-check`, `escola-brief`, layout+expansão de PDF, devolutiva em voz, Simulador (2) | §27/08 (`pdi_check`, arguição partida), §16/08 (US$ 0,104/conteúdo), pino Gemini do brief, `SIM_MODEL` Haiku do `simulador-core` |
+
+Whisper do Copiloto **não tem linha de preço de propósito**: é sidecar LOCAL
+na máquina do representante (`docs/COPILOTO-WHISPER-LOCAL.md`) — só texto chega
+à análise. Custo zero de API é zero, não estimativa.
+
+Escala nova **`reuniao`** (Copiloto) e **`simulacao`** (QA interna) no
+`SCALE_LABEL` e no `/admin/vertho/simulador-custo` — que ganhou os dois inputs
+e breakdown por escala correspondente. Presets (`premium`/`balanced`/`cheap`)
+IGNORAM as fases Copiloto PACE e Simulador: os modelos ali são PINADOS por
+task/env (`COPILOTO_*_MODEL`, `SIM_MODEL`), não escalonáveis por tier.
+
+### Estimativa × medido — a régua do arquivo segue
+
+`inTokens`/`outTokens` novos são ESTIMATIVAS a partir dos tetos do código e
+das medições que já existiam neste doc — igual ao cabeçalho do catálogo
+("ajuste conforme uso real for observado"). O que é medido está citado na
+própria linha (kit §16/08, `blueprint_audit` §30/08, `sim_aluno` §27/08).
+O comparador de uso real do Simulador de custo (ledger × catálogo) agora
+consegue calibrar as linhas novas sem tocar em código.
+
+### O que saiu
+
+`radarbett-narrativa` — bloco off-line desde 31/08 (`lib/blocos-offline.ts`,
+evidência no registro). O Radar de escolas segue: é bloco vivo e as entradas
+`pagina_radar`/`lead_radar` ficam.
+
+### Fios soltos apontados (não consertados aqui)
+
+- `chat_fase3_audit` segue sem pino em `DEFAULT_TASK_MODELS` → auditor no
+  FALLBACK_GLOBAL (Sonnet 4.6), MESMA família do gerador. O par entrou no
+  `CHECK_PRIMARIES` para os presets, mas o runtime decide em outro lugar.
+- `actions/fase5/reavaliacao.ts` fecha a conversa com `callAI` (teto 8.192)
+  SEM `taskKey` — nasce `untagged` no ledger, exatamente a classe de furo do
+  §27/07.
+- O artefato `app/admin/vertho/custo-ia/custo-ia-html.ts` é snapshot estático
+  de claude.ai e não reflete nada disso — regenerar é trabalho próprio.
+- `C:\GAS\Simulador` (copiloto PACE canarinho) segue fora do ledger (§30/08
+  Aberto).
+- Kits não entram no modelo de ORÇAMENTO (`orcamento/page.tsx` trabalha com
+  lista curada vídeo/podcast/texto) — decisão de preço por proposta, não de
+  catálogo.
