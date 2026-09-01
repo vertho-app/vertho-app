@@ -73,6 +73,7 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `registro_desafio` | nome | semana | link | — | — |
 | `missao_semana_v2` | nome | semana | link **sem formato** | — | — |
 | `retomada_trilha` | nome | link | — | — | — |
+| `encerramento_conteudo` ⏳ | nome | **instituição** | link da semana acessível | — | — |
 | `resultado_perfil` | nome | link | — | — | — |
 | `plano_desenvolvimento` | nome | link de `/dashboard/pdi` | — | — | — |
 | `recorte_demonstracao` ⏳ | nome | link do Mapa (`linkDireto`) | — | — | — |
@@ -264,6 +265,27 @@ pelo outro entrega a cobrança errada para a pessoa certa, sem nada no typecheck
 > **{{2}}**
 >
 > A trilha permanece disponível na sua conta.
+
+**`encerramento_conteudo`** ⏳ · PENDING/UTILITY provisório · submetido 01/09/2026 (id 1109864224948022)
+
+> Olá, **{{1}}**. A etapa de conteúdo do programa da **{{2}}** foi encerrada.
+>
+> Na sua trilha ainda há semanas em aberto. Concluí-las é o que libera a avaliação final do programa.
+>
+> Você pode continuar de onde parou em:
+> **{{3}}**
+>
+> Os materiais da trilha continuam acessíveis na sua conta.
+
+🔑 **Por que ele existe.** Quando um programa encerra, quem ficou para trás não tinha mensagem
+verdadeira: o `retomada_trilha` afirma *"sem registro de atividade há mais de duas semanas"* — falso
+para quem esteve ativo na quinzena — e não menciona encerramento nem avaliação; o `trilha_concluida`
+afirma uma conclusão que não houve. São **29 das 36** pessoas com trilha ativa em Ibipeba (01/09).
+Sem ele, o produto emudece na semana em que a cadência para.
+
+⚠️ **Se voltar MARKETING, aceitar.** São 29 envios; re-submeter variação limítrofe arrisca a
+recategorização de TODOS os UTILITY da WABA (§3.1). E o prazo NÃO está no corpo de propósito: data
+fixa não cabe em template reutilizável, e prazo é o que empurra a copy para o tom promocional.
 
 **`resultado_perfil`** · UTILITY · papel `perfil`
 

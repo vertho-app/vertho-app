@@ -33,7 +33,7 @@ import { enviarTemplateCloud, cloudApiConfigurada } from '@/lib/whatsapp/cloud-a
 import { aplicarTetoLote, criarPaceadorSincrono } from '@/lib/whatsapp/cadencia';
 import { tenantUrl } from '@/lib/domain';
 import { primeiraSemanaAcessivel } from '@/lib/season-engine/week-gating';
-import { ehSemanaDeImplementacao } from '@/lib/season-engine/trilha-runtime';
+import { ehSemanaDeImplementacao, semanaCenarioBDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
 
 /** Primeiro nome apresentável — "JANAINA" vira "Janaina", "McDonald" fica. */
@@ -214,6 +214,26 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
     if (diasSemAtividade < 14) return { excluir: 'última atividade ocorreu há menos de 14 dias' };
     return { args: base(c, ctx, { semana: cadencia.semanaAcessivel }) };
   },
+  /**
+   * Encerramento da etapa de conteúdo — para quem ficou com semanas em aberto.
+   *
+   * O alvo é o COMPLEMENTAR do `trilha_concluida`: trilha ativa cuja semana
+   * acessível ainda não é a do fechamento. Quem já chegou lá não recebe, porque
+   * para essa pessoa não há nada em aberto — e a frase "ainda há semanas em
+   * aberto" seria falsa.
+   */
+  encerramento_conteudo: (c, ctx) => {
+    const trilha = ctx.trilhaPorColab.get(c.id);
+    if (!trilha) return { excluir: 'sem trilha gerada' };
+    if (trilha.status === TRILHA.CONCLUIDA) return { excluir: 'trilha já concluída' };
+    const cadencia = exigirCadencia(c, ctx);
+    if ('excluir' in cadencia) return cadencia;
+    const semCenarioB = semanaCenarioBDoPlano(cadencia.plano, 14);
+    if (cadencia.semanaAcessivel >= semCenarioB) {
+      return { excluir: 'já alcançou a avaliação final; não há semana em aberto' };
+    }
+    return { args: base(c, ctx, { semana: cadencia.semanaAcessivel }) };
+  },
   trilha_concluida: (c, ctx) => {
     const trilha = ctx.trilhaPorColab.get(c.id);
     if (!trilha) return { excluir: 'sem trilha gerada' };
@@ -275,6 +295,7 @@ const VARIAVEIS_DE: Record<string, string[]> = {
   registro_desafio: ['primeiro nome', 'semana acessível', 'link da semana'],
   registro_evidencia: ['primeiro nome', 'semana de aplicação', 'link da semana'],
   retomada_trilha: ['primeiro nome', 'link da semana acessível'],
+  encerramento_conteudo: ['primeiro nome', 'instituição', 'link da semana acessível'],
   trilha_concluida: ['primeiro nome', 'competência da trilha', 'total de semanas', 'link do resultado'],
 };
 
@@ -297,6 +318,7 @@ const ALVO_DE: Record<string, string> = {
   registro_desafio: 'está numa semana de conteúdo e ainda precisa registrar o desafio',
   registro_evidencia: 'está numa semana de aplicação e precisa registrar a prática',
   retomada_trilha: 'está há pelo menos 14 dias sem atividade registrada',
+  encerramento_conteudo: 'ficou com semanas em aberto quando a etapa de conteúdo encerrou',
   trilha_concluida: 'concluiu todas as semanas da trilha',
 };
 
@@ -315,6 +337,7 @@ const ROTULO_DE: Record<string, string> = {
   registro_desafio: 'Registro do desafio pendente',
   registro_evidencia: 'Registro de evidências pendente',
   retomada_trilha: 'Retomada por inatividade',
+  encerramento_conteudo: 'Etapa de conteúdo encerrada',
   trilha_concluida: 'Trilha concluída',
 };
 
@@ -333,6 +356,7 @@ const ETAPA_DE: Record<string, string> = {
   registro_desafio: 'Pendências e retomada',
   registro_evidencia: 'Pendências e retomada',
   retomada_trilha: 'Pendências e retomada',
+  encerramento_conteudo: 'Pendências e retomada',
   trilha_concluida: 'Jornada',
 };
 
@@ -344,6 +368,7 @@ const TEMPLATES_CADENCIA_MANUAL = new Set([
   'registro_desafio',
   'registro_evidencia',
   'retomada_trilha',
+  'encerramento_conteudo',
 ]);
 
 /** Templates que a tela pode disparar: têm resolvedor E contrato de parâmetros. */
@@ -705,7 +730,8 @@ export interface ResumoEnfileiramento {
  * Enfileira o lote no QStash — **este é o caminho da TELA**.
  *
  * 🔴 Por que não o loop síncrono: `LIMIAR_ENVIO_DIRETO = 1` na tela de Envios
- * não é capricho. A 6s por mensagem, 40 destinatários são 4 minutos dentro de
+ * não é capricho. Mesmo com a política em 1s (31/08), um lote grande ainda
+ * ocupa a invocação inteira — 120 destinatários são 2 minutos dentro de
  * uma Server Action — e a page é `'use client'`, então não há onde declarar
  * `maxDuration`. A request morreria DEPOIS de já ter enviado parte, e o admin
  * veria erro sobre mensagem entregue. Com a fila, a tela responde na hora e o
@@ -756,14 +782,15 @@ export interface ResumoEnvio {
 }
 
 /**
- * Envia o lote já preparado, no ritmo da política única (6s + jitter).
+ * Envia o lote já preparado, no ritmo da política única (1s + jitter).
  *
  * ⚠️ `aceitos` é o que a META ACEITOU — não é entrega. A confirmação vem depois,
  * pelo webhook de status, em `notification_deliveries.delivered_at`. Chamar isto
  * de "entregue" na tela seria repetir o erro que esta reescrita corrige.
  *
  * 🔴 O loop PARA quando o paceador diz que não cabe mais no tempo da invocação.
- * A 6s por mensagem, 40 já são 4 minutos — sem esse corte, a lambda morreria no
+ * A 1s por mensagem, o teto de volume (120) já são 2 minutos — sem esse corte,
+ * um orçamento menor ou um envio lento fariam a lambda morrer no
  * meio e ninguém saberia onde parou (o cenário que `cadencia.ts` descreve como
  * pior que o bloqueio). Quem sobrou volta contado em `naoAlcancados`, e a
  * idempotência por `kind` faz o segundo clique continuar de onde ficou.

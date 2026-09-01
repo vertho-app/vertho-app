@@ -354,6 +354,24 @@ const CONTRATOS: Record<string, MontarParams> = {
   }),
 
   /**
+   * Encerramento da etapa de conteúdo, para quem NÃO fechou as semanas.
+   * Submetido 01/09/2026 (id 1109864224948022), PENDING/UTILITY provisório.
+   * `{{1}}`=nome, `{{2}}`=instituição, `{{3}}`=link. Sem botão.
+   *
+   * ⚠️ Enquanto não for APPROVED, o envio volta `132001` — falha ALTA e visível,
+   * que é o comportamento certo. Não ligar antes de conferir o status na Graph
+   * API, e conferir também a CATEGORIA: a que volta na submissão é provisória.
+   *
+   * O link é o da semana que a pessoa CONSEGUE abrir (`semanaAcessivel`, o ponto
+   * fixo do gate), nunca o da semana do calendário — mandar quem está preso na 1
+   * para a semana 7 é oferecer outra porta fechada.
+   */
+  encerramento_conteudo: (a) => ({
+    params: [a.nome, a.instituicao || '', deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
+    botaoParam: null,
+  }),
+
+  /**
    * Perfil comportamental pronto. APPROVED/UTILITY, 2 variáveis (nome, link).
    *
    * 🔴 O template estava aprovado e a copy pronta em `lib/notifications.ts`

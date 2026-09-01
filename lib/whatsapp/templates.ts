@@ -438,6 +438,45 @@ export const TEMPLATES = {
   },
 
   /**
+   * ENCERRAMENTO DA ETAPA DE CONTEÚDO — para quem não fechou as semanas.
+   *
+   * 🔑 POR QUE ELE PRECISA EXISTIR (01/09/2026, Ibipeba). Quando um programa
+   * encerra, quem ficou para trás recebe hoje uma de duas mensagens, e nenhuma
+   * é verdadeira: o `retomada_trilha` diz *"sem registro de atividade há mais de
+   * duas semanas"* — falso para quem esteve ativo na última quinzena — e não
+   * menciona nem o encerramento nem a avaliação; o `trilha_concluida` afirma que
+   * a pessoa concluiu, o que é falso por construção para este grupo.
+   *
+   * São **29 das 36** pessoas com trilha ativa em Ibipeba. Sem este template, o
+   * produto simplesmente emudece na semana em que a cadência para: a pessoa
+   * deixa de receber conteúdo e ninguém lhe diz por quê, nem que ainda dá tempo.
+   *
+   * 🔑 POR QUE UTILITY. A copy afirma o ESTADO DA CONTA da pessoa e o que ela
+   * destrava — o mesmo padrão que sustentou `avaliacao_pendente` e
+   * `resultado_perfil` em UTILITY. Não convida a nada novo, não vende, não elogia
+   * e não cria urgência artificial: a última linha é a mesma garantia factual que
+   * o `trilha_concluida` aprovado usa. O prazo NÃO entra no corpo (data fixa não
+   * cabe em template reutilizável, e prazo é o que empurra a copy para o tom
+   * promocional) — ele vive na tela para onde o link leva.
+   *
+   * ⚠️ Se voltar MARKETING, ACEITAR e usar assim mesmo. Re-submeter variação
+   * limítrofe como UTILITY é o gatilho da escada de punição, que recategoriza
+   * TODOS os UTILITY da WABA — arriscar a cadência de centenas de pessoas para
+   * economizar em 29 envios é a troca errada.
+   *
+   * `{{3}}` é o link da PRIMEIRA SEMANA ACESSÍVEL da pessoa, não o da semana do
+   * calendário: quem está preso na 1 e recebe o link da 7 bate noutra porta
+   * fechada (é o que `primeiraSemanaAcessivel` resolve no cron).
+   */
+  encerramento_conteudo: {
+    name: 'encerramento_conteudo',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. A etapa de conteúdo do programa da {{2}} foi encerrada.\n\nNa sua trilha ainda há semanas em aberto. Concluí-las é o que libera a avaliação final do programa.\n\nVocê pode continuar de onde parou em:\n{{3}}\n\nOs materiais da trilha continuam acessíveis na sua conta.',
+    example: ['Maria', 'Secretaria Municipal de Ibipeba', 'https://ibipeba.vertho.ai/dashboard/temporada/semana/3'],
+  },
+
+  /**
    * T+0 do CONARH: entrega o recorte da demonstração ao lead que pediu no estande.
    *
    * 🔑 POR QUE UTILITY, e não MARKETING (submetido 17/08/2026)
