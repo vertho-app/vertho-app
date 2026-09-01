@@ -539,6 +539,7 @@
         "fitAdequacy": "Fit",
         "evolution": "Evolution",
         "demoEnv": "Demo Environment",
+        "copilot": "Copilot",
         "audits": "Audits (13/14)",
         "salesChannel": "Sales Channel"
       },
@@ -584,6 +585,7 @@
         "fitSub": "Fit · Ranking · Calibration",
         "evolutionSub": "Evolution reports",
         "demoEnvSub": "ACME demo reset",
+        "copilotSub": "PACE planning and meetings",
         "auditsSub": "Week 13 · Week 14",
         "salesChannelSub": "Representatives & proposals"
       },

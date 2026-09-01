@@ -3,7 +3,7 @@ import {
   BookMarked, BookOpen, Video, Database, GraduationCap as GradIcon, BarChart2,
   Calculator, LayoutDashboard, TrendingUp, Target, Shield, LockKeyhole,
   ScrollText, Trash2, CalendarDays, Send, Package, School, Settings,
-  FileBarChart, Crosshair, FlaskConical, Briefcase, MessagesSquare, DollarSign,
+  FileBarChart, Crosshair, FlaskConical, Briefcase, MessagesSquare, DollarSign, Bot,
 } from 'lucide-react';
 
 // ── nav items (sidebar) ─────────────────────────────────────────────────────
@@ -49,6 +49,8 @@ export const NAV_ITEMS: NavItem[] = [
   // ── Visão geral ───────────────────────────────────────────────────────────
   { key: 'dashboard',  labelKey: 'dashboard', subKey: 'overview',       group: 'overview', icon: LayoutDashboard, hrefFn: () => '/admin/dashboard' },
   { key: 'empresas',   labelKey: 'companies', subKey: 'tenantsPipeline', group: 'overview', icon: Building2,       hrefFn: () => '/admin/empresas/gerenciar', showWhenEmpresa: false },
+  { key: 'demo',       labelKey: 'demoEnv',   subKey: 'demoEnvSub',     group: 'overview', icon: FlaskConical,     hrefFn: () => '/admin/demo',              showWhenEmpresa: false, permission: 'companies.manage' },
+  { key: 'copiloto',   labelKey: 'copilot',   subKey: 'copilotSub',     group: 'overview', icon: Bot,              hrefFn: () => '/copiloto',                showWhenEmpresa: false },
 
   // ── Operação (tenant) ─────────────────────────────────────────────────────
   { key: 'pipeline',   labelKey: 'companyPipeline', subKey: 'phase0to5',    group: 'operation', icon: Activity,     hrefFn: (id) => `/admin/empresas/${id}`,            showWhenAll: false },
@@ -128,7 +130,6 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'permissoes', labelKey: 'permissions', subKey: 'rolesPermissions', group: 'system', icon: LockKeyhole, hrefFn: () => '/admin/permissoes',     showWhenEmpresa: false },
   { key: 'auditoria',  labelKey: 'audit',       subKey: 'adminTraces',    group: 'system', icon: ScrollText,   hrefFn: () => '/admin/auditoria',       showWhenEmpresa: false },
   { key: 'lixeira',    labelKey: 'trash',       subKey: 'deletedRecords', group: 'system', icon: Trash2,       hrefFn: () => '/admin/lixeira',         showWhenEmpresa: false, permission: 'trash.manage' },
-  { key: 'demo',       labelKey: 'demoEnv',     subKey: 'demoEnvSub',     group: 'system', icon: FlaskConical, hrefFn: () => '/admin/demo',            showWhenEmpresa: false, permission: 'companies.manage' },
 ];
 
 export function empresaGlyph(nome: string) {
