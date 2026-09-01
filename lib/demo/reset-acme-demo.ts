@@ -46,6 +46,25 @@ import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile } from '@/lib/disc-mapeamento';
 import { IA4_FILTRO, PLANO_SEMANA, PROGRESSO, TRILHA } from '@/lib/status';
 import { buildAcmeDemoBehavioralReport } from '@/lib/demo/acme-behavioral-report';
+// O ELENCO (cargos, competências, personas) vive fora do motor: um segmento
+// novo troca o roster, não o reset. A identidade da empresa continua em
+// DEMO_TENANT_PROFILES, logo abaixo.
+import {
+  COMERCIAL_AREA,
+  DEMO_EXCLUDED_ROLES,
+  DEMO_EXTRA_ROLES,
+  DEMO_MANAGER,
+  DEMO_RH_PERSONA,
+  PERSONAS,
+  REPRESENTANTE_FOCO,
+  REPRESENTANTE_TOP5,
+  ROSTER_COMERCIAL,
+} from '@/lib/demo/rosters/comercial';
+import type { DemoRoster } from '@/lib/demo/rosters/types';
+
+// Reexportados porque o portal de vendas, os testes e o painel importam o
+// elenco DESTE módulo desde antes de ele virar roster.
+export { DEMO_RH_PERSONA, PERSONAS };
 
 /**
  * Reset/seed dos tenants demo (`acme-demo` e `gruposinal`) — versão IN-APP da
@@ -74,20 +93,6 @@ import { buildAcmeDemoBehavioralReport } from '@/lib/demo/acme-behavioral-report
 const DEMO_SLUG = DEMO_PRESENTATION_TENANT_SLUG;
 const DEMO_NAME = 'ACME Demo';
 const GRUPO_SINAL_SLUG = 'gruposinal';
-// Gerente Comercial sai do FIXTURE (o acme não tinha competências/cenários do
-// cargo — só o cargo+Top5) e é construído fresco em DEMO_EXTRA_ROLES (pacote
-// completo). Diretor Geral segue removido da demo.
-const DEMO_EXCLUDED_ROLES = new Set(['Diretor Geral', 'Gerente Comercial']);
-
-const REPRESENTANTE_TOP5 = [
-  'Comunicação e Apresentação de Valor',
-  'Negociação e Fechamento',
-  'Relacionamento e Pós-venda',
-  'Resiliência e Constância',
-  'Orientação a Metas e Resultados',
-];
-
-const REPRESENTANTE_FOCO = ['Negociação e Fechamento'];
 const DEMO_JOURNEY_CONTENT_KIND = 'conteudo' as const;
 
 /**
@@ -135,41 +140,20 @@ export const DEMO_PRESENTATION_WEEK_VIDEO = {
   },
 } as const;
 
-export function focosValidosDemo(row: any, top5: string[]): string[] {
+export function focosValidosDemo(row: any, top5: string[], roster: DemoRoster = ROSTER_COMERCIAL): string[] {
   const focoOriginal = [
     ...(Array.isArray(row.competencias_foco) ? row.competencias_foco : []),
     row.competencia_foco,
   ].filter(Boolean);
   const top5Normalizado = new Map(top5.map((nome) => [nome.trim().toLocaleLowerCase('pt-BR'), nome]));
-  const validos = row.nome === 'Representante Comercial'
-    ? REPRESENTANTE_FOCO
+  const validos = row.nome === roster.cargoPrincipal
+    ? roster.cargoPrincipalFoco
     : [...new Set(focoOriginal
         .map((nome: string) => top5Normalizado.get(nome.trim().toLocaleLowerCase('pt-BR')))
         .filter((nome): nome is string => Boolean(nome)))];
   return validos.length > 0 ? validos : top5.slice(0, 1);
 }
 
-const COMERCIAL_AREA = 'Comercial';
-const DEMO_MANAGER = {
-  nome: 'Carla Menezes',
-  email: 'carla.demo@vertho.ai',
-  whatsapp: null as string | null,
-};
-
-/**
- * A administradora da empresa vive no mesmo tenant, mas NÃO é uma participante
- * da jornada. Mantê-la fora de `PERSONAS` é deliberado: aquela lista passa pela
- * régua DISC, recebe artefatos e entra no ranking; o papel `rh` só consome o
- * panorama e os relatórios da organização.
- */
-export const DEMO_RH_PERSONA = {
-  key: 'helena',
-  nome_completo: 'Helena Duarte',
-  email: 'helena.demo@vertho.ai',
-  cargo: 'Gerente de Recursos Humanos',
-  role: 'rh',
-  area_depto: 'Recursos Humanos',
-} as const;
 
 const ACME_DEMO_PPP = {
   perfil_instituicao: {
@@ -355,83 +339,7 @@ export function personalizarArtefatoDemo<T>(value: T, slug: DemoTenantSlug): T {
   return value;
 }
 
-const DEMO_EXTRA_ROLES = [
-  {
-    nome: 'Analista Financeiro',
-    area_depto: 'Financeiro',
-    pilar: 'Finanças',
-    descricao: 'Profissional responsável por organizar informações financeiras, apoiar o fechamento mensal, acompanhar orçamento, analisar variações e produzir insumos confiáveis para decisões de gestão.',
-    principais_entregas: 'Relatórios financeiros confiáveis; conciliações e fechamentos no prazo; análise de desvios orçamentários; apoio a decisões de custo, margem e caixa; comunicação clara de riscos e oportunidades.',
-    stakeholders: 'Controladoria, contabilidade, gestores de área, diretoria, compras, comercial e auditoria.',
-    decisoes_recorrentes: 'Quais variações investigar primeiro; quando escalar inconsistências; como priorizar demandas de fechamento versus análises gerenciais; que premissas usar em projeções.',
-    tensoes_comuns: 'Prazos curtos de fechamento; dados incompletos; pressão por respostas rápidas; divergências entre áreas; necessidade de precisão sem travar a operação.',
-    contexto_cultural: 'Ambiente orientado a dados, prazos e confiabilidade, com forte necessidade de organização, critério técnico e comunicação objetiva.',
-    competencias_foco: [
-      'Controle, Precisão e Confiabilidade dos Dados',
-      'Análise de Indicadores Financeiros',
-    ],
-    competencias: [
-      ['Controle, Precisão e Confiabilidade dos Dados', 'Capacidade de revisar informações financeiras, identificar inconsistências e garantir bases confiáveis antes de reportar números.'],
-      ['Análise de Indicadores Financeiros', 'Capacidade de interpretar variações, margens, custos e tendências para apoiar decisões de gestão.'],
-      ['Organização de Rotinas e Prazos', 'Capacidade de cumprir ciclos de fechamento, conciliação e reporte sem perder qualidade.'],
-      ['Comunicação Financeira para Não Especialistas', 'Capacidade de explicar números, riscos e premissas de forma clara para gestores de outras áreas.'],
-      ['Critério e Ética no Tratamento de Informações', 'Capacidade de lidar com dados sensíveis com confidencialidade, responsabilidade e independência técnica.'],
-    ],
-  },
-  {
-    nome: 'Coordenador de Operações',
-    area_depto: 'Operações',
-    pilar: 'Operações',
-    descricao: 'Profissional responsável por coordenar rotinas operacionais, organizar prioridades do time, resolver gargalos do dia a dia e garantir que processos, prazos e padrões de qualidade sejam cumpridos.',
-    principais_entregas: 'Execução operacional dentro do prazo; redução de gargalos; priorização clara do time; melhoria contínua dos processos; comunicação fluida entre áreas.',
-    stakeholders: 'Equipe operacional, gerência, comercial, atendimento, fornecedores, logística, financeiro e clientes internos.',
-    decisoes_recorrentes: 'Como redistribuir demandas; que urgência atender primeiro; quando escalar desvios; como equilibrar qualidade, prazo e capacidade do time.',
-    tensoes_comuns: 'Mudanças de prioridade; sobrecarga do time; falhas de comunicação entre áreas; urgências simultâneas; pressão por produtividade sem perda de qualidade.',
-    contexto_cultural: 'Ambiente prático, dinâmico e orientado à execução, no qual liderança próxima, previsibilidade e solução rápida de problemas fazem diferença.',
-    competencias_foco: ['Priorização e Gestão da Rotina Operacional'],
-    competencias: [
-      ['Priorização e Gestão da Rotina Operacional', 'Capacidade de organizar demandas, sequenciar atividades e manter o time focado no que gera mais impacto.'],
-      ['Resolução de Problemas e Gargalos', 'Capacidade de diagnosticar causas, agir rapidamente e prevenir recorrência de problemas operacionais.'],
-      ['Liderança de Equipe e Alinhamento Diário', 'Capacidade de orientar pessoas, distribuir responsabilidades e manter cadência de execução.'],
-      ['Melhoria Contínua de Processos', 'Capacidade de revisar fluxos, eliminar desperdícios e padronizar boas práticas.'],
-      ['Comunicação entre Áreas', 'Capacidade de alinhar expectativas, negociar prioridades e evitar ruídos entre operação, comercial e atendimento.'],
-    ],
-  },
-  {
-    nome: 'Gerente Comercial',
-    area_depto: 'Comercial',
-    pilar: 'Comercial',
-    descricao: 'Profissional responsável por liderar a equipe de vendas, traduzir metas em estratégia executável, desenvolver vendedores, acompanhar indicadores e destravar negociações críticas para garantir previsibilidade e crescimento da receita.',
-    principais_entregas: 'Atingimento consistente da meta do time; pipeline previsível e saudável; vendedores em evolução; forecast confiável; suporte a deals estratégicos; leitura de mercado traduzida em prioridades.',
-    stakeholders: 'Equipe de vendas, diretoria comercial, marketing, produto, financeiro, clientes estratégicos e RH.',
-    decisoes_recorrentes: 'Onde concentrar esforço (contas/territórios); em quem investir desenvolvimento; quando entrar pessoalmente num deal; como redistribuir metas; que indicadores cobrar primeiro.',
-    tensoes_comuns: 'Pressão por meta versus desenvolvimento do time; deals travados; forecast otimista versus realidade; sobrecarga entre gerir e executar; conflito entre volume e qualidade de pipeline.',
-    contexto_cultural: 'Ambiente de alta cobrança por resultado, ritmo acelerado e remuneração variável, no qual liderança próxima, previsibilidade e desenvolvimento de pessoas fazem a diferença.',
-    competencias_foco: ['Coaching e Desenvolvimento de Vendedores'],
-    competencias: [
-      ['Coaching e Desenvolvimento de Vendedores', 'Capacidade de desenvolver a equipe por meio de feedback, acompanhamento individual e planos de evolução que elevam a performance de cada vendedor.'],
-      ['Inteligência de Mercado e Visão Competitiva', 'Capacidade de ler o mercado, monitorar concorrência e traduzir tendências em posicionamento e prioridades comerciais.'],
-      ['Negociação Estratégica e Suporte a Deals', 'Capacidade de entrar em negociações complexas, destravar deals críticos e orientar o time em condições, concessões e fechamento.'],
-      ['Planejamento Comercial, Priorização e Execução de Estratégia', 'Capacidade de traduzir metas em plano de ação, priorizar territórios e contas e garantir execução consistente da estratégia comercial.'],
-      ['Gestão de Performance, Indicadores e Accountability', 'Capacidade de acompanhar indicadores, cobrar resultados com clareza e sustentar uma cultura de responsabilidade e previsibilidade no funil.'],
-    ],
-  },
-];
 
-export const PERSONAS = [
-  { key: 'ana', nome_completo: 'Ana Martins', email: 'ana.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'IS', d_natural: 31, i_natural: 80, s_natural: 51, c_natural: 38, scenario: 'novo', responder: [] as string[] },
-  { key: 'paulo', nome_completo: 'Paulo Demo', email: 'paulo.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'IC', d_natural: 36, i_natural: 84, s_natural: 18, c_natural: 62, scenario: 'parcial', responder: ['Negociação e Fechamento', 'Orientação a Metas e Resultados'] },
-  { key: 'bruna', nome_completo: 'Bruna Costa', email: 'bruna.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'CS', d_natural: 24, i_natural: 27, s_natural: 69, c_natural: 80, scenario: 'completo', responder: REPRESENTANTE_TOP5 },
-  { key: 'carla', nome_completo: 'Carla Menezes', email: 'carla.demo@vertho.ai', cargo: 'Gerente Comercial', role: 'gestor', area_depto: COMERCIAL_AREA, gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'D', d_natural: 79, i_natural: 49, s_natural: 29, c_natural: 43, scenario: 'gestor-parcial', responder: [] as string[] },
-  { key: 'mariana', nome_completo: 'Mariana Lopes', email: 'mariana.demo@vertho.ai', cargo: 'Analista Financeiro', role: 'colaborador', area_depto: 'Financeiro', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'CS', d_natural: 22, i_natural: 34, s_natural: 65, c_natural: 79, scenario: 'completo', responder: [
-    'Controle, Precisão e Confiabilidade dos Dados',
-    'Análise de Indicadores Financeiros',
-    'Organização de Rotinas e Prazos',
-    'Comunicação Financeira para Não Especialistas',
-    'Critério e Ética no Tratamento de Informações',
-  ] },
-  { key: 'renato', nome_completo: 'Renato Alves', email: 'renato.demo@vertho.ai', cargo: 'Coordenador de Operações', role: 'colaborador', area_depto: 'Operações', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'DS', d_natural: 61, i_natural: 37, s_natural: 57, c_natural: 45, scenario: 'novo', responder: [] as string[] },
-];
 
 export function personaDemoComMapeamentoCompleto(persona: { scenario?: string }): boolean {
   return persona.scenario === 'completo';
@@ -646,6 +554,10 @@ async function buscarUsuarioAuth(sb: any, email: string) {
 export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoResult> {
   const sb = createSupabaseAdmin();
   const profile = DEMO_TENANT_PROFILES[slug];
+  // O elenco do ambiente. Hoje os dois tenants demo são comerciais; quando o
+  // perfil declarar o roster, é esta linha que passa a lê-lo — e nada mais no
+  // motor precisa saber de que segmento se trata.
+  const roster: DemoRoster = ROSTER_COMERCIAL;
   const brand = <T,>(value: T): T => personalizarArtefatoDemo(value, slug);
 
   async function must(label: string, promise: any) {
@@ -758,7 +670,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     snapshot: DemoWarmSnapshot,
   ) {
     const idPorEmail = new Map<string, string>();
-    for (const persona of PERSONAS) {
+    for (const persona of roster.personas) {
       const id = personaMap.get(persona.key);
       if (id) idPorEmail.set(persona.email, id);
     }
@@ -768,8 +680,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         if (id) idPorEmail.set(pessoa.email, id);
       }
     }
-    const rhId = personaMap.get(DEMO_RH_PERSONA.key);
-    if (rhId) idPorEmail.set(DEMO_RH_PERSONA.email, rhId);
+    const rhId = personaMap.get(roster.administradora.key);
+    if (rhId) idPorEmail.set(roster.administradora.email, rhId);
 
     for (const artifact of snapshot.colaboradores) {
       const colaboradorId = idPorEmail.get(artifact.email);
@@ -887,7 +799,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     const idMap = new Map<string, string>();
     if (!rows?.length) return idMap;
     for (const row of rows) {
-      if (DEMO_EXCLUDED_ROLES.has(row.cargo)) continue;
+      if (roster.cargosExcluidosDoFixture.has(row.cargo)) continue;
       const inserted = await must('insert competencia', sb.from('competencias').insert({ ...strip(brand(row)), empresa_id: destId }).select('id').single());
       idMap.set(row.id, inserted.id);
     }
@@ -982,7 +894,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       .eq('disc', 'C')
       .eq('status', 'published')
       .eq('kit_briefs.empresa_id', destId)
-      .eq('kit_briefs.competencia', REPRESENTANTE_FOCO[0])
+      .eq('kit_briefs.competencia', roster.cargoPrincipalFoco[0])
       .eq('kit_briefs.descritor', 'Criação de senso de urgência')
       .eq('kit_briefs.cargo', DEMO_PRESENTATION_VIDEO.cargo)
       .maybeSingle());
@@ -1048,13 +960,13 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
 
   async function seedCargos(rows: any[], destId: string) {
     if (!rows?.length) return;
-    const payload = rows.filter((row: any) => !DEMO_EXCLUDED_ROLES.has(row.nome)).map((row: any) => {
+    const payload = rows.filter((row: any) => !roster.cargosExcluidosDoFixture.has(row.nome)).map((row: any) => {
       let top5 = Array.isArray(row.top5_workshop) ? row.top5_workshop : [];
-      if (row.nome === 'Representante Comercial') top5 = REPRESENTANTE_TOP5;
+      if (row.nome === roster.cargoPrincipal) top5 = roster.cargoPrincipalTop5;
       else if (top5.length > 5) top5 = top5.slice(0, 5);
       // Tenant de demo nunca nasce com foco órfão. Se o fixture antigo não
       // tiver foco válido, o primeiro item do próprio Top 5 é o fallback.
-      const focos = focosValidosDemo(row, top5);
+      const focos = focosValidosDemo(row, top5, roster);
       return {
         ...strip(brand(row)),
         empresa_id: destId,
@@ -1142,7 +1054,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   }
 
   async function insertDemoExtraRoles(destId: string) {
-    for (const role of DEMO_EXTRA_ROLES) {
+    for (const role of roster.cargosConstruidos) {
       const cargoResult = await sb.from('cargos_empresa').insert({
         empresa_id: destId,
         nome: role.nome,
@@ -1157,16 +1069,16 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         competencia_foco: role.competencias_foco[0],
         competencias_foco: role.competencias_foco,
         fit_versao: '2.0',
-        eh_lideranca: role.nome.includes('Coordenador') || role.nome.includes('Gerente'),
+        eh_lideranca: role.ehLideranca,
         gabarito: brand((extraArtifacts.gabaritos as Record<string, any>)?.[role.nome] ?? null),
       });
       await must(`insert cargo ${role.nome}`, cargoResult);
 
       // Prefixo do código da competência por cargo (evita colisão entre cargos).
-      const codPrefix = role.nome.startsWith('Analista') ? 'FIN'
-        : role.nome.startsWith('Coordenador') ? 'OPS' : 'GER';
+      // Vem do roster: derivá-lo do NOME funcionava por acidente com um elenco
+      // só, e num roster escolar a heurística casaria o cargo errado.
       for (const [idx, [nome, descricao]] of role.competencias.entries()) {
-        const codComp = `${codPrefix}${String(idx + 1).padStart(2, '0')}`;
+        const codComp = `${role.codPrefix}${String(idx + 1).padStart(2, '0')}`;
         let firstComp: any = null;
         for (const d of demoDescriptorsFor(nome, descricao)) {
           const comp = await must(`insert competencia ${role.nome} ${nome} ${d.suffix}`, sb.from('competencias').insert({
@@ -1223,7 +1135,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
 
   async function insertPersonas(destId: string) {
     const idMap = new Map<string, string>();
-    for (const p of PERSONAS) {
+    for (const p of roster.personas) {
       const semPerfil = slug === DEMO_SLUG && ACME_DEMO_WITHOUT_PROFILE_KEYS.some((key) => key === p.key);
       const reportTexts = semPerfil ? null : buildAcmeDemoBehavioralReport(p);
       const inserted = await must(`insert persona ${p.key}`, sb.from('colaboradores').insert({
@@ -1287,18 +1199,18 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     // cria um gargalo fictício no próprio funil que ela consulta.
     const rh = await must('insert persona rh', sb.from('colaboradores').insert({
       empresa_id: destId,
-      nome_completo: DEMO_RH_PERSONA.nome_completo,
-      email: DEMO_RH_PERSONA.email,
-      cargo: DEMO_RH_PERSONA.cargo,
-      role: DEMO_RH_PERSONA.role,
-      area_depto: DEMO_RH_PERSONA.area_depto,
+      nome_completo: roster.administradora.nome_completo,
+      email: roster.administradora.email,
+      cargo: roster.administradora.cargo,
+      role: roster.administradora.role,
+      area_depto: roster.administradora.area_depto,
       gestor_nome: null,
       gestor_email: null,
       gestor_whatsapp: null,
       perfil_dominante: null,
       disc_resultados: null,
     }).select('id').single());
-    idMap.set(DEMO_RH_PERSONA.key, rh.id);
+    idMap.set(roster.administradora.key, rh.id);
 
     return idMap;
   }
@@ -1347,14 +1259,14 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
 
     const participantes: any[] = slug === DEMO_SLUG
       ? [
-          ...PERSONAS,
+          ...roster.personas,
           ...ACME_DEMO_REPORT_DIRECTORY.map((pessoa) => ({
             ...pessoa,
             responder: competenciasAcmeDemoPorCargo(pessoa.cargo),
             demo_report_fixture: true,
           })),
         ]
-      : PERSONAS;
+      : roster.personas;
     const payload: any[] = [];
     for (const p of participantes) {
       const colabId = personaMap.get(p.key);
@@ -1412,7 +1324,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       (fixture as any).personaArtifacts,
       (extraArtifacts as any).personaArtifacts,
     );
-    for (const p of PERSONAS) {
+    for (const p of roster.personas) {
       const colabId = personaMap.get(p.key);
       const a = brand(artifacts[p.email]);
       if (!colabId || !a) continue;
@@ -1476,7 +1388,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     if (slug !== DEMO_SLUG) return;
 
     const pessoaPorChave = new Map<string, any>([
-      ...PERSONAS.map((pessoa) => [pessoa.key, pessoa] as const),
+      ...roster.personas.map((pessoa) => [pessoa.key, pessoa] as const),
       ...ACME_DEMO_REPORT_DIRECTORY.map((pessoa) => [pessoa.key, pessoa] as const),
     ]);
     const agora = new Date();
