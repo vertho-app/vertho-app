@@ -5,43 +5,65 @@
  * nasce no fechamento da temporada, e em produção isso existia em **1 de 106
  * trilhas** (a única, de um piloto de 2 semanas). O painel do gestor e a tela
  * de evolução liam essa fonte e mostravam o vazio para todo mundo, então não
- * havia como demonstrar ao cliente o que ele recebe no fim da jornada. Este
- * fixture preenche a ACME Demo com jornadas concluídas, e só a ACME Demo.
+ * havia como demonstrar ao cliente o que ele recebe no fim da jornada.
  *
- * TRÊS REGRAS QUE ESTE ARQUIVO SEGUE, E O MOTIVO DE CADA UMA:
+ * A MECÂNICA VIVE EM `evolucao-nucleo`; aqui fica só o que é da ACME: quais
+ * competências, quais comportamentos e como as pessoas deste mundo falam. Foi
+ * assim que a rede de escolas ganhou a mesma vitrine sem um segundo gerador —
+ * copiar este arquivo teria criado o gêmeo que diverge no primeiro ajuste da
+ * régua, com as duas telas continuando bonitas.
+ *
+ * TRÊS REGRAS QUE O NÚCLEO GARANTE, E O MOTIVO DE CADA UMA:
  *
  * 1. **A classificação vem da função de produção**, `classificarConvergencia`.
  *    O veredito não é escolhido, é DERIVADO das notas — se alguém recalibrar os
  *    cortes da régua, a demo se move junto. Fixture que carimba o rótulo à mão
- *    é fixture que passa a mentir no dia em que a régua muda, e ninguém percebe
- *    porque a tela continua bonita.
+ *    passa a mentir no dia em que a régua muda.
  *
  * 2. **A nota de partida é a MESMA linha que o mapeamento gravou.** O T0 do
- *    relatório de evolução e o T0 da tela de diagnóstico saem do mesmo gerador
- *    (`notaDePartida`), então as duas telas da demo não se contradizem. Numa
- *    apresentação, duas telas discordando sobre a mesma pessoa custa mais caro
- *    que a tela vazia.
+ *    relatório e o T0 da tela de diagnóstico saem do mesmo gerador, então as
+ *    duas telas não se contradizem. Numa apresentação, duas telas discordando
+ *    sobre a mesma pessoa custa mais caro que a tela vazia.
  *
  * 3. **A forma é a que o motor grava**, campo a campo, incluindo os que hoje
- *    nenhuma tela lê (`antes`, `depois`, `justificativa_cenario`). Fixture na
- *    forma canônica em vez da forma REAL é a classe de erro que já mordeu esta
- *    base: o instrumento aprova, e a entrada de verdade quebra.
+ *    nenhuma tela lê. Fixture na forma canônica em vez da forma REAL é a classe
+ *    de erro que já mordeu esta base: o instrumento aprova, e a entrada de
+ *    verdade quebra.
  *
- * A demo não tem regressão por decisão do dono (01/09/2026): o mix é evolução
- * confirmada, parcial e **estável**. Estável é o caso honesto que sustenta a
- * conversa comercial ("a plataforma também diz quem NÃO evoluiu") sem colocar
- * uma pessoa fictícia em situação de exposição negativa numa tela de vendas.
+ * A demo não tem regressão porque a régua não tem (ninguém desaprende uma
+ * competência): o mix é confirmada, parcial e **estável**. Estável é o caso
+ * honesto que sustenta a conversa comercial ("a plataforma também diz quem NÃO
+ * evoluiu") sem expor negativamente uma pessoa fictícia numa tela de vendas.
  */
 
-import { PROGRESSO } from '@/lib/status';
-import { classificarConvergencia, type Convergencia } from '@/lib/season-engine/convergencia';
+import {
+  DESCRITORES_POR_TRILHA,
+  MINIMO_POR_COMPETENCIA,
+  competenciaFocoDistribuida,
+  construirEvolucao,
+  construirFechamento,
+  type EvolucaoDemo,
+  type PerfilEvolucao,
+  type ReguaDeEvolucao,
+} from './evolucao-nucleo';
 import { competenciasAcmeDemoPorCargo } from './acme-rh-report-fixture';
 
+export {
+  distribuicaoPorCargo,
+  notaDePartida,
+  type DescritorEvolucao,
+  type EvolucaoDemo,
+  type PerfilEvolucao,
+} from './evolucao-nucleo';
+
+export const ACME_DEMO_DESCRITORES_POR_TRILHA = DESCRITORES_POR_TRILHA;
+export const ACME_DEMO_MINIMO_POR_COMPETENCIA = MINIMO_POR_COMPETENCIA;
+
 /**
- * Os descritores da régua da ACME Demo, na grafia exata de `competencias.nome_curto`
- * do tenant. Escrever qualquer outra coisa aqui produz um relatório de evolução
- * que fala de um descritor que o mapeamento da pessoa não tem — e o casamento
- * entre as duas pontas é por NOME, não por id.
+ * Os comportamentos da régua da ACME Demo, na grafia exata de
+ * `competencias.nome_curto` do tenant. Escrever qualquer outra coisa aqui
+ * produz um relatório que fala de um comportamento que o mapeamento da pessoa
+ * não tem — e o casamento entre as duas pontas é por NOME, não por id.
  */
 export const ACME_DEMO_DESCRITORES = [
   'Leitura do contexto e identificação do problema',
@@ -51,16 +73,6 @@ export const ACME_DEMO_DESCRITORES = [
   'Colaboração e negociação de dependências',
   'Aprendizado, ética e melhoria contínua',
 ] as const;
-
-/** Quantos descritores a trilha de vitrine trabalha. */
-export const ACME_DEMO_DESCRITORES_POR_TRILHA = 4;
-
-/**
- * Perfil de resultado de cada jornada concluída. A ordem é estável e o reset
- * distribui na ordem das chaves concluídas, então a fotografia da demo é a
- * mesma em toda execução.
- */
-export type PerfilEvolucao = 'confirmada' | 'parcial' | 'estavel';
 
 export const ACME_DEMO_EVOLUTION_MIX: readonly PerfilEvolucao[] = [
   'confirmada', 'confirmada', 'parcial', 'confirmada',
@@ -77,95 +89,7 @@ export const ACME_DEMO_EVOLUTION_TARGETS = Object.freeze({
   estaveis: 3,
 });
 
-/** Quantas pessoas, no mínimo, cada competência da vitrine deve ter. */
-export const ACME_DEMO_MINIMO_POR_COMPETENCIA = 3;
-
-/**
- * Qual competência do cargo esta pessoa trabalhou.
- *
- * ⚠️ NÃO É SEMPRE A PRIMEIRA. Com todo mundo do mesmo cargo focando a mesma
- * competência, o painel mostrava duas linhas com **uma pessoa cada** ao lado de
- * uma com nove: médias de n=1 com o mesmo peso visual de médias de n=9, que é
- * a leitura que um painel de evolução não pode induzir.
- *
- * A distribuição é por CARGO e mira um piso de pessoas por competência, em vez
- * de espalhar o máximo possível: espalhar em cinco devolveria o mesmo problema
- * pelo outro lado. Com 9 pessoas dá 3 competências de 3; com 7, duas de 4 e 3.
- */
-export function competenciaFocoDaDemo(cargo: string, indiceNoCargo: number, totalNoCargo: number): string {
-  const competencias = competenciasAcmeDemoPorCargo(cargo);
-  if (!competencias.length) {
-    throw new Error(`cargo sem competência na régua da ACME Demo: ${cargo}`);
-  }
-  const grupos = Math.max(
-    1,
-    Math.min(competencias.length, Math.floor(totalNoCargo / ACME_DEMO_MINIMO_POR_COMPETENCIA)),
-  );
-  return competencias[indiceNoCargo % grupos];
-}
-
-/**
- * Posição de cada pessoa dentro do próprio cargo, para alimentar
- * `competenciaFocoDaDemo`. Recebe os cargos por parâmetro porque o elenco vive
- * em `reset-acme-demo`, e importá-lo aqui fecharia um ciclo.
- */
-export function distribuicaoPorCargo(
-  pessoas: readonly { chave: string; cargo: string }[],
-): Map<string, { indice: number; total: number }> {
-  const porCargo = new Map<string, string[]>();
-  for (const pessoa of pessoas) {
-    porCargo.set(pessoa.cargo, [...(porCargo.get(pessoa.cargo) || []), pessoa.chave]);
-  }
-  const saida = new Map<string, { indice: number; total: number }>();
-  for (const chaves of porCargo.values()) {
-    chaves.forEach((chave, indice) => saida.set(chave, { indice, total: chaves.length }));
-  }
-  return saida;
-}
-
-function seedOf(value: string): number {
-  return [...value].reduce((total, char) => total + char.charCodeAt(0), 0);
-}
-
-function arredondar(valor: number): number {
-  return Number(Math.max(1, Math.min(4, valor)).toFixed(1));
-}
-
-/**
- * Nota de partida (T0) de um descritor. Determinística por (email, descritor) e
- * deliberadamente baixa: a trilha seleciona lacuna, então um T0 alto tornaria a
- * evolução impossível de mostrar sem estourar o teto da escala.
- */
-export function notaDePartida(email: string, descritor: string): number {
-  const seed = seedOf(`${email}:${descritor}`);
-  return arredondar(1.5 + ((seed % 7) / 10));
-}
-
-/**
- * Ganho aplicado no fechamento. Os intervalos são escolhidos para cair com
- * folga de cada lado dos cortes da régua (0,5 e 0,2), e não em cima deles: uma
- * demo cujo veredito depende do arredondamento é uma demo que muda de resultado
- * quando alguém ajustar a régua em um centésimo.
- */
-function ganhoDoPerfil(perfil: PerfilEvolucao, seed: number): number {
-  if (perfil === 'confirmada') return 0.7 + ((seed % 4) / 10);
-  if (perfil === 'parcial') return 0.25 + ((seed % 3) / 20);
-  return ((seed % 3) - 1) / 20;
-}
-
-/**
- * Leitura qualitativa da semana 13. Só o perfil "confirmada" percebe avanço
- * acima da nota de partida — é o que a régua exige para promover de parcial a
- * confirmada, e é o que separa "o número subiu" de "a pessoa e o entorno viram
- * a mudança acontecer".
- */
-function nivelPercebido(perfil: PerfilEvolucao, notaPre: number, notaPos: number): number | null {
-  if (perfil === 'confirmada') return arredondar(Math.max(notaPre + 0.5, notaPos - 0.2));
-  if (perfil === 'parcial') return arredondar(notaPre);
-  return null;
-}
-
-const ANTES_POR_DESCRITOR: Record<string, string> = {
+const ANTES: Record<string, string> = {
   'Leitura do contexto e identificação do problema': 'Eu partia direto para a solução. Quando o problema voltava, era porque eu tinha resolvido o sintoma.',
   'Critério de priorização e tomada de decisão': 'Priorizava pelo que gritava mais alto no dia. Quase sempre o urgente comia o importante.',
   'Execução com método e acompanhamento': 'Combinava as ações na reunião e não voltava para verificar. O acompanhamento ficava na memória.',
@@ -174,7 +98,7 @@ const ANTES_POR_DESCRITOR: Record<string, string> = {
   'Aprendizado, ética e melhoria contínua': 'Tratava erro como algo a ser explicado, não como material de aprendizado do time.',
 };
 
-const DEPOIS_POR_DESCRITOR: Record<string, string> = {
+const DEPOIS: Record<string, string> = {
   'Leitura do contexto e identificação do problema': 'Passei a levantar o contexto antes de propor. Na última vez, o problema real era outro, e teria custado duas semanas.',
   'Critério de priorização e tomada de decisão': 'Comecei a escrever o critério antes de decidir. Quando alguém discorda, a conversa é sobre o critério, não sobre a pessoa.',
   'Execução com método e acompanhamento': 'Toda combinação agora sai com responsável, prazo e o momento em que eu volto. É a parte que mais mudou.',
@@ -192,167 +116,49 @@ const LIMITE_ESTAVEL: Record<string, string> = {
   'Aprendizado, ética e melhoria contínua': 'O aprendizado ficou individual. Não chegou a virar prática compartilhada com o time.',
 };
 
-const JUSTIFICATIVA_POR_PERFIL: Record<PerfilEvolucao, string> = {
+const JUSTIFICATIVA: Record<PerfilEvolucao, string> = {
   confirmada: 'No cenário de fechamento, aplicou o comportamento sem ser induzido pela pergunta, e sustentou a escolha quando o cenário apresentou uma restrição nova.',
   parcial: 'Aplicou o comportamento no cenário de fechamento, mas apoiado na estrutura oferecida pela pergunta. Ainda não aparece de forma espontânea.',
   estavel: 'Reconheceu o que deveria ser feito e descreveu o caminho, sem apresentar uma situação real em que isso já tenha acontecido.',
 };
 
-export type DescritorEvolucao = {
-  competencia: string;
-  descritor: string;
-  nota_pre: number;
-  nota_pos: number;
-  nivel_percebido: number | null;
-  antes: string | null;
-  depois: string | null;
-  justificativa_cenario: string;
-  convergencia: Convergencia;
+/** A régua da ACME: competências do cargo, comportamentos e a voz do elenco. */
+export const REGUA_ACME: ReguaDeEvolucao = {
+  competenciasPorCargo: (cargo) => competenciasAcmeDemoPorCargo(cargo),
+  // Na ACME os mesmos comportamentos valem para toda competência — é a régua
+  // genérica do tenant de demonstração comercial.
+  descritoresPorCompetencia: () => [...ACME_DEMO_DESCRITORES],
+  textos: {
+    antes: (_cargo, _competencia, descritor) => ANTES[descritor] || null,
+    depois: (_cargo, _competencia, descritor) => DEPOIS[descritor] || null,
+    limiteEstavel: (_cargo, _competencia, descritor) => LIMITE_ESTAVEL[descritor] || null,
+    justificativa: (perfil) => JUSTIFICATIVA[perfil],
+    insight: (perfil, { primeiroNome, maiorAvanco, menorAvanco }) => ({
+      confirmada: `${primeiroNome} sustentou no cenário de fechamento o que vinha praticando durante a jornada. O avanço mais claro está em ${maiorAvanco.toLowerCase()}, e apareceu tanto na avaliação quanto no relato da própria pessoa.`,
+      parcial: `${primeiroNome} avançou em ${maiorAvanco.toLowerCase()}, com o comportamento ainda apoiado na estrutura da conversa. O próximo ciclo precisa verificar se ele aparece sem ajuda.`,
+      estavel: `${primeiroNome} manteve o patamar de partida. Reconhece o que precisa mudar e descreve o caminho, mas o fechamento não trouxe uma situação real em que isso já tenha acontecido. ${menorAvanco} é onde a lacuna segue mais visível.`,
+    }[perfil]),
+    proximoPasso: (perfil, { maiorAvanco, menorAvanco }) => ({
+      confirmada: `Levar ${menorAvanco.toLowerCase()} para o próximo ciclo, elevando a exigência: aplicar em uma situação com conflito real, não só em rotina.`,
+      parcial: `Repetir ${maiorAvanco.toLowerCase()} em duas situações sem apoio do gestor, registrando o que foi decidido e por quê.`,
+      estavel: `Combinar com o gestor uma situação concreta nas próximas duas semanas para exercitar ${menorAvanco.toLowerCase()}, com data marcada para a devolutiva.`,
+    }[perfil]),
+  },
 };
 
-export type EvolucaoDemo = {
-  competencia: string;
-  descritores: DescritorEvolucao[];
-  /** Na forma exata de `trilhas.evolution_report` do modo regular. */
-  evolution_report: {
-    descritores: DescritorEvolucao[];
-    insight_geral: string;
-    proximo_passo: string;
-    resumo_avaliacao: string;
-    nota_media_pos: number;
-    resumo: { confirmadas: number; parciais: number; estagnacoes: number };
-    demo_fixture: true;
-  };
-};
+export function competenciaFocoDaDemo(cargo: string, indiceNoCargo: number, totalNoCargo: number): string {
+  return competenciaFocoDistribuida(competenciasAcmeDemoPorCargo(cargo), indiceNoCargo, totalNoCargo);
+}
 
-/**
- * Monta a evolução de uma pessoa. `perfil` decide a magnitude do ganho; o
- * VEREDITO continua saindo da régua de produção, aplicada sobre as notas.
- */
 export function construirEvolucaoAcmeDemo(
   pessoa: { email: string; nome_completo: string; cargo: string },
   perfil: PerfilEvolucao,
   distribuicao?: { indice: number; total: number },
 ): EvolucaoDemo {
-  // Sem distribuição informada, cai na primeira competência do cargo — é o que
-  // um chamador avulso espera. Quem monta a vitrine inteira passa a posição,
-  // para as competências não ficarem com uma pessoa cada.
-  const competencia = competenciaFocoDaDemo(
-    pessoa.cargo,
-    distribuicao?.indice ?? 0,
-    distribuicao?.total ?? 1,
-  );
-
-  const descritores: DescritorEvolucao[] = ACME_DEMO_DESCRITORES
-    .slice(0, ACME_DEMO_DESCRITORES_POR_TRILHA)
-    .map((descritor) => {
-      const seed = seedOf(`${pessoa.email}:${descritor}:${perfil}`);
-      const nota_pre = notaDePartida(pessoa.email, descritor);
-      const nota_pos = arredondar(nota_pre + ganhoDoPerfil(perfil, seed));
-      const nivel_percebido = nivelPercebido(perfil, nota_pre, nota_pos);
-      return {
-        competencia,
-        descritor,
-        nota_pre,
-        nota_pos,
-        nivel_percebido,
-        antes: perfil === 'estavel' ? null : ANTES_POR_DESCRITOR[descritor] || null,
-        depois: perfil === 'estavel'
-          ? LIMITE_ESTAVEL[descritor] || null
-          : DEPOIS_POR_DESCRITOR[descritor] || null,
-        justificativa_cenario: JUSTIFICATIVA_POR_PERFIL[perfil],
-        // A régua de produção decide. Nunca carimbar o veredito à mão aqui.
-        convergencia: classificarConvergencia({ nota_pre, nota_pos, nivel_percebido }),
-      };
-    });
-
-  const notaMediaPos = Number(
-    (descritores.reduce((total, d) => total + d.nota_pos, 0) / descritores.length).toFixed(2),
-  );
-  const primeiroNome = pessoa.nome_completo.split(' ')[0];
-  const maiorAvanco = [...descritores].sort((a, b) => (b.nota_pos - b.nota_pre) - (a.nota_pos - a.nota_pre))[0];
-  const menorAvanco = [...descritores].sort((a, b) => (a.nota_pos - a.nota_pre) - (b.nota_pos - b.nota_pre))[0];
-
-  const resumoPorPerfil: Record<PerfilEvolucao, string> = {
-    confirmada: `${primeiroNome} sustentou no cenário de fechamento o que vinha praticando durante a jornada. O avanço mais claro está em ${maiorAvanco.descritor.toLowerCase()}, e apareceu tanto na avaliação quanto no relato da própria pessoa.`,
-    parcial: `${primeiroNome} avançou em ${maiorAvanco.descritor.toLowerCase()}, com o comportamento ainda apoiado na estrutura da conversa. O próximo ciclo precisa verificar se ele aparece sem ajuda.`,
-    estavel: `${primeiroNome} manteve o patamar de partida. Reconhece o que precisa mudar e descreve o caminho, mas o fechamento não trouxe uma situação real em que isso já tenha acontecido. ${menorAvanco.descritor} é onde a lacuna segue mais visível.`,
-  };
-
-  const proximoPassoPorPerfil: Record<PerfilEvolucao, string> = {
-    confirmada: `Levar ${menorAvanco.descritor.toLowerCase()} para o próximo ciclo, elevando a exigência: aplicar em uma situação com conflito real, não só em rotina.`,
-    parcial: `Repetir ${maiorAvanco.descritor.toLowerCase()} em duas situações sem apoio do gestor, registrando o que foi decidido e por quê.`,
-    estavel: `Combinar com o gestor uma situação concreta nas próximas duas semanas para exercitar ${menorAvanco.descritor.toLowerCase()}, com data marcada para a devolutiva.`,
-  };
-
-  return {
-    competencia,
-    descritores,
-    evolution_report: {
-      descritores,
-      insight_geral: resumoPorPerfil[perfil],
-      proximo_passo: proximoPassoPorPerfil[perfil],
-      resumo_avaliacao: JUSTIFICATIVA_POR_PERFIL[perfil],
-      nota_media_pos: notaMediaPos,
-      resumo: {
-        confirmadas: descritores.filter((d) => d.convergencia === 'evolucao_confirmada').length,
-        parciais: descritores.filter((d) => d.convergencia === 'evolucao_parcial').length,
-        estagnacoes: descritores.filter((d) => d.convergencia === 'estagnacao').length,
-      },
-      // Marca de origem: qualquer leitura que precise separar vitrine de dado
-      // real tem um campo para isso, em vez de inferir pelo slug do tenant.
-      demo_fixture: true,
-    },
-  };
+  return construirEvolucao(pessoa, perfil, REGUA_ACME, distribuicao);
 }
 
-/**
- * Linhas de `temporada_semana_progresso` do fechamento (semanas 13 e 14), na
- * forma que `gerarEvolutionReportCore` espera encontrar. Sem elas a jornada
- * concluída fica sem lastro: o relatório existiria e a semana que o produziu
- * apareceria em branco na tela da pessoa.
- */
+/** O DUO fecha na 13 (qualitativa) e na 14 (cenário). */
 export function construirFechamentoAcmeDemo(evolucao: EvolucaoDemo, concluidoEm: string) {
-  return [
-    {
-      semana: 13,
-      tipo: 'avaliacao',
-      status: PROGRESSO.CONCLUIDO,
-      conteudo_consumido: true,
-      iniciado_em: concluidoEm,
-      concluido_em: concluidoEm,
-      reflexao: {
-        evolucao_percebida: evolucao.descritores.map((d) => ({
-          descritor: d.descritor,
-          nivel_percebido: d.nivel_percebido,
-          antes: d.antes,
-          depois: d.depois,
-        })),
-        insight_geral: evolucao.evolution_report.insight_geral,
-        proximo_passo: evolucao.evolution_report.proximo_passo,
-        demo_fixture: true,
-      },
-      feedback: null,
-    },
-    {
-      semana: 14,
-      tipo: 'avaliacao',
-      status: PROGRESSO.CONCLUIDO,
-      conteudo_consumido: true,
-      iniciado_em: concluidoEm,
-      concluido_em: concluidoEm,
-      reflexao: null,
-      feedback: {
-        avaliacao_por_descritor: evolucao.descritores.map((d) => ({
-          descritor: d.descritor,
-          nota_pre: d.nota_pre,
-          nota_pos: d.nota_pos,
-          justificativa: d.justificativa_cenario,
-        })),
-        nota_media_pos: evolucao.evolution_report.nota_media_pos,
-        resumo_avaliacao: evolucao.evolution_report.resumo_avaliacao,
-        demo_fixture: true,
-      },
-    },
-  ];
+  return construirFechamento(evolucao, concluidoEm, { qualitativa: 13, cenario: 14 });
 }
