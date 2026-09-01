@@ -212,6 +212,29 @@ function LivePlayStrip({ play, reading }: { play: CopilotPlay; reading: LiveRead
   );
 }
 
+function LiveFocusCompass({ play, reading }: { play: CopilotPlay; reading: LiveReading }) {
+  const discoveryProgress = Math.round((reading.covered.length / DISCOVERY_CHECKLIST.length) * 100);
+
+  return (
+    <aside className={styles.liveFocusCompass} aria-label="Direção da conversa">
+      <div className={styles.liveFocusGoal}>
+        <span><Target size={13} /> {reading.phase === 'engajar' ? 'Compromisso a pedir' : 'Objetivo desta hora'}</span>
+        <strong>{reading.phase === 'engajar' ? play.closeWith : play.goalThisHour}</strong>
+      </div>
+      <div className={styles.liveFocusProgress}>
+        <span>{reading.covered.length}/{DISCOVERY_CHECKLIST.length} sinais</span>
+        <div className={styles.liveFocusProgressTrack} aria-hidden="true"><i style={{ width: `${discoveryProgress}%` }} /></div>
+        <ol aria-label="Perguntas essenciais do Play">
+          {play.mustAsk.slice(0, 3).map((question, index) => {
+            const covered = Boolean(question.discovery && reading.covered.includes(question.discovery));
+            return <li key={`${question.text}-${index}`} className={covered ? styles.liveFocusCovered : ''} title={question.text}>{covered ? <Check size={11} /> : index + 1}</li>;
+          })}
+        </ol>
+      </div>
+    </aside>
+  );
+}
+
 function DossierAction({ persisted, onGoLive }: { persisted: boolean; onGoLive: () => void }) {
   return (
     <div className={styles.dossierAction}>
@@ -1191,6 +1214,7 @@ export default function CopilotClient({
   }
 
   const recording = captureState === 'gravando';
+  const focusMode = recording && tab === 'ao-vivo';
   const firstName = userName.split(' ')[0] || userName;
   const audioIssue = audioHealth === 'microphone-only'
     ? {
@@ -1221,6 +1245,8 @@ export default function CopilotClient({
           : audioHealth === 'system-only'
             ? 'somente reunião'
             : 'sem áudio';
+  const visibleQuestions = focusMode ? reading.questions.slice(0, 2) : reading.questions;
+  const visibleUtterances = focusMode ? utterances.slice(-3) : utterances.slice(-40);
   const localAsrCopy = localAsrState === 'ready'
     ? {
         title: localAsrReadyNotice ? 'Whisper pronto — falta compartilhar o áudio' : 'Whisper pronto nesta máquina',
@@ -1249,7 +1275,7 @@ export default function CopilotClient({
             };
 
   return (
-    <main className={styles.page}>
+    <main className={classNames(styles.page, focusMode && styles.liveFocusPage)}>
       <header className={styles.topbar}>
         <div className={styles.brand}>
           <Link href="/dashboard" aria-label="Voltar"><ArrowLeft size={17} /></Link>
@@ -1257,28 +1283,33 @@ export default function CopilotClient({
           <span>Copiloto comercial</span>
         </div>
         <div className={styles.topMeta}>
-          <span className={recording ? styles.statusLive : styles.statusReady}><i /> {recording ? 'Escutando' : 'Pronto'}</span>
-          <small>{firstName}</small>
+          <span className={recording ? styles.statusLive : styles.statusReady}><i /> {recording ? 'Ao vivo' : 'Pronto'}</span>
+          <small>{focusMode ? audioStatus : firstName}</small>
+          {focusMode && <button type="button" className={styles.focusStopButton} onClick={stopCapture}><Square size={13} fill="currentColor" /><span>Encerrar</span></button>}
         </div>
       </header>
 
-      <section className={styles.hero}>
-        <div>
-          <p className={styles.eyebrow}>PACE · inteligência para a conversa</p>
-          <h1>Entre com <em>hipóteses.</em><br />Saia com compromisso.</h1>
-          <p>Pesquisa antes, orientação durante e contexto reaproveitável depois da reunião.</p>
-        </div>
-        <div className={styles.heroMark}><Sparkles size={30} /><span>IA com<br />evidência</span></div>
-      </section>
+      {!focusMode && (
+        <>
+          <section className={styles.hero}>
+            <div>
+              <p className={styles.eyebrow}>PACE · inteligência para a conversa</p>
+              <h1>Entre com <em>hipóteses.</em><br />Saia com compromisso.</h1>
+              <p>Pesquisa antes, orientação durante e contexto reaproveitável depois da reunião.</p>
+            </div>
+            <div className={styles.heroMark}><Sparkles size={30} /><span>IA com<br />evidência</span></div>
+          </section>
 
-      <nav className={styles.tabs} aria-label="Momentos do copiloto">
-        <button onClick={() => setTab('clientes')} className={tab === 'clientes' ? styles.tabActive : ''}><UsersRound size={16} /><span>Reuniões<small>planejamento e resultado</small></span></button>
-        <button onClick={() => setTab('planejamento')} className={tab === 'planejamento' ? styles.tabActive : ''}><Search size={16} /><span>Planejamento<small>antes da conversa</small></span></button>
-        <button onClick={() => setTab('ao-vivo')} className={tab === 'ao-vivo' ? styles.tabActive : ''}><Headphones size={16} /><span>Apoio ao vivo<small>Whisper local</small></span></button>
-        <button onClick={() => setTab('pos-reuniao')} className={tab === 'pos-reuniao' ? styles.tabActive : ''}><FileText size={16} /><span>Pós-reunião<small>Supernormal</small></span></button>
-      </nav>
+          <nav className={styles.tabs} aria-label="Momentos do copiloto">
+            <button onClick={() => setTab('clientes')} className={tab === 'clientes' ? styles.tabActive : ''}><UsersRound size={16} /><span>Reuniões<small>planejamento e resultado</small></span></button>
+            <button onClick={() => setTab('planejamento')} className={tab === 'planejamento' ? styles.tabActive : ''}><Search size={16} /><span>Planejamento<small>antes da conversa</small></span></button>
+            <button onClick={() => setTab('ao-vivo')} className={tab === 'ao-vivo' ? styles.tabActive : ''}><Headphones size={16} /><span>Apoio ao vivo<small>Whisper local</small></span></button>
+            <button onClick={() => setTab('pos-reuniao')} className={tab === 'pos-reuniao' ? styles.tabActive : ''}><FileText size={16} /><span>Pós-reunião<small>Supernormal</small></span></button>
+          </nav>
 
-      <PaceRunway tab={tab} livePhase={reading.phase} />
+          <PaceRunway tab={tab} livePhase={reading.phase} />
+        </>
+      )}
 
       {error && <div className={styles.error}><CircleAlert size={17} /><span>{error}</span><button onClick={() => setError(null)}>Fechar</button></div>}
 
@@ -1414,16 +1445,12 @@ export default function CopilotClient({
       )}
 
       {tab === 'ao-vivo' && (
-        <section className={styles.liveWorkspace}>
-          <header className={styles.liveHeader}>
-            <div><p className={styles.eyebrow}>Sala de comando</p><h2>{recording ? 'Conversa em andamento' : 'Apoio ao vivo com Whisper local'}</h2><p>O áudio é transcrito na sua máquina. Somente trechos de texto seguem para a IA montar as sugestões.</p></div>
+        <section className={classNames(styles.liveWorkspace, focusMode && styles.liveFocusWorkspace)}>
+          {!focusMode && <header className={styles.liveHeader}>
+            <div><p className={styles.eyebrow}>Sala de comando</p><h2>Apoio ao vivo com Whisper local</h2><p>O áudio é transcrito na sua máquina. Somente trechos de texto seguem para a IA montar as sugestões.</p></div>
             <div className={styles.liveHeaderActions}>
               {!recording && utterances.length > 0 && accountId && <button className={styles.saveResultButton} onClick={() => void saveLiveResult()} disabled={resultSaving || resultSaved}>{resultSaving ? <><LoaderCircle size={16} className={styles.spin} /> Salvando…</> : resultSaved ? <><Check size={16} /> Resultado salvo</> : <><Save size={16} /> Salvar resultado</>}</button>}
-              {recording ? (
-                <button className={styles.stopButton} onClick={stopCapture}>
-                  <Square size={16} fill="currentColor" /> Parar conversa
-                </button>
-              ) : localAsrState === 'starting' ? (
+              {localAsrState === 'starting' ? (
                 <button className={styles.startButton} disabled>
                   <LoaderCircle size={17} className={styles.spin} /> Iniciando Whisper…
                 </button>
@@ -1441,7 +1468,7 @@ export default function CopilotClient({
                 </button>
               )}
             </div>
-          </header>
+          </header>}
 
           {!recording && (
             <div className={styles.captureGuide} data-asr-state={localAsrState} role="status" aria-live="polite">
@@ -1469,14 +1496,14 @@ export default function CopilotClient({
             </div>
           )}
 
-          {!plan && <div className={styles.liveHint}><CircleAlert size={17} /><span>Você pode iniciar sem plano, mas o apoio melhora quando já conhece o objetivo e as três perguntas desta hora.</span><button onClick={() => setTab('planejamento')}>Planejar primeiro</button></div>}
+          {!plan && !focusMode && <div className={styles.liveHint}><CircleAlert size={17} /><span>Você pode iniciar sem plano, mas o apoio melhora quando já conhece o objetivo e as três perguntas desta hora.</span><button onClick={() => setTab('planejamento')}>Planejar primeiro</button></div>}
 
-          {plan?.play && <LivePlayStrip play={plan.play} reading={reading} />}
+          {plan?.play && (focusMode ? <LiveFocusCompass play={plan.play} reading={reading} /> : <LivePlayStrip play={plan.play} reading={reading} />)}
 
-          <div className={styles.liveGrid}>
-            <section className={styles.nextMove}>
+          <div className={classNames(styles.liveGrid, focusMode && styles.liveFocusGrid)}>
+            <section className={classNames(styles.nextMove, focusMode && styles.liveFocusNext)} aria-live={focusMode ? 'polite' : undefined}>
               <div className={styles.liveLabel}>
-                <Radio size={15} /> Próxima melhor intervenção
+                <Radio size={15} /> {focusMode ? 'Agora' : 'Próxima melhor intervenção'}
                 {thinking
                   ? <span><LoaderCircle size={13} className={styles.spin} /> analisando</span>
                   : liveAnalysisState === 'active'
@@ -1489,7 +1516,7 @@ export default function CopilotClient({
               </div>
               <h3>{reading.focus}</h3>
               <div className={styles.suggestionList}>
-                {reading.questions.length ? reading.questions.map((question, index) => (
+                {visibleQuestions.length ? visibleQuestions.map((question, index) => (
                   <article key={`${question.text}-${index}`}><span>0{index + 1}</span><p>{question.text}<small>{question.why}</small></p></article>
                 )) : <div className={styles.listening}><AudioLines size={28} /><p>{recording ? 'Ouvindo a conversa…' : 'As perguntas sugeridas aparecem aqui.'}</p></div>}
               </div>
@@ -1497,24 +1524,24 @@ export default function CopilotClient({
               {reading.objection && <p className={styles.liveObjection}><strong>Em aberto:</strong> {reading.objection}</p>}
             </section>
 
-            <aside className={styles.discoveryPanel}>
+            {!focusMode && <aside className={styles.discoveryPanel}>
               <div className={styles.liveLabel}><Check size={15} /> Descoberta</div>
               <div className={styles.progress}><i style={{ width: `${Math.round((reading.covered.length / DISCOVERY_CHECKLIST.length) * 100)}%` }} /></div>
               <p>{reading.covered.length} de {DISCOVERY_CHECKLIST.length} pontos cobertos</p>
               <ul>{DISCOVERY_CHECKLIST.map((item) => <li key={item.key} className={reading.covered.includes(item.key) ? styles.covered : ''}><span>{reading.covered.includes(item.key) ? <Check size={12} /> : ''}</span>{item.label}</li>)}</ul>
-            </aside>
+            </aside>}
 
-            <section className={styles.transcriptPanel}>
-              <div className={styles.liveLabel}><AudioLines size={15} /> Transcrição local <span className={recording ? (audioHealth === 'ready' ? styles.connected : audioHealth === 'checking' ? styles.degraded : styles.failed) : ''}>{recording ? (audioHealth === 'checking' ? <LoaderCircle size={13} className={styles.spin} /> : audioHealth === 'ready' ? <Wifi size={13} /> : <CircleAlert size={13} />) : <WifiOff size={13} />}{audioStatus}</span></div>
+            <section className={classNames(styles.transcriptPanel, focusMode && styles.liveFocusTranscript)}>
+              <div className={styles.liveLabel}><AudioLines size={15} /> {focusMode ? 'Últimas falas' : 'Transcrição local'} <span className={recording ? (audioHealth === 'ready' ? styles.connected : audioHealth === 'checking' ? styles.degraded : styles.failed) : ''}>{recording ? (audioHealth === 'checking' ? <LoaderCircle size={13} className={styles.spin} /> : audioHealth === 'ready' ? <Wifi size={13} /> : <CircleAlert size={13} />) : <WifiOff size={13} />}{audioStatus}</span></div>
               <div className={styles.transcript}>
                 {!utterances.length && !partial && <p className={styles.transcriptEmpty}>A transcrição não é salva no servidor do Copiloto.</p>}
-                {utterances.slice(-40).map((item, index) => <p key={`${item.at}-${index}`} data-channel={item.channel}><span title={item.channel === 'cliente' ? 'Áudio compartilhado da reunião' : 'Microfone deste computador'}>{item.channel === 'cliente' ? (meetingComposition === 'solo-vertho' ? 'Cliente(s)' : 'Reunião') : 'Vertho local'}</span>{item.text}</p>)}
+                {visibleUtterances.map((item, index) => <p key={`${item.at}-${index}`} data-channel={item.channel}><span title={item.channel === 'cliente' ? 'Áudio compartilhado da reunião' : 'Microfone deste computador'}>{item.channel === 'cliente' ? (meetingComposition === 'solo-vertho' ? 'Cliente(s)' : 'Reunião') : 'Vertho local'}</span>{item.text}</p>)}
                 {partial && <p data-channel={partial.channel} className={styles.partial}><span title={partial.channel === 'cliente' ? 'Áudio compartilhado da reunião' : 'Microfone deste computador'}>{partial.channel === 'cliente' ? (meetingComposition === 'solo-vertho' ? 'Cliente(s)' : 'Reunião') : 'Vertho local'}</span>{partial.text}</p>}
               </div>
             </section>
           </div>
 
-          <footer className={styles.liveFooter}><ShieldCheck size={15} /><span>Avise os participantes de que você usa um assistente de transcrição e respeite a política de gravação da organização.</span><code>{ASR_URL}</code></footer>
+          {!focusMode && <footer className={styles.liveFooter}><ShieldCheck size={15} /><span>Avise os participantes de que você usa um assistente de transcrição e respeite a política de gravação da organização.</span><code>{ASR_URL}</code></footer>}
         </section>
       )}
 
