@@ -9,6 +9,7 @@
  */
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { mapComTeto } from '@/lib/concorrencia';
 import { fadePcm16, silencePcm, wavToMonoPcm16AtRate, exportPodcastMp3FromPcm } from './tts/audio-dsp';
 import {
   buildPersonalizedPodcastNarration,
@@ -328,20 +329,34 @@ export async function generateNarrationAudio(
   // coalesce de fragmentos curtos (evita "palavras fantasmas" do TTS no fim).
   const segmentos = coalesceCurtos(splitNarrationForTts(texto).flatMap(segmentarPorPausa));
 
+  // 🔴 OS SEGMENTOS VÃO EM PARALELO, COM TETO.
+  //
+  // `Medido 01/09/2026:` uma devolutiva são 8 a 12 segmentos, e o laço em série
+  // somava 246,8s e 411,3s de latência — 231s e 267s de ponta a ponta. Não era
+  // "o TTS está lento" (23s por chamada é o normal dele): era uma FILA de 8 a 12
+  // chamadas de 23s. Quem esperava, esperava QUATRO MINUTOS.
+  //
+  // O teto existe porque o gargalo do Vertex é TPM: sem ele, uma devolutiva de
+  // 12 segmentos vira 12 chamadas simultâneas, e duas pessoas ao mesmo tempo
+  // derrubam as duas com 429.
+  //
+  // A ORDEM é preservada por ÍNDICE, nunca por ordem de chegada: áudio remontado
+  // fora de ordem é uma devolutiva com as frases embaralhadas — defeito que um
+  // teste de "gerou?" não pega.
+  const CONCORRENCIA_TTS = 4;
+  const pcms = await mapComTeto(segmentos, CONCORRENCIA_TTS, (seg) => (
+    ttsToPcm(`${styleDirective}:\n\n${seg.text}`, voice, ledger)
+  ));
+
   const partes: Buffer[] = [];
-  let sampleRate = 24000;
-  let prevPergunta = false;
-  for (const seg of segmentos) {
-    const styled = `${styleDirective}:\n\n${seg.text}`;
-    const { pcm, sampleRate: sr } = await ttsToPcm(styled, voice, ledger);
-    sampleRate = sr;
+  let sampleRate = pcms[0]?.sampleRate || 24000;
+  for (let i = 0; i < segmentos.length; i++) {
+    sampleRate = pcms[i].sampleRate;
     if (partes.length) {
       // Silêncio EXATO: longo após pergunta retórica (pausa dramática), normal senão.
-      const pausa = prevPergunta ? QUESTION_PAUSE_SEC : SEGMENT_PAUSE_SEC;
-      partes.push(silencePcm(pausa, sampleRate));
+      partes.push(silencePcm(segmentos[i - 1].q ? QUESTION_PAUSE_SEC : SEGMENT_PAUSE_SEC, sampleRate));
     }
-    partes.push(pcm);
-    prevPergunta = seg.q;
+    partes.push(pcms[i].pcm);
   }
 
   const full = Buffer.concat(partes);
