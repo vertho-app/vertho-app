@@ -7,6 +7,7 @@ import {
   prepararAcessosDemo,
   prepararAcessosApresentacaoDemo,
   resetDemoTenant,
+  resetPausadoAte,
   DEMO_TENANT_PROFILES,
   type DemoTenantSlug,
 } from '@/lib/demo/reset-acme-demo';
@@ -86,7 +87,13 @@ export async function listarConvidadosDemo(slug: DemoTenantSlug = 'acme-demo') {
     return { success: false as const, error: 'Tenant de demonstração inválido.' };
   }
   try {
-    return { success: true as const, convidados: await listDemoGuestProgress(slug) };
+    return {
+      success: true as const,
+      convidados: await listDemoGuestProgress(slug),
+      // Estado do reset automático: a tela usa para AVISAR quem clica em
+      // "Resetar" que o ambiente está segurando a experiência de alguém.
+      resetPausadoAte: resetPausadoAte(slug),
+    };
   } catch (error: any) {
     return { success: false as const, error: error?.message || 'falha ao carregar convidados' };
   }

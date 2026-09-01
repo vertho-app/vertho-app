@@ -132,6 +132,32 @@ visões Colaborador, Gestor e RH. A linha de acompanhamento sobrevive à expira�
 e à remoção do colaborador temporário, preservando o histórico comercial; o
 WhatsApp opcional nunca é persistido.
 
+### Pausar o reset de um ambiente (com data de fim)
+
+O reset noturno (07:00 UTC, 04h BRT) percorre **todos** os ambientes de
+`DEMO_TENANT_PROFILES` e só é adiado por **passaporte** no prazo D+2. Convidado
+nomeado do perfil (o Alpheu, no Grupo Sinal) não tem esse prazo: sem mais nada,
+o DISC, as respostas e a análise dele somem na madrugada e o seed o recria
+zerado — o que quebra qualquer experiência que dure mais de um dia.
+
+Para segurar um ambiente durante uma janela, o perfil aceita `resetPausadoAte`
+(instante ISO). O cron pula o ambiente enquanto ela vigora, registrando
+`motivo: 'reset_pausado'` no `admin_audit_log`; a régua é `resetPausadoAte(slug)`,
+fonte única lida também pela tela.
+
+🔑 **A data É o desligamento.** Passado o instante, o ciclo volta sozinho, sem
+depender de alguém lembrar. Pausa sem data seria um reset desligado para sempre,
+que é o modo de falha do trabalho sazonal já medido nesta base (os crons do
+CONARH seguiram disparando 48×/dia por duas semanas depois do evento acabar).
+O teste central de `tests/unit/demo-reset-pausa.test.ts` é o da EXPIRAÇÃO.
+
+O reset **manual** não é bloqueado pela pausa: ele avisa, na confirmação, até
+quando o ambiente está segurado e o que se perde ao recompor agora. Quem aperta
+o botão é o dono do ambiente — recusar sem caminho de saída na tela seria beco.
+
+⚠️ Pausa vigente em 01/09/2026: `gruposinal` até **07/09 07:00 UTC** (a
+experiência do Alpheu atravessa a semana até domingo).
+
 ### A etapa 01 é uma DEGUSTAÇÃO: uma competência, avaliada sozinha
 
 O convidado responde **uma** competência, não as cinco do cargo

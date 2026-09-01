@@ -102,6 +102,10 @@ export default function AdminDemoPage() {
   const [carregandoProgress, setCarregandoProgress] = useState(true);
   const [progressUpdatedAt, setProgressUpdatedAt] = useState<Date | null>(null);
   const [copiado, setCopiado] = useState<string | null>(null);
+  // Vem do SERVIDOR junto com a lista: `resetPausadoAte` mora no módulo do
+  // reset, que carrega fixture e client service-role — importá-lo aqui o
+  // arrastaria inteiro para o bundle do browser.
+  const [resetPausado, setResetPausado] = useState<string | null>(null);
 
   const tenant = TENANTS[tenantSlug];
 
@@ -136,6 +140,7 @@ export default function AdminDemoPage() {
         return;
       }
       setConvidados(result.convidados);
+      setResetPausado(result.resetPausadoAte ?? null);
       setProgressUpdatedAt(new Date());
     } catch (error: any) {
       if (!options.silencioso) toast.error(`Falha ao carregar acompanhamento: ${error?.message || 'erro'}`);
@@ -154,6 +159,7 @@ export default function AdminDemoPage() {
       .then((result) => {
         if (!active || !result.success) return;
         setConvidados(result.convidados);
+        setResetPausado(result.resetPausadoAte ?? null);
         setProgressUpdatedAt(new Date());
       })
       .catch(() => { /* o botão Atualizar permite tentar novamente */ })
@@ -176,9 +182,16 @@ export default function AdminDemoPage() {
   }
 
   async function resetar() {
+    // O reset automático deste ambiente pode estar pausado (ex.: um convidado
+    // percorrendo a experiência durante a semana). Quem aperta o botão é o dono
+    // do ambiente: a pausa AVISA o que se perde, não recusa — recusar sem
+    // caminho de saída na tela seria beco.
+    const pausadoAte = resetPausado;
     const ok = await confirmDialog({
       title: `Resetar ${tenant.nome}`,
-      message: `Recriar o ambiente ${tenant.nome} a partir do estado-base? Os dados de demonstração criados neste tenant serão apagados.`,
+      message: pausadoAte
+        ? `O reset automático deste ambiente está pausado até ${formatProspectExpiry(pausadoAte)}. Recriar agora apaga o que os convidados fizeram até aqui — inclusive DISC, respostas e análises.`
+        : `Recriar o ambiente ${tenant.nome} a partir do estado-base? Os dados de demonstração criados neste tenant serão apagados.`,
       severity: 'danger',
       scopeNote: `Só afeta o tenant ${tenantSlug}`,
     });

@@ -125,7 +125,7 @@ export async function GET(req) {
       // falha observável no log do Vercel.
       case 'reset_demo': {
         const { cleanupExpiredDemoProspects } = await import('@/lib/demo/acme-prospect-tracking');
-        const { DEMO_TENANT_PROFILES, resetDemoTenant } = await import('@/lib/demo/reset-acme-demo');
+        const { DEMO_TENANT_PROFILES, resetDemoTenant, resetPausadoAte } = await import('@/lib/demo/reset-acme-demo');
         const { logAdminAction } = await import('@/lib/audit');
         const auditar = async (alvo, detalhes, resultado = null) => {
           try {
@@ -144,6 +144,15 @@ export async function GET(req) {
         const slugsDemo = Object.keys(DEMO_TENANT_PROFILES) as Array<keyof typeof DEMO_TENANT_PROFILES>;
         for (const slug of slugsDemo) {
           try {
+            // Pausa com data de fim (ver `resetPausadoAte`): enquanto vigora, o
+            // ambiente não é recomposto — é o que segura a experiência de um
+            // convidado nomeado, que não tem o prazo D+2 do passaporte.
+            const pausadoAte = resetPausadoAte(slug);
+            if (pausadoAte) {
+              await auditar(slug, { skipped: true, motivo: 'reset_pausado', pausadoAte }, 'parcial');
+              ambientes.push({ slug, skipped: true, motivo: 'reset_pausado', pausadoAte });
+              continue;
+            }
             const lifecycle = await cleanupExpiredDemoProspects(slug);
             if (lifecycle.activeCount > 0) {
               await auditar(slug, { skipped: true, ...lifecycle }, 'parcial');

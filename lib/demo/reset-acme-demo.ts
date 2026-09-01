@@ -282,6 +282,7 @@ export const DEMO_TENANT_PROFILES = {
     ppp: ACME_DEMO_PPP,
     valores: ACME_DEMO_VALUES,
     acessoAllowlist: null as readonly string[] | null,
+    resetPausadoAte: null as string | null,
     convidado: null as DemoConvidado | null,
     relatoriosOrganizacionais: {
       teamSize: ACME_DEMO_TEAM_SIZE,
@@ -301,6 +302,19 @@ export const DEMO_TENANT_PROFILES = {
     ppp: GRUPO_SINAL_PPP,
     valores: GRUPO_SINAL_VALUES,
     acessoAllowlist: ['alpheu.sousa@gruposinal.com'] as readonly string[],
+    // Pausa do reset noturno com DATA DE FIM (01/09/2026, a pedido do dono):
+    // o Alpheu vai percorrer a experiência nesta semana e a conversa acontece
+    // depois, então o que ele fizer precisa sobreviver às madrugadas.
+    //
+    // O adiamento normal do reset só cobre PASSAPORTE no prazo D+2 — e ele é
+    // convidado nomeado do perfil, não passaporte: sem isto, resposta, DISC e
+    // avaliação dele sumiriam às 04h e o seed o recriaria zerado.
+    //
+    // 🔑 A data é o desligamento: passado o instante abaixo (segunda, 07/09, no
+    // horário do próprio cron), o ambiente volta a ser recomposto sozinho, sem
+    // depender de alguém lembrar. Pausa sem data vira reset desligado para
+    // sempre — o modo de falha do trabalho sazonal.
+    resetPausadoAte: '2026-09-07T07:00:00.000Z' as string | null,
     convidado: {
       nome: 'Alpheu',
       email: 'alpheu.sousa@gruposinal.com',
@@ -311,6 +325,21 @@ export const DEMO_TENANT_PROFILES = {
 } as const;
 
 export type DemoTenantSlug = keyof typeof DEMO_TENANT_PROFILES;
+
+/**
+ * Até quando o reset AUTOMÁTICO deste ambiente está pausado, ou `null`.
+ *
+ * Fonte única: o cron consulta para pular, e a tela consulta para AVISAR quem
+ * clica em "Resetar" — recusar o reset manual seria beco, já que a pessoa que
+ * aperta o botão é a dona do ambiente. Ela decide sabendo o que perde.
+ */
+export function resetPausadoAte(slug: DemoTenantSlug, agora: Date = new Date()): string | null {
+  const valor = DEMO_TENANT_PROFILES[slug]?.resetPausadoAte ?? null;
+  if (!valor) return null;
+  const limite = Date.parse(valor);
+  if (!Number.isFinite(limite) || limite <= agora.getTime()) return null;
+  return valor;
+}
 
 /** Aplica somente a identidade da empresa aos artefatos congelados. */
 export function personalizarArtefatoDemo<T>(value: T, slug: DemoTenantSlug): T {
