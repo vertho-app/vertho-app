@@ -79,6 +79,14 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 ### 9. Fit v2 + Envios
 **Admin** · Fase 1 · **Fit v2** → avalia fit DISC×competência por colab
 **Admin** · Fase 1 · **Envios** → dispara WhatsApp/email com link personalizado
+- No WhatsApp não há editor de texto livre: o admin escolhe um dos templates UTILITY do catálogo.
+- A turma/empresa define o escopo; o template selecionado calcula automaticamente quem está no
+  estado correto da jornada (avaliação, PDI, trilha, semana ou pendência).
+- Cargo, votação, DISC e mapeamento são refinamentos opcionais sobre os elegíveis.
+- Antes da confirmação, o funil mostra: no escopo → elegíveis → após refinamentos → vão receber,
+  além de quem já recebeu e dos motivos de exclusão.
+- Atenção: “já recebeu” cobre o `kind` do disparo manual; a cadência registra outro `kind`. Antes de
+  reanunciar uma comunicação automática, conferir a ressalva em `docs/TEMPLATES-WHATSAPP.md` §1.
 
 ### 10. Colaborador responde diagnóstico
 **Colaborador** · link recebido por WhatsApp/email → `/dashboard/assessment`
@@ -551,6 +559,14 @@ repo; **não usar em material novo**.
 ---
 
 ## Notas de manutenção
+
+### 2026-09-01 — Envios WhatsApp com público automático
+
+- A aba WhatsApp passou a oferecer os templates semanais e de pendência no mesmo catálogo manual.
+- A elegibilidade saiu da combinação de selects e passou ao resolvedor de cada template no servidor;
+  prévia e disparo chamam o mesmo núcleo (`prepararLoteTemplate`).
+- Os filtros existentes foram preservados como refinamentos e a prévia ganhou o funil auditável do
+  público. Commit de implementação: `7d9bab95`.
 
 ### 2026-07-20/27 — Modo Personalizado, Certificado, segurança e custo
 - **Modo Personalizado** (`ec3fd527`, migration 182): o piloto virou builder (1-4 semanas, 1-2 comps, fechamento opcional) com a config **congelada na trilha**. Ver o fluxo alternativo acima.

@@ -1,13 +1,14 @@
 # Templates do WhatsApp em uso
 
-Registro operacional dos templates da Meta que estão **aprovados E ligados a algum caminho do
-app**. Decisões de categoria, copy e migração ficam em `docs/INBOX-WHATSAPP.md`; aqui é o "o que
-está no ar e com qual contrato".
+Registro operacional do estado dos templates na Meta e dos caminhos que podem consumi-los no app.
+Decisões de categoria, copy e migração ficam em `docs/INBOX-WHATSAPP.md`; aqui é o “o que está
+aprovado, o que está ligado e com qual contrato”.
 
-> **Atualizado em 16/08/2026, 21h — a fila da Meta zerou:** os 9 pendentes aprovaram entre 12:34 e
-> 19:55 (7 UTILITY, 2 MARKETING), e o webhook gravou os 9. Estado: **22 aprovados** (15 UTILITY,
-> 6 MARKETING, 1 AUTHENTICATION), **0 pendentes**, 2 rejeitados, e `correct_category` null em todos
-> — nenhuma reclassificação agendada.
+> **Atualizado em 01/09/2026 pela Graph API:** **28 aprovados** (19 UTILITY,
+> 8 MARKETING, 1 AUTHENTICATION), **1 pendente** (`encerramento_conteudo`, UTILITY provisório) e
+> 2 rejeitados. Na tela de Envios existem **16 definições manuais**, todas desenhadas como UTILITY;
+> 15 estão aprovadas e disponíveis agora, e a pendente aparece indisponível quando o catálogo vivo
+> da Meta responde.
 >
 > Fontes: Graph API da WABA (status e categoria), `CONTRATOS` em
 > `lib/notifications/pilula-template.ts` (parâmetros), `git grep` dos call-sites e
@@ -21,7 +22,7 @@ está no ar e com qual contrato".
 
 ---
 
-## 1. Os 9 que estão em uso
+## 1. Fluxos automáticos e dedicados
 
 Cada papel da cadência resolve o nome do template por env var (`ENV_DO_PAPEL` em
 `lib/notifications/pilula-template.ts`). Papel sem env var configurada fica **desligado** e o envio
@@ -59,6 +60,54 @@ Sobravam e-mail e push. E os dois templates que existiam para esse momento (`mis
 'evidencia'`. Eles têm a mesma forma e textos diferentes: trocar um pelo outro entrega a cobrança
 errada para a pessoa certa, e nada no typecheck acusaria.
 
+### Tela de Envios: 16 templates com público automático
+
+Selecionar um template em `/admin/whatsapp` **não depende de o operador reconstruir a regra de
+negócio nos selects**. A turma (ou empresa inteira com justificativa) define o universo; o servidor
+aplica a regra obrigatória do template nesse universo. Cargo, votação, DISC e mapeamento são apenas
+**refinamentos opcionais** — só estreitam os elegíveis, nunca ampliam o público.
+
+Todos exigem WhatsApp/telefone e todos os parâmetros do contrato preenchidos. Depois da regra, a
+idempotência remove quem já recebeu o mesmo template; nos templates semanais, a chave inclui a
+semana/slot, portanto uma semana não bloqueia a seguinte.
+
+| Template manual | Meta em 01/09 | Regra automática obrigatória |
+|---|---|---|
+| `boas_vindas_v2` | APPROVED/UTILITY | Está no escopo e tem WhatsApp cadastrado |
+| `avaliacao_pendente` | APPROVED/UTILITY | Cargo tem cenários e a pessoa registrou zero respostas |
+| `avaliacao_competencias` | APPROVED/UTILITY | Tem perfil comportamental, cargo/cenários/top5 configurados e zero respostas |
+| `avaliacao_parcial` | APPROVED/UTILITY | Respondeu pelo menos um cenário, mas ainda não todos |
+| `resultado_perfil` | APPROVED/UTILITY | Tem `perfil_dominante` disponível |
+| `plano_desenvolvimento` | APPROVED/UTILITY | Tem relatório `individual` em `relatorios` |
+| `trilha_liberada_v2` | APPROVED/UTILITY | A trilha mais recente está ativa e ainda não tem atividade iniciada |
+| `conteudo_semana` | APPROVED/UTILITY | Cadência/trilha ativas; semana acessível é de conteúdo e tem conteúdo configurado |
+| `missao_semana_v2` | APPROVED/UTILITY | Cadência/trilha ativas; semana acessível é de aplicação |
+| `semana_pendente_v2` | APPROVED/UTILITY | Semana acessível está atrás da semana do calendário |
+| `conteudo_semana_pendente_v3` | APPROVED/UTILITY | Está atrás do calendário e a semana acessível é de conteúdo |
+| `registro_desafio` | APPROVED/UTILITY | Semana acessível é de conteúdo, tem desafio e ainda não foi concluída |
+| `registro_evidencia` | APPROVED/UTILITY | Semana acessível é de aplicação e ainda não foi concluída |
+| `retomada_trilha` | APPROVED/UTILITY | Cadência ativa e último carimbo de envio ocorreu há pelo menos 14 dias |
+| `encerramento_conteudo` | **PENDING/UTILITY** | Trilha ativa e semana acessível anterior à avaliação final; com o catálogo Meta carregado, fica indisponível enquanto pendente |
+| `trilha_concluida` | APPROVED/UTILITY | A trilha mais recente está concluída |
+
+A prévia expõe a mesma sequência usada no disparo:
+
+1. **No escopo** — universo da turma/empresa.
+2. **Elegíveis** — passaram pela regra automática e têm parâmetros válidos.
+3. **Após refinamentos** — permaneceram depois dos filtros opcionais.
+4. **Vão receber** — não haviam recebido o slot e ficaram dentro do teto do lote.
+
+Quem sai aparece separado por motivo: fora da regra automática, removido pelos refinamentos, já
+recebeu ou adiado pelo teto. Prévia e envio chamam o mesmo núcleo
+`prepararLoteTemplate`; a action passa o universo em `colabs.escopo` e os refinados em
+`idsRefinados`, de modo que chamar o endpoint diretamente não contorna a regra.
+
+⚠️ **Idempotência manual ainda não é idempotência entre caminhos.** A tela grava/lê `kind` com o
+nome técnico do template; a cadência grava o papel (`pilula`, `evidencia`, `plano` etc.) e o script
+de boas-vindas grava `boas_vindas`. Portanto “já receberam” na prévia significa “já receberam por
+este caminho manual/mesmo `kind`”, não prova que o cron ou um script nunca enviou a mesma copy.
+Até unificar os `kind`/`dedupe_key`, um reenvio cruzado deve ser decisão consciente do operador.
+
 ### Contrato de cada um
 
 O `CONTRATOS` (mapa por **nome do template**, não por papel) é fail-closed: nome desconhecido não
@@ -74,11 +123,16 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `missao_semana_v2` | nome | semana | link **sem formato** | — | — |
 | `retomada_trilha` | nome | link | — | — | — |
 | `encerramento_conteudo` ⏳ | nome | **instituição** | link da semana acessível | — | — |
+| `avaliacao_parcial` | nome | respondidos | total | link do assessment | — |
 | `resultado_perfil` | nome | link | — | — | — |
 | `plano_desenvolvimento` | nome | link de `/dashboard/pdi` | — | — | — |
-| `recorte_demonstracao` ⏳ | nome | link do Mapa (`linkDireto`) | — | — | — |
+| `trilha_liberada_v2` | nome | competência | total de semanas | link da trilha | — |
+| `trilha_concluida` | nome | competência | total de semanas | link do resultado | — |
+| `conteudo_semana_pendente_v3` | nome | semana acessível | tema | link da semana | — |
+| `semana_pendente_v2` | nome | semana do calendário | semana pendente | — | `<slug>/<semana pendente>` |
+| `recorte_demonstracao` | nome | link do Mapa (`linkDireto`) | — | — | — |
 | `avaliacao_pendente` | nome | **instituição** | link de `/dashboard/assessment` | — | — |
-| `avaliacao_competencias` ⏳ | nome | **competência** (`top5_workshop`) | link de `/dashboard/assessment` | — | — |
+| `avaliacao_competencias` | nome | **competência** (`top5_workshop`) | link de `/dashboard/assessment` | — | — |
 | `boas_vindas_v2` | nome | **instituição** | link de `/entrar` | — | — |
 | `acesso_vertho` | *(corpo sem variável)* | | | | URL: `app.vertho.ai/entrar?t={{1}}` |
 | `otp_acesso` | código | — | — | — | COPY_CODE nativo |
@@ -92,20 +146,20 @@ pílulas anunciando "vídeo" numa semana sem vídeo.
 
 🔑 **Contrato ≠ preenchimento.** O `CONTRATOS` diz a ORDEM dos parâmetros; quem diz de ONDE sai cada
 valor é o mapa `RESOLVEDORES` em `lib/notifications/envio-template-lote.ts` — e os dois são
-necessários, porque `{{2}}` é *instituição* num template e *competência* noutro. Só os cinco com
-resolvedor aparecem na tela de Envios (`avaliacao_competencias`, `avaliacao_pendente`,
-`boas_vindas_v2`, `resultado_perfil`, `plano_desenvolvimento`).
+necessários, porque `{{2}}` é *instituição* num template e *competência* noutro. Os **16** com
+resolvedor manual aparecem na tela. Os semanais usam a mesma semana acessível, plano e progresso da
+cadência canônica; não há uma segunda régua inventada pela interface.
 
-Ficam **fora da tela por decisão**: os da CADÊNCIA (dependem de semana/tema/formato da trilha e têm
-dono — o cron; disparar à mão anunciaria uma semana que o motor não considera entregue),
-`acesso_vertho`/`otp_acesso` (carregam CREDENCIAL, gerada por pessoa — o caminho é o botão de magic
-link) e `recorte_demonstracao` (destinatário é lead, não colaborador).
+Ficam **fora da tela por decisão**: `acesso_vertho`/`otp_acesso` (carregam CREDENCIAL, gerada por
+pessoa — o caminho é o botão de magic link) e `recorte_demonstracao` (destinatário é lead, não
+colaborador).
 
 ---
 
-## 2. Aprovados e NÃO usados
+## 2. Aprovados sem uso e evolução dos consumidores
 
-Aprovado não é o mesmo que ligado. Estes existem na conta e nenhum caminho do app os chama:
+Aprovado não é o mesmo que ligado. A primeira lista existe na conta e nenhum caminho do app a
+chama; a §2.1 registra os que saíram desse estado desde 16/08:
 
 | Template | Cat. | Por que está fora |
 |---|---|---|
@@ -118,20 +172,21 @@ Aprovado não é o mesmo que ligado. Estes existem na conta e nenhum caminho do 
 | `boas_vindas` | UTILITY | Da fase Z-API. Sem contrato; o convite hoje sai por `acesso_vertho` |
 | `hello_world` | UTILITY | Amostra da Meta |
 
-### 2.1 Aprovados UTILITY e ainda **sem consumidor** (16/08)
+### 2.1 Os antigos “sem consumidor” agora têm disparo deliberado (01/09)
 
-Estes saíram da fila hoje e **não enviam nada**: o `CONTRATOS` é fail-closed, então template sem
-contrato simplesmente não sai. Cada um precisa de contrato + papel + env var, e — o que custa mais
-pensar — a decisão de **quando** dispara.
+Os seis que estavam sem fiação em 16/08 hoje têm contrato e resolvedor. Alguns também ganharam
+cron/script; **todos** podem ser disparados deliberadamente pela tela de Envios, sempre depois da
+prévia do público automático. Ter consumidor manual não cria agendamento: `trilha_concluida`, por
+exemplo, continua saindo apenas quando um humano escolhe e confirma o lote.
 
-| Template | Momento | `{{n}}` | Nota |
-|---|---|---|---|
-| `trilha_liberada_v2` | Trilha liberada para a pessoa | nome · área · nº de semanas · link | Substitui o `trilha_liberada` (MARKETING) |
-| `trilha_concluida` | Fim das 7 semanas | nome · área · nº de semanas · link do resultado | ⚠️ O dono pediu que **não** dispare sozinho sem aprovação dele |
-| ~~`plano_desenvolvimento`~~ | — | — | ✅ **LIGADO em 16/08** (papel `plano`). Ver §1 |
-| ~~`avaliacao_pendente`~~ | — | — | ✅ **LIGADO em 19/08** — `scripts/_convite-avaliacao.ts` e a tela de Envios. Ver §1 |
-| `avaliacao_parcial` | Assessment parcial | nome · respondidos · total · link | O par `{{2}}`/`{{3}}` exige contar cenários — não é só um link |
-| ~~`boas_vindas_v2`~~ | — | — | ✅ **LIGADO** — `scripts/_boas-vindas-turma.ts` e a tela de Envios. Segue sendo o momento mais arriscado: 1ª mensagem, de um número desconhecido |
+| Template | Consumidor atual | Regra que impede público errado |
+|---|---|---|
+| `trilha_liberada_v2` | Tela de Envios | Trilha ativa e ainda não iniciada |
+| `trilha_concluida` | Tela de Envios | Trilha mais recente concluída |
+| `plano_desenvolvimento` | Cron + tela de Envios | Relatório individual/PDI existente |
+| `avaliacao_pendente` | Script + tela de Envios | Cenários configurados e zero respostas |
+| `avaliacao_parcial` | Tela de Envios | Progresso estritamente entre zero e o total |
+| `boas_vindas_v2` | Script + tela de Envios | Escopo explícito, WhatsApp e idempotência por template |
 
 🔑 **Aprovar não é ligar, e ligar não é disparar.** Foram esses dois degraus que deixaram
 `resultado_perfil` aprovado e sem consumidor por semanas, com ~120 pessoas sem saber que o
@@ -204,11 +259,12 @@ O que JÁ é tratado e grava em `whatsapp_template_eventos`: `message_template_s
 ⚠️ Mesmo assim a tabela **não é registro completo** — em 14/08 a API mostrava 6 reclassificações e a
 tabela guardou 2. Para categoria, a fonte é a API.
 
-## 3.2 O texto de cada template aprovado
+## 3.2 O texto observado na Meta
 
-Copiado da Graph API em 17/08/2026 — é o corpo **aprovado**, não o que o código acha que manda.
-Serve para revisar copy sem abrir o WhatsApp Manager, e para conferir o `CONTRATOS` `{{n}}` a `{{n}}`
-antes de ligar qualquer papel.
+Copiado e reconferido na Graph API até 01/09/2026 — é o corpo observado na conta, não o que o
+código acha que manda. Serve para revisar copy sem abrir o WhatsApp Manager e para conferir o
+`CONTRATOS` `{{n}}` a `{{n}}` antes de ligar qualquer papel. O
+`encerramento_conteudo` está marcado PENDING; os demais desta seção estão aprovados.
 
 ⚠️ Ao editar copy aqui, lembre que **o texto é o que define a categoria**: nome do produto, urgência,
 pergunta engajadora, entusiasmo e reengajamento puxam para MARKETING (6× o custo). O que passa como
@@ -323,7 +379,10 @@ fixa não cabe em template reutilizável, e prazo é o que empurra a copy para o
 
 ---
 
-### Aprovados UTILITY, sem consumidor (§2.1)
+### Templates de disparo deliberado (§2.1)
+
+Os corpos abaixo estão aprovados e disponíveis na tela; “deliberado” significa que não existe um
+cron próprio para esse momento. A regra automática descrita no §1 é aplicada antes de cada lote.
 
 **`trilha_liberada_v2`**
 
@@ -466,7 +525,13 @@ papel desligado aparece como `(desligado)`, que é o caso que o silêncio escond
 
 ---
 
-## 5. Fila da Meta (30/08)
+## 5. Estado da Meta (01/09) e histórico da fila de 30/08
+
+Consulta atual: `conteudo_semana_pendente` e `_v2` terminaram
+**APPROVED/MARKETING**; `conteudo_semana_pendente_v3` terminou
+**APPROVED/UTILITY**. O único pendente da conta é `encerramento_conteudo`
+(PENDING/UTILITY provisório). Abaixo fica o histórico da rodada porque ele registra por que o v3
+removeu o botão e qual sinal de categoria foi observado.
 
 ⏳ **`conteudo_semana_pendente`** — submetido 30/08/2026 (`id=4542094136055090`). A SEGUNDA de quem
 está travado: afirma o conteúdo da semana (com tema e botão para o formato) **e** que ela continua
@@ -513,17 +578,13 @@ seja, a cadência roda no UTILITY e não há custo de 6× correndo. Mas basta al
 `WHATSAPP_TEMPLATE_PILULA` para "o desenho novo" e a mensagem de MAIOR volume da operação passa a
 custar 6× sem nenhum sintoma. Ligar só depois de conferir a categoria na Meta.
 
-Os três seguem `PENDING`/`MARKETING`/`MARKETING`: o veredito final só vale quando sair `APPROVED`.
-v1 e v2 compartilham o montador em `CONTRATOS`; o v3 tem contrato PRÓPRIO (4 variáveis, link em
-`{{4}}`), então trocar a env entre v3 e os irmãos exige o par certo — travado em
-`tests/unit/p1-conteudo-pendente.test.ts`, validado por mutação.
+O veredito final confirmou o experimento: v1/v2 ficaram MARKETING e o v3, com link no corpo, ficou
+UTILITY. v1 e v2 compartilham um montador; o v3 tem contrato PRÓPRIO — quatro variáveis, link em
+`{{4}}` e **sem botão**. Trocar a env entre v3 e os irmãos exige o contrato correspondente, travado
+em `tests/unit/p1-conteudo-pendente.test.ts`.
 
-**Se o v3 também voltar MARKETING**, a leitura é que conteúdo + cobrança não passa nesta conta, e a
-saída que não depende de ninguém é usar o `semana_pendente_v2` (APPROVED/UTILITY) na segunda-feira.
-Papel `conteudo_pendente` · `WHATSAPP_TEMPLATE_CONTEUDO_PENDENTE` (ainda **não gravada** — o código
-está no ar desligado, e `templateAtivo` é fail-closed sem ela).
-Contrato: `{{1}}`=nome, `{{2}}`=semana **ACESSÍVEL**, `{{3}}`=tema; botão
-`<slug>/<semana>/<formato>/<pílula>`.
+Papel `conteudo_pendente` · `WHATSAPP_TEMPLATE_CONTEUDO_PENDENTE`. Contrato do v3:
+`{{1}}`=nome, `{{2}}`=semana **ACESSÍVEL**, `{{3}}`=tema, `{{4}}`=link da semana no corpo.
 
 ⚠️ **A semana aqui é a ACESSÍVEL — o oposto do `semana_pendente_v2`**, onde `{{2}}` é o calendário.
 Quem está travado tem conteúdo e pendência na MESMA semana, e é isso que permite dizer as duas coisas

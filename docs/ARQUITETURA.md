@@ -151,8 +151,12 @@ semana, carimbo de pilula por canal), 182 (Modo Personalizado), 183 (DISC contex
 
 **Canal e entrega**
 - **WhatsApp Cloud API** no ar (14/08) — número, webhook e status real de entrega
-  (`lib/whatsapp/cloud-api.ts`). O legado Z-API/WaSender ainda leva a cadência enquanto os
-  templates não aprovam. Detalhe: `docs/INBOX-WHATSAPP.md` e `docs/TEMPLATES-WHATSAPP.md`.
+  (`lib/whatsapp/cloud-api.ts`). A cadência e os lotes manuais preferem templates aprovados; o
+  legado Z-API/WaSender permanece como fallback dos papéis sem template/env ligado. Detalhe:
+  `docs/INBOX-WHATSAPP.md` e `docs/TEMPLATES-WHATSAPP.md`.
+- **Envios por público automático** (01/09) — na aba WhatsApp, a turma/empresa define o universo,
+  o template aplica a regra obrigatória no servidor e cargo/votação/DISC/mapeamento apenas refinam
+  o resultado. A prévia mostra o funil até o lote final.
 - **Cadência v2/v3** — o sinal era o BOTÃO, não a copy: link no corpo da mensagem.
 - **Caixa de entrada do WhatsApp** — caixa da EQUIPE, com associação e reprocessamento.
 
@@ -990,8 +994,8 @@ Documentacao detalhada: **`docs/rag-architecture.md`**.
 - **Cloud API** (`lib/whatsapp/cloud-api.ts`) — oficial, com status de entrega. ⚠️ Disparo por
   **template aprovado**: a categoria da Meta é PROVISÓRIA até `APPROVED` e MARKETING custa
   **6×** UTILITY. Ver `docs/TEMPLATES-WHATSAPP.md`.
-- **Legado Z-API/WaSender** (`lib/whatsapp`) — ainda leva a **cadência** enquanto os templates
-  não aprovam. Dispatch async com delay incremental (a cadência real vive em
+- **Legado Z-API/WaSender** (`lib/whatsapp`) — fallback para papéis sem template aprovado/env
+  ligado. Dispatch async com delay incremental (a cadência real vive em
   `lib/whatsapp/cadencia.ts`, não em “2s” fixo — 155 envios a 2s derrubaram o número em
   1min47 no incidente de 11/08).
 
@@ -999,6 +1003,27 @@ Documentacao detalhada: **`docs/rag-architecture.md`**.
 barraria o envio pela saúde do provedor **morto**. Detalhe: `docs/INBOX-WHATSAPP.md`.
 
 Status: ✅ operacional (Cloud API + legado).
+
+#### Envios manuais por template
+
+`/admin/whatsapp` não monta texto livre para WhatsApp. O catálogo manual vem dos resolvedores de
+`lib/notifications/envio-template-lote.ts`; em 01/09 são 16 definições UTILITY, 15 aprovadas e uma
+pendente na Meta. O fluxo é:
+
+```
+turma/empresa → regra automática do template → refinamentos opcionais → idempotência/teto → QStash
+```
+
+`previewTemplateWhatsApp` e `dispararTemplateWhatsApp` passam pelo mesmo
+`prepararLoteTemplate`. A action conserva duas coleções: `escopo` (universo que a regra deve
+avaliar) e `lista` (ids restantes depois de cargo/votação/DISC/mapeamento). O núcleo calcula a
+elegibilidade no universo inteiro e só então cruza os ids refinados; por isso a action de disparo
+não consegue ampliar o público mostrado na prévia nem contornar a regra do template.
+
+A prévia separa `totalNoEscopo`, `elegiveisPeloTemplate`, `aposRefinamentos`, `jaReceberam` e o
+total que será enfileirado. `jaReceberam` usa hoje o `kind` do caminho manual; a cadência usa o
+papel (`pilula`, `plano` etc.), portanto a idempotência entre caminhos ainda não é unificada.
+Regras, contratos e essa ressalva: `docs/TEMPLATES-WHATSAPP.md` §1.
 
 ### 6.2 Email — Resend API
 Dispatch de formularios e relatorios. Status: 🔑 RESEND_API_KEY.
