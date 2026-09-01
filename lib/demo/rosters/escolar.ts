@@ -356,7 +356,12 @@ export const ROSTER_ESCOLAR: DemoRoster = {
   cargoPrincipalTop5: [],
   cargoPrincipalFoco: [],
   cargosExcluidosDoFixture: new Set<string>(),
-  cargosConstruidos: CARGOS_ESCOLARES,
+  // Vazio de propósito: desde que o golden foi congelado, os cargos escolares
+  // vêm dele — com gabarito, régua e cenários auditados juntos, e sem repetir a
+  // geração de IA a cada reset. `CARGOS_ESCOLARES` segue exportado porque é a
+  // declaração de origem: foi dele que o tenant nasceu, e é dele que um
+  // ambiente escolar NOVO nasceria antes de ter golden próprio.
+  cargosConstruidos: [],
   personas: PERSONAS_ESCOLARES,
   administradora: DIRECAO_PERSONA,
   salaApresentacao: SALA_ESCOLAR.map((acesso) => ({ ...acesso })),
@@ -365,5 +370,10 @@ export const ROSTER_ESCOLAR: DemoRoster = {
     forte: (competencia) => respostaEscolarForte(competencia),
   },
   descritores: (reguaEscolar as any).descritores as Record<string, DemoRosterDescritor[]>,
+  // Jornada de 7 semanas, uma competência — o formato da escola. O default do
+  // produto (DUO, 14 semanas) cobre outra competência além da avaliada, e a
+  // trilha recusa nascer sem conteúdo para ela: numa rede onde o acervo docente
+  // está começando, isso significa não nascer.
+  programaModo: 'jornada',
   unidades: UNIDADES_ESCOLARES.map((unidade) => ({ ...unidade })),
 };

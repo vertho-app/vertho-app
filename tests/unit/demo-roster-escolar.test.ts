@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ROSTER_COMERCIAL, ROSTER_ESCOLAR } from '@/lib/demo/rosters';
-import { UNIDADES_ESCOLARES } from '@/lib/demo/rosters/escolar';
+import { CARGOS_ESCOLARES, UNIDADES_ESCOLARES } from '@/lib/demo/rosters/escolar';
 import { deriveProfile } from '@/lib/disc-mapeamento';
 
 /**
@@ -10,9 +10,13 @@ import { deriveProfile } from '@/lib/disc-mapeamento';
  * segmento e não só para descrever o primeiro.
  */
 
-const cargosDoRoster = new Set(ROSTER_ESCOLAR.cargosConstruidos.map((cargo) => cargo.nome));
+// Desde que o golden foi congelado, os cargos escolares vêm do fixture — mas a
+// DECLARAÇÃO de origem (`CARGOS_ESCOLARES`) segue sendo o que descreve o
+// segmento, e é dela que um ambiente escolar novo nasceria. As invariantes de
+// conteúdo continuam valendo sobre ela.
+const cargosDoRoster = new Set(CARGOS_ESCOLARES.map((cargo) => cargo.nome));
 const competenciasPorCargo = new Map(
-  ROSTER_ESCOLAR.cargosConstruidos.map((cargo) =>
+  CARGOS_ESCOLARES.map((cargo) =>
     [cargo.nome, cargo.competencias.map(([nome]) => nome)] as [string, string[]]),
 );
 
@@ -21,10 +25,13 @@ describe('roster escolar: a Rede de Escolas ACME', () => {
     // Dois: professor e coordenação. A direção administra o programa (papel
     // `rh`) e não percorre jornada, então não tem matriz — cargo sem
     // participante apareceria vazio no ranking.
-    expect(ROSTER_ESCOLAR.cargosConstruidos).toHaveLength(2);
-    const prefixos = ROSTER_ESCOLAR.cargosConstruidos.map((cargo) => cargo.codPrefix);
+    expect(CARGOS_ESCOLARES).toHaveLength(2);
+    // O roster não os CONSTRÓI mais: eles vêm do golden congelado, com gabarito
+    // e cenários auditados juntos.
+    expect(ROSTER_ESCOLAR.cargosConstruidos).toHaveLength(0);
+    const prefixos = CARGOS_ESCOLARES.map((cargo) => cargo.codPrefix);
     expect(new Set(prefixos).size).toBe(prefixos.length);
-    for (const cargo of ROSTER_ESCOLAR.cargosConstruidos) {
+    for (const cargo of CARGOS_ESCOLARES) {
       expect(cargo.codPrefix).toMatch(/^[A-Z]{3}$/);
       expect(cargo.competencias).toHaveLength(5);
       for (const [nome, descricao] of cargo.competencias) {
@@ -40,7 +47,7 @@ describe('roster escolar: a Rede de Escolas ACME', () => {
   it('não herdaria da derivação por nome os prefixos que declara', () => {
     const antigo = (nome: string) => (nome.startsWith('Analista') ? 'FIN'
       : nome.startsWith('Coordenador') ? 'OPS' : 'GER');
-    for (const cargo of ROSTER_ESCOLAR.cargosConstruidos) {
+    for (const cargo of CARGOS_ESCOLARES) {
       expect(antigo(cargo.nome), `${cargo.nome} coincidiria por acaso`).not.toBe(cargo.codPrefix);
     }
   });
@@ -61,7 +68,7 @@ describe('roster escolar: a Rede de Escolas ACME', () => {
   });
 
   it('o foco de cada cargo é uma competência dele', () => {
-    for (const cargo of ROSTER_ESCOLAR.cargosConstruidos) {
+    for (const cargo of CARGOS_ESCOLARES) {
       expect(cargo.competencias_foco.length).toBeGreaterThan(0);
       for (const foco of cargo.competencias_foco) {
         expect(competenciasPorCargo.get(cargo.nome)).toContain(foco);
@@ -210,7 +217,7 @@ describe('roster escolar: a Rede de Escolas ACME', () => {
    */
   it('toda competência tem régua própria, com seis descritores', () => {
     expect(ROSTER_ESCOLAR.descritores).toBeDefined();
-    for (const cargo of ROSTER_ESCOLAR.cargosConstruidos) {
+    for (const cargo of CARGOS_ESCOLARES) {
       for (const [competencia] of cargo.competencias) {
         const regua = ROSTER_ESCOLAR.descritores![`${cargo.nome}::${competencia}`];
         expect(regua, `sem régua: ${cargo.nome} · ${competencia}`).toBeDefined();

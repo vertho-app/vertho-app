@@ -17,6 +17,11 @@ import fixture from '@/lib/demo/acme-demo-fixture.json';
 // gabaritos (IA2) + cenários ricos com rubrica N1-N4 (IA3). Gerados 1x no
 // acme-demo (scripts/_capture-*) e replicados no reset SEM rodar IA.
 import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
+// Golden da Rede de Escolas ACME: cargos COM gabarito, competências com a régua
+// real, cenários auditados e os artefatos das personas (respostas avaliadas,
+// assessments, relatórios e a trilha). Capturado por
+// `scripts/capture-acme-fixture.mjs --source=escolas-acme --demo=escolas-acme`.
+import fixtureEscolas from '@/lib/demo/escolas-demo-fixture.json';
 import {
   ACME_DEMO_BEHIND_KEYS,
   ACME_DEMO_CONCLUDED_KEYS,
@@ -304,19 +309,18 @@ export const DEMO_TENANT_PROFILES = {
     marca: 'Rede de Escolas ACME',
     segmento: 'educacao',
     roster: 'escolar' as DemoRosterKey,
-    fixture: null as DemoFixtureKey,
+    fixture: 'escolas' as DemoFixtureKey,
     loginSubtitle: 'Ambiente de demonstração da jornada Vertho para redes de ensino',
     logoUrl: null,
     pppNome: 'Rede de Escolas ACME — Projeto Político-Pedagógico',
     ppp: PPP_REDE_ESCOLAS_ACME,
     valores: VALORES_REDE_ESCOLAS_ACME,
     acessoAllowlist: null as readonly string[] | null,
-    // 🔴 PAUSA COM DATA DE FIM enquanto o golden não está congelado. O reset
-    // apaga `cargos_empresa` e `banco_cenarios`, e o conteúdo de IA deste
-    // ambiente (gabaritos e cenários) ainda vive SÓ no banco — sem a pausa, o
-    // cron das 4h apagaria de madrugada o que a geração pagou. Sai quando o
-    // fixture escolar estiver commitado, e não depois.
-    resetPausadoAte: '2026-09-08T07:00:00.000Z' as string | null,
+    // Pausa DESLIGADA em 01/09, quando o golden foi congelado: agora o reset
+    // reconstrói gabaritos, avaliações, relatórios e a trilha a partir do
+    // fixture, sem rodar IA. Enquanto o conteúdo vivia só no banco, a pausa era
+    // o que impedia o cron das 4h de apagar o que a geração pagou.
+    resetPausadoAte: null as string | null,
     convidado: null as DemoConvidado | null,
   },
   [GRUPO_SINAL_SLUG]: {
@@ -359,7 +363,7 @@ export type DemoTenantSlug = keyof typeof DEMO_TENANT_PROFILES;
  * De onde vem a ESTRUTURA do ambiente. `'acme'` semeia o fixture congelado do
  * tenant comercial; `null` é o ambiente cujos cargos nascem todos do roster.
  */
-export type DemoFixtureKey = 'acme' | null;
+export type DemoFixtureKey = 'acme' | 'escolas' | null;
 
 /**
  * Até quando o reset AUTOMÁTICO deste ambiente está pausado, ou `null`.
@@ -634,14 +638,16 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   // um tenant vivo) é do ambiente, não do motor. Quem tem todos os cargos
   // construídos no roster não herda estrutura de ninguém, e semear o fixture
   // comercial ali plantaria Representante Comercial numa rede de escolas.
-  const fx: any = profile.fixture === 'acme' ? (fixture as any) : {
-    empresa: {},
-    competencias: [],
-    cargos: [],
-    top10: [],
-    cenarios: [],
-    personaArtifacts: {},
-  };
+  const fx: any = profile.fixture === 'acme' ? (fixture as any)
+    : profile.fixture === 'escolas' ? (fixtureEscolas as any)
+    : {
+      empresa: {},
+      competencias: [],
+      cargos: [],
+      top10: [],
+      cenarios: [],
+      personaArtifacts: {},
+    };
   const brand = <T,>(value: T): T => personalizarArtefatoDemo(value, slug);
 
   async function must(label: string, promise: any) {
@@ -1265,6 +1271,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         disc_resultados: semPerfil ? null : { demo: true, estado_demo: p.scenario },
         report_texts: reportTexts,
         report_generated_at: reportTexts ? new Date().toISOString() : null,
+        ...(roster.programaModo ? { programa_modo: roster.programaModo } : {}),
       }).select('id').single());
       idMap.set(p.key, inserted.id);
     }

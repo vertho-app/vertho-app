@@ -145,6 +145,13 @@ export type DemoRoster = {
    */
   descritores?: Record<string, DemoRosterDescritor[]>;
   /**
+   * Modo do programa das personas (`colaboradores.programa_modo`). O default do
+   * produto é o DUO de 14 semanas, que cobre MAIS DE UMA competência — e uma
+   * trilha só nasce se todas elas tiverem conteúdo. Numa escola o formato é a
+   * jornada de 7 semanas, com uma competência.
+   */
+  programaModo?: string;
+  /**
    * Unidades da organização (as escolas de uma rede). Ausente num elenco de
    * empresa única, onde a área do colaborador já basta.
    */
