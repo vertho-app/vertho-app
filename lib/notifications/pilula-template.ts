@@ -63,6 +63,14 @@ export interface PilulaTemplateArgs {
    * faria a mensagem prometer uma competência e a tela abrir outra.
    */
   competencia?: string | null;
+  /** Quantas competências/cenários a pessoa já respondeu no assessment. */
+  avaliacaoRespondidas?: number | null;
+  /** Total de competências/cenários esperados para o cargo da pessoa. */
+  avaliacaoTotal?: number | null;
+  /** Competência (ou conjunto de competências) anunciada pela trilha. */
+  competenciaTrilha?: string | null;
+  /** Duração real da trilha, derivada do `temporada_plano`. */
+  totalSemanas?: number | null;
   /**
    * Semana que precisa ser CONCLUÍDA para destravar — só para `pendencia`.
    *
@@ -420,6 +428,39 @@ const CONTRATOS: Record<string, MontarParams> = {
    */
   avaliacao_competencias: (a) => ({
     params: [a.nome, a.competencia || '', `${a.baseUrl}/dashboard/assessment`],
+    botaoParam: null,
+  }),
+
+  /** Assessment iniciado e ainda incompleto. APPROVED/UTILITY em 15/08/2026. */
+  avaliacao_parcial: (a) => ({
+    params: [
+      a.nome,
+      String(a.avaliacaoRespondidas ?? ''),
+      String(a.avaliacaoTotal ?? ''),
+      `${a.baseUrl}/dashboard/assessment`,
+    ],
+    botaoParam: null,
+  }),
+
+  /** Trilha pronta para começar. APPROVED/UTILITY; duração vem do plano real. */
+  trilha_liberada_v2: (a) => ({
+    params: [
+      a.nome,
+      a.competenciaTrilha || '',
+      String(a.totalSemanas ?? ''),
+      `${a.baseUrl}/dashboard/temporada`,
+    ],
+    botaoParam: null,
+  }),
+
+  /** Fechamento da trilha. APPROVED/UTILITY; não promete certificado. */
+  trilha_concluida: (a) => ({
+    params: [
+      a.nome,
+      a.competenciaTrilha || '',
+      String(a.totalSemanas ?? ''),
+      `${a.baseUrl}/dashboard/temporada`,
+    ],
     botaoParam: null,
   }),
 

@@ -5,24 +5,21 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
-  Loader2, Send, ChevronDown, CheckCircle, AlertCircle,
-  Mail, MessageCircle, FileBarChart, Filter, Eye, Tag, Users,
-  Paperclip, FileText, X,
+  Loader2, Send, CheckCircle, AlertCircle, Mail, MessageCircle,
+  Filter, Eye, Tag, Users, Paperclip, FileText, X, ShieldCheck,
+  Workflow,
 } from 'lucide-react';
-import { loadEmpresas, loadWhatsappStatus, loadColaboradoresEnvio, loadTurmasEnvio, dispararMensagemCustomizada, enviarMagicLinksWhatsApp, listarTemplatesDeEnvio, previewTemplateWhatsApp, dispararTemplateWhatsApp } from './actions';
+import { loadEmpresas, loadColaboradoresEnvio, loadTurmasEnvio, dispararMensagemCustomizada, enviarMagicLinksWhatsApp, listarTemplatesDeEnvio, previewTemplateWhatsApp, dispararTemplateWhatsApp } from './actions';
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
-import { dispararLinksCIS, dispararRelatoriosLote } from '@/actions/whatsapp-lote';
-import { dispararEmails } from '@/actions/fase2';
 import { Key } from 'lucide-react';
 
 const TABS = [
   { key: 'magic-link', labelKey: 'tabs.magicLink', icon: Key, color: 'text-teal-400' },
   { key: 'email', labelKey: 'tabs.emailInvites', icon: Mail, color: 'text-blue-400' },
-  { key: 'whatsapp', labelKey: 'tabs.whatsappInvites', icon: MessageCircle, color: 'text-green-400' },
+  { key: 'whatsapp', labelKey: 'tabs.whatsappTemplates', icon: MessageCircle, color: 'text-green-400' },
   { key: 'relatorios-email', labelKey: 'tabs.emailReports', icon: Mail, color: 'text-purple-400' },
-  { key: 'relatorios-whatsapp', labelKey: 'tabs.whatsappReports', icon: MessageCircle, color: 'text-purple-400' },
 ];
 
 /**
@@ -40,31 +37,6 @@ const VARIAVEIS = [
   { tag: '{{link_disc}}', label: 'Link DISC', exemplo: 'https://ibipeba.vertho.ai/dashboard/perfil-comportamental/mapeamento' },
 ];
 
-const DEFAULT_MSGS = {
-  email: `Olá {{nome}}!
-
-Você foi convidado(a) para participar da avaliação de competências da *{{empresa}}*.
-
-Acesse pelo link abaixo:
-{{link}}`,
-  whatsapp: `Olá {{nome}}!
-
-Você foi convidado(a) para a avaliação de competências da *{{empresa}}*.
-
-Acesse: {{link}}`,
-  'relatorios-email': `Olá {{nome}}!
-
-Seu relatório individual de competências da *{{empresa}}* está disponível.
-
-Acesse pelo link abaixo para visualizar:
-{{link}}`,
-  'relatorios-whatsapp': `Olá {{nome}}!
-
-Seu relatório de competências da *{{empresa}}* está pronto.
-
-Acesse: {{link}}`,
-};
-
 export default function EnviosPage() {
   const router = useRouter();
   const t = useTranslations('AdminWhatsapp');
@@ -74,15 +46,12 @@ export default function EnviosPage() {
   const { empresaId: empresaParam } = useEmpresaContexto();
   const defaultMsgs = {
     email: t('defaultMessages.email'),
-    whatsapp: t('defaultMessages.whatsapp'),
     'relatorios-email': t('defaultMessages.reportEmail'),
-    'relatorios-whatsapp': t('defaultMessages.reportWhatsapp'),
   };
 
   const [empresas, setEmpresas] = useState([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
   const [empresaNome, setEmpresaNome] = useState('');
-  const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingStatus, setLoadingStatus] = useState(false);
 
@@ -152,10 +121,36 @@ export default function EnviosPage() {
   // A aba deixou de ter editor: fora da janela de 24h a Meta só entrega
   // template aprovado, e o provedor de texto livre não entrega desde 13/08.
   const [templates, setTemplates] = useState<any[]>([]);
+  const [catalogoTemplates, setCatalogoTemplates] = useState<any[]>([]);
+  const [catalogoFonte, setCatalogoFonte] = useState<'meta' | 'local'>('local');
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [templatesError, setTemplatesError] = useState('');
   const [templateSel, setTemplateSel] = useState('');
   const [previewLote, setPreviewLote] = useState<any>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const templateAtual = templates.find((x) => x.template === templateSel) || null;
+  const templatesPorEtapa = templates.reduce((grupos: Record<string, any[]>, tp: any) => {
+    const etapa = tp.etapa || t('templateMode.otherStage');
+    (grupos[etapa] ||= []).push(tp);
+    return grupos;
+  }, {});
+  const catalogoAprovados = catalogoFonte === 'meta'
+    ? catalogoTemplates.filter((tp: any) => tp.status === 'APPROVED').length
+    : templates.filter((tp: any) => tp.disponivel !== false).length;
+  const corpoTemplatePreview = (() => {
+    // `templateAtual.corpo` vem da Meta quando ela respondeu; a prévia do lote
+    // traz o fallback local. A ordem garante que a tela mostre o aprovado real.
+    const corpo = templateAtual?.corpo || previewLote?.corpo || '';
+    if (!corpo) return '';
+    if (previewLote?.amostra?.[0]) {
+      return corpo.replace(/\{\{(\d+)\}\}/g, (_m: string, n: string) =>
+        previewLote.amostra[0].params[Number(n) - 1] ?? `{{${n}}}`);
+    }
+    return corpo.replace(/\{\{(\d+)\}\}/g, (_m: string, n: string) => {
+      const variavel = templateAtual?.variaveis?.[Number(n) - 1];
+      return variavel ? `[${variavel}]` : `{{${n}}}`;
+    });
+  })();
 
   // Colaboradores para contagem
   const [colabs, setColabs] = useState([]);
@@ -192,11 +187,21 @@ export default function EnviosPage() {
   useEffect(() => {
     if (tab !== 'whatsapp' || templates.length) return;
     listarTemplatesDeEnvio().then((r: any) => {
-      if (!r?.success) return;
-      setTemplates(r.data || []);
-      if (!templateSel && r.data?.length) setTemplateSel(r.data[0].template);
+      if (!r?.success) {
+        setTemplatesError(r?.error || t('templateMode.loadError'));
+        setLoadingTemplates(false);
+        return;
+      }
+      const disponiveis = r.data || [];
+      setTemplates(disponiveis);
+      setCatalogoTemplates(r.catalogo || disponiveis);
+      setCatalogoFonte(r.catalogoFonte === 'meta' ? 'meta' : 'local');
+      if (!templateSel && disponiveis.length) {
+        setTemplateSel(disponiveis.find((tp: any) => tp.disponivel !== false)?.template || disponiveis[0].template);
+      }
+      setLoadingTemplates(false);
     });
-  }, [tab]);
+  }, [tab, templates.length, templateSel, t]);
 
   /*
    * Prévia do lote a cada mudança de template ou de filtro.
@@ -228,14 +233,12 @@ export default function EnviosPage() {
     // encontrada nesta empresa") — pior, com cara de bug da tela.
     setEscopo('');
     setJustificativa('');
-    if (!id) { setStatus(null); setColabs([]); setTurmas([]); return; }
+    if (!id) { setColabs([]); setTurmas([]); return; }
     setLoadingStatus(true);
-    const [s, c, t] = await Promise.all([
-      loadWhatsappStatus(id),
+    const [c, t] = await Promise.all([
       loadColaboradoresEnvio(id),
       loadTurmasEnvio(id),
     ]);
-    if (s.success) setStatus(s.data);
     setColabs(c || []);
     setCargos([...new Set((c || []).map(x => x.cargo).filter(Boolean))].sort());
     setTurmas((t as any)?.success ? ((t as any).data || []) : []);
@@ -257,7 +260,7 @@ export default function EnviosPage() {
     if (filtroDisc === 'nao' && c.temDisc) return false;
     if (filtroMapeamento === 'completo' && !c.temMapeamento) return false;
     if (filtroMapeamento === 'pendente' && c.temMapeamento) return false;
-    if (tab === 'whatsapp' || tab === 'relatorios-whatsapp') return !!c.telefone;
+    if (tab === 'whatsapp') return !!c.telefone;
     return !!c.email;
   });
 
@@ -359,7 +362,7 @@ export default function EnviosPage() {
     if (tab === 'whatsapp') return handleDispararTemplate();
     if (!empresaId || !mensagem.trim() || escopoPendente) return;
 
-    const canal = (tab === 'email' || tab === 'relatorios-email') ? 'email' : 'whatsapp';
+    const canal = 'email';
     const total = destinatarios.length;
     const canalLabel = canal === 'email' ? 'EMAIL' : 'WHATSAPP';
     const ok = await confirmDialog({
@@ -377,13 +380,11 @@ export default function EnviosPage() {
     if (filtroVoto !== 'todos') filtros.voto = filtroVoto;
     if (filtroDisc !== 'todos') filtros.disc = filtroDisc;
     if (filtroMapeamento !== 'todos') filtros.mapeamento = filtroMapeamento;
-    const isRel = tab === 'relatorios-email' || tab === 'relatorios-whatsapp';
+    const isRel = tab === 'relatorios-email';
     const r = await dispararMensagemCustomizada(empresaId, mensagem, canal, filtros, assunto, isRel && anexarPDF, anexoExtra);
 
     setResult(r);
     setSending(false);
-    const s = await loadWhatsappStatus(empresaId);
-    if (s.success) setStatus(s.data);
   }
 
   /**
@@ -439,14 +440,14 @@ export default function EnviosPage() {
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
   return (
-    <div className="max-w-[1100px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
+    <div className="max-w-[1180px] mx-auto px-4 py-6 sm:px-6" style={{ minHeight: '100dvh' }}>
       <BackButton onClick={() => router.push(empresaParam ? `/admin/empresas/${empresaParam}` : '/admin/dashboard')} />
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2"><Send size={20} className="text-cyan-400" /> {t('title')}</h1>
-            {empresaNome && <p className="text-xs text-gray-500">{empresaNome}</p>}
+            <p className="text-xs text-gray-500">{empresaNome || t('subtitle')}</p>
           </div>
         </div>
       </div>
@@ -467,10 +468,10 @@ export default function EnviosPage() {
       {empresaId && !loadingStatus && (
         <>
           {/* Tabs */}
-          <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
             {TABS.map(item => (
               <button key={item.key} onClick={() => setTab(item.key)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+                className={`flex items-center justify-center gap-2 py-2.5 px-2 rounded-lg text-xs font-semibold transition-all ${
                   tab === item.key ? 'bg-white/[0.06] text-white' : 'text-gray-500 hover:text-gray-300'
                 }`}>
                 <item.icon size={14} className={tab === item.key ? item.color : ''} />
@@ -615,7 +616,7 @@ export default function EnviosPage() {
                     {t((tab === 'email' || tab === 'relatorios-email') ? 'filters.emailRecipients' : 'filters.whatsappRecipients', { count: destinatarios.length })}
                   </div>
                 )}
-                {(tab === 'relatorios-email' || tab === 'relatorios-whatsapp') && (
+                {tab === 'relatorios-email' && (
                   <label className="flex items-center gap-2 mt-2 cursor-pointer select-none">
                     <input type="checkbox" checked={anexarPDF} onChange={e => setAnexarPDF(e.target.checked)}
                       className="w-4 h-4 rounded border border-white/20 bg-[#091D35] accent-purple-400" />
@@ -659,36 +660,112 @@ export default function EnviosPage() {
                 </div>}
               </div>
 
-              {/* Modo TEMPLATE — aba WhatsApp */}
+              {/* Modo TEMPLATE — todo envio manual por WhatsApp mora aqui. */}
               {tab === 'whatsapp' && (
                 <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
-                  <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-1"><MessageCircle size={12} /> {t('templateMode.title')}</p>
-                  <p className="text-[10px] text-gray-500 leading-relaxed mb-3">{t('templateMode.why')}</p>
+                  <div className="flex items-start justify-between gap-3 mb-1">
+                    <div>
+                      <p className="text-xs font-bold text-white flex items-center gap-1.5"><Workflow size={13} className="text-cyan-400" /> {t('templateMode.title')}</p>
+                      <p className="text-[10px] text-gray-500 leading-relaxed mt-1">{t('templateMode.why')}</p>
+                    </div>
+                    {templates.length > 0 && (
+                      <span className="shrink-0 rounded-full border border-cyan-400/20 bg-cyan-400/[0.06] px-2 py-1 text-[9px] font-bold text-cyan-300">
+                        {t('templateMode.manualCount', { count: templates.length })}
+                      </span>
+                    )}
+                  </div>
 
-                  {templates.length === 0 ? (
-                    <p className="text-xs text-gray-500">{t('templateMode.loading')}</p>
+                  {loadingTemplates ? (
+                    <div className="flex items-center gap-2 py-5 text-xs text-gray-500"><Loader2 size={13} className="animate-spin" /> {t('templateMode.loading')}</div>
+                  ) : templatesError ? (
+                    <div className="mt-3 flex items-start gap-2 rounded-lg bg-red-400/10 px-3 py-2 text-xs text-red-300">
+                      <AlertCircle size={13} className="mt-0.5 shrink-0" /> {templatesError}
+                    </div>
                   ) : (
-                    <>
-                      <select value={templateSel} onChange={e => setTemplateSel(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none mb-3" style={{ background: '#091D35' }}>
-                        {templates.map((tp: any) => <option key={tp.template} value={tp.template}>{tp.template}</option>)}
-                      </select>
-
-                      {templateAtual && (
-                        <>
-                          <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('templateMode.target')}</p>
-                          <p className="text-[11px] text-gray-300 mb-3">{templateAtual.alvoSugerido}</p>
-                          <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('templateMode.variables')}</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {templateAtual.variaveis.map((v: string, i: number) => (
-                              <span key={i} className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold text-cyan-400 border border-cyan-400/30">
-                                <Tag size={9} /> {`{{${i + 1}}}`} · {v}
-                              </span>
-                            ))}
+                    <div className="mt-4 space-y-4">
+                      {Object.entries(templatesPorEtapa).map(([etapa, itens]) => (
+                        <div key={etapa}>
+                          <div className="mb-2 flex items-center gap-2">
+                            <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-gray-500">{etapa}</span>
+                            <span className="h-px flex-1 bg-white/[0.05]" />
                           </div>
-                        </>
-                      )}
-                    </>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {(itens as any[]).map((tp: any) => {
+                              const selecionado = tp.template === templateSel;
+                              const indisponivel = tp.disponivel === false;
+                              return (
+                                <button
+                                  key={tp.template}
+                                  type="button"
+                                  disabled={indisponivel}
+                                  title={tp.motivoIndisponivel || tp.rotulo}
+                                  aria-pressed={selecionado}
+                                  onClick={() => { setTemplateSel(tp.template); setResult(null); }}
+                                  className={`min-h-[88px] rounded-lg border p-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/60 disabled:cursor-not-allowed disabled:opacity-45 ${
+                                    selecionado
+                                      ? 'border-cyan-400/55 bg-cyan-400/[0.09] shadow-[inset_3px_0_0_#22d3ee]'
+                                      : 'border-white/[0.07] bg-[#091D35] hover:border-white/[0.16] hover:bg-white/[0.025]'
+                                  }`}>
+                                  <span className="flex items-start justify-between gap-2">
+                                    <span className="text-[11px] font-bold leading-snug text-white">{tp.rotulo}</span>
+                                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide ${
+                                      indisponivel ? 'bg-red-400/10 text-red-300' : 'bg-emerald-400/10 text-emerald-300'
+                                    }`}>
+                                      {indisponivel ? t('templateMode.unavailable') : t('templateMode.approved')}
+                                    </span>
+                                  </span>
+                                  <code className="mt-1 block text-[9px] text-cyan-400/70">{tp.template}</code>
+                                  <span className="mt-2 line-clamp-2 block text-[9px] leading-relaxed text-gray-500">{tp.alvoSugerido}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {templateAtual && (
+                    <div className="mt-4 rounded-lg border border-white/[0.06] bg-[#091D35]/70 p-3">
+                      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('templateMode.target')}</p>
+                      <p className="text-[11px] text-gray-300 mb-3">{templateAtual.alvoSugerido}</p>
+                      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('templateMode.variables')}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {templateAtual.variaveis.map((v: string, i: number) => (
+                          <span key={i} className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold text-cyan-400 border border-cyan-400/30">
+                            <Tag size={9} /> {`{{${i + 1}}}`} · {v}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {catalogoTemplates.length > 0 && (
+                    <details className="group mt-4 rounded-lg border border-white/[0.06] bg-[#091D35]/55">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-[10px] font-semibold text-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400/60">
+                        <span className="flex items-center gap-1.5"><ShieldCheck size={12} className="text-emerald-400" /> {t('templateMode.catalogTitle')}</span>
+                        <span className="text-[9px] font-normal text-gray-500">
+                          {t('templateMode.catalogSummary', { approved: catalogoAprovados, manual: templates.length })}
+                        </span>
+                      </summary>
+                      <div className="border-t border-white/[0.05] px-3 pb-3 pt-2">
+                        <p className="mb-2 text-[9px] leading-relaxed text-gray-500">
+                          {catalogoFonte === 'meta' ? t('templateMode.catalogHint') : t('templateMode.catalogLocal')}
+                        </p>
+                        <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
+                          {catalogoTemplates.map((tp: any) => (
+                            <div key={tp.template} className="flex items-center justify-between gap-2 rounded-md border border-white/[0.04] px-2.5 py-2 text-[9px]">
+                              <span className="min-w-0 truncate font-mono text-gray-300">{tp.template}</span>
+                              <span className="flex shrink-0 items-center gap-1.5">
+                                <span className="text-gray-600">{t(`templateMode.usage.${tp.uso || 'manual'}`)}</span>
+                                <span className={tp.categoria === 'MARKETING' ? 'text-amber-300' : 'text-gray-500'}>{tp.categoria}</span>
+                                <span className={tp.status === 'APPROVED' ? 'text-emerald-400' : tp.status === 'REJECTED' ? 'text-red-400' : 'text-amber-300'}>{tp.status}</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </details>
                   )}
                 </div>
               )}
@@ -738,7 +815,8 @@ export default function EnviosPage() {
                 // Quantos vão receber: no modo template quem conta é o SERVIDOR
                 // (aplica idempotência e exclusões que a tela não conhece).
                 const total = tab === 'whatsapp' ? (previewLote?.total ?? 0) : destinatarios.length;
-                const bloqueado = sending || total === 0 || escopoPendente || (tab === 'whatsapp' && (loadingPreview || !templateSel));
+                const bloqueado = sending || total === 0 || escopoPendente
+                  || (tab === 'whatsapp' && (loadingPreview || !templateSel || templateAtual?.disponivel === false));
                 return (
                   <button onClick={handleDisparar} disabled={bloqueado}
                     className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold text-white disabled:opacity-40 transition-colors"
@@ -748,16 +826,6 @@ export default function EnviosPage() {
                   </button>
                 );
               })()}
-
-              {/* Relatórios por WhatsApp seguem no caminho de texto livre, que
-                  não entrega desde 13/08 — dizer isso é melhor que deixar o
-                  botão prometer. */}
-              {tab === 'relatorios-whatsapp' && (
-                <div className="flex items-start gap-2 px-4 py-3 rounded-xl text-xs bg-amber-400/10 text-amber-300">
-                  <AlertCircle size={14} className="shrink-0 mt-0.5" />
-                  <span>{t('templateMode.legacyReports')}</span>
-                </div>
-              )}
 
               {result && (
                 <div className={`flex items-start gap-2 px-4 py-3 rounded-xl text-xs ${
@@ -776,19 +844,23 @@ export default function EnviosPage() {
                 <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Eye size={12} /> {t('preview.title')}</p>
                 <div className="rounded-lg p-4 text-sm text-gray-300 leading-relaxed whitespace-pre-wrap" style={{ background: '#091D35' }}>
                   {tab === 'whatsapp'
-                    ? (previewLote?.amostra?.length
-                        // Corpo REAL do template com os params da 1ª pessoa do
-                        // lote — não um exemplo inventado: é literalmente o que
-                        // a Meta vai renderizar.
-                        ? renderWaMarkdown(
-                            (previewLote.corpo || '').replace(/\{\{(\d)\}\}/g, (_m: string, n: string) =>
-                              previewLote.amostra[0].params[Number(n) - 1] ?? `{{${n}}}`),
-                          )
-                        : <span className="text-gray-600 italic">{previewLote?.erro || t('preview.empty')}</span>)
+                    ? (corpoTemplatePreview
+                        // Com alvo, usa os dados REAIS da primeira pessoa. Sem
+                        // alvo, mantém a copy visível com rótulos das variáveis.
+                        ? renderWaMarkdown(corpoTemplatePreview)
+                        : <span className="text-gray-600 italic">{t('preview.empty')}</span>)
                     : (previewMsg
                         ? renderWaMarkdown(previewMsg)
                         : <span className="text-gray-600 italic">{t('preview.empty')}</span>)}
                 </div>
+                {tab === 'whatsapp' && loadingPreview && (
+                  <p className="mt-2 flex items-center gap-1.5 text-[9px] text-gray-500"><Loader2 size={10} className="animate-spin" /> {t('templateMode.loadingPreview')}</p>
+                )}
+                {tab === 'whatsapp' && previewLote?.erro && (
+                  <p className="mt-2 flex items-start gap-1.5 rounded-md bg-amber-400/[0.08] px-2.5 py-2 text-[10px] leading-relaxed text-amber-300">
+                    <AlertCircle size={11} className="mt-0.5 shrink-0" /> {previewLote.erro}
+                  </p>
+                )}
                 {tab === 'whatsapp' && previewLote?.amostra?.[0] && (
                   <p className="text-[9px] text-gray-600 mt-2">{t('templateMode.previewOf', { nome: previewLote.amostra[0].nome })}</p>
                 )}

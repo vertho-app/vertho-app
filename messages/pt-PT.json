@@ -3796,9 +3796,15 @@
       "withoutClass": "{count} pessoa(s) sem turma não entram neste envio."
     },
     "templateMode": {
-      "title": "Template aprovado",
-      "why": "Fora da janela de 24 horas, o WhatsApp entrega apenas template aprovado pela Meta. Texto livre não é enviado — por isso este separador deixou de ter editor.",
+      "title": "Catálogo de templates",
+      "why": "Escolha a comunicação pela etapa da jornada. No WhatsApp, todo o envio iniciado pela empresa usa uma mensagem fixa e aprovada pela Meta — não há texto livre.",
       "loading": "A carregar templates…",
+      "loadingPreview": "A atualizar destinatários e variáveis…",
+      "loadError": "Não foi possível carregar os templates.",
+      "manualCount": "{count} manuais",
+      "approved": "Aprovado",
+      "unavailable": "Indisponível",
+      "otherStage": "Outros",
       "target": "Alvo típico",
       "variables": "Variáveis do template",
       "confirm": "Colocar o template {template} em fila para {total} pessoa(s)?",
@@ -3810,9 +3816,20 @@
       "deliveryNote": "O disparo coloca as mensagens em fila no ritmo da política de cadência. A entrega confirmada aparece depois, quando a Meta devolve o estado.",
       "tipFixed": "O corpo é fixo e aprovado pela Meta — não é possível formatar nem editar aqui.",
       "tipNoAttachment": "O template não leva anexo: só templates com cabeçalho de documento aceitam, e nenhum dos nossos tem.",
-      "tipOnlyWhatsapp": "Só entram colaboradores com WhatsApp registado."
+      "tipOnlyWhatsapp": "Só entram colaboradores com WhatsApp registado.",
+      "catalogTitle": "Catálogo completo da Meta",
+      "catalogSummary": "{approved} aprovados · {manual} manuais",
+      "catalogHint": "A lista vem agora da Meta. Os templates de cadência, autenticação e fluxos comerciais aparecem para consulta, mas continuam nos respetivos fluxos de origem.",
+      "catalogLocal": "A Meta não respondeu agora. A lista mostra o catálogo manual local e será atualizada na próxima abertura.",
+      "usage": {
+        "manual": "manual",
+        "automatico": "automático",
+        "credencial": "credencial",
+        "comercial": "comercial"
+      }
     },
     "title": "Envios",
+    "subtitle": "Comunicações por empresa, etapa e canal",
     "selectCompany": "Selecione uma empresa...",
     "sending": "Enviando...",
     "sendButton": "Disparar para {count} destinatário(s)",
@@ -3820,6 +3837,7 @@
       "magicLink": "Magic Link WhatsApp",
       "emailInvites": "Email Convites",
       "whatsappInvites": "WhatsApp Convites",
+      "whatsappTemplates": "WhatsApp Templates",
       "emailReports": "Email Relatórios",
       "whatsappReports": "WhatsApp Relatórios"
     },

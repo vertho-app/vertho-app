@@ -3739,9 +3739,15 @@
       "withoutClass": "{count} person(s) with no cohort are not included in this send."
     },
     "templateMode": {
-      "title": "Approved template",
-      "why": "Outside the 24-hour window, WhatsApp only delivers templates approved by Meta. Free text does not go out — which is why this tab no longer has an editor.",
+      "title": "Template catalog",
+      "why": "Choose the communication by journey stage. On WhatsApp, every company-initiated message uses fixed copy approved by Meta — there is no free text.",
       "loading": "Loading templates…",
+      "loadingPreview": "Updating recipients and variables…",
+      "loadError": "Templates could not be loaded.",
+      "manualCount": "{count} manual",
+      "approved": "Approved",
+      "unavailable": "Unavailable",
+      "otherStage": "Other",
       "target": "Typical audience",
       "variables": "Template variables",
       "confirm": "Queue template {template} for {total} people?",
@@ -3753,9 +3759,20 @@
       "deliveryNote": "Sending queues the messages at the cadence policy rate. Confirmed delivery shows up later, when Meta returns the status.",
       "tipFixed": "The body is fixed and approved by Meta — it cannot be formatted or edited here.",
       "tipNoAttachment": "Templates carry no attachment: only templates with a document header accept one, and none of ours has it.",
-      "tipOnlyWhatsapp": "Only people with a WhatsApp number on file are included."
+      "tipOnlyWhatsapp": "Only people with a WhatsApp number on file are included.",
+      "catalogTitle": "Full Meta catalog",
+      "catalogSummary": "{approved} approved · {manual} manual",
+      "catalogHint": "This list is live from Meta. Cadence, authentication, and commercial templates are visible for reference but remain owned by their source workflows.",
+      "catalogLocal": "Meta did not respond. This is the local manual catalog and it will refresh the next time the page opens.",
+      "usage": {
+        "manual": "manual",
+        "automatico": "automatic",
+        "credencial": "credential",
+        "comercial": "commercial"
+      }
     },
     "title": "Submissions",
+    "subtitle": "Communications by company, journey stage, and channel",
     "selectCompany": "Select a company...",
     "sending": "Sending...",
     "sendButton": "Send to {count} recipient(s)",
@@ -3763,6 +3780,7 @@
       "magicLink": "Magic Link WhatsApp",
       "emailInvites": "Email Invitations",
       "whatsappInvites": "WhatsApp Invitations",
+      "whatsappTemplates": "WhatsApp Templates",
       "emailReports": "Email Reports",
       "whatsappReports": "WhatsApp Reports"
     },

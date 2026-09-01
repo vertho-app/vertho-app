@@ -3796,9 +3796,15 @@
       "withoutClass": "{count} persona(s) sin grupo no entran en este envío."
     },
     "templateMode": {
-      "title": "Plantilla aprobada",
-      "why": "Fuera de la ventana de 24 horas, WhatsApp solo entrega plantillas aprobadas por Meta. El texto libre no se envía — por eso esta pestaña ya no tiene editor.",
+      "title": "Catálogo de plantillas",
+      "why": "Elige la comunicación según la etapa del recorrido. En WhatsApp, cada mensaje iniciado por la empresa usa un texto fijo aprobado por Meta: no hay texto libre.",
       "loading": "Cargando plantillas…",
+      "loadingPreview": "Actualizando destinatarios y variables…",
+      "loadError": "No se pudieron cargar las plantillas.",
+      "manualCount": "{count} manuales",
+      "approved": "Aprobada",
+      "unavailable": "No disponible",
+      "otherStage": "Otros",
       "target": "Destinatario típico",
       "variables": "Variables de la plantilla",
       "confirm": "¿Poner en cola la plantilla {template} para {total} persona(s)?",
@@ -3810,9 +3816,20 @@
       "deliveryNote": "El disparo pone los mensajes en cola al ritmo de la política de cadencia. La entrega confirmada aparece después, cuando Meta devuelve el estado.",
       "tipFixed": "El cuerpo es fijo y está aprobado por Meta: aquí no se puede formatear ni editar.",
       "tipNoAttachment": "La plantilla no lleva adjunto: solo lo aceptan las plantillas con encabezado de documento, y ninguna de las nuestras lo tiene.",
-      "tipOnlyWhatsapp": "Solo entran colaboradores con WhatsApp registrado."
+      "tipOnlyWhatsapp": "Solo entran colaboradores con WhatsApp registrado.",
+      "catalogTitle": "Catálogo completo de Meta",
+      "catalogSummary": "{approved} aprobadas · {manual} manuales",
+      "catalogHint": "La lista viene ahora de Meta. Las plantillas de cadencia, autenticación y flujos comerciales aparecen como referencia, pero permanecen en sus flujos de origen.",
+      "catalogLocal": "Meta no respondió. La lista muestra el catálogo manual local y se actualizará la próxima vez que abras la página.",
+      "usage": {
+        "manual": "manual",
+        "automatico": "automática",
+        "credencial": "credencial",
+        "comercial": "comercial"
+      }
     },
     "title": "Envios",
+    "subtitle": "Comunicaciones por empresa, etapa y canal",
     "selectCompany": "Selecione uma empresa...",
     "sending": "Enviando...",
     "sendButton": "Disparar para {count} destinatário(s)",
@@ -3820,6 +3837,7 @@
       "magicLink": "Magic Link WhatsApp",
       "emailInvites": "Email Convites",
       "whatsappInvites": "WhatsApp Convites",
+      "whatsappTemplates": "WhatsApp Templates",
       "emailReports": "Email Relatórios",
       "whatsappReports": "WhatsApp Relatórios"
     },

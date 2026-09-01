@@ -905,17 +905,111 @@ export async function loadColaboradoresEnvio(empresaId) {
 
 // ── Disparo por TEMPLATE (Cloud API) — a aba WhatsApp desde 20/08/2026 ───────
 
+interface TemplateMetaCatalogo {
+  template: string;
+  status: string;
+  categoria: string;
+  idioma: string;
+  corpo: string;
+}
+
 /**
- * Templates que a tela pode disparar, com corpo e variáveis.
+ * Catálogo REAL da WABA. Leitura pura e best-effort: se a Meta estiver fora,
+ * os templates manuais locais continuam aparecendo, mas a tela deixa claro que
+ * não conseguiu atualizar o catálogo completo.
+ */
+async function consultarCatalogoMeta(): Promise<TemplateMetaCatalogo[] | null> {
+  const token = process.env.META_WHATSAPPBUSINESS_API || '';
+  const waba = process.env.WABA_ID || '';
+  if (!token || !waba) return null;
+
+  const graph = (process.env.META_GRAPH_URL || 'https://graph.facebook.com/v22.0').replace(/\/+$/, '');
+  try {
+    const r = await fetch(
+      `${graph}/${waba}/message_templates?limit=200&fields=name,status,category,language,components`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8_000),
+      },
+    );
+    const j: any = await r.json().catch(() => null);
+    if (!r.ok || j?.error || !Array.isArray(j?.data)) return null;
+    return j.data.map((tp: any) => ({
+      template: String(tp.name || ''),
+      status: String(tp.status || 'UNKNOWN'),
+      categoria: String(tp.category || 'UNKNOWN'),
+      idioma: String(tp.language || ''),
+      corpo: String((tp.components || []).find((c: any) => c?.type === 'BODY')?.text || ''),
+    })).filter((tp: TemplateMetaCatalogo) => tp.template);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Templates que a tela pode disparar, com corpo e variáveis, mais o catálogo
+ * completo da Meta para consulta.
  *
- * Vem do núcleo (`lib/notifications/envio-template-lote`), não de uma lista na
- * tela: uma segunda cópia divergiria do `CONTRATOS`, e o sintoma seria a Meta
- * recusando o envio com os parâmetros na ordem errada.
+ * Os MANUAIS vêm do núcleo (`envio-template-lote`), não de uma lista na tela:
+ * uma segunda cópia divergiria do `CONTRATOS`, e o sintoma seria a Meta
+ * recusando o envio com os parâmetros na ordem errada. O restante aparece como
+ * automático/credencial/legado, mas não é liberado para um lote sem contexto.
  */
 export async function listarTemplatesDeEnvio() {
   await requireAdminAction('assessments.dispatch');
   const { listarTemplatesDisparaveis } = await import('@/lib/notifications/envio-template-lote');
-  return { success: true, data: listarTemplatesDisparaveis() };
+  const locais = listarTemplatesDisparaveis();
+  const meta = await consultarCatalogoMeta();
+  const porNome = new Map((meta || []).map((tp) => [tp.template, tp]));
+  const manuais = new Set(locais.map((tp) => tp.template));
+
+  const data = locais.map((tp) => {
+    const observado = porNome.get(tp.template);
+    const indices = [...String(observado?.corpo || '').matchAll(/\{\{(\d+)\}\}/g)]
+      .map((m) => Number(m[1]));
+    const variaveisObservadas = indices.length ? Math.max(...indices) : 0;
+    const contratoOk = !observado || variaveisObservadas === tp.variaveis.length;
+    return {
+      ...tp,
+      status: observado?.status || null,
+      categoria: observado?.categoria || tp.categoria,
+      corpo: observado?.corpo || tp.corpo,
+      disponivel: meta ? observado?.status === 'APPROVED' && contratoOk : true,
+      motivoIndisponivel: !observado
+        ? (meta ? 'Template não encontrado na Meta' : null)
+        : observado.status !== 'APPROVED'
+          ? `Status na Meta: ${observado.status}`
+          : !contratoOk
+            ? `Contrato divergente: a Meta espera ${variaveisObservadas} variável(is), o código mapeia ${tp.variaveis.length}`
+            : null,
+    };
+  });
+
+  const catalogo = (meta || data.map((tp) => ({
+    template: tp.template,
+    status: tp.status || 'LOCAL',
+    categoria: tp.categoria,
+    idioma: 'pt_BR',
+    corpo: tp.corpo,
+  }))).map((tp) => ({
+    ...tp,
+    manual: manuais.has(tp.template),
+    uso: manuais.has(tp.template)
+      ? 'manual'
+      : tp.template === 'acesso_vertho' || tp.template === 'otp_acesso'
+        ? 'credencial'
+        : tp.template === 'recorte_demonstracao'
+          ? 'comercial'
+          : 'automatico',
+  })).sort((a, b) => Number(b.manual) - Number(a.manual) || a.template.localeCompare(b.template));
+
+  return {
+    success: true,
+    data,
+    catalogo,
+    catalogoFonte: meta ? 'meta' : 'local',
+  };
 }
 
 /**

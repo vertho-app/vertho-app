@@ -31,6 +31,7 @@ import { contratoDoTemplate, type PilulaTemplateArgs } from '@/lib/notifications
 import { enviarTemplateCloud, cloudApiConfigurada } from '@/lib/whatsapp/cloud-api';
 import { aplicarTetoLote, criarPaceadorSincrono } from '@/lib/whatsapp/cadencia';
 import { tenantUrl } from '@/lib/domain';
+import { TRILHA } from '@/lib/status';
 
 /** Primeiro nome apresentável — "JANAINA" vira "Janaina", "McDonald" fica. */
 export function primeiroNome(completo: string | null | undefined): string {
@@ -46,6 +47,10 @@ export interface ContextoEnvio {
   empresaSlug: string;
   /** `cargos_empresa.top5_workshop` por cargo (minúsculo) — régua da tela do assessment. */
   top5PorCargo: Map<string, string[]>;
+  /** Progresso individual necessário pelo template `avaliacao_parcial`. */
+  avaliacaoPorColab: Map<string, { respondidas: number; total: number }>;
+  /** Trilha mais recente por pessoa — insumo dos templates de abertura/fechamento. */
+  trilhaPorColab: Map<string, { status: string; competencia: string; totalSemanas: number }>;
 }
 
 export interface ColaboradorAlvo {
@@ -79,6 +84,8 @@ type Resolucao = { args: PilulaTemplateArgs } | { excluir: string };
  *   - `recorte_demonstracao`: o destinatário é lead do CONARH, não colaborador.
  */
 const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => Resolucao> = {
+  boas_vindas_v2: (c, ctx) => ({ args: base(c, ctx) }),
+  avaliacao_pendente: (c, ctx) => ({ args: base(c, ctx) }),
   avaliacao_competencias: (c, ctx) => {
     const competencia = (ctx.top5PorCargo.get(String(c.cargo || '').toLowerCase()) || [])[0];
     // Sem competência resolvida o `{{2}}` sairia vazio ("sua avaliação de  ainda
@@ -87,10 +94,44 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
     if (!competencia) return { excluir: 'cargo sem competência em top5_workshop' };
     return { args: base(c, ctx, { competencia }) };
   },
-  avaliacao_pendente: (c, ctx) => ({ args: base(c, ctx) }),
-  boas_vindas_v2: (c, ctx) => ({ args: base(c, ctx) }),
+  avaliacao_parcial: (c, ctx) => {
+    const progresso = ctx.avaliacaoPorColab.get(c.id);
+    if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
+    if (!progresso.respondidas) return { excluir: 'avaliação ainda não iniciada' };
+    if (progresso.respondidas >= progresso.total) return { excluir: 'avaliação já concluída' };
+    return {
+      args: base(c, ctx, {
+        avaliacaoRespondidas: progresso.respondidas,
+        avaliacaoTotal: progresso.total,
+      }),
+    };
+  },
   resultado_perfil: (c, ctx) => ({ args: base(c, ctx) }),
   plano_desenvolvimento: (c, ctx) => ({ args: base(c, ctx) }),
+  trilha_liberada_v2: (c, ctx) => {
+    const trilha = ctx.trilhaPorColab.get(c.id);
+    if (!trilha) return { excluir: 'sem trilha gerada' };
+    if (trilha.status !== TRILHA.ATIVA) return { excluir: 'trilha não está ativa' };
+    if (!trilha.competencia || !trilha.totalSemanas) return { excluir: 'trilha sem competência ou duração' };
+    return {
+      args: base(c, ctx, {
+        competenciaTrilha: trilha.competencia,
+        totalSemanas: trilha.totalSemanas,
+      }),
+    };
+  },
+  trilha_concluida: (c, ctx) => {
+    const trilha = ctx.trilhaPorColab.get(c.id);
+    if (!trilha) return { excluir: 'sem trilha gerada' };
+    if (trilha.status !== TRILHA.CONCLUIDA) return { excluir: 'trilha ainda não concluída' };
+    if (!trilha.competencia || !trilha.totalSemanas) return { excluir: 'trilha sem competência ou duração' };
+    return {
+      args: base(c, ctx, {
+        competenciaTrilha: trilha.competencia,
+        totalSemanas: trilha.totalSemanas,
+      }),
+    };
+  },
 };
 
 function base(c: ColaboradorAlvo, ctx: ContextoEnvio, extra: Partial<PilulaTemplateArgs> = {}): PilulaTemplateArgs {
@@ -111,6 +152,10 @@ function base(c: ColaboradorAlvo, ctx: ContextoEnvio, extra: Partial<PilulaTempl
 export interface TemplateDisparavel {
   template: string;
   categoria: string;
+  /** Nome legível — o nome técnico continua visível para auditoria. */
+  rotulo: string;
+  /** Momento da jornada usado para organizar o catálogo da tela. */
+  etapa: string;
   /** Corpo literal aprovado na Meta — a tela mostra ISTO, não uma paráfrase. */
   corpo: string;
   /** O que preenche cada `{{n}}`, na ordem. */
@@ -120,19 +165,47 @@ export interface TemplateDisparavel {
 }
 
 const VARIAVEIS_DE: Record<string, string[]> = {
-  avaliacao_competencias: ['primeiro nome', 'competência do cargo (top5_workshop)', 'link do assessment'],
-  avaliacao_pendente: ['primeiro nome', 'nome da instituição', 'link do assessment'],
   boas_vindas_v2: ['primeiro nome', 'nome da instituição', 'link de /entrar'],
+  avaliacao_pendente: ['primeiro nome', 'nome da instituição', 'link do assessment'],
+  avaliacao_competencias: ['primeiro nome', 'competência do cargo (top5_workshop)', 'link do assessment'],
+  avaliacao_parcial: ['primeiro nome', 'cenários respondidos', 'total de cenários', 'link do assessment'],
   resultado_perfil: ['primeiro nome', 'link do perfil comportamental'],
   plano_desenvolvimento: ['primeiro nome', 'link do PDI'],
+  trilha_liberada_v2: ['primeiro nome', 'competência da trilha', 'total de semanas', 'link da trilha'],
+  trilha_concluida: ['primeiro nome', 'competência da trilha', 'total de semanas', 'link do resultado'],
 };
 
 const ALVO_DE: Record<string, string> = {
+  boas_vindas_v2: 'primeiro contato da turma — quem ainda não recebeu a abertura do programa',
+  avaliacao_pendente: 'não iniciou o assessment',
   avaliacao_competencias: 'já fez o mapeamento comportamental e não iniciou o assessment',
-  avaliacao_pendente: 'não deu nenhum passo (sem DISC e sem assessment)',
-  boas_vindas_v2: 'primeiro contato da turma — quem nunca recebeu mensagem',
+  avaliacao_parcial: 'começou o assessment, mas ainda tem cenários pendentes',
   resultado_perfil: 'já tem perfil comportamental e pode não saber',
   plano_desenvolvimento: 'já tem relatório/PDI gerado',
+  trilha_liberada_v2: 'tem uma trilha ativa pronta para começar',
+  trilha_concluida: 'concluiu todas as semanas da trilha',
+};
+
+const ROTULO_DE: Record<string, string> = {
+  boas_vindas_v2: 'Boas-vindas ao programa',
+  avaliacao_pendente: 'Avaliação não iniciada',
+  avaliacao_competencias: 'Avaliação de competências pendente',
+  avaliacao_parcial: 'Avaliação em andamento',
+  resultado_perfil: 'Perfil comportamental disponível',
+  plano_desenvolvimento: 'Plano de desenvolvimento disponível',
+  trilha_liberada_v2: 'Trilha liberada',
+  trilha_concluida: 'Trilha concluída',
+};
+
+const ETAPA_DE: Record<string, string> = {
+  boas_vindas_v2: 'Entrada',
+  avaliacao_pendente: 'Avaliação',
+  avaliacao_competencias: 'Avaliação',
+  avaliacao_parcial: 'Avaliação',
+  resultado_perfil: 'Resultados',
+  plano_desenvolvimento: 'Resultados',
+  trilha_liberada_v2: 'Jornada',
+  trilha_concluida: 'Jornada',
 };
 
 /** Templates que a tela pode disparar: têm resolvedor E contrato de parâmetros. */
@@ -145,12 +218,79 @@ export function listarTemplatesDisparaveis(): TemplateDisparavel[] {
       return {
         template: nome,
         categoria: def?.category || 'UTILITY',
+        rotulo: ROTULO_DE[nome] || nome,
+        etapa: ETAPA_DE[nome] || 'Outros',
         corpo: def?.body || '',
         variaveis: VARIAVEIS_DE[nome] || [],
         alvoSugerido: ALVO_DE[nome] || '',
       };
-    })
-    .sort((a, b) => a.template.localeCompare(b.template));
+    });
+}
+
+async function carregarProgressoAvaliacao(
+  sb: any,
+  empresaId: string,
+  colabs: ColaboradorAlvo[],
+): Promise<Map<string, { respondidas: number; total: number }>> {
+  const [{ data: respostas, error: eR }, { data: cenarios, error: eC }] = await Promise.all([
+    sb.from('respostas').select('colaborador_id, competencia_id').eq('empresa_id', empresaId),
+    sb.from('banco_cenarios').select('cargo, competencia_id').eq('empresa_id', empresaId),
+  ]);
+  if (eR) throw new Error(`respostas: ${eR.message}`);
+  if (eC) throw new Error(`banco_cenarios: ${eC.message}`);
+
+  const esperadoPorCargo = new Map<string, Set<string>>();
+  for (const c of (cenarios || [])) {
+    if (!c.competencia_id) continue;
+    const cargo = String(c.cargo || '').toLowerCase();
+    const ids = esperadoPorCargo.get(cargo) || new Set<string>();
+    ids.add(String(c.competencia_id));
+    esperadoPorCargo.set(cargo, ids);
+  }
+
+  const respondidasPorColab = new Map<string, Set<string>>();
+  for (const r of (respostas || [])) {
+    if (!r.colaborador_id || !r.competencia_id) continue;
+    const ids = respondidasPorColab.get(r.colaborador_id) || new Set<string>();
+    ids.add(String(r.competencia_id));
+    respondidasPorColab.set(r.colaborador_id, ids);
+  }
+
+  return new Map(colabs.map((c) => [
+    c.id,
+    {
+      respondidas: respondidasPorColab.get(c.id)?.size || 0,
+      total: esperadoPorCargo.get(String(c.cargo || '').toLowerCase())?.size || 0,
+    },
+  ]));
+}
+
+async function carregarTrilhasManuais(
+  sb: any,
+  empresaId: string,
+): Promise<Map<string, { status: string; competencia: string; totalSemanas: number }>> {
+  const { data, error } = await sb.from('trilhas')
+    .select('colaborador_id, status, competencia_foco, competencias_foco, temporada_plano, numero_temporada')
+    .eq('empresa_id', empresaId)
+    .order('numero_temporada', { ascending: false });
+  if (error) throw new Error(`trilhas: ${error.message}`);
+
+  const porColab = new Map<string, { status: string; competencia: string; totalSemanas: number }>();
+  for (const trilha of (data || [])) {
+    if (!trilha.colaborador_id || porColab.has(trilha.colaborador_id)) continue;
+    const competencias = Array.isArray(trilha.competencias_foco)
+      ? trilha.competencias_foco.map((x: unknown) => String(x || '').trim()).filter(Boolean)
+      : [];
+    const competencia = competencias.length
+      ? competencias.join(' + ')
+      : String(trilha.competencia_foco || '').trim();
+    porColab.set(trilha.colaborador_id, {
+      status: String(trilha.status || ''),
+      competencia,
+      totalSemanas: Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano.length : 0,
+    });
+  }
+  return porColab;
 }
 
 export interface AlvoPreparado {
@@ -204,6 +344,12 @@ export async function prepararLoteTemplate(
     empresaNome: empresa.nome,
     empresaSlug: empresa.slug,
     top5PorCargo: new Map((cargos || []).map((c: any) => [String(c.nome || '').toLowerCase(), (c.top5_workshop || []) as string[]])),
+    avaliacaoPorColab: template === 'avaliacao_parcial'
+      ? await carregarProgressoAvaliacao(sb, empresaId, colabs)
+      : new Map(),
+    trilhaPorColab: template === 'trilha_liberada_v2' || template === 'trilha_concluida'
+      ? await carregarTrilhasManuais(sb, empresaId)
+      : new Map(),
   };
 
   // Idempotência por TEMPLATE (`kind` = nome do template): dois templates podem
