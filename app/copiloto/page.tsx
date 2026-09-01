@@ -85,6 +85,7 @@ export default async function CopilotPage() {
   return (
     <CopilotClient
       userName={userName}
+      homeHref={access.kind === 'admin' ? '/admin/dashboard' : '/representante'}
       opportunities={opportunities}
       accounts={accounts}
       canCreateLeads={access.kind === 'representative'}

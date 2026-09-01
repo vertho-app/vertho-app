@@ -456,9 +456,10 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
 }
 
 export default function CopilotClient({
-  userName, opportunities, accounts, canCreateLeads, supernormalStatus,
+  userName, homeHref, opportunities, accounts, canCreateLeads, supernormalStatus,
 }: {
   userName: string;
+  homeHref: '/admin/dashboard' | '/representante';
   opportunities: CopilotOpportunity[];
   accounts: CopilotAccountListItem[];
   canCreateLeads: boolean;
@@ -1279,7 +1280,7 @@ export default function CopilotClient({
     <main className={classNames(styles.page, focusMode && styles.liveFocusPage)}>
       <header className={styles.topbar}>
         <div className={styles.brand}>
-          <Link href="/dashboard" aria-label="Voltar"><ArrowLeft size={17} /></Link>
+          <Link href={homeHref} aria-label="Voltar"><ArrowLeft size={17} /></Link>
           <Image src="/logo-vertho.png" alt="Vertho" width={106} height={24} priority />
           <span>Copiloto comercial</span>
         </div>
