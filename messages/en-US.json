@@ -273,7 +273,13 @@
       "title": "Decisions about",
       "subtitle": "From the journey pulse to development priorities — with documents preserved as evidence.",
       "updated": "Reading from {date}",
-      "tabs": { "overview": "Overview", "roles": "Roles", "priorities": "Priorities", "documents": "Documents" },
+      "tabs": {
+        "overview": "Overview",
+        "roles": "Roles",
+        "priorities": "Priorities",
+        "documents": "Documents",
+        "evolution": "Evolution"
+      },
       "pulse": {
         "eyebrow": "Journey pulse",
         "title": "Where people are now",
@@ -296,9 +302,18 @@
         "strength": "Organizational strength",
         "risk": "Risk to monitor"
       },
-      "levels": { "title": "Average competency level", "ofFour": "of 4 levels", "evaluated": "People assessed", "assessments": "Assessments" },
-      "comparison": { "title": "What changed" },
-      "profile": { "title": "Collective profile" },
+      "levels": {
+        "title": "Average competency level",
+        "ofFour": "of 4 levels",
+        "evaluated": "People assessed",
+        "assessments": "Assessments"
+      },
+      "comparison": {
+        "title": "What changed"
+      },
+      "profile": {
+        "title": "Collective profile"
+      },
       "roles": {
         "eyebrow": "Reading by role",
         "title": "Different contexts need different actions",
@@ -343,13 +358,60 @@
         "attention": "Attention",
         "training": "Recommended learning",
         "plan": "HR action plan",
-        "horizons": { "short": "Next 2 weeks", "medium": "1 to 2 months", "long": "Next semester" },
+        "horizons": {
+          "short": "Next 2 weeks",
+          "medium": "1 to 2 months",
+          "long": "Next semester"
+        },
         "talents": "Talent to amplify"
       },
       "documents": {
         "eyebrow": "Evidence library",
         "title": "Exportable reports and plans",
         "subtitle": "Open each document inside the platform or download it when you need to record and share it."
+      },
+      "evolution": {
+        "eyebrow": "Competency growth",
+        "title": "Who grew, in what, and by how much",
+        "subtitle": "Initial assessment compared with the journey's closing evaluation. Participation and content use stay in Overview: engagement is a leading indicator, not proof of growth.",
+        "coverageTitle": "Measurement coverage",
+        "coverageHelp": "{medidos} of {participantes} participants completed the measurement. The percentages below describe those measured, not the whole organization.",
+        "coverageMeasured": "Fully measured",
+        "coverageInJourney": "In journey now",
+        "coveragePeople": "Participants",
+        "confirmed": "Growth confirmed",
+        "partial": "Partial growth",
+        "stable": "Stable",
+        "attention": "Needs attention",
+        "noVerdict": "No verdict",
+        "averageDelta": "Average change",
+        "byCompetencyTitle": "What grew",
+        "byCompetencySubtitle": "Entry and exit averages per competency, with how many people were measured in each.",
+        "byDescriptorTitle": "Behavior by behavior",
+        "peopleTitle": "Who grew",
+        "peopleSubtitle": "By name, visible only to HR and direct leadership.",
+        "columnPerson": "Person",
+        "columnCompetency": "Competency",
+        "columnBefore": "Start",
+        "columnAfter": "Close",
+        "columnDelta": "Change",
+        "columnVerdict": "Result",
+        "columnSupport": "Support",
+        "supportHigh": "High",
+        "supportMedium": "Medium",
+        "supportLow": "Low",
+        "supportHelp": "How many sources back the reading. Today the closing evaluation crosses two: the person's own account and the scored scenario.",
+        "actionsTitle": "Next steps",
+        "actionsSupport": "Who needs follow-up",
+        "actionsNextCycle": "Behaviors for the next cycle",
+        "actionsNextCycleHelp": "Where the group advanced least.",
+        "peopleCount": "{n, plural, =1 {# person} other {# people}}",
+        "descriptorCount": "{n, plural, =1 {# behavior} other {# behaviors}}",
+        "emptyTitle": "No journey has reached its closing evaluation",
+        "emptyDescription": "The start-to-finish comparison is born in the season's final evaluation. Until someone completes it, Overview shows where people are right now.",
+        "unavailableTitle": "Could not read growth data",
+        "unavailableDescription": "The read failed. This does not mean nobody grew: it means we could not measure right now.",
+        "level": "L{nivel}"
       }
     },
     "sections": {

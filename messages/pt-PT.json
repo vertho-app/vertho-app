@@ -273,7 +273,13 @@
       "title": "Decisões sobre",
       "subtitle": "Do pulso da jornada às prioridades de desenvolvimento, com os documentos preservados como evidência.",
       "updated": "Leitura de {date}",
-      "tabs": { "overview": "Panorama", "roles": "Funções", "priorities": "Prioridades", "documents": "Documentos" },
+      "tabs": {
+        "overview": "Panorama",
+        "roles": "Funções",
+        "priorities": "Prioridades",
+        "documents": "Documentos",
+        "evolution": "Evolução"
+      },
       "pulse": {
         "eyebrow": "Pulso da jornada",
         "title": "Onde estão as pessoas agora",
@@ -296,9 +302,18 @@
         "strength": "Força organizacional",
         "risk": "Risco a acompanhar"
       },
-      "levels": { "title": "Nível médio das competências", "ofFour": "de 4 níveis", "evaluated": "Pessoas avaliadas", "assessments": "Avaliações" },
-      "comparison": { "title": "O que mudou" },
-      "profile": { "title": "Perfil coletivo" },
+      "levels": {
+        "title": "Nível médio das competências",
+        "ofFour": "de 4 níveis",
+        "evaluated": "Pessoas avaliadas",
+        "assessments": "Avaliações"
+      },
+      "comparison": {
+        "title": "O que mudou"
+      },
+      "profile": {
+        "title": "Perfil coletivo"
+      },
       "roles": {
         "eyebrow": "Leitura por função",
         "title": "Contextos diferentes pedem ações diferentes",
@@ -343,13 +358,60 @@
         "attention": "Atenção",
         "training": "Formação recomendada",
         "plan": "Plano de ação do RH",
-        "horizons": { "short": "Próximas 2 semanas", "medium": "1 a 2 meses", "long": "Próximo semestre" },
+        "horizons": {
+          "short": "Próximas 2 semanas",
+          "medium": "1 a 2 meses",
+          "long": "Próximo semestre"
+        },
         "talents": "Talentos a potenciar"
       },
       "documents": {
         "eyebrow": "Biblioteca de evidências",
         "title": "Relatórios e planos exportáveis",
         "subtitle": "Abra cada documento dentro da plataforma ou descarregue-o quando precisar de o registar e partilhar."
+      },
+      "evolution": {
+        "eyebrow": "Evolução de competências",
+        "title": "Quem evoluiu, em quê e quanto",
+        "subtitle": "Comparação entre a avaliação inicial e o fecho da jornada. Participação e consumo ficam no Panorama: envolvimento é indicador antecipado, não prova de evolução.",
+        "coverageTitle": "Cobertura da medição",
+        "coverageHelp": "{medidos} de {participantes} participantes concluíram a medição. As percentagens abaixo descrevem quem foi medido, não a organização inteira.",
+        "coverageMeasured": "Com medição completa",
+        "coverageInJourney": "Em jornada agora",
+        "coveragePeople": "Participantes",
+        "confirmed": "Evolução confirmada",
+        "partial": "Evolução parcial",
+        "stable": "Estável",
+        "attention": "Requer atenção",
+        "noVerdict": "Sem veredicto",
+        "averageDelta": "Variação média",
+        "byCompetencyTitle": "O que evoluiu",
+        "byCompetencySubtitle": "Média de entrada e de saída por competência, com o número de pessoas medidas em cada uma.",
+        "byDescriptorTitle": "Comportamento a comportamento",
+        "peopleTitle": "Quem evoluiu",
+        "peopleSubtitle": "Nominal, visível apenas para os RH e a liderança direta.",
+        "columnPerson": "Pessoa",
+        "columnCompetency": "Competência",
+        "columnBefore": "Início",
+        "columnAfter": "Fecho",
+        "columnDelta": "Variação",
+        "columnVerdict": "Resultado",
+        "columnSupport": "Sustentação",
+        "supportHigh": "Alta",
+        "supportMedium": "Média",
+        "supportLow": "Baixa",
+        "supportHelp": "Quantas fontes sustentam a leitura. Hoje o fecho cruza duas: o relato da própria pessoa e o cenário avaliado.",
+        "actionsTitle": "Próximas ações",
+        "actionsSupport": "Quem precisa de acompanhamento",
+        "actionsNextCycle": "Comportamentos para o próximo ciclo",
+        "actionsNextCycleHelp": "Onde o grupo menos avançou.",
+        "peopleCount": "{n, plural, =1 {# pessoa} other {# pessoas}}",
+        "descriptorCount": "{n, plural, =1 {# comportamento} other {# comportamentos}}",
+        "emptyTitle": "Nenhuma jornada chegou ao fecho",
+        "emptyDescription": "A comparação entre início e fim nasce na avaliação final da temporada. Enquanto ninguém concluir, o Panorama mostra onde as pessoas estão agora.",
+        "unavailableTitle": "Não foi possível ler a evolução",
+        "unavailableDescription": "A leitura falhou. Isto não quer dizer que ninguém evoluiu: quer dizer que não conseguimos medir agora.",
+        "level": "N{nivel}"
       }
     },
     "sections": {

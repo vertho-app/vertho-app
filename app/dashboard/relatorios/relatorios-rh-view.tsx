@@ -11,9 +11,10 @@ import {
 import { PageContainer, PageHero } from '@/components/page-shell';
 import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
 import type { RhReportDocument, RhReportKind, RhReportsCenter, RhReportsScope } from '@/lib/relatorios/rh-center';
+import type { EvolucaoAgregado } from '@/lib/relatorios/evolucao-center';
 import type { RhDescriptorScope } from '@/lib/relatorios/dashboard-insights';
 
-type DashboardTab = 'overview' | 'roles' | 'priorities' | 'documents';
+type DashboardTab = 'overview' | 'evolution' | 'roles' | 'priorities' | 'documents';
 type DocumentSection = 'organization' | 'managers' | 'people';
 
 const serifStyle = {
@@ -24,6 +25,7 @@ const serifStyle = {
 
 const DASHBOARD_TABS = [
   { key: 'overview', icon: Gauge },
+  { key: 'evolution', icon: TrendingUp },
   { key: 'roles', icon: UsersRound },
   { key: 'priorities', icon: Target },
   { key: 'documents', icon: FileText },
@@ -253,6 +255,304 @@ function JourneyPulse({ reports, t }: { reports: RhReportsCenter; t: any }) {
         </div>
       </div>
     </Panel>
+  );
+}
+
+/* ── Aba de EVOLUÇÃO ────────────────────────────────────────────────────────
+   Separada do Panorama de propósito: lá está o RITMO da jornada (acesso,
+   consumo, atraso), aqui está a EVOLUÇÃO medida no fechamento. Engajamento é
+   indicador antecipado e não prova de desenvolvimento; misturar os dois num
+   painel só é como uma plataforma passa a vender atividade como resultado.
+
+   O veredito de cada linha vem do relatório gravado no fechamento, nunca
+   recalculado aqui — ver `lib/relatorios/evolucao-center.ts`.                */
+
+const VERDICT_STYLE: Record<string, { chave: string; cor: string; fundo: string }> = {
+  evolucao_confirmada: { chave: 'confirmed', cor: '#34D399', fundo: 'rgba(52,211,153,.12)' },
+  evolucao_parcial: { chave: 'partial', cor: '#67E8F9', fundo: 'rgba(103,232,249,.1)' },
+  estagnacao: { chave: 'stable', cor: 'rgba(255,255,255,.62)', fundo: 'rgba(255,255,255,.06)' },
+  regressao: { chave: 'attention', cor: '#FBBF24', fundo: 'rgba(251,191,36,.12)' },
+};
+
+function VerdictPill({ veredito, t }: { veredito: string | null; t: any }) {
+  const estilo = veredito ? VERDICT_STYLE[veredito] : null;
+  const rotulo = estilo ? t(`dashboard.evolution.${estilo.chave}`) : t('dashboard.evolution.noVerdict');
+  return (
+    <span
+      className="inline-flex whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.06em]"
+      style={{
+        color: estilo?.cor || 'rgba(255,255,255,.4)',
+        background: estilo?.fundo || 'rgba(255,255,255,.04)',
+      }}
+    >
+      {rotulo}
+    </span>
+  );
+}
+
+/** Barra de entrada e saída na escala 1 a 4 do modelo de competências. */
+function DeltaBar({ pre, pos }: { pre: number; pos: number }) {
+  const pct = (nota: number) => Math.max(0, Math.min(100, ((nota - 1) / 3) * 100));
+  const inicio = pct(Math.min(pre, pos));
+  const fim = pct(Math.max(pre, pos));
+  const subiu = pos >= pre;
+  return (
+    <div className="relative h-[22px] overflow-hidden rounded-md border border-white/[0.07] bg-white/[0.03]">
+      <div className="absolute inset-y-[4px] rounded-sm bg-white/20" style={{ left: 0, width: `${inicio}%` }} />
+      <div
+        className="absolute inset-y-[4px] rounded-sm"
+        style={{
+          left: `${inicio}%`,
+          width: `${Math.max(fim - inicio, 0.6)}%`,
+          background: subiu ? '#34D399' : '#FBBF24',
+        }}
+      />
+    </div>
+  );
+}
+
+function EvolutionAggregateRow({ item, t }: { item: EvolucaoAgregado; t: any }) {
+  return (
+    <div className="grid items-center gap-3 border-b border-white/[0.05] py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_180px_120px]">
+      <div className="min-w-0">
+        <p className="truncate text-sm text-white/85">{item.chave}</p>
+        <p className="mt-0.5 text-[11px] text-white/35">
+          {item.competencia ? `${item.competencia} · ` : ''}
+          {t('dashboard.evolution.peopleCount', { n: item.n })}
+        </p>
+      </div>
+      <div>
+        <DeltaBar pre={item.mediaPre} pos={item.mediaPos} />
+        <p className="mt-1 flex justify-between font-mono text-[10px] text-white/35 tabular-nums">
+          <span>{item.mediaPre.toFixed(2)}</span>
+          <span>{item.mediaPos.toFixed(2)}</span>
+        </p>
+      </div>
+      <div className="flex items-center justify-end gap-2">
+        <span className="rounded-md border border-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] text-white/40">
+          {t('dashboard.evolution.level', { nivel: item.nivelPre })} → {t('dashboard.evolution.level', { nivel: item.nivelPos })}
+        </span>
+        <strong
+          className="text-base tabular-nums"
+          style={{ color: item.delta > 0 ? '#34D399' : item.delta < 0 ? '#FBBF24' : 'rgba(255,255,255,.5)' }}
+        >
+          {item.delta > 0 ? '+' : ''}{item.delta.toFixed(2)}
+        </strong>
+      </div>
+    </div>
+  );
+}
+
+function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
+  const evolucao = reports.dashboard.evolucao;
+
+  if (evolucao.indisponivel) {
+    return (
+      <Panel className="px-6 py-12 text-center">
+        <ShieldAlert size={28} className="mx-auto text-amber-300/70" />
+        <h2 className="mt-3 text-xl text-white" style={serifStyle}>{t('dashboard.evolution.unavailableTitle')}</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-white/45">
+          {t('dashboard.evolution.unavailableDescription')}
+        </p>
+      </Panel>
+    );
+  }
+
+  const { cobertura, resumo, porCompetencia, porDescritor, pessoas, proximasAcoes } = evolucao;
+
+  // Sem NENHUMA jornada fechada, o painel inteiro seria uma fileira de zeros —
+  // e zero aqui não significa "ninguém evoluiu", significa "ninguém chegou ao
+  // fim ainda". Dizer isso é mais útil que desenhar o vazio com ar de resultado.
+  if (cobertura.medidos === 0) {
+    return (
+      <Panel className="px-6 py-12 text-center">
+        <TrendingUp size={28} className="mx-auto text-white/20" />
+        <h2 className="mt-3 text-xl text-white" style={serifStyle}>{t('dashboard.evolution.emptyTitle')}</h2>
+        <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-white/45">
+          {t('dashboard.evolution.emptyDescription')}
+        </p>
+        <p className="mt-5 font-mono text-[11px] uppercase tracking-[0.12em] text-white/30">
+          {t('dashboard.evolution.coverageInJourney')}: {cobertura.emJornada} · {t('dashboard.evolution.coveragePeople')}: {cobertura.participantes}
+        </p>
+      </Panel>
+    );
+  }
+
+  const cards = [
+    { key: 'confirmed', valor: resumo.confirmadas, cor: '#34D399' },
+    { key: 'partial', valor: resumo.parciais, cor: '#67E8F9' },
+    { key: 'stable', valor: resumo.estaveis, cor: 'rgba(255,255,255,.72)' },
+    { key: 'attention', valor: resumo.atencao, cor: '#FBBF24' },
+  ] as const;
+
+  return (
+    <div className="space-y-4">
+      {/* 1. COBERTURA — antes de qualquer percentual, o denominador. */}
+      <Panel className="p-6">
+        <SectionTitle
+          eyebrow={t('dashboard.evolution.eyebrow')}
+          title={t('dashboard.evolution.title')}
+          subtitle={t('dashboard.evolution.subtitle')}
+        />
+        <div className="rounded-2xl border border-[var(--brand-400,#22d3ee)]/20 bg-[var(--brand-400,#22d3ee)]/[0.06] p-5">
+          <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">
+            {t('dashboard.evolution.coverageTitle')}
+          </p>
+          <p className="mt-2 text-[19px] leading-snug text-white/90" style={serifStyle}>
+            {t('dashboard.evolution.coverageHelp', { medidos: cobertura.medidos, participantes: cobertura.participantes })}
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {[
+              { rotulo: t('dashboard.evolution.coverageMeasured'), valor: cobertura.medidos, extra: `${cobertura.percentual}%` },
+              { rotulo: t('dashboard.evolution.coverageInJourney'), valor: cobertura.emJornada, extra: null },
+              { rotulo: t('dashboard.evolution.coveragePeople'), valor: cobertura.participantes, extra: null },
+            ].map((item) => (
+              <div key={item.rotulo} className="rounded-xl border border-white/[0.07] bg-black/15 px-4 py-3">
+                <p className="text-[11px] text-white/45">{item.rotulo}</p>
+                <p className="mt-1 flex items-baseline gap-2">
+                  <strong className="text-2xl text-white tabular-nums" style={serifStyle}>{item.valor}</strong>
+                  {item.extra && <span className="font-mono text-[11px] text-[var(--brand-300,#67e8f9)]">{item.extra}</span>}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {cards.map((card) => (
+            <div key={card.key} className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
+              <p className="text-[11px] leading-tight text-white/45">{t(`dashboard.evolution.${card.key}`)}</p>
+              <strong className="mt-1 block text-2xl tabular-nums" style={{ ...serifStyle, color: card.cor }}>{card.valor}</strong>
+            </div>
+          ))}
+          <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
+            <p className="text-[11px] leading-tight text-white/45">{t('dashboard.evolution.averageDelta')}</p>
+            <strong className="mt-1 block text-2xl tabular-nums" style={{ ...serifStyle, color: resumo.deltaMedio >= 0 ? '#34D399' : '#FBBF24' }}>
+              {resumo.deltaMedio > 0 ? '+' : ''}{resumo.deltaMedio.toFixed(2)}
+            </strong>
+          </div>
+        </div>
+      </Panel>
+
+      {/* 2. O QUE evoluiu, por competência e por comportamento. */}
+      <Panel className="p-6">
+        <SectionTitle
+          eyebrow={t('dashboard.evolution.eyebrow')}
+          title={t('dashboard.evolution.byCompetencyTitle')}
+          subtitle={t('dashboard.evolution.byCompetencySubtitle')}
+        />
+        <div className="overflow-x-auto">
+          <div className="min-w-[520px]">
+            {porCompetencia.map((item) => <EvolutionAggregateRow key={item.chave} item={item} t={t} />)}
+          </div>
+        </div>
+
+        <h3 className="mb-1 mt-7 text-lg text-white" style={serifStyle}>{t('dashboard.evolution.byDescriptorTitle')}</h3>
+        <div className="overflow-x-auto">
+          <div className="min-w-[520px]">
+            {porDescritor.map((item) => <EvolutionAggregateRow key={item.chave} item={item} t={t} />)}
+          </div>
+        </div>
+      </Panel>
+
+      {/* 3. QUEM evoluiu — nominal, com a evidência que sustenta a leitura. */}
+      <Panel className="p-6">
+        <SectionTitle
+          eyebrow={t('dashboard.evolution.eyebrow')}
+          title={t('dashboard.evolution.peopleTitle')}
+          subtitle={t('dashboard.evolution.peopleSubtitle')}
+        />
+        <div className="overflow-x-auto rounded-2xl border border-white/[0.07]">
+          <table className="w-full min-w-[720px] border-collapse text-sm">
+            <thead>
+              <tr className="bg-white/[0.03] text-left">
+                {['columnPerson', 'columnCompetency', 'columnBefore', 'columnAfter', 'columnDelta', 'columnVerdict', 'columnSupport'].map((col, i) => (
+                  <th
+                    key={col}
+                    title={col === 'columnSupport' ? t('dashboard.evolution.supportHelp') : undefined}
+                    className={`px-4 py-3 text-[9px] font-bold uppercase tracking-[0.14em] text-white/35 ${i >= 2 && i <= 4 ? 'text-right' : ''}`}
+                  >
+                    {t(`dashboard.evolution.${col}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {pessoas.map((pessoa) => (
+                <tr key={pessoa.colaboradorId} className="border-t border-white/[0.05] align-top">
+                  <td className="px-4 py-3">
+                    <p className="text-white/90">{pessoa.nome}</p>
+                    {pessoa.cargo && <p className="mt-0.5 text-[11px] text-white/35">{pessoa.cargo}</p>}
+                  </td>
+                  <td className="px-4 py-3 text-white/60">
+                    <p>{pessoa.competencia}</p>
+                    <p className="mt-0.5 text-[11px] text-white/30">{t('dashboard.evolution.descriptorCount', { n: pessoa.n })}</p>
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-white/55 tabular-nums">{pessoa.mediaPre.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-white/85 tabular-nums">{pessoa.mediaPos.toFixed(2)}</td>
+                  <td
+                    className="px-4 py-3 text-right font-mono font-bold tabular-nums"
+                    style={{ color: pessoa.delta > 0 ? '#34D399' : pessoa.delta < 0 ? '#FBBF24' : 'rgba(255,255,255,.5)' }}
+                  >
+                    {pessoa.delta > 0 ? '+' : ''}{pessoa.delta.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3"><VerdictPill veredito={pessoa.veredito} t={t} /></td>
+                  <td className="px-4 py-3 text-[11px] text-white/45">
+                    {t(`dashboard.evolution.support${pessoa.sustentacao === 'alta' ? 'High' : pessoa.sustentacao === 'media' ? 'Medium' : 'Low'}`)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      {/* 4. PRÓXIMAS AÇÕES — o painel termina em decisão, não em número. */}
+      <Panel className="p-6">
+        <SectionTitle eyebrow={t('dashboard.evolution.eyebrow')} title={t('dashboard.evolution.actionsTitle')} />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-amber-300/15 bg-amber-300/[0.04] p-5">
+            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-amber-300">{t('dashboard.evolution.actionsSupport')}</p>
+            {proximasAcoes.precisamApoio.length === 0 ? (
+              <p className="mt-3 text-sm text-white/40">—</p>
+            ) : (
+              <ul className="mt-3 space-y-3">
+                {proximasAcoes.precisamApoio.map((pessoa) => (
+                  <li key={pessoa.colaboradorId} className="border-b border-white/[0.05] pb-3 last:border-b-0 last:pb-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-sm text-white/85">{pessoa.nome}</span>
+                      <VerdictPill veredito={pessoa.veredito} t={t} />
+                    </div>
+                    {pessoa.proximoPasso && (
+                      <p className="mt-1 text-[12px] leading-relaxed text-white/45">{pessoa.proximoPasso}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+            <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--brand-300,#67e8f9)]">
+              {t('dashboard.evolution.actionsNextCycle')}
+            </p>
+            <p className="mt-1 text-[11px] text-white/35">{t('dashboard.evolution.actionsNextCycleHelp')}</p>
+            <ul className="mt-3 space-y-3">
+              {proximasAcoes.proximoCiclo.map((item) => (
+                <li key={item.chave} className="flex items-baseline justify-between gap-3 border-b border-white/[0.05] pb-3 last:border-b-0 last:pb-0">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm text-white/85">{item.chave}</span>
+                    <span className="block text-[11px] text-white/30">{item.competencia}</span>
+                  </span>
+                  <strong className="shrink-0 font-mono text-sm tabular-nums" style={{ color: item.delta > 0 ? '#34D399' : '#FBBF24' }}>
+                    {item.delta > 0 ? '+' : ''}{item.delta.toFixed(2)}
+                  </strong>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </Panel>
+    </div>
   );
 }
 
@@ -782,6 +1082,7 @@ export default function RelatoriosRhView({ reports }: { reports: RhReportsCenter
           <ScopeFilter scope={reports.scope} t={t} />
           <DashboardNavigation active={activeTab} onChange={setActiveTab} t={t} />
           {activeTab === 'overview' && <OverviewTab reports={reports} t={t} />}
+          {activeTab === 'evolution' && <EvolutionPanel reports={reports} t={t} />}
           {activeTab === 'roles' && <RolesTab reports={reports} t={t} />}
           {activeTab === 'priorities' && <PrioritiesTab reports={reports} t={t} />}
           {activeTab === 'documents' && <DocumentsTab reports={reports} t={t} locale={locale} onOpen={openDocument} />}

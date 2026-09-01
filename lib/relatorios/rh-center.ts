@@ -2,6 +2,7 @@ import 'server-only';
 
 import { tenantDb } from '@/lib/tenant-db';
 import { carregarPanoramaRH, carregarRelatoriosGerenciais } from '@/lib/home/loaders';
+import { carregarEvolucaoRH, type EvolucaoCentro } from '@/lib/relatorios/evolucao-center';
 import { aggregateDna, type DnaAggregate } from '@/lib/dna-organizacional/aggregate';
 import { criarDnaOrganizacionalAcmeDemo } from '@/lib/demo/acme-organization-report-fixture';
 import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
@@ -78,6 +79,8 @@ export type RhReportsCenter = {
     insight: RhReportInsight | null;
     descriptorAnalysis: RhDescriptorAnalysis | null;
     generatedAt: string | null;
+    /** Painel de evolução: T0 x T1 do fechamento. Nunca engajamento. */
+    evolucao: EvolucaoCentro;
     insightUnavailable: boolean;
   };
   organization: RhReportDocument[];
@@ -161,9 +164,10 @@ export async function carregarCentralRelatoriosRH(
   const colaboradorIds = escopo ? escopo.colaboradorIds : null;
   const idsNoEscopo = colaboradorIds ? new Set(colaboradorIds) : null;
 
-  const [gerenciais, panorama, reportsResult, insightResult, descriptorResult] = await Promise.all([
+  const [gerenciais, panorama, evolucao, reportsResult, insightResult, descriptorResult] = await Promise.all([
     carregarRelatoriosGerenciais(empresaId),
     carregarPanoramaRH(empresaId, { colaboradorIds }),
+    carregarEvolucaoRH(empresaId, { colaboradorIds }),
     tdb.from('relatorios')
       .select('id,colaborador_id,tipo,gerado_em')
       .in('tipo', [...PDF_TYPES])
@@ -270,6 +274,7 @@ export async function carregarCentralRelatoriosRH(
       descriptorAnalysis: descriptorResult.data,
       generatedAt: insightResult.data?.gerado_em || null,
       insightUnavailable: Boolean(insightResult.error),
+      evolucao,
     },
     organization,
     managers: rows.filter((row: any) => row.tipo === 'gestor').map(asDocument),
