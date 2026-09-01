@@ -4,10 +4,10 @@ import { montarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
 import { tenantDb } from '@/lib/tenant-db';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import {
-  getAcmeProspectRole,
+  getPapelDaDegustacao,
   acmeProspectExpiresAt,
   ACME_PROSPECT_AUTH_MARKER,
-  acmeProspectAuthEmail,
+  demoProspectAuthEmail,
   ACME_PROSPECT_SESSION_PATTERN,
   validateAcmeProspectExperienceInput,
   type AcmeProspectExperienceAccess,
@@ -68,18 +68,25 @@ async function rollbackGuest(
 }
 
 /**
- * Núcleo headless da experiência individual no ACME Demo.
+ * Núcleo headless da experiência individual num ambiente de demonstração.
  *
- * O tenant não é parâmetro: esta função só pode operar no `acme-demo`. O e-mail
- * técnico é interno e aleatório; o WhatsApp real, quando informado, permanece
- * no browser do vendedor e só é usado para abrir o compartilhamento manual.
+ * O `slug` é PARÂMETRO, mas nunca vem cru do cliente: quem chama valida contra
+ * a allowlist tipada (`DEMO_PROSPECT_TENANTS`), e aqui ele ainda precisa passar
+ * pelo `is_demo` do banco. Foi assim que a degustação deixou de ser exclusiva do
+ * ACME sem virar "crie convidado no tenant que você quiser".
+ *
+ * O e-mail técnico é interno e aleatório, com PREFIXO DO AMBIENTE — é ele que
+ * mantém a faxina de um ambiente longe dos convidados vivos do outro. O
+ * WhatsApp real, quando informado, permanece no browser do vendedor e só é
+ * usado para abrir o compartilhamento manual.
  */
 export async function prepareAcmeProspectExperience(
   input: AcmeProspectExperienceInput,
   lifecycle: AcmeProspectLifecycle = createAcmeProspectLifecycle(),
   createdByEmail: string = 'system:unknown',
+  slug: string = ACME_DEMO_SLUG,
 ): Promise<AcmeProspectExperienceResult> {
-  const parsed = validateAcmeProspectExperienceInput(input);
+  const parsed = validateAcmeProspectExperienceInput(input, slug);
   if (parsed.ok === false) return { ok: false, error: parsed.error };
 
   let createdGuest: {
@@ -90,21 +97,21 @@ export async function prepareAcmeProspectExperience(
   } | null = null;
 
   try {
-    const resolved = await resolveTenant(ACME_DEMO_SLUG);
-    if (!resolved?.id) throw new Error('O ACME Demo não existe.');
+    const resolved = await resolveTenant(slug);
+    if (!resolved?.id) throw new Error(`O ambiente ${slug} não existe.`);
 
     const tdb = tenantDb(resolved.id);
     const { data: empresa, error: empresaError } = await tdb.raw.from('empresas')
       .select('id,is_demo')
       .eq('id', resolved.id)
-      .eq('slug', ACME_DEMO_SLUG)
+      .eq('slug', slug)
       .maybeSingle();
-    if (empresaError) throw new Error(`carregar ACME Demo: ${empresaError.message}`);
+    if (empresaError) throw new Error(`carregar ${slug}: ${empresaError.message}`);
     if (!empresa?.id || empresa.is_demo !== true) {
-      throw new Error('O ACME Demo não existe ou não está marcado como demonstração.');
+      throw new Error(`O ambiente ${slug} não existe ou não está marcado como demonstração.`);
     }
 
-    const role = getAcmeProspectRole(parsed.value.roleKey);
+    const role = getPapelDaDegustacao(slug, parsed.value.roleKey);
     if (!role) throw new Error('Papel demonstrativo inválido.');
     if (!ACME_PROSPECT_SESSION_PATTERN.test(lifecycle.sessionId)) {
       throw new Error('Identificador da experiência inválido.');
@@ -115,7 +122,7 @@ export async function prepareAcmeProspectExperience(
     }
 
     const sessionId = lifecycle.sessionId;
-    const authEmail = acmeProspectAuthEmail(sessionId);
+    const authEmail = demoProspectAuthEmail(slug, sessionId);
     const expiresAt = lifecycle.expiresAt;
     const colaboradorId = randomUUID();
 
@@ -142,7 +149,7 @@ export async function prepareAcmeProspectExperience(
       user_metadata: {
         name: parsed.value.nome,
         vertho_demo_access: ACME_PROSPECT_AUTH_MARKER,
-        vertho_demo_tenant: ACME_DEMO_SLUG,
+        vertho_demo_tenant: slug,
         vertho_demo_session_id: sessionId,
         expires_at: expiresAt,
       },
@@ -169,7 +176,7 @@ export async function prepareAcmeProspectExperience(
     }
 
     const nextPath = '/dashboard';
-    const redirectTo = tenantUrl(ACME_DEMO_SLUG, nextPath);
+    const redirectTo = tenantUrl(slug, nextPath);
     const { data: link, error: linkError } = await tdb.auth.admin.generateLink({
       type: 'magiclink',
       email: authEmail,
@@ -202,8 +209,8 @@ export async function prepareAcmeProspectExperience(
         // ela responde HTML e só vai ao callback quando o JS executa, então o
         // robô fica do lado de fora e o token chega inteiro em quem clicou.
         url: tenantUrl(
-          ACME_DEMO_SLUG,
-          `/entrar?t=${encodeURIComponent(montarParametroAcesso(ACME_DEMO_SLUG, tokenHash))}`,
+          slug,
+          `/entrar?t=${encodeURIComponent(montarParametroAcesso(slug, tokenHash))}`,
         ),
       },
     };

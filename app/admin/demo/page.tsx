@@ -28,7 +28,9 @@ import {
 } from '@/actions/demo';
 import { launchDemoPresentationAccess } from '@/lib/demo/presentation';
 import {
-  ACME_PROSPECT_ROLES,
+  papeisDaDegustacao,
+  DEMO_PROSPECT_TENANTS,
+  type DemoProspectTenantSlug,
   buildAcmeProspectShareText,
   getAcmeProspectExperienceSteps,
   type AcmeProspectExperienceAccess,
@@ -113,6 +115,15 @@ const TENANTS: Record<TenantSlug, { nome: string; descricao: string; oculto?: bo
 
 const TENANTS_VISIVEIS = (Object.keys(TENANTS) as TenantSlug[]).filter((slug) => !TENANTS[slug].oculto);
 
+/**
+ * Ambientes que oferecem DEGUSTAÇÃO. Sai da allowlist do servidor
+ * (`DEMO_PROSPECT_TENANTS`), não de uma segunda lista escrita aqui: a tela
+ * ofereceria um ambiente que a action recusa, e o vendedor descobriria isso
+ * com o prospect esperando.
+ */
+const AMBIENTES_DEGUSTACAO = (Object.keys(DEMO_PROSPECT_TENANTS) as DemoProspectTenantSlug[])
+  .filter((slug) => !TENANTS[slug as TenantSlug]?.oculto);
+
 export default function AdminDemoPage() {
   const confirmDialog = useConfirm();
   const [tenantSlug, setTenantSlug] = useState<TenantSlug>('acme-demo');
@@ -130,6 +141,11 @@ export default function AdminDemoPage() {
   const [carregandoProgress, setCarregandoProgress] = useState(true);
   const [progressUpdatedAt, setProgressUpdatedAt] = useState<Date | null>(null);
   const [copiado, setCopiado] = useState<string | null>(null);
+  // Ambiente da DEGUSTAÇÃO: independente do ambiente selecionado lá em cima,
+  // que é o alvo do reset. Amarrar os dois faria a escolha do que recriar mudar
+  // em que ambiente o prospect entra — duas decisões diferentes, um controle só.
+  const [degustacaoSlug, setDegustacaoSlug] = useState<DemoProspectTenantSlug>('acme-demo');
+  const papeis = papeisDaDegustacao(degustacaoSlug);
   // Vem do SERVIDOR junto com a lista: `resetPausadoAte` mora no módulo do
   // reset, que carrega fixture e client service-role — importá-lo aqui o
   // arrastaria inteiro para o bundle do browser.
@@ -257,6 +273,16 @@ export default function AdminDemoPage() {
     }
   }
 
+  function selecionarAmbienteDegustacao(slug: DemoProspectTenantSlug) {
+    if (slug === degustacaoSlug) return;
+    setDegustacaoSlug(slug);
+    // O papel pertence ao ELENCO do ambiente: manter a escolha anterior levaria
+    // um cargo comercial para um roteiro escolar, e o cargo é o que a etapa 01
+    // usa para achar o Top 5 e o cenário.
+    setProspectForm((atual) => ({ ...atual, roleKey: papeisDaDegustacao(slug)[0].key }));
+    setProspectAccess(null);
+  }
+
   function marcarVisaoAberta(roleKey: string) {
     setPresentationOpened((atuais) => new Set(atuais).add(roleKey));
   }
@@ -296,7 +322,7 @@ export default function AdminDemoPage() {
         nome: prospectForm.nome,
         empresa: prospectForm.empresa,
         roleKey: prospectForm.roleKey,
-      });
+      }, degustacaoSlug);
       if (!r.success) {
         toast.error(`Falha ao preparar experiência: ${r.error || 'erro'}`);
         return;
@@ -401,14 +427,22 @@ export default function AdminDemoPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={resetar}
-            disabled={busy}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-500 py-3 text-sm font-bold text-[#0C1829] hover:bg-cyan-400 disabled:opacity-50"
-          >
-            {busy ? <><Loader2 size={16} className="animate-spin" /> Recriando {tenant.nome}…</> : <><RefreshCw size={16} /> Recriar dados de {tenant.nome}</>}
-          </button>
+          {/* Recriar dados é MANUTENÇÃO, não o que se faz antes de uma conversa:
+              apagava e recriava o ambiente com o destaque de ação principal,
+              logo acima do que o vendedor realmente vem fazer aqui. Vira ação
+              discreta — continua a um clique, deixa de convidar ao clique. */}
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={resetar}
+              disabled={busy}
+              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] font-semibold text-white/50 transition-colors hover:bg-white/[0.07] hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 disabled:opacity-50"
+            >
+              {busy
+                ? <><Loader2 size={13} className="animate-spin" /> Recriando {tenant.nome}…</>
+                : <><RefreshCw size={13} /> Recriar dados de {tenant.nome}</>}
+            </button>
+          </div>
 
           {ultimo && (
             <div className="mt-4 rounded-xl bg-white/[0.03] p-3">
@@ -426,6 +460,123 @@ export default function AdminDemoPage() {
               </div>
             </div>
           )}
+
+          {/* Mora no card do AMBIENTE porque é dele que a lista fala: o
+              acompanhamento é por tenant, e ficava no fim da tela, três seções
+              abaixo de onde o ambiente é escolhido. Sem fundo próprio e sem
+              padding lateral: aqui ele é uma seção do card, não um bloco solto. */}
+          <div className="mt-6 border-t border-white/10 pt-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <Activity size={14} aria-hidden="true" />
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.16em]">Acompanhamento dos clientes</h3>
+                </div>
+                <p className="mt-1 text-[10px] text-white/35">
+                  Quem foi convidado para o {tenant.nome} e até onde chegou. As visões 02–04 só
+                  existem no passaporte; quem entrou por cadastro tem acesso e DISC.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => carregarAndamento()}
+                disabled={carregandoProgress}
+                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[9px] font-bold text-white/55 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50 disabled:opacity-50"
+              >
+                <RefreshCw size={11} className={carregandoProgress ? 'animate-spin' : ''} aria-hidden="true" />
+                Atualizar andamento
+              </button>
+            </div>
+
+            {carregandoProgress && convidados.length === 0 ? (
+              <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-white/8 bg-black/10 py-7 text-[10px] text-white/35">
+                <Loader2 size={13} className="animate-spin" aria-hidden="true" /> Carregando experiências…
+              </div>
+            ) : convidados.length === 0 ? (
+              <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-black/10 px-4 py-6 text-center">
+                <p className="text-[11px] font-semibold text-white/55">Nenhum convidado no {tenant.nome}</p>
+                <p className="mt-1 text-[9px] text-white/30">O primeiro cliente convidado aparecerá aqui com o avanço de cada etapa.</p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                {convidados.map((experience) => {
+                  const comPassaporte = experience.origem === 'passaporte';
+                  const expired = comPassaporte && (
+                    Boolean(experience.accessClosedAt)
+                    || Date.parse(experience.expiresAt || '') <= (progressUpdatedAt?.getTime() || 0)
+                  );
+                  // Quem entrou por cadastro não tem as visões 02–04: mostrá-las
+                  // como "Aguardando" inventaria uma etapa que ninguém pode cumprir.
+                  const milestones = comPassaporte
+                    ? [
+                      ['Acesso pessoal', experience.personalAccessedAt],
+                      ['DISC', experience.discCompletedAt],
+                      ['Colaborador', experience.colaboradorAccessedAt],
+                      ['Gestor', experience.gestorAccessedAt],
+                      ['RH', experience.rhAccessedAt],
+                    ] as const
+                    : [
+                      ['Acesso', experience.personalAccessedAt],
+                      ['DISC', experience.discCompletedAt],
+                    ] as const;
+                  const completed = milestones.filter(([, value]) => Boolean(value)).length;
+                  return (
+                    <article key={experience.id} className="relative overflow-hidden rounded-xl border border-white/10 bg-[#081523]/85 p-3.5">
+                      <span className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#0b1928]" aria-hidden="true" />
+                      <span className="absolute -right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#0b1928]" aria-hidden="true" />
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="text-[11px] font-bold text-white">{experience.nome}</p>
+                            <span className={`rounded-full border px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-wide ${comPassaporte ? 'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-200/70' : 'border-white/10 bg-white/[0.04] text-white/40'}`}>
+                              {comPassaporte ? 'Passaporte' : 'Cadastro'}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-[9px] text-white/35">{experience.contexto} · {experience.cargo}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`inline-flex rounded-full border px-2 py-1 font-mono text-[8px] uppercase tracking-wide ${expired ? 'border-white/10 bg-white/[0.03] text-white/35' : 'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-200/75'}`}>
+                            {expired ? 'Encerrado' : `${completed}/${milestones.length} concluídos`}
+                          </span>
+                          <p className="mt-1 font-mono text-[8px] text-white/25">
+                            {experience.expiresAt
+                              ? `até ${formatProspectExpiry(experience.expiresAt)}`
+                              : `desde ${formatProspectExpiry(experience.createdAt)}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* 5 colunas SEMPRE: com duas marcas esticadas na largura toda,
+                          o cartão de cadastro não alinha com os de passaporte e a
+                          comparação entre pessoas se perde. */}
+                      <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-5" aria-label={`Andamento de ${experience.nome}`}>
+                        {milestones.map(([label, timestamp], index) => {
+                          const done = Boolean(timestamp);
+                          return (
+                            <li key={label} className={`relative rounded-lg border px-2 py-2 ${done ? 'border-emerald-300/18 bg-emerald-300/[0.045]' : 'border-white/[0.07] bg-white/[0.018]'}`}>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`grid h-4 w-4 shrink-0 place-items-center rounded-full ${done ? 'bg-emerald-300 text-[#071923]' : 'border border-white/15 text-white/20'}`}>
+                                  {done ? <Check size={9} strokeWidth={3} aria-hidden="true" /> : <span className="font-mono text-[7px]">{index + 1}</span>}
+                                </span>
+                                <span className={`truncate text-[8px] font-bold ${done ? 'text-emerald-100/80' : 'text-white/35'}`}>{label}</span>
+                              </div>
+                              <p className={`mt-1.5 font-mono text-[7px] ${done ? 'text-emerald-200/45' : 'text-white/20'}`}>{formatProspectEvent(timestamp)}</p>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {progressUpdatedAt && (
+              <p className="mt-3 text-right font-mono text-[8px] text-white/20">
+                Atualizado às {progressUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            )}
+          </div>
 
           <div className="my-6 border-t border-white/10" />
 
@@ -523,9 +674,26 @@ export default function AdminDemoPage() {
                     A pessoa começa do zero e depois conhece as visões prontas de colaborador, gestor e RH.
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full border border-emerald-300/20 bg-emerald-300/[0.06] px-2 py-1 font-mono text-[9px] text-emerald-200/70">
-                  ACME
-                </span>
+                {/* Era um selo fixo dizendo "ACME": informava o ambiente e não
+                    deixava trocar, enquanto a degustação passou a existir nos
+                    dois. Escolher aqui é o que evita preparar o roteiro no
+                    ambiente errado no minuto antes da conversa. */}
+                <div className="flex shrink-0 gap-1 rounded-full border border-emerald-300/15 bg-black/20 p-1" role="group" aria-label="Ambiente da degustação">
+                  {AMBIENTES_DEGUSTACAO.map((slug) => {
+                    const ativo = degustacaoSlug === slug;
+                    return (
+                      <button
+                        key={slug}
+                        type="button"
+                        onClick={() => selecionarAmbienteDegustacao(slug)}
+                        aria-pressed={ativo}
+                        className={`rounded-full px-2.5 py-1 font-mono text-[9px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50 ${ativo ? 'bg-emerald-300/15 text-emerald-100' : 'text-white/40 hover:text-white/70'}`}
+                      >
+                        {TENANTS[slug].nome}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-1 sm:grid-cols-4" aria-label="Perspectivas da experiência">
@@ -597,7 +765,7 @@ export default function AdminDemoPage() {
                       onChange={(event) => updateProspectForm('roleKey', event.target.value as AcmeProspectRoleKey)}
                       className={`${inputClass} appearance-none pl-9`}
                     >
-                      {ACME_PROSPECT_ROLES.map((role) => (
+                      {papeis.map((role: any) => (
                         <option key={role.key} value={role.key}>{role.label}</option>
                       ))}
                     </select>
@@ -696,118 +864,6 @@ export default function AdminDemoPage() {
               )}
             </form>
 
-            <div className="border-t border-dashed border-emerald-200/15 bg-[#06131f]/45 px-4 py-4 sm:px-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2 text-emerald-300">
-                    <Activity size={14} aria-hidden="true" />
-                    <h3 className="text-[10px] font-bold uppercase tracking-[0.16em]">Acompanhamento dos clientes</h3>
-                  </div>
-                  <p className="mt-1 text-[10px] text-white/35">
-                    Quem foi convidado para o {tenant.nome} e até onde chegou. As visões 02–04 só
-                    existem no passaporte; quem entrou por cadastro tem acesso e DISC.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => carregarAndamento()}
-                  disabled={carregandoProgress}
-                  className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-2 text-[9px] font-bold text-white/55 hover:bg-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50 disabled:opacity-50"
-                >
-                  <RefreshCw size={11} className={carregandoProgress ? 'animate-spin' : ''} aria-hidden="true" />
-                  Atualizar andamento
-                </button>
-              </div>
-
-              {carregandoProgress && convidados.length === 0 ? (
-                <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-white/8 bg-black/10 py-7 text-[10px] text-white/35">
-                  <Loader2 size={13} className="animate-spin" aria-hidden="true" /> Carregando experiências…
-                </div>
-              ) : convidados.length === 0 ? (
-                <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-black/10 px-4 py-6 text-center">
-                  <p className="text-[11px] font-semibold text-white/55">Nenhum convidado no {tenant.nome}</p>
-                  <p className="mt-1 text-[9px] text-white/30">O primeiro cliente convidado aparecerá aqui com o avanço de cada etapa.</p>
-                </div>
-              ) : (
-                <div className="mt-4 space-y-3">
-                  {convidados.map((experience) => {
-                    const comPassaporte = experience.origem === 'passaporte';
-                    const expired = comPassaporte && (
-                      Boolean(experience.accessClosedAt)
-                      || Date.parse(experience.expiresAt || '') <= (progressUpdatedAt?.getTime() || 0)
-                    );
-                    // Quem entrou por cadastro não tem as visões 02–04: mostrá-las
-                    // como "Aguardando" inventaria uma etapa que ninguém pode cumprir.
-                    const milestones = comPassaporte
-                      ? [
-                        ['Acesso pessoal', experience.personalAccessedAt],
-                        ['DISC', experience.discCompletedAt],
-                        ['Colaborador', experience.colaboradorAccessedAt],
-                        ['Gestor', experience.gestorAccessedAt],
-                        ['RH', experience.rhAccessedAt],
-                      ] as const
-                      : [
-                        ['Acesso', experience.personalAccessedAt],
-                        ['DISC', experience.discCompletedAt],
-                      ] as const;
-                    const completed = milestones.filter(([, value]) => Boolean(value)).length;
-                    return (
-                      <article key={experience.id} className="relative overflow-hidden rounded-xl border border-white/10 bg-[#081523]/85 p-3.5">
-                        <span className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#0b1928]" aria-hidden="true" />
-                        <span className="absolute -right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#0b1928]" aria-hidden="true" />
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <p className="text-[11px] font-bold text-white">{experience.nome}</p>
-                              <span className={`rounded-full border px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-wide ${comPassaporte ? 'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-200/70' : 'border-white/10 bg-white/[0.04] text-white/40'}`}>
-                                {comPassaporte ? 'Passaporte' : 'Cadastro'}
-                              </span>
-                            </div>
-                            <p className="mt-0.5 text-[9px] text-white/35">{experience.contexto} · {experience.cargo}</p>
-                          </div>
-                          <div className="text-right">
-                            <span className={`inline-flex rounded-full border px-2 py-1 font-mono text-[8px] uppercase tracking-wide ${expired ? 'border-white/10 bg-white/[0.03] text-white/35' : 'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-200/75'}`}>
-                              {expired ? 'Encerrado' : `${completed}/${milestones.length} concluídos`}
-                            </span>
-                            <p className="mt-1 font-mono text-[8px] text-white/25">
-                              {experience.expiresAt
-                                ? `até ${formatProspectExpiry(experience.expiresAt)}`
-                                : `desde ${formatProspectExpiry(experience.createdAt)}`}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* 5 colunas SEMPRE: com duas marcas esticadas na largura toda,
-                            o cartão de cadastro não alinha com os de passaporte e a
-                            comparação entre pessoas se perde. */}
-                        <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-5" aria-label={`Andamento de ${experience.nome}`}>
-                          {milestones.map(([label, timestamp], index) => {
-                            const done = Boolean(timestamp);
-                            return (
-                              <li key={label} className={`relative rounded-lg border px-2 py-2 ${done ? 'border-emerald-300/18 bg-emerald-300/[0.045]' : 'border-white/[0.07] bg-white/[0.018]'}`}>
-                                <div className="flex items-center gap-1.5">
-                                  <span className={`grid h-4 w-4 shrink-0 place-items-center rounded-full ${done ? 'bg-emerald-300 text-[#071923]' : 'border border-white/15 text-white/20'}`}>
-                                    {done ? <Check size={9} strokeWidth={3} aria-hidden="true" /> : <span className="font-mono text-[7px]">{index + 1}</span>}
-                                  </span>
-                                  <span className={`truncate text-[8px] font-bold ${done ? 'text-emerald-100/80' : 'text-white/35'}`}>{label}</span>
-                                </div>
-                                <p className={`mt-1.5 font-mono text-[7px] ${done ? 'text-emerald-200/45' : 'text-white/20'}`}>{formatProspectEvent(timestamp)}</p>
-                              </li>
-                            );
-                          })}
-                        </ol>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-
-              {progressUpdatedAt && (
-                <p className="mt-3 text-right font-mono text-[8px] text-white/20">
-                  Atualizado às {progressUpdatedAt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              )}
-            </div>
           </section>
         </div>
       </div>

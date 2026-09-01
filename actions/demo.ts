@@ -27,6 +27,8 @@ import {
 } from '@/lib/demo/acme-prospect-tracking';
 import {
   ACME_PROSPECT_EXPERIENCE_VIEWS,
+  DEMO_PROSPECT_TENANTS,
+  type DemoProspectTenantSlug,
   validateAcmeProspectExperienceInput,
   type AcmeProspectExperienceInput,
 } from '@/lib/demo/acme-prospect-config';
@@ -156,21 +158,30 @@ export async function prepararSalaApresentacaoDemo(slug: string = DEMO_PRESENTAT
  * contato real: o alvo é fixo e o compartilhamento continua sob controle do
  * vendedor, no browser.
  */
-export async function prepararExperienciaProspectAcme(input: AcmeProspectExperienceInput) {
+export async function prepararExperienciaProspectAcme(
+  input: AcmeProspectExperienceInput,
+  slug: DemoProspectTenantSlug = 'acme-demo',
+) {
   const ctx = await requireAdminAction();
-  const parsed = validateAcmeProspectExperienceInput(input);
+  // `use server` = endpoint HTTP: o slug é escolhido pelo CLIENTE. A allowlist
+  // tipada é o que impede "crie um convidado no tenant que você quiser", e o
+  // `hasOwnProperty` é deliberado — com `in`, "constructor" passaria.
+  if (!Object.prototype.hasOwnProperty.call(DEMO_PROSPECT_TENANTS, slug)) {
+    return { success: false as const, error: 'Ambiente de demonstração inválido.' };
+  }
+  const parsed = validateAcmeProspectExperienceInput(input, slug);
   if (parsed.ok === false) {
     await logAdminAction({
       adminEmail: ctx.email,
       acao: 'demo.prepare_prospect_experience',
-      alvo: DEMO_PRESENTATION_TENANT_SLUG,
+      alvo: slug,
       detalhes: { error: parsed.error },
     });
     return { success: false as const, error: parsed.error };
   }
 
   const lifecycle = createAcmeProspectLifecycle();
-  const presentation = await prepararAcessosApresentacaoDemo();
+  const presentation = await prepararAcessosApresentacaoDemo(slug as any);
   const rawPresentationViews = presentation.acessos || [];
   const missingViews = ACME_PROSPECT_EXPERIENCE_VIEWS
     .filter((required) => !rawPresentationViews.some((view) => view.roleKey === required.roleKey))
@@ -181,7 +192,7 @@ export async function prepararExperienciaProspectAcme(input: AcmeProspectExperie
     await logAdminAction({
       adminEmail: ctx.email,
       acao: 'demo.prepare_prospect_experience',
-      alvo: DEMO_PRESENTATION_TENANT_SLUG,
+      alvo: slug,
       detalhes: { error },
     });
     return { success: false as const, error };
@@ -194,9 +205,9 @@ export async function prepararExperienciaProspectAcme(input: AcmeProspectExperie
   });
   const presentationViews = rawPresentationViews.map((view) => ({
     ...view,
-    url: demoPresentationAuthUrl(view.roleKey, trackedTicket),
+    url: demoPresentationAuthUrl(view.roleKey, trackedTicket, undefined, slug),
   }));
-  const r = await prepareAcmeProspectExperience(parsed.value, lifecycle, ctx.email);
+  const r = await prepareAcmeProspectExperience(parsed.value, lifecycle, ctx.email, slug);
   await logAdminAction({
     adminEmail: ctx.email,
     acao: 'demo.prepare_prospect_experience',

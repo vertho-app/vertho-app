@@ -137,7 +137,7 @@ describe('experiência temporária de prospect no ACME', () => {
 
     const result = await prepareAcmeProspectExperience(validInput);
 
-    expect(result).toEqual({ ok: false, error: 'carregar ACME Demo: pool indisponível' });
+    expect(result).toEqual({ ok: false, error: 'carregar acme-demo: pool indisponível' });
     expect(sb.escritas).toHaveLength(0);
     expect(createUser).not.toHaveBeenCalled();
   });

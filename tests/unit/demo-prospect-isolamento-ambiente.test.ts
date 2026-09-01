@@ -86,9 +86,20 @@ describe('degustação: a faxina de um ambiente demo não alcança o convidado d
 
   it('dá prefixo próprio a um ambiente ainda não registrado, em vez de herdar o do ACME', () => {
     expect(demoProspectAuthPrefix('acme-demo')).toBe(ACME_PROSPECT_AUTH_PREFIX);
-    expect(demoProspectAuthPrefix('escolas-acme')).not.toBe(ACME_PROSPECT_AUTH_PREFIX);
+    // `escolas-acme` deixou de servir de exemplo aqui: ele foi REGISTRADO quando
+    // a degustação passou a existir nele. O caso continua valendo para qualquer
+    // ambiente novo, e é o que este slug fictício cobre.
+    expect(demoProspectAuthPrefix('outro-demo')).not.toBe(ACME_PROSPECT_AUTH_PREFIX);
+    expect(demoProspectAuthEmail('outro-demo', '44444444444444444444'))
+      .toBe('convidado.outro-demo.44444444444444444444@vertho.ai');
+  });
+
+  it('o ambiente REGISTRADO usa a mesma forma que a derivação produziria', () => {
+    // Registrar com forma diferente da derivada faria a conta criada ANTES do
+    // registro deixar de ser reconhecida pela faxina depois dele.
     expect(demoProspectAuthEmail('escolas-acme', '44444444444444444444'))
       .toBe('convidado.escolas-acme.44444444444444444444@vertho.ai');
+    expect(demoProspectAuthPrefix('escolas-acme')).not.toBe(ACME_PROSPECT_AUTH_PREFIX);
   });
 
   it('varrer o ambiente NOVO não remove a conta viva do ACME', async () => {

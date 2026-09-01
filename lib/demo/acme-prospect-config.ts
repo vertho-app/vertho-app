@@ -27,6 +27,47 @@ export const ACME_PROSPECT_ROLES = [
 
 export type AcmeProspectRoleKey = typeof ACME_PROSPECT_ROLES[number]['key'];
 
+/**
+ * Papéis oferecidos na degustação, POR AMBIENTE.
+ *
+ * O cargo escolhido aqui vira o `cargo` do colaborador convidado, e é por ele
+ * que a etapa 01 acha o Top 5 e o cenário. Logo, só entra cargo que tem MATRIZ
+ * no tenant — `Medido 01/09/2026:` no `escolas-acme`, Professor(a) e
+ * Coordenador(a) Pedagógico(a) têm competências e cenário A gerado; Diretor(a)
+ * Escolar não tem, e é de propósito (a direção administra o programa e fica
+ * fora da jornada). Oferecer um cargo sem matriz produziria uma degustação que
+ * morre em "Cenário para X ainda não foi gerado" na frente do prospect.
+ */
+export const DEMO_PROSPECT_ROLES_POR_AMBIENTE = {
+  'acme-demo': ACME_PROSPECT_ROLES,
+  'escolas-acme': [
+    {
+      key: 'professor',
+      label: 'Professor(a)',
+      cargo: 'Professor(a)',
+      area: 'Docência',
+    },
+    {
+      key: 'coordenacao-pedagogica',
+      label: 'Coordenador(a) Pedagógico(a)',
+      cargo: 'Coordenador(a) Pedagógico(a)',
+      area: 'Coordenação',
+    },
+  ],
+} as const;
+
+export type DemoProspectAmbienteSlug = keyof typeof DEMO_PROSPECT_ROLES_POR_AMBIENTE;
+
+/** Papéis do ambiente, ou os do ACME para quem ainda não oferece degustação. */
+export function papeisDaDegustacao(slug: string) {
+  return (DEMO_PROSPECT_ROLES_POR_AMBIENTE as Record<string, readonly any[]>)[slug] ?? ACME_PROSPECT_ROLES;
+}
+
+/** O papel dentro do ambiente — `null` se ele não pertence àquele elenco. */
+export function getPapelDaDegustacao(slug: string, key: unknown) {
+  return papeisDaDegustacao(slug).find((role) => role.key === key) ?? null;
+}
+
 export type AcmeProspectExperienceInput = {
   nome: string;
   empresa: string;
@@ -156,6 +197,13 @@ export const DEMO_PROSPECT_TENANTS = {
     slug: 'acme-demo',
     authPrefix: ACME_PROSPECT_AUTH_PREFIX,
   },
+  'escolas-acme': {
+    slug: 'escolas-acme',
+    // Mesmo prefixo que a derivação produziria (`convidado.<slug>.`): registrar
+    // com uma forma DIFERENTE criaria duas regras para a mesma coisa, e a conta
+    // criada antes do registro deixaria de ser reconhecida pela faxina depois.
+    authPrefix: 'convidado.escolas-acme.',
+  },
 } as const;
 
 export type DemoProspectTenantSlug = keyof typeof DEMO_PROSPECT_TENANTS;
@@ -204,7 +252,16 @@ export function getAcmeProspectRole(key: unknown) {
   return ACME_PROSPECT_ROLES.find((role) => role.key === key) ?? null;
 }
 
-export function validateAcmeProspectExperienceInput(input: unknown):
+/**
+ * Valida a entrada da degustação. O `slug` do ambiente decide QUAL elenco de
+ * papéis é aceito: um papel do ACME num roteiro escolar produziria um convidado
+ * com cargo sem matriz no tenant, e a etapa 01 morreria em "cenário ainda não
+ * gerado" na frente do prospect.
+ */
+export function validateAcmeProspectExperienceInput(
+  input: unknown,
+  slug: string = 'acme-demo',
+):
   | { ok: true; value: AcmeProspectExperienceInput }
   | { ok: false; error: string } {
   if (!input || typeof input !== 'object') {
@@ -214,7 +271,7 @@ export function validateAcmeProspectExperienceInput(input: unknown):
   const raw = input as Record<string, unknown>;
   const nome = cleanHumanText(raw.nome);
   const empresa = cleanHumanText(raw.empresa);
-  const role = getAcmeProspectRole(raw.roleKey);
+  const role = getPapelDaDegustacao(slug, raw.roleKey);
 
   if (nome.length < 2 || nome.length > 100) {
     return { ok: false, error: 'Informe um nome entre 2 e 100 caracteres.' };
