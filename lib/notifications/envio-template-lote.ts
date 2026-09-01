@@ -34,6 +34,7 @@ import { aplicarTetoLote, criarPaceadorSincrono } from '@/lib/whatsapp/cadencia'
 import { tenantUrl } from '@/lib/domain';
 import { primeiraSemanaAcessivel } from '@/lib/season-engine/week-gating';
 import { ehSemanaDeImplementacao, semanaCenarioBDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
 
 /** Primeiro nome apresentável — "JANAINA" vira "Janaina", "McDonald" fica. */
@@ -50,10 +51,12 @@ export interface ContextoEnvio {
   empresaSlug: string;
   /** `cargos_empresa.top5_workshop` por cargo (minúsculo) — régua da tela do assessment. */
   top5PorCargo: Map<string, string[]>;
-  /** Progresso individual necessário pelo template `avaliacao_parcial`. */
+  /** Progresso individual que define os públicos dos templates de avaliação. */
   avaliacaoPorColab: Map<string, { respondidas: number; total: number }>;
+  /** Pessoas cujo relatório individual/PDI já existe. */
+  pdiPorColab: Set<string>;
   /** Trilha mais recente por pessoa — insumo dos templates de abertura/fechamento. */
-  trilhaPorColab: Map<string, { status: string; competencia: string; totalSemanas: number }>;
+  trilhaPorColab: Map<string, { status: string; competencia: string; totalSemanas: number; iniciada: boolean }>;
   /** Semana real por pessoa — calendário, gate sequencial, plano e atividade. */
   cadenciaPorColab: Map<string, ContextoCadenciaEnvio>;
 }
@@ -75,6 +78,7 @@ export interface ColaboradorAlvo {
   cargo: string | null;
   telefone: string | null;
   whatsapp?: string | null;
+  perfil_dominante?: string | null;
 }
 
 /** Args montados, ou o motivo de a pessoa NÃO poder receber este template. */
@@ -129,8 +133,17 @@ function resolverConteudoSemanal(
  */
 const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => Resolucao> = {
   boas_vindas_v2: (c, ctx) => ({ args: base(c, ctx) }),
-  avaliacao_pendente: (c, ctx) => ({ args: base(c, ctx) }),
+  avaliacao_pendente: (c, ctx) => {
+    const progresso = ctx.avaliacaoPorColab.get(c.id);
+    if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
+    if (progresso.respondidas > 0) return { excluir: 'avaliação já iniciada' };
+    return { args: base(c, ctx) };
+  },
   avaliacao_competencias: (c, ctx) => {
+    if (!c.perfil_dominante) return { excluir: 'perfil comportamental ainda não concluído' };
+    const progresso = ctx.avaliacaoPorColab.get(c.id);
+    if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
+    if (progresso.respondidas > 0) return { excluir: 'avaliação já iniciada' };
     const competencia = (ctx.top5PorCargo.get(String(c.cargo || '').toLowerCase()) || [])[0];
     // Sem competência resolvida o `{{2}}` sairia vazio ("sua avaliação de  ainda
     // não foi iniciada"). Excluir é a falha ALTA na construção, que é onde há
@@ -150,12 +163,17 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
       }),
     };
   },
-  resultado_perfil: (c, ctx) => ({ args: base(c, ctx) }),
-  plano_desenvolvimento: (c, ctx) => ({ args: base(c, ctx) }),
+  resultado_perfil: (c, ctx) => c.perfil_dominante
+    ? { args: base(c, ctx) }
+    : { excluir: 'perfil comportamental ainda não concluído' },
+  plano_desenvolvimento: (c, ctx) => ctx.pdiPorColab.has(c.id)
+    ? { args: base(c, ctx) }
+    : { excluir: 'relatório individual/PDI ainda não foi gerado' },
   trilha_liberada_v2: (c, ctx) => {
     const trilha = ctx.trilhaPorColab.get(c.id);
     if (!trilha) return { excluir: 'sem trilha gerada' };
     if (trilha.status !== TRILHA.ATIVA) return { excluir: 'trilha não está ativa' };
+    if (trilha.iniciada) return { excluir: 'trilha já iniciada' };
     if (!trilha.competencia || !trilha.totalSemanas) return { excluir: 'trilha sem competência ou duração' };
     return {
       args: base(c, ctx, {
@@ -223,9 +241,6 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
    * aberto" seria falsa.
    */
   encerramento_conteudo: (c, ctx) => {
-    const trilha = ctx.trilhaPorColab.get(c.id);
-    if (!trilha) return { excluir: 'sem trilha gerada' };
-    if (trilha.status === TRILHA.CONCLUIDA) return { excluir: 'trilha já concluída' };
     const cadencia = exigirCadencia(c, ctx);
     if ('excluir' in cadencia) return cadencia;
     const semCenarioB = semanaCenarioBDoPlano(cadencia.plano, 14);
@@ -276,7 +291,7 @@ export interface TemplateDisparavel {
   variaveis: string[];
   /** Variável do botão de URL, separada das variáveis numeradas do corpo. */
   botaoVariavel?: string;
-  /** Quem costuma ser o destinatário — orienta o filtro, não o aplica. */
+  /** Regra de público aplicada pelo servidor antes dos refinamentos da tela. */
   alvoSugerido: string;
 }
 
@@ -304,22 +319,22 @@ const BOTAO_DE: Record<string, string> = {
 };
 
 const ALVO_DE: Record<string, string> = {
-  boas_vindas_v2: 'primeiro contato da turma — quem ainda não recebeu a abertura do programa',
-  avaliacao_pendente: 'não iniciou o assessment',
-  avaliacao_competencias: 'já fez o mapeamento comportamental e não iniciou o assessment',
-  avaliacao_parcial: 'começou o assessment, mas ainda tem cenários pendentes',
-  resultado_perfil: 'já tem perfil comportamental e pode não saber',
-  plano_desenvolvimento: 'já tem relatório/PDI gerado',
-  trilha_liberada_v2: 'tem uma trilha ativa pronta para começar',
-  conteudo_semana: 'está numa semana de conteúdo; o link acompanha a semana que consegue abrir',
-  missao_semana_v2: 'está numa semana de aplicação prática',
+  boas_vindas_v2: 'está no escopo e tem WhatsApp cadastrado',
+  avaliacao_pendente: 'tem avaliação configurada e ainda não registrou nenhuma resposta',
+  avaliacao_competencias: 'concluiu o perfil comportamental e ainda não iniciou a avaliação de competências',
+  avaliacao_parcial: 'iniciou a avaliação, mas ainda tem cenários pendentes',
+  resultado_perfil: 'tem perfil comportamental disponível',
+  plano_desenvolvimento: 'tem relatório individual/PDI gerado',
+  trilha_liberada_v2: 'tem trilha ativa e ainda não iniciou nenhuma atividade',
+  conteudo_semana: 'está numa semana acessível de conteúdo com tema configurado',
+  missao_semana_v2: 'está numa semana acessível de aplicação prática',
   semana_pendente_v2: 'está atrás do calendário e precisa concluir uma semana anterior',
-  conteudo_semana_pendente_v3: 'está atrás do calendário, numa semana com conteúdo disponível',
-  registro_desafio: 'está numa semana de conteúdo e ainda precisa registrar o desafio',
-  registro_evidencia: 'está numa semana de aplicação e precisa registrar a prática',
-  retomada_trilha: 'está há pelo menos 14 dias sem atividade registrada',
-  encerramento_conteudo: 'ficou com semanas em aberto quando a etapa de conteúdo encerrou',
-  trilha_concluida: 'concluiu todas as semanas da trilha',
+  conteudo_semana_pendente_v3: 'está atrás do calendário, numa semana acessível com conteúdo',
+  registro_desafio: 'está numa semana de conteúdo ainda não concluída e com desafio configurado',
+  registro_evidencia: 'está numa semana de aplicação ainda não concluída',
+  retomada_trilha: 'tem trilha ativa e está há pelo menos 14 dias sem atividade de envio',
+  encerramento_conteudo: 'tem trilha ativa e ainda não alcançou a avaliação final',
+  trilha_concluida: 'concluiu a trilha mais recente',
 };
 
 const ROTULO_DE: Record<string, string> = {
@@ -369,6 +384,17 @@ const TEMPLATES_CADENCIA_MANUAL = new Set([
   'registro_evidencia',
   'retomada_trilha',
   'encerramento_conteudo',
+]);
+
+const TEMPLATES_AVALIACAO_MANUAL = new Set([
+  'avaliacao_pendente',
+  'avaliacao_competencias',
+  'avaliacao_parcial',
+]);
+
+const TEMPLATES_TRILHA_MANUAL = new Set([
+  'trilha_liberada_v2',
+  'trilha_concluida',
 ]);
 
 /** Templates que a tela pode disparar: têm resolvedor E contrato de parâmetros. */
@@ -429,29 +455,71 @@ async function carregarProgressoAvaliacao(
   ]));
 }
 
+async function carregarPdisDisponiveis(
+  sb: any,
+  empresaId: string,
+  colabs: ColaboradorAlvo[],
+): Promise<Set<string>> {
+  const ids = [...new Set(colabs.map((c) => c.id).filter(Boolean))];
+  if (!ids.length) return new Set();
+
+  const { data, error } = await sb.from('relatorios')
+    .select('colaborador_id')
+    .eq('empresa_id', empresaId)
+    .eq('tipo', 'individual')
+    .in('colaborador_id', ids);
+  if (error) throw new Error(`relatorios: ${error.message}`);
+  return new Set((data || []).map((r: any) => String(r.colaborador_id || '')).filter(Boolean));
+}
+
 async function carregarTrilhasManuais(
   sb: any,
   empresaId: string,
-): Promise<Map<string, { status: string; competencia: string; totalSemanas: number }>> {
+  colabs: ColaboradorAlvo[],
+): Promise<Map<string, { status: string; competencia: string; totalSemanas: number; iniciada: boolean }>> {
+  const colabIds = [...new Set(colabs.map((c) => c.id).filter(Boolean))];
+  if (!colabIds.length) return new Map();
+
   const { data, error } = await sb.from('trilhas')
-    .select('colaborador_id, status, competencia_foco, competencias_foco, temporada_plano, numero_temporada')
+    .select('id, colaborador_id, status, competencia_foco, competencias_foco, temporada_plano, numero_temporada')
     .eq('empresa_id', empresaId)
+    .in('colaborador_id', colabIds)
     .order('numero_temporada', { ascending: false });
   if (error) throw new Error(`trilhas: ${error.message}`);
 
-  const porColab = new Map<string, { status: string; competencia: string; totalSemanas: number }>();
+  const ultimas = new Map<string, any>();
   for (const trilha of (data || [])) {
-    if (!trilha.colaborador_id || porColab.has(trilha.colaborador_id)) continue;
+    if (trilha.colaborador_id && !ultimas.has(trilha.colaborador_id)) {
+      ultimas.set(trilha.colaborador_id, trilha);
+    }
+  }
+
+  const trilhaIds = [...ultimas.values()].map((t) => t.id).filter(Boolean);
+  let progressos: any[] = [];
+  if (trilhaIds.length) {
+    const { data: linhas, error: eP } = await sb.from('temporada_semana_progresso')
+      .select('trilha_id, iniciado_em, concluido_em, conteudo_consumido, reflexao, feedback, tira_duvidas')
+      .in('trilha_id', trilhaIds);
+    if (eP) throw new Error(`temporada_semana_progresso: ${eP.message}`);
+    progressos = linhas || [];
+  }
+  const iniciadas = new Set(progressos
+    .filter((p) => p.iniciado_em || p.concluido_em || p.reflexao || p.feedback || p.tira_duvidas || consumiuConteudo(p.conteudo_consumido))
+    .map((p) => p.trilha_id));
+
+  const porColab = new Map<string, { status: string; competencia: string; totalSemanas: number; iniciada: boolean }>();
+  for (const [colaboradorId, trilha] of ultimas) {
     const competencias = Array.isArray(trilha.competencias_foco)
       ? trilha.competencias_foco.map((x: unknown) => String(x || '').trim()).filter(Boolean)
       : [];
     const competencia = competencias.length
       ? competencias.join(' + ')
       : String(trilha.competencia_foco || '').trim();
-    porColab.set(trilha.colaborador_id, {
+    porColab.set(colaboradorId, {
       status: String(trilha.status || ''),
       competencia,
       totalSemanas: Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano.length : 0,
+      iniciada: iniciadas.has(trilha.id),
     });
   }
   return porColab;
@@ -603,6 +671,14 @@ export interface LotePreparado {
   template: string;
   corpo: string;
   alvos: AlvoPreparado[];
+  /** Universo escolhido por turma/empresa, antes de qualquer regra. */
+  totalNoEscopo: number;
+  /** Passaram pela regra obrigatória do template e têm os parâmetros necessários. */
+  elegiveisPeloTemplate: number;
+  /** Elegíveis retirados somente pelos refinamentos opcionais da tela. */
+  removidosPorFiltros: number;
+  /** Elegíveis que também passaram pelos refinamentos, antes da idempotência. */
+  aposRefinamentos: number;
   /** Agrupado por motivo — quem some tem que aparecer em algum lugar. */
   excluidos: { motivo: string; quantidade: number; amostra: string[] }[];
   /** Já receberam ESTE template antes (idempotência por `kind`). */
@@ -615,15 +691,22 @@ export interface LotePreparado {
 /**
  * Monta o lote SEM enviar: é a prévia da tela e o dry-run do script.
  *
- * `colabs` já vem filtrado pela tela (cargo/voto/DISC/mapeamento) — este núcleo
- * não reimplementa esses filtros de propósito: duas cópias da mesma régua
- * divergem, e aqui a régua já existe em `loadColaboradoresEnvio`.
+ * `colabs` é TODO o universo do escopo. A regra obrigatória pertence ao
+ * template e é aplicada aqui; `idsRefinados`, quando informado, só estreita o
+ * resultado por cargo/voto/DISC/mapeamento. Assim a prévia e o disparo usam a
+ * mesma régua, e uma chamada direta da action não consegue contorná-la.
  */
 export async function prepararLoteTemplate(
   sb: any,
-  opts: { empresaId: string; template: string; colabs: ColaboradorAlvo[]; incluirJaEnviados?: boolean },
+  opts: {
+    empresaId: string;
+    template: string;
+    colabs: ColaboradorAlvo[];
+    idsRefinados?: ReadonlySet<string>;
+    incluirJaEnviados?: boolean;
+  },
 ): Promise<LotePreparado> {
-  const { empresaId, template, colabs, incluirJaEnviados = false } = opts;
+  const { empresaId, template, colabs, idsRefinados, incluirJaEnviados = false } = opts;
 
   const montar = contratoDoTemplate(template);
   const resolver = RESOLVEDORES[template];
@@ -643,11 +726,14 @@ export async function prepararLoteTemplate(
     empresaNome: empresa.nome,
     empresaSlug: empresa.slug,
     top5PorCargo: new Map((cargos || []).map((c: any) => [String(c.nome || '').toLowerCase(), (c.top5_workshop || []) as string[]])),
-    avaliacaoPorColab: template === 'avaliacao_parcial'
+    avaliacaoPorColab: TEMPLATES_AVALIACAO_MANUAL.has(template)
       ? await carregarProgressoAvaliacao(sb, empresaId, colabs)
       : new Map(),
-    trilhaPorColab: template === 'trilha_liberada_v2' || template === 'trilha_concluida'
-      ? await carregarTrilhasManuais(sb, empresaId)
+    pdiPorColab: template === 'plano_desenvolvimento'
+      ? await carregarPdisDisponiveis(sb, empresaId, colabs)
+      : new Set(),
+    trilhaPorColab: TEMPLATES_TRILHA_MANUAL.has(template)
+      ? await carregarTrilhasManuais(sb, empresaId, colabs)
       : new Map(),
     cadenciaPorColab: TEMPLATES_CADENCIA_MANUAL.has(template)
       ? await carregarCadenciaManual(sb, empresaId, colabs)
@@ -677,12 +763,26 @@ export async function prepararLoteTemplate(
 
   const alvos: AlvoPreparado[] = [];
   let jaReceberam = 0;
+  let elegiveisPeloTemplate = 0;
+  let removidosPorFiltros = 0;
+  let aposRefinamentos = 0;
   for (const c of colabs) {
     const nome = c.nome_completo || '(sem nome)';
     const fone = c.whatsapp || c.telefone;
     if (!fone) { empurra('sem telefone/WhatsApp', nome); continue; }
     const r = resolver(c, ctx);
     if ('excluir' in r) { empurra(r.excluir, nome); continue; }
+    const { params, botaoParam = null } = montar(r.args);
+    if (params.some((p) => !String(p || '').trim())) { empurra('parâmetro do template ficou vazio', nome); continue; }
+    if (botaoParam !== null && !String(botaoParam).trim()) { empurra('parâmetro do botão ficou vazio', nome); continue; }
+
+    elegiveisPeloTemplate++;
+    if (idsRefinados && !idsRefinados.has(c.id)) {
+      removidosPorFiltros++;
+      continue;
+    }
+    aposRefinamentos++;
+
     const dedupeKey = chaveDoDisparo(template, c.id, r.args, ctx);
     const recebeuEsteSlot = TEMPLATES_CADENCIA_MANUAL.has(template)
       ? chavesRecebidas.has(dedupeKey)
@@ -691,9 +791,6 @@ export async function prepararLoteTemplate(
       jaReceberam++;
       if (!incluirJaEnviados) continue;
     }
-    const { params, botaoParam = null } = montar(r.args);
-    if (params.some((p) => !String(p || '').trim())) { empurra('parâmetro do template ficou vazio', nome); continue; }
-    if (botaoParam !== null && !String(botaoParam).trim()) { empurra('parâmetro do botão ficou vazio', nome); continue; }
     alvos.push({
       colaboradorId: c.id,
       nome,
@@ -711,6 +808,10 @@ export async function prepararLoteTemplate(
     template,
     corpo: def?.body || '',
     alvos: enviar,
+    totalNoEscopo: colabs.length,
+    elegiveisPeloTemplate,
+    removidosPorFiltros,
+    aposRefinamentos,
     excluidos: [...excl.entries()].map(([motivo, nomes]) => ({ motivo, quantidade: nomes.length, amostra: nomes.slice(0, 5) })),
     jaReceberam,
     adiadosPorTeto: adiados.length,

@@ -584,8 +584,23 @@ export default function EnviosPage() {
             <div className="space-y-4">
               {/* Filtros */}
               <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
-                <p className="text-xs font-bold text-white flex items-center gap-1.5 mb-3"><Filter size={12} /> {t('filters.title')}</p>
+                <p className="text-xs font-bold text-white flex items-center gap-1.5"><Filter size={12} /> {tab === 'whatsapp' ? t('templateMode.refineTitle') : t('filters.title')}</p>
+                {tab === 'whatsapp' && (
+                  <p className="mt-1 mb-3 text-[10px] leading-relaxed text-gray-500">{t('templateMode.refineHint')}</p>
+                )}
                 {escopoUI()}
+                {tab === 'whatsapp' && templateAtual && (
+                  <div className="mb-3 flex items-start gap-2.5 rounded-lg border border-cyan-400/20 bg-cyan-400/[0.06] p-3">
+                    <ShieldCheck size={14} className="mt-0.5 shrink-0 text-cyan-300" />
+                    <div>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-cyan-300/80">{t('templateMode.target')}</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-gray-200">{templateAtual.alvoSugerido}</p>
+                    </div>
+                  </div>
+                )}
+                {tab === 'whatsapp' && (
+                  <p className="mb-2 text-[9px] font-bold uppercase tracking-widest text-gray-500">{t('templateMode.additionalFilters')}</p>
+                )}
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <div>
                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('filters.role')}</p>
@@ -626,10 +641,20 @@ export default function EnviosPage() {
                 {/* Sem escopo escolhido a contagem seria a empresa inteira — um
                     número que não descreve nenhum envio possível. Some com ele
                     em vez de deixá-lo prometer 17 onde o servidor recusa. */}
-                {!escopoPendente && (
+                {!escopoPendente && tab === 'whatsapp' && (
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold text-cyan-400">
+                    {loadingPreview ? <Loader2 size={12} className="animate-spin" /> : <Users size={12} />}
+                    {loadingPreview
+                      ? t('templateMode.loadingAudience')
+                      : previewLote && !previewLote.erro
+                        ? t('templateMode.automaticEligibleShort', { count: previewLote.elegiveisPeloTemplate ?? 0 })
+                        : null}
+                  </div>
+                )}
+                {!escopoPendente && tab !== 'whatsapp' && (
                   <div className="flex items-center gap-1.5 text-[10px] text-cyan-400 font-semibold">
                     <Users size={12} />
-                    {t((tab === 'email' || tab === 'relatorios-email') ? 'filters.emailRecipients' : 'filters.whatsappRecipients', { count: destinatarios.length })}
+                    {t('filters.emailRecipients', { count: destinatarios.length })}
                   </div>
                 )}
                 {tab === 'relatorios-email' && (
@@ -765,8 +790,6 @@ export default function EnviosPage() {
 
                   {templateAtual && (
                     <div className="mt-4 rounded-lg border border-white/[0.06] bg-[#091D35]/70 p-3">
-                      <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('templateMode.target')}</p>
-                      <p className="text-[11px] text-gray-300 mb-3">{templateAtual.alvoSugerido}</p>
                       <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-1">{t('templateMode.variables')}</p>
                       <div className="flex flex-wrap gap-1.5">
                         {templateAtual.variaveis.map((v: string, i: number) => (
@@ -921,18 +944,41 @@ export default function EnviosPage() {
               {tab === 'whatsapp' && previewLote && !previewLote.erro && (
                 <div className="rounded-xl border border-white/[0.06] p-4" style={{ background: '#0F2A4A' }}>
                   <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mb-2">{t('templateMode.batch')}</p>
-                  <div className="flex items-center gap-1.5 text-[11px] text-cyan-400 font-semibold mb-2">
-                    <Users size={12} /> {t('templateMode.recipients', { count: previewLote.total })}
-                  </div>
+                  <ol className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label={t('templateMode.audienceFunnel')}>
+                    <li className="rounded-lg border border-white/[0.06] bg-[#091D35]/70 px-2.5 py-2">
+                      <span className="block text-[8px] font-bold uppercase tracking-wider text-gray-500">{t('templateMode.funnelScope')}</span>
+                      <strong className="mt-1 block text-base text-gray-300">{previewLote.totalNoEscopo ?? 0}</strong>
+                    </li>
+                    <li className="rounded-lg border border-sky-400/15 bg-sky-400/[0.04] px-2.5 py-2">
+                      <span className="block text-[8px] font-bold uppercase tracking-wider text-sky-300/60">{t('templateMode.funnelEligible')}</span>
+                      <strong className="mt-1 block text-base text-sky-300">{previewLote.elegiveisPeloTemplate ?? 0}</strong>
+                    </li>
+                    <li className="rounded-lg border border-teal-400/15 bg-teal-400/[0.04] px-2.5 py-2">
+                      <span className="block text-[8px] font-bold uppercase tracking-wider text-teal-300/60">{t('templateMode.funnelRefined')}</span>
+                      <strong className="mt-1 block text-base text-teal-300">{previewLote.aposRefinamentos ?? 0}</strong>
+                    </li>
+                    <li className="rounded-lg border border-cyan-400/30 bg-cyan-400/[0.08] px-2.5 py-2">
+                      <span className="block text-[8px] font-bold uppercase tracking-wider text-cyan-300/70">{t('templateMode.funnelSend')}</span>
+                      <strong className="mt-1 block text-base text-cyan-300">{previewLote.total ?? 0}</strong>
+                    </li>
+                  </ol>
+                  {previewLote.removidosPorFiltros > 0 && (
+                    <p className="mb-1 text-[10px] text-gray-400">{t('templateMode.removedByFilters', { count: previewLote.removidosPorFiltros })}</p>
+                  )}
                   {previewLote.jaReceberam > 0 && (
                     <p className="text-[10px] text-gray-400 mb-1">{t('templateMode.already', { count: previewLote.jaReceberam })}</p>
                   )}
-                  {previewLote.excluidos?.map((e: any, i: number) => (
-                    <p key={i} className="text-[10px] text-amber-300/80 mb-1">
-                      {e.quantidade} · {e.motivo}
-                      {e.amostra?.length ? <span className="text-gray-600"> — {e.amostra.slice(0, 3).join(', ')}{e.quantidade > 3 ? '…' : ''}</span> : null}
-                    </p>
-                  ))}
+                  {previewLote.excluidos?.length > 0 && (
+                    <div className="mt-3 border-t border-white/[0.05] pt-2">
+                      <p className="mb-1.5 text-[8px] font-bold uppercase tracking-widest text-amber-300/60">{t('templateMode.outsideAutomaticRule')}</p>
+                      {previewLote.excluidos.map((e: any, i: number) => (
+                        <p key={i} className="text-[10px] text-amber-300/80 mb-1">
+                          {e.quantidade} · {e.motivo}
+                          {e.amostra?.length ? <span className="text-gray-600"> — {e.amostra.slice(0, 3).join(', ')}{e.quantidade > 3 ? '…' : ''}</span> : null}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   {previewLote.avisoTeto ? <p className="text-[10px] text-amber-300/80 mt-1">{previewLote.avisoTeto}</p> : null}
                   <p className="text-[9px] text-gray-600 mt-2 leading-relaxed">{t('templateMode.deliveryNote')}</p>
                 </div>

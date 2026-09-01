@@ -1025,13 +1025,22 @@ export async function previewTemplateWhatsApp(empresaId: string, template: strin
     const { prepararLoteTemplate } = await import('@/lib/notifications/envio-template-lote');
     const colabs = await colaboradoresFiltrados(sb, empresaId, filtros);
     if ('erro' in colabs) return { success: false, error: colabs.erro, code: colabs.code };
-    const lote = await prepararLoteTemplate(sb, { empresaId, template, colabs: colabs.lista });
+    const lote = await prepararLoteTemplate(sb, {
+      empresaId,
+      template,
+      colabs: colabs.escopo,
+      idsRefinados: new Set(colabs.lista.map((c: any) => c.id)),
+    });
     return {
       success: true,
       data: {
         template: lote.template,
         corpo: lote.corpo,
         total: lote.alvos.length,
+        totalNoEscopo: lote.totalNoEscopo,
+        elegiveisPeloTemplate: lote.elegiveisPeloTemplate,
+        removidosPorFiltros: lote.removidosPorFiltros,
+        aposRefinamentos: lote.aposRefinamentos,
         jaReceberam: lote.jaReceberam,
         excluidos: lote.excluidos,
         adiadosPorTeto: lote.adiadosPorTeto,
@@ -1065,9 +1074,14 @@ export async function dispararTemplateWhatsApp(empresaId: string, template: stri
     const colabs = await colaboradoresFiltrados(sb, empresaId, filtros);
     if ('erro' in colabs) return { success: false, error: colabs.erro, code: colabs.code };
 
-    const lote = await prepararLoteTemplate(sb, { empresaId, template, colabs: colabs.lista });
+    const lote = await prepararLoteTemplate(sb, {
+      empresaId,
+      template,
+      colabs: colabs.escopo,
+      idsRefinados: new Set(colabs.lista.map((c: any) => c.id)),
+    });
     if (!lote.alvos.length) {
-      return { success: false, error: 'Nenhum destinatário no filtro atual (veja os excluídos na prévia)' };
+      return { success: false, error: 'Nenhuma pessoa elegível após a regra do template e os refinamentos (veja a prévia)' };
     }
 
     const r = await enfileirarLoteTemplate(lote, empresaId);
@@ -1084,6 +1098,10 @@ export async function dispararTemplateWhatsApp(empresaId: string, template: stri
         template, filtros,
         enfileirados: r.enfileirados,
         falhas: r.falhas.length,
+        totalNoEscopo: lote.totalNoEscopo,
+        elegiveisPeloTemplate: lote.elegiveisPeloTemplate,
+        removidosPorFiltros: lote.removidosPorFiltros,
+        aposRefinamentos: lote.aposRefinamentos,
         jaReceberam: lote.jaReceberam,
         adiadosPorTeto: r.adiadosPorTeto,
         excluidos: lote.excluidos,
@@ -1101,7 +1119,7 @@ export async function dispararTemplateWhatsApp(empresaId: string, template: stri
 }
 
 /**
- * Aplica escopo de turma + os filtros da tela e devolve os colaboradores.
+ * Separa o universo do escopo dos refinamentos opcionais da tela.
  *
  * Helper local (não exportado): num arquivo `'use server'` todo export vira
  * endpoint HTTP, e esta função não tem gate próprio — quem gateia são as duas
@@ -1125,8 +1143,9 @@ async function colaboradoresFiltrados(sb: any, empresaId: string, filtros: any) 
     .eq('empresa_id', empresaId);
   if (error) throw new Error(`colaboradores: ${error.message}`);
 
-  let lista = (data || []) as any[];
-  if (permitidos) lista = lista.filter((c) => permitidos!.has(c.id));
+  let escopo = (data || []) as any[];
+  if (permitidos) escopo = escopo.filter((c) => permitidos!.has(c.id));
+  let lista = [...escopo];
   if (filtros.cargo) lista = lista.filter((c) => c.cargo === filtros.cargo);
   if (filtros.disc === 'sim') lista = lista.filter((c) => !!c.perfil_dominante);
   else if (filtros.disc === 'nao') lista = lista.filter((c) => !c.perfil_dominante);
@@ -1148,5 +1167,5 @@ async function colaboradoresFiltrados(sb: any, empresaId: string, filtros: any) 
     lista = lista.filter((c) => (filtros.mapeamentoCompleto ? completos.has(c.id) : !completos.has(c.id)));
   }
 
-  return { lista };
+  return { escopo, lista };
 }

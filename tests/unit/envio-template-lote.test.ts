@@ -30,6 +30,7 @@ function mock(opts: {
   trilhas?: any[];
   envios?: any[];
   progressos?: any[];
+  relatorios?: any[];
   empresa?: any;
 } = {}) {
   return criarSupabaseMock({
@@ -38,17 +39,18 @@ function mock(opts: {
       if (tabela === 'cargos_empresa') return opts.cargos ?? [{ nome: 'Professor(a)', top5_workshop: ['Autocuidado e bem-estar profissional'] }];
       if (tabela === 'notification_deliveries') return opts.jaReceberam ?? [];
       if (tabela === 'respostas') return opts.respostas ?? [];
-      if (tabela === 'banco_cenarios') return opts.cenarios ?? [];
+      if (tabela === 'banco_cenarios') return opts.cenarios ?? [{ cargo: 'Professor(a)', competencia_id: 'comp-1' }];
       if (tabela === 'trilhas') return opts.trilhas ?? [];
       if (tabela === 'fase4_envios') return opts.envios ?? [];
       if (tabela === 'temporada_semana_progresso') return opts.progressos ?? [];
+      if (tabela === 'relatorios') return opts.relatorios ?? [];
       return [];
     },
   });
 }
 
 const professor = (over: any = {}) => ({
-  id: 'c1', nome_completo: 'MARIA DAS DORES SILVA', cargo: 'Professor(a)', telefone: '5522999999999', ...over,
+  id: 'c1', nome_completo: 'MARIA DAS DORES SILVA', cargo: 'Professor(a)', telefone: '5522999999999', perfil_dominante: 'D', ...over,
 });
 
 const planoCadencia = [
@@ -142,6 +144,7 @@ describe('listarTemplatesDisparaveis', () => {
 
 describe('tela de Envios', () => {
   const page = readFileSync('app/admin/whatsapp/page.tsx', 'utf8');
+  const actions = readFileSync('app/admin/whatsapp/actions.ts', 'utf8');
 
   it('não mantém uma segunda aba de WhatsApp com editor de texto livre', () => {
     expect(page).not.toContain('relatorios-whatsapp');
@@ -151,6 +154,13 @@ describe('tela de Envios', () => {
 
   it('mantém o editor fora da aba de templates', () => {
     expect(page).toContain("{tab !== 'whatsapp' && <div");
+  });
+
+  it('calcula o público do template no escopo inteiro e trata seleções como refinamentos', () => {
+    expect(actions).toContain('colabs: colabs.escopo');
+    expect(actions).toContain('idsRefinados: new Set(colabs.lista.map');
+    expect(page).toContain("t('templateMode.funnelEligible')");
+    expect(page).toContain("t('templateMode.funnelRefined')");
   });
 });
 
@@ -198,6 +208,78 @@ describe('prepararLoteTemplate', () => {
     }));
   });
 
+  it('avaliação pendente inclui só quem tem cenários e ainda não respondeu', async () => {
+    const sb = mock({ respostas: [{ colaborador_id: 'c2', competencia_id: 'comp-1' }] });
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1',
+      template: 'avaliacao_pendente',
+      colabs: [professor(), professor({ id: 'c2', nome_completo: 'João' })],
+    });
+
+    expect(lote.alvos.map((a) => a.colaboradorId)).toEqual(['c1']);
+    expect(lote.excluidos).toContainEqual(expect.objectContaining({
+      motivo: 'avaliação já iniciada', quantidade: 1,
+    }));
+  });
+
+  it('avaliação por competências exige perfil comportamental concluído', async () => {
+    const sb = mock();
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1',
+      template: 'avaliacao_competencias',
+      colabs: [professor({ perfil_dominante: null })],
+    });
+
+    expect(lote.alvos).toHaveLength(0);
+    expect(lote.excluidos[0]).toMatchObject({
+      motivo: 'perfil comportamental ainda não concluído', quantidade: 1,
+    });
+  });
+
+  it('resultado do perfil exige um perfil comportamental disponível', async () => {
+    const sb = mock();
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1',
+      template: 'resultado_perfil',
+      colabs: [professor(), professor({ id: 'c2', nome_completo: 'João', perfil_dominante: null })],
+    });
+
+    expect(lote.alvos.map((a) => a.colaboradorId)).toEqual(['c1']);
+    expect(lote.elegiveisPeloTemplate).toBe(1);
+  });
+
+  it('plano de desenvolvimento exige relatório individual/PDI gerado', async () => {
+    const sb = mock({ relatorios: [{ colaborador_id: 'c1' }] });
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1',
+      template: 'plano_desenvolvimento',
+      colabs: [professor(), professor({ id: 'c2', nome_completo: 'João' })],
+    });
+
+    expect(lote.alvos.map((a) => a.colaboradorId)).toEqual(['c1']);
+    expect(lote.excluidos).toContainEqual(expect.objectContaining({
+      motivo: 'relatório individual/PDI ainda não foi gerado', quantidade: 1,
+    }));
+  });
+
+  it('aplica refinamentos somente depois da regra automática e expõe o funil', async () => {
+    const sb = mock();
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1',
+      template: 'resultado_perfil',
+      colabs: [professor(), professor({ id: 'c2', nome_completo: 'João' })],
+      idsRefinados: new Set(['c2']),
+    });
+
+    expect(lote).toMatchObject({
+      totalNoEscopo: 2,
+      elegiveisPeloTemplate: 2,
+      removidosPorFiltros: 1,
+      aposRefinamentos: 1,
+    });
+    expect(lote.alvos.map((a) => a.colaboradorId)).toEqual(['c2']);
+  });
+
   it('trilha liberada usa competência e duração da trilha ativa real', async () => {
     const sb = mock({
       trilhas: [{
@@ -215,6 +297,26 @@ describe('prepararLoteTemplate', () => {
     expect(lote.alvos[0].params).toEqual([
       'Maria', 'Gestão Escolar', '7', 'https://macae.vertho.ai/dashboard/temporada',
     ]);
+  });
+
+  it('trilha liberada exclui quem já iniciou alguma atividade', async () => {
+    const sb = mock({
+      trilhas: [{
+        id: 'trilha-1', colaborador_id: 'c1', status: TRILHA.ATIVA,
+        competencia_foco: 'Gestão Escolar', competencias_foco: null,
+        temporada_plano: [{ semana: 1 }], numero_temporada: 1,
+      }],
+      progressos: [{
+        trilha_id: 'trilha-1', iniciado_em: '2026-08-30T10:00:00.000Z',
+        conteudo_consumido: false, reflexao: null, feedback: null, tira_duvidas: null,
+      }],
+    });
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'trilha_liberada_v2', colabs: [professor()],
+    });
+
+    expect(lote.alvos).toHaveLength(0);
+    expect(lote.excluidos[0]).toMatchObject({ motivo: 'trilha já iniciada', quantidade: 1 });
   });
 
   it('trilha concluída recusa quem ainda está com a jornada ativa', async () => {
@@ -258,6 +360,8 @@ describe('prepararLoteTemplate', () => {
     });
     expect(lote.alvos.map((a) => a.colaboradorId)).toEqual(['c2']);
     expect(lote.jaReceberam).toBe(1);
+    expect(lote.elegiveisPeloTemplate).toBe(2);
+    expect(lote.aposRefinamentos).toBe(2);
   });
 
   it('a consulta de idempotência filtra pelo template ESCOLHIDO', async () => {
@@ -287,6 +391,22 @@ describe('prepararLoteTemplate', () => {
       botaoParam: null,
       dedupeKey: 'conteudo_semana:c1:semana:2',
     });
+  });
+
+  it('encerramento do conteúdo usa a cadência ativa e inclui quem ainda não chegou à avaliação final', async () => {
+    const plano = [
+      { semana: 1, tipo: 'conteudo', conteudos_dia: [{ conteudo: { core_titulo: 'Escuta ativa' } }] },
+      { semana: 2, tipo: 'avaliacao' },
+    ];
+    const sb = mock(contextoCadencia({ semanaAtual: 1, plano, progressos: [] }));
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template: 'encerramento_conteudo', colabs: [professor()],
+    });
+
+    expect(lote.alvos).toHaveLength(1);
+    expect(lote.alvos[0].params).toEqual([
+      'Maria', 'Secretaria Municipal de Macaé/RJ', 'https://macae.vertho.ai/dashboard/temporada/semana/1',
+    ]);
   });
 
   it('semana pendente usa calendário no corpo, acessível no corpo e no botão', async () => {
