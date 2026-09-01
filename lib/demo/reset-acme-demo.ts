@@ -17,6 +17,7 @@ import fixture from '@/lib/demo/acme-demo-fixture.json';
 import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
 import {
   ACME_DEMO_BEHIND_KEYS,
+  ACME_DEMO_CONCLUDED_KEYS,
   ACME_DEMO_FUNNEL_TARGETS,
   ACME_DEMO_JOURNEY_KEYS,
   ACME_DEMO_REPORT_DIRECTORY,
@@ -29,25 +30,38 @@ import {
   criarRelatorioGestorAcmeDemo,
   criarRelatorioRhAcmeDemo,
 } from '@/lib/demo/acme-rh-report-fixture';
+import {
+  ACME_DEMO_DESCRITORES,
+  ACME_DEMO_DESCRITORES_POR_TRILHA,
+  ACME_DEMO_EVOLUTION_MIX,
+  construirEvolucaoAcmeDemo,
+  construirFechamentoAcmeDemo,
+  notaDePartida,
+} from '@/lib/demo/acme-evolucao-fixture';
 import { seedAcmeOrganizationReports } from '@/lib/demo/acme-organization-reports';
 import { precomputeDemoFitResults, seedAcmeFitRankingSnapshots } from '@/lib/demo/acme-fit-rankings';
 // Régua canônica de competências — a MESMA que o mapeamento real e o simulador
 // usam. O demo tinha derivação própria; ver comportamentosDoDisc.
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile } from '@/lib/disc-mapeamento';
-import { IA4_FILTRO, TRILHA } from '@/lib/status';
+import { IA4_FILTRO, PLANO_SEMANA, PROGRESSO, TRILHA } from '@/lib/status';
 import { buildAcmeDemoBehavioralReport } from '@/lib/demo/acme-behavioral-report';
 
 /**
- * Reset/seed do tenant ACME Demo (slug `acme-demo`) — versão IN-APP da lógica
- * de `scripts/seed-acme-demo.mjs` (que segue como fallback manual). Fonte única
- * usada pelo botão "Resetar demo agora" (server action) e pelo cron noturno.
+ * Reset/seed dos tenants demo (`acme-demo` e `gruposinal`) — versão IN-APP da
+ * lógica de `scripts/seed-acme-demo.mjs` (que segue como fallback manual).
+ * Fonte única usada pelo botão "Resetar demo agora" (server action) e pelo
+ * cron noturno. Os dois tenants recebem o MESMO roster rico (personas +
+ * diretório sintético de 24 pessoas) e os mesmos artefatos (ranking de fit,
+ * relatórios organizacionais); o que muda é a identidade (`DEMO_TENANT_PROFILES`
+ * + `personalizarArtefatoDemo`) e os totais esperados (o gruposinal tem um
+ * convidado real a mais).
  *
  * Idempotente e TENANT-SAFE: todo delete/insert é filtrado por `empresa_id` do
- * acme-demo — NUNCA toca outro tenant. Semeia a estrutura (competências, cargos,
- * top10, cenários) de um FIXTURE CONGELADO (`acme-demo-fixture.json`, capturado
- * do acme via scripts/capture-acme-fixture.mjs) — imune a mexidas no acme vivo.
- * Recria personas + respostas de demonstração.
+ * tenant escolhido — NUNCA toca outro tenant. Semeia a estrutura (competências,
+ * cargos, top10, cenários) de um FIXTURE CONGELADO (`acme-demo-fixture.json`,
+ * capturado do acme via scripts/capture-acme-fixture.mjs) — imune a mexidas no
+ * acme vivo. Recria personas + respostas de demonstração.
  *
  * GUARDRAIL de envio (duas camadas): (1) GATE por tenant — `empresas.is_demo`
  * (setado aqui, mig 160) é lido por `lib/demo/envio-guard.ts`, que BLOQUEIA todo
@@ -260,6 +274,14 @@ const GRUPO_SINAL_VALUES = ['Cliente no centro', 'Ética', 'Responsabilidade', '
  * entra no ranking de fit. */
 type DemoConvidado = { nome: string; email: string; telefone: string; cargo: string };
 
+/** Totais que os relatórios organizacionais (Perfil + DNA) devem encontrar no
+ * tenant ao fim do seed. `withProfile`/`withMapping` são IGUAIS nos dois
+ * tenants porque o convidado real do gruposinal (Alpheu) nasce sem DISC e sem
+ * mapeamento — ele infla só o `teamSize`. Se uma mudança de fixture alterar
+ * estas fotografias, a validação fechada do seed falha antes de subir PDF
+ * errado. */
+type DemoRelatoriosOrganizacionais = { teamSize: number; withProfile: number; withMapping: number };
+
 export const DEMO_TENANT_PROFILES = {
   [DEMO_SLUG]: {
     slug: DEMO_SLUG,
@@ -273,6 +295,11 @@ export const DEMO_TENANT_PROFILES = {
     valores: ACME_DEMO_VALUES,
     acessoAllowlist: null as readonly string[] | null,
     convidado: null as DemoConvidado | null,
+    relatoriosOrganizacionais: {
+      teamSize: ACME_DEMO_TEAM_SIZE,
+      withProfile: ACME_DEMO_FUNNEL_TARGETS.withProfile,
+      withMapping: ACME_DEMO_FUNNEL_TARGETS.withMapping,
+    } as DemoRelatoriosOrganizacionais,
   },
   [GRUPO_SINAL_SLUG]: {
     slug: GRUPO_SINAL_SLUG,
@@ -1470,8 +1497,31 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         assessment_date: assessmentDate,
       }));
     });
-    if (assessments.length) {
-      const result = await sb.from('descriptor_assessments').insert(assessments);
+    // T0 dos descritores que a jornada vai trabalhar. Precisa existir com a
+    // MESMA nota que o Evolution Report grava em `nota_pre`: é o que impede a
+    // tela de diagnóstico e a de evolução de contarem histórias diferentes
+    // sobre a mesma pessoa no meio de uma apresentação.
+    const assessmentsDaJornada = ACME_DEMO_CONCLUDED_KEYS.flatMap((key) => {
+      const pessoa = pessoaPorChave.get(key);
+      const colaboradorId = personaMap.get(key);
+      if (!pessoa || !colaboradorId) throw new Error(`pessoa concluída do funil ACME ausente: ${key}`);
+      const competencia = competenciasAcmeDemoPorCargo(pessoa.cargo)[0];
+      if (!competencia) throw new Error(`cargo sem competência na régua da ACME Demo: ${pessoa.cargo}`);
+      return ACME_DEMO_DESCRITORES.slice(0, ACME_DEMO_DESCRITORES_POR_TRILHA).map((descritor) => ({
+        empresa_id: destId,
+        colaborador_id: colaboradorId,
+        cargo: pessoa.cargo,
+        competencia,
+        descritor,
+        nota: notaDePartida(pessoa.email, descritor),
+        origem: 'ia4',
+        assessment_date: assessmentDate,
+      }));
+    });
+
+    const todosAssessments = [...assessments, ...assessmentsDaJornada];
+    if (todosAssessments.length) {
+      const result = await sb.from('descriptor_assessments').insert(todosAssessments);
       if (result.error) throw new Error(`mapeamentos do panorama ACME: ${result.error.message}`);
     }
 
@@ -1497,42 +1547,98 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       if (result.error) throw new Error(`pausar jornada fora do panorama ACME: ${result.error.message}`);
     }
 
+    const concluidas = new Set<string>(ACME_DEMO_CONCLUDED_KEYS);
+    // O fechamento é datado no passado para a jornada não parecer concluída no
+    // mesmo dia em que começou — quem apresenta a demo é perguntado sobre isso.
+    const inicioConcluido = formatDate(new Date(agora.getTime() - 105 * 24 * 60 * 60 * 1000));
+    const fechamentoEm = new Date(agora.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString();
+
     for (const key of ACME_DEMO_JOURNEY_KEYS) {
       const pessoa = pessoaPorChave.get(key);
       const colaboradorId = personaMap.get(key);
       if (!pessoa || !colaboradorId) throw new Error(`jornada do funil ACME ausente: ${key}`);
       const competencia = competenciasAcmeDemoPorCargo(pessoa.cargo)[0];
-      const dataInicio = atrasadas.has(key) ? inicioAtrasado : hojeDemo;
+      const concluiu = concluidas.has(key);
+      const dataInicio = concluiu ? inicioConcluido : (atrasadas.has(key) ? inicioAtrasado : hojeDemo);
+
+      // A evolução é DERIVADA (notas + régua de produção), nunca carimbada:
+      // ver o cabeçalho de `acme-evolucao-fixture`.
+      const evolucao = concluiu
+        ? construirEvolucaoAcmeDemo(pessoa, ACME_DEMO_EVOLUTION_MIX[ACME_DEMO_CONCLUDED_KEYS.indexOf(key)])
+        : null;
+      const descritoresDaTrilha = evolucao
+        ? evolucao.descritores.map((d) => ({ descritor: d.descritor, competencia, nota_atual: d.nota_pre }))
+        : ['Evidência demonstrativa'];
+      const camposDeFechamento = evolucao
+        ? {
+            status: TRILHA.CONCLUIDA,
+            evolution_report: evolucao.evolution_report,
+            evolution_generated_at: fechamentoEm,
+          }
+        : { status: TRILHA.ATIVA };
+
       const existente = trilhaTemporadaUmPorPessoa.get(colaboradorId) as any;
+      let trilhaId: string | null = existente?.id || null;
       if (existente) {
         const result = await sb.from('trilhas').update({
-          status: TRILHA.ATIVA,
+          ...camposDeFechamento,
           data_inicio: dataInicio,
+          ...(evolucao ? { competencia_foco: competencia, competencias_foco: [competencia], descritores_selecionados: descritoresDaTrilha } : {}),
         }).eq('id', existente.id).eq('empresa_id', destId);
         if (result.error) throw new Error(`atualizar jornada ${key}: ${result.error.message}`);
-        continue;
+      } else {
+        const inserida = await must(`inserir jornada ${key}`, sb.from('trilhas').insert({
+          empresa_id: destId,
+          colaborador_id: colaboradorId,
+          numero_temporada: 1,
+          cursos: [],
+          ...camposDeFechamento,
+          criado_em: assessmentDate,
+          data_inicio: dataInicio,
+          competencia_foco: competencia,
+          competencias_foco: [competencia],
+          descritores_selecionados: descritoresDaTrilha,
+          temporada_plano: Array.from({ length: 14 }, (_, index) => ({
+            semana: index + 1,
+            tipo: DEMO_JOURNEY_CONTENT_KIND,
+            status: evolucao ? PLANO_SEMANA.CONCLUIDA : (index === 0 ? PLANO_SEMANA.DISPONIVEL : PLANO_SEMANA.BLOQUEADA),
+            competencia,
+            descritor: evolucao
+              ? evolucao.descritores[index % evolucao.descritores.length].descritor
+              : 'Evidência demonstrativa',
+          })),
+        }).select('id').single());
+        trilhaId = inserida?.id || null;
       }
 
-      const result = await sb.from('trilhas').insert({
+      if (!evolucao || !trilhaId) continue;
+
+      // Progresso das 14 semanas. É DELETE antes de INSERT porque a persona
+      // navegável pode ter chegado aqui com as primeiras semanas já semeadas
+      // pelo bloco de personas; sem isso a jornada concluída ganharia duas
+      // linhas para a mesma semana e a tela mostraria a primeira que voltasse.
+      const limpeza = await sb.from('temporada_semana_progresso')
+        .delete().eq('trilha_id', trilhaId).eq('empresa_id', destId);
+      if (limpeza.error) throw new Error(`limpar progresso de ${key}: ${limpeza.error.message}`);
+
+      const fechamento = construirFechamentoAcmeDemo(evolucao, fechamentoEm);
+      const semanasAnteriores = Array.from({ length: 12 }, (_, index) => ({
+        semana: index + 1,
+        tipo: DEMO_JOURNEY_CONTENT_KIND,
+        status: PROGRESSO.CONCLUIDO,
+        conteudo_consumido: true,
+        iniciado_em: fechamentoEm,
+        concluido_em: fechamentoEm,
+      }));
+      const progresso = [...semanasAnteriores, ...fechamento].map((linha) => ({
+        ...linha,
         empresa_id: destId,
         colaborador_id: colaboradorId,
-        numero_temporada: 1,
-        cursos: [],
-        status: TRILHA.ATIVA,
-        criado_em: assessmentDate,
-        data_inicio: dataInicio,
-        competencia_foco: competencia,
-        competencias_foco: [competencia],
-        descritores_selecionados: ['Evidência demonstrativa'],
-        temporada_plano: Array.from({ length: 14 }, (_, index) => ({
-          semana: index + 1,
-          tipo: DEMO_JOURNEY_CONTENT_KIND,
-          status: index === 0 ? 'disponivel' : 'bloqueada',
-          competencia,
-          descritor: 'Evidência demonstrativa',
-        })),
-      });
-      if (result.error) throw new Error(`inserir jornada ${key}: ${result.error.message}`);
+        trilha_id: trilhaId,
+      }));
+      const gravado = await sb.from('temporada_semana_progresso').insert(progresso);
+      if (gravado.error) throw new Error(`progresso da jornada concluída ${key}: ${gravado.error.message}`);
+      continue;
     }
 
     if (
@@ -1540,6 +1646,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       || ACME_DEMO_SYNTHETIC_MAPPED_KEYS.length + 2 !== ACME_DEMO_FUNNEL_TARGETS.withMapping
       || ACME_DEMO_JOURNEY_KEYS.length !== ACME_DEMO_FUNNEL_TARGETS.inJourney
       || ACME_DEMO_BEHIND_KEYS.length !== ACME_DEMO_FUNNEL_TARGETS.behind
+      || ACME_DEMO_CONCLUDED_KEYS.length !== ACME_DEMO_FUNNEL_TARGETS.concluded
+      || ACME_DEMO_CONCLUDED_KEYS.some((key) => ACME_DEMO_BEHIND_KEYS.includes(key))
     ) {
       throw new Error('coortes do panorama ACME não correspondem aos totais declarados');
     }

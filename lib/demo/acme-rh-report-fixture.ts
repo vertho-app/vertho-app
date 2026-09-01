@@ -66,6 +66,17 @@ export const ACME_DEMO_FUNNEL_TARGETS = Object.freeze({
   inJourney: 20,
   onTrack: 17,
   behind: 3,
+  /**
+   * Jornadas com o fechamento feito e Evolution Report gravado. É um SUBCONJUNTO
+   * de `onTrack` (quem concluiu está em dia por definição), e não um estágio
+   * paralelo: somar `concluded` com `onTrack` conta gente duas vezes.
+   *
+   * Existe desde 01/09/2026 porque a prova de evolução só nasce no fechamento,
+   * e sem nenhuma jornada concluída a demo mostrava a mesma tela vazia que a
+   * produção. As 4 restantes ficam em andamento de propósito: um painel em que
+   * 100% concluiu não deixa ver o recorte "quem ainda está no meio".
+   */
+  concluded: 16,
 });
 
 export const ACME_DEMO_WITHOUT_PROFILE_KEYS = ['ana', 'vanessa'] as const;
@@ -87,6 +98,27 @@ export const ACME_DEMO_JOURNEY_KEYS = ACME_DEMO_MAPPED_KEYS.slice(
 
 export const ACME_DEMO_BEHIND_KEYS = ACME_DEMO_JOURNEY_KEYS.slice(
   -ACME_DEMO_FUNNEL_TARGETS.behind,
+);
+
+/**
+ * A persona navegável do participante. A jornada EM ANDAMENTO dela é o roteiro
+ * da apresentação (`DEMO_ACCESS_PERSONAS` entra como "Participante" e cai na
+ * semana 1), então ela fica fora das concluídas: marcá-la como concluída
+ * silenciaria a demo da experiência do colaborador para ganhar mais uma linha
+ * num painel que já tem dezesseis.
+ */
+export const ACME_DEMO_JOURNEY_SHOWCASE_KEY = 'bruna';
+
+/**
+ * Quem concluiu a temporada e tem Evolution Report: todo mundo em jornada,
+ * menos a persona de vitrine e as três atrasadas. Uma pessoa atrasada e
+ * concluída ao mesmo tempo é a contradição mais fácil de produzir aqui e a que
+ * mais estraga a apresentação, então a exclusão é explícita e não posicional.
+ * O total precisa bater com `ACME_DEMO_FUNNEL_TARGETS.concluded` (guard no
+ * teste da régua da demo).
+ */
+export const ACME_DEMO_CONCLUDED_KEYS = ACME_DEMO_JOURNEY_KEYS.filter(
+  (key) => key !== ACME_DEMO_JOURNEY_SHOWCASE_KEY && !ACME_DEMO_BEHIND_KEYS.includes(key),
 );
 
 const COMPETENCIAS_POR_CARGO: Record<string, string[]> = {

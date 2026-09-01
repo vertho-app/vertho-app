@@ -4,6 +4,9 @@ import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { PILOTO_SPEC_VERSION } from '@/lib/season-engine/piloto-trava';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import { encadearProximaJornada } from './encadear-jornada';
+// Régua de convergência em FONTE ÚNICA — o fixture da demo classifica pela
+// mesma função, senão a vitrine mostraria um veredito que o motor não produz.
+import { CONVERGENCIA, classificarConvergencia } from './convergencia';
 
 /**
  * Fim de jornada = começo da próxima (modo `jornada`, 05/08/2026). Roda DEPOIS
@@ -48,20 +51,6 @@ async function encadear(sbRaw: any, tdb: any, trilhaId: string): Promise<void> {
  * pertencer a esse tenant — rejeita trilhaId forjado de outro tenant. Omitido/null
  * = caller admin já gatado (cross-tenant autorizado) e o check é pulado.
  */
-
-/**
- * Classifica convergência de um descritor comparando nota_pre (início da temporada),
- * nota_pos (cenário sem 14) e nível_percebido (qualitativo sem 13).
- */
-function classificarConvergencia({ nota_pre, nota_pos, nivel_percebido }: { nota_pre: number; nota_pos: number; nivel_percebido: number | null }) {
-  const delta = nota_pos - nota_pre;
-  const qualitativaPositiva = nivel_percebido != null && nivel_percebido > nota_pre;
-
-  if (delta >= 0.5 && qualitativaPositiva) return 'evolucao_confirmada';
-  if (delta >= 0.2 || qualitativaPositiva) return 'evolucao_parcial';
-  if (delta < -0.2) return 'regressao';
-  return 'estagnacao';
-}
 
 /**
  * Consolida semana 13 (qualitativa) + semana 14 (quantitativa) num Evolution Report.
@@ -189,10 +178,10 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
       resumo_avaliacao: prog14?.feedback?.resumo_avaliacao || null,
       nota_media_pos: prog14?.feedback?.nota_media_pos || null,
       resumo: {
-        confirmadas: consolidado.filter(c => c.convergencia === 'evolucao_confirmada').length,
-        parciais: consolidado.filter(c => c.convergencia === 'evolucao_parcial').length,
-        estagnacoes: consolidado.filter(c => c.convergencia === 'estagnacao').length,
-        regressoes: consolidado.filter(c => c.convergencia === 'regressao').length,
+        confirmadas: consolidado.filter(c => c.convergencia === CONVERGENCIA.CONFIRMADA).length,
+        parciais: consolidado.filter(c => c.convergencia === CONVERGENCIA.PARCIAL).length,
+        estagnacoes: consolidado.filter(c => c.convergencia === CONVERGENCIA.ESTAVEL).length,
+        regressoes: consolidado.filter(c => c.convergencia === CONVERGENCIA.ATENCAO).length,
       },
     };
 

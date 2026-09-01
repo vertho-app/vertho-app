@@ -1,6 +1,6 @@
 {
-  "description": "E11 (auditoria 22/08) — estoque CONGELADO da classe \"error não checado\": o supabase-js retorna { data, error } e não lança, então quem ignora o retorno vira falha silenciosa. Chave = arquivo, valor = fingerprints (hash do trecho normalizado). Por fingerprint e não por contagem porque contagem deixa a dívida TROCAR DE LUGAR sem o guard ver (modo de falha documentado no E8). Esta lista SÓ ENCOLHE. Guard: tests/unit/security/error-nao-checado-guard.test.ts | 27/08/2026: -6 em actions/fase4.ts — nao foi correcao: gerarPDIs e gerarPDIsDescritores foram REMOVIDAS junto com a tabela `pdis` (mig 233), que tinha 0 linhas, nenhuma FK/view/policy e nenhum consumidor. Divida que some porque o codigo saiu conta como paga. | 29/08/2026: -1 em app/admin-v2/actions.ts (fingerprint 4bbab016), trecho corrigido/reescrito. | 31/08/2026: PERMUTA, total inalterado em 959. -1 em lib/demo/envio-guard.ts (c5f9acd1): a leitura de `empresas.is_demo` passou a checar o `{ error }` que o supabase-js RETORNA — antes a falha escapava do catch, `isDemo` virava false e o tenant de demo mandava comunicacao REAL; o fail-open declarado no cabecalho do arquivo continua, agora com console.warn + registrarDegradacao (demo-guard-cego). +1 em lib/demo/reset-acme-demo.ts (58580173): FALSO POSITIVO declarado — o site esta dentro de `await must(...)`, e `must` (mesma funcao, linha 626) faz `if (r.error) throw`; o guard nao reconhece o wrapper. ⚠️ `scripts/_atualizar-allowlist-erro.ts` REGENERA esta description e apaga o historico anexado: reanexe apos rodar.",
-  "total_declarado": 959,
+  "description": "E11 (auditoria 22/08) — estoque CONGELADO da classe \"error não checado\": o supabase-js retorna { data, error } e não lança, então quem ignora o retorno vira falha silenciosa. Chave = arquivo, valor = fingerprints (hash do trecho normalizado). Por fingerprint e não por contagem porque contagem deixa a dívida TROCAR DE LUGAR sem o guard ver (modo de falha documentado no E8). Esta lista SÓ ENCOLHE. Guard: tests/unit/security/error-nao-checado-guard.test.ts | 27/08/2026: -6 em actions/fase4.ts — nao foi correcao: gerarPDIs e gerarPDIsDescritores foram REMOVIDAS junto com a tabela `pdis` (mig 233), que tinha 0 linhas, nenhuma FK/view/policy e nenhum consumidor. Divida que some porque o codigo saiu conta como paga. | 29/08/2026: -1 em app/admin-v2/actions.ts (fingerprint 4bbab016), trecho corrigido/reescrito. | 31/08/2026: PERMUTA, total inalterado em 959. -1 em lib/demo/envio-guard.ts (c5f9acd1): a leitura de `empresas.is_demo` passou a checar o `{ error }` que o supabase-js RETORNA — antes a falha escapava do catch, `isDemo` virava false e o tenant de demo mandava comunicacao REAL; o fail-open declarado no cabecalho do arquivo continua, agora com console.warn + registrarDegradacao (demo-guard-cego). +1 em lib/demo/reset-acme-demo.ts (58580173): FALSO POSITIVO declarado — o site esta dentro de `await must(...)`, e `must` (mesma funcao, linha 626) faz `if (r.error) throw`; o guard nao reconhece o wrapper. ⚠️ `scripts/_atualizar-allowlist-erro.ts` REGENERA esta description e apaga o historico anexado: reanexe apos rodar. | 01/09/2026: -3 em app/dashboard/evolucao/evolucao-actions.ts (15c28855, a6a4c77c, ff2ceca2) — a action foi REESCRITA para ler trilhas.evolution_report (as tabelas evolucao/evolucao_descritores/sessoes_avaliacao que ela consultava tinham 0 linhas e nenhum escritor alcancavel), e a leitura nova checa o { error }. Divida paga por reescrita, nao por remocao de codigo.",
+  "total_declarado": 956,
   "gerado_em": "2026-08-24",
   "allowlist": {
     "actions/adequacao-cargo.ts": {
@@ -832,11 +832,6 @@
     "app/dashboard/assessment/chat/page.tsx": {
       "542c29e7": 1,
       "57c0cdb2": 1
-    },
-    "app/dashboard/evolucao/evolucao-actions.ts": {
-      "15c28855": 1,
-      "a6a4c77c": 1,
-      "ff2ceca2": 1
     },
     "app/dashboard/gestor/actions.ts": {
       "2415eac2": 1,

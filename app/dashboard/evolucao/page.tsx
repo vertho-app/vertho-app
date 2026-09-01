@@ -8,12 +8,25 @@ import { Loader2, TrendingUp, Download, Clock, Quote, Target, Award } from 'luci
 import { loadEvolucao } from './evolucao-actions';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { descritorParaHumano } from '@/lib/descritor-humano';
+import { CONVERGENCIA } from '@/lib/season-engine/convergencia';
 
-function classifyDelta(delta: number, t: any): { label: string; pill: string } {
-  if (delta >= 0.5) return { label: t('classification.confirmed'), pill: 'bg-green-500/12 text-green-300 border border-green-500/22' };
-  if (delta >= 0.2) return { label: t('classification.partial'), pill: 'bg-[#9ae2e6]/8 text-[#9ae2e6] border border-[#9ae2e6]/16' };
-  if (delta <= -0.2) return { label: t('classification.regression'), pill: 'bg-red-500/12 text-red-300 border border-red-500/18' };
-  return { label: t('classification.stable'), pill: 'bg-[#9ae2e6]/8 text-[#9ae2e6] border border-[#9ae2e6]/16' };
+const PILL_POR_CONVERGENCIA: Record<string, { chave: string; pill: string }> = {
+  [CONVERGENCIA.CONFIRMADA]: { chave: 'classification.confirmed', pill: 'bg-green-500/12 text-green-300 border border-green-500/22' },
+  [CONVERGENCIA.PARCIAL]: { chave: 'classification.partial', pill: 'bg-[#9ae2e6]/8 text-[#9ae2e6] border border-[#9ae2e6]/16' },
+  [CONVERGENCIA.ESTAVEL]: { chave: 'classification.stable', pill: 'bg-white/[0.06] text-white/70 border border-white/12' },
+  [CONVERGENCIA.ATENCAO]: { chave: 'classification.regression', pill: 'bg-red-500/12 text-red-300 border border-red-500/18' },
+};
+
+/**
+ * O veredito vem do RELATORIO, nao de uma regua local. A versao anterior desta
+ * tela reclassificava por delta puro (>= 0,5 = confirmada), enquanto a regua de
+ * producao exige delta E leitura qualitativa positiva: a mesma pessoa podia ler
+ * um veredito aqui e outro no painel do gestor, sem nada acusar a divergencia.
+ */
+function classifyConvergencia(convergencia: string | null, t: any): { label: string; pill: string } {
+  const mapeado = convergencia ? PILL_POR_CONVERGENCIA[convergencia] : null;
+  if (!mapeado) return { label: t('classification.stable'), pill: 'bg-white/[0.06] text-white/70 border border-white/12' };
+  return { label: t(mapeado.chave), pill: mapeado.pill };
 }
 
 export default function EvolucaoPage() {
@@ -67,10 +80,10 @@ export default function EvolucaoPage() {
     );
   }
 
-  // Contadores por classificação
-  const confirmadas = descritores.filter((d: any) => (d.delta || 0) >= 0.5).length;
-  const parciais = descritores.filter((d: any) => (d.delta || 0) >= 0.2 && (d.delta || 0) < 0.5).length;
-  const atencao = descritores.filter((d: any) => (d.delta || 0) < 0.2).length;
+  // Contadores JA classificados pela regua de producao (ver metricas na action).
+  const confirmadas = metricas.confirmadas ?? 0;
+  const parciais = metricas.parciais ?? 0;
+  const atencao = metricas.atencao ?? 0;
 
   // Competência foco (da primeira competência)
   const compFoco = competencias[0]?.nome || t('fallbackCompetency');
@@ -164,7 +177,7 @@ export default function EvolucaoPage() {
             <div className="space-y-3">
               {descritores.map((d: any, i: number) => {
                 const delta = d.delta || 0;
-                const cls = classifyDelta(delta, t);
+                const cls = classifyConvergencia(d.convergencia, t);
                 const notaPre = d.nota_pre ?? d.nota_inicial ?? 0;
                 const notaPos = d.nota_pos ?? d.nota_final ?? (notaPre + delta);
                 const barPct = Math.min(100, (Math.max(0, notaPos) / 4) * 100);
@@ -210,7 +223,6 @@ export default function EvolucaoPage() {
                 const notaPre = comp.inicial?.nota_decimal || 0;
                 const notaPos = comp.reavaliacao?.nota_decimal || notaPre;
                 const delta = comp.reavaliacao ? notaPos - notaPre : 0;
-                const cls = classifyDelta(delta, t);
                 const barPct = Math.min(100, (notaPos / 4) * 100);
                 const barColor = delta >= 0.2 ? '#34C5CC' : delta <= -0.2 ? '#E57373' : '#9AE2E6';
                 return (
@@ -218,11 +230,10 @@ export default function EvolucaoPage() {
                     style={{ background: 'rgba(11,29,50,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <h3 className="font-bold leading-snug flex-1">{comp.nome}</h3>
-                      {comp.reavaliacao && (
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap ${cls.pill}`}>
-                          {cls.label}
-                        </span>
-                      )}
+                      {/* Sem `reavaliacao` (piloto) não há veredito a exibir: a
+                          ausência é a mensagem. Classificar a competência por
+                          delta médio aqui recriaria a régua paralela que esta
+                          tela acabou de perder. */}
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-white/55">{notaPre.toFixed(2)} → {notaPos.toFixed(2)}</span>

@@ -8,7 +8,9 @@ import fixture from '@/lib/demo/acme-demo-fixture.json';
 import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
 import {
   ACME_DEMO_BEHIND_KEYS,
+  ACME_DEMO_CONCLUDED_KEYS,
   ACME_DEMO_FUNNEL_TARGETS,
+  ACME_DEMO_JOURNEY_SHOWCASE_KEY,
   ACME_DEMO_JOURNEY_KEYS,
   ACME_DEMO_MAPPED_KEYS,
   ACME_DEMO_REPORT_DIRECTORY,
@@ -34,7 +36,7 @@ describe('Personas do acme-demo seguem a régua do produto', () => {
     expect(ACME_DEMO_REPORT_DIRECTORY.filter((p) => p.role === 'gestor')).toHaveLength(3);
   });
 
-  it('mantém o funil executivo em 30 / 28 / 25 / 20 / 17 / 3', () => {
+  it('mantém o funil executivo em 30 / 28 / 25 / 20 / 17 / 3, com 16 concluídas', () => {
     expect(ACME_DEMO_FUNNEL_TARGETS).toEqual({
       people: 30,
       withProfile: 28,
@@ -42,6 +44,7 @@ describe('Personas do acme-demo seguem a régua do produto', () => {
       inJourney: 20,
       onTrack: 17,
       behind: 3,
+      concluded: 16,
     });
     expect(ACME_DEMO_TEAM_SIZE - ACME_DEMO_WITHOUT_PROFILE_KEYS.length).toBe(28);
     expect(new Set(ACME_DEMO_MAPPED_KEYS).size).toBe(25);

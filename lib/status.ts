@@ -183,3 +183,22 @@ export const IA4_FILTRO = {
   REVISAR: 'revisar',
 } as const;
 export type Ia4FiltroStatus = (typeof IA4_FILTRO)[keyof typeof IA4_FILTRO];
+
+/**
+ * `trilhas.temporada_plano[].status` — a SEMANA DENTRO DO PLANO da temporada.
+ *
+ * NONO domínio. `CONCLUIDA` coincide em valor com TRILHA e TURMA pela mesma
+ * razão de sempre (acaso), e a distinção aqui é fina o bastante para merecer
+ * atenção: este status não descreve a jornada nem a pessoa, e sim se ELA PODE
+ * ABRIR aquela semana. Uma trilha `ATIVA` tem semanas `BLOQUEADA` e semanas
+ * `DISPONIVEL` ao mesmo tempo, e é isso que a régua de liberação lê.
+ *
+ * Ele vivia só como literal no JSON do plano, o que deixava o vocabulário sem
+ * dono: quem escreve o plano decidia a grafia, e quem lê a comparava de cor.
+ */
+export const PLANO_SEMANA = {
+  BLOQUEADA: 'bloqueada',
+  DISPONIVEL: 'disponivel',
+  CONCLUIDA: 'concluida',
+} as const;
+export type PlanoSemanaStatus = (typeof PLANO_SEMANA)[keyof typeof PLANO_SEMANA];
