@@ -498,7 +498,14 @@
       "phase": "Fase {phase} — {title}",
       "completed": "concluída",
       "current": "em curso",
-      "locked": "bloqueada"
+      "locked": "bloqueada",
+      "revisitar": {
+        "1": "Ver meu perfil comportamental",
+        "2": "Ver resultado do mapeamento",
+        "3": "Ver meu PDI",
+        "4": "Ver minha temporada",
+        "5": "Ver minha evolução"
+      }
     },
     "next": {
       "eyebrow": "Próximo passo",

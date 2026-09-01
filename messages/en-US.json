@@ -498,7 +498,14 @@
       "phase": "Phase {phase} — {title}",
       "completed": "completed",
       "current": "in progress",
-      "locked": "locked"
+      "locked": "locked",
+      "revisitar": {
+        "1": "See my behavioral profile",
+        "2": "See assessment results",
+        "3": "See my development plan",
+        "4": "See my season",
+        "5": "See my progress"
+      }
     },
     "next": {
       "eyebrow": "Next step",

@@ -293,10 +293,20 @@ export default function JornadaPage() {
                           {faseDesc(f)}
                         </p>
                       )}
+                      {/* Fase CONCLUÍDA dizia só "concluída", sem descrição e sem
+                          seta — e mesmo assim era clicável. O resultado do
+                          mapeamento de competências mora atrás deste card, e
+                          ninguém adivinha isso: destino que não se anuncia não é
+                          caminho. Aqui ele diz o que se encontra ao voltar. */}
+                      {isDone && clickable && (
+                        <p className="text-sm mt-1.5 leading-relaxed" style={{ color: tk.accent }}>
+                          {t(`timeline.revisitar.${f.fase}`)}
+                        </p>
+                      )}
                     </div>
 
-                    {isCurrent && (
-                      <ArrowRight size={16} style={{ color: 'var(--phase-accent)', flexShrink: 0 }} />
+                    {(isCurrent || (isDone && clickable)) && (
+                      <ArrowRight size={16} style={{ color: isCurrent ? 'var(--phase-accent)' : tk.accent, flexShrink: 0 }} />
                     )}
                   </button>
                 );
