@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { BarChart3, Eye, RefreshCw, MousePointerClick, Loader2, CheckCircle2, LayoutGrid, Video, Headphones, FileText, BookOpen, ClipboardCheck, MessagesSquare, TrendingUp } from 'lucide-react';
+import {
+  BarChart3, Eye, RefreshCw, MousePointerClick, Loader2, CheckCircle2,
+  LayoutGrid, Video, Headphones, FileText, BookOpen, ClipboardCheck,
+  MessagesSquare, TrendingUp, FileChartColumnIncreasing,
+} from 'lucide-react';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { getEngajamentoEmpresa } from '@/actions/engajamento';
@@ -94,7 +98,13 @@ export default function EngajamentoPage() {
         title="Engajamento da trilha"
         subtitle={empresa?.nome ? `${empresa.nome} — abriu · formato · vídeo · concluiu · evidência · tutor` : 'Selecione uma empresa no filtro do topo'}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2 flex-wrap">
+            <Link
+              href={empresaId ? `/admin/engajamento/relatorio?empresa=${empresaId}` : '/admin/engajamento/relatorio'}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-amber-400/10 border border-amber-400/20 text-amber-200 hover:bg-amber-400/15"
+            >
+              <FileChartColumnIncreasing size={13} /> Mockup relatório
+            </Link>
             <Link
               href={empresaId ? `/admin/engajamento/evolucao?empresa=${empresaId}` : '/admin/engajamento/evolucao'}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-cyan-400/10 border border-cyan-400/20 text-cyan-300 hover:bg-cyan-400/15"
