@@ -95,7 +95,7 @@ Este é o MentorIA na prática.`;
     expect(maxAbsSample(withSting.subarray(-(sampleRate * 2 * 2)))).toBeGreaterThan(3000);
   });
 
-  it('exporta o podcast final como MP3 real 44.1kHz estéreo 192kbps', () => {
+  it('exporta o podcast final como MP3 real 44.1kHz mono 96kbps', () => {
     const sampleRate = 24000;
     const pcm = Buffer.alloc(sampleRate * 2);
     for (let i = 0; i < sampleRate; i++) {
@@ -107,8 +107,11 @@ Este é o MentorIA na prática.`;
 
     expect(mp3.toString('ascii', 0, 4)).not.toBe('RIFF');
     expect(frame.sampleRate).toBe(44100);
-    expect(frame.channels).toBe(2);
-    expect(frame.bitrateKbps).toBe(192);
+    // Voz falada é MONO a 96 kbps desde 02/09/2026: o encoder gravava o mesmo
+    // sinal em dois canais a 192 kbps, e uma pílula de 3min32 pesava 5,08 MB —
+    // o player exibia "0:00 / 0:00" enquanto o arquivo chegava.
+    expect(frame.channels).toBe(1);
+    expect(frame.bitrateKbps).toBe(96);
   });
 
   it('garante locução padrão de fechamento sem reinserir a abertura falada', () => {

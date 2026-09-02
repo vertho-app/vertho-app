@@ -22,7 +22,17 @@ function resolveLamejs(): typeof lamejsNs {
 const lamejs = resolveLamejs();
 
 const MP3_SAMPLE_RATE = 44100;
-const MP3_BITRATE_KBPS = 192;
+/**
+ * 96 kbps MONO para voz.
+ *
+ * `Medido: 02/09/2026` — a pílula de 3min32 saía com 5,08 MB: o encoder recebia
+ * um sinal MONO e o gravava em DOIS canais idênticos, a 192 kbps. Para uma
+ * narração falada isso é o dobro do dobro, e o preço é pago no play: enquanto o
+ * arquivo carrega, o player mostra "0:00 / 0:00". Mesma narração a 96 kbps mono
+ * fica em 2,54 MB, sem diferença audível em voz.
+ */
+const MP3_BITRATE_KBPS = 96;
+const MP3_CANAIS = 1;
 const TARGET_LUFS = -14;
 const TRUE_PEAK_DB = -1.5;
 
@@ -182,15 +192,15 @@ function resampleMonoPcm16(pcm: Buffer, sourceRate: number, targetRate: number):
   return out;
 }
 
-function encodeMp3Stereo(mono: Int16Array): Buffer {
-  const encoder = new lamejs.Mp3Encoder(2, MP3_SAMPLE_RATE, MP3_BITRATE_KBPS);
+function encodeMp3(mono: Int16Array): Buffer {
+  const encoder = new lamejs.Mp3Encoder(MP3_CANAIS, MP3_SAMPLE_RATE, MP3_BITRATE_KBPS);
   const chunks: Buffer[] = [];
   const blockSize = 1152;
 
   for (let i = 0; i < mono.length; i += blockSize) {
-    const left = mono.subarray(i, i + blockSize);
-    const right = mono.subarray(i, i + blockSize);
-    const encoded = encoder.encodeBuffer(left, right);
+    const bloco = mono.subarray(i, i + blockSize);
+    // Mono: o lamejs ignora o 2º argumento quando o encoder tem 1 canal.
+    const encoded = encoder.encodeBuffer(bloco, bloco);
     if (encoded.length) chunks.push(Buffer.from(encoded));
   }
 
@@ -199,9 +209,45 @@ function encodeMp3Stereo(mono: Int16Array): Buffer {
   return Buffer.concat(chunks);
 }
 
-/** Masteriza (loudness/true-peak) + reamostra p/ 44.1k + encoda MP3 estéreo. */
+/**
+ * Escreve o quadro Xing/Info na frente do MP3.
+ *
+ * O lamejs não gera esse quadro, e sem ele o player não sabe a DURAÇÃO nem
+ * consegue posicionar a barra até ter varrido o arquivo inteiro: é o
+ * "0:00 / 0:00" que a pílula de 5 MB exibia enquanto carregava. O quadro tem o
+ * tamanho de um frame normal (por isso é silencioso na reprodução) e carrega a
+ * contagem de frames e de bytes — o suficiente para a duração aparecer na hora.
+ *
+ * Em CBR o identificador é "Info" (o "Xing" é o do VBR). O offset do
+ * identificador dentro do frame depende de versão e canais: MPEG1 mono = 21,
+ * MPEG1 estéreo = 36.
+ */
+export function prependXingHeader(mp3: Buffer, canais: number, sampleRate: number, bitrateKbps: number): Buffer {
+  if (mp3.length < 4) return mp3;
+  // O quadro copia o cabeçalho do PRIMEIRO frame real: assim versão, taxa e
+  // sample rate declarados batem exatamente com o resto do arquivo.
+  const cabecalho = mp3.subarray(0, 4);
+  const tamanhoFrame = Math.floor((1152 / 8) * bitrateKbps * 1000 / sampleRate);
+  const quadro = Buffer.alloc(tamanhoFrame, 0);
+  cabecalho.copy(quadro, 0);
+
+  const offsetTag = canais === 1 ? 21 : 36;
+  if (offsetTag + 16 > tamanhoFrame) return mp3;
+  quadro.write('Info', offsetTag, 'ascii');
+  // flags: bit0 = frames, bit1 = bytes
+  quadro.writeUInt32BE(0x00000003, offsetTag + 4);
+  const totalFrames = Math.max(1, Math.round(mp3.length / tamanhoFrame));
+  quadro.writeUInt32BE(totalFrames, offsetTag + 8);
+  quadro.writeUInt32BE(mp3.length + tamanhoFrame, offsetTag + 12);
+  return Buffer.concat([quadro, mp3]);
+}
+
+/**
+ * Masteriza (loudness/true-peak) + reamostra p/ 44.1k + encoda MP3 MONO, com o
+ * quadro Xing/Info na frente para o player saber a duração antes de baixar tudo.
+ */
 export function exportPodcastMp3FromPcm(pcm: Buffer, sampleRate: number): Buffer {
   const mastered = masterPodcastPcm(pcm);
   const mono441 = resampleMonoPcm16(mastered, sampleRate, MP3_SAMPLE_RATE);
-  return encodeMp3Stereo(mono441);
+  return prependXingHeader(encodeMp3(mono441), MP3_CANAIS, MP3_SAMPLE_RATE, MP3_BITRATE_KBPS);
 }
