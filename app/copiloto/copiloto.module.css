@@ -320,7 +320,7 @@
 .setupPanel header p, .researchPanel header p, .liveHeader p, .postWorkspace > header p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 
 .setupPanel label { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; color: #bfd0df; font: 750 10px/1.2 var(--font-inter); letter-spacing: .11em; text-transform: uppercase; }
-.setupPanel input, .setupPanel textarea, .setupPanel select { width: 100%; border: 1px solid rgba(164, 194, 216, .18); background: #071a2e; color: #f4f9fd; padding: 13px 14px; outline: none; border-radius: 4px; font: 500 13px/1.55 var(--font-manrope); text-transform: none; letter-spacing: normal; resize: vertical; transition: border-color .16s, box-shadow .16s; }
+.setupPanel input, .setupPanel textarea, .setupPanel select { width: 100%; box-sizing: border-box; border: 1px solid rgba(164, 194, 216, .18); background: #071a2e; color: #f4f9fd; padding: 13px 14px; outline: none; border-radius: 4px; font: 500 13px/1.55 var(--font-manrope); text-transform: none; letter-spacing: normal; resize: vertical; transition: border-color .16s, box-shadow .16s; }
 .setupPanel input:focus, .setupPanel textarea:focus, .setupPanel select:focus { border-color: rgba(66, 212, 215, .62); box-shadow: 0 0 0 3px rgba(66, 212, 215, .08); }
 .setupPanel label > small { display: flex; gap: 6px; align-items: center; color: #718da4; font-size: 9px; letter-spacing: .03em; text-transform: none; }
 .contextField { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
@@ -348,10 +348,11 @@
 .playSetup { min-width: 0; margin: 0 0 22px; border: 1px solid rgba(66,212,215,.28); border-left: 3px solid var(--cyan); padding: 18px 18px 4px; background: linear-gradient(110deg, rgba(66,212,215,.065), rgba(5,23,40,.32) 62%); }
 .playSetup legend { display: flex; align-items: center; gap: 7px; padding: 0 9px; color: var(--cyan); font: 800 9px/1 var(--font-inter); letter-spacing: .11em; text-transform: uppercase; }
 .playSetup legend small { margin-left: 5px; color: #67849a; font-size: 8px; letter-spacing: .08em; }
-.playSetupGrid { display: grid; grid-template-columns: .72fr 1.28fr; gap: 12px; }
-.playSetup .playSetupGrid label, .playSetup .hourGoal { margin-bottom: 14px; }
-.playSetup .hourGoal { position: relative; }
-.playSetup .hourGoal em { position: absolute; top: 1px; right: 0; color: #648096; font-size: 8px; font-style: normal; font-weight: 650; letter-spacing: .06em; }
+/* O compromisso da hora saiu do recolhivel: e o resultado observavel que o Play
+   persegue, e ficava fechado, marcado como opcional, ao lado do tipo da reuniao. */
+.hourGoalField { margin-bottom: 18px; padding: 14px; border: 1px solid rgba(66,212,215,.24); border-left: 2px solid var(--cyan); background: linear-gradient(112deg, rgba(66,212,215,.05), rgba(5,23,40,.28) 62%); }
+.setupPanel .hourGoalField { gap: 9px; }
+.setupPanel .hourGoalField textarea { min-height: 62px; }
 /* A pergunta de entrada: a porta escolhida roteia pesquisa, Play e compromisso. */
 .goalDoors { display: grid; gap: 7px; margin-bottom: 22px; }
 .goalDoors button { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 1px solid rgba(164,194,216,.16); background: rgba(255,255,255,.018); padding: 11px 13px; cursor: pointer; border-radius: 4px; transition: border-color .16s, background .16s; }
@@ -819,7 +820,7 @@
   .tabs button small { display: none; }
   .tabs button > span { font-size: 10px; }
   .runway { padding-left: 0; }
-  .twoFields, .playSetupGrid, .objectives, .questionColumns, .researchAudit { grid-template-columns: 1fr; }
+  .twoFields, .objectives, .questionColumns, .researchAudit { grid-template-columns: 1fr; }
   .sources summary em { display: none; }
   .contextFieldHeader { align-items: flex-start; flex-direction: column; }
   .clientDetailHeader, .memoryBoard, .conversationHistory { padding-left: 16px; padding-right: 16px; }

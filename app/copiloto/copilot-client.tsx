@@ -1517,20 +1517,39 @@ export default function CopilotClient({
               <label>Site público<input value={site} onChange={(event) => setSite(event.target.value)} placeholder="empresa.com.br" inputMode="url" maxLength={320} /></label>
             </div>
 
+            {/*
+              O compromisso observável e o briefing privado ficam FORA do recolhível.
+              São os dois campos que mais mudam o Play: o primeiro é o resultado que a
+              hora precisa produzir, o segundo é a única fonte que a busca pública não
+              alcança. Ficavam dentro de "Dados usados", fechado por padrão, e o
+              compromisso ainda vinha marcado como opcional.
+            */}
+            <label className={styles.hourGoalField}>O que precisa sair desta hora
+              <textarea value={goalThisHour} onChange={(event) => setGoalThisHour(event.target.value)} rows={2} maxLength={1200} placeholder="Ex.: sair com o CFO e o RH validando o piloto de 3 cargos, com data até sexta." />
+              <small><Target size={12} /> Verbo + pessoa + ação + prazo. Em branco, o Copiloto propõe um pelo avanço e pelo estágio, e você ajusta no Play.</small>
+            </label>
+
+            <div className={styles.contextField}>
+              <div className={styles.contextFieldHeader}>
+                <label htmlFor="copilot-context">O que você já sabe deste cliente</label>
+                <button type="button" onClick={() => void pasteTranscript()}>
+                  <ClipboardPaste size={13} /> Colar transcrição
+                </button>
+              </div>
+              <textarea id="copilot-context" value={context} onChange={(event) => setContext(event.target.value)} rows={8} maxLength={30000} placeholder="Cole anotações ou a transcrição de uma conversa anterior…" />
+              <small><ShieldCheck size={12} /> Não entra na busca pública.</small>
+            </div>
+
             <details className={styles.setupDetails} open={showSetupDetails}
               onToggle={(event) => setShowSetupDetails((event.target as HTMLDetailsElement).open)}>
-              <summary>Dados usados <small>tipo, redes, briefing e oferta</small></summary>
+              <summary>Dados usados <small>tipo da reunião, redes oficiais e o que você vende</small></summary>
 
-            <div className={styles.playSetupGrid}>
-              <label>Tipo da reunião
-                <select value={meetingKind} onChange={(event) => setMeetingKind(event.target.value as MeetingKind)}>
-                  {MEETING_KINDS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
-                </select>
-              </label>
-              <label>O que precisa sair desta hora <em>opcional</em>
-                <textarea value={goalThisHour} onChange={(event) => setGoalThisHour(event.target.value)} rows={2} maxLength={1200} placeholder="Se vazio, o Copiloto infere pelo avanço escolhido e pelo estágio." />
-              </label>
-            </div>
+            <label>Tipo da reunião
+              <select value={meetingKind} onChange={(event) => setMeetingKind(event.target.value as MeetingKind)}>
+                {MEETING_KINDS.map((item) => <option key={item.key} value={item.key}>{item.label}</option>)}
+              </select>
+              <small><Sparkles size={12} /> Inferido pelo estágio no CRM e pelo histórico da conta.</small>
+            </label>
 
             <div className={styles.identityField}>
               <div className={styles.identityFieldHeader}>
@@ -1564,17 +1583,6 @@ export default function CopilotClient({
                   {socialDiscovery.status === 'erro' && <>{socialDiscovery.mensagem}. Cole os links à mão ou tente de novo.</>}
                 </small>
               )}
-            </div>
-
-            <div className={styles.contextField}>
-              <div className={styles.contextFieldHeader}>
-                <label htmlFor="copilot-context">O que você já sabe deste cliente</label>
-                <button type="button" onClick={() => void pasteTranscript()}>
-                  <ClipboardPaste size={13} /> Colar transcrição
-                </button>
-              </div>
-              <textarea id="copilot-context" value={context} onChange={(event) => setContext(event.target.value)} rows={8} maxLength={30000} placeholder="Cole anotações ou a transcrição de uma conversa anterior…" />
-              <small><ShieldCheck size={12} /> Não entra na busca pública.</small>
             </div>
 
             <label>O que você vende
