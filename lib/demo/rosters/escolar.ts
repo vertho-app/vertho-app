@@ -429,4 +429,61 @@ export const ROSTER_ESCOLAR: DemoRoster = {
     concluidos: ['paula', 'tiago', 'juliana_s', 'marcos_v', 'fernanda_c', 'patricia_m', 'leticia_b'],
   },
   unidades: UNIDADES_ESCOLARES.map((unidade) => ({ ...unidade })),
+  /**
+   * O VIDEO da semana 3 (descritor "Recursos didaticos").
+   *
+   * Por que um video PROPRIO, e nao um reaproveitado: `Medido: 02/09/2026` — a
+   * library tem 1.515 videos, 223 tematicos, e o acervo DOCENTE e zero. Os
+   * videos escolares que existem foram escritos para a gestao ("voce, como
+   * coordenadora ou coordenador..."); na trilha de um professor, o texto
+   * denuncia a origem na primeira frase. Este foi gerado pelo pipeline, a
+   * partir da regua real do descritor, falando de professor para professor.
+   *
+   * A ancora e `competencias_base` (catalogo GLOBAL). Prender o modulo a
+   * `competencias` (por tenant) derruba o reset inteiro — ver
+   * `demo-reset-modulo-ancora.test.ts`.
+   */
+  videoDaJornada: {
+    moduloId: 'b7e4c1a2-3d5f-4e88-9a10-6c2f8d3b7e41',
+    celulaId: '58df245a-f782-415b-a0fb-1eaf9003ac26',
+    competenciaBaseId: 'c9a7f3d1-25b8-4c6e-9f04-3ab1d7e58c62',
+    bunnyVideoId: 'b5c988e1-6726-40b6-b6ca-847512e4c546',
+    competencia: TOP5_DOCENCIA[0],
+    descritor: 'Recursos didáticos',
+    cargo: DOCENCIA,
+    // 1a letra do perfil da Marina (SI) — a celula e por DISC.
+    disc: 'S',
+    titulo: 'O recurso escolhido pelo objetivo, não pelo hábito',
+    finalidade: 'Ajudar professores a escolher recursos didáticos a partir do objetivo de aprendizagem — e a verificar se o recurso de fato ajudou.',
+    nivelEntrada: 'N1',
+    nivelDestino: 'N2',
+    segmento: 'educacao',
+    codComp: 'DEMO_DIDATICA',
+    codDesc: 'DEMO_DID_D04',
+    pilar: 'Pedagógico',
+    descricaoCompetencia: 'Conduzir a aula de modo que a aprendizagem aconteça: objetivo claro, recurso a serviço do objetivo e verificação do efeito.',
+    descritorCompleto: 'Seleciona e usa recursos (materiais, exemplos, visual) que apoiam a compreensão.',
+    // A regua REAL do descritor (extraida do Ibipeba), nao parafrase: e ela que
+    // o roteiro do video e a avaliacao leem.
+    regua: {
+      n1_gap: 'Não usa recursos ou representações além do quadro/livro; oportunidades de concretizar o abstrato são perdidas.',
+      n2_desenvolvimento: 'Usa recursos (vídeo, material concreto, imagens), mas a escolha é mais por conveniência ou hábito do que por adequação ao objetivo de aprendizagem.',
+      n3_meta: 'Usa recurso/representação adequada; justifica o recurso pelo objetivo; verifica se o recurso ajudou e troca se necessário.',
+      n4_referencia: 'Cria e adapta recursos didáticos com alto impacto; referência para colegas em curadoria e uso intencional de materiais.',
+    },
+    conteudoCentral: {
+      ideia: 'Recurso didático não é enfeite nem hábito: é escolha a serviço de um objetivo de aprendizagem. O salto de N1 para N2 começa quando o professor para de perguntar "o que eu uso hoje?" e passa a perguntar "o que o aluno precisa compreender, e o que torna isso visível?".',
+    },
+    conteudoAplicavel: {
+      pratica: 'Antes da próxima aula, escreva o objetivo em uma frase e só então escolha o recurso. Ao final, verifique numa pergunta se o recurso ajudou a compreender — e troque quando não ajudar.',
+    },
+    guardaCorpos: {
+      evitar: ['jargão corporativo', 'falar como se o espectador fosse gestor ou coordenador', 'exemplos de vendas ou de empresa'],
+      publico: 'professor de sala de aula falando com professor',
+    },
+    adaptacaoPorFormato: {
+      video_roteiro: 'Tom de colega de profissão, exemplos concretos de sala de aula. Nunca dirigir a fala à coordenação.',
+    },
+    tags: ['didática', 'recursos didáticos', 'sala de aula'],
+  },
 };
