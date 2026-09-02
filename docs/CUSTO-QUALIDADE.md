@@ -1712,3 +1712,68 @@ medido:** `C:\GAS\Simulador` (copiloto PACE) chama a Claude direto em
 **Não medido ainda:** o efeito das duas correções. A verificação é comparar, daqui
 a alguns dias, `frio` caindo e `lido` subindo em `cena_turno`, e `escrito` perto
 de zero nos três `conteudo_*`.
+
+## 01/09/2026 — relatório semanal de custo por tenant, por e-mail
+
+Pedido do dono: um relatório com o custo de IA detalhado **por empresa/tenant**,
+fechando na segunda às 04:00 de Brasília e enviado por e-mail na sequência.
+
+**O que roda.** `lib/custo-ia/relatorio-semanal.ts` (coleta e agregação) +
+`lib/custo-ia/email.ts` (o HTML, puro) + case `custo_ia_semanal` em
+`app/api/cron/route.ts`, agendado como `0 7 * * 1` — 07:00 UTC = **04:00 BRT**.
+A janela é a semana FECHADA em Brasília: `[segunda anterior 00:00, segunda
+00:00)`, fim exclusivo. Fora do cron: `scripts/_custo-ia-semanal.ts`, dry-run por
+padrão, com `--agora=ISO` para reprocessar uma semana passada.
+
+**Por que uma função no banco (mig 238).** O PostgREST não faz `GROUP BY`, e a
+alternativa era trazer as linhas cruas e somar em JS. Medido na semana 24–30/08:
+**7.198 linhas brutas para 108 grupos** — paginar o teto de 1.000 em 8
+requisições, com o modo de falha de esquecer a paginação sendo um relatório que
+soma 1.000 linhas e se apresenta como a semana inteira. Conta parcial com cara de
+conta fechada. `custo_ia_agregado(ini, fim)` devolve os 108 grupos e só
+`service_role` a executa.
+
+**Três coisas que o formato existe para não deixar concluir:**
+
+1. **A fatia sem `empresa_id` não é descartada.** Medido em 30 dias: 3.988 das
+   10.525 linhas (38%) não têm empresa, e valem **US$ 102,41 de US$ 291,40 (35%
+   do dinheiro)** — autoria de conteúdo, evals, copiloto, simulador. Um "por
+   empresa" que filtrasse nulo mostraria dois terços da conta com cara de conta
+   inteira. Vai como bloco "Plataforma Vertho", somando no total.
+2. **A nota de cobertura é fixa.** Vale a regra do §29/08: somar o ledger sem
+   dizer quem escreve nele é confundir "não custou" com "não medimos". Hoje
+   escrevem três: o wrapper, o TTS (desde 30/08) e o Batch.
+3. **O aviso de mudança de INSTRUMENTO.** O TTS entrou no ledger em 30/08, então
+   a comparação semana-a-semana que cruzar essa data mostra o áudio "aparecendo"
+   sem que o gasto tenha mudado. `avisoInstrumento()` diz isso no e-mail
+   enquanto a janela comparada tocar a virada, e se cala sozinho depois.
+
+**O tamanho era um modo de falha silencioso.** A primeira versão do HTML era toda
+inline, do jeito clássico de e-mail: **91 KB, dos quais 70 KB eram atributos
+`style=`** repetidos em 420 células. O Gmail corta em ~102 KB e mostra "[Mensagem
+truncada]" — a semana com mais tenants perderia a metade de baixo da tabela sem
+erro nenhum. Com classes em `<style>`, o mesmo conteúdo cabe em **31 KB**; o que
+varia por linha (a cor da variação) continua inline, porque ali a cor é
+informação.
+
+**Primeira execução (24–30/08, enviada 01/09).** US$ 106,86 · 7.198 chamadas ·
+10 tenants + plataforma. Ibipeba **58,2%** (US$ 62,20, com `cena_turno` e
+`cena_extracao` valendo 62% do gasto dela), plataforma **30,7%**, Macaé 7,4%; os
+outros 7 somam menos de US$ 3. A conta foi conferida contra uma query SQL
+independente antes de virar e-mail — os dois caminhos batem linha a linha.
+
+⚠️ **A variação semanal aqui é volátil por natureza**, e ler `+314%` como
+tendência é erro: o gasto é dominado por rajadas de autoria, não por uso
+recorrente. As 8 semanas anteriores foram 91, 10, 26, 3, 119, 26, **106** e 36
+(parcial) — a semana anterior à do relatório foi uma das mais baratas do
+período. O número que sustenta decisão é a série, não o Δ de um par.
+
+**Destinatários:** `CUSTO_IA_REPORT_EMAILS`, default `rodrigo@vertho.ai` no
+código. **`ADMIN_EMAILS` não entra como fallback** — aquela env é fallback de
+autorização de platform-admin, e usá-la para "receber relatório" promoveria quem
+só devia ler um número. Mesma razão que criou `HEALTH_ALERT_EMAILS`.
+
+**Cobertura:** `tests/unit/custo-ia-semanal.test.ts` (22 asserções). As que
+importam: a janela em BRT com as duas bordas (domingo 23:59:59 dentro, segunda
+00:00 fora), a fatia de plataforma entrando no total, o corte da cauda devolvendo
+o resto somado, e base zero não virando divisão por zero.

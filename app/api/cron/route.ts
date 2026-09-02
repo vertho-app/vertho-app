@@ -282,6 +282,38 @@ export async function GET(req) {
         break;
       }
 
+      // CUSTO DE IA POR TENANT: fecha a semana e manda por e-mail. Roda 07:00 UTC
+      // de segunda = **04:00 em Brasília**, e cobre a semana FECHADA (segunda
+      // anterior 00:00 → domingo 23:59:59 BRT). O horário tardio é o ponto: às
+      // 04:00 não há mais chamada entrando na semana que se fecha, e o Batch da
+      // madrugada — que grava com −50% e pode demorar horas — já assentou. Fechar
+      // no domingo à noite contaria a mesma semana com um pedaço em voo.
+      //
+      // Parâmetros OPCIONAIS: `dry=1` monta a conta sem enviar (conferência sem
+      // queimar um envio) e `agora=ISO` reprocessa uma semana anterior — o cron
+      // automático não passa nenhum dos dois.
+      case 'custo_ia_semanal': {
+        const { executarRelatorioCustoIA } = await import('@/lib/custo-ia/relatorio-semanal');
+        const agoraParam = searchParams.get('agora');
+        const agora = agoraParam ? new Date(agoraParam) : undefined;
+        if (agora && Number.isNaN(agora.getTime())) {
+          return NextResponse.json({ error: 'agora inválido (use ISO)' }, { status: 400 });
+        }
+        result = await executarRelatorioCustoIA({
+          ...(agora ? { agora } : {}),
+          enviar: searchParams.get('dry') !== '1',
+        });
+        // O relatório é o produto: se nenhum destino recebeu, isto é falha, não
+        // um 200 com a má notícia escondida no corpo. Mesma régua do backup.
+        if (searchParams.get('dry') !== '1' && !result.enviados.length) {
+          throw new Error(`relatório não chegou a ninguém: ${JSON.stringify(result.falhas)}`);
+        }
+        // O relatório inteiro no corpo da resposta são centenas de linhas que
+        // ninguém lê no log do cron — o e-mail é o destino.
+        delete (result as { relatorio?: unknown }).relatorio;
+        break;
+      }
+
       // CONARH 52 — régua T+1→T+5 dos leads da feira (F8). Best-effort por
       // lead dentro do núcleo; exceção global vira 500 observável no log.
       case 'conarh-followup':
