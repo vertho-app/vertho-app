@@ -145,6 +145,51 @@ export type DemoRoster = {
    */
   descritores?: Record<string, DemoRosterDescritor[]>;
   /**
+   * Pessoas que dão ESCALA ao panorama sem serem personas navegáveis: não têm
+   * credencial, não entram na sala e não recebem artefato congelado. Existem
+   * para o gestor ter equipe e o funil ter denominador.
+   */
+  diretorio?: Array<{
+    key: string;
+    nome_completo: string;
+    email: string;
+    cargo: string;
+    role: string;
+    area_depto: string;
+    gestor_nome: string | null;
+    gestor_email: string | null;
+    d_natural: number;
+    i_natural: number;
+    s_natural: number;
+    c_natural: number;
+  }>;
+  /**
+   * O FUNIL que a visão de programa mostra. Sem isto, um ambiente novo abre com
+   * todo mundo parado na primeira etapa — o que não é a foto de uma operação,
+   * é a foto de um tenant recém-criado.
+   *
+   * As pessoas aqui são as de apoio: o estado delas é sintético (assessments e
+   * trilhas sem IA), e serve para o denominador existir. As personas navegáveis
+   * continuam com o estado REAL delas.
+   */
+  panorama?: {
+    /** Quem ainda não concluiu o perfil comportamental. */
+    semPerfil?: string[];
+    /** Quem tem o Top 5 do cargo inteiro avaliado. */
+    mapeados?: string[];
+    /** Jornada em andamento. */
+    emJornada?: string[];
+    /** Jornada encerrada — é o que libera a tela de evolução. */
+    concluidos?: string[];
+  };
+  /**
+   * Cargos que existem para ADEQUAÇÃO, não para jornada: entram no ranking (o
+   * fit lê as colunas comportamentais) e têm o Top 5 zerado, para a tela não
+   * convidar ao mapeamento quem não participa dele. É o mesmo tratamento que o
+   * cargo de gestão recebe no elenco comercial.
+   */
+  cargosSemAssessment?: string[];
+  /**
    * Modo do programa das personas (`colaboradores.programa_modo`). O default do
    * produto é o DUO de 14 semanas, que cobre MAIS DE UMA competência — e uma
    * trilha só nasce se todas elas tiverem conteúdo. Numa escola o formato é a

@@ -348,6 +348,27 @@ export function respostaEscolarForte(competencia: string) {
   };
 }
 
+/**
+ * O corpo docente que dá escala à rede. Não são personas navegáveis: existem
+ * para a coordenação ter equipe de verdade na tela e para o funil de
+ * participação ter denominador — uma coordenadora com dois liderados não mostra
+ * gestão de equipe, mostra uma lista.
+ *
+ * O DISC soma 200 em todos (régua do produto); o perfil dominante é derivado
+ * pelo motor no seed, não declarado aqui.
+ */
+export const DIRETORIO_ESCOLAR = [
+  { key: 'ana_luiza', nome_completo: 'Ana Luiza Prado', email: 'ana.luiza.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 30, i_natural: 62, s_natural: 60, c_natural: 48 },
+  { key: 'carlos_e', nome_completo: 'Carlos Eduardo Lima', email: 'carlos.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 54, i_natural: 50, s_natural: 52, c_natural: 44 },
+  { key: 'juliana_s', nome_completo: 'Juliana Serra', email: 'juliana.serra.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 26, i_natural: 44, s_natural: 72, c_natural: 58 },
+  { key: 'marcos_v', nome_completo: 'Marcos Vinícius Reis', email: 'marcos.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 48, i_natural: 36, s_natural: 54, c_natural: 62 },
+  { key: 'fernanda_c', nome_completo: 'Fernanda Coutinho', email: 'fernanda.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 34, i_natural: 70, s_natural: 56, c_natural: 40 },
+  { key: 'bruno_a', nome_completo: 'Bruno Alencar', email: 'bruno.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: PARQUE, gestor_nome: 'Sérgio Bastos', gestor_email: 'sergio.demo@vertho.ai', d_natural: 58, i_natural: 48, s_natural: 46, c_natural: 48 },
+  { key: 'patricia_m', nome_completo: 'Patrícia Moura', email: 'patricia.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: PARQUE, gestor_nome: 'Sérgio Bastos', gestor_email: 'sergio.demo@vertho.ai', d_natural: 28, i_natural: 58, s_natural: 64, c_natural: 50 },
+  { key: 'rafael_t', nome_completo: 'Rafael Teixeira', email: 'rafael.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: PARQUE, gestor_nome: 'Sérgio Bastos', gestor_email: 'sergio.demo@vertho.ai', d_natural: 44, i_natural: 40, s_natural: 58, c_natural: 58 },
+  { key: 'leticia_b', nome_completo: 'Letícia Barbosa', email: 'leticia.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: PARQUE, gestor_nome: 'Sérgio Bastos', gestor_email: 'sergio.demo@vertho.ai', d_natural: 32, i_natural: 66, s_natural: 58, c_natural: 44 },
+];
+
 export const ROSTER_ESCOLAR: DemoRoster = {
   key: 'escolar',
   // Todos os cargos nascem construídos (o acervo de origem tem cenários fracos
@@ -375,5 +396,24 @@ export const ROSTER_ESCOLAR: DemoRoster = {
   // trilha recusa nascer sem conteúdo para ela: numa rede onde o acervo docente
   // está começando, isso significa não nascer.
   programaModo: 'jornada',
+  diretorio: DIRETORIO_ESCOLAR.map((pessoa) => ({ ...pessoa })),
+  // A coordenação existe para ADEQUAÇÃO e gestão de equipe, não para jornada:
+  // com o Top 5 preenchido, a tela a convida para o mapeamento que ela não faz.
+  cargosSemAssessment: [COORDENACAO],
+  /**
+   * A foto da rede: 14 participantes · 13 com perfil · 11 com o mapeamento
+   * completo · 4 em jornada · 7 encerradas. É uma operação em andamento, não um
+   * tenant recém-aberto — e os números fecham entre si: quem mapeou entrou em
+   * jornada, e as encerradas somam com as ativas.
+   *
+   * As personas navegáveis não entram aqui: o estado delas é o real (Marina tem
+   * as 5 competências avaliadas de verdade e a trilha construída).
+   */
+  panorama: {
+    semPerfil: ['rafael_t'],
+    mapeados: ['paula', 'tiago', 'ana_luiza', 'carlos_e', 'juliana_s', 'marcos_v', 'fernanda_c', 'bruno_a', 'patricia_m', 'leticia_b'],
+    emJornada: ['ana_luiza', 'carlos_e', 'bruno_a'],
+    concluidos: ['paula', 'tiago', 'juliana_s', 'marcos_v', 'fernanda_c', 'patricia_m', 'leticia_b'],
+  },
   unidades: UNIDADES_ESCOLARES.map((unidade) => ({ ...unidade })),
 };

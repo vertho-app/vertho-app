@@ -29,7 +29,12 @@ export const ACME_DEMO_FIT_VARIETY_KEYS = [
   'rodrigo',
 ] as const;
 
-export type AcmeDemoFitRankingRole = (typeof ACME_DEMO_FIT_RANKING_ROLES)[number]['cargo'];
+/**
+ * O cargo do ranking é `string`: com mais de um ambiente demo, prendê-lo aos
+ * quatro nomes comerciais faria o tipo recusar "Professor(a)" — e o ranking do
+ * RH escolar nasceria vazio por decisão de tipo, não de produto.
+ */
+export type AcmeDemoFitRankingRole = string;
 
 export type AcmeDemoFitRankingSnapshot = {
   data: AdequacaoCargo;
@@ -105,6 +110,13 @@ export async function buildAcmeFitRankingArtifacts(
   empresaId: string,
   empresaNome: string,
   generatedAt = Date.now(),
+  /**
+   * Cargos do ranking. O ACME declara os seus com a contagem esperada (o
+   * fixture é fixo, então divergir é defeito). Outro ambiente passa a própria
+   * lista, SEM contagem: o elenco dele muda com o roster, e um número cravado
+   * aqui viraria falha de reset a cada pessoa a mais.
+   */
+  roles: ReadonlyArray<{ cargo: string; expectedPeople?: number }> = ACME_DEMO_FIT_RANKING_ROLES,
 ): Promise<AcmeDemoFitRankingArtifact[]> {
   const artifacts: AcmeDemoFitRankingArtifact[] = [];
   // A vitrine executiva separa "tem valores DISC de fixture" de "concluiu o
@@ -118,13 +130,13 @@ export async function buildAcmeFitRankingArtifacts(
   if (eligibleError) throw new Error(`ranking ACME: pessoas elegíveis: ${eligibleError.message}`);
   const eligibleIds = new Set((eligiblePeople || []).map((person: any) => person.id));
 
-  for (const role of ACME_DEMO_FIT_RANKING_ROLES) {
+  for (const role of roles) {
     const rawData = await aggregateAdequacao(sb, empresaId, role.cargo);
     const pessoas = rawData.pessoas.filter((person) => person.id && eligibleIds.has(person.id));
     const data = { ...rawData, pessoas, avaliados: pessoas.length };
     if (data.semGabarito) throw new Error(`ranking ACME: ${role.cargo} está sem perfil ideal`);
     if (data.semColaboradores) throw new Error(`ranking ACME: ${role.cargo} está sem pessoas com perfil`);
-    if (data.avaliados !== role.expectedPeople) {
+    if (role.expectedPeople != null && data.avaliados !== role.expectedPeople) {
       throw new Error(`ranking ACME: ${role.cargo} esperava ${role.expectedPeople} pessoas e encontrou ${data.avaliados}`);
     }
 
@@ -192,8 +204,9 @@ export async function seedAcmeFitRankingSnapshots(
   sb: SupabaseClient,
   empresaId: string,
   empresaNome: string,
+  roles?: ReadonlyArray<{ cargo: string; expectedPeople?: number }>,
 ): Promise<AcmeDemoFitRankingArtifact[]> {
-  const artifacts = await buildAcmeFitRankingArtifacts(sb, empresaId, empresaNome);
+  const artifacts = await buildAcmeFitRankingArtifacts(sb, empresaId, empresaNome, Date.now(), roles);
   await uploadAcmeFitRankingArtifacts(sb, artifacts);
   return artifacts;
 }

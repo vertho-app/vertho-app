@@ -637,6 +637,12 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   // O elenco vem do PERFIL do ambiente; o motor não sabe de que segmento se
   // trata. Trocar o roster é trocar esta declaração, não o reset.
   const roster: DemoRoster = rosterDemo(profile.roster);
+  // Pessoas de apoio do ambiente: dão escala ao panorama e equipe ao gestor, sem
+  // serem personas navegáveis. O ACME mantém o diretório histórico; os demais
+  // ambientes declaram o seu no roster.
+  const diretorioDoAmbiente: any[] = profile.roster === 'comercial' && profile.slug === DEMO_PRESENTATION_TENANT_SLUG
+    ? (ACME_DEMO_REPORT_DIRECTORY as any[])
+    : ((roster.diretorio ?? []) as any[]);
   // O fixture de ESTRUTURA (competências, cargos, top10, cenários capturados de
   // um tenant vivo) é do ambiente, não do motor. Quem tem todos os cargos
   // construídos no roster não herda estrutura de ninguém, e semear o fixture
@@ -767,11 +773,9 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       const id = personaMap.get(persona.key);
       if (id) idPorEmail.set(persona.email, id);
     }
-    if (slug === DEMO_SLUG) {
-      for (const pessoa of ACME_DEMO_REPORT_DIRECTORY) {
-        const id = personaMap.get(pessoa.key);
-        if (id) idPorEmail.set(pessoa.email, id);
-      }
+    for (const pessoa of diretorioDoAmbiente) {
+      const id = personaMap.get(pessoa.key);
+      if (id) idPorEmail.set(pessoa.email, id);
     }
     const rhId = personaMap.get(roster.administradora.key);
     if (rhId) idPorEmail.set(roster.administradora.email, rhId);
@@ -1060,6 +1064,10 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     const payload = rows.filter((row: any) => !roster.cargosExcluidosDoFixture.has(row.nome)).map((row: any) => {
       let top5 = Array.isArray(row.top5_workshop) ? row.top5_workshop : [];
       if (row.nome === roster.cargoPrincipal) top5 = roster.cargoPrincipalTop5;
+      // Cargo de ADEQUAÇÃO, não de jornada: entra no ranking (o fit lê as
+      // colunas comportamentais) e sai do convite ao mapeamento — Top 5 vazio é
+      // o que a home lê como "cargo sem competências para avaliar".
+      if (roster.cargosSemAssessment?.includes(row.nome)) top5 = [];
       else if (top5.length > 5) top5 = top5.slice(0, 5);
       // Tenant de demo nunca nasce com foco órfão. Se o fixture antigo não
       // tiver foco válido, o primeiro item do próprio Top 5 é o fallback.
@@ -1282,9 +1290,10 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     // A ACME é também a sala de apresentação da central do RH. Estas pessoas
     // não têm credencial própria nem entram nas três personas navegáveis; dão
     // escala realista ao panorama e aos relatórios (30 participantes no total).
-    if (slug === DEMO_SLUG) {
-      for (const pessoa of ACME_DEMO_REPORT_DIRECTORY) {
-        const semPerfil = ACME_DEMO_WITHOUT_PROFILE_KEYS.some((key) => key === pessoa.key);
+    {
+      for (const pessoa of diretorioDoAmbiente) {
+        const semPerfil = ACME_DEMO_WITHOUT_PROFILE_KEYS.some((key) => key === pessoa.key)
+          || (roster.panorama?.semPerfil ?? []).includes(pessoa.key);
         const disc = {
           D: pessoa.d_natural,
           I: pessoa.i_natural,
@@ -1495,6 +1504,110 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
    * mesmas tabelas e a mesma régua do produto — nenhum número é sobrescrito na
    * camada visual.
    */
+  /**
+   * Funil sintético do ambiente: dá ao painel de programa uma operação em
+   * andamento, em vez de todo mundo parado na primeira etapa.
+   *
+   * NADA aqui roda IA. Os `descriptor_assessments` são nota e nível fixos, e as
+   * trilhas nascem com o status que o funil lê. Isto vale para as pessoas de
+   * APOIO — as personas navegáveis mantêm o estado real, porque é o delas que a
+   * demo abre na tela.
+   */
+  async function seedPanoramaDoRoster(destId: string, personaMap: Map<string, string>) {
+    const panorama = roster.panorama;
+    if (!panorama) return;
+
+    const pessoaPorChave = new Map<string, any>([
+      ...roster.personas.map((pessoa) => [pessoa.key, pessoa] as const),
+      ...diretorioDoAmbiente.map((pessoa) => [pessoa.key, pessoa] as const),
+    ]);
+
+    // Competências do Top 5 por cargo, lidas do que ACABOU de ser semeado: o
+    // mapeamento só conta como completo se cobrir o Top 5 inteiro, então a
+    // fonte tem de ser a mesma que a tela consulta.
+    const { data: cargosDoTenant, error: cargosErr } = await sb.from('cargos_empresa')
+      .select('nome, top5_workshop').eq('empresa_id', destId);
+    if (cargosErr) throw new Error(`panorama: cargos: ${cargosErr.message}`);
+    const top5PorCargo = new Map<string, string[]>(
+      (cargosDoTenant || []).map((cargo: any) => [cargo.nome, Array.isArray(cargo.top5_workshop) ? cargo.top5_workshop : []]),
+    );
+
+    const { data: descritores, error: descErr } = await sb.from('competencias')
+      .select('cargo, nome, nome_curto').eq('empresa_id', destId).not('cod_desc', 'is', null);
+    if (descErr) throw new Error(`panorama: descritores: ${descErr.message}`);
+    const descritoresPorChave = new Map<string, string[]>();
+    for (const linha of descritores || []) {
+      const chave = `${(linha as any).cargo}::${(linha as any).nome}`;
+      descritoresPorChave.set(chave, [...(descritoresPorChave.get(chave) || []), (linha as any).nome_curto]);
+    }
+
+    // O que a pessoa JÁ tem (artefato congelado ou avaliação real). O panorama
+    // preenche só o que falta para o Top 5 fechar.
+    const { data: existentes, error: existErr } = await sb.from('descriptor_assessments')
+      .select('colaborador_id, competencia, descritor').eq('empresa_id', destId);
+    if (existErr) throw new Error(`panorama: assessments existentes: ${existErr.message}`);
+    const jaTem = new Set((existentes || []).map((linha: any) =>
+      `${linha.colaborador_id}::${linha.competencia}::${linha.descritor}`));
+
+    const agora = new Date().toISOString();
+    const assessments: any[] = [];
+    for (const key of panorama.mapeados ?? []) {
+      const pessoa = pessoaPorChave.get(key);
+      const colaboradorId = personaMap.get(key);
+      if (!pessoa || !colaboradorId) continue;
+      for (const competencia of top5PorCargo.get(pessoa.cargo) || []) {
+        for (const descritor of descritoresPorChave.get(`${pessoa.cargo}::${competencia}`) || []) {
+          if (jaTem.has(`${colaboradorId}::${competencia}::${descritor}`)) continue;
+          assessments.push({
+            empresa_id: destId,
+            colaborador_id: colaboradorId,
+            cargo: pessoa.cargo,
+            competencia,
+            descritor,
+            nota: 2.6,
+            origem: 'demo_panorama',
+            assessment_date: agora,
+            // `nivel` é GENERATED ALWAYS: inserir derruba o insert inteiro.
+          });
+        }
+      }
+    }
+    if (assessments.length) {
+      // Idempotente por construção: o reset apaga `descriptor_assessments`
+      // antes, e o replay dos artefatos congelados roda depois deste passo.
+      const { error } = await sb.from('descriptor_assessments').insert(assessments);
+      if (error) throw new Error(`panorama: assessments: ${error.message}`);
+    }
+
+    const trilhas: any[] = [];
+    const montarTrilha = (key: string, status: string) => {
+      const pessoa = pessoaPorChave.get(key);
+      const colaboradorId = personaMap.get(key);
+      if (!pessoa || !colaboradorId || jaTemTrilha.has(colaboradorId)) return;
+      const competencia = (top5PorCargo.get(pessoa.cargo) || [])[0];
+      if (!competencia) return;
+      trilhas.push({
+        empresa_id: destId,
+        colaborador_id: colaboradorId,
+        status,
+        competencia_foco: competencia,
+        programa_modo: roster.programaModo || null,
+        temporada_plano: [],
+      });
+    };
+    const { data: trilhasExistentes, error: trilhaErr } = await sb.from('trilhas')
+      .select('colaborador_id').eq('empresa_id', destId);
+    if (trilhaErr) throw new Error(`panorama: trilhas existentes: ${trilhaErr.message}`);
+    const jaTemTrilha = new Set((trilhasExistentes || []).map((t: any) => t.colaborador_id));
+
+    for (const key of panorama.emJornada ?? []) montarTrilha(key, TRILHA.ATIVA);
+    for (const key of panorama.concluidos ?? []) montarTrilha(key, TRILHA.CONCLUIDA);
+    if (trilhas.length) {
+      const { error } = await sb.from('trilhas').insert(trilhas);
+      if (error) throw new Error(`panorama: trilhas: ${error.message}`);
+    }
+  }
+
   async function seedAcmePanorama(destId: string, personaMap: Map<string, string>) {
     if (slug !== DEMO_SLUG) return;
 
@@ -1808,6 +1921,10 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     }
     await seedRespostas(demo.id, personaMap);
     await applyPersonaArtifacts(demo.id, personaMap);
+    // Depois do replay, de propósito: o panorama COMPLETA o que falta, e a
+    // persona que tem artefato congelado já trouxe o dela. Rodando antes, os
+    // dois disputavam a mesma chave (colaborador, competência, descritor).
+    await seedPanoramaDoRoster(demo.id, personaMap);
     await seedAcmePanorama(demo.id, personaMap);
     await ensurePresentationVideo(demo.id, personaMap);
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
@@ -1815,6 +1932,22 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     if (slug === DEMO_SLUG) {
       await seedAcmeOrganizationReports(sb, demo.id, DEMO_NAME);
       await seedAcmeFitRankingSnapshots(sb, demo.id, DEMO_NAME);
+    } else {
+      // O ranking de adequação da visão de programa lê SNAPSHOTS, não o
+      // `fit_resultados` ao vivo — sem semeá-los, a tela abre vazia mesmo com o
+      // fit calculado. Os cargos vêm do próprio tenant, e não de uma lista
+      // fixa: o elenco muda com o roster.
+      try {
+        const { data: cargosDoTenant, error: cargosError } = await sb.from('cargos_empresa')
+          .select('nome').eq('empresa_id', demo.id);
+        if (cargosError) throw new Error(`cargos para o ranking: ${cargosError.message}`);
+        const roles = (cargosDoTenant || []).map((cargo: any) => ({ cargo: cargo.nome }));
+        if (roles.length) await seedAcmeFitRankingSnapshots(sb, demo.id, profile.marca, roles);
+      } catch (e: any) {
+        // Best-effort, como os demais artefatos de vitrine: sem o snapshot a
+        // demo perde o ranking do RH, não o reset inteiro.
+        console.warn('[reset-demo] snapshots de ranking:', e?.message);
+      }
     }
     let fitOk = 0;
     try {
