@@ -3389,7 +3389,9 @@
       "degustacaoHint": "Continue pelo roteiro que recebeu. Quando voltar a este ecrã, a leitura das suas respostas estará aqui.",
       "strength": "Destaque",
       "attention": "Ponto de atenção",
-      "viewPdi": "Ver o meu PDI →"
+      "viewPdi": "Ver o meu PDI →",
+      "readMore": "Ler análise completa",
+      "readLess": "Ver menos"
     }
   },
   "AdminRadarFunnel": {

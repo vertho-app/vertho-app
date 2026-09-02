@@ -47,6 +47,10 @@ export default function AssessmentPage() {
   const [repr, setRepr] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState(null);
+  // Quais devolutivas estão abertas por inteiro. O card mostrava 320 caracteres
+  // de um texto que tem ~1.200 — escondia três quartos da análise, e era
+  // justamente a parte que explica o nível.
+  const [feedbackAberto, setFeedbackAberto] = useState/* <Set<string>> */(() => new Set());
 
   function flash(msg) { toast.error(msg); }
 
@@ -392,11 +396,33 @@ export default function AssessmentPage() {
                         {data?.degustacao ? t('done.analysisRunning') : t('done.analysisPending')}
                       </p>
                     )}
-                    {resultado.feedback && (
-                      <p className="mt-2 text-xs leading-relaxed text-gray-400">
-                        {resultado.feedback.length > 320 ? `${resultado.feedback.slice(0, 320)}…` : resultado.feedback}
-                      </p>
-                    )}
+                    {resultado.feedback && (() => {
+                      const LIMITE = 320;
+                      const longo = resultado.feedback.length > LIMITE;
+                      const aberto = feedbackAberto.has(resultado.competencia);
+                      return (
+                        <>
+                          <p className="mt-2 text-xs leading-relaxed text-gray-400">
+                            {longo && !aberto ? `${resultado.feedback.slice(0, LIMITE)}…` : resultado.feedback}
+                          </p>
+                          {longo && (
+                            <button
+                              type="button"
+                              onClick={() => setFeedbackAberto((atuais) => {
+                                const proximo = new Set(atuais);
+                                if (proximo.has(resultado.competencia)) proximo.delete(resultado.competencia);
+                                else proximo.add(resultado.competencia);
+                                return proximo;
+                              })}
+                              aria-expanded={aberto}
+                              className="mt-1 text-[11px] font-bold text-brand-300 transition-colors hover:text-brand-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 rounded"
+                            >
+                              {aberto ? t('done.readLess') : t('done.readMore')}
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
                     {resultado.pontosFortes?.[0] && (
                       <p className="mt-2 border-l-2 border-emerald-400/40 pl-2 text-[11px] leading-relaxed text-emerald-100/75">
                         <span className="font-bold text-emerald-300">{t('done.strength')}:</span> {resultado.pontosFortes[0]}

@@ -4273,7 +4273,9 @@
       "degustacaoHint": "Carry on with the tour you received. When you come back to this screen, the reading of your answers will be here.",
       "strength": "Strength",
       "attention": "Development point",
-      "viewPdi": "View my development plan →"
+      "viewPdi": "View my development plan →",
+      "readMore": "Read full analysis",
+      "readLess": "Show less"
     }
   },
   "ManagerDashboard": {

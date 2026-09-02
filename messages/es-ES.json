@@ -3389,7 +3389,9 @@
       "degustacaoHint": "Continúa con el recorrido que recibiste. Cuando vuelvas a esta pantalla, la lectura de tus respuestas estará aquí.",
       "strength": "Fortaleza",
       "attention": "Punto de mejora",
-      "viewPdi": "Ver mi plan de desarrollo →"
+      "viewPdi": "Ver mi plan de desarrollo →",
+      "readMore": "Leer análisis completo",
+      "readLess": "Ver menos"
     }
   },
   "AdminRadarFunnel": {

@@ -4273,7 +4273,9 @@
       "degustacaoHint": "Continue pelo roteiro que você recebeu. Quando voltar a esta tela, a leitura das suas respostas estará aqui.",
       "strength": "Destaque",
       "attention": "Ponto de atenção",
-      "viewPdi": "Ver meu PDI →"
+      "viewPdi": "Ver meu PDI →",
+      "readMore": "Ler análise completa",
+      "readLess": "Ver menos"
     }
   },
   "ManagerDashboard": {

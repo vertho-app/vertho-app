@@ -295,6 +295,15 @@ export function PresentationEnvironment({ children }: { children: ReactNode }) {
     return (
       <>
         {controls}
+        {/*
+          A barra da sala é `fixed` no canto superior direito, sobre o conteúdo.
+          Sem reservar espaço, ela COBRE o que a página põe ali — e o que mora
+          nesse canto é o "Voltar" de várias telas: o apresentador via o botão
+          desaparecer atrás do próprio seletor. O empurrão vale só na sala (só
+          aqui este componente monta) e some no modo celular, que já tem
+          moldura própria.
+        */}
+        <div className="pt-16" aria-hidden="true" />
         {children}
       </>
     );
