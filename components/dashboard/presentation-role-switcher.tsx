@@ -104,7 +104,18 @@ function PresentationControls({
   const papeisDaSala = getDemoPresentationRoom(currentRole.tenantSlug).roles;
 
   return (
-    <div className="fixed right-3 top-[calc(var(--header-height)+0.5rem)] z-[90] max-w-[calc(100vw-1.5rem)] md:right-5 md:top-4">
+    /*
+      z-[45] é deliberado, e o teto vem de medição: os overlays modais do app
+      começam em z-50 (`Medido: 02/09/2026` — 40 overlays `fixed inset-0`: 30 em
+      z-50, 3 em z-[60], 1 em z-[80], 5 em z-[200], 1 em z-[300]). Em z-[90] a
+      barra cobria o canto superior direito de 35 deles, que é justamente onde
+      o "X" de fechar mora por convenção: no vídeo da jornada, o apresentador
+      clicava no seletor em vez de fechar o modal. Abaixo de 50 ela cede a
+      qualquer diálogo e continua acima do conteúdo comum (z-10 a z-40); nada
+      entre 45 e 50 ocupa o topo direito (os z-50 não-modais são toast, barra
+      inferior e tooltip). `demo-presentation-camada.test.ts` trava a régua.
+    */
+    <div className="fixed right-3 top-[calc(var(--header-height)+0.5rem)] z-[45] max-w-[calc(100vw-1.5rem)] md:right-5 md:top-4">
       <div className="flex items-stretch overflow-hidden rounded-2xl border border-white/15 bg-[#071321]/95 p-1.5 shadow-[0_16px_46px_rgba(0,0,0,0.42)] backdrop-blur-xl">
         <label className="group flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05] focus-within:bg-white/[0.06] focus-within:ring-2 focus-within:ring-[var(--brand-400,#22d3ee)]/25">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[var(--brand-400,#22d3ee)]/10 text-[var(--brand-300,#67e8f9)]" aria-hidden="true">
