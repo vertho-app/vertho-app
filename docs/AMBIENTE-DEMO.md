@@ -155,12 +155,19 @@ O reset **manual** não é bloqueado pela pausa: ele avisa, na confirmação, at
 quando o ambiente está segurado e o que se perde ao recompor agora. Quem aperta
 o botão é o dono do ambiente — recusar sem caminho de saída na tela seria beco.
 
-⚠️ **Pausa é janela, não estado.** A do `gruposinal` (01/09 a 07/09, para a
-experiência do Alpheu) foi removida no mesmo dia, quando o ambiente saiu do
-seletor. Segue vigente a do `escolas-acme` (até 08/09), com motivo próprio: o
-conteúdo de IA da rede escolar ainda vive só no banco, e o reset o apagaria.
-Guard: `tests/unit/demo-reset-pausa.test.ts` recusa pausa a mais de 30 dias —
-pausar é decisão legítima, pausa eterna é o reset desligado que ninguém religa.
+⚠️ **Pausa é janela, não estado.** Vigente em 02/09/2026: `gruposinal` até
+**07/09**, porque o Alpheu é convidado NOMEADO do perfil e o adiamento
+automático só cobre passaporte no prazo D+2 — sem ela, o DISC e as respostas
+dele viram nada às 04h. A do `escolas-acme` já saiu: com o golden congelado, o
+reset reconstrói o conteúdo a partir do fixture, sem IA, e a pausa perdeu o
+motivo. Guard: `tests/unit/demo-reset-pausa.test.ts` recusa pausa a mais de 30
+dias — pausar é decisão legítima, pausa eterna é o reset desligado que ninguém
+religa.
+
+🔑 **A pausa protege o ambiente, não a visibilidade.** Ambiente oculto no
+seletor (`TENANTS[slug].oculto`) tem os convidados fora do acompanhamento: em
+02/09 o `gruposinal` está nas duas condições ao mesmo tempo — protegido do reset
+e invisível na tela.
 
 ### A etapa 01 é uma DEGUSTAÇÃO: uma competência, avaliada sozinha
 

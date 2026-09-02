@@ -337,18 +337,20 @@ export const DEMO_TENANT_PROFILES = {
     ppp: GRUPO_SINAL_PPP,
     valores: GRUPO_SINAL_VALUES,
     acessoAllowlist: ['alpheu.sousa@gruposinal.com'] as readonly string[],
-    // Sem pausa: o ambiente volta a ser recomposto toda madrugada.
+    // Pausa REPOSTA em 02/09/2026, com a mesma janela que o dono já tinha
+    // escolhido: o ciclo volta na segunda, 07/09, no horário do próprio cron.
     //
-    // Teve uma, de 01/09 a 07/09/2026, para a experiência do Alpheu atravessar a
-    // semana — o adiamento normal só cobre PASSAPORTE no prazo D+2, e convidado
-    // nomeado do perfil não tem esse prazo. Removida a pedido do dono em 01/09,
-    // quando o Grupo Sinal saiu do seletor da sala de demonstração e o Alpheu
-    // seguia sem primeiro acesso (0 login, 0 DISC, 0 respostas).
+    // Ela existe porque o Alpheu é convidado NOMEADO do perfil, e o adiamento
+    // automático do reset só cobre PASSAPORTE no prazo D+2. Sem pausa, o DISC,
+    // as respostas e o relatório dele viram nada às 04h — o wipe leva
+    // `colaboradores`, `respostas`, `trilhas` e `relatorios`. Ele fez isso uma
+    // vez: `Medido 02/09:` o registro dele foi recriado às 04h00 pelo cron,
+    // ainda sem primeiro acesso, então não havia o que perder. Da próxima, há.
     //
-    // Para pausar de novo: ponha um instante ISO aqui. 🔑 A data É o
-    // desligamento — pausa sem prazo vira reset desligado para sempre, que é o
-    // modo de falha do trabalho sazonal.
-    resetPausadoAte: null as string | null,
+    // 🔑 A data É o desligamento. Sem prazo isto vira reset desligado para
+    // sempre — o modo de falha do trabalho sazonal, e o guard
+    // (`demo-reset-pausa.test.ts`) recusa pausa a mais de 30 dias.
+    resetPausadoAte: '2026-09-07T07:00:00.000Z' as string | null,
     convidado: {
       nome: 'Alpheu',
       email: 'alpheu.sousa@gruposinal.com',
