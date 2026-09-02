@@ -887,3 +887,38 @@ bloqueiam** —, com `sales_commission_events → sales_proposals → sales_oppo
 primeiro) também. Na mesma rodada, a primeira versão RECUSAVA a exclusão por causa do funil — sem
 oferecer caminho na tela para remover o funil, o que virou um beco e foi revertido a pedido do dono.
 Memórias: `project_exclusao_conta_comercial`, `feedback_bloqueio_vs_informacao`.
+
+## § Vou DISPARAR mensagem em lote (WhatsApp, e-mail, push) para uma lista de pessoas
+
+**Padrão que casa:** `dispararLoteTemplate` · `enviarTemplateLote` · `prepararLoteTemplate` ·
+qualquer script/action que envie para mais de uma pessoa de uma vez · a aba WhatsApp da tela de
+Envios · cron novo que comunica com colaborador.
+
+**O que conferir, nesta ordem:**
+
+1. **Rode a PRÉVIA e leia os NOMES, um por um.** `prepararLoteTemplate` é o mesmo núcleo da tela e
+   devolve quem recebe (com os parâmetros já resolvidos) e quem NÃO recebe, com o motivo agrupado.
+   Contar quantos vão receber não basta — o defeito aparece em QUEM está na lista.
+2. **Leia a mensagem RESOLVIDA, não o gabarito.** Substitua os `{{n}}` pelos valores do primeiro
+   alvo e leia a frase inteira. É assim que se vê que o link é o da semana errada ou que a
+   afirmação do corpo é falsa para aquela pessoa.
+3. **A régua de exclusão usa um valor que outro relógio limita?** Se sim, ela pode estar
+   silenciosamente permissiva. `semanaAcessivel` nunca sobe acima do calendário; comparar com o fim
+   do plano não exclui ninguém antes de o calendário chegar lá.
+4. **O template AFIRMA algo?** ("você concluiu", "ainda há pendências", "a etapa encerrou").
+   Confirme que a afirmação é verdadeira para **cada** perfil que está na lista, não para o perfil
+   típico.
+5. **Categoria do template na Meta**, se for WhatsApp: só conte depois de `APPROVED` — a que volta
+   na criação é provisória, e MARKETING custa 6× (ver § de templates).
+6. **Dois agendamentos para o mesmo disparo = envio DUPLO.** A idempotência do lote é lida ANTES do
+   envio, então processos simultâneos veem ambos "ninguém recebeu". Ao mover um agendamento de
+   lugar, apague o antigo no mesmo movimento. Atenção ao fuso: cron da Vercel é **UTC**, cron da
+   sessão do Claude é **local** — `12 12` e `09:12` são o MESMO instante em BRT.
+
+**Consequência medida (02/09/2026):** no encerramento de Ibipeba, a régua de exclusão comparava
+`semanaAcessivel >= semanaCenarioB` e as **8 pessoas que já haviam concluído todo o conteúdo**
+apareceram no lote, prestes a receber *"na sua trilha ainda há semanas em aberto"*. Quem pegou foi o
+dry-run, não a suíte — o template era novo e não tinha teste. Na mesma rodada, dois agendamentos
+(um em produção, outro na sessão) apontavam para 09:12 da mesma sexta e teriam mandado a mensagem
+duas vezes para as 28. `docs/FMEA-PIPELINE.md` §F-I29; memórias
+`project_encerramento_ibipeba`, `feedback_trabalho_sazonal_sem_desligamento`.

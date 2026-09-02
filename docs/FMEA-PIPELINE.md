@@ -1012,6 +1012,63 @@ quanto custa" e "nenhuma copy manda marcar o conteúdo", validados por mutação
 ⚠️ **Não verificado por imagem** (nenhum dev da Vertho no ar na hora): a guarda prova que a tela
 CHAMA a régua, não o que a pessoa vê. Vale a régua de "só a imagem prova o visual".
 
+### F-I29 · Régua escrita sobre a semana ACESSÍVEL não exclui ninguém enquanto o calendário não chegar lá ✅ (corrigido 02/09, `c401a1d4`)
+
+**Gatilho:** `lib/notifications/envio-template-lote.ts` — resolvedor de
+`encerramento_conteudo`, que decidia quem NÃO recebe por
+`cadencia.semanaAcessivel >= semanaCenarioBDoPlano(...)`.
+
+**O defeito:** `primeiraSemanaAcessivel` (`lib/season-engine/week-gating.ts:200`) parte da semana do
+CALENDÁRIO e **desce** até a primeira que a pessoa consegue abrir. Ela **nunca sobe acima do
+calendário**, mesmo para quem está adiantado. Logo, `semanaAcessivel >= <fim do plano>` só passa a
+ser verdade na semana em que o calendário alcança o fim — ou seja, quando já não importa. Até lá a
+comparação é silenciosamente permissiva: não falha, não avisa, só não exclui ninguém.
+
+`Medido:` **02/09/2026, Ibipeba.** Calendário na semana 7, plano com o Cenário B na 9. As **8
+pessoas que já haviam concluído todo o conteúdo** tinham `semanaAcessivel = 7` — e `7 < 9` as
+mantinha DENTRO do lote, prestes a receber *"Na sua trilha ainda há semanas em aberto"*, afirmação
+falsa exatamente para quem terminou. O lote saiu de 36 para os 28 corretos depois do fix.
+
+**Correção:** o sinal é `cadencia.statusDaSemana === PROGRESSO.CONCLUIDO` — quem fechou a última
+semana que consegue abrir não tem nada em aberto ali. É a mesma régua que `registro_evidencia` já
+aplicava, pelo mesmo motivo.
+
+🔑 **Quem pegou foi o DRY-RUN, não a suíte** — o template era novo e não tinha teste. A prévia
+(`prepararLoteTemplate`, o mesmo núcleo da tela) imprime os nomes e os excluídos com o motivo, e o
+defeito estava visível na primeira linha. **Antes de qualquer disparo em lote, rodar a prévia e ler
+os nomes.** Guarda: `tests/unit/envio-template-lote.test.ts`, describe `encerramento_conteudo`, 3
+casos validados por mutação — o do meio reproduz a armadilha (plano até a 4, calendário na 3, três
+primeiras concluídas: pela régua antiga `3 < 4` e a pessoa entrava).
+
+⚠️ **Aberto, mesma família:** o cron da quinta **não confere se a semana acessível já foi
+concluída** antes de cobrar. Quem fechou a semana 7 recebe *"o desafio da semana 7 ainda não foi
+registrado"* — saiu assim para 33 pessoas em 27/08. Preexistente, não regressão.
+
+### F-C14 · Cenário B servido por CARGO ignora a competência, e o gerador em lote enche o cargo ✅ (contornado 01/09)
+
+**Gatilho:** `lib/season-engine/cenario-b.ts::buscarCenarioBComFallback` — filtra por
+`empresa_id + cargo + tipo_cenario`, **sem competência**, e serve o mais recente por `created_at`.
+
+**O defeito:** `actions/fase5/cenarios-b.ts::gerarCenariosBLote` gera um Cenário B por **cenário A**
+— portanto por competência ÚNICA — e para **todo par (cargo × competência)** que tenha cenário A no
+tenant, inclusive competências que não são foco de trilha nenhuma. Com mais de um B no mesmo cargo, o
+fechamento entrega um sorteado pela data.
+
+`Medido:` **01/09/2026, Ibipeba.** O botão "Cenários B + Check" criou **12** cenários, sendo **5 de
+"Liderança pedagógica"** — competência sem nenhuma trilha. O mais recente de Gestão Escolar passou a
+ser um deles: as 15 pessoas do cargo responderiam a um caso de liderança pedagógica e seriam
+pontuadas nos descritores de **Planejamento e Organização + Autocuidado**. A avaliação inteira
+mediria outra coisa.
+
+**Contorno (não correção):** garantir **exatamente um** Cenário B por cargo, conferido por query. Os
+12 foram removidos com backup. O defeito da busca continua para qualquer tenant com mais de um.
+
+⚠️ Dois efeitos colaterais do mesmo lote, que valem por si:
+- `regenerarERecheckarCenariosBLote` filtra `nota_check < 90`, e **`null` não satisfaz `<` em SQL** —
+  cenário nunca checado é silenciosamente pulado pelo recheck em lote.
+- o auditor (`cenarios_b_check`) recebe **uma** competência: avaliando um cenário integrador de duas,
+  ele desconta por escopo. Nota baixa ali pode ser o instrumento medindo a própria limitação.
+
 ### F-C12 · Cota de retentativa consumida por avaria do CANAL torna o resgate inalcançável ✅ (corrigido 19/08, `984607e3`)
 
 **Gatilho:** `lib/conarh/reenvio-t0.ts:33,124` — `MAX_TENTATIVAS_AUTOMATICAS = 10` +

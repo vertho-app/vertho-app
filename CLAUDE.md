@@ -646,6 +646,22 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   dono, e o heredoc **não sobrescreve sem avisar** — medido 31/08, um commit meu saiu com a
   mensagem de outro trabalho, do dia anterior. Arquivo com nome próprio no scratchpad + `head -1`
   antes do `-F`.
+- NÃO validar texto em PORTUGUÊS com `` no regex — em JavaScript o word boundary é definido sobre
+  `[A-Za-z0-9_]`, e **letra acentuada não é word char**: `/voc[êe]/` NUNCA casa com "você".
+  Medido 02/09: uma validação assim reprovou duas gerações corretas seguidas, ambas abrindo com
+  *"Você é coordenadora…"*, e o cargo ficou sem cenário porque o script apagava o anterior antes de
+  ter o substituto. Normalize antes: `txt.normalize('NFD').replace(/[̀-ͯ]/g,'')`. E
+  **imprima o texto REPROVADO** — sem isso não se distingue erro do modelo de erro da régua.
+  Detalhe: memória `reference_regex_word_boundary_acento`.
+- NÃO escrever régua sobre `semanaAcessivel` comparando com o FIM do plano. `primeiraSemanaAcessivel`
+  parte da semana do CALENDÁRIO e só desce — nunca sobe. Então `semanaAcessivel >= semanaCenarioB` só
+  vira verdade quando o calendário chega lá, e até então não exclui ninguém, sem falhar nem avisar.
+  Medido 02/09: as 8 pessoas que já tinham concluído tudo entraram num lote de WhatsApp que afirmava
+  "ainda há semanas em aberto". O sinal é `statusDaSemana === CONCLUIDO`. `docs/FMEA-PIPELINE.md`
+  §F-I29.
+- NÃO disparar lote de mensagem sem rodar a PRÉVIA e **ler os nomes**. `prepararLoteTemplate` é o
+  mesmo núcleo da tela e devolve quem recebe, com os parâmetros resolvidos, e quem NÃO recebe com o
+  motivo. Foi ele — não a suíte — que pegou o F-I29 e o F-C14 antes de a mensagem sair.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
