@@ -722,6 +722,49 @@ export const TEMPLATES = {
     body: 'Olá, {{1}}. O resultado do seu perfil comportamental já está disponível na sua conta.\n\nVocê pode consultar em:\n{{2}}\n\nO resultado é usado para personalizar as próximas etapas da sua trilha.',
     example: ['Maria', 'https://ibipeba.vertho.ai/dashboard/perfil-comportamental'],
   },
+
+  /**
+   * RESUMO SEMANAL DO GESTOR — o único template desta lista que fala com quem
+   * LIDERA, não com quem faz a trilha.
+   *
+   * 🔑 ELE ABRE A CONVERSA, NÃO A ENTREGA. Os nomes dos liderados NÃO cabem aqui,
+   * e a razão é a régua de proporção da Meta: ela pede ~3 palavras fixas por
+   * variável (+1) e rejeita com *"too many variable parameters relative to the
+   * message length"*, justamente para impedir template que seja container vazio
+   * preenchido por conteúdo não revisado. A lista de 3 nomes com a ação de cada
+   * um exigiria 14 variáveis — acima até do teto técnico de 10.
+   * Então o desenho é em dois tempos: este template leva o AGREGADO e convida a
+   * responder VER; a resposta abre a janela de 24h e os nomes vão por TEXTO
+   * LIVRE (4.096 chars, quebra de linha à vontade, sem revisão da Meta).
+   *
+   * ⚠️ SEM BOTÃO, DE PROPÓSITO. Medido nos 28 aprovados em 02/09/2026: com botão
+   * 2 UTILITY × 3 MARKETING; sem botão 17 × 5. O botão quase triplica a chance de
+   * MARKETING, que custa 6× e aumenta bloqueio — e bloqueio derruba o
+   * `quality_rating` de um número que é COMPARTILHADO por todos os tenants. Por
+   * isso o convite é palavra-chave, não botão. (Todos os nossos botões são URL;
+   * QUICK_REPLY nunca foi submetido, então para ele o denominador é zero — e o
+   * `TemplateDef` daqui nem o expressa.)
+   *
+   * ⚠️ NÃO OFERECE SAÍDA, MAS A RECUSA TEM QUE SER RECONHECIDA. O resumo é
+   * ferramenta de trabalho e chega toda semana — anunciar o ritmo ("chega toda
+   * semana") é o que protege o canal, e é diferente de convidar a sair. Quem
+   * ainda assim pedir para parar precisa ser ENTENDIDO pelo webhook: a
+   * alternativa a isso é a pessoa apertar Bloquear, que é o que de fato derruba
+   * o número. Encaminhar ao RH, que desliga no painel.
+   *
+   * Contrato das variáveis: {{1}} primeiro nome do gestor · {{2}} quantos
+   * avançaram · {{3}} tamanho da equipe · {{4}} quantos estão a um passo de
+   * concluir. {{2}} e {{3}} são CONTAGEM, nunca percentual: a mediana das equipes
+   * é 5 pessoas, e nessa escala uma pessoa vale 20 pontos percentuais — o delta
+   * em pp descreve arredondamento, não movimento.
+   */
+  resumo_equipe_semanal: {
+    name: 'resumo_equipe_semanal',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Nesta semana, {{2}} das {{3}} pessoas da sua equipe avançaram na trilha, e {{4}} estão a um passo de concluir.\n\nResponda VER para receber os nomes e o que falta para cada uma.\n\nEste resumo da sua equipe chega toda semana.',
+    example: ['Carla', '8', '11', '3'],
+  },
 } as const satisfies Record<string, TemplateDef>;
 
 export type TemplateNome = keyof typeof TEMPLATES;

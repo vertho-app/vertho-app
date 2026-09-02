@@ -165,6 +165,31 @@ function foneParaMeta(bruto: string): string | null {
   return alt ? normalizePhone(alt) : null;
 }
 
+/**
+ * O VALOR de uma variável de template, no formato que a Meta aceita.
+ *
+ * ⚠️ A REGRA É DO PARÂMETRO, NÃO DO CORPO — e confundir os dois leva à conclusão
+ * errada. O corpo aprovado PODE ter quebra de linha (26 dos nossos 28 têm, e é
+ * assim que o layout de lista existe); o valor que preenche `{{1}}` não pode. A
+ * Meta recusa com **400** e `Param text cannot have new-line/tab characters or
+ * more than 4 consecutive spaces`, e recusa também parâmetro vazio.
+ *
+ * Até 02/09/2026 o valor ia cru (`String(text ?? '')`). O efeito de um nome com
+ * quebra de linha, ou de um contador que veio `null`, não era um campo torto: era
+ * a mensagem INTEIRA não sair — e, de quem esperava, indistinguível de "não me
+ * mandaram nada". Mesma família do enum `.strict()` do webhook, onde um campo
+ * fora do previsto derruba o payload todo em vez de degradar.
+ *
+ * Devolve `null` quando não sobra conteúdo, para o chamador falhar ANTES da rede
+ * com um motivo que diz qual variável está vazia.
+ */
+function paramDaMeta(valor: unknown): string | null {
+  // `\s+` cobre de uma vez os três proibidos (quebra de linha, tab, espaços em
+  // sequência) e ainda normaliza os espaços unicode que vêm de planilha.
+  const texto = String(valor ?? '').replace(/\s+/g, ' ').trim();
+  return texto || null;
+}
+
 /** O conteúdo deste envio é gravado aqui, ou quem chamou já cuida disso? */
 function registraAqui(meta?: EnvioTemplateMeta): boolean {
   return meta?.origem !== 'inbox';
@@ -632,17 +657,27 @@ export async function enviarTemplateCloud(
   // não espera — e o efeito seria o login por link parar de sair, calado.
   const components: Record<string, unknown>[] = [];
   if (input.params.length) {
+    const valores: string[] = [];
+    for (let i = 0; i < input.params.length; i++) {
+      const texto = paramDaMeta(input.params[i]);
+      // Falhar aqui é melhor que mandar: a Meta recusaria o envio INTEIRO com
+      // 400, e o motivo dela não diz qual variável estava vazia.
+      if (!texto) return { ok: false, reason: `parâmetro {{${i + 1}}} vazio — a Meta recusa a mensagem inteira` };
+      valores.push(texto);
+    }
     components.push({
       type: 'body',
-      parameters: input.params.map((text) => ({ type: 'text', text: String(text ?? '') })),
+      parameters: valores.map((text) => ({ type: 'text', text })),
     });
   }
   if (input.botaoParam) {
+    const sufixo = paramDaMeta(input.botaoParam);
+    if (!sufixo) return { ok: false, reason: 'parâmetro do botão vazio — a Meta recusa a mensagem inteira' };
     components.push({
       type: 'button',
       sub_type: 'url',
       index: '0',
-      parameters: [{ type: 'text', text: input.botaoParam }],
+      parameters: [{ type: 'text', text: sufixo }],
     });
   }
 
