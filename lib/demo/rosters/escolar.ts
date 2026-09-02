@@ -19,6 +19,7 @@ import type { DemoRoster, DemoRosterDescritor } from '@/lib/demo/rosters/types';
 // evidências e perguntas-alvo), capturada por
 // `scripts/_extrair-descritores-escolares.ts`.
 import reguaEscolar from '@/lib/demo/escolas-descritores.json';
+import { REGUA_ESCOLAR } from '@/lib/demo/escolar-evolucao-fixture';
 
 const DIRECAO = 'Diretor(a) Escolar';
 const COORDENACAO = 'Coordenador(a) Pedagógico(a)';
@@ -356,17 +357,28 @@ export function respostaEscolarForte(competencia: string) {
  *
  * O DISC soma 200 em todos (régua do produto); o perfil dominante é derivado
  * pelo motor no seed, não declarado aqui.
+ *
+ * ⚠️ ESTES NÚMEROS NÃO SÃO ARBITRÁRIOS. `Medido: 02/09/2026` — com o DISC
+ * anterior, os 9 professores caíam TODOS em "Aderente" e o ranking de adequação
+ * virava uma lista: sem amarelo, sem corte, sem régua visível. Os valores atuais
+ * saíram de uma busca em grade com o próprio motor como oráculo
+ * (`scripts/_calibrar-disc-sergio.ts`) e distribuem as faixas de propósito —
+ * 2 aderentes, 3 com ressalvas, 2 com PDI leve e 1 não recomendado (este por
+ * reprovar a premissa de empatia, não por nota baixa). Mexer num destes números
+ * muda a faixa da pessoa no ranking: reconfira com
+ * `scripts/_distribuir-fit-escolas.ts`, que compara faixa esperada × faixa do
+ * motor antes de aplicar.
  */
 export const DIRETORIO_ESCOLAR = [
-  { key: 'ana_luiza', nome_completo: 'Ana Luiza Prado', email: 'ana.luiza.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 30, i_natural: 62, s_natural: 60, c_natural: 48 },
-  { key: 'carlos_e', nome_completo: 'Carlos Eduardo Lima', email: 'carlos.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 54, i_natural: 50, s_natural: 52, c_natural: 44 },
-  { key: 'juliana_s', nome_completo: 'Juliana Serra', email: 'juliana.serra.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 26, i_natural: 44, s_natural: 72, c_natural: 58 },
-  { key: 'marcos_v', nome_completo: 'Marcos Vinícius Reis', email: 'marcos.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 48, i_natural: 36, s_natural: 54, c_natural: 62 },
-  { key: 'fernanda_c', nome_completo: 'Fernanda Coutinho', email: 'fernanda.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 34, i_natural: 70, s_natural: 56, c_natural: 40 },
-  { key: 'bruno_a', nome_completo: 'Bruno Alencar', email: 'bruno.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: PARQUE, gestor_nome: 'Sérgio Bastos', gestor_email: 'sergio.demo@vertho.ai', d_natural: 58, i_natural: 48, s_natural: 46, c_natural: 48 },
-  { key: 'patricia_m', nome_completo: 'Patrícia Moura', email: 'patricia.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: PARQUE, gestor_nome: 'Sérgio Bastos', gestor_email: 'sergio.demo@vertho.ai', d_natural: 28, i_natural: 58, s_natural: 64, c_natural: 50 },
+  { key: 'ana_luiza', nome_completo: 'Ana Luiza Prado', email: 'ana.luiza.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 20, i_natural: 54, s_natural: 68, c_natural: 58 },
+  { key: 'carlos_e', nome_completo: 'Carlos Eduardo Lima', email: 'carlos.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 20, i_natural: 56, s_natural: 66, c_natural: 58 },
+  { key: 'juliana_s', nome_completo: 'Juliana Serra', email: 'juliana.serra.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 20, i_natural: 46, s_natural: 76, c_natural: 58 },
+  { key: 'marcos_v', nome_completo: 'Marcos Vinícius Reis', email: 'marcos.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 20, i_natural: 46, s_natural: 74, c_natural: 60 },
+  { key: 'fernanda_c', nome_completo: 'Fernanda Coutinho', email: 'fernanda.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: VILA_NOVA, gestor_nome: 'Renata Coelho', gestor_email: 'renata.demo@vertho.ai', d_natural: 18, i_natural: 48, s_natural: 76, c_natural: 58 },
+  { key: 'bruno_a', nome_completo: 'Bruno Alencar', email: 'bruno.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: PARQUE, gestor_nome: 'Sérgio Bastos', gestor_email: 'sergio.demo@vertho.ai', d_natural: 22, i_natural: 78, s_natural: 16, c_natural: 84 },
+  { key: 'patricia_m', nome_completo: 'Patrícia Moura', email: 'patricia.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: PARQUE, gestor_nome: 'Sérgio Bastos', gestor_email: 'sergio.demo@vertho.ai', d_natural: 58, i_natural: 44, s_natural: 16, c_natural: 82 },
   { key: 'rafael_t', nome_completo: 'Rafael Teixeira', email: 'rafael.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: PARQUE, gestor_nome: 'Sérgio Bastos', gestor_email: 'sergio.demo@vertho.ai', d_natural: 44, i_natural: 40, s_natural: 58, c_natural: 58 },
-  { key: 'leticia_b', nome_completo: 'Letícia Barbosa', email: 'leticia.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: PARQUE, gestor_nome: 'Sérgio Bastos', gestor_email: 'sergio.demo@vertho.ai', d_natural: 32, i_natural: 66, s_natural: 58, c_natural: 44 },
+  { key: 'leticia_b', nome_completo: 'Letícia Barbosa', email: 'leticia.demo@vertho.ai', cargo: DOCENCIA, role: 'colaborador', area_depto: PARQUE, gestor_nome: 'Sérgio Bastos', gestor_email: 'sergio.demo@vertho.ai', d_natural: 72, i_natural: 18, s_natural: 26, c_natural: 84 },
 ];
 
 export const ROSTER_ESCOLAR: DemoRoster = {
@@ -409,6 +421,7 @@ export const ROSTER_ESCOLAR: DemoRoster = {
    * As personas navegáveis não entram aqui: o estado delas é o real (Marina tem
    * as 5 competências avaliadas de verdade e a trilha construída).
    */
+  reguaEvolucao: REGUA_ESCOLAR,
   panorama: {
     semPerfil: ['rafael_t'],
     mapeados: ['paula', 'tiago', 'ana_luiza', 'carlos_e', 'juliana_s', 'marcos_v', 'fernanda_c', 'bruno_a', 'patricia_m', 'leticia_b'],

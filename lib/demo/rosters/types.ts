@@ -172,6 +172,16 @@ export type DemoRoster = {
    * trilhas sem IA), e serve para o denominador existir. As personas navegáveis
    * continuam com o estado REAL delas.
    */
+  /**
+   * Régua de EVOLUÇÃO do ambiente: o que a vitrine grava em
+   * `trilhas.evolution_report` de quem aparece em `panorama.concluidos`.
+   *
+   * Sem ela, a jornada fecha e o painel de Evolução continua vazio — o veredito
+   * só existe se o relatório existir. Fica no roster porque a fala é do
+   * SEGMENTO: a mecânica é única (`lib/demo/evolucao-nucleo`), o vocabulário
+   * não.
+   */
+  reguaEvolucao?: import('@/lib/demo/evolucao-nucleo').ReguaDeEvolucao;
   panorama?: {
     /** Quem ainda não concluiu o perfil comportamental. */
     semPerfil?: string[];
@@ -201,4 +211,39 @@ export type DemoRoster = {
    * empresa única, onde a área do colaborador já basta.
    */
   unidades?: Array<{ nome: string; segmentos: string; porte: string }>;
+  /**
+   * O VÍDEO de uma semana da jornada.
+   *
+   * O vídeo não vem de `micro_conteudos` como texto, áudio e case: ele é
+   * resolvido AO VIVO pela célula (`videos_gerados` por módulo × empresa ×
+   * cargo × DISC), e `formatos_disponiveis` nunca o contém. Para o chip de
+   * vídeo existir na demo é preciso, então, que o módulo-base e a célula
+   * existam — e ambos são recriados a cada reset, ou o card some.
+   *
+   * Os UUIDs são FIXOS de propósito: o reset precisa reencontrar o MESMO módulo
+   * e a MESMA célula, senão cada noite deixa uma órfã para trás.
+   */
+  videoDaJornada?: {
+    /** UUID fixo do módulo-base criado para a demo (nunca o de um cliente). */
+    moduloId: string;
+    /** UUID fixo da célula em `videos_gerados`. */
+    celulaId: string;
+    /** Asset já renderizado no Bunny. */
+    bunnyVideoId: string;
+    /** Competência e descritor da semana que recebe o vídeo. */
+    competencia: string;
+    descritor: string;
+    cargo: string;
+    /** 1ª letra do perfil da persona que assiste — a célula é por DISC. */
+    disc: 'D' | 'I' | 'S' | 'C';
+    titulo: string;
+    finalidade: string;
+    nivelEntrada: string;
+    nivelDestino: string;
+    conteudoCentral: Record<string, unknown>;
+    conteudoAplicavel: Record<string, unknown>;
+    guardaCorpos: Record<string, unknown>;
+    adaptacaoPorFormato: Record<string, unknown>;
+    tags: string[];
+  };
 };

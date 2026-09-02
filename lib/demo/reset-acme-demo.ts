@@ -46,6 +46,12 @@ import {
   distribuicaoPorCargo,
   notaDePartida,
 } from '@/lib/demo/acme-evolucao-fixture';
+import { getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
+import {
+  construirEvolucao,
+  construirFechamento,
+  type PerfilEvolucao,
+} from '@/lib/demo/evolucao-nucleo';
 import { seedAcmeOrganizationReports } from '@/lib/demo/acme-organization-reports';
 import { precomputeDemoFitResults, seedAcmeFitRankingSnapshots } from '@/lib/demo/acme-fit-rankings';
 // Régua canônica de competências — a MESMA que o mapeamento real e o simulador
@@ -482,6 +488,18 @@ export function comportamentosDoDisc(D: number, I: number, S: number, C: number)
   };
 }
 
+/**
+ * O ritmo de resultados da vitrine: a maioria confirma, alguns ficam parciais e
+ * alguns estáveis. Estável é o caso honesto que sustenta a conversa comercial
+ * ("a plataforma também diz quem NÃO evoluiu"); não há regressão porque a régua
+ * não tem (ninguém desaprende uma competência).
+ */
+const MIX_EVOLUCAO_PANORAMA: PerfilEvolucao[] = [
+  'confirmada', 'parcial', 'confirmada', 'estavel',
+  'confirmada', 'confirmada', 'parcial', 'confirmada',
+  'estavel', 'confirmada', 'parcial', 'confirmada',
+];
+
 const strip = (row: any, extra: string[] = []) => {
   const out = { ...row };
   for (const k of ['id', 'created_at', 'updated_at', ...extra]) delete out[k];
@@ -901,6 +919,100 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       idMap.set(row.id, inserted.id);
     }
     return idMap;
+  }
+
+  /**
+   * Recompoe o VIDEO de uma semana da jornada, quando o elenco declara um.
+   *
+   * O video nao mora em `micro_conteudos` como os outros formatos: ele e
+   * resolvido ao vivo pela celula (`videos_gerados` por modulo x empresa x
+   * cargo x DISC), e `formatos_disponiveis` nunca o contem. Sem recriar modulo
+   * e celula, o chip de video da jornada some no primeiro reset — e o cliente
+   * ve uma trilha "multiformato" que so tem texto, audio e case.
+   *
+   * O modulo e criado NO TENANT DA DEMO, com UUID proprio. Reaproveitar o
+   * modulo de um cliente aqui reescreveria o `empresa_id` dele: o asset do
+   * Bunny e compartilhado (e editorial), a linha do catalogo nao.
+   */
+  async function ensureVideoDaJornada(destId: string) {
+    const cfg = roster.videoDaJornada;
+    if (!cfg) return;
+    const libraryId = String(process.env.BUNNY_LIBRARY_ID || 636615);
+
+    // A competencia da demo vive em `competencias` (por empresa x cargo x
+    // descritor) e acabou de ser semeada com ids NOVOS — por isso a busca e por
+    // nome, e nao por um id congelado que nao existe mais.
+    const compResult = await sb.from('competencias')
+      .select('id')
+      .eq('empresa_id', destId).eq('nome', cfg.competencia)
+      .eq('cargo', cfg.cargo).eq('nome_curto', cfg.descritor)
+      .maybeSingle();
+    if (compResult.error) throw new Error(`competencia do video da jornada: ${compResult.error.message}`);
+    if (!compResult.data?.id) {
+      // Fail-loud: sem a competencia o modulo nasceria orfao e o video nunca
+      // apareceria — silencioso, que e o pior jeito de esta demo falhar.
+      throw new Error(`video da jornada: competencia "${cfg.competencia}/${cfg.descritor}" (${cfg.cargo}) nao encontrada no tenant`);
+    }
+
+    const moduloResult = await sb.from('modulos_base_conteudo').upsert({
+      id: cfg.moduloId,
+      empresa_id: destId,
+      competencia_id: compResult.data.id,
+      competencia_base_id: null,
+      locale: 'pt-BR',
+      nivel_entrada: cfg.nivelEntrada,
+      nivel_destino: cfg.nivelDestino,
+      titulo: cfg.titulo,
+      finalidade: cfg.finalidade,
+      contexto_pedagogico: cfg.cargo,
+      tags: cfg.tags,
+      preferido: false,
+      status: 'publicado',
+      versao: 1,
+      descritor: cfg.descritor,
+      conteudo_central: cfg.conteudoCentral,
+      conteudo_aplicavel: cfg.conteudoAplicavel,
+      guarda_corpos: cfg.guardaCorpos,
+      adaptacao_por_formato: cfg.adaptacaoPorFormato,
+      created_by: 'demo-jornada',
+      published_by: 'demo-jornada',
+      published_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
+    if (moduloResult.error) throw new Error(`modulo do video da jornada: ${moduloResult.error.message}`);
+
+    // Liga TODOS os micro-conteudos daquela semana ao modulo: o resolvedor
+    // recebe o `core_id` do formato que a pessoa esta vendo, e qualquer um
+    // deles precisa levar ao mesmo video.
+    const vinculo = await sb.from('micro_conteudos')
+      .update({ modulo_base_id: cfg.moduloId })
+      .eq('empresa_id', destId).eq('competencia', cfg.competencia).eq('descritor', cfg.descritor);
+    if (vinculo.error) throw new Error(`vincular conteudos ao modulo do video: ${vinculo.error.message}`);
+
+    const celulaExistente = await sb.from('videos_gerados')
+      .select('id')
+      .eq('modulo_base_id', cfg.moduloId).eq('empresa_id', destId)
+      .eq('cargo', cfg.cargo).eq('disc_dominante', cfg.disc)
+      .neq('status', 'error').maybeSingle();
+    if (celulaExistente.error) throw new Error(`celula do video da jornada: ${celulaExistente.error.message}`);
+
+    const cellId = celulaExistente.data?.id || cfg.celulaId;
+    const payloadCelula = {
+      modulo_base_id: cfg.moduloId,
+      empresa_id: destId,
+      status: 'done',
+      etapa: 'done',
+      bunny_video_id: cfg.bunnyVideoId,
+      bunny_library: libraryId,
+      video_url: `https://iframe.mediadelivery.net/play/${libraryId}/${cfg.bunnyVideoId}`,
+      cargo: cfg.cargo,
+      disc_dominante: cfg.disc,
+      created_by: 'demo-jornada',
+      error: null,
+    };
+    const gravou = celulaExistente.data?.id
+      ? await sb.from('videos_gerados').update(payloadCelula).eq('id', cellId).eq('empresa_id', destId)
+      : await sb.from('videos_gerados').insert({ id: cellId, ...payloadCelula });
+    if (gravou.error) throw new Error(`gravar celula do video da jornada: ${gravou.error.message}`);
   }
 
   async function ensurePresentationVideo(destId: string, personaMap: Map<string, string>) {
@@ -1450,11 +1562,27 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       if (!colabId || !a) continue;
       // Relatório comportamental (DISC) — report_texts congelado → abre sem IA.
       if (a.report?.report_texts) {
+        // Só o TEXTO vem do golden. O caminho do MP3 e do PDF NÃO entram aqui:
+        // quem os preserva é o warm snapshot, que os lê do estado imediatamente
+        // ANTERIOR ao reset. Restaurar o path do fixture depois disso plantaria
+        // um caminho velho por cima do atual — a mídia certa existiria no bucket
+        // e a demo apontaria para outra.
         const result = await sb.from('colaboradores').update({
           report_texts: a.report.report_texts,
           report_generated_at: a.report.report_generated_at || new Date().toISOString(),
         }).eq('id', colabId);
         if (result.error) throw new Error(`relatório comportamental ${p.email}: ${result.error.message}`);
+      }
+
+      // PDI congelado: é o passo que o cliente pergunta depois da devolutiva
+      // ("e o que ela faz com isso?"), e gerar na hora custa ~2 min de IA.
+      if (a.blueprint?.blueprint) {
+        const result = await sb.from('development_blueprints').upsert({
+          ...a.blueprint,
+          empresa_id: destId,
+          colaborador_id: colabId,
+        }, { onConflict: 'empresa_id,colaborador_id' });
+        if (result.error) throw new Error(`PDI ${p.email}: ${result.error.message}`);
       }
       for (const r of a.respostas || []) {
         const result = await sb.from('respostas').update({
@@ -1605,6 +1733,78 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     if (trilhas.length) {
       const { error } = await sb.from('trilhas').insert(trilhas);
       if (error) throw new Error(`panorama: trilhas: ${error.message}`);
+    }
+
+    // ── O FECHAMENTO das concluídas ──────────────────────────────────────
+    // Trilha com status `CONCLUIDA` e sem `evolution_report` fecha a jornada e
+    // deixa o painel de Evolução vazio: o veredito só existe se o relatório
+    // existir. Quem declara a fala é o roster (`reguaEvolucao`), porque a
+    // mecânica é única e o vocabulário é do segmento.
+    if (roster.reguaEvolucao && (panorama.concluidos ?? []).length) {
+      const regua = roster.reguaEvolucao;
+      const concluidos = (panorama.concluidos ?? [])
+        .map((key) => ({ key, pessoa: pessoaPorChave.get(key), id: personaMap.get(key) }))
+        .filter((linha) => linha.pessoa && linha.id);
+
+      const distribuicao = distribuicaoPorCargo(
+        concluidos.map((linha) => ({ chave: linha.key, cargo: linha.pessoa.cargo })),
+      );
+      const fechamentoEm = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+
+      for (const [indice, linha] of concluidos.entries()) {
+        const evolucao = construirEvolucao(
+          linha.pessoa,
+          MIX_EVOLUCAO_PANORAMA[indice % MIX_EVOLUCAO_PANORAMA.length],
+          regua,
+          distribuicao.get(linha.key),
+        );
+
+        // O T0 dos comportamentos trabalhados passa a ser o do RELATÓRIO. O
+        // laço acima gravou 2,6 para todos: mantê-lo faria a tela de
+        // diagnóstico e a de evolução mostrarem notas de partida diferentes
+        // para a mesma pessoa, no mesmo comportamento.
+        for (const descritor of evolucao.descritores) {
+          const { error } = await sb.from('descriptor_assessments')
+            .update({ nota: descritor.nota_pre })
+            .eq('empresa_id', destId)
+            .eq('colaborador_id', linha.id)
+            .eq('competencia', evolucao.competencia)
+            .eq('descritor', descritor.descritor);
+          if (error) throw new Error(`panorama: baseline de ${linha.key}: ${error.message}`);
+        }
+
+        const { data: trilhaDaPessoa, error: errTrilha } = await sb.from('trilhas')
+          .select('id').eq('empresa_id', destId).eq('colaborador_id', linha.id).maybeSingle();
+        if (errTrilha) throw new Error(`panorama: trilha de ${linha.key}: ${errTrilha.message}`);
+        if (!trilhaDaPessoa) continue;
+
+        const { error: errReport } = await sb.from('trilhas').update({
+          evolution_report: evolucao.evolution_report,
+          evolution_generated_at: fechamentoEm,
+          competencia_foco: evolucao.competencia,
+          competencias_foco: [evolucao.competencia],
+          descritores_selecionados: evolucao.descritores.map((d) => ({
+            descritor: d.descritor, competencia: evolucao.competencia, nota_atual: d.nota_pre,
+          })),
+        }).eq('id', trilhaDaPessoa.id).eq('empresa_id', destId);
+        if (errReport) throw new Error(`panorama: report de ${linha.key}: ${errReport.message}`);
+
+        // As semanas do fechamento saem da CONFIG do programa do ambiente. A
+        // jornada escolar fecha em 6/7 e o DUO em 13/14: número fixo aqui
+        // gravaria a avaliação numa semana que a trilha não tem.
+        const cfg = getProgramaConfigByModo(roster.programaModo);
+        const progresso = construirFechamento(evolucao, fechamentoEm, {
+          qualitativa: cfg.semanaAcumulada,
+          cenario: cfg.semanaCenarioB,
+        }).map((semana) => ({
+          ...semana,
+          empresa_id: destId,
+          colaborador_id: linha.id,
+          trilha_id: trilhaDaPessoa.id,
+        }));
+        const { error: errProg } = await sb.from('temporada_semana_progresso').insert(progresso);
+        if (errProg) throw new Error(`panorama: fechamento de ${linha.key}: ${errProg.message}`);
+      }
     }
   }
 
@@ -1927,6 +2127,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     await seedPanoramaDoRoster(demo.id, personaMap);
     await seedAcmePanorama(demo.id, personaMap);
     await ensurePresentationVideo(demo.id, personaMap);
+    await ensureVideoDaJornada(demo.id);
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
     await seedAcmeRhReportCenter(demo.id);
     if (slug === DEMO_SLUG) {

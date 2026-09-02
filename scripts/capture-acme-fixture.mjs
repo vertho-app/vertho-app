@@ -82,6 +82,17 @@ async function main() {
       personaArtifacts[email].descriptor_assessments.push(rest);
     }
 
+    // PDI (development blueprint): derivado dos descritores por IA, ~2 min por
+    // pessoa. Sem congelar, a tela de PDI da demo nasce vazia depois do reset.
+    const blueprints = await must('demo blueprints',
+      sb.from('development_blueprints').select('*').eq('empresa_id', did));
+    for (const b of blueprints || []) {
+      const email = idToEmail.get(b.colaborador_id);
+      if (!email || !personaArtifacts[email]) continue;
+      const { id, colaborador_id, empresa_id, created_at, updated_at, ...brest } = b;
+      personaArtifacts[email].blueprint = brest;
+    }
+
     // Trilha (jornada) por persona: a row de trilhas (conteúdo inline em
     // temporada_plano) + o progresso semanal. Replay recria com ids novos.
     const trilhas = await must('demo trilhas', sb.from('trilhas').select('*').eq('empresa_id', did));
