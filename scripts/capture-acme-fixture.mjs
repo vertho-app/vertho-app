@@ -131,6 +131,19 @@ async function main() {
     }
   }
 
+  // Consolidado de RH (tipo='rh', sem colaborador): e ele que alimenta a
+  // "leitura analitica" das abas Cargos e Prioridades. Nao cabe em
+  // personaArtifacts (que e por e-mail) porque a linha e da ORGANIZACAO.
+  let relatorioRh = null;
+  if (demo.data?.id) {
+    const rh = await must('demo consolidado RH',
+      sb.from('relatorios').select('*').eq('empresa_id', demo.data.id).eq('tipo', 'rh').is('colaborador_id', null).maybeSingle());
+    if (rh) {
+      const { id, empresa_id, colaborador_id, colab_key, created_at, updated_at, ...rest } = rh;
+      relatorioRh = rest;
+    }
+  }
+
   const fixture = {
     _meta: { source: SOURCE_SLUG, demo: DEMO_SLUG, capturedAt: new Date().toISOString(), note: `Golden state congelado de ${DEMO_SLUG} (estrutura de ${SOURCE_SLUG}). Regenerar com scripts/capture-acme-fixture.mjs (rode IA4 no tenant demo ANTES, p/ congelar o mapeamento avaliado).` },
     empresa,
@@ -139,6 +152,7 @@ async function main() {
     top10: top10 || [],
     cenarios: cenarios || [],
     personaArtifacts,
+    relatorioRh,
   };
   writeFileSync(OUT, JSON.stringify(fixture, null, 2) + '\n');
   console.log(`Fixture salvo em ${OUT}`);

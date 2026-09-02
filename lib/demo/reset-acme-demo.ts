@@ -2172,6 +2172,29 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
    * Primeiro restauramos qualquer PDF já aquecido; aqui criamos somente o que
    * estiver faltando, preservando o arquivo pronto e evitando trabalho no clique.
    */
+  /**
+   * O consolidado de RH da organizacao (`relatorios` tipo='rh', sem
+   * colaborador). E dele que saem as abas Cargos e Prioridades da central: sem
+   * a linha, as duas abrem em "Leitura analitica ainda nao disponivel".
+   *
+   * Nao da para gerar no reset: sao ~5 min de IA e 64k tokens de saida. Vem do
+   * golden, como os demais artefatos caros.
+   */
+  async function seedConsolidadoRh(destId: string) {
+    const consolidado = (fx as any)?.relatorioRh;
+    if (!consolidado?.conteudo) return;
+    const { data: existente, error: exErr } = await sb.from('relatorios')
+      .select('id').eq('empresa_id', destId).eq('tipo', 'rh').is('colaborador_id', null).maybeSingle();
+    if (exErr) throw new Error(`consolidado RH existente: ${exErr.message}`);
+    // NULL nao dispara conflito em unique no PostgreSQL, entao a idempotencia
+    // e explicita: procura, decide, escreve.
+    const linha = { ...consolidado, empresa_id: destId, colaborador_id: null, tipo: 'rh' };
+    const gravou = existente?.id
+      ? await sb.from('relatorios').update(linha).eq('id', existente.id).eq('empresa_id', destId)
+      : await sb.from('relatorios').insert(linha);
+    if (gravou.error) throw new Error(`consolidado RH: ${gravou.error.message}`);
+  }
+
   async function seedAcmeRhReportCenter(destId: string) {
     if (slug !== DEMO_SLUG) return;
 
@@ -2293,6 +2316,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     await ensureVideoDaJornada(demo.id, personaMap);
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
     await seedAcmeRhReportCenter(demo.id);
+    await seedConsolidadoRh(demo.id);
     if (slug === DEMO_SLUG) {
       await seedAcmeOrganizationReports(sb, demo.id, DEMO_NAME);
       await seedAcmeFitRankingSnapshots(sb, demo.id, DEMO_NAME);
