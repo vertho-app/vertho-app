@@ -31,6 +31,7 @@
  */
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { frenteDePD, naturezaDaLinha } from './classificacao';
 
 /**
  * Client de INFRA: o ledger não é dado de tenant (`empresa_id` ali é etiqueta de
@@ -68,12 +69,14 @@ export function janelaSemanaFechada(agora: Date): Janela {
   return { ini: new Date(fim.getTime() - 7 * 86_400_000), fim };
 }
 
-/** Uma linha da RPC `custo_ia_agregado` (migration 238). */
+/** Uma linha da RPC `custo_ia_agregado` (migrations 238 e 239). */
 export interface LinhaAgregada {
   empresaId: string | null;
   empresaNome: string | null;
   empresaSlug: string | null;
   feature: string;
+  /** Quem disparou, declarado no call-site. Separa operação de medição. */
+  source: string;
   provider: string;
   model: string;
   chamadas: number;
@@ -112,11 +115,32 @@ export interface BlocoEmpresa {
   modelos: ItemCusto[];
 }
 
+/**
+ * Uma frente de P&D: o trabalho de medir e experimentar, agrupado pelo que ele
+ * investiga, não pela empresa cujos dados usou.
+ */
+export interface BlocoPD {
+  frente: string;
+  custoUsd: number;
+  custoAnteriorUsd: number | null;
+  chamadas: number;
+  /** Empresas cujos dados alimentaram a frente. Vazio = rodada sintética. */
+  tenants: string[];
+  features: ItemCusto[];
+  modelos: ItemCusto[];
+}
+
 export interface RelatorioSemanal {
   ini: Date;
   fim: Date;
   totalUsd: number;
   totalAnteriorUsd: number;
+  /** Custo de entregar. É o número que sustenta preço e conversa com cliente. */
+  operacaoUsd: number;
+  operacaoAnteriorUsd: number;
+  /** Custo de descobrir. Investimento, não serviço prestado. */
+  pdUsd: number;
+  pdAnteriorUsd: number;
   totalChamadas: number;
   totalNaoOk: number;
   totalSemCusto: number;
@@ -124,10 +148,12 @@ export interface RelatorioSemanal {
   outputTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
-  /** Tenants com custo, do mais caro para o mais barato. */
+  /** Tenants com custo de OPERAÇÃO, do mais caro para o mais barato. */
   empresas: BlocoEmpresa[];
-  /** Linhas sem `empresa_id`: trabalho de plataforma. `null` se não houve. */
+  /** Operação sem `empresa_id`: trabalho de plataforma. `null` se não houve. */
   plataforma: BlocoEmpresa | null;
+  /** Frentes de P&D da semana, da mais cara para a mais barata. */
+  pd: BlocoPD[];
   /** Nenhuma linha na janela — relatório vazio é resultado, não falha. */
   semDados: boolean;
 }
@@ -152,6 +178,7 @@ export async function coletarJanela(j: Janela): Promise<LinhaAgregada[]> {
     empresaNome: (r.empresa_nome as string) ?? null,
     empresaSlug: (r.empresa_slug as string) ?? null,
     feature: (r.feature as string) || 'sem-feature',
+    source: (r.source as string) || 'wrapper',
     provider: (r.provider as string) || 'desconhecido',
     model: (r.model as string) || 'desconhecido',
     chamadas: num(r.chamadas),
@@ -188,8 +215,14 @@ export function montarRelatorio(
   linhas: LinhaAgregada[],
   anteriores: LinhaAgregada[],
 ): RelatorioSemanal {
+  const ehPD = (l: LinhaAgregada) => naturezaDaLinha(l.feature, l.source) === 'pd';
+  const operacao = linhas.filter((l) => !ehPD(l));
+  const pesquisa = linhas.filter(ehPD);
+  const operacaoAnterior = anteriores.filter((l) => !ehPD(l));
+  const pesquisaAnterior = anteriores.filter(ehPD);
+
   const custoAnteriorPorChave = new Map<string, number>();
-  for (const l of anteriores) {
+  for (const l of operacaoAnterior) {
     const k = chaveDe(l);
     custoAnteriorPorChave.set(k, (custoAnteriorPorChave.get(k) || 0) + l.custoUsd);
   }
@@ -198,7 +231,7 @@ export function montarRelatorio(
   const featuresPor = new Map<string, Map<string, ItemCusto>>();
   const modelosPor = new Map<string, Map<string, ItemCusto>>();
 
-  for (const l of linhas) {
+  for (const l of operacao) {
     const k = chaveDe(l);
     let b = blocos.get(k);
     if (!b) {
@@ -258,24 +291,92 @@ export function montarRelatorio(
   const todos = [...blocos.values()];
   const empresas = todos.filter((b) => b.atribuida).sort((a, b) => b.custoUsd - a.custoUsd);
   const plataforma = todos.find((b) => !b.atribuida) || null;
-  const soma = (f: (b: BlocoEmpresa) => number) => todos.reduce((s, b) => s + f(b), 0);
+
+  const pd = montarBlocosPD(pesquisa, pesquisaAnterior);
+  const somaCusto = (ls: LinhaAgregada[]) => ls.reduce((s, l) => s + l.custoUsd, 0);
+  const soma = (f: (l: LinhaAgregada) => number) => linhas.reduce((s, l) => s + f(l), 0);
 
   return {
     ini: j.ini,
     fim: j.fim,
-    totalUsd: soma((b) => b.custoUsd),
-    totalAnteriorUsd: anteriores.reduce((s, l) => s + l.custoUsd, 0),
-    totalChamadas: soma((b) => b.chamadas),
-    totalNaoOk: soma((b) => b.chamadasNaoOk),
-    totalSemCusto: soma((b) => b.linhasSemCusto),
-    inputTokens: soma((b) => b.inputTokens),
-    outputTokens: soma((b) => b.outputTokens),
-    cacheReadTokens: soma((b) => b.cacheReadTokens),
-    cacheWriteTokens: soma((b) => b.cacheWriteTokens),
+    // O total continua sendo TUDO: separar as naturezas não pode fazer dinheiro
+    // sumir da conta, só mudar de coluna.
+    totalUsd: somaCusto(linhas),
+    totalAnteriorUsd: somaCusto(anteriores),
+    operacaoUsd: somaCusto(operacao),
+    operacaoAnteriorUsd: somaCusto(operacaoAnterior),
+    pdUsd: somaCusto(pesquisa),
+    pdAnteriorUsd: somaCusto(pesquisaAnterior),
+    totalChamadas: soma((l) => l.chamadas),
+    totalNaoOk: soma((l) => l.chamadasNaoOk),
+    totalSemCusto: soma((l) => l.linhasSemCusto),
+    inputTokens: soma((l) => l.inputTokens),
+    outputTokens: soma((l) => l.outputTokens),
+    cacheReadTokens: soma((l) => l.cacheReadTokens),
+    cacheWriteTokens: soma((l) => l.cacheWriteTokens),
     empresas,
     plataforma,
-    semDados: todos.length === 0,
+    pd,
+    semDados: linhas.length === 0,
   };
+}
+
+/** Agrupa as linhas de P&D pela frente que investigam. */
+function montarBlocosPD(linhas: LinhaAgregada[], anteriores: LinhaAgregada[]): BlocoPD[] {
+  const anteriorPorFrente = new Map<string, number>();
+  for (const l of anteriores) {
+    const f = frenteDePD(l.feature, l.source);
+    anteriorPorFrente.set(f, (anteriorPorFrente.get(f) || 0) + l.custoUsd);
+  }
+
+  const blocos = new Map<string, BlocoPD>();
+  const featuresPor = new Map<string, Map<string, ItemCusto>>();
+  const modelosPor = new Map<string, Map<string, ItemCusto>>();
+  const tenantsPor = new Map<string, Set<string>>();
+
+  for (const l of linhas) {
+    const frente = frenteDePD(l.feature, l.source);
+    let b = blocos.get(frente);
+    if (!b) {
+      b = {
+        frente,
+        custoUsd: 0,
+        custoAnteriorUsd: anteriorPorFrente.has(frente) ? anteriorPorFrente.get(frente)! : null,
+        chamadas: 0,
+        tenants: [],
+        features: [],
+        modelos: [],
+      };
+      blocos.set(frente, b);
+      featuresPor.set(frente, new Map());
+      modelosPor.set(frente, new Map());
+      tenantsPor.set(frente, new Set());
+    }
+    b.custoUsd += l.custoUsd;
+    b.chamadas += l.chamadas;
+    // De quem eram os dados. Importa porque a frente consome material de um
+    // cliente real, e é isso que o bloco do tenant deixou de mostrar.
+    if (l.empresaNome) tenantsPor.get(frente)!.add(l.empresaNome);
+
+    const fs = featuresPor.get(frente)!;
+    const f = fs.get(l.feature) || { nome: l.feature, custoUsd: 0, chamadas: 0 };
+    f.custoUsd += l.custoUsd;
+    f.chamadas += l.chamadas;
+    fs.set(l.feature, f);
+
+    const ms = modelosPor.get(frente)!;
+    const m = ms.get(l.model) || { nome: l.model, custoUsd: 0, chamadas: 0 };
+    m.custoUsd += l.custoUsd;
+    m.chamadas += l.chamadas;
+    ms.set(l.model, m);
+  }
+
+  for (const [frente, b] of blocos) {
+    b.features = ordenarPorCusto(featuresPor.get(frente)!);
+    b.modelos = ordenarPorCusto(modelosPor.get(frente)!);
+    b.tenants = [...tenantsPor.get(frente)!].sort();
+  }
+  return [...blocos.values()].sort((a, b) => b.custoUsd - a.custoUsd);
 }
 
 /**
@@ -382,9 +483,11 @@ export async function executarRelatorioCustoIA(opts: {
 
   return {
     message:
-      `custo IA ${rotuloPeriodo(relatorio)}: US$ ${relatorio.totalUsd.toFixed(2)} · `
+      `custo IA ${rotuloPeriodo(relatorio)}: US$ ${relatorio.totalUsd.toFixed(2)} `
+      + `(operação US$ ${relatorio.operacaoUsd.toFixed(2)} · P&D US$ ${relatorio.pdUsd.toFixed(2)}) · `
       + `${relatorio.empresas.length} tenant(s)`
       + (relatorio.plataforma ? ' + plataforma' : '')
+      + (relatorio.pd.length ? ` · ${relatorio.pd.length} frente(s) de P&D` : '')
       + (enviar ? ` · enviado para ${enviados.length}/${enviados.length + falhas.length}` : ' · dry-run'),
     periodo: { ini: janela.ini.toISOString(), fim: janela.fim.toISOString() },
     totalUsd: relatorio.totalUsd,

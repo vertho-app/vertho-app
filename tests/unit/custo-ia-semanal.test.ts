@@ -32,6 +32,7 @@ function linha(p: Partial<LinhaAgregada> = {}): LinhaAgregada {
     empresaNome: null,
     empresaSlug: null,
     feature: 'ia3_cenarios',
+    source: 'wrapper',
     provider: 'anthropic',
     model: 'claude-sonnet-5',
     chamadas: 1,
@@ -156,6 +157,60 @@ describe('agregação por empresa', () => {
     const r = montarRelatorio(JANELA_FIXA, [], []);
     expect(r.semDados).toBe(true);
     expect(r.totalUsd).toBe(0);
+  });
+});
+
+describe('operação × P&D', () => {
+  const linhas = [
+    linha({ empresaId: 'e1', empresaNome: 'Ibipeba', custoUsd: 20, chamadas: 100 }),
+    // P&D sobre os dados de um cliente: sai do bloco dele, mas não da conta.
+    linha({ empresaId: 'e1', empresaNome: 'Ibipeba', feature: 'cena_turno', custoUsd: 24, chamadas: 1000 }),
+    linha({ empresaId: 'e1', empresaNome: 'Ibipeba', feature: 'cena_extracao', custoUsd: 15, chamadas: 105 }),
+    linha({ empresaId: 'e2', empresaNome: 'Macaé', feature: 'ia3_check', source: 'simulator', custoUsd: 4 }),
+    linha({ empresaId: null, custoUsd: 30 }),
+  ];
+
+  it('🔴 o bloco do tenant fica só com operação, e o total continua fechando', () => {
+    const r = montarRelatorio(JANELA_FIXA, linhas, []);
+    expect(r.empresas.find((e) => e.nome === 'Ibipeba')!.custoUsd).toBe(20);
+    // Macaé só teve P&D: não vira linha de operação.
+    expect(r.empresas.map((e) => e.nome)).toEqual(['Ibipeba']);
+    expect(r.operacaoUsd).toBe(50);
+    expect(r.pdUsd).toBe(43);
+    // A invariante: separar não pode fazer dinheiro sumir.
+    expect(r.operacaoUsd + r.pdUsd).toBe(r.totalUsd);
+    expect(r.totalUsd).toBe(93);
+  });
+
+  it('as frentes agrupam por assunto e dizem de quem eram os dados', () => {
+    const r = montarRelatorio(JANELA_FIXA, linhas, []);
+    const cena = r.pd.find((f) => f.frente === 'Modo Cena')!;
+    expect(cena.custoUsd).toBe(39);
+    expect(cena.chamadas).toBe(1105);
+    expect(cena.tenants).toEqual(['Ibipeba']);
+    expect(cena.features.map((f) => f.nome)).toEqual(['cena_turno', 'cena_extracao']);
+    expect(r.pd.find((f) => f.frente === 'Simulador de trilha')!.tenants).toEqual(['Macaé']);
+  });
+
+  it('🔴 o Δ de cada natureza compara com a MESMA natureza da semana anterior', () => {
+    // Sem isto, uma semana de operação estável contra uma semana anterior cheia
+    // de experimento apareceria como queda enorme de custo do cliente.
+    const anteriores = [
+      linha({ empresaId: 'e1', custoUsd: 10 }),
+      linha({ empresaId: 'e1', feature: 'cena_turno', custoUsd: 90 }),
+    ];
+    const r = montarRelatorio(JANELA_FIXA, linhas, anteriores);
+    expect(r.operacaoAnteriorUsd).toBe(10);
+    expect(r.pdAnteriorUsd).toBe(90);
+    expect(r.empresas[0].custoAnteriorUsd).toBe(10); // não 100
+    expect(r.pd.find((f) => f.frente === 'Modo Cena')!.custoAnteriorUsd).toBe(90);
+  });
+
+  it('rodada sem tenant nenhum aparece como sintética, não como erro', () => {
+    const r = montarRelatorio(JANELA_FIXA, [linha({ feature: 'sim_aluno', source: 'simulator', custoUsd: 4 })], []);
+    expect(r.pd[0].tenants).toEqual([]);
+    expect(r.empresas).toEqual([]);
+    expect(r.operacaoUsd).toBe(0);
   });
 });
 

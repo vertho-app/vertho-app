@@ -1860,3 +1860,68 @@ Duas leituras da mesma janela (120 dias, US$ 418,07 em 17.889 chamadas):
   funcionou. Quem olhar a janela de 90 dias ainda vê 26%, que é herança.
 - As 1.126 chamadas com `cost_usd` nulo são **todas** de 13 a 20/07: modelos que
   entraram no catálogo depois. Desde 21/07 a cobertura de preço é 100%.
+
+## 02/09/2026 — o relatório separa OPERAÇÃO de P&D
+
+Pedido do dono depois de ver a primeira edição: a Ibipeba aparecia com **58,2%**
+da semana, mas 62% do que estava no nome dela era o Modo Cena — experimento
+nosso, usando os dados dela, sem nenhuma entrega para o cliente. Um número assim
+não serve para precificar nem para conversar com o cliente.
+
+**O efeito na mesma semana (24–30/08), sem mudar um centavo do total:**
+
+| | antes | depois |
+|---|---|---|
+| Ibipeba | US$ 62,20 (58,2%) | **US$ 8,98** de operação |
+| Plataforma | US$ 32,80 | US$ 23,45 — e vira o **maior item de operação** (52,9%) |
+| P&D | não existia | **US$ 62,57 (58,6% da semana)** |
+
+### A régua tem duas portas (`lib/custo-ia/classificacao.ts`)
+
+**1. O `source`, que é declarado no call-site.** Esta porta não foi inventada
+aqui: `lib/season-engine/simulador-core.ts` já marcava `source='simulator'` para
+"isolar a rodada de medição do tráfego real", e chama o custo do aluno simulado
+de **netável**. É a porta forte, porque carrega INTENÇÃO — o mesmo `ia3_check` é
+operação quando o admin gera e é medição quando entra num braço de comparação.
+
+**2. A feature**, para o que roda sob o `source` default (`wrapper`) — foi sob
+ele que rodaram os US$ 47,74 do Modo Cena. Aqui a afirmação é "este motor não
+tem consumidor de produção", e ela é conferida contra o código por
+`tests/unit/security/custo-ia-pd-guard.test.ts`: o teste sobe o grafo de imports
+e falha se `lib/season-engine/cena/` passar a ser importado por rota, action ou
+task. **Validado por mutação** — um import da cena numa action derruba o guard e
+a mensagem nomeia o consumidor. Sem isso, a lista seria a classificação que
+envelhece calada, e o modo de falha é o pior possível: uma frente que entra em
+produção continua fora do custo do tenant, para sempre, sem sintoma.
+
+### Três erros que a medição pegou no caminho
+
+**⚠️ `like 'cena_%'` casa `cenarios_b`.** Em SQL o `_` é curinga de um
+caractere, então o padrão pegou `cenarios_b` e `cenarios_b_check`, que são o
+fechamento da trilha — operação pura. Inflou o P&D em US$ 2,78 antes de eu
+conferir feature a feature. A régua é lista explícita por isso.
+
+**⚠️ Contar menção não é medir alcance.** A primeira versão do meu classificador
+procurava a string da taskKey no código e subia os imports. Só que
+`lib/ai-tasks.ts` é um CATÁLOGO que lista todas as taskKeys e é importado pelas
+telas de admin: toda feature declarada lá virava "operação" sem nenhum caminho de
+execução. O instrumento respondia "está no catálogo?", não "é alcançável?".
+
+**⚠️ Declaração vence heurística.** A primeira `frenteDePD` testava prefixo
+(`feature.startsWith('ia3_')`) antes do `source`, e um `ia3_check` disparado de
+dentro do simulador virava "Medição da IA3" em vez de "Simulador de trilha" — o
+gasto aparecia sob o assunto em vez de sob quem o causou. Hoje não há prefixo
+nenhum: o que não está nos mapas cai em "Outras medições", lacuna visível em vez
+de rótulo inventado.
+
+### O que a separação revelou
+
+`Medido:` 30 dias — operação **78,5%** (US$ 231,84), P&D **21,5%** (US$ 63,63).
+Na semana de 24–30/08 a proporção inverte (58,6% de P&D), porque foi a semana da
+bateria de cenas: 3.760 chamadas em 4 dias, tudo em `claude-opus-5`, num tenant
+só. Não é tendência, é rajada.
+
+🔑 E o item mais caro da OPERAÇÃO não é cliente nenhum: é a plataforma, com
+52,9% da semana. Autoria de conteúdo, copiloto e o pipeline de IA que roda sem
+`empresa_id`. Parte disso deve encolher com a correção de 01/09 que fez
+`ia3_cenarios` e `ia2_gabarito` passarem `empresaId`.

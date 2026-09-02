@@ -22,12 +22,13 @@
  * HTML legíveis, com todos os números.
  */
 
-import type { BlocoEmpresa, RelatorioSemanal } from './relatorio-semanal';
+import type { BlocoEmpresa, BlocoPD, RelatorioSemanal } from './relatorio-semanal';
 import { avisoInstrumento, rotuloPeriodo } from './relatorio-semanal';
 
 const NAVY = '#0F2B54';
 const CYAN = '#34C5CC';
 const TINTA_FRACA = '#5b6b80';
+const LINHA_COR = '#e3e8ef';
 const SUCESSO = '#1F9D6B';
 const ATENCAO = '#D9932B';
 
@@ -185,6 +186,68 @@ ${alertas.length ? `<p style="font-size:12px;color:${ATENCAO};margin:12px 0 0">$
 </td></tr></table>`;
 }
 
+/** O detalhe de UMA frente de P&D. Igual ao do tenant, mais de quem eram os dados. */
+function detalheDaFrente(b: BlocoPD, totalPD: number): string {
+  const features = comResto(b.features, 'atividades')
+    .map(
+      (f) =>
+        `<tr>${td(esc(f.nome))}${td(fmtNum(f.chamadas), 'vh-r vh-d')}`
+        + `${td(fmtUsd(f.custoUsd), 'vh-r vh-n')}${td(pct(f.custoUsd, b.custoUsd), 'vh-r vh-d')}</tr>`,
+    )
+    .join('');
+  const modelos = comResto(b.modelos, 'modelos')
+    .map(
+      (m) =>
+        `<tr>${td(esc(m.nome))}${td(fmtNum(m.chamadas), 'vh-r vh-d')}`
+        + `${td(fmtUsd(m.custoUsd), 'vh-r vh-n')}</tr>`,
+    )
+    .join('');
+  const v = variacao(b.custoUsd, b.custoAnteriorUsd);
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" class="vh-t" style="margin-bottom:22px">
+<tr><td class="vh-card">
+<table role="presentation" cellpadding="0" cellspacing="0" class="vh-t">
+<tr><td class="vh-nome">${esc(b.frente)}</td>
+<td class="vh-valor">${fmtUsd(b.custoUsd)}</td></tr>
+<tr><td class="vh-meta">${fmtNum(b.chamadas)} chamadas${
+    b.tenants.length ? ` · dados de ${esc(b.tenants.join(', '))}` : ' · rodada sintética'
+  }</td>
+<td class="vh-meta vh-r">${pct(b.custoUsd, totalPD)} do P&amp;D · <span style="color:${v.cor};font-weight:600">${v.texto}</span> vs. semana anterior</td></tr>
+</table>
+<table role="presentation" cellpadding="0" cellspacing="0" class="vh-t">
+${cabecalhoTabela([{ texto: 'Atividade' }, { texto: 'Chamadas', alinha: true }, { texto: 'Custo', alinha: true }, { texto: 'Peso', alinha: true }])}
+${features}
+</table>
+<table role="presentation" cellpadding="0" cellspacing="0" class="vh-t" style="margin-top:14px">
+${cabecalhoTabela([{ texto: 'Modelo' }, { texto: 'Chamadas', alinha: true }, { texto: 'Custo', alinha: true }])}
+${modelos}
+</table>
+</td></tr></table>`;
+}
+
+/**
+ * Piso para GANHAR um cartão de detalhe. Medido na semana 24–30/08: 12 frentes,
+ * das quais 5 respondem por 97% do P&D e as outras 7 somam menos de US$ 1,60 —
+ * doze cartões para isso enterram as duas que importam. Todas continuam na
+ * tabela acima, com custo e variação; o que o piso corta é o detalhe, e o corte
+ * é anunciado.
+ */
+const PISO_DETALHE_PD = 0.01;
+
+function detalhesDoPD(r: RelatorioSemanal): string {
+  if (!r.pd.length) return '';
+  const relevantes = r.pd.filter((b) => b.custoUsd >= r.pdUsd * PISO_DETALHE_PD);
+  const cortadas = r.pd.length - relevantes.length;
+  return `<h2 class="vh-h2">Detalhe do P&amp;D</h2>
+${relevantes.map((b) => detalheDaFrente(b, r.pdUsd)).join('')}
+${
+    cortadas > 0
+      ? `<p class="vh-nota" style="margin:-8px 0 22px">Outras ${cortadas} frente(s) somaram `
+        + `${fmtUsd(r.pd.slice(relevantes.length).reduce((s, b) => s + b.custoUsd, 0))} e estão na tabela acima, sem detalhe.</p>`
+      : ''
+  }`;
+}
+
 /**
  * Monta assunto e corpo. Puro — nada aqui toca rede nem relógio.
  *
@@ -208,6 +271,8 @@ operação parada, ou a gravação do ledger falhando em silêncio. Os avisos fi
   }
 
   const v = variacao(r.totalUsd, r.totalAnteriorUsd || null);
+  const vOp = variacao(r.operacaoUsd, r.operacaoAnteriorUsd || null);
+  const vPd = variacao(r.pdUsd, r.pdAnteriorUsd || null);
   const blocos = [...r.empresas, ...(r.plataforma ? [r.plataforma] : [])];
 
   const linhasTabela = blocos
@@ -215,9 +280,19 @@ operação parada, ou a gravação do ledger falhando em silêncio. Os avisos fi
       const vb = variacao(b.custoUsd, b.custoAnteriorUsd);
       const nome = b.atribuida ? esc(b.nome) : `<span class="vh-d">${esc(b.nome)}</span>`;
       return `<tr>${td(nome)}${td(fmtUsd(b.custoUsd), 'vh-r vh-n vh-b')}`
-        + `${td(pct(b.custoUsd, r.totalUsd), 'vh-r vh-d')}`
+        + `${td(pct(b.custoUsd, r.operacaoUsd), 'vh-r vh-d')}`
         + `${td(`<span style="color:${vb.cor};font-weight:600">${vb.texto}</span>`, 'vh-r')}`
         + `${td(fmtNum(b.chamadas), 'vh-r vh-d')}</tr>`;
+    })
+    .join('');
+
+  const linhasPD = r.pd
+    .map((b) => {
+      const vb = variacao(b.custoUsd, b.custoAnteriorUsd);
+      return `<tr>${td(esc(b.frente))}${td(fmtUsd(b.custoUsd), 'vh-r vh-n vh-b')}`
+        + `${td(pct(b.custoUsd, r.pdUsd), 'vh-r vh-d')}`
+        + `${td(`<span style="color:${vb.cor};font-weight:600">${vb.texto}</span>`, 'vh-r')}`
+        + `${td(b.tenants.length ? esc(b.tenants.join(', ')) : 'sintética', 'vh-r vh-d')}</tr>`;
     })
     .join('');
 
@@ -237,27 +312,59 @@ operação parada, ou a gravação do ledger falhando em silêncio. Os avisos fi
 <p class="vh-total">${fmtUsd(r.totalUsd)}</p>
 <p class="vh-nota" style="margin-top:6px;font-size:13px"><span style="color:${v.cor};font-weight:600">${v.texto}</span>
 vs. ${fmtUsd(r.totalAnteriorUsd)} da semana anterior · ${fmtNum(r.totalChamadas)} chamadas · ${fmtTokens(totalTokens)} tokens</p>
-<p class="vh-nota" style="margin-top:4px;font-size:13px">${r.empresas.length} tenant(s) com consumo${
-    r.plataforma
-      ? ` · ${pct(r.plataforma.custoUsd, r.totalUsd)} do gasto não é atribuível a um tenant (trabalho de plataforma)`
-      : ''
-  }</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="vh-t" style="margin-top:12px;border-top:1px solid ${LINHA_COR};padding-top:8px">
+<tr>
+<td style="padding-top:10px;width:50%">
+  <p class="vh-eyebrow" style="margin:0">Operação</p>
+  <p style="margin:2px 0 0;font-size:20px;font-weight:700;color:${NAVY};font-variant-numeric:tabular-nums">${fmtUsd(r.operacaoUsd)}</p>
+  <p class="vh-nota" style="margin:2px 0 0">${pct(r.operacaoUsd, r.totalUsd)} do total · <span style="color:${vOp.cor};font-weight:600">${vOp.texto}</span></p>
+</td>
+<td style="padding-top:10px;width:50%">
+  <p class="vh-eyebrow" style="margin:0">Pesquisa e desenvolvimento</p>
+  <p style="margin:2px 0 0;font-size:20px;font-weight:700;color:${NAVY};font-variant-numeric:tabular-nums">${fmtUsd(r.pdUsd)}</p>
+  <p class="vh-nota" style="margin:2px 0 0">${pct(r.pdUsd, r.totalUsd)} do total · <span style="color:${vPd.cor};font-weight:600">${vPd.texto}</span></p>
+</td>
+</tr></table>
 </td></tr></table>
 
-<h2 class="vh-h2">Resumo por empresa</h2>
-<table role="presentation" cellpadding="0" cellspacing="0" class="vh-t" style="background:#ffffff;border:1px solid #e3e8ef;border-radius:16px;margin-bottom:28px">
+<h2 class="vh-h2">Operação, por empresa</h2>
+<p class="vh-nota" style="margin:-4px 0 10px">O que custou <strong>entregar</strong> a cada cliente na semana. É este número que sustenta preço.</p>
+${
+    blocos.length
+      ? `<table role="presentation" cellpadding="0" cellspacing="0" class="vh-t" style="background:#ffffff;border:1px solid ${LINHA_COR};border-radius:16px;margin-bottom:28px">
 ${cabecalhoTabela([
-    { texto: 'Empresa' },
-    { texto: 'Custo', alinha: true },
-    { texto: 'Peso', alinha: true },
-    { texto: 'vs. anterior', alinha: true },
-    { texto: 'Chamadas', alinha: true },
-  ])}
+          { texto: 'Empresa' },
+          { texto: 'Custo', alinha: true },
+          { texto: 'Peso', alinha: true },
+          { texto: 'vs. anterior', alinha: true },
+          { texto: 'Chamadas', alinha: true },
+        ])}
 ${linhasTabela}
-</table>
+</table>`
+      : `<p class="vh-nota" style="margin-bottom:24px">Nenhuma chamada de operação nesta semana.</p>`
+  }
 
-<h2 class="vh-h2">Detalhe por empresa</h2>
-${blocos.map((b) => detalheDoBloco(b, r.totalUsd)).join('')}
+${
+    r.pd.length
+      ? `<h2 class="vh-h2">Pesquisa e desenvolvimento, por frente</h2>
+<p class="vh-nota" style="margin:-4px 0 10px">Medir, comparar e experimentar. Sai do bloco do cliente mesmo quando usa os dados dele, e a coluna da direita diz de quem eram.</p>
+<table role="presentation" cellpadding="0" cellspacing="0" class="vh-t" style="background:#ffffff;border:1px solid ${LINHA_COR};border-radius:16px;margin-bottom:28px">
+${cabecalhoTabela([
+          { texto: 'Frente' },
+          { texto: 'Custo', alinha: true },
+          { texto: 'Peso', alinha: true },
+          { texto: 'vs. anterior', alinha: true },
+          { texto: 'Dados de', alinha: true },
+        ])}
+${linhasPD}
+</table>`
+      : ''
+  }
+
+${blocos.length ? '<h2 class="vh-h2">Detalhe da operação</h2>' : ''}
+${blocos.map((b) => detalheDoBloco(b, r.operacaoUsd)).join('')}
+
+${detalhesDoPD(r)}
 
 ${aviso ? `<table role="presentation" cellpadding="0" cellspacing="0" class="vh-t" style="margin-bottom:16px"><tr><td class="vh-aviso">${esc(aviso)}</td></tr></table>` : ''}
 
@@ -270,8 +377,13 @@ hospedagem de mídia e infraestrutura.${
     r.totalSemCusto > 0
       ? ` Nesta semana, ${fmtNum(r.totalSemCusto)} chamada(s) foram registradas sem valor de custo e entram como zero.`
       : ''
-  } A fatia de plataforma reúne o que não tem empresa atribuída — autoria de conteúdo, avaliações
-internas e ferramentas próprias — e é custo real da Vertho, não de um cliente.</p>
+  } A fatia de plataforma reúne a operação que não tem empresa atribuída — autoria de conteúdo e
+ferramentas próprias — e é custo real da Vertho, não de um cliente.</p>
+<p class="vh-nota" style="margin-top:8px">Uma chamada entra como <strong>P&amp;D</strong> por duas
+vias: quando quem a disparou declarou que era medição (simulação, eval, experimento, calibração), ou
+quando ela pertence a um motor que ainda não tem nenhuma tela, rota ou tarefa chamando, como o Modo
+Cena. A segunda via é conferida contra o código a cada build, então uma frente que entrar em produção
+deixa de ser contada aqui em vez de ficar escondida.</p>
 </td></tr></table>
 
 <p class="vh-rodape">Gerado automaticamente pela vertho.ai · valores em dólar, como cobrados pelos provedores</p>
