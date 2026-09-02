@@ -366,6 +366,18 @@
 .goalDoors button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
 .setupPanel .audienceField { margin-bottom: 14px; }
+
+/* Estado das redes na area visivel: campo vazio nao e "sem sinal social", e a
+   trilha de redes que nao roda. O botao abre "Dados usados" e foca o campo. */
+.socialStatus { display: flex; align-items: center; gap: 10px; margin: -6px 0 18px; padding: 11px 13px; border: 1px solid var(--line); border-left: 2px solid var(--muted); background: rgba(255,255,255,.02); }
+.socialStatus p { flex: 1; margin: 0; color: #bfd0df; font-size: 12.5px; line-height: 1.5; }
+.socialStatus p b { color: #f0f7fd; font-weight: 700; }
+.socialStatus button { flex: 0 0 auto; min-height: 30px; border: 1px solid var(--line); border-radius: 4px; padding: 0 11px; background: transparent; color: var(--muted); cursor: pointer; font: 750 10px/1 var(--font-inter); letter-spacing: .07em; text-transform: uppercase; transition: border-color .16s, color .16s; }
+.socialStatus button:hover { border-color: rgba(66,212,215,.5); color: var(--cyan); }
+.socialStatus button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.socialStatus[data-status="ok"] { border-left-color: var(--mint); color: var(--mint); }
+.socialStatus[data-status="vazio"], .socialStatus[data-status="erro"], .socialStatus[data-status="idle"] { border-left-color: var(--amber); color: var(--amber); }
+.socialStatus[data-status="buscando"] { border-left-color: var(--cyan); color: var(--cyan); }
 .setupDetails { margin-bottom: 20px; border-top: 1px solid var(--line); padding-top: 14px; }
 .setupDetails > summary { display: flex; align-items: center; gap: 8px; color: #7e99ad; cursor: pointer; font: 750 9px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
 .setupDetails > summary small { color: #5d7791; font-size: 8.5px; letter-spacing: .05em; text-transform: none; }

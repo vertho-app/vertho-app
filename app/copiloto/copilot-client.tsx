@@ -21,6 +21,8 @@ import {
 import { normalizeConversationGoal } from '@/lib/copiloto/dossier';
 import { inferMeetingKind } from '@/lib/copiloto/play';
 import { mesclarPerfisSociais } from '@/lib/copiloto/social-discovery';
+// A MESMA régua que o servidor aplica: o que ela não reconhece é recusado lá com 400.
+import { parseOfficialSocialUrls } from '@/lib/copiloto/social-identity';
 import {
   LocalMeetingCapture, toUtterance,
   type CaptureAudioLevels, type CaptureState, type CaptureSurface,
@@ -107,11 +109,21 @@ function meetingKindLabel(kind: MeetingKind): string {
   return MEETING_KINDS.find((item) => item.key === kind)?.label || 'Reunião';
 }
 
+/**
+ * `vazio` tem dois motivos, e a diferença muda o que dizer ao vendedor.
+ *
+ * `nada_encontrado` = o site foi lido e não publica perfil nenhum.
+ * `sem_resposta` = o site NÃO foi lido: bloqueio anti-bot, 403 ou timeout.
+ * Medido em 02/09 com boehringer-ingelheim.com/br, que devolve 1.150 caracteres
+ * de página de desafio (`NOINDEX, NOFOLLOW`) para qualquer User-Agent. Tratar os
+ * dois como o mesmo caso fazia a tela afirmar que a empresa não publica perfis
+ * quando ela publica — e ninguém colava nada à mão.
+ */
 type SocialDiscoveryState =
   | { status: 'idle' }
   | { status: 'buscando' }
   | { status: 'ok'; encontrados: number; adicionados: number; host: string }
-  | { status: 'vazio'; host: string }
+  | { status: 'vazio'; host: string; motivo: 'nada_encontrado' | 'sem_resposta' }
   | { status: 'erro'; mensagem: string };
 
 /** Só vale varrer quando o que está no campo já parece um domínio inteiro. */
@@ -674,6 +686,7 @@ export default function CopilotClient({
   const siteVarridoRef = useRef('');
   const socialRequestRef = useRef(0);
   const socialProfilesRef = useRef('');
+  const socialCampoRef = useRef<HTMLTextAreaElement | null>(null);
 
   const markLocalAsrReady = useCallback((showCaptureNotice: boolean = false) => {
     if (asrFreshnessTimerRef.current) window.clearTimeout(asrFreshnessTimerRef.current);
@@ -896,7 +909,11 @@ export default function CopilotClient({
         : [];
       const host = hostVisivel(typeof data?.siteLido === 'string' && data.siteLido ? data.siteLido : alvo);
       if (!perfis.length) {
-        setSocialDiscovery({ status: 'vazio', host });
+        setSocialDiscovery({
+          status: 'vazio',
+          host,
+          motivo: data?.motivo === 'sem_resposta' ? 'sem_resposta' : 'nada_encontrado',
+        });
         return;
       }
       const { texto, adicionados } = mesclarPerfisSociais(socialProfilesRef.current, perfis);
@@ -1006,6 +1023,21 @@ export default function CopilotClient({
         // O contato primário vindo da oportunidade continua disponível.
       }
     })();
+  }
+
+  /**
+   * Abre "Dados usados" e põe o cursor no campo de redes.
+   *
+   * A leitura do site falha em qualquer empresa atrás de proteção anti-bot, e aí
+   * a única saída é colar os perfis. O campo existia, mas dentro do recolhível:
+   * quem não o abria não descobria que a trilha social ia ficar de fora.
+   */
+  function abrirCampoDeRedes() {
+    setShowSetupDetails(true);
+    window.setTimeout(() => {
+      socialCampoRef.current?.focus();
+      socialCampoRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 60);
   }
 
   /** Zera a memória da varredura: o próximo site digitado volta a ser buscado. */
@@ -1363,6 +1395,12 @@ export default function CopilotClient({
     setPlanPersisted(false);
   }
 
+  /** Quantos perfis o servidor vai aceitar do que está no campo, não quantas linhas há. */
+  const socialProfilesInformados = useMemo(
+    () => parseOfficialSocialUrls(socialProfiles).length,
+    [socialProfiles],
+  );
+
   const recording = captureState === 'gravando';
   const focusMode = recording && tab === 'ao-vivo';
   const firstName = userName.split(' ')[0] || userName;
@@ -1518,6 +1556,32 @@ export default function CopilotClient({
             </div>
 
             {/*
+              O estado das redes sobe para a área visível porque ele decide se uma das
+              três trilhas de pesquisa vai rodar. Campo vazio não é "sem sinal social":
+              é busca social que não acontece (`social: not_requested` no audit).
+            */}
+            {(!!socialProfilesInformados || socialDiscovery.status !== 'idle') && (
+              <div className={styles.socialStatus} data-status={socialProfilesInformados ? 'ok' : socialDiscovery.status}>
+                {socialDiscovery.status === 'buscando'
+                  ? <><LoaderCircle size={15} className={styles.spin} /><p>Procurando os perfis oficiais em {hostVisivel(site)}…</p></>
+                  : socialProfilesInformados
+                    ? <><ShieldCheck size={15} /><p><b>{socialProfilesInformados} {socialProfilesInformados === 1 ? 'perfil oficial' : 'perfis oficiais'}</b> — a busca em redes vai rodar.</p>
+                        <button type="button" onClick={abrirCampoDeRedes}>Revisar</button></>
+                    : <><CircleAlert size={15} /><p>
+                        {socialDiscovery.status === 'vazio' && socialDiscovery.motivo === 'sem_resposta'
+                          ? <>Não consegui ler {socialDiscovery.host}: o site bloqueia leitura automática.</>
+                          : socialDiscovery.status === 'vazio'
+                            ? <>{socialDiscovery.host} não publica perfis oficiais nas páginas lidas.</>
+                            : socialDiscovery.status === 'erro'
+                              ? <>{socialDiscovery.mensagem}.</>
+                              : <>Nenhum perfil oficial informado.</>}
+                        {' '}Sem perfis, a trilha de redes não roda: <b>cole os links à mão</b>.
+                      </p>
+                      <button type="button" onClick={abrirCampoDeRedes}>Adicionar perfis</button></>}
+              </div>
+            )}
+
+            {/*
               O compromisso observável e o briefing privado ficam FORA do recolhível.
               São os dois campos que mais mudam o Play: o primeiro é o resultado que a
               hora precisa produzir, o segundo é a única fonte que a busca pública não
@@ -1566,6 +1630,7 @@ export default function CopilotClient({
               </div>
               <textarea
                 id="copilot-social"
+                ref={socialCampoRef}
                 value={socialProfiles}
                 onChange={(event) => setSocialProfiles(event.target.value)}
                 rows={3}
@@ -1579,7 +1644,9 @@ export default function CopilotClient({
                   {socialDiscovery.status === 'ok' && (socialDiscovery.adicionados
                     ? <>{socialDiscovery.adicionados} {socialDiscovery.adicionados === 1 ? 'perfil veio' : 'perfis vieram'} de {socialDiscovery.host}. Confira antes de gerar o Play.</>
                     : <>Os {socialDiscovery.encontrados === 1 ? 'perfil' : `${socialDiscovery.encontrados} perfis`} de {socialDiscovery.host} já estavam no campo.</>)}
-                  {socialDiscovery.status === 'vazio' && <>{socialDiscovery.host} não publica perfis oficiais nas páginas lidas. Cole os links à mão.</>}
+                  {socialDiscovery.status === 'vazio' && (socialDiscovery.motivo === 'sem_resposta'
+                    ? <>Não consegui ler {socialDiscovery.host}: ele bloqueia leitura automática. Cole os links à mão.</>
+                    : <>{socialDiscovery.host} não publica perfis oficiais nas páginas lidas. Cole os links à mão.</>)}
                   {socialDiscovery.status === 'erro' && <>{socialDiscovery.mensagem}. Cole os links à mão ou tente de novo.</>}
                 </small>
               )}
