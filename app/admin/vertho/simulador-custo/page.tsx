@@ -5,7 +5,8 @@ import { useLocale, useTranslations } from 'next-intl';
 import { DollarSign, Users, School, FileText, Building2, Clapperboard, UploadCloud, Activity, RefreshCw } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { CALLS, MODELS, MODEL_IDS, PRESETS, SCALE_LABEL, calcCost } from '@/lib/ia-cost-catalog';
-import { getUsoRealIA, type UsoRealLinha } from '@/actions/ia-uso';
+import { JornadasPanel, InfraPanel } from './paineis-custo';
+import { getUsoRealIA, getCoberturaCatalogo, type UsoRealLinha, type CoberturaCatalogo } from '@/actions/ia-uso';
 import type { AppLocale } from '@/i18n/routing';
 
 type ScaleType = 'colab' | 'conteudo' | 'extracao' | 'video_gerado' | 'pagina_radar' | 'lead_radar' | 'empresa';
@@ -159,8 +160,14 @@ export default function SimuladorCustoPage() {
         </div>
       </div>
 
+      {/* Custo por jornada — o mesmo catálogo lido pelas dimensões de cada modo */}
+      <JornadasPanel locale={locale} preset={preset} nColabs={nColabs} />
+
       {/* Real medido (ledger) */}
       <RealPanel locale={locale} />
+
+      {/* Infra fixa da plataforma */}
+      <InfraPanel locale={locale} />
 
       {/* Tabela detalhada */}
       <div className="space-y-2">
@@ -231,20 +238,52 @@ export default function SimuladorCustoPage() {
 
 const WINDOWS = [7, 30, 90] as const;
 
+/**
+ * Estimativa do catálogo por CHAMADA, indexada pela `taskKey` que liga o item de
+ * custo à tarefa declarada em `lib/ai-tasks.ts` (que é o que o ledger etiqueta).
+ *
+ * Por chamada, e não por ciclo, porque é a única comparação que fecha: o `exec`
+ * do catálogo é quantas vezes a chamada roda numa jornada inteira, e a janela do
+ * ledger é de dias. Dividir por `exec` isola o que a estimativa de tokens diz que
+ * UMA chamada custa — que é o que o real mede.
+ *
+ * Uma taskKey pode ter mais de uma linha de catálogo (as três extrações de chat
+ * caem em `temporada_extracao`): nesse caso vale a média.
+ */
+function estimativaPorTask() {
+  const acc: Record<string, { usd: number; n: number }> = {};
+  for (const call of CALLS) {
+    const key = (call as any).taskKey;
+    if (!key) continue;
+    const c = calcCost(call, (call as any).defaultModel, 1);
+    if (!c || !call.exec) continue;
+    if (!acc[key]) acc[key] = { usd: 0, n: 0 };
+    acc[key].usd += c.usd / call.exec;
+    acc[key].n += 1;
+  }
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(acc)) out[k] = v.usd / v.n;
+  return out;
+}
+
 function RealPanel({ locale }: { locale: AppLocale }) {
   const t = useTranslations('AdminCostSimulator');
   const [dias, setDias] = useState<number>(30);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [linhas, setLinhas] = useState<UsoRealLinha[] | null>(null);
+  const [cobertura, setCobertura] = useState<CoberturaCatalogo | null>(null);
+
+  const estimado = useMemo(() => estimativaPorTask(), []);
 
   const carregar = useCallback(async (d: number) => {
     setLoading(true);
     setErro(null);
     try {
-      const r = await getUsoRealIA(d);
+      const [r, cob] = await Promise.all([getUsoRealIA(d), getCoberturaCatalogo()]);
       if ('erro' in r) { setErro(r.erro); setLinhas(null); }
       else { setLinhas(r.linhas); }
+      setCobertura(cob);
     } catch (e: any) {
       setErro(e?.message || 'erro');
       setLinhas(null);
@@ -271,6 +310,34 @@ function RealPanel({ locale }: { locale: AppLocale }) {
     const desconhecidoPct = chamadas > 0 ? (1 - fracPeso / chamadas) * 100 : 0;
     return { custo, chamadas, inTok, outTok, cacheR, cacheW, cacheHit, desconhecidoPct };
   }, [linhas]);
+
+  /**
+   * Quanto do gasto REAL da janela caiu em tarefa que o catálogo não estima.
+   * O número que interessa é o de DINHEIRO, não o de tarefas: 40 tarefas sem
+   * estimativa que não rodaram custam zero, e uma que rodou muito custa a conta.
+   */
+  const lacuna = useMemo(() => {
+    const ls = linhas || [];
+    const porFeature: Record<string, { usd: number; chamadas: number }> = {};
+    for (const l of ls) {
+      if (!porFeature[l.feature]) porFeature[l.feature] = { usd: 0, chamadas: 0 };
+      porFeature[l.feature].usd += l.custo_usd;
+      porFeature[l.feature].chamadas += l.chamadas;
+    }
+    const semEstimativa = Object.entries(porFeature)
+      .filter(([f]) => f !== 'untagged' && estimado[f] == null)
+      .map(([feature, v]) => ({ feature, ...v }))
+      .sort((a, b) => b.usd - a.usd);
+    const untagged = porFeature['untagged']?.usd || 0;
+    const usdSemEstimativa = semEstimativa.reduce((s, x) => s + x.usd, 0);
+    const total = tot.custo || 1;
+    return {
+      semEstimativa,
+      untagged,
+      pctSemEstimativa: (usdSemEstimativa / total) * 100,
+      pctUntagged: (untagged / total) * 100,
+    };
+  }, [linhas, estimado, tot.custo]);
 
   const nf = (n: number) => n.toLocaleString(locale);
 
@@ -337,23 +404,86 @@ function RealPanel({ locale }: { locale: AppLocale }) {
                   <th className="py-1.5 pr-3 text-right">{t('real.colCalls')}</th>
                   <th className="py-1.5 pr-3 text-right">{t('real.colTokens')}</th>
                   <th className="py-1.5 pr-3 text-right">{t('real.colCache')}</th>
+                  <th className="py-1.5 pr-3 text-right">USD/cham.</th>
+                  <th className="py-1.5 pr-3 text-right">est.</th>
                   <th className="py-1.5 text-right">{t('real.colCost')}</th>
                 </tr>
               </thead>
               <tbody className="text-gray-300" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {linhas.map((l, i) => (
-                  <tr key={`${l.feature}-${l.model}-${i}`} className="border-t border-white/[0.06]">
-                    <td className="py-1.5 pr-3 font-medium text-white">{l.feature}</td>
-                    <td className="py-1.5 pr-3 text-gray-400">{l.model}</td>
-                    <td className="py-1.5 pr-3 text-right">{nf(l.chamadas)}</td>
-                    <td className="py-1.5 pr-3 text-right">{nf(l.input_tokens)} / {nf(l.output_tokens)}</td>
-                    <td className="py-1.5 pr-3 text-right text-gray-500">{nf(l.cache_read_tokens)} / {nf(l.cache_write_tokens)}</td>
-                    <td className="py-1.5 text-right font-bold text-cyan-300">{l.custo_usd.toFixed(3)}</td>
-                  </tr>
-                ))}
+                {linhas.map((l, i) => {
+                  const real = l.chamadas > 0 ? l.custo_usd / l.chamadas : 0;
+                  const est = estimado[l.feature];
+                  // Razão real/estimado só é legível quando as duas pontas existem
+                  // e a chamada rodou o bastante para a média significar algo.
+                  const razao = est != null && est > 0 && l.chamadas >= 3 ? real / est : null;
+                  return (
+                    <tr key={`${l.feature}-${l.model}-${i}`} className="border-t border-white/[0.06]">
+                      <td className="py-1.5 pr-3 font-medium text-white">
+                        {l.feature}
+                        {est == null && l.feature !== 'untagged' && (
+                          <span className="ml-1.5 text-[9px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-300">sem estimativa</span>
+                        )}
+                      </td>
+                      <td className="py-1.5 pr-3 text-gray-400">{l.model}</td>
+                      <td className="py-1.5 pr-3 text-right">{nf(l.chamadas)}</td>
+                      <td className="py-1.5 pr-3 text-right">{nf(l.input_tokens)} / {nf(l.output_tokens)}</td>
+                      <td className="py-1.5 pr-3 text-right text-gray-500">{nf(l.cache_read_tokens)} / {nf(l.cache_write_tokens)}</td>
+                      <td className="py-1.5 pr-3 text-right">{real.toFixed(4)}</td>
+                      <td className="py-1.5 pr-3 text-right text-gray-500">
+                        {est == null ? '—' : est.toFixed(4)}
+                        {razao != null && (
+                          <span className={`ml-1 ${razao > 1.5 || razao < 0.67 ? 'text-amber-300' : 'text-gray-600'}`}>
+                            ({razao.toFixed(1)}×)
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-1.5 text-right font-bold text-cyan-300">{l.custo_usd.toFixed(3)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+
+          {/* Cobertura: o que o catálogo NÃO estima, medido em dinheiro */}
+          <div className="mt-4 pt-3 border-t border-white/10 grid gap-3 sm:grid-cols-3 text-[11px]">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500">Tarefas com estimativa</p>
+              <p className="text-lg font-bold text-white">
+                {cobertura ? `${cobertura.tasksComEstimativa} de ${cobertura.tasksDeclaradas}` : '—'}
+              </p>
+              <p className="text-gray-500">declaradas em ai-tasks.ts</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500">Gasto sem estimativa</p>
+              <p className={`text-lg font-bold ${lacuna.pctSemEstimativa > 20 ? 'text-amber-300' : 'text-white'}`}>
+                {lacuna.pctSemEstimativa.toFixed(0)}%
+              </p>
+              <p className="text-gray-500">da janela, fora o untagged</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-gray-500">Untagged</p>
+              <p className={`text-lg font-bold ${lacuna.pctUntagged > 10 ? 'text-amber-300' : 'text-white'}`}>
+                {lacuna.pctUntagged.toFixed(0)}%
+              </p>
+              <p className="text-gray-500">chamada sem taskKey no call-site</p>
+            </div>
+          </div>
+
+          {lacuna.semEstimativa.length > 0 && (
+            <p className="text-[11px] text-gray-400 mt-3">
+              <span className="text-amber-300 font-semibold">Rodaram sem estimativa: </span>
+              {lacuna.semEstimativa.slice(0, 8).map((x) => `${x.feature} (USD ${x.usd.toFixed(2)})`).join(' · ')}
+              {lacuna.semEstimativa.length > 8 && ` · +${lacuna.semEstimativa.length - 8}`}
+            </p>
+          )}
+
+          <p className="text-[10px] text-gray-500 mt-3 leading-relaxed">
+            <span className="text-gray-400 font-semibold">Fronteira do ledger:</span> só é medido quem escreve em
+            <code className="text-gray-400"> ia_usage_log</code> — o wrapper (<code className="text-gray-400">callAI</code>),
+            o TTS (desde 30/08/2026) e o Batch. Render de vídeo, HeyGen, Bunny e embeddings não passam por lá, e a ausência
+            deles aqui tem a mesma cara de um zero. Este total é <b>piso</b>, não teto.
+          </p>
         </>
       )}
     </div>

@@ -62,7 +62,7 @@ Escolha o destino pelo tipo do aprendizado — não jogue tudo no `CLAUDE.md`:
 | Motor da trilha, ponta a ponta | `docs/PIPELINE-TRILHA.md` |
 | Modo de falha novo do pipeline | `docs/FMEA-PIPELINE.md` (gatilho `arquivo:linha` + status + correção) |
 | Achado/postura de segurança | `docs/SECURITY-STATUS.md` (⚠️ **repo é PÚBLICO — nunca versionar doc de vuln ABERTA**) |
-| Custo/qualidade de IA | `docs/CUSTO-QUALIDADE.md` **e** o espelho `/admin/vertho/custo-ia` (os DOIS) |
+| Custo/qualidade de IA | `docs/CUSTO-QUALIDADE.md` (doc único desde 01/09/2026 — o espelho HTML em `/admin/vertho/custo-ia` foi aposentado) |
 
 Regras de escrita: o `CLAUDE.md` é resumo operacional — entrada nova ali é **curta e aponta** pro doc canônico. No doc canônico vale o detalhe, com `arquivo:linha`.
 

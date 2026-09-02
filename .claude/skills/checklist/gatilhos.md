@@ -72,8 +72,8 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - 🔴 Só `callAI`/`callAIChat` ou `lib/ai-batch.ts`. **Zero request cru** — guard:
   `tests/unit/integrations/ia-request-cru-guard.test.ts` (allowlist vazia). O **contrato** da API
   muda entre gerações: request cru fica fora do fix (0 vídeos de 05/08 a 10/08, em silêncio).
-- Trocar de modelo: ~26 arquivos + **os dois espelhos** de custo (`docs/CUSTO-QUALIDADE.md` e
-  `/admin/vertho/custo-ia`) + grep de chamada crua (`api.anthropic.com`, `new Anthropic(`,
+- Trocar de modelo: ~26 arquivos + `docs/CUSTO-QUALIDADE.md` + `lib/ia-cost-catalog.ts` (preço e
+  `defaultModel`) + grep de chamada crua (`api.anthropic.com`, `new Anthropic(`,
   `generativelanguage`) + conferir os parâmetros de raciocínio, não só o id. **Env da Vercel vence o código.**
 - Geração de fundo em lote usa `lib/ai-batch.ts` (−50%). Não rodar na mesma janela dois lotes que
   compartilham **fornecedor** (o TTS do Vertex serve narração E podcast — auto-saturação, 12/08).

@@ -592,7 +592,6 @@
         "dataQuality": "Calidad de Datos",
         "boardPainel": "Board (panel de IA)",
         "aiCost": "Costes de IA",
-        "aiCostPlan": "Plan de coste de IA",
         "budget": "Presupuesto",
         "potentialMarket": "Mercado Potencial",
         "companyRadar": "Radar Empresas",
@@ -638,7 +637,6 @@
         "radarQuality": "Calidad Radar",
         "boardPainelSub": "Cuatro modelos, una pregunta",
         "callCatalog": "Catálogo de llamadas",
-        "costPerJourney": "Coste por trayecto",
         "costTableFinal": "Costo / Tabla / Final",
         "citiesNetworksSchools": "Municipios · Redes · Unificado",
         "b2bIntelligence": "Inteligencia comercial B2B",
@@ -752,8 +750,8 @@
         "desc": "RAG per-tenant"
       },
       "costPlan": {
-        "title": "Plan de costo IA",
-        "desc": "Centro de control: costeo, evals y sprints"
+        "title": "Costos de IA",
+        "desc": "Catálogo estimado, real del ledger y costo por jornada"
       }
     }
   },
@@ -3236,7 +3234,7 @@
   },
   "AdminCostSimulator": {
     "title": "Simulador de Coste — IA",
-    "subtitle": "Estimación de gasto con llamadas de IA por unidad de escala (colaborador, escuela Radar, lead, empresa). Precios may/2026.",
+    "subtitle": "Estimación de gasto con llamadas de IA por unidad de escala (colaborador, escuela Radar, lead, empresa). Precios del catálogo, verificados en ago/2026.",
     "real": {
       "heading": "Real medido (ledger)",
       "sub": "Coste real de las llamadas registradas en ia_usage_log. Compara con la estimación de arriba.",
@@ -3319,7 +3317,7 @@
         "Radar narrativa usa cache por datosHash. Los bot crawlers no disparan IA.",
         "Radar propuesta PDF se ejecuta una vez por lead vía worker QStash.",
         "Scorer sem 14 y check se encarecieron después de la triangulación.",
-        "Precios de modelos actualizados en may/2026. Consulte al proveedor para valores vigentes.",
+        "Precios verificados en ago/2026 (Sonnet 5 a $2/$10 es precio ESTÁNDAR desde el 12/08, no promoción). Verifique la documentación del proveedor antes de cualquier cálculo de 2027.",
         "Simulador de Temporada cuesta extra por ronda de prueba."
       ]
     }

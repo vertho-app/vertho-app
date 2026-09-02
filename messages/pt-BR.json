@@ -592,7 +592,6 @@
         "dataQuality": "Qualidade Dados",
         "boardPainel": "Board (painel de IA)",
         "aiCost": "Custos de IA",
-        "aiCostPlan": "Plano de custo IA",
         "budget": "Orçamento",
         "potentialMarket": "Mercado Potencial",
         "companyRadar": "Radar Empresas",
@@ -638,7 +637,6 @@
         "radarQuality": "Radar quality",
         "boardPainelSub": "Quatro modelos, uma pergunta",
         "callCatalog": "Catálogo de chamadas",
-        "costPerJourney": "Custo por jornada",
         "costTableFinal": "Custo / Tabela / Final",
         "citiesNetworksSchools": "Municípios · Redes · Unificado",
         "b2bIntelligence": "Inteligência comercial B2B",
@@ -752,8 +750,8 @@
         "desc": "RAG per-tenant"
       },
       "costPlan": {
-        "title": "Plano de custo IA",
-        "desc": "Centro de controle: custeio, evals e sprints"
+        "title": "Custos de IA",
+        "desc": "Catálogo estimado, real do ledger e custo por jornada"
       }
     }
   },
@@ -4050,7 +4048,7 @@
   },
   "AdminCostSimulator": {
     "title": "Simulador de Custo — IA",
-    "subtitle": "Estimativa de gasto com chamadas de IA por unidade de escala (colab, escola Radar, lead, empresa). Preços mai/2026.",
+    "subtitle": "Estimativa de gasto com chamadas de IA por unidade de escala (colab, escola Radar, lead, empresa). Preços do catálogo, conferidos em ago/2026.",
     "real": {
       "heading": "Real medido (ledger)",
       "sub": "Custo real das chamadas gravadas em ia_usage_log. Compare com a estimativa acima.",
@@ -4133,7 +4131,7 @@
         "Radar narrativa usa cache por dadosHash. Bot crawlers não disparam IA.",
         "Radar proposta PDF roda uma vez por lead via worker QStash.",
         "Scorer sem 14 e check ficaram caros depois da triangulação.",
-        "Preços de modelos atualizados em mai/2026. Consulte fornecedor para valores vigentes.",
+        "Preços conferidos em ago/2026 (Sonnet 5 a $2/$10 é preço PADRÃO desde 12/08, não promoção). Confira na doc do fornecedor antes de qualquer conta de 2027.",
         "Simulador de Temporada custa extra por rodada de teste."
       ]
     }

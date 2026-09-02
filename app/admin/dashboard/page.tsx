@@ -227,9 +227,10 @@ export default function AdminDashboardPage() {
                     title={t('quickActions.budget.title')} desc={t('quickActions.budget.desc')} />
                   <QuickAction onClick={() => router.push('/admin/vertho/knowledge-base')} icon={<Brain size={16} />} accent="#2ecc71"
                     title={t('quickActions.knowledge.title')} desc={t('quickActions.knowledge.desc')} />
-                  {/* Dashboard do plano de custo IA — servido interno (o artefato
-                      claude.ai é privado à conta dona → 404 em outra sessão) */}
-                  <QuickAction onClick={() => router.push('/admin/vertho/custo-ia')} icon={<DollarSign size={16} />} accent="#38bdf8"
+                  {/* Custo de IA: catálogo estimado + o real do ledger + custo por
+                      jornada. Apontava para /admin/vertho/custo-ia (HTML estático)
+                      até 01/09/2026 — ver docs/CUSTO-QUALIDADE.md. */}
+                  <QuickAction onClick={() => router.push('/admin/vertho/simulador-custo')} icon={<DollarSign size={16} />} accent="#38bdf8"
                     title={t('quickActions.costPlan.title')} desc={t('quickActions.costPlan.desc')} />
                 </>
               )}

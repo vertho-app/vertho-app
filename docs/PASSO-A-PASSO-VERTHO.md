@@ -348,7 +348,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 **`/admin/vertho/simulador-custo`** — Calculadora interativa de custo IA (catálogo de chamadas × modelos × presets) **+ painel "Real medido (ledger)"** logo abaixo, lendo `ia_usage_log` por janela de 7/30/90 dias: custo real, cache hit-rate e breakdown por tarefa × modelo. Quando parte das chamadas usa modelo fora do catálogo, a UI avisa que o real está **subestimado** em vez de mentir um total.
 
-**`/admin/vertho/custo-ia`** — Plano de custo/qualidade (espelho do doc `docs/CUSTO-QUALIDADE.md`; os dois precisam ser atualizados juntos). **`/admin/vertho/modulos-base`** — autoria e auditoria dual-IA dos Módulos-Base. **`/admin/vertho/auditorias`** e **`/admin/vertho/orcamento`** — auditoria de blueprints e orçamento.
+**`/admin/vertho/simulador-custo`** — Custo de IA: catálogo estimado, real do ledger, custo por jornada e infra fixa (o plano e o log de decisões vivem em `docs/CUSTO-QUALIDADE.md`). **`/admin/vertho/modulos-base`** — autoria e auditoria dual-IA dos Módulos-Base. **`/admin/vertho/auditorias`** e **`/admin/vertho/orcamento`** — auditoria de blueprints e orçamento.
 
 **`/admin/engajamento`** (não é vertho-only) — visão atual da telemetria: quem abriu o link × quem consumiu de fato. ⚠️ `conteudo_consumido ≈ 0` **não** é falta de engajamento (o sinal real de vídeo é `play_finished`), e o conteúdo da semana fica acessível desde o início — o envio é notificação, não liberação.
 

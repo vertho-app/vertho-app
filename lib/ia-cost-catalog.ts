@@ -148,6 +148,8 @@ export const CALLS = [
   // ── DIAGNÓSTICO (uma vez por colab) ──
   {
     id: 'ia4-avaliacao',
+    escala: { porCompetencia: 1 },
+    taskKey: 'ia4_avaliacao',
     fase: 'Diagnóstico',
     scaleType: 'colab',
     nome: 'IA4 — Avaliação de cenários A',
@@ -160,6 +162,8 @@ export const CALLS = [
   },
   {
     id: 'ia4-check',
+    escala: { porCompetencia: 1 },
+    taskKey: 'ia4_check',
     fase: 'Diagnóstico',
     scaleType: 'colab',
     nome: 'Check IA4 (auditoria 2ª IA)',
@@ -174,6 +178,8 @@ export const CALLS = [
   // ── PERFIL DISC (uma vez por colab, cacheado 30 dias) ──
   {
     id: 'relatorio-disc-textos',
+    escala: { porCiclo: 1 },
+    taskKey: 'relatorio_comportamental',
     fase: 'Perfil DISC',
     scaleType: 'colab',
     nome: 'Relatório Comportamental — textos LLM',
@@ -186,6 +192,8 @@ export const CALLS = [
   },
   {
     id: 'insights-executivos',
+    escala: { porCiclo: 1 },
+    taskKey: 'insights_executivos',
     fase: 'Perfil DISC',
     scaleType: 'colab',
     nome: 'Insights Executivos',
@@ -200,6 +208,8 @@ export const CALLS = [
   // ── GERAÇÃO DA TEMPORADA (uma vez por colab) ──
   {
     id: 'desafio',
+    escala: { porSemanaConteudo: 1 },
+    taskKey: 'temporada_desafio',
     fase: 'Geração Temporada',
     scaleType: 'colab',
     nome: 'Desafio semanal (conteúdo)',
@@ -212,6 +222,8 @@ export const CALLS = [
   },
   {
     id: 'missao',
+    escala: { porMissao: 1 },
+    taskKey: 'temporada_cenario',
     fase: 'Geração Temporada',
     scaleType: 'colab',
     nome: 'Missão Prática',
@@ -224,6 +236,7 @@ export const CALLS = [
   },
   {
     id: 'cenario-fallback',
+    escala: { porMissao: 1 },
     fase: 'Geração Temporada',
     scaleType: 'colab',
     nome: 'Cenário escrito (fallback)',
@@ -238,6 +251,8 @@ export const CALLS = [
   // ── TEMPORADA — CONVERSAS SEMANAIS ──
   {
     id: 'evidencias-socratic',
+    escala: { porSemanaConteudo: 6 },
+    taskKey: 'evidencias_socratic',
     fase: 'Temporada',
     scaleType: 'colab',
     nome: 'Evidências (mentor socrático)',
@@ -250,6 +265,8 @@ export const CALLS = [
   },
   {
     id: 'evidencias-extracao',
+    escala: { porSemanaConteudo: 1 },
+    taskKey: 'temporada_extracao',
     fase: 'Temporada',
     scaleType: 'colab',
     nome: 'Extração estruturada (por sem)',
@@ -262,6 +279,8 @@ export const CALLS = [
   },
   {
     id: 'tira-duvidas',
+    escala: { porSemanaConteudo: 3 },
+    taskKey: 'tira_duvidas',
     fase: 'Temporada',
     scaleType: 'colab',
     nome: 'Tira-Dúvidas',
@@ -274,6 +293,8 @@ export const CALLS = [
   },
   {
     id: 'beto-mentor',
+    escala: { porCiclo: 10 },
+    taskKey: 'beto',
     fase: 'Temporada',
     scaleType: 'colab',
     nome: 'BETO — mentor (dashboard)',
@@ -289,6 +310,7 @@ export const CALLS = [
   // ── EMBEDDING (grounding RAG) ──
   {
     id: 'rag-query-embed',
+    escala: { porSemanaConteudo: 10, porMissao: 10, porCiclo: 3 },
     fase: 'RAG',
     scaleType: 'colab',
     nome: 'Embedding de query (grounding)',
@@ -303,6 +325,8 @@ export const CALLS = [
   // ── TEMPORADA — MISSÃO PRÁTICA (sems 4/8/12) ──
   {
     id: 'missao-feedback',
+    escala: { porMissao: 10 },
+    taskKey: 'temporada_feedback',
     fase: 'Temporada',
     scaleType: 'colab',
     nome: 'Missão Feedback (análise 10 turnos)',
@@ -315,6 +339,8 @@ export const CALLS = [
   },
   {
     id: 'missao-extracao',
+    escala: { porMissao: 1 },
+    taskKey: 'temporada_extracao',
     fase: 'Temporada',
     scaleType: 'colab',
     nome: 'Extração por missão',
@@ -329,6 +355,8 @@ export const CALLS = [
   // ── SEM 13 QUALITATIVA ──
   {
     id: 'sem13-qualitativa',
+    escala: { porQualitativa: 12 },
+    taskKey: 'sem13_qualitativa',
     fase: 'Sem 13',
     scaleType: 'colab',
     nome: 'Conversa qualitativa (12 turnos)',
@@ -341,6 +369,8 @@ export const CALLS = [
   },
   {
     id: 'sem13-extracao',
+    escala: { porQualitativa: 1 },
+    taskKey: 'temporada_extracao',
     fase: 'Sem 13',
     scaleType: 'colab',
     nome: 'Extração qualitativa (antes/depois)',
@@ -355,6 +385,8 @@ export const CALLS = [
   // ── AVALIAÇÃO ACUMULADA (fim sem 13, auto-trigger) ──
   {
     id: 'acumulada-primaria',
+    escala: { porCiclo: 1 },
+    taskKey: 'acumulada_primaria',
     fase: 'Acumulada',
     scaleType: 'colab',
     nome: 'IA Acumuladora (nota por descritor)',
@@ -367,6 +399,8 @@ export const CALLS = [
   },
   {
     id: 'acumulada-check',
+    escala: { porCiclo: 1 },
+    taskKey: 'acumulada_check',
     fase: 'Acumulada',
     scaleType: 'colab',
     nome: 'Check Acumuladora (auditoria)',
@@ -381,6 +415,8 @@ export const CALLS = [
   // ── SEM 14 ──
   {
     id: 'sem14-scorer',
+    escala: { porCiclo: 1 },
+    taskKey: 'sem14_scorer',
     fase: 'Sem 14',
     scaleType: 'colab',
     nome: 'Scorer da avaliação final',
@@ -393,6 +429,8 @@ export const CALLS = [
   },
   {
     id: 'sem14-check',
+    escala: { porCiclo: 1 },
+    taskKey: 'sem14_check',
     fase: 'Sem 14',
     scaleType: 'colab',
     nome: 'Check scorer sem 14',
@@ -407,6 +445,8 @@ export const CALLS = [
   // ── RELATÓRIOS (opcionais — Evolution Report já cobre o caso padrão) ──
   {
     id: 'pdi',
+    escala: { porCiclo: 1 },
+    taskKey: 'pdi_individual',
     fase: 'Relatórios',
     scaleType: 'colab',
     nome: 'PDI Individual',
@@ -420,6 +460,7 @@ export const CALLS = [
   },
   {
     id: 'relatorio-individual',
+    escala: { porCiclo: 1 },
     fase: 'Relatórios',
     scaleType: 'colab',
     nome: 'Relatório Individual (legado)',
@@ -435,6 +476,7 @@ export const CALLS = [
   // ── SETUP DA EMPRESA (one-time por empresa) ──
   {
     id: 'tagging-conteudos',
+    taskKey: 'conteudo_tags',
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'Tagging IA — banco de conteúdos',
@@ -459,6 +501,7 @@ export const CALLS = [
   },
   {
     id: 'ia1-top10',
+    taskKey: 'ia1_top10',
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'IA1 — Top 10 por cargo',
@@ -471,6 +514,7 @@ export const CALLS = [
   },
   {
     id: 'ia2-gabarito',
+    taskKey: 'ia2_gabarito',
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'IA2 — Gabarito',
@@ -483,6 +527,7 @@ export const CALLS = [
   },
   {
     id: 'ia3-cenarios',
+    taskKey: 'ia3_cenarios',
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'IA3 — Cenários A (gerador)',
@@ -495,6 +540,7 @@ export const CALLS = [
   },
   {
     id: 'ia3-cenarios-check',
+    taskKey: 'ia3_check',
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'IA3 — Cenários A (check)',
@@ -507,6 +553,7 @@ export const CALLS = [
   },
   {
     id: 'cenarios-b',
+    taskKey: 'cenarios_b',
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'Cenários B (gerador)',
@@ -519,6 +566,7 @@ export const CALLS = [
   },
   {
     id: 'cenarios-b-check',
+    taskKey: 'cenarios_b_check',
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'Cenários B (check)',
@@ -534,6 +582,7 @@ export const CALLS = [
   // Escala por PEÇA autorada. units = nº de conteúdos daquele formato.
   {
     id: 'conteudo-texto',
+    taskKey: 'conteudo_texto',
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Artigo (texto) — geração',
@@ -546,6 +595,7 @@ export const CALLS = [
   },
   {
     id: 'conteudo-case',
+    taskKey: 'conteudo_case',
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Estudo de caso — geração',
@@ -558,6 +608,7 @@ export const CALLS = [
   },
   {
     id: 'conteudo-podcast-roteiro',
+    taskKey: 'conteudo_podcast',
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Podcast — roteiro (LLM)',
@@ -570,6 +621,7 @@ export const CALLS = [
   },
   {
     id: 'conteudo-podcast-tts',
+    taskKey: 'tts_podcast',
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Podcast — síntese de voz (TTS)',
@@ -584,6 +636,7 @@ export const CALLS = [
   //  Módulo-Base" abaixo, com avatar HeyGen + Remotion.)
   {
     id: 'conteudo-personalizacao',
+    taskKey: 'conteudo_personalizacao',
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Personalização DISC+PPP (PDF)',
@@ -603,6 +656,7 @@ export const CALLS = [
   // upside operacional quando vários roteiros compartilham o mesmo system prompt.
   {
     id: 'video-modulo-roteiro',
+    taskKey: 'conteudo_video',
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Roteiro de vídeo (LLM)',
@@ -616,6 +670,7 @@ export const CALLS = [
   },
   {
     id: 'video-modulo-narracao',
+    taskKey: 'tts_video_cena',
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Narração das cenas (TTS)',
@@ -697,6 +752,7 @@ export const CALLS = [
   },
   {
     id: 'extracao-estrutura',
+    taskKey: 'modulo_base_autor',
     fase: 'Extração de Vídeo',
     scaleType: 'extracao',
     nome: 'Estruturação dos 4 blocos (IA-autora)',
@@ -709,6 +765,7 @@ export const CALLS = [
   },
   {
     id: 'extracao-auditor',
+    taskKey: 'modulo_base_auditor',
     fase: 'Extração de Vídeo',
     scaleType: 'extracao',
     nome: 'Auditoria Dual-IA (ao submeter à revisão)',
@@ -863,4 +920,100 @@ export function calcCost(call, modelId, units = 1) {
   const tokenUsd = ((inTok / 1_000_000) * m.inUsd + (outTok / 1_000_000) * m.outUsd) * (call.costMultiplier || 1);
   const usd = tokenUsd + flat;
   return { usd, inTokens: inTok, outTokens: outTok, totalTokens: inTok + outTok };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTO POR JORNADA — o mesmo catálogo lido pelas DIMENSÕES de cada modo
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * O `exec` de cada chamada `scaleType: 'colab'` é o número da jornada de
+ * REFERÊNCIA (Regular DUO). Ele não serve para os outros modos: uma trilha de 7
+ * semanas com 1 competência não paga o mesmo que uma de 14 com 2.
+ *
+ * Por isso cada chamada declara também `escala`: de que DIMENSÃO do programa o
+ * `exec` depende. As dimensões saem de `lib/season-engine/programa-config.ts` —
+ * a mesma constante que a engine usa para montar a trilha —, então mudar um modo
+ * lá move o custo aqui sem ninguém reeditar número nenhum.
+ *
+ * ⚠️ Os dois números DIVERGEM de propósito onde o catálogo envelheceu, e a
+ * divergência é o achado, não um bug a esconder:
+ *   · `evidencias-socratic` tem `exec: 6*12` (12 semanas de conteúdo), mas o DUO
+ *     real tem **9** slots (`slotsConteudo`) — as outras 5 são missão/avaliação.
+ *   · `ia4-avaliacao` tem `exec: 5` (5 cenários A), e o desenho atual aplica
+ *     **1 por competência**: medido em 01/09/2026, o modo `jornada` fecha em
+ *     1,44 respostas por colaborador (45 pessoas), e a moda geral é 2 = as duas
+ *     competências do DUO. Os 5 são de um desenho anterior.
+ * `execNaJornada` é a régua nova; `call.exec` fica como estava para não mudar em
+ * silêncio o número que as telas mostravam. Quem quiser comparar, compare.
+ */
+export function execNaJornada(call, cfg) {
+  const e = call.escala;
+  if (!e) return call.exec;
+  const semanasConteudo = cfg.slotsConteudo?.length || 0;
+  const missoes = cfg.semanasMissao?.length || 0;
+  const competencias = cfg.numCompetencias || 1;
+  // Conversa qualitativa dedicada existe só onde o fechamento ocupa mais de uma
+  // semana (Regular/DUO = [13, 14]). Piloto, Onboarding e Jornada fecham numa
+  // semana só e não têm essa conversa — ver os comentários de cada PROGRAMA_*.
+  const temQualitativa = (cfg.semanasAvaliacao?.length || 0) > 1 ? 1 : 0;
+  return (
+    (e.porSemanaConteudo || 0) * semanasConteudo +
+    (e.porMissao || 0) * missoes +
+    (e.porCompetencia || 0) * competencias +
+    (e.porQualitativa || 0) * temQualitativa +
+    (e.porCiclo || 0)
+  );
+}
+
+/**
+ * Custo de IA de UM colaborador na jornada descrita por `cfg`, no preset dado.
+ * `incluirOpcionais: false` deixa de fora o que só roda sob demanda (BETO, PDI,
+ * relatório legado) — útil para o piso da conta.
+ */
+export function custoColabNaJornada(cfg, modelFn, opts: { incluirOpcionais?: boolean } = {}) {
+  const incluirOpcionais = opts.incluirOpcionais !== false;
+  let usd = 0;
+  const linhas: { id: string; nome: string; exec: number; usd: number }[] = [];
+  for (const call of CALLS) {
+    if (call.scaleType !== 'colab') continue;
+    if (!incluirOpcionais && (call as any).opcional) continue;
+    const exec = execNaJornada(call, cfg);
+    if (exec <= 0) continue;
+    const c = calcCost({ ...call, exec }, modelFn(call), 1);
+    if (!c) continue;
+    usd += c.usd;
+    linhas.push({ id: call.id, nome: call.nome, exec, usd: c.usd });
+  }
+  return { usd, linhas };
+}
+
+/**
+ * Infra fixa da PLATAFORMA — custo de existir, rateado entre todos os tenants.
+ * Não entra no custo por empresa nem por colaborador: uma empresa nova de 100
+ * pessoas quase não move estes números.
+ *
+ * Faixas conferidas em 01/09/2026 contra o que o projeto usa hoje. Não saem de
+ * fatura: são a ordem de grandeza declarada, e é assim que devem ser lidas.
+ */
+export const INFRA_FIXA = [
+  { servico: 'Vercel', papel: 'Hospedagem Next.js + crons', tipo: 'fixo', usdMes: [20, 20] },
+  { servico: 'Supabase', papel: 'Postgres + Auth + Storage', tipo: 'fixo', usdMes: [25, 25] },
+  { servico: 'WhatsApp Cloud API', papel: 'Cadência oficial (por conversa)', tipo: 'uso', usdMes: [0, 30] },
+  { servico: 'Z-API', papel: 'WhatsApp legado (1 número)', tipo: 'fixo/número', usdMes: [20, 30] },
+  { servico: 'Trigger.dev', papel: 'Jobs de fundo (vídeo, lotes)', tipo: 'uso', usdMes: [0, 20] },
+  { servico: 'Hetzner', papel: 'Render Remotion (CX33 efêmero)', tipo: 'uso', usdMes: [1, 5] },
+  { servico: 'HeyGen', papel: 'Avatar falante (se usar vídeo)', tipo: 'assinatura+uso', usdMes: [29, 89] },
+  { servico: 'Bunny Stream', papel: 'Hosting/CDN de vídeo', tipo: 'uso', usdMes: [1, 10] },
+  { servico: 'Sentry', papel: 'Erros em produção', tipo: 'free/fixo', usdMes: [0, 26] },
+  { servico: 'Upstash QStash', papel: 'Fila de disparos', tipo: 'uso', usdMes: [0, 5] },
+  { servico: 'Resend', papel: 'E-mail transacional', tipo: 'free/fixo', usdMes: [0, 20] },
+  { servico: 'Gamma + domínio', papel: 'Site institucional + DNS', tipo: 'fixo', usdMes: [1, 12] },
+];
+
+export function infraFixaTotal() {
+  return INFRA_FIXA.reduce(
+    (acc, s) => ({ min: acc.min + s.usdMes[0], max: acc.max + s.usdMes[1] }),
+    { min: 0, max: 0 },
+  );
 }

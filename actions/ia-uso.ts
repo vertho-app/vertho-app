@@ -31,6 +31,37 @@ export interface UsoRealResumo {
   dias: number;
 }
 
+export interface CoberturaCatalogo {
+  /** Tarefas de IA declaradas em `lib/ai-tasks.ts` — o registro que a tela de modelos itera. */
+  tasksDeclaradas: number;
+  /** Quantas dessas têm alguma linha de custo estimado no catálogo (`taskKey` em CALLS). */
+  tasksComEstimativa: number;
+  /** As que rodam sem estimativa nenhuma: `{ key, label, fase }`. */
+  semEstimativa: { key: string; label: string; fase: string }[];
+}
+
+/**
+ * Cobertura do catálogo de custo sobre o registro vivo de tarefas.
+ *
+ * Roda no SERVIDOR de propósito: `lib/ai-tasks.ts` carrega o client de
+ * service-role num import dinâmico, e arrastá-lo para um componente `'use client'`
+ * o colocaria no bundle público. A tela só precisa dos números e dos rótulos.
+ */
+export async function getCoberturaCatalogo(): Promise<CoberturaCatalogo> {
+  await requireAdminAction();
+  const { AI_TASKS } = await import('@/lib/ai-tasks');
+  const { CALLS } = await import('@/lib/ia-cost-catalog');
+  const comCusto = new Set(CALLS.map((c: any) => c.taskKey).filter(Boolean));
+  const semEstimativa = AI_TASKS
+    .filter((t) => !comCusto.has(t.key))
+    .map((t) => ({ key: t.key, label: t.label, fase: t.fase }));
+  return {
+    tasksDeclaradas: AI_TASKS.length,
+    tasksComEstimativa: AI_TASKS.length - semEstimativa.length,
+    semEstimativa,
+  };
+}
+
 export async function getUsoRealIA(dias = 30): Promise<UsoRealResumo | { erro: string }> {
   await requireAdminAction();
   const d = Math.min(365, Math.max(1, Math.floor(Number(dias) || 30)));

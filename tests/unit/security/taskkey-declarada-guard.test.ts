@@ -56,11 +56,24 @@ const ORFAS_CONHECIDAS = new Set([
   'temporada_feedback', 'temporada_qualitativa', 'temporada_rubrica',
 ]);
 
+/**
+ * Catálogos são DESCRIÇÃO, não call-site. Citar uma task neles não prova que
+ * alguém a executa — e é justamente a prova que este guard procura.
+ *
+ * 01/09/2026: `lib/ia-cost-catalog.ts` passou a carregar `taskKey` para ligar o
+ * custo estimado ao real do ledger, e três das seis órfãs declaradas
+ * (`temporada_desafio`, `temporada_cenario`, `temporada_feedback`) ganharam uma
+ * "referência" só por aparecerem lá. O guard as deu por resolvidas: dívida real
+ * — seis controles na tela do operador que não roteiam nada — apagada por uma
+ * citação em tabela de preço. Um catálogo referenciando outro não é uso.
+ */
+const CATALOGOS = new Set([CATALOGO, 'lib/ia-cost-catalog.ts']);
+
 function arquivosDeCodigo(): string[] {
   try {
     return execFileSync('git', ['ls-files', '-z', '*.ts', '*.tsx'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] })
       .split('\0')
-      .filter((f) => f && !f.startsWith('tests/') && f !== CATALOGO && existsSync(f));
+      .filter((f) => f && !f.startsWith('tests/') && !CATALOGOS.has(f) && existsSync(f));
   } catch {
     return [];
   }

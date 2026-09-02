@@ -592,7 +592,6 @@
         "dataQuality": "Data Quality",
         "boardPainel": "Board (AI panel)",
         "aiCost": "AI Costs",
-        "aiCostPlan": "AI cost plan",
         "budget": "Budget",
         "potentialMarket": "Market Potential",
         "companyRadar": "Company Radar",
@@ -638,7 +637,6 @@
         "radarQuality": "Radar quality",
         "boardPainelSub": "Four models, one question",
         "callCatalog": "Call book",
-        "costPerJourney": "Cost per journey",
         "costTableFinal": "Cost / Table / Final",
         "citiesNetworksSchools": "Cities · Networks · Unified",
         "b2bIntelligence": "B2B commercial intelligence",
@@ -752,8 +750,8 @@
         "desc": "RAG per-tenant"
       },
       "costPlan": {
-        "title": "AI cost plan",
-        "desc": "Control center: costing, evals and sprints"
+        "title": "AI costs",
+        "desc": "Catalog estimate, ledger actuals and cost per journey"
       }
     }
   },
@@ -4050,7 +4048,7 @@
   },
   "AdminCostSimulator": {
     "title": "Cost Simulator — AI",
-    "subtitle": "Estimate of spending on AI calls per scale unit (team member, Radar school, lead, company). Prices May/2026.",
+    "subtitle": "Estimate of spending on AI calls per scale unit (team member, Radar school, lead, company). Catalog prices, checked Aug/2026.",
     "real": {
       "heading": "Measured (ledger)",
       "sub": "Real cost of calls recorded in ia_usage_log. Compare with the estimate above.",
@@ -4133,7 +4131,7 @@
         "Radar narrativa usa cache por dadosHash. Bot crawlers não disparam IA.",
         "Radar proposta PDF roda uma vez por lead via worker QStash.",
         "Scorer sem 14 e check ficaram caros depois da triangulação.",
-        "Preços de modelos atualizados em mai/2026. Consulte fornecedor para valores vigentes.",
+        "Model prices checked Aug/2026 (Sonnet 5 at $2/$10 is the STANDARD price since Aug 12, not a promo). Check the vendor docs before any 2027 projection.",
         "Simulador de Temporada custa extra por rodada de teste."
       ]
     }

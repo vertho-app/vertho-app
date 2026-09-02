@@ -2,14 +2,33 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard } from 'lucide-react';
+import { Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard, Route } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { CALLS, PRESETS, calcCost } from '@/lib/ia-cost-catalog';
+import { CALLS, PRESETS, calcCost, custoColabNaJornada } from '@/lib/ia-cost-catalog';
+import {
+  PROGRAMA_JORNADA, PROGRAMA_REGULAR_DUO, PROGRAMA_REGULAR,
+  PROGRAMA_ONBOARDING, PROGRAMA_PILOTO,
+} from '@/lib/season-engine/programa-config';
 
 type Metodo = 'votacao' | 'workshop';
 type PresetKey = 'premium' | 'balanced' | 'cheap';
 
 const PRESET_KEYS: PresetKey[] = ['premium', 'balanced', 'cheap'];
+
+/**
+ * A jornada contratada muda o custo por pessoa mais do que qualquer outro campo
+ * desta tela: 7 semanas com 1 competência não paga o que 14 com 2 pagam.
+ * Até 01/09/2026 o orçamento somava o `exec` fixo do catálogo (que descreve só o
+ * Regular DUO) para qualquer proposta — uma jornada de 7 semanas entrava na conta
+ * pelo dobro do que custa. Default = DUO, que é o default global da engine.
+ */
+const JORNADAS = [
+  { key: 'regular_duo', rotulo: 'Regular DUO', sub: '14 sem · 2 comp', cfg: PROGRAMA_REGULAR_DUO },
+  { key: 'jornada', rotulo: 'Jornada', sub: '7 sem · 1 comp', cfg: PROGRAMA_JORNADA },
+  { key: 'regular_single', rotulo: 'Regular', sub: '14 sem · 1 comp', cfg: PROGRAMA_REGULAR },
+  { key: 'onboarding', rotulo: 'Onboarding', sub: '10 sem · 5 comp', cfg: PROGRAMA_ONBOARDING },
+  { key: 'piloto', rotulo: 'Piloto', sub: 'degustação', cfg: PROGRAMA_PILOTO },
+] as const;
 
 const PRECOS_DEFAULT = {
   cotacao: 5.30,              // USD → BRL
@@ -19,7 +38,6 @@ const PRECOS_DEFAULT = {
   precoPerfil: 500,           // R$ por perfil (cargo) dentro do cluster (one-time)
   adicionalWorkshop: 15000,   // R$ por cluster quando método = workshop (one-time)
   manutencaoMensalColab: 0,   // R$ por colaborador / mês (manutenção/suporte — recorrente)
-  custoRenderVideoUsd: 0,     // legado; vídeo gerado agora usa CALLS video_gerado (Hetzner + HeyGen + TTS + Opus batch)
   reusoConteudo: 5,           // colaboradores que compartilham cada peça (1 = único por colab)
   descontoPct: 0,
 };
@@ -78,15 +96,13 @@ function custoIATaggingTotal(presetFn: (call: any) => string): number {
   return calcCost(call, model, 1)?.usd || 0;
 }
 
-function custoIAPorColab(presetFn: (call: any) => string): number {
-  let total = 0;
-  for (const call of CALLS) {
-    if (call.scaleType !== 'colab') continue;
-    const model = presetFn(call);
-    const c = calcCost(call, model, 1);
-    if (c) total += c.usd;
-  }
-  return total;
+/**
+ * Custo de IA por colaborador na jornada escolhida. Delega ao catálogo, que lê
+ * as dimensões do modo (semanas de conteúdo, missões, competências) em vez do
+ * `exec` fixo — ver `custoColabNaJornada` em `lib/ia-cost-catalog.ts`.
+ */
+function custoIAPorColab(presetFn: (call: any) => string, cfg: any): number {
+  return custoColabNaJornada(cfg, presetFn).usd;
 }
 
 /**
@@ -94,30 +110,29 @@ function custoIAPorColab(presetFn: (call: any) => string): number {
  * Cada colaborador recebe N peças por formato; o `reuso` (colabs que
  * compartilham cada peça) divide o custo — reuso=1 significa conteúdo único por
  * colaborador (custo máximo), reuso alto = biblioteca compartilhada (barato).
- * Vídeo e podcast somam mídia (TTS + render Veo, este via `custoRenderVideoUsd`).
+ *
+ * ⚠️ VÍDEO NÃO ENTRA AQUI. O fluxo Veo foi descontinuado, e até 01/09/2026 esta
+ * função ainda recebia `porColab.video` e `custoRenderVideoUsd` para multiplicar
+ * por um `uVideo` fixado em zero: os dois campos existiam na tela, aceitavam
+ * número e não moviam nada na conta. Vídeo hoje é o bloco "Vídeo gerado do
+ * Módulo-Base", que escala por VÍDEO e não por pessoa.
  */
 function custoIAConteudo(
-  porColab: { video: number; podcast: number; texto: number },
+  porColab: { podcast: number; texto: number },
   nColabs: number,
   reuso: number,
-  custoRenderVideoUsd: number,
 ) {
   const byId = (id: string) => CALLS.find((c) => c.id === id);
-  const unit = (id: string, overrideFlat?: number) => {
+  const unit = (id: string) => {
     const call = byId(id);
     if (!call) return 0;
-    const eff = overrideFlat != null ? { ...call, flatUsd: overrideFlat } : call;
-    return calcCost(eff, (eff as any).defaultModel, 1)?.usd || 0;
+    return calcCost(call, (call as any).defaultModel, 1)?.usd || 0;
   };
-  // Vídeo de conteúdo via Veo descontinuado → custo zero por colaborador. O vídeo
-  // agora é gerado por Módulo-Base (bloco próprio no orçamento, por vídeo gerado).
-  void custoRenderVideoUsd;
-  const uVideo = 0;
   const uPodcast = unit('conteudo-podcast-roteiro') + unit('conteudo-podcast-tts');
   const uTexto = unit('conteudo-texto');
   const r = Math.max(1, reuso || 1);
-  const perColab = (porColab.video * uVideo + porColab.podcast * uPodcast + porColab.texto * uTexto) / r;
-  return { perColab, total: perColab * nColabs, uVideo, uPodcast, uTexto };
+  const perColab = (porColab.podcast * uPodcast + porColab.texto * uTexto) / r;
+  return { perColab, total: perColab * nColabs, uPodcast, uTexto };
 }
 
 /**
@@ -166,8 +181,13 @@ export default function OrcamentoPage() {
   const [periodoMeses, setPeriodoMeses] = useState(12); // duração do projeto (meses)
   const [ciclosPorAno, setCiclosPorAno] = useState(1); // temporadas de 14 sem no projeto
   const [preset, setPreset] = useState<PresetKey>('balanced');
+  const [jornada, setJornada] = useState<string>('regular_duo');
+  const cfgJornada = useMemo(
+    () => (JORNADAS.find((j) => j.key === jornada) || JORNADAS[0]).cfg,
+    [jornada],
+  );
   // Geração de conteúdo — peças que CADA colaborador recebe por formato.
-  const [conteudoColab, setConteudoColab] = useState({ video: 9, podcast: 9, texto: 9 });
+  const [conteudoColab, setConteudoColab] = useState({ podcast: 9, texto: 9 });
   function setConteudo<K extends keyof typeof conteudoColab>(k: K, v: number) {
     setConteudoColab((q) => ({ ...q, [k]: v }));
   }
@@ -191,8 +211,8 @@ export default function OrcamentoPage() {
     // Custo IA (USD)
     const custoSetupPorCluster = custoIASetupCluster(nPerfis, metodo, presetFn);
     const custoTaggingTotal = custoIATaggingTotal(presetFn);
-    const custoPorColab = custoIAPorColab(presetFn);
-    const conteudo = custoIAConteudo(conteudoColab, nColabs, pricing.reusoConteudo, pricing.custoRenderVideoUsd);
+    const custoPorColab = custoIAPorColab(presetFn, cfgJornada);
+    const conteudo = custoIAConteudo(conteudoColab, nColabs, pricing.reusoConteudo);
     const custoConteudoTotal = conteudo.total;
     const custoConteudoPorColab = conteudo.perColab;
 
@@ -268,7 +288,7 @@ export default function OrcamentoPage() {
       margemAbs,
       margemPct,
     };
-  }, [nClusters, nPerfis, metodo, nColabs, periodoMeses, ciclosPorAno, preset, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, nVideosGerados, comAvatar]);
+  }, [nClusters, nPerfis, metodo, nColabs, periodoMeses, ciclosPorAno, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, nVideosGerados, comAvatar]);
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
@@ -316,6 +336,26 @@ export default function OrcamentoPage() {
           </div>
         </div>
 
+        {/* Jornada contratada — decide semanas, competências e o custo por pessoa */}
+        <div className="mt-3">
+          <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1 flex items-center gap-1.5">
+            <Route size={12} /> Jornada contratada
+          </label>
+          <div className="flex gap-2 flex-wrap">
+            {JORNADAS.map((j) => (
+              <button key={j.key} onClick={() => setJornada(j.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
+                  jornada === j.key ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300' : 'border-white/10 text-gray-400 hover:text-white'
+                }`}>
+                {j.rotulo} <span className="font-normal opacity-70">· {j.sub}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-[9px] text-gray-600 mt-1">
+            Move o custo de IA por pessoa (USD {calc.custoPorColab.toFixed(2)}/colab nesta jornada), não o valor de tabela.
+          </p>
+        </div>
+
         {/* Preset IA */}
         <div className="mt-3">
           <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('preset')}</label>
@@ -354,11 +394,9 @@ export default function OrcamentoPage() {
         </p>
         <p className="text-[10px] text-gray-500 mb-3">{t('content.hint')}</p>
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-          <FieldNumber locale={locale} icon={<Film size={14} />} label={t('content.video')} value={conteudoColab.video} onChange={(v) => setConteudo('video', v)} min={0} />
           <FieldNumber locale={locale} icon={<Headphones size={14} />} label={t('content.podcast')} value={conteudoColab.podcast} onChange={(v) => setConteudo('podcast', v)} min={0} />
           <FieldNumber locale={locale} icon={<FileText size={14} />} label={t('content.text')} value={conteudoColab.texto} onChange={(v) => setConteudo('texto', v)} min={0} />
           <FieldNumber locale={locale} icon={<Users size={14} />} label={t('content.reuse')} sub={t('content.reuseHint')} value={pricing.reusoConteudo} onChange={(v) => setPricingField('reusoConteudo', v)} min={1} />
-          <FieldNumber locale={locale} icon={<Film size={14} />} label={t('content.videoRenderUsd')} sub={t('content.videoRenderHint')} value={pricing.custoRenderVideoUsd} onChange={(v) => setPricingField('custoRenderVideoUsd', v)} min={0} allowDecimals />
         </div>
         <div className="mt-3 flex flex-wrap gap-4 text-[11px]">
           <span className="text-purple-300 font-semibold">{t('content.perColab')}: USD {calc.custoConteudoPorColab.toFixed(2)}</span>

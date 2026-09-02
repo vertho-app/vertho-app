@@ -1777,3 +1777,86 @@ só devia ler um número. Mesma razão que criou `HEALTH_ALERT_EMAILS`.
 importam: a janela em BRT com as duas bordas (domingo 23:59:59 dentro, segunda
 00:00 fora), a fatia de plataforma entrando no total, o corte da cauda devolvendo
 o resto somado, e base zero não virando divisão por zero.
+## 01/09/2026 — as três telas de custo viraram duas, e o catálogo passou a ler a jornada
+
+Havia **três** entradas de menu para o mesmo assunto: `Custos de IA`
+(`/admin/vertho/simulador-custo`, viva, derivada de `lib/ia-cost-catalog.ts` +
+ledger), `Plano de custo IA` (`/admin/vertho/custo-ia`, um HTML **estático** de
+67 KB congelado em 12/08) e `Orçamento` (`/admin/vertho/orcamento`, comercial em
+BRL). A terceira não é redundante — vende, não mede. A segunda era.
+
+**O que a tela estática ensinava de errado**, medido contra o código em 01/09:
+
+- Listava **três** jornadas (Piloto, Onboarding, Mentor DUO). O modo `jornada`,
+  criado em 05/08 e hoje o formato do produto, **nunca apareceu** — a tabela era
+  digitada à mão a cada revisão e o produto já tinha cinco modos.
+- Afirmava `$3,07/colab`, com preços "jul/2026" e um plano de sprints que este
+  doc já contava melhor e mais atualizado (as entradas de 29/08, 30/08 e 01/09
+  nunca chegaram ao espelho). Doc velho ensina o errado, e este era um espelho
+  que só espelhava para trás.
+
+**O que só ela tinha foi para a tela viva**, calculado em vez de digitado:
+custo por jornada (`custoColabNaJornada`) e infra fixa da plataforma
+(`INFRA_FIXA`). O resto já vivia aqui.
+
+### O `exec` do catálogo descrevia um desenho que não existe mais
+
+Cada chamada `scaleType: 'colab'` agora declara `escala`: de que DIMENSÃO do
+programa o número de execuções depende (semanas de conteúdo, missões,
+competências, fechamento). As dimensões saem de `programa-config.ts` — a mesma
+constante que a engine usa para montar a trilha —, então mudar um modo lá move o
+custo sem ninguém reeditar número nenhum.
+
+Ao decompor, duas premissas antigas caíram:
+
+| chamada | `exec` no catálogo | pela config do DUO |
+|---|---|---|
+| `evidencias-socratic` | 72 (6 × **12** semanas) | 54 (6 × **9** `slotsConteudo`) |
+| `tira-duvidas` | 36 | 27 |
+| `evidencias-extracao` / `desafio` | 12 | 9 |
+| `ia4-avaliacao` / `ia4-check` | **5** (5 cenários A) | **2** (1 por competência) |
+
+As 12 semanas de conteúdo são de quando não havia semana de missão nem
+fechamento em duas semanas; o DUO real tem 9 slots. E os 5 cenários A viraram 1
+por competência: `Medido:` em 01/09, o modo `jornada` fecha em **1,44 respostas
+por colaborador** (45 pessoas, tabela `respostas`), e a moda geral é 2 — as duas
+competências do DUO. O `exec` continua no arquivo, sem alteração, para não mudar
+em silêncio o que as telas mostravam; `execNaJornada` é a régua nova, e a
+divergência entre as duas é visível de propósito.
+
+Custo por colaborador com o preset padrão, pela régua nova:
+
+| jornada | USD/colab | piso (sem BETO/PDI) |
+|---|---|---|
+| Jornada (7 sem · 1 comp) | 1,34 | 1,11 |
+| Regular DUO (14 sem · 2 comp) | 2,59 | 2,35 |
+| Regular single (14 sem · 1 comp) | 2,54 | 2,31 |
+| Onboarding (10 sem · 5 comp) | 1,96 | 1,72 |
+| Piloto | 0,77 | 0,53 |
+
+O orçamento comercial passou a ter **seletor de jornada**: até aqui ele somava o
+`exec` fixo para qualquer proposta, então uma jornada de 7 semanas entrava na
+conta pelo custo de 14 com 2 competências — quase o dobro.
+
+### A cobertura do catálogo, medida em dinheiro
+
+O catálogo de custo e o registro de tarefas (`lib/ai-tasks.ts`) descreviam o
+mesmo universo com chaves diferentes (`ia4-avaliacao` × `ia4_avaliacao`), então o
+painel "real medido" nunca conseguiu confrontar linha a linha com a estimativa.
+Cada item de custo agora carrega `taskKey`, e a tela cruza as duas pontas por
+chamada.
+
+O denominador que isso revelou, em 01/09: **66 tarefas declaradas, 18 com
+estimativa de custo**. As 48 sem estimativa incluem o que mais gastou no
+período — Modo Cena (7 features, US$ 47,7 em quatro dias de agosto), Blueprint
+(US$ 34,2), Copiloto PACE (US$ 21,2), Kit, Arguição, PDI check. A tela mostra
+isso como **percentual do gasto da janela**, não como contagem de tarefas: 40
+tarefas sem estimativa que não rodaram custam zero, e uma que rodou muito custa
+a conta.
+
+Duas leituras da mesma janela (120 dias, US$ 418,07 em 17.889 chamadas):
+
+- `untagged` caiu de **77% (julho) para 1–5% (agosto)** — o trabalho de 07-11/08
+  funcionou. Quem olhar a janela de 90 dias ainda vê 26%, que é herança.
+- As 1.126 chamadas com `cost_usd` nulo são **todas** de 13 a 20/07: modelos que
+  entraram no catálogo depois. Desde 21/07 a cobertura de preço é 100%.

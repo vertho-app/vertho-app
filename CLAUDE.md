@@ -11,7 +11,7 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | Arquitetura | `docs/ARQUITETURA.md` · plano de evolução: `docs/plano-refatoracao-final.md` |
 > | Segurança (estado + critérios de service-role) | `docs/SECURITY-STATUS.md` |
 > | Prompts de IA (70, inclui o Kit) | `docs/CATALOGO-PROMPTS-IA.md` |
-> | Custo/qualidade de IA | `docs/CUSTO-QUALIDADE.md` (espelho em `/admin/vertho/custo-ia`) |
+> | Custo/qualidade de IA | `docs/CUSTO-QUALIDADE.md` · catálogo de preço/tokens: `lib/ia-cost-catalog.ts` |
 > | Schema e migrations | `docs/SCHEMA-PROCESS.md` |
 > | Vídeo (pipeline + 13 templates de cena) | `docs/GERADOR-VIDEO-MODULO.md` · prompt literal em `docs/PROMPT-ROTEIRO-VIDEO.md` |
 > | Conteúdo canônico | `docs/MODULOS-BASE-CONTEUDO.md` · `docs/EXTRACAO-MANUSCRITO.md` · `docs/KIT-SEMANAL.md` |
@@ -288,9 +288,8 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
 - **Supabase** (`mcp__supabase__*`) — **read-only** (`list_tables`, `execute_sql`, `get_advisors`, `get_logs`). Auditar schema/registros/tenant/RLS. **Escrita** (migrations) NÃO vai por aqui — é `node scripts/apply-migration.mjs` (ver skill `migrations`).
 - **Vercel** (`mcp__vercel__*`) — *configurado no MCP global (`~/.claude.json`), não no `.mcp.json` do projeto* — deploys, `get_runtime_logs`, `get_runtime_errors`, duração de função, envs. Project `vertho-app` (`prj_fnvJs6mD7G8q7D5t6VSCDki6VELE`, team `team_u3hDlmBbi5IVqg5OcL4P394u`).
 - **Sentry** (`mcp__sentry__*`) — erros de produção (stack trace, frequência, versão/deploy). OAuth (login no browser na 1ª chamada).
-- **stitch** (Google Stitch) — design.
 
-**Skills** (`.claude/skills/`, versionadas — invocar por `/nome` ou carregar quando o contexto casar): `deploy`, `migrations`, `multi-tenant`, `trigger-dev`, `ai-calls`, `video`, `competency-matrix`, `scenario-generation`, `vertho-design`, `fechar`, **`checklist`** (o que conferir nesta mudança — roteia pelos arquivos tocados, tabela em `checklist/gatilhos.md`) e **`conferir`** (a afirmação ainda bate com o código? — antes de declarar algo fechado/coberto/em produção).
+**Skills** (`.claude/skills/`, versionadas): a listagem da sessão já traz nome e descrição de cada uma. Invocar por `/nome` quando o contexto casar.
 
 **Subagents** (`.claude/agents/`, versionados pela mesma razão das skills): **`guard-auditor`** — audita se um guard prova o que diz, em vez de só estar verde (execução observada, alvo vivo, mutação, pré-condição fechada fora do teste). Rode em worktree isolado: a prova de mutação escreve no código de produção. Agents só carregam no START da sessão. Primeira rodada (30/08) achou o `tenant-mutation-guard` fail-open; ver `docs/SECURITY-STATUS.md` §Manutenção 30/08.
 

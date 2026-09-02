@@ -1457,7 +1457,7 @@ Padrao das mensagens: explicar **o que** vai acontecer, **escopo** (todos / N it
 | Avaliacao Acumulada | **`/admin/vertho/auditorias?tab=sem13`** | Nota por descritor + auditoria + regerar |
 | Auditoria Sem 14 | **`/admin/vertho/auditorias?tab=sem14`** | 4 notas (pre/acumulada/cenario/final) + delta + regerar com feedback |
 | Simulador de Custo | `/admin/vertho/simulador-custo` | Calculadora (catalogo x modelos x presets) **+ painel "Real medido (ledger)"** — `ia_usage_log` por janela 7/30/90d, via a funcao SQL `ia_uso_resumo` (mig 178) |
-| Custo de IA | `/admin/vertho/custo-ia` | Plano custo/qualidade — **espelho de `docs/CUSTO-QUALIDADE.md`; atualizar os DOIS** |
+| Custo de IA | `/admin/vertho/simulador-custo` | Catálogo estimado + real do ledger + custo por jornada + infra fixa. Substituiu `/admin/vertho/custo-ia` (HTML estático) em 01/09/2026 |
 | Modulos-Base | `/admin/vertho/modulos-base` | Autoria + auditoria dual-IA dos modulos canonicos de conteudo |
 | Auditorias / Orcamento | `/admin/vertho/auditorias`, `/admin/vertho/orcamento` | Auditoria de blueprints e orcamento |
 | Knowledge Base (RAG) | `/admin/vertho/knowledge-base` | CRUD + Upload PDF/DOCX + Seed + preview de busca (grounding per-tenant) |

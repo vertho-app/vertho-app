@@ -114,11 +114,12 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'mercado',        labelKey: 'potentialMarket', subKey: 'citiesNetworksSchools', group: 'commercial', icon: TrendingUp, hrefFn: () => '/admin/vertho/mercado-potencial', showWhenEmpresa: false, permission: 'radar_empresas.access' },
 
   // ── Custos ────────────────────────────────────────────────────────────────
+  // 01/09/2026: eram TRÊS entradas para o mesmo assunto. `/admin/vertho/custo-ia`
+  // (o "Plano de custo IA") era um HTML estático congelado em 12/08 — listava três
+  // jornadas quando o produto já tinha cinco, e repetia pior o que
+  // `docs/CUSTO-QUALIDADE.md` conta. O que só ele tinha (custo por jornada e infra
+  // fixa) passou a ser CALCULADO no simulador; o histórico ficou no doc.
   { key: 'custo-ia',  labelKey: 'aiCost', subKey: 'callCatalog',    group: 'costs', icon: BarChart2,  hrefFn: () => '/admin/vertho/simulador-custo', permission: 'ai.costs.view' },
-  // `/admin/vertho/custo-ia` ficou sem entrada de menu desde que foi criada: a
-  // key acima se chama 'custo-ia' mas aponta para o SIMULADOR, então parecia
-  // coberta. É a tela com o custo por jornada (Piloto/Onboarding/Mentor IA).
-  { key: 'plano-custo', labelKey: 'aiCostPlan', subKey: 'costPerJourney', group: 'costs', icon: DollarSign, hrefFn: () => '/admin/vertho/custo-ia',  permission: 'ai.costs.view' },
   { key: 'orcamento', labelKey: 'budget', subKey: 'costTableFinal', group: 'costs', icon: Calculator, hrefFn: () => '/admin/vertho/orcamento',       permission: 'ai.costs.view' },
 
   // ── Sistema (governança + ferramentas internas) ───────────────────────────
