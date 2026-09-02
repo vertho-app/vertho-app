@@ -634,11 +634,47 @@ export async function carregarCapacitacoes(empresaId: string | null, competencia
 
     const { data, error } = await q;
     if (error) return [];
-    return data || [];
+    return intercalarPorFormato(data || []);
   } catch (err) {
     console.error('[carregarCapacitacoes]', err);
     return [];
   }
+}
+
+/**
+ * Alterna os formatos na vitrine, em vez de listar por data.
+ *
+ * A ordenação é `tipo_conteudo`, depois `created_at desc` — e conteúdo é gerado
+ * em lote POR FORMATO. O resultado é que a pessoa abre a home e vê seis áudios
+ * seguidos, não porque só exista áudio, mas porque o áudio foi o último lote a
+ * rodar. `Medido: 02/09/2026` — a rede escolar tinha 6 textos, 6 cases e 6
+ * áudios, e a primeira página mostrava só áudio.
+ *
+ * A ordem DENTRO de cada formato é preservada (core antes de complementar, mais
+ * recente antes), então isto não reordena por relevância: só evita que um lote
+ * ocupe a vitrine inteira.
+ */
+export function intercalarPorFormato<T extends { formato?: string | null }>(itens: T[]): T[] {
+  const filas = new Map<string, T[]>();
+  for (const item of itens) {
+    const formato = String(item.formato || 'outro');
+    if (!filas.has(formato)) filas.set(formato, []);
+    filas.get(formato)!.push(item);
+  }
+  if (filas.size < 2) return itens;
+
+  const ordem = [...filas.values()];
+  const saida: T[] = [];
+  while (saida.length < itens.length) {
+    let avancou = false;
+    for (const fila of ordem) {
+      const proximo = fila.shift();
+      if (proximo) { saida.push(proximo); avancou = true; }
+    }
+    // Guarda contra laço infinito se alguma fila mentir sobre o tamanho.
+    if (!avancou) break;
+  }
+  return saida;
 }
 
 // ── Panorama do RH (Admin da empresa) ──────────────────────────────────────
