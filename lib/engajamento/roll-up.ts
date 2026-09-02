@@ -22,6 +22,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { PROGRESSO } from '@/lib/status';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
+import { derivarPosicaoJornada } from '@/lib/engajamento/posicao-jornada';
 
 /**
  * Regua UNICA de consumo — `lib/season-engine/consumo-conteudo`. Era uma copia
@@ -95,6 +96,29 @@ export async function rollUpEngajamento(
   const envios = enviosRes.data;
   if (!envios?.length) return { resumo: { inscritos: 0 }, colaboradores: [], semanas: [1] };
 
+  // `semana_atual` é o RELÓGIO da cadência, não a posição individual. Para
+  // dizer onde cada pessoa realmente está, carregamos a trilha mais recente e
+  // depois aplicamos a MESMA régua sequencial usada pelos links da cadência.
+  const colaboradorIdsDaPopulacao = [...new Set((envios as any[])
+    .map((e) => e.colaborador_id)
+    .filter(Boolean))];
+  const trilhaPorColab = new Map<string, any>();
+  let trilhasConfiaveis = colaboradorIdsDaPopulacao.length > 0;
+  if (colaboradorIdsDaPopulacao.length) {
+    const trilhasRes = await tdb.from('trilhas')
+      .select('id, colaborador_id, numero_temporada, temporada_plano, data_inicio')
+      .in('colaborador_id', colaboradorIdsDaPopulacao)
+      .order('numero_temporada', { ascending: false });
+    if (trilhasRes.error) {
+      trilhasConfiaveis = false;
+      console.error('[engajamento] posição individual — trilhas:', trilhasRes.error.message);
+    } else {
+      for (const trilha of (trilhasRes.data || []) as any[]) {
+        if (!trilhaPorColab.has(trilha.colaborador_id)) trilhaPorColab.set(trilha.colaborador_id, trilha);
+      }
+    }
+  }
+
   // 2) Eventos (opcionalmente escopados por semana).
   let evQuery = tdb.from('trilha_eventos')
     .select('colaborador_id, pilula, semana, formato, tipo, criado_em');
@@ -112,12 +136,17 @@ export async function rollUpEngajamento(
   if (recorte) vidQuery = vidQuery.in('colaborador_id', recorte);
   const videos = checar('playback de video', await vidQuery) || [];
 
-  // 4) Consumo explícito + evidência (status) — opcionalmente por semana.
+  // 4) Consumo explícito + evidência (status). A posição individual precisa do
+  // histórico completo; o filtro de métricas é aplicado em memória depois.
   let progQuery = tdb.from('temporada_semana_progresso')
-    .select('colaborador_id, semana, tipo, status, conteudo_consumido');
-  if (semFiltro) progQuery = progQuery.eq('semana', semFiltro);
+    .select('trilha_id, colaborador_id, semana, tipo, status, conteudo_consumido');
   if (recorte) progQuery = progQuery.in('colaborador_id', recorte);
-  const progresso = checar('progresso semanal', await progQuery) || [];
+  const progressoRes = await progQuery;
+  const progressoConfiavel = !progressoRes.error;
+  const progressoCompleto = checar('progresso semanal', progressoRes) || [];
+  const progresso = semFiltro
+    ? progressoCompleto.filter((p) => Number(p.semana) === semFiltro)
+    : progressoCompleto;
 
   // 5) Tira-Dúvidas (tutor): só ids das linhas COM conversa — o JSONB do
   //    transcript pesa e aqui só interessa o "usou/não usou".
@@ -144,6 +173,17 @@ export async function rollUpEngajamento(
   const tutorPorColab: Record<string, boolean> = {};
   for (const t of (tutorRows || [])) tutorPorColab[t.colaborador_id] = true;
 
+  // Só o progresso da trilha MAIS RECENTE define a posição. Misturar temporadas
+  // faria uma conclusão antiga liberar uma semana da jornada atual.
+  const progressoJornadaPorColab = new Map<string, any[]>();
+  for (const p of progressoCompleto) {
+    const trilhaAtual = trilhaPorColab.get(p.colaborador_id);
+    if (!trilhaAtual || p.trilha_id !== trilhaAtual.id) continue;
+    const lista = progressoJornadaPorColab.get(p.colaborador_id) || [];
+    lista.push(p);
+    progressoJornadaPorColab.set(p.colaborador_id, lista);
+  }
+
   // Atribui o carimbo de pílula à semana filtrada. true/false só quando dá pra
   // AFIRMAR (semana atual do colab, carimbo depois do último avanço); semana
   // passada devolve null — o carimbo é só do último envio, não há registro.
@@ -158,6 +198,15 @@ export async function rollUpEngajamento(
   const colaboradores = (envios || []).map((e: any) => {
     const evs = evPorColab[e.colaborador_id] || [];
     const vids = vidPorColab[e.colaborador_id] || [];
+    const semanaCalendario = Number(e.semana_atual) || 1;
+    const trilhaAtual = trilhaPorColab.get(e.colaborador_id);
+    const posicao = derivarPosicaoJornada({
+      semanaCalendario,
+      dataInicio: trilhaAtual?.data_inicio || e.data_inicio,
+      plano: trilhaAtual?.temporada_plano || [],
+      progresso: progressoJornadaPorColab.get(e.colaborador_id) || [],
+      confiavel: trilhasConfiaveis && progressoConfiavel && !!trilhaAtual,
+    });
 
     // ● = engajou com a pílula: abertura COM ?p= OU qualquer evento (formato/áudio)
     // atribuído a ela. Antes exigia só 'abertura', mas a abertura raramente carrega
@@ -196,7 +245,13 @@ export async function rollUpEngajamento(
       colaboradorId: e.colaborador_id,
       nome: e.colaboradores?.nome_completo || '—',
       cargo: e.colaboradores?.cargo || '',
-      semanaAtual: e.semana_atual || 1,
+      // Compatibilidade: consumidores antigos ainda leem `semanaAtual` como
+      // calendário. As telas novas usam os nomes sem ambiguidade abaixo.
+      semanaAtual: semanaCalendario,
+      semanaCalendario,
+      semanaAcessivel: posicao.semanaAcessivel,
+      jornadaAtrasada: posicao.atrasada,
+      semanaAcessivelConcluida: posicao.semanaConcluida,
       status: e.status,
       recebeuP1: recebeuNaSemana(e.ultima_pilula1_em, e),
       recebeuP2: recebeuNaSemana(e.ultima_pilula2_em, e),

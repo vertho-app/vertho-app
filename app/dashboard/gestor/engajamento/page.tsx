@@ -28,6 +28,26 @@ function Sinal({ ativo, titulo }: { ativo: boolean | null; titulo: string }) {
     : <span className="text-white/25" aria-label={`${titulo}: não`}>·</span>;
 }
 
+function EtapaJornada({ pessoa }: { pessoa: any }) {
+  if (pessoa.semanaAcessivel == null) {
+    return <span className="text-white/25" title="Posição individual indisponível">—</span>;
+  }
+  const meta = pessoa.jornadaAtrasada
+    ? { label: 'pendente', cor: 'text-amber-300' }
+    : pessoa.semanaAcessivelConcluida
+      ? { label: 'concluída', cor: 'text-emerald-300' }
+      : { label: 'em curso', cor: 'text-brand-300' };
+
+  return (
+    <span
+      className={`whitespace-nowrap text-[11px] font-semibold ${meta.cor}`}
+      title={`Calendário da turma: semana ${pessoa.semanaCalendario}`}
+    >
+      S{pessoa.semanaAcessivel} · {meta.label}
+    </span>
+  );
+}
+
 function Kpi({ icon: Icon, valor, total, label }: any) {
   const pct = total > 0 ? Math.round((valor / total) * 100) : 0;
   return (
@@ -85,13 +105,13 @@ export default function EngajamentoDoTimePage() {
 
         {(dados?.semanas || []).length > 1 && (
           <label className="flex items-center gap-2 text-[11px] text-white/55">
-            Semana
+            Métricas
             <select
               value={semana ?? ''}
               onChange={(e) => setSemana(e.target.value ? Number(e.target.value) : null)}
               className="rounded-lg border border-white/12 bg-[#0b1a2b] px-2 py-1 text-[11px] font-bold text-white outline-none"
             >
-              <option value="">Todas</option>
+              <option value="">Todas as semanas</option>
               {(dados?.semanas || []).map((s: number) => (
                 <option key={s} value={s}>Semana {s}</option>
               ))}
@@ -145,7 +165,7 @@ export default function EngajamentoDoTimePage() {
                 <thead>
                   <tr className="text-[10px] uppercase tracking-[0.14em] text-white/40">
                     <th className="pb-2 font-bold">Pessoa</th>
-                    <th className="pb-2 font-bold text-center">Semana</th>
+                    <th className="pb-2 font-bold text-center">Etapa individual</th>
                     <th className="pb-2 font-bold text-center">Abriu</th>
                     <th className="pb-2 font-bold text-center">Consumiu</th>
                     <th className="pb-2 font-bold text-center">Evidência</th>
@@ -166,7 +186,7 @@ export default function EngajamentoDoTimePage() {
                           </p>
                           <p className="text-[11px] text-white/40">{p.cargo || '—'}</p>
                         </td>
-                        <td className="py-2.5 text-center text-[12px] text-white/70 font-mono">{p.semanaAtual}</td>
+                        <td className="py-2.5 text-center"><EtapaJornada pessoa={p} /></td>
                         <td className="py-2.5 text-center"><Sinal ativo={p.abriuLink} titulo="Abriu o link" /></td>
                         <td className="py-2.5 text-center"><Sinal ativo={p.consumiu} titulo="Consumiu o conteúdo" /></td>
                         <td className="py-2.5 text-center"><Sinal ativo={p.enviouEvidencia} titulo="Entregou evidência" /></td>
@@ -195,7 +215,9 @@ export default function EngajamentoDoTimePage() {
           <p className="mt-3 text-[11px] leading-relaxed text-white/35">
             Engajamento mede presença na jornada, não desempenho: quem abriu, consumiu, entregou a
             evidência da semana e conversou com o Tira-Dúvidas. Um traço significa que não há
-            registro daquele sinal — que é diferente de a pessoa não ter feito.
+            registro daquele sinal — que é diferente de a pessoa não ter feito. A etapa individual
+            é a semana que a pessoa consegue acessar; ela só acompanha o calendário quando as
+            etapas anteriores foram concluídas.
           </p>
         </>
       )}

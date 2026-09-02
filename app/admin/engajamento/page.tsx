@@ -68,15 +68,46 @@ function PctBar({ pct }: { pct: number }) {
   );
 }
 
-function SemanaBadge({ semana }: { semana: number }) {
-  const numero = Number(semana) || 1;
+function SemanaBadge({
+  semana,
+  semanaCalendario,
+  atrasada,
+  concluida,
+}: {
+  semana: number | null;
+  semanaCalendario: number;
+  atrasada: boolean;
+  concluida: boolean;
+}) {
+  if (semana == null) {
+    return (
+      <span
+        title="Não foi possível ler a trilha e o progresso desta pessoa"
+        className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium text-gray-500"
+      >
+        Posição indisponível
+      </span>
+    );
+  }
+
+  const situacao = atrasada
+    ? { label: 'pendente', dot: 'bg-amber-400', style: 'border-amber-400/25 bg-amber-400/10 text-amber-200' }
+    : concluida
+      ? { label: 'concluída', dot: 'bg-emerald-400', style: 'border-emerald-400/25 bg-emerald-400/10 text-emerald-200' }
+      : { label: 'em curso', dot: 'bg-cyan-400', style: 'border-cyan-400/20 bg-cyan-400/10 text-cyan-200' };
+  const titulo = atrasada
+    ? `Pode continuar na semana ${semana}; o calendário da turma está na semana ${semanaCalendario}`
+    : concluida
+      ? `Concluiu a semana ${semana} e está em dia com o calendário da turma`
+      : `Está na semana ${semana}, em dia com o calendário da turma`;
+
   return (
     <span
-      title={`Posição atual na trilha: semana ${numero}`}
-      className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-200 tabular-nums"
+      title={titulo}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums ${situacao.style}`}
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" aria-hidden="true" />
-      Semana {numero}
+      <span className={`h-1.5 w-1.5 rounded-full ${situacao.dot}`} aria-hidden="true" />
+      Semana {semana} · {situacao.label}
     </span>
   );
 }
@@ -84,70 +115,98 @@ function SemanaBadge({ semana }: { semana: number }) {
 function DistribuicaoJornada({
   colaboradores,
   semanas,
-  semanaSelecionada,
+  posicaoSelecionada,
   onSelecionar,
 }: {
   colaboradores: any[];
   semanas: number[];
-  semanaSelecionada: number | null;
+  posicaoSelecionada: number | null;
   onSelecionar: (semana: number | null) => void;
 }) {
-  const distribuicao = semanas.map((semana) => ({
-    semana,
-    total: colaboradores.filter((c) => (Number(c.semanaAtual) || 1) === semana).length,
-  }));
+  const distribuicao = semanas.map((semana) => {
+    const pessoas = colaboradores.filter((c) => Number(c.semanaAcessivel) === semana);
+    const pendentes = pessoas.filter((c) => c.jornadaAtrasada).length;
+    const concluidas = pessoas.filter((c) => !c.jornadaAtrasada && c.semanaAcessivelConcluida).length;
+    return {
+      semana,
+      total: pessoas.length,
+      pendentes,
+      concluidas,
+      emCurso: pessoas.length - pendentes - concluidas,
+    };
+  });
   const maiorTotal = Math.max(1, ...distribuicao.map((item) => item.total));
+  const calendarios = colaboradores
+    .map((c) => Number(c.semanaCalendario))
+    .filter((s) => Number.isFinite(s) && s > 0);
+  const calendarioMin = calendarios.length ? Math.min(...calendarios) : null;
+  const calendarioMax = calendarios.length ? Math.max(...calendarios) : null;
+  const calendarioTexto = calendarioMin == null || calendarioMax == null
+    ? 'Calendário da turma indisponível'
+    : calendarioMin === calendarioMax
+      ? `Calendário da turma: semana ${calendarioMin}`
+      : `Calendários das turmas: semanas ${calendarioMin}–${calendarioMax}`;
+  const semPosicao = colaboradores.filter((c) => c.semanaAcessivel == null).length;
 
   return (
     <section aria-labelledby="distribuicao-jornada-titulo" className="mb-4 rounded-xl border border-white/10 bg-white/[0.035] p-4">
       <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 id="distribuicao-jornada-titulo" className="text-sm font-semibold text-white">
-            Onde cada pessoa está agora
+            Etapa individual da jornada
           </h2>
           <p className="mt-0.5 text-xs text-gray-500">
-            Posição atual na trilha · selecione uma semana para ver as métricas dela
+            Semana que cada pessoa consegue acessar agora · {calendarioTexto}
           </p>
         </div>
-        {semanaSelecionada && (
+        {posicaoSelecionada && (
           <button
             type="button"
             onClick={() => onSelecionar(null)}
             className="rounded-md px-2 py-1 text-xs text-cyan-300 transition-colors hover:bg-cyan-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
           >
-            Limpar filtro da semana {semanaSelecionada}
+            Mostrar todas as pessoas
           </button>
         )}
       </div>
 
       <div className="overflow-x-auto pb-1">
         <div className="flex min-w-max items-end gap-1.5">
-          {distribuicao.map(({ semana, total }) => {
-            const selecionada = semanaSelecionada === semana;
+          {distribuicao.map(({ semana, total, pendentes, emCurso, concluidas }) => {
+            const selecionada = posicaoSelecionada === semana;
             const altura = total === 0 ? 3 : Math.max(12, Math.round((total / maiorTotal) * 38));
             const pessoas = total === 1 ? 'pessoa' : 'pessoas';
+            const detalhes = [
+              pendentes > 0 && `${pendentes} pendente${pendentes === 1 ? '' : 's'}`,
+              emCurso > 0 && `${emCurso} em curso`,
+              concluidas > 0 && `${concluidas} concluída${concluidas === 1 ? '' : 's'}`,
+            ].filter(Boolean).join(', ');
 
             return (
               <button
                 key={semana}
                 type="button"
+                disabled={total === 0}
                 aria-pressed={selecionada}
-                aria-label={`${total} ${pessoas} na semana ${semana}. ${selecionada ? 'Remover filtro' : 'Ver métricas desta semana'}`}
-                title={`${total} ${pessoas} na semana ${semana}`}
+                aria-label={`${total} ${pessoas} na semana ${semana}${detalhes ? `: ${detalhes}` : ''}. ${selecionada ? 'Mostrar todas as pessoas' : 'Filtrar a tabela por esta etapa'}`}
+                title={`${total} ${pessoas} na semana ${semana}${detalhes ? ` · ${detalhes}` : ''}`}
                 onClick={() => onSelecionar(selecionada ? null : semana)}
-                className={`group flex w-[68px] shrink-0 flex-col rounded-lg border px-2 pb-2 pt-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 ${
+                className={`group flex w-[68px] shrink-0 flex-col rounded-lg border px-2 pb-2 pt-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-default ${
                   selecionada
                     ? 'border-cyan-400/40 bg-cyan-400/10'
-                    : 'border-white/[0.07] bg-black/10 hover:border-white/20 hover:bg-white/5'
+                    : 'border-white/[0.07] bg-black/10 enabled:hover:border-white/20 enabled:hover:bg-white/5'
                 }`}
               >
                 <span className="flex h-10 w-full items-end" aria-hidden="true">
                   <span
-                    className={`w-full rounded-sm transition-colors ${
-                      selecionada ? 'bg-cyan-400' : total > 0 ? 'bg-cyan-400/35 group-hover:bg-cyan-400/55' : 'bg-white/10'
-                    }`}
+                    className={`flex w-full flex-col-reverse overflow-hidden rounded-sm transition-opacity ${selecionada ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`}
                     style={{ height: `${altura}px` }}
-                  />
+                  >
+                    {total === 0 && <span className="h-full bg-white/10" />}
+                    {pendentes > 0 && <span className="bg-amber-400" style={{ flexGrow: pendentes }} />}
+                    {emCurso > 0 && <span className="bg-cyan-400" style={{ flexGrow: emCurso }} />}
+                    {concluidas > 0 && <span className="bg-emerald-400" style={{ flexGrow: concluidas }} />}
+                  </span>
                 </span>
                 <span className={`mt-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${selecionada ? 'text-cyan-200' : 'text-gray-500'}`}>
                   Semana {semana}
@@ -160,6 +219,13 @@ function DistribuicaoJornada({
           })}
         </div>
       </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-white/[0.06] pt-3 text-[11px] text-gray-500">
+        <span><span className="text-amber-400">●</span> semana anterior pendente</span>
+        <span><span className="text-cyan-400">●</span> etapa em curso</span>
+        <span><span className="text-emerald-400">●</span> etapa atual concluída</span>
+        {semPosicao > 0 && <span className="text-gray-400">{semPosicao} sem posição disponível</span>}
+      </div>
     </section>
   );
 }
@@ -169,6 +235,7 @@ export default function EngajamentoPage() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [semanaSel, setSemanaSel] = useState<number | null>(null);
+  const [posicaoSel, setPosicaoSel] = useState<number | null>(null);
 
   const carregar = useCallback(async () => {
     if (!empresaId) { setData(null); return; }
@@ -185,6 +252,13 @@ export default function EngajamentoPage() {
   const resumo = data?.resumo;
   const colabs = data?.colaboradores || [];
   const semanas: number[] = data?.semanas || [1];
+  const posicaoSelAtiva = posicaoSel != null
+    && colabs.some((c: any) => Number(c.semanaAcessivel) === posicaoSel)
+    ? posicaoSel
+    : null;
+  const colabsVisiveis = posicaoSelAtiva == null
+    ? colabs
+    : colabs.filter((c: any) => Number(c.semanaAcessivel) === posicaoSelAtiva);
 
   return (
     <div>
@@ -287,8 +361,8 @@ export default function EngajamentoPage() {
           <DistribuicaoJornada
             colaboradores={colabs}
             semanas={semanas}
-            semanaSelecionada={semanaSel}
-            onSelecionar={setSemanaSel}
+            posicaoSelecionada={posicaoSelAtiva}
+            onSelecionar={setPosicaoSel}
           />
 
           <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
@@ -297,7 +371,7 @@ export default function EngajamentoPage() {
                 <thead>
                   <tr className="text-left text-xs text-gray-500 border-b border-white/10">
                     <th className="px-4 py-2.5 font-medium">Colaborador</th>
-                    <th className="hidden px-3 py-2.5 font-medium text-center sm:table-cell">Semana em curso</th>
+                    <th className="hidden px-3 py-2.5 font-medium text-center sm:table-cell">Etapa individual</th>
                     <th className="px-3 py-2.5 font-medium text-center">Recebeu</th>
                     <th className="px-3 py-2.5 font-medium">Pílula 1</th>
                     <th className="px-3 py-2.5 font-medium">Pílula 2</th>
@@ -309,14 +383,28 @@ export default function EngajamentoPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {colabs.map((c: any) => (
+                  {colabsVisiveis.map((c: any) => (
                     <tr key={c.colaboradorId} className="border-b border-white/5 hover:bg-white/5">
                       <td className="px-4 py-2.5">
                         <div className="text-white truncate max-w-[220px]">{c.nome}</div>
                         <div className="text-xs text-gray-500">{c.cargo}</div>
-                        <div className="mt-1.5 sm:hidden"><SemanaBadge semana={c.semanaAtual} /></div>
+                        <div className="mt-1.5 sm:hidden">
+                          <SemanaBadge
+                            semana={c.semanaAcessivel}
+                            semanaCalendario={c.semanaCalendario}
+                            atrasada={c.jornadaAtrasada}
+                            concluida={c.semanaAcessivelConcluida}
+                          />
+                        </div>
                       </td>
-                      <td className="hidden px-3 py-2.5 text-center sm:table-cell"><SemanaBadge semana={c.semanaAtual} /></td>
+                      <td className="hidden px-3 py-2.5 text-center sm:table-cell">
+                        <SemanaBadge
+                          semana={c.semanaAcessivel}
+                          semanaCalendario={c.semanaCalendario}
+                          atrasada={c.jornadaAtrasada}
+                          concluida={c.semanaAcessivelConcluida}
+                        />
+                      </td>
                       <td className="px-3 py-2.5 text-center text-xs">
                         {/* null = sem registro POR SEMANA (o carimbo é só do último envio) */}
                         <span title={c.recebeuP1 === null ? 'sem registro por semana — só o último envio fica carimbado' : ''}
