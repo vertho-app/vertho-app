@@ -1609,7 +1609,7 @@ export default function CopilotClient({
                 <ul><li><Check size={13} /> Objetivo concreto da hora</li><li><Check size={13} /> Três perguntas com verde/vermelho</li><li><Check size={13} /> Evidências e fontes como apêndice</li></ul>
               </div>
             )}
-            <div className={styles.privacyNote}><ShieldCheck size={17} /><p><strong>Fronteira de privacidade</strong>A busca recebe apenas nome, site e perfis sociais oficiais. Briefing e oferta entram somente na análise privada.</p></div>
+            <div className={styles.privacyNote}><ShieldCheck size={17} /><p><strong>Fronteira de privacidade</strong>A busca recebe apenas nome, site, perfis sociais oficiais e o foco do avanço escolhido. Briefing, memória da conta e oferta entram somente na análise privada.</p></div>
           </aside>
 
           {plan && <div className={styles.fullRow}><PlanDossier plan={plan} onGoLive={() => setTab('ao-vivo')} persisted={planPersisted} /></div>}

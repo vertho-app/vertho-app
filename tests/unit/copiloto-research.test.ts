@@ -150,6 +150,121 @@ describe('pesquisa pública do Copiloto', () => {
     expect(new Set(channels.slice(0, 3))).toEqual(new Set(['social', 'news', 'site']));
     expect(channels.slice(0, 6)).toEqual(['social', 'news', 'site', 'social', 'news', 'site']);
   });
+
+  it('registra no ledger a imprensa consultada, inclusive a que não virou fato', async () => {
+    vi.mocked(callOpenAIWebSearch).mockImplementation(async (prompt) => {
+      if (prompt.includes('DEDICADA a notícias')) {
+        return {
+          text: JSON.stringify({ fatos_relevantes: [] }),
+          sources: [
+            { title: 'Exame', url: 'https://exame.com/brasil/amigos-do-bem' },
+            // Release no domínio oficial: a trilha de imprensa não pode reivindicá-lo.
+            { title: 'Release próprio', url: 'https://www.amigosdobem.org/release' },
+            // Rede social também não pertence a esta trilha.
+            { title: 'Post', url: 'https://linkedin.com/company/amigos-do-bem' },
+          ],
+        };
+      }
+      if (prompt.includes('DEDICADA a publicações')) {
+        return { text: JSON.stringify({ fatos_relevantes: [] }), sources: [] };
+      }
+      return {
+        text: JSON.stringify(publicResearch),
+        sources: [{ title: 'Site oficial', url: 'https://www.amigosdobem.org/sobre-nos/' }],
+      };
+    });
+
+    const result = await researchCompany('Amigos do Bem', 'https://www.amigosdobem.org/', []);
+
+    // A matéria lida entra mesmo sem ter virado fato: é o que sustenta a procedência.
+    expect(result.sources).toContainEqual({
+      title: 'Exame', url: 'https://exame.com/brasil/amigos-do-bem', kind: 'news',
+    });
+    expect(result.sources.map((source) => source.url))
+      .not.toContain('https://www.amigosdobem.org/release');
+    expect(result.sources.map((source) => source.url))
+      .not.toContain('https://linkedin.com/company/amigos-do-bem');
+  });
+
+  it('leva o avanço escolhido para as três trilhas, sem nada do briefing', async () => {
+    vi.mocked(callOpenAIWebSearch).mockResolvedValue({
+      text: JSON.stringify({ ...publicResearch, fatos_relevantes: [] }), sources: [],
+    });
+
+    await researchCompany(
+      'Amigos do Bem',
+      'amigosdobem.org',
+      ['https://linkedin.com/company/amigos-do-bem'],
+      'destravar_decisao',
+    );
+
+    const prompts = vi.mocked(callOpenAIWebSearch).mock.calls.map((call) => call[0]);
+    expect(prompts).toHaveLength(3);
+    for (const prompt of prompts) {
+      expect(prompt).toContain('PRIORIDADE DESTA BUSCA');
+      expect(prompt).toContain('ciclo orçamentário');
+    }
+  });
+
+  it('sem avanço escolhido, nenhuma prioridade é injetada', async () => {
+    vi.mocked(callOpenAIWebSearch).mockResolvedValue({
+      text: JSON.stringify({ ...publicResearch, fatos_relevantes: [] }), sources: [],
+    });
+
+    await researchCompany('Amigos do Bem', 'amigosdobem.org', []);
+
+    for (const call of vi.mocked(callOpenAIWebSearch).mock.calls) {
+      expect(call[0]).not.toContain('PRIORIDADE DESTA BUSCA');
+    }
+  });
+
+  it('repete só a trilha que falhou, e a segunda tentativa vale', async () => {
+    let tentativasDeNoticia = 0;
+    vi.mocked(callOpenAIWebSearch).mockImplementation(async (prompt) => {
+      if (prompt.includes('DEDICADA a notícias')) {
+        tentativasDeNoticia += 1;
+        if (tentativasDeNoticia === 1) throw new Error('OpenAI Responses 503');
+        return {
+          text: JSON.stringify({ fatos_relevantes: [{
+            titulo: 'Exame', fato: 'Notícia externa', relevancia: 'Contexto recente',
+            fonte_url: 'https://exame.com/brasil/amigos-do-bem', publicado_em: '2026-08-20',
+            perfil_oficial_url: null,
+          }] }),
+          sources: [{ title: 'Exame', url: 'https://exame.com/brasil/amigos-do-bem' }],
+        };
+      }
+      return { text: JSON.stringify(publicResearch), sources: [] };
+    });
+
+    const result = await researchCompany('Amigos do Bem', 'amigosdobem.org', []);
+
+    expect(tentativasDeNoticia).toBe(2);
+    // O site respondeu de primeira e não foi repetido: 1 chamada de site + 2 de imprensa.
+    expect(callOpenAIWebSearch).toHaveBeenCalledTimes(3);
+    expect(result.newsSearchCompleted).toBe(true);
+    expect(result.research.fatos_relevantes.map((item: any) => item._research_channel))
+      .toContain('news');
+    // O prazo da segunda tentativa é menor, para o par somar o mesmo teto de antes.
+    const prazos = vi.mocked(callOpenAIWebSearch).mock.calls
+      .filter((call) => call[0].includes('DEDICADA a notícias'))
+      .map((call) => call[2]?.timeoutMs);
+    expect(prazos[1]).toBeLessThan(prazos[0] as number);
+    expect((prazos[0] as number) + (prazos[1] as number)).toBeLessThanOrEqual(150000);
+  });
+
+  it('desiste da trilha depois da segunda tentativa e preserva as outras', async () => {
+    vi.mocked(callOpenAIWebSearch).mockImplementation(async (prompt) => {
+      if (prompt.includes('DEDICADA a notícias')) throw new Error('timeout');
+      return { text: JSON.stringify(publicResearch), sources: [] };
+    });
+
+    const result = await researchCompany('Amigos do Bem', 'amigosdobem.org', []);
+
+    expect(result.newsSearchCompleted).toBe(false);
+    expect(result.siteSearchCompleted).toBe(true);
+    expect(result.research.fatos_relevantes.map((item: any) => item._research_channel))
+      .toEqual(['site']);
+  });
 });
 
 describe('prioridade dos fatos de pesquisa', () => {

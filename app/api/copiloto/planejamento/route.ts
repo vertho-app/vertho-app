@@ -539,7 +539,9 @@ async function planejarConversa(req: Request) {
       socialCompleted: !officialSocialUrls.length,
     };
     const researchPromise = company.length >= 2 || site.length >= 4 || officialSocialUrls.length
-      ? researchCompany(company, site, officialSocialUrls)
+      // O avanço entra como prioridade de busca. Só o enum atravessa: briefing, oferta e
+      // memória continuam fora da internet.
+      ? researchCompany(company, site, officialSocialUrls, conversationGoal)
       : Promise.resolve(null);
     const [result, grounding] = await Promise.all([
       researchPromise,
