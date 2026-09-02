@@ -6,6 +6,8 @@ import { interpretarPayload, camposDoStatus, encareceu } from '@/lib/whatsapp/cl
 import { decidirDono, filtroDeTelefone } from '@/lib/whatsapp/resolver-dono';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { fanoutInboxPush } from '@/lib/notifications/inbox-push';
+import { ehPedidoDeResumo, ehRecusa, responderPedidoDeResumo, TEXTO_RECUSA } from '@/lib/notifications/ver-gestor';
+import { enviarTextoCloud } from '@/lib/whatsapp/cloud-api';
 
 /**
  * Webhook da WhatsApp Cloud API — mensagens recebidas e status de entrega.
@@ -191,7 +193,14 @@ export async function POST(req: Request) {
   }
 
   // ── Mensagens recebidas ───────────────────────────────────────────────────
-  const paraPush: Array<{ m: (typeof mensagens)[number]; empresaId: string | null; empresaNome: string | null }> = [];
+  // `colaboradorId` viaja junto porque o roteamento do VER precisa dele para
+  // autorizar, e resolvê-lo de novo aqui seria uma segunda régua de posse.
+  const paraPush: Array<{
+    m: (typeof mensagens)[number];
+    empresaId: string | null;
+    empresaNome: string | null;
+    colaboradorId: string | null;
+  }> = [];
   for (const m of mensagens) {
     try {
       const { empresaId, colaboradorId, ambiguidade } = await resolverDono(sb, m.fromPhone);
@@ -221,7 +230,7 @@ export async function POST(req: Request) {
           empresaNome = (emp as any)?.nome ?? null;
         } catch {}
       }
-      paraPush.push({ m, empresaId, empresaNome });
+      paraPush.push({ m, empresaId, empresaNome, colaboradorId });
     } catch (e: any) {
       console.error('[whatsapp-cloud] gravar mensagem falhou:', e?.message);
       await registrarDegradacao({
@@ -238,7 +247,7 @@ export async function POST(req: Request) {
   // Sem after(), um envio lento seguraria o 200 e a Meta reentregaria/desativaria.
   if (paraPush.length) {
     after(async () => {
-      for (const { m, empresaId, empresaNome } of paraPush) {
+      for (const { m, empresaId, empresaNome, colaboradorId } of paraPush) {
         const preview =
           (m.texto && m.texto.trim().slice(0, 120)) ||
           (m.tipo === 'audio' ? '🎤 áudio' : m.tipo === 'image' ? '🖼️ imagem' : m.tipo === 'document' ? '📄 documento' : `nova mensagem (${m.tipo})`);
@@ -252,6 +261,39 @@ export async function POST(req: Request) {
           });
         } catch (e: any) {
           console.error('[whatsapp-cloud] fanout push falhou:', e?.message);
+        }
+
+        // O "VER" do gestor: responde a lista de nomes na janela de 24h.
+        //
+        // Aqui dentro, e não no caminho do 200, porque montar o resumo e enviar
+        // é I/O lento — segurar a resposta faz a Meta reentregar o evento.
+        //
+        // 🔴 A PALAVRA NÃO AUTORIZA NADA. `responderPedidoDeResumo` só envia se
+        // NÓS tivermos mandado o template para este colaborador nas últimas 24h,
+        // além de ele ser gestor com liderados agora. A resposta carrega nome e
+        // estado de trilha de terceiros.
+        try {
+          if (ehPedidoDeResumo(m.texto)) {
+            const r = await responderPedidoDeResumo({
+              colaboradorId,
+              empresaId,
+              telefone: m.fromPhone,
+              waMessageId: m.waMessageId,
+            });
+            if (!r.enviou) console.log('[whatsapp-cloud] VER não respondido:', r.motivo);
+          } else if (ehRecusa(m.texto)) {
+            // Não desliga nada: quem controla o envio é o RH, e a mensagem já
+            // está na inbox com push para a equipe. O que não pode acontecer é
+            // o pedido ficar SEM resposta — aí a saída que sobra é o Bloquear,
+            // e bloqueio derruba o quality_rating do número, que é de todos os
+            // tenants.
+            await enviarTextoCloud(
+              { phone: m.fromPhone, texto: TEXTO_RECUSA },
+              { motivo: 'resumo-gestor-recusa', dedupeKey: `recusa:${m.waMessageId}`, empresaId },
+            );
+          }
+        } catch (e: any) {
+          console.error('[whatsapp-cloud] roteamento de palavra falhou:', e?.message);
         }
       }
     });
