@@ -18,7 +18,7 @@
  * alta numa reunião.
  */
 
-import { classificarConvergencia, type Convergencia } from '@/lib/season-engine/convergencia';
+import { classificarConvergencia, NIVEL_META_CONFIRMADA, type Convergencia } from '@/lib/season-engine/convergencia';
 import { PROGRESSO } from '@/lib/status';
 
 /**
@@ -203,7 +203,14 @@ export function construirEvolucao(
     .map((descritor) => {
       const seed = seedOf(`${pessoa.email}:${descritor}:${perfil}`);
       const nota_pre = notaDePartida(pessoa.email, descritor);
-      const nota_pos = arredondar(nota_pre + ganhoDoPerfil(perfil, seed));
+      // O perfil "confirmada" precisa ALCANÇAR a meta, não só subir: desde
+      // 02/09/2026 a régua só confirma quem chega a N3, e um ganho generoso
+      // sobre uma partida baixa (1,68 → 2,58) para em "parcial". Sem este piso,
+      // a vitrine da demo não teria uma única evolução confirmada para mostrar.
+      const bruto = nota_pre + ganhoDoPerfil(perfil, seed);
+      const nota_pos = arredondar(perfil === 'confirmada'
+        ? Math.max(bruto, NIVEL_META_CONFIRMADA + ((seed % 3) / 10))
+        : bruto);
       const nivel_percebido = nivelPercebido(perfil, nota_pre, nota_pos);
       return {
         competencia,

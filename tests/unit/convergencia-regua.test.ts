@@ -6,6 +6,7 @@ import {
   CORTE_PARCIAL,
   classificarConvergencia,
   rotuloConvergencia,
+  NIVEL_META_CONFIRMADA,
 } from '@/lib/season-engine/convergencia';
 
 /**
@@ -45,7 +46,11 @@ describe('Régua de convergência', () => {
   it('trata as fronteiras dos cortes como inclusivas para o lado melhor', () => {
     expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2 + CORTE_PARCIAL, nivel_percebido: null }))
       .toBe(CONVERGENCIA.PARCIAL);
+    // 2 + 0,5 = 2,5 sobe o suficiente mas NÃO alcança a meta (N3): confirmada
+    // exige as duas coisas desde 02/09/2026.
     expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2 + CORTE_CONFIRMADA, nivel_percebido: 2.5 }))
+      .toBe(CONVERGENCIA.PARCIAL);
+    expect(classificarConvergencia({ nota_pre: 2.5, nota_pos: NIVEL_META_CONFIRMADA, nivel_percebido: 2.9 }))
       .toBe(CONVERGENCIA.CONFIRMADA);
     expect(classificarConvergencia({ nota_pre: 2, nota_pos: 1.9, nivel_percebido: null }))
       .toBe(CONVERGENCIA.ESTAVEL);
@@ -69,5 +74,25 @@ describe('Régua de convergência', () => {
     expect(core).not.toContain('function classificarConvergencia');
     expect(core).not.toMatch(/'evolucao_confirmada'/);
     expect(core).not.toMatch(/'estagnacao'/);
+  });
+});
+
+describe('meta de nível na convergência', () => {
+  it('não confirma quem subiu muito mas não chegou à meta', () => {
+    // O caso real que motivou a régua (02/09/2026): 1,68 → 2,58 é um salto
+    // grande, e ainda assim a pessoa não está proficiente. "Confirmada" promete
+    // ao gestor uma competência instalada.
+    expect(classificarConvergencia({ nota_pre: 1.68, nota_pos: 2.58, nivel_percebido: 2.6 }))
+      .toBe(CONVERGENCIA.PARCIAL);
+  });
+
+  it('confirma quando o salto E a meta acontecem', () => {
+    expect(classificarConvergencia({ nota_pre: 2.4, nota_pos: 3.1, nivel_percebido: 3 }))
+      .toBe(CONVERGENCIA.CONFIRMADA);
+  });
+
+  it('respeita a meta do programa quando ela é outra (onboarding = N2)', () => {
+    expect(classificarConvergencia({ nota_pre: 1.4, nota_pos: 2.1, nivel_percebido: 2, nivelMeta: 2 }))
+      .toBe(CONVERGENCIA.CONFIRMADA);
   });
 });

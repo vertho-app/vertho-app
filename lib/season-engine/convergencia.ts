@@ -47,6 +47,21 @@ export const CORTE_CONFIRMADA = 0.5;
 export const CORTE_PARCIAL = 0.2;
 
 /**
+ * Nível que a nota de fechamento precisa ALCANÇAR para o veredito ser
+ * "confirmada" — não basta ter subido.
+ *
+ * Decisão do dono do produto (02/09/2026): quem saiu de 1,68 e chegou a 2,58
+ * evoluiu bastante, mas ainda não está proficiente; carimbar isso como
+ * "evolução confirmada" promete ao gestor uma competência instalada que a
+ * pessoa ainda não tem. Enquanto a meta não é atingida, o veredito é
+ * "evolução parcial", que é exatamente o que aconteceu.
+ *
+ * É o mesmo N3 de `nivelMetaAlvo` no ProgramaConfig; o parâmetro existe para o
+ * onboarding, cuja meta é N2.
+ */
+export const NIVEL_META_CONFIRMADA = 3;
+
+/**
  * Rótulos de APRESENTAÇÃO. O valor gravado no banco (`estagnacao`) é
  * vocabulário de engenharia; o que a pessoa lê é outra coisa. Trocar o valor
  * exigiria migrar histórico e reescrever a régua do gestor por nada — trocar o
@@ -79,15 +94,22 @@ export function classificarConvergencia({
   nota_pre,
   nota_pos,
   nivel_percebido,
+  nivelMeta = NIVEL_META_CONFIRMADA,
 }: {
   nota_pre: number;
   nota_pos: number;
   nivel_percebido: number | null;
+  /** Meta do programa (N3 no regular/jornada, N2 no onboarding). */
+  nivelMeta?: number;
 }): Convergencia {
   const delta = nota_pos - nota_pre;
   const qualitativaPositiva = nivel_percebido != null && nivel_percebido > nota_pre;
+  // Subir muito sem chegar à meta é evolução PARCIAL: o gestor lê "confirmada"
+  // como "pode contar com isso", e 2,58 numa régua de 4 ainda não sustenta essa
+  // leitura.
+  const alcancouMeta = nota_pos >= nivelMeta;
 
-  if (delta >= CORTE_CONFIRMADA && qualitativaPositiva) return CONVERGENCIA.CONFIRMADA;
+  if (delta >= CORTE_CONFIRMADA && qualitativaPositiva && alcancouMeta) return CONVERGENCIA.CONFIRMADA;
   if (delta >= CORTE_PARCIAL || qualitativaPositiva) return CONVERGENCIA.PARCIAL;
   // Queda cai aqui de propósito: sem veredito de regressão, o piso da régua é
   // "manteve o patamar". Ver o cabeçalho de CONVERGENCIA.
