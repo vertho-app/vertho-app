@@ -226,6 +226,31 @@ export type DemoRoster = {
   videoDaJornada?: {
     /** UUID fixo do módulo-base criado para a demo (nunca o de um cliente). */
     moduloId: string;
+    /**
+     * UUID fixo da competência-base (catálogo GLOBAL) que ancora o módulo.
+     *
+     * 🔴 O módulo NÃO pode apontar para `competencias` (a tabela por tenant):
+     * ela é apagada a cada reset, o módulo fica com os dois vínculos nulos e
+     * viola `chk_modulo_competencia`. O delete aborta DEPOIS de já ter limpado
+     * colaboradores, trilhas e assessments — o tenant amanhece vazio. Foi o que
+     * aconteceu em 02/09/2026. O vídeo do ACME usa `competencia_base_id` pela
+     * mesma razão.
+     */
+    competenciaBaseId: string;
+    /** A régua do descritor no catálogo (N1→N4), que também alimenta o roteiro. */
+    regua: {
+      n1_gap: string;
+      n2_desenvolvimento: string;
+      n3_meta: string;
+      n4_referencia: string;
+    };
+    /** Identificação da competência-base no catálogo. */
+    codComp: string;
+    codDesc: string;
+    segmento: 'educacao' | 'corporativo';
+    pilar: string;
+    descricaoCompetencia: string;
+    descritorCompleto: string;
     /** UUID fixo da célula em `videos_gerados`. */
     celulaId: string;
     /** Asset já renderizado no Bunny. */

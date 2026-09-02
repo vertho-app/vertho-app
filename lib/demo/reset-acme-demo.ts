@@ -939,26 +939,29 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     if (!cfg) return;
     const libraryId = String(process.env.BUNNY_LIBRARY_ID || 636615);
 
-    // A competencia da demo vive em `competencias` (por empresa x cargo x
-    // descritor) e acabou de ser semeada com ids NOVOS — por isso a busca e por
-    // nome, e nao por um id congelado que nao existe mais.
-    const compResult = await sb.from('competencias')
-      .select('id')
-      .eq('empresa_id', destId).eq('nome', cfg.competencia)
-      .eq('cargo', cfg.cargo).eq('nome_curto', cfg.descritor)
-      .maybeSingle();
-    if (compResult.error) throw new Error(`competencia do video da jornada: ${compResult.error.message}`);
-    if (!compResult.data?.id) {
-      // Fail-loud: sem a competencia o modulo nasceria orfao e o video nunca
-      // apareceria — silencioso, que e o pior jeito de esta demo falhar.
-      throw new Error(`video da jornada: competencia "${cfg.competencia}/${cfg.descritor}" (${cfg.cargo}) nao encontrada no tenant`);
-    }
+    // A ancora e o CATALOGO GLOBAL, nao a competencia do tenant: `competencias`
+    // e apagada a cada reset, e um modulo preso a ela deixa o delete violar
+    // `chk_modulo_competencia` — abortando o reset com o tenant ja meio limpo.
+    const compBase = await sb.from('competencias_base').upsert({
+      id: cfg.competenciaBaseId,
+      segmento: cfg.segmento,
+      cod_comp: cfg.codComp,
+      nome: cfg.competencia,
+      pilar: cfg.pilar,
+      descricao: cfg.descricaoCompetencia,
+      cod_desc: cfg.codDesc,
+      nome_curto: cfg.descritor,
+      descritor_completo: cfg.descritorCompleto,
+      ...cfg.regua,
+      cargo: cfg.cargo,
+    }, { onConflict: 'id' });
+    if (compBase.error) throw new Error(`competencia-base do video da jornada: ${compBase.error.message}`);
 
     const moduloResult = await sb.from('modulos_base_conteudo').upsert({
       id: cfg.moduloId,
       empresa_id: destId,
-      competencia_id: compResult.data.id,
-      competencia_base_id: null,
+      competencia_id: null,
+      competencia_base_id: cfg.competenciaBaseId,
       locale: 'pt-BR',
       nivel_entrada: cfg.nivelEntrada,
       nivel_destino: cfg.nivelDestino,
