@@ -411,8 +411,8 @@ export default function RelatorioEngajamentoMockup() {
   const data = REPORTS[audience];
   const detailHref = useMemo(() => (
     empresaId
-      ? `/admin/engajamento/evolucao?empresa=${encodeURIComponent(empresaId)}`
-      : '/admin/engajamento/evolucao'
+      ? `/admin/engajamento?empresa=${encodeURIComponent(empresaId)}&view=evolucao`
+      : '/admin/engajamento?view=evolucao'
   ), [empresaId]);
 
   const companyName = empresa?.nome || 'Empresa demonstrativa';
