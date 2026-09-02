@@ -504,4 +504,67 @@ describe('prepararLoteTemplate', () => {
       empresaId: 'emp-1', template: 'avaliacao_competencias', colabs: [professor()],
     })).rejects.toThrow(/relação ausente/);
   });
+  /**
+   * `encerramento_conteudo` — quem ficou com semanas em aberto quando o
+   * programa encerrou a etapa de conteúdo.
+   *
+   * 🔴 O QUE ESTES CASOS IMPEDEM (medido 02/09/2026, Ibipeba). A primeira versão
+   * do resolvedor excluía por `semanaAcessivel >= semanaCenarioB`, e o dry-run
+   * mostrou as 8 pessoas que já haviam concluído TODO o conteúdo dentro do lote,
+   * prestes a receber "na sua trilha ainda há semanas em aberto".
+   *
+   * A causa é o significado de `primeiraSemanaAcessivel`: ela parte da semana do
+   * CALENDÁRIO e desce até a primeira que abre — nunca sobe acima dele. Com o
+   * calendário na 7, quem concluiu tudo tem `semanaAcessivel` 7, não 9, e a
+   * comparação com o fim do plano não exclui ninguém enquanto o calendário não
+   * chegar lá. O sinal certo é a semana acessível estar CONCLUÍDA.
+   */
+  describe('encerramento_conteudo', () => {
+    it('inclui quem tem a semana acessível em aberto, com o link dela', async () => {
+      const sb = mock(contextoCadencia({
+        semanaAtual: 7,
+        progressos: [{ trilha_id: 'trilha-1', colaborador_id: 'c1', semana: 1, status: PROGRESSO.CONCLUIDO, reflexao: null, feedback: null }],
+      }));
+      const lote = await prepararLoteTemplate(sb.client, {
+        empresaId: 'emp-1', template: 'encerramento_conteudo', colabs: [professor()],
+      });
+      expect(lote.alvos).toHaveLength(1);
+      // {{3}} é o link da semana que ela CONSEGUE abrir (2), não a do calendário (7).
+      expect(lote.alvos[0].params[2]).toContain('/semana/2');
+    });
+
+    it('EXCLUI quem concluiu a semana acessível, mesmo com o calendário atrás do fim do plano', async () => {
+      // Reproduz o caso real de Ibipeba: o plano vai até a 4 (avaliação), o
+      // CALENDÁRIO ainda está na 3 e a pessoa concluiu 1, 2 e 3. A semana
+      // acessível é 3 — a que o calendário aponta —, e ela está concluída.
+      // Pela régua antiga (`semanaAcessivel >= semanaCenarioB`), 3 < 4 e a
+      // pessoa entraria no lote.
+      const sb = mock(contextoCadencia({
+        semanaAtual: 3,
+        plano: [...planoCadencia, { semana: 4, tipo: 'avaliacao' }],
+        progressos: [
+          { trilha_id: 'trilha-1', colaborador_id: 'c1', semana: 1, status: PROGRESSO.CONCLUIDO, reflexao: null, feedback: null },
+          { trilha_id: 'trilha-1', colaborador_id: 'c1', semana: 2, status: PROGRESSO.CONCLUIDO, reflexao: null, feedback: null },
+          { trilha_id: 'trilha-1', colaborador_id: 'c1', semana: 3, status: PROGRESSO.CONCLUIDO, reflexao: null, feedback: null },
+        ],
+      }));
+      const lote = await prepararLoteTemplate(sb.client, {
+        empresaId: 'emp-1', template: 'encerramento_conteudo', colabs: [professor()],
+      });
+      expect(lote.alvos).toHaveLength(0);
+      expect(lote.excluidos[0]).toMatchObject({
+        motivo: 'concluiu a última semana que pode abrir; não há conteúdo em aberto',
+        quantidade: 1,
+      });
+    });
+
+    it('exclui quem não tem trilha ativa — a mensagem afirma um estado da trilha', async () => {
+      const sb = mock({ envios: [], trilhas: [] });
+      const lote = await prepararLoteTemplate(sb.client, {
+        empresaId: 'emp-1', template: 'encerramento_conteudo', colabs: [professor()],
+      });
+      expect(lote.alvos).toHaveLength(0);
+      expect(lote.excluidos[0].motivo).toMatch(/sem cadência ativa ou trilha gerada/);
+    });
+  });
 });

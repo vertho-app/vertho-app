@@ -243,6 +243,26 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
   encerramento_conteudo: (c, ctx) => {
     const cadencia = exigirCadencia(c, ctx);
     if ('excluir' in cadencia) return cadencia;
+    /**
+     * 🔴 O TESTE É `statusDaSemana`, NÃO a comparação com a semana do cenário B.
+     *
+     * A primeira versão excluía por `semanaAcessivel >= semanaCenarioB` e deixou
+     * as 8 pessoas que já haviam fechado todo o conteúdo DENTRO do lote — o
+     * dry-run de 02/09 mostrou os 8 na lista, prestes a receber "na sua trilha
+     * ainda há semanas em aberto", que é falso para elas.
+     *
+     * O erro é sobre o que `primeiraSemanaAcessivel` significa: ela parte da
+     * semana do CALENDÁRIO e desce até a primeira que abre — nunca sobe. No dia
+     * em que o calendário está na 7, quem concluiu tudo tem `semanaAcessivel` 7,
+     * e não 9. Comparar com o fim do plano nunca exclui ninguém antes de o
+     * calendário chegar lá.
+     *
+     * Quem fechou a semana que pode abrir não tem nada em aberto ali — é a mesma
+     * régua que `registro_evidencia` usa, e pelo mesmo motivo.
+     */
+    if (cadencia.statusDaSemana === PROGRESSO.CONCLUIDO) {
+      return { excluir: 'concluiu a última semana que pode abrir; não há conteúdo em aberto' };
+    }
     const semCenarioB = semanaCenarioBDoPlano(cadencia.plano, 14);
     if (cadencia.semanaAcessivel >= semCenarioB) {
       return { excluir: 'já alcançou a avaliação final; não há semana em aberto' };
