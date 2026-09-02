@@ -120,20 +120,21 @@ describe('a regra é do parâmetro, não do corpo', () => {
     expect(TEMPLATES.resumo_equipe_semanal.body).toContain('\n');
   });
 
-  it('o resumo do gestor cabe na régua de proporção da Meta', () => {
+  // A régua vale para TODO template do catálogo, não só para os do gestor: é a
+  // única das restrições da Meta que dá para conferir sem submeter.
+  it.each(Object.entries(TEMPLATES))('%s cabe na régua de proporção da Meta', (_chave, def) => {
     // ~3 palavras fixas por variável, +1. Abaixo disso a Meta rejeita por
     // "too many variable parameters relative to the message length".
-    const body = TEMPLATES.resumo_equipe_semanal.body;
-    const vars = body.match(/\{\{\d+\}\}/g) ?? [];
-    const palavras = body.replace(/\{\{\d+\}\}/g, ' ').split(/\s+/).filter(Boolean);
+    const vars = def.body.match(/\{\{\d+\}\}/g) ?? [];
+    const palavras = def.body.replace(/\{\{\d+\}\}/g, ' ').split(/\s+/).filter(Boolean);
 
-    expect(vars).toHaveLength(4);
+    expect(vars.length).toBeLessThanOrEqual(10);
     expect(palavras.length).toBeGreaterThanOrEqual(3 * vars.length + 1);
-    expect(body.length).toBeLessThanOrEqual(1024);
-    expect(TEMPLATES.resumo_equipe_semanal.example).toHaveLength(vars.length);
+    expect(def.body.length).toBeLessThanOrEqual(1024);
+    expect(def.example).toHaveLength(vars.length);
     // Não começa nem termina com variável, e não tem duas coladas.
-    expect(body.trimStart().startsWith('{{')).toBe(false);
-    expect(body.trimEnd().endsWith('}}')).toBe(false);
-    expect(/\}\}[\s\W]{0,2}\{\{/.test(body)).toBe(false);
+    expect(def.body.trimStart().startsWith('{{')).toBe(false);
+    expect(def.body.trimEnd().endsWith('}}')).toBe(false);
+    expect(/\}\}[\s\W]{0,2}\{\{/.test(def.body)).toBe(false);
   });
 });

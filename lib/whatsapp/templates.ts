@@ -737,13 +737,27 @@ export const TEMPLATES = {
    * responder VER; a resposta abre a janela de 24h e os nomes vão por TEXTO
    * LIVRE (4.096 chars, quebra de linha à vontade, sem revisão da Meta).
    *
-   * ⚠️ SEM BOTÃO, DE PROPÓSITO. Medido nos 28 aprovados em 02/09/2026: com botão
-   * 2 UTILITY × 3 MARKETING; sem botão 17 × 5. O botão quase triplica a chance de
-   * MARKETING, que custa 6× e aumenta bloqueio — e bloqueio derruba o
-   * `quality_rating` de um número que é COMPARTILHADO por todos os tenants. Por
-   * isso o convite é palavra-chave, não botão. (Todos os nossos botões são URL;
-   * QUICK_REPLY nunca foi submetido, então para ele o denominador é zero — e o
-   * `TemplateDef` daqui nem o expressa.)
+   * 🔴 ELE CAIU PARA MARKETING, E A LIÇÃO É SOBRE O MEU MÉTODO (02/09/2026).
+   *
+   * Submetido sem botão porque os 28 aprovados diziam: com botão 2 UTILITY × 3
+   * MARKETING, sem botão 17 × 5. A Meta reclassificou para MARKETING em minutos,
+   * ainda em PENDING. **A amostra de 5 templates com botão nunca sustentou a
+   * inferência** — e `semana_pendente_v2` já estava ali como UTILITY COM botão,
+   * contradizendo a regra que eu tinha acabado de extrair. Ruído lido como sinal.
+   *
+   * O que a comparação dos corpos mostra, esse sim com par limpo: os UTILITY
+   * ancoram num item ESPECÍFICO da conta de quem recebe ("o conteúdo da semana 5
+   * da SUA trilha", "SUA trilha está na semana 2") e apontam onde consultá-lo. Os
+   * MARKETING anunciam disponibilidade e cobram. Este aqui trazia dois sinais de
+   * assinatura que nenhum UTILITY nosso tem: **anúncio de recorrência** ("chega
+   * toda semana", que é literalmente o que uma newsletter promete) e um relatório
+   * periódico sobre TERCEIROS, sem transação da conta de quem lê.
+   *
+   * Fica registrado em vez de apagado porque foi ele que produziu
+   * `acompanhamento_equipe_semana` abaixo — e porque apagar template deixa o nome
+   * QUEIMADO. Se aquele voltar UTILITY, este some do uso; se voltar MARKETING
+   * também, o próximo teste é trocar o convite "Responda VER" por link, no molde
+   * do `conteudo_semana_pendente_v3`.
    *
    * ⚠️ NÃO OFERECE SAÍDA, MAS A RECUSA TEM QUE SER RECONHECIDA. O resumo é
    * ferramenta de trabalho e chega toda semana — anunciar o ritmo ("chega toda
@@ -764,6 +778,36 @@ export const TEMPLATES = {
     language: 'pt_BR',
     body: 'Olá, {{1}}. Nesta semana, {{2}} das {{3}} pessoas da sua equipe avançaram na trilha, e {{4}} estão a um passo de concluir.\n\nResponda VER para receber os nomes e o que falta para cada uma.\n\nEste resumo da sua equipe chega toda semana.',
     example: ['Carla', '8', '11', '3'],
+  },
+
+  /**
+   * A SEGUNDA TENTATIVA do resumo do gestor — muda UMA variável de cada vez.
+   *
+   * Contra o `resumo_equipe_semanal` (MARKETING), duas diferenças, ambas na
+   * direção do que os nossos UTILITY fazem:
+   *
+   *  1. **Sai o anúncio de recorrência.** "Chega toda semana" é a promessa de uma
+   *     assinatura; nenhum UTILITY nosso diz isso. O ritmo passa a ser combinado
+   *     no onboarding do gestor, fora do template — o que protege o canal do
+   *     mesmo jeito, sem pôr a palavra na mensagem.
+   *  2. **Ancora na SEMANA da trilha** (`{{2}}`), como `conteudo_semana_pendente_v3`
+   *     e `semana_pendente_v2` fazem. Deixa de ser um relatório periódico solto e
+   *     passa a se referir a um ciclo específico do serviço que a empresa contratou.
+   *
+   * O convite "Responda VER" FICA, de propósito: é o que abre a janela de 24h por
+   * onde os nomes saem, e é a hipótese que este teste NÃO mexe. Se voltar
+   * MARKETING de novo, aí sim o próximo passo é trocá-lo por link.
+   *
+   * ⚠️ Nome novo em vez de recriar o anterior: apagar deixa o nome queimado
+   * enquanto a exclusão processa, e dois templates byte-iguais recebem
+   * classificações independentes.
+   */
+  acompanhamento_equipe_semana: {
+    name: 'acompanhamento_equipe_semana',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. O acompanhamento da sua equipe na semana {{2}} está fechado: {{3}} das {{4}} pessoas avançaram na trilha, e {{5}} estão a um passo de concluir.\n\nResponda VER para receber os nomes e o que falta para cada uma.',
+    example: ['Carla', '5', '8', '11', '3'],
   },
 } as const satisfies Record<string, TemplateDef>;
 
