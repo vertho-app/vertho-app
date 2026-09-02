@@ -68,6 +68,102 @@ function PctBar({ pct }: { pct: number }) {
   );
 }
 
+function SemanaBadge({ semana }: { semana: number }) {
+  const numero = Number(semana) || 1;
+  return (
+    <span
+      title={`Posição atual na trilha: semana ${numero}`}
+      className="inline-flex items-center gap-1.5 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-2 py-0.5 text-[11px] font-semibold text-cyan-200 tabular-nums"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-cyan-400" aria-hidden="true" />
+      Semana {numero}
+    </span>
+  );
+}
+
+function DistribuicaoJornada({
+  colaboradores,
+  semanas,
+  semanaSelecionada,
+  onSelecionar,
+}: {
+  colaboradores: any[];
+  semanas: number[];
+  semanaSelecionada: number | null;
+  onSelecionar: (semana: number | null) => void;
+}) {
+  const distribuicao = semanas.map((semana) => ({
+    semana,
+    total: colaboradores.filter((c) => (Number(c.semanaAtual) || 1) === semana).length,
+  }));
+  const maiorTotal = Math.max(1, ...distribuicao.map((item) => item.total));
+
+  return (
+    <section aria-labelledby="distribuicao-jornada-titulo" className="mb-4 rounded-xl border border-white/10 bg-white/[0.035] p-4">
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 id="distribuicao-jornada-titulo" className="text-sm font-semibold text-white">
+            Onde cada pessoa está agora
+          </h2>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Posição atual na trilha · selecione uma semana para ver as métricas dela
+          </p>
+        </div>
+        {semanaSelecionada && (
+          <button
+            type="button"
+            onClick={() => onSelecionar(null)}
+            className="rounded-md px-2 py-1 text-xs text-cyan-300 transition-colors hover:bg-cyan-400/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+          >
+            Limpar filtro da semana {semanaSelecionada}
+          </button>
+        )}
+      </div>
+
+      <div className="overflow-x-auto pb-1">
+        <div className="flex min-w-max items-end gap-1.5">
+          {distribuicao.map(({ semana, total }) => {
+            const selecionada = semanaSelecionada === semana;
+            const altura = total === 0 ? 3 : Math.max(12, Math.round((total / maiorTotal) * 38));
+            const pessoas = total === 1 ? 'pessoa' : 'pessoas';
+
+            return (
+              <button
+                key={semana}
+                type="button"
+                aria-pressed={selecionada}
+                aria-label={`${total} ${pessoas} na semana ${semana}. ${selecionada ? 'Remover filtro' : 'Ver métricas desta semana'}`}
+                title={`${total} ${pessoas} na semana ${semana}`}
+                onClick={() => onSelecionar(selecionada ? null : semana)}
+                className={`group flex w-[68px] shrink-0 flex-col rounded-lg border px-2 pb-2 pt-1.5 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 ${
+                  selecionada
+                    ? 'border-cyan-400/40 bg-cyan-400/10'
+                    : 'border-white/[0.07] bg-black/10 hover:border-white/20 hover:bg-white/5'
+                }`}
+              >
+                <span className="flex h-10 w-full items-end" aria-hidden="true">
+                  <span
+                    className={`w-full rounded-sm transition-colors ${
+                      selecionada ? 'bg-cyan-400' : total > 0 ? 'bg-cyan-400/35 group-hover:bg-cyan-400/55' : 'bg-white/10'
+                    }`}
+                    style={{ height: `${altura}px` }}
+                  />
+                </span>
+                <span className={`mt-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${selecionada ? 'text-cyan-200' : 'text-gray-500'}`}>
+                  Semana {semana}
+                </span>
+                <span className={`mt-0.5 text-sm font-semibold tabular-nums ${selecionada ? 'text-white' : 'text-gray-300'}`}>
+                  {total} <span className="text-[10px] font-normal text-gray-500">{pessoas}</span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function EngajamentoPage() {
   const { empresaId, empresa } = useEmpresaContexto();
   const [loading, setLoading] = useState(false);
@@ -112,12 +208,13 @@ export default function EngajamentoPage() {
               <TrendingUp size={13} /> Página B
             </Link>
             <select
+              aria-label="Métricas da semana"
               value={semanaSel ?? ''}
               onChange={(e) => setSemanaSel(e.target.value ? Number(e.target.value) : null)}
               disabled={!empresaId}
               className="text-xs px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 disabled:opacity-40">
-              <option value="">Todas as semanas</option>
-              {semanas.map((s) => <option key={s} value={s}>Semana {s}</option>)}
+              <option value="">Métricas · todas as semanas</option>
+              {semanas.map((s) => <option key={s} value={s}>Métricas · semana {s}</option>)}
             </select>
             <button onClick={carregar} disabled={loading || !empresaId}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 disabled:opacity-40">
@@ -187,12 +284,20 @@ export default function EngajamentoPage() {
             </div>
           </div>
 
+          <DistribuicaoJornada
+            colaboradores={colabs}
+            semanas={semanas}
+            semanaSelecionada={semanaSel}
+            onSelecionar={setSemanaSel}
+          />
+
           <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-xs text-gray-500 border-b border-white/10">
                     <th className="px-4 py-2.5 font-medium">Colaborador</th>
+                    <th className="hidden px-3 py-2.5 font-medium text-center sm:table-cell">Semana em curso</th>
                     <th className="px-3 py-2.5 font-medium text-center">Recebeu</th>
                     <th className="px-3 py-2.5 font-medium">Pílula 1</th>
                     <th className="px-3 py-2.5 font-medium">Pílula 2</th>
@@ -209,7 +314,9 @@ export default function EngajamentoPage() {
                       <td className="px-4 py-2.5">
                         <div className="text-white truncate max-w-[220px]">{c.nome}</div>
                         <div className="text-xs text-gray-500">{c.cargo}</div>
+                        <div className="mt-1.5 sm:hidden"><SemanaBadge semana={c.semanaAtual} /></div>
                       </td>
+                      <td className="hidden px-3 py-2.5 text-center sm:table-cell"><SemanaBadge semana={c.semanaAtual} /></td>
                       <td className="px-3 py-2.5 text-center text-xs">
                         {/* null = sem registro POR SEMANA (o carimbo é só do último envio) */}
                         <span title={c.recebeuP1 === null ? 'sem registro por semana — só o último envio fica carimbado' : ''}
