@@ -58,6 +58,21 @@ export function parseProgramaCustom(raw: unknown): ProgramaCustomInputs | null {
  * Deriva a ProgramaConfig completa dos inputs. Lança em input fora dos
  * limites (defesa contra chamada sem parse) — nunca degrada silenciosamente.
  */
+/**
+ * Onde o gestor avalia num programa MONTADO pelo cliente.
+ *
+ * As constantes de programa trazem as semanas escritas (DUO [5,10], jornada
+ * [3,5]); o custom tem duração variável, então a proporção é calculada: ~1/3 e
+ * ~2/3 do percurso de CONTEÚDO, sem repetir e sem passar do fim. Programas
+ * muito curtos ficam com um checkpoint só — dois pontos numa jornada de duas
+ * semanas seria cerimônia, não acompanhamento.
+ */
+function semanasCheckpointDe(semanasDeConteudo: number): number[] {
+  if (semanasDeConteudo < 3) return [];
+  const pontos = [Math.round(semanasDeConteudo / 3), Math.round((semanasDeConteudo * 2) / 3)];
+  return [...new Set(pontos)].filter((semana) => semana >= 1 && semana <= semanasDeConteudo);
+}
+
 export function derivarConfigCustom(inputs: ProgramaCustomInputs): ProgramaConfig {
   const valido = parseProgramaCustom(inputs);
   if (!valido) {
@@ -76,6 +91,7 @@ export function derivarConfigCustom(inputs: ProgramaCustomInputs): ProgramaConfi
       semanas: semanaFech,
       semanasMissao: [],
       semanasAvaliacao: [semanaFech],
+      semanasCheckpoint: semanasCheckpointDe(semanas),
       semanaCenarioB: semanaFech,
       // Acumulada dispara ao concluir a ÚLTIMA semana de conteúdo (mesma
       // maquinaria do piloto: task Trigger + gate no fechamento).
@@ -102,6 +118,7 @@ export function derivarConfigCustom(inputs: ProgramaCustomInputs): ProgramaConfi
     semanas,
     semanasMissao: [],
     semanasAvaliacao: [],
+    semanasCheckpoint: semanasCheckpointDe(semanas),
     // 0 = inalcançável (semana >= 1): sem slot de Cenário B e a acumulada
     // nunca dispara — não há fechamento pra consumi-la.
     semanaCenarioB: 0,
