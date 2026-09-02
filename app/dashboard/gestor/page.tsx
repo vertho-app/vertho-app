@@ -94,12 +94,21 @@ export default function GestorHomePage() {
             sem nada: a evolucao so existe depois do fechamento. O caminho dele
             para la e o atalho da home, que aparece quando ha jornada encerrada.
             O gestor mantem o link — a tela dele tem os checkpoints tambem. */}
-        {data.scope !== 'rh' && (
-          <button onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
+        <div className="flex items-center gap-4">
+          {/* Engajamento vale para os TRES papeis: a pergunta "quem sumiu esta
+              semana" e a mesma para gestor, tutor e RH. A evolucao continua
+              restrita, porque so existe depois do fechamento da jornada. */}
+          <button onClick={() => router.push('/dashboard/gestor/engajamento')}
             className="text-[11px] font-bold text-brand-300 hover:text-brand-200 flex items-center gap-1">
-            {t('titles.fullEvolution')} <ArrowRight size={11} />
+            Engajamento do time <ArrowRight size={11} />
           </button>
-        )}
+          {data.scope !== 'rh' && (
+            <button onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
+              className="text-[11px] font-bold text-brand-300 hover:text-brand-200 flex items-center gap-1">
+              {t('titles.fullEvolution')} <ArrowRight size={11} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Aviso: gestor sem liderados vinculados */}

@@ -180,6 +180,54 @@ export async function getPerfilExternoPdfUrl(colabId: string): Promise<{ url?: s
   return { url: data.signedUrl };
 }
 
+/** Colunas que a home do gestor pede de cada liderado. */
+const COLS_LIDERADO = 'id, nome_completo, cargo, email, area_depto, perfil_dominante, d_natural, i_natural, s_natural, c_natural, perfil_externo_dados, perfil_externo_pdf_path, foto_url, gestor_email, role';
+
+/**
+ * QUEM cada papel enxerga — a régua de escopo, em um lugar só.
+ *
+ * Gestor: liderados por `colaboradores.gestor_email` (NÃO existe gestor_id; o
+ * type em types/index.d.ts está aspiracional). Tutor: `tutorados_ids`. RH/admin:
+ * a empresa toda. Fail-closed em todos: sem match, lista vazia.
+ *
+ * Existe como função porque a home do gestor e a tela de engajamento do time
+ * precisam do MESMO recorte. Duas cópias desta regra divergiriam calado — e o
+ * modo de falhar é o pior possível: um gestor vendo gente que não é dele.
+ */
+export async function resolverEscopoDoGestor(
+  sb: any,
+  { empresaId, meuId, meuEmail, isGestor, isTutor, tutoradosIds }: {
+    empresaId: string; meuId: string; meuEmail?: string | null;
+    isGestor: boolean; isTutor: boolean; tutoradosIds: string[];
+  },
+): Promise<{ liderados: any[]; liderIds: string[] }> {
+  const emailNormalizado = meuEmail?.toLowerCase().trim();
+  let colabQ = sb.from('colaboradores')
+    .select(COLS_LIDERADO)
+    .eq('empresa_id', empresaId)
+    .neq('id', meuId);
+  if (isGestor && emailNormalizado) {
+    colabQ = colabQ.ilike('gestor_email', emailNormalizado);
+  } else if (isTutor) {
+    // Fail-closed: tutor sem tutorados não vê ninguém.
+    if (tutoradosIds.length === 0) return { liderados: [], liderIds: [] };
+    colabQ = colabQ.in('id', tutoradosIds);
+  }
+  const { data: colabs, error } = await colabQ;
+  if (error) {
+    console.error('[gestor] escopo indisponível:', error.message);
+    return { liderados: [], liderIds: [] };
+  }
+  // `ilike` trata `_` e `%` como curinga — e-mail com underscore (comum) faria a
+  // listagem casar gestores que NÃO são o mesmo. Refina em código com igualdade
+  // exata (case-insensitive): é a MESMA régua do gate de posse em
+  // getPerfilExternoPdfUrl, então ver e abrir nunca divergem.
+  const liderados = (colabs || []).filter((c: any) =>
+    c.role !== 'rh' && (!isGestor || !emailNormalizado || (c.gestor_email || '').toLowerCase().trim() === emailNormalizado),
+  );
+  return { liderados, liderIds: liderados.map((c: any) => c.id) };
+}
+
 export async function getGestorHomeData(): Promise<GestorHomeData> {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
@@ -240,35 +288,12 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // está aspiracional/errado.)
   // Gestor: filtra por gestor_email ilike self.email. RH/admin: empresa toda.
   // Fail-closed: se zero match, retorna lista vazia.
-  const meuEmail = ctx.colaborador.email?.toLowerCase().trim();
-  let colabQ = sb.from('colaboradores')
-    .select('id, nome_completo, cargo, email, area_depto, perfil_dominante, d_natural, i_natural, s_natural, c_natural, perfil_externo_dados, perfil_externo_pdf_path, foto_url, gestor_email, role')
-    .eq('empresa_id', empresaId)
-    .neq('id', meuId);
-  if (isGestor && meuEmail) {
-    colabQ = colabQ.ilike('gestor_email', meuEmail);
-  } else if (isTutor) {
-    if (tutoradosIds.length === 0) {
-      // Fail-closed: tutor sem tutorados não vê ninguém.
-      return {
-        ok: true, scope: 'tutor',
-        kpis: { liderados: { total: 0, em_trilha: 0, sem_trilha: 0 }, em_andamento: { count: 0, distribuicao_semanas: [] }, checkpoints: { pendentes: 0, respondidos: 0 }, atividade_semana: { ativos: 0, total: 0 } },
-        alertas: [], checkpointsPendentes: [],
-        reportDashboard,
-      };
-    }
-    colabQ = colabQ.in('id', tutoradosIds);
-  }
-  const { data: colabs } = await colabQ;
-  // `ilike` trata `_` e `%` como curinga — e-mail com underscore (comum) faria a
-  // listagem casar gestores que NÃO são o mesmo. Refina em código com igualdade
-  // exata (case-insensitive): é a MESMA régua do gate de posse em
-  // getPerfilExternoPdfUrl, então ver e abrir nunca divergem.
-  const liderados = (colabs || []).filter((c: any) =>
-    c.role !== 'rh' && (!isGestor || !meuEmail || (c.gestor_email || '').toLowerCase().trim() === meuEmail),
-  );
+  const escopo = await resolverEscopoDoGestor(sb, {
+    empresaId, meuId, meuEmail: ctx.colaborador.email, isGestor, isTutor, tutoradosIds,
+  });
+  const liderados = escopo.liderados;
   const liderId2obj = new Map(liderados.map((c: any) => [c.id, c]));
-  const liderIds = liderados.map((c: any) => c.id);
+  const liderIds = escopo.liderIds;
 
   if (liderIds.length === 0) {
     return {
@@ -719,5 +744,72 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     timeline: timeline.slice(0, 10),
     empresaPerfilExternoFonte: fonteExterna,
     reportDashboard,
+  };
+}
+
+/** O que a tela de engajamento do time devolve. */
+export type EngajamentoDoTime = {
+  ok: boolean;
+  error?: string;
+  scope?: 'gestor' | 'rh' | 'tutor';
+  resumo?: any;
+  colaboradores?: any[];
+  semanas?: number[];
+};
+
+/**
+ * Engajamento da trilha, recortado ao time de quem está olhando.
+ *
+ * Os sinais são os MESMOS de /admin/engajamento — abriu, escolheu formato,
+ * terminou o vídeo, marcou consumo, entregou evidência, conversou com o
+ * Tira-Dúvidas — porque vêm do mesmo núcleo (`lib/engajamento/roll-up`). O que
+ * muda é a população: aqui é o escopo do papel, resolvido pela mesma régua da
+ * home do gestor.
+ *
+ * Para RH o recorte é o tenant inteiro (`null`), e não uma lista com todos os
+ * ids: além de ser a mesma coisa, evita um `IN` gigante na empresa grande.
+ */
+export async function getEngajamentoDoTime(semana?: number | null): Promise<EngajamentoDoTime> {
+  const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { ok: false, error: 'Não autenticado' };
+  const ctx = await getUserContext(email);
+  if (!ctx?.colaborador) return { ok: false, error: 'Não autenticado' };
+
+  const isGestor = ctx.role === 'gestor';
+  const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
+  const isTutor = ctx.role === 'tutor';
+  if (!isGestor && !isRH && !isTutor) return { ok: false, error: 'Acesso restrito a gestor/tutor/RH' };
+
+  const empresaId = ctx.colaborador.empresa_id;
+  if (!empresaId) return { ok: false, error: 'Colaborador sem empresa' };
+
+  // `tenantDb` no lugar do service-role: esta action só precisa ler dentro do
+  // próprio tenant, e o cliente com empresa_id embutido dá exatamente isso.
+  // Pedir a chave de serviço aqui seria privilégio a mais para o trabalho que
+  // é feito — e uma linha a mais na allowlist que ninguém saberia justificar
+  // depois.
+  const { tenantDb } = await import('@/lib/tenant-db');
+  const sb = tenantDb(empresaId);
+
+  const escopo = await resolverEscopoDoGestor(sb, {
+    empresaId,
+    meuId: ctx.colaborador.id,
+    meuEmail: ctx.colaborador.email,
+    isGestor,
+    isTutor,
+    tutoradosIds: (ctx.colaborador as any)?.tutorados_ids || [],
+  });
+
+  const { rollUpEngajamento } = await import('@/lib/engajamento/roll-up');
+  const recorte = isRH ? null : escopo.liderIds;
+  const rollup: any = await rollUpEngajamento(empresaId, semana ?? null, recorte);
+
+  return {
+    ok: true,
+    scope: isTutor ? 'tutor' : (isGestor ? 'gestor' : 'rh'),
+    resumo: rollup.resumo,
+    colaboradores: rollup.colaboradores,
+    semanas: rollup.semanas,
   };
 }
