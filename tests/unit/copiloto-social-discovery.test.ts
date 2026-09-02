@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
+  chaveDaConta,
   extrairPerfisSociais,
   mesclarPerfisSociais,
   paginasCandidatas,
   perfilCanonico,
+  precisaPedirRedes,
 } from '@/lib/copiloto/social-discovery';
 
 describe('perfilCanonico', () => {
@@ -141,5 +143,37 @@ describe('mesclarPerfisSociais', () => {
   it('campo vazio recebe a lista inteira', () => {
     const { texto } = mesclarPerfisSociais('', ['https://linkedin.com/company/a', 'https://x.com/a']);
     expect(texto).toBe('https://linkedin.com/company/a\nhttps://x.com/a');
+  });
+});
+
+describe('precisaPedirRedes', () => {
+  const base = { company: 'Boehringer', site: 'boehringer-ingelheim.com/br', perfisInformados: 0, confirmadoPara: '' };
+
+  it('pede os perfis quando a pesquisa vai rodar e o campo está vazio', () => {
+    expect(precisaPedirRedes(base)).toBe(true);
+  });
+
+  it('não pede quando já há perfil informado', () => {
+    expect(precisaPedirRedes({ ...base, perfisInformados: 2 })).toBe(false);
+  });
+
+  it('não pede quando não há pesquisa pública para rodar', () => {
+    expect(precisaPedirRedes({ ...base, company: '', site: '' })).toBe(false);
+    // Nome curto demais e site curto demais não disparam pesquisa no servidor.
+    expect(precisaPedirRedes({ ...base, company: 'B', site: 'br' })).toBe(false);
+  });
+
+  it('para de pedir depois que o vendedor decidiu seguir sem redes NESTA conta', () => {
+    const confirmadoPara = chaveDaConta(base.company, base.site);
+    expect(precisaPedirRedes({ ...base, confirmadoPara })).toBe(false);
+  });
+
+  it('volta a pedir quando a conta muda', () => {
+    const confirmadoPara = chaveDaConta('Boehringer', 'boehringer-ingelheim.com/br');
+    expect(precisaPedirRedes({ ...base, company: 'Grupo Sinal', site: 'gruposinal.com.br', confirmadoPara })).toBe(true);
+  });
+
+  it('a chave ignora caixa e espaço em volta', () => {
+    expect(chaveDaConta('  Grupo Sinal ', 'GrupoSinal.com.br')).toBe(chaveDaConta('grupo sinal', 'gruposinal.com.br'));
   });
 });

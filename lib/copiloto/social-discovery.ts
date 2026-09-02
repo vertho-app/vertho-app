@@ -222,3 +222,35 @@ export function paginasCandidatas(html: string, baseUrl: string): string[] {
   }
   return saida;
 }
+
+/**
+ * A pesquisa deve parar e pedir os perfis à mão antes de gastar os 90 segundos?
+ *
+ * Campo de redes vazio não é "esta empresa não tem rede": é a trilha social
+ * desligada, e o plano sai sem ela sem nunca dizer isso em voz alta. A leitura
+ * automática do site falha em toda empresa atrás de proteção anti-bot (medido
+ * com boehringer-ingelheim.com/br, que devolve página de desafio), então o
+ * silêncio é comum, e não excepcional.
+ *
+ * O aviso é por EMPRESA, não por sessão: quem decidiu seguir sem redes para um
+ * cliente não deve ser perguntado de novo no mesmo, e deve ser perguntado de
+ * novo no próximo. Por isso a confirmação guarda a chave da conta, em vez de um
+ * booleano que precisaria ser zerado nos quatro pontos que trocam de empresa.
+ */
+export function chaveDaConta(company: string, site: string): string {
+  return `${(company || '').trim().toLocaleLowerCase('pt-BR')}|${(site || '').trim().toLocaleLowerCase('pt-BR')}`;
+}
+
+export function precisaPedirRedes(input: {
+  company: string;
+  site: string;
+  perfisInformados: number;
+  confirmadoPara: string;
+}): boolean {
+  // Sem empresa nem site não há pesquisa pública nenhuma: o plano sai só do
+  // briefing, e cobrar perfis aí seria pedir o que não tem consumidor.
+  const vaiPesquisar = input.company.trim().length >= 2 || input.site.trim().length >= 4;
+  if (!vaiPesquisar) return false;
+  if (input.perfisInformados > 0) return false;
+  return input.confirmadoPara !== chaveDaConta(input.company, input.site);
+}

@@ -20,7 +20,7 @@ import {
 } from '@/lib/copiloto/types';
 import { normalizeConversationGoal } from '@/lib/copiloto/dossier';
 import { inferMeetingKind } from '@/lib/copiloto/play';
-import { mesclarPerfisSociais } from '@/lib/copiloto/social-discovery';
+import { chaveDaConta, mesclarPerfisSociais, precisaPedirRedes } from '@/lib/copiloto/social-discovery';
 // A MESMA régua que o servidor aplica: o que ela não reconhece é recusado lá com 400.
 import { parseOfficialSocialUrls } from '@/lib/copiloto/social-identity';
 import {
@@ -636,6 +636,9 @@ export default function CopilotClient({
   const [goalThisHour, setGoalThisHour] = useState('');
   const [conversationGoal, setConversationGoal] = useState<ConversationGoal>('entender_momento');
   const [showSetupDetails, setShowSetupDetails] = useState(false);
+  /** Conta para a qual o vendedor já decidiu seguir sem a trilha de redes. */
+  const [semRedesConfirmadoPara, setSemRedesConfirmadoPara] = useState('');
+  const [pedindoRedes, setPedindoRedes] = useState(false);
   const [socialDiscovery, setSocialDiscovery] = useState<SocialDiscoveryState>({ status: 'idle' });
   const [activePlanningId, setActivePlanningId] = useState('');
   const [planPersisted, setPlanPersisted] = useState(false);
@@ -935,8 +938,24 @@ export default function CopilotClient({
     return () => window.clearTimeout(timer);
   }, [site, descobrirRedes]);
 
+  /**
+   * O gate das redes roda ANTES da pesquisa, não depois.
+   *
+   * Sem perfis, uma das três trilhas não acontece, e isso só apareceria no fim,
+   * no card "Nenhum perfil informado" — com os 90 segundos e o custo já gastos.
+   * Aqui a tela para uma vez por conta e oferece as duas saídas.
+   */
   async function generatePlan(event: FormEvent) {
     event.preventDefault();
+    if (precisaPedirRedes({ company, site, perfisInformados: socialProfilesInformados, confirmadoPara: semRedesConfirmadoPara })) {
+      setPedindoRedes(true);
+      return;
+    }
+    await executarGeracao();
+  }
+
+  async function executarGeracao() {
+    setPedindoRedes(false);
     setError(null);
     setPlanningSeconds(0);
     setPlanning(true);
@@ -1560,7 +1579,7 @@ export default function CopilotClient({
               três trilhas de pesquisa vai rodar. Campo vazio não é "sem sinal social":
               é busca social que não acontece (`social: not_requested` no audit).
             */}
-            {(!!socialProfilesInformados || socialDiscovery.status !== 'idle') && (
+            {!pedindoRedes && (!!socialProfilesInformados || socialDiscovery.status !== 'idle') && (
               <div className={styles.socialStatus} data-status={socialProfilesInformados ? 'ok' : socialDiscovery.status}>
                 {socialDiscovery.status === 'buscando'
                   ? <><LoaderCircle size={15} className={styles.spin} /><p>Procurando os perfis oficiais em {hostVisivel(site)}…</p></>
@@ -1658,12 +1677,46 @@ export default function CopilotClient({
             </label>
             </details>
 
-            <div className={styles.formActions}>
-              <button type="submit" disabled={planning || (!company.trim() && !site.trim() && !socialProfiles.trim() && context.trim().length < 20)}>
-                {planning ? <><LoaderCircle size={17} className={styles.spin} /> Preparando o Play · {planningSeconds}s</> : <><Target size={17} /> Montar Play da reunião</>}
-              </button>
-              {plan && <button type="button" className={styles.secondaryButton} onClick={clearPlan}>Limpar</button>}
-            </div>
+            {/*
+              Derivado, não só o booleano: se a pessoa colar os perfis ou trocar de
+              conta com o painel aberto, ele some sozinho, sem reset espalhado pelos
+              quatro pontos que trocam de empresa.
+            */}
+            {pedindoRedes && precisaPedirRedes({ company, site, perfisInformados: socialProfilesInformados, confirmadoPara: semRedesConfirmadoPara }) ? (
+              <div className={styles.askSocial} role="group" aria-label="Perfis oficiais antes de pesquisar">
+                <div className={styles.askSocialTop}><Share2 size={16} /><strong>Nenhum perfil oficial para pesquisar</strong></div>
+                <p>
+                  {socialDiscovery.status === 'vazio' && socialDiscovery.motivo === 'sem_resposta'
+                    ? <>Não consegui ler {socialDiscovery.host}: o site bloqueia leitura automática.</>
+                    : socialDiscovery.status === 'vazio'
+                      ? <>{socialDiscovery.host} não publica os perfis nas páginas que li.</>
+                      : <>Ainda não há perfis oficiais no planejamento.</>}
+                  {' '}A pesquisa vai rodar em <b>site e imprensa</b>, e a trilha de <b>redes oficiais</b> fica de fora.
+                  Cole os links agora e ela entra junto: é uma das três fontes do Play.
+                </p>
+                <div className={styles.askSocialActions}>
+                  <button type="button" className={styles.askSocialPrimary} onClick={abrirCampoDeRedes}>
+                    <Search size={15} /> Incluir perfis manualmente
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSemRedesConfirmadoPara(chaveDaConta(company, site));
+                      void executarGeracao();
+                    }}
+                  >
+                    Pesquisar sem redes
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className={styles.formActions}>
+                <button type="submit" disabled={planning || (!company.trim() && !site.trim() && !socialProfiles.trim() && context.trim().length < 20)}>
+                  {planning ? <><LoaderCircle size={17} className={styles.spin} /> Preparando o Play · {planningSeconds}s</> : <><Target size={17} /> Montar Play da reunião</>}
+                </button>
+                {plan && <button type="button" className={styles.secondaryButton} onClick={clearPlan}>Limpar</button>}
+              </div>
+            )}
             {planning && <p className={styles.waitCopy}>A IA está pesquisando em três trilhas separadas: site oficial, imprensa externa e redes oficiais. Isso pode levar alguns minutos.</p>}
           </form>
 

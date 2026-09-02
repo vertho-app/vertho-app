@@ -378,6 +378,19 @@
 .socialStatus[data-status="ok"] { border-left-color: var(--mint); color: var(--mint); }
 .socialStatus[data-status="vazio"], .socialStatus[data-status="erro"], .socialStatus[data-status="idle"] { border-left-color: var(--amber); color: var(--amber); }
 .socialStatus[data-status="buscando"] { border-left-color: var(--cyan); color: var(--cyan); }
+
+/* Pergunta que interrompe a geracao UMA vez por conta: sem perfis, a trilha de
+   redes nao roda, e isso so apareceria depois de 90s e do custo ja gastos. */
+.askSocial { margin-bottom: 4px; padding: 16px; border: 1px solid rgba(242,184,75,.34); border-left: 2px solid var(--amber); background: linear-gradient(112deg, rgba(242,184,75,.07), rgba(5,23,40,.3) 62%); }
+.askSocialTop { display: flex; align-items: center; gap: 9px; color: var(--amber); font: 800 12px/1 var(--font-inter); letter-spacing: .04em; margin-bottom: 9px; }
+.askSocial p { margin: 0 0 14px; color: #cfdded; font-size: 13px; line-height: 1.6; max-width: 62ch; }
+.askSocial p b { color: #f4fbff; font-weight: 700; }
+.askSocialActions { display: flex; flex-wrap: wrap; gap: 10px; }
+.askSocialActions button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 4px; padding: 0 16px; background: transparent; color: var(--muted); cursor: pointer; font: 800 11px/1 var(--font-inter); transition: .16s ease; }
+.askSocialActions button:hover { border-color: rgba(164,194,216,.4); color: #e7f1f9; }
+.askSocialActions .askSocialPrimary { background: var(--cyan); border-color: var(--cyan); color: #052039; }
+.askSocialActions .askSocialPrimary:hover { background: #7ce5e6; color: #052039; }
+.askSocialActions button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .setupDetails { margin-bottom: 20px; border-top: 1px solid var(--line); padding-top: 14px; }
 .setupDetails > summary { display: flex; align-items: center; gap: 8px; color: #7e99ad; cursor: pointer; font: 750 9px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
 .setupDetails > summary small { color: #5d7791; font-size: 8.5px; letter-spacing: .05em; text-transform: none; }
