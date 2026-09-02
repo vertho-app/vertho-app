@@ -51,6 +51,27 @@ function arquivos(): string[] {
   }
 }
 
+/**
+ * Tira da conta os RÓTULOS DE TELA antes de procurar literais de status.
+ *
+ * A palavra "pendente" tem dois papéis: valor de `status` no banco (o que este
+ * guard existe para vigiar) e texto que o usuário lê. `{ label: 'pendente' }`
+ * numa tabela do painel do gestor é o segundo caso — e era acusado como se
+ * fosse o primeiro, bloqueando o CI por uma legenda em português.
+ *
+ * O recorte é estreito de propósito: só chaves cujo valor É texto de interface.
+ * Comparar (`status === 'pendente'`), filtrar (`.eq('status', 'pendente')`) e
+ * atribuir (`status: 'pendente'`) continuam sendo pegos.
+ */
+const CHAVES_DE_TEXTO = ['label', 'rotulo', 'titulo', 'title', 'texto', 'text', 'placeholder', 'aria-label'];
+const ROTULO_DE_TELA = new RegExp(
+  `\\b(${CHAVES_DE_TEXTO.join('|')})\\s*:\\s*['"](${LITERAIS.join('|')})['"]`,
+  'g',
+);
+export function semRotulosDeTela(fonte: string): string {
+  return fonte.replace(ROTULO_DE_TELA, '$1: <rotulo>');
+}
+
 function scanTracked(counts: Record<string, number>) {
   for (const rel of arquivos()) {
     let content: string;
@@ -60,7 +81,7 @@ function scanTracked(counts: Record<string, number>) {
     // 'concluido' ao descrever a recuperação do lote derrubou o CI. Guard que
     // acusa o texto que o documenta treina a ignorar o guard — e o helper para
     // isto já existia, usado pelo `tenant-mutation-guard`.
-    const n = (semComentarios(content).match(PADRAO) || []).length;
+    const n = (semRotulosDeTela(semComentarios(content)).match(PADRAO) || []).length;
     if (n > 0) counts[rel] = n;
   }
 }

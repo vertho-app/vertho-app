@@ -992,6 +992,52 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       .eq('empresa_id', destId).eq('competencia', cfg.competencia).eq('descritor', cfg.descritor);
     if (vinculo.error) throw new Error(`vincular conteudos ao modulo do video: ${vinculo.error.message}`);
 
+    // O VÍDEO tambem entra no catalogo de conteudos.
+    //
+    // A celula (`videos_gerados`) serve a TRILHA — a semana que resolve o video
+    // ao vivo. A vitrine de capacitacao da home, porem, le `micro_conteudos`, e
+    // ali o formato video simplesmente nao existia no tenant escolar: a home
+    // exibia audio, texto e case, e quem olha conclui que a plataforma nao tem
+    // video. A linha abaixo publica o MESMO asset como conteudo do catalogo,
+    // como o ACME ja fazia com o video editorial da apresentacao.
+    const videoNoCatalogo = {
+      empresa_id: destId,
+      titulo: cfg.titulo,
+      descricao: cfg.finalidade,
+      formato: 'video',
+      duracao_min: 3.5,
+      bunny_video_id: cfg.bunnyVideoId,
+      url: `https://iframe.mediadelivery.net/embed/${libraryId}/${cfg.bunnyVideoId}`,
+      competencia: cfg.competencia,
+      descritor: cfg.descritor,
+      nivel_min: 1,
+      nivel_max: 4,
+      tipo_conteudo: 'core',
+      contexto: 'educacional',
+      cargo: cfg.cargo,
+      setor: 'todos',
+      origem: 'pre_produzido',
+      ativo: true,
+      modulo_base_id: cfg.moduloId,
+    };
+    // O tuple e o mesmo da unique parcial `uq_micro_conteudos_core`: buscar pelo
+    // SLOT torna o upsert idempotente entre resets.
+    const videoExistente = await sb.from('micro_conteudos')
+      .select('id')
+      .eq('empresa_id', destId)
+      .eq('competencia', cfg.competencia)
+      .eq('descritor', cfg.descritor)
+      .eq('formato', 'video')
+      .eq('cargo', cfg.cargo)
+      .is('kit_id', null)
+      .maybeSingle();
+    if (videoExistente.error) throw new Error(`video no catalogo: ${videoExistente.error.message}`);
+    const gravouCatalogo = videoExistente.data?.id
+      ? await sb.from('micro_conteudos').update(videoNoCatalogo)
+          .eq('id', videoExistente.data.id).eq('empresa_id', destId)
+      : await sb.from('micro_conteudos').insert(videoNoCatalogo);
+    if (gravouCatalogo.error) throw new Error(`gravar video no catalogo: ${gravouCatalogo.error.message}`);
+
     const celulaExistente = await sb.from('videos_gerados')
       .select('id')
       .eq('modulo_base_id', cfg.moduloId).eq('empresa_id', destId)

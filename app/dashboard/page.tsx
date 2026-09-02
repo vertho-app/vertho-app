@@ -515,12 +515,18 @@ export default function DashboardHomePage() {
 
         {/* Capacitação recomendada */}
         {capacitacoes.length > 0 && (
-          // `maxWidth` alinhado ao card de progresso (o único da home que já se
-          // protegia): a capa do ContentThumb é `aspect-[1.25/1]`, então em
-          // desktop, sem limite, `grid-cols-2` dava ~880px por card e 704px de
-          // ALTURA — o card desenhado para caber em ~312px aparecia esticado ao
-          // triplo, com um vazio no meio.
-          <section className="pt-1" style={{ maxWidth: 640 }}>
+          // A capa do ContentThumb é `aspect-[1.25/1]`: sem limite de largura o
+          // card estica em altura na mesma proporção, e o que foi desenhado
+          // para ~312px aparecia com 704px de altura e um vazio no meio.
+          //
+          // Os quatro conteúdos passam a caber numa LINHA só (02/09/2026): em
+          // duas colunas, a vitrine mostrava dois formatos e escondia os outros
+          // dois abaixo da dobra — quem olha conclui que a plataforma só tem
+          // aquilo. 1280px / 4 colunas (com os 3 gaps de 16px) devolve ~308px
+          // por card, que é a largura de desenho. Abaixo de xl a grade volta a
+          // duas colunas, onde 4 lado a lado ficariam pequenos demais para ler
+          // o título.
+          <section className="pt-1" style={{ maxWidth: 1280 }}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[11px] font-bold tracking-[0.18em] uppercase" style={{ color: 'var(--phase-accent)' }}>
                 {t('recommended.title')}
@@ -530,7 +536,7 @@ export default function DashboardHomePage() {
                 {t('recommended.viewAll')}
               </button>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
               {capacitacoes.slice(0, 4).map((item, i) => {
                 const labelKey = FORMATO_LABEL[item.formato] || 'content';
                 const label = t(`contentFormats.${labelKey}`);
