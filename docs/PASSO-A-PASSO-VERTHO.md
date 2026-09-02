@@ -350,9 +350,17 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 **`/admin/vertho/simulador-custo`** — Custo de IA: catálogo estimado, real do ledger, custo por jornada e infra fixa (o plano e o log de decisões vivem em `docs/CUSTO-QUALIDADE.md`). **`/admin/vertho/modulos-base`** — autoria e auditoria dual-IA dos Módulos-Base. **`/admin/vertho/auditorias`** e **`/admin/vertho/orcamento`** — auditoria de blueprints e orçamento.
 
-**`/admin/engajamento`** (não é vertho-only) — visão atual da telemetria: quem abriu o link × quem consumiu de fato. ⚠️ `conteudo_consumido ≈ 0` **não** é falta de engajamento (o sinal real de vídeo é `play_finished`), e o conteúdo da semana fica acessível desde o início — o envio é notificação, não liberação.
+**`/admin/engajamento`** (não é vertho-only) — visão atual da telemetria: quem abriu o link × quem
+consumiu de fato, mais a **etapa individual da jornada**. A régua e a coluna da tabela mostram a
+semana que cada pessoa realmente consegue acessar: **pendente** (âmbar), **em curso** (ciano) ou
+**concluída** (verde). O texto “Calendário da turma” é apenas o relógio dos envios; não afirma que as
+semanas anteriores foram concluídas. Clicar numa etapa filtra as pessoas da tabela; o seletor
+**Métricas** é independente e recorta abertura/consumo/evidência pela semana escolhida. A mesma
+leitura aparece para o cliente em `/dashboard/gestor/engajamento`. ⚠️ `conteudo_consumido ≈ 0` não é
+falta de engajamento (para vídeo, o sinal real é `play_finished`). O envio notifica a semana
+acessível; a tela ainda cobra os gates de data e progressão, portanto envio não é liberação.
 
-**`/admin/engajamento/evolucao`** — página B, acessível pelo botão da visão atual. Mostra evolução de ativação, consumo e evidência semana a semana; trajetórias (acelerando/no ritmo/atenção/crítico); recuperados; heatmap por área; e participantes que pedem acompanhamento. O filtro continua em `?empresa=` e pode ser refinado por área. O índice operacional soma ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10; não é nota de desempenho. O denominador de cada semana inclui apenas quem já chegou nela.
+**`/admin/engajamento/evolucao`** — página B, acessível pelo botão da visão atual. Mostra evolução de ativação, consumo e evidência semana a semana; trajetórias (acelerando/no ritmo/atenção/crítico); recuperados; heatmap por área; e participantes que pedem acompanhamento. O filtro continua em `?empresa=` e pode ser refinado por área. O índice operacional soma ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10; não é nota de desempenho. O denominador de N inclui quem chegou a N pelo **calendário da cadência** (`semana_atual >= N`), inclusive quem ficou pendente antes — nessa página a pergunta é “quem estava previsto e deu sinal?”, não “em que etapa individual está?”.
 
 **`/admin/vertho/knowledge-base`** — CRUD da base de conhecimento RAG per-tenant. Upload PDF/DOCX/TXT/MD (até 4MB), botão "Popular base inicial" (6 docs seed), preview de busca. Alimenta grounding em Tira-Dúvidas + Evidências + Missão Feedback + Relatórios Gestor/RH.
 

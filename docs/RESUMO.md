@@ -1,6 +1,6 @@
 # Resumo de Retomada — Vertho App
 
-> Atualizado em 28/07/2026 (noite). O SHA de HEAD não é fixado aqui de propósito — ficava
+> Atualizado em 02/09/2026. O SHA de HEAD não é fixado aqui de propósito — ficava
 > obsoleto no commit seguinte e dava a impressão de que o resto do documento também estava.
 
 ## Onde esta o projeto
@@ -34,6 +34,18 @@ Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (rese
 
 ## Frentes recentes
 
+**02/09 — Engajamento separa calendário de etapa individual** (`0cb3feea`). A primeira versão da
+visualização dizia que os 38 participantes estavam na semana 3 porque lia
+`fase4_envios.semana_atual`; esse campo é o **relógio da cadência**, avança no dia da evidência e
+não prova conclusão individual. `/admin/engajamento` e `/dashboard/gestor/engajamento` agora usam a
+trilha mais recente + o histórico completo de `temporada_semana_progresso`, pela mesma
+`primeiraSemanaAcessivel` da cadência (wrapper `lib/engajamento/posicao-jornada.ts`). A leitura real
+da coorte no fechamento mostrou **21 na semana 1 pendente, 8 na semana 2 pendente, 7 na semana 3 em
+curso e 2 com a semana 3 concluída**. Âmbar/ciano/verde distinguem esses estados; a régua filtra
+pessoas por etapa, enquanto o seletor “Métricas” continua recortando os sinais históricos por
+semana. Falha de leitura devolve “posição indisponível”, nunca o calendário como fallback. Não houve
+migration.
+
 **28/07 — Perfil natural, contexto no Pulso e evolução de engajamento.** O mapeamento DISC principal
 e o relatório comportamental ficaram **natural-only**: o antigo bloco/perfil adaptado foi removido
 da coleta principal, dos prompts e dos contratos de relatório. As perguntas de contexto foram
@@ -46,7 +58,9 @@ Também entrou a página B **`/admin/engajamento/evolucao`** (`3caa064e`), mante
 `/admin/engajamento`: série semana a semana de ativação/consumo/evidência, trajetórias, recuperados,
 heatmap por área e fila operacional de risco. Índice explícito: 20 ativação + 30 consumo +
 40 evidência + 10 Tira-Dúvidas; é sinal operacional, não nota. Cada semana usa como denominador
-somente quem já a alcançou. Não houve migration nova para o dashboard.
+quem já a alcançou pelo relógio da cadência (`semana_atual >= N`) — inclusive pendentes, porque a
+página B mede quem estava previsto e deu sinal, não posição individual. Não houve migration nova
+para o dashboard.
 
 **28/07** — **Três regras de produto novas.** (1) **A missão de aplicação cobre o bloco que acabou
 de fechar** (sem 4 → semanas 1-3, sem 8 → só 5-7, sem 12 → cumulativa): antes a semana 4 cobrava a
@@ -108,8 +122,9 @@ rastreavel (mig 169). ACME Demo: reset canonico unico.
   Modos: **Regular DUO** (14 sem, default) · **Onboarding** (10 sem) · **Piloto** (2 sem) ·
   **Personalizado** (1-4 sem, configuravel). Modo por empresa E por colaborador, com carimbo na trilha.
 - **Pulso de Desenvolvimento** — T0/T2 + sinais + Dual-IA + PDFs (executivo e complementar NR-1).
-- **Engajamento operacional** — visão atual em `/admin/engajamento` e evolução longitudinal em
-  `/admin/engajamento/evolucao`, com filtro de empresa/área e régua transparente.
+- **Engajamento operacional** — visão atual em `/admin/engajamento`, incluindo etapa individual
+  separada do calendário da turma, e evolução longitudinal em `/admin/engajamento/evolucao`, com
+  filtro de empresa/área e régua transparente.
 - **Radar Vertho** (`radar.vertho.ai`) — inteligencia publica: escola, municipio, rede, estado,
   comparacao. Inclui matriculas do censo (178k escolas).
 - **Portal do Representante** (`/representante`, interno) — funil de RCs, propostas, comissoes.

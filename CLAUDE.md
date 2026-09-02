@@ -488,6 +488,15 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   nenhuma semana concluída, uma delas a **um turno** de destravar, parada 36 dias. A porta mais
   permissiva vira a promessa; a mais restritiva vira a experiência. Régua única +
   `docs/FMEA-PIPELINE.md` §F-I21.
+- NÃO chamar `fase4_envios.semana_atual` de “semana da pessoa”, “etapa individual” ou “progresso”.
+  Esse campo é o **relógio da cadência**: avança no dia da evidência mesmo quando a pessoa não
+  concluiu a anterior. Medido 02/09: uma visualização nova mostrou **38 na semana 3**; pela régua
+  individual real eram **21 na S1 pendente, 8 na S2 pendente, 7 na S3 em curso e 2 com S3
+  concluída**. Para UI/relatório use `derivarPosicaoJornada` → `primeiraSemanaAcessivel`, sempre com
+  a trilha mais recente e o progresso completo dela; se a leitura falhar, mostre indisponível —
+  calendário como fallback transforma erro em avanço inventado. E não acople os filtros: “Métricas
+  da semana” recorta sinais históricos; “Etapa individual” recorta pessoas. Detalhe:
+  `docs/PIPELINE-TRILHA.md` (duas semanas) + `docs/ARQUITETURA.md` §13.
 - NÃO debitar tentativa de retentativa quando quem falhou foi o **CANAL**. O teto existe para o
   automático não martelar sozinho; se o fornecedor caiu ou o template não aprovou, a cota é do
   destinatário e quem a gastou foi avaria nossa — aí, quando o canal volta, o teto já expulsou

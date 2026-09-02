@@ -1474,16 +1474,36 @@ Todos com filtro `?empresa=` e back button context-aware. Dados via `lib/ia-cost
 Fora do `/vertho` mas de mesma natureza operacional:
 
 - **`/admin/engajamento`** — visão atual da telemetria da trilha (link aberto × conteúdo consumido
-  de fato × evidência entregue, por semana e canal).
+  de fato × evidência entregue, por semana e canal) + régua de **etapa individual**. A régua mostra
+  a semana que cada pessoa consegue acessar, com estado pendente/em curso/concluída, e pode filtrar
+  as linhas da tabela sem alterar o recorte histórico das métricas.
 - **`/admin/engajamento/evolucao`** — página B longitudinal: ativação, consumo e evidência por
   semana, trajetórias, recuperados, mapa de calor por área e fila operacional de risco. O índice é
   explícito: ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10. É sinal operacional da
   jornada, não nota, competência ou avaliação de desempenho.
 
-Ambas usam `?empresa=` e `tenantDb(empresaId)`. Na série longitudinal, o denominador de cada semana
-é quem já alcançou aquela semana — pessoas em semanas anteriores não entram artificialmente como
-inativas. ⚠️ `conteudo_consumido ≈ 0` **não** é falta de engajamento: para vídeo, o sinal real é
-`play_finished`; o conteúdo fica acessível desde o início e o envio é notificação, não liberação.
+Ambas usam `?empresa=` e `tenantDb(empresaId)`. O roll-up compartilhado
+(`lib/engajamento/roll-up.ts`) também alimenta `/dashboard/gestor/engajamento`, recortado aos
+liderados. Na série longitudinal, o denominador de N é quem já chegou a N pelo **relógio da
+cadência** (`fase4_envios.semana_atual >= N`): ali a pergunta é “quem estava previsto nesta semana e
+deu sinal?”, inclusive para tornar atraso visível. Isso não é posição individual. ⚠️
+`conteudo_consumido ≈ 0` **não** é falta de engajamento: para vídeo, o sinal real é
+`play_finished`.
+
+**Dois números de semana coexistem e não são intercambiáveis:**
+
+| Campo | Significado | Pode ser exibido como posição individual? |
+|---|---|---|
+| `semanaCalendario` (`fase4_envios.semana_atual`) | relógio da cadência; avança no dia configurado e decide o fim | **Não** |
+| `semanaAcessivel` | semana que a pessoa consegue abrir após os gates de data e conclusão sequencial | **Sim** |
+
+`semanaAcessivel` é derivada por `lib/engajamento/posicao-jornada.ts`, que chama a fonte única
+`primeiraSemanaAcessivel` com a trilha mais recente e o progresso completo daquela trilha. Conclusão
+de temporada antiga não libera a atual. Se trilha ou progresso falham na leitura, o contrato devolve
+`null` e a UI mostra “posição indisponível”; cair em `semanaCalendario` faria erro de banco parecer
+avanço real. O seletor **Métricas · semana N** recorta eventos/consumo/evidência de N; clicar na régua
+de etapa recorta somente as pessoas da tabela. O envio é notificação da semana acessível e a própria
+tela ainda aplica os gates de data e progressão — envio e liberação não são sinônimos.
 
 ---
 

@@ -396,15 +396,24 @@ bloqueadas de Ibipeba apontavam todas para a semana 5, com **18 presas na semana
 degrau não descer). Não reimplemente o critério no consumidor novo: é assim que nascem as portas
 divergentes da F-I21.
 
-**Quem consome:** a cadência (`trigger-diario-empresa.ts`) — a pílula anuncia a semana que a pessoa
-CONSEGUE abrir. Duas semanas coexistem e não se misturam:
+**Quem consome:** a cadência (`trigger-diario-empresa.ts`) e os painéis de engajamento — a pílula
+anuncia, e os painéis exibem, a semana que a pessoa CONSEGUE abrir. Duas semanas coexistem e não se
+misturam:
 
 | variável | papel | usada em |
 |---|---|---|
 | `semanaCalendario` (`fase4_envios.semana_atual`) | o relógio: avança na quinta, decide o fim | avanço, `> totalSemanas` |
-| `semana` (acessível) | o que a pessoa recebe: conteúdo, tema, formato, link | pílula, missão, evidência |
+| `semana` / `semanaAcessivel` | o que a pessoa recebe e onde aparece: conteúdo, tema, formato, link | pílula, missão, evidência, engajamento |
 
 `semana + 1` no avanço reescreveria o relógio para trás e quem está preso na 1 nunca terminaria.
+
+Nos painéis, `lib/engajamento/posicao-jornada.ts::derivarPosicaoJornada` chama
+`primeiraSemanaAcessivel` com a **trilha mais recente** e todo o progresso dela. O resultado é
+`semanaAcessivel` + os sinais `atrasada`/`semanaConcluida`; `semanaAtual` permanece no roll-up apenas
+como alias legado do calendário e não deve alimentar copy de “etapa”, “posição” ou “semana da
+pessoa”. A consulta é fail-closed: sem trilha/progresso confiável, a posição é `null`. Medido em
+02/09/2026, usar o relógio produziu “38 na semana 3”; a régua correta encontrou 21 na S1 pendente, 8
+na S2 pendente, 7 na S3 em curso e 2 com S3 concluída.
 
 Interruptor `CADENCIA_SEMANA_ACESSIVEL=0`. Verificação:
 `scripts/_dryrun-semana-acessivel.ts --empresa=<slug> --em=<ISO na hora do cron>`.
