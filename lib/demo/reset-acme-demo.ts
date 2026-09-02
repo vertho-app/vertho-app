@@ -818,14 +818,18 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     for (const relatorio of snapshot.relatorios) {
       const colaboradorId = relatorio.ownerEmail ? idPorEmail.get(relatorio.ownerEmail) : null;
       if (relatorio.ownerEmail && !colaboradorId) continue;
-      const result = await sb.from('relatorios').insert({
+      // UPSERT: a linha pode já ter vindo do golden (rede de segurança do PDI,
+      // aplicada antes deste restore). Com INSERT, as duas escritas colidiam na
+      // unique (empresa, colaborador, tipo) e derrubavam o reset inteiro — a
+      // mídia salva pelo warm é sempre a mais recente, então ela vence aqui.
+      const result = await sb.from('relatorios').upsert({
         empresa_id: empresaId,
         colaborador_id: colaboradorId,
         tipo: relatorio.tipo,
         conteudo: relatorio.conteudo,
         pdf_path: relatorio.pdf_path,
         gerado_em: relatorio.gerado_em || new Date().toISOString(),
-      });
+      }, { onConflict: 'empresa_id,colaborador_id,tipo' });
       if (result.error) throw new Error(`restaurar relatório ${relatorio.tipo}: ${result.error.message}`);
     }
 
@@ -1633,16 +1637,45 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       if (!colabId || !a) continue;
       // Relatório comportamental (DISC) — report_texts congelado → abre sem IA.
       if (a.report?.report_texts) {
-        // Só o TEXTO vem do golden. O caminho do MP3 e do PDF NÃO entram aqui:
-        // quem os preserva é o warm snapshot, que os lê do estado imediatamente
-        // ANTERIOR ao reset. Restaurar o path do fixture depois disso plantaria
-        // um caminho velho por cima do atual — a mídia certa existiria no bucket
-        // e a demo apontaria para outra.
-        const result = await sb.from('colaboradores').update({
+        // O caminho do MP3/PDF entra aqui como REDE DE SEGURANÇA, não como
+        // fonte: quem preserva a mídia no dia a dia é o warm snapshot, que lê o
+        // estado ANTERIOR ao reset e roda DEPOIS deste replay — então o path
+        // recente sempre vence o congelado.
+        //
+        // O golden cobre o caso em que o warm não tem o que preservar: um reset
+        // que aborta no meio deixa o tenant vazio, e o reset seguinte fotografa
+        // esse vazio. Aconteceu DUAS VEZES em 02/09/2026, e nas duas as 13
+        // devolutivas em voz perderam o vínculo — os MP3 seguiam no bucket.
+        const patch: Record<string, any> = {
           report_texts: a.report.report_texts,
           report_generated_at: a.report.report_generated_at || new Date().toISOString(),
-        }).eq('id', colabId);
+        };
+        // `undefined` some do payload; `null` apagaria o que já estiver lá.
+        if (a.report.comportamental_audio_path) patch.comportamental_audio_path = a.report.comportamental_audio_path;
+        if (a.report.comportamental_pdf_path) patch.comportamental_pdf_path = a.report.comportamental_pdf_path;
+        const result = await sb.from('colaboradores').update(patch).eq('id', colabId);
         if (result.error) throw new Error(`relatório comportamental ${p.email}: ${result.error.message}`);
+      }
+
+      // O PDI que a TELA mostra (`relatorios` tipo='individual'). `relatorios`
+      // é limpa pelo reset, então sem restaurar aqui a página /dashboard/pdi
+      // volta a dizer "ainda não disponível" — e regerar custa ~3,5 min de IA,
+      // agora que o documento cobre todas as competências mapeadas.
+      if (a.pdi?.conteudo) {
+        // `colab_key` é GENERATED ALWAYS — inserir o valor derruba o reset com
+        // "cannot insert a non-DEFAULT value". Mesma armadilha do `nivel` em
+        // descriptor_assessments, e o fixture guarda a linha inteira.
+        const { colab_key, ...pdiInserivel } = a.pdi as any;
+        // UPSERT, não insert: o warm snapshot também restaura `relatorios`, e
+        // as duas escritas colidiam na unique (empresa, colaborador, tipo) —
+        // derrubando o reset inteiro. Aqui o golden é a rede de segurança; o
+        // warm, que roda depois, sobrescreve com o mais recente.
+        const result = await sb.from('relatorios').upsert({
+          ...pdiInserivel,
+          empresa_id: destId,
+          colaborador_id: colabId,
+        }, { onConflict: 'empresa_id,colaborador_id,tipo' });
+        if (result.error) throw new Error(`PDI da tela ${p.email}: ${result.error.message}`);
       }
 
       // PDI congelado: é o passo que o cliente pergunta depois da devolutiva

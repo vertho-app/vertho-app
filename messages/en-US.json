@@ -121,7 +121,9 @@
       "profile": "Profile"
     },
     "platformPanel": "Vertho Administration",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "teamEngagement": "Engagement",
+    "teamEvolution": "Team evolution"
   },
   "NotFound": {
     "title": "Page not found",

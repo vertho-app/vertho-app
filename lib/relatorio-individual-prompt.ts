@@ -245,15 +245,29 @@ export async function buildRelatorioIndividualPrompt(
   // → competências FOCO do cargo (fonte única, item D) → foco da trilha (caso de
   // regeneração) → top5 → respondidas. Com blueprint, as competências do PDI são
   // EXATAMENTE as dele (mesmos nomes/ordem).
-  const competenciasAlvo: string[] = blueprintComps.length > 0
+  const prioridade: string[] = blueprintComps.length > 0
     ? blueprintComps
     : focoCargo.length > 0
       ? focoCargo
       : focoTrilha.length > 0
         ? focoTrilha
-        : top5Esperado.length > 0
-          ? top5Esperado
-          : [...new Set((respostas || []).map(r => r.competencia_nome).filter(Boolean))] as string[];
+        : top5Esperado;
+
+  // 🔑 O PDI mostra TUDO QUE A PESSOA MAPEOU, com o plano na frente.
+  //
+  // Antes, a lista era só a da prioridade — e com blueprint (que é o plano dos
+  // próximos 30 dias, uma competência na jornada) o documento saía com UMA
+  // competência para quem respondeu CINCO. Quem lê conclui que as outras quatro
+  // não foram avaliadas, quando na verdade estão medidas e fora do plano do mês.
+  //
+  // A ordem preserva a coerência PDI↔trilha (Fase 0, item 1): as competências
+  // do plano continuam primeiro, na ordem em que o blueprint as trouxe; as
+  // demais entram depois, como panorama do mapeamento.
+  const respondidas = [...new Set((respostas || []).map(r => r.competencia_nome).filter(Boolean))] as string[];
+  const competenciasAlvo: string[] = [
+    ...prioridade,
+    ...respondidas.filter((nome) => !prioridade.some((p) => normKey(p) === normKey(nome))),
+  ];
 
   // Mapa competencia → meta (id, cod_comp)
   const compIds = [...new Set((respostas || []).map(r => r.competencia_id).filter(Boolean))];

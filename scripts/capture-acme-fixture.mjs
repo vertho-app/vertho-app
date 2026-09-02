@@ -56,9 +56,16 @@ async function main() {
   const personaArtifacts = {};
   if (demo.data?.id) {
     const did = demo.data.id;
-    const colabs = await must('demo colabs', sb.from('colaboradores').select('id, email, report_texts, report_generated_at').eq('empresa_id', did));
+    const colabs = await must('demo colabs', sb.from('colaboradores').select('id, email, report_texts, report_generated_at, comportamental_audio_path, comportamental_pdf_path').eq('empresa_id', did));
     const idToEmail = new Map((colabs || []).map((c) => [c.id, c.email]));
-    const reportByEmail = new Map((colabs || []).map((c) => [c.email, c.report_texts ? { report_texts: c.report_texts, report_generated_at: c.report_generated_at } : null]));
+    // O caminho do MP3 entra como REDE DE SEGURANÇA (ver o reset): quem preserva
+  // a mídia no dia a dia é o warm snapshot, que lê o estado anterior ao reset.
+  const reportByEmail = new Map((colabs || []).map((c) => [c.email, c.report_texts ? {
+    report_texts: c.report_texts,
+    report_generated_at: c.report_generated_at,
+    comportamental_audio_path: c.comportamental_audio_path || null,
+    comportamental_pdf_path: c.comportamental_pdf_path || null,
+  } : null]));
     const respAval = await must('demo respostas avaliadas',
       sb.from('respostas').select('colaborador_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, payload_ia4, status_ia4')
         .eq('empresa_id', did).not('avaliacao_ia', 'is', null));
@@ -80,6 +87,19 @@ async function main() {
       // `nivel` é GENERATED ALWAYS — não capturar (não pode ser inserido).
       const { id, colaborador_id, empresa_id, nivel, ...rest } = d;
       personaArtifacts[email].descriptor_assessments.push(rest);
+    }
+
+    // PDI da TELA (`relatorios` com tipo='individual'): ~3,5 min de IA por
+    // pessoa, e `relatorios` está em DEMO_RESET_TABLES — sem congelar, o PDI
+    // some no primeiro reset. Não confundir com o blueprint logo abaixo: aquele
+    // alimenta a trilha, este é o documento que /dashboard/pdi mostra.
+    const pdis = await must('demo PDIs',
+      sb.from('relatorios').select('*').eq('empresa_id', did).eq('tipo', 'individual'));
+    for (const r of pdis || []) {
+      const email = idToEmail.get(r.colaborador_id);
+      if (!email || !personaArtifacts[email]) continue;
+      const { id, colaborador_id, empresa_id, created_at, updated_at, ...rest } = r;
+      personaArtifacts[email].pdi = rest;
     }
 
     // PDI (development blueprint): derivado dos descritores por IA, ~2 min por

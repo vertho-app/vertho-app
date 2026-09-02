@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
-import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn, Activity } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import { PresentationEnvironment } from '@/components/dashboard/presentation-role-switcher';
@@ -50,6 +50,11 @@ const NAV_ITEMS: NavItem[] = [
   // Admin da empresa e não participa (medido 24/08/2026: 0 dos 8 com role='rh'
   // têm sessão de avaliação), então para ele são portas para tela vazia — a
   // mesma razão que tirou a jornada da home dele. Ver `home-rh.tsx`.
+  // Telas de EQUIPE. Para quem lidera sem participar (cargo de adequação, Top 5
+  // vazio) elas são o conteúdo do menu: o coordenador acompanha o time, não faz
+  // a própria jornada.
+  { href: '/dashboard/gestor/engajamento', labelKey: 'teamEngagement', icon: Activity, gestorOnly: true },
+  { href: '/dashboard/gestor/equipe-evolucao', labelKey: 'teamEvolution', icon: TrendingUp, gestorOnly: true },
   { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock, participante: true },
   { href: '/dashboard/temporada', labelKey: 'season', icon: Play, participante: true },
   { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp, participante: true },
@@ -63,9 +68,13 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const isImmersiveContent = pathname.startsWith('/dashboard/conteudo/');
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
-  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean } | null>(null);
+  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
   const ehAdminDaEmpresa = colaborador?.role === 'rh';
+  // Cargo com Top 5 vazio não faz mapeamento nem trilha: as telas de jornada
+  // abrem vazias. `undefined` (ainda carregando, ou /api/me antigo) conta como
+  // participante — na dúvida, mostra.
+  const participaDaJornada = colaborador?.temTrilhaPossivel !== false;
   // Quem administra a plataforma também é colaborador de algum tenant, e entrar
   // por um deles não é erro — mas daqui não havia caminho de volta ao painel
   // (medido 24/08/2026: nenhum link para /admin fora do próprio /admin). Quem
@@ -74,7 +83,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const navItems = NAV_ITEMS.filter((it) =>
     (!it.gestorOnly || isGestorOuRH)
     && (!it.rhOnly || ehAdminDaEmpresa)
-    && (!it.participante || !ehAdminDaEmpresa),
+    && (!it.participante || (!ehAdminDaEmpresa && participaDaJornada)),
   );
 
   useEffect(() => {

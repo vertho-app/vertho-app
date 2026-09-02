@@ -121,7 +121,9 @@
       "profile": "Perfil"
     },
     "platformPanel": "Administração Vertho",
-    "logout": "Sair"
+    "logout": "Sair",
+    "teamEngagement": "Engajamento",
+    "teamEvolution": "Evolução da equipe"
   },
   "NotFound": {
     "title": "Página não encontrada",

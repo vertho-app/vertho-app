@@ -307,8 +307,12 @@ export async function gerarRelatorioIndividualCore(
     const built = await buildRelatorioIndividualPrompt(sbRaw, { empresaId, colaboradorId });
     if ('error' in built) return { success: false, error: built.error };
 
+    // O teto padrão do cliente de IA é 120s, e o PDI passou a cobrir TODAS as
+    // competências mapeadas (02/09/2026) — com cinco delas, a geração levava
+    // mais que isso e morria em "Request was aborted" depois de ~2 min de
+    // trabalho já pago. O documento é longo por desenho; o teto acompanha.
     const resultado = await callAI(built.system, built.user, aiConfig, PDI_MAX_TOKENS, {
-      taskKey: 'pdi_individual', empresaId, colaboradorId,
+      taskKey: 'pdi_individual', empresaId, colaboradorId, timeoutMs: 300000,
     });
 
     // `built` passado adiante: o síncrono já pagou a leitura, não há por que
