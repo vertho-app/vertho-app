@@ -34,6 +34,14 @@ Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (rese
 
 ## Frentes recentes
 
+**02/09 — Engajamento vira workspace visual com abas** (`1ba65ff7`). `/admin/engajamento` agora
+reúne **Visão atual** e **Evolução semanal** em abas reais: o conteúdo troca no lugar, os estados são
+preservados e a URL não muda. A primeira aba organiza acesso → consumo → evidência, posição na
+jornada e acompanhamento por pessoa; a segunda mantém série longitudinal, trajetórias, recuperados,
+heatmap por área e fila de risco. `/admin/engajamento/evolucao` virou redirect de compatibilidade e
+o relatório semanal abre a aba longitudinal via `?view=evolucao`. A tela do gestor recebeu a mesma
+hierarquia visual, com atenção primeiro e layout responsivo.
+
 **02/09 — Engajamento separa calendário de etapa individual** (`0cb3feea`). A primeira versão da
 visualização dizia que os 38 participantes estavam na semana 3 porque lia
 `fase4_envios.semana_atual`; esse campo é o **relógio da cadência**, avança no dia da evidência e
@@ -54,13 +62,13 @@ preservadas no **Pulso v2**: cada momento novo tem 12 Likert + 8 rankings + 6 es
 contextual fica em `pulse_assignments.contextual_disc` e nunca sobrescreve o DISC natural
 (migração 183; commit-base `8f987a25`).
 
-Também entrou a página B **`/admin/engajamento/evolucao`** (`3caa064e`), mantendo
-`/admin/engajamento`: série semana a semana de ativação/consumo/evidência, trajetórias, recuperados,
-heatmap por área e fila operacional de risco. Índice explícito: 20 ativação + 30 consumo +
-40 evidência + 10 Tira-Dúvidas; é sinal operacional, não nota. Cada semana usa como denominador
-quem já a alcançou pelo relógio da cadência (`semana_atual >= N`) — inclusive pendentes, porque a
-página B mede quem estava previsto e deu sinal, não posição individual. Não houve migration nova
-para o dashboard.
+Também entrou a evolução longitudinal, originalmente como página B em
+**`/admin/engajamento/evolucao`** (`3caa064e`) e incorporada ao workspace como aba em 02/09: série
+semana a semana de ativação/consumo/evidência, trajetórias, recuperados, heatmap por área e fila
+operacional de risco. Índice explícito: 20 ativação + 30 consumo + 40 evidência + 10 Tira-Dúvidas;
+é sinal operacional, não nota. Cada semana usa como denominador quem já a alcançou pelo relógio da
+cadência (`semana_atual >= N`) — inclusive pendentes, porque a evolução mede quem estava previsto e
+deu sinal, não posição individual. Não houve migration nova para o dashboard.
 
 **28/07** — **Três regras de produto novas.** (1) **A missão de aplicação cobre o bloco que acabou
 de fechar** (sem 4 → semanas 1-3, sem 8 → só 5-7, sem 12 → cumulativa): antes a semana 4 cobrava a
@@ -122,9 +130,9 @@ rastreavel (mig 169). ACME Demo: reset canonico unico.
   Modos: **Regular DUO** (14 sem, default) · **Onboarding** (10 sem) · **Piloto** (2 sem) ·
   **Personalizado** (1-4 sem, configuravel). Modo por empresa E por colaborador, com carimbo na trilha.
 - **Pulso de Desenvolvimento** — T0/T2 + sinais + Dual-IA + PDFs (executivo e complementar NR-1).
-- **Engajamento operacional** — visão atual em `/admin/engajamento`, incluindo etapa individual
-  separada do calendário da turma, e evolução longitudinal em `/admin/engajamento/evolucao`, com
-  filtro de empresa/área e régua transparente.
+- **Engajamento operacional** — workspace `/admin/engajamento` com abas **Visão atual** e
+  **Evolução semanal**, etapa individual separada do calendário da turma, filtros de empresa/semana/
+  área e régua transparente. A antiga rota `/admin/engajamento/evolucao` é só compatibilidade.
 - **Radar Vertho** (`radar.vertho.ai`) — inteligencia publica: escola, municipio, rede, estado,
   comparacao. Inclui matriculas do censo (178k escolas).
 - **Portal do Representante** (`/representante`, interno) — funil de RCs, propostas, comissoes.

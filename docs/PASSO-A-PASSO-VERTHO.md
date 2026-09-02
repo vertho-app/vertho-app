@@ -350,17 +350,26 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 **`/admin/vertho/simulador-custo`** — Custo de IA: catálogo estimado, real do ledger, custo por jornada e infra fixa (o plano e o log de decisões vivem em `docs/CUSTO-QUALIDADE.md`). **`/admin/vertho/modulos-base`** — autoria e auditoria dual-IA dos Módulos-Base. **`/admin/vertho/auditorias`** e **`/admin/vertho/orcamento`** — auditoria de blueprints e orçamento.
 
-**`/admin/engajamento`** (não é vertho-only) — visão atual da telemetria: quem abriu o link × quem
-consumiu de fato, mais a **etapa individual da jornada**. A régua e a coluna da tabela mostram a
-semana que cada pessoa realmente consegue acessar: **pendente** (âmbar), **em curso** (ciano) ou
-**concluída** (verde). O texto “Calendário da turma” é apenas o relógio dos envios; não afirma que as
-semanas anteriores foram concluídas. Clicar numa etapa filtra as pessoas da tabela; o seletor
-**Métricas** é independente e recorta abertura/consumo/evidência pela semana escolhida. A mesma
-leitura aparece para o cliente em `/dashboard/gestor/engajamento`. ⚠️ `conteudo_consumido ≈ 0` não é
-falta de engajamento (para vídeo, o sinal real é `play_finished`). O envio notifica a semana
-acessível; a tela ainda cobra os gates de data e progressão, portanto envio não é liberação.
+**`/admin/engajamento`** (não é vertho-only) — workspace único com as abas **Visão atual** e
+**Evolução semanal**. As abas trocam o conteúdo no lugar, sem navegação ou mudança de URL, e mantêm
+o contexto da empresa e os filtros enquanto a pessoa compara as duas leituras.
 
-**`/admin/engajamento/evolucao`** — página B, acessível pelo botão da visão atual. Mostra evolução de ativação, consumo e evidência semana a semana; trajetórias (acelerando/no ritmo/atenção/crítico); recuperados; heatmap por área; e participantes que pedem acompanhamento. O filtro continua em `?empresa=` e pode ser refinado por área. O índice operacional soma ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10; não é nota de desempenho. O denominador de N inclui quem chegou a N pelo **calendário da cadência** (`semana_atual >= N`), inclusive quem ficou pendente antes — nessa página a pergunta é “quem estava previsto e deu sinal?”, não “em que etapa individual está?”.
+Na aba **Visão atual**, a trilha de sinais resume acesso → consumo → evidência. A régua e o detalhe
+por pessoa mostram a semana que cada um realmente consegue acessar: **pendente** (âmbar), **em
+curso** (ciano) ou **concluída** (verde). “Calendário da turma” é apenas o relógio dos envios; não
+afirma que as semanas anteriores foram concluídas. Clicar numa etapa filtra a lista; o seletor de
+semana é independente e recorta os sinais históricos. A mesma leitura aparece para o cliente em
+`/dashboard/gestor/engajamento`. ⚠️ `conteudo_consumido ≈ 0` não é falta de engajamento (para vídeo,
+o sinal real é `play_finished`). O envio notifica a semana acessível; a tela ainda cobra os gates de
+data e progressão, portanto envio não é liberação.
+
+Na aba **Evolução semanal**, a tela mostra ativação, consumo e evidência semana a semana;
+trajetórias (acelerando/no ritmo/atenção/crítico); recuperados; heatmap por área; e participantes que
+pedem acompanhamento. O recorte pode ser refinado por área. O índice operacional soma ativação 20 +
+consumo 30 + evidência 40 + Tira-Dúvidas 10; não é nota de desempenho. O denominador de N inclui
+quem chegou a N pelo **calendário da cadência** (`semana_atual >= N`), inclusive quem ficou pendente
+antes — nessa aba a pergunta é “quem estava previsto e deu sinal?”, não “em que etapa individual
+está?”. A rota antiga `/admin/engajamento/evolucao` apenas redireciona para esta aba.
 
 **`/admin/vertho/knowledge-base`** — CRUD da base de conhecimento RAG per-tenant. Upload PDF/DOCX/TXT/MD (até 4MB), botão "Popular base inicial" (6 docs seed), preview de busca. Alimenta grounding em Tira-Dúvidas + Evidências + Missão Feedback + Relatórios Gestor/RH.
 
@@ -568,6 +577,15 @@ repo; **não usar em material novo**.
 
 ## Notas de manutenção
 
+### 2026-09-02 — Engajamento em um workspace com abas
+
+- **Visão atual + Evolução semanal** (`1ba65ff7`): as duas páginas administrativas foram reunidas
+  em `/admin/engajamento` como abas acessíveis por teclado, sem navegação ou mudança de URL.
+- A visão atual ganhou trilha visual de sinais, hierarquia de acompanhamento, busca/filtros e cartões
+  responsivos; a visão do gestor em `/dashboard/gestor/engajamento` usa a mesma linguagem visual.
+- `/admin/engajamento/evolucao` ficou como redirect de compatibilidade e o relatório semanal abre a
+  aba longitudinal pelo marcador temporário `?view=evolucao`.
+
 ### 2026-09-01 — Envios WhatsApp com público automático
 
 - A aba WhatsApp passou a oferecer os templates semanais e de pendência no mesmo catálogo manual.
@@ -590,9 +608,9 @@ repo; **não usar em material novo**.
   mapeamento e dos relatórios comportamentais. As 14 perguntas de contexto passaram ao Pulso v2
   (8 rankings + 6 escolhas forçadas), com `template_version` imutável e resultado salvo em
   `pulse_assignments.contextual_disc`, sem sobrescrever o DISC natural.
-- **28/07 — evolução de engajamento** (`3caa064e`): página B
-  `/admin/engajamento/evolucao` adicionada sem substituir a visão atual; usa os sinais operacionais
-  existentes e não exigiu migration.
+- **28/07 — evolução de engajamento** (`3caa064e`): a evolução nasceu como página B em
+  `/admin/engajamento/evolucao`, sem substituir a visão atual; em 02/09 foi incorporada como aba do
+  workspace único. Usa os sinais operacionais existentes e não exigiu migration.
 
 ### 2026-07-06/07 — Piloto robusto + Portal do Representante + ACME Demo
 - **Piloto — acumulada em Trigger.dev (M8)** (`ce30c46d`, `1d1279eb`, `e19acc04`, `76de153e`, `7a6ef4e7`, `83c8092a`, `f67c195c`): a avaliação acumulada do piloto saiu do `after()` da reflection (frágil, morria no freeze da Vercel e corria com o fechamento) para a task `trigger/acumulada-piloto.ts` com retry; a reflection sem 2 marca a linha como `processing` e dispara a task, e o fechamento só abre quando `done` — gate "Preparando sua avaliação…" com polling + **self-heal inline** (migration 169). Fechamento não trava mais por Cenário B faltando nem por avaliação parcial (report tolera N-1 descritores). **Deploy da task é MANUAL** (`npx trigger.dev deploy`). Validado E2E ao vivo em prod (gate + task) + **73 testes unit/integração verdes** (inclui integração B1/B2/B4/B5).

@@ -1473,16 +1473,18 @@ Todos com filtro `?empresa=` e back button context-aware. Dados via `lib/ia-cost
 
 Fora do `/vertho` mas de mesma natureza operacional:
 
-- **`/admin/engajamento`** — visão atual da telemetria da trilha (link aberto × conteúdo consumido
-  de fato × evidência entregue, por semana e canal) + régua de **etapa individual**. A régua mostra
-  a semana que cada pessoa consegue acessar, com estado pendente/em curso/concluída, e pode filtrar
-  as linhas da tabela sem alterar o recorte histórico das métricas.
-- **`/admin/engajamento/evolucao`** — página B longitudinal: ativação, consumo e evidência por
-  semana, trajetórias, recuperados, mapa de calor por área e fila operacional de risco. O índice é
-  explícito: ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10. É sinal operacional da
+- **`/admin/engajamento`** — workspace único de acompanhamento, com duas **abas reais** que trocam o
+  conteúdo no lugar e preservam o contexto da empresa. **Visão atual** mostra a trilha de sinais
+  (acesso → consumo → evidência), a régua de **etapa individual**, envio/formato e detalhe acionável
+  por pessoa. **Evolução semanal** mostra ativação, consumo e evidência ao longo do tempo,
+  trajetórias, recuperados, mapa de calor por área e fila operacional de risco. O índice da segunda
+  aba é explícito: ativação 20 + consumo 30 + evidência 40 + Tira-Dúvidas 10. É sinal operacional da
   jornada, não nota, competência ou avaliação de desempenho.
+- **`/admin/engajamento/evolucao`** — rota legada; preserva favoritos e redireciona para
+  `/admin/engajamento?view=evolucao`. Ao montar, o workspace seleciona a aba e remove `view` da URL;
+  alternar as abas depois disso não navega nem altera o endereço.
 
-Ambas usam `?empresa=` e `tenantDb(empresaId)`. O roll-up compartilhado
+As duas abas usam `?empresa=` e `tenantDb(empresaId)`. O roll-up compartilhado
 (`lib/engajamento/roll-up.ts`) também alimenta `/dashboard/gestor/engajamento`, recortado aos
 liderados. Na série longitudinal, o denominador de N é quem já chegou a N pelo **relógio da
 cadência** (`fase4_envios.semana_atual >= N`): ali a pergunta é “quem estava previsto nesta semana e
