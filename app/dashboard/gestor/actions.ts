@@ -42,7 +42,8 @@ export type CheckpointPendenteDetalhado = {
   colab: string;
   cargo: string | null;
   competenciaFoco: string | null;
-  semana: 5 | 10;
+  /** Semana de checkpoint do PROGRAMA da trilha (jornada 3 e 5, DUO 5 e 10). */
+  semana: number;
   diasPendente: number;
   fonteDISC?: string | null;
 };
@@ -553,22 +554,55 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   }
 
   // ── 6. Checkpoints pendentes detalhados ──
-  const checkpointsPendentes: CheckpointPendenteDetalhado[] = cpPendentes.map((cp: any) => {
-    const trilha = ativas.find((t: any) => t.id === cp.trilha_id);
-    const colab: any = trilha ? liderId2obj.get(trilha.colaborador_id) : null;
-    const dias = Math.max(0, Math.floor((Date.now() - new Date(cp.criado_em).getTime()) / (24 * 3600 * 1000)));
-    return {
-      trilhaId: cp.trilha_id,
-      colabId: trilha?.colaborador_id || '',
-      colab: colab?.nome_completo || '—',
-      cargo: colab?.cargo || null,
-      competenciaFoco: trilha?.competencia_foco || null,
-      semana: cp.semana,
-      diasPendente: dias,
-    };
-  })
-  // Ordena: atrasados primeiro, mais antigos depois
-  .sort((a, b) => b.diasPendente - a.diasPendente);
+  // 🔴 O CHECKPOINT PENDENTE É DERIVADO, NÃO LIDO DE UMA LINHA.
+  //
+  // Este card lia `checkpoints_gestor` com status 'pendente' — e a ÚNICA
+  // escrita nessa tabela em todo o repositório é `salvarCheckpointGestor`, que
+  // roda quando o gestor RESPONDE. Ninguém jamais criava a linha pendente:
+  // "Ação esta semana" era estruturalmente inalcançável, e dizia "nada pendente"
+  // para um time com gente parada na semana de avaliação.
+  //
+  // A régua correta já existia na tela de evolução: pendente é quem CHEGOU na
+  // semana de checkpoint (progresso registrado e fora de 'pendente') e ainda não
+  // teve o checkpoint validado. É essa que passa a valer aqui.
+  const progressoCheckpoint = await Promise.all(ativas.map(async (t: any) => {
+    const semanas = getProgramaConfigDaTrilha(t).semanasCheckpoint;
+    if (!semanas.length) return [] as any[];
+    const { data: progs, error: errProg } = await sb.from('temporada_semana_progresso')
+      .select('semana, status, concluido_em')
+      .eq('trilha_id', t.id).in('semana', semanas);
+    if (errProg) {
+      console.error('[gestor] progresso do checkpoint:', errProg.message);
+      return [] as any[];
+    }
+    return (progs || []).map((p: any) => ({ trilha: t, ...p }));
+  }));
+
+  const checkpointsPendentes: CheckpointPendenteDetalhado[] = progressoCheckpoint
+    .flat()
+    .filter((linha: any) => linha.status && linha.status !== PROGRESSO.PENDENTE)
+    .filter((linha: any) => {
+      const cp = checkpoints.find((c: any) => c.trilha_id === linha.trilha.id && c.semana === linha.semana);
+      return cp?.status !== 'validado';
+    })
+    .map((linha: any) => {
+      const colab: any = liderId2obj.get(linha.trilha.colaborador_id);
+      // "Pendente desde" = quando a pessoa concluiu a semana, que é o momento em
+      // que o checkpoint passou a caber. Sem `concluido_em`, conta zero em vez de
+      // inventar uma data.
+      const desde = linha.concluido_em ? new Date(linha.concluido_em).getTime() : Date.now();
+      return {
+        trilhaId: linha.trilha.id,
+        colabId: linha.trilha.colaborador_id || '',
+        colab: colab?.nome_completo || '—',
+        cargo: colab?.cargo || null,
+        competenciaFoco: linha.trilha.competencia_foco || null,
+        semana: linha.semana,
+        diasPendente: Math.max(0, Math.floor((Date.now() - desde) / (24 * 3600 * 1000))),
+      };
+    })
+    // Ordena: atrasados primeiro, mais antigos depois
+    .sort((a, b) => b.diasPendente - a.diasPendente);
 
   // ── 7. Equipe (com trilha info por colab) ──
   const colabsTodasTrilhas = new Map<string, any[]>();
@@ -736,7 +770,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
         sem_trilha: liderados.length - ativasIds.length,
       },
       em_andamento: { count: ativasIds.length, distribuicao_semanas: distribuicaoSemanas },
-      checkpoints: { pendentes: cpPendentes.length, respondidos: cpRespondidos },
+      checkpoints: { pendentes: checkpointsPendentes.length, respondidos: cpRespondidos },
       atividade_semana: { ativos: ativosSet.size, total: liderados.length },
     },
     alertas,

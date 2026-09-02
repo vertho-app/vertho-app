@@ -4397,7 +4397,7 @@
       }
     },
     "team": {
-      "weekProgress": "sem {week}/14",
+      "weekProgress": "sem {week}/{total}",
       "reason": {
         "sem_perfil": "falta o mapeamento comportamental",
         "sem_perfil_externo": "falta o {fonte}",
