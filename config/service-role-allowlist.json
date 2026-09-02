@@ -42,7 +42,7 @@
     "actions/backup.ts": 1,
     "actions/conteudos-metrics.ts": 1,
     "actions/conteudos.ts": 2,
-    "actions/cron-jobs.ts": 4,
+    "actions/cron-jobs.ts": 5,
     "actions/fase5/reavaliacao.ts": 2,
     "actions/gerar-video.ts": 1,
     "actions/lead-comercial.ts": 2,
