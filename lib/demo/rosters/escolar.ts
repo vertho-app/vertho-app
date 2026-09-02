@@ -448,6 +448,9 @@ export const ROSTER_ESCOLAR: DemoRoster = {
     celulaId: '58df245a-f782-415b-a0fb-1eaf9003ac26',
     competenciaBaseId: 'c9a7f3d1-25b8-4c6e-9f04-3ab1d7e58c62',
     bunnyVideoId: 'b5c988e1-6726-40b6-b6ca-847512e4c546',
+    // Mesmo conteúdo, com "Olá, Marina" nos 3 primeiros segundos. Montado por
+    // `scripts/_gerar-video-nominal-escolas.ts` a partir do deck do genérico.
+    nominal: { bunnyVideoId: '0c085460-fd39-4f52-bce4-84aefcc538ee', personaKey: 'marina' },
     competencia: TOP5_DOCENCIA[0],
     descritor: 'Recursos didáticos',
     cargo: DOCENCIA,

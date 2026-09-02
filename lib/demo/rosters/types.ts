@@ -255,6 +255,18 @@ export type DemoRoster = {
     celulaId: string;
     /** Asset já renderizado no Bunny. */
     bunnyVideoId: string;
+    /**
+     * A versão NOMINAL ("Olá, Fulana"), que a persona vê no lugar do genérico.
+     *
+     * Mora em `videos_personalizados`, que cascateia com `colaboradores` — e o
+     * reset recria as pessoas com ids novos, então a linha some toda noite se
+     * não for declarada aqui. O asset em si sobrevive no Bunny.
+     */
+    nominal?: {
+      bunnyVideoId: string;
+      /** `key` da persona no elenco (não o e-mail: o id muda a cada reset). */
+      personaKey: string;
+    };
     /** Competência e descritor da semana que recebe o vídeo. */
     competencia: string;
     descritor: string;

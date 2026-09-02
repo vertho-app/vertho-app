@@ -935,7 +935,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
    * modulo de um cliente aqui reescreveria o `empresa_id` dele: o asset do
    * Bunny e compartilhado (e editorial), a linha do catalogo nao.
    */
-  async function ensureVideoDaJornada(destId: string) {
+  async function ensureVideoDaJornada(destId: string, personaMap: Map<string, string>) {
     const cfg = roster.videoDaJornada;
     if (!cfg) return;
     const libraryId = String(process.env.BUNNY_LIBRARY_ID || 636615);
@@ -1063,6 +1063,27 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       ? await sb.from('videos_gerados').update(payloadCelula).eq('id', cellId).eq('empresa_id', destId)
       : await sb.from('videos_gerados').insert({ id: cellId, ...payloadCelula });
     if (gravou.error) throw new Error(`gravar celula do video da jornada: ${gravou.error.message}`);
+
+    // A versao NOMINAL da persona. `videos_personalizados` cascateia com
+    // `colaboradores`, e o reset recria as pessoas com ids novos — sem recriar
+    // aqui, a saudacao some toda noite e a persona volta a ver o generico.
+    if (cfg.nominal) {
+      const personaId = personaMap.get(cfg.nominal.personaKey);
+      if (personaId) {
+        const nominal = await sb.from('videos_personalizados').upsert({
+          cell_video_id: cellId,
+          colaborador_id: personaId,
+          nome_usado: (roster.personas.find((p) => p.key === cfg.nominal!.personaKey)?.nome_completo || '').split(/\s+/)[0] || null,
+          status: 'done',
+          bunny_video_id: cfg.nominal.bunnyVideoId,
+          bunny_library: libraryId,
+          video_url: `https://iframe.mediadelivery.net/play/${libraryId}/${cfg.nominal.bunnyVideoId}`,
+          error: null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'cell_video_id,colaborador_id' });
+        if (nominal.error) throw new Error(`video nominal da jornada: ${nominal.error.message}`);
+      }
+    }
   }
 
   async function ensurePresentationVideo(destId: string, personaMap: Map<string, string>) {
@@ -2236,7 +2257,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     await seedPanoramaDoRoster(demo.id, personaMap);
     await seedAcmePanorama(demo.id, personaMap);
     await ensurePresentationVideo(demo.id, personaMap);
-    await ensureVideoDaJornada(demo.id);
+    await ensureVideoDaJornada(demo.id, personaMap);
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
     await seedAcmeRhReportCenter(demo.id);
     if (slug === DEMO_SLUG) {
