@@ -490,3 +490,81 @@ export async function conarhReenvioT0() {
 async function publishToQStash(payload: any, delaySec: number = 0) {
   return publicarWhatsappCis(payload, delaySec);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENCERRAMENTO DE IBIPEBA: avisa quem ficou com semanas em aberto.
+//
+// 🔴 JOB COM DATA DE FIM, E O QUE O DESLIGA ENTRA NO MESMO COMMIT. Esta base já
+// pagou por não fazer isso: os dois crons do CONARH continuaram armados depois
+// de a feira terminar em 17/08 — o de T+0 rodava 48× por dia disparando WhatsApp
+// para leads de um evento encerrado, e o comentário que justificava o intervalo
+// curto estava certo DURANTE a feira. O sintoma é a ausência de sintoma: rodada
+// sem pendente é uma query que devolve zero linhas.
+//
+// Aqui o desligamento é por DATA e mora no código, não na memória de ninguém:
+// fora da janela a função retorna sem fazer nada. A entrada do `vercel.json`
+// (`4-8 9`) limita os dias, mas ela sozinha voltaria a disparar em setembro de
+// 2027 — a trava real é o `JANELA` abaixo.
+//
+// Idempotência: `prepararLoteTemplate` já exclui quem recebeu este template
+// antes, então rodar nos cinco dias da janela não manda cinco mensagens. Os dias
+// extras são rede de segurança para a sexta falhar, não repetição.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Fora desta janela o job é inerte. Passou 12/09, pode remover o cron. */
+const ENCERRAMENTO_IBIPEBA_JANELA = { de: '2026-09-04', ate: '2026-09-12' };
+const ENCERRAMENTO_IBIPEBA_TENANT = '0d99fed1-1710-40e3-b32e-7a95c7d023fe';
+/**
+ * Tamanho plausível do lote, medido em 02/09: 28 pessoas com semanas em aberto.
+ * O teto existe porque o modo de falha que importa é o lote INCHAR — foi o que
+ * o dry-run pegou quando a régua de exclusão estava errada e as 8 pessoas que
+ * já haviam concluído tudo entraram na lista. Lote fora da faixa não dispara.
+ */
+const ENCERRAMENTO_IBIPEBA_MAX = 32;
+
+export async function encerramentoIbipeba() {
+  await requireAdminOrCronAction();
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  if (hoje < ENCERRAMENTO_IBIPEBA_JANELA.de || hoje > ENCERRAMENTO_IBIPEBA_JANELA.ate) {
+    // Não é erro: é o job se desligando sozinho. Loga para o dia em que alguém
+    // perguntar por que ele não fez nada.
+    console.log(`[encerramento-ibipeba] fora da janela (${ENCERRAMENTO_IBIPEBA_JANELA.de}..${ENCERRAMENTO_IBIPEBA_JANELA.ate}) — inerte. Pode remover do vercel.json.`);
+    return { message: 'fora da janela — nada a fazer', disparados: 0, inerte: true };
+  }
+
+  const sb = createSupabaseAdmin();
+  const { prepararLoteTemplate, dispararLoteTemplate } = await import('@/lib/notifications/envio-template-lote');
+
+  const { data: colabs, error } = await sb.from('colaboradores')
+    .select('id, nome_completo, cargo, telefone, whatsapp, perfil_dominante')
+    .eq('empresa_id', ENCERRAMENTO_IBIPEBA_TENANT);
+  if (error) throw new Error(`[encerramento-ibipeba] colaboradores: ${error.message}`);
+
+  const lote = await prepararLoteTemplate(sb, {
+    empresaId: ENCERRAMENTO_IBIPEBA_TENANT,
+    template: 'encerramento_conteudo',
+    colabs: (colabs || []) as any[],
+  });
+
+  if (lote.alvos.length === 0) {
+    console.log('[encerramento-ibipeba] lote vazio — todos já receberam ou ninguém está elegível.');
+    return { message: 'lote vazio — nada a enviar', disparados: 0 };
+  }
+
+  // FAIL-CLOSED no inchaço: mensagem errada para gente certa é pior que atraso.
+  if (lote.alvos.length > ENCERRAMENTO_IBIPEBA_MAX) {
+    console.error(`[encerramento-ibipeba] lote com ${lote.alvos.length} alvos, acima do teto de ${ENCERRAMENTO_IBIPEBA_MAX} — NÃO disparado. A régua de exclusão pode ter regredido.`);
+    return { message: `lote inesperado (${lote.alvos.length} > ${ENCERRAMENTO_IBIPEBA_MAX}) — não disparado`, disparados: 0, erro: true };
+  }
+
+  const r = await dispararLoteTemplate(lote, ENCERRAMENTO_IBIPEBA_TENANT);
+  const falhas = r.detalhes.filter(d => !d.ok).map(d => `${d.nome}: ${d.motivo}`);
+  if (falhas.length) console.error(`[encerramento-ibipeba] ${falhas.length} falha(s):`, falhas.join(' · '));
+  console.log(`[encerramento-ibipeba] ${r.aceitos} aceitos pela Meta, ${r.falhas} falhas${r.naoAlcancados ? `, ${r.naoAlcancados} não alcançados (${r.motivoDoCorte})` : ''}.`);
+  // `aceitos` é o que a Meta ACEITOU — entrega confirmada vem do webhook.
+  return {
+    message: `${r.aceitos} aceitos, ${r.falhas} falhas`,
+    disparados: r.aceitos, falhas: r.falhas, naoAlcancados: r.naoAlcancados,
+  };
+}

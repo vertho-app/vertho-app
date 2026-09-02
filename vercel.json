@@ -41,6 +41,10 @@
       "schedule": "0 3 * * 6"
     },
     {
+      "path": "/api/cron?action=encerramento_ibipeba",
+      "schedule": "12 12 4-8 9 *"
+    },
+    {
       "path": "/api/cron?action=custo_ia_semanal",
       "schedule": "0 7 * * 1"
     }
