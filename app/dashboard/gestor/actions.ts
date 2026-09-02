@@ -683,8 +683,10 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     const inicio = new Date(t.data_inicio).getTime();
     const colab: any = liderId2obj.get(t.colaborador_id);
     if (!colab) continue;
-    // Checkpoints sem 5 e 10
-    for (const sem of [5, 10] as const) {
+    // As semanas de checkpoint saem do PROGRAMA da trilha, nao de um literal:
+    // `[5, 10]` e do programa de 14 semanas, e numa jornada de 7 a semana 10
+    // nunca chega — o card prometia um checkpoint que nao existiria.
+    for (const sem of getProgramaConfigDaTrilha(t).semanasCheckpoint) {
       const dataCp = new Date(inicio + sem * 7 * 24 * 3600 * 1000);
       // Só inclui se ainda está no futuro próximo (próximas 4 semanas)
       const diasAte = (dataCp.getTime() - Date.now()) / (24 * 3600 * 1000);

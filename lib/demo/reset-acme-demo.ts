@@ -39,7 +39,7 @@ import {
 } from '@/lib/demo/acme-rh-report-fixture';
 import {
   ACME_DEMO_DESCRITORES,
-  ACME_DEMO_DESCRITORES_POR_TRILHA,
+  descritoresDaVitrineAcme,
   ACME_DEMO_EVOLUTION_MIX,
   construirEvolucaoAcmeDemo,
   construirFechamentoAcmeDemo,
@@ -51,6 +51,7 @@ import {
   construirEvolucao,
   construirFechamento,
   type PerfilEvolucao,
+  construirPercursoAnterior,
 } from '@/lib/demo/evolucao-nucleo';
 import { seedAcmeOrganizationReports } from '@/lib/demo/acme-organization-reports';
 import { precomputeDemoFitResults, seedAcmeFitRankingSnapshots } from '@/lib/demo/acme-fit-rankings';
@@ -1738,6 +1739,48 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       if (error) throw new Error(`panorama: trilhas: ${error.message}`);
     }
 
+    // ── O PERCURSO de quem está EM JORNADA ───────────────────────────────
+    // Elas nasciam com `temporada_plano: []` e zero progresso: a barra abria em
+    // "0/7" e, pior, o card "Ação esta semana" do gestor ficava permanentemente
+    // vazio — os checkpoints só aparecem quando alguém CHEGA na semana deles.
+    // O percurso parcial abaixo põe o time em pontos diferentes da jornada, e
+    // pelo menos um deles na primeira semana de checkpoint.
+    const emJornada = (panorama.emJornada ?? [])
+      .map((key) => ({ key, id: personaMap.get(key) }))
+      .filter((linha) => linha.id);
+    if (emJornada.length) {
+      const cfgJornada = getProgramaConfigByModo(roster.programaModo);
+      const checkpoint = cfgJornada.semanasCheckpoint[0] ?? 3;
+      const iniciadoEm = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString();
+
+      for (const [indice, linha] of emJornada.entries()) {
+        const { data: trilhaAtiva, error: errBusca } = await sb.from('trilhas')
+          .select('id').eq('empresa_id', destId).eq('colaborador_id', linha.id).maybeSingle();
+        if (errBusca) throw new Error(`panorama: trilha ativa de ${linha.key}: ${errBusca.message}`);
+        if (!trilhaAtiva?.id) continue;
+
+        // O primeiro chega à semana de checkpoint (é dele que o card do gestor
+        // vive); os demais ficam atrás, para o time não parecer sincronizado.
+        const concluidas = indice === 0 ? checkpoint : Math.max(1, checkpoint - 1 - indice);
+        const percurso = construirPercursoAnterior(cfgJornada.semanas, [], iniciadoEm);
+        const { error: errPlano } = await sb.from('trilhas')
+          .update({ temporada_plano: percurso.plano, data_inicio: iniciadoEm })
+          .eq('id', trilhaAtiva.id).eq('empresa_id', destId);
+        if (errPlano) throw new Error(`panorama: plano ativo de ${linha.key}: ${errPlano.message}`);
+
+        const progresso = percurso.progresso.slice(0, concluidas).map((semana) => ({
+          ...semana,
+          empresa_id: destId,
+          colaborador_id: linha.id,
+          trilha_id: trilhaAtiva.id,
+        }));
+        if (progresso.length) {
+          const { error: errProg } = await sb.from('temporada_semana_progresso').insert(progresso);
+          if (errProg) throw new Error(`panorama: percurso de ${linha.key}: ${errProg.message}`);
+        }
+      }
+    }
+
     // ── O FECHAMENTO das concluídas ──────────────────────────────────────
     // Trilha com status `CONCLUIDA` e sem `evolution_report` fecha a jornada e
     // deixa o painel de Evolução vazio: o veredito só existe se o relatório
@@ -1796,10 +1839,27 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         // jornada escolar fecha em 6/7 e o DUO em 13/14: número fixo aqui
         // gravaria a avaliação numa semana que a trilha não tem.
         const cfg = getProgramaConfigByModo(roster.programaModo);
-        const progresso = construirFechamento(evolucao, fechamentoEm, {
+        const fechamento = construirFechamento(evolucao, fechamentoEm, {
           qualitativa: cfg.semanaAcumulada,
           cenario: cfg.semanaCenarioB,
-        }).map((semana) => ({
+        });
+
+        // O PERCURSO inteiro, e não só as duas semanas de fechamento: a trilha
+        // nascia com `temporada_plano: []` e 2 linhas de progresso, e a tela —
+        // que lê `semanas.length || 14` — mostrava "2/14" para uma jornada de 7
+        // semanas ENCERRADA. Uma barra que contradiz o próprio relatório de
+        // evolução logo abaixo dela.
+        const percurso = construirPercursoAnterior(
+          cfg.semanas,
+          fechamento.map((f) => f.semana),
+          fechamentoEm,
+        );
+        const { error: errPlano } = await sb.from('trilhas')
+          .update({ temporada_plano: percurso.plano })
+          .eq('id', trilhaDaPessoa.id).eq('empresa_id', destId);
+        if (errPlano) throw new Error(`panorama: plano de ${linha.key}: ${errPlano.message}`);
+
+        const progresso = [...percurso.progresso, ...fechamento].map((semana) => ({
           ...semana,
           empresa_id: destId,
           colaborador_id: linha.id,
@@ -1846,7 +1906,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       if (!pessoa || !colaboradorId) throw new Error(`pessoa concluída do funil ACME ausente: ${key}`);
       const competencia = competenciasAcmeDemoPorCargo(pessoa.cargo)[0];
       if (!competencia) throw new Error(`cargo sem competência na régua da ACME Demo: ${pessoa.cargo}`);
-      return ACME_DEMO_DESCRITORES.slice(0, ACME_DEMO_DESCRITORES_POR_TRILHA).map((descritor) => ({
+      return descritoresDaVitrineAcme(ACME_DEMO_DESCRITORES).map((descritor) => ({
         empresa_id: destId,
         colaborador_id: colaboradorId,
         cargo: pessoa.cargo,

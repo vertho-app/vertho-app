@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   ACME_DEMO_DESCRITORES,
-  ACME_DEMO_DESCRITORES_POR_TRILHA,
+  descritoresDaVitrineAcme,
   ACME_DEMO_EVOLUTION_MIX,
   ACME_DEMO_EVOLUTION_TARGETS,
   ACME_DEMO_MINIMO_POR_COMPETENCIA,
@@ -172,7 +172,10 @@ describe('Evolução da ACME Demo', () => {
       reset.indexOf('const todosAssessments'),
     );
     expect(trecho).toContain('notaDePartida(pessoa.email, descritor)');
-    expect(trecho).toContain('ACME_DEMO_DESCRITORES.slice(0, ACME_DEMO_DESCRITORES_POR_TRILHA)');
+    // O reset semeia a MESMA lista que a vitrine exibe. A checagem é pelo nome
+    // da função porque foi o corte por índice (`slice(0, CONSTANTE)`) que
+    // silenciosamente virou lista vazia quando a constante mudou de tipo.
+    expect(trecho).toContain('descritoresDaVitrineAcme(ACME_DEMO_DESCRITORES)');
   });
 
   it('grava a média que o painel do gestor usa para calcular o delta', () => {
@@ -192,7 +195,10 @@ describe('Evolução da ACME Demo', () => {
         expect(d.nota_pos).toBeLessThanOrEqual(4);
         expect(d.descritor).toSatisfy((valor: string) => ACME_DEMO_DESCRITORES.includes(valor as any));
       }
-      expect(evolucao.descritores).toHaveLength(ACME_DEMO_DESCRITORES_POR_TRILHA);
+      // A vitrine cobre a competência inteira: mostrar 4 de 6 comportamentos
+      // deixava o leitor sem saber se os outros não evoluíram ou não foram
+      // medidos.
+      expect(evolucao.descritores).toHaveLength(descritoresDaVitrineAcme(ACME_DEMO_DESCRITORES).length);
     }
   });
 

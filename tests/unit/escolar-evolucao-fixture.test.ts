@@ -8,7 +8,6 @@ import {
   construirFechamentoEscolar,
   descritoresEscolares,
 } from '@/lib/demo/escolar-evolucao-fixture';
-import { DESCRITORES_POR_TRILHA } from '@/lib/demo/evolucao-nucleo';
 import { CONVERGENCIA } from '@/lib/season-engine/convergencia';
 
 const pessoaDocente = { email: 'ana.luiza.demo@vertho.ai', nome_completo: 'Ana Luiza Prado', cargo: DOCENCIA };
@@ -23,7 +22,10 @@ describe('Evolução da Rede de Escolas', () => {
     expect(competencias.length).toBeGreaterThanOrEqual(4);
     for (const competencia of competencias) {
       const comportamentos = descritoresEscolares(DOCENCIA, competencia);
-      expect(comportamentos.length, `sem comportamentos: ${competencia}`).toBeGreaterThanOrEqual(DESCRITORES_POR_TRILHA);
+      // A vitrine cobre a competência INTEIRA (DESCRITORES_POR_TRILHA = null),
+      // então o que se exige aqui é que a régua tenha comportamentos — o corte
+      // por quantidade deixou de existir.
+      expect(comportamentos.length, `sem comportamentos: ${competencia}`).toBeGreaterThan(0);
     }
   });
 
@@ -73,7 +75,12 @@ describe('Evolução da Rede de Escolas', () => {
 
   it('monta a evolução com a forma que o motor grava', () => {
     const evolucao = construirEvolucaoEscolar(pessoaDocente, 'confirmada');
-    expect(evolucao.descritores).toHaveLength(DESCRITORES_POR_TRILHA);
+    // Todos os comportamentos da competência entram no relatório: mostrar 4 de
+    // 6 deixava o leitor sem saber se os outros não evoluíram ou não foram
+    // medidos.
+    const esperados = descritoresEscolares(pessoaDocente.cargo, evolucao.competencia);
+    expect(evolucao.descritores).toHaveLength(esperados.length);
+    expect(evolucao.descritores.map((d: any) => d.descritor)).toEqual(esperados);
     for (const d of evolucao.descritores) {
       expect(d.nota_pre).toBeGreaterThanOrEqual(1);
       expect(d.nota_pos).toBeLessThanOrEqual(4);

@@ -1299,8 +1299,11 @@
       "assessment": "Evaluación"
     },
     "report": {
-      "title": "Evolution Report",
-      "nextStep": "Siguiente paso:"
+      "title": "Informe de Evolución",
+      "nextStep": "Próximo paso:",
+      "consolidated": "Consolidado de la competencia",
+      "stable": "Estable",
+      "behaviors": "comportamientos"
     },
     "pilotClosing": "Cierre",
     "week": {
@@ -4337,7 +4340,7 @@
       "weekCount": "{count} en la semana {week}"
     },
     "pendingCount": "{count} pendiente{plural}",
-    "emptyAction": "Nada pendiente en este momento. Cuando los liderados lleguen a las semanas 5 y 10 de sus rutas, los checkpoints aparecerán aquí para evaluación.",
+    "emptyAction": "Nada pendiente en este momento. Cuando los liderados lleguen a las semanas de checkpoint de sus rutas, aparecerán aquí para evaluación.",
     "modal": {
       "eyebrow": "Checkpoint semana {week} · evaluación",
       "noFocus": "sin competencia foco",

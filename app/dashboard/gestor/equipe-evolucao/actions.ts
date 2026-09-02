@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext, mesmoEmail, canViewColabJourney, findColabByEmail } from '@/lib/authz';
 import { escaparLike } from '@/lib/sql-like';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
+import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 
 /**
  * Lista os liderados do gestor com temporada (em andamento ou concluída)
@@ -158,18 +159,27 @@ export async function listarCheckpointsPendentes() {
   if (isGestor) colabs = (colabs || []).filter((c: any) => mesmoEmail(c.gestor_email, meuEmailCp));
   if (!colabs?.length) return { ok: true, rows: [] };
 
-  // Trilhas ativas desses colabs que passaram da sem 5 ou sem 10
-  const { data: trilhas } = await sb.from('trilhas')
-    .select('id, colaborador_id, competencia_foco, numero_temporada, status')
+  // As semanas de checkpoint saem do PROGRAMA de cada trilha: `[5, 10]` e do
+  // programa de 14 semanas, e numa jornada de 7 a semana 10 nunca chega.
+  const { data: trilhas, error: errTrilhas } = await sb.from('trilhas')
+    .select('id, colaborador_id, competencia_foco, numero_temporada, status, programa_modo')
     .in('colaborador_id', colabs.map(c => c.id))
     .eq('status', 'ativa');
+  // Sem checar, falha de banco vira "nenhum checkpoint pendente" — o card do
+  // gestor fica vazio e ninguem descobre que a consulta nao respondeu.
+  if (errTrilhas) return { ok: false, error: errTrilhas.message, rows: [] };
   if (!trilhas?.length) return { ok: true, rows: [] };
 
-  // Pra cada trilha, olha progresso nas sems 5 e 10
-  const { data: progs } = await sb.from('temporada_semana_progresso')
+  const semanasPorTrilha = new Map<string, number[]>(
+    trilhas.map((t: any) => [t.id, getProgramaConfigDaTrilha(t).semanasCheckpoint]),
+  );
+  const semanasDeInteresse = [...new Set([...semanasPorTrilha.values()].flat())];
+
+  const { data: progs, error: errProgs } = await sb.from('temporada_semana_progresso')
     .select('trilha_id, semana, status')
     .in('trilha_id', trilhas.map(t => t.id))
-    .in('semana', [5, 10]);
+    .in('semana', semanasDeInteresse);
+  if (errProgs) return { ok: false, error: errProgs.message, rows: [] };
 
   // E checkpoints existentes
   const { data: checkpoints } = await sb.from('checkpoints_gestor')
@@ -181,7 +191,7 @@ export async function listarCheckpointsPendentes() {
   const rows = [];
   for (const t of trilhas) {
     const colab = colabs.find(c => c.id === t.colaborador_id);
-    for (const sem of [5, 10]) {
+    for (const sem of (semanasPorTrilha.get(t.id) || [])) {
       const prog = (progs || []).find(p => p.trilha_id === t.id && p.semana === sem);
       if (!prog || prog.status === 'pendente') continue; // só sinaliza quando sem entrou
       const cp = cpMap[`${t.id}_${sem}`];
@@ -211,13 +221,22 @@ export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, obse
   const ctx = await getUserContext(email);
   if (!ctx?.colaborador) return { error: 'Não autenticado' };
   if (ctx.role !== 'gestor' && ctx.role !== 'rh' && !ctx.isPlatformAdmin) return { error: 'Acesso restrito' };
-  if (![5, 10].includes(Number(semana))) return { error: 'Semana inválida (só 5 ou 10)' };
   if (!['evoluindo', 'estagnado', 'regredindo'].includes(avaliacao)) return { error: 'Avaliação inválida' };
 
   const sb = createSupabaseAdmin();
-  const { data: trilha } = await sb.from('trilhas')
-    .select('id, empresa_id, colaborador_id').eq('id', trilhaId).maybeSingle();
+  const { data: trilha, error: errTrilha } = await sb.from('trilhas')
+    .select('id, empresa_id, colaborador_id, programa_modo').eq('id', trilhaId).maybeSingle();
+  // "Nao encontrada" e "a consulta falhou" levam a mensagens diferentes: sem
+  // isto, um erro de banco viraria "Trilha nao encontrada" para o gestor.
+  if (errTrilha) return { error: `Falha ao carregar a trilha: ${errTrilha.message}` };
   if (!trilha) return { error: 'Trilha não encontrada' };
+  // A validacao da semana vem do PROGRAMA DESTA trilha, e nao de `[5, 10]`:
+  // com o literal, um checkpoint legitimo de jornada (semanas 3 e 5) seria
+  // recusado como "semana invalida".
+  const semanasValidas = getProgramaConfigDaTrilha(trilha as any).semanasCheckpoint;
+  if (!semanasValidas.includes(Number(semana))) {
+    return { error: `Semana inválida (esperado ${semanasValidas.join(' ou ')})` };
+  }
 
   // ── Posse ────────────────────────────────────────────────────────────────
   // Até 10/08/2026 o gate acima era só de PAPEL: qualquer gestor/RH de QUALQUER

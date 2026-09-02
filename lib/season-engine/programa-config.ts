@@ -87,6 +87,18 @@ export interface ProgramaConfig {
   semanasMissao: number[];
   /** Semanas reservadas para avaliação final. Regular=[13,14], Onboarding=[10]. */
   semanasAvaliacao: number[];
+  /**
+   * Semanas em que o GESTOR faz o checkpoint do liderado.
+   *
+   * Estava literal como `[5, 10]` em tres lugares do painel do gestor — numeros
+   * do programa de 14 semanas. Numa jornada de 7, a semana 10 nao existe: o
+   * card "Acao esta semana" prometia checkpoints que nunca chegariam, e a copy
+   * dizia "quando chegarem nas semanas 5 e 10" para quem so tem 7.
+   *
+   * Proporcao mantida (~1/3 e ~2/3 do percurso), para o gestor avaliar duas
+   * vezes em qualquer programa.
+   */
+  semanasCheckpoint: number[];
   /** Semana do wizard Cenário B / avaliação final. Regular=14, Onboarding=10. */
   semanaCenarioB: number;
   /** Semana em que a Avaliação Acumulada é disparada. Regular=13. Em Onboarding, fica embutida nas missões. */
@@ -165,6 +177,7 @@ export const PROGRAMA_REGULAR: ProgramaConfig = Object.freeze({
   semanas: 14,
   semanasMissao: [4, 8, 12],
   semanasAvaliacao: [13, 14],
+  semanasCheckpoint: [5, 10],
   semanaCenarioB: 14,
   semanaAcumulada: 13,
   slotsConteudo: [1, 2, 3, 5, 6, 7, 9, 10, 11],
@@ -201,6 +214,7 @@ export const PROGRAMA_ONBOARDING: ProgramaConfig = Object.freeze({
   semanas: 10,
   semanasMissao: [4, 7, 9],
   semanasAvaliacao: [10],
+  semanasCheckpoint: [4, 7],
   semanaCenarioB: 10,
   semanaAcumulada: 9, // embutida na última missão integradora
   slotsConteudo: [2, 3, 5, 6, 8], // 5 fundamentos; sem 1 = calibragem
@@ -242,6 +256,7 @@ export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
   semanas: 14,
   semanasMissao: [4, 8, 12],
   semanasAvaliacao: [13, 14],
+  semanasCheckpoint: [5, 10],
   semanaCenarioB: 14,
   semanaAcumulada: 13,
   slotsConteudo: [1, 2, 3, 5, 6, 7, 9, 10, 11],
@@ -300,6 +315,7 @@ export const PROGRAMA_PILOTO: ProgramaConfig = Object.freeze({
   semanas: 3,
   semanasMissao: [],
   semanasAvaliacao: [3],
+  semanasCheckpoint: [2],
   semanaCenarioB: 3,
   semanaAcumulada: 2, // persistência do acumulado; NÃO é semana de conversa
   slotsConteudo: [1, 2],
@@ -352,6 +368,7 @@ export const PROGRAMA_JORNADA: ProgramaConfig = Object.freeze({
   // agora vem uma vez por semana cobrindo as duas pílulas.
   semanasMissao: [],
   semanasAvaliacao: [7],
+  semanasCheckpoint: [3, 5],
   semanaCenarioB: 7,
   // Como no piloto: sem semana de conversa qualitativa separada, a acumulada
   // roda ao fechar a última semana de conteúdo e persiste na row dela.

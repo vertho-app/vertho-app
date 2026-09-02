@@ -37,7 +37,7 @@
  */
 
 import {
-  DESCRITORES_POR_TRILHA,
+  descritoresDaVitrine,
   MINIMO_POR_COMPETENCIA,
   competenciaFocoDistribuida,
   construirEvolucao,
@@ -56,7 +56,7 @@ export {
   type PerfilEvolucao,
 } from './evolucao-nucleo';
 
-export const ACME_DEMO_DESCRITORES_POR_TRILHA = DESCRITORES_POR_TRILHA;
+export const descritoresDaVitrineAcme = descritoresDaVitrine;
 export const ACME_DEMO_MINIMO_POR_COMPETENCIA = MINIMO_POR_COMPETENCIA;
 
 /**

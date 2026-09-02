@@ -105,17 +105,23 @@ function PresentationControls({
 
   return (
     /*
-      z-[45] é deliberado, e o teto vem de medição: os overlays modais do app
-      começam em z-50 (`Medido: 02/09/2026` — 40 overlays `fixed inset-0`: 30 em
-      z-50, 3 em z-[60], 1 em z-[80], 5 em z-[200], 1 em z-[300]). Em z-[90] a
-      barra cobria o canto superior direito de 35 deles, que é justamente onde
-      o "X" de fechar mora por convenção: no vídeo da jornada, o apresentador
-      clicava no seletor em vez de fechar o modal. Abaixo de 50 ela cede a
-      qualquer diálogo e continua acima do conteúdo comum (z-10 a z-40); nada
-      entre 45 e 50 ocupa o topo direito (os z-50 não-modais são toast, barra
-      inferior e tooltip). `demo-presentation-camada.test.ts` trava a régua.
+      POSIÇÃO: rodapé à esquerda, não o topo à direita.
+
+      O canto superior direito é onde o produto inteiro põe o "X" de fechar e o
+      "Voltar" — `Medido: 02/09/2026`, 40 overlays `fixed inset-0`, 30 deles em
+      z-50, todos com o botão de fechar nesse canto. Baixar o z-index resolvia a
+      sobreposição com os modais, mas a barra continuava disputando o mesmo
+      espaço da navegação da tela, e o apresentador seguia mirando nela por
+      engano. O rodapé à esquerda é o canto livre: o Beto e os toasts ficam à
+      direita, a nav de celular ocupa o centro inferior (por isso o
+      `bottom-[calc(var(--nav-height)+…)]` no mobile) e a sidebar de 80px do
+      desktop define o afastamento da esquerda.
+
+      z-[45] segue deliberado: abaixo do piso dos modais (z-50), acima do
+      conteúdo comum (z-10 a z-40). `demo-presentation-camada.test.ts` trava a
+      régra.
     */
-    <div className="fixed right-3 top-[calc(var(--header-height)+0.5rem)] z-[45] max-w-[calc(100vw-1.5rem)] md:right-5 md:top-4">
+    <div className="fixed left-3 bottom-[calc(var(--nav-height)+0.75rem)] z-[45] max-w-[calc(100vw-1.5rem)] md:left-[calc(5rem+0.75rem)] md:bottom-4">
       <div className="flex items-stretch overflow-hidden rounded-2xl border border-white/15 bg-[#071321]/95 p-1.5 shadow-[0_16px_46px_rgba(0,0,0,0.42)] backdrop-blur-xl">
         <label className="group flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05] focus-within:bg-white/[0.06] focus-within:ring-2 focus-within:ring-[var(--brand-400,#22d3ee)]/25">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[var(--brand-400,#22d3ee)]/10 text-[var(--brand-300,#67e8f9)]" aria-hidden="true">
@@ -307,14 +313,11 @@ export function PresentationEnvironment({ children }: { children: ReactNode }) {
       <>
         {controls}
         {/*
-          A barra da sala é `fixed` no canto superior direito, sobre o conteúdo.
-          Sem reservar espaço, ela COBRE o que a página põe ali — e o que mora
-          nesse canto é o "Voltar" de várias telas: o apresentador via o botão
-          desaparecer atrás do próprio seletor. O empurrão vale só na sala (só
-          aqui este componente monta) e some no modo celular, que já tem
-          moldura própria.
+          A barra saiu do topo direito e foi para o rodapé à esquerda, então o
+          empurrão que reservava espaço no topo deixou de existir: ele roubava
+          64px de todas as telas da sala para proteger um canto que a barra não
+          ocupa mais.
         */}
-        <div className="pt-16" aria-hidden="true" />
         {children}
       </>
     );

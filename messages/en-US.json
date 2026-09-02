@@ -1300,7 +1300,10 @@
     },
     "report": {
       "title": "Evolution Report",
-      "nextStep": "Next step:"
+      "nextStep": "Next step:",
+      "consolidated": "Competency roll-up",
+      "stable": "Stable",
+      "behaviors": "behaviors"
     },
     "pilotClosing": "Closing",
     "week": {
@@ -4337,7 +4340,7 @@
       "weekCount": "{count} in week {week}"
     },
     "pendingCount": "{count} pending",
-    "emptyAction": "Nothing pending right now. When direct reports reach weeks 5 and 10 of their tracks, checkpoints will appear here for evaluation.",
+    "emptyAction": "Nothing pending right now. When direct reports reach the checkpoint weeks of their tracks, they will appear here for evaluation.",
     "modal": {
       "eyebrow": "Week {week} checkpoint · evaluation",
       "noFocus": "no focus competency",

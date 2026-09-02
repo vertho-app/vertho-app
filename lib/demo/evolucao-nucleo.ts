@@ -21,8 +21,22 @@
 import { classificarConvergencia, type Convergencia } from '@/lib/season-engine/convergencia';
 import { PROGRESSO } from '@/lib/status';
 
-/** Quantos comportamentos a trilha de vitrine trabalha. */
-export const DESCRITORES_POR_TRILHA = 4;
+/**
+ * Quais comportamentos a trilha de vitrine trabalha: TODOS os da competência.
+ *
+ * Era um corte em 4 (`DESCRITORES_POR_TRILHA`), e o relatório de evolução
+ * mostrava 4 de 6 comportamentos: quem lê a tela não tem como saber se os
+ * outros dois não evoluíram ou não foram medidos.
+ *
+ * É uma FUNÇÃO, e não uma constante, de propósito. A constante virou `null`
+ * para significar "todos" e os dois call-sites que faziam
+ * `descritores.slice(0, CONSTANTE)` passaram a devolver LISTA VAZIA — porque
+ * `slice(0, null)` é `[]`. A troca falharia calada, no reset, semeando zero
+ * assessments. Uma função não tem esse modo de falhar.
+ */
+export function descritoresDaVitrine<T>(todos: readonly T[]): T[] {
+  return [...todos];
+}
 
 /** Quantas pessoas, no mínimo, cada competência da vitrine deve ter. */
 export const MINIMO_POR_COMPETENCIA = 3;
@@ -109,7 +123,10 @@ export function notaDePartida(email: string, descritor: string): number {
 function ganhoDoPerfil(perfil: PerfilEvolucao, seed: number): number {
   if (perfil === 'confirmada') return 0.7 + ((seed % 4) / 10);
   if (perfil === 'parcial') return 0.25 + ((seed % 3) / 20);
-  return ((seed % 3) - 1) / 20;
+  // Estavel = MANTEVE o patamar, nunca perdeu: o ganho antigo variava de -0,05
+  // a +0,05 e a tela exibia "(-0.1)" — uma regressao inventada pela vitrine,
+  // que numa demo soa como o programa tendo piorado a pessoa.
+  return (seed % 3) / 20;
 }
 
 /**
@@ -180,9 +197,9 @@ export function construirEvolucao(
     distribuicao?.total ?? 1,
   );
 
-  const descritores: DescritorEvolucao[] = regua
-    .descritoresPorCompetencia(pessoa.cargo, competencia)
-    .slice(0, DESCRITORES_POR_TRILHA)
+  const descritores: DescritorEvolucao[] = descritoresDaVitrine(
+    regua.descritoresPorCompetencia(pessoa.cargo, competencia),
+  )
     .map((descritor) => {
       const seed = seedOf(`${pessoa.email}:${descritor}:${perfil}`);
       const nota_pre = notaDePartida(pessoa.email, descritor);
@@ -248,6 +265,42 @@ export function construirEvolucao(
  * As semanas vêm por parâmetro porque o programa muda por ambiente — o DUO
  * fecha em 13/14 e a jornada escolar, de 7 semanas, em 6/7.
  */
+/**
+ * Esqueleto de plano e progresso das semanas ANTERIORES ao fechamento.
+ *
+ * Sem isto, a trilha do panorama nascia com `temporada_plano: []` e apenas as
+ * duas linhas do fechamento. A tela lê `semanas.length || 14` e conta as linhas
+ * concluídas: uma jornada de 7 semanas ENCERRADA aparecia como "2/14".
+ *
+ * O esqueleto não inventa conteúdo — carrega semana, tipo e o estado de
+ * concluída, que é o que a barra de progresso mede. As duas semanas de
+ * fechamento continuam vindo de `construirFechamento`, com o texto real.
+ */
+export function construirPercursoAnterior(
+  semanas: number,
+  fechamento: number[],
+  concluidoEm: string,
+): { plano: any[]; progresso: any[] } {
+  const plano: any[] = [];
+  const progresso: any[] = [];
+  for (let semana = 1; semana <= semanas; semana++) {
+    const ehFechamento = fechamento.includes(semana);
+    plano.push({ semana, tipo: ehFechamento ? 'avaliacao' : 'conteudo' });
+    if (ehFechamento) continue;
+    progresso.push({
+      semana,
+      tipo: 'conteudo',
+      status: PROGRESSO.CONCLUIDO,
+      conteudo_consumido: true,
+      iniciado_em: concluidoEm,
+      concluido_em: concluidoEm,
+      reflexao: null,
+      feedback: null,
+    });
+  }
+  return { plano, progresso };
+}
+
 export function construirFechamento(
   evolucao: EvolucaoDemo,
   concluidoEm: string,

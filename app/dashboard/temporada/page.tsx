@@ -13,7 +13,7 @@ import { descritorParaHumano } from '@/lib/descritor-humano';
 // Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a
 // temporada. A constante mora em programa-config: a tela da semana trancada
 // serve o MESMO vídeo, e duas cópias do GUID divergiriam sem erro visível.
-import { JORNADA_VIDEO_ID } from '@/lib/season-engine/programa-config';
+import { JORNADA_VIDEO_ID, getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 
 const FORMAT_ICON = { video: Video, audio: Headphones, texto: FileText, case: BookOpen };
 const TIPO_LABEL_KEY = { conteudo: 'episode', aplicacao: 'practice', avaliacao: 'assessment' };
@@ -76,7 +76,10 @@ export default function TemporadaPage() {
   const semanas = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
   const progressoMap = Object.fromEntries((progresso || []).map((p: any) => [p.semana, p]));
   const concluidas = (progresso || []).filter((p: any) => p.status === 'concluido').length;
-  const totalSemanas = semanas.length || 14;
+  // O total sai do plano; sem plano, do PROGRAMA da trilha — nunca do literal
+  // 14. Uma jornada de 7 semanas com plano ausente exibia "2/14", uma barra que
+  // contradiz o relatório de evolução logo abaixo dela.
+  const totalSemanas = semanas.length || getProgramaConfigDaTrilha(trilha).semanas;
   // Última semana de avaliação = onde fica o wizard cenário B (regular=14, onboarding=10).
   // Como a rota é única (/sem14), redireciono pra ela tanto faz o número da semana.
   const semanasAvaliacao = semanas.filter((s: any) => s.tipo === 'avaliacao').map((s: any) => s.semana);
@@ -309,6 +312,20 @@ const CONVERGENCIA: Record<string, { label: string; cor: string; icon: string }>
 
 function EvolutionReportCard({ report, t }: { report: any; t: any }) {
   const descritores = report?.descritores || [];
+
+  // Consolidado da COMPETENCIA: o card listava comportamento a comportamento e
+  // nunca dizia como a competencia terminou. Quem le a tela tinha de somar de
+  // cabeca. A media sai dos mesmos descritores exibidos, entao o consolidado e
+  // sempre coerente com a lista logo abaixo dele.
+  const consolidado = descritores.length
+    ? {
+        competencia: descritores[0]?.competencia || null,
+        pre: descritores.reduce((soma: number, d: any) => soma + Number(d.nota_pre || 0), 0) / descritores.length,
+        pos: descritores.reduce((soma: number, d: any) => soma + Number(d.nota_pos || 0), 0) / descritores.length,
+      }
+    : null;
+  const deltaConsolidado = consolidado ? Number((consolidado.pos - consolidado.pre).toFixed(1)) : 0;
+
   return (
     <GlassCard className="mb-6 border-brand-500/30 bg-gradient-to-br from-brand-500/5 to-emerald-500/5">
       <div className="flex items-center gap-2 mb-3">
@@ -318,16 +335,38 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
       {report.insight_geral && (
         <p className="text-sm text-gray-200 italic mb-4">"{report.insight_geral}"</p>
       )}
+      {consolidado && (
+        <div className="mb-3 rounded-lg border border-brand-400/25 bg-brand-400/[0.06] p-3">
+          <p className="text-[10px] uppercase tracking-[0.14em] font-bold text-brand-300/80 mb-1">
+            {t('report.consolidated')}
+          </p>
+          <div className="flex items-baseline justify-between gap-3 flex-wrap">
+            <p className="text-sm font-bold text-white">{consolidado.competencia || '-'}</p>
+            <p className="text-xs text-gray-300">
+              {consolidado.pre.toFixed(1)} <span className="text-gray-500">-&gt;</span>{' '}
+              <span className="text-brand-300 font-bold">{consolidado.pos.toFixed(1)}</span>{' '}
+              <span className="text-gray-400">
+                ({deltaConsolidado > 0 ? '+' : ''}{deltaConsolidado.toFixed(1)}) · {descritores.length} {t('report.behaviors')}
+              </span>
+            </p>
+          </div>
+        </div>
+      )}
       <div className="space-y-2 mb-3">
         {descritores.map((d: any, i: number) => {
           const conv = CONVERGENCIA[d.convergencia] || CONVERGENCIA.estagnacao;
           const delta = Number((d.nota_pos - d.nota_pre).toFixed(1));
+          // Delta <= 0 é ESTÁVEL, e é assim que se diz: "manteve o patamar".
+          // Um "(-0.1)" na tela lê-se como o programa tendo piorado a pessoa,
+          // quando a diferença está dentro do ruído da própria medida.
+          const estavel = delta <= 0;
           return (
             <div key={i} className={`p-2 rounded-lg bg-white/5 border border-${conv.cor}-500/20`}>
               <div className="flex items-center justify-between">
                 <div className="text-xs font-bold text-white">{conv.icon} {descritorParaHumano(d.descritor)}</div>
                 <div className="text-[10px] text-gray-400">
-                  {d.nota_pre} → <span className={`text-${conv.cor}-400 font-bold`}>{d.nota_pos}</span> ({delta > 0 ? '+' : ''}{delta})
+                  {d.nota_pre} → <span className={`text-${conv.cor}-400 font-bold`}>{d.nota_pos}</span>{' '}
+                  {estavel ? t('report.stable') : `(+${delta})`}
                 </div>
               </div>
               {d.depois && <div className="text-[11px] text-gray-400 mt-1">{d.depois}</div>}

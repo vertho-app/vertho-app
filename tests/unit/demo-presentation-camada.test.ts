@@ -40,11 +40,14 @@ describe('camada da barra de apresentação', () => {
 
   it('a barra declara um z-index explícito', () => {
     // Sem esta âncora o resto do arquivo mede o nada e fica verde à toa.
-    expect(fonteBarra).toMatch(/fixed right-3[^"]*z-\[\d+\]/);
+    // O casamento é pelo CONTAINER fixo com z explícito, não pelo canto: a
+    // barra já mudou de canto uma vez (topo direito -> rodapé esquerdo) e um
+    // guard preso a `right-3` passaria a medir o nada em silêncio.
+    expect(fonteBarra).toMatch(/className="fixed [^"]*z-\[\d+\]/);
   });
 
   it('fica abaixo do overlay modal mais baixo do produto', () => {
-    const zBarra = zDaLinha(fonteBarra.match(/fixed right-3[^"]*"/)![0])!;
+    const zBarra = zDaLinha(fonteBarra.match(/className="fixed [^"]*z-\[\d+\][^"]*"/)![0])!;
     expect(Number.isFinite(zBarra)).toBe(true);
 
     const overlays: Array<{ arquivo: string; z: number }> = [];
