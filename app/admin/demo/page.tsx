@@ -855,7 +855,7 @@ export default function AdminDemoPage() {
                       </button>
                     </div>
                     <p className="mt-3 text-[9px] leading-relaxed text-amber-200/65">
-                      A etapa 01 usa um link individual de uso único. Depois da entrada, a sessão e as etapas 02–04 ficam disponíveis até as 04h BRT de D+10. Vencido o prazo, o acesso é revogado, mas o que a pessoa fez continua no ambiente por 30 dias.
+                      A etapa 01 usa um link individual REABRÍVEL: vale até as 04h BRT de D+10 e pode ser aberto quantas vezes forem precisas, retomando de onde a pessoa parou. Vencido o prazo, o acesso é revogado, mas o que ela fez continua no ambiente por 30 dias.
                     </p>
                   </div>
                 </div>

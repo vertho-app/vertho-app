@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { tenantUrl } from '@/lib/domain';
-import { montarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
+import { emitirPasseDegustacao } from '@/lib/demo/degustacao-passe';
 import { tenantDb } from '@/lib/tenant-db';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import {
@@ -175,17 +175,19 @@ export async function prepareAcmeProspectExperience(
       throw new Error(`criar acompanhamento do prospect: ${trackingError.message}`);
     }
 
-    const nextPath = '/dashboard';
-    const redirectTo = tenantUrl(slug, nextPath);
-    const { data: link, error: linkError } = await tdb.auth.admin.generateLink({
-      type: 'magiclink',
-      email: authEmail,
-      options: { redirectTo },
-    });
-    const tokenHash = link?.properties?.hashed_token;
-    if (linkError || !tokenHash) {
-      throw new Error(`gerar link do convidado: ${linkError?.message || 'token ausente'}`);
-    }
+    // O link do convidado é um PASSE, não um magic link.
+    //
+    // Com magic link, a primeira abertura consumia o token: quem fechasse a aba
+    // e voltasse no dia seguinte batia em "link inválido" e não tinha como pedir
+    // outro — o e-mail de acesso é técnico e aleatório. O passe é reabrível
+    // enquanto o passaporte vale, e o magic link nasce no servidor a cada
+    // abertura (`/auth/degustacao`). Nada de token de sessão no link que
+    // trafega por WhatsApp.
+    const passe = emitirPasseDegustacao(
+      slug,
+      sessionId,
+      Math.floor(Date.parse(expiresAt) / 1_000),
+    );
 
     createdGuest = null;
     return {
@@ -198,20 +200,18 @@ export async function prepareAcmeProspectExperience(
         expiresAt,
         // 🔴 NUNCA aponte o link do convidado direto para `/auth/callback`.
         //
-        // O callback chama `verifyOtp`, que CONSOME o token de uso único — e o
-        // link do passaporte trafega por WhatsApp, onde o robô de preview da
-        // Meta busca a URL para montar o cartão. `Medido 01/09/2026:` os dois
-        // passaportes criados na tarde tiveram login carimbado 12s e 13s depois
-        // da criação, e o clique de verdade, um minuto depois, bateu em
-        // "Email link is invalid or has expired" no callback.
+        // 🔴 NUNCA aponte o link do convidado direto para `/auth/callback`.
         //
-        // `/entrar` é a rota de despacho criada em 15/08 para exatamente isso:
-        // ela responde HTML e só vai ao callback quando o JS executa, então o
-        // robô fica do lado de fora e o token chega inteiro em quem clicou.
-        url: tenantUrl(
-          slug,
-          `/entrar?t=${encodeURIComponent(montarParametroAcesso(slug, tokenHash))}`,
-        ),
+        // O callback chama `verifyOtp`, que CONSOME o token — e o link do
+        // passaporte trafega por WhatsApp, onde o robô de preview da Meta busca
+        // a URL para montar o cartão. `Medido 01/09/2026:` os dois passaportes
+        // criados na tarde tiveram login carimbado 12s e 13s depois da criação,
+        // e o clique de verdade, um minuto depois, bateu em "Email link is
+        // invalid or has expired".
+        //
+        // O passe resolve os dois problemas de uma vez: não carrega token de
+        // sessão (o robô não tem o que queimar) e é reabrível dentro do prazo.
+        url: tenantUrl(slug, `/auth/degustacao?passe=${encodeURIComponent(passe)}`),
       },
     };
   } catch (error: any) {

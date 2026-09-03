@@ -374,6 +374,6 @@ export function buildAcmeProspectShareText(access: AcmeProspectExperienceShareAc
     '',
     ...itinerary,
     `Os quatro acessos ficam disponíveis até ${formatAcmeProspectExpiry(access.expiresAt)} (horário de Brasília).`,
-    'O link da etapa 01 é individual e funciona uma única vez; depois da entrada, a sessão permanece ativa neste navegador até o prazo acima.',
+    'O link da etapa 01 é individual e continua valendo até o prazo acima: se você fechar, é só abri-lo de novo e continuar de onde parou.',
   ].join('\n').trim();
 }

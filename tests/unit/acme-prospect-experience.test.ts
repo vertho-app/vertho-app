@@ -59,6 +59,10 @@ describe('experiência temporária de prospect no ACME', () => {
     });
     deleteUser.mockResolvedValue({ data: {}, error: null });
     listUsers.mockResolvedValue({ data: { users: [] }, error: null });
+    // O link do convidado passou a ser um PASSE assinado, e a assinatura deriva
+    // da service key. Sem ela o passaporte falha ao ser criado — que é o
+    // comportamento certo em produção e precisa de valor aqui.
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'service-role-key-used-only-by-unit-test';
   });
 
   it('cria participante tenant-scoped, identidade Auth interna e link no host ACME', async () => {
@@ -77,14 +81,15 @@ describe('experiência temporária de prospect no ACME', () => {
     // verdade caindo em "link is invalid or has expired").
     const acesso = new URL(result.access.url);
     expect(acesso.hostname).toBe('acme-demo.vertho.ai');
-    expect(acesso.pathname).toBe('/entrar');
+    expect(acesso.pathname).toBe('/auth/degustacao');
     expect(acesso.pathname).not.toBe('/auth/callback');
-    expect(acesso.searchParams.get('t')).toBe('acme-demo~guest-token-hash');
-    // e o token não pode viajar solto num parâmetro que o callback aceite
+    // o link carrega um PASSE assinado, nunca um token de sessão: é isso que o
+    // torna reabrível e o que impede o robô de preview de queimá-lo
+    const passe = acesso.searchParams.get('passe');
+    expect(passe).toBeTruthy();
+    expect(passe).toContain('.');
     expect(acesso.searchParams.get('token_hash')).toBeNull();
-    // sem `ir=1`: é ele que autoriza o consumo, e quem o adiciona é o JS da
-    // tela de despacho, não o link que sai daqui
-    expect(acesso.searchParams.get('ir')).toBeNull();
+    expect(acesso.searchParams.get('t')).toBeNull();
 
     const insert = sb.escritas.find((write) => write.tabela === 'colaboradores' && write.op === 'insert');
     expect(insert?.payload.empresa_id).toBe('acme-id');
@@ -103,11 +108,10 @@ describe('experiência temporária de prospect no ACME', () => {
         vertho_demo_session_id: expect.stringMatching(/^[a-f0-9]{20}$/),
       }),
     }));
-    expect(generateLink).toHaveBeenCalledWith({
-      type: 'magiclink',
-      email: insert?.payload.email,
-      options: { redirectTo: 'https://acme-demo.vertho.ai/dashboard' },
-    });
+    // A CRIAÇÃO não gera mais magic link: o token de sessão nasce só quando
+    // alguém abre o passe, em `/auth/degustacao`. Um link gerado aqui ficaria
+    // pendurado num WhatsApp esperando o robô de preview queimá-lo.
+    expect(generateLink).not.toHaveBeenCalled();
 
     const tracking = sb.escritas.find((write) => write.tabela === 'demo_prospect_sessions' && write.op === 'insert');
     expect(tracking?.payload).toMatchObject({
@@ -142,15 +146,23 @@ describe('experiência temporária de prospect no ACME', () => {
     expect(createUser).not.toHaveBeenCalled();
   });
 
-  it('desfaz colaborador e Auth se a geração do link falhar', async () => {
-    generateLink.mockResolvedValueOnce({ data: null as any, error: { message: 'OTP indisponível' } as any });
+  it('desfaz colaborador e Auth se a emissão do passe falhar', async () => {
+    // O link deixou de ser magic link: quem pode falhar agora é a ASSINATURA do
+    // passe. Sem a chave, o passaporte não pode nascer pela metade — colaborador
+    // e conta criados, e nenhum link para entregar.
+    const chave = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     vi.spyOn(console, 'error').mockImplementationOnce(() => {});
+    try {
+      const result = await prepareAcmeProspectExperience(validInput);
 
-    const result = await prepareAcmeProspectExperience(validInput);
-
-    expect(result.ok).toBe(false);
-    expect(sb.escritas.some((write) => write.tabela === 'colaboradores' && write.op === 'delete')).toBe(true);
-    expect(deleteUser).toHaveBeenCalledWith('auth-guest-1');
+      expect(result.ok).toBe(false);
+      expect(sb.escritas.some((write) => write.tabela === 'colaboradores' && write.op === 'delete')).toBe(true);
+      expect(deleteUser).toHaveBeenCalledWith('auth-guest-1');
+    } finally {
+      if (chave === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      else process.env.SUPABASE_SERVICE_ROLE_KEY = chave;
+    }
   });
 
   it('desfaz o colaborador mesmo quando o SDK de Auth lança', async () => {
@@ -238,7 +250,10 @@ describe('contratos puros da experiência ACME', () => {
     // prometido em texto que sai para o cliente vira dívida
     expect(text).not.toMatch(/\d+\s*(minuto|min|segundo)/i);
     expect(text).toContain('Os quatro acessos ficam disponíveis até 02/09, 04:00');
-    expect(text).toContain('O link da etapa 01 é individual e funciona uma única vez');
+    // o link deixou de ser de uso único: a promessa agora é a RETOMADA
+    expect(text).toContain('continua valendo até o prazo acima');
+    expect(text).toContain('continuar de onde parou');
+    expect(text).not.toContain('uma única vez');
   });
 
   it('não oferece envio por e-mail e mantém o texto completo copiável na interface', () => {
