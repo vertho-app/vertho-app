@@ -68,6 +68,26 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/perfil', labelKey: 'profile', icon: User },
 ];
 
+/**
+ * Qual item do menu está aceso.
+ *
+ * `pathname.startsWith(href)` sozinho acende TODO prefixo: em
+ * `/dashboard/gestor/engajamento`, o ícone de "Minha equipe"
+ * (`/dashboard/gestor`) ficava aceso ao lado do de engajamento — dois itens
+ * iluminados, e o de cima nunca apagava.
+ *
+ * A régua é "o mais específico vence": entre os itens que casam, só o de href
+ * mais longo fica ativo. O casamento exige a barra, senão `/dashboard/gestorX`
+ * passaria por filho de `/dashboard/gestor`.
+ */
+function hrefAtivo(pathname: string, itens: NavItem[]): string | null {
+  const candidatos = itens
+    .map((item) => item.href)
+    .filter((href) => pathname === href || (href !== '/dashboard' && pathname.startsWith(`${href}/`)));
+  if (!candidatos.length) return null;
+  return candidatos.reduce((maior, href) => (href.length > maior.length ? href : maior));
+}
+
 export default function DashboardShell({ children, theme = DEFAULT_THEME }: { children: React.ReactNode; theme?: TenantTheme }) {
   const t = useTranslations('DashboardShell');
   const router = useRouter();
@@ -93,6 +113,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
     && (!it.participante || (!ehAdminDaEmpresa && participaDaJornada))
     && (!it.exceptoRh || !ehAdminDaEmpresa),
   );
+  const ativo = hrefAtivo(pathname, navItems);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -185,7 +206,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
 
         <nav className="flex flex-col gap-6 flex-1">
           {navItems.map(item => {
-            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            const isActive = item.href === ativo;
             const Icon = item.icon;
             const label = t(`nav.${item.labelKey}`);
             return (
@@ -266,7 +287,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
         style={{ height: 'var(--nav-height)', background: theme.bgStart }}
       >
         {navItems.map(item => {
-          const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+          const isActive = item.href === ativo;
           const Icon = item.icon;
           const label = t(`nav.${item.labelKey}`);
           return (

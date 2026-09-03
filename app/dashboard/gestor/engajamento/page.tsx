@@ -54,7 +54,12 @@ function temSinal(pessoa: any): boolean {
 }
 
 function pedeAcompanhamento(pessoa: any): boolean {
-  return Boolean(pessoa.jornadaAtrasada || !temSinal(pessoa));
+  // A EVIDÊNCIA fecha a semana: quem acessou e consumiu mas não entregou parou
+  // no meio, e é exatamente a conversa que o gestor precisa ter. Sem esta
+  // condição, o painel dizia "0 para acompanhar" ao lado de um marco de
+  // "6 de 7 entregaram" — dois números contando histórias diferentes na mesma
+  // tela.
+  return Boolean(pessoa.jornadaAtrasada || !temSinal(pessoa) || !pessoa.enviouEvidencia);
 }
 
 function EtapaJornada({ pessoa }: { pessoa: any }) {
@@ -253,6 +258,7 @@ export default function EngajamentoDoTimePage() {
   const emAtencao = pessoas.filter(pedeAcompanhamento).length;
   const etapasPendentes = pessoas.filter((pessoa) => pessoa.jornadaAtrasada).length;
   const semSinal = pessoas.filter((pessoa) => !temSinal(pessoa)).length;
+  const semEvidencia = pessoas.filter((pessoa) => !pessoa.enviouEvidencia).length;
   const scopeLabel = dados?.scope === 'rh'
     ? 'Visão da empresa'
     : dados?.scope === 'tutor'
@@ -331,6 +337,10 @@ export default function EngajamentoDoTimePage() {
 
       {!erro && total > 0 && (
         <div className={`space-y-5 transition-opacity ${loading ? 'pointer-events-none opacity-55' : 'opacity-100'}`} aria-busy={loading}>
+          {/* O badge "N para acompanhar" saiu do cabeçalho deste bloco
+              (03/09/2026): ele levava ao MESMO filtro do card "Acompanhamento
+              sugerido" logo abaixo, com o mesmo número. Dois gatilhos idênticos
+              na mesma tela fazem o leitor procurar a diferença que não existe. */}
           <SignalJourney
             eyebrow={semana ? `Semana ${semana}` : 'Panorama da jornada'}
             title="Do primeiro acesso à entrega"
@@ -342,15 +352,6 @@ export default function EngajamentoDoTimePage() {
               { label: 'Consumiram', value: resumo.consumiram || 0, detail: 'concluíram ou marcaram conteúdo', icon: CheckCircle2, tone: 'emerald' },
               { label: 'Entregaram evidência', value: resumo.enviaramEvidencia || 0, detail: 'finalizaram a prática', icon: ClipboardCheck, tone: 'amber' },
             ]}
-            action={(
-              <button
-                type="button"
-                onClick={mostrarAtencao}
-                className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/[0.08] px-3 py-2 text-[10px] font-bold text-amber-100 transition-colors hover:bg-amber-300/12 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300"
-              >
-                <AlertTriangle size={13} aria-hidden="true" /> {emAtencao} para acompanhar
-              </button>
-            )}
           />
 
           <section aria-label="Leitura rápida" className="grid gap-3 sm:grid-cols-[minmax(0,1.5fr)_minmax(220px,0.5fr)]">
@@ -365,7 +366,7 @@ export default function EngajamentoDoTimePage() {
               <span className="min-w-0 flex-1">
                 <span className="block text-[10px] font-bold text-amber-100">Acompanhamento sugerido</span>
                 <span className="mt-0.5 block text-[9px] leading-relaxed text-amber-100/55">
-                  {etapasPendentes} com etapa pendente · {semSinal} sem sinal registrado
+                  {etapasPendentes} com etapa pendente · {semEvidencia} sem entregar · {semSinal} sem sinal
                 </span>
               </span>
               <span className="font-mono text-2xl font-semibold tabular-nums text-amber-100">{emAtencao}</span>

@@ -4361,7 +4361,9 @@
       "weekShort": "sem {week}",
       "noRole": "sem cargo",
       "today": "hoje",
-      "openJourney": "Ver jornada"
+      "openJourney": "Ver jornada",
+      "hintOnTime": "Chegou à semana de conversa: combine 15 minutos para ouvir como está sendo aplicar isso em sala.",
+      "hintLate": "Parou há {weeks, plural, =1 {uma semana} other {# semanas}}: vale perguntar o que travou antes de cobrar a entrega."
     },
     "filters": {
       "all": "Todos",

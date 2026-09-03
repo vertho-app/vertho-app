@@ -4361,7 +4361,9 @@
       "weekShort": "wk {week}",
       "noRole": "no role",
       "today": "today",
-      "openJourney": "Open journey"
+      "openJourney": "Open journey",
+      "hintOnTime": "Reached the check-in week: book 15 minutes to hear how it is going in practice.",
+      "hintLate": "Stalled for {weeks, plural, =1 {a week} other {# weeks}}: ask what got in the way before chasing the delivery."
     },
     "filters": {
       "all": "All",

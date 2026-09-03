@@ -125,6 +125,22 @@ export default function DashboardHomePage() {
   // Ver o docstring de `home-rh.tsx`.
   if (data.view === 'rh') return <HomeRH firstName={firstName} panorama={panoramaRH} relatorios={relatoriosRH} />;
 
+  // Quem LIDERA SEM PARTICIPAR não tem home de participante.
+  //
+  // O cargo de adequação (Top 5 vazio) não faz mapeamento nem trilha, e a home
+  // abria para ele a barra das 5 fases em 20%, "Foco da semana · Preparação" e
+  // "Aguardando as competências do seu cargo" — uma jornada que nunca vai
+  // começar, apresentada como se estivesse em andamento. A casa dele é a
+  // equipe, que é a tela que ele de fato usa.
+  if (data.view === 'gestor' && data.cargoSemCompetencias) {
+    router.replace('/dashboard/gestor');
+    return (
+      <div className="flex items-center justify-center h-[60dvh]">
+        <Loader2 size={32} className="animate-spin" style={{ color: 'var(--phase-accent, #34C5CC)' }} />
+      </div>
+    );
+  }
+
   const faseNum: number = kpis?.fase?.numero || 1;
   const faseTitulo = kpis?.fase?.titulo || t('fallbackPhaseTitle');
   // D1: o avanço DENTRO da fase 4 é sobre o total do programa da pessoa, não

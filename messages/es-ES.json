@@ -4361,7 +4361,9 @@
       "weekShort": "sem {week}",
       "noRole": "sin cargo",
       "today": "hoy",
-      "openJourney": "Ver recorrido"
+      "openJourney": "Ver recorrido",
+      "hintOnTime": "Llegó a la semana de conversación: agenda 15 minutos para escuchar cómo va en el aula.",
+      "hintLate": "Lleva {weeks, plural, =1 {una semana} other {# semanas}} sin avanzar: pregunta qué lo frenó antes de exigir la entrega."
     },
     "filters": {
       "all": "Todos",

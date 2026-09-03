@@ -4,7 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
 import { PROGRESSO, TRILHA, TURMA_MEMBRO } from '@/lib/status';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
-import { estaAtrasada } from '@/lib/season-engine/atraso';
+import { estaAtrasada, semanasDeAtraso } from '@/lib/season-engine/atraso';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
 import {
   normalizeManagerReportInsight,
@@ -45,6 +45,8 @@ export type CheckpointPendenteDetalhado = {
   /** Semana de checkpoint do PROGRAMA da trilha (jornada 3 e 5, DUO 5 e 10). */
   semana: number;
   diasPendente: number;
+  /** Quantas semanas o calendário passou da pessoa; `null` = sem como dizer. */
+  semanasAtraso: number | null;
   fonteDISC?: string | null;
 };
 
@@ -460,6 +462,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // discordar. Pausada não conta: quem pausou não está atrasado, está parado de
   // propósito.
   const atrasoPorColab = new Map<string, boolean | null>();
+  const semanasAtrasoPorColab = new Map<string, number | null>();
   {
     const emCurso = ativas.filter((t: any) => t.status === TRILHA.ATIVA);
     const concluidasPorTrilha = new Map<string, number>();
@@ -474,11 +477,16 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
       }
     }
     for (const t of emCurso) {
-      atrasoPorColab.set(t.colaborador_id, estaAtrasada({
+      const args = {
         dataInicio: t.data_inicio,
         totalSemanas: getProgramaConfigDaTrilha(t).semanas,
         semanasConcluidas: concluidasPorTrilha.get(t.id) || 0,
-      }));
+      };
+      atrasoPorColab.set(t.colaborador_id, estaAtrasada(args));
+      // O TAMANHO do atraso, e não só o sim/não: o card do checkpoint pinta um
+      // semáforo (em dia, uma semana, mais de uma) e um booleano não distingue
+      // um dia de um mês.
+      semanasAtrasoPorColab.set(t.colaborador_id, semanasDeAtraso(args));
     }
   }
 
@@ -599,6 +607,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
         competenciaFoco: linha.trilha.competencia_foco || null,
         semana: linha.semana,
         diasPendente: Math.max(0, Math.floor((Date.now() - desde) / (24 * 3600 * 1000))),
+        semanasAtraso: semanasAtrasoPorColab.get(linha.trilha.colaborador_id) ?? null,
       };
     })
     // Ordena: atrasados primeiro, mais antigos depois

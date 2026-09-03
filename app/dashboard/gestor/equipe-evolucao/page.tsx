@@ -105,7 +105,12 @@ export default function EquipeEvolucaoPage() {
 
       {resumo && resumo.encerradas > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-6">
-          <Card label="Total" valor={resumo.total} cor="text-white" />
+          {/* "Total" contava o time INTEIRO, inclusive quem não tem trilha — e
+              esta tela mede evolução, que só existe onde há jornada. Sete
+              liderados com quatro fora da trilha viravam "Total 7", sem dizer
+              que quatro deles não tinham o que evoluir. */}
+          <Card label="Com trilha" valor={resumo.total - resumo.semTrilha} cor="text-white"
+            detalhe={resumo.semTrilha > 0 ? `${resumo.semTrilha} sem trilha` : null} />
           <Card label="Em andamento" valor={resumo.emAndamento} cor="text-brand-300" />
           <Card label="Confirmadas" valor={resumo.evolucaoConfirmada} cor="text-emerald-300" />
           <Card label="Parciais" valor={resumo.evolucaoParcial} cor="text-amber-300" />
@@ -195,11 +200,12 @@ function Center({ children }) {
   return <div className="min-h-[60vh] flex items-center justify-center">{children}</div>;
 }
 
-function Card({ label, valor, cor }) {
+function Card({ label, valor, cor, detalhe = null }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <p className="text-[10px] uppercase text-gray-500 tracking-widest">{label}</p>
       <p className={`text-2xl font-extrabold ${cor}`}>{valor}</p>
+      {detalhe && <p className="text-[10px] text-white/35 mt-0.5">{detalhe}</p>}
     </div>
   );
 }

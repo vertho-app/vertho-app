@@ -255,7 +255,10 @@ export default function GestorHomePage() {
                 <X size={17} />
               </button>
             </header>
-            <div className="min-h-0 flex-1 p-2 md:p-4">
+            {/* `overflow-y-auto`: o visualizador empilha TODAS as páginas do PDF
+                numa coluna, e sem rolagem própria o leitor mostrava só a capa —
+                o documento tinha 7 páginas e nenhuma delas era alcançável. */}
+            <div className="min-h-0 flex-1 overflow-y-auto p-2 md:p-4">
               <InAppPdfDocument
                 src={data.reportDashboard.pdfUrl}
                 title={t('reportDashboard.pdfTitle')}
@@ -422,12 +425,17 @@ function CheckpointCard({
 }) {
   const t = useTranslations('ManagerDashboard');
   const inicial = cp.colab.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('');
-  const corDias = cp.diasPendente >= 7 ? 'rgba(248,113,113,0.18)'
-    : cp.diasPendente >= 3 ? 'rgba(252,211,77,0.18)'
-    : 'rgba(255,255,255,0.06)';
-  const textoDias = cp.diasPendente >= 7 ? 'text-red-300'
-    : cp.diasPendente >= 3 ? 'text-amber-300'
-    : 'text-white/60';
+  // SEMÁFORO DA SEMANA: verde para quem está no ritmo do calendário, laranja com
+  // uma semana de atraso, vermelho acima disso. `null` (trilha sem data de
+  // início) fica neutro — sem calendário, ninguém é acusado.
+  const atraso = cp.semanasAtraso;
+  const semaforo = atraso == null
+    ? { chip: 'rgba(255,255,255,0.06)', texto: 'text-white/60', borda: 'rgba(255,255,255,0.10)' }
+    : atraso <= 0
+      ? { chip: 'rgba(52,211,153,0.14)', texto: 'text-emerald-300', borda: 'rgba(52,211,153,0.30)' }
+      : atraso === 1
+        ? { chip: 'rgba(252,211,77,0.14)', texto: 'text-amber-300', borda: 'rgba(252,211,77,0.30)' }
+        : { chip: 'rgba(248,113,113,0.14)', texto: 'text-red-300', borda: 'rgba(248,113,113,0.30)' };
 
   return (
     <div className="rounded-xl border border-white/[0.06] p-3 flex items-center gap-3"
@@ -439,16 +447,24 @@ function CheckpointCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="text-sm font-bold text-white truncate">{cp.colab}</p>
-          <span className="text-[9px] font-mono text-brand-400/70 bg-brand-400/10 px-1.5 py-0.5 rounded">
+          <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${semaforo.texto}`}
+            style={{ background: semaforo.chip, borderColor: semaforo.borda }}>
             {t('checkpoint.weekShort', { week: cp.semana })}
           </span>
         </div>
         <p className="text-[11px] text-white/55 truncate">
           {cp.cargo || t('checkpoint.noRole')} {cp.competenciaFoco && <>· <span className="text-brand-300/70">{cp.competenciaFoco}</span></>}
         </p>
+        {/* O card dizia só o nome, a semana e "21d" — nenhum gestor deduz daí o
+            que se espera dele. A frase abaixo nomeia a ação. */}
+        <p className="text-[11px] text-white/40 mt-0.5">
+          {atraso != null && atraso > 0
+            ? t('checkpoint.hintLate', { weeks: atraso })
+            : t('checkpoint.hintOnTime')}
+        </p>
       </div>
-      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0 ${textoDias}`}
-        style={{ background: corDias }}>
+      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0 ${semaforo.texto}`}
+        style={{ background: semaforo.chip }}>
         {cp.diasPendente === 0 ? t('checkpoint.today') : `${cp.diasPendente}d`}
       </span>
       {/* 🔑 O VEREDITO NÃO É DO GESTOR (03/09/2026).
