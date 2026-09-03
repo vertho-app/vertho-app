@@ -795,8 +795,16 @@ export const TEMPLATES = {
    *     passa a se referir a um ciclo específico do serviço que a empresa contratou.
    *
    * O convite "Responda VER" FICA, de propósito: é o que abre a janela de 24h por
-   * onde os nomes saem, e é a hipótese que este teste NÃO mexe. Se voltar
-   * MARKETING de novo, aí sim o próximo passo é trocá-lo por link.
+   * onde os nomes saem, e é a hipótese que este teste NÃO mexe.
+   *
+   * ✅ **APPROVED · UTILITY em 03/09/2026** — hipótese confirmada, e com o par
+   * limpo: mesmo convite "Responda VER", mesma ausência de botão, mesmo assunto.
+   * As duas únicas diferenças contra o `resumo_equipe_semanal` (APPROVED ·
+   * MARKETING) eram o anúncio de recorrência e a âncora na semana da trilha.
+   * Então o sinal que a Meta lê aqui é **"isto se refere a um ciclo do serviço
+   * que a empresa contratou"** contra **"isto é uma assinatura periódica"** — e
+   * não a presença de botão, que foi a minha primeira leitura, tirada de uma
+   * amostra de cinco.
    *
    * ⚠️ Nome novo em vez de recriar o anterior: apagar deixa o nome queimado
    * enquanto a exclusão processa, e dois templates byte-iguais recebem

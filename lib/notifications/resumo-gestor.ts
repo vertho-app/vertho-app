@@ -199,9 +199,9 @@ export function semanaDaTrilha(trilha: { data_inicio?: string | null }): number 
  */
 export function classificarSemana(
   linha: { status?: string | null; conteudo_consumido?: boolean | null } | null | undefined,
-): ChaveGrupo | 'concluida' {
+): ChaveGrupo | 'sem_pendencia' {
   if (!linha) return 'nao_abriu';
-  if (linha.status === PROGRESSO.CONCLUIDO) return 'concluida';
+  if (linha.status === PROGRESSO.CONCLUIDO) return 'sem_pendencia';
   // `conteudo_consumido` distingue de verdade neste recorte: 95% das concluídas
   // e 35% das em andamento (medido 02/09/2026). Quem consumiu e não concluiu está
   // a um passo — o que falta é a conversa de evidências.

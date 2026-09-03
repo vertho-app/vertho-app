@@ -32,10 +32,15 @@ vi.mock('@/lib/degradacao', () => ({
   DEGRADACAO: { WHATSAPP_INBOUND_PERDIDO: 'whatsapp_inbound_perdido' },
 }));
 
-// O client admin devolve o que `h.deliveries` disser, para cada consulta.
-vi.mock('@/lib/supabase', () => ({
-  createSupabaseAdmin: () => ({
-    from: () => {
+// `tenantDb` responde as consultas de entrega; `colaboradores` LANÇA de
+// propósito, para provar que as portas barram ANTES de a PII ser lida.
+vi.mock('@/lib/tenant-db', () => ({
+  tenantDb: () => ({
+    from: (tabela: string) => {
+      if (tabela !== 'notification_deliveries') {
+        h.montou++;
+        throw new Error('não deveria ler ' + tabela);
+      }
       const q: any = {
         _dedupe: false,
         select() { return q; },
@@ -55,9 +60,6 @@ vi.mock('@/lib/supabase', () => ({
     },
   }),
 }));
-
-// A montagem tem seus próprios testes; aqui interessa SE ela é chamada.
-vi.mock('@/lib/tenant-db', () => ({ tenantDb: () => { h.montou++; throw new Error('não deveria chegar aqui'); } }));
 
 const { responderPedidoDeResumo, ehPedidoDeResumo, ehRecusa } = await import('@/lib/notifications/ver-gestor');
 

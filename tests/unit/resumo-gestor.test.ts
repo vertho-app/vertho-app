@@ -160,7 +160,10 @@ describe('classificação da semana', () => {
   });
 
   it('concluída não entra em grupo nenhum', () => {
-    expect(classificarSemana({ status: 'concluido', conteudo_consumido: true })).toBe('concluida');
+    // O retorno é `sem_pendencia`, não `concluida`: `concluida` é o status de
+    // TRILHA e o da semana é `concluido`. Reusar a palavra aqui é o typo de uma
+    // letra que o `status-literal-guard` existe para pegar — e pegou.
+    expect(classificarSemana({ status: 'concluido', conteudo_consumido: true })).toBe('sem_pendencia');
   });
 });
 

@@ -18,9 +18,8 @@
  * tolerável para um push, inaceitável para uma lista de nomes enviada duas vezes.
  * O `dedupeKey` é o `wa_message_id`, e ele é consultado ANTES de enviar.
  */
-import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
-import { enviarTextoCloud } from '@/lib/whatsapp/cloud-api';
+import { enviarTextoCloud, enviarTemplateCloud } from '@/lib/whatsapp/cloud-api';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { TRILHA } from '@/lib/status';
 import {
@@ -102,11 +101,15 @@ export async function responderPedidoDeResumo(input: {
     // fail-closed na ambiguidade; aqui só recusamos o que chegou sem dono.
     if (!input.colaboradorId || !input.empresaId) return { enviou: false, motivo: 'sem dono resolvido' };
 
-    const sb = createSupabaseAdmin();
+    // `tenantDb` e não service-role cru: as duas consultas abaixo são de dado
+    // de tenant, e o wrapper garante o filtro. Consequência aceita: entrega
+    // gravada SEM `empresa_id` não é encontrada e o VER não responde — fail
+    // closed, e quem carimba o tenant no envio somos nós.
+    const tdbEntregas = tenantDb(input.empresaId);
 
     // Porta 4 (antes das caras) — já respondi a este evento?
     const dedupeKey = `${KIND_RESUMO_GESTOR}:${input.waMessageId}`;
-    const { data: jaRespondi, error: erroDedupe } = await sb
+    const { data: jaRespondi, error: erroDedupe } = await tdbEntregas
       .from('notification_deliveries')
       .select('id')
       .eq('dedupe_key', dedupeKey)
@@ -116,7 +119,7 @@ export async function responderPedidoDeResumo(input: {
 
     // Porta 3 — NÓS mandamos o template para esta pessoa nas últimas 24h?
     const desde = new Date(Date.now() - JANELA_AUTORIZACAO_H * 3600 * 1000).toISOString();
-    const { data: entregas, error: erroEntrega } = await sb
+    const { data: entregas, error: erroEntrega } = await tdbEntregas
       .from('notification_deliveries')
       .select('id')
       .eq('colaborador_id', input.colaboradorId)
@@ -235,7 +238,7 @@ export async function montarResumoDaEquipe(
     }
 
     const chave = classificarSemana(daSemana);
-    if (chave !== 'concluida') pessoas.push({ nome: colab.nome_completo, chave });
+    if (chave !== 'sem_pendencia') pessoas.push({ nome: colab.nome_completo, chave });
   }
 
   const semanas = [...new Set([...trilhaPorColab.values()].map((t) => semanaDaTrilha(t)))].filter(Boolean);
@@ -249,4 +252,72 @@ export async function montarResumoDaEquipe(
     semana: semanas.length === 1 ? (semanas[0] as number) : null,
     linkPainel: hostTenant ? `https://${hostTenant}/dashboard/gestor` : null,
   };
+}
+
+/**
+ * ENVIA o template de abertura para UM gestor. É o que torna o VER alcançável:
+ * sem esta entrega registrada, a porta 3 recusa qualquer "VER" que chegue.
+ *
+ * ⚠️ `motivo: KIND_RESUMO_GESTOR` não é telemetria — é a AUTORIZAÇÃO. Ele vira
+ * `notification_deliveries.kind`, que é exatamente o que a porta 3 consulta.
+ * Trocar essa string aqui sem trocar lá desliga a feature em silêncio: o gestor
+ * recebe o convite, responde VER e não acontece nada.
+ *
+ * Os gates de NÃO ENVIAR são tão importantes quanto o envio. Medido em
+ * 02/09/2026: seis dos sete gestores de Macaé têm ZERO liderados em trilha ativa
+ * (as 38 do tenant estão todas sob o vínculo do RH). Sem gate, cinco deles
+ * receberiam "0 das 46 pessoas avançaram" toda segunda — e a primeira mensagem
+ * que um gestor recebe decide se ele abre a segunda.
+ */
+export async function enviarAberturaDoResumo(input: {
+  empresaId: string;
+  gestorId: string;
+  telefone: string;
+  /** Nome EXATO do template aprovado. Quem decide é o chamador. */
+  template: string;
+  hostTenant?: string | null;
+}): Promise<Resultado> {
+  try {
+    const resumo = await montarResumoDaEquipe(input.empresaId, input.gestorId, input.hostTenant ?? null);
+    if (!resumo) return { enviou: false, motivo: 'não é gestor ou não tem liderados em trilha ativa' };
+
+    // Equipe de 1 ou 2: o agregado não agrega, e o número aponta a pessoa.
+    if (resumo.equipe < 3) return { enviou: false, motivo: `equipe de ${resumo.equipe} — abaixo do piso de 3` };
+
+    const aUmPasso = resumo.grupos.find((g) => g.chave === 'a_um_passo')?.total ?? 0;
+
+    // Semana morta (recesso, feriado, cron que não rodou): silêncio é melhor que
+    // um número que não descreve nada.
+    if (!aUmPasso && !resumo.avancaram) {
+      return { enviou: false, motivo: 'ninguém avançou e ninguém está a um passo — semana sem movimento' };
+    }
+    // ⚠️ LIMITAÇÃO CONHECIDA DO TEXTO APROVADO: `{{5}}` cai na frase "e N estão a
+    // um passo de concluir", que com N=0 vira uma frase ruim em português. Como o
+    // corpo não muda sem submeter outro template, o gate é não enviar. Se isto
+    // silenciar semanas demais, a correção é um template novo em que `{{5}}`
+    // carregue o total de pendentes, não o subgrupo.
+    if (!aUmPasso) return { enviou: false, motivo: 'ninguém a um passo de concluir — o texto aprovado não comporta zero' };
+
+    if (!resumo.semana) return { enviou: false, motivo: 'equipe em semanas diferentes — o texto aprovado cita uma só' };
+
+    return await enviarTemplateCloud(
+      {
+        phone: input.telefone,
+        template: input.template,
+        // Ordem é contrato: {{1}} nome · {{2}} semana · {{3}} avançaram ·
+        // {{4}} equipe · {{5}} a um passo. Trocar aqui entrega os valores nos
+        // lugares errados, e o typecheck não pega porque tudo é string.
+        params: [
+          resumo.gestorPrimeiroNome,
+          String(resumo.semana),
+          String(resumo.avancaram),
+          String(resumo.equipe),
+          String(aUmPasso),
+        ],
+      },
+      { motivo: KIND_RESUMO_GESTOR, empresaId: input.empresaId, colaboradorId: input.gestorId },
+    ).then((r) => (r.ok ? { enviou: true } : { enviou: false, motivo: r.reason || 'envio recusado' }));
+  } catch (e: any) {
+    return { enviou: false, motivo: e?.message || String(e) };
+  }
 }
