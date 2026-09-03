@@ -1795,20 +1795,90 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         const hojeDemo = new Intl.DateTimeFormat('en-CA', {
           timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
         }).format(new Date());
+
+        // Onde a persona começa a jornada.
+        //
+        // O default é HOJE — a vitrine abre na semana 1. Quando o roster declara
+        // um `percursoDaPersona`, a data recua para o calendário cair na semana
+        // em curso: `primeiraSemanaAcessivel` parte do calendário e só DESCE,
+        // então sem o recuo a pessoa teria semanas concluídas atrás dela e a
+        // tela ainda abriria na 1.
+        const percursoPersona = roster.percursoDaPersona?.personaKey === p.key
+          ? roster.percursoDaPersona
+          : null;
+        const semanaEmCurso = percursoPersona?.emAndamento ?? 0;
+        const inicioDaTrilha = semanaEmCurso > 1
+          ? new Date(Date.now() - (semanaEmCurso - 1) * 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+          : hojeDemo;
+
         const newTrilha = await must(`trilha ${p.email}`, sb.from('trilhas').insert({
           ...a.trilha.row,
           empresa_id: destId,
           colaborador_id: colabId,
           criado_em: new Date().toISOString(),
-          data_inicio: hojeDemo,
+          data_inicio: inicioDaTrilha,
         }).select('id').single());
-        if (newTrilha?.id && a.trilha.progress?.length) {
-          const rows = a.trilha.progress.map((pr: any) => ({ ...pr, empresa_id: destId, colaborador_id: colabId, trilha_id: newTrilha.id }));
+
+        // O percurso do ROSTER vence o do fixture quando declarado: ele é a
+        // posição desenhada para a apresentação, e o golden guarda a foto de
+        // quando o tenant foi capturado.
+        const progressoDaPersona = percursoPersona
+          ? construirPercursoDaPersona(percursoPersona)
+          : (a.trilha.progress || []);
+        if (newTrilha?.id && progressoDaPersona.length) {
+          const rows = progressoDaPersona.map((pr: any) => ({ ...pr, empresa_id: destId, colaborador_id: colabId, trilha_id: newTrilha.id }));
           const result = await sb.from('temporada_semana_progresso').insert(rows);
           if (result.error) throw new Error(`progresso ${p.email}: ${result.error.message}`);
         }
       }
     }
+  }
+
+  /**
+   * Progresso da persona navegável: N semanas concluídas + a semana em curso.
+   *
+   * ⚠️ Só PROGRESSO. O `temporada_plano` dela é o real, construído pelo motor,
+   * e é onde moram o vídeo nominal e os quatro formatos — sobrescrevê-lo (como
+   * `construirPercursoAnterior` faz para as pessoas de apoio) apagaria
+   * exatamente o que a demo abre na tela.
+   *
+   * As datas recuam uma semana por semana concluída, para "pendente desde" no
+   * card do gestor não nascer zerado.
+   */
+  function construirPercursoDaPersona(
+    percurso: { concluidas: number; emAndamento?: number },
+  ): any[] {
+    const linhas: any[] = [];
+    const emCurso = percurso.emAndamento ?? 0;
+    const diaEm = (semanasAtras: number) =>
+      new Date(Date.now() - semanasAtras * 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    for (let semana = 1; semana <= percurso.concluidas; semana++) {
+      const atras = (emCurso > 0 ? emCurso : percurso.concluidas + 1) - semana;
+      linhas.push({
+        semana,
+        tipo: 'conteudo',
+        status: PROGRESSO.CONCLUIDO,
+        conteudo_consumido: true,
+        iniciado_em: diaEm(atras + 1),
+        concluido_em: diaEm(atras),
+        reflexao: null,
+        feedback: null,
+      });
+    }
+    if (emCurso > percurso.concluidas) {
+      linhas.push({
+        semana: emCurso,
+        tipo: 'conteudo',
+        status: PROGRESSO.EM_ANDAMENTO,
+        conteudo_consumido: false,
+        iniciado_em: diaEm(0),
+        concluido_em: null,
+        reflexao: null,
+        feedback: null,
+      });
+    }
+    return linhas;
   }
 
   /**
@@ -1940,9 +2010,23 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         if (errBusca) throw new Error(`panorama: trilha ativa de ${linha.key}: ${errBusca.message}`);
         if (!trilhaAtiva?.id) continue;
 
-        // O primeiro chega à semana de checkpoint (é dele que o card do gestor
-        // vive); os demais ficam atrás, para o time não parecer sincronizado.
-        const concluidas = indice === 0 ? checkpoint : Math.max(1, checkpoint - 1 - indice);
+        // Quem sustenta o card "Ação esta semana" do gestor.
+        //
+        // Por padrão é o primeiro desta lista: sem ninguém no checkpoint o card
+        // fica permanentemente vazio, e essa rede existe para rosters que não
+        // põem a persona navegável lá.
+        //
+        // Quando o roster DECLARA a persona numa semana de checkpoint
+        // (`percursoDaPersona`), ela é quem deve aparecer — a jornada dela é a
+        // real, com conteúdo em toda semana, e é nela que o "Ver jornada" do
+        // card entrega alguma coisa. Aí as pessoas de APOIO ficam todas abaixo
+        // do checkpoint, em vez de competir pelo topo com um percurso que é só
+        // esqueleto.
+        const personaCobreCheckpoint = !!roster.percursoDaPersona?.emAndamento
+          && cfgJornada.semanasCheckpoint.includes(roster.percursoDaPersona.emAndamento);
+        const concluidas = (indice === 0 && !personaCobreCheckpoint)
+          ? checkpoint
+          : Math.max(1, checkpoint - 1 - indice);
         const percurso = construirPercursoAnterior(cfgJornada.semanas, [], iniciadoEm);
         const { error: errPlano } = await sb.from('trilhas')
           .update({ temporada_plano: percurso.plano, data_inicio: iniciadoEm })

@@ -223,6 +223,28 @@ export type DemoRoster = {
    * Os UUIDs são FIXOS de propósito: o reset precisa reencontrar o MESMO módulo
    * e a MESMA célula, senão cada noite deixa uma órfã para trás.
    */
+  /**
+   * Onde a persona NAVEGÁVEL está na jornada dela.
+   *
+   * O plano dela é real (construído pelo motor, com conteúdo em toda semana), e
+   * por isso ela fica de fora de `panorama` — mas sem PROGRESSO ela aparecia
+   * parada na semana 1, e o card "Ação esta semana" do gestor mostrava uma
+   * persona de apoio, cuja jornada é um esqueleto.
+   *
+   * `emAndamento` deve ser uma semana de CHECKPOINT do programa
+   * (`semanasCheckpoint`): é o que faz a pessoa entrar naquele card. E a
+   * `data_inicio` da trilha é recuada para o calendário cair nessa semana —
+   * `primeiraSemanaAcessivel` parte do calendário e só DESCE, então sem o recuo
+   * a tela abriria na semana 1 com três semanas concluídas atrás dela.
+   */
+  percursoDaPersona?: {
+    /** `key` da persona em `personas`. */
+    personaKey: string;
+    /** Semanas 1..N marcadas como concluídas. */
+    concluidas: number;
+    /** Semana em curso (a de checkpoint). Sem ela, só as concluídas entram. */
+    emAndamento?: number;
+  };
   videoDaJornada?: {
     /** UUID fixo do módulo-base criado para a demo (nunca o de um cliente). */
     moduloId: string;

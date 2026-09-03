@@ -422,6 +422,13 @@ export const ROSTER_ESCOLAR: DemoRoster = {
    * as 5 competências avaliadas de verdade e a trilha construída).
    */
   reguaEvolucao: REGUA_ESCOLAR,
+  /**
+   * A Marina na semana 3 — a de checkpoint, e a MESMA em que mora o vídeo
+   * nominal ("Olá, Marina"). É o encontro que faz a demo fechar: o coordenador
+   * vê "Ação esta semana · Marina Rocha", clica em "Ver jornada" e cai na semana
+   * que abre com o vídeo que diz o nome dela.
+   */
+  percursoDaPersona: { personaKey: 'marina', concluidas: 2, emAndamento: 3 },
   panorama: {
     semPerfil: ['rafael_t'],
     mapeados: ['paula', 'tiago', 'ana_luiza', 'carlos_e', 'juliana_s', 'marcos_v', 'fernanda_c', 'bruno_a', 'patricia_m', 'leticia_b'],

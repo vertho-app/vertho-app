@@ -22,6 +22,26 @@ const iniciais = (n: string) => n.split(' ').filter(Boolean).slice(0, 2).map((x)
 const fmtBeta = (v: number) => (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
 const fmtData = (iso: string | null) => iso ? (() => { const [y, m, d] = iso.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })() : '—';
 
+/**
+ * Agrupa os traços a desenvolver pelo BLOCO de onde vêm (Competência, DISC,
+ * Liderança), preservando a ordem alfabética que a action já aplicou.
+ *
+ * Tolera o formato antigo (lista de strings): um snapshot gerado antes desta
+ * mudança ainda serve `driversDisponiveis` sem o bloco, e a tela precisa abrir
+ * do mesmo jeito — sem `optgroup` é pior que com, não quebrado.
+ */
+function agruparPorBloco(drivers: any[]): [string, string[]][] {
+  const grupos = new Map<string, string[]>();
+  for (const d of drivers || []) {
+    const traco = typeof d === 'string' ? d : d?.traco;
+    if (!traco) continue;
+    const bloco = (typeof d === 'string' ? '' : d?.bloco) || 'Outros';
+    if (!grupos.has(bloco)) grupos.set(bloco, []);
+    grupos.get(bloco)!.push(traco);
+  }
+  return [...grupos.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+}
+
 export default function RankingAdequacaoView({ listar, carregar, exportar, scopeKey = 'default' }: {
   listar: () => Promise<{ cargos: string[]; erro?: string }>;
   carregar: (cargo: string) => Promise<any>;
@@ -204,10 +224,23 @@ export default function RankingAdequacaoView({ listar, carregar, exportar, scope
                 <option value="todos">Todos</option><option value="recomendado">Só recomendados</option><option value="recomendado_com_ressalvas">Só com ressalvas</option>
               </select>
             </label>
-            <label className="flex items-center gap-1 text-slate-400">Driver com gap
+            {/* "A desenvolver" é a MESMA palavra que o card de cada pessoa usa
+                logo abaixo ("A desenvolver: Prudência"). O rótulo era "Driver
+                com gap": dois nomes para a mesma coisa na mesma tela, e nenhum
+                deles aparece em outro lugar do produto.
+
+                As opções vão agrupadas por bloco porque a lista plana punha
+                "Paciência" e "S — Estabilidade" lado a lado como se fossem
+                irmãs — uma é competência comportamental, a outra é fator DISC. */}
+            <label className="flex items-center gap-1 text-slate-400">A desenvolver
               <select value={fDriver} onChange={(e) => setFDriver(e.target.value)} className="bg-white/5 border border-white/10 rounded px-2 py-1 text-slate-200">
-                <option value="qualquer">Qualquer</option><option value="sem-gap">Sem gap</option>
-                {data.driversDisponiveis.map((d: string) => <option key={d} value={d}>{d}</option>)}
+                <option value="qualquer">Qualquer</option>
+                <option value="sem-gap">Nada a desenvolver</option>
+                {agruparPorBloco(data.driversDisponiveis).map(([bloco, itens]) => (
+                  <optgroup key={bloco} label={bloco}>
+                    {itens.map((d) => <option key={d} value={d}>{d}</option>)}
+                  </optgroup>
+                ))}
               </select>
             </label>
             <label className="flex items-center gap-1 text-slate-400">Aderência mín. {fMin}%
