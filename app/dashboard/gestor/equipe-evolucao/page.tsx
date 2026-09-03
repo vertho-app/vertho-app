@@ -8,13 +8,21 @@ import BackButton from '@/components/back-button';
 import { listarEquipeEvolucao, loadLideradoConcluida } from './actions';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 
+// 🔑 CLASSE DE COR É LITERAL, NUNCA MONTADA.
+//
+// Isto era `{ cor: 'cyan' }` + `bg-${cfg.cor}-500/[0.03]` na marcação. O Tailwind
+// varre o CÓDIGO-FONTE em busca de nomes de classe: uma classe montada em runtime
+// nunca chega ao CSS. Medido em 03/09/2026 — das quatro cores usadas aqui, três
+// (`amber`, `cyan`, `gray`) não apareciam literalmente em nenhum arquivo do
+// projeto, então esses cards saíam SEM o tom que classifica o status, e as duas
+// que funcionavam só funcionavam de carona em outra tela que as citava.
 const STATUS_CFG = {
-  em_andamento:         { cor: 'cyan',    icon: Clock,        label: 'Em andamento' },
-  evolucao_confirmada:  { cor: 'emerald', icon: TrendingUp,   label: 'Evolução confirmada' },
-  evolucao_parcial:     { cor: 'amber',   icon: TrendingUp,   label: 'Evolução parcial' },
-  estagnacao:           { cor: 'gray',    icon: Minus,        label: 'Estagnação' },
-  sem_trilha:           { cor: 'gray',    icon: X,            label: 'Sem trilha' },
-  arquivada:            { cor: 'gray',    icon: X,            label: 'Arquivada' },
+  em_andamento:        { icon: Clock,      label: 'Em andamento',         borda: 'border-cyan-500/20',    fundo: 'bg-cyan-500/[0.03]',    tinta: 'text-cyan-300' },
+  evolucao_confirmada: { icon: TrendingUp, label: 'Evolução confirmada',  borda: 'border-emerald-500/20', fundo: 'bg-emerald-500/[0.03]', tinta: 'text-emerald-300' },
+  evolucao_parcial:    { icon: TrendingUp, label: 'Evolução parcial',     borda: 'border-amber-500/20',   fundo: 'bg-amber-500/[0.03]',   tinta: 'text-amber-300' },
+  estagnacao:          { icon: Minus,      label: 'Estagnação',           borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-300' },
+  sem_trilha:          { icon: X,          label: 'Sem trilha',           borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
+  arquivada:           { icon: X,          label: 'Arquivada',            borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
 };
 
 export default function EquipeEvolucaoPage() {
@@ -91,7 +99,7 @@ export default function EquipeEvolucaoPage() {
           desenhava seis KPIs zerados e uma lista de "em andamento" sem delta —
           prometia evolução e não tinha nenhuma. Em Macaé, 0 de 282. */}
       {resumo && resumo.encerradas === 0 && (
-        <div className="rounded-2xl border border-white/[0.08] p-6 text-center" style={{ background: '#0F2A4A' }}>
+        <GlassCard className="text-center" padding="p-6">
           <Clock size={24} className="text-brand-400/70 mx-auto mb-3" />
           <p className="text-sm font-semibold text-white mb-1">Nenhuma jornada encerrada ainda</p>
           <p className="text-[12px] text-gray-400 leading-relaxed max-w-[460px] mx-auto">
@@ -100,7 +108,7 @@ export default function EquipeEvolucaoPage() {
               ? ` Hoje ${resumo.emAndamento} ${resumo.emAndamento === 1 ? 'está' : 'estão'} em andamento.`
               : ''}
           </p>
-        </div>
+        </GlassCard>
       )}
 
       {resumo && resumo.encerradas > 0 && (
@@ -160,9 +168,9 @@ export default function EquipeEvolucaoPage() {
               <button key={r.colaboradorId}
                 onClick={() => canOpen && abrir(r.colabEmail)}
                 disabled={!canOpen}
-                className={`w-full text-left rounded-xl border border-${cfg.cor}-500/20 bg-${cfg.cor}-500/[0.03] p-4 ${canOpen ? 'hover:bg-white/[0.03]' : 'opacity-70 cursor-not-allowed'}`}>
+                className={`w-full text-left rounded-xl border ${cfg.borda} ${cfg.fundo} p-4 ${canOpen ? 'hover:bg-white/[0.03]' : 'opacity-70 cursor-not-allowed'}`}>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <Icon size={18} className={`text-${cfg.cor}-400 shrink-0`} />
+                  <Icon size={18} className={`${cfg.tinta} shrink-0`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-bold text-white truncate">{r.colab}</p>
@@ -173,13 +181,13 @@ export default function EquipeEvolucaoPage() {
                       {r.delta != null && (
                         <>
                           {' · '}
-                          <span className={`text-${cfg.cor}-400 font-bold`}>
+                          <span className={`${cfg.tinta} font-bold`}>
                             {r.mediaPre.toFixed(1)} → {r.mediaPos.toFixed(1)} ({r.delta > 0 ? '+' : ''}{r.delta.toFixed(1)})
                           </span>
                         </>
                       )}
                     </p>
-                    <p className={`text-[10px] uppercase tracking-widest text-${cfg.cor}-400 mt-0.5`}>{cfg.label}</p>
+                    <p className={`text-[10px] uppercase tracking-widest ${cfg.tinta} mt-0.5`}>{cfg.label}</p>
                   </div>
                   {canOpen && <ChevronRight size={14} className="text-gray-500" />}
                 </div>
@@ -230,18 +238,33 @@ function DetalheModal({ data, loading, onClose, sb }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto" onClick={onClose}>
-      <div className="max-w-3xl w-full bg-[#0a0e1a] border border-white/10 rounded-2xl my-8" onClick={e => e.stopPropagation()}>
-        <div className="sticky top-0 flex items-center justify-between p-4 border-b border-white/10 bg-[#0a0e1a] rounded-t-2xl">
-          <h2 className="text-sm font-bold text-white">Detalhe do liderado</h2>
-          <div className="flex gap-2">
+    // Mesmo desenho do leitor de relatório da home do gestor: `bg-[#071829]`,
+    // canto de 24px e cabeçalho com eyebrow + serifa. O modal usava `#0a0e1a`
+    // com canto de 16px — um tom preto que não existe em nenhuma outra tela do
+    // produto (só nos modais do /admin, que são outra área).
+    <div
+      className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-start justify-center p-2 md:p-6 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Detalhe do liderado"
+      onClick={onClose}
+    >
+      <div className="max-w-3xl w-full my-4 md:my-8 rounded-[24px] border border-white/[0.1] bg-[#071829] shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 p-4 md:px-6 border-b border-white/[0.08] bg-[#071829] rounded-t-[24px]">
+          <div className="min-w-0">
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-300">Evolução da equipe</p>
+            <h2 className="mt-0.5 truncate text-xl text-white" style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}>
+              {data?.colab?.nome || 'Detalhe do liderado'}
+            </h2>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             {data?.colab && (
               <button onClick={baixarPdf}
-                className="flex items-center gap-1 text-[10px] text-brand-400 border border-brand-400/30 rounded-full px-2 py-1 hover:bg-brand-400/10">
-                <Download size={10} /> PDF
+                className="flex items-center gap-1.5 rounded-full border border-brand-400/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-brand-300 transition-colors hover:bg-brand-400/10">
+                <Download size={11} /> PDF
               </button>
             )}
-            <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={18} /></button>
+            <button onClick={onClose} aria-label="Fechar" className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white"><X size={18} /></button>
           </div>
         </div>
         {loading || !data?.colab ? (
@@ -250,8 +273,8 @@ function DetalheModal({ data, loading, onClose, sb }) {
           <div className="p-5 space-y-4 text-sm">
             <section>
               <p className="text-[10px] uppercase tracking-widest text-gray-500">Contexto</p>
-              <p className="text-white">{data.colab.nome} ({data.colab.cargo})</p>
-              <p className="text-xs text-gray-400">Competência: <span className="text-brand-400">{data.trilha.competencia}</span> · Temporada {data.trilha.numeroTemporada}</p>
+              <p className="text-white">{data.colab.cargo}</p>
+              <p className="text-xs text-gray-400">Competência: <span className="text-brand-300">{data.trilha.competencia}</span> · Temporada {data.trilha.numeroTemporada}</p>
             </section>
             {report?.insight_geral && (
               <section>
@@ -265,10 +288,10 @@ function DetalheModal({ data, loading, onClose, sb }) {
                 {descritores.map((d, i) => {
                   const cfg = STATUS_CFG[d.convergencia] || STATUS_CFG.estagnacao;
                   return (
-                    <div key={i} className={`p-2 rounded border border-${cfg.cor}-500/20`}>
+                    <div key={i} className={`p-2 rounded border ${cfg.borda} ${cfg.fundo}`}>
                       <div className="flex justify-between text-xs">
                         <p className="font-bold text-white truncate">{descritorParaHumano(d.descritor)}</p>
-                        <span className={`text-${cfg.cor}-400 font-bold shrink-0`}>
+                        <span className={`${cfg.tinta} font-bold shrink-0`}>
                           {d.nota_pre} → {d.nota_pos} ({(d.nota_pos - d.nota_pre).toFixed(1)})
                         </span>
                       </div>

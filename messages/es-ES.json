@@ -4319,9 +4319,8 @@
       "attentionSignals": "Señales de atención · {count}",
       "weeklyAction": "Acción de esta semana",
       "rhActions": "Dónde actuar ahora",
-      "teamTrack": "Equipo en ruta",
-      "profileMap": "Mapa de perfiles {type}",
-      "nextWeeks": "Próximas 4 semanas"
+      "teamTrack": "Equipo",
+      "profileMap": "Mapa de perfiles {type}"
     },
     "noReports": {
       "title": "Aún no tienes liderados vinculados",
@@ -4408,7 +4407,9 @@
         "sem_perfil_externo": "falta el {fonte}",
         "sem_mapeamento": "falta el mapeo de competencias",
         "aguardando_geracao": "listo para empezar — itinerario aún no generado"
-      }
+      },
+      "showing": "{shown} de {total}",
+      "total": "{total} personas"
     },
     "profiles": {
       "behavioral": "conductuales",
@@ -4425,11 +4426,6 @@
       "openPdf": "Abrir el PDF del mapeo",
       "openPdfFor": "Abrir el PDF del mapeo de {name}",
       "pdfError": "No se pudo abrir el PDF"
-    },
-    "timeline": {
-      "inDays": "en {value}",
-      "today": "hoy",
-      "oneDay": "1d"
     }
   },
   "AdminCompanySettings": {

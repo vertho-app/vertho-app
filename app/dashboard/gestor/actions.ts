@@ -101,16 +101,6 @@ export type PerfilColab = {
   baixas?: { codigo: string; nome: string; sten: number }[];
 };
 
-export type TimelineEvento = {
-  data: string; // ISO
-  tipo: 'checkpoint' | 'fim_trilha';
-  colab: string;
-  cargo: string | null;
-  detalhe: string;
-  trilhaId?: string;
-  semana?: number;
-};
-
 export type GestorHomeData = {
   ok: boolean;
   error?: string;
@@ -120,7 +110,6 @@ export type GestorHomeData = {
   checkpointsPendentes?: CheckpointPendenteDetalhado[];
   equipe?: EquipeRow[];
   perfis?: PerfilColab[];
-  timeline?: TimelineEvento[];
   empresaPerfilExternoFonte?: string | null;
   reportDashboard?: {
     id: string;
@@ -719,55 +708,6 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     };
   });
 
-  // ── 9. Timeline próximos eventos (checkpoints futuros + fins de trilha) ──
-  const timeline: TimelineEvento[] = [];
-  for (const t of ativas) {
-    if (!t.data_inicio) continue;
-    const inicio = new Date(t.data_inicio).getTime();
-    const colab: any = liderId2obj.get(t.colaborador_id);
-    if (!colab) continue;
-    // As semanas de checkpoint saem do PROGRAMA da trilha, nao de um literal:
-    // `[5, 10]` e do programa de 14 semanas, e numa jornada de 7 a semana 10
-    // nunca chega — o card prometia um checkpoint que nao existiria.
-    for (const sem of getProgramaConfigDaTrilha(t).semanasCheckpoint) {
-      const dataCp = new Date(inicio + sem * 7 * 24 * 3600 * 1000);
-      // Só inclui se ainda está no futuro próximo (próximas 4 semanas)
-      const diasAte = (dataCp.getTime() - Date.now()) / (24 * 3600 * 1000);
-      if (diasAte > 0 && diasAte <= 28) {
-        // Também checa se já tem checkpoint respondido pra essa semana
-        const jaRespondeu = checkpoints.find((cp: any) => cp.trilha_id === t.id && cp.semana === sem && cp.status !== 'pendente');
-        if (jaRespondeu) continue;
-        timeline.push({
-          data: dataCp.toISOString(),
-          tipo: 'checkpoint',
-          colab: colab.nome_completo,
-          cargo: colab.cargo,
-          detalhe: `Checkpoint semana ${sem} · ${t.competencia_foco || 'sem competência foco'}`,
-          trilhaId: t.id,
-          semana: sem,
-        });
-      }
-    }
-    // Fim da trilha — na semana em que o PROGRAMA dela acaba.
-    //
-    // D1: com 14 cravado, o alerta de fim NUNCA disparava no fim real de uma
-    // jornada de 7 semanas, e disparava ~7 semanas depois, quando já não há o
-    // que fazer a respeito.
-    const semanasDoPrograma = getProgramaConfigDaTrilha(t).semanas;
-    const fimTrilha = new Date(inicio + semanasDoPrograma * 7 * 24 * 3600 * 1000);
-    const diasFim = (fimTrilha.getTime() - Date.now()) / (24 * 3600 * 1000);
-    if (diasFim > 0 && diasFim <= 28) {
-      timeline.push({
-        data: fimTrilha.toISOString(),
-        tipo: 'fim_trilha',
-        colab: colab.nome_completo,
-        cargo: colab.cargo,
-        detalhe: `Fim de trilha · ${t.competencia_foco || 'sem competência foco'}`,
-        trilhaId: t.id,
-      });
-    }
-  }
-  timeline.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
 
   return {
     ok: true,
@@ -786,7 +726,6 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     checkpointsPendentes,
     equipe,
     perfis,
-    timeline: timeline.slice(0, 10),
     empresaPerfilExternoFonte: fonteExterna,
     reportDashboard,
   };
@@ -850,11 +789,77 @@ export async function getEngajamentoDoTime(semana?: number | null): Promise<Enga
   const recorte = isRH ? null : escopo.liderIds;
   const rollup: any = await rollUpEngajamento(empresaId, semana ?? null, recorte);
 
+  // Quem olha o tenant inteiro precisa saber DE QUEM é cada pessoa.
+  //
+  // O diretor não conversa com o professor — conversa com o coordenador dele. A
+  // lista "Onde apoiar o próximo passo" vinha com as pessoas soltas, e descobrir
+  // o vínculo de cada uma era trabalho manual no meio da leitura. Para gestor e
+  // tutor o vínculo é constante (são todos dele), então o custo só é pago no
+  // escopo em que ele informa algo.
+  let colaboradores = rollup.colaboradores;
+  if (isRH && colaboradores?.length) {
+    const vinculo = await anexarCoordenador(sb, empresaId, colaboradores);
+    if (vinculo) colaboradores = vinculo;
+  }
+
   return {
     ok: true,
     scope: isTutor ? 'tutor' : (isGestor ? 'gestor' : 'rh'),
     resumo: rollup.resumo,
-    colaboradores: rollup.colaboradores,
+    colaboradores,
     semanas: rollup.semanas,
   };
+}
+
+/**
+ * Resolve `gestor_email` -> nome e devolve a lista com `coordenador` em cada
+ * pessoa. Devolve `null` se qualquer leitura falhar: a tela sabe agrupar em
+ * "Sem coordenador", mas não sabe distinguir isso de uma consulta que não
+ * respondeu — e um agrupamento inventado é pior que nenhum.
+ */
+async function anexarCoordenador(sb: any, empresaId: string, pessoas: any[]): Promise<any[] | null> {
+  const ids = [...new Set(pessoas.map((p: any) => p.colaboradorId).filter(Boolean))];
+  if (!ids.length) return null;
+
+  // `empresa_id` explícito nas duas cadeias: `sb` já é o `tenantDb`, mas o
+  // filtro escrito aqui é o que torna o escopo legível no call-site — e é o que
+  // o guard de leitura de tenant consegue ver.
+  const { data: vinculos, error: vincErr } = await sb.from('colaboradores')
+    .select('id, gestor_email').eq('empresa_id', empresaId).in('id', ids);
+  if (vincErr) { console.error('[engajamento] vinculo com coordenador:', vincErr.message); return null; }
+
+  const emails: string[] = [...new Set((vinculos || [])
+    .map((v: any) => String(v.gestor_email || '').trim().toLowerCase())
+    .filter(Boolean) as string[])];
+  const nomePorEmail = new Map<string, string>();
+  if (emails.length) {
+    // `.in('email', ...)`, não `ilike`: `_` e `%` são curinga no Postgres, e um
+    // e-mail com underscore casaria gente que não é a mesma pessoa. A primeira
+    // versão lia a tabela INTEIRA para filtrar em código — funciona com 14
+    // pessoas e é uma varredura de tenant com 282.
+    //
+    // O casamento é exato: se o `gestor_email` estiver gravado com outra
+    // caixa, o nome não resolve e o bloco cai para o e-mail — degradação
+    // visível na tela, não um agrupamento errado.
+    const { data: gestores, error: gestErr } = await sb.from('colaboradores')
+      .select('email, nome_completo').eq('empresa_id', empresaId).in('email', emails);
+    if (gestErr) { console.error('[engajamento] nomes dos coordenadores:', gestErr.message); return null; }
+    for (const g of (gestores || []) as any[]) {
+      const e = String(g.email || '').trim().toLowerCase();
+      if (e) nomePorEmail.set(e, g.nome_completo || e);
+    }
+  }
+
+  const emailPorId = new Map<string, string>((vinculos || []).map((v: any) => [
+    String(v.id),
+    String(v.gestor_email || '').trim().toLowerCase(),
+  ] as [string, string]));
+  return pessoas.map((p: any) => {
+    const email = emailPorId.get(p.colaboradorId) || '';
+    return {
+      ...p,
+      coordenadorEmail: email || null,
+      coordenadorNome: email ? (nomePorEmail.get(email) || email) : null,
+    };
+  });
 }

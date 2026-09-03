@@ -1339,7 +1339,8 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
 }
 
 function Center({ children }) {
-  return <div className="min-h-screen flex items-center justify-center bg-[#0a0e1a] text-white">{children}</div>;
+  // Sem fundo próprio — ver o comentário em `temporada/page.tsx`.
+  return <div className="min-h-[60vh] flex items-center justify-center text-white">{children}</div>;
 }
 
 /**

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { renderTemporadaConcluidaPDF } from '@/lib/temporada-concluida-pdf';
 import { requireUser, assertEmailAccess } from '@/lib/auth/request-context';
+import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
 
 /**
  * GET /api/temporada/concluida/pdf
@@ -30,8 +31,13 @@ export async function GET(request: Request) {
     const dados = await loadTemporadaConcluida(emailAlvo);
     if (dados.error) return NextResponse.json({ error: dados.error }, { status: 404 });
 
-    const buffer = await renderTemporadaConcluidaPDF(dados);
-    const fileName = `temporada-${dados.trilha.numeroTemporada}-${(dados.colab.nome || 'colab').replace(/\s+/g, '-')}.pdf`;
+    // A marca é do TENANT, não da rota: cliente white-label recebe o PDF com o
+    // logo dele e sem nenhuma identificação da Vertho — inclusive no nome do
+    // arquivo, que é o que aparece na pasta de Downloads de quem recebe.
+    const marca = await resolverMarcaPdf(auth.empresaId);
+    const buffer = await renderTemporadaConcluidaPDF(dados, marca);
+    const prefixo = nomeArquivoMarca('vertho-temporada', marca);
+    const fileName = `${prefixo}-${dados.trilha.numeroTemporada}-${(dados.colab.nome || 'colab').replace(/\s+/g, '-')}.pdf`;
 
     return new NextResponse(buffer as any, {
       status: 200,

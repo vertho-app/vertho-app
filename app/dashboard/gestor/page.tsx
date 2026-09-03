@@ -222,7 +222,9 @@ export default function GestorHomePage() {
       <PerfisSection perfis={data.perfis || []} fonteExterna={data.empresaPerfilExternoFonte} />
 
       {/* Seção 4 — Timeline próximos eventos */}
-      <TimelineSection timeline={data.timeline || []} />
+      {/* "Próximas 4 semanas" saiu a pedido do dono (03/09/2026): a lista de
+          checkpoints e fins de trilha datados competia com o card de ação da
+          semana, que é onde o gestor decide o que fazer AGORA. */}
 
       {/* Modal de avaliação */}
       {/* O modal de observação saiu junto com os botões de veredito: ele
@@ -580,7 +582,19 @@ function EquipeSection({ equipe, fonteExterna, filtro, setFiltro }: {
   return (
     <section className="mb-6" id="equipe">
       <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
-        <h2 className="text-white text-base font-bold">{t('titles.teamTrack')}</h2>
+        {/* O contador vem da MESMA lista que é renderizada abaixo. O card de KPI
+            no topo conta pessoas por trilha ("14 · 4 em trilha · 10 sem"), e sem
+            este número aqui as duas contagens da tela pareciam discordar: o
+            título prometia "Equipe em trilha" e a lista mostrava a equipe toda,
+            porque o filtro padrão é `todos`. */}
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-white text-base font-bold">{t('titles.teamTrack')}</h2>
+          <span className="text-[11px] text-white/45 tabular-nums">
+            {filtrados.length === equipe.length
+              ? t('team.total', { total: equipe.length })
+              : t('team.showing', { shown: filtrados.length, total: equipe.length })}
+          </span>
+        </div>
         <div className="flex gap-1 p-1 rounded-lg border border-white/[0.06]" style={{ background: '#091D35' }}>
           {filtroDeAcao && (
             <button onClick={() => setFiltro('todos')}
@@ -738,40 +752,3 @@ function PerfisSection({ perfis, fonteExterna }: { perfis: any[]; fonteExterna?:
   );
 }
 
-// ════════════════ Etapa 4 — Timeline ════════════════
-
-function TimelineSection({ timeline }: { timeline: any[] }) {
-  const t = useTranslations('ManagerDashboard');
-  const locale = useLocale();
-  if (timeline.length === 0) return null;
-  return (
-    <section className="mb-6">
-      <h2 className="text-white text-base font-bold mb-3">{t('titles.nextWeeks')}</h2>
-      <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-        {timeline.map((ev, i) => {
-          const dt = new Date(ev.data);
-          const dias = Math.ceil((dt.getTime() - Date.now()) / (24 * 3600 * 1000));
-          return (
-            <div key={i} className={`flex items-center gap-3 px-4 py-2.5 ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}>
-              <div className="text-center shrink-0 w-12">
-                <div className="text-[10px] text-white/45 uppercase">
-                  {dt.toLocaleDateString(locale, { month: 'short' })}
-                </div>
-                <div className="text-base font-bold text-white tabular-nums">
-                  {dt.getDate()}
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-[12px] text-white font-bold truncate">{ev.colab}</div>
-                <div className="text-[10px] text-white/55 truncate">{ev.detalhe}</div>
-              </div>
-              <span className="text-[10px] text-white/55 font-mono shrink-0">
-                {t('timeline.inDays', { value: dias === 0 ? t('timeline.today') : dias === 1 ? t('timeline.oneDay') : `${dias}d` })}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}

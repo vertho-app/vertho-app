@@ -421,7 +421,9 @@ function PdfButton({ sb, numeroTemporada, label, errorLabel }) {
 }
 
 function Center({ children }) {
-  return <div className="min-h-screen flex items-center justify-center bg-[#0a0e1a] text-white">{children}</div>;
+  // Sem fundo próprio — ver o comentário em `temporada/page.tsx`: o shell já
+  // pinta o gradiente do tenant e a cor fixa o cobria.
+  return <div className="min-h-[60vh] flex items-center justify-center text-white">{children}</div>;
 }
 
 function Stat({ label, valor, cor }) {

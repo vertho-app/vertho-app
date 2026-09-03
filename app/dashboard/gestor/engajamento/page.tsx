@@ -184,6 +184,43 @@ function FormatosAbertos({ formatos }: { formatos?: string[] }) {
   );
 }
 
+/**
+ * Um coordenador e o time dele, fechado por padrão.
+ *
+ * O `<details>` é de propósito: o consolidado responde "com quem eu falo", e o
+ * detalhamento responde "sobre quem" — duas perguntas em sequência, não duas
+ * telas. Fechado, a rede inteira cabe numa dobra; aberto, cada pessoa aparece
+ * exatamente como aparece na visão do gestor (o MESMO `PessoaRow`, para as duas
+ * telas não divergirem).
+ */
+function CoordenacaoBloco({ grupo }: { grupo: { nome: string; pessoas: any[]; atencao: number } }) {
+  const temAtencao = grupo.atencao > 0;
+  return (
+    <details className={`group rounded-[16px] border transition-colors ${
+      temAtencao ? 'border-amber-300/15 bg-amber-300/[0.035]' : 'border-white/[0.07] bg-white/[0.02]'
+    }`}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-300 [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-bold text-white">{grupo.nome}</p>
+          <p className="mt-0.5 text-[10px] text-white/40">
+            {grupo.pessoas.length} {grupo.pessoas.length === 1 ? 'pessoa' : 'pessoas'}
+            {temAtencao && <> · <span className="text-amber-200">{grupo.atencao} para acompanhar</span></>}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className={`font-mono text-2xl font-semibold tabular-nums ${temAtencao ? 'text-amber-100' : 'text-white/35'}`}>
+            {grupo.atencao}
+          </span>
+          <ChevronDown size={14} className="text-white/30 transition-transform group-open:rotate-180" aria-hidden="true" />
+        </div>
+      </summary>
+      <div className="space-y-2 border-t border-white/[0.06] p-3">
+        {grupo.pessoas.map((pessoa) => <PessoaRow key={pessoa.colaboradorId} pessoa={pessoa} />)}
+      </div>
+    </details>
+  );
+}
+
 function PessoaRow({ pessoa }: { pessoa: any }) {
   const atencao = pedeAcompanhamento(pessoa);
   const status = statusDaPessoa(pessoa);
@@ -272,6 +309,27 @@ export default function EngajamentoDoTimePage() {
       .filter((pessoa) => !termo || `${pessoa.nome} ${pessoa.cargo || ''}`.toLocaleLowerCase('pt-BR').includes(termo))
       .sort((a, b) => Number(pedeAcompanhamento(b)) - Number(pedeAcompanhamento(a)) || a.nome.localeCompare(b.nome));
   }, [busca, foco, pessoas]);
+
+  // Agrupa a lista JÁ FILTRADA: o que o diretor lê no bloco é exatamente o que
+  // os chips e a busca deixaram passar, e não uma segunda contagem paralela.
+  const porCoordenador = useMemo(() => {
+    if (dados?.scope !== 'rh') return [];
+    const grupos = new Map<string, { nome: string; pessoas: any[] }>();
+    for (const pessoa of pessoasVisiveis) {
+      // `coordenadorNome` é null quando a pessoa não tem vínculo, e ausente
+      // quando a leitura do vínculo falhou. Os dois viram o mesmo balde, mas o
+      // rótulo não afirma que a pessoa está sem coordenador.
+      const chave = pessoa.coordenadorEmail || '__sem__';
+      const nome = pessoa.coordenadorNome || 'Sem coordenador definido';
+      if (!grupos.has(chave)) grupos.set(chave, { nome, pessoas: [] });
+      grupos.get(chave)!.pessoas.push(pessoa);
+    }
+    return [...grupos.values()]
+      .map((g) => ({ ...g, atencao: g.pessoas.filter(pedeAcompanhamento).length }))
+      // Quem tem mais gente parada primeiro: a ordem da lista é a ordem das
+      // conversas que o diretor precisa ter.
+      .sort((a, b) => b.atencao - a.atencao || b.pessoas.length - a.pessoas.length || a.nome.localeCompare(b.nome));
+  }, [dados?.scope, pessoasVisiveis]);
 
   const mostrarAtencao = () => {
     setFoco('atencao');
@@ -387,7 +445,9 @@ export default function EngajamentoDoTimePage() {
           <section id="time" aria-labelledby="time-title" className="scroll-mt-5">
             <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">Pessoa a pessoa</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">
+                  {dados?.scope === 'rh' ? 'Por coordenação' : 'Pessoa a pessoa'}
+                </p>
                 <h2
                   id="time-title"
                   className="mt-1 text-[23px] leading-tight text-white"
@@ -430,10 +490,19 @@ export default function EngajamentoDoTimePage() {
               </div>
             </div>
 
-            <p className="mb-3 text-[9px] text-white/25">Mostrando {pessoasVisiveis.length} de {pessoas.length} pessoas.</p>
-            <div className="space-y-2">
-              {pessoasVisiveis.map((pessoa) => <PessoaRow key={pessoa.colaboradorId} pessoa={pessoa} />)}
-            </div>
+            <p className="mb-3 text-[9px] text-white/25">
+              Mostrando {pessoasVisiveis.length} de {pessoas.length} pessoas
+              {dados?.scope === 'rh' && porCoordenador.length > 0 && ` em ${porCoordenador.length} ${porCoordenador.length === 1 ? 'coordenação' : 'coordenações'}`}.
+            </p>
+            {dados?.scope === 'rh' ? (
+              <div className="space-y-2">
+                {porCoordenador.map((grupo) => <CoordenacaoBloco key={grupo.nome} grupo={grupo} />)}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {pessoasVisiveis.map((pessoa) => <PessoaRow key={pessoa.colaboradorId} pessoa={pessoa} />)}
+              </div>
+            )}
             {!pessoasVisiveis.length && (
               <div className="rounded-[16px] border border-dashed border-white/10 bg-white/[0.02] px-5 py-9 text-center text-[11px] text-white/35">
                 Nenhuma pessoa corresponde aos filtros selecionados.

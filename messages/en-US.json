@@ -4319,9 +4319,8 @@
       "attentionSignals": "Attention signals · {count}",
       "weeklyAction": "Action this week",
       "rhActions": "Where to act now",
-      "teamTrack": "Team in track",
-      "profileMap": "{type} profile map",
-      "nextWeeks": "Next 4 weeks"
+      "teamTrack": "Team",
+      "profileMap": "{type} profile map"
     },
     "noReports": {
       "title": "You do not have direct reports linked yet",
@@ -4408,7 +4407,9 @@
         "sem_perfil_externo": "{fonte} missing",
         "sem_mapeamento": "competency mapping missing",
         "aguardando_geracao": "ready to start — track not generated yet"
-      }
+      },
+      "showing": "{shown} of {total}",
+      "total": "{total} people"
     },
     "profiles": {
       "behavioral": "behavioral",
@@ -4425,11 +4426,6 @@
       "openPdf": "Open the mapping PDF",
       "openPdfFor": "Open the mapping PDF for {name}",
       "pdfError": "Could not open the PDF"
-    },
-    "timeline": {
-      "inDays": "in {value}",
-      "today": "today",
-      "oneDay": "1d"
     }
   },
   "AdminCompanySettings": {

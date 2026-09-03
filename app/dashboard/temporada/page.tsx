@@ -295,9 +295,12 @@ export default function TemporadaPage() {
 }
 
 function Center({ children }: { children: React.ReactNode }) {
+  // Sem fundo próprio: o DashboardShell já pinta o gradiente da marca do tenant,
+  // e uma cor fixa aqui vira uma faixa preta por cima dele (era `#0a0e1a`, de
+  // antes do white-label). `min-h-[60vh]` em vez de `min-h-screen` porque a tela
+  // inteira já é do shell — somar 100vh aqui empurra o rodapé para fora.
   return (
-    <div className="min-h-screen flex items-center justify-center text-white"
-      style={{ background: '#0a0e1a' }}>
+    <div className="min-h-[60vh] flex items-center justify-center text-white">
       {children}
     </div>
   );
