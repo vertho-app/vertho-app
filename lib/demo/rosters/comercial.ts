@@ -18,6 +18,7 @@ import type { DemoRoster } from '@/lib/demo/rosters/types';
 // na primeira vez que alguém mexesse em um dos dois lados.
 import {
   ACME_DEMO_BEHIND_KEYS,
+  ACME_DEMO_REPORT_DIRECTORY,
   ACME_DEMO_CONCLUDED_KEYS,
   ACME_DEMO_JOURNEY_KEYS,
   ACME_DEMO_SYNTHETIC_MAPPED_KEYS,
@@ -209,14 +210,12 @@ export const ROSTER_COMERCIAL: DemoRoster = {
   // declaração do roster. O ganho é que o motor genérico passa a enxergá-la —
   // e toda capacidade que nasce no caminho do roster (percurso da persona,
   // cadência, sinais de engajamento) vale para o ACME sem uma linha a mais.
-  // ⚠️ `diretorio` fica FORA de propósito. O `gruposinal` usa este mesmo roster
-  // e hoje tem 8 pessoas (só as navegáveis); declarar o diretório aqui daria a
-  // ele as 30 do ACME de uma vez. O ACME segue lendo `ACME_DEMO_REPORT_DIRECTORY`
-  // pela ramificação em `diretorioDoAmbiente` — é a última que sobra, e mexer
-  // nela é uma decisão sobre o elenco do gruposinal, não sobre o motor.
-  //
-  // Consequência benigna: o `panorama` abaixo referencia chaves do diretório do
-  // ACME, então no gruposinal ele não encontra ninguém e não faz nada.
+  // As pessoas de APOIO do ambiente: dão escala ao panorama e equipe ao gestor,
+  // sem serem navegáveis. O `gruposinal` usa este mesmo roster e passa a ter o
+  // mesmo elenco do ACME — decisão do dono (03/09/2026): o que distingue os dois
+  // ambientes é a identidade da empresa, não o conteúdo. Foi o que permitiu
+  // apagar a ÚLTIMA ramificação por slug do motor de seed.
+  diretorio: ACME_DEMO_REPORT_DIRECTORY.map((pessoa) => ({ ...pessoa })),
   reguaEvolucao: REGUA_ACME,
   panorama: {
     semPerfil: [...ACME_DEMO_WITHOUT_PROFILE_KEYS],

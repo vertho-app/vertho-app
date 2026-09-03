@@ -708,11 +708,10 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   // trata. Trocar o roster é trocar esta declaração, não o reset.
   const roster: DemoRoster = rosterDemo(profile.roster);
   // Pessoas de apoio do ambiente: dão escala ao panorama e equipe ao gestor, sem
-  // serem personas navegáveis. O ACME mantém o diretório histórico; os demais
-  // ambientes declaram o seu no roster.
-  const diretorioDoAmbiente: any[] = profile.roster === 'comercial' && profile.slug === DEMO_PRESENTATION_TENANT_SLUG
-    ? (ACME_DEMO_REPORT_DIRECTORY as any[])
-    : ((roster.diretorio ?? []) as any[]);
+  // serem personas navegáveis. Sai do ROSTER, sempre — esta era a última
+  // ramificação por slug do motor de seed, e com ela some a última razão para o
+  // reset saber em que tenant está rodando.
+  const diretorioDoAmbiente: any[] = (roster.diretorio ?? []) as any[];
   // O fixture de ESTRUTURA (competências, cargos, top10, cenários capturados de
   // um tenant vivo) é do ambiente, não do motor. Quem tem todos os cargos
   // construídos no roster não herda estrutura de ninguém, e semear o fixture
