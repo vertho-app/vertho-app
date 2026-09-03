@@ -4,6 +4,7 @@ import {
   aplicarGlossarioEmTexto,
   normalizarGlossario,
 } from '@/lib/i18n-vocabulario';
+import { readFileSync } from 'node:fs';
 import ptBR from '@/messages/pt-BR.json';
 
 /**
@@ -133,6 +134,23 @@ describe('glossário de vocabulário por tenant', () => {
       const depois = argumentos(traduzido);
       expect(antes.length, 'sem argumentos ICU o teste não prova nada').toBeGreaterThan(50);
       expect(depois).toEqual(antes);
+    });
+
+    it('🔑 o glossário está LIGADO no carregamento das mensagens', () => {
+      // Config declarada não é config aplicada. Esta função poderia estar
+      // perfeita e nunca ser chamada — o sintoma seria um campo no admin que
+      // salva, não dá erro, e não muda nada na tela. Aqui a asserção é sobre
+      // quem CONSOME: `i18n/request.ts` é o único ponto por onde as mensagens
+      // entram no app.
+      const request = readFileSync('i18n/request.ts', 'utf8');
+      expect(request).toContain('getTenantGlossarioBySlug');
+      expect(request).toContain('aplicarGlossario(messages');
+
+      // E o cache tem que ser invalidado quando alguém edita, senão a mudança
+      // leva até um dia para aparecer e quem configurou conclui que o campo
+      // está quebrado.
+      const acoes = readFileSync('app/admin/empresas/[empresaId]/configuracoes/actions.ts', 'utf8');
+      expect(acoes).toContain('TENANT_GLOSSARIO_CACHE_TAG');
     });
 
     it('não inventa troca onde o termo não aparece', () => {
