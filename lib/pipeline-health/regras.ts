@@ -18,6 +18,7 @@
  *   R6  checarCanalZerado           R14  checarModelosConfigurados
  *   R7  checarEntregaIncompleta     R15  checarHorizonteKits
  *                                   R16  checarCelulaVideoEmError
+ *                                   R17  checarRenderSemWorker
  *
  * ⚠️ **O número NÃO segue a ordem do arquivo, e isso é deliberado.** Os IDs são
  * citados em docs, testes e outros módulos (`lib/degradacao.ts`, `admin-supabase.ts`,
@@ -346,23 +347,130 @@ export function checarHorizonteKits(
  * posterior. Uma regra que contasse `error` cru acusaria 35 para sempre — ruído crônico é
  * alarme desligado.
  */
+/**
+ * 🔴 **03/09/2026 — por que a regra passou a separar por ALCANÇABILIDADE.** As duas
+ * células que ela acusou nesse dia estavam ancoradas em módulos-base que **nenhum
+ * conteúdo core referencia** (0 de 703 `micro_conteudos` com `modulo_base_id`, sobre
+ * 56 módulos distintos — a coluna é escrita, a ausência é real). `resolverVideoDaSemana`
+ * chega na célula pelo `modulo_base_id` do CORE da semana: sem core apontando para o
+ * módulo, o re-disparo renderiza, custa (~$0,70 + box) e **não aparece para ninguém**.
+ * É o "vídeo órfão" que `docs/GERADOR-VIDEO-MODULO.md` descreve como o erro caro do
+ * pipeline — e a regra estava recomendando exatamente ele, com a autoridade de um alarme.
+ *
+ * Duas causas, duas ações (mesma régua de `kit-ausente-disc` × `kit-cargo-divergente`):
+ * célula alcançável precisa de RE-DISPARO; célula órfã precisa que alguém ligue o
+ * módulo ao conteúdo da semana — ou que a linha seja arquivada. Misturar as duas
+ * transformava a segunda em gasto silencioso.
+ *
+ * `coresAncorados` conta só a via PRINCIPAL (core → `modulo_base_id`). O fallback por
+ * competência+nível de `resolverVideoDaSemanaParaColaborador` ainda pode alcançar o
+ * módulo quando o core não tem um — por isso a órfã é `aviso` com ação de conferência,
+ * nunca um veredito de "pode apagar".
+ */
 export interface CelulaVideoSemDeck {
   empresaSlug: string | null;
   cargo: string | null;
   disc: string | null;
   erros: number;
   ultimoErro: string | null;
+  /** Quantos `micro_conteudos` core ancoram no módulo-base desta célula. 0 = órfã. */
+  coresAncorados: number;
 }
 
-export function checarCelulaVideoEmError(celulas: CelulaVideoSemDeck[]): Achado | null {
+const rotuloCelula = (c: CelulaVideoSemDeck) =>
+  `${c.empresaSlug || '?'} · ${c.cargo || '?'} · ${c.disc || '?'} · ${c.erros}× · ${String(c.ultimoErro || '').slice(0, 50)}`;
+
+export function checarCelulaVideoEmError(celulas: CelulaVideoSemDeck[]): Achado[] {
+  const alcancaveis = celulas.filter((c) => c.coresAncorados > 0);
+  const orfas = celulas.filter((c) => c.coresAncorados <= 0);
+
+  return [
+    achado(
+      'celula-video-em-error', 'aviso',
+      'Célula de vídeo falhou e segue sem deck',
+      alcancaveis.length,
+      'A última tentativa terminou em erro e não há deck assistível: a entrega ignora a célula e a pessoa recebe o formato não-vídeo, sem nada avisar. Costuma ser saturação de fornecedor (TTS/HeyGen) num lote, e o re-disparo resolve.',
+      {
+        amostra: alcancaveis.map(rotuloCelula),
+        acao: 'Re-disparar a célula (resolverCelulaVideo com gerar:true) — em lote, com concorrência 2 para não saturar de novo.',
+      },
+    ),
+    achado(
+      'celula-video-orfa', 'aviso',
+      'Célula de vídeo falhou num módulo que nenhum conteúdo usa',
+      orfas.length,
+      'Falhou e ninguém está esperando: nenhum core da trilha ancora neste módulo-base, então a entrega nunca pediria este vídeo. Re-disparar renderiza, custa e não aparece para pessoa nenhuma.',
+      {
+        amostra: orfas.map(rotuloCelula),
+        acao: 'NÃO re-disparar antes de decidir: ou o módulo-base vira âncora de um core da semana (aí a célula passa a ser alcançável), ou a linha é arquivada. Conferir `micro_conteudos.modulo_base_id` do módulo antes de gastar render.',
+      },
+    ),
+  ].filter(Boolean) as Achado[];
+}
+
+/**
+ * R17 · O cron de reconciliação de vídeo não tem como provisionar um worker.
+ *
+ * 🔴 **Medido em 03/09/2026.** `reconciliarPersonalizados` enfileira as células que
+ * têm gente sem vídeo nominal e depois chama `ensureRenderWorker()`. Sem box viva,
+ * ele DESFAZ o enfileiramento e devolve `celulasReenfileiradas: []` — de propósito,
+ * para não mentir no log do cron. O efeito colateral é que o cron termina limpo:
+ * "0 reenfileiradas" é exatamente o que ele reportaria num dia sem lacuna nenhuma.
+ *
+ * E o motivo era permanente, não um acidente do dia: `ensureRenderWorker` lê
+ * `HCLOUD_TOKEN`, e **nenhuma das três envs que ele exige existe em produção**
+ * (75 variáveis na Vercel, zero delas). O token existe só no `.env.local`, com o
+ * nome `Hetzner Cloud api token` — que os scripts aliasam e o runtime não. Ou seja,
+ * a personalização nominal por cron nunca rodou em produção; os 187 personalizados
+ * do lote de 28/07 saíram de execução LOCAL, com o token na mão.
+ *
+ * Por que uma regra própria, e não deixar a R10 contar o `reconciliacao-sem-worker`:
+ * aquela linha é registrada UMA vez por dia em que o cron roda (dedup da mig 194) e
+ * chega como um "1×" no meio do volume — indistinguível de um soluço. Esta lê o
+ * AMBIENTE, como o R8 e o R11b: config responde de graça e sem ambiguidade, tabela
+ * vazia confunde "não havia lacuna" com "não havia quem drenasse".
+ *
+ * A contagem é de PESSOAS na lacuna, não de envs faltando — é o que faz o número
+ * crescer com o dano e não com a causa.
+ *
+ * ⚠️ Três estados, não dois. `pessoasSemVideoNominal: 0` = ambiente sem worker mas
+ * **ninguém esperando** hoje → calado, pela mesma disciplina do resto do arquivo
+ * (alarme sem dano vira crônico, e crônico é o mesmo que desligado; a próxima célula
+ * gerada cria a lacuna e a regra acorda). `null` = **não foi possível medir o dano**,
+ * que é diferente de zero: o achado sai com contagem 1 e diz que não mediu. Colapsar
+ * `null` em `0` faria a regra emudecer justamente quando ela enxerga menos — a
+ * cegueira que o R11b documenta.
+ */
+export interface InfraRender {
+  temToken: boolean;
+  temSnapshot: boolean;
+  temDatabaseUrl: boolean;
+  /** Pessoas elegíveis sem vídeo nominal (`reconciliarPersonalizados`, sem executar). `null` = não medido. */
+  pessoasSemVideoNominal: number | null;
+}
+
+export function checarRenderSemWorker(i: InfraRender): Achado | null {
+  const faltando = [
+    !i.temToken && 'HCLOUD_TOKEN',
+    !i.temSnapshot && 'RENDER_SNAPSHOT_ID',
+    !i.temDatabaseUrl && 'DATABASE_URL',
+  ].filter(Boolean) as string[];
+  if (!faltando.length) return null;
+
+  const naoMedido = i.pessoasSemVideoNominal == null;
   return achado(
-    'celula-video-em-error', 'aviso',
-    'Célula de vídeo falhou e segue sem deck',
-    celulas.length,
-    'A última tentativa terminou em erro e não há deck assistível: a entrega ignora a célula e a pessoa recebe o formato não-vídeo, sem nada avisar. Costuma ser saturação de fornecedor (TTS/HeyGen) num lote, e o re-disparo resolve.',
+    'render-sem-worker', 'critico',
+    'O cron de vídeo não tem como subir um worker de render',
+    naoMedido ? 1 : (i.pessoasSemVideoNominal as number),
+    'Cada uma dessas pessoas continua vendo o vídeo genérico da célula em vez do nominal, e o cron termina sem erro: ele enfileira, não encontra box, desfaz o enfileiramento e reporta zero — o mesmo que reportaria num dia sem lacuna.',
     {
-      amostra: celulas.map((c) => `${c.empresaSlug || '?'} · ${c.cargo || '?'} · ${c.disc || '?'} · ${c.erros}× · ${String(c.ultimoErro || '').slice(0, 50)}`),
-      acao: 'Re-disparar a célula (resolverCelulaVideo com gerar:true) — em lote, com concorrência 2 para não saturar de novo.',
+      amostra: [
+        `envs ausentes em produção: ${faltando.join(', ')}`,
+        naoMedido
+          ? 'dano NÃO medido: a leitura da lacuna falhou (o número acima é a existência do problema, não o tamanho dele)'
+          : `pessoas sem vídeo nominal agora: ${i.pessoasSemVideoNominal}`,
+      ],
+      acao: "Decidir primeiro se o auto-provision deve rodar em produção (cada box é custo Hetzner). Se sim: definir as envs na Vercel — ⚠️ o token está no .env.local com o nome 'Hetzner Cloud api token', que só os scripts aliasam. Se não: a reconciliação é trabalho manual e precisa de dono, não de cron.",
     },
   );
 }

@@ -216,7 +216,15 @@ export async function reconciliarPersonalizados(opts: {
   // Mais faltantes primeiro: com teto de custo, curar a célula que destrava 4
   // pessoas vale mais que a que destrava 1.
   lacunas.sort((a, b) => b.faltantes.length - a.faltantes.length);
-  const pessoasSemVideoNominal = lacunas.reduce((s, l) => s + l.faltantes.length, 0);
+  // PESSOAS DISTINTAS, não pares (célula × pessoa). Somar `faltantes.length` contava
+  // a mesma pessoa uma vez por célula: medido 03/09/2026, o total dizia **12** onde
+  // havia **8 gente** — as 2 diretoras de macae apareciam 3× cada, uma por célula com
+  // personalizado em erro. O número vai para o log do cron, para a telemetria de
+  // degradação e para o alarme (R17), sempre com a palavra "pessoa(s)" ao lado; inflar
+  // por multiplicidade de célula é a mesma armadilha de "N ocorrências ≠ N pessoas".
+  // A PRIORIZAÇÃO segue por `faltantes.length` de propósito: ali o que importa é
+  // quanto trabalho aquela célula destrava, e aí o par é a unidade certa.
+  const pessoasSemVideoNominal = new Set(lacunas.flatMap((l) => l.faltantes.map((f) => f.colaboradorId))).size;
 
   if (!executar) {
     return { lacunas, pessoasSemVideoNominal, celulasReenfileiradas: [], ignoradasPorLimite: Math.max(0, lacunas.length - limite), executado: false };

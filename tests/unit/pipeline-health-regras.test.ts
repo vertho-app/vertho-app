@@ -3,9 +3,9 @@ import {
   checarFormatoPrometido, checarCoberturaKit, checarDesafioPlaceholder,
   checarContatos, checarCoreAusente, checarCanalZerado, checarEntregaIncompleta,
   regrasPreflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarCelulaVideoEmError,
-  checarDegradacoes, DEGRADACAO_VOLUME_CRITICO, checarCanalEntradaWhatsapp,
+  checarDegradacoes, DEGRADACAO_VOLUME_CRITICO, checarCanalEntradaWhatsapp, checarRenderSemWorker,
   type CelulaVideoSemDeck, type EntregaPrevista, type EnvioObservado, type LacunaKitHorizonte, type DegradacaoRegistro,
-  type SaudeCanalEntrada,
+  type SaudeCanalEntrada, type InfraRender,
 } from '@/lib/pipeline-health/regras';
 import { severidadeGlobal, achado } from '@/lib/pipeline-health/types';
 
@@ -367,12 +367,13 @@ describe('R10 · degradações das últimas 24h', () => {
 describe('R16 · célula de vídeo em error sem deck', () => {
   const cel = (over: Partial<CelulaVideoSemDeck> = {}): CelulaVideoSemDeck => ({
     empresaSlug: 'ibipeba', cargo: 'Gestão Educacional', disc: 'S',
-    erros: 1, ultimoErro: 'TTS: resposta sem áudio após 4 tentativas', ...over,
+    erros: 1, ultimoErro: 'TTS: resposta sem áudio após 4 tentativas', coresAncorados: 3, ...over,
   });
+  const porId = (as: ReturnType<typeof checarCelulaVideoEmError>, id: string) => as.find((a) => a.id === id);
 
   it('acusa e mostra tenant/cargo/DISC e a causa na amostra', () => {
-    const a = checarCelulaVideoEmError([cel(), cel({ disc: 'C', ultimoErro: 'HeyGen timeout aguardando video_id' })]);
-    expect(a?.id).toBe('celula-video-em-error');
+    const as = checarCelulaVideoEmError([cel(), cel({ disc: 'C', ultimoErro: 'HeyGen timeout aguardando video_id' })]);
+    const a = porId(as, 'celula-video-em-error');
     expect(a?.severidade).toBe('aviso');
     expect(a?.contagem).toBe(2);
     expect(a?.amostra?.[0]).toContain('ibipeba');
@@ -380,11 +381,100 @@ describe('R16 · célula de vídeo em error sem deck', () => {
   });
 
   it('a ação lembra de re-disparar com concorrência menor (senão satura de novo)', () => {
-    expect(checarCelulaVideoEmError([cel()])?.acao).toMatch(/concorr/i);
+    expect(porId(checarCelulaVideoEmError([cel()]), 'celula-video-em-error')?.acao).toMatch(/concorr/i);
   });
 
   it('lista vazia não gera achado — célula recuperada não deve aparecer', () => {
-    expect(checarCelulaVideoEmError([])).toBeNull();
+    expect(checarCelulaVideoEmError([])).toEqual([]);
+  });
+
+  /**
+   * 🔴 O caso de 03/09/2026: as duas células acusadas estavam ancoradas em módulos-base
+   * que nenhum core referencia. Re-disparar renderiza, custa e não aparece para ninguém —
+   * e era exatamente isso que a ação da regra recomendava, com autoridade de alarme.
+   */
+  it('🔴 célula cujo módulo nenhum core usa sai como ÓRFÃ, com ação diferente', () => {
+    const as = checarCelulaVideoEmError([cel({ coresAncorados: 0 })]);
+    expect(porId(as, 'celula-video-em-error'), 'órfã não pode entrar no balde do re-disparo').toBeUndefined();
+    const orfa = porId(as, 'celula-video-orfa');
+    expect(orfa?.contagem).toBe(1);
+    expect(orfa?.acao, 'a ação da órfã tem que DESaconselhar o re-disparo').toMatch(/NÃO re-disparar/);
+    expect(orfa?.acao).not.toMatch(/concorrência 2/);
+  });
+
+  it('separa os dois baldes na mesma lista — cada um com a sua contagem', () => {
+    const as = checarCelulaVideoEmError([
+      cel({ coresAncorados: 5 }),
+      cel({ coresAncorados: 0, empresaSlug: 'projetomacae' }),
+      cel({ coresAncorados: 0, empresaSlug: 'projetomacae', disc: 'C' }),
+    ]);
+    expect(porId(as, 'celula-video-em-error')?.contagem).toBe(1);
+    expect(porId(as, 'celula-video-orfa')?.contagem).toBe(2);
+    expect(porId(as, 'celula-video-orfa')?.amostra?.[0]).toContain('projetomacae');
+  });
+
+  it('só alcançáveis: o achado de órfã não aparece (0 nunca vira ruído)', () => {
+    const as = checarCelulaVideoEmError([cel({ coresAncorados: 1 })]);
+    expect(as.map((a) => a.id)).toEqual(['celula-video-em-error']);
+  });
+});
+
+/**
+ * R17 · o cron de reconciliação não tem como subir um worker de render.
+ *
+ * Medido 03/09/2026: `ensureRenderWorker` lê `HCLOUD_TOKEN` e **nenhuma das três envs
+ * que ele exige existe em produção** (75 variáveis na Vercel, zero delas). Sem box,
+ * `reconciliarPersonalizados` desfaz o enfileiramento e devolve `celulasReenfileiradas: []`
+ * — o cron termina limpo, igual a um dia sem lacuna nenhuma. O rastro em `degradacao_log`
+ * chega como um "1×" no meio do volume da R10, indistinguível de um soluço.
+ */
+describe('R17 · render sem worker possível', () => {
+  const infra = (over: Partial<InfraRender> = {}): InfraRender => ({
+    temToken: true, temSnapshot: true, temDatabaseUrl: true, pessoasSemVideoNominal: 6, ...over,
+  });
+
+  it('ambiente completo não gera achado', () => {
+    expect(checarRenderSemWorker(infra())).toBeNull();
+  });
+
+  it('🔴 acusa como CRÍTICO e conta PESSOAS, nomeando a env ausente', () => {
+    const a = checarRenderSemWorker(infra({ temToken: false }));
+    expect(a?.id).toBe('render-sem-worker');
+    expect(a?.severidade).toBe('critico');
+    expect(a?.contagem, 'a contagem cresce com o dano, não com a causa').toBe(6);
+    expect(a?.amostra?.[0]).toContain('HCLOUD_TOKEN');
+    expect(a?.amostra?.[0]).not.toContain('RENDER_SNAPSHOT_ID');
+  });
+
+  it('lista TODAS as envs ausentes, não a primeira', () => {
+    const a = checarRenderSemWorker(infra({ temToken: false, temSnapshot: false, temDatabaseUrl: false }));
+    expect(a?.amostra?.[0]).toContain('HCLOUD_TOKEN');
+    expect(a?.amostra?.[0]).toContain('RENDER_SNAPSHOT_ID');
+    expect(a?.amostra?.[0]).toContain('DATABASE_URL');
+  });
+
+  /**
+   * A disciplina do arquivo: alarme sem dano vira crônico, e crônico é o mesmo que
+   * desligado. A próxima célula gerada cria a lacuna e a regra acorda sozinha.
+   */
+  it('ambiente sem worker mas ninguém esperando: calado', () => {
+    expect(checarRenderSemWorker(infra({ temToken: false, pessoasSemVideoNominal: 0 }))).toBeNull();
+  });
+
+  /**
+   * 🔴 `null` ≠ `0`. Colapsar os dois faria a regra emudecer justamente quando ela
+   * enxerga menos — a cegueira que o R11b documenta.
+   */
+  it('🔴 dano NÃO medido sai assim mesmo, dizendo que não mediu', () => {
+    const a = checarRenderSemWorker(infra({ temToken: false, pessoasSemVideoNominal: null }));
+    expect(a?.contagem).toBe(1);
+    expect(a?.amostra?.join(' ')).toMatch(/NÃO medido/i);
+  });
+
+  it('a ação põe a decisão de custo antes do comando, e avisa do nome com espaços', () => {
+    const a = checarRenderSemWorker(infra({ temToken: false }));
+    expect(a?.acao).toMatch(/custo/i);
+    expect(a?.acao).toContain('Hetzner Cloud api token');
   });
 });
 

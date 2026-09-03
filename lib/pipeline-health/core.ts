@@ -18,7 +18,7 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados } from './regras';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarRenderSemWorker, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados } from './regras';
 import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
 import { inspecionarCloudApi } from '@/lib/whatsapp/cloud-api';
 import { inspecionarTemplatesLigados } from '@/lib/whatsapp/templates-ligados';
@@ -256,8 +256,31 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
     achados.push(checarMbForaDaRegua(await coletarMbForaDaRegua(sb)));
 
     // R16: célula que falhou e segue sem deck — o `video-stale` acima só pega presos,
-    // e quem termina em `error` sai do radar da entrega em silêncio (F-V3).
-    achados.push(checarCelulaVideoEmError(await coletarCelulasVideoSemDeck(sb)));
+    // e quem termina em `error` sai do radar da entrega em silêncio (F-V3). Devolve
+    // DOIS achados (recuperável × órfã): sem a separação, a ação recomendada mandava
+    // gastar render num módulo que nenhum core usa.
+    achados.push(...checarCelulaVideoEmError(await coletarCelulasVideoSemDeck(sb)));
+
+    // R17: o cron de reconciliação consegue subir um worker? Lê AMBIENTE (como R8/R11b)
+    // porque o rastro em tabela é ambíguo: sem box, `reconciliarPersonalizados` desfaz o
+    // enfileiramento e o cron reporta "0 reenfileiradas" — igual a um dia sem lacuna.
+    achados.push(checarRenderSemWorker({
+      temToken: !!process.env.HCLOUD_TOKEN,
+      temSnapshot: !!process.env.RENDER_SNAPSHOT_ID,
+      temDatabaseUrl: !!process.env.DATABASE_URL,
+      // `null` = não medido, e a regra distingue isso de zero. Isolado num catch de
+      // propósito: esta leitura é a mais cara do arquivo e serve só para dimensionar o
+      // dano — deixá-la derrubar o run inteiro trocaria 15 achados por um 'check-falhou'.
+      pessoasSemVideoNominal: await (async () => {
+        try {
+          const { reconciliarPersonalizados } = await import('@/lib/video/reconciliar-personalizados');
+          return (await reconciliarPersonalizados({ executar: false })).pessoasSemVideoNominal;
+        } catch (e: any) {
+          console.error('[health] R17 não conseguiu medir a lacuna de vídeo nominal:', e?.message || e);
+          return null;
+        }
+      })(),
+    }));
 
     // R10: telemetria de degradação (FMEA §3.3) — fallback existe, nunca invisível.
     achados.push(checarDegradacoes(await coletarDegradacoes(sb)));

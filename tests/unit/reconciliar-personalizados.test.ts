@@ -194,6 +194,32 @@ describe('reconciliarPersonalizados · a leitura não pode virar amostra', () =>
     expect(r.pessoasSemVideoNominal).toBe(34);
     expect(r.lacunas[0].faltantes.every((f) => f.motivo === 'ausente')).toBe(true);
   });
+
+  /**
+   * 🔴 Medido 03/09/2026: o total somava `faltantes.length` de cada célula, então a
+   * mesma pessoa contava uma vez POR CÉLULA. O número dizia **12** onde havia **8
+   * gente** — as 2 diretoras de macae apareciam 3× cada, uma por célula com
+   * personalizado em erro. E ele sai com a palavra "pessoa(s)" ao lado em três
+   * lugares: log do cron, `degradacao_log` e o alarme do health (R17).
+   */
+  it('🔴 a mesma pessoa em 2 células conta UMA vez — o campo diz "pessoas"', async () => {
+    // Módulos DIFERENTES de propósito: `celulasServidas` deduplica por
+    // (módulo × empresa × cargo × DISC), então duas células do mesmo módulo
+    // virariam uma só. No caso real de macae são 3 módulos — 3 semanas — e as
+    // mesmas 2 pessoas em todas.
+    const duas = [['cel-1', 'mb-1'], ['cel-2', 'mb-2']].map(([id, mb]) => ({ ...CELULA, id, modulo_base_id: mb }));
+    dados = {
+      videos_gerados: duas,
+      colaboradores: [pessoa(0), pessoa(1)],
+      videos_personalizados: [],   // ninguém personalizado: 2 pessoas × 2 células = 4 pares
+    };
+
+    const r = await reconciliarPersonalizados({ executar: false });
+
+    expect(r.lacunas).toHaveLength(2);
+    expect(r.lacunas.reduce((s, l) => s + l.faltantes.length, 0), 'os pares continuam 4').toBe(4);
+    expect(r.pessoasSemVideoNominal, 'mas gente são 2').toBe(2);
+  });
 });
 
 /**

@@ -418,11 +418,11 @@ export async function coletarCelulasVideoSemDeck(sb: any): Promise<CelulaVideoSe
   const { data: emps } = await sb.from('empresas').select('id, slug');
   const slugDe = Object.fromEntries((emps || []).map((e: any) => [e.id, e.slug]));
 
-  type Acc = { dones: number; erros: number; ultimoErro: string | null; quando: string; cargo: string | null; disc: string | null; empresaId: string | null };
+  type Acc = { dones: number; erros: number; ultimoErro: string | null; quando: string; cargo: string | null; disc: string | null; empresaId: string | null; moduloBaseId: string | null };
   const porCelula = new Map<string, Acc>();
   for (const v of (data as any[]) || []) {
     const k = `${v.modulo_base_id}|${v.empresa_id}|${v.cargo}|${v.disc_dominante}`;
-    const a = porCelula.get(k) || { dones: 0, erros: 0, ultimoErro: null, quando: '', cargo: v.cargo, disc: v.disc_dominante, empresaId: v.empresa_id };
+    const a = porCelula.get(k) || { dones: 0, erros: 0, ultimoErro: null, quando: '', cargo: v.cargo, disc: v.disc_dominante, empresaId: v.empresa_id, moduloBaseId: v.modulo_base_id ?? null };
     if (v.status === 'done' && v.bunny_video_id) a.dones++;
     if (v.status === 'error') {
       a.erros++;
@@ -432,12 +432,32 @@ export async function coletarCelulasVideoSemDeck(sb: any): Promise<CelulaVideoSe
     porCelula.set(k, a);
   }
 
-  return [...porCelula.values()]
-    .filter((a) => a.erros > 0 && a.dones === 0)
-    .map((a) => ({
-      empresaSlug: a.empresaId ? (slugDe[a.empresaId] || null) : null,
-      cargo: a.cargo, disc: a.disc, erros: a.erros, ultimoErro: a.ultimoErro,
-    }));
+  const candidatas = [...porCelula.values()].filter((a) => a.erros > 0 && a.dones === 0);
+
+  // ALCANÇABILIDADE (03/09/2026): a entrega chega na célula pelo `modulo_base_id` do
+  // CORE da semana. Sem core apontando para o módulo, re-disparar produz vídeo que
+  // ninguém vê — e era isso que a ação da R16 recomendava. Uma query para todas as
+  // candidatas; a contagem separa "recuperável" de "órfã" em `checarCelulaVideoEmError`.
+  const modulos = [...new Set(candidatas.map((a) => a.moduloBaseId).filter(Boolean))] as string[];
+  const coresPorModulo = new Map<string, number>();
+  if (modulos.length) {
+    const { data: cores, error: errCores } = await sb.from('micro_conteudos')
+      .select('modulo_base_id').in('modulo_base_id', modulos);
+    // LANÇA: com a leitura falhando, TODA célula pareceria órfã e a regra recomendaria
+    // "não gaste render" para casos recuperáveis. Errar calado para o lado da inação é
+    // tão ruim quanto para o do gasto — e aqui seria indistinguível de um resultado real.
+    if (errCores) throw new Error(`micro_conteudos (alcançabilidade da célula): ${errCores.message}`);
+    for (const c of (cores as any[]) || []) {
+      const id = c.modulo_base_id;
+      if (id) coresPorModulo.set(id, (coresPorModulo.get(id) || 0) + 1);
+    }
+  }
+
+  return candidatas.map((a) => ({
+    empresaSlug: a.empresaId ? (slugDe[a.empresaId] || null) : null,
+    cargo: a.cargo, disc: a.disc, erros: a.erros, ultimoErro: a.ultimoErro,
+    coresAncorados: a.moduloBaseId ? (coresPorModulo.get(a.moduloBaseId) || 0) : 0,
+  }));
 }
 
 /** Estado dos carimbos do dia (postflight). */
