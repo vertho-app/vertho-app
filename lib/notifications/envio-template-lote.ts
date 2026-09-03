@@ -263,6 +263,30 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
     if (cadencia.statusDaSemana === PROGRESSO.CONCLUIDO) {
       return { excluir: 'concluiu a última semana que pode abrir; não há conteúdo em aberto' };
     }
+    /**
+     * 🔴 A CONDIÇÃO QUE FALTAVA — e ela é a MESMA lição, aplicada pela metade.
+     *
+     * O fix de 02/09 (statusDaSemana concluída) valia enquanto o calendário
+     * estivesse na última semana de CONTEÚDO. Na quinta 03/09 o cron avançou o
+     * calendário de 7 para 8, a semana acessível de quem tinha concluído tudo
+     * passou a ser a **8 — de avaliação, e PENDENTE** —, e aí nenhuma das duas
+     * condições pegava: não está concluída, e `8 >= 9` é falso.
+     *
+     * `Medido: 03/09/2026`, na véspera do disparo: os excluídos caíram de 8 para
+     * 2, e **6 pessoas da coorte voltaram ao lote** com link para `/semana/8`,
+     * prestes a receber "ainda há semanas em aberto, concluí-las libera a
+     * avaliação final" — estando já DENTRO da avaliação final, apontadas para
+     * ela mesma.
+     *
+     * O erro de raiz foi comparar NÚMEROS de semana (`>= semanaCenarioB`) para
+     * responder uma pergunta sobre a NATUREZA da semana. O tipo é o que a
+     * mensagem afirma: quem está numa semana de avaliação não tem conteúdo em
+     * aberto, seja ela a qualitativa ou o fechamento. Régua por número precisa
+     * dos dois relógios alinhados; régua por tipo, não.
+     */
+    if (cadencia.planoDaSemana?.tipo === 'avaliacao') {
+      return { excluir: 'já está na fase de avaliação; não há conteúdo em aberto' };
+    }
     const semCenarioB = semanaCenarioBDoPlano(cadencia.plano, 14);
     if (cadencia.semanaAcessivel >= semCenarioB) {
       return { excluir: 'já alcançou a avaliação final; não há semana em aberto' };

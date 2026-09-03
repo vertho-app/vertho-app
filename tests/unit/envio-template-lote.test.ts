@@ -558,6 +558,38 @@ describe('prepararLoteTemplate', () => {
       });
     });
 
+    it('EXCLUI quem chegou na semana de AVALIAÇÃO, mesmo ela estando pendente', async () => {
+      /**
+       * 🔴 O caso que quebrou no dia seguinte ao primeiro fix (03/09/2026). O
+       * cron da quinta avançou o calendário de 7 para 8: a semana acessível de
+       * quem tinha concluído todo o conteúdo virou a 8 — de AVALIAÇÃO e
+       * PENDENTE. Aí nenhuma das duas condições anteriores pegava (não está
+       * concluída, e `8 >= 9` é falso), e 6 pessoas da coorte voltaram ao lote
+       * com link para a própria conversa de avaliação.
+       *
+       * A régua por NÚMERO precisa dos dois relógios alinhados; a régua por
+       * TIPO da semana, não.
+       */
+      const sb = mock(contextoCadencia({
+        semanaAtual: 4,
+        plano: [...planoCadencia, { semana: 4, tipo: 'avaliacao' }, { semana: 5, tipo: 'avaliacao' }],
+        progressos: [
+          { trilha_id: 'trilha-1', colaborador_id: 'c1', semana: 1, status: PROGRESSO.CONCLUIDO, reflexao: null, feedback: null },
+          { trilha_id: 'trilha-1', colaborador_id: 'c1', semana: 2, status: PROGRESSO.CONCLUIDO, reflexao: null, feedback: null },
+          { trilha_id: 'trilha-1', colaborador_id: 'c1', semana: 3, status: PROGRESSO.CONCLUIDO, reflexao: null, feedback: null },
+          { trilha_id: 'trilha-1', colaborador_id: 'c1', semana: 4, status: PROGRESSO.PENDENTE, reflexao: null, feedback: null },
+        ],
+      }));
+      const lote = await prepararLoteTemplate(sb.client, {
+        empresaId: 'emp-1', template: 'encerramento_conteudo', colabs: [professor()],
+      });
+      expect(lote.alvos).toHaveLength(0);
+      expect(lote.excluidos[0]).toMatchObject({
+        motivo: 'já está na fase de avaliação; não há conteúdo em aberto',
+        quantidade: 1,
+      });
+    });
+
     it('exclui quem não tem trilha ativa — a mensagem afirma um estado da trilha', async () => {
       const sb = mock({ envios: [], trilhas: [] });
       const lote = await prepararLoteTemplate(sb.client, {

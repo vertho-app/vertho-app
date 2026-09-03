@@ -1040,6 +1040,20 @@ os nomes.** Guarda: `tests/unit/envio-template-lote.test.ts`, describe `encerram
 casos validados por mutação — o do meio reproduz a armadilha (plano até a 4, calendário na 3, três
 primeiras concluídas: pela régua antiga `3 < 4` e a pessoa entrava).
 
+🔴 **O primeiro fix estava PELA METADE — e quebrou no dia seguinte (03/09).** A quinta avançou o
+calendário de 7 para 8: a semana acessível de quem tinha concluído todo o conteúdo virou a **8, de
+avaliação e PENDENTE**, e aí nenhuma das duas condições pegava (não está concluída, e `8 >= 9` é
+falso). Os excluídos caíram de 8 para 2 e **6 pessoas da coorte voltaram ao lote**, com link para
+`/semana/8` — prestes a receber *"ainda há semanas em aberto, concluí-las libera a avaliação final"*
+estando já DENTRO da avaliação final, apontadas para ela mesma. Pego pelo dry-run na véspera do
+disparo, porque alguém perguntou se estava tudo certo para o dia seguinte.
+
+**A raiz, que a primeira correção não alcançou:** eu comparava **números** de semana para responder
+uma pergunta sobre a **natureza** da semana. Régua por número exige que os dois relógios estejam
+alinhados e passa a mentir quando um deles anda; régua por TIPO não depende de nenhum. O predicado
+final é `planoDaSemana?.tipo === 'avaliacao'` — quem está em semana de avaliação não tem conteúdo em
+aberto, seja ela a qualitativa ou o fechamento. Caso novo no mesmo describe, validado por mutação.
+
 ⚠️ **Aberto, mesma família:** o cron da quinta **não confere se a semana acessível já foi
 concluída** antes de cobrar. Quem fechou a semana 7 recebe *"o desafio da semana 7 ainda não foi
 registrado"* — saiu assim para 33 pessoas em 27/08. Preexistente, não regressão.
