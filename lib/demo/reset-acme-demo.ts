@@ -521,7 +521,7 @@ export interface ResetDemoResult {
 export const DEMO_RESET_TABLES = [
   'relatorios',
   'temporada_semana_progresso', 'trilhas', 'reavaliacao_sessoes', 'sessoes_avaliacao',
-  'descriptor_assessments', 'respostas', 'videos_watched', 'fase4_progresso',
+  'descriptor_assessments', 'respostas', 'videos_watched', 'fase4_progresso', 'fase4_envios',
   'banco_cenarios', 'top10_cargos', 'colaboradores', 'cargos_empresa',
   // `escolas` sai ANTES de `ppp_escolas` (FK `ppp_escola_id`) e depois de
   // `colaboradores` (FK `escola_id`). Sem ela na lista, cada reset somaria as
@@ -1678,6 +1678,19 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         if (result.error) throw new Error(`PDI da tela ${p.email}: ${result.error.message}`);
       }
 
+      // O relatório da LIDERANÇA (tipo='gestor'), que a aba Documentos conta
+      // como categoria própria. Mesmo tratamento do PDI: `colab_key` é gerada e
+      // o upsert convive com o warm snapshot.
+      if (a.relatorioGestor?.conteudo) {
+        const { colab_key: _ck, ...gestorInserivel } = a.relatorioGestor as any;
+        const result = await sb.from('relatorios').upsert({
+          ...gestorInserivel,
+          empresa_id: destId,
+          colaborador_id: colabId,
+        }, { onConflict: 'empresa_id,colaborador_id,tipo' });
+        if (result.error) throw new Error(`relatório de liderança ${p.email}: ${result.error.message}`);
+      }
+
       // PDI congelado: é o passo que o cliente pergunta depois da devolutiva
       // ("e o que ela faz com isso?"), e gerar na hora custa ~2 min de IA.
       if (a.blueprint?.blueprint) {
@@ -1967,6 +1980,105 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         }));
         const { error: errProg } = await sb.from('temporada_semana_progresso').insert(progresso);
         if (errProg) throw new Error(`panorama: fechamento de ${linha.key}: ${errProg.message}`);
+      }
+    }
+
+    // ⚠️ ORDEM: cadência e sinais leem o PROGRESSO, que só existe depois do
+    // fechamento acima. Rodando antes, as concluídas entravam na cadência
+    // como "semana 1" e sem nenhum sinal — um time inteiro parado na largada
+    // ao lado de sete jornadas encerradas.
+    // ── A CADÊNCIA (`fase4_envios`) ──────────────────────────────────────
+    // É a POPULAÇÃO que o engajamento mede: o roll-up parte de quem está
+    // inscrito na cadência, não de quem tem trilha. Sem estas linhas a tela
+    // "Engajamento do time" abre dizendo que a jornada ainda não começou —
+    // mesmo com 61 semanas de progresso e eventos registrados no tenant.
+    {
+      const { data: trilhasParaCadencia, error: errCad } = await sb.from('trilhas')
+        .select('colaborador_id, data_inicio, status').eq('empresa_id', destId);
+      if (errCad) throw new Error(`cadência: trilhas: ${errCad.message}`);
+
+      const pessoasComTrilha = new Map<string, any>();
+      for (const t of (trilhasParaCadencia || []) as any[]) {
+        if (t.colaborador_id) pessoasComTrilha.set(t.colaborador_id, t);
+      }
+      if (pessoasComTrilha.size) {
+        const { data: pessoas, error: errPessoas } = await sb.from('colaboradores')
+          .select('id, email, nome_completo, cargo, gestor_email')
+          .eq('empresa_id', destId)
+          .in('id', [...pessoasComTrilha.keys()]);
+        if (errPessoas) throw new Error(`cadência: pessoas: ${errPessoas.message}`);
+
+        // A semana atual sai do PROGRESSO real, para o painel e o engajamento
+        // contarem a mesma história sobre a mesma pessoa.
+        const { data: progressos, error: errProg } = await sb.from('temporada_semana_progresso')
+          .select('colaborador_id, semana, status').eq('empresa_id', destId);
+        if (errProg) throw new Error(`cadência: progresso: ${errProg.message}`);
+        const ultimaSemana = new Map<string, number>();
+        for (const pr of (progressos || []) as any[]) {
+          const atual = ultimaSemana.get(pr.colaborador_id) || 0;
+          if (Number(pr.semana) > atual) ultimaSemana.set(pr.colaborador_id, Number(pr.semana));
+        }
+
+        const linhas = (pessoas || []).map((pessoa: any) => {
+          const trilha = pessoasComTrilha.get(pessoa.id);
+          return {
+            empresa_id: destId,
+            colaborador_id: pessoa.id,
+            email: pessoa.email,
+            nome: pessoa.nome_completo,
+            cargo: pessoa.cargo,
+            gestor_email: pessoa.gestor_email,
+            data_inicio: trilha?.data_inicio ? String(trilha.data_inicio).slice(0, 10) : null,
+            semana_atual: ultimaSemana.get(pessoa.id) || 1,
+            status: trilha?.status === TRILHA.CONCLUIDA ? 'Concluido' : 'Ativo',
+          };
+        });
+        const { error: errInsert } = await sb.from('fase4_envios').insert(linhas);
+        if (errInsert) throw new Error(`cadência: gravar envios: ${errInsert.message}`);
+      }
+    }
+
+    // ── OS SINAIS de engajamento (`trilha_eventos`) ──────────────────────
+    // A tela do gestor mede presença: abriu, escolheu formato, terminou o
+    // áudio. Sem eventos, ela lista o time inteiro com todas as colunas
+    // apagadas — o que se lê como "ninguém tocou na jornada", e não como
+    // "ninguém registrou". Os sinais abaixo acompanham o PROGRESSO real de cada
+    // pessoa: quem concluiu mais semanas tem mais rastro.
+    {
+      const { data: trilhasComPlano, error: errTr } = await sb.from('trilhas')
+        .select('id, colaborador_id').eq('empresa_id', destId);
+      if (errTr) throw new Error(`sinais: trilhas: ${errTr.message}`);
+
+      const { data: progressos, error: errPr } = await sb.from('temporada_semana_progresso')
+        .select('trilha_id, colaborador_id, semana, status').eq('empresa_id', destId);
+      if (errPr) throw new Error(`sinais: progresso: ${errPr.message}`);
+
+      const trilhaPorColab = new Map((trilhasComPlano || []).map((t: any) => [t.colaborador_id, t.id]));
+      const eventos: any[] = [];
+      // Formatos alternados por pessoa: um time em que todos abrem o mesmo
+      // formato não mostra a variedade que a jornada oferece.
+      const FORMATOS = ['audio', 'texto', 'case', 'video'];
+      let indice = 0;
+      for (const pr of (progressos || []) as any[]) {
+        if (pr.status !== PROGRESSO.CONCLUIDO) continue;
+        const trilhaId = trilhaPorColab.get(pr.colaborador_id);
+        if (!trilhaId) continue;
+        const formato = FORMATOS[indice % FORMATOS.length];
+        indice++;
+        const base = {
+          empresa_id: destId,
+          colaborador_id: pr.colaborador_id,
+          trilha_id: trilhaId,
+          semana: pr.semana,
+          pilula: 1,
+        };
+        eventos.push({ ...base, tipo: 'abertura', formato: null });
+        eventos.push({ ...base, tipo: 'formato', formato });
+        if (formato === 'audio') eventos.push({ ...base, tipo: 'audio_fim', formato: 'audio' });
+      }
+      if (eventos.length) {
+        const { error: errEv } = await sb.from('trilha_eventos').insert(eventos);
+        if (errEv) throw new Error(`sinais: gravar eventos: ${errEv.message}`);
       }
     }
   }

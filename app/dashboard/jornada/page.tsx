@@ -83,6 +83,12 @@ export default function JornadaPage() {
     if (fase?.fase === 1 && !perfilComportamentalLiberado && !colaborador.perfil_dominante) {
       return t('phaseDescriptions.waitingProfile');
     }
+    // A fase 4 (Temporada) diz quantas semanas o programa tem. Sem o total,
+    // o texto trazia "14 semanas" fixo e contradizia a jornada de 7 na linha
+    // logo acima.
+    if (fase?.fase === 4 && fase?.totalSemanas) {
+      return t('phaseDescriptions.4', { weeks: fase.totalSemanas });
+    }
     return t(`phaseDescriptions.${fase?.fase}`) || t('phaseDescriptions.fallback');
   }
 

@@ -11,7 +11,12 @@ import { UserAvatar } from '@/components/user-avatar';
 import { PresentationEnvironment } from '@/components/dashboard/presentation-role-switcher';
 import type { TenantTheme } from '@/lib/ui-resolver';
 
-type NavItem = { href: string; labelKey: string; icon: any; gestorOnly?: boolean; rhOnly?: boolean; participante?: boolean };
+type NavItem = {
+  href: string; labelKey: string; icon: any;
+  gestorOnly?: boolean; rhOnly?: boolean; participante?: boolean;
+  /** Some para o Admin da empresa, que chega no mesmo destino por outro caminho. */
+  exceptoRh?: boolean;
+};
 
 // Fallback = tema Vertho atual (usado se o layout não passar theme).
 const DEFAULT_THEME: TenantTheme = {
@@ -54,7 +59,9 @@ const NAV_ITEMS: NavItem[] = [
   // vazio) elas são o conteúdo do menu: o coordenador acompanha o time, não faz
   // a própria jornada.
   { href: '/dashboard/gestor/engajamento', labelKey: 'teamEngagement', icon: Activity, gestorOnly: true },
-  { href: '/dashboard/gestor/equipe-evolucao', labelKey: 'teamEvolution', icon: TrendingUp, gestorOnly: true },
+  // Para o RH a evolução já é uma ABA da central de relatórios: no menu, o
+  // mesmo destino apareceria duas vezes na mesma tela.
+  { href: '/dashboard/gestor/equipe-evolucao', labelKey: 'teamEvolution', icon: TrendingUp, gestorOnly: true, exceptoRh: true },
   { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock, participante: true },
   { href: '/dashboard/temporada', labelKey: 'season', icon: Play, participante: true },
   { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp, participante: true },
@@ -83,7 +90,8 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const navItems = NAV_ITEMS.filter((it) =>
     (!it.gestorOnly || isGestorOuRH)
     && (!it.rhOnly || ehAdminDaEmpresa)
-    && (!it.participante || (!ehAdminDaEmpresa && participaDaJornada)),
+    && (!it.participante || (!ehAdminDaEmpresa && participaDaJornada))
+    && (!it.exceptoRh || !ehAdminDaEmpresa),
   );
 
   useEffect(() => {

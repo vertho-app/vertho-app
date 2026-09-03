@@ -94,12 +94,16 @@ async function main() {
     // some no primeiro reset. Não confundir com o blueprint logo abaixo: aquele
     // alimenta a trilha, este é o documento que /dashboard/pdi mostra.
     const pdis = await must('demo PDIs',
-      sb.from('relatorios').select('*').eq('empresa_id', did).eq('tipo', 'individual'));
+      sb.from('relatorios').select('*').eq('empresa_id', did).in('tipo', ['individual', 'gestor']));
     for (const r of pdis || []) {
       const email = idToEmail.get(r.colaborador_id);
       if (!email || !personaArtifacts[email]) continue;
       const { id, colaborador_id, empresa_id, created_at, updated_at, ...rest } = r;
-      personaArtifacts[email].pdi = rest;
+      // `pdi` guarda o documento da PESSOA; `relatorioGestor`, o da liderança
+      // dela. A aba Documentos conta as duas categorias separadamente, e sem o
+      // segundo "Liderancas" abria com zero.
+      if (r.tipo === 'gestor') personaArtifacts[email].relatorioGestor = rest;
+      else personaArtifacts[email].pdi = rest;
     }
 
     // PDI (development blueprint): derivado dos descritores por IA, ~2 min por

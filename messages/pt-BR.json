@@ -118,12 +118,12 @@
       "journey": "Jornada",
       "season": "Temporada",
       "evolution": "Evolução",
-      "profile": "Perfil"
+      "profile": "Perfil",
+      "teamEngagement": "Engajamento",
+      "teamEvolution": "Evolução da equipe"
     },
     "platformPanel": "Administração Vertho",
-    "logout": "Sair",
-    "teamEngagement": "Engajamento",
-    "teamEvolution": "Evolução da equipe"
+    "logout": "Sair"
   },
   "NotFound": {
     "title": "Página não encontrada",
@@ -477,7 +477,7 @@
       "1": "Mapeamento do seu perfil comportamental.",
       "2": "Mapeamento de competências por cenários situacionais.",
       "3": "Seu plano de desenvolvimento individual baseado nos resultados.",
-      "4": "Temporada de 14 semanas com conteúdo, prática e reflexão.",
+      "4": "Temporada de {weeks} semanas com conteúdo, prática e reflexão.",
       "5": "Medição de evolução pós-capacitação e consolidação dos avanços.",
       "externalProfile": "Sua empresa usa mapeamento comportamental próprio. Você não precisa responder DISC na Vertho.",
       "waitingProfile": "O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada.",
@@ -4360,7 +4360,8 @@
     "checkpoint": {
       "weekShort": "sem {week}",
       "noRole": "sem cargo",
-      "today": "hoje"
+      "today": "hoje",
+      "openJourney": "Ver jornada"
     },
     "filters": {
       "all": "Todos",

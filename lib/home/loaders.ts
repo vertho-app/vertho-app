@@ -303,6 +303,12 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
       : 'Aguardando geração da trilha personalizada',
     status: temporadaStatus,
     data: trilha?.criado_em || null,
+    // A tela da jornada descreve esta fase por i18n, e o texto trazia "14
+    // semanas" escrito à mão — numa jornada de 7 ele contradizia a própria
+    // linha acima. O número viaja com a fase.
+    totalSemanas: temPlano
+      ? totalSemanasDoPlano(trilha.temporada_plano, TOTAL_SEMANAS_FALLBACK)
+      : null,
   });
 
   // Fase 5 — Reavaliação

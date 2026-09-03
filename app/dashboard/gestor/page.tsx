@@ -19,9 +19,6 @@ export default function GestorHomePage() {
   const router = useRouter();
   const [data, setData] = useState<GestorHomeData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [avaliando, setAvaliando] = useState<string | null>(null);
-  const [modal, setModal] = useState<{ cp: CheckpointPendenteDetalhado; avaliacao: 'evoluindo' | 'estagnado' | 'regredindo' } | null>(null);
-  const [observacao, setObservacao] = useState('');
   const [reportReaderOpen, setReportReaderOpen] = useState(false);
   // O filtro da tabela vive AQUI porque os cards de ação o comandam: clicar em
   // "30 atrasados" tem que virar a lista dos 30, senão o número não vira nome.
@@ -35,22 +32,7 @@ export default function GestorHomePage() {
   }
   useEffect(() => { carregar(); }, []);
 
-  async function aplicarAvaliacao() {
-    if (!modal) return;
-    const key = `${modal.cp.trilhaId}-${modal.cp.semana}`;
-    setAvaliando(key);
-    const r = await salvarCheckpointGestor({
-      trilhaId: modal.cp.trilhaId,
-      semana: modal.cp.semana,
-      avaliacao: modal.avaliacao,
-      observacao: observacao.trim() || null,
-    });
-    setAvaliando(null);
-    if (r.error) { alert(r.error); return; }
-    setModal(null);
-    setObservacao('');
-    await carregar();
-  }
+
 
   if (loading) {
     return (
@@ -94,21 +76,9 @@ export default function GestorHomePage() {
             sem nada: a evolucao so existe depois do fechamento. O caminho dele
             para la e o atalho da home, que aparece quando ha jornada encerrada.
             O gestor mantem o link — a tela dele tem os checkpoints tambem. */}
-        <div className="flex items-center gap-4">
-          {/* Engajamento vale para os TRES papeis: a pergunta "quem sumiu esta
-              semana" e a mesma para gestor, tutor e RH. A evolucao continua
-              restrita, porque so existe depois do fechamento da jornada. */}
-          <button onClick={() => router.push('/dashboard/gestor/engajamento')}
-            className="text-[11px] font-bold text-brand-300 hover:text-brand-200 flex items-center gap-1">
-            Engajamento do time <ArrowRight size={11} />
-          </button>
-          {data.scope !== 'rh' && (
-            <button onClick={() => router.push('/dashboard/gestor/equipe-evolucao')}
-              className="text-[11px] font-bold text-brand-300 hover:text-brand-200 flex items-center gap-1">
-              {t('titles.fullEvolution')} <ArrowRight size={11} />
-            </button>
-          )}
-        </div>
+        {/* Engajamento e Evolução da equipe saíram daqui (03/09/2026): as
+            duas já são itens do menu lateral, e repetir o mesmo destino no
+            topo dobra o caminho sem dobrar a informação. */}
       </div>
 
       {/* Aviso: gestor sem liderados vinculados */}
@@ -233,8 +203,7 @@ export default function GestorHomePage() {
           <div className="space-y-2">
             {cps.map((cp) => (
               <CheckpointCard key={`${cp.trilhaId}-${cp.semana}`} cp={cp}
-                onAvaliar={(av) => setModal({ cp, avaliacao: av })}
-                avaliando={avaliando === `${cp.trilhaId}-${cp.semana}`} />
+                onAbrir={() => router.push(`/dashboard/temporada?colaborador=${encodeURIComponent(cp.colabId)}&origem=gestor`)} />
             ))}
           </div>
         )}
@@ -256,50 +225,9 @@ export default function GestorHomePage() {
       <TimelineSection timeline={data.timeline || []} />
 
       {/* Modal de avaliação */}
-      {modal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.7)' }} onClick={() => setModal(null)}>
-          <div className="w-full max-w-[480px] rounded-2xl border border-white/[0.08] p-5"
-            style={{ background: '#0A1D35' }} onClick={(e) => e.stopPropagation()}>
-            <div className="mb-4">
-              <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-brand-300 mb-1">
-                {t('modal.eyebrow', { week: modal.cp.semana })}
-              </p>
-              <h3 className="text-white text-base font-bold">{modal.cp.colab}</h3>
-              <p className="text-[11px] text-white/55 mt-0.5">
-                {modal.cp.competenciaFoco || t('modal.noFocus')}
-              </p>
-              <p className="text-[11px] mt-3" style={{
-                color: modal.avaliacao === 'evoluindo' ? '#34D399'
-                  : modal.avaliacao === 'estagnado' ? '#FCD34D' : '#F87171',
-              }}>
-                {t('modal.evaluation')} <strong>{t(`evaluation.${modal.avaliacao}`)}</strong>
-              </p>
-            </div>
-
-            <textarea
-              value={observacao}
-              onChange={(e) => setObservacao(e.target.value)}
-              placeholder={modal.avaliacao === 'evoluindo' ? t('modal.observation') : t('modal.observationHelp')}
-              rows={3}
-              className="w-full rounded-lg border border-white/[0.08] px-3 py-2 text-[12px] text-white placeholder:text-white/30 focus:outline-none focus:border-brand-400/40"
-              style={{ background: '#091D35' }}
-            />
-
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => { setModal(null); setObservacao(''); }}
-                className="px-3 py-1.5 rounded-lg text-[11px] text-white/60 hover:text-white">
-                {t('modal.cancel')}
-              </button>
-              <button onClick={aplicarAvaliacao} disabled={!!avaliando}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-brand-400/15 text-brand-300 border border-brand-400/30 hover:bg-brand-400/25 disabled:opacity-50">
-                {avaliando ? <Loader2 size={11} className="animate-spin" /> : <ClipboardCheck size={11} />}
-                {t('modal.confirm')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* O modal de observação saiu junto com os botões de veredito: ele
+          existia só para registrar o "por quê" de um carimbo que o gestor
+          não dá mais. */}
 
       {reportReaderOpen && data.reportDashboard && (
         <div
@@ -487,11 +415,10 @@ function KpiCard({
 }
 
 function CheckpointCard({
-  cp, onAvaliar, avaliando,
+  cp, onAbrir,
 }: {
   cp: CheckpointPendenteDetalhado;
-  onAvaliar: (av: 'evoluindo' | 'estagnado' | 'regredindo') => void;
-  avaliando: boolean;
+  onAbrir: () => void;
 }) {
   const t = useTranslations('ManagerDashboard');
   const inicial = cp.colab.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('');
@@ -524,37 +451,26 @@ function CheckpointCard({
         style={{ background: corDias }}>
         {cp.diasPendente === 0 ? t('checkpoint.today') : `${cp.diasPendente}d`}
       </span>
-      <div className="flex items-center gap-1 shrink-0">
-        <AvaliarBtn av="evoluindo" onClick={() => onAvaliar('evoluindo')} disabled={avaliando} />
-        <AvaliarBtn av="estagnado" onClick={() => onAvaliar('estagnado')} disabled={avaliando} />
-        <AvaliarBtn av="regredindo" onClick={() => onAvaliar('regredindo')} disabled={avaliando} />
-      </div>
+      {/* 🔑 O VEREDITO NÃO É DO GESTOR (03/09/2026).
+          Aqui havia três botões — ↑ evoluindo, → estagnado, ↓ regredindo — que
+          pediam ao gestor para carimbar a evolução do liderado. Quem mede
+          evolução é a régua: T0 do mapeamento contra o fechamento da jornada,
+          no relatório de evolução. Pedir o mesmo veredito por opinião cria uma
+          segunda verdade sobre a mesma pessoa, e ainda por cima em ícones que
+          ninguém sabe ler sem passar o mouse.
+          O que o card faz agora é o que ele sempre quis dizer: esta pessoa
+          chegou na semana de conversa — abra a jornada dela. */}
+      <button
+        onClick={onAbrir}
+        className="shrink-0 rounded-lg border border-brand-400/30 px-2.5 py-1 text-[11px] font-bold text-brand-200 transition-colors hover:bg-brand-400/10"
+      >
+        {t('checkpoint.openJourney')}
+      </button>
     </div>
   );
 }
 
-function AvaliarBtn({
-  av, onClick, disabled,
-}: {
-  av: 'evoluindo' | 'estagnado' | 'regredindo';
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  const t = useTranslations('ManagerDashboard');
-  const cfg = av === 'evoluindo'
-    ? { color: '#34D399', bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.3)', label: '↑' }
-    : av === 'estagnado'
-    ? { color: '#FCD34D', bg: 'rgba(252,211,77,0.1)', border: 'rgba(252,211,77,0.3)', label: '→' }
-    : { color: '#F87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.3)', label: '↓' };
-  return (
-    <button onClick={onClick} disabled={disabled}
-      title={t(`evaluation.${av}`)}
-      className="w-7 h-7 rounded-lg border text-xs font-bold transition-colors disabled:opacity-40"
-      style={{ background: cfg.bg, color: cfg.color, borderColor: cfg.border }}>
-      {cfg.label}
-    </button>
-  );
-}
+
 
 // ════════════════ Etapa 2 — Equipe em trilha ════════════════
 

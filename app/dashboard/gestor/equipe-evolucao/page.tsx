@@ -5,7 +5,7 @@ import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, Users, TrendingUp, TrendingDown, Minus, ChevronRight, Clock, X, FileDown, Download } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
-import { listarEquipeEvolucao, loadLideradoConcluida, listarCheckpointsPendentes, salvarCheckpointGestor } from './actions';
+import { listarEquipeEvolucao, loadLideradoConcluida } from './actions';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 
 const STATUS_CFG = {
@@ -27,30 +27,19 @@ export default function EquipeEvolucaoPage() {
   const [ordem, setOrdem] = useState('delta_desc');
   const [detalhe, setDetalhe] = useState(null);
   const [loadingDetalhe, setLoadingDetalhe] = useState(false);
-  const [checkpoints, setCheckpoints] = useState([]);
   const [escopo, setEscopo] = useState('gestor');
 
   async function carregar() {
     setLoading(true);
-    const [r, cp] = await Promise.all([
+    const [r] = await Promise.all([
       listarEquipeEvolucao(),
-      listarCheckpointsPendentes(),
     ]);
     if (r.error) setError(r.error);
     else { setRows(r.rows); setResumo(r.resumo); setEscopo(r.escopo || 'gestor'); }
-    if (cp.ok) setCheckpoints(cp.rows);
     setLoading(false);
   }
 
-  async function handleCheckpoint(cp, avaliacao) {
-    const obs = avaliacao !== 'evoluindo' ? prompt(`Por que ${cp.colab} está ${avaliacao}? (opcional)`) : null;
-    if (avaliacao !== 'evoluindo' && obs === null) return; // cancelou
-    const r = await salvarCheckpointGestor({
-      trilhaId: cp.trilhaId, semana: cp.semana, avaliacao, observacao: obs || null,
-    });
-    if (r.error) alert(r.error);
-    else await carregar();
-  }
+
 
   useEffect(() => { carregar(); }, []);
 
@@ -82,24 +71,8 @@ export default function EquipeEvolucaoPage() {
       {/* A plenária consolida o antes × depois — sem jornada encerrada ela sai
           em branco, e um PDF vazio é pior que um botão ausente. */}
       <div className="flex items-center justify-end mb-4 flex-wrap gap-2">
-        {resumo && resumo.encerradas > 0 && (
-        <button onClick={async () => {
-          const { data: { session } } = await sb.auth.getSession();
-          const res = await fetch('/api/gestor/plenaria/pdf', {
-            headers: { Authorization: `Bearer ${session?.access_token}` },
-          });
-          if (!res.ok) { alert('Erro ao gerar plenária'); return; }
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'plenaria-equipe.pdf';
-          a.click();
-          URL.revokeObjectURL(url);
-        }} className="flex items-center gap-2 text-xs text-brand-400 border border-brand-400/30 hover:bg-brand-400/10 rounded-full px-3 py-1.5">
-          <FileDown size={12} /> Plenária PDF
-        </button>
-        )}
+        {/* "Plenária PDF" saiu (03/09/2026): o documento da plenária é
+            material de workshop, não da tela de acompanhamento do gestor. */}
       </div>
 
       <div className="mb-6">
@@ -140,31 +113,13 @@ export default function EquipeEvolucaoPage() {
         </div>
       )}
 
-      {checkpoints.length > 0 && (
-        <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/[0.05] p-4">
-          <p className="text-xs uppercase tracking-widest text-amber-400 font-bold mb-3">
-            ⚠ Checkpoints pendentes ({checkpoints.length})
-          </p>
-          <div className="space-y-2">
-            {checkpoints.map((cp, i) => (
-              <div key={i} className="flex items-center gap-3 flex-wrap bg-white/[0.02] rounded-lg p-3 border border-amber-500/20">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-white truncate">{cp.colab}</p>
-                  <p className="text-[11px] text-gray-400">Sem {cp.semana} · {cp.competencia}</p>
-                </div>
-                <div className="flex gap-1 flex-wrap">
-                  <button onClick={() => handleCheckpoint(cp, 'evoluindo')}
-                    className="text-[10px] px-2 py-1 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 hover:bg-emerald-500/25">Evoluindo</button>
-                  <button onClick={() => handleCheckpoint(cp, 'estagnado')}
-                    className="text-[10px] px-2 py-1 rounded bg-amber-500/15 border border-amber-400/30 text-amber-300 hover:bg-amber-500/25">Estagnado</button>
-                  <button onClick={() => handleCheckpoint(cp, 'regredindo')}
-                    className="text-[10px] px-2 py-1 rounded bg-red-500/15 border border-red-400/30 text-red-300 hover:bg-red-500/25">Regredindo</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* 🔑 O VEREDITO NÃO É DO GESTOR (03/09/2026).
+          Este bloco pedia que ele carimbasse "Evoluindo / Estagnado /
+          Regredindo" para cada liderado. Quem mede evolução é a régua — T0 do
+          mapeamento contra o fechamento —, e é ela que a tabela abaixo mostra.
+          Pedir o mesmo veredito por opinião criava uma segunda verdade sobre a
+          mesma pessoa, na mesma tela. Quem chegou na semana de conversa aparece
+          no card "Ação esta semana" da home do gestor. */}
 
       {resumo && resumo.encerradas > 0 && (
       <div className="flex items-center gap-3 mb-4 flex-wrap">

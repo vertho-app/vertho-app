@@ -118,12 +118,12 @@
       "journey": "Journey",
       "season": "Season",
       "evolution": "Evolution",
-      "profile": "Profile"
+      "profile": "Profile",
+      "teamEngagement": "Engagement",
+      "teamEvolution": "Team evolution"
     },
     "platformPanel": "Vertho Administration",
-    "logout": "Sign out",
-    "teamEngagement": "Engagement",
-    "teamEvolution": "Team evolution"
+    "logout": "Sign out"
   },
   "NotFound": {
     "title": "Page not found",
@@ -477,7 +477,7 @@
       "1": "Mapping your behavioral profile.",
       "2": "Competency mapping through situational scenarios.",
       "3": "Your individual development plan based on results.",
-      "4": "14-week season with content, practice and reflection.",
+      "4": "A {weeks}-week season with content, practice and reflection.",
       "5": "Measuring post-training evolution and consolidation of advances.",
       "externalProfile": "Your company uses its own behavioral mapping. You don't need to answer DISC on Vertho.",
       "waitingProfile": "The behavioral profile will be released by HR after the skills vote is completed.",
@@ -4360,7 +4360,8 @@
     "checkpoint": {
       "weekShort": "wk {week}",
       "noRole": "no role",
-      "today": "today"
+      "today": "today",
+      "openJourney": "Open journey"
     },
     "filters": {
       "all": "All",
