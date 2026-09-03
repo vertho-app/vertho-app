@@ -58,9 +58,20 @@ export type AcmeProspectAuthContext = {
 
 export type AcmeProspectCleanupResult = {
   expiredRemoved: number;
+  /** Convidados removidos de vez por estarem fora da janela de retenção. */
+  retidosRemovidos: number;
   activeCount: number;
   nextExpiry: string | null;
 };
+
+/**
+ * Por quantos dias o trabalho de um convidado VENCIDO continua no ambiente.
+ *
+ * O acesso dura `DEGUSTACAO_DIAS_DE_VALIDADE`; isto é o que vem depois. Serve
+ * para o vendedor recuperar o que a pessoa fez (com um passaporte novo) sem
+ * transformar o tenant de demonstração num arquivo permanente.
+ */
+export const DEGUSTACAO_RETENCAO_DIAS = 30;
 
 function asValidTime(value: unknown): number | null {
   if (typeof value !== 'string' || !value.trim()) return null;
@@ -421,9 +432,17 @@ export async function cleanupExpiredDemoProspects(
   const trackedEmails = new Set(rows.map((row) => row.auth_email.toLowerCase()));
   let expiredRemoved = 0;
 
+  // VENCER É PERDER O ACESSO, NÃO O TRABALHO (03/09/2026).
+  //
+  // Antes, o vencimento apagava o colaborador junto com a conta — e com ele o
+  // DISC, as respostas e a análise. Quem voltasse um dia depois do prazo não
+  // encontrava "expirado": encontrava o nada, e a única saída era refazer.
+  // Agora o passaporte vencido revoga a ENTRADA (a conta do Auth some, a sessão
+  // morre no próximo refresh) e deixa o que a pessoa produziu de pé, para ser
+  // recuperado com um passaporte novo — ou removido pela faxina de
+  // `DEGUSTACAO_RETENCAO_DIAS`, bem depois.
   for (const row of expiredRows) {
     await syncDiscBeforeClose(sb, empresaId, row);
-    await deleteGuestCollaborator(sb, empresaId, row.auth_email);
     const authUser = authByEmail.get(row.auth_email.toLowerCase());
     if (authUser?.id) {
       const removed = await sb.auth.admin.deleteUser(authUser.id);
@@ -435,6 +454,23 @@ export async function cleanupExpiredDemoProspects(
       .is('access_closed_at', null);
     if (closed.error) throw new Error(`fechar experiência expirada: ${closed.error.message}`);
     expiredRemoved++;
+  }
+
+  // FAXINA DE RETENÇÃO: o que venceu há muito tempo sai de vez. Sem ela,
+  // "não apagar" viraria "acumular para sempre", e o ambiente de demonstração
+  // encheria de gente que ninguém mais vai olhar.
+  const limiteRetencao = new Date(now.getTime() - DEGUSTACAO_RETENCAO_DIAS * 24 * 60 * 60 * 1_000);
+  const { data: paraRemover, error: erroRetencao } = await sb.from('demo_prospect_sessions')
+    .select('session_id,auth_email')
+    .eq('empresa_id', empresaId)
+    .not('access_closed_at', 'is', null)
+    .lt('access_closed_at', limiteRetencao.toISOString())
+    .limit(500);
+  if (erroRetencao) throw new Error(`listar convidados fora da retenção: ${erroRetencao.message}`);
+  let retidosRemovidos = 0;
+  for (const row of (paraRemover || []) as Array<{ session_id: string; auth_email: string }>) {
+    await deleteGuestCollaborator(sb, empresaId, row.auth_email);
+    retidosRemovidos++;
   }
 
   const activeLegacyExpiries: number[] = [];
@@ -459,6 +495,7 @@ export async function cleanupExpiredDemoProspects(
   ];
   return {
     expiredRemoved,
+    retidosRemovidos,
     activeCount: activeRows.length + activeLegacyExpiries.length,
     nextExpiry: activeExpiries.length > 0
       ? new Date(Math.min(...activeExpiries)).toISOString()

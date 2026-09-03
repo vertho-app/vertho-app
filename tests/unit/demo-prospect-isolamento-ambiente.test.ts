@@ -113,7 +113,7 @@ describe('degustação: a faxina de um ambiente demo não alcança o convidado d
       sb.client,
     );
 
-    expect(resultado).toEqual({ expiredRemoved: 0, activeCount: 0, nextExpiry: null });
+    expect(resultado).toMatchObject({ expiredRemoved: 0, retidosRemovidos: 0, activeCount: 0, nextExpiry: null });
     // Sem o prefixo por ambiente, `auth-acme` entraria na varredura como órfão
     // (a sessão dele está no outro tenant) e seria apagado aqui.
     expect(deleteUser).not.toHaveBeenCalled();

@@ -255,14 +255,12 @@ export default function AdminDemoPage() {
     try {
       const r = await resetarDemo(tenantSlug);
       if (r.success) {
-        if (r.skipped) {
-          toast.info(`Reset adiado: ${r.activeGuests} convidado(s) ainda estão no prazo D+2.`);
-          await carregarAndamento({ silencioso: true });
-          return;
-        }
         setUltimo(r.counts || null);
         if (tenantSlug === 'acme-demo') setProspectAccess(null);
-        toast.success(`${tenant.nome} foi recriado.`);
+        // O convidado atravessa o reset: o cenário volta ao estado-base e quem
+        // fez a degustação continua lá, com DISC e respostas.
+        toast.success(`${tenant.nome} foi recriado. Os convidados foram mantidos.`);
+        await carregarAndamento({ silencioso: true });
       } else {
         toast.error(`Falha ao resetar: ${r.error || 'erro'}`);
       }
@@ -857,7 +855,7 @@ export default function AdminDemoPage() {
                       </button>
                     </div>
                     <p className="mt-3 text-[9px] leading-relaxed text-amber-200/65">
-                      A etapa 01 usa um link individual de uso único. Depois da entrada, a sessão e as etapas 02–04 ficam disponíveis até as 04h BRT de D+2.
+                      A etapa 01 usa um link individual de uso único. Depois da entrada, a sessão e as etapas 02–04 ficam disponíveis até as 04h BRT de D+10. Vencido o prazo, o acesso é revogado, mas o que a pessoa fez continua no ambiente por 30 dias.
                     </p>
                   </div>
                 </div>

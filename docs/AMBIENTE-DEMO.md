@@ -169,6 +169,38 @@ seletor (`TENANTS[slug].oculto`) tem os convidados fora do acompanhamento: em
 02/09 o `gruposinal` está nas duas condições ao mesmo tempo — protegido do reset
 e invisível na tela.
 
+### Prazo, retenção e o que sobrevive ao reset (03/09/2026)
+
+O passaporte vale **10 dias** (`DEGUSTACAO_DIAS_DE_VALIDADE`), até as 04h BRT do
+décimo dia. Era 2, e a janela curta obrigava a conversa a acontecer em 48h.
+
+⚠️ Mexer no prazo sozinho NÃO basta: o passe das visões 02–04 tem teto próprio
+(`DEMO_PROSPECT_PRESENTATION_MAX_TTL_SECONDS`), e com a validade acima dele a
+criação do passaporte falha em "validade do passe inválida".
+
+**Vencer revoga o ACESSO, não o trabalho.** A conta do Auth é removida (a sessão
+morre no próximo refresh) e `access_closed_at` é carimbado; o colaborador, o
+DISC e as respostas ficam. Quem some de vez é quem passou de
+`DEGUSTACAO_RETENCAO_DIAS` (30) desde o fechamento — a contagem é pelo
+FECHAMENTO, não pela criação, senão quem cria o passaporte cedo e faz a
+experiência semanas depois é apagado no meio.
+
+**O convidado atravessa o reset.** O wipe passa a excluir os convidados do
+ambiente (identificados pelo prefixo do e-mail) em `colaboradores` e
+`respostas`; o resto é derivado e se refaz. Consequência: o adiamento do reset
+por convidado ativo **saiu** — ele existia só para proteger esse trabalho, e com
+validade de 10 dias deixaria o ambiente sem estado-base por semanas.
+
+🔴 **Duas armadilhas que isso destrava, e que já custaram diagnóstico:**
+
+1. `respostas_cenario_id_fkey` é **ON DELETE RESTRICT**. Preservar a resposta sem
+   soltar o `cenario_id` faz o `delete banco_cenarios` violar a FK e derrubar o
+   reset inteiro, de madrugada. Por isso `soltarCenarioDasRespostasPreservadas`
+   roda ANTES do wipe — e o teste prende essa ordem.
+2. A resposta preservada continua legível depois de o catálogo ser recriado com
+   UUIDs novos porque `findAssessmentAnswer` casa por ID **ou por nome
+   normalizado**. Sem esse fallback, preservar produziria resultado órfão.
+
 ### A etapa 01 é uma DEGUSTAÇÃO: uma competência, avaliada sozinha
 
 O convidado responde **uma** competência, não as cinco do cargo

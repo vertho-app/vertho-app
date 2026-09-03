@@ -142,7 +142,7 @@ export type AcmeProspectProgress = {
  * Como a pessoa entrou no tenant de demonstração:
  *
  * - `passaporte`: veio do botão "preparar experiência", tem linha em
- *   `demo_prospect_sessions`, prazo D+2 e as três visões da apresentação.
+ *   `demo_prospect_sessions`, prazo D+10 e as três visões da apresentação.
  * - `cadastro`: é um colaborador do tenant que não faz parte do elenco fixo
  *   (convidado nomeado do seed, como o Alpheu no Grupo Sinal, ou alguém
  *   cadastrado à mão). Não tem prazo nem visões; só entrada e DISC.
@@ -290,7 +290,14 @@ export function validateAcmeProspectExperienceInput(
 }
 
 /**
- * O passe expira às 04:00 BRT do segundo dia civil depois da criação (D+2).
+ * Dias de validade do passaporte. Era 2 e virou 10 em 03/09/2026, a pedido do
+ * dono: a janela curta obrigava a conversa a acontecer em 48h, e quem deixava
+ * para depois perdia o acesso — e, antes desta rodada, também o que tinha feito.
+ */
+export const DEGUSTACAO_DIAS_DE_VALIDADE = 10;
+
+/**
+ * O passe expira às 04:00 BRT do décimo dia civil depois da criação (D+10).
  * BRT é UTC-3; deslocamos o relógio antes de extrair a data para não transformar
  * uma criação depois das 21h BRT no dia seguinte por causa da data UTC.
  */
@@ -299,7 +306,7 @@ export function acmeProspectExpiresAt(now: Date = new Date()): string {
   return new Date(Date.UTC(
     brtClock.getUTCFullYear(),
     brtClock.getUTCMonth(),
-    brtClock.getUTCDate() + 2,
+    brtClock.getUTCDate() + DEGUSTACAO_DIAS_DE_VALIDADE,
     7, 0, 0, 0,
   )).toISOString();
 }

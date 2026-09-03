@@ -113,7 +113,7 @@ export async function GET(req) {
       }
 
       // Reset noturno dos ambientes de demonstração ao estado inicial, um por
-      // vez. Convidados vencidos saem primeiro; qualquer convidado ainda em D+2
+      // vez. Convidados vencidos perdem o ACESSO primeiro; o que fizeram fica
       // adia a recomposição daquele ambiente, para não perder sessão ou progresso.
       //
       // 🔑 **O adiamento é por AMBIENTE, e a lista sai de `DEMO_TENANT_PROFILES`.**
@@ -151,7 +151,7 @@ export async function GET(req) {
 
             // Pausa com data de fim (ver `resetPausadoAte`): enquanto vigora, o
             // ambiente não é RECOMPOSTO — é o que segura a experiência de um
-            // convidado nomeado, que não tem o prazo D+2 do passaporte.
+            // convidado nomeado, que não tem o prazo do passaporte.
             const pausadoAte = resetPausadoAte(slug);
             if (pausadoAte) {
               const motivo = { skipped: true as const, motivo: 'reset_pausado', pausadoAte, expiredRemoved: lifecycle.expiredRemoved };
@@ -159,11 +159,12 @@ export async function GET(req) {
               ambientes.push({ slug, ...motivo });
               continue;
             }
-            if (lifecycle.activeCount > 0) {
-              await auditar(slug, { skipped: true, ...lifecycle }, 'parcial');
-              ambientes.push({ slug, skipped: true, ...lifecycle });
-              continue;
-            }
+            // O ADIAMENTO POR PASSAPORTE ATIVO SAIU (03/09/2026). Ele existia
+            // para o reset não apagar o trabalho de quem estava no meio da
+            // experiência — agora o convidado ATRAVESSA o reset, e proteger via
+            // adiamento só deixaria o ambiente sem recomposição por dias
+            // (com validade de 10 dias, praticamente nunca). O ambiente volta ao
+            // estado-base toda noite; o convidado fica.
             const r = await resetDemoTenant(slug);
             await auditar(slug, r.ok ? { counts: r.counts } : { error: r.error });
             if (!r.ok) throw new Error(r.error || 'reset do demo falhou');
@@ -179,7 +180,7 @@ export async function GET(req) {
         const adiados = ambientes.filter((item) => item.skipped).length;
         result = {
           message: adiados > 0
-            ? `${ambientes.length - adiados} ambiente(s) resetado(s) · ${adiados} adiado(s) por convidado em D+2`
+            ? `${ambientes.length - adiados} ambiente(s) resetado(s) · ${adiados} pausado(s)`
             : `${ambientes.length} ambiente(s) resetado(s)`,
           ambientes,
         };

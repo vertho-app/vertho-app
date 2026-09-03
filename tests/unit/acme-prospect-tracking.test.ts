@@ -27,6 +27,9 @@ const active = {
   expires_at: '2026-09-03T07:00:00.000Z',
 };
 
+/** Sessões fora da janela de retenção — o teste que precisa delas as preenche. */
+let foraDaRetencao: Array<{ session_id: string; auth_email: string }> = [];
+
 const sb = criarSupabaseMock({
   resolver: (table) => {
     if (table === 'empresas') return { id: 'acme-id', is_demo: true };
@@ -35,8 +38,15 @@ const sb = criarSupabaseMock({
     }
     return null;
   },
-  lista: (table) => {
-    if (table === 'demo_prospect_sessions') return [expired, active];
+  lista: (table, cols) => {
+    if (table === 'demo_prospect_sessions') {
+      // DUAS consultas batem nesta tabela e querem coisas diferentes: a faxina
+      // do vencimento lê a sessão inteira, a da RETENÇÃO pede só o par
+      // (session_id, auth_email). O mock não aplica filtros, então distinguir
+      // pelas COLUNAS é o que impede a retenção de "ver" o vencido de agora e
+      // apagar um colaborador que o teste afirma que fica.
+      return cols === 'session_id,auth_email' ? foraDaRetencao : [expired, active];
+    }
     if (table === 'colaboradores') {
       return [{ id: 'colab-expired', mapeamento_em: '2026-09-01T18:30:00.000Z' }];
     }
@@ -78,6 +88,7 @@ describe('acompanhamento dos prospects ACME', () => {
     sb.reset();
     deleteUser.mockClear();
     listUsers.mockClear();
+    foraDaRetencao = [];
   });
 
   it('fecha somente o vencido, preserva o DISC e mantém o ativo para bloquear o reset', async () => {
@@ -86,17 +97,22 @@ describe('acompanhamento dos prospects ACME', () => {
       sb.client,
     );
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       expiredRemoved: 1,
       activeCount: 1,
       nextExpiry: '2026-09-03T07:00:00.000Z',
     });
     expect(deleteUser).toHaveBeenCalledTimes(1);
     expect(deleteUser).toHaveBeenCalledWith('auth-1');
-    expect(sb.escritas).toContainEqual(expect.objectContaining({
-      tabela: 'colaboradores',
-      op: 'delete',
-    }));
+    // 🔑 VENCER É PERDER O ACESSO, NÃO O TRABALHO (03/09/2026): a conta do Auth
+    // sai — é ela que deixa a pessoa entrar —, mas o colaborador FICA, com o
+    // DISC nas colunas dele. Antes, vencer apagava tudo e quem voltasse um dia
+    // depois não encontrava "expirado", encontrava o nada. Quem apaga de vez é
+    // a retenção, muito depois, e por `access_closed_at`.
+    const apagouColaboradorNoVencimento = sb.escritas.some((escrita) => (
+      escrita.tabela === 'colaboradores' && escrita.op === 'delete'
+    ));
+    expect(apagouColaboradorNoVencimento).toBe(false);
     expect(sb.escritas).toContainEqual(expect.objectContaining({
       tabela: 'demo_prospect_sessions',
       op: 'update',
@@ -107,6 +123,20 @@ describe('acompanhamento dos prospects ACME', () => {
       op: 'update',
       payload: { access_closed_at: '2026-09-02T07:00:00.000Z' },
     }));
+  });
+
+  it('a retenção apaga o convidado fechado há muito tempo — e só ele', async () => {
+    foraDaRetencao = [{ session_id: '33333333333333333333', auth_email: 'convidado.acme.33333333333333333333@vertho.ai' }];
+
+    const result = await cleanupExpiredAcmeProspects(
+      new Date('2026-09-02T07:00:00.000Z'),
+      sb.client,
+    );
+
+    expect(result.retidosRemovidos).toBe(1);
+    const deletes = sb.escritas.filter((e) => e.tabela === 'colaboradores' && e.op === 'delete');
+    // exatamente um: o que saiu da janela. O vencido de agora continua de pé.
+    expect(deletes).toHaveLength(1);
   });
 
   it('lista o histórico em contrato camelCase e recupera o DISC já salvo', async () => {

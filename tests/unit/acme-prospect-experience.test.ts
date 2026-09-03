@@ -181,16 +181,19 @@ describe('contratos puros da experiência ACME', () => {
     })).toEqual({ ok: false, error: 'Escolha um papel demonstrativo válido.' });
   });
 
-  it('calcula 04h BRT de D+2 pela data civil brasileira, inclusive à noite', () => {
-    expect(acmeProspectExpiresAt(new Date('2026-08-31T06:30:00.000Z'))).toBe('2026-09-02T07:00:00.000Z');
-    expect(acmeProspectExpiresAt(new Date('2026-08-31T12:00:00.000Z'))).toBe('2026-09-02T07:00:00.000Z');
-    expect(acmeProspectExpiresAt(new Date('2026-09-01T02:30:00.000Z'))).toBe('2026-09-02T07:00:00.000Z');
+  it('calcula 04h BRT do décimo dia pela data civil brasileira, inclusive à noite', () => {
+    // as três datas caem no MESMO dia civil brasileiro (31/08), então precisam
+    // produzir a mesma expiração — inclusive a de 02h30 UTC, que já é 01/09 lá
+    // fora e continua sendo 31/08 aqui
+    expect(acmeProspectExpiresAt(new Date('2026-08-31T06:30:00.000Z'))).toBe('2026-09-10T07:00:00.000Z');
+    expect(acmeProspectExpiresAt(new Date('2026-08-31T12:00:00.000Z'))).toBe('2026-09-10T07:00:00.000Z');
+    expect(acmeProspectExpiresAt(new Date('2026-09-01T02:30:00.000Z'))).toBe('2026-09-10T07:00:00.000Z');
   });
 
-  it('gera ciclo com id opaco e a expiração D+2', () => {
+  it('gera ciclo com id opaco e a expiração em D+10', () => {
     const lifecycle = createAcmeProspectLifecycle(new Date('2026-08-31T15:00:00.000Z'));
     expect(lifecycle.sessionId).toMatch(/^[a-f0-9]{20}$/);
-    expect(lifecycle.expiresAt).toBe('2026-09-02T07:00:00.000Z');
+    expect(lifecycle.expiresAt).toBe('2026-09-10T07:00:00.000Z');
   });
 
   it('monta o roteiro compartilhável nas quatro perspectivas e na ordem correta', () => {

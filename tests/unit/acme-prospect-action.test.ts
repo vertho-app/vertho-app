@@ -135,23 +135,23 @@ describe('action do roteiro de experiência ACME', () => {
     expect(h.calls).toEqual(['gate', 'presentation', 'audit']);
   });
 
-  it('adia o reset do ACME enquanto houver convidado dentro de D+2', async () => {
+  it('convidado ativo NÃO adia mais o reset — ele atravessa a recomposição', async () => {
+    // O adiamento existia para o reset não apagar o trabalho de quem estava no
+    // meio da experiência. Com o convidado preservado no wipe, adiar só deixaria
+    // o ambiente sem estado-base por dias — com validade de 10, quase sempre.
     h.cleanupResult = {
       expiredRemoved: 1,
+      retidosRemovidos: 0,
       activeCount: 2,
-      nextExpiry: '2026-09-03T07:00:00.000Z',
+      nextExpiry: '2026-09-13T07:00:00.000Z',
     };
 
     const result = await resetarDemo('acme-demo');
 
-    expect(result).toEqual({
-      success: true,
-      skipped: true,
-      activeGuests: 2,
-      nextExpiry: '2026-09-03T07:00:00.000Z',
-    });
-    expect(h.resetDemo).not.toHaveBeenCalled();
-    expect(h.audits[0]).toMatchObject({ resultado: 'parcial', detalhes: { skipped: true } });
+    expect(result).toMatchObject({ success: true, skipped: false });
+    expect(h.resetDemo).toHaveBeenCalledWith('acme-demo');
+    // a faxina continua rodando antes: ela é que revoga acesso vencido
+    expect(h.cleanupSlugs).toEqual(['acme-demo']);
   });
 
   it('reseta o ACME quando a limpeza não encontra convidados ativos', async () => {
@@ -172,14 +172,14 @@ describe('action do roteiro de experiência ACME', () => {
     expect(h.resetDemo).toHaveBeenCalledWith('gruposinal');
   });
 
-  it('adia o reset do ambiente que tem convidado ativo, com o alvo certo na auditoria', async () => {
-    h.cleanupResult = { expiredRemoved: 0, activeCount: 1, nextExpiry: '2026-09-03T07:00:00.000Z' };
+  it('a faxina roda no ambiente PEDIDO, e o reset acontece mesmo com convidado ativo', async () => {
+    h.cleanupResult = { expiredRemoved: 0, retidosRemovidos: 0, activeCount: 1, nextExpiry: '2026-09-13T07:00:00.000Z' };
 
     const result = await resetarDemo('gruposinal');
 
-    expect(result).toMatchObject({ success: true, skipped: true, activeGuests: 1 });
+    expect(result).toMatchObject({ success: true, skipped: false });
+    // o alvo da faxina é o ambiente do botão, não o ACME por omissão
     expect(h.cleanupSlugs).toEqual(['gruposinal']);
-    expect(h.resetDemo).not.toHaveBeenCalled();
-    expect(h.audits[0]).toMatchObject({ alvo: 'gruposinal', resultado: 'parcial' });
+    expect(h.resetDemo).toHaveBeenCalledWith('gruposinal');
   });
 });

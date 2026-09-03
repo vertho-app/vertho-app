@@ -9,7 +9,13 @@ import {
 
 const TICKET_VERSION = 1 as const;
 export const DEMO_PRESENTATION_TICKET_TTL_SECONDS = 4 * 60 * 60;
-export const DEMO_PROSPECT_PRESENTATION_MAX_TTL_SECONDS = 3 * 24 * 60 * 60;
+/**
+ * Teto do passe que acompanha um passaporte. Ele existe para o passe não virar
+ * credencial de longa duração — e precisa caber a validade do passaporte, senão
+ * a criação falha em "validade inválida". `DEGUSTACAO_DIAS_DE_VALIDADE` é 10;
+ * o teto é 11 para absorver o arredondamento das 04h BRT sem afrouxar a régua.
+ */
+export const DEMO_PROSPECT_PRESENTATION_MAX_TTL_SECONDS = 11 * 24 * 60 * 60;
 const MAX_TICKET_LENGTH = 2_048;
 const SIGNING_CONTEXT = 'vertho:demo-presentation:v1';
 

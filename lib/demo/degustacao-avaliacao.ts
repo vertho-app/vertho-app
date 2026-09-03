@@ -25,7 +25,7 @@ import {
  *
  * SEM O CHECK DUAL. A segunda IA (`ia4_check`, +19,4s e +US$ 0,045) existe para
  * auditar nota que vira PDI e plano de desenvolvimento. Aqui a nota morre com o
- * passaporte, em D+2. O que precisa estar certo é a leitura que a pessoa lê.
+ * passaporte. O que precisa estar certo é a leitura que a pessoa lê.
  *
  * Núcleo headless de propósito (`lib/`, sem `'use server'`): quem chama é o
  * `after()` de uma action já autenticada, e não existe gate a aplicar de novo —

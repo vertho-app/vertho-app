@@ -42,22 +42,11 @@ export async function resetarDemo(slug: DemoTenantSlug = 'acme-demo') {
     // sem olhar convidado nenhum, e um convidado ativo no ACME travaria o
     // reset do vizinho. Ambiente sem degustação simplesmente não tem sessão
     // para achar, então a checagem é inofensiva onde não se aplica.
-    const lifecycle = await cleanupExpiredDemoProspects(slug);
-    if (lifecycle.activeCount > 0) {
-      await logAdminAction({
-        adminEmail: ctx.email,
-        acao: 'demo.reset',
-        alvo: slug,
-        detalhes: { skipped: true, ...lifecycle },
-        resultado: 'parcial',
-      });
-      return {
-        success: true as const,
-        skipped: true as const,
-        activeGuests: lifecycle.activeCount,
-        nextExpiry: lifecycle.nextExpiry,
-      };
-    }
+    // A faxina roda; o RESET não é mais adiado por convidado ativo (03/09/2026).
+    // O convidado atravessa a recomposição — o adiamento virou desnecessário, e
+    // com validade de 10 dias ele deixaria o ambiente sem estado-base por
+    // semanas. Quem aperta o botão recompõe o cenário e mantém os convidados.
+    await cleanupExpiredDemoProspects(slug);
   } catch (error: any) {
     await logAdminAction({
       adminEmail: ctx.email,

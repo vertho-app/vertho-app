@@ -348,7 +348,7 @@ export const DEMO_TENANT_PROFILES = {
     // escolhido: o ciclo volta na segunda, 07/09, no horário do próprio cron.
     //
     // Ela existe porque o Alpheu é convidado NOMEADO do perfil, e o adiamento
-    // automático do reset só cobre PASSAPORTE no prazo D+2. Sem pausa, o DISC,
+    // automático do reset só cobria PASSAPORTE no prazo. Sem pausa, o DISC,
     // as respostas e o relatório dele viram nada às 04h — o wipe leva
     // `colaboradores`, `respostas`, `trilhas` e `relatorios`. Ele fez isso uma
     // vez: `Medido 02/09:` o registro dele foi recriado às 04h00 pelo cron,
@@ -518,6 +518,57 @@ export interface ResetDemoResult {
 // ON DELETE SET NULL e há unicidade para relatório agregado; se os relatórios
 // não saírem antes das personas, dois documentos podem colidir ao virar NULL e
 // o reset fica pela metade.
+/**
+ * Tabelas do wipe que guardam o TRABALHO de um convidado e por isso ganham
+ * exceção quando ele é preservado. As demais são derivadas: refazem-se a partir
+ * do fixture ou da própria resposta.
+ */
+const TABELAS_DO_CONVIDADO = new Set(['respostas']);
+
+type PreservarConvidados = { ids: string[] };
+
+/**
+ * IDs dos convidados de degustação do ambiente — os que o reset não apaga.
+ *
+ * Identificados pelo PREFIXO do e-mail técnico, que é próprio de cada ambiente:
+ * é a mesma régua que separa a faxina de um ambiente da do outro.
+ */
+async function convidadosPreservados(sb: any, empresaId: string, slug: string): Promise<PreservarConvidados> {
+  const { demoProspectAuthPrefix } = await import('@/lib/demo/acme-prospect-config');
+  const prefixo = demoProspectAuthPrefix(slug);
+  const { data, error } = await sb.from('colaboradores')
+    .select('id')
+    .eq('empresa_id', empresaId)
+    .like('email', `${prefixo}%`)
+    .limit(500);
+  // Falha aqui NÃO pode virar "não há convidado": seguiria apagando o que a
+  // rodada inteira existe para preservar.
+  if (error) throw new Error(`listar convidados a preservar: ${error.message}`);
+  return { ids: (data || []).map((row: any) => String(row.id)) };
+}
+
+/**
+ * Solta o vínculo da resposta preservada com o cenário que o reset vai apagar.
+ *
+ * 🔴 `respostas_cenario_id_fkey` é **ON DELETE RESTRICT** (medido 03/09/2026).
+ * Preservar a resposta sem isto faria o `delete banco_cenarios` violar a FK e
+ * derrubar o RESET INTEIRO na primeira madrugada — falha alta, no meio da noite,
+ * num caminho que ninguém está olhando.
+ *
+ * O que se perde é o ponteiro para um cenário que deixa de existir de qualquer
+ * forma. O que a pessoa vê continua inteiro: nível, nota, pontos fortes e
+ * feedback moram na própria resposta, e a competência é reencontrada pelo nome.
+ */
+async function soltarCenarioDasRespostasPreservadas(sb: any, empresaId: string, preservar: PreservarConvidados) {
+  if (!preservar.ids.length) return;
+  const { error } = await sb.from('respostas')
+    .update({ cenario_id: null })
+    .eq('empresa_id', empresaId)
+    .in('colaborador_id', preservar.ids)
+    .not('cenario_id', 'is', null);
+  if (error) throw new Error(`soltar cenário das respostas preservadas: ${error.message}`);
+}
+
 export const DEMO_RESET_TABLES = [
   'relatorios',
   'temporada_semana_progresso', 'trilhas', 'reavaliacao_sessoes', 'sessoes_avaliacao',
@@ -683,8 +734,23 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     if (r.error) throw new Error(`${label}: ${r.error.message}`);
     return r.data;
   }
-  async function maybeDelete(table: string, empresaId: string) {
-    const r = await sb.from(table).delete().eq('empresa_id', empresaId);
+  async function maybeDelete(table: string, empresaId: string, preservar?: PreservarConvidados) {
+    let q = sb.from(table).delete().eq('empresa_id', empresaId);
+    // O CONVIDADO ATRAVESSA O RESET (03/09/2026). O ambiente volta ao
+    // estado-base todas as noites, e o que a pessoa da degustação produziu fica:
+    // o DISC vive em colunas do próprio colaborador e o mapeamento nas
+    // respostas dela. O resto (relatórios, notas por descritor, fit) é derivado
+    // e se refaz — o que não pode é a pessoa voltar e não achar nada.
+    //
+    // 🔑 As respostas continuam legíveis depois de o catálogo ser recriado com
+    // UUIDs novos porque `findAssessmentAnswer` casa por ID **ou por nome
+    // normalizado**, e o fixture é congelado (mesmos nomes). Sem esse fallback,
+    // preservar a resposta produziria um resultado órfão, que é pior que apagar.
+    if (preservar?.ids.length) {
+      if (table === 'colaboradores') q = q.not('id', 'in', `(${preservar.ids.join(',')})`);
+      else if (TABELAS_DO_CONVIDADO.has(table)) q = q.not('colaborador_id', 'in', `(${preservar.ids.join(',')})`);
+    }
+    const r = await q;
     if (!r.error) return;
     // Compatibilidade com ambientes antigos em que uma tabela opcional nunca
     // existiu. Qualquer outro erro aborta: continuar depois de uma exclusão
@@ -697,7 +763,9 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   }
 
   async function resetTenant(empresaId: string) {
-    for (const table of DEMO_RESET_TABLES) await maybeDelete(table, empresaId);
+    const preservar = await convidadosPreservados(sb, empresaId, profile.slug);
+    await soltarCenarioDasRespostasPreservadas(sb, empresaId, preservar);
+    for (const table of DEMO_RESET_TABLES) await maybeDelete(table, empresaId, preservar);
   }
 
   async function snapshotWarmArtifacts(empresaId: string): Promise<DemoWarmSnapshot> {
