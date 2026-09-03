@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { verificarPasseDegustacao } from '@/lib/demo/degustacao-passe';
 import { resolveTenant } from '@/lib/tenant-resolver';
 
@@ -43,10 +43,12 @@ export async function GET(req: NextRequest) {
     return loginComErro(req, 'convite-invalido');
   }
 
-  const sb = createSupabaseAdmin();
-  const { data: sessao, error } = await sb.from('demo_prospect_sessions')
+  // `tenantDb` em vez do client admin cru: a leitura já nasce escopada no
+  // ambiente que o hostname e o passe concordam ser o certo — e o arquivo não
+  // precisa entrar na allowlist de service-role, que só encolhe.
+  const tdb = tenantDb(tenant.id);
+  const { data: sessao, error } = await tdb.from('demo_prospect_sessions')
     .select('auth_email,expires_at,access_closed_at')
-    .eq('empresa_id', tenant.id)
     .eq('session_id', passe.sid)
     .maybeSingle();
   // supabase-js RETORNA o erro: sem este check, uma falha de banco viraria
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
   if (Date.parse(sessao.expires_at) <= Date.now()) return loginComErro(req, 'convite-expirado');
 
   const nextPath = '/dashboard';
-  const { data: link, error: linkError } = await sb.auth.admin.generateLink({
+  const { data: link, error: linkError } = await tdb.raw.auth.admin.generateLink({
     type: 'magiclink',
     email: sessao.auth_email,
     options: { redirectTo: new URL(nextPath, req.url).toString() },
