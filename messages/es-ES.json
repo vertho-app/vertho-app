@@ -4556,7 +4556,11 @@
         "applied": "Paleta aplicada a los campos — revisa y guarda.",
         "failed": "Error al extraer la paleta",
         "found": "Colores encontrados:"
-      }
+      },
+      "vocabularyTitle": "Vocabulario de la operación",
+      "vocabularyDesc": "Las mismas pantallas, con las palabras que usa esta organización. Una red de escuelas no tiene \"colaboradores a cargo\": tiene profesores.",
+      "vocabularyHint": "Un reemplazo por línea, en formato término = reemplazo. Solo cambia el texto; el idioma sigue siendo el configurado arriba.",
+      "vocabularyCount": "{count} reemplazo(s) activo(s) en esta organización."
     },
     "ai": {
       "defaultModel": "Modelo predeterminado",

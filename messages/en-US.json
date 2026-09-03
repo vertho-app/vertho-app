@@ -4556,7 +4556,11 @@
         "applied": "Palette applied to the fields — review and save.",
         "failed": "Failed to extract the palette",
         "found": "Colors found:"
-      }
+      },
+      "vocabularyTitle": "Operation vocabulary",
+      "vocabularyDesc": "The same screens, in the words this organization uses. A school network has no \"reports\": it has teachers.",
+      "vocabularyHint": "One replacement per line, as term = replacement. Only the wording changes; the language stays the one set above.",
+      "vocabularyCount": "{count} replacement(s) active for this organization."
     },
     "ai": {
       "defaultModel": "Default model",

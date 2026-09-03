@@ -4556,7 +4556,11 @@
         "applied": "Paleta aplicada aos campos — reveja e guarde.",
         "failed": "Falha ao extrair a paleta",
         "found": "Cores encontradas:"
-      }
+      },
+      "vocabularyTitle": "Vocabulário da operação",
+      "vocabularyDesc": "Os mesmos ecrãs, com as palavras que esta organização usa. Uma rede de escolas não tem \"liderados\": tem professores.",
+      "vocabularyHint": "Uma troca por linha, no formato termo = substituto. Só o texto muda; o idioma continua a ser o configurado acima.",
+      "vocabularyCount": "{count} troca(s) ativa(s) nesta organização."
     },
     "ai": {
       "defaultModel": "Modelo Padrão",

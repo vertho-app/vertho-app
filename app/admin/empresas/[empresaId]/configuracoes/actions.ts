@@ -7,7 +7,7 @@ import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { addVercelDomain, removeVercelDomain } from '@/lib/vercel-domain';
 import { isAppLocale, locales } from '@/i18n/routing';
-import { TENANT_LOCALE_CACHE_TAG } from '@/lib/i18n-server';
+import { TENANT_GLOSSARIO_CACHE_TAG, TENANT_LOCALE_CACHE_TAG } from '@/lib/i18n-server';
 
 export async function loadConfig(empresaId) {
   const sb = await requireAdminSupabase();
@@ -92,6 +92,13 @@ export async function salvarBranding(empresaId, branding) {
     .update({ ui_config: merged })
     .eq('id', empresaId);
   if (error) return { success: false, error: error.message };
+
+  // O glossário de vocabulário vive em `ui_config` e é lido com cache de 1 DIA
+  // em toda request renderizada (`getTenantGlossarioBySlug`). Sem invalidar
+  // aqui, quem edita salva, recarrega a tela e não vê nada mudar — e a próxima
+  // conclusão é que o campo não funciona. Mesmo motivo pelo qual o locale
+  // invalida a tag dele.
+  updateTag(TENANT_GLOSSARIO_CACHE_TAG);
   await logAdminAction({
     adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
     acao: 'empresa.editar', empresaId, alvo: 'branding',

@@ -54,6 +54,9 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
     bg_gradient_start: '#091D35',
     bg_gradient_end: '#0F2A4A',
     login_subtitle: '',
+    // `{ termo: substituto }`. Vive em `ui_config` junto do logo e das cores, e
+    // é aplicado sobre as mensagens em `i18n/request.ts`.
+    vocabulario: null,
   };
   const [branding, setBranding] = useState(DEFAULT_BRANDING);
   const [slug, setSlug] = useState('');
@@ -116,6 +119,33 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
   function updateCadencia(field, value) { setConfig(prev => ({ ...prev, cadencia: { ...prev.cadencia, [field]: value } })); }
   function updateEnvios(field, value) { setConfig(prev => ({ ...prev, envios: { ...prev.envios, [field]: value } })); }
   function updateBranding(field, value) { setBranding(prev => ({ ...prev, [field]: value })); }
+
+  /**
+   * O glossário é editado como TEXTO (uma linha por termo) e guardado como
+   * objeto. As duas conversões ficam aqui para a tela não ter que pensar em
+   * formato: `liderado = professor` de um lado, `{ liderado: 'professor' }` do
+   * outro.
+   */
+  function vocabularioParaTexto(mapa) {
+    if (!mapa || typeof mapa !== 'object') return '';
+    return Object.entries(mapa).map(([termo, valor]) => `${termo} = ${valor}`).join('\n');
+  }
+
+  function textoParaVocabulario(texto) {
+    const mapa = {};
+    for (const linha of String(texto || '').split('\n')) {
+      // Linha sem `=` é rascunho de quem está digitando, não erro: ignorar em
+      // silêncio é melhor que bloquear o salvamento da aba inteira.
+      const corte = linha.indexOf('=');
+      if (corte < 0) continue;
+      const termo = linha.slice(0, corte).trim().toLowerCase();
+      const valor = linha.slice(corte + 1).trim();
+      if (termo && valor) mapa[termo] = valor;
+    }
+    // null (e não `{}`) quando vazio: é o que faz o servidor devolver as
+    // mensagens ORIGINAIS, sem reconstruir a árvore inteira à toa.
+    return Object.keys(mapa).length ? mapa : null;
+  }
   function updateBriefEscola(field, value) {
     setConfig(prev => ({ ...prev, video_escola: { ...(prev as any).video_escola, [field]: value } }));
   }
@@ -660,6 +690,25 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
               <input value={branding.login_subtitle || ''} onChange={e => updateBranding('login_subtitle', e.target.value)}
                 placeholder={t('branding.subtitlePlaceholder')} className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40" style={{ background: '#091D35' }} />
             </div>
+          </Panel>
+
+          <Panel title={t('branding.vocabularyTitle')}>
+            <p className="text-[11px] text-gray-500 mb-1">{t('branding.vocabularyDesc')}</p>
+            <p className="text-[11px] text-gray-600 mb-3">{t('branding.vocabularyHint')}</p>
+            <textarea
+              value={vocabularioParaTexto(branding.vocabulario)}
+              onChange={e => updateBranding('vocabulario', textoParaVocabulario(e.target.value))}
+              rows={5}
+              spellCheck={false}
+              placeholder={'liderado = professor\nliderados = professores\ngestor = coordenador'}
+              className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40 font-mono"
+              style={{ background: '#091D35' }}
+            />
+            {branding.vocabulario && (
+              <p className="text-[11px] text-emerald-300/80 mt-2">
+                {t('branding.vocabularyCount', { count: Object.keys(branding.vocabulario).length })}
+              </p>
+            )}
           </Panel>
 
           <Panel title={t('branding.previewTitle')}>

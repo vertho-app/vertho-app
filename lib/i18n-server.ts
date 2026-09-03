@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { resolveAppLocale } from '@/lib/i18n';
+import { normalizarGlossario, type GlossarioTenant } from '@/lib/i18n-vocabulario';
 import type { AppLocale } from '@/i18n/routing';
 
 /**
@@ -38,6 +39,50 @@ export async function getTenantDefaultLocaleBySlug(slug: string | null | undefin
 
   try {
     return await getCachedTenantDefaultLocale(slug);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Tag do data cache do glossário por tenant. Muda tão raramente quanto o
+ * locale (é configuração de white-label) e seria lido em TODA request
+ * renderizada — a mesma razão que fez o locale ser cacheado aqui.
+ */
+export const TENANT_GLOSSARIO_CACHE_TAG = 'tenant-glossario';
+
+async function fetchTenantGlossario(slug: string): Promise<GlossarioTenant | null> {
+  const sb = createSupabaseAdmin();
+  const { data, error } = await sb
+    .from('empresas')
+    .select('ui_config')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  // Lança (em vez de devolver null) para o `unstable_cache` NÃO guardar um erro
+  // transitório do banco por um dia inteiro — quem chama trata o fallback.
+  if (error) throw new Error(`tenant glossário: ${error.message}`);
+  return normalizarGlossario((data?.ui_config as any)?.vocabulario);
+}
+
+const getCachedTenantGlossario = unstable_cache(
+  fetchTenantGlossario,
+  ['tenant-glossario-by-slug'],
+  { tags: [TENANT_GLOSSARIO_CACHE_TAG], revalidate: 86_400 },
+);
+
+/**
+ * Glossário de vocabulário do tenant (`ui_config.vocabulario`), ou null.
+ *
+ * Fail-safe por decisão: qualquer falha devolve null, e null significa "as
+ * mensagens padrão". O app inteiro renderiza a partir das mensagens — um erro
+ * aqui não pode custar mais que uma palavra não trocada.
+ */
+export async function getTenantGlossarioBySlug(slug: string | null | undefined): Promise<GlossarioTenant | null> {
+  if (!slug) return null;
+
+  try {
+    return await getCachedTenantGlossario(slug);
   } catch {
     return null;
   }
