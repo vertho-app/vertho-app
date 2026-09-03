@@ -115,3 +115,113 @@ export function formatarParticipantes(participantes: Participante[]): string {
 export function cadeirasPresentes(participantes: Participante[]): Seat[] {
   return [...new Set(participantes.map((p) => p.seat).filter((s): s is Seat => !!s))];
 }
+
+/**
+ * Aceita, descarta ou rebaixa o que a trilha de pessoas trouxe.
+ *
+ * Três regras, e cada uma existe por um motivo medido:
+ *
+ * `incerto` sai. Homônimo é o modo de falha desta trilha: sem a fonte ligando
+ * nome + cargo + organização, o Play passa a falar de outra pessoa com o mesmo
+ * nome, e isso é pior do que não ter a informação.
+ *
+ * Sem URL sai. É a mesma régua do resto do dossiê: afirmação sobre pessoa sem
+ * fonte não vira frase de abertura.
+ *
+ * Fonte de rede social entra marcada como NÃO verificável. O buscador lê o
+ * perfil pelo índice e a mesma URL devolve bloqueio para leitura direta: o
+ * vendedor consegue abrir no navegador, a plataforma não consegue revalidar.
+ */
+export type PessoaDescoberta = {
+  name: string;
+  role: string;
+  publicStance: string;
+  sourceUrl: string | null;
+  confidence: 'confirmado' | 'inferencia' | 'nao_confirmado';
+  verifiable: boolean;
+};
+
+const HOSTS_NAO_REVALIDAVEIS = /(^|\.)(linkedin|instagram|facebook|x|twitter|tiktok)\.com$/i;
+
+function textoCurto(valor: unknown, max: number): string {
+  return typeof valor === 'string' ? valor.trim().slice(0, max) : '';
+}
+
+function urlPublica(valor: unknown): string | null {
+  if (typeof valor !== 'string') return null;
+  try {
+    const url = new URL(valor);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
+export function normalizarPessoas(bruto: unknown, maxPessoas = 4): PessoaDescoberta[] {
+  const lista = Array.isArray(bruto) ? bruto : [];
+  const vistos = new Set<string>();
+  const saida: PessoaDescoberta[] = [];
+
+  for (const item of lista) {
+    if (saida.length >= maxPessoas) break;
+    const name = textoCurto((item as any)?.nome, 160);
+    const role = textoCurto((item as any)?.cargo, 200);
+    const sourceUrl = urlPublica((item as any)?.fonte_url);
+    const confianca = (item as any)?.confianca_identidade;
+    if (!name || !role) continue;
+    if (confianca === 'incerto') continue;
+    if (!sourceUrl) continue;
+
+    const chave = name.toLocaleLowerCase('pt-BR');
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+
+    let host = '';
+    try {
+      host = new URL(sourceUrl).hostname.replace(/^www\./, '');
+    } catch {
+      host = '';
+    }
+
+    saida.push({
+      name,
+      role,
+      publicStance: textoCurto((item as any)?.defende_publicamente, 600),
+      sourceUrl,
+      confidence: confianca === 'confirmado' ? 'confirmado' : 'inferencia',
+      verifiable: !HOSTS_NAO_REVALIDAVEIS.test(host),
+    });
+  }
+  return saida;
+}
+
+/**
+ * Junta quem o vendedor informou com quem a pesquisa descobriu.
+ *
+ * Quem o vendedor escreveu vem primeiro e nunca é sobrescrito: ele sabe quem
+ * confirmou presença, e a pesquisa não sabe. O descoberto completa o cargo de
+ * quem veio sem cargo e acrescenta os que não estavam na lista, marcados como
+ * possíveis participantes, e não como presentes.
+ */
+export function fundirComDescobertos(
+  informados: Participante[],
+  descobertos: PessoaDescoberta[],
+): Array<Participante & { descoberto?: boolean }> {
+  const porNome = new Map(descobertos.map((p) => [p.name.toLocaleLowerCase('pt-BR'), p]));
+  const usados = new Set<string>();
+
+  const lista: Array<Participante & { descoberto?: boolean }> = informados.map((p) => {
+    const chave = p.nome.toLocaleLowerCase('pt-BR');
+    const achado = porNome.get(chave);
+    if (achado) usados.add(chave);
+    const cargo = p.cargo || achado?.role || '';
+    return { ...p, cargo, seat: cadeiraDoCargo(cargo) };
+  });
+
+  for (const p of descobertos) {
+    const chave = p.name.toLocaleLowerCase('pt-BR');
+    if (usados.has(chave)) continue;
+    lista.push({ nome: p.name, cargo: p.role, seat: cadeiraDoCargo(p.role), descoberto: true });
+  }
+  return lista.slice(0, 8);
+}

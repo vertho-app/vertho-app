@@ -331,6 +331,30 @@ export type CopilotPlay = {
   };
 };
 
+/**
+ * Quem responde por pessoas e formação na organização.
+ *
+ * A trilha parte da ORGANIZAÇÃO, não do nome: antes da primeira reunião o
+ * vendedor costuma não saber com quem vai falar, e é justamente aí que a
+ * pergunta "quem decide isso aqui" vale mais. Só atuação profissional pública
+ * entra; nada de vida pessoal, opinião fora do trabalho ou inferência sobre
+ * personalidade — isso viraria dossiê de pessoa, que não é o que o Play precisa.
+ *
+ * `verifiable` marca a fonte que NÓS não conseguimos reabrir para conferir.
+ * Medido em 02/09: o buscador lê o perfil do LinkedIn pelo índice, e a mesma URL
+ * devolve bloqueio para leitura direta. O vendedor abre no navegador; a
+ * plataforma não revalida.
+ */
+export type MeetingPerson = {
+  name: string;
+  role: string;
+  /** O que a pessoa defende publicamente, em uma frase, com base na fonte. */
+  publicStance: string;
+  sourceUrl: string | null;
+  confidence: EvidenceConfidence;
+  verifiable: boolean;
+};
+
 export type CopilotSourceKind = 'site' | 'news' | 'social';
 
 export type CopilotSource = {
@@ -363,6 +387,8 @@ export type CopilotPlan = {
   hooks?: FactHook[];
   objectionRoutes?: ObjectionRoute[];
   valueMath?: ValueFormula[];
+  /** Quem responde por pessoas na organização. Só quando a trilha é pedida. */
+  people?: MeetingPerson[];
   /** Missing only in plans created before the meeting-play rollout. */
   play?: CopilotPlay;
   sources: CopilotSource[];
@@ -378,6 +404,11 @@ export type CopilotPlan = {
     social: {
       status: 'not_requested' | 'found' | 'none' | 'unavailable';
       profilesConsulted: number;
+      signalsFound: number;
+    };
+    /** Optional só para os planos salvos antes desta trilha existir. */
+    people?: {
+      status: 'not_requested' | 'found' | 'none' | 'unavailable';
       signalsFound: number;
     };
   };

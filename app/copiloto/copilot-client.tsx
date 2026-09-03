@@ -14,6 +14,7 @@ import {
   CONVERSATION_GOALS, DEFAULT_VERTHO_OFFER, DISCOVERY_CHECKLIST, MEETING_KINDS, PACE_PHASES,
   type AccountSnapshot, type ConversationGoal, type CopilotAccountListItem, type CopilotOpportunity,
   type CopilotPlan, type CopilotPlay, type CopilotSource, type CopilotSourceKind, type LiveReading,
+  type MeetingPerson,
   type AccountMoment, type EvidenceConfidence,
   type LiveUtterance, type MeetingKind, type PacePhase, type SupernormalPost,
   type SupernormalPostDetail,
@@ -178,6 +179,43 @@ function SnapshotCard({ snapshot }: { snapshot: AccountSnapshot }) {
       {snapshot.sourceUrl && (
         <a href={snapshot.sourceUrl} target="_blank" rel="noreferrer">Ver fonte <ExternalLink size={12} /></a>
       )}
+    </section>
+  );
+}
+
+/**
+ * Quem responde por pessoas na organização.
+ *
+ * Cada linha carrega a fonte e o selo de procedência porque isto é afirmação
+ * sobre PESSOA: sem link, não vira frase de abertura. O aviso de "não dá para
+ * revalidar" aparece na fonte de rede social, que o buscador leu pelo índice e
+ * que a plataforma não consegue reabrir.
+ */
+function PeopleCard({ people }: { people: MeetingPerson[] }) {
+  return (
+    <section className={styles.peopleCard} aria-label="Quem responde por pessoas na organização">
+      <div className={styles.peopleTop}>
+        <span><UsersRound size={14} /> Quem responde por pessoas</span>
+        <em>fonte pública · confira antes de citar</em>
+      </div>
+      <div className={styles.peopleGrid}>
+        {people.map((person, index) => (
+          <article key={`${person.name}-${index}`}>
+            <header>
+              <h4>{person.name}</h4>
+              <span data-confidence={person.confidence}>{CONFIDENCE_LABELS[person.confidence]}</span>
+            </header>
+            <p className={styles.peopleRole}>{person.role}</p>
+            {person.publicStance && <p className={styles.peopleStance}>{person.publicStance}</p>}
+            {person.sourceUrl && (
+              <a href={person.sourceUrl} target="_blank" rel="noreferrer">
+                Ver fonte <ExternalLink size={12} />
+              </a>
+            )}
+            {!person.verifiable && <small><ShieldAlert size={11} /> Perfil de rede: só abre no navegador, não dá para revalidar aqui.</small>}
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -370,6 +408,8 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
       </header>
 
       {plan.snapshot && <SnapshotCard snapshot={plan.snapshot} />}
+
+      {!!plan.people?.length && <PeopleCard people={plan.people} />}
 
       {plan.play
         ? <PlayCard play={plan.play} />
@@ -639,6 +679,8 @@ export default function CopilotClient({
   /** Conta para a qual o vendedor já decidiu seguir sem a trilha de redes. */
   const [semRedesConfirmadoPara, setSemRedesConfirmadoPara] = useState('');
   const [pedindoRedes, setPedindoRedes] = useState(false);
+  /** Trilha opcional: descobre quem responde por pessoas na organização. */
+  const [researchPeople, setResearchPeople] = useState(false);
   const [socialDiscovery, setSocialDiscovery] = useState<SocialDiscoveryState>({ status: 'idle' });
   const [activePlanningId, setActivePlanningId] = useState('');
   const [planPersisted, setPlanPersisted] = useState(false);
@@ -728,6 +770,7 @@ export default function CopilotClient({
         }
         if (typeof parsed?.goalThisHour === 'string') setGoalThisHour(parsed.goalThisHour);
         if (normalizeConversationGoal(parsed?.conversationGoal)) setConversationGoal(parsed.conversationGoal);
+        if (typeof parsed?.researchPeople === 'boolean') setResearchPeople(parsed.researchPeople);
         if (typeof parsed?.planningId === 'string') {
           setActivePlanningId(parsed.planningId);
           setPlanPersisted(!!parsed.planningId);
@@ -964,7 +1007,7 @@ export default function CopilotClient({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           company, site, socialProfiles, context, offer, opportunityId, accountId,
-          meetingKind, audience, goalThisHour, conversationGoal,
+          meetingKind, audience, goalThisHour, conversationGoal, researchPeople,
         }),
       });
       const data = await res.json();
@@ -1007,7 +1050,7 @@ export default function CopilotClient({
         localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify({
           plan: generatedPlan, company, site, socialProfiles, context, offer, opportunityId,
           accountId: linkedAccountId, planningId: savedPlanningId, persisted: !!savedPlanningId,
-          meetingKind, audience, audienceOptions, goalThisHour, conversationGoal,
+          meetingKind, audience, audienceOptions, goalThisHour, conversationGoal, researchPeople,
         }));
       } catch {
         // O plano continua utilizável na sessão se o navegador bloquear storage.
@@ -1558,6 +1601,13 @@ export default function CopilotClient({
               <legend><UsersRound size={14} /><span>Quem estará na conversa</span><small>basta o cargo</small></legend>
               <label className={styles.audienceField}>
                 <input value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="Ex.: Maria Souza, Head de T&D" maxLength={1000} />
+              </label>
+              <label className={styles.peopleToggle}>
+                <input type="checkbox" checked={researchPeople} onChange={(event) => setResearchPeople(event.target.checked)} />
+                <span>
+                  <b>Descobrir quem responde por pessoas nesta organização</b>
+                  <small>Uma busca a mais, só em fonte pública: cargo, entrevista, palestra ou artigo assinado. Traz nome de terceiros para o plano.</small>
+                </span>
               </label>
               {!!audienceOptions.length && (
                 <div className={styles.audienceChips} aria-label="Contatos desta empresa">

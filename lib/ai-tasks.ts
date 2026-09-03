@@ -125,6 +125,7 @@ export const AI_TASKS = [
   { key: 'copiloto_memoria_conversa', label: 'Copiloto PACE — memória da conversa', fase: 'Copiloto' },
   { key: 'copiloto_pesquisa_social_oficial', label: 'Copiloto PACE — pesquisa redes oficiais', fase: 'Copiloto' },
   { key: 'copiloto_pesquisa_noticias_externas', label: 'Copiloto PACE — pesquisa notícias externas', fase: 'Copiloto' },
+  { key: 'copiloto_pesquisa_pessoas', label: 'Copiloto PACE — quem responde por pessoas', fase: 'Copiloto' },
 ];
 
 /**

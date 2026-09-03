@@ -30,12 +30,13 @@ import {
 } from '@/lib/copiloto/social-identity';
 import { limitSourcesByKind } from '@/lib/copiloto/source-selection';
 import {
-  cadeirasPresentes, enriquecerComContatos, formatarParticipantes, parseParticipantes,
+  cadeirasPresentes, enriquecerComContatos, formatarParticipantes, fundirComDescobertos,
+  normalizarPessoas, parseParticipantes,
 } from '@/lib/copiloto/participantes';
 import {
   DISCOVERY_CHECKLIST, PACE_PHASES,
   type ConversationGoal, type CopilotPlan, type CopilotSource, type CopilotSourceKind, type DiscoveryKey,
-  type MeetingKind, type PacePhase, type PaceQuestion,
+  type MeetingKind, type MeetingPerson, type PacePhase, type PaceQuestion,
   type ResearchFact, type ResearchTrend,
 } from '@/lib/copiloto/types';
 
@@ -189,6 +190,8 @@ function synthesisPrompt(input: {
   participantes: string;
   /** Cadeiras presentes, para as rotas de objeção não falarem com quem não está lá. */
   cadeiras: string;
+  /** O que cada pessoa trata publicamente no trabalho, com a fonte. Pode ser vazio. */
+  pessoasPublicas: string;
   goalThisHour: string;
   factsCount: number;
   memory: CopilotPlanningMemory;
@@ -203,6 +206,10 @@ ${formatCopilotPlanningMemory(input.memory)}
 <participantes>
 ${input.participantes}
 </participantes>
+
+<atuacao_publica_das_pessoas>
+${input.pessoasPublicas}
+</atuacao_publica_das_pessoas>
 <tipo_reuniao>${input.meetingKind}</tipo_reuniao>
 <avanco_desta_conversa>${input.conversationGoal}
 ${GOAL_FOCUS[input.conversationGoal]}</avanco_desta_conversa>
@@ -216,6 +223,10 @@ ${GOAL_FOCUS[input.conversationGoal]}</avanco_desta_conversa>
 
 O avanço escolhido manda: ele decide o que o Play enfatiza, quais perguntas sobem e qual
 compromisso é o padrão. Um plano que serviria igual para qualquer avanço está errado.
+
+A atuação pública das pessoas só serve para ABRIR e para escolher o ângulo: cite o que a pessoa
+publicou ou disse em público, com a fonte, e nunca uma leitura sobre como ela é. Se o bloco disser
+que só o cargo foi confirmado, não invente tema. Nada dali vira afirmação sobre personalidade.
 
 Quem está na sala manda no VOCABULÁRIO e no pedido de fechamento: fale a língua do cargo de
 cada participante (financeiro quer conta, RH quer efeito nas pessoas, operações quer rotina) e
@@ -323,6 +334,8 @@ export function normalizePlan(
     newsRequested: boolean;
     newsCompleted: boolean;
     socialCompleted: boolean;
+    peopleRequested?: boolean;
+    peopleCompleted?: boolean;
   },
   planning: {
     meetingKind: MeetingKind;
@@ -331,6 +344,7 @@ export function normalizePlan(
     goalThisHour: string;
     memory: CopilotPlanningMemory;
     hasPrivateContext?: boolean;
+    people?: MeetingPerson[];
   },
 ): CopilotPlan {
   const rawQuestions: PaceQuestion[] = (Array.isArray(synthesis?.perguntas) ? synthesis.perguntas : [])
@@ -457,6 +471,7 @@ export function normalizePlan(
     hooks: normalizeFactHooks(synthesis?.ganchos, facts.length),
     objectionRoutes: normalizeObjectionRoutes(synthesis?.rotas_objecao),
     valueMath: normalizeValueMath(synthesis?.aritmetica),
+    people: planning.people?.length ? planning.people : undefined,
     sources: limitSourcesByKind([...sourceMap.values()]),
     researchAudit: {
       site: {
@@ -477,6 +492,12 @@ export function normalizePlan(
             : socialSignalsFound ? 'found' : 'none',
         profilesConsulted: officialSocialUrls.length,
         signalsFound: socialSignalsFound,
+      },
+      people: {
+        status: !execution.peopleRequested ? 'not_requested'
+          : !execution.peopleCompleted ? 'unavailable'
+            : planning.people?.length ? 'found' : 'none',
+        signalsFound: planning.people?.length || 0,
       },
     },
     researchedAt: new Date().toISOString(),
@@ -505,6 +526,8 @@ async function planejarConversa(req: Request) {
     const requestedConversationGoal = normalizeConversationGoal(body?.conversationGoal);
     const requestedAudience = text(body?.audience, MAX.audience);
     const requestedGoal = text(body?.goalThisHour, MAX.goalThisHour);
+    // A trilha de pessoas traz dado de terceiro identificado: só roda quando pedida.
+    const researchPeople = body?.researchPeople === true;
 
     if (!offer) return NextResponse.json({ error: 'Descreva o que você vende' }, { status: 400 });
     if (requestedAccountId && !UUID.test(requestedAccountId)) {
@@ -559,11 +582,14 @@ async function planejarConversa(req: Request) {
       newsRequested: false,
       newsCompleted: true,
       socialCompleted: !officialSocialUrls.length,
+      peopleRequested: false,
+      peopleCompleted: true,
     };
+    let pessoasDescobertas: ReturnType<typeof normalizarPessoas> = [];
     const researchPromise = company.length >= 2 || site.length >= 4 || officialSocialUrls.length
       // O avanço entra como prioridade de busca. Só o enum atravessa: briefing, oferta e
       // memória continuam fora da internet.
-      ? researchCompany(company, site, officialSocialUrls, conversationGoal)
+      ? researchCompany(company, site, officialSocialUrls, conversationGoal, researchPeople)
       : Promise.resolve(null);
     const [result, grounding] = await Promise.all([
       researchPromise,
@@ -582,8 +608,15 @@ async function planejarConversa(req: Request) {
         newsRequested: result.newsSearchRequested,
         newsCompleted: result.newsSearchCompleted,
         socialCompleted: result.socialSearchCompleted,
+        peopleRequested: result.peopleRequested,
+        peopleCompleted: result.peopleCompleted,
       };
+      pessoasDescobertas = normalizarPessoas(result.people);
     }
+
+    // A fusão vem DEPOIS da pesquisa: quem o vendedor informou manda, e o
+    // descoberto completa cargo ou acrescenta quem ele ainda não conhecia.
+    const participantesFinais = fundirComDescobertos(participantes, pessoasDescobertas);
 
     const raw = await callAI(
       SYNTHESIS_SYSTEM,
@@ -595,8 +628,13 @@ async function planejarConversa(req: Request) {
         meetingKind,
         conversationGoal,
         audience,
-        participantes: formatarParticipantes(participantes),
-        cadeiras: cadeirasPresentes(participantes).join(', ') || 'nenhuma identificada',
+        participantes: formatarParticipantes(participantesFinais),
+        pessoasPublicas: pessoasDescobertas.length
+          ? pessoasDescobertas
+            .map((pessoa) => `- ${pessoa.name} (${pessoa.role}): ${pessoa.publicStance || 'apenas o cargo foi confirmado'} [fonte: ${pessoa.sourceUrl}]`)
+            .join('\n')
+          : 'não pesquisada',
+        cadeiras: cadeirasPresentes(participantesFinais).join(', ') || 'nenhuma identificada',
         goalThisHour: requestedGoal,
         factsCount: Array.isArray(research?.fatos_relevantes) ? Math.min(research.fatos_relevantes.length, 8) : 0,
         memory,
@@ -616,6 +654,7 @@ async function planejarConversa(req: Request) {
         goalThisHour: requestedGoal,
         memory,
         hasPrivateContext: Boolean(privateContext.trim()),
+        people: pessoasDescobertas,
       }),
     });
   } catch (error: any) {

@@ -4,6 +4,8 @@ import {
   cadeirasPresentes,
   enriquecerComContatos,
   formatarParticipantes,
+  fundirComDescobertos,
+  normalizarPessoas,
   parseParticipantes,
 } from '@/lib/copiloto/participantes';
 
@@ -107,5 +109,76 @@ describe('o que chega ao prompt', () => {
   it('as cadeiras presentes saem sem repetição, para as rotas priorizarem', () => {
     const lista = parseParticipantes('Maria, Head de T&D; Renata, Coordenadora Pedagógica; Paulo, CFO');
     expect(cadeirasPresentes(lista)).toEqual(['RH', 'financeiro']);
+  });
+});
+
+describe('normalizarPessoas', () => {
+  const pessoa = (extra: Record<string, unknown> = {}) => ({
+    nome: 'Ana Prado', cargo: 'Diretora de RH', defende_publicamente: 'Fala sobre formação de líderes.',
+    fonte_url: 'https://exemplo.com.br/entrevista', confianca_identidade: 'confirmado', ...extra,
+  });
+
+  it('aceita o achado com nome, cargo e fonte', () => {
+    const [p] = normalizarPessoas([pessoa()]);
+    expect(p).toMatchObject({ name: 'Ana Prado', role: 'Diretora de RH', confidence: 'confirmado', verifiable: true });
+  });
+
+  it('homônimo declarado sai: falar da pessoa errada é pior que não falar', () => {
+    expect(normalizarPessoas([pessoa({ confianca_identidade: 'incerto' })])).toEqual([]);
+  });
+
+  it('sem fonte não entra, como o resto do dossiê', () => {
+    expect(normalizarPessoas([pessoa({ fonte_url: null })])).toEqual([]);
+    expect(normalizarPessoas([pessoa({ fonte_url: 'não é url' })])).toEqual([]);
+  });
+
+  it('fonte de rede social entra marcada como não revalidável', () => {
+    const [p] = normalizarPessoas([pessoa({ fonte_url: 'https://br.linkedin.com/in/ana-prado/pt' })]);
+    expect(p.verifiable).toBe(false);
+    // O achado continua valendo: quem não revalida somos nós, não o vendedor.
+    expect(p.name).toBe('Ana Prado');
+  });
+
+  it('"provavel" entra rebaixado a inferência, não como confirmado', () => {
+    const [p] = normalizarPessoas([pessoa({ confianca_identidade: 'provavel' })]);
+    expect(p.confidence).toBe('inferencia');
+  });
+
+  it('não repete a mesma pessoa e respeita o teto', () => {
+    const lista = normalizarPessoas([pessoa(), pessoa(), pessoa({ nome: 'Bruno Sá' }), pessoa({ nome: 'Caio Reis' })], 2);
+    expect(lista.map((p) => p.name)).toEqual(['Ana Prado', 'Bruno Sá']);
+  });
+
+  it('lista vazia ou lixo não vira pessoa', () => {
+    expect(normalizarPessoas(null)).toEqual([]);
+    expect(normalizarPessoas([{ nome: 'Só nome' }])).toEqual([]);
+  });
+});
+
+describe('fundirComDescobertos', () => {
+  const descoberto = {
+    name: 'Paulo Reis', role: 'CFO', publicStance: '', sourceUrl: 'https://exemplo.com/a',
+    confidence: 'confirmado' as const, verifiable: true,
+  };
+
+  it('quem o vendedor informou vem primeiro e não é sobrescrito', () => {
+    const lista = fundirComDescobertos(
+      parseParticipantes('Paulo Reis, Diretor de Suprimentos'),
+      [descoberto],
+    );
+    expect(lista[0].cargo).toBe('Diretor de Suprimentos');
+    expect(lista[0].descoberto).toBeUndefined();
+    expect(lista).toHaveLength(1);
+  });
+
+  it('o descoberto completa o cargo de quem veio só com o nome', () => {
+    const lista = fundirComDescobertos(parseParticipantes('Paulo Reis'), [descoberto]);
+    expect(lista[0]).toMatchObject({ nome: 'Paulo Reis', cargo: 'CFO', seat: 'financeiro' });
+  });
+
+  it('quem a pesquisa achou e não estava na lista entra marcado como descoberto', () => {
+    const lista = fundirComDescobertos(parseParticipantes('Maria Souza, Head de T&D'), [descoberto]);
+    expect(lista).toHaveLength(2);
+    expect(lista[1]).toMatchObject({ nome: 'Paulo Reis', seat: 'financeiro', descoberto: true });
   });
 });
