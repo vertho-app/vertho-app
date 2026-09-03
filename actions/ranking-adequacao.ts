@@ -110,9 +110,6 @@ async function _getRanking(sb: any, empresaId: string, cargo: string): Promise<a
     borderline: !!p.borderline, semDelta: p.betaSemDelta,
     blocos: blocosDe(p),
     drivers: (p.gaps || []).map((x: any) => x.traco),
-    // O nome sozinho não diz se é competência ou fator DISC; o bloco vem junto
-    // para o filtro poder agrupar.
-    driversDetalhe: (p.gaps || []).map((x: any) => ({ traco: x.traco, bloco: x.bloco })),
     disc: p.disc || [],
   }));
   // ANEXO de gate (TRAVA 1): bloqueados FORA do array ordenável; aderência NÃO exibida.
@@ -123,29 +120,12 @@ async function _getRanking(sb: any, empresaId: string, cargo: string): Promise<a
   }));
 
   const { eixoBloco, eixoPeso, divergencia } = _eixoDivergencia(pesos, elegiveis.map((e: any) => e.blocos));
-  // O filtro precisa do BLOCO, não só do nome do traço.
-  //
-  // A lista saía plana e misturava dois vocabulários — "Paciência",
-  // "Persistência", "Prudência" (competências comportamentais) ao lado de
-  // "S — Estabilidade" (fator DISC, que já vem com o código na frente). Lidos em
-  // sequência, os quatro parecem a mesma categoria, e nada na tela diz de onde
-  // cada um vem. Com o bloco, o `<select>` agrupa e cada nome fica sob o rótulo
-  // que o explica.
-  const blocoPorDriver = new Map<string, string>();
-  for (const e of elegiveis as any[]) {
-    for (const g of e.driversDetalhe || []) {
-      if (g.traco && !blocoPorDriver.has(g.traco)) blocoPorDriver.set(g.traco, g.bloco || 'Outros');
-    }
-  }
-  const driversDisponiveis = Array.from(new Set(elegiveis.flatMap((e: any) => e.drivers)))
-    .sort()
-    .map((traco: any) => ({ traco: String(traco), bloco: blocoPorDriver.get(String(traco)) || 'Outros' }));
 
   return {
     success: true, cargo, dataISO: snap.dataISO || null, temTracos,
     eixo: { bloco: eixoBloco, label: eixoBloco, peso: eixoPeso },
     faixas: data.perfilIdeal?.faixas || null,
-    divergencia, pesos, elegiveis, anexoGate, driversDisponiveis,
+    divergencia, pesos, elegiveis, anexoGate,
     totais: { elegiveis: elegiveis.length, bloqueados: anexoGate.length },
   };
 }
