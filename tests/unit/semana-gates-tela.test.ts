@@ -142,7 +142,11 @@ describe('item 2 — o degrau manual deixou de ser catraca', () => {
 
 describe('itens 3 e 4 — a régua passou a ser dita', () => {
   it('usa a régua REAL de turnos, não um número escrito na tela', () => {
-    expect(TELA).toContain('turnosIaNecessarios(semanaNum, semana?.tipo, progressoSemana?.feedback?.modo)');
+    // A régua ganhou um 4º argumento em 03/09/2026 (`qualitativaDoPlano`): onde
+    // fica a conversa qualitativa e quanto ela custa, lido do PLANO. Sem ele a
+    // tela caía num `semana === 13` literal e prometia 6 turnos onde a rota
+    // exigia 12 — a mesma divergência que este arquivo existe para impedir.
+    expect(TELA).toContain('turnosIaNecessarios(semanaNum, semana?.tipo, progressoSemana?.feedback?.modo, qualitativaDoPlano(');
     // Um literal aqui seria a 2ª cópia da régua — a origem da divergência que
     // este trabalho inteiro existe para não repetir.
     expect(TELA).not.toMatch(/turnosNecessarios\s*=\s*\d+/);
@@ -342,7 +346,7 @@ describe('lista de semanas — a incompleta passou a se anunciar', () => {
   );
 
   it('usa a MESMA régua da tela da semana e das rotas', () => {
-    expect(LISTA).toContain('turnosIaNecessarios(s.semana, s.tipo, p?.feedback?.modo)');
+    expect(LISTA).toContain('turnosIaNecessarios(s.semana, s.tipo, p?.feedback?.modo, qualitativaDoPlano(');
     expect(LISTA).toContain('contarTurnosIa(p, s.semana, s.tipo)');
     // Um número escrito aqui seria a 3ª cópia da régua.
     expect(LISTA).not.toMatch(/faltam\s*=\s*\d+/);

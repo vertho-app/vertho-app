@@ -8,6 +8,7 @@ import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText
 import { loadTemporada, loadTemporadaPorEmail } from '@/actions/temporadas';
 import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 import { semanaLiberadaPorData, formatarLiberacao, turnosIaNecessarios, contarTurnosIa } from '@/lib/season-engine/week-gating';
+import { qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import FirstViewVideo from '@/components/first-view-video';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 // Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a
@@ -216,7 +217,7 @@ export default function TemporadaPage() {
             */
             const turnosFeitos = emAndamento ? contarTurnosIa(p, s.semana, s.tipo) : 0;
             const faltam = emAndamento
-              ? Math.max(turnosIaNecessarios(s.semana, s.tipo, p?.feedback?.modo) - turnosFeitos, 0)
+              ? Math.max(turnosIaNecessarios(s.semana, s.tipo, p?.feedback?.modo, qualitativaDoPlano(semanas)) - turnosFeitos, 0)
               : 0;
 
             const Icon = s.tipo === 'aplicacao' ? Target : s.tipo === 'avaliacao' ? Sparkles : (FORMAT_ICON[s.conteudo?.formato_core] || BookOpen);

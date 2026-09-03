@@ -181,6 +181,31 @@ export function ehSemanaQualitativa(plano: any, semana: number | string): boolea
 }
 
 /**
+ * A conversa QUALITATIVA deste plano: em que semana está e quantos turnos custa.
+ *
+ * FONTE ÚNICA para as duas pontas. A rota decide quando a conversa termina; as
+ * telas dizem "faltam N respostas" — e até 03/09/2026 a régua caía num
+ * `semana === 13` literal, verdade só no formato de 14 semanas. Com a
+ * qualitativa na 8, a tela prometia 6 turnos onde a rota exigia 12.
+ *
+ * `turnos_ia` vem do SLOT do plano (carimbado na geração) porque é o que as
+ * telas carregam — elas não recebem a `ProgramaConfig`. Ausente → o default de
+ * 12, que é o comportamento de sempre.
+ *
+ * Devolve `null` quando o plano não tem conversa qualitativa separada (piloto,
+ * jornada, custom): lá a acumulada roda em background sobre a última semana de
+ * conteúdo, sem tela.
+ */
+export function qualitativaDoPlano(plano: any): { semana: number; turnos?: number } | null {
+  const avaliacoes = semanasAvaliacaoDoPlano(plano);
+  if (avaliacoes.length < 2) return null;
+  const semana = avaliacoes[0];
+  const slot = (Array.isArray(plano) ? plano : []).find((s: any) => Number(s?.semana) === semana);
+  const turnos = Number(slot?.turnos_ia);
+  return { semana, turnos: Number.isFinite(turnos) && turnos > 0 ? turnos : undefined };
+}
+
+/**
  * Gates de acesso a uma semana (temporal + progressão). Retorna null quando
  * liberada; senão `{ error, status }` pra rota mapear em NextResponse.
  */

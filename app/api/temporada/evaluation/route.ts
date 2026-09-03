@@ -11,7 +11,7 @@ import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
-import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
+import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha, qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { TURNOS_IA_AVALIACAO_QUALITATIVA } from '@/lib/season-engine/week-gating';
 import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento } from '@/lib/season-engine/fechamento-conversa';
 import { buscarCenarioBComFallback } from '@/lib/season-engine/cenario-b';
@@ -145,7 +145,14 @@ export async function POST(request) {
       const turnsIA = historico.filter(m => m.role === 'assistant').length;
       // Régua única (week-gating): a tela da semana usa o MESMO número para
       // dizer quantas respostas faltam para a semana 13 concluir.
-      const TOTAL = TURNOS_IA_AVALIACAO_QUALITATIVA;
+      // Do PLANO primeiro, depois da config: a qualitativa custa 12 turnos no
+      // formato de 14 semanas, e num encerramento curto isso vira pedágio na
+      // frente do Cenário B. O plano vem antes porque é o que as TELAS leem
+      // (elas não recebem a ProgramaConfig) — mesma régua nas duas pontas, via
+      // `qualitativaDoPlano`. Ausente nos dois → 12, comportamento de sempre.
+      const TOTAL = qualitativaDoPlano(trilha.temporada_plano)?.turnos
+        ?? programaConfig.turnosQualitativa
+        ?? TURNOS_IA_AVALIACAO_QUALITATIVA;
 
       // Coleta insights das semanas anteriores à acumulada pra contextualizar
       const { data: outrasSem } = await sb.from('temporada_semana_progresso')

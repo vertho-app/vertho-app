@@ -97,8 +97,24 @@ export function turnosIaNecessarios(
   semana: number | string,
   tipoSemana?: string | null,
   modoAplicacao?: string | null,
+  /**
+   * Onde fica a conversa qualitativa e quanto ela custa. Sem isto, a régua caía
+   * em `semana === 13` — verdade só no formato de 14 semanas.
+   *
+   * 🔴 Medido 03/09/2026, Ibipeba: a qualitativa foi para a semana **8** e o
+   * `=== 13` deixou de casar, então a tela passou a prometer 6 turnos onde a
+   * rota exigia 12. Régua duplicada não diverge um dia — nasce divergente.
+   *
+   * `turnos` existe porque 12 turnos foi calibrado para fechar 14 semanas. Num
+   * encerramento de 7, cobrir 12 descritores em 12 turnos vira pedágio na frente
+   * do Cenário B, que é o instrumento que de fato mede.
+   */
+  qualitativa?: { semana: number; turnos?: number } | null,
 ): number {
-  if (Number(semana) === 13) return TURNOS_IA_AVALIACAO_QUALITATIVA;
+  const semQualitativa = qualitativa?.semana ?? 13;
+  if (Number(semana) === semQualitativa) {
+    return qualitativa?.turnos ?? TURNOS_IA_AVALIACAO_QUALITATIVA;
+  }
   if (tipoSemana === 'aplicacao') {
     return (modoAplicacao === 'pratica' ? MAX_TURNS_MISSAO_FEEDBACK : MAX_TURNS_ANALYTIC) / 2;
   }

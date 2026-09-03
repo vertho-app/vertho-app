@@ -333,7 +333,7 @@ async function agregarEvidencias(tdb: any, trilhaId: string, descritores: any[],
         if (partes) linhasPorDescritor[desc].push(partes);
       }
     }
-    if (p.semana === 13 && p.reflexao?.evolucao_percebida) {
+    if (p.semana === semanaLimite && p.reflexao?.evolucao_percebida) {
       for (const ev of p.reflexao.evolucao_percebida) {
         if (!linhasPorDescritor[ev.descritor]) continue;
         const partes = [

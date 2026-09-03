@@ -103,6 +103,19 @@ export interface ProgramaConfig {
   semanaCenarioB: number;
   /** Semana em que a Avaliação Acumulada é disparada. Regular=13. Em Onboarding, fica embutida nas missões. */
   semanaAcumulada: number;
+  /**
+   * Turnos de IA da conversa qualitativa. Ausente = 12
+   * (`TURNOS_IA_AVALIACAO_QUALITATIVA`), o valor calibrado para fechar 14
+   * semanas.
+   *
+   * Existe porque o custo dela não escala com o tamanho do programa: são os
+   * mesmos ~12 descritores para cobrir, mas num encerramento curto 12 turnos
+   * viram pedágio na frente do Cenário B — que é o instrumento que mede. E o
+   * que a etapa entrega de mais valioso, a Avaliação Acumulada, **não depende
+   * do tamanho da conversa**: ela agrega as evidências das semanas de conteúdo
+   * e dispara pelo simples fato de a semana ser concluída.
+   */
+  turnosQualitativa?: number;
   /** Slots de conteúdo (semanas que NÃO são missão nem avaliação). Regular=9 slots. */
   slotsConteudo: number[];
   /**

@@ -6,7 +6,7 @@ import { PROGRESSO, TRILHA } from '@/lib/status';
 import { encadearProximaJornada } from './encadear-jornada';
 // Régua de convergência em FONTE ÚNICA — o fixture da demo classifica pela
 // mesma função, senão a vitrine mostraria um veredito que o motor não produz.
-import { CONVERGENCIA, classificarConvergencia } from './convergencia';
+import { CONVERGENCIA, classificarConvergencia, qualitativaSustenta } from './convergencia';
 
 /**
  * Fim de jornada = começo da próxima (modo `jornada`, 05/08/2026). Roda DEPOIS
@@ -159,15 +159,46 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
       const n = quantitativa.find((x: any) => x.descritor === d.descritor) || {};
       const nota_pre = n.nota_pre ?? d.nota_atual ?? 1.5;
       const nota_pos = n.nota_pos ?? q.nivel_percebido ?? nota_pre;
+
+      /**
+       * 🔴 LEITURA FRACA NÃO VOTA NA CONVERGÊNCIA (03/09/2026).
+       *
+       * O extrator da conversa qualitativa é honesto sobre base curta: quando um
+       * descritor não foi discutido, ele devolve `evidencia: null`,
+       * `forca_evidencia: 'fraca'` e confiança baixa — está escrito no prompt.
+       * O report ignorava esses dois campos e usava só o `nivel_percebido`.
+       *
+       * O estrago vem do DEFAULT do validador: `nivel_percebido` ausente vira
+       * **2.0**. Com `nota_pre` em 1,5 — a média real de Ibipeba —, `2.0 > 1.5`
+       * torna `qualitativaPositiva` verdadeiro e o descritor é classificado como
+       * **evolução parcial**. Ou seja: um descritor que a conversa nunca tocou
+       * aparecia como progresso no relatório que vai para a Secretaria, por um
+       * valor que ninguém afirmou.
+       *
+       * Agora a leitura qualitativa só vota quando a base sustenta. O
+       * `nivel_percebido` continua no report (é informação, e o `antes/depois`
+       * também), mas acompanhado da força — quem lê passa a ver a diferença
+       * entre "ela relatou com exemplo" e "não deu para saber".
+       *
+       * Isto vale para TODOS os formatos, não só o encerramento curto: com 12
+       * turnos para ~12 descritores, base fraca já era frequente.
+       */
+      const forcaEvidencia = q.forca_evidencia ?? null;
+      const baseSustenta = qualitativaSustenta(q);
       return {
         competencia: d.competencia || trilha.competencia_foco,
         descritor: d.descritor,
         nota_pre, nota_pos,
         nivel_percebido: q.nivel_percebido ?? null,
+        forca_evidencia: forcaEvidencia,
+        confianca_qualitativa: q.confianca ?? null,
         antes: q.antes || null,
         depois: q.depois || null,
         justificativa_cenario: n.justificativa || null,
-        convergencia: classificarConvergencia({ nota_pre, nota_pos, nivel_percebido: q.nivel_percebido }),
+        convergencia: classificarConvergencia({
+          nota_pre, nota_pos,
+          nivel_percebido: baseSustenta ? q.nivel_percebido : null,
+        }),
       };
     });
 

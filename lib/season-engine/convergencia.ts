@@ -90,6 +90,25 @@ export function rotuloConvergencia(valor: string | null | undefined): string {
  * sobe sem nenhuma evidência de percepção é justamente o caso que a régua
  * quer manter em "parcial", não em "confirmada".
  */
+/**
+ * A leitura qualitativa deste descritor pode VOTAR na convergência?
+ *
+ * 🔴 Só quando a conversa a sustenta. O extrator marca `forca_evidencia: 'fraca'`
+ * para descritor que não foi discutido — está no prompt —, mas o validador dá
+ * `nivel_percebido` **default 2.0** quando o campo falta. Com `nota_pre` em 1,5
+ * (a média medida em Ibipeba), `2.0 > 1.5` bastava para o descritor sair como
+ * "evolução parcial" no relatório que vai para a Secretaria, por um número que
+ * ninguém afirmou.
+ *
+ * Função exportada, e não um `if` dentro do report, para ser exercitável: era
+ * uma linha inline, e a prova de mutação passou VERDE porque o teste replicava
+ * a lógica em vez de chamá-la.
+ */
+export function qualitativaSustenta(q: { forca_evidencia?: string | null } | null | undefined): boolean {
+  const f = q?.forca_evidencia;
+  return f != null && f !== 'fraca';
+}
+
 export function classificarConvergencia({
   nota_pre,
   nota_pos,

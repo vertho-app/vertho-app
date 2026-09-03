@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { formatarLiberacao, avaliarAcessoSemana, turnosIaNecessarios, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
-import { totalSemanasDoPlano, semanaCenarioBDoPlano, ehSemanaQualitativa } from '@/lib/season-engine/trilha-runtime';
+import { totalSemanasDoPlano, semanaCenarioBDoPlano, ehSemanaQualitativa, qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import ReactMarkdown from 'react-markdown';
 import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle, Lock, Eye } from 'lucide-react';
 import BackButton from '@/components/back-button';
@@ -346,7 +346,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
    * quem precisa dela. Nenhum número novo: o que faltava era ele ser dito.
    */
   const turnosFeitos = chatHistory.filter((m) => m?.role === 'assistant').length;
-  const turnosNecessarios = turnosIaNecessarios(semanaNum, semana?.tipo, progressoSemana?.feedback?.modo);
+  const turnosNecessarios = turnosIaNecessarios(semanaNum, semana?.tipo, progressoSemana?.feedback?.modo, qualitativaDoPlano(data.trilha.temporada_plano));
   const turnosFaltando = Math.max(turnosNecessarios - turnosFeitos, 0);
 
   async function startChat() {
