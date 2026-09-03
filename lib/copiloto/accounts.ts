@@ -116,6 +116,15 @@ export type CopilotPlanningMemory = {
   pains: string[];
   objections: string[];
   commitments: string[];
+  /**
+   * Quem apareceu nas conversas anteriores: pessoa ou papel.
+   *
+   * A análise de conversa já extraía isso e a aba Reuniões já exibia, mas o
+   * recorte que alimenta o planejamento não carregava o campo — então o Play era
+   * montado sem saber quem decide nesta conta, que é justamente uma das oito
+   * chaves da descoberta.
+   */
+  stakeholders: string[];
   /** Respostas da Pergunta-Âncora, nas palavras do cliente, das conversas anteriores. */
   anchorAnswers: string[];
 };
@@ -148,6 +157,7 @@ export function compactCopilotPlanningMemory(rows: unknown): CopilotPlanningMemo
     pains: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.pains) ? memory.pains : [])),
     objections: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.objections) ? memory.objections : [])),
     commitments: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.commitments) ? memory.commitments : [])),
+    stakeholders: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.stakeholders) ? memory.stakeholders : [])),
     anchorAnswers: uniqueText(memories.flatMap((memory: any) => Array.isArray(memory.anchorAnswers) ? memory.anchorAnswers : []), 4),
   };
 }
@@ -156,6 +166,7 @@ export function formatCopilotPlanningMemory(memory: CopilotPlanningMemory): stri
   return [
     `coberto: ${memory.covered.length ? memory.covered.join(', ') : 'nenhuma chave confirmada'}`,
     `pendente: ${memory.pending.length ? memory.pending.join(', ') : 'nenhuma chave pendente'}`,
+    `pessoas_envolvidas: ${memory.stakeholders.length ? memory.stakeholders.join(' | ') : 'não registradas'}`,
     `proximo_passo_anterior: ${memory.nextStep || 'não registrado'}`,
     `dores: ${memory.pains.length ? memory.pains.join(' | ') : 'não registradas'}`,
     `objecoes: ${memory.objections.length ? memory.objections.join(' | ') : 'não registradas'}`,
@@ -315,3 +326,30 @@ export async function getCopilotAccountDetail(
 }
 
 export { EMPTY_MEMORY };
+
+/**
+ * Nome e cargo dos contatos da conta, para dar cadeira a quem estará na reunião.
+ *
+ * Leitura mínima e depois do gate: `findCopilotAccount` já barra conta de outro
+ * representante. Falha de leitura devolve lista vazia com aviso — o plano sai
+ * com o cargo que o vendedor digitou, que é o comportamento de antes.
+ */
+export async function listCopilotAccountContacts(
+  access: CopilotAccess,
+  accountId: string,
+): Promise<Array<{ name: string; role: string | null }>> {
+  const account = await findCopilotAccount(access, accountId);
+  if (!account) return [];
+  const { data, error } = await createSupabaseAdmin()
+    .from('sales_contacts')
+    .select('name, role')
+    .eq('account_id', accountId)
+    .limit(50);
+  if (error) {
+    console.warn('[copiloto/contatos]', error.message);
+    return [];
+  }
+  return (data || [])
+    .filter((row: any) => typeof row?.name === 'string' && row.name.trim())
+    .map((row: any) => ({ name: String(row.name).trim(), role: row?.role ? String(row.role).trim() : null }));
+}

@@ -9,6 +9,7 @@ import {
   findCopilotAccount,
   formatCopilotPlanningMemory,
   getCopilotPlanningMemory,
+  listCopilotAccountContacts,
   type CopilotPlanningMemory,
 } from '@/lib/copiloto/accounts';
 import { comContexto } from '@/lib/execucao-contexto';
@@ -28,6 +29,9 @@ import {
   parseOfficialSocialUrls,
 } from '@/lib/copiloto/social-identity';
 import { limitSourcesByKind } from '@/lib/copiloto/source-selection';
+import {
+  cadeirasPresentes, enriquecerComContatos, formatarParticipantes, parseParticipantes,
+} from '@/lib/copiloto/participantes';
 import {
   DISCOVERY_CHECKLIST, PACE_PHASES,
   type ConversationGoal, type CopilotPlan, type CopilotSource, type CopilotSourceKind, type DiscoveryKey,
@@ -54,6 +58,7 @@ const EMPTY_PLANNING_MEMORY: CopilotPlanningMemory = {
   pains: [],
   objections: [],
   commitments: [],
+  stakeholders: [],
   anchorAnswers: [],
 };
 
@@ -180,6 +185,10 @@ function synthesisPrompt(input: {
   meetingKind: MeetingKind;
   conversationGoal: ConversationGoal;
   audience: string;
+  /** Uma linha por pessoa: nome, cargo e a cadeira que ela ocupa na decisão. */
+  participantes: string;
+  /** Cadeiras presentes, para as rotas de objeção não falarem com quem não está lá. */
+  cadeiras: string;
   goalThisHour: string;
   factsCount: number;
   memory: CopilotPlanningMemory;
@@ -191,7 +200,9 @@ function synthesisPrompt(input: {
 ${formatCopilotPlanningMemory(input.memory)}
 </memoria_conta>
 
-<participantes>${input.audience || 'não informados'}</participantes>
+<participantes>
+${input.participantes}
+</participantes>
 <tipo_reuniao>${input.meetingKind}</tipo_reuniao>
 <avanco_desta_conversa>${input.conversationGoal}
 ${GOAL_FOCUS[input.conversationGoal]}</avanco_desta_conversa>
@@ -205,6 +216,11 @@ ${GOAL_FOCUS[input.conversationGoal]}</avanco_desta_conversa>
 
 O avanço escolhido manda: ele decide o que o Play enfatiza, quais perguntas sobem e qual
 compromisso é o padrão. Um plano que serviria igual para qualquer avanço está errado.
+
+Quem está na sala manda no VOCABULÁRIO e no pedido de fechamento: fale a língua do cargo de
+cada participante (financeiro quer conta, RH quer efeito nas pessoas, operações quer rotina) e
+peça o compromisso a quem tem mandato para dá-lo. Não trate participante sem cadeira
+identificada como decisor.
 
 Primeiro monte o Play; depois monte o banco de reserva. Cubra este checklist: ${checklist}.
 Distribua 20 a 28 perguntas entre preparar (3-4), analisar (10-13), cocriar (4-7) e engajar (3-4).
@@ -222,6 +238,8 @@ Regras dos GANCHOS (máximo 3, e são a cadeia do fato até a conversa):
 Regras das ROTAS DE OBJEÇÃO (máximo 3, uma por cadeira diferente quando possível):
 - sintoma é a frase que o cliente diria, com as palavras dele;
 - cadeira é de quem é a objeção: financeiro, RH, operações, TI ou patrocinador;
+- as cadeiras PRESENTES nesta reunião são: ${input.cadeiras}. Cubra primeiro essas, na ordem
+  em que aparecem nos participantes; só use uma cadeira ausente quando ela for quem assina;
 - explorar é a pergunta que entende a causa antes de responder;
 - evidencia só pode citar os materiais aprovados. Se não houver material aplicável,
   devolva string VAZIA. Saber que não temos prova vale mais do que inventar uma;
@@ -522,6 +540,10 @@ async function planejarConversa(req: Request) {
       hasConversation: memory.hasConversations,
     });
     const audience = requestedAudience || opportunity?.primaryContact || '';
+    // Quem está na sala vira lista com cargo e cadeira: o cargo do CRM vence o
+    // digitado, e a cadeira é o que faz a rota de objeção falar com quem está lá.
+    const contatosDaConta = accountId ? await listCopilotAccountContacts(access, accountId) : [];
+    const participantes = enriquecerComContatos(parseParticipantes(audience), contatosDaConta);
     const segment = opportunity?.segment || account?.segment || null;
     const privateContext = [opportunity?.text, context].filter(Boolean).join('\n\n');
 
@@ -573,6 +595,8 @@ async function planejarConversa(req: Request) {
         meetingKind,
         conversationGoal,
         audience,
+        participantes: formatarParticipantes(participantes),
+        cadeiras: cadeirasPresentes(participantes).join(', ') || 'nenhuma identificada',
         goalThisHour: requestedGoal,
         factsCount: Array.isArray(research?.fatos_relevantes) ? Math.min(research.fatos_relevantes.length, 8) : 0,
         memory,

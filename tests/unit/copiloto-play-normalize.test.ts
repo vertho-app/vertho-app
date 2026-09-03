@@ -19,7 +19,7 @@ const execution = {
 describe('avanço escolhido no plano', () => {
   const memoriaVazia = {
     hasConversations: false, covered: [], pending: [],
-    nextStep: '', pains: [], objections: [], commitments: [], anchorAnswers: [],
+    nextStep: '', pains: [], objections: [], commitments: [], stakeholders: [], anchorAnswers: [],
   };
   const pesquisaVazia = {
     empresa_identificada: 'Conta', resumo_empresa: '', fatos_relevantes: [], tendencias_setor: [],
@@ -125,6 +125,7 @@ describe('normalização do Play da reunião', () => {
         pains: ['PDI sem acompanhamento.'],
         objections: [],
         commitments: ['Enviar one-pager.'],
+        stakeholders: [],
         anchorAnswers: [],
       },
     });
@@ -170,7 +171,7 @@ describe('normalização do Play da reunião', () => {
         covered: [...covered],
         pending: [],
         nextStep: 'Retomar contrato.',
-        pains: [], objections: [], commitments: [], anchorAnswers: [],
+        pains: [], objections: [], commitments: [], stakeholders: [], anchorAnswers: [],
       },
     });
 
@@ -206,7 +207,7 @@ describe('normalização do Play da reunião', () => {
       memory: {
         hasConversations: false, covered: [],
         pending: ['situacao_atual', 'dor_principal', 'impacto', 'tentativas', 'criterio', 'decisor', 'orcamento', 'prazo'],
-        nextStep: '', pains: [], objections: [], commitments: [], anchorAnswers: [],
+        nextStep: '', pains: [], objections: [], commitments: [], stakeholders: [], anchorAnswers: [],
       },
     });
 
