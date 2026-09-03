@@ -12,6 +12,18 @@
  */
 
 import type { DemoRoster } from '@/lib/demo/rosters/types';
+// O funil do ACME é DERIVADO (mapeados -> fatia em jornada -> concluídos por
+// exclusão), com asserções de coerência no próprio arquivo. O roster referencia
+// essas constantes em vez de copiar as listas: uma cópia divergiria em silêncio
+// na primeira vez que alguém mexesse em um dos dois lados.
+import {
+  ACME_DEMO_BEHIND_KEYS,
+  ACME_DEMO_CONCLUDED_KEYS,
+  ACME_DEMO_JOURNEY_KEYS,
+  ACME_DEMO_SYNTHETIC_MAPPED_KEYS,
+  ACME_DEMO_WITHOUT_PROFILE_KEYS,
+} from '@/lib/demo/acme-rh-report-fixture';
+import { REGUA_ACME } from '@/lib/demo/acme-evolucao-fixture';
 
 // Gerente Comercial sai do FIXTURE (o acme não tinha competências/cenários do
 // cargo — só o cargo+Top5) e é construído fresco em DEMO_EXTRA_ROLES (pacote
@@ -188,5 +200,46 @@ export const ROSTER_COMERCIAL: DemoRoster = {
   respostas: {
     padrao: (competencia, persona) => respostaComercialPadrao(competencia, persona),
     forte: (competencia) => respostaComercialForte(competencia),
+  },
+
+  // ── O que era código específico do ACME dentro do reset ──────────────────
+  //
+  // Estes quatro campos não mudam nada do que o tenant mostra hoje: eles
+  // apenas movem a MESMA informação do `if (slug === DEMO_SLUG)` para a
+  // declaração do roster. O ganho é que o motor genérico passa a enxergá-la —
+  // e toda capacidade que nasce no caminho do roster (percurso da persona,
+  // cadência, sinais de engajamento) vale para o ACME sem uma linha a mais.
+  // ⚠️ `diretorio` fica FORA de propósito. O `gruposinal` usa este mesmo roster
+  // e hoje tem 8 pessoas (só as navegáveis); declarar o diretório aqui daria a
+  // ele as 30 do ACME de uma vez. O ACME segue lendo `ACME_DEMO_REPORT_DIRECTORY`
+  // pela ramificação em `diretorioDoAmbiente` — é a última que sobra, e mexer
+  // nela é uma decisão sobre o elenco do gruposinal, não sobre o motor.
+  //
+  // Consequência benigna: o `panorama` abaixo referencia chaves do diretório do
+  // ACME, então no gruposinal ele não encontra ninguém e não faz nada.
+  reguaEvolucao: REGUA_ACME,
+  panorama: {
+    semPerfil: [...ACME_DEMO_WITHOUT_PROFILE_KEYS],
+    mapeados: [...ACME_DEMO_SYNTHETIC_MAPPED_KEYS],
+    // Em jornada = quem não concluiu, MENOS as personas navegáveis.
+    //
+    // O panorama descreve as pessoas de APOIO; quem a demo abre na tela tem
+    // estado real, construído pelo motor, e o seed sintético por cima disso
+    // colide no progresso que já existe (`bruna` é a persona de vitrine do
+    // ACME e entra em `ACME_DEMO_JOURNEY_KEYS` justamente por estar em jornada).
+    // Concluídos e em jornada seguem disjuntos: alguém nas duas listas é a
+    // contradição que mais estraga a apresentação.
+    emJornada: ACME_DEMO_JOURNEY_KEYS.filter((key) => (
+      !ACME_DEMO_CONCLUDED_KEYS.includes(key)
+      && !PERSONAS.some((persona) => persona.key === key)
+    )),
+    concluidos: [...ACME_DEMO_CONCLUDED_KEYS],
+    /**
+     * Quem perdeu a cadência: os dois gestores e uma pessoa de operações. A
+     * escolha não é decorativa — são os únicos do cargo deles entre quem entrou
+     * em jornada, e deixá-los concluir produziria competências medidas com UMA
+     * pessoa no painel de evolução, ao lado de médias de nove.
+     */
+    atrasados: [...ACME_DEMO_BEHIND_KEYS],
   },
 };

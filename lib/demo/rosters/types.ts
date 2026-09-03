@@ -191,6 +191,17 @@ export type DemoRoster = {
     emJornada?: string[];
     /** Jornada encerrada — é o que libera a tela de evolução. */
     concluidos?: string[];
+    /**
+     * Quem perdeu a cadência: a jornada começou há mais tempo e o percurso não
+     * acompanhou. Não é um status próprio — é a `data_inicio` recuada, que faz
+     * a régua de atraso do produto (`semanasDeAtraso`) acusar sozinha, em vez
+     * de o seed carimbar um veredito que a tela deveria derivar.
+     *
+     * Precisa ser um subconjunto de `emJornada`: alguém atrasado E concluído ao
+     * mesmo tempo é a contradição mais fácil de produzir aqui, e a que mais
+     * estraga uma apresentação.
+     */
+    atrasados?: string[];
   };
   /**
    * Cargos que existem para ADEQUAÇÃO, não para jornada: entram no ranking (o

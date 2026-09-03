@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { DEMO_PRESENTATION_VIDEO, DEMO_PRESENTATION_WEEK_VIDEO, DEMO_RESET_TABLES, DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo, relatorioIndividualDemoValido } from '@/lib/demo/reset-acme-demo';
 import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
+import { ROSTER_COMERCIAL } from '@/lib/demo/rosters';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile, DISC_SOMA_ALVO } from '@/lib/disc-mapeamento';
 import fixture from '@/lib/demo/acme-demo-fixture.json';
@@ -52,6 +53,41 @@ describe('Personas do acme-demo seguem a régua do produto', () => {
     expect(new Set(ACME_DEMO_BEHIND_KEYS).size).toBe(3);
     expect(ACME_DEMO_JOURNEY_KEYS.filter((key) => !ACME_DEMO_BEHIND_KEYS.includes(key))).toHaveLength(17);
     expect(ACME_DEMO_JOURNEY_KEYS.every((key) => ACME_DEMO_MAPPED_KEYS.includes(key))).toBe(true);
+  });
+
+  /**
+   * Estas duas invariantes viviam como um `if` em runtime dentro de
+   * `seedAcmePanorama`, a função de panorama específica do ACME. Ela foi
+   * absorvida pelo motor genérico (o funil agora é declarado em
+   * `ROSTER_COMERCIAL.panorama`), e a proteção veio junto para onde o CI a
+   * executa — em vez de depender de alguém rodar o reset para descobrir.
+   */
+  it('mantém concluídas e atrasadas como conjuntos DISJUNTOS', () => {
+    expect(new Set(ACME_DEMO_CONCLUDED_KEYS).size).toBe(ACME_DEMO_FUNNEL_TARGETS.concluded);
+    // Uma pessoa atrasada E concluída ao mesmo tempo é a contradição mais fácil
+    // de produzir aqui, e a que mais estraga uma apresentação.
+    const emAmbos = ACME_DEMO_CONCLUDED_KEYS.filter((key) => ACME_DEMO_BEHIND_KEYS.includes(key));
+    expect(emAmbos, `atrasado E concluído: ${emAmbos.join(', ')}`).toEqual([]);
+  });
+
+  it('o panorama do roster comercial descreve o MESMO funil das constantes', () => {
+    // O funil migrou de código específico para a declaração do roster. Se as
+    // duas fontes divergirem, o reset semeia um tenant que contradiz o guard
+    // acima — e nada além deste teste perceberia.
+    const panorama = ROSTER_COMERCIAL.panorama!;
+    expect(panorama.concluidos).toEqual([...ACME_DEMO_CONCLUDED_KEYS]);
+    expect(panorama.atrasados).toEqual([...ACME_DEMO_BEHIND_KEYS]);
+    expect(panorama.semPerfil).toEqual([...ACME_DEMO_WITHOUT_PROFILE_KEYS]);
+
+    // `emJornada` exclui as personas NAVEGÁVEIS: elas têm jornada real,
+    // construída pelo motor, e o percurso sintético por cima colide no
+    // progresso que já existe — derrubando o reset no meio.
+    const navegaveis = new Set(PERSONAS.map((persona) => persona.key));
+    expect((panorama.emJornada ?? []).some((key) => navegaveis.has(key))).toBe(false);
+
+    // Em jornada e concluídos são disjuntos, e juntos cobrem quem entrou.
+    const emJornada = new Set(panorama.emJornada ?? []);
+    expect((panorama.concluidos ?? []).some((key) => emJornada.has(key))).toBe(false);
   });
 
   it('gera PDIs válidos e um consolidado coerente para a central demonstrativa', () => {

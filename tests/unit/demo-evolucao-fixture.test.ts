@@ -161,21 +161,31 @@ describe('Evolução da ACME Demo', () => {
     expect(porDescritor.get('Execução com método e acompanhamento')).toBe(1.6);
   });
 
-  it('o reset semeia o baseline pela MESMA função que o relatório usa', () => {
-    // O elo real entre as duas telas vive no reset, não aqui: é ele que grava
-    // `descriptor_assessments`. Se alguém trocar a nota do baseline por uma
-    // expressão própria, as telas divergem e nenhum teste de unidade do fixture
-    // veria — porque o fixture continuaria coerente consigo mesmo.
+  it('o reset ALINHA o baseline do diagnóstico com o nota_pre do relatório', () => {
+    // ⚠️ A versão anterior deste teste procurava a string
+    // `notaDePartida(pessoa.email, descritor)` DENTRO do arquivo do reset. Ela
+    // quebrou quando o caminho específico do ACME foi absorvido pelo genérico —
+    // corretamente, porque a invariante estava mesmo em risco (o código novo só
+    // fazia `update`, e `update` que não acha a linha não avisa). Mas um teste
+    // que casa string não distingue "a invariante quebrou" de "a implementação
+    // mudou": ele acusa as duas coisas do mesmo jeito e, pior, ficaria VERDE se
+    // alguém mantivesse a chamada num ramo morto.
+    //
+    // Agora a asserção é sobre o MECANISMO: o reset tem que escrever em
+    // `descriptor_assessments` usando o `nota_pre` que veio do relatório, e tem
+    // que cobrir o caso da linha inexistente. As três checagens abaixo caem se
+    // qualquer uma das duas metades sumir.
     const reset = readFileSync('lib/demo/reset-acme-demo.ts', 'utf8');
     const trecho = reset.slice(
-      reset.indexOf('const assessmentsDaJornada'),
-      reset.indexOf('const todosAssessments'),
+      reset.indexOf('O T0 dos comportamentos trabalhados'),
+      reset.indexOf('const { data: trilhaDaPessoa'),
     );
-    expect(trecho).toContain('notaDePartida(pessoa.email, descritor)');
-    // O reset semeia a MESMA lista que a vitrine exibe. A checagem é pelo nome
-    // da função porque foi o corte por índice (`slice(0, CONSTANTE)`) que
-    // silenciosamente virou lista vazia quando a constante mudou de tipo.
-    expect(trecho).toContain('descritoresDaVitrineAcme(ACME_DEMO_DESCRITORES)');
+    expect(trecho.length, 'bloco de alinhamento do T0 não encontrado no reset').toBeGreaterThan(200);
+    // A nota vem do RELATÓRIO, não de uma segunda chamada da régua: um segundo
+    // caminho de cálculo é exatamente como as duas telas divergem.
+    expect(trecho).toContain('nota: descritor.nota_pre');
+    // E a linha é GARANTIDA, não só atualizada.
+    expect(trecho).toContain('.insert(');
   });
 
   it('grava a média que o painel do gestor usa para calcular o delta', () => {

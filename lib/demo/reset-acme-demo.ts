@@ -2003,12 +2003,29 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       const cfgJornada = getProgramaConfigByModo(roster.programaModo);
       const checkpoint = cfgJornada.semanasCheckpoint[0] ?? 3;
       const iniciadoEm = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString();
+      // Quem perdeu a cadência: o relógio anda 28 dias e o percurso fica em UMA
+      // semana. O atraso não é carimbado — sai da distância entre a data de
+      // início e o que a pessoa concluiu, que é exatamente o que
+      // `semanasDeAtraso` mede na tela. Carimbar um status faria a demo mostrar
+      // um veredito que a régua do produto não sabe produzir.
+      const atrasados = new Set(panorama.atrasados ?? []);
+      const iniciadoAtrasado = new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString();
 
       for (const [indice, linha] of emJornada.entries()) {
         const { data: trilhaAtiva, error: errBusca } = await sb.from('trilhas')
           .select('id').eq('empresa_id', destId).eq('colaborador_id', linha.id).maybeSingle();
         if (errBusca) throw new Error(`panorama: trilha ativa de ${linha.key}: ${errBusca.message}`);
         if (!trilhaAtiva?.id) continue;
+
+        // Quem JÁ tem percurso não é reescrito. O panorama é sintético e serve
+        // as pessoas de apoio; se uma persona navegável entrar na lista por
+        // engano, o insert colide na unique de (trilha, semana) e derruba o
+        // reset INTEIRO no meio — deixando o tenant pela metade, que é o pior
+        // modo de falha possível aqui.
+        const { data: jaPercorreu, error: errJa } = await sb.from('temporada_semana_progresso')
+          .select('semana').eq('trilha_id', trilhaAtiva.id).limit(1);
+        if (errJa) throw new Error(`panorama: percurso existente de ${linha.key}: ${errJa.message}`);
+        if (jaPercorreu?.length) continue;
 
         // Quem sustenta o card "Ação esta semana" do gestor.
         //
@@ -2024,12 +2041,16 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         // esqueleto.
         const personaCobreCheckpoint = !!roster.percursoDaPersona?.emAndamento
           && cfgJornada.semanasCheckpoint.includes(roster.percursoDaPersona.emAndamento);
-        const concluidas = (indice === 0 && !personaCobreCheckpoint)
-          ? checkpoint
-          : Math.max(1, checkpoint - 1 - indice);
-        const percurso = construirPercursoAnterior(cfgJornada.semanas, [], iniciadoEm);
+        const estaAtrasado = atrasados.has(linha.key);
+        const concluidas = estaAtrasado
+          ? 1
+          : (indice === 0 && !personaCobreCheckpoint)
+            ? checkpoint
+            : Math.max(1, checkpoint - 1 - indice);
+        const inicioDesta = estaAtrasado ? iniciadoAtrasado : iniciadoEm;
+        const percurso = construirPercursoAnterior(cfgJornada.semanas, [], inicioDesta);
         const { error: errPlano } = await sb.from('trilhas')
-          .update({ temporada_plano: percurso.plano, data_inicio: iniciadoEm })
+          .update({ temporada_plano: percurso.plano, data_inicio: inicioDesta })
           .eq('id', trilhaAtiva.id).eq('empresa_id', destId);
         if (errPlano) throw new Error(`panorama: plano ativo de ${linha.key}: ${errPlano.message}`);
 
@@ -2071,17 +2092,41 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         );
 
         // O T0 dos comportamentos trabalhados passa a ser o do RELATÓRIO. O
-        // laço acima gravou 2,6 para todos: mantê-lo faria a tela de
+        // laço acima gravou uma nota única para todos: mantê-la faria a tela de
         // diagnóstico e a de evolução mostrarem notas de partida diferentes
         // para a mesma pessoa, no mesmo comportamento.
+        //
+        // 🔴 GARANTIR, não só atualizar. `update` que não encontra a linha
+        // devolve SUCESSO e zero linhas afetadas — sem erro e sem aviso. Os
+        // descritores da vitrine nem sempre existem em `descriptor_assessments`
+        // (no ACME eles são transversais e não saem do Top 5 do cargo), e ali o
+        // update silencioso deixava 58 pares descritor×pessoa com o T0 errado.
+        // O escolar não sentia, porque lá os dois conjuntos coincidem — o tipo
+        // de diferença que faz um bug parecer resolvido em metade dos casos.
         for (const descritor of evolucao.descritores) {
-          const { error } = await sb.from('descriptor_assessments')
-            .update({ nota: descritor.nota_pre })
-            .eq('empresa_id', destId)
-            .eq('colaborador_id', linha.id)
-            .eq('competencia', evolucao.competencia)
-            .eq('descritor', descritor.descritor);
-          if (error) throw new Error(`panorama: baseline de ${linha.key}: ${error.message}`);
+          const alvo = {
+            empresa_id: destId,
+            colaborador_id: linha.id,
+            competencia: evolucao.competencia,
+            descritor: descritor.descritor,
+          };
+          const { data: existente, error: errBusca } = await sb.from('descriptor_assessments')
+            .select('id')
+            .match(alvo)
+            .limit(1);
+          if (errBusca) throw new Error(`panorama: baseline de ${linha.key}: ${errBusca.message}`);
+
+          // `nivel` é coluna GENERATED ALWAYS — nunca vai no payload.
+          const escrita = existente?.length
+            ? await sb.from('descriptor_assessments').update({ nota: descritor.nota_pre }).match(alvo)
+            : await sb.from('descriptor_assessments').insert({
+              ...alvo,
+              cargo: linha.pessoa?.cargo || null,
+              nota: descritor.nota_pre,
+              origem: 'ia4',
+              assessment_date: new Date().toISOString().slice(0, 10),
+            });
+          if (escrita.error) throw new Error(`panorama: baseline de ${linha.key}: ${escrita.error.message}`);
         }
 
         const { data: trilhaDaPessoa, error: errTrilha } = await sb.from('trilhas')
@@ -2235,201 +2280,19 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     }
   }
 
-  async function seedAcmePanorama(destId: string, personaMap: Map<string, string>) {
-    if (slug !== DEMO_SLUG) return;
-
-    const pessoaPorChave = new Map<string, any>([
-      ...roster.personas.map((pessoa) => [pessoa.key, pessoa] as const),
-      ...ACME_DEMO_REPORT_DIRECTORY.map((pessoa) => [pessoa.key, pessoa] as const),
-    ]);
-    const agora = new Date();
-    const assessmentDate = agora.toISOString();
-
-    const assessments = ACME_DEMO_SYNTHETIC_MAPPED_KEYS.flatMap((key) => {
-      const pessoa = pessoaPorChave.get(key);
-      const colaboradorId = personaMap.get(key);
-      if (!pessoa || !colaboradorId) throw new Error(`pessoa do funil ACME ausente: ${key}`);
-      return competenciasAcmeDemoPorCargo(pessoa.cargo).map((competencia, index) => ({
-        empresa_id: destId,
-        colaborador_id: colaboradorId,
-        cargo: pessoa.cargo,
-        competencia,
-        descritor: `Evidência demonstrativa ${index + 1}`,
-        nota: 2 + ((key.length + index) % 3) * 0.5,
-        origem: 'ia4',
-        assessment_date: assessmentDate,
-      }));
-    });
-    // T0 dos descritores que a jornada vai trabalhar. Precisa existir com a
-    // MESMA nota que o Evolution Report grava em `nota_pre`: é o que impede a
-    // tela de diagnóstico e a de evolução de contarem histórias diferentes
-    // sobre a mesma pessoa no meio de uma apresentação.
-    const assessmentsDaJornada = ACME_DEMO_CONCLUDED_KEYS.flatMap((key) => {
-      const pessoa = pessoaPorChave.get(key);
-      const colaboradorId = personaMap.get(key);
-      if (!pessoa || !colaboradorId) throw new Error(`pessoa concluída do funil ACME ausente: ${key}`);
-      const competencia = competenciasAcmeDemoPorCargo(pessoa.cargo)[0];
-      if (!competencia) throw new Error(`cargo sem competência na régua da ACME Demo: ${pessoa.cargo}`);
-      return descritoresDaVitrineAcme(ACME_DEMO_DESCRITORES).map((descritor) => ({
-        empresa_id: destId,
-        colaborador_id: colaboradorId,
-        cargo: pessoa.cargo,
-        competencia,
-        descritor,
-        nota: notaDePartida(pessoa.email, descritor),
-        origem: 'ia4',
-        assessment_date: assessmentDate,
-      }));
-    });
-
-    const todosAssessments = [...assessments, ...assessmentsDaJornada];
-    if (todosAssessments.length) {
-      const result = await sb.from('descriptor_assessments').insert(todosAssessments);
-      if (result.error) throw new Error(`mapeamentos do panorama ACME: ${result.error.message}`);
-    }
-
-    const formatDate = (date: Date) => new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
-    }).format(date);
-    const hojeDemo = formatDate(agora);
-    const inicioAtrasado = formatDate(new Date(agora.getTime() - 28 * 24 * 60 * 60 * 1000));
-    const atrasadas = new Set(ACME_DEMO_BEHIND_KEYS);
-    const trilhasExistentes = await must('listar jornadas do panorama ACME', sb.from('trilhas')
-      .select('id,colaborador_id,numero_temporada,status')
-      .eq('empresa_id', destId));
-    const trilhaTemporadaUmPorPessoa = new Map(
-      (trilhasExistentes || [])
-        .filter((trilha: any) => trilha.numero_temporada === 1)
-        .map((trilha: any) => [trilha.colaborador_id, trilha]),
-    );
-    const idsEmJornada = new Set(ACME_DEMO_JOURNEY_KEYS.map((key) => personaMap.get(key)));
-    for (const trilha of trilhasExistentes || []) {
-      if (trilha.status !== TRILHA.ATIVA || idsEmJornada.has(trilha.colaborador_id)) continue;
-      const result = await sb.from('trilhas').update({ status: TRILHA.PAUSADA })
-        .eq('id', trilha.id).eq('empresa_id', destId);
-      if (result.error) throw new Error(`pausar jornada fora do panorama ACME: ${result.error.message}`);
-    }
-
-    const concluidas = new Set<string>(ACME_DEMO_CONCLUDED_KEYS);
-    // Espalha as pessoas do MESMO cargo entre competências, para o painel de
-    // evolução não exibir médias de uma pessoa ao lado de médias de nove.
-    const distribuicao = distribuicaoPorCargo(
-      ACME_DEMO_CONCLUDED_KEYS.map((chave) => ({
-        chave,
-        cargo: pessoaPorChave.get(chave)?.cargo || '',
-      })),
-    );
-    // O fechamento é datado no passado para a jornada não parecer concluída no
-    // mesmo dia em que começou — quem apresenta a demo é perguntado sobre isso.
-    const inicioConcluido = formatDate(new Date(agora.getTime() - 105 * 24 * 60 * 60 * 1000));
-    const fechamentoEm = new Date(agora.getTime() - 6 * 24 * 60 * 60 * 1000).toISOString();
-
-    for (const key of ACME_DEMO_JOURNEY_KEYS) {
-      const pessoa = pessoaPorChave.get(key);
-      const colaboradorId = personaMap.get(key);
-      if (!pessoa || !colaboradorId) throw new Error(`jornada do funil ACME ausente: ${key}`);
-      const concluiu = concluidas.has(key);
-      const dataInicio = concluiu ? inicioConcluido : (atrasadas.has(key) ? inicioAtrasado : hojeDemo);
-
-      // A evolução é DERIVADA (notas + régua de produção), nunca carimbada:
-      // ver o cabeçalho de `acme-evolucao-fixture`.
-      const evolucao = concluiu
-        ? construirEvolucaoAcmeDemo(
-            pessoa,
-            ACME_DEMO_EVOLUTION_MIX[ACME_DEMO_CONCLUDED_KEYS.indexOf(key)],
-            distribuicao.get(key),
-          )
-        : null;
-      // A competência da trilha é a que o RELATÓRIO mediu — as duas divergindo
-      // fariam o painel agrupar a pessoa numa competência e o relatório dela
-      // falar de outra.
-      const competencia = evolucao ? evolucao.competencia : competenciasAcmeDemoPorCargo(pessoa.cargo)[0];
-      const descritoresDaTrilha = evolucao
-        ? evolucao.descritores.map((d) => ({ descritor: d.descritor, competencia, nota_atual: d.nota_pre }))
-        : ['Evidência demonstrativa'];
-      const camposDeFechamento = evolucao
-        ? {
-            status: TRILHA.CONCLUIDA,
-            evolution_report: evolucao.evolution_report,
-            evolution_generated_at: fechamentoEm,
-          }
-        : { status: TRILHA.ATIVA };
-
-      const existente = trilhaTemporadaUmPorPessoa.get(colaboradorId) as any;
-      let trilhaId: string | null = existente?.id || null;
-      if (existente) {
-        const result = await sb.from('trilhas').update({
-          ...camposDeFechamento,
-          data_inicio: dataInicio,
-          ...(evolucao ? { competencia_foco: competencia, competencias_foco: [competencia], descritores_selecionados: descritoresDaTrilha } : {}),
-        }).eq('id', existente.id).eq('empresa_id', destId);
-        if (result.error) throw new Error(`atualizar jornada ${key}: ${result.error.message}`);
-      } else {
-        const inserida = await must(`inserir jornada ${key}`, sb.from('trilhas').insert({
-          empresa_id: destId,
-          colaborador_id: colaboradorId,
-          numero_temporada: 1,
-          cursos: [],
-          ...camposDeFechamento,
-          criado_em: assessmentDate,
-          data_inicio: dataInicio,
-          competencia_foco: competencia,
-          competencias_foco: [competencia],
-          descritores_selecionados: descritoresDaTrilha,
-          temporada_plano: Array.from({ length: 14 }, (_, index) => ({
-            semana: index + 1,
-            tipo: DEMO_JOURNEY_CONTENT_KIND,
-            status: evolucao ? PLANO_SEMANA.CONCLUIDA : (index === 0 ? PLANO_SEMANA.DISPONIVEL : PLANO_SEMANA.BLOQUEADA),
-            competencia,
-            descritor: evolucao
-              ? evolucao.descritores[index % evolucao.descritores.length].descritor
-              : 'Evidência demonstrativa',
-          })),
-        }).select('id').single());
-        trilhaId = inserida?.id || null;
-      }
-
-      if (!evolucao || !trilhaId) continue;
-
-      // Progresso das 14 semanas. É DELETE antes de INSERT porque a persona
-      // navegável pode ter chegado aqui com as primeiras semanas já semeadas
-      // pelo bloco de personas; sem isso a jornada concluída ganharia duas
-      // linhas para a mesma semana e a tela mostraria a primeira que voltasse.
-      const limpeza = await sb.from('temporada_semana_progresso')
-        .delete().eq('trilha_id', trilhaId).eq('empresa_id', destId);
-      if (limpeza.error) throw new Error(`limpar progresso de ${key}: ${limpeza.error.message}`);
-
-      const fechamento = construirFechamentoAcmeDemo(evolucao, fechamentoEm);
-      const semanasAnteriores = Array.from({ length: 12 }, (_, index) => ({
-        semana: index + 1,
-        tipo: DEMO_JOURNEY_CONTENT_KIND,
-        status: PROGRESSO.CONCLUIDO,
-        conteudo_consumido: true,
-        iniciado_em: fechamentoEm,
-        concluido_em: fechamentoEm,
-      }));
-      const progresso = [...semanasAnteriores, ...fechamento].map((linha) => ({
-        ...linha,
-        empresa_id: destId,
-        colaborador_id: colaboradorId,
-        trilha_id: trilhaId,
-      }));
-      const gravado = await sb.from('temporada_semana_progresso').insert(progresso);
-      if (gravado.error) throw new Error(`progresso da jornada concluída ${key}: ${gravado.error.message}`);
-      continue;
-    }
-
-    if (
-      ACME_DEMO_WITHOUT_PROFILE_KEYS.length !== ACME_DEMO_TEAM_SIZE - ACME_DEMO_FUNNEL_TARGETS.withProfile
-      || ACME_DEMO_SYNTHETIC_MAPPED_KEYS.length + 2 !== ACME_DEMO_FUNNEL_TARGETS.withMapping
-      || ACME_DEMO_JOURNEY_KEYS.length !== ACME_DEMO_FUNNEL_TARGETS.inJourney
-      || ACME_DEMO_BEHIND_KEYS.length !== ACME_DEMO_FUNNEL_TARGETS.behind
-      || ACME_DEMO_CONCLUDED_KEYS.length !== ACME_DEMO_FUNNEL_TARGETS.concluded
-      || ACME_DEMO_CONCLUDED_KEYS.some((key) => ACME_DEMO_BEHIND_KEYS.includes(key))
-    ) {
-      throw new Error('coortes do panorama ACME não correspondem aos totais declarados');
-    }
-  }
+  // `seedAcmePanorama` foi REMOVIDA (03/09/2026).
+  //
+  // Ela semeava o funil do ACME por um atalho de slug, em paralelo a
+  // `seedPanoramaDoRoster` — e era por isso que o ACME não recebia nada do que
+  // nascia no caminho genérico: percurso da persona, cadência da jornada e os
+  // sinais de engajamento. `Medido: 03/09/2026`, antes da unificação o tenant
+  // tinha 0 linhas em `fase4_envios` e 0 em `trilha_eventos`, com a tela de
+  // engajamento do gestor em branco.
+  //
+  // O funil agora é declarado em `ROSTER_COMERCIAL.panorama`, e as invariantes
+  // que ela checava em runtime viraram asserções em
+  // `tests/unit/demo-personas-regua.test.ts` — onde o CI as executa, em vez de
+  // esperarem alguém rodar o reset para falar.
 
   /**
    * Relatórios sintéticos, exclusivos da ACME, para a demonstração do papel RH.
@@ -2574,8 +2437,11 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     // Depois do replay, de propósito: o panorama COMPLETA o que falta, e a
     // persona que tem artefato congelado já trouxe o dela. Rodando antes, os
     // dois disputavam a mesma chave (colaborador, competência, descritor).
+    // Um caminho só. `seedAcmePanorama` fazia o mesmo trabalho por um atalho de
+    // slug, e por isso o ACME não recebia nada do que nascia no caminho do
+    // roster — percurso da persona, cadência, sinais de engajamento. Agora o
+    // funil dele é declarado em `ROSTER_COMERCIAL.panorama`, como o do escolar.
     await seedPanoramaDoRoster(demo.id, personaMap);
-    await seedAcmePanorama(demo.id, personaMap);
     await ensurePresentationVideo(demo.id, personaMap);
     await ensureVideoDaJornada(demo.id, personaMap);
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
