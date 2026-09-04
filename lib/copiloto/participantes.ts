@@ -157,7 +157,26 @@ function urlPublica(valor: unknown): string | null {
   }
 }
 
-export function normalizarPessoas(bruto: unknown, maxPessoas = 4): PessoaDescoberta[] {
+/**
+ * Quando a fonte é o perfil que o VENDEDOR informou, a identidade está resolvida.
+ *
+ * O modelo é conservador e marca "provavel" para achado que veio do perfil, por
+ * não ter uma terceira fonte ligando nome, cargo e empresa. Mas quem informou o
+ * perfil foi quem marcou a reunião: a dúvida que o rebaixamento existe para
+ * cobrir, o homônimo, já foi respondida por ele.
+ */
+function ancorada(sourceUrl: string, perfisInformados: string[]): boolean {
+  if (!perfisInformados.length) return false;
+  const slug = (valor: string) => valor.toLowerCase().split('/in/')[1]?.replace(/\/$/, '') || '';
+  const alvo = slug(sourceUrl);
+  return !!alvo && perfisInformados.some((perfil) => slug(perfil) === alvo);
+}
+
+export function normalizarPessoas(
+  bruto: unknown,
+  maxPessoas = 4,
+  perfisInformados: string[] = [],
+): PessoaDescoberta[] {
   const lista = Array.isArray(bruto) ? bruto : [];
   const vistos = new Set<string>();
   const saida: PessoaDescoberta[] = [];
@@ -188,7 +207,9 @@ export function normalizarPessoas(bruto: unknown, maxPessoas = 4): PessoaDescobe
       role,
       publicStance: textoCurto((item as any)?.defende_publicamente, 600),
       sourceUrl,
-      confidence: confianca === 'confirmado' ? 'confirmado' : 'inferencia',
+      confidence: confianca === 'confirmado' || ancorada(sourceUrl, perfisInformados)
+        ? 'confirmado'
+        : 'inferencia',
       verifiable: !HOSTS_NAO_REVALIDAVEIS.test(host),
     });
   }
@@ -207,20 +228,20 @@ export function fundirComDescobertos(
   informados: Participante[],
   descobertos: PessoaDescoberta[],
 ): Array<Participante & { descoberto?: boolean }> {
-  const porNome = new Map(descobertos.map((p) => [p.name.toLocaleLowerCase('pt-BR'), p]));
   const usados = new Set<string>();
 
   const lista: Array<Participante & { descoberto?: boolean }> = informados.map((p) => {
-    const chave = p.nome.toLocaleLowerCase('pt-BR');
-    const achado = porNome.get(chave);
-    if (achado) usados.add(chave);
+    const achado = descobertos.find((d) => mesmaPessoa(d.name, p.nome));
+    if (achado) usados.add(achado.name);
+    // O nome completo da pesquisa substitui o apelido digitado: é ele que o
+    // vendedor vai ver no crachá e usar na abertura.
+    const nome = achado && achado.name.length > p.nome.length ? achado.name : p.nome;
     const cargo = p.cargo || achado?.role || '';
-    return { ...p, cargo, seat: cadeiraDoCargo(cargo) };
+    return { ...p, nome, cargo, seat: cadeiraDoCargo(cargo) };
   });
 
   for (const p of descobertos) {
-    const chave = p.name.toLocaleLowerCase('pt-BR');
-    if (usados.has(chave)) continue;
+    if (usados.has(p.name)) continue;
     lista.push({ nome: p.name, cargo: p.role, seat: cadeiraDoCargo(p.role), descoberto: true });
   }
   return lista.slice(0, 8);
@@ -285,13 +306,35 @@ export function nomeDoPerfil(url: string): string {
  * pesquisamos" de "pesquisamos e ela não publica", e a segunda é a que impede
  * de inventar intimidade que não existe.
  */
+/**
+ * "Bruno" e "Bruno Bonito" são a mesma pessoa na sala.
+ *
+ * O vendedor digita o primeiro nome ou o que o slug do perfil sugere; a pesquisa
+ * devolve o nome completo. Comparando string exata, a mesma pessoa aparecia duas
+ * vezes no plano, e a segunda linha dizia "nada público encontrado" sobre quem
+ * acabara de ser encontrado. Casa quando todos os tokens do nome mais curto
+ * estão no mais longo.
+ */
+export function mesmaPessoa(a: string, b: string): boolean {
+  const tokens = (valor: string) => valor
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((parte) => parte.length >= 3);
+
+  const ta = tokens(a);
+  const tb = tokens(b);
+  if (!ta.length || !tb.length) return false;
+  const [curto, longo] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+  return curto.every((token) => longo.includes(token));
+}
+
 export function marcarSemAchado(
   participantes: Participante[],
   encontrados: PessoaDescoberta[],
 ): PessoaDescoberta[] {
-  const achados = new Set(encontrados.map((p) => p.name.toLocaleLowerCase('pt-BR')));
   const faltantes = participantes
-    .filter((p) => p.nome && !achados.has(p.nome.toLocaleLowerCase('pt-BR')))
+    .filter((p) => p.nome && !encontrados.some((achado) => mesmaPessoa(achado.name, p.nome)))
     .map((p) => ({
       name: p.nome,
       role: p.cargo,

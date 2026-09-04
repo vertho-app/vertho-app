@@ -363,6 +363,18 @@ export function normalizePlan(
   const questions = sortQuestionsByGoal(rawQuestions, planning.conversationGoal);
 
   const sourceMap = new Map<string, CopilotSource>();
+  // Os perfis que o vendedor informou entram ANTES dos achados.
+  //
+  // A cota é de 8 por trilha e era preenchida primeiro pelas publicações: com 8
+  // achados do LinkedIn, o perfil do Instagram consultado sumia do ledger e a
+  // tela dizia "8/8" sem mostrar que ele tinha sido lido. Perfil informado é a
+  // prova do que foi CONSULTADO, e é justamente o que não pode faltar quando a
+  // rede não rendeu nada.
+  for (const source of sources) {
+    const url = safeUrl(source.url);
+    if (!url || !isOfficialSocialProfile(url, officialSocialUrls) || sourceMap.has(url)) continue;
+    sourceMap.set(url, { title: text(source.title, 240) || url, url, kind: 'social' });
+  }
   const approvedSocialEvidence = new Set<string>();
   const facts: ResearchFact[] = [];
   let siteSignalsFound = 0;
@@ -627,9 +639,8 @@ async function planejarConversa(req: Request) {
         peopleRequested: result.peopleRequested,
         peopleCompleted: result.peopleCompleted,
       };
-      pessoasDescobertas = researchPeople
-        ? marcarSemAchado(participantes, normalizarPessoas(result.people))
-        : normalizarPessoas(result.people);
+      const achadas = normalizarPessoas(result.people, 4, perfisDePessoa);
+      pessoasDescobertas = researchPeople ? marcarSemAchado(participantes, achadas) : achadas;
     }
 
     // A fusão vem DEPOIS da pesquisa: quem o vendedor informou manda, e o

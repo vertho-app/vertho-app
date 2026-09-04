@@ -6,6 +6,7 @@ import {
   formatarParticipantes,
   fundirComDescobertos,
   marcarSemAchado,
+  mesmaPessoa,
   nomeDoPerfil,
   normalizarPessoas,
   parsePerfisDePessoa,
@@ -243,5 +244,77 @@ describe('marcarSemAchado', () => {
 
   it('sem participantes informados, não inventa ausência', () => {
     expect(marcarSemAchado([], [achado])).toEqual([achado]);
+  });
+});
+
+describe('mesmaPessoa', () => {
+  it('o apelido digitado é a pessoa do nome completo', () => {
+    // O caso real: o vendedor escreveu "Bruno", a pesquisa devolveu "Bruno Bonito",
+    // e o plano mostrava os dois, com o segundo dizendo "nada público encontrado".
+    expect(mesmaPessoa('Bruno', 'Bruno Bonito')).toBe(true);
+    expect(mesmaPessoa('Dayane', 'Dayane Lopes Correa Linares Santana')).toBe(true);
+  });
+
+  it('acento e caixa não separam a mesma pessoa', () => {
+    expect(mesmaPessoa('Kétule Matos', 'ketule matos')).toBe(true);
+  });
+
+  it('pessoas diferentes continuam diferentes', () => {
+    expect(mesmaPessoa('Bruno Bonito', 'Bruno Carvalho')).toBe(false);
+    expect(mesmaPessoa('Ana Prado', 'Paulo Reis')).toBe(false);
+  });
+
+  it('nome curto demais não casa com ninguém', () => {
+    expect(mesmaPessoa('Bo', 'Bruno Bonito')).toBe(false);
+    expect(mesmaPessoa('', 'Bruno Bonito')).toBe(false);
+  });
+});
+
+describe('a duplicata que apareceu no plano da Boehringer', () => {
+  const bruno = {
+    name: 'Bruno Bonito', role: 'Treinador corporativo', publicStance: 'Fala de aprendizagem aplicada.',
+    sourceUrl: 'https://www.linkedin.com/in/bruno-bonito', confidence: 'inferencia' as const, verifiable: false,
+  };
+
+  it('quem foi encontrado não vira ausência declarada', () => {
+    const lista = marcarSemAchado(parseParticipantes('Bruno; Dayane'), [bruno]);
+    expect(lista.map((p) => p.name)).toEqual(['Bruno Bonito', 'Dayane']);
+  });
+
+  it('e não aparece duas vezes na lista de participantes', () => {
+    const lista = fundirComDescobertos(parseParticipantes('Bruno'), [bruno]);
+    expect(lista).toHaveLength(1);
+    // O nome completo da pesquisa substitui o apelido: é o que vai no crachá.
+    expect(lista[0].nome).toBe('Bruno Bonito');
+    expect(lista[0].cargo).toBe('Treinador corporativo');
+  });
+});
+
+describe('o perfil informado resolve a identidade', () => {
+  const doPerfil = (extra: Record<string, unknown> = {}) => ({
+    nome: 'Bruno Bonito', cargo: 'Treinador corporativo', defende_publicamente: 'Aprendizagem aplicada.',
+    fonte_url: 'https://www.linkedin.com/in/bruno-bonito', confianca_identidade: 'provavel', ...extra,
+  });
+
+  it('achado na URL que o vendedor informou sobe para confirmado', () => {
+    const [p] = normalizarPessoas([doPerfil()], 4, ['https://www.linkedin.com/in/bruno-bonito']);
+    expect(p.confidence).toBe('confirmado');
+  });
+
+  it('sem perfil informado, continua inferência', () => {
+    const [p] = normalizarPessoas([doPerfil()], 4, []);
+    expect(p.confidence).toBe('inferencia');
+  });
+
+  it('perfil de OUTRA pessoa não confirma esta', () => {
+    const [p] = normalizarPessoas([doPerfil()], 4, ['https://www.linkedin.com/in/dayane-santana']);
+    expect(p.confidence).toBe('inferencia');
+  });
+
+  it('a âncora não ressuscita quem foi descartado por homônimo', () => {
+    const lista = normalizarPessoas(
+      [doPerfil({ confianca_identidade: 'incerto' })], 4, ['https://www.linkedin.com/in/bruno-bonito'],
+    );
+    expect(lista).toEqual([]);
   });
 });
