@@ -2,6 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   aplicarAprofundamento,
   cadeiraDoCargo,
+  linhasDeParticipantes,
+  parseNotas,
+  serializarNotas,
   cadeirasPresentes,
   enriquecerComContatos,
   formatarParticipantes,
@@ -365,5 +368,51 @@ describe('aplicarAprofundamento', () => {
     const comCargo = { ...base, role: 'Gerente de Treinamento' };
     const [p] = aplicarAprofundamento([comCargo], [extra()]);
     expect(p.role).toBe('Gerente de Treinamento');
+  });
+});
+
+describe('anotações do vendedor sobre cada pessoa', () => {
+  const linhas = [
+    { nome: 'Dayane Lopes', cargo: 'Gestora de T&D', perfil: '', notas: 'Postou sobre convenção de vendas.\n\nFala muito de trilha por competência.' },
+    { nome: 'Bruno Bonito', cargo: 'Treinador', perfil: '', notas: '' },
+    { nome: '', cargo: '', perfil: '', notas: 'sem dono' },
+  ];
+
+  it('só entra quem tem nome E anotação', () => {
+    const texto = serializarNotas(linhas);
+    expect(texto).toContain('## Dayane Lopes');
+    expect(texto).not.toContain('Bruno Bonito');
+    expect(texto).not.toContain('sem dono');
+  });
+
+  it('a anotação sobrevive a parágrafos, que quebrariam um separador de uma linha', () => {
+    const [item] = parseNotas(serializarNotas(linhas));
+    expect(item.nome).toBe('Dayane Lopes');
+    expect(item.notas).toContain('convenção de vendas');
+    expect(item.notas).toContain('trilha por competência');
+  });
+
+  it('a ida e a volta preservam duas pessoas anotadas', () => {
+    const duas = [
+      { nome: 'Ana', cargo: '', perfil: '', notas: 'linha um\nlinha dois' },
+      { nome: 'Paulo', cargo: '', perfil: '', notas: 'outra coisa' },
+    ];
+    expect(parseNotas(serializarNotas(duas))).toEqual([
+      { nome: 'Ana', notas: 'linha um\nlinha dois' },
+      { nome: 'Paulo', notas: 'outra coisa' },
+    ]);
+  });
+
+  it('a anotação volta para a linha da pessoa ao reabrir o plano', () => {
+    const notas = serializarNotas([{ nome: 'Bruno Bonito', cargo: '', perfil: '', notas: 'defende prática no fluxo' }]);
+    const [linha] = linhasDeParticipantes('Bruno, Treinador', '', notas);
+    // O plano salvou "Bruno" e a anotação está em "Bruno Bonito": a mesma régua
+    // de nomes que resolve a duplicata resolve o reencontro.
+    expect(linha.notas).toBe('defende prática no fluxo');
+  });
+
+  it('texto vazio não vira anotação', () => {
+    expect(parseNotas('')).toEqual([]);
+    expect(serializarNotas([])).toBe('');
   });
 });

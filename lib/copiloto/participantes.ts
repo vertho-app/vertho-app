@@ -359,7 +359,51 @@ export function marcarSemAchado(
  * `audience` ("Nome, Cargo; ...") e `peopleProfiles` (uma URL por linha), então
  * plano salvo antes disto continua abrindo.
  */
-export type LinhaParticipante = { nome: string; cargo: string; perfil: string };
+export type LinhaParticipante = {
+  nome: string;
+  cargo: string;
+  perfil: string;
+  /**
+   * O que o vendedor viu no perfil, com a conta dele.
+   *
+   * É o caminho legítimo para o conteúdo que a busca não alcança: ele já está
+   * logado, ler é uso pessoal, e o que ele copia é mais recente e mais fundo do
+   * que qualquer coisa indexada. Isto é briefing PRIVADO — não vai para busca
+   * nenhuma, pelo mesmo motivo que o resto do briefing não vai.
+   */
+  notas: string;
+};
+
+/**
+ * Serializa as anotações com cabeçalho por pessoa.
+ *
+ * O texto é livre e tem quebra de linha, então separador de uma linha só (`;`,
+ * `|`) seria quebrado pela primeira anotação com dois parágrafos. O cabeçalho
+ * `## Nome` sobrevive a qualquer corpo.
+ */
+const QUEBRA = String.fromCharCode(10);
+
+export function serializarNotas(linhas: LinhaParticipante[]): string {
+  return linhas
+    .filter((linha) => linha.nome.trim() && linha.notas.trim())
+    .map((linha) => `## ${linha.nome.trim()}${QUEBRA}${linha.notas.trim()}`)
+    .join(QUEBRA + QUEBRA);
+}
+
+export function parseNotas(texto: string): Array<{ nome: string; notas: string }> {
+  return (texto || '')
+    .split(/^##[ 	]+/m)
+    .map((bloco) => bloco.trim())
+    .filter(Boolean)
+    .map((bloco) => {
+      const quebra = bloco.indexOf(QUEBRA);
+      const nome = (quebra >= 0 ? bloco.slice(0, quebra) : bloco).trim();
+      const notas = quebra >= 0 ? bloco.slice(quebra + 1).trim() : '';
+      return { nome, notas };
+    })
+    .filter((item) => item.nome && item.notas)
+    .slice(0, 8);
+}
 
 export function serializarAudience(linhas: LinhaParticipante[]): string {
   return linhas
@@ -379,22 +423,29 @@ export function serializarPerfis(linhas: LinhaParticipante[]): string {
  * vira linha própria em vez de sumir: URL colada é alguém que o vendedor quis
  * levar para a conversa.
  */
-export function linhasDeParticipantes(audience: string, perfis: string): LinhaParticipante[] {
+export function linhasDeParticipantes(
+  audience: string,
+  perfis: string,
+  notas = '',
+): LinhaParticipante[] {
   const pessoas = parseParticipantes(audience);
   const urls = parsePerfisDePessoa(perfis);
+  const anotacoes = parseNotas(notas);
   const usadas = new Set<string>();
+  const notaDe = (nome: string) => anotacoes.find((item) => mesmaPessoa(item.nome, nome))?.notas || '';
 
   const linhas = pessoas.map((pessoa) => {
     const url = urls.find((candidata) => !usadas.has(candidata) && mesmaPessoa(nomeDoPerfil(candidata), pessoa.nome));
     if (url) usadas.add(url);
-    return { nome: pessoa.nome, cargo: pessoa.cargo, perfil: url || '' };
+    return { nome: pessoa.nome, cargo: pessoa.cargo, perfil: url || '', notas: notaDe(pessoa.nome) };
   });
 
   for (const url of urls) {
     if (usadas.has(url)) continue;
-    linhas.push({ nome: nomeDoPerfil(url), cargo: '', perfil: url });
+    const nome = nomeDoPerfil(url);
+    linhas.push({ nome, cargo: '', perfil: url, notas: notaDe(nome) });
   }
-  return linhas.length ? linhas.slice(0, 8) : [{ nome: '', cargo: '', perfil: '' }];
+  return linhas.length ? linhas.slice(0, 8) : [{ nome: '', cargo: '', perfil: '', notas: '' }];
 }
 
 /**

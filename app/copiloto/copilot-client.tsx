@@ -23,7 +23,8 @@ import { normalizeConversationGoal } from '@/lib/copiloto/dossier';
 import { inferMeetingKind } from '@/lib/copiloto/play';
 import { chaveDaConta, mesclarPerfisSociais, precisaPedirRedes } from '@/lib/copiloto/social-discovery';
 import {
-  linhasDeParticipantes, serializarAudience, serializarPerfis, type LinhaParticipante,
+  linhasDeParticipantes, serializarAudience, serializarNotas, serializarPerfis,
+  type LinhaParticipante,
 } from '@/lib/copiloto/participantes';
 // A MESMA régua que o servidor aplica: o que ela não reconhece é recusado lá com 400.
 import { parseOfficialSocialUrls } from '@/lib/copiloto/social-identity';
@@ -702,6 +703,7 @@ export default function CopilotClient({
   /** Trilha opcional: descobre quem responde por pessoas na organização. */
   const [researchPeople, setResearchPeople] = useState(false);
   const [peopleProfiles, setPeopleProfiles] = useState('');
+  const [peopleNotes, setPeopleNotes] = useState('');
   /**
    * Quem estará na conversa, com nome, cargo e perfil na MESMA linha.
    *
@@ -710,7 +712,7 @@ export default function CopilotClient({
    * enviar, nunca editados à mão.
    */
   const [linhasParticipantes, setLinhasParticipantes] = useState<LinhaParticipante[]>([
-    { nome: '', cargo: '', perfil: '' },
+    { nome: '', cargo: '', perfil: '', notas: '' },
   ]);
   const [socialDiscovery, setSocialDiscovery] = useState<SocialDiscoveryState>({ status: 'idle' });
   const [activePlanningId, setActivePlanningId] = useState('');
@@ -799,6 +801,7 @@ export default function CopilotClient({
           setLinhasParticipantes(linhasDeParticipantes(
             typeof parsed?.audience === 'string' ? parsed.audience : '',
             typeof parsed?.peopleProfiles === 'string' ? parsed.peopleProfiles : '',
+            typeof parsed?.peopleNotes === 'string' ? parsed.peopleNotes : '',
           ));
         }
         if (Array.isArray(parsed?.audienceOptions)) {
@@ -824,6 +827,7 @@ export default function CopilotClient({
   useEffect(() => {
     setAudience(serializarAudience(linhasParticipantes));
     setPeopleProfiles(serializarPerfis(linhasParticipantes));
+    setPeopleNotes(serializarNotas(linhasParticipantes));
   }, [linhasParticipantes]);
 
   useEffect(() => { readingRef.current = reading; }, [reading]);
@@ -1050,7 +1054,7 @@ export default function CopilotClient({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           company, site, socialProfiles, context, offer, opportunityId, accountId,
-          meetingKind, audience, goalThisHour, conversationGoal, researchPeople, peopleProfiles,
+          meetingKind, audience, goalThisHour, conversationGoal, researchPeople, peopleProfiles, peopleNotes,
         }),
       });
       const data = await res.json();
@@ -1093,7 +1097,7 @@ export default function CopilotClient({
         localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify({
           plan: generatedPlan, company, site, socialProfiles, context, offer, opportunityId,
           accountId: linkedAccountId, planningId: savedPlanningId, persisted: !!savedPlanningId,
-          meetingKind, audience, audienceOptions, goalThisHour, conversationGoal, researchPeople, peopleProfiles,
+          meetingKind, audience, audienceOptions, goalThisHour, conversationGoal, researchPeople, peopleProfiles, peopleNotes,
         }));
       } catch {
         // O plano continua utilizável na sessão se o navegador bloquear storage.
@@ -1174,7 +1178,7 @@ export default function CopilotClient({
       setSocialProfiles('');
       setPeopleProfiles('');
       esquecerVarreduraDeRedes();
-      setLinhasParticipantes([{ nome: '', cargo: '', perfil: '' }]);
+      setLinhasParticipantes([{ nome: '', cargo: '', perfil: '', notas: '' }]);
       setAudienceOptions([]);
       setGoalThisHour('');
       setMeetingKind('primeira_conversa');
@@ -1204,7 +1208,7 @@ export default function CopilotClient({
     setOpportunityId(id);
     if (!selected) {
       audienceRequestRef.current += 1;
-      setLinhasParticipantes([{ nome: '', cargo: '', perfil: '' }]);
+      setLinhasParticipantes([{ nome: '', cargo: '', perfil: '', notas: '' }]);
       setAudienceOptions([]);
       setGoalThisHour('');
       setMeetingKind('primeira_conversa');
@@ -1290,13 +1294,13 @@ export default function CopilotClient({
   }
 
   function adicionarLinha() {
-    setLinhasParticipantes((atual) => atual.length >= 8 ? atual : [...atual, { nome: '', cargo: '', perfil: '' }]);
+    setLinhasParticipantes((atual) => atual.length >= 8 ? atual : [...atual, { nome: '', cargo: '', perfil: '', notas: '' }]);
   }
 
   function removerLinha(indice: number) {
     setLinhasParticipantes((atual) => {
       const resto = atual.filter((_, i) => i !== indice);
-      return resto.length ? resto : [{ nome: '', cargo: '', perfil: '' }];
+      return resto.length ? resto : [{ nome: '', cargo: '', perfil: '', notas: '' }];
     });
   }
 
@@ -1308,11 +1312,11 @@ export default function CopilotClient({
     setLinhasParticipantes((atual) => {
       if (atual.some((linha) => linha.nome.trim().toLocaleLowerCase('pt-BR') === nome.toLocaleLowerCase('pt-BR'))) {
         return atual.filter((linha) => linha.nome.trim().toLocaleLowerCase('pt-BR') !== nome.toLocaleLowerCase('pt-BR'))
-          .concat(atual.length === 1 ? [{ nome: '', cargo: '', perfil: '' }] : []);
+          .concat(atual.length === 1 ? [{ nome: '', cargo: '', perfil: '', notas: '' }] : []);
       }
       const vazia = atual.findIndex((linha) => !linha.nome.trim() && !linha.perfil.trim());
-      if (vazia >= 0) return atual.map((linha, i) => i === vazia ? { nome, cargo, perfil: '' } : linha);
-      return atual.length >= 8 ? atual : [...atual, { nome, cargo, perfil: '' }];
+      if (vazia >= 0) return atual.map((linha, i) => i === vazia ? { nome, cargo, perfil: '', notas: '' } : linha);
+      return atual.length >= 8 ? atual : [...atual, { nome, cargo, perfil: '', notas: '' }];
     });
   }
 
@@ -1708,6 +1712,22 @@ export default function CopilotClient({
                     >
                       <Ban size={13} />
                     </button>
+                    {/*
+                      O que a busca não alcança e o vendedor alcança: ele abre o
+                      perfil com a conta dele e cola o que interessa. Só aparece
+                      com o nome preenchido, para a linha vazia não pesar.
+                    */}
+                    {!!linha.nome.trim() && (
+                      <textarea
+                        className={styles.pessoaNotas}
+                        value={linha.notas}
+                        onChange={(event) => editarLinha(indice, 'notas', event.target.value)}
+                        rows={2}
+                        maxLength={4000}
+                        placeholder={`O que você viu no perfil de ${linha.nome.trim().split(' ')[0]}: temas dos posts, o que ela defende, movimentos recentes`}
+                        aria-label={`Anotações sobre ${linha.nome.trim()}`}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

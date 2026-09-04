@@ -33,8 +33,8 @@ import {
 import { limitSourcesByKind } from '@/lib/copiloto/source-selection';
 import {
   cadeirasPresentes, enriquecerComContatos, formatarParticipantes, fundirComDescobertos,
-  aplicarAprofundamento, marcarSemAchado, nomeDoPerfil, normalizarPessoas, parsePerfisDePessoa,
-  parseParticipantes,
+  aplicarAprofundamento, marcarSemAchado, nomeDoPerfil, normalizarPessoas, parseNotas,
+  parsePerfisDePessoa, parseParticipantes,
 } from '@/lib/copiloto/participantes';
 import {
   DISCOVERY_CHECKLIST, PACE_PHASES,
@@ -195,6 +195,8 @@ function synthesisPrompt(input: {
   cadeiras: string;
   /** O que cada pessoa trata publicamente no trabalho, com a fonte. Pode ser vazio. */
   pessoasPublicas: string;
+  /** O que o vendedor viu nos perfis. Privado: não passou por busca nenhuma. */
+  pessoasObservadas: string;
   goalThisHour: string;
   factsCount: number;
   memory: CopilotPlanningMemory;
@@ -213,6 +215,10 @@ ${input.participantes}
 <atuacao_publica_das_pessoas>
 ${input.pessoasPublicas}
 </atuacao_publica_das_pessoas>
+
+<o_que_o_vendedor_viu_nos_perfis>
+${input.pessoasObservadas}
+</o_que_o_vendedor_viu_nos_perfis>
 <tipo_reuniao>${input.meetingKind}</tipo_reuniao>
 <avanco_desta_conversa>${input.conversationGoal}
 ${GOAL_FOCUS[input.conversationGoal]}</avanco_desta_conversa>
@@ -226,6 +232,12 @@ ${GOAL_FOCUS[input.conversationGoal]}</avanco_desta_conversa>
 
 O avanço escolhido manda: ele decide o que o Play enfatiza, quais perguntas sobem e qual
 compromisso é o padrão. Um plano que serviria igual para qualquer avanço está errado.
+
+O bloco do que o vendedor VIU NOS PERFIS é observação dele, feita com a conta dele: é mais
+recente e mais específica do que qualquer coisa indexada, e por isso tem PRECEDÊNCIA sobre a
+pesquisa pública quando as duas falarem da mesma pessoa. Ele pode virar abertura com
+naturalidade ("vi que você publicou sobre X"), mas continua valendo a regra de não deduzir
+personalidade a partir do que a pessoa escreveu.
 
 A atuação pública das pessoas só serve para ABRIR e para escolher o ângulo: cite o que a pessoa
 publicou ou disse em público, com a fonte, e nunca uma leitura sobre como ela é. Se o bloco disser
@@ -545,6 +557,9 @@ async function planejarConversa(req: Request) {
     const researchPeople = body?.researchPeople === true;
     // Perfil de PESSOA é âncora de identidade contra homônimo, nunca fonte.
     const perfisDePessoa = parsePerfisDePessoa(text(body?.peopleProfiles, MAX.socialProfiles));
+    // O que o vendedor viu no perfil com a conta dele: briefing privado, e por
+    // isso NÃO entra em nenhuma busca — só na síntese.
+    const anotacoesDePessoas = parseNotas(text(body?.peopleNotes, MAX.context));
 
     if (!offer) return NextResponse.json({ error: 'Descreva o que você vende' }, { status: 400 });
     if (requestedAccountId && !UUID.test(requestedAccountId)) {
@@ -679,6 +694,9 @@ async function planejarConversa(req: Request) {
         conversationGoal,
         audience,
         participantes: formatarParticipantes(participantesFinais),
+        pessoasObservadas: anotacoesDePessoas.length
+          ? anotacoesDePessoas.map((item) => `- ${item.nome}: ${item.notas}`).join('\n')
+          : 'nada anotado',
         pessoasPublicas: pessoasDescobertas.length
           ? pessoasDescobertas
             .map((pessoa) => {
