@@ -32,7 +32,11 @@ export default function PlatformAdminsPage() {
     setAdding(true); setError('');
     const r = await adicionarAdmin(email, nome, role);
     if (r.success) {
-      setSuccess(r.message); setTimeout(() => setSuccess(''), 3000);
+      // O papel pode ser concedido e o ACESSO falhar. Nesse caso a mensagem vai
+      // para o campo de ERRO e fica na tela: um aviso que some em 3s sobre
+      // "ela não consegue entrar" seria pior que nenhum aviso.
+      if (r.acesso === 'falhou') setError(r.message);
+      else { setSuccess(r.message); setTimeout(() => setSuccess(''), 5000); }
       setEmail(''); setNome(''); setRole('master');
       loadPlatformAdmins().then(setAdmins);
     } else { setError(r.error); }

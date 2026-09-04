@@ -32,9 +32,75 @@ export async function adicionarAdmin(email: any, nome: any, role: any = 'master'
   const { error } = await sb.from('platform_admins')
     .insert({ email: clean, nome: nome?.trim() || null, role: novo });
   if (error) return { success: false, error: error.message };
-  // Auditoria: operação crítica de privilégio (criação de admin de plataforma).
-  await logAdminAction({ adminEmail: ctx.email, acao: 'platform_admin.adicionar', alvo: clean, detalhes: { role: novo } });
-  return { success: true, message: `${clean} adicionado como ${novo === 'socio' ? 'Admin Sócio' : 'Admin Master'}` };
+
+  // 🔴 CADASTRAR NÃO ERA DAR ACESSO (medido 04/09/2026).
+  //
+  // A linha em `platform_admins` concede o papel; quem deixa a pessoa ENTRAR é
+  // a conta no Supabase Auth, e ela não nascia aqui. O login por e-mail chama
+  // `generateLink` SEM criar usuário, então o admin recém-cadastrado recebia
+  // "Falha ao gerar link" — e o sintoma não fala de cadastro nenhum. Aconteceu
+  // com `simone@vertho.ai`: cadastrada como sócia, zero contas no Auth.
+  //
+  // A conta é criada com e-mail já confirmado: ela entra por magic link, e o
+  // primeiro acesso não pode depender de um e-mail de confirmação que este
+  // fluxo não envia.
+  const acesso = await garantirContaDeAcesso(sb, clean, nome?.trim() || null);
+
+  await logAdminAction({
+    adminEmail: ctx.email,
+    acao: 'platform_admin.adicionar',
+    alvo: clean,
+    detalhes: { role: novo, acesso: acesso.status },
+    resultado: acesso.status === 'falhou' ? 'parcial' : 'ok',
+  });
+
+  const sufixo = {
+    criada: ' O acesso foi criado: ela já pode entrar pelo e-mail.',
+    existente: ' Ela já tinha acesso e pode entrar pelo e-mail.',
+    falhou: ` ⚠️ O papel foi concedido, mas o ACESSO não: ${acesso.erro}. Ela não vai conseguir entrar até isso ser resolvido.`,
+  }[acesso.status];
+
+  return {
+    success: true,
+    acesso: acesso.status,
+    message: `${clean} adicionado como ${novo === 'socio' ? 'Admin Sócio' : 'Admin Master'}.${sufixo}`,
+  };
+}
+
+/**
+ * Garante a conta do Supabase Auth do admin — o que efetivamente deixa entrar.
+ *
+ * Não lança: o papel já foi concedido quando isto roda, e derrubar aqui deixaria
+ * o cadastro pela metade sem dizer o que ficou faltando. O status volta na
+ * mensagem e na auditoria, para o problema aparecer na hora e não no dia em que
+ * a pessoa tenta entrar.
+ */
+async function garantirContaDeAcesso(
+  sb: any,
+  email: string,
+  nome: string | null,
+): Promise<{ status: 'criada' | 'existente' | 'falhou'; erro?: string }> {
+  try {
+    const { data, error } = await sb.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: nome ? { name: nome } : {},
+    });
+    if (!error && data?.user?.id) return { status: 'criada' };
+
+    // `email_exists` é o caso normal de quem já usa a plataforma (o Rodrigo, a
+    // Juliane): o papel é novo, a conta não.
+    const mensagem = String(error?.message || '');
+    const jaExiste = (error as any)?.code === 'email_exists'
+      || /already been registered|already exists/i.test(mensagem);
+    if (jaExiste) return { status: 'existente' };
+
+    console.error('[platform-admins] criar acesso:', mensagem);
+    return { status: 'falhou', erro: mensagem || 'usuário não retornado' };
+  } catch (e: any) {
+    console.error('[platform-admins] criar acesso (exceção):', e?.message);
+    return { status: 'falhou', erro: e?.message || 'erro inesperado' };
+  }
 }
 
 export async function definirRoleAdmin(id: any, role: any) {
