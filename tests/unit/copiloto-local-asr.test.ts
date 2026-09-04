@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   LOCAL_ASR_EXTENSION_ID,
   probeLocalAsr,
+  readLocalAsrFailure,
   requestLocalAsrStart,
   waitForLocalAsr,
   type LocalAsrChromeRuntime,
@@ -87,5 +88,44 @@ describe('acionamento local do Whisper', () => {
     };
 
     await expect(requestLocalAsrStart({ runtime })).resolves.toBe('failed');
+  });
+});
+
+describe('readLocalAsrFailure', () => {
+  const runtimeCom = (response: unknown, lastError?: { message?: string }) => ({
+    lastError,
+    sendMessage: (_id: string, _msg: { type: 'start' | 'status' }, callback: (r?: any) => void) => {
+      callback(response);
+    },
+  });
+
+  it('devolve a linha que o servidor registrou antes de morrer', async () => {
+    const motivo = await readLocalAsrFailure({
+      runtime: runtimeCom({ ok: true, failure: "[Errno 13] Permission denied: 'virtual_file.log'" }),
+    });
+    expect(motivo).toContain('Permission denied');
+  });
+
+  it('sem falha registrada, não inventa causa', async () => {
+    expect(await readLocalAsrFailure({ runtime: runtimeCom({ ok: true, failure: null }) })).toBeNull();
+    expect(await readLocalAsrFailure({ runtime: runtimeCom({ ok: true, failure: '   ' }) })).toBeNull();
+  });
+
+  it('sem extensão, o diagnóstico simplesmente não acontece', async () => {
+    expect(await readLocalAsrFailure({ runtime: null })).toBeNull();
+  });
+
+  it('erro do próprio canal não vira mensagem para o vendedor', async () => {
+    const motivo = await readLocalAsrFailure({
+      runtime: runtimeCom({ failure: 'algo' }, { message: 'host não encontrado' }),
+    });
+    expect(motivo).toBeNull();
+  });
+
+  it('host mudo não trava a tela: responde nulo no prazo', async () => {
+    const mudo = {
+      sendMessage: () => { /* nunca chama o callback */ },
+    };
+    expect(await readLocalAsrFailure({ runtime: mudo as any, timeoutMs: 30 })).toBeNull();
   });
 });

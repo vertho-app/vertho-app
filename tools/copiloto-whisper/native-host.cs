@@ -31,6 +31,18 @@ internal static class VerthoWhisperNativeHost
             }
 
             string payload = Encoding.UTF8.GetString(payloadBytes);
+
+            // `status` existe porque a falha mais comum não é o host: é o servidor
+            // subir e MORRER ao carregar o modelo. Sem isto a tela só sabe que o
+            // WebSocket não abriu, e a mensagem culpava a permissão de rede local
+            // enquanto a causa real estava escrita no log (04/09/2026: o antivírus
+            // interceptando o processo lançado pela cadeia do navegador).
+            if (Regex.IsMatch(payload, "\\\"type\\\"\\s*:\\s*\\\"status\\\"", RegexOptions.IgnoreCase))
+            {
+                WriteStatusResponse(ReadLastFailure());
+                return 0;
+            }
+
             if (!Regex.IsMatch(payload, "\\\"type\\\"\\s*:\\s*\\\"start\\\"", RegexOptions.IgnoreCase))
             {
                 WriteResponse(false, "comando desconhecido");
@@ -89,6 +101,63 @@ internal static class VerthoWhisperNativeHost
             offset += read;
         }
         return buffer;
+    }
+
+    /// <summary>
+    /// A última razão pela qual o servidor não subiu, tirada dos logs.
+    /// </summary>
+    /// <remarks>
+    /// Lê o fim do arquivo, e não o começo: o traceback do Python termina na
+    /// linha que interessa. O stdout entra como segunda opção porque o servidor
+    /// imprime ali a tentativa de cada modelo, e é isso que distingue "falhou só
+    /// em CUDA" de "falhou nos três" — a segunda aponta para fora do nosso código.
+    /// </remarks>
+    private static string ReadLastFailure()
+    {
+        string runtime = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ".runtime");
+        string[] arquivos = { "whisper.err.log", "launcher.err.log", "whisper.out.log" };
+        foreach (string nome in arquivos)
+        {
+            try
+            {
+                string caminho = Path.Combine(runtime, nome);
+                if (!File.Exists(caminho)) continue;
+                string[] linhas = File.ReadAllLines(caminho);
+                for (int i = linhas.Length - 1; i >= 0 && i >= linhas.Length - 40; i--)
+                {
+                    string linha = linhas[i].Trim();
+                    if (linha.Length == 0) continue;
+                    if (linha.StartsWith("File \"") || linha.StartsWith("Traceback")) continue;
+                    if (linha.Contains("^^^")) continue;
+                    return linha.Length > 400 ? linha.Substring(0, 400) : linha;
+                }
+            }
+            catch
+            {
+                // Log ilegível não pode derrubar o status: seguir para o próximo.
+            }
+        }
+        return null;
+    }
+
+    private static void WriteStatusResponse(string failure)
+    {
+        try
+        {
+            string json = failure == null
+                ? "{\"ok\":true,\"failure\":null}"
+                : "{\"ok\":true,\"failure\":\"" + EscapeJson(failure) + "\"}";
+            byte[] body = Encoding.UTF8.GetBytes(json);
+            byte[] size = BitConverter.GetBytes(body.Length);
+            Stream output = Console.OpenStandardOutput();
+            output.Write(size, 0, size.Length);
+            output.Write(body, 0, body.Length);
+            output.Flush();
+        }
+        catch
+        {
+            // Sem canal de saída não há o que reportar.
+        }
     }
 
     private static void WriteResponse(bool ok, string error)

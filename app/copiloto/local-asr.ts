@@ -85,13 +85,15 @@ export async function waitForLocalAsr(
 
 type NativeStartResponse = {
   ok?: boolean;
+  /** Última razão pela qual o servidor não subiu, lida dos logs pelo host. */
+  failure?: string | null;
 };
 
 export type LocalAsrChromeRuntime = {
   lastError?: { message?: string };
   sendMessage: (
     extensionId: string,
-    message: { type: 'start' },
+    message: { type: 'start' | 'status' },
     callback: (response?: NativeStartResponse) => void,
   ) => void;
 };
@@ -144,6 +146,46 @@ export function requestLocalAsrStart(
       });
     } catch {
       finish('extension_missing');
+    }
+  });
+}
+
+/**
+ * Por que o servidor não está no ar, na palavra dele.
+ *
+ * O host responde `ok` assim que CONSEGUE LANÇAR o launcher, e é aí que mora a
+ * confusão: o processo pode subir e morrer ao carregar o modelo, e a tela só
+ * enxergava um WebSocket que não abriu. Perguntar o motivo troca "libere o
+ * acesso à rede local" — que em 04/09/2026 apontava para o lado errado — pela
+ * linha que o próprio servidor escreveu antes de morrer.
+ */
+export async function readLocalAsrFailure(
+  options: { timeoutMs?: number; runtime?: LocalAsrChromeRuntime | null } = {},
+): Promise<string | null> {
+  const runtime = options.runtime === undefined ? chromeRuntime() : options.runtime;
+  if (!runtime) return null;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (motivo: string | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(motivo);
+    };
+    const timer = setTimeout(() => finish(null), options.timeoutMs ?? 4_000);
+
+    try {
+      runtime.sendMessage(LOCAL_ASR_EXTENSION_ID, { type: 'status' }, (response) => {
+        if (runtime.lastError) {
+          finish(null);
+          return;
+        }
+        const motivo = typeof response?.failure === 'string' ? response.failure.trim() : '';
+        finish(motivo || null);
+      });
+    } catch {
+      finish(null);
     }
   });
 }

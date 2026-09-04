@@ -34,6 +34,7 @@ import {
 } from './audio-capture';
 import {
   probeLocalAsr,
+  readLocalAsrFailure,
   requestLocalAsrStart,
   waitForLocalAsr,
   type LocalAsrState,
@@ -1381,7 +1382,16 @@ export default function CopilotClient({
 
     if (!ready) {
       setLocalAsrState('error');
-      setError('O host iniciou, mas o Chrome não alcançou o Whisper. Nas permissões de app.vertho.ai, libere “Acesso à rede local”; se já estiver permitido, reinstale o Whisper local.');
+      // Antes de culpar a rede, pergunte ao host por que o servidor não subiu: em
+      // 04/09 a resposta estava no log ("Permission denied" no disco virtual do
+      // antivírus) enquanto a tela mandava liberar acesso à rede local.
+      const motivo = await readLocalAsrFailure();
+      setError(motivo
+        ? `O Whisper local iniciou e parou antes de ficar pronto. O que ele registrou: “${motivo}”. `
+          + 'Se falar em permissão negada, um antivírus está bloqueando: libere a pasta '
+          + 'AppData\\Local\\Vertho\\Whisper nas exceções dele.'
+        : 'O host iniciou, mas o Chrome não alcançou o Whisper. Nas permissões de app.vertho.ai, '
+          + 'libere “Acesso à rede local”; se já estiver permitido, reinstale o Whisper local.');
       return;
     }
 
