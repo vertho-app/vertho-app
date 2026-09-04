@@ -345,3 +345,53 @@ export function marcarSemAchado(
     }));
   return [...encontrados, ...faltantes];
 }
+
+/**
+ * A linha que a tela edita: nome, cargo e perfil juntos.
+ *
+ * Nome e cargo viviam num campo, o perfil em outro, e a associação era feita
+ * pelo slug da URL — que só casa quando o slug parece o nome. Editar duas listas
+ * paralelas e torcer para elas se alinharem é trabalho do usuário fazendo o que
+ * a estrutura deveria garantir.
+ *
+ * O contrato com o servidor não muda: a lista é serializada de volta para
+ * `audience` ("Nome, Cargo; ...") e `peopleProfiles` (uma URL por linha), então
+ * plano salvo antes disto continua abrindo.
+ */
+export type LinhaParticipante = { nome: string; cargo: string; perfil: string };
+
+export function serializarAudience(linhas: LinhaParticipante[]): string {
+  return linhas
+    .map((linha) => [linha.nome.trim(), linha.cargo.trim()].filter(Boolean).join(', '))
+    .filter(Boolean)
+    .join('; ');
+}
+
+export function serializarPerfis(linhas: LinhaParticipante[]): string {
+  return linhas.map((linha) => linha.perfil.trim()).filter(Boolean).join('\n');
+}
+
+/**
+ * Reconstrói as linhas de um plano salvo, casando perfil e pessoa pelo slug.
+ *
+ * O casamento aqui é o mesmo do servidor, e o perfil que não casar com ninguém
+ * vira linha própria em vez de sumir: URL colada é alguém que o vendedor quis
+ * levar para a conversa.
+ */
+export function linhasDeParticipantes(audience: string, perfis: string): LinhaParticipante[] {
+  const pessoas = parseParticipantes(audience);
+  const urls = parsePerfisDePessoa(perfis);
+  const usadas = new Set<string>();
+
+  const linhas = pessoas.map((pessoa) => {
+    const url = urls.find((candidata) => !usadas.has(candidata) && mesmaPessoa(nomeDoPerfil(candidata), pessoa.nome));
+    if (url) usadas.add(url);
+    return { nome: pessoa.nome, cargo: pessoa.cargo, perfil: url || '' };
+  });
+
+  for (const url of urls) {
+    if (usadas.has(url)) continue;
+    linhas.push({ nome: nomeDoPerfil(url), cargo: '', perfil: url });
+  }
+  return linhas.length ? linhas.slice(0, 8) : [{ nome: '', cargo: '', perfil: '' }];
+}

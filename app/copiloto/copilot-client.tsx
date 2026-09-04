@@ -22,6 +22,9 @@ import {
 import { normalizeConversationGoal } from '@/lib/copiloto/dossier';
 import { inferMeetingKind } from '@/lib/copiloto/play';
 import { chaveDaConta, mesclarPerfisSociais, precisaPedirRedes } from '@/lib/copiloto/social-discovery';
+import {
+  linhasDeParticipantes, serializarAudience, serializarPerfis, type LinhaParticipante,
+} from '@/lib/copiloto/participantes';
 // A MESMA régua que o servidor aplica: o que ela não reconhece é recusado lá com 400.
 import { parseOfficialSocialUrls } from '@/lib/copiloto/social-identity';
 import {
@@ -686,6 +689,16 @@ export default function CopilotClient({
   /** Trilha opcional: descobre quem responde por pessoas na organização. */
   const [researchPeople, setResearchPeople] = useState(false);
   const [peopleProfiles, setPeopleProfiles] = useState('');
+  /**
+   * Quem estará na conversa, com nome, cargo e perfil na MESMA linha.
+   *
+   * `audience` e `peopleProfiles` continuam existindo porque são o contrato com
+   * o servidor e com os planos já salvos: eles são derivados daqui na hora de
+   * enviar, nunca editados à mão.
+   */
+  const [linhasParticipantes, setLinhasParticipantes] = useState<LinhaParticipante[]>([
+    { nome: '', cargo: '', perfil: '' },
+  ]);
   const [socialDiscovery, setSocialDiscovery] = useState<SocialDiscoveryState>({ status: 'idle' });
   const [activePlanningId, setActivePlanningId] = useState('');
   const [planPersisted, setPlanPersisted] = useState(false);
@@ -769,14 +782,18 @@ export default function CopilotClient({
         if (typeof parsed?.opportunityId === 'string') setOpportunityId(parsed.opportunityId);
         if (typeof parsed?.accountId === 'string') setAccountId(parsed.accountId);
         if (MEETING_KINDS.some((item) => item.key === parsed?.meetingKind)) setMeetingKind(parsed.meetingKind);
-        if (typeof parsed?.audience === 'string') setAudience(parsed.audience);
+        if (typeof parsed?.audience === 'string' || typeof parsed?.peopleProfiles === 'string') {
+          setLinhasParticipantes(linhasDeParticipantes(
+            typeof parsed?.audience === 'string' ? parsed.audience : '',
+            typeof parsed?.peopleProfiles === 'string' ? parsed.peopleProfiles : '',
+          ));
+        }
         if (Array.isArray(parsed?.audienceOptions)) {
           setAudienceOptions(parsed.audienceOptions.filter((item: unknown) => typeof item === 'string').slice(0, 20));
         }
         if (typeof parsed?.goalThisHour === 'string') setGoalThisHour(parsed.goalThisHour);
         if (normalizeConversationGoal(parsed?.conversationGoal)) setConversationGoal(parsed.conversationGoal);
         if (typeof parsed?.researchPeople === 'boolean') setResearchPeople(parsed.researchPeople);
-        if (typeof parsed?.peopleProfiles === 'string') setPeopleProfiles(parsed.peopleProfiles);
         if (typeof parsed?.planningId === 'string') {
           setActivePlanningId(parsed.planningId);
           setPlanPersisted(!!parsed.planningId);
@@ -788,6 +805,13 @@ export default function CopilotClient({
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
+
+  // As duas strings que o servidor consome saem SEMPRE da lista: editar uma
+  // delas à mão em qualquer outro lugar voltaria a criar as duas verdades.
+  useEffect(() => {
+    setAudience(serializarAudience(linhasParticipantes));
+    setPeopleProfiles(serializarPerfis(linhasParticipantes));
+  }, [linhasParticipantes]);
 
   useEffect(() => { readingRef.current = reading; }, [reading]);
   useEffect(() => { planRef.current = plan; }, [plan]);
@@ -1086,7 +1110,9 @@ export default function CopilotClient({
           ? `${String(primary.name || '').trim()}${primary.role ? `, ${String(primary.role).trim()}` : ''}`
           : fallbackAudience;
         setAudienceOptions(options);
-        setAudience((current) => current.trim() ? current : primaryLabel);
+        if (primaryLabel) {
+          setLinhasParticipantes((atual) => atual.some((linha) => linha.nome.trim()) ? atual : linhasDeParticipantes(primaryLabel, ''));
+        }
       } catch {
         // O contato primário vindo da oportunidade continua disponível.
       }
@@ -1135,7 +1161,7 @@ export default function CopilotClient({
       setSocialProfiles('');
       setPeopleProfiles('');
       esquecerVarreduraDeRedes();
-      setAudience('');
+      setLinhasParticipantes([{ nome: '', cargo: '', perfil: '' }]);
       setAudienceOptions([]);
       setGoalThisHour('');
       setMeetingKind('primeira_conversa');
@@ -1165,7 +1191,7 @@ export default function CopilotClient({
     setOpportunityId(id);
     if (!selected) {
       audienceRequestRef.current += 1;
-      setAudience('');
+      setLinhasParticipantes([{ nome: '', cargo: '', perfil: '' }]);
       setAudienceOptions([]);
       setGoalThisHour('');
       setMeetingKind('primeira_conversa');
@@ -1179,7 +1205,7 @@ export default function CopilotClient({
       stage: selected.stage,
       hasConversation: Boolean(account?.conversationCount),
     }));
-    setAudience(selected.primaryContact);
+    setLinhasParticipantes(linhasDeParticipantes(selected.primaryContact, ''));
     loadAudienceContacts(selected.accountId, selected.primaryContact);
     setGoalThisHour('');
   }
@@ -1196,7 +1222,7 @@ export default function CopilotClient({
     setOffer(seed.offer || DEFAULT_VERTHO_OFFER);
     setOpportunityId(seed.opportunityId);
     setMeetingKind(seed.meetingKind);
-    setAudience(seed.audience);
+    setLinhasParticipantes(linhasDeParticipantes(seed.audience, ''));
     setAudienceOptions(seed.audienceOptions);
     setGoalThisHour(seed.goalThisHour);
     setTab('planejamento');
@@ -1215,7 +1241,10 @@ export default function CopilotClient({
     setOffer(seed.offer || DEFAULT_VERTHO_OFFER);
     setOpportunityId(seed.opportunityId);
     setMeetingKind(seed.planning.inputs.meetingKind || seed.planning.plan.play?.kind || seed.meetingKind);
-    setAudience(seed.planning.inputs.audience || seed.planning.plan.play?.audience || seed.audience);
+    setLinhasParticipantes(linhasDeParticipantes(
+      seed.planning.inputs.audience || seed.planning.plan.play?.audience || seed.audience,
+      '',
+    ));
     setAudienceOptions(seed.audienceOptions);
     setGoalThisHour(seed.planning.inputs.goalThisHour || seed.planning.plan.play?.goalThisHour || seed.goalThisHour);
     setPlan(seed.planning.plan);
@@ -1243,11 +1272,37 @@ export default function CopilotClient({
     setTab('planejamento');
   }
 
-  function toggleAudienceOption(option: string) {
-    const current = audience.split(';').map((item) => item.trim()).filter(Boolean);
-    const selected = current.some((item) => item.toLocaleLowerCase('pt-BR') === option.toLocaleLowerCase('pt-BR'));
-    setAudience((selected ? current.filter((item) => item.toLocaleLowerCase('pt-BR') !== option.toLocaleLowerCase('pt-BR')) : [...current, option]).join('; '));
+  function editarLinha(indice: number, campo: keyof LinhaParticipante, valor: string) {
+    setLinhasParticipantes((atual) => atual.map((linha, i) => i === indice ? { ...linha, [campo]: valor } : linha));
   }
+
+  function adicionarLinha() {
+    setLinhasParticipantes((atual) => atual.length >= 8 ? atual : [...atual, { nome: '', cargo: '', perfil: '' }]);
+  }
+
+  function removerLinha(indice: number) {
+    setLinhasParticipantes((atual) => {
+      const resto = atual.filter((_, i) => i !== indice);
+      return resto.length ? resto : [{ nome: '', cargo: '', perfil: '' }];
+    });
+  }
+
+  /** Chip do CRM: entra na primeira linha vazia, ou cria uma. */
+  function adicionarContato(option: string) {
+    const virgula = option.indexOf(',');
+    const nome = (virgula >= 0 ? option.slice(0, virgula) : option).trim();
+    const cargo = virgula >= 0 ? option.slice(virgula + 1).trim() : '';
+    setLinhasParticipantes((atual) => {
+      if (atual.some((linha) => linha.nome.trim().toLocaleLowerCase('pt-BR') === nome.toLocaleLowerCase('pt-BR'))) {
+        return atual.filter((linha) => linha.nome.trim().toLocaleLowerCase('pt-BR') !== nome.toLocaleLowerCase('pt-BR'))
+          .concat(atual.length === 1 ? [{ nome: '', cargo: '', perfil: '' }] : []);
+      }
+      const vazia = atual.findIndex((linha) => !linha.nome.trim() && !linha.perfil.trim());
+      if (vazia >= 0) return atual.map((linha, i) => i === vazia ? { nome, cargo, perfil: '' } : linha);
+      return atual.length >= 8 ? atual : [...atual, { nome, cargo, perfil: '' }];
+    });
+  }
+
 
   async function pasteTranscript() {
     setError(null);
@@ -1605,39 +1660,69 @@ export default function CopilotClient({
             )}
 
             <fieldset className={styles.playSetup}>
-              <legend><UsersRound size={14} /><span>Quem estará na conversa</span><small>basta o cargo</small></legend>
-              <label className={styles.audienceField}>
-                <input value={audience} onChange={(event) => setAudience(event.target.value)} placeholder="Ex.: Maria Souza, Head de T&D" maxLength={1000} />
-              </label>
-              <label className={styles.peopleToggle}>
-                <input type="checkbox" checked={researchPeople} onChange={(event) => setResearchPeople(event.target.checked)} />
-                <span>
-                  <b>Descobrir quem responde por pessoas nesta organização</b>
-                  <small>Uma busca a mais, só em fonte pública: cargo, entrevista, palestra ou artigo assinado. Traz nome de terceiros para o plano.</small>
-                </span>
-              </label>
-              {researchPeople && (
-                <div className={styles.peopleProfilesField}>
-                  <label htmlFor="copilot-people-profiles">Perfil de quem estará na reunião <em>opcional</em></label>
-                  <textarea
-                    id="copilot-people-profiles"
-                    value={peopleProfiles}
-                    onChange={(event) => setPeopleProfiles(event.target.value)}
-                    rows={2}
-                    maxLength={3000}
-                    placeholder={'https://linkedin.com/in/maria-souza\nhttps://linkedin.com/in/paulo-reis'}
-                  />
-                  <small><ShieldCheck size={12} /> Serve para <b>confirmar de quem estamos falando</b>, não como fonte: o perfil não é lido. Com ele, homônimo deixa de virar plano sobre outra pessoa.</small>
-                </div>
-              )}
+              <legend><UsersRound size={14} /><span>Quem estará na conversa</span><small>nome, cargo e perfil na mesma linha</small></legend>
+
+              <div className={styles.pessoasLista}>
+                {linhasParticipantes.map((linha, indice) => (
+                  <div key={indice} className={styles.pessoaLinha}>
+                    <input
+                      value={linha.nome}
+                      onChange={(event) => editarLinha(indice, 'nome', event.target.value)}
+                      placeholder="Nome"
+                      aria-label={`Nome da pessoa ${indice + 1}`}
+                      maxLength={160}
+                    />
+                    <input
+                      value={linha.cargo}
+                      onChange={(event) => editarLinha(indice, 'cargo', event.target.value)}
+                      placeholder="Cargo"
+                      aria-label={`Cargo da pessoa ${indice + 1}`}
+                      maxLength={200}
+                    />
+                    <input
+                      value={linha.perfil}
+                      onChange={(event) => editarLinha(indice, 'perfil', event.target.value)}
+                      placeholder="linkedin.com/in/…"
+                      aria-label={`Perfil da pessoa ${indice + 1}`}
+                      inputMode="url"
+                      maxLength={320}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removerLinha(indice)}
+                      aria-label={`Remover a pessoa ${indice + 1}`}
+                      disabled={linhasParticipantes.length === 1 && !linha.nome && !linha.cargo && !linha.perfil}
+                    >
+                      <Ban size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className={styles.pessoasAcoes}>
+                <button type="button" onClick={adicionarLinha} disabled={linhasParticipantes.length >= 8}>
+                  + Outra pessoa
+                </button>
+                <small><ShieldCheck size={12} /> O perfil confirma <b>de quem estamos falando</b> e não é lido como conteúdo: com ele, homônimo deixa de virar plano sobre outra pessoa.</small>
+              </div>
+
               {!!audienceOptions.length && (
                 <div className={styles.audienceChips} aria-label="Contatos desta empresa">
                   {audienceOptions.map((option) => {
-                    const selected = audience.split(';').some((item) => item.trim().toLocaleLowerCase('pt-BR') === option.toLocaleLowerCase('pt-BR'));
-                    return <button key={option} type="button" aria-pressed={selected} onClick={() => toggleAudienceOption(option)}>{selected && <Check size={11} />}{option}</button>;
+                    const nome = (option.split(',')[0] || '').trim().toLocaleLowerCase('pt-BR');
+                    const selected = linhasParticipantes.some((linha) => linha.nome.trim().toLocaleLowerCase('pt-BR') === nome);
+                    return <button key={option} type="button" aria-pressed={selected} onClick={() => adicionarContato(option)}>{selected && <Check size={11} />}{option}</button>;
                   })}
                 </div>
               )}
+
+              <label className={styles.peopleToggle}>
+                <input type="checkbox" checked={researchPeople} onChange={(event) => setResearchPeople(event.target.checked)} />
+                <span>
+                  <b>Pesquisar essas pessoas e quem responde por pessoas na empresa</b>
+                  <small>Uma busca a mais, só em fonte pública: cargo, entrevista, palestra ou artigo assinado. Traz também a pessoa de cargo mais alto da área.</small>
+                </span>
+              </label>
             </fieldset>
 
             <div className={styles.twoFields}>

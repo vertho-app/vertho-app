@@ -639,7 +639,9 @@ async function planejarConversa(req: Request) {
         peopleRequested: result.peopleRequested,
         peopleCompleted: result.peopleCompleted,
       };
-      const achadas = normalizarPessoas(result.people, 4, perfisDePessoa);
+      // Quem estará na sala, mais UMA pessoa: a de cargo mais alto que responde
+      // pelo tema. O teto de 4 trazia a equipe inteira do RH e diluía o Play.
+      const achadas = normalizarPessoas(result.people, alvosDePesquisa.length + 1, perfisDePessoa);
       pessoasDescobertas = researchPeople ? marcarSemAchado(participantes, achadas) : achadas;
     }
 

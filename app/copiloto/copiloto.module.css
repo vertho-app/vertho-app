@@ -420,8 +420,30 @@
 .peopleProfilesField { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; }
 .setupPanel .peopleProfilesField label { margin: 0; position: relative; }
 .setupPanel .peopleProfilesField label em { margin-left: 6px; color: #648096; font-size: 9px; font-style: normal; font-weight: 650; letter-spacing: .06em; }
-.setupPanel .peopleProfilesField > small { display: flex; gap: 6px; align-items: flex-start; color: #718da4; font-size: 11.5px; line-height: 1.5; letter-spacing: .03em; text-transform: none; }
+.setupPanel .peopleProfilesField > small { display: block; color: #718da4; font-size: 11.5px; line-height: 1.55; letter-spacing: .03em; text-transform: none; }
+.setupPanel .peopleProfilesField > small svg { vertical-align: -2px; margin-right: 5px; }
 .setupPanel .peopleProfilesField > small b { color: #bfd0df; font-weight: 700; }
+
+/* Nome, cargo e perfil na MESMA linha: eram dois campos paralelos que o usuario
+   tinha que manter alinhados de cabeca. */
+.pessoasLista { display: grid; gap: 7px; margin-bottom: 10px; }
+.pessoaLinha { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, .9fr) minmax(0, 1.15fr) 32px; gap: 7px; align-items: center; }
+.setupPanel .pessoaLinha input { padding: 10px 12px; font-size: 12.5px; }
+.pessoaLinha > button { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; background: transparent; color: #68839b; cursor: pointer; transition: .16s ease; }
+.pessoaLinha > button:hover:not(:disabled) { border-color: rgba(255,122,122,.5); color: #ff9d9d; }
+.pessoaLinha > button:disabled { opacity: .3; cursor: not-allowed; }
+.pessoaLinha > button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.pessoasAcoes { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.pessoasAcoes > button { min-height: 30px; border: 1px dashed rgba(66,212,215,.35); border-radius: 4px; padding: 0 12px; background: transparent; color: var(--cyan); cursor: pointer; font: 750 10.5px/1 var(--font-inter); letter-spacing: .07em; text-transform: uppercase; }
+.pessoasAcoes > button:hover:not(:disabled) { border-style: solid; }
+.pessoasAcoes > button:disabled { opacity: .35; cursor: not-allowed; }
+.pessoasAcoes > small { flex: 1; min-width: 220px; color: #718da4; font-size: 11.5px; line-height: 1.5; text-transform: none; letter-spacing: normal; }
+.pessoasAcoes > small svg { vertical-align: -2px; margin-right: 5px; }
+.pessoasAcoes > small b { color: #bfd0df; font-weight: 700; }
+
+@media (max-width: 720px) {
+  .pessoaLinha { grid-template-columns: minmax(0, 1fr) 32px; grid-template-areas: "nome remover" "cargo cargo" "perfil perfil"; }
+}
 .setupDetails { margin-bottom: 20px; border-top: 1px solid var(--line); padding-top: 14px; }
 .setupDetails > summary { display: flex; align-items: center; gap: 8px; color: #7e99ad; cursor: pointer; font: 750 9px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
 .setupDetails > summary small { color: #5d7791; font-size: 8.5px; letter-spacing: .05em; text-transform: none; }
