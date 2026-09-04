@@ -77,7 +77,33 @@ salvar o resultado quando uma empresa estiver selecionada.
 | “O complemento ‘Vertho Whisper Local’ não está ativo no Chrome” | A página não encontrou a extensão com o ID esperado. | Abra `chrome://extensions`, confirme que **Vertho Whisper Local 1.0.1** está ativa e use **Recarregar**. |
 | “O Chrome encontrou o complemento, mas não conseguiu iniciar o Whisper local” | A extensão respondeu, mas o Chrome não abriu o host nativo. | Execute novamente o instalador em um PowerShell normal do usuário do Windows e recarregue a extensão. |
 | “O iniciador local não respondeu” | O host foi chamado, mas o sidecar não ficou disponível na porta `8765` dentro do prazo. | Consulte `native-host.err.log`, `launcher.err.log` e `whisper.err.log`. |
-| “Estou ouvindo apenas você” | O microfone chegou, mas o áudio compartilhado da reunião não. | Recompartilhe a aba da reunião e marque **Compartilhar áudio da guia**. |
+| “Estou ouvindo apenas você” | O microfone chegou, mas o áudio da reunião não. | Depende da superfície escolhida, e a tela agora diz qual é: **janela nunca carrega áudio** no Chrome; **tela inteira** exige marcar *Compartilhar áudio do sistema*; **aba** precisa ser a aba da reunião. |
+| “O Whisper local iniciou e parou antes de ficar pronto” | O servidor subiu e morreu ao carregar o modelo. A tela mostra a linha que ele registrou. | Se falar em permissão negada, é antivírus: libere `%LOCALAPPDATA%\Vertho\Whisper` nas exceções. |
+
+## Onde compartilhar o áudio, e o que o cliente vê
+
+A captura do Chrome é **local**: o Copiloto lê o áudio, descarta o vídeo e nada
+sai da máquina. Ela é independente do compartilhamento do Teams ou do Meet, que
+não sabe que ela existe. O único caso em que alguém enxerga alguma coisa é
+quando **você** está apresentando a sua tela na reunião: aí a barra do Chrome
+("app.vertho.ai está compartilhando sua tela") entra no que você projeta.
+
+As três superfícies não são equivalentes:
+
+| Escolha | Áudio dos participantes | Observação |
+|---|---|---|
+| **Aba** (reunião no navegador) | sim, marcando *Compartilhar áudio da guia* | Melhor opção: nada de tela inteira, e o áudio vem limpo da aba. |
+| **Tela inteira** | sim, marcando *Compartilhar áudio do sistema* | Necessária quando a reunião roda em aplicativo de desktop. |
+| **Janela** | **nunca** | O Chrome não oferece a caixa de áudio para janela; a faixa vem muda. |
+
+`Medido: 04/09/2026` — com a janela do app do Teams compartilhada, o canal do
+cliente ficou em zero e só a voz do vendedor foi transcrita. O sintoma não é de
+transcrição: o servidor trata os dois canais com o mesmo detector e o mesmo
+limiar.
+
+🔑 **Com Teams ou Meet, entrar pelo navegador é o caminho mais simples**: a
+reunião vira uma aba, você compartilha só ela com o áudio da guia, e não precisa
+da tela inteira nem da barra de compartilhamento à mostra.
 
 O host nativo deve estar registrado para o mesmo usuário do Windows que executa
 o Chrome. Esta verificação deve devolver o caminho de

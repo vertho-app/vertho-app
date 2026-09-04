@@ -1609,7 +1609,7 @@ export default function CopilotClient({
         title: localAsrReadyNotice ? 'Whisper pronto — falta compartilhar o áudio' : 'Whisper pronto nesta máquina',
         detail: localAsrReadyNotice
           ? 'Clique novamente em “Compartilhar áudio e iniciar” para escolher a aba da reunião.'
-          : 'Reunião no navegador: escolha a aba dela e ative “Compartilhar áudio da guia”. Reunião em aplicativo (Teams, Zoom): escolha “Tela inteira” e marque “Compartilhar áudio do sistema”. Janela nunca carrega áudio.',
+          : 'Entrar na reunião pelo NAVEGADOR é o caminho mais simples: você compartilha só a aba dela, com “Compartilhar áudio da guia”. No aplicativo (Teams, Zoom), escolha “Tela inteira” e marque “Compartilhar áudio do sistema” — a captura é local e ninguém na reunião a vê. Janela nunca carrega áudio.',
       }
     : localAsrState === 'starting'
       ? {
