@@ -728,6 +728,7 @@ export default function CopilotClient({
   const [localAsrReadyNotice, setLocalAsrReadyNotice] = useState(false);
   const [captureSurface, setCaptureSurface] = useState<CaptureSurface>('unknown');
   const [audioHealth, setAudioHealth] = useState<AudioInputHealth>('checking');
+  const [audioLevels, setAudioLevels] = useState({ system: 0, microphone: 0 });
   const [meetingComposition, setMeetingComposition] = useState<MeetingComposition>('solo-vertho');
   const [utterances, setUtterances] = useState<LiveUtterance[]>([]);
   const [partial, setPartial] = useState<{ channel: LiveUtterance['channel']; text: string } | null>(null);
@@ -757,6 +758,7 @@ export default function CopilotClient({
   const processLiveTurnRef = useRef<(nextUtterances: LiveUtterance[]) => void>(() => undefined);
   const timerRef = useRef<number | null>(null);
   const audioEvidenceRef = useRef<AudioInputEvidence>({ ...EMPTY_AUDIO_EVIDENCE });
+  const ultimoNivelRef = useRef(0);
   const captureStartedAtRef = useRef(0);
   const meetingCompositionRef = useRef<MeetingComposition>('solo-vertho');
   const audienceRequestRef = useRef(0);
@@ -975,6 +977,15 @@ export default function CopilotClient({
     const evidence = addAudioEvidence(audioEvidenceRef.current, levels);
     audioEvidenceRef.current = evidence;
     setAudioHealth(assessAudioInputHealth(evidence, Date.now() - captureStartedAtRef.current));
+
+    // Medidor ao vivo dos dois canais. O aviso de "só ouço você" leva 10s para
+    // aparecer e a reunião já começou: ver o canal do cliente parado no zero é o
+    // que permite recompartilhar antes de perder a conversa inteira.
+    const agora = Date.now();
+    if (agora - ultimoNivelRef.current >= 200) {
+      ultimoNivelRef.current = agora;
+      setAudioLevels({ system: levels.system, microphone: levels.microphone });
+    }
   }, []);
 
   /**
@@ -1555,12 +1566,19 @@ export default function CopilotClient({
   const recording = captureState === 'gravando';
   const focusMode = recording && tab === 'ao-vivo';
   const firstName = userName.split(' ')[0] || userName;
+  // O remédio muda com a superfície escolhida, e "prefira a aba" é um beco quando a
+  // reunião roda num aplicativo de desktop: ali a única saída é a tela inteira com o
+  // áudio do sistema. Janela nunca carrega áudio no Chrome.
   const audioIssue = audioHealth === 'microphone-only'
     ? {
         title: 'Estou ouvindo apenas você.',
-        detail: captureSurface === 'browser'
-          ? 'O som da aba compartilhada não chegou. Confirme que escolheu a aba da reunião e ativou “Compartilhar áudio da guia”.'
-          : 'O áudio dos participantes não chegou. Recompartilhe e prefira a aba da reunião com “Compartilhar áudio da guia” ativado.',
+        detail: captureSurface === 'window'
+          ? 'Você compartilhou uma janela, e janela nunca carrega áudio no Chrome. Recompartilhe: reunião no navegador, escolha a aba dela; reunião num aplicativo, escolha “Tela inteira” e marque “Compartilhar áudio do sistema”.'
+          : captureSurface === 'monitor'
+            ? 'A tela veio sem o som do sistema. Recompartilhe escolhendo “Tela inteira” e marque “Compartilhar áudio do sistema” na mesma janela de seleção.'
+            : captureSurface === 'browser'
+              ? 'O som da aba compartilhada não chegou. Confirme que escolheu a aba da reunião e ativou “Compartilhar áudio da guia” — se a reunião estiver noutra aba ou num aplicativo, o som não vem por aqui.'
+              : 'O áudio dos participantes não chegou. Recompartilhe marcando a caixa de áudio na janela de seleção.',
       }
     : audioHealth === 'system-only'
       ? {
@@ -1591,7 +1609,7 @@ export default function CopilotClient({
         title: localAsrReadyNotice ? 'Whisper pronto — falta compartilhar o áudio' : 'Whisper pronto nesta máquina',
         detail: localAsrReadyNotice
           ? 'Clique novamente em “Compartilhar áudio e iniciar” para escolher a aba da reunião.'
-          : 'Ao iniciar, escolha a aba da reunião e ative “Compartilhar áudio da guia”.',
+          : 'Reunião no navegador: escolha a aba dela e ative “Compartilhar áudio da guia”. Reunião em aplicativo (Teams, Zoom): escolha “Tela inteira” e marque “Compartilhar áudio do sistema”. Janela nunca carrega áudio.',
       }
     : localAsrState === 'starting'
       ? {
@@ -1984,6 +2002,25 @@ export default function CopilotClient({
                   <option value="mixed-remote">Também há colegas remotos</option>
                 </select>
               </label>
+            </div>
+          )}
+
+          {recording && (
+            <div className={styles.medidores} aria-label="Nível dos dois canais de áudio">
+              {([
+                { rotulo: 'Cliente (som da reunião)', valor: audioLevels.system, ok: audioEvidenceRef.current.systemHeard },
+                { rotulo: 'Você (microfone)', valor: audioLevels.microphone, ok: audioEvidenceRef.current.microphoneHeard },
+              ] as const).map((canal) => (
+                <div key={canal.rotulo} className={styles.medidor} data-ok={canal.ok ? 'sim' : 'nao'}>
+                  <span>{canal.rotulo}</span>
+                  <div className={styles.medidorTrilho}>
+                    {/* A escala é logarítmica porque fala normal fica em 0,01 a 0,1:
+                        numa barra linear os dois canais pareceriam parados no zero. */}
+                    <i style={{ width: `${Math.min(100, Math.round(Math.sqrt(canal.valor / 0.25) * 100))}%` }} />
+                  </div>
+                  <b>{canal.ok ? 'ouvindo' : 'sem som'}</b>
+                </div>
+              ))}
             </div>
           )}
 
