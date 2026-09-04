@@ -38,6 +38,7 @@ import { enviarPush } from '@/lib/notifications/push-core';
 import { pushPilula, pushPilulaPendente, pushMissao, pushEvidencia, pushSemanaPendente } from '@/lib/notifications/push-copy';
 import { temaPilula } from '@/lib/notifications/pilula-envio';
 import { ENVIO, PROGRESSO } from '@/lib/status';
+import { diasDaSemanaComFeriado } from '@/lib/fase4/feriados';
 
 const TOTAL_SEMANAS = 14;
 const SEMANAS_IMPL = [4, 8, 12]; // Semanas de implementação (sem pílula nova)
@@ -111,9 +112,24 @@ export async function processarEmpresaDiario(
   let cobrancasPuladas = 0;
 
   const cadencia = (empresa as any).sys_config?.cadencia || {};
-  const diaP1 = cadencia.fase4_dia_pilula ?? 1;            // default segunda
-  const diaP2 = cadencia.fase4_dia_pilula2 ?? 2;           // default terça (2ª pílula DUO)
-  const diaEv = cadencia.fase4_dia_evidencia ?? 4;         // default quinta
+  /**
+   * Os dias configurados, já deslocados se um FERIADO NACIONAL cair em cima
+   * nesta semana. Em semana normal os números saem idênticos aos da config.
+   *
+   * A régua mora em `lib/fase4/feriados.ts` e não numa edição temporária do
+   * `sys_config` de propósito: cadência deslocada que ninguém reverte não tem
+   * sintoma — as mensagens continuam saindo, só que no dia errado, para sempre.
+   * Aqui não há estado para reverter.
+   */
+  const diasBase = {
+    diaP1: cadencia.fase4_dia_pilula ?? 1,            // default segunda
+    diaP2: cadencia.fase4_dia_pilula2 ?? 2,           // default terça (2ª pílula DUO)
+    diaEv: cadencia.fase4_dia_evidencia ?? 4,         // default quinta
+  };
+  const { diaP1, diaP2, diaEv, deslocou } = diasDaSemanaComFeriado(diasBase, hojeUTC, hoje);
+  if (deslocou.length) {
+    console.log(`[triggerDiario] ${(empresa as any).slug}: feriado nacional nesta semana — ${deslocou.join(' · ')}`);
+  }
   if (hoje !== diaP1 && hoje !== diaP2 && hoje !== diaEv) {
     return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas }; // empresa sem nada hoje
   }
