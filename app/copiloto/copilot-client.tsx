@@ -209,7 +209,20 @@ function PeopleCard({ people }: { people: MeetingPerson[] }) {
               <span data-confidence={person.confidence}>{CONFIDENCE_LABELS[person.confidence]}</span>
             </header>
             <p className={styles.peopleRole}>{person.role || 'cargo não confirmado'}</p>
-            {person.publicStance
+            {person.topics?.length ? (
+              <ul className={styles.peopleTopics}>
+                {person.topics.map((tema, posicao) => (
+                  <li key={`${tema.topic}-${posicao}`}>
+                    <span>{tema.topic}</span>
+                    {tema.sourceUrl && (
+                      <a href={tema.sourceUrl} target="_blank" rel="noreferrer">
+                        onde disse{tema.publishedAt ? ` · ${tema.publishedAt}` : ''} <ExternalLink size={11} />
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            ) : person.publicStance
               ? <p className={styles.peopleStance}>{person.publicStance}</p>
               : person.sourceUrl
                 ? <p className={styles.peopleStance}>Apenas o cargo foi confirmado.</p>

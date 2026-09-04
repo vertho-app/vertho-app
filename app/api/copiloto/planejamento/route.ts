@@ -13,7 +13,9 @@ import {
   type CopilotPlanningMemory,
 } from '@/lib/copiloto/accounts';
 import { comContexto } from '@/lib/execucao-contexto';
-import { prioritizeResearchFacts, researchAsPrivateContext, researchCompany } from '@/lib/copiloto/research';
+import {
+  prioritizeResearchFacts, researchAsPrivateContext, researchCompany, researchPersonInDepth,
+} from '@/lib/copiloto/research';
 import { inferMeetingKind, normalizeCopilotPlay, normalizeMeetingKind } from '@/lib/copiloto/play';
 import {
   inferConversationGoal, normalizeAccountSnapshot, normalizeConversationGoal,
@@ -31,7 +33,8 @@ import {
 import { limitSourcesByKind } from '@/lib/copiloto/source-selection';
 import {
   cadeirasPresentes, enriquecerComContatos, formatarParticipantes, fundirComDescobertos,
-  marcarSemAchado, nomeDoPerfil, normalizarPessoas, parsePerfisDePessoa, parseParticipantes,
+  aplicarAprofundamento, marcarSemAchado, nomeDoPerfil, normalizarPessoas, parsePerfisDePessoa,
+  parseParticipantes,
 } from '@/lib/copiloto/participantes';
 import {
   DISCOVERY_CHECKLIST, PACE_PHASES,
@@ -643,6 +646,22 @@ async function planejarConversa(req: Request) {
       // pelo tema. O teto de 4 trazia a equipe inteira do RH e diluía o Play.
       const achadas = normalizarPessoas(result.people, alvosDePesquisa.length + 1, perfisDePessoa);
       pessoasDescobertas = researchPeople ? marcarSemAchado(participantes, achadas) : achadas;
+
+      // 2a onda: uma busca por pessoa da reunião, no máximo três. Fica FORA do
+      // Promise.all das trilhas de propósito — quatro buscas simultâneas já
+      // estouraram o prazo da trilha do site em 03/09, e sete estourariam de novo.
+      if (researchPeople && alvosDePesquisa.length) {
+        const aprofundados = await Promise.all(
+          alvosDePesquisa.slice(0, 3).map(async (alvo) => {
+            const extra = await researchPersonInDepth(company, alvo, conversationGoal);
+            return extra ? { nome: alvo.nome, ...extra } : null;
+          }),
+        );
+        pessoasDescobertas = aplicarAprofundamento(
+          pessoasDescobertas,
+          aprofundados.filter((item): item is NonNullable<typeof item> => !!item),
+        );
+      }
     }
 
     // A fusão vem DEPOIS da pesquisa: quem o vendedor informou manda, e o
@@ -662,7 +681,15 @@ async function planejarConversa(req: Request) {
         participantes: formatarParticipantes(participantesFinais),
         pessoasPublicas: pessoasDescobertas.length
           ? pessoasDescobertas
-            .map((pessoa) => `- ${pessoa.name} (${pessoa.role}): ${pessoa.publicStance || 'apenas o cargo foi confirmado'} [fonte: ${pessoa.sourceUrl}]`)
+            .map((pessoa) => {
+              const temas = (pessoa.topics || [])
+                .map((tema) => `\n    · ${tema.topic} [${tema.sourceUrl}]`)
+                .join('');
+              const base = pessoa.sourceUrl
+                ? `${pessoa.publicStance || 'apenas o cargo foi confirmado'} [fonte: ${pessoa.sourceUrl}]`
+                : 'nada público encontrado sobre esta pessoa';
+              return `- ${pessoa.name} (${pessoa.role || 'cargo não confirmado'}): ${base}${temas}`;
+            })
             .join('\n')
           : 'não pesquisada',
         cadeiras: cadeirasPresentes(participantesFinais).join(', ') || 'nenhuma identificada',

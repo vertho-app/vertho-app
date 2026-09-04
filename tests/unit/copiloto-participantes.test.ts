@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  aplicarAprofundamento,
   cadeiraDoCargo,
   cadeirasPresentes,
   enriquecerComContatos,
@@ -316,5 +317,53 @@ describe('o perfil informado resolve a identidade', () => {
       [doPerfil({ confianca_identidade: 'incerto' })], 4, ['https://www.linkedin.com/in/bruno-bonito'],
     );
     expect(lista).toEqual([]);
+  });
+});
+
+describe('aplicarAprofundamento', () => {
+  const base = {
+    name: 'Bruno Bonito', role: '', publicStance: 'Fala de aprendizagem aplicada.',
+    sourceUrl: 'https://www.linkedin.com/in/bruno-bonito', confidence: 'inferencia' as const, verifiable: false,
+  };
+  const extra = (over: Record<string, unknown> = {}) => ({
+    nome: 'Bruno', cargo: 'Treinador corporativo', confianca: 'confirmado',
+    temas: [
+      { tema: 'Formação da força comercial', fonte_url: 'https://evento.com/painel', publicado_em: '2026-05' },
+      { tema: 'Sem link, não entra', fonte_url: null, publicado_em: null },
+    ],
+    ...over,
+  });
+
+  it('a busca dedicada traz os temas com fonte e confirma o cargo', () => {
+    const [p] = aplicarAprofundamento([base], [extra()]);
+    expect(p.role).toBe('Treinador corporativo');
+    expect(p.confidence).toBe('confirmado');
+    expect(p.topics).toEqual([
+      { topic: 'Formação da força comercial', sourceUrl: 'https://evento.com/painel', publishedAt: '2026-05' },
+    ]);
+  });
+
+  it('busca dedicada vazia não apaga o que a trilha coletiva já sabia', () => {
+    const [p] = aplicarAprofundamento([base], [extra({ temas: [] })]);
+    expect(p.publicStance).toBe('Fala de aprendizagem aplicada.');
+    expect(p.topics).toBeUndefined();
+  });
+
+  it('dúvida de identidade na busca dedicada rebaixa o achado anterior', () => {
+    const [p] = aplicarAprofundamento([base], [extra({ confianca: 'incerto' })]);
+    expect(p.confidence).toBe('nao_confirmado');
+    expect(p.topics).toBeUndefined();
+  });
+
+  it('quem não foi aprofundado passa intacto', () => {
+    const outro = { ...base, name: 'Kétule Matos' };
+    const [p] = aplicarAprofundamento([outro], [extra()]);
+    expect(p).toEqual(outro);
+  });
+
+  it('o cargo já confirmado não é sobrescrito pelo da busca', () => {
+    const comCargo = { ...base, role: 'Gerente de Treinamento' };
+    const [p] = aplicarAprofundamento([comCargo], [extra()]);
+    expect(p.role).toBe('Gerente de Treinamento');
   });
 });

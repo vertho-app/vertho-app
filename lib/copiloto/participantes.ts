@@ -139,6 +139,7 @@ export type PessoaDescoberta = {
   sourceUrl: string | null;
   confidence: 'confirmado' | 'inferencia' | 'nao_confirmado';
   verifiable: boolean;
+  topics?: Array<{ topic: string; sourceUrl: string | null; publishedAt: string | null }>;
 };
 
 const HOSTS_NAO_REVALIDAVEIS = /(^|\.)(linkedin|instagram|facebook|x|twitter|tiktok)\.com$/i;
@@ -394,4 +395,44 @@ export function linhasDeParticipantes(audience: string, perfis: string): LinhaPa
     linhas.push({ nome: nomeDoPerfil(url), cargo: '', perfil: url });
   }
   return linhas.length ? linhas.slice(0, 8) : [{ nome: '', cargo: '', perfil: '' }];
+}
+
+/**
+ * Aplica o resultado da busca dedicada sobre o que a trilha coletiva já sabia.
+ *
+ * A busca por pessoa vem depois e sabe mais: ela confirma o cargo, eleva a
+ * confiança e traz os temas com fonte. Mas ela não apaga o que já existia — se
+ * voltar sem tema, o que a trilha coletiva achou continua valendo, porque o
+ * silêncio de uma busca não desmente a outra.
+ *
+ * `incerto` é a exceção: aí a busca dedicada está dizendo que pode ser outra
+ * pessoa, e nesse caso o achado anterior é rebaixado em vez de mantido.
+ */
+export function aplicarAprofundamento(
+  pessoas: PessoaDescoberta[],
+  aprofundados: Array<{ nome: string; cargo: string; confianca: string; temas: any[] }>,
+): PessoaDescoberta[] {
+  return pessoas.map((pessoa) => {
+    const extra = aprofundados.find((a) => mesmaPessoa(a.nome, pessoa.name));
+    if (!extra) return pessoa;
+
+    const temas = (Array.isArray(extra.temas) ? extra.temas : [])
+      .map((item: any) => ({
+        topic: textoCurto(item?.tema, 400),
+        sourceUrl: urlPublica(item?.fonte_url),
+        publishedAt: textoCurto(item?.publicado_em, 40) || null,
+      }))
+      .filter((item) => item.topic && item.sourceUrl)
+      .slice(0, 3);
+
+    if (extra.confianca === 'incerto') {
+      return { ...pessoa, confidence: 'nao_confirmado' as const };
+    }
+    return {
+      ...pessoa,
+      role: pessoa.role || extra.cargo,
+      confidence: extra.confianca === 'confirmado' ? ('confirmado' as const) : pessoa.confidence,
+      topics: temas.length ? temas : pessoa.topics,
+    };
+  });
 }

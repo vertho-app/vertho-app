@@ -353,6 +353,13 @@ export type MeetingPerson = {
   sourceUrl: string | null;
   confidence: EvidenceConfidence;
   verifiable: boolean;
+  /**
+   * Temas com fonte, de uma busca dedicada a ESTA pessoa.
+   *
+   * Só existe para quem estará na conversa: uma busca por pessoa custa uma
+   * chamada, e não vale gastá-la com quem só apareceu no mapa da área.
+   */
+  topics?: Array<{ topic: string; sourceUrl: string | null; publishedAt: string | null }>;
 };
 
 export type CopilotSourceKind = 'site' | 'news' | 'social';
