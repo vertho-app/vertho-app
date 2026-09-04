@@ -244,12 +244,28 @@ describe('pesquisa pública do Copiloto', () => {
     expect(result.newsSearchCompleted).toBe(true);
     expect(result.research.fatos_relevantes.map((item: any) => item._research_channel))
       .toContain('news');
-    // O prazo da segunda tentativa é menor, para o par somar o mesmo teto de antes.
-    const prazos = vi.mocked(callOpenAIWebSearch).mock.calls
-      .filter((call) => call[0].includes('DEDICADA a notícias'))
-      .map((call) => call[2]?.timeoutMs);
-    expect(prazos[1]).toBeLessThan(prazos[0] as number);
-    expect((prazos[0] as number) + (prazos[1] as number)).toBeLessThanOrEqual(150000);
+    // Nunca uma terceira: quem falhou duas vezes gastou o orçamento da trilha.
+    const daNoticia = vi.mocked(callOpenAIWebSearch).mock.calls
+      .filter((call) => call[0].includes('DEDICADA a notícias'));
+    expect(daNoticia).toHaveLength(2);
+  });
+
+  it('a trilha do site recebe mais prazo que as outras, por ser a mais pesada', async () => {
+    vi.mocked(callOpenAIWebSearch).mockResolvedValue({
+      text: JSON.stringify({ ...publicResearch, fatos_relevantes: [] }), sources: [],
+    });
+
+    await researchCompany('Amigos do Bem', 'amigosdobem.org', []);
+
+    const prazoDe = (marcador: string) => vi.mocked(callOpenAIWebSearch).mock.calls
+      .find((call) => marcador === 'site' ? !call[0].includes('DEDICADA') : call[0].includes(marcador))?.[2]?.timeoutMs as number;
+
+    const site = prazoDe('site');
+    const noticias = prazoDe('DEDICADA a notícias');
+    // Medido em 03/09: sozinha ela leva 40s, mas com as quatro trilhas em
+    // paralelo estourou 95s duas vezes e o dossiê perdeu o site inteiro.
+    expect(site).toBeGreaterThan(noticias);
+    expect(site).toBeGreaterThanOrEqual(120000);
   });
 
   it('desiste da trilha depois da segunda tentativa e preserva as outras', async () => {

@@ -31,15 +31,34 @@ function focusLine(goal?: ConversationGoal): string {
 }
 
 /**
- * Uma falha transitória de uma trilha custava a trilha inteira.
+ * Orçamento por trilha, e não um prazo único para todas.
  *
- * Os dois prazos somam os mesmos 150 s que uma tentativa única gastava, então o pior
- * caso do planejamento não muda; o que muda é que um 5xx ou um corte de conexão aos
- * 4 s deixa de zerar o canal.
+ * `Medido em 03/09:` a trilha do site sozinha leva 40 s, mas com as QUATRO
+ * buscas em paralelo ela estourou 95 s duas vezes e voltou `unavailable` — o
+ * dossiê perdeu o site inteiro. Ela é a mais pesada (12.000 tokens de saída
+ * contra 5.000 a 6.000 das outras) e é a que menos pode faltar, então ganha o
+ * orçamento maior de volta.
  */
-const PRIMEIRA_TENTATIVA_MS = 95_000;
-const SEGUNDA_TENTATIVA_MS = 55_000;
+const ORCAMENTO_MS: Record<string, number> = {
+  'pesquisa-site': 170_000,
+  'pesquisa-noticias': 110_000,
+  'pesquisa-social': 110_000,
+  'pesquisa-pessoas': 90_000,
+};
+const ORCAMENTO_PADRAO_MS = 110_000;
 
+/** Abaixo disto não vale tentar de novo: a segunda chamada nasceria estourada. */
+const RESTO_MINIMO_MS = 30_000;
+
+/**
+ * Tenta de novo quando SOBRA orçamento, e não sempre.
+ *
+ * A primeira versão dividia o prazo em dois pedaços fixos, o que protegia contra
+ * o 503 aos 4 s e ao mesmo tempo encurtava a chamada legítima que só precisava
+ * de mais tempo. Agora a primeira tentativa leva quase todo o orçamento; se ela
+ * falhar cedo, o que sobrou vira a segunda tentativa, e se ela estourar o
+ * relógio não há segunda — repetir com menos tempo daria o mesmo resultado.
+ */
 async function runResearchTrack(
   track: string,
   prompt: string,
@@ -47,24 +66,28 @@ async function runResearchTrack(
   options: { maxOutputTokens: number; taskKey: string },
 ): Promise<{ research: any; sources: OpenAIWebSearchSource[] } | null> {
   const model = process.env.COPILOTO_RESEARCH_MODEL || 'gpt-5.5';
-  const prazos = [PRIMEIRA_TENTATIVA_MS, SEGUNDA_TENTATIVA_MS];
+  const orcamento = ORCAMENTO_MS[track] ?? ORCAMENTO_PADRAO_MS;
+  const inicio = Date.now();
 
-  for (let tentativa = 0; tentativa < prazos.length; tentativa += 1) {
+  for (let tentativa = 1; tentativa <= 2; tentativa += 1) {
+    const gasto = Date.now() - inicio;
+    const restante = orcamento - gasto;
+    if (tentativa === 2 && restante < RESTO_MINIMO_MS) {
+      console.warn(`[copiloto/${track}] sem orçamento para a 2a tentativa (${restante} ms restantes)`);
+      break;
+    }
+    const prazo = tentativa === 1 ? Math.round(orcamento * 0.75) : restante;
     try {
       const response = await callOpenAIWebSearch(prompt, format, {
         model,
         maxOutputTokens: options.maxOutputTokens,
-        timeoutMs: prazos[tentativa],
+        timeoutMs: prazo,
         taskKey: options.taskKey,
         reasoningEffort: 'low',
       });
       return { research: parseJson(response.text), sources: response.sources };
     } catch (error: any) {
-      const ultima = tentativa === prazos.length - 1;
-      console.warn(
-        `[copiloto/${track}] tentativa ${tentativa + 1} de ${prazos.length}${ultima ? ' (última)' : ''}:`,
-        error?.message || error,
-      );
+      console.warn(`[copiloto/${track}] tentativa ${tentativa} em ${prazo} ms:`, error?.message || error);
     }
   }
   return null;
