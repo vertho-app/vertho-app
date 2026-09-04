@@ -317,8 +317,12 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
 
   const ativasIds: string[] = [];
   const ativas: any[] = [];
+  // Quem tem QUALQUER trilha — inclusive concluída. É o denominador do card
+  // "liderados", que responde "quantos já entraram no programa".
+  let comAlgumaTrilha = 0;
   for (const c of liderados) {
     const t = trilhaPorColab.get(c.id);
+    if (t) comAlgumaTrilha++;
     if (t && (t.status === 'ativa' || t.status === 'pausada')) {
       ativasIds.push(t.id);
       ativas.push(t);
@@ -452,6 +456,10 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // propósito.
   const atrasoPorColab = new Map<string, boolean | null>();
   const semanasAtrasoPorColab = new Map<string, number | null>();
+  // Quantas semanas a pessoa já fechou. Sai do MESMO laço que mede o atraso —
+  // uma segunda contagem para a mesma pergunta é como duas partes da tela
+  // passam a discordar.
+  const concluidasPorColab = new Map<string, number>();
   {
     const emCurso = ativas.filter((t: any) => t.status === TRILHA.ATIVA);
     const concluidasPorTrilha = new Map<string, number>();
@@ -471,6 +479,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
         totalSemanas: getProgramaConfigDaTrilha(t).semanas,
         semanasConcluidas: concluidasPorTrilha.get(t.id) || 0,
       };
+      concluidasPorColab.set(t.colaborador_id, args.semanasConcluidas);
       atrasoPorColab.set(t.colaborador_id, estaAtrasada(args));
       // O TAMANHO do atraso, e não só o sim/não: o card do checkpoint pinta um
       // semáforo (em dia, uma semana, mais de uma) e um booleano não distingue
@@ -575,32 +584,43 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     return (progs || []).map((p: any) => ({ trilha: t, ...p }));
   }));
 
-  const checkpointsPendentes: CheckpointPendenteDetalhado[] = progressoCheckpoint
-    .flat()
-    .filter((linha: any) => linha.status && linha.status !== PROGRESSO.PENDENTE)
-    .filter((linha: any) => {
-      const cp = checkpoints.find((c: any) => c.trilha_id === linha.trilha.id && c.semana === linha.semana);
-      return cp?.status !== 'validado';
-    })
-    .map((linha: any) => {
-      const colab: any = liderId2obj.get(linha.trilha.colaborador_id);
-      // "Pendente desde" = quando a pessoa concluiu a semana, que é o momento em
-      // que o checkpoint passou a caber. Sem `concluido_em`, conta zero em vez de
-      // inventar uma data.
-      const desde = linha.concluido_em ? new Date(linha.concluido_em).getTime() : Date.now();
+  // ── QUEM PAROU ────────────────────────────────────────────────────────────
+  //
+  // Esta lista era de CHECKPOINTS — as semanas em que o gestor avalia. Duas
+  // coisas a derrubaram (04/09/2026): a jornada de 7 semanas, que é o modelo
+  // padrão, não tem checkpoint nenhum; e mesmo onde há (14 semanas), o card
+  // ficava vazio a maior parte do tempo, porque só duas semanas em catorze
+  // convocam alguém. Um card permanentemente vazio ensina o gestor a não olhar.
+  //
+  // A régua nova é a MESMA da tela de engajamento: parou quem está atrasado na
+  // jornada. `estaAtrasada` cruza a semana da pessoa (concluídas + 1) com a do
+  // calendário — não é opinião nem carimbo, e vale para qualquer programa.
+  //
+  // Trilha PAUSADA fica de fora de propósito: quem pausou não parou, parou de
+  // propósito, e cobrar isso do gestor é ruído.
+  const checkpointsPendentes: CheckpointPendenteDetalhado[] = ativas
+    .filter((t: any) => t.status === TRILHA.ATIVA)
+    .filter((t: any) => atrasoPorColab.get(t.colaborador_id) === true)
+    .map((t: any) => {
+      const colab: any = liderId2obj.get(t.colaborador_id);
+      const semanasAtraso = semanasAtrasoPorColab.get(t.colaborador_id) ?? null;
       return {
-        trilhaId: linha.trilha.id,
-        colabId: linha.trilha.colaborador_id || '',
+        trilhaId: t.id,
+        colabId: t.colaborador_id || '',
         colab: colab?.nome_completo || '—',
         cargo: colab?.cargo || null,
-        competenciaFoco: linha.trilha.competencia_foco || null,
-        semana: linha.semana,
-        diasPendente: Math.max(0, Math.floor((Date.now() - desde) / (24 * 3600 * 1000))),
-        semanasAtraso: semanasAtrasoPorColab.get(linha.trilha.colaborador_id) ?? null,
+        competenciaFoco: t.competencia_foco || null,
+        // A semana em que a pessoa EMPACOU (a primeira que ela ainda não
+        // fechou), não a do calendário: é dessa que a conversa trata.
+        semana: (concluidasPorColab.get(t.colaborador_id) || 0) + 1,
+        // Dias parada = semanas de atraso × 7. Deriva do mesmo número que o
+        // semáforo usa, em vez de uma segunda contagem que poderia divergir.
+        diasPendente: Math.max(0, (semanasAtraso ?? 0) * 7),
+        semanasAtraso,
       };
     })
-    // Ordena: atrasados primeiro, mais antigos depois
-    .sort((a, b) => b.diasPendente - a.diasPendente);
+    // Quem está parado há mais tempo primeiro: é a ordem das conversas.
+    .sort((a, b) => (b.semanasAtraso ?? 0) - (a.semanasAtraso ?? 0));
 
   // ── 7. Equipe (com trilha info por colab) ──
   const colabsTodasTrilhas = new Map<string, any[]>();
@@ -715,8 +735,18 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
     kpis: {
       liderados: {
         total: liderados.length,
-        em_trilha: ativasIds.length,
-        sem_trilha: liderados.length - ativasIds.length,
+        // 🔴 "SEM TRILHA" É QUEM NUNCA TEVE, NÃO QUEM JÁ TERMINOU.
+        //
+        // Isto contava só as trilhas ATIVAS, então quem concluiu a jornada caía
+        // no balde de "sem trilha". Medido em 04/09/2026 no `acme-demo`: o card
+        // dizia "8 liderados · 1 em trilha · 7 sem trilha" enquanto a lista logo
+        // abaixo mostrava 5 concluídas, 1 ativa e 2 sem nenhuma. Os dois números
+        // saíam da mesma população, e mesmo assim se contradiziam na mesma tela.
+        //
+        // "Em andamento" continua sendo card próprio, com as ativas — a pergunta
+        // "quem está percorrendo AGORA" é outra e continua respondida.
+        em_trilha: comAlgumaTrilha,
+        sem_trilha: liderados.length - comAlgumaTrilha,
       },
       em_andamento: { count: ativasIds.length, distribuicao_semanas: distribuicaoSemanas },
       checkpoints: { pendentes: checkpointsPendentes.length, respondidos: cpRespondidos },

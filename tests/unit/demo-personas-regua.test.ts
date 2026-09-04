@@ -37,21 +37,26 @@ describe('Personas do acme-demo seguem a régua do produto', () => {
     expect(ACME_DEMO_REPORT_DIRECTORY.filter((p) => p.role === 'gestor')).toHaveLength(3);
   });
 
-  it('mantém o funil executivo em 30 / 28 / 25 / 20 / 17 / 3, com 16 concluídas', () => {
+  it('mantém o funil executivo em 30 / 28 / 25 / 20 / 16 / 4, com 15 concluídas', () => {
+    // 04/09/2026: `behind` foi de 3 para 4 (Rafael, do time da Carla) para o
+    // card "Ação esta semana" da home do gestor deixar de nascer vazio — ele
+    // mostra quem PAROU, e nenhum dos três atrasados anteriores era liderado da
+    // persona pela qual a demo abre a visão de gestor. `onTrack` e `concluded`
+    // são DERIVADOS e acompanham: quem parou não está em dia nem concluiu.
     expect(ACME_DEMO_FUNNEL_TARGETS).toEqual({
       people: 30,
       withProfile: 28,
       withMapping: 25,
       inJourney: 20,
-      onTrack: 17,
-      behind: 3,
-      concluded: 16,
+      onTrack: 16,
+      behind: 4,
+      concluded: 15,
     });
     expect(ACME_DEMO_TEAM_SIZE - ACME_DEMO_WITHOUT_PROFILE_KEYS.length).toBe(28);
     expect(new Set(ACME_DEMO_MAPPED_KEYS).size).toBe(25);
     expect(new Set(ACME_DEMO_JOURNEY_KEYS).size).toBe(20);
-    expect(new Set(ACME_DEMO_BEHIND_KEYS).size).toBe(3);
-    expect(ACME_DEMO_JOURNEY_KEYS.filter((key) => !ACME_DEMO_BEHIND_KEYS.includes(key))).toHaveLength(17);
+    expect(new Set(ACME_DEMO_BEHIND_KEYS).size).toBe(4);
+    expect(ACME_DEMO_JOURNEY_KEYS.filter((key) => !ACME_DEMO_BEHIND_KEYS.includes(key))).toHaveLength(16);
     expect(ACME_DEMO_JOURNEY_KEYS.every((key) => ACME_DEMO_MAPPED_KEYS.includes(key))).toBe(true);
   });
 
@@ -68,6 +73,23 @@ describe('Personas do acme-demo seguem a régua do produto', () => {
     // de produzir aqui, e a que mais estraga uma apresentação.
     const emAmbos = ACME_DEMO_CONCLUDED_KEYS.filter((key) => ACME_DEMO_BEHIND_KEYS.includes(key));
     expect(emAmbos, `atrasado E concluído: ${emAmbos.join(', ')}`).toEqual([]);
+  });
+
+  it('🔑 ao menos um ATRASADO é liderado de um gestor NAVEGÁVEL', () => {
+    // O card "Ação esta semana" mostra quem parou, recortado pelo time de quem
+    // está olhando. Um funil com atrasados que não pertencem a nenhum gestor
+    // navegável deixa esse card permanentemente vazio na demo — o defeito de
+    // 04/09, que a régua sozinha não pega porque ela estava certa: a população
+    // é que não tinha ninguém.
+    const emailsNavegaveis = new Set(PERSONAS.map((p) => String(p.email).toLowerCase()));
+    const atrasadosLiderados = ACME_DEMO_REPORT_DIRECTORY.filter((pessoa) => (
+      ACME_DEMO_BEHIND_KEYS.includes(pessoa.key)
+      && emailsNavegaveis.has(String(pessoa.gestor_email || '').toLowerCase())
+    ));
+    expect(
+      atrasadosLiderados.map((p) => p.key),
+      'nenhum atrasado é liderado de persona navegável — o card do gestor nasceria vazio',
+    ).not.toEqual([]);
   });
 
   it('o panorama do roster comercial descreve o MESMO funil das constantes', () => {

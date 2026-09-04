@@ -4332,16 +4332,16 @@
       "inTrack": "{count} in track · {without} without track",
       "inProgress": "In progress",
       "noActiveTrack": "no active track",
-      "checkpoints": "Checkpoints",
-      "answered": "{count} already answered",
-      "pending": "pending",
+      "checkpoints": "Need support",
+      "answered": "no one stalled",
+      "pending": "stalled",
       "weeklyActivity": "Weekly activity",
       "activeLastDays": "of {total} active in the last 7 days",
       "ofTotal": "of {total}",
       "weekCount": "{count} in week {week}"
     },
     "pendingCount": "{count} pending",
-    "emptyAction": "Nothing pending right now. When direct reports reach the checkpoint weeks of their tracks, they will appear here for evaluation.",
+    "emptyAction": "No one stalled this week. When someone falls behind on the journey, they show up here — with how long and on which week.",
     "modal": {
       "eyebrow": "Week {week} checkpoint · evaluation",
       "noFocus": "no focus competency",
@@ -4361,8 +4361,8 @@
       "noRole": "no role",
       "today": "today",
       "openJourney": "Open journey",
-      "hintOnTime": "Reached the check-in week: book 15 minutes to hear how it is going in practice.",
-      "hintLate": "Stalled for {weeks, plural, =1 {a week} other {# weeks}}: ask what got in the way before chasing the delivery."
+      "hintOnTime": "Fell behind on week {week}: a short conversation now keeps the journey from stopping for good.",
+      "hintLate": "Stalled for {weeks, plural, =1 {one week} other {# weeks}}: worth asking what got in the way before asking for the delivery."
     },
     "filters": {
       "all": "All",

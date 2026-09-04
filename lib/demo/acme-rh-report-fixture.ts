@@ -64,8 +64,8 @@ export const ACME_DEMO_FUNNEL_TARGETS = Object.freeze({
   withProfile: 28,
   withMapping: 25,
   inJourney: 20,
-  onTrack: 17,
-  behind: 3,
+  onTrack: 16,
+  behind: 4,
   /**
    * Jornadas com o fechamento feito e Evolution Report gravado. É um SUBCONJUNTO
    * de `onTrack` (quem concluiu está em dia por definição), e não um estágio
@@ -76,7 +76,7 @@ export const ACME_DEMO_FUNNEL_TARGETS = Object.freeze({
    * produção. As 4 restantes ficam em andamento de propósito: um painel em que
    * 100% concluiu não deixa ver o recorte "quem ainda está no meio".
    */
-  concluded: 16,
+  concluded: 15,
 });
 
 export const ACME_DEMO_WITHOUT_PROFILE_KEYS = ['ana', 'vanessa'] as const;
@@ -97,16 +97,26 @@ export const ACME_DEMO_JOURNEY_KEYS = ACME_DEMO_MAPPED_KEYS.slice(
 );
 
 /**
- * Quem está atrasado na jornada. São os DOIS gestores e uma pessoa de
- * operações, e a escolha não é decorativa: eles são os únicos do cargo deles
- * entre quem entrou em jornada, então deixá-los concluir produziria
- * competências medidas com UMA pessoa só no painel de evolução — uma média de
- * n=1 apresentada ao lado de médias de n=9, com o mesmo peso visual.
+ * Quem está atrasado na jornada.
  *
- * Gestor atrasado também é a versão mais crível da história: quem lidera é
- * quem mais perde a cadência.
+ * Os três primeiros são os DOIS gestores e uma pessoa de operações, e a escolha
+ * não é decorativa: eles são os únicos do cargo deles entre quem entrou em
+ * jornada, então deixá-los concluir produziria competências medidas com UMA
+ * pessoa só no painel de evolução — uma média de n=1 apresentada ao lado de
+ * médias de n=9, com o mesmo peso visual. Gestor atrasado também é a versão
+ * mais crível da história: quem lidera é quem mais perde a cadência.
+ *
+ * **Rafael entrou em 04/09/2026** por um motivo diferente: o card "Ação esta
+ * semana" da home do gestor mostra quem PAROU, e nenhum dos três anteriores é
+ * liderado da Carla — a persona pela qual a demo abre a visão de gestor. O card
+ * ficava permanentemente vazio numa tela cujo propósito é dar ao gestor o que
+ * fazer nesta semana. Ele é do time dela e é quem o painel de evolução já
+ * descreve como "precisa transformar intenção em ação observável", então o
+ * atraso confirma o texto ao lado em vez de contradizê-lo. Há outros quatro
+ * Representantes Comerciais entre os concluídos, então a média do cargo não
+ * cai para n=1.
  */
-export const ACME_DEMO_BEHIND_KEYS = ['marcelo', 'eduardo', 'debora'];
+export const ACME_DEMO_BEHIND_KEYS = ['marcelo', 'eduardo', 'debora', 'rafael'];
 
 /**
  * A persona navegável do participante. A jornada EM ANDAMENTO dela é o roteiro

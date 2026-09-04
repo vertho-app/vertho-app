@@ -381,7 +381,13 @@ export const PROGRAMA_JORNADA: ProgramaConfig = Object.freeze({
   // agora vem uma vez por semana cobrindo as duas pílulas.
   semanasMissao: [],
   semanasAvaliacao: [7],
-  semanasCheckpoint: [3, 5],
+  // SEM checkpoint, e isso é do desenho do programa (dono, 04/09/2026): a
+  // jornada de 7 semanas não tem a parada de avaliação do gestor que o modelo
+  // de 14 tem nas semanas 5 e 10. O `[3, 5]` que estava aqui foi analogia
+  // minha, não régua do produto — e fazia o card do gestor convocar para um
+  // ritual inexistente. O que o gestor acompanha toda semana é QUEM PAROU, que
+  // não depende de calendário de programa.
+  semanasCheckpoint: [],
   semanaCenarioB: 7,
   // Como no piloto: sem semana de conversa qualitativa separada, a acumulada
   // roda ao fechar a última semana de conteúdo e persiste na row dela.

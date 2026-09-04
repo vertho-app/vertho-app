@@ -78,14 +78,22 @@ export const ACME_DEMO_EVOLUTION_MIX: readonly PerfilEvolucao[] = [
   'confirmada', 'confirmada', 'parcial', 'confirmada',
   'estavel', 'confirmada', 'confirmada', 'parcial',
   'confirmada', 'estavel', 'confirmada', 'parcial',
-  'confirmada', 'confirmada', 'estavel', 'parcial',
+  'confirmada', 'confirmada', 'estavel',
 ] as const;
 
-/** 9 confirmadas, 4 parciais, 3 estáveis. Conferido pelo teste da régua da demo. */
+/**
+ * 9 confirmadas, 3 parciais, 3 estáveis. Conferido pelo teste da régua da demo.
+ *
+ * Era 16/9/4/3 até 04/09/2026, quando o Rafael saiu das concluídas para os
+ * atrasados — o card "Ação esta semana" do gestor precisava de alguém parado no
+ * time da persona navegável. Saiu uma PARCIAL de propósito: as três leituras
+ * (confirmada · parcial · estável) continuam representadas no painel de
+ * evolução, que é o que a apresentação mostra.
+ */
 export const ACME_DEMO_EVOLUTION_TARGETS = Object.freeze({
-  concluded: 16,
+  concluded: 15,
   confirmadas: 9,
-  parciais: 4,
+  parciais: 3,
   estaveis: 3,
 });
 

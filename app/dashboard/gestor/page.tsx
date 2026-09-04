@@ -130,7 +130,9 @@ export default function GestorHomePage() {
           icon={ClipboardCheck}
           label={t('kpis.checkpoints')}
           valor={k.checkpoints.pendentes}
-          subtitulo={t('kpis.answered', { count: k.checkpoints.respondidos, plural: k.checkpoints.respondidos === 1 ? '' : 's' })}
+          subtitulo={k.checkpoints.pendentes > 0
+            ? t('kpis.ofTotal', { total: k.em_andamento.count })
+            : t('kpis.answered')}
           acento={k.checkpoints.pendentes > 0 ? 'amber' : 'gray'}
           sufixo={k.checkpoints.pendentes > 0 ? t('kpis.pending') : ''}
         />
@@ -462,7 +464,7 @@ function CheckpointCard({
         <p className="text-[11px] text-white/40 mt-0.5">
           {atraso != null && atraso > 0
             ? t('checkpoint.hintLate', { weeks: atraso })
-            : t('checkpoint.hintOnTime')}
+            : t('checkpoint.hintOnTime', { week: cp.semana })}
         </p>
       </div>
       <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full shrink-0 ${semaforo.texto}`}

@@ -4332,16 +4332,16 @@
       "inTrack": "{count} em trilha · {without} sem trilha",
       "inProgress": "Em andamento",
       "noActiveTrack": "sem trilha ativa",
-      "checkpoints": "Checkpoints",
-      "answered": "{count} já respondido{plural}",
-      "pending": "pendentes",
+      "checkpoints": "Precisam de apoio",
+      "answered": "ninguém parado",
+      "pending": "parados",
       "weeklyActivity": "Atividade na semana",
       "activeLastDays": "de {total} ativos nos últ. 7 dias",
       "ofTotal": "de {total}",
       "weekCount": "{count} na semana {week}"
     },
     "pendingCount": "{count} pendente{plural}",
-    "emptyAction": "Nada pendente neste momento. Quando os liderados chegarem às semanas de checkpoint das trilhas, eles aparecerão aqui pra avaliação.",
+    "emptyAction": "Ninguém parou nesta semana. Quando alguém ficar para trás na jornada, aparece aqui — com há quanto tempo e em que semana.",
     "modal": {
       "eyebrow": "Checkpoint semana {week} · avaliação",
       "noFocus": "sem competência foco",
@@ -4361,7 +4361,7 @@
       "noRole": "sem cargo",
       "today": "hoje",
       "openJourney": "Ver jornada",
-      "hintOnTime": "Chegou à semana de conversa: combine 15 minutos para ouvir como está sendo aplicar isso em sala.",
+      "hintOnTime": "Ficou para trás na semana {week}: uma conversa curta agora evita a jornada parar de vez.",
       "hintLate": "Parou há {weeks, plural, =1 {uma semana} other {# semanas}}: vale perguntar o que travou antes de cobrar a entrega."
     },
     "filters": {

@@ -42,29 +42,45 @@ function brandRampVars(accent: string): Record<string, string> {
   };
 }
 
+/**
+ * A ordem é a régua: **primeiro a minha jornada, depois o meu time.**
+ *
+ * A ordem anterior intercalava os dois papéis (equipe · ranking · relatórios ·
+ * engajamento · evolução da equipe · e só então jornada e temporada), então
+ * quem lidera E participa via os ícones da própria jornada no fim da coluna,
+ * depois de cinco de gestão. Pedido do dono em 04/09/2026.
+ *
+ * Os filtros por papel NÃO mudam com isto: quem só lidera (cargo de adequação,
+ * Top 5 vazio) continua sem o bloco individual, e para essa pessoa a coluna
+ * fica idêntica à de antes.
+ */
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', labelKey: 'home', icon: Home },
-  { href: '/dashboard/gestor', labelKey: 'team', icon: Users2, gestorOnly: true },
-  { href: '/dashboard/gestor/ranking', labelKey: 'ranking', icon: ListOrdered, rhOnly: true },
-  { href: '/dashboard/relatorios', labelKey: 'reports', icon: FileChartColumn, rhOnly: true },
-  // Seleção saiu daqui em 24/08/2026: era a única tela de OPERAÇÃO no menu do
-  // cliente (criar vaga · gerar perfil · avaliar candidatos) e virou operação da
-  // Vertho em /admin. O ranking das vagas segue visível ao RH em .../ranking, que já
-  // inclui `eh_vaga`. Ver o docstring de `gestor/selecao/page.tsx`.
+
+  // ── O QUE A PESSOA FAZ ───────────────────────────────────────────────────
   // `participante`: telas da jornada de quem FAZ o programa. O papel `rh` é o
   // Admin da empresa e não participa (medido 24/08/2026: 0 dos 8 com role='rh'
   // têm sessão de avaliação), então para ele são portas para tela vazia — a
   // mesma razão que tirou a jornada da home dele. Ver `home-rh.tsx`.
-  // Telas de EQUIPE. Para quem lidera sem participar (cargo de adequação, Top 5
-  // vazio) elas são o conteúdo do menu: o coordenador acompanha o time, não faz
-  // a própria jornada.
+  { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock, participante: true },
+  { href: '/dashboard/temporada', labelKey: 'season', icon: Play, participante: true },
+  { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp, participante: true },
+
+  // ── O QUE A PESSOA ACOMPANHA ─────────────────────────────────────────────
+  // Telas de EQUIPE. Para quem lidera sem participar elas são o conteúdo do
+  // menu: o coordenador acompanha o time, não faz a própria jornada.
+  { href: '/dashboard/gestor', labelKey: 'team', icon: Users2, gestorOnly: true },
   { href: '/dashboard/gestor/engajamento', labelKey: 'teamEngagement', icon: Activity, gestorOnly: true },
   // Para o RH a evolução já é uma ABA da central de relatórios: no menu, o
   // mesmo destino apareceria duas vezes na mesma tela.
   { href: '/dashboard/gestor/equipe-evolucao', labelKey: 'teamEvolution', icon: TrendingUp, gestorOnly: true, exceptoRh: true },
-  { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock, participante: true },
-  { href: '/dashboard/temporada', labelKey: 'season', icon: Play, participante: true },
-  { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp, participante: true },
+  // Seleção saiu daqui em 24/08/2026: era a única tela de OPERAÇÃO no menu do
+  // cliente (criar vaga · gerar perfil · avaliar candidatos) e virou operação da
+  // Vertho em /admin. O ranking das vagas segue visível ao RH em .../ranking, que
+  // já inclui `eh_vaga`. Ver o docstring de `gestor/selecao/page.tsx`.
+  { href: '/dashboard/gestor/ranking', labelKey: 'ranking', icon: ListOrdered, rhOnly: true },
+  { href: '/dashboard/relatorios', labelKey: 'reports', icon: FileChartColumn, rhOnly: true },
+
   { href: '/dashboard/perfil', labelKey: 'profile', icon: User },
 ];
 

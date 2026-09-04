@@ -4332,16 +4332,16 @@
       "inTrack": "{count} en ruta · {without} sin ruta",
       "inProgress": "En curso",
       "noActiveTrack": "sin ruta activa",
-      "checkpoints": "Checkpoints",
-      "answered": "{count} ya respondido{plural}",
-      "pending": "pendientes",
+      "checkpoints": "Necesitan apoyo",
+      "answered": "nadie detenido",
+      "pending": "detenidos",
       "weeklyActivity": "Actividad semanal",
       "activeLastDays": "de {total} activos en los últimos 7 días",
       "ofTotal": "de {total}",
       "weekCount": "{count} en la semana {week}"
     },
     "pendingCount": "{count} pendiente{plural}",
-    "emptyAction": "Nada pendiente en este momento. Cuando los liderados lleguen a las semanas de checkpoint de sus rutas, aparecerán aquí para evaluación.",
+    "emptyAction": "Nadie se detuvo esta semana. Cuando alguien se quede atrás en el recorrido, aparecerá aquí — con cuánto tiempo lleva y en qué semana.",
     "modal": {
       "eyebrow": "Checkpoint semana {week} · evaluación",
       "noFocus": "sin competencia foco",
@@ -4361,8 +4361,8 @@
       "noRole": "sin cargo",
       "today": "hoy",
       "openJourney": "Ver recorrido",
-      "hintOnTime": "Llegó a la semana de conversación: agenda 15 minutos para escuchar cómo va en el aula.",
-      "hintLate": "Lleva {weeks, plural, =1 {una semana} other {# semanas}} sin avanzar: pregunta qué lo frenó antes de exigir la entrega."
+      "hintOnTime": "Se quedó atrás en la semana {week}: una conversación breve ahora evita que el recorrido se detenga del todo.",
+      "hintLate": "Detenido hace {weeks, plural, =1 {una semana} other {# semanas}}: conviene preguntar qué lo trabó antes de exigir la entrega."
     },
     "filters": {
       "all": "Todos",
