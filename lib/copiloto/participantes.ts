@@ -225,3 +225,80 @@ export function fundirComDescobertos(
   }
   return lista.slice(0, 8);
 }
+
+/**
+ * Perfil de PESSOA, que aqui é âncora de identidade e não fonte.
+ *
+ * A leitura direta do perfil é impossível (o LinkedIn devolve bloqueio, medido em
+ * 03/09) e não é isso que se quer dele: com a URL na mão, a busca desambigua
+ * homônimo, que é o maior risco de pesquisar pessoa. Sem âncora, "Ana Silva" na
+ * empresa certa e "Ana Silva" de outro estado chegam com a mesma cara.
+ *
+ * Só perfil de pessoa entra: `/in/` no LinkedIn. Perfil de empresa é o outro
+ * campo, com outra régua, e misturá-los faria a trilha social buscar no lugar
+ * errado.
+ */
+export function parsePerfisDePessoa(texto: string): string[] {
+  const pedacos = (texto || '').split(/[\s,;]+/).filter(Boolean);
+  const vistos = new Set<string>();
+  const saida: string[] = [];
+  for (const pedaco of pedacos) {
+    let url: URL;
+    try {
+      url = new URL(/^https?:\/\//i.test(pedaco) ? pedaco : `https://${pedaco}`);
+    } catch {
+      continue;
+    }
+    const host = url.hostname.toLowerCase().replace(/^(www\.|[a-z]{2}\.)/, '');
+    const ehPerfilDePessoa = host.endsWith('linkedin.com') && /^\/in\/[^/]+/i.test(url.pathname);
+    if (!ehPerfilDePessoa) continue;
+    const slug = url.pathname.split('/').filter(Boolean)[1];
+    const canonica = `https://www.linkedin.com/in/${slug.toLowerCase()}`;
+    if (vistos.has(canonica)) continue;
+    vistos.add(canonica);
+    saida.push(canonica);
+    if (saida.length >= 8) break;
+  }
+  return saida;
+}
+
+/**
+ * O nome que o slug do perfil sugere, para casar com quem já está na lista.
+ *
+ * `linkedin.com/in/maria-souza-1a2b3c` vira "maria souza": os sufixos que o
+ * LinkedIn acrescenta são hexadecimais ou números, nunca sobrenome.
+ */
+export function nomeDoPerfil(url: string): string {
+  const slug = url.split('/in/')[1]?.replace(/\/$/, '') || '';
+  return slug
+    .split('-')
+    .filter((parte) => parte && !/^[0-9a-f]{4,}$/i.test(parte) && !/^\d+$/.test(parte))
+    .join(' ')
+    .trim();
+}
+
+/**
+ * O que a pesquisa NÃO achou sobre quem estará na reunião.
+ *
+ * Ausência aqui é informação, não vazio: significa que a abertura tem que vir da
+ * empresa, e não da pessoa. Sem essa linha o vendedor não distingue "não
+ * pesquisamos" de "pesquisamos e ela não publica", e a segunda é a que impede
+ * de inventar intimidade que não existe.
+ */
+export function marcarSemAchado(
+  participantes: Participante[],
+  encontrados: PessoaDescoberta[],
+): PessoaDescoberta[] {
+  const achados = new Set(encontrados.map((p) => p.name.toLocaleLowerCase('pt-BR')));
+  const faltantes = participantes
+    .filter((p) => p.nome && !achados.has(p.nome.toLocaleLowerCase('pt-BR')))
+    .map((p) => ({
+      name: p.nome,
+      role: p.cargo,
+      publicStance: '',
+      sourceUrl: null,
+      confidence: 'nao_confirmado' as const,
+      verifiable: false,
+    }));
+  return [...encontrados, ...faltantes];
+}

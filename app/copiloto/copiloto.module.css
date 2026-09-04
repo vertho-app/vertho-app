@@ -416,6 +416,12 @@
 .peopleStance { margin: 0; color: #8fa8bd; font-size: 12.5px; line-height: 1.5; }
 .peopleGrid a { color: var(--cyan); font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px; }
 .peopleGrid small { display: inline-flex; align-items: center; gap: 5px; color: var(--amber); font-size: 11px; line-height: 1.45; }
+.peopleNothing { margin: 0; color: #7e99ad; font-size: 12.5px; line-height: 1.5; font-style: italic; }
+.peopleProfilesField { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; }
+.setupPanel .peopleProfilesField label { margin: 0; position: relative; }
+.setupPanel .peopleProfilesField label em { margin-left: 6px; color: #648096; font-size: 9px; font-style: normal; font-weight: 650; letter-spacing: .06em; }
+.setupPanel .peopleProfilesField > small { display: flex; gap: 6px; align-items: flex-start; color: #718da4; font-size: 11.5px; line-height: 1.5; letter-spacing: .03em; text-transform: none; }
+.setupPanel .peopleProfilesField > small b { color: #bfd0df; font-weight: 700; }
 .setupDetails { margin-bottom: 20px; border-top: 1px solid var(--line); padding-top: 14px; }
 .setupDetails > summary { display: flex; align-items: center; gap: 8px; color: #7e99ad; cursor: pointer; font: 750 9px/1 var(--font-inter); letter-spacing: .12em; text-transform: uppercase; }
 .setupDetails > summary small { color: #5d7791; font-size: 8.5px; letter-spacing: .05em; text-transform: none; }

@@ -5,7 +5,10 @@ import {
   enriquecerComContatos,
   formatarParticipantes,
   fundirComDescobertos,
+  marcarSemAchado,
+  nomeDoPerfil,
   normalizarPessoas,
+  parsePerfisDePessoa,
   parseParticipantes,
 } from '@/lib/copiloto/participantes';
 
@@ -180,5 +183,65 @@ describe('fundirComDescobertos', () => {
     const lista = fundirComDescobertos(parseParticipantes('Maria Souza, Head de T&D'), [descoberto]);
     expect(lista).toHaveLength(2);
     expect(lista[1]).toMatchObject({ nome: 'Paulo Reis', seat: 'financeiro', descoberto: true });
+  });
+});
+
+describe('parsePerfisDePessoa', () => {
+  it('aceita perfil de PESSOA e normaliza para uma forma só', () => {
+    expect(parsePerfisDePessoa('https://br.linkedin.com/in/Maria-Souza-1a2b/pt'))
+      .toEqual(['https://www.linkedin.com/in/maria-souza-1a2b']);
+  });
+
+  it('perfil de EMPRESA fica de fora: é o outro campo, com outra régua', () => {
+    expect(parsePerfisDePessoa('https://linkedin.com/company/vertho')).toEqual([]);
+    expect(parsePerfisDePessoa('https://instagram.com/vertho')).toEqual([]);
+  });
+
+  it('não repete o mesmo perfil escrito de dois jeitos', () => {
+    const lista = parsePerfisDePessoa(
+      'https://www.linkedin.com/in/paulo-reis  https://br.linkedin.com/in/paulo-reis/',
+    );
+    expect(lista).toHaveLength(1);
+  });
+
+  it('texto que não é perfil não vira âncora', () => {
+    expect(parsePerfisDePessoa('não sei o linkedin dela')).toEqual([]);
+    expect(parsePerfisDePessoa('')).toEqual([]);
+  });
+});
+
+describe('nomeDoPerfil', () => {
+  it('tira o sufixo que o LinkedIn acrescenta', () => {
+    expect(nomeDoPerfil('https://www.linkedin.com/in/maria-souza-046a1068')).toBe('maria souza');
+    expect(nomeDoPerfil('https://www.linkedin.com/in/paulo-reis')).toBe('paulo reis');
+  });
+
+  it('nome composto sobrevive', () => {
+    expect(nomeDoPerfil('https://www.linkedin.com/in/ana-lucia-tarouquella-schilke'))
+      .toBe('ana lucia tarouquella schilke');
+  });
+});
+
+describe('marcarSemAchado', () => {
+  const achado = {
+    name: 'Maria Souza', role: 'Head de T&D', publicStance: 'Fala sobre trilhas.',
+    sourceUrl: 'https://exemplo.com/a', confidence: 'confirmado' as const, verifiable: true,
+  };
+
+  it('quem estará na reunião e não apareceu vira ausência declarada', () => {
+    const lista = marcarSemAchado(parseParticipantes('Maria Souza, Head de T&D; Paulo Reis, CFO'), [achado]);
+    expect(lista).toHaveLength(2);
+    expect(lista[1]).toMatchObject({
+      name: 'Paulo Reis', role: 'CFO', sourceUrl: null, confidence: 'nao_confirmado', publicStance: '',
+    });
+  });
+
+  it('não duplica quem já foi encontrado', () => {
+    const lista = marcarSemAchado(parseParticipantes('maria souza'), [achado]);
+    expect(lista).toHaveLength(1);
+  });
+
+  it('sem participantes informados, não inventa ausência', () => {
+    expect(marcarSemAchado([], [achado])).toEqual([achado]);
   });
 });

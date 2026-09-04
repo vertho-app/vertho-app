@@ -31,7 +31,7 @@ import {
 import { limitSourcesByKind } from '@/lib/copiloto/source-selection';
 import {
   cadeirasPresentes, enriquecerComContatos, formatarParticipantes, fundirComDescobertos,
-  normalizarPessoas, parseParticipantes,
+  marcarSemAchado, nomeDoPerfil, normalizarPessoas, parsePerfisDePessoa, parseParticipantes,
 } from '@/lib/copiloto/participantes';
 import {
   DISCOVERY_CHECKLIST, PACE_PHASES,
@@ -528,6 +528,8 @@ async function planejarConversa(req: Request) {
     const requestedGoal = text(body?.goalThisHour, MAX.goalThisHour);
     // A trilha de pessoas traz dado de terceiro identificado: só roda quando pedida.
     const researchPeople = body?.researchPeople === true;
+    // Perfil de PESSOA é âncora de identidade contra homônimo, nunca fonte.
+    const perfisDePessoa = parsePerfisDePessoa(text(body?.peopleProfiles, MAX.socialProfiles));
 
     if (!offer) return NextResponse.json({ error: 'Descreva o que você vende' }, { status: 400 });
     if (requestedAccountId && !UUID.test(requestedAccountId)) {
@@ -567,6 +569,20 @@ async function planejarConversa(req: Request) {
     // digitado, e a cadeira é o que faz a rota de objeção falar com quem está lá.
     const contatosDaConta = accountId ? await listCopilotAccountContacts(access, accountId) : [];
     const participantes = enriquecerComContatos(parseParticipantes(audience), contatosDaConta);
+    // O slug do perfil casa com quem já está na lista; o que não casar entra como
+    // alvo próprio, porque um perfil colado é alguém que o vendedor quer conhecer.
+    const perfisPorNome = new Map(perfisDePessoa.map((perfil) => [nomeDoPerfil(perfil), perfil]));
+    const alvosDePesquisa = [
+      ...participantes.map((pessoa) => ({
+        nome: pessoa.nome,
+        cargo: pessoa.cargo,
+        perfil: perfisPorNome.get(pessoa.nome.toLocaleLowerCase('pt-BR')),
+      })),
+      ...perfisDePessoa
+        .filter((perfil) => !participantes.some((pessoa) =>
+          pessoa.nome.toLocaleLowerCase('pt-BR') === nomeDoPerfil(perfil)))
+        .map((perfil) => ({ nome: nomeDoPerfil(perfil), cargo: '', perfil })),
+    ].filter((alvo) => alvo.nome).slice(0, 6);
     const segment = opportunity?.segment || account?.segment || null;
     const privateContext = [opportunity?.text, context].filter(Boolean).join('\n\n');
 
@@ -589,7 +605,7 @@ async function planejarConversa(req: Request) {
     const researchPromise = company.length >= 2 || site.length >= 4 || officialSocialUrls.length
       // O avanço entra como prioridade de busca. Só o enum atravessa: briefing, oferta e
       // memória continuam fora da internet.
-      ? researchCompany(company, site, officialSocialUrls, conversationGoal, researchPeople)
+      ? researchCompany(company, site, officialSocialUrls, conversationGoal, researchPeople, alvosDePesquisa)
       : Promise.resolve(null);
     const [result, grounding] = await Promise.all([
       researchPromise,
@@ -611,7 +627,9 @@ async function planejarConversa(req: Request) {
         peopleRequested: result.peopleRequested,
         peopleCompleted: result.peopleCompleted,
       };
-      pessoasDescobertas = normalizarPessoas(result.people);
+      pessoasDescobertas = researchPeople
+        ? marcarSemAchado(participantes, normalizarPessoas(result.people))
+        : normalizarPessoas(result.people);
     }
 
     // A fusão vem DEPOIS da pesquisa: quem o vendedor informou manda, e o

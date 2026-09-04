@@ -205,8 +205,12 @@ function PeopleCard({ people }: { people: MeetingPerson[] }) {
               <h4>{person.name}</h4>
               <span data-confidence={person.confidence}>{CONFIDENCE_LABELS[person.confidence]}</span>
             </header>
-            <p className={styles.peopleRole}>{person.role}</p>
-            {person.publicStance && <p className={styles.peopleStance}>{person.publicStance}</p>}
+            <p className={styles.peopleRole}>{person.role || 'cargo não confirmado'}</p>
+            {person.publicStance
+              ? <p className={styles.peopleStance}>{person.publicStance}</p>
+              : person.sourceUrl
+                ? <p className={styles.peopleStance}>Apenas o cargo foi confirmado.</p>
+                : <p className={styles.peopleNothing}>Nada público encontrado. Abra pela empresa, não por ela.</p>}
             {person.sourceUrl && (
               <a href={person.sourceUrl} target="_blank" rel="noreferrer">
                 Ver fonte <ExternalLink size={12} />
@@ -681,6 +685,7 @@ export default function CopilotClient({
   const [pedindoRedes, setPedindoRedes] = useState(false);
   /** Trilha opcional: descobre quem responde por pessoas na organização. */
   const [researchPeople, setResearchPeople] = useState(false);
+  const [peopleProfiles, setPeopleProfiles] = useState('');
   const [socialDiscovery, setSocialDiscovery] = useState<SocialDiscoveryState>({ status: 'idle' });
   const [activePlanningId, setActivePlanningId] = useState('');
   const [planPersisted, setPlanPersisted] = useState(false);
@@ -771,6 +776,7 @@ export default function CopilotClient({
         if (typeof parsed?.goalThisHour === 'string') setGoalThisHour(parsed.goalThisHour);
         if (normalizeConversationGoal(parsed?.conversationGoal)) setConversationGoal(parsed.conversationGoal);
         if (typeof parsed?.researchPeople === 'boolean') setResearchPeople(parsed.researchPeople);
+        if (typeof parsed?.peopleProfiles === 'string') setPeopleProfiles(parsed.peopleProfiles);
         if (typeof parsed?.planningId === 'string') {
           setActivePlanningId(parsed.planningId);
           setPlanPersisted(!!parsed.planningId);
@@ -1007,7 +1013,7 @@ export default function CopilotClient({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           company, site, socialProfiles, context, offer, opportunityId, accountId,
-          meetingKind, audience, goalThisHour, conversationGoal, researchPeople,
+          meetingKind, audience, goalThisHour, conversationGoal, researchPeople, peopleProfiles,
         }),
       });
       const data = await res.json();
@@ -1050,7 +1056,7 @@ export default function CopilotClient({
         localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify({
           plan: generatedPlan, company, site, socialProfiles, context, offer, opportunityId,
           accountId: linkedAccountId, planningId: savedPlanningId, persisted: !!savedPlanningId,
-          meetingKind, audience, audienceOptions, goalThisHour, conversationGoal, researchPeople,
+          meetingKind, audience, audienceOptions, goalThisHour, conversationGoal, researchPeople, peopleProfiles,
         }));
       } catch {
         // O plano continua utilizável na sessão se o navegador bloquear storage.
@@ -1127,6 +1133,7 @@ export default function CopilotClient({
       clearPlan();
       setSite('');
       setSocialProfiles('');
+      setPeopleProfiles('');
       esquecerVarreduraDeRedes();
       setAudience('');
       setAudienceOptions([]);
@@ -1609,6 +1616,20 @@ export default function CopilotClient({
                   <small>Uma busca a mais, só em fonte pública: cargo, entrevista, palestra ou artigo assinado. Traz nome de terceiros para o plano.</small>
                 </span>
               </label>
+              {researchPeople && (
+                <div className={styles.peopleProfilesField}>
+                  <label htmlFor="copilot-people-profiles">Perfil de quem estará na reunião <em>opcional</em></label>
+                  <textarea
+                    id="copilot-people-profiles"
+                    value={peopleProfiles}
+                    onChange={(event) => setPeopleProfiles(event.target.value)}
+                    rows={2}
+                    maxLength={3000}
+                    placeholder={'https://linkedin.com/in/maria-souza\nhttps://linkedin.com/in/paulo-reis'}
+                  />
+                  <small><ShieldCheck size={12} /> Serve para <b>confirmar de quem estamos falando</b>, não como fonte: o perfil não é lido. Com ele, homônimo deixa de virar plano sobre outra pessoa.</small>
+                </div>
+              )}
               {!!audienceOptions.length && (
                 <div className={styles.audienceChips} aria-label="Contatos desta empresa">
                   {audienceOptions.map((option) => {
