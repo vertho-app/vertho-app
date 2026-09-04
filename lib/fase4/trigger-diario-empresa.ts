@@ -37,7 +37,7 @@ import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarPush } from '@/lib/notifications/push-core';
 import { pushPilula, pushPilulaPendente, pushMissao, pushEvidencia, pushSemanaPendente } from '@/lib/notifications/push-copy';
 import { temaPilula } from '@/lib/notifications/pilula-envio';
-import { ENVIO } from '@/lib/status';
+import { ENVIO, PROGRESSO } from '@/lib/status';
 
 const TOTAL_SEMANAS = 14;
 const SEMANAS_IMPL = [4, 8, 12]; // Semanas de implementação (sem pílula nova)
@@ -78,6 +78,15 @@ export interface ResumoEmpresaDiario {
    * "36 pílulas" com 200 pessoas na coorte parece cobertura total.
    */
   adiadosPorTeto: number;
+  /**
+   * Cobranças de quinta puladas porque a semana acessível já estava CONCLUÍDA.
+   *
+   * Também não é erro: é a correção de 03/09/2026 funcionando. Fica no resumo
+   * porque um skip silencioso é indistinguível de um skip que parou de
+   * acontecer — se a leitura de progresso regredir, o número cai a zero e a
+   * cadência volta a cobrar quem está em dia, sem nada acusando.
+   */
+  cobrancasPuladas: number;
 }
 
 /**
@@ -92,13 +101,21 @@ export async function processarEmpresaDiario(
   { hoje, hojeUTC }: { hoje: number; hojeUTC: string },
 ): Promise<ResumoEmpresaDiario> {
   let pilulas = 0, emails = 0, evidencias = 0, nudges = 0, erros = 0, adiadosPorTeto = 0;
+  /**
+   * Cobranças de quinta puladas por a semana acessível já estar CONCLUÍDA.
+   *
+   * Sai no resumo porque silêncio novo precisa ser observável: sem este número,
+   * uma regressão na leitura de progresso (que zeraria o skip e voltaria a
+   * cobrar quem está em dia) seria indistinguível de "ninguém estava em dia".
+   */
+  let cobrancasPuladas = 0;
 
   const cadencia = (empresa as any).sys_config?.cadencia || {};
   const diaP1 = cadencia.fase4_dia_pilula ?? 1;            // default segunda
   const diaP2 = cadencia.fase4_dia_pilula2 ?? 2;           // default terça (2ª pílula DUO)
   const diaEv = cadencia.fase4_dia_evidencia ?? 4;         // default quinta
   if (hoje !== diaP1 && hoje !== diaP2 && hoje !== diaEv) {
-    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto }; // empresa sem nada hoje
+    return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas }; // empresa sem nada hoje
   }
 
   // Deep-link da pílula = URL do TENANT (ibipeba.vertho.ai), não a genérica.
@@ -117,7 +134,7 @@ export async function processarEmpresaDiario(
   const { data: envios } = await tdb.from('fase4_envios')
     .select('id, colaborador_id, semana_atual, status, ultima_evidencia_em, ultima_evidencia_whatsapp_em, ultima_evidencia_email_em, ultima_evidencia_push_em, ultima_pilula1_em, ultima_pilula2_em, ultima_pilula1_whatsapp_em, ultima_pilula1_email_em, ultima_pilula1_push_em, ultima_pilula2_whatsapp_em, ultima_pilula2_email_em, ultima_pilula2_push_em, colaboradores!inner(nome_completo, whatsapp, telefone, email, perfil_dominante, cargo, pref_video_curto, pref_video_longo, pref_texto, pref_audio, pref_estudo_caso)')
     .eq('status', ENVIO.ATIVO);
-  if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto };
+  if (!envios?.length) return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas };
 
   // Trilha mais recente de CADA colaborador em UMA query (era 1 query por
   // envio — N+1). Ordenada por numero_temporada desc, a PRIMEIRA ocorrência
@@ -922,7 +939,34 @@ export async function processarEmpresaDiario(
       const stampEv: Record<string, string> = {};
       let evidenciaEnfileirada = false;
 
-      const vagaEv = telefone && !mesmoDiaUTC(envio.ultima_evidencia_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
+      /**
+       * 🔴 NÃO COBRAR O QUE JÁ FOI FEITO.
+       *
+       * `primeiraSemanaAcessivel` desce até a primeira semana que a pessoa
+       * consegue ABRIR — e uma semana concluída continua aberta. Quem está em
+       * dia recebe, então, a cobrança da semana que acabou de fechar:
+       * *"o desafio da semana 7 ainda não foi registrado"* para quem registrou.
+       *
+       * `Medido:` 27/08/2026, 33 pessoas de Ibipeba receberam essa quinta; em
+       * 03/09, as 8 que haviam concluído as sete semanas receberam de novo. É a
+       * mensagem que mais corrói confiança no produto, porque a pessoa sabe que
+       * fez — e o sistema afirma que não.
+       *
+       * ⚠️ A checagem entra AQUI, e não como `continue` no topo do bloco, por um
+       * motivo que já mordeu esta base: o AVANÇO do calendário mora no fim deste
+       * mesmo `if`. Pular o bloco inteiro deixaria quem está em dia com
+       * `semana_atual` congelado — a pessoa mais adiantada seria a única a nunca
+       * chegar ao fim do programa. O calendário anda sozinho; só o ENVIO espera.
+       *
+       * Fail-safe: sem progresso confiável (`progressoConfiavel` false, leitura
+       * que falhou), `concluiuSemanaAcessivel` fica false e a cobrança sai como
+       * sempre saiu. Falha de leitura não pode calar a cadência inteira.
+       */
+      const concluiuSemanaAcessivel = progressoConfiavel && (progressoPorColab.get(envio.colaborador_id) || [])
+        .some((p: any) => Number(p?.semana) === Number(semana) && p?.status === PROGRESSO.CONCLUIDO);
+      if (concluiuSemanaAcessivel) cobrancasPuladas++;
+
+      const vagaEv = !concluiuSemanaAcessivel && telefone && !mesmoDiaUTC(envio.ultima_evidencia_whatsapp_em, hojeUTC) ? vagaWhatsapp() : null;
       if (vagaEv !== null) {
         const mensagem = ehDesafio
           ? templateWhatsAppNudgeDesafio(nome, semana, linkSemana)
@@ -958,7 +1002,7 @@ export async function processarEmpresaDiario(
         } catch { erros++; }
       }
 
-      if (email && !ehDemo && !mesmoDiaUTC(envio.ultima_evidencia_email_em, hojeUTC)) {
+      if (!concluiuSemanaAcessivel && email && !ehDemo && !mesmoDiaUTC(envio.ultima_evidencia_email_em, hojeUTC)) {
         const { subject, html } = emailEvidencia(nome, { semana, baseUrl });
         const r = await enviarEmailPilula(email, subject, html, {
           kind: 'evidencia',
@@ -969,7 +1013,7 @@ export async function processarEmpresaDiario(
         if (r.ok) { emails++; stampEv.ultima_evidencia_email_em = agoraEv; } else erros++;
       }
 
-      if (pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_evidencia_push_em, hojeUTC)) {
+      if (!concluiuSemanaAcessivel && pushLigado && comPush.has(envio.colaborador_id) && !mesmoDiaUTC(envio.ultima_evidencia_push_em, hojeUTC)) {
         const texto = pushEvidencia(semana);
         const r = await enviarPush({
           colaboradorId: envio.colaborador_id,
@@ -1026,7 +1070,7 @@ export async function processarEmpresaDiario(
     });
   }
 
-  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto };
+  return { pilulas, emails, evidencias, nudges, erros, adiadosPorTeto, cobrancasPuladas };
 }
 
 /**
