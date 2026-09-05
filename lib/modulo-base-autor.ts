@@ -256,14 +256,39 @@ ${blocoDocx}
 QUANTIDADES (faixa fechada — não ultrapasse o teto): 5 a 6 princípios, 4 a 5 situações típicas, 4 a 5 erros comuns, 4 a 5 boas práticas. Densidade vale mais que volume: prefira 5 itens afiados a 9 diluídos. Responda APENAS com o JSON.`;
 }
 
-export async function chamarIAComRetry(systemPrompt: string, userPrompt: string, model: string, maxTokens = 64000) {
+/**
+ * Prazo de uma escrita de módulo inteiro.
+ *
+ * 🔴 O default do wrapper (`AI_TIMEOUT_MS`, 120s) NÃO cabe aqui, e o descompasso
+ * é estrutural: esta função pede até 64.000 tokens de SAÍDA, que é um módulo
+ * completo (os quatro blocos), e nenhum modelo escreve isso em dois minutos.
+ * `Medido: 04/09/2026` — o refino dos 3 módulos reprovados do TCH12 abortou nas
+ * 6 tentativas com `Request was aborted`, sem uma linha no ledger. Pela Batch API
+ * os MESMOS módulos saem, porque lá não existe este relógio: o defeito só aparece
+ * no caminho síncrono (refino pela tela, scripts headless).
+ *
+ * 10 minutos é folga real para a escrita mais longa observada, e continua sendo
+ * um teto: chamada pendurada ainda morre em vez de segurar o processo.
+ */
+export const TIMEOUT_ESCRITA_MODULO_MS = 600_000;
+
+export async function chamarIAComRetry(
+  systemPrompt: string,
+  userPrompt: string,
+  model: string,
+  maxTokens = 64000,
+  opts: { timeoutMs?: number } = {},
+) {
   let corpo: any = null;
   for (let tentativa = 1; tentativa <= 2 && !corpo; tentativa++) {
     try {
       // `taskKey`: a extração de manuscrito custa ~$0,197 por módulo e roda em
       // LOTE — sem etiqueta ela some no `untagged` e o ledger não sabe dizer que
       // a conta do mês veio daqui (F13).
-      const raw = await callAI(systemPrompt, userPrompt, { model }, maxTokens, { taskKey: 'modulo_base_autor' });
+      const raw = await callAI(systemPrompt, userPrompt, { model }, maxTokens, {
+        taskKey: 'modulo_base_autor',
+        timeoutMs: opts.timeoutMs ?? TIMEOUT_ESCRITA_MODULO_MS,
+      });
       corpo = extractCorpo(raw);
       if (!corpo) {
         const txt = String(raw || '');
