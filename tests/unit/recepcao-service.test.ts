@@ -1,12 +1,15 @@
 import { beforeEach, expect, test, vi } from 'vitest';
-import { abrirSessao } from '@/lib/recepcao/core.mjs';
-import { cenario } from '@/lib/recepcao/cenario.mjs';
+import { abrirSessao } from '@/lib/recepcao/core';
+import { cenario as legado } from '@/lib/recepcao/cenario.mjs';
+import { cenarioSchema } from '@/lib/recepcao/schema';
+const cenario = cenarioSchema.parse(legado);
 
 const mock = vi.hoisted(() => ({ gerar: vi.fn(), auth: null as any, sb: null as any, permitido: true }));
-vi.mock('@/lib/recepcao/ai', () => ({ geradorRecepcao: () => ({ gerar: mock.gerar, chamadas: [] }), textoParaTreino: (s: string) => s }));
+vi.mock('@/lib/recepcao/ai', () => ({ geradorRecepcao: () => ({ gerar: mock.gerar, chamadas: [], validar: async () => {} }), textoParaTreino: (s: string) => s }));
 vi.mock('@/lib/auth/request-context', () => ({ requireUser: async () => mock.auth }));
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => mock.sb }));
 vi.mock('@/lib/permissions', () => ({ can: async () => mock.permitido }));
+vi.mock('@/lib/recepcao/cenarios', () => ({ catalogo: async()=>[], cenarioPublicado: async()=>({id:'cenario',conteudo:cenario}) }));
 import { executar, consultar } from '@/lib/recepcao/service';
 import { empresaDaSessao, contextoRecepcao } from '@/lib/recepcao/access';
 
@@ -41,9 +44,9 @@ function db() {
       return q;
     },
     async rpc(name: string, p: any) {
-      const row = rows.find(r => r.id === p.p_id && r.empresa_id === p.p_empresa && r.owner_email === p.p_owner && r.revisao === p.p_revisao);
+      const row = rows.find(r => r.id === p.p_id && r.empresa_id === p.p_empresa && r.owner_key === p.p_owner && r.revisao === p.p_revisao);
       if (!row) return { data: false, error: null };
-      if (name === 'recepcao_claim') {
+      if (name === 'recepcao_claim_v2') {
         if (row.lock_token) return { data: false, error: null };
         row.lock_token = p.p_token; return { data: true, error: null };
       }
@@ -55,10 +58,10 @@ function db() {
 }
 beforeEach(() => {
   const estado = abrirSessao(cenario); estado.id = ID;
-  rows = [{ id: ID, empresa_id: EMPRESA, owner_email: 'pessoa@example.test', estado, revisao: 0, created_at: '2026-09-05' }];
+  rows = [{ id: ID, empresa_id: EMPRESA, owner_email: 'pessoa@example.test', owner_key:'colab:colab', estado, revisao: 0, created_at: '2026-09-05' }];
   mock.sb = db(); mock.permitido = true;
   mock.auth = { email: 'pessoa@example.test', empresaId: EMPRESA, isPlatformAdmin: false, role: 'colaborador', colaborador: { id: 'colab', empresa_id: EMPRESA } };
-  ctx = { auth: mock.auth, empresaId: EMPRESA, owner: mock.auth.email, empresaNome: 'Fictícia', habilitado: true, sb: mock.sb };
+  ctx = { auth: mock.auth, empresaId: EMPRESA, owner: mock.auth.email, ownerKey:'colab:colab', empresaNome: 'Fictícia', habilitado: true, sb: mock.sb };
   mock.gerar.mockReset().mockResolvedValue(JSON.stringify({ fala: 'Prefiro a Dra. Helena.' }));
 });
 const comando = () => ({ acao: 'responder' as const, sessaoId: ID, requestId: REQUEST, revisao: 0, mensagem: 'Qual horário funciona?' });
@@ -79,7 +82,7 @@ test('flag fechada bloqueia colaborador inclusive por API', async () => {
   await expect(contextoRecepcao(new Request('http://local'))).rejects.toThrow('não está habilitado');
 });
 test('sessões de outra empresa ou outro proprietário não podem ser lidas nem alteradas', async () => {
-  for (const change of [{ empresaId: OUTRA }, { owner: 'outra@example.test' }]) {
+  for (const change of [{ empresaId: OUTRA }, { ownerKey: 'colab:outro' }]) {
     const outro = { ...ctx, ...change };
     await expect(consultar(outro, ID)).rejects.toThrow('não encontrado');
     await expect(executar(outro, comando())).rejects.toThrow('não encontrado');

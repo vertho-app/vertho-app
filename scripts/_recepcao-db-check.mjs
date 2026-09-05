@@ -1,11 +1,11 @@
 // Verifica a migration e as leases dentro de uma transação sempre revertida.
-// Uso: node --env-file=.env.local scripts/_recepcao-db-check.mjs
+// Uso: npx tsx --env-file=.env.local scripts/_recepcao-db-check.mjs
 import pg from 'pg';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { sslSupabase } from './_pg-ssl.mjs';
-import { abrirSessao } from '../lib/recepcao/core.mjs';
+import { abrirSessao } from '../lib/recepcao/core.ts';
 import { cenario } from '../lib/recepcao/cenario.mjs';
 const db = new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: sslSupabase() });
 await db.connect();

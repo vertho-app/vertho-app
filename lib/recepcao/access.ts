@@ -30,5 +30,13 @@ export async function contextoRecepcao(req: Request, solicitada?: string | null,
   if (error) throw new RecepcaoError(503, 'O treinamento está temporariamente indisponível.');
   const habilitado = config?.habilitado === true;
   if (!habilitado && !auth.isPlatformAdmin) throw new RecepcaoError(403, 'O treino de atendimento ainda não está habilitado para sua clínica.');
-  return { auth, empresaId, empresaNome: empresa.nome, habilitado, sb, owner: auth.email.toLowerCase() };
+  let ownerKey:string;
+  if (auth.isPlatformAdmin) {
+    const {data:admin,error} = await sb.from('platform_admins').select('id').eq('email',auth.email.toLowerCase()).maybeSingle();
+    if(error || !admin?.id) throw new RecepcaoError(403,'Não foi possível identificar seu acesso administrativo.');
+    ownerKey=`admin:${admin.id}`;
+  } else ownerKey=`colab:${auth.colaborador.id}`;
+  return { auth, empresaId, empresaNome: empresa.nome, habilitado, sb, owner: auth.email.toLowerCase(), ownerKey };
 }
+
+export type ContextoRecepcao = Exclude<Awaited<ReturnType<typeof contextoRecepcao>>,Response>;

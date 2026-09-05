@@ -1,6 +1,6 @@
 // Respostas ESCRITAS para testar o encadeamento. Não são saídas medidas de IA.
 import { cenario } from '../../lib/recepcao/cenario.mjs';
-import { abrirSessao, responder, encerrar } from '../../lib/recepcao/core.mjs';
+import { abrirSessao, responder, encerrar } from '../../lib/recepcao/core.ts';
 
 export const falasSecretaria = [
   'Sinto muito pelo transtorno das duas mudanças. Qual horário funciona para você? Prefere manter a Dra. Helena?',
@@ -14,6 +14,7 @@ export const falasPaciente = [
 ];
 const ref = (mensagemId, trecho) => ({ mensagemId, trecho });
 
+/** @returns {import('../../lib/recepcao/model').Insumos & {nota?:number}} */
 export function insumosExemplo() {
   const e = {
     acolhimento: ref('m1', 'Sinto muito pelo transtorno das duas mudanças.'),

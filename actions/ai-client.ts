@@ -49,6 +49,8 @@ export interface AIConfig {
 }
 
 export interface AICallOptions {
+  /** Identificador da tentativa, para conciliar custo sem aproximação por horário. */
+  correlationId?: string;
   temperature?: number;
   thinking?: boolean;
   thinkingBudget?: number;
@@ -370,6 +372,7 @@ async function registrarUsoIA(
     const { gravarLinhaLedger } = await import('@/lib/ia-ledger');
     await gravarLinhaLedger({
       feature: options.taskKey || 'untagged',
+      ...(options.correlationId ? { correlation_id: options.correlationId } : {}),
       empresa_id: options.empresaId ?? null,
       colaborador_id: options.colaboradorId ?? null,
       provider,

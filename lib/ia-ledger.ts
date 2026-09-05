@@ -30,6 +30,7 @@ async function sbInfra() {
 
 /** Uma linha de `ia_usage_log` (mig 177 + 230 + 231). */
 export interface LinhaLedgerIA {
+  correlation_id?: string;
   feature: string;
   empresa_id?: string | null;
   colaborador_id?: string | null;
@@ -59,6 +60,7 @@ export async function gravarLinhaLedger(linha: LinhaLedgerIA): Promise<boolean> 
   try {
     const { error } = await (await sbInfra()).from('ia_usage_log').insert({
       feature: linha.feature,
+      ...(linha.correlation_id ? { correlation_id: linha.correlation_id } : {}),
       empresa_id: linha.empresa_id ?? null,
       colaborador_id: linha.colaborador_id ?? null,
       provider: linha.provider,

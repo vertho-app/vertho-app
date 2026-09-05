@@ -211,6 +211,7 @@ export type PlanoSemanaStatus = (typeof PLANO_SEMANA)[keyof typeof PLANO_SEMANA]
  * `status-literal` reprovava os dois arquivos da recepção e travava o push.
  */
 export const RECEPCAO_SESSAO = {
+  AGUARDANDO_AVALIACAO: 'aguardando_avaliacao',
   EM_ANDAMENTO: 'em_andamento',
   CONCLUIDA: 'concluida',
 } as const;

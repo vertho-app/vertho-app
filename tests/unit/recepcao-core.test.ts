@@ -1,7 +1,9 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
-import { cenario } from '@/lib/recepcao/cenario.mjs';
-import { abrirSessao, visaoPublica, responder, encerrar, consolidar, validarCenario, promptAvaliador, ErroReferenciaAvaliacao } from '@/lib/recepcao/core.mjs';
+import { cenario as legado } from '@/lib/recepcao/cenario.mjs';
+import { cenarioSchema } from '@/lib/recepcao/schema';
+const cenario = cenarioSchema.parse(legado);
+import { abrirSessao, visaoPublica, responder, encerrar, consolidar, validarCenario, promptAvaliador, ErroReferenciaAvaliacao } from '@/lib/recepcao/core';
 
 import { executarExemplo, insumosExemplo } from './recepcao-fixtures.mjs';
 const fala = async () => JSON.stringify({ fala: 'Pode explicar?' });
@@ -17,9 +19,9 @@ test('sessão completa: abertura, atendimento, aceitação e feedback', async ()
 });
 test('projeção pública não expõe gabarito ou estado reservado', () => {
   const s = abrirSessao(cenario), p = visaoPublica(s);
-  assert.equal(p.cenario.paciente, undefined);
-  assert.equal(p.recibos, undefined);
-  assert.equal(p.cenario.rubrica, undefined);
+  assert.equal((p.cenario as any).paciente, undefined);
+  assert.equal((p as any).recibos, undefined);
+  assert.equal((p.cenario as any).rubrica, undefined);
   p.historico[0].content = 'alterado';
   assert.notEqual(s.historico[0].content, 'alterado');
   assert.ok(!promptAvaliador(cenario).includes(cenario.paciente.fatos[0]));
@@ -120,7 +122,7 @@ test('encerrar sem atendimento não atribui nota; encerramento repetido não cha
 });
 test('avaliação inválida tem uma correção limitada, preservando estado se ambas falharem', async () => {
   const original = await executarExemplo();
-  const s = { ...original, status: 'em_andamento', relatorio: null };
+  const s = { ...original, status: 'em_andamento' as const, relatorio: null };
   let chamadas = 0;
   const corrigido = await encerrar(s, async () => {
     chamadas++;
@@ -134,7 +136,7 @@ test('avaliação inválida tem uma correção limitada, preservando estado se a
 
 test('avaliador recebe participantes explícitos e corrige a saída recusada com o campo exato', async () => {
   const original = await executarExemplo();
-  const s = { ...original, status: 'em_andamento', relatorio: null };
+  const s = { ...original, status: 'em_andamento' as const, relatorio: null };
   const invalido = insumosExemplo();
   invalido.dimensoes[0].evidencias = [{ mensagemId: 'm0', trecho: s.historico[0].content }];
   let chamadas = 0;
@@ -169,7 +171,7 @@ test('erro de referência identifica campo e causa sem expor o trecho', async ()
 
 test('duas avaliações que atribuem fala da paciente à secretária nunca são publicadas', async () => {
   const original = await executarExemplo();
-  const s = { ...original, status: 'em_andamento', relatorio: null }, antes = structuredClone(s);
+  const s = { ...original, status: 'em_andamento' as const, relatorio: null }, antes = structuredClone(s);
   const a = insumosExemplo();
   a.dimensoes[3].evidencias = [{ mensagemId: 'm0', trecho: s.historico[0].content }];
   let chamadas = 0;

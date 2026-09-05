@@ -147,6 +147,7 @@ function timeoutAdaptativo(chars: number): number {
  * devolutiva ou podcast, e `ttsGenerate` não tem como descobrir.
  */
 export interface TtsLedger {
+  correlationId?: string;
   feature: string;
   empresaId?: string | null;
   colaboradorId?: string | null;
@@ -187,6 +188,7 @@ async function registrarUsoTts(
   const ctx = contextoAtual();
   await gravarLinhaLedger({
     feature: ledger.feature,
+    ...(ledger.correlationId ? { correlation_id: ledger.correlationId } : {}),
     empresa_id: ledger.empresaId ?? null,
     colaborador_id: ledger.colaboradorId ?? null,
     provider: 'gemini',

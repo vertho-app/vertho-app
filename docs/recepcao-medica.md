@@ -1,54 +1,58 @@
 # Treino de atendimento — recepção médica
 
-Primeira versão, 05/09/2026. Um caso administrativo fictício: segunda remarcação.
-
 ## Uso
 
-- Admin: `/admin/treino-atendimento` (menu Sistema → Treino de atendimento). Selecione uma empresa para testar. Administradores com permissão `assessments.answer` podem treinar mesmo com a clínica desabilitada.
-- Habilitação da equipe: na mesma tela, `Habilitar para a equipe` exige admin de plataforma e `settings.company.manage`.
-- Colaboradoras: `/dashboard/treino-atendimento`. O atalho aparece no menu do tenant habilitado. A API também verifica a habilitação, identidade, empresa e propriedade da sessão.
-- Ler a ficha → iniciar → conversar → encerrar e avaliar → praticar novamente. Os últimos 20 atendimentos próprios aparecem no histórico.
+Em `/admin/treino-atendimento`, escolha a empresa. Administradores podem experimentar sem habilitar a equipe. A habilitação exige a permissão de configuração da empresa. Colaboradores usam `/dashboard/treino-atendimento` e só entram quando o módulo está habilitado para a clínica.
 
-O conteúdo é fictício, em português brasileiro; a empresa selecionada define acesso e atribuição de custo, não personaliza automaticamente a ficha. Não existe integração com agenda ou WhatsApp real. A nota não alimenta PDI, `respostas` ou N1–N4. A revisão por gestoras e a calibração ampla continuam necessárias para uso pedagógico mais amplo.
+- **Meu treino:** escolha um caso, leia a ficha e converse. É possível preparar outro atendimento e retomar os anteriores pelo histórico.
+- **Equipe e revisões:** participação no período, relatórios concluídos, pendências de revisão e resultados separados por cenário, versão da rubrica e cobertura. Gestores acessam os liderados definidos por `gestor_email`; tutores, os tutorados; RH, a empresa. Testes administrativos só entram no painel quando o administrador marca a opção.
+- **Cenários:** catálogo comum e versões da clínica. Crie uma cópia, adapte a ficha, os pacientes e os critérios; salve o rascunho e publique. Publicação exige `content.manage`. Uma versão publicada não pode ter seu conteúdo alterado. Arquivar impede novos treinos dessa versão, preservando as sessões existentes.
 
-## Implementação
+A revisão humana exige permissão de acompanhamento, leitura individual e registro. O parecer é acrescentado ao atendimento com autoria, data, competências e motivo; nunca sobrescreve a avaliação da IA. Não é permitido revisar o próprio treino. Pareceres anteriores permanecem visíveis.
 
-`lib/recepcao/core.mjs` e `cenario.mjs` vieram do protótipo local, ajustados para o runtime. `schema.ts` valida entradas e saídas com Zod. `ai.ts` usa o roteador existente e as tarefas `recepcao_paciente` e `recepcao_avaliacao`, configuráveis no catálogo de modelos. Os defaults são `claude-sonnet-4-6`.
+## Casos e metodologia
 
-O paciente não atribui nota. O avaliador devolve classificações e citações; o código confere literalidade, papel, oportunidade e consolida os pesos. Relatório inválido tem uma tentativa de correção. Se ambas falharem, o estado anterior é preservado para retry. Uma citação existir não prova, por si, que ela sustenta semanticamente a classificação; a calibração humana cobre essa limitação.
+Cinco casos iniciais, com duas variantes curadas de paciente por caso: segunda remarcação, autorização pendente, primeira consulta, falta à consulta e informação sobre outra pessoa. Dados e procedimentos são fictícios e precisam de validação pedagógica pelas clínicas. O caso de informação sobre terceiros treina o procedimento descrito na ficha; não pretende representar todas as exigências legais ou operacionais de uma clínica real.
 
-Metadados das chamadas incluem modelo solicitado, hash do prompt e versão (`recepcao-1.0` para paciente; `recepcao-1.1` para avaliação), gravados junto à sessão. A tabela legada `prompt_versions` não é uma dependência: ela não estava disponível no schema cache do projeto no teste integrado. O roteador registra custo/uso normalmente e pode aplicar seus fallbacks; o modelo solicitado não deve ser confundido com o provedor efetivo do ledger. Testes administrativos usam `source=piloto`; treinos de colaboradoras usam `wrapper`.
+`recepcao_cenarios` armazena o conteúdo. `catalogo.ts` contém apenas as sementes iniciais; o runtime lê o banco. `cenario.mjs` preserva a fixture original para compatibilidade de testes históricos. O editor aceita de 3 a 7 competências; exige IDs únicos, pesos somando 100 e conteúdo limitado. Cada alteração da rubrica recebe uma identidade calculada pelo hash dos critérios. A versão e a variante selecionadas ficam no snapshot da sessão. Repetição imediata do mesmo caso alterna a variante.
 
-O avaliador recebe participantes explícitos (`secretaria` e `paciente`), em vez de papéis de chat ambíguos (`user`/`assistant`). No retry, recebe a avaliação recusada e o campo da referência inválida, incluindo a necessidade de rever nota e justificativas quando atribuiu uma fala à pessoa errada. A validação de literalidade e autoria continua obrigatória. Erros de referência registram código, campo, operação e ID da sessão, sem histórico ou texto do provedor nos logs. A mensagem da tela distingue falha de resposta e falha de relatório.
+`core.ts` separa juízo da IA e cálculo da nota. Confere citações literais, autoria, oportunidade e vocabulários do snapshot. O avaliador recebe participantes explícitos, `secretaria` e `paciente`. Há uma correção limitada, com a saída recusada e o campo inválido. Cobertura reduzida não vira reprovação. Citação válida não garante pertinência semântica: a revisão humana continua necessária.
 
-O mascaramento existente reduz identificadores comuns em novas mensagens antes de salvar/enviar à IA. Não é detecção completa de dados pessoais ou de saúde; a tela instrui a usar apenas dados fictícios. Não há protocolo de triagem clínica neste caso.
+A paciente tem validação de formato e detecção limitada de exposição de instruções. Fatos reservados podem ser revelados legitimamente durante a conversa; o filtro não promete impedir toda tentativa de jailbreak. Conteúdo reservado e critérios não são devolvidos pela API de treino. Identificadores comuns são mascarados nas mensagens e transcrições, sem promessa de detecção completa de dados pessoais.
 
-## Persistência e concorrência
+## Voz opcional
 
-Migration `240-recepcao-treinamento.sql`: `recepcao_config` e `recepcao_sessoes`. Esta versão usa um snapshot JSON limitado a 12 respostas, com histórico, recibos e relatório, para salvar o turno e sua revisão juntos.
+Botões permitem ouvir a última fala da paciente e gravar uma resposta de até 60 segundos. A gravação só vai ao reconhecimento quando a pessoa pede a transcrição. O texto volta ao campo de resposta para conferência e envio explícito. O áudio não é salvo pelo módulo.
 
-- RLS ligada; `anon` e `authenticated` não acessam tabelas/RPC diretamente.
-- Backend exige identidade e filtra empresa + e-mail proprietário. A identidade enviada pelo navegador não é aceita.
-- Criação usa UUID de requisição como chave, para não duplicar em retry.
-- `recepcao_claim` adquire lease de 330 segundos com revisão esperada; outra requisição recebe conflito.
-- `recepcao_commit` valida token e revisão, grava todo o estado e libera a lease numa operação atômica.
-- Retry de turno confirmado devolve o recibo sem nova chamada. Falha antes do commit pode custar uma nova chamada, mas não duplica mensagens.
-- Fechar a aba preserva turnos já confirmados; texto ainda não enviado não é salvo.
+A fala usa `generateNarrationAudio`, com voz Aoede e sem vinhetas. A transcrição usa Whisper com `verbose_json`, conforme a [API oficial](https://developers.openai.com/api/reference/resources/audio/subresources/transcriptions/methods/create). O custo da transcrição usa a duração retornada e a [tarifa por minuto](https://developers.openai.com/api/docs/models/whisper-1), conferida em 05/09/2026. Não há ligação telefônica nem envio para WhatsApp real. O cenário de mensagens simula esse contexto dentro do Vertho. A avaliação permanece sobre o texto confirmado, sem avaliar entonação.
 
-Novas entradas da allowlist de service role: `access.ts` (cliente após autenticação; consultas escopadas), `flag.ts` (apenas booleano de disponibilidade por empresa no layout) e API `config` (admin + permissão de configuração). Os testes verificam os acessos; essas entradas não dispensam guards.
+As rotas de voz conferem autenticação, CSRF, permissão de treino, empresa, proprietário, limite de requisições e tamanho do upload. A fala a sintetizar vem do histórico salvo, nunca de texto arbitrário enviado pelo navegador. A gravação é opcional e depende de suporte e permissão de microfone do navegador.
 
-## Verificação
+## Identidade, persistência e medição
 
-- Testes de núcleo e serviço: notas, referências, projeção pública, retry, falha, isolamento e concorrência.
-- Guards existentes: autenticação/CSRF, service role, mutações e leituras por empresa, ledger e separação de P&D.
-- `scripts/_recepcao-db-check.mjs`: aplica a migration dentro de uma transação, testa FK, ACL, RLS, claim/commit, revisão e proprietário, e faz rollback.
-- UI conferida por Playwright com API simulada: início, 3 turnos, relatório e repetição; desktop 1440 px e celular 390 px sem overflow.
-- `tests/unit/recepcao-live-smoke.test.ts`: opt-in com `RECEPCAO_LIVE_SMOKE=1`; sessão sintética com três turnos e avaliação pelo roteador/provedor reais. Tem custo e grava telemetria. Não habilitar no CI padrão.
+`owner_key` usa o ID do colaborador ou do cadastro administrativo. O e-mail permanece como informação histórica, não como chave de acesso. Migration 241 preenche a chave dos registros antigos; um trigger também cobre criações pela versão anterior durante o deploy. As RPCs v2 usam a identidade estável e preservam revisão e lease. As RPCs anteriores ficam disponíveis para compatibilidade durante a publicação.
 
-O primeiro ensaio real identificou uma dimensão sem oportunidade citada; o relatório foi rejeitado. Instrução explicitada e retry limitado implementado; o ensaio seguinte passou. Esse teste demonstra integração, não validação estatística das notas.
+Sessões antigas continuam com seu snapshot. Retries de mensagem confirmada reutilizam recibos. As novas tabelas têm RLS e acesso de serviço explicitamente limitado. Revisões só permitem SELECT/INSERT ao serviço. A integridade por empresa das tentativas e revisões também é conferida por FK composta.
 
-## Operação
+`recepcao_tentativas` registra a operação ANTES da chamada paga. Cada rejeição e a tentativa corrigida ficam em linhas distintas, independentemente do commit da sessão. `ia_usage_log.correlation_id` concilia custo e modelo efetivo com a tentativa; não se usa aproximação por horário. Metadados não contêm texto da conversa, prompt bruto ou resposta da IA. Falha de finalização da telemetria é sinalizada e deixa a tentativa aberta.
 
-Aplicar a migration antes da publicação. Todas as clínicas começam desabilitadas; nenhuma empresa existente é habilitada pela migration. A ferramenta administrativa permite testar e habilitar uma clínica específica.
+O painel de operação exige `ai.costs.view`. Mostra custo conhecido por sessão, rejeições, tentativas abertas e chamadas sem uso registrado. Ausência de registro não equivale a custo zero. Sessões anteriores à instrumentação ficam fora do custo conciliado. O filtro considera sessões iniciadas no período. Há paginação de leitura e limite explícito de 10 mil registros por conjunto para evitar truncamento silencioso.
 
-Para suspender o piloto: desabilitar a clínica pela tela administrativa. Isso bloqueia novas operações de colaboradoras e esconde o atalho no próximo carregamento, preservando o histórico. Não apagar tabelas para reverter a interface.
+## Verificação e publicação
+
+- `npm run typecheck` e testes `recepcao-*` sem flags não fazem chamadas pagas nem alteram produção.
+- `RECEPCAO_DB_CHECK=1`: `node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/unit/recepcao-db.test.ts` aplica a migration dentro de transação, confere catálogo, revisão, identidade, concorrência e privilégios; sempre faz rollback.
+- **Aplicação permanente autorizada:** o mesmo comando com `RECEPCAO_APPLY=1` grava a migration 241 e as cinco sementes, sem habilitar empresas. Só usar essa segunda flag ao publicar. As sementes usam IDs determinísticos e não sobrescrevem conteúdo existente.
+- `RECEPCAO_LIVE_SMOKE=1`: ensaio real do cenário inicial. `RECEPCAO_LIVE_CATALOGO=1`: ensaios dos quatro novos casos. Usar o runner acima com `tests/unit/recepcao-live-smoke.test.ts`. Há custo e telemetria; não habilitar no CI padrão.
+- `RECEPCAO_VOZ_LIVE=1`: `recepcao-voz-live.test.ts` sintetiza uma fala fictícia e a transcreve pelos provedores reais. A autenticação e a sessão são fixtures; não cria treino de usuário. Há custo registrado no ledger.
+- `RECEPCAO_UI=1`: `recepcao-ui.test.ts` usa Playwright, API simulada e uma página de prévia LOCAL temporária que renderiza `TreinoRecepcao`. `RECEPCAO_UI_URL` permite mudar a URL da prévia. Nunca publicar essa página de teste.
+
+Aplicar a migration antes do deploy. A API e a UI anteriores continuam funcionando durante a atualização. Commit + push em master publica na Vercel.
+
+## Passagem do piloto para uso ampliado
+
+Instrumentação, conteúdo, painel, editor, revisão e voz opcional estão disponíveis. O piloto de 1–2 clínicas depende da seleção das participantes e do uso humano; 30 sessões são um marco de aprendizado, não comprovação de calibração. Examinar divergências da revisão, taxa de rejeição, conclusão e custo antes de ampliar.
+
+Modelos continuam configuráveis por tenant no catálogo existente. O default da paciente não foi trocado sem comparação de qualidade. Os ensaios podem apoiar a comparação, mas a escolha de modelo deve usar as mesmas conversas e revisão humana.
+
+As evidências de treino ficam disponíveis para acompanhamento, mas não alteram N1–N4, Temporada ou PDI automaticamente. A integração de notas à jornada e a geração livre de personas continuam condicionadas à decisão de produto e à calibração; não são ativadas por uma contagem automática de sessões.
