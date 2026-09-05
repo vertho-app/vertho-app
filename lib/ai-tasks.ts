@@ -5,6 +5,8 @@
  */
 
 export const AI_TASKS = [
+  { key: 'recepcao_paciente', label: 'Recepção — paciente simulado', fase: 'Treinamento' },
+  { key: 'recepcao_avaliacao', label: 'Recepção — avaliação do atendimento', fase: 'Treinamento' },
   // ── Fase 1 — Diagnóstico ─────────────────────────────────
   { key: 'ia1_top10', label: 'IA1 — Top 10 competências', fase: 'Fase 1' },
   { key: 'ia2_gabarito', label: 'IA2 — Perfil Ideal', fase: 'Fase 1' },
@@ -190,6 +192,8 @@ export const MODELOS_DISPONIVEIS = [
  * Gemini Flash auditando Claude, e do Pulso classifier + auditor).
  */
 export const DEFAULT_TASK_MODELS: Record<string, string> = {
+  recepcao_paciente: 'claude-sonnet-4-6',
+  recepcao_avaliacao: 'claude-sonnet-4-6',
   copiloto_pesquisa_empresa: 'gpt-5.5',
   copiloto_planejamento:     'gpt-5.6-terra',
   copiloto_ao_vivo:          'gemini-3.7-flash',

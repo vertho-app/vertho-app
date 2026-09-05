@@ -244,6 +244,9 @@
     "app/api/copiloto/planejamento/route.ts": 2,
     "app/api/copiloto/clientes/[accountId]/conversas/route.ts": 1,
     "app/api/copiloto/clientes/[accountId]/planejamentos/route.ts": 2,
-    "scripts/criar-smoke-e2e.ts": 1
+    "scripts/criar-smoke-e2e.ts": 1,
+    "lib/recepcao/access.ts": 1,
+    "lib/recepcao/flag.ts": 1,
+    "app/api/recepcao/config/route.ts": 2
   }
 }

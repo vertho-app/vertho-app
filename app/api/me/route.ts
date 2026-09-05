@@ -3,6 +3,7 @@ import { findColabByEmail, isPlatformAdmin } from '@/lib/authz';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { resolveAppLocale } from '@/lib/i18n';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { recepcaoHabilitada } from '@/lib/recepcao/flag';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,7 +68,8 @@ export async function GET() {
       } catch {}
     }
 
-    return NextResponse.json(data ? { ...data, locale, platformAdmin, temTrilhaPossivel } : {
+    const treinoRecepcao = await recepcaoHabilitada((data as any)?.empresa_id);
+    return NextResponse.json(data ? { ...data, locale, platformAdmin, temTrilhaPossivel, treinoRecepcao } : {
       nome_completo: user.email,
       foto_url: null,
       avatar_preset: null,

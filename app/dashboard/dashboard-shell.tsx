@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
-import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn, Activity } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn, Activity, MessageCircle } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import { PresentationEnvironment } from '@/components/dashboard/presentation-role-switcher';
@@ -16,6 +16,7 @@ type NavItem = {
   gestorOnly?: boolean; rhOnly?: boolean; participante?: boolean;
   /** Some para o Admin da empresa, que chega no mesmo destino por outro caminho. */
   exceptoRh?: boolean;
+  recepcao?: boolean;
 };
 
 // Fallback = tema Vertho atual (usado se o layout não passar theme).
@@ -64,6 +65,7 @@ const NAV_ITEMS: NavItem[] = [
   // mesma razão que tirou a jornada da home dele. Ver `home-rh.tsx`.
   { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock, participante: true },
   { href: '/dashboard/temporada', labelKey: 'season', icon: Play, participante: true },
+  { href: '/dashboard/treino-atendimento', labelKey: 'receptionTraining', icon: MessageCircle, recepcao: true },
   { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp, participante: true },
 
   // ── O QUE A PESSOA ACOMPANHA ─────────────────────────────────────────────
@@ -104,14 +106,14 @@ function hrefAtivo(pathname: string, itens: NavItem[]): string | null {
   return candidatos.reduce((maior, href) => (href.length > maior.length ? href : maior));
 }
 
-export default function DashboardShell({ children, theme = DEFAULT_THEME }: { children: React.ReactNode; theme?: TenantTheme }) {
+export default function DashboardShell({ children, theme = DEFAULT_THEME, mostrarRecepcao = false }: { children: React.ReactNode; theme?: TenantTheme; mostrarRecepcao?: boolean }) {
   const t = useTranslations('DashboardShell');
   const router = useRouter();
   const pathname = usePathname();
   const isImmersiveContent = pathname.startsWith('/dashboard/conteudo/');
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
-  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean } | null>(null);
+  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
   const ehAdminDaEmpresa = colaborador?.role === 'rh';
   // Cargo com Top 5 vazio não faz mapeamento nem trilha: as telas de jornada
@@ -124,7 +126,8 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   // decide é o servidor, no /api/me; o gate real é o layout de /admin.
   const ehAdminDaPlataforma = colaborador?.platformAdmin === true;
   const navItems = NAV_ITEMS.filter((it) =>
-    (!it.gestorOnly || isGestorOuRH)
+    (!it.recepcao || mostrarRecepcao || colaborador?.treinoRecepcao === true)
+    && (!it.gestorOnly || isGestorOuRH)
     && (!it.rhOnly || ehAdminDaEmpresa)
     && (!it.participante || (!ehAdminDaEmpresa && participaDaJornada))
     && (!it.exceptoRh || !ehAdminDaEmpresa),
@@ -320,7 +323,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
         })}
       </nav>
 
-        {!/^\/dashboard\/temporada\/semana\//.test(pathname) && !isImmersiveContent && <BetoChat />}
+        {!/^\/dashboard\/temporada\/semana\//.test(pathname) && !pathname.startsWith('/dashboard/treino-atendimento') && !isImmersiveContent && <BetoChat />}
       </div>
     </PresentationEnvironment>
   );

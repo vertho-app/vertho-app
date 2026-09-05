@@ -120,7 +120,8 @@
       "evolution": "Evolution",
       "profile": "Profile",
       "teamEngagement": "Engagement",
-      "teamEvolution": "Team evolution"
+      "teamEvolution": "Team evolution",
+      "receptionTraining": "Reception training"
     },
     "platformPanel": "Vertho Administration",
     "logout": "Sign out"
@@ -617,7 +618,8 @@
         "demoEnv": "Demo Environment",
         "copilot": "Copilot",
         "audits": "Audits (13/14)",
-        "salesChannel": "Sales Channel"
+        "salesChannel": "Sales Channel",
+        "receptionTraining": "Reception training"
       },
       "subs": {
         "overview": "Overview",
@@ -662,7 +664,8 @@
         "demoEnvSub": "ACME demo reset",
         "copilotSub": "PACE planning and meetings",
         "auditsSub": "Week 13 · Week 14",
-        "salesChannelSub": "Representatives & proposals"
+        "salesChannelSub": "Representatives & proposals",
+        "receptionPractice": "Medical reception"
       },
       "groups": {
         "overview": "Overview",

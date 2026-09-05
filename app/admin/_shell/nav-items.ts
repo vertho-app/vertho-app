@@ -127,6 +127,7 @@ export const NAV_ITEMS: NavItem[] = [
   // então o item some quando há empresa selecionada — não é ferramenta de tenant.
   { key: 'board',      labelKey: 'boardPainel', subKey: 'boardPainelSub', group: 'system', icon: MessagesSquare, hrefFn: () => '/admin/vertho/board', showWhenEmpresa: false },
   { key: 'simulador',  labelKey: 'simulator',   subKey: 'flowTest',       group: 'system', icon: Zap,          hrefFn: () => '/admin/simulador',       showWhenAll: false },
+  { key: 'recepcao', labelKey: 'receptionTraining', subKey: 'receptionPractice', group: 'system', icon: MessagesSquare, hrefFn: (id) => `/admin/treino-atendimento${id ? `?empresa=${id}` : ''}` },
   { key: 'admins',     labelKey: 'admins',      subKey: 'platformAdmins', group: 'system', icon: Shield,       hrefFn: () => '/admin/platform-admins', showWhenEmpresa: false },
   { key: 'permissoes', labelKey: 'permissions', subKey: 'rolesPermissions', group: 'system', icon: LockKeyhole, hrefFn: () => '/admin/permissoes',     showWhenEmpresa: false },
   { key: 'auditoria',  labelKey: 'audit',       subKey: 'adminTraces',    group: 'system', icon: ScrollText,   hrefFn: () => '/admin/auditoria',       showWhenEmpresa: false },
