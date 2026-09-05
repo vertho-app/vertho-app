@@ -76,6 +76,14 @@ export async function gravarLinhaLedger(linha: LinhaLedgerIA): Promise<boolean> 
       origem_codigo: linha.origem_codigo ?? null,
     });
     if (error) {
+      // FK de colaborador/empresa inválida (23503): o CUSTO é o dado que importa; a
+      // atribuição é secundária. `Medido 05/09/2026`: uma síntese de TTS real em
+      // produção (US$ 0,045) sumiu do ledger porque o colaborador da sonda já tinha
+      // sido apagado — "a ausência parece um zero". Regrava sem a atribuição e avisa.
+      if (error.code === '23503' && (linha.colaborador_id || linha.empresa_id)) {
+        console.warn(`[ia-ledger] FK inválida em ${linha.feature} (${error.message}) — regravando SEM colaborador/empresa para não perder o custo.`);
+        return gravarLinhaLedger({ ...linha, colaborador_id: null, empresa_id: null, status: `${linha.status}:sem-atribuicao` });
+      }
       console.warn(
         `[ia-ledger] NÃO gravou ${linha.feature} (${linha.model}): ${error.message}. `
         + 'A chamada de IA foi feita e paga — o custo dela some do ledger, e toda conta sobre esta '
