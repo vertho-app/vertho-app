@@ -33,7 +33,9 @@ async function mapPool<T>(items: T[], n: number, fn: (item: T, i: number) => Pro
   });
   await Promise.all(workers);
 }
-const VOICE = process.env.VIDEO_TTS_VOICE || 'Vindemiatrix';
+// Aoede desde 05/09/2026 (antes Vindemiatrix; o modelo 2.5 muda o timbre de todo nome de voz,
+// e a Aoede foi a escolhida às cegas e medida — PLANO-DERIVA-PODCAST-2026-09-04.md §6b).
+const VOICE = process.env.VIDEO_TTS_VOICE || 'Aoede';
 // Direção de voz por CONTEXTO (camada-experiência). As pontas de avatar são
 // âncoras emocionais → dose com mais respiro/calor (B1); o miolo é voice-over de
 // conteúdo → dose ágil-warm (B2), pra não arrastar a explicação. Mesma voz,

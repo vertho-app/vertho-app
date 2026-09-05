@@ -68,17 +68,26 @@ export async function gerarDevolutivaEmAudioCore({ colab, raw, texts, sb }: {
   });
   if (!roteiro?.trim()) return { error: 'Roteiro vazio' };
 
-  // TTS → MP3. Voz Achird = a voz do BETO (masculina), a mesma persona que
-  // assina o roteiro acima. Override por env GEMINI_TTS_DEVOLUTIVA_VOICE.
-  // ⚠️ Voz e estilo andam JUNTOS: o prompt de estilo dirige a prosódia, então
-  // trocar só o `voice` deixa a narração com prosódia do gênero anterior.
+  // TTS → MP3. Voz Iapetus = a voz do BETO (masculina) desde 05/09/2026, a mesma
+  // persona que assina o roteiro acima (era Achird no modelo 3.1; o 2.5 muda o
+  // timbre de todo nome de voz, e o Iapetus foi escolhido às cegas e medido —
+  // ver PLANO-DERIVA-PODCAST-2026-09-04.md §6b). Override por env
+  // GEMINI_TTS_DEVOLUTIVA_VOICE. ⚠️ Voz e estilo andam JUNTOS: o prompt de estilo
+  // dirige a prosódia, então trocar só o `voice` deixa a prosódia do gênero anterior.
+  //
+  // `segmentar: false` = UMA chamada, sem costura. As 8 fatias paralelas de antes
+  // saíam cada uma num registro (5,2 st de variação no 3.1; 2,8-3,7 no 2.5), e a
+  // pessoa ouvia o Beto trocar de voz a cada 30 segundos. A chamada única passa
+  // pelo portão de deriva com alvo de F0 (Iapetus 144 Hz ± 1 st, ~21% de retake).
   const { extractNarration, generateNarrationAudio } = await import('@/lib/gemini-tts');
   const narracao = extractNarration(roteiro);
   const audio = await generateNarrationAudio(narracao, {
-    voice: process.env.GEMINI_TTS_DEVOLUTIVA_VOICE || 'Achird',
+    voice: process.env.GEMINI_TTS_DEVOLUTIVA_VOICE || 'Iapetus',
     style: 'Narre em português do Brasil, com voz masculina brasileira acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa',
     ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id },
+    segmentar: false,
   });
+  if (audio.qa && !audio.qa.ok) console.warn(`[devolutiva-audio] publicada com ressalva do portão de deriva: ${audio.qa.motivos.join('; ')}`);
 
   const slug = storageSlug(colab.nome_completo, 'colab');
   const path = `${colab.empresa_id}/devolutiva-${slug}-${Date.now()}.mp3`;

@@ -104,6 +104,12 @@ export const MODELS = {
   // Medido em 29/08/2026, sonda nos dois backends: ~25 tok/s de áudio no Vertex,
   // ~32 tok/s no AI Studio, para o MESMO texto (~2,9s de fala).
   'gemini-3.1-flash-tts-preview': { label: 'Gemini 3.1 Flash TTS (áudio)', inUsd: 1, outUsd: 20 },
+  // Produção desde 05/09/2026 (ver lib/gemini-tts.ts): GA, metade do preço do 3.1 e
+  // SEM a deriva medida. `gemini-2.5-flash-tts` é o id do Vertex; o `-preview-tts` é
+  // o do AI Studio — os dois precisam existir aqui porque o lookup é EXATO.
+  'gemini-2.5-flash-tts':         { label: 'Gemini 2.5 Flash TTS (áudio)', inUsd: 0.5, outUsd: 10 },
+  'gemini-2.5-flash-preview-tts': { label: 'Gemini 2.5 Flash TTS (áudio)', inUsd: 0.5, outUsd: 10 },
+  'gemini-2.5-pro-tts':           { label: 'Gemini 2.5 Pro TTS (áudio)', inUsd: 1, outUsd: 20 },
 };
 
 export const MODEL_IDS = Object.keys(MODELS);
@@ -625,11 +631,11 @@ export const CALLS = [
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Podcast — síntese de voz (TTS)',
-    descricao: 'Gera o áudio MP3 da narração (~3-4 min). Gemini TTS por token: input = texto (~750 tok); output = áudio (~5.000 tok ≈ 210s × ~25 tok/s), que domina o custo.',
+    descricao: 'Gera o áudio MP3 da narração (~3-4 min). Gemini TTS por token: input = texto (~750 tok); output = áudio (~5.000 tok ≈ 210s × ~25 tok/s), que domina o custo. Medido 05/09/2026 no 2.5 Flash: ~$0,045/episódio (era $0,12 no 3.1); o portão de deriva refaz ~7% das sínteses.',
     inTokens: 750,
     outTokens: 5000,
     exec: 1,
-    defaultModel: 'gemini-3.1-flash-tts',
+    defaultModel: 'gemini-2.5-flash-tts',
     critical: false,
   },
   // (Fluxo de vídeo via Veo descontinuado — substituído pela fase "Vídeo do
@@ -674,12 +680,12 @@ export const CALLS = [
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Narração das cenas (TTS)',
-    descricao: 'Narração própria (Gemini TTS, voz Vindemiatrix) das N cenas, ~4 min de áudio, dirigida por tipo de cena. Medido: ~$0,12 por vídeo. Serve às cenas animadas e ao lip-sync do avatar.',
+    descricao: 'Narração própria (Gemini TTS, voz Aoede desde 05/09/2026) das N cenas, ~4 min de áudio, dirigida por tipo de cena. Medido no 3.1: ~$0,12 por vídeo; no 2.5 Flash a tabela é metade (~$0,06, a confirmar no ledger). Serve às cenas animadas e ao lip-sync do avatar.',
     inTokens: 0,
     outTokens: 0,
-    flatUsd: 0.12,
+    flatUsd: 0.06,
     exec: 1,
-    defaultModel: 'gemini-3.1-flash-tts',
+    defaultModel: 'gemini-2.5-flash-tts',
     critical: false,
   },
   {

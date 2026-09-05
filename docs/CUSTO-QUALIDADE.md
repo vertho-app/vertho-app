@@ -1596,7 +1596,7 @@ latência, **é só inglês** — pt-BR cai no `simba-multilingual`/`simba-3.0`.
 
 `Suponho:` o único argumento que reabriria a decisão é **voz clonada** (zero-shot
 self-serve), e aí é escolha de MARCA, não de custo. Lembrar que a voz feminina
-está amarrada ao avatar HeyGen (Vindemiatrix alinhada à Abigail).
+está amarrada ao avatar HeyGen (Aoede desde 05/09/2026, escolhida com o avatar na mesa; antes Vindemiatrix no 3.1).
 
 `Suponho (n=1):` a sonda deu ~25 tok/s de áudio no Vertex contra ~32 tok/s no AI
 Studio para o MESMO texto. Se confirmar em volume, o Vertex é mais barato pelo

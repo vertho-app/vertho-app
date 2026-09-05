@@ -18,7 +18,7 @@
      `thinking:{type:'enabled',budget_tokens}` — formato removido na geração 5 — e o pipeline ficou
      **5 dias gerando zero vídeo** sem deixar rastro. Na geração 5 o raciocínio já vem ligado e
      divide `max_tokens` (16k aqui) com o texto. Modo de falha completo: `docs/FMEA-PIPELINE.md` §F-I14.
-2. **Narração** — Gemini TTS, voz **`Vindemiatrix`** (`VIDEO_TTS_VOICE`), 1 mp3/cena, com **direção de estilo por tipo de cena** (intro calorosa/engajante, miolo conversa, outro pausado) + correção de pronúncia de siglas. Whisper alinha palavra-a-palavra (legendas).
+2. **Narração** — Gemini TTS, voz **`Aoede`** (`VIDEO_TTS_VOICE`; até 05/09/2026 era Vindemiatrix no modelo 3.1), 1 mp3/cena, com **direção de estilo por tipo de cena** (intro calorosa/engajante, miolo conversa, outro pausado) + correção de pronúncia de siglas. Whisper alinha palavra-a-palavra (legendas).
 3. **Avatar (HeyGen)** — só nas pontas; lip-sync do NOSSO mp3 (`voice.type=audio`), 1920×1080; mp4 normalizado p/ CFR (25→30fps).
 4. **Render (Remotion, comp `VerthoVideo`)** — recebe tudo via `inputProps` (timeline de `montar-inputprops.ts`). **Dois backends** (`RENDER_BACKEND`):
    - **`hetzner`** (default/produção): enfileira `render_queued`; a box **CCX33 efêmera** (`worker-hetzner/worker.mjs`, modelo PULL) renderiza. **~$0,18/vídeo**, sobe/deleta por lote.

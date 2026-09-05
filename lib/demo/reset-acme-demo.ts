@@ -144,7 +144,7 @@ export const DEMO_PRESENTATION_VIDEO = {
  * porque as duas salas usam a mesma persona Bruna e a arte é neutra (Vertho). */
 export const DEMO_PRESENTATION_WEEK_VIDEO = {
   competenciaBaseId: '004408f2-6ae4-41a0-87ae-ace7ad54b32c',
-  // Saudação e conteúdo usam a mesma narradora feminina (Vindemiatrix).
+  // Saudação e conteúdo usam a mesma narradora feminina (Aoede desde 05/09/2026; antes Vindemiatrix).
   personalizedBunnyVideoId: '8c3fd9f0-eb48-4398-aac6-242a1398e1e1',
   byTenant: {
     'acme-demo': {

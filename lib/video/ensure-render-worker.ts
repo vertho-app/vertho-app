@@ -112,7 +112,7 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     // Saudação nominal exige SUPABASE_URL + SERVICE_ROLE_KEY (personalizar.mjs).
     `SUPABASE_URL=${process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''}`,
     `SUPABASE_SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY || ''}`,
-    `VIDEO_TTS_VOICE=${process.env.VIDEO_TTS_VOICE || 'Vindemiatrix'}`,
+    `VIDEO_TTS_VOICE=${process.env.VIDEO_TTS_VOICE || 'Aoede'}`,
     // 720p por padrão: 1080p em cx33/8GB com vídeos longos estourava RAM e travava.
     `VIDEO_RENDER_SCALE=${process.env.VIDEO_RENDER_SCALE || '0.6667'}`,
     `RENDER_CONCURRENCY=${conc}`,

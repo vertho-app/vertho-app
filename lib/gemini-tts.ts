@@ -19,6 +19,7 @@ import {
   splitNarrationForTts,
 } from './tts/narration-text';
 import { getGoogleAccessToken, vertexProjectId } from './tts/google-token';
+import { medirDeriva, avaliarDeriva, resumirDeriva, ALVO_F0_POR_VOZ, type MetricasDeriva } from './tts/deriva';
 import { costFromTokens } from './ia-cost-catalog';
 import { gravarLinhaLedger } from './ia-ledger';
 import { contextoAtual } from './execucao-contexto';
@@ -27,12 +28,22 @@ import { contextoAtual } from './execucao-contexto';
 export { buildPersonalizedPodcastNarration, extractNarration, ensurePodcastBrandNarration } from './tts/narration-text';
 export { exportPodcastMp3FromPcm } from './tts/audio-dsp';
 
-const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
-// Elenco de vozes da marca: BETO (mentor, masculino) = Achird; a voz feminina
-// da plataforma = Vindemiatrix (narração de vídeo, alinhada ao avatar Abigail).
-const VOICE = process.env.GEMINI_TTS_VOICE || 'Vindemiatrix'; // narração single-speaker (vídeo/podcast)
-const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Achird';       // speaker "Mentor" = Beto
-const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Vindemiatrix';   // speaker "Campo"
+// MODELO: `gemini-2.5-flash-tts` (GA) desde 05/09/2026. O `gemini-3.1-flash-tts-preview`
+// que rodou de junho a setembro DERIVA dentro de uma chamada longa: `Medido:` em 21
+// podcasts de produção e 12 arquivos de bake-off, o volume caía 1,5 a 3,4 dB/min, o
+// timbre andava 0,42-0,82σ (leitor humano: 0,24σ) e a fala acelerava; prompt reforçado
+// e temperature 0,3 não mudaram nada (0/6). Os modelos GA da família 2.5 passaram
+// 34/36 na mesma régua, e o Flash custa metade (US$ 0,045/episódio). Ver
+// PLANO-DERIVA-PODCAST-2026-09-04.md §6. O id do AI Studio é o `-preview-tts`.
+const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
+// ELENCO desde 05/09/2026 (escolhido às cegas pelo Rodrigo e medido em 41 sínteses):
+// a mentora = Aoede (208 Hz; entre takes varia 0,4-1,0 st, inaudível), o BETO =
+// Iapetus (144 Hz; 1,2-2,3 st entre takes — por isso o portão de F0 abaixo).
+// ⚠️ Trocar de MODELO troca a VOZ mesmo com o mesmo nome: a Vindemiatrix do 2.5 fica a
+// 0,45σ e +2,6 st da Vindemiatrix do 3.1 (duas pessoas distintas ficam a 0,40σ).
+const VOICE = process.env.GEMINI_TTS_VOICE || 'Aoede';                   // narração single-speaker (vídeo/podcast)
+const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Iapetus';   // speaker "Mentor" = Beto
+const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Aoede';       // speaker "Campo"
 const brandStingCache = new Map<string, Buffer>();
 
 // ── BACKEND: AI Studio (API key) × Vertex AI (OAuth de service account) ───────
@@ -42,7 +53,9 @@ const brandStingCache = new Map<string, Buffer>();
 // (ou 'global' → host sem prefixo de região).
 const TTS_BACKEND = (process.env.TTS_BACKEND || 'aistudio').toLowerCase();
 const VERTEX_LOCATION = process.env.GOOGLE_VERTEX_LOCATION || 'us-central1';
-const VERTEX_MODEL = process.env.GEMINI_TTS_VERTEX_MODEL || MODEL;
+// No Vertex o id GA não tem sufixo. `Medido 05/09/2026`: `gemini-3.5-*-tts` e
+// `gemini-3.1-pro-*-tts` respondem 404 — não existem; 2.5 Flash/Pro TTS existem e geram.
+const VERTEX_MODEL = process.env.GEMINI_TTS_VERTEX_MODEL || 'gemini-2.5-flash-tts';
 
 /** Endpoint + headers do TTS conforme o backend. */
 async function ttsEndpoint(): Promise<{ url: string; headers: Record<string, string> }> {
@@ -61,10 +74,20 @@ async function ttsEndpoint(): Promise<{ url: string; headers: Record<string, str
   };
 }
 
+/** Veredito do portão de qualidade (ver `sintetizarComPortao`). */
+export interface QaDeriva {
+  metricas: MetricasDeriva;
+  ok: boolean;
+  motivos: string[];
+  tentativas: number;
+}
+
 export type PodcastAudioFile = {
   buffer: Buffer;
   contentType: 'audio/mpeg';
   extension: 'mp3';
+  /** Ausente em multi-speaker (F0 e timbre alternam por construção) e com TTS_QA_GATE=off. */
+  qa?: QaDeriva;
 };
 
 /** Vinheta de marca (intro/outro) do podcast, reamostrada e cacheada por sample-rate. */
@@ -172,10 +195,10 @@ async function registrarUsoTts(
  * `Retry-After`. O body (contents/generationConfig/speechConfig) é idêntico nos
  * dois backends — só o endpoint/auth muda (ttsEndpoint).
  */
-async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0): Promise<{ pcm: Buffer; sampleRate: number }> {
+async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0, timeoutMs = 170_000): Promise<{ pcm: Buffer; sampleRate: number }> {
   const { url, headers } = await ttsEndpoint();
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 170_000);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   const t0 = Date.now();
   let res: Response;
   try {
@@ -186,10 +209,10 @@ async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0): Promi
       // timeout) e com orçamento MENOR que o do 429/503 — cada tentativa custa
       // até 170s, e timeout repetido indica problema não-transitório.
       if (attempt < Math.min(2, TTS_MAX_RETRIES)) {
-        console.warn(`TTS timeout 170s (${TTS_BACKEND}) — retry imediato (tentativa ${attempt + 1}/2)`);
-        return ttsGenerate(body, ledger, attempt + 1);
+        console.warn(`TTS timeout ${Math.round(timeoutMs / 1000)}s (${TTS_BACKEND}) — retry imediato (tentativa ${attempt + 1}/2)`);
+        return ttsGenerate(body, ledger, attempt + 1, timeoutMs);
       }
-      throw new Error(`Gemini TTS: timeout (170s) após ${attempt + 1} tentativas`);
+      throw new Error(`Gemini TTS: timeout (${Math.round(timeoutMs / 1000)}s) após ${attempt + 1} tentativas`);
     }
     throw e;
   } finally {
@@ -201,7 +224,7 @@ async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0): Promi
     const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : backoff;
     console.warn(`TTS ${res.status} (${TTS_BACKEND}) — retry em ${Math.round(wait / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
     await new Promise((r) => setTimeout(r, wait));
-    return ttsGenerate(body, ledger, attempt + 1);
+    return ttsGenerate(body, ledger, attempt + 1, timeoutMs);
   }
   if (!res.ok) throw new Error(`TTS ${res.status} (${TTS_BACKEND}): ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
@@ -236,7 +259,7 @@ async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0): Promi
       const backoff = Math.min(30_000, 2_000 * 2 ** attempt);
       console.warn(`TTS resposta sem áudio (${finish}, ${TTS_BACKEND}) — retry em ${Math.round(backoff / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
       await new Promise((r) => setTimeout(r, backoff));
-      return ttsGenerate(body, ledger, attempt + 1);
+      return ttsGenerate(body, ledger, attempt + 1, timeoutMs);
     }
     throw new Error(`TTS: resposta sem áudio após ${TTS_MAX_RETRIES} tentativas (motivo: ${finish})`);
   }
@@ -245,7 +268,7 @@ async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0): Promi
 }
 
 /** Single-speaker: texto+direção de estilo → PCM. */
-function ttsToPcm(prompt: string, voiceName: string, ledger: TtsLedger): Promise<{ pcm: Buffer; sampleRate: number }> {
+function ttsToPcm(prompt: string, voiceName: string, ledger: TtsLedger, timeoutMs?: number): Promise<{ pcm: Buffer; sampleRate: number }> {
   return ttsGenerate({
     // role:'user' é OBRIGATÓRIO no Vertex (o AI Studio aceita também → compatível).
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
@@ -253,7 +276,44 @@ function ttsToPcm(prompt: string, voiceName: string, ledger: TtsLedger): Promise
       responseModalities: ['AUDIO'],
       speechConfig: { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
     },
-  }, ledger);
+  }, ledger, 0, timeoutMs);
+}
+
+// ── PORTÃO DE QUALIDADE ───────────────────────────────────────────────────────
+//
+// Toda síntese longa single-speaker passa pela régua de deriva (`lib/tts/deriva.ts`)
+// ANTES de virar MP3. Reprovou → sintetiza de novo (a deriva é estocástica) e
+// publica a melhor das tentativas. `Medido 05/09/2026` nas vozes adotadas: a faixa de
+// ±1 st em torno do alvo de F0 gera ~7% de retake em Aoede e ~21% em Iapetus, a
+// US$ 0,02-0,05 cada — é o preço de a pessoa A e a pessoa B ouvirem a mesma voz.
+//
+// Fail-OPEN declarado: se nenhuma tentativa passar, publica a menos ruim e avisa no
+// log. Bloquear a entrega por causa de 1 semitom seria trocar um defeito audível
+// por um "podcast ainda não gerado" — pior para quem está esperando.
+const QA_GATE_ATIVO = (process.env.TTS_QA_GATE || 'on').toLowerCase() !== 'off';
+const QA_MAX_TENTATIVAS = Math.max(1, Number(process.env.TTS_QA_TENTATIVAS) || 2);
+
+async function sintetizarComPortao(
+  sintetizar: () => Promise<{ pcm: Buffer; sampleRate: number }>,
+  voz: string,
+  rotulo: string,
+): Promise<{ pcm: Buffer; sampleRate: number; qa?: QaDeriva }> {
+  const alvo = ALVO_F0_POR_VOZ[voz] || null;
+  let melhor: { pcm: Buffer; sampleRate: number; qa: QaDeriva } | null = null;
+  const tentativas = QA_GATE_ATIVO ? QA_MAX_TENTATIVAS : 1;
+  for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
+    const r = await sintetizar();
+    if (!QA_GATE_ATIVO) return r;
+    const t0 = Date.now();
+    const metricas = medirDeriva(r.pcm, r.sampleRate);
+    const { ok, motivos } = avaliarDeriva(metricas, alvo);
+    const qa: QaDeriva = { metricas, ok, motivos, tentativas: tentativa };
+    console[ok ? 'log' : 'warn'](`[tts-qa] ${rotulo} · ${voz} · tentativa ${tentativa}/${tentativas}: ${ok ? 'ok' : `REPROVA (${motivos.join('; ')})`} · ${resumirDeriva(metricas)} · régua ${Date.now() - t0}ms`);
+    if (ok) return { ...r, qa };
+    if (!melhor || motivos.length < melhor.qa.motivos.length) melhor = { ...r, qa };
+  }
+  console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma tentativa passou — publicando a menos ruim (${melhor!.qa.motivos.join('; ')})`);
+  return melhor!;
 }
 
 // Direção de estilo default (devolutiva comportamental): mensagem pessoal do
@@ -319,12 +379,37 @@ function coalesceCurtos(parts: { text: string; q: boolean }[]): { text: string; 
  */
 export async function generateNarrationAudio(
   texto: string,
-  opts: { voice?: string; style?: string; ledger?: TtsLedger } = {},
+  opts: { voice?: string; style?: string; ledger?: TtsLedger; segmentar?: boolean } = {},
 ): Promise<PodcastAudioFile> {
   if (!texto?.trim()) throw new Error('texto de narração vazio');
   const voice = opts.voice || VOICE;
   const styleDirective = opts.style || NARRATION_STYLE_DEFAULT;
   const ledger = opts.ledger || { feature: 'tts_narracao' };
+
+  // CHAMADA ÚNICA (`segmentar: false`) — o caminho da DEVOLUTIVA desde 05/09/2026.
+  //
+  // O fatiamento abaixo nasceu em 11/06 para fugir da deriva do modelo antigo, e
+  // trocou deriva por COSTURA: cada fatia é um sorteio novo de registro. `Medido
+  // 05/09/2026` em 8 fatias do mesmo texto: o 3.1/Achird variava 5,2 st entre
+  // fatias; o 2.5/Iapetus 2,8-3,7 st; um leitor humano, 2,3 st. O mesmo texto em
+  // chamada única no 2.5: 1,7-3,3 st — e o modelo GA não deriva em 5 minutos, então
+  // a razão de fatiar deixou de existir. Custo: ~100-150 s de latência para 4-5 min
+  // de áudio (as fatias em paralelo levavam ~60 s); ainda abaixo dos 246 s do laço
+  // em série que motivou a paralelização de 01/09. Timeout folgado (240 s) e SEM
+  // retry de timeout: repetir uma chamada de 4 min estouraria o orçamento da função.
+  if (opts.segmentar === false) {
+    const r = await sintetizarComPortao(
+      () => ttsToPcm(`${styleDirective}:\n\n${texto}`, voice, ledger, 240_000),
+      voice,
+      ledger.feature,
+    );
+    return {
+      buffer: exportPodcastMp3FromPcm(r.pcm, r.sampleRate),
+      contentType: 'audio/mpeg',
+      extension: 'mp3',
+      ...(r.qa ? { qa: r.qa } : {}),
+    };
+  }
   // Trechos do chunker → segmentos por pausa (corta após perguntas retóricas) →
   // coalesce de fragmentos curtos (evita "palavras fantasmas" do TTS no fim).
   const segmentos = coalesceCurtos(splitNarrationForTts(texto).flatMap(segmentarPorPausa));
@@ -402,14 +487,21 @@ export async function generatePodcastAudio(texto: string, ledger?: TtsLedger): P
     },
   };
 
-  // Mesmo caminho (AI Studio ou Vertex) com retry — ver ttsGenerate.
-  const { pcm, sampleRate } = await ttsGenerate(body, ledger || { feature: 'tts_podcast' });
-  const mixedPcm = addPodcastBrandSting(pcm, sampleRate);
-  return {
-    buffer: exportPodcastMp3FromPcm(mixedPcm, sampleRate),
+  // Mesmo caminho (AI Studio ou Vertex) com retry — ver ttsGenerate. Single-speaker
+  // passa pelo portão de deriva (com retake); multi-speaker não: F0 e timbre alternam
+  // entre Mentor e Campo por construção, e a régua acusaria a alternância como defeito.
+  const ledgerEfetivo = ledger || { feature: 'tts_podcast' };
+  const r: { pcm: Buffer; sampleRate: number; qa?: QaDeriva } = multiSpeaker
+    ? await ttsGenerate(body, ledgerEfetivo)
+    : await sintetizarComPortao(() => ttsGenerate(body, ledgerEfetivo), VOICE, ledgerEfetivo.feature);
+  const mixedPcm = addPodcastBrandSting(r.pcm, r.sampleRate);
+  const out: PodcastAudioFile = {
+    buffer: exportPodcastMp3FromPcm(mixedPcm, r.sampleRate),
     contentType: 'audio/mpeg',
     extension: 'mp3',
   };
+  if (r.qa) out.qa = r.qa;
+  return out;
 }
 
 /**

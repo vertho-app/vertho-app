@@ -2176,7 +2176,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 > `ATIVO` · Prompt documentado como: `appendix` · **Ausente até 25/08/2026**
 
 - **Arquivo**: `lib/gemini-tts.ts::generateNarrationAudio`; estilos específicos de vídeo em `trigger/gerar-video-modulo.ts`.
-- **Modelo**: `gemini-3.1-flash-tts-preview` (AI Studio ou Vertex).
+- **Modelo**: `gemini-2.5-flash-tts` no Vertex (`gemini-2.5-flash-preview-tts` no AI Studio) desde 05/09/2026. O `gemini-3.1-flash-tts-preview` derivava em chamadas longas (volume, timbre e ritmo) — ver PLANO-DERIVA-PODCAST-2026-09-04.md.
 - **Prompt**: direção de voz + trecho da narração. Default: português do Brasil, voz acolhedora/segura/íntima, ritmo moderado e pausas reflexivas; vídeo sobrescreve por tipo de cena. Pausas após perguntas são inseridas deterministicamente, não por SSML.
 
 ### 22.4 Direção de voz — podcast single/multi-speaker
