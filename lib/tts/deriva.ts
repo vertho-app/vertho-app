@@ -34,6 +34,10 @@ export interface MetricasDeriva {
   janelas: number;
   f0MedHz: number;
   f0AmpSt: number;
+  /** Inclinação do F0 (semitons por minuto) ao longo do arquivo — a assinatura de
+   *  "vai subindo/descendo o registro". Amplitude confunde conteúdo com deriva
+   *  (pergunta × afirmação); inclinação e registro contra o alvo são específicos. */
+  f0SlopeStMin: number;
   loudSlopeDbMin: number;
   loudAmpDb: number;
   timbreMaxVs1a: number;
@@ -62,6 +66,9 @@ export const LIMIARES_DERIVA = {
   loudAmpDb: 4.0,
   timbreMaxVs1a: 0.35,
   f0TolSt: 1.0,
+  /** Veto de inclinação. `Medido 05/09/2026`: humanos −0,04 e +0,20 st/min; Aoede e Iapetus
+   *  ≤ 0,61 em 28 arquivos; Algieba (reprovado de ouvido E de régua) +2,66. */
+  f0SlopeStMin: 1.5,
 };
 
 // ── DSP mínimo ────────────────────────────────────────────────────────────────
@@ -232,6 +239,7 @@ export function medirDeriva(pcm: Buffer, sampleRate: number): MetricasDeriva {
   const f0Med = mediana(frames.filter((f) => f.f0 !== null).map((f) => f.f0!));
   const f0Ok = f0s.filter(Number.isFinite);
   const f0St = f0Ok.map((f) => st(f, f0Med));
+  const tsF0 = ts.filter((_, i) => Number.isFinite(f0s[i]));
   let timbreMax = 0;
   for (let i = 1; i < tims.length; i++) {
     const a = tims[0], b = tims[i];
@@ -245,6 +253,7 @@ export function medirDeriva(pcm: Buffer, sampleRate: number): MetricasDeriva {
     janelas: dbs.length,
     f0MedHz: f0Med,
     f0AmpSt: f0St.length ? Math.max(...f0St) - Math.min(...f0St) : 0,
+    f0SlopeStMin: inclinacao(tsF0, f0St),
     loudSlopeDbMin: inclinacao(ts, dbs),
     loudAmpDb: dbs.length ? Math.max(...dbs) - Math.min(...dbs) : 0,
     timbreMaxVs1a: timbreMax,
@@ -263,6 +272,12 @@ export function avaliarDeriva(m: MetricasDeriva, alvo?: AlvoVoz | null): { ok: b
     if (m.loudAmpDb > LIMIARES_DERIVA.loudAmpDb) motivos.push(`volume varia ${m.loudAmpDb.toFixed(1)} dB`);
     if (m.timbreMaxVs1a > LIMIARES_DERIVA.timbreMaxVs1a) motivos.push(`timbre muda ${m.timbreMaxVs1a.toFixed(2)}σ`);
   }
+  // Inclinação de F0 é veto por si só: volume e timbre passam enquanto o registro
+  // sobe (Algieba: 154 → 216 Hz num episódio). Com 3+ janelas a regressão já separa
+  // deriva de conteúdo; com 2, seria o salto entre duas janelas, que confunde.
+  if (m.janelas >= 3 && Math.abs(m.f0SlopeStMin) > LIMIARES_DERIVA.f0SlopeStMin) {
+    motivos.push(`registro deriva ${m.f0SlopeStMin > 0 ? '+' : ''}${m.f0SlopeStMin.toFixed(2)} st/min`);
+  }
   if (alvo && Number.isFinite(m.f0MedHz)) {
     const d = st(m.f0MedHz, alvo.f0Hz);
     if (Math.abs(d) > (alvo.tolSt ?? LIMIARES_DERIVA.f0TolSt)) motivos.push(`registro ${d > 0 ? '+' : ''}${d.toFixed(1)} st do alvo (${m.f0MedHz.toFixed(0)} vs ${alvo.f0Hz} Hz)`);
@@ -272,5 +287,5 @@ export function avaliarDeriva(m: MetricasDeriva, alvo?: AlvoVoz | null): { ok: b
 
 /** Resumo de uma linha para log/ledger. */
 export function resumirDeriva(m: MetricasDeriva): string {
-  return `dur ${m.durS.toFixed(0)}s · F0 ${m.f0MedHz.toFixed(0)}Hz (amp ${m.f0AmpSt.toFixed(1)}st) · vol ${m.loudSlopeDbMin.toFixed(2)}dB/min (amp ${m.loudAmpDb.toFixed(1)}dB) · timbre ${m.timbreMaxVs1a.toFixed(2)}σ`;
+  return `dur ${m.durS.toFixed(0)}s · F0 ${m.f0MedHz.toFixed(0)}Hz (amp ${m.f0AmpSt.toFixed(1)}st, slope ${m.f0SlopeStMin >= 0 ? '+' : ''}${m.f0SlopeStMin.toFixed(2)}st/min) · vol ${m.loudSlopeDbMin.toFixed(2)}dB/min (amp ${m.loudAmpDb.toFixed(1)}dB) · timbre ${m.timbreMaxVs1a.toFixed(2)}σ`;
 }

@@ -19,7 +19,7 @@ import {
   splitNarrationForTts,
 } from './tts/narration-text';
 import { getGoogleAccessToken, vertexProjectId } from './tts/google-token';
-import { medirDeriva, avaliarDeriva, resumirDeriva, ALVO_F0_POR_VOZ, type MetricasDeriva } from './tts/deriva';
+import { medirDeriva, avaliarDeriva, resumirDeriva, ALVO_F0_POR_VOZ, type MetricasDeriva, type AlvoVoz } from './tts/deriva';
 import { costFromTokens } from './ia-cost-catalog';
 import { gravarLinhaLedger } from './ia-ledger';
 import { contextoAtual } from './execucao-contexto';
@@ -129,6 +129,19 @@ function rateFromMime(mime?: string): number {
 const TTS_MAX_RETRIES = Number(process.env.GEMINI_TTS_RETRIES) || 4;
 
 /**
+ * Timeout de uma chamada LONGA, pelo tamanho do texto. `Medido 05/09/2026` no
+ * `gemini-2.5-flash-tts` (bake-off, n=6): 0,40 s de latência por segundo de áudio na
+ * mediana, 0,52 no pior caso; ~12 caracteres por segundo de áudio. 0,8 s/s cobre
+ * 1,5× o pior caso + 30 s de folga; teto de 280 s porque a rota sob demanda tem
+ * 300 s e ainda precisa medir e subir o arquivo. Timeout abaixo do pior caso real
+ * transforma síntese lenta em falha cara — foi o que 170 s fixos fariam em 5 min.
+ */
+function timeoutAdaptativo(chars: number): number {
+  const audioS = chars / 12;
+  return Math.min(280_000, Math.max(120_000, 30_000 + Math.round(800 * audioS)));
+}
+
+/**
  * Etiqueta da síntese no ledger de IA. Declarada pelo call-site, como o
  * `taskKey` do `callAI` — quem chama sabe se aquilo é narração de vídeo,
  * devolutiva ou podcast, e `ttsGenerate` não tem como descobrir.
@@ -205,10 +218,11 @@ async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0, timeou
     res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctrl.signal });
   } catch (e: any) {
     if (e?.name === 'AbortError') {
-      // Timeout (170s): retentar SEM backoff extra (a espera já foi o próprio
-      // timeout) e com orçamento MENOR que o do 429/503 — cada tentativa custa
-      // até 170s, e timeout repetido indica problema não-transitório.
-      if (attempt < Math.min(2, TTS_MAX_RETRIES)) {
+      // Timeout: retentar SEM backoff extra (a espera já foi o próprio timeout) e
+      // com orçamento MENOR que o do 429/503 — timeout repetido indica problema
+      // não-transitório. Em chamada LONGA (timeout ≥ 150 s, narração inteira) NÃO
+      // retenta: a 2ª tentativa começaria já fora do orçamento da função (300 s).
+      if (timeoutMs < 150_000 && attempt < Math.min(2, TTS_MAX_RETRIES)) {
         console.warn(`TTS timeout ${Math.round(timeoutMs / 1000)}s (${TTS_BACKEND}) — retry imediato (tentativa ${attempt + 1}/2)`);
         return ttsGenerate(body, ledger, attempt + 1, timeoutMs);
       }
@@ -293,27 +307,58 @@ function ttsToPcm(prompt: string, voiceName: string, ledger: TtsLedger, timeoutM
 const QA_GATE_ATIVO = (process.env.TTS_QA_GATE || 'on').toLowerCase() !== 'off';
 const QA_MAX_TENTATIVAS = Math.max(1, Number(process.env.TTS_QA_TENTATIVAS) || 2);
 
+/** Como o portão refaz: em SÉRIE (fundo: pré-aquecimento, `after()`, lote) ou em
+ *  PARALELO (sob demanda: a pessoa está esperando e a rota tem 300 s). */
+export interface OpcoesPortao {
+  /** `true` = as K tentativas saem juntas e a primeira que passa é publicada. Custa K×
+   *  (US$ 0,045 → 0,09 por episódio; irrelevante neste volume) e vale 1 tentativa de
+   *  latência: em série, 2 × (100-150 s) não cabe nos 300 s da rota sob demanda. */
+  retakeParalelo?: boolean;
+}
+
+type Sintese = { pcm: Buffer; sampleRate: number };
+
+function julgar(r: Sintese, alvo: AlvoVoz | null, voz: string, rotulo: string, tentativa: number, total: number): Sintese & { qa: QaDeriva } {
+  const t0 = Date.now();
+  const metricas = medirDeriva(r.pcm, r.sampleRate);
+  const { ok, motivos } = avaliarDeriva(metricas, alvo);
+  const qa: QaDeriva = { metricas, ok, motivos, tentativas: tentativa };
+  console[ok ? 'log' : 'warn'](`[tts-qa] ${rotulo} · ${voz} · tentativa ${tentativa}/${total}: ${ok ? 'ok' : `REPROVA (${motivos.join('; ')})`} · ${resumirDeriva(metricas)} · régua ${Date.now() - t0}ms`);
+  return { ...r, qa };
+}
+
 async function sintetizarComPortao(
-  sintetizar: () => Promise<{ pcm: Buffer; sampleRate: number }>,
+  sintetizar: () => Promise<Sintese>,
   voz: string,
   rotulo: string,
-): Promise<{ pcm: Buffer; sampleRate: number; qa?: QaDeriva }> {
+  opts: OpcoesPortao = {},
+): Promise<Sintese & { qa?: QaDeriva }> {
+  if (!QA_GATE_ATIVO) return sintetizar();
   const alvo = ALVO_F0_POR_VOZ[voz] || null;
-  let melhor: { pcm: Buffer; sampleRate: number; qa: QaDeriva } | null = null;
-  const tentativas = QA_GATE_ATIVO ? QA_MAX_TENTATIVAS : 1;
-  for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
-    const r = await sintetizar();
-    if (!QA_GATE_ATIVO) return r;
-    const t0 = Date.now();
-    const metricas = medirDeriva(r.pcm, r.sampleRate);
-    const { ok, motivos } = avaliarDeriva(metricas, alvo);
-    const qa: QaDeriva = { metricas, ok, motivos, tentativas: tentativa };
-    console[ok ? 'log' : 'warn'](`[tts-qa] ${rotulo} · ${voz} · tentativa ${tentativa}/${tentativas}: ${ok ? 'ok' : `REPROVA (${motivos.join('; ')})`} · ${resumirDeriva(metricas)} · régua ${Date.now() - t0}ms`);
-    if (ok) return { ...r, qa };
-    if (!melhor || motivos.length < melhor.qa.motivos.length) melhor = { ...r, qa };
+  const total = QA_MAX_TENTATIVAS;
+  const menosRuim = (xs: (Sintese & { qa: QaDeriva })[]) => xs.reduce((a, b) => (b.qa.motivos.length < a.qa.motivos.length ? b : a));
+
+  if (opts.retakeParalelo && total > 1) {
+    // Todas as tentativas juntas; a PRIMEIRA (por índice, não por chegada) que passa
+    // é publicada — a escolha é determinística e não "a mais mediana".
+    const rs = await Promise.all(Array.from({ length: total }, () => sintetizar()));
+    const julgadas = rs.map((r, i) => julgar(r, alvo, voz, rotulo, i + 1, total));
+    const aprovada = julgadas.find((j) => j.qa.ok);
+    if (aprovada) return aprovada;
+    const m = menosRuim(julgadas);
+    console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma das ${total} tentativas paralelas passou — publicando a menos ruim (${m.qa.motivos.join('; ')})`);
+    return m;
   }
-  console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma tentativa passou — publicando a menos ruim (${melhor!.qa.motivos.join('; ')})`);
-  return melhor!;
+
+  const julgadas: (Sintese & { qa: QaDeriva })[] = [];
+  for (let tentativa = 1; tentativa <= total; tentativa++) {
+    const j = julgar(await sintetizar(), alvo, voz, rotulo, tentativa, total);
+    if (j.qa.ok) return j;
+    julgadas.push(j);
+  }
+  const m = menosRuim(julgadas);
+  console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma tentativa passou — publicando a menos ruim (${m.qa.motivos.join('; ')})`);
+  return m;
 }
 
 // Direção de estilo default (devolutiva comportamental): mensagem pessoal do
@@ -379,7 +424,7 @@ function coalesceCurtos(parts: { text: string; q: boolean }[]): { text: string; 
  */
 export async function generateNarrationAudio(
   texto: string,
-  opts: { voice?: string; style?: string; ledger?: TtsLedger; segmentar?: boolean } = {},
+  opts: { voice?: string; style?: string; ledger?: TtsLedger; segmentar?: boolean } & OpcoesPortao = {},
 ): Promise<PodcastAudioFile> {
   if (!texto?.trim()) throw new Error('texto de narração vazio');
   const voice = opts.voice || VOICE;
@@ -395,13 +440,16 @@ export async function generateNarrationAudio(
   // chamada única no 2.5: 1,7-3,3 st — e o modelo GA não deriva em 5 minutos, então
   // a razão de fatiar deixou de existir. Custo: ~100-150 s de latência para 4-5 min
   // de áudio (as fatias em paralelo levavam ~60 s); ainda abaixo dos 246 s do laço
-  // em série que motivou a paralelização de 01/09. Timeout folgado (240 s) e SEM
-  // retry de timeout: repetir uma chamada de 4 min estouraria o orçamento da função.
+  // em série que motivou a paralelização de 01/09. Timeout pelo tamanho do texto
+  // (`timeoutAdaptativo`) e SEM retry de timeout: repetir uma chamada de 4 min
+  // estouraria o orçamento da função.
   if (opts.segmentar === false) {
+    const timeoutMs = timeoutAdaptativo(texto.length);
     const r = await sintetizarComPortao(
-      () => ttsToPcm(`${styleDirective}:\n\n${texto}`, voice, ledger, 240_000),
+      () => ttsToPcm(`${styleDirective}:\n\n${texto}`, voice, ledger, timeoutMs),
       voice,
       ledger.feature,
+      { retakeParalelo: opts.retakeParalelo },
     );
     return {
       buffer: exportPodcastMp3FromPcm(r.pcm, r.sampleRate),
@@ -457,7 +505,7 @@ export async function generateNarrationAudio(
  * de marca). Lança em erro/sem chave — o caller decide o fallback. `texto` deve
  * ser a narração limpa (use extractNarration).
  */
-export async function generatePodcastAudio(texto: string, ledger?: TtsLedger): Promise<PodcastAudioFile> {
+export async function generatePodcastAudio(texto: string, ledger?: TtsLedger, opts: OpcoesPortao = {}): Promise<PodcastAudioFile> {
   if (!texto?.trim()) throw new Error('texto de narração vazio');
 
   const textoComMarca = ensurePodcastBrandNarration(texto);
@@ -491,9 +539,10 @@ export async function generatePodcastAudio(texto: string, ledger?: TtsLedger): P
   // passa pelo portão de deriva (com retake); multi-speaker não: F0 e timbre alternam
   // entre Mentor e Campo por construção, e a régua acusaria a alternância como defeito.
   const ledgerEfetivo = ledger || { feature: 'tts_podcast' };
+  const timeoutMs = timeoutAdaptativo(textoComMarca.length);
   const r: { pcm: Buffer; sampleRate: number; qa?: QaDeriva } = multiSpeaker
-    ? await ttsGenerate(body, ledgerEfetivo)
-    : await sintetizarComPortao(() => ttsGenerate(body, ledgerEfetivo), VOICE, ledgerEfetivo.feature);
+    ? await ttsGenerate(body, ledgerEfetivo, 0, timeoutMs)
+    : await sintetizarComPortao(() => ttsGenerate(body, ledgerEfetivo, 0, timeoutMs), VOICE, ledgerEfetivo.feature, opts);
   const mixedPcm = addPodcastBrandSting(r.pcm, r.sampleRate);
   const out: PodcastAudioFile = {
     buffer: exportPodcastMp3FromPcm(mixedPcm, r.sampleRate),
@@ -512,7 +561,8 @@ export async function generatePersonalizedPodcastAudio(
   texto: string,
   nomeCompleto: string,
   ledger?: TtsLedger,
+  opts: OpcoesPortao = {},
 ): Promise<PodcastAudioFile> {
   const textoPersonalizado = buildPersonalizedPodcastNarration(texto, nomeCompleto);
-  return generatePodcastAudio(textoPersonalizado, ledger || { feature: 'tts_podcast_personalizado' });
+  return generatePodcastAudio(textoPersonalizado, ledger || { feature: 'tts_podcast_personalizado' }, opts);
 }

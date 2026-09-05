@@ -19,10 +19,13 @@ export const DEVOLUTIVA_AUDIO_BUCKET = 'relatorios-pdf';
  * do cliente sem filtro de empresa — foi exatamente esse o IDOR corrigido em
  * `gerarEsalvarDevolutivaComportamental` (cross-tenant + abuso de TTS).
  */
-export async function gerarDevolutivaEmAudioCore({ colab, raw, texts, sb }: {
+export async function gerarDevolutivaEmAudioCore({ colab, raw, texts, sb, sobDemanda = false }: {
   colab: any;
   raw: any;
   texts: any;
+  /** `true` no botão "Ouvir devolutiva" (a pessoa espera; o portão refaz em paralelo);
+   *  `false` na pré-geração do `after()` do DISC (fundo; refaz em série, custa menos). */
+  sobDemanda?: boolean;
   /** Client admin do CHAMADOR. Injetado, e não criado aqui: os dois chamadores
    *  já têm o seu, e um `createSupabaseAdmin()` a mais neste arquivo faria a
    *  allowlist de service-role CRESCER — ela só encolhe. */
@@ -86,6 +89,7 @@ export async function gerarDevolutivaEmAudioCore({ colab, raw, texts, sb }: {
     style: 'Narre em português do Brasil, com voz masculina brasileira acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa',
     ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id },
     segmentar: false,
+    retakeParalelo: sobDemanda,
   });
   if (audio.qa && !audio.qa.ok) console.warn(`[devolutiva-audio] publicada com ressalva do portão de deriva: ${audio.qa.motivos.join('; ')}`);
 

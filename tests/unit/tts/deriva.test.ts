@@ -8,18 +8,22 @@ import { medirDeriva, avaliarDeriva, ALVO_F0_POR_VOZ } from '@/lib/tts/deriva';
 
 const SR = 24000;
 
-/** "Voz" sintética: harmônicos de f0 com envelope de sílabas (4/s) e pausas curtas. */
-function voz(opts: { segundos: number; f0: number; ganhoFinalDb?: number; pesos?: (t: number) => number[] }): Buffer {
+/** "Voz" sintética: harmônicos de f0 (com fase contínua, para rampas de pitch) com
+ *  envelope de sílabas (4/s) e pausas curtas. */
+function voz(opts: { segundos: number; f0: number; f0Final?: number; ganhoFinalDb?: number; pesos?: (t: number) => number[] }): Buffer {
   const n = Math.floor(opts.segundos * SR);
   const buf = Buffer.alloc(n * 2);
+  let fase = 0;
   for (let i = 0; i < n; i++) {
     const t = i / SR;
+    const f0 = opts.f0Final ? opts.f0 + (opts.f0Final - opts.f0) * t / opts.segundos : opts.f0;
+    fase += 2 * Math.PI * f0 / SR;
     const silaba = 0.55 + 0.45 * Math.max(0, Math.sin(2 * Math.PI * 4 * t)); // pulsos de energia
     const pausa = (t % 5) > 4.6 ? 0 : 1; // 0,4 s de pausa a cada 5 s
     const rampa = opts.ganhoFinalDb ? 10 ** ((opts.ganhoFinalDb * t / opts.segundos) / 20) : 1;
     const pesos = opts.pesos ? opts.pesos(t) : [1, 0.6, 0.4, 0.3, 0.2, 0.15];
     let s = 0;
-    for (let h = 0; h < pesos.length; h++) s += pesos[h] * Math.sin(2 * Math.PI * opts.f0 * (h + 1) * t);
+    for (let h = 0; h < pesos.length; h++) s += pesos[h] * Math.sin(fase * (h + 1));
     const v = 0.25 * silaba * pausa * rampa * s / pesos.reduce((a, b) => a + b, 0);
     buf.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(v * 32768))), i * 2);
   }
@@ -31,6 +35,7 @@ describe('portão de deriva', () => {
     const m = medirDeriva(voz({ segundos: 65, f0: 208 }), SR);
     expect(m.janelas).toBeGreaterThanOrEqual(3);
     expect(Math.abs(12 * Math.log2(m.f0MedHz / 208))).toBeLessThan(0.5);
+    expect(Math.abs(m.f0SlopeStMin)).toBeLessThan(0.5);
     const v = avaliarDeriva(m, ALVO_F0_POR_VOZ.Aoede);
     expect(v.motivos).toEqual([]);
     expect(v.ok).toBe(true);
@@ -51,6 +56,16 @@ describe('portão de deriva', () => {
     expect(v.motivos.join(' ')).toMatch(/registro/);
     // e a MESMA medição passa no alvo certo
     expect(avaliarDeriva(m, ALVO_F0_POR_VOZ.Aoede).ok).toBe(true);
+  });
+
+  it('PEGA a rampa de pitch plantada (a assinatura do Algieba: registro sobe ao longo do episódio)', () => {
+    // 195 → 224 Hz em 65 s ≈ +2,4 st em 1,08 min ≈ +2,2 st/min; mediana ~208 (dentro do alvo),
+    // volume e timbre iguais — só a inclinação acusa.
+    const m = medirDeriva(voz({ segundos: 65, f0: 195, f0Final: 224 }), SR);
+    expect(m.f0SlopeStMin).toBeGreaterThan(1.5);
+    const v = avaliarDeriva(m, ALVO_F0_POR_VOZ.Aoede);
+    expect(v.ok).toBe(false);
+    expect(v.motivos.join(' ')).toMatch(/registro deriva/);
   });
 
   it('PEGA a troca de timbre plantada (espectro muda na 2ª metade, F0 e volume iguais)', () => {

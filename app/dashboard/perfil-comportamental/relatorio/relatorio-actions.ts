@@ -312,7 +312,7 @@ async function gerarEsalvarDevolutivaComportamental({ colab: inputColab, colabId
     // trabalho roda aqui, sob demanda, e na pré-geração que o `after()` do DISC
     // dispara. Duas implementações do mesmo áudio virariam gêmeos divergentes.
     const { gerarDevolutivaEmAudioCore } = await import('@/lib/relatorio-comportamental/devolutiva-audio');
-    return await gerarDevolutivaEmAudioCore({ colab, raw, texts, sb: createSupabaseAdmin() });
+    return await gerarDevolutivaEmAudioCore({ colab, raw, texts, sb: createSupabaseAdmin(), sobDemanda: true });
   } catch (err) {
     console.error('[gerarEsalvarDevolutivaComportamental]', err);
     return { error: err?.message || 'Erro ao gerar devolutiva em voz' };

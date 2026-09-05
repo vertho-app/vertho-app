@@ -1214,7 +1214,7 @@ export async function prepararAudioPersonalizado({ contentId, colab }: { content
       feature: 'tts_podcast_personalizado',
       empresaId: alvo.empresa_id,
       colaboradorId: colab.id,
-    });
+    }, { retakeParalelo: true }); // o admin está esperando na tela
     const { error } = await sb.storage.from('conteudos').upload(cachePath, audio.buffer, {
       contentType: audio.contentType, upsert: true,
     });

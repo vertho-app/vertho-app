@@ -80,9 +80,13 @@ export async function gravarLinhaLedger(linha: LinhaLedgerIA): Promise<boolean> 
       // atribuição é secundária. `Medido 05/09/2026`: uma síntese de TTS real em
       // produção (US$ 0,045) sumiu do ledger porque o colaborador da sonda já tinha
       // sido apagado — "a ausência parece um zero". Regrava sem a atribuição e avisa.
+      // O `status` fica intacto: o agregado do painel (`custo_ia_agregado`) soma o custo de
+      // todas as linhas, mas conta `status <> 'ok'` como ERRO — um sufixo no status faria a
+      // linha aparecer como falha. A perda de atribuição vai em `origem_codigo`, que hoje
+      // ninguém lê (0 consumidores; só o `callAI` escreve nele quando falta `taskKey`).
       if (error.code === '23503' && (linha.colaborador_id || linha.empresa_id)) {
         console.warn(`[ia-ledger] FK inválida em ${linha.feature} (${error.message}) — regravando SEM colaborador/empresa para não perder o custo.`);
-        return gravarLinhaLedger({ ...linha, colaborador_id: null, empresa_id: null, status: `${linha.status}:sem-atribuicao` });
+        return gravarLinhaLedger({ ...linha, colaborador_id: null, empresa_id: null, origem_codigo: linha.origem_codigo ?? 'fk-invalida:sem-atribuicao' });
       }
       console.warn(
         `[ia-ledger] NÃO gravou ${linha.feature} (${linha.model}): ${error.message}. `
