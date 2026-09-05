@@ -202,3 +202,16 @@ export const PLANO_SEMANA = {
   CONCLUIDA: 'concluida',
 } as const;
 export type PlanoSemanaStatus = (typeof PLANO_SEMANA)[keyof typeof PLANO_SEMANA];
+
+/**
+ * recepcao — `estado.status` (jsonb) da sessão de treino de atendimento com
+ * paciente IA. QUARTO domínio: 'concluida' coincide em VALOR com TRILHA.CONCLUIDA
+ * por acaso (uma é sessão de treino, a outra é trilha) — constantes separadas
+ * pelo mesmo motivo do ENVIO acima. Entrou em 05/09/2026 porque o guard
+ * `status-literal` reprovava os dois arquivos da recepção e travava o push.
+ */
+export const RECEPCAO_SESSAO = {
+  EM_ANDAMENTO: 'em_andamento',
+  CONCLUIDA: 'concluida',
+} as const;
+export type RecepcaoSessaoStatus = (typeof RECEPCAO_SESSAO)[keyof typeof RECEPCAO_SESSAO];

@@ -6,6 +6,7 @@ import { RecepcaoError, contextoRecepcao } from './access';
 import { geradorRecepcao, textoParaTreino } from './ai';
 import type { z } from 'zod';
 import { comandoSchema } from './schema';
+import { RECEPCAO_SESSAO } from '@/lib/status';
 
 type Ctx = Exclude<Awaited<ReturnType<typeof contextoRecepcao>>, Response>;
 const owned = (c: Ctx) => c.sb.from('recepcao_sessoes').select('*').eq('empresa_id', c.empresaId).eq('owner_email', c.owner);
@@ -52,9 +53,9 @@ export async function executar(c: Ctx, cmd: z.infer<typeof comandoSchema>) {
       if (recibo.mensagem !== mensagem) throw new RecepcaoError(409, 'Este envio já foi usado com outro texto.');
       return { sessao: publico(row) };
     }
-    if (s.status !== 'em_andamento') throw new RecepcaoError(409, 'Este treino já foi encerrado.');
+    if (s.status !== RECEPCAO_SESSAO.EM_ANDAMENTO) throw new RecepcaoError(409, 'Este treino já foi encerrado.');
   } else {
-    if (s.status === 'concluida') return { sessao: publico(row) };
+    if (s.status === RECEPCAO_SESSAO.CONCLUIDA) return { sessao: publico(row) };
     if (!s.respostas) throw new RecepcaoError(400, 'Converse com a paciente antes de gerar o relatório.');
   }
   if (cmd.revisao !== row.revisao) throw new RecepcaoError(409, 'O treino mudou em outra aba. Atualize a conversa e tente novamente.');

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CalendarDays, ClipboardList, MessageCircle, Send, RotateCcw, ArrowRight, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { RECEPCAO_SESSAO } from '@/lib/status';
 import styles from './treino.module.css';
 
 const nomes: Record<string, string> = { acolhimento: 'Acolhimento', compreensao: 'Compreensão da demanda', clareza: 'Clareza e precisão', resolucao: 'Resolução', procedimentos: 'Procedimentos' };
@@ -141,7 +142,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               <div ref={fim}/>
             </div>
             {emConversa && <div className={styles.composer}>
-              {sessao.status === 'em_andamento' && <form onSubmit={e => { e.preventDefault(); agir('responder'); }}><label className={styles.srOnly} htmlFor="recepcao-mensagem">Sua resposta para Marina</label><textarea id="recepcao-mensagem" value={input} onChange={e => setInput(e.target.value)} disabled={travado} maxLength={4000} placeholder="Escreva como você falaria com a paciente…" rows={3}/><button className={styles.send} type="submit" aria-label="Enviar resposta" disabled={travado || !input.trim()}><Send size={20}/></button></form>}
+              {sessao.status === RECEPCAO_SESSAO.EM_ANDAMENTO && <form onSubmit={e => { e.preventDefault(); agir('responder'); }}><label className={styles.srOnly} htmlFor="recepcao-mensagem">Sua resposta para Marina</label><textarea id="recepcao-mensagem" value={input} onChange={e => setInput(e.target.value)} disabled={travado} maxLength={4000} placeholder="Escreva como você falaria com a paciente…" rows={3}/><button className={styles.send} type="submit" aria-label="Enviar resposta" disabled={travado || !input.trim()}><Send size={20}/></button></form>}
               {sessao.status === 'aguardando_avaliacao' && <p>Você chegou ao limite deste exercício. Gere o relatório para revisar o atendimento.</p>}
               {sessao.processando && <p role="status">Um envio está em processamento. <button className={styles.link} onClick={() => carregar(empresaId, sessao.id).catch(e => setErro(e.message))}>Atualizar conversa</button></p>}
               <div className={styles.finish}><small>O atendimento é simulado; nenhuma consulta real será marcada.</small>{!confirmarFim ? <button className={styles.secondary} disabled={travado || !sessao.respostas} onClick={() => setConfirmarFim(true)}>Encerrar e avaliar</button> : <div><span>Concluir este atendimento?</span><button className={styles.primary} disabled={travado} onClick={() => agir('encerrar')}>Gerar relatório</button><button className={styles.link} onClick={() => setConfirmarFim(false)}>Continuar</button></div>}</div>
@@ -159,7 +160,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
         <div className={styles.coaching}><div><CheckCircle2 size={21}/><h3>O que funcionou</h3><p>{relatorio.feedback.acerto}</p></div><div><ArrowRight size={21}/><h3>Seu próximo passo</h3><p>{relatorio.feedback.melhoria}</p><p>{relatorio.feedback.novaTentativa}</p></div></div>
         <button className={styles.primary} disabled={travado} onClick={() => agir('iniciar')}><RotateCcw size={18}/> Praticar novamente</button>
       </section>}
-      {dados.historico?.length > 0 && <section className={styles.history}><h2>Seus atendimentos</h2><div>{dados.historico.map((h: any) => <button key={h.id} disabled={travado} onClick={() => abrirHistorico(h.id)} aria-current={sessao?.id === h.id ? 'true' : undefined}><span>{new Date(h.data).toLocaleString('pt-BR')}</span><strong>{h.status === 'concluida' ? `${h.nota ?? '—'}/100${h.situacao === 'atencao_critica' ? ' · atenção' : h.situacao === 'avaliacao_parcial' ? ' · parcial' : ''}` : 'Retomar treino'}</strong></button>)}</div></section>}
+      {dados.historico?.length > 0 && <section className={styles.history}><h2>Seus atendimentos</h2><div>{dados.historico.map((h: any) => <button key={h.id} disabled={travado} onClick={() => abrirHistorico(h.id)} aria-current={sessao?.id === h.id ? 'true' : undefined}><span>{new Date(h.data).toLocaleString('pt-BR')}</span><strong>{h.status === RECEPCAO_SESSAO.CONCLUIDA ? `${h.nota ?? '—'}/100${h.situacao === 'atencao_critica' ? ' · atenção' : h.situacao === 'avaliacao_parcial' ? ' · parcial' : ''}` : 'Retomar treino'}</strong></button>)}</div></section>}
     </>}
   </main>;
 }
