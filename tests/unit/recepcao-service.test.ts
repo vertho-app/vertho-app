@@ -105,6 +105,21 @@ test('falha de IA preserva estado e libera lease', async () => {
   expect(rows[0].revisao).toBe(0); expect(rows[0].estado.historico).toHaveLength(1);
   expect(rows[0].lock_token).toBeNull();
 });
+
+test('falha do relatório preserva conversa e informa a operação correta', async () => {
+  await executar(ctx, comando());
+  const antes = structuredClone(rows[0].estado);
+  mock.gerar.mockRejectedValue(new Error('provedor indisponível: conteúdo privado'));
+  const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    await expect(executar(ctx, { acao: 'encerrar', sessaoId: ID, revisao: 1 })).rejects.toThrow('validar o relatório');
+    expect(rows[0].estado).toEqual(antes);
+    expect(rows[0].revisao).toBe(1);
+    expect(rows[0].lock_token).toBeNull();
+    expect(JSON.stringify(log.mock.calls)).not.toContain('conteúdo privado');
+    expect(log).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ sessaoId: ID, acao: 'encerrar' }));
+  } finally { log.mockRestore(); }
+});
 test('concorrência na mesma revisão permite só um gerador', async () => {
   let release: (s: string) => void;
   mock.gerar.mockImplementation(() => new Promise<string>(resolve => { release = resolve; }));

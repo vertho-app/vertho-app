@@ -14,7 +14,7 @@ export function geradorRecepcao(empresaId: string, colaboradorId: string | null,
       const taskKey = etapa === 'paciente' ? 'recepcao_paciente' : 'recepcao_avaliacao';
       const model = await getModelForTask(empresaId, taskKey);
       // Versão autocontida na sessão: não depende da tabela legada prompt_versions.
-      chamadas.push({ etapa, model, promptHash: createHash('sha256').update(system).digest('hex'), promptVersion: 'recepcao-1.0' });
+      chamadas.push({ etapa, model, promptHash: createHash('sha256').update(system).digest('hex'), promptVersion: etapa === 'paciente' ? 'recepcao-1.0' : 'recepcao-1.1' });
       const raw = await callAIChat(system, messages, { model }, etapa === 'paciente' ? 4000 : 8000, {
         taskKey, empresaId, colaboradorId, source: admin ? 'piloto' : 'wrapper', locale: 'pt-BR',
         temperature: etapa === 'paciente' ? 0.6 : 0, timeoutMs: 45000, maxRetries: 0,

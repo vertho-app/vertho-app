@@ -1,7 +1,7 @@
 import { test } from 'vitest';
 import assert from 'node:assert/strict';
 import { cenario } from '@/lib/recepcao/cenario.mjs';
-import { abrirSessao, visaoPublica, responder, encerrar, consolidar, validarCenario, promptAvaliador } from '@/lib/recepcao/core.mjs';
+import { abrirSessao, visaoPublica, responder, encerrar, consolidar, validarCenario, promptAvaliador, ErroReferenciaAvaliacao } from '@/lib/recepcao/core.mjs';
 
 import { executarExemplo, insumosExemplo } from './recepcao-fixtures.mjs';
 const fala = async () => JSON.stringify({ fala: 'Pode explicar?' });
@@ -130,4 +130,50 @@ test('avaliação inválida tem uma correção limitada, preservando estado se a
   chamadas = 0;
   await assert.rejects(encerrar(s, async () => { chamadas++; return '{}'; }));
   assert.equal(chamadas, 2); assert.equal(s.status, 'em_andamento'); assert.equal(s.relatorio, null);
+});
+
+test('avaliador recebe participantes explícitos e corrige a saída recusada com o campo exato', async () => {
+  const original = await executarExemplo();
+  const s = { ...original, status: 'em_andamento', relatorio: null };
+  const invalido = insumosExemplo();
+  invalido.dimensoes[0].evidencias = [{ mensagemId: 'm0', trecho: s.historico[0].content }];
+  let chamadas = 0;
+  const result = await encerrar(s, async ({ messages }) => {
+    const historico = JSON.parse(messages[0].content);
+    assert.deepEqual(historico[0], { id: 'm0', participante: 'paciente', texto: s.historico[0].content });
+    assert.deepEqual(historico[1], { id: 'm1', participante: 'secretaria', texto: s.historico[1].content });
+    if (++chamadas === 1) return JSON.stringify(invalido);
+    assert.equal(messages[1].role, 'assistant');
+    assert.deepEqual(JSON.parse(messages[1].content), invalido);
+    assert.equal(messages[2].role, 'user');
+    assert.match(messages[2].content, /dimensoes.acolhimento.evidencias\[0\]/);
+    assert.match(messages[2].content, /esta fala é da paciente/);
+    return JSON.stringify(insumosExemplo());
+  });
+  assert.equal(result.relatorio.nota, 100);
+  assert.equal(chamadas, 2);
+  assert.equal(s.relatorio, null);
+});
+
+test('erro de referência identifica campo e causa sem expor o trecho', async () => {
+  const s = await executarExemplo(), a = insumosExemplo();
+  a.dimensoes[0].evidencias = [{ mensagemId: 'm1', trecho: 'conteúdo reservado inventado' }];
+  assert.throws(() => consolidar(s, a), e => {
+    assert.ok(e instanceof ErroReferenciaAvaliacao);
+    assert.equal(e.codigo, 'citacao_invalida');
+    assert.equal(e.campo, 'dimensoes.acolhimento.evidencias[0]');
+    assert.ok(!e.message.includes('conteúdo reservado'));
+    return true;
+  });
+});
+
+test('duas avaliações que atribuem fala da paciente à secretária nunca são publicadas', async () => {
+  const original = await executarExemplo();
+  const s = { ...original, status: 'em_andamento', relatorio: null }, antes = structuredClone(s);
+  const a = insumosExemplo();
+  a.dimensoes[3].evidencias = [{ mensagemId: 'm0', trecho: s.historico[0].content }];
+  let chamadas = 0;
+  await assert.rejects(encerrar(s, async () => { chamadas++; return JSON.stringify(a); }), /participante incorreto/);
+  assert.equal(chamadas, 2);
+  assert.deepEqual(s, antes);
 });

@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { abrirSessao, visaoPublica, responder, encerrar } from './core.mjs';
+import { abrirSessao, visaoPublica, responder, encerrar, ErroReferenciaAvaliacao } from './core.mjs';
 import { cenario } from './cenario.mjs';
 import { RecepcaoError, contextoRecepcao } from './access';
 import { geradorRecepcao, textoParaTreino } from './ai';
@@ -72,8 +72,13 @@ export async function executar(c: Ctx, cmd: z.infer<typeof comandoSchema>) {
         : await encerrar(s, ai.gerar);
     } catch (err) {
       // Não logar histórico ou resposta bruta do provedor.
-      console.error('[recepcao] geração/validação falhou', err instanceof Error ? err.name : 'erro');
-      throw new RecepcaoError(502, 'Não foi possível concluir esta resposta. O treino foi preservado; tente novamente.');
+      console.error('[recepcao] geração/validação falhou', {
+        sessaoId: row.id, acao: cmd.acao, tipo: err instanceof Error ? err.name : 'erro',
+        ...(err instanceof ErroReferenciaAvaliacao ? { codigo: err.codigo, campo: err.campo } : {}),
+      });
+      throw new RecepcaoError(502, cmd.acao === 'encerrar'
+        ? 'Não foi possível validar o relatório. A conversa foi preservada; tente gerar o relatório novamente.'
+        : 'Não foi possível concluir esta resposta. O treino foi preservado; tente novamente.');
     }
     const commit = await c.sb.rpc('recepcao_commit', { ...args, p_estado: next, p_chamadas: ai.chamadas }); banco(commit.error);
     if (!commit.data) throw new RecepcaoError(409, 'O treino mudou durante o envio. Atualize para recuperar a conversa.');
