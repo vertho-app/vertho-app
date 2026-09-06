@@ -11,5 +11,5 @@ export type Estado = {
   variante?:number; cenarioRegistroId?:string;
   relatorio:(Omit<Insumos,'dimensoes'> & {versaoCenario:string;versaoRubrica:string;nota:number|null;coberturaPercentual:number;situacao:string;dimensoes:Array<Insumos['dimensoes'][number]&{peso:number;nome?:string}>})|null;
 };
-export type Gerar = (args:{etapa:string;system:string;messages:Array<{role:'user'|'assistant';content:string}>})=>Promise<string>;
+export type Gerar = (args:{etapa:string;perfilPaciente?:'negociavel'|'resistencia_persistente';system:string;messages:Array<{role:'user'|'assistant';content:string}>})=>Promise<string>;
 export type Validacao = (erro?:unknown)=>Promise<void>;

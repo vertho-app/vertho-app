@@ -59,8 +59,7 @@ export async function painelEquipe(c:ContextoRecepcao,dias=30,incluirTestes=fals
  const desde=new Date(Date.now()-dias*86400000).toISOString();
  let query=()=>{
   let q=c.sb.from('recepcao_sessoes').select('*').eq('empresa_id',c.empresaId).gte('created_at',desde).order('created_at',{ascending:false}).order('id');
-  if(!c.auth.isPlatformAdmin || !incluirTestes) q=q.in('colaborador_id',pessoas.map(p=>p.id));
-  if(!incluirTestes || !c.auth.isPlatformAdmin) q=q.not('owner_key','like','admin:%');
+  if(!c.auth.isPlatformAdmin || !incluirTestes) q=q.in('colaborador_id',pessoas.map(p=>p.id)).not('owner_key','like','admin:%');
   return q;
  };
  const rows=(!pessoas.length && (!c.auth.isPlatformAdmin || !incluirTestes))?[]:await todas(query);
@@ -74,7 +73,7 @@ export async function painelEquipe(c:ContextoRecepcao,dias=30,incluirTestes=fals
   const ledger:any[]=[];
   for(let i=0;i<tentativas.length;i+=80) ledger.push(...await todas(()=>c.sb.from('ia_usage_log').select('correlation_id,model,cost_usd,latency_ms,status').eq('empresa_id',c.empresaId).in('correlation_id',tentativas.slice(i,i+80).map(t=>t.id)).order('id')));
   const rejeicoes:Record<string,number>={};for(const t of tentativas) if(t.estado==='rejeitada') rejeicoes[t.erro_codigo||'outro']=(rejeicoes[t.erro_codigo||'outro']||0)+1;
-  const porSessao=rows.map(r=>{const ts=tentativas.filter(t=>t.sessao_id===r.id);const usage=ledger.filter(l=>ts.some(t=>t.id===l.correlation_id));return {id:r.id,tentativas:ts.length,custoConhecidoUsd:usage.reduce((n,l)=>n+(l.cost_usd||0),0),semUsoRegistrado:ts.filter(t=>!usage.some(l=>l.correlation_id===t.id)).length};});
+  const porSessao=rows.map(r=>{const ts=tentativas.filter(t=>t.sessao_id===r.id);const usage=ledger.filter(l=>ts.some(t=>t.id===l.correlation_id));return {id:r.id,tentativas:ts.length,semCustoRegistrado:usage.filter(l=>l.cost_usd==null).length,custoConhecidoUsd:usage.reduce((n,l)=>n+(l.cost_usd||0),0),semUsoRegistrado:ts.filter(t=>!usage.some(l=>l.correlation_id===t.id)).length};});
   const avaliacoes=tentativas.filter(t=>t.etapa==='avaliador'),recusadas=avaliacoes.filter(t=>t.estado==='rejeitada');
   operacao={tentativas:tentativas.length,rejeicoes,emAberto:tentativas.filter(t=>!t.finished_at).length,custoConhecidoUsd:ledger.reduce((n,l)=>n+(l.cost_usd||0),0),modelos:[...new Set(ledger.map(l=>l.model))],porSessao,avaliacoes:avaliacoes.length,avaliacoesRejeitadas:recusadas.length,taxaRejeicao:avaliacoes.length?100*recusadas.length/avaliacoes.length:null};
  }

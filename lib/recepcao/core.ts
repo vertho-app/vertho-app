@@ -86,6 +86,10 @@ FICHA OPERACIONAL: ${JSON.stringify(c.publico)}
 PERSONAGEM RESERVADO: ${JSON.stringify(c.paciente)}`;
 }
 
+export function desfechoExigeAcordo(tipo: string) {
+  return !['nao_resolvido', 'inconclusivo'].includes(tipo);
+}
+
 export function promptAvaliador(c: Cenario) {
   return `Avalie um exercício de atendimento administrativo em PT-BR.
 Avalie comportamento observável neste exercício, sem diagnóstico de personalidade.
@@ -114,12 +118,12 @@ Referências de oportunidade podem citar paciente ou secretária. Justifique aus
 OBRIGATÓRIO: cada dimensão adequada, parcial ou insuficiente precisa de ao menos UMA oportunidade citada.
 Não devolva oportunidades:[] em dimensão avaliada. Pode citar o pedido inicial da paciente quando ele criou a oportunidade.
 Adequado e parcial também exigem ao menos UMA evidência da secretária. nao_observavel exige ambas as listas vazias.
-remarcado/encaminhado exige evidências do combinado da secretária E da aceitação da paciente.
+${c.desfechos.filter(desfechoExigeAcordo).join('/') || 'Nenhum desfecho positivo neste caso'}: para declarar desfecho positivo, cite o combinado/orientação da secretária E a concordância ou compreensão explícita da paciente. Isso não exige satisfação. Uma recusa não é aceitação; para orientado, a simples fala da secretária não prova orientação compreendida.
 Limite de turnos não prova resolução. Não preencha lacunas com fatos inventados.
 Retorne somente JSON:
 {"dimensoes":[{"id":"id da rubrica","classificacao":"adequado|parcial|insuficiente|nao_observavel","justificativa":"motivo","evidencias":[{"mensagemId":"m1","trecho":"citação"}],"oportunidades":[{"mensagemId":"m0","trecho":"citação"}]}],
 "ocorrencias":[{"categoria":"categoria permitida","motivo":"explicação","evidencias":[{"mensagemId":"m1","trecho":"citação"}]}],
-"desfecho":{"tipo":"remarcado|encaminhado|nao_resolvido|inconclusivo","justificativa":"explicação","evidencias":[]},
+"desfecho":{"tipo":"${c.desfechos.join('|')}","justificativa":"explicação","evidencias":[]},
 "feedback":{"acerto":"evidência comentada ou ausência","melhoria":"ação concreta","novaTentativa":"exercício"}}
 RUBRICA: ${JSON.stringify(c.rubrica)}
 OCORRÊNCIAS PERMITIDAS: ${JSON.stringify(c.ocorrenciasCriticas)}
@@ -144,7 +148,7 @@ export async function responder(s: Estado, { requestId, mensagem }: {requestId:s
   }
   exigir(s.status === RECEPCAO_SESSAO.EM_ANDAMENTO, 'Sessão encerrada');
   const historico: Estado['historico'] = [...s.historico, { id: `m${s.historico.length}`, role: 'user', content: conteudo }];
-  const saida = parse(await gerarTexto({ etapa: 'paciente', system: promptPaciente(s.cenario),
+  const saida = parse(await gerarTexto({ etapa: 'paciente', perfilPaciente: s.cenario.paciente.postura ?? 'negociavel', system: promptPaciente(s.cenario),
     messages: historico.map(({ role, content }) => ({ role, content })) }));
   validarFala(saida?.fala, s.cenario);
   const n = clone(s);
@@ -212,7 +216,7 @@ export function consolidar(s: Estado, insumos: Insumos): Estado['relatorio'] {
   const desfecho = insumos.desfecho;
   exigir(s.cenario.desfechos.includes(desfecho?.tipo) && texto(desfecho.justificativa), 'Desfecho inválido');
   validarReferencias(desfecho.evidencias, s, null, 'desfecho.evidencias');
-  if (['remarcado', 'encaminhado'].includes(desfecho.tipo)) {
+  if (desfechoExigeAcordo(desfecho.tipo)) {
     const papeis = new Set(desfecho.evidencias.map(r => s.historico.find(m => m.id === r.mensagemId).role));
     exigir(papeis.has('user') && papeis.has('assistant'), 'Resolução exige combinado e aceitação');
   }

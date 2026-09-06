@@ -15,7 +15,7 @@ export async function catalogo(c:ContextoRecepcao,editor=false) {
 }
 export async function cenarioPublicado(c:ContextoRecepcao,id?:string):Promise<{id:string;conteudo:Cenario}> {
  let q=c.sb.from('recepcao_cenarios').select('id,conteudo').or(`empresa_id.eq.${c.empresaId},empresa_id.is.null`).eq('estado','publicado');
- q=id ? q.eq('id',id) : q.eq('codigo','remarcacao-02');
+ if(id) q=q.eq('id',id);
  const {data,error}=await q.order('created_at',{ascending:false}).order('id').limit(1).maybeSingle();
  if(error) throw new RecepcaoError(503,'Não foi possível consultar o cenário.');
  if(!data) throw new RecepcaoError(404,'Este cenário não está disponível para iniciar. Selecione outro caso.');

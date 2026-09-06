@@ -32,7 +32,7 @@ O prompt distingue orientação clínica efetiva, divulgação de informação e
 
 Os cinco casos em `catalogo-limites.ts` têm dez perfis com `paciente.postura=resistencia_persistente`. O campo é opcional para manter compatibilidade; na ausência dele, o personagem segue o comportamento negociável anterior. A postura fica reservada no servidor, integra o snapshot e pode ser selecionada no editor em **Reação aos limites**, por paciente e variante.
 
-O prompt `recepcao-2.2-limite-contestado` separa entender e aceitar. A personagem pode entender perfeitamente a regra e continuar exigindo encaixe, cobertura, prioridade ou informação de terceiro. Explicação correta não dispara aceitação automática. A cobrança permanece ligada à mesma demanda, sem inventar restrições, repetir dúvidas já respondidas ou seguir uma quantidade obrigatória de turnos.
+O prompt da paciente separa entender e aceitar. A personagem pode entender perfeitamente a regra e continuar exigindo encaixe, cobertura, prioridade ou informação de terceiro. Explicação correta não dispara aceitação automática. A cobrança permanece ligada à mesma demanda, sem inventar restrições, repetir dúvidas já respondidas ou seguir uma quantidade obrigatória de turnos.
 
 Cada caso informa publicamente o procedimento fictício para reclamação e encerramento: não há chefia disponível para transferência imediata; reclamação autorizada recebe retorno da coordenação até hoje às 17h no chat, sem garantia de exceção. Depois de tratar a objeção, apresentar saídas e sustentar o limite, a recepção pode encerrar respeitosamente diante de insistência repetida, sem depender de concordância para encerrar e sem encaminhar o que foi recusado. A última fala do paciente pode ser apenas um protesto.
 
@@ -41,6 +41,8 @@ A rubrica `3.0-limites` mantém os seis eixos e respectivos pesos, explicitando 
 `recepcao_cenarios` armazena o conteúdo. `catalogo.ts` contém apenas as sementes iniciais; o runtime lê o banco. `cenario.mjs` preserva a fixture original para compatibilidade de testes históricos. O editor aceita de 3 a 7 competências; exige IDs únicos, pesos somando 100 e conteúdo limitado. Cada alteração da rubrica recebe uma identidade calculada pelo hash dos critérios. A versão e a variante selecionadas ficam no snapshot da sessão. Repetição imediata do mesmo caso alterna a variante.
 
 `core.ts` separa juízo da IA e cálculo da nota. Confere citações literais, autoria, oportunidade e vocabulários do snapshot. O avaliador recebe participantes explícitos, `secretaria` e `paciente`. Há uma correção limitada, com a saída recusada e o campo inválido. Cobertura reduzida não vira reprovação. Citação válida não garante pertinência semântica: a revisão humana continua necessária.
+
+O template de saída usa os desfechos declarados pelo cenário. Pela convenção do editor, **todo desfecho diferente de `nao_resolvido` e `inconclusivo` exige referências das duas partes**. Isso inclui `orientado` e nomes personalizados; para orientação, o avaliador deve identificar compreensão explícita, sem exigir satisfação. A presença de uma fala de cada participante é validada em código, mas não comprova por si só aceitação ou compreensão. Não usar um novo nome para um desfecho negativo: utilize os dois estados reservados. Sem ID de cenário, o início seleciona o primeiro publicado no mesmo ordenamento do catálogo, sem dependência do código de remarcação. Um ID explícito arquivado continua recusado.
 
 A paciente tem validação de formato e detecção limitada de exposição de instruções. Fatos reservados podem ser revelados legitimamente durante a conversa; o filtro não promete impedir toda tentativa de jailbreak. Conteúdo reservado e critérios não são devolvidos pela API de treino. Identificadores comuns são mascarados nas mensagens e transcrições, sem promessa de detecção completa de dados pessoais.
 
@@ -52,6 +54,8 @@ A fala usa `generateNarrationAudio`, com voz Aoede e sem vinhetas. A transcriç�
 
 As rotas de voz conferem autenticação, CSRF, permissão de treino, empresa, proprietário, limite de requisições e tamanho do upload. A fala a sintetizar vem do histórico salvo, nunca de texto arbitrário enviado pelo navegador. A gravação é opcional e depende de suporte e permissão de microfone do navegador.
 
+Voz e transcrição não adquirem nem liberam a lease dos turnos: escrevem somente tentativas e consumo, não a sessão. A interface permite continuar pelo texto durante a síntese; se outra fala chegar, o áudio atrasado da fala anterior é descartado. A gravação/transcrição mantém o bloqueio local do campo para preservar o contexto do rascunho, sem bloquear a sessão no banco. Transcrição exige duração numérica, finita e positiva; duração inválida impede devolver texto e mantém custo desconhecido no ledger, sem estimar zero. Duração acima de 65 segundos é recusada, mas seu consumo conhecido continua registrado.
+
 ## Identidade, persistência e medição
 
 `owner_key` usa o ID do colaborador ou do cadastro administrativo. O e-mail permanece como informação histórica, não como chave de acesso. Migration 241 preenche a chave dos registros antigos; um trigger também cobre criações pela versão anterior durante o deploy. As RPCs v2 usam a identidade estável e preservam revisão e lease. As RPCs anteriores ficam disponíveis para compatibilidade durante a publicação.
@@ -61,6 +65,8 @@ Sessões antigas continuam com seu snapshot. Retries de mensagem confirmada reut
 `recepcao_tentativas` registra a operação ANTES da chamada paga. Cada rejeição e a tentativa corrigida ficam em linhas distintas, independentemente do commit da sessão. `ia_usage_log.correlation_id` concilia custo e modelo efetivo com a tentativa; não se usa aproximação por horário. Metadados não contêm texto da conversa, prompt bruto ou resposta da IA. Falha de finalização da telemetria é sinalizada e deixa a tentativa aberta.
 
 O painel de operação exige `ai.costs.view`. Mostra custo conhecido por sessão, rejeições, tentativas abertas e chamadas sem uso registrado. Ausência de registro não equivale a custo zero. Sessões anteriores à instrumentação ficam fora do custo conciliado. O filtro considera sessões iniciadas no período. Há paginação de leitura e limite explícito de 10 mil registros por conjunto para evitar truncamento silencioso.
+
+O painel também distingue linhas com custo desconhecido e mostra a taxa de rejeição do avaliador. Os novos registros usam `recepcao-paciente-2.2-negociavel` ou `recepcao-paciente-2.2-persistente` para a paciente e `recepcao-avaliador-2.3` para o avaliador. A versão do cenário permanece em coluna própria; o hash registra o texto efetivo do prompt, inclusive regeneração de formato. Rótulos de registros históricos não são reescritos.
 
 ## Verificação e publicação
 
@@ -74,6 +80,7 @@ O painel de operação exige `ai.costs.view`. Mostra custo conhecido por sessão
 - `RECEPCAO_DESAFIOS_DB=1`: `node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/unit/recepcao-desafios-db.test.ts` ensaia a publicação editorial em transação revertida. Somente com **`RECEPCAO_DESAFIOS_APPLY=1`** publica permanentemente as versões 2.0 e arquiva as sementes globais 1.0 identificadas por autoria. Salva backup do catálogo anterior, não altera sessões nem cenários personalizados e recusa sobrescrever versão divergente. Esta operação não exige nova migration de estrutura.
 - `RECEPCAO_LIMITES_LIVE=1`: `node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/unit/recepcao-limites-live.test.ts --maxConcurrency=2` verifica os dez perfis após respostas corretas, incluindo avaliações de encerramento sem acordo. Os diálogos fictícios ficam em `backups/recepcao-limites-ensaio-*.json` para inspeção semântica; as asserções textuais não comprovam, sozinhas, resistência realista.
 - `RECEPCAO_LIMITES_DB=1`: o runner acima com `tests/unit/recepcao-limites-db.test.ts` ensaia a publicação de 3.0 em transação revertida. **`RECEPCAO_LIMITES_APPLY=1`** confirma a operação com backup e arquiva somente sementes globais 2.0. Publicar o código antes do catálogo, pois o schema anterior não aceita o novo campo opcional. Não reexecutar publicação de versões anteriores já arquivadas.
+- `RECEPCAO_DESFECHOS_LIVE=1`: o runner com `tests/unit/recepcao-desfechos-live.test.ts` ensaia `orientado` e um desfecho personalizado com o provedor real, exigindo evidências das duas partes. Usa somente sessões fictícias em memória; há custo.
 
 Aplicar a migration antes do deploy. A API e a UI anteriores continuam funcionando durante a atualização. Commit + push em master publica na Vercel.
 
@@ -84,3 +91,21 @@ Instrumentação, conteúdo, painel, editor, revisão e voz opcional estão disp
 Modelos continuam configuráveis por tenant no catálogo existente. O default da paciente não foi trocado sem comparação de qualidade. Os ensaios podem apoiar a comparação, mas a escolha de modelo deve usar as mesmas conversas e revisão humana.
 
 As evidências de treino ficam disponíveis para acompanhamento, mas não alteram N1–N4, Temporada ou PDI automaticamente. A integração de notas à jornada e a geração livre de personas continuam condicionadas à decisão de produto e à calibração; não são ativadas por uma contagem automática de sessões.
+
+### Critérios propostos para ampliar o piloto
+
+Os limites abaixo são uma **proposta operacional inicial**, não padrões científicos nem evidência de calibração já atingida. A decisão de ampliar continua humana; nenhum gate habilita clínicas ou integra notas automaticamente.
+
+| Critério | Proposta de passagem | Como apurar |
+| --- | --- | --- |
+| Amostra | Pelo menos 50 treinos concluídos, com 5 ou mais por combinação de caso/variante e ao menos 5 participantes reais | Separar versões de cenário/rubrica e excluir testes administrativos; cenário sem amostra continua no piloto |
+| Revisão | Revisar todos os primeiros 30 relatórios e ao menos 5 de cada caso/variante | Considerar o parecer mais recente de outra pessoa; divergências críticas exigem segunda revisão humana |
+| Divergência | No máximo 10% de pareceres parcialmente concordantes ou discordantes entre os relatórios revisados | Contar relatórios, não número de revisões; publicar numerador e denominador, além dos tipos de divergência |
+| Integridade | Nenhum defeito de autoria, isolamento, falsa ocorrência crítica ou desfecho sem sustentação conhecido e ainda sem correção | Bloqueia ampliação até corrigir, rever casos afetados e repetir o ensaio pertinente; isso não comprova taxa real zero |
+| Rejeição do avaliador | No máximo 5% das tentativas de avaliação rejeitadas no lote | Incluir tentativa inicial e correção; não confundir rejeição de formato/evidência com reprovação da pessoa; investigar também falhas finais |
+| Conclusão | Pelo menos 85% das sessões iniciadas com uma resposta, após 7 dias de observação | Incluir abandono e falha técnica; discriminar motivos, sem apagar tentativas para melhorar a taxa |
+| Custo | 100% das chamadas do lote conciliadas ou justificadas; mediana e p95 conhecidos e dentro de um teto aprovado | Incluir retries e separar texto de voz; custo desconhecido impede afirmar cumprimento do teto; valor monetário ainda depende da decisão do produto |
+
+O painel atual permite acompanhar parte dessas medidas; cobertura por variante, revisão da amostra, divergência, janela de 7 dias e percentis de custo ainda precisam de apuração do lote. Não apresentar estes gates como automação já implementada. Começar com 1–2 clínicas definidas pelo responsável e registrar datas, versões, participantes e decisão de passagem em ata do piloto.
+
+Permissão específica de revisão e experiência de telefone com turnos próprios ficam como evoluções de produto. A revisão mantém os controles atuais de papel, escopo de equipe, empresa, autoria e permissão; não há afrouxamento de acesso nesta correção.

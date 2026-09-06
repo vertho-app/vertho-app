@@ -8,9 +8,14 @@ test.runIf(process.env.RECEPCAO_UI==='1')('UI: seleção, variante, revisão, ed
  const browser=await chromium.launch({headless:true});
  const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
  let sessao:any=null,registros=catalogoInicial.map((conteudo,i)=>({id:`caso-${i}`,conteudo,estado:'publicado',empresa_id:null,versao:'1.0',revisao:0})),revisoes:any[]=[];
+ let liberarAudio:(()=>void)|undefined,avisarAudio:()=>void;
+ const audioSolicitado=new Promise<void>(resolve=>{avisarAudio=resolve});
  const completo=visaoPublica(await executarExemplo());
  await page.route('**/api/recepcao**',async route=>{
   const req=route.request(),u=new URL(req.url());let d:any;
+  if(u.pathname.endsWith('/voz')) {
+   await new Promise<void>(resolve=>{liberarAudio=resolve;avisarAudio()});await route.fulfill({body:Buffer.from('audio-ficticio'),contentType:'audio/mpeg'});return;
+  }
   if(u.pathname.endsWith('/gestao')) {
    if(req.method()==='POST') {
     const cmd=req.postDataJSON();
@@ -20,7 +25,10 @@ test.runIf(process.env.RECEPCAO_UI==='1')('UI: seleção, variante, revisão, ed
    else if(u.searchParams.has('sessaoId'))d={sessao:completo,revisoes,podeRevisar:true};
    else d={pessoas:[{id:'p',nome:'Pessoa da equipe',iniciadas:1,concluidas:1}],iniciadas:1,concluidas:1,pendentes:revisoes.length?0:1,grupos:[],sessoes:[{id:completo.id,nome:'Pessoa da equipe',titulo:completo.cenario.titulo,data:new Date().toISOString(),nota:100,revisao:revisoes[0]?.parecer}],operacao:null};
   }else if(req.method()==='POST') {
-   const cmd=req.postDataJSON();sessao=abrirSessao(registros.find(r=>r.id===cmd.cenarioId)!.conteudo,0);d={sessao:visaoPublica(sessao)};
+   const cmd=req.postDataJSON();
+   if(cmd.acao==='responder'){sessao.historico.push({id:'m1',role:'user',content:cmd.mensagem},{id:'m2',role:'assistant',content:'Quero saber quando terei uma resposta.'});sessao.respostas++;sessao.revisao++;}
+   else sessao=abrirSessao(registros.find(r=>r.id===cmd.cenarioId)!.conteudo,0);
+   d={sessao:visaoPublica(sessao)};
   }else d={empresaId:'empresa',empresaNome:'Clínica de teste',habilitado:true,podeEquipe:true,podeCenarios:true,cenarios:registros.filter(r=>r.estado==='publicado').map(r=>({id:r.id,versao:r.versao,ficha:fichaPublica(r.conteudo)})),ficha:fichaPublica(catalogoInicial[0]),sessao:sessao?visaoPublica(sessao):null,historico:[]};
   await route.fulfill({json:d});
  });
@@ -32,6 +40,12 @@ test.runIf(process.env.RECEPCAO_UI==='1')('UI: seleção, variante, revisão, ed
   await page.getByRole('heading',{name:'Paula',exact:true}).waitFor();
   expect(await page.getByLabel('Conversa com Paula').innerText()).toContain('Minha consulta foi cancelada?');
   await page.screenshot({path:'C:/Users/rdnav/recepcao-medica-piloto/evolucao-treino.png',fullPage:true});
+  await page.getByRole('button',{name:'Ouvir paciente',exact:true}).click();await audioSolicitado;
+  await page.getByLabel('Sua resposta para Paula',{exact:true}).fill('Posso verificar a pendência e combinar o prazo de retorno.');
+  expect(await page.getByRole('button',{name:'Enviar resposta',exact:true}).isEnabled()).toBe(true);
+  await page.getByRole('button',{name:'Enviar resposta',exact:true}).click();await page.getByText('Quero saber quando terei uma resposta.',{exact:true}).waitFor();
+  liberarAudio!();await page.getByText('Preparando áudio…',{exact:true}).waitFor({state:'hidden'});
+  expect(await page.getByLabel('Fala da paciente',{exact:true}).count()).toBe(0);
   await page.getByRole('button',{name:'Equipe e revisões',exact:true}).click();
   await page.getByRole('button',{name:'Abrir atendimento'}).click();
   await page.getByLabel('Motivo e evidências').fill('A conversa confirma o combinado. Revisado pela gestora.');
@@ -55,5 +69,5 @@ test.runIf(process.env.RECEPCAO_UI==='1')('UI: seleção, variante, revisão, ed
   await page.screenshot({path:'C:/Users/rdnav/recepcao-medica-piloto/evolucao-mobile.png',fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)).toBe(false);
   expect(errors).toEqual([]);
- } catch(e) {await page.screenshot({path:'C:/Users/rdnav/recepcao-medica-piloto/evolucao-erro.png',fullPage:true});console.log(await page.locator('body').innerText());throw e} finally {await browser.close()}
+ } catch(e) {await page.screenshot({path:'C:/Users/rdnav/recepcao-medica-piloto/evolucao-erro.png',fullPage:true});console.log(await page.locator('body').innerText());throw e} finally {liberarAudio?.();await browser.close()}
 },180000);

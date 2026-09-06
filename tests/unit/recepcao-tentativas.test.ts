@@ -4,6 +4,7 @@ const mock=vi.hoisted(()=>({chat:vi.fn(),rows:[] as any[]}));
 vi.mock('@/actions/ai-client',()=>({callAIChat:mock.chat}));
 vi.mock('@/lib/ai-tasks',()=>({getModelForTask:async()=>'modelo-solicitado'}));
 import {geradorRecepcao} from '@/lib/recepcao/gerador';
+import {insumosExemplo} from './recepcao-fixtures.mjs';
 beforeEach(()=>{mock.rows=[];mock.chat.mockReset().mockResolvedValue('{"fala":"Olá."}');});
 const sb:any={from:()=>({insert:async r=>{mock.rows.push(structuredClone(r));return {error:null}},update:p=>{let id;const q={eq:(k,v)=>{if(k==='id')id=v;return q},then:resolve=>resolve({error:null,data:Object.assign(mock.rows.find(r=>r.id===id),p)})};return q}})};
 const args={etapa:'paciente',system:'instruções reservadas',messages:[{role:'user' as const,content:'fala privada'}]};
@@ -29,6 +30,16 @@ test('fala com JSON inválido é regenerada uma vez sem duplicar a mensagem',asy
 test('falha de rede da paciente não recebe retry de formato',async()=>{
  mock.chat.mockRejectedValue(new Error('timeout'));const ai=geradorRecepcao('empresa',null,true,{sb,sessaoId:'sessao',cenarioVersao:'2'});
  await expect(ai.gerar(args)).rejects.toThrow('timeout');expect(mock.chat).toHaveBeenCalledTimes(1);
+});
+
+test('metadados distinguem paciente negociável, persistente e avaliador',async()=>{
+ const ai=geradorRecepcao('empresa',null,true,{sb,sessaoId:'sessao',cenarioVersao:'3.0'});
+ await ai.gerar({...args,perfilPaciente:'negociavel'});await ai.validar();
+ await ai.gerar({...args,perfilPaciente:'resistencia_persistente'});await ai.validar();
+ mock.chat.mockResolvedValueOnce(JSON.stringify(insumosExemplo()));await ai.gerar({...args,etapa:'avaliador'});await ai.validar();
+ expect(new Set(mock.rows.map(r=>r.prompt_versao)).size).toBe(3);
+ expect(mock.rows[0].prompt_versao).toContain('negociavel');expect(mock.rows[1].prompt_versao).toContain('persistente');expect(mock.rows[2].prompt_versao).toContain('avaliador');
+ expect(mock.rows.every(r=>r.cenario_versao==='3.0')).toBe(true);
 });
 test('erro de referência e tentativa seguinte aceita têm registros distintos',async()=>{
  const ai=geradorRecepcao('empresa',null,true,{sb,sessaoId:'sessao',cenarioVersao:'1'});
