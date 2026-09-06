@@ -5,14 +5,14 @@ import { writeFile, readFile, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import nodePath from 'node:path';
 import { renderVideoTask } from './render-video';
-import { generateNarrationAudio } from '../lib/gemini-tts';
+import { generateNarrationAudio, modeloTtsEfetivo } from '../lib/gemini-tts';
 import { gerarClipHeyGen, aguardarClipHeyGen } from '../lib/video/heygen';
 import { montarInputProps, exportCaptionsToSrt, exportCaptionsToVtt, type AssetMap } from '../lib/video/montar-inputprops';
 import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
 import { storagePut, storageGet, SUPA, KEY } from '../lib/video/render-helpers';
 import { createHash } from 'node:crypto';
 import { transcribeWords } from '../lib/video/whisper-align';
-import { montarTextoUnico, planejarNarracaoUnica, fatiarPcm16 } from '../lib/video/narracao-unica';
+import { montarTextoUnico, planejarNarracaoUnica, fatiarPcm16, garantirCabecaSilenciosa } from '../lib/video/narracao-unica';
 import { pcmToMp3SemMaster } from '../lib/tts/audio-dsp';
 import { ELENCO } from '../lib/tts/elenco';
 import { regionOpts } from '../lib/trigger-region';
@@ -176,10 +176,11 @@ async function mp3ParaPcm24k(mp3: Buffer): Promise<Buffer> {
 }
 
 /** Duração (s) de um asset por ffprobe — aceita URL http direto. */
-/** Assinatura do take único: voz + direção + texto. O take gravado no Storage só é
- *  reaproveitado por um retry se a assinatura bater (mesmo texto, mesma mentora). */
+/** Assinatura do take único: voz + MODELO + versão do elenco + direção + texto. O take
+ *  gravado no Storage só é reaproveitado por um retry se a assinatura bater — e trocar
+ *  o modelo mantendo o nome da voz é outra locutora, então entra na assinatura. */
 function assinaturaTake(voz: string, estilo: string, texto: string): string {
-  return createHash('sha1').update(`${voz}|${estilo}|${texto}`).digest('hex').slice(0, 12);
+  return createHash('sha1').update(`${voz}|${modeloTtsEfetivo()}|${ELENCO.mentora.versao}|${estilo}|${texto}`).digest('hex').slice(0, 12);
 }
 
 /** Take mais recente desta geração no Storage (`{videoId}/take-{assinatura}-{tag}.mp3`),
@@ -198,6 +199,22 @@ async function ultimoTake(videoId: string, assinatura: string): Promise<string |
     return take ? `${videoId}/${take.name}` : null;
   } catch {
     return null;
+  }
+}
+
+/** MP3 de cena com cabeça de silêncio garantida (decodifica, confere os primeiros
+ *  100 ms, prefixa 150 ms se já houver fala, re-encoda sem masterizar). Sem fala na
+ *  cabeça devolve o buffer original, sem re-encodar. */
+async function comCabecaSilenciosa(mp3: Buffer): Promise<Buffer> {
+  try {
+    const pcm = await mp3ParaPcm24k(mp3);
+    const g = garantirCabecaSilenciosa(pcm, 24000);
+    if (!g.deslocamentoS) return mp3;
+    console.log(`[cabeca] fala no instante zero: +${Math.round(g.deslocamentoS * 1000)} ms de silêncio na frente`);
+    return pcmToMp3SemMaster(g.pcm, 24000);
+  } catch (e) {
+    console.warn('[cabeca] não conseguiu conferir a cabeça, segue o áudio como veio:', (e as Error)?.message);
+    return mp3;
   }
 }
 
@@ -270,7 +287,6 @@ export const gerarVideoModuloTask = task({
       // 1a) NARRAÇÃO ÚNICA: só no 1º processamento (resume parcial mistura takes, e
       // aí o caminho por cena abaixo completa o que falta com a voz de sempre).
       if (NARRACAO_UNICA && nadaGerado && cenasComTexto.length > 1) {
-        const enviadas: string[] = [];
         try {
           const cenas = cenasComTexto.map((s) => ({ id: s.id, narration: aplicarPronuncia(s.narration as string) }));
           const textoUnico = montarTextoUnico(cenas);
@@ -306,21 +322,38 @@ export const gerarVideoModuloTask = task({
           if (!plano.ok || !plano.fatias) throw new Error(plano.motivo || 'narração única recusada');
           const fatias = plano.fatias;
           const tag = GERACAO_TAG();
-          await mapPool(fatias, 3, async (f) => {
-            const mp3 = pcmToMp3SemMaster(fatiarPcm16(pcm, 24000, f.inicio, f.fim), 24000);
-            const src = await storagePut('video-assets', `${videoId}/${f.id}-${tag}.mp3`, mp3, 'audio/mpeg');
-            assets[f.id] = { src, durationSec: 0, words: f.words };
-            enviadas.push(f.id);
-            duracaoLocal[f.id] = await duracaoDoBuffer(mp3, 'mp3');
+          // As fatias sobem em paralelo e só entram em `assets` quando TODAS
+          // terminaram: um upload atrasado não pode reescrever o mapa depois de uma
+          // falha (o mapPool rejeita no 1º erro e os outros workers seguem rodando).
+          const prontas: { id: string; asset: AssetMap[string]; dur: number }[] = [];
+          const falhas: string[] = [];
+          await mapPool(fatias, 3, async (f, i) => {
+            try {
+              let pcmFatia = fatiarPcm16(pcm, 24000, f.inicio, f.fim);
+              let words = f.words;
+              if (i === 0) {
+                // Só a 1ª fatia pode começar com fala no instante zero (o take pode
+                // abrir sem respiro); as outras começam no ponto mais silencioso da
+                // pausa. A composição pula 33 ms do áudio (trimBefore) — garante a cabeça.
+                const g = garantirCabecaSilenciosa(pcmFatia, 24000);
+                if (g.deslocamentoS) { pcmFatia = g.pcm; words = words.map((w) => ({ ...w, start: w.start + g.deslocamentoS, end: w.end + g.deslocamentoS })); }
+              }
+              const mp3 = pcmToMp3SemMaster(pcmFatia, 24000);
+              const src = await storagePut('video-assets', `${videoId}/${f.id}-${tag}.mp3`, mp3, 'audio/mpeg');
+              prontas.push({ id: f.id, asset: { src, durationSec: 0, words }, dur: await duracaoDoBuffer(mp3, 'mp3') });
+            } catch (e) {
+              falhas.push(`${f.id}: ${(e as Error)?.message}`);
+            }
           });
+          if (falhas.length) throw new Error(`upload de fatia falhou (${falhas.length}/${fatias.length}): ${falhas.join(' · ')}`);
+          for (const p of prontas) { assets[p.id] = p.asset; duracaoLocal[p.id] = p.dur; }
           console.log(`[narracao-unica] ${fatias.length} cenas de um take de ${duracaoS.toFixed(0)}s em ${Math.round((Date.now() - t0) / 1000)}s · casamento ${fatias.map((f) => `${f.id}:${f.casadas}/${f.total}`).join(' ')} · ${origem}`);
         } catch (e) {
           // Fallback DECLARADO: volta ao caminho por cena, que sempre funcionou. O
-          // preço é a costura entre cenas — por isso o aviso, não o silêncio. As
-          // fatias que já tinham subido são DESCARTADAS: misturar metade de um take
-          // com sínteses por cena seria pior do que tudo por cena.
-          for (const id of enviadas) { delete assets[id]; delete duracaoLocal[id]; }
-          console.warn(`[narracao-unica] caiu para narração POR CENA${enviadas.length ? ` (${enviadas.length} fatia(s) descartada(s))` : ''}:`, (e as Error)?.message);
+          // preço é a costura entre cenas — por isso o aviso, não o silêncio. Nada do
+          // take entra em `assets` a menos que TODAS as fatias tenham subido (acima):
+          // misturar metade de um take com sínteses por cena seria pior do que tudo por cena.
+          console.warn('[narracao-unica] caiu para narração POR CENA:', (e as Error)?.message);
         }
       }
 
@@ -338,7 +371,10 @@ export const gerarVideoModuloTask = task({
           ledger: { feature: 'tts_video_cena' },
         });
         // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.
-        const buf = await trimTrailingSilence(audio.buffer);
+        // E garante a CABEÇA: a composição pula 33 ms do áudio (trimBefore), então a fala
+        // não pode começar no instante zero (o TTS por cena costuma abrir com respiro, mas
+        // não é garantido).
+        const buf = await comCabecaSilenciosa(await trimTrailingSilence(audio.buffer));
         const src = await storagePut('video-assets', `${videoId}/${s.id}-${GERACAO_TAG()}.mp3`, buf, 'audio/mpeg');
         duracaoLocal[s.id] = await duracaoDoBuffer(buf, 'mp3');
         // M4: timing por palavra (Whisper) p/ legendas + animações. null = fallback heurístico.
@@ -369,7 +405,13 @@ export const gerarVideoModuloTask = task({
       // 3) DURAÇÕES reais (ffprobe) → timeline correta. Paralelo.
       await patchVideo(videoId, { etapa: 'render' });
       await mapPool(Object.keys(assets), 6, async (id) => {
-        assets[id].durationSec = await ffprobeDuration(assets[id].src);
+        // O objeto acabou de subir: o CDN pode ainda não servi-lo. 3 tentativas com
+        // 2 s entre elas antes de aceitar "sem duração" (que derruba a timeline).
+        for (let tentativa = 1; tentativa <= 3; tentativa++) {
+          assets[id].durationSec = await ffprobeDuration(assets[id].src);
+          if (assets[id].durationSec > 0) break;
+          if (tentativa < 3) await new Promise((r) => setTimeout(r, 2000 * tentativa));
+        }
       });
       // Guard de timeline: asset com duração 0 cai no fallback de montar-inputprops
       // (6/8s) e a cena fica fora de sincronia. Sinaliza (não aborta — é recuperável).

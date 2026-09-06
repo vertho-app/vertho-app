@@ -344,7 +344,12 @@ function julgar(r: Sintese, alvo: AlvoVoz | null, voz: string, rotulo: string, t
 
 /** Persiste UMA linha por tentativa (`tts_qa_log`), marcando a publicada. Fire-and-forget
  *  com `await`: gravar leva ~50 ms e nunca lança (ver lib/tts/qa-log.ts). */
-async function persistirVereditos(julgadas: (Sintese & { qa: QaDeriva })[], publicada: Sintese & { qa: QaDeriva }, voz: string, rotulo: string, total: number, ledger?: TtsLedger) {
+/** Modelo efetivamente usado pelo backend ativo — entra na assinatura do take único. */
+export function modeloTtsEfetivo(): string {
+  return modeloEfetivo();
+}
+
+async function persistirVereditos(julgadas: (Sintese & { qa: QaDeriva })[], publicada: (Sintese & { qa: QaDeriva }) | null, voz: string, rotulo: string, total: number, ledger?: TtsLedger) {
   await gravarVereditosTts(julgadas.map((j) => ({
     origem: rotulo === 'canario_tts' ? 'canario' : 'portao',
     feature: ledger?.feature ?? rotulo,
@@ -372,7 +377,15 @@ async function sintetizarComPortao(
   if (!QA_GATE_ATIVO) return sintetizar();
   const alvo = ALVO_F0_POR_VOZ[voz] || null;
   const total = Math.max(1, opts.tentativas ?? QA_MAX_TENTATIVAS);
-  const menosRuim = (xs: (Sintese & { qa: QaDeriva })[]) => xs.reduce((a, b) => (b.qa.motivos.length < a.qa.motivos.length ? b : a));
+  // "Menos ruim" nunca é um take SEM FALA: silêncio ou ruído reprovam com um motivo só e
+  // ganhariam de um take com voz e dois motivos. Sem nenhuma tentativa com fala, não há
+  // o que publicar — falha alto (a chamada já re-tentou "resposta sem áudio" antes).
+  const semFala = (j: Sintese & { qa: QaDeriva }) => j.qa.motivos.some((m) => m.startsWith('sem fala'));
+  const menosRuim = (xs: (Sintese & { qa: QaDeriva })[]) => {
+    const comFala = xs.filter((j) => !semFala(j));
+    if (!comFala.length) throw new Error(`TTS: nenhuma das ${xs.length} tentativa(s) tem fala (${xs[0]?.qa.motivos.join('; ')})`);
+    return comFala.reduce((a, b) => (b.qa.motivos.length < a.qa.motivos.length ? b : a));
+  };
 
   if (opts.retakeParalelo && total > 1) {
     // Todas as tentativas juntas; a PRIMEIRA (por índice, não por chegada) que passa
@@ -380,9 +393,13 @@ async function sintetizarComPortao(
     const rs = await Promise.all(Array.from({ length: total }, () => sintetizar()));
     const julgadas = rs.map((r, i) => julgar(r, alvo, voz, rotulo, i + 1, total));
     const aprovada = julgadas.find((j) => j.qa.ok);
-    const escolhida = aprovada ?? menosRuim(julgadas);
+    let escolhida: (Sintese & { qa: QaDeriva }) | null = aprovada ?? null;
+    try {
+      escolhida = aprovada ?? menosRuim(julgadas);
+    } finally {
+      await persistirVereditos(julgadas, escolhida, voz, rotulo, total, ledger);
+    }
     if (!aprovada) console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma das ${total} tentativas paralelas passou — publicando a menos ruim (${escolhida.qa.motivos.join('; ')})`);
-    await persistirVereditos(julgadas, escolhida, voz, rotulo, total, ledger);
     return escolhida;
   }
 
@@ -392,9 +409,13 @@ async function sintetizarComPortao(
     julgadas.push(j);
     if (j.qa.ok) { await persistirVereditos(julgadas, j, voz, rotulo, total, ledger); return j; }
   }
-  const m = menosRuim(julgadas);
+  let m: (Sintese & { qa: QaDeriva }) | null = null;
+  try {
+    m = menosRuim(julgadas);
+  } finally {
+    await persistirVereditos(julgadas, m, voz, rotulo, total, ledger);
+  }
   console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma tentativa passou — publicando a menos ruim (${m.qa.motivos.join('; ')})`);
-  await persistirVereditos(julgadas, m, voz, rotulo, total, ledger);
   return m;
 }
 

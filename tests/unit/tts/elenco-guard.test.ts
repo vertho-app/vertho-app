@@ -15,9 +15,14 @@ import { ELENCO } from '@/lib/tts/elenco';
 
 const VOZES_GEMINI = ['Aoede', 'Iapetus', 'Vindemiatrix', 'Achird', 'Callirrhoe', 'Gacrux', 'Leda', 'Pulcherrima', 'Algieba', 'Kore', 'Puck', 'Charon', 'Fenrir', 'Zephyr', 'Enceladus'];
 const PADRAO = new RegExp(`['"\`](${VOZES_GEMINI.join('|')})['"\`]`, 'g');
+/** Ids de MODELO de TTS também: o bug da saudação (06/09) era um default de modelo
+ *  (`gemini-3.1-flash-tts-preview`) num arquivo satélite, não um nome de voz. */
+const PADRAO_MODELO = /['"`](gemini-[0-9.]+-(?:flash|pro)[a-z-]*tts[a-z-]*|pt-BR-Chirp3-HD-[A-Za-z]+)['"`]/g;
 const DIRS = ['actions/', 'app/', 'lib/', 'components/', 'trigger/'];
 /** Onde o nome PODE aparecer: o elenco, a assinatura (chaveada por voz) e o canário (direção por voz). */
 const ALLOWLIST = new Set(['lib/tts/elenco.ts', 'lib/tts/assinaturas-voz.ts', 'lib/tts/canario.ts']);
+/** Onde o id de MODELO pode aparecer além do elenco: o catálogo de preços (lista todos os ids, por construção). */
+const ALLOWLIST_MODELO = new Set(['lib/tts/elenco.ts', 'lib/ia-cost-catalog.ts']);
 
 function arquivos(): string[] {
   const out = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf-8' });
@@ -43,5 +48,16 @@ describe('Guard: nomes de voz só no elenco', () => {
       if (hits.length) violacoes.push(`${f} (${[...new Set(hits)].join(', ')})`);
     }
     expect(violacoes, `Nome de voz em literal fora do elenco:\n  ${violacoes.join('\n  ')}\nUse ELENCO.<personagem>.voz (lib/tts/elenco.ts).`).toEqual([]);
+  });
+
+  it('nenhum arquivo de produção fora da allowlist escreve um id de MODELO de TTS em literal', () => {
+    const violacoes: string[] = [];
+    for (const f of arquivos()) {
+      if (ALLOWLIST_MODELO.has(f)) continue;
+      const src = semComentarios(readFileSync(f, 'utf-8'));
+      const hits = [...src.matchAll(PADRAO_MODELO)].map((m) => m[1]);
+      if (hits.length) violacoes.push(`${f} (${[...new Set(hits)].join(', ')})`);
+    }
+    expect(violacoes, `Id de modelo de TTS em literal fora do elenco:\n  ${violacoes.join('\n  ')}\nUse ELENCO.<personagem>.modeloVertex / modeloAiStudio (lib/tts/elenco.ts).`).toEqual([]);
   });
 });

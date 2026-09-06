@@ -6,7 +6,7 @@
  *     mesmo padrão visual do deck (fundo, logo, eyebrow, tipografia);
  *   • "Olá, {nome}" entra à esquerda + a FOTO da mentora desliza pela direita
  *     (estática → reuso total, sem lip-sync nem custo HeyGen);
- *   • voz-over TTS Callirrhoe "Olá, {nome}!".
+ *   • voz-over TTS na voz do elenco (VIDEO_TTS_VOICE, hoje Aoede) "Olá, {nome}!".
  * O deck NÃO fala o nome → continua reutilizável por todos da célula; só esta
  * cena é por pessoa.
  *
@@ -157,7 +157,7 @@ async function renderGreeting(outMp4, p) {
 async function getOrCreateGreeting(outMp4, p) {
   // O MODELO entra na chave: a mesma voz em outro modelo é outra locutora, e o cache
   // servia a saudação do modelo antigo depois da troca (06/09).
-  const key = `greetings-cache/${p.colaboradorId}__${slug(p.voice)}__${slug(TTS_MODEL)}__${slug(primeiroNome(p.nome))}__${p.width}x${p.height}.mp4`;
+  const key = `greetings-cache/${p.colaboradorId}__${slug(p.voice)}__${slug(TTS_MODEL)}__${slug(process.env.VOZ_VERSAO || 'v0')}__${slug(primeiroNome(p.nome))}__${p.width}x${p.height}.mp4`;
   if (p.colaboradorId) {
     const buf = await downloadFromStorage(key);
     if (buf && buf.length > 2000) { await writeFile(outMp4, buf); return { cached: true, key }; }

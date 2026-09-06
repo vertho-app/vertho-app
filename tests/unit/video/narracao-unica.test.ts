@@ -5,7 +5,7 @@
  * corte no lugar errado em silêncio.
  */
 import { describe, it, expect } from 'vitest';
-import { alinharCenas, montarTextoUnico, fatiarPcm16, validarFatias, planejarNarracaoUnica } from '@/lib/video/narracao-unica';
+import { alinharCenas, montarTextoUnico, fatiarPcm16, validarFatias, planejarNarracaoUnica, garantirCabecaSilenciosa, CABECA_SILENCIO_PAD_S } from '@/lib/video/narracao-unica';
 import type { FatiaCena } from '@/lib/video/narracao-unica';
 import type { WordTime } from '@/lib/video/whisper-align';
 
@@ -205,6 +205,18 @@ describe('narração única: QA das fatias (roteiro + áudio) e roteamento de re
     expect(f[1].inicio).toBeLessThan(som[idx].start - 0.04);
     expect(f[1].inicio).toBeGreaterThan(words[idx - 1].end);
     expect(validarFatias(f, cenas, pcm, 24000)).toEqual([]);
+  });
+
+  it('cabeça de silêncio: fala no instante zero ganha 150 ms de silêncio na frente; fala que já começa depois de 100 ms fica como está', () => {
+    // A composição pula o 1º quadro do áudio (33 ms): a fala não pode começar em t=0.
+    const comFalaNoZero = sintetizar([{ word: 'x', start: 0, end: 1 }, { word: 'y', start: 1.3, end: 2 }], 2.5);
+    const g = garantirCabecaSilenciosa(comFalaNoZero, 24000);
+    expect(g.deslocamentoS).toBeCloseTo(CABECA_SILENCIO_PAD_S, 6);
+    expect(g.pcm.length).toBe(comFalaNoZero.length + Math.round(CABECA_SILENCIO_PAD_S * 24000) * 2);
+    // os primeiros 100 ms do resultado são silêncio
+    expect(g.pcm.subarray(0, 4800).every((b) => b === 0)).toBe(true);
+    const comRespiro = sintetizar([{ word: 'x', start: 0.2, end: 1.2 }, { word: 'y', start: 1.5, end: 2.2 }], 2.5);
+    expect(garantirCabecaSilenciosa(comRespiro, 24000).deslocamentoS).toBe(0);
   });
 
   it('planejarNarracaoUnica: recusa com motivo quando o alinhamento falha e quando a fronteira é suspeita; aprova o caso limpo', () => {

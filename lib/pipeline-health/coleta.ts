@@ -541,16 +541,19 @@ export async function coletarEnviosDoDia(
  * indistinguível de "portão saudável".
  */
 export async function coletarQaTts(sb: any): Promise<{ portao: RetakeTtsAgregado[]; canarios: CanarioObservado[] }> {
-  const desde7 = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+  // A consulta cobre a MAIOR das duas janelas (canário: 8 dias); a agregação do portão
+  // recorta 7 dias em memória. Consultar 7 e prometer 8 sumia com um canário de 7,5 dias.
+  const desde7 = Date.now() - 7 * 24 * 3600_000;
+  const desdeConsulta = new Date(Date.now() - Math.max(7, TTS_CANARIO_JANELA_DIAS) * 24 * 3600_000).toISOString();
   const { data, error } = await sb.from('tts_qa_log')
     .select('origem, feature, voz, tentativa, ok, publicado, motivos, f0_med_hz, timbre_vs_ref, created_at')
-    .gte('created_at', desde7)
+    .gte('created_at', desdeConsulta)
     .order('created_at', { ascending: false })
     .limit(5000);
   if (error) throw new Error(`tts_qa_log: ${error.message}`);
   const linhas = (data || []) as { origem: string; feature: string; voz: string; tentativa: number; ok: boolean; publicado: boolean; motivos: string[]; f0_med_hz: number | null; timbre_vs_ref: number | null; created_at: string }[];
   const porChave = new Map<string, RetakeTtsAgregado>();
-  for (const l of linhas.filter((x) => x.origem === 'portao')) {
+  for (const l of linhas.filter((x) => x.origem === 'portao' && new Date(x.created_at).getTime() >= desde7)) {
     const k = `${l.feature}|${l.voz}`;
     const a = porChave.get(k) || { feature: l.feature, voz: l.voz, sinteses: 0, tentativas: 0, reprovadas: 0, publicadasReprovadas: 0 };
     a.tentativas++;

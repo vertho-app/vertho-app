@@ -244,6 +244,27 @@ export function planejarNarracaoUnica(words: WordTime[], cenas: CenaNarrada[], d
   return { ok: true, fatias };
 }
 
+/** Cabeça de silêncio que a composição exige: `trimBefore={1}` pula os primeiros 33 ms
+ *  do áudio de cada cena (compensação do offset do Remotion), então a fala não pode
+ *  começar antes disso. Mede os primeiros `minS` contra o nível mediano de fala e, se
+ *  já houver voz ali, prefixa `padS` de silêncio. Devolve o deslocamento aplicado (0 se
+ *  nada mudou) para quem tem timestamps relativos (palavras) corrigir. */
+export const CABECA_SILENCIO_MIN_S = 0.1;
+export const CABECA_SILENCIO_PAD_S = 0.15;
+
+export function garantirCabecaSilenciosa(pcm: Buffer, sampleRate: number, minS = CABECA_SILENCIO_MIN_S, padS = CABECA_SILENCIO_PAD_S): { pcm: Buffer; deslocamentoS: number } {
+  const durS = pcm.length / 2 / sampleRate;
+  if (durS <= minS) return { pcm, deslocamentoS: 0 };
+  const cabeca = rms(pcm, sampleRate, 0, minS);
+  const niveis: number[] = [];
+  for (let t = 0; t + JANELA_CORTE_S <= durS; t += JANELA_CORTE_S) niveis.push(rms(pcm, sampleRate, t, t + JANELA_CORTE_S));
+  niveis.sort((a, b) => a - b);
+  const fala = niveis[Math.floor(niveis.length / 2)] || 0;
+  if (!(fala > 0) || cabeca <= fala * Math.pow(10, -SILENCIO_MIN_DB / 20)) return { pcm, deslocamentoS: 0 };
+  const pad = Buffer.alloc(Math.round(padS * sampleRate) * 2);
+  return { pcm: Buffer.concat([pad, pcm]), deslocamentoS: padS };
+}
+
 /** Recorta PCM 16-bit mono entre dois instantes (segundos). */
 export function fatiarPcm16(pcm: Buffer, sampleRate: number, inicioS: number, fimS: number): Buffer {
   const a = Math.max(0, Math.floor(inicioS * sampleRate)) * 2;
