@@ -32,9 +32,11 @@ describe('narração única: alinhamento de cenas', () => {
     expect(f).not.toBeNull();
     expect(f.map((x) => x.id)).toEqual(['scene-1', 'scene-2', 'scene-3']);
     for (let i = 1; i < f.length; i++) expect(f[i].inicio).toBeGreaterThanOrEqual(f[i - 1].fim - 1e-6);
-    // a cabeça encosta na 1ª palavra (0,12 s antes) e as palavras ficam relativas à fatia
+    // sem PCM o corte é o meio da pausa e as fatias são contíguas: a 1ª palavra
+    // fica a meia pausa do início da fatia, e as palavras são relativas à fatia
     expect(f[1].words[0].word).toBe('Ritmo');
-    expect(f[1].words[0].start).toBeCloseTo(0.12, 2);
+    expect(f[1].words[0].start).toBeCloseTo(0.425, 2); // (0,05 + 0,8) / 2
+    expect(f[1].inicio).toBeCloseTo(f[0].fim, 6);
     expect(f[0].casadas).toBe(f[0].total);
   });
 
@@ -187,6 +189,22 @@ describe('narração única: QA das fatias (roteiro + áudio) e roteamento de re
     ];
     const avisos = validarFatias(quebrada, cenas, pcm, 24000);
     expect(avisos.some((a) => a.id === 'scene-2' && a.motivo.includes('sem pausa'))).toBe(true);
+  });
+
+  it('com o PCM, o corte vai para o silêncio da pausa mesmo quando o Whisper marca o início da palavra atrasado', () => {
+    // Medido 06/09: energia de fala já 120 ms antes do `start` do Whisper em 5 de 8
+    // cenas. Simula: o som da 1ª palavra da cena 2 começa 0,5 s ANTES do timestamp,
+    // então o meio geométrico da pausa (0,425 s antes do start) cai DENTRO do som.
+    // O corte tem que ir para o silêncio real, entre a palavra anterior e o som.
+    const words = transcrever(cenas.map((c) => c.narration.split(' ')));
+    const total = words[words.length - 1].end + 0.5;
+    const idx = words.findIndex((w) => w.word === 'Segunda-feira,');
+    const som = words.map((w, i) => (i === idx ? { ...w, start: w.start - 0.5 } : w));
+    const pcm = sintetizar(som, total);
+    const f = alinharCenas(words, cenas, total, pcm, 24000)!;
+    expect(f[1].inicio).toBeLessThan(som[idx].start - 0.04);
+    expect(f[1].inicio).toBeGreaterThan(words[idx - 1].end);
+    expect(validarFatias(f, cenas, pcm, 24000)).toEqual([]);
   });
 
   it('planejarNarracaoUnica: recusa com motivo quando o alinhamento falha e quando a fronteira é suspeita; aprova o caso limpo', () => {

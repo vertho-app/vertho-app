@@ -234,7 +234,10 @@ async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0, timeou
   } finally {
     clearTimeout(timer);
   }
-  if ((res.status === 429 || res.status === 503) && attempt < TTS_MAX_RETRIES) {
+  // 499 CANCELLED, 500, 502 e 504 são transitórios do lado do Vertex (o 499 chegou como
+  // JSON do servidor em 06/09, numa de 9 chamadas paralelas, e derrubou o vídeo inteiro).
+  const transitorio = res.status === 429 || res.status === 503 || res.status === 499 || res.status === 500 || res.status === 502 || res.status === 504;
+  if (transitorio && attempt < TTS_MAX_RETRIES) {
     const retryAfter = Number(res.headers.get('retry-after'));
     const backoff = Math.min(30_000, 2_000 * 2 ** attempt); // 2s, 4s, 8s, 16s
     const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : backoff;

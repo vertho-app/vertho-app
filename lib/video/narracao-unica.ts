@@ -72,15 +72,16 @@ export function expandirHifens(words: WordTime[]): WordTime[] {
 const MIN_CASAMENTO = 0.6;
 /** Janela de busca à frente por palavra (absorve inserções/erros do ASR). */
 const JANELA = 8;
-/** Respiro antes da 1ª palavra e depois da última (segundos). */
-const CABECA_S = 0.12;
+/** Respiro antes da 1ª palavra do take e depois da última (segundos). */
 const CAUDA_S = 0.4;
+/** Janela do PCM que procura o ponto mais silencioso da pausa entre cenas. */
+const JANELA_SILENCIO_S = 0.1;
 
 /**
  * Casa as cenas com a transcrição e devolve as fatias. `null` = alinhamento
  * insuficiente em alguma cena (a task deve cair no caminho por cena).
  */
-export function alinharCenas(wordsBrutas: WordTime[], cenas: CenaNarrada[], duracaoTotalS?: number): FatiaCena[] | null {
+export function alinharCenas(wordsBrutas: WordTime[], cenas: CenaNarrada[], duracaoTotalS?: number, pcm?: Buffer, sampleRate?: number): FatiaCena[] | null {
   if (!wordsBrutas?.length || !cenas.length) return null;
   const words = expandirHifens(wordsBrutas);
   const trans = words.map((w) => normalizarToken(w.word));
@@ -122,6 +123,12 @@ export function alinharCenas(wordsBrutas: WordTime[], cenas: CenaNarrada[], dura
   // sobram palavras "de ninguém" nesse trecho; o meio da pausa entre as duas casadas
   // cortava DENTRO delas (medido 06/09: "Segunda" ficou no fim da cena 1 e "feira"
   // abriu a cena 2). A maior pausa é onde o TTS respirou entre os parágrafos.
+  // Com o PCM na mão, o corte vai para o ponto mais SILENCIOSO dessa pausa, não para
+  // o meio dela: o Whisper marca o início da palavra ATRASADO (medido 06/09 em 5 de 8
+  // cenas: energia de fala já 120 ms antes do `start`), então uma cabeça fixa antes
+  // do `start` cortava o ataque da 1ª palavra, e o meio geométrico da pausa pode
+  // estar mais perto da fala do que parece. As fatias são CONTÍGUAS (o fim de uma é
+  // o início da outra): nada da pausa se perde, nada da fala se corta.
   const fronteira = (i: number) => {
     const a = marcas[i - 1].ultimo, b = marcas[i].primeiro;
     let melhor = a, gap = -1;
@@ -129,17 +136,25 @@ export function alinharCenas(wordsBrutas: WordTime[], cenas: CenaNarrada[], dura
       const g = words[k + 1].start - words[k].end;
       if (g > gap) { gap = g; melhor = k; }
     }
-    return (words[melhor].end + words[melhor + 1].start) / 2;
+    const meio = (words[melhor].end + words[melhor + 1].start) / 2;
+    if (!pcm || !sampleRate) return meio;
+    const de = Math.max(0, words[melhor].end - 0.1);
+    const ate = Math.max(de + JANELA_SILENCIO_S, words[melhor + 1].start - 0.05);
+    const cand: { t: number; r: number }[] = [];
+    for (let t = de; t + JANELA_SILENCIO_S <= ate + 1e-9; t += 0.01) cand.push({ t: t + JANELA_SILENCIO_S / 2, r: rms(pcm, sampleRate, t, t + JANELA_SILENCIO_S) });
+    if (!cand.length) return meio;
+    const minimo = Math.min(...cand.map((c) => c.r));
+    // entre as janelas a até 3 dB do mínimo, a mais perto do meio (não encosta em nenhuma das palavras)
+    const quietas = cand.filter((c) => c.r <= minimo * Math.pow(10, 3 / 20));
+    return quietas.reduce((q, c) => (Math.abs(c.t - meio) < Math.abs(q.t - meio) ? c : q)).t;
   };
+  const fronteiras: number[] = [];
+  for (let i = 1; i < marcas.length; i++) fronteiras[i] = fronteira(i);
   const fatias: FatiaCena[] = [];
   for (let i = 0; i < marcas.length; i++) {
     const m = marcas[i];
-    // A cabeça só encosta na 1ª palavra quando ela CASOU; se o ASR errou justamente
-    // a 1ª palavra, a fatia começa na fronteira, para não cortar a palavra que ele
-    // não ouviu.
-    const fronteiraAntes = i === 0 ? Math.max(0, ini(0) - CAUDA_S) : fronteira(i);
-    const inicio = m.primeiraCasou ? Math.max(fronteiraAntes, ini(i) - CABECA_S) : fronteiraAntes;
-    const fronteiraDepois = i === marcas.length - 1 ? Math.min(total, fim(i) + CAUDA_S) : fronteira(i + 1);
+    const inicio = i === 0 ? Math.max(0, ini(0) - CAUDA_S) : fronteiras[i];
+    const fronteiraDepois = i === marcas.length - 1 ? Math.min(total, fim(i) + CAUDA_S) : fronteiras[i + 1];
     const fimFatia = Math.max(inicio + 0.2, fronteiraDepois);
     const ws = words
       .filter((w) => w.start >= inicio - 1e-6 && w.start < fimFatia)
@@ -192,14 +207,20 @@ export function validarFatias(fatias: FatiaCena[], cenas: CenaNarrada[], pcm?: B
       avisos.push({ id: f.id, motivo: `começa com "${f.words[0].word}", que fecha a cena anterior` });
     }
     if (pcm && sampleRate && i > 0) {
-      const corte = rms(pcm, sampleRate, f.inicio - JANELA_CORTE_S, f.inicio + JANELA_CORTE_S);
+      // Mede na FRONTEIRA (fim da fatia anterior = meio da maior pausa), não em
+      // `f.inicio`: a cabeça fica 120 ms antes da 1ª palavra segundo o Whisper, e o
+      // Whisper marca o início atrasado — medido 06/09, todas as 8 fronteiras de um
+      // take limpo acusavam "4-7 dB abaixo da fala" ali, enquanto o meio da pausa
+      // está no piso de ruído.
+      const fronteira = fatias[i - 1].fim;
+      const corte = rms(pcm, sampleRate, fronteira - JANELA_CORTE_S, fronteira + JANELA_CORTE_S);
       // nível de fala da fatia = mediana das janelas de 50 ms (robusta às pausas)
       const niveis: number[] = [];
       for (let t = f.inicio; t + JANELA_CORTE_S <= f.fim; t += JANELA_CORTE_S) niveis.push(rms(pcm, sampleRate, t, t + JANELA_CORTE_S));
       niveis.sort((a, b) => a - b);
       const fala = niveis[Math.floor(niveis.length / 2)] || 0;
       if (fala > 0 && corte > fala * Math.pow(10, -SILENCIO_MIN_DB / 20)) {
-        avisos.push({ id: f.id, motivo: `corte em ${f.inicio.toFixed(2)}s sem pausa (${(20 * Math.log10(corte / fala)).toFixed(0)} dB abaixo da fala; mínimo ${SILENCIO_MIN_DB})` });
+        avisos.push({ id: f.id, motivo: `corte em ${fronteira.toFixed(2)}s sem pausa (${(20 * Math.log10(corte / fala)).toFixed(0)} dB abaixo da fala; mínimo ${SILENCIO_MIN_DB})` });
       }
     }
   }
@@ -216,7 +237,7 @@ export interface PlanoNarracao { ok: boolean; fatias?: FatiaCena[]; motivo?: str
  * Puro, para o roteamento de recusa ter teste sem subir a task.
  */
 export function planejarNarracaoUnica(words: WordTime[], cenas: CenaNarrada[], duracaoTotalS?: number, pcm?: Buffer, sampleRate?: number): PlanoNarracao {
-  const fatias = alinharCenas(words, cenas, duracaoTotalS);
+  const fatias = alinharCenas(words, cenas, duracaoTotalS, pcm, sampleRate);
   if (!fatias) return { ok: false, motivo: 'alinhamento cena × transcrição insuficiente' };
   const avisos = validarFatias(fatias, cenas, pcm, sampleRate);
   if (avisos.length) return { ok: false, motivo: `fronteira suspeita: ${avisos.map((a) => `${a.id} ${a.motivo}`).join(' · ')}` };
