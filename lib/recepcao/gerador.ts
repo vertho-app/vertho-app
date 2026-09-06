@@ -30,10 +30,10 @@ export function geradorRecepcao(empresaId: string|null, colaboradorId: string | 
   }
   atual.finalizada=true;
  }
- const gerar:Gerar=async ({etapa,system,messages})=>{
+ const gerarTentativa:Gerar=async ({etapa,system,messages})=>{
   const taskKey=etapa==='paciente'?'recepcao_paciente':'recepcao_avaliacao';
   const model=await getModelForTask(empresaId,taskKey);
-  const chamada={id:randomUUID(),etapa,model,promptHash:createHash('sha256').update(system).digest('hex'),promptVersion:'recepcao-2.0'};
+  const chamada={id:randomUUID(),etapa,model,promptHash:createHash('sha256').update(system).digest('hex'),promptVersion:'recepcao-2.1-resistencia'};
   atual={id:chamada.id,inicio:Date.now(),finalizada:false};
   if(persistencia) {
    const {error}=await persistencia.sb.from('recepcao_tentativas').insert({id:chamada.id,empresa_id:empresaId,sessao_id:persistencia.sessaoId,etapa,modelo_solicitado:model,prompt_hash:chamada.promptHash,prompt_versao:chamada.promptVersion,cenario_versao:persistencia.cenarioVersao});
@@ -46,7 +46,16 @@ export function geradorRecepcao(empresaId: string|null, colaboradorId: string | 
     temperature:etapa==='paciente'?0.6:0,timeoutMs:45000,maxRetries:0,
    });
    return JSON.stringify((etapa==='paciente'?pacienteSchema:avaliacaoSchema).parse(parseJsonIA(raw)));
-  } catch(e) { await validar(e);throw e; }
+ } catch(e) { await validar(e);throw e; }
+ };
+ const gerar:Gerar=async args=>{
+  try {return await gerarTentativa(args);}
+  catch(e) {
+   // Uma única regeneração de formato, com custo e rejeição em registros próprios.
+   // O avaliador já tem seu retry no core; falhas de rede não são repetidas aqui.
+   if(args.etapa!=='paciente' || !(e instanceof SyntaxError || e instanceof z.ZodError)) throw e;
+   return gerarTentativa({...args,system:args.system+'\nA saída anterior tinha formato inválido. Gere novamente a fala em um objeto JSON com a única chave fala, string de 1 a 800 caracteres. Escape aspas e quebras de linha. Preserve o personagem e responda à mesma conversa.'});
+  }
  };
  return {chamadas,gerar,validar};
 }

@@ -15,6 +15,20 @@ test('tentativa é persistida antes do provedor e custo recebe seu identificador
 test('JSON recusado permanece registrado mesmo sem commit de sessão',async()=>{
  mock.chat.mockResolvedValue('não é JSON');const ai=geradorRecepcao('empresa',null,true,{sb,sessaoId:'sessao',cenarioVersao:'1'});
  await expect(ai.gerar(args)).rejects.toThrow();expect(mock.rows[0].estado).toBe('rejeitada');expect(mock.rows[0].erro_codigo).toBe('json_invalido');
+ expect(mock.chat).toHaveBeenCalledTimes(2);expect(mock.rows).toHaveLength(2);expect(mock.rows.every(r=>r.estado==='rejeitada')).toBe(true);
+});
+
+test('fala com JSON inválido é regenerada uma vez sem duplicar a mensagem',async()=>{
+ mock.chat.mockResolvedValueOnce('{"fala":"Você disse "aguarde"?"}').mockResolvedValueOnce(JSON.stringify({fala:'Aguardar até quando?'}));
+ const ai=geradorRecepcao('empresa',null,true,{sb,sessaoId:'sessao',cenarioVersao:'2'});
+ expect(JSON.parse(await ai.gerar(args)).fala).toBe('Aguardar até quando?');await ai.validar();
+ expect(mock.rows.map(r=>r.estado)).toEqual(['rejeitada','aceita']);expect(mock.rows[0].id).not.toBe(mock.rows[1].id);
+ expect(mock.chat.mock.calls[1][1]).toEqual(args.messages);expect(mock.rows[0].prompt_hash).not.toBe(mock.rows[1].prompt_hash);
+});
+
+test('falha de rede da paciente não recebe retry de formato',async()=>{
+ mock.chat.mockRejectedValue(new Error('timeout'));const ai=geradorRecepcao('empresa',null,true,{sb,sessaoId:'sessao',cenarioVersao:'2'});
+ await expect(ai.gerar(args)).rejects.toThrow('timeout');expect(mock.chat).toHaveBeenCalledTimes(1);
 });
 test('erro de referência e tentativa seguinte aceita têm registros distintos',async()=>{
  const ai=geradorRecepcao('empresa',null,true,{sb,sessaoId:'sessao',cenarioVersao:'1'});

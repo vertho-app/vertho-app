@@ -14,6 +14,18 @@ A revisão humana exige permissão de acompanhamento, leitura individual e regis
 
 Cinco casos iniciais, com duas variantes curadas de paciente por caso: segunda remarcação, autorização pendente, primeira consulta, falta à consulta e informação sobre outra pessoa. Dados e procedimentos são fictícios e precisam de validação pedagógica pelas clínicas. O caso de informação sobre terceiros treina o procedimento descrito na ficha; não pretende representar todas as exigências legais ou operacionais de uma clínica real.
 
+### Versões 2.0 — Sob pressão
+
+As novas sessões do catálogo comum usam os cinco casos **Sob pressão**, definidos em `catalogo-desafiador.ts`, com dez perfis curados. As versões introdutórias 1.0 são arquivadas na publicação editorial; cópias das clínicas e snapshots de sessões anteriores são preservados. Para experimentar a mudança, prepare um novo atendimento e selecione um caso Sob pressão.
+
+A dificuldade vem de restrições e objeções concretas: exigência de encaixe, receio de nova remarcação, prazo pessoal incompatível com o retorno da autorização, cobrança de previsão de saída e pressão por informação de familiar. Cada perfil distingue o que pede, o que realmente precisa, quando revela uma restrição e que encaminhamento pode aceitar. Um dos perfis recusa a orientação e encerra descontente, mesmo diante de boa condução.
+
+O prompt `recepcao-2.1-resistencia` evita aceitação por simples cordialidade e elogios automáticos. A paciente mantém a objeção que não foi tratada, responde a perguntas pertinentes e reduz a resistência diante de uma saída suficiente. Não há número mínimo de turnos, frase mágica ou obrigação de criar outra barreira após um acordo. Hostilidade não autoriza inventar urgência, insultos discriminatórios ou ameaças de violência.
+
+As versões difíceis têm seis competências: acolhimento (20), compreensão (15), clareza (20), resolução (20), procedimentos (10) e **condução sob pressão (15)**. O avaliador separa qualidade de atendimento e satisfação: sustentar um limite e respeitar uma recusa pode ser adequado com desfecho não resolvido. Promessa indevida não ganha mérito por agradar a paciente. Notas antigas e novas continuam separadas por versão e rubrica.
+
+O prompt distingue orientação clínica efetiva, divulgação de informação e desrespeito grave de respostas administrativas genéricas. Não cabe converter qualquer falha em ocorrência crítica. A conferência semântica ainda depende de revisão humana. Se a fala da paciente vier com JSON inválido ou fora do schema, há uma única regeneração de formato; cada tentativa mantém seu próprio registro de custo/rejeição. Falhas de rede não recebem esse retry, e o avaliador preserva sua correção limitada no core.
+
 `recepcao_cenarios` armazena o conteúdo. `catalogo.ts` contém apenas as sementes iniciais; o runtime lê o banco. `cenario.mjs` preserva a fixture original para compatibilidade de testes históricos. O editor aceita de 3 a 7 competências; exige IDs únicos, pesos somando 100 e conteúdo limitado. Cada alteração da rubrica recebe uma identidade calculada pelo hash dos critérios. A versão e a variante selecionadas ficam no snapshot da sessão. Repetição imediata do mesmo caso alterna a variante.
 
 `core.ts` separa juízo da IA e cálculo da nota. Confere citações literais, autoria, oportunidade e vocabulários do snapshot. O avaliador recebe participantes explícitos, `secretaria` e `paciente`. Há uma correção limitada, com a saída recusada e o campo inválido. Cobertura reduzida não vira reprovação. Citação válida não garante pertinência semântica: a revisão humana continua necessária.
@@ -46,6 +58,8 @@ O painel de operação exige `ai.costs.view`. Mostra custo conhecido por sessão
 - `RECEPCAO_LIVE_SMOKE=1`: ensaio real do cenário inicial. `RECEPCAO_LIVE_CATALOGO=1`: ensaios dos quatro novos casos. Usar o runner acima com `tests/unit/recepcao-live-smoke.test.ts`. Há custo e telemetria; não habilitar no CI padrão.
 - `RECEPCAO_VOZ_LIVE=1`: `recepcao-voz-live.test.ts` sintetiza uma fala fictícia e a transcreve pelos provedores reais. A autenticação e a sessão são fixtures; não cria treino de usuário. Há custo registrado no ledger.
 - `RECEPCAO_UI=1`: `recepcao-ui.test.ts` usa Playwright, API simulada e uma página de prévia LOCAL temporária que renderiza `TreinoRecepcao`. `RECEPCAO_UI_URL` permite mudar a URL da prévia. Nunca publicar essa página de teste.
+- `RECEPCAO_DESAFIOS_LIVE=1`: `node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/unit/recepcao-desafios-live.test.ts --maxConcurrency=2` ensaia os dez perfis com resposta genérica e condução concreta. Compara avaliações em dois casos, incluindo recusa respeitada. Há custo; diálogos sintéticos ficam em `backups/recepcao-desafio-ensaio-*.json`, sem sessões de usuários. É um ensaio de comportamento, não comprovação de calibração com pessoas.
+- `RECEPCAO_DESAFIOS_DB=1`: `node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/unit/recepcao-desafios-db.test.ts` ensaia a publicação editorial em transação revertida. Somente com **`RECEPCAO_DESAFIOS_APPLY=1`** publica permanentemente as versões 2.0 e arquiva as sementes globais 1.0 identificadas por autoria. Salva backup do catálogo anterior, não altera sessões nem cenários personalizados e recusa sobrescrever versão divergente. Esta operação não exige nova migration de estrutura.
 
 Aplicar a migration antes do deploy. A API e a UI anteriores continuam funcionando durante a atualização. Commit + push em master publica na Vercel.
 
