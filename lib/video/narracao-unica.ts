@@ -43,7 +43,29 @@ export function normalizarToken(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-const tokens = (texto: string) => texto.split(/\s+/).map(normalizarToken).filter(Boolean);
+/** Palavras do roteiro. Hífen, barra e travessão separam tokens: o Whisper devolve
+ *  "Segunda-feira" como "Segunda" + "feira" (medido 06/09 no vídeo 10e50d4a — o token
+ *  colado "segundafeira" não casava, e a fronteira caiu no meio da palavra). */
+const SEPARADOR = /[\s\-‐-―\/]+/;
+const tokens = (texto: string) => texto.split(SEPARADOR).map(normalizarToken).filter(Boolean);
+
+/** O ASR também pode devolver "Segunda-feira" colado. Divide no hífen repartindo o
+ *  tempo pelo tamanho das partes, para os dois lados falarem a mesma língua. */
+export function expandirHifens(words: WordTime[]): WordTime[] {
+  const out: WordTime[] = [];
+  for (const w of words) {
+    const partes = w.word.split(SEPARADOR).filter(Boolean);
+    if (partes.length <= 1) { out.push(w); continue; }
+    const total = partes.reduce((a, b) => a + b.length, 0) || 1;
+    let t = w.start;
+    for (const parte of partes) {
+      const dur = (w.end - w.start) * (parte.length / total);
+      out.push({ word: parte, start: t, end: t + dur });
+      t += dur;
+    }
+  }
+  return out;
+}
 
 /** Mínimo de palavras da cena que precisam casar com a transcrição. O Whisper erra
  *  nomes, siglas e números; 60 % em ordem já fixa a fronteira sem ambiguidade. */
@@ -58,8 +80,9 @@ const CAUDA_S = 0.4;
  * Casa as cenas com a transcrição e devolve as fatias. `null` = alinhamento
  * insuficiente em alguma cena (a task deve cair no caminho por cena).
  */
-export function alinharCenas(words: WordTime[], cenas: CenaNarrada[], duracaoTotalS?: number): FatiaCena[] | null {
-  if (!words?.length || !cenas.length) return null;
+export function alinharCenas(wordsBrutas: WordTime[], cenas: CenaNarrada[], duracaoTotalS?: number): FatiaCena[] | null {
+  if (!wordsBrutas?.length || !cenas.length) return null;
+  const words = expandirHifens(wordsBrutas);
   const trans = words.map((w) => normalizarToken(w.word));
   let p = 0;
   const marcas: { id: string; primeiro: number; ultimo: number; primeiraCasou: boolean; casadas: number; total: number }[] = [];
@@ -93,16 +116,30 @@ export function alinharCenas(words: WordTime[], cenas: CenaNarrada[], duracaoTot
   const fim = (i: number) => words[marcas[i].ultimo].end;
   const ini = (i: number) => words[marcas[i].primeiro].start;
   const total = duracaoTotalS ?? (words[words.length - 1].end + CAUDA_S);
+  // Fronteira entre a cena i−1 e a cena i: o meio da MAIOR pausa entre a última
+  // palavra casada de uma e a primeira casada da outra. Quando o ASR não casa
+  // justamente uma palavra de borda (a 1ª da cena seguinte, a última da anterior),
+  // sobram palavras "de ninguém" nesse trecho; o meio da pausa entre as duas casadas
+  // cortava DENTRO delas (medido 06/09: "Segunda" ficou no fim da cena 1 e "feira"
+  // abriu a cena 2). A maior pausa é onde o TTS respirou entre os parágrafos.
+  const fronteira = (i: number) => {
+    const a = marcas[i - 1].ultimo, b = marcas[i].primeiro;
+    let melhor = a, gap = -1;
+    for (let k = a; k < b; k++) {
+      const g = words[k + 1].start - words[k].end;
+      if (g > gap) { gap = g; melhor = k; }
+    }
+    return (words[melhor].end + words[melhor + 1].start) / 2;
+  };
   const fatias: FatiaCena[] = [];
   for (let i = 0; i < marcas.length; i++) {
     const m = marcas[i];
-    // Fronteira entre i−1 e i = meio da pausa entre a última palavra de uma e a
-    // primeira da outra. A cabeça só encosta na 1ª palavra quando ela CASOU; se o
-    // ASR errou justamente a 1ª palavra, a fatia começa na fronteira (o meio da
-    // pausa), para não cortar a palavra que ele não ouviu.
-    const fronteiraAntes = i === 0 ? Math.max(0, ini(0) - CAUDA_S) : (fim(i - 1) + ini(i)) / 2;
+    // A cabeça só encosta na 1ª palavra quando ela CASOU; se o ASR errou justamente
+    // a 1ª palavra, a fatia começa na fronteira, para não cortar a palavra que ele
+    // não ouviu.
+    const fronteiraAntes = i === 0 ? Math.max(0, ini(0) - CAUDA_S) : fronteira(i);
     const inicio = m.primeiraCasou ? Math.max(fronteiraAntes, ini(i) - CABECA_S) : fronteiraAntes;
-    const fronteiraDepois = i === marcas.length - 1 ? Math.min(total, fim(i) + CAUDA_S) : (fim(i) + ini(i + 1)) / 2;
+    const fronteiraDepois = i === marcas.length - 1 ? Math.min(total, fim(i) + CAUDA_S) : fronteira(i + 1);
     const fimFatia = Math.max(inicio + 0.2, fronteiraDepois);
     const ws = words
       .filter((w) => w.start >= inicio - 1e-6 && w.start < fimFatia)

@@ -70,6 +70,51 @@ describe('narração única: alinhamento de cenas', () => {
     expect(alinharCenas(words, cenas)).toBeNull();
   });
 
+  it('hífen no roteiro ("Segunda-feira") e ASR em duas palavras: casa e corta na pausa entre as cenas', () => {
+    // Medido 06/09 (vídeo 10e50d4a): o token colado "segundafeira" não casava com
+    // "Segunda" + "feira", a 1ª palavra da cena 2 ficava sem dono e o corte caía
+    // DENTRO dela ("...prática. Segun|feira, terceira aula").
+    const c2 = [
+      { id: 'scene-1', narration: 'Você vai ver a diferença na prática.' },
+      { id: 'scene-2', narration: 'Segunda-feira, terceira aula. Você abre a mesma apresentação.' },
+    ];
+    const words = transcrever([c2[0].narration.split(' '), ['Segunda', 'feira,', 'terceira', 'aula.', 'Você', 'abre', 'a', 'mesma', 'apresentação.']]);
+    const f = alinharCenas(words, c2)!;
+    expect(f).not.toBeNull();
+    expect(f[1].casadas).toBe(f[1].total);
+    expect(f[1].words[0].word).toBe('Segunda');
+    expect(f[0].words.at(-1)!.word).toBe('prática.');
+    const segunda = words.find((w) => w.word === 'Segunda')!;
+    expect(f[0].fim).toBeLessThan(segunda.start);
+    expect(f[1].inicio).toBeLessThanOrEqual(segunda.start);
+  });
+
+  it('ASR devolve o hífen colado ("Segunda-feira") e o roteiro também: continua casando', () => {
+    const c2 = [
+      { id: 'scene-1', narration: 'Você vai ver a diferença na prática.' },
+      { id: 'scene-2', narration: 'Segunda-feira, terceira aula. Você abre a mesma apresentação.' },
+    ];
+    const words = transcrever([c2[0].narration.split(' '), ['Segunda-feira,', 'terceira', 'aula.', 'Você', 'abre', 'a', 'mesma', 'apresentação.']]);
+    const f = alinharCenas(words, c2)!;
+    expect(f).not.toBeNull();
+    expect(f[1].casadas).toBe(f[1].total);
+    expect(f[1].words[0].word).toBe('Segunda');
+  });
+
+  it('palavra de borda que o ASR errou fica do lado certo: a fronteira é a MAIOR pausa entre as cenas', () => {
+    // 1ª palavra da cena 3 ouvida errada ("xxx"): a pausa longa (0,8 s) fica ANTES
+    // dela, e a curta (0,05 s) entre ela e a 2ª palavra. O corte tem que cair na longa.
+    const t = cenas.map((c) => c.narration.split(' '));
+    t[2][0] = 'xxx';
+    const words = transcrever(t);
+    const f = alinharCenas(words, cenas)!;
+    const xxx = words.find((w) => w.word === 'xxx')!;
+    const ultimaCena2 = words[words.indexOf(xxx) - 1];
+    expect(f[1].fim).toBeGreaterThan(ultimaCena2.end);
+    expect(f[1].fim).toBeLessThan(xxx.start);
+    expect(f[2].inicio).toBeCloseTo((ultimaCena2.end + xxx.start) / 2, 5);
+  });
+
   it('texto único separa cenas por parágrafo duplo e fatiarPcm16 respeita os limites', () => {
     expect(montarTextoUnico(cenas).split('\n\n')).toHaveLength(3);
     const pcm = Buffer.alloc(24000 * 2 * 10); // 10 s
