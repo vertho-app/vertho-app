@@ -54,11 +54,16 @@ export async function rodarCanarioTts(vozes: string[] = Object.keys(ALVO_F0_POR_
   const out: ResultadoCanario[] = [];
   for (const voz of vozes) {
     try {
+      // 2 tentativas em paralelo, como a produção sob demanda: um take sozinho pode sair
+      // fora do registro por sorteio (medido 06/09: 225 Hz num take, alvo 208 ±1 st,
+      // com timbre a 0,15σ e sem deriva) e isso não é "o modelo mudou". As duas
+      // tentativas ficam em tts_qa_log; a escolhida leva `publicado`.
       const audio = await generateNarrationAudio(TEXTO_CANARIO, {
         voice: voz,
         style: DIRECAO_CANARIO[voz] ?? DIRECAO_CANARIO.Aoede,
         segmentar: false,
-        tentativas: 1,
+        tentativas: 2,
+        retakeParalelo: true,
         ledger: { feature: 'canario_tts' },
       });
       const m = audio.qa?.metricas;

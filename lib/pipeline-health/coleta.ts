@@ -563,8 +563,10 @@ export async function coletarQaTts(sb: any): Promise<{ portao: RetakeTtsAgregado
     porChave.set(k, a);
   }
   const desdeCanario = Date.now() - TTS_CANARIO_JANELA_DIAS * 24 * 3600_000;
+  // Só a tentativa ESCOLHIDA de cada canário (publicado): o canário roda 2 tentativas em
+  // paralelo, e a reprovada que sobrou não é o veredito do run.
   const canarios: CanarioObservado[] = linhas
-    .filter((x) => x.origem === 'canario' && new Date(x.created_at).getTime() >= desdeCanario)
+    .filter((x) => x.origem === 'canario' && x.publicado && new Date(x.created_at).getTime() >= desdeCanario)
     .map((x) => ({ voz: x.voz, em: x.created_at, ok: x.ok, motivos: x.motivos || [], f0MedHz: x.f0_med_hz == null ? null : Number(x.f0_med_hz), timbreVsRef: x.timbre_vs_ref == null ? null : Number(x.timbre_vs_ref) }));
   return { portao: [...porChave.values()], canarios };
 }

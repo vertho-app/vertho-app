@@ -57,14 +57,22 @@ describe('R19 · canário semanal', () => {
     expect(a.severidade).toBe('aviso');
     expect(a.amostra?.[0]).toContain('Iapetus');
   });
-  it('canário reprovado ou longe da assinatura → CRÍTICO (a voz mudou por baixo)', () => {
-    const rep = checarCanarioTts([canario({ ok: false, motivos: ['registro +2.3 st do alvo'] })], ['Aoede'])!;
+  it('canário reprovado por deriva/timbre, ou longe da assinatura → CRÍTICO (a voz mudou por baixo)', () => {
+    const rep = checarCanarioTts([canario({ ok: false, motivos: ['registro deriva +2.1 st/min'] })], ['Aoede'])!;
     expect(rep.severidade).toBe('critico');
     expect(rep.amostra?.[0]).toContain('REPROVA');
+    const mudo = checarCanarioTts([canario({ ok: false, motivos: ['sem fala (0 % de frames vozeados; mínimo 15 %)'] })], ['Aoede'])!;
+    expect(mudo.severidade).toBe('critico');
     const longe = checarCanarioTts([canario({ timbreVsRef: TTS_CANARIO_TIMBRE_MAX + 0.2 })], ['Aoede'])!;
     expect(longe.severidade).toBe('critico');
     expect(longe.amostra?.[0]).toContain('assinatura');
   });
+  it('registro fora do alvo SOZINHO é sorteio de take: AVISO, não crítico (medido 06/09: 225 Hz num take, timbre 0,15σ)', () => {
+    const a = checarCanarioTts([canario({ ok: false, motivos: ['registro +1.4 st do alvo (225 vs 208 Hz)'], timbreVsRef: 0.15 })], ['Aoede'])!;
+    expect(a.severidade).toBe('aviso');
+    expect(a.amostra?.[0]).toContain('sorteio de take');
+  });
+
   it('usa a linha MAIS RECENTE da voz, não a primeira', () => {
     const velhaRuim = canario({ em: '2026-09-01T06:20:00Z', ok: false, motivos: ['x'] });
     const novaBoa = canario({ em: '2026-09-06T06:20:00Z' });

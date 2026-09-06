@@ -1016,8 +1016,13 @@ export function checarCanarioTts(canarios: CanarioObservado[], vozesEsperadas: s
     if (!c) { contagem++; amostra.push(`${voz}: sem canário nos últimos ${TTS_CANARIO_JANELA_DIAS} dias`); continue; }
     const longe = c.timbreVsRef != null && c.timbreVsRef > TTS_CANARIO_TIMBRE_MAX;
     if (c.ok && !longe) continue;
-    contagem++; critico = true;
-    amostra.push(`${voz} (${c.em.slice(0, 10)}): ${c.ok ? 'régua ok' : `REPROVA (${c.motivos.join('; ')})`}${longe ? ` · timbre a ${c.timbreVsRef!.toFixed(2)}σ da assinatura (máx ${TTS_CANARIO_TIMBRE_MAX})` : ''}${c.f0MedHz ? ` · F0 ${c.f0MedHz.toFixed(0)} Hz` : ''}`);
+    // "Registro fora do alvo" SOZINHO é sorteio de take (Aoede 201-225 Hz entre takes,
+    // alvo 208 ±1 st), não mudança de modelo: aviso, e vira crítico se repetir. Timbre
+    // longe da assinatura, deriva, volume ou "sem fala" são o modelo mudando: crítico.
+    const soRegistro = c.ok === false && !longe && c.motivos.length > 0 && c.motivos.every((m) => m.startsWith('registro ') && !m.includes('deriva'));
+    contagem++;
+    if (!soRegistro) critico = true;
+    amostra.push(`${voz} (${c.em.slice(0, 10)}): ${c.ok ? 'régua ok' : `REPROVA (${c.motivos.join('; ')})`}${longe ? ` · timbre a ${c.timbreVsRef!.toFixed(2)}σ da assinatura (máx ${TTS_CANARIO_TIMBRE_MAX})` : ''}${c.f0MedHz ? ` · F0 ${c.f0MedHz.toFixed(0)} Hz` : ''}${soRegistro ? ' · só registro: sorteio de take, crítico se repetir' : ''}`);
   }
   return achado(
     'tts-canario-semanal',
