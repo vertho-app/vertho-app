@@ -69,7 +69,15 @@ const SceneAudio: React.FC<{ scene: ComputedScene; fps: number }> = ({ scene, fp
   // sem o offset do áudio embutido do OffthreadVideo. Demais cenas: mp3 da cena.
   const url = scene.type.startsWith('avatar') ? scene.audioSrc : scene.src;
   if (!url) return null;
-  return <Audio src={url} trimAfter={Math.max(1, Math.round(scene.seconds * fps))} />;
+  // trimBefore={1}: o renderMedia coloca TODO áudio ~40 ms atrás da imagem (medido
+  // 06/09/2026 em 3 vídeos e num render local, MP3 e WAV iguais) e o transcode do
+  // Bunny soma ~20 ms. Pular o 1º quadro do áudio (33 ms) adianta a fala e deixa
+  // +7 ms no arquivo e ~+27 ms no player — os dois do lado tolerante (áudio
+  // atrasado; ITU-R BT.1359-1 detecta a partir de ~125 ms). Não 2 quadros: o
+  // residual cairia no lado adiantado, o mais perceptível. As fatias começam com
+  // ≥ 100 ms de silêncio (corte no ponto mais silencioso da pausa), então o quadro
+  // pulado não leva fala.
+  return <Audio src={url} trimBefore={1} trimAfter={Math.max(1, Math.round(scene.seconds * fps))} />;
 };
 
 // ARCO — a cena de pico (is_peak) "incha" sutilmente ao entrar: a restrição
