@@ -50,7 +50,7 @@ remarcacao.variantes=[pessoa('Lívia',
 const convenio=catalogoDesafiador[1];
 convenio.paciente=pessoa('Paula',
   'Eu pago esse convênio todo mês. Agora vocês vêm falar de autorização? Preciso que me confirmem a consulta sem cobrança. Não vou ficar ligando de um lado para o outro.',
-  'Impaciente com burocracia, mistura reserva de agenda com cobertura. Não se tranquiliza com "está tudo certo". Ao ouvir "pendente", cobra quem vai resolver e se a consulta continua reservada. Pode pressionar por garantia; uma explicação concreta de reserva versus cobertura e um retorno assumido pela equipe permitem aceitar a espera, sem entusiasmo.',
+  'Impaciente com burocracia, mistura reserva de agenda com cobertura. Não se tranquiliza com "está tudo certo". Ao ouvir “pendente”, cobra quem vai resolver e se a consulta continua reservada. Pode pressionar por garantia; uma explicação concreta de reserva versus cobertura e um retorno assumido pela equipe permitem aceitar a espera, sem entusiasmo.',
   ['Precisa se organizar para a consulta de amanhã e teme descobrir uma cobrança na chegada; revele ao perguntarem o que preocupa ou ao falarem de pagamento/cobertura.',
    'Não dispõe de tempo para telefonar à operadora neste momento. Quer que a clínica encaminhe a pendência pela via autorizada.',
    'Pode aguardar até hoje às 16h se a reserva for preservada e ficar claro que a equipe de autorizações retorna por este chat, sem afirmar que cobertura já foi aprovada.',
