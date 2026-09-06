@@ -1,3 +1,4 @@
+import { ELENCO } from '@/lib/tts/elenco';
 import { RECEPCAO_SESSAO } from '@/lib/status';
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
@@ -46,7 +47,7 @@ export async function POST(req:Request) {
     const started=await c.sb.from('recepcao_tentativas').insert({id:tentativa,sessao_id:id,empresa_id:c.empresaId,etapa:acao==='ouvir'?'voz_paciente':'transcricao',cenario_versao:row.estado.cenario.versao,prompt_versao:'recepcao-voz-1.0'});
     if(started.error)throw new RecepcaoError(503,'Não foi possível registrar a operação de voz.');
     if(acao==='ouvir') {
-     const audio=await generateNarrationAudio(mensagem.content,{voice:'Aoede',segmentar:false,style:'Leia somente o texto a seguir em português brasileiro, como uma pessoa conversando com a recepção. Não acrescente palavras.',ledger:{feature:'recepcao_voz',empresaId:c.empresaId,colaboradorId:row.colaborador_id,correlationId:tentativa}});
+     const audio=await generateNarrationAudio(mensagem.content,{voice:ELENCO.mentora.voz,segmentar:false,style:'Leia somente o texto a seguir em português brasileiro, como uma pessoa conversando com a recepção. Não acrescente palavras.',ledger:{feature:'recepcao_voz',empresaId:c.empresaId,colaboradorId:row.colaborador_id,correlationId:tentativa}});
      ok=true;return new Response(new Uint8Array(audio.buffer),{headers:{'Content-Type':audio.contentType,'Cache-Control':'no-store'}});
     }
     if(!process.env.OPENAI_API_KEY)throw new RecepcaoError(503,'A transcrição não está disponível. Você pode escrever a resposta.');

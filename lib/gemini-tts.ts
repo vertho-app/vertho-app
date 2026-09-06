@@ -21,6 +21,7 @@ import {
 import { getGoogleAccessToken, vertexProjectId } from './tts/google-token';
 import { medirDeriva, avaliarDeriva, resumirDeriva, ALVO_F0_POR_VOZ, type MetricasDeriva, type AlvoVoz } from './tts/deriva';
 import { ASSINATURAS_VOZ } from './tts/assinaturas-voz';
+import { ELENCO } from './tts/elenco';
 import { gravarVereditosTts } from './tts/qa-log';
 import { costFromTokens } from './ia-cost-catalog';
 import { gravarLinhaLedger } from './ia-ledger';
@@ -37,15 +38,16 @@ export { exportPodcastMp3FromPcm } from './tts/audio-dsp';
 // e temperature 0,3 não mudaram nada (0/6). Os modelos GA da família 2.5 passaram
 // 34/36 na mesma régua, e o Flash custa metade (US$ 0,045/episódio). Ver
 // PLANO-DERIVA-PODCAST-2026-09-04.md §6. O id do AI Studio é o `-preview-tts`.
-const MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
+const MODEL = process.env.GEMINI_TTS_MODEL || ELENCO.mentora.modeloAiStudio;
 // ELENCO desde 05/09/2026 (escolhido às cegas pelo Rodrigo e medido em 41 sínteses):
 // a mentora = Aoede (208 Hz; entre takes varia 0,4-1,0 st, inaudível), o BETO =
 // Iapetus (144 Hz; 1,2-2,3 st entre takes — por isso o portão de F0 abaixo).
 // ⚠️ Trocar de MODELO troca a VOZ mesmo com o mesmo nome: a Vindemiatrix do 2.5 fica a
 // 0,45σ e +2,6 st da Vindemiatrix do 3.1 (duas pessoas distintas ficam a 0,40σ).
-const VOICE = process.env.GEMINI_TTS_VOICE || 'Aoede';                   // narração single-speaker (vídeo/podcast)
-const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || 'Iapetus';   // speaker "Mentor" = Beto
-const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || 'Aoede';       // speaker "Campo"
+// Defaults vêm do ELENCO (lib/tts/elenco.ts): personagem = voz + modelo + alvo, junto.
+const VOICE = process.env.GEMINI_TTS_VOICE || ELENCO.mentora.voz;              // narração single-speaker (vídeo/podcast)
+const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || ELENCO.beto.voz;   // speaker "Mentor" = Beto
+const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || ELENCO.mentora.voz;  // speaker "Campo"
 const brandStingCache = new Map<string, Buffer>();
 
 // ── BACKEND: AI Studio (API key) × Vertex AI (OAuth de service account) ───────
@@ -57,7 +59,7 @@ const TTS_BACKEND = (process.env.TTS_BACKEND || 'aistudio').toLowerCase();
 const VERTEX_LOCATION = process.env.GOOGLE_VERTEX_LOCATION || 'us-central1';
 // No Vertex o id GA não tem sufixo. `Medido 05/09/2026`: `gemini-3.5-*-tts` e
 // `gemini-3.1-pro-*-tts` respondem 404 — não existem; 2.5 Flash/Pro TTS existem e geram.
-const VERTEX_MODEL = process.env.GEMINI_TTS_VERTEX_MODEL || 'gemini-2.5-flash-tts';
+const VERTEX_MODEL = process.env.GEMINI_TTS_VERTEX_MODEL || ELENCO.mentora.modeloVertex;
 
 /** Endpoint + headers do TTS conforme o backend. */
 async function ttsEndpoint(): Promise<{ url: string; headers: Record<string, string> }> {

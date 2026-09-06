@@ -30,6 +30,7 @@
  *   RENDER_JOBS_PER_BOX (default 3), MAX_RENDER_MS (watchdog, default 40min).
  */
 import { SUPA, KEY } from './render-helpers';
+import { ELENCO } from '@/lib/tts/elenco';
 
 const HCLOUD = 'https://api.hetzner.cloud/v1';
 
@@ -112,10 +113,10 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     // Saudação nominal exige SUPABASE_URL + SERVICE_ROLE_KEY (personalizar.mjs).
     `SUPABASE_URL=${process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''}`,
     `SUPABASE_SERVICE_ROLE_KEY=${process.env.SUPABASE_SERVICE_ROLE_KEY || ''}`,
-    `VIDEO_TTS_VOICE=${process.env.VIDEO_TTS_VOICE || 'Aoede'}`,
+    `VIDEO_TTS_VOICE=${process.env.VIDEO_TTS_VOICE || ELENCO.mentora.voz}`,
     // A saudação é sintetizada NA BOX (personalizar.mjs, AI Studio). Sem o modelo
     // ela caía no default do arquivo (3.1 preview) e saía noutra mentora que o corpo.
-    `GEMINI_TTS_MODEL=${process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts'}`,
+    `GEMINI_TTS_MODEL=${process.env.GEMINI_TTS_MODEL || ELENCO.mentora.modeloAiStudio}`,
     // 720p por padrão: 1080p em cx33/8GB com vídeos longos estourava RAM e travava.
     `VIDEO_RENDER_SCALE=${process.env.VIDEO_RENDER_SCALE || '0.6667'}`,
     `RENDER_CONCURRENCY=${conc}`,

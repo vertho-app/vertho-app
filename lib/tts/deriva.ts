@@ -20,6 +20,8 @@
  * Custo: ~1-2 s de CPU para 4 min de áudio (reamostra para 16 kHz e usa hop de 40 ms).
  */
 
+import { alvosF0DoElenco } from './elenco';
+
 const SR = 16000;
 const FRAME = 640;   // 40 ms
 const HOP = 640;     // 40 ms (o script de calibração usa 20 ms; medianas por janela mudam <0,1 st)
@@ -89,10 +91,7 @@ export interface AlvoVoz {
  * (14 sínteses por voz, 4 roteiros): Aoede mediana 208 Hz (faixa 201-221), Iapetus
  * 144 Hz (131-159). Voz sem alvo aqui → o portão não checa F0 (só volume e timbre).
  */
-export const ALVO_F0_POR_VOZ: Record<string, AlvoVoz> = {
-  Aoede: { f0Hz: 208 },
-  Iapetus: { f0Hz: 144 },
-};
+export const ALVO_F0_POR_VOZ: Record<string, AlvoVoz> = alvosF0DoElenco();
 
 /** Limiares calibrados para as âncoras passarem (humanos, Chirp) e a produção 3.1 reprovar. */
 export const LIMIARES_DERIVA = {
