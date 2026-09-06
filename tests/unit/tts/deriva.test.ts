@@ -83,3 +83,24 @@ describe('portão de deriva', () => {
     expect(avaliarDeriva(m, null).ok).toBe(true);
   });
 });
+
+describe('portão de deriva: tem fala?', () => {
+  it('silêncio e ruído REPROVAM (antes voltavam ok: nenhuma régua se aplicava)', () => {
+    const silencio = Buffer.alloc(SR * 2 * 5);
+    const r1 = avaliarDeriva(medirDeriva(silencio, SR), ALVO_F0_POR_VOZ.Aoede);
+    expect(r1.ok).toBe(false);
+    expect(r1.motivos.join(' ')).toContain('sem fala');
+    const ruido = Buffer.alloc(SR * 2 * 5);
+    let seed = 7;
+    for (let i = 0; i < SR * 5; i++) { seed = (seed * 1103515245 + 12345) & 0x7fffffff; ruido.writeInt16LE(Math.round((seed / 0x7fffffff * 2 - 1) * 100), i * 2); }
+    const r2 = avaliarDeriva(medirDeriva(ruido, SR), ALVO_F0_POR_VOZ.Aoede);
+    expect(r2.ok).toBe(false);
+    expect(r2.motivos.join(' ')).toContain('sem fala');
+  });
+
+  it('a voz sintética tem fração vozeada bem acima do mínimo e continua passando', () => {
+    const m = medirDeriva(voz({ segundos: 25, f0: 208 }), SR);
+    expect(m.fracaoVozeada).toBeGreaterThan(0.3);
+    expect(avaliarDeriva(m, ALVO_F0_POR_VOZ.Aoede).ok).toBe(true);
+  });
+});

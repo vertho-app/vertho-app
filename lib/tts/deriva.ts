@@ -32,6 +32,8 @@ const JANELA_S = 20;
 export interface MetricasDeriva {
   durS: number;
   janelas: number;
+  /** Fração dos frames com F0 detectado (fala vozeada). Silêncio e ruído = 0. */
+  fracaoVozeada: number;
   f0MedHz: number;
   f0AmpSt: number;
   /** Inclinação do F0 (semitons por minuto) ao longo do arquivo — a assinatura de
@@ -69,6 +71,9 @@ export const LIMIARES_DERIVA = {
   /** Veto de inclinação. `Medido 05/09/2026`: humanos −0,04 e +0,20 st/min; Aoede e Iapetus
    *  ≤ 0,61 em 28 arquivos; Algieba (reprovado de ouvido E de régua) +2,66. */
   f0SlopeStMin: 1.5,
+  /** Mínimo de frames vozeados para o áudio contar como fala. Narração TTS fica em
+   *  ~0,4-0,6 (pausas e consoantes surdas ficam fora); silêncio e ruído, em 0. */
+  fracaoVozeadaMin: 0.15,
 };
 
 // ── DSP mínimo ────────────────────────────────────────────────────────────────
@@ -251,6 +256,7 @@ export function medirDeriva(pcm: Buffer, sampleRate: number): MetricasDeriva {
   return {
     durS,
     janelas: dbs.length,
+    fracaoVozeada: frames.length ? frames.filter((f) => f.f0 !== null).length / frames.length : 0,
     f0MedHz: f0Med,
     f0AmpSt: f0St.length ? Math.max(...f0St) - Math.min(...f0St) : 0,
     f0SlopeStMin: inclinacao(tsF0, f0St),
@@ -267,6 +273,13 @@ export function medirDeriva(pcm: Buffer, sampleRate: number): MetricasDeriva {
  */
 export function avaliarDeriva(m: MetricasDeriva, alvo?: AlvoVoz | null): { ok: boolean; motivos: string[] } {
   const motivos: string[] = [];
+  // TEM FALA? Sem frames vozeados nenhuma régua se aplica, e a saída era `ok`:
+  // medido 06/09, 5 s de silêncio e 5 s de ruído a −50 dBFS voltavam aprovados.
+  // Um take mudo ou só ruído não pode ser publicado como "menos ruim".
+  if (!Number.isFinite(m.f0MedHz) || m.fracaoVozeada < LIMIARES_DERIVA.fracaoVozeadaMin) {
+    motivos.push(`sem fala (${(m.fracaoVozeada * 100).toFixed(0)} % de frames vozeados; mínimo ${LIMIARES_DERIVA.fracaoVozeadaMin * 100} %)`);
+    return { ok: false, motivos };
+  }
   if (m.janelas >= 2) {
     if (m.loudSlopeDbMin < LIMIARES_DERIVA.loudSlopeDbMin) motivos.push(`volume cai ${m.loudSlopeDbMin.toFixed(2)} dB/min`);
     if (m.loudAmpDb > LIMIARES_DERIVA.loudAmpDb) motivos.push(`volume varia ${m.loudAmpDb.toFixed(1)} dB`);

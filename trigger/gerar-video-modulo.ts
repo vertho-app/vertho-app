@@ -9,7 +9,8 @@ import { generateNarrationAudio } from '../lib/gemini-tts';
 import { gerarClipHeyGen, aguardarClipHeyGen } from '../lib/video/heygen';
 import { montarInputProps, exportCaptionsToSrt, exportCaptionsToVtt, type AssetMap } from '../lib/video/montar-inputprops';
 import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
-import { storagePut, SUPA, KEY } from '../lib/video/render-helpers';
+import { storagePut, storageGet, SUPA, KEY } from '../lib/video/render-helpers';
+import { createHash } from 'node:crypto';
 import { transcribeWords } from '../lib/video/whisper-align';
 import { montarTextoUnico, planejarNarracaoUnica, fatiarPcm16 } from '../lib/video/narracao-unica';
 import { pcmToMp3SemMaster } from '../lib/tts/audio-dsp';
@@ -174,6 +175,31 @@ async function mp3ParaPcm24k(mp3: Buffer): Promise<Buffer> {
 }
 
 /** Duração (s) de um asset por ffprobe — aceita URL http direto. */
+/** Assinatura do take único: voz + direção + texto. O take gravado no Storage só é
+ *  reaproveitado por um retry se a assinatura bater (mesmo texto, mesma mentora). */
+function assinaturaTake(voz: string, estilo: string, texto: string): string {
+  return createHash('sha1').update(`${voz}|${estilo}|${texto}`).digest('hex').slice(0, 12);
+}
+
+/** Take mais recente desta geração no Storage (`{videoId}/take-{assinatura}-{tag}.mp3`),
+ *  ou null. Um retry que chega sem cenas persistidas continua do MESMO take em vez de
+ *  pagar outra síntese e trocar de sorteio. */
+async function ultimoTake(videoId: string, assinatura: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${SUPA}/storage/v1/object/list/video-assets`, {
+      method: 'POST',
+      headers: { apikey: KEY, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefix: videoId, limit: 200, sortBy: { column: 'created_at', order: 'desc' } }),
+    });
+    if (!r.ok) return null;
+    const itens = (await r.json()) as { name: string }[];
+    const take = itens.find((it) => it.name.startsWith(`take-${assinatura}-`) && it.name.endsWith('.mp3'));
+    return take ? `${videoId}/${take.name}` : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Duração dos BYTES que vão subir (ffprobe num arquivo temporário). Par do
  *  `ffprobeDuration(url)`: depois do upload, os dois têm que bater. Em 06/09 o
  *  registro guardou 20,011 s para uma abertura de 17,9 s porque a URL devolveu o
@@ -243,19 +269,35 @@ export const gerarVideoModuloTask = task({
       // 1a) NARRAÇÃO ÚNICA: só no 1º processamento (resume parcial mistura takes, e
       // aí o caminho por cena abaixo completa o que falta com a voz de sempre).
       if (NARRACAO_UNICA && nadaGerado && cenasComTexto.length > 1) {
+        const enviadas: string[] = [];
         try {
           const cenas = cenasComTexto.map((s) => ({ id: s.id, narration: aplicarPronuncia(s.narration as string) }));
+          const textoUnico = montarTextoUnico(cenas);
+          const assinatura = assinaturaTake(VOICE, NARRATION_STYLE_UNICO, textoUnico);
           const t0 = Date.now();
-          // Chamada única + portão de deriva (Aoede: volume, timbre, registro, inclinação).
-          const audio = await generateNarrationAudio(montarTextoUnico(cenas), {
-            voice: VOICE,
-            style: NARRATION_STYLE_UNICO,
-            segmentar: false,
-            ledger: { feature: 'tts_video_cena' },
-          });
-          const words = await transcribeWords(audio.buffer);
+          // O TAKE fica no Storage ANTES de fatiar: um retry que chega aqui sem cenas
+          // persistidas continua do mesmo take (mesma assinatura) em vez de sintetizar
+          // outro. Chamada única + portão de deriva (volume, timbre, registro, fala).
+          let takeMp3: Buffer;
+          let origem: string;
+          const reaproveitado = await ultimoTake(videoId, assinatura);
+          if (reaproveitado) {
+            takeMp3 = await storageGet('video-assets', reaproveitado);
+            origem = `take reaproveitado (${reaproveitado.split('/').pop()})`;
+          } else {
+            const audio = await generateNarrationAudio(textoUnico, {
+              voice: VOICE,
+              style: NARRATION_STYLE_UNICO,
+              segmentar: false,
+              ledger: { feature: 'tts_video_cena' },
+            });
+            takeMp3 = audio.buffer;
+            await storagePut('video-assets', `${videoId}/take-${assinatura}-${GERACAO_TAG()}.mp3`, takeMp3, 'audio/mpeg');
+            origem = audio.qa ? `qa ${audio.qa.ok ? 'ok' : 'ressalva'} (${audio.qa.tentativas} tent.)` : 'sem qa';
+          }
+          const words = await transcribeWords(takeMp3);
           if (!words) throw new Error('Whisper indisponível (sem timing por palavra, não há como cortar)');
-          const pcm = await mp3ParaPcm24k(audio.buffer);
+          const pcm = await mp3ParaPcm24k(takeMp3);
           const duracaoS = pcm.length / 2 / 24000;
           // Alinha E valida (vazamento de palavra de borda, silêncio no corte): recusa
           // = cai no caminho por cena, com o motivo no log.
@@ -267,13 +309,17 @@ export const gerarVideoModuloTask = task({
             const mp3 = pcmToMp3SemMaster(fatiarPcm16(pcm, 24000, f.inicio, f.fim), 24000);
             const src = await storagePut('video-assets', `${videoId}/${f.id}-${tag}.mp3`, mp3, 'audio/mpeg');
             assets[f.id] = { src, durationSec: 0, words: f.words };
+            enviadas.push(f.id);
             duracaoLocal[f.id] = await duracaoDoBuffer(mp3, 'mp3');
           });
-          console.log(`[narracao-unica] ${fatias.length} cenas de um take de ${duracaoS.toFixed(0)}s em ${Math.round((Date.now() - t0) / 1000)}s · casamento ${fatias.map((f) => `${f.id}:${f.casadas}/${f.total}`).join(' ')}${audio.qa ? ` · qa ${audio.qa.ok ? 'ok' : 'ressalva'} (${audio.qa.tentativas} tent.)` : ''}`);
+          console.log(`[narracao-unica] ${fatias.length} cenas de um take de ${duracaoS.toFixed(0)}s em ${Math.round((Date.now() - t0) / 1000)}s · casamento ${fatias.map((f) => `${f.id}:${f.casadas}/${f.total}`).join(' ')} · ${origem}`);
         } catch (e) {
           // Fallback DECLARADO: volta ao caminho por cena, que sempre funcionou. O
-          // preço é a costura entre cenas — por isso o aviso, não o silêncio.
-          console.warn('[narracao-unica] caiu para narração POR CENA:', (e as Error)?.message);
+          // preço é a costura entre cenas — por isso o aviso, não o silêncio. As
+          // fatias que já tinham subido são DESCARTADAS: misturar metade de um take
+          // com sínteses por cena seria pior do que tudo por cena.
+          for (const id of enviadas) { delete assets[id]; delete duracaoLocal[id]; }
+          console.warn(`[narracao-unica] caiu para narração POR CENA${enviadas.length ? ` (${enviadas.length} fatia(s) descartada(s))` : ''}:`, (e as Error)?.message);
         }
       }
 
@@ -281,9 +327,13 @@ export const gerarVideoModuloTask = task({
       await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
         // `ledger` sem empresa de propósito: o vídeo é do MÓDULO-BASE (conteúdo
         // canônico da plataforma), não de um tenant. Etiqueta vazia seria chute.
+        // `segmentar: false`: a cena é curta, cabe numa chamada, e só a chamada única
+        // passa pelo portão de deriva (registro contra o alvo, tem fala?). O caminho
+        // segmentado não tinha portão nenhum (06/09).
         const audio = await generateNarrationAudio(aplicarPronuncia(s.narration as string), {
           voice: VOICE,
           style: styleForScene(s.type),
+          segmentar: false,
           ledger: { feature: 'tts_video_cena' },
         });
         // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.

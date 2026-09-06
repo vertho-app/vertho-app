@@ -25,10 +25,13 @@ const exec = promisify(execFile);
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
 const FFPROBE = process.env.FFPROBE_PATH || 'ffprobe';
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-const TTS_MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-3.1-flash-tts-preview';
-// Default ALINHADO à narração/avatar (gerar-video-modulo.ts usa o mesmo VIDEO_TTS_VOICE
-// || 'Vindemiatrix') p/ a saudação soar como a MESMA mentora. Override por chamada via opts.voice.
-const VOICE = process.env.VIDEO_TTS_VOICE || 'Vindemiatrix';
+// Defaults ALINHADOS à narração do vídeo (lib/gemini-tts.ts: 2.5 Flash + Aoede desde
+// 05/09/2026). O mesmo nome de voz soa DIFERENTE entre modelos (0,6σ de timbre
+// entre 3.1 e 2.5, medido no bake-off): com o default antigo (3.1 preview) a
+// saudação "Olá, {nome}" saía numa mentora e o corpo do vídeo em outra. O
+// orquestrador passa GEMINI_TTS_MODEL e VIDEO_TTS_VOICE (ensure-render-worker).
+const TTS_MODEL = process.env.GEMINI_TTS_MODEL || 'gemini-2.5-flash-preview-tts';
+const VOICE = process.env.VIDEO_TTS_VOICE || 'Aoede';
 const SUPA = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const BUCKET = 'video-assets';
@@ -152,7 +155,9 @@ async function renderGreeting(outMp4, p) {
  * nome/voz/formato na chave invalidam sozinhos. Sem colaboradorId → sempre gera.
  */
 async function getOrCreateGreeting(outMp4, p) {
-  const key = `greetings-cache/${p.colaboradorId}__${slug(p.voice)}__${slug(primeiroNome(p.nome))}__${p.width}x${p.height}.mp4`;
+  // O MODELO entra na chave: a mesma voz em outro modelo é outra locutora, e o cache
+  // servia a saudação do modelo antigo depois da troca (06/09).
+  const key = `greetings-cache/${p.colaboradorId}__${slug(p.voice)}__${slug(TTS_MODEL)}__${slug(primeiroNome(p.nome))}__${p.width}x${p.height}.mp4`;
   if (p.colaboradorId) {
     const buf = await downloadFromStorage(key);
     if (buf && buf.length > 2000) { await writeFile(outMp4, buf); return { cached: true, key }; }
