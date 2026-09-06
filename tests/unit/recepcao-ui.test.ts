@@ -40,10 +40,12 @@ test.runIf(process.env.RECEPCAO_UI==='1')('UI: seleção, variante, revisão, ed
   await page.screenshot({path:'C:/Users/rdnav/recepcao-medica-piloto/evolucao-revisao.png',fullPage:true});
   await page.getByRole('button',{name:'Cenários',exact:true}).click();
   await page.getByRole('button',{name:'Criar nova versão',exact:true}).first().click();
+  await page.getByLabel('Reação aos limites',{exact:true}).first().selectOption('resistencia_persistente');
   await page.getByLabel('Título',{exact:true}).fill('Remarcação revisada');
   await page.getByRole('button',{name:'Conferir ficha visível'}).click();
   await page.getByRole('button',{name:'Salvar rascunho'}).click();
   await page.getByRole('button',{name:'Publicar versão'}).waitFor();
+  expect(registros.find(r=>r.id==='rascunho')?.conteudo.paciente.postura).toBe('resistencia_persistente');
   page.on('dialog',dialog=>dialog.accept());
   await page.getByRole('button',{name:'Publicar versão'}).click();
   await page.getByRole('button',{name:'Voltar à biblioteca'}).click();

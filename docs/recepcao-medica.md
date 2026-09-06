@@ -16,7 +16,9 @@ Cinco casos iniciais, com duas variantes curadas de paciente por caso: segunda r
 
 ### Versões 2.0 — Sob pressão
 
-As novas sessões do catálogo comum usam os cinco casos **Sob pressão**, definidos em `catalogo-desafiador.ts`, com dez perfis curados. As versões introdutórias 1.0 são arquivadas na publicação editorial; cópias das clínicas e snapshots de sessões anteriores são preservados. Para experimentar a mudança, prepare um novo atendimento e selecione um caso Sob pressão.
+Estas versões constituem o nível anterior, preservado como referência editorial. O catálogo comum agora utiliza as versões 3.0 descritas a seguir; sessões antigas conservam seu snapshot.
+
+As sessões da etapa 2.0 utilizaram os cinco casos **Sob pressão**, definidos em `catalogo-desafiador.ts`, com dez perfis curados. As versões introdutórias 1.0 são arquivadas na publicação editorial; cópias das clínicas e snapshots de sessões anteriores são preservados. Para o nível atual, prepare um novo atendimento e selecione um caso Limite contestado.
 
 A dificuldade vem de restrições e objeções concretas: exigência de encaixe, receio de nova remarcação, prazo pessoal incompatível com o retorno da autorização, cobrança de previsão de saída e pressão por informação de familiar. Cada perfil distingue o que pede, o que realmente precisa, quando revela uma restrição e que encaminhamento pode aceitar. Um dos perfis recusa a orientação e encerra descontente, mesmo diante de boa condução.
 
@@ -25,6 +27,16 @@ O prompt `recepcao-2.1-resistencia` evita aceitação por simples cordialidade e
 As versões difíceis têm seis competências: acolhimento (20), compreensão (15), clareza (20), resolução (20), procedimentos (10) e **condução sob pressão (15)**. O avaliador separa qualidade de atendimento e satisfação: sustentar um limite e respeitar uma recusa pode ser adequado com desfecho não resolvido. Promessa indevida não ganha mérito por agradar a paciente. Notas antigas e novas continuam separadas por versão e rubrica.
 
 O prompt distingue orientação clínica efetiva, divulgação de informação e desrespeito grave de respostas administrativas genéricas. Não cabe converter qualquer falha em ocorrência crítica. A conferência semântica ainda depende de revisão humana. Se a fala da paciente vier com JSON inválido ou fora do schema, há uma única regeneração de formato; cada tentativa mantém seu próprio registro de custo/rejeição. Falhas de rede não recebem esse retry, e o avaliador preserva sua correção limitada no core.
+
+### Versões 3.0 — Limite contestado
+
+Os cinco casos em `catalogo-limites.ts` têm dez perfis com `paciente.postura=resistencia_persistente`. O campo é opcional para manter compatibilidade; na ausência dele, o personagem segue o comportamento negociável anterior. A postura fica reservada no servidor, integra o snapshot e pode ser selecionada no editor em **Reação aos limites**, por paciente e variante.
+
+O prompt `recepcao-2.2-limite-contestado` separa entender e aceitar. A personagem pode entender perfeitamente a regra e continuar exigindo encaixe, cobertura, prioridade ou informação de terceiro. Explicação correta não dispara aceitação automática. A cobrança permanece ligada à mesma demanda, sem inventar restrições, repetir dúvidas já respondidas ou seguir uma quantidade obrigatória de turnos.
+
+Cada caso informa publicamente o procedimento fictício para reclamação e encerramento: não há chefia disponível para transferência imediata; reclamação autorizada recebe retorno da coordenação até hoje às 17h no chat, sem garantia de exceção. Depois de tratar a objeção, apresentar saídas e sustentar o limite, a recepção pode encerrar respeitosamente diante de insistência repetida, sem depender de concordância para encerrar e sem encaminhar o que foi recusado. A última fala do paciente pode ser apenas um protesto.
+
+A rubrica `3.0-limites` mantém os seis eixos e respectivos pesos, explicitando encerramento sem acordo como condução adequada. Uma variante pode autorizar apenas a reclamação, continuando insatisfeita; a outra rejeita o encaminhamento posterior. Não se infere concordância com uma alternativa porque a pessoa autorizou registrar sua discordância.
 
 `recepcao_cenarios` armazena o conteúdo. `catalogo.ts` contém apenas as sementes iniciais; o runtime lê o banco. `cenario.mjs` preserva a fixture original para compatibilidade de testes históricos. O editor aceita de 3 a 7 competências; exige IDs únicos, pesos somando 100 e conteúdo limitado. Cada alteração da rubrica recebe uma identidade calculada pelo hash dos critérios. A versão e a variante selecionadas ficam no snapshot da sessão. Repetição imediata do mesmo caso alterna a variante.
 
@@ -60,6 +72,8 @@ O painel de operação exige `ai.costs.view`. Mostra custo conhecido por sessão
 - `RECEPCAO_UI=1`: `recepcao-ui.test.ts` usa Playwright, API simulada e uma página de prévia LOCAL temporária que renderiza `TreinoRecepcao`. `RECEPCAO_UI_URL` permite mudar a URL da prévia. Nunca publicar essa página de teste.
 - `RECEPCAO_DESAFIOS_LIVE=1`: `node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/unit/recepcao-desafios-live.test.ts --maxConcurrency=2` ensaia os dez perfis com resposta genérica e condução concreta. Compara avaliações em dois casos, incluindo recusa respeitada. Há custo; diálogos sintéticos ficam em `backups/recepcao-desafio-ensaio-*.json`, sem sessões de usuários. É um ensaio de comportamento, não comprovação de calibração com pessoas.
 - `RECEPCAO_DESAFIOS_DB=1`: `node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/unit/recepcao-desafios-db.test.ts` ensaia a publicação editorial em transação revertida. Somente com **`RECEPCAO_DESAFIOS_APPLY=1`** publica permanentemente as versões 2.0 e arquiva as sementes globais 1.0 identificadas por autoria. Salva backup do catálogo anterior, não altera sessões nem cenários personalizados e recusa sobrescrever versão divergente. Esta operação não exige nova migration de estrutura.
+- `RECEPCAO_LIMITES_LIVE=1`: `node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/unit/recepcao-limites-live.test.ts --maxConcurrency=2` verifica os dez perfis após respostas corretas, incluindo avaliações de encerramento sem acordo. Os diálogos fictícios ficam em `backups/recepcao-limites-ensaio-*.json` para inspeção semântica; as asserções textuais não comprovam, sozinhas, resistência realista.
+- `RECEPCAO_LIMITES_DB=1`: o runner acima com `tests/unit/recepcao-limites-db.test.ts` ensaia a publicação de 3.0 em transação revertida. **`RECEPCAO_LIMITES_APPLY=1`** confirma a operação com backup e arquiva somente sementes globais 2.0. Publicar o código antes do catálogo, pois o schema anterior não aceita o novo campo opcional. Não reexecutar publicação de versões anteriores já arquivadas.
 
 Aplicar a migration antes do deploy. A API e a UI anteriores continuam funcionando durante a atualização. Commit + push em master publica na Vercel.
 

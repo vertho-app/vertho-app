@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const texto = z.string().trim().min(1).max(4000);
 const chave = z.string().regex(/^[a-z][a-z0-9_\-]{1,63}$/);
-const paciente = z.object({ nome: texto, abertura: texto.max(800), comportamento: texto, fatos: z.array(texto).min(1).max(12), limites: texto }).strict();
+const paciente = z.object({ postura: z.enum(['negociavel', 'resistencia_persistente']).optional(), nome: texto, abertura: texto.max(800), comportamento: texto, fatos: z.array(texto).min(1).max(12), limites: texto }).strict();
 export const cenarioSchema = z.object({
   id: chave, versao: z.string().min(1).max(40), rubricaVersao: z.string().min(1).max(40),
   dominio: z.literal('recepcao_medica'), statusEditorial: z.string().max(60),
