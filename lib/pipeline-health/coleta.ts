@@ -410,9 +410,19 @@ export async function coletarPushDiario(sb: any): Promise<PushDiario> {
  * falhou e foi recuperada depois não vira achado (medido 28/07: 33 de 35 estavam nesse
  * caso; contar `error` cru viraria ruído permanente).
  */
-export async function coletarCelulasVideoSemDeck(sb: any): Promise<CelulaVideoSemDeck[]> {
-  const { data, error } = await sb.from('videos_gerados')
+export async function coletarCelulasVideoSemDeck(sb: any, tenantsReais?: ReadonlySet<string>): Promise<CelulaVideoSemDeck[]> {
+  /**
+   * `tenantsReais` restringe a varredura a quem não é demonstração. Omitido =
+   * varre tudo (contrato antigo, para chamador de script/investigação).
+   *
+   * 🔴 Medido 06/09/2026: sem o filtro, dois dos três módulos "sem consumidor"
+   * eram de um tenant de projeto parado e os erros tinham 73 dias — um achado
+   * crítico que não correspondia a dano nenhum.
+   */
+  let q = sb.from('videos_gerados')
     .select('modulo_base_id, empresa_id, cargo, disc_dominante, status, bunny_video_id, error, updated_at');
+  if (tenantsReais) q = q.in('empresa_id', [...tenantsReais]);
+  const { data, error } = await q;
   if (error) throw new Error(`videos_gerados: ${error.message}`);
 
   const { data: emps } = await sb.from('empresas').select('id, slug');

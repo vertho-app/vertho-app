@@ -47,6 +47,49 @@ async function empresasAtivas(sb: any) {
   return ((data as any[]) || []).filter((e) => !e.is_demo);
 }
 
+/**
+ * Os ids dos tenants REAIS — o mesmo critério de `empresasAtivas`, num Set.
+ *
+ * 🔴 POR QUE ISTO EXISTE (medido 06/09/2026). O pré-voo e o pós-voo sempre
+ * excluíram demo, porque iteram `empresasAtivas`. O bloco ESTRUTURAL não: ele
+ * varre as tabelas inteiras, e três achados críticos daquele dia dissolveram na
+ * conferência —
+ *
+ *   · "6 pessoas sem vídeo nominal": as 6 eram personas `.demo@vertho.ai` de
+ *     `escolas-acme`, tenant `is_demo` com 0 envios ativos. Nenhuma pessoa real;
+ *   · "8 briefs sem módulo-base": 5 do `gruposinal` (demo), 2 de um projeto sem
+ *     envio ativo e 1 do Ibipeba — este de uma competência que nenhuma trilha
+ *     tem como foco, portanto inalcançável;
+ *   · "célula em módulo sem consumidor": erros de 41 a 73 dias, dois deles num
+ *     tenant de projeto parado.
+ *
+ * Números que assustam e, medidos, viram zero pessoas reais. É a mesma classe do
+ * contador sem janela de 28/07: **alarme que não corresponde a dano treina a
+ * ignorar o alarme**, e aí ele deixa de servir para o dia em que houver dano.
+ *
+ * ⚠️ Isto NÃO desliga a demo do produto. O cron de reconciliação de vídeo segue
+ * cobrindo os tenants de demonstração — a demo precisa do vídeo nominal, é ele
+ * que ela demonstra. O que muda é só o que o health-check CONTA como problema.
+ */
+async function idsTenantsReais(sb: any): Promise<Set<string>> {
+  return new Set((await empresasAtivas(sb)).map((e: any) => e.id as string));
+}
+
+/**
+ * Tabelas do bloco estrutural que têm `empresa_id` — só nelas o filtro por
+ * tenant é direto.
+ *
+ * `kits` e `videos_personalizados` NÃO têm a coluna: a primeira não tem via
+ * nenhuma, a segunda só alcança o tenant por `colaborador_id`. Em vez de fingir
+ * que filtram, os achados delas saem marcados como contagem GLOBAL — número
+ * honesto vale mais que número redondo, e é o que impede alguém de comparar duas
+ * linhas que medem universos diferentes.
+ */
+const TABELAS_COM_TENANT = new Set([
+  'videos_gerados', 'kit_jobs', 'kit_briefs',
+  'notification_endpoints', 'micro_conteudos', 'modulos_base_conteudo', 'degradacao_log',
+]);
+
 // ── PRÉ-VOO ────────────────────────────────────────────────────────────────────
 
 export async function rodarPreflight(dataAlvo: Date, empresaIdFiltro?: string): Promise<ResultadoCheck[]> {
@@ -195,20 +238,38 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
   const t0 = Date.now();
   const achados: (Achado | null)[] = [];
   try {
+    // Tenants REAIS. Sem isto o bloco estrutural conta demo junto — ver
+    // `idsTenantsReais`. Fica ANTES de tudo porque quase toda contagem daqui
+    // depende dele, e uma falha aqui tem que derrubar o bloco (contar sem o
+    // filtro seria pior que não contar: o número parece o mesmo e mede outra
+    // coisa).
+    const reais = await idsTenantsReais(sb);
     // Contagem por query direta (head+count): sem DDL nova e sem SQL cru.
     // ⚠️ O `error` é PROPAGADO de propósito. Engolir aqui devolveria 0 — e "0
     // duplicatas" por falha de query é indistinguível de "0 duplicatas" de verdade.
     // É o mesmo defeito de `precarregarKits` (F-C4), que retorna Map vazio truthy
     // quando a query falha e desliga a personalização da coorte inteira em silêncio.
+    /**
+     * Conta SÓ em tenant real, quando a tabela tem `empresa_id`.
+     *
+     * As que não têm (`kits`, `videos_personalizados`) contam global e o achado
+     * diz isso — ver `TABELAS_COM_TENANT`. Fingir o filtro seria pior que não
+     * filtrar: duas linhas do mesmo relatório mediriam universos diferentes sem
+     * nada indicando.
+     */
     const contar = async (tabela: string, filtro: (q: any) => any): Promise<number> => {
-      const { count, error } = await filtro(sb.from(tabela).select('id', { count: 'exact', head: true }));
+      let q = filtro(sb.from(tabela).select('id', { count: 'exact', head: true }));
+      if (TABELAS_COM_TENANT.has(tabela)) q = q.in('empresa_id', [...reais]);
+      const { count, error } = await q;
       if (error) throw new Error(`${tabela}: ${error.message}`);
       return count || 0;
     };
+    /** Sufixo para o achado cuja contagem NÃO pôde ser restrita a tenant real. */
+    const GLOBAL = ' ⚠️ contagem global: a tabela não tem `empresa_id`, então inclui tenant de demonstração.';
 
     const kitsPresos = await contar('kits', (q: any) => q.eq('status', 'generating'));
     achados.push(achado('kit-preso-generating', 'aviso', 'Kit preso em "generating"', kitsPresos,
-      'Crash entre o upsert inicial e o update final deixa a linha nesse estado para sempre; o overlay ignora e re-runs empilham conteúdo no mesmo kit.',
+      'Crash entre o upsert inicial e o update final deixa a linha nesse estado para sempre; o overlay ignora e re-runs empilham conteúdo no mesmo kit.' + GLOBAL,
       { acao: 'Marcar como error e regerar o tema (conteúdo→kits→brief).' }));
 
     const doisH = new Date(Date.now() - 2 * 3600_000).toISOString();
@@ -236,7 +297,8 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
     // tendência visível; a consolidação é delicada porque as cópias carregam
     // videos_personalizados prontos (125 em 27/07).
     const { data: celulas, error: errCel } = await sb
-      .from('videos_gerados').select('modulo_base_id, empresa_id, cargo, disc_dominante').neq('status', 'error');
+      .from('videos_gerados').select('modulo_base_id, empresa_id, cargo, disc_dominante')
+      .neq('status', 'error').in('empresa_id', [...reais]);
     if (errCel) throw new Error(`videos_gerados: ${errCel.message}`);
     const vistos = new Map<string, number>();
     for (const v of (celulas as any[] || [])) {
@@ -259,7 +321,7 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
     // e quem termina em `error` sai do radar da entrega em silêncio (F-V3). Devolve
     // DOIS achados (recuperável × órfã): sem a separação, a ação recomendada mandava
     // gastar render num módulo que nenhum core usa.
-    achados.push(...checarCelulaVideoEmError(await coletarCelulasVideoSemDeck(sb)));
+    achados.push(...checarCelulaVideoEmError(await coletarCelulasVideoSemDeck(sb, reais)));
 
     // R17: o cron de reconciliação consegue subir um worker? Lê AMBIENTE (como R8/R11b)
     // porque o rastro em tabela é ambíguo: sem box, `reconciliarPersonalizados` desfaz o
@@ -274,7 +336,19 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
       pessoasSemVideoNominal: await (async () => {
         try {
           const { reconciliarPersonalizados } = await import('@/lib/video/reconciliar-personalizados');
-          return (await reconciliarPersonalizados({ executar: false })).pessoasSemVideoNominal;
+          const r = await reconciliarPersonalizados({ executar: false });
+          /**
+           * Conta só as lacunas de tenant REAL. `reconciliarPersonalizados`
+           * varre tudo de propósito — o cron precisa reconciliar a demo também,
+           * porque é o vídeo nominal que a demo demonstra. Quem não pode contar
+           * demo é o ALARME.
+           *
+           * 🔴 Medido 06/09/2026: as 6 pessoas do achado eram as 6 personas
+           * `.demo@vertho.ai` de `escolas-acme`. Zero pessoas reais esperando.
+           */
+          return (r.lacunas as any[])
+            .filter((l) => reais.has(l.empresaId))
+            .reduce((n, l) => n + (l.faltantes?.length ?? 0), 0);
         } catch (e: any) {
           console.error('[health] R17 não conseguiu medir a lacuna de vídeo nominal:', e?.message || e);
           return null;
