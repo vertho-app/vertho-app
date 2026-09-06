@@ -251,3 +251,16 @@ export function exportPodcastMp3FromPcm(pcm: Buffer, sampleRate: number): Buffer
   const mono441 = resampleMonoPcm16(mastered, sampleRate, MP3_SAMPLE_RATE);
   return prependXingHeader(encodeMp3(mono441), MP3_CANAIS, MP3_SAMPLE_RATE, MP3_BITRATE_KBPS);
 }
+
+/**
+ * MP3 SEM masterização — para fatias de um áudio que JÁ foi masterizado inteiro.
+ *
+ * `Medido 06/09/2026`: as 9 cenas de um vídeo, cada uma masterizada sozinha, saíam
+ * com 4,4 dB de diferença de nível entre si (o ganho é limitado pelo pico DA CENA).
+ * Masterizar a narração inteira uma vez e só então cortar preserva o mesmo ganho
+ * em todas as cenas por construção — daí este export sem `masterPodcastPcm`.
+ */
+export function pcmToMp3SemMaster(pcm: Buffer, sampleRate: number): Buffer {
+  const mono441 = resampleMonoPcm16(pcm, sampleRate, MP3_SAMPLE_RATE);
+  return prependXingHeader(encodeMp3(mono441), MP3_CANAIS, MP3_SAMPLE_RATE, MP3_BITRATE_KBPS);
+}

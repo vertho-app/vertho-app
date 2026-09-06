@@ -1,0 +1,80 @@
+/**
+ * Alinhamento cena × transcrição (lib/video/narracao-unica.ts). Os casos plantam o
+ * que o Whisper faz na prática: erra uma palavra, some com um número, ouve a 1ª
+ * palavra errada — e exigem fronteira certa OU recusa explícita (null), nunca um
+ * corte no lugar errado em silêncio.
+ */
+import { describe, it, expect } from 'vitest';
+import { alinharCenas, montarTextoUnico, fatiarPcm16 } from '@/lib/video/narracao-unica';
+import type { WordTime } from '@/lib/video/whisper-align';
+
+/** Transcrição sintética: cada palavra dura 0,3 s; entre cenas, pausa de 0,8 s. */
+function transcrever(cenas: string[][], pausa = 0.8): WordTime[] {
+  const out: WordTime[] = []; let t = 0.5;
+  for (const c of cenas) {
+    for (const w of c) { out.push({ word: w, start: t, end: t + 0.3 }); t += 0.35; }
+    t += pausa;
+  }
+  return out;
+}
+
+describe('narração única: alinhamento de cenas', () => {
+  const cenas = [
+    { id: 'scene-1', narration: 'Você já teve aquela sensação de que a aula estava indo bem?' },
+    { id: 'scene-2', narration: 'Ritmo não é velocidade. É a sensação de que cada parte da aula tem um lugar.' },
+    { id: 'scene-3', narration: 'Então, o que você vai observar na sua próxima aula?' },
+  ];
+
+  it('casa cenas limpas e corta no meio da pausa entre elas', () => {
+    const words = transcrever(cenas.map((c) => c.narration.split(' ')));
+    const f = alinharCenas(words, cenas)!;
+    expect(f).not.toBeNull();
+    expect(f.map((x) => x.id)).toEqual(['scene-1', 'scene-2', 'scene-3']);
+    for (let i = 1; i < f.length; i++) expect(f[i].inicio).toBeGreaterThanOrEqual(f[i - 1].fim - 1e-6);
+    // a cabeça encosta na 1ª palavra (0,12 s antes) e as palavras ficam relativas à fatia
+    expect(f[1].words[0].word).toBe('Ritmo');
+    expect(f[1].words[0].start).toBeCloseTo(0.12, 2);
+    expect(f[0].casadas).toBe(f[0].total);
+  });
+
+  it('tolera o ASR errar palavras (substituição e omissão) e ainda acha a fronteira', () => {
+    const t = cenas.map((c) => c.narration.split(' '));
+    t[1][2] = 'nao'; t[1].splice(5, 1); // "é" ouvido como "nao", "sensação" sumiu
+    const words = transcrever(t);
+    const f = alinharCenas(words, cenas)!;
+    expect(f).not.toBeNull();
+    expect(f[1].casadas).toBeGreaterThanOrEqual(Math.ceil(f[1].total * 0.6));
+    expect(f[2].words[0].word).toBe('Então,');
+  });
+
+  it('se o ASR erra a PRIMEIRA palavra da cena, a fatia começa na fronteira (não corta a palavra)', () => {
+    const t = cenas.map((c) => c.narration.split(' '));
+    t[2][0] = 'entao?'; // token diferente de "então" normalizado? não: "entao" == "entao" → força um erro real
+    t[2][0] = 'xxx';
+    const words = transcrever(t);
+    const f = alinharCenas(words, cenas)!;
+    expect(f).not.toBeNull();
+    const primeiraPalavraReal = words.find((w) => w.word === 'xxx')!;
+    expect(f[2].inicio).toBeLessThan(primeiraPalavraReal.start); // a palavra não ouvida fica DENTRO da fatia
+    expect(f[2].words[0].word).toBe('xxx');
+  });
+
+  it('recusa (null) quando uma cena casa menos de 60 % — nunca corta no chute', () => {
+    const t = cenas.map((c) => c.narration.split(' '));
+    t[1] = ['blá', 'blá', 'blá', 'blá', 'blá', 'blá', 'blá', 'blá', 'blá', 'blá', 'blá', 'blá', 'blá', 'blá'];
+    expect(alinharCenas(transcrever(t), cenas)).toBeNull();
+  });
+
+  it('recusa quando as cenas do roteiro vêm em ordem diferente da fala', () => {
+    const words = transcrever([cenas[1].narration.split(' '), cenas[0].narration.split(' '), cenas[2].narration.split(' ')]);
+    expect(alinharCenas(words, cenas)).toBeNull();
+  });
+
+  it('texto único separa cenas por parágrafo duplo e fatiarPcm16 respeita os limites', () => {
+    expect(montarTextoUnico(cenas).split('\n\n')).toHaveLength(3);
+    const pcm = Buffer.alloc(24000 * 2 * 10); // 10 s
+    const fatia = fatiarPcm16(pcm, 24000, 2.5, 4.0);
+    expect(fatia.length).toBe(Math.ceil(1.5 * 24000) * 2);
+    expect(fatiarPcm16(pcm, 24000, 9.5, 12).length).toBe(24000); // clampa no fim
+  });
+});

@@ -11,6 +11,8 @@ import { montarInputProps, exportCaptionsToSrt, exportCaptionsToVtt, type AssetM
 import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
 import { storagePut, SUPA, KEY } from '../lib/video/render-helpers';
 import { transcribeWords } from '../lib/video/whisper-align';
+import { montarTextoUnico, alinharCenas, fatiarPcm16 } from '../lib/video/narracao-unica';
+import { pcmToMp3SemMaster } from '../lib/tts/audio-dsp';
 import { regionOpts } from '../lib/trigger-region';
 import { ensureRenderWorker } from '../lib/video/ensure-render-worker';
 
@@ -51,6 +53,16 @@ const styleForScene = (type: string) =>
   type === 'avatar_intro' ? NARRATION_STYLE_INTRO
   : type === 'avatar_outro' ? NARRATION_STYLE_OUTRO
   : NARRATION_STYLE_MIOLO;
+
+// NARRAÇÃO ÚNICA (06/09/2026, default ligado; `VIDEO_NARRACAO_UNICA=off` volta ao
+// caminho por cena). Uma chamada para o roteiro inteiro, UMA direção de estilo,
+// masterização única, corte por alinhamento do Whisper — ver lib/video/narracao-unica.ts.
+// As três direções por tipo de cena ficam só no caminho por cena (fallback): em
+// chamadas separadas o modelo as interpretava como personagens diferentes (abertura
+// 2,1 st abaixo do miolo e 20-30 % mais lenta), e isso é o que o Rodrigo ouviu como
+// "continuidade ruim" no vídeo 10e50d4a.
+const NARRACAO_UNICA = (process.env.VIDEO_NARRACAO_UNICA || 'on').toLowerCase() !== 'off';
+const NARRATION_STYLE_UNICO = NARRATION_STYLE_MIOLO;
 
 // Trava a pronúncia de siglas/jargão que o TTS erra. Aplicado SÓ ao texto do TTS
 // — as legendas usam o texto ORIGINAL (o Whisper dá só o timing). Lista
@@ -139,6 +151,20 @@ async function trimTrailingSilence(mp3: Buffer): Promise<Buffer> {
   }
 }
 
+/** MP3 → PCM 16-bit mono 24 kHz (para cortar a narração única nas fronteiras das cenas). */
+async function mp3ParaPcm24k(mp3: Buffer): Promise<Buffer> {
+  const dir = await mkdtemp(nodePath.join(os.tmpdir(), 'pcm-'));
+  const inP = nodePath.join(dir, 'in.mp3');
+  const outP = nodePath.join(dir, 'out.pcm');
+  try {
+    await writeFile(inP, mp3);
+    await exec(FFMPEG, ['-y', '-i', inP, '-f', 's16le', '-ac', '1', '-ar', '24000', outP], { timeout: 120_000, maxBuffer: 32 * 1024 * 1024 });
+    return await readFile(outP);
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 /** Duração (s) de um asset por ffprobe — aceita URL http direto. */
 async function ffprobeDuration(url: string): Promise<number> {
   try {
@@ -185,7 +211,42 @@ export const gerarVideoModuloTask = task({
       // (pool) — antes era sequencial (~3s × N cenas). Saída idêntica (assets por id).
       // Pula cenas cujo áudio já existe (resume).
       await patchVideo(videoId, { etapa: 'narracao' });
-      const comNarracao = roteiro.scenes.filter((s) => s.narration?.trim() && !assets[s.id]?.src);
+      const cenasComTexto = roteiro.scenes.filter((s) => s.narration?.trim());
+      const nadaGerado = cenasComTexto.every((s) => !assets[s.id]?.src);
+
+      // 1a) NARRAÇÃO ÚNICA: só no 1º processamento (resume parcial mistura takes, e
+      // aí o caminho por cena abaixo completa o que falta com a voz de sempre).
+      if (NARRACAO_UNICA && nadaGerado && cenasComTexto.length > 1) {
+        try {
+          const cenas = cenasComTexto.map((s) => ({ id: s.id, narration: aplicarPronuncia(s.narration as string) }));
+          const t0 = Date.now();
+          // Chamada única + portão de deriva (Aoede: volume, timbre, registro, inclinação).
+          const audio = await generateNarrationAudio(montarTextoUnico(cenas), {
+            voice: VOICE,
+            style: NARRATION_STYLE_UNICO,
+            segmentar: false,
+            ledger: { feature: 'tts_video_cena' },
+          });
+          const words = await transcribeWords(audio.buffer);
+          if (!words) throw new Error('Whisper indisponível (sem timing por palavra, não há como cortar)');
+          const pcm = await mp3ParaPcm24k(audio.buffer);
+          const duracaoS = pcm.length / 2 / 24000;
+          const fatias = alinharCenas(words, cenas, duracaoS);
+          if (!fatias) throw new Error('alinhamento cena × transcrição insuficiente');
+          await mapPool(fatias, 3, async (f) => {
+            const mp3 = pcmToMp3SemMaster(fatiarPcm16(pcm, 24000, f.inicio, f.fim), 24000);
+            const src = await storagePut('video-assets', `${videoId}/${f.id}.mp3`, mp3, 'audio/mpeg');
+            assets[f.id] = { src, durationSec: 0, words: f.words };
+          });
+          console.log(`[narracao-unica] ${fatias.length} cenas de um take de ${duracaoS.toFixed(0)}s em ${Math.round((Date.now() - t0) / 1000)}s · casamento ${fatias.map((f) => `${f.id}:${f.casadas}/${f.total}`).join(' ')}${audio.qa ? ` · qa ${audio.qa.ok ? 'ok' : 'ressalva'} (${audio.qa.tentativas} tent.)` : ''}`);
+        } catch (e) {
+          // Fallback DECLARADO: volta ao caminho por cena, que sempre funcionou. O
+          // preço é a costura entre cenas — por isso o aviso, não o silêncio.
+          console.warn('[narracao-unica] caiu para narração POR CENA:', (e as Error)?.message);
+        }
+      }
+
+      const comNarracao = cenasComTexto.filter((s) => !assets[s.id]?.src);
       await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
         // `ledger` sem empresa de propósito: o vídeo é do MÓDULO-BASE (conteúdo
         // canônico da plataforma), não de um tenant. Etiqueta vazia seria chute.
