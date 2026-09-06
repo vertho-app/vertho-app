@@ -149,6 +149,80 @@ export function alinharCenas(wordsBrutas: WordTime[], cenas: CenaNarrada[], dura
   return fatias;
 }
 
+export interface AvisoFronteira { id: string; motivo: string }
+
+/** Quantos tokens de borda da cena vizinha se procura na fatia (vazamento). */
+const BORDA = 3;
+/** Janela de energia ao redor do corte e quanto abaixo da fala ela precisa ficar. */
+const JANELA_CORTE_S = 0.05;
+const SILENCIO_MIN_DB = 10;
+
+function rms(pcm: Buffer, sampleRate: number, deS: number, ateS: number): number {
+  const a = Math.max(0, Math.floor(deS * sampleRate)), b = Math.min(pcm.length / 2, Math.ceil(ateS * sampleRate));
+  if (b <= a) return 0;
+  let s = 0;
+  for (let i = a; i < b; i++) { const v = pcm.readInt16LE(i * 2) / 32768; s += v * v; }
+  return Math.sqrt(s / (b - a));
+}
+
+/**
+ * QA das fatias, ancorado no ROTEIRO e no ÁUDIO (não no ASR que fez o corte):
+ *  (a) vazamento: a fatia não pode terminar com uma palavra das primeiras da cena
+ *      seguinte, nem começar com uma das últimas da cena anterior. Foi assim que
+ *      "Segunda" (1ª palavra da cena 2) apareceu no fim da cena 1 em 06/09; WER e
+ *      régua de deriva não veem isso, só as palavras de borda.
+ *  (b) silêncio no corte: a energia ±50 ms ao redor de cada fronteira tem que ficar
+ *      SILENCIO_MIN_DB abaixo do nível mediano de fala da fatia. Corte no meio de
+ *      palavra não tem pausa. Só roda quando o PCM é passado.
+ * Devolve avisos (vazio = passou). Quem chama decide: a task cai no caminho por cena.
+ */
+export function validarFatias(fatias: FatiaCena[], cenas: CenaNarrada[], pcm?: Buffer, sampleRate?: number): AvisoFronteira[] {
+  const avisos: AvisoFronteira[] = [];
+  const alvos = cenas.map((c) => tokens(c.narration));
+  for (let i = 0; i < fatias.length; i++) {
+    const f = fatias[i];
+    const ws = f.words.map((w) => normalizarToken(w.word)).filter(Boolean);
+    if (!ws.length) { avisos.push({ id: f.id, motivo: 'fatia sem palavras' }); continue; }
+    const ultima = ws[ws.length - 1], primeira = ws[0];
+    const proximaCena = alvos[i + 1], cenaAnterior = alvos[i - 1];
+    if (proximaCena && !alvos[i].includes(ultima) && proximaCena.slice(0, BORDA).includes(ultima)) {
+      avisos.push({ id: f.id, motivo: `termina com "${f.words[f.words.length - 1].word}", que abre a cena seguinte` });
+    }
+    if (cenaAnterior && !alvos[i].includes(primeira) && cenaAnterior.slice(-BORDA).includes(primeira)) {
+      avisos.push({ id: f.id, motivo: `começa com "${f.words[0].word}", que fecha a cena anterior` });
+    }
+    if (pcm && sampleRate && i > 0) {
+      const corte = rms(pcm, sampleRate, f.inicio - JANELA_CORTE_S, f.inicio + JANELA_CORTE_S);
+      // nível de fala da fatia = mediana das janelas de 50 ms (robusta às pausas)
+      const niveis: number[] = [];
+      for (let t = f.inicio; t + JANELA_CORTE_S <= f.fim; t += JANELA_CORTE_S) niveis.push(rms(pcm, sampleRate, t, t + JANELA_CORTE_S));
+      niveis.sort((a, b) => a - b);
+      const fala = niveis[Math.floor(niveis.length / 2)] || 0;
+      if (fala > 0 && corte > fala * Math.pow(10, -SILENCIO_MIN_DB / 20)) {
+        avisos.push({ id: f.id, motivo: `corte em ${f.inicio.toFixed(2)}s sem pausa (${(20 * Math.log10(corte / fala)).toFixed(0)} dB abaixo da fala; mínimo ${SILENCIO_MIN_DB})` });
+      }
+    }
+  }
+  return avisos;
+}
+
+/** `ok` com `fatias`, ou recusa com `motivo`. (Não é união discriminada de propósito:
+ *  com `strict: false` o TypeScript não estreita por booleano.) */
+export interface PlanoNarracao { ok: boolean; fatias?: FatiaCena[]; motivo?: string }
+
+/**
+ * Decisão completa da narração única: alinha e valida. `ok: false` = a task cai no
+ * caminho por cena com o motivo no log (fail-open declarado, nunca corte no chute).
+ * Puro, para o roteamento de recusa ter teste sem subir a task.
+ */
+export function planejarNarracaoUnica(words: WordTime[], cenas: CenaNarrada[], duracaoTotalS?: number, pcm?: Buffer, sampleRate?: number): PlanoNarracao {
+  const fatias = alinharCenas(words, cenas, duracaoTotalS);
+  if (!fatias) return { ok: false, motivo: 'alinhamento cena × transcrição insuficiente' };
+  const avisos = validarFatias(fatias, cenas, pcm, sampleRate);
+  if (avisos.length) return { ok: false, motivo: `fronteira suspeita: ${avisos.map((a) => `${a.id} ${a.motivo}`).join(' · ')}` };
+  return { ok: true, fatias };
+}
+
 /** Recorta PCM 16-bit mono entre dois instantes (segundos). */
 export function fatiarPcm16(pcm: Buffer, sampleRate: number, inicioS: number, fimS: number): Buffer {
   const a = Math.max(0, Math.floor(inicioS * sampleRate)) * 2;

@@ -11,7 +11,7 @@ import { montarInputProps, exportCaptionsToSrt, exportCaptionsToVtt, type AssetM
 import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
 import { storagePut, SUPA, KEY } from '../lib/video/render-helpers';
 import { transcribeWords } from '../lib/video/whisper-align';
-import { montarTextoUnico, alinharCenas, fatiarPcm16 } from '../lib/video/narracao-unica';
+import { montarTextoUnico, planejarNarracaoUnica, fatiarPcm16 } from '../lib/video/narracao-unica';
 import { pcmToMp3SemMaster } from '../lib/tts/audio-dsp';
 import { regionOpts } from '../lib/trigger-region';
 import { ensureRenderWorker } from '../lib/video/ensure-render-worker';
@@ -174,6 +174,21 @@ async function mp3ParaPcm24k(mp3: Buffer): Promise<Buffer> {
 }
 
 /** Duração (s) de um asset por ffprobe — aceita URL http direto. */
+/** Duração dos BYTES que vão subir (ffprobe num arquivo temporário). Par do
+ *  `ffprobeDuration(url)`: depois do upload, os dois têm que bater. Em 06/09 o
+ *  registro guardou 20,011 s para uma abertura de 17,9 s porque a URL devolveu o
+ *  asset da rodada anterior (mesmo path + CDN). 0 = não conseguiu medir. */
+async function duracaoDoBuffer(buf: Buffer, ext: 'mp3' | 'mp4'): Promise<number> {
+  const dir = await mkdtemp(nodePath.join(os.tmpdir(), 'vv-dur-'));
+  const file = nodePath.join(dir, `a.${ext}`);
+  try {
+    await writeFile(file, buf);
+    return await ffprobeDuration(file);
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
 async function ffprobeDuration(url: string): Promise<number> {
   try {
     const { stdout } = await exec(FFPROBE, ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', url]);
@@ -214,6 +229,9 @@ export const gerarVideoModuloTask = task({
       // RESUME: parte dos assets já persistidos (retry do Trigger ou re-render de um
       // render_queued que não achou box) → NÃO re-gera narração/avatar/HeyGen.
       const assets: AssetMap = await getVideoAssets(videoId);
+      // Duração medida nos bytes ENVIADOS nesta execução, por cena — conferida contra
+      // o que o Storage serve antes de compor (invariante do passo 3).
+      const duracaoLocal: Record<string, number> = {};
 
       // 1) NARRAÇÃO — uma voz (Callirrhoe, ritmo ágil) em todo o vídeo. Paralela
       // (pool) — antes era sequencial (~3s × N cenas). Saída idêntica (assets por id).
@@ -239,13 +257,17 @@ export const gerarVideoModuloTask = task({
           if (!words) throw new Error('Whisper indisponível (sem timing por palavra, não há como cortar)');
           const pcm = await mp3ParaPcm24k(audio.buffer);
           const duracaoS = pcm.length / 2 / 24000;
-          const fatias = alinharCenas(words, cenas, duracaoS);
+          // Alinha E valida (vazamento de palavra de borda, silêncio no corte): recusa
+          // = cai no caminho por cena, com o motivo no log.
+          const plano = planejarNarracaoUnica(words, cenas, duracaoS, pcm, 24000);
+          if (!plano.ok || !plano.fatias) throw new Error(plano.motivo || 'narração única recusada');
+          const fatias = plano.fatias;
           const tag = GERACAO_TAG();
-          if (!fatias) throw new Error('alinhamento cena × transcrição insuficiente');
           await mapPool(fatias, 3, async (f) => {
             const mp3 = pcmToMp3SemMaster(fatiarPcm16(pcm, 24000, f.inicio, f.fim), 24000);
             const src = await storagePut('video-assets', `${videoId}/${f.id}-${tag}.mp3`, mp3, 'audio/mpeg');
             assets[f.id] = { src, durationSec: 0, words: f.words };
+            duracaoLocal[f.id] = await duracaoDoBuffer(mp3, 'mp3');
           });
           console.log(`[narracao-unica] ${fatias.length} cenas de um take de ${duracaoS.toFixed(0)}s em ${Math.round((Date.now() - t0) / 1000)}s · casamento ${fatias.map((f) => `${f.id}:${f.casadas}/${f.total}`).join(' ')}${audio.qa ? ` · qa ${audio.qa.ok ? 'ok' : 'ressalva'} (${audio.qa.tentativas} tent.)` : ''}`);
         } catch (e) {
@@ -267,6 +289,7 @@ export const gerarVideoModuloTask = task({
         // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.
         const buf = await trimTrailingSilence(audio.buffer);
         const src = await storagePut('video-assets', `${videoId}/${s.id}-${GERACAO_TAG()}.mp3`, buf, 'audio/mpeg');
+        duracaoLocal[s.id] = await duracaoDoBuffer(buf, 'mp3');
         // M4: timing por palavra (Whisper) p/ legendas + animações. null = fallback heurístico.
         const words = await transcribeWords(buf);
         assets[s.id] = { src, durationSec: 0, words: words || undefined };
@@ -285,6 +308,7 @@ export const gerarVideoModuloTask = task({
         const mp4 = Buffer.from(await (await fetch(heygenUrl)).arrayBuffer());
         const norm = await normalizarFps(mp4, VIDEO_FPS); // 25fps→30fps CFR (lip-sync)
         const src = await storagePut('video-assets', `${videoId}/${s.id}-${GERACAO_TAG()}.mp4`, norm, 'video/mp4');
+        duracaoLocal[s.id] = await duracaoDoBuffer(norm, 'mp4'); // o `src` da cena passa a ser o mp4
         // Mantém o mp3 da narração como áudio SEPARADO: o vídeo (mp4) entra mutado e
         // o áudio é tocado alinhado pelo Remotion → lip-sync sem o offset do OffthreadVideo.
         // Preserva `words` (timing Whisper) capturado no passo da narração.
@@ -300,6 +324,15 @@ export const gerarVideoModuloTask = task({
       // (6/8s) e a cena fica fora de sincronia. Sinaliza (não aborta — é recuperável).
       const semDuracao = Object.keys(assets).filter((id) => !assets[id].durationSec);
       if (semDuracao.length) console.warn(`${videoId}: ${semDuracao.length} asset(s) sem duração (ffprobe): ${semDuracao.join(', ')}`);
+      // INVARIANTE (06/09): o que o Storage serve tem que ser o que subiu nesta execução.
+      // Os nomes são únicos por geração; se mesmo assim divergir, a composição sairia
+      // com boca de um take e som de outro — é construção, falha alto.
+      const requentados = Object.keys(duracaoLocal).filter((id) =>
+        duracaoLocal[id] > 0 && assets[id]?.durationSec > 0 && Math.abs(assets[id].durationSec - duracaoLocal[id]) > 0.1);
+      if (requentados.length) {
+        throw new Error(`asset servido ≠ asset enviado (CDN requentado?): ${requentados
+          .map((id) => `${id} servido ${assets[id].durationSec.toFixed(3)}s × enviado ${duracaoLocal[id].toFixed(3)}s`).join(', ')}`);
+      }
 
       // 4) inputProps (timeline + legendas).
       const props = montarInputProps(roteiro, assets, {

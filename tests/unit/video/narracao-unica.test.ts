@@ -5,7 +5,8 @@
  * corte no lugar errado em silêncio.
  */
 import { describe, it, expect } from 'vitest';
-import { alinharCenas, montarTextoUnico, fatiarPcm16 } from '@/lib/video/narracao-unica';
+import { alinharCenas, montarTextoUnico, fatiarPcm16, validarFatias, planejarNarracaoUnica } from '@/lib/video/narracao-unica';
+import type { FatiaCena } from '@/lib/video/narracao-unica';
 import type { WordTime } from '@/lib/video/whisper-align';
 
 /** Transcrição sintética: cada palavra dura 0,3 s; entre cenas, pausa de 0,8 s. */
@@ -121,5 +122,89 @@ describe('narração única: alinhamento de cenas', () => {
     const fatia = fatiarPcm16(pcm, 24000, 2.5, 4.0);
     expect(fatia.length).toBe(Math.ceil(1.5 * 24000) * 2);
     expect(fatiarPcm16(pcm, 24000, 9.5, 12).length).toBe(24000); // clampa no fim
+  });
+});
+
+/** PCM sintético a partir das palavras: tom de 440 Hz durante cada palavra, silêncio fora. */
+function sintetizar(words: WordTime[], duracaoS: number, sr = 24000): Buffer {
+  const pcm = Buffer.alloc(Math.ceil(duracaoS * sr) * 2);
+  for (const w of words) {
+    for (let i = Math.floor(w.start * sr); i < Math.min(pcm.length / 2, Math.ceil(w.end * sr)); i++) {
+      pcm.writeInt16LE(Math.round(Math.sin((2 * Math.PI * 440 * i) / sr) * 0.3 * 32767), i * 2);
+    }
+  }
+  return pcm;
+}
+
+describe('narração única: QA das fatias (roteiro + áudio) e roteamento de recusa', () => {
+  const cenas = [
+    { id: 'scene-1', narration: 'Você vai ver a diferença na prática.' },
+    { id: 'scene-2', narration: 'Segunda-feira, terceira aula. Você abre a mesma apresentação.' },
+    { id: 'scene-3', narration: 'Então, o que você vai observar na sua próxima aula?' },
+  ];
+  const palavra = (word: string, start: number) => ({ word, start, end: start + 0.3 });
+
+  it('acusa a fatia que TERMINA com a palavra que abre a cena seguinte (o "Segun|feira" de 06/09)', () => {
+    const fatias: FatiaCena[] = [
+      { id: 'scene-1', inicio: 0, fim: 3.2, casadas: 7, total: 7,
+        words: ['Você', 'vai', 'ver', 'a', 'diferença', 'na', 'prática.', 'Segunda'].map((w, i) => palavra(w, i * 0.4)) },
+      { id: 'scene-2', inicio: 3.2, fim: 6, casadas: 8, total: 9,
+        words: ['feira,', 'terceira', 'aula.', 'Você', 'abre', 'a', 'mesma', 'apresentação.'].map((w, i) => palavra(w, i * 0.35)) },
+    ];
+    const avisos = validarFatias(fatias, cenas.slice(0, 2));
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0].id).toBe('scene-1');
+    expect(avisos[0].motivo).toContain('Segunda');
+  });
+
+  it('acusa a fatia que COMEÇA com a palavra que fecha a cena anterior, e não acusa palavra que a própria cena tem', () => {
+    const fatias: FatiaCena[] = [
+      { id: 'scene-1', inicio: 0, fim: 2.5, casadas: 6, total: 7,
+        words: ['Você', 'vai', 'ver', 'a', 'diferença', 'na'].map((w, i) => palavra(w, i * 0.4)) },
+      { id: 'scene-2', inicio: 2.5, fim: 6, casadas: 9, total: 9,
+        words: ['prática.', 'Segunda', 'feira,', 'terceira', 'aula.', 'Você', 'abre', 'a', 'mesma', 'apresentação.'].map((w, i) => palavra(w, i * 0.35)) },
+    ];
+    const avisos = validarFatias(fatias, cenas.slice(0, 2));
+    expect(avisos.map((a) => a.id)).toEqual(['scene-2']);
+    expect(avisos[0].motivo).toContain('prática');
+    // "Você" existe nas duas cenas: começar com ela NÃO é vazamento
+    const limpa: FatiaCena[] = [fatias[0], { ...fatias[1], words: fatias[1].words.slice(5) }];
+    expect(validarFatias(limpa, cenas.slice(0, 2))).toEqual([]);
+  });
+
+  it('corte no silêncio passa; corte no meio de uma palavra (sem pausa) é acusado pela energia', () => {
+    const words = transcrever(cenas.map((c) => c.narration.split(' ')));
+    const fatias = alinharCenas(words, cenas)!;
+    const total = words[words.length - 1].end + 0.5;
+    const pcm = sintetizar(words, total);
+    expect(validarFatias(fatias, cenas, pcm, 24000)).toEqual([]);
+    // força a fronteira 1→2 para dentro da 2ª palavra da cena 2
+    const dentro = words[words.findIndex((w) => w.word === 'Segunda-feira,') + 1]; // "terceira"
+    const quebrada: FatiaCena[] = [
+      { ...fatias[0], fim: dentro.start + 0.15 },
+      { ...fatias[1], inicio: dentro.start + 0.15 },
+      fatias[2],
+    ];
+    const avisos = validarFatias(quebrada, cenas, pcm, 24000);
+    expect(avisos.some((a) => a.id === 'scene-2' && a.motivo.includes('sem pausa'))).toBe(true);
+  });
+
+  it('planejarNarracaoUnica: recusa com motivo quando o alinhamento falha e quando a fronteira é suspeita; aprova o caso limpo', () => {
+    const words = transcrever(cenas.map((c) => c.narration.split(' ')));
+    const total = words[words.length - 1].end + 0.5;
+    const limpo = planejarNarracaoUnica(words, cenas, total, sintetizar(words, total), 24000);
+    expect(limpo.ok).toBe(true);
+    expect(limpo.fatias!.map((f) => f.id)).toEqual(['scene-1', 'scene-2', 'scene-3']);
+
+    const fora = transcrever([cenas[1].narration.split(' '), cenas[0].narration.split(' '), cenas[2].narration.split(' ')]);
+    const r1 = planejarNarracaoUnica(fora, cenas);
+    expect(r1.ok).toBe(false);
+    expect(r1.motivo).toContain('alinhamento');
+
+    // áudio que NÃO para entre as cenas (tom contínuo): toda fronteira cai sem pausa
+    const continuo = sintetizar([{ word: 'x', start: 0, end: total }], total);
+    const r2 = planejarNarracaoUnica(words, cenas, total, continuo, 24000);
+    expect(r2.ok).toBe(false);
+    expect(r2.motivo).toContain('fronteira suspeita');
   });
 });
