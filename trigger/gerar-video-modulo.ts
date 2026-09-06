@@ -62,6 +62,14 @@ const styleForScene = (type: string) =>
 // 2,1 st abaixo do miolo e 20-30 % mais lenta), e isso é o que o Rodrigo ouviu como
 // "continuidade ruim" no vídeo 10e50d4a.
 const NARRACAO_UNICA = (process.env.VIDEO_NARRACAO_UNICA || 'on').toLowerCase() !== 'off';
+
+// NOMES DE ASSET ÚNICOS POR GERAÇÃO. `Medido 06/09/2026` (vídeo 10e50d4a, re-gerado
+// com o mesmo videoId): o CDN do Storage serviu `scene-1.mp4` da rodada ANTERIOR
+// (20,0 s) — o registro gravou durationSec 20,011 enquanto o arquivo real tinha
+// 17,9 s — e o render/HeyGen misturou boca de um take com som de outro: lip-sync
+// errado + 1,9 s de avatar mudo. Caminho repetido + upsert + CDN = asset velho.
+// Com um sufixo por geração, retry/re-render nunca herda cache.
+const GERACAO_TAG = () => Date.now().toString(36);
 const NARRATION_STYLE_UNICO = NARRATION_STYLE_MIOLO;
 
 // Trava a pronúncia de siglas/jargão que o TTS erra. Aplicado SÓ ao texto do TTS
@@ -232,10 +240,11 @@ export const gerarVideoModuloTask = task({
           const pcm = await mp3ParaPcm24k(audio.buffer);
           const duracaoS = pcm.length / 2 / 24000;
           const fatias = alinharCenas(words, cenas, duracaoS);
+          const tag = GERACAO_TAG();
           if (!fatias) throw new Error('alinhamento cena × transcrição insuficiente');
           await mapPool(fatias, 3, async (f) => {
             const mp3 = pcmToMp3SemMaster(fatiarPcm16(pcm, 24000, f.inicio, f.fim), 24000);
-            const src = await storagePut('video-assets', `${videoId}/${f.id}.mp3`, mp3, 'audio/mpeg');
+            const src = await storagePut('video-assets', `${videoId}/${f.id}-${tag}.mp3`, mp3, 'audio/mpeg');
             assets[f.id] = { src, durationSec: 0, words: f.words };
           });
           console.log(`[narracao-unica] ${fatias.length} cenas de um take de ${duracaoS.toFixed(0)}s em ${Math.round((Date.now() - t0) / 1000)}s · casamento ${fatias.map((f) => `${f.id}:${f.casadas}/${f.total}`).join(' ')}${audio.qa ? ` · qa ${audio.qa.ok ? 'ok' : 'ressalva'} (${audio.qa.tentativas} tent.)` : ''}`);
@@ -257,7 +266,7 @@ export const gerarVideoModuloTask = task({
         });
         // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.
         const buf = await trimTrailingSilence(audio.buffer);
-        const src = await storagePut('video-assets', `${videoId}/${s.id}.mp3`, buf, 'audio/mpeg');
+        const src = await storagePut('video-assets', `${videoId}/${s.id}-${GERACAO_TAG()}.mp3`, buf, 'audio/mpeg');
         // M4: timing por palavra (Whisper) p/ legendas + animações. null = fallback heurístico.
         const words = await transcribeWords(buf);
         assets[s.id] = { src, durationSec: 0, words: words || undefined };
@@ -275,7 +284,7 @@ export const gerarVideoModuloTask = task({
         const heygenUrl = await aguardarClipHeyGen(heygenId);
         const mp4 = Buffer.from(await (await fetch(heygenUrl)).arrayBuffer());
         const norm = await normalizarFps(mp4, VIDEO_FPS); // 25fps→30fps CFR (lip-sync)
-        const src = await storagePut('video-assets', `${videoId}/${s.id}.mp4`, norm, 'video/mp4');
+        const src = await storagePut('video-assets', `${videoId}/${s.id}-${GERACAO_TAG()}.mp4`, norm, 'video/mp4');
         // Mantém o mp3 da narração como áudio SEPARADO: o vídeo (mp4) entra mutado e
         // o áudio é tocado alinhado pelo Remotion → lip-sync sem o offset do OffthreadVideo.
         // Preserva `words` (timing Whisper) capturado no passo da narração.
