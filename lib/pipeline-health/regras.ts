@@ -19,6 +19,8 @@
  *   R7  checarEntregaIncompleta     R15  checarHorizonteKits
  *                                   R16  checarCelulaVideoEmError
  *                                   R17  checarRenderSemWorker
+ *                                   R18  checarTaxaRetakeTts
+ *                                   R19  checarCanarioTts
  *
  * ⚠️ **O número NÃO segue a ordem do arquivo, e isso é deliberado.** Os IDs são
  * citados em docs, testes e outros módulos (`lib/degradacao.ts`, `admin-supabase.ts`,
@@ -930,4 +932,99 @@ export function regrasPostflight(envios: EnvioObservado[]): Achado[] {
     ...checarCanalZerado(envios),
     checarEntregaIncompleta(envios),
   ].filter(Boolean) as Achado[];
+}
+
+/**
+ * R18 · Taxa de retake do portão de deriva do TTS nos últimos 7 dias (`tts_qa_log`).
+ *
+ * O portão (`lib/gemini-tts.ts`) refaz a síntese quando a régua reprova e, se
+ * nenhuma tentativa passa, publica "a menos ruim" (fail-open declarado). Até 06/09
+ * isso só existia no log, então dois sinais ficavam invisíveis: a taxa de reprovação
+ * subindo (o modelo GA mudou, ou o limiar ficou apertado demais) e o fail-open
+ * publicando áudio reprovado toda semana. `Medido 05/09`: ~7 % de retake na Aoede e
+ * ~21 % no Iapetus — acima de 40 % não é azar.
+ *
+ * Zero sínteses NÃO é achado (semana sem geração). Amostra abaixo de
+ * TTS_RETAKE_AMOSTRA_MINIMA não sustenta taxa.
+ */
+export interface RetakeTtsAgregado {
+  feature: string;
+  voz: string;
+  /** Sínteses = chamadas ao portão (tentativa 1). */
+  sinteses: number;
+  tentativas: number;
+  reprovadas: number;
+  /** Tentativas reprovadas que viraram o áudio entregue (fail-open). */
+  publicadasReprovadas: number;
+}
+
+export const TTS_RETAKE_AMOSTRA_MINIMA = 5;
+export const TTS_RETAKE_TAXA_AVISO = 0.4;
+export const TTS_RETAKE_TAXA_CRITICA = 0.7;
+
+export function checarTaxaRetakeTts(agregados: RetakeTtsAgregado[]): Achado | null {
+  const amostra: string[] = [];
+  let critico = false, contagem = 0;
+  for (const a of agregados || []) {
+    if (!a.tentativas) continue;
+    const taxa = a.reprovadas / a.tentativas;
+    const pct = `${Math.round(taxa * 100)} %`;
+    const acima = a.sinteses >= TTS_RETAKE_AMOSTRA_MINIMA && taxa > TTS_RETAKE_TAXA_AVISO;
+    if (!acima && !a.publicadasReprovadas) continue;
+    contagem += (acima ? 1 : 0) + a.publicadasReprovadas;
+    if ((a.sinteses >= TTS_RETAKE_AMOSTRA_MINIMA && taxa > TTS_RETAKE_TAXA_CRITICA) || a.publicadasReprovadas >= 5) critico = true;
+    amostra.push(`${a.feature} · ${a.voz}: ${a.reprovadas}/${a.tentativas} tentativas reprovadas (${pct}) em ${a.sinteses} síntese(s)${a.publicadasReprovadas ? ` · ${a.publicadasReprovadas} publicada(s) REPROVADA(S)` : ''}`);
+  }
+  return achado(
+    'tts-retake-7d',
+    critico ? 'critico' : 'aviso',
+    'Portão de deriva do TTS: retake alto ou áudio reprovado publicado (7 dias)',
+    contagem,
+    'A voz sai instável ou fora do registro com frequência — ou o modelo mudou por baixo, ou o limiar apertou. Áudio reprovado publicado é a pessoa ouvindo a deriva que a régua viu.',
+    { amostra, acao: 'Ver tts_qa_log (motivos por tentativa). Se for o modelo: rodar o canário (cron canario_tts) e comparar F0/timbre com a assinatura. Se for o limiar: recalibrar LIMIARES_DERIVA com as âncoras humanas.' },
+  );
+}
+
+/**
+ * R19 · Canário semanal do TTS (`tts_qa_log`, origem 'canario').
+ *
+ * O Google atualiza o modelo GA in-place: a voz pode mudar sem deploy nosso. Toda
+ * semana o cron `canario_tts` sintetiza o MESMO texto em cada voz do elenco, em 1
+ * tentativa, e o portão grava F0, deriva e a distância à assinatura de referência
+ * (`lib/tts/assinaturas-voz.ts`; `Medido 06/09`: takes da mesma voz a 0,03-0,15σ da
+ * própria assinatura, a 0,52-0,69σ da outra voz). Sem canário na janela = aviso
+ * (o cron não rodou); canário reprovado ou longe da assinatura = crítico (a voz
+ * que a pessoa ouve não é mais a que foi aprovada).
+ */
+export interface CanarioObservado {
+  voz: string;
+  em: string;
+  ok: boolean;
+  motivos: string[];
+  f0MedHz: number | null;
+  timbreVsRef: number | null;
+}
+
+export const TTS_CANARIO_JANELA_DIAS = 8;
+export const TTS_CANARIO_TIMBRE_MAX = 0.35;
+
+export function checarCanarioTts(canarios: CanarioObservado[], vozesEsperadas: string[]): Achado | null {
+  const amostra: string[] = [];
+  let critico = false, contagem = 0;
+  for (const voz of vozesEsperadas) {
+    const c = (canarios || []).filter((x) => x.voz === voz).sort((a, b) => (a.em < b.em ? 1 : -1))[0];
+    if (!c) { contagem++; amostra.push(`${voz}: sem canário nos últimos ${TTS_CANARIO_JANELA_DIAS} dias`); continue; }
+    const longe = c.timbreVsRef != null && c.timbreVsRef > TTS_CANARIO_TIMBRE_MAX;
+    if (c.ok && !longe) continue;
+    contagem++; critico = true;
+    amostra.push(`${voz} (${c.em.slice(0, 10)}): ${c.ok ? 'régua ok' : `REPROVA (${c.motivos.join('; ')})`}${longe ? ` · timbre a ${c.timbreVsRef!.toFixed(2)}σ da assinatura (máx ${TTS_CANARIO_TIMBRE_MAX})` : ''}${c.f0MedHz ? ` · F0 ${c.f0MedHz.toFixed(0)} Hz` : ''}`);
+  }
+  return achado(
+    'tts-canario-semanal',
+    critico ? 'critico' : 'aviso',
+    'Canário do TTS: voz do elenco mudou ou não foi medida',
+    contagem,
+    'Se a voz mudou por baixo (modelo GA atualizado), todo podcast, vídeo e devolutiva novos saem com outra locutora sem ninguém ter trocado nada.',
+    { amostra, acao: 'Ouvir o take do canário contra a referência (Downloads/deriva-podcast/finalistas-4min). Se mudou: recastar ou fixar versão do modelo; se só não rodou: ver o cron canario_tts na Vercel.' },
+  );
 }

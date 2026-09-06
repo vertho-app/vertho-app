@@ -47,6 +47,10 @@
     {
       "path": "/api/cron?action=custo_ia_semanal",
       "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/cron?action=canario_tts",
+      "schedule": "20 6 * * 1"
     }
   ]
 }

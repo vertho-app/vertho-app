@@ -20,6 +20,8 @@ import {
 } from './tts/narration-text';
 import { getGoogleAccessToken, vertexProjectId } from './tts/google-token';
 import { medirDeriva, avaliarDeriva, resumirDeriva, ALVO_F0_POR_VOZ, type MetricasDeriva, type AlvoVoz } from './tts/deriva';
+import { ASSINATURAS_VOZ } from './tts/assinaturas-voz';
+import { gravarVereditosTts } from './tts/qa-log';
 import { costFromTokens } from './ia-cost-catalog';
 import { gravarLinhaLedger } from './ia-ledger';
 import { contextoAtual } from './execucao-contexto';
@@ -319,17 +321,43 @@ export interface OpcoesPortao {
    *  (US$ 0,045 → 0,09 por episódio; irrelevante neste volume) e vale 1 tentativa de
    *  latência: em série, 2 × (100-150 s) não cabe nos 300 s da rota sob demanda. */
   retakeParalelo?: boolean;
+  /** Teto de tentativas desta chamada (default `TTS_QA_TENTATIVAS`). O canário passa 1:
+   *  ele quer medir o take como sai, não o melhor de K. */
+  tentativas?: number;
 }
 
 type Sintese = { pcm: Buffer; sampleRate: number };
 
 function julgar(r: Sintese, alvo: AlvoVoz | null, voz: string, rotulo: string, tentativa: number, total: number): Sintese & { qa: QaDeriva } {
   const t0 = Date.now();
-  const metricas = medirDeriva(r.pcm, r.sampleRate);
+  // A assinatura de referência da voz (quando existe) entra como MÉTRICA — distância
+  // de identidade da locutora — e ainda não como veto: fase 4, calibrar com uma
+  // semana de `tts_qa_log` antes de bloquear.
+  const metricas = medirDeriva(r.pcm, r.sampleRate, ASSINATURAS_VOZ[voz] || null);
   const { ok, motivos } = avaliarDeriva(metricas, alvo);
   const qa: QaDeriva = { metricas, ok, motivos, tentativas: tentativa };
-  console[ok ? 'log' : 'warn'](`[tts-qa] ${rotulo} · ${voz} · tentativa ${tentativa}/${total}: ${ok ? 'ok' : `REPROVA (${motivos.join('; ')})`} · ${resumirDeriva(metricas)} · régua ${Date.now() - t0}ms`);
+  console[ok ? 'log' : 'warn'](`[tts-qa] ${rotulo} · ${voz} · tentativa ${tentativa}/${total}: ${ok ? 'ok' : `REPROVA (${motivos.join('; ')})`} · ${resumirDeriva(metricas)}${metricas.timbreVsRefSigma !== undefined ? ` · vs ref ${metricas.timbreVsRefSigma.toFixed(2)}σ` : ''} · régua ${Date.now() - t0}ms`);
   return { ...r, qa };
+}
+
+/** Persiste UMA linha por tentativa (`tts_qa_log`), marcando a publicada. Fire-and-forget
+ *  com `await`: gravar leva ~50 ms e nunca lança (ver lib/tts/qa-log.ts). */
+async function persistirVereditos(julgadas: (Sintese & { qa: QaDeriva })[], publicada: Sintese & { qa: QaDeriva }, voz: string, rotulo: string, total: number, ledger?: TtsLedger) {
+  await gravarVereditosTts(julgadas.map((j) => ({
+    origem: rotulo === 'canario_tts' ? 'canario' : 'portao',
+    feature: ledger?.feature ?? rotulo,
+    voz,
+    modelo: modeloEfetivo(),
+    rotulo,
+    tentativa: j.qa.tentativas,
+    totalTentativas: total,
+    ok: j.qa.ok,
+    publicado: j === publicada,
+    motivos: j.qa.motivos,
+    metricas: j.qa.metricas,
+    empresaId: ledger?.empresaId ?? null,
+    correlationId: ledger?.correlationId ?? null,
+  })));
 }
 
 async function sintetizarComPortao(
@@ -337,10 +365,11 @@ async function sintetizarComPortao(
   voz: string,
   rotulo: string,
   opts: OpcoesPortao = {},
+  ledger?: TtsLedger,
 ): Promise<Sintese & { qa?: QaDeriva }> {
   if (!QA_GATE_ATIVO) return sintetizar();
   const alvo = ALVO_F0_POR_VOZ[voz] || null;
-  const total = QA_MAX_TENTATIVAS;
+  const total = Math.max(1, opts.tentativas ?? QA_MAX_TENTATIVAS);
   const menosRuim = (xs: (Sintese & { qa: QaDeriva })[]) => xs.reduce((a, b) => (b.qa.motivos.length < a.qa.motivos.length ? b : a));
 
   if (opts.retakeParalelo && total > 1) {
@@ -349,20 +378,21 @@ async function sintetizarComPortao(
     const rs = await Promise.all(Array.from({ length: total }, () => sintetizar()));
     const julgadas = rs.map((r, i) => julgar(r, alvo, voz, rotulo, i + 1, total));
     const aprovada = julgadas.find((j) => j.qa.ok);
-    if (aprovada) return aprovada;
-    const m = menosRuim(julgadas);
-    console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma das ${total} tentativas paralelas passou — publicando a menos ruim (${m.qa.motivos.join('; ')})`);
-    return m;
+    const escolhida = aprovada ?? menosRuim(julgadas);
+    if (!aprovada) console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma das ${total} tentativas paralelas passou — publicando a menos ruim (${escolhida.qa.motivos.join('; ')})`);
+    await persistirVereditos(julgadas, escolhida, voz, rotulo, total, ledger);
+    return escolhida;
   }
 
   const julgadas: (Sintese & { qa: QaDeriva })[] = [];
   for (let tentativa = 1; tentativa <= total; tentativa++) {
     const j = julgar(await sintetizar(), alvo, voz, rotulo, tentativa, total);
-    if (j.qa.ok) return j;
     julgadas.push(j);
+    if (j.qa.ok) { await persistirVereditos(julgadas, j, voz, rotulo, total, ledger); return j; }
   }
   const m = menosRuim(julgadas);
   console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma tentativa passou — publicando a menos ruim (${m.qa.motivos.join('; ')})`);
+  await persistirVereditos(julgadas, m, voz, rotulo, total, ledger);
   return m;
 }
 
@@ -454,7 +484,8 @@ export async function generateNarrationAudio(
       () => ttsToPcm(`${styleDirective}:\n\n${texto}`, voice, ledger, timeoutMs),
       voice,
       ledger.feature,
-      { retakeParalelo: opts.retakeParalelo },
+      { retakeParalelo: opts.retakeParalelo, tentativas: opts.tentativas },
+      ledger,
     );
     return {
       buffer: exportPodcastMp3FromPcm(r.pcm, r.sampleRate),
@@ -547,7 +578,7 @@ export async function generatePodcastAudio(texto: string, ledger?: TtsLedger, op
   const timeoutMs = timeoutAdaptativo(textoComMarca.length);
   const r: { pcm: Buffer; sampleRate: number; qa?: QaDeriva } = multiSpeaker
     ? await ttsGenerate(body, ledgerEfetivo, 0, timeoutMs)
-    : await sintetizarComPortao(() => ttsGenerate(body, ledgerEfetivo, 0, timeoutMs), VOICE, ledgerEfetivo.feature, opts);
+    : await sintetizarComPortao(() => ttsGenerate(body, ledgerEfetivo, 0, timeoutMs), VOICE, ledgerEfetivo.feature, opts, ledgerEfetivo);
   const mixedPcm = addPodcastBrandSting(r.pcm, r.sampleRate);
   const out: PodcastAudioFile = {
     buffer: exportPodcastMp3FromPcm(mixedPcm, r.sampleRate),

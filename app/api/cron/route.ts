@@ -293,6 +293,20 @@ export async function GET(req) {
       // Parâmetros OPCIONAIS: `dry=1` monta a conta sem enviar (conferência sem
       // queimar um envio) e `agora=ISO` reprocessa uma semana anterior — o cron
       // automático não passa nenhum dos dois.
+      // CANÁRIO DO TTS (fase 4 do plano de deriva, 06/09): o modelo GA do Gemini TTS é
+      // atualizado in-place; toda semana o mesmo texto é sintetizado em cada voz do
+      // elenco e o portão grava F0, deriva e distância à assinatura em tts_qa_log.
+      // Quem alarma é a R19 do health estrutural — aqui só se mede.
+      case 'canario_tts': {
+        const { rodarCanarioTts } = await import('@/lib/tts/canario');
+        const vozes = searchParams.get('vozes')?.split(',').map((v) => v.trim()).filter(Boolean);
+        const r = await rodarCanarioTts(vozes && vozes.length ? vozes : undefined);
+        result = {
+          canarios: r,
+          message: `Canário TTS: ${r.map((c) => `${c.voz} ${c.erro ? 'ERRO ' + c.erro : c.ok ? 'ok' : 'REPROVA'}${c.timbreVsRefSigma != null ? ` (${c.timbreVsRefSigma.toFixed(2)}σ da assinatura)` : ''}`).join(' · ')}`,
+        };
+        break;
+      }
       case 'custo_ia_semanal': {
         const { executarRelatorioCustoIA } = await import('@/lib/custo-ia/relatorio-semanal');
         const agoraParam = searchParams.get('agora');

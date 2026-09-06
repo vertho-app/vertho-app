@@ -1,3 +1,4 @@
+import { type RetakeTtsAgregado, type CanarioObservado, TTS_CANARIO_JANELA_DIAS } from './regras';
 /**
  * Coleta do health-check: transforma o estado do banco nas estruturas que
  * `regras.ts` avalia.
@@ -531,4 +532,36 @@ export async function coletarEnviosDoDia(
       carimboPush: doDia(r[colP]),
     };
   });
+}
+
+/**
+ * Vereditos do portão de deriva do TTS (`tts_qa_log`, mig 242) para as regras R18
+ * (retake em 7 dias, origem 'portao') e R19 (canário, origem 'canario', última linha
+ * por voz na janela). Lança em erro de query: "0 retake" por falha de leitura seria
+ * indistinguível de "portão saudável".
+ */
+export async function coletarQaTts(sb: any): Promise<{ portao: RetakeTtsAgregado[]; canarios: CanarioObservado[] }> {
+  const desde7 = new Date(Date.now() - 7 * 24 * 3600_000).toISOString();
+  const { data, error } = await sb.from('tts_qa_log')
+    .select('origem, feature, voz, tentativa, ok, publicado, motivos, f0_med_hz, timbre_vs_ref, created_at')
+    .gte('created_at', desde7)
+    .order('created_at', { ascending: false })
+    .limit(5000);
+  if (error) throw new Error(`tts_qa_log: ${error.message}`);
+  const linhas = (data || []) as { origem: string; feature: string; voz: string; tentativa: number; ok: boolean; publicado: boolean; motivos: string[]; f0_med_hz: number | null; timbre_vs_ref: number | null; created_at: string }[];
+  const porChave = new Map<string, RetakeTtsAgregado>();
+  for (const l of linhas.filter((x) => x.origem === 'portao')) {
+    const k = `${l.feature}|${l.voz}`;
+    const a = porChave.get(k) || { feature: l.feature, voz: l.voz, sinteses: 0, tentativas: 0, reprovadas: 0, publicadasReprovadas: 0 };
+    a.tentativas++;
+    if (l.tentativa === 1) a.sinteses++;
+    if (!l.ok) a.reprovadas++;
+    if (!l.ok && l.publicado) a.publicadasReprovadas++;
+    porChave.set(k, a);
+  }
+  const desdeCanario = Date.now() - TTS_CANARIO_JANELA_DIAS * 24 * 3600_000;
+  const canarios: CanarioObservado[] = linhas
+    .filter((x) => x.origem === 'canario' && new Date(x.created_at).getTime() >= desdeCanario)
+    .map((x) => ({ voz: x.voz, em: x.created_at, ok: x.ok, motivos: x.motivos || [], f0MedHz: x.f0_med_hz == null ? null : Number(x.f0_med_hz), timbreVsRef: x.timbre_vs_ref == null ? null : Number(x.timbre_vs_ref) }));
+  return { portao: [...porChave.values()], canarios };
 }

@@ -18,12 +18,13 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarRenderSemWorker, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados } from './regras';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarRenderSemWorker, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados, checarTaxaRetakeTts, checarCanarioTts } from './regras';
+import { ALVO_F0_POR_VOZ } from '@/lib/tts/deriva';
 import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
 import { inspecionarCloudApi } from '@/lib/whatsapp/cloud-api';
 import { inspecionarTemplatesLigados } from '@/lib/whatsapp/templates-ligados';
 import { inspecionarModelosConfigurados } from './coleta-modelos';
-import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, diaDaSemanaBRT, pilulaDoDia } from './coleta';
+import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, coletarQaTts, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /**
  * Empresas elegíveis a envio: exclui demo (não envia comunicação real).
@@ -358,6 +359,12 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
 
     // R10: telemetria de degradação (FMEA §3.3) — fallback existe, nunca invisível.
     achados.push(checarDegradacoes(await coletarDegradacoes(sb)));
+
+    // R18/R19: portão de deriva do TTS (fase 4 do plano de deriva, 06/09). Retake
+    // alto ou áudio reprovado publicado em 7 dias; canário semanal por voz do elenco.
+    const qaTts = await coletarQaTts(sb);
+    achados.push(checarTaxaRetakeTts(qaTts.portao));
+    achados.push(checarCanarioTts(qaTts.canarios, Object.keys(ALVO_F0_POR_VOZ)));
 
     // R11: saúde do canal push em 24h. Aqui e não no pós-voo porque o pós-voo
     // roda logo após o ENFILEIRAMENTO do fan-out, antes de os workers enviarem.

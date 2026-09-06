@@ -43,6 +43,38 @@ export interface MetricasDeriva {
   loudSlopeDbMin: number;
   loudAmpDb: number;
   timbreMaxVs1a: number;
+  /** Distância (σ) da assinatura de timbre deste áudio à assinatura de REFERÊNCIA da
+   *  voz, quando ela foi passada — identidade da locutora entre takes e modelos
+   *  (0,6σ entre Aoede-3.1 e Aoede-2.5; ≤ 0,3σ entre takes do mesmo modelo). */
+  timbreVsRefSigma?: number;
+}
+
+/** Assinatura de timbre de uma voz: média e desvio dos MFCC 1-12 nos frames de fala. */
+export interface AssinaturaTimbre { media: number[]; sigma: number[]; frames: number }
+
+export function assinaturaTimbre(pcm: Buffer, sampleRate: number): AssinaturaTimbre | null {
+  const frames = analisarFrames(paraFloat16k(pcm, sampleRate));
+  const mu = timbreMedio(frames);
+  if (!mu) return null;
+  const sigma = new Float64Array(N_MFCC - 1); let n = 0;
+  for (const f of frames) if (f.mfcc) { for (let k = 1; k < N_MFCC; k++) sigma[k - 1] += (f.mfcc[k] - mu[k - 1]) ** 2; n++; }
+  for (let k = 0; k < sigma.length; k++) sigma[k] = Math.sqrt(sigma[k] / Math.max(1, n)) || 1;
+  return { media: Array.from(mu), sigma: Array.from(sigma), frames: n };
+}
+
+/** Distância em σ (da referência) entre a média de timbre de um áudio e a referência. */
+export function distanciaTimbre(ref: AssinaturaTimbre, media: ArrayLike<number>): number {
+  let acc = 0;
+  for (let k = 0; k < ref.media.length; k++) acc += ((media[k] - ref.media[k]) / (ref.sigma[k] || 1)) ** 2;
+  return Math.sqrt(acc / ref.media.length);
+}
+
+/** Combina várias assinaturas (takes de referência) numa só: média das médias e σ pooled. */
+export function combinarAssinaturas(as: AssinaturaTimbre[]): AssinaturaTimbre {
+  const n = as[0].media.length;
+  const media = Array.from({ length: n }, (_, k) => as.reduce((s, a) => s + a.media[k], 0) / as.length);
+  const sigma = Array.from({ length: n }, (_, k) => Math.sqrt(as.reduce((s, a) => s + a.sigma[k] ** 2 + (a.media[k] - media[k]) ** 2, 0) / as.length));
+  return { media, sigma, frames: as.reduce((s, a) => s + a.frames, 0) };
 }
 
 export interface AlvoVoz {
@@ -217,9 +249,11 @@ function timbreMedio(frames: Frame[]): Float64Array | null {
 // ── API ───────────────────────────────────────────────────────────────────────
 
 /** Mede a deriva de um PCM 16-bit mono (qualquer sample-rate). */
-export function medirDeriva(pcm: Buffer, sampleRate: number): MetricasDeriva {
+export function medirDeriva(pcm: Buffer, sampleRate: number, referencia?: AssinaturaTimbre | null): MetricasDeriva {
   const x = paraFloat16k(pcm, sampleRate);
   const frames = analisarFrames(x);
+  const timbreArquivo = timbreMedio(frames);
+  const timbreVsRefSigma = referencia && timbreArquivo ? distanciaTimbre(referencia, timbreArquivo) : undefined;
   const durS = x.length / SR;
   const nWin = Math.max(1, Math.floor(durS / JANELA_S));
 
@@ -263,6 +297,7 @@ export function medirDeriva(pcm: Buffer, sampleRate: number): MetricasDeriva {
     loudSlopeDbMin: inclinacao(ts, dbs),
     loudAmpDb: dbs.length ? Math.max(...dbs) - Math.min(...dbs) : 0,
     timbreMaxVs1a: timbreMax,
+    ...(timbreVsRefSigma !== undefined ? { timbreVsRefSigma } : {}),
   };
 }
 
