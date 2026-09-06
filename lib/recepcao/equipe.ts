@@ -11,7 +11,8 @@ import type { z } from 'zod';
 export async function todas(query:()=>any):Promise<any[]> {
  const rows=[];
  for(let n=0;n<10000;n+=500) {
-  const {data,error}=await query().range(n,n+499);
+  // order('id'): sem ORDER BY, LIMIT/OFFSET pode repetir uma linha em duas páginas e pular outra (guard paginacao-ordenada).
+  const {data,error}=await query().order('id').range(n,n+499);
   if(error) throw new RecepcaoError(503,'Não foi possível consultar os dados do treinamento.');
   rows.push(...data||[]);
   if((data||[]).length<500) return rows;
