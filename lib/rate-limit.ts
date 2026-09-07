@@ -153,6 +153,16 @@ export function createRateLimiter(config: RateLimiterConfig) {
 /** Rotas que chamam IA (caro): 10 req/min por user */
 export const aiLimiter = createRateLimiter({ maxRequests: 10, windowMs: 60_000 });
 
+/**
+ * Cota própria do Copiloto.
+ *
+ * Um planejamento gasta 4 buscas web e uma síntese; com o `aiLimiter` de 10/min
+ * compartilhado com chat, simulador e outras cinco rotas, dois planejamentos
+ * seguidos derrubavam o chat de outra pessoa — e o vendedor via "tente de novo"
+ * sem entender por quê. Menos requisições por minuto porque cada uma é longa.
+ */
+export const copilotoLimiter = createRateLimiter({ maxRequests: 6, windowMs: 60_000 });
+
 /** Rotas de upload/PDF (pesado): 5 req/min por user */
 export const heavyLimiter = createRateLimiter({ maxRequests: 5, windowMs: 60_000 });
 

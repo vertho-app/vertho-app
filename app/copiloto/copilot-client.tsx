@@ -115,6 +115,23 @@ function sourceDisplayKind(source: CopilotSource): SourceDisplayKind {
   return sourceChannel(source.url) === 'Web' ? 'legacy' : 'social';
 }
 
+/**
+ * Há quanto tempo a pesquisa foi feita.
+ *
+ * `researchedAt` existia no dado desde o começo e nunca aparecia: um plano
+ * reaberto três semanas depois parecia novo em folha. Com o reuso da pesquisa,
+ * dizer a idade deixou de ser opcional.
+ */
+function idadeDaPesquisa(iso: string): string {
+  const quando = new Date(iso).getTime();
+  if (Number.isNaN(quando)) return 'pesquisa sem data';
+  const horas = Math.floor((Date.now() - quando) / 3_600_000);
+  if (horas < 1) return 'pesquisa de agora';
+  if (horas < 24) return `pesquisa de ${horas} h atrás`;
+  const dias = Math.floor(horas / 24);
+  return dias === 1 ? 'pesquisa de ontem' : `pesquisa de ${dias} dias atrás`;
+}
+
 function meetingKindLabel(kind: MeetingKind): string {
   return MEETING_KINDS.find((item) => item.key === kind)?.label || 'Reunião';
 }
@@ -428,6 +445,7 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
           <p>{plan.companySummary || plan.valueSummary}</p>
         </div>
         <div className={styles.dossierStats}>
+          {plan.researchedAt && <span><Clock3 size={14} /> {idadeDaPesquisa(plan.researchedAt)}</span>}
           <span><FileText size={14} /> {plan.play ? '3 perguntas essenciais' : `${plan.questions.length} perguntas`}</span>
           <span><Database size={14} /> {plan.sources.length} fontes</span>
         </div>
@@ -710,6 +728,13 @@ export default function CopilotClient({
   const [pedindoRedes, setPedindoRedes] = useState(false);
   /** Trilha opcional: descobre quem responde por pessoas na organização. */
   const [researchPeople, setResearchPeople] = useState(false);
+  /**
+   * Rápido reaproveita a pesquisa recente da conta; completo refaz as trilhas.
+   *
+   * O padrão é rápido porque é o caso comum: replanejar a mesma empresa não
+   * precisa redescobrir o que o site dizia ontem. Quem quer dado novo troca.
+   */
+  const [modoPesquisa, setModoPesquisa] = useState<'rapido' | 'completo'>('rapido');
   const [peopleProfiles, setPeopleProfiles] = useState('');
   const [peopleNotes, setPeopleNotes] = useState('');
   /**
@@ -737,6 +762,16 @@ export default function CopilotClient({
   const [audioHealth, setAudioHealth] = useState<AudioInputHealth>('checking');
   const [audioLevels, setAudioLevels] = useState({ system: 0, microphone: 0 });
   const [shareEnded, setShareEnded] = useState(false);
+  const [transcricaoAtrasada, setTranscricaoAtrasada] = useState(false);
+  /**
+   * O que o vendedor achou de cada sugestão, e se a hora atingiu o objetivo.
+   *
+   * O módulo produzia sugestão e nunca soube se ela ajudou. Sem estes dois
+   * sinais não há como responder "o copiloto funciona?" — só "o copiloto rodou".
+   */
+  const [suggestionFeedback, setSuggestionFeedback] = useState<Array<{ text: string; useful: boolean; phase: string; at: number }>>([]);
+  const [goalReached, setGoalReached] = useState<'sim' | 'parcial' | 'nao' | ''>('');
+  const [conexaoAsr, setConexaoAsr] = useState<'ok' | 'reconectando' | 'perdida'>('ok');
   const [meetingComposition, setMeetingComposition] = useState<MeetingComposition>('solo-vertho');
   const [utterances, setUtterances] = useState<LiveUtterance[]>([]);
   const [partial, setPartial] = useState<{ channel: LiveUtterance['channel']; text: string } | null>(null);
@@ -1081,6 +1116,7 @@ export default function CopilotClient({
         body: JSON.stringify({
           company, site, socialProfiles, context, offer, opportunityId, accountId,
           meetingKind, audience, goalThisHour, conversationGoal, researchPeople, peopleProfiles, peopleNotes,
+          mode: modoPesquisa,
         }),
       });
       const data = await res.json();
@@ -1449,6 +1485,8 @@ export default function CopilotClient({
 
     setError(null);
     setShareEnded(false);
+    setTranscricaoAtrasada(false);
+    setConexaoAsr('ok');
     if (asrFreshnessTimerRef.current) window.clearTimeout(asrFreshnessTimerRef.current);
     setLocalAsrReadyNotice(false);
     setLiveAnalysisState('idle');
@@ -1464,6 +1502,10 @@ export default function CopilotClient({
       onPartial,
       onLevels: onAudioLevels,
       onSurface: setCaptureSurface,
+      onLag: (atrasado) => setTranscricaoAtrasada(atrasado),
+      onReconnect: (estado) => {
+        setConexaoAsr(estado === 'voltou' ? 'ok' : estado === 'perdido' ? 'reconectando' : 'perdida');
+      },
       onSystemTrackEnded: () => {
         // A evidência de áudio é monotônica de propósito (um pico basta); quando a
         // faixa morre, rebaixar à mão é a única forma de o aviso voltar.
@@ -1538,6 +1580,14 @@ export default function CopilotClient({
     }
   }
 
+  /** Um voto por sugestão: clicar de novo troca, e o último vale. */
+  function votarSugestao(text: string, useful: boolean) {
+    setSuggestionFeedback((atual) => [
+      ...atual.filter((item) => item.text !== text),
+      { text, useful, phase: readingRef.current.phase, at: Date.now() },
+    ]);
+  }
+
   async function saveLiveResult() {
     if (!accountId) {
       setError('Abra a reunião a partir de uma empresa para salvar o resultado no histórico.');
@@ -1566,6 +1616,8 @@ export default function CopilotClient({
           planningId: activePlanningId,
           source: 'whisper_local',
           transcript,
+          goalReached: goalReached || null,
+          suggestionFeedback,
         }),
       });
       const data = await res.json();
@@ -1643,6 +1695,8 @@ export default function CopilotClient({
    * empresa A no histórico da empresa B.
    */
   function limparConversa() {
+    setSuggestionFeedback([]);
+    setGoalReached('');
     setClosing(null);
     setCrmApplied('');
     utterancesRef.current = [];
@@ -2007,6 +2061,25 @@ export default function CopilotClient({
               conta com o painel aberto, ele some sozinho, sem reset espalhado pelos
               quatro pontos que trocam de empresa.
             */}
+            <div className={styles.modoPesquisa} role="radiogroup" aria-label="Profundidade da pesquisa">
+              {([
+                { valor: 'rapido', titulo: 'Rápido', ajuda: 'reaproveita a pesquisa recente desta empresa' },
+                { valor: 'completo', titulo: 'Completo', ajuda: 'refaz as quatro trilhas, ~2 min' },
+              ] as const).map((opcao) => (
+                <button
+                  key={opcao.valor}
+                  type="button"
+                  role="radio"
+                  aria-checked={modoPesquisa === opcao.valor}
+                  className={modoPesquisa === opcao.valor ? styles.modoAtivo : ''}
+                  onClick={() => setModoPesquisa(opcao.valor)}
+                >
+                  <b>{opcao.titulo}</b>
+                  <small>{opcao.ajuda}</small>
+                </button>
+              ))}
+            </div>
+
             {pedindoRedes && precisaPedirRedes({ company, site, perfisInformados: socialProfilesInformados, confirmadoPara: semRedesConfirmadoPara }) ? (
               <div className={styles.askSocial} role="group" aria-label="Perfis oficiais antes de pesquisar">
                 <div className={styles.askSocialTop}><Share2 size={16} /><strong>Nenhum perfil oficial para pesquisar</strong></div>
@@ -2074,6 +2147,27 @@ export default function CopilotClient({
           {!focusMode && <header className={styles.liveHeader}>
             <div><p className={styles.eyebrow}>Sala de comando</p><h2>Apoio ao vivo com Whisper local</h2><p>O áudio é transcrito na sua máquina. Somente trechos de texto seguem para a IA montar as sugestões.</p></div>
             <div className={styles.liveHeaderActions}>
+              {!recording && utterances.length > 0 && accountId && !resultSaved && plan?.play && (
+                <div className={styles.objetivoAlcancado} role="radiogroup" aria-label="O objetivo desta hora foi alcançado?">
+                  <span>Alcançou o objetivo?</span>
+                  {([
+                    { valor: 'sim', rotulo: 'Sim' },
+                    { valor: 'parcial', rotulo: 'Em parte' },
+                    { valor: 'nao', rotulo: 'Não' },
+                  ] as const).map((opcao) => (
+                    <button
+                      key={opcao.valor}
+                      type="button"
+                      role="radio"
+                      aria-checked={goalReached === opcao.valor}
+                      className={goalReached === opcao.valor ? styles.objetivoAtivo : ''}
+                      onClick={() => setGoalReached(opcao.valor)}
+                    >
+                      {opcao.rotulo}
+                    </button>
+                  ))}
+                </div>
+              )}
               {!recording && utterances.length > 0 && accountId && <button className={styles.saveResultButton} onClick={() => void saveLiveResult()} disabled={resultSaving || resultSaved}>{resultSaving ? <><LoaderCircle size={16} className={styles.spin} /> Salvando…</> : resultSaved ? <><Check size={16} /> Resultado salvo</> : <><Save size={16} /> Salvar resultado</>}</button>}
               {localAsrState === 'starting' ? (
                 <button className={styles.startButton} disabled>
@@ -2185,6 +2279,30 @@ export default function CopilotClient({
             </div>
           )}
 
+          {recording && conexaoAsr !== 'ok' && (
+            <div className={styles.audioWarning} role="status">
+              <LoaderCircle size={19} className={conexaoAsr === 'reconectando' ? styles.spin : ''} />
+              <div>
+                <strong>{conexaoAsr === 'reconectando' ? 'Reconectando ao Whisper local…' : 'A transcrição caiu.'}</strong>
+                <span>
+                  {conexaoAsr === 'reconectando'
+                    ? 'O áudio continua sendo capturado; as falas deste intervalo entram assim que a conexão voltar.'
+                    : 'Pare e inicie a captura de novo para retomar a transcrição.'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {recording && transcricaoAtrasada && (
+            <div className={styles.audioWarning} role="status">
+              <Clock3 size={19} />
+              <div>
+                <strong>Transcrição atrasada em relação à fala.</strong>
+                <span>Nada se perde: as falas continuam sendo transcritas em ordem, e a antecipação volta quando a fila esvaziar.</span>
+              </div>
+            </div>
+          )}
+
           {recording && (
             <div className={styles.medidores} aria-label="Nível dos dois canais de áudio">
               {([
@@ -2232,9 +2350,30 @@ export default function CopilotClient({
               </div>
               <h3>{reading.focus}</h3>
               <div className={styles.suggestionList}>
-                {visibleQuestions.length ? visibleQuestions.map((question, index) => (
-                  <article key={`${question.text}-${index}`}><span>0{index + 1}</span><p>{question.text}<small>{question.why}</small></p></article>
-                )) : <div className={styles.listening}><AudioLines size={28} /><p>{recording ? 'Ouvindo a conversa…' : 'As perguntas sugeridas aparecem aqui.'}</p></div>}
+                {visibleQuestions.length ? visibleQuestions.map((question, index) => {
+                  const voto = suggestionFeedback.find((item) => item.text === question.text);
+                  return (
+                    <article key={`${question.text}-${index}`}>
+                      <span>0{index + 1}</span>
+                      <p>{question.text}<small>{question.why}</small></p>
+                      {!focusMode && (
+                        <div className={styles.votoSugestao}>
+                          {([true, false] as const).map((util) => (
+                            <button
+                              key={String(util)}
+                              type="button"
+                              aria-pressed={voto?.useful === util}
+                              aria-label={util ? 'Sugestão útil' : 'Sugestão não serviu'}
+                              onClick={() => votarSugestao(question.text, util)}
+                            >
+                              {util ? '👍' : '👎'}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  );
+                }) : <div className={styles.listening}><AudioLines size={28} /><p>{recording ? 'Ouvindo a conversa…' : 'As perguntas sugeridas aparecem aqui.'}</p></div>}
               </div>
               {reading.alert && <p className={styles.liveAlert}><CircleAlert size={15} /> {reading.alert}</p>}
               {reading.objection && <p className={styles.liveObjection}><strong>Em aberto:</strong> {reading.objection}</p>}

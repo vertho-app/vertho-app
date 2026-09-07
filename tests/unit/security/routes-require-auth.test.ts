@@ -56,7 +56,10 @@ const GATE_SESSAO = /\.auth\.getUser\s*\(|\b(requireUser|requireAdmin|requireRol
 /** Autenticação de MÁQUINA: assinatura de webhook ou segredo compartilhado. */
 const GATE_MAQUINA = /\b(verifyQStashSignature|verifyZapiWebhook|verifyBunnyWebhook|safeSecretEqual)\s*\(|CRON_SECRET|INTERNAL_API_KEY|x-internal-secret/;
 const CSRF = /\bcsrfCheck\s*\(/;
-const RATE = /\b(aiLimiter|heavyLimiter|authLimiter|leadLimiter|checkRateLimit|rateLimit)\s*[.(]/;
+// `copilotoLimiter` é cota própria do Copiloto: um planejamento gasta quatro
+// buscas web e uma síntese, e disputar o `aiLimiter` com chat e simulador
+// derrubava os dois lados sem que ninguém entendesse por quê.
+const RATE = /\b(aiLimiter|copilotoLimiter|heavyLimiter|authLimiter|leadLimiter|checkRateLimit|rateLimit)\s*[.(]/;
 
 /**
  * Rotas mutativas SEM gate de sessão de propósito. Dívida declarada: só encolhe,

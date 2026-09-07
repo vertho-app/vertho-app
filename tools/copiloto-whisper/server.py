@@ -269,6 +269,13 @@ class MotorDeTranscricao:
 motor = MotorDeTranscricao()
 executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="asr")
 
+# Quantos segmentos podem estar esperando o executor de uma thread.
+#
+# Acima disto a transcricao esta atrasada em relacao a fala, e continuar gastando
+# GPU com PARCIAIS so aumenta a fila: o parcial e adivinhacao antecipada, o
+# segmento e o registro. Segmento nunca e descartado; parcial sim.
+MAX_SEGMENTOS_EM_VOO = 3
+
 
 async def atender(conexao) -> None:
     global conexoes_ativas
@@ -276,20 +283,29 @@ async def atender(conexao) -> None:
     marcar_atividade()
     buffers = {nome: BufferDeCanal(nome=nome) for nome in CANAIS}
     envio = asyncio.Lock()
+    em_voo = 0
+    avisou_atraso = False
 
     async def responder(payload: dict) -> None:
         async with envio:
             await conexao.send(json.dumps(payload, ensure_ascii=False))
 
     async def processar_segmento(nome: str, audio: np.ndarray, inicio_ms: int) -> None:
+        nonlocal em_voo, avisou_atraso
         buffer = buffers[nome]
         laco = asyncio.get_running_loop()
         comeco = time.perf_counter()
+        em_voo += 1
         try:
             texto = await laco.run_in_executor(executor, motor.transcrever, audio, buffer.contexto)
         except Exception as erro:  # noqa: BLE001
             await responder({"type": "erro", "mensagem": f"falha ao transcrever: {erro}"})
             return
+        finally:
+            em_voo -= 1
+            if avisou_atraso and em_voo == 0:
+                avisou_atraso = False
+                await responder({"type": "em_dia"})
 
         if not texto:
             return
@@ -357,9 +373,14 @@ async def atender(conexao) -> None:
                 if audio is not None:
                     buffer.offset_ms = inicio_ms + amostras_para_ms(audio.size)
                     asyncio.create_task(processar_segmento(nome, audio, inicio_ms))
-                elif buffer.deve_emitir_parcial():
+                elif buffer.deve_emitir_parcial() and em_voo < MAX_SEGMENTOS_EM_VOO:
                     buffer.parcial_em_voo = True
                     asyncio.create_task(processar_parcial(nome, buffer.audio_parcial()))
+                elif em_voo >= MAX_SEGMENTOS_EM_VOO and not avisou_atraso:
+                    # A fala continua sendo gravada e transcrita; o que para e a
+                    # antecipacao. Dizer isto evita o vendedor achar que travou.
+                    avisou_atraso = True
+                    await responder({"type": "atrasado", "em_voo": em_voo})
 
     except websockets.ConnectionClosed:
         pass

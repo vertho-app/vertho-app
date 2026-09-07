@@ -2,13 +2,14 @@ import { NextResponse } from 'next/server';
 import { callAI } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
 import { csrfCheck } from '@/lib/csrf';
-import { aiLimiter } from '@/lib/rate-limit';
+import { copilotoLimiter } from '@/lib/rate-limit';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireRepresentativeOrAdminRequest, type CopilotAccess } from '@/lib/copiloto/auth';
 import {
   findCopilotAccount,
   formatCopilotPlanningMemory,
   getCopilotPlanningMemory,
+  getRecentResearch,
   listCopilotAccountContacts,
   type CopilotPlanningMemory,
 } from '@/lib/copiloto/accounts';
@@ -360,6 +361,9 @@ export function normalizePlan(
     memory: CopilotPlanningMemory;
     hasPrivateContext?: boolean;
     people?: MeetingPerson[];
+    /** Quando a pesquisa foi REAPROVEITADA, a data original dela. */
+    researchReuseAt?: string | null;
+    reusedSnapshot?: any;
   },
 ): CopilotPlan {
   const rawQuestions: PaceQuestion[] = (Array.isArray(synthesis?.perguntas) ? synthesis.perguntas : [])
@@ -494,7 +498,7 @@ export function normalizePlan(
         && (planning.meetingKind !== 'primeira_conversa' || !plannedDiscoveries.has(key))),
     play,
     goal: planning.conversationGoal,
-    snapshot: normalizeAccountSnapshot(research?.retrato_conta) ?? undefined,
+    snapshot: normalizeAccountSnapshot(research?.retrato_conta) ?? planning.reusedSnapshot ?? undefined,
     hooks: normalizeFactHooks(synthesis?.ganchos, facts.length),
     objectionRoutes: normalizeObjectionRoutes(synthesis?.rotas_objecao),
     valueMath: normalizeValueMath(synthesis?.aritmetica),
@@ -527,7 +531,9 @@ export function normalizePlan(
         signalsFound: planning.people?.length || 0,
       },
     },
-    researchedAt: new Date().toISOString(),
+    // A data é a da PESQUISA, não a da geração: dizer "agora" sobre um dado de
+    // ontem é exatamente o que o carimbo de frescor existe para impedir.
+    researchedAt: planning.researchReuseAt || new Date().toISOString(),
   };
 }
 
@@ -537,7 +543,7 @@ async function planejarConversa(req: Request) {
     if (csrf) return csrf;
     const access = await requireRepresentativeOrAdminRequest(req);
     if (access instanceof Response) return access;
-    const limited = await aiLimiter.check(req, access.email);
+    const limited = await copilotoLimiter.check(req, access.email);
     if (limited) return limited;
 
     let body: any;
@@ -560,6 +566,8 @@ async function planejarConversa(req: Request) {
     const requestedGoal = text(body?.goalThisHour, MAX.goalThisHour);
     // A trilha de pessoas traz dado de terceiro identificado: só roda quando pedida.
     const researchPeople = body?.researchPeople === true;
+    // 'rapido' reaproveita a pesquisa recente da conta e refaz só a síntese.
+    const modoRapido = body?.mode === 'rapido';
     // Perfil de PESSOA é âncora de identidade contra homônimo, nunca fonte.
     const perfisDePessoa = parsePerfisDePessoa(text(body?.peopleProfiles, MAX.socialProfiles));
     // O que o vendedor viu no perfil com a conta dele: briefing privado, e por
@@ -637,7 +645,16 @@ async function planejarConversa(req: Request) {
       peopleCompleted: true,
     };
     let pessoasDescobertas: ReturnType<typeof normalizarPessoas> = [];
-    const researchPromise = company.length >= 2 || site.length >= 4 || officialSocialUrls.length
+    let snapshotReaproveitado: any = null;
+    // O reuso vem antes de qualquer busca: se ele valer, nenhuma trilha roda.
+    const pesquisaReaproveitada = modoRapido && accountId
+      ? await getRecentResearch(access, accountId)
+      : null;
+    let researchReuseAt: string | null = null;
+
+    const researchPromise = pesquisaReaproveitada
+      ? Promise.resolve(null)
+      : company.length >= 2 || site.length >= 4 || officialSocialUrls.length
       // O avanço entra como prioridade de busca. Só o enum atravessa: briefing, oferta e
       // memória continuam fora da internet.
       ? researchCompany(company, site, officialSocialUrls, conversationGoal, researchPeople, alvosDePesquisa)
@@ -646,7 +663,36 @@ async function planejarConversa(req: Request) {
       researchPromise,
       verthoGrounding(segment),
     ]);
-    if (result) {
+    if (pesquisaReaproveitada) {
+      const anterior = pesquisaReaproveitada.plan;
+      researchReuseAt = pesquisaReaproveitada.researchedAt;
+      research = {
+        empresa_identificada: anterior.companyIdentified || company,
+        resumo_empresa: anterior.companySummary || '',
+        retrato_conta: null,
+        fatos_relevantes: (anterior.facts || []).map((fato: any) => ({
+          titulo: fato.title, fato: fato.fact, relevancia: fato.relevance,
+          fonte_url: fato.sourceUrl, publicado_em: fato.publishedAt, perfil_oficial_url: null,
+        })),
+        tendencias_setor: (anterior.trends || []).map((t: any) => ({
+          titulo: t.title, impacto: t.impact, fonte_url: t.sourceUrl,
+        })),
+        hipoteses: [], objetivos: {},
+        metricas_roi: (anterior.roiMetrics || []).map((m: any) => ({ metrica: m.metric, como_medir: m.howToMeasure })),
+        perguntas_estrategicas: anterior.strategicQuestions || [],
+        riscos: anterior.risks || [],
+      };
+      sources = Array.isArray(anterior.sources) ? anterior.sources : [];
+      // O retrato da conta é reaproveitado inteiro: ele descreve porte e momento,
+      // que não mudam em 48 h.
+      snapshotReaproveitado = anterior.snapshot ?? null;
+      researchExecution = {
+        siteRequested: true, siteCompleted: true,
+        newsRequested: true, newsCompleted: true,
+        socialCompleted: true,
+        peopleRequested: false, peopleCompleted: true,
+      };
+    } else if (result) {
       research = filterResearchForPlan(
         filterResearchByOfficialSocials(result.research, officialSocialUrls),
         officialSocialUrls,
@@ -736,6 +782,8 @@ async function planejarConversa(req: Request) {
         memory,
         hasPrivateContext: Boolean(privateContext.trim()),
         people: pessoasDescobertas,
+        researchReuseAt,
+        reusedSnapshot: snapshotReaproveitado,
       }),
     });
   } catch (error: any) {

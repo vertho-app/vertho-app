@@ -60,6 +60,17 @@ export async function POST(
       ? body.source
       : 'paste';
     const happenedAt = validDate(body?.happenedAt);
+    // 'nao respondido' é diferente de 'não alcançou': null tem que sobreviver.
+    const goalReached = ['sim', 'parcial', 'nao'].includes(body?.goalReached) ? body.goalReached : null;
+    const suggestionFeedback = (Array.isArray(body?.suggestionFeedback) ? body.suggestionFeedback : [])
+      .filter((item: any) => item && typeof item.text === 'string' && typeof item.useful === 'boolean')
+      .slice(0, 40)
+      .map((item: any) => ({
+        text: String(item.text).slice(0, 300),
+        useful: Boolean(item.useful),
+        phase: typeof item.phase === 'string' ? item.phase.slice(0, 20) : '',
+        at: typeof item.at === 'number' ? item.at : Date.now(),
+      }));
     const fallbackTitle = `Conversa de ${new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo' }).format(new Date(happenedAt))}`;
     const title = clean(body?.title, 180) || fallbackTitle;
     if (transcript.length < 20) {
@@ -147,6 +158,8 @@ export async function POST(
       transcript,
       summary,
       analysis,
+      goal_reached: goalReached,
+      suggestion_feedback: suggestionFeedback,
       created_by_email: access.email,
     }).select('*').single();
     if (error || !inserted) throw new Error(error?.message || 'falha ao salvar conversa');

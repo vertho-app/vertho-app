@@ -461,6 +461,15 @@
 .audienceChips button[aria-pressed="true"] { border-color: rgba(138,217,201,.42); color: var(--mint); background: rgba(138,217,201,.075); }
 .audienceChips button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
+/* Rapido x completo: a escolha fica ao lado do botao, que e onde ela e feita. */
+.modoPesquisa { display: flex; gap: 8px; margin-bottom: 12px; }
+.modoPesquisa button { flex: 1; display: grid; gap: 2px; justify-items: start; padding: 9px 12px; border: 1px solid var(--line); border-radius: 4px; background: rgba(255,255,255,.02); cursor: pointer; text-align: left; }
+.modoPesquisa b { color: #dbe9f1; font-size: 12.5px; font-weight: 700; }
+.modoPesquisa small { color: #7e99ad; font-size: 11px; line-height: 1.4; }
+.modoPesquisa .modoAtivo { border-color: rgba(66,212,215,.5); background: rgba(66,212,215,.07); }
+.modoPesquisa .modoAtivo b { color: #f0fbfd; }
+.modoPesquisa button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
 .formActions { display: flex; align-items: center; gap: 10px; }
 .formActions button, .dossierAction button, .startButton, .stopButton, .postWorkspace > header button, .postsGrid article button, .manualFallback button, .integrationEmpty > a { min-height: 43px; display: inline-flex; justify-content: center; align-items: center; gap: 8px; border: 1px solid transparent; border-radius: 4px; padding: 0 18px; cursor: pointer; font: 800 11px/1 var(--font-inter); transition: .16s ease; }
 .formActions button:first-child, .dossierAction button, .startButton { background: var(--cyan); color: #052039; }
@@ -696,6 +705,19 @@
    ela so aparecia 10s depois, ja com a reuniao rolando. */
 /* O resultado deixou de terminar em "salvo": ele propoe o que muda no funil e
    como retomar. Aplicar continua sendo um clique do vendedor. */
+/* Polegar por sugestao e a pergunta do objetivo: sao os dois unicos sinais que
+   dizem se o copiloto ajudou, e nao apenas se rodou. */
+.votoSugestao { display: flex; gap: 4px; margin-left: auto; align-self: start; }
+.votoSugestao button { width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; background: transparent; cursor: pointer; font-size: 12px; opacity: .45; transition: .16s ease; }
+.votoSugestao button:hover { opacity: 1; }
+.votoSugestao button[aria-pressed="true"] { opacity: 1; border-color: rgba(66,212,215,.55); background: rgba(66,212,215,.1); }
+.votoSugestao button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.objetivoAlcancado { display: inline-flex; align-items: center; gap: 7px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 4px; background: rgba(8,29,51,.6); }
+.objetivoAlcancado > span { color: var(--muted); font-size: 11.5px; }
+.objetivoAlcancado button { min-height: 26px; border: 1px solid var(--line); border-radius: 4px; padding: 0 10px; background: transparent; color: var(--muted); cursor: pointer; font: 700 11px/1 var(--font-inter); }
+.objetivoAlcancado .objetivoAtivo { border-color: rgba(138,217,201,.5); background: rgba(138,217,201,.1); color: var(--mint); }
+.objetivoAlcancado button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
 .fechamento { margin-bottom: 14px; border: 1px solid rgba(138,217,201,.28); border-left: 2px solid var(--mint); background: linear-gradient(112deg, rgba(138,217,201,.06), rgba(8,29,51,.72) 62%); padding: 16px; }
 .fechamento > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
 .fechamento > header > span { display: inline-flex; align-items: center; gap: 7px; color: var(--mint); font: 800 11px/1 var(--font-inter); letter-spacing: .1em; text-transform: uppercase; }

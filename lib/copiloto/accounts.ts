@@ -175,6 +175,47 @@ export function formatCopilotPlanningMemory(memory: CopilotPlanningMemory): stri
   ].join('\n');
 }
 
+/**
+ * A pesquisa pública do último plano desta conta, quando ainda é recente.
+ *
+ * Replanejar a mesma empresa refazia as quatro trilhas do zero: ~150 s e quatro
+ * buscas pagas para redescobrir o que o site institucional dizia ontem. Site e
+ * imprensa raramente mudam entre um dia e o outro; o que muda é a conversa.
+ *
+ * O reuso é explícito na tela e nunca silencioso: quem quer dado novo pede
+ * "atualizar pesquisa", e o plano guarda a data real da pesquisa reaproveitada.
+ */
+export async function getRecentResearch(
+  access: CopilotAccess,
+  accountId: string,
+  ttlHoras = 48,
+): Promise<{ plan: any; researchedAt: string; horas: number } | null> {
+  const account = await findCopilotAccount(access, accountId);
+  if (!account) return null;
+  const { data, error } = await createSupabaseAdmin()
+    .from('copilot_plans')
+    .select('plan, created_at')
+    .eq('account_id', accountId)
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) {
+    console.warn('[copiloto/cache] leitura da pesquisa anterior:', error.message);
+    return null;
+  }
+  const row: any = (data || [])[0];
+  const plan = row?.plan;
+  // Sem fato não há o que reaproveitar: um plano feito só com briefing privado
+  // devolveria uma pesquisa vazia como se fosse cache válido.
+  if (!plan || !Array.isArray(plan.facts) || !plan.facts.length) return null;
+
+  const researchedAt = typeof plan.researchedAt === 'string' ? plan.researchedAt : row.created_at;
+  const quando = new Date(researchedAt).getTime();
+  if (Number.isNaN(quando)) return null;
+  const horas = (Date.now() - quando) / 3_600_000;
+  if (horas > ttlHoras) return null;
+  return { plan, researchedAt, horas };
+}
+
 export async function getCopilotPlanningMemory(
   access: CopilotAccess,
   accountId: string,
