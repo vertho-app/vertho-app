@@ -32,8 +32,21 @@ export interface PerfilVoz {
 }
 
 export const ELENCO = {
-  /** Mentora Vertho: podcast, narração do vídeo, saudação nominal, speaker "Campo". */
-  mentora: { voz: 'Aoede', modeloVertex: 'gemini-2.5-flash-tts', modeloAiStudio: 'gemini-2.5-flash-preview-tts', alvoF0Hz: 208, versao: '2026-09-05' },
+  /**
+   * Mentora Vertho: podcast, narração do vídeo, saudação nominal, speaker "Campo".
+   *
+   * `tolSt`/`tentativas` CALIBRADOS em 07/09/2026 com 143 tentativas reais do portão
+   * (`tts_qa_log`, 7 dias, Vertex) — não com a projeção do bake-off, que previa ~7 % de
+   * retake e errou por 4×. A distribuição real: F0 185-242 Hz, mediana 207,8 (o alvo
+   * 208 está certo), p10-p90 de 2,25 st. Com ±1 st entravam 73 % dos takes e 2 tentativas
+   * deixavam **7,4 % de fail-open** — batendo com os 9 áudios reprovados publicados em
+   * 111 sínteses. Com ±1,25 st e 3 tentativas: 82 % na faixa e **0,6 %**. Alargar a
+   * tolerância REDUZ a variação que a pessoa ouve, porque o que sai fora da faixa é o
+   * fail-open publicando um take de 185 ou 242 Hz (até 4,7 st do alvo), muito pior que
+   * os 2,5 st da faixa. 39 das 42 reprovações são de registro: volume, timbre e deriva
+   * dentro do arquivo praticamente não aparecem mais — o problema de junho está fechado.
+   */
+  mentora: { voz: 'Aoede', modeloVertex: 'gemini-2.5-flash-tts', modeloAiStudio: 'gemini-2.5-flash-preview-tts', alvoF0Hz: 208, tolSt: 1.25, tentativas: 3, versao: '2026-09-05' },
   /**
    * Beto: devolutiva comportamental, speaker "Mentor" no podcast a duas vozes.
    *
