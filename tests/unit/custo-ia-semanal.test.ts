@@ -7,8 +7,9 @@
  *    Vercel agenda em UTC. Um erro de três horas aqui não quebra nada: ele
  *    produz um relatório completo, bonito e com o período errado — o pior modo
  *    de falha possível para um número que vai virar decisão de custo.
- * 2. **Perder a fatia de plataforma.** 35% do dinheiro não tem `empresa_id`.
- *    Um "por empresa" que filtre nulo devolve dois terços da conta com cara de
+ * 2. **Perder a fatia sem tenant.** 35% do dinheiro não tem `empresa_id`. Ela
+ *    saiu de OPERAÇÃO por decisão do dono (07/09), mas continua no total: um
+ *    "por empresa" que a filtrasse devolveria dois terços da conta com cara de
  *    conta inteira.
  * 3. **Cortar a cauda em silêncio.** O detalhe por empresa tem teto; sem a
  *    linha de resto, a tabela não fecha com o total do topo.
@@ -31,6 +32,7 @@ function linha(p: Partial<LinhaAgregada> = {}): LinhaAgregada {
     empresaId: null,
     empresaNome: null,
     empresaSlug: null,
+    empresaIsDemo: false,
     feature: 'ia3_cenarios',
     source: 'wrapper',
     provider: 'anthropic',
@@ -104,15 +106,16 @@ describe('agregação por empresa', () => {
     linha({ empresaId: null, feature: 'ia4_check', custoUsd: 30, chamadas: 300 }),
   ];
 
-  it('🔴 a fatia sem empresa_id vira bloco de plataforma e ENTRA no total', () => {
+  it('🔴 a fatia sem empresa_id sai da operação e ENTRA no total', () => {
     const r = montarRelatorio(JANELA_FIXA, linhas, []);
-    expect(r.plataforma).not.toBeNull();
-    expect(r.plataforma!.custoUsd).toBe(30);
-    expect(r.plataforma!.atribuida).toBe(false);
-    // A invariante que importa: o total fecha com TUDO, atribuído ou não.
-    expect(r.totalUsd).toBe(100);
-    // E ela não se disfarça de tenant na lista de empresas.
+    // Não é cliente: não vira linha de operação nem se disfarça de tenant.
+    expect(r.plataforma).toBeNull();
     expect(r.empresas.map((e) => e.nome)).toEqual(['Ibipeba', 'Macaé']);
+    // Mas o dinheiro continua na conta, agora como frente própria.
+    const plataforma = r.pd.find((f) => f.frente === 'Plataforma Vertho (sem tenant)');
+    expect(plataforma?.custoUsd).toBe(30);
+    expect(r.totalUsd).toBe(100);
+    expect(r.operacaoUsd + r.pdUsd).toBe(r.totalUsd);
   });
 
   it('soma as features do mesmo tenant e ordena por custo', () => {
@@ -139,7 +142,8 @@ describe('agregação por empresa', () => {
     const r = montarRelatorio(JANELA_FIXA, linhas, anteriores);
     expect(r.empresas[0].custoAnteriorUsd).toBe(40); // Ibipeba: 40 → 62
     expect(r.empresas[1].custoAnteriorUsd).toBeNull(); // Macaé não existia lá
-    expect(r.plataforma!.custoAnteriorUsd).toBe(10);
+    // A fatia sem tenant compara com a MESMA frente da semana anterior.
+    expect(r.pd.find((f) => f.frente === 'Plataforma Vertho (sem tenant)')!.custoAnteriorUsd).toBe(10);
     expect(r.totalAnteriorUsd).toBe(50);
   });
 
@@ -175,11 +179,25 @@ describe('operação × P&D', () => {
     expect(r.empresas.find((e) => e.nome === 'Ibipeba')!.custoUsd).toBe(20);
     // Macaé só teve P&D: não vira linha de operação.
     expect(r.empresas.map((e) => e.nome)).toEqual(['Ibipeba']);
-    expect(r.operacaoUsd).toBe(50);
-    expect(r.pdUsd).toBe(43);
+    // Operação = só o que foi entregue a cliente de verdade. Os US$ 30 sem
+    // tenant e os US$ 39 de cena saíram daqui.
+    expect(r.operacaoUsd).toBe(20);
+    expect(r.pdUsd).toBe(73);
     // A invariante: separar não pode fazer dinheiro sumir.
     expect(r.operacaoUsd + r.pdUsd).toBe(r.totalUsd);
     expect(r.totalUsd).toBe(93);
+  });
+
+  it('🔴 tenant de demonstração não conta como cliente', () => {
+    const r = montarRelatorio(JANELA_FIXA, [
+      linha({ empresaId: 'd1', empresaNome: 'ACME Demo', empresaSlug: 'acme-demo', empresaIsDemo: true, feature: 'conteudo_texto', custoUsd: 7 }),
+      // O `acme` original NÃO tem is_demo: entra pela lista de slugs.
+      linha({ empresaId: 'd2', empresaNome: 'ACME', empresaSlug: 'acme', feature: 'conteudo_texto', custoUsd: 3 }),
+      linha({ empresaId: 'e1', empresaNome: 'Macaé', empresaSlug: 'macae', feature: 'conteudo_texto', custoUsd: 5 }),
+    ], []);
+    expect(r.empresas.map((e) => e.nome)).toEqual(['Macaé']);
+    expect(r.operacaoUsd).toBe(5);
+    expect(r.pd.find((f) => f.frente === 'Ambientes internos e demonstração')!.custoUsd).toBe(10);
   });
 
   it('as frentes agrupam por assunto e dizem de quem eram os dados', () => {
@@ -206,7 +224,7 @@ describe('operação × P&D', () => {
     expect(r.pd.find((f) => f.frente === 'Modo Cena')!.custoAnteriorUsd).toBe(90);
   });
 
-  it('rodada sem tenant nenhum aparece como sintética, não como erro', () => {
+  it('rodada sem tenant nenhum aparece sem dono, não como erro', () => {
     const r = montarRelatorio(JANELA_FIXA, [linha({ feature: 'sim_aluno', source: 'simulator', custoUsd: 4 })], []);
     expect(r.pd[0].tenants).toEqual([]);
     expect(r.empresas).toEqual([]);
@@ -243,12 +261,15 @@ describe('e-mail', () => {
     expect(assunto).toContain('95,00');
   });
 
-  it('🔴 o corpo mostra a fatia de plataforma, não só os tenants', () => {
+  it('🔴 o corpo mostra a fatia sem tenant, não só os clientes', () => {
     const { html } = montarEmailCustoIA(base);
     expect(html).toContain('Ibipeba');
-    expect(html).toContain('não atribuído a tenant');
+    expect(html).toContain('Plataforma Vertho (sem tenant)');
     // A nota de cobertura é o que impede ler o total como "todo o custo de IA".
     expect(html).toContain('Ficam de fora');
+    // E a ressalva que impede ler a operação como completa: parte do que está
+    // sem tenant é entrega que não foi atribuída.
+    expect(html).toContain('subestima');
   });
 
   it('🔴 nome vindo do banco é escapado', () => {

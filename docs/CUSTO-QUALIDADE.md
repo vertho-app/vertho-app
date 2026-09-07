@@ -1956,3 +1956,44 @@ O catálogo (`lib/ia-cost-catalog.ts`) foi atualizado com esses números e ganho
 que rodavam "sem estimativa" no simulador: `tts_podcast_personalizado`,
 `tts_podcast_pregerado` (opcional) e `tts_devolutiva`. O canário semanal (`canario_tts`,
 ~US$ 0,20/semana) segue fora do catálogo de propósito: é custo de plataforma, não de tenant.
+
+## 07/09/2026 — demo e plataforma saem da operação, e sobram 2 clientes
+
+Decisão do dono depois do primeiro relatório automático: **os tenants ACME e o
+trabalho sem `empresa_id` não são operação.** A pergunta que o bloco por empresa
+responde é "quanto custa atender este cliente", e ambiente de demonstração não é
+cliente.
+
+**Efeito na semana 31/08–06/09, sem mudar o total de US$ 75,26:**
+
+| | antes | depois |
+|---|---|---|
+| Operação | US$ 69,12 (6 "clientes") | **US$ 23,78 — 2 clientes** |
+| P&D e interno | US$ 6,14 | **US$ 51,48** |
+| Plataforma | 55,7% da operação | frente própria, US$ 38,51 |
+
+A terceira porta da régua (`lib/custo-ia/classificacao.ts`) tem duas fontes,
+porque uma só não cobria:
+
+- **`empresas.is_demo`**, do banco — a mesma coluna que o guardrail de envio já
+  usa, então um demo novo entra na conta sem editar lista nenhuma.
+- **`SLUGS_NAO_CLIENTE`**, no código, para o que `is_demo` não alcança.
+  ⚠️ Medido: dos três tenants com "ACME" no nome, **`acme` tem `is_demo = false`**
+  (só `acme-demo` e `escolas-acme` estão marcados). Uma régua que fosse apenas a
+  coluna deixaria o ACME original contado como cliente pagante.
+
+### A ressalva que vai no próprio e-mail
+
+O custo de operação por cliente hoje é um **piso**. Dentro da fatia sem tenant
+havia, nessa semana, cerca de **US$ 11 de ENTREGA** — `conteudo_layout_plan`
+(US$ 4,30), `ia3_cenarios` (US$ 3,66), `modulo_base_auditor`, `ia2_gabarito`,
+`cenarios_b_check`, `temporada_extracao` — que só está sem dono porque o
+call-site não passou `empresaId`. Enquanto isso não for corrigido na origem, o
+custo real de operar Macaé e Ibipeba é maior do que o relatório mostra, e o
+e-mail diz isso na nota de cobertura em vez de deixar o número parecer completo.
+O conserto é no ponto que dispara a chamada — o dono fechou dois desses em 01/09
+(`ia3_cenarios` e `ia2_gabarito` passaram a etiquetar).
+
+`Medido:` com a régua nova, 30 dias dão operação 78,5% / P&D 21,5%; a semana de
+31/08–06/09 dá 31,6% / 68,4%. A proporção oscila muito porque autoria e
+experimento vêm em rajada — a série sustenta decisão, o Δ de um par não.

@@ -21,13 +21,24 @@
  * INSTRUMENTO que mudou, não o gasto. `avisoInstrumento()` põe isso no e-mail
  * enquanto a janela comparada tocar a virada.
  *
- * ── Por que a fatia sem `empresa_id` não é descartada ─────────────────────────
+ * ── OPERAÇÃO × P&D, e o que conta como cliente ────────────────────────────────
  *
- * Medido em 01/09/2026, 30 dias: 3.988 das 10.525 linhas (38%) não têm empresa,
- * e elas respondem por US$ 102,41 de US$ 291,40 (35% do dinheiro). São autoria
- * de conteúdo, evals, copiloto e simulador — custo de PLATAFORMA, real e pago.
- * Um relatório "por empresa" que filtrasse `empresa_id is not null` mostraria
- * dois terços da conta com cara de conta inteira.
+ * Operação é o custo de atender um cliente de verdade; o resto é interno. Por
+ * decisão do dono (07/09/2026), NÃO são operação: ambiente de demonstração
+ * (`is_demo` + os slugs de `SLUGS_NAO_CLIENTE`) e trabalho sem `empresa_id`.
+ * A régua inteira está em `./classificacao.ts`, com o porquê de cada porta.
+ *
+ * Nada disso sai da conta — o total continua sendo tudo o que foi pago. O que
+ * muda é a coluna: com a separação, "quanto custa atender a Ibipeba" deixou de
+ * ser US$ 62,20 e passou a ser US$ 8,98 na mesma semana, porque 62% do que
+ * estava no nome dela era experimento nosso sobre os dados dela.
+ *
+ * ⚠️ A fatia sem `empresa_id` NÃO é toda interna, e isso é uma dívida do
+ * ledger, não do relatório: em 31/08–06/09 havia cerca de US$ 11 de entrega
+ * (`conteudo_layout_plan`, `ia3_cenarios`, `ia2_gabarito`…) ali dentro, sem dono
+ * porque o call-site não passou `empresaId`. Enquanto isso não for corrigido na
+ * origem, o custo de operar cada cliente sai SUBESTIMADO — e o e-mail diz isso
+ * na nota de cobertura, para o número não ser lido como se fosse completo.
  */
 
 import { createSupabaseAdmin } from '@/lib/supabase';
@@ -74,6 +85,8 @@ export interface LinhaAgregada {
   empresaId: string | null;
   empresaNome: string | null;
   empresaSlug: string | null;
+  /** `empresas.is_demo`: ambiente de demonstração não é cliente. */
+  empresaIsDemo: boolean;
   feature: string;
   /** Quem disparou, declarado no call-site. Separa operação de medição. */
   source: string;
@@ -177,6 +190,7 @@ export async function coletarJanela(j: Janela): Promise<LinhaAgregada[]> {
     empresaId: (r.empresa_id as string) ?? null,
     empresaNome: (r.empresa_nome as string) ?? null,
     empresaSlug: (r.empresa_slug as string) ?? null,
+    empresaIsDemo: r.empresa_is_demo === true,
     feature: (r.feature as string) || 'sem-feature',
     source: (r.source as string) || 'wrapper',
     provider: (r.provider as string) || 'desconhecido',
@@ -215,7 +229,7 @@ export function montarRelatorio(
   linhas: LinhaAgregada[],
   anteriores: LinhaAgregada[],
 ): RelatorioSemanal {
-  const ehPD = (l: LinhaAgregada) => naturezaDaLinha(l.feature, l.source) === 'pd';
+  const ehPD = (l: LinhaAgregada) => naturezaDaLinha(l) === 'pd';
   const operacao = linhas.filter((l) => !ehPD(l));
   const pesquisa = linhas.filter(ehPD);
   const operacaoAnterior = anteriores.filter((l) => !ehPD(l));
@@ -325,7 +339,7 @@ export function montarRelatorio(
 function montarBlocosPD(linhas: LinhaAgregada[], anteriores: LinhaAgregada[]): BlocoPD[] {
   const anteriorPorFrente = new Map<string, number>();
   for (const l of anteriores) {
-    const f = frenteDePD(l.feature, l.source);
+    const f = frenteDePD(l);
     anteriorPorFrente.set(f, (anteriorPorFrente.get(f) || 0) + l.custoUsd);
   }
 
@@ -335,7 +349,7 @@ function montarBlocosPD(linhas: LinhaAgregada[], anteriores: LinhaAgregada[]): B
   const tenantsPor = new Map<string, Set<string>>();
 
   for (const l of linhas) {
-    const frente = frenteDePD(l.feature, l.source);
+    const frente = frenteDePD(l);
     let b = blocos.get(frente);
     if (!b) {
       b = {

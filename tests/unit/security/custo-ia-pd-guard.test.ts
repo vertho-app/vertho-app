@@ -148,10 +148,15 @@ describe('Guard: a lista de P&D do relatório de custo', () => {
 });
 
 describe('a régua em si', () => {
+  /** Cliente pagante, o caso base. */
+  const cliente = (feature: string, source: string) => ({
+    feature, source, empresaId: 'e1', empresaSlug: 'macae', empresaIsDemo: false,
+  });
+
   it('o source de medição vence, e a feature cobre o source default', () => {
-    expect(naturezaDaLinha('ia3_check', 'simulator')).toBe('pd');
-    expect(naturezaDaLinha('cena_turno', 'wrapper')).toBe('pd');
-    expect(naturezaDaLinha('ia3_check', 'wrapper')).toBe('operacao');
+    expect(naturezaDaLinha(cliente('ia3_check', 'simulator'))).toBe('pd');
+    expect(naturezaDaLinha(cliente('cena_turno', 'wrapper'))).toBe('pd');
+    expect(naturezaDaLinha(cliente('ia3_check', 'wrapper'))).toBe('operacao');
   });
 
   it('🔴 `cenarios_b` é operação, não P&D', () => {
@@ -159,14 +164,34 @@ describe('a régua em si', () => {
     // `cenarios_b_check`, que são o fechamento da trilha. A régua é lista
     // explícita justamente por isso — o erro custou US$ 2,78 de P&D inflado
     // numa medição de 02/09 antes de eu conferir feature a feature.
-    expect(naturezaDaLinha('cenarios_b', 'wrapper')).toBe('operacao');
-    expect(naturezaDaLinha('cenarios_b_check', 'wrapper')).toBe('operacao');
-    expect(naturezaDaLinha('cena_extracao', 'wrapper')).toBe('pd');
+    expect(naturezaDaLinha(cliente('cenarios_b', 'wrapper'))).toBe('operacao');
+    expect(naturezaDaLinha(cliente('cenarios_b_check', 'wrapper'))).toBe('operacao');
+    expect(naturezaDaLinha(cliente('cena_extracao', 'wrapper'))).toBe('pd');
   });
 
-  it('a frente prefere a feature ao source, que é mais genérico', () => {
-    expect(frenteDePD('cena_turno', 'wrapper')).toBe('Modo Cena');
-    expect(frenteDePD('pdi_experimento', 'experimento')).toBe('PDI (experimento)');
-    expect(frenteDePD('qualquer_coisa', 'eval')).toBe(SOURCES_DE_MEDICAO.eval);
+  it('🔴 quem não é cliente não entra em operação, mesmo com feature de entrega', () => {
+    const conteudo = 'conteudo_texto';
+    // Sem tenant nenhum.
+    expect(naturezaDaLinha({ ...cliente(conteudo, 'wrapper'), empresaId: null })).toBe('pd');
+    // Demo pela coluna do banco.
+    expect(naturezaDaLinha({ ...cliente(conteudo, 'wrapper'), empresaIsDemo: true })).toBe('pd');
+    // Demo pelo slug: o `acme` original tem `is_demo = false` e cairia como
+    // cliente se a régua fosse só a coluna.
+    expect(naturezaDaLinha({ ...cliente(conteudo, 'wrapper'), empresaSlug: 'acme' })).toBe('pd');
+    expect(naturezaDaLinha({ ...cliente(conteudo, 'wrapper'), empresaSlug: 'teste-piloto' })).toBe('pd');
+    // E o cliente de verdade continua sendo operação.
+    expect(naturezaDaLinha(cliente(conteudo, 'wrapper'))).toBe('operacao');
+  });
+
+  it('a frente prefere a feature ao source e ao tenant, que são mais genéricos', () => {
+    expect(frenteDePD(cliente('cena_turno', 'wrapper'))).toBe('Modo Cena');
+    expect(frenteDePD(cliente('pdi_experimento', 'experimento'))).toBe('PDI (experimento)');
+    expect(frenteDePD(cliente('qualquer_coisa', 'eval'))).toBe(SOURCES_DE_MEDICAO.eval);
+    // Uma cena rodada sem tenant continua sendo Modo Cena, não "Plataforma".
+    expect(frenteDePD({ ...cliente('cena_turno', 'wrapper'), empresaId: null })).toBe('Modo Cena');
+    expect(frenteDePD({ ...cliente('conteudo_texto', 'wrapper'), empresaId: null }))
+      .toBe('Plataforma Vertho (sem tenant)');
+    expect(frenteDePD({ ...cliente('conteudo_texto', 'wrapper'), empresaIsDemo: true }))
+      .toBe('Ambientes internos e demonstração');
   });
 });

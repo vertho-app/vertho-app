@@ -44,10 +44,10 @@ const CSS = `
 .vh-hero{border-left:4px solid #34C5CC}
 .vh-c{padding:7px 10px;border-bottom:1px solid #e3e8ef;font-size:13px}
 .vh-r{text-align:right}
-.vh-n{font-variant-numeric:tabular-nums}
+.vh-n{font-variant-numeric:tabular-nums;white-space:nowrap}
 .vh-b{font-weight:600}
 .vh-d{color:#5b6b80}
-.vh-th{padding:7px 10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5b6b80;border-bottom:2px solid #e3e8ef;font-weight:600;text-align:left}
+.vh-th{padding:7px 10px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#5b6b80;border-bottom:2px solid #e3e8ef;font-weight:600;text-align:left;white-space:nowrap}
 .vh-th-r{text-align:right}
 .vh-nome{font-size:16px;font-weight:700;color:#0F2B54;padding-bottom:2px}
 .vh-valor{font-size:18px;font-weight:700;color:#0F2B54;text-align:right;font-variant-numeric:tabular-nums}
@@ -57,6 +57,7 @@ const CSS = `
 .vh-rodape{font-size:11px;color:#5b6b80;margin:18px 0 0;text-align:center}
 .vh-aviso{padding:12px 16px;background:#fff8ec;border:1px solid #f0dcbb;border-radius:12px;font-size:13px;color:#7a5a1e}
 .vh-sep{height:22px;line-height:22px;font-size:0}
+.vh-wrap{white-space:normal;max-width:220px}
 `.trim();
 
 /** Nome de empresa e de feature vêm do banco: escapar antes de concatenar. */
@@ -210,7 +211,7 @@ function detalheDaFrente(b: BlocoPD, totalPD: number): string {
 <tr><td class="vh-nome">${esc(b.frente)}</td>
 <td class="vh-valor">${fmtUsd(b.custoUsd)}</td></tr>
 <tr><td class="vh-meta">${fmtNum(b.chamadas)} chamadas${
-    b.tenants.length ? ` · dados de ${esc(b.tenants.join(', '))}` : ' · rodada sintética'
+    b.tenants.length ? ` · dados de ${esc(b.tenants.join(', '))}` : ' · sem tenant'
   }</td>
 <td class="vh-meta vh-r">${pct(b.custoUsd, totalPD)} do P&amp;D · <span style="color:${v.cor};font-weight:600">${v.texto}</span> vs. semana anterior</td></tr>
 </table>
@@ -292,7 +293,7 @@ operação parada, ou a gravação do ledger falhando em silêncio. Os avisos fi
       return `<tr>${td(esc(b.frente))}${td(fmtUsd(b.custoUsd), 'vh-r vh-n vh-b')}`
         + `${td(pct(b.custoUsd, r.pdUsd), 'vh-r vh-d')}`
         + `${td(`<span style="color:${vb.cor};font-weight:600">${vb.texto}</span>`, 'vh-r')}`
-        + `${td(b.tenants.length ? esc(b.tenants.join(', ')) : 'sintética', 'vh-r vh-d')}</tr>`;
+        + `${td(b.tenants.length ? esc(b.tenants.join(', ')) : '—', 'vh-r vh-d vh-wrap')}</tr>`;
     })
     .join('');
 
@@ -377,13 +378,17 @@ hospedagem de mídia e infraestrutura.${
     r.totalSemCusto > 0
       ? ` Nesta semana, ${fmtNum(r.totalSemCusto)} chamada(s) foram registradas sem valor de custo e entram como zero.`
       : ''
-  } A fatia de plataforma reúne a operação que não tem empresa atribuída — autoria de conteúdo e
-ferramentas próprias — e é custo real da Vertho, não de um cliente.</p>
-<p class="vh-nota" style="margin-top:8px">Uma chamada entra como <strong>P&amp;D</strong> por duas
-vias: quando quem a disparou declarou que era medição (simulação, eval, experimento, calibração), ou
-quando ela pertence a um motor que ainda não tem nenhuma tela, rota ou tarefa chamando, como o Modo
-Cena. A segunda via é conferida contra o código a cada build, então uma frente que entrar em produção
-deixa de ser contada aqui em vez de ficar escondida.</p>
+  }</p>
+<p class="vh-nota" style="margin-top:8px"><strong>Operação</strong> é o que custou atender um cliente
+de verdade. Fora dela ficam, por decisão: as chamadas que quem disparou declarou como medição
+(simulação, eval, experimento, calibração), as que pertencem a um motor sem nenhuma tela, rota ou
+tarefa chamando (como o Modo Cena), os ambientes de demonstração e o trabalho que roda sem empresa
+atribuída. Essa segunda via é conferida contra o código a cada build, então uma frente que entrar em
+produção volta para a conta do cliente em vez de ficar escondida.</p>
+<p class="vh-nota" style="margin-top:8px">⚠️ Por isso o custo de operação de cada cliente hoje é um
+<strong>piso, e provavelmente subestima</strong> o real: parte do que aparece sem tenant é entrega
+(plano de conteúdo, cenários, gabarito) que só está sem dono porque a chamada não gravou a empresa.
+O conserto é no ponto que dispara a chamada, não neste relatório.</p>
 </td></tr></table>
 
 <p class="vh-rodape">Gerado automaticamente pela vertho.ai · valores em dólar, como cobrados pelos provedores</p>

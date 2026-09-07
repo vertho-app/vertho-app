@@ -76,11 +76,53 @@ export const FEATURES_DE_PD: Record<string, string> = {
  */
 export const MODULOS_DE_PD = ['lib/season-engine/cena/'] as const;
 
+/**
+ * Tenants que NÃO são cliente, e por isso não entram em operação (decisão do
+ * dono, 07/09/2026). A régua principal é `empresas.is_demo`, que vem do banco:
+ * é a mesma coluna que o guardrail de envio usa, então um ambiente de demo novo
+ * entra na conta sem ninguém lembrar de editar lista nenhuma.
+ *
+ * Esta lista cobre só o que `is_demo` não alcança — e a razão de ela existir é
+ * medida: dos três tenants com "ACME" no nome, **`acme` tem `is_demo = false`**
+ * (só `acme-demo` e `escolas-acme` estão marcados). Uma régua que fosse só
+ * `is_demo` deixaria o ACME original contado como cliente.
+ *
+ * `teste-piloto` e `bett` entram pelo mesmo motivo dos ACME: ambiente de teste
+ * e de feira não é cliente. Juntos custaram US$ 1,35 em 30 dias — o efeito é
+ * pequeno, mas mantê-los em "operação" é dizer que a Vertho tem 8 clientes
+ * quando tem 2.
+ */
+export const SLUGS_NAO_CLIENTE = ['acme', 'teste-piloto', 'bett'] as const;
+
 export type Natureza = 'operacao' | 'pd';
 
-export function naturezaDaLinha(feature: string, source: string | null): Natureza {
-  if (source && SOURCES_DE_MEDICAO[source]) return 'pd';
-  if (FEATURES_DE_PD[feature]) return 'pd';
+/** O que a régua precisa saber de uma linha para classificá-la. */
+export interface LinhaClassificavel {
+  feature: string;
+  source: string | null;
+  empresaId: string | null;
+  empresaSlug: string | null;
+  empresaIsDemo: boolean;
+}
+
+/**
+ * OPERAÇÃO é o custo de atender um cliente de verdade. Tudo o mais é interno.
+ *
+ * ⚠️ A porta do `empresaId` nulo é a que mais move dinheiro e a que tem a
+ * ressalva mais importante: **parte do trabalho sem tenant É entrega** — em
+ * 31/08–06/09, cerca de US$ 11 de `conteudo_layout_plan`, `ia3_cenarios`,
+ * `ia2_gabarito` e afins, que só estão sem dono porque o `empresa_id` não foi
+ * gravado na chamada. Contá-los como interno subestima o custo real de operar
+ * os clientes. O conserto não é aqui, é no call-site que deixa de passar
+ * `empresaId` (o dono fechou dois desses em 01/09); enquanto isso, o e-mail diz
+ * na nota de cobertura que o bloco de plataforma contém entrega não atribuída.
+ */
+export function naturezaDaLinha(l: LinhaClassificavel): Natureza {
+  if (!l.empresaId) return 'pd';
+  if (l.empresaIsDemo) return 'pd';
+  if (l.empresaSlug && (SLUGS_NAO_CLIENTE as readonly string[]).includes(l.empresaSlug)) return 'pd';
+  if (l.source && SOURCES_DE_MEDICAO[l.source]) return 'pd';
+  if (FEATURES_DE_PD[l.feature]) return 'pd';
   return 'operacao';
 }
 
@@ -111,9 +153,15 @@ export const ROTULO_POR_FEATURE: Record<string, string> = {
  * não há palpite nenhum: o que não está nos mapas cai em "Outras medições",
  * que é uma lacuna visível em vez de um rótulo inventado.
  */
-export function frenteDePD(feature: string, source: string | null): string {
-  return FEATURES_DE_PD[feature]
-    || ROTULO_POR_FEATURE[feature]
-    || (source ? SOURCES_DE_MEDICAO[source] : undefined)
-    || 'Outras medições';
+export function frenteDePD(l: LinhaClassificavel): string {
+  // A frente por FEATURE vem primeiro mesmo quando a linha tem tenant demo ou
+  // nenhum tenant: uma cena rodada sem `empresa_id` continua sendo Modo Cena, e
+  // dizer "Plataforma" ali esconderia a frente que gastou.
+  const porFeature = FEATURES_DE_PD[l.feature]
+    || ROTULO_POR_FEATURE[l.feature]
+    || (l.source ? SOURCES_DE_MEDICAO[l.source] : undefined);
+  if (porFeature) return porFeature;
+
+  if (!l.empresaId) return 'Plataforma Vertho (sem tenant)';
+  return 'Ambientes internos e demonstração';
 }
