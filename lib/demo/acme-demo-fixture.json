@@ -8276,6 +8276,739 @@
             "tira_duvidas": null
           }
         ]
+      },
+      "pdi": {
+        "tipo": "individual",
+        "conteudo": {
+          "auditoria": {
+            "checks": [
+              {
+                "id": "gap-sem-acao",
+                "status": "pass",
+                "titulo": "Toda competência em gap recebe caminho",
+                "detalhe": "Todas as competências sinalizadas trazem o que melhorar e como.",
+                "categoria": "estrutura",
+                "ocorrencias": []
+              },
+              {
+                "id": "checklist-3",
+                "status": "pass",
+                "titulo": "O checklist do sprint tem 3 itens",
+                "detalhe": "Todos os sprints trazem checklist de 3 itens.",
+                "categoria": "estrutura",
+                "ocorrencias": []
+              },
+              {
+                "id": "sprint-do-blueprint",
+                "status": "fail",
+                "titulo": "O sprint veio do blueprint",
+                "detalhe": "O PDI reescreveu ação que o prompt manda COPIAR do blueprint — promete o que a trilha não sustenta.",
+                "categoria": "estrutura",
+                "ocorrencias": [
+                  "Negociação e Fechamento · acao_principal: \"Montar, com apoio da liderança, um roteiro de negociação com…\" ≠ blueprint",
+                  "Negociação e Fechamento · acao_apoio: \"Após cada reunião, preencher um campo de observação no CRM i…\" ≠ blueprint",
+                  "Negociação e Fechamento · ritual: \"Revisão semanal de 10 minutos com a liderança sobre os regis…\" ≠ blueprint"
+                ]
+              },
+              {
+                "id": "perfil-2a-pessoa",
+                "status": "pass",
+                "titulo": "O perfil fala COM a pessoa, não SOBRE ela",
+                "detalhe": "Descrição do perfil em 2ª pessoa.",
+                "categoria": "estrutura",
+                "ocorrencias": []
+              },
+              {
+                "id": "jargao-ingles",
+                "status": "pass",
+                "titulo": "Sem jargão em inglês no texto que sai",
+                "detalhe": "Nenhum termo em inglês proibido no texto voltado à pessoa.",
+                "categoria": "estrutura",
+                "ocorrencias": []
+              },
+              {
+                "id": "sem-sem_lastro",
+                "status": "fail",
+                "titulo": "Afirmação sem lastro na evidência",
+                "detalhe": "O documento reproduz adequadamente vários níveis, lacunas e forças da avaliação, mas cria sprints completos para quatro competências sem objetivos correspondentes no blueprint, cuja fonte deveria ser exclusiva. Há também inferências comportamentais apresentadas como características de Bruna sem evid",
+                "categoria": "semantica",
+                "ocorrencias": [
+                  "Resiliência e Constância: \"Desenvolver 2 rotinas pessoais de reset entre contatos difíceis — definindo o que faz, por…\" — O blueprint fornecido contém objetivos e ações apenas para Negociação e Fechamento; não há ação autorizada para esta competência.",
+                  "Comunicação e Apresentação de Valor: \"Escolher duas provas comerciais que você possa usar (caso de cliente similar, dado de resu…\" — O blueprint não traz objetivos, ações ou sprint para Comunicação e Apresentação de Valor.",
+                  "Relacionamento e Pós-venda: \"Escolher um cliente da carteira por semana e mapear: último contato proativo, sinais de in…\" — O blueprint não traz objetivos, ações ou sprint para Relacionamento e Pós-venda.",
+                  "Orientação a Metas e Resultados: \"Toda semana, antes de planejar as atividades, consultar onde está em relação à meta (perce…\" — O blueprint não traz objetivos, ações ou sprint para Orientação a Metas e Resultados.",
+                  "perfil_comportamental: \"Você provavelmente costuma ser percebida como alguém confiável e consistente, que não age …\" — Os dados DISC e de estilo de liderança não registram como Bruna é percebida por outras pessoas nem comprovam que ela não age por impulso.",
+                  "perfil_comportamental: \"O risco desse estilo, em contextos de negociação, é a tendência a esperar mais dados ou ma…\" — A avaliação aponta ausência de evidência sobre fechamento, mas não relata que Bruna espere mais dados, hesite ou seja percebida dessa forma por clientes.",
+                  "Negociação e Fechamento: \"Mostrou consciência sobre os riscos de ceder cedo demais e sobre a importância de preserva…\" — A evidência disponível sustenta critério sobre sustentabilidade e relação, mas não mostra que Bruna tenha mencionado ceder cedo demais."
+                ]
+              },
+              {
+                "id": "sem-generico",
+                "status": "warn",
+                "titulo": "Análise genérica (caberia em qualquer pessoa)",
+                "detalhe": "O documento reproduz adequadamente vários níveis, lacunas e forças da avaliação, mas cria sprints completos para quatro competências sem objetivos correspondentes no blueprint, cuja fonte deveria ser exclusiva. Há também inferências comportamentais apresentadas como características de Bruna sem evid",
+                "categoria": "semantica",
+                "ocorrencias": [
+                  "Relacionamento e Pós-venda: \"Isso é o que cria confiança ao longo do tempo.…\" — A frase faz uma atribuição ampla de efeito sem evidência de comportamento recorrente ou resultado de confiança na relação com clientes."
+                ]
+              }
+            ],
+            "resumo": "2 falha(s): O sprint veio do blueprint; Afirmação sem lastro na evidência",
+            "status": "fail",
+            "competenciasAuditadas": 5
+          },
+          "acolhimento": "Bruna, este material é uma devolutiva do seu mapa de competências como Representante Comercial — não um julgamento, mas um ponto de partida. Você demonstrou, ao longo da avaliação, um raciocínio reflexivo e uma preocupação genuína com a qualidade das suas decisões, e é exatamente a partir disso que este plano foi construído.",
+          "trilha_mapa": {
+            "semanas": [
+              {
+                "tipo": "conteudo",
+                "semana": 1,
+                "conexao_com_pdi": [
+                  "obj-1"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Criação de senso de urgência",
+                  "Condução ao fechamento"
+                ],
+                "evidencia_esperada": "Rascunho do roteiro de negociação com os três movimentos (urgência, objeção, próximo passo) iniciado e compartilhado com a liderança.",
+                "objetivo_da_semana": "Entender o mapa de uma negociação comercial e identificar os dois movimentos com maior lacuna: criar urgência e conduzir ao fechamento. Assistir ao conteúdo sobre estrutura de negociação e começar a montar o roteiro básico com apoio da liderança.",
+                "criterio_de_sucesso": "A liderança consegue verificar se o roteiro foi iniciado, quais movimentos foram incluídos e se houve pelo menos uma conversa de alinhamento sobre o que priorizar."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 2,
+                "conexao_com_pdi": [
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Tratamento de objeções",
+                  "Defesa de preço e margem"
+                ],
+                "evidencia_esperada": "Ao menos duas fichas de preparação preenchidas antes das reuniões da semana, com objeções esperadas e argumentos de valor listados.",
+                "objetivo_da_semana": "Estudar como tratar objeções e defender o preço antes de conceder desconto. Ler o conteúdo sobre tratamento de objeções e assistir ao vídeo sobre defesa de valor. Começar a preencher a ficha de preparação para as reuniões da semana.",
+                "criterio_de_sucesso": "A liderança consegue verificar se as fichas existem, se as objeções foram antecipadas e se os argumentos de valor estão listados antes da reunião — não depois."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 3,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Negociação de condições e contrato",
+                  "Saber a hora de recuar"
+                ],
+                "evidencia_esperada": "Mapa de limites de concessão aprovado pela liderança, registrado e disponível para consulta antes das próximas reuniões.",
+                "objetivo_da_semana": "Mapear com a liderança os limites de concessão (desconto, prazo, forma de pagamento) e entender os critérios para decidir quando encerrar uma negociação. Estudar o conteúdo sobre reconhecer o momento de recuar.",
+                "criterio_de_sucesso": "A liderança consegue verificar se o mapa foi construído em conjunto, quais limites foram definidos e se Bruna sabe quando precisa escalar antes de conceder."
+              },
+              {
+                "tipo": "missao",
+                "semana": 4,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Criação de senso de urgência",
+                  "Condução ao fechamento",
+                  "Tratamento de objeções"
+                ],
+                "evidencia_esperada": "Ficha de preparação preenchida antes da reunião e registro no CRM com o resultado, incluindo qual movimento foi mais difícil.",
+                "objetivo_da_semana": "Aplicar o roteiro de negociação em uma reunião real com cliente ativo, usando a ficha de preparação e registrando o resultado no CRM. Identificar qual movimento foi mais difícil de executar.",
+                "criterio_de_sucesso": "A liderança consegue verificar: se a ficha foi preenchida antes da reunião, quais movimentos do roteiro foram aplicados, o que aconteceu na reunião e qual dificuldade foi identificada por Bruna."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 5,
+                "conexao_com_pdi": [
+                  "obj-1"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Criação de senso de urgência",
+                  "Condução ao fechamento"
+                ],
+                "evidencia_esperada": "Registros no CRM de ao menos duas reuniões com argumento de urgência utilizado e próximo passo com data definida.",
+                "objetivo_da_semana": "Retomar os dois descritores de maior lacuna à luz da missão da semana 4. Refinar o argumento de urgência e praticar a proposta de próximo passo com data em ao menos duas reuniões da semana.",
+                "criterio_de_sucesso": "A liderança consegue verificar em quais reuniões o argumento de urgência foi usado, qual foi o argumento e se o próximo passo ficou registrado com data."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 6,
+                "conexao_com_pdi": [
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Tratamento de objeções",
+                  "Defesa de preço e margem"
+                ],
+                "evidencia_esperada": "Lista atualizada de objeções recorrentes com respostas refinadas, registrada na ficha de preparação das reuniões da semana.",
+                "objetivo_da_semana": "Aprofundar o tratamento de objeções com base nas objeções reais que apareceram nas semanas anteriores. Refinar os argumentos de valor usados antes de qualquer concessão de desconto.",
+                "criterio_de_sucesso": "A liderança consegue verificar quais objeções foram identificadas como recorrentes, quais respostas foram refinadas e se os argumentos de valor foram usados antes de qualquer desconto."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 7,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Negociação de condições e contrato",
+                  "Saber a hora de recuar"
+                ],
+                "evidencia_esperada": "Registro de ao menos uma negociação em que o mapa de limites foi consultado antes da reunião e, se aplicável, a decisão de recuar foi documentada com o critério usado.",
+                "objetivo_da_semana": "Praticar a consulta ao mapa de limites de concessão antes das reuniões e aplicar ao menos uma vez o critério de recuo em uma negociação em andamento. Registrar a decisão tomada e o critério usado.",
+                "criterio_de_sucesso": "A liderança consegue verificar se o mapa foi consultado, em qual negociação a decisão de recuar foi aplicada e qual critério embasou a decisão."
+              },
+              {
+                "tipo": "missao",
+                "semana": 8,
+                "conexao_com_pdi": [
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Defesa de preço e margem",
+                  "Tratamento de objeções"
+                ],
+                "evidencia_esperada": "Registros no CRM ou fichas de preparação das duas reuniões, com os argumentos de valor usados, as objeções tratadas e se houve ou não concessão de desconto.",
+                "objetivo_da_semana": "Em ao menos duas reuniões da semana, sustentar a proposta com argumentos de valor antes de qualquer conversa sobre desconto e tratar as objeções com as respostas preparadas. Registrar tudo no CRM.",
+                "criterio_de_sucesso": "A liderança consegue verificar: em quais reuniões os argumentos de valor foram apresentados antes do desconto, quais foram os argumentos, como o cliente reagiu e se houve concessão — e com qual base."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 9,
+                "conexao_com_pdi": [
+                  "obj-1"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Criação de senso de urgência",
+                  "Condução ao fechamento"
+                ],
+                "evidencia_esperada": "Roteiro de negociação revisado com ao menos uma mudança baseada nos registros das semanas anteriores, compartilhado com a liderança.",
+                "objetivo_da_semana": "Aprofundamento: revisar os registros das semanas anteriores e identificar em quais reuniões a urgência e o fechamento funcionaram — e onde não funcionaram. Refinar o roteiro com base nos padrões encontrados, com apoio da liderança.",
+                "criterio_de_sucesso": "A liderança consegue verificar quais registros foram revisados, qual ajuste foi feito no roteiro e qual padrão embasou a mudança."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 10,
+                "conexao_com_pdi": [
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Tratamento de objeções",
+                  "Defesa de preço e margem"
+                ],
+                "evidencia_esperada": "Tabela ou lista de objeções recorrentes com respostas consolidadas, usada como referência nas reuniões da semana.",
+                "objetivo_da_semana": "Aprofundamento: consolidar as respostas às objeções mais recorrentes em um formato de referência rápida (pode ser uma tabela simples) e testar os argumentos de defesa de valor em ao menos duas reuniões da semana.",
+                "criterio_de_sucesso": "A liderança consegue verificar se o material de referência existe, quais objeções foram incluídas e se foi usado nas reuniões — com registro do resultado."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 11,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Negociação de condições e contrato",
+                  "Saber a hora de recuar"
+                ],
+                "evidencia_esperada": "Registro da revisão com a liderança, com ao menos um ajuste ou validação do mapa de limites de concessão.",
+                "objetivo_da_semana": "Aprofundamento: revisar com a liderança os casos em que houve concessão ou encerramento de negociação nas semanas anteriores e avaliar se os critérios do mapa de limites foram seguidos. Ajustar o mapa se necessário.",
+                "criterio_de_sucesso": "A liderança consegue verificar se a revisão aconteceu, quais casos foram analisados, se o mapa foi ajustado e qual critério embasou o ajuste."
+              },
+              {
+                "tipo": "missao",
+                "semana": 12,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Criação de senso de urgência",
+                  "Condução ao fechamento",
+                  "Tratamento de objeções",
+                  "Defesa de preço e margem",
+                  "Negociação de condições e contrato",
+                  "Saber a hora de recuar"
+                ],
+                "evidencia_esperada": "Registros no CRM ou fichas de negociação de ao menos duas reuniões, com todos os movimentos do roteiro documentados e a decisão final registrada com o critério usado.",
+                "objetivo_da_semana": "Conduzir ao menos duas negociações completas — da abertura ao próximo passo ou encerramento — usando o roteiro desenvolvido ao longo da trilha, com registro de cada movimento e da decisão de avançar ou encerrar, com apoio da liderança para validar os critérios usados.",
+                "criterio_de_sucesso": "A liderança consegue verificar: em quais reuniões o roteiro foi aplicado, quais movimentos foram executados, qual decisão foi tomada ao final e com base em quê — para cada uma das duas negociações."
+              },
+              {
+                "tipo": "avaliacao",
+                "semana": 13,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Criação de senso de urgência",
+                  "Condução ao fechamento",
+                  "Tratamento de objeções"
+                ],
+                "evidencia_esperada": "Ao menos três fichas de negociação ou registros no CRM do período, contendo: o argumento de urgência usado, as objeções tratadas com a resposta aplicada e o próximo passo definido com data — uma por reunião documentada.",
+                "objetivo_da_semana": "Avaliação dos descritores de urgência, fechamento e tratamento de objeções. A liderança revisa os registros do período e verifica se Bruna aplicou esses movimentos de forma consistente nas negociações documentadas.",
+                "criterio_de_sucesso": "A liderança consegue verificar: em quais reuniões o argumento de urgência foi apresentado e qual foi o argumento; quais objeções apareceram e como foram tratadas; se o próximo passo ficou registrado com data — para cada uma das ao menos três fichas."
+              },
+              {
+                "tipo": "avaliacao",
+                "semana": 14,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Negociação e Fechamento"
+                ],
+                "descritores_foco": [
+                  "Defesa de preço e margem",
+                  "Negociação de condições e contrato",
+                  "Saber a hora de recuar"
+                ],
+                "evidencia_esperada": "Ao menos duas fichas de negociação ou registros no CRM do período contendo: os argumentos de valor apresentados antes de qualquer desconto, a consulta ao mapa de limites de concessão e, em ao menos um caso, o registro da decisão de avançar ou encerrar com o critério usado.",
+                "objetivo_da_semana": "Avaliação dos descritores de defesa de preço, negociação de condições e decisão de recuar. A liderança revisa os registros do período e verifica se Bruna usou argumentos de valor antes de conceder desconto, consultou o mapa de limites e documentou decisões de recuo com critério.",
+                "criterio_de_sucesso": "A liderança consegue verificar: se os argumentos de valor foram apresentados antes do desconto em cada ficha; se o mapa de limites foi consultado; em qual negociação houve decisão de recuar ou avançar e qual critério foi documentado — para cada uma das ao menos duas fichas."
+              }
+            ],
+            "duracao_semanas": 14
+          },
+          "competencias": [
+            {
+              "flag": true,
+              "nome": "Negociação e Fechamento",
+              "nivel": 1,
+              "sprint": {
+                "ritual": "Revisão semanal de 10 minutos com a liderança sobre os registros do CRM da semana anterior.",
+                "checklist": [
+                  "Roteiro de negociação construído e validado com a liderança",
+                  "Ao menos quatro reuniões registradas no CRM com campo de observação preenchido",
+                  "Fichas de preparação (objeções + argumentos de valor + limite de concessão) preenchidas antes de ao menos quatro reuniões"
+                ],
+                "acao_apoio": "Após cada reunião, preencher um campo de observação no CRM indicando quais movimentos do roteiro foram executados e o que ficou pendente.",
+                "foco_30_dias": "Construir e usar um roteiro básico de negociação, cobrindo urgência, objeção e próximo passo em reuniões com clientes ativos.",
+                "acao_principal": "Montar, com apoio da liderança, um roteiro de negociação com os três movimentos principais — urgência, objeção e fechamento — e usá-lo como referência nas reuniões da semana.",
+                "evidencia_esperada": "Roteiro montado e registros de ao menos quatro reuniões no CRM com o campo de observação preenchido."
+              },
+              "fez_bem": [
+                "Demonstrou raciocínio claro sobre o que torna uma decisão sustentável — equilíbrio entre relação, resultado e promessas cumpridas",
+                "Mostrou consciência sobre os riscos de ceder cedo demais e sobre a importância de preservar margem",
+                "Identificou a própria tendência a ser defensiva diante de objeções — autoconsciência que é ponto de partida real para o desenvolvimento"
+              ],
+              "feedback": "Bruna, o que ficou mais visível nas suas respostas sobre negociação foi a qualidade do seu raciocínio — você pensa sobre sustentabilidade, sobre o longo prazo, sobre o equilíbrio entre relação e resultado. Isso é genuinamente valioso e não é algo que todo representante tem. O desafio agora é traduzir esse raciocínio em movimentos concretos durante a negociação. As três lacunas centrais — criar urgência, conduzir ao fechamento e tratar objeções — são habilidades técnicas que se aprendem com roteiro e prática repetida. O próximo passo não é mudar quem você é, mas adicionar ferramentas ao que já existe.",
+              "melhorar": [
+                "Descrever situações concretas de negociação com ação e resultado — não apenas o raciocínio por trás delas",
+                "Desenvolver e usar um roteiro básico com os movimentos de urgência, objeção e próximo passo em cada reunião",
+                "Preparar, antes de cada reunião, a lista de objeções prováveis e os argumentos de valor que sustentam o preço"
+              ],
+              "nota_decimal": 1.72,
+              "estudo_recomendado": [
+                {
+                  "url": "",
+                  "titulo": "Como criar urgência legítima em negociações sem pressionar o cliente",
+                  "formato": "vídeo",
+                  "por_que_ajuda": "Cobre diretamente o maior gap identificado — como motivar a decisão do cliente dentro do ciclo previsto sem soar manipulador, o que é especialmente relevante para um perfil que valoriza relações de confiança."
+                },
+                {
+                  "url": "",
+                  "titulo": "Tratamento de objeções: da escuta ao argumento estruturado",
+                  "formato": "texto",
+                  "por_que_ajuda": "Oferece um método passo a passo para preparar e usar respostas a objeções recorrentes — conectado diretamente à ficha de preparação do sprint."
+                },
+                {
+                  "url": "",
+                  "titulo": "Defesa de preço: como apresentar valor antes de negociar desconto",
+                  "formato": "estudo de caso",
+                  "por_que_ajuda": "Mostra situações reais de representantes que defenderam preço com argumentos de valor — útil para construir o repertório que faltou nas respostas avaliadas."
+                }
+              ],
+              "dicas_desenvolvimento": [
+                "Quando sentir que a reunião está encerrando sem definição, diga: 'Qual seria o melhor próximo passo para avançarmos até [data]?' — isso propõe o fechamento sem pressionar.",
+                "Quando um cliente apresentar uma objeção, antes de responder, diga: 'Me ajuda a entender melhor — o que está pesando mais para você nesse ponto?' — isso ganha tempo e informação antes de usar o argumento preparado.",
+                "Quando houver pressão por desconto, diga: 'Antes de falar sobre o valor, quero garantir que você está vendo o que isso entrega: [argumento 1] e [argumento 2].' — só depois, se necessário, entre na concessão."
+              ],
+              "descritores_desenvolvimento": [
+                "Criar urgência legítima para motivar a decisão do cliente dentro do ciclo previsto",
+                "Reconhecer sinais de compra e propor o fechamento de forma direta",
+                "Preparar e usar respostas estruturadas para as objeções mais recorrentes",
+                "Defender o preço com argumentos de valor antes de qualquer concessão"
+              ]
+            },
+            {
+              "flag": true,
+              "nome": "Resiliência e Constância",
+              "nivel": 1,
+              "sprint": {
+                "ritual": "Revisão semanal de 10 minutos: verificar se os indicadores de processo foram atingidos e se as rotinas de reset foram usadas.",
+                "checklist": [
+                  "Duas rotinas de reset descritas por escrito com detalhes de como, quando e por quanto tempo",
+                  "Indicadores de processo semanais definidos e registrados nas quatro semanas",
+                  "Ao menos uma situação concreta de pressão ou rejeição descrita com ação e resultado"
+                ],
+                "acao_apoio": "Definir 2 ou 3 indicadores de processo semanais (ex.: número de prospecções novas, follow-ups realizados, prazo máximo por oportunidade sem movimento) e consultá-los toda semana antes de planejar as atividades.",
+                "foco_30_dias": "Nomear e testar rotinas pessoais de constância e recuperação — e descrevê-las com especificidade em situações reais.",
+                "acao_principal": "Desenvolver 2 rotinas pessoais de reset entre contatos difíceis — definindo o que faz, por quanto tempo e em que momento — e testá-las ao longo do mês.",
+                "evidencia_esperada": "Registro escrito das duas rotinas de reset com descrição detalhada, e planilha ou anotação com os indicadores de processo das quatro semanas do período."
+              },
+              "fez_bem": [
+                "Demonstrou pensamento orientado à qualidade da decisão, evitando impulsividade em situações de pressão",
+                "Mostrou preocupação com sustentabilidade das relações comerciais mesmo em contextos difíceis",
+                "Reconheceu, ao menos conceitualmente, a importância de preservar margem e não ceder por impulso"
+              ],
+              "feedback": "Bruna, esta foi a competência com maior lacuna na avaliação — não necessariamente porque você não tem resiliência, mas porque as respostas não conseguiram mostrar como ela funciona na prática. O cenário pedia detalhes específicos: como você age depois de perder um contrato grande, quais rotinas mantêm seu ritmo em semanas difíceis, o que acontece com a sua postura quando a pressão aumenta. Sem esses detalhes, não é possível avaliar o comportamento real. O passo seguinte é desenvolver e nomear essas rotinas — e praticá-las de forma intencional, não esperar que apareçam naturalmente.",
+              "melhorar": [
+                "Ancorar as respostas em cenários concretos — usar os números, grupos e situações do enunciado como referência, não como pano de fundo",
+                "Desenvolver e descrever rotinas pessoais de reset emocional entre contatos difíceis",
+                "Definir indicadores de processo semanais próprios — volume de prospecções, follow-ups, prazo máximo por oportunidade"
+              ],
+              "nota_decimal": 1,
+              "estudo_recomendado": [
+                {
+                  "url": "",
+                  "titulo": "Sinais de sobrecarga no trabalho: como reconhecer limites e buscar apoio",
+                  "formato": "texto",
+                  "por_que_ajuda": "Ajuda a identificar quando o estado emocional está afetando a atuação profissional — ponto central do gap de autoconfiança e postura identificado na avaliação."
+                },
+                {
+                  "url": "",
+                  "titulo": "Constância comercial: como manter ritmo de atividade sem depender de motivação",
+                  "formato": "vídeo",
+                  "por_que_ajuda": "Aborda diretamente o gap de automotivação e disciplina — como construir rotinas de processo que funcionam independentemente do estado emocional do dia."
+                }
+              ],
+              "dicas_desenvolvimento": [
+                "Quando perder uma negociação importante, antes de partir para o próximo contato, reserve 5 minutos para escrever três linhas: o que aconteceu, o que você faria diferente e o que foi fora do seu controle — isso separa aprendizado de autocrítica improdutiva.",
+                "Quando perceber que o ritmo de atividade caiu, pergunte-se: 'O que eu me comprometi a fazer esta semana independentemente do resultado?' — e execute esse compromisso antes de qualquer outra coisa.",
+                "Quando sentir que a pressão está afetando a sua voz ou postura, use um sinal físico de reset — um momento de pausa, respiração ou mudança de ambiente — antes do próximo contato. Nomeie esse sinal para que ele se torne um recurso consciente."
+              ],
+              "descritores_desenvolvimento": [
+                "Descrever e aplicar mecanismos pessoais de recuperação após perdas ou rejeições",
+                "Manter volume mínimo de atividade comercial mesmo em períodos de resultado baixo",
+                "Definir e seguir indicadores de processo semanais independentemente da meta de resultado",
+                "Identificar sinais próprios de que o estado emocional está afetando a postura com clientes"
+              ]
+            },
+            {
+              "flag": true,
+              "nome": "Comunicação e Apresentação de Valor",
+              "nivel": 1,
+              "sprint": {
+                "ritual": "Revisão semanal de 10 minutos: verificar quais reuniões foram estruturadas e quais provas foram usadas.",
+                "checklist": [
+                  "Duas provas comerciais identificadas e usadas em apresentações, com registro da reação do cliente",
+                  "Ao menos duas reuniões conduzidas com objetivo declarado, agenda e compromisso firmado no encerramento",
+                  "Um pitch preparado em duas versões para perfis de cliente distintos (ex.: técnico vs. focado em custo)"
+                ],
+                "acao_apoio": "Estruturar ao menos duas reuniões com: objetivo declarado na abertura, até três pontos de agenda e compromisso registrado no encerramento — depois refletir sobre o que funcionou.",
+                "foco_30_dias": "Incorporar pelo menos uma prova comercial por apresentação e estruturar reuniões com objetivo declarado e compromisso registrado.",
+                "acao_principal": "Escolher duas provas comerciais que você possa usar (caso de cliente similar, dado de resultado, comparativo) e incluí-las em ao menos duas apresentações ao longo do mês — registrando a reação do cliente.",
+                "evidencia_esperada": "Registro de ao menos duas apresentações com a prova usada e a reação do cliente, e ao menos duas reuniões estruturadas com abertura, agenda e compromisso documentados."
+              },
+              "fez_bem": [
+                "Demonstrou consciência de que preservar valor para o cliente é um critério relevante na comunicação comercial",
+                "Reconheceu a importância do registro no CRM e do próximo passo claro como elementos de comunicação profissional estruturada",
+                "Mostrou visão de longo prazo ao mencionar equilíbrio entre relação, resultado e sustentabilidade"
+              ],
+              "feedback": "Bruna, você demonstrou uma consciência genuína sobre o que importa em uma comunicação comercial — valor, sustentabilidade, organização. O próximo movimento é tornar isso visível na prática. Nas respostas avaliadas, o tema de demonstração e prova não apareceu em nenhum momento — e é uma das habilidades centrais de um representante comercial: mostrar ao cliente, com evidência concreta, por que a solução vale o que custa. Além disso, a adaptação ao interlocutor e a condução estruturada de reuniões são comportamentos que fazem diferença direta na percepção do cliente sobre a sua competência. O caminho é praticar cada um deles de forma intencional, começando pela estrutura de reunião na próxima semana.",
+              "melhorar": [
+                "Incorporar o uso de provas comerciais — dados, casos de clientes similares, comparativos — como parte padrão da apresentação de proposta",
+                "Praticar a adaptação da comunicação para diferentes perfis de cliente: o que muda na linguagem, no argumento e na profundidade para um cliente técnico versus um cliente focado em custo",
+                "Estruturar reuniões com objetivo declarado na abertura e compromisso registrado no encerramento — não apenas intenção de definir próximo passo"
+              ],
+              "nota_decimal": 1.56,
+              "estudo_recomendado": [
+                {
+                  "url": "",
+                  "titulo": "Como usar provas e dados para sustentar argumentos comerciais",
+                  "formato": "estudo de caso",
+                  "por_que_ajuda": "Demonstra na prática como representantes usam casos de sucesso, dados e comparativos para aumentar a credibilidade da proposta — gap central identificado na avaliação."
+                },
+                {
+                  "url": "",
+                  "titulo": "Adaptação de comunicação para diferentes perfis de comprador",
+                  "formato": "vídeo",
+                  "por_que_ajuda": "Aborda como ajustar linguagem, profundidade e argumentação conforme o perfil do interlocutor — comportamento ausente nas respostas avaliadas."
+                },
+                {
+                  "url": "",
+                  "titulo": "Estrutura de reunião comercial: abertura, condução e encerramento com compromisso",
+                  "formato": "texto",
+                  "por_que_ajuda": "Oferece um modelo prático para conduzir reuniões de forma estruturada — desde o objetivo declarado até o compromisso firmado, conectado diretamente ao gap identificado."
+                }
+              ],
+              "dicas_desenvolvimento": [
+                "Quando for apresentar uma proposta, inclua antes do preço: 'Deixa eu mostrar o que outros clientes com situação parecida com a sua conseguiram com isso...' — e use o dado ou o caso preparado.",
+                "Quando iniciar uma reunião, diga: 'O objetivo de hoje é [X]. Tenho [Y] pontos para cobrir. Ao final, quero que a gente saia com [Z] definido.' — isso posiciona você como quem conduz, não quem acompanha.",
+                "Quando perceber que está usando a mesma linguagem para clientes muito diferentes, pare e pergunte: 'O que é mais importante para você nessa decisão — o aspecto técnico, o custo, o prazo ou a confiança no fornecedor?' — a resposta define como você comunica o restante."
+              ],
+              "descritores_desenvolvimento": [
+                "Usar demonstrações, dados e casos de sucesso para sustentar argumentos comerciais",
+                "Adaptar linguagem e profundidade de argumentação conforme o perfil do interlocutor",
+                "Conduzir reuniões com objetivo declarado na abertura, agenda estruturada e compromissos firmados no encerramento"
+              ]
+            },
+            {
+              "flag": true,
+              "nome": "Relacionamento e Pós-venda",
+              "nivel": 1,
+              "sprint": {
+                "ritual": "Revisão semanal de 10 minutos: verificar quais clientes receberam contato proativo e quais oportunidades de expansão estão em andamento.",
+                "checklist": [
+                  "Ao menos quatro clientes mapeados no CRM com oportunidade de expansão identificada",
+                  "Ao menos dois processos de transição para o pós-venda documentados com informações passadas e responsável de alinhamento",
+                  "Contato proativo registrado com ao menos um cliente por semana durante o período"
+                ],
+                "acao_apoio": "Antes de fechar uma venda, definir por escrito quais informações serão passadas para o time de pós-venda e como o alinhamento será feito — praticar isso em ao menos dois negócios no período.",
+                "foco_30_dias": "Mapear a carteira atual com foco em oportunidades de expansão e criar uma rotina de contato proativo com pelo menos um cliente por semana.",
+                "acao_principal": "Escolher um cliente da carteira por semana e mapear: último contato proativo, sinais de insatisfação identificados, e ao menos uma oportunidade de expansão — registrando tudo no CRM.",
+                "evidencia_esperada": "Registro de ao menos quatro clientes mapeados no CRM com oportunidade de expansão identificada, e ao menos dois processos de transição para o pós-venda documentados."
+              },
+              "fez_bem": [
+                "Demonstrou consciência da importância do registro no CRM e da definição de próximos passos para rastrear compromissos com clientes",
+                "Mostrou preocupação genuína com o equilíbrio entre relação e resultado — base sólida para construir confiança ao longo do tempo",
+                "Evidenciou disposição para pensar antes de agir, evitando respostas automáticas que possam prejudicar a relação com o cliente"
+              ],
+              "feedback": "Bruna, você tem uma postura que é muito importante no relacionamento com clientes: você pensa antes de agir e se preocupa com a qualidade da relação. Isso é o que cria confiança ao longo do tempo. O desafio identificado aqui é que os comportamentos mais técnicos do pós-venda — a transição organizada para outra área, a identificação de oportunidades de expansão, o contato proativo para fidelização — não apareceram nas respostas. Esses não são comportamentos que surgem espontaneamente: precisam de intenção, rotina e, muitas vezes, uma pergunta que você se compromete a fazer com frequência. O próximo movimento é mapear a sua carteira atual com os olhos de quem está procurando oportunidades — e estabelecer um ritmo de contato que não dependa de problema para acontecer.",
+              "melhorar": [
+                "Descrever como a transição para o pós-venda acontece na prática: quais informações são passadas, para quem e como o alinhamento é feito",
+                "Mapear ativamente oportunidades de expansão na carteira — identificar clientes com potencial de upsell ou cross-sell e agir de forma intencional",
+                "Estabelecer e executar uma rotina de contato proativo com clientes da carteira, não apenas reagir a demandas"
+              ],
+              "nota_decimal": 1.68,
+              "estudo_recomendado": [
+                {
+                  "url": "",
+                  "titulo": "Expansão de carteira: como identificar e abordar oportunidades de crescimento com clientes ativos",
+                  "formato": "vídeo",
+                  "por_que_ajuda": "Aborda diretamente o gap de expansão de carteira — como identificar oportunidades de upsell e cross-sell de forma intencional e estruturada."
+                },
+                {
+                  "url": "",
+                  "titulo": "Transição para o pós-venda: como organizar o repasse e garantir continuidade na experiência do cliente",
+                  "formato": "texto",
+                  "por_que_ajuda": "Oferece um modelo para estruturar a passagem de informações entre vendas e pós-venda — comportamento completamente ausente nas respostas avaliadas."
+                },
+                {
+                  "url": "",
+                  "titulo": "Fidelização de clientes: como criar rotinas de contato proativo que geram valor",
+                  "formato": "estudo de caso",
+                  "por_que_ajuda": "Mostra como representantes constroem relacionamentos duradouros com a carteira por meio de contato intencional — conectado diretamente ao gap de retenção identificado."
+                }
+              ],
+              "dicas_desenvolvimento": [
+                "Quando fechar uma venda, antes de partir para a próxima, escreva três linhas: quem do pós-venda precisa saber, quais informações são críticas e quando você fará o alinhamento — isso evita que o cliente perceba descontinuidade.",
+                "Quando revisar a carteira, pergunte sobre cada cliente: 'Esse cliente usa tudo que poderia usar da nossa solução? O que ele ainda não tem que faz sentido para ele?' — isso transforma a revisão em prospecção.",
+                "Quando um cliente não responde ou some por um período, não espere um problema surgir: entre em contato com algo de valor — uma informação relevante, um dado do mercado, um resultado de outro cliente similar — antes de pedir qualquer coisa."
+              ],
+              "descritores_desenvolvimento": [
+                "Estruturar e executar a transição para o pós-venda com informações organizadas e alinhamento com a área responsável",
+                "Identificar e trabalhar intencionalmente oportunidades de expansão na carteira atual",
+                "Manter contato proativo regular com clientes e agir sobre sinais de insatisfação"
+              ]
+            },
+            {
+              "flag": true,
+              "nome": "Orientação a Metas e Resultados",
+              "nivel": 2,
+              "sprint": {
+                "ritual": "Revisão de 10 minutos toda segunda-feira: meta atual, indicadores da semana anterior, prioridade da semana.",
+                "checklist": [
+                  "Registro semanal de posição em relação à meta nas quatro semanas do período",
+                  "Dois ou três indicadores de processo definidos e consultados toda semana",
+                  "Ao menos uma decisão comercial documentada com o dado que a sustentou"
+                ],
+                "acao_apoio": "Identificar 2 ou 3 indicadores de processo que funcionam como termômetros de desempenho (ex.: taxa de conversão, volume de follow-ups, valor médio de proposta) e consultá-los ativamente toda semana.",
+                "foco_30_dias": "Conectar o planejamento semanal à meta e aos indicadores de processo, tornando esses dados a referência das decisões da semana.",
+                "acao_principal": "Toda semana, antes de planejar as atividades, consultar onde está em relação à meta (percentual atingido, pipeline necessário, atividades abertas) e decidir as prioridades a partir disso — não do que parece mais urgente.",
+                "evidencia_esperada": "Registro semanal de: posição em relação à meta, indicadores de processo consultados e prioridades definidas a partir deles — nas quatro semanas do período."
+              },
+              "fez_bem": [
+                "Demonstrou autocrítica genuína — reconheceu que a própria reação pode ter sido impulsiva e propôs ajuste para a próxima abordagem",
+                "Citou o registro no CRM e a definição de próximo passo claro como parte da ação comercial — os elementos mais concretos de processo entre todas as respostas",
+                "Mostrou consciência sobre os riscos de comprometer margem e previsibilidade nas decisões comerciais"
+              ],
+              "feedback": "Bruna, você chegou em N2 nessa competência, o que coloca você em posição de refinamento, não de reconstrução. Os pontos que se destacaram — autocrítica, processo e consciência sobre margens — são bases reais. O que falta agora é um nível a mais de especificidade: quando você menciona 'acompanhar indicadores', o próximo passo é saber responder 'quais, com que frequência e o que você faz quando estão abaixo'. Tornar isso uma rotina semanal — não uma reflexão mensal — é o que transforma intenção em resultado consistente.",
+              "melhorar": [
+                "Tornar a meta um guia ativo de decisão: antes de planejar as atividades da semana, consultar onde está em relação à meta e priorizar a partir disso",
+                "Definir quais indicadores são os seus termômetros de desempenho e consultá-los ativamente toda semana — não apenas quando o resultado já está em risco",
+                "Ao narrar decisões comerciais, incluir os dados que as sustentaram — taxa de conversão, volume de pipeline, valor médio — não apenas o raciocínio qualitativo"
+              ],
+              "nota_decimal": 2.1,
+              "estudo_recomendado": [
+                {
+                  "url": "",
+                  "titulo": "Gestão de metas comerciais: como usar dados de processo para antecipar resultados",
+                  "formato": "vídeo",
+                  "por_que_ajuda": "Aborda diretamente o gap de ação baseada em dados — como transformar indicadores de processo em decisões concretas de planejamento semanal."
+                },
+                {
+                  "url": "",
+                  "titulo": "Como construir um painel de acompanhamento comercial simples e eficaz",
+                  "formato": "texto",
+                  "por_que_ajuda": "Oferece um modelo prático para definir e consultar indicadores de processo — conectado diretamente ao ritual semanal do sprint."
+                }
+              ],
+              "dicas_desenvolvimento": [
+                "Quando for planejar a semana, comece pela pergunta: 'Onde estou em relação à meta? O que preciso fazer esta semana para avançar?' — só depois abra o e-mail e o CRM.",
+                "Quando fizer uma revisão de negociação, inclua sempre um dado: 'Essa oportunidade está há X dias no pipeline, com valor de Y, e a taxa de conversão nesse estágio é Z' — isso transforma reflexão em análise.",
+                "Quando perceber que os indicadores estão abaixo, defina uma ação específica antes de encerrar a análise — 'vou fazer X prospecções novas até quinta' — não deixe o número negativo sem resposta."
+              ],
+              "descritores_desenvolvimento": [
+                "Usar a meta como referência concreta nas decisões do dia a dia, não apenas como horizonte geral",
+                "Definir e consultar indicadores de processo semanalmente — não só no fim do mês",
+                "Conectar a postura reflexiva à tomada de decisão baseada em dados específicos"
+              ]
+            }
+          ],
+          "resumo_geral": {
+            "leitura": "O que aparece com mais consistência nas suas respostas é um pensamento orientado ao longo prazo: você se preocupa com sustentabilidade, com a qualidade da relação e com não fazer promessas que não conseguirá cumprir. Isso é maturidade real. O principal desafio identificado é a distância entre esse raciocínio e a descrição de ações concretas — nas situações avaliadas, predominou o 'eu faria' sem ancoragem em situações reais, o que dificultou a evidência de comportamento. O plano a seguir tem um foco muito claro: transformar o que você já pensa em ações descritas, registradas e repetíveis. Em cinco competências avaliadas, quatro estão em N1 e uma em N2. O movimento prioritário dos próximos 30 dias não é dominar tudo, mas construir rotinas básicas que tornem a sua atuação mais visível e rastreável.",
+            "principais_forcas": [
+              "Raciocínio orientado à sustentabilidade e ao longo prazo nas decisões comerciais",
+              "Consciência sobre organização de processos — menção ao CRM e à definição de próximos passos claros como práticas relevantes"
+            ],
+            "principal_ponto_de_atencao": "A maior parte das respostas descreveu intenções e princípios, sem exemplos concretos de ação. Para crescer nas competências avaliadas, o próximo movimento é ancorar o raciocínio em situações reais: o que você fez, com qual cliente, com qual resultado."
+          },
+          "mensagem_final": "Bruna, o que este plano mostra é que você tem uma base de raciocínio sólida — o que falta é torná-la visível em comportamentos concretos, registros e rotinas. Pequenas mudanças no como você age e como você descreve o que faz têm potencial de impacto grande, tanto na sua avaliação quanto nos seus resultados. O primeiro passo está dentro do próximo sprint — e ele é executável.",
+          "resumo_desempenho": [
+            {
+              "flag": true,
+              "nivel": 1,
+              "leitura": "Raciocínio estruturado sobre 'quando recuar', mas ausência de evidência sobre criação de urgência, condução ao fechamento e tratamento de objeções na prática.",
+              "competencia": "Negociação e Fechamento",
+              "nota_decimal": 1.72
+            },
+            {
+              "flag": true,
+              "nivel": 1,
+              "leitura": "Nenhum mecanismo concreto de recuperação, rotina de reset ou indicador de constância foi descrito — as respostas ficaram em princípios genéricos sem ancoragem no cenário.",
+              "competencia": "Resiliência e Constância",
+              "nota_decimal": 1
+            },
+            {
+              "flag": true,
+              "nivel": 1,
+              "leitura": "Consciência sobre valor e organização, mas sem evidência de demonstração, adaptação ao interlocutor ou condução estruturada de reuniões.",
+              "competencia": "Comunicação e Apresentação de Valor",
+              "nota_decimal": 1.56
+            },
+            {
+              "flag": true,
+              "nivel": 1,
+              "leitura": "Postura reflexiva e cuidado com relações evidentes, mas transição para o pós-venda, expansão de carteira e fidelização não apareceram nas respostas.",
+              "competencia": "Relacionamento e Pós-venda",
+              "nota_decimal": 1.68
+            },
+            {
+              "flag": true,
+              "nivel": 2,
+              "leitura": "Autocrítica e disciplina de processo como pontos positivos; a meta como guia concreto de decisão e o uso de dados ainda precisam se tornar rotina.",
+              "competencia": "Orientação a Metas e Resultados",
+              "nota_decimal": 2.1
+            }
+          ],
+          "blueprint_conteudos": {
+            "Negociação e Fechamento": [
+              {
+                "tema": "Estrutura básica de uma negociação comercial: da proposta ao fechamento",
+                "formato": "vídeo"
+              },
+              {
+                "tema": "Como criar urgência sem pressionar: argumentos que aceleram a decisão do cliente",
+                "formato": "texto"
+              },
+              {
+                "tema": "Tratamento de objeções: como escutar, qualificar e responder sem ceder antes da hora",
+                "formato": "estudo de caso"
+              },
+              {
+                "tema": "Defesa de preço e valor: como sustentar a proposta antes de conceder desconto",
+                "formato": "vídeo"
+              },
+              {
+                "tema": "Condução ao fechamento: como propor o próximo passo sem soar agressivo",
+                "formato": "texto"
+              },
+              {
+                "tema": "Reconhecer o momento de encerrar uma negociação: critérios para decidir quando recuar",
+                "formato": "estudo de caso"
+              }
+            ]
+          },
+          "blueprint_objetivos": {
+            "obj-1": {
+              "objetivo": "Vou aprender e aplicar um roteiro básico de negociação nas reuniões com clientes ativos, cobrindo pelo menos os movimentos de urgência, objeção e próximo passo.",
+              "competencia": "Negociação e Fechamento",
+              "acao_principal": "Montar, com apoio da liderança, um roteiro de negociação com os três movimentos principais (urgência, objeção, fechamento) e usá-lo como referência nas reuniões da semana."
+            },
+            "obj-2": {
+              "objetivo": "Vou preparar, antes de cada reunião de negociação, a lista de objeções prováveis e os argumentos de valor que sustentam o preço da proposta.",
+              "competencia": "Negociação e Fechamento",
+              "acao_principal": "Para cada oportunidade ativa, preencher uma ficha de preparação (pode ser simples: objeções esperadas + argumentos de valor + limite de concessão aprovado pela liderança) antes da reunião."
+            }
+          },
+          "alertas_metodologicos": [
+            "A avaliação de Resiliência e Constância resultou em N1 com nota 1.0 — o menor escore possível. Isso reflete a ausência de evidências nas respostas, e não necessariamente a ausência do comportamento na prática. Recomenda-se uma conversa direta com a liderança para verificar se há evidências observadas no dia a dia que não foram capturadas no exercício avaliativo.",
+            "O perfil comportamental DISC/CIS é uma hipótese baseada em autoavaliação — deve ser usado como ponto de partida para reflexão, não como diagnóstico fechado de comportamento ou capacidade."
+          ],
+          "perfil_comportamental": {
+            "descricao": "Bruna, seu perfil combina duas tendências predominantes: alta consciência e alta estabilidade. Isso costuma se traduzir em um modo de trabalhar cuidadoso, metódico e orientado à qualidade — você tende a pensar antes de agir, a valorizar previsibilidade e a se sentir mais à vontade em ambientes onde as regras estão claras e há tempo para analisar antes de decidir.\n\nNa prática comercial, esse perfil tende a render bem em situações que exigem preparação, atenção ao detalhe e construção de relações de confiança ao longo do tempo. Você provavelmente costuma ser percebida como alguém confiável e consistente, que não age por impulso. O risco desse estilo, em contextos de negociação, é a tendência a esperar mais dados ou mais certeza antes de dar o próximo passo — o que pode ser interpretado pelo cliente como hesitação, ou resultar em negociações que se prolongam sem definição.\n\nSeu estilo de liderança, segundo os dados, tende ao papel de quem sustenta processos e sistemas com consistência — o perfil 'sistemático' e 'metódico' aparecem com mais força. Isso sugere que você pode render bem como referência de organização e método dentro de um time, e que ações de desenvolvimento que envolvem rotinas e checklists tendem a funcionar melhor para você do que abordagens improvisadas.",
+            "pontos_forca": [
+              "Tendência a agir com cuidado e critério, evitando decisões impulsivas",
+              "Preferência por organização e processo — base para construir rotinas comerciais consistentes",
+              "Disposição para refletir sobre o próprio comportamento e propor ajustes"
+            ],
+            "pontos_atencao": [
+              "A preferência por segurança e análise pode, em negociações, fazer com que o movimento de fechamento seja adiado enquanto se espera mais certeza",
+              "O estilo mais reservado pode dificultar a iniciativa de pedir a venda ou criar urgência de forma direta — vale testar formas de fazer isso que soem naturais para você"
+            ]
+          }
+        },
+        "gerado_em": "2026-09-04T11:17:35.858+00:00",
+        "created_at": "2026-09-07T11:59:05.31677+00:00",
+        "updated_at": "2026-09-07T11:59:05.31677+00:00",
+        "pdf_path": "455f9366-fb4f-4c58-a79e-f94193464744/individual-bruna-costa-1788520655255.pdf"
       }
     },
     "paulo.demo@vertho.ai": {
@@ -10159,6 +10892,678 @@
           ]
         },
         "report_generated_at": "2026-08-24T21:01:53.444+00:00"
+      },
+      "pdi": {
+        "tipo": "individual",
+        "conteudo": {
+          "auditoria": {
+            "checks": [
+              {
+                "id": "gap-sem-acao",
+                "status": "pass",
+                "titulo": "Toda competência em gap recebe caminho",
+                "detalhe": "Todas as competências sinalizadas trazem o que melhorar e como.",
+                "categoria": "estrutura",
+                "ocorrencias": []
+              },
+              {
+                "id": "checklist-3",
+                "status": "pass",
+                "titulo": "O checklist do sprint tem 3 itens",
+                "detalhe": "Todos os sprints trazem checklist de 3 itens.",
+                "categoria": "estrutura",
+                "ocorrencias": []
+              },
+              {
+                "id": "sprint-do-blueprint",
+                "status": "fail",
+                "titulo": "O sprint veio do blueprint",
+                "detalhe": "O PDI reescreveu ação que o prompt manda COPIAR do blueprint — promete o que a trilha não sustenta.",
+                "categoria": "estrutura",
+                "ocorrencias": [
+                  "Controle, Precisão e Confiabilidade dos Dados · acao_principal: \"Criar e usar um checklist de verificação para os dois próxim…\" ≠ blueprint",
+                  "Controle, Precisão e Confiabilidade dos Dados · acao_apoio: \"Alinhar com a chefia o formato do checklist antes de usar, g…\" ≠ blueprint",
+                  "Controle, Precisão e Confiabilidade dos Dados · ritual: \"Ao final de cada fechamento, reservar 10 minutos para preenc…\" ≠ blueprint",
+                  "Análise de Indicadores Financeiros · acao_principal: \"Para cada análise de indicadores do período, preencher um ca…\" ≠ blueprint",
+                  "Análise de Indicadores Financeiros · acao_apoio: \"Revisar com a chefia ao menos uma análise contextualizada po…\" ≠ blueprint",
+                  "Análise de Indicadores Financeiros · ritual: \"Ao iniciar cada análise de indicadores, anotar primeiro a hi…\" ≠ blueprint"
+                ]
+              },
+              {
+                "id": "perfil-2a-pessoa",
+                "status": "pass",
+                "titulo": "O perfil fala COM a pessoa, não SOBRE ela",
+                "detalhe": "Descrição do perfil em 2ª pessoa.",
+                "categoria": "estrutura",
+                "ocorrencias": []
+              },
+              {
+                "id": "jargao-ingles",
+                "status": "pass",
+                "titulo": "Sem jargão em inglês no texto que sai",
+                "detalhe": "Nenhum termo em inglês proibido no texto voltado à pessoa.",
+                "categoria": "estrutura",
+                "ocorrencias": []
+              },
+              {
+                "id": "sem-sem_lastro",
+                "status": "fail",
+                "titulo": "Afirmação sem lastro na evidência",
+                "detalhe": "O documento tem análises majoritariamente ancoradas nos resultados avaliativos, mas cria sprints completos para três competências que não possuem objetivos no blueprint, contrariando a fonte única obrigatória. Há também uma comparação sem evidência e uma inconsistência entre o reconhecimento de comu",
+                "categoria": "semantica",
+                "ocorrencias": [
+                  "Controle, Precisão e Confiabilidade dos Dados: \"Isso é uma base técnica acima da média para o nível analista.…\" — A evidência descreve desempenhos e gaps da Mariana, mas não traz comparação com a média de analistas.",
+                  "Critério e Ética no Tratamento de Informações: \"\"foco_30_dias\": \"Transformar o princípio ético declarado em ação visível: nomear o dilema,…\" — Não há objetivos nem ações para esta competência no blueprint, que é definido como fonte única do plano.",
+                  "Comunicação Financeira para Não Especialistas: \"\"foco_30_dias\": \"Desenvolver o hábito de traduzir impacto financeiro para a linguagem de d…\" — Não há objetivos nem ações para esta competência no blueprint, que é definido como fonte única do plano.",
+                  "Organização de Rotinas e Prazos: \"\"foco_30_dias\": \"Tornar critérios de decisão auditáveis e desenvolver postura ativa de neg…\" — Não há objetivos nem ações para esta competência no blueprint, que é definido como fonte única do plano.",
+                  "Critério e Ética no Tratamento de Informações: \"\"acao_principal\": \"Na próxima situação de pressão sobre fechamento, nomear explicitamente …\" — A ação não é derivada de objetivo da mesma competência no blueprint, pois o blueprint não contém objetivo para esta competência.",
+                  "Comunicação Financeira para Não Especialistas: \"\"acao_principal\": \"Antes de apresentar qualquer dado financeiro a um gestor de outra área,…\" — A ação não é derivada de objetivo da mesma competência no blueprint, pois o blueprint não contém objetivo para esta competência.",
+                  "Organização de Rotinas e Prazos: \"\"acao_apoio\": \"Antes do próximo fechamento, mapear quais fornecedores representam mais de …\" — A ação não é derivada de objetivo da mesma competência no blueprint, pois o blueprint não contém objetivo para esta competência."
+                ]
+              },
+              {
+                "id": "sem-contradicao",
+                "status": "warn",
+                "titulo": "Contradição interna no texto",
+                "detalhe": "O documento tem análises majoritariamente ancoradas nos resultados avaliativos, mas cria sprints completos para três competências que não possuem objetivos no blueprint, contrariando a fonte única obrigatória. Há também uma comparação sem evidência e uma inconsistência entre o reconhecimento de comu",
+                "categoria": "semantica",
+                "ocorrencias": [
+                  "Controle, Precisão e Confiabilidade dos Dados: \"\"Descreve uma sequência encadeada de execução com correção na origem, rastro auditável e c…\" — O documento afirma como ponto forte que ela comunica impactos antes do fechamento, mas a orienta como se seu padrão fosse comunicar apenas depois de resolver."
+                ]
+              }
+            ],
+            "resumo": "2 falha(s): O sprint veio do blueprint; Afirmação sem lastro na evidência",
+            "status": "fail",
+            "competenciasAuditadas": 5
+          },
+          "acolhimento": "Mariana, esta devolutiva foi construída a partir das suas respostas — não é um diagnóstico externo, mas um espelho do que você já demonstra e do que ainda está por desenvolver. O objetivo aqui é simples: dar clareza sobre onde você está e qual é o próximo movimento concreto.",
+          "trilha_mapa": {
+            "semanas": [
+              {
+                "tipo": "conteudo",
+                "semana": 1,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Controle, Precisão e Confiabilidade dos Dados"
+                ],
+                "descritores_foco": [
+                  "Leitura do contexto e identificação do problema",
+                  "Critério de priorização e tomada de decisão"
+                ],
+                "evidencia_esperada": "Nota pessoal descrevendo: o que verificar antes de fechar uma base e como priorizaria dois problemas hipotéticos simultâneos.",
+                "objetivo_da_semana": "Compreender como mapear o contexto antes de processar uma base financeira e como definir qual inconsistência tratar primeiro quando aparecem múltiplos problemas.",
+                "criterio_de_sucesso": "A nota cita ao menos dois critérios de verificação de contexto e descreve um critério de priorização com justificativa."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 2,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Controle, Precisão e Confiabilidade dos Dados"
+                ],
+                "descritores_foco": [
+                  "Execução com método e acompanhamento",
+                  "Comunicação com stakeholders"
+                ],
+                "evidencia_esperada": "Rascunho do checklist de verificação com campos definidos e um modelo de comunicação de inconsistência escrito.",
+                "objetivo_da_semana": "Estruturar o checklist de verificação para os fechamentos e definir o protocolo de comunicação de inconsistências à chefia e às áreas parceiras.",
+                "criterio_de_sucesso": "O checklist tem campo de itens conferidos, campo de anomalias e campo de resultado. O modelo de comunicação inclui descrição do problema, impacto provável e prazo."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 3,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Controle, Precisão e Confiabilidade dos Dados"
+                ],
+                "descritores_foco": [
+                  "Colaboração e negociação de dependências",
+                  "Aprendizado, ética e melhoria contínua"
+                ],
+                "evidencia_esperada": "Planilha de controle de dependências com colunas de data de solicitação, prazo esperado e data de follow-up; e um modelo de nota de aprendizado.",
+                "objetivo_da_semana": "Definir como rastrear dependências de outras áreas com prazo e follow-up, e criar o modelo de nota de aprendizado pós-fechamento.",
+                "criterio_de_sucesso": "A planilha tem ao menos uma dependência real ou hipotética preenchida como teste. A nota de aprendizado tem campo de causa do erro e campo de ajuste adotado."
+              },
+              {
+                "tipo": "missao",
+                "semana": 4,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Controle, Precisão e Confiabilidade dos Dados"
+                ],
+                "descritores_foco": [
+                  "Execução com método e acompanhamento",
+                  "Comunicação com stakeholders"
+                ],
+                "evidencia_esperada": "Checklist preenchido do fechamento e, se aplicável, registro da comunicação proativa ou da dependência mapeada com follow-up.",
+                "objetivo_da_semana": "Executar o primeiro fechamento real usando o checklist criado, comunicando proativamente qualquer anomalia ou dependência identificada.",
+                "criterio_de_sucesso": "A chefia consegue verificar: quais itens foram conferidos, se houve anomalia e se ela foi comunicada antes de ser resolvida, ou se foi registrada como 'sem anomalia'."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 5,
+                "conexao_com_pdi": [
+                  "obj-3"
+                ],
+                "competencia_foco": [
+                  "Análise de Indicadores Financeiros"
+                ],
+                "descritores_foco": [
+                  "Leitura do contexto e identificação do problema",
+                  "Critério de priorização e tomada de decisão"
+                ],
+                "evidencia_esperada": "Ficha de análise de um indicador real ou hipotético com campo de hipótese de causa e campo de priorização justificada.",
+                "objetivo_da_semana": "Desenvolver o repertório de leitura contextual de indicadores financeiros: o que está por trás de um número e como identificar qual variação merece atenção prioritária.",
+                "criterio_de_sucesso": "A ficha descreve o movimento do indicador, apresenta ao menos uma hipótese de causa baseada em contexto do período e justifica por que essa variação seria a mais relevante para o gestor."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 6,
+                "conexao_com_pdi": [
+                  "obj-3",
+                  "obj-4"
+                ],
+                "competencia_foco": [
+                  "Análise de Indicadores Financeiros"
+                ],
+                "descritores_foco": [
+                  "Comunicação com stakeholders",
+                  "Colaboração e negociação de dependências"
+                ],
+                "evidencia_esperada": "Rascunho de uma análise de indicador usando o formato de três campos, com exemplo de ressalva de dependência.",
+                "objetivo_da_semana": "Construir o formato de análise com narrativa estruturada (variação + contexto + recomendação) e aprender a entregar análise parcial com ressalva quando há dependência pendente de outra área.",
+                "criterio_de_sucesso": "Os três campos estão presentes e preenchidos. A ressalva de dependência especifica qual dado está pendente, de qual área e qual o impacto na análise."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 7,
+                "conexao_com_pdi": [
+                  "obj-3",
+                  "obj-4"
+                ],
+                "competencia_foco": [
+                  "Análise de Indicadores Financeiros"
+                ],
+                "descritores_foco": [
+                  "Leitura do contexto e identificação do problema",
+                  "Execução com método e acompanhamento"
+                ],
+                "evidencia_esperada": "Duas fichas de análise de indicadores reais do período, com campos de contextualização e priorização preenchidos.",
+                "objetivo_da_semana": "Praticar a leitura contextual em dois indicadores reais do período, aplicando o método de análise desenvolvido nas semanas anteriores.",
+                "criterio_de_sucesso": "Cada ficha apresenta: o valor do indicador, hipótese de causa, relação com o contexto do período e indicação de prioridade relativa entre os dois indicadores analisados."
+              },
+              {
+                "tipo": "missao",
+                "semana": 8,
+                "conexao_com_pdi": [
+                  "obj-3",
+                  "obj-4"
+                ],
+                "competencia_foco": [
+                  "Análise de Indicadores Financeiros"
+                ],
+                "descritores_foco": [
+                  "Comunicação com stakeholders",
+                  "Critério de priorização e tomada de decisão"
+                ],
+                "evidencia_esperada": "Análise entregue à chefia com os três campos (variação, contexto, recomendação) preenchidos e campo de priorização de indicadores.",
+                "objetivo_da_semana": "Produzir e entregar à chefia uma análise de ao menos dois indicadores financeiros do período com narrativa estruturada, priorização explícita e, se aplicável, ressalva de dependência.",
+                "criterio_de_sucesso": "A chefia consegue verificar: qual indicador foi priorizado e por quê, qual hipótese de causa foi apresentada para cada indicador e qual recomendação ou próximo passo foi sugerido."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 9,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Controle, Precisão e Confiabilidade dos Dados"
+                ],
+                "descritores_foco": [
+                  "Leitura do contexto e identificação do problema",
+                  "Colaboração e negociação de dependências"
+                ],
+                "evidencia_esperada": "Registro de um ciclo de fechamento com: anomalias de contexto identificadas e dependências de outras áreas mapeadas com prazo.",
+                "objetivo_da_semana": "Integrar a leitura de contexto do controle de dados com o rastreamento de dependências: identificar, no mesmo ciclo, quais dados precisam de validação externa antes de serem usados em uma análise.",
+                "criterio_de_sucesso": "O registro mostra que a identificação de anomalias e de dependências ocorreu antes da entrega, não após; dependências têm prazo e responsável registrados."
+              },
+              {
+                "tipo": "conteudo",
+                "semana": 10,
+                "conexao_com_pdi": [
+                  "obj-3",
+                  "obj-4"
+                ],
+                "competencia_foco": [
+                  "Análise de Indicadores Financeiros"
+                ],
+                "descritores_foco": [
+                  "Leitura do contexto e identificação do problema",
+                  "Comunicação com stakeholders"
+                ],
+                "evidencia_esperada": "Análise de ao menos um indicador produzida a partir de uma base já conferida com checklist, com campo de contextualização preenchido.",
+                "objetivo_da_semana": "Conectar a base de dados conferida (produto do controle de dados) com a análise de indicadores: usar os dados verificados como ponto de partida para a narrativa analítica.",
+                "criterio_de_sucesso": "A análise referencia a base verificada como fonte, apresenta hipótese de causa e usa o formato de três campos."
+              },
+              {
+                "tipo": "reflexao",
+                "semana": 11,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2",
+                  "obj-3",
+                  "obj-4"
+                ],
+                "competencia_foco": [
+                  "Controle, Precisão e Confiabilidade dos Dados",
+                  "Análise de Indicadores Financeiros"
+                ],
+                "descritores_foco": [
+                  "Aprendizado, ética e melhoria contínua",
+                  "Critério de priorização e tomada de decisão"
+                ],
+                "evidencia_esperada": "Nota de revisão com ao menos um padrão identificado por competência e o ajuste adotado no protocolo.",
+                "objetivo_da_semana": "Revisar os registros das últimas semanas (checklists, notas de aprendizado, análises) e identificar um padrão de erro ou dificuldade recorrente em cada competência, ajustando o protocolo antes da missão de integração.",
+                "criterio_de_sucesso": "A nota descreve o padrão com base em evidência dos registros anteriores (não intuição) e especifica a mudança concreta feita no checklist ou no formato de análise."
+              },
+              {
+                "tipo": "missao",
+                "semana": 12,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2",
+                  "obj-3",
+                  "obj-4"
+                ],
+                "competencia_foco": [
+                  "Controle, Precisão e Confiabilidade dos Dados",
+                  "Análise de Indicadores Financeiros"
+                ],
+                "descritores_foco": [
+                  "Execução com método e acompanhamento",
+                  "Comunicação com stakeholders"
+                ],
+                "evidencia_esperada": "Checklist de verificação preenchido e análise de indicadores com os três campos, produzidos a partir do mesmo ciclo de fechamento, entregues à chefia.",
+                "objetivo_da_semana": "Executar um ciclo completo integrado: fechar a base com checklist, comunicar anomalias ou dependências e produzir análise de indicadores com narrativa estruturada a partir dos dados verificados.",
+                "criterio_de_sucesso": "A chefia consegue verificar: que a base foi conferida antes da análise, que anomalias ou dependências foram comunicadas proativamente, e que a análise tem variação, contexto e recomendação para ao menos dois indicadores."
+              },
+              {
+                "tipo": "avaliacao",
+                "semana": 13,
+                "conexao_com_pdi": [
+                  "obj-1",
+                  "obj-2"
+                ],
+                "competencia_foco": [
+                  "Controle, Precisão e Confiabilidade dos Dados"
+                ],
+                "descritores_foco": [
+                  "Execução com método e acompanhamento",
+                  "Comunicação com stakeholders"
+                ],
+                "evidencia_esperada": "Ao menos dois checklists de verificação preenchidos ao longo do período (de fechamentos distintos) e ao menos um registro de comunicação proativa de anomalia ou dependência.",
+                "objetivo_da_semana": "Demonstrar que o protocolo de controle de dados está incorporado à rotina, com registros verificáveis de verificação, comunicação de anomalias e rastreamento de dependências.",
+                "criterio_de_sucesso": "A chefia consegue verificar: quais itens foram conferidos em cada fechamento, se anomalias foram registradas (mesmo que 'sem anomalia'), se alguma inconsistência foi comunicada antes de ser resolvida, e se dependências de outras áreas foram rastreadas com prazo e follow-up."
+              },
+              {
+                "tipo": "avaliacao",
+                "semana": 14,
+                "conexao_com_pdi": [
+                  "obj-3",
+                  "obj-4"
+                ],
+                "competencia_foco": [
+                  "Análise de Indicadores Financeiros"
+                ],
+                "descritores_foco": [
+                  "Leitura do contexto e identificação do problema",
+                  "Comunicação com stakeholders"
+                ],
+                "evidencia_esperada": "Ao menos duas análises de indicadores produzidas ao longo do período com o formato de três campos (variação, contexto, recomendação) e ao menos uma com campo de priorização explícita.",
+                "objetivo_da_semana": "Demonstrar que a análise de indicadores financeiros passou a incluir contextualização, priorização e narrativa estruturada, entregando informação acionável à chefia.",
+                "criterio_de_sucesso": "A chefia consegue verificar: se cada análise identifica qual indicador foi priorizado e por quê, se há hipótese de causa baseada em contexto do período, se há recomendação ou próximo passo, e se dependências pendentes foram sinalizadas com ressalva explícita."
+              }
+            ],
+            "duracao_semanas": 14
+          },
+          "competencias": [
+            {
+              "flag": true,
+              "nome": "Controle, Precisão e Confiabilidade dos Dados",
+              "nivel": 2,
+              "sprint": {
+                "ritual": "Ao final de cada fechamento, reservar 10 minutos para preencher a nota de aprendizado junto ao checklist; na segunda-feira de cada semana do PDI, revisar a planilha de controle de dependências e atualizar status",
+                "checklist": [
+                  "Checklist preenchido em dois fechamentos consecutivos, com campo de anomalias identificadas",
+                  "Ao menos uma comunicação proativa enviada antes de ter a solução pronta, com descrição do problema e prazo",
+                  "Ao menos uma dependência mapeada com prazo e evidência de acompanhamento ativo documentado"
+                ],
+                "acao_apoio": "Alinhar com a chefia o formato do checklist antes de usar, garantindo que os campos cobrem o que ela precisa rastrear; para dependências de outras áreas, registrar em planilha de controle a data da solicitação e a data do follow-up previsto",
+                "foco_30_dias": "Implantar um protocolo de verificação antes de cada entrega e desenvolver o hábito de comunicar inconsistências e dependências de forma proativa",
+                "acao_principal": "Criar e usar um checklist de verificação para os dois próximos fechamentos do mês, com campo para registrar anomalias identificadas e o que foi conferido; em cada inconsistência que não se resolve em até um dia útil, enviar comunicação formal à área responsável ou à chefia com descrição do problema, impacto provável e prazo necessário",
+                "evidencia_esperada": "Dois checklists preenchidos (um por fechamento) com campo de anomalias; ao menos uma comunicação proativa e um registro de dependência com follow-up documentado ao longo do mês"
+              },
+              "fez_bem": [
+                "Descreve uma sequência encadeada de execução com correção na origem, rastro auditável e comunicação de impactos antes do fechamento",
+                "Demonstra critério hierárquico claro: confiabilidade acima de velocidade, priorizando o que trava a decisão da gestão",
+                "Apresenta ciclo de aprendizado estruturado: medir correções, identificar causa-raiz, atualizar checklist e compartilhar com a área"
+              ],
+              "feedback": "Mariana, os pontos mais sólidos desta avaliação estão nesta competência: sua sequência de execução é cuidadosa e bem fundamentada, o critério de priorização é explícito e consistente, e o ciclo de aprendizado está presente de verdade — não só como intenção. Isso é uma base técnica acima da média para o nível analista. O gap mais relevante está na dimensão que cruza o limite da sua própria área: quando a precisão de um dado depende do Comercial ou de Operações, como você conduz esse fluxo? A avaliação mostrou que essa parte fica sem evidência — e é exatamente aí que o próximo degrau está. Tornar visível o seu rigor para fora do Financeiro é o movimento central dos próximos 30 dias.",
+              "melhorar": [
+                "Tornar visível a negociação com outras áreas — como aciona o Comercial ou Operações quando o dado depende deles, o que negocia e qual é o resultado",
+                "Aprofundar a comunicação com diferentes interlocutores: audiência, formato, frequência e como conduz reações adversas",
+                "Sair do modo 'resolve primeiro, comunica depois' para comunicar proativamente quando a resolução depende de terceiros"
+              ],
+              "nota_decimal": 3.22,
+              "estudo_recomendado": [],
+              "dicas_desenvolvimento": [
+                "Quando identificar uma inconsistência que vai levar mais de um dia para resolver, escreva antes de qualquer outra ação: 'O que precisa ser comunicado agora, mesmo sem a solução?'",
+                "Quando acionar outra área por dado pendente, registre em uma linha: data, área, o que foi pedido, prazo combinado e data do follow-up. Isso transforma rastreabilidade em hábito.",
+                "Quando compartilhar um aprendizado com a área, experimente usar o formato: causa do erro → ajuste feito → o que muda no próximo ciclo. Três linhas já são suficientes."
+              ],
+              "descritores_desenvolvimento": [
+                "Mapear o que pode estar fora do padrão antes de fechar uma base, não só depois da entrega",
+                "Comunicar inconsistências para a chefia ou área responsável antes de ter a solução pronta",
+                "Registrar dependências de outras áreas com prazo e fazer acompanhamento ativo antes do vencimento",
+                "Documentar o aprendizado após cada correção relevante, não só corrigir e seguir em frente"
+              ]
+            },
+            {
+              "flag": true,
+              "nome": "Análise de Indicadores Financeiros",
+              "nivel": 2,
+              "sprint": {
+                "ritual": "Ao iniciar cada análise de indicadores, anotar primeiro a hipótese antes de formatar o relatório; antes de enviar qualquer análise, conferir se os três campos estão presentes",
+                "checklist": [
+                  "Duas análises entregues com campo de contextualização (hipótese de causa) e campo de priorização preenchidos",
+                  "Ao menos uma análise com os três campos completos: variação descrita, hipótese de contexto e recomendação ou próximo passo",
+                  "Ao menos uma análise entregue com ressalva explícita de dependência pendente, sem bloquear o processo"
+                ],
+                "acao_apoio": "Revisar com a chefia ao menos uma análise contextualizada por mês para calibrar se a leitura está adequada; pedir devolutiva da chefia sobre ao menos uma análise entregue neste formato, verificando se a estrutura facilita a tomada de decisão",
+                "foco_30_dias": "Contextualizar cada indicador analisado e entregar análises com narrativa estruturada — variação, contexto e recomendação",
+                "acao_principal": "Para cada análise de indicadores do período, preencher um campo de contextualização (hipótese de causa) e um campo de priorização (qual variação é mais relevante para a decisão do gestor); adotar o formato de três campos em todas as análises entregues à chefia ou às áreas parceiras, incluindo ressalva explícita quando houver dado pendente de outra área",
+                "evidencia_esperada": "Duas análises com campos de contextualização e priorização preenchidos; ao menos uma análise com os três campos completos e uma com ressalva de dependência documentada"
+              },
+              "fez_bem": [
+                "Demonstra posição ética clara e consistente: prefere o número auditável com ressalva ao número redondo sem lastro",
+                "Descreve passos concretos de execução com reconciliação, registro de premissa e métricas de acompanhamento",
+                "Apresenta disposição para ajustar controles após erro e atualizar checklist na causa-raiz"
+              ],
+              "feedback": "Mariana, a base ética e o método de execução que você demonstra são ativos reais — e não é trivial ter isso bem posicionado. O espaço de crescimento nesta competência é específico: a passagem do número para a narrativa. Uma análise de indicadores só está completa quando o gestor consegue entender o que fazer com ela — e isso exige contextualizar o movimento, priorizar o que é mais relevante e incluir uma recomendação ou próximo passo. As suas análises tendem a parar antes disso. O próximo movimento é estruturado e treinável: adotar o formato de três campos em toda análise entregue transforma um hábito de execução em capacidade analítica visível.",
+              "melhorar": [
+                "Sair do relato do número para a interpretação do que ele significa para o período ou para a decisão do gestor",
+                "Desenvolver critério explícito de materialidade: qual variação priorizar quando há várias ao mesmo tempo",
+                "Tornar visível a colaboração com Contabilidade e Controladoria durante o fechamento — não só como ação pós-ciclo"
+              ],
+              "nota_decimal": 2.21,
+              "estudo_recomendado": [],
+              "dicas_desenvolvimento": [
+                "Quando terminar de calcular um indicador, faça a pergunta antes de formatar: 'O que esse número significa para a decisão do gestor hoje?' A resposta vira o campo de contexto.",
+                "Quando houver múltiplas variações no relatório, marque uma como 'prioritária para atenção' com uma linha de justificativa. Isso treina o critério de materialidade que ainda está implícito.",
+                "Quando um dado de outra área estiver pendente, escreva no relatório: 'Dado de [área] aguardado até [data] — análise será atualizada após confirmação.' Isso mantém o processo e registra a dependência."
+              ],
+              "descritores_desenvolvimento": [
+                "Contextualizar cada indicador analisado: o que explica o movimento, não só qual é o número",
+                "Priorizar explicitamente qual variação é mais relevante para a decisão do gestor antes de reportar",
+                "Estruturar análises com narrativa: variação + contexto + recomendação",
+                "Entregar análises parciais com ressalva quando há dado pendente de outra área, sem travar o processo"
+              ]
+            },
+            {
+              "flag": true,
+              "nome": "Critério e Ética no Tratamento de Informações",
+              "nivel": 2,
+              "sprint": {
+                "ritual": "Após episódios de pressão sobre fechamentos, registrar em uma nota curta: qual foi o dilema, o que foi comunicado, para quem e qual foi o resultado — 5 minutos por episódio",
+                "checklist": [
+                  "Ao menos um trade-off ético nomeado explicitamente antes de agir, com registro escrito da lógica de decisão",
+                  "Ao menos uma comunicação estruturada de risco enviada à liderança com os campos: valor, origem, risco, prazo e recomendação",
+                  "Ao menos um episódio de pressão registrado em nota curta com dilema, ação tomada e resultado"
+                ],
+                "acao_apoio": "Simular com o gestor (ou em exercício escrito) como conduziria o diálogo com um interlocutor que pressiona por registro sem base documental: que argumentos usaria, que alternativa concreta proporia e como encerraria a conversa mantendo o relacionamento e a integridade do dado",
+                "foco_30_dias": "Transformar o princípio ético declarado em ação visível: nomear o dilema, comunicar com estrutura e sustentar posição com alternativa concreta",
+                "acao_principal": "Na próxima situação de pressão sobre fechamento, nomear explicitamente o trade-off antes de agir ('aqui há uma escolha entre X e Y — meu critério é Z') e usar o formato estruturado ao acionar a liderança: valor envolvido, origem da divergência, risco do precedente, prazo e recomendação",
+                "evidencia_esperada": "Ao menos um episódio documentado em que a posição ética foi comunicada de forma estruturada antes da resolução, com registro do trade-off nomeado e da alternativa proposta"
+              },
+              "fez_bem": [
+                "Demonstra declaração clara de princípio ético sob pressão: prefere o número auditável com ressalva ao número redondo sem lastro",
+                "Apresenta método de reconciliação consciente de rastreabilidade contábil: cruzar fontes, reconciliar contra razão, registrar premissa",
+                "Mostra ciclo de revisão pós-ciclo com métricas e atualização de checklist na causa-raiz"
+              ],
+              "feedback": "Mariana, o princípio que você declara — 'prefiro entregar um número auditável com uma ressalva explícita a um número redondo sem lastro' — é exatamente o que a competência de ética no tratamento de informações espera. Isso não é pouco. O ponto de atenção está em um passo adiante: quando esse princípio é testado por alguém com poder (um gerente comercial pedindo para registrar receita sem base documental, por exemplo), o que você faz, palavra por palavra? A avaliação mostrou que as respostas descrevem bem o método habitual, mas ficam em aberto justamente no momento do confronto real. Esse é o próximo degrau — e ele é treinável com estrutura e prática deliberada.",
+              "melhorar": [
+                "Identificar e nomear o dilema ético central no momento da pressão, não só o método geral de trabalho",
+                "Desenvolver comunicação estruturada para situações de risco: valor envolvido, origem da divergência, risco do precedente, prazo e recomendação",
+                "Praticar como sustentar posição técnica com quem tem poder e pressiona — com argumentos, alternativa concreta e sem abandono da posição"
+              ],
+              "nota_decimal": 2.17,
+              "estudo_recomendado": [],
+              "dicas_desenvolvimento": [
+                "Quando alguém com poder pedir para registrar algo sem base documental, responda antes de qualquer outra coisa: 'Entendo a pressão do prazo. Posso registrar como [alternativa concreta], o que mantém o número com lastro e documenta a situação. Faz sentido para você?' Isso sustenta a posição sem encerrar o diálogo.",
+                "Quando for acionar sua gestora sobre um risco de integridade, estruture em uma mensagem de quatro linhas: (1) o que está em jogo financeiramente, (2) de onde vem o risco, (3) o que pode acontecer se seguir sem ajuste, (4) o que você recomenda. Isso demonstra protagonismo, não só aviso.",
+                "Quando surgir um episódio de pressão sobre fechamento, anote o caso de forma despersonalizada logo após resolver — o material vira insumo para a retrospectiva de área sem expor ninguém."
+              ],
+              "descritores_desenvolvimento": [
+                "Identificar o dilema ético no momento em que ele surge, nomeando o trade-off antes de agir",
+                "Comunicar posição ética de forma estruturada para o gestor direto e para a liderança responsável",
+                "Sustentar posição técnica diante de pressão, propondo alternativa concreta sem recuar nem escalar o conflito desnecessariamente",
+                "Transformar episódios de pressão ética em aprendizado sistêmico para a área"
+              ]
+            },
+            {
+              "flag": true,
+              "nome": "Comunicação Financeira para Não Especialistas",
+              "nivel": 1,
+              "sprint": {
+                "ritual": "Antes de qualquer apresentação ou envio de dado financeiro para área não financeira, reservar 2 minutos para escrever: 'O que essa informação significa para a decisão que essa pessoa vai tomar?'",
+                "checklist": [
+                  "Ao menos uma comunicação financeira entregue com a pergunta 'o que isso significa para a decisão do gestor hoje?' respondida explicitamente",
+                  "Ao menos um alerta formalizado por escrito após risco minimizado, com dado, risco identificado e registro de que a decisão foi tomada com ciência",
+                  "Item sobre comunicação de alertas financeiros incluído na pauta da próxima retrospectiva de ciclo"
+                ],
+                "acao_apoio": "Na próxima retrospectiva de ciclo, propor incluir um item específico sobre comunicação de alertas financeiros para outras áreas: o que funcionou, o que gerou ruído e o que poderia ter sido sinalizado de forma mais clara desde o relatório",
+                "foco_30_dias": "Desenvolver o hábito de traduzir impacto financeiro para a linguagem de decisão do interlocutor e de formalizar alertas quando riscos são minimizados",
+                "acao_principal": "Antes de apresentar qualquer dado financeiro a um gestor de outra área, escrever em uma frase: 'O que isso significa para a decisão dele hoje?' e construir a comunicação a partir dessa resposta; quando um alerta financeiro for ignorado ou minimizado, enviar um registro curto por escrito com o dado, o risco identificado e a decisão tomada",
+                "evidencia_esperada": "Ao menos uma comunicação financeira entregue com a tradução de impacto explícita para o interlocutor não especialista; ao menos um alerta formalizado por escrito quando risco foi minimizado"
+              },
+              "fez_bem": [
+                "Demonstra comprometimento com auditabilidade e rigor técnico na base dos dados que comunica",
+                "Apresenta disposição para ajustar controles após erro e compartilhar aprendizado com a área",
+                "Valoriza a confiabilidade do número acima da velocidade — o que é a base certa para comunicar com integridade"
+              ],
+              "feedback": "Mariana, esta é a competência com maior espaço de crescimento identificado na avaliação — e é importante contextualizar por quê: as respostas demonstraram consistência técnica, mas não se conectaram ao que a competência de comunicação financeira para não especialistas de fato avalia. O núcleo aqui não é dominar os indicadores — é traduzir o que eles significam para quem precisa decidir com base neles, sem ter o mesmo vocabulário técnico que você tem. No cenário avaliado, Renata não precisava entender os detalhes do rateio — ela precisava ouvir o impacto concreto na decisão que estava prestes a tomar. Esse é o movimento central: sair do dado para a consequência, e garantir que o alerta chegue mesmo quando a outra parte prefere não ouvir.",
+              "melhorar": [
+                "Desenvolver a 'tradução de impacto': antes de apresentar qualquer dado financeiro a um gestor de outra área, perguntar-se o que isso significa para a decisão dele hoje e construir a comunicação a partir dessa resposta",
+                "Formalizar alertas por escrito quando há risco financeiro relevante e o responsável minimiza — um registro curto com o dado, o risco e a decisão tomada protege todas as partes",
+                "Incluir explicitamente o que ainda está em verificação e quando haverá informação consolidada — isso reduz ansiedade em quem depende dos números e aumenta a confiança na comunicação"
+              ],
+              "nota_decimal": 1.67,
+              "estudo_recomendado": [],
+              "dicas_desenvolvimento": [
+                "Quando for apresentar um número para um gestor de outra área, substitua o termo técnico pelo impacto concreto. Em vez de 'a margem de contribuição ajustada ficou negativa', experimente: 'cada real que faturamos nesse projeto está custando R$ X à empresa — aprovar a expansão agora aumenta o prejuízo'. A reação do interlocutor dirá se a tradução funcionou.",
+                "Quando um alerta seu for minimizado ou ignorado, escreva um e-mail de uma parágrafo: 'Registro que o risco [descrever] foi comunicado em [data]. A decisão de [descrever] foi tomada com ciência desse dado.' Isso protege você, a empresa e documenta o histórico.",
+                "Quando precisar checar se o entendimento chegou, experimente perguntar: 'O que você faria de diferente na sua decisão com essa informação?' A resposta revela se a tradução funcionou ou se precisa de um ajuste."
+              ],
+              "descritores_desenvolvimento": [
+                "Adaptar a linguagem financeira ao que o interlocutor precisa para tomar uma decisão, não ao que o dado tecnicamente é",
+                "Verificar se o entendimento chegou: perguntar, checar reação, ajustar a explicação",
+                "Priorizar explicitamente qual informação é mais urgente para a decisão do gestor de outra área",
+                "Formalizar alerta por escrito quando um risco financeiro relevante for minimizado ou ignorado pelo responsável"
+              ]
+            },
+            {
+              "flag": true,
+              "nome": "Organização de Rotinas e Prazos",
+              "nivel": 2,
+              "sprint": {
+                "ritual": "Na segunda-feira de cada semana do PDI, revisar quais dependências estão abertas, qual é o prazo e quais alternativas ainda não foram exploradas — 10 minutos",
+                "checklist": [
+                  "Ao menos um registro de decisão de rotina com variável numérica, limiar e justificativa explícita",
+                  "Ao menos uma negociação com área parceira em que alternativas concretas foram exploradas ativamente e o resultado foi documentado",
+                  "Mapeamento de fornecedores críticos com gatilho de alerta definido antes do próximo fechamento"
+                ],
+                "acao_apoio": "Antes do próximo fechamento, mapear quais fornecedores representam mais de 10% do custo operacional e definir com Compras um gatilho de alerta em D-7 para notas fiscais em risco de atraso",
+                "foco_30_dias": "Tornar critérios de decisão auditáveis e desenvolver postura ativa de negociação de dependências externas",
+                "acao_principal": "Ao responder cenários ou comunicar riscos, ancorar sempre nas variáveis numéricas disponíveis, transformando princípios em critérios auditáveis; na próxima vez que uma área parceira disser que não há nada que possa fazer, listar em voz alta as alternativas visíveis (contrato, histórico, documento parcial) e convidar a outra pessoa a avaliar junto",
+                "evidencia_esperada": "Ao menos um registro de decisão de rotina com critério numérico explícito e justificativa documentada; ao menos uma negociação de dependência externa com alternativas exploradas e resultado registrado"
+              },
+              "fez_bem": [
+                "Demonstra ciclo consistente de análise previsto vs. realizado, com atualização de checklist na causa-raiz e compartilhamento de aprendizado com a área",
+                "Valoriza a auditabilidade do número acima da velocidade, o que protege a qualidade das entregas em momentos de pressão"
+              ],
+              "feedback": "Mariana, o ciclo de aprendizado que você demonstra — previsto vs. realizado, causa-raiz, atualização de checklist e compartilhamento com a área — é o padrão mais desenvolvido entre as suas respostas nesta avaliação. Isso reflete um perfil que se preocupa genuinamente com a melhoria do processo. O ponto de desenvolvimento está em dois movimentos complementares: primeiro, trazer as variáveis concretas para dentro das decisões de rotina, tornando o critério visível e auditável para quem depende dos seus relatórios; segundo, sair da postura de espera quando há bloqueio de dependência externa, passando a construir ativamente as alternativas disponíveis. Esses dois movimentos juntos ampliam significativamente o impacto da sua atuação no ciclo de fechamento.",
+              "melhorar": [
+                "Tornar visíveis os critérios numéricos que sustentam as decisões de rotina — explicitar limiar, justificativa e consequência, não só o resultado da decisão",
+                "Desenvolver postura ativa de co-construção de alternativas com áreas parceiras quando há bloqueio de dependência: explorar contrato, histórico, documento parcial, em vez de registrar a pendência e aguardar",
+                "Quantificar o risco ao comunicar impactos de prazo — identificar destinatário, peso da variável e o que muda na decisão da gestão com aquela informação"
+              ],
+              "nota_decimal": 2.16,
+              "estudo_recomendado": [],
+              "dicas_desenvolvimento": [
+                "Quando precisar justificar uma decisão de rotina para a gestão, comece pela variável numérica: 'Dado que esse fornecedor representa 18% do custo e a variação histórica é de 12%, meu limiar para usar estimativa é X.' Isso transforma o seu critério em algo que pode ser revisto, calibrado e confiado.",
+                "Quando uma área parceira disser 'não consigo te dar o dado agora', pergunte: 'O que você tem disponível — um contrato, uma NF anterior, um e-mail com valores?' Explore o que existe antes de registrar a pendência e esperar.",
+                "Quando for comunicar um risco de prazo, inclua sempre o número: não apenas 'a NF está atrasada', mas 'a NF do fornecedor X representa 18% do custo de outubro — se não chegar até amanhã, o relatório vai para a diretoria com estimativa e essa ressalva precisa estar explícita'."
+              ],
+              "descritores_desenvolvimento": [
+                "Ancorar decisões de rotina nas variáveis numéricas disponíveis, tornando critérios auditáveis e não apenas implícitos",
+                "Negociar ativamente com dependências externas, explorando alternativas concretas em vez de aguardar retorno",
+                "Comunicar riscos de prazo com quantificação explícita: destinatário, valor envolvido e consequência provável",
+                "Mapear fornecedores críticos preventivamente, com gatilhos de alerta antes do prazo final"
+              ]
+            }
+          ],
+          "resumo_geral": {
+            "leitura": "Mariana traz uma base técnica consistente: valoriza auditabilidade, trabalha com método e tem princípios éticos bem posicionados — o que é genuinamente raro e valioso em rotinas de fechamento financeiro. Ao mesmo tempo, há um padrão que aparece em várias competências: as respostas tendem a descrever como ela pensa sobre os problemas, mas param antes de mostrar o que faz com quem, em que formato e com qual resultado. Isso não é falta de competência — é o próximo degrau. O desenvolvimento dos próximos 30 dias está centrado em tornar visível, para fora da sua própria área, o rigor que você já pratica internamente: com comunicação mais estruturada, negociação mais ativa de dependências e análises que chegam até a recomendação, não só até o número.",
+            "principais_forcas": [
+              "Método e auditabilidade: trabalha com rastreabilidade, registra premissas e valoriza dados confiáveis acima de velocidade",
+              "Aprendizado contínuo: demonstra ciclo de revisão pós-ciclo, atualização de checklist na causa-raiz e disposição para compartilhar aprendizado com a área"
+            ],
+            "principal_ponto_de_atencao": "Comunicação e colaboração com outras áreas: o rigor técnico tende a ficar concentrado no próprio trabalho, sem se traduzir em negociação ativa de dependências, comunicação proativa de riscos ou análises com narrativa orientada à decisão do gestor."
+          },
+          "mensagem_final": "Mariana, o que esta avaliação mostra é que você tem uma base técnica consistente e valores bem posicionados — e que o próximo passo não é mudar o que você já faz, mas tornar isso visível para fora da sua própria área. Comunicar antes de ter a solução, traduzir o número para a decisão do gestor, sustentar a posição ética com alternativa concreta: esses são comportamentos treináveis, com estrutura e prática deliberada. Os próximos 30 dias têm movimentos claros e executáveis — o que muda muito não é o volume do esforço, mas a direção dele.",
+          "resumo_desempenho": [
+            {
+              "flag": true,
+              "nivel": 2,
+              "leitura": "Pontos fortes em execução, priorização e aprendizado. Gaps em colaboração com outras áreas e comunicação proativa de inconsistências.",
+              "competencia": "Controle, Precisão e Confiabilidade dos Dados",
+              "nota_decimal": 3.22
+            },
+            {
+              "flag": true,
+              "nivel": 2,
+              "leitura": "Base ética sólida e método de execução presente. Gaps em leitura de contexto dos indicadores, comunicação estruturada e colaboração interdepartamental.",
+              "competencia": "Análise de Indicadores Financeiros",
+              "nota_decimal": 2.21
+            },
+            {
+              "flag": true,
+              "nivel": 2,
+              "leitura": "Princípios éticos bem declarados e método de reconciliação consistente. Gap central está em aplicar esses princípios em situações de pressão real, com comunicação estruturada e posição sustentada.",
+              "competencia": "Critério e Ética no Tratamento de Informações",
+              "nota_decimal": 2.17
+            },
+            {
+              "flag": true,
+              "nivel": 1,
+              "leitura": "Rigor técnico presente, mas comunicação ainda não alcança quem não é especialista. Lacunas em adaptação de linguagem, priorização comunicada e registro formal de alertas.",
+              "competencia": "Comunicação Financeira para Não Especialistas",
+              "nota_decimal": 1.67
+            },
+            {
+              "flag": true,
+              "nivel": 2,
+              "leitura": "Bom ciclo de aprendizado e consciência de auditabilidade. Gaps na negociação ativa de dependências e na comunicação quantificada de riscos para a gestão.",
+              "competencia": "Organização de Rotinas e Prazos",
+              "nota_decimal": 2.16
+            }
+          ],
+          "blueprint_conteudos": {
+            "Análise de Indicadores Financeiros": [
+              {
+                "tema": "Leitura de indicadores financeiros no contexto do negócio: como conectar número e causa",
+                "formato": "vídeo"
+              },
+              {
+                "tema": "Como estruturar uma análise financeira para tomada de decisão: do dado à recomendação",
+                "formato": "texto"
+              },
+              {
+                "tema": "Priorização de indicadores em relatórios gerenciais: o que o gestor precisa ver primeiro",
+                "formato": "estudo de caso"
+              }
+            ],
+            "Controle, Precisão e Confiabilidade dos Dados": [
+              {
+                "tema": "Controle de qualidade de dados em rotinas financeiras: como estruturar verificações antes do fechamento",
+                "formato": "texto"
+              },
+              {
+                "tema": "Comunicação de riscos e inconsistências em ambientes financeiros: quando e como escalar",
+                "formato": "estudo de caso"
+              },
+              {
+                "tema": "Mapeamento e acompanhamento de dependências entre áreas em processos de fechamento financeiro",
+                "formato": "vídeo"
+              }
+            ]
+          },
+          "blueprint_objetivos": {
+            "obj-1": {
+              "objetivo": "Implanto um protocolo de verificação antes de cada entrega de base ou relatório, cobrindo os descritores de leitura de contexto e execução com método.",
+              "competencia": "Controle, Precisão e Confiabilidade dos Dados",
+              "acao_principal": "Criar e usar um checklist de verificação para os dois próximos fechamentos do mês, com campo para registrar anomalias identificadas e o que foi conferido."
+            },
+            "obj-2": {
+              "objetivo": "Desenvolvo o hábito de comunicar inconsistências e dependências de forma proativa, antes de ter a solução pronta, reduzindo atrasos causados por espera silenciosa.",
+              "competencia": "Controle, Precisão e Confiabilidade dos Dados",
+              "acao_principal": "Em cada inconsistência que não se resolve em até um dia útil, enviar comunicação formal (e-mail ou mensagem registrada) à área responsável ou à chefia, com descrição do problema, impacto provável e prazo necessário."
+            },
+            "obj-3": {
+              "objetivo": "Passo a contextualizar cada indicador analisado, registrando o que explica o movimento observado e qual variação merece atenção prioritária antes de reportar.",
+              "competencia": "Análise de Indicadores Financeiros",
+              "acao_principal": "Para cada análise de indicadores do período, preencher um campo de contextualização (hipótese de causa) e um campo de priorização (qual variação é mais relevante para a decisão do gestor)."
+            },
+            "obj-4": {
+              "objetivo": "Entrego análises com narrativa estruturada (variação + contexto + recomendação), sem travar o processo quando há dependência de outra área.",
+              "competencia": "Análise de Indicadores Financeiros",
+              "acao_principal": "Adotar o formato de três campos (variação, contexto, recomendação) em todas as análises entregues à chefia ou às áreas parceiras durante o período, incluindo ressalva explícita quando houver dado pendente de outra área."
+            }
+          },
+          "alertas_metodologicos": [
+            "O perfil comportamental DISC/CIS foi tratado como hipótese de preferências e tendências, não como diagnóstico de comportamento observado. As afirmações sobre tendências devem ser verificadas pela própria Mariana no contexto real de trabalho.",
+            "A nota decimal da competência 'Controle, Precisão e Confiabilidade dos Dados' (3.22) está acima do intervalo típico de N2, possivelmente indicando desempenho próximo à fronteira com N3 em alguns descritores. O nível consolidado foi mantido em N2 conforme o dado de input, dado que há gaps relevantes em descritores centrais da competência."
+          ],
+          "perfil_comportamental": {
+            "descricao": "Mariana, seu perfil combina uma orientação forte para consistência e qualidade (S elevado) com atenção a regras, processos e precisão (C elevado). Isso costuma se traduzir em um jeito de trabalhar cuidadoso, sistemático e confiável — a tendência é garantir que o que sai está certo antes de comunicar, e que os processos sejam seguidos com rigor.\n\nEssa combinação costuma render bem em ambientes que valorizam método, onde a qualidade da entrega importa tanto quanto a velocidade. A hipótese aqui é que você tende a preferir ter a resposta completa antes de se posicionar, e que situações de pressão com ambiguidade ou confronto direto podem ser mais desconfortáveis do que aquelas onde há critérios claros para seguir — vale conferir se isso ressoa com sua experiência.\n\nUm ponto que vale observar: perfis com essa configuração às vezes concentram a atuação no próprio território técnico e demoram mais para se posicionar em negociações com outras áreas ou em conversas de risco com gestores. Não é uma limitação — é uma tendência que pode ser desenvolvida com estrutura e prática.",
+            "pontos_forca": [
+              "Tende a ser detalhista e cuidadosa com a qualidade do que entrega",
+              "Costuma seguir processos com consistência e valorizar rastreabilidade",
+              "Inclina-se a agir com ética e responsabilidade, especialmente em contextos com regras e critérios claros"
+            ],
+            "pontos_atencao": [
+              "Pode tender a aguardar ter a solução completa antes de comunicar — o que, em cenários de dependência externa ou pressão de prazo, pode atrasar alinhamentos importantes",
+              "Em situações de confronto ou pressão direta, pode haver tendência a se recolher ao campo técnico em vez de sustentar a posição com a outra parte"
+            ]
+          }
+        },
+        "gerado_em": "2026-09-07T12:06:39.029+00:00",
+        "created_at": "2026-09-07T11:59:06.485851+00:00",
+        "updated_at": "2026-09-07T11:59:06.485851+00:00",
+        "pdf_path": "455f9366-fb4f-4c58-a79e-f94193464744/individual-mariana-lopes-1788782798377.pdf"
       }
     }
   }
