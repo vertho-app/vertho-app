@@ -1,7 +1,27 @@
 import { RECEPCAO_SESSAO } from '@/lib/status';
 import { randomUUID, randomInt } from 'node:crypto';
-import type { Cenario } from './schema';
+import { NIVEIS, type Cenario, type Nivel } from './schema';
 import type { Estado, Insumos, Gerar, Validacao } from './model';
+
+// Escada de dificuldade: sugere o degrau seguinte ao mais alto em que a pessoa já tirou NOTA_PARA_SUBIR.
+// O corte fica entre a mediana medida em 06/09 (~40) e o exemplar (100); é proposta inicial, não calibração.
+// Sessões sem nível no snapshot (anteriores à escada) não contam.
+export const NOTA_PARA_SUBIR = 70;
+export function sugerirNivel(concluidas: Array<{ nivel?: string | null; nota: number | null }>): Nivel {
+  let alcancado = -1;
+  for (const c of concluidas) {
+    const i = NIVEIS.indexOf(c.nivel as Nivel);
+    if (i >= 0 && c.nota !== null && c.nota >= NOTA_PARA_SUBIR) alcancado = Math.max(alcancado, i);
+  }
+  return NIVEIS[Math.min(alcancado + 1, NIVEIS.length - 1)];
+}
+// O degrau é rótulo de navegação, não instrução: fica fora dos prompts para que a paciente e o
+// avaliador recebam exatamente o texto calibrado em 06/09 (mesmo prompt_hash entre x.0 e x.1).
+export const fichaParaPrompt = (c: Cenario) => JSON.stringify({ ...c.publico, nivel: undefined });
+export function ordenarPorNivel<T extends { ficha: { nivel?: string | null; titulo: string } }>(itens: T[]): T[] {
+  const pos = (n?: string | null) => { const i = NIVEIS.indexOf(n as Nivel); return i < 0 ? NIVEIS.length : i; };
+  return [...itens].sort((a, b) => pos(a.ficha.nivel) - pos(b.ficha.nivel) || a.ficha.titulo.localeCompare(b.ficha.titulo, 'pt-BR'));
+}
 
 const exigir = (c: unknown, m: string) => { if (!c) throw new Error(m); };
 const texto = (v: unknown) => typeof v === 'string' && v.trim().length > 0;
@@ -82,7 +102,7 @@ Não crie histórias de outras clínicas, contatos anteriores, cobranças ou nov
 Não forneça orientação clínica. Só a aplicação encerra a sessão.
 Retorne somente JSON válido: {"fala":"sua resposta"}. Até 800 caracteres na fala.
 Dentro do texto da fala, prefira aspas simples para citar alguém; aspas duplas internas precisam de escape JSON. Não escreva texto fora do objeto.
-FICHA OPERACIONAL: ${JSON.stringify(c.publico)}
+FICHA OPERACIONAL: ${fichaParaPrompt(c)}
 PERSONAGEM RESERVADO: ${JSON.stringify(c.paciente)}`;
 }
 
@@ -128,7 +148,7 @@ Retorne somente JSON:
 RUBRICA: ${JSON.stringify(c.rubrica)}
 OCORRÊNCIAS PERMITIDAS: ${JSON.stringify(c.ocorrenciasCriticas)}
 DESFECHOS PERMITIDOS: ${JSON.stringify(c.desfechos)}
-CONTEXTO VISÍVEL: ${JSON.stringify(c.publico)}`;
+CONTEXTO VISÍVEL: ${fichaParaPrompt(c)}`;
 }
 
 function parse(raw: string) {

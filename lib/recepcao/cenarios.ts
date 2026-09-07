@@ -2,7 +2,7 @@ import 'server-only';
 import { createHash, randomUUID } from 'node:crypto';
 import { type ContextoRecepcao, RecepcaoError } from './access';
 import { cenarioSchema, type Cenario, type editarCenarioSchema } from './schema';
-import { fichaPublica } from './core';
+import { fichaPublica, ordenarPorNivel } from './core';
 import { can } from '@/lib/permissions';
 import type { z } from 'zod';
 
@@ -11,7 +11,9 @@ export async function catalogo(c:ContextoRecepcao,editor=false) {
  if(!editor) q=q.eq('estado','publicado');
  const {data,error}=await q.order('created_at',{ascending:false}).order('id').limit(200);
  if(error) throw new RecepcaoError(503,'Não foi possível carregar os cenários.');
- return (data||[]).map(r=> editor ? r : {id:r.id,versao:r.versao,ficha:fichaPublica(cenarioSchema.parse(r.conteudo))});
+ if(editor) return data||[];
+ // Para quem treina: degraus em ordem (introdução → sob pressão → limite contestado), título dentro do degrau.
+ return ordenarPorNivel((data||[]).map(r=>({id:r.id,versao:r.versao,ficha:fichaPublica(cenarioSchema.parse(r.conteudo))})));
 }
 export async function cenarioPublicado(c:ContextoRecepcao,id?:string):Promise<{id:string;conteudo:Cenario}> {
  let q=c.sb.from('recepcao_cenarios').select('id,conteudo').or(`empresa_id.eq.${c.empresaId},empresa_id.is.null`).eq('estado','publicado');

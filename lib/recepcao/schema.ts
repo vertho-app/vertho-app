@@ -3,12 +3,19 @@ import { z } from 'zod';
 const texto = z.string().trim().min(1).max(4000);
 const chave = z.string().regex(/^[a-z][a-z0-9_\-]{1,63}$/);
 const paciente = z.object({ postura: z.enum(['negociavel', 'resistencia_persistente']).optional(), nome: texto, abertura: texto.max(800), comportamento: texto, fatos: z.array(texto).min(1).max(12), limites: texto }).strict();
+// Escada de dificuldade, em ordem. Opcional na ficha para não invalidar snapshots e cópias antigas;
+// caso sem nível vai para o fim do seletor e não conta na sugestão.
+export const NIVEIS = ['introducao', 'pressao', 'limite'] as const;
+export type Nivel = typeof NIVEIS[number];
+export const rotuloNivel: Record<Nivel, string> = { introducao: 'Introdução', pressao: 'Sob pressão', limite: 'Limite contestado' };
+
 export const cenarioSchema = z.object({
   id: chave, versao: z.string().min(1).max(40), rubricaVersao: z.string().min(1).max(40),
   dominio: z.literal('recepcao_medica'), statusEditorial: z.string().max(60),
   publico: z.object({
     titulo: texto.max(160), objetivo: texto, aviso: texto, contexto: texto, agora: texto.optional(),
     clinica: texto.optional(), canal: z.enum(['mensagens', 'telefone']).default('mensagens'),
+    nivel: z.enum(NIVEIS).optional(),
     escopoAvaliacao: texto.optional(), consultaAnterior: texto.optional(),
     alternativas: z.array(z.object({ id: texto, data: texto, hora: texto, profissional: texto, condicao: texto.optional() }).strict()).max(12).optional(),
     secoes: z.array(z.object({ titulo: texto.max(120), itens: z.array(texto).min(1).max(15) }).strict()).max(8).default([]),

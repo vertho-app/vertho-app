@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { CalendarDays, ClipboardList, MessageCircle, Send, RotateCcw, ArrowRight, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { RECEPCAO_SESSAO } from '@/lib/status';
+import { NIVEIS, rotuloNivel } from '@/lib/recepcao/schema';
 import styles from './treino.module.css';
 import GestaoRecepcao from './gestao';
 import VozRecepcao from './voz';
@@ -43,7 +44,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     const d = await api(`/api/recepcao?${q}`);
     if (ticket !== generation.current) return;
     setDados(d); setSessao(d.sessao);
-    setCenarioId(old=>d.cenarios?.some(c=>c.id===old)?old:d.cenarios?.[0]?.id||'');
+    // Mantém a escolha da pessoa; sem escolha, abre no degrau sugerido pelo histórico dela.
+    setCenarioId(old=>d.cenarios?.some(c=>c.id===old)?old:(d.cenarios?.find(c=>c.ficha.nivel===d.nivelSugerido)||d.cenarios?.[0])?.id||'');
   }
   useEffect(() => {
     let alive = true;
@@ -141,7 +143,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     <div hidden={aba!=='treino'}>
     {erro && <div role="alert" className={styles.error}><AlertCircle size={19}/><span>{erro}</span><button onClick={() => { setErro(''); carregar().catch(e => setErro(e.message)); }} disabled={!!ocupado}>Atualizar</button></div>}
     {carregando ? <div className={styles.empty}><Loader2 className={styles.spin}/> Carregando seu espaço de treino…</div> : !dados ? <div className={styles.empty}>{admin && !empresaId ? 'Selecione a empresa para experimentar o atendimento.' : 'O treinamento será exibido aqui quando seu acesso estiver disponível.'}</div> : <>
-      <section className={styles.casePicker}><label>Caso para o próximo atendimento<select value={cenarioId} disabled={travado} onChange={e=>{setCenarioId(e.target.value);createId.current=null}}>{dados.cenarios?.map(c=><option key={c.id} value={c.id}>{c.ficha.titulo} · {c.versao}</option>)}</select></label>{sessao&&<button className={styles.secondary} disabled={travado} onClick={()=>{setSessao(null);setInput('');setConfirmarFim(false);pending.current=null;createId.current=null}}>Preparar outro atendimento</button>}<p className={styles.small}>Ao trocar de caso, o atendimento anterior continua no histórico. As operações são fictícias.</p></section>
+      <section className={styles.casePicker}><label>Caso para o próximo atendimento<select value={cenarioId} disabled={travado} onChange={e=>{setCenarioId(e.target.value);createId.current=null}}>{[...NIVEIS, undefined].map(n=>{const grupo=(dados.cenarios||[]).filter(c=>(c.ficha.nivel||undefined)===n);return grupo.length?<optgroup key={n||'outros'} label={n?rotuloNivel[n]:'Outros casos'}>{grupo.map(c=><option key={c.id} value={c.id}>{c.ficha.titulo} · {c.versao}</option>)}</optgroup>:null;})}</select></label>{sessao&&<button className={styles.secondary} disabled={travado} onClick={()=>{setSessao(null);setInput('');setConfirmarFim(false);pending.current=null;createId.current=null}}>Preparar outro atendimento</button>}<p className={styles.small}>{dados.nivelSugerido&&rotuloNivel[dados.nivelSugerido]&&<>Sugerido para você agora: <strong>{rotuloNivel[dados.nivelSugerido]}</strong>. </>}Ao trocar de caso, o atendimento anterior continua no histórico. As operações são fictícias.</p></section>
       <div className={styles.workspace}>
         <aside className={styles.ficha}>
           <div className={styles.fichaTitle}><ClipboardList size={23}/><div><span>Ficha de atendimento</span><h2>{ficha.clinica || dados.empresaNome}</h2></div></div>
@@ -152,7 +154,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
           <details><summary>Procedimentos da clínica</summary><ul>{ficha.procedimentos.map((p: string) => <li key={p}>{p}</li>)}</ul></details>
         </aside>
         <section className={styles.conversa} aria-label="Atendimento simulado">
-          <div className={styles.chatHeader}><div className={styles.avatar}>{nomePaciente.slice(0,1)}</div><div><h2>{sessao ? nomePaciente : ficha.titulo}</h2><p>{`${ficha.canal==='telefone'?'Telefone':'Mensagens / WhatsApp'} simulado · pessoa fictícia`}</p></div>{sessao && <span className={styles.count}>{sessao.respostas}/{ficha.limiteRespostas||12} respostas</span>}</div>
+          <div className={styles.chatHeader}><div className={styles.avatar}>{nomePaciente.slice(0,1)}</div><div><h2>{sessao ? nomePaciente : ficha.titulo}</h2><p>{`${ficha.nivel&&rotuloNivel[ficha.nivel]?`${rotuloNivel[ficha.nivel]} · `:''}${ficha.canal==='telefone'?'Telefone':'Mensagens / WhatsApp'} simulado · pessoa fictícia`}</p></div>{sessao && <span className={styles.count}>{sessao.respostas}/{ficha.limiteRespostas||12} respostas</span>}</div>
           {!sessao ? <div className={styles.start}><MessageCircle size={38}/><h2>Como você conduziria esse atendimento?</h2><p>{ficha.objetivo}</p><p>{ficha.competencias?.map(d=>d.nome).join(' · ')}</p><button className={styles.primary} onClick={() => agir('iniciar')} disabled={travado}>{ocupado ? 'Iniciando…' : 'Iniciar atendimento'}<ArrowRight size={18}/></button></div> : <>
             <div className={styles.messages} role="log" aria-label={`Conversa com ${nomePaciente}`} aria-live="polite">
               {sessao.historico.map((m: any) => <article key={m.id} className={m.role === 'user' ? styles.sent : styles.received}><span>{m.role === 'user' ? 'Você' : nomePaciente}</span><p>{m.content}</p>{momentos.has(m.id) && <footer className={styles.momento} aria-label="Oportunidade identificada nesta mensagem"><span>Oportunidade</span>{momentos.get(m.id)!.map((x, i) => <em key={i} className={styles[`c_${x.classificacao}`]}>{x.nome}</em>)}</footer>}</article>)}

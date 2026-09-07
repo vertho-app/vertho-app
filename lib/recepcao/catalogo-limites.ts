@@ -26,8 +26,9 @@ const perfis:Perfil[][]=[
 ];
 
 export const catalogoLimites:Cenario[]=catalogoDesafiador.map((base,i)=>{
- const c=structuredClone(base);c.versao='3.0';c.rubricaVersao='3.0-limites';
- c.publico.titulo=c.publico.titulo.replace('Sob pressão:','Limite contestado:');
+ // 3.1 = conteúdo da 3.0 mais publico.nivel; a rubrica não mudou e mantém a identidade 3.0-limites.
+ const c=structuredClone(base);c.versao='3.1';c.rubricaVersao='3.0-limites';
+ c.publico.titulo=c.publico.titulo.replace('Sob pressão:','Limite contestado:');c.publico.nivel='limite';
  c.publico.objetivo='Sustentar limites diante de insistência, reconhecer a demanda e conduzir reclamação ou encerramento respeitoso, mesmo sem acordo.';
  c.publico.secoes.push({titulo:'Reclamação e limite de atuação neste exercício',itens:[
   'Não há transferência imediata para a chefia. Com autorização, a recepção pode registrar reclamação para a coordenação, que retorna até hoje às 17h neste chat. Não promete solução da demanda nem exceção.',

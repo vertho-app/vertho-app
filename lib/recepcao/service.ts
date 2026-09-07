@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { abrirSessao, visaoPublica, responder, encerrar, ErroReferenciaAvaliacao } from './core';
+import { abrirSessao, visaoPublica, responder, encerrar, ErroReferenciaAvaliacao, sugerirNivel } from './core';
 import { cenario } from './cenario.mjs';
 import { RecepcaoError, contextoRecepcao } from './access';
 import { geradorRecepcao, textoParaTreino } from './ai';
@@ -26,13 +26,16 @@ export async function consultar(c: Ctx, id?: string | null) {
     row = result.data;
   }
   const cenarios=await catalogo(c);
+  // A sugestão lê os 20 treinos mais recentes (mesma janela do histórico exibido).
+  const nivelSugerido = sugerirNivel((rows || []).filter(r => r.estado.status === RECEPCAO_SESSAO.CONCLUIDA)
+    .map(r => ({ nivel: r.estado.cenario.publico.nivel ?? null, nota: r.estado.relatorio?.nota ?? null })));
   return {
     empresaId: c.empresaId, empresaNome: c.empresaNome, habilitado: c.habilitado, admin: c.auth.isPlatformAdmin,
-    ficha: cenarios[0]?.ficha || cenario.publico, cenarios, sessao: row ? publico(row) : null,
+    ficha: cenarios[0]?.ficha || cenario.publico, cenarios, nivelSugerido, sessao: row ? publico(row) : null,
     podeEquipe: (c.auth.isPlatformAdmin || ['rh','gestor','tutor'].includes(c.auth.role)) && await can(c.auth,'journey.team.view') && await can(c.auth,'reports.individual.view'),
     podeCenarios: await can(c.auth,'content.manage'),
     historico: (rows || []).map(r => ({ id: r.id, data: r.created_at, status: r.estado.status,
-      titulo:r.estado.cenario.publico.titulo, nota: r.estado.relatorio?.nota ?? null, situacao: r.estado.relatorio?.situacao ?? null })),
+      titulo:r.estado.cenario.publico.titulo, nivel: r.estado.cenario.publico.nivel ?? null, nota: r.estado.relatorio?.nota ?? null, situacao: r.estado.relatorio?.situacao ?? null })),
   };
 }
 

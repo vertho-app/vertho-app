@@ -5,7 +5,7 @@ import {abrirSessao,promptPaciente,visaoPublica} from '@/lib/recepcao/core';
 import {cenarioSchema} from '@/lib/recepcao/schema';
 
 test.each(catalogoLimites)('$id: resistência persistente respeita schema, isolamento e versionamento',c=>{
- expect(cenarioSchema.safeParse(c).success).toBe(true);expect(c.versao).toBe('3.0');
+ expect(cenarioSchema.safeParse(c).success).toBe(true);expect(c.versao).toBe('3.1');
  for(let v=0;v<2;v++){
   const s=abrirSessao(c,v),prompt=promptPaciente(s.cenario),publico=JSON.stringify(visaoPublica(s));
   expect(s.cenario.paciente.postura).toBe('resistencia_persistente');
@@ -13,7 +13,7 @@ test.each(catalogoLimites)('$id: resistência persistente respeita schema, isola
   expect(publico).not.toContain('resistencia_persistente');expect(publico).not.toContain(s.cenario.paciente.comportamento);
  }
  const anterior=catalogoDesafiador.find(x=>x.id===c.id)!;
- expect(anterior.versao).toBe('2.0');expect(promptPaciente(anterior)).toContain('Reduza a resistência quando');
+ expect(anterior.versao).toBe('2.1');expect(promptPaciente(anterior)).toContain('Reduza a resistência quando');
 });
 test('edição preserva a postura e permite voltar ao perfil negociável',()=>{
  const c=structuredClone(catalogoLimites[0]);

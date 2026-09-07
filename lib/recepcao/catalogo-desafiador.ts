@@ -10,7 +10,8 @@ function pessoa(nome:string, abertura:string, comportamento:string, fatos:string
 const pesos:Record<string,number>={acolhimento:20,compreensao:15,clareza:20,resolucao:20,procedimentos:10};
 function versao(c:Cenario):Cenario {
   const n=structuredClone(c);
-  n.versao='2.0';n.rubricaVersao='2.0-conflito';
+  // 2.1 = conteúdo da 2.0 mais publico.nivel; a rubrica não mudou e mantém a identidade 2.0-conflito.
+  n.versao='2.1';n.rubricaVersao='2.0-conflito';n.publico.nivel='pressao';
   n.publico.agora='14/09/2026 às 10h';
   n.publico.titulo=`Sob pressão: ${n.publico.titulo.charAt(0).toLowerCase()}${n.publico.titulo.slice(1)}`;
   n.publico.objetivo='Conduzir um atendimento difícil: investigar restrições, responder à pressão e combinar uma saída dentro dos limites da clínica.';

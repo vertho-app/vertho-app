@@ -20,7 +20,7 @@ describe('catálogo sob pressão',()=>{
  it('não altera sementes introdutórias nem sessões antigas ao criar a nova versão',()=>{
   const antiga=abrirSessao(catalogoInicial[0],0),antes=structuredClone(antiga);
   abrirSessao(catalogoDesafiador[0],0);
-  expect(antiga).toEqual(antes);expect(antiga.cenario.versao).toBe('1.0');
+  expect(antiga).toEqual(antes);expect(antiga.cenario.versao).toBe('1.1');
   expect(antiga.cenario.rubrica).toHaveLength(5);
  });
  it('preserva boa condução e recusa como resultados independentes',()=>{
