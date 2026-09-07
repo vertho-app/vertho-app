@@ -277,7 +277,12 @@ export async function chamarIAComRetry(
   userPrompt: string,
   model: string,
   maxTokens = 64000,
-  opts: { timeoutMs?: number } = {},
+  // `empresaId` sai da COMPETÊNCIA que o chamador já carregou: módulo ligado a
+  // uma competência de empresa é custo dela; módulo canônico é acervo da
+  // plataforma, e `null` ali é a resposta certa. Medido 07/09/2026: pelo BATCH
+  // o mesmo trabalho já ia etiquetado (91 chamadas na Macaé), pelo síncrono não
+  // (25 sem dono, US$ 4,46) — mesma feature, dois caminhos, um só etiquetado.
+  opts: { timeoutMs?: number; empresaId?: string | null } = {},
 ) {
   let corpo: any = null;
   for (let tentativa = 1; tentativa <= 2 && !corpo; tentativa++) {
@@ -287,6 +292,7 @@ export async function chamarIAComRetry(
       // a conta do mês veio daqui (F13).
       const raw = await callAI(systemPrompt, userPrompt, { model }, maxTokens, {
         taskKey: 'modulo_base_autor',
+        empresaId: opts.empresaId ?? null,
         timeoutMs: opts.timeoutMs ?? TIMEOUT_ESCRITA_MODULO_MS,
       });
       corpo = extractCorpo(raw);

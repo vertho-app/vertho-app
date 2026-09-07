@@ -172,7 +172,7 @@ export async function resumirPPPEscola(empresaId, ppp) {
 
   try {
     const { resumirPPP } = await import('@/lib/escola-brief');
-    const brief = await resumirPPP(ppp);
+    const brief = await resumirPPP(ppp, empresaId);
 
     const { data: current } = await sb.from('empresas')
       .select('sys_config').eq('id', empresaId).single();
@@ -232,7 +232,7 @@ export async function gerarBriefDoPPP(empresaId: string, pppEscolaId?: string) {
     const fonte = extracaoParaTexto(data.extracao);
     if (!fonte.trim()) return { success: false, error: 'PPP extraído está vazio' };
 
-    const brief = await resumirPPP(fonte);
+    const brief = await resumirPPP(fonte, empresaId);
 
     const { data: current } = await sb.from('empresas')
       .select('sys_config').eq('id', empresaId).single();

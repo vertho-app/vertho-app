@@ -46,11 +46,20 @@ export async function chatWithBeto(userMessage: string, history: Array<{ role: s
   // framework mesmo para quem ainda não tem mapeamento.
   let systemPrompt = `${SYSTEM_PROMPT_BASE}\n\n${DISC_DOUTRINA}`;
 
+  // Quem paga esta conversa. Fica FORA do `try` de propósito: o contexto é
+  // best-effort (o Beto responde sem ele), mas a atribuição do custo não pode
+  // depender de o enriquecimento do prompt ter dado certo — era assim que 383
+  // chamadas de 383 entravam no ledger sem dono (medido 07/09/2026).
+  let empresaId: string | null = null;
+  let colaboradorId: string | null = null;
+
   // Contexto da Fase 4 (pílula atual) sempre escopado ao usuário autenticado.
   if (email) {
     try {
       const ctx = await getBetoContext(email);
       if (ctx) {
+        empresaId = ctx.colab?.empresa_id ?? null;
+        colaboradorId = ctx.colab?.id ?? null;
         // Perfil comportamental real do colaborador (mesmos dados/cache do Relatório).
         const perfilBlock = ctx.colab ? buildPerfilComportamentalBlock(ctx.colab) : null;
         if (perfilBlock) systemPrompt += `\n\n${perfilBlock}`;
@@ -93,7 +102,9 @@ ${ctx.competenciaFoco ? `\nCOMPETÊNCIA EM FOCO: ${ctx.competenciaFoco}` : ''}`;
   // callAIChat injeta a instrução de idioma conforme o locale do usuário (cookie
   // vertho-locale) — sem isto o Beto respondia sempre em PT, ignorando a língua
   // selecionada no painel.
-  return callAIChat(systemPrompt, messages, { model: 'claude-sonnet-4-6' }, 1000, { taskKey: 'beto' });
+  return callAIChat(systemPrompt, messages, { model: 'claude-sonnet-4-6' }, 1000, {
+    taskKey: 'beto', empresaId, colaboradorId,
+  });
 }
 
 /**

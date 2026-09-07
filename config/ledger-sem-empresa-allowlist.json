@@ -1,0 +1,21 @@
+{
+  "description": "Call-sites de callAI/callAIChat que declaram taskKey e NÃO passam empresaId. Cada entrada precisa de motivo. A lista só ENCOLHE: um call-site novo fora dela falha no CI. Chave = 'arquivo:taskKey'.",
+  "allowlist": {
+    "app/api/copiloto/live/route.ts:copiloto_ao_vivo": "Copiloto comercial: a conversa é SOBRE um prospect, que não é tenant. Sem dono é a resposta certa, não lacuna.",
+    "lib/copiloto/conversation-analysis.ts:copiloto_memoria_conversa": "Idem: memória da conversa comercial, fora do escopo de tenant.",
+    "app/api/chat-simulador/route.ts:chat_simulador": "Simulador de trilha: já sai como P&D pelo source='simulator'; a atribuição por tenant não muda a conta.",
+    "lib/pulse/dual-ai.ts:pulse_classify": "Bloco Pulso está OFF-LINE desde 31/08/2026 (lib/blocos-offline.ts). Não corrigir código que não roda.",
+    "lib/pulse/dual-ai.ts:pulse_audit": "Idem Pulso, off-line.",
+    "lib/season-engine/arguicao.ts:arguicao_turno": "Dívida: 0 linha no ledger em 30 dias. Corrigir quando a arguição voltar a rodar.",
+    "lib/season-engine/arguicao.ts:arguicao_avaliacao": "Dívida: 0 linha no ledger em 30 dias.",
+    "lib/season-engine/fechamento-scorer.ts:sem14_scorer": "Dívida: 0 linha no ledger em 30 dias (fechamento da semana 14).",
+    "lib/season-engine/fechamento-scorer.ts:sem14_check": "Dívida: 0 linha no ledger em 30 dias.",
+    "lib/season-engine/avaliacao-acumulada-core.ts:acumulada_primaria": "Dívida: as 4 chamadas de 30 dias saíram COM empresa por outro caminho; este ramo não foi exercitado.",
+    "actions/fase5/evolucao.ts:evolucao_fusao": "Dívida: 0 linha no ledger em 30 dias.",
+    "actions/fase5/evolucao.ts:evolucao_plenaria": "Dívida: 0 linha no ledger em 30 dias.",
+    "actions/fase5/reavaliacao.ts:reavaliacao_chat": "Dívida: 0 linha no ledger em 30 dias.",
+    "actions/cenario-b.ts:cenarios_b": "Dívida: 24 de 25 chamadas já saem com dono pelo caminho de fase5; este ramo respondeu por 1 linha (US$ 0,05).",
+    "actions/fase5/cenarios-b.ts:cenarios_b": "Idem: ramo secundário da geração de Cenário B.",
+    "actions/fase1.ts:ia1_top10": "Dívida: 2 chamadas em 30 dias (US$ 0,04), a última em 11/08."
+  }
+}

@@ -34,7 +34,7 @@ describe('sanitize — diagram/comparison sem lados duplicados', () => {
         { as: 'paragraph', ref: 2 },
       ] }],
     }));
-    const plan = await planLayout(parseBlocks(md, { skipFirstH1: true }), { titulo: 'T' });
+    const plan = await planLayout(parseBlocks(md, { skipFirstH1: true }), { titulo: 'T' }, { empresaId: null });
     const diagrams = plan!.pages.flatMap(p => p.items).filter(it => it.as === 'diagram');
     expect(diagrams).toHaveLength(0);            // mesmo bloco nos dois lados → descartado
     expect(allItemRefs(plan)).toContain(1);      // bloco não se perde: reanexado
@@ -45,7 +45,7 @@ describe('sanitize — diagram/comparison sem lados duplicados', () => {
       summary: 's',
       pages: [{ role: 'conceito', items: [{ as: 'diagram', affirm: { refs: [1] }, negate: { refs: [2] } }] }],
     }));
-    const plan = await planLayout(parseBlocks(md, { skipFirstH1: true }), { titulo: 'T' });
+    const plan = await planLayout(parseBlocks(md, { skipFirstH1: true }), { titulo: 'T' }, { empresaId: null });
     const diagram = plan!.pages.flatMap(p => p.items).find(it => it.as === 'diagram') as any;
     expect(diagram).toBeTruthy();
     expect(diagram.affirm.refs).toEqual([1]);
@@ -60,7 +60,7 @@ describe('sanitize — diagram/comparison sem lados duplicados', () => {
         { as: 'comparison', left: { refs: [1, 2] }, right: { refs: [2, 4] } },
       ] }],
     }));
-    const plan = await planLayout(parseBlocks(md, { skipFirstH1: true }), { titulo: 'T' });
+    const plan = await planLayout(parseBlocks(md, { skipFirstH1: true }), { titulo: 'T' }, { empresaId: null });
     const cmp = plan!.pages.flatMap(p => p.items).find(it => it.as === 'comparison') as any;
     expect(cmp).toBeTruthy();
     expect(cmp.left.refs).toEqual([1, 2]);
@@ -75,7 +75,7 @@ describe('sanitize — diagram/comparison sem lados duplicados', () => {
         { as: 'comparison', left: { refs: [1, 2] }, right: { refs: [2] } },
       ] }],
     }));
-    const plan = await planLayout(parseBlocks(md, { skipFirstH1: true }), { titulo: 'T' });
+    const plan = await planLayout(parseBlocks(md, { skipFirstH1: true }), { titulo: 'T' }, { empresaId: null });
     const cmp = plan!.pages.flatMap(p => p.items).find(it => it.as === 'comparison');
     expect(cmp).toBeFalsy();                       // right vazio após dedup → descartado
   });

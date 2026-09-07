@@ -1997,3 +1997,70 @@ O conserto é no ponto que dispara a chamada — o dono fechou dois desses em 01
 `Medido:` com a régua nova, 30 dias dão operação 78,5% / P&D 21,5%; a semana de
 31/08–06/09 dá 31,6% / 68,4%. A proporção oscila muito porque autoria e
 experimento vêm em rajada — a série sustenta decisão, o Δ de um par não.
+
+## 07/09/2026 — os call-sites passam a dizer de quem é o custo
+
+Consequência direta da separação operação × P&D: o custo por cliente era um
+piso, porque chamada sem `empresaId` não some do total — ela **migra** para "sem
+tenant". O cliente aparece mais barato do que é, e nada acusa: não há erro, não
+há linha faltando, só um número menor.
+
+**Medido antes de corrigir (30 dias):** US$ 45 em 13 call-sites. O campeão foi
+`conteudo_layout_plan`, com **435 de 435 chamadas órfãs (US$ 11,47)**. Em quase
+todos, o `empresaId` estava no escopo — em vários, usado na LINHA DE CIMA para
+escolher o modelo com `getModelForTask(empresaId, ...)`. Não faltava informação;
+faltava alguém conferindo.
+
+| feature | órfão (30d) | onde estava |
+|---|---|---|
+| `ia4_check` | US$ 13,83 (68%) | `lib/check-ia4-core.ts` — 2 ramos |
+| `conteudo_layout_plan` | US$ 11,47 (100%) | `lib/conteudo-layout-plan.ts` + 3 chamadores |
+| `conteudo_video` | US$ 7,10 (100%) | `lib/video/gerar-roteiro.ts` — batch E síncrono |
+| `blueprint_audit` | US$ 6,01 (100%) | `lib/blueprint/core.ts` |
+| `modulo_base_autor` | US$ 4,46 (22%) | 7 call-sites |
+| `modulo_base_auditor` | US$ 3,81 (100%) | `lib/modulo-base-auditor.ts` |
+| `beto` | US$ 2,07 (100%) | `app/actions/beto.ts` |
+| `temporada_extracao` | US$ 1,67 (98%) | rota de reflexão |
+
+### Três padrões, e o que cada um ensina
+
+**1. O gêmeo que etiqueta e o que não etiqueta.** `modulo_base_autor` no MESMO
+dia (04/09): pelo caminho BATCH saiu com dono (91 chamadas, Macaé); pelo
+síncrono, sem (25 chamadas). Idem `temporada_extracao`: a rota de *evaluation*
+sempre passou `empresaId`, a de *reflection* nunca. Mesma feature, dois
+caminhos, um só instrumentado — a família do "conserte o que RODA" do CLAUDE.md.
+
+**2. Derivar em vez de propagar, quando o dado já está no objeto.** O auditor de
+módulo-base tem 7 chamadores; em vez de sete parâmetros novos, o `empresaId` sai
+da COMPETÊNCIA que a função já carrega (`comp.empresa_id`). Módulo ligado a
+competência de empresa é custo dela; módulo canônico é acervo da plataforma, e
+`null` ali é a resposta certa. Um call-site novo não tem como esquecer.
+
+**3. Opcional é o que permite esquecer.** `planLayout` passou a exigir
+`empresaId` no objeto de opções — aceita `null`, mas quem chama tem que dizer
+qual é o caso. O typecheck pegou na hora os 4 call-sites de teste.
+
+### O guard
+
+`tests/unit/security/ledger-empresa-id-guard.test.ts` +
+`config/ledger-sem-empresa-allowlist.json` (16 entradas, cada uma com motivo).
+Varre `callAI`/`callAIChat` com `taskKey`, cobra `empresaId`, e a allowlist **só
+encolhe**. **Validado por mutação nos dois sentidos**: tirar um `empresaId`
+corrigido derruba o guard; deixar na allowlist uma entrada já resolvida também.
+
+⚠️ Ele é textual, não semântico: vê se `empresaId` aparece nas opções, não se o
+VALOR é o tenant certo — mesma limitação declarada dos guards de tenant.
+
+**O que fica de fora por decisão, não por dívida:** `copiloto_*` (a conversa é
+sobre um PROSPECT, que não é tenant), `chat_simulador` (já sai como P&D pelo
+source) e `pulse_*` (bloco off-line desde 31/08). O resto da allowlist é dívida
+com 0 linha no ledger em 30 dias — corrigir código que não roda seria trabalhar
+em alvo morto.
+
+### Um instrumento meu mentiu no caminho
+
+O primeiro auditor que escrevi acusou 41 call-sites. O regex de `empresaId`
+exigia `:` ou `,` depois do nome e **não reconhecia o shorthand** `{ ..., empresaId }`
+— então `ia3_cenarios`, que o dono já tinha corrigido em 01/09, aparecia como
+órfão. O número real era 25. Vale a régua de sempre: antes de agir sobre a saída
+de um instrumento novo, confira um caso que você sabe a resposta.

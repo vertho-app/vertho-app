@@ -126,7 +126,13 @@ FORÇA DA EVIDÊNCIA:
 
 RETORNE APENAS JSON VÁLIDO, sem markdown, sem backticks, sem texto antes ou depois.`;
 
-async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan) {
+/**
+ * `dono` etiqueta o custo no ledger. A rota gêmea (`temporada/evaluation`) já
+ * passava `empresaId`/`colaboradorId` nas chamadas dela desde sempre; esta não,
+ * e o resultado foi 88 de 90 chamadas de `temporada_extracao` sem dono em 30
+ * dias. Mesma feature, duas rotas, uma etiquetada e a outra não.
+ */
+async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan, dono) {
   const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
   const estiloAnalytic = tipoConversa === 'analytic' || tipoConversa === 'missao_feedback';
 
@@ -211,7 +217,7 @@ REGRAS:
 - conexao_com_pratica: true se o colaborador conectou o conteúdo a algo do trabalho real
 - NÃO complete lacunas com "bom senso"
 - NÃO infle qualidade_reflexao`;
-    const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 8000, { taskKey: 'temporada_extracao' });
+    const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 8000, { taskKey: 'temporada_extracao', empresaId: dono.empresaId, colaboradorId: dono.colaboradorId });
     return validateExtracaoSocratic(parseExtracaoResponse(resp));
   }
 
@@ -249,7 +255,7 @@ REGRAS:
 - alertas_metodologicos: liste se houver risco de viés, falta de base ou inflação
 - NÃO preencha todos os descritores como se todos tivessem aparecido bem
 - NÃO transforme intenção em evidência de execução`;
-  const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 8000, { taskKey: 'temporada_extracao' });
+  const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 8000, { taskKey: 'temporada_extracao', empresaId: dono.empresaId, colaboradorId: dono.colaboradorId });
   return validateExtracaoAnalytic(parseExtracaoResponse(resp), descritores);
 }
 
@@ -527,7 +533,9 @@ export async function POST(request) {
     if (finished) {
       // Extração estruturada via IA (substitui regex)
       try {
-        const extracao = await extrairDadosEstruturados(historico, tipoConversa, semanaPlan);
+        const extracao = await extrairDadosEstruturados(historico, tipoConversa, semanaPlan, {
+          empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
+        });
         Object.assign(novoSlotData, extracao);
       } catch (err) {
         console.error('[VERTHO] extração JSON falhou:', err.message);

@@ -446,7 +446,10 @@ export async function checkAvaliacoesCore(sb: SupabaseClient, empresaId: string,
     for (const resp of respostas) {
       try {
         const { system, prefix, user } = await montarCheckIA4Prompt(sb, resp, empresaId);
-        const resultado = await callAI(system, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check' });
+        const resultado = await callAI(system, user, { model }, 8192, {
+          ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check',
+          empresaId, colaboradorId: resp.colaborador_id ?? null,
+        });
         const raw = await extractJSON(resultado);
         const { status, check } = processCheckResult(raw, resp.avaliacao_ia);
 
@@ -489,7 +492,10 @@ export async function checarUmaRespostaCore(sb: SupabaseClient, respostaId: stri
     const model = aiConfig?.model || await getModelForTask(resp.empresa_id, 'ia4_check');
 
     const { system, prefix, user, compNome } = await montarCheckIA4Prompt(sb, resp, resp.empresa_id);
-    const resultado = await callAI(system, user, { model }, 8192, { ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check' });
+    const resultado = await callAI(system, user, { model }, 8192, {
+      ...IA4_CHECK_CALL_OPTIONS, cachedUserPrefix: prefix, taskKey: 'ia4_check',
+      empresaId: resp.empresa_id, colaboradorId: resp.colaborador_id ?? null,
+    });
     const raw = await extractJSON(resultado);
     const { status, check } = processCheckResult(raw, resp.avaliacao_ia);
 

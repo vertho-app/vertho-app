@@ -264,7 +264,9 @@ async function avaliarCenB(sb: any, cen: any, comp: any, descritoresTexto: strin
 
   const user = blocks.join('\n\n');
 
-  const resposta = await callAI(CHECK_CEN_B_SYSTEM, user, { model: modelo || DEFAULT_TASK_MODELS['cenarios_b_check'] }, 4096, { temperature: TEMP, taskKey: 'cenarios_b_check' });
+  const resposta = await callAI(CHECK_CEN_B_SYSTEM, user, { model: modelo || DEFAULT_TASK_MODELS['cenarios_b_check'] }, 4096, {
+    temperature: TEMP, taskKey: 'cenarios_b_check', empresaId: comp?.empresa_id ?? null,
+  });
   const resultado = await extractJSON(resposta);
   if (!resultado?.nota) return { success: false, error: 'Check não retornou nota' };
 

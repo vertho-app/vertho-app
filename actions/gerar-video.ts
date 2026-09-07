@@ -73,7 +73,7 @@ async function criarEDispararVideo(sb: any, args: {
   const perso = await contextoPersonalizacao(sb, args.empresaId, args.cargo, args.disc, args.kitId ? (args.pppBrief ?? null) : undefined);
   const { roteiro, error: rotErr } = await gerarRoteiroDeModulo(
     { ...base, ...perso, desafioTexto: args.desafioTexto ?? null },
-    { forceSync: !!args.forceSync },
+    { forceSync: !!args.forceSync, empresaId: args.empresaId ?? null },
   );
   if (rotErr || !roteiro) return { error: rotErr || 'A IA não retornou um roteiro válido' };
 

@@ -178,7 +178,7 @@ export async function POST(request) {
       if (proximoTurnIA === 1 && messages.length === 0) {
         messages.push({ role: 'user', content: '[INICIE A CONVERSA conforme o TURN 1]' });
       }
-      let respostaIA = (await callAIChat(system, messages, {}, 4000, { taskKey: 'sem13_qualitativa', systemSuffix })).trim();
+      let respostaIA = (await callAIChat(system, messages, {}, 4000, { taskKey: 'sem13_qualitativa', systemSuffix, empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id })).trim();
 
       const finished = proximoTurnIA >= TOTAL;
 
@@ -196,6 +196,7 @@ export async function POST(request) {
         try {
           const forcado = (await callAIChat(system, messages, {}, 4000, {
             taskKey: 'sem13_qualitativa',
+            empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id,
             systemSuffix: fechamentoSuffix ? reforcoDeFechamento(fechamentoSuffix) : systemSuffix,
           })).trim();
           if (forcado && pareceFechamento(forcado, { marcadores: false })) respostaIA = forcado;

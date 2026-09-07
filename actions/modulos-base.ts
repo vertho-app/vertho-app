@@ -579,7 +579,7 @@ export async function rascunharModuloBase(opts: {
   const userPrompt = montarUserPrompt(comp, opts.nivel_entrada, opts.nivel_destino, { contexto: opts.contexto_pedagogico, referencia });
   const model = await getModelForTask(null as any, 'modulo_base_autor');
 
-  const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
+  const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model, undefined, { empresaId: (comp as any)?.empresa_id ?? null });
   if (!corpo) return { error: 'A IA não conseguiu gerar um módulo válido. Tente novamente.' };
 
   const erros = validarCorpo(corpo);
@@ -740,7 +740,7 @@ export async function importarModuloDocx(opts: {
 
   const userPrompt = montarUserPrompt(comp, opts.nivel_entrada, opts.nivel_destino, { contexto: opts.contexto_pedagogico, docxTexto: texto });
   const model = await getModelForTask(null as any, 'modulo_base_autor');
-  const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
+  const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model, undefined, { empresaId: (comp as any)?.empresa_id ?? null });
   if (!corpo) return { error: 'A IA não conseguiu estruturar o conteúdo do .docx. Verifique o arquivo ou edite manualmente.' };
 
   const erros = validarCorpo(corpo);
@@ -907,7 +907,7 @@ export async function criarModuloBaseDeManuscrito(opts: {
     contextoCargo: comp.cargo || undefined,
   });
   const model = await getModelForTask(null as any, 'modulo_base_autor');
-  const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
+  const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model, undefined, { empresaId: (comp as any)?.empresa_id ?? null });
   if (!corpo) return { error: 'A IA não conseguiu estruturar a fatia do manuscrito.' };
 
   const avisos = validarCorpo(corpo);

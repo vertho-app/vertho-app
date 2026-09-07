@@ -153,7 +153,7 @@ export async function estruturarEInserirModulo(
     docxTexto: textoBase,
   });
   const model = await getModelForTask(null as any, 'modulo_base_autor');
-  let corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
+  let corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model, undefined, { empresaId: (comp as any)?.empresa_id ?? null });
   const usouFallback = !corpo && contextoPedagogico === 'fallback-material';
   if (!corpo && usouFallback) corpo = montarCorpoFallback(comp, meta, textoBase);
   if (!corpo) return { error: 'A IA não conseguiu estruturar o conteúdo do vídeo. Tente novamente ou edite manualmente.' };
@@ -203,6 +203,8 @@ interface SegCtx {
   model: string;
   /** true = catálogo da EMPRESA (ids vão para competencia_id, não competencia_base_id). */
   empresa: boolean;
+  /** Dono do custo no ledger. `null` = extração para o acervo canônico. */
+  empresaId: string | null;
   /** true = direcionamento pilar/competência ATIVO: extrai SÓ o escopo, sem forçar (0 é válido). */
   exclusivo: boolean;
 }
@@ -397,7 +399,7 @@ ${texto}`;
   // a SAÍDA — com o mesmo tempo disponível, o teto maior só dá espaço para o
   // JSON FECHAR em vez de ser cortado no meio.
     for (let tentativa = 1; tentativa <= 2; tentativa++) {
-      const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 64000, { timeoutMs: 180000, maxRetries: 0, taskKey: 'modulo_base_autor' }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
+      const raw = await callAI(SEG_SYSTEM, user, { model: ctx.model }, 64000, { timeoutMs: 180000, maxRetries: 0, taskKey: 'modulo_base_autor', empresaId: ctx.empresaId }).catch((e: any) => { ultimoDiag = 'callAI: ' + (e?.message || e); return ''; });
       const brutas = parseSecoesBlocos(String(raw || ''));
       if (!brutas.length) { ultimoDiag = `t${tentativa}${sufixo}: raw=${String(raw || '').length}c, 0 blocos`; continue; }
 
@@ -557,6 +559,7 @@ O catálogo abaixo já contém SOMENTE as competências válidas deste escopo.
     descritoresPorComp,
     model: await getModelForTask(null as any, 'modulo_base_autor'),
     empresa: !!empresaId,
+    empresaId: empresaId ?? null,
     exclusivo,
   };
 

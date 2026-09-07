@@ -27,7 +27,14 @@ const BATCH_CUSTOM_ID = 'roteiro-video';
 // justo trunca o roteiro no meio. Não pedimos `thinking` no corpo (ver topo).
 const ROTEIRO_MAX_TOKENS = 16_000;
 
-export async function gerarRoteiroDeModulo(m: ModuloParaRoteiro, opts: { forceSync?: boolean } = {}): Promise<{ roteiro?: VideoRoteiro; error?: string }> {
+export async function gerarRoteiroDeModulo(
+  m: ModuloParaRoteiro,
+  // `empresaId` etiqueta o custo no ledger — os DOIS ramos (batch e síncrono)
+  // precisam dele, e nenhum tinha: 42 de 42 chamadas de `conteudo_video` sem
+  // dono em 30 dias, US$ 7,10 (medido 07/09/2026). O chamador já conhece a
+  // empresa; ela só não descia até aqui.
+  opts: { forceSync?: boolean; empresaId?: string | null } = {},
+): Promise<{ roteiro?: VideoRoteiro; error?: string }> {
   const { system, user } = buildRoteiroPrompt(m);
   const model = await getModelForTask(null as any, 'conteudo_video').catch(() => 'claude-sonnet-4-6');
   let roteiro: VideoRoteiro | null = null;
@@ -41,7 +48,7 @@ export async function gerarRoteiroDeModulo(m: ModuloParaRoteiro, opts: { forceSy
         {
           pollMs: BATCH_POLL_MS,
           budgetMs: BATCH_POLL_MS * BATCH_MAX_POLLS,
-          ledger: { feature: 'conteudo_video' },
+          ledger: { feature: 'conteudo_video', empresaId: opts.empresaId ?? null },
         },
       );
       // `fetchClaudeBatchResults` só devolve os itens `succeeded` — item que deu
@@ -72,7 +79,7 @@ export async function gerarRoteiroDeModulo(m: ModuloParaRoteiro, opts: { forceSy
   // `untagged`: 5 chamadas / $0,71 em 3 dias eram exatamente esta linha.
   for (let tentativa = 1; tentativa <= 2 && !roteiro; tentativa++) {
     const raw = await callAI(system, user, { model }, ROTEIRO_MAX_TOKENS, {
-      taskKey: 'conteudo_video', source: 'batch-sync',
+      taskKey: 'conteudo_video', source: 'batch-sync', empresaId: opts.empresaId ?? null,
     }).catch(() => '');
     roteiro = parseRoteiro(raw);
   }

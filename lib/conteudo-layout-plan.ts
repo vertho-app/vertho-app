@@ -425,10 +425,32 @@ interface PlanMeta {
 }
 
 /**
+ * Opções da chamada. `empresaId` é OBRIGATÓRIO — aceita `null`, mas quem chama
+ * tem que dizer qual é o caso.
+ *
+ * Por que obrigatório e não opcional (medido 07/09/2026): esta era a feature
+ * mais órfã do ledger — **435 de 435 chamadas sem `empresa_id` em 30 dias,
+ * US$ 11,47**. Os três chamadores tinham o id em mãos (dois deles o usavam na
+ * linha de cima, para escolher o modelo) e mesmo assim ele não chegava aqui,
+ * porque a assinatura não pedia. Opcional é o que permite esquecer em silêncio;
+ * exigir `null` explícito transforma "sem tenant" em decisão registrada.
+ */
+export interface PlanOpts {
+  model?: string;
+  empresaId: string | null;
+  colaboradorId?: string | null;
+}
+
+/**
  * Pede o plano de paginação à IA e devolve um LayoutPlan saneado, ou null se
  * falhar (o caller cai no render flat de fallback). Nunca lança.
  */
-export async function planLayout(blocks: RawBlock[], meta: PlanMeta, model?: string): Promise<LayoutPlan | null> {
+export async function planLayout(
+  blocks: RawBlock[],
+  meta: PlanMeta,
+  opts: PlanOpts,
+): Promise<LayoutPlan | null> {
+  const { model, empresaId, colaboradorId } = opts;
   if (!blocks.length) return null;
   const ctx = [
     `TÍTULO: ${meta.titulo}`,
@@ -446,7 +468,9 @@ export async function planLayout(blocks: RawBlock[], meta: PlanMeta, model?: str
   const systemPrompt = meta.formato === 'case' ? PLAN_SYSTEM_CASE : PLAN_SYSTEM;
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-      const raw = await callAI(systemPrompt, user, { model }, 8000, { temperature: 0.3, taskKey: 'conteudo_layout_plan' });
+      const raw = await callAI(systemPrompt, user, { model }, 8000, {
+        temperature: 0.3, taskKey: 'conteudo_layout_plan', empresaId, colaboradorId,
+      });
       const plan = sanitize(extractJson(raw), blocks, meta.formato);
       if (plan) return plan;
       console.error(`[planLayout] plano inválido (tentativa ${attempt}/2) — raw[0..200]: ${String(raw).slice(0, 200)}`);

@@ -258,7 +258,7 @@ export const gerarModulosManuscritoTask = task({
         if (!texto || !texto.trim()) {
           try {
             texto = await callAI(r.system, r.user, { model }, MAX_TOKENS, {
-              taskKey: 'modulo_base_autor', source: 'batch-sync',
+              taskKey: 'modulo_base_autor', source: 'batch-sync', empresaId,
             });
           } catch (e: any) {
             resultados.push({ modulo: rotulo, ok: false, error: 'IA falhou: ' + (e?.message || e) });

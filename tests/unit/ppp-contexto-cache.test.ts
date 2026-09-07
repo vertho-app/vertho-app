@@ -61,7 +61,11 @@ describe('assinaturaCurta · discriminador de contexto na chave de cache', () =>
     const fim = source.indexOf('export async function prepararAudioPersonalizado', inicio);
     const funcao = source.slice(inicio, fim);
     const cache = funcao.indexOf("download(cachePath)");
-    const resumo = funcao.indexOf('await resumirPPP(contextoParaResumir)');
+    // Âncora só no NOME da chamada: a invariante é a ORDEM (cache antes da IA),
+    // não a lista de argumentos. Ancorar no call-site inteiro fez este teste
+    // quebrar em 07/09 quando `resumirPPP` passou a receber `empresaId` para
+    // etiquetar o custo — mudança que não tem nada a ver com o que ele protege.
+    const resumo = funcao.indexOf('await resumirPPP(');
 
     expect(cache, 'consulta ao cache desapareceu').toBeGreaterThan(-1);
     expect(resumo, 'resumo institucional desapareceu').toBeGreaterThan(-1);

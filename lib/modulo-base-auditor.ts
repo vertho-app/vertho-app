@@ -171,7 +171,15 @@ Responda APENAS com o JSON do veredito.`;
   let auditoria: any = null;
   for (let tentativa = 1; tentativa <= 2 && !auditoria; tentativa++) {
     try {
-      const raw = await callAI(SYSTEM_AUDITOR, userPrompt, { model }, 16000, { taskKey: 'modulo_base_auditor' });
+      // A empresa sai da COMPETÊNCIA do módulo, não de um parâmetro novo: módulo
+      // ligado a `competencia_id` pertence ao modelo de uma empresa e o custo é
+      // dela; módulo canônico (`competencia_base_id`) é acervo da plataforma e
+      // `null` aqui é a resposta certa, não uma lacuna. Derivar em vez de
+      // propagar evita tocar os 7 chamadores de `auditarModuloCore` — e evita
+      // que o próximo deles nasça esquecendo o parâmetro.
+      const raw = await callAI(SYSTEM_AUDITOR, userPrompt, { model }, 16000, {
+        taskKey: 'modulo_base_auditor', empresaId: (comp as any)?.empresa_id ?? null,
+      });
       const cleaned = String(raw || '').replace(/```json\s*/gi, '').replace(/```/g, '').trim();
       const candidatos = [cleaned];
       const objMatch = cleaned.match(/\{[\s\S]*\}/);

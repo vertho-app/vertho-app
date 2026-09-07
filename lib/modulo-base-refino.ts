@@ -94,7 +94,7 @@ export async function refinarModuloCore(sb: ReturnType<typeof createSupabaseAdmi
   // IA-autora (Claude Sonnet por default — mesmo modelo da geração inicial,
   // pra manter consistência de estilo).
   const model = await getModelForTask(null as any, 'modulo_base_autor');
-  const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model);
+  const corpo = await chamarIAComRetry(SYSTEM_AUTOR, userPrompt, model, undefined, { empresaId: (comp as any)?.empresa_id ?? null });
   if (!corpo) return { error: 'A IA-autora não conseguiu produzir uma versão refinada. Tente novamente.' };
 
   const versaoAnterior = m.versao || 1;

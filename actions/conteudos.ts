@@ -242,7 +242,8 @@ export async function gerarConteudoIA({
         const blocks = parseBlocks(conteudoGerado, { skipFirstH1: Boolean(titulo) });
         let plan = null;
         try {
-          plan = await planLayout(blocks, { titulo, competencia, descritor, formato }, model || aiConfig?.model);
+          plan = await planLayout(blocks, { titulo, competencia, descritor, formato },
+            { model: model || aiConfig?.model, empresaId: empresaId ?? null });
         } catch (e: any) {
           console.warn('[gerarConteudoIA] plano editorial falhou (flat):', e?.message);
         }
@@ -880,7 +881,7 @@ export async function gerarConteudoFinal(id: string) {
       const blocks = parseBlocks(conteudoMd, { skipFirstH1: Boolean(c.titulo) });
       plan = await planLayout(blocks, {
         titulo: c.titulo, competencia: c.competencia, descritor: c.descritor, formato: c.formato,
-      }, planModel);
+      }, { model: planModel, empresaId: c.empresa_id ?? null });
     } catch (e: any) {
       console.warn('[gerarConteudoFinal] plano editorial falhou (usando flat):', e?.message);
     }
@@ -1095,7 +1096,7 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
     // toda requisição. A chave acima continua invalidando quando o PPP muda.
     if (!escolaBrief && contextoParaResumir) {
       try {
-        const resumo = await resumirPPP(contextoParaResumir);
+        const resumo = await resumirPPP(contextoParaResumir, empresaId ?? null);
         if (briefPreenchido(resumo)) escolaBrief = resumo;
       } catch (e: any) {
         console.warn('[gerarConteudoFinalPersonalizado] resumo institucional falhou:', e?.message);
@@ -1126,7 +1127,8 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
     const blocks = parseBlocks(full, { skipFirstH1: Boolean(c.titulo) });
     let plan = null;
     try {
-      plan = await planLayout(blocks, { titulo: c.titulo, competencia: c.competencia, descritor: c.descritor, formato: c.formato }, planModel);
+      plan = await planLayout(blocks, { titulo: c.titulo, competencia: c.competencia, descritor: c.descritor, formato: c.formato },
+        { model: planModel, empresaId: empresaId ?? null });
     } catch (e: any) {
       console.warn('[gerarConteudoFinalPersonalizado] plano falhou (flat):', e?.message);
     }
