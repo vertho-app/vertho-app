@@ -38,16 +38,29 @@ export { exportPodcastMp3FromPcm } from './tts/audio-dsp';
 // e temperature 0,3 não mudaram nada (0/6). Os modelos GA da família 2.5 passaram
 // 34/36 na mesma régua, e o Flash custa metade (US$ 0,045/episódio). Ver
 // PLANO-DERIVA-PODCAST-2026-09-04.md §6. O id do AI Studio é o `-preview-tts`.
-const MODEL = process.env.GEMINI_TTS_MODEL || ELENCO.mentora.modeloAiStudio;
+/**
+ * ⚠️ TODA config de TTS é lida em RUNTIME, não no import — e isso não é estilo.
+ *
+ * `Medido 07/09/2026`: `scripts/_render-podcast-kit.ts` chama
+ * `process.loadEnvFile('.env.local')` na primeira linha do arquivo, mas os `import`
+ * de um módulo ESM são avaliados ANTES de qualquer statement dele. Quando este
+ * arquivo era carregado, `process.env.TTS_BACKEND` ainda estava vazio: caía no
+ * default `aistudio` e os 19 podcasts de Macaé saíram no `gemini-2.5-flash-preview-tts`
+ * em vez do `gemini-2.5-flash-tts` do Vertex. Mesmo texto, mesma voz, mesma direção:
+ * F0 mediana 165 Hz (alvo 208) e timbre a 0,30-0,71σ da assinatura da Aoede no AI
+ * Studio, contra 198 Hz e **0,08σ** no Vertex — a "mesma" voz prebuilt é outra
+ * locutora entre os dois backends. Lendo em runtime, a env vale mesmo carregada tarde.
+ */
+const MODEL = () => process.env.GEMINI_TTS_MODEL || ELENCO.mentora.modeloAiStudio;
 // ELENCO desde 05/09/2026 (escolhido às cegas pelo Rodrigo e medido em 41 sínteses):
 // a mentora = Aoede (208 Hz; entre takes varia 0,4-1,0 st, inaudível), o BETO =
 // Iapetus (144 Hz; 1,2-2,3 st entre takes — por isso o portão de F0 abaixo).
 // ⚠️ Trocar de MODELO troca a VOZ mesmo com o mesmo nome: a Vindemiatrix do 2.5 fica a
 // 0,45σ e +2,6 st da Vindemiatrix do 3.1 (duas pessoas distintas ficam a 0,40σ).
 // Defaults vêm do ELENCO (lib/tts/elenco.ts): personagem = voz + modelo + alvo, junto.
-const VOICE = process.env.GEMINI_TTS_VOICE || ELENCO.mentora.voz;              // narração single-speaker (vídeo/podcast)
-const MENTOR_VOICE = process.env.GEMINI_TTS_MENTOR_VOICE || ELENCO.beto.voz;   // speaker "Mentor" = Beto
-const CAMPO_VOICE = process.env.GEMINI_TTS_CAMPO_VOICE || ELENCO.mentora.voz;  // speaker "Campo"
+const VOICE = () => process.env.GEMINI_TTS_VOICE || ELENCO.mentora.voz;              // narração single-speaker (vídeo/podcast)
+const MENTOR_VOICE = () => process.env.GEMINI_TTS_MENTOR_VOICE || ELENCO.beto.voz;   // speaker "Mentor" = Beto
+const CAMPO_VOICE = () => process.env.GEMINI_TTS_CAMPO_VOICE || ELENCO.mentora.voz;  // speaker "Campo"
 const brandStingCache = new Map<string, Buffer>();
 
 // ── BACKEND: AI Studio (API key) × Vertex AI (OAuth de service account) ───────
@@ -55,25 +68,26 @@ const brandStingCache = new Map<string, Buffer>();
 // de escala. Opt-in por env (default 'aistudio' p/ não quebrar prod). No Vertex,
 // o modelo pode ter ID diferente (GEMINI_TTS_VERTEX_MODEL) e o endpoint é regional
 // (ou 'global' → host sem prefixo de região).
-const TTS_BACKEND = (process.env.TTS_BACKEND || 'aistudio').toLowerCase();
-const VERTEX_LOCATION = process.env.GOOGLE_VERTEX_LOCATION || 'us-central1';
+const TTS_BACKEND = () => (process.env.TTS_BACKEND || 'aistudio').toLowerCase();
+const VERTEX_LOCATION = () => process.env.GOOGLE_VERTEX_LOCATION || 'us-central1';
 // No Vertex o id GA não tem sufixo. `Medido 05/09/2026`: `gemini-3.5-*-tts` e
 // `gemini-3.1-pro-*-tts` respondem 404 — não existem; 2.5 Flash/Pro TTS existem e geram.
-const VERTEX_MODEL = process.env.GEMINI_TTS_VERTEX_MODEL || ELENCO.mentora.modeloVertex;
+const VERTEX_MODEL = () => process.env.GEMINI_TTS_VERTEX_MODEL || ELENCO.mentora.modeloVertex;
 
 /** Endpoint + headers do TTS conforme o backend. */
 async function ttsEndpoint(): Promise<{ url: string; headers: Record<string, string> }> {
-  if (TTS_BACKEND === 'vertex') {
+  if (TTS_BACKEND() === 'vertex') {
     const token = await getGoogleAccessToken();
     const proj = vertexProjectId();
-    const host = VERTEX_LOCATION === 'global' ? 'aiplatform.googleapis.com' : `${VERTEX_LOCATION}-aiplatform.googleapis.com`;
-    const url = `https://${host}/v1/projects/${proj}/locations/${VERTEX_LOCATION}/publishers/google/models/${VERTEX_MODEL}:generateContent`;
+    const loc = VERTEX_LOCATION();
+    const host = loc === 'global' ? 'aiplatform.googleapis.com' : `${loc}-aiplatform.googleapis.com`;
+    const url = `https://${host}/v1/projects/${proj}/locations/${loc}/publishers/google/models/${VERTEX_MODEL()}:generateContent`;
     return { url, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } };
   }
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY not set');
   return {
-    url: `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
+    url: `https://generativelanguage.googleapis.com/v1beta/models/${MODEL()}:generateContent?key=${apiKey}`,
     headers: { 'Content-Type': 'application/json' },
   };
 }
@@ -159,7 +173,7 @@ export interface TtsLedger {
 
 /** Modelo efetivamente pedido (o endpoint do Vertex aceita id próprio). */
 function modeloEfetivo(): string {
-  return TTS_BACKEND === 'vertex' ? VERTEX_MODEL : MODEL;
+  return TTS_BACKEND() === 'vertex' ? VERTEX_MODEL() : MODEL();
 }
 
 /**
@@ -202,7 +216,7 @@ async function registrarUsoTts(
     cost_usd: costFromTokens(model, { inTokens, outTokens }),
     latency_ms: latencyMs,
     status,
-    source: `tts:${TTS_BACKEND}`,
+    source: `tts:${TTS_BACKEND()}`,
     runtime: ctx.runtime,
     orcamento_ms: ctx.orcamentoMs ?? null,
   });
@@ -229,7 +243,7 @@ async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0, timeou
       // não-transitório. Em chamada LONGA (timeout ≥ 150 s, narração inteira) NÃO
       // retenta: a 2ª tentativa começaria já fora do orçamento da função (300 s).
       if (timeoutMs < 150_000 && attempt < Math.min(2, TTS_MAX_RETRIES)) {
-        console.warn(`TTS timeout ${Math.round(timeoutMs / 1000)}s (${TTS_BACKEND}) — retry imediato (tentativa ${attempt + 1}/2)`);
+        console.warn(`TTS timeout ${Math.round(timeoutMs / 1000)}s (${TTS_BACKEND()}) — retry imediato (tentativa ${attempt + 1}/2)`);
         return ttsGenerate(body, ledger, attempt + 1, timeoutMs);
       }
       throw new Error(`Gemini TTS: timeout (${Math.round(timeoutMs / 1000)}s) após ${attempt + 1} tentativas`);
@@ -245,11 +259,11 @@ async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0, timeou
     const retryAfter = Number(res.headers.get('retry-after'));
     const backoff = Math.min(30_000, 2_000 * 2 ** attempt); // 2s, 4s, 8s, 16s
     const wait = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : backoff;
-    console.warn(`TTS ${res.status} (${TTS_BACKEND}) — retry em ${Math.round(wait / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
+    console.warn(`TTS ${res.status} (${TTS_BACKEND()}) — retry em ${Math.round(wait / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
     await new Promise((r) => setTimeout(r, wait));
     return ttsGenerate(body, ledger, attempt + 1, timeoutMs);
   }
-  if (!res.ok) throw new Error(`TTS ${res.status} (${TTS_BACKEND}): ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok) throw new Error(`TTS ${res.status} (${TTS_BACKEND()}): ${(await res.text()).slice(0, 300)}`);
   const data = await res.json();
   const part = data?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
   const b64 = part?.inlineData?.data;
@@ -280,7 +294,7 @@ async function ttsGenerate(body: unknown, ledger: TtsLedger, attempt = 0, timeou
     await registrarUsoTts(ledger, data, Date.now() - t0, `sem-audio:${finish}`);
     if (attempt < TTS_MAX_RETRIES) {
       const backoff = Math.min(30_000, 2_000 * 2 ** attempt);
-      console.warn(`TTS resposta sem áudio (${finish}, ${TTS_BACKEND}) — retry em ${Math.round(backoff / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
+      console.warn(`TTS resposta sem áudio (${finish}, ${TTS_BACKEND()}) — retry em ${Math.round(backoff / 1000)}s (tentativa ${attempt + 1}/${TTS_MAX_RETRIES})`);
       await new Promise((r) => setTimeout(r, backoff));
       return ttsGenerate(body, ledger, attempt + 1, timeoutMs);
     }
@@ -399,7 +413,7 @@ async function sintetizarComPortao(
     } finally {
       await persistirVereditos(julgadas, escolhida, voz, rotulo, total, ledger);
     }
-    if (!aprovada) console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma das ${total} tentativas paralelas passou — publicando a menos ruim (${escolhida.qa.motivos.join('; ')})`);
+    if (!aprovada) await avisarFailOpen(escolhida, voz, rotulo, total, ledger);
     return escolhida;
   }
 
@@ -415,8 +429,32 @@ async function sintetizarComPortao(
   } finally {
     await persistirVereditos(julgadas, m, voz, rotulo, total, ledger);
   }
-  console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma tentativa passou — publicando a menos ruim (${m.qa.motivos.join('; ')})`);
+  await avisarFailOpen(m, voz, rotulo, total, ledger);
   return m;
+}
+
+/**
+ * Fail-open do portão: o áudio REPROVADO vai para a entrega. Console + `degradacao_log`
+ * (a R10 do health lê 24h) — sem a linha na tabela, isso ficava invisível fora do log
+ * da Vercel, e foi assim que 19 de 19 podcasts saíram reprovados sem nenhum alarme
+ * (07/09/2026, professores de Macaé). O veredito por tentativa fica em `tts_qa_log`.
+ */
+async function avisarFailOpen(escolhida: Sintese & { qa: QaDeriva }, voz: string, rotulo: string, total: number, ledger?: TtsLedger) {
+  console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma das ${total} tentativas passou — publicando a menos ruim (${escolhida.qa.motivos.join('; ')})`);
+  try {
+    const { registrarDegradacao, DEGRADACAO } = await import('./degradacao');
+    await registrarDegradacao({
+      fluxo: 'build',
+      tipo: DEGRADACAO.TTS_QA_REPROVADO_PUBLICADO,
+      chave: `${rotulo}:${voz}:${modeloEfetivo()}`,
+      empresaId: ledger?.empresaId ?? null,
+      colaboradorId: ledger?.colaboradorId ?? null,
+      severidade: 'aviso',
+      detalhe: { motivos: escolhida.qa.motivos, f0MedHz: Math.round(escolhida.qa.metricas.f0MedHz), timbreVsRef: escolhida.qa.metricas.timbreVsRefSigma, tentativas: total, modelo: modeloEfetivo(), backend: TTS_BACKEND() },
+    });
+  } catch (e) {
+    console.warn('[tts-qa] degradação não registrada:', (e as Error)?.message);
+  }
 }
 
 // Direção de estilo default (devolutiva comportamental): mensagem pessoal do
@@ -485,7 +523,7 @@ export async function generateNarrationAudio(
   opts: { voice?: string; style?: string; ledger?: TtsLedger; segmentar?: boolean } & OpcoesPortao = {},
 ): Promise<PodcastAudioFile> {
   if (!texto?.trim()) throw new Error('texto de narração vazio');
-  const voice = opts.voice || VOICE;
+  const voice = opts.voice || VOICE();
   const styleDirective = opts.style || NARRATION_STYLE_DEFAULT;
   const ledger = opts.ledger || { feature: 'tts_narracao' };
 
@@ -585,12 +623,12 @@ export async function generatePodcastAudio(texto: string, ledger?: TtsLedger, op
             languageCode: 'pt-BR',
             multiSpeakerVoiceConfig: {
               speakerVoiceConfigs: [
-                { speaker: 'Mentor', voiceConfig: { prebuiltVoiceConfig: { voiceName: MENTOR_VOICE } } },
-                { speaker: 'Campo', voiceConfig: { prebuiltVoiceConfig: { voiceName: CAMPO_VOICE } } },
+                { speaker: 'Mentor', voiceConfig: { prebuiltVoiceConfig: { voiceName: MENTOR_VOICE() } } },
+                { speaker: 'Campo', voiceConfig: { prebuiltVoiceConfig: { voiceName: CAMPO_VOICE() } } },
               ],
             },
           }
-        : { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE } } },
+        : { languageCode: 'pt-BR', voiceConfig: { prebuiltVoiceConfig: { voiceName: VOICE() } } },
     },
   };
 
@@ -601,7 +639,7 @@ export async function generatePodcastAudio(texto: string, ledger?: TtsLedger, op
   const timeoutMs = timeoutAdaptativo(textoComMarca.length);
   const r: { pcm: Buffer; sampleRate: number; qa?: QaDeriva } = multiSpeaker
     ? await ttsGenerate(body, ledgerEfetivo, 0, timeoutMs)
-    : await sintetizarComPortao(() => ttsGenerate(body, ledgerEfetivo, 0, timeoutMs), VOICE, ledgerEfetivo.feature, opts, ledgerEfetivo);
+    : await sintetizarComPortao(() => ttsGenerate(body, ledgerEfetivo, 0, timeoutMs), VOICE(), ledgerEfetivo.feature, opts, ledgerEfetivo);
   const mixedPcm = addPodcastBrandSting(r.pcm, r.sampleRate);
   const out: PodcastAudioFile = {
     buffer: exportPodcastMp3FromPcm(mixedPcm, r.sampleRate),

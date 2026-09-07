@@ -2,7 +2,10 @@
 // Renderiza o TTS de um podcast de kit que ficou sem áudio (renderAudio=false na
 // geração). Núcleo de gerarPodcastAudio (actions/conteudos.ts) sem o gate admin —
 // caminho headless sancionado. Uso: npx tsx scripts/_render-podcast-kit.ts [conteudoId]
-process.loadEnvFile('.env.local');
+// ⚠️ `import './_env'` e NÃO `process.loadEnvFile` aqui: os imports ESM são avaliados
+// ANTES dos statements do arquivo, então o env chegava tarde e o TTS caía no AI Studio
+// (07/09/2026: 19 podcasts de Macaé na voz errada). Ver lib/gemini-tts.ts.
+import './_env';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { extractNarration, generatePodcastAudio } from '@/lib/gemini-tts';
 

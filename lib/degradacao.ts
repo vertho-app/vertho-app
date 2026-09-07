@@ -202,6 +202,19 @@ export const DEGRADACAO = {
    * lançar — o caso mais provável nunca chegava lá.
    */
   DEMO_GUARD_CEGO: 'demo-guard-cego',
+  /**
+   * build: o portão de deriva do TTS REPROVOU todas as tentativas e o áudio foi
+   * publicado assim mesmo (fail-open declarado em `sintetizarComPortao`).
+   *
+   * Existe porque o fail-open era invisível fora do console: em 07/09/2026 os 19
+   * podcasts dos professores de Macaé saíram com **19 de 19 reprovados** (voz 3
+   * semitons abaixo do alvo, timbre a 0,3-0,7σ da assinatura — backend errado), e
+   * `degradacao_log` tinha ZERO linhas. O veredito por tentativa fica em
+   * `tts_qa_log`; esta linha é o que faz a R10 do health e o alarme diário verem.
+   * `aviso`: a entrega acontece, e bloquear por 1 semitom seria trocar defeito
+   * audível por "áudio não gerado".
+   */
+  TTS_QA_REPROVADO_PUBLICADO: 'tts-qa-reprovado-publicado',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
