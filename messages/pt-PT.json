@@ -3562,29 +3562,29 @@
       "total": "Total conteúdo"
     },
     "scope": {
-      "title": "Escopo",
-      "clusters": {
-        "label": "Clusters de escola",
-        "sub": "grupos com mesmo PPP/Top 5"
+        "title": "Âmbito",
+        "clusters": {
+          "label": "Unidades",
+          "sub": "escolas ou filiais"
+        },
+        "profiles": {
+          "label": "Cargos",
+          "sub": "com matriz de competências"
+        },
+        "collaborators": {
+          "label": "Pessoas na base",
+          "sub": "total do contrato"
+        },
+        "period": {
+          "label": "Prestações",
+          "sub": "apenas divide o valor"
+        },
+        "cycles": {
+          "label": "Ciclos entregues",
+          "sub": "programas no contrato"
+        },
+        "mapping": "Mapeamento"
       },
-      "profiles": {
-        "label": "Perfis por cluster",
-        "sub": "cargos distintos"
-      },
-      "collaborators": {
-        "label": "Colaboradores",
-        "sub": "total no ciclo"
-      },
-      "period": {
-        "label": "Período (meses)",
-        "sub": "duração do projeto"
-      },
-      "cycles": {
-        "label": "Ciclos",
-        "sub": "temporadas de 14 sem no projeto"
-      },
-      "mapping": "Mapeamento"
-    },
     "methods": {
       "vote": "Votação",
       "voteHint": "fluxo IA completo",
@@ -3599,11 +3599,11 @@
       "fixed": "{value} (fixo)",
       "mentorPerColab": "R$ Mentor IA/colab",
       "perColabMonth": "{value} / colab / mês",
-      "perCluster": "R$ por cluster",
+      "perCluster": "R$ por unidade",
       "setupValue": "{value} setup",
       "perProfile": "R$ por perfil",
       "perRole": "{value} / cargo",
-      "workshopPerCluster": "R$ workshop/cluster",
+      "workshopPerCluster": "R$ workshop/unidade",
       "ifWorkshop": "{value} (se workshop)",
       "maintenancePerColab": "R$ manutenção/colab",
       "supportPerColabMonth": "{value} / colab / mês (suporte)",
@@ -3635,7 +3635,7 @@
       "tableValue": "Composição do valor de tabela",
       "oneTime": "One-time (Mês 1)",
       "generalSetup": "Setup geral",
-      "clusterLine": "{count} cluster{count, plural, one {} other {s}} × {value}",
+      "clusterLine": "{count} unidade{count, plural, one {} other {s}} × {value}",
       "profilesLine": "{count} perfis × {value}",
       "oneTimeSubtotal": "Subtotal one-time",
       "recurring": "Recorrente (mensal)",
@@ -3659,21 +3659,21 @@
       "exchangeLine": "× {value} (cotação)"
     },
     "notes": {
-      "title": "Notas:",
-      "items": [
-        "Modelo de cobrança: Mês 1 = setup (one-time) + 1ª mensalidade. Mês 2 em diante = só mensalidade recorrente.",
-        "Mensalidade por colab = Mentor IA (uso da plataforma) + Manutenção (suporte/hosting).",
-        "Setup geral = taxa fixa de implantação inicial, independente de clusters/colabs.",
-        "Cluster = grupo de escolas com o mesmo Top 5 / PPP / cenários.",
-        "Perfis = número de cargos distintos no cluster.",
-        "Votação roda fluxo IA completo. Workshop pula IA1+IA2 e adiciona consultoria por cluster.",
-        "Tagging conteúdos roda uma vez por orçamento.",
-        "Custo IA usa o preset escolhido.",
-        "Margem 12m compara o total de 12 meses com o custo IA convertido em BRL.",
-        "Adicional workshop é apenas no preço de tabela.",
-        "Tabela de preços é estimativa. Ajuste os valores antes de fechar uma proposta."
-      ]
-    }
+        "title": "Notas:",
+        "items": [
+          "O contrato é vendido pelo PROJETO: o preço vem do âmbito (pessoas × ciclos + matrizes + implementação). As prestações dividem esse valor — não o multiplicam.",
+          "Ciclo = um programa completo da jornada escolhida. Dois ciclos entregam o dobro e custam o dobro; por isso valem o dobro.",
+          "Adesão orçada: só quem entra na trilha consome IA e mensagens. Com preço fechado, adesão baixa é margem melhor e entrega pior — orce a 100%.",
+          "Matriz nova consome horas e IA; adaptada consome menos; reutilizada do catálogo canónico não custa nem é cobrada.",
+          "Unidade = escola ou filial. Afeta implementação e PPP, não o preço da matriz — a mesma matriz serve todas.",
+          "Votação corre o fluxo de IA completo. Workshop salta IA1+IA2 e consome horas de consultoria por unidade.",
+          "Custo total = IA (no preset escolhido) + horas de pessoas + mensagens de WhatsApp + infraestrutura rateada. A margem é sobre ele.",
+          "Mensagem em UTILITY custa cerca de 0,09 R$. Reclassificada como MARKETING pela Meta, custa 6× isso — já aconteceu com 4 de 8 templates.",
+          "O desconto máximo sai da margem-alvo. Acima dele, o orçamento precisa de aprovação antes de se tornar proposta.",
+          "Exposição = recebido menos entregue, mês a mês. Preço fechado pago em prestações afunda a tesouraria no início, e mais prestações afundam mais.",
+          "A tabela de preços é editável neste ecrã e não fica registada. Confirme os valores antes de fechar uma proposta."
+        ]
+      }
   },
   "AdminRadarIngestion": {
     "back": "Admin Dashboard",

@@ -3489,29 +3489,29 @@
       "total": "Content total"
     },
     "scope": {
-      "title": "Scope",
-      "clusters": {
-        "label": "School Clusters",
-        "sub": "groups with the same PPP/Top 5"
+        "title": "Scope",
+        "clusters": {
+          "label": "Sites",
+          "sub": "schools or branches"
+        },
+        "profiles": {
+          "label": "Roles",
+          "sub": "with a competency matrix"
+        },
+        "collaborators": {
+          "label": "People",
+          "sub": "total under contract"
+        },
+        "period": {
+          "label": "Installments",
+          "sub": "divides the value only"
+        },
+        "cycles": {
+          "label": "Cycles delivered",
+          "sub": "programs in the contract"
+        },
+        "mapping": "Mapping"
       },
-      "profiles": {
-        "label": "Profiles per cluster",
-        "sub": "different positions"
-      },
-      "collaborators": {
-        "label": "Team members",
-        "sub": "total in the cycle"
-      },
-      "period": {
-        "label": "Period (months)",
-        "sub": "project duration"
-      },
-      "cycles": {
-        "label": "Cycles",
-        "sub": "14-week seasons in the project"
-      },
-      "mapping": "Mapping"
-    },
     "methods": {
       "vote": "Voting",
       "voteHint": "full AI flow",
@@ -3526,11 +3526,11 @@
       "fixed": "{value} (fixed)",
       "mentorPerColab": "R$ Mentor AI/team member",
       "perColabMonth": "{value} / team member / month",
-      "perCluster": "R$ per cluster",
+      "perCluster": "R$ per site",
       "setupValue": "{value} setup",
       "perProfile": "R$ per profile",
       "perRole": "{value} / position",
-      "workshopPerCluster": "R$ workshop/cluster",
+      "workshopPerCluster": "R$ workshop/site",
       "ifWorkshop": "{value} (if workshop)",
       "maintenancePerColab": "R$ maintenance/team member",
       "supportPerColabMonth": "{value}/team member/month (support)",
@@ -3562,7 +3562,7 @@
       "tableValue": "Table value composition",
       "oneTime": "One-time (1 Month)",
       "generalSetup": "General setup",
-      "clusterLine": "{count} cluster{count, plural, one {} other {s}} × {value}",
+      "clusterLine": "{count} site{count, plural, one {} other {s}} × {value}",
       "profilesLine": "{count} profiles × {value}",
       "oneTimeSubtotal": "One-time subtotal",
       "recurring": "Recurring (monthly)",
@@ -3586,21 +3586,21 @@
       "exchangeLine": "× {value} (quote)"
     },
     "notes": {
-      "title": "Notes:",
-      "items": [
-        "Modelo de cobrança: Mês 1 = setup (one-time) + 1ª mensalidade. Mês 2 em diante = só mensalidade recorrente.",
-        "Mensalidade por colab = Mentor IA (uso da plataforma) + Manutenção (suporte/hosting).",
-        "Setup geral = taxa fixa de implantação inicial, independente de clusters/colabs.",
-        "Cluster = grupo de escolas com o mesmo Top 5 / PPP / cenários.",
-        "Perfis = número de cargos distintos no cluster.",
-        "Votação roda fluxo IA completo. Workshop pula IA1+IA2 e adiciona consultoria por cluster.",
-        "Tagging conteúdos roda uma vez por orçamento.",
-        "Custo IA usa o preset escolhido.",
-        "Margem 12m compara o total de 12 meses com o custo IA convertido em BRL.",
-        "Adicional workshop é apenas no preço de tabela.",
-        "Tabela de preços é estimativa. Ajuste os valores antes de fechar uma proposta."
-      ]
-    }
+        "title": "Notes:",
+        "items": [
+          "The contract is sold as a PROJECT: price comes from scope (people × cycles + matrices + onboarding). Installments split that value — they do not multiply it.",
+          "A cycle is one complete run of the chosen journey. Two cycles deliver twice as much and cost twice as much, so they are worth twice as much.",
+          "Budgeted adoption: only people who start the journey consume AI and messages. At a fixed price, low adoption means better margin and worse delivery — budget at 100%.",
+          "A new matrix costs hours and AI; an adapted one costs less; one reused from the canonical catalog costs nothing and is not charged.",
+          "A site is a school or branch. It drives onboarding and PPP, not the matrix price — the same matrix serves all of them.",
+          "Voting runs the full AI flow. A workshop skips IA1+IA2 and consumes consulting hours per site.",
+          "Full cost = AI (at the chosen preset) + people hours + WhatsApp messages + shared infrastructure. Margin is measured against it.",
+          "A UTILITY message costs about R$ 0.09. Reclassified as MARKETING by Meta it costs 6× that — which already happened to 4 of 8 templates.",
+          "The discount ceiling comes from the target margin. Past it, the quote needs approval before it becomes a proposal.",
+          "Exposure is cash received minus cost delivered, month by month. A fixed price paid in installments goes negative early, and more installments go deeper.",
+          "The price table is editable on this screen and is not recorded. Check the values before closing a proposal."
+        ]
+      }
   },
   "AdminAccumulatedEvaluation": {
     "title": "Accumulated Assessment — Internal Vertho",

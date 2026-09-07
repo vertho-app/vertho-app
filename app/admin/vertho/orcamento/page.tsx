@@ -4,7 +4,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard, Route } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { CALLS, PRESETS, calcCost, custoColabNaJornada } from '@/lib/ia-cost-catalog';
+import { CALLS, PRESETS, calcCost, custoColabNaJornada, infraFixaTotal } from '@/lib/ia-cost-catalog';
+import { calcularProjeto } from '@/lib/orcamento/precificacao';
 import {
   PROGRAMA_JORNADA, PROGRAMA_REGULAR_DUO, PROGRAMA_REGULAR,
   PROGRAMA_ONBOARDING, PROGRAMA_PILOTO,
@@ -30,16 +31,50 @@ const JORNADAS = [
   { key: 'piloto', rotulo: 'Piloto', sub: 'degustação', cfg: PROGRAMA_PILOTO },
 ] as const;
 
+/**
+ * ⚠️ O PRAZO NÃO ENTRA NO PREÇO (07/09/2026).
+ *
+ * O contrato é vendido pelo PROJETO; a mensalidade é forma de pagamento. Até
+ * aqui a receita fazia `mensalidade × meses` e o custo fazia `custo × ciclos` —
+ * duas dimensões soltas, e o resultado eram dois erros simétricos, medidos com
+ * os próprios defaults desta tela (100 pessoas, 1 unidade, 3 cargos):
+ *
+ *   · parcelar o MESMO projeto em 24 meses em vez de 12 → receita ×1,96, custo ×1,00
+ *   · entregar o DOBRO do programa (2 ciclos) em 12 meses → receita ×1,00, custo ×1,99
+ *
+ * Agora o preço recorrente é por pessoa e por CICLO, e `parcelas` só divide.
+ * `precoPessoaCiclo` nasce em 1.200 = os 100/mês × 12 de antes, para o cenário
+ * base sair no MESMO valor (R$ 125.500): a mecânica muda, o preço praticado não.
+ */
 const PRECOS_DEFAULT = {
   cotacao: 5.30,              // USD → BRL
-  precoSetupGeral: 2000,      // R$ taxa fixa de implantação (one-time, independente de clusters/colabs)
-  precoColab: 100,            // R$ por colaborador / mês (Mentor IA — recorrente)
-  precoCluster: 2000,         // R$ por cluster (setup do cluster, one-time)
-  precoPerfil: 500,           // R$ por perfil (cargo) dentro do cluster (one-time)
-  adicionalWorkshop: 15000,   // R$ por cluster quando método = workshop (one-time)
-  manutencaoMensalColab: 0,   // R$ por colaborador / mês (manutenção/suporte — recorrente)
-  reusoConteudo: 5,           // colaboradores que compartilham cada peça (1 = único por colab)
+  // ── Preço (o que a Vertho cobra) ──
+  precoSetupGeral: 2000,      // R$ implantação (one-time)
+  precoPessoaCiclo: 1200,     // R$ por pessoa por ciclo de programa
+  precoCluster: 2000,         // R$ por unidade (setup da unidade, one-time)
+  precoMatrizNova: 500,       // R$ por matriz criada do zero
+  precoMatrizAdaptada: 250,   // R$ por matriz adaptada do catálogo canônico
+  adicionalWorkshop: 15000,   // R$ por unidade quando o mapeamento é por workshop
   descontoPct: 0,
+  margemAlvoPct: 60,          // piso de margem que decide o desconto máximo
+  // ── Custo (o que a Vertho gasta) ──
+  // R$/hora informado pelo dono em 07/09/2026. É a linha que faltava: sem ela o
+  // workshop entrava com R$ 15.000 de preço e ZERO de custo, e por isso aparecia
+  // como o item de maior margem da tela.
+  custoHora: 500,
+  horasImplantacao: 8,        // horas base do projeto, independentes de matriz
+  horasMatrizNova: 6,
+  horasMatrizAdaptada: 2,
+  horasWorkshop: 16,          // por unidade, quando o método é workshop
+  // Mensagens: medido em 20 dias (17/08–06/09), 1.181 templates; Ibipeba fecha
+  // 11,9 por pessoa no período, o que projeta ~16 no ciclo de 7 semanas.
+  // ⚠️ R$ 0,09 é o teto do UTILITY. Template que a Meta reclassifique como
+  // MARKETING custa 6× — 4 de 8 já voltaram assim em 14/08.
+  msgsPorPessoaCiclo: 16,
+  custoMsgUnitario: 0.09,
+  // Infra da plataforma (INFRA_FIXA no catálogo) rateada entre os clientes ativos.
+  clientesAtivos: 2,
+  reusoConteudo: 5,           // colaboradores que compartilham cada peça (1 = único por colab)
 };
 
 function moneyBRL(v: number, locale: string) {
@@ -178,8 +213,15 @@ export default function OrcamentoPage() {
   const [nPerfis, setNPerfis] = useState(3);
   const [metodo, setMetodo] = useState<Metodo>('votacao');
   const [nColabs, setNColabs] = useState(100);
-  const [periodoMeses, setPeriodoMeses] = useState(12); // duração do projeto (meses)
-  const [ciclosPorAno, setCiclosPorAno] = useState(1); // temporadas de 14 sem no projeto
+  // Quantas das pessoas da base entram de fato na trilha. Com preço fechado é
+  // risco de CUSTO, e o pior caso é 100% — por isso o default não é a média.
+  const [adesaoPct, setAdesaoPct] = useState(100);
+  // Das `nPerfis` matrizes, quantas nascem do zero e quantas adaptam o catálogo
+  // canônico. O resto é reuso puro, que não custa nem é cobrado.
+  const [matrizNovas, setMatrizNovas] = useState(3);
+  const [matrizAdaptadas, setMatrizAdaptadas] = useState(0);
+  const [periodoMeses, setPeriodoMeses] = useState(12); // parcelas do pagamento
+  const [ciclosPorAno, setCiclosPorAno] = useState(1); // ciclos de programa entregues
   const [preset, setPreset] = useState<PresetKey>('balanced');
   const [jornada, setJornada] = useState<string>('regular_duo');
   const cfgJornada = useMemo(
@@ -224,39 +266,99 @@ export default function OrcamentoPage() {
     const custoVideoGeradoTotal = custoIAVideoGerado(nVideosGerados, comAvatar);
     const custoVideoGeradoPorVideo = custoIAVideoGerado(1, comAvatar);
 
-    // Setup + tagging: uma vez (implantação). Mentor IA + Conteúdo: por ciclo —
-    // multiplicam por ciclos/ano para alinhar à receita de 12 meses.
+    // Setup + tagging: uma vez (implantação). Mentor IA + Conteúdo: por ciclo.
+    // ⚠️ Só as pessoas que ENTRAM na trilha consomem IA e mensagens: com preço
+    // fechado, a adesão é risco de custo, e o pior caso é 100% (todo mundo
+    // participa). Medido em 07/09: Macaé 29%, Ibipeba 69%.
     const ciclos = Math.max(1, ciclosPorAno || 1);
+    const adesao = Math.min(1, Math.max(0, (adesaoPct || 0) / 100));
+    const pessoasAtivas = nColabs * adesao;
     const custoSetupTotal = nClusters * custoSetupPorCluster + custoTaggingTotal;
-    const custoColabsTotalAno = nColabs * custoPorColab * ciclos;
+    const custoColabsTotalAno = pessoasAtivas * custoPorColab * ciclos;
     const custoConteudoTotalAno = custoConteudoTotal * ciclos;
     const custoIAUsd = custoSetupTotal + custoColabsTotalAno + custoConteudoTotalAno + custoExtracaoTotal + custoVideoGeradoTotal;
     const custoIABrl = custoIAUsd * pricing.cotacao;
 
-    // Valor de tabela (BRL)
+    // ── Custo cheio: IA + horas + mensagens + infra ──
+    const matrizesNovas = Math.max(0, Math.min(nPerfis, matrizNovas));
+    const matrizesAdaptadas = Math.max(0, Math.min(nPerfis - matrizesNovas, matrizAdaptadas));
+    const matrizesReusadas = Math.max(0, nPerfis - matrizesNovas - matrizesAdaptadas);
+    const horasTotais =
+      pricing.horasImplantacao +
+      matrizesNovas * pricing.horasMatrizNova +
+      matrizesAdaptadas * pricing.horasMatrizAdaptada +
+      (metodo === 'workshop' ? nClusters * pricing.horasWorkshop : 0);
+    const custoHorasBrl = horasTotais * pricing.custoHora;
+    const custoMsgBrl = pessoasAtivas * pricing.msgsPorPessoaCiclo * pricing.custoMsgUnitario * ciclos;
+    // Duração real do PROGRAMA (não do contrato): é por ela que a infra é rateada.
+    const mesesPrograma = Math.max(1, Math.round((cfgJornada.semanas * ciclos) / 4.345));
+    const infra = infraFixaTotal();
+    const infraMesUsd = ((infra.min + infra.max) / 2) / Math.max(1, pricing.clientesAtivos);
+    const custoInfraBrl = infraMesUsd * mesesPrograma * pricing.cotacao;
+    const custoTotalBrl = custoIABrl + custoHorasBrl + custoMsgBrl + custoInfraBrl;
+
+    // ── Valor do projeto — pelo ESCOPO, nunca pelo prazo ──
+    // A conta vive em `lib/orcamento/precificacao.ts` (pura, com teste): ela teve
+    // um erro de MODELO, e modelo só não regride com guard.
+    const custoOneTime = custoHorasBrl + custoSetupTotal * pricing.cotacao
+      + (custoExtracaoTotal + custoVideoGeradoTotal) * pricing.cotacao;
+    const parcelas = Math.max(1, periodoMeses || 1);
+
+    const projeto = calcularProjeto(
+      {
+        pessoas: nColabs,
+        ciclos,
+        unidades: nClusters,
+        matrizesNovas,
+        matrizesAdaptadas,
+        workshop: metodo === 'workshop',
+        parcelas,
+      },
+      {
+        setupGeral: pricing.precoSetupGeral,
+        pessoaCiclo: pricing.precoPessoaCiclo,
+        unidade: pricing.precoCluster,
+        matrizNova: pricing.precoMatrizNova,
+        matrizAdaptada: pricing.precoMatrizAdaptada,
+        workshop: pricing.adicionalWorkshop,
+        descontoPct: pricing.descontoPct,
+        margemAlvoPct: pricing.margemAlvoPct,
+      },
+      { totalBrl: custoTotalBrl, oneTimeBrl: custoOneTime, mesesPrograma },
+    );
+
     const tabelaSetupGeral = pricing.precoSetupGeral;
-    const tabelaColabsMes = nColabs * pricing.precoColab;        // Mentor IA recorrente
     const tabelaClusters = nClusters * pricing.precoCluster;
-    const tabelaPerfis = nClusters * nPerfis * pricing.precoPerfil;
+    const tabelaPerfis = matrizesNovas * pricing.precoMatrizNova + matrizesAdaptadas * pricing.precoMatrizAdaptada;
     const tabelaWorkshop = metodo === 'workshop' ? nClusters * pricing.adicionalWorkshop : 0;
-    const tabelaManutMes = nColabs * pricing.manutencaoMensalColab; // suporte/hosting recorrente
-    const tabelaMensalidade = tabelaColabsMes + tabelaManutMes;     // total recorrente / mês
-
-    const periodo = Math.max(1, periodoMeses || 1);
-    const oneTimeTabela = tabelaSetupGeral + tabelaClusters + tabelaPerfis + tabelaWorkshop;
-
-    const fatorDesc = 1 - pricing.descontoPct / 100;
-    // Modelo FLAT: soma tudo (setup one-time + recorrente × período) e divide
-    // pelo período → mensalidade igual todo mês, sem pico de setup no mês 1.
-    const valorTotalTabela = oneTimeTabela + tabelaMensalidade * periodo;
-    const valorTotalFinal = valorTotalTabela * fatorDesc;
-    const descontoTotal = valorTotalTabela - valorTotalFinal;
-    const mensalidadeFlat = valorTotalFinal / periodo;
-
-    const margemAbs = valorTotalFinal - custoIABrl;
-    const margemPct = valorTotalFinal > 0 ? (margemAbs / valorTotalFinal) * 100 : 0;
+    const tabelaPessoasCiclo = nColabs * pricing.precoPessoaCiclo;
 
     return {
+      tabelaPrograma: projeto.programa,
+      oneTimeTabela: projeto.oneTime,
+      valorTotalTabela: projeto.valorTabela,
+      valorTotalFinal: projeto.valorFinal,
+      descontoTotal: projeto.desconto,
+      mensalidadeFlat: projeto.parcela,
+      margemAbs: projeto.margemAbs,
+      margemPct: projeto.margemPct,
+      descontoMaxPct: projeto.descontoMaxPct,
+      acimaDoPiso: projeto.acimaDoPiso,
+      exposicao: projeto.exposicao,
+      piorSaldo: projeto.piorSaldo,
+      adesao,
+      pessoasAtivas,
+      matrizesNovas,
+      matrizesAdaptadas,
+      matrizesReusadas,
+      horasTotais,
+      custoHorasBrl,
+      custoMsgBrl,
+      custoInfraBrl,
+      custoTotalBrl,
+      mesesPrograma,
+      tabelaPessoasCiclo,
+      parcelas,
       custoSetupPorCluster,
       custoTaggingTotal,
       custoPorColab,
@@ -273,22 +375,12 @@ export default function OrcamentoPage() {
       custoIAUsd,
       custoIABrl,
       tabelaSetupGeral,
-      tabelaColabsMes,
       tabelaClusters,
       tabelaPerfis,
       tabelaWorkshop,
-      tabelaManutMes,
-      tabelaMensalidade,
-      oneTimeTabela,
-      periodo,
-      valorTotalTabela,
-      valorTotalFinal,
-      descontoTotal,
-      mensalidadeFlat,
-      margemAbs,
-      margemPct,
+      periodo: parcelas,
     };
-  }, [nClusters, nPerfis, metodo, nColabs, periodoMeses, ciclosPorAno, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, nVideosGerados, comAvatar]);
+  }, [nClusters, nPerfis, metodo, nColabs, periodoMeses, ciclosPorAno, adesaoPct, matrizNovas, matrizAdaptadas, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, nVideosGerados, comAvatar]);
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
@@ -312,9 +404,14 @@ export default function OrcamentoPage() {
             value={nPerfis} onChange={setNPerfis} min={1} />
           <FieldNumber locale={locale} icon={<Users size={14} />} label={t('scope.collaborators.label')} sub={t('scope.collaborators.sub')}
             value={nColabs} onChange={setNColabs} min={0} />
-          <FieldNumber locale={locale} icon={<Calculator size={14} />} label={t('scope.period.label')} sub={t('scope.period.sub')}
+          <FieldNumber locale={locale} icon={<Users size={14} />} label="Adesão orçada (%)"
+            sub={`${Math.round(calc.pessoasAtivas)} em trilha · pior caso = 100%`}
+            value={adesaoPct} onChange={setAdesaoPct} min={0} />
+          <FieldNumber locale={locale} icon={<Calculator size={14} />} label="Parcelas"
+            sub="só divide o valor — não o multiplica"
             value={periodoMeses} onChange={setPeriodoMeses} min={1} />
-          <FieldNumber locale={locale} icon={<Calculator size={14} />} label={t('scope.cycles.label')} sub={t('scope.cycles.sub')}
+          <FieldNumber locale={locale} icon={<Calculator size={14} />} label="Ciclos entregues"
+            sub={`programa de ~${calc.mesesPrograma} ${calc.mesesPrograma === 1 ? 'mês' : 'meses'}`}
             value={ciclosPorAno} onChange={setCiclosPorAno} min={1} />
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-gray-500 mb-1">
@@ -356,6 +453,26 @@ export default function OrcamentoPage() {
           </p>
         </div>
 
+        {/* Matrizes: criar, adaptar ou reusar — o item de maior variação de custo */}
+        <div className="mt-3 grid gap-3 grid-cols-2 sm:grid-cols-4">
+          <FieldNumber locale={locale} icon={<Briefcase size={14} />} label="Matrizes novas"
+            sub={`R$ ${pricing.precoMatrizNova} · ${pricing.horasMatrizNova}h cada`}
+            value={matrizNovas} onChange={setMatrizNovas} min={0} />
+          <FieldNumber locale={locale} icon={<Briefcase size={14} />} label="Matrizes adaptadas"
+            sub={`R$ ${pricing.precoMatrizAdaptada} · ${pricing.horasMatrizAdaptada}h cada`}
+            value={matrizAdaptadas} onChange={setMatrizAdaptadas} min={0} />
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-col justify-center">
+            <p className="text-[10px] uppercase tracking-widest text-gray-500">Reusadas do catálogo</p>
+            <p className="text-lg font-bold text-emerald-300 tabular-nums">{calc.matrizesReusadas}</p>
+            <p className="text-[9px] text-gray-600">custo e preço zero</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-col justify-center">
+            <p className="text-[10px] uppercase tracking-widest text-gray-500">Horas de gente</p>
+            <p className="text-lg font-bold text-white tabular-nums">{calc.horasTotais} h</p>
+            <p className="text-[9px] text-gray-600">{money(calc.custoHorasBrl)} a {money(pricing.custoHora)}/h</p>
+          </div>
+        </div>
+
         {/* Preset IA */}
         <div className="mt-3">
           <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('preset')}</label>
@@ -378,13 +495,52 @@ export default function OrcamentoPage() {
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
           <FieldNumber locale={locale} label={t('pricing.exchange')} sub={t('pricing.perUsd', { value: money(pricing.cotacao) })} value={pricing.cotacao} onChange={(v) => setPricingField('cotacao', v)} allowDecimals min={0} />
           <FieldNumber locale={locale} label={t('pricing.generalSetup')} sub={t('pricing.fixed', { value: money(pricing.precoSetupGeral) })} value={pricing.precoSetupGeral} onChange={(v) => setPricingField('precoSetupGeral', v)} min={0} />
-          <FieldNumber locale={locale} label={t('pricing.mentorPerColab')} sub={t('pricing.perColabMonth', { value: money(pricing.precoColab) })} value={pricing.precoColab} onChange={(v) => setPricingField('precoColab', v)} min={0} />
+          <FieldNumber locale={locale} label="Por pessoa / ciclo" sub={`${money(pricing.precoPessoaCiclo)} por pessoa`} value={pricing.precoPessoaCiclo} onChange={(v) => setPricingField('precoPessoaCiclo', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.perCluster')} sub={t('pricing.setupValue', { value: money(pricing.precoCluster) })} value={pricing.precoCluster} onChange={(v) => setPricingField('precoCluster', v)} min={0} />
-          <FieldNumber locale={locale} label={t('pricing.perProfile')} sub={t('pricing.perRole', { value: money(pricing.precoPerfil) })} value={pricing.precoPerfil} onChange={(v) => setPricingField('precoPerfil', v)} min={0} />
+          <FieldNumber locale={locale} label="Matriz nova" sub={`${money(pricing.precoMatrizNova)} cada`} value={pricing.precoMatrizNova} onChange={(v) => setPricingField('precoMatrizNova', v)} min={0} />
+          <FieldNumber locale={locale} label="Matriz adaptada" sub={`${money(pricing.precoMatrizAdaptada)} cada`} value={pricing.precoMatrizAdaptada} onChange={(v) => setPricingField('precoMatrizAdaptada', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.workshopPerCluster')} sub={t('pricing.ifWorkshop', { value: money(pricing.adicionalWorkshop) })} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
-          <FieldNumber locale={locale} label={t('pricing.maintenancePerColab')} sub={t('pricing.supportPerColabMonth', { value: money(pricing.manutencaoMensalColab) })} value={pricing.manutencaoMensalColab} onChange={(v) => setPricingField('manutencaoMensalColab', v)} min={0} />
-          <FieldNumber locale={locale} label={t('pricing.discount')} sub={t('pricing.discountTotal', { value: pricing.descontoPct.toLocaleString(locale) })} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} allowDecimals />
+          <FieldNumber locale={locale} label={t('pricing.discount')} sub={`piso: ${calc.descontoMaxPct.toFixed(1)}%`} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} allowDecimals />
         </div>
+      </div>
+
+      {/* Custo de entrega — as linhas que faltavam para a margem significar algo */}
+      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 mb-6">
+        <p className="text-xs uppercase tracking-widest text-amber-300 mb-1">Custo de entrega</p>
+        <p className="text-[10px] text-gray-500 mb-3">
+          Até 07/09/2026 a margem olhava só a IA e respondia 96–99% em qualquer cenário. Estas são as
+          linhas que faltavam — o workshop, em especial, tinha preço e nenhum custo.
+        </p>
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+          <FieldNumber locale={locale} label="Custo / hora" sub="implantação e workshop" value={pricing.custoHora} onChange={(v) => setPricingField('custoHora', v)} min={0} />
+          <FieldNumber locale={locale} label="Horas de implantação" sub="base, fora as matrizes" value={pricing.horasImplantacao} onChange={(v) => setPricingField('horasImplantacao', v)} min={0} />
+          <FieldNumber locale={locale} label="Horas / matriz nova" sub={`${pricing.horasMatrizAdaptada}h se adaptada`} value={pricing.horasMatrizNova} onChange={(v) => setPricingField('horasMatrizNova', v)} min={0} />
+          <FieldNumber locale={locale} label="Horas / workshop" sub="por unidade" value={pricing.horasWorkshop} onChange={(v) => setPricingField('horasWorkshop', v)} min={0} />
+          <FieldNumber locale={locale} label="Mensagens / pessoa" sub={`${money(pricing.custoMsgUnitario)} cada · UTILITY`} value={pricing.msgsPorPessoaCiclo} onChange={(v) => setPricingField('msgsPorPessoaCiclo', v)} min={0} />
+          <FieldNumber locale={locale} label="Clientes ativos" sub="rateio da infra fixa" value={pricing.clientesAtivos} onChange={(v) => setPricingField('clientesAtivos', v)} min={1} />
+        </div>
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+          <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+            <p className="text-[9px] uppercase text-gray-500">IA</p>
+            <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoIABrl)}</p>
+          </div>
+          <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+            <p className="text-[9px] uppercase text-gray-500">Horas · {calc.horasTotais}h</p>
+            <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoHorasBrl)}</p>
+          </div>
+          <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+            <p className="text-[9px] uppercase text-gray-500">Mensagens</p>
+            <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoMsgBrl)}</p>
+          </div>
+          <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+            <p className="text-[9px] uppercase text-gray-500">Infra · {calc.mesesPrograma} {calc.mesesPrograma === 1 ? 'mês' : 'meses'}</p>
+            <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoInfraBrl)}</p>
+          </div>
+        </div>
+        <p className="text-[10px] text-amber-300/80 mt-2">
+          ⚠ Mensagem em MARKETING custa 6× o UTILITY, e 4 de 8 templates já voltaram assim (14/08).
+          Nesse caso esta linha vai a {money(calc.custoMsgBrl * 6)}.
+        </p>
       </div>
 
       {/* Geração de conteúdo (por colaborador + reúso) */}
@@ -454,37 +610,81 @@ export default function OrcamentoPage() {
         </div>
       </div>
 
-      {/* Resumo financeiro — Mensalidade flat (total ÷ período) */}
+      {/* Resumo financeiro — o valor é do PROJETO; a parcela é forma de pagamento */}
       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 mb-6">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl bg-white/[0.04] p-4 border border-emerald-400/20">
-            <p className="text-[10px] uppercase tracking-widest text-emerald-300">{t('financial.flatMonthly')}</p>
-            <p className="text-3xl font-extrabold text-emerald-200 mt-1">{money(calc.mensalidadeFlat)}<span className="text-base text-gray-400 font-normal"> {t('financial.perMonth')}</span></p>
-            <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
-              <div className="flex justify-between"><span>{t('financial.flatHint', { months: calc.periodo })}</span><span>{money(calc.valorTotalFinal)} ÷ {calc.periodo}</span></div>
-              <div className="flex justify-between text-gray-500"><span>{t('financial.noSetupSpike')}</span><span>—</span></div>
-            </div>
-          </div>
           <div className="rounded-xl bg-white/[0.04] p-4 border border-cyan-400/20">
-            <p className="text-[10px] uppercase tracking-widest text-cyan-300">{t('financial.projectTotal', { months: calc.periodo })}</p>
+            <p className="text-[10px] uppercase tracking-widest text-cyan-300">Valor do projeto</p>
             <p className="text-3xl font-extrabold text-cyan-200 mt-1">{money(calc.valorTotalFinal)}</p>
             <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
               <div className="flex justify-between"><span>{t('financial.oneTime')}</span><span>{money(calc.oneTimeTabela)}</span></div>
-              <div className="flex justify-between"><span>{t('financial.recurring', { months: calc.periodo })}</span><span>{money(calc.tabelaMensalidade * calc.periodo)}</span></div>
+              <div className="flex justify-between"><span>Programa · {calc.ciclos} {calc.ciclos === 1 ? 'ciclo' : 'ciclos'}</span><span>{money(calc.tabelaPrograma)}</span></div>
               {calc.descontoTotal > 0 && (
                 <div className="flex justify-between text-amber-300"><span>{t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })}</span><span>- {money(calc.descontoTotal)}</span></div>
               )}
+            </div>
+          </div>
+          <div className="rounded-xl bg-white/[0.04] p-4 border border-emerald-400/20">
+            <p className="text-[10px] uppercase tracking-widest text-emerald-300">Parcela · {calc.parcelas}×</p>
+            <p className="text-3xl font-extrabold text-emerald-200 mt-1">{money(calc.mensalidadeFlat)}<span className="text-base text-gray-400 font-normal"> {t('financial.perMonth')}</span></p>
+            <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
+              <div className="flex justify-between"><span>{money(calc.valorTotalFinal)} ÷ {calc.parcelas}</span><span>—</span></div>
+              <div className="flex justify-between text-gray-500"><span>o prazo divide, não multiplica</span><span>—</span></div>
             </div>
           </div>
         </div>
 
         {/* Sub-stats */}
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <KpiBox label={t('kpis.projectTotal')} value={money(calc.valorTotalFinal)} tone="white" />
-          <KpiBox label={t('kpis.aiCost')} value={money(calc.custoIABrl)} sub={`USD ${calc.custoIAUsd.toFixed(2)} × ${pricing.cotacao}`} tone="gray" />
-          <KpiBox label={t('kpis.marginValue')} value={money(calc.margemAbs)} tone={calc.margemPct < 50 ? 'amber' : 'emerald'} />
-          <KpiBox label={t('kpis.marginPct')} value={`${calc.margemPct.toFixed(1)}%`} tone={calc.margemPct < 50 ? 'amber' : 'emerald'} />
+          <KpiBox label="Custo cheio" value={money(calc.custoTotalBrl)} sub={`IA ${money(calc.custoIABrl)} + ${money(calc.custoTotalBrl - calc.custoIABrl)}`} tone="gray" />
+          <KpiBox label={t('kpis.marginValue')} value={money(calc.margemAbs)} tone={calc.margemPct < pricing.margemAlvoPct ? 'amber' : 'emerald'} />
+          <KpiBox label={t('kpis.marginPct')} value={`${calc.margemPct.toFixed(1)}%`} sub={`alvo ${pricing.margemAlvoPct}%`} tone={calc.margemPct < pricing.margemAlvoPct ? 'amber' : 'emerald'} />
+          <KpiBox label="Exposição máxima" value={money(calc.piorSaldo?.saldo ?? 0)} sub={`mês ${calc.piorSaldo?.mes ?? 1}`} tone={(calc.piorSaldo?.saldo ?? 0) < 0 ? 'amber' : 'emerald'} />
         </div>
+
+        {/* Trava de desconto: o piso vem da margem-alvo, e barra antes de virar proposta */}
+        <div className={`mt-4 rounded-xl border p-3 ${calc.acimaDoPiso ? 'border-red-400/40 bg-red-500/10' : 'border-white/10 bg-white/[0.03]'}`}>
+          <div className="flex items-baseline justify-between gap-3 flex-wrap">
+            <p className={`text-xs font-bold ${calc.acimaDoPiso ? 'text-red-300' : 'text-gray-300'}`}>
+              {calc.acimaDoPiso
+                ? `Desconto de ${pricing.descontoPct}% acima do piso — requer aprovação`
+                : `Desconto disponível até ${calc.descontoMaxPct.toFixed(1)}%`}
+            </p>
+            <p className="text-[11px] text-gray-500">
+              mantendo {pricing.margemAlvoPct}% de margem sobre o custo cheio
+            </p>
+          </div>
+          <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className={`h-full ${calc.acimaDoPiso ? 'bg-red-400' : 'bg-emerald-400'}`}
+              style={{ width: `${Math.min(100, calc.descontoMaxPct > 0 ? (pricing.descontoPct / calc.descontoMaxPct) * 100 : 100)}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Exposição por parcela — o fundo do poço é o risco de rescisão no meio */}
+        {calc.exposicao.length > 1 && (
+          <div className="mt-4">
+            <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">
+              Caixa acumulado por parcela · recebido − entregue
+            </p>
+            <div className="flex items-end gap-1 h-16">
+              {calc.exposicao.map((e) => {
+                const maxAbs = Math.max(...calc.exposicao.map((x) => Math.abs(x.saldo)), 1);
+                const alt = Math.max(4, (Math.abs(e.saldo) / maxAbs) * 100);
+                return (
+                  <div key={e.mes} className="flex-1 flex flex-col justify-end h-full" title={`Mês ${e.mes}: ${money(e.saldo)}`}>
+                    <div className={`rounded-t ${e.saldo < 0 ? 'bg-red-400/60' : 'bg-emerald-400/50'}`} style={{ height: `${alt}%` }} />
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[10px] text-gray-500 mt-1">
+              Implantação entregue no início, recebida ao longo das {calc.parcelas} parcelas.
+              Pior mês: {money(calc.piorSaldo?.saldo ?? 0)}.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Detalhamento */}
@@ -498,7 +698,15 @@ export default function OrcamentoPage() {
             <p className="text-[10px] uppercase text-gray-500 mb-1">{t('breakdown.oneTime')}</p>
             <Row label={t('breakdown.generalSetup')} value={money(calc.tabelaSetupGeral)} />
             <Row label={t('breakdown.clusterLine', { count: nClusters, value: money(pricing.precoCluster) })} value={money(calc.tabelaClusters)} />
-            <Row label={t('breakdown.profilesLine', { count: nClusters * nPerfis, value: money(pricing.precoPerfil) })} value={money(calc.tabelaPerfis)} />
+            {calc.matrizesNovas > 0 && (
+              <Row label={`Matrizes novas: ${calc.matrizesNovas} × ${money(pricing.precoMatrizNova)}`} value={money(calc.matrizesNovas * pricing.precoMatrizNova)} />
+            )}
+            {calc.matrizesAdaptadas > 0 && (
+              <Row label={`Matrizes adaptadas: ${calc.matrizesAdaptadas} × ${money(pricing.precoMatrizAdaptada)}`} value={money(calc.matrizesAdaptadas * pricing.precoMatrizAdaptada)} />
+            )}
+            {calc.matrizesReusadas > 0 && (
+              <Row label={`Reusadas do catálogo: ${calc.matrizesReusadas}`} value={money(0)} muted />
+            )}
             {metodo === 'workshop' && (
               <Row label={`Workshop: ${nClusters} × ${money(pricing.adicionalWorkshop)}`} value={money(calc.tabelaWorkshop)} />
             )}
@@ -506,21 +714,17 @@ export default function OrcamentoPage() {
               <Row label={t('breakdown.oneTimeSubtotal')} value={money(calc.oneTimeTabela)} bold />
             </div>
 
-            <p className="text-[10px] uppercase text-gray-500 mb-1 mt-3">{t('breakdown.recurring')}</p>
-            <Row label={`Mentor IA: ${nColabs.toLocaleString(locale)} × ${money(pricing.precoColab)}`} value={money(calc.tabelaColabsMes)} />
-            <Row label={`${t('breakdown.maintenance')}: ${nColabs.toLocaleString(locale)} × ${money(pricing.manutencaoMensalColab)}`} value={money(calc.tabelaManutMes)} />
-            <Row label={`${t('breakdown.recurringPeriod', { months: calc.periodo })}`} value={money(calc.tabelaMensalidade * calc.periodo)} />
-            <div className="pt-1.5 border-t border-white/5">
-              <Row label={t('breakdown.monthlyTotal')} value={`${money(calc.tabelaMensalidade)} ${t('financial.perMonth')}`} bold />
-            </div>
+            <p className="text-[10px] uppercase text-gray-500 mb-1 mt-3">Programa</p>
+            <Row label={`${nColabs.toLocaleString(locale)} pessoas × ${money(pricing.precoPessoaCiclo)} / ciclo`} value={money(calc.tabelaPessoasCiclo)} />
+            <Row label={`× ${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'} de ${cfgJornada.semanas} semanas`} value={money(calc.tabelaPrograma)} />
 
             <div className="pt-1.5 border-t border-white/5 mt-2">
-              <Row label={t('breakdown.projectTotalTable', { months: calc.periodo })} value={money(calc.valorTotalTabela)} bold />
+              <Row label="Valor do projeto (tabela)" value={money(calc.valorTotalTabela)} bold />
             </div>
             {calc.descontoTotal > 0 && <Row label={t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })} value={`- ${money(calc.descontoTotal)}`} muted />}
             <Row label={t('breakdown.projectTotalFinal')} value={money(calc.valorTotalFinal)} bold tone="emerald" />
             <div className="pt-1.5 border-t border-white/5 mt-2">
-              <Row label={t('financial.flatMonthly')} value={`${money(calc.mensalidadeFlat)} ${t('financial.perMonth')}`} bold tone="emerald" />
+              <Row label={`Parcela · ${calc.parcelas}×`} value={`${money(calc.mensalidadeFlat)} ${t('financial.perMonth')}`} bold tone="emerald" />
             </div>
           </div>
         </div>

@@ -1,0 +1,135 @@
+/**
+ * Precificação de um projeto Vertho — a conta que a tela de orçamento aplica.
+ *
+ * Vive fora do componente porque teve um erro de MODELO, não de digitação, e
+ * erro de modelo só não volta se houver teste: até 07/09/2026 a receita fazia
+ * `mensalidade × meses` enquanto o custo fazia `custo × ciclos`, duas dimensões
+ * soltas. Medido com os defaults da própria tela (100 pessoas, 1 unidade, 3
+ * cargos):
+ *
+ *   · parcelar o MESMO projeto em 24 meses em vez de 12 → receita ×1,96, custo ×1,00
+ *   · entregar o DOBRO do programa (2 ciclos) em 12 meses → receita ×1,00, custo ×1,99
+ *
+ * A régua, agora explícita: **o preço vem do ESCOPO; o prazo só divide.**
+ * O contrato é vendido pelo projeto (decisão do dono, 07/09/2026) e a
+ * mensalidade é forma de pagamento, não assinatura.
+ */
+
+export interface TabelaPreco {
+  /** R$ de implantação, uma vez, independente de tamanho. */
+  setupGeral: number;
+  /** R$ por pessoa por CICLO de programa — nunca por mês. */
+  pessoaCiclo: number;
+  /** R$ por unidade (escola/filial) na implantação. */
+  unidade: number;
+  /** R$ por matriz de competências criada do zero. */
+  matrizNova: number;
+  /** R$ por matriz adaptada do catálogo canônico. */
+  matrizAdaptada: number;
+  /** R$ por unidade quando o mapeamento é por workshop presencial. */
+  workshop: number;
+  descontoPct: number;
+  /** Piso de margem que decide o desconto máximo. */
+  margemAlvoPct: number;
+}
+
+export interface EscopoProjeto {
+  pessoas: number;
+  /** Ciclos de programa entregues no contrato. É isto que dobra a entrega. */
+  ciclos: number;
+  unidades: number;
+  matrizesNovas: number;
+  matrizesAdaptadas: number;
+  workshop: boolean;
+  /** Em quantas parcelas o cliente paga. NÃO entra no preço. */
+  parcelas: number;
+}
+
+export interface CustoProjeto {
+  /** Custo total de entrega em BRL: IA + horas + mensagens + infra. */
+  totalBrl: number;
+  /** A parte que é gasta na largada (implantação, matrizes, setup de IA). */
+  oneTimeBrl: number;
+  /** Duração do PROGRAMA em meses — por ela o custo variável se distribui. */
+  mesesPrograma: number;
+}
+
+export interface ResultadoProjeto {
+  oneTime: number;
+  programa: number;
+  valorTabela: number;
+  valorFinal: number;
+  desconto: number;
+  parcela: number;
+  margemAbs: number;
+  margemPct: number;
+  /** Maior desconto que ainda respeita a margem-alvo. */
+  descontoMaxPct: number;
+  acimaDoPiso: boolean;
+  /** Caixa acumulado (recebido − entregue) ao fim de cada parcela. */
+  exposicao: { mes: number; saldo: number }[];
+  piorSaldo: { mes: number; saldo: number };
+}
+
+export function calcularProjeto(
+  escopo: EscopoProjeto,
+  preco: TabelaPreco,
+  custo: CustoProjeto,
+): ResultadoProjeto {
+  const ciclos = Math.max(1, escopo.ciclos || 1);
+  const parcelas = Math.max(1, escopo.parcelas || 1);
+
+  const oneTime =
+    preco.setupGeral +
+    escopo.unidades * preco.unidade +
+    escopo.matrizesNovas * preco.matrizNova +
+    escopo.matrizesAdaptadas * preco.matrizAdaptada +
+    (escopo.workshop ? escopo.unidades * preco.workshop : 0);
+
+  // O programa escala por pessoa e por ciclo — as duas dimensões da entrega.
+  const programa = escopo.pessoas * preco.pessoaCiclo * ciclos;
+
+  const valorTabela = oneTime + programa;
+  const fator = 1 - (preco.descontoPct || 0) / 100;
+  const valorFinal = valorTabela * fator;
+  const desconto = valorTabela - valorFinal;
+  const parcela = valorFinal / parcelas;
+
+  const margemAbs = valorFinal - custo.totalBrl;
+  const margemPct = valorFinal > 0 ? (margemAbs / valorFinal) * 100 : 0;
+
+  // Desconto máximo que preserva a margem-alvo. É o número que se precisa ANTES
+  // de sentar na negociação — não o aviso depois de ceder.
+  const alvo = Math.min(99, Math.max(0, preco.margemAlvoPct)) / 100;
+  const valorMinimo = custo.totalBrl / (1 - alvo);
+  const descontoMaxPct = valorTabela > 0
+    ? Math.max(0, (1 - valorMinimo / valorTabela) * 100)
+    : 0;
+
+  // Preço fechado pago aos poucos: a implantação sai na largada e volta
+  // parcelada. O fundo do poço é o risco de uma rescisão no meio.
+  const variavel = Math.max(0, custo.totalBrl - custo.oneTimeBrl);
+  const meses = Math.max(1, custo.mesesPrograma);
+  const exposicao: { mes: number; saldo: number }[] = [];
+  for (let m = 1; m <= parcelas; m++) {
+    const recebido = parcela * m;
+    const gasto = custo.oneTimeBrl + variavel * Math.min(1, m / meses);
+    exposicao.push({ mes: m, saldo: recebido - gasto });
+  }
+  const piorSaldo = exposicao.reduce((min, e) => (e.saldo < min.saldo ? e : min), exposicao[0]);
+
+  return {
+    oneTime,
+    programa,
+    valorTabela,
+    valorFinal,
+    desconto,
+    parcela,
+    margemAbs,
+    margemPct,
+    descontoMaxPct,
+    acimaDoPiso: (preco.descontoPct || 0) > descontoMaxPct,
+    exposicao,
+    piorSaldo,
+  };
+}
