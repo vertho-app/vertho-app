@@ -1925,3 +1925,34 @@ só. Não é tendência, é rajada.
 52,9% da semana. Autoria de conteúdo, copiloto e o pipeline de IA que roda sem
 `empresa_id`. Parte disso deve encolher com a correção de 01/09 que fez
 `ia3_cenarios` e `ia2_gabarito` passarem `empresaId`.
+
+## 07/09/2026 — TTS no 2.5 Flash: o que mudou no custo por episódio e por vídeo
+
+A troca de motor (05/09, `gemini-3.1-flash-tts-preview` → `gemini-2.5-flash-tts`, ver
+`PLANO-DERIVA-PODCAST-2026-09-04.md`) cortou o preço por token de áudio pela metade:
+**US$ 0,0202 → 0,0101 por mil tokens de saída**, medido em 116 chamadas do ledger
+(`scripts/_custo-tts-antes-depois.ts`). O que cada caminho paga depende de quantos
+TAKES ele faz: o portão de deriva refaz a síntese quando a régua reprova, e, onde a
+pessoa está esperando, refaz em PARALELO (2 takes sempre) para caber nos 300 s da rota.
+
+| caminho | antes (3.1) | agora (2.5) | variação |
+|---|---:|---:|---:|
+| podcast personalizado pré-aquecido em lote (fundo, 1 take + ~7 % de retake) | US$ 0,12 | **US$ 0,06** | −50 % |
+| podcast personalizado sob demanda (2 takes em paralelo) | US$ 0,13 (mediana de 14 episódios) | **US$ 0,11** (4 chamadas de 0,050-0,059 em 06/09) | −15 % |
+| podcast base (botão do admin, 2 takes) | US$ 0,195 | ≈ US$ 0,10 (esperado; nenhum gerado desde a troca) | −50 % |
+| devolutiva sob demanda ("Ouvir", 2 takes) | US$ 0,11-0,14 (fatiada em 6-8 chamadas) | **US$ 0,11** (2 × 0,055 em 06/09) | ≈ igual |
+| devolutiva em fundo (1 take + ~21 % de retake do Iapetus) | US$ 0,11 | **US$ 0,07** | −40 % |
+| vídeo: TTS (take único; era 14-21 chamadas por cena) | US$ 0,10-0,13 | **US$ 0,05** se aprova de primeira (3 de 5), 0,09 se refaz | ~−40 % |
+| vídeo: total (HeyGen 0,47 + Whisper e box 0,04 + TTS) | ≈ US$ 0,62 | **≈ US$ 0,56-0,60** | −8 % |
+
+Leitura: a redução real está no lote (pré-aquecimento, devolutiva em fundo), que é onde
+mora o volume. Sob demanda o retake em paralelo compra a latência de uma tentativa só e
+paga o segundo take sempre; ficou perto do custo antigo, com o portão de qualidade
+incluído. Voltar o sob demanda para retake em série (US$ 0,06) é uma linha por caminho
+(`retakeParalelo: false`), ao preço de mais 100-150 s de espera nos ~7 % de reprovação.
+No vídeo o TTS caiu pela metade, mas era menos de 20 % da conta: o HeyGen domina.
+
+O catálogo (`lib/ia-cost-catalog.ts`) foi atualizado com esses números e ganhou os itens
+que rodavam "sem estimativa" no simulador: `tts_podcast_personalizado`,
+`tts_podcast_pregerado` (opcional) e `tts_devolutiva`. O canário semanal (`canario_tts`,
+~US$ 0,20/semana) segue fora do catálogo de propósito: é custo de plataforma, não de tenant.

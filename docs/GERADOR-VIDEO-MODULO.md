@@ -110,6 +110,7 @@ throughput e de taxa de falha do pipeline em lote.
 | Boxes | escalaram sozinhas até **15** (`MAX_RENDER_BOXES`), ladder cx43 → cx33 → cpx32 conforme estoque; **todas morreram** no idle shutdown (conferido por API: 0 ativas) |
 | Personalizados | **187** `videos_personalizados` nominais saíram atrás dos decks, sem intervenção |
 | Custo | **47 renders pagos para 42 células** (~12% de desperdício) ≈ $33 |
+| Custo por vídeo (medido 06/09/2026) | HeyGen ≈ US$ 0,47 (2 clipes, ~28 s) + TTS take único 0,05-0,09 (2.5 Flash) + Whisper e box ≈ 0,04 → **≈ US$ 0,56-0,60**; detalhe em `docs/CUSTO-QUALIDADE.md` §07/09 |
 
 **🔴 A taxa de falha do lote é de SATURAÇÃO de fornecedor, não de bug — 6 de 41 (~15%):**
 3× `TTS: resposta sem áudio após 4 tentativas` e 3× `HeyGen timeout aguardando video_id`.
