@@ -21,6 +21,8 @@ import {
 } from '@/lib/copiloto/types';
 import { inferConversationGoal, normalizeConversationGoal } from '@/lib/copiloto/dossier';
 import { buildLivePlan } from '@/lib/copiloto/live-plan';
+import { temSugestao, type ConversationClosing } from '@/lib/copiloto/fechamento';
+import { STAGE_LABELS } from '@/lib/sales/constants';
 import { inferMeetingKind } from '@/lib/copiloto/play';
 import { chaveDaConta, mesclarPerfisSociais, precisaPedirRedes } from '@/lib/copiloto/social-discovery';
 import {
@@ -743,6 +745,18 @@ export default function CopilotClient({
   const [liveAnalysisState, setLiveAnalysisState] = useState<LiveAnalysisState>('idle');
   const [resultSaving, setResultSaving] = useState(false);
   const [resultSaved, setResultSaved] = useState(false);
+  /**
+   * O que a conversa propôs ao CRM e a minuta do follow-up.
+   *
+   * Fica na tela até o vendedor decidir: aplicar move a oportunidade, e mover
+   * estágio mexe em pipeline ponderado. Nada disso acontece sozinho.
+   */
+  const [closing, setClosing] = useState<ConversationClosing | null>(null);
+  const [closingStage, setClosingStage] = useState(true);
+  const [closingAction, setClosingAction] = useState(true);
+  const [crmApplying, setCrmApplying] = useState(false);
+  const [crmApplied, setCrmApplied] = useState('');
+  const [copiedDraft, setCopiedDraft] = useState('');
 
   const [posts, setPosts] = useState<SupernormalPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
@@ -1482,6 +1496,48 @@ export default function CopilotClient({
     await startCapture();
   }
 
+  async function aplicarNoCrm() {
+    if (!closing || !accountId || !opportunityId) return;
+    setCrmApplying(true);
+    setError(null);
+    try {
+      const res = await fetchAuth(`/api/copiloto/clientes/${encodeURIComponent(accountId)}/crm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          opportunityId,
+          stage: closingStage && closing.crm.stage ? closing.crm.stage : '',
+          nextAction: closingAction ? closing.crm.nextAction : '',
+          nextActionDate: closingAction ? closing.crm.nextActionDate : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'Falha ao atualizar o CRM');
+      setCrmApplied([
+        closingStage && closing.crm.stage ? 'estágio' : '',
+        closingAction && closing.crm.nextAction ? 'próxima ação' : '',
+      ].filter(Boolean).join(' e ') || 'atualização');
+    } catch (crmError: any) {
+      setError(crmError?.message || 'Não foi possível atualizar o CRM.');
+    } finally {
+      setCrmApplying(false);
+    }
+  }
+
+  async function copiarMinuta(qual: 'whatsapp' | 'email') {
+    if (!closing) return;
+    const texto = qual === 'whatsapp'
+      ? closing.followUp.whatsapp
+      : `${closing.followUp.email.subject}\n\n${closing.followUp.email.body}`;
+    try {
+      await navigator.clipboard.writeText(texto);
+      setCopiedDraft(qual);
+      window.setTimeout(() => setCopiedDraft(''), 2500);
+    } catch {
+      setError('O navegador bloqueou a cópia. Selecione o texto e copie à mão.');
+    }
+  }
+
   async function saveLiveResult() {
     if (!accountId) {
       setError('Abra a reunião a partir de uma empresa para salvar o resultado no histórico.');
@@ -1515,6 +1571,10 @@ export default function CopilotClient({
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Falha ao salvar o resultado');
       setResultSaved(true);
+      setClosing(data?.closing ?? null);
+      setClosingStage(true);
+      setClosingAction(true);
+      setCrmApplied('');
       setActivePlanningId('');
       try {
         const saved = JSON.parse(localStorage.getItem(PLAN_STORAGE_KEY) || '{}');
@@ -1583,6 +1643,8 @@ export default function CopilotClient({
    * empresa A no histórico da empresa B.
    */
   function limparConversa() {
+    setClosing(null);
+    setCrmApplied('');
     utterancesRef.current = [];
     setUtterances([]);
     setPartial(null);
@@ -2032,6 +2094,78 @@ export default function CopilotClient({
               )}
             </div>
           </header>}
+
+          {!recording && closing && temSugestao(closing) && (
+            <section className={styles.fechamento} aria-label="O que fazer com esta conversa">
+              <header>
+                <span><Target size={14} /> Resultado salvo. O que ele muda</span>
+                <em>nada é aplicado sem você</em>
+              </header>
+
+              {(closing.crm.stage || closing.crm.nextAction) && (
+                <div className={styles.fechamentoCrm}>
+                  {closing.crm.stage && (
+                    <label>
+                      <input type="checkbox" checked={closingStage} onChange={(e) => setClosingStage(e.target.checked)} />
+                      <span>
+                        <b>Mover para {STAGE_LABELS[closing.crm.stage]}</b>
+                        {closing.crm.stageReason && <small>{closing.crm.stageReason}</small>}
+                      </span>
+                    </label>
+                  )}
+                  {closing.crm.nextAction && (
+                    <label>
+                      <input type="checkbox" checked={closingAction} onChange={(e) => setClosingAction(e.target.checked)} />
+                      <span>
+                        <b>Próxima ação: {closing.crm.nextAction}</b>
+                        <small>
+                          {closing.crm.nextActionDate
+                            ? `Prazo combinado: ${formatDate(closing.crm.nextActionDate)}`
+                            : 'Sem prazo na conversa — o CRM vai cobrar sem data.'}
+                        </small>
+                      </span>
+                    </label>
+                  )}
+                  <div className={styles.fechamentoAcoes}>
+                    {crmApplied ? (
+                      <p className={styles.fechamentoOk}><Check size={14} /> {crmApplied} aplicada(s) na oportunidade.</p>
+                    ) : opportunityId ? (
+                      <button type="button" onClick={() => void aplicarNoCrm()} disabled={crmApplying || (!closingStage && !closingAction)}>
+                        {crmApplying ? <><LoaderCircle size={14} className={styles.spin} /> Aplicando…</> : <>Aplicar no CRM</>}
+                      </button>
+                    ) : (
+                      <p className={styles.fechamentoAviso}>
+                        <CircleAlert size={14} /> Escolha a oportunidade no planejamento para poder aplicar no CRM.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {(closing.followUp.whatsapp || closing.followUp.email.body) && (
+                <div className={styles.fechamentoFollow}>
+                  <p className={styles.eyebrow}>Follow-up, nas palavras dele</p>
+                  {closing.followUp.whatsapp && (
+                    <article>
+                      <p>{closing.followUp.whatsapp}</p>
+                      <button type="button" onClick={() => void copiarMinuta('whatsapp')}>
+                        {copiedDraft === 'whatsapp' ? <><Check size={12} /> copiado</> : 'Copiar WhatsApp'}
+                      </button>
+                    </article>
+                  )}
+                  {closing.followUp.email.body && (
+                    <article>
+                      <strong>{closing.followUp.email.subject}</strong>
+                      <p>{closing.followUp.email.body}</p>
+                      <button type="button" onClick={() => void copiarMinuta('email')}>
+                        {copiedDraft === 'email' ? <><Check size={12} /> copiado</> : 'Copiar e-mail'}
+                      </button>
+                    </article>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
 
           {!recording && (
             <div className={styles.captureGuide} data-asr-state={localAsrState} role="status" aria-live="polite">

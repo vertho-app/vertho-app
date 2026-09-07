@@ -132,8 +132,9 @@ export async function POST(
     ].filter(Boolean).join('\n');
 
     const accountName = account.trade_name || account.legal_name;
-    const { summary, analysis } = await analyzeCopilotConversation({
+    const { summary, analysis, closing } = await analyzeCopilotConversation({
       accountName, crmContext, previousContext, transcript,
+      currentStage: opportunity?.stage || null,
     });
 
     const { data: inserted, error } = await sb.from('copilot_conversations').insert({
@@ -180,7 +181,14 @@ export async function POST(
         noteResult.error?.message || touchResult.error?.message);
     }
 
-    return NextResponse.json({ conversation: normalizeConversationRow(inserted) });
+    // O fechamento vai como PROPOSTA: quem move a oportunidade é o vendedor, na
+    // rota /crm, com a evidência à vista.
+    return NextResponse.json({
+      conversation: normalizeConversationRow(inserted),
+      closing,
+      opportunityId: opportunity?.id || null,
+      currentStage: opportunity?.stage || null,
+    });
   } catch (error: any) {
     console.error('[copiloto/conversas]', error?.message || error);
     return NextResponse.json({ error: 'Não foi possível analisar e salvar a conversa agora.' }, { status: 502 });

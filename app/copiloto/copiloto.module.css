@@ -694,6 +694,29 @@
 .stopButton { background: rgba(244, 81, 91, .13); color: #ff9299; border-color: rgba(244,81,91,.42); }
 .captureGuide, /* Os dois canais lado a lado: a falha mais cara da captura e o cliente mudo, e
    ela so aparecia 10s depois, ja com a reuniao rolando. */
+/* O resultado deixou de terminar em "salvo": ele propoe o que muda no funil e
+   como retomar. Aplicar continua sendo um clique do vendedor. */
+.fechamento { margin-bottom: 14px; border: 1px solid rgba(138,217,201,.28); border-left: 2px solid var(--mint); background: linear-gradient(112deg, rgba(138,217,201,.06), rgba(8,29,51,.72) 62%); padding: 16px; }
+.fechamento > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 13px; }
+.fechamento > header > span { display: inline-flex; align-items: center; gap: 7px; color: var(--mint); font: 800 11px/1 var(--font-inter); letter-spacing: .1em; text-transform: uppercase; }
+.fechamento > header em { color: #68839b; font-size: 11px; font-style: normal; }
+.fechamentoCrm { display: grid; gap: 9px; margin-bottom: 14px; }
+.fechamentoCrm label { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 10px; align-items: start; cursor: pointer; padding: 10px 12px; border: 1px solid var(--line); background: rgba(6,23,44,.5); }
+.fechamentoCrm input { margin-top: 3px; width: 15px; height: 15px; accent-color: var(--mint); cursor: pointer; }
+.fechamentoCrm b { display: block; color: #eaf3fa; font-size: 13px; font-weight: 700; }
+.fechamentoCrm small { display: block; margin-top: 3px; color: #8fa8bd; font-size: 12px; line-height: 1.5; }
+.fechamentoAcoes { display: flex; align-items: center; gap: 10px; }
+.fechamentoAcoes button { min-height: 36px; border: 1px solid var(--mint); border-radius: 4px; padding: 0 16px; background: var(--mint); color: #052039; cursor: pointer; font: 800 11px/1 var(--font-inter); }
+.fechamentoAcoes button:disabled { opacity: .45; cursor: not-allowed; }
+.fechamentoOk { display: inline-flex; align-items: center; gap: 7px; margin: 0; color: var(--mint); font-size: 12.5px; }
+.fechamentoAviso { display: inline-flex; align-items: center; gap: 7px; margin: 0; color: var(--amber); font-size: 12.5px; }
+.fechamentoFollow { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 13px; }
+.fechamentoFollow article { padding: 11px 13px; border: 1px solid var(--line); background: rgba(6,23,44,.5); display: grid; gap: 7px; justify-items: start; }
+.fechamentoFollow strong { color: #eaf3fa; font-size: 12.5px; }
+.fechamentoFollow p { margin: 0; color: #bfd0df; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+.fechamentoFollow button { min-height: 28px; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 4px; padding: 0 11px; background: transparent; color: var(--muted); cursor: pointer; font: 750 10px/1 var(--font-inter); letter-spacing: .07em; text-transform: uppercase; }
+.fechamentoFollow button:hover { border-color: rgba(66,212,215,.5); color: var(--cyan); }
+
 .medidores { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; margin-bottom: 12px; }
 .medidor { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); background: rgba(8,29,51,.6); }
 .medidor > span { font-size: 12px; color: var(--muted); }
