@@ -30,6 +30,9 @@ export type CopilotPreparationSeed = {
   audience: string;
   audienceOptions: string[];
   goalThisHour: string;
+  /** Para a tela inferir o avanço pelo CRM, como o servidor sempre soube fazer. */
+  stage: string | null;
+  hasConversation: boolean;
 };
 
 export type CopilotOpenPlanSeed = CopilotPreparationSeed & {
@@ -97,6 +100,8 @@ function planningSeed(detail: CopilotAccountDetail, planning?: CopilotSavedPlan 
     || null;
   return {
     accountId: detail.account.id,
+    stage: opportunity?.stage || null,
+    hasConversation: detail.conversations.length > 0,
     company: detail.account.name,
     context: preparationContext(detail),
     opportunityId: opportunity?.id || '',

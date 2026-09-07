@@ -18,6 +18,8 @@ type CaptureOptions = {
   onPartial?: (payload: SegmentPayload) => void;
   onLevels?: (levels: CaptureAudioLevels) => void;
   onSurface?: (surface: CaptureSurface) => void;
+  /** O usuário parou o compartilhamento (barra do Chrome ou botão): o cliente some sem erro. */
+  onSystemTrackEnded?: () => void;
   onState: (state: CaptureState) => void;
   onError: (message: string) => void;
 };
@@ -107,6 +109,12 @@ export class LocalMeetingCapture {
       selfBrowserSurface: 'exclude',
     } as any);
     if (!this.systemStream.getAudioTracks().length) throw new Error('NO_SYSTEM_AUDIO');
+
+    // Sem isto, "Parar compartilhamento" na barra do Chrome deixava a reunião
+    // muda do lado do cliente e a tela seguia dizendo que ouvia os dois.
+    for (const track of this.systemStream.getAudioTracks()) {
+      track.addEventListener('ended', () => this.options.onSystemTrackEnded?.(), { once: true });
+    }
 
     const surface = this.systemStream.getVideoTracks()[0]?.getSettings().displaySurface;
     this.options.onSurface?.(

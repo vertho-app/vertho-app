@@ -540,7 +540,12 @@ async function planejarConversa(req: Request) {
     const limited = await aiLimiter.check(req, access.email);
     if (limited) return limited;
 
-    const body = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Corpo inválido' }, { status: 400 });
+    }
     const company = text(body?.company, MAX.company);
     const site = text(body?.site, MAX.site);
     const socialProfiles = text(body?.socialProfiles, MAX.socialProfiles);

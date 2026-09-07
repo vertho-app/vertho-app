@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { normalizeConversationGoal } from '@/lib/copiloto/dossier';
 import { csrfCheck } from '@/lib/csrf';
 import { createRateLimiter } from '@/lib/rate-limit';
 import { createSupabaseAdmin } from '@/lib/supabase';
@@ -33,7 +34,16 @@ export async function POST(
     const account = await findCopilotAccount(access, accountId);
     if (!account) return NextResponse.json({ error: 'Empresa não encontrada' }, { status: 404 });
 
-    const body = await req.json();
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Corpo inválido' }, { status: 400 });
+    }
+    if (!account.representante_id) {
+      // A coluna é NOT NULL: sem isto o insert caía em 502 sem dizer o motivo.
+      return NextResponse.json({ error: 'Esta empresa não tem representante vinculado. Vincule um antes de salvar.' }, { status: 400 });
+    }
     const plan = body?.plan && typeof body.plan === 'object' && !Array.isArray(body.plan) ? body.plan : null;
     if (!plan || !clean(plan.companyIdentified, 240) || !Array.isArray(plan.questions)) {
       return NextResponse.json({ error: 'Planejamento inválido' }, { status: 400 });
@@ -63,6 +73,8 @@ export async function POST(
       meetingKind: normalizeMeetingKind(body?.inputs?.meetingKind),
       audience: clean(body?.inputs?.audience, 1000),
       goalThisHour: clean(body?.inputs?.goalThisHour, 1200),
+      // O cliente sempre enviou; a rota descartava, e o avanço se perdia ao reabrir.
+      conversationGoal: normalizeConversationGoal(body?.inputs?.conversationGoal) ?? undefined,
     };
     const { data, error } = await createSupabaseAdmin().from('copilot_plans').insert({
       account_id: accountId,

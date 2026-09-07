@@ -19,7 +19,8 @@ import {
   type LiveUtterance, type MeetingKind, type PacePhase, type SupernormalPost,
   type SupernormalPostDetail,
 } from '@/lib/copiloto/types';
-import { normalizeConversationGoal } from '@/lib/copiloto/dossier';
+import { inferConversationGoal, normalizeConversationGoal } from '@/lib/copiloto/dossier';
+import { buildLivePlan } from '@/lib/copiloto/live-plan';
 import { inferMeetingKind } from '@/lib/copiloto/play';
 import { chaveDaConta, mesclarPerfisSociais, precisaPedirRedes } from '@/lib/copiloto/social-discovery';
 import {
@@ -54,7 +55,8 @@ type Tab = 'clientes' | 'planejamento' | 'ao-vivo' | 'pos-reuniao';
 type LiveAnalysisState = 'idle' | 'active' | 'fallback' | 'error';
 type MeetingComposition = 'solo-vertho' | 'mixed-remote';
 
-const PLAN_STORAGE_KEY = 'vertho-copiloto-plan-v1';
+// Sem o escopo, dois representantes na mesma máquina liam o rascunho um do outro.
+const PLAN_STORAGE_PREFIX = 'vertho-copiloto-plan-v2';
 const ASR_URL = process.env.NEXT_PUBLIC_COPILOTO_ASR_URL || 'ws://127.0.0.1:8765';
 const LIVE_ANALYSIS_COOLDOWN_MS = 2600;
 
@@ -675,15 +677,18 @@ function PlanDossier({ plan, onGoLive, persisted }: { plan: CopilotPlan; onGoLiv
 }
 
 export default function CopilotClient({
-  userName, homeHref, opportunities, accounts, canCreateLeads, supernormalStatus,
+  userName, storageScope, homeHref, opportunities, accounts, canCreateLeads, supernormalStatus,
 }: {
   userName: string;
+  /** Derivado do e-mail na página; separa o rascunho local por pessoa. */
+  storageScope: string;
   homeHref: '/admin/dashboard' | '/representante';
   opportunities: CopilotOpportunity[];
   accounts: CopilotAccountListItem[];
   canCreateLeads: boolean;
   supernormalStatus: 'connected' | 'not-configured' | 'admin-only';
 }) {
+  const PLAN_STORAGE_KEY = `${PLAN_STORAGE_PREFIX}:${storageScope}`;
   const [tab, setTab] = useState<Tab>('clientes');
   const [company, setCompany] = useState('');
   const [site, setSite] = useState('');
@@ -729,6 +734,7 @@ export default function CopilotClient({
   const [captureSurface, setCaptureSurface] = useState<CaptureSurface>('unknown');
   const [audioHealth, setAudioHealth] = useState<AudioInputHealth>('checking');
   const [audioLevels, setAudioLevels] = useState({ system: 0, microphone: 0 });
+  const [shareEnded, setShareEnded] = useState(false);
   const [meetingComposition, setMeetingComposition] = useState<MeetingComposition>('solo-vertho');
   const [utterances, setUtterances] = useState<LiveUtterance[]>([]);
   const [partial, setPartial] = useState<{ channel: LiveUtterance['channel']; text: string } | null>(null);
@@ -881,13 +887,7 @@ export default function CopilotClient({
     lastAnalysisStartedAtRef.current = Date.now();
     setThinking(true);
     try {
-      const livePlan = planRef.current ? {
-        questions: planRef.current.questions,
-        objections: planRef.current.objections,
-        play: planRef.current.play,
-        gaps: planRef.current.gaps,
-        facts: planRef.current.facts.slice(0, 3).map((fact) => ({ title: fact.title, fact: fact.fact })),
-      } : null;
+      const livePlan = buildLivePlan(planRef.current);
       const res = await fetchAuth('/api/copiloto/live', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -935,7 +935,7 @@ export default function CopilotClient({
 
   const onSegment = useCallback((payload: Parameters<typeof toUtterance>[0]) => {
     const utterance = toUtterance(payload);
-    const next = [...utterancesRef.current, utterance].slice(-200);
+    const next = [...utterancesRef.current, utterance].slice(-1000);
     utterancesRef.current = next;
     setUtterances(next);
     setPartial(null);
@@ -967,7 +967,7 @@ export default function CopilotClient({
       channel: payload.canal,
       text: partialText,
       at: Date.now(),
-    }].slice(-200);
+    }].slice(-1000);
     // Se o Whisper demorar para fechar o segmento, a parcial ainda mantém o
     // Copiloto responsivo. O debounce substitui versões anteriores da mesma fala.
     scheduleLiveAnalysis(preview, 500);
@@ -1194,6 +1194,8 @@ export default function CopilotClient({
       setAudienceOptions([]);
       setGoalThisHour('');
       setMeetingKind('primeira_conversa');
+      setConversationGoal('entender_momento');
+      limparConversa();
     }
     setCompany(nextCompany);
     const normalized = nextCompany.trim().toLocaleLowerCase('pt-BR');
@@ -1202,6 +1204,7 @@ export default function CopilotClient({
     setAccountId(matched?.id || '');
     if (matched) {
       setMeetingKind(inferMeetingKind({ stage: matched.currentStage, hasConversation: matched.conversationCount > 0 }));
+      setConversationGoal(inferConversationGoal({ stage: matched.currentStage, hasConversation: matched.conversationCount > 0 }));
       loadAudienceContacts(matched.id);
     } else {
       audienceRequestRef.current += 1;
@@ -1213,6 +1216,7 @@ export default function CopilotClient({
     const selected = opportunities.find((item) => item.id === id);
     if (previous?.accountId !== selected?.accountId) {
       clearPlan();
+      limparConversa();
       setSite('');
       setSocialProfiles('');
       esquecerVarreduraDeRedes();
@@ -1231,6 +1235,10 @@ export default function CopilotClient({
     setContext((current) => current.trim() ? current : selected.context);
     const account = accounts.find((item) => item.id === selected.accountId);
     setMeetingKind(inferMeetingKind({
+      stage: selected.stage,
+      hasConversation: Boolean(account?.conversationCount),
+    }));
+    setConversationGoal(inferConversationGoal({
       stage: selected.stage,
       hasConversation: Boolean(account?.conversationCount),
     }));
@@ -1254,6 +1262,8 @@ export default function CopilotClient({
     setLinhasParticipantes(linhasDeParticipantes(seed.audience, ''));
     setAudienceOptions(seed.audienceOptions);
     setGoalThisHour(seed.goalThisHour);
+    setConversationGoal(inferConversationGoal({ stage: seed.stage, hasConversation: seed.hasConversation }));
+    limparConversa();
     setTab('planejamento');
   }
 
@@ -1276,6 +1286,13 @@ export default function CopilotClient({
     ));
     setAudienceOptions(seed.audienceOptions);
     setGoalThisHour(seed.planning.inputs.goalThisHour || seed.planning.plan.play?.goalThisHour || seed.goalThisHour);
+    // Sem isto o plano reabria em "entender o momento" fosse qual fosse o avanço.
+    setConversationGoal(
+      normalizeConversationGoal(seed.planning.inputs.conversationGoal)
+        || normalizeConversationGoal(seed.planning.plan.goal)
+        || inferConversationGoal({ stage: seed.stage, hasConversation: seed.hasConversation }),
+    );
+    limparConversa();
     setPlan(seed.planning.plan);
     setReading(EMPTY_READING);
     setPlanPersisted(true);
@@ -1296,6 +1313,7 @@ export default function CopilotClient({
         audience: seed.planning.inputs.audience || seed.planning.plan.play?.audience || seed.audience,
         audienceOptions: seed.audienceOptions,
         goalThisHour: seed.planning.inputs.goalThisHour || seed.planning.plan.play?.goalThisHour || seed.goalThisHour,
+        conversationGoal: normalizeConversationGoal(seed.planning.inputs.conversationGoal) || seed.planning.plan.goal || null,
       }));
     } catch { /* storage bloqueado */ }
     setTab('planejamento');
@@ -1416,6 +1434,7 @@ export default function CopilotClient({
     }
 
     setError(null);
+    setShareEnded(false);
     if (asrFreshnessTimerRef.current) window.clearTimeout(asrFreshnessTimerRef.current);
     setLocalAsrReadyNotice(false);
     setLiveAnalysisState('idle');
@@ -1431,6 +1450,13 @@ export default function CopilotClient({
       onPartial,
       onLevels: onAudioLevels,
       onSurface: setCaptureSurface,
+      onSystemTrackEnded: () => {
+        // A evidência de áudio é monotônica de propósito (um pico basta); quando a
+        // faixa morre, rebaixar à mão é a única forma de o aviso voltar.
+        audioEvidenceRef.current = { ...audioEvidenceRef.current, systemHeard: false };
+        setShareEnded(true);
+        setAudioHealth('microphone-only');
+      },
       onState: setCaptureState,
       onError: setError,
     });
@@ -1549,6 +1575,21 @@ export default function CopilotClient({
     }
   }
 
+  /**
+   * As falas pertencem a uma conversa, não à aba.
+   *
+   * Elas nunca eram zeradas: trocar de empresa depois de uma reunião deixava a
+   * transcrição da anterior no ar, e "Salvar resultado" gravava as falas da
+   * empresa A no histórico da empresa B.
+   */
+  function limparConversa() {
+    utterancesRef.current = [];
+    setUtterances([]);
+    setPartial(null);
+    setReading(EMPTY_READING);
+    setResultSaved(false);
+  }
+
   function clearPlan() {
     try { localStorage.removeItem(PLAN_STORAGE_KEY); } catch { /* storage bloqueado */ }
     setPlan(null);
@@ -1569,7 +1610,12 @@ export default function CopilotClient({
   // O remédio muda com a superfície escolhida, e "prefira a aba" é um beco quando a
   // reunião roda num aplicativo de desktop: ali a única saída é a tela inteira com o
   // áudio do sistema. Janela nunca carrega áudio no Chrome.
-  const audioIssue = audioHealth === 'microphone-only'
+  const audioIssue = shareEnded
+    ? {
+        title: 'O compartilhamento da reunião foi encerrado.',
+        detail: 'Você parou de compartilhar (pela barra do Chrome ou pelo botão). O microfone segue, mas o som do cliente não chega mais: recompartilhe para continuar.',
+      }
+    : audioHealth === 'microphone-only'
     ? {
         title: 'Estou ouvindo apenas você.',
         detail: captureSurface === 'window'
@@ -2077,7 +2123,7 @@ export default function CopilotClient({
             </section>
           </div>
 
-          {!focusMode && <footer className={styles.liveFooter}><ShieldCheck size={15} /><span>Avise os participantes de que você usa um assistente de transcrição e respeite a política de gravação da organização.</span><code>{ASR_URL}</code></footer>}
+          {!focusMode && <footer className={styles.liveFooter}><ShieldCheck size={15} /><span>Avise os participantes de que você usa um assistente de transcrição e respeite a política de gravação da organização.</span></footer>}
         </section>
       )}
 

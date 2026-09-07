@@ -88,6 +88,7 @@ export default async function CopilotPage() {
   return (
     <CopilotClient
       userName={userName}
+      storageScope={storageScopeFor(email)}
       homeHref={resolveCopilotHomeHref(access.kind, hasPlatformAdminAccess)}
       opportunities={opportunities}
       accounts={accounts}
@@ -99,4 +100,16 @@ export default async function CopilotPage() {
       }
     />
   );
+}
+
+/**
+ * Escopo do rascunho local: um hash curto do e-mail, nunca o e-mail.
+ *
+ * Vai para a chave do localStorage, que qualquer um com acesso ao navegador
+ * enumera; o hash separa as pessoas sem escrever quem são.
+ */
+function storageScopeFor(email: string): string {
+  let h = 0;
+  for (const ch of email.toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  return (h >>> 0).toString(36);
 }

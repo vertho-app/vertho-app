@@ -19,7 +19,10 @@ function clean(value: unknown, max: number): string {
 function validDate(value: unknown): string {
   if (typeof value !== 'string' || !value) return new Date().toISOString();
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString();
+  // Data futura é erro de relógio ou de digitação, e mandaria a conversa para o
+  // topo da lista para sempre.
+  if (Number.isNaN(date.getTime()) || date.getTime() > Date.now() + 24 * 60 * 60 * 1000) return new Date().toISOString();
+  return date.toISOString();
 }
 
 export async function POST(
@@ -39,8 +42,18 @@ export async function POST(
     const account = await findCopilotAccount(access, accountId);
     if (!account) return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 });
 
-    const body = await req.json();
-    const transcript = clean(body?.transcript, 30000);
+    if (!account.representante_id) {
+      return NextResponse.json({ error: 'Esta empresa não tem representante vinculado. Vincule um antes de salvar.' }, { status: 400 });
+    }
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'Corpo inválido' }, { status: 400 });
+    }
+    // 30.000 caracteres cabiam em ~40 min de fala: a reunião de uma hora era cortada
+    // em silêncio no fim, justamente onde ficam o combinado e o próximo passo.
+    const transcript = clean(body?.transcript, 120000);
     const opportunityId = clean(body?.opportunityId, 60);
     const planningId = clean(body?.planningId, 60);
     const source = body?.source === 'whisper_local' || body?.source === 'supernormal' || body?.source === 'manual'
