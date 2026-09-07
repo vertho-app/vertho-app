@@ -16,6 +16,7 @@
     "actions/fase5/reavaliacao.ts:reavaliacao_chat": "Dívida: 0 linha no ledger em 30 dias.",
     "actions/cenario-b.ts:cenarios_b": "Dívida: 24 de 25 chamadas já saem com dono pelo caminho de fase5; este ramo respondeu por 1 linha (US$ 0,05).",
     "actions/fase5/cenarios-b.ts:cenarios_b": "Idem: ramo secundário da geração de Cenário B.",
-    "actions/fase1.ts:ia1_top10": "Dívida: 2 chamadas em 30 dias (US$ 0,04), a última em 11/08."
+    "actions/fase1.ts:ia1_top10": "Dívida: 2 chamadas em 30 dias (US$ 0,04), a última em 11/08.",
+    "lib/tts/canario.ts:canario_tts": "Canario semanal de TTS: sonda tecnica que sintetiza um texto fixo para medir deriva do modelo. Nao pertence a tenant nenhum."
   }
 }

@@ -95,6 +95,26 @@ async function patchVideo(videoId: string, fields: Record<string, unknown>): Pro
   if (!r.ok) throw new Error(`patch video ${videoId}: ${r.status} ${(await r.text()).slice(0, 150)}`);
 }
 
+/**
+ * Dono do custo da narração, lido do próprio registro do vídeo.
+ *
+ * A task recebe só `videoId`, e o `empresaId` não descia até aqui: `tts_video_cena`
+ * era 100% órfão no ledger (105 chamadas / US$ 1,37 em UM dia, medido 07/09/2026),
+ * caindo na conta da plataforma em vez da do cliente. Deriva do `videoId` em vez de
+ * entrar no payload porque a task já é disparada de vários lugares — um parâmetro
+ * novo teria que ser lembrado em cada um deles.
+ */
+async function getVideoEmpresaId(videoId: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${SUPA}/rest/v1/videos_gerados?id=eq.${videoId}&select=empresa_id`, {
+      headers: { apikey: KEY, Authorization: `Bearer ${KEY}` },
+    });
+    if (!r.ok) return null;
+    const j = await r.json().catch(() => []);
+    return (j?.[0]?.empresa_id as string) ?? null;
+  } catch { return null; }
+}
+
 /** Assets já persistidos no registro (RESUME: retry/re-render NÃO re-gera narração
  *  nem avatar/HeyGen — reusa o que já foi feito). Vazio no 1º processamento. */
 async function getVideoAssets(videoId: string): Promise<AssetMap> {
@@ -273,6 +293,7 @@ export const gerarVideoModuloTask = task({
       // RESUME: parte dos assets já persistidos (retry do Trigger ou re-render de um
       // render_queued que não achou box) → NÃO re-gera narração/avatar/HeyGen.
       const assets: AssetMap = await getVideoAssets(videoId);
+      const empresaIdDoVideo = await getVideoEmpresaId(videoId);
       // Duração medida nos bytes ENVIADOS nesta execução, por cena — conferida contra
       // o que o Storage serve antes de compor (invariante do passo 3).
       const duracaoLocal: Record<string, number> = {};
@@ -306,7 +327,7 @@ export const gerarVideoModuloTask = task({
               voice: VOICE,
               style: NARRATION_STYLE_UNICO,
               segmentar: false,
-              ledger: { feature: 'tts_video_cena' },
+              ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo },
             });
             takeMp3 = audio.buffer;
             await storagePut('video-assets', `${videoId}/take-${assinatura}-${GERACAO_TAG()}.mp3`, takeMp3, 'audio/mpeg');
@@ -368,7 +389,7 @@ export const gerarVideoModuloTask = task({
           voice: VOICE,
           style: styleForScene(s.type),
           segmentar: false,
-          ledger: { feature: 'tts_video_cena' },
+          ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo },
         });
         // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.
         // E garante a CABEÇA: a composição pula 33 ms do áudio (trimBefore), então a fala

@@ -116,10 +116,15 @@ async function getBetoContext(email: string): Promise<any> {
 
   // CIS_COLUMNS traz DISC/liderança/tipo psicológico/competências + report_texts,
   // necessários para o bloco de perfil comportamental do Beto.
-  const { data: colab } = await sb.from('colaboradores')
-    .select(CIS_COLUMNS)
-    .eq('email', email.toLowerCase())
-    .single<any>();
+  // 🔴 `findColabByEmail`, nunca `.eq('email').single()`: o `.single()` ERRA quando
+  // a pessoa está em mais de uma empresa — o PostgREST devolve erro por múltiplas
+  // linhas e `colab` vem null. Medido 07/09/2026: **37 dos 473 colaboradores** têm
+  // o e-mail em 2+ empresas, e para todos eles o Beto vinha respondendo SEM perfil
+  // comportamental, SEM pílula da semana e SEM competência em foco — silenciosamente,
+  // porque o `catch` de quem chama trata contexto ausente como caso normal. O custo
+  // sem dono no ledger era o sintoma visível de um defeito de produto maior.
+  const { findColabByEmail } = await import('@/lib/authz');
+  const colab: any = await findColabByEmail(email, CIS_COLUMNS);
 
   if (!colab) return null;
 

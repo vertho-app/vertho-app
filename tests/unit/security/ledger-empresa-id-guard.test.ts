@@ -18,6 +18,13 @@
  * da chamada, não se o VALOR é o tenant certo. É a mesma limitação declarada dos
  * guards de tenant desta base — pega a omissão, não a troca.
  *
+ * 🔑 **Cobre os DOIS caminhos de escrita no ledger.** A primeira versão olhava só
+ * `callAI`/`callAIChat` e por isso deixou passar `tts_video_cena`: o TTS grava por
+ * `ledger: { feature }` em `generateNarrationAudio`, não pelo wrapper de LLM. Foi
+ * 100% órfão em 105 chamadas num único dia, com o guard verde ao lado. Guard que
+ * cobre um caminho de dois dá a garantia mais perigosa que existe: a parcial que
+ * parece total.
+ *
  * A allowlist é dívida declarada e **só encolhe**. Entrada nova ali exige motivo
  * escrito; sem isso, a saída fácil de um CI vermelho seria justamente desligar a
  * medição que este relatório existe para ter.
@@ -98,6 +105,22 @@ export function violacoes(arquivos = arquivosDeProducao()): Violacao[] {
       const taskKey = tk ? tk[1] : '(dinâmica)';
       achados.push({ chave: `${rel}:${taskKey}`, arquivo: rel, linha: i + 1, taskKey });
     }
+
+    // Segundo caminho: `ledger: { feature: 'x' }` — o TTS e o Batch escrevem por
+    // aqui, sem passar pelo wrapper de LLM.
+    for (let i = 0; i < linhas.length; i++) {
+      const m = linhas[i].match(/ledger\s*:\s*\{([^}]*)\}/);
+      if (!m) continue;
+      const dentro = m[1];
+      const f = dentro.match(/feature\s*:\s*['"]([^'"]+)['"]/);
+      if (!f) continue;
+      // `[:,}]` OU fim da captura: o `}` do objeto fica FORA de `dentro`, então
+      // `ledger: { feature: 'x', empresaId }` (shorthand no fim) escapava do teste
+      // e aparecia como violação. Terceira vez que o shorthand engana um detector
+      // textual nesta rodada — por isso o caso está fixado em teste abaixo.
+      if (/empresaId\s*([:,}]|$)/.test(dentro.trim())) continue;
+      achados.push({ chave: `${rel}:${f[1]}`, arquivo: rel, linha: i + 1, taskKey: f[1] });
+    }
   }
   return achados;
 }
@@ -135,6 +158,15 @@ describe('Guard: chamada de IA etiquetada declara o dono do custo', () => {
       'Estas entradas já não são violação — remova-as da allowlist. Dívida que fica '
       + 'na lista depois de paga é permissão pré-aprovada para o próximo esquecimento.',
     ).toEqual([]);
+  });
+
+  it('🔴 shorthand no fim do objeto conta como etiquetado', () => {
+    // `ledger: { feature: 'kit_semanal', empresaId }` é a forma real em
+    // `actions/kits.ts`. Sem este caso, o guard acusaria um call-site CORRETO — e
+    // a saída fácil seria allowlistar algo que já está certo, virando a lista numa
+    // permissão pré-aprovada.
+    const kits = violacoes(['actions/kits.ts']).map((v) => v.taskKey);
+    expect(kits).not.toContain('kit_semanal');
   });
 
   it('toda entrada da allowlist tem motivo escrito', () => {
