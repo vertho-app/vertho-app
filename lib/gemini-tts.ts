@@ -21,7 +21,7 @@ import {
 import { getGoogleAccessToken, vertexProjectId } from './tts/google-token';
 import { medirDeriva, avaliarDeriva, resumirDeriva, ALVO_F0_POR_VOZ, type MetricasDeriva, type AlvoVoz } from './tts/deriva';
 import { ASSINATURAS_VOZ } from './tts/assinaturas-voz';
-import { ELENCO } from './tts/elenco';
+import { ELENCO, tentativasDaVoz } from './tts/elenco';
 import { gravarVereditosTts } from './tts/qa-log';
 import { costFromTokens } from './ia-cost-catalog';
 import { gravarLinhaLedger } from './ia-ledger';
@@ -390,7 +390,10 @@ async function sintetizarComPortao(
 ): Promise<Sintese & { qa?: QaDeriva }> {
   if (!QA_GATE_ATIVO) return sintetizar();
   const alvo = ALVO_F0_POR_VOZ[voz] || null;
-  const total = Math.max(1, opts.tentativas ?? QA_MAX_TENTATIVAS);
+  // Tentativas: o que a chamada pediu > o que o PERFIL DA VOZ exige > o default global.
+  // Voz dispersa entre takes (Algieba: 4,67 st) precisa de mais tentativas para a mesma
+  // garantia de registro que a Aoede tem com 2.
+  const total = Math.max(1, opts.tentativas ?? tentativasDaVoz(voz) ?? QA_MAX_TENTATIVAS);
   // "Menos ruim" nunca é um take SEM FALA: silêncio ou ruído reprovam com um motivo só e
   // ganhariam de um take com voz e dois motivos. Sem nenhuma tentativa com fala, não há
   // o que publicar — falha alto (a chamada já re-tentou "resposta sem áudio" antes).

@@ -5,10 +5,15 @@
  * de 4 min + robustez R2/R3/R4). Servem ao portão (distância de cada take à sua voz:
  * identidade da locutora) e ao canário semanal (o modelo GA mudou por baixo?).
  * Recalcular ao trocar de voz ou de modelo.
+ *
+ * Algieba (07/09/2026): 6 takes do texto de 4 min do canário na direção do Beto, no
+ * Vertex. Cada take a 0,06-0,10σ da própria assinatura, 0,39-0,45σ da do Iapetus e
+ * 0,49σ da Aoede — é uma terceira locutora, não uma variação das outras.
  */
 import type { AssinaturaTimbre } from './deriva';
 
 export const ASSINATURAS_VOZ: Record<string, AssinaturaTimbre> = {
+  Algieba: { media: [-11.7947, 1.1796, -2.4781, -2.8141, -2.7866, -2.7756, -2.9296, -2.7969, -2.5146, -1.3229, -1.1489, -2.1826], sigma: [12.4654, 5.9087, 6.6096, 5.3763, 3.6786, 3.9987, 2.8201, 2.9860, 3.1216, 2.5996, 2.0667, 2.4065], frames: 22283 },
   Aoede: { media: [-13.4130, -1.5604, -4.4188, -5.2149, -5.4771, -3.6887, -3.6928, -3.5882, -2.1311, -2.1917, -2.5812, -0.0526], sigma: [11.3393, 6.4434, 6.1640, 5.8702, 4.3747, 2.9983, 3.3953, 2.7112, 2.4756, 2.5315, 2.3113, 1.9229], frames: 51808 },
   Iapetus: { media: [-8.7485, -0.0390, -1.5106, 0.9669, -3.5133, -1.7357, -3.6235, -4.9328, -0.5524, -0.8212, -0.6978, -1.1664], sigma: [13.4282, 6.2736, 6.6839, 4.8165, 4.1397, 4.0191, 2.8091, 3.4911, 3.0685, 2.0599, 2.2530, 1.8882], frames: 56015 },
 };

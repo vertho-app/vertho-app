@@ -7,6 +7,9 @@
 import { describe, it, expect } from 'vitest';
 import { checarTaxaRetakeTts, checarCanarioTts, TTS_RETAKE_AMOSTRA_MINIMA, TTS_CANARIO_TIMBRE_MAX, type RetakeTtsAgregado, type CanarioObservado } from '@/lib/pipeline-health/regras';
 import { assinaturaTimbre, distanciaTimbre, combinarAssinaturas, medirDeriva } from '@/lib/tts/deriva';
+import { ELENCO } from '@/lib/tts/elenco';
+
+const VOZ_BETO = ELENCO.beto.voz; // muda a cada recast; o papel não
 
 const SR = 24000;
 /** "Voz" sintética: harmônicos de f0 com pesos dados (o timbre é o perfil de pesos). */
@@ -50,12 +53,12 @@ describe('R18 · taxa de retake do portão', () => {
 
 describe('R19 · canário semanal', () => {
   it('canário ok e perto da assinatura em todas as vozes → nada', () => {
-    expect(checarCanarioTts([canario({}), canario({ voz: 'Iapetus', f0MedHz: 145 })], ['Aoede', 'Iapetus'])).toBeNull();
+    expect(checarCanarioTts([canario({}), canario({ voz: VOZ_BETO, f0MedHz: 145 })], ['Aoede', VOZ_BETO])).toBeNull();
   });
   it('voz sem canário na janela → AVISO (o cron não rodou)', () => {
-    const a = checarCanarioTts([canario({})], ['Aoede', 'Iapetus'])!;
+    const a = checarCanarioTts([canario({})], ['Aoede', VOZ_BETO])!;
     expect(a.severidade).toBe('aviso');
-    expect(a.amostra?.[0]).toContain('Iapetus');
+    expect(a.amostra?.[0]).toContain(VOZ_BETO);
   });
   it('canário reprovado por deriva/timbre, ou longe da assinatura → CRÍTICO (a voz mudou por baixo)', () => {
     const rep = checarCanarioTts([canario({ ok: false, motivos: ['registro deriva +2.1 st/min'] })], ['Aoede'])!;

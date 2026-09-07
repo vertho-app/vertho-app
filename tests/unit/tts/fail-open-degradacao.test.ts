@@ -11,6 +11,7 @@
  * (reprova por "sem fala" e por registro), e exige a linha de degradação.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ELENCO } from '@/lib/tts/elenco';
 
 type EntradaDegradacao = { fluxo: string; tipo: string; chave: string; severidade?: string; detalhe?: Record<string, unknown> | null };
 const registrarDegradacao = vi.fn(async (_input: EntradaDegradacao) => {});
@@ -61,11 +62,11 @@ describe('fail-open do portão de TTS registra degradação', () => {
   });
 
   it('take COM FALA mas reprovado (registro fora do alvo) é publicado E registra degradação', async () => {
-    // 208 Hz é o alvo da Aoede; pedindo a voz do Beto (alvo 144), o mesmo áudio reprova
+    // 208 Hz é o alvo da mentora; pedindo a voz do BETO (alvo mais grave), o mesmo áudio reprova
     // por registro — take com fala, reprovado, publicado: o caso do fail-open.
     vi.stubGlobal('fetch', vi.fn(async () => respostaTts(25, true)));
     const { generateNarrationAudio } = await import('@/lib/gemini-tts');
-    const audio = await generateNarrationAudio('Texto de teste para a narração do portão.', { voice: 'Iapetus', segmentar: false });
+    const audio = await generateNarrationAudio('Texto de teste para a narração do portão.', { voice: ELENCO.beto.voz, segmentar: false, tentativas: 2 });
     expect(audio.qa?.ok).toBe(false);
     expect(registrarDegradacao).toHaveBeenCalledTimes(1);
     const arg = registrarDegradacao.mock.calls[0][0];
@@ -80,7 +81,7 @@ describe('fail-open do portão de TTS registra degradação', () => {
     // (a pessoa esperando). Testar um só deixava o outro publicar em silêncio.
     vi.stubGlobal('fetch', vi.fn(async () => respostaTts(25, true)));
     const { generateNarrationAudio } = await import('@/lib/gemini-tts');
-    const audio = await generateNarrationAudio('Texto de teste para a narração do portão.', { voice: 'Iapetus', segmentar: false, retakeParalelo: true });
+    const audio = await generateNarrationAudio('Texto de teste para a narração do portão.', { voice: ELENCO.beto.voz, segmentar: false, retakeParalelo: true, tentativas: 2 });
     expect(audio.qa?.ok).toBe(false);
     expect(registrarDegradacao).toHaveBeenCalledTimes(1);
     expect(registrarDegradacao.mock.calls[0][0].tipo).toBe('tts-qa-reprovado-publicado');
@@ -89,7 +90,7 @@ describe('fail-open do portão de TTS registra degradação', () => {
   it('take aprovado não registra degradação nenhuma', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => respostaTts(25, true)));
     const { generateNarrationAudio } = await import('@/lib/gemini-tts');
-    const audio = await generateNarrationAudio('Texto de teste para a narração do portão.', { voice: 'Aoede', segmentar: false });
+    const audio = await generateNarrationAudio('Texto de teste para a narração do portão.', { voice: ELENCO.mentora.voz, segmentar: false });
     expect(audio.qa?.ok).toBe(true);
     expect(registrarDegradacao).not.toHaveBeenCalled();
   });

@@ -5,6 +5,12 @@
  */
 import { describe, it, expect } from 'vitest';
 import { medirDeriva, avaliarDeriva, ALVO_F0_POR_VOZ } from '@/lib/tts/deriva';
+import { ELENCO } from '@/lib/tts/elenco';
+
+/** Alvos por PERSONAGEM: o nome da voz muda a cada recast (Iapetus → Algieba em 07/09),
+ *  o papel não. Citar o nome aqui quebrava o teste a cada troca. */
+const ALVO_BETO = ALVO_F0_POR_VOZ[ELENCO.beto.voz];
+const ALVO_MENTORA = ALVO_F0_POR_VOZ[ELENCO.mentora.voz];
 
 const SR = 24000;
 
@@ -36,7 +42,7 @@ describe('portão de deriva', () => {
     expect(m.janelas).toBeGreaterThanOrEqual(3);
     expect(Math.abs(12 * Math.log2(m.f0MedHz / 208))).toBeLessThan(0.5);
     expect(Math.abs(m.f0SlopeStMin)).toBeLessThan(0.5);
-    const v = avaliarDeriva(m, ALVO_F0_POR_VOZ.Aoede);
+    const v = avaliarDeriva(m, ALVO_MENTORA);
     expect(v.motivos).toEqual([]);
     expect(v.ok).toBe(true);
   });
@@ -44,18 +50,18 @@ describe('portão de deriva', () => {
   it('PEGA a rampa de volume plantada (−9 dB ao longo de 65 s)', () => {
     const m = medirDeriva(voz({ segundos: 65, f0: 208, ganhoFinalDb: -9 }), SR);
     expect(m.loudSlopeDbMin).toBeLessThan(-0.8);
-    const v = avaliarDeriva(m, ALVO_F0_POR_VOZ.Aoede);
+    const v = avaliarDeriva(m, ALVO_MENTORA);
     expect(v.ok).toBe(false);
     expect(v.motivos.join(' ')).toMatch(/volume/);
   });
 
-  it('PEGA o registro fora do alvo da voz (208 Hz numa voz cujo alvo é 144 Hz)', () => {
+  it('PEGA o registro fora do alvo da voz (a voz da mentora medida contra o alvo do Beto)', () => {
     const m = medirDeriva(voz({ segundos: 45, f0: 208 }), SR);
-    const v = avaliarDeriva(m, ALVO_F0_POR_VOZ.Iapetus);
+    const v = avaliarDeriva(m, ALVO_BETO);
     expect(v.ok).toBe(false);
     expect(v.motivos.join(' ')).toMatch(/registro/);
     // e a MESMA medição passa no alvo certo
-    expect(avaliarDeriva(m, ALVO_F0_POR_VOZ.Aoede).ok).toBe(true);
+    expect(avaliarDeriva(m, ALVO_MENTORA).ok).toBe(true);
   });
 
   it('PEGA a rampa de pitch plantada (a assinatura do Algieba: registro sobe ao longo do episódio)', () => {
@@ -63,7 +69,7 @@ describe('portão de deriva', () => {
     // volume e timbre iguais — só a inclinação acusa.
     const m = medirDeriva(voz({ segundos: 65, f0: 195, f0Final: 224 }), SR);
     expect(m.f0SlopeStMin).toBeGreaterThan(1.5);
-    const v = avaliarDeriva(m, ALVO_F0_POR_VOZ.Aoede);
+    const v = avaliarDeriva(m, ALVO_MENTORA);
     expect(v.ok).toBe(false);
     expect(v.motivos.join(' ')).toMatch(/registro deriva/);
   });
@@ -71,15 +77,15 @@ describe('portão de deriva', () => {
   it('PEGA a troca de timbre plantada (espectro muda na 2ª metade, F0 e volume iguais)', () => {
     const claro = [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3];
     const escuro = [1, 0.15, 0.05, 0.02, 0, 0, 0, 0];
-    const m = medirDeriva(voz({ segundos: 85, f0: 144, pesos: (t) => (t < 42 ? claro : escuro) }), SR);
+    const m = medirDeriva(voz({ segundos: 85, f0: ALVO_BETO.f0Hz, pesos: (t) => (t < 42 ? claro : escuro) }), SR);
     expect(m.timbreMaxVs1a).toBeGreaterThan(0.35);
-    const v = avaliarDeriva(m, ALVO_F0_POR_VOZ.Iapetus);
+    const v = avaliarDeriva(m, ALVO_BETO);
     expect(v.motivos.join(' ')).toMatch(/timbre/);
   });
 
   it('áudio curto (1 janela) só é julgado pelo registro', () => {
-    const m = medirDeriva(voz({ segundos: 12, f0: 144, ganhoFinalDb: -9 }), SR);
-    expect(avaliarDeriva(m, ALVO_F0_POR_VOZ.Iapetus).ok).toBe(true);
+    const m = medirDeriva(voz({ segundos: 12, f0: ALVO_BETO.f0Hz, ganhoFinalDb: -9 }), SR);
+    expect(avaliarDeriva(m, ALVO_BETO).ok).toBe(true);
     expect(avaliarDeriva(m, null).ok).toBe(true);
   });
 });
@@ -87,13 +93,13 @@ describe('portão de deriva', () => {
 describe('portão de deriva: tem fala?', () => {
   it('silêncio e ruído REPROVAM (antes voltavam ok: nenhuma régua se aplicava)', () => {
     const silencio = Buffer.alloc(SR * 2 * 5);
-    const r1 = avaliarDeriva(medirDeriva(silencio, SR), ALVO_F0_POR_VOZ.Aoede);
+    const r1 = avaliarDeriva(medirDeriva(silencio, SR), ALVO_MENTORA);
     expect(r1.ok).toBe(false);
     expect(r1.motivos.join(' ')).toContain('sem fala');
     const ruido = Buffer.alloc(SR * 2 * 5);
     let seed = 7;
     for (let i = 0; i < SR * 5; i++) { seed = (seed * 1103515245 + 12345) & 0x7fffffff; ruido.writeInt16LE(Math.round((seed / 0x7fffffff * 2 - 1) * 100), i * 2); }
-    const r2 = avaliarDeriva(medirDeriva(ruido, SR), ALVO_F0_POR_VOZ.Aoede);
+    const r2 = avaliarDeriva(medirDeriva(ruido, SR), ALVO_MENTORA);
     expect(r2.ok).toBe(false);
     expect(r2.motivos.join(' ')).toContain('sem fala');
   });
@@ -101,6 +107,6 @@ describe('portão de deriva: tem fala?', () => {
   it('a voz sintética tem fração vozeada bem acima do mínimo e continua passando', () => {
     const m = medirDeriva(voz({ segundos: 25, f0: 208 }), SR);
     expect(m.fracaoVozeada).toBeGreaterThan(0.3);
-    expect(avaliarDeriva(m, ALVO_F0_POR_VOZ.Aoede).ok).toBe(true);
+    expect(avaliarDeriva(m, ALVO_MENTORA).ok).toBe(true);
   });
 });

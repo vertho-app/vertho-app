@@ -36,7 +36,7 @@ export const TEXTO_CANARIO = [
 /** Direção por voz: a mesma que a produção usa para cada personagem. */
 export const DIRECAO_CANARIO: Record<string, string> = {
   Aoede: 'Narre como uma mentora calorosa e acolhedora, em português do Brasil, num ritmo natural de conversa. Respiração natural entre as frases, tom íntimo e humano. Mantenha a fluidez — não alongue as pausas.',
-  Iapetus: 'Narre em português do Brasil como um mentor próximo e seguro, falando diretamente com a pessoa, ritmo moderado e pausas reflexivas naturais.',
+  Algieba: 'Narre em português do Brasil como um mentor próximo e seguro, falando diretamente com a pessoa, ritmo moderado e pausas reflexivas naturais.',
 };
 
 export interface ResultadoCanario {
