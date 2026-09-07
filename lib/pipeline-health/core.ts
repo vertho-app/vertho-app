@@ -204,7 +204,7 @@ export async function rodarPostflight(
 
   for (const emp of empresas) {
     const t0 = Date.now();
-    const pilula = pilulaDoDia((emp.sys_config as any)?.cadencia, dia);
+    const pilula = pilulaDoDia((emp.sys_config as any)?.cadencia, dia, dataAlvo);
     if (!pilula) continue;
     try {
       const envios = await coletarEnviosDoDia(sb, emp.id, dataAlvo, pilula);

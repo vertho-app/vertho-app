@@ -18,6 +18,7 @@ import { formatosEntregaveis, escolherFormatoAnunciado } from '@/lib/season-engi
 import { normalizePhone } from '@/lib/phone';
 import { levantarPlanoKitsCoorte, SEM_TURMA } from '@/lib/season-engine/kit/plano-coorte';
 import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
+import { diasDaSemanaComFeriado } from '@/lib/fase4/feriados';
 import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro, CelulaVideoSemDeck, PushDiario } from './regras';
 
 /** Dia da semana no fuso do envio (1=segunda … 7=domingo), como o cron calcula. */
@@ -30,10 +31,30 @@ export function diaDaSemanaBRT(d: Date): number {
 /**
  * Qual pílula sai na data alvo, segundo a cadência da empresa? `null` = nenhuma.
  * Espelha os gates de `triggerDiario` (hoje === diaP1 / diaP2 / diaEv).
+ *
+ * 🔴 O DESLOCAMENTO DE FERIADO ENTRA AQUI, senão o instrumento mede outro dia.
+ * `trigger-diario-empresa` aplica `diasDaSemanaComFeriado` antes de decidir; esta
+ * função não aplicava, e na semana de feriado os dois gêmeos divergiam:
+ * `Medido: 07/09/2026` (Independência) — a P1 de Ibipeba andou de segunda para
+ * terça e a P2 de terça para quarta, então na segunda o preflight media uma
+ * entrega que não sairia, e na terça concluía "não é dia de pílula" justamente no
+ * dia em que 36 pessoas receberiam. Nos dois dias o resultado é o mesmo: nenhum
+ * alarme sobre a entrega REAL.
+ *
+ * `dataAlvo` é obrigatória de propósito: sem a data não dá para saber em que
+ * semana o feriado cai, e um parâmetro opcional aqui recriaria o caminho que
+ * ignora a régua.
  */
-export function pilulaDoDia(cadencia: any, dia: number): 1 | 2 | null {
-  const diaP1 = cadencia?.fase4_dia_pilula ?? 1;
-  const diaP2 = cadencia?.fase4_dia_pilula2 ?? 2;
+export function pilulaDoDia(cadencia: any, dia: number, dataAlvo: Date): 1 | 2 | null {
+  const base = {
+    diaP1: cadencia?.fase4_dia_pilula ?? 1,
+    diaP2: cadencia?.fase4_dia_pilula2 ?? 2,
+    diaEv: cadencia?.fase4_dia_evidencia ?? 4,
+  };
+  // A data no fuso do envio (o mesmo recorte de `diaDaSemanaBRT`): usar o dia UTC
+  // cru colocaria o feriado na semana errada nas horas finais do dia.
+  const diaBRT = new Date(dataAlvo.getTime() - 3 * 3600_000).toISOString().slice(0, 10);
+  const { diaP1, diaP2 } = diasDaSemanaComFeriado(base, diaBRT, dia);
   if (dia === diaP1) return 1;
   if (dia === diaP2) return 2;
   return null;
@@ -50,7 +71,7 @@ export async function coletarEntregasPrevistas(
   dataAlvo: Date,
 ): Promise<{ entregas: EntregaPrevista[]; pilulaAlvo: 1 | 2 | null }> {
   const { data: emp } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
-  const pilulaAlvo = pilulaDoDia((emp?.sys_config as any)?.cadencia, diaDaSemanaBRT(dataAlvo));
+  const pilulaAlvo = pilulaDoDia((emp?.sys_config as any)?.cadencia, diaDaSemanaBRT(dataAlvo), dataAlvo);
   if (!pilulaAlvo) return { entregas: [], pilulaAlvo: null };
 
   const { data: envios } = await sb.from('fase4_envios')
