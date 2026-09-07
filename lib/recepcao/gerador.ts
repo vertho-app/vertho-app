@@ -43,7 +43,9 @@ export function geradorRecepcao(empresaId: string|null, colaboradorId: string | 
   try {
    const raw=await callAIChat(system,messages,{model},etapa==='paciente'?4000:8000,{
     taskKey,empresaId,colaboradorId,source:admin?'piloto':'wrapper',locale:'pt-BR',correlationId:persistencia?chamada.id:undefined,
-    temperature:etapa==='paciente'?0.6:0,timeoutMs:45000,maxRetries:0,
+    // Avaliador medido em prod (06/09): média 34 s, máximo 40 s; 1 de 5 morreu no teto de 45 s.
+    // O core tenta 2×, e a rota tem 300 s: 100 s por tentativa cabe com folga.
+    temperature:etapa==='paciente'?0.6:0,timeoutMs:etapa==='paciente'?45000:100000,maxRetries:0,
    });
    return JSON.stringify((etapa==='paciente'?pacienteSchema:avaliacaoSchema).parse(parseJsonIA(raw)));
  } catch(e) { await validar(e);throw e; }

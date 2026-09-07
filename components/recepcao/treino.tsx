@@ -9,8 +9,9 @@ import styles from './treino.module.css';
 import GestaoRecepcao from './gestao';
 import VozRecepcao from './voz';
 
-const nomes: Record<string, string> = { acolhimento: 'Acolhimento', compreensao: 'Compreensão da demanda', clareza: 'Clareza e precisão', resolucao: 'Resolução', procedimentos: 'Procedimentos' };
-const resultados: Record<string, string> = { remarcado: 'Consulta remarcada', encaminhado: 'Encaminhamento combinado', nao_resolvido: 'Demanda não resolvida', inconclusivo: 'Resultado inconclusivo' };
+// Fallback para relatórios anteriores à versão 1.0, que não gravavam `nome` na dimensão.
+const nomes: Record<string, string> = { acolhimento: 'Acolhimento', compreensao: 'Compreensão da demanda', clareza: 'Clareza e precisão', resolucao: 'Resolução', procedimentos: 'Procedimentos', conducao_conflito: 'Condução sob pressão' };
+const resultados: Record<string, string> = { remarcado: 'Consulta remarcada', encaminhado: 'Encaminhamento combinado', orientado: 'Orientação compreendida', nao_resolvido: 'Demanda não resolvida', inconclusivo: 'Resultado inconclusivo' };
 const classificacoes: Record<string, string> = { adequado: 'Adequado', parcial: 'Parcial', insuficiente: 'Precisa melhorar', nao_observavel: 'Sem oportunidade de observar' };
 
 export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
@@ -118,6 +119,11 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   const ficha = sessao?.cenario || dados?.cenarios?.find(c=>c.id===cenarioId)?.ficha || dados?.ficha;
   const nomePaciente=ficha?.nomePaciente || 'Paciente';
   const relatorio = sessao?.relatorio;
+  // As oportunidades vêm validadas pelo servidor (mensagem existente, trecho literal).
+  // Ancorá-las na conversa mostra ONDE estava o momento, não só o que faltou.
+  const momentos = new Map<string, Array<{ nome: string; classificacao: string }>>();
+  for (const d of relatorio?.dimensoes || []) for (const o of d.oportunidades || []) momentos.set(o.mensagemId, [...(momentos.get(o.mensagemId) || []), { nome: d.nome || nomes[d.id] || d.id, classificacao: d.classificacao }]);
+  const autor = (mensagemId: string) => sessao?.historico?.find((m: any) => m.id === mensagemId)?.role === 'user' ? 'Você' : nomePaciente;
   const travado = !!ocupado || vozOcupada || sessao?.processando;
   const emConversa = sessao && !relatorio;
 
@@ -149,7 +155,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
           <div className={styles.chatHeader}><div className={styles.avatar}>{nomePaciente.slice(0,1)}</div><div><h2>{sessao ? nomePaciente : ficha.titulo}</h2><p>{`${ficha.canal==='telefone'?'Telefone':'Mensagens / WhatsApp'} simulado · pessoa fictícia`}</p></div>{sessao && <span className={styles.count}>{sessao.respostas}/{ficha.limiteRespostas||12} respostas</span>}</div>
           {!sessao ? <div className={styles.start}><MessageCircle size={38}/><h2>Como você conduziria esse atendimento?</h2><p>{ficha.objetivo}</p><p>{ficha.competencias?.map(d=>d.nome).join(' · ')}</p><button className={styles.primary} onClick={() => agir('iniciar')} disabled={travado}>{ocupado ? 'Iniciando…' : 'Iniciar atendimento'}<ArrowRight size={18}/></button></div> : <>
             <div className={styles.messages} role="log" aria-label={`Conversa com ${nomePaciente}`} aria-live="polite">
-              {sessao.historico.map((m: any) => <article key={m.id} className={m.role === 'user' ? styles.sent : styles.received}><span>{m.role === 'user' ? 'Você' : nomePaciente}</span><p>{m.content}</p></article>)}
+              {sessao.historico.map((m: any) => <article key={m.id} className={m.role === 'user' ? styles.sent : styles.received}><span>{m.role === 'user' ? 'Você' : nomePaciente}</span><p>{m.content}</p>{momentos.has(m.id) && <footer className={styles.momento} aria-label="Oportunidade identificada nesta mensagem"><span>Oportunidade</span>{momentos.get(m.id)!.map((x, i) => <em key={i} className={styles[`c_${x.classificacao}`]}>{x.nome}</em>)}</footer>}</article>)}
               {ocupado === 'responder' && <p className={styles.waiting}><Loader2 size={15} className={styles.spin}/> {nomePaciente} está respondendo…</p>}
               <div ref={fim}/>
             </div>
@@ -169,7 +175,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
         <p className={styles.small}>Feedback de prática gerado por IA. Esta nota não altera sua avaliação comportamental.</p>
         {relatorio.situacao === 'avaliacao_parcial' && <p className={styles.notice}>Avaliação parcial: algumas competências não puderam ser observadas. Compare apenas treinos com cobertura equivalente.</p>}
         {relatorio.ocorrencias.length > 0 && <div className={styles.error}><AlertCircle/><div><strong>Atenção a estas condutas, independentemente da nota</strong>{relatorio.ocorrencias.map((o: any, i: number) => <p key={i}>{o.motivo}</p>)}</div></div>}
-        <div className={styles.dimensions}>{relatorio.dimensoes.map((d: any) => <article key={d.id}><div><h3>{d.nome||nomes[d.id]||d.id}</h3><span>{classificacoes[d.classificacao]}</span></div><p>{d.justificativa}</p>{d.evidencias.map((e: any, i: number) => <blockquote key={i}>“{e.trecho}”</blockquote>)}</article>)}</div>
+        <div className={styles.dimensions}>{relatorio.dimensoes.map((d: any) => <article key={d.id}><div><h3>{d.nome||nomes[d.id]||d.id}</h3><span>{classificacoes[d.classificacao]}</span></div><p>{d.justificativa}</p>{d.evidencias.length > 0 && <section className={styles.evidencias}><span>O que você fez</span>{d.evidencias.map((e: any, i: number) => <blockquote key={i}>“{e.trecho}”</blockquote>)}</section>}{d.oportunidades?.length > 0 && <section className={styles.momentos}><span>Onde estava a oportunidade</span>{d.oportunidades.map((o: any, i: number) => <blockquote key={i} className={styles.oportunidade}><small>{autor(o.mensagemId)}</small>“{o.trecho}”</blockquote>)}</section>}</article>)}</div>
         <div className={styles.coaching}><div><CheckCircle2 size={21}/><h3>O que funcionou</h3><p>{relatorio.feedback.acerto}</p></div><div><ArrowRight size={21}/><h3>Seu próximo passo</h3><p>{relatorio.feedback.melhoria}</p><p>{relatorio.feedback.novaTentativa}</p></div></div>
         <button className={styles.primary} disabled={travado} onClick={() => agir('iniciar')}><RotateCcw size={18}/> Praticar novamente</button>
       </section>}

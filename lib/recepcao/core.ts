@@ -173,11 +173,20 @@ export class ErroReferenciaAvaliacao extends Error {
   }
 }
 
+// Tipografia não é conteúdo: o avaliador copia “assim” como 'assim' (o JSON desencoraja aspas duplas
+// internas) e … como "...", e o retry repete a mesma cópia porque, para ele, foi literal. A exigência
+// de trecho literal permanece; só aspas (de qualquer tipo), reticências, travessões e espaços são
+// equiparados, e a caixa também (o avaliador capitaliza o início de um trecho tirado do meio da frase).
+// Medido 06/09: o único caso do catálogo com aspas curvas na abertura recusou 9 de 9 avaliações, sempre
+// na citação dessa fala; equiparar só curvas↔retas ainda deixou 2 de 9, e a caixa mais 1.
+const tipografia: Array<[RegExp, string]> = [[/[“”«»"‘’]/g, "'"], [/…/g, '...'], [/[–—]/g, '-'], [/\s+/g, ' ']];
+export const normalizarCitacao = (t: string) => tipografia.reduce((acc, [re, sub]) => acc.replace(re, sub), t).trim().toLowerCase();
+
 function validarReferencias(refs: Insumos['desfecho']['evidencias'], s: Estado, papel: string | null, campo: string) {
   exigir(Array.isArray(refs), 'Referências devem ser uma lista');
   for (const [i, r] of refs.entries()) {
     const m = s.historico.find(m => m.id === r?.mensagemId);
-    if (!m || !texto(r.trecho) || !m.content.includes(r.trecho)) {
+    if (!m || !texto(r.trecho) || !normalizarCitacao(m.content).includes(normalizarCitacao(r.trecho))) {
       throw new ErroReferenciaAvaliacao('citacao_invalida', `${campo}[${i}]`, 'Citação inexistente ou não literal. Copie um trecho exato da mensagem indicada.');
     }
     if (papel && m.role !== papel) {

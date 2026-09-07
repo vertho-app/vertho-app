@@ -169,6 +169,31 @@ test('erro de referência identifica campo e causa sem expor o trecho', async ()
   });
 });
 
+test('citação com tipografia normalizada é aceita; paráfrase continua recusada', async () => {
+  // Medido 06/09: o avaliador copia “assim” como "assim" e … como "..."; sem equiparar, o único caso
+  // do catálogo com aspas curvas na abertura recusou 9 de 9 avaliações.
+  const s = await executarExemplo();
+  // Anexa (não substitui): as demais referências do exemplo continuam citando m0 literalmente.
+  s.historico[0].content += ' Não vou sair daqui com um “está pendente”… é a segunda vez — quero solução.';
+  const aceita = insumosExemplo();
+  aceita.dimensoes[0].oportunidades = [{ mensagemId: 'm0', trecho: 'um "está pendente"... é a  segunda vez - quero' }];
+  assert.equal(consolidar(s, aceita).nota, 100);
+  // Par REAL da re-rodada de 06/09: o avaliador devolveu aspas simples no lugar das duplas curvas
+  // (o JSON desencoraja aspas duplas internas) e 2 de 3 avaliações da mesma conversa foram recusadas.
+  const simples = insumosExemplo();
+  simples.dimensoes[0].oportunidades = [{ mensagemId: 'm0', trecho: "Não vou sair daqui com um 'está pendente'. Quero que você garanta agora" }];
+  s.historico[0].content += ' Não vou sair daqui com um “está pendente”. Quero que você garanta agora que vou ser atendida pelo convênio.';
+  assert.equal(consolidar(s, simples).nota, 100);
+  // Par REAL da terceira rodada: início de trecho capitalizado ("Quem" por "quem", meio da frase).
+  const caixa = insumosExemplo();
+  caixa.dimensoes[0].oportunidades = [{ mensagemId: 'm0', trecho: 'Quem vai me dar essa garantia, em quanto tempo e de que forma?' }];
+  s.historico[0].content += ' Preciso de algo concreto: quem vai me dar essa garantia, em quanto tempo e de que forma?';
+  assert.equal(consolidar(s, caixa).nota, 100);
+  const parafrase = insumosExemplo();
+  parafrase.dimensoes[0].oportunidades = [{ mensagemId: 'm0', trecho: 'um "está pendente" e a segunda vez' }];
+  assert.throws(() => consolidar(s, parafrase), e => e instanceof ErroReferenciaAvaliacao && e.codigo === 'citacao_invalida');
+});
+
 test('duas avaliações que atribuem fala da paciente à secretária nunca são publicadas', async () => {
   const original = await executarExemplo();
   const s = { ...original, status: 'em_andamento' as const, relatorio: null }, antes = structuredClone(s);
