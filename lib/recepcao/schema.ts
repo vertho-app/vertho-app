@@ -70,7 +70,8 @@ export const comandoSchema = z.discriminatedUnion('acao', [
 ]);
 export const configSchema = z.object({ empresaId: z.string().uuid(), habilitado: z.boolean() }).strict();
 
-export const editarCenarioSchema = z.object({ ...base, acao:z.enum(['salvar','publicar','arquivar']), id:z.string().uuid().optional(), revisao:z.number().int().nonnegative().optional(), conteudo:cenarioSchema.optional() }).strict();
+// catalogo=true grava no Catálogo Vertho (empresa_id nulo, todas as clínicas): só a plataforma.
+export const editarCenarioSchema = z.object({ ...base, acao:z.enum(['salvar','publicar','arquivar']), id:z.string().uuid().optional(), revisao:z.number().int().nonnegative().optional(), conteudo:cenarioSchema.optional(), catalogo:z.boolean().optional() }).strict();
 // Biblioteca de competências (Catálogo Vertho). O código não muda depois de criado; excluir = desativar.
 export const competenciaSchema = z.object({ codigo: chave, nome: texto.max(120), descricao: z.string().trim().max(1600).default(''), niveis: niveisSchema }).strict();
 export const competenciaComandoSchema = z.object({ ...base, acao: z.literal('competencia'), op: z.enum(['salvar','excluir','restaurar']), id: z.string().uuid().optional(), revisao: z.number().int().nonnegative().optional(), conteudo: competenciaSchema.optional() }).strict();

@@ -11,7 +11,7 @@ function banco(){return {from(table:string){const filters:any[]=[];let payload:a
  if(op==='insert') {if(lista.some(r=>r.id===payload.id))duplicate=true;else{lista.push({...structuredClone(payload),revisao:0,estado:payload.estado||'rascunho'});result=[lista.at(-1)]}}
  if(op==='update') result.forEach(r=>Object.assign(r,structuredClone(payload)));
  return {data:structuredClone(first?result[0]||null:result),error:duplicate?{code:'23505'}:null};};
- const q:any={select:()=>q,eq:(k,v)=>{filters.push(r=>r[k]===v);return q},or:s=>{const empresa=s.match(/empresa_id.eq.([^,]+)/)[1];filters.push(r=>r.empresa_id===empresa||r.empresa_id===null);return q},in:(k,vs)=>{filters.push(r=>vs.includes(r[k]));return q},order:()=>q,limit:()=>q,range:()=>Promise.resolve(execute()),insert:v=>{op='insert';payload=v;return q},update:v=>{op='update';payload=v;return q},single:()=>{first=true;return Promise.resolve(execute())},maybeSingle:()=>{first=true;return Promise.resolve(execute())},then:resolve=>resolve(execute())};return q;}}}
+ const q:any={select:()=>q,eq:(k,v)=>{filters.push(r=>r[k]===v);return q},or:s=>{const empresa=s.match(/empresa_id.eq.([^,]+)/)[1];filters.push(r=>r.empresa_id===empresa||r.empresa_id===null);return q},is:(k,v)=>{filters.push(r=>r[k]===v);return q},neq:(k,v)=>{filters.push(r=>r[k]!==v);return q},in:(k,vs)=>{filters.push(r=>vs.includes(r[k]));return q},order:()=>q,limit:()=>q,range:()=>Promise.resolve(execute()),insert:v=>{op='insert';payload=v;return q},update:v=>{op='update';payload=v;return q},single:()=>{first=true;return Promise.resolve(execute())},maybeSingle:()=>{first=true;return Promise.resolve(execute())},then:resolve=>resolve(execute())};return q;}}}
 beforeEach(()=>{
  permissions.allow=true;
  const estado=abrirSessao(catalogoInicial[0]);estado.status='concluida';
@@ -31,4 +31,22 @@ test('início sem cenário aceita outro caso publicado quando remarcação foi a
  tables.recepcao_cenarios.at(-1).estado='arquivado';await expect(cenarioPublicado(c)).rejects.toThrow('não está disponível');
 });
 test('publicação exige versão própria e revisão atual; caso global só pode ser copiado',async()=>{await expect(editarCenario(c,{acao:'publicar',id:'global',revisao:0})).rejects.toThrow('cópia');await expect(editarCenario(c,{acao:'publicar',id:'draft',revisao:9})).rejects.toThrow('mudou');const r=await editarCenario(c,{acao:'publicar',id:'draft',revisao:0});expect(r.estado).toBe('publicado');await expect(editarCenario(c,{acao:'salvar',id:'draft',revisao:1,conteudo:catalogoInicial[0]})).rejects.toThrow('nova versão')});
+test('catálogo: só a plataforma grava versão global; publicar arquiva a publicada anterior do mesmo caso',async()=>{
+ const conteudo={...structuredClone(catalogoInicial[0]),versao:'9.1'};
+ await expect(editarCenario(c,{acao:'salvar',catalogo:true,conteudo})).rejects.toThrow('plataforma');
+ c.auth.isPlatformAdmin=true;
+ const rascunho=await editarCenario(c,{acao:'salvar',catalogo:true,conteudo});
+ expect(rascunho.empresa_id).toBeNull();expect(rascunho.versao).toBe('9.1');expect(rascunho.estado).toBe('rascunho');
+ // A clínica não edita o rascunho do catálogo (para ela, ele não existe).
+ c.auth.isPlatformAdmin=false;
+ await expect(editarCenario(c,{acao:'publicar',id:rascunho.id,revisao:0})).rejects.toThrow('cópia');
+ c.auth.isPlatformAdmin=true;
+ const publicado=await editarCenario(c,{acao:'publicar',id:rascunho.id,revisao:0});
+ expect(publicado.estado).toBe('publicado');expect(publicado.empresa_id).toBeNull();
+ expect(tables.recepcao_cenarios.find(r=>r.id==='global').estado).toBe('arquivado');
+ expect(tables.recepcao_cenarios.find(r=>r.id==='privado').estado).toBe('publicado');
+ // Cópia da clínica continua com versão automática, mesmo para a plataforma.
+ const copia=await editarCenario(c,{acao:'salvar',conteudo:{...structuredClone(catalogoInicial[0]),versao:'9.9'}});
+ expect(copia.empresa_id).toBe('empresa');expect(copia.versao).toMatch(/^v-/);
+});
 test('bloqueio de permissão também vale para gravar cenário e revisão',async()=>{permissions.allow=false;await expect(editarCenario(c,{acao:'salvar',conteudo:catalogoInicial[0]})).rejects.toThrow('permite');await expect(revisar(c,{sessaoId:'sessao',requestId:'req',parecer:'concordo',motivo:'Revisado.',dimensoes:[]})).rejects.toThrow('permite')});
