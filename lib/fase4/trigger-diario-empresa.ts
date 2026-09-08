@@ -603,7 +603,7 @@ export async function processarEmpresaDiario(
           corpo: texto.corpo,
           // MESMO destino do WhatsApp e do e-mail: comparar canais exige que a
           // única variável seja o canal, não para onde cada um leva.
-          url: deepLinkSemana(baseUrl, semana, formatoAnunciado, pilula),
+          url: deepLinkSemana(baseUrl, semana, formatoAnunciado, pilula, 'push'),
           dedupeKey: `${pushCol}:${envio.id}`,
         });
         // Carimba só o próprio sucesso — mesma regra dos irmãos. Zero entregues
@@ -713,7 +713,7 @@ export async function processarEmpresaDiario(
           titulo: texto.titulo,
           corpo: texto.corpo,
           // MESMO destino dos outros dois canais: a semana PENDENTE.
-          url: deepLinkSemana(baseUrl, semana),
+          url: deepLinkSemana(baseUrl, semana, null, null, 'push'),
           dedupeKey: `pendencia-push:${envio.id}:${hojeUTC}`,
         });
         if (r.entregues > 0) { stamp.ultima_pilula2_push_em = agora; } else if (r.falhas > 0) erros++;
@@ -838,7 +838,7 @@ export async function processarEmpresaDiario(
           kind: 'missao',
           titulo: texto.titulo,
           corpo: texto.corpo,
-          url: deepLinkSemana(baseUrl, semana),
+          url: deepLinkSemana(baseUrl, semana, null, null, 'push'),
           dedupeKey: `missao-push:${envio.id}`,
         });
         if (r.entregues > 0) { stamp.ultima_pilula1_push_em = agora; } else if (r.falhas > 0) erros++;

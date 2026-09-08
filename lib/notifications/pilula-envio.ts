@@ -43,10 +43,30 @@ export function temaPilula(e: any): string {
  * https://ibipeba.vertho.ai. `pilula` (1|2) marca de qual pílula DUO veio o clique,
  * pra atribuição de abertura (`?p=`); ausente = abertura direta/navegação.
  */
-export function deepLinkSemana(baseUrl: string, semana: number, formato?: string | null, pilula?: number | null): string {
+/**
+ * Canal por onde o link foi entregue. Vira `?o=` e, na chegada, um evento de
+ * trilha `chegada_<canal>`.
+ *
+ * POR QUE ISTO EXISTE (08/09/2026). A alternativa seria pixel de abertura, que
+ * mede se o cliente de e-mail carregou uma imagem — número que o Apple Mail
+ * infla (pré-carrega tudo) e o bloqueio de imagens esvazia, nos dois sentidos ao
+ * mesmo tempo. Chegada é sinal de AÇÃO, é dado nosso, e não precisa de pixel nem
+ * de reescrever link. O preço é honesto: quem lê e não clica não aparece — e
+ * para a trilha essa pessoa está no mesmo lugar de quem não leu.
+ */
+export type CanalDoLink = 'email' | 'whatsapp' | 'push';
+
+export function deepLinkSemana(
+  baseUrl: string,
+  semana: number,
+  formato?: string | null,
+  pilula?: number | null,
+  canal?: CanalDoLink | null,
+): string {
   const params = new URLSearchParams();
   if (formato) params.set('formato', formato);
   if (pilula) params.set('p', String(pilula));
+  if (canal) params.set('o', canal);
   const qs = params.toString();
   return `${baseUrl}/dashboard/temporada/semana/${semana}${qs ? `?${qs}` : ''}`;
 }
@@ -55,14 +75,14 @@ type PilulaOpts = { formato?: string | null; semana: number; baseUrl: string; pi
 
 /** Corpo (sem saudação) do texto WhatsApp da pílula, com deep-link no formato preferido. */
 export function textoPilulaWhatsapp(e: any, opts: PilulaOpts): string {
-  const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato, opts.pilula);
+  const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato, opts.pilula, 'whatsapp');
   return `Seu ${labelFormato(opts.formato)} de hoje: *${temaPilula(e)}*.\n\n👉 ${link}`;
 }
 
 /** Assunto + HTML do e-mail da pílula (espelho do WhatsApp, com botão pro deep-link). */
 export function emailPilula(nome: string, e: any, opts: PilulaOpts): { subject: string; html: string } {
   const tema = temaPilula(e);
-  const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato, opts.pilula);
+  const link = deepLinkSemana(opts.baseUrl, opts.semana, opts.formato, opts.pilula, 'email');
   const primeiro = (nome || 'Colaborador').split(' ')[0];
   const subject = `Sua pílula da Semana ${opts.semana} — ${tema}`;
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a;line-height:1.55">

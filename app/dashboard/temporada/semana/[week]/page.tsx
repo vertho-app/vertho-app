@@ -117,6 +117,16 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
       formato: searchParams.get('formato'),
       tipo: liberada ? 'abertura' : 'bloqueio',
     }).catch(() => {});
+
+    // Origem do clique (`?o=`), quando a pessoa veio de uma mensagem nossa. É a
+    // alternativa ao pixel de abertura: mede AÇÃO em vez de "o cliente de e-mail
+    // carregou uma imagem", e o dado é nosso. Evento separado de propósito — a
+    // abertura acima é a mesma com ou sem origem, e misturar as duas mudaria o
+    // significado de uma métrica que já tem série histórica.
+    const origem = searchParams.get('o');
+    if (origem) {
+      registrarEventoTrilha({ trilhaId, semana: semanaNum, pilula, tipo: `chegada_${origem}` }).catch(() => {});
+    }
   }, [data?.trilha?.id, semanaNum, visaoLeitura]);
 
   // Hidrata `abriuConteudo` do histórico (ver o comentário do estado). Só LIGA,

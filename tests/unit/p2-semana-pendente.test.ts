@@ -149,8 +149,11 @@ describe('call-site da cadência', () => {
 
   it('o push e o e-mail apontam para a semana ACESSÍVEL (a pendente)', () => {
     expect(corpoDaFuncao).toContain('pushSemanaPendente(semana)');
-    expect(corpoDaFuncao).toContain('deepLinkSemana(baseUrl, semana)');
-    expect(corpoDaFuncao).not.toContain('deepLinkSemana(baseUrl, semanaCalendario)');
+    // O que importa é o 1º argumento de semana ser `semana` (a acessível), não a
+    // forma exata da chamada: em 08/09/2026 ela ganhou a marcação de origem
+    // (`'push'`) e uma asserção literal quebrou sem que a invariante mudasse.
+    expect(corpoDaFuncao).toMatch(/deepLinkSemana\(baseUrl,\s*semana[,)]/);
+    expect(corpoDaFuncao).not.toMatch(/deepLinkSemana\(baseUrl,\s*semanaCalendario[,)]/);
   });
 
   it('não tem caminho legado de texto livre (o canal morreu em 13/08)', () => {

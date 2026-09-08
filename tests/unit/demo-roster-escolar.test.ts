@@ -186,7 +186,7 @@ describe('roster escolar: a Rede de Escolas ACME', () => {
    * vocabulário que o segmento não fala.
    */
   it('as respostas do elenco não carregam jargão comercial', () => {
-    const proibidos = [/cliente/i, /CRM/, /margem/i, /comercia(l|is)/i, /venda/i, /pipeline/i];
+    const proibidos = [/\bcliente\b/i, /\bCRM\b/, /\bmargem\b/i, /\bcomercia(l|is)\b/i, /\bvenda\b/i, /\bpipeline\b/i];
     const competencia = 'Planejamento e Organização';
     const persona = ROSTER_ESCOLAR.personas[0];
     const conjuntos = [

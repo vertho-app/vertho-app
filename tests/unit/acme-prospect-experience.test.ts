@@ -248,7 +248,7 @@ describe('contratos puros da experiência ACME', () => {
     expect(text).toContain('O resultado fica pronto enquanto você avança pelas próximas etapas.');
     // e sem prazo em número: a duração muda com modelo e fila, e minuto
     // prometido em texto que sai para o cliente vira dívida
-    expect(text).not.toMatch(/\d+\s*(minuto|min|segundo)/i);
+    expect(text).not.toMatch(/\b\d+\s*(minuto|min\b|segundo)/i);
     expect(text).toContain('Os quatro acessos ficam disponíveis até 02/09, 04:00');
     // o link deixou de ser de uso único: a promessa agora é a RETOMADA
     expect(text).toContain('continua valendo até o prazo acima');

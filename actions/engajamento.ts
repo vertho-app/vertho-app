@@ -28,7 +28,15 @@ const FORMATOS = ['video', 'audio', 'texto', 'case'];
 // métrica justamente de quem não conseguiu ver nada. Os consumidores filtram por
 // `tipo === 'abertura'`, então o valor novo não entra em nenhuma contagem
 // existente: ele só deixa de mentir na que já havia.
-const TIPOS = ['abertura', 'formato', 'audio_fim', 'bloqueio'];
+// 'chegada_*' (08/09/2026): a pessoa CLICOU no link de uma mensagem nossa, e o
+// sufixo diz por qual canal (`chegada_email`, `chegada_whatsapp`,
+// `chegada_push`). É a alternativa ao pixel de abertura de e-mail — mede ação, é
+// dado nosso e não precisa de rastreador. Mesma regra do 'bloqueio': os
+// consumidores filtram por `tipo === 'abertura'`, então valor novo não entra em
+// contagem existente.
+const CANAIS_CHEGADA = ['email', 'whatsapp', 'push'];
+const TIPOS = ['abertura', 'formato', 'audio_fim', 'bloqueio',
+  ...CANAIS_CHEGADA.map((c) => `chegada_${c}`)];
 
 /**
  * Loga um evento do colaborador na tela da semana. Best-effort: NUNCA lança pro
