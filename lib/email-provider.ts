@@ -107,7 +107,13 @@ async function sendWithSes(input: SendEmailInput): Promise<SendEmailResult> {
   if (!input.html && !input.text) return { ok: false, provider, error: 'E-mail sem conteúdo' };
 
   try {
+    // O CONFIGURATION SET é o que faz o SES publicar os eventos (entrega,
+    // bounce, reclamação) no SNS — sem ele o envio funciona e a telemetria não
+    // existe, que é exatamente o estado do e-mail até 08/09/2026. Opcional de
+    // propósito: sem a env, o envio segue igual, só não é medido.
+    const configurationSet = process.env.SES_CONFIGURATION_SET?.trim();
     const response = await getSesClient().send(new SendEmailCommand({
+      ...(configurationSet ? { ConfigurationSetName: configurationSet } : {}),
       FromEmailAddress: input.from,
       Destination: {
         ToAddresses: list(input.to),

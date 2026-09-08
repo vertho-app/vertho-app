@@ -54,7 +54,7 @@ import { semComentarios } from '../../helpers/fonte';
  */
 const GATE_SESSAO = /\.auth\.getUser\s*\(|\b(requireUser|requireAdmin|requireRole|requirePermission|requireUserAction|requireAdminAction|requireAdminSupabase|requireEmpresaSupabase|requireLinhaSupabase|requirePlataformaSupabase|exigirAcessoPlataforma|checarAcessoPlataforma|getAuthenticatedEmail|requireRepresentative\w*|requireCommercialAdmin)\s*\(/;
 /** Autenticação de MÁQUINA: assinatura de webhook ou segredo compartilhado. */
-const GATE_MAQUINA = /\b(verifyQStashSignature|verifyZapiWebhook|verifyBunnyWebhook|safeSecretEqual)\s*\(|CRON_SECRET|INTERNAL_API_KEY|x-internal-secret/;
+const GATE_MAQUINA = /\b(verifyQStashSignature|verifyZapiWebhook|verifyBunnyWebhook|verifySesWebhook|safeSecretEqual)\s*\(|CRON_SECRET|INTERNAL_API_KEY|x-internal-secret/;
 const CSRF = /\bcsrfCheck\s*\(/;
 // `copilotoLimiter` é cota própria do Copiloto: um planejamento gasta quatro
 // buscas web e uma síntese, e disputar o `aiLimiter` com chat e simulador
