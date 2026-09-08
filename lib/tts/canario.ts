@@ -13,6 +13,7 @@
  */
 import { generateNarrationAudio } from '@/lib/gemini-tts';
 import { ALVO_F0_POR_VOZ } from '@/lib/tts/deriva';
+import { personagemDaVoz, type Personagem } from '@/lib/tts/elenco';
 
 /**
  * Texto fixo de ~4 min (≈ 3.400 caracteres, 11-12 janelas de 20 s): o canário tem que
@@ -33,11 +34,37 @@ export const TEXTO_CANARIO = [
   'Então, o que você vai observar na sua próxima aula? Um momento em que a turma acompanhou junto, e um em que ela se perdeu. Só isso. Anote os dois. Depois, olhe para o que veio antes de cada um. É por aí que a gente começa.',
 ].join('\n\n');
 
-/** Direção por voz: a mesma que a produção usa para cada personagem. */
-export const DIRECAO_CANARIO: Record<string, string> = {
-  Aoede: 'Narre como uma mentora calorosa e acolhedora, em português do Brasil, num ritmo natural de conversa. Respiração natural entre as frases, tom íntimo e humano. Mantenha a fluidez — não alongue as pausas.',
-  Algieba: 'Narre em português do Brasil como um mentor próximo e seguro, falando diretamente com a pessoa, ritmo moderado e pausas reflexivas naturais.',
+/**
+ * Direção por PERSONAGEM, não por nome de voz.
+ *
+ * 🔴 O índice é o personagem porque é ele que sobrevive ao recast: o Beto já foi
+ * `Iapetus` e virou `Algieba` em 07/09/2026. Enquanto isto era um mapa por nome
+ * de voz, um recast deixava a entrada antiga órfã e a voz nova caía no
+ * `?? DIRECAO_CANARIO.Aoede` — o canário mediria a voz do Beto **com a direção
+ * da mentora**, comparando contra a assinatura de referência dele, sem nada
+ * acusar. Portão que erra o motivo é pior que portão desligado.
+ *
+ * O texto de cada direção é o que foi usado para MEDIR as assinaturas em
+ * `assinaturas-voz.ts`. Mudá-lo invalida a comparação de timbre: recalcule as
+ * assinaturas no mesmo commit (`scripts/_gerar-assinaturas-voz.ts`).
+ */
+export const DIRECAO_POR_PERSONAGEM: Record<Personagem, string> = {
+  mentora: 'Narre como uma mentora calorosa e acolhedora, em português do Brasil, num ritmo natural de conversa. Respiração natural entre as frases, tom íntimo e humano. Mantenha a fluidez — não alongue as pausas.',
+  beto: 'Narre em português do Brasil como um mentor próximo e seguro, falando diretamente com a pessoa, ritmo moderado e pausas reflexivas naturais.',
 };
+
+/**
+ * Direção da voz, resolvida pelo elenco. LANÇA quando a voz não é do elenco ou
+ * o personagem não tem direção — o canário existe para detectar mudança de voz,
+ * e medir com a direção errada produziria um veredito sobre outra coisa.
+ */
+export function direcaoDaVoz(voz: string): string {
+  const personagem = personagemDaVoz(voz);
+  if (!personagem) throw new Error(`[canario] voz fora do elenco: ${voz}`);
+  const direcao = DIRECAO_POR_PERSONAGEM[personagem];
+  if (!direcao) throw new Error(`[canario] personagem sem direção: ${personagem} (voz ${voz})`);
+  return direcao;
+}
 
 export interface ResultadoCanario {
   voz: string;
@@ -60,7 +87,7 @@ export async function rodarCanarioTts(vozes: string[] = Object.keys(ALVO_F0_POR_
       // tentativas ficam em tts_qa_log; a escolhida leva `publicado`.
       const audio = await generateNarrationAudio(TEXTO_CANARIO, {
         voice: voz,
-        style: DIRECAO_CANARIO[voz] ?? DIRECAO_CANARIO.Aoede,
+        style: direcaoDaVoz(voz),
         segmentar: false,
         tentativas: 2,
         retakeParalelo: true,

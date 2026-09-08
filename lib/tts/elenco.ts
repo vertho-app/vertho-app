@@ -77,3 +77,16 @@ export function alvosF0DoElenco(): Record<string, { f0Hz: number; tolSt?: number
 export function tentativasDaVoz(voz: string): number | undefined {
   return perfis().find((p) => p.voz === voz)?.tentativas;
 }
+
+/**
+ * Personagem que fala nesta voz, ou `null` se a voz não é do elenco.
+ *
+ * Existe porque o que é ESTÁVEL é o personagem, não o nome da voz prebuilt: o
+ * Beto já foi Iapetus e virou Algieba em 07/09/2026. Quem indexa configuração
+ * pelo NOME da voz precisa ser reeditado a cada recast, e o que não for
+ * reeditado passa a valer para ninguém — em silêncio.
+ */
+export function personagemDaVoz(voz: string): Personagem | null {
+  const par = (Object.entries(ELENCO) as [Personagem, PerfilVoz][]).find(([, p]) => p.voz === voz);
+  return par ? par[0] : null;
+}
