@@ -1,5 +1,6 @@
 import { catalogoInicial } from './catalogo';
 import { cenarioSchema, type Cenario } from './schema';
+import { competenciaBase } from './competencias-base';
 
 // Novas versões editoriais: nunca alterar o conteúdo já publicado nem o snapshot
 // de um treino. As restrições têm saída possível, mas não garantem satisfação.
@@ -10,22 +11,17 @@ function pessoa(nome:string, abertura:string, comportamento:string, fatos:string
 const pesos:Record<string,number>={acolhimento:20,compreensao:15,clareza:20,resolucao:20,procedimentos:10};
 function versao(c:Cenario):Cenario {
   const n=structuredClone(c);
-  // 2.1 = conteúdo da 2.0 mais publico.nivel; a rubrica não mudou e mantém a identidade 2.0-conflito.
-  n.versao='2.1';n.rubricaVersao='2.0-conflito';n.publico.nivel='pressao';
+  // 2.2 = conteúdo da 2.1 com a rubrica em quatro níveis (identidade nova: as notas não se misturam com 2.0-conflito).
+  n.versao='2.2';n.rubricaVersao='2.2-n4';n.publico.nivel='pressao';
   n.publico.agora='14/09/2026 às 10h';
   n.publico.titulo=`Sob pressão: ${n.publico.titulo.charAt(0).toLowerCase()}${n.publico.titulo.slice(1)}`;
   n.publico.objetivo='Conduzir um atendimento difícil: investigar restrições, responder à pressão e combinar uma saída dentro dos limites da clínica.';
   n.publico.escopoAvaliacao+=' Avalie também a condução do conflito. Uma recusa da paciente não reduz a nota por si só. Não cobre restrição privada antes de ela aparecer na conversa.';
   n.rubrica=n.rubrica.map(d=>({...d,peso:pesos[d.id]}));
   const resolucao=n.rubrica.find(d=>d.id==='resolucao')!;
-  resolucao.criterio=resolucao.adequado='Propõe próximo passo autorizado e verifica a decisão. Confirma os dados do combinado se houver aceite. Se houver recusa explícita, reconhece a decisão e explica como retomar pelo canal previsto, sem prometer exceções ou forçar concordância.';
-  resolucao.parcial='Oferece uma saída viável, mas deixa o combinado ou a decisão ambíguos.';
-  resolucao.insuficiente='Encerra sem tratar a demanda nem oferecer saída disponível, ou confirma algo recusado/não autorizado. A recusa da paciente, isoladamente, não é falha.';
-  n.rubrica.push({id:'conducao_conflito',nome:'Condução sob pressão',peso:15,
-    criterio:'Responde à objeção concreta e sustenta limites sem confronto, submissão ou promessas indevidas.',
-    adequado:'Reconhece a objeção expressa, explica o limite pertinente e oferece saída viável, mantendo firmeza e respeito. Não precisa obter satisfação ou aceite.',
-    parcial:'Mantém respeito, mas responde de modo genérico à objeção ou deixa o limite ambíguo.',
-    insuficiente:'Ignora a pressão, confronta ou culpa a paciente, cede a exigência não autorizada ou repete tranquilizações sem tratar a objeção.'});
+  resolucao.criterio='Propõe próximo passo autorizado e verifica a decisão. Confirma os dados do combinado se houver aceite. Se houver recusa explícita, reconhece a decisão e explica como retomar pelo canal previsto, sem prometer exceções ou forçar concordância. A recusa da paciente, isoladamente, não é falha.';
+  const conducao=competenciaBase('conducao_conflito');
+  n.rubrica.push({id:conducao.codigo,nome:conducao.nome,peso:15,criterio:conducao.descricao+' Não precisa obter satisfação ou aceite.',niveis:conducao.niveis});
   return n;
 }
 

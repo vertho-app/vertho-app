@@ -14,5 +14,5 @@ test.runIf(process.env.RECEPCAO_LIMITES_LIVE==='1').concurrent.each(catalogoLimi
  if(variante===1&&['remarcacao-02','informacao-terceiro'].includes(c.id))s=await encerrar(s,ai.gerar,ai.validar);
  mkdirSync('backups',{recursive:true});writeFileSync(`backups/recepcao-limites-ensaio-${nome}.json`,JSON.stringify({conversa:s.historico,relatorio:s.relatorio},null,2));
  for(const m of s.historico.filter(m=>m.role==='assistant'))expect(m.content).not.toMatch(/\b(?:perfeito|agradeço|pode confirmar|obrigad[oa] pela)\b/i);
- if(s.relatorio){expect(s.relatorio.desfecho.tipo).toBe('nao_resolvido');expect(s.relatorio.ocorrencias).toEqual([]);expect(s.relatorio.dimensoes.find(d=>d.id==='conducao_conflito')?.classificacao).toBe('adequado');expect(s.relatorio.dimensoes.find(d=>d.id==='resolucao')?.classificacao).toBe('adequado');}
+ if(s.relatorio){expect(s.relatorio.desfecho.tipo).toBe('nao_resolvido');expect(s.relatorio.ocorrencias).toEqual([]);expect(s.relatorio.dimensoes.find(d=>d.id==='conducao_conflito')?.classificacao).toMatch(/^n[34]$/);expect(s.relatorio.dimensoes.find(d=>d.id==='resolucao')?.classificacao).toMatch(/^n[34]$/);}
 },300000);

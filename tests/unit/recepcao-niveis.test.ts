@@ -5,12 +5,12 @@ import { catalogoLimites } from '@/lib/recepcao/catalogo-limites';
 import { sugerirNivel, ordenarPorNivel, NOTA_PARA_SUBIR, promptPaciente, promptAvaliador, fichaPublica } from '@/lib/recepcao/core';
 import { NIVEIS } from '@/lib/recepcao/schema';
 
-test('cada catálogo carrega o próprio nível e a versão x.1 na ficha pública', () => {
-  expect(catalogoInicial.map(c => [c.versao, c.publico.nivel])).toEqual(Array(5).fill(['1.1', 'introducao']));
-  expect(catalogoDesafiador.map(c => [c.versao, c.publico.nivel])).toEqual(Array(5).fill(['2.1', 'pressao']));
-  expect(catalogoLimites.map(c => [c.versao, c.publico.nivel])).toEqual(Array(5).fill(['3.1', 'limite']));
-  // A rubrica não mudou entre x.0 e x.1: a identidade que agrupa notas no painel segue a mesma.
-  expect(new Set(catalogoLimites.map(c => c.rubricaVersao))).toEqual(new Set(['3.0-limites']));
+test('cada catálogo carrega o próprio nível e a versão x.2 na ficha pública', () => {
+  expect(catalogoInicial.map(c => [c.versao, c.publico.nivel])).toEqual(Array(5).fill(['1.2', 'introducao']));
+  expect(catalogoDesafiador.map(c => [c.versao, c.publico.nivel])).toEqual(Array(5).fill(['2.2', 'pressao']));
+  expect(catalogoLimites.map(c => [c.versao, c.publico.nivel])).toEqual(Array(5).fill(['3.2', 'limite']));
+  // A rubrica em quatro níveis tem identidade própria: notas x.2 nunca se misturam com 3.0-limites no painel.
+  expect(new Set(catalogoLimites.map(c => c.rubricaVersao))).toEqual(new Set(['3.2-n4']));
 });
 
 test('o nível chega à ficha da tela e fica FORA dos prompts (calibração de 06/09 continua valendo)', () => {

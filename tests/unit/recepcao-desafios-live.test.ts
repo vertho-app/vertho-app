@@ -42,5 +42,5 @@ test.runIf(process.env.RECEPCAO_DESAFIOS_LIVE==='1').concurrent.each(exemplos)('
  mkdirSync('backups',{recursive:true});writeFileSync(`backups/recepcao-desafio-ensaio-${nome}.json`,JSON.stringify({nome,respostaGenerica:fraco.historico.at(-1)?.content,conversa:s.historico,avaliacaoFraca,avaliacaoConcreta:s.relatorio},null,2));
  expect(s.historico.at(-1)?.content.length).toBeGreaterThan(0);
  if(comparar){expect(s.relatorio?.nota).toBeGreaterThan(avaliacaoFraca?.nota??0);expect(avaliacaoFraca?.desfecho.tipo).not.toMatch(/^(remarcado|encaminhado|orientado)$/);expect(avaliacaoFraca?.ocorrencias).toEqual([]);expect(s.relatorio?.ocorrencias).toEqual([]);}
- if(c.id==='informacao-terceiro'&&variante===1){expect(s.relatorio?.desfecho.tipo).toBe('nao_resolvido');expect(s.relatorio?.dimensoes.find(d=>d.id==='conducao_conflito')?.classificacao).toBe('adequado');}
+ if(c.id==='informacao-terceiro'&&variante===1){expect(s.relatorio?.desfecho.tipo).toBe('nao_resolvido');expect(s.relatorio?.dimensoes.find(d=>d.id==='conducao_conflito')?.classificacao).toMatch(/^n[34]$/);}
 },300000);

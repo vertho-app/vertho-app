@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { CalendarDays, ClipboardList, MessageCircle, Send, RotateCcw, ArrowRight, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { RECEPCAO_SESSAO } from '@/lib/status';
-import { NIVEIS, rotuloNivel } from '@/lib/recepcao/schema';
+import { NIVEIS, rotuloNivel, rotuloClassificacao } from '@/lib/recepcao/schema';
 import styles from './treino.module.css';
 import GestaoRecepcao from './gestao';
 import VozRecepcao from './voz';
@@ -13,7 +13,6 @@ import VozRecepcao from './voz';
 // Fallback para relatórios anteriores à versão 1.0, que não gravavam `nome` na dimensão.
 const nomes: Record<string, string> = { acolhimento: 'Acolhimento', compreensao: 'Compreensão da demanda', clareza: 'Clareza e precisão', resolucao: 'Resolução', procedimentos: 'Procedimentos', conducao_conflito: 'Condução sob pressão' };
 const resultados: Record<string, string> = { remarcado: 'Consulta remarcada', encaminhado: 'Encaminhamento combinado', orientado: 'Orientação compreendida', nao_resolvido: 'Demanda não resolvida', inconclusivo: 'Resultado inconclusivo' };
-const classificacoes: Record<string, string> = { adequado: 'Adequado', parcial: 'Parcial', insuficiente: 'Precisa melhorar', nao_observavel: 'Sem oportunidade de observar' };
 
 export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   const searchParams = useSearchParams();
@@ -24,7 +23,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   const [erro, setErro] = useState(''), [input, setInput] = useState('');
   const [podeConfigurar, setPodeConfigurar] = useState(false);
   const [confirmarFim, setConfirmarFim] = useState(false);
-  const [aba,setAba]=useState<'treino'|'equipe'|'cenarios'>('treino');
+  const [aba,setAba]=useState<'treino'|'equipe'|'cenarios'|'competencias'>('treino');
   const [cenarioId,setCenarioId]=useState('');
   const [vozOcupada,setVozOcupada]=useState(false);
   const pending = useRef<{ id: string; texto: string } | null>(null);
@@ -138,7 +137,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       <label>Clínica vinculada ao treino<select value={empresaId} disabled={!!ocupado} onChange={e => setEmpresaId(e.target.value)}><option value="">Selecione uma empresa</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></label>
       {dados && <div><p>{dados.habilitado ? 'Disponível para a equipe desta clínica.' : 'Disponível apenas para teste administrativo.'}</p>{podeConfigurar && <button className={styles.secondary} disabled={!!ocupado} onClick={habilitar}>{dados.habilitado ? 'Desabilitar para a equipe' : 'Habilitar para a equipe'}</button>}</div>}
     </section>}
-    {dados&&<nav className={styles.tabs} aria-label="Áreas do treinamento"><button aria-current={aba==='treino'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>{setAba('treino');carregar(empresaId,sessao?.id).catch(e=>setErro(e.message))}}>Meu treino</button>{dados.podeEquipe&&<button aria-current={aba==='equipe'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>setAba('equipe')}>Equipe e revisões</button>}{dados.podeCenarios&&<button aria-current={aba==='cenarios'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>setAba('cenarios')}>Cenários</button>}</nav>}
+    {dados&&<nav className={styles.tabs} aria-label="Áreas do treinamento"><button aria-current={aba==='treino'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>{setAba('treino');carregar(empresaId,sessao?.id).catch(e=>setErro(e.message))}}>Meu treino</button>{dados.podeEquipe&&<button aria-current={aba==='equipe'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>setAba('equipe')}>Equipe e revisões</button>}{dados.podeCenarios&&<button aria-current={aba==='cenarios'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>setAba('cenarios')}>Cenários</button>}{dados.podeCenarios&&<button aria-current={aba==='competencias'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>setAba('competencias')}>Competências</button>}</nav>}
     {dados&&aba!=='treino'&&<GestaoRecepcao key={`${empresaId}-${aba}`} empresaId={empresaId||dados.empresaId} visao={aba} admin={admin}/>}
     <div hidden={aba!=='treino'}>
     {erro && <div role="alert" className={styles.error}><AlertCircle size={19}/><span>{erro}</span><button onClick={() => { setErro(''); carregar().catch(e => setErro(e.message)); }} disabled={!!ocupado}>Atualizar</button></div>}
@@ -177,7 +176,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
         <p className={styles.small}>Feedback de prática gerado por IA. Esta nota não altera sua avaliação comportamental.</p>
         {relatorio.situacao === 'avaliacao_parcial' && <p className={styles.notice}>Avaliação parcial: algumas competências não puderam ser observadas. Compare apenas treinos com cobertura equivalente.</p>}
         {relatorio.ocorrencias.length > 0 && <div className={styles.error}><AlertCircle/><div><strong>Atenção a estas condutas, independentemente da nota</strong>{relatorio.ocorrencias.map((o: any, i: number) => <p key={i}>{o.motivo}</p>)}</div></div>}
-        <div className={styles.dimensions}>{relatorio.dimensoes.map((d: any) => <article key={d.id}><div><h3>{d.nome||nomes[d.id]||d.id}</h3><span>{classificacoes[d.classificacao]}</span></div><p>{d.justificativa}</p>{d.evidencias.length > 0 && <section className={styles.evidencias}><span>O que você fez</span>{d.evidencias.map((e: any, i: number) => <blockquote key={i}>“{e.trecho}”</blockquote>)}</section>}{d.oportunidades?.length > 0 && <section className={styles.momentos}><span>Onde estava a oportunidade</span>{d.oportunidades.map((o: any, i: number) => <blockquote key={i} className={styles.oportunidade}><small>{autor(o.mensagemId)}</small>“{o.trecho}”</blockquote>)}</section>}</article>)}</div>
+        <div className={styles.dimensions}>{relatorio.dimensoes.map((d: any) => <article key={d.id}><div><h3>{d.nome||nomes[d.id]||d.id}</h3><span>{rotuloClassificacao[d.classificacao]||d.classificacao}</span></div><p>{d.justificativa}</p>{d.evidencias.length > 0 && <section className={styles.evidencias}><span>O que você fez</span>{d.evidencias.map((e: any, i: number) => <blockquote key={i}>“{e.trecho}”</blockquote>)}</section>}{d.oportunidades?.length > 0 && <section className={styles.momentos}><span>Onde estava a oportunidade</span>{d.oportunidades.map((o: any, i: number) => <blockquote key={i} className={styles.oportunidade}><small>{autor(o.mensagemId)}</small>“{o.trecho}”</blockquote>)}</section>}</article>)}</div>
         <div className={styles.coaching}><div><CheckCircle2 size={21}/><h3>O que funcionou</h3><p>{relatorio.feedback.acerto}</p></div><div><ArrowRight size={21}/><h3>Seu próximo passo</h3><p>{relatorio.feedback.melhoria}</p><p>{relatorio.feedback.novaTentativa}</p></div></div>
         <button className={styles.primary} disabled={travado} onClick={() => agir('iniciar')}><RotateCcw size={18}/> Praticar novamente</button>
       </section>}

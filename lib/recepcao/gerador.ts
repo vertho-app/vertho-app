@@ -30,10 +30,11 @@ export function geradorRecepcao(empresaId: string|null, colaboradorId: string | 
   }
   atual.finalizada=true;
  }
- const gerarTentativa:Gerar=async ({etapa,system,messages,perfilPaciente})=>{
+ const gerarTentativa:Gerar=async ({etapa,system,messages,perfilPaciente,escala})=>{
   const taskKey=etapa==='paciente'?'recepcao_paciente':'recepcao_avaliacao';
   const model=await getModelForTask(empresaId,taskKey);
-  const chamada={id:randomUUID(),etapa,model,promptHash:createHash('sha256').update(system).digest('hex'),promptVersion:etapa==='paciente'?`recepcao-paciente-2.2-${perfilPaciente==='resistencia_persistente'?'persistente':'negociavel'}`:'recepcao-avaliador-2.3'};
+  // 2.4 = avaliador na escala de quatro níveis; 2.3 = rubrica legada de três classificações.
+  const chamada={id:randomUUID(),etapa,model,promptHash:createHash('sha256').update(system).digest('hex'),promptVersion:etapa==='paciente'?`recepcao-paciente-2.2-${perfilPaciente==='resistencia_persistente'?'persistente':'negociavel'}`:(escala==='n4'?'recepcao-avaliador-2.4':'recepcao-avaliador-2.3')};
   atual={id:chamada.id,inicio:Date.now(),finalizada:false};
   if(persistencia) {
    const {error}=await persistencia.sb.from('recepcao_tentativas').insert({id:chamada.id,empresa_id:empresaId,sessao_id:persistencia.sessaoId,etapa,modelo_solicitado:model,prompt_hash:chamada.promptHash,prompt_versao:chamada.promptVersion,cenario_versao:persistencia.cenarioVersao});

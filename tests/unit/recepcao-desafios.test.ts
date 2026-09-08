@@ -20,13 +20,13 @@ describe('catálogo sob pressão',()=>{
  it('não altera sementes introdutórias nem sessões antigas ao criar a nova versão',()=>{
   const antiga=abrirSessao(catalogoInicial[0],0),antes=structuredClone(antiga);
   abrirSessao(catalogoDesafiador[0],0);
-  expect(antiga).toEqual(antes);expect(antiga.cenario.versao).toBe('1.1');
+  expect(antiga).toEqual(antes);expect(antiga.cenario.versao).toBe('1.2');
   expect(antiga.cenario.rubrica).toHaveLength(5);
  });
  it('preserva boa condução e recusa como resultados independentes',()=>{
   const s=abrirSessao(catalogoDesafiador[4],1);
   s.historico.push({id:'m1',role:'user',content:'Entendo o pedido. Não posso confirmar presença neste canal. Posso oferecer orientação sobre representação?'},{id:'m2',role:'assistant',content:'Não autorizo. Prefiro falar com minha irmã.'},{id:'m3',role:'user',content:'Respeito sua decisão. Sua irmã pode usar o próprio canal autenticado. A orientação sobre representação continua disponível se você quiser retomá-la.'});
-  const r=consolidar(s,{dimensoes:s.cenario.rubrica.map(d=>({id:d.id,classificacao:'adequado' as const,justificativa:'Responde ao pedido sem divulgar informação e respeita a recusa.',evidencias:[{mensagemId:'m1',trecho:'Não posso confirmar presença neste canal.'}],oportunidades:[{mensagemId:'m0',trecho:s.historico[0].content}]})),ocorrencias:[],desfecho:{tipo:'nao_resolvido',justificativa:'A pessoa recusou o encaminhamento, sem falha automática da recepção.',evidencias:[{mensagemId:'m2',trecho:'Não autorizo.'}]},feedback:{acerto:'Preservou o limite do canal.',melhoria:'Manter a oferta de orientação disponível.',novaTentativa:'Praticar outro pedido de exceção.'}});
+  const r=consolidar(s,{dimensoes:s.cenario.rubrica.map(d=>({id:d.id,classificacao:'n4' as const,justificativa:'Responde ao pedido sem divulgar informação e respeita a recusa.',evidencias:[{mensagemId:'m1',trecho:'Não posso confirmar presença neste canal.'}],oportunidades:[{mensagemId:'m0',trecho:s.historico[0].content}]})),ocorrencias:[],desfecho:{tipo:'nao_resolvido',justificativa:'A pessoa recusou o encaminhamento, sem falha automática da recepção.',evidencias:[{mensagemId:'m2',trecho:'Não autorizo.'}]},feedback:{acerto:'Preservou o limite do canal.',melhoria:'Manter a oferta de orientação disponível.',novaTentativa:'Praticar outro pedido de exceção.'}});
   expect(r?.nota).toBe(100);expect(r?.desfecho.tipo).toBe('nao_resolvido');
  });
 });

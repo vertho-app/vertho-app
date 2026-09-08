@@ -42,8 +42,9 @@ export function resumirEquipe(rows:any[],pessoas:any[],revisoes:any[]) {
   const g=grupos.get(key)||{chave:key,titulo:s.cenario.publico.titulo,versao:rel.versaoCenario,cobertura:rel.coberturaPercentual,sessoes:0,notas:[],dimensoes:{},criticas:0};
   g.sessoes++;if(rel.nota!==null) g.notas.push(rel.nota);g.criticas+=rel.ocorrencias.length?1:0;
   for(const d of rel.dimensoes) {
-   const eixo=g.dimensoes[d.id]||{nome:d.nome||d.id,adequado:0,parcial:0,insuficiente:0,nao_observavel:0};
-   eixo[d.classificacao]++;g.dimensoes[d.id]=eixo;
+   // Contadores pela classificação gravada: um grupo (mesma rubricaVersao) é todo n1–n4 ou todo legado.
+   const eixo=g.dimensoes[d.id]||{nome:d.nome||d.id};
+   eixo[d.classificacao]=(eixo[d.classificacao]||0)+1;g.dimensoes[d.id]=eixo;
   }
   grupos.set(key,g);
  }

@@ -6,7 +6,8 @@ import { can } from '@/lib/permissions';
 import { contextoRecepcao, RecepcaoError } from '@/lib/recepcao/access';
 import { catalogo, editarCenario } from '@/lib/recepcao/cenarios';
 import { detalheEquipe, painelEquipe, revisar } from '@/lib/recepcao/equipe';
-import { editarCenarioSchema, revisaoSchema } from '@/lib/recepcao/schema';
+import { competenciaComandoSchema, editarCenarioSchema, revisaoSchema } from '@/lib/recepcao/schema';
+import { editarCompetencia, listarCompetencias } from '@/lib/recepcao/competencias';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const json=(d:unknown,status=200)=>NextResponse.json(d,{status,headers:{'Cache-Control':'no-store'}});
@@ -27,6 +28,7 @@ export async function GET(req:Request) {
    if(!(await can(auth,'content.manage'))) throw new RecepcaoError(403,'Sem permissão para editar cenários.');
    return json({cenarios:await catalogo(c,true)});
   }
+  if(q.get('visao')==='competencias') return json(await listarCompetencias(c,q.get('inativas')==='1'));
   const id=q.get('sessaoId');if(id) return json(await detalheEquipe(c,z.string().uuid().parse(id)));
   const dias=z.coerce.number().int().min(1).max(90).parse(q.get('dias')||30);
   return json(await painelEquipe(c,dias,q.get('testes')==='1'));
@@ -38,6 +40,11 @@ export async function POST(req:Request) {
   const auth=await requireUser(req);if(auth instanceof Response) return auth;
   const raw=await req.text();if(raw.length>100000) return json({error:'Formulário muito longo.'},413);
   const parsed=JSON.parse(raw);
+  if(parsed.acao==='competencia') {
+   const cmd=competenciaComandoSchema.parse(parsed);
+   const c=await contextoRecepcao(req,cmd.empresaId,false,auth);if(c instanceof Response) return c;
+   return json({competencia:await editarCompetencia(c,cmd)});
+  }
   const review=parsed.acao==='revisar';
   const cmd=review?revisaoSchema.parse(Object.fromEntries(Object.entries(parsed).filter(([k])=>k!=='acao'))):editarCenarioSchema.parse(parsed);
   const c=await contextoRecepcao(req,cmd.empresaId,false,auth);if(c instanceof Response) return c;

@@ -26,8 +26,8 @@ const perfis:Perfil[][]=[
 ];
 
 export const catalogoLimites:Cenario[]=catalogoDesafiador.map((base,i)=>{
- // 3.1 = conteúdo da 3.0 mais publico.nivel; a rubrica não mudou e mantém a identidade 3.0-limites.
- const c=structuredClone(base);c.versao='3.1';c.rubricaVersao='3.0-limites';
+ // 3.2 = conteúdo da 3.1 com a rubrica em quatro níveis (identidade nova: as notas não se misturam com 3.0-limites).
+ const c=structuredClone(base);c.versao='3.2';c.rubricaVersao='3.2-n4';
  c.publico.titulo=c.publico.titulo.replace('Sob pressão:','Limite contestado:');c.publico.nivel='limite';
  c.publico.objetivo='Sustentar limites diante de insistência, reconhecer a demanda e conduzir reclamação ou encerramento respeitoso, mesmo sem acordo.';
  c.publico.secoes.push({titulo:'Reclamação e limite de atuação neste exercício',itens:[
@@ -36,9 +36,9 @@ export const catalogoLimites:Cenario[]=catalogoDesafiador.map((base,i)=>{
   'Não confirme agenda, autorização de convênio, prioridade ou acesso a dados para obter acordo. Registre ou encaminhe somente o que a pessoa autorizou.']});
  c.publico.escopoAvaliacao+=' Este caso admite encerramento sem acordo após resistência persistente, conforme a ficha. Não exija aceitação, submissão ao cliente, repetição infinita nem encaminhamento sem consentimento.';
  c.publico.procedimentos.push('Use o procedimento de reclamação e encerramento descrito na ficha quando a pessoa persistir em uma exigência indisponível.');
- c.rubrica.find(d=>d.id==='resolucao')!.adequado='Apresenta as saídas autorizadas, verifica a decisão e cumpre somente o que foi consentido. Após recusa e insistência, comunica o limite final e encerra com respeito, deixando o canal de retorno disponível. Não exige acordo nem reclamação registrada para ser adequado.';
- c.rubrica.find(d=>d.id==='resolucao')!.criterio='Conduz uma saída possível do atendimento, incluindo encerramento sem acordo conforme o protocolo público.';
- c.rubrica.find(d=>d.id==='conducao_conflito')!.adequado='Sustenta o limite diante da contestação sem personalizar, humilhar, ceder indevidamente ou reiniciar explicações já compreendidas. Reconhece a insatisfação e usa o procedimento de escalonamento/encerramento quando pertinente.';
+ // O que era o texto "adequado" do caso vira critério: os níveis vêm da biblioteca, o caso diz o que observar.
+ c.rubrica.find(d=>d.id==='resolucao')!.criterio='Conduz uma saída possível do atendimento, incluindo encerramento sem acordo conforme o protocolo público: apresenta as saídas autorizadas, verifica a decisão e cumpre somente o que foi consentido; após recusa e insistência, comunica o limite final e encerra com respeito, deixando o canal de retorno disponível. Não exige acordo nem reclamação registrada.';
+ c.rubrica.find(d=>d.id==='conducao_conflito')!.criterio='Sustenta o limite diante da contestação sem personalizar, humilhar, ceder indevidamente ou reiniciar explicações já compreendidas. Reconhece a insatisfação e usa o procedimento de escalonamento/encerramento quando pertinente.';
  const pacientes=perfis[i].map((p,v):Cenario['paciente']=>({nome:p.nome,abertura:p.abertura,postura:'resistencia_persistente',
   comportamento:`Paciente intransigente neste atendimento: entender não significa concordar. ${p.pressao} Não agradece nem reconhece uma boa técnica para facilitar o treino. Não é uma personagem confusa: lembra as explicações e as contesta conscientemente.`,
   fatos:[p.exigencia,p.restricoes,
