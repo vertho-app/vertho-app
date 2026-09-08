@@ -211,7 +211,14 @@ export const normalizarCitacao = (t: string) => tipografia.reduce((acc, [re, sub
 function validarReferencias(refs: Insumos['desfecho']['evidencias'], s: Estado, papel: string | null, campo: string) {
   exigir(Array.isArray(refs), 'Referências devem ser uma lista');
   for (const [i, r] of refs.entries()) {
-    const m = s.historico.find(m => m.id === r?.mensagemId);
+    let m = s.historico.find(m => m.id === r?.mensagemId);
+    if (m && texto(r.trecho) && !normalizarCitacao(m.content).includes(normalizarCitacao(r.trecho))) {
+      // Trecho real com o id errado (medido 08/09: 2 de 3 recusas, fala de m2 citada como m0, e o retry
+      // repetiu o id). Se o texto existe em UMA única mensagem compatível com o papel exigido, o id é
+      // corrigido; invenção (0 mensagens) e ambiguidade (2+) continuam recusadas.
+      const candidatas = s.historico.filter(x => (!papel || x.role === papel) && normalizarCitacao(x.content).includes(normalizarCitacao(r.trecho)));
+      if (candidatas.length === 1) { m = candidatas[0]; r.mensagemId = m.id; }
+    }
     if (!m || !texto(r.trecho) || !normalizarCitacao(m.content).includes(normalizarCitacao(r.trecho))) {
       throw new ErroReferenciaAvaliacao('citacao_invalida', `${campo}[${i}]`, 'Citação inexistente ou não literal. Copie um trecho exato da mensagem indicada.');
     }

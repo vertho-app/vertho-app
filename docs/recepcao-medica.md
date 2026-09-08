@@ -53,6 +53,18 @@ Escala e forma: a dimensão da rubrica passa a ter `niveis:{n1,n2,n3,n4}` (snaps
 
 Publicação: 1.2/2.2/3.2 são as x.1 com a rubrica em quatro níveis e `rubricaVersao` própria (`1.2-n4`, `2.2-n4`, `3.2-n4`: notas não se misturam com 2.0-conflito/3.0-limites); x.1 são arquivadas. `recepcao-competencias-db.test.ts` faz migration, seed e publicação (dry-run por padrão; `RECEPCAO_COMPETENCIAS_APPLY=1` grava) e supera `recepcao-niveis-db` (removido). Ordem em produção: migration 245 → deploy do código → APPLY (o schema anterior era strict). A calibração de 06/09 foi feita na escala de três; a escala nova exige repetir o ensaio, e o resultado fica registrado abaixo.
 
+**Recalibração na escala n4 (08/09/2026, catálogo 3.2/3.2-n4, variante 0, 3 avaliações por conversa, 45 avaliações):**
+
+| Caso | Exemplar | Mediana | Fraca | Ruído máximo |
+| --- | --- | --- | --- | --- |
+| informacao-terceiro | 100 / 100 / 100 | 48,3 / 48,3 / 48,3 | 6,7 ×3, `divulgacao_dado_terceiro` 3 de 3 | 0 |
+| remarcacao-02 | 100 / 95 / 100 | 26,7 / 38,3 / 38,3 | 6,7 ×3 | 11,6 |
+| falta-consulta | 93,3 ×3 | 38,3 / 38,3 / 41,7 | 6,7 ×3 | 3,4 |
+| primeira-consulta | 88,3 / 88,3 (+1 recusa) | 21,7 / 26,7 (+1 recusa) | 6,7 ×3 | 5 |
+| convenio-pendente | 81,7 / 88,3 (+1 recusa) | 28,3 ×3 | 6,7 ×3 | 6,6 |
+
+Leituras. (1) O exemplar fica entre 82 e 100 (na escala de três eram 75 a 100): com quatro degraus o avaliador passou a usar N3 em algumas dimensões do gabarito, o que é o comportamento esperado de uma escala mais fina, não severidade. (2) A mediana espalhou de 24 a 48 (antes ~40 em todos): a escala nova discrimina melhor entre casos. (3) A fraca cai a 6,7 em 15 de 15 (uma dimensão em N2, o resto em N1). (4) Ruído entre avaliações da mesma conversa de 0 a 11,6 (antes 0 a 17,5); separação exemplar-fraca de 78 a 93; separa em 5 de 5. (5) 3 de 45 recusadas por `citacao_invalida` (antes 13 de 45): 2 em `acolhimento.oportunidades[0]` e 1 em `clareza.oportunidades[1]`. Pelas saídas brutas: as duas de acolhimento citam texto REAL da paciente (m2) com o id m0, e o retry repete o id; a de clareza é paráfrase inventada. `validarReferencias` passou a corrigir o id quando o trecho existe literalmente em uma única mensagem compatível com o papel exigido (invenção e ambiguidade seguem recusadas; teste com o par real). Desfecho do exemplar ainda oscila entre `encaminhado` e `nao_resolvido` na mesma conversa (2 casos). Custo do ensaio: ~US$ 2.
+
 `recepcao_cenarios` armazena o conteúdo. `catalogo.ts` contém apenas as sementes iniciais; o runtime lê o banco. `cenario.mjs` preserva a fixture original para compatibilidade de testes históricos. O editor aceita de 3 a 7 competências; exige IDs únicos, pesos somando 100 e conteúdo limitado. Cada alteração da rubrica recebe uma identidade calculada pelo hash dos critérios. A versão e a variante selecionadas ficam no snapshot da sessão. Repetição imediata do mesmo caso alterna a variante.
 
 `core.ts` separa juízo da IA e cálculo da nota. Confere citações literais, autoria, oportunidade e vocabulários do snapshot. As `oportunidades` de cada dimensão (obrigatórias para toda dimensão avaliada) aparecem na tela desde 06/09: como etiqueta na mensagem da conversa em que estava o momento, e no card da competência como "Onde estava a oportunidade", com o autor da fala; a revisão da equipe também as lista. Até então eram geradas, validadas e descartadas na renderização. O avaliador recebe participantes explícitos, `secretaria` e `paciente`. Há uma correção limitada, com a saída recusada e o campo inválido. Cobertura reduzida não vira reprovação. Citação válida não garante pertinência semântica: a revisão humana continua necessária.

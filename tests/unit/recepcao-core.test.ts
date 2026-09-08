@@ -204,3 +204,26 @@ test('duas avaliações que atribuem fala da paciente à secretária nunca são 
   assert.equal(chamadas, 2);
   assert.deepEqual(s, antes);
 });
+
+test('trecho real com id errado é corrigido para a única mensagem que o contém; invenção e ambiguidade seguem recusadas', async () => {
+  // Par REAL da recalibração de 08/09: fala da paciente em m2 citada como m0 (o retry repetiu o id).
+  const s = await executarExemplo();
+  s.historico[2].content += ' Tenho compromisso de trabalho às 15h e não posso ficar esperando lá.';
+  const errado = insumosExemplo();
+  errado.dimensoes[0].oportunidades = [{ mensagemId: 'm0', trecho: 'Tenho compromisso de trabalho às 15h' }];
+  const r = consolidar(s, errado);
+  assert.equal(r.nota, 100);
+  assert.equal(r.dimensoes[0].oportunidades[0].mensagemId, 'm2');
+  // Evidência exige fala da secretária: texto que só existe numa fala da paciente não é remapeado.
+  const papel = insumosExemplo();
+  papel.dimensoes[0].evidencias = [{ mensagemId: 'm1', trecho: 'Tenho compromisso de trabalho às 15h' }];
+  assert.throws(() => consolidar(s, papel), e => e instanceof ErroReferenciaAvaliacao && e.codigo === 'citacao_invalida');
+  const inventado = insumosExemplo();
+  inventado.dimensoes[0].oportunidades = [{ mensagemId: 'm0', trecho: 'Quero falar com alguém que tenha autoridade' }];
+  assert.throws(() => consolidar(s, inventado), e => e instanceof ErroReferenciaAvaliacao && e.codigo === 'citacao_invalida');
+  // O reparo grava o id corrigido nos próprios insumos (o relatório sai com m2), por isso insumos novos aqui.
+  s.historico[4].content += ' Tenho compromisso de trabalho às 15h, repito.';
+  const ambiguo = insumosExemplo();
+  ambiguo.dimensoes[0].oportunidades = [{ mensagemId: 'm0', trecho: 'Tenho compromisso de trabalho às 15h' }];
+  assert.throws(() => consolidar(s, ambiguo), e => e instanceof ErroReferenciaAvaliacao && e.codigo === 'citacao_invalida');
+});
