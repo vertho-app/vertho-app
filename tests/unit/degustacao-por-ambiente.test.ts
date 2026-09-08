@@ -18,19 +18,29 @@ import {
  * gerado" na frente do prospect, sem nada acusar antes.
  *
  * `Medido 01/09/2026:` no `escolas-acme` só Professor(a) e Coordenador(a)
- * Pedagógico(a) têm competências e cenário A gerado. Diretor(a) Escolar não
+ * Pedagógico(a) tinham competências e cenário A gerado. Diretor(a) Escolar não
  * tem, de propósito — a direção administra o programa e fica fora da jornada.
+ *
+ * ⚠️ ATUALIZADO em 08/09/2026: a COORDENAÇÃO também saiu. Em 02/09 ela entrou
+ * em `cargosSemAssessment` do roster escolar (Top 5 zerado de propósito: existe
+ * para adequação e gestão de equipe, não para percorrer a jornada) — o que
+ * tornou falsa a medição de 01/09 sem nada acusar. Hoje resta só Professor(a),
+ * e `degustacao-cargo-com-matriz.test.ts` cruza as duas listas para a
+ * contradição não voltar.
  */
 describe('degustação por ambiente', () => {
   it('cada ambiente oferece o próprio elenco de papéis', () => {
     expect(papeisDaDegustacao('acme-demo')).toBe(ACME_PROSPECT_ROLES);
     const escolar = papeisDaDegustacao('escolas-acme').map((r: any) => r.cargo);
-    expect(escolar).toEqual(['Professor(a)', 'Coordenador(a) Pedagógico(a)']);
+    expect(escolar).toEqual(['Professor(a)']);
   });
 
-  it('não oferece Diretor(a) Escolar: cargo sem matriz mataria a etapa 01', () => {
+  it('não oferece cargo sem matriz: mataria a etapa 01', () => {
     const cargos = papeisDaDegustacao('escolas-acme').map((r: any) => r.cargo);
+    // A direção administra o programa e nunca percorreu a jornada.
     expect(cargos).not.toContain('Diretor(a) Escolar');
+    // A coordenação percorria até 02/09; hoje o Top 5 dela é zerado de propósito.
+    expect(cargos).not.toContain('Coordenador(a) Pedagógico(a)');
   });
 
   it('papel de um ambiente NÃO vale no outro', () => {

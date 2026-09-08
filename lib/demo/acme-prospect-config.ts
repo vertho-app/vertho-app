@@ -47,12 +47,16 @@ export const DEMO_PROSPECT_ROLES_POR_AMBIENTE = {
       cargo: 'Professor(a)',
       area: 'Docência',
     },
-    {
-      key: 'coordenacao-pedagogica',
-      label: 'Coordenador(a) Pedagógico(a)',
-      cargo: 'Coordenador(a) Pedagógico(a)',
-      area: 'Coordenação',
-    },
+    // ⚠️ Coordenador(a) Pedagógico(a) SAIU em 08/09/2026, e o motivo vale para
+    // qualquer cargo futuro: ele está em `cargosSemAssessment` do roster
+    // escolar, ou seja, tem o Top 5 zerado DE PROPÓSITO — a coordenação existe
+    // para adequação e gestão de equipe, não para percorrer a jornada. Um cargo
+    // sem Top 5 não tem competência nem cenário, então a degustação dele morria
+    // na etapa 01 com "Cenário ainda não foi gerado", na frente do prospect.
+    //
+    // As duas decisões (oferecer o cargo · zerar o Top 5) entraram com um dia de
+    // diferença e nenhuma das duas estava errada sozinha. Hoje
+    // `tests/unit/degustacao-cargo-com-matriz.test.ts` cruza as duas listas.
   ],
 } as const;
 
