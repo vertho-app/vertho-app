@@ -318,7 +318,13 @@ export async function enviarConvitesPulso(
           continue;
         }
         stats.enviados++;
-        await sb.from('pulse_audit_logs').insert({
+        // ⚠️ Este registro é a CHAVE DE IDEMPOTÊNCIA, não auditoria decorativa:
+        // `jaEnviadosSet` é montado a partir de `pulse_audit_logs`. Um insert
+        // que falha calado não perde uma linha de log — faz a pessoa ser
+        // RECONVIDADA no próximo disparo, porque nada marca que ela já recebeu.
+        //
+        // E o supabase-js RETORNA `{ error }`: o try/catch em volta não pega.
+        const carimbo = await sb.from('pulse_audit_logs').insert({
           empresa_id: empresaId, actor_email: adminEmail,
           actor_role: 'admin', action_type: 'convite_enviado_email',
           ciclo_id: cicloId,
@@ -329,6 +335,15 @@ export async function enviarConvitesPulso(
             provider: emailProviderName(),
           },
         } as any);
+        if (carimbo.error) {
+          // O e-mail JÁ SAIU (o insert vem depois do `res.ok`), então não dá
+          // para desfazer — o que dá é não afirmar que ficou tudo certo. Sem
+          // isto, `stats.enviados` conta a pessoa como convidada e o disparo
+          // seguinte a convida de novo, sem ninguém saber por quê.
+          stats.erros++;
+          stats.ultimo_erro = `convite enviado mas NÃO carimbado (vai repetir no próximo disparo): ${carimbo.error.message}`.slice(0, 150);
+          console.error('[pulse/envio] carimbo de idempotência falhou:', carimbo.error.message);
+        }
       }
     }
   }

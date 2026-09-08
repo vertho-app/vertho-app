@@ -1,6 +1,6 @@
 {
   "description": "E11 (auditoria 22/08) — estoque CONGELADO da classe \"error não checado\": o supabase-js retorna { data, error } e não lança, então quem ignora o retorno vira falha silenciosa. Chave = arquivo, valor = fingerprints (hash do trecho normalizado). Por fingerprint e não por contagem porque contagem deixa a dívida TROCAR DE LUGAR sem o guard ver (modo de falha documentado no E8). Esta lista SÓ ENCOLHE. Guard: tests/unit/security/error-nao-checado-guard.test.ts",
-  "total_declarado": 944,
+  "total_declarado": 943,
   "gerado_em": "2026-08-24",
   "allowlist": {
     "actions/adequacao-cargo.ts": {
@@ -351,8 +351,7 @@
       "6d359217": 1,
       "a24479cc": 1,
       "a7c6b6bb": 1,
-      "b749b3cf": 1,
-      "bbbc82e2": 1
+      "b749b3cf": 1
     },
     "actions/pulse/export.ts": {
       "4f39cf6e": 1,
