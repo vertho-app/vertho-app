@@ -1,5 +1,5 @@
-import { Resend } from 'resend';
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
+import { emailConfigurationError, emailProviderName, sendEmail } from '@/lib/email-provider';
 import { escaparLike } from '@/lib/sql-like';
 import type { AppLocale } from '@/i18n/routing';
 import { magicLinkEmail, magicLinkWhatsapp, signupEmail, signupWhatsapp } from '@/lib/i18n-auth-templates';
@@ -30,6 +30,7 @@ export type SendAccessLinkResult = {
   whatsapp: ChannelStatus;
   emailReason?: string;
   whatsappReason?: string;
+  emailProviderMessageId?: string;
   /** true se pelo menos um canal foi realmente enviado */
   anySent: boolean;
 };
@@ -74,7 +75,7 @@ export type SendAccessLinkInput = {
  * Registra a tentativa de e-mail em `notification_deliveries` (mig 198).
  *
  * O canal de e-mail nasceu fora da medição: a 198 instrumentou só o serviço
- * central de WhatsApp, e o e-mail sai por Resend direto. Enquanto isso durou, um
+ * central de WhatsApp, e o e-mail saía pelo provedor direto. Enquanto isso durou, um
  * colaborador SEM telefone recebia o link de acesso e nada disso aparecia — o
  * que tornava "não tentou entrar" indistinguível de "tentou e o e-mail falhou".
  *
@@ -90,7 +91,8 @@ async function enviarEmail(p: SendAccessLinkInput, out: SendAccessLinkResult): P
     kind: p.kind === 'signup' ? 'signup' : 'magic_link',
     empresaId: p.empresaId ?? null,
     colaboradorId: await resolverColaboradorId(p.empresaId, p.to),
-    provider: 'resend',
+    provider: emailProviderName(),
+    providerMessageId: out.emailProviderMessageId ?? null,
     error: out.email === 'sent' ? null : (out.emailReason ?? null),
   });
 }
@@ -137,9 +139,10 @@ async function resolverColaboradorId(
 }
 
 async function executarEnvioEmail(p: SendAccessLinkInput, out: SendAccessLinkResult): Promise<void> {
-  if (!process.env.RESEND_API_KEY) {
+  const configError = emailConfigurationError();
+  if (configError) {
     out.email = 'failed';
-    out.emailReason = 'RESEND_API_KEY ausente';
+    out.emailReason = configError;
     return;
   }
   if (!p.emailLink) {
@@ -148,15 +151,15 @@ async function executarEnvioEmail(p: SendAccessLinkInput, out: SendAccessLinkRes
     return;
   }
   try {
-    const resend = new Resend(process.env.RESEND_API_KEY);
     const buildEmail = p.kind === 'signup' ? signupEmail : magicLinkEmail;
     const tpl = buildEmail(p.locale, { nome: p.nome, empresaNome: p.empresaNome, link: p.emailLink });
-    const r = await resend.emails.send({ from: EMAIL_FROM_DEFAULT, to: p.to, subject: tpl.subject, html: tpl.html });
-    if ((r as any)?.error) {
+    const r = await sendEmail({ from: EMAIL_FROM_DEFAULT, to: p.to, subject: tpl.subject, html: tpl.html });
+    if (!r.ok) {
       out.email = 'failed';
-      out.emailReason = String((r as any).error?.message || (r as any).error).slice(0, 200);
+      out.emailReason = String(r.error || 'Falha ao enviar e-mail').slice(0, 200);
     } else {
       out.email = 'sent';
+      out.emailProviderMessageId = r.messageId;
     }
   } catch (e: any) {
     out.email = 'failed';

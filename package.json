@@ -37,6 +37,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
+    "@aws-sdk/client-sesv2": "^3.1127.0",
     "@breezystack/lamejs": "^1.2.7",
     "@google/genai": "^2.13.0",
     "@react-pdf/renderer": "^4.4.0",

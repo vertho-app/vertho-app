@@ -5,6 +5,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { logAdminAction } from '@/lib/audit';
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
+import { emailConfigurationError, sendEmail, type SendEmailInput } from '@/lib/email-provider';
 import { assertZapiConnected, getZapiConfig } from '@/lib/zapi';
 import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
@@ -72,40 +73,27 @@ async function colaboradoresMapeamentoCompleto(sb: any, empresaId: string): Prom
   return completos;
 }
 
-const RESEND_MIN_INTERVAL_MS = 250; // 4 req/s, abaixo do limite atual de 5 req/s
+const EMAIL_MIN_INTERVAL_MS = 250; // 4 req/s, abaixo das cotas atuais de ambos os provedores
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function retryAfterMs(res: Response, fallbackMs: number) {
-  const raw = res.headers.get('retry-after');
-  if (!raw) return fallbackMs;
-  const seconds = Number(raw);
-  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
-  const dateMs = Date.parse(raw);
-  return Number.isFinite(dateMs) ? Math.max(0, dateMs - Date.now()) : fallbackMs;
-}
-
-async function enviarEmailResendComRetry(emailBody: any, throttle: { lastSentAt: number }) {
+async function enviarEmailComRetry(emailBody: SendEmailInput, throttle: { lastSentAt: number }) {
   let ultimoErro = '';
 
   for (let tentativa = 0; tentativa < 4; tentativa++) {
     const elapsed = Date.now() - throttle.lastSentAt;
-    if (elapsed < RESEND_MIN_INTERVAL_MS) await sleep(RESEND_MIN_INTERVAL_MS - elapsed);
+    if (elapsed < EMAIL_MIN_INTERVAL_MS) await sleep(EMAIL_MIN_INTERVAL_MS - elapsed);
     throttle.lastSentAt = Date.now();
 
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-      body: JSON.stringify(emailBody),
-    });
+    const res = await sendEmail(emailBody);
 
     if (res.ok) return { ok: true };
 
-    ultimoErro = await res.text();
-    if (res.status !== 429 || tentativa === 3) break;
-    await sleep(retryAfterMs(res, 1500 * (tentativa + 1)));
+    ultimoErro = res.error || 'Falha ao enviar e-mail';
+    if (!res.retryable || tentativa === 3) break;
+    await sleep(1500 * (tentativa + 1));
   }
 
   return { ok: false, error: ultimoErro };
@@ -234,7 +222,7 @@ async function deletarAnexoTemporario(sb, path) {
  * @param {object} [anexoExtra] - anexo arbitrário enviado pelo gestor na UI
  *   { name: 'arquivo.pdf', mime: 'application/pdf', base64: '...' }
  *   É enviado adicionalmente ao PDF do relatório (se comPDF=true) para todos
- *   os destinatários, em email (Resend attachments) e WhatsApp (send-document).
+ *   os destinatários, em e-mail (anexo pelo provedor) e WhatsApp (send-document).
  */
 export async function dispararMensagemCustomizada(empresaId, template, canal, filtros: any = {}, assuntoTemplate = '', comPDF = false, anexoExtra: any = null) {
   const ctx = await requireAdminAction('assessments.dispatch');
@@ -437,7 +425,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
 
     const domain = ROOT_DOMAIN;
     const fromEmail = EMAIL_FROM_DEFAULT;
-    const hasResend = !!process.env.RESEND_API_KEY;
+    const emailConfigError = emailConfigurationError();
     const hasQStash = !!process.env.QSTASH_TOKEN;
     const isRelatorio = comPDF;
     const resendThrottle = { lastSentAt: 0 };
@@ -475,7 +463,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         .replace(/\{\{link_disc\}\}/g, linkDisc);
 
       if (canal === 'email' && colab.email) {
-        if (!hasResend) { erroDetalhe = 'RESEND_API_KEY não configurada'; erros++; continue; }
+        if (emailConfigError) { erroDetalhe = emailConfigError; erros++; continue; }
         try {
           const htmlMsg = msg.replace(/\n/g, '<br>').replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/_([^_]+)_/g, '<em>$1</em>');
 
@@ -504,7 +492,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
           };
           if (attachments.length > 0) emailBody.attachments = attachments;
 
-          const res = await enviarEmailResendComRetry(emailBody, resendThrottle);
+          const res = await enviarEmailComRetry(emailBody, resendThrottle);
           if (res.ok) { enviados++; }
           else { erroDetalhe = res.error || 'Falha ao enviar e-mail'; erros++; }
         } catch (e) { erroDetalhe = e.message; erros++; }

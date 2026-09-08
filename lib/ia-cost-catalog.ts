@@ -857,7 +857,7 @@ export const CALLS = [
     fase: 'Radar',
     scaleType: 'lead_radar',
     nome: 'Proposta PDF — escola/município',
-    descricao: 'Gera resumo executivo + 3 pontos críticos com competência Vertho + leitura SAEB/infra/recursos pra PDF do lead. Worker QStash + Resend. Cache por dadosHash.',
+    descricao: 'Gera resumo executivo + 3 pontos críticos com competência Vertho + leitura SAEB/infra/recursos pra PDF do lead. Worker QStash + provedor central de e-mail. Cache por dadosHash.',
     inTokens: 4500,
     outTokens: 3000,
     exec: 1,
@@ -1056,7 +1056,7 @@ export const INFRA_FIXA = [
   { servico: 'Bunny Stream', papel: 'Hosting/CDN de vídeo', tipo: 'uso', usdMes: [1, 10] },
   { servico: 'Sentry', papel: 'Erros em produção', tipo: 'free/fixo', usdMes: [0, 26] },
   { servico: 'Upstash QStash', papel: 'Fila de disparos', tipo: 'uso', usdMes: [0, 5] },
-  { servico: 'Resend', papel: 'E-mail transacional', tipo: 'free/fixo', usdMes: [0, 20] },
+  { servico: 'Amazon SES / Resend', papel: 'E-mail transacional', tipo: 'uso/fallback', usdMes: [0, 20] },
   { servico: 'Gamma + domínio', papel: 'Site institucional + DNS', tipo: 'fixo', usdMes: [1, 12] },
 ];
 

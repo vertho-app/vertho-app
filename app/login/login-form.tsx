@@ -228,7 +228,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
 
     // /api/auth/magic-link cuida de TUDO server-side:
     // - gera link via admin.generateLink (sem rate limit)
-    // - envia email via Resend
+    // - envia e-mail pelo provedor central (SES/Resend)
     // - dispara WhatsApp pelo template da Cloud API
     try {
       const res = await fetch('/api/auth/magic-link', {

@@ -1,8 +1,8 @@
 import 'server-only';
 
-import { Resend } from 'resend';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
+import { emailConfigurationError, sendEmail } from '@/lib/email-provider';
 import { sendWhatsapp } from '@/lib/whatsapp';
 import { mapaEvolucaoUrl, primeiroNome } from '@/lib/conarh/conteudo';
 import { mensagemT0 } from '@/lib/conarh/mensagens';
@@ -159,30 +159,29 @@ export async function entregarT0(leadId: string, opts: OpcoesEntregaT0 = {}): Pr
   let emailErro: string | null = null;
   if (!lead.email) {
     email = 'sem-email';
-  } else if (!process.env.RESEND_API_KEY) {
+  } else if (emailConfigurationError()) {
     email = 'sem-key';
-    emailErro = 'RESEND_API_KEY ausente';
-    console.error('[conarh/t0] RESEND_API_KEY ausente em runtime');
+    emailErro = emailConfigurationError();
+    console.error('[conarh/t0] provedor de e-mail não configurado:', emailErro);
   } else {
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      const sendResult = await resend.emails.send({
+      const sendResult = await sendEmail({
         from: EMAIL_FROM_DEFAULT,
         to: lead.email,
         subject: 'Seu Mapa da Evolução — Vertho no CONARH',
         html: emailHtml({ nome: lead.nome, mapaUrl }),
       });
-      if ((sendResult as any)?.error) {
+      if (!sendResult.ok) {
         email = 'erro';
-        emailErro = JSON.stringify((sendResult as any).error).slice(0, 300);
-        console.error('[conarh/t0] Resend retornou erro:', emailErro);
+        emailErro = String(sendResult.error || 'Falha ao enviar e-mail').slice(0, 300);
+        console.error(`[conarh/t0] ${sendResult.provider} retornou erro:`, emailErro);
       } else {
         email = 'sim';
       }
     } catch (err: any) {
       email = 'erro';
       emailErro = String(err?.message || err).slice(0, 300);
-      console.error('[conarh/t0] Resend exception:', emailErro);
+      console.error('[conarh/t0] provedor de e-mail exception:', emailErro);
     }
   }
 

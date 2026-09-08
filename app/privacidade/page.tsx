@@ -275,7 +275,7 @@ export default function PoliticaPrivacidadePage() {
             itens={[
               'Meta, por meio da infraestrutura do WhatsApp;',
               'Z-API, enquanto aplicável às integrações existentes;',
-              'Resend, para envio de e-mails;',
+              'Amazon SES e Resend, para envio de e-mails;',
               'Twilio, para serviços de comunicação e autenticação por SMS;',
               'serviços de Web Push utilizados pelos navegadores.',
             ]}

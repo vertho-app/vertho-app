@@ -6,32 +6,29 @@ import { canUseModulo, MODULOS } from '@/lib/access-gates';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { EMAIL_FROM_DEFAULT, tenantUrl } from '@/lib/domain';
+import { emailConfigurationError, emailProviderName, sendEmail, type SendEmailInput } from '@/lib/email-provider';
 import { assertFilaDoProvedorLimpa, whatsappHealth } from '@/lib/whatsapp';
 import { publicarWhatsappCis } from '@/lib/qstash-publish';
 import { criarRelogioCadencia, duracaoEstimada, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 import { assertBlocoOnline } from '@/lib/blocos-offline';
 
-const RESEND_MIN_INTERVAL_MS = 250;
+const EMAIL_MIN_INTERVAL_MS = 250;
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function enviarEmailResend(emailBody: any, throttle: { lastSentAt: number }) {
+async function enviarEmailComRetry(emailBody: SendEmailInput, throttle: { lastSentAt: number }) {
   let ultimoErro = '';
   for (let tentativa = 0; tentativa < 4; tentativa++) {
     const elapsed = Date.now() - throttle.lastSentAt;
-    if (elapsed < RESEND_MIN_INTERVAL_MS) await sleep(RESEND_MIN_INTERVAL_MS - elapsed);
+    if (elapsed < EMAIL_MIN_INTERVAL_MS) await sleep(EMAIL_MIN_INTERVAL_MS - elapsed);
     throttle.lastSentAt = Date.now();
 
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.RESEND_API_KEY}` },
-      body: JSON.stringify(emailBody),
-    });
+    const res = await sendEmail(emailBody);
     if (res.ok) return { ok: true };
-    ultimoErro = await res.text();
-    if (res.status !== 429 || tentativa === 3) break;
+    ultimoErro = res.error || 'Falha ao enviar e-mail';
+    if (!res.retryable || tentativa === 3) break;
     await sleep(1500 * (tentativa + 1));
   }
   return { ok: false, error: ultimoErro || 'Falha ao enviar e-mail' };
@@ -189,7 +186,8 @@ export async function enviarConvitesPulso(
       return { ok: false, error: 'QSTASH_TOKEN não configurado — o convite por WhatsApp sai pela fila, não direto.' };
     }
   }
-  if (enviarEmail && !process.env.RESEND_API_KEY) return { ok: false, error: 'RESEND_API_KEY não configurada' };
+  const emailConfigError = emailConfigurationError();
+  if (enviarEmail && emailConfigError) return { ok: false, error: emailConfigError };
 
   const emailThrottle = { lastSentAt: 0 };
 
@@ -304,7 +302,7 @@ export async function enviarConvitesPulso(
         const subject = opts.pulse_moment === 'T0'
           ? `Pulso de Desenvolvimento · ${empresa.nome}`
           : `Pulso Final de Desenvolvimento · ${empresa.nome}`;
-        const res = await enviarEmailResend({
+        const res = await enviarEmailComRetry({
           from: EMAIL_FROM_DEFAULT,
           to: colab.email,
           subject,
@@ -328,7 +326,7 @@ export async function enviarConvitesPulso(
             assignment_id: a.id,
             colaborador_id: colab.id,
             pulse_moment: opts.pulse_moment,
-            provider: 'resend',
+            provider: emailProviderName(),
           },
         } as any);
       }

@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
-import { Resend } from 'resend';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getLogoCoverBase64 } from '@/lib/pdf-assets';
 import { safeSecretEqual } from '@/lib/secure-compare';
 import { montarPropostaPayload } from '@/lib/radar/proposta-pdf-data';
 import RadarPropostaPDF from '@/components/pdf/RadarPropostaPDF';
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
+import { emailConfigurationError, sendEmail } from '@/lib/email-provider';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -113,19 +113,18 @@ export async function POST(req: Request) {
       pdf_gerado_em: new Date().toISOString(),
     }).eq('id', leadId);
 
-    // ── 6. Envia email via Resend ──────────────────────────────────
+    // ── 6. Envia email pelo provedor configurado ───────────────────
     let emailEnviado: 'sim' | 'sem-key' | 'sem-email' | 'erro' = 'sem-key';
     let emailErrMsg: string | null = null;
-    if (!process.env.RESEND_API_KEY) {
+    if (emailConfigurationError()) {
       emailEnviado = 'sem-key';
-      console.error('[radar/lead-pdf] RESEND_API_KEY ausente em runtime');
+      console.error('[radar/lead-pdf] provedor de e-mail não configurado:', emailConfigurationError());
     } else if (!lead.email) {
       emailEnviado = 'sem-email';
       console.error('[radar/lead-pdf] lead.email vazio:', leadId);
     } else {
       try {
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        const sendResult = await resend.emails.send({
+        const sendResult = await sendEmail({
           from: EMAIL_FROM_DEFAULT,
           to: lead.email,
           subject: `Diagnóstico Vertho — ${propostaPayload.scopeLabel}`,
@@ -141,18 +140,18 @@ export async function POST(req: Request) {
             },
           ],
         });
-        if ((sendResult as any)?.error) {
+        if (!sendResult.ok) {
           emailEnviado = 'erro';
-          emailErrMsg = JSON.stringify((sendResult as any).error).slice(0, 300);
-          console.error('[radar/lead-pdf] Resend retornou erro:', emailErrMsg);
+          emailErrMsg = String(sendResult.error || 'Falha ao enviar e-mail').slice(0, 300);
+          console.error(`[radar/lead-pdf] ${sendResult.provider} retornou erro:`, emailErrMsg);
         } else {
           emailEnviado = 'sim';
-          console.log('[radar/lead-pdf] email enviado:', (sendResult as any)?.data?.id);
+          console.log(`[radar/lead-pdf] email enviado via ${sendResult.provider}:`, sendResult.messageId);
         }
       } catch (emailErr: any) {
         emailEnviado = 'erro';
         emailErrMsg = String(emailErr?.message || emailErr).slice(0, 300);
-        console.error('[radar/lead-pdf] Resend exception:', emailErr?.stack || emailErrMsg);
+        console.error('[radar/lead-pdf] provedor de e-mail exception:', emailErr?.stack || emailErrMsg);
       }
     }
 

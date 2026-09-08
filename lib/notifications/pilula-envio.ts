@@ -6,10 +6,11 @@
  * app no formato PREFERIDO do colaborador (os demais formatos ficam disponíveis
  * lá dentro). O link usa a URL do TENANT (ex.: ibipeba.vertho.ai), não a genérica.
  *
- * Canais: WhatsApp (texto) + e-mail (Resend). Ambos com o mesmo tema/formato.
+ * Canais: WhatsApp (texto) + e-mail (SES/Resend). Ambos com o mesmo tema/formato.
  */
 
 import { EMAIL_FROM_DEFAULT } from '@/lib/domain';
+import { emailConfigurationError, emailProviderName, sendEmail } from '@/lib/email-provider';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { APLICACAO_VIDEO_ID } from '@/lib/season-engine/programa-config';
 // O helper vive em `lib/descritor-humano.ts` (puro, sem imports) porque tela,
@@ -105,7 +106,7 @@ export function emailEvidencia(
 }
 
 /**
- * Envia e-mail via Resend. NUNCA lança — devolve {ok, reason}.
+ * Envia e-mail pelo provedor configurado. NUNCA lança — devolve {ok, reason}.
  *
  * `meta` é o contexto de negócio para a telemetria de entrega (mig 198) e não
  * afeta o envio. Sem ele a linha ainda é gravada, com `kind` nulo — lacuna
@@ -118,36 +119,33 @@ export async function enviarEmailPilula(
   html: string,
   meta?: { kind?: string | null; empresaId?: string | null; colaboradorId?: string | null; dedupeKey?: string | null },
 ): Promise<{ ok: boolean; reason?: string }> {
-  const registrar = async (ok: boolean, reason?: string) => {
+  const registrar = async (ok: boolean, reason?: string, providerMessageId?: string) => {
     await registrarEntrega({
       canal: 'email',
       status: ok ? 'sucesso' : 'falha',
       kind: meta?.kind ?? null,
       empresaId: meta?.empresaId ?? null,
       colaboradorId: meta?.colaboradorId ?? null,
-      provider: 'resend',
+      provider: emailProviderName(),
       error: ok ? null : (reason ?? null),
       dedupeKey: meta?.dedupeKey ?? null,
+      providerMessageId: providerMessageId ?? null,
     });
   };
 
-  const key = process.env.RESEND_API_KEY;
-  if (!key) {
-    await registrar(false, 'sem RESEND_API_KEY');
-    return { ok: false, reason: 'sem RESEND_API_KEY' };
+  const configError = emailConfigurationError();
+  if (configError) {
+    await registrar(false, configError);
+    return { ok: false, reason: configError };
   }
   try {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ from: EMAIL_FROM_DEFAULT, to, subject, html }),
-    });
+    const r = await sendEmail({ from: EMAIL_FROM_DEFAULT, to, subject, html });
     if (!r.ok) {
-      const reason = `${r.status} ${(await r.text()).slice(0, 120)}`;
+      const reason = String(r.error || 'Falha ao enviar e-mail').slice(0, 160);
       await registrar(false, reason);
       return { ok: false, reason };
     }
-    await registrar(true);
+    await registrar(true, undefined, r.messageId);
     return { ok: true };
   } catch (e: any) {
     const reason = String(e?.message || e);

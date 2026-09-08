@@ -1,6 +1,7 @@
 'use server';
 
 import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, tenantUrl } from '@/lib/domain';
+import { emailConfigurationError, sendEmail } from '@/lib/email-provider';
 import crypto from 'crypto';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
@@ -113,35 +114,30 @@ export async function dispararEmails(empresaId: string) {
       let emailEntregue = false;
       let whatsappAgendado = false;
 
-      // 1. Enviar email (se tem email e Resend configurado)
-      if (colab.email && process.env.RESEND_API_KEY) {
+      // 1. Enviar e-mail pelo provedor configurado
+      if (colab.email && !emailConfigurationError()) {
         try {
           const fromEmail = EMAIL_FROM_DEFAULT;
-          const emailRes = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-            },
-            body: JSON.stringify({
-              from: fromEmail,
-              to: colab.email,
-              subject: `[${empresa.nome}] Avaliação de Competências`,
-              html: `<p>Olá${colab.nome_completo ? ` ${colab.nome_completo.split(' ')[0]}` : ''}!</p>
+          const emailRes = await sendEmail({
+            from: fromEmail,
+            to: colab.email,
+            subject: `[${empresa.nome}] Avaliação de Competências`,
+            html: `<p>Olá${colab.nome_completo ? ` ${colab.nome_completo.split(' ')[0]}` : ''}!</p>
 <p>Você foi convidado(a) para participar da avaliação de competências da <strong>${empresa.nome}</strong>.</p>
 <p><a href="${link}" style="background:#0D9488;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:bold;">Iniciar Avaliação</a></p>
 <p style="color:#666;font-size:12px;">Ou acesse: ${link}</p>`,
-            }),
           });
           if (emailRes.ok) {
             emailEntregue = true;
             emailsEnviados++;
           } else {
-            const detail = await emailRes.text();
-            console.error('[Email] Resend erro:', emailRes.status, detail);
+            console.error(`[Email] ${emailRes.provider} erro:`, emailRes.error);
             erros++;
           }
         } catch (e) { console.error('[Email] erro:', e.message); erros++; }
+      } else if (colab.email) {
+        console.error('[Email] provedor não configurado:', emailConfigurationError());
+        erros++;
       }
 
       // 2. Enviar WhatsApp (se tem telefone e QStash configurado)

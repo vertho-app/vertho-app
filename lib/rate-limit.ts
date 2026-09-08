@@ -171,7 +171,7 @@ export const readLimiter = createRateLimiter({ maxRequests: 60, windowMs: 60_000
 
 /**
  * Rotas de autenticação (não autenticadas, disparam email/WhatsApp/SMS = custo):
- * 8 req/min por IP. Protege contra enumeração e abuso de envio (Resend/Z-API).
+ * 8 req/min por IP. Protege contra enumeração e abuso de envio (SES/Resend/Z-API).
  * Com UPSTASH_REDIS_REST_* configuradas o limite é distribuído de verdade;
  * sem elas, é por-instância (teto grosseiro).
  */

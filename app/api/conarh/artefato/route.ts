@@ -31,7 +31,7 @@ function respostaOffline() {
  *
  * Recebe { leadId } da captura (actions/lead-comercial.ts) e delega a entrega ao
  * NÚCLEO `lib/conarh/entrega-t0.ts` — WhatsApp (template da Cloud API, com o
- * legado como reserva) + e-mail Resend, ambos com o link do Mapa da Evolução.
+ * legado como reserva) + e-mail pelo provedor central, ambos com o link do Mapa da Evolução.
  *
  * 🔑 Esta rota é só GATE + tradução para HTTP. O corpo vive no núcleo porque a
  * varredura de pendentes (`lib/conarh/reenvio-t0.ts`, cron + botão da equipe)

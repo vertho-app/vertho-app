@@ -211,7 +211,7 @@ export function checarCanalZerado(envios: EnvioObservado[]): Achado[] {
   if (comMail.length >= 3 && mailOk === 0) {
     out.push(achado('canal-email-zerado', 'critico', 'Nenhum e-mail saiu hoje',
       comMail.length, 'Todos os elegíveis ficaram sem e-mail — provedor fora ou credencial ausente.',
-      { acao: 'Checar RESEND_API_KEY e o painel do provedor.' }));
+      { acao: 'Checar credenciais do provedor de e-mail (SES/Resend), a região e o painel do provedor.' }));
   }
   // Push como canal de primeira classe também aqui. Sem esta linha, uma pane
   // total de push (VAPID ausente no ambiente, leitura de endpoints falhando)
