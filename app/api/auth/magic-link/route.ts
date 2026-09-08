@@ -158,6 +158,10 @@ export async function POST(req: NextRequest) {
     // decide nada: sem o e-mail estar em `platform_admins`, pedir `/admin` não
     // muda o host — só levaria a pessoa a um painel que o gate recusa.
     const paraPainelPlataforma = destinoEhPainelPlataforma && ehAdminDaPlataforma;
+    // O mesmo e-mail pode ser platform admin e colaborador de um tenant. Nesse
+    // caso, o cadastro de colaborador ainda fornece nome/telefone, mas não deve
+    // assinar a mensagem do painel com a marca daquele tenant.
+    const empresaNomeDoEnvio = paraPainelPlataforma ? 'Vertho' : empresaNome;
 
     // A sessão precisa nascer no subdomínio do TENANT: o cookie não declara
     // `domain`, então fica preso ao host exato. Entrar por `app.vertho.ai`
@@ -179,7 +183,7 @@ export async function POST(req: NextRequest) {
       to: trimmed,
       telefone: recipient.telefone,
       nome: recipient.nome,
-      empresaNome,
+      empresaNome: empresaNomeDoEnvio,
       empresaId: colab?.empresa_id ?? null, // gate de tenant-demo
       locale,
       emailLink: callbackLink || actionLink,

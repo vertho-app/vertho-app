@@ -100,6 +100,13 @@ describe('🔴 platform admin pedindo o painel', () => {
     expect(hostDoCallback()).toBe(HOST_GENERICO);
   });
 
+  it('usa a marca Vertho mesmo quando o admin também pertence a um tenant', async () => {
+    ehAdmin = true;
+    temColab = true;
+    await pedir('/admin-v2');
+    expect(enviado.at(-1).empresaNome).toBe('Vertho');
+  });
+
   it('🔑 é consultado em `platform_admins` MESMO tendo colaborador', async () => {
     // O bug morava aqui: a consulta só acontecia quando não havia colaborador, e
     // é a mesma pessoa que precisa das duas coisas.
@@ -142,6 +149,7 @@ describe('o par que não pode quebrar: colaborador vai para o tenant', () => {
     ehAdmin = true;
     await pedir('/dashboard');
     expect(hostDoCallback()).toBe('ibipeba.vertho.ai');
+    expect(enviado.at(-1).empresaNome).toBe('Ibipeba');
     // E aí o WhatsApp volta a valer.
     expect(enviado.at(-1).whatsappLink).not.toBeNull();
     expect(enviado.at(-1).tenantSlug).toBe('ibipeba');
