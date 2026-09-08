@@ -2,7 +2,7 @@ import 'server-only';
 
 import { callAI } from '@/actions/ai-client';
 import { storageSlug } from '@/lib/storage-slug';
-import { ELENCO } from '@/lib/tts/elenco';
+import { ELENCO, direcaoDoPersonagem } from '@/lib/tts/elenco';
 
 export const DEVOLUTIVA_AUDIO_BUCKET = 'relatorios-pdf';
 
@@ -87,7 +87,9 @@ export async function gerarDevolutivaEmAudioCore({ colab, raw, texts, sb, sobDem
   const narracao = extractNarration(roteiro);
   const audio = await generateNarrationAudio(narracao, {
     voice: process.env.GEMINI_TTS_DEVOLUTIVA_VOICE || ELENCO.beto.voz,
-    style: 'Narre em português do Brasil, com voz masculina brasileira acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa',
+    // A direção vem do ELENCO: produção e canário falam com a MESMA voz e o
+    // mesmo estilo, senão o canário mede um take que ninguém ouve.
+    style: direcaoDoPersonagem('beto'),
     ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id },
     segmentar: false,
     retakeParalelo: sobDemanda,

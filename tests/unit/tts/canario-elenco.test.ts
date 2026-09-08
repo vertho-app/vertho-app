@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ELENCO, personagemDaVoz } from '@/lib/tts/elenco';
-import { DIRECAO_POR_PERSONAGEM, direcaoDaVoz } from '@/lib/tts/canario';
+import { ELENCO, personagemDaVoz, direcaoDoPersonagem } from '@/lib/tts/elenco';
+import { direcaoDaVoz } from '@/lib/tts/canario';
 import { ALVO_F0_POR_VOZ } from '@/lib/tts/deriva';
 
 /**
@@ -25,12 +25,22 @@ describe('canário segue o elenco', () => {
 
   it('🔴 a direção segue o PERSONAGEM, não o nome da voz', () => {
     // é isto que sobrevive ao recast: trocar a voz do beto mantém a direção dele
-    expect(direcaoDaVoz(ELENCO.beto.voz)).toBe(DIRECAO_POR_PERSONAGEM.beto);
-    expect(direcaoDaVoz(ELENCO.mentora.voz)).toBe(DIRECAO_POR_PERSONAGEM.mentora);
+    expect(direcaoDaVoz(ELENCO.beto.voz)).toBe(direcaoDoPersonagem('beto'));
+    expect(direcaoDaVoz(ELENCO.mentora.voz)).toBe(direcaoDoPersonagem('mentora'));
     // `not.toBe` sozinho é fraco: a direção da mentora colada no beto com um
     // sufixo qualquer passaria, e é assim que um copy-paste sobrevive à revisão.
-    expect(DIRECAO_POR_PERSONAGEM.beto).not.toContain(DIRECAO_POR_PERSONAGEM.mentora.slice(0, 60));
-    expect(DIRECAO_POR_PERSONAGEM.mentora).not.toContain(DIRECAO_POR_PERSONAGEM.beto.slice(0, 60));
+    expect(direcaoDoPersonagem('beto')).not.toContain(direcaoDoPersonagem('mentora').slice(0, 60));
+    expect(direcaoDoPersonagem('mentora')).not.toContain(direcaoDoPersonagem('beto').slice(0, 60));
+  });
+
+  it('🔴 o gênero vai EXPLÍCITO na direção de cada personagem', () => {
+    // O prompt de estilo dirige a prosódia: sem o gênero, a entrega não acompanha
+    // a troca da voz prebuilt. O Beto é voz masculina (Algieba desde 07/09) e a
+    // direção dele precisa dizer isso — não só "mentor".
+    expect(direcaoDoPersonagem('beto')).toMatch(/voz masculina/i);
+    expect(direcaoDoPersonagem('beto')).not.toMatch(/voz feminina|mentora/i);
+    expect(direcaoDoPersonagem('mentora')).toMatch(/mentora|voz feminina/i);
+    expect(direcaoDoPersonagem('mentora')).not.toMatch(/voz masculina/i);
   });
 
   it('🔴 voz fora do elenco LANÇA, em vez de ser medida com a direção errada', () => {

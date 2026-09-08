@@ -13,7 +13,7 @@
  */
 import { generateNarrationAudio } from '@/lib/gemini-tts';
 import { ALVO_F0_POR_VOZ } from '@/lib/tts/deriva';
-import { personagemDaVoz, type Personagem } from '@/lib/tts/elenco';
+import { personagemDaVoz, direcaoDoPersonagem } from '@/lib/tts/elenco';
 
 /**
  * Texto fixo de ~4 min (≈ 3.400 caracteres, 11-12 janelas de 20 s): o canário tem que
@@ -35,35 +35,21 @@ export const TEXTO_CANARIO = [
 ].join('\n\n');
 
 /**
- * Direção por PERSONAGEM, não por nome de voz.
+ * Direção de estilo do canário = a do ELENCO, que é a mesma da produção.
  *
- * 🔴 O índice é o personagem porque é ele que sobrevive ao recast: o Beto já foi
- * `Iapetus` e virou `Algieba` em 07/09/2026. Enquanto isto era um mapa por nome
- * de voz, um recast deixava a entrada antiga órfã e a voz nova caía no
- * `?? DIRECAO_CANARIO.Aoede` — o canário mediria a voz do Beto **com a direção
- * da mentora**, comparando contra a assinatura de referência dele, sem nada
- * acusar. Portão que erra o motivo é pior que portão desligado.
+ * 🔴 Ela morava aqui, indexada por NOME DE VOZ, e nome de voz é o que muda: o
+ * Beto foi `Iapetus` e virou `Algieba` em 07/09. A entrada antiga ficava órfã e
+ * a voz nova caía num `?? Aoede` — o canário mediria a voz do Beto com a direção
+ * da MENTORA e compararia contra a assinatura dele. Portão que erra o motivo é
+ * pior que portão desligado, porque ninguém desconfia de um número que existe.
  *
- * O texto de cada direção é o que foi usado para MEDIR as assinaturas em
- * `assinaturas-voz.ts`. Mudá-lo invalida a comparação de timbre: recalcule as
- * assinaturas no mesmo commit (`scripts/_gerar-assinaturas-voz.ts`).
- */
-export const DIRECAO_POR_PERSONAGEM: Record<Personagem, string> = {
-  mentora: 'Narre como uma mentora calorosa e acolhedora, em português do Brasil, num ritmo natural de conversa. Respiração natural entre as frases, tom íntimo e humano. Mantenha a fluidez — não alongue as pausas.',
-  beto: 'Narre em português do Brasil como um mentor próximo e seguro, falando diretamente com a pessoa, ritmo moderado e pausas reflexivas naturais.',
-};
-
-/**
- * Direção da voz, resolvida pelo elenco. LANÇA quando a voz não é do elenco ou
- * o personagem não tem direção — o canário existe para detectar mudança de voz,
- * e medir com a direção errada produziria um veredito sobre outra coisa.
+ * Consumir o elenco também fecha a outra ponta: o canário só prova alguma coisa
+ * se falar com a pessoa do mesmo jeito que a produção fala.
  */
 export function direcaoDaVoz(voz: string): string {
   const personagem = personagemDaVoz(voz);
   if (!personagem) throw new Error(`[canario] voz fora do elenco: ${voz}`);
-  const direcao = DIRECAO_POR_PERSONAGEM[personagem];
-  if (!direcao) throw new Error(`[canario] personagem sem direção: ${personagem} (voz ${voz})`);
-  return direcao;
+  return direcaoDoPersonagem(personagem);
 }
 
 export interface ResultadoCanario {

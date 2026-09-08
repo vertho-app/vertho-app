@@ -27,6 +27,17 @@ export interface PerfilVoz {
   /** Tentativas do portão para esta voz (default `TTS_QA_TENTATIVAS`, 2). Voz que
    *  acerta o registro em 2 de 3 takes precisa de mais tentativas para a mesma garantia. */
   tentativas?: number;
+  /**
+   * Direção de estilo do personagem — como ele FALA, e é parte da identidade
+   * tanto quanto o nome da voz. O gênero vai EXPLÍCITO: a direção dirige a
+   * prosódia e, sem ele, a entrega não acompanha a troca da voz prebuilt.
+   *
+   * ⚠️ É a mesma string que a PRODUÇÃO e o CANÁRIO usam. Trocá-la muda o take e
+   * invalida a comparação com `assinaturas-voz.ts`: recalcule a assinatura no
+   * mesmo commit (`scripts/_gerar-assinaturas-voz.ts`) ou confirme por medição
+   * que o timbre não se moveu.
+   */
+  direcao: string;
   /** Muda quando voz OU modelo mudam: entra em chaves de cache e no ledger. */
   versao: string;
 }
@@ -46,7 +57,12 @@ export const ELENCO = {
    * os 2,5 st da faixa. 39 das 42 reprovações são de registro: volume, timbre e deriva
    * dentro do arquivo praticamente não aparecem mais — o problema de junho está fechado.
    */
-  mentora: { voz: 'Aoede', modeloVertex: 'gemini-2.5-flash-tts', modeloAiStudio: 'gemini-2.5-flash-preview-tts', alvoF0Hz: 208, tolSt: 1.25, tentativas: 3, versao: '2026-09-05' },
+  mentora: {
+    voz: 'Aoede', modeloVertex: 'gemini-2.5-flash-tts', modeloAiStudio: 'gemini-2.5-flash-preview-tts',
+    alvoF0Hz: 208, tolSt: 1.25, tentativas: 3,
+    direcao: 'Narre como uma mentora calorosa e acolhedora, em português do Brasil, num ritmo natural de conversa. Respiração natural entre as frases, tom íntimo e humano. Mantenha a fluidez — não alongue as pausas.',
+    versao: '2026-09-05',
+  },
   /**
    * Beto: devolutiva comportamental, speaker "Mentor" no podcast a duas vozes.
    *
@@ -60,7 +76,14 @@ export const ELENCO = {
    * faixa e a chance de as 3 tentativas falharem é 4 %. Com a tolerância padrão (±1 st)
    * seriam 2 de 6, e o fail-open publicaria a maioria.
    */
-  beto: { voz: 'Algieba', modeloVertex: 'gemini-2.5-flash-tts', modeloAiStudio: 'gemini-2.5-flash-preview-tts', alvoF0Hz: 170, tolSt: 1.5, tentativas: 3, versao: '2026-09-07' },
+  beto: {
+    voz: 'Algieba', modeloVertex: 'gemini-2.5-flash-tts', modeloAiStudio: 'gemini-2.5-flash-preview-tts',
+    alvoF0Hz: 170, tolSt: 1.5, tentativas: 3,
+    // O gênero é EXPLÍCITO e a string é a mesma da devolutiva (a produção do Beto):
+    // o canário só prova alguma coisa se medir o que a pessoa ouve.
+    direcao: 'Narre em português do Brasil, com voz masculina brasileira acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa',
+    versao: '2026-09-07',
+  },
 } as const satisfies Record<string, PerfilVoz>;
 
 export type Personagem = keyof typeof ELENCO;
@@ -86,6 +109,10 @@ export function tentativasDaVoz(voz: string): number | undefined {
  * pelo NOME da voz precisa ser reeditado a cada recast, e o que não for
  * reeditado passa a valer para ninguém — em silêncio.
  */
+export function direcaoDoPersonagem(p: Personagem): string {
+  return ELENCO[p].direcao;
+}
+
 export function personagemDaVoz(voz: string): Personagem | null {
   const par = (Object.entries(ELENCO) as [Personagem, PerfilVoz][]).find(([, p]) => p.voz === voz);
   return par ? par[0] : null;
