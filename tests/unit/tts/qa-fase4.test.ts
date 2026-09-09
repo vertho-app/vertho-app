@@ -5,9 +5,9 @@
  * exige silêncio onde silêncio é o correto: amostra pequena, semana sem geração).
  */
 import { describe, it, expect } from 'vitest';
-import { checarTaxaRetakeTts, checarCanarioTts, TTS_RETAKE_AMOSTRA_MINIMA, TTS_CANARIO_TIMBRE_MAX, type RetakeTtsAgregado, type CanarioObservado } from '@/lib/pipeline-health/regras';
+import { checarTaxaRetakeTts, checarCanarioTts, checarCalibracaoVoz, TTS_RETAKE_AMOSTRA_MINIMA, TTS_CANARIO_TIMBRE_MAX, type RetakeTtsAgregado, type CanarioObservado, type CalibracaoVozObservada } from '@/lib/pipeline-health/regras';
 import { assinaturaTimbre, distanciaTimbre, combinarAssinaturas, medirDeriva } from '@/lib/tts/deriva';
-import { ELENCO } from '@/lib/tts/elenco';
+import { ELENCO, CALIBRACAO_AMOSTRA_MINIMA, vozesComCalibracaoProvisoria } from '@/lib/tts/elenco';
 
 const VOZ_BETO = ELENCO.beto.voz; // muda a cada recast; o papel não
 
@@ -101,5 +101,38 @@ describe('assinatura de timbre: identidade da locutora', () => {
     expect(com.timbreVsRefSigma).toBeDefined();
     expect(com.timbreVsRefSigma!).toBeLessThan(medirDeriva(voz(25, 208, escura), SR, ref).timbreVsRefSigma!);
     expect(medirDeriva(voz(25, 208, clara), SR).timbreVsRefSigma).toBeUndefined();
+  });
+});
+
+describe('R20 · calibração provisória de voz', () => {
+  const v = (p: Partial<CalibracaoVozObservada>): CalibracaoVozObservada => ({
+    voz: 'Algieba', personagem: 'beto', calibradoCom: 6, calibradoEm: '2026-09-07',
+    tentativasDesde: 40, minimo: 30, ...p,
+  });
+
+  it('perfil provisório COM amostra suficiente vira achado, com o comando na ação', () => {
+    const a = checarCalibracaoVoz([v({})])!;
+    expect(a).not.toBeNull();
+    expect(a.severidade).toBe('aviso');
+    expect(a.amostra?.[0]).toContain('beto');
+    expect(a.acao).toContain('_calibrar-voz.ts');
+  });
+
+  it('perfil provisório SEM amostra ainda: silêncio (não dá para recalibrar melhor)', () => {
+    expect(checarCalibracaoVoz([v({ tentativasDesde: 12 })])).toBeNull();
+  });
+
+  it('perfil já calibrado com amostra grande nunca vira achado, por mais uso que tenha', () => {
+    expect(checarCalibracaoVoz([v({ personagem: 'mentora', voz: 'Aoede', calibradoCom: 143, tentativasDesde: 5000 })])).toBeNull();
+  });
+
+  it('o ELENCO declara de que amostra veio cada calibração, e a mentora já está fechada', () => {
+    for (const p of Object.values(ELENCO)) {
+      expect(p.calibracao.tentativas).toBeGreaterThan(0);
+      expect(p.calibracao.em).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+    expect(ELENCO.mentora.calibracao.tentativas).toBeGreaterThanOrEqual(CALIBRACAO_AMOSTRA_MINIMA);
+    // hoje só o Beto está provisório — quando deixar de estar, esta lista fica vazia
+    expect(vozesComCalibracaoProvisoria().map((x) => x.personagem)).toEqual(['beto']);
   });
 });

@@ -1,4 +1,4 @@
-import { type RetakeTtsAgregado, type CanarioObservado, TTS_CANARIO_JANELA_DIAS } from './regras';
+import { type RetakeTtsAgregado, type CanarioObservado, type CalibracaoVozObservada, TTS_CANARIO_JANELA_DIAS } from './regras';
 /**
  * Coleta do health-check: transforma o estado do banco nas estruturas que
  * `regras.ts` avalia.
@@ -590,4 +590,28 @@ export async function coletarQaTts(sb: any): Promise<{ portao: RetakeTtsAgregado
     .filter((x) => x.origem === 'canario' && x.publicado && new Date(x.created_at).getTime() >= desdeCanario)
     .map((x) => ({ voz: x.voz, em: x.created_at, ok: x.ok, motivos: x.motivos || [], f0MedHz: x.f0_med_hz == null ? null : Number(x.f0_med_hz), timbreVsRef: x.timbre_vs_ref == null ? null : Number(x.timbre_vs_ref) }));
   return { portao: [...porChave.values()], canarios };
+}
+
+/**
+ * Quanta amostra REAL cada voz do elenco acumulou desde a sua calibração (R20).
+ * Conta tentativas do portão no modelo de produção — canário fica de fora, porque ele
+ * roda com texto fixo e não representa a distribuição do uso.
+ */
+export async function coletarCalibracaoVozes(sb: any): Promise<CalibracaoVozObservada[]> {
+  const { ELENCO, CALIBRACAO_AMOSTRA_MINIMA } = await import('@/lib/tts/elenco');
+  const out: CalibracaoVozObservada[] = [];
+  for (const [personagem, p] of Object.entries(ELENCO)) {
+    const perfil = p as unknown as { voz: string; modeloVertex: string; calibracao: { tentativas: number; em: string } };
+    const { count, error } = await sb.from('tts_qa_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('origem', 'portao').eq('voz', perfil.voz).eq('modelo', perfil.modeloVertex)
+      .gte('created_at', `${perfil.calibracao.em}T00:00:00Z`);
+    if (error) throw new Error(`tts_qa_log (calibração de ${perfil.voz}): ${error.message}`);
+    out.push({
+      voz: perfil.voz, personagem,
+      calibradoCom: perfil.calibracao.tentativas, calibradoEm: perfil.calibracao.em,
+      tentativasDesde: Number(count) || 0, minimo: CALIBRACAO_AMOSTRA_MINIMA,
+    });
+  }
+  return out;
 }

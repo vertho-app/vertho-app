@@ -40,7 +40,21 @@ export interface PerfilVoz {
   direcao: string;
   /** Muda quando voz OU modelo mudam: entra em chaves de cache e no ledger. */
   versao: string;
+  /**
+   * Quantas tentativas do portão embasaram `alvoF0Hz`/`tolSt`/`tentativas`, e quando.
+   *
+   * Existe porque **amostra pequena erra por 4×**: a projeção do bake-off dava ~7 % de
+   * retake para a Aoede e o real na primeira semana foi 29 %, com 8,1 % das sínteses
+   * saindo pelo fail-open. Abaixo de `CALIBRACAO_AMOSTRA_MINIMA` o perfil é PROVISÓRIO,
+   * e a R20 do health avisa assim que houver amostra real suficiente para refazer —
+   * é o que impede a recalibração de depender da memória de alguém.
+   * Recalibrar: `npx tsx scripts/_calibrar-voz.ts <Voz> 7`.
+   */
+  calibracao: { tentativas: number; em: string };
 }
+
+/** Abaixo disto, a calibração de uma voz é provisória (a R20 do health cobra). */
+export const CALIBRACAO_AMOSTRA_MINIMA = 30;
 
 export const ELENCO = {
   /**
@@ -60,6 +74,7 @@ export const ELENCO = {
   mentora: {
     voz: 'Aoede', modeloVertex: 'gemini-2.5-flash-tts', modeloAiStudio: 'gemini-2.5-flash-preview-tts',
     alvoF0Hz: 208, tolSt: 1.25, tentativas: 3,
+    calibracao: { tentativas: 143, em: '2026-09-07' },
     direcao: 'Narre como uma mentora calorosa e acolhedora, em português do Brasil, num ritmo natural de conversa. Respiração natural entre as frases, tom íntimo e humano. Mantenha a fluidez — não alongue as pausas.',
     versao: '2026-09-05',
   },
@@ -79,6 +94,8 @@ export const ELENCO = {
   beto: {
     voz: 'Algieba', modeloVertex: 'gemini-2.5-flash-tts', modeloAiStudio: 'gemini-2.5-flash-preview-tts',
     alvoF0Hz: 170, tolSt: 1.5, tentativas: 3,
+    // PROVISÓRIA: 6 takes gerados de propósito, não produção. A R20 cobra quando houver 30.
+    calibracao: { tentativas: 6, em: '2026-09-07' },
     // O gênero é EXPLÍCITO e a string é a mesma da devolutiva (a produção do Beto):
     // o canário só prova alguma coisa se medir o que a pessoa ouve.
     direcao: 'Narre em português do Brasil, com voz masculina brasileira acolhedora, segura e íntima, ritmo moderado e pausas reflexivas naturais, como um mentor falando diretamente com a pessoa',
@@ -94,6 +111,14 @@ const perfis = (): PerfilVoz[] => Object.values(ELENCO) as unknown as PerfilVoz[
 /** Alvo de F0 por NOME de voz (o portão julga pela voz que sintetizou). */
 export function alvosF0DoElenco(): Record<string, { f0Hz: number; tolSt?: number }> {
   return Object.fromEntries(perfis().map((p) => [p.voz, { f0Hz: p.alvoF0Hz, ...(p.tolSt ? { tolSt: p.tolSt } : {}) }]));
+}
+
+/** Vozes cuja calibração é PROVISÓRIA (amostra menor que o mínimo). */
+export function vozesComCalibracaoProvisoria(): { voz: string; personagem: string; tentativas: number; em: string }[] {
+  return Object.entries(ELENCO)
+    .map(([personagem, p]) => ({ personagem, ...(p as unknown as PerfilVoz) }))
+    .filter((p) => p.calibracao.tentativas < CALIBRACAO_AMOSTRA_MINIMA)
+    .map((p) => ({ voz: p.voz, personagem: p.personagem, tentativas: p.calibracao.tentativas, em: p.calibracao.em }));
 }
 
 /** Tentativas do portão para a voz (perfil do personagem), ou `undefined` = default global. */

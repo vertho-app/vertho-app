@@ -18,13 +18,13 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarRenderSemWorker, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados, checarTaxaRetakeTts, checarCanarioTts } from './regras';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarRenderSemWorker, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados, checarTaxaRetakeTts, checarCanarioTts, checarCalibracaoVoz } from './regras';
 import { ALVO_F0_POR_VOZ } from '@/lib/tts/deriva';
 import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
 import { inspecionarCloudApi } from '@/lib/whatsapp/cloud-api';
 import { inspecionarTemplatesLigados } from '@/lib/whatsapp/templates-ligados';
 import { inspecionarModelosConfigurados } from './coleta-modelos';
-import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, coletarQaTts, diaDaSemanaBRT, pilulaDoDia } from './coleta';
+import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, coletarQaTts, coletarCalibracaoVozes, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /**
  * Empresas elegíveis a envio: exclui demo (não envia comunicação real).
@@ -365,6 +365,11 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
     const qaTts = await coletarQaTts(sb);
     achados.push(checarTaxaRetakeTts(qaTts.portao));
     achados.push(checarCanarioTts(qaTts.canarios, Object.keys(ALVO_F0_POR_VOZ)));
+
+    // R20: perfil de voz calibrado com amostra pequena e já há amostra real para refazer.
+    // É o que faz a recalibração NÃO depender de alguém lembrar (07/09: o perfil da
+    // Algieba veio de 6 takes, e o da Aoede mostrou que 6-14 takes erram por 4×).
+    achados.push(checarCalibracaoVoz(await coletarCalibracaoVozes(sb)));
 
     // R11: saúde do canal push em 24h. Aqui e não no pós-voo porque o pós-voo
     // roda logo após o ENFILEIRAMENTO do fan-out, antes de os workers enviarem.

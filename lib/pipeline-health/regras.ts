@@ -21,6 +21,7 @@
  *                                   R17  checarRenderSemWorker
  *                                   R18  checarTaxaRetakeTts
  *                                   R19  checarCanarioTts
+ *                                   R20  checarCalibracaoVoz
  *
  * ⚠️ **O número NÃO segue a ordem do arquivo, e isso é deliberado.** Os IDs são
  * citados em docs, testes e outros módulos (`lib/degradacao.ts`, `admin-supabase.ts`,
@@ -1031,5 +1032,48 @@ export function checarCanarioTts(canarios: CanarioObservado[], vozesEsperadas: s
     contagem,
     'Se a voz mudou por baixo (modelo GA atualizado), todo podcast, vídeo e devolutiva novos saem com outra locutora sem ninguém ter trocado nada.',
     { amostra, acao: 'Ouvir o take do canário contra a referência (Downloads/deriva-podcast/finalistas-4min). Se mudou: recastar ou fixar versão do modelo; se só não rodou: ver o cron canario_tts na Vercel.' },
+  );
+}
+
+/**
+ * R20 · Perfil de voz calibrado com amostra pequena, e já há amostra real para refazer.
+ *
+ * `alvoF0Hz`, `tolSt` e `tentativas` de cada voz decidem quando o portão reprova e,
+ * portanto, quantos áudios saem pelo fail-open. Calibrar isso com bake-off erra: a
+ * projeção dava ~7 % de retake para a Aoede e o real na primeira semana foi 29 %, com
+ * **8,1 % das sínteses publicando áudio reprovado** (medido 07/09/2026, 143 tentativas).
+ *
+ * Esta regra existe para a recalibração não depender de alguém lembrar: quando uma voz
+ * tem perfil PROVISÓRIO (`calibracao.tentativas` abaixo do mínimo) e o `tts_qa_log` já
+ * acumulou amostra suficiente, ela cobra — com o comando pronto. Some sozinha quando o
+ * perfil for refeito, porque aí `calibracao` deixa de ser provisória.
+ *
+ * `aviso`, não crítico: nada quebra enquanto o perfil for provisório; só se paga mais
+ * fail-open do que o necessário.
+ */
+export interface CalibracaoVozObservada {
+  voz: string;
+  personagem: string;
+  /** Tentativas que embasaram o perfil atual (e a data). */
+  calibradoCom: number;
+  calibradoEm: string;
+  /** Tentativas do portão no log DESDE a calibração — a amostra disponível hoje. */
+  tentativasDesde: number;
+  /** Quanto o mínimo exige. */
+  minimo: number;
+}
+
+export function checarCalibracaoVoz(vozes: CalibracaoVozObservada[]): Achado | null {
+  const prontas = (vozes || []).filter((v) => v.calibradoCom < v.minimo && v.tentativasDesde >= v.minimo);
+  return achado(
+    'tts-calibracao-provisoria',
+    'aviso',
+    'Perfil de voz calibrado com amostra pequena — já dá para refazer com dados reais',
+    prontas.length,
+    'O alvo e a tolerância do portão decidem quantos áudios saem reprovados pelo fail-open; calibrados com poucos takes, erram por 4× (medido na Aoede: previsto 7 % de retake, real 29 %).',
+    {
+      amostra: prontas.map((v) => `${v.personagem} (${v.voz}): perfil de ${v.calibradoEm} veio de ${v.calibradoCom} takes · há ${v.tentativasDesde} tentativas no log`),
+      acao: 'npx tsx scripts/_calibrar-voz.ts <Voz> 30 — aplique o patch sugerido em lib/tts/elenco.ts (alvoF0Hz, tolSt, tentativas) e atualize `calibracao`.',
+    },
   );
 }
