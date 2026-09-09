@@ -683,6 +683,12 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
 - NÃO disparar lote de mensagem sem rodar a PRÉVIA e **ler os nomes**. `prepararLoteTemplate` é o
   mesmo núcleo da tela e devolve quem recebe, com os parâmetros resolvidos, e quem NÃO recebe com o
   motivo. Foi ele — não a suíte — que pegou o F-I29 e o F-C14 antes de a mensagem sair.
+  ⚠️ E em lote MANUAL (script rodando o motor fora do cron) o **template não vem do papel**: o
+  `.env.local` não tem as `WHATSAPP_TEMPLATE_*`, então o nome se resolve pelo `CONTRATOS` de
+  `lib/notifications/pilula-template.ts` e se IMPRIME com a categoria antes do `--aplicar`. `APPROVED`
+  responde "posso enviar?", nunca "devo enviar por este?" — resolvi por papel e mandei 23 mensagens
+  em MARKETING, 6× o custo (09/09). `docs/TEMPLATES-WHATSAPP.md` §4.1; recuperar dia perdido do cron:
+  `docs/FMEA-PIPELINE.md` §F-C15.
 - NÃO deixar um caminho que DESVIA do trabalho sair com código de SUCESSO, e NÃO
   comparar uma contagem com um tamanho declarado sem dizer sobre QUEM ela conta.
   Medido 09/09: o convidado de degustação passou a atravessar o reset (decisão

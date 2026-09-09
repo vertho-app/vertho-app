@@ -520,6 +520,26 @@ npx tsx scripts/_testar-template.ts --papel=pilula --telefone=55… --slug=ibipe
 E o que está ligado **em produção** sai no log `[templates-ligados]` a cada health estrutural —
 papel desligado aparece como `(desligado)`, que é o caso que o silêncio esconde.
 
+### 4.1 Disparo MANUAL: o nome vem do `CONTRATOS`, não do papel
+
+O `.env.local` **não tem** as `WHATSAPP_TEMPLATE_*` de produção (elas são *Sensitive* na Vercel e não
+voltam pelo `vercel env pull`). Então, num script que roda o motor fora do cron, `templateAtivo()`
+devolve `null` e o código cai no **texto livre**, que fora da janela de 24h a Meta não entrega. Quem
+dispara na mão precisa escolher o nome — e o lugar de escolher é o `CONTRATOS` de
+`lib/notifications/pilula-template.ts`, que documenta, por template, qual é o preferido e por quê.
+
+🔴 **`APPROVED` responde "posso enviar?", nunca "devo enviar por este?".** `Medido: 09/09/2026` — no
+catch-up da P2 do Ibipeba eu resolvi o nome pelo PAPEL (`pilula` → `pilula_semanal`), conferi só o
+status na Meta e mandei **23 mensagens em MARKETING**: ~R$ 10,35 contra ~R$ 1,84 do `conteudo_semana`
+(UTILITY), que o próprio `CONTRATOS` marca como *"O PREFERIDO desde 15/08/2026 … 6× menos pela mesma
+entrega"*. Nada quebrou, e é esse o ponto: a mensagem sai, entrega, e só a fatura sabe. A copy também
+muda, então as 23 leram *"Seu vídeo de hoje: tema"* em vez do *"Olá, {nome}. O conteúdo da semana N…"*
+que a cadência usa desde 15/08.
+
+**Antes do `--aplicar`, imprima o nome resolvido E a categoria** (o `_testar-template.ts` já imprime o
+resolvido; a categoria vem do bloco de conferência acima). Vale para qualquer lote manual, não só
+para a pílula.
+
 ⚠️ Ao gravar uma env var de template: `printf '%s' 'nome' | vercel env add …`, **nunca `echo`** (o
 `\n` colado vira `132001` no cron, e a mensagem não sai).
 

@@ -915,6 +915,14 @@ Envios · cron novo que comunica com colaborador.
    lugar, apague o antigo no mesmo movimento. Atenção ao fuso: cron da Vercel é **UTC**, cron da
    sessão do Claude é **local** — `12 12` e `09:12` são o MESMO instante em BRT.
 
+7. **Rodando o motor da CADÊNCIA fora do cron** (`processarEmpresaDiario` num script, catch-up de um
+   dia que o fan-out pulou): o `.env.local` **não tem** as `WHATSAPP_TEMPLATE_*` de produção, e sem
+   elas o código cai no texto livre, que fora da janela de 24h a Meta não entrega. Resolva o nome
+   pelo `CONTRATOS` de `lib/notifications/pilula-template.ts` — que documenta qual é o preferido e
+   por quê — **nunca pelo papel nem pela lista de APPROVED da WABA**, e imprima nome **e categoria**
+   antes do `--aplicar`. Confira também o lock do dia (só apague com `concluido_em` preenchido) e
+   lembre que a idempotência é por CANAL: o canal já carimbado é pulado, o pendente sai.
+
 **Consequência medida (02/09/2026):** no encerramento de Ibipeba, a régua de exclusão comparava
 `semanaAcessivel >= semanaCenarioB` e as **8 pessoas que já haviam concluído todo o conteúdo**
 apareceram no lote, prestes a receber *"na sua trilha ainda há semanas em aberto"*. Quem pegou foi o
@@ -922,6 +930,14 @@ dry-run, não a suíte — o template era novo e não tinha teste. Na mesma roda
 (um em produção, outro na sessão) apontavam para 09:12 da mesma sexta e teriam mandado a mensagem
 duas vezes para as 28. `docs/FMEA-PIPELINE.md` §F-I29; memórias
 `project_encerramento_ibipeba`, `feedback_trabalho_sazonal_sem_desligamento`.
+
+**Consequência medida (09/09/2026):** para recuperar a P2 do Ibipeba que o fan-out não enfileirou,
+rodei o núcleo do worker localmente e resolvi o template pelo PAPEL (`pilula` → `pilula_semanal`),
+conferindo só se estava `APPROVED`. Saíram **23 mensagens em MARKETING**, ~R$ 10,35 contra ~R$ 1,84
+do `conteudo_semana` (UTILITY) — que o próprio `CONTRATOS` marca como *"O PREFERIDO desde
+15/08/2026"*, 6× menos pela mesma entrega. A copy também mudou para as 23 pessoas. `APPROVED`
+responde "posso enviar?", nunca "devo enviar por este?". Memórias `project_meta_template_categoria`,
+`project_jornada_quinta_perdida`.
 
 ---
 
