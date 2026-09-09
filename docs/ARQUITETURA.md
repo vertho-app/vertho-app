@@ -1306,12 +1306,13 @@ e todo `case` declara um lado (agendado ou `ACOES_SO_MANUAIS`).
 | `trigger_diario` | **O dispatcher da cadência** (fan-out por empresa) — substituiu segunda/quinta |
 | `preflight_entrega` | Pré-voo da entrega do dia |
 | `postflight_entrega` | Pós-voo — roda **depois** do disparo, nunca junto (medir no mesmo minuto dá “nenhum canal saiu” com as mensagens em voo). O guard exige o intervalo |
-| `health_estrutural` | **17 checagens** de saúde do pipeline (`lib/pipeline-health/regras.ts`, funções `checar*`) — lê `degradacao_log`, templates ligados, canal de entrada, modelos configurados… |
+| `health_estrutural` | **21 checagens** (R1-R20; três da voz sintética entraram em 06-09/09/2026: **R18** taxa de retake do portão de TTS em 7 dias, **R19** canário semanal por voz, **R20** perfil de voz calibrado com amostra pequena — ver `PLANO-DERIVA-PODCAST-2026-09-04.md` §16 e §21) de saúde do pipeline (`lib/pipeline-health/regras.ts`, funções `checar*`) — lê `degradacao_log`, templates ligados, canal de entrada, modelos configurados… |
 | `backup_diario` | Rotina de backup |
 | `reset_demo` | Reseta o tenant `acme-demo` |
 | `avisar_planos` | Aviso de plano |
 | `horizonte_kits` | Semanal — horizonte de kits |
 | `reconciliar_videos` | Semanal — reconcilia vídeos personalizados (F-V1) |
+| `canario_tts` | Semanal (segunda, 06:20 UTC) — sintetiza o MESMO texto de 4 min em cada voz do elenco e grava o veredito em `tts_qa_log`. O modelo GA do Gemini é atualizado in-place: sem o canário, a voz muda por baixo e o único sinal seria reclamação de ouvinte. Quem alarma é a R19 |
 
 **Só manuais** (`ACOES_SO_MANUAIS`, sem entrada no `vercel.json`): `trigger_segunda`,
 `trigger_quinta`, `recalcular_taxa` — e, desde 31/08, `conarh-followup` e
