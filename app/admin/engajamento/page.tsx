@@ -408,6 +408,7 @@ export default function EngajamentoPage() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<any>(null);
   const [semanaSel, setSemanaSel] = useState<number | null>(null);
+  const [cargoSel, setCargoSel] = useState<string>('');
   const [posicaoSel, setPosicaoSel] = useState<number | null>(null);
   const [foco, setFoco] = useState<Foco>('todos');
   const [busca, setBusca] = useState('');
@@ -417,11 +418,11 @@ export default function EngajamentoPage() {
     if (!empresaId) { setData(null); return; }
     setLoading(true);
     try {
-      setData(await getEngajamentoEmpresa(empresaId, semanaSel));
+      setData(await getEngajamentoEmpresa(empresaId, semanaSel, cargoSel || null));
     } finally {
       setLoading(false);
     }
-  }, [empresaId, semanaSel]);
+  }, [empresaId, semanaSel, cargoSel]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void carregar(); }, 0);
@@ -449,6 +450,16 @@ export default function EngajamentoPage() {
   const resumo = data?.resumo;
   const colabs: any[] = data?.colaboradores || [];
   const semanas: number[] = data?.semanas || [1];
+  /**
+   * A lista de funções vem do roll-up e é calculada ANTES do filtro; guardá-la
+   * aqui é o que impede o seletor de encolher a cada escolha e prender a pessoa
+   * no recorte que ela acabou de fazer.
+   */
+  const [cargosDisponiveis, setCargosDisponiveis] = useState<string[]>([]);
+  useEffect(() => {
+    const vindos: string[] = data?.cargos || [];
+    if (vindos.length) setCargosDisponiveis(vindos);
+  }, [data?.cargos]);
   const total = Number(resumo?.inscritos) || 0;
   const posicaoSelAtiva = posicaoSel != null
     && colabs.some((c) => Number(c.semanaAcessivel) === posicaoSel)
@@ -550,6 +561,22 @@ export default function EngajamentoPage() {
             <option value="">Todas as semanas</option>
             {semanas.map((s) => <option key={s} value={s}>Semana {s}</option>)}
           </select>
+          {/* Função: num tenant com duas turmas no ar, a média do total não
+              descreve nenhuma delas — em Macaé, 40% de atividade nos professores
+              e 11% nos diretores viravam um único número. O recorte corta a
+              POPULAÇÃO na origem, então todo card e toda lista descem dele. */}
+          {cargosDisponiveis.length > 1 && (
+            <select
+              aria-label="Filtrar métricas por função"
+              value={cargoSel}
+              onChange={(event) => setCargoSel(event.target.value)}
+              disabled={!empresaId}
+              className="min-h-8 rounded-[10px] border border-white/[0.09] bg-[#081a2f] px-2.5 text-[10px] font-semibold text-white/65 outline-none focus:border-cyan-300/35 disabled:opacity-40"
+            >
+              <option value="">Todas as funções</option>
+              {cargosDisponiveis.map((c: string) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          )}
           <button
             type="button"
             onClick={carregar}

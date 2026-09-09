@@ -93,10 +93,14 @@ export async function registrarEventoTrilha(input: {
  * tela do time, na visao do gestor. Aqui fica so o que e proprio de uma action:
  * o gate.
  */
-export async function getEngajamentoEmpresa(empresaId: string, semana?: number | null) {
+export async function getEngajamentoEmpresa(
+  empresaId: string,
+  semana?: number | null,
+  cargo?: string | null,
+) {
   await requireAdminAction();
-  if (!empresaId) return { resumo: null, colaboradores: [], semanas: [] };
-  return rollUpEngajamento(empresaId, semana);
+  if (!empresaId) return { resumo: null, colaboradores: [], semanas: [], cargos: [] };
+  return rollUpEngajamento(empresaId, semana, null, cargo);
 }
 
 /**

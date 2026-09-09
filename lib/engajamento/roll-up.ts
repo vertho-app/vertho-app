@@ -69,6 +69,7 @@ export async function rollUpEngajamento(
   empresaId: string,
   semana?: number | null,
   colaboradorIds?: string[] | null,
+  cargo?: string | null,
 ) {
   if (!empresaId) return { resumo: null, colaboradores: [], semanas: [] };
   // tenantDb embute o empresa_id no WHERE — o escopo deixa de depender de
@@ -93,8 +94,28 @@ export async function rollUpEngajamento(
     // cadencia" para uma consulta que nem chegou a responder.
     return { resumo: { inscritos: 0, erro: enviosRes.error.message }, colaboradores: [], semanas: [1] };
   }
-  const envios = enviosRes.data;
-  if (!envios?.length) return { resumo: { inscritos: 0 }, colaboradores: [], semanas: [1] };
+  const enviosTodos = enviosRes.data;
+  if (!enviosTodos?.length) return { resumo: { inscritos: 0 }, colaboradores: [], semanas: [1], cargos: [] };
+
+  /**
+   * Funções presentes na cadência — calculadas ANTES do filtro, senão a lista do
+   * seletor encolheria a cada escolha e a pessoa não teria como voltar.
+   */
+  const cargos = [...new Set((enviosTodos as any[])
+    .map((e) => e.colaboradores?.cargo)
+    .filter((c: any) => typeof c === 'string' && c.trim()))].sort();
+
+  /**
+   * O filtro de FUNÇÃO corta a população aqui, antes de qualquer cálculo: todo
+   * número desta tela desce desta mesma lista. Filtrar depois, na exibição,
+   * é como um contador passa a discordar da lista que ele encima — e num tenant
+   * com duas turmas no ar isso é fácil de não perceber, porque o total continua
+   * plausível. `Medido: 08/09/2026` em Macaé: professores com 40% de atividade
+   * no dia e diretores com 11%, somados num único 81 que não descreve nenhum
+   * dos dois.
+   */
+  const envios = cargo ? (enviosTodos as any[]).filter((e) => e.colaboradores?.cargo === cargo) : enviosTodos;
+  if (!envios?.length) return { resumo: { inscritos: 0 }, colaboradores: [], semanas: [1], cargos };
 
   // `semana_atual` é o RELÓGIO da cadência, não a posição individual. Para
   // dizer onde cada pessoa realmente está, carregamos a trilha mais recente e
@@ -312,5 +333,5 @@ export async function rollUpEngajamento(
   const maxSemana = Math.max(1, ...(envios || []).map((e: any) => Number(e.semana_atual) || 1));
   const semanas = Array.from({ length: maxSemana }, (_, i) => i + 1);
 
-  return { resumo, colaboradores, semanas };
+  return { resumo, colaboradores, semanas, cargos };
 }
