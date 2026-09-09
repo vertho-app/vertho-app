@@ -6,17 +6,28 @@ import { abrirSessao } from '@/lib/recepcao/core';
 import { editarCenario, catalogo, cenarioPublicado } from '@/lib/recepcao/cenarios';
 import { pessoasDaEquipe, sessaoDaEquipe, revisar } from '@/lib/recepcao/equipe';
 let tables:Record<string,any[]>,c:any;
+// Colunas que existem em `colaboradores` (medido 09/09/2026). Coluna fantasma no select é 400 no
+// PostgREST e derruba a query inteira; o mock não sabe disso, então a lista vigia por ele.
+// Subconjunto das colunas reais (a tabela tem mais de 100; amplie ao usar outra). Nunca houve `ativo`.
+const COLUNAS_COLABORADORES=new Set(['id','empresa_id','email','nome_completo','cargo','role','telefone','whatsapp','gestor_nome','gestor_email','gestor_whatsapp','login_por_whatsapp','locale','escola_id','programa_modo','tutorados_ids','created_at','updated_at']);
+const selects:string[]=[];
 function banco(){return {from(table:string){const filters:any[]=[];let payload:any,op='select',first=false,duplicate=false;const execute=()=>{
  const lista=tables[table]||=[];let result=lista.filter(r=>filters.every(f=>f(r)));
  if(op==='insert') {if(lista.some(r=>r.id===payload.id))duplicate=true;else{lista.push({...structuredClone(payload),revisao:0,estado:payload.estado||'rascunho'});result=[lista.at(-1)]}}
  if(op==='update') result.forEach(r=>Object.assign(r,structuredClone(payload)));
  return {data:structuredClone(first?result[0]||null:result),error:duplicate?{code:'23505'}:null};};
- const q:any={select:()=>q,eq:(k,v)=>{filters.push(r=>r[k]===v);return q},or:s=>{const empresa=s.match(/empresa_id.eq.([^,]+)/)[1];filters.push(r=>r.empresa_id===empresa||r.empresa_id===null);return q},is:(k,v)=>{filters.push(r=>r[k]===v);return q},neq:(k,v)=>{filters.push(r=>r[k]!==v);return q},in:(k,vs)=>{filters.push(r=>vs.includes(r[k]));return q},order:()=>q,limit:()=>q,range:()=>Promise.resolve(execute()),insert:v=>{op='insert';payload=v;return q},update:v=>{op='update';payload=v;return q},single:()=>{first=true;return Promise.resolve(execute())},maybeSingle:()=>{first=true;return Promise.resolve(execute())},then:resolve=>resolve(execute())};return q;}}}
+ const q:any={select:(cols?:string)=>{selects.push(`${table}:${cols??'*'}`);return q},eq:(k,v)=>{filters.push(r=>r[k]===v);return q},or:s=>{const empresa=s.match(/empresa_id.eq.([^,]+)/)[1];filters.push(r=>r.empresa_id===empresa||r.empresa_id===null);return q},is:(k,v)=>{filters.push(r=>r[k]===v);return q},neq:(k,v)=>{filters.push(r=>r[k]!==v);return q},in:(k,vs)=>{filters.push(r=>vs.includes(r[k]));return q},order:()=>q,limit:()=>q,range:()=>Promise.resolve(execute()),insert:v=>{op='insert';payload=v;return q},update:v=>{op='update';payload=v;return q},single:()=>{first=true;return Promise.resolve(execute())},maybeSingle:()=>{first=true;return Promise.resolve(execute())},then:resolve=>resolve(execute())};return q;}}}
 beforeEach(()=>{
  permissions.allow=true;
  const estado=abrirSessao(catalogoInicial[0]);estado.status='concluida';
  tables={colaboradores:[{id:'pessoa',empresa_id:'empresa',nome_completo:'Pessoa',gestor_email:'gestora@example.test'},{id:'vizinha',empresa_id:'empresa',gestor_email:'outra@example.test'}],recepcao_sessoes:[{id:'sessao',empresa_id:'empresa',owner_key:'colab:pessoa',colaborador_id:'pessoa',estado},{id:'fora',empresa_id:'empresa',colaborador_id:'vizinha',estado}],recepcao_revisoes:[],recepcao_cenarios:[{id:'global',empresa_id:null,codigo:'remarcacao-02',estado:'publicado',conteudo:structuredClone(catalogoInicial[0]),revisao:0,versao:'1'},{id:'privado',empresa_id:'outra',estado:'publicado',conteudo:structuredClone(catalogoInicial[0])},{id:'draft',empresa_id:'empresa',estado:'rascunho',conteudo:structuredClone(catalogoInicial[0]),revisao:0,versao:'2'}]};
  c={empresaId:'empresa',ownerKey:'colab:gestora',owner:'gestora@example.test',sb:banco(),auth:{role:'gestor',empresaId:'empresa',isPlatformAdmin:false,colaborador:{id:'gestora',empresa_id:'empresa',email:'gestora@example.test',nome_completo:'Gestora'}}};
+});
+test('leitura de colaboradores não pede coluna que não existe (a aba da equipe caía com `ativo`)',async()=>{
+ selects.length=0;await pessoasDaEquipe(c);
+ const pedidas=selects.filter(s=>s.startsWith('colaboradores:')).flatMap(s=>s.split(':')[1].split(',').map(x=>x.trim()));
+ expect(pedidas.length).toBeGreaterThan(0);
+ expect(pedidas.filter(col=>col!=='*'&&!COLUNAS_COLABORADORES.has(col))).toEqual([]);
 });
 test('gestora só lê liderados reais, mesmo dentro da mesma clínica',async()=>{expect((await pessoasDaEquipe(c)).map(p=>p.id)).toEqual(['pessoa']);await expect(sessaoDaEquipe(c,'fora')).rejects.toThrow('não encontrado');expect((await sessaoDaEquipe(c,'sessao')).id).toBe('sessao')});
 test('colaborador sem papel de acompanhamento não abre painel',async()=>{c.auth.role='colaborador';await expect(pessoasDaEquipe(c)).rejects.toThrow('não permite')});

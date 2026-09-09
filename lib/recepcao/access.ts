@@ -11,7 +11,8 @@ export function empresaDaSessao(auth: AuthenticatedContext, solicitada?: string 
   const empresaId = auth.isPlatformAdmin ? (solicitada || auth.empresaId) : auth.empresaId;
   if (!empresaId) throw new RecepcaoError(400, 'Selecione uma clínica para começar.');
   if (!auth.isPlatformAdmin && solicitada && solicitada !== empresaId) throw new RecepcaoError(403, 'Clínica não autorizada.');
-  if (!auth.isPlatformAdmin && (!auth.colaborador || auth.colaborador.empresa_id !== empresaId || auth.colaborador.ativo === false)) {
+  // `colaboradores` não tem coluna `ativo`: a checagem antiga `ativo === false` nunca disparava (medido 09/09).
+  if (!auth.isPlatformAdmin && (!auth.colaborador || auth.colaborador.empresa_id !== empresaId)) {
     throw new RecepcaoError(403, 'Seu cadastro não tem acesso a este treino.');
   }
   return empresaId;

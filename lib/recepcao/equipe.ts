@@ -22,7 +22,9 @@ export async function todas(query:()=>any):Promise<any[]> {
 export async function pessoasDaEquipe(c:ContextoRecepcao) {
  if(!(c.auth.isPlatformAdmin || ['rh','gestor','tutor'].includes(c.auth.role)) || !(await can(c.auth,'journey.team.view')) || !(await can(c.auth,'reports.individual.view')))
   throw new RecepcaoError(403,'Seu perfil não permite acompanhar esta equipe.');
- const pessoas=await todas(()=>c.sb.from('colaboradores').select('id,empresa_id,nome_completo,email,gestor_email,ativo').eq('empresa_id',c.empresaId).order('id'));
+ // `colaboradores` não tem coluna `ativo` (medido 09/09): selecioná-la era um 400 do PostgREST que
+ // derrubava a query inteira, e a aba "Equipe e revisões" respondia 503 desde que nasceu.
+ const pessoas=await todas(()=>c.sb.from('colaboradores').select('id,empresa_id,nome_completo,email,gestor_email').eq('empresa_id',c.empresaId).order('id'));
  return pessoas.filter(p=>canViewColabJourney(c.auth,p));
 }
 export async function sessaoDaEquipe(c:ContextoRecepcao,id:string) {
@@ -50,7 +52,7 @@ export function resumirEquipe(rows:any[],pessoas:any[],revisoes:any[]) {
  }
  const ultima=new Map<string,any>();for(const r of revisoes) if(!ultima.has(r.sessao_id)) ultima.set(r.sessao_id,r);
  return {iniciadas:rows.length,concluidas:concluidas.length,pendentes:concluidas.filter(r=>!ultima.has(r.id)).length,
-  pessoas:pessoas.filter(p=>p.ativo!==false).map(p=>({id:p.id,nome:p.nome_completo,iniciadas:rows.filter(r=>r.colaborador_id===p.id).length,concluidas:concluidas.filter(r=>r.colaborador_id===p.id).length})),
+  pessoas:pessoas.map(p=>({id:p.id,nome:p.nome_completo,iniciadas:rows.filter(r=>r.colaborador_id===p.id).length,concluidas:concluidas.filter(r=>r.colaborador_id===p.id).length})),
   grupos:[...grupos.values()].map(g=>({...g,media:g.notas.length?g.notas.reduce((a,b)=>a+b,0)/g.notas.length:null,notas:undefined})),
   sessoes:rows.map(r=>({id:r.id,nome:pessoas.find(p=>p.id===r.colaborador_id)?.nome_completo||'Teste administrativo',titulo:r.estado.cenario.publico.titulo,data:r.created_at,status:r.estado.status,nota:r.estado.relatorio?.nota??null,critica:!!r.estado.relatorio?.ocorrencias?.length,revisao:ultima.get(r.id)?.parecer||null})),
  };
