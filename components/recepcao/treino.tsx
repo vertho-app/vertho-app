@@ -6,6 +6,7 @@ import { CalendarDays, ClipboardList, MessageCircle, Send, RotateCcw, ArrowRight
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { RECEPCAO_SESSAO } from '@/lib/status';
 import { NIVEIS, rotuloNivel, rotuloClassificacao } from '@/lib/recepcao/schema';
+import { humanizarReferencias } from '@/lib/recepcao/texto';
 import styles from './treino.module.css';
 import GestaoRecepcao from './gestao';
 import VozRecepcao from './voz';
@@ -125,6 +126,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   const momentos = new Map<string, Array<{ nome: string; classificacao: string }>>();
   for (const d of relatorio?.dimensoes || []) for (const o of d.oportunidades || []) momentos.set(o.mensagemId, [...(momentos.get(o.mensagemId) || []), { nome: d.nome || nomes[d.id] || d.id, classificacao: d.classificacao }]);
   const autor = (mensagemId: string) => sessao?.historico?.find((m: any) => m.id === mensagemId)?.role === 'user' ? 'Você' : nomePaciente;
+  // Relatórios gravados antes de 08/09 podem trazer "m11" no texto: vira posição na conversa ao exibir.
+  const h = (t: string) => humanizarReferencias(t || '', sessao?.historico || [], nomePaciente);
   const travado = !!ocupado || vozOcupada || sessao?.processando;
   const emConversa = sessao && !relatorio;
 
@@ -172,12 +175,12 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
         </section>
       </div>
       {relatorio && <section className={styles.report} aria-label="Relatório de atendimento">
-        <header><div><p className={styles.eyebrow}>Seu atendimento, em perspectiva</p><h2>{resultados[relatorio.desfecho.tipo]||relatorio.desfecho.tipo.replaceAll('_',' ')}</h2><p>{relatorio.desfecho.justificativa}</p></div><div className={styles.score}><strong>{relatorio.nota === null ? '—' : relatorio.nota.toLocaleString('pt-BR')}</strong><span>de 100 · cobertura {relatorio.coberturaPercentual}%</span></div></header>
+        <header><div><p className={styles.eyebrow}>Seu atendimento, em perspectiva</p><h2>{resultados[relatorio.desfecho.tipo]||relatorio.desfecho.tipo.replaceAll('_',' ')}</h2><p>{h(relatorio.desfecho.justificativa)}</p></div><div className={styles.score}><strong>{relatorio.nota === null ? '—' : relatorio.nota.toLocaleString('pt-BR')}</strong><span>de 100 · cobertura {relatorio.coberturaPercentual}%</span></div></header>
         <p className={styles.small}>Feedback de prática gerado por IA. Esta nota não altera sua avaliação comportamental.</p>
         {relatorio.situacao === 'avaliacao_parcial' && <p className={styles.notice}>Avaliação parcial: algumas competências não puderam ser observadas. Compare apenas treinos com cobertura equivalente.</p>}
-        {relatorio.ocorrencias.length > 0 && <div className={styles.error}><AlertCircle/><div><strong>Atenção a estas condutas, independentemente da nota</strong>{relatorio.ocorrencias.map((o: any, i: number) => <p key={i}>{o.motivo}</p>)}</div></div>}
-        <div className={styles.dimensions}>{relatorio.dimensoes.map((d: any) => <article key={d.id}><div><h3>{d.nome||nomes[d.id]||d.id}</h3><span>{rotuloClassificacao[d.classificacao]||d.classificacao}</span></div><p>{d.justificativa}</p>{d.evidencias.length > 0 && <section className={styles.evidencias}><span>O que você fez</span>{d.evidencias.map((e: any, i: number) => <blockquote key={i}>“{e.trecho}”</blockquote>)}</section>}{d.oportunidades?.length > 0 && <section className={styles.momentos}><span>Onde estava a oportunidade</span>{d.oportunidades.map((o: any, i: number) => <blockquote key={i} className={styles.oportunidade}><small>{autor(o.mensagemId)}</small>“{o.trecho}”</blockquote>)}</section>}</article>)}</div>
-        <div className={styles.coaching}><div><CheckCircle2 size={21}/><h3>O que funcionou</h3><p>{relatorio.feedback.acerto}</p></div><div><ArrowRight size={21}/><h3>Seu próximo passo</h3><p>{relatorio.feedback.melhoria}</p><p>{relatorio.feedback.novaTentativa}</p></div></div>
+        {relatorio.ocorrencias.length > 0 && <div className={styles.error}><AlertCircle/><div><strong>Atenção a estas condutas, independentemente da nota</strong>{relatorio.ocorrencias.map((o: any, i: number) => <p key={i}>{h(o.motivo)}</p>)}</div></div>}
+        <div className={styles.dimensions}>{relatorio.dimensoes.map((d: any) => <article key={d.id}><div><h3>{d.nome||nomes[d.id]||d.id}</h3><span>{rotuloClassificacao[d.classificacao]||d.classificacao}</span></div><p>{h(d.justificativa)}</p>{d.evidencias.length > 0 && <section className={styles.evidencias}><span>O que você fez</span>{d.evidencias.map((e: any, i: number) => <blockquote key={i}>“{e.trecho}”</blockquote>)}</section>}{d.oportunidades?.length > 0 && <section className={styles.momentos}><span>Onde estava a oportunidade</span>{d.oportunidades.map((o: any, i: number) => <blockquote key={i} className={styles.oportunidade}><small>{autor(o.mensagemId)}</small>“{o.trecho}”</blockquote>)}</section>}</article>)}</div>
+        <div className={styles.coaching}><div><CheckCircle2 size={21}/><h3>O que funcionou</h3><p>{h(relatorio.feedback.acerto)}</p></div><div><ArrowRight size={21}/><h3>Seu próximo passo</h3><p>{h(relatorio.feedback.melhoria)}</p><p>{h(relatorio.feedback.novaTentativa)}</p></div></div>
         <button className={styles.primary} disabled={travado} onClick={() => agir('iniciar')}><RotateCcw size={18}/> Praticar novamente</button>
       </section>}
       {dados.historico?.length > 0 && <section className={styles.history}><h2>Seus atendimentos</h2><div>{dados.historico.map((h: any) => <button key={h.id} disabled={travado} onClick={() => abrirHistorico(h.id)} aria-current={sessao?.id === h.id ? 'true' : undefined}><span>{h.titulo}</span><span>{new Date(h.data).toLocaleString('pt-BR')}</span><strong>{h.status === RECEPCAO_SESSAO.CONCLUIDA ? `${h.nota ?? '—'}/100${h.situacao === 'atencao_critica' ? ' · atenção' : h.situacao === 'avaliacao_parcial' ? ' · parcial' : ''}` : 'Retomar treino'}</strong></button>)}</div></section>}
