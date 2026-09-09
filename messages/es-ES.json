@@ -377,6 +377,8 @@
         "eyebrow": "Evolución de competencias",
         "title": "Quién evolucionó, en qué y cuánto",
         "subtitle": "Comparación entre la evaluación inicial y el cierre de la jornada. La participación y el consumo quedan en Panorama: el compromiso es un indicador anticipado, no prueba de evolución.",
+        "exportTitle": "Descargar el informe ejecutivo",
+        "exportHint": "PDF con el panorama, los comportamientos, las personas y la nota metodológica, en el recorte que está en pantalla.",
         "coverageTitle": "Cobertura de la medición",
         "coverageHelp": "{medidos} de {participantes} participantes completaron la medición. Los porcentajes de abajo describen a quienes fueron medidos, no a toda la organización.",
         "coverageMeasured": "Con medición completa",

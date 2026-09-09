@@ -7,8 +7,8 @@ import { aggregateDna, type DnaAggregate } from '@/lib/dna-organizacional/aggreg
 import { criarDnaOrganizacionalAcmeDemo } from '@/lib/demo/acme-organization-report-fixture';
 import { DEMO_PRESENTATION_TENANT_SLUG } from '@/lib/demo/presentation';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
-import { listarTurmasDoTenant, type TurmaDoTenant } from '@/lib/turmas';
-import { resolverEscopoDeLote } from '@/lib/turmas/escopo';
+import { type TurmaDoTenant } from '@/lib/turmas';
+import { resolverRecorteDeTurma } from '@/lib/relatorios/recorte-turma';
 import {
   normalizeRhDescriptorAnalysis,
   normalizeRhReportInsight,
@@ -151,17 +151,14 @@ export async function carregarCentralRelatoriosRH(
   // caem para "empresa inteira". E, como o seletor é desenhado a partir da
   // mesma lista, a tela mostra "Todas as turmas" selecionado. O que se lê no
   // filtro é sempre o que foi aplicado nos números.
-  const turmas = await listarTurmasDoTenant(tdb.raw, empresaId);
+  // A régua vive em `resolverRecorteDeTurma` porque o PDF executivo de evolução
+  // aceita o mesmo parâmetro pela URL e precisa aplicar a MESMA validação.
+  const { turmas, turma: turmaEscolhida, colaboradorIds } = await resolverRecorteDeTurma(tdb.raw, empresaId, opts.turmaId);
   // Mesma régua do painel (`neq('role','rh')`), para o chip "todas as turmas"
   // dizer o mesmo número que o card "Pessoas" quando nada está filtrado.
   const pessoasEmpresaResult = await tdb.from('colaboradores')
     .select('id', { count: 'exact', head: true })
     .neq('role', 'rh');
-  const turmaEscolhida = opts.turmaId ? turmas.find((t) => t.id === opts.turmaId) || null : null;
-  const escopo = turmaEscolhida
-    ? await resolverEscopoDeLote(tdb.raw, empresaId, { tipo: 'turma', turmaId: turmaEscolhida.id })
-    : null;
-  const colaboradorIds = escopo ? escopo.colaboradorIds : null;
   const idsNoEscopo = colaboradorIds ? new Set(colaboradorIds) : null;
 
   const [gerenciais, panorama, evolucao, reportsResult, insightResult, descriptorResult] = await Promise.all([

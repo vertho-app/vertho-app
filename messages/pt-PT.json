@@ -377,6 +377,8 @@
         "eyebrow": "Evolução de competências",
         "title": "Quem evoluiu, em quê e quanto",
         "subtitle": "Comparação entre a avaliação inicial e o fecho da jornada. Participação e consumo ficam no Panorama: envolvimento é indicador antecipado, não prova de evolução.",
+        "exportTitle": "Descarregar o relatório executivo",
+        "exportHint": "PDF com o panorama, os comportamentos, as pessoas e a nota metodológica — no recorte que está no ecrã.",
         "coverageTitle": "Cobertura da medição",
         "coverageHelp": "{medidos} de {participantes} participantes concluíram a medição. As percentagens abaixo descrevem quem foi medido, não a organização inteira.",
         "coverageMeasured": "Com medição completa",

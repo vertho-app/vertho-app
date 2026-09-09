@@ -422,6 +422,7 @@ function CompetencyRow({ item, descritores, t }: { item: EvolucaoAgregado; descr
 
 function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
   const evolucao = reports.dashboard.evolucao;
+  const scope = reports.scope;
 
   if (evolucao.indisponivel) {
     return (
@@ -470,6 +471,23 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
           title={t('dashboard.evolution.title')}
           subtitle={t('dashboard.evolution.subtitle')}
         />
+        {/* O PDF nasce da MESMA função que desenha esta tela e leva o MESMO
+            recorte de turma da URL — papel e tela discordando sobre quem
+            evoluiu é o pior lugar para uma divergência, porque o papel é o que
+            circula na organização do cliente. */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.02] px-5 py-4">
+          <div className="min-w-[220px] flex-1">
+            <p className="text-sm font-semibold text-white/85">{t('dashboard.evolution.exportTitle')}</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-white/45">{t('dashboard.evolution.exportHint')}</p>
+          </div>
+          <a
+            href={`/api/relatorios/evolucao/pdf${scope.turmaId ? `?turma=${encodeURIComponent(scope.turmaId)}` : ''}`}
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-4 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"
+          >
+            <Download size={14} /> PDF
+          </a>
+        </div>
+
         <div className="rounded-2xl border border-[var(--brand-400,#22d3ee)]/20 bg-[var(--brand-400,#22d3ee)]/[0.06] p-5">
           <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">
             {t('dashboard.evolution.coverageTitle')}

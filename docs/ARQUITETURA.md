@@ -1140,13 +1140,23 @@ Tabelas: sessoes_avaliacao, mensagens_chat, competencias, banco_cenarios
    - Tela Concluida: 5 blocos (hero, comparativo, insights, missoes, avaliacao)
    - PDF via /api/temporada/concluida/pdf
 
+8. Leitura agregada do RH (fim de jornada):
+   - Aba Evolucao da central (`/dashboard/relatorios`) → `carregarEvolucaoRH`
+   - **PDF executivo**: `/api/relatorios/evolucao/pdf` (opcional `?turma=`), derivado AO VIVO
+     do mesmo agregador — sem registro em `relatorios` e sem cache no Storage, porque a
+     resposta muda a cada fechamento. Componente: `components/pdf/RelatorioEvolucao.tsx`.
+   - A ultima pagina do PDF declara a PRECISAO do instrumento (`RUIDO_MEDIDO`, medido
+     09/09/2026): desvio de 0,07 na media por conversa, e por isso diferenca abaixo de
+     0,33 nao sustenta afirmacao sobre uma pessoa isolada. Ver `docs/CUSTO-QUALIDADE.md`
+     §09/09.
+
 Tabelas: trilhas, temporada_semana_progresso, descriptor_assessments, micro_conteudos, banco_cenarios
 ```
 
 ### Fluxo D: Dashboard Gestor
 ```
 1. Gestor acessa /dashboard/gestor/equipe-evolucao
-2. Lista liderados com delta + status (confirmada/parcial/estagnacao/regressao)
+2. Lista liderados com delta + status (confirmada/parcial/estagnacao) — **nao existe mais veredito de regressao** desde 01/09/2026: queda de nota entre duas conversas descreve a variacao do instrumento, nao alguem que desaprendeu, e cai em `estagnacao`. Regua unica: `lib/season-engine/convergencia.ts`
 3. Filtros + ordenacao
 4. Click-through: modal com detalhe + PDF individual
 5. Plenaria PDF: /api/gestor/plenaria/pdf (consolidado do time)

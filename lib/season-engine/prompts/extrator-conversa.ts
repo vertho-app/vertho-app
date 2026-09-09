@@ -20,6 +20,34 @@
  * `scripts/_medir-ruido-extrator.ts` (medição). Guard: `tests/unit/extrator-conversa.test.ts`.
  */
 
+/**
+ * O RUÍDO DESTE INSTRUMENTO, medido — não estimado.
+ *
+ * Mora aqui, e não no relatório que o cita, porque é uma propriedade do
+ * extrator: se o prompt mudar, este número deixa de valer e a medição tem que
+ * ser refeita (`scripts/_medir-ruido-extrator.ts`). Um número desses copiado
+ * para dentro de um PDF viraria uma afirmação órfã, que continua no papel depois
+ * de deixar de ser verdade.
+ *
+ * Método: 11 conversas reais de semana de aplicação repontuadas 5 vezes cada com
+ * este prompt, este validador e o `DEFAULT_MODEL` da rota. Detalhe em
+ * `docs/CUSTO-QUALIDADE.md` §09/09/2026.
+ */
+export const RUIDO_MEDIDO = {
+  medidoEm: '09/09/2026',
+  conversas: 11,
+  pares: 57,
+  repeticoes: 5,
+  /** Desvio-padrão da nota de UM descritor ao reler a mesma conversa. */
+  dpPorDescritor: 0.09,
+  /** Desvio-padrão da MÉDIA da conversa — é o que o relatório agrega. */
+  dpPorConversa: 0.07,
+  /** Maior diferença que a releitura produziu sozinha, na média por conversa. */
+  amplitudeMaximaPorConversa: 0.33,
+  /** Pares cujo NÍVEL (N1–N4) mudou entre as releituras. */
+  paresComNivelInstavel: 18,
+} as const;
+
 /** Como a rota serializa o histórico antes de mandar para a IA. */
 export function montarTranscript(historico: { role: string; content: string }[]): string {
   return historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');

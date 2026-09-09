@@ -377,6 +377,8 @@
         "eyebrow": "Competency growth",
         "title": "Who grew, in what, and by how much",
         "subtitle": "Initial assessment compared with the journey's closing evaluation. Participation and content use stay in Overview: engagement is a leading indicator, not proof of growth.",
+        "exportTitle": "Download the executive report",
+        "exportHint": "PDF with the overview, the behaviours, the people and the methodology note, for the slice currently on screen.",
         "coverageTitle": "Measurement coverage",
         "coverageHelp": "{medidos} of {participantes} participants completed the measurement. The percentages below describe those measured, not the whole organization.",
         "coverageMeasured": "Fully measured",
