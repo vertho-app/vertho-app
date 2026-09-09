@@ -1822,3 +1822,83 @@ pessoas, inclui `ibipeba`**). O primeiro passo passa a ser a **Missão**, com es
 ⚠️ **Denominador:** o alarme inicial dizia "108 de 451 semanas (24%) sem conteúdo" — inflado **3×**
 por não separar o TIPO da semana. Recontado: **377 semanas de conteúdo e só 1 sem bloco**. Ver
 `docs/FMEA-PIPELINE.md` §F-O1 e a memória `project_alarme_mede_varredura`.
+
+---
+
+### F-I30 · Config lida no IMPORT: a env carregada tarde não vale, e o TTS falou com outro motor 🔴 (fechado 07/09/2026)
+
+**Gatilho:** módulo que lê `process.env` em `const` de topo (`lib/gemini-tts.ts` lia
+`TTS_BACKEND`, modelos e vozes assim) + script que carrega o `.env` DEPOIS dos imports
+(`process.loadEnvFile('.env.local')` na primeira linha do arquivo).
+
+**Mecanismo.** Em ESM os `import` são avaliados ANTES de qualquer statement do módulo que
+importa. Quando `scripts/_render-podcast-kit.ts` rodava, `lib/gemini-tts.ts` já tinha lido
+`process.env.TTS_BACKEND` vazio e fixado o default `aistudio` — o `.env.local` com
+`TTS_BACKEND=vertex` chegava tarde demais e não valia para nada.
+
+**Consequência medida (07/09/2026).** Os 19 podcasts dos professores de Macaé saíram pelo AI
+Studio (`gemini-2.5-flash-preview-tts`) em vez do Vertex (`gemini-2.5-flash-tts`). E os dois
+backends **não servem a mesma voz**: A/B com o MESMO texto, voz e direção deu F0 mediana
+**165 Hz e 0,30-0,71σ** da assinatura da Aoede no AI Studio, contra **198 Hz e 0,08σ** no
+Vertex. Duas vozes de gêneros diferentes (Aoede × Iapetus) distam 0,52-0,69σ: o mesmo nome de
+voz nos dois backends é outra locutora. 19 de 19 reprovaram no portão e foram publicados assim
+mesmo. Regerados no Vertex: 19/19 aprovados de primeira, F0 198-216 Hz, 0,07-0,19σ.
+
+**Correção.** Toda a config de TTS passou a ser lida em RUNTIME (`TTS_BACKEND()`, `VOICE()`,
+`MODEL()`…) — fecha a classe inteira, não só o script. O script passou a usar `import './_env'`
+(módulo que carrega o `.env` como PRIMEIRO import). `scripts/_regerar-podcasts-kit.ts` imprime
+backend e modelo antes de gastar e RECUSA rodar fora do Vertex sem `--forcar`.
+
+**Regra que fica:** config que decide COM QUEM se fala não pode ser lida no import. E o
+observável do valor aplicado (aqui, o `model` no ledger) é o que permitiu o diagnóstico —
+sem ele, "a voz está estranha" não teria causa.
+
+---
+
+### F-I31 · Fail-open sem registro: o portão reprovou 19 de 19 e nenhum alarme viu 🔴 (fechado 07/09/2026)
+
+**Gatilho:** `sintetizarComPortao` publicando "a menos ruim" quando nenhuma tentativa passa —
+fail-open declarado no código, com o aviso indo só para `console.warn`.
+
+**Mecanismo.** O portão de deriva do TTS existe desde 05/09 e faz o que promete. O que faltava
+era o registro: nenhuma linha em `degradacao_log`, então a **R10** do health, o alarme diário e
+qualquer tela diziam que estava tudo bem enquanto 19 áudios reprovados iam para 43 professores.
+É a mesma classe do `demo-guard-cego` (§F-D1 e `lib/degradacao.ts`): política declarada num ramo
+que ninguém observa é política ausente.
+
+**O que salvou o diagnóstico** foi a `tts_qa_log` (mig 242, de 06/09): "19 de 19 reprovados,
+F0 144-174 Hz" saiu em UMA query. Sem ela, o veredito teria sumido no log da Vercel — que é
+exatamente por que a tabela foi criada.
+
+**Correção.** `DEGRADACAO.TTS_QA_REPROVADO_PUBLICADO` (fluxo `build`, severidade aviso) com
+motivos, F0, distância da assinatura, modelo e backend no detalhe. 4 testes com TTS falso, **os
+dois ramos** do portão (sequencial e paralelo) validados por mutação — a primeira versão cobria
+só o sequencial e a mutação no paralelo passou batido.
+
+**Depois disso, a primeira semana de dados desmentiu a projeção do bake-off:** a Aoede reprova
+**29 % das tentativas** (previsto ~7 %) e o fail-open publicava **8,1 % das sínteses** (9 em 111).
+Recalibrada com as 143 tentativas reais (`scripts/_calibrar-voz.ts`): alvo 208 Hz ±1,25 st e 3
+tentativas → **0,6 %**. `Medido:` alargar a tolerância REDUZ a variação que a pessoa ouve, porque
+o que escapa da faixa é o fail-open publicando um take a 185 ou 242 Hz (4,7 st do alvo).
+
+**Regra que fica:** limiar se calibra com o LOG DE PRODUÇÃO, não com bake-off — a amostra de
+6-14 takes de um bake-off errou por 4×. O calibrador recusa concluir com menos de 30 tentativas.
+
+---
+
+### F-I32 · `Promise.all` rejeita no 1º erro, mas os outros workers CONTINUAM escrevendo ⚠️ (fechado 07/09/2026)
+
+**Gatilho:** `mapPool`/`Promise.all` cujo callback escreve num mapa compartilhado, com limpeza
+no `catch` de quem espera.
+
+**Mecanismo.** `await Promise.all(...)` rejeita assim que UMA promessa falha, mas as outras
+seguem rodando. Em `trigger/gerar-video-modulo.ts` as fatias da narração única eram escritas em
+`assets` dentro do pool; o `catch` limpava as já enviadas e caía no caminho por cena — e um
+upload atrasado terminava DEPOIS da limpeza, recolocando uma fatia do take antigo. O vídeo
+saía com metade de um take e metade de sínteses novas.
+
+**Correção.** O pool acumula num array local e captura os próprios erros; as fatias só entram
+em `assets` quando o lote INTEIRO terminou. Falha = lote descartado, caminho por cena, aviso.
+
+**Regra que fica:** em fan-out, resultado parcial não entra no estado compartilhado — junte
+tudo depois que o lote fechar.

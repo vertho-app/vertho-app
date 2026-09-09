@@ -541,6 +541,25 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   "refazer o que está velho", ordene por `gerado_em` ASC em vez de filtrar: a fila anda sozinha.
   ⚠️ Quando o INSUMO muda por baixo (reancorar descritores), o artefato antigo **não se anuncia** — o
   PDF abre normal descrevendo uma régua que não existe mais.
+- NÃO ler `process.env` numa **`const` de topo de módulo** quando a env decide COM QUEM se fala
+  (backend, endpoint, modelo, chave). Em ESM os `import` são avaliados ANTES dos statements do
+  arquivo que importa, então um script que carrega o `.env` na primeira linha (`process.loadEnvFile`)
+  já perdeu: o módulo importado leu vazio e fixou o default. Medido 07/09/2026: `lib/gemini-tts.ts`
+  lia `TTS_BACKEND` assim, caiu no `aistudio`, e os 19 podcasts dos professores de Macaé saíram por
+  outro motor — que **não serve a mesma voz**: mesmo texto e mesmo nome de voz deram F0 165 Hz e
+  0,30-0,71σ da assinatura da Aoede no AI Studio contra 198 Hz e 0,08σ no Vertex (duas vozes de
+  gêneros diferentes distam 0,52-0,69σ). Leia em runtime (`TTS_BACKEND()`), e nos scripts use
+  `import './_env'` como PRIMEIRO import. Detalhe: `docs/FMEA-PIPELINE.md` §F-I30.
+- NÃO deixar **fail-open sem linha em `degradacao_log`**. Fallback pode existir; invisível não. O
+  portão de TTS reprovou 19 de 19 áudios e publicou todos, com o aviso só no `console.warn`: a R10
+  do health e o alarme diário diziam que estava tudo bem (07/09/2026). E o limiar que decide o
+  fail-open se calibra com o **log de produção**, não com bake-off — a projeção de ~7 % de retake da
+  Aoede virou **29 %** na primeira semana real, e 8,1 % das sínteses saíam pelo fail-open;
+  `scripts/_calibrar-voz.ts` recalibra e RECUSA concluir com menos de 30 tentativas. §F-I31.
+- NÃO escrever no estado compartilhado de dentro de um `mapPool`/`Promise.all` cujo erro dispara
+  limpeza: `Promise.all` rejeita no 1º erro e **os outros workers continuam**, então um upload
+  atrasado repõe o que a limpeza tirou (07/09/2026: fatia de um take antigo voltou ao vídeo depois
+  do fallback). Junte num array local e mescle só quando o lote inteiro fechar. §F-I32.
 - NÃO ler o **`progress` de um job de lote como veredito**. `resultados[].ok` diz *persistiu*, não
   *aprovado*: em 16/08 o job de manuscrito fechou "21 ok, 0 erro(s)" com **11 reprovados de 24** e
   **3 módulos com `conteudo_central` vazio** (`{}`) marcados `ok: true`, carregando os avisos do
