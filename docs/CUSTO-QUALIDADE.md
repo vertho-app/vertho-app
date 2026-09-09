@@ -2064,3 +2064,83 @@ exigia `:` ou `,` depois do nome e **não reconhecia o shorthand** `{ ..., empre
 — então `ia3_cenarios`, que o dono já tinha corrigido em 01/09, aparecia como
 órfão. O número real era 25. Vale a régua de sempre: antes de agir sobre a saída
 de um instrumento novo, confira um caso que você sabe a resposta.
+
+## 09/09/2026 — o ruído do extrator: estável na NOTA, instável no NÍVEL
+
+O painel de evolução compara a nota do mapeamento (T0) com a nota que o extrator
+de conversa emite na semana de aplicação (T1) e carimba um veredito nos cortes de
+**0,20** (parcial) e **0,50** (confirmada) de `lib/season-engine/convergencia.ts`.
+Nada disso se sustenta sem saber quanto a **mesma conversa** varia quando é
+repontuada — se repontuar já move meio ponto, o veredito é sorteio e o relatório
+que o gestor lê descreve ruído como se fosse a pessoa.
+
+**Como foi medido.** 11 conversas reais de Ibipeba (semana 4, aplicação; 10 em
+`missao_feedback` e 1 em `analytic`), 57 pares conversa × descritor, repontuadas
+**K=5** vezes com o prompt, o modelo (`DEFAULT_MODEL` = `claude-sonnet-4-6`, que é
+o que a rota usa ao passar `aiConfig` vazio) e o validador **de produção** —
+importados de `lib/season-engine/prompts/extrator-conversa.ts`, extraído da rota
+nesta rodada justamente para que a medição não rodasse sobre uma cópia. A
+identidade byte a byte do prompt contra o HEAD anterior é provada por
+`scripts/_provar-extrator-identico.ts` (system 1.344 chars, user 2.198/2.201 nos
+dois modos). 55 chamadas, 509 s, ~US$ 1,70, sem etiqueta de tenant (é P&D).
+Script: `scripts/_medir-ruido-extrator.ts` (`--de-json` reanalisa o bruto sem
+repagar a IA).
+
+### O instrumento é estável na nota
+
+| Medida | Por descritor | Pela média da conversa |
+|---|---|---|
+| desvio-padrão médio | **0,09** | **0,07** |
+| amplitude média | 0,20 | 0,16 |
+| amplitude máxima | 0,70 | **0,33** |
+| pares com as 5 notas idênticas | 25/57 (44%) | — |
+
+E não há deriva contra a rodada que está gravada em produção: viés **−0,04**,
+diferença absoluta média **0,08**. O extrator de hoje é o mesmo de quando aquelas
+conversas foram avaliadas.
+
+**O que isso diz sobre os dois cortes** (a média por conversa é o que o relatório
+agrega antes de comparar com o T0, então é o número que decide o veredito):
+
+- **`CORTE_CONFIRMADA` = 0,50 está fora do ruído.** O maior salto que o ruído
+  produziu sozinho foi 0,33, e "confirmada" ainda exige qualitativa positiva e
+  alcançar N3. Um veredito de evolução confirmada não sai de ruído.
+- 🔴 **`CORTE_PARCIAL` = 0,20 está DENTRO do ruído.** Ruído médio 0,16 e máximo
+  0,33 na mesma conversa. Um delta entre 0,20 e 0,33 é indistinguível de
+  repontuação, e é exatamente a faixa que hoje produz "evolução parcial".
+
+### 🔴 Mas o NÍVEL exibido troca em 32% dos casos
+
+**18 dos 57 pares (32%) mudam de nível entre as 5 rodadas** — e 10 dos 57 têm
+nível diferente do que está gravado. A causa não é dispersão: é que o modelo emite
+notas **quantizadas** e **34% delas caem exatamente sobre uma fronteira de nível**.
+
+| Nota | % das 285 repontuações |
+|---|---|
+| 1,5 | 24,6% |
+| 2,0 | **17,9%** ← fronteira N1/N2 |
+| 2,5 | 26,7% |
+| 3,0 | **15,8%** ← fronteira N2/N3 |
+| outras (1,8 · 2,2 · 2,3 · 2,8 · 2,9 · 3,2 · 3,5) | 15,0% |
+
+Com a nota em 2,00, **0,01 para baixo** já troca N2 por N1 (`nivelDaNota` usa
+`Math.floor`): `gravada 2,0 (N2) → média 1,96 (N1)`. O nível é a leitura mais
+frágil do relatório e é justamente a que vira texto na tela do gestor e no PDF
+("N2 → N3"), enquanto a nota, que é estável, fica escondida.
+
+### O que fica em aberto (decisão do dono, não mudei nenhuma régua)
+
+1. **Elevar `CORTE_PARCIAL`** para acima do ruído medido (0,33+), ou manter 0,20
+   aceitando que a faixa baixa de "parcial" é estatisticamente muda.
+2. **Como exibir nível de descritor individual.** Três saídas: não exibir nível
+   por descritor (só por competência, onde a média tem ruído de 0,07); exibir com
+   faixa ("N2, no limite"); ou deslocar a fronteira para fora do valor modal
+   (2,00 e 3,00 são os dois valores que o modelo mais emite).
+3. **Pedir ao extrator uma nota menos quantizada** não resolve: a quantização vem
+   do prompt pedir `1.0-4.0` e o modelo ancorar em meios-pontos. Mudar isso é
+   mexer no instrumento, e aí a medição tem que ser refeita.
+
+⚠️ Denominador: isto mede **Ibipeba, semana 4, 11 conversas**. É o único material
+real de semana de aplicação com transcrição gravada na base — não há um segundo
+tenant para replicar, e `acme` tem 1 conversa de semana 3. A conclusão vale para
+o instrumento, não para "todos os tenants".

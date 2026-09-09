@@ -42,6 +42,22 @@ export type Convergencia = typeof CONVERGENCIA[keyof typeof CONVERGENCIA];
 /**
  * Cortes da régua. Ficam nomeados para que mudar a calibragem seja uma decisão
  * visível num diff, e não um número solto no meio de um `if`.
+ *
+ * 📏 RUÍDO DO INSTRUMENTO, medido em 09/09/2026 (11 conversas reais de Ibipeba,
+ * semana 4, repontuadas K=5 com o prompt e o modelo de produção — detalhe em
+ * `docs/CUSTO-QUALIDADE.md` §09/09, script `scripts/_medir-ruido-extrator.ts`):
+ * a média por conversa, que é o que o relatório compara com o T0, varia com
+ * desvio-padrão de **0,07** e amplitude máxima de **0,33** quando a MESMA
+ * conversa é relida.
+ *
+ * O que isso diz de cada corte:
+ *   · `CORTE_CONFIRMADA` (0,5) está FORA do ruído — com folga, e ainda somado à
+ *     exigência de qualitativa positiva e de alcançar N3. Evolução confirmada
+ *     não sai de repontuação.
+ *   · 🔴 `CORTE_PARCIAL` (0,2) está DENTRO do ruído. Um delta entre 0,20 e 0,33
+ *     é indistinguível de reler a mesma conversa, e é essa a faixa que hoje
+ *     produz "evolução parcial". Calibrar isto é decisão do dono do produto; o
+ *     número está aqui para que a decisão não seja tomada sem ele.
  */
 export const CORTE_CONFIRMADA = 0.5;
 export const CORTE_PARCIAL = 0.2;

@@ -38,6 +38,17 @@ export function nivelOuNull(value: unknown): Nivel | null {
  * Converte a nota decimal (1,00–4,00) no nível da régua. Nota fora da faixa é
  * grampeada; nota ausente/inválida vira N1 (o lado conservador — nunca promove
  * alguém por dado faltando).
+ *
+ * ⚠️ O NÍVEL É MUITO MAIS FRÁGIL QUE A NOTA, e isso é medido (09/09/2026): o
+ * extrator de conversa emite notas quantizadas, e **34% delas caem exatamente
+ * sobre 2,00 ou 3,00** — as duas fronteiras. Com a nota em 2,00, um centésimo
+ * para baixo já troca N2 por N1, então repontuar a MESMA conversa mudou o nível
+ * de **18 de 57** pares (32%) enquanto a nota variava só 0,09 de desvio-padrão.
+ *
+ * Consequência prática para quem escreve tela ou PDF: a nota é o número
+ * defensável; "N2 → N3" sobre um único descritor é a afirmação mais instável que
+ * este produto faz. Preferir o nível da MÉDIA de uma competência (ruído 0,07) a
+ * nível de descritor individual. Medição: `docs/CUSTO-QUALIDADE.md` §09/09.
  */
 export function nivelDaNota(nota: number | null | undefined): Nivel {
   const n = Number(nota);

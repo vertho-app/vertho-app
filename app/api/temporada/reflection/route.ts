@@ -7,6 +7,13 @@ import { csrfCheck } from '@/lib/csrf';
 import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
 import { promptAnalytic } from '@/lib/season-engine/prompts/analytic';
 import { promptMissaoFeedback } from '@/lib/season-engine/prompts/missao-feedback';
+import {
+  EXTRATOR_CORE_SYSTEM,
+  montarTranscript,
+  montarUserExtracaoAnalytic,
+  parseExtracaoResponse,
+  validateExtracaoAnalytic,
+} from '@/lib/season-engine/prompts/extrator-conversa';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
@@ -26,12 +33,6 @@ import { comContexto } from '@/lib/execucao-contexto';
 // Conclusão de semana pode disparar a acumulada (após IA) e o chat usa callAI —
 // dá margem além dos 60s default. Fluid até 300s.
 export const maxDuration = 300;
-
-function parseExtracaoResponse(raw: string): any {
-  let cleaned = raw.trim();
-  if (cleaned.startsWith('```')) cleaned = cleaned.replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '');
-  return JSON.parse(cleaned);
-}
 
 function validateExtracaoSocratic(parsed: any): any {
   const validos = ['sim', 'parcial', 'nao'];
@@ -79,53 +80,6 @@ function validateExtracaoSocratic(parsed: any): any {
   return parsed;
 }
 
-function validateExtracaoAnalytic(parsed: any, descritores: string[]): any {
-  if (!Array.isArray(parsed.avaliacao_por_descritor)) parsed.avaliacao_por_descritor = [];
-  parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => {
-    const nota = typeof d.nota === 'number' ? Math.max(1, Math.min(4, Math.round(d.nota * 10) / 10)) : 2.0;
-    const forcas = ['fraca', 'moderada', 'forte'];
-    return {
-      descritor: d.descritor || '',
-      nota,
-      forca_evidencia: forcas.includes(d.forca_evidencia) ? d.forca_evidencia : 'fraca',
-      observacao: d.observacao || '',
-      trecho_sustentador: d.trecho_sustentador || '',
-      limite: d.limite || '',
-    };
-  });
-  if (!parsed.sintese_bloco || typeof parsed.sintese_bloco !== 'string') parsed.sintese_bloco = '';
-  if (!Array.isArray(parsed.alertas_metodologicos)) parsed.alertas_metodologicos = [];
-  return parsed;
-}
-
-const EXTRATOR_CORE_SYSTEM = `Você é um extrator de dados estruturados da Vertho.
-
-ATENÇÃO:
-Você NÃO está avaliando formalmente.
-Você NÃO está aconselhando.
-Você NÃO está completando lacunas.
-Você NÃO está escrevendo feedback bonito.
-Você está EXTRAINDO o que a conversa realmente sustenta.
-
-PRINCÍPIOS INEGOCIÁVEIS:
-1. Extraia somente o que foi efetivamente dito ou claramente sustentado.
-2. Não invente comportamento, avanço, execução ou insight.
-3. Diferencie fala articulada de evidência concreta — fala bonita não é prova.
-4. Exemplo concreto com ação e consequência vale mais do que opinião ou intenção.
-5. Se faltar base, reduza confiança ou força da evidência em vez de inventar.
-6. Intenção declarada sem execução relatada = evidência fraca.
-7. Autocrítica verbal sem mudança prática = sinal, não prova.
-8. Toda leitura relevante deve ter trecho ou paráfrase de sustentação.
-9. Se um descritor não tiver base suficiente na conversa, isso deve ser explicitado.
-10. O output deve ser útil para a etapa seguinte (merge, avaliação, fusão, relatório).
-
-FORÇA DA EVIDÊNCIA:
-- fraca: abstrata, genérica, teórica, sem ação observável
-- moderada: concreta mas incompleta, sem consequência clara ou sem repetição
-- forte: concreta + coerente + com ação, critério e/ou consequência percebida
-
-RETORNE APENAS JSON VÁLIDO, sem markdown, sem backticks, sem texto antes ou depois.`;
-
 /**
  * `dono` etiqueta o custo no ledger. A rota gêmea (`temporada/evaluation`) já
  * passava `empresaId`/`colaboradorId` nas chamadas dela desde sempre; esta não,
@@ -133,7 +87,7 @@ RETORNE APENAS JSON VÁLIDO, sem markdown, sem backticks, sem texto antes ou dep
  * dias. Mesma feature, duas rotas, uma etiquetada e a outra não.
  */
 async function extrairDadosEstruturados(historico, tipoConversa, semanaPlan, dono) {
-  const transcript = historico.map(m => `${m.role === 'user' ? 'COLAB' : 'IA'}: ${m.content}`).join('\n\n');
+  const transcript = montarTranscript(historico);
   const estiloAnalytic = tipoConversa === 'analytic' || tipoConversa === 'missao_feedback';
 
   if (!estiloAnalytic) {
@@ -222,39 +176,7 @@ REGRAS:
   }
 
   const descritores = semanaPlan.descritores_cobertos || [];
-  const modoLabel = tipoConversa === 'missao_feedback' ? 'missao_feedback (evidência prática real)' : 'analytic (resposta a cenário escrito)';
-  const user = `MODO: ${modoLabel}
-Foco: leitura analítica por descritor com nota prudente e força de evidência.
-
-CONVERSA:
-${transcript}
-
-DESCRITORES A AVALIAR: ${descritores.join(', ')}
-
-EXTRAIA o JSON abaixo, preenchendo com base EXCLUSIVA na conversa:
-{
-  "avaliacao_por_descritor": [
-${descritores.map(d => `    {
-      "descritor": "${d}",
-      "nota": 1.0-4.0,
-      "forca_evidencia": "fraca|moderada|forte",
-      "observacao": "síntese curta e fiel",
-      "trecho_sustentador": "trecho curto ou paráfrase fiel do que sustenta a nota",
-      "limite": "o que faltou para sustentar melhor"
-    }`).join(',\n')}
-  ],
-  "sintese_bloco": "síntese curta e útil do progresso geral",
-  "alertas_metodologicos": ["alerta se houver"]
-}
-
-REGRAS:
-- nota entre 1.0 e 4.0 — não infle sem sustentação
-- forca_evidencia: "forte" = ação concreta + consequência percebida; "moderada" = relato com algum detalhe; "fraca" = menção vaga ou ausente
-- trecho_sustentador: cite ou parafraseie trecho literal da conversa
-- limite: explicite o que faltou — se não faltou nada, pode ficar vazio
-- alertas_metodologicos: liste se houver risco de viés, falta de base ou inflação
-- NÃO preencha todos os descritores como se todos tivessem aparecido bem
-- NÃO transforme intenção em evidência de execução`;
+  const user = montarUserExtracaoAnalytic({ transcript, descritores, tipoConversa });
   const resp = await callAI(EXTRATOR_CORE_SYSTEM, user, {}, 8000, { taskKey: 'temporada_extracao', empresaId: dono.empresaId, colaboradorId: dono.colaboradorId });
   return validateExtracaoAnalytic(parseExtracaoResponse(resp), descritores);
 }
