@@ -62,7 +62,7 @@ normalizadas:
 
 ```python
 bruto = subprocess.run(['git','-C',REPO,'show',f'HEAD:{f}'], capture_output=True).stdout
-texto = bruto.decode('utf-8').replace('
+texto = bruto.decode('utf-8').replace('
 ', '
 ')
 print(len(texto)/1000)          # = o número do card
@@ -158,6 +158,14 @@ disco, a comparação é aproximada; depois de uma rodada inteira subida via `gi
    ```
 
 ## Armadilhas registradas
+
+- **O LOG do laço de remoção não prova o que saiu — só a listagem final prova.** `Medido: 09/09/2026`
+  — o laço registrou *"removi: CLAUDE.md 68,1"*, *"removi: CLAUDE.md 70,1"* e *"removi:
+  FMEA-PIPELINE.md 158,8"*, ou seja, dizia ter apagado as duas versões NOVAS, e mesmo assim o estado
+  final estava certo (16 cards, `CLAUDE.md 70,1` e `FMEA 158,8`). O texto vem do `li.innerText` lido
+  ANTES do clique, e a lista re-renderiza e REORDENA entre as passadas: o `li` que sobrou na variável
+  já não é o `li` daquela posição. Não tente consertar o log — **re-liste depois e leia o resultado**,
+  que é a única fonte. E não reaja ao log com uma segunda rodada de remoção: aí sim sobra zero.
 
 - **`find` com query genérica mente por omissão.** *"context file cards"* devolveu 4 elementos quando
   havia 18; *"markdown file button with line count in Context"* devolveu os 18. Antes de concluir que
