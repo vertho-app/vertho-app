@@ -133,7 +133,7 @@ nao_observavel significa que NÃO houve oportunidade, não que a secretária dei
 Se houve oportunidade ignorada, use ${escala === 'n4' ? 'n1' : 'insuficiente'}, cite a oportunidade e explique a omissão.
 ${c.publico.escopoAvaliacao || "Avalie apenas o procedimento administrativo explicitamente descrito na ficha; não exija condutas clínicas."}
 Não calcule média nem declare aprovação. A aplicação consolida pesos e ocorrências críticas.
-Em justificativas, motivos e feedback, não escreva identificadores de mensagem (m0, m1…): quem lê não os vê. Refira-se à fala pelo que foi dito. Identificadores só em mensagemId.
+Em justificativas, motivos e feedback, fale COM a secretária, em segunda pessoa ("você reconheceu…", "na sua terceira resposta você…"), nunca sobre ela ("a secretária"). Não escreva identificadores de mensagem (m0, m1…): quem lê não os vê; refira-se à fala pelo que foi dito. Identificadores só em mensagemId.
 Ocorrência crítica exige ação concreta que corresponda à categoria permitida, não apenas uma resposta ruim ou vaga.
 orientacao_clinica_indevida: orientação clínica efetiva sobre diagnóstico, tratamento, medicação ou interpretação de exames. "Vou verificar", prazo ruim ou promessa administrativa não são orientação clínica.
 divulgacao_dado_terceiro: divulgação efetiva de informação da outra pessoa, inclusive confirmação de presença/agenda. Oferta vaga de verificar, sem revelar informação, não prova divulgação.
@@ -269,8 +269,8 @@ export function consolidar(s: Estado, insumos: Insumos): Estado['relatorio'] {
     exigir(papeis.has('user') && papeis.has('assistant'), 'Resolução exige combinado e aceitação');
   }
   exigir(['acerto', 'melhoria', 'novaTentativa'].every(k => texto(insumos.feedback?.[k])), 'Feedback incompleto');
-  // Texto para pessoas: id de mensagem que o avaliador deixou escapar vira posição na conversa.
-  const limpar = (t: string) => humanizarReferencias(t, s.historico, s.cenario.paciente.nome);
+  // Texto para a pessoa: id de mensagem que o avaliador deixou escapar vira "na sua 6ª resposta".
+  const limpar = (t: string) => humanizarReferencias(t, s.historico, s.cenario.paciente.nome, 'voce');
   for (const d of dimensoes) d.justificativa = limpar(d.justificativa);
   const feedback = { acerto: limpar(insumos.feedback.acerto), melhoria: limpar(insumos.feedback.melhoria), novaTentativa: limpar(insumos.feedback.novaTentativa) };
   return {
