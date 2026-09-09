@@ -1800,6 +1800,14 @@ esquema virando tipo (`database.types.ts` no CI) mudam o que a suíte enxerga.
 Abertos: `fase4_progresso`, `banco_cenarios.cargo_id`/`.origin`. Pendentes de decisão de produto:
 `competencias.gabarito` e `prompt_versions` (ambos em `/api/chat`, rota com 0 sessões).
 
+**Instância nova (09/09/2026, `94862a2e`):** `lib/recepcao/equipe.ts` pedia `colaboradores.ativo`
+(coluna que nunca existiu; a tabela tem `role`, `gestor_email`, `login_por_whatsapp`), e a aba
+"Equipe e revisões" do treino de recepção respondia 503 desde que nasceu. Ninguém viu porque nenhuma
+clínica estava habilitada: a rota com 0 usuários reais é onde o fantasma vive mais tempo. O mock do
+teste de gestão passou a registrar as colunas pedidas e a falhar se alguma não estiver na lista real
+(`tests/unit/recepcao-gestao.test.ts`), validado por mutação. A checagem `colaborador.ativo === false`
+em `access.ts` era proteção órfã (nunca disparava) e saiu.
+
 ### F-D2 · Duas réguas para a mesma pergunta na MESMA dobra da tela ✅ (fechado 27/08/2026)
 
 **Gatilho:** um gate (`podeConversar`) respondendo a pergunta de um estado (`o conteúdo foi feito?`).

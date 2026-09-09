@@ -922,3 +922,37 @@ dry-run, não a suíte — o template era novo e não tinha teste. Na mesma roda
 (um em produção, outro na sessão) apontavam para 09:12 da mesma sexta e teriam mandado a mensagem
 duas vezes para as 28. `docs/FMEA-PIPELINE.md` §F-I29; memórias
 `project_encerramento_ibipeba`, `feedback_trabalho_sazonal_sem_desligamento`.
+
+---
+
+## § Vou validar um teste por MUTAÇÃO com `sed -i` no código de produção
+
+1. **Mutar e reverter pelo MESMO trecho único**, com contexto suficiente (nome da variável ou da
+   função no padrão). Padrão de reversão mais curto que o de mutação casa outra linha.
+2. **Imprimir `grep -c` antes, depois de mutar e depois de reverter, e PARAR se não for 1.**
+   Um "2" onde se espera "1" não é ruído.
+3. `git diff` do arquivo inteiro antes do `git add`; o commit por pathspec leva o disco, contaminado
+   ou não.
+4. Nunca rodar build ou suíte inteira em paralelo com a janela mutada (o build lê o arquivo).
+
+**Consequência medida (06/09/2026):** ao reverter `.trim().toLowerCase()` → `.trim()` em
+`lib/recepcao/core.ts`, o padrão curto da reversão casou também `mensagem.trim()` em `responder`, e
+a mensagem da secretária passou a ser gravada em minúsculas; o contador imprimiu "2" e eu li como
+sucesso. Quem pegou foi a suíte `recepcao-*` (um teste de retry que compara a mensagem salva), com
+o arquivo já em stage. Memória `feedback_mutacao_por_sed_reversao`.
+
+---
+
+## § Vou escrever regra nova num `*.module.css`
+
+1. **Estado por CLASSE (`styles.c_x`), nunca por seletor de atributo** (`em[data-c=x]`): o Turbopack do
+   `next dev` recusa com "Selector `*` is not pure" e a rota responde 500, enquanto `next build` e o
+   `lightningcss` do npm aceitam o mesmo arquivo. Build verde não prova que a tela abre no dev do dono.
+2. Antes de subir, `curl -s localhost:3000/<rota> | grep "not pure"` (dev do dono, sem matá-lo).
+3. A prova visual é harness com o CSS real copiado por `cat`, servido por HTTP (`file://` é recusado
+   pela extensão e pelo Playwright MCP); ver memória `reference_verificacao_navegador`.
+
+**Consequência medida (06/09/2026):** `components/recepcao/treino.module.css` com
+`.momento em[data-c=adequado]` derrubou `/admin/treino-atendimento` no dev com o build passando; a
+mensagem cita um `*` que não existe no arquivo, e o grep não acha o culpado. Memória
+`reference_turbopack_css_module_atributo`.
