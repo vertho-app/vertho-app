@@ -51,6 +51,27 @@ for f in CLAUDE.md docs/ARQUITETURA.md docs/PIPELINE-TRILHA.md docs/FMEA-PIPELIN
 done
 ```
 
+⚠️ **`wc -m` do bash do Windows ERRA em arquivo com muito emoji.** `Medido: 09/09/2026` — para o
+`CLAUDE.md`, `git show HEAD:CLAUDE.md | wc -m` deu **69,6 kB** e o card, depois de subir o MESMO
+blob, mostrou **70,1**. O FMEA bateu (158,9 × 158,8), então o erro não é constante: ele depende da
+densidade de caracteres fora do BMP (🔴 e afins), que o `wc -m` do MSYS conta diferente. Meio kB é
+mais que a tolerância de 0,2 e faz um arquivo IDÊNTICO parecer defasado na rodada seguinte.
+
+A régua que bateu nos dois, no card, é o `len()` do Python sobre o blob decodificado com as quebras
+normalizadas:
+
+```python
+bruto = subprocess.run(['git','-C',REPO,'show',f'HEAD:{f}'], capture_output=True).stdout
+texto = bruto.decode('utf-8').replace('
+', '
+')
+print(len(texto)/1000)          # = o número do card
+io.open(destino,'w',encoding='utf-8',newline='').write(texto)   # newline='' = não reconverte
+```
+
+Use `wc -m` só para a varredura rápida das 16; confirme com Python o que for subir. E escreva o
+arquivo pelo Python: o `>` do shell devolveu 724 linhas com CR num blob que não tinha nenhuma.
+
 🔴 **`git show HEAD:` não é frescura — é o que torna a comparação estável, por dois motivos.**
 (1) **CRLF infla o card.** O `\r` conta como caractere, e o working tree no Windows tem CRLF: subir
 do disco soma ~1 por linha (`ARQUITETURA.md`: +2,3 kB em 2.328 linhas). Um card subido do disco
