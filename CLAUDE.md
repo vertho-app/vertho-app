@@ -19,6 +19,8 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | Checklists (deploy, mudança grande, go-live) | `docs/CHECKLISTS.md` |
 > | Modos da engine | `docs/MODO-PILOTO.md` (piloto e personalizado) |
 > | Comercial / demo | `docs/PORTAL-REPRESENTANTE.md` · `docs/AMBIENTE-DEMO.md` |
+> | Treino de recepção médica (simulador, biblioteca N1–N4, calibração) | `docs/recepcao-medica.md` |
+> | White label via agência (plano, decisões pendentes, fases) | `docs/WHITE-LABEL-AGENCIA.md` |
 > | WhatsApp: caixa de entrada e migração p/ Cloud API | `docs/INBOX-WHATSAPP.md` |
 > | WhatsApp: quais templates estão APROVADOS **e ligados**, com que contrato | `docs/TEMPLATES-WHATSAPP.md` |
 > | Fluxo de dados pessoais (insumo p/ LGPD) | `docs/FLUXO-DE-DADOS-PESSOAIS.md` |
