@@ -297,10 +297,10 @@ describe('prioridade dos fatos de pesquisa', () => {
     const hoje = Date.parse('2026-09-01T12:00:00.000Z');
     const ordered = prioritizeResearchFacts([
       { ...base, fato: corpo, relevancia: 'Contexto', _research_channel: 'social' },
-      { ...base, fato: corpo, relevancia: 'Gestor novo assume sem régua escrita, e é essa a porta da conversa.', _research_channel: 'social' },
+      { ...base, fato: corpo, relevancia: 'Sinal recente abre uma porta que ainda não foi explorada nesta conta.', _research_channel: 'social' },
     ], hoje);
 
-    expect(ordered[0].relevancia).toContain('porta da conversa');
+    expect(ordered[0].relevancia).toContain('ainda não foi explorada');
   });
 
   it('a recência decide entre fatos idênticos no resto', () => {
@@ -354,5 +354,82 @@ describe('prioridade dos fatos de pesquisa', () => {
     ];
 
     expect(prioritizeResearchFacts(facts, hoje)[0].fato).toBe('Sem data');
+  });
+  // ─── aderência ao tema ──────────────────────────────────────────────────────
+  // Os dois fatos abaixo são os que apareceram no planejamento real da Ford
+  // Slaviero (09/09/2026): a nota de manutenção abriu a reunião e a matéria sobre
+  // capacitação ficou em terceiro. Trocar só a data invertia a ordem, o que provou
+  // que o critério media forma e nunca assunto.
+  const NOTA_FISCAL = {
+    _research_channel: 'news',
+    titulo: 'Sesc Paraná registra contratação de manutenção em garantia de Ford Transit',
+    fato: 'O Portal da Transparência lista contratação da Cia de Veículos Slaviero Ltda, CNPJ 43.963.132/0001-21, para manutenção em garantia, no valor de R$ 1.912,00.',
+    relevancia: 'O atendimento de uma Transit em garantia sugere que a operação lida com veículos de trabalho.',
+    fonte_url: 'https://exemplo.com/transparencia', publicado_em: '2026-03-04', perfil_oficial_url: null,
+  };
+  const MATERIA_DE_CAPACITACAO = {
+    _research_channel: 'news',
+    titulo: 'Revista destaca nova fase da empresa com foco em tecnologia e capacitação',
+    fato: 'A matéria afirma que a empresa vinha direcionando a operação para tecnologia e sustentabilidade, além de treinamento técnico dos colaboradores para novas tecnologias.',
+    relevancia: 'O posicionamento público em tecnologia pode ampliar a complexidade da conversa com clientes.',
+    fonte_url: 'https://exemplo.com/materia', publicado_em: '2025-09-09', perfil_oficial_url: null,
+  };
+  const HOJE = Date.parse('2026-09-09T15:00:00.000Z');
+
+  it('o fato que fala do tema vence o mais recente que não fala', () => {
+    const ordered = prioritizeResearchFacts([NOTA_FISCAL, MATERIA_DE_CAPACITACAO], HOJE);
+    expect(ordered[0].titulo).toContain('capacitação');
+  });
+
+  it('a ordem não depende de qual dos dois chegou primeiro', () => {
+    const ordered = prioritizeResearchFacts([MATERIA_DE_CAPACITACAO, NOTA_FISCAL], HOJE);
+    expect(ordered[0].titulo).toContain('capacitação');
+  });
+
+  it('o vocabulário do tema vale para texto acentuado', () => {
+    // Sem normalizar, 'capacitação' nunca casa com 'capacitacao' e a régua fica muda
+    // justamente no português. Tudo idêntico entre os dois, inclusive a data: o
+    // acento é a única variável, e o fato do tema entra em SEGUNDO de propósito —
+    // se a normalização cair ele não tem como subir e a asserção falha.
+    const ordered = prioritizeResearchFacts([
+      { ...base, fato: corpo, relevancia: 'Contexto sem tema algum.', publicado_em: '2026-09-01', _research_channel: 'news' },
+      { ...base, titulo: 'Programa de capacitação e formação de líderes', fato: corpo, relevancia: 'Contexto sem tema algum.', publicado_em: '2026-09-01', _research_channel: 'news' },
+    ], HOJE);
+    expect(ordered[0].titulo).toContain('capacitação');
+  });
+
+  it('registro de compra não é penalizado quando ele fala de pessoas', () => {
+    // Licitação de TREINAMENTO é o sinal mais forte que existe nesta operação: a
+    // penalidade de transação não pode alcançá-la só por ela citar CNPJ e valor.
+    const ordered = prioritizeResearchFacts([
+      { ...base, titulo: 'Contexto institucional', fato: corpo, relevancia: 'Contexto sem tema algum.', _research_channel: 'news' },
+      {
+        ...base,
+        titulo: 'Prefeitura contrata treinamento de lideranças',
+        fato: 'O Portal da Transparência lista contratação, CNPJ 00.000.000/0001-00, no valor de R$ 240.000,00, para treinamento de líderes e formação de equipes.',
+        relevancia: 'Contexto sem tema algum.',
+        _research_channel: 'news',
+      },
+    ], HOJE);
+    expect(ordered[0].titulo).toContain('treinamento');
+  });
+
+  it('o avanço escolhido desempata entre dois fatos de tema', () => {
+    const ordered = prioritizeResearchFacts([
+      { ...base, titulo: 'Empresa amplia equipe de atendimento', fato: corpo, relevancia: 'Contexto sem tema algum.', _research_channel: 'news' },
+      { ...base, titulo: 'Empresa amplia equipe após inaugurar nova filial', fato: corpo, relevancia: 'Contexto sem tema algum.', _research_channel: 'news' },
+    ], HOJE, 'abrir_frente');
+    expect(ordered[0].titulo).toContain('nova filial');
+  });
+  it('fato desta semana sem tema ainda vence fato de dois anos com tema', () => {
+    // A fronteira é deliberada: o assunto vale 5 e a recência vale até 6, então o
+    // tema vence uma diferença moderada de idade (foi o caso da Ford Slaviero, 6
+    // meses contra 1 ano) e NÃO vence a máxima. Fato de dois anos pode já não ser
+    // verdade sobre a empresa, e abrir com ele custa mais do que abrir sem gancho.
+    const ordered = prioritizeResearchFacts([
+      { ...base, titulo: 'Programa de capacitação de líderes', fato: corpo, relevancia: 'Contexto sem tema algum.', publicado_em: '2024-01-01', _research_channel: 'news' },
+      { ...base, titulo: 'Anúncio institucional', fato: corpo, relevancia: 'Contexto sem tema algum.', publicado_em: '2026-09-01', _research_channel: 'news' },
+    ], HOJE);
+    expect(ordered[0].titulo).toBe('Anúncio institucional');
   });
 });

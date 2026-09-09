@@ -472,16 +472,93 @@ function recencyScore(publishedAt: unknown, now: number): number {
 }
 
 /**
+ * Compara texto em portugues sem depender de acento.
+ *
+ * `\b` do regex nao conhece letra acentuada, e metade deste vocabulario tem
+ * acento ("capacitacao", "lideranca", "rotatividade" nao, mas "formação" sim).
+ * Normalizar antes e o unico jeito de a regua valer para o texto real.
+ */
+function semAcento(valor: unknown): string {
+  return typeof valor === 'string'
+    ? valor.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    : '';
+}
+
+/**
+ * O vocabulario que faz um fato virar conversa sobre desenvolvimento de pessoas.
+ *
+ * Termo ambiguo fica de FORA de proposito: "contratacao" sozinho tanto e admitir
+ * gente quanto comprar de um fornecedor, e foi exatamente por essa porta que uma
+ * nota de manutencao de veiculo entrou como sinal de RH.
+ */
+const TEMAS_DE_PESSOAS = [
+  'colaborador', 'funcionario', 'empregado', 'equipe', 'time interno', 'quadro de pessoal',
+  'efetivo', 'talento', 'lideranca', 'lider', 'gestor', 'gerente', 'coordenador', 'supervisor',
+  'treinamento', 'capacitacao', 'formacao', 'qualificacao', 'onboarding', 'aprendizagem',
+  'universidade corporativa', 'desenvolvimento de pessoas', 'escola de negocios',
+  'rotatividade', 'turnover', 'retencao', 'recrutamento', 'admissao', 'vagas',
+  'rh', 'recursos humanos', 'gente e gestao', 'cultura organizacional', 'clima organizacional',
+  'engajamento', 'produtividade', 'desempenho', 'avaliacao de desempenho',
+  'atendimento ao cliente', 'experiencia do cliente', 'satisfacao do cliente', 'nps',
+  'expansao', 'nova unidade', 'nova loja', 'inauguracao', 'reestruturacao', 'sucessao',
+];
+
+/** O que cada avanco precisa achar. Some ao tema, nao substitui. */
+const TEMAS_POR_OBJETIVO: Record<ConversationGoal, string[]> = {
+  entender_momento: ['assumiu', 'novo ceo', 'nova diretoria', 'mudanca', 'nova fase', 'estrategia'],
+  confirmar_dor: ['reclamacao', 'gargalo', 'retrabalho', 'atraso', 'falta de', 'dificuldade', 'queda'],
+  construir_valor: ['meta', 'indicador', 'resultado', 'faturamento', 'crescimento', 'numero de'],
+  destravar_decisao: ['diretoria', 'conselho', 'orcamento', 'licitacao', 'compra', 'governanca', 'regulator'],
+  abrir_frente: ['inaugurou', 'nova praca', 'nova filial', 'aquisicao', 'ampliou', 'lancou'],
+};
+
+/**
+ * Marcas de registro TRANSACIONAL: papel que existe por obrigacao contabil.
+ *
+ * Nota de empenho, contrato de fornecimento e item de portal da transparencia
+ * descrevem uma compra, nao um movimento da empresa. So penalizam quando o fato
+ * NAO toca tema de pessoas — uma licitacao de treinamento continua valendo.
+ */
+const MARCAS_DE_TRANSACAO = [
+  'portal da transparencia', 'nota fiscal', 'nota de empenho', 'empenho', 'cnpj',
+  'no valor de r$', 'manutencao em garantia', 'fornecimento de', 'aquisicao de pecas',
+];
+
+/**
+ * O quanto o fato conversa com o TEMA da reuniao.
+ *
+ * `Medido em 09/09/2026` no planejamento da Ford Slaviero: uma nota de manutencao
+ * de uma Transit no Sesc (R$ 1.912) abriu a reuniao, e a materia que dizia que a
+ * empresa investia em "treinamento tecnico dos colaboradores" ficou em terceiro.
+ * Trocar SO a data de publicacao dos dois invertia a ordem: o criterio media forma
+ * (tem implicacao escrita? tem link? e recente? e longo?) e nunca ASSUNTO, entao os
+ * dois fatos eram indistinguiveis para ele e 2 pontos de recencia decidiam a
+ * abertura da conversa.
+ */
+function themeAffinity(fact: any, goal?: ConversationGoal): number {
+  const texto = `${semAcento(fact?.titulo)} ${semAcento(fact?.fato)} ${semAcento(fact?.relevancia)}`;
+  if (!texto.trim()) return 0;
+  const tocaPessoas = TEMAS_DE_PESSOAS.some((termo) => texto.includes(termo));
+  const tocaObjetivo = !!goal && TEMAS_POR_OBJETIVO[goal].some((termo) => texto.includes(termo));
+  if (tocaPessoas || tocaObjetivo) return (tocaPessoas ? 5 : 0) + (tocaObjetivo ? 3 : 0);
+  return MARCAS_DE_TRANSACAO.some((marca) => texto.includes(marca)) ? -6 : 0;
+}
+
+/**
  * Quanto este fato serve para a CONVERSA, e nao para o dossie.
  *
  * `relevancia` pesa mais que o resto porque e a implicacao: e o elo que transforma
- * observacao em frase falavel. Fato sem implicacao escrita e curiosidade.
+ * observacao em frase falavel. Fato sem implicacao escrita e curiosidade. E a
+ * aderencia ao tema pesa como a implicacao porque um fato exato, recente e com
+ * link continua sendo a coisa errada para dizer na abertura se ele nao tem nada a
+ * ver com o que a reuniao vai tratar.
  */
-function factUsefulness(fact: any, now: number): number {
+function factUsefulness(fact: any, now: number, goal?: ConversationGoal): number {
   let score = 0;
   if (typeof fact?.relevancia === 'string' && fact.relevancia.trim().length >= 20) score += 6;
   if (typeof fact?.fonte_url === 'string' && /^https?:\/\//i.test(fact.fonte_url)) score += 4;
   score += recencyScore(fact?.publicado_em, now);
+  score += themeAffinity(fact, goal);
   const body = typeof fact?.fato === 'string' ? fact.fato.trim() : '';
   if (body.length >= 80) score += 2;
   else if (body.length >= 30) score += 1;
@@ -496,10 +573,18 @@ function factUsefulness(fact: any, now: number): number {
  * havendo 3 sinais sociais, os tres eram sociais, independentemente de servirem. Agora a
  * utilidade decide e o canal so evita que uma unica fonte ocupe a lista inteira.
  * Empate preserva a ordem original.
+ *
+ * `goal` e o avanco que a conversa precisa produzir: ele ja direcionava a BUSCA
+ * (`GOAL_RESEARCH_FOCUS`) e agora tambem direciona a ORDEM do que voltou. Sem ele
+ * a lista continua ordenada, so nao sabe para que reuniao.
  */
-export function prioritizeResearchFacts(value: unknown, now: number = Date.now()): any[] {
+export function prioritizeResearchFacts(
+  value: unknown,
+  now: number = Date.now(),
+  goal?: ConversationGoal,
+): any[] {
   const remaining = (Array.isArray(value) ? value : [])
-    .map((fact, index) => ({ fact, index, base: factUsefulness(fact, now) }));
+    .map((fact, index) => ({ fact, index, base: factUsefulness(fact, now, goal) }));
   const selected: any[] = [];
   const usedByChannel = new Map<string, number>();
 
@@ -606,7 +691,9 @@ export async function researchCompany(
   return {
     research: {
       ...research,
-      fatos_relevantes: prioritizeResearchFacts([...socialFacts, ...newsFacts, ...siteFacts]),
+      fatos_relevantes: prioritizeResearchFacts(
+        [...socialFacts, ...newsFacts, ...siteFacts], Date.now(), conversationGoal,
+      ),
     },
     sources: uniqueSources([
       ...profileSources,
@@ -624,8 +711,8 @@ export async function researchCompany(
   };
 }
 
-export function researchAsPrivateContext(research: any): string {
-  const facts = prioritizeResearchFacts(research?.fatos_relevantes).slice(0, 8)
+export function researchAsPrivateContext(research: any, goal?: ConversationGoal): string {
+  const facts = prioritizeResearchFacts(research?.fatos_relevantes, Date.now(), goal).slice(0, 8)
     .map((item: any, index: number) => `- [F${index}] FATO: ${item.fato} | relevância: ${item.relevancia}`);
   const trends = (research?.tendencias_setor || []).slice(0, 6)
     .map((item: any) => `- TENDÊNCIA: ${item.titulo} | impacto: ${item.impacto}`);

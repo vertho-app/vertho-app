@@ -87,7 +87,12 @@ function sourceKind(channel: unknown, url: string, officialSite: string): Copilo
   return 'news';
 }
 
-function filterResearchForPlan(research: any, officialSocialUrls: string[], officialSite: string): any {
+function filterResearchForPlan(
+  research: any,
+  officialSocialUrls: string[],
+  officialSite: string,
+  goal?: ConversationGoal,
+): any {
   const facts = (Array.isArray(research?.fatos_relevantes) ? research.fatos_relevantes : [])
     .filter((item: any) => {
       const sourceUrl = safeUrl(item?.fonte_url);
@@ -100,7 +105,7 @@ function filterResearchForPlan(research: any, officialSocialUrls: string[], offi
       if (item?._research_channel === 'site' && sourceUrl && officialSite.trim() && !isOfficialSiteUrl(sourceUrl, officialSite)) return false;
       return true;
     });
-  return { ...research, fatos_relevantes: prioritizeResearchFacts(facts) };
+  return { ...research, fatos_relevantes: prioritizeResearchFacts(facts, Date.now(), goal) };
 }
 
 type OpportunityPlanningContext = {
@@ -256,6 +261,10 @@ Para objeções, gere a pergunta que entende a objeção antes de tentar respond
 
 Regras dos GANCHOS (máximo 3, e são a cadeia do fato até a conversa):
 - fact_index aponta um fato REAL da lista de fatos públicos (há ${input.factsCount});
+- prefira o fato que fala de PESSOAS, formação, operação, atendimento, expansão ou mudança de
+  comando. Registro administrativo (nota fiscal, empenho, contrato de fornecimento, item de portal
+  da transparência, compra de peça ou serviço avulso) prova que a empresa existe e não dá assunto:
+  não construa cadeia a partir dele. Melhor 1 gancho verdadeiro do que 3 esticados;
 - implicacao conecta o fato a um custo, risco ou pressão provável de quem está na sala;
 - hipotese é o que pode estar acontecendo, escrita como suposição;
 - pergunta TESTA a hipótese, nunca a afirma;
@@ -289,6 +298,10 @@ Regras do Play:
 - negociacao: cubra objeção aberta, critério de decisão, quem assina e data;
 - cada abertura com “vi que...” precisa apontar fact_index válido. Use null apenas quando a base estiver
   literalmente no briefing privado; sem base, faça uma abertura consultiva sem alegação factual;
+- a abertura ancora no fato mais próximo do TEMA desta reunião, e não no primeiro da lista nem no
+  mais recente. Antes de escolher, pergunte: “se eu disser isto, o que ele responde?”. Fato do qual
+  só cabe responder “sim, e daí?” não abre conversa — prefira fact_index null e uma abertura
+  consultiva a abrir com uma compra, um valor pago ou um número de contrato;
 - green e red descrevem o que ouvir; if_green é o movimento seguinte, não uma resposta genérica;
 - goal_this_hour e close_with são compromissos observáveis, não “entender melhor”;
 - anchor_question é UMA pergunta que precisa sair respondida, alinhada ao avanço escolhido;
@@ -399,7 +412,12 @@ export function normalizePlan(
   let siteSignalsFound = 0;
   let newsSignalsFound = 0;
   let socialSignalsFound = 0;
-  for (const item of prioritizeResearchFacts(research?.fatos_relevantes).slice(0, 24)) {
+  // A MESMA ordem que o modelo viu: `fact_index` so aponta o fato certo se a lista
+  // da tela e a do prompt forem ordenadas pelo mesmo criterio, com o mesmo objetivo.
+  const orderedFacts = prioritizeResearchFacts(
+    research?.fatos_relevantes, Date.now(), planning.conversationGoal,
+  );
+  for (const item of orderedFacts.slice(0, 24)) {
     const sourceUrl = safeUrl(item?.fonte_url);
     const claimedProfile = safeUrl(item?.perfil_oficial_url);
     if (item?.perfil_oficial_url && !isOfficialSocialProfile(claimedProfile, officialSocialUrls)) continue;
@@ -697,6 +715,7 @@ async function planejarConversa(req: Request) {
         filterResearchByOfficialSocials(result.research, officialSocialUrls),
         officialSocialUrls,
         site,
+        conversationGoal,
       );
       sources = result.sources;
       researchExecution = {
@@ -739,7 +758,7 @@ async function planejarConversa(req: Request) {
       synthesisPrompt({
         privateContext,
         offer,
-        publicContext: researchAsPrivateContext(research),
+        publicContext: researchAsPrivateContext(research, conversationGoal),
         grounding,
         meetingKind,
         conversationGoal,
