@@ -683,6 +683,24 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
 - NÃO disparar lote de mensagem sem rodar a PRÉVIA e **ler os nomes**. `prepararLoteTemplate` é o
   mesmo núcleo da tela e devolve quem recebe, com os parâmetros resolvidos, e quem NÃO recebe com o
   motivo. Foi ele — não a suíte — que pegou o F-I29 e o F-C14 antes de a mensagem sair.
+- NÃO deixar um caminho que DESVIA do trabalho sair com código de SUCESSO, e NÃO
+  comparar uma contagem com um tamanho declarado sem dizer sobre QUEM ela conta.
+  Medido 09/09: o convidado de degustação passou a atravessar o reset (decisão
+  certa), virou população do tenant, e duas asserções de elenco
+  (`=== ACME_DEMO_TEAM_SIZE`) lançaram **depois** do delete — o reset abortou no
+  meio e deixou **3 relatórios de 35**, com a central do RH em "Leitura analítica
+  ainda não disponível". Ninguém viu por uma semana porque o CLI imprimia
+  `RESET ACME DEMO ADIADO` e saía com `exit 0`: quem roda lê SUCESSO. Ator novo
+  na base (convidado, conta de teste, usuário de integração) entra na POPULAÇÃO,
+  não no ELENCO; e asserção de sanidade que roda depois do delete transforma dado
+  inesperado em tenant pela metade. Detalhe: `docs/FMEA-PIPELINE.md` §F-I33.
+- NÃO preencher campo de CONFIGURAÇÃO DE PRODUTO (ritual, cadência, prazo, teto)
+  por ANALOGIA com o modelo vizinho. Em 02/09 criei `semanasCheckpoint` e dei
+  `[3, 5]` à jornada de 7 semanas copiando a proporção do modelo de 14; o dono
+  corrigiu dois dias depois — a jornada de 7 é o padrão e **não tem checkpoint**.
+  Campo novo não diverge de nada, então nada acusa: analogia vira régua
+  plausível e o comentário ao lado a disfarça de decisão tomada. Sem fonte (dono,
+  doc, valor em uso), deixe vazio e diga que está vazio.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.

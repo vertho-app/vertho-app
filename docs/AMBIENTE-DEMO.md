@@ -361,6 +361,56 @@ Quando quiser um novo estado de referência (ex.: após mudar competências no a
    - `scripts/_capture-fixture-extra.mjs` / `scripts/_capture-demo-extra.mts` (gabaritos + cenários dos cargos extra → `acme-demo-extra-artifacts.json`).
 4. Commitar o `acme-demo-fixture.json` (e o `acme-demo-extra-artifacts.json`, se mudou).
 
+### 🔴 Convidado é POPULAÇÃO, não ELENCO (09/09/2026)
+
+Desde 03/09 o convidado de degustação atravessa o reset — vencer revoga o
+acesso, não apaga o que a pessoa fez. Certo, e com um efeito colateral que
+custou uma semana: ele fica em `colaboradores` e passa a contar em toda
+asserção de tamanho de elenco.
+
+Duas exigiam `=== ACME_DEMO_TEAM_SIZE` (30) sobre a população inteira:
+`seedAcmeRhReportCenter` (`lib/demo/reset-acme-demo.ts`) e
+`buildAcmeOrganizationReportArtifacts` (`lib/demo/acme-organization-reports.ts`).
+Com **quatro prospects na base, 34 ≠ 30** e as duas lançavam — depois de
+`resetTenant` já ter apagado as tabelas. `Medido 09/09/2026:` o tenant ficou com
+**3 relatórios de 35**, e a central do RH abria as abas Cargos e Prioridades em
+"Leitura analítica ainda não disponível", porque o consolidado é um dos que não
+nasciam.
+
+A asserção continua valendo — ela protege contra elenco incompleto, que é erro
+de seed real. O que estava errado era o denominador: hoje as duas filtram
+`email` começando com `convidado.`. É também o certo para o documento — o Perfil
+e o DNA descrevem a ORGANIZAÇÃO, e um prospect de passagem não faz parte dela.
+
+Guard: `tests/unit/demo-convidado-fora-do-elenco.test.ts` (estático — o alvo é o
+call-site; validado por mutação).
+
+### 🔴 E o CLI dizia "ADIADO" com exit 0 (09/09/2026)
+
+O motivo de ninguém ver o item acima por dias. `scripts/seed-acme-demo.ts` ainda
+tinha o ADIAMENTO por passaporte ativo que o **cron abandonou em 03/09** — está
+escrito em `app/api/cron/route.ts`: "com validade de 10 dias, adiar é
+praticamente nunca resetar". A decisão entrou num caminho só.
+
+Pior que divergir: o CLI imprimia `RESET ACME DEMO ADIADO` e saía com
+**`process.exit(0)`**. Quem roda `npm run reset:demo` lê SUCESSO, e o reset não
+aconteceu. **Caminho que DESVIA do trabalho não pode sair com código de
+sucesso** — é a mesma classe do "200 vazia fura o fail-loud" (F-D1) e do
+"`sucesso` = ACEITOU" do WhatsApp.
+
+### Degustação: só entra cargo que PERCORRE a jornada (08/09/2026)
+
+`DEMO_PROSPECT_ROLES_POR_AMBIENTE` já dizia isso em prosa. Prosa não é catraca:
+em 01/09 a degustação escolar passou a oferecer `coordenacao-pedagogica` e em
+02/09 a coordenação entrou em `cargosSemAssessment` (Top 5 zerado de propósito —
+ela existe para adequação e gestão de equipe, não para percorrer a jornada).
+Nenhuma das duas decisões estava errada sozinha, e o prospect que escolhesse
+aquele cargo morria na etapa 01 em "Cenário para X ainda não foi gerado".
+
+Guard: `tests/unit/degustacao-cargo-com-matriz.test.ts` cruza as duas listas
+(cargo oferecido × `cargosSemAssessment` do roster). Verificação de ponta a
+ponta: `scripts/_verificar-degustacao.ts` (cargo · matriz · cenário A).
+
 ## Pegadinhas
 - `descriptor_assessments.nivel` é coluna **GENERATED ALWAYS** — capture/replay a descartam (senão o insert falha).
 - `gerarTemporada` exige competência COM `descriptor_assessments` — passar `competencia` válida.

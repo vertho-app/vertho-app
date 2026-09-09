@@ -1083,6 +1083,43 @@ mediria outra coisa.
 - o auditor (`cenarios_b_check`) recebe **uma** competência: avaliando um cenário integrador de duas,
   ele desconta por escopo. Nota baixa ali pode ser o instrumento medindo a própria limitação.
 
+### F-C15 · O fan-out do cron escolhe as empresas do dia pela cadência CRUA, e a semana de feriado fica sem entrega ✅ (corrigido 09/09, `a2e86f4d`)
+
+**Gatilho:** `actions/cron-jobs.ts::triggerDiario` — o filtro `doDia` comparava `hoje` com
+`sys_config.cadencia` direto (`fase4_dia_pilula`, `fase4_dia_pilula2`, `fase4_dia_evidencia`),
+enquanto o worker (`lib/fase4/trigger-diario-empresa.ts`) aplica `diasDaSemanaComFeriado` e re-checa.
+Re-check só acontece em quem foi ENFILEIRADO: comparar com os dias crus não é "evitar task à toa",
+é deixar a empresa inteira de fora justamente no dia em que ela tem entrega.
+
+**Status:** já-observado. `Medido: 09/09/2026` — o feriado de 07/09 empurrou a P1 do Ibipeba de
+segunda para terça e a P2 de terça para quarta. Na quarta o fan-out enfileirou **1 de 12 empresas** e
+as **36 pessoas do Ibipeba não receberam a P2**; `fase4_envios` confirmava `ultima_pilula2_em` parada
+em 01/09.
+
+🔑 **O log não denuncia, e é a parte que interessa:** ele diz *"Diário (fan-out): 1/1 empresas
+enfileiradas"*. O denominador é a lista JÁ FILTRADA, então 1 de 1 parece perfeito — no dia anterior,
+com a mesma execução saudável, era 12/12. Contador que se ajusta ao próprio recorte não consegue
+acusar recorte errado. Mesma família de F-I25 (contador que ignora o filtro).
+
+**Correção:** o filtro passa por `diasDaSemanaComFeriado` antes de comparar. 7 testes; seis
+exercitam a régua nos dias da semana do feriado e numa semana comum, o sétimo é um guard estático
+sobre o CALL-SITE.
+
+⚠️ O guard nasceu inútil e só a mutação mostrou: `toContain('diasDaSemanaComFeriado')` casava no
+COMENTÁRIO escrito acima do filtro, então o mutante que devolvia os dias crus passava verde. A
+asserção exige a CHAMADA (`/diasDaSemanaComFeriado\s*\(/`) e recusa a atribuição direta.
+
+🔑 **Terceiro consumidor da MESMA decisão** — o motor já aplicava a régua, o health passou a aplicar
+em 07/09 (`d7d0c64c`) e o dispatcher era o que faltava. Ao corrigir uma régua de calendário, procure
+todos os pontos que decidem "hoje tem entrega?", não só o que produziu o sintoma.
+
+**Recuperar o dia perdido:** `processarEmpresaDiario` roda de script local com `{ hoje, hojeUTC }`
+(mesmo núcleo do worker, carimbos por canal, então canal já enviado é pulado). A rota `/api/cron`
+não serve para isso: exige `CRON_SECRET`, que é *Sensitive* na Vercel, e **não existe tela de admin
+que dispare a cadência**. ⚠️ O `.env.local` não tem as `WHATSAPP_TEMPLATE_*`: resolva o template pelo
+`CONTRATOS` de `lib/notifications/pilula-template.ts` (ver §3 de `docs/TEMPLATES-WHATSAPP.md`) — pelo
+papel eu mandei 23 mensagens em MARKETING, 6× o custo.
+
 ### F-C12 · Cota de retentativa consumida por avaria do CANAL torna o resgate inalcançável ✅ (corrigido 19/08, `984607e3`)
 
 **Gatilho:** `lib/conarh/reenvio-t0.ts:33,124` — `MAX_TENTATIVAS_AUTOMATICAS = 10` +
@@ -1446,7 +1483,7 @@ O `PIPELINE-TRILHA.md` é **excepcionalmente fiel** (~50 referências `arquivo:l
 - Agravante: `QSTASH_TOKEN` ausente → `publishToQStash` loga warn e **retorna sucesso** → `pilulas++` + carimbo, nada enviado. O canal WhatsApp inteiro morre em silêncio (`cron-jobs.ts:418-423`).
 - **Ressíduo fechado em 04/08** (`33221971`): o carimbo `ultima_pilulaN_whatsapp_em` era gravado no ENFILEIRAMENTO (publish ok ≠ entrega). Agora o publish leva `fase4EnvioId` + `carimboCampo` (enum fechado) e o webhook `whatsapp-cis` grava o carimbo **só após `sendWhatsapp` ok** — falha de carimbo só loga, nunca 5xx (retry reenviaria o texto). Guarda: `tests/unit/qstash-whatsapp-cis.test.ts`, validada por mutação. O consolidado `ultima_pilulaN_em` segue no critério antigo (e-mail ok OU WhatsApp enfileirado).
 
-### 1.3 Cron sem catch-up e sem isolamento de falha 🆕 ✅ parcial (27/07: try/catch por empresa `0a188172` + lock diário F-C3 — **catch-up segue ABERTO**: perdeu o dia, perdeu a pílula)
+### 1.3 Cron sem catch-up e sem isolamento de falha 🆕 ✅ parcial (27/07: try/catch por empresa `0a188172` + lock diário F-C3 — **catch-up AUTOMÁTICO segue ABERTO**: perdeu o dia, perdeu a pílula; o manual é o script de F-C15)
 
 - Gates são `hoje===dia` (`cron-jobs.ts:303-306`): perdeu segunda → pílula 1 perdida; perdeu quinta (diaEv) → `semana_atual` não avança e `ultima_evidencia_em` não carimba → na semana seguinte **reenvia pílulas da mesma semana** (conteúdo repetido), e a trilha deriva do calendário porque o week-gating continua liberando por `data_inicio` (`:374-407`).
 - **Sem try/catch por empresa/envio**: exceção no carimbo (`:370`,`:406`) ou no `tdb` aborta o run inteiro → empresas restantes do dia sem envio; Vercel cron não re-tenta.
@@ -1545,7 +1582,7 @@ O `PIPELINE-TRILHA.md` é **excepcionalmente fiel** (~50 referências `arquivo:l
 
 ### 6. Prioridades sugeridas (status 27/07 noite)
 
-1. ✅ **Envio (elo mais fraco)** — carimbo por canal, `publishToQStash` lança, try/catch por empresa, lock diário. 04/08: fan-out por empresa via QStash + carimbo WhatsApp pós-entrega (item 8 / §1.2). **Ressíduo ABERTO: catch-up do cron** (perdeu o dia, perdeu a pílula).
+1. ✅ **Envio (elo mais fraco)** — carimbo por canal, `publishToQStash` lança, try/catch por empresa, lock diário. 04/08: fan-out por empresa via QStash + carimbo WhatsApp pós-entrega (item 8 / §1.2). **Resíduo ABERTO: catch-up AUTOMÁTICO do cron** (perdeu o dia, perdeu a pílula) — o reparo manual existe e está em **F-C15**: `processarEmpresaDiario` de script local, idempotente por canal.
 2. ✅ **Regerar sem destruir** — upsert estrutural (`5a405965`) + `regerarSemana` preserva e repara pelo motor (F-I2).
 3. ✅ **Unicidade e determinismo** — UNIQUE em `micro_conteudos` não-kit (mig 190), `videos_gerados` (mig 188), `kit_briefs` (mig 185) + ORDER BY determinístico no overlay. Ressíduo latente: UNIQUE do lado kit.
 4. ✅ **IA4** — reprocesso self-service quando `avaliacao_ia` existe sem notas + aviso ao admin (27/07 noite; 0 presas em produção).
@@ -1910,3 +1947,43 @@ em `assets` quando o lote INTEIRO terminou. Falha = lote descartado, caminho por
 
 **Regra que fica:** em fan-out, resultado parcial não entra no estado compartilhado — junte
 tudo depois que o lote fechar.
+
+---
+
+### F-I33 · Ator NOVO na base derruba asserção de ELENCO — e o desvio sai como sucesso 🔴 (fechado 09/09/2026)
+
+**Gatilho:** `lib/demo/reset-acme-demo.ts::seedAcmeRhReportCenter` e
+`lib/demo/acme-organization-reports.ts:56` — asserções
+`participantes.length !== ACME_DEMO_TEAM_SIZE` sobre a POPULAÇÃO do tenant.
+`scripts/seed-acme-demo.ts` — desvio com `process.exit(0)`.
+
+**Status:** já observado. `Medido 09/09/2026` no `acme-demo`.
+
+**O que aconteceu.** A decisão de 03/09 de o convidado de degustação ATRAVESSAR o
+reset (vencer revoga o acesso, não apaga o que a pessoa fez) o mantém em
+`colaboradores`. Quatro prospects entraram, a população foi a 34 contra os 30
+declarados, e as duas asserções lançaram — **depois** de `resetTenant` ter
+apagado as tabelas. O reset abortou no meio e o tenant ficou com **3 relatórios
+de 35**; a central do RH abria Cargos e Prioridades em "Leitura analítica ainda
+não disponível", porque o consolidado é um dos que não nasciam.
+
+**Por que demorou a aparecer.** O CLI não estava rodando o reset: ele manteve o
+adiamento por passaporte ativo que o cron abandonou no mesmo 03/09 (gêmeo
+divergente), e imprimia `RESET ACME DEMO ADIADO` saindo com **`exit 0`**. Quem
+roda `npm run reset:demo` lia SUCESSO. Uma semana de "reset ok" sobre um reset
+que não acontecia.
+
+**Correção.** As duas contagens medem o ELENCO DECLARADO (filtram `email`
+começando com `convidado.`); o CLI deixou de adiar. A asserção em si ficou — ela
+protege contra elenco incompleto, que é erro de seed real.
+
+**Regra que fica:** *(a)* toda contagem que compara com um tamanho DECLARADO tem
+que dizer sobre QUEM conta — ator novo na base (convidado, conta de teste,
+usuário de integração) entra na população e não no elenco; *(b)* **caminho que
+desvia do trabalho não pode sair com código de sucesso** — mesma classe do
+"200 vazia fura o fail-loud" (F-D1) e do `sucesso` = ACEITOU do WhatsApp; *(c)*
+asserção de sanidade que roda DEPOIS do delete transforma um dado inesperado em
+tenant pela metade: ou ela roda antes, ou o delete espera por ela.
+
+**Guard:** `tests/unit/demo-convidado-fora-do-elenco.test.ts` — estático (o alvo
+é o call-site), validado por mutação nas duas frentes.
