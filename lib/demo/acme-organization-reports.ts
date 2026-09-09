@@ -41,7 +41,17 @@ export async function buildAcmeOrganizationReportArtifacts(
   if (assessmentsResult.error) throw new Error(`relatórios organizacionais ACME: mapeamentos: ${assessmentsResult.error.message}`);
   if (rolesResult.error) throw new Error(`relatórios organizacionais ACME: cargos: ${rolesResult.error.message}`);
 
-  const people = (peopleResult.data || []) as any[];
+  // 🔴 Convidado de degustação NÃO entra no elenco.
+  //
+  // Desde 03/09/2026 ele atravessa o reset (vencer revoga o acesso, não apaga o
+  // que a pessoa fez), então fica em `colaboradores` e entrava nesta conta.
+  // `Medido 09/09/2026`: com quatro prospects na base, a asserção abaixo
+  // acusava 34 contra 30 e derrubava o reset — que já tinha apagado as tabelas,
+  // deixando o tenant pela metade. O documento também não deve descrevê-los: o
+  // Perfil e o DNA falam da ORGANIZAÇÃO, e um prospect de passagem não é parte
+  // dela.
+  const people = ((peopleResult.data || []) as any[])
+    .filter((pessoa: any) => !String(pessoa.email || '').trim().toLowerCase().startsWith('convidado.'));
   // Usa a mesma régua do panorama do RH: ter iniciado alguma competência não
   // significa ter concluído o Top 5 do cargo (na ACME, são 26 iniciados e 25
   // concluídos). O número do PDF precisa fechar com o card executivo.

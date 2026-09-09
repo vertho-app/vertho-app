@@ -2321,15 +2321,42 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     if (gravou.error) throw new Error(`consolidado RH: ${gravou.error.message}`);
   }
 
+  /**
+   * Convidado de degustação (`convidado.<slug>.…@vertho.ai`) ou não.
+   *
+   * O prefixo é por tenant (ver `DEMO_PROSPECT_TENANTS`), então a checagem é
+   * pelo miolo `convidado.` — reconhece o convidado de qualquer ambiente sem
+   * precisar saber em qual estamos, que é o que interessa para excluí-lo de uma
+   * contagem de elenco.
+   */
+  function ehConvidadoDeDegustacao(email: unknown): boolean {
+    return String(email || '').trim().toLowerCase().startsWith('convidado.');
+  }
+
   async function seedAcmeRhReportCenter(destId: string) {
     if (slug !== DEMO_SLUG) return;
 
     const colaboradores = await must('listar diretório da central RH', sb.from('colaboradores')
       .select('id,nome_completo,email,cargo,role,area_depto,gestor_email')
       .eq('empresa_id', destId));
-    const participantes = (colaboradores || []).filter((pessoa: any) => pessoa.role !== 'rh');
+    // 🔴 CONVIDADO DE DEGUSTAÇÃO NÃO É PARTICIPANTE DO ELENCO.
+    //
+    // Desde 03/09/2026 o convidado ATRAVESSA o reset (vencer revoga o acesso,
+    // não apaga o que a pessoa fez) — então ele fica em `colaboradores` e passa
+    // a contar aqui. Com quatro prospects na base a conta dava 34 contra os 30
+    // declarados, esta asserção LANÇAVA, e como ela roda depois de
+    // `resetTenant` o reset abortava no meio: `Medido 09/09/2026`, o tenant
+    // ficou com 3 relatórios de 35, e a central do RH abria "Leitura analítica
+    // ainda não disponível" porque o consolidado é um dos que não nasceram.
+    //
+    // A asserção continua valendo — ela protege contra elenco incompleto, que é
+    // um erro de seed real. O que muda é o denominador: ela mede o ELENCO
+    // DECLARADO, e convidado não faz parte dele.
+    const participantes = (colaboradores || [])
+      .filter((pessoa: any) => pessoa.role !== 'rh')
+      .filter((pessoa: any) => !ehConvidadoDeDegustacao(pessoa.email));
     if (participantes.length !== ACME_DEMO_TEAM_SIZE) {
-      throw new Error(`central RH esperava ${ACME_DEMO_TEAM_SIZE} participantes e encontrou ${participantes.length}`);
+      throw new Error(`central RH esperava ${ACME_DEMO_TEAM_SIZE} participantes do elenco e encontrou ${participantes.length}`);
     }
 
     const existentes = await must('listar relatórios aquecidos da central RH', sb.from('relatorios')

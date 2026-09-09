@@ -20,13 +20,21 @@ import { resetAcmeDemo } from '@/lib/demo/reset-acme-demo';
 import { cleanupExpiredAcmeProspects } from '@/lib/demo/acme-prospect-tracking';
 
 async function main() {
+  // A faxina de convidados VENCIDOS roda sempre: é ela que remove o acesso de
+  // quem passou do prazo, e isso não depende de o ambiente ser recomposto.
   const lifecycle = await cleanupExpiredAcmeProspects();
-  if (lifecycle.activeCount > 0) {
-    console.log('RESET ACME DEMO ADIADO:', JSON.stringify(lifecycle, null, 2));
-    process.exit(0);
-  }
+
+  // 🔴 O ADIAMENTO POR PASSAPORTE ATIVO SAIU (09/09/2026), alinhando ao cron,
+  // que o abandonou em 03/09 pelo mesmo motivo: com validade de 10 dias, adiar
+  // é praticamente nunca resetar. O convidado ATRAVESSA o reset — vencer revoga
+  // o acesso, não apaga o que ele fez.
+  //
+  // Este era o gêmeo divergente: a decisão entrou no cron e não aqui, e o CLI
+  // seguiu adiando. Pior, ele imprimia "ADIADO" e saía com `exit 0` — quem roda
+  // `npm run reset:demo` lia SUCESSO e o reset não tinha acontecido. Um reset
+  // que não roda e diz que rodou é a pior das duas falhas possíveis aqui.
   const r = await resetAcmeDemo();
-  console.log('RESET ACME DEMO:', JSON.stringify(r, null, 2));
+  console.log('RESET ACME DEMO:', JSON.stringify({ ...r, convidados: lifecycle }, null, 2));
   process.exit(r.ok ? 0 : 1);
 }
 
