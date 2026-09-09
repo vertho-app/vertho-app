@@ -1,6 +1,7 @@
 'use server';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { diasDaSemanaComFeriado } from '@/lib/fase4/feriados';
 import { tenantDb } from '@/lib/tenant-db';
 import { templateWhatsAppPilula, templateWhatsAppEvidencia, templateWhatsAppDesafioQuinta } from '@/lib/notifications';
 import { resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
@@ -384,9 +385,20 @@ export async function triggerDiario() {
   // task à toa.
   const doDia = (empresas as any[]).filter((e) => {
     const cadencia = e.sys_config?.cadencia || {};
-    return hoje === (cadencia.fase4_dia_pilula ?? 1)
-        || hoje === (cadencia.fase4_dia_pilula2 ?? 2)
-        || hoje === (cadencia.fase4_dia_evidencia ?? 4);
+    // 🔴 O DESLOCAMENTO DE FERIADO ENTRA AQUI TAMBÉM. O worker aplica
+    // `diasDaSemanaComFeriado` e re-checa, mas re-check só acontece em quem foi
+    // ENFILEIRADO: comparar com os dias crus não é "não enfileirar à toa", é
+    // deixar a empresa inteira de fora no dia em que ela de fato tem entrega.
+    // `Medido: 09/09/2026` — o 07/09 empurrou a P1 do Ibipeba para terça e a P2
+    // para quarta; na quarta o fan-out enfileirou 1 de 12 empresas e as 36
+    // pessoas do Ibipeba não receberam a P2. O log diz "1/1 empresas
+    // enfileiradas", que parece saudável.
+    const { diaP1, diaP2, diaEv } = diasDaSemanaComFeriado({
+      diaP1: cadencia.fase4_dia_pilula ?? 1,
+      diaP2: cadencia.fase4_dia_pilula2 ?? 2,
+      diaEv: cadencia.fase4_dia_evidencia ?? 4,
+    }, hojeUTC, hoje);
+    return hoje === diaP1 || hoje === diaP2 || hoje === diaEv;
   });
 
   // FAN-OUT: uma task por empresa, sem delay entre tasks (o espaçamento de 2s
