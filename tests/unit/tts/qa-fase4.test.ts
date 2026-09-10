@@ -133,7 +133,12 @@ describe('R20 · calibração provisória de voz', () => {
       expect(p.calibracao.em).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
     expect(ELENCO.mentora.calibracao.tentativas).toBeGreaterThanOrEqual(CALIBRACAO_AMOSTRA_MINIMA);
-    // hoje só o Beto está provisório — quando deixar de estar, esta lista fica vazia
-    expect(vozesComCalibracaoProvisoria().map((x) => x.personagem)).toEqual(['beto']);
+    // O Beto fechou em 10/09/2026 (79 tentativas): nenhum personagem está provisório.
+    // A lista voltar a ter alguém significa que um perfil novo entrou sem amostra — que
+    // é justamente o caso em que o alvo sai errado, como saiu o 170 Hz do Beto.
+    expect(vozesComCalibracaoProvisoria().map((x) => x.personagem)).toEqual([]);
+    for (const p of Object.values(ELENCO)) {
+      expect(p.calibracao.tentativas).toBeGreaterThanOrEqual(CALIBRACAO_AMOSTRA_MINIMA);
+    }
   });
 });

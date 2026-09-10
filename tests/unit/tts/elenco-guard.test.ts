@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { extname } from 'node:path';
-import { ELENCO } from '@/lib/tts/elenco';
+import { ELENCO, type PerfilVoz } from '@/lib/tts/elenco';
 
 const VOZES_GEMINI = ['Aoede', 'Iapetus', 'Vindemiatrix', 'Achird', 'Callirrhoe', 'Gacrux', 'Leda', 'Pulcherrima', 'Algieba', 'Kore', 'Puck', 'Charon', 'Fenrir', 'Zephyr', 'Enceladus'];
 const PADRAO = new RegExp(`['"\`](${VOZES_GEMINI.join('|')})['"\`]`, 'g');
@@ -59,5 +59,33 @@ describe('Guard: nomes de voz só no elenco', () => {
       if (hits.length) violacoes.push(`${f} (${[...new Set(hits)].join(', ')})`);
     }
     expect(violacoes, `Id de modelo de TTS em literal fora do elenco:\n  ${violacoes.join('\n  ')}\nUse ELENCO.<personagem>.modeloVertex / modeloAiStudio (lib/tts/elenco.ts).`).toEqual([]);
+  });
+
+  /**
+   * O ALVO tem que conter o take que foi APROVADO.
+   *
+   * `Medido 10/09/2026`: o alvo do Beto foi para 170 Hz — o centro de uma amostra de 6
+   * takes — enquanto o take em que o Rodrigo escolheu a voz tinha 123 Hz. Ficou 5,9 st
+   * fora, e por três dias o portão reprovou o registro escolhido e aprovou outro: as
+   * devolutivas publicadas saíram 4,5 a 8,2 st acima da voz aprovada, sem nenhum sinal.
+   *
+   * A invariante não é o VALOR do alvo (recalibrar é livre e desejável) — é que a faixa
+   * dele continue cobrindo a decisão humana. Alvo que se afasta do aprovado significa
+   * que a escolha precisa ser refeita, não que o número precisa ser ajustado sozinho.
+   */
+  it('o alvo de cada personagem cobre o registro em que a voz foi APROVADA', () => {
+    const st = (a: number, b: number) => 12 * Math.log2(a / b);
+    const fora: string[] = [];
+    // `ELENCO` é inferido com tipos literais; o cast pelo contrato dá acesso ao campo
+    // opcional sem afrouxar nada — quem não o declara cai no `continue` abaixo.
+    for (const [personagem, p] of Object.entries(ELENCO) as [string, PerfilVoz][]) {
+      if (!p.aprovadoF0Hz) continue; // só valida quem declara a âncora
+      const dist = Math.abs(st(p.aprovadoF0Hz, p.alvoF0Hz));
+      const tol = p.tolSt ?? 1;
+      if (dist > tol) {
+        fora.push(`${personagem}: aprovado em ${p.aprovadoF0Hz} Hz, alvo ${p.alvoF0Hz} Hz ±${tol} st → ${dist.toFixed(2)} st FORA da faixa`);
+      }
+    }
+    expect(fora, `Alvo descolado da voz aprovada:\n  ${fora.join('\n  ')}\nRecalibrar o alvo é livre; afastá-lo do take aprovado exige refazer a escolha (kit voz × rosto) com texto do USO REAL.`).toEqual([]);
   });
 });
