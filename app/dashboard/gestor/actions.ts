@@ -769,6 +769,8 @@ export type EngajamentoDoTime = {
   resumo?: any;
   colaboradores?: any[];
   semanas?: number[];
+  /** Funções presentes na cadência do recorte, para o seletor da tela. */
+  cargos?: string[];
 };
 
 /**
@@ -782,8 +784,16 @@ export type EngajamentoDoTime = {
  *
  * Para RH o recorte é o tenant inteiro (`null`), e não uma lista com todos os
  * ids: além de ser a mesma coisa, evita um `IN` gigante na empresa grande.
+ *
+ * `cargo` é o segundo eixo do recorte, e desce para o núcleo em vez de filtrar
+ * na exibição: com duas turmas no ar, a média do total não descreve nenhuma das
+ * duas, e um filtro aplicado só na lista deixaria os marcos do topo contando
+ * outra população.
  */
-export async function getEngajamentoDoTime(semana?: number | null): Promise<EngajamentoDoTime> {
+export async function getEngajamentoDoTime(
+  semana?: number | null,
+  cargo?: string | null,
+): Promise<EngajamentoDoTime> {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { ok: false, error: 'Não autenticado' };
@@ -817,7 +827,7 @@ export async function getEngajamentoDoTime(semana?: number | null): Promise<Enga
 
   const { rollUpEngajamento } = await import('@/lib/engajamento/roll-up');
   const recorte = isRH ? null : escopo.liderIds;
-  const rollup: any = await rollUpEngajamento(empresaId, semana ?? null, recorte);
+  const rollup: any = await rollUpEngajamento(empresaId, semana ?? null, recorte, cargo ?? null);
 
   // Quem olha o tenant inteiro precisa saber DE QUEM é cada pessoa.
   //
@@ -838,6 +848,7 @@ export async function getEngajamentoDoTime(semana?: number | null): Promise<Enga
     resumo: rollup.resumo,
     colaboradores,
     semanas: rollup.semanas,
+    cargos: rollup.cargos || [],
   };
 }
 

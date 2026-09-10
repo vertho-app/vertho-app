@@ -268,14 +268,26 @@ export default function EngajamentoDoTimePage() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [semana, setSemana] = useState<number | null>(null);
+  const [cargo, setCargo] = useState('');
   const [foco, setFoco] = useState<Foco>('todos');
   const [busca, setBusca] = useState('');
+  /**
+   * As opções dos dois seletores são guardadas, e não lidas direto da resposta.
+   *
+   * O núcleo calcula `cargos` ANTES do recorte, mas quando a função escolhida
+   * não tem ninguém a resposta volta com `semanas: [1]` — e o seletor de período
+   * sumiria da tela exatamente no momento em que a pessoa precisa dele para
+   * desfazer o recorte. Preservar a última lista não-vazia mantém as duas saídas
+   * visíveis; filtro que zera é um estado do qual sempre se volta.
+   */
+  const [cargosDisponiveis, setCargosDisponiveis] = useState<string[]>([]);
+  const [semanasDisponiveis, setSemanasDisponiveis] = useState<number[]>([]);
 
   useEffect(() => {
     let vivo = true;
     const timer = window.setTimeout(() => {
       setLoading(true);
-      getEngajamentoDoTime(semana)
+      getEngajamentoDoTime(semana, cargo || null)
         .then((resultado: any) => {
           if (!vivo) return;
           if (!resultado?.ok) setErro(resultado?.error || 'Não foi possível carregar o engajamento');
@@ -287,7 +299,17 @@ export default function EngajamentoDoTimePage() {
       vivo = false;
       window.clearTimeout(timer);
     };
-  }, [semana]);
+  }, [semana, cargo]);
+
+  useEffect(() => {
+    const vindos: string[] = dados?.cargos || [];
+    if (vindos.length) setCargosDisponiveis(vindos);
+  }, [dados?.cargos]);
+
+  useEffect(() => {
+    const vindas: number[] = dados?.semanas || [];
+    if (vindas.length > 1) setSemanasDisponiveis(vindas);
+  }, [dados?.semanas]);
 
   const pessoas: any[] = dados?.colaboradores || NENHUMA_PESSOA;
   const resumo = dados?.resumo || {};
@@ -354,19 +376,44 @@ export default function EngajamentoDoTimePage() {
           </p>
         </div>
 
-        {(dados?.semanas || []).length > 1 && (
-          <label className="flex shrink-0 items-center gap-2 text-[10px] font-semibold text-white/40">
-            Período
-            <select
-              value={semana ?? ''}
-              onChange={(event) => setSemana(event.target.value ? Number(event.target.value) : null)}
-              className="min-h-9 rounded-[10px] border border-white/[0.1] bg-[#081a2f] px-3 text-[10px] font-bold text-white/70 outline-none focus:border-brand-300/35"
-            >
-              <option value="">Todas as semanas</option>
-              {(dados?.semanas || []).map((item: number) => <option key={item} value={item}>Semana {item}</option>)}
-            </select>
-          </label>
-        )}
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
+          {semanasDisponiveis.length > 1 && (
+            <label className="flex items-center gap-2 text-[10px] font-semibold text-white/40">
+              Período
+              <select
+                value={semana ?? ''}
+                onChange={(event) => setSemana(event.target.value ? Number(event.target.value) : null)}
+                className="min-h-9 rounded-[10px] border border-white/[0.1] bg-[#081a2f] px-3 text-[10px] font-bold text-white/70 outline-none focus:border-brand-300/35"
+              >
+                <option value="">Todas as semanas</option>
+                {semanasDisponiveis.map((item: number) => <option key={item} value={item}>Semana {item}</option>)}
+              </select>
+            </label>
+          )}
+
+          {/* Função: com duas turmas na mesma cadência, o número do total não
+              descreve nenhuma delas — professores e diretores caminham em ritmos
+              diferentes e viram uma média que não é de ninguém. O recorte desce
+              para o núcleo, então os quatro marcos, os chips e a lista contam
+              todos a MESMA população.
+
+              O `pr-7` reserva a coluna da seta nativa: sem ela, um cargo de nome
+              longo ("Coordenador(a) Pedagógico(a) dos Anos Iniciais") corta
+              debaixo do chevron e os dois se sobrepõem. */}
+          {cargosDisponiveis.length > 1 && (
+            <label className="flex items-center gap-2 text-[10px] font-semibold text-white/40">
+              Função
+              <select
+                value={cargo}
+                onChange={(event) => setCargo(event.target.value)}
+                className="min-h-9 max-w-[220px] rounded-[10px] border border-white/[0.1] bg-[#081a2f] py-1 pl-3 pr-7 text-[10px] font-bold text-white/70 outline-none focus:border-brand-300/35"
+              >
+                <option value="">Todas as funções</option>
+                {cargosDisponiveis.map((item: string) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+          )}
+        </div>
       </header>
 
       {loading && !dados && (
@@ -383,7 +430,28 @@ export default function EngajamentoDoTimePage() {
         </GlassCard>
       )}
 
-      {!loading && !erro && total === 0 && (
+      {/* Zero com filtro e zero sem filtro são duas notícias diferentes: uma diz
+          que a jornada não começou, a outra que ESTE recorte não tem ninguém. A
+          segunda vem com a saída junto — filtro que zera sem oferecer a volta
+          vira beco. */}
+      {!loading && !erro && total === 0 && cargo && (
+        <GlassCard className="border-dashed text-center" padding="p-9">
+          <Users size={22} className="mx-auto text-brand-300/45" aria-hidden="true" />
+          <p className="mt-3 text-[13px] font-bold text-white/70">Ninguém em “{cargo}” na cadência</p>
+          <p className="mx-auto mt-1 max-w-lg text-[10px] leading-relaxed text-white/35">
+            Esta função não tem pessoas no seu recorte{semana ? ` na semana ${semana}` : ''}. Outras funções podem ter.
+          </p>
+          <button
+            type="button"
+            onClick={() => setCargo('')}
+            className="mt-4 inline-flex min-h-9 items-center rounded-full border border-brand-300/25 bg-brand-300/[0.08] px-4 text-[10px] font-bold text-brand-200 transition-colors hover:bg-brand-300/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-300"
+          >
+            Ver todas as funções
+          </button>
+        </GlassCard>
+      )}
+
+      {!loading && !erro && total === 0 && !cargo && (
         <GlassCard className="border-dashed text-center" padding="p-9">
           <Users size={22} className="mx-auto text-brand-300/45" aria-hidden="true" />
           <p className="mt-3 text-[13px] font-bold text-white/70">A jornada do time ainda não começou</p>
@@ -405,7 +473,9 @@ export default function EngajamentoDoTimePage() {
             description="Os quatro marcos mostram presença na jornada. Eles não são nota nem avaliação de desempenho."
             total={total}
             steps={[
-              { label: 'Na cadência', value: total, detail: 'pessoas do seu recorte', icon: Users, tone: 'cyan' },
+              // O detalhe nomeia a função escolhida: os quatro marcos passam a
+              // contar só ela, e quem lê o número precisa ver isso no número.
+              { label: 'Na cadência', value: total, detail: cargo ? `pessoas em ${cargo}` : 'pessoas do seu recorte', icon: Users, tone: 'cyan' },
               { label: 'Acessaram conteúdo', value: resumo.abriramAlgumFormato || 0, detail: 'abriram ao menos um formato', icon: LayoutGrid, tone: 'teal' },
               { label: 'Consumiram', value: resumo.consumiram || 0, detail: 'concluíram ou marcaram conteúdo', icon: CheckCircle2, tone: 'emerald' },
               { label: 'Entregaram evidência', value: resumo.enviaramEvidencia || 0, detail: 'finalizaram a prática', icon: ClipboardCheck, tone: 'amber' },
@@ -492,6 +562,7 @@ export default function EngajamentoDoTimePage() {
 
             <p className="mb-3 text-[9px] text-white/25">
               Mostrando {pessoasVisiveis.length} de {pessoas.length} pessoas
+              {cargo && ` em ${cargo}`}
               {dados?.scope === 'rh' && porCoordenador.length > 0 && ` em ${porCoordenador.length} ${porCoordenador.length === 1 ? 'coordenação' : 'coordenações'}`}.
             </p>
             {dados?.scope === 'rh' ? (
