@@ -1,29 +1,41 @@
 import { NextResponse } from 'next/server';
 import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
-import { requireAdmin } from '@/lib/auth/request-context';
+import { requireUser } from '@/lib/auth/request-context';
 import { tenantDb } from '@/lib/tenant-db';
 import { rollUpEngajamento } from '@/lib/engajamento/roll-up';
 import { carregarEvolucaoEngajamento } from '@/lib/engajamento/evolucao';
 import { buildViews } from '@/lib/engajamento/relatorio-model';
 import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
 import RelatorioEngajamentoPDF from '@/components/pdf/RelatorioEngajamento';
+import { engagementLinks, appendEngagementQuery } from '@/lib/engajamento/surface';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
 
-/** Mesmo acesso da página admin: escolher RH/Gestor muda a leitura, não a autorização. */
+/** Admin selects a company; RH is restricted to its session company and the RH report. */
 export async function GET(request: Request) {
-  const auth = await requireAdmin(request);
+  const auth = await requireUser(request);
   if (auth instanceof Response) return auth;
   const { searchParams, origin } = new URL(request.url);
-  const empresaId = searchParams.get('empresa');
-  const publico = searchParams.get('publico') || 'gestor';
+  const requestedCompany = searchParams.get('empresa');
+  if (!auth.isPlatformAdmin && (auth.role !== 'rh' || !auth.empresaId)) {
+    return NextResponse.json({ error: 'Acesso restrito ao RH e à administração.' }, { status: 403 });
+  }
+  if (!auth.isPlatformAdmin && requestedCompany && requestedCompany !== auth.empresaId) {
+    return NextResponse.json({ error: 'Sem acesso a esta empresa.' }, { status: 403 });
+  }
+  const empresaId = auth.isPlatformAdmin ? requestedCompany || auth.empresaId : auth.empresaId;
+  const surface = auth.isPlatformAdmin && requestedCompany ? 'admin' : 'rh';
+  const publico = searchParams.get('publico') || (surface === 'admin' ? 'gestor' : 'rh');
   if (!empresaId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(empresaId)) {
     return NextResponse.json({ error: 'Selecione uma empresa válida.' }, { status: 400 });
   }
   if (publico !== 'gestor' && publico !== 'rh') {
     return NextResponse.json({ error: 'Público do relatório inválido.' }, { status: 400 });
+  }
+  if (!auth.isPlatformAdmin && publico !== 'rh') {
+    return NextResponse.json({ error: 'Use a leitura de RH para o relatório da empresa.' }, { status: 403 });
   }
   try {
     const tdb = tenantDb(empresaId);
@@ -44,7 +56,7 @@ export async function GET(request: Request) {
       data: views[publico], empresaNome: empresa.data.nome, semana, inscritos: evolution.data.inscritos,
       geradoEm: new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
       logoBase64: marca.logoBase64, mostrarVertho: marca.mostrarVertho,
-      detailUrl: `${origin}/admin/engajamento?empresa=${encodeURIComponent(empresaId)}&view=evolucao`,
+      detailUrl: origin + appendEngagementQuery(engagementLinks(empresaId, surface).dashboard, 'view', 'evolucao'),
     }) as any);
     const slug = String(empresa.data.slug || empresaId).replace(/[^a-z0-9-]/gi, '-');
     const filename = `${nomeArquivoMarca('vertho-engajamento', marca)}-${slug}-${publico}.pdf`;

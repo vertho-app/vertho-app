@@ -4,7 +4,7 @@ import { buildViews } from '@/lib/engajamento/relatorio-model';
 const mock = vi.hoisted(() => ({
   auth: vi.fn(), empresa: vi.fn(), rollup: vi.fn(), evolution: vi.fn(), marca: vi.fn(), render: vi.fn(),
 }));
-vi.mock('@/lib/auth/request-context', () => ({ requireAdmin: mock.auth }));
+vi.mock('@/lib/auth/request-context', () => ({ requireUser: mock.auth }));
 vi.mock('@/lib/tenant-db', () => ({ tenantDb: () => ({ raw: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: mock.empresa }) }) }) } }) }));
 vi.mock('@/lib/engajamento/roll-up', () => ({ rollUpEngajamento: mock.rollup }));
 vi.mock('@/lib/engajamento/evolucao', () => ({ carregarEvolucaoEngajamento: mock.evolution }));
@@ -39,6 +39,38 @@ beforeEach(() => {
 });
 
 describe('PDF de engajamento: dados e autorização', () => {
+  it('o RH recebe apenas o relatório da empresa da sessão, com links do seu portal', async () => {
+    mock.auth.mockResolvedValue({ role: 'rh', empresaId: EMPRESA, isPlatformAdmin: false });
+    const res = await GET(new Request('https://app.vertho.ai/api/relatorios/engajamento/pdf?view=inline'));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('private, no-store');
+    expect(mock.evolution).toHaveBeenCalledWith(EMPRESA);
+    expect(mock.rollup).toHaveBeenCalledWith(EMPRESA);
+    const props = mock.render.mock.calls[0][0].props;
+    expect(props.detailUrl).toBe('https://app.vertho.ai/dashboard/gestor/engajamento?view=evolucao');
+    expect(props.data.eyebrow).toBe('Leitura de RH / Diretoria');
+    expect(JSON.stringify(props)).not.toContain('Nome nominal restrito');
+  });
+
+  it.each(['colaborador', 'gestor', 'tutor'])('não amplia o acesso à empresa inteira para %s', async (role) => {
+    mock.auth.mockResolvedValue({ role, empresaId: EMPRESA, isPlatformAdmin: false });
+    expect((await GET(request('&publico=rh'))).status).toBe(403);
+    expect(mock.empresa).not.toHaveBeenCalled();
+    expect(mock.rollup).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia troca de empresa, leitura nominal e RH sem empresa antes das consultas', async () => {
+    mock.auth.mockResolvedValue({ role: 'rh', empresaId: '00000000-0000-0000-0000-000000000001', isPlatformAdmin: false });
+    expect((await GET(request('&publico=rh'))).status).toBe(403);
+    mock.auth.mockResolvedValue({ role: 'rh', empresaId: EMPRESA, isPlatformAdmin: false });
+    expect((await GET(request('&publico=gestor'))).status).toBe(403);
+    mock.auth.mockResolvedValue({ role: 'rh', empresaId: null, isPlatformAdmin: false });
+    expect((await GET(request('&publico=rh'))).status).toBe(403);
+    expect(mock.empresa).not.toHaveBeenCalled();
+    expect(mock.evolution).not.toHaveBeenCalled();
+    expect(mock.render).not.toHaveBeenCalled();
+  });
+
   it.each([401, 403])('interrompe antes de consultar dados quando o gate retorna %i', async (status) => {
     mock.auth.mockResolvedValue(new Response(null, { status }));
     const res = await GET(request());

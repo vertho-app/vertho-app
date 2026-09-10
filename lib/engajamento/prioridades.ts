@@ -1,3 +1,5 @@
+import { engagementLinks, appendEngagementQuery, type EngagementSurface } from './surface';
+
 /** Critérios operacionais compartilhados entre filtros, tela e relatório. */
 export type EngagementBlocker = 'ativacao' | 'consumo' | 'evidencia';
 
@@ -38,9 +40,9 @@ export function engagementBlocker(person: Parameters<typeof hasEngagementSignal>
   return person.consumiu ? 'evidencia' : 'consumo';
 }
 
-export function engagementDetailHref(empresaId: string, person?: { id?: string; week?: number }): string {
-  const params = new URLSearchParams({ empresa: empresaId });
-  if (person?.id) params.set('pessoa', person.id);
-  if (person?.week) params.set('semana', String(person.week));
-  return `/admin/engajamento?${params}#pessoas`;
+export function engagementDetailHref(empresaId: string, person?: { id?: string; week?: number }, surface: EngagementSurface = 'admin'): string {
+  let href = engagementLinks(empresaId, surface).dashboard;
+  if (person?.id) href = appendEngagementQuery(href, 'pessoa', person.id);
+  if (person?.week) href = appendEngagementQuery(href, 'semana', String(person.week));
+  return `${href}#pessoas`;
 }

@@ -5,8 +5,10 @@ import Link from 'next/link';
 import { ArrowUpRight, ChevronDown, Copy } from 'lucide-react';
 import type { ReportView } from '@/lib/engajamento/relatorio-model';
 import { engagementDetailHref, type EngagementBlocker } from '@/lib/engajamento/prioridades';
+import { engagementLinks, type EngagementSurface } from '@/lib/engajamento/surface';
 
-export default function ReportPriorities({ data, empresaId }: { data: ReportView; empresaId: string }) {
+export default function ReportPriorities({ data, empresaId, surface = 'admin' }: { data: ReportView; empresaId: string; surface?: EngagementSurface }) {
+  const links = engagementLinks(empresaId, surface);
   const [selected, setSelected] = useState<EngagementBlocker | null>(null);
   const [copyStatus, setCopyStatus] = useState('');
   const current = data.priorities.find((priority) => priority.key === selected);
@@ -42,7 +44,7 @@ export default function ReportPriorities({ data, empresaId }: { data: ReportView
         <ul className="mt-4 divide-y divide-white/10">
           {current.members.map((member) => <li key={member.id || member.name} className="flex flex-wrap items-center justify-between gap-3 py-3">
             <div className="min-w-0"><p className="break-words text-sm text-white">{member.name}</p><p className="text-xs text-white/55">{member.context}</p></div>
-            {member.id && <Link href={engagementDetailHref(empresaId, member)} className="inline-flex min-h-10 items-center gap-1 text-xs text-cyan-200 hover:underline">Ver sinais da pessoa <ArrowUpRight size={14} /></Link>}
+            {member.id && <Link href={engagementDetailHref(empresaId, member, surface)} className="inline-flex min-h-10 items-center gap-1 text-xs text-cyan-200 hover:underline">Ver sinais da pessoa <ArrowUpRight size={14} /></Link>}
           </li>)}
         </ul>
         {!current.members.length && <p className="mt-3 text-xs text-white/60">O detalhamento deste grupo não está disponível nesta leitura. Atualize o relatório.</p>}
@@ -57,7 +59,7 @@ export default function ReportPriorities({ data, empresaId }: { data: ReportView
         </summary>
         <div className="mt-3 pl-6 text-xs leading-relaxed text-white/70">
           <p>{action.description}</p>
-          {index === 0 && data.priorities[0]?.key === 'ativacao' && <Link href={`/admin/whatsapp?empresa=${encodeURIComponent(empresaId)}`} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border border-cyan-300/30 px-3 text-cyan-200 hover:bg-cyan-300/10">Revisar envios <ArrowUpRight size={14} /></Link>}
+          {links.reviewEnvios && index === 0 && data.priorities[0]?.key === 'ativacao' && <Link href={links.reviewEnvios} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border border-cyan-300/30 px-3 text-cyan-200 hover:bg-cyan-300/10">Revisar envios <ArrowUpRight size={14} /></Link>}
         </div>
       </details>)}
     </div>

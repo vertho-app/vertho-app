@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   Activity,
   CheckCircle2,
@@ -11,6 +12,8 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { getEvolucaoEngajamentoEmpresa } from '@/actions/engajamento';
+import type { EngagementEvolutionLoader, EngagementSurface } from '@/lib/engajamento/surface';
+import { engagementDetailHref } from '@/lib/engajamento/prioridades';
 import type {
   EngagementAreaMetric,
   EngagementEvolutionDashboard,
@@ -95,6 +98,13 @@ function WeeklyTrendChart({ weeks }: { weeks: EngagementWeekMetric[] }) {
     { field: 'evidenciaPct' as const, label: 'Evidência', stroke: '#fbbf24' },
   ];
   const last = weeks.at(-1);
+  const labels = series.map((item) => ({ field: item.field, y: yFor(last?.[item.field] ?? 0) + 4 }))
+    .sort((a, b) => a.y - b.y);
+  for (let index = 1; index < labels.length; index++) {
+    labels[index].y = Math.max(labels[index].y, labels[index - 1].y + 16);
+  }
+  const overflow = Math.max(0, labels.at(-1)!.y - CHART.bottom - 4);
+  const labelY = new Map(labels.map((item) => [item.field, item.y - overflow]));
 
   return (
     <section className="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-4 sm:p-5">
@@ -169,13 +179,13 @@ function WeeklyTrendChart({ weeks }: { weeks: EngagementWeekMetric[] }) {
                   stroke="#081a2f"
                   strokeWidth="2"
                 >
-                  <title>Semana {week.semana}: {week[item.field]}%</title>
+                  <title>{item.label} · Semana {week.semana}: {week[item.field]}%</title>
                 </circle>
               ))}
               {last && (
                 <text
                   x={CHART.right + 12}
-                  y={yFor(last[item.field]) + 4}
+                  y={labelY.get(item.field)}
                   fill={item.stroke}
                   fontSize="10"
                   fontWeight="600"
@@ -311,7 +321,7 @@ function AreaHeatmap({ areas, weeks }: { areas: EngagementAreaMetric[]; weeks: n
   );
 }
 
-function RiskTable({ data }: { data: EngagementEvolutionDashboard }) {
+function RiskTable({ data, empresaId, surface }: { data: EngagementEvolutionDashboard; empresaId: string; surface: EngagementSurface }) {
   return (
     <section className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.025]">
       <div className="p-4 sm:p-5">
@@ -344,6 +354,7 @@ function RiskTable({ data }: { data: EngagementEvolutionDashboard }) {
                   <td className="px-5 py-3">
                     <p className="font-semibold text-white/75">{person.nome}</p>
                     <p className="text-[9px] text-white/25">{person.cargo || 'Cargo não informado'}</p>
+                    <Link href={engagementDetailHref(empresaId, { id: person.colaboradorId, week: person.semanaAtual }, surface)} className="mt-1 inline-flex min-h-9 items-center text-xs text-cyan-200 hover:underline focus-visible:outline-2 focus-visible:outline-cyan-300">Ver sinais e próxima ação</Link>
                   </td>
                   <td className="px-3 py-3 text-white/45">
                     <p>{person.area}</p>
@@ -377,9 +388,13 @@ function RiskTable({ data }: { data: EngagementEvolutionDashboard }) {
 export default function EngagementEvolutionPanel({
   empresaId,
   active = true,
+  loadEvolution,
+  surface = 'admin',
 }: {
   empresaId: string | null;
   active?: boolean;
+  loadEvolution?: EngagementEvolutionLoader;
+  surface?: EngagementSurface;
 }) {
   const [area, setArea] = useState('');
   const [data, setData] = useState<EngagementEvolutionDashboard | null>(null);
@@ -395,9 +410,10 @@ export default function EngagementEvolutionPanel({
       return;
     }
     setLoading(true);
+    setData(null);
     setError(null);
     try {
-      const result = await getEvolucaoEngajamentoEmpresa(empresaId, area || null);
+      const result = await (loadEvolution ? loadEvolution(area || null) : getEvolucaoEngajamentoEmpresa(empresaId, area || null));
       if (requestId !== requestCounter.current) return;
       if (result.ok === false) {
         setError(result.error);
@@ -411,7 +427,7 @@ export default function EngagementEvolutionPanel({
     } finally {
       if (requestId === requestCounter.current) setLoading(false);
     }
-  }, [area, empresaId]);
+  }, [area, empresaId, loadEvolution]);
 
   useEffect(() => {
     if (!active) return;
@@ -504,7 +520,7 @@ export default function EngagementEvolutionPanel({
           </div>
 
           <AreaHeatmap areas={data.areas} weeks={weekNumbers} />
-          <RiskTable data={data} />
+          <RiskTable data={data} empresaId={empresaId!} surface={surface} />
 
           <p className="px-1 text-[9px] leading-relaxed text-white/25">
             O índice operacional distribui 20 pontos para ativação, 30 para consumo, 40 para evidência e 10 para uso do Tira-Dúvidas. Ele mede movimento na jornada, não competência ou desempenho individual.
