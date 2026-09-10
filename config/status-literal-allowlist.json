@@ -29,8 +29,14 @@
     "app/dashboard/temporada/semana/[week]/page.tsx": 1,
     "app/radar/actions.ts": 1,
     "lib/home/loaders.ts": 2,
+    "lib/pipeline-health/core.ts": 1,
     "lib/radar/censo-importer.ts": 1,
     "lib/radar/pdde-importer.ts": 1,
-    "lib/relatorio-individual-prompt.ts": 8
+    "lib/relatorio-individual-prompt.ts": 8,
+    "lib/video/reconciliar-personalizados.ts": 1
+  },
+  "motivos": {
+    "lib/pipeline-health/core.ts": "HOMONIMIA, nao estoque legado: o literal e `.in('estado', ['pendente','erro'])` sobre video_publicacoes.estado — vocabulario de PUBLICACAO DE VIDEO, que nao tem representacao em lib/status.ts (PROGRESSO/TRILHA falam de trilha e semana). Trocar por constante de status seria trocar o valor certo por um de outro dominio. Mesmo precedente ja registrado em lib/home/loaders.ts:417, cujo comentario diz que sao 'dominio local de UI, nao sao trilhas.status'. Introduzido por a1f30ab4, que subiu sem passar pela catraca de push.",
+    "lib/video/reconciliar-personalizados.ts": "Mesmo caso: `.in('estado', ['pendente','erro'])` em video_publicacoes. O guard casa a PALAVRA 'pendente' em qualquer aspas dentro de lib/, sem olhar a coluna. Sai desta lista se video_publicacoes.estado ganhar um enum proprio em lib/status.ts."
   }
 }
