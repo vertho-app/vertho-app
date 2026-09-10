@@ -508,4 +508,83 @@ export const MACAE: Flow = {
   ],
 };
 
-export const FLOWS: Record<string, Flow> = { disc: DISC, jornada: JORNADA, pdi: PDI, aplicacao: APLICACAO, boasvindas: BOASVINDAS, macae: MACAE };
+/**
+ * BOAS-VINDAS GENÉRICO — serve qualquer empresa que entrar.
+ *
+ * Por que existe (10/09/2026): havia um vídeo de boas-vindas POR TENANT
+ * (`boasvindas` = UniAnchieta, `macae` = Secretaria de Macaé), e cada cliente novo
+ * exigia produzir outro. Comparando os dois, só 3 dos 12 beats do UniAnchieta tinham
+ * conteúdo de cliente — o resto já era genérico. Este flow é a versão sem nome próprio.
+ *
+ * CURTO de propósito (para no mapeamento, como o de Macaé). Duas razões:
+ *   · o vídeo vai por WhatsApp para quem AINDA NÃO ENTROU — ele existe para levar ao
+ *     primeiro acesso, não para explicar o programa inteiro;
+ *   · os beats de assessment do `boasvindas` (aval-*) travam a captura desde 10/09 por
+ *     causa ainda não identificada; incluí-los aqui herdaria o bloqueio.
+ *
+ * Estúdio: `acme-demo`, persona fictícia criada e apagada pelo capture — nenhuma pessoa
+ * real entra em tela. É o que sustenta a exceção de vídeo público (`lib/videos-publicos.ts`).
+ */
+export const BOASVINDAS_GERAL: Flow = {
+  id: 'boasvindas-geral',
+  persona: 'gravacao.boasvindas@vertho.ai',
+  title: 'Boas-vindas',
+  subtitle: 'Como entrar e fazer seu mapeamento',
+  steps: [
+    {
+      id: 'abertura', title: 'Boas-vindas', cuts: FULL, kind: 'cartela',
+      cartela: { eyebrow: 'Boas-vindas', title: 'Sua jornada começa aqui' },
+      // Sem nome de empresa e sem "tê-lo": o público real é majoritariamente feminino
+      // (em Macaé, 155 professoras), e "ter você" diz o mesmo sem marcar gênero.
+      // 🔑 A frase de acolhimento termina em PONTO, não em exclamação — e isso não é
+      // estilo, é o que faz o take passar. `Medido 10/09/2026`, mesmo texto, só a
+      // pontuação mudando:
+      //   "…ter você conosco!"  → F0 médio 167 Hz, deriva ~5,0 st/min, 20 takes, 0 aprovados
+      //   "…ter você conosco."  → F0 131-139 Hz, aprovado na 4ª (139 Hz, deriva +1,0)
+      // Quase 3 semitons por um sinal de pontuação. Duas exclamações seguidas ("Olá!" +
+      // "conosco!") fazem o modelo abrir animado e subir a narração inteira; o flow de
+      // Macaé, com o mesmo corpo e só um "Olá!", fica no registro. O conteúdo é idêntico.
+      // Ao escrever roteiro novo: exclamação é dose, não pontuação padrão.
+      narration: 'Olá! Aqui é o Beto, seu Gestor de Aprendizagem. É um prazer ter você conosco. Em um minuto eu te mostro como entrar e começar a sua primeira atividade.',
+    },
+    {
+      id: 'entrar', title: 'Como entrar', cuts: FULL, captureId: 'login',
+      narration: 'Abra o endereço que eu enviei na mensagem. Informe o seu e-mail ou, no campo de baixo, o DDD e o número do seu WhatsApp. E toque em Entrar.',
+      highlight: { label: 'E-mail ou WhatsApp' },
+    },
+    {
+      id: 'link', title: 'O link de acesso', cuts: FULL, captureId: 'link',
+      // FIEL às rotas, como no flow de Macaé: quem entra pelo NÚMERO recebe só por
+      // WhatsApp; quem entra pelo E-MAIL recebe nos dois.
+      narration: 'Na hora chega um link de acesso no seu WhatsApp. E se você preferir entrar pelo e-mail, o link chega no e-mail também. Toque nele e pronto: não tem senha pra decorar.',
+    },
+    {
+      id: 'home', title: 'Sua página inicial', cuts: FULL, captureId: 'home',
+      narration: 'Esta é a sua página inicial. O botão principal mostra sempre o seu próximo passo.',
+      highlight: { label: 'Seu próximo passo' },
+    },
+    {
+      id: 'map-inicio', title: 'O mapeamento', cuts: FULL, captureId: 'map-inicio',
+      narration: 'A sua primeira atividade é o Mapeamento de Perfil Comportamental: cinco minutos, respondendo pelo primeiro impulso. Não existe resposta certa nem errada.',
+    },
+    {
+      id: 'map-rank', title: 'Como responder', cuts: FULL, captureId: 'map-rank',
+      dragHint: { topLabel: 'MAIS parecido', bottomLabel: 'MENOS parecido' },
+      narration: 'Arraste pro topo a palavra que mais tem a ver com você, e pra base a que menos tem.',
+    },
+    {
+      id: 'map-aprender', title: 'Como você aprende', cuts: FULL, captureId: 'map-aprender',
+      narration: 'Pra fechar, dê estrelas pra cada formato de conteúdo — pode gostar de vários. É assim que o material chega do seu jeito.',
+    },
+    {
+      id: 'fecho', title: 'Fecho', cuts: FULL, kind: 'cartela',
+      cartela: { eyebrow: 'Sua jornada', title: 'Comece agora.' },
+      // O de Macaé anunciava a competência do programa dele ("Autocuidado"). Aqui a
+      // frase diz a MECÂNICA, que vale para qualquer empresa: depois do perfil vem o
+      // mapeamento de competência. Sem isso a pessoa conclui o perfil e acha que acabou.
+      narration: 'Assim que terminar, vem o mapeamento das suas competências: é ele que mostra onde você está hoje e por onde a sua jornada começa. Eu vou estar com você em cada semana. Até já!',
+    },
+  ],
+};
+
+export const FLOWS: Record<string, Flow> = { disc: DISC, jornada: JORNADA, pdi: PDI, aplicacao: APLICACAO, boasvindas: BOASVINDAS, macae: MACAE, 'boasvindas-geral': BOASVINDAS_GERAL };

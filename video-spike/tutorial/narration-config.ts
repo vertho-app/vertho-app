@@ -31,9 +31,13 @@ import { ELENCO } from '../../lib/tts/elenco';
  * aprovou no kit voz × rosto, e qualquer acréscimo desloca o take para longe dela.
  */
 function acrescimoDeDirecao(flow: string): string {
-  // `macae` deriva por construção do roteiro (convite com arco emocional): a única
-  // instrução que segura é a de sustentação.
-  if (flow === 'macae') return '. Sustente a mesma altura de voz do começo ao fim — não suba o tom ao longo da narração, e não soe festivo.';
+  // `macae` e `boasvindas-geral` derivam por construção do roteiro (convite com arco
+  // emocional): a única instrução que segura é a de sustentação. Não é analogia — o
+  // genérico é o roteiro de Macaé com abertura e fecho reescritos, 6 dos 8 beats
+  // idênticos, e na direção PURA mediu deriva média de +4,97 st/min (máx 10,97) em
+  // 15 takes, com 14 reprovações por inclinação. O mesmo perfil que a sustentação
+  // baixou de ~5,5 para ~1,4 no flow de Macaé.
+  if (flow === 'macae' || flow === 'boasvindas-geral') return '. Sustente a mesma altura de voz do começo ao fim — não suba o tom ao longo da narração, e não soe festivo.';
   // `aplicacao` e `jornada` passaram em 10/09 COM instrução de altura ("médio-alto" e
   // "registro médio"), mas passaram apesar dela, não graças a ela: um custou 11 takes e
   // o outro chegou na 5ª tentativa. A instrução de altura sai dos dois — fica só a de
