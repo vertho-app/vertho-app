@@ -503,7 +503,7 @@ export const MACAE: Flow = {
       // A pessoa não para no perfil: logo depois vem o mapeamento da COMPETÊNCIA
       // (cenários de Autocuidado). Anunciar aqui evita que ela conclua o perfil e
       // ache que acabou.
-      narration: 'Assim que terminar, vem o mapeamento da competência Autocuidado: é ele que mostra onde você está hoje e por onde a sua jornada começa. Conclua tudo até doze de agosto. Eu vou estar com você em cada semana. Até já!',
+      narration: 'Assim que terminar, vem o mapeamento da competência Autocuidado: é ele que mostra onde você está hoje e por onde a sua jornada começa. Eu vou estar com você em cada semana. Até já!',
     },
   ],
 };

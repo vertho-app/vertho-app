@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ELENCO } from '@/lib/tts/elenco';
+import { MACAE } from '../../video-spike/tutorial/storyboard';
 import { perfilTutorial, chaveNarracao, clipAtual, sha256, validarClipsTutorial, type TutorialAudioManifest } from '../../video-spike/tutorial/narration-config';
 
 const flow = { id: 'disc', steps: [{ id: 'abertura', narration: 'Como usar a plataforma.' }] };
@@ -18,6 +19,11 @@ function fixture(): TutorialAudioManifest {
   }] };
 }
 describe('TTS de tutoriais: elenco atual e cache aprovado', () => {
+  it('boas-vindas de Macaé não anuncia o prazo vencido da campanha', () => {
+    const text = MACAE.steps.map(s => s.narration).join(' ');
+    expect(text).not.toMatch(/doze de agosto|12 de agosto/i);
+    expect(text).toContain('mapeamento da competência Autocuidado');
+  });
   it('usa o Beto e sua direção no Vertex, não o default antigo do script', () => {
     const p = perfilTutorial('disc');
     expect(p.voice).toBe(ELENCO.beto.voz);
