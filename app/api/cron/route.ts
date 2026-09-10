@@ -296,7 +296,8 @@ export async function GET(req) {
       // `limite` contém o custo: cada célula reconciliada custa um render de deck.
       case 'publicar_videos': {
         const { publicarVideosProntos } = await import('@/lib/video/publicacoes-bunny');
-        result = await publicarVideosProntos();
+        const publicacao = await publicarVideosProntos();
+        result = { ...publicacao, message: `Bunny: ${publicacao.publicados} publicado(s), ${publicacao.pendentes} aguardando entre ${publicacao.examinados} examinado(s), ${publicacao.falhas} falha(s)` };
         if (result.falhas) throw new Error(`Publicação Bunny: ${result.falhas} falha(s); versões anteriores preservadas`);
         break;
       }

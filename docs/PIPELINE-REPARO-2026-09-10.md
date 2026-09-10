@@ -19,6 +19,8 @@ O worker agora registra `video_publicacoes` (migração 248). O cron `publicar_v
 
 O módulo `worker-hetzner/publicacao-bunny.mjs` é compartilhado pelo worker e pelo cron: a régua de publicação não diverge entre os dois ambientes. Alterar o worker exige atualizar também a imagem Hetzner e `RENDER_SNAPSHOT_ID` na Vercel e no Trigger.dev.
 
+A imagem com essa proteção é o snapshot `430327052`, disponível e configurado em produção na Vercel e no Trigger.dev, com teto normal de uma box. As quatro boxes desta recuperação foram encerradas após os uploads. Os arquivos locais de recuperação foram copiados para `backups/recovery-pipeline-20260910.tar.xz` e conferidos por SHA-256 antes da limpeza da box: `b8c7dd700a2a00194d6d08af77bb6b5949ea091e0d3367f7158fe15fa232e761`.
+
 ## Evidências da manutenção
 
 Backups locais em `backups/` preservam as três tentativas de vídeo e os três briefs arquivados, o fechamento original da conversa, os registros TTS anteriores, nove decks e seus nominais, a auditoria das 121 cenas e as referências de cada upload novo. Nenhum conteúdo original foi apagado.
