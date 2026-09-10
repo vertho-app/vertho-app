@@ -9,6 +9,7 @@ import RankingAdequacaoView from '@/components/ranking-adequacao-view';
 import ProntidaoCargoView from '@/components/prontidao-cargo-view';
 import { listarCargosComRankingAdmin, getRankingAdequacaoAdmin, exportarRankingPDFAdmin } from '@/actions/ranking-adequacao';
 import { listarCargosParaProntidaoAdmin, compararCargosAdmin } from '@/actions/prontidao-cargo';
+import { PRONTIDAO_VISIVEL } from '@/lib/adequacao-cargo/prontidao-flag';
 
 export default function RankingTab({ empresaId }: { empresaId: string }) {
   const [aba, setAba] = useState<'ranking' | 'prontidao'>('ranking');
@@ -22,7 +23,7 @@ export default function RankingTab({ empresaId }: { empresaId: string }) {
   return (
     <div className="max-w-4xl mx-auto text-slate-200">
       <div className="mb-3 text-[11px] text-amber-400/80">Preview interno — é a tela que o RH do cliente vê (`/dashboard/gestor/ranking`), escopada pela empresa selecionada.</div>
-      <div className="mb-4 flex flex-wrap gap-2">
+      {PRONTIDAO_VISIVEL && <div className="mb-4 flex flex-wrap gap-2">
         {([['ranking', 'Ranking por cargo'], ['prontidao', 'Prontidão para o próximo cargo']] as const).map(([id, rotulo]) => (
           <button
             key={id}
@@ -33,8 +34,8 @@ export default function RankingTab({ empresaId }: { empresaId: string }) {
             {rotulo}
           </button>
         ))}
-      </div>
-      {aba === 'ranking'
+      </div>}
+      {(!PRONTIDAO_VISIVEL || aba === 'ranking')
         ? <RankingAdequacaoView scopeKey={empresaId} listar={listar} carregar={carregar} exportar={exportar} />
         : <ProntidaoCargoView scopeKey={empresaId} listar={listarProntidao} comparar={comparar} />}
     </div>

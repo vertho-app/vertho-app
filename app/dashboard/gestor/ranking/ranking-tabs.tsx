@@ -21,6 +21,7 @@ import RankingAdequacaoView from '@/components/ranking-adequacao-view';
 import ProntidaoCargoView from '@/components/prontidao-cargo-view';
 import { listarCargosComRanking, getRankingAdequacao, exportarRankingPDF } from '@/actions/ranking-adequacao';
 import { listarCargosParaProntidao, compararCargos } from '@/actions/prontidao-cargo';
+import { PRONTIDAO_VISIVEL } from '@/lib/adequacao-cargo/prontidao-flag';
 
 const ABAS = [
   { id: 'ranking' as const, rotulo: 'Ranking por cargo', Icone: ListOrdered },
@@ -29,6 +30,19 @@ const ABAS = [
 
 export default function RankingTabs() {
   const [aba, setAba] = useState<'ranking' | 'prontidao'>('ranking');
+
+  // Prontidão oculta (ver `prontidao-flag.ts`): a página volta ao layout sem
+  // abas — exatamente o que era antes de 09/09.
+  if (!PRONTIDAO_VISIVEL) {
+    return (
+      <RankingAdequacaoView
+        scopeKey="rh-session"
+        listar={listarCargosComRanking}
+        carregar={getRankingAdequacao}
+        exportar={exportarRankingPDF}
+      />
+    );
+  }
 
   return (
     <>

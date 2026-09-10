@@ -23,6 +23,14 @@ import { getUserContext } from '@/lib/authz';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { compararProntidao, type Prontidao } from '@/lib/adequacao-cargo/prontidao';
+import { PRONTIDAO_VISIVEL } from '@/lib/adequacao-cargo/prontidao-flag';
+
+/**
+ * A feature está oculta (ver `prontidao-flag.ts`) e `'use server'` faz de todo
+ * export um endpoint HTTP — esconder a aba não fecha porta nenhuma. Cada export
+ * recusa aqui enquanto a flag estiver desligada.
+ */
+const OCULTA = { erro: 'A prontidão para o próximo cargo está desativada.' as const };
 
 async function ctxRh() {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
@@ -83,6 +91,7 @@ async function _comparar(sb: any, empresaId: string, cargoOrigem: string, cargoA
 
 /** Cargos com perfil ideal — RH self-service (empresa da sessão). */
 export async function listarCargosParaProntidao(): Promise<{ cargos: string[]; erro?: string }> {
+  if (!PRONTIDAO_VISIVEL) return { cargos: [], erro: OCULTA.erro };
   const g = await ctxRh(); if ('erro' in g) return { cargos: [], erro: g.erro };
   try {
     return { cargos: await _listarCargos(createSupabaseAdmin(), g.empresaId) };
@@ -93,6 +102,7 @@ export async function listarCargosParaProntidao(): Promise<{ cargos: string[]; e
 
 /** Idem — PREVIEW de admin (empresa vem da rota, gated p/ platform_admin). */
 export async function listarCargosParaProntidaoAdmin(empresaId: string): Promise<{ cargos: string[]; erro?: string }> {
+  if (!PRONTIDAO_VISIVEL) return { cargos: [], erro: OCULTA.erro };
   const sb = await requireAdminSupabase('admin.access');
   try {
     return { cargos: await _listarCargos(sb, empresaId) };
@@ -103,12 +113,14 @@ export async function listarCargosParaProntidaoAdmin(empresaId: string): Promise
 
 /** Comparação — RH self-service. */
 export async function compararCargos(cargoOrigem: string, cargoAlvo: string): Promise<RespostaProntidao> {
+  if (!PRONTIDAO_VISIVEL) return { success: false, error: OCULTA.erro };
   const g = await ctxRh(); if ('erro' in g) return { success: false, error: g.erro };
   return _comparar(createSupabaseAdmin(), g.empresaId, cargoOrigem, cargoAlvo);
 }
 
 /** Comparação — PREVIEW de admin. */
 export async function compararCargosAdmin(empresaId: string, cargoOrigem: string, cargoAlvo: string): Promise<RespostaProntidao> {
+  if (!PRONTIDAO_VISIVEL) return { success: false, error: OCULTA.erro };
   const sb = await requireAdminSupabase('admin.access');
   return _comparar(sb, empresaId, cargoOrigem, cargoAlvo);
 }
