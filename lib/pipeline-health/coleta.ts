@@ -378,15 +378,26 @@ export async function coletarMbForaDaRegua(sb: any): Promise<MbForaDaRegua[]> {
  * aqui é próximo do real das 24h — antes do reset, o acumulado histórico da
  * chave transformava operação normal em alerta crítico crônico.
  */
-export async function coletarDegradacoes(sb: any): Promise<DegradacaoRegistro[]> {
+export async function coletarDegradacoes(sb: any, tenantsReais?: Set<string>): Promise<DegradacaoRegistro[]> {
   const desde = new Date(Date.now() - 24 * 3600_000).toISOString();
-  const { data, error } = await sb.from('degradacao_log')
-    .select('fluxo, tipo, severidade, ocorrencias')
-    .is('resolved_at', null)
-    .gte('ultima_em', desde);
-  // Propaga: 0 por falha de query é indistinguível de "nenhuma degradação".
-  if (error) throw new Error(`degradacao_log: ${error.message}`);
-  return (data as DegradacaoRegistro[]) || [];
+  const registros: DegradacaoRegistro[] = [];
+  for (let inicio = 0; ; inicio += 1000) {
+    let q = sb.from('degradacao_log')
+      .select('fluxo, tipo, severidade, ocorrencias')
+      .is('resolved_at', null).gte('ultima_em', desde)
+      .order('id').range(inicio, inicio + 999);
+    // Demo não é entrega real. Eventos globais/sem tenant continuam visíveis;
+    // omitir o recorte preserva a investigação global e não altera os logs.
+    if (tenantsReais) q = tenantsReais.size
+      ? q.or(`empresa_id.is.null,empresa_id.in.(${[...tenantsReais].join(',')})`)
+      : q.is('empresa_id', null);
+    const { data, error } = await q;
+    // Propaga inclusive na segunda página: falha não significa zero incidentes.
+    if (error) throw new Error(`degradacao_log: ${error.message}`);
+    registros.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return registros;
 }
 
 /**

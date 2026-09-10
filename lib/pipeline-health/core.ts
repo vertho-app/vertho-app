@@ -371,7 +371,7 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
     }));
 
     // R10: telemetria de degradação (FMEA §3.3) — fallback existe, nunca invisível.
-    achados.push(checarDegradacoes(await coletarDegradacoes(sb)));
+    achados.push(checarDegradacoes(await coletarDegradacoes(sb, reais)));
 
     // R18/R19: portão de deriva do TTS (fase 4 do plano de deriva, 06/09). Retake
     // alto ou áudio reprovado publicado em 7 dias; canário semanal por voz do elenco.

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
-import { coletarCelulasVideoSemDeck } from '@/lib/pipeline-health/coleta';
+import { coletarCelulasVideoSemDeck, coletarDegradacoes } from '@/lib/pipeline-health/coleta';
 
 /**
  * O HEALTH-CHECK CONTA SÓ TENANT REAL — demo não vira alarme.
@@ -30,6 +30,40 @@ import { coletarCelulasVideoSemDeck } from '@/lib/pipeline-health/coleta';
 
 const REAL = 'emp-real';
 const DEMO = 'emp-demo';
+
+describe('degradações preservam logs, mas o alarme não conta demonstração', () => {
+  it('recorta reais e mantém incidentes sem empresa identificada', async () => {
+    const sb = criarSupabaseMock({});
+    await coletarDegradacoes(sb.client, new Set([REAL]));
+    expect(sb.chamadas.some(c => c.tabela === 'degradacao_log' && c.metodo === 'or'
+      && c.args[0] === 'empresa_id.is.null,empresa_id.in.(emp-real)')).toBe(true);
+  });
+  it('sem tenants reais, mantém somente eventos globais; sem parâmetro, investiga tudo', async () => {
+    const sb = criarSupabaseMock({});
+    await coletarDegradacoes(sb.client, new Set());
+    expect(sb.chamadas.some(c => c.metodo === 'is' && c.args[0] === 'empresa_id' && c.args[1] === null)).toBe(true);
+    const global = criarSupabaseMock({});
+    await coletarDegradacoes(global.client);
+    expect(global.chamadas.some(c => c.metodo === 'or' || c.args[0] === 'empresa_id')).toBe(false);
+  });
+  it('erro de leitura não vira ausência de degradação', async () => {
+    const sb = criarSupabaseMock({ falhas: [{ tabela: 'degradacao_log', op: 'select', mensagem: 'timeout' }] });
+    await expect(coletarDegradacoes(sb.client, new Set([REAL]))).rejects.toThrow(/degradacao_log/);
+  });
+  it('conta além da primeira página de mil registros', async () => {
+    let pagina = 0;
+    const sb = criarSupabaseMock({ lista: () => Array(pagina++ === 0 ? 1000 : 2).fill({ tipo: 'fallback', ocorrencias: 1 }) });
+    expect(await coletarDegradacoes(sb.client, new Set([REAL]))).toHaveLength(1002);
+    expect(sb.chamadas.filter(c => c.metodo === 'range').map(c => c.args)).toEqual([[0, 999], [1000, 1999]]);
+  });
+  it('uma falha na segunda página não devolve resultado parcial como completo', async () => {
+    const sb = criarSupabaseMock({ lista: () => {
+      sb.falharEm({ tabela: 'degradacao_log', op: 'select', mensagem: 'segunda página indisponível' });
+      return Array(1000).fill({ tipo: 'fallback', ocorrencias: 1 });
+    } });
+    await expect(coletarDegradacoes(sb.client, new Set([REAL]))).rejects.toThrow(/segunda página/);
+  });
+});
 
 function celula(empresa_id: string, over: any = {}) {
   return {

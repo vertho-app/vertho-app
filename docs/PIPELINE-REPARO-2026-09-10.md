@@ -10,6 +10,7 @@
 - `tts_qa_log.publicado` identifica o take escolhido pelo sintetizador, não prova upload, reprodução ou referência atual. `artifact_key` e `synthesis_id` amarram novos eventos. Resoluções históricas exigem evidência, mantendo os logs.
 - `render_fingerprint` e `deck_fingerprint` impedem que uma correção de cena deixe os nominais na revisão antiga. A mídia anterior permanece disponível enquanto a substituta é preparada.
 - Podcast de job usa o núcleo headless com filtro de tenant, não uma action dependente de cookies. Falha de áudio torna o resultado do job incompleto e explícito.
+- Degradações são paginadas e seguem o mesmo recorte de clientes reais dos demais alarmes. Eventos sem tenant permanecem visíveis; os logs de demonstração continuam intactos, disponíveis à investigação global.
 
 ## Upload não é publicação
 
