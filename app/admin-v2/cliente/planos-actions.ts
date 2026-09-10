@@ -21,6 +21,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { logAdminAction } from '@/lib/audit';
 import { avisarPlanosProntos } from '@/lib/notifications/avisar-plano-pronto';
+import { maxPorDisparo } from '@/lib/whatsapp/cadencia';
 
 /** Alcança todo o histórico do tenant; quem filtra é a idempotência. */
 const SEM_CORTE = '1970-01-01T00:00:00.000Z';
@@ -68,10 +69,20 @@ export async function previaAvisoPlanos(empresaId: string): Promise<PreviaPlanos
 }
 
 /**
- * Envia. O `teto` limita a rodada — o runner espaça 6s entre mensagens, então
- * 40 leva ~4 min, dentro do tempo de uma server action.
+ * Envia. O `teto` limita a rodada.
+ *
+ * O 40 daqui era derivado do intervalo: a 6s por mensagem, 40 levavam ~4 min e
+ * era o que cabia numa server action. Com a política em 1s (31/08) esse cálculo
+ * não sustenta mais um literal próprio — 120 saem em 2 min, dentro do mesmo
+ * orçamento. Então o default passa a ser o **teto de volume da política**
+ * (`maxPorDisparo`), que é a decisão de "quantas mensagens não solicitadas de
+ * uma vez", e não uma tradução do relógio.
+ *
+ * 🔑 O corte por TEMPO continua existindo e é do paceador, não daqui: se a
+ * rodada não couber, ele para e devolve quem sobrou em `naoAlcancados`. A
+ * idempotência por `kind='plano'` faz o segundo clique continuar de onde parou.
  */
-export async function dispararAvisoPlanos(empresaId: string, teto = 40) {
+export async function dispararAvisoPlanos(empresaId: string, teto = maxPorDisparo()) {
   const ctx = await requireAdminAction('assessments.dispatch');
   const sb = createSupabaseAdmin();
   const slug = await slugDe(sb, empresaId);

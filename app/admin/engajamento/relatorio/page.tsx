@@ -1,5 +1,5 @@
-import RelatorioEngajamentoMockup from './relatorio-engajamento-mockup';
+import RelatorioEngajamento from './relatorio-engajamento';
 
-export default function RelatorioEngajamentoMockupPage() {
-  return <RelatorioEngajamentoMockup />;
+export default function RelatorioEngajamentoPage() {
+  return <RelatorioEngajamento />;
 }

@@ -3,169 +3,164 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  CircleDot, Building2, Sparkles, TrendingUp, DollarSign, Settings, LogOut, Search, Inbox,
+  ArrowUpRight,
+  BookOpenCheck,
+  BriefcaseBusiness,
+  Building2,
+  ChevronRight,
+  CircleDot,
+  Inbox,
+  Layers3,
+  Settings2,
 } from 'lucide-react';
 
-/**
- * Shell da arquitetura proposta: 6 áreas globais que NÃO mudam com o cliente
- * selecionado. No admin atual são 39 itens em 10 grupos, dos quais só 10
- * aparecem nos dois contextos do filtro de empresa (medido em nav-items.ts).
- *
- * Sem badge de contagem aqui de propósito: número no menu teria de ser buscado
- * a cada navegação e, se ficar defasado, o menu mente. As contagens vivem em
- * "Meu trabalho", que é onde elas são lidas do banco.
- */
 type Area = {
   href: string;
-  icone: React.ComponentType<{ size?: number; className?: string }>;
   rotulo: string;
-  sub: string;
-  pronta: boolean;
+  descricao: string;
+  icone: React.ComponentType<{ size?: number; className?: string }>;
 };
 
 const AREAS: Area[] = [
-  { href: '/admin-v2', icone: CircleDot, rotulo: 'Meu trabalho', sub: 'Pendências e aprovações', pronta: true },
-  { href: '/admin-v2/clientes', icone: Building2, rotulo: 'Clientes', sub: 'Carteira e operação', pronta: true },
-  { href: '/admin-v2/conteudo', icone: Sparkles, rotulo: 'Estúdio de Conteúdo', sub: 'Biblioteca, produção, kits', pronta: true },
-  { href: '/admin-v2/em-breve?area=crescimento', icone: TrendingUp, rotulo: 'Crescimento', sub: 'Radar e mercado', pronta: false },
-  { href: '/admin-v2/em-breve?area=comercial', icone: DollarSign, rotulo: 'Comercial & Financeiro', sub: 'Filas, propostas, custos', pronta: false },
-  { href: '/admin-v2/em-breve?area=plataforma', icone: Settings, rotulo: 'Plataforma', sub: 'Acessos, dados, governança', pronta: false },
+  { href: '/admin-v2', rotulo: 'Hoje', descricao: 'O que pede ação', icone: CircleDot },
+  { href: '/admin-v2/clientes', rotulo: 'Clientes', descricao: 'Empresas e turmas', icone: Building2 },
+  { href: '/admin-v2/conteudo', rotulo: 'Conteúdo', descricao: 'Demanda à entrega', icone: BookOpenCheck },
+  { href: '/admin-v2/negocios', rotulo: 'Negócios', descricao: 'Mercado ao handoff', icone: BriefcaseBusiness },
+  { href: '/admin-v2/plataforma', rotulo: 'Plataforma', descricao: 'Governança e saúde', icone: Settings2 },
 ];
 
-const TITULOS: { teste: (p: string) => boolean; crumb: string; h1: React.ReactNode }[] = [
+const SECOES: Array<{ teste: (path: string) => boolean; titulo: string; trilha: string[] }> = [
   {
-    teste: (p) => p === '/admin-v2',
-    crumb: 'Meu trabalho',
-    h1: <>O que precisa de <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">atenção</em></>,
+    teste: (path) => /\/clientes\/[^/]+\/turmas\/[^/]+/.test(path),
+    titulo: 'Operação da turma',
+    trilha: ['Clientes', 'Empresa', 'Turma'],
   },
   {
-    teste: (p) => p.startsWith('/admin-v2/clientes'),
-    crumb: 'Clientes',
-    h1: <>Carteira de <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">clientes</em></>,
+    teste: (path) => /^\/admin-v2\/clientes\/[^/]+/.test(path),
+    titulo: 'Workspace da empresa',
+    trilha: ['Clientes', 'Empresa'],
   },
-  {
-    teste: (p) => p.startsWith('/admin-v2/conteudo'),
-    crumb: 'Estúdio de Conteúdo',
-    h1: <>Acervo e <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">produção</em></>,
-  },
-  {
-    teste: (p) => p.startsWith('/admin-v2/inbox'),
-    crumb: 'Caixa de entrada',
-    h1: <>Quem <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">escreveu</em></>,
-  },
-  {
-    teste: (p) => p.startsWith('/admin-v2/cliente'),
-    crumb: 'Clientes › workspace',
-    h1: <>Workspace do <em className="font-[family-name:var(--font-serif)] italic text-[var(--cyan-soft)]">cliente</em></>,
-  },
+  { teste: (path) => path.startsWith('/admin-v2/clientes'), titulo: 'Clientes e turmas', trilha: ['Clientes'] },
+  { teste: (path) => path.startsWith('/admin-v2/conteudo'), titulo: 'Fluxo de conteúdo', trilha: ['Conteúdo'] },
+  { teste: (path) => path.startsWith('/admin-v2/negocios'), titulo: 'Negócios', trilha: ['Negócios'] },
+  { teste: (path) => path.startsWith('/admin-v2/plataforma'), titulo: 'Plataforma', trilha: ['Plataforma'] },
+  { teste: (path) => path.startsWith('/admin-v2/inbox'), titulo: 'Caixa de entrada', trilha: ['Caixa'] },
+  { teste: (path) => path === '/admin-v2', titulo: 'Central de operação', trilha: ['Hoje'] },
 ];
+
+function areaAtiva(pathname: string, href: string) {
+  if (href === '/admin-v2') return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export default function ShellV2({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname() ?? '';
-  const titulo = TITULOS.find((t) => t.teste(pathname));
-
-  const ativo = (href: string) => {
-    const base = href.split('?')[0];
-    if (base === '/admin-v2') return pathname === '/admin-v2';
-    if (base === '/admin-v2/clientes') return pathname.startsWith('/admin-v2/cliente');
-    return pathname.startsWith(base);
-  };
+  const pathname = usePathname() ?? '/admin-v2';
+  const secao = SECOES.find((item) => item.teste(pathname)) ?? SECOES.at(-1)!;
 
   return (
-    <div className="min-h-dvh text-[var(--ink)]">
-      <div className="sticky top-0 z-50 flex flex-wrap items-center gap-3 border-b border-[#e1aaef47] bg-[#9e4edd24] px-5 py-2 text-xs text-[var(--lilac)]">
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em]">Arquitetura proposta</span>
-        <span className="text-[var(--ink-dim)]">
-          Lendo dados reais · o admin atual continua em{' '}
-          <Link href="/admin/dashboard" className="underline underline-offset-2 hover:text-[var(--cyan)]">/admin</Link>
-        </span>
-      </div>
-
-      <div className="grid min-h-[calc(100dvh-37px)] grid-cols-1 md:grid-cols-[264px_1fr]">
-        <aside className="flex flex-col gap-5 border-b border-white/[0.08] bg-[#06172c80] p-5 md:border-b-0 md:border-r">
-          <div className="flex items-center gap-2 px-2">
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-br from-[var(--cyan)] to-[var(--purple)] text-sm font-bold text-[#06172C]">
-              V
-            </span>
-            <span className="text-[15px] font-semibold">
-              vertho<em className="font-[family-name:var(--font-serif)] not-italic text-[var(--cyan)]">.ai</em>
+    <div className="min-h-dvh bg-[var(--navy-deep)] text-[var(--ink)]">
+      <div className="grid min-h-dvh grid-cols-1 md:grid-cols-[216px_minmax(0,1fr)]">
+        <aside className="border-b border-white/[0.08] bg-[#071a31] md:sticky md:top-0 md:flex md:h-dvh md:flex-col md:border-b-0 md:border-r">
+          <div className="flex items-center justify-between gap-3 px-4 py-4 md:px-5 md:pb-6 md:pt-5">
+            <Link href="/admin-v2" className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--cyan)]">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] border border-[#34c5cc55] bg-[#34c5cc12] font-[family-name:var(--font-serif)] text-lg italic text-[var(--cyan-soft)]">
+                V
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[14px] font-semibold tracking-[-0.02em]">vertho.ai</span>
+                <span className="block font-[family-name:var(--font-manrope)] text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--ink-faint)]">
+                  operação
+                </span>
+              </span>
+            </Link>
+            <span className="rounded-full border border-[#e1aaef3b] bg-[#e1aaef0f] px-2 py-1 font-[family-name:var(--font-manrope)] text-[8px] font-bold uppercase tracking-[0.14em] text-[var(--lilac)]">
+              local
             </span>
           </div>
 
-          <nav className="flex flex-col gap-0.5">
-            <span className="px-2.5 pb-1.5 font-mono text-[9.5px] uppercase tracking-[0.16em] text-[var(--ink-faint)]">
-              Áreas
-            </span>
-            {AREAS.map(({ href, icone: Icone, rotulo, sub, pronta }) => {
-              const on = ativo(href);
+          <nav aria-label="Áreas do admin" className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-col md:overflow-visible md:px-3 md:pb-0">
+            {AREAS.map(({ href, rotulo, descricao, icone: Icone }) => {
+              const ativo = areaAtiva(pathname, href);
               return (
                 <Link
-                  key={rotulo}
+                  key={href}
                   href={href}
-                  aria-current={on ? 'page' : undefined}
-                  className={`flex items-start gap-3 rounded-[10px] px-3 py-2.5 text-[13.5px] leading-tight transition-colors ${
-                    on ? 'bg-[#34c5cc1f] shadow-[inset_2px_0_0_var(--cyan)]' : 'hover:bg-white/[0.04]'
+                  aria-current={ativo ? 'page' : undefined}
+                  className={`group flex min-w-max items-center gap-3 rounded-[10px] border px-3 py-2.5 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--cyan)] md:min-w-0 ${
+                    ativo
+                      ? 'border-[#34c5cc2e] bg-[#34c5cc12] text-[var(--ink)]'
+                      : 'border-transparent text-[var(--ink-dim)] hover:border-white/[0.06] hover:bg-white/[0.025] hover:text-[var(--ink)]'
                   }`}
                 >
-                  <Icone size={16} className={`mt-0.5 shrink-0 ${on ? 'text-[var(--cyan)]' : 'text-[var(--ink-faint)]'}`} />
-                  <span className="min-w-0 flex-1">
-                    <span className={`block font-medium ${on ? 'text-[var(--cyan)]' : ''} ${pronta ? '' : 'text-[var(--ink-dim)]'}`}>
-                      {rotulo}
-                    </span>
-                    <span className="mt-0.5 block text-[11px] text-[var(--ink-faint)]">{sub}</span>
+                  <Icone size={16} className={ativo ? 'text-[var(--cyan)]' : 'text-[var(--ink-faint)] group-hover:text-[var(--ink-dim)]'} />
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-semibold">{rotulo}</span>
+                    <span className="hidden truncate text-[10.5px] text-[var(--ink-faint)] md:block">{descricao}</span>
                   </span>
-                  {!pronta && (
-                    <span className="mt-0.5 shrink-0 rounded-full border border-white/[0.14] px-1.5 py-px font-mono text-[9px] text-[var(--ink-faint)]">
-                      a fazer
-                    </span>
-                  )}
                 </Link>
               );
             })}
           </nav>
 
-          <div className="mt-auto rounded-[10px] border border-dashed border-red-400/40 bg-red-400/5 px-3.5 py-2.5 text-xs text-[var(--ink-dim)]">
-            <b className="font-semibold text-red-300">Hoje:</b> 39 itens em 10 grupos, dos quais só 10 aparecem nos dois
-            contextos do filtro. Aqui as 6 áreas nunca somem — o cliente muda o conteúdo, não a estrutura.
+          <div className="mt-auto hidden px-4 pb-4 md:block">
+            <div className="mb-3 border-t border-white/[0.06] pt-3">
+              <Link
+                href="/admin-v2/inbox"
+                className="flex items-center gap-2 rounded-[10px] px-2.5 py-2 text-[12px] text-[var(--ink-dim)] transition-colors hover:bg-white/[0.03] hover:text-[var(--cyan)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cyan)]"
+              >
+                <Inbox size={14} /> Caixa de entrada
+              </Link>
+              <Link
+                href="/admin-v2/plataforma?secao=jobs"
+                className="flex items-center gap-2 rounded-[10px] px-2.5 py-2 text-[12px] text-[var(--ink-dim)] transition-colors hover:bg-white/[0.03] hover:text-[var(--cyan)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--cyan)]"
+              >
+                <Layers3 size={14} /> Central de jobs
+              </Link>
+            </div>
+            <Link
+              href="/admin/dashboard"
+              className="flex items-center justify-between rounded-[10px] border border-white/[0.08] px-3 py-2 text-[11px] text-[var(--ink-faint)] transition-colors hover:border-white/[0.14] hover:text-[var(--ink-dim)]"
+            >
+              Admin atual <ArrowUpRight size={12} />
+            </Link>
           </div>
         </aside>
 
-        <main className="flex min-w-0 flex-col">
-          <div className="sticky top-[37px] z-40 flex flex-wrap items-center gap-4 border-b border-white/[0.08] bg-gradient-to-b from-[#06172ceb] to-[#06172cb8] px-7 py-4 backdrop-blur-[10px]">
+        <div className="min-w-0">
+          <header className="sticky top-0 z-40 flex min-h-[62px] items-center gap-4 border-b border-white/[0.08] bg-[#06172cf2] px-4 backdrop-blur-xl sm:px-6 lg:px-8">
             <div className="min-w-0">
-              <p className="font-mono text-[11.5px] text-[var(--ink-faint)]">{titulo?.crumb ?? 'Admin'}</p>
-              <h1 className="mt-0.5 text-[23px] font-semibold leading-tight">{titulo?.h1 ?? 'Área'}</h1>
+              <div className="flex items-center gap-1 font-[family-name:var(--font-manrope)] text-[9px] font-semibold uppercase tracking-[0.13em] text-[var(--ink-faint)]">
+                {secao.trilha.map((item, index) => (
+                  <span key={`${item}-${index}`} className="flex items-center gap-1">
+                    {index > 0 && <ChevronRight size={10} />}
+                    {item}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-0.5 truncate text-[15px] font-semibold tracking-[-0.015em]">{secao.titulo}</p>
             </div>
-            <div className="ml-auto flex items-center gap-2.5">
-              {/* Ferramenta transversal, não uma 7ª área: a caixa atravessa todos
-                  os clientes. Sem badge de contagem — número no menu precisa ser
-                  buscado a cada navegação e, defasado, o menu mente. */}
-              <Link
-                href="/admin-v2/inbox"
-                aria-current={pathname.startsWith('/admin-v2/inbox') ? 'page' : undefined}
-                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 font-mono text-[11px] transition-colors ${
-                  pathname.startsWith('/admin-v2/inbox')
-                    ? 'border-[var(--cyan)] text-[var(--cyan)]'
-                    : 'border-white/[0.14] text-[var(--ink-faint)] hover:text-[var(--cyan)]'
-                }`}
-                title="Caixa de entrada do WhatsApp — todas as empresas"
-              >
-                <Inbox size={12} /> caixa
+            <div className="ml-auto flex items-center gap-2 sm:hidden">
+              <Link href="/admin-v2/inbox" aria-label="Caixa de entrada" className="rounded-lg border border-white/[0.1] p-2 text-[var(--ink-dim)]">
+                <Inbox size={15} />
               </Link>
-              <span className="flex items-center gap-1.5 rounded-lg border border-white/[0.14] px-2.5 py-1.5 font-mono text-[11px] text-[var(--ink-faint)]">
-                <Search size={12} /> ⌘K
+            </div>
+            <div className="ml-auto hidden items-center gap-2 sm:flex">
+              <span className="rounded-full border border-[#34c5cc32] bg-[#34c5cc0d] px-3 py-1.5 font-[family-name:var(--font-manrope)] text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--cyan-soft)]">
+                Admin por fluxo
               </span>
               <Link
-                href="/admin/dashboard"
-                className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-[var(--ink-faint)] transition-colors hover:text-[var(--cyan)]"
+                href="/admin-v2/inbox"
+                className="flex items-center gap-1.5 rounded-[10px] border border-white/[0.1] px-3 py-1.5 text-[11px] text-[var(--ink-dim)] transition-colors hover:border-[var(--cyan)] hover:text-[var(--cyan)]"
               >
-                <LogOut size={13} /> admin atual
+                <Inbox size={13} /> Caixa
               </Link>
             </div>
-          </div>
+          </header>
 
-          <div className="flex flex-col gap-6 px-7 pb-16 pt-6">{children}</div>
-        </main>
+          <main className="px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+            <div className="mx-auto w-full max-w-[1540px]">{children}</div>
+          </main>
+        </div>
       </div>
     </div>
   );

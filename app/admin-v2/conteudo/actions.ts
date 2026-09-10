@@ -84,12 +84,15 @@ export async function carregarConteudo(): Promise<{ dados?: Conteudo; erro?: str
     const ultimo = (ultimoVid.data as { created_at: string }[] | null)?.[0]?.created_at ?? null;
     const dias = ultimo ? Math.floor((Date.now() - new Date(ultimo).getTime()) / 86400000) : null;
 
+    const itensSemCobertura = n(kbSemEmbedding) + n(mbSemEmbedding) + n(mbSemDescritor) + n(microSemMB);
+    const modulosProntos = Math.max(0, n(mbTotal) - n(mbSemEmbedding) - n(mbSemDescritor));
+
     const cartoes: Record<string, Cartao[]> = {
-      biblioteca: [
-        { rotulo: 'Módulos-base', valor: n(mbTotal), detalhe: `${n(mbPublicado)} publicados · ${n(mbRevisao)} em revisão`, tom: 'neutro' },
-        { rotulo: 'Micro-conteúdos', valor: n(microTotal), detalhe: `${n(microAtivo)} ativos`, tom: 'neutro' },
-        { rotulo: 'Módulos de cliente', valor: n(mbDeEmpresa), detalhe: 'polimórficos, presos a uma empresa', tom: 'neutro' },
-        { rotulo: 'Micro sem módulo-base', valor: n(microSemMB), detalhe: 'não herdam a régua do acervo mestre', tom: n(microSemMB) > 0 ? 'atencao' : 'ok' },
+      demandas: [
+        { rotulo: 'Itens sem cobertura', valor: itensSemCobertura, detalhe: 'somatório de lacunas detectadas no acervo', tom: itensSemCobertura > 0 ? 'critico' : 'ok' },
+        { rotulo: 'Fontes sem vetor', valor: n(kbSemEmbedding), detalhe: `de ${n(kbTotal)} documentos da knowledge base`, tom: n(kbSemEmbedding) > 0 ? 'critico' : 'ok' },
+        { rotulo: 'Módulos sem descritor', valor: n(mbSemDescritor), detalhe: 'não entram no casamento de conteúdo', tom: n(mbSemDescritor) > 0 ? 'atencao' : 'ok' },
+        { rotulo: 'Micro-conteúdos órfãos', valor: n(microSemMB), detalhe: 'sem vínculo com um módulo-base', tom: n(microSemMB) > 0 ? 'atencao' : 'ok' },
       ],
       producao: [
         { rotulo: 'Jobs de kit concluídos', valor: n(jobsDone), detalhe: 'histórico completo', tom: 'ok' },
@@ -97,19 +100,23 @@ export async function carregarConteudo(): Promise<{ dados?: Conteudo; erro?: str
         { rotulo: 'Vídeos com erro', valor: n(vidErro), detalhe: `de ${n(vidDone) + n(vidErro)} tentativas`, tom: n(vidErro) > 0 ? 'critico' : 'ok' },
         { rotulo: 'Último vídeo gerado', valor: ultimo ? new Date(ultimo).toLocaleDateString('pt-BR') : '—', detalhe: dias === null ? 'nenhum registro' : `há ${dias} dias`, tom: dias !== null && dias > 7 ? 'critico' : 'ok' },
       ],
-      kits: [
+      revisao: [
+        { rotulo: 'Módulos em revisão', valor: n(mbRevisao), detalhe: `de ${n(mbTotal)} módulos-base`, tom: n(mbRevisao) > 0 ? 'atencao' : 'ok' },
+        { rotulo: 'Módulos sem embedding', valor: n(mbSemEmbedding), detalhe: 'o resolvedor não consegue escolhê-los', tom: n(mbSemEmbedding) > 0 ? 'critico' : 'ok' },
+        { rotulo: 'Jobs de kit com erro', valor: n(jobsErro), detalhe: 'precisam voltar à produção', tom: n(jobsErro) > 0 ? 'critico' : 'ok' },
+        { rotulo: 'Vídeos com erro', valor: n(vidErro), detalhe: 'renders que não chegaram à publicação', tom: n(vidErro) > 0 ? 'critico' : 'ok' },
+      ],
+      publicado: [
+        { rotulo: 'Módulos-base publicados', valor: n(mbPublicado), detalhe: `de ${n(mbTotal)} no acervo mestre`, tom: 'ok' },
+        { rotulo: 'Micro-conteúdos ativos', valor: n(microAtivo), detalhe: `de ${n(microTotal)} cadastrados`, tom: 'ok' },
         { rotulo: 'Kits publicados', valor: n(kitsPublicados), detalhe: 'na prateleira, por DISC', tom: 'ok' },
-        { rotulo: 'Jobs concluídos', valor: n(jobsDone), detalhe: 'rodadas de geração', tom: 'neutro' },
-        { rotulo: 'Jobs com erro', valor: n(jobsErro), detalhe: 'kit que não chegou à prateleira', tom: n(jobsErro) > 0 ? 'critico' : 'ok' },
+        { rotulo: 'Vídeos personalizados', valor: n(personalizadosOk), detalhe: 'entregas prontas com o nome da pessoa', tom: 'ok' },
       ],
-      fontes: [
-        { rotulo: 'Documentos na base', valor: n(kbTotal), detalhe: 'RAG por cliente', tom: 'neutro' },
-        { rotulo: 'Sem vetor', valor: n(kbSemEmbedding), detalhe: n(kbSemEmbedding) === n(kbTotal) && n(kbTotal) > 0 ? 'nenhum documento é buscável por semântica' : 'busca semântica parcial', tom: n(kbSemEmbedding) > 0 ? 'critico' : 'ok' },
-      ],
-      desempenho: [
+      cobertura: [
+        { rotulo: 'Documentos buscáveis', valor: Math.max(0, n(kbTotal) - n(kbSemEmbedding)), detalhe: `de ${n(kbTotal)} na knowledge base`, tom: n(kbSemEmbedding) > 0 ? 'atencao' : 'ok' },
+        { rotulo: 'Módulos prontos para casar', valor: modulosProntos, detalhe: `de ${n(mbTotal)} módulos-base`, tom: modulosProntos < n(mbTotal) ? 'atencao' : 'ok' },
+        { rotulo: 'Módulos de cliente', valor: n(mbDeEmpresa), detalhe: 'conteúdo específico vinculado a empresas', tom: 'neutro' },
         { rotulo: 'Vídeos prontos', valor: n(vidDone), detalhe: 'gerados e publicados', tom: 'ok' },
-        { rotulo: 'Vídeos personalizados entregues', valor: n(personalizadosOk), detalhe: 'com o nome da pessoa — é o que ela assiste', tom: 'ok' },
-        { rotulo: 'Taxa de erro do render', valor: `${Math.round((n(vidErro) / Math.max(1, n(vidDone) + n(vidErro))) * 100)}%`, detalhe: `${n(vidErro)} falhas`, tom: n(vidErro) > n(vidDone) / 4 ? 'critico' : 'atencao' },
       ],
     };
 

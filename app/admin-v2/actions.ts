@@ -3,8 +3,12 @@
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { excludeInternalEmails } from '@/lib/internal-emails';
-import { TRILHA } from '@/lib/status';
-import { levantarPortfolioTurmas, type PortfolioTurmas } from '@/lib/turmas/portfolio';
+import { TRILHA, TURMA, TURMA_MEMBRO } from '@/lib/status';
+import {
+  levantarPortfolioTurmas,
+  semanaDaTrilha,
+  type PortfolioTurmas,
+} from '@/lib/turmas/portfolio';
 
 /**
  * Dados reais de /admin-v2. Toda consulta a tabela tenant-owned vai com
@@ -38,6 +42,13 @@ export type ClienteLinha = {
   faseAtual: string;
   bloqueador: string | null;
   pendencias: number;
+  fundacao: {
+    basePronta: boolean;
+    reguaPronta: boolean;
+    resumoBase: string;
+    resumoRegua: string;
+  };
+  portfolio: PortfolioTurmas;
 };
 
 type EmpresaBase = { id: string; nome: string };
@@ -201,14 +212,11 @@ export type Workspace = {
   cenariosSemCheck: number;
   cargosSemCenario: number;
   /**
-   * Portfólio de turmas (mig 210). `null` = feature desligada para esta
-   * empresa; a tela cai no comportamento anterior, byte-igual.
-   *
    * ⚠️ F0/F1 continuam por EMPRESA de propósito: base, cargos, Top 10, gabarito
    * e cenários vivem em `cargos_empresa` — já são por cargo, e duas safras do
    * mesmo cargo devem compartilhar o perfil ideal. Só F2/F3/F4 são por turma.
    */
-  portfolio: PortfolioTurmas | null;
+  portfolio: PortfolioTurmas;
 };
 
 export async function carregarClienteWorkspace(empresaId: string): Promise<{ ws?: Workspace; erro?: string }> {
@@ -294,14 +302,10 @@ export async function carregarClienteWorkspace(empresaId: string): Promise<{ ws?
       { titulo: 'Cenários situacionais', descricao: 'IA3 · revisão humana antes de valer', feitos: cenAprov.count || 0, total: nCen, href: `/admin/empresas/${empresaId}/fase1?tab=cenarios` },
     ];
 
-    // Feature flag: env global OU por empresa (`sys_config.turmas_ui`), mesmo
-    // padrão de BLUEPRINT_DRIVES_TRILHA. Desligada, esta tela é byte-igual à
-    // anterior — o que permite subir o código sem mexer no que está no ar.
-    const { data: empCfg, error: erroCfg } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
-    if (erroCfg) return { erro: erroCfg.message };
-    const turmasLigadas = process.env.TURMAS_UI === '1'
-      || (empCfg?.sys_config as any)?.turmas_ui === true;
-    const portfolio = turmasLigadas ? await levantarPortfolioTurmas(sb, empresaId) : null;
+    // O admin por fluxo usa a turma como unidade operacional. Diferente da UI
+    // antiga, ela não pode desaparecer por feature flag: sem turma o estado
+    // correto é uma pendência explícita, não voltar a agregar a empresa inteira.
+    const portfolio = await levantarPortfolioTurmas(sb, empresaId);
 
     return {
       ws: {
@@ -318,6 +322,245 @@ export async function carregarClienteWorkspace(empresaId: string): Promise<{ ws?
   }
 }
 
+export type EtapaTurma = 'preparar' | 'diagnostico' | 'pdi' | 'lancamento' | 'acompanhamento' | 'evolucao';
+
+export type PessoaTurma = {
+  id: string;
+  nome: string;
+  cargo: string | null;
+  email: string | null;
+  respondeu: boolean;
+  avaliado: boolean;
+  temPdi: boolean;
+  temTrilha: boolean;
+  trilhaConcluida: boolean;
+  semana: number | null;
+  estado: string;
+  proximoPasso: string;
+};
+
+export type TurmaWorkspace = {
+  empresa: { id: string; nome: string };
+  turma: {
+    id: string;
+    nome: string;
+    status: string;
+    dataInicio: string | null;
+    programaModo: string | null;
+  };
+  contagens: {
+    membros: number;
+    comResposta: number;
+    comIa4: number;
+    comPdi: number;
+    comTrilha: number;
+    concluidas: number;
+  };
+  etapas: Array<{
+    chave: EtapaTurma;
+    rotulo: string;
+    feitos: number;
+    total: number;
+    estado: 'feito' | 'ativo' | 'aguardando';
+  }>;
+  etapaAtual: EtapaTurma;
+  proximaAcao: { titulo: string; detalhe: string };
+  pessoas: PessoaTurma[];
+};
+
+/**
+ * Leitura operacional de UMA turma. A participação é o escopo: trilha de uma
+ * safra anterior não entra por coincidência de colaborador_id.
+ */
+export async function carregarTurmaWorkspace(
+  empresaId: string,
+  turmaId: string,
+): Promise<{ ws?: TurmaWorkspace; erro?: string }> {
+  await requireAdminAction();
+  if (!empresaId || !turmaId) return { erro: 'empresa e turma são obrigatórias' };
+  const sb = await requireAdminSupabase();
+
+  try {
+    const [empresaRes, turmaRes, membrosRes] = await Promise.all([
+      sb.from('empresas').select('id, nome').eq('id', empresaId).maybeSingle(),
+      sb.from('turmas').select('id, nome, status, data_inicio, sys_config')
+        .eq('empresa_id', empresaId).eq('id', turmaId).maybeSingle(),
+      sb.from('turma_membros').select('id, colaborador_id')
+        .eq('empresa_id', empresaId).eq('turma_id', turmaId).eq('status', TURMA_MEMBRO.ATIVO),
+    ]);
+
+    if (empresaRes.error || !empresaRes.data) return { erro: empresaRes.error?.message || 'empresa não encontrada' };
+    if (turmaRes.error || !turmaRes.data) return { erro: turmaRes.error?.message || 'turma não encontrada nesta empresa' };
+    if (membrosRes.error) return { erro: membrosRes.error.message };
+
+    const membros = (membrosRes.data || []) as Array<{ id: string; colaborador_id: string }>;
+    const colaboradorIds = membros.map((m) => m.colaborador_id);
+    const participacaoIds = membros.map((m) => m.id);
+
+    let colabs: any[] = [];
+    let respostas: any[] = [];
+    let trilhas: any[] = [];
+    let relatorios: any[] = [];
+
+    if (colaboradorIds.length > 0) {
+      const [colabsRes, respostasRes, trilhasRes, relatoriosRes] = await Promise.all([
+        sb.from('colaboradores').select('id, nome_completo, cargo, email')
+          .eq('empresa_id', empresaId).in('id', colaboradorIds),
+        sb.from('respostas').select('colaborador_id, nivel_ia4')
+          .eq('empresa_id', empresaId).in('colaborador_id', colaboradorIds),
+        sb.from('trilhas').select('id, colaborador_id, status, data_inicio, evolution_report, criado_em')
+          .eq('empresa_id', empresaId).in('turma_membro_id', participacaoIds)
+          .order('criado_em', { ascending: false }),
+        sb.from('relatorios').select('colaborador_id, gerado_em')
+          .eq('empresa_id', empresaId).eq('tipo', 'individual').in('colaborador_id', colaboradorIds),
+      ]);
+      if (colabsRes.error) throw new Error(`colaboradores: ${colabsRes.error.message}`);
+      if (respostasRes.error) throw new Error(`respostas: ${respostasRes.error.message}`);
+      if (trilhasRes.error) throw new Error(`trilhas: ${trilhasRes.error.message}`);
+      if (relatoriosRes.error) throw new Error(`relatórios: ${relatoriosRes.error.message}`);
+      colabs = colabsRes.data || [];
+      respostas = respostasRes.data || [];
+      trilhas = trilhasRes.data || [];
+      relatorios = relatoriosRes.data || [];
+    }
+
+    const comResposta = new Set<string>();
+    const comIa4 = new Set<string>();
+    for (const resposta of respostas) {
+      if (!resposta.colaborador_id) continue;
+      comResposta.add(resposta.colaborador_id);
+      if (resposta.nivel_ia4 !== null && resposta.nivel_ia4 !== undefined) comIa4.add(resposta.colaborador_id);
+    }
+    const comPdi = new Set<string>(relatorios.map((r) => r.colaborador_id).filter(Boolean));
+    const trilhaDe = new Map<string, any>();
+    for (const trilha of trilhas) {
+      if (trilha.colaborador_id && !trilhaDe.has(trilha.colaborador_id)) trilhaDe.set(trilha.colaborador_id, trilha);
+    }
+
+    const comTrilha = new Set<string>(trilhaDe.keys());
+    const concluidas = new Set<string>(
+      [...trilhaDe.entries()]
+        .filter(([, trilha]) => trilha.status === TRILHA.CONCLUIDA || !!trilha.evolution_report)
+        .map(([id]) => id),
+    );
+
+    const total = membros.length;
+    const nResposta = comResposta.size;
+    const nIa4 = comIa4.size;
+    const nPdi = comPdi.size;
+    const nTrilha = comTrilha.size;
+    const nConcluidas = concluidas.size;
+    const turma = turmaRes.data as any;
+    const preparacaoConfirmada = total > 0 && turma.status !== TURMA.PLANEJADA;
+
+    let etapaAtual: EtapaTurma = 'preparar';
+    let proximaAcao = { titulo: 'Definir a composição da turma', detalhe: 'Inclua as pessoas e confirme as regras do programa.' };
+    if (total > 0 && !preparacaoConfirmada) {
+      proximaAcao = { titulo: 'Confirmar a prontidão da turma', detalhe: 'Revise participantes, calendário, programa e canais antes de abrir o diagnóstico.' };
+    } else if (total > 0 && nResposta === 0) {
+      etapaAtual = 'diagnostico';
+      proximaAcao = { titulo: `Mobilizar ${total} pessoa(s)`, detalhe: 'Ninguém respondeu o diagnóstico nesta turma.' };
+    } else if (nResposta > nIa4) {
+      etapaAtual = 'diagnostico';
+      proximaAcao = { titulo: `Avaliar ${nResposta - nIa4} resposta(s)`, detalhe: `${nIa4} de ${nResposta} respostas já passaram pela IA4.` };
+    } else if (nIa4 > nPdi) {
+      etapaAtual = 'pdi';
+      proximaAcao = { titulo: `Gerar ${nIa4 - nPdi} PDI(s)`, detalhe: `${nPdi} de ${nIa4} pessoas elegíveis já têm plano.` };
+    } else if (nPdi > nTrilha) {
+      etapaAtual = 'lancamento';
+      proximaAcao = { titulo: `Preparar ${nPdi - nTrilha} jornada(s)`, detalhe: 'Valide conteúdo, custo, calendário e escopo antes de gerar.' };
+    } else if (nTrilha > nConcluidas) {
+      etapaAtual = 'acompanhamento';
+      proximaAcao = { titulo: `Acompanhar ${nTrilha - nConcluidas} jornada(s)`, detalhe: 'Priorize pessoas atrasadas, mensagens e falhas de entrega.' };
+    } else if (nConcluidas > 0) {
+      etapaAtual = 'evolucao';
+      proximaAcao = { titulo: 'Publicar os resultados', detalhe: `${nConcluidas} jornada(s) concluída(s) aguardam fechamento da turma.` };
+    }
+
+    const baseEtapas: Array<{ chave: EtapaTurma; rotulo: string; feitos: number }> = [
+      { chave: 'preparar', rotulo: 'Preparar', feitos: preparacaoConfirmada ? total : 0 },
+      { chave: 'diagnostico', rotulo: 'Diagnosticar', feitos: nIa4 },
+      { chave: 'pdi', rotulo: 'PDI', feitos: nPdi },
+      { chave: 'lancamento', rotulo: 'Lançar', feitos: nTrilha },
+      { chave: 'acompanhamento', rotulo: 'Acompanhar', feitos: nTrilha },
+      { chave: 'evolucao', rotulo: 'Evolução', feitos: nConcluidas },
+    ];
+    const indiceAtual = baseEtapas.findIndex((e) => e.chave === etapaAtual);
+    const etapas = baseEtapas.map((e, index) => ({
+      ...e,
+      total,
+      estado: (index < indiceAtual || (total > 0 && e.feitos >= total)
+        ? 'feito'
+        : index === indiceAtual
+          ? 'ativo'
+          : 'aguardando') as 'feito' | 'ativo' | 'aguardando',
+    }));
+
+    const pessoas: PessoaTurma[] = colabs
+      .map((colab) => {
+        const trilha = trilhaDe.get(colab.id);
+        const respondeu = comResposta.has(colab.id);
+        const avaliado = comIa4.has(colab.id);
+        const temPdi = comPdi.has(colab.id);
+        const temTrilha = comTrilha.has(colab.id);
+        const trilhaConcluida = concluidas.has(colab.id);
+        const semana = trilha ? semanaDaTrilha(trilha.data_inicio) : null;
+
+        let estado = 'Preparação';
+        let proximoPasso = 'Confirmar acesso';
+        if (!respondeu) { estado = 'Diagnóstico aberto'; proximoPasso = 'Responder diagnóstico'; }
+        else if (!avaliado) { estado = 'Aguardando IA4'; proximoPasso = 'Avaliar resposta'; }
+        else if (!temPdi) { estado = 'Diagnóstico pronto'; proximoPasso = 'Gerar PDI'; }
+        else if (!temTrilha) { estado = 'PDI pronto'; proximoPasso = 'Gerar jornada'; }
+        else if (!trilhaConcluida) { estado = semana ? `Semana ${semana}` : 'Jornada agendada'; proximoPasso = 'Acompanhar'; }
+        else { estado = 'Jornada concluída'; proximoPasso = 'Publicar resultado'; }
+
+        return {
+          id: colab.id,
+          nome: colab.nome_completo || 'Sem nome',
+          cargo: colab.cargo || null,
+          email: colab.email || null,
+          respondeu,
+          avaliado,
+          temPdi,
+          temTrilha,
+          trilhaConcluida,
+          semana,
+          estado,
+          proximoPasso,
+        };
+      })
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+    return {
+      ws: {
+        empresa: { id: empresaRes.data.id as string, nome: empresaRes.data.nome as string },
+        turma: {
+          id: turma.id,
+          nome: turma.nome,
+          status: turma.status,
+          dataInicio: turma.data_inicio,
+          programaModo: turma.sys_config?.programa_modo ?? null,
+        },
+        contagens: {
+          membros: total,
+          comResposta: nResposta,
+          comIa4: nIa4,
+          comPdi: nPdi,
+          comTrilha: nTrilha,
+          concluidas: nConcluidas,
+        },
+        etapas,
+        etapaAtual,
+        proximaAcao,
+        pessoas,
+      },
+    };
+  } catch (e) {
+    return { erro: e instanceof Error ? e.message : 'falha ao carregar a turma' };
+  }
+}
+
 export async function carregarClientes(): Promise<{ clientes: ClienteLinha[]; erro?: string }> {
   await requireAdminAction();
   const sb = await requireAdminSupabase();
@@ -327,18 +570,21 @@ export async function carregarClientes(): Promise<{ clientes: ClienteLinha[]; er
 
     const clientes = await Promise.all(
       empresas.map(async (e): Promise<ClienteLinha> => {
-        const [colabs, cargos, top10, cenarios, respostas, avaliadas, trilhas] = await Promise.all([
+        const [colabs, cargos, top10, cenarios, respostas, avaliadas, trilhas, portfolio] = await Promise.all([
           excludeInternalEmails(sb.from('colaboradores').select('id', { count: 'exact', head: true }).eq('empresa_id', e.id)),
-          sb.from('cargos_empresa').select('id', { count: 'exact', head: true }).eq('empresa_id', e.id),
+          sb.from('cargos_empresa').select('id, descricao').eq('empresa_id', e.id),
           sb.from('top10_cargos').select('id', { count: 'exact', head: true }).eq('empresa_id', e.id),
           sb.from('banco_cenarios').select('id', { count: 'exact', head: true }).eq('empresa_id', e.id),
           sb.from('respostas').select('id', { count: 'exact', head: true }).eq('empresa_id', e.id),
           sb.from('respostas').select('id', { count: 'exact', head: true }).eq('empresa_id', e.id).not('nivel_ia4', 'is', null),
           sb.from('trilhas').select('id', { count: 'exact', head: true }).eq('empresa_id', e.id).eq('status', TRILHA.ATIVA),
+          levantarPortfolioTurmas(sb, e.id),
         ]);
 
         const nColab = colabs.count || 0;
-        const nCargos = cargos.count || 0;
+        const cargosRows = (cargos.data || []) as Array<{ id: string; descricao: string | null }>;
+        const nCargos = cargosRows.length;
+        const cargosDescritos = cargosRows.filter((cargo) => cargo.descricao?.trim()).length;
         const nTop10 = top10.count || 0;
         const nCen = cenarios.count || 0;
         const nResp = respostas.count || 0;
@@ -364,6 +610,13 @@ export async function carregarClientes(): Promise<{ clientes: ClienteLinha[]; er
           faseAtual,
           bloqueador,
           pendencias: (nResp - nAval) + (nCargos === 0 ? 1 : 0),
+          fundacao: {
+            basePronta: nColab > 0 && nCargos > 0 && cargosDescritos === nCargos,
+            reguaPronta: nTop10 > 0 && nCen > 0,
+            resumoBase: `${nColab} pessoa(s) · ${cargosDescritos}/${nCargos} cargo(s) descrito(s)`,
+            resumoRegua: `${nTop10} Top 10 · ${nCen} cenário(s)`,
+          },
+          portfolio,
         };
       }),
     );

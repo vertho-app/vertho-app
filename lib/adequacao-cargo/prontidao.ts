@@ -78,6 +78,33 @@ export type Prontidao = {
     semDiscriminacao: string[];
     totalMedidas: number;
   };
+  /**
+   * 🔴 OS DOIS CARGOS TÊM PERFIS DISTINGUÍVEIS?
+   *
+   * `Medido: 10/09/2026` em Ibipeba, cliente real: Coordenação Pedagógica,
+   * Gestão Educacional e Gestão Escolar diferem entre si em 3 a 9 pontos de
+   * DISC, enquanto a dispersão DENTRO de cada cargo é de 12 a 17. Variância
+   * entre grupos menor que a variância dentro deles: nenhum classificador
+   * separa isso, e a lista sai entrelaçada — 5 pessoas do cargo na metade de
+   * cima onde a proporção previa 6,5, ou seja, pior que o acaso.
+   *
+   * Sem este aviso, a tela responderia "quem da Coordenação está apto à Gestão
+   * Escolar" com uma ordem que é ruído — e ninguém teria como saber. É o mesmo
+   * espírito do aviso de calibração, uma camada acima: lá o gabarito não separa
+   * PESSOAS, aqui os dois CARGOS não são distinguíveis um do outro.
+   */
+  separacaoEntreCargos: {
+    /**
+     * 0,50 = as duas listas se embaralham (o gabarito não distingue os cargos);
+     * 1,00 = todo ocupante do alvo acima de todo candidato. `null` quando um dos
+     * lados tem menos de 2 pessoas: aí não foi medido, e isso não é o mesmo que
+     * "os cargos são iguais".
+     */
+    indice: number | null;
+    indistinguiveis: boolean;
+    nCandidatos: number;
+    nOcupantes: number;
+  };
   avaliados: number;
   /** Diagnóstico honesto quando não dá para responder. */
   indisponivel: null | 'sem_gabarito_alvo' | 'sem_pessoas_na_origem';
@@ -91,6 +118,7 @@ const VAZIO = (cargoOrigem: string, cargoAlvo: string, motivo: Prontidao['indisp
   faixas: null,
   pesosAlvo: [],
   calibracaoAlvo: { avisos: [], semDiscriminacao: [], totalMedidas: 0 },
+  separacaoEntreCargos: { indice: null, indistinguiveis: false, nCandidatos: 0, nOcupantes: 0 },
   avaliados: 0,
   indisponivel: motivo,
 });
@@ -140,6 +168,49 @@ function indexar(base: AdequacaoCargo): { porId: Map<string, PessoaAdequacao>; p
 }
 
 /**
+ * Abaixo disto as duas populações se confundem na ordem. 0,5 é o acaso puro.
+ * 0,70 é a convenção usual para "discrimina de forma aceitável".
+ */
+const SEPARACAO_MINIMA = 0.6;
+
+/**
+ * Os ocupantes do cargo alvo aparecem ACIMA dos candidatos, no gabarito do alvo?
+ *
+ * ⚠️ Esta é a TERCEIRA métrica que escrevi para esta pergunta, e as duas
+ * anteriores mentiram — cada uma apagando algo diferente (a média apagava
+ * outlier; o Cohen's d do melhor traço apagava o peso da medida no gabarito e
+ * dizia "separa" para uma lista completamente entrelaçada). Esta corresponde à
+ * lista literalmente: é a probabilidade de, sorteando uma pessoa de cada lado,
+ * a do cargo alvo ter aderência maior — a estatística U de Mann-Whitney
+ * normalizada, imune a outlier e a pools de tamanhos diferentes.
+ *
+ *   1,00 = todo ocupante acima de todo candidato
+ *   0,50 = listas embaralhadas, o gabarito não distingue os dois cargos
+ *
+ * `Medido: 10/09/2026` em Ibipeba: Coordenação Pedagógica e Gestão Educacional
+ * saem entrelaçadas na lista (5 do cargo na metade de cima onde a proporção
+ * previa 6,5), e as três medidas anteriores não capturavam isso.
+ */
+function separacao(candidatos: PessoaAdequacao[], ocupantes: PessoaAdequacao[]) {
+  const a = ocupantes.map((p) => p.beta.pct);
+  const b = candidatos.map((p) => p.beta.pct);
+  if (a.length < 2 || b.length < 2) {
+    // Sem os dois lados com gente, a resposta honesta é "não medi" — nunca
+    // "os cargos são iguais".
+    return { indice: null as number | null, indistinguiveis: false, nCandidatos: b.length, nOcupantes: a.length };
+  }
+  let acima = 0;
+  for (const x of a) for (const y of b) acima += x > y ? 1 : x === y ? 0.5 : 0;
+  const indice = Number((acima / (a.length * b.length)).toFixed(2));
+  return {
+    indice,
+    indistinguiveis: indice < SEPARACAO_MINIMA,
+    nCandidatos: b.length,
+    nOcupantes: a.length,
+  };
+}
+
+/**
  * Compara as pessoas de `cargoOrigem` contra o perfil ideal de `cargoAlvo`.
  *
  * Duas passagens do motor, ambas sem IA:
@@ -154,9 +225,12 @@ export async function compararProntidao(
   cargoOrigem: string,
   cargoAlvo: string,
 ): Promise<Prontidao> {
-  const [noAlvo, naOrigem] = await Promise.all([
+  const [noAlvo, naOrigem, ocupantesDoAlvo] = await Promise.all([
     aggregateAdequacao(sb, empresaId, cargoAlvo, { poolCargos: [cargoOrigem] }),
     aggregateAdequacao(sb, empresaId, cargoOrigem),
+    // Terceira passada, sem IA: sem a população que JÁ ocupa o alvo não há como
+    // dizer se os dois cargos são distinguíveis um do outro.
+    aggregateAdequacao(sb, empresaId, cargoAlvo),
   ]);
 
   if (noAlvo.semGabarito) return VAZIO(cargoOrigem, cargoAlvo, 'sem_gabarito_alvo');
@@ -206,6 +280,7 @@ export async function compararProntidao(
       avisos: noAlvo.avisosCalibracao || [],
       ...medidasQueNaoSeparam(noAlvo.pessoas),
     },
+    separacaoEntreCargos: separacao(noAlvo.pessoas, ocupantesDoAlvo.pessoas),
     avaliados: noAlvo.avaliados,
     indisponivel: null,
   };

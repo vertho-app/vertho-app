@@ -507,7 +507,7 @@ export default function EngajamentoPage() {
             href={`/admin/engajamento/relatorio?empresa=${empresaId}`}
             className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.09] bg-white/[0.035] px-3 py-1.5 text-[10px] font-bold text-white/55 transition-colors hover:bg-white/[0.07] hover:text-white"
           >
-            <FileChartColumnIncreasing size={12} aria-hidden="true" /> Prévia do relatório
+            <FileChartColumnIncreasing size={12} aria-hidden="true" /> Relatório
           </Link>
         ) : null}
       />

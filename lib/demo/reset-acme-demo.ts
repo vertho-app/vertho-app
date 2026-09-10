@@ -38,6 +38,7 @@ import {
   criarRelatorioRhAcmeDemo,
 } from '@/lib/demo/acme-rh-report-fixture';
 import { VERIFICACAO_TENANT_SLUG, reporContaDeVerificacao } from '@/lib/demo/conta-verificacao';
+import { ehDoElencoAcme } from '@/lib/demo/acme-elenco';
 import {
   ACME_DEMO_DESCRITORES,
   descritoresDaVitrineAcme,
@@ -2322,40 +2323,31 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     if (gravou.error) throw new Error(`consolidado RH: ${gravou.error.message}`);
   }
 
-  /**
-   * Convidado de degustação (`convidado.<slug>.…@vertho.ai`) ou não.
-   *
-   * O prefixo é por tenant (ver `DEMO_PROSPECT_TENANTS`), então a checagem é
-   * pelo miolo `convidado.` — reconhece o convidado de qualquer ambiente sem
-   * precisar saber em qual estamos, que é o que interessa para excluí-lo de uma
-   * contagem de elenco.
-   */
-  function ehConvidadoDeDegustacao(email: unknown): boolean {
-    return String(email || '').trim().toLowerCase().startsWith('convidado.');
-  }
-
   async function seedAcmeRhReportCenter(destId: string) {
     if (slug !== DEMO_SLUG) return;
 
     const colaboradores = await must('listar diretório da central RH', sb.from('colaboradores')
       .select('id,nome_completo,email,cargo,role,area_depto,gestor_email')
       .eq('empresa_id', destId));
-    // 🔴 CONVIDADO DE DEGUSTAÇÃO NÃO É PARTICIPANTE DO ELENCO.
+    // 🔴 A CONTA É POR PERTENCIMENTO, NÃO POR EXCLUSÃO.
     //
-    // Desde 03/09/2026 o convidado ATRAVESSA o reset (vencer revoga o acesso,
-    // não apaga o que a pessoa fez) — então ele fica em `colaboradores` e passa
-    // a contar aqui. Com quatro prospects na base a conta dava 34 contra os 30
-    // declarados, esta asserção LANÇAVA, e como ela roda depois de
-    // `resetTenant` o reset abortava no meio: `Medido 09/09/2026`, o tenant
-    // ficou com 3 relatórios de 35, e a central do RH abria "Leitura analítica
-    // ainda não disponível" porque o consolidado é um dos que não nasceram.
+    // Esta asserção protege contra elenco INCOMPLETO — erro de seed real. O que
+    // ela não pode fazer é somar quem nunca foi elenco: desde 03/09/2026 o
+    // convidado de degustação atravessa o reset e vira linha em
+    // `colaboradores`. `Medido 09/09/2026`: a conta deu **33 contra 30**, a
+    // asserção lançou, e como ela roda depois do wipe e do seed o ambiente
+    // ficou com **3 relatórios de 35** — a central do RH abrindo "Leitura
+    // analítica ainda não disponível".
     //
-    // A asserção continua valendo — ela protege contra elenco incompleto, que é
-    // um erro de seed real. O que muda é o denominador: ela mede o ELENCO
-    // DECLARADO, e convidado não faz parte dele.
+    // 🔑 A primeira correção excluiu o prefixo `convidado.`, e isso resolveu o
+    // caso sem resolver a classe: "todo mundo menos as exceções" é uma lista
+    // que só cresce, e sempre depois do incidente. Ator novo no ambiente —
+    // convidado, conta de verificação do E2E, integração, suporte — voltaria a
+    // derrubar o reset. `ehDoElencoAcme` inverte a pergunta para a única forma
+    // fechada: quem ESTÁ declarado no código pertence; o resto não conta.
     const participantes = (colaboradores || [])
       .filter((pessoa: any) => pessoa.role !== 'rh')
-      .filter((pessoa: any) => !ehConvidadoDeDegustacao(pessoa.email));
+      .filter((pessoa: any) => ehDoElencoAcme(pessoa.email));
     if (participantes.length !== ACME_DEMO_TEAM_SIZE) {
       throw new Error(`central RH esperava ${ACME_DEMO_TEAM_SIZE} participantes do elenco e encontrou ${participantes.length}`);
     }

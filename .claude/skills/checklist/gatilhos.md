@@ -1004,3 +1004,50 @@ passando — e as imagens mostraram três defeitos: a barra atropelando o nome d
 competência, duas seções de 4 linhas ocupando uma folha cada (`wrap={false}`), e
 "90 comportamentos" na p. 2 contra 24 na tabela da p. 3 (eram avaliações, não
 comportamentos). Memória `feedback_so_a_imagem_prova_o_visual` §oitavo caso.
+
+---
+
+## § Vou olhar um CI vermelho que não é do meu diff
+
+1. **Conte ANTES de ler o erro.**
+   `gh run list --workflow="<nome>" --limit 200 --json conclusion,createdAt`
+   "Está vermelho" e "está vermelho há 10 dias em 98% dos runs" pedem
+   investigações diferentes — e só a segunda pergunta *o que mudou naquele dia*.
+2. **A data do último verde é a chave de busca.** Com ela, `git log --since=<véspera>`
+   nos arquivos da área ou `git log -S "<símbolo>"` acha o commit causador em
+   minutos.
+3. **N sintomas independentes num fluxo com login = suspeite do LOGIN.** Tudo que
+   vem depois do gate compartilha o mesmo pressuposto; quando ele falha em
+   silêncio, cada tela inventa a própria explicação e o relatório vira uma lista
+   de bugs que não existem.
+4. **Autenticar ≠ ter acesso.** `auth.users` e `colaboradores` são tabelas
+   diferentes: conta órfã LOGA e quebra todas as telas seguintes.
+5. **Conserte também o RELATÓRIO, não só o defeito.** Se a causa não se anuncia,
+   ela vai custar os mesmos dias na próxima vez — um gate que falha com a causa
+   e o comando que a repõe vale mais que os N locators.
+
+**Consequência medida (01/09 a 09/09/2026):** o E2E Piloto ficou **185 de 188
+runs vermelho**. A causa era uma só — o reset noturno apagava a conta de smoke —,
+mas o relatório mostrava cinco falhas de locator em cinco telas, e nenhuma delas
+a nomeava. Dez dias sem ação. Memória `feedback_ci_vermelho_nao_lido` §09/09.
+
+---
+
+## § Vou escrever ou mexer num GUARD que varre arquivo (`readFileSync` + regex)
+
+1. **Descarte COMENTÁRIOS antes de casar.** O comentário que explica a régua cita
+   o nome da função que o guard procura — e é escrito por quem faz a mudança.
+   Sem esse descarte, o guard é satisfeito justamente por quem ele vigia.
+2. **Teste REMOVENDO o alvo real**, não só observando-o verde. Guard nunca visto
+   reprovar não prova nada.
+3. **Codifique a INVARIANTE, não a forma da correção que a satisfez.** Guard preso
+   à implementação acusa violação na solução melhor e trava a base na primeira
+   ideia que funcionou.
+4. **Guard de USO exclui catálogo** (a citação numa tabela não é call-site) — a
+   regra irmã, de 01/09.
+
+**Consequência medida (10/09/2026):** o `demo-convidado-fora-do-elenco` continuou
+VERDE com o filtro real REMOVIDO de `acme-organization-reports.ts` — satisfeito
+pelo comentário logo acima, que citava a função. E, por exigir a forma da
+correção anterior (excluir `convidado.`), ele reprovou a mudança que fechava o
+buraco de vez. Memória `feedback_catalogo_nao_e_call_site` §10/09.

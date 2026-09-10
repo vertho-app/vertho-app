@@ -11,6 +11,7 @@ import {
   ACME_DEMO_TEAM_SIZE,
 } from '@/lib/demo/acme-rh-report-fixture';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
+import { ehDoElencoAcme } from '@/lib/demo/acme-elenco';
 
 export const ACME_DEMO_ORGANIZATION_REPORT_TIMESTAMP = Date.UTC(2026, 7, 30, 12, 0, 0);
 export const ACME_DEMO_ORGANIZATION_REPORT_DATE = '30/08/2026';
@@ -41,17 +42,19 @@ export async function buildAcmeOrganizationReportArtifacts(
   if (assessmentsResult.error) throw new Error(`relatórios organizacionais ACME: mapeamentos: ${assessmentsResult.error.message}`);
   if (rolesResult.error) throw new Error(`relatórios organizacionais ACME: cargos: ${rolesResult.error.message}`);
 
-  // 🔴 Convidado de degustação NÃO entra no elenco.
+  // 🔴 Só o ELENCO DECLARADO entra no documento e na conta.
   //
-  // Desde 03/09/2026 ele atravessa o reset (vencer revoga o acesso, não apaga o
-  // que a pessoa fez), então fica em `colaboradores` e entrava nesta conta.
-  // `Medido 09/09/2026`: com quatro prospects na base, a asserção abaixo
-  // acusava 34 contra 30 e derrubava o reset — que já tinha apagado as tabelas,
-  // deixando o tenant pela metade. O documento também não deve descrevê-los: o
-  // Perfil e o DNA falam da ORGANIZAÇÃO, e um prospect de passagem não é parte
-  // dela.
+  // O Perfil e o DNA falam da ORGANIZAÇÃO: quem está de passagem no ambiente
+  // (convidado de degustação, conta de verificação, integração) não é parte
+  // dela e não pode aparecer no PDF nem no denominador.
+  //
+  // A régua é a MESMA de `seedAcmeRhReportCenter` — `ehDoElencoAcme`, por
+  // pertencimento. Estas duas asserções são gêmeas e já divergiram uma vez: em
+  // 09/09/2026 ambas contavam por exclusão e o convidado derrubou o reset
+  // (34 contra 30), com o tenant ficando sem os relatórios. Excluir por lista
+  // resolve o caso e não a classe; perguntar quem PERTENCE fecha as duas.
   const people = ((peopleResult.data || []) as any[])
-    .filter((pessoa: any) => !String(pessoa.email || '').trim().toLowerCase().startsWith('convidado.'));
+    .filter((pessoa: any) => ehDoElencoAcme(pessoa.email));
   // Usa a mesma régua do panorama do RH: ter iniciado alguma competência não
   // significa ter concluído o Top 5 do cargo (na ACME, são 26 iniciados e 25
   // concluídos). O número do PDF precisa fechar com o card executivo.

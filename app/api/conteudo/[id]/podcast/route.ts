@@ -64,6 +64,9 @@ async function registrarAuditoria(
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  // Relógio da REQUISIÇÃO, não da síntese: o portão precisa saber quanto falta para a
+  // função morrer, e o que já se gastou em auth/leitura conta contra o mesmo orçamento.
+  const inicioMs = Date.now();
   const auth = await requireUser(req);
   if (auth instanceof Response) return auth;
 
@@ -128,12 +131,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const narracao = extractNarration(content.conteudo_inline || '');
     if (narracao.length >= 20) {
-      // Sob demanda (a pessoa está esperando, rota de 300 s): o portão refaz em PARALELO.
+      // Sob demanda (a pessoa está esperando): o portão refaz em SÉRIE, e só enquanto
+      // couber no que resta dos 300 s da rota. `Medido 10/09/2026` em 83 sínteses reais:
+      // o take leva p50 99 s / p90 141 s / máx 174 s, a reprovação é de 7,4% por take, e
+      // 27 de 27 episódios saíram na tentativa 1 — disparar 3 sempre pagava o pior caso
+      // em 100% dos casos (US$ 0,17 por episódio contra US$ 0,06 assim).
       const audio = await generatePersonalizedPodcastAudio(narracao, nome, {
         feature: 'tts_podcast_personalizado',
         empresaId: content.empresa_id,
         colaboradorId: alvo!.id,
-      }, { retakeParalelo: true });
+      }, { prazoAteMs: inicioMs + maxDuration * 1000 });
       const { error: uploadError } = await sb.storage.from('conteudos').upload(cachePath, audio.buffer, {
         contentType: audio.contentType,
         upsert: true,

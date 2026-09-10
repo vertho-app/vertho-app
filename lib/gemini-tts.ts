@@ -332,19 +332,45 @@ function ttsToPcm(prompt: string, voiceName: string, ledger: TtsLedger, timeoutM
 const QA_GATE_ATIVO = (process.env.TTS_QA_GATE || 'on').toLowerCase() !== 'off';
 const QA_MAX_TENTATIVAS = Math.max(1, Number(process.env.TTS_QA_TENTATIVAS) || 2);
 
-/** Como o portão refaz: em SÉRIE (fundo: pré-aquecimento, `after()`, lote) ou em
- *  PARALELO (sob demanda: a pessoa está esperando e a rota tem 300 s). */
+/** Como o portão refaz: em SÉRIE (o default — só refaz o que reprovou) ou em
+ *  PARALELO (as K tentativas juntas, para quem quer COMPARAR takes). */
 export interface OpcoesPortao {
   /** Exclusivo de medição (canário/bake-off). Produção não publica reprovados. */
   permitirReprovado?: boolean;
   /** `true` = as K tentativas saem juntas e a primeira que passa é publicada. Custa K×
-   *  (US$ 0,045 → 0,09 por episódio; irrelevante neste volume) e vale 1 tentativa de
-   *  latência: em série, 2 × (100-150 s) não cabe nos 300 s da rota sob demanda. */
+   *  SEMPRE, inclusive quando a primeira já passaria.
+   *
+   *  ⚠️ Não use para "a pessoa está esperando" — use `prazoAteMs`. Isto aqui nasceu
+   *  (05/09/2026) com a premissa de que "em série, 2 × (100-150 s) não cabe nos 300 s
+   *  da rota", premissa que nunca foi medida. `Medido 10/09/2026` em 83 chamadas reais
+   *  do podcast (2.5 Flash, `ia_usage_log`): p50 99 s, p90 141 s, máx 174 s — dois takes
+   *  em série somam 198 s na mediana e cabem. E a premissa de custo também envelheceu:
+   *  o comentário dizia 2× (US$ 0,09) e a calibração de 07/09 subiu a Aoede para 3
+   *  tentativas, então eram 3× (US$ 0,17 por episódio contra US$ 0,12 antes de tudo).
+   *  Nos dois dias medidos, **27 de 27 episódios saíram na tentativa 1**: as tentativas
+   *  2 e 3 foram 54 chamadas pagas e descartadas, US$ 3,05 de US$ 4,64.
+   *
+   *  Quem ainda quer o paralelo é o CANÁRIO, que compara takes de propósito. */
   retakeParalelo?: boolean;
   /** Teto de tentativas desta chamada (default `TTS_QA_TENTATIVAS`). O canário passa 1:
    *  ele quer medir o take como sai, não o melhor de K. */
   tentativas?: number;
+  /** Instante (epoch ms, `Date.now() + orçamento`) até o qual esta síntese tem que estar
+   *  ENTREGUE — não só sintetizada. Só o caminho em série usa: antes de refazer, o portão
+   *  compara o tempo que sobra com o que a tentativa anterior levou; se não couber,
+   *  interrompe os retakes e recusa a publicação se nenhuma passou. Sem prazo
+   *  (lote, `after()`, script), refaz até o teto. O relógio não aprova áudio. */
+  prazoAteMs?: number;
 }
+
+/** Quanto sobra DEPOIS do TTS até a resposta sair: régua de deriva + masterização +
+ *  MP3 + upload no Storage. `Medido 10/09/2026` nas 27 entregas de 08-09/09 (distância
+ *  entre o veredito em `tts_qa_log` e o objeto no bucket): p50 14,6 s, mínimo 11,5 s. */
+const RESERVA_POS_TTS_MS = 20_000;
+/** Margem sobre a duração da tentativa anterior ao estimar a próxima. O texto é o mesmo,
+ *  então a melhor previsão é o que acabou de acontecer; 1,25 cobre a dispersão observada
+ *  (p50 99 s → p90 141 s é 1,42, mas o p90 já entra na conta pela própria medição). */
+const MARGEM_RETAKE = 1.25;
 
 type Sintese = { pcm: Buffer; sampleRate: number };
 
@@ -429,18 +455,37 @@ async function sintetizarComPortao(
   }
 
   const julgadas: (Sintese & { qa: QaDeriva })[] = [];
+  let duracaoUltimaMs = 0;
+  let prazoCortou = false;
   for (let tentativa = 1; tentativa <= total; tentativa++) {
+    // Refazer só vale se a entrega ainda couber no prazo de quem espera. A estimativa é
+    // a tentativa anterior (mesmo texto, mesmo backend) + a reserva do que vem depois do
+    // TTS; sem prazo declarado, vai até o teto.
+    if (tentativa > 1 && opts.prazoAteMs) {
+      const restanteMs = opts.prazoAteMs - Date.now();
+      const precisaMs = Math.round(duracaoUltimaMs * MARGEM_RETAKE) + RESERVA_POS_TTS_MS;
+      if (restanteMs < precisaMs) {
+        prazoCortou = true;
+        console.warn(`[tts-qa] ${rotulo} · ${voz}: sem prazo para a tentativa ${tentativa}/${total} (restam ${Math.round(restanteMs / 1000)}s, precisa ~${Math.round(precisaMs / 1000)}s) — encerra após ${julgadas.length} tentativa(s), sem afrouxar o portão`);
+        break;
+      }
+    }
+    const t0 = Date.now();
     const j = julgar(await sintetizar(), alvo, voz, rotulo, tentativa, total);
+    duracaoUltimaMs = Date.now() - t0;
     julgadas.push(j);
     if (j.qa.ok) { await persistirVereditos(julgadas, j, voz, rotulo, total, ledger); return j; }
   }
+  // `total` aqui é quantas tentativas REALMENTE houve: com o prazo cortando, gravar o teto
+  // planejado faria o log dizer que uma tentativa aconteceu e reprovou.
+  const totalReal = julgadas.length;
   let m: (Sintese & { qa: QaDeriva }) | null = null;
   try {
     m = menosRuim(julgadas);
   } finally {
-    await persistirVereditos(julgadas, m, voz, rotulo, total, ledger);
+    await persistirVereditos(julgadas, m, voz, rotulo, totalReal, ledger);
   }
-  if (rotulo !== 'canario_tts') await avisarFailOpen(m, voz, rotulo, total, ledger);
+  if (rotulo !== 'canario_tts') await avisarFailOpen(m, voz, rotulo, totalReal, ledger, prazoCortou);
   return m;
 }
 
@@ -450,7 +495,7 @@ async function sintetizarComPortao(
  * da Vercel, e foi assim que 19 de 19 podcasts saíram reprovados sem nenhum alarme
  * (07/09/2026, professores de Macaé). O veredito por tentativa fica em `tts_qa_log`.
  */
-async function avisarFailOpen(escolhida: Sintese & { qa: QaDeriva }, voz: string, rotulo: string, total: number, ledger?: TtsLedger) {
+async function avisarFailOpen(escolhida: Sintese & { qa: QaDeriva }, voz: string, rotulo: string, total: number, ledger?: TtsLedger, prazoCortou = false) {
   console.warn(`[tts-qa] ${rotulo} · ${voz}: nenhuma das ${total} tentativas passou — publicando a menos ruim (${escolhida.qa.motivos.join('; ')})`);
   try {
     const { registrarDegradacao, DEGRADACAO } = await import('./degradacao');
@@ -461,7 +506,10 @@ async function avisarFailOpen(escolhida: Sintese & { qa: QaDeriva }, voz: string
       empresaId: ledger?.empresaId ?? null,
       colaboradorId: ledger?.colaboradorId ?? null,
       severidade: 'aviso',
-      detalhe: { motivos: escolhida.qa.motivos, f0MedHz: Math.round(escolhida.qa.metricas.f0MedHz), timbreVsRef: escolhida.qa.metricas.timbreVsRefSigma, tentativas: total, modelo: modeloEfetivo(), backend: TTS_BACKEND() },
+      // `prazoCortou` separa "o modelo não acertou em N tentativas" de "não houve tempo
+      // para as N": a primeira é qualidade do fornecedor, a segunda é orçamento da rota,
+      // e a correção de cada uma é outra. Sem o campo, as duas viram a mesma linha.
+      detalhe: { motivos: escolhida.qa.motivos, f0MedHz: Math.round(escolhida.qa.metricas.f0MedHz), timbreVsRef: escolhida.qa.metricas.timbreVsRefSigma, tentativas: total, prazoCortou, modelo: modeloEfetivo(), backend: TTS_BACKEND() },
     });
   } catch (e) {
     console.warn('[tts-qa] degradação não registrada:', (e as Error)?.message);
@@ -556,7 +604,7 @@ export async function generateNarrationAudio(
       () => ttsToPcm(`${styleDirective}:\n\n${texto}`, voice, ledger, timeoutMs),
       voice,
       ledger.feature,
-      { retakeParalelo: opts.retakeParalelo, tentativas: opts.tentativas, permitirReprovado: opts.permitirReprovado },
+      { retakeParalelo: opts.retakeParalelo, tentativas: opts.tentativas, prazoAteMs: opts.prazoAteMs, permitirReprovado: opts.permitirReprovado },
       ledger,
     );
     return {
