@@ -136,8 +136,16 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
   const base: AdequacaoCargo = { cargo, avaliados: 0, perfilIdeal: { caracteristicas: [], competencias: [], lideranca: [], estiloPredominante: '', disc: [], pesos: [], liderancaAplicavel: false }, pessoas: [], avisosCalibracao: [], semGabarito: false, semColaboradores: false };
 
   // 1) Gabarito (perfil ideal) do cargo.
-  const { data: cargoRow } = await sb.from('cargos_empresa')
+  const { data: cargoRow, error: erroCargo } = await sb.from('cargos_empresa')
     .select('gabarito, eh_lideranca').eq('empresa_id', empresaId).eq('nome', cargo).limit(1).maybeSingle();
+  // 🔴 O supabase-js RETORNA `{ error }`. Sem checar, falha de leitura virava
+  // `semGabarito: true` — e a tela diz "este cargo não tem perfil ideal", que é
+  // uma afirmação sobre a CONFIGURAÇÃO do cliente, não sobre a nossa avaria.
+  // Aqui é caminho de CONSTRUÇÃO (admin gera o relatório): a régua é falhar
+  // alto, com mensagem acionável, em vez de degradar para um resultado plausível.
+  if (erroCargo) {
+    throw new Error(`não foi possível ler o perfil ideal do cargo "${cargo}": ${erroCargo.message}`);
+  }
   const g = (cargoRow as any)?.gabarito;
   if (!g?.tela4) return { ...base, semGabarito: true };
   const ehLideranca = (cargoRow as any)?.eh_lideranca;
@@ -187,7 +195,13 @@ export async function aggregateAdequacao(sb: SupabaseClient, empresaId: string, 
   if (opts.poolCargos && opts.poolCargos.length) q = q.in('cargo', opts.poolCargos);
   else if (!opts.poolCompleto) q = q.eq('cargo', cargo);
   // cast: o parser de select do supabase-js ≥2.110 estoura TS2589 com string dinâmica
-  const { data: rows } = await excludeInternalEmails(q as any).order('nome_completo');
+  const { data: rows, error: erroCols } = await excludeInternalEmails(q as any).order('nome_completo');
+  // Mesma classe da leitura do gabarito: sem esta checagem, uma falha de query
+  // sai como `semColaboradores: true` ("ninguém tem DISC"), que manda o cliente
+  // capturar mapeamento que ele já tem.
+  if (erroCols) {
+    throw new Error(`não foi possível ler os colaboradores para o cargo "${cargo}": ${erroCols.message}`);
+  }
   if (!rows?.length) return { ...base, perfilIdeal, semColaboradores: true };
 
   // Guardião de calibração BILATERAL: conta, por traço (band, exceto Mapeamento),

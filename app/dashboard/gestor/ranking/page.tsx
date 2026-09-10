@@ -1,8 +1,7 @@
 /** Ranking de Adequação — RH self-service (escopo = empresa da sessão). */
 import { redirect } from 'next/navigation';
 import { PageContainer } from '@/components/page-shell';
-import RankingAdequacaoView from '@/components/ranking-adequacao-view';
-import { listarCargosComRanking, getRankingAdequacao, exportarRankingPDF } from '@/actions/ranking-adequacao';
+import RankingTabs from './ranking-tabs';
 import { requireRoleAction } from '@/lib/auth/action-context';
 
 export const dynamic = 'force-dynamic';
@@ -17,12 +16,7 @@ export default async function RankingPage() {
 
   return (
     <PageContainer>
-      <RankingAdequacaoView
-        scopeKey="rh-session"
-        listar={listarCargosComRanking}
-        carregar={getRankingAdequacao}
-        exportar={exportarRankingPDF}
-      />
+      <RankingTabs />
     </PageContainer>
   );
 }

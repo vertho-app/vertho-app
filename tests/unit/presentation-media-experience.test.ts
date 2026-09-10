@@ -79,10 +79,19 @@ describe('resultados e perfis da apresentação', () => {
 
   it('mantém o ranking estável por tenant e abre a primeira fotografia', () => {
     const ranking = read('components/ranking-adequacao-view.tsx');
-    const rhPage = read('app/dashboard/gestor/ranking/page.tsx');
+    // O `scopeKey` saiu de `page.tsx` para `ranking-tabs.tsx` em 09/09/2026,
+    // quando a página ganhou a segunda aba (Prontidão). A asserção é a MESMA —
+    // só mudou o arquivo em que a régua mora; afrouxá-la aqui deixaria a tela
+    // voltar a relistar a cada render sem ninguém perceber.
+    const rhTabs = read('app/dashboard/gestor/ranking/ranking-tabs.tsx');
     expect(ranking).toContain('listarRef.current = listar');
     expect(ranking).toContain('}, [scopeKey]);');
     expect(ranking).toContain('void run(disponiveis[0])');
-    expect(rhPage).toContain('scopeKey="rh-session"');
+    expect(rhTabs).toContain('scopeKey="rh-session"');
+    // A aba nova herda a mesma proteção: sem isto ela relista os cargos a cada
+    // atualização de estado, porque Server Action troca de identidade.
+    const prontidao = read('components/prontidao-cargo-view.tsx');
+    expect(prontidao).toContain('listarRef.current = listar');
+    expect(prontidao).toContain('}, [scopeKey]);');
   });
 });
