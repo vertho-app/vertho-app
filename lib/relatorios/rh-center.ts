@@ -20,6 +20,7 @@ export type RhReportKind =
   | 'rh'
   | 'perfil_org'
   | 'dna'
+  | 'evolucao'
   | 'pulso_executivo'
   | 'pulso_complementar_nr1'
   | 'gestor'
@@ -248,6 +249,20 @@ export async function carregarCentralRelatoriosRH(
     gerenciais.dna && {
       id: 'organization-dna', kind: 'dna' as const, url: gerenciais.dna.url,
       generatedAt: gerenciais.dna.em, recipient: companyResult.data?.nome || null, role: null,
+    },
+    // Evolução é o único card DERIVADO AO VIVO: não há linha em `relatorios`,
+    // o PDF é montado na requisição a partir de `trilhas.evolution_report`. Ele
+    // só aparece com alguém medido — um documento que abre dizendo "ainda não
+    // há" na biblioteca de evidências é pior que a ausência dele, porque
+    // promete um registro que não existe. A `generatedAt` é a medição mais
+    // recente, não o instante do download: o card diz de quando é o DADO.
+    evolucao.cobertura.medidos > 0 && {
+      id: 'organization-evolucao',
+      kind: 'evolucao' as const,
+      url: `/api/relatorios/evolucao/pdf?view=inline${turmaEscolhida ? `&turma=${encodeURIComponent(turmaEscolhida.id)}` : ''}`,
+      generatedAt: evolucao.pessoas.map((p) => p.concluidoEm).filter(Boolean).sort().reverse()[0] || null,
+      recipient: companyResult.data?.nome || null,
+      role: null,
     },
     ...pulseDocuments,
   ].filter(Boolean) as RhReportDocument[];

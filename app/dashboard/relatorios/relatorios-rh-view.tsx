@@ -42,6 +42,7 @@ const DOCUMENT_ICONS: Record<RhReportKind, any> = {
   rh: FileChartColumn,
   perfil_org: UsersRound,
   dna: Sparkles,
+  evolucao: TrendingUp,
   pulso_executivo: FileChartColumn,
   pulso_complementar_nr1: FileText,
   gestor: UsersRound,
