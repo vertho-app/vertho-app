@@ -23,6 +23,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const collectorCriado = vi.fn();
 const runDoCollector = vi.fn(async () => 'texto do batch');
+const podcastCore = vi.fn(async (_sb: any, _mc: any, _update: any) => ({ success: true, error: undefined as string | undefined }));
+vi.mock('@/lib/conteudo-podcast-core', () => ({ gerarPodcastAudioCore: (...args: any[]) => (podcastCore as any)(...args) }));
 
 vi.mock('@/lib/ai-batch', () => ({
   createAIBatchCollector: (...args: any[]) => {
@@ -69,7 +71,7 @@ import { gerarKitSemanal } from '@/actions/kits';
 function sbFake() {
   return criarSupabaseMock({
     // o upsert em `kits` faz `.select('id').single()`
-    resolver: (tabela) => (tabela === 'kits' ? { id: 'kit-1' } : null),
+    resolver: (tabela) => (tabela === 'kits' ? { id: 'kit-1' } : tabela === 'micro_conteudos' ? { id: 'c-audio', formato: 'audio', empresa_id: 'emp-1', conteudo_inline: 'Roteiro do podcast' } : null),
   });
 }
 
@@ -78,6 +80,7 @@ beforeEach(() => {
   runDoCollector.mockClear();
   chamadasDesafio.length = 0;
   chamadasConteudo.length = 0;
+  podcastCore.mockReset().mockResolvedValue({ success: true, error: undefined });
 });
 
 const BASE = {
@@ -90,6 +93,47 @@ const BASE = {
 };
 
 describe('lote do kit segue o parâmetro, não a contagem de DISC', () => {
+  it('renderAudio usa o núcleo headless com o cliente do job', async () => {
+    const sb = sbFake();
+    const r = await gerarKitSemanal({ ...BASE, formatos: ['audio'], discs: ['C'], renderAudio: true, sb: sb.client as any });
+    expect(r.success).toBe(true);
+    expect(r.audioRendered).toBe(1);
+    expect(podcastCore).toHaveBeenCalledWith(sb.client, expect.objectContaining({ id: 'c-audio', empresa_id: 'emp-1' }), expect.any(Function));
+    const update = podcastCore.mock.calls[0][2];
+    await expect(update('c-audio', { url: 'https://example.test/audio.mp3' })).resolves.toEqual(expect.objectContaining({ url: 'https://example.test/audio.mp3' }));
+    expect(sb.chamadas.filter(c => c.tabela === 'micro_conteudos' && c.metodo === 'eq' && c.args[0] === 'empresa_id').map(c => c.args[1])).toEqual(['emp-1', 'emp-1']);
+  });
+
+  it('falha ao ler o áudio não chama síntese nem relata sucesso', async () => {
+    const sb = sbFake();
+    sb.falharEm({ tabela: 'micro_conteudos', op: 'select', mensagem: 'consulta indisponível' });
+    const r = await gerarKitSemanal({ ...BASE, formatos: ['audio'], discs: ['C'], renderAudio: true, sb: sb.client as any });
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('consulta indisponível');
+    expect(podcastCore).not.toHaveBeenCalled();
+  });
+
+  it('falha de persistência após síntese também torna o job observavelmente incompleto', async () => {
+    const sb = sbFake();
+    sb.falharEm({ tabela: 'micro_conteudos', op: 'update', mensagem: 'escrita indisponível' });
+    podcastCore.mockImplementation(async (_sb, mc, update) => {
+      await update(mc.id, { url: 'https://example.test/audio.mp3' });
+      return { success: true, error: undefined };
+    });
+    const r = await gerarKitSemanal({ ...BASE, formatos: ['audio'], discs: ['C'], renderAudio: true, sb: sb.client as any });
+    expect(r.success).toBe(false);
+    expect(r.error).toContain('escrita indisponível');
+  });
+
+  it('áudio reprovado não vira job concluído com zero podcasts silenciosamente', async () => {
+    podcastCore.mockResolvedValue({ success: false, error: 'TTS: todas as tentativas reprovadas' });
+    const sb = sbFake();
+    const r = await gerarKitSemanal({ ...BASE, formatos: ['audio'], discs: ['C'], renderAudio: true, sb: sb.client as any });
+    expect(r.success).toBe(false);
+    expect(r.audioRendered).toBe(0);
+    expect(r.error).toContain('todas as tentativas reprovadas');
+  });
+
   it('1 DISC com useBatch=true LOTEIA (o caso que a régua antiga silenciava)', async () => {
     const sb = sbFake();
     const r = await gerarKitSemanal({ ...BASE, discs: ['C'], useBatch: true, sb: sb.client as any });

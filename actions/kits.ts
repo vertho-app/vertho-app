@@ -245,13 +245,29 @@ export async function gerarKitSemanal({
     }
 
     let audioRendered = 0;
+    const audioErrors: string[] = [];
     if (renderAudio) {
-      const { gerarPodcastAudio } = await import('@/actions/conteudos');
+      // Job do Trigger não tem cookies de request. O gate já foi aplicado ao
+      // obter sbk: usa o núcleo headless, mantendo o tenant na leitura/escrita.
+      const { gerarPodcastAudioCore } = await import('@/lib/conteudo-podcast-core');
       for (const k of kits) {
         for (const c of (k as any).conteudos || []) {
           if (c.formato === 'audio' && c.ok && c.conteudoId) {
-            const a = await gerarPodcastAudio(c.conteudoId).catch(() => null);
-            if ((a as any)?.success) audioRendered++;
+            try {
+              const scoped = (q: any) => empresaId ? q.eq('empresa_id', empresaId) : q.is('empresa_id', null);
+              const { data: mc, error } = await scoped(sbk.from('micro_conteudos')
+                .select('id,formato,titulo,competencia,conteudo_inline,empresa_id').eq('id', c.conteudoId)).single();
+              if (error || !mc) throw new Error(error?.message || 'Conteúdo de áudio não encontrado no tenant do kit');
+              const a = await gerarPodcastAudioCore(sbk, mc, async (id, patch) => {
+                const { data, error: e } = await scoped(sbk.from('micro_conteudos').update(patch).eq('id', id)).select('id').single();
+                if (e) throw new Error(e.message);
+                return data;
+              });
+              if (!a.success) throw new Error(a.error || 'Podcast não publicado');
+              audioRendered++;
+            } catch (e: any) {
+              audioErrors.push(`${c.conteudoId}: ${e?.message || e}`);
+            }
           }
         }
       }
@@ -263,15 +279,18 @@ export async function gerarKitSemanal({
       await prepararDesafiosDaCoorte(sbk, empresaId, { competencia, limite: 12 });
     }
     return {
-      success: okKits > 0,
+      success: okKits > 0 && audioErrors.length === 0,
+      ...(audioErrors.length ? { error: `Falha ao publicar podcast(s): ${audioErrors.join(' | ')}` } : {}),
       competencia, descritor,
       kits: kits.map((k) => ({ disc: (k as any).disc, kitId: (k as any).kitId, ok: k.success, error: (k as any).error, desafio: (k as any).desafio, conteudos: (k as any).conteudos })),
       audioRendered,
+      audioErrors,
       message: `Kit semanal ${competencia} › ${descritor}: ${okKits}/${discs.length} DISC` + (renderAudio ? ` · ${audioRendered} podcast(s) renderizado(s)` : ''),
     };
   } catch (err: any) {
     console.error('[gerarKitSemanal]', err);
-    return { success: false, error: err?.message || 'Erro' };
+    return { success: false, error: err?.message || 'Erro', competencia, descritor,
+      kits: [], audioRendered: 0, audioErrors: [], message: 'Kit semanal não concluído' };
   }
 }
 
