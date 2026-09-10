@@ -1,77 +1,56 @@
-import Link from 'next/link';
+import { TURMA_ENCERRADAS } from '@/lib/status';
 import { carregarClientes } from '../actions';
+import CarteiraOperacional from './CarteiraOperacional';
 
-export const metadata = { title: 'Clientes' };
+export const metadata = { title: 'Clientes e turmas · Admin por fluxo' };
 export const dynamic = 'force-dynamic';
 
-/**
- * A lista de clientes é tela NOVA: hoje `/admin/empresas/gerenciar` gere pessoas
- * e cargos (não é lista de clientes) e `/admin/empresas/nova` só cria. Esta é a
- * porta que faltava — estado e bloqueador por cliente, não só nome e contagem.
- */
 export default async function ClientesPage() {
   const { clientes, erro } = await carregarClientes();
 
   if (erro) {
     return (
-      <div className="rounded-2xl border border-red-400/40 bg-red-400/5 px-5 py-4 text-sm text-red-200">
-        Não foi possível carregar os clientes: {erro}
+      <div className="rounded-[16px] border border-red-400/35 bg-red-400/[0.06] px-5 py-4 text-sm text-red-200">
+        A carteira não conseguiu carregar. {erro}
       </div>
     );
   }
 
-  const travados = clientes.filter((c) => c.bloqueador).length;
+  const turmasAtivas = clientes.reduce(
+    (total, cliente) => total + cliente.portfolio.turmas.filter((turma) => !TURMA_ENCERRADAS.includes(turma.status)).length,
+    0,
+  );
+  const semTurma = clientes.reduce((total, cliente) => total + cliente.portfolio.semTurma, 0);
 
   return (
-    <>
-      <p className="max-w-[76ch] text-[13.5px] text-[var(--ink-dim)]">
-        <b className="text-[var(--ink)]">{clientes.length}</b> clientes · <b className="text-[var(--ink)]">{travados}</b>{' '}
-        com algo travando o avanço de fase. A coluna “o que trava” é derivada do mesmo dado que o pipeline lê, não de um
-        campo de status.
-      </p>
+    <div className="space-y-7">
+      <section className="grid gap-6 border-b border-white/[0.08] pb-7 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div>
+          <p className="font-[family-name:var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.15em] text-[var(--cyan)]">Carteira operacional</p>
+          <h1 className="mt-2 max-w-[820px] text-[clamp(30px,4vw,50px)] font-semibold leading-[1] tracking-[-0.045em]">
+            Uma fundação, <span className="font-[family-name:var(--font-serif)] font-normal italic text-[var(--cyan-soft)]">vários relógios</span>
+          </h1>
+          <p className="mt-4 max-w-[72ch] text-[13.5px] leading-relaxed text-[var(--ink-dim)]">
+            A empresa concentra base e régua. Cada turma aparece abaixo com sua própria distribuição e a ação que destrava o próximo avanço.
+          </p>
+        </div>
+        <div className="flex gap-6 lg:pb-1">
+          <Resumo valor={clientes.length} rotulo="empresas" />
+          <Resumo valor={turmasAtivas} rotulo="turmas ativas" />
+          <Resumo valor={semTurma} rotulo="pessoas sem turma" destaque={semTurma > 0} />
+        </div>
+      </section>
 
-      <div className="overflow-x-auto rounded-2xl border border-white/[0.08] bg-[var(--navy-card)] shadow-[0_8px_20px_rgba(0,0,0,0.18)]">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-white/[0.03]">
-              {['Cliente', 'Pessoas', 'Fase atual', 'O que trava', ''].map((h, i) => (
-                <th
-                  key={h || i}
-                  className={`whitespace-nowrap border-b border-white/[0.08] px-4 py-2.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[var(--ink-faint)] ${
-                    i === 1 ? 'text-right' : 'text-left'
-                  }`}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {clientes.map((c) => (
-              <tr key={c.id} className="border-b border-white/[0.08] last:border-b-0 hover:bg-white/[0.02]">
-                <td className="px-4 py-3 font-medium">{c.nome}</td>
-                <td className="px-4 py-3 text-right font-mono tabular-nums text-[var(--ink-dim)]">{c.colaboradores}</td>
-                <td className="whitespace-nowrap px-4 py-3 font-mono text-[11.5px] text-[var(--cyan-soft)]">{c.faseAtual}</td>
-                <td className="px-4 py-3 text-[12.5px]">
-                  {c.bloqueador ? (
-                    <span className="text-[var(--warning)]">{c.bloqueador}</span>
-                  ) : (
-                    <span className="text-[var(--success)]">nada — segue em regime</span>
-                  )}
-                </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right">
-                  <Link
-                    href={`/admin-v2/cliente?empresa=${c.id}`}
-                    className="font-mono text-[11px] text-[var(--cyan)] hover:underline"
-                  >
-                    abrir →
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </>
+      <CarteiraOperacional clientes={clientes} />
+    </div>
+  );
+}
+
+function Resumo({ valor, rotulo, destaque }: { valor: number; rotulo: string; destaque?: boolean }) {
+  return (
+    <div className="min-w-[78px]">
+      <div className={`font-[family-name:var(--font-serif)] text-[30px] leading-none ${destaque ? 'text-[var(--warning)]' : ''}`}>{valor}</div>
+      <div className="mt-1 font-[family-name:var(--font-manrope)] text-[9px] uppercase tracking-[0.1em] text-[var(--ink-faint)]">{rotulo}</div>
+    </div>
   );
 }

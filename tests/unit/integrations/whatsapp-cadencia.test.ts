@@ -28,15 +28,18 @@ describe('cadência de lote — intervalo', () => {
   beforeEach(() => ENVS.forEach((e) => delete process.env[e]));
   afterEach(() => ENVS.forEach((e) => delete process.env[e]));
 
-  it('usa default muito acima dos 2s que causaram o bloqueio', () => {
-    // 17/08: 15s → 6s, quando a política virou única e o canal passou a ser a
-    // Cloud API oficial (teto 80 msg/s). O 6s é o valor MEDIDO em produção —
-    // 38 boas-vindas a 7,0s e 34 avisos de plano a 6,5s, 0 falhas.
-    expect(intervaloLoteMs()).toBe(6_000);
-    // A régua do incidente CONTINUA valendo, e é o que trava o valor: qualquer
-    // default que permita mais de 10 msg/min é regressão. 6s dá exatamente 10 —
-    // é o teto, não uma folga. Descer para 5s quebra este teste de propósito.
-    expect(60_000 / intervaloLoteMs()).toBeLessThanOrEqual(10);
+  it('usa default abaixo do teto de vazão do canal, com margem de duas ordens', () => {
+    // 31/08: 6s → 1s. O 6s era a régua do incidente do QR ("≤10 msg/min")
+    // aplicada a um canal que não é aquele. `Medido: 31/08/2026` na conta de
+    // produção: `throughput.level: STANDARD` = 80 msg/s, e o outro limite da
+    // Cloud API é o tier de conversas iniciadas em 24h — volume, não taxa.
+    expect(intervaloLoteMs()).toBe(1_000);
+    // O que trava o valor agora é o limite REAL do canal, não o do canal morto:
+    // o default tem de ficar pelo menos 1 ordem de grandeza abaixo dos 80 msg/s
+    // que a Meta concede. 1s dá 1 msg/s, 1,25% da vazão. Descer para 12ms (80/s)
+    // quebra este teste de propósito.
+    const msgPorSegundo = 1_000 / intervaloLoteMs();
+    expect(msgPorSegundo).toBeLessThanOrEqual(8);
   });
 
   it('respeita WHATSAPP_LOTE_INTERVALO_MS', () => {
@@ -47,7 +50,7 @@ describe('cadência de lote — intervalo', () => {
   it('ignora env inválida em vez de virar 0 (que restauraria a rajada)', () => {
     for (const ruim of ['abc', '0', '-5', '']) {
       process.env.WHATSAPP_LOTE_INTERVALO_MS = ruim;
-      expect(intervaloLoteMs()).toBe(6_000);
+      expect(intervaloLoteMs()).toBe(1_000);
     }
   });
 });
@@ -95,14 +98,22 @@ describe('cadência de lote — atrasos', () => {
     expect(atrasosDoLote(4, () => 0.5)).toEqual([0, 12, 24, 36]);
   });
 
-  it('lote de 155 leva MUITO mais que no ritmo do incidente', () => {
+  it('lote de 155 fica uma ordem de grandeza abaixo da vazão do canal', () => {
     const at = atrasosDoLote(155, () => 0.5);
     const totalS = at[at.length - 1];
-    // Relativo, não absoluto: a régua é a DISTÂNCIA do incidente (154 × 2s =
-    // 308s), que sobrevive a mudanças do default. Em 17/08 esta asserção era
-    // `> 30 min` e caiu junto com o 15s — o número tinha virado o teste.
-    const noRitmoDoIncidente = 154 * 2;
-    expect(totalS).toBeGreaterThan(noRitmoDoIncidente * 2.5);
+    // 🔑 A ÂNCORA MUDOU EM 31/08, e isto é a mudança de política, não um número
+    // reajustado. Até aqui a régua era a DISTÂNCIA do incidente de 11/08 (154 ×
+    // 2s = 308s, e exigia-se 2,5× disso). Mas aquele incidente foi no número QR
+    // da Z-API, cujo bloqueio é heurística antispam sobre a TAXA; o canal de
+    // hoje é a Cloud API, que concede vazão explícita e pune QUALIDADE.
+    // Manter a régua velha era medir o canal morto — o mesmo erro que ela mesma
+    // denuncia no comentário anterior ("o número tinha virado o teste").
+    //
+    // ⚠️ Consequência que precisa ficar dita: a 1s o lote roda a 60 msg/min, o
+    // DOBRO das ~30/min do incidente. Isso é aceitável porque o mecanismo é
+    // outro, não porque o ritmo é seguro em abstrato.
+    const msgPorSegundo = 154 / totalS;
+    expect(msgPorSegundo).toBeLessThanOrEqual(8); // 10% dos 80 msg/s concedidos
   });
 });
 
@@ -177,15 +188,22 @@ describe('cadência de lote — relógio incremental', () => {
     expect(relogio.tetoAtingido()).toBe(true);
   });
 
-  it('a cadência do cron diário não pode voltar a ~30 msg/min', () => {
-    // A régua do incidente aplicada ao caminho automático: 36 mensagens (a coorte
-    // de Ibipeba hoje) levavam 72s a 2s/msg. Com a política, minutos.
+  it('o cron diário passa pela MESMA política, não por um ritmo próprio', () => {
+    // O que este teste defende não é um piso de segundos (ver a troca de âncora
+    // em 31/08 no teste do lote de 155): é que o caminho AUTOMÁTICO — que roda
+    // sem ninguém olhando e era o último a ter ritmo próprio — obedece à mesma
+    // vazão do resto. 36 mensagens = a coorte de Ibipeba.
     const relogio = criarRelogioCadencia(() => 0.5);
     let ultimo = 0;
     for (let i = 0; i < 36; i++) ultimo = relogio.proximo();
 
-    // 35 × 2s = 70s era o ritmo do incidente para esta coorte.
-    expect(ultimo).toBeGreaterThan(35 * 2 * 2.5);
+    expect(35 / ultimo).toBeLessThanOrEqual(8);
+    // E é a política que manda: mudar a env muda o cron junto.
+    process.env.WHATSAPP_LOTE_INTERVALO_MS = '4000';
+    const outro = criarRelogioCadencia(() => 0.5);
+    let ultimoOutro = 0;
+    for (let i = 0; i < 36; i++) ultimoOutro = outro.proximo();
+    expect(ultimoOutro).toBe(35 * 4);
   });
 });
 
@@ -196,10 +214,10 @@ describe('duracaoEstimada', () => {
   it('descreve a duração para a UI', () => {
     expect(duracaoEstimada(0)).toBe('imediato');
     expect(duracaoEstimada(1)).toBe('imediato');
-    // Com 6s: 5 msg = 24s, 155 = ~15 min, 300 = ~30 min.
+    // Com 1s: 5 msg = 4s, 155 = ~3 min, 300 = ~5 min.
     expect(duracaoEstimada(5)).toBe('menos de 1 min');
-    expect(duracaoEstimada(155)).toBe('~15 min');
-    expect(duracaoEstimada(300)).toBe('~30 min');
+    expect(duracaoEstimada(155)).toBe('~3 min');
+    expect(duracaoEstimada(300)).toBe('~5 min');
   });
 });
 
@@ -241,8 +259,8 @@ describe('paceador síncrono', () => {
     await p.aguardarVez();
     await p.aguardarVez();
 
-    // rng 0.5 → fator 1 → intervalo cheio. O que importa: ≫ os 1,2s-2s do incidente.
-    expect(rel.lido()).toBe(6_000);
+    // rng 0.5 → fator 1 → intervalo cheio, vindo da política e não de um literal.
+    expect(rel.lido()).toBe(1_000);
   });
 
   it('desconta o tempo que a iteração anterior gastou — a política é TAXA, não sleep', async () => {
@@ -250,11 +268,11 @@ describe('paceador síncrono', () => {
     const p = criarPaceadorSincrono({ rng: () => 0.5, dormir: rel.dormir, agora: rel.agora });
 
     await p.aguardarVez();
-    rel.gastar(4_000);      // render do PDF + envio demoraram 4s
+    rel.gastar(600);        // render do PDF + envio demoraram 600ms
     await p.aguardarVez();
 
-    // 4s já passaram: espera só os 2s que faltam para completar o intervalo.
-    expect(rel.lido()).toBe(6_000);
+    // 600ms já passaram: espera só os 400ms que faltam para completar o intervalo.
+    expect(rel.lido()).toBe(1_000);
   });
 
   it('iteração mais lenta que o intervalo não dorme nada (nunca atraso negativo)', async () => {
@@ -284,15 +302,15 @@ describe('paceador síncrono', () => {
 
   // ── a que mais importa ─────────────────────────────────────────────────────
   it('teto de TEMPO impede o lote cortado no meio pela lambda', async () => {
-    // 1 min de orçamento, 6s por mensagem → cabem 11, não as 120 do teto de volume.
-    process.env.WHATSAPP_LOTE_SINCRONO_ORCAMENTO_MS = '60000';
+    // 10s de orçamento, 1s por mensagem → cabem 11, não as 120 do teto de volume.
+    process.env.WHATSAPP_LOTE_SINCRONO_ORCAMENTO_MS = '10000';
     const rel = relogioFalso();
     const p = criarPaceadorSincrono({ rng: () => 0.5, dormir: rel.dormir, agora: rel.agora });
 
     let liberadas = 0;
     while (!p.tetoAtingido()) { await p.aguardarVez(); liberadas++; }
 
-    // 0s, 6s, 12s … 60s — a 12ª precisaria de 66s e não cabe no orçamento.
+    // 0s, 1s, 2s … 10s — a 12ª precisaria de 11s e não cabe no orçamento.
     expect(liberadas).toBe(11);
     expect(p.motivoDoTeto()).toBe('tempo');
     expect(p.liberadas()).toBe(11);

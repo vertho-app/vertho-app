@@ -204,7 +204,15 @@ export default function TurmasPanel({ empresaId, portfolio }: { empresaId: strin
 
               {t.proximaAcao && (
                 <a
-                  href={`/admin/empresas/${empresaId}?turma=${t.id}`}
+                  href={`/admin-v2/clientes/${empresaId}/turmas/${t.id}/${
+                    t.comResposta < t.membros || t.comIa4 < t.comResposta
+                      ? 'diagnostico'
+                      : t.comIa4 > t.comTrilha
+                        ? 'lancamento'
+                        : t.comTrilha > 0
+                          ? 'acompanhamento'
+                          : 'preparar'
+                  }`}
                   className="mt-1.5 block text-[12.5px] text-[var(--cyan)] hover:underline"
                 >
                   → {t.proximaAcao}

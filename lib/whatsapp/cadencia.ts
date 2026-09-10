@@ -10,9 +10,10 @@
  *
  * Três decisões, e o motivo de cada uma:
  *
- * 1. **Intervalo maior** (hoje 6s ≈ 10/min; era 2s ≈ 30/min, e foi 15s enquanto
- *    o canal era o número QR). Ver a nota de 17/08 no fim deste bloco: o valor
- *    acompanha o canal, e o de agora é o único medido em produção.
+ * 1. **Intervalo** (hoje 1s ≈ 60/min; era 2s ≈ 30/min no incidente, 15s enquanto
+ *    o canal era o número QR e 6s no primeiro ano da Cloud API). Ver as notas de
+ *    17/08 e 31/08 no fim deste bloco: o valor acompanha o CANAL, e o de agora é
+ *    o primeiro escolhido pelo limite real do canal, não por herança do QR.
  *
  * 2. **Jitter** (±30%). Uma mensagem a cada exatamente 2,000ms é assinatura de
  *    robô — o padrão perfeito é, por si só, um sinal. Note que o jitter é
@@ -43,12 +44,40 @@
  * Manter 15s ao unificar teria QUEBRADO o caminho que acabou de funcionar: o
  * disparo pela tela roda numa server action, e 34 × 15s = 510s estoura o teto
  * (o envio real levou 215s e coube).
+ *
+ * ── 31/08/2026: default 6s → 1s, pelo limite REAL do canal ──────────────────
+ * O 6s de 17/08 foi escolhido já na Cloud API, mas ancorado na régua do
+ * incidente do QR ("no máximo 10 msg/min"), não em nenhum limite desta API. A
+ * régua herdada media o canal errado.
+ *
+ * `Medido: 31/08/2026` na conta de produção (`GET /{phone-number-id}`):
+ * `platform_type: CLOUD_API`, `throughput.level: STANDARD` (**80 msg/s**),
+ * `quality_rating: GREEN`, WABA `APPROVED` + `business_verification_status:
+ * verified`. O que a Cloud API limita é (a) throughput e (b) o tier de conversas
+ * INICIADAS em 24h — os dois são volume/vazão, e nenhum é penalizado por rajada
+ * dentro do teto. A 6s usávamos 0,2% da vazão contratada.
+ *
+ * 🔑 **O que derruba o número aqui não é a taxa, é o `quality_rating`**, que cai
+ * por bloqueio e denúncia de quem recebe. Contra isso o intervalo nunca fez
+ * nada: quem protege são opt-in, relevância e template aprovado. Espaçar era
+ * tratar o sintoma de OUTRA doença, a do número QR sem opt-in de 11/08.
+ *
+ * Por que 1s e não zero: o teto de VOLUME e o de TEMPO continuam sendo os
+ * limites que importam, e um intervalo pequeno mantém a diluição (jitter) sem
+ * custar nada — 120 mensagens saem em 2 min, dentro do orçamento síncrono.
+ * Zerar exigiria tirar o paceador do caminho, não pôr 0 na env (ver abaixo).
  */
 
-/** Intervalo-base entre mensagens do lote, em ms. */
+/**
+ * Intervalo-base entre mensagens do lote, em ms.
+ *
+ * ⚠️ `0` (e qualquer valor inválido) NÃO desliga a espera: cai no default. É
+ * deliberado — "desligar por env" seria restaurar a rajada com um typo. Para
+ * enviar sem espaçamento, remova o paceador do call-site.
+ */
 export function intervaloLoteMs(): number {
   const bruto = Number(process.env.WHATSAPP_LOTE_INTERVALO_MS);
-  return Number.isFinite(bruto) && bruto > 0 ? bruto : 6_000;
+  return Number.isFinite(bruto) && bruto > 0 ? bruto : 1_000;
 }
 
 /** Máximo de destinatários que UM disparo pode agendar. */

@@ -1,7 +1,11 @@
 /* eslint-disable */
 // Liga o modo sem marca de um tenant e REGERA os PDFs de PDI já existentes.
 //
-//   npx tsx scripts/_regerar-pdi-sem-marca.ts <slug> [--aplicar] [--logo-tenant]
+//   npx tsx scripts/_regerar-pdi-sem-marca.ts <slug> [--aplicar] [--logo-tenant] [--cargo="Professor(a)"]
+//
+// `--cargo` limita a regeração a um cargo. Serve para quando só uma leva nasceu
+// marcada (o núcleo de geração não resolve a marca): regerar quem já está limpo
+// só trocaria o `pdf_path` por outro igual, deixando o arquivo anterior órfão.
 //
 // Por que regerar em vez de só ligar a flag: o PDF do PDI é gerado UMA vez e
 // reusado (`if (!path)` em `baixarMeuPdiPdf`). Mudar o componente não toca nos
@@ -25,6 +29,7 @@ import { storageSlug } from '@/lib/storage-slug';
 const SLUG = process.argv[2] || 'macae';
 const APLICAR = process.argv.includes('--aplicar');
 const LOGO_TENANT = process.argv.includes('--logo-tenant');
+const CARGO = process.argv.find((a) => a.startsWith('--cargo='))?.slice('--cargo='.length) || null;
 
 async function main() {
   const sb = createSupabaseAdmin();
@@ -35,15 +40,26 @@ async function main() {
   const empresaId = (emp as any).id;
   const sysAtual = ((emp as any).sys_config || {}) as Record<string, any>;
 
-  const { data: rels, error: errRel } = await sb.from('relatorios')
+  let idsDoCargo: string[] | null = null;
+  if (CARGO) {
+    const { data: colabsCargo, error: errCargo } = await sb.from('colaboradores')
+      .select('id').eq('empresa_id', empresaId).eq('cargo', CARGO);
+    if (errCargo) throw new Error(`cargo: ${errCargo.message}`);
+    idsDoCargo = (colabsCargo || []).map((c: any) => c.id);
+    if (!idsDoCargo.length) throw new Error(`nenhum colaborador com cargo "${CARGO}" em ${SLUG}`);
+  }
+
+  let q = sb.from('relatorios')
     .select('id, conteudo, colaborador_id, pdf_path, gerado_em')
-    .eq('empresa_id', empresaId).eq('tipo', 'individual')
-    .order('gerado_em', { ascending: true });
+    .eq('empresa_id', empresaId).eq('tipo', 'individual');
+  if (idsDoCargo) q = q.in('colaborador_id', idsDoCargo);
+  const { data: rels, error: errRel } = await q.order('gerado_em', { ascending: true });
   if (errRel) throw new Error(errRel.message);
 
   console.log(`${SLUG} (${(emp as any).nome})`);
   console.log(`  sys_config: ${Object.keys(sysAtual).length} chaves · pdf_sem_marca atual: ${sysAtual.pdf_sem_marca ?? '(ausente)'}`);
   console.log(`  logo do cliente na capa: ${LOGO_TENANT ? 'SIM (--logo-tenant)' : 'não'}`);
+  console.log(`  escopo: ${CARGO ? `cargo "${CARGO}" (${idsDoCargo!.length} pessoa(s))` : 'TODOS os cargos'}`);
   console.log(`  PDIs: ${rels?.length || 0} · com pdf_path: ${(rels || []).filter((r: any) => r.pdf_path).length}`);
   if (!APLICAR) { console.log('\n(dry-run — rode com --aplicar)'); return; }
 
