@@ -275,6 +275,21 @@ listagem de propósito: silêncio ali viraria "ninguém acessou" na tela.
 um dia, use a Degustação individual (o reset adia enquanto houver passaporte no
 prazo) ou o convidado nomeado do perfil do tenant, que o seed recria.
 
+### "DISC aguardando" no acompanhamento é a VERDADE do banco (10/09/2026)
+
+Funil das degustações ativas auditado: todas paradas na etapa 1, e **não é
+carimbo perdido**. O DISC concluído grava `colaboradores.mapeamento_em` /
+`perfil_dominante` / `disc_resultados` (`mapeamento-actions.ts:105-167`) e o
+carimbo da etapa 2 sai de `recordAcmeProspectDiscCompletion`
+(`acme-prospect-tracking.ts:210`); mesmo que esse carimbo falhe,
+`listAcmeProspectProgress` relê `mapeamento_em` e preenche `disc_completed_at`
+ao montar a tela (`acme-prospect-tracking.ts:245-259`) — ou seja, a tela já é o
+valor auto-corrigido, e "Aguardando" nela significa DISC não concluído mesmo.
+
+DISC começado e abandonado **não deixa rastro**: não existe tabela de progresso
+parcial, então "abriu e largou no meio" é indistinguível de "nunca abriu".
+Verificação ponta a ponta: `scripts/_degustacao-acme.mjs` (somente leitura).
+
 ## Um ambiente demo é IDENTIDADE + ROSTER
 
 Um tenant de demonstração é a soma de duas coisas, e elas mudam por motivos

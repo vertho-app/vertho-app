@@ -415,6 +415,21 @@ pessoa”. A consulta é fail-closed: sem trilha/progresso confiável, a posiç�
 02/09/2026, usar o relógio produziu “38 na semana 3”; a régua correta encontrou 21 na S1 pendente, 8
 na S2 pendente, 7 na S3 em curso e 2 com S3 concluída.
 
+### Medir engajamento por semana (10/09/2026)
+
+A régua canônica é `lib/engagement-evolution.ts::buildEngagementEvolutionDashboard`. População =
+`fase4_envios` (inscritos na cadência); elegível à semana N = `semana_atual >= N`. Funil por semana:
+**ativou** (`abertura`/`formato`/`audio_fim` em `trilha_eventos`, play em `videos_watched`,
+`conteudo_consumido`, tira-dúvidas) → **consumiu** (`audio_fim`, `play_finished`,
+`consumiuConteudo()` de `lib/season-engine/consumo-conteudo.ts`) → **evidência**
+(`temporada_semana_progresso` tipo `conteudo`/`aplicacao` com status `concluido`).
+
+Três pegadinhas da leitura: a semana em curso SEMPRE dá 0% (não é queda — é a semana aberta); "sem
+atividade há N dias" NÃO é conceito do produto (ele usa trajetória crítico/atenção) — medir pelo
+último timestamp de `trilha_eventos.criado_em` / `videos_watched.created_at` /
+`temporada_semana_progresso`; turmas se isolam por `turma_membros` (status `ativo`), não por nome de
+empresa. Medição pronta: `scripts/_engajamento-semanal.mjs` (somente leitura).
+
 Interruptor `CADENCIA_SEMANA_ACESSIVEL=0`. Verificação:
 `scripts/_dryrun-semana-acessivel.ts --empresa=<slug> --em=<ISO na hora do cron>`.
 
