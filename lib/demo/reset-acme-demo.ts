@@ -294,6 +294,10 @@ export const DEMO_TENANT_PROFILES = {
     segmento: 'corporativo',
     roster: 'comercial' as DemoRosterKey,
     fixture: 'acme' as DemoFixtureKey,
+    // O ACME demonstra o formato atual: uma competência em uma jornada de
+    // 7 semanas. Fica no PERFIL (não no roster comercial compartilhado) para
+    // o Grupo Sinal continuar no programa regular de 14 semanas.
+    programaModo: 'jornada',
     loginSubtitle: 'Ambiente de treinamento e demonstração da Vertho',
     logoUrl: null,
     pppNome: 'ACME Demo - Cultura e Operação',
@@ -320,6 +324,7 @@ export const DEMO_TENANT_PROFILES = {
     segmento: 'educacao',
     roster: 'escolar' as DemoRosterKey,
     fixture: 'escolas' as DemoFixtureKey,
+    programaModo: null as string | null,
     loginSubtitle: 'Ambiente de demonstração da jornada Vertho para redes de ensino',
     logoUrl: null,
     pppNome: 'Rede de Escolas ACME — Projeto Político-Pedagógico',
@@ -340,6 +345,7 @@ export const DEMO_TENANT_PROFILES = {
     segmento: 'corporativo',
     roster: 'comercial' as DemoRosterKey,
     fixture: 'acme' as DemoFixtureKey,
+    programaModo: null as string | null,
     loginSubtitle: 'Ambiente de demonstração da jornada Vertho para o Grupo Sinal',
     logoUrl: 'https://www.gruposinal.com.br/assets/logo-grupo-sinal-white.webp',
     pppNome: 'Grupo Sinal — Contexto organizacional',
@@ -422,6 +428,84 @@ export function personalizarArtefatoDemo<T>(value: T, slug: DemoTenantSlug): T {
     ) as T;
   }
   return value;
+}
+
+/**
+ * Converte a trilha rica congelada no formato antigo (14 semanas) para a
+ * jornada de 7 semanas sem rodar IA durante o reset. Os seis primeiros conteúdos
+ * reais são preservados e o fechamento final passa a ocupar a semana 7.
+ *
+ * O fixture continua sendo a fotografia histórica de 14 semanas porque ele é
+ * compartilhado com o Grupo Sinal. A decisão de programa pertence ao PERFIL
+ * do ambiente; por isso a adaptação acontece só na borda de persistência.
+ */
+export function adaptarTrilhaFixtureAoModo(row: any, programaModo?: string | null): any {
+  if (!row || programaModo !== 'jornada') return row;
+
+  const plano = Array.isArray(row.temporada_plano) ? row.temporada_plano : [];
+  const config = getProgramaConfigByModo('jornada');
+
+  // Fixture já capturado no formato novo: só garante o carimbo coerente.
+  if (plano.length === config.semanas) {
+    return { ...row, programa_modo: 'jornada', programa_config: null };
+  }
+
+  const conteudos = plano
+    .filter((semana: any) => semana?.tipo === 'conteudo' && semana?.conteudo)
+    .slice(0, config.slotsConteudo.length);
+  const avaliacao = [...plano]
+    .reverse()
+    .find((semana: any) => semana?.tipo === 'avaliacao');
+
+  if (conteudos.length !== config.slotsConteudo.length || !avaliacao) {
+    throw new Error(
+      `fixture de jornada inválido: esperava ${config.slotsConteudo.length} conteúdos e uma avaliação; `
+      + `encontrou ${conteudos.length} conteúdos e ${avaliacao ? 1 : 0} avaliação`,
+    );
+  }
+
+  const temporadaPlano = [
+    ...conteudos.map((semana: any, indice: number) => ({
+      ...semana,
+      semana: config.slotsConteudo[indice],
+    })),
+    { ...avaliacao, semana: config.semanaCenarioB },
+  ];
+
+  return {
+    ...row,
+    programa_modo: 'jornada',
+    programa_config: null,
+    temporada_plano: temporadaPlano,
+  };
+}
+
+/** Mantém o progresso congelado alinhado ao plano compactado acima. */
+export function adaptarProgressoFixtureAoModo(progress: any, programaModo?: string | null): any[] {
+  const linhas = Array.isArray(progress) ? progress : [];
+  if (programaModo !== 'jornada') return linhas;
+
+  const config = getProgramaConfigByModo('jornada');
+  if (linhas.length <= config.semanas && linhas.every((linha: any) => Number(linha?.semana) <= config.semanas)) {
+    return linhas;
+  }
+
+  const conteudos = linhas
+    .filter((linha: any) => linha?.tipo === 'conteudo')
+    .slice(0, config.slotsConteudo.length)
+    .map((linha: any, indice: number) => ({ ...linha, semana: config.slotsConteudo[indice] }));
+  const avaliacao = [...linhas]
+    .reverse()
+    .find((linha: any) => linha?.tipo === 'avaliacao');
+
+  if (conteudos.length !== config.slotsConteudo.length || !avaliacao) {
+    throw new Error(
+      `progresso de jornada inválido: esperava ${config.slotsConteudo.length} conteúdos e uma avaliação; `
+      + `encontrou ${conteudos.length} conteúdos e ${avaliacao ? 1 : 0} avaliação`,
+    );
+  }
+
+  return [...conteudos, { ...avaliacao, semana: config.semanaCenarioB }];
 }
 
 
@@ -714,6 +798,9 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   // ramificação por slug do motor de seed, e com ela some a última razão para o
   // reset saber em que tenant está rodando.
   const diretorioDoAmbiente: any[] = (roster.diretorio ?? []) as any[];
+  // Override por ambiente vence o default do roster compartilhado. É o que
+  // permite ao ACME usar a jornada de 7 semanas sem alterar o Grupo Sinal.
+  const programaModo = profile.programaModo ?? roster.programaModo ?? null;
   // O fixture de ESTRUTURA (competências, cargos, top10, cenários capturados de
   // um tenant vivo) é do ambiente, não do motor. Quem tem todos os cargos
   // construídos no roster não herda estrutura de ninguém, e semear o fixture
@@ -954,7 +1041,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       allow_open_signup: true,
       mapeamento_cenarios_liberado: true,
       perfil_comportamental_liberado: true,
-      programa_modo: 'regular',
+      programa_modo: programaModo || 'regular',
       cadencia: { ...(sourceConfig.cadencia || {}), email_ativo: false, whatsapp_ativo: false },
       envios: {},
       // Exceção do envio-guard (login self-service do prospect). NÃO entra no
@@ -1538,7 +1625,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         disc_resultados: semPerfil ? null : { demo: true, estado_demo: p.scenario },
         report_texts: reportTexts,
         report_generated_at: reportTexts ? new Date().toISOString() : null,
-        ...(roster.programaModo ? { programa_modo: roster.programaModo } : {}),
+        ...(programaModo ? { programa_modo: programaModo } : {}),
       }).select('id').single());
       idMap.set(p.key, inserted.id);
     }
@@ -1813,7 +1900,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
           : hojeDemo;
 
         const newTrilha = await must(`trilha ${p.email}`, sb.from('trilhas').insert({
-          ...a.trilha.row,
+          ...adaptarTrilhaFixtureAoModo(a.trilha.row, programaModo),
           empresa_id: destId,
           colaborador_id: colabId,
           criado_em: new Date().toISOString(),
@@ -1825,7 +1912,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         // quando o tenant foi capturado.
         const progressoDaPersona = percursoPersona
           ? construirPercursoDaPersona(percursoPersona)
-          : (a.trilha.progress || []);
+          : adaptarProgressoFixtureAoModo(a.trilha.progress, programaModo);
         if (newTrilha?.id && progressoDaPersona.length) {
           const rows = progressoDaPersona.map((pr: any) => ({ ...pr, empresa_id: destId, colaborador_id: colabId, trilha_id: newTrilha.id }));
           const result = await sb.from('temporada_semana_progresso').insert(rows);
@@ -1975,7 +2062,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         colaborador_id: colaboradorId,
         status,
         competencia_foco: competencia,
-        programa_modo: roster.programaModo || null,
+        programa_modo: programaModo,
         temporada_plano: [],
       });
     };
@@ -2001,7 +2088,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       .map((key) => ({ key, id: personaMap.get(key) }))
       .filter((linha) => linha.id);
     if (emJornada.length) {
-      const cfgJornada = getProgramaConfigByModo(roster.programaModo);
+      const cfgJornada = getProgramaConfigByModo(programaModo);
       const checkpoint = cfgJornada.semanasCheckpoint[0] ?? 3;
       const iniciadoEm = new Date(Date.now() - 21 * 24 * 60 * 60 * 1000).toISOString();
       // Quem perdeu a cadência: o relógio anda 28 dias e o percurso fica em UMA
@@ -2149,7 +2236,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         // As semanas do fechamento saem da CONFIG do programa do ambiente. A
         // jornada escolar fecha em 6/7 e o DUO em 13/14: número fixo aqui
         // gravaria a avaliação numa semana que a trilha não tem.
-        const cfg = getProgramaConfigByModo(roster.programaModo);
+        const cfg = getProgramaConfigByModo(programaModo);
         const fechamento = construirFechamento(evolucao, fechamentoEm, {
           qualitativa: cfg.semanaAcumulada,
           cenario: cfg.semanaCenarioB,

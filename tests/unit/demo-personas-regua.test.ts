@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { DEMO_PRESENTATION_VIDEO, DEMO_PRESENTATION_WEEK_VIDEO, DEMO_RESET_TABLES, DEMO_RH_PERSONA, PERSONAS, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo, relatorioIndividualDemoValido } from '@/lib/demo/reset-acme-demo';
+import { DEMO_PRESENTATION_VIDEO, DEMO_PRESENTATION_WEEK_VIDEO, DEMO_RESET_TABLES, DEMO_RH_PERSONA, DEMO_TENANT_PROFILES, PERSONAS, adaptarProgressoFixtureAoModo, adaptarTrilhaFixtureAoModo, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo, relatorioIndividualDemoValido } from '@/lib/demo/reset-acme-demo';
 import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
 import { ROSTER_COMERCIAL } from '@/lib/demo/rosters';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
@@ -110,6 +110,27 @@ describe('Personas do acme-demo seguem a régua do produto', () => {
     // Em jornada e concluídos são disjuntos, e juntos cobrem quem entrou.
     const emJornada = new Set(panorama.emJornada ?? []);
     expect((panorama.concluidos ?? []).some((key) => emJornada.has(key))).toBe(false);
+  });
+
+  it('usa jornada de 7 semanas só no ACME e compacta a trilha rica sem mexer no fixture', () => {
+    expect(DEMO_TENANT_PROFILES['acme-demo'].programaModo).toBe('jornada');
+    expect(DEMO_TENANT_PROFILES.gruposinal.programaModo).toBeNull();
+
+    const trilhaFixture = (fixture as any).personaArtifacts['bruna.demo@vertho.ai'].trilha;
+    const original = trilhaFixture.row;
+    const adaptada = adaptarTrilhaFixtureAoModo(original, 'jornada');
+    const progresso = adaptarProgressoFixtureAoModo(trilhaFixture.progress, 'jornada');
+
+    expect(original.temporada_plano).toHaveLength(14);
+    expect(adaptada.programa_modo).toBe('jornada');
+    expect(adaptada.temporada_plano).toHaveLength(7);
+    expect(adaptada.temporada_plano.map((semana: any) => semana.semana)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(adaptada.temporada_plano.slice(0, 6).every((semana: any) => semana.tipo === 'conteudo')).toBe(true);
+    expect(adaptada.temporada_plano[6].tipo).toBe('avaliacao');
+    expect(progresso).toHaveLength(7);
+    expect(progresso.map((semana: any) => semana.semana)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(progresso[0].status).toBe('em_andamento');
+    expect(progresso[6].tipo).toBe('avaliacao');
   });
 
   it('gera PDIs válidos e um consolidado coerente para a central demonstrativa', () => {
