@@ -34,7 +34,7 @@ export interface UsoRealResumo {
 export interface CoberturaCatalogo {
   /** Tarefas de IA declaradas em `lib/ai-tasks.ts` — o registro que a tela de modelos itera. */
   tasksDeclaradas: number;
-  /** Quantas dessas têm alguma linha de custo estimado no catálogo (`taskKey` em CALLS). */
+  /** Quantas têm custo escalável ou média por chamada observada no catálogo. */
   tasksComEstimativa: number;
   /** As que rodam sem estimativa nenhuma: `{ key, label, fase }`. */
   semEstimativa: { key: string; label: string; fase: string }[];
@@ -50,8 +50,8 @@ export interface CoberturaCatalogo {
 export async function getCoberturaCatalogo(): Promise<CoberturaCatalogo> {
   await requireAdminAction();
   const { AI_TASKS } = await import('@/lib/ai-tasks');
-  const { CALLS } = await import('@/lib/ia-cost-catalog');
-  const comCusto = new Set(CALLS.map((c: any) => c.taskKey).filter(Boolean));
+  const { TASK_ESTIMATE_KEYS } = await import('@/lib/ia-cost-catalog');
+  const comCusto = new Set(TASK_ESTIMATE_KEYS);
   const semEstimativa = AI_TASKS
     .filter((t) => !comCusto.has(t.key))
     .map((t) => ({ key: t.key, label: t.label, fase: t.fase }));

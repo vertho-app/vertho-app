@@ -19,8 +19,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { AI_TASKS } from '@/lib/ai-tasks';
-import { CALLS, execNaJornada } from '@/lib/ia-cost-catalog';
+import { AI_TASKS, DEFAULT_TASK_MODELS } from '@/lib/ai-tasks';
+import { CALLS, TASK_ESTIMATE_KEYS, TASK_ONLY_ESTIMATES, execNaJornada } from '@/lib/ia-cost-catalog';
 import { PROGRAMA_REGULAR_DUO, PROGRAMA_JORNADA, PROGRAMA_PILOTO } from '@/lib/season-engine/programa-config';
 
 /**
@@ -70,6 +70,17 @@ describe('catálogo de custo ↔ registro de tarefas de IA', () => {
     ).toEqual([]);
   });
 
+  it('estimativas observadas cobrem apenas tasks reais, sem duplicar o catálogo escalável', () => {
+    const declaradas = new Set(AI_TASKS.map((task) => task.key));
+    const escalaveis = new Set(CALLS.map((call: any) => call.taskKey).filter(Boolean));
+    const invalidas = TASK_ONLY_ESTIMATES
+      .filter((task) => !declaradas.has(task.taskKey) || escalaveis.has(task.taskKey) || task.sampleCalls < 5)
+      .map((task) => task.taskKey);
+
+    expect(invalidas).toEqual([]);
+    expect(new Set(TASK_ESTIMATE_KEYS).size).toBe(TASK_ESTIMATE_KEYS.length);
+  });
+
   it('taskKey não repete com escala incompatível dentro do mesmo scaleType', () => {
     // Várias linhas de custo podem cair na mesma task (as três extrações de chat
     // são `temporada_extracao`). O que não pode é a mesma task aparecer em
@@ -99,6 +110,30 @@ describe('catálogo de custo ↔ registro de tarefas de IA', () => {
     expect(
       semEscala,
       `chamada por colaborador sem \`escala\` — entra em toda jornada com o exec do DUO:\n${semEscala.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('preset Atual espelha o modelo padrão que o runtime realmente resolve', () => {
+    const divergentes = CALLS
+      .filter((c) => (c as any).taskKey && DEFAULT_TASK_MODELS[(c as any).taskKey])
+      .filter((c) => c.defaultModel !== DEFAULT_TASK_MODELS[(c as any).taskKey])
+      .map((c) => `  ❌ ${c.id}: tela=${c.defaultModel}, runtime=${DEFAULT_TASK_MODELS[(c as any).taskKey]}`);
+
+    expect(
+      divergentes,
+      `modelo “Atual” diferente do modelo executado em produção:\n${divergentes.join('\n')}`,
+    ).toEqual([]);
+  });
+
+  it('exec fixo representa a jornada de referência Regular DUO', () => {
+    const divergentes = CALLS
+      .filter((c) => c.scaleType === 'colab')
+      .filter((c) => Math.abs(c.exec - execNaJornada(c, PROGRAMA_REGULAR_DUO)) > 0.05)
+      .map((c) => `  ❌ ${c.id}: exec=${c.exec}, dimensões=${execNaJornada(c, PROGRAMA_REGULAR_DUO)}`);
+
+    expect(
+      divergentes,
+      `exec legado não representa mais o Regular DUO:\n${divergentes.join('\n')}`,
     ).toEqual([]);
   });
 

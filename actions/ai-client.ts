@@ -25,7 +25,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
 import { AppLocale, defaultLocale } from '@/i18n/routing';
 import { localeCookieName, localeLanguageName, resolveAppLocale } from '@/lib/i18n';
-import { costFromTokens } from '@/lib/ia-cost-catalog';
+import { costFromTokens, openAIWebSearchToolCost } from '@/lib/ia-cost-catalog';
 // Predicados PUROS vivem em lib/. ⚠️ Este comentário dizia que o arquivo é
 // `'use server'` e que todo export precisa ser async — deixou de valer em 24/08
 // (A8, ver o cabeçalho acima). A regra de ORGANIZAÇÃO continua: predicado puro
@@ -355,6 +355,7 @@ async function registrarUsoIA(
   u: LedgerUsage | null,
   latencyMs: number,
   options: AICallOptions,
+  custoExtraUsd = 0,
 ) {
   try {
     if (!u) return;
@@ -369,6 +370,10 @@ async function registrarUsoIA(
     // porque o TTS também precisa gravar e duas cópias do mesmo registro divergem.
     // A MONTAGEM da linha continua aqui: o que o wrapper sabe (cache, truncagem,
     // origem do call-site) o TTS não sabe.
+    const custoTokens = costFromTokens(model, u);
+    const custoTotal = custoTokens === null
+      ? (custoExtraUsd > 0 ? custoExtraUsd : null)
+      : custoTokens + custoExtraUsd;
     const { gravarLinhaLedger } = await import('@/lib/ia-ledger');
     await gravarLinhaLedger({
       feature: options.taskKey || 'untagged',
@@ -381,7 +386,7 @@ async function registrarUsoIA(
       output_tokens: u.outTokens,
       cache_read_tokens: read || null,
       cache_write_tokens: write || null,
-      cost_usd: costFromTokens(model, u),
+      cost_usd: custoTotal,
       latency_ms: latencyMs,
       // `status` era a constante 'ok' — coluna que nunca variava. Agora carrega
       // a truncagem, sem precisar de migration.
@@ -474,16 +479,17 @@ export async function callOpenAIWebSearch(
   const data: any = await res.json();
   const usage = data?.usage;
   const cachedInput = usage?.input_tokens_details?.cached_tokens || 0;
+  const custoBuscaWeb = openAIWebSearchToolCost(data?.output);
   await registrarUsoIA('openai', model, usage ? {
     inTokens: Math.max(0, (usage.input_tokens || 0) - cachedInput),
     outTokens: usage.output_tokens || 0,
     cacheRead: cachedInput,
     truncou: data?.status === 'incomplete',
-  } : null, Date.now() - startedAt, {
+  } : (custoBuscaWeb > 0 ? { inTokens: 0, outTokens: 0 } : null), Date.now() - startedAt, {
     ...options,
     taskKey: options.taskKey || 'openai_web_search',
     source: options.source || 'responses-web-search',
-  });
+  }, custoBuscaWeb);
 
   const text = typeof data?.output_text === 'string'
     ? data.output_text

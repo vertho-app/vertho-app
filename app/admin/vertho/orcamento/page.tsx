@@ -47,7 +47,9 @@ const JORNADAS = [
  * base sair no MESMO valor (R$ 125.500): a mecânica muda, o preço praticado não.
  */
 const PRECOS_DEFAULT = {
-  cotacao: 5.30,              // USD → BRL
+  // PTAX de fechamento do BCB em 10/09/2026: R$ 5,1149; arredondada na tela.
+  // Continua editável para o orçamento aplicar margem cambial quando necessário.
+  cotacao: 5.12,              // USD → BRL
   // ── Preço (o que a Vertho cobra) ──
   precoSetupGeral: 2000,      // R$ implantação (one-time)
   precoPessoaCiclo: 1200,     // R$ por pessoa por ciclo de programa
@@ -164,7 +166,9 @@ function custoIAConteudo(
     return calcCost(call, (call as any).defaultModel, 1)?.usd || 0;
   };
   const uPodcast = unit('conteudo-podcast-roteiro') + unit('conteudo-podcast-tts');
-  const uTexto = unit('conteudo-texto');
+  // Um PDF de texto percorre as três etapas. A expansão é condicional no código,
+  // mas entra 1× aqui como premissa conservadora de orçamento.
+  const uTexto = unit('conteudo-texto') + unit('conteudo-expansao-pdf') + unit('conteudo-layout-plan');
   const r = Math.max(1, reuso || 1);
   const perColab = (porColab.podcast * uPodcast + porColab.texto * uTexto) / r;
   return { perColab, total: perColab * nColabs, uPodcast, uTexto };
@@ -190,7 +194,7 @@ function custoIAExtracao(nVideos: number, incluirAuditoria: boolean) {
 /**
  * Custo de geração de VÍDEO a partir do Módulo-Base (Opus batch + HeyGen +
  * Remotion Hetzner + narração TTS). One-time por vídeo. Avatar opcional (sem
- * ele, sai só cenas animadas e o custo cai ~$0,50).
+ * ele, sai só cenas animadas e o custo cai ~$0,47).
  */
 function custoIAVideoGerado(nVideos: number, comAvatar: boolean) {
   let total = 0;
@@ -591,7 +595,7 @@ export default function OrcamentoPage() {
           <Clapperboard size={14} /> Vídeo gerado do Módulo-Base
         </p>
         <p className="text-[10px] text-gray-500 mb-3">
-          Vídeo de ~90s (5 cenas) com avatar falante, cenas animadas e narração própria (voz Kore). One-time por vídeo. O render Remotion no trigger.dev é o dominante (~75% do custo, medido em E2E real). O avatar HeyGen é opcional — sem ele, o custo cai ~USD 0,58.
+          Vídeo com avatar falante, cenas animadas e narração própria (voz Aoede). One-time por vídeo. O HeyGen é a maior linha (~64%); o render Remotion roda em Hetzner efêmero (~USD 0,022/vídeo). Sem avatar, o custo cai ~USD 0,47.
         </p>
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
           <FieldNumber locale={locale} icon={<Clapperboard size={14} />} label="Vídeos a gerar" value={nVideosGerados} onChange={setNVideosGerados} min={0} />
@@ -601,7 +605,7 @@ export default function OrcamentoPage() {
               className={`mt-1 px-2 py-1.5 rounded text-xs font-bold border ${comAvatar ? 'bg-violet-500/20 border-violet-400/50 text-violet-300' : 'border-white/10 text-gray-400'}`}>
               {comAvatar ? 'Com avatar (HeyGen)' : 'Só cenas animadas'}
             </button>
-            <p className="text-[9px] text-gray-600 mt-0.5">HeyGen ≈ USD 0,58/vídeo</p>
+            <p className="text-[9px] text-gray-600 mt-0.5">HeyGen ≈ USD 0,47/vídeo</p>
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-4 text-[11px]">

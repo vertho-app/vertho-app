@@ -21,9 +21,11 @@
  *   - `costMultiplier` aplica desconto operacional conhecido (ex.: batch API).
  */
 
-// Preços por 1M tokens (USD) — revisados em jul/2026.
-// ⚠️ gpt-5.4 estava $10/$30 aqui (superestimava ~4x/2x); corrigido para o preço
-// OFICIAL da doc OpenAI ($2,50/$15, cached $0,25) em 12/07/2026.
+// Preços por 1M tokens (USD) — revisados em 10/09/2026 nas tabelas oficiais.
+// Fontes: developers.openai.com/api/docs/pricing, ai.google.dev/gemini-api/docs/pricing,
+// platform.claude.com/docs/en/about-claude/pricing e docs.voyageai.com/docs/pricing.
+// Preço de lançamento com data de término fica marcado junto ao modelo: não se
+// projeta o preço futuro dentro da conta atual.
 export const MODELS = {
   // Anthropic
   'claude-opus-5':              { label: 'Claude Opus 5',       inUsd: 5,    outUsd: 25 },
@@ -42,31 +44,26 @@ export const MODELS = {
   'claude-haiku-4-5':          { label: 'Claude Haiku 4.5',    inUsd: 1,    outUsd: 5 },
   'claude-haiku-4-5-20251001': { label: 'Claude Haiku 4.5',    inUsd: 1,    outUsd: 5 },
   // Google
-  // 3.7 Flash (lançado 13/08/2026). Preço LIDO da Artificial Analysis em
-  // 25/08/2026: $0,75 in / $3,75 out, cached input com 90% de desconto — que é
-  // exatamente o 0,1× que `costFromTokens` já aplica em cacheRead.
-  // ⚠️ Uma fonte secundária afirma que este é preço INTRODUTÓRIO até 31/12/2026,
-  // subindo para $1,50/$7,50 em janeiro. NÃO confirmado na doc oficial do Google
-  // nem na AA. Fica registrado como pendência, não como fato: a lição do Sonnet 5
-  // aqui embaixo é que projeção de mudança de preço envelhece mal nos dois
-  // sentidos. Conferir na fonte oficial antes de qualquer conta de 2027.
+  // 3.7 e 3.6 Flash estão no preço promocional oficial até 31/12/2026. A tabela
+  // do Google anuncia $1,50/$7,50 a partir de 01/01/2027; revisar nessa data.
   'gemini-3.7-flash':      { label: 'Gemini 3.7 Flash',      inUsd: 0.75, outUsd: 3.75 },
-  'gemini-3.6-flash':      { label: 'Gemini 3.6 Flash',      inUsd: 1.50, outUsd: 9 },
+  'gemini-3.6-flash':      { label: 'Gemini 3.6 Flash',      inUsd: 0.75, outUsd: 3.75 },
   'gemini-3.1-flash-lite':     { label: 'Gemini 3.1 Flash Lite',      inUsd: 0.25, outUsd: 1.50 },
   'gemini-3.5-flash':     { label: 'Gemini 3.5 Flash',      inUsd: 1.50, outUsd: 9 },
   'gemini-3.1-pro-preview': { label: 'Gemini 3.1 Pro',      inUsd: 2,    outUsd: 12 },
   'gemini-3.1-pro':       { label: 'Gemini 3.1 Pro',        inUsd: 2,    outUsd: 12 },
   // OpenAI
-  'gpt-5.6-luna':               { label: 'GPT 5.6 Luna',        inUsd: 1,    outUsd: 6 },
-  'gpt-5.6-sol':                { label: 'GPT 5.6 Sol',         inUsd: 5,    outUsd: 30 },
-  'gpt-5.6-terra':              { label: 'GPT 5.6 Terra',       inUsd: 2.5,  outUsd: 15 },
-  'gpt-5.5':                    { label: 'GPT 5.5',             inUsd: 12,   outUsd: 36 },
+  'gpt-5.6-luna':               { label: 'GPT 5.6 Luna',        inUsd: 0.2,  outUsd: 1.2 },
+  // Sol está no desconto oficial até 21/11/2026; revisar quando a promoção acabar.
+  'gpt-5.6-sol':                { label: 'GPT 5.6 Sol',         inUsd: 4,    outUsd: 20 },
+  'gpt-5.6-terra':              { label: 'GPT 5.6 Terra',       inUsd: 2,    outUsd: 12 },
+  'gpt-5.5':                    { label: 'GPT 5.5',             inUsd: 5,    outUsd: 30 },
   'gpt-5.4':                    { label: 'GPT 5.4',             inUsd: 2.5,  outUsd: 15 },
   // Snapshot datado = o único id de 5.4 full que a chave do projeto acessa
   // (o alias puro retorna model_not_found desde ~jul/2026). Mesmo preço.
   'gpt-5.4-2026-03-05':         { label: 'GPT 5.4',             inUsd: 2.5,  outUsd: 15 },
-  'gpt-5.4-mini':               { label: 'GPT 5.4 Mini',        inUsd: 1,    outUsd: 4 },
-  'gpt-5.1':                    { label: 'GPT 5.1 (fallback)',  inUsd: 5,    outUsd: 15 },
+  'gpt-5.4-mini':               { label: 'GPT 5.4 Mini',        inUsd: 0.75, outUsd: 4.5 },
+  'gpt-5.1':                    { label: 'GPT 5.1 (fallback)',  inUsd: 1.25, outUsd: 10 },
   // Moonshot (provider kimi no ai-client). Reasoning: o out inclui o thinking.
   'kimi-k3':                    { label: 'Kimi K3',             inUsd: 3,    outUsd: 15 },
   // xAI (provider xai no ai-client). Preço LIDO da própria API em 24/08/2026
@@ -115,6 +112,19 @@ export const MODELS = {
 export const MODEL_IDS = Object.keys(MODELS);
 
 /**
+ * A Responses API cobra a busca web separadamente dos tokens do modelo:
+ * US$ 10 / 1.000 chamadas. O wrapper soma esta parcela no ledger a partir dos
+ * itens `web_search_call` realmente devolvidos — uma resposta sem busca custa 0.
+ */
+export const OPENAI_WEB_SEARCH_USD_PER_CALL = 10 / 1000;
+
+export function openAIWebSearchToolCost(output: unknown): number {
+  if (!Array.isArray(output)) return 0;
+  const calls = output.filter((item) => item && typeof item === 'object' && (item as any).type === 'web_search_call').length;
+  return calls * OPENAI_WEB_SEARCH_USD_PER_CALL;
+}
+
+/**
  * Custo em USD a partir de tokens REAIS (ledger de IA). Fonte única usada pelo
  * wrapper (callAI) e pelo batch. cache read = 0,1× input; write = 1,25× (TTL
  * 5min). Batch API = −50%: passe `batch: true`. Retorna null se o modelo não
@@ -159,11 +169,13 @@ export const CALLS = [
     fase: 'Diagnóstico',
     scaleType: 'colab',
     nome: 'IA4 — Avaliação de cenários A',
-    descricao: 'Avalia respostas do colab aos cenários iniciais, gera níveis por descritor.',
-    inTokens: 3500,
-    outTokens: 1200,
-    exec: 5,
-    defaultModel: 'claude-sonnet-4-6',
+    descricao: 'Avalia respostas aos cenários iniciais. Média real de 90 dias no Sonnet 5 (10/09/2026); uma execução por competência.',
+    inTokens: 3060,
+    outTokens: 11570,
+    cacheReadTokens: 2670,
+    cacheWriteTokens: 320,
+    exec: 2,
+    defaultModel: 'claude-sonnet-5',
     critical: true,
   },
   {
@@ -173,10 +185,11 @@ export const CALLS = [
     fase: 'Diagnóstico',
     scaleType: 'colab',
     nome: 'Check IA4 (auditoria 2ª IA)',
-    descricao: 'Auditor cross-LLM que verifica se IA4 foi defensável.',
-    inTokens: 4500,
-    outTokens: 600,
-    exec: 5,
+    descricao: 'Auditor cross-LLM que verifica se IA4 foi defensável. Média real de 90 dias no Terra (10/09/2026).',
+    inTokens: 8120,
+    outTokens: 1610,
+    cacheReadTokens: 2380,
+    exec: 2,
     defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.ia4_check)
     critical: true,
   },
@@ -222,7 +235,7 @@ export const CALLS = [
     descricao: 'Gera texto do desafio pra cada semana de conteúdo.',
     inTokens: 600,
     outTokens: 200,
-    exec: 12,
+    exec: 9,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
   },
@@ -262,10 +275,12 @@ export const CALLS = [
     fase: 'Temporada',
     scaleType: 'colab',
     nome: 'Evidências (mentor socrático)',
-    descricao: 'Conversa de reflexão sem. Cada turno IA. Inclui grounding RAG (~4 chunks da knowledge_base).',
-    inTokens: 2800,
-    outTokens: 250,
-    exec: 6 * 12,
+    descricao: 'Conversa de reflexão semanal, com grounding RAG. Média real de 90 dias no Sonnet 4.6 (10/09/2026).',
+    inTokens: 1010,
+    outTokens: 75,
+    cacheReadTokens: 650,
+    cacheWriteTokens: 290,
+    exec: 6 * 9,
     defaultModel: 'claude-sonnet-4-6',
     critical: true,
   },
@@ -279,7 +294,7 @@ export const CALLS = [
     descricao: 'Extrai insight, qualidade, desafio_realizado do transcript.',
     inTokens: 1500,
     outTokens: 400,
-    exec: 12,
+    exec: 9,
     defaultModel: 'claude-sonnet-4-6',
     critical: true,
   },
@@ -293,7 +308,7 @@ export const CALLS = [
     descricao: 'Chat reativo com colab (média 3 perguntas/sem). Contexto: definição do descritor + conteúdo recebido na semana (corpo do micro-conteúdo) + Módulo-Base + grounding RAG. Modelo Sonnet 4.6.',
     inTokens: 4200,
     outTokens: 400,
-    exec: 3 * 12,
+    exec: 3 * 9,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
   },
@@ -304,9 +319,11 @@ export const CALLS = [
     fase: 'Temporada',
     scaleType: 'colab',
     nome: 'BETO — mentor (dashboard)',
-    descricao: 'Chat mentor no painel do colab. Contexto: doutrina DISC/Jung + perfil comportamental real + conhecimento da competência em foco + pílula da semana. Modelo Sonnet 4.6. Uso opcional/variável (estimativa ~10 mensagens/ciclo).',
-    inTokens: 4000,
-    outTokens: 300,
+    descricao: 'Chat mentor no painel do colab. Uso opcional/variável (~10 mensagens/ciclo); tokens e cache pela média real de 90 dias (10/09/2026).',
+    inTokens: 130,
+    outTokens: 100,
+    cacheReadTokens: 1600,
+    cacheWriteTokens: 950,
     exec: 10,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
@@ -323,7 +340,7 @@ export const CALLS = [
     descricao: 'Vetoriza cada query antes do kb_search_hybrid. 1 call por chamada com grounding (tira-dúvidas + evidências + missão + relatórios).',
     inTokens: 100,
     outTokens: 0,
-    exec: 36 + 6 * 12 + 10 * 3,
+    exec: 10 * 9 + 10 * 3 + 3,
     defaultModel: 'voyage-3-large',
     critical: false,
   },
@@ -396,9 +413,9 @@ export const CALLS = [
     fase: 'Acumulada',
     scaleType: 'colab',
     nome: 'IA Acumuladora (nota por descritor)',
-    descricao: 'Lê 13 semanas de evidências agregadas e pontua 1-4 por descritor ancorada na régua. Cega pra nota inicial (anti-viés).',
-    inTokens: 5000,
-    outTokens: 1000,
+    descricao: 'Lê as evidências agregadas e pontua 1-4 por descritor. Média real de 90 dias no Sonnet 4.6 (10/09/2026).',
+    inTokens: 6060,
+    outTokens: 3230,
     exec: 1,
     defaultModel: 'claude-sonnet-4-6',
     critical: true,
@@ -410,9 +427,9 @@ export const CALLS = [
     fase: 'Acumulada',
     scaleType: 'colab',
     nome: 'Check Acumuladora (auditoria)',
-    descricao: 'Auditor cross-LLM em 4 dimensões (ancoragem/consistência/justificativa/sem-evidência).',
-    inTokens: 6500,
-    outTokens: 600,
+    descricao: 'Auditor cross-LLM em 4 dimensões. Média real de 90 dias no Terra (10/09/2026).',
+    inTokens: 5140,
+    outTokens: 1780,
     exec: 1,
     defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.acumulada_check)
     critical: true,
@@ -456,12 +473,29 @@ export const CALLS = [
     fase: 'Relatórios',
     scaleType: 'colab',
     nome: 'PDI Individual',
-    descricao: 'Plano de desenvolvimento individual gerado por IA (opcional).',
-    inTokens: 3000,
-    outTokens: 1500,
+    descricao: 'Plano de desenvolvimento individual. Média real de 90 dias no Sonnet 5 (10/09/2026).',
+    inTokens: 3880,
+    outTokens: 5820,
+    cacheReadTokens: 2530,
+    cacheWriteTokens: 690,
     exec: 1,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5',
     critical: false,
+    opcional: true,
+  },
+  {
+    id: 'pdi-check',
+    escala: { porCiclo: 1 },
+    taskKey: 'pdi_check',
+    fase: 'Relatórios',
+    scaleType: 'colab',
+    nome: 'PDI Individual — auditoria Dual-IA',
+    descricao: 'Auditoria semântica cross-LLM que acompanha cada PDI. Média real de 90 dias no Terra (10/09/2026).',
+    inTokens: 6500,
+    outTokens: 1730,
+    exec: 1,
+    defaultModel: 'gpt-5.6-terra',
+    critical: true,
     opcional: true,
   },
   {
@@ -490,7 +524,7 @@ export const CALLS = [
     inTokens: 1500,
     outTokens: 400,
     exec: 50,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'gemini-3.7-flash',
     critical: false,
   },
   {
@@ -524,9 +558,11 @@ export const CALLS = [
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'IA2 — Gabarito',
-    descricao: 'Gera descrição enriquecida de cada competência do Top 5.',
-    inTokens: 1500,
-    outTokens: 1500,
+    descricao: 'Gera descrição enriquecida de cada competência do Top 5. Média real de 90 dias no Sonnet 4.6 (10/09/2026).',
+    inTokens: 2170,
+    outTokens: 5110,
+    cacheReadTokens: 2750,
+    cacheWriteTokens: 800,
     exec: 4 * 5,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
@@ -537,9 +573,11 @@ export const CALLS = [
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'IA3 — Cenários A (gerador)',
-    descricao: '5 cenários A por cargo × competência (1ª IA, geradora).',
-    inTokens: 3000,
-    outTokens: 2000,
+    descricao: '5 cenários A por cargo × competência. Média real de 90 dias no Sonnet 4.6 (10/09/2026).',
+    inTokens: 3230,
+    outTokens: 2910,
+    cacheReadTokens: 1400,
+    cacheWriteTokens: 290,
     exec: 4 * 5,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
@@ -550,9 +588,10 @@ export const CALLS = [
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'IA3 — Cenários A (check)',
-    descricao: 'Auditor cross-LLM dos cenários A — checa coerência com competência e qualidade pedagógica.',
-    inTokens: 3500,
-    outTokens: 600,
+    descricao: 'Auditor cross-LLM dos cenários A. Média real de 90 dias no Terra (10/09/2026).',
+    inTokens: 2610,
+    outTokens: 1420,
+    cacheReadTokens: 90,
     exec: 4 * 5,
     defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.ia3_check)
     critical: false,
@@ -576,9 +615,9 @@ export const CALLS = [
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'Cenários B (check)',
-    descricao: 'Auditor cross-LLM dos cenários B — valida estrutura (4 perguntas P1-P4) + ancoragem na régua n1-n4.',
-    inTokens: 3500,
-    outTokens: 600,
+    descricao: 'Auditor cross-LLM dos cenários B. Média real de 90 dias no Terra (10/09/2026).',
+    inTokens: 2990,
+    outTokens: 1550,
     exec: 4 * 5,
     defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.cenarios_b_check)
     critical: false,
@@ -592,9 +631,10 @@ export const CALLS = [
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Artigo (texto) — geração',
-    descricao: 'Gera artigo markdown (mín. 8.000 caracteres) por competência×descritor×nível. Reusado entre colaboradores.',
-    inTokens: 700,
-    outTokens: 2500,
+    descricao: 'Gera artigo markdown por competência×descritor×nível. Média real de 90 dias no Sonnet 4.6 (10/09/2026).',
+    inTokens: 3250,
+    outTokens: 2970,
+    cacheWriteTokens: 2770,
     exec: 1,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
@@ -605,9 +645,42 @@ export const CALLS = [
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Estudo de caso — geração',
-    descricao: 'Gera case narrativo (mín. 8.000 caracteres). Reusado entre colaboradores.',
-    inTokens: 700,
-    outTokens: 2500,
+    descricao: 'Gera case narrativo. Média real de 90 dias no Sonnet 4.6 (10/09/2026).',
+    inTokens: 3420,
+    outTokens: 2450,
+    cacheReadTokens: 30,
+    cacheWriteTokens: 3060,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+  },
+  {
+    id: 'conteudo-expansao-pdf',
+    taskKey: 'conteudo_expansao_pdf',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'PDF — expansão editorial condicional',
+    descricao: 'Roda quando texto/case fica abaixo do mínimo do PDF. Média real de 52 chamadas em 90 dias (10/09/2026); incluída como premissa conservadora de 1× por peça.',
+    inTokens: 2610,
+    outTokens: 3780,
+    cacheReadTokens: 1370,
+    cacheWriteTokens: 1840,
+    exec: 1,
+    defaultModel: 'claude-sonnet-4-6',
+    critical: false,
+    opcional: true,
+  },
+  {
+    id: 'conteudo-layout-plan',
+    taskKey: 'conteudo_layout_plan',
+    fase: 'Geração de Conteúdo',
+    scaleType: 'conteudo',
+    nome: 'PDF — plano editorial e paginação',
+    descricao: 'Planeja o layout de cada texto/case antes do render. Média real de 536 chamadas em 90 dias (10/09/2026).',
+    inTokens: 3770,
+    outTokens: 665,
+    cacheReadTokens: 1460,
+    cacheWriteTokens: 1380,
     exec: 1,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
@@ -618,9 +691,10 @@ export const CALLS = [
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Podcast — roteiro (LLM)',
-    descricao: 'Gera roteiro de podcast (3-5 min) com bloco de narração para TTS.',
-    inTokens: 800,
-    outTokens: 1300,
+    descricao: 'Gera roteiro de podcast (3-5 min). Média real de 90 dias no Sonnet 4.6 (10/09/2026).',
+    inTokens: 4270,
+    outTokens: 2140,
+    cacheWriteTokens: 3070,
     exec: 1,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
@@ -631,38 +705,38 @@ export const CALLS = [
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Podcast — síntese de voz (TTS)',
-    descricao: 'Áudio MP3 da narração (~3-4 min). Gemini 2.5 Flash TTS desde 05/09/2026 (metade do preço por token do 3.1: US$ 0,0101/1k tokens de saída, medido no ledger). Output ≈ 5.000 tok (≈ 200 s × 25 tok/s) domina. exec=2: o botão do admin refaz em PARALELO pelo portão de deriva (2 takes sempre) → ~US$ 0,10 por episódio; medido no 3.1 US$ 0,195.',
+    descricao: 'Áudio MP3 (~3-4 min), voz Aoede no Gemini 2.5 Flash. Retakes agora rodam em série, só após reprovação; calibração de 143 takes projeta 1,22 tentativa média (máx. 3), ~US$ 0,06/episódio.',
     inTokens: 750,
-    outTokens: 5000,
-    exec: 2,
+    outTokens: 5250,
+    exec: 1.22,
     defaultModel: 'gemini-2.5-flash-tts',
     critical: false,
   },
   {
     id: 'conteudo-podcast-personalizado-tts',
     taskKey: 'tts_podcast_personalizado',
-    escala: { porSemanaConteudo: 2 },
+    escala: { porSemanaConteudo: 1.22 },
     fase: 'Geração de Conteúdo',
     scaleType: 'colab',
     nome: 'Podcast personalizado — síntese sob demanda (TTS)',
-    descricao: 'Podcast com o nome da pessoa, gerado quando ela abre a pílula e o cache não tem (1 por semana de conteúdo). Chamada única no 2.5 Flash + portão de deriva com retake em PARALELO (a pessoa espera na rota de 300 s): 2 takes sempre. Medido 06/09: 2 × US$ 0,050-0,059 = ~US$ 0,11 por episódio (era US$ 0,13 no 3.1, mediana de 14 episódios).',
+    descricao: 'Podcast com o nome da pessoa, gerado ao abrir a pílula sem cache. Aoede/2.5 Flash; retakes em série e expectativa calibrada de 1,22 tentativa por episódio (máx. 3).',
     inTokens: 800,
     outTokens: 5500,
-    exec: 18,
+    exec: 11,
     defaultModel: 'gemini-2.5-flash-tts',
     critical: false,
   },
   {
     id: 'conteudo-podcast-pregerado-tts',
     taskKey: 'tts_podcast_pregerado',
-    escala: { porSemanaConteudo: 1.07 },
+    escala: { porSemanaConteudo: 1.22 },
     fase: 'Geração de Conteúdo',
     scaleType: 'colab',
     nome: 'Podcast personalizado — pré-aquecido em lote (TTS)',
-    descricao: 'O mesmo áudio, gerado ANTES pela rota interna de pré-aquecimento (ninguém esperando): retake em SÉRIE, só quando o portão reprova (~7 % na Aoede). ~US$ 0,06 por episódio, metade do sob demanda. Substitui a linha acima quando o pré-aquecimento roda; opcional porque hoje o volume vivo é sob demanda (25 chamadas em 30 dias contra 0 pré-aquecidas).',
+    descricao: 'O mesmo áudio, gerado antes pela rota de pré-aquecimento. Retakes em série; expectativa calibrada de 1,22 tentativa por episódio. Substitui a linha sob demanda quando habilitado.',
     inTokens: 800,
     outTokens: 5500,
-    exec: 10,
+    exec: 11,
     defaultModel: 'gemini-2.5-flash-tts',
     critical: false,
     opcional: true,
@@ -670,14 +744,14 @@ export const CALLS = [
   {
     id: 'devolutiva-tts',
     taskKey: 'tts_devolutiva',
-    escala: { porCiclo: 2 },
+    escala: { porCiclo: 2.4 },
     fase: 'Diagnóstico',
     scaleType: 'colab',
     nome: 'Devolutiva comportamental em áudio (TTS, voz do Beto)',
-    descricao: 'Áudio da devolutiva do DISC (~3-4 min, Iapetus no 2.5 Flash desde 05/09). Chamada única + portão com retake em PARALELO no botão "Ouvir" (2 takes): medido 06/09 2 × US$ 0,055 = US$ 0,11 por devolutiva (no 3.1 era fatiada em 6-8 chamadas, ~US$ 0,11-0,14). Em fundo, 1 take + ~21 % de retake ≈ US$ 0,07.',
-    inTokens: 900,
-    outTokens: 5500,
-    exec: 2,
+    descricao: 'Áudio DISC (~3-4 min), voz Algieba no 2.5 Flash desde 07/09. Retakes em série; calibração do uso longo projeta 2,4 tentativas médias (máx. 5), ~US$ 0,08 por devolutiva.',
+    inTokens: 500,
+    outTokens: 3300,
+    exec: 2.4,
     defaultModel: 'gemini-2.5-flash-tts',
     critical: false,
   },
@@ -689,9 +763,9 @@ export const CALLS = [
     fase: 'Geração de Conteúdo',
     scaleType: 'conteudo',
     nome: 'Personalização DISC+PPP (PDF)',
-    descricao: 'Camada extra por (conteúdo × arquétipo DISC), anexada ao PDF. Cacheada por arquétipo. exec=4 arquétipos por conteúdo personalizado.',
-    inTokens: 3000,
-    outTokens: 2000,
+    descricao: 'Camada extra por conteúdo × arquétipo DISC. Média real de 90 dias no Sonnet 4.6 (10/09/2026); exec=4 arquétipos.',
+    inTokens: 3830,
+    outTokens: 610,
     exec: 4,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
@@ -784,7 +858,7 @@ export const CALLS = [
     inTokens: 19200,
     outTokens: 1800,
     exec: 1,
-    defaultModel: 'gemini-3.6-flash',
+    defaultModel: 'gemini-3.5-flash',
     critical: false,
   },
   {
@@ -805,9 +879,11 @@ export const CALLS = [
     fase: 'Extração de Vídeo',
     scaleType: 'extracao',
     nome: 'Estruturação dos 4 blocos (IA-autora)',
-    descricao: 'Estrutura o texto-base no Módulo-Base (conteúdo central + aplicável + guarda-corpos + adaptação por formato). Custo dominante da extração; independe da duração do vídeo.',
-    inTokens: 5000,
-    outTokens: 8000,
+    descricao: 'Estrutura o texto-base no Módulo-Base. Média real de 90 dias no Sonnet 4.6 (10/09/2026).',
+    inTokens: 14580,
+    outTokens: 9700,
+    cacheReadTokens: 610,
+    cacheWriteTokens: 490,
     exec: 1,
     defaultModel: 'claude-sonnet-4-6',
     critical: false,
@@ -818,9 +894,10 @@ export const CALLS = [
     fase: 'Extração de Vídeo',
     scaleType: 'extracao',
     nome: 'Auditoria Dual-IA (ao submeter à revisão)',
-    descricao: 'IA-auditora (GPT 5.6 Luna desde a Onda 0) valida os 4 blocos quando o módulo é submetido à revisão. Opcional — só conta se publicar via workflow.',
-    inTokens: 9000,
-    outTokens: 2000,
+    descricao: 'IA-auditora no Terra valida os 4 blocos ao submeter à revisão. Média real de 90 dias (10/09/2026); opcional.',
+    inTokens: 7440,
+    outTokens: 790,
+    cacheReadTokens: 1210,
     exec: 1,
     defaultModel: 'gpt-5.6-terra', // 22/07: todas as checagens no Terra (DEFAULT_TASK_MODELS.modulo_base_auditor)
     critical: false,
@@ -879,11 +956,48 @@ export const CALLS = [
 ];
 
 /**
+ * Tarefas observadas que ainda NÃO têm denominador seguro para orçamento
+ * (por pessoa, empresa, peça etc.). Elas entram apenas na comparação por
+ * chamada do ledger. Médias ponderadas dos últimos 90 dias em 10/09/2026;
+ * amostra mínima de 5 chamadas. Assim a tela ganha cobertura sem inventar uma
+ * frequência e contaminar o total prospectivo.
+ */
+export const TASK_ONLY_ESTIMATES = [
+  { taskKey: 'sim_aluno', inTokens: 1008, outTokens: 140, cacheReadTokens: 470, cacheWriteTokens: 0, sampleCalls: 2630 },
+  { taskKey: 'copiloto_ao_vivo', inTokens: 1097, outTokens: 200, cacheReadTokens: 578, cacheWriteTokens: 0, sampleCalls: 2099 },
+  { taskKey: 'kit_desafio_semana', inTokens: 1622, outTokens: 418, cacheReadTokens: 0, cacheWriteTokens: 0, sampleCalls: 313 },
+  { taskKey: 'recepcao_paciente', inTokens: 407, outTokens: 86, cacheReadTokens: 1550, cacheWriteTokens: 408, sampleCalls: 272 },
+  { taskKey: 'blueprint_gerar', inTokens: 820, outTokens: 13979, cacheReadTokens: 3775, cacheWriteTokens: 604, sampleCalls: 220 },
+  { taskKey: 'recepcao_avaliacao', inTokens: 794, outTokens: 2521, cacheReadTokens: 2316, cacheWriteTokens: 907, sampleCalls: 210 },
+  { taskKey: 'blueprint_audit', inTokens: 4985, outTokens: 1765, cacheReadTokens: 0, cacheWriteTokens: 0, sampleCalls: 168 },
+  { taskKey: 'escola_brief', inTokens: 790, outTokens: 221, cacheReadTokens: 0, cacheWriteTokens: 0, sampleCalls: 145 },
+  { taskKey: 'kit_desafio', inTokens: 1376, outTokens: 343, cacheReadTokens: 0, cacheWriteTokens: 0, sampleCalls: 68 },
+  { taskKey: 'devolutiva_comportamental', inTokens: 1616, outTokens: 943, cacheReadTokens: 0, cacheWriteTokens: 0, sampleCalls: 34 },
+  { taskKey: 'kit_nucleo', inTokens: 1186, outTokens: 394, cacheReadTokens: 0, cacheWriteTokens: 0, sampleCalls: 25 },
+  { taskKey: 'copiloto_pesquisa_empresa', inTokens: 27691, outTokens: 4529, cacheReadTokens: 1629, cacheWriteTokens: 0, flatUsd: OPENAI_WEB_SEARCH_USD_PER_CALL, sampleCalls: 22 },
+  { taskKey: 'copiloto_pesquisa_noticias_externas', inTokens: 32418, outTokens: 2230, cacheReadTokens: 1257, cacheWriteTokens: 0, flatUsd: OPENAI_WEB_SEARCH_USD_PER_CALL, sampleCalls: 22 },
+  { taskKey: 'copiloto_planejamento', inTokens: 7462, outTokens: 3390, cacheReadTokens: 0, cacheWriteTokens: 0, sampleCalls: 22 },
+  { taskKey: 'copiloto_pesquisa_social_oficial', inTokens: 17083, outTokens: 1777, cacheReadTokens: 1455, cacheWriteTokens: 0, flatUsd: OPENAI_WEB_SEARCH_USD_PER_CALL, sampleCalls: 19 },
+  { taskKey: 'arguicao_turno', inTokens: 4720, outTokens: 516, cacheReadTokens: 0, cacheWriteTokens: 0, sampleCalls: 14 },
+  { taskKey: 'copiloto_pesquisa_pessoa', inTokens: 18433, outTokens: 664, cacheReadTokens: 2121, cacheWriteTokens: 0, flatUsd: OPENAI_WEB_SEARCH_USD_PER_CALL, sampleCalls: 7 },
+  { taskKey: 'descritor_reancoragem', inTokens: 1174, outTokens: 534, cacheReadTokens: 0, cacheWriteTokens: 0, sampleCalls: 6 },
+  { taskKey: 'copiloto_pesquisa_pessoas', inTokens: 33253, outTokens: 1108, cacheReadTokens: 1485, cacheWriteTokens: 0, flatUsd: OPENAI_WEB_SEARCH_USD_PER_CALL, sampleCalls: 5 },
+];
+
+export const TASK_ESTIMATE_KEYS = [
+  ...new Set([
+    ...CALLS.map((call: any) => call.taskKey).filter(Boolean),
+    ...TASK_ONLY_ESTIMATES.map((task) => task.taskKey),
+  ]),
+];
+
+/**
  * Mapa check → primary. Cada par é dual-IA: o primário gera, o check audita.
  * Os presets aplicam pareamento cross-família automaticamente via crossLlmCheck.
  */
 const CHECK_PRIMARIES = {
   'ia4-check': 'ia4-avaliacao',
+  'pdi-check': 'pdi',
   'acumulada-check': 'acumulada-primaria',
   'sem14-check': 'sem14-scorer',
   'ia3-cenarios-check': 'ia3-cenarios',
@@ -964,11 +1078,54 @@ export function calcCost(call, modelId, units = 1) {
   if (!m) return null;
   const inTok = call.inTokens * call.exec * units;
   const outTok = call.outTokens * call.exec * units;
+  const cacheReadTok = (call.cacheReadTokens || 0) * call.exec * units;
+  const cacheWriteTok = (call.cacheWriteTokens || 0) * call.exec * units;
   // Custo de mídia fixo (ex.: render Veo) — independe de tokens.
   const flat = (call.flatUsd || 0) * call.exec * units;
-  const tokenUsd = ((inTok / 1_000_000) * m.inUsd + (outTok / 1_000_000) * m.outUsd) * (call.costMultiplier || 1);
+  // Cache write premium é uma operação explícita do Claude. Se o operador troca
+  // a linha para outro provedor, esses tokens continuam sendo prompt, mas entram
+  // como input normal; cache read mantém o desconto aproximado de 0,1×.
+  const cacheWriteExplicito = modelId.startsWith('claude-') ? cacheWriteTok : 0;
+  const inputSemCacheWrite = inTok + (modelId.startsWith('claude-') ? 0 : cacheWriteTok);
+  const tokenBase = costFromTokens(modelId, {
+    inTokens: inputSemCacheWrite,
+    outTokens: outTok,
+    cacheRead: cacheReadTok,
+    cacheWrite: cacheWriteExplicito,
+  }) || 0;
+  const tokenUsd = tokenBase * (call.costMultiplier || 1);
   const usd = tokenUsd + flat;
-  return { usd, inTokens: inTok, outTokens: outTok, totalTokens: inTok + outTok };
+  const totalInputTokens = inTok + cacheReadTok + cacheWriteTok;
+  return {
+    usd,
+    inTokens: totalInputTokens,
+    outTokens: outTok,
+    cacheReadTokens: cacheReadTok,
+    cacheWriteTokens: cacheWriteTok,
+    totalTokens: totalInputTokens + outTok,
+  };
+}
+
+/**
+ * Estimativa de UMA chamada no modelo que aparece naquela linha do ledger.
+ * Para tarefas escaláveis usa o catálogo prospectivo; para as demais usa a
+ * média observada, sem fazê-las entrar nos totais de orçamento.
+ */
+export function custoEstimadoPorTask(taskKey: string, modelId: string): number | null {
+  const escalaveis = CALLS.filter((call: any) => call.taskKey === taskKey && call.exec > 0);
+  if (escalaveis.length > 0) {
+    const custos = escalaveis
+      .map((call) => {
+        const custo = calcCost(call, modelId, 1);
+        return custo ? custo.usd / call.exec : null;
+      })
+      .filter((custo): custo is number => custo !== null);
+    return custos.length > 0 ? custos.reduce((soma, custo) => soma + custo, 0) / custos.length : null;
+  }
+
+  const observado = TASK_ONLY_ESTIMATES.find((task) => task.taskKey === taskKey);
+  if (!observado) return null;
+  return calcCost({ ...observado, exec: 1 }, modelId, 1)?.usd ?? null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -985,16 +1142,9 @@ export function calcCost(call, modelId, units = 1) {
  * a mesma constante que a engine usa para montar a trilha —, então mudar um modo
  * lá move o custo aqui sem ninguém reeditar número nenhum.
  *
- * ⚠️ Os dois números DIVERGEM de propósito onde o catálogo envelheceu, e a
- * divergência é o achado, não um bug a esconder:
- *   · `evidencias-socratic` tem `exec: 6*12` (12 semanas de conteúdo), mas o DUO
- *     real tem **9** slots (`slotsConteudo`) — as outras 5 são missão/avaliação.
- *   · `ia4-avaliacao` tem `exec: 5` (5 cenários A), e o desenho atual aplica
- *     **1 por competência**: medido em 01/09/2026, o modo `jornada` fecha em
- *     1,44 respostas por colaborador (45 pessoas), e a moda geral é 2 = as duas
- *     competências do DUO. Os 5 são de um desenho anterior.
- * `execNaJornada` é a régua nova; `call.exec` fica como estava para não mudar em
- * silêncio o número que as telas mostravam. Quem quiser comparar, compare.
+ * `call.exec` é a referência do Regular DUO atual (9 semanas de conteúdo, 3
+ * missões e 2 competências). `execNaJornada` recalcula as outras jornadas a
+ * partir das dimensões reais, sem herdar números de desenhos antigos.
  */
 export function execNaJornada(call, cfg) {
   const e = call.escala;
@@ -1042,7 +1192,7 @@ export function custoColabNaJornada(cfg, modelFn, opts: { incluirOpcionais?: boo
  * Não entra no custo por empresa nem por colaborador: uma empresa nova de 100
  * pessoas quase não move estes números.
  *
- * Faixas conferidas em 01/09/2026 contra o que o projeto usa hoje. Não saem de
+ * Faixas conferidas em 10/09/2026 contra o que o projeto usa hoje. Não saem de
  * fatura: são a ordem de grandeza declarada, e é assim que devem ser lidas.
  */
 export const INFRA_FIXA = [
@@ -1058,6 +1208,17 @@ export const INFRA_FIXA = [
   { servico: 'Upstash QStash', papel: 'Fila de disparos', tipo: 'uso', usdMes: [0, 5] },
   { servico: 'Amazon SES / Resend', papel: 'E-mail transacional', tipo: 'uso/fallback', usdMes: [0, 20] },
   { servico: 'Gamma + domínio', papel: 'Site institucional + DNS', tipo: 'fixo', usdMes: [1, 12] },
+];
+
+/**
+ * Integrações reais cujo preço depende de plano/fatura/uso ainda não conciliado.
+ * Ficam visíveis na tela, mas FORA do total: zero inventado seria tão enganoso
+ * quanto omiti-las, e uma faixa sem evidência contaminaria o orçamento inteiro.
+ */
+export const INFRA_NAO_PRECIFICADA = [
+  { servico: 'Twilio SMS', papel: 'Fallback de OTP por SMS', motivo: 'custo por país/número; conciliar a fatura quando houver envio' },
+  { servico: 'WaSender', papel: 'Failover do WhatsApp legado', motivo: 'assinatura depende da sessão efetivamente habilitada' },
+  { servico: 'Jina / Firecrawl', papel: 'Scraping de PPP e pesquisa pública', motivo: 'free tier + fallback pago; falta conciliação do plano/uso' },
 ];
 
 export function infraFixaTotal() {

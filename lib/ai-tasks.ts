@@ -213,9 +213,9 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // extrações — docs/CUSTO-QUALIDADE.md Resultado 3); segue selecionável.
   modulo_base_autor:   'claude-sonnet-4-6',
   // ── TODAS as dupla-checagens (2ª IA auditando a 1ª) em GPT 5.6 Terra ──
-  // Decisão do Rodrigo 22/07: padroniza os auditores no Terra ($2,50/$15) —
-  // cross-família OpenAI auditando o Sonnet, qualidade acima do Luna ($1/$6,
-  // Onda 0) e 4× mais barato que o gpt-5.4 ($10/$30) que ia3/ia4 usavam.
+  // Decisão do Rodrigo 22/07: padroniza os auditores no Terra ($2/$12 em
+  // 10/09/2026) — cross-família OpenAI auditando o Sonnet, acima do Luna
+  // ($0,20/$1,20; usado na Onda 0). O gpt-5.4 anterior saiu do papel de auditor.
   // O veredito continua derivado EM CÓDIGO, não pedido ao modelo.
   modulo_base_auditor: 'gpt-5.6-terra',
   // Classificação curta (paráfrase → item de régua): saída pequena, o 4.6 basta.

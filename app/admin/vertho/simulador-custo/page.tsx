@@ -4,7 +4,16 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { DollarSign, Users, School, FileText, Building2, Clapperboard, UploadCloud, Activity, RefreshCw } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { CALLS, MODELS, MODEL_IDS, PRESETS, SCALE_LABEL, calcCost } from '@/lib/ia-cost-catalog';
+import {
+  CALLS,
+  MODELS,
+  MODEL_IDS,
+  PRESETS,
+  SCALE_LABEL,
+  TASK_ESTIMATE_KEYS,
+  calcCost,
+  custoEstimadoPorTask,
+} from '@/lib/ia-cost-catalog';
 import { JornadasPanel, InfraPanel } from './paineis-custo';
 import { getUsoRealIA, getCoberturaCatalogo, type UsoRealLinha, type CoberturaCatalogo } from '@/actions/ia-uso';
 import type { AppLocale } from '@/i18n/routing';
@@ -197,6 +206,9 @@ export default function SimuladorCustoPage() {
                       output: call.outTokens.toLocaleString(locale),
                       executions: call.exec.toLocaleString(locale),
                     })}
+                    {((call as any).cacheReadTokens || (call as any).cacheWriteTokens) ? (
+                      <> · cache médio {(call as any).cacheReadTokens?.toLocaleString(locale) || '0'} leitura / {(call as any).cacheWriteTokens?.toLocaleString(locale) || '0'} criação</>
+                    ) : null}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -238,34 +250,6 @@ export default function SimuladorCustoPage() {
 
 const WINDOWS = [7, 30, 90] as const;
 
-/**
- * Estimativa do catálogo por CHAMADA, indexada pela `taskKey` que liga o item de
- * custo à tarefa declarada em `lib/ai-tasks.ts` (que é o que o ledger etiqueta).
- *
- * Por chamada, e não por ciclo, porque é a única comparação que fecha: o `exec`
- * do catálogo é quantas vezes a chamada roda numa jornada inteira, e a janela do
- * ledger é de dias. Dividir por `exec` isola o que a estimativa de tokens diz que
- * UMA chamada custa — que é o que o real mede.
- *
- * Uma taskKey pode ter mais de uma linha de catálogo (as três extrações de chat
- * caem em `temporada_extracao`): nesse caso vale a média.
- */
-function estimativaPorTask() {
-  const acc: Record<string, { usd: number; n: number }> = {};
-  for (const call of CALLS) {
-    const key = (call as any).taskKey;
-    if (!key) continue;
-    const c = calcCost(call, (call as any).defaultModel, 1);
-    if (!c || !call.exec) continue;
-    if (!acc[key]) acc[key] = { usd: 0, n: 0 };
-    acc[key].usd += c.usd / call.exec;
-    acc[key].n += 1;
-  }
-  const out: Record<string, number> = {};
-  for (const [k, v] of Object.entries(acc)) out[k] = v.usd / v.n;
-  return out;
-}
-
 function RealPanel({ locale }: { locale: AppLocale }) {
   const t = useTranslations('AdminCostSimulator');
   const [dias, setDias] = useState<number>(30);
@@ -274,7 +258,7 @@ function RealPanel({ locale }: { locale: AppLocale }) {
   const [linhas, setLinhas] = useState<UsoRealLinha[] | null>(null);
   const [cobertura, setCobertura] = useState<CoberturaCatalogo | null>(null);
 
-  const estimado = useMemo(() => estimativaPorTask(), []);
+  const tarefasEstimadas = useMemo(() => new Set(TASK_ESTIMATE_KEYS), []);
 
   const carregar = useCallback(async (d: number) => {
     setLoading(true);
@@ -325,7 +309,7 @@ function RealPanel({ locale }: { locale: AppLocale }) {
       porFeature[l.feature].chamadas += l.chamadas;
     }
     const semEstimativa = Object.entries(porFeature)
-      .filter(([f]) => f !== 'untagged' && estimado[f] == null)
+      .filter(([f]) => f !== 'untagged' && !tarefasEstimadas.has(f))
       .map(([feature, v]) => ({ feature, ...v }))
       .sort((a, b) => b.usd - a.usd);
     const untagged = porFeature['untagged']?.usd || 0;
@@ -337,7 +321,7 @@ function RealPanel({ locale }: { locale: AppLocale }) {
       pctSemEstimativa: (usdSemEstimativa / total) * 100,
       pctUntagged: (untagged / total) * 100,
     };
-  }, [linhas, estimado, tot.custo]);
+  }, [linhas, tarefasEstimadas, tot.custo]);
 
   const nf = (n: number) => n.toLocaleString(locale);
 
@@ -412,7 +396,7 @@ function RealPanel({ locale }: { locale: AppLocale }) {
               <tbody className="text-gray-300" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {linhas.map((l, i) => {
                   const real = l.chamadas > 0 ? l.custo_usd / l.chamadas : 0;
-                  const est = estimado[l.feature];
+                  const est = custoEstimadoPorTask(l.feature, l.model);
                   // Razão real/estimado só é legível quando as duas pontas existem
                   // e a chamada rodou o bastante para a média significar algo.
                   const razao = est != null && est > 0 && l.chamadas >= 3 ? real / est : null;
@@ -479,10 +463,19 @@ function RealPanel({ locale }: { locale: AppLocale }) {
           )}
 
           <p className="text-[10px] text-gray-500 mt-3 leading-relaxed">
+            <span className="text-gray-400 font-semibold">Estimativa observada:</span> tarefas sem um denominador seguro
+            usam a média por chamada dos últimos 90 dias apenas nesta comparação. Elas não entram no total prospectivo
+            por pessoa/empresa até existir uma frequência de negócio defensável.
+          </p>
+
+          <p className="text-[10px] text-gray-500 mt-3 leading-relaxed">
             <span className="text-gray-400 font-semibold">Fronteira do ledger:</span> só é medido quem escreve em
             <code className="text-gray-400"> ia_usage_log</code> — o wrapper (<code className="text-gray-400">callAI</code>),
-            o TTS (desde 30/08/2026) e o Batch. Render de vídeo, HeyGen, Bunny e embeddings não passam por lá, e a ausência
+            o TTS (desde 30/08/2026) e o Batch. A tarifa da busca web entra nas novas linhas desde 10/09/2026. Render de vídeo, HeyGen, Bunny e embeddings não passam por lá, e a ausência
             deles aqui tem a mesma cara de um zero. Este total é <b>piso</b>, não teto.
+          </p>
+          <p className="text-[10px] text-gray-600 mt-1">
+            O “real” preserva o preço gravado no dia da chamada. A tabela oficial foi corrigida em 10/09/2026 para as novas linhas; o histórico não foi reescrito sem a data efetiva de cada tarifa.
           </p>
         </>
       )}

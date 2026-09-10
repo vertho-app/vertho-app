@@ -10,7 +10,7 @@
  */
 import { useMemo } from 'react';
 import { Route, Server } from 'lucide-react';
-import { PRESETS, INFRA_FIXA, infraFixaTotal, custoColabNaJornada } from '@/lib/ia-cost-catalog';
+import { PRESETS, INFRA_FIXA, INFRA_NAO_PRECIFICADA, infraFixaTotal, custoColabNaJornada } from '@/lib/ia-cost-catalog';
 import {
   PROGRAMA_JORNADA, PROGRAMA_REGULAR_DUO, PROGRAMA_REGULAR,
   PROGRAMA_ONBOARDING, PROGRAMA_PILOTO,
@@ -125,7 +125,7 @@ export function InfraPanel({ locale }: { locale: AppLocale }) {
       </p>
       <p className="text-[11px] text-gray-400 mt-0.5 mb-3">
         Custo de existir, não por empresa: rateado entre todos os tenants. Uma empresa nova de 100 pessoas quase não move
-        estes números. Faixas declaradas (ordem de grandeza), conferidas em 01/09/2026 — não saem de fatura.
+        estes números. Faixas declaradas (ordem de grandeza), conferidas em 10/09/2026 — não saem de fatura.
       </p>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
@@ -154,6 +154,12 @@ export function InfraPanel({ locale }: { locale: AppLocale }) {
             </tr>
           </tbody>
         </table>
+      </div>
+      <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-300">Fora da soma — falta conciliar fatura/uso</p>
+        <p className="mt-1 text-[10px] leading-relaxed text-gray-400">
+          {INFRA_NAO_PRECIFICADA.map((s) => `${s.servico}: ${s.papel} (${s.motivo})`).join(' · ')}
+        </p>
       </div>
     </div>
   );
