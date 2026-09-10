@@ -2,7 +2,7 @@ import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { describe, expect, it } from 'vitest';
 import RelatorioGestorPDF from '@/components/pdf/RelatorioGestor';
-import RelatorioIndividualPDF from '@/components/pdf/RelatorioIndividual';
+import RelatorioIndividualPDF, { montarTrilhaFasesPdi } from '@/components/pdf/RelatorioIndividual';
 import RelatorioRHPDF from '@/components/pdf/RelatorioRH';
 import {
   ACME_DEMO_REPORT_DIRECTORY,
@@ -20,7 +20,7 @@ describe('PDFs demonstrativos da central do RH', () => {
     const documentos = [
       React.createElement(RelatorioIndividualPDF, {
         data: {
-          conteudo: criarPdiAcmeDemo(pessoa),
+          conteudo: criarPdiAcmeDemo(pessoa, { totalSemanas: 7, programaModo: 'jornada' }),
           colaborador_nome: pessoa.nome_completo,
           colaborador_cargo: pessoa.cargo,
         },
@@ -45,4 +45,14 @@ describe('PDFs demonstrativos da central do RH', () => {
       expect(buffer.byteLength).toBeGreaterThan(10_000);
     }
   }, 30_000);
+
+  it('timeline sem blueprint respeita as 7 semanas e põe a competência seguinte em outro ciclo', () => {
+    const fases = montarTrilhaFasesPdi([
+      { nome: 'Negociação', sprint: { acao_principal: 'preparar concessões' } },
+      { nome: 'Orientação a resultados' },
+    ], 7);
+
+    expect(fases.map((fase) => fase.fase)).toEqual(['Semanas 1–6', 'Semana 7', 'Próxima jornada']);
+    expect(fases.some((fase) => JSON.stringify(fase).includes('14'))).toBe(false);
+  });
 });

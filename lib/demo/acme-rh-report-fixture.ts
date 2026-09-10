@@ -191,7 +191,11 @@ export function avaliacaoAcmeDemo(email: string, competencia: string) {
   };
 }
 
-export function criarPdiAcmeDemo(person: { nome_completo: string; email: string; cargo: string; area_depto?: string | null }) {
+export function criarPdiAcmeDemo(
+  person: { nome_completo: string; email: string; cargo: string; area_depto?: string | null },
+  programa: { totalSemanas?: number; programaModo?: string | null } = {},
+) {
+  const totalSemanas = programa.totalSemanas ?? 14;
   const competenciasCargo = competenciasAcmeDemoPorCargo(person.cargo);
   const seed = seedOf(person.email);
   const prioridades = [
@@ -233,7 +237,8 @@ export function criarPdiAcmeDemo(person: { nome_completo: string; email: string;
     resumo_desempenho: resultados.map((item) => ({ competencia: item.competencia, nivel: item.nivel })),
     competencias,
     trilha_cursos: prioridades.map((competencia) => ({ nome: `Prática aplicada de ${competencia}`, competencia })),
-    total_semanas: 14,
+    total_semanas: totalSemanas,
+    ...(programa.programaModo ? { programa_modo: programa.programaModo } : {}),
     mensagem_final: 'O desenvolvimento acontece na rotina: pratique, registre a evidência e use a conversa com a liderança para ajustar o próximo passo.',
   };
 }

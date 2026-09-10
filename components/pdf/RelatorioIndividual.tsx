@@ -188,6 +188,54 @@ function ProgressBar({ nivel }: { nivel: number | null }) {
   );
 }
 
+export type TrilhaFasePdi = { fase: string; titulo: string; detalhe: string };
+
+/** Timeline de fallback para PDIs sem o mapa detalhado do blueprint. */
+export function montarTrilhaFasesPdi(competencias: any[], totalSemanas: number): TrilhaFasePdi[] {
+  const acaoDe = (comp: any): string =>
+    (comp?.sprint?.acao_principal || comp?.melhorar?.[0] || 'mapear e praticar os comportamentos prioritários');
+
+  if (totalSemanas === 7 && competencias.length >= 1) {
+    const fases: TrilhaFasePdi[] = [
+      {
+        fase: 'Semanas 1–6',
+        titulo: competencias[0].nome,
+        detalhe: `Aprender, praticar e registrar evidências: ${acaoDe(competencias[0])}`,
+      },
+      {
+        fase: 'Semana 7',
+        titulo: 'Avaliação',
+        detalhe: 'Consolidar as evidências da jornada e responder ao cenário final da competência.',
+      },
+    ];
+    for (const proxima of competencias.slice(1)) {
+      fases.push({
+        fase: 'Próxima jornada',
+        titulo: proxima.nome,
+        detalhe: 'Começa depois do fechamento da jornada atual, em um novo ciclo de 7 semanas.',
+      });
+    }
+    return fases;
+  }
+
+  if (competencias.length >= 2) {
+    return [
+      { fase: 'Semanas 1–4', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
+      { fase: 'Semanas 5–8', titulo: competencias[1].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[1])}` },
+      { fase: 'Semanas 9–12', titulo: 'Integração + missão prática', detalhe: 'Aplicar as duas competências juntas em uma missão prática de complexidade crescente.' },
+      { fase: 'Semanas 13–14', titulo: 'Avaliação', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
+    ];
+  }
+  if (competencias.length === 1) {
+    return [
+      { fase: 'Semanas 1–8', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
+      { fase: 'Semanas 9–12', titulo: 'Aprofundamento', detalhe: 'Aprofundar a prática em situações mais complexas do dia a dia.' },
+      { fase: 'Semanas 13–14', titulo: 'Avaliação', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
+    ];
+  }
+  return [];
+}
+
 // ── Main Component ──────────────────────────────────────────────────────────
 
 export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, mostrarVertho = true }: {
@@ -220,25 +268,10 @@ export default function RelatorioIndividualPDF({ data, empresaNome, logoBase64, 
   const sprintComps = competencias.filter((comp: any) => comp && comp.sprint);
 
   // ── Timeline "vira trilha" (COMPUTADA no render, determinística) ──
-  // Base: Regular DUO (14 semanas, missões 4/8/12, avaliação 13/14). Se houver
-  // 1 competência, adapta. Deriva a ação de cada fase do sprint da competência.
-  const acaoDe = (comp: any): string =>
-    (comp?.sprint?.acao_principal || comp?.melhorar?.[0] || 'mapear e praticar os comportamentos prioritários');
-  const trilhaFases: { fase: string; titulo: string; detalhe: string }[] = [];
-  if (competencias.length >= 2) {
-    trilhaFases.push(
-      { fase: 'Semanas 1–4', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
-      { fase: 'Semanas 5–8', titulo: competencias[1].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[1])}` },
-      { fase: 'Semanas 9–12', titulo: 'Integração + missão prática', detalhe: 'Aplicar as duas competências juntas em uma missão prática de complexidade crescente.' },
-      { fase: 'Semanas 13–14', titulo: 'Avaliação', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
-    );
-  } else if (competencias.length === 1) {
-    trilhaFases.push(
-      { fase: 'Semanas 1–8', titulo: competencias[0].nome, detalhe: `Mapear e praticar: ${acaoDe(competencias[0])}` },
-      { fase: 'Semanas 9–12', titulo: 'Aprofundamento', detalhe: 'Aprofundar a prática em situações mais complexas do dia a dia.' },
-      { fase: 'Semanas 13–14', titulo: 'Avaliação', detalhe: 'Reflexão qualitativa e cenário final para consolidar a evolução.' },
-    );
-  }
+  // Sem mapa detalhado, a timeline ainda precisa obedecer à duração real. A
+  // jornada de 7 semanas desenvolve UMA competência; as demais vêm em ciclos
+  // seguintes, não em blocos fictícios dentro das mesmas sete semanas.
+  const trilhaFases = montarTrilhaFasesPdi(competencias, totalSemanas);
 
   // ── Binding REAL "vira trilha" (Estágio 2) ──────────────────────────────
   // Quando o PDI veio de um Development Blueprint, `conteudo.trilha_mapa` traz as

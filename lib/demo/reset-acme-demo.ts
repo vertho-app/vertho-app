@@ -508,6 +508,64 @@ export function adaptarProgressoFixtureAoModo(progress: any, programaModo?: stri
   return [...conteudos, { ...avaliacao, semana: config.semanaCenarioB }];
 }
 
+/**
+ * Ajusta o conteúdo do PDI à mesma régua temporal da trilha. Além do total da
+ * capa, compacta o mapa do blueprint, que alimenta a timeline interna do PDF.
+ */
+export function adaptarPdiFixtureAoModo(conteudo: any, programaModo?: string | null): any {
+  if (!conteudo || programaModo !== 'jornada') return conteudo;
+
+  const config = getProgramaConfigByModo('jornada');
+  const mapa = conteudo.trilha_mapa;
+  let semanasMapa = Array.isArray(mapa?.semanas) ? mapa.semanas : [];
+
+  if (semanasMapa.length && (
+    semanasMapa.length !== config.semanas
+    || semanasMapa.some((semana: any) => Number(semana?.semana) > config.semanas)
+  )) {
+    const conteudos = semanasMapa
+      .filter((semana: any) => semana?.tipo === 'conteudo')
+      .slice(0, config.slotsConteudo.length)
+      .map((semana: any, indice: number) => ({ ...semana, semana: config.slotsConteudo[indice] }));
+    const avaliacao = [...semanasMapa]
+      .reverse()
+      .find((semana: any) => semana?.tipo === 'avaliacao');
+
+    if (conteudos.length !== config.slotsConteudo.length || !avaliacao) {
+      throw new Error(
+        `mapa de PDI inválido para jornada: esperava ${config.slotsConteudo.length} conteúdos e uma avaliação; `
+        + `encontrou ${conteudos.length} conteúdos e ${avaliacao ? 1 : 0} avaliação`,
+      );
+    }
+    semanasMapa = [...conteudos, { ...avaliacao, semana: config.semanaCenarioB }];
+  }
+
+  return {
+    ...conteudo,
+    total_semanas: config.semanas,
+    programa_modo: 'jornada',
+    ...(mapa ? {
+      trilha_mapa: {
+        ...mapa,
+        duracao_semanas: config.semanas,
+        semanas: semanasMapa,
+      },
+    } : {}),
+  };
+}
+
+/** PDFs antigos não podem sobreviver quando o conteúdo temporal do PDI muda. */
+export function pdiDemoCompativelComModo(conteudo: any, programaModo?: string | null): boolean {
+  if (programaModo !== 'jornada') return true;
+  const config = getProgramaConfigByModo('jornada');
+  if (conteudo?.programa_modo !== 'jornada' || Number(conteudo?.total_semanas) !== config.semanas) return false;
+  const mapa = conteudo?.trilha_mapa;
+  if (!mapa) return true;
+  if (Number(mapa.duracao_semanas) !== config.semanas || !Array.isArray(mapa.semanas)) return false;
+  return mapa.semanas.length === config.semanas
+    && mapa.semanas.every((semana: any) => Number(semana?.semana) >= 1 && Number(semana?.semana) <= config.semanas);
+}
+
 
 
 export function personaDemoComMapeamentoCompleto(persona: { scenario?: string }): boolean {
@@ -974,6 +1032,11 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     for (const relatorio of snapshot.relatorios) {
       const colaboradorId = relatorio.ownerEmail ? idPorEmail.get(relatorio.ownerEmail) : null;
       if (relatorio.ownerEmail && !colaboradorId) continue;
+      const pdiCompativel = relatorio.tipo !== 'individual'
+        || pdiDemoCompativelComModo(relatorio.conteudo, programaModo);
+      const conteudo = relatorio.tipo === 'individual'
+        ? adaptarPdiFixtureAoModo(relatorio.conteudo, programaModo)
+        : relatorio.conteudo;
       // UPSERT: a linha pode já ter vindo do golden (rede de segurança do PDI,
       // aplicada antes deste restore). Com INSERT, as duas escritas colidiam na
       // unique (empresa, colaborador, tipo) e derrubavam o reset inteiro — a
@@ -982,8 +1045,10 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         empresa_id: empresaId,
         colaborador_id: colaboradorId,
         tipo: relatorio.tipo,
-        conteudo: relatorio.conteudo,
-        pdf_path: relatorio.pdf_path,
+        conteudo,
+        // O arquivo armazenado foi renderizado com o conteúdo antigo. Soltar o
+        // ponteiro força a rota de PDF a regenerá-lo sob demanda na régua nova.
+        pdf_path: pdiCompativel ? relatorio.pdf_path : null,
         gerado_em: relatorio.gerado_em || new Date().toISOString(),
       }, { onConflict: 'empresa_id,colaborador_id,tipo' });
       if (result.error) throw new Error(`restaurar relatório ${relatorio.tipo}: ${result.error.message}`);
@@ -1821,6 +1886,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         // `colab_key` é GENERATED ALWAYS — inserir o valor derruba o reset com
         // "cannot insert a non-DEFAULT value". Mesma armadilha do `nivel` em
         // descriptor_assessments, e o fixture guarda a linha inteira.
+        const pdiCompativel = pdiDemoCompativelComModo(a.pdi.conteudo, programaModo);
         const { colab_key, ...pdiInserivel } = a.pdi as any;
         // UPSERT, não insert: o warm snapshot também restaura `relatorios`, e
         // as duas escritas colidiam na unique (empresa, colaborador, tipo) —
@@ -1828,6 +1894,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         // warm, que roda depois, sobrescreve com o mais recente.
         const result = await sb.from('relatorios').upsert({
           ...pdiInserivel,
+          conteudo: adaptarPdiFixtureAoModo(a.pdi.conteudo, programaModo),
+          pdf_path: pdiCompativel ? pdiInserivel.pdf_path : null,
           empresa_id: destId,
           colaborador_id: colabId,
         }, { onConflict: 'empresa_id,colaborador_id,tipo' });
@@ -2455,7 +2523,10 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
           empresa_id: destId,
           colaborador_id: pessoa.id,
           tipo: 'individual',
-          conteudo: criarPdiAcmeDemo(pessoa),
+          conteudo: criarPdiAcmeDemo(pessoa, {
+            totalSemanas: getProgramaConfigByModo(programaModo).semanas,
+            programaModo,
+          }),
           pdf_path: null,
           gerado_em: agora,
         });

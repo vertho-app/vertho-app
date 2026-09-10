@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { DEMO_PRESENTATION_VIDEO, DEMO_PRESENTATION_WEEK_VIDEO, DEMO_RESET_TABLES, DEMO_RH_PERSONA, DEMO_TENANT_PROFILES, PERSONAS, adaptarProgressoFixtureAoModo, adaptarTrilhaFixtureAoModo, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo, relatorioIndividualDemoValido } from '@/lib/demo/reset-acme-demo';
+import { DEMO_PRESENTATION_VIDEO, DEMO_PRESENTATION_WEEK_VIDEO, DEMO_RESET_TABLES, DEMO_RH_PERSONA, DEMO_TENANT_PROFILES, PERSONAS, adaptarPdiFixtureAoModo, adaptarProgressoFixtureAoModo, adaptarTrilhaFixtureAoModo, comportamentosDoDisc, focosValidosDemo, mesclarPersonaArtifacts, pdiDemoCompativelComModo, personaDemoComMapeamentoCompleto, personalizarArtefatoDemo, relatorioIndividualDemoValido } from '@/lib/demo/reset-acme-demo';
 import { DEMO_PERSONAS } from '@/lib/sales/demo-personas';
 import { ROSTER_COMERCIAL } from '@/lib/demo/rosters';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
@@ -135,13 +135,31 @@ describe('Personas do acme-demo seguem a régua do produto', () => {
 
   it('gera PDIs válidos e um consolidado coerente para a central demonstrativa', () => {
     const pessoa = ACME_DEMO_REPORT_DIRECTORY[0];
-    const pdi = criarPdiAcmeDemo(pessoa);
+    const pdi = criarPdiAcmeDemo(pessoa, { totalSemanas: 7, programaModo: 'jornada' });
     const rh = criarRelatorioRhAcmeDemo();
 
     expect(relatorioIndividualDemoValido(pdi)).toBe(true);
     expect(pdi.competencias.length).toBeGreaterThan(0);
+    expect(pdi).toMatchObject({ total_semanas: 7, programa_modo: 'jornada' });
     expect(rh.indicadores.total_avaliados).toBe(ACME_DEMO_TEAM_SIZE);
     expect(rh.indicadores.total_avaliacoes).toBe(ACME_DEMO_TEAM_SIZE * 5);
+  });
+
+  it('compacta o mapa congelado do PDI e invalida a régua antiga de 14 semanas', () => {
+    const original = (fixture as any).personaArtifacts['bruna.demo@vertho.ai'].pdi.conteudo;
+    const adaptado = adaptarPdiFixtureAoModo(original, 'jornada');
+
+    expect(pdiDemoCompativelComModo(original, 'jornada')).toBe(false);
+    expect(original.trilha_mapa.semanas).toHaveLength(14);
+    expect(adaptado).toMatchObject({
+      total_semanas: 7,
+      programa_modo: 'jornada',
+      trilha_mapa: { duracao_semanas: 7 },
+    });
+    expect(adaptado.trilha_mapa.semanas.map((semana: any) => semana.semana)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(adaptado.trilha_mapa.semanas.slice(0, 6).every((semana: any) => semana.tipo === 'conteudo')).toBe(true);
+    expect(adaptado.trilha_mapa.semanas[6].tipo).toBe('avaliacao');
+    expect(pdiDemoCompativelComModo(adaptado, 'jornada')).toBe(true);
   });
 
   it('limpa relatórios antes de colaboradores para o reset nunca ficar pela metade', () => {
