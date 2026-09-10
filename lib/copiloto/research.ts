@@ -1,5 +1,9 @@
 import { callOpenAIWebSearch } from '@/actions/ai-client';
 import type { OpenAIWebSearchSource } from '@/actions/ai-client';
+import {
+  DEFAULT_COPILOTO_RESEARCH_FALLBACK_MODEL,
+  DEFAULT_COPILOTO_RESEARCH_MODEL,
+} from '@/lib/ai-tasks';
 import { isExternalNewsUrl, isOfficialSiteUrl } from '@/lib/copiloto/social-identity';
 import type { ConversationGoal, CopilotSource } from '@/lib/copiloto/types';
 
@@ -53,13 +57,14 @@ const ORCAMENTO_PADRAO_MS = 110_000;
 const RESTO_MINIMO_MS = 30_000;
 
 /**
- * Tenta de novo quando SOBRA orçamento, e não sempre.
+ * Tenta de novo com o Sol quando SOBRA orçamento, e não sempre.
  *
  * A primeira versão dividia o prazo em dois pedaços fixos, o que protegia contra
  * o 503 aos 4 s e ao mesmo tempo encurtava a chamada legítima que só precisava
  * de mais tempo. Agora a primeira tentativa leva quase todo o orçamento; se ela
  * falhar cedo, o que sobrou vira a segunda tentativa, e se ela estourar o
- * relógio não há segunda — repetir com menos tempo daria o mesmo resultado.
+ * relógio não há segunda — chamar o fallback com menos tempo daria o mesmo
+ * resultado.
  */
 async function runResearchTrack(
   track: string,
@@ -67,7 +72,10 @@ async function runResearchTrack(
   format: { name: string; strict: boolean; schema: Record<string, unknown> },
   options: { maxOutputTokens: number; taskKey: string },
 ): Promise<{ research: any; sources: OpenAIWebSearchSource[] } | null> {
-  const model = process.env.COPILOTO_RESEARCH_MODEL || 'gpt-5.5';
+  const primaryModel = process.env.COPILOTO_RESEARCH_MODEL?.trim()
+    || DEFAULT_COPILOTO_RESEARCH_MODEL;
+  const fallbackModel = process.env.COPILOTO_RESEARCH_FALLBACK_MODEL?.trim()
+    || DEFAULT_COPILOTO_RESEARCH_FALLBACK_MODEL;
   const orcamento = ORCAMENTO_MS[track] ?? ORCAMENTO_PADRAO_MS;
   const inicio = Date.now();
 
@@ -79,6 +87,7 @@ async function runResearchTrack(
       break;
     }
     const prazo = tentativa === 1 ? Math.round(orcamento * 0.75) : restante;
+    const model = tentativa === 1 ? primaryModel : fallbackModel;
     try {
       const response = await callOpenAIWebSearch(prompt, format, {
         model,
@@ -89,7 +98,10 @@ async function runResearchTrack(
       });
       return { research: parseJson(response.text), sources: response.sources };
     } catch (error: any) {
-      console.warn(`[copiloto/${track}] tentativa ${tentativa} em ${prazo} ms:`, error?.message || error);
+      console.warn(
+        `[copiloto/${track}] ${model} falhou na tentativa ${tentativa} em ${prazo} ms:`,
+        error?.message || error,
+      );
     }
   }
   return null;

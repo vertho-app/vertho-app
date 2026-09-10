@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/actions/ai-client', () => ({
   callOpenAIWebSearch: vi.fn(),
@@ -19,7 +19,13 @@ const publicResearch = {
 };
 
 describe('pesquisa pública do Copiloto', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.stubEnv('COPILOTO_RESEARCH_MODEL', '');
+    vi.stubEnv('COPILOTO_RESEARCH_FALLBACK_MODEL', '');
+  });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it('executa site, imprensa e redes em trilhas separadas e filtra fonte fora da trilha', async () => {
     vi.mocked(callOpenAIWebSearch).mockImplementation(async (prompt) => {
@@ -76,6 +82,7 @@ describe('pesquisa pública do Copiloto', () => {
     expect(result.socialSearchCompleted).toBe(true);
     expect(result.siteSearchCompleted).toBe(true);
     expect(vi.mocked(callOpenAIWebSearch).mock.calls.every((call) => call[2]?.reasoningEffort === 'low')).toBe(true);
+    expect(vi.mocked(callOpenAIWebSearch).mock.calls.every((call) => call[2]?.model === 'gpt-5.6-terra')).toBe(true);
   });
 
   it('preserva notícias e redes quando a trilha do site falha', async () => {
@@ -248,6 +255,8 @@ describe('pesquisa pública do Copiloto', () => {
     const daNoticia = vi.mocked(callOpenAIWebSearch).mock.calls
       .filter((call) => call[0].includes('DEDICADA a notícias'));
     expect(daNoticia).toHaveLength(2);
+    expect(daNoticia.map((call) => call[2]?.model))
+      .toEqual(['gpt-5.6-terra', 'gpt-5.6-sol']);
   });
 
   it('a trilha do site recebe mais prazo que as outras, por ser a mais pesada', async () => {

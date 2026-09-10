@@ -32,7 +32,7 @@ import { costFromTokens, openAIWebSearchToolCost } from '@/lib/ia-cost-catalog';
 // mora em `lib/`, não aqui.
 import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
 import { PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, usaMaxCompletionTokens } from '@/lib/ai-provedores';
-import { fallbackRespeitandoDual } from '@/lib/ai-tasks';
+import { DEFAULT_COPILOTO_RESEARCH_MODEL, fallbackRespeitandoDual } from '@/lib/ai-tasks';
 import { contextoAtual, fracaoDoOrcamento } from '@/lib/execucao-contexto';
 import { origemDaChamada } from '@/lib/origem-chamada';
 
@@ -449,7 +449,7 @@ export async function callOpenAIWebSearch(
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI_API_KEY não configurada');
 
-  const model = options.model || process.env.OPENAI_WEB_SEARCH_MODEL || 'gpt-5.5';
+  const model = options.model || process.env.OPENAI_WEB_SEARCH_MODEL || DEFAULT_COPILOTO_RESEARCH_MODEL;
   const startedAt = Date.now();
   const res = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',

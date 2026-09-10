@@ -184,6 +184,16 @@ export const MODELOS_DISPONIVEIS = [
 ];
 
 /**
+ * Pesquisa pública do Copiloto PACE.
+ *
+ * Terra atende a rota normal; Sol só entra quando a primeira tentativa falha.
+ * Os valores ficam neste catálogo para o runtime e as telas de custo partirem
+ * da mesma decisão de modelo.
+ */
+export const DEFAULT_COPILOTO_RESEARCH_MODEL = 'gpt-5.6-terra';
+export const DEFAULT_COPILOTO_RESEARCH_FALLBACK_MODEL = 'gpt-5.6-sol';
+
+/**
  * Defaults por task quando não há config explícita no sys_config da empresa
  * (ou quando a task é platform-level, sem empresa associada).
  *
@@ -194,17 +204,17 @@ export const MODELOS_DISPONIVEIS = [
 export const DEFAULT_TASK_MODELS: Record<string, string> = {
   recepcao_paciente: 'claude-sonnet-4-6',
   recepcao_avaliacao: 'claude-sonnet-4-6',
-  copiloto_pesquisa_empresa: 'gpt-5.5',
+  copiloto_pesquisa_empresa: DEFAULT_COPILOTO_RESEARCH_MODEL,
   copiloto_planejamento:     'gpt-5.6-terra',
   copiloto_ao_vivo:          'gemini-3.7-flash',
-  // 28/08: incumbentes tornados explícitos — as chamadas já resolvem modelo
-  // inline (env COPILOTO_RESEARCH_MODEL || 'gpt-5.5' nas duas pesquisas,
-  // COPILOTO_MEMORY_MODEL || 'gpt-5.6-terra' na memória), então o pino espelha
-  // o que já roda. Sem estas linhas o custo caía sem rótulo no ledger e a task
-  // não aparecia na tela de modelos.
+  // As chamadas de pesquisa resolvem o primário pela env
+  // COPILOTO_RESEARCH_MODEL e caem nos defaults daqui. Manter todas explícitas
+  // evita que o runtime e a tela de custo atribuam modelos diferentes.
   copiloto_memoria_conversa:          'gpt-5.6-terra',
-  copiloto_pesquisa_social_oficial:   'gpt-5.5',
-  copiloto_pesquisa_noticias_externas: 'gpt-5.5',
+  copiloto_pesquisa_social_oficial:    DEFAULT_COPILOTO_RESEARCH_MODEL,
+  copiloto_pesquisa_noticias_externas: DEFAULT_COPILOTO_RESEARCH_MODEL,
+  copiloto_pesquisa_pessoas:           DEFAULT_COPILOTO_RESEARCH_MODEL,
+  copiloto_pesquisa_pessoa:            DEFAULT_COPILOTO_RESEARCH_MODEL,
   // Módulos-Base — autora (extração/segmentação/estruturação) em Claude Sonnet 4.6
   // (24/06): qualidade pedagógica e aderência ao spec acima do Gemini Flash, que
   // entregava segmentação/estruturação mais rasa. Custo/latência maiores, aceitos

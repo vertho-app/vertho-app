@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { resolveTaskModel, PINNED_TASKS, DEFAULT_TASK_MODELS } from '@/lib/ai-tasks';
+import {
+  DEFAULT_COPILOTO_RESEARCH_FALLBACK_MODEL,
+  DEFAULT_COPILOTO_RESEARCH_MODEL,
+  DEFAULT_TASK_MODELS,
+  PINNED_TASKS,
+  resolveTaskModel,
+} from '@/lib/ai-tasks';
 
 /**
  * PINNED_TASKS (Sprint 1): auditorias críticas são imunes ao `modelo_padrao`
@@ -58,6 +64,22 @@ describe('resolveTaskModel — tasks pinned', () => {
   it('todas as dupla-checagens são pinned', () => {
     for (const task of CHECKS_DUAIS) {
       expect(PINNED_TASKS.has(task), task).toBe(true);
+    }
+  });
+
+  it('todas as pesquisas do Copiloto usam Terra, com Sol como fallback central', () => {
+    const pesquisas = [
+      'copiloto_pesquisa_empresa',
+      'copiloto_pesquisa_social_oficial',
+      'copiloto_pesquisa_noticias_externas',
+      'copiloto_pesquisa_pessoas',
+      'copiloto_pesquisa_pessoa',
+    ];
+
+    expect(DEFAULT_COPILOTO_RESEARCH_MODEL).toBe('gpt-5.6-terra');
+    expect(DEFAULT_COPILOTO_RESEARCH_FALLBACK_MODEL).toBe('gpt-5.6-sol');
+    for (const task of pesquisas) {
+      expect(DEFAULT_TASK_MODELS[task], task).toBe(DEFAULT_COPILOTO_RESEARCH_MODEL);
     }
   });
 
