@@ -196,7 +196,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
 
   const fases = [];
 
-  // Fase 1 — Diagnóstico comportamental.
+  // Fase 1 — Mapeamento comportamental.
   // Empresas com fonte externa/proprietária não fazem DISC na Vertho:
   // a etapa não deve bloquear o avanço para a avaliação de competências.
   const temDISC = !!colab.perfil_dominante;

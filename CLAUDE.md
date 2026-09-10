@@ -1,6 +1,6 @@
 # Vertho Mentor IA
 
-Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e empresas). Colaboradores passam por diagnóstico comportamental (DISC), recebem cenários situacionais por competência, conversam com IA avaliativa e seguem trilhas (**Temporadas**) com micro-conteúdos personalizados. Inclui geração de vídeo de microlearning, um **Portal do Representante** (canal comercial dos RCs) e ambientes de demonstração.
+Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e empresas). Colaboradores passam por mapeamento comportamental (DISC), recebem cenários situacionais por competência, conversam com IA avaliativa e seguem trilhas (**Temporadas**) com micro-conteúdos personalizados. Inclui geração de vídeo de microlearning, um **Portal do Representante** (canal comercial dos RCs) e ambientes de demonstração.
 
 > **Um doc canônico por assunto** (consolidação de 27/07 — 21 arquivos absorvidos em 6):
 >

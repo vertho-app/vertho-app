@@ -166,7 +166,7 @@
       "waitingProfile": "A aguardar libertação do perfil comportamental",
       "waitingScenarios": "A aguardar libertação do mapeamento de cenários",
       "waitingRoleSetup": "A aguardar as competências da sua função",
-      "behavioral": "Fazer diagnóstico comportamental",
+      "behavioral": "Fazer mapeamento comportamental",
       "continueAssessment": "Continuar mapeamento",
       "startAssessment": "Iniciar mapeamento de competências",
       "viewResult": "Ver o meu resultado"
@@ -468,7 +468,7 @@
   },
   "DashboardJourney": {
     "cta": {
-      "1": "Fazer diagnóstico comportamental",
+      "1": "Fazer mapeamento comportamental",
       "2": "Iniciar mapeamento de competências",
       "3": "Ver o meu PDI",
       "4": "Ver a minha temporada",
@@ -951,7 +951,7 @@
       "receivedTitle": "Perfil comportamental recebido",
       "handledTitle": "Perfil comportamental tratado pela empresa",
       "defaultSource": "mapeamento comportamental próprio",
-      "subtitle": "A sua empresa utiliza {source}. Não há diagnóstico comportamental para responder na Vertho.",
+      "subtitle": "A sua empresa utiliza {source}. Não há mapeamento comportamental para responder na Vertho.",
       "receivedDescription": "O seu perfil comportamental já foi recebido e será usado pela Vertho para personalizar análises, recomendações e trilhas quando aplicável.",
       "pendingDescription": "Quando o RH disponibilizar as informações do mapeamento, elas serão integradas pela Vertho aos fluxos internos da jornada.",
       "availableHighlights": "Destaques disponíveis",
