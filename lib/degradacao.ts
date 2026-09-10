@@ -60,6 +60,21 @@ export const DEGRADACAO = {
    */
   ALINHAMENTO_ASR_AUSENTE: 'alinhamento-asr-ausente',
   /**
+   * vídeo: a NARRAÇÃO ÚNICA foi recusada e o vídeo caiu no caminho por cena — cada
+   * cena vira uma síntese nova, e a voz muda de uma para a outra (o defeito que a
+   * narração única existe para eliminar).
+   *
+   * `Medido 10/09/2026` reproduzindo a decisão com os 13 takes de 07/09 que estão no
+   * Storage: **9 recusaram**, 8 delas por "corte sem pausa" na fronteira. E a régua
+   * está CERTA — a distribuição das 108 fronteiras é bimodal com um vale largo (98
+   * entre 30 e 72 dB de margem, 10 entre −7,8 e 11,4 dB, nenhuma entre 12 e 30), então
+   * o limiar de 10 dB não corta o meio de nada: as reprovadas são corte dentro da fala
+   * mesmo. O que não dava para ver era ISTO acontecendo, porque o único rastro era um
+   * `console.warn` no log do Trigger — 8 de 13 vídeos saíram costurados sem sintoma.
+   * `aviso`: o vídeo sai (o caminho por cena sempre funcionou), só sai pior.
+   */
+  NARRACAO_UNICA_RECUSADA: 'narracao-unica-recusada',
+  /**
    * envio: falhou gravar a linha de `notification_deliveries` (mig 198). O envio
    * em si NÃO é afetado — o que se perde é a medição. Está aqui porque tabela
    * vazia é ambígua entre "ninguém enviou" e "o logger quebrou", e essa dúvida

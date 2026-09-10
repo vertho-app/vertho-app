@@ -236,6 +236,33 @@ export interface PlanoNarracao { ok: boolean; fatias?: FatiaCena[]; motivo?: str
  * caminho por cena com o motivo no log (fail-open declarado, nunca corte no chute).
  * Puro, para o roteamento de recusa ter teste sem subir a task.
  */
+/**
+ * CLASSE do motivo da recusa — a chave da degradação, para o dedup agregar por causa e
+ * não por vídeo. Fica aqui, junto de quem ESCREVE as mensagens: classificar no chamador
+ * deixaria as duas pontas livres para divergir sem nada acusar.
+ *
+ * `Medido 10/09/2026` reproduzindo os 13 takes de 07/09: 9 recusaram, 8 delas em
+ * `corte-sem-pausa` e 1 em `vazamento-de-borda` — as duas classes que valem separar.
+ *
+ * ⚠️ Comparação por `includes`, e não por `\b` de regex. O motivo é composto — vários
+ * avisos concatenados com " · " —, então a régua tem que casar SUBSTRING; e o word
+ * boundary do JavaScript é definido sobre `[A-Za-z0-9_]`, o que o torna frágil exatamente
+ * aqui: ele funciona quando a borda cai em letra ASCII (`/\btranscrição\b/` casa, porque
+ * termina em "o") e falha calado quando cai em letra acentuada (`/\bvocê\b/` NUNCA casa —
+ * o projeto já reprovou dois textos corretos por isso). Uma mensagem futura terminada em
+ * acento quebraria a classificação sem nada acusar.
+ */
+export function classeDaRecusa(motivo: string): string {
+  const m = String(motivo || '').toLowerCase();
+  if (m.includes('whisper indispon')) return 'asr-indisponivel';
+  if (m.includes('upload de fatia')) return 'upload-fatia';
+  if (m.includes('insuficiente')) return 'alinhamento-insuficiente';
+  if (m.includes('sem pausa')) return 'corte-sem-pausa';
+  if (m.includes('que abre a cena seguinte') || m.includes('que fecha a cena anterior')) return 'vazamento-de-borda';
+  if (m.includes('fatia sem palavras')) return 'fatia-sem-palavras';
+  return 'outro';
+}
+
 export function planejarNarracaoUnica(words: WordTime[], cenas: CenaNarrada[], duracaoTotalS?: number, pcm?: Buffer, sampleRate?: number): PlanoNarracao {
   const fatias = alinharCenas(words, cenas, duracaoTotalS, pcm, sampleRate);
   if (!fatias) return { ok: false, motivo: 'alinhamento cena × transcrição insuficiente' };

@@ -67,10 +67,17 @@ export async function rodarCanarioTts(vozes: string[] = Object.keys(ALVO_F0_POR_
   const out: ResultadoCanario[] = [];
   for (const voz of vozes) {
     try {
-      // 2 tentativas em paralelo, como a produção sob demanda: um take sozinho pode sair
-      // fora do registro por sorteio (medido 06/09: 225 Hz num take, alvo 208 ±1 st,
-      // com timbre a 0,15σ e sem deriva) e isso não é "o modelo mudou". As duas
-      // tentativas ficam em tts_qa_log; a escolhida leva `publicado`.
+      // 2 tentativas em PARALELO — aqui, e só aqui, isso continua certo: o canário quer
+      // COMPARAR takes, não entregar um. Um take sozinho pode sair fora do registro por
+      // sorteio (medido 06/09: 225 Hz num take, alvo 208 ±1 st, com timbre a 0,15σ e sem
+      // deriva) e isso não é "o modelo mudou". As duas ficam em `tts_qa_log`; a escolhida
+      // leva `publicado`.
+      //
+      // ⚠️ Este comentário dizia "como a produção sob demanda". Deixou de ser verdade
+      // DUAS vezes sem que ninguém notasse: em 07/09 a calibração levou a Aoede a 3
+      // tentativas, e em 10/09 a produção passou a refazer em SÉRIE, limitada por prazo.
+      // O canário mede o melhor de 2 de propósito; se um dia isso precisar espelhar a
+      // produção, o número tem que vir do perfil da voz (`tentativasDaVoz`), não daqui.
       const audio = await generateNarrationAudio(TEXTO_CANARIO, {
         voice: voz,
         style: direcaoDaVoz(voz),

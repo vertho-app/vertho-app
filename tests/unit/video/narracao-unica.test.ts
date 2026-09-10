@@ -5,7 +5,7 @@
  * corte no lugar errado em silêncio.
  */
 import { describe, it, expect } from 'vitest';
-import { alinharCenas, montarTextoUnico, fatiarPcm16, validarFatias, planejarNarracaoUnica, garantirCabecaSilenciosa, CABECA_SILENCIO_PAD_S } from '@/lib/video/narracao-unica';
+import { alinharCenas, montarTextoUnico, fatiarPcm16, validarFatias, planejarNarracaoUnica, classeDaRecusa, garantirCabecaSilenciosa, CABECA_SILENCIO_PAD_S } from '@/lib/video/narracao-unica';
 import type { FatiaCena } from '@/lib/video/narracao-unica';
 import type { WordTime } from '@/lib/video/whisper-align';
 
@@ -236,5 +236,47 @@ describe('narração única: QA das fatias (roteiro + áudio) e roteamento de re
     const r2 = planejarNarracaoUnica(words, cenas, total, continuo, 24000);
     expect(r2.ok).toBe(false);
     expect(r2.motivo).toContain('fronteira suspeita');
+  });
+
+  /**
+   * A recusa vira uma linha de degradação, e a CHAVE dela é a classe do motivo. Se a
+   * classificação se descolar das mensagens, o alarme não some — fica pior: agrega tudo
+   * em `outro` e some com a distinção entre "corte no meio da fala" (defeito de
+   * alinhamento) e "ASR fora do ar" (fornecedor), que têm correções opostas.
+   *
+   * Por isso os casos abaixo NÃO usam string escrita à mão: pegam o `motivo` que o
+   * próprio `planejarNarracaoUnica` produz.
+   */
+  it('classeDaRecusa classifica os motivos REAIS que o planejador emite', () => {
+    const words = transcrever(cenas.map((c) => c.narration.split(' ')));
+    const total = words[words.length - 1].end + 0.5;
+
+    const fora = transcrever([cenas[1].narration.split(' '), cenas[0].narration.split(' '), cenas[2].narration.split(' ')]);
+    const insuficiente = planejarNarracaoUnica(fora, cenas);
+    expect(classeDaRecusa(insuficiente.motivo!)).toBe('alinhamento-insuficiente');
+
+    const continuo = sintetizar([{ word: 'x', start: 0, end: total }], total);
+    const semPausa = planejarNarracaoUnica(words, cenas, total, continuo, 24000);
+    expect(classeDaRecusa(semPausa.motivo!)).toBe('corte-sem-pausa');
+
+    // Os dois `throw` da task, que não passam pelo planejador.
+    expect(classeDaRecusa('Whisper indisponível (sem timing por palavra, não há como cortar)')).toBe('asr-indisponivel');
+    expect(classeDaRecusa('upload de fatia falhou (1/9): scene-3: timeout')).toBe('upload-fatia');
+    expect(classeDaRecusa('boom')).toBe('outro');
+  });
+
+  /**
+   * O motivo REAL é composto: `planejarNarracaoUnica` concatena todos os avisos com
+   * " · ", e um mesmo take pode falhar por corte E por vazamento. A chave da degradação
+   * é uma só, então a ORDEM das regras é que decide — e ela precisa ser estável, senão
+   * a mesma falha muda de balde entre execuções e o contador por dia perde o sentido.
+   *
+   * As duas mensagens abaixo são literais de 07/09 (medidas ao reproduzir os takes).
+   */
+  it('classeDaRecusa é estável em motivo COMPOSTO: corte sem pausa vence o vazamento', () => {
+    const composto = 'fronteira suspeita: scene-6 corte em 110.21s sem pausa (2 dB abaixo da fala; mínimo 10) · scene-5 começa com "perto", que fecha a cena anterior';
+    expect(classeDaRecusa(composto)).toBe('corte-sem-pausa');
+    expect(classeDaRecusa('fronteira suspeita: scene-5 começa com "perto", que fecha a cena anterior')).toBe('vazamento-de-borda');
+    expect(classeDaRecusa('alinhamento cena × transcrição insuficiente')).toBe('alinhamento-insuficiente');
   });
 });

@@ -339,10 +339,21 @@ export interface MontarPromptIA2Args {
   contextoPPP: string;
   valores: string[];
   empresa: { nome: string; segmento?: string | null };
+  /**
+   * Gabaritos JÁ gerados de OUTROS cargos da mesma empresa, resumidos.
+   *
+   * O prompt sempre mandou "garanta que este perfil é DIFERENTE dos outros
+   * cargos desta empresa" — e nunca passou os outros cargos. Instrução que o
+   * modelo não tem como cumprir não é instrução: `Medido: 10/09/2026`, três
+   * cargos de gestão de Ibipeba saíram com perfis indistinguíveis entre si
+   * (índice de separação 0,47, abaixo do acaso), e na ACME Demo um cargo teve
+   * 10 de 10 subcompetências na mesma faixa.
+   */
+  irmaos?: { cargo: string; resumo: string }[];
 }
 
 /** Constrói o par (system, user) do gabarito CIS. PURA — sem I/O. */
-export function montarPromptIA2({ cargoNome, compNomes, detalhe, contextoPPP, valores, empresa }: MontarPromptIA2Args): { system: string; user: string } {
+export function montarPromptIA2({ cargoNome, compNomes, detalhe, contextoPPP, valores, empresa, irmaos }: MontarPromptIA2Args): { system: string; user: string } {
   const system = `Você é um especialista em avaliação comportamental CIS/DISC com 20 anos de experiência.
 
 TAREFA: Gerar o GABARITO COMPORTAMENTAL IDEAL para o cargo descrito.
@@ -419,6 +430,23 @@ não mais liderança ("mais é melhor" é FALSO para eles). Por isso:
    demais"). NÃO ponha teto/target nesses só por serem de liderança: liderança NÃO implica
    teto; só a família comando implica, porque só ela é curvilínea.
 
+═══ A FAIXA PRECISA EXCLUIR ALGUÉM (regra dura) ═══
+Uma faixa só participa da nota se houver gente FORA dela. Com direção "floor", o
+scoring credita 100% para QUALQUER valor acima do piso — então um piso que a
+maioria dos profissionais já alcança não é requisito: ele ocupa peso no bloco e
+não diferencia ninguém.
+
+Antes de emitir cada faixa, responda mentalmente: **quem seria excluído por ela?**
+Se a resposta for "quase ninguém", a faixa está larga demais — suba o piso ou
+troque a direção.
+
+- "Alto (41-60)" como piso é a METADE SUPERIOR da escala: exige pouco. Use-o só
+  quando o traço for de fato secundário para o cargo.
+- Traço que você marcou como prioridade ALTA quase nunca deve ter piso em
+  "Alto (41-60)": se ele é decisivo, o piso é "Muito alto (61-80)" ou acima.
+- VARIE as faixas entre os traços do mesmo cargo. Um gabarito em que todos os
+  itens têm a mesma faixa não descreve um cargo — descreve um carimbo.
+
 ═══ PESOS DE BLOCO E ELIMINATÓRIAS (opcional, mas recomendado) ═══
 - "pesos_blocos": importância relativa de cada bloco no score final. 4 números que
   SOMAM ~1.0: { "competencia", "lideranca", "disc", "mapeamento" }. Para cargo SEM
@@ -441,7 +469,9 @@ não mais liderança ("mais é melhor" é FALSO para eles). Por isso:
     },
     "tela2": {
       "subcompetencias": [
-        {"nome": "Empatia", "dimensao": "S", "prioridade": "alta", "direcao": "floor", "faixa_min": "Alto (41-60)", "faixa_max": "Muito alto (61-80)", "justificativa": "Cargo exige..."}
+        {"nome": "Empatia", "dimensao": "S", "prioridade": "alta", "direcao": "floor", "faixa_min": "Muito alto (61-80)", "faixa_max": "Extremamente alto (81-100)", "justificativa": "Cargo exige..."},
+        {"nome": "Detalhismo", "dimensao": "C", "prioridade": "media", "direcao": "ceiling", "faixa_min": "Muito baixo (0-20)", "faixa_max": "Alto (41-60)", "justificativa": "Excesso trava o ritmo..."},
+        {"nome": "Planejamento", "dimensao": "C", "prioridade": "alta", "direcao": "target", "faixa_min": "Alto (41-60)", "faixa_max": "Muito alto (61-80)", "justificativa": "Nem pouco, nem demais..."}
       ],
       "confianca": 0.78
     },
@@ -514,6 +544,16 @@ ${compNomes.join(', ')}`);
 
   userBlocks.push(`═══ VALORES ORGANIZACIONAIS ═══\n${valores.join(', ')}`);
 
+  if (irmaos?.length) {
+    userBlocks.push(`═══ OS OUTROS CARGOS DESTA EMPRESA (já definidos) ═══
+Estes perfis já existem. O cargo-alvo tem de se diferenciar deles NAS TELAS —
+faixas e direções diferentes onde a exigência é diferente —, e não apenas na
+justificativa escrita. Se o cargo-alvo for genuinamente parecido com um destes,
+diga isso em "diferenciais_vs_outros_cargos" e mostre onde ele difere de fato.
+
+${irmaos.map((i) => `• ${i.cargo}: ${i.resumo}`).join('\n')}`);
+  }
+
   userBlocks.push(`═══ REFERÊNCIAS COMPORTAMENTAIS DISPONÍVEIS ═══
 Pares: ${PARES_DISC.length} pares de opostos
 Sub-competências CIS: ${SUB_COMPETENCIAS_CIS.map((s) => s.nome).join(', ')}
@@ -525,7 +565,7 @@ Fatores DISC: D (Dominância), I (Influência), S (Estabilidade), C (Conformidad
 2. Forme HIPÓTESE-BASE do perfil ANTES de aplicar referência comportamental.
 3. Declare INCERTEZAS onde faltam sinais ou há ambiguidade.
 4. Use conhecimento CIS APENAS para refinar, nunca para sobrescrever sinais do caso.
-5. Garanta que este perfil é DIFERENTE dos outros cargos desta empresa.
+5. Compare com os OUTROS CARGOS listados acima: as faixas e direções deste perfil têm de diferir onde a exigência difere. Perfil igual ao do vizinho não descreve um cargo.
 6. Tela 3: soma DEVE ser exatamente 100.
 7. Tela 4: min DEVE ser <= max para cada fator.
 8. Se faltar evidência para um fator, use intensidade moderada e confiança baixa.`);
@@ -644,6 +684,25 @@ export async function persistirGabaritoIA2({ tdb, cargoNome, resultado, detalhe,
 }
 
 /**
+ * Resume um gabarito numa linha, para servir de contraste ao cargo seguinte.
+ *
+ * Só o que diferencia: as subcompetências com faixa e direção, e o estilo
+ * predominante. Mandar o gabarito inteiro inflaria o prompt sem acrescentar
+ * contraste — e é a faixa que estava saindo igual em toda a base.
+ */
+export function resumirGabaritoParaIrmaos(gabarito: any): string {
+  const subs = (gabarito?.tela2?.subcompetencias || []) as any[];
+  const partes = subs
+    .filter((s) => s?.nome)
+    .map((s) => `${s.nome} ${s.faixa_min || '?'}→${s.faixa_max || '?'} (${s.direcao || '?'}, ${s.prioridade || '?'})`);
+  const t3 = gabarito?.tela3 || {};
+  const estilo = ['executor', 'motivador', 'metodico', 'sistematico']
+    .map((k) => `${k} ${Number(t3[k]) || 0}`)
+    .join('/');
+  return `${partes.join(' · ') || 'sem subcompetências'} | estilos: ${estilo}`;
+}
+
+/**
  * Núcleo HEADLESS do IA2 — o laço que gera um gabarito por cargo.
  *
  * Extraído de `actions/fase1.ts::rodarIA2` (01/09/2026) no mesmo padrão do IA3
@@ -669,10 +728,28 @@ export async function gerarGabaritosIA2Core(args: {
   if (error || !ctx) return { success: false, error: error || 'contexto IA2 indisponível' };
   const { empresa, contextoPPP, valores, top10PorCargo, cargosDetalheMap, colabsParaMetrica } = ctx;
 
+  /**
+   * Os cargos que já têm gabarito, para o próximo se diferenciar deles.
+   *
+   * Começa com o que está no banco e RECEBE cada cargo gerado nesta rodada — o
+   * segundo cargo vê o primeiro. Sem isso, gerar a empresa inteira de uma vez
+   * produziria N perfis mutuamente cegos, que foi como Ibipeba acabou com três
+   * cargos de gestão indistinguíveis entre si.
+   */
+  const irmaosPorCargo = new Map<string, string>();
+  for (const det of Object.values(cargosDetalheMap) as any[]) {
+    if (det?.nome && det?.gabarito?.tela2?.subcompetencias) {
+      irmaosPorCargo.set(det.nome, resumirGabaritoParaIrmaos(det.gabarito));
+    }
+  }
+
   let totalGerados = 0;
   for (const [nomeDoCargo, compNomes] of Object.entries(top10PorCargo)) {
     const detalhe = cargosDetalheMap[nomeDoCargo.toLowerCase()] || {};
-    const { system, user } = montarPromptIA2({ cargoNome: nomeDoCargo, compNomes, detalhe, contextoPPP, valores, empresa });
+    const irmaos = [...irmaosPorCargo.entries()]
+      .filter(([nome]) => nome.toLowerCase() !== nomeDoCargo.toLowerCase())
+      .map(([cargo, resumo]) => ({ cargo, resumo }));
+    const { system, user } = montarPromptIA2({ cargoNome: nomeDoCargo, compNomes, detalhe, contextoPPP, valores, empresa, irmaos });
 
     let resposta = await callAI(system, user, aiConfig, 8192, { taskKey: 'ia2_gabarito', empresaId });
     let resultado = await extractJSON(resposta);
@@ -690,6 +767,8 @@ export async function gerarGabaritosIA2Core(args: {
 
     if (resultado?.gabarito) {
       await persistirGabaritoIA2({ tdb, cargoNome: nomeDoCargo, resultado, detalhe, colabsParaMetrica });
+      // Entra no contraste dos cargos seguintes desta mesma rodada.
+      irmaosPorCargo.set(nomeDoCargo, resumirGabaritoParaIrmaos(resultado.gabarito));
       totalGerados++;
     }
   }
