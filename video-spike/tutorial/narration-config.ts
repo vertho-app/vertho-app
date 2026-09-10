@@ -1,6 +1,52 @@
 import { createHash } from 'node:crypto';
 import { ELENCO } from '../../lib/tts/elenco';
 
+/**
+ * Acréscimo de direção por flow — e o que ele PODE e NÃO pode fazer.
+ *
+ * `Medido 10/09/2026`, mesmo texto, 3 takes por direção, portão desligado:
+ *
+ * | flow       | direção                          | F0 médio | deriva média |
+ * |------------|----------------------------------|---------:|-------------:|
+ * | boasvindas | "leveza no registro médio"       |  179 Hz  |        ~2,0  |
+ * | boasvindas | **pura do elenco**               |  135 Hz  |        ~2,6  |
+ * | boasvindas | "grave e de peito"               |  170 Hz  |        ~0,9  |
+ * | macae      | "termine com convicção"          |  134 Hz  |    **~6,3**  |
+ * | macae      | pura do elenco                   |  135 Hz  |        ~4,9  |
+ * | macae      | **"sustente a mesma altura"**    |  145 Hz  |    **~1,4**  |
+ *
+ * Duas conclusões que não são intuitivas e que custaram takes para aprender:
+ *
+ * 1. **Pedir uma ALTURA não funciona.** "Registro médio-alto" no `aplicacao` produziu
+ *    137 Hz; "grave e de peito" no `boasvindas` produziu 170. O modelo não obedece
+ *    instrução de altura — ele reage ao conjunto, e às vezes ao contrário do pedido.
+ *    Quem controla a altura é o TEXTO; a direção só a desloca por efeito colateral.
+ * 2. **Pedir ESTABILIDADE funciona.** "Sustente a mesma altura do começo ao fim" levou
+ *    a deriva do `macae` de ~5,5 para ~1,4 st/min. E o inverso também: pedir progressão
+ *    ("comece acolhedor e TERMINE com convicção") é pedir deriva, e o modelo entrega —
+ *    era por isso que aquele flow reprovava 10 de 10 pelo veto de inclinação.
+ *
+ * Por isso cada flow leva o acréscimo que resolve o SEU problema, e nenhum leva
+ * instrução de altura. A direção pura do elenco é o default — é ela que o Rodrigo
+ * aprovou no kit voz × rosto, e qualquer acréscimo desloca o take para longe dela.
+ */
+function acrescimoDeDirecao(flow: string): string {
+  // `macae` deriva por construção do roteiro (convite com arco emocional): a única
+  // instrução que segura é a de sustentação.
+  if (flow === 'macae') return '. Sustente a mesma altura de voz do começo ao fim — não suba o tom ao longo da narração, e não soe festivo.';
+  // `aplicacao` e `jornada` passaram em 10/09 COM instrução de altura ("médio-alto" e
+  // "registro médio"), mas passaram apesar dela, não graças a ela: um custou 11 takes e
+  // o outro chegou na 5ª tentativa. A instrução de altura sai dos dois — fica só a de
+  // sustentação, que é a que a medição mostra funcionar. O preço é regerar os dois (a
+  // chave inclui a direção), e é barato perto de manter no código uma instrução que
+  // mede-se produzir o contrário do que pede.
+  if (flow === 'aplicacao') return '. Leia este tutorial com voz clara, como um instrutor explicando algo simples. Sustente o mesmo registro do início ao fim.';
+  if (flow === 'jornada') return '. Para esta explicação prática, mantenha clareza didática e energia de conversa, sustentando o mesmo registro.';
+  // `boasvindas`, `disc` e `pdi`: direção PURA. No boasvindas isso é a correção — o
+  // acréscimo anterior o levava a 179 Hz, fora de qualquer alvo ancorado no aprovado.
+  return '';
+}
+
 /** Tutorial é o Beto explicando o produto, sem personalização por participante. */
 export function perfilTutorial(flow: string) {
   const p = ELENCO.beto;
@@ -8,12 +54,7 @@ export function perfilTutorial(flow: string) {
     personagem: 'beto', voice: p.voz, backend: 'vertex', model: p.modeloVertex,
     versao: p.versao, alvoF0Hz: p.alvoF0Hz, tolSt: p.tolSt,
     mode: 'continuous', tentativas: p.tentativas,
-    style: p.direcao + (flow === 'macae'
-      ? '. Neste convite, comece acolhedor e termine com convicção e otimismo, sem soar festivo.'
-      : flow === 'aplicacao'
-        ? '. Leia este tutorial com voz clara, luminosa e em registro médio-alto, como um instrutor entusiasmado explicando algo simples. Sustente o mesmo registro do início ao fim; não faça voz grave, solene ou de locutor.'
-      : ['jornada', 'boasvindas'].includes(flow)
-        ? '. Para esta explicação prática, fale com leveza no registro médio, sem engrossar a voz nem adotar tom solene. Mantenha clareza didática e energia de conversa.' : ''),
+    style: p.direcao + acrescimoDeDirecao(flow),
   };
 }
 
