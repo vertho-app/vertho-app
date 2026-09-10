@@ -1,40 +1,45 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet, Svg, Line, Path, Circle, Link } from '@react-pdf/renderer';
 import { colors, pageStyles } from './styles';
-import { ReportSectionTitle } from './PdfReportCover';
+import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
+import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { ReportView } from '@/lib/engajamento/relatorio-model';
 
 const s = StyleSheet.create({
   section: { marginBottom: 14 },
   meta: { fontSize: 8, color: colors.textMuted, marginBottom: 10 },
-  box: { backgroundColor: colors.gray100, borderWidth: 1, borderColor: colors.gray200, borderRadius: 8, padding: 12 },
-  thesis: { fontSize: 12, fontWeight: 600, color: colors.navy, marginBottom: 5 },
-  text: { fontSize: 9, color: colors.textSecondary, lineHeight: 1.5 },
-  caption: { fontSize: 7.5, color: colors.textMuted, lineHeight: 1.4 },
-  row: { flexDirection: 'row', gap: 8 },
-  metric: { flex: 1, backgroundColor: colors.gray100, borderWidth: 1, borderColor: colors.gray200, borderRadius: 6, padding: 10 },
-  count: { fontSize: 23, fontWeight: 700, color: colors.navy },
-  label: { fontSize: 8, color: colors.textSecondary, marginTop: 3, marginBottom: 4 },
-  delta: { fontSize: 7, marginTop: 4 },
-  risk: { backgroundColor: colors.melhorarBg, borderWidth: 1, borderColor: colors.melhorarBorder, borderRadius: 8, padding: 12, marginBottom: 12 },
-  riskTitle: { fontSize: 10, fontWeight: 600, color: colors.orangeText, marginBottom: 5 },
-  focus: { borderWidth: 1, borderColor: colors.gray200, borderRadius: 7, padding: 9, marginBottom: 7 },
-  focusName: { fontSize: 10, fontWeight: 600, color: colors.navy, flex: 1 },
-  actionTitle: { fontSize: 10, fontWeight: 600, color: colors.navy, marginBottom: 4 },
-  badge: { fontSize: 7, fontWeight: 600, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, marginLeft: 8 },
-  subtitle: { fontSize: 8, color: colors.textMuted, marginTop: 4, marginBottom: 5 },
-  secondary: { flex: 1, padding: 10, borderWidth: 1, borderColor: colors.gray200, borderRadius: 6 },
-  secondaryValue: { fontSize: 13, fontWeight: 600, color: colors.navy, marginBottom: 4 },
+  box: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: colors.gray200, borderRadius: 8, padding: 14 },
+  thesis: { fontSize: 11, fontWeight: 600, color: colors.navyLight, marginBottom: 5 },
+  text: { fontSize: 10, color: colors.textPrimary, lineHeight: 1.6 },
+  caption: { fontSize: 8, color: colors.textMuted, lineHeight: 1.5 },
+  kpiTable: { borderWidth: 1, borderColor: colors.gray200, borderRadius: 8, overflow: 'hidden' },
+  kpiRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  kpiLabel: { fontSize: 10, color: colors.textPrimary, flex: 1 },
+  kpiValue: { fontSize: 10, fontWeight: 700, color: colors.textPrimary, width: 130 },
+  kpiDelta: { fontSize: 8, color: colors.textMuted, width: 90, textAlign: 'right' },
+  risk: { backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#FDE68A', borderRadius: 6, padding: 10, marginBottom: 12 },
+  riskTitle: { fontSize: 10, fontWeight: 600, color: colors.yellowText, marginBottom: 5 },
+  card: { borderRadius: 6, overflow: 'hidden', marginBottom: 8 },
+  cardHeader: { paddingVertical: 8, paddingHorizontal: 12 },
+  cardTitle: { fontSize: 10, fontWeight: 700, color: colors.white },
+  cardContent: { paddingVertical: 8, paddingHorizontal: 14 },
+  subtitle: { fontSize: 9, color: colors.textMuted, marginBottom: 5 },
   legend: { flexDirection: 'row', gap: 18, marginTop: 8, marginBottom: 6 },
   legendItem: { flexDirection: 'row', alignItems: 'center' },
   swatch: { width: 12, height: 3, marginRight: 5 },
-  cargo: { borderWidth: 1, borderColor: colors.gray200, borderRadius: 7, padding: 12, marginBottom: 12 },
-  cargoName: { fontSize: 10, fontWeight: 600, color: colors.navy },
+  cargo: { borderWidth: 1, borderColor: colors.gray200, borderRadius: 6, padding: 10, marginBottom: 8 },
+  cargoName: { fontSize: 11, fontWeight: 600, color: colors.navyLight, marginBottom: 4 },
   cargoMetrics: { flexDirection: 'row', marginTop: 10, marginBottom: 9 },
   cargoMetric: { flex: 1, paddingRight: 6 },
   cargoValue: { fontSize: 11, color: colors.navy, fontWeight: 600, marginTop: 4 },
-  cargoAction: { borderTopWidth: 1, borderTopColor: colors.gray200, paddingTop: 8, fontSize: 8, color: colors.textSecondary, lineHeight: 1.4 },
+  cargoAction: { borderTopWidth: 1, borderTopColor: colors.gray200, paddingTop: 8, fontSize: 9, color: colors.textSecondary, lineHeight: 1.5 },
 });
+
+const signalColors = {
+  critical: { header: '#B91C1C', content: '#FEF2F2' },
+  attention: { header: '#92400E', content: '#FFFBEB' },
+  positive: { header: '#166534', content: '#F0FDF4' },
+};
 
 const series = [
   { key: 'activation' as const, label: 'Ativação', color: '#1C8A90' },
@@ -100,11 +105,22 @@ export default function RelatorioEngajamentoPDF({
   }
   function Footer() {
     return <View style={pageStyles.footer} fixed>
-      <Text style={pageStyles.footerText}>Relatório de engajamento · Confidencial</Text>
+      <Text style={pageStyles.footerText}>{mostrarVertho ? 'Vertho Mentor IA' : empresaNome} - Confidencial</Text>
       <Text style={pageStyles.footerText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>;
   }
   return <Document title={`Relatório de engajamento - ${empresaNome}`} author={mostrarVertho ? 'Vertho' : empresaNome}>
+    <PdfReportCover
+      bgBase64={getReportCoverBgBase64()}
+      logoBase64={logoBase64}
+      mostrarVertho={mostrarVertho}
+      mentorLabel={mostrarVertho ? 'Mentor IA' : null}
+      overline={`Relatório semanal · ${data.eyebrow.replace('Leitura de ', '').replace('Leitura do ', '')}`}
+      titulo={['Engajamento', 'Semanal']}
+      nome={empresaNome}
+      jornada={period}
+      tagline="Do dado à decisão sobre pessoas."
+    />
     <Page size="A4" style={pageStyles.page}>
       <Header />
       <Text style={s.meta}>{empresaNome} · {period}</Text>
@@ -117,24 +133,19 @@ export default function RelatorioEngajamentoPDF({
       </View>
       <View style={s.section} wrap={false}>
         <ReportSectionTitle>Indicadores do fechamento</ReportSectionTitle>
-        <View style={s.row}>
-          {metrics.map((metric) => <View key={metric.label} style={s.metric}>
-            <Text style={s.count}>{metric.count}</Text>
-            <Text style={s.label}>{metric.label}</Text>
-            <Text style={s.text}>{metric.pct}% da base</Text>
-            {metric.delta !== null && data.canCompare && <Text style={{ ...s.delta, color: metric.delta < 0 ? colors.flagRed : colors.textMuted }}>{delta(metric.delta)}</Text>}
+        <View style={s.kpiTable}>
+          {metrics.map((metric, index) => <View key={metric.label} style={{ ...s.kpiRow, backgroundColor: index % 2 ? '#FAFAFA' : colors.white }}>
+            <Text style={s.kpiLabel}>{metric.label}</Text>
+            <Text style={s.kpiValue}>{metric.count} · {metric.pct}% da base</Text>
+            <Text style={{ ...s.kpiDelta, color: metric.delta !== null && metric.delta < 0 ? colors.flagRed : colors.textMuted }}>{metric.delta !== null && data.canCompare ? delta(metric.delta) : ''}</Text>
           </View>)}
         </View>
         <Text style={{ ...s.caption, marginTop: 7 }}>Base elegível da semana {semana}: {data.eligible} participantes. {data.canCompare ? `Variações em pontos percentuais. Base anterior: ${data.previousEligible} pessoas.${data.previousEligible !== data.eligible ? ' A população elegível mudou entre as semanas.' : ''}` : 'Sem comparação anterior disponível.'}</Text>
       </View>
-      <View style={s.section}>
-        <ReportSectionTitle>Prioridades e plano de ação</ReportSectionTitle>
-        <Text style={{ ...s.caption, marginBottom: 8 }}>Grupos exclusivos da semana: {data.priorities.length ? data.priorities.map((item) => `${item.label}: ${item.count} (${item.pct}%)`).join(' · ') : 'nenhuma pendência registrada'}.</Text>
-        {data.actionPlan.map((action, index) => <View key={action.title} style={s.focus} wrap={false}>
-          <Text style={s.actionTitle}>{index + 1}. {action.title}</Text>
-          <Text style={{ ...s.text, marginTop: 5 }}>{action.description}</Text>
-          <Text style={{ ...s.caption, marginTop: 6 }}>Responsável sugerido: {action.owner} · Prazo sugerido: {action.deadline}</Text>
-        </View>)}
+      <View style={s.section} wrap={false}>
+        <ReportSectionTitle>Evolução semanal</ReportSectionTitle>
+        <Text style={s.caption}>Percentuais sobre os elegíveis de cada semana. O tamanho da base pode mudar.</Text>
+        <Trend data={data} />
       </View>
       <View style={s.risk} wrap={false}>
         <Text style={s.riskTitle}>Acompanhamento geral: {data.risk.total} de {inscritos} inscritos</Text>
@@ -145,7 +156,40 @@ export default function RelatorioEngajamentoPDF({
     </Page>
     <Page size="A4" style={pageStyles.page}>
       <Header />
-      <View fixed style={{ paddingBottom: 12 }}>
+      <Text style={s.meta}>{empresaNome} · {period}</Text>
+      <View style={s.section}>
+        <View wrap={false} minPresenceAhead={100}>
+          <ReportSectionTitle>Prioridades e plano de ação</ReportSectionTitle>
+          <Text style={{ ...s.caption, marginBottom: 8 }}>Grupos exclusivos da semana: {data.priorities.length ? data.priorities.map((item) => `${item.label}: ${item.count} (${item.pct}%)`).join(' · ') : 'nenhuma pendência registrada'}.</Text>
+        </View>
+        {data.actionPlan.map((action, index) => <View key={action.title} style={s.card} wrap={false}>
+          <View style={{ ...s.cardHeader, backgroundColor: colors.navyLight }}>
+            <Text style={s.cardTitle}>{index + 1}. {action.title}</Text>
+          </View>
+          <View style={{ ...s.cardContent, backgroundColor: '#F8FAFC' }}>
+            <Text style={s.text}>{action.description}</Text>
+            <Text style={{ ...s.caption, marginTop: 6 }}>Responsável sugerido: {action.owner} · Prazo sugerido: {action.deadline}</Text>
+          </View>
+        </View>)}
+      </View>
+      <View wrap={false} minPresenceAhead={100}>
+        <ReportSectionTitle>{data.focusTitle}</ReportSectionTitle>
+        <Text style={{ ...s.text, marginBottom: 12 }}>{data.focusSubtitle}</Text>
+      </View>
+      {data.focusItems.length ? data.focusItems.map((item, index) => <View key={`${item.name}-${index}`} style={s.card} wrap={false}>
+        <View style={{ ...s.cardHeader, backgroundColor: signalColors[item.signal].header }}>
+          <Text style={s.cardTitle}>{index + 1}. {item.name} · {item.label}</Text>
+        </View>
+        <View style={{ ...s.cardContent, backgroundColor: signalColors[item.signal].content }}>
+          <Text style={s.subtitle}>{item.context}</Text>
+          <Text style={s.text}>{item.reason}</Text>
+        </View>
+      </View>) : <Text style={s.text}>Ninguém em acompanhamento nesta semana.</Text>}
+      <Footer />
+    </Page>
+    <Page size="A4" style={pageStyles.page}>
+      <Header />
+      <View style={{ paddingBottom: 12 }} wrap={false} minPresenceAhead={140}>
         <Text style={s.meta}>{empresaNome} · {period}</Text>
         <ReportSectionTitle>Engajamento por cargo</ReportSectionTitle>
         <Text style={s.text}>Onde concentrar o acompanhamento</Text>
@@ -178,31 +222,6 @@ export default function RelatorioEngajamentoPDF({
         <Text style={{ ...s.text, marginTop: 7 }}>A leitura de RH reúne prioridades por área e cargo; a do gestor permite acompanhamento nominal. O plano, os responsáveis e os prazos são sugestões para a equipe, sem atribuições ou envios automáticos.</Text>
         <Link src={detailUrl} style={{ fontSize: 9, color: colors.linkBlue, marginTop: 12 }}>Ver dados detalhados na plataforma</Link>
       </View>
-      <Footer />
-    </Page>
-    <Page size="A4" style={pageStyles.page}>
-      <Header />
-      <Text style={s.meta}>{empresaNome} · {period}</Text>
-      <View style={s.section} wrap={false}>
-        <ReportSectionTitle>Evolução semanal</ReportSectionTitle>
-        <Text style={s.caption}>Percentuais sobre os elegíveis de cada semana. O tamanho da base pode mudar.</Text>
-        <Trend data={data} />
-      </View>
-      <ReportSectionTitle>{data.focusTitle}</ReportSectionTitle>
-      <Text style={{ ...s.text, marginBottom: 12 }}>{data.focusSubtitle}</Text>
-      <View style={s.risk} wrap={false}>
-        <Text style={s.riskTitle}>{data.risk.total} pessoas requerem acompanhamento</Text>
-        <Text style={s.text}>{data.risk.critical} em trajetória crítica · {data.risk.attention} em atenção</Text>
-        <Text style={{ ...s.caption, marginTop: 5 }}>Base do risco: trajetória individual dos {inscritos} inscritos, cada um na sua semana atual. Base dos indicadores: {data.eligible} elegíveis na semana {semana}.</Text>
-      </View>
-      {data.focusItems.length ? data.focusItems.map((item, index) => <View key={`${item.name}-${index}`} style={s.focus} wrap={false}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-          <Text style={s.focusName}>{index + 1}. {item.name}</Text>
-          <Text style={{ ...s.badge, backgroundColor: item.signal === 'critical' ? '#FEF2F2' : item.signal === 'positive' ? '#F0FDF4' : '#FFFBEB', color: item.signal === 'critical' ? colors.flagRed : item.signal === 'positive' ? colors.greenText : colors.yellowText }}>{item.label}</Text>
-        </View>
-        <Text style={s.subtitle}>{item.context}</Text>
-        <Text style={s.text}>{item.reason}</Text>
-      </View>) : <Text style={s.text}>Ninguém em acompanhamento nesta semana.</Text>}
       <Footer />
     </Page>
   </Document>;
