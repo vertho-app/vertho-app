@@ -181,15 +181,23 @@ export async function levantarPlanoKitsCoorte(
   if (!demanda.size) return { error: 'Nenhuma semana de conteúdo encontrada na coorte' };
 
   // 4) Existentes: kits PUBLICADOS por (comp × descritor × cargo × disc) — empresa OU global.
-  const { data: briefs } = await sb.from('kit_briefs')
+  //
+  // O `{ error }` é CHECADO nas duas leituras, e aqui isso não é formalidade: o
+  // supabase-js RETORNA o erro em vez de lançar, então uma falha de query deixaria
+  // `briefs` em null, `existente` vazio e o plano diria que TUDO falta — mandando
+  // gerar por IA os kits que já estão publicados. Falha de leitura tem que virar
+  // plano NENHUM (construção falha alto), nunca plano inflado.
+  const { data: briefs, error: briefsErr } = await sb.from('kit_briefs')
     .select('id, competencia, descritor, cargo, contexto, nivel_min, nivel_max, empresa_id')
     .is('archived_at', null).eq('status', 'published')
     .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+  if (briefsErr) return { error: `Falha ao ler os briefs publicados: ${briefsErr.message}` };
   const briefById = new Map((briefs || []).map((b: any) => [b.id, b]));
   const existente = new Set<string>();
   if (briefs?.length) {
-    const { data: kitsRows } = await sb.from('kits')
+    const { data: kitsRows, error: kitsErr } = await sb.from('kits')
       .select('brief_id, disc, status').in('brief_id', briefs.map((b: any) => b.id)).eq('status', 'published');
+    if (kitsErr) return { error: `Falha ao ler os kits publicados: ${kitsErr.message}` };
     for (const k of kitsRows || []) {
       const b: any = briefById.get(k.brief_id);
       if (b) existente.add(ckey(b.competencia, b.descritor, b.cargo || 'todos', k.disc));

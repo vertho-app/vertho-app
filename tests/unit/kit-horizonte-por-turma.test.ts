@@ -29,6 +29,7 @@ function sbFake(dados: {
   return {
     from(tabela: string) {
       const filtros: Record<string, any> = {};
+      const isFiltro: { coluna: string; valor: any }[] = [];
       let inFiltro: { coluna: string; valores: any[] } | null = null;
       const fonte = (): Linha[] => {
         switch (tabela) {
@@ -45,12 +46,19 @@ function sbFake(dados: {
       const linhas = () => {
         let base = fonte().filter((row) => Object.entries(filtros).every(([k, v]) => row[k] === v));
         if (inFiltro) base = base.filter((r) => inFiltro!.valores.includes(r[inFiltro!.coluna]));
+        // `is(coluna, null)` do PostgREST = IS NULL; ausente no objeto conta como null.
+        for (const f of isFiltro) base = base.filter((r) => (f.valor === null ? r[f.coluna] == null : r[f.coluna] === f.valor));
         return base;
       };
       const api: any = {
         select: () => api,
         eq: (c: string, v: any) => { filtros[c] = v; return api; },
         in: (c: string, v: any[]) => { inFiltro = { coluna: c, valores: v }; return api; },
+        // `.is('archived_at', null)` — FILTRA de verdade, não devolve `api` e pronto.
+        // Um mock que aceita o método e ignora o predicado deixaria o teste verde no
+        // dia em que o código parasse de excluir o arquivado, que é justamente a
+        // invariante daqui.
+        is: (c: string, v: any) => { isFiltro.push({ coluna: c, valor: v }); return api; },
         or: () => api,
         order: () => api,
         limit: () => api,
@@ -162,6 +170,32 @@ describe('horizonte de kits com duas turmas', () => {
     // B some como turma; o envio dela vira órfão e NÃO é engolido em silêncio.
     expect(lacunas.some((l) => l.turma === 'Professores 2026.2')).toBe(false);
     expect(lacunas.some((l) => l.turma === 'sem turma')).toBe(true);
+  });
+
+  /**
+   * BRIEF arquivado não conta como kit existente.
+   *
+   * O plano exclui os arquivados com `.is('archived_at', null)`. Se esse predicado
+   * sumisse, um brief que alguém arquivou seguiria "cobrindo" o tema e a lacuna
+   * desapareceria do alarme — some o aviso, não o kit. Este caso existe porque o
+   * mock do arquivo ganhou `.is()` em 10/09/2026 e, sem um cenário com brief
+   * arquivado, ele podia aceitar o método e IGNORAR o predicado sem nada acusar
+   * (verificado por mutação: os outros 7 testes passavam do mesmo jeito).
+   */
+  it('brief ARQUIVADO não cobre a lacuna — o predicado `is(archived_at, null)` é exercido', async () => {
+    const semanaB2 = { competencia: 'Didática', descritor: 'D2-conduz', cargo: 'Professor' };
+    const briefAtivo = { id: 'br-1', ...semanaB2, empresa_id: EMP, status: 'published', archived_at: null };
+    const kitDoI = { brief_id: 'br-1', disc: 'I', status: 'published' };
+
+    // 1) Com o brief ATIVO e o kit do DISC da pessoa (b1 é I), a semana 2 está coberta.
+    const coberto = await coletarHorizonteKits(sbFake({ ...CENARIO, briefs: [briefAtivo], kits: [kitDoI] }), EMP, 3, HOJE);
+    expect(coberto.some((l) => l.turma === 'Professores 2026.2' && l.semana === 2)).toBe(false);
+
+    // 2) MESMO brief, agora arquivado: a lacuna volta a aparecer.
+    const arquivado = await coletarHorizonteKits(
+      sbFake({ ...CENARIO, briefs: [{ ...briefAtivo, archived_at: '2026-08-01' }], kits: [kitDoI] }), EMP, 3, HOJE,
+    );
+    expect(arquivado.some((l) => l.turma === 'Professores 2026.2' && l.semana === 2)).toBe(true);
   });
 });
 
