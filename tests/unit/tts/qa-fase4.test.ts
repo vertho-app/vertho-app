@@ -45,7 +45,8 @@ describe('R18 · taxa de retake do portão', () => {
   it('áudio reprovado PUBLICADO é achado mesmo com taxa baixa; 5 ou mais vira CRÍTICO', () => {
     const um = checarTaxaRetakeTts([agregado({ publicadasReprovadas: 1, reprovadas: 2, tentativas: 12 })])!;
     expect(um.severidade).toBe('aviso');
-    expect(um.amostra?.[0]).toContain('REPROVADA');
+    expect(um.amostra?.[0]).toContain('REPROVADO(S) escolhido(s), sem resolução');
+    expect(um.contagem).toBe(1); // um grupo, não uma contagem de arquivos publicados
     const cinco = checarTaxaRetakeTts([agregado({ publicadasReprovadas: 5, reprovadas: 6, tentativas: 16 })])!;
     expect(cinco.severidade).toBe('critico');
   });

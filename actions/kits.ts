@@ -258,6 +258,10 @@ export async function gerarKitSemanal({
     }
 
     const okKits = kits.filter((k) => k.success).length;
+    if (okKits && empresaId) {
+      const { prepararDesafiosDaCoorte } = await import('@/lib/season-engine/kit/plano-desafios');
+      await prepararDesafiosDaCoorte(sbk, empresaId, { competencia, limite: 12 });
+    }
     return {
       success: okKits > 0,
       competencia, descritor,

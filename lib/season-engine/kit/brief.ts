@@ -95,7 +95,12 @@ export async function gerarKitBriefNucleo(sb: any, p: GerarBriefParams): Promise
           ? `PRINCÍPIOS:\n${cc.principios.map((x: any) => `- ${x.nome}: ${x.explicacao}`).join('\n')}` : '',
       ].filter(Boolean).join('\n\n');
     }
-  } catch { /* segue sem módulo */ }
+  } catch (e: any) {
+    throw new Error(`brief: não foi possível consultar o módulo-base (${e?.message || e})`);
+  }
+  if (!moduloBaseId || !moduloTxt.trim()) {
+    throw new Error(`brief: publique um módulo-base com matéria-prima canônica para ${p.competencia} / ${p.descritor} antes de gerar o kit`);
+  }
 
   const system = `Você é designer instrucional da Vertho. Destile o NÚCLEO CONCEITUAL de um tema de desenvolvimento — a espinha que TODOS os formatos (vídeo, podcast, texto, estudo de caso) vão expressar para "dizer a mesma coisa".
 
@@ -133,13 +138,18 @@ Fala natural, sem jargão, sem markdown. RETORNE APENAS JSON VÁLIDO:
 
 /** Resolve um brief existente para o tema (idempotência) ou cria um novo. */
 export async function resolverOuCriarBrief(sb: any, p: GerarBriefParams): Promise<{ briefId: string; brief: KitBriefNucleo; moduloBaseId: string | null; reused: boolean }> {
-  let q = sb.from('kit_briefs').select('id, brief, modulo_base_id')
+  let q = sb.from('kit_briefs').select('id, brief, modulo_base_id, archived_at')
     .eq('competencia', p.competencia).eq('descritor', p.descritor)
     .eq('nivel_min', p.nivelMin ?? 1.0).eq('nivel_max', p.nivelMax ?? 2.0)
     .eq('cargo', p.cargo ?? 'todos').eq('contexto', p.contexto ?? 'generico');
   q = p.empresaId ? q.eq('empresa_id', p.empresaId) : q.is('empresa_id', null);
-  const { data: existing } = await q.limit(1).maybeSingle();
-  if (existing) return { briefId: existing.id, brief: existing.brief, moduloBaseId: existing.modulo_base_id ?? null, reused: true };
+  const { data: existing, error: readError } = await q.limit(1).maybeSingle();
+  if (readError) throw new Error(`brief: leitura falhou (${readError.message})`);
+  if (existing) {
+    if (existing.archived_at) throw new Error(`brief ${existing.id}: arquivado; revisar o módulo-base antes de reativar`);
+    if (!existing.modulo_base_id) throw new Error(`brief ${existing.id}: sem módulo-base; revisar antes de reutilizar`);
+    return { briefId: existing.id, brief: existing.brief, moduloBaseId: existing.modulo_base_id, reused: true };
+  }
 
   const { nucleo, moduloBaseId } = await gerarKitBriefNucleo(sb, p);
   const { data: novo, error } = await sb.from('kit_briefs').insert({

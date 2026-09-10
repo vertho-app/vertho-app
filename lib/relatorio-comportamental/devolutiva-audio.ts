@@ -90,7 +90,7 @@ export async function gerarDevolutivaEmAudioCore({ colab, raw, texts, sb, sobDem
     // A direção vem do ELENCO: produção e canário falam com a MESMA voz e o
     // mesmo estilo, senão o canário mede um take que ninguém ouve.
     style: direcaoDoPersonagem('beto'),
-    ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id },
+    ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id, artifactKey: `colaboradores:${colab.id}:devolutiva` },
     segmentar: false,
     retakeParalelo: sobDemanda,
   });

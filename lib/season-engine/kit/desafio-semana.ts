@@ -37,7 +37,7 @@ export async function resolverDesafioDoKit(
   // prefixo de código ("COO03_D5 — Nome"), enquanto o Kit foi criado com o nome LIMPO.
   // .eq exato deixava esses caírem no genérico apesar do Kit existir. Busca por
   // competência e casa por normDescritor (tira prefixo CÓDIGO —, acentos, caixa).
-  let q = sb.from('kit_briefs').select('id, empresa_id, cargo, descritor').eq('competencia', args.competencia);
+  let q = sb.from('kit_briefs').select('id, empresa_id, cargo, descritor').eq('competencia', args.competencia).is('archived_at', null).eq('status', 'published');
   q = args.empresaId ? q.or(`empresa_id.eq.${args.empresaId},empresa_id.is.null`) : q.is('empresa_id', null);
   const { data: briefsRaw } = await q;
   if (!briefsRaw?.length) return null;

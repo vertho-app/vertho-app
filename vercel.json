@@ -38,7 +38,11 @@
     },
     {
       "path": "/api/cron?action=reconciliar_videos",
-      "schedule": "0 3 * * 6"
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron?action=preparar_desafios",
+      "schedule": "15 5 * * *"
     },
     {
       "path": "/api/cron?action=encerramento_ibipeba",

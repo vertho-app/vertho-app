@@ -252,9 +252,23 @@ export async function GET(req) {
       // kit leva ~5min por DISC. Medido em 27/07 (Ibipeba): a trilha troca de bloco de
       // competências na semana 5 e nenhum dos 3 pares (competência × cargo) novos tinha
       // kit, com o piloto já na semana 3 — ninguém dispara o que ninguém sabe que falta.
+      case 'preparar_desafios': {
+        const { createSupabaseAdmin } = await import('@/lib/supabase');
+        const { prepararDesafiosDaCoorte } = await import('@/lib/season-engine/kit/plano-desafios');
+        const sb = createSupabaseAdmin();
+        const { data: empresas, error } = await sb.from('empresas').select('id,slug').eq('is_demo', false);
+        if (error) throw error;
+        const resultados: any[] = [];
+        for (const empresa of empresas || []) {
+          resultados.push({ empresa: empresa.slug, ...await prepararDesafiosDaCoorte(sb, empresa.id, { limite: 12 }) });
+        }
+        result = { resultados, message: `Desafios: ${resultados.reduce((n, r) => n + r.gerados, 0)} gerados; ${resultados.reduce((n, r) => n + r.semBrief, 0)} sem brief` };
+        if (resultados.some(r => r.semBrief > 0)) throw new Error(result.message);
+        break;
+      }
       case 'horizonte_kits': {
         const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
-        result = await executarHealthCheck('horizonte');
+        result = await executarHealthCheck('horizonte', { diagnostico: searchParams.get('diagnostico') === '1', persistir: searchParams.get('persistir') === '1' });
         break;
       }
 
@@ -262,7 +276,7 @@ export async function GET(req) {
       // serve para ver TENDÊNCIA: estes números crescem sozinhos onde falta constraint.
       case 'health_estrutural': {
         const { executarHealthCheck } = await import('@/lib/pipeline-health/core');
-        result = await executarHealthCheck('estrutural');
+        result = await executarHealthCheck('estrutural', { diagnostico: searchParams.get('diagnostico') === '1', persistir: searchParams.get('persistir') === '1' });
         break;
       }
 
@@ -275,6 +289,7 @@ export async function GET(req) {
         const { reconciliarPersonalizados } = await import('@/lib/video/reconciliar-personalizados');
         const limite = parseInt(searchParams.get('limite') || process.env.RECONCILIAR_VIDEOS_LIMITE || '3', 10);
         const r = await reconciliarPersonalizados({ executar: true, limite });
+        if (r.bloqueio) throw new Error(`Reconciliação bloqueada: ${r.bloqueio}; ${r.pessoasSemVideoNominal} pessoa(s) aguardando`);
         result = {
           ...r,
           message: `Reconciliação: ${r.pessoasSemVideoNominal} pessoa(s) sem vídeo nominal em ${r.lacunas.length} célula(s) · ${r.celulasReenfileiradas.length} re-enfileirada(s)`

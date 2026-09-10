@@ -54,6 +54,13 @@ export function pareceFechamento(
   return s.includes('✅') && s.includes('🎯');
 }
 
+/** Último recurso: encerra sem inventar avaliação, compromisso ou fatos da conversa. */
+export function fechamentoSeguro(marcadores = true): string {
+  return marcadores
+    ? '✅ Obrigado por compartilhar sua experiência. Sua reflexão ficou registrada e encerramos esta conversa aqui.\n\n🎯 Retome o desafio da semana ao colocar esses aprendizados em prática.'
+    : 'Obrigado por compartilhar sua experiência. Sua reflexão ficou registrada e encerramos esta conversa aqui.';
+}
+
 /**
  * Preâmbulo da SEGUNDA tentativa. A primeira já pediu o fechamento pelo
  * roteiro do turno; se ela não fechou, repetir a mesma instrução tende a
@@ -77,11 +84,11 @@ ${fechamentoSuffix}`;
  */
 export async function registrarConversaSemFechamento(
   sb: any,
-  args: { empresaId: string | null; colaboradorId: string | null; semana: number; tipoConversa: string; tentativas: number },
+  args: { empresaId: string | null; colaboradorId: string | null; semana: number; tipoConversa: string; tentativas: number; fechamentoSeguro?: boolean },
 ): Promise<void> {
   await registrarDegradacao({
     fluxo: 'chat',
-    tipo: DEGRADACAO.CONVERSA_SEM_FECHAMENTO,
+    tipo: args.fechamentoSeguro ? DEGRADACAO.CONVERSA_FECHAMENTO_SEGURO : DEGRADACAO.CONVERSA_SEM_FECHAMENTO,
     chave: `${args.colaboradorId || 'sem-colab'}:${args.semana}`,
     empresaId: args.empresaId,
     colaboradorId: args.colaboradorId,

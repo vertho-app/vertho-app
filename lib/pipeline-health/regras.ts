@@ -400,9 +400,9 @@ export function checarCelulaVideoEmError(celulas: CelulaVideoSemDeck[]): Achado[
     ),
     achado(
       'celula-video-orfa', 'aviso',
-      'Célula de vídeo falhou num módulo que nenhum conteúdo usa',
+      'Célula de vídeo falhou sem âncora direta em conteúdo',
       orfas.length,
-      'Falhou e ninguém está esperando: nenhum core da trilha ancora neste módulo-base, então a entrega nunca pediria este vídeo. Re-disparar renderiza, custa e não aparece para pessoa nenhuma.',
+      'Nenhum core aponta diretamente para este módulo-base. A resolução alternativa por competência e nível ainda pode alcançá-lo: verificar a demanda antes de renderizar ou arquivar.',
       {
         amostra: orfas.map(rotuloCelula),
         acao: 'NÃO re-disparar antes de decidir: ou o módulo-base vira âncora de um core da semana (aí a célula passa a ser alcançável), ou a linha é arquivada. Conferir `micro_conteudos.modulo_base_id` do módulo antes de gastar render.',
@@ -465,13 +465,13 @@ export function checarRenderSemWorker(i: InfraRender): Achado | null {
     'render-sem-worker', 'critico',
     'O cron de vídeo não tem como subir um worker de render',
     naoMedido ? 1 : (i.pessoasSemVideoNominal as number),
-    'Cada uma dessas pessoas continua vendo o vídeo genérico da célula em vez do nominal, e o cron termina sem erro: ele enfileira, não encontra box, desfaz o enfileiramento e reporta zero — o mesmo que reportaria num dia sem lacuna.',
+    'Há cadastros com lacuna nominal no acervo, incluindo conteúdo de semanas futuras. Sem a configuração, a reconciliação não consegue provisionar o worker e sinaliza falha; a entrega mantém o vídeo genérico.',
     {
       amostra: [
         `envs ausentes em produção: ${faltando.join(', ')}`,
         naoMedido
           ? 'dano NÃO medido: a leitura da lacuna falhou (o número acima é a existência do problema, não o tamanho dele)'
-          : `pessoas sem vídeo nominal agora: ${i.pessoasSemVideoNominal}`,
+          : `pessoas distintas com lacuna nominal no acervo: ${i.pessoasSemVideoNominal}`,
       ],
       acao: "Decidir primeiro se o auto-provision deve rodar em produção (cada box é custo Hetzner). Se sim: definir as envs na Vercel — ⚠️ o token está no .env.local com o nome 'Hetzner Cloud api token', que só os scripts aliasam. Se não: a reconciliação é trabalho manual e precisa de dono, não de cron.",
     },
@@ -575,9 +575,9 @@ export function checarDegradacoes(registros: DegradacaoRegistro[]): Achado | nul
   return achado(
     'degradacao-fallback-24h',
     temCritico || total > DEGRADACAO_VOLUME_CRITICO ? 'critico' : 'aviso',
-    'Fallbacks acionados nas últimas 24h',
+    'Fallbacks recentes ainda sem resolução (contadores diários)',
     total,
-    'Fluxos caíram no caminho degradado (conteúdo placeholder, personalização desligada, trilha reduzida) — a entrega acontece, só perde qualidade, então ninguém reclama.',
+    'Chaves sem resolução tocadas nas últimas 24h. O número soma contadores por dia UTC, não pessoas nem eventos de uma janela móvel exata. Reincidência reabre uma chave resolvida.',
     {
       amostra: [...porTipo.entries()]
         .sort((a, b) => b[1].ocorrencias - a[1].ocorrencias)
@@ -951,6 +951,7 @@ export function regrasPostflight(envios: EnvioObservado[]): Achado[] {
 export interface RetakeTtsAgregado {
   feature: string;
   voz: string;
+  modelo?: string;
   /** Sínteses = chamadas ao portão (tentativa 1). */
   sinteses: number;
   tentativas: number;
@@ -972,16 +973,16 @@ export function checarTaxaRetakeTts(agregados: RetakeTtsAgregado[]): Achado | nu
     const pct = `${Math.round(taxa * 100)} %`;
     const acima = a.sinteses >= TTS_RETAKE_AMOSTRA_MINIMA && taxa > TTS_RETAKE_TAXA_AVISO;
     if (!acima && !a.publicadasReprovadas) continue;
-    contagem += (acima ? 1 : 0) + a.publicadasReprovadas;
+    contagem++; // unidade explícita: grupos feature × voz × modelo, nunca áudios/pessoas
     if ((a.sinteses >= TTS_RETAKE_AMOSTRA_MINIMA && taxa > TTS_RETAKE_TAXA_CRITICA) || a.publicadasReprovadas >= 5) critico = true;
-    amostra.push(`${a.feature} · ${a.voz}: ${a.reprovadas}/${a.tentativas} tentativas reprovadas (${pct}) em ${a.sinteses} síntese(s)${a.publicadasReprovadas ? ` · ${a.publicadasReprovadas} publicada(s) REPROVADA(S)` : ''}`);
+    amostra.push(`${a.feature} · ${a.voz}${a.modelo ? ` · ${a.modelo}` : ''}: ${a.reprovadas}/${a.tentativas} tentativas reprovadas (${pct}) em ${a.sinteses} síntese(s)${a.publicadasReprovadas ? ` · ${a.publicadasReprovadas} take(s) REPROVADO(S) escolhido(s), sem resolução` : ''}`);
   }
   return achado(
     'tts-retake-7d',
     critico ? 'critico' : 'aviso',
-    'Portão de deriva do TTS: retake alto ou áudio reprovado publicado (7 dias)',
+    'TTS: grupos de voz/modelo com reprovação sem resolução (7 dias)',
     contagem,
-    'A voz sai instável ou fora do registro com frequência — ou o modelo mudou por baixo, ou o limiar apertou. Áudio reprovado publicado é a pessoa ouvindo a deriva que a régua viu.',
+    'A contagem é de grupos, não áudios ou pessoas. O log registra a tentativa escolhida pelo sintetizador; não comprova publicação, reprodução nem que o arquivo ainda é servido. Incidentes resolvidos e tenants de demonstração são excluídos.',
     { amostra, acao: 'Ver tts_qa_log (motivos por tentativa). Se for o modelo: rodar o canário (cron canario_tts) e comparar F0/timbre com a assinatura. Se for o limiar: recalibrar LIMIARES_DERIVA com as âncoras humanas.' },
   );
 }

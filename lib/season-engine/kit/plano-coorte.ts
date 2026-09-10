@@ -183,6 +183,7 @@ export async function levantarPlanoKitsCoorte(
   // 4) Existentes: kits PUBLICADOS por (comp × descritor × cargo × disc) — empresa OU global.
   const { data: briefs } = await sb.from('kit_briefs')
     .select('id, competencia, descritor, cargo, contexto, nivel_min, nivel_max, empresa_id')
+    .is('archived_at', null).eq('status', 'published')
     .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
   const briefById = new Map((briefs || []).map((b: any) => [b.id, b]));
   const existente = new Set<string>();

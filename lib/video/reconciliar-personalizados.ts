@@ -39,10 +39,11 @@ export interface LacunaPersonalizacao {
   cargo: string;
   disc: string;
   /** Pessoas da célula sem personalizado utilizável. */
-  faltantes: { colaboradorId: string; nome: string; motivo: 'ausente' | 'error' | 'travado' }[];
+  faltantes: { colaboradorId: string; nome: string; motivo: 'ausente' | 'error' | 'travado' | 'desatualizado' }[];
 }
 
 export interface ResultadoReconciliacao {
+  bloqueio?: string;
   lacunas: LacunaPersonalizacao[];
   pessoasSemVideoNominal: number;
   celulasReenfileiradas: string[];
@@ -118,7 +119,7 @@ export function celulasServidas<T extends { modulo_base_id: any; empresa_id: any
  * `null` = tem vídeo nominal utilizável (nada a fazer).
  */
 export function motivoDaLacuna(
-  perso: { status: string; created_at: string } | undefined,
+  perso: { status: string; created_at: string; updated_at?: string } | undefined,
   agoraMs = Date.now(),
 ): 'ausente' | 'error' | 'travado' | null {
   if (!perso) return 'ausente';
@@ -126,7 +127,7 @@ export function motivoDaLacuna(
   if (perso.status === 'error') return 'error';
   // 'processing'/'pending' RECENTE é trabalho em andamento — re-enfileirar aqui
   // atropelaria uma personalização que ia terminar sozinha.
-  return new Date(perso.created_at).getTime() < agoraMs - HORAS_ATE_TRAVADO * 3600_000 ? 'travado' : null;
+  return new Date(perso.updated_at || perso.created_at).getTime() < agoraMs - HORAS_ATE_TRAVADO * 3600_000 ? 'travado' : null;
 }
 
 /**
@@ -147,7 +148,7 @@ export async function reconciliarPersonalizados(opts: {
   //    ao terminar, e re-enfileirar o que está na fila seria trabalho em dobro.
   const celulasRaw = await lerPaginado<any>('células', (de, ate) => {
     let q = sb.from('videos_gerados')
-      .select('id, empresa_id, cargo, disc_dominante, modulo_base_id, created_at')
+      .select('id, empresa_id, cargo, disc_dominante, modulo_base_id, created_at, render_fingerprint')
       .eq('status', 'done')
       .not('bunny_video_id', 'is', null)
       .order('id')
@@ -164,15 +165,15 @@ export async function reconciliarPersonalizados(opts: {
   // ⚠️ A leitura que truncou em 29/08/2026 (1.000 de 1.034). Ver `lerPaginado`.
   const persoTodos = await lerPaginado<any>('personalizados', (de, ate) => sb
     .from('videos_personalizados')
-    .select('cell_video_id, colaborador_id, status, created_at')
+    .select('cell_video_id, colaborador_id, status, created_at, updated_at, deck_fingerprint')
     .in('cell_video_id', celulas.map((c: any) => c.id))
     .order('id')
     .range(de, ate));
 
-  const persoPorCelula = new Map<string, Map<string, { status: string; created_at: string }>>();
+  const persoPorCelula = new Map<string, Map<string, { status: string; created_at: string; updated_at?: string; deck_fingerprint?: string }>>();
   for (const p of (persoTodos as any[] || [])) {
     if (!persoPorCelula.has(p.cell_video_id)) persoPorCelula.set(p.cell_video_id, new Map());
-    persoPorCelula.get(p.cell_video_id)!.set(p.colaborador_id, { status: p.status, created_at: p.created_at });
+    persoPorCelula.get(p.cell_video_id)!.set(p.colaborador_id, { status: p.status, created_at: p.created_at, updated_at: p.updated_at, deck_fingerprint: p.deck_fingerprint });
   }
 
   // 2) Colaboradores de cada célula — mesma regra do worker: cargo exato + 1ª letra
@@ -204,7 +205,9 @@ export async function reconciliarPersonalizados(opts: {
     const perso = persoPorCelula.get(cel.id) || new Map();
     const faltantes: LacunaPersonalizacao['faltantes'] = [];
     for (const c of daCelula) {
-      const motivo = motivoDaLacuna(perso.get(c.id), agora);
+      const existente = perso.get(c.id);
+      const motivo = existente?.status === 'done' && cel.render_fingerprint && existente.deck_fingerprint !== cel.render_fingerprint
+        ? 'desatualizado' : motivoDaLacuna(existente, agora);
       if (motivo) faltantes.push({ colaboradorId: c.id, nome: c.nome_completo, motivo });
     }
 
@@ -233,20 +236,17 @@ export async function reconciliarPersonalizados(opts: {
   // 3) Devolve à fila, respeitando o teto.
   const alvos = lacunas.slice(0, limite);
   const reenfileiradas: string[] = [];
+  const falhas: string[] = [];
   for (const l of alvos) {
-    // Libera os presos ANTES: `personalizeCell` só pula quem está 'done', mas um
-    // registro em 'error'/'processing' antigo seria sobrescrito de qualquer forma —
-    // apagar deixa o estado limpo e evita ler "processing" de uma tentativa morta.
-    const idsPresos = l.faltantes.filter((f) => f.motivo !== 'ausente').map((f) => f.colaboradorId);
-    if (idsPresos.length) {
-      await sb.from('videos_personalizados').delete()
-        .eq('cell_video_id', l.cellVideoId).in('colaborador_id', idsPresos);
-    }
-    const { error } = await sb.from('videos_gerados')
+    // O worker sobrescreve error/processing; preservar evita perder os registros
+    // quando não há box e o enfileiramento precisa ser desfeito.
+    const { data: alteradas, error } = await sb.from('videos_gerados')
       .update({ status: 'render_queued', etapa: 'render', claimed_at: null, error: null, updated_at: new Date().toISOString() })
       .eq('id', l.cellVideoId)
-      .eq('status', 'done');   // guarda: só sai de 'done' (não atropela render em curso)
-    if (error) { console.error(`[reconciliar] falha ao enfileirar ${l.cellVideoId}: ${error.message}`); continue; }
+      .eq('status', 'done')   // guarda: só sai de 'done' (não atropela render em curso)
+      .select('id');
+    if (error) { falhas.push(`${l.cellVideoId}: ${error.message}`); continue; }
+    if (!alteradas?.length) continue; // outro worker/cron já mudou o estado
     reenfileiradas.push(l.cellVideoId);
   }
 
@@ -298,8 +298,10 @@ export async function reconciliarPersonalizados(opts: {
           celulasReenfileiradas: [],   // nada ficou enfileirado: dizer 3 seria mentir no log do cron
           ignoradasPorLimite: Math.max(0, lacunas.length - alvos.length),
           executado: true,
+          bloqueio: motivo,
         };
       }
+      throw new Error(`reconciliar: sem worker (${motivo}) e rollback falhou: ${error.message}`);
     }
   }
 
@@ -308,5 +310,6 @@ export async function reconciliarPersonalizados(opts: {
     celulasReenfileiradas: reenfileiradas,
     ignoradasPorLimite: Math.max(0, lacunas.length - alvos.length),
     executado: true,
+    ...(falhas.length ? { bloqueio: `falha ao enfileirar: ${falhas.join('; ')}` } : {}),
   };
 }

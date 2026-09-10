@@ -77,6 +77,7 @@ export async function rodarCanarioTts(vozes: string[] = Object.keys(ALVO_F0_POR_
         segmentar: false,
         tentativas: 2,
         retakeParalelo: true,
+        permitirReprovado: true,
         ledger: { feature: 'canario_tts' },
       });
       const m = audio.qa?.metricas;

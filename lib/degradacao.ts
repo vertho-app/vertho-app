@@ -166,6 +166,7 @@ export const DEGRADACAO = {
    * Ver lib/season-engine/fechamento-conversa.ts.
    */
   CONVERSA_SEM_FECHAMENTO: 'conversa-sem-fechamento',
+  CONVERSA_FECHAMENTO_SEGURO: 'conversa-fechamento-seguro',
   /**
    * overlay: a semana entrega 2 descritores da mesma competência e a TAREFA
    * integrada dos dois (`kit_desafios_semana`) ainda não foi gerada — fica a do
@@ -267,6 +268,8 @@ export async function registrarDegradacao(input: DegradacaoInput, sb?: any): Pro
       detalhe: input.detalhe ?? null,
       ocorrencias: (mesmoDia ? Number(existente?.ocorrencias) || 0 : 0) + 1,
       ultima_em: new Date().toISOString(),
+      resolved_at: null,
+      resolution: null,
     }, { onConflict: 'fluxo,tipo,chave' });
     if (error) console.error('[degradacao] upsert falhou (fallback preservado):', error.message);
   } catch (err: any) {
