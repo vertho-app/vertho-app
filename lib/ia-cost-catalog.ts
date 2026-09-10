@@ -65,29 +65,32 @@ export const MODELS = {
   'gpt-5.4-mini':               { label: 'GPT 5.4 Mini',        inUsd: 0.75, outUsd: 4.5 },
   'gpt-5.1':                    { label: 'GPT 5.1 (fallback)',  inUsd: 1.25, outUsd: 10 },
   // Moonshot (provider kimi no ai-client). Reasoning: o out inclui o thinking.
-  'kimi-k3':                    { label: 'Kimi K3',             inUsd: 3,    outUsd: 15 },
+  'kimi-k3':                    { label: 'Kimi K3',             inUsd: 3,    outUsd: 15, cacheReadUsd: 0.30 },
   // xAI (provider xai no ai-client). Preço LIDO da própria API em 24/08/2026
   // (`GET /v1/language-models`), não de tabela de terceiro: prompt 20000 e
   // completion 60000, na unidade de 1e-10 USD/token → $2 e $6 por 1M.
-  // ⚠️ A xAI cobra o DOBRO acima de 200k tokens de contexto ($4/$12) e o cache
-  // de prompt sai por $0,50/1M. Este catálogo é de faixa única: uma chamada de
-  // contexto longo fica SUBESTIMADA aqui.
-  'grok-4.6':                   { label: 'Grok 4.6',            inUsd: 2,    outUsd: 6 },
+  // A xAI cobra o DOBRO quando o prompt alcança 200k tokens. O cálculo abaixo
+  // seleciona a faixa longa para a requisição inteira, exatamente como a tabela
+  // oficial: $4/$1/$12 (input/cache/output) em vez de $2/$0,50/$6.
+  'grok-4.6':                   {
+    label: 'Grok 4.6', inUsd: 2, outUsd: 6, cacheReadUsd: 0.50,
+    longContextThresholdTokens: 200_000,
+    longContextInUsd: 4, longContextCacheReadUsd: 1, longContextOutUsd: 12,
+  },
   // ── Ligados em 25/08/2026 (rota em `lib/ai-provedores.ts`, chamada real 200) ──
   // Alibaba — Qwen3.8-Max (03/08/2026): 1M de contexto, multimodal, ~21 tok/s.
   // ⚠️ LENTO e VERBOSO: desqualificado para célula interativa, bom para lote.
-  'qwen3.8-max':                { label: 'Qwen3.8 Max',         inUsd: 2,    outUsd: 6 },
+  'qwen3.8-max':                { label: 'Qwen3.8 Max',         inUsd: 2,    outUsd: 6, cacheReadUsd: 0.25 },
   // Meta Superintelligence Labs — Muse Spark 1.2 (05/08/2026): 1M de contexto.
   // ⚠️ Modelo de RACIOCÍNIO, e o raciocínio sai DENTRO de `completion_tokens`:
   // medido em 25/08, gastou 125 tokens de raciocínio para responder "OK" — ou
   // seja, o custo real por tarefa é bem acima do que $4,25/1M sugere numa conta
   // feita só sobre o texto visível. Com teto apertado devolve 200 + conteúdo
   // VAZIO (por isso o `conteudoOuFalhaAlto` em ai-client).
-  'muse-spark-1.2':             { label: 'Muse Spark 1.2',      inUsd: 1.25, outUsd: 4.25 },
-  // ⚠️ Cache dos dois: o `costFromTokens` aplica 0,1× fixo em cacheRead. No Qwen
-  // o read implícito é $0,25/1M (0,125×) e o explícito $0,17 (0,085×); no Muse,
-  // $0,15 (0,12×). A aproximação sub/superestima o cache em poucos centavos por
-  // milhão — aceitável, mas não é exato como no Claude e no Gemini 3.7.
+  'muse-spark-1.2':             { label: 'Muse Spark 1.2',      inUsd: 1.25, outUsd: 4.25, cacheReadUsd: 0.15 },
+  // Qwen usa aqui o cache implícito da rota internacional ($0,25/MTok). O cache
+  // explícito de $0,17/MTok não é criado pelo wrapper atual. Spark usa o tier
+  // standard (sem treinamento nos dados), cujo cache custa $0,15/MTok.
   // Embeddings (sem custo de output)
   'voyage-3-large':             { label: 'Voyage-3-large (embed)', inUsd: 0.18, outUsd: 0 },
   // TTS — por token. Input = texto; Output = tokens de áudio (custo dominante).
@@ -111,6 +114,18 @@ export const MODELS = {
 
 export const MODEL_IDS = Object.keys(MODELS);
 
+type ModelPrice = {
+  label: string;
+  inUsd: number;
+  outUsd: number;
+  cacheReadUsd?: number;
+  cacheWriteUsd?: number;
+  longContextThresholdTokens?: number;
+  longContextInUsd?: number;
+  longContextCacheReadUsd?: number;
+  longContextOutUsd?: number;
+};
+
 /**
  * A Responses API cobra a busca web separadamente dos tokens do modelo:
  * US$ 10 / 1.000 chamadas. O wrapper soma esta parcela no ledger a partir dos
@@ -126,22 +141,33 @@ export function openAIWebSearchToolCost(output: unknown): number {
 
 /**
  * Custo em USD a partir de tokens REAIS (ledger de IA). Fonte única usada pelo
- * wrapper (callAI) e pelo batch. cache read = 0,1× input; write = 1,25× (TTL
- * 5min). Batch API = −50%: passe `batch: true`. Retorna null se o modelo não
- * está no catálogo (a linha do ledger fica sem custo, sinalizando gap).
+ * wrapper (callAI) e pelo batch. Cache usa a tarifa específica do modelo quando
+ * declarada; nos demais, read = 0,1× input e write = 1,25× (TTL 5min). Modelos
+ * com tarifa por contexto escolhem a faixa pela soma dos tokens de prompt.
+ * Batch API = −50%: passe `batch: true`. Retorna null se o modelo não está no
+ * catálogo (a linha do ledger fica sem custo, sinalizando gap).
  */
 export function costFromTokens(
   modelId: string,
   t: { inTokens: number; outTokens: number; cacheRead?: number; cacheWrite?: number },
   opts: { batch?: boolean } = {},
 ): number | null {
-  const m = (MODELS as Record<string, { inUsd: number; outUsd: number }>)[modelId];
+  const m = (MODELS as Record<string, ModelPrice>)[modelId];
   if (!m) return null;
+  const promptTokens = t.inTokens + (t.cacheRead || 0) + (t.cacheWrite || 0);
+  const longContext = m.longContextThresholdTokens !== undefined
+    && promptTokens >= m.longContextThresholdTokens;
+  const inputRate = longContext ? (m.longContextInUsd ?? m.inUsd) : m.inUsd;
+  const outputRate = longContext ? (m.longContextOutUsd ?? m.outUsd) : m.outUsd;
+  const cacheReadRate = longContext
+    ? (m.longContextCacheReadUsd ?? m.cacheReadUsd ?? inputRate * 0.1)
+    : (m.cacheReadUsd ?? inputRate * 0.1);
+  const cacheWriteRate = m.cacheWriteUsd ?? inputRate * 1.25;
   const usd =
-    (t.inTokens * m.inUsd +
-      t.outTokens * m.outUsd +
-      (t.cacheRead || 0) * m.inUsd * 0.1 +
-      (t.cacheWrite || 0) * m.inUsd * 1.25) / 1_000_000;
+    (t.inTokens * inputRate +
+      t.outTokens * outputRate +
+      (t.cacheRead || 0) * cacheReadRate +
+      (t.cacheWrite || 0) * cacheWriteRate) / 1_000_000;
   return opts.batch ? usd * 0.5 : usd;
 }
 
@@ -1084,7 +1110,7 @@ export function calcCost(call, modelId, units = 1) {
   const flat = (call.flatUsd || 0) * call.exec * units;
   // Cache write premium é uma operação explícita do Claude. Se o operador troca
   // a linha para outro provedor, esses tokens continuam sendo prompt, mas entram
-  // como input normal; cache read mantém o desconto aproximado de 0,1×.
+  // como input normal; cache read usa a tarifa própria declarada em MODELS.
   const cacheWriteExplicito = modelId.startsWith('claude-') ? cacheWriteTok : 0;
   const inputSemCacheWrite = inTok + (modelId.startsWith('claude-') ? 0 : cacheWriteTok);
   const tokenBase = costFromTokens(modelId, {
