@@ -1973,17 +1973,55 @@ divergente), e imprimia `RESET ACME DEMO ADIADO` saindo com **`exit 0`**. Quem
 roda `npm run reset:demo` lia SUCESSO. Uma semana de "reset ok" sobre um reset
 que não acontecia.
 
-**Correção.** As duas contagens medem o ELENCO DECLARADO (filtram `email`
-começando com `convidado.`); o CLI deixou de adiar. A asserção em si ficou — ela
-protege contra elenco incompleto, que é erro de seed real.
+**Correção (09/09).** As duas contagens passaram a EXCLUIR `email` começando com
+`convidado.`; o CLI deixou de adiar. A asserção em si ficou — ela protege contra
+elenco incompleto, que é erro de seed real.
 
-**Regra que fica:** *(a)* toda contagem que compara com um tamanho DECLARADO tem
-que dizer sobre QUEM conta — ator novo na base (convidado, conta de teste,
-usuário de integração) entra na população e não no elenco; *(b)* **caminho que
-desvia do trabalho não pode sair com código de sucesso** — mesma classe do
-"200 vazia fura o fail-loud" (F-D1) e do `sucesso` = ACEITOU do WhatsApp; *(c)*
-asserção de sanidade que roda DEPOIS do delete transforma um dado inesperado em
-tenant pela metade: ou ela roda antes, ou o delete espera por ela.
+**Correção da CLASSE (10/09) — a de 09/09 resolveu o caso e não o tipo.**
+Excluir por prefixo é uma lista aberta: ela cresce a cada ator novo, e sempre
+*depois* do incidente. O ator seguinte já existia quando escrevi a primeira
+correção — a conta de verificação do E2E (`lib/demo/conta-verificacao.ts`, criada
+em 10/09) escapou por acidente, só porque tem `role: 'rh'`.
+
+Hoje a pergunta é fechada: `ehDoElencoAcme` (`lib/demo/acme-elenco.ts`) responde
+**quem PERTENCE ao elenco declarado**, que é a união do diretório da central do
+RH (`ACME_DEMO_REPORT_DIRECTORY`) com as personas e a administradora do
+`ROSTER_COMERCIAL`. Ator novo simplesmente não pertence, sem precisar ser
+previsto. `Medido: 10/09/2026` contra o banco com os 5 convidados presentes —
+**31 e-mails declarados, 31 casam, 0 faltando, 30 participantes**, exatamente
+`ACME_DEMO_TEAM_SIZE`.
+
+**Regra que fica:** *(a)* contagem comparada com um tamanho DECLARADO se faz por
+**pertencimento**, nunca por exclusão — "quem é do elenco?" é fechada, "quem não
+conta?" é aberta e você descobre o item que falta no dia do incidente; *(b)*
+**caminho que desvia do trabalho não pode sair com código de sucesso** — mesma
+classe do "200 vazia fura o fail-loud" (F-D1) e do `sucesso` = ACEITOU do
+WhatsApp; *(c)* asserção de sanidade que roda DEPOIS do delete transforma um dado
+inesperado em tenant pela metade: ou ela roda antes, ou o delete espera por ela.
 
 **Guard:** `tests/unit/demo-convidado-fora-do-elenco.test.ts` — estático (o alvo
-é o call-site), validado por mutação nas duas frentes.
+é o call-site), validado por mutação nas duas frentes. Comportamento da régua:
+`tests/unit/demo-elenco-pertencimento.test.ts`.
+
+🔴 **Dois defeitos DO PRÓPRIO GUARD, achados em 10/09 ao mutá-lo:**
+
+1. **Ele aceitava a CITAÇÃO.** A varredura olha 25 linhas acima da comparação
+   procurando o filtro, e fazia isso sobre as linhas **cruas**. Removi o filtro
+   real de `acme-organization-reports.ts` para testá-lo e ele continuou VERDE —
+   satisfeito pelo comentário que EXPLICA a régua e cita o nome da função. O
+   comentário é escrito por quem faz a mudança, então o guard era satisfeito por
+   quem ele deveria vigiar. Hoje a janela descarta comentários. Mesma classe do
+   guard de uso que aceitava a citação num catálogo.
+2. **Ele codificava a FORMA da correção, não a invariante.** Exigia excluir
+   `convidado.`, então acusou violação exatamente na mudança que fechava o
+   buraco de vez. Guard preso à implementação trava a solução melhor: hoje ele
+   exige `ehDoElencoAcme` e RECUSA a volta ao filtro por prefixo.
+
+**Falha auditada como SUCESSO (corrigido 10/09).** `logAdminAction` faz
+`resultado ?? 'ok'`, e `app/api/cron/route.ts::reset_demo` auditava ANTES do
+`throw` sem passar o terceiro argumento — depois o `catch` gravava uma segunda
+linha com `'erro'`. `Medido: 10/09/2026` — a única falha de reset em **80**
+registros aparece DUAS vezes em `admin_audit_log`, uma delas como `ok` com o
+erro escondido em `detalhes`. Quem filtrar por `resultado = 'ok'` conta o dia em
+que o ambiente ficou sem relatórios como um dia bem-sucedido. Hoje só o `catch`
+audita falha.

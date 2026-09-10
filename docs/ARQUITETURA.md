@@ -2182,6 +2182,19 @@ O ambiente de demonstração dos vendedores (`acme-demo`) tem UM reset canônico
 
 Reconstrói personas DISC (Mariana/Renato/Carla/Bruna + Gerente Comercial), gabaritos (IA2) e cenários (IA3) congelados. As colunas comportamentais que alimentam o motor de fit/adequação (`comp_*`/`lid_*`) são DETERMINÍSTICAS a partir do DISC e populadas no próprio `insertPersonas` (não em `descriptor_assessments`) — é isso que faz as personas aparecerem no ranking de adequação.
 
+### 24.3 Quem ATRAVESSA o reset, e quem ele RECOMPÕE (10/09/2026)
+
+O wipe apaga `colaboradores` inteiro. Duas categorias escapam disso, por caminhos diferentes — e confundi-las já custou dois incidentes:
+
+| Quem | Como sobrevive | Por quê |
+|---|---|---|
+| **Convidado de degustação** (`convidado.<slug>.…`) | **Preservado** no delete (`convidadosPreservados`), junto com as `respostas` dele | O ambiente volta ao estado-base toda noite; o que a pessoa produziu na degustação, não. Vencer revoga o ACESSO, não apaga o trabalho (03/09) |
+| **Conta de verificação do E2E** (`smoke-e2e.demo@vertho.ai`, no `gruposinal`) | **Recomposta** no último passo (`reporContaDeVerificacao`) | Ela precisa voltar LIMPA, e a senha vive em `auth.users`, que o reset não toca — então o secret do GitHub segue válido de um dia para o outro |
+
+🔴 **Nenhuma das duas é ELENCO.** Elas são POPULAÇÃO do tenant, e toda contagem comparada com `ACME_DEMO_TEAM_SIZE` tem que perguntar quem **pertence** ao elenco declarado (`ehDoElencoAcme`, `lib/demo/acme-elenco.ts`) — nunca "quem excluir". A recomposição roda DEPOIS das asserções pelo mesmo motivo. Histórico dos dois incidentes: `docs/FMEA-PIPELINE.md` §F-I33.
+
+🔑 **A conta do E2E não é detalhe de teste, é dependência do CI.** Entre 01/09 e 09/09 o reset noturno a apagava e nada a repunha: **185 de 188 runs vermelhos**, com o login ainda passando (a conta existia em `auth.users`) e o relatório mostrando cinco falhas de tela que não nomeavam a causa. A medição completa está no cabeçalho de `lib/demo/conta-verificacao.ts` — o registro fica no código, ao lado de quem o lê, como em `lib/blocos-offline.ts`.
+
 ---
 
 ## 25. Escala — pacote "1000 usuários simultâneos" (04/08/2026)

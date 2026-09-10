@@ -699,7 +699,12 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   `RESET ACME DEMO ADIADO` e saía com `exit 0`: quem roda lê SUCESSO. Ator novo
   na base (convidado, conta de teste, usuário de integração) entra na POPULAÇÃO,
   não no ELENCO; e asserção de sanidade que roda depois do delete transforma dado
-  inesperado em tenant pela metade. Detalhe: `docs/FMEA-PIPELINE.md` §F-I33.
+  inesperado em tenant pela metade.
+  🔑 **A contagem se faz por PERTENCIMENTO, nunca por exclusão** (10/09):
+  excluir "os convidados" resolveu o caso e deixou a classe de pé — lista de
+  exceção cresce a cada ator novo, e sempre depois do incidente. `ehDoElencoAcme`
+  (`lib/demo/acme-elenco.ts`) pergunta quem ESTÁ declarado; ator novo não
+  pertence sem precisar ser previsto. Detalhe: `docs/FMEA-PIPELINE.md` §F-I33.
 - NÃO preencher campo de CONFIGURAÇÃO DE PRODUTO (ritual, cadência, prazo, teto)
   por ANALOGIA com o modelo vizinho. Em 02/09 criei `semanasCheckpoint` e dei
   `[3, 5]` à jornada de 7 semanas copiando a proporção do modelo de 14; o dono
