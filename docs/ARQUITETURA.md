@@ -1153,6 +1153,29 @@ Tabelas: sessoes_avaliacao, mensagens_chat, competencias, banco_cenarios
 Tabelas: trilhas, temporada_semana_progresso, descriptor_assessments, micro_conteudos, banco_cenarios
 ```
 
+### Prontidao para o proximo cargo (09/09/2026)
+
+`/dashboard/gestor/ranking` tem DUAS abas, com garantias diferentes de proposito:
+
+| | Ranking por cargo | Prontidao para o proximo cargo |
+|---|---|---|
+| fonte | VIEW pura do snapshot assado | **recomputa ao vivo** |
+| par avaliado | pessoas do cargo x gabarito do MESMO cargo | pessoas do cargo A x gabarito do cargo B |
+| serve para | documento de decisao (edital, processo) | leitura exploratoria de sucessao |
+| carimbo | "Ranking de <data> (foto da geracao)" | "Calculado em <data hora>" |
+
+O motor e o mesmo: `aggregateAdequacao(sb, empresaId, cargoAlvo, { poolCargos: [cargoOrigem] })`,
+sem custo de IA. O nucleo da comparacao vive em `lib/adequacao-cargo/prontidao.ts`
+(cruza as duas leituras por ID de colaborador, joga bloqueado por gate para o fim,
+devolve as 3 maiores lacunas); a action `actions/prontidao-cargo.ts` valida os dois
+nomes de cargo contra os cargos COM GABARITO do tenant antes de qualquer leitura —
+o nome vem do browser, e sem isso `poolCargos` seria um filtro de pessoas escolhido
+pelo cliente. Gate: RH (self-service) ou `admin.access` (preview), o mesmo do Ranking,
+porque a saida nomeia pessoas e diz quem estaria apto ao cargo de outra.
+
+⚠️ A capacidade existia desde sempre e nao tinha porta: o unico consumidor de
+`poolCargos` era `actions/selecao.ts`, off-line desde 31/08. Ver §27.
+
 ### Fluxo D: Dashboard Gestor
 ```
 1. Gestor acessa /dashboard/gestor/equipe-evolucao
