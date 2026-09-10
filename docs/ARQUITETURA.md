@@ -1153,7 +1153,23 @@ Tabelas: sessoes_avaliacao, mensagens_chat, competencias, banco_cenarios
 Tabelas: trilhas, temporada_semana_progresso, descriptor_assessments, micro_conteudos, banco_cenarios
 ```
 
-### Prontidao para o proximo cargo (09/09/2026)
+### Prontidao para o proximo cargo (09/09/2026) — ⛔ OCULTA desde 10/09/2026
+
+🔴 **A aba esta DESLIGADA** (`lib/adequacao-cargo/prontidao-flag.ts`,
+`PRONTIDAO_VISIVEL = false`). Ocultar fecha em DOIS pontos, porque tela sumida nao
+desliga endpoint: as duas telas voltam ao layout sem abas E os quatro exports de
+`actions/prontidao-cargo.ts` recusam antes de qualquer `await`. Guard:
+`tests/unit/prontidao-oculta-guard.test.ts`, que obriga quem religar a remover o
+proprio guard na mesma rodada.
+
+**Por que:** a comparacao mede so PERFIL comportamental, e perfil nao distingue
+cargos vizinhos — ver §"O que o fit NAO sustenta" logo abaixo. A leitura ficou
+honesta (a tela avisa quando o gabarito nao separa e quando os dois cargos sao
+indistinguiveis), mas honesta nao basta: sem uma fonte de comportamento
+DEMONSTRADO, ela nao sustenta a decisao que o nome promete. O codigo fica no
+lugar; religar e trocar uma constante.
+
+A descricao abaixo vale para quando voltar.
 
 `/dashboard/gestor/ranking` tem DUAS abas, com garantias diferentes de proposito:
 
@@ -1175,6 +1191,51 @@ porque a saida nomeia pessoas e diz quem estaria apto ao cargo de outra.
 
 ⚠️ A capacidade existia desde sempre e nao tinha porta: o unico consumidor de
 `poolCargos` era `actions/selecao.ts`, off-line desde 31/08. Ver §27.
+
+### 🔴 O que o fit NAO sustenta — os 4 blocos sao o mesmo DISC (medido 10/09/2026)
+
+Antes de prometer que o Ranking ou a Prontidao respondem uma pergunta, saiba o que
+eles medem: **uma coisa so**. Medido em 311 colaboradores de toda a base:
+
+| bloco | o que e | evidencia |
+|---|---|---|
+| Competencia | `comp_*` derivado por regressao do DISC | `comp_comando` x D = **0,992** · `comp_persuasao` x I = **0,990** |
+| Lideranca | `lid_* = DISC/2` | **294 de 311** (tolerancia 0,051, o limite do arredondamento) |
+| DISC | o proprio | — |
+| Mapeamento | o proprio codigo declara | `lib/scoring/role-spec.ts:35`: "e lente derivada do DISC" |
+
+E `liderancaFit` normaliza os dois lados para somar 100 antes de comparar — como
+`lid = DISC/2`, isso da **exatamente** o mesmo vetor que normalizar o DISC cru. O
+bloco Lideranca pesa 30% num cargo de gestao e nao acrescenta informacao nenhuma.
+
+Os 17 que fogem da identidade sao todos de tenants antigos (`projetomacae` 13,
+`acme` 4, criados entre 24/06 e 01/07), nenhum com `perfil_externo_fonte`. Isso
+explica por que a mesma medicao em 26/07 dava 57 de 143: era estoque velho.
+
+**Consequencia pratica, com numero:**
+- separa familias DISTINTAS de cargo, bem — ACME: analistas contra o gabarito de
+  representante dao 68%, contra o proprio 90%;
+- **nao separa cargos VIZINHOS, e nao deveria** — Ibipeba: Coordenacao Pedagogica,
+  Gestao Educacional e Gestao Escolar diferem entre si em 3-9 pontos de DISC, com
+  dispersao DENTRO de cada cargo de 12-17. Variancia entre grupos menor que dentro
+  deles: a lista sai entrelacada, indice de separacao **0,47** (0,50 e o acaso).
+  Macae, com um cargo so, discrimina bem internamente (amplitude 21,8pp).
+
+⚠️ **Ao concluir "o cargo X nao separa", olhe a LISTA individual antes de agir.**
+Media de pool e enganada por outlier: o Coordenador de Operacoes da ACME parecia
+nao separar (-0,4pp na media) e, na lista, as 6 primeiras posicoes sao do cargo —
+eram 3 pessoas de 9 com perfil oposto puxando a media.
+
+Ferramentas de diagnostico, sem IA, para qualquer tenant: `scripts/_diagnosticar-gabaritos.ts`
+(matriz cruzada + ordenacao individual), `_investigar-cargo.ts`, `_calibrar-pisos.ts`,
+`_lista-misto.ts`, `_auditar-direcao-gabarito.ts`.
+
+**O que separaria de verdade** (e a plataforma ja tem, em graus diferentes):
+julgamento em situacao de gestao (cenario do cargo-ALVO, reusando IA3 + scorer +
+rubrica N1-N4), comportamento demonstrado (`avaliacao_por_descritor`, evolution
+report), o Modo Cena (`lib/season-engine/cena/`, motor completo sem consumidor por
+decisao — ver o portao de fase 0 no cabecalho dele), o checkpoint do gestor (que
+hoje NAO grava nota) e o desempenho importado do cliente. Nada disso e perfil.
 
 ### Fluxo D: Dashboard Gestor
 ```

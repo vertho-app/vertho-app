@@ -1051,3 +1051,52 @@ VERDE com o filtro real REMOVIDO de `acme-organization-reports.ts` — satisfeit
 pelo comentário logo acima, que citava a função. E, por exigir a forma da
 correção anterior (excluir `convidado.`), ele reprovou a mudança que fechava o
 buraco de vez. Memória `feedback_catalogo_nao_e_call_site` §10/09.
+
+---
+
+## § O push foi recusado por "fetch first" / o master local está atrás
+
+⚠️ **Antes de qualquer merge, pergunte se o seu commit JÁ ESTÁ no remoto.** Nesta
+base há sessões paralelas (Codex em worktrees próprios, o dono, esta sessão), e o
+mesmo trabalho chega ao remoto por outro caminho, com **outro hash e o mesmo
+título**.
+
+```bash
+# 1. O meu trabalho já subiu por outra via?
+git -C "<repo>" log --oneline HEAD..origin/master --grep="<título do meu commit>"
+# 2. Se achou, prove que é o MESMO conteúdo antes de concluir:
+for f in $(git show --name-only --format="" <meu>); do
+  a=$(git show "<meu>:$f"    | tr -d '\r' | md5sum | cut -c1-8)
+  b=$(git show "<deles>:$f"  | tr -d '\r' | md5sum | cut -c1-8)
+  [ "$a" = "$b" ] && echo "IDENTICO $f" || echo "DIFERE   $f"
+done
+```
+
+Se for idêntico, **não há o que subir** — e não vale pagar um merge conflituoso
+por nada.
+
+1. **`git stash push -u` falha em silêncio quando há diretório sem permissão.**
+   Ele cria o stash, imprime `warning: failed to remove <dir>: Permission denied`
+   e **NÃO limpa o working tree** — ficam duas cópias, e quem não conferir acha
+   que limpou. Prefira `git stash push -- <pathspec>` (sem `-u`), que funciona.
+2. **Untracked que bloqueia o merge quase sempre é idêntico ao remoto.** Compare
+   antes de apagar (`diff <(git show origin/master:$f | tr -d '\r') <(tr -d '\r' < $f)`)
+   — se der 0, o merge só os traz de volta versionados.
+3. 🔴 **Restaurar backup de arquivo versionado suja o working tree com CRLF.** O
+   conteúdo é idêntico, o git marca como modificado, e você devolve o ambiente do
+   dono pior do que pegou. Restaure só o que NÃO está no HEAD; para o resto,
+   `git checkout -- <arquivo>`. E preserve o CAMINHO no backup (`cp` com
+   `basename` deposita tudo na raiz do repo).
+4. **Conflito em área que não é sua = pare.** Meça o tamanho antes de opinar:
+   `diff <(git show :2:$f) <(git show :3:$f) | wc -l`. Diferença de centenas de
+   linhas são implementações distintas, e escolher entre elas é decisão do dono.
+5. **O hook de push lê o comando como TEXTO** — `git stash push` dispara a catraca
+   de suíte por causa da palavra "push". Use `git stash` sem o subcomando quando
+   quiser evitar, ou espere a suíte.
+
+**Consequência medida (10/09/2026):** gastei uma rodada inteira preparando um merge
+com 4 conflitos em engajamento (`relatorio-model.ts`: 343 linhas locais contra 152
+remotas) para subir um commit que **já estava no remoto** como `1468d74c`, byte a
+byte idêntico nos 6 arquivos. Três commits locais de engajamento também eram
+duplicatas. No caminho, sujei 7 arquivos com CRLF e deixei 3 cópias na raiz do
+repo — tudo revertido, mas o ambiente do dono ficou instável por minutos à toa.

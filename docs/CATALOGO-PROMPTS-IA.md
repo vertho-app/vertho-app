@@ -108,6 +108,34 @@
 - **Loop**: Sim — 1 chamada por cargo.
 - **Retry**: 1 nova chamada se o JSON não traz `gabarito`; há também caminho Batch/Trigger em `trigger/gerar-ia2-batch.ts` com fallback síncrono equivalente.
 - **Insumo "valores" (corrigido em 26/07, `062dca13`)**: `buscarValores` (`lib/ia2-gabarito.ts`) deixou de pegar `ppp_escolas.valores` do PPP mais recente e passa a **consolidar os valores de TODAS as escolas** da empresa por frequência (`consolidarValoresDaRede`, determinístico, teto de 10, ordem estável porque o prompt é cacheado). Antes, numa rede como Ibipeba (11 PPPs, 86 valores), o gabarito de **todos os cargos do município** era ancorado nos valores de uma escola sorteada pela data de extração. O `buscarContextoPPP` tinha o mesmo defeito com insumo maior — **fechado em 27/07** (F-I10 do `docs/FMEA-PIPELINE.md`): resolve por número de PPPs (1 → seções curadas, idêntico ao anterior; N → síntese municipal consolidada, compartilhada com o Kit).
+- 🔴 **O EXEMPLO do JSON era a regra de fato (medido e corrigido em 10/09/2026)**: o
+  exemplo da tela2 trazia o literal `"faixa_min": "Alto (41-60)", "faixa_max": "Muito alto (61-80)"`,
+  e essa faixa respondia por **144 de 219 subcompetências (65,8%) de TODA a base**, em 14
+  cargos. Na tela4, cujo exemplo já era variado, a mesma faixa fica em 44,6% — 21 pontos de
+  diferença explicados só pela forma do exemplo. O estrago não é cosmético: `41-80` com
+  direção `floor` significa "≥41", a metade superior inteira da escala, então o traço não
+  separa ninguém e o peso dele no bloco vira enfeite (um cargo da ACME saiu com **10 de 10**
+  subcompetências na mesma faixa). **Três mudanças**: exemplo com 3 faixas e as 3 direções;
+  regra dura nomeando o mecanismo (*"`floor` credita 100% acima do piso — quem seria excluído
+  por esta faixa?"*, com piso em "Alto (41-60)" proibido para prioridade alta); e os cargos
+  IRMÃOS no user prompt.
+- 🔴 **Os cargos irmãos, e por que a instrução antiga era decoração**: o prompt mandava
+  *"garanta que este perfil é DIFERENTE dos outros cargos desta empresa"* — e **nunca passava
+  os outros cargos**. Instrução que o modelo não tem como cumprir não é instrução: em Ibipeba
+  os três cargos de gestão saíram indistinguíveis entre si (índice de separação **0,47**,
+  abaixo do acaso de 0,50), porque foram gerados na mesma rodada, cada um cego para os outros.
+  Agora `montarPromptIA2` recebe `irmaos` e o laço de `gerarGabaritosIA2Core` **acumula**: o
+  2º cargo vê o 1º, e o que já estava no banco entra no contraste. Guards:
+  `tests/unit/ia2-prompt-discriminacao.test.ts` (o prompt) e `ia2-irmaos-acumulam.test.ts` (o
+  laço — a linha do acúmulo não aparece no prompt puro e escapou de 3 mutações).
+- ⚠️ **Medido depois, e o motivo de NÃO regerar o que existe**: a faixa-âncora caiu de 80% → 40%
+  (Ibipeba) e 74% → 47% (ACME), e cargos com perfil idêntico foram de 1 grupo → 0. Mas a
+  **separação entre cargos não mudou** (3 de 4 ok antes e depois): ela depende de os cargos
+  exigirem coisas diferentes DAS PESSOAS, e cargos vizinhos compartilham perfil de verdade. Os
+  gabaritos da ACME foram regerados, medidos e **revertidos** — trocá-los sem regerar os
+  snapshots do Ranking (view pura do arquivo assado) faria duas telas discordarem sobre a mesma
+  pessoa. O prompt novo vale para cargo novo, cliente novo ou regeração pedida por outro motivo.
+  Dry-run sem gravar: `scripts/_medir-prompt-ia2.ts` (`--gravar` só aceita tenant de demo).
 - **System prompt** (~2200 chars, resumo):
   ```text
   Você é um especialista em avaliação comportamental CIS/DISC.
