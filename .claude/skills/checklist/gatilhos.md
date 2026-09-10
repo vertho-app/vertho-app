@@ -1079,6 +1079,22 @@ por nada.
    Ele cria o stash, imprime `warning: failed to remove <dir>: Permission denied`
    e **NÃO limpa o working tree** — ficam duas cópias, e quem não conferir acha
    que limpou. Prefira `git stash push -- <pathspec>` (sem `-u`), que funciona.
+   🔴 **Mas a limpeza falha só para os TRACKED: os untracked o `-u` leva de
+   verdade, para um TERCEIRO pai (`stash^3`), e eles SOMEM do disco.** Conferir
+   que os tracked continuam lá e concluir "o stash é redundante, pode dropar" é a
+   armadilha — untracked não vivem em commit nenhum, então o stash é a única
+   cópia. `Medido: 10/09/2026` — essa conclusão foi escrita, o drop aconteceu
+   horas depois, e 3 arquivos (um deles um backup de 95 KB de cenários removidos)
+   só sobreviveram porque tinham sido resgatados antes. **"Redundante" tem que
+   valer nas TRÊS árvores:**
+   ```bash
+   git diff "stash@{0}" -- $(git stash show --name-only "stash@{0}")  # working tree
+   git rev-parse -q --verify "stash@{0}^3"   # existe untracked guardado?
+   git diff "stash@{0}^2" "stash@{0}^1"      # havia algo staged?
+   git cat-file -p "stash@{0}^3:<arq>" > "<arq>"   # resgata sem tocar o index
+   ```
+   ⚠️ O stack é compartilhado entre worktrees e sessões: `stash@{0}` pode ter
+   mudado de dono até o comando rodar. Confira o SHA antes de dropar.
 2. **Untracked que bloqueia o merge quase sempre é idêntico ao remoto.** Compare
    antes de apagar (`diff <(git show origin/master:$f | tr -d '\r') <(tr -d '\r' < $f)`)
    — se der 0, o merge só os traz de volta versionados.
@@ -1090,9 +1106,17 @@ por nada.
 4. **Conflito em área que não é sua = pare.** Meça o tamanho antes de opinar:
    `diff <(git show :2:$f) <(git show :3:$f) | wc -l`. Diferença de centenas de
    linhas são implementações distintas, e escolher entre elas é decisão do dono.
-5. **O hook de push lê o comando como TEXTO** — `git stash push` dispara a catraca
-   de suíte por causa da palavra "push". Use `git stash` sem o subcomando quando
-   quiser evitar, ou espere a suíte.
+5. ✅ **CORRIGIDO em 10/09/2026, no mesmo dia.** Este item dizia: *"o hook de push
+   lê o comando como TEXTO — `git stash push` dispara a catraca de suíte por causa
+   da palavra 'push'; use `git stash` sem o subcomando"*. Era verdade e custou mais
+   do que a suíte: quando a catraca passou a resolver o refspec, o mesmo defeito
+   virou BLOQUEIO — em `git stash push -m "wip do dono" -- lib/ia2-gabarito.ts` ela
+   leu o pathspec como o ref a medir e negou o comando no meio de guardar o
+   trabalho do dono. O hook agora lê o **subcomando** do git (primeiro token
+   não-flag depois de `git`), então `git stash push`, `git subtree push` e afins
+   passam direto, em ~100 ms e sem rodar suíte. Guarda: 29 casos em
+   `C:/GAS/Vertho App/.claude/hooks/push-suite.test.js`, validados por mutação.
+   **Não contorne mais** — se um `stash push` for barrado, é regressão do hook.
 
 **Consequência medida (10/09/2026):** gastei uma rodada inteira preparando um merge
 com 4 conflitos em engajamento (`relatorio-model.ts`: 343 linhas locais contra 152

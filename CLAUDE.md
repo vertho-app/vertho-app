@@ -215,6 +215,16 @@ tests/unit/          vitest
   Protection segura o cliente 12 h → Ctrl+Shift+R) · bug de verdade. Descarte as duas primeiras
   primeiro; dá para provar a 2ª buscando a string nova no bundle servido.
 - **Trigger.dev**: tasks em `trigger/` **NÃO** sobem no push — precisam de `npx trigger.dev deploy` manual (path com espaço quebra o CLI; receita em `docs`/memória).
+- 🔑 **A catraca de pré-push mede o COMMIT, não o disco** (10/09/2026). Ela monta
+  sozinha um worktree destacado por sessão em `.worktrees/catraca-<session_id>`,
+  com `node_modules` por junction, e roda `typecheck` + `test:unit` lá. Duas
+  consequências ao ler um `PUSH BLOQUEADO`: **(a)** o vermelho é do que VAI SUBIR,
+  então "mas no meu disco está verde" não contradiz nada — o disco é compartilhado
+  com as outras sessões e não é o que o CI julga; **(b)** a medição é a do CI de
+  verdade, que faz checkout limpo **sem `.env.local`**. Custo medido: 84 s no
+  primeiro push da sessão, **7 s** nos seguintes. Antes disso ela lia o disco, e
+  com 4 sessões no mesmo working tree cada uma reprovava o push das outras.
+  Detalhe e a saída de emergência (`#catraca:disco`): memória `hooks-catraca`.
 
 ## Domínio: modelo de competências & Temporadas
 
