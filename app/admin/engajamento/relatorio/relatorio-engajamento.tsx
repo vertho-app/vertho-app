@@ -304,6 +304,43 @@ function FocusList({ data }: { data: ReportView }) {
   );
 }
 
+function CargoBreakdown({ data, semana }: { data: ReportView; semana: number }) {
+  return <section aria-labelledby="cargo-title" className="engagement-report-cargos py-7">
+    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-cyan-300">Decisão por cargo</p>
+    <h3 id="cargo-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">Onde concentrar o acompanhamento</h3>
+    <p className="mt-2 text-xs leading-relaxed text-white/60">
+      Todos os cargos, em ordem de pessoas em risco; depois, casos críticos e inscritos.
+      Ativação, consumo e evidência: quantidade e percentual dos elegíveis na semana {semana}.
+      Risco: quantidade e percentual dos inscritos no cargo, cada pessoa na sua semana atual.
+      Sem elegíveis significa que o cargo ainda não chegou a este fechamento.
+    </p>
+    {data.cargos.length ? <div className="mt-5 space-y-3">
+      {data.cargos.map((cargo) => <div key={cargo.cargo} className="rounded-xl border border-white/10 bg-white/[0.025] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <h4 className="text-sm font-semibold text-white">{cargo.cargo}</h4>
+          <p className="text-xs text-white/55">{cargo.participantes} inscritos · {cargo.elegiveis} elegíveis</p>
+        </div>
+        <dl className="my-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {[
+            { label: 'Ativaram', value: cargo.ativados, pct: cargo.ativacaoPct },
+            { label: 'Consumiram', value: cargo.consumiram, pct: cargo.consumoPct },
+            { label: 'Evidenciaram', value: cargo.evidencias, pct: cargo.evidenciaPct },
+          ].map((metric) => <div key={metric.label}>
+            <dt className="text-[11px] text-white/50">{metric.label}</dt>
+            <dd className="mt-1 text-sm text-white tabular-nums">{cargo.elegiveis ? <>{metric.value} <span className="text-white/55">· {metric.pct}%</span></> : <span className="text-xs text-white/50">Sem elegíveis</span>}</dd>
+          </div>)}
+          <div>
+            <dt className="text-[11px] text-white/50">Em risco</dt>
+            <dd className={`mt-1 text-sm tabular-nums ${cargo.emRisco ? 'text-amber-200' : 'text-emerald-200'}`}>{cargo.emRisco} · {cargo.riscoPct}%</dd>
+            <dd className="mt-1 text-[10px] text-white/50">{cargo.criticos} críticos · {cargo.atencao} em atenção</dd>
+          </div>
+        </dl>
+        <p className="border-t border-white/10 pt-3 text-xs leading-relaxed text-white/65"><span className="font-semibold text-cyan-200">Ação sugerida: </span>{cargo.acao}</p>
+      </div>)}
+    </div> : <p className="mt-4 text-sm text-white/60">Sem dados por cargo disponíveis.</p>}
+  </section>;
+}
+
 export default function RelatorioEngajamento() {
   const { empresaId, empresa } = useEmpresaContexto();
   const [audience, setAudience] = useState<Audience>('gestor');
@@ -512,6 +549,8 @@ export default function RelatorioEngajamento() {
                 <FocusList data={data} />
               </div>
 
+              <CargoBreakdown data={data} semana={semanaAtual} />
+
               <section className="grid divide-y divide-white/[0.07] border-y border-white/[0.08] sm:grid-cols-3 sm:divide-x sm:divide-y-0" aria-label="Sinais secundários">
                 <div className="flex items-center gap-3 py-4 sm:pr-5">
                   <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-emerald-300/[0.09] text-emerald-200"><RotateCcw size={16} aria-hidden="true" /></div>
@@ -571,6 +610,8 @@ export default function RelatorioEngajamento() {
           .engagement-report-paper section,
           .engagement-report-paper header,
           .engagement-report-paper footer { break-inside: avoid; }
+          .engagement-report-paper .engagement-report-cargos { break-inside: auto; }
+          .engagement-report-cargos > div > div { break-inside: avoid; }
           .engagement-report-paper {
             overflow: visible !important;
             border: 0 !important;

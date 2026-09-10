@@ -49,8 +49,19 @@ export interface EngagementWeekMetric {
 export interface EngagementAreaMetric {
   area: string;
   participantes: number;
+  emRisco: number;
   semanas: Array<{ semana: number; indice: number | null; elegiveis: number }>;
   tendencia: number | null;
+}
+
+export interface EngagementCargoMetric extends Pick<EngagementWeekMetric,
+  'elegiveis' | 'ativados' | 'consumiram' | 'evidencias' | 'ativacaoPct' | 'consumoPct' | 'evidenciaPct'> {
+  cargo: string;
+  participantes: number;
+  emRisco: number;
+  criticos: number;
+  atencao: number;
+  riscoPct: number;
 }
 
 export type EngagementTrajectory = 'accelerating' | 'on_track' | 'attention' | 'critical';
@@ -74,6 +85,7 @@ export interface EngagementEvolutionDashboard {
   semanaAtual: number;
   semanas: EngagementWeekMetric[];
   areas: EngagementAreaMetric[];
+  cargos: EngagementCargoMetric[];
   trajetorias: Record<EngagementTrajectory, number>;
   recuperados: number;
   emRisco: number;
@@ -150,6 +162,7 @@ export function buildEngagementEvolutionDashboard(input: {
 }): EngagementEvolutionDashboard {
   const allEnrollments = input.enrollments.map((enrollment) => ({
     ...enrollment,
+    cargo: enrollment.cargo.trim().replace(/\s+/g, ' ') || 'Cargo não informado',
     area: enrollment.area.trim() || 'Sem área',
     semanaAtual: Math.max(1, Math.floor(enrollment.semanaAtual || 1)),
   }));
@@ -167,6 +180,7 @@ export function buildEngagementEvolutionDashboard(input: {
       semanaAtual: 0,
       semanas: [],
       areas: [],
+      cargos: [],
       trajetorias: { accelerating: 0, on_track: 0, attention: 0, critical: 0 },
       recuperados: 0,
       emRisco: 0,
@@ -272,6 +286,7 @@ export function buildEngagementEvolutionDashboard(input: {
       return {
         area,
         participantes: areaEnrollments.length,
+        emRisco: 0,
         semanas: areaWeeks,
         tendencia: current != null && previous != null ? current - previous : null,
       };
@@ -286,6 +301,7 @@ export function buildEngagementEvolutionDashboard(input: {
   };
   let recovered = 0;
   const riskPeople: EngagementRiskPerson[] = [];
+  const cargos = new Map<string, EngagementCargoMetric>();
 
   for (const enrollment of enrollments) {
     const participantWeek = enrollment.semanaAtual;
@@ -297,6 +313,28 @@ export function buildEngagementEvolutionDashboard(input: {
       : EMPTY_STATE;
     const currentTrajectory = trajectory(current.score, previous.score, hasPrevious);
     trajectories[currentTrajectory] += 1;
+    const cargoKey = enrollment.cargo.toLocaleLowerCase('pt-BR');
+    let cargo = cargos.get(cargoKey);
+    if (!cargo) {
+      cargo = {
+        cargo: enrollment.cargo, participantes: 0, elegiveis: 0,
+        ativados: 0, consumiram: 0, evidencias: 0,
+        ativacaoPct: 0, consumoPct: 0, evidenciaPct: 0,
+        emRisco: 0, criticos: 0, atencao: 0, riscoPct: 0,
+      };
+      cargos.set(cargoKey, cargo);
+    }
+    cargo.participantes += 1;
+    // Fechamento por cargo usa a mesma semana/base dos indicadores gerais.
+    // Risco considera a semana individual de TODOS os inscritos, antes do top 20.
+    if (participantWeek >= maxWeek) {
+      cargo.elegiveis += 1;
+      cargo.ativados += Number(current.activated);
+      cargo.consumiram += Number(current.consumed);
+      cargo.evidencias += Number(current.evidence);
+    }
+    if (currentTrajectory === 'critical') cargo.criticos += 1;
+    if (currentTrajectory === 'attention') cargo.atencao += 1;
     if (hasPrevious && previous.score === 0 && current.score > 0) recovered += 1;
     if (currentTrajectory === 'attention' || currentTrajectory === 'critical') {
       riskPeople.push({
@@ -325,6 +363,19 @@ export function buildEngagementEvolutionDashboard(input: {
     || a.nome.localeCompare(b.nome, 'pt-BR')
   ));
 
+  for (const area of heatmapAreas) {
+    area.emRisco = riskPeople.filter((person) => person.area === area.area).length;
+  }
+  const cargoMetrics = [...cargos.values()].map((cargo) => ({
+    ...cargo,
+    ativacaoPct: pct(cargo.ativados, cargo.elegiveis),
+    consumoPct: pct(cargo.consumiram, cargo.elegiveis),
+    evidenciaPct: pct(cargo.evidencias, cargo.elegiveis),
+    emRisco: cargo.criticos + cargo.atencao,
+    riscoPct: pct(cargo.criticos + cargo.atencao, cargo.participantes),
+  })).sort((a, b) => b.emRisco - a.emRisco || b.criticos - a.criticos
+    || b.participantes - a.participantes || a.cargo.localeCompare(b.cargo, 'pt-BR'));
+
   return {
     areaSelecionada: selectedArea,
     areasDisponiveis,
@@ -332,6 +383,7 @@ export function buildEngagementEvolutionDashboard(input: {
     semanaAtual: maxWeek,
     semanas: weeks,
     areas: heatmapAreas,
+    cargos: cargoMetrics,
     trajetorias: trajectories,
     recuperados: recovered,
     emRisco: trajectories.attention + trajectories.critical,

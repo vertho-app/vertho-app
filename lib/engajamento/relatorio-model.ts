@@ -1,4 +1,4 @@
-import type { EngagementEvolutionDashboard } from '@/lib/engagement-evolution';
+import type { EngagementCargoMetric, EngagementEvolutionDashboard } from '@/lib/engagement-evolution';
 
 export type Audience = 'gestor' | 'rh';
 export type Signal = 'critical' | 'attention' | 'positive';
@@ -25,6 +25,7 @@ export type ReportView = {
   tutor: string;
   preferredFormat: string;
   trend: TrendPoint[];
+  cargos: Array<EngagementCargoMetric & { acao: string }>;
   focusTitle: string;
   focusSubtitle: string;
   focusItems: Array<{
@@ -42,6 +43,20 @@ const FORMATO_LABEL: Record<string, string> = {
   texto: 'Texto',
   case: 'Caso',
 };
+
+function acaoPorCargo(cargo: EngagementCargoMetric): string {
+  if (!cargo.elegiveis) return 'Acompanhar a semana atual das turmas; este cargo ainda não chegou ao fechamento.';
+  const gaps = [
+    { count: cargo.elegiveis - cargo.ativados, text: 'sem ativação. Confirmar acesso e combinar o primeiro contato com o conteúdo.' },
+    { count: cargo.ativados - cargo.consumiram, text: 'com ativação, mas sem consumo concluído. Reservar tempo para concluir o conteúdo.' },
+    { count: cargo.consumiram - cargo.evidencias, text: 'com consumo concluído, mas sem evidência. Orientar o registro da aplicação prática.' },
+  ].sort((a, b) => b.count - a.count);
+  const gap = gaps[0];
+  if (gap.count > 0) return `${gap.count} ${gap.count === 1 ? 'pessoa' : 'pessoas'} ${gap.text}`;
+  return cargo.emRisco
+    ? 'Fechamento completo entre os elegíveis. Acompanhar as trajetórias em risco e possíveis quedas em relação à semana anterior.'
+    : 'Reconhecer a participação e sustentar a aplicação prática.';
+}
 
 /** Mesma régua de "tem sinal" da tela de engajamento: qualquer movimento conta. */
 function temSinalReal(pessoa: any): boolean {
@@ -243,13 +258,10 @@ export function buildViews(args: {
   }
 
   // ── Foco do RH: áreas, nunca nomes (a mensagem do WhatsApp não nominaliza).
-  const riscoPorArea = new Map<string, number>();
-  for (const p of evolucao?.pessoasEmRisco || []) {
-    riscoPorArea.set(p.area, (riscoPorArea.get(p.area) || 0) + 1);
-  }
   const tendenciaPorArea = new Map((evolucao?.areas || []).map((a) => [a.area, a] as const));
-  const topAreas = [...riscoPorArea.entries()]
-    .map(([area, count]) => ({ area, count }))
+  const topAreas = (evolucao?.areas || [])
+    .filter((area) => area.emRisco > 0)
+    .map((area) => ({ area: area.area, count: area.emRisco }))
     .sort((a, b) => b.count - a.count || a.area.localeCompare(b.area, 'pt-BR'));
   let rhItems: ReportView['focusItems'] = topAreas.slice(0, 3).map((item, index) => {
     const meta = tendenciaPorArea.get(item.area);
@@ -288,11 +300,12 @@ export function buildViews(args: {
     semanaAtual,
   });
   const teseR = teseRh({ eligible, evidencePct: evidence.pct, emRisco: riskTotal, topAreas });
+  const cargos = (evolucao?.cargos || []).map((cargo) => ({ ...cargo, acao: acaoPorCargo(cargo) }));
 
   return {
     gestor: {
       eyebrow: 'Leitura do gestor',
-      scope: `${empresaNome} · por pessoa`,
+      scope: `${empresaNome} · por pessoa e cargo`,
       ...teseG,
       eligible,
       activation,
@@ -303,13 +316,14 @@ export function buildViews(args: {
       tutor: `${tutorCount} de ${eligible}`,
       preferredFormat,
       trend,
+      cargos,
       focusTitle: 'Agir nesta semana',
       focusSubtitle: 'Ordem sugerida para as conversas de acompanhamento.',
       focusItems: gestorItems,
     },
     rh: {
       eyebrow: 'Leitura de RH / Diretoria',
-      scope: `${empresaNome} · por área`,
+      scope: `${empresaNome} · por área e cargo`,
       ...teseR,
       eligible,
       activation,
@@ -320,6 +334,7 @@ export function buildViews(args: {
       tutor: `${tutorCount} de ${eligible}`,
       preferredFormat,
       trend,
+      cargos,
       focusTitle: 'Áreas para mobilizar',
       focusSubtitle: 'Nomes individuais ficam protegidos no detalhe autenticado.',
       focusItems: rhItems,

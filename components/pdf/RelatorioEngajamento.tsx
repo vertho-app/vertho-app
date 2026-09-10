@@ -28,6 +28,12 @@ const s = StyleSheet.create({
   legend: { flexDirection: 'row', gap: 18, marginTop: 8, marginBottom: 6 },
   legendItem: { flexDirection: 'row', alignItems: 'center' },
   swatch: { width: 12, height: 3, marginRight: 5 },
+  cargo: { borderWidth: 1, borderColor: colors.gray200, borderRadius: 7, padding: 12, marginBottom: 12 },
+  cargoName: { fontSize: 10, fontWeight: 600, color: colors.navy },
+  cargoMetrics: { flexDirection: 'row', marginTop: 10, marginBottom: 9 },
+  cargoMetric: { flex: 1, paddingRight: 6 },
+  cargoValue: { fontSize: 11, color: colors.navy, fontWeight: 600, marginTop: 4 },
+  cargoAction: { borderTopWidth: 1, borderTopColor: colors.gray200, paddingTop: 8, fontSize: 8, color: colors.textSecondary, lineHeight: 1.4 },
 });
 
 const series = [
@@ -143,6 +149,37 @@ export default function RelatorioEngajamentoPDF({
     </Page>
     <Page size="A4" style={pageStyles.page}>
       <Header />
+      <View fixed style={{ paddingBottom: 12 }}>
+        <Text style={s.meta}>{empresaNome} · {period}</Text>
+        <ReportSectionTitle>Engajamento por cargo</ReportSectionTitle>
+        <Text style={s.text}>Onde concentrar o acompanhamento</Text>
+        <Text style={{ ...s.caption, marginTop: 5 }}>Todos os cargos, em ordem de pessoas em risco; depois, casos críticos e inscritos.</Text>
+        <Text style={{ ...s.caption, marginTop: 5 }}>Ativação, consumo e evidência: quantidade e percentual dos elegíveis na semana {semana}. Risco: quantidade e percentual dos inscritos no cargo, cada pessoa na sua semana atual. Sem elegíveis significa que o cargo ainda não chegou a este fechamento.</Text>
+      </View>
+      {data.cargos.length ? data.cargos.map((cargo) => <View key={cargo.cargo} style={s.cargo} wrap={false}>
+        <Text style={s.cargoName}>{cargo.cargo}</Text>
+        <Text style={s.subtitle}>{cargo.participantes} inscritos · {cargo.elegiveis} elegíveis na semana {semana}</Text>
+        <View style={s.cargoMetrics}>
+          {[
+            { label: 'Ativaram', value: cargo.ativados, pct: cargo.ativacaoPct },
+            { label: 'Consumiram', value: cargo.consumiram, pct: cargo.consumoPct },
+            { label: 'Evidenciaram', value: cargo.evidencias, pct: cargo.evidenciaPct },
+          ].map((metric) => <View key={metric.label} style={s.cargoMetric}>
+            <Text style={s.caption}>{metric.label}</Text>
+            <Text style={s.cargoValue}>{cargo.elegiveis ? `${metric.value} · ${metric.pct}%` : 'Sem elegíveis'}</Text>
+          </View>)}
+          <View style={s.cargoMetric}>
+            <Text style={s.caption}>Em risco</Text>
+            <Text style={{ ...s.cargoValue, color: cargo.emRisco ? colors.orangeText : colors.greenText }}>{cargo.emRisco} · {cargo.riscoPct}%</Text>
+            <Text style={{ ...s.caption, marginTop: 4 }}>{cargo.criticos} críticos · {cargo.atencao} em atenção</Text>
+          </View>
+        </View>
+        <Text style={s.cargoAction}><Text style={{ fontWeight: 600, color: colors.navy }}>Ação sugerida: </Text>{cargo.acao}</Text>
+      </View>) : <Text style={s.text}>Sem dados por cargo disponíveis.</Text>}
+      <Footer />
+    </Page>
+    <Page size="A4" style={pageStyles.page}>
+      <Header />
       <Text style={s.meta}>{empresaNome} · {period}</Text>
       <ReportSectionTitle>{data.focusTitle}</ReportSectionTitle>
       <Text style={{ ...s.text, marginBottom: 12 }}>{data.focusSubtitle}</Text>
@@ -162,7 +199,7 @@ export default function RelatorioEngajamentoPDF({
       <View style={{ ...s.section, marginTop: 15 }} wrap={false}>
         <ReportSectionTitle>Como ler este relatório</ReportSectionTitle>
         <Text style={s.text}>Engajamento mede movimento na jornada, não desempenho. Ativação, consumo e evidência usam os participantes elegíveis de cada fechamento semanal. O uso do Tira-Dúvidas segue o último fechamento; o formato preferido considera o histórico de adesão.</Text>
-        <Text style={{ ...s.text, marginTop: 7 }}>A leitura de RH reúne prioridades por área. Os nomes individuais aparecem somente na leitura do gestor e no detalhe autenticado.</Text>
+        <Text style={{ ...s.text, marginTop: 7 }}>A leitura de RH reúne prioridades por área e cargo. Cargos sem cadastro ficam em "Cargo não informado". A ação sugerida por cargo aponta a maior perda entre as etapas do fechamento; em empate, a primeira etapa. Os nomes individuais aparecem somente na leitura do gestor e no detalhe autenticado.</Text>
         <Link src={detailUrl} style={{ fontSize: 9, color: colors.linkBlue, marginTop: 12 }}>Ver dados detalhados na plataforma</Link>
       </View>
       <Footer />
