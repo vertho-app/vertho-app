@@ -55,10 +55,16 @@ function base(pessoas: any[], over: Partial<any> = {}): any {
   };
 }
 
-/** Primeira chamada = pool da origem contra o ALVO; segunda = origem em si. */
-function responder(noAlvo: any, naOrigem: any) {
-  mockAggregate.mockImplementation((_sb: any, _emp: string, cargo: string, opts: any = {}) =>
-    Promise.resolve(opts.poolCargos ? noAlvo : naOrigem));
+/**
+ * São TRÊS passadas: (1) pool da origem contra o gabarito do ALVO, (2) a origem
+ * contra si mesma, (3) quem OCUPA o alvo — esta última é a que permite dizer se
+ * os dois cargos são distinguíveis um do outro.
+ */
+function responder(noAlvo: any, naOrigem: any, ocupantesDoAlvo: any = base([])) {
+  mockAggregate.mockImplementation((_sb: any, _emp: string, cargo: string, opts: any = {}) => {
+    if (opts.poolCargos) return Promise.resolve(noAlvo);
+    return Promise.resolve(cargo === 'B' || cargo === 'Gerente' ? ocupantesDoAlvo : naOrigem);
+  });
 }
 
 beforeEach(() => { mockAggregate.mockReset(); });
@@ -68,11 +74,14 @@ describe('as duas passagens do motor', () => {
     responder(base([pessoa()]), base([pessoa()]));
     await compararProntidao({} as any, 'emp-1', 'Representante Comercial', 'Gerente Comercial');
 
-    expect(mockAggregate).toHaveBeenCalledTimes(2);
+    expect(mockAggregate).toHaveBeenCalledTimes(3);
     // A pergunta: gente de Representante medida contra o perfil de Gerente.
     expect(mockAggregate).toHaveBeenCalledWith({}, 'emp-1', 'Gerente Comercial', { poolCargos: ['Representante Comercial'] });
     // A linha de base: sem ela, 88% no destino não significa nada.
     expect(mockAggregate).toHaveBeenCalledWith({}, 'emp-1', 'Representante Comercial');
+    // Quem JÁ ocupa o destino: sem esta população não há como dizer se os dois
+    // cargos são distinguíveis um do outro.
+    expect(mockAggregate).toHaveBeenCalledWith({}, 'emp-1', 'Gerente Comercial');
   });
 });
 
@@ -206,6 +215,53 @@ describe('o gabarito do alvo discrimina?', () => {
     responder({ ...base([pessoa()]), avisosCalibracao: avisos }, base([]));
     const r = await compararProntidao({} as any, 'e', 'A', 'B');
     expect(r.calibracaoAlvo.avisos).toEqual(avisos);
+  });
+});
+
+describe('os dois cargos são distinguíveis?', () => {
+  const comBeta = (id: string, pct: number) => pessoa({ id, nome: id, beta: { pct } });
+
+  it('separação total dá índice 1,00 e não acusa nada', async () => {
+    // Todo ocupante do alvo acima de todo candidato.
+    responder(
+      base([comBeta('c1', 70), comBeta('c2', 72), comBeta('c3', 68)]),
+      base([]),
+      base([comBeta('o1', 90), comBeta('o2', 88)]),
+    );
+    const r = await compararProntidao({} as any, 'e', 'A', 'B');
+    expect(r.separacaoEntreCargos.indice).toBe(1);
+    expect(r.separacaoEntreCargos.indistinguiveis).toBe(false);
+  });
+
+  it('listas embaralhadas dão índice perto de 0,50 e ACUSAM', async () => {
+    // O caso de Ibipeba: ocupantes e candidatos na mesma faixa.
+    responder(
+      base([comBeta('c1', 88), comBeta('c2', 86), comBeta('c3', 84), comBeta('c4', 90)]),
+      base([]),
+      base([comBeta('o1', 87), comBeta('o2', 85), comBeta('o3', 89)]),
+    );
+    const r = await compararProntidao({} as any, 'e', 'A', 'B');
+    expect(r.separacaoEntreCargos.indice).toBeLessThan(0.6);
+    expect(r.separacaoEntreCargos.indistinguiveis).toBe(true);
+  });
+
+  it('um lado com menos de 2 pessoas NÃO vira "cargos iguais" — vira não medido', async () => {
+    // n=1 de um lado torna o índice 0 ou 1 por construção; afirmar qualquer
+    // coisa ali seria inventar.
+    responder(base([comBeta('c1', 70), comBeta('c2', 72)]), base([]), base([comBeta('o1', 60)]));
+    const r = await compararProntidao({} as any, 'e', 'A', 'B');
+    expect(r.separacaoEntreCargos.indice).toBeNull();
+    expect(r.separacaoEntreCargos.indistinguiveis).toBe(false);
+  });
+
+  it('empate conta meio ponto — duas listas idênticas dão exatamente 0,50', async () => {
+    responder(
+      base([comBeta('c1', 80), comBeta('c2', 80)]),
+      base([]),
+      base([comBeta('o1', 80), comBeta('o2', 80)]),
+    );
+    const r = await compararProntidao({} as any, 'e', 'A', 'B');
+    expect(r.separacaoEntreCargos.indice).toBe(0.5);
   });
 });
 

@@ -208,7 +208,31 @@ export default function ProntidaoCargoView({ listar, comparar, scopeKey = 'defau
             )}
           </div>
 
-          {/* 🔴 O aviso vem ANTES da lista, e não num rodapé: um gabarito que não
+          {/* 🔴 O aviso mais forte da tela, e ele vem primeiro: quando os dois
+              cargos não são distinguíveis pelo perfil, a ORDEM abaixo é ruído,
+              e nenhuma leitura cuidadosa das linhas conserta isso. Medido em
+              Ibipeba (10/09/2026): índice 0,47 entre Coordenação Pedagógica e
+              Gestão Educacional — abaixo do acaso. */}
+          {dados.separacaoEntreCargos.indistinguiveis && dados.separacaoEntreCargos.indice != null && (
+            <div className="mb-3 rounded-2xl border border-red-400/30 bg-red-400/[0.07] p-4">
+              <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-red-300">
+                <ShieldAlert size={14} /> Estes dois cargos não se distinguem pelo perfil
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                Comparando quem já ocupa <strong className="text-slate-200">{dados.cargoAlvo}</strong> ({dados.separacaoEntreCargos.nOcupantes} pessoas)
+                com quem está em <strong className="text-slate-200">{dados.cargoOrigem}</strong> ({dados.separacaoEntreCargos.nCandidatos}),
+                o perfil ideal do destino coloca os dois grupos praticamente na mesma faixa
+                (índice {dados.separacaoEntreCargos.indice.toFixed(2).replace('.', ',')} numa escala em que 0,50 é o acaso e 1,00 é separação total).
+              </p>
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+                Isso costuma acontecer quando os dois cargos pedem o mesmo comportamento — comum entre funções vizinhas de uma
+                mesma área. A ordem abaixo não sustenta decisão de movimentação entre eles: use avaliação de entrega e de
+                experiência, que é o que difere os dois na prática.
+              </p>
+            </div>
+          )}
+
+          {/* O aviso vem ANTES da lista, e não num rodapé: um gabarito que não
               separa produz uma ordem que parece resultado e é quase sorteio.
               Quem lê a lista sem este aviso conclui que "todo mundo está apto". */}
           {(dados.calibracaoAlvo.semDiscriminacao.length > 0 || dados.calibracaoAlvo.avisos.length > 0) && (
