@@ -1157,7 +1157,15 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
  * colaborador específico — mesma lógica da rota /api/conteudo/[id]/podcast, mas
  * por colaboradorId (pré-geração em lote). Idempotente: pula se o cache já existe.
  */
+/** Orçamento da action de áudio: o `maxDuration` das telas que a chamam
+ *  (`app/admin/conteudos/layout.tsx` e `.../kit/layout.tsx`, ambas 300 s). Se a action
+ *  passar a ser chamada de uma tela com teto menor, este número tem que descer junto —
+ *  ele só decide se vale a pena REFAZER, então errar para mais devolve erro à tela em
+ *  vez de o áudio menos ruim. */
+const PRAZO_ACTION_AUDIO_MS = 300_000;
+
 export async function prepararAudioPersonalizado({ contentId, colab }: { contentId: string; colab: any }) {
+  const inicioMs = Date.now();
   try {
     if (!colab?.id) return { success: false, error: 'colab inválido' };
 
@@ -1216,7 +1224,10 @@ export async function prepararAudioPersonalizado({ contentId, colab }: { content
       feature: 'tts_podcast_personalizado',
       empresaId: alvo.empresa_id,
       colaboradorId: colab.id,
-    }, { retakeParalelo: true }); // o admin está esperando na tela
+      // O admin está esperando na tela: refaz em série enquanto couber no orçamento da
+      // função que hospeda a action (`app/admin/conteudos/layout.tsx`: 300 s). Ver a
+      // medição de latência × reprovação no comentário de `OpcoesPortao.retakeParalelo`.
+    }, { prazoAteMs: inicioMs + PRAZO_ACTION_AUDIO_MS });
     const { error } = await sb.storage.from('conteudos').upload(cachePath, audio.buffer, {
       contentType: audio.contentType, upsert: true,
     });
@@ -1233,6 +1244,7 @@ export async function prepararAudioPersonalizado({ contentId, colab }: { content
  * Mesmo fluxo do PDF; a narração usa o bloco de TEXTO LIMPO do roteiro.
  */
 export async function gerarPodcastAudio(id: string): Promise<import('@/lib/conteudo-podcast-core').PodcastAudioResult> {
+  const inicioMs = Date.now();
   try {
     if (!id) return { success: false, error: 'id obrigatório' };
     const { sb, linha: c } = await requireLinhaSupabase<any>(
@@ -1250,7 +1262,9 @@ export async function gerarPodcastAudio(id: string): Promise<import('@/lib/conte
     // (`lib/conteudo-podcast-core`), que o seed de demo também usa. Aqui fica
     // só o gate e a resolução da linha.
     const { gerarPodcastAudioCore } = await import('@/lib/conteudo-podcast-core');
-    return await gerarPodcastAudioCore(sb, c, (linhaId, patch) => updateConteudoInTenantDaLinha(sb, linhaId, patch));
+    // Botão da tela: o portão só refaz enquanto couber no orçamento da função. O mesmo
+    // núcleo, chamado por script de lote, não recebe prazo e refaz até o teto.
+    return await gerarPodcastAudioCore(sb, c, (linhaId, patch) => updateConteudoInTenantDaLinha(sb, linhaId, patch), { prazoAteMs: inicioMs + PRAZO_ACTION_AUDIO_MS });
   } catch (err) {
     console.error('[gerarPodcastAudio]', err);
     return { success: false, error: err?.message || 'Erro' };

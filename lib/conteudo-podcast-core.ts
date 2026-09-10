@@ -37,6 +37,7 @@ export async function gerarPodcastAudioCore(
   sb: any,
   conteudo: { id: string; formato: string; titulo?: string | null; competencia?: string | null; conteudo_inline?: string | null; empresa_id?: string | null },
   atualizarLinha: (id: string, patch: Record<string, any>) => Promise<any>,
+  opts: { prazoAteMs?: number } = {},
 ): Promise<PodcastAudioResult> {
   if (!conteudo?.id) return { success: false, error: 'conteúdo obrigatório' };
   if (conteudo.formato !== 'audio') {
@@ -52,9 +53,16 @@ export async function gerarPodcastAudioCore(
     return { success: false, error: 'Não foi possível extrair a narração do roteiro' };
   }
 
-  // Botão do admin (sob demanda) e lote de script chegam aqui; o retake em paralelo
-  // custa 2× (US$ 0,09) e devolve em 1 tentativa de latência — vale nos dois casos.
-  const audio = await generatePodcastAudio(narracao, { feature: 'tts_podcast', empresaId: conteudo.empresa_id }, { retakeParalelo: true });
+  // Botão do admin (sob demanda) e LOTE de script chegam aqui, e a diferença entre os
+  // dois é só quem espera. O portão refaz em série; quem tem tela passa `prazoAteMs` e
+  // desiste do retake quando o orçamento acaba, o lote não passa nada e refaz até o teto.
+  // Até 10/09/2026 os dois disparavam 3 takes SEMPRE — no lote isso era desperdício puro
+  // (ninguém esperando): 62 chamadas para ~21 entregas em 07/09, US$ 3,37.
+  const audio = await generatePodcastAudio(
+    narracao,
+    { feature: 'tts_podcast', empresaId: conteudo.empresa_id },
+    opts.prazoAteMs ? { prazoAteMs: opts.prazoAteMs } : {},
+  );
 
   const slug = String(conteudo.competencia || 'geral').replace(/[^a-zA-Z0-9]/g, '_');
   const path = `final/audio/${slug}/${conteudo.id}-${Date.now()}.${audio.extension}`;
