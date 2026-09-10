@@ -868,7 +868,15 @@ export default function RelatorioEngajamento() {
         @media print {
           body { background: #07192f !important; }
           .engagement-report-toolbar { display: none !important; }
+          /* Imprime SÓ o papel do relatório: esconde o shell do admin
+             (sidebar, topo, filtros) e qualquer outro elemento da página. */
+          body * { visibility: hidden; }
+          .engagement-report-paper,
+          .engagement-report-paper * { visibility: visible; }
           .engagement-report-paper {
+            position: absolute !important;
+            inset: 0 auto auto 0 !important;
+            width: 100% !important;
             border: 0 !important;
             border-radius: 0 !important;
             box-shadow: none !important;
