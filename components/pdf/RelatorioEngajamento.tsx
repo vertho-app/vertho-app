@@ -97,6 +97,9 @@ export default function RelatorioEngajamentoPDF({
   ];
   const label = `Engajamento semanal · ${data.eyebrow.replace('Leitura de ', '').replace('Leitura do ', '')}`;
   const period = `${semana ? `Semana ${semana} · ` : ''}${geradoEm}`;
+  const peopleUrl = new URL(detailUrl);
+  peopleUrl.searchParams.delete('view');
+  peopleUrl.hash = 'pessoas';
   function Header() {
     return <View style={pageStyles.header} fixed>
       {logoBase64 ? <Image src={logoBase64} style={pageStyles.headerLogo} /> : <View />}
@@ -151,7 +154,7 @@ export default function RelatorioEngajamentoPDF({
         <Text style={s.riskTitle}>Acompanhamento geral: {data.risk.total} de {inscritos} inscritos</Text>
         <Text style={s.text}>{data.risk.critical} críticos · {data.risk.attention} em atenção. Cada pessoa na sua semana atual; esta base é diferente dos {data.eligible} elegíveis do fechamento.</Text>
       </View>
-      <Link src={detailUrl.replace('&view=evolucao', '') + '#pessoas'} style={{ fontSize: 9, color: colors.linkBlue }}>Abrir a plataforma para revisar os sinais e orientar a próxima ação</Link>
+      <Link src={peopleUrl.toString()} style={{ fontSize: 9, color: colors.linkBlue }}>Abrir a plataforma para revisar os sinais e orientar a próxima ação</Link>
       <Footer />
     </Page>
     <Page size="A4" style={pageStyles.page}>
