@@ -57,11 +57,20 @@ test.describe('Navegação autenticada', () => {
   // O chat abre com UMA mensagem do assistente (a saudação). Responder é a
   // segunda — por isso a asserção conta balões, e não "existe balão".
   //
-  // 09/09/2026: a âncora anterior era `.bg-white/[0.06]`, uma classe Tailwind
-  // que nunca esteve no DOM (a cor do balão é style inline). O teste não podia
-  // passar, e ficou 10 dias somando-se às 4 falhas da conta de smoke órfã —
-  // cinco vermelhos, uma causa aparente. Agora a âncora é `data-beto-msg`, que
-  // o componente declara para este fim.
+  // 🔴 A âncora anterior era `.bg-white/[0.06]` — e o problema NÃO era ela
+  // falhar: era ela PASSAR sem olhar o chat. A cor do balão do Beto é style
+  // inline, então a classe não existe no componente; ela existe em outras oito
+  // partes da tela do RH. `Medido: 09/09/2026` em produção — antes mesmo de
+  // abrir o chat, o seletor casava **8 elementos**, e o `.last()` deles já
+  // estava visível: a barrinha de progresso do funil (`home-rh.tsx:89`,
+  // `h-[3px] rounded-full`). O teste afirmava que o Beto tinha respondido
+  // olhando para uma barra de progresso.
+  //
+  // Ele só ficou vermelho quando a conta de smoke foi apagada e a tela passou a
+  // renderizar apenas "Colaborador não encontrado" — sem nenhuma barra. Ou
+  // seja: os 10 dias de vermelho foram o que revelou o teste que mentia há
+  // muito mais tempo. Agora a âncora é `data-beto-msg`, que o componente
+  // declara para este fim.
   test('BETO chat abre e responde', async ({ page }) => {
     await page.getByText('BETO').click();
     const campo = page.getByPlaceholder('Pergunte ao Beto');

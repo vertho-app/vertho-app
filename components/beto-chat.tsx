@@ -251,10 +251,12 @@ export default function BetoChat() {
                 <BetoAvatar size={24} state="idle" />
               </div>
             )}
-            {/* `data-beto-msg` é a âncora do E2E, e existe porque a anterior não
-                podia funcionar: o teste esperava `.bg-white/[0.06]`, e a cor do
-                balão é style INLINE — a classe nunca esteve no DOM. Só o
-                balão de MENSAGEM leva o atributo; o indicador de digitação
+            {/* `data-beto-msg` é a âncora do E2E, e existe porque a anterior
+                media outra coisa: o teste esperava `.bg-white/[0.06]`, e a cor
+                deste balão é style INLINE — a classe não está aqui, está em
+                outras 8 partes da tela do RH. O seletor casava a barrinha do
+                funil e dava o chat por respondido (medido 09/09/2026).
+                Só o balão de MENSAGEM leva o atributo; o indicador de digitação
                 abaixo não leva, senão "o Beto respondeu" ficaria verdadeiro
                 enquanto ele ainda está pensando. */}
             <div
