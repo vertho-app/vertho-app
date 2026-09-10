@@ -526,6 +526,17 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
     return <p className="mt-5 text-xs text-white/40">Sem histórico suficiente para a trajetória — os fechamentos aparecem aqui a partir da segunda semana.</p>;
   }
 
+  // Valores iguais (inclusive todos em zero) precisam de rótulos separados.
+  const labels = SERIES.map((series) => ({
+    key: series.key,
+    y: y(points.at(-1)?.[series.key] ?? 0) + 4,
+  })).sort((a, b) => a.y - b.y);
+  for (let i = 1; i < labels.length; i++) {
+    labels[i].y = Math.max(labels[i].y, labels[i - 1].y + 14);
+  }
+  const overflow = Math.max(0, labels.at(-1)!.y - (bottom + 4));
+  const labelY = new Map(labels.map((label) => [label.key, label.y - overflow]));
+
   return (
     <>
       <div className="mt-5 hidden sm:block">
@@ -542,7 +553,7 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
               {points.map((point, index) => (
                 <circle key={point.label} cx={x(index)} cy={y(point[series.key])} r="4" fill="#07192f" stroke={series.color} strokeWidth="2" />
               ))}
-              <text x={right + 12} y={y(points.at(-1)?.[series.key] ?? 0) + 4} fill={series.color} fontSize="10" fontWeight="600">
+              <text x={right + 12} y={labelY.get(series.key)} fill={series.color} fontSize="10" fontWeight="600">
                 {series.label} {points.at(-1)?.[series.key]}%
               </text>
             </g>
@@ -865,18 +876,25 @@ export default function RelatorioEngajamento() {
       </div>
 
       <style jsx global>{`
+        @page { margin: 8mm 0; }
         @media print {
-          body { background: #07192f !important; }
+          html, body { background: #07192f !important; }
+          /* Fora do PDF: chrome do admin + ferramentas da tela. As classes
+             admin-* só têm efeito com este relatório montado, então as outras
+             telas do admin imprimem como antes. */
+          .admin-print-hide,
           .engagement-report-toolbar { display: none !important; }
-          /* Imprime SÓ o papel do relatório: esconde o shell do admin
-             (sidebar, topo, filtros) e qualquer outro elemento da página. */
-          body * { visibility: hidden; }
-          .engagement-report-paper,
-          .engagement-report-paper * { visibility: visible; }
+          /* Desfaz o shell com overflow/flex, que recortaria o relatório na
+             altura da viewport em vez de paginar o conteúdo inteiro. */
+          .admin-shell-root { display: block !important; min-height: auto !important; }
+          .admin-shell-column { display: block !important; overflow: visible !important; }
+          .admin-shell-main { overflow: visible !important; }
+          /* Mantém títulos junto dos gráficos e evita cortar as prioridades. */
+          .engagement-report-paper section,
+          .engagement-report-paper header,
+          .engagement-report-paper footer { break-inside: avoid; }
           .engagement-report-paper {
-            position: absolute !important;
-            inset: 0 auto auto 0 !important;
-            width: 100% !important;
+            overflow: visible !important;
             border: 0 !important;
             border-radius: 0 !important;
             box-shadow: none !important;

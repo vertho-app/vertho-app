@@ -118,7 +118,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       }}
     >
       <div
-        className="min-h-dvh flex"
+        className="min-h-dvh flex admin-shell-root"
         style={{
           background:
             'radial-gradient(1100px 500px at 90% -5%, rgba(52,197,204,.07), transparent 55%), ' +
@@ -128,9 +128,9 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         }}
       >
         <AdminSidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden admin-shell-column">
           <AdminHeader />
-          <main className="flex-1 overflow-y-auto">
+          <main className="flex-1 overflow-y-auto admin-shell-main">
             <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
           </main>
         </div>

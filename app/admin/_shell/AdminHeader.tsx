@@ -17,7 +17,7 @@ export default function AdminHeader() {
 
   return (
     <header
-      className="flex items-center justify-between gap-2 md:gap-4 px-4 md:px-8 h-16 shrink-0"
+      className="flex items-center justify-between gap-2 md:gap-4 px-4 md:px-8 h-16 shrink-0 admin-print-hide"
       style={{ background: 'rgba(7,27,56,.45)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,.05)' }}
     >
       <div className="flex items-center gap-2 md:gap-3 min-w-0 overflow-hidden">

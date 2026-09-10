@@ -26,7 +26,7 @@ export default function AdminSidebar() {
 
   return (
     <aside
-      className={`${collapsed ? 'w-16' : 'w-64'} shrink-0 flex flex-col transition-all duration-200 hidden md:flex`}
+      className={`${collapsed ? 'w-16' : 'w-64'} shrink-0 flex flex-col transition-all duration-200 hidden md:flex admin-print-hide`}
       style={{
         background: 'rgba(7,27,56,.65)',
         backdropFilter: 'blur(12px)',
