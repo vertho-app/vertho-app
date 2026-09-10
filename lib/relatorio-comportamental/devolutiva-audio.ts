@@ -20,12 +20,29 @@ export const DEVOLUTIVA_AUDIO_BUCKET = 'relatorios-pdf';
  * do cliente sem filtro de empresa — foi exatamente esse o IDOR corrigido em
  * `gerarEsalvarDevolutivaComportamental` (cross-tenant + abuso de TTS).
  */
+/**
+ * Orçamento do caminho sob demanda, para o portão decidir se ainda dá para refazer.
+ *
+ * `Medido 10/09/2026` (`ia_usage_log`, 15 sínteses no 2.5 Flash): a devolutiva leva
+ * p50 74,4 s, p90 79,6 s, máx 104,1 s — dois takes em série somam 208 s no pior caso
+ * observado. Reprovação da Algieba na 1ª tentativa: 1 em 9.
+ *
+ * ⚠️ 240 s, e não 300, DE PROPÓSITO: a rota que hospeda esta action
+ * (`app/dashboard/perfil-comportamental/relatorio/`) **não declara `maxDuration`** —
+ * ela depende do default da plataforma, que não está escrito em lugar nenhum do repo.
+ * Errar o prazo para MAIS mata a função e devolve erro a quem espera; errar para menos
+ * só abre mão do retake. Enquanto o teto não for declarado na rota, o número
+ * conservador é o certo.
+ */
+const PRAZO_SOB_DEMANDA_MS = 240_000;
+
 export async function gerarDevolutivaEmAudioCore({ colab, raw, texts, sb, sobDemanda = false }: {
   colab: any;
   raw: any;
   texts: any;
-  /** `true` no botão "Ouvir devolutiva" (a pessoa espera; o portão refaz em paralelo);
-   *  `false` na pré-geração do `after()` do DISC (fundo; refaz em série, custa menos). */
+  /** `true` no botão "Ouvir devolutiva" (a pessoa espera, e o portão só refaz enquanto
+   *  couber no prazo); `false` na pré-geração do `after()` do DISC (fundo, refaz até o
+   *  teto sem relógio). Ver `PRAZO_SOB_DEMANDA_MS` para o orçamento e a medição. */
   sobDemanda?: boolean;
   /** Client admin do CHAMADOR. Injetado, e não criado aqui: os dois chamadores
    *  já têm o seu, e um `createSupabaseAdmin()` a mais neste arquivo faria a
@@ -92,7 +109,11 @@ export async function gerarDevolutivaEmAudioCore({ colab, raw, texts, sb, sobDem
     style: direcaoDoPersonagem('beto'),
     ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id },
     segmentar: false,
-    retakeParalelo: sobDemanda,
+    // Série nos dois casos; sob demanda o relógio limita o retake (ver
+    // `PRAZO_SOB_DEMANDA_MS`), no fundo não há relógio. Até 10/09/2026 o botão
+    // disparava os takes todos em paralelo e pagava K× mesmo quando o primeiro
+    // passava — a mesma correção feita no podcast.
+    ...(sobDemanda ? { prazoAteMs: Date.now() + PRAZO_SOB_DEMANDA_MS } : {}),
   });
   if (audio.qa && !audio.qa.ok) console.warn(`[devolutiva-audio] publicada com ressalva do portão de deriva: ${audio.qa.motivos.join('; ')}`);
 

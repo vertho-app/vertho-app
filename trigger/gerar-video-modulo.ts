@@ -12,10 +12,11 @@ import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
 import { storagePut, storageGet, SUPA, KEY } from '../lib/video/render-helpers';
 import { createHash } from 'node:crypto';
 import { transcribeWords } from '../lib/video/whisper-align';
-import { montarTextoUnico, planejarNarracaoUnica, fatiarPcm16, garantirCabecaSilenciosa } from '../lib/video/narracao-unica';
+import { montarTextoUnico, planejarNarracaoUnica, classeDaRecusa, fatiarPcm16, garantirCabecaSilenciosa } from '../lib/video/narracao-unica';
 import { pcmToMp3SemMaster } from '../lib/tts/audio-dsp';
 import { ELENCO } from '../lib/tts/elenco';
 import { regionOpts } from '../lib/trigger-region';
+import { registrarDegradacao, DEGRADACAO } from '../lib/degradacao';
 import { ensureRenderWorker } from '../lib/video/ensure-render-worker';
 
 const exec = promisify(execFile);
@@ -327,7 +328,11 @@ export const gerarVideoModuloTask = task({
               voice: VOICE,
               style: NARRATION_STYLE_UNICO,
               segmentar: false,
-              ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo },
+              // `correlationId` = vídeo. Sem ele, `tts_qa_log` e `ia_usage_log` sabem
+              // que uma cena saiu fora do registro e NÃO sabem de qual vídeo: em
+              // 10/09/2026 as 8 cenas publicadas por fail-open em 07/09 só puderam ser
+              // atribuídas pelos nomes dos arquivos no Storage, não pelo log.
+              ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo, correlationId: videoId },
             });
             takeMp3 = audio.buffer;
             await storagePut('video-assets', `${videoId}/take-${assinatura}-${GERACAO_TAG()}.mp3`, takeMp3, 'audio/mpeg');
@@ -374,7 +379,20 @@ export const gerarVideoModuloTask = task({
           // preço é a costura entre cenas — por isso o aviso, não o silêncio. Nada do
           // take entra em `assets` a menos que TODAS as fatias tenham subido (acima):
           // misturar metade de um take com sínteses por cena seria pior do que tudo por cena.
-          console.warn('[narracao-unica] caiu para narração POR CENA:', (e as Error)?.message);
+          const motivo = (e as Error)?.message || String(e);
+          console.warn('[narracao-unica] caiu para narração POR CENA:', motivo);
+          // Aviso ≠ silêncio: até 10/09/2026 este `console.warn` era o ÚNICO rastro, e
+          // por isso 8 de 13 vídeos de 07/09 saíram costurados sem ninguém saber. A
+          // CLASSE do motivo vai na chave (dedup por dia agrega o volume); o vídeo e o
+          // texto completo vão no detalhe, porque é por eles que se reproduz o caso.
+          void registrarDegradacao({
+            fluxo: 'build',
+            tipo: DEGRADACAO.NARRACAO_UNICA_RECUSADA,
+            chave: `narracao-unica:${classeDaRecusa(motivo)}`,
+            empresaId: empresaIdDoVideo,
+            severidade: 'aviso',
+            detalhe: { videoId, motivo: motivo.slice(0, 400), cenas: cenasComTexto.length },
+          });
         }
       }
 
@@ -389,7 +407,9 @@ export const gerarVideoModuloTask = task({
           voice: VOICE,
           style: styleForScene(s.type),
           segmentar: false,
-          ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo },
+          // Vídeo E cena: é o caminho costurado, onde o registro varia de uma cena para
+          // a outra — sem a etiqueta, o veredito não diz em qual vídeo isso aconteceu.
+          ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo, correlationId: `${videoId}:${s.id}` },
         });
         // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.
         // E garante a CABEÇA: a composição pula 33 ms do áudio (trimBefore), então a fala
