@@ -166,8 +166,17 @@ export async function GET(req) {
             // (com validade de 10 dias, praticamente nunca). O ambiente volta ao
             // estado-base toda noite; o convidado fica.
             const r = await resetDemoTenant(slug);
-            await auditar(slug, r.ok ? { counts: r.counts } : { error: r.error });
+            // 🔴 A falha sai pelo `throw`, e o `catch` abaixo é quem a audita —
+            // com `resultado: 'erro'`. Antes, a auditoria acontecia AQUI, nos
+            // dois casos, e sem o terceiro argumento: `logAdminAction` faz
+            // `resultado ?? 'ok'`, então a falha era gravada como SUCESSO com o
+            // erro escondido dentro de `detalhes`, e o `catch` gravava uma
+            // segunda linha logo depois. `Medido 09/09/2026`: a única falha de
+            // reset em 80 registros aparece DUAS vezes na auditoria, uma delas
+            // como `ok` — quem filtrar por `resultado = 'ok'` conta o dia em
+            // que o ambiente ficou sem relatórios como um dia bem-sucedido.
             if (!r.ok) throw new Error(r.error || 'reset do demo falhou');
+            await auditar(slug, { counts: r.counts }, 'ok');
             ambientes.push({ slug, counts: r.counts, expiredRemoved: lifecycle.expiredRemoved });
           } catch (erro) {
             const mensagem = erro?.message || String(erro);
