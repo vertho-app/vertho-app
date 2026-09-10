@@ -16,7 +16,22 @@ const audio = path.join(PUBLIC, source.audio);
 if (!source.qa?.ok || source.key !== chaveNarracao(flow.id, 'continuous', flow.steps.map(s => s.narration).join('\n\n'))
   || sha256(readFileSync(audio)) !== source.sha256) throw new Error('Take alterado/desatualizado ou sem aprovação');
 const transcript = JSON.parse(readFileSync(audio.replace(/\.mp3$/, '.words.json'), 'utf8'));
-if (transcript.sourceSha256 !== source.sha256 || Math.abs(transcript.duration - source.seconds) > 0.15) throw new Error('Transcrição não pertence ao take aprovado');
+/**
+ * Tolerância de duração PROPORCIONAL, não fixa.
+ *
+ * Quem garante a IDENTIDADE do take é o `sourceSha256` — exato, byte a byte. A duração
+ * serve para pegar transcrição TRUNCADA, e para isso um limiar fixo de 0,15 s estava
+ * errado: `Medido 10/09/2026` nos quatro tutoriais, o `ffprobe` (que o narrate usa) e o
+ * decodificador do Whisper divergem por ~0,15 % da duração — pdi 63 s → 0,104 s;
+ * macae 74 s → 0,104; jornada 98 s → 0,157; disc 124 s → 0,183. É padding do encoder,
+ * cresce com o tempo, e com 0,15 s fixo TODO take longo reprovava com a transcrição
+ * correta na mão. Uma truncagem de verdade erra por segundos, não por milésimos.
+ */
+const tolDuracaoS = Math.max(0.25, source.seconds * 0.005);
+if (transcript.sourceSha256 !== source.sha256) throw new Error('Transcrição não pertence ao take aprovado (sha256 difere)');
+if (Math.abs(transcript.duration - source.seconds) > tolDuracaoS) {
+  throw new Error(`Transcrição truncada: ${transcript.duration.toFixed(2)}s contra ${source.seconds.toFixed(2)}s do take (tolerância ${tolDuracaoS.toFixed(2)}s)`);
+}
 // Corte editorial explícito e auditável, por exemplo uma frase duplicada após
 // o fim do roteiro. Nunca reutilizar a decisão em outro take por nome de flow.
 const reviewPath = path.join(OUT, `${flow.id}.review.json`);

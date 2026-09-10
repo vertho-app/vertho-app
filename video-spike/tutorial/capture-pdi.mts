@@ -50,7 +50,12 @@ async function shot(page: Page, id: string, bbox: Box | null) {
 }
 async function bboxAt(page: Page, re: RegExp) { return await page.getByText(re).first().boundingBox().catch(() => null); }
 async function frameTarget(page: Page, loc: ReturnType<Page['getByText']>) {
-  if (!(await loc.count().catch(() => 0))) return null;
+  // ALVO AUSENTE LANCA. Ate 10/09/2026 devolvia null, o `shot` imprimia "bbox=-" e a
+  // captura seguia: sete semanas de mudanca de tela produziam PNGs sem destaque e um
+  // log cheio de check verde. Quem descobria era o video, depois de renderizado.
+  if (!(await loc.count().catch(() => 0))) {
+    throw new Error(`alvo nao encontrado na tela (locator do passo) - a tela mudou desde a ultima captura`);
+  }
   const b0 = await loc.boundingBox().catch(() => null);
   if (b0) { const sy = await page.evaluate(() => window.scrollY); await page.evaluate((y) => window.scrollTo(0, y), Math.max(0, Math.round(b0.y + sy - 200))); await page.waitForTimeout(400); }
   return await loc.boundingBox().catch(() => null);
@@ -83,8 +88,15 @@ async function main() {
   const bComp = await frameTarget(page, page.getByText(/RESUMO DE DESEMPENHO/i).first());
   await shot(page, 'competencias', bComp);
 
-  // 1º bloco de competência (idx 0) já vem ABERTO (useState(idx===0)) → só rolar até o plano
-  const plano = page.getByText(/Senso de urgência genuíno|Plano de 30 dias/i).first();
+  // 1º bloco de competência (idx 0) já vem ABERTO (useState(idx===0)) → só rolar até ele.
+  //
+  // ⚠️ A âncora é ESTRUTURAL, não o texto do plano. Até 10/09/2026 ela era
+  // `/Senso de urgência genuíno|Plano de 30 dias/` — conteúdo do PDI que a `bruna.demo`
+  // tinha em julho. O PDI dela hoje é outro (Negociação e Fechamento, Resiliência e
+  // Constância…), então a captura morria procurando um texto que só existia naquela
+  // versão daquele PDI. O destaque do beat é a COMPETÊNCIA, e todo card de competência
+  // traz o selo de prioridade — isso vale para qualquer pessoa e qualquer conteúdo.
+  const plano = page.getByRole('button').filter({ hasText: /Prioridade/i }).first();
   const bPlano = await frameTarget(page, plano);
   await shot(page, 'plano', bPlano);
 

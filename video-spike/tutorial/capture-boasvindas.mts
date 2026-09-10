@@ -28,10 +28,28 @@ const BASE = process.env.TUTORIAL_BASE || 'http://unianchieta.localhost:3000';
 const IMGDIR = path.join(PUBLIC_DIR, 'tutorial', 'boasvindas');
 
 const EMPRESA_ID = '4093fc44-906d-4a1a-926f-16e9c220f59d'; // unianchieta
+/**
+ * Persona fictícia do vídeo de boas-vindas — criada e apagada pela própria captura.
+ *
+ * ⚠️ O CARGO decide se existe cenário, e sem cenário a captura morre.
+ *
+ * `Medido 10/09/2026`: o cargo era `Diretor(a) Universitário(a)` (contexto UniAnchieta,
+ * de onde o vídeo veio) e esse cargo **não existe** no `acme-demo`, que é o estúdio. A
+ * empresa tem 4 cargos, todos comerciais, e `banco_cenarios` só cobre esses. Sem cenário,
+ * a tela de contexto do assessment abre vazia, o botão "Iniciar avaliação" nunca aparece
+ * e o clique morre em timeout — com a tela na cara, sem erro que diga isso.
+ *
+ * "Gerar cenário para o cargo" não seria gerar um cenário: seria onboardar um cargo
+ * inteiro na demo (30 competências, top5, IA1→IA2→IA3). A persona nasce num cargo que o
+ * estúdio JÁ cobre; o vídeo é genérico e o cargo aparece só como legenda do perfil.
+ *
+ * Ao trocar de estúdio, conferir antes:
+ *   select cargo, count(*) from banco_cenarios where empresa_id = <estudio> group by cargo;
+ */
 const PERSONA = {
   email: 'marina.demo@vertho.ai',
   nome_completo: 'Marina Prado',
-  cargo: 'Diretor(a) Universitário(a)', // precisa bater com cargos_empresa (top5 → cenário)
+  cargo: 'Coordenador de Operações', // tem 30 competências e 5 cenários no acme-demo
   role: 'colaborador',
 };
 
@@ -121,7 +139,12 @@ async function clickUntil(page: Page, clicar: () => Promise<void>, alvo: () => P
 /** Rola o alvo p/ ~220px do topo e devolve a bbox (coords do vídeo 1920×1080). */
 async function frameTarget(page: Page, re: RegExp): Promise<Box | null> {
   const loc = page.getByText(re).first();
-  if (!(await loc.count().catch(() => 0))) return null;
+  // ALVO AUSENTE LANCA. Ate 10/09/2026 devolvia null, o `shot` imprimia "bbox=-" e a
+  // captura seguia: sete semanas de mudanca de tela produziam PNGs sem destaque e um
+  // log cheio de check verde. Quem descobria era o video, depois de renderizado.
+  if (!(await loc.count().catch(() => 0))) {
+    throw new Error(`alvo nao encontrado na tela: ${re} - a tela mudou desde a ultima captura`);
+  }
   const b0 = await loc.boundingBox().catch(() => null);
   if (b0) {
     const sy = await page.evaluate(() => window.scrollY);
@@ -247,15 +270,33 @@ async function main() {
 
     // ── Cenários (para na representatividade; NÃO envia) ────────────────────
     await page.goto(`${BASE}/dashboard/assessment`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await page.getByText(/Como funciona\?/i).first().waitFor({ timeout: 30000 });
+    // ⚠️ ESTE PASSO FALHA (10/09/2026) e a causa ainda não é conhecida. O que já foi
+    // DESCARTADO por medição, para ninguém repetir:
+    //   · cargo sem cenário — corrigido (a persona nasce em `Coordenador de Operações`,
+    //     que tem 30 competências e 5 cenários); a tela abre normalmente nesse cargo;
+    //   · instabilidade — reproduzível em 3 execuções seguidas;
+    //   · o caminho — sondando a MESMA rota com a MESMA persona, chegando pelo
+    //     mapeamento, a tela abre com "Como funciona?" e "Começar avaliação";
+    //   · lentidão — 90 s não mudou nada (era 30 s).
+    // O que resta suspeitar: o estado deixado pela INTERAÇÃO com o mapeamento (a sonda só
+    // navega, a captura clica e avança) ou a sessão mintada, que é one-time e aqui atravessa
+    // todo o percurso sem ser renovada (`mint` é chamado uma vez, na linha ~214).
+    // Próximo passo: logar `page.url()` e um trecho do body no catch, para saber se a tela
+    // é outra ou se houve redirect para /login.
+    await page.getByText(/Como funciona\?/i).first().waitFor({ timeout: 90000 });
     await settle();
     await page.evaluate(() => window.scrollTo(0, 0));
     await shot(page, 'aval-inicio');
 
-    // ⚠️ o nome tem que ser o do BOTÃO DO CARD ("▶ Iniciar avaliação"): a shell
-    // do dashboard tem um passo de jornada chamado "Iniciar avaliação" (oculto)
-    // e um regex frouxo casava com ele — a espera passava sem a tela ter mudado.
-    const btnIniciar = page.getByRole('button', { name: /▶\s*iniciar avalia[çc][ãa]o/i });
+    // ⚠️ Precisa ser o BOTÃO DO CARD: a shell do dashboard tem um passo de jornada
+    // chamado "Iniciar avaliação" (oculto) e um regex frouxo casava com ele — a espera
+    // passava sem a tela ter mudado.
+    //
+    // O `▶` NÃO serve para essa distinção: ele está no texto visível mas não no
+    // ACCESSIBLE NAME (é decorativo), então `getByRole({ name: /▶.../ })` não casa nada
+    // e o clique morria em timeout — medido 10/09/2026, com o botão na tela. Quem separa
+    // o card da shell é a VISIBILIDADE, que é o que o comentário original queria dizer.
+    const btnIniciar = page.getByRole('button', { name: /iniciar avalia[çc][ãa]o/i }).filter({ visible: true });
     await clickUntil(
       page,
       () => page.getByRole('button', { name: /come[çc]ar avalia[çc][ãa]o/i }).click(),

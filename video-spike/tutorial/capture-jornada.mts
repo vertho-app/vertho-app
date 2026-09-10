@@ -215,7 +215,12 @@ async function bboxDoBloco(page: Page, re: RegExp) {
  * único jeito de o alvo caber entre o cabeçalho da etapa e a legenda.
  */
 async function centralizar(page: Page, loc: ReturnType<Page['locator']>) {
-  if (!(await loc.count().catch(() => 0))) return null;
+  // ALVO AUSENTE LANCA. Ate 10/09/2026 devolvia null, o `shot` imprimia "bbox=-" e a
+  // captura seguia: sete semanas de mudanca de tela produziam PNGs sem destaque e um
+  // log cheio de check verde. Quem descobria era o video, depois de renderizado.
+  if (!(await loc.count().catch(() => 0))) {
+    throw new Error(`alvo nao encontrado na tela: ${re} - a tela mudou desde a ultima captura`);
+  }
   await loc.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior })).catch(() => {});
   await page.waitForTimeout(500);
   return await loc.boundingBox().catch(() => null);
@@ -265,7 +270,12 @@ async function bboxCardEvidencias(page: Page) {
 
 async function frameTarget(page: Page, re: RegExp) {
   const loc = page.getByText(re).first();
-  if (!(await loc.count().catch(() => 0))) return null;
+  // ALVO AUSENTE LANCA. Ate 10/09/2026 devolvia null, o `shot` imprimia "bbox=-" e a
+  // captura seguia: sete semanas de mudanca de tela produziam PNGs sem destaque e um
+  // log cheio de check verde. Quem descobria era o video, depois de renderizado.
+  if (!(await loc.count().catch(() => 0))) {
+    throw new Error(`alvo nao encontrado na tela: ${re} - a tela mudou desde a ultima captura`);
+  }
   const b0 = await loc.boundingBox().catch(() => null);
   if (b0) { const sy = await page.evaluate(() => window.scrollY); await page.evaluate((y) => window.scrollTo(0, y), Math.max(0, Math.round(b0.y + sy - 220))); await page.waitForTimeout(400); }
   return await loc.boundingBox().catch(() => null);

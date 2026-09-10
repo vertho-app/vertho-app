@@ -55,9 +55,9 @@ export const DISC: Flow = {
       title: 'Boas-vindas',
       cuts: BOTH,
       kind: 'cartela',
-      cartela: { eyebrow: 'Bem-vindo ao Vertho', title: 'Mapeamento Comportamental' },
+      cartela: { eyebrow: 'Bem-vindo à Vertho', title: 'Mapeamento Comportamental' },
       narration:
-        'Que bom ter você por aqui! Este é o seu Mapeamento Comportamental — o primeiro passo da sua jornada no Vertho. Vem comigo que eu te mostro como funciona.',
+        'Que bom ter você por aqui! Este é o seu Mapeamento Comportamental — o primeiro passo da sua jornada na Vertho. Vem comigo que eu te mostro como funciona.',
     },
     {
       id: 'oque-e',
@@ -65,7 +65,7 @@ export const DISC: Flow = {
       cuts: ['ajuda'],
       captureId: 'onboarding-top',
       narration:
-        'O mapeamento comportamental é o ponto de partida da sua jornada no Vertho. Em poucos minutos, ele desenha o seu perfil — o seu jeito natural de agir.',
+        'O mapeamento comportamental é o ponto de partida da sua jornada na Vertho. Em poucos minutos, ele desenha o seu perfil — o seu jeito natural de agir.',
     },
     {
       id: 'o-que-fara',
@@ -168,7 +168,7 @@ export const JORNADA: Flow = {
   steps: [
     {
       id: 'abertura', title: 'Boas-vindas', cuts: FULL, kind: 'cartela',
-      cartela: { eyebrow: 'Bem-vindo ao Vertho', title: 'Sua jornada semanal' },
+      cartela: { eyebrow: 'Bem-vindo à Vertho', title: 'Sua jornada semanal' },
       narration: 'Boas-vindas à sua jornada semanal! É aqui que o seu desenvolvimento acontece, semana a semana. Deixa eu te mostrar como aproveitar.',
     },
     {
@@ -271,7 +271,7 @@ export const PDI: Flow = {
   steps: [
     {
       id: 'abertura', title: 'Boas-vindas', cuts: FULL, kind: 'cartela',
-      cartela: { eyebrow: 'Bem-vindo ao Vertho', title: 'Seu Plano de Desenvolvimento' },
+      cartela: { eyebrow: 'Bem-vindo à Vertho', title: 'Seu Plano de Desenvolvimento' },
       narration: 'Este é o seu P D I — o seu Plano de Desenvolvimento Individual. É o seu mapa personalizado de evolução. Vem que eu te explico.',
     },
     {

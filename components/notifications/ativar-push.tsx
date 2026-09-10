@@ -321,7 +321,7 @@ export function AtivarPush() {
       <div className={moldura}>
         <p className="text-sm font-medium text-slate-900">Notificações bloqueadas</p>
         <p className="mt-1 text-sm text-slate-600">
-          Libere as notificações do Vertho nos ajustes do seu navegador e volte aqui.
+          Libere as notificações da Vertho nos ajustes do seu navegador e volte aqui.
         </p>
       </div>
     );
