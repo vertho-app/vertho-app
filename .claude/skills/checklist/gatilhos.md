@@ -972,3 +972,35 @@ o arquivo já em stage. Memória `feedback_mutacao_por_sed_reversao`.
 `.momento em[data-c=adequado]` derrubou `/admin/treino-atendimento` no dev com o build passando; a
 mensagem cita um `*` que não existe no arquivo, e o grep não acha o culpado. Memória
 `reference_turbopack_css_module_atributo`.
+
+---
+
+## § Vou criar ou mexer num componente de PDF (`components/pdf/*.tsx`, `lib/*-pdf.tsx`)
+
+1. **Renderize TODAS as páginas em PNG e OLHE, antes de considerar pronto.**
+   `node scripts/pdf-paginas-png.mjs <arquivo.pdf> <pasta> 1.6` — o
+   `_pdf-to-png.mjs` só faz a PRIMEIRA página, e o defeito raramente está nela.
+2. **Gere com dado real de dois tenants: um CHEIO e um VAZIO.** O caminho vazio
+   tem layout próprio, é o que o cliente novo vê primeiro, e nenhum teste o
+   exercita.
+3. **`wrap={false}` só em bloco de tamanho FIXO** (uma linha de tabela, um
+   cartão). Em bloco que cresce com o tenant, ele troca "quebra feia" por
+   "página 80% branca": o react-pdf joga o bloco inteiro para a folha seguinte
+   quando não cabe no resto.
+4. **Confira que dois números com rótulos parecidos não se contradizem entre
+   páginas** (agregado × itens distintos). Os dois podem estar certos e a
+   composição, errada.
+5. **`await import('@react-pdf/renderer')` DENTRO de função, nunca** — sob `tsx`
+   isso resolve outra instância e a fonte registrada por `components/pdf/styles`
+   fica na instância errada ("Font family not registered: NotoSans" com a fonte
+   registrada). Import estático no topo.
+6. Sem glifo fora do subset da Inter (→ ✓ ✗ ● ★ ≥ ≤): `npx vitest run
+   tests/unit/pdf-glifos-guard.test.ts`. Glifo ausente não lança — sai um buraco
+   em branco no lugar do sentido da frase.
+
+**Consequência medida (09/09/2026):** o `RelatorioEvolucao.tsx` tinha 7 testes
+verdes validados por mutação, typecheck limpo, guard de glifos verde e build
+passando — e as imagens mostraram três defeitos: a barra atropelando o nome da
+competência, duas seções de 4 linhas ocupando uma folha cada (`wrap={false}`), e
+"90 comportamentos" na p. 2 contra 24 na tabela da p. 3 (eram avaliações, não
+comportamentos). Memória `feedback_so_a_imagem_prova_o_visual` §oitavo caso.
