@@ -36,6 +36,15 @@ jobs:
       - name: Instalar chromium
         run: npx playwright install --with-deps chromium
 
+      # Esta suíte testa PRODUÇÃO, então sem esperar o deploy ela mede o
+      # deployment ANTERIOR — o mesmo defeito que o `sleep 90` do smoke-test
+      # tinha até 10/08. O sintoma é o pior tipo de vermelho: mudança de tela e
+      # teste no mesmo push falham porque o teste novo roda contra o código
+      # velho, e o run seguinte fica verde sozinho. Reusa a espera do
+      # smoke-test (uma implementação só).
+      - name: Esperar este commit entrar no ar
+        run: node scripts/smoke-test.js https://app.vertho.ai --aguardar-sha ${{ github.sha }} --somente-aguardar
+
       - name: Rodar o piloto
         env:
           CI: '1'

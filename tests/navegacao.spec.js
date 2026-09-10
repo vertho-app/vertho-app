@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { login } = require('./helpers/auth');
 
 test.describe('Navegação pública', () => {
   test('home redireciona para login', async ({ page }) => {
@@ -13,17 +14,13 @@ test.describe('Navegação pública', () => {
 });
 
 test.describe('Navegação autenticada', () => {
+  // O login vai pelo helper compartilhado (era copiado aqui): é ele que checa
+  // se a conta tem vínculo em `colaboradores` antes de qualquer asserção de
+  // tela. Login duplicado significava que este arquivo não passava por essa
+  // checagem — e foi exatamente aqui que 4 das 5 falhas apareceram.
   test.beforeEach(async ({ page }) => {
-    const email = process.env.SMOKE_EMAIL;
-    const pass = process.env.SMOKE_PASS;
-    if (!email || !pass) { test.skip(); return; }
-
-    await page.goto('/login');
-    await page.getByText('Entrar com senha').click();
-    await page.locator('input[type="email"]').fill(email);
-    await page.locator('input[type="password"]').fill(pass);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForURL('**/dashboard', { timeout: 10000 });
+    const ok = await login(page);
+    test.skip(!ok, 'SMOKE_EMAIL/SMOKE_PASS não definidos');
   });
 
   test('dashboard carrega', async ({ page }) => {
@@ -57,12 +54,34 @@ test.describe('Navegação autenticada', () => {
     await expect(page.locator('text=/Dominância|Iniciar Mapeamento|Mapeamento Comportamental/i').first()).toBeVisible();
   });
 
+  // O chat abre com UMA mensagem do assistente (a saudação). Responder é a
+  // segunda — por isso a asserção conta balões, e não "existe balão".
+  //
+  // 09/09/2026: a âncora anterior era `.bg-white/[0.06]`, uma classe Tailwind
+  // que nunca esteve no DOM (a cor do balão é style inline). O teste não podia
+  // passar, e ficou 10 dias somando-se às 4 falhas da conta de smoke órfã —
+  // cinco vermelhos, uma causa aparente. Agora a âncora é `data-beto-msg`, que
+  // o componente declara para este fim.
   test('BETO chat abre e responde', async ({ page }) => {
     await page.getByText('BETO').click();
-    await expect(page.getByPlaceholder('Pergunte ao BETO')).toBeVisible();
-    await page.getByPlaceholder('Pergunte ao BETO').fill('Olá');
+    const campo = page.getByPlaceholder('Pergunte ao Beto');
+    await expect(campo).toBeVisible();
+
+    const respostas = page.locator('[data-beto-msg="assistant"]');
+    await expect(respostas).toHaveCount(1); // a saudação, antes de perguntar
+
+    await campo.fill('Olá');
     await page.locator('button[type="submit"]').last().click();
-    // Esperar resposta (pode demorar com API real)
-    await expect(page.locator('.bg-white\\/\\[0\\.06\\]').last()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('[data-beto-msg="user"]')).toHaveCount(1);
+
+    // Chamada de IA real: 15s era curto — medido 09/09, o indicador de digitação
+    // ainda estava na tela quando o relógio virou.
+    await expect(respostas).toHaveCount(2, { timeout: 45000 });
+
+    // 🔴 O componente insere a mensagem de ERRO como fala do assistente (o
+    // `catch` do handleSend). Sem esta linha, "o Beto respondeu" continuaria
+    // verde com a IA fora do ar — que é o único caso em que este teste,
+    // que existe para exercitar a IA de verdade, precisa falhar.
+    await expect(respostas.last()).not.toHaveText(/tive um problema/i);
   });
 });

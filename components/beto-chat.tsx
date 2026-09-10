@@ -251,7 +251,14 @@ export default function BetoChat() {
                 <BetoAvatar size={24} state="idle" />
               </div>
             )}
+            {/* `data-beto-msg` é a âncora do E2E, e existe porque a anterior não
+                podia funcionar: o teste esperava `.bg-white/[0.06]`, e a cor do
+                balão é style INLINE — a classe nunca esteve no DOM. Só o
+                balão de MENSAGEM leva o atributo; o indicador de digitação
+                abaixo não leva, senão "o Beto respondeu" ficaria verdadeiro
+                enquanto ele ainda está pensando. */}
             <div
+              data-beto-msg={m.role}
               className="max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed"
               style={m.role === 'user'
                 ? { background: 'rgba(109,40,217,0.25)', color: BETO.text, borderBottomRightRadius: 6 }

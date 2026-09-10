@@ -113,8 +113,12 @@ export default function DashboardHomePage() {
     </div>
   );
 
+  // `data-dashboard="sem-colaborador"`: conta que autentica mas não tem linha em
+  // `colaboradores`. O E2E lê este marcador para acusar a causa em vez de
+  // colecionar sintomas — de 01/09 a 09/09 o piloto reportou cinco falhas de
+  // locator que eram uma só, a conta de smoke apagada pelo reset noturno.
   if (!data?.colaborador) return (
-    <div className="p-6 text-center text-gray-400">{t('missingCollaborator')}</div>
+    <div data-dashboard="sem-colaborador" className="p-6 text-center text-gray-400">{t('missingCollaborator')}</div>
   );
 
   const { colaborador } = data;

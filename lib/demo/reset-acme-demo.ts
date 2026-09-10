@@ -37,6 +37,7 @@ import {
   criarRelatorioGestorAcmeDemo,
   criarRelatorioRhAcmeDemo,
 } from '@/lib/demo/acme-rh-report-fixture';
+import { VERIFICACAO_TENANT_SLUG, reporContaDeVerificacao } from '@/lib/demo/conta-verificacao';
 import {
   ACME_DEMO_DESCRITORES,
   descritoresDaVitrineAcme,
@@ -2500,6 +2501,18 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       for (const failure of fit.failures) console.warn(`[reset-demo] fit: ${failure}`);
     } catch (e: any) {
       console.warn('[reset-demo] precomputeDemoFitResults:', e?.message);
+    }
+
+    // ÚLTIMO passo, e depois das asserções de elenco de propósito: a conta que o
+    // E2E usa para entrar é POPULAÇÃO do tenant, não parte do elenco declarado.
+    // Sem isto ela era apagada toda madrugada e o piloto ficou 185 de 188 runs
+    // vermelho — ver `lib/demo/conta-verificacao.ts` para a medição.
+    //
+    // Best-effort por decisão: perder o E2E de um dia é barato; abortar o reset
+    // e deixar o ambiente de demonstração pela metade não é.
+    if (profile.slug === VERIFICACAO_TENANT_SLUG) {
+      const reposta = await reporContaDeVerificacao(sb, demo.id);
+      if (!reposta.ok) console.warn('[reset-demo] conta de verificação do E2E:', reposta.motivo);
     }
 
     const counts: Record<string, number | null> = {};

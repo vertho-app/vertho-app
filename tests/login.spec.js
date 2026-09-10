@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { falharSeContaOrfa } = require('./helpers/auth');
 
 test.describe('Login', () => {
   test('página carrega com formulário', async ({ page }) => {
@@ -31,6 +32,11 @@ test.describe('Login', () => {
     // frequência (30/08: "Vamos continuar sua evolução" já não existia);
     // a âncora é o ESTRUTURAL: saudação personalizada + navegação viva.
     await page.waitForURL('**/dashboard', { timeout: 10000 });
+
+    // A saudação abaixo só existe com colaborador; sem esta checagem, "conta
+    // sem vínculo" chegava ao relatório como "a saudação sumiu da tela".
+    await falharSeContaOrfa(page);
+
     await expect(page.getByText(/^Olá,/)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible();
   });

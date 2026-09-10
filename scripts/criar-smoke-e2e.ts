@@ -1,15 +1,20 @@
 /**
- * Cria/repõe a conta de smoke do E2E no tenant Grupo Sinal (demo).
+ * Rotaciona a senha da conta de smoke do E2E e repõe a linha dela.
+ *
+ * ⚠️ A RECOMPOSIÇÃO NÃO DEPENDE MAIS DESTE SCRIPT (09/09/2026). A linha em
+ * `colaboradores` é reposta pelo PRÓPRIO reset noturno, no último passo — ver
+ * `lib/demo/conta-verificacao.ts`, que também guarda a medição dos 185 runs
+ * vermelhos que a instrução "rode isto depois do reset" custou.
+ *
+ * O que só este script faz é a metade que o reset não pode fazer: rotacionar a
+ * senha em `auth.users` e gravá-la no secret `SMOKE_PASS` do GitHub. Rode-o
+ * quando a senha precisar mudar (ou quando o secret se perder), não como rotina
+ * de manutenção do tenant.
  *
  * A conta usa o MESMO molde da Helena (role `rh`: acumula dashboard, visão de
  * gestor e pipeline em /admin/empresas — o que `tests/fluxos-criticos.spec.js`
  * percorre) e é CLONE da linha dela no banco, para herdar as colunas de perfil
  * sem depender do formato do snapshot do reset.
- *
- * Por que um script próprio: as senhas das personas de acesso do demo são
- * ROTACIONADAS por reset (feature da entrega ao prospect), então o E2E precisa
- * de uma conta fora dessa rotação. Este script é IDEMPOTENTE e é o que se roda
- * depois de qualquer `reset:demo:gruposinal` (que apaga o colaborador).
  *
  * Uso: npx --yes tsx scripts/criar-smoke-e2e.ts
  * A senha é sempre rotacionada e gravada DIRETO no secret SMOKE_PASS do GitHub
@@ -19,12 +24,11 @@ import './_env';
 import { spawnSync } from 'child_process';
 import { randomBytes } from 'crypto';
 import { createSupabaseAdmin } from '@/lib/supabase';
-
-const EMPRESA_SLUG = 'gruposinal';
-const MOLDE_EMAIL = 'helena.demo@vertho.ai';
-const SMOKE_EMAIL = 'smoke-e2e.demo@vertho.ai';
-const SMOKE_NOME = 'Smoke E2E';
-const SMOKE_CARGO = 'E2E — Verificação Automática';
+import {
+  VERIFICACAO_EMAIL as SMOKE_EMAIL,
+  VERIFICACAO_TENANT_SLUG as EMPRESA_SLUG,
+  reporContaDeVerificacao,
+} from '@/lib/demo/conta-verificacao';
 
 async function main() {
   const sb = createSupabaseAdmin();
@@ -33,21 +37,10 @@ async function main() {
     .from('empresas').select('id, nome').eq('slug', EMPRESA_SLUG).maybeSingle();
   if (empresaErro || !empresa) throw new Error(`tenant ${EMPRESA_SLUG} não achado: ${empresaErro?.message}`);
 
-  const { data: molde, error: moldeErro } = await sb
-    .from('colaboradores').select('*')
-    .eq('empresa_id', empresa.id).eq('email', MOLDE_EMAIL).maybeSingle();
-  if (moldeErro || !molde) throw new Error(`molde ${MOLDE_EMAIL} não achado em ${empresa.nome}: ${moldeErro?.message}`);
-
-  // Clone do molde: identidade trocada, chaves/timestamps de fora.
-  const { id: _id, created_at: _c, updated_at: _u, auth_user_id: _a, ...colunas } = molde as Record<string, unknown>;
-  const linha = { ...colunas, email: SMOKE_EMAIL, nome_completo: SMOKE_NOME, cargo: SMOKE_CARGO };
-
-  const { error: delErro } = await sb.from('colaboradores')
-    .delete().eq('empresa_id', empresa.id).eq('email', SMOKE_EMAIL);
-  if (delErro) throw new Error('falha ao limpar smoke antigo: ' + delErro.message);
-
-  const { error: insErro } = await sb.from('colaboradores').insert(linha);
-  if (insErro) throw new Error('falha ao inserir colaborador smoke: ' + insErro.message);
+  // Mesma função que o reset noturno chama: duas cópias divergiriam, e a que
+  // estivesse errada seria a que ninguém executa à mão.
+  const reposta = await reporContaDeVerificacao(sb, empresa.id);
+  if (!reposta.ok) throw new Error(`falha ao repor a conta: ${reposta.motivo}`);
 
   // Conta de auth: rotaciona a senha sempre, espelha o e-mail.
   const senha = `E2E-${randomBytes(12).toString('base64url')}-aA9!`;

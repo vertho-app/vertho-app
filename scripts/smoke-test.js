@@ -38,6 +38,12 @@ const args = process.argv.slice(2);
 const BASE = args.find((a) => !a.startsWith('--')) || 'http://localhost:3000';
 const shaIdx = args.indexOf('--aguardar-sha');
 const SHA_ESPERADO = shaIdx >= 0 ? args[shaIdx + 1] : null;
+// `--somente-aguardar`: espera o deploy e sai, sem rodar as rotas. Existe para o
+// E2E (`e2e-piloto.yml`), que testa a MESMA produção e sofria do mesmo defeito
+// que o `sleep 90` daqui — rodava contra o deployment anterior. A espera é uma
+// implementação só de propósito: duas divergiriam, e a que estivesse errada
+// seria justamente a que ninguém lê quando está verde.
+const SOMENTE_AGUARDAR = args.includes('--somente-aguardar');
 
 const results = [];
 let passed = 0, failed = 0;
@@ -191,6 +197,14 @@ async function aguardarSha(sha, timeoutMs = 300000) {
 }
 
 async function main() {
+  if (SOMENTE_AGUARDAR) {
+    if (!SHA_ESPERADO) {
+      console.error('--somente-aguardar exige --aguardar-sha <sha>: sem o alvo, a espera não tem o que esperar.');
+      process.exit(1);
+    }
+    process.exit((await aguardarSha(SHA_ESPERADO)) ? 0 : 1);
+  }
+
   console.log(`\n🔍 Vertho Smoke Test`);
   console.log(`   Alvo: ${BASE}`);
   console.log(`   ${PAGES.length} páginas + ${APIS.length} APIs (sem sessão)\n`);
