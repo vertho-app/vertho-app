@@ -6,6 +6,7 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
 const TETO_POSTGREST = 1000;
 
 let dados: Record<string, any[]> = {};
+let escritaCasa = true;
 
 /**
  * 🔴 O MOCK PRECISA TRUNCAR, senão o teste não prova nada.
@@ -16,6 +17,7 @@ let dados: Record<string, any[]> = {};
  * mesmo corte que o PostgREST aplica: sem `.range()`, no máximo 1.000 linhas.
  */
 const sb = criarSupabaseMock({
+  escrita: (tabela, op) => tabela === 'videos_gerados' && op === 'update' && escritaCasa ? [{ id: 'cel-1' }] : [],
   lista: (tabela) => {
     const linhas = dados[tabela] || [];
     const ranges = sb.chamadas.filter((c) => c.tabela === tabela && c.metodo === 'range');
@@ -149,6 +151,7 @@ describe('reconciliarPersonalizados · a leitura não pode virar amostra', () =>
 
   beforeEach(() => {
     sb.reset();
+    escritaCasa = true;
     ensureMock.mockReset();
     ensureMock.mockResolvedValue({ provisioned: true, created: [1], alive: 1, reason: '+1 box' });
     dados = {};
@@ -236,6 +239,7 @@ describe('reconciliarPersonalizados · não enfileirar o que ninguém vai drenar
 
   beforeEach(() => {
     sb.reset();
+    escritaCasa = true;
     ensureMock.mockReset();
     dados = {
       videos_gerados: [CELULA],
@@ -259,7 +263,26 @@ describe('reconciliarPersonalizados · não enfileirar o que ninguém vai drenar
     expect(r.celulasReenfileiradas).toEqual([]);
     // A lacuna continua REPORTADA: desfazer não é fingir que estava tudo certo.
     expect(r.pessoasSemVideoNominal).toBe(1);
+    expect(r.bloqueio).toContain('HCLOUD_TOKEN');
     expect(sb.escritas.some((e) => e.tabela === 'degradacao_log')).toBe(true);
+  });
+
+  it('nominal done de uma composição antiga precisa ser atualizado, sem apagar a mídia anterior', async () => {
+    dados.videos_gerados[0].render_fingerprint = 'revisao-nova';
+    dados.videos_personalizados = [{ cell_video_id: 'cel-1', colaborador_id: 'colab-1', status: 'done', created_at: '2026-08-17T00:00:00Z', deck_fingerprint: 'revisao-antiga' }];
+    ensureMock.mockResolvedValue({ provisioned: false, alive: 1 });
+    const r = await reconciliarPersonalizados({ executar: true });
+    expect(r.lacunas[0].faltantes[0].motivo).toBe('desatualizado');
+    expect(r.celulasReenfileiradas).toEqual(['cel-1']);
+    expect(sb.escritas.filter(e => e.tabela === 'videos_personalizados')).toEqual([]);
+  });
+
+  it('nominal com a revisão atual não gasta outro render', async () => {
+    dados.videos_gerados[0].render_fingerprint = 'revisao-nova';
+    dados.videos_personalizados = [{ cell_video_id: 'cel-1', colaborador_id: 'colab-1', status: 'done', created_at: '2026-08-17T00:00:00Z', deck_fingerprint: 'revisao-nova' }];
+    const r = await reconciliarPersonalizados({ executar: true });
+    expect(r.pessoasSemVideoNominal).toBe(0);
+    expect(updatesDaCelula()).toEqual([]);
   });
 
   it('exceção ao provisionar cai no mesmo rollback', async () => {
@@ -269,6 +292,19 @@ describe('reconciliarPersonalizados · não enfileirar o que ninguém vai drenar
 
     expect(updatesDaCelula().at(-1)!.payload.status).toBe('done');
     expect(r.celulasReenfileiradas).toEqual([]);
+  });
+
+  it('update que não casou nenhuma linha não conta como enfileiramento', async () => {
+    escritaCasa = false;
+    const r = await reconciliarPersonalizados({ executar: true });
+    expect(r.celulasReenfileiradas).toEqual([]);
+    expect(ensureMock).not.toHaveBeenCalled();
+  });
+
+  it('erro de escrita não se disfarça de dia sem lacuna', async () => {
+    sb.falharEm({ tabela: 'videos_gerados', op: 'update', mensagem: 'timeout' });
+    const r = await reconciliarPersonalizados({ executar: true });
+    expect(r.bloqueio).toContain('timeout');
   });
 
   it('box JÁ viva (provisioned:false legítimo) mantém o enfileiramento', async () => {

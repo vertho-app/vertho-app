@@ -125,7 +125,7 @@ async function claim() {
       SELECT id FROM videos_gerados WHERE status='render_queued'
       ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED
     )
-    RETURNING id, render_inputprops, render_scale, roteiro, empresa_id, cargo, disc_dominante`);
+    RETURNING id, render_inputprops, render_fingerprint, render_scale, roteiro, empresa_id, cargo, disc_dominante`);
   return rows[0] || null;
 }
 
@@ -162,12 +162,14 @@ async function personalizeCell(job, deckPath) {
   for (const c of targets) {
     const nome = primeiroNome(c.nome_completo);
     try {
-      const { rows: ex } = await pool.query('SELECT status FROM videos_personalizados WHERE cell_video_id=$1 AND colaborador_id=$2', [job.id, c.id]);
-      if (ex[0]?.status === 'done') continue;
+      const { rows: ex } = await pool.query('SELECT status, deck_fingerprint FROM videos_personalizados WHERE cell_video_id=$1 AND colaborador_id=$2', [job.id, c.id]);
+      if (ex[0]?.status === 'done' && ex[0].deck_fingerprint === job.render_fingerprint) continue;
       await pool.query(
         `INSERT INTO videos_personalizados (cell_video_id, colaborador_id, nome_usado, status)
          VALUES ($1,$2,$3,'processing')
-         ON CONFLICT (cell_video_id, colaborador_id) DO UPDATE SET status='processing', nome_usado=$3, error=null, updated_at=now()`,
+         ON CONFLICT (cell_video_id, colaborador_id) DO UPDATE SET
+           status=CASE WHEN videos_personalizados.status='done' THEN 'done' ELSE 'processing' END,
+           nome_usado=$3, error=null, updated_at=now()`,
         [job.id, c.id, nome]);
       const outPath = `/tmp/perso-${job.id}-${c.id}.mp4`;
       await personalizar(deckPath, c.nome_completo, outPath, {
@@ -182,14 +184,14 @@ async function personalizeCell(job, deckPath) {
       const guid = await uploadToBunny(buf, `${nome} · ${job.id}`);
       const videoUrl = `https://iframe.mediadelivery.net/play/${BUNNY_LIB}/${guid}`;
       await pool.query(
-        `UPDATE videos_personalizados SET status='done', video_url=$3, bunny_video_id=$4, bunny_library=$5, error=null, updated_at=now()
+        `UPDATE videos_personalizados SET status='done', video_url=$3, bunny_video_id=$4, bunny_library=$5, deck_fingerprint=$6, error=null, updated_at=now()
          WHERE cell_video_id=$1 AND colaborador_id=$2`,
-        [job.id, c.id, videoUrl, guid, BUNNY_LIB]);
+        [job.id, c.id, videoUrl, guid, BUNNY_LIB, job.render_fingerprint]);
       await rm(outPath, { force: true }).catch(() => {});
       ok++; log(`  ✓ ${nome} → ${guid}`);
     } catch (e) {
       err++; log(`  ✗ ${nome} (${c.id}): ${e?.message || e}`);
-      await pool.query('UPDATE videos_personalizados SET status=\'error\', error=$3, updated_at=now() WHERE cell_video_id=$1 AND colaborador_id=$2',
+      await pool.query("UPDATE videos_personalizados SET status=CASE WHEN status='done' THEN 'done' ELSE 'error' END, error=$3, updated_at=now() WHERE cell_video_id=$1 AND colaborador_id=$2",
         [job.id, c.id, String(e?.message || e).slice(0, 300)]).catch(() => {});
     }
   }

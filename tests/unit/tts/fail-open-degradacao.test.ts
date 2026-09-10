@@ -66,7 +66,7 @@ describe('fail-open do portão de TTS registra degradação', () => {
     // por registro — take com fala, reprovado, publicado: o caso do fail-open.
     vi.stubGlobal('fetch', vi.fn(async () => respostaTts(25, true)));
     const { generateNarrationAudio } = await import('@/lib/gemini-tts');
-    const audio = await generateNarrationAudio('Texto de teste para a narração do portão.', { voice: ELENCO.beto.voz, segmentar: false, tentativas: 2 });
+    const audio = await generateNarrationAudio('Texto de teste para a narração do portão.', { voice: ELENCO.beto.voz, segmentar: false, tentativas: 2, permitirReprovado: true });
     expect(audio.qa?.ok).toBe(false);
     expect(registrarDegradacao).toHaveBeenCalledTimes(1);
     const arg = registrarDegradacao.mock.calls[0][0];
@@ -81,7 +81,7 @@ describe('fail-open do portão de TTS registra degradação', () => {
     // (a pessoa esperando). Testar um só deixava o outro publicar em silêncio.
     vi.stubGlobal('fetch', vi.fn(async () => respostaTts(25, true)));
     const { generateNarrationAudio } = await import('@/lib/gemini-tts');
-    const audio = await generateNarrationAudio('Texto de teste para a narração do portão.', { voice: ELENCO.beto.voz, segmentar: false, retakeParalelo: true, tentativas: 2 });
+    const audio = await generateNarrationAudio('Texto de teste para a narração do portão.', { voice: ELENCO.beto.voz, segmentar: false, retakeParalelo: true, tentativas: 2, permitirReprovado: true });
     expect(audio.qa?.ok).toBe(false);
     expect(registrarDegradacao).toHaveBeenCalledTimes(1);
     expect(registrarDegradacao.mock.calls[0][0].tipo).toBe('tts-qa-reprovado-publicado');
@@ -93,5 +93,21 @@ describe('fail-open do portão de TTS registra degradação', () => {
     const audio = await generateNarrationAudio('Texto de teste para a narração do portão.', { voice: ELENCO.mentora.voz, segmentar: false });
     expect(audio.qa?.ok).toBe(true);
     expect(registrarDegradacao).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('produção não retorna MP3 reprovado (paralelo=%s)', async (retakeParalelo) => {
+    vi.stubGlobal('fetch', vi.fn(async () => respostaTts(25, true)));
+    const { generateNarrationAudio } = await import('@/lib/gemini-tts');
+    const { gravarVereditosTts } = await import('@/lib/tts/qa-log');
+    vi.mocked(gravarVereditosTts).mockClear();
+    await expect(generateNarrationAudio('Texto de teste para a narração do portão.', {
+      voice: ELENCO.beto.voz, segmentar: false, tentativas: 2, retakeParalelo,
+      ledger: { feature: 'tts_video_cena', artifactKey: 'videos_gerados:video-1:scene-2' },
+    })).rejects.toThrow(/áudio não publicado/);
+    expect(gravarVereditosTts).toHaveBeenCalledOnce();
+    const tentativas = vi.mocked(gravarVereditosTts).mock.calls[0][0];
+    expect(tentativas.every(t => !t.publicado)).toBe(true);
+    expect(new Set(tentativas.map(t => t.synthesisId)).size).toBe(1);
+    expect(tentativas[0].artifactKey).toBe('videos_gerados:video-1:scene-2');
   });
 });

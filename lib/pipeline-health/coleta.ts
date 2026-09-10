@@ -382,6 +382,7 @@ export async function coletarDegradacoes(sb: any): Promise<DegradacaoRegistro[]>
   const desde = new Date(Date.now() - 24 * 3600_000).toISOString();
   const { data, error } = await sb.from('degradacao_log')
     .select('fluxo, tipo, severidade, ocorrencias')
+    .is('resolved_at', null)
     .gte('ultima_em', desde);
   // Propaga: 0 por falha de query é indistinguível de "nenhuma degradação".
   if (error) throw new Error(`degradacao_log: ${error.message}`);
@@ -442,7 +443,8 @@ export async function coletarCelulasVideoSemDeck(sb: any, tenantsReais?: Readonl
    * crítico que não correspondia a dano nenhum.
    */
   let q = sb.from('videos_gerados')
-    .select('modulo_base_id, empresa_id, cargo, disc_dominante, status, bunny_video_id, error, updated_at');
+    .select('modulo_base_id, empresa_id, cargo, disc_dominante, status, bunny_video_id, error, updated_at')
+    .is('archived_at', null);
   if (tenantsReais) q = q.in('empresa_id', [...tenantsReais]);
   const { data, error } = await q;
   if (error) throw new Error(`videos_gerados: ${error.message}`);
@@ -566,17 +568,23 @@ export async function coletarQaTts(sb: any): Promise<{ portao: RetakeTtsAgregado
   // recorta 7 dias em memória. Consultar 7 e prometer 8 sumia com um canário de 7,5 dias.
   const desde7 = Date.now() - 7 * 24 * 3600_000;
   const desdeConsulta = new Date(Date.now() - Math.max(7, TTS_CANARIO_JANELA_DIAS) * 24 * 3600_000).toISOString();
-  const { data, error } = await sb.from('tts_qa_log')
-    .select('origem, feature, voz, tentativa, ok, publicado, motivos, f0_med_hz, timbre_vs_ref, created_at')
-    .gte('created_at', desdeConsulta)
-    .order('created_at', { ascending: false })
-    .limit(5000);
-  if (error) throw new Error(`tts_qa_log: ${error.message}`);
-  const linhas = (data || []) as { origem: string; feature: string; voz: string; tentativa: number; ok: boolean; publicado: boolean; motivos: string[]; f0_med_hz: number | null; timbre_vs_ref: number | null; created_at: string }[];
+  const { data: demos, error: errDemos } = await sb.from('empresas').select('id').eq('is_demo', true);
+  if (errDemos) throw new Error(`tts_qa_log: leitura dos tenants falhou (${errDemos.message})`);
+  const idsDemo = new Set((demos || []).map((e: any) => e.id));
+  const linhas: any[] = [];
+  for (let pagina = 0; ; pagina++) {
+    if (pagina >= 100) throw new Error('tts_qa_log: leitura incompleta');
+    const { data, error } = await sb.from('tts_qa_log')
+      .select('id,origem,feature,voz,modelo,empresa_id,resolved_at,tentativa,ok,publicado,motivos,f0_med_hz,timbre_vs_ref,created_at')
+      .gte('created_at', desdeConsulta).order('id').range(pagina * 1000, pagina * 1000 + 999);
+    if (error) throw new Error(`tts_qa_log: ${error.message}`);
+    linhas.push(...(data || []));
+    if ((data || []).length < 1000) break;
+  }
   const porChave = new Map<string, RetakeTtsAgregado>();
-  for (const l of linhas.filter((x) => x.origem === 'portao' && new Date(x.created_at).getTime() >= desde7)) {
-    const k = `${l.feature}|${l.voz}`;
-    const a = porChave.get(k) || { feature: l.feature, voz: l.voz, sinteses: 0, tentativas: 0, reprovadas: 0, publicadasReprovadas: 0 };
+  for (const l of linhas.filter((x) => x.origem === 'portao' && !x.resolved_at && !idsDemo.has(x.empresa_id) && new Date(x.created_at).getTime() >= desde7)) {
+    const k = `${l.feature}|${l.voz}|${l.modelo || 'desconhecido'}`;
+    const a = porChave.get(k) || { feature: l.feature, voz: l.voz, modelo: l.modelo || 'desconhecido', sinteses: 0, tentativas: 0, reprovadas: 0, publicadasReprovadas: 0 };
     a.tentativas++;
     if (l.tentativa === 1) a.sinteses++;
     if (!l.ok) a.reprovadas++;

@@ -13,7 +13,7 @@ import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-c
 import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine/progresso-semana';
 import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha, qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { TURNOS_IA_AVALIACAO_QUALITATIVA } from '@/lib/season-engine/week-gating';
-import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento } from '@/lib/season-engine/fechamento-conversa';
+import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, fechamentoSeguro } from '@/lib/season-engine/fechamento-conversa';
 import { buscarCenarioBComFallback } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
@@ -204,12 +204,14 @@ export async function POST(request) {
           console.warn('[evaluation] fechamento forçado falhou:', err?.message);
         }
         if (!pareceFechamento(respostaIA, { marcadores: false })) {
+          respostaIA = fechamentoSeguro(false);
           after(() => registrarConversaSemFechamento(sb, {
             empresaId: trilha.empresa_id,
             colaboradorId: trilha.colaborador_id,
             semana: Number(semana),
             tipoConversa: 'sem13_qualitativa',
             tentativas: 2,
+            fechamentoSeguro: true,
           }));
         }
       }

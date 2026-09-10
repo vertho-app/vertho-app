@@ -8,6 +8,7 @@
  * com a orquestração + re-export da API pública, pra não quebrar callers).
  */
 import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { mapComTeto } from '@/lib/concorrencia';
 import { fadePcm16, silencePcm, wavToMonoPcm16AtRate, exportPodcastMp3FromPcm } from './tts/audio-dsp';
@@ -165,6 +166,8 @@ function timeoutAdaptativo(chars: number): number {
  * devolutiva ou podcast, e `ttsGenerate` não tem como descobrir.
  */
 export interface TtsLedger {
+  artifactKey?: string;
+  synthesisId?: string;
   correlationId?: string;
   feature: string;
   empresaId?: string | null;
@@ -324,15 +327,16 @@ function ttsToPcm(prompt: string, voiceName: string, ledger: TtsLedger, timeoutM
 // ±1 st em torno do alvo de F0 gera ~7% de retake em Aoede e ~21% em Iapetus, a
 // US$ 0,02-0,05 cada — é o preço de a pessoa A e a pessoa B ouvirem a mesma voz.
 //
-// Fail-OPEN declarado: se nenhuma tentativa passar, publica a menos ruim e avisa no
-// log. Bloquear a entrega por causa de 1 semitom seria trocar um defeito audível
-// por um "podcast ainda não gerado" — pior para quem está esperando.
+// 10/09: produção só retorna takes aprovados. O canário pode devolver a medição
+// reprovada explicitamente; esse áudio não é publicado como conteúdo.
 const QA_GATE_ATIVO = (process.env.TTS_QA_GATE || 'on').toLowerCase() !== 'off';
 const QA_MAX_TENTATIVAS = Math.max(1, Number(process.env.TTS_QA_TENTATIVAS) || 2);
 
 /** Como o portão refaz: em SÉRIE (o default — só refaz o que reprovou) ou em
  *  PARALELO (as K tentativas juntas, para quem quer COMPARAR takes). */
 export interface OpcoesPortao {
+  /** Exclusivo de medição (canário/bake-off). Produção não publica reprovados. */
+  permitirReprovado?: boolean;
   /** `true` = as K tentativas saem juntas e a primeira que passa é publicada. Custa K×
    *  SEMPRE, inclusive quando a primeira já passaria.
    *
@@ -354,8 +358,8 @@ export interface OpcoesPortao {
   /** Instante (epoch ms, `Date.now() + orçamento`) até o qual esta síntese tem que estar
    *  ENTREGUE — não só sintetizada. Só o caminho em série usa: antes de refazer, o portão
    *  compara o tempo que sobra com o que a tentativa anterior levou; se não couber,
-   *  publica a que tem (o fail-open que já existe) em vez de estourar a função e devolver
-   *  erro a quem espera. Sem prazo (lote, `after()`, script), refaz até o teto. */
+   *  interrompe os retakes e recusa a publicação se nenhuma passou. Sem prazo
+   *  (lote, `after()`, script), refaz até o teto. O relógio não aprova áudio. */
   prazoAteMs?: number;
 }
 
@@ -404,6 +408,8 @@ async function persistirVereditos(julgadas: (Sintese & { qa: QaDeriva })[], publ
     metricas: j.qa.metricas,
     empresaId: ledger?.empresaId ?? null,
     correlationId: ledger?.correlationId ?? null,
+    artifactKey: ledger?.artifactKey ?? null,
+    synthesisId: ledger?.synthesisId ?? null,
   })));
 }
 
@@ -415,6 +421,7 @@ async function sintetizarComPortao(
   ledger?: TtsLedger,
 ): Promise<Sintese & { qa?: QaDeriva }> {
   if (!QA_GATE_ATIVO) return sintetizar();
+  ledger = { ...ledger, feature: ledger?.feature ?? rotulo, synthesisId: randomUUID() };
   const alvo = ALVO_F0_POR_VOZ[voz] || null;
   // Tentativas: o que a chamada pediu > o que o PERFIL DA VOZ exige > o default global.
   // Voz dispersa entre takes (Algieba: 4,67 st) precisa de mais tentativas para a mesma
@@ -427,6 +434,7 @@ async function sintetizarComPortao(
   const menosRuim = (xs: (Sintese & { qa: QaDeriva })[]) => {
     const comFala = xs.filter((j) => !semFala(j));
     if (!comFala.length) throw new Error(`TTS: nenhuma das ${xs.length} tentativa(s) tem fala (${xs[0]?.qa.motivos.join('; ')})`);
+    if (!opts.permitirReprovado) throw new Error(`TTS: nenhuma das ${xs.length} tentativa(s) passou no controle de qualidade; áudio não publicado (${xs[0]?.qa.motivos.join('; ')})`);
     return comFala.reduce((a, b) => (b.qa.motivos.length < a.qa.motivos.length ? b : a));
   };
 
@@ -442,7 +450,7 @@ async function sintetizarComPortao(
     } finally {
       await persistirVereditos(julgadas, escolhida, voz, rotulo, total, ledger);
     }
-    if (!aprovada) await avisarFailOpen(escolhida, voz, rotulo, total, ledger);
+    if (!aprovada && rotulo !== 'canario_tts') await avisarFailOpen(escolhida, voz, rotulo, total, ledger);
     return escolhida;
   }
 
@@ -458,7 +466,7 @@ async function sintetizarComPortao(
       const precisaMs = Math.round(duracaoUltimaMs * MARGEM_RETAKE) + RESERVA_POS_TTS_MS;
       if (restanteMs < precisaMs) {
         prazoCortou = true;
-        console.warn(`[tts-qa] ${rotulo} · ${voz}: sem prazo para a tentativa ${tentativa}/${total} (restam ${Math.round(restanteMs / 1000)}s, precisa ~${Math.round(precisaMs / 1000)}s) — publica o melhor das ${julgadas.length}`);
+        console.warn(`[tts-qa] ${rotulo} · ${voz}: sem prazo para a tentativa ${tentativa}/${total} (restam ${Math.round(restanteMs / 1000)}s, precisa ~${Math.round(precisaMs / 1000)}s) — encerra após ${julgadas.length} tentativa(s), sem afrouxar o portão`);
         break;
       }
     }
@@ -477,7 +485,7 @@ async function sintetizarComPortao(
   } finally {
     await persistirVereditos(julgadas, m, voz, rotulo, totalReal, ledger);
   }
-  await avisarFailOpen(m, voz, rotulo, totalReal, ledger, prazoCortou);
+  if (rotulo !== 'canario_tts') await avisarFailOpen(m, voz, rotulo, totalReal, ledger, prazoCortou);
   return m;
 }
 
@@ -596,7 +604,7 @@ export async function generateNarrationAudio(
       () => ttsToPcm(`${styleDirective}:\n\n${texto}`, voice, ledger, timeoutMs),
       voice,
       ledger.feature,
-      { retakeParalelo: opts.retakeParalelo, tentativas: opts.tentativas, prazoAteMs: opts.prazoAteMs },
+      { retakeParalelo: opts.retakeParalelo, tentativas: opts.tentativas, prazoAteMs: opts.prazoAteMs, permitirReprovado: opts.permitirReprovado },
       ledger,
     );
     return {

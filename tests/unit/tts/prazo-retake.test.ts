@@ -10,8 +10,7 @@
  * Os três comportamentos que este arquivo tranca:
  *   1. take aprovado de primeira NÃO sintetiza de novo (o desperdício que motivou tudo);
  *   2. reprovado COM prazo suficiente refaz;
- *   3. reprovado SEM prazo suficiente publica o que tem, e a degradação diz que foi o
- *      relógio — não o fornecedor.
+ *   3. reprovado SEM prazo suficiente encerra os retakes SEM publicar o reprovado.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ELENCO } from '@/lib/tts/elenco';
@@ -75,45 +74,35 @@ describe('portão de TTS: retake em série, limitado pelo prazo', () => {
     const fetchSpy = vi.fn(async () => respostaTts(25, 208)); // grave demais para o Beto
     vi.stubGlobal('fetch', fetchSpy);
     const { generateNarrationAudio } = await import('@/lib/gemini-tts');
-    const audio = await generateNarrationAudio(TEXTO, {
+    await expect(generateNarrationAudio(TEXTO, {
       voice: ELENCO.beto.voz, segmentar: false, tentativas: 3,
       prazoAteMs: Date.now() + 10 * 60_000, // 10 min: cabe qualquer retake
-    });
-    expect(audio.qa?.ok).toBe(false);
+    })).rejects.toThrow('áudio não publicado');
     expect(fetchSpy).toHaveBeenCalledTimes(3);
-    expect(registrarDegradacao).toHaveBeenCalledTimes(1);
-    expect(registrarDegradacao.mock.calls[0][0].detalhe?.prazoCortou).toBe(false);
+    expect(registrarDegradacao).not.toHaveBeenCalled();
   });
 
-  it('reprovado sem prazo para refazer: publica o que tem e a degradação culpa o RELÓGIO', async () => {
+  it('reprovado sem prazo para refazer: não inicia outro take nem publica o reprovado', async () => {
     const fetchSpy = vi.fn(async () => respostaTts(25, 208));
     vi.stubGlobal('fetch', fetchSpy);
     const { generateNarrationAudio } = await import('@/lib/gemini-tts');
-    const audio = await generateNarrationAudio(TEXTO, {
+    await expect(generateNarrationAudio(TEXTO, {
       voice: ELENCO.beto.voz, segmentar: false, tentativas: 3,
       prazoAteMs: Date.now() + 1_000, // já esgotado quando a 1ª tentativa volta
-    });
-    // Entrega acontece: negar o áudio por causa do relógio seria trocar um defeito
-    // audível por "podcast ainda não gerado" — pior para quem está esperando.
-    expect(audio.buffer.length).toBeGreaterThan(0);
-    expect(audio.qa?.ok).toBe(false);
+    })).rejects.toThrow('áudio não publicado');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
-    expect(registrarDegradacao).toHaveBeenCalledTimes(1);
-    const detalhe = registrarDegradacao.mock.calls[0][0].detalhe!;
-    expect(detalhe.prazoCortou).toBe(true);
-    // O log não pode dizer que 3 tentativas reprovaram quando 2 nunca aconteceram.
-    expect(detalhe.tentativas).toBe(1);
+    expect(registrarDegradacao).not.toHaveBeenCalled();
   });
 
   it('o veredito persistido conta as tentativas REAIS quando o prazo corta', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => respostaTts(25, 208)));
     const { generateNarrationAudio } = await import('@/lib/gemini-tts');
-    await generateNarrationAudio(TEXTO, {
+    await expect(generateNarrationAudio(TEXTO, {
       voice: ELENCO.beto.voz, segmentar: false, tentativas: 3, prazoAteMs: Date.now() + 1_000,
-    });
+    })).rejects.toThrow('áudio não publicado');
     const linhas = vereditos.mock.calls[0][0];
     expect(linhas).toHaveLength(1);
     expect(linhas[0].totalTentativas).toBe(1);
-    expect(linhas[0].publicado).toBe(true);
+    expect(linhas[0].publicado).toBe(false);
   });
 });

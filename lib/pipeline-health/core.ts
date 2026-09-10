@@ -275,13 +275,13 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
 
     const doisH = new Date(Date.now() - 2 * 3600_000).toISOString();
     const videoStale = await contar('videos_gerados', (q: any) =>
-      q.in('status', ['processing', 'rendering', 'render_queued']).lt('created_at', doisH));
+      q.in('status', ['processing', 'rendering', 'render_queued']).is('archived_at', null).lt('updated_at', doisH));
     achados.push(achado('video-stale', 'aviso', 'Vídeo travado há mais de 2h', videoStale,
-      'A tela mostra "estamos preparando seu vídeo" para sempre — não há detecção de stale nesse caminho.',
-      { acao: 'Re-disparar a célula; a linha antiga fica invisível para a entrega.' }));
+      'Células sem atualização há mais de 2h. A idade é a do último progresso, não a criação do vídeo: um re-render recém-iniciado não está travado.',
+      { acao: 'Conferir worker e progresso antes de re-enfileirar. Nominais anteriores prontos continuam disponíveis durante o reparo.' }));
 
     const persoPresos = await contar('videos_personalizados', (q: any) =>
-      q.in('status', ['processing', 'pending']).lt('created_at', doisH));
+      q.in('status', ['processing', 'pending']).lt('updated_at', doisH));
     achados.push(achado('personalizado-preso', 'aviso', 'Vídeo personalizado travado', persoPresos,
       'A pessoa cai no deck genérico e perde a saudação com o nome — degradação silenciosa, ninguém percebe.',
       { acao: 'Job de reconciliação (FMEA F-V1) ou re-disparo manual.' }));
@@ -347,9 +347,8 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
            * 🔴 Medido 06/09/2026: as 6 pessoas do achado eram as 6 personas
            * `.demo@vertho.ai` de `escolas-acme`. Zero pessoas reais esperando.
            */
-          return (r.lacunas as any[])
-            .filter((l) => reais.has(l.empresaId))
-            .reduce((n, l) => n + (l.faltantes?.length ?? 0), 0);
+          return new Set(r.lacunas.filter(l => reais.has(l.empresaId))
+            .flatMap(l => l.faltantes.map(f => f.colaboradorId))).size;
         } catch (e: any) {
           console.error('[health] R17 não conseguiu medir a lacuna de vídeo nominal:', e?.message || e);
           return null;
@@ -413,7 +412,7 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
       await inspecionarModelosConfigurados((cfgs || []).map((e: any) => ({ nome: e.nome, sysConfig: e.sys_config }))),
     ));
 
-    const ungrounded = await contar('kit_briefs', (q: any) => q.is('modulo_base_id', null));
+    const ungrounded = await contar('kit_briefs', (q: any) => q.is('modulo_base_id', null).is('archived_at', null).eq('status', 'published'));
     achados.push(achado('brief-ungrounded', 'aviso', 'Brief sem módulo-base', ungrounded,
       'O kit inteiro nasce sem matéria-prima canônica: conteúdo genérico com status "published".',
       { acao: 'Publicar o módulo-base do tema e regerar o brief.' }));
@@ -450,8 +449,16 @@ export async function rodarHorizonte(
     const t0 = Date.now();
     try {
       const lacunas = await coletarHorizonteKits(sb, emp.id, semanasAdiante);
-      if (!lacunas.length) continue;   // coorte sem demanda futura pendente
       const achados = checarHorizonteKits(lacunas);
+      const { levantarPlanoDesafios } = await import('@/lib/season-engine/kit/plano-desafios');
+      const pares = await levantarPlanoDesafios(sb, emp.id, semanasAdiante);
+      const pessoas = new Set(pares.flatMap(p => p.pessoas));
+      const par = achado('desafio-par-horizonte', pares.some(p => p.distancia <= 1) ? 'critico' : 'aviso',
+        'Pessoas com desafio integrado ainda não produzido', pessoas.size,
+        `${pares.length} combinação(ões) de descritores, cargo e DISC nas semanas atual e seguintes.`,
+        { amostra: pares.map(p => `${p.cargo} · ${p.disc} · ${p.descritores.join(' + ')} · ${p.nucleos.length < 2 ? 'sem brief canônico' : 'aguardando preparação'}`),
+          acao: 'O cron preparar_desafios e a conclusão dos kits produzem os pares. Corrigir os briefs ausentes antes de gerar.' });
+      if (par) achados.push(par);
       if (!achados.length) continue;
       out.push({
         modo: 'horizonte', empresaId: emp.id, empresaSlug: emp.slug,
@@ -563,7 +570,7 @@ export async function alertar(resultados: ResultadoCheck[]): Promise<boolean> {
 }
 
 /** Orquestra um modo completo: roda, persiste, alerta. Usado pelo cron. */
-export async function executarHealthCheck(modo: 'preflight' | 'postflight' | 'estrutural' | 'horizonte') {
+export async function executarHealthCheck(modo: 'preflight' | 'postflight' | 'estrutural' | 'horizonte', opts: { diagnostico?: boolean; persistir?: boolean } = {}) {
   const agora = new Date();
   let resultados: ResultadoCheck[];
   if (modo === 'preflight') {
@@ -578,8 +585,8 @@ export async function executarHealthCheck(modo: 'preflight' | 'postflight' | 'es
   } else {
     resultados = [await rodarEstrutural()];
   }
-  await persistirResultados(resultados);
-  const alertou = await alertar(resultados);
+  if (!opts.diagnostico || opts.persistir) await persistirResultados(resultados);
+  const alertou = opts.diagnostico ? false : await alertar(resultados);
   const criticos = resultados.filter((r) => r.severidade === 'critico').length;
   const avisos = resultados.filter((r) => r.severidade === 'aviso').length;
   return {

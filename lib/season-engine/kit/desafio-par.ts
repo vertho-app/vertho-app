@@ -129,12 +129,17 @@ export async function gerarDesafioDaSemana(
   const cargo = String(args.cargo || 'todos').trim() || 'todos';
 
   const { data: existente, error: errLeitura } = await sb.from('kit_desafios_semana')
-    .select('id, desafio')
+    .select('id, desafio, status')
     .eq('empresa_id', args.empresaId).eq('competencia', args.competencia)
     .eq('descritores_norm', arrayLiteralPg(chave)).eq('cargo', cargo).eq('disc', disc)
     .maybeSingle();
   if (errLeitura) throw new Error(`kit_desafios_semana leitura: ${errLeitura.message}`);
-  if (existente?.desafio?.desafio_texto) return { desafio: existente.desafio, reused: true };
+  if (existente?.status === 'published' && existente?.desafio?.desafio_texto) return { desafio: existente.desafio, reused: true };
+  if (existente) throw new Error(`desafio ${existente.id}: registro existente não está publicado ou está inválido; revisar antes de gerar`);
+  if (args.nucleos.length !== chave.length || args.nucleos.some(n => !n.ideia_central?.trim())
+    || chaveDoPar(args.nucleos.map(n => n.descritor)).join('|') !== chave.join('|')) {
+    throw new Error('desafio de par exige um núcleo canônico para cada descritor');
+  }
 
   const lente = LENTE_DISC[disc];
   const system = `Você é designer instrucional da Vertho especializado em micro-ações práticas.

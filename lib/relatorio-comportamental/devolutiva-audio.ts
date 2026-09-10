@@ -107,7 +107,7 @@ export async function gerarDevolutivaEmAudioCore({ colab, raw, texts, sb, sobDem
     // A direção vem do ELENCO: produção e canário falam com a MESMA voz e o
     // mesmo estilo, senão o canário mede um take que ninguém ouve.
     style: direcaoDoPersonagem('beto'),
-    ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id },
+    ledger: { feature: 'tts_devolutiva', empresaId: colab.empresa_id, colaboradorId: colab.id, artifactKey: `colaboradores:${colab.id}:devolutiva` },
     segmentar: false,
     // Série nos dois casos; sob demanda o relógio limita o retake (ver
     // `PRAZO_SOB_DEMANDA_MS`), no fundo não há relógio. Até 10/09/2026 o botão

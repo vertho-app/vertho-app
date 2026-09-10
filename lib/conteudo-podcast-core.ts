@@ -60,7 +60,7 @@ export async function gerarPodcastAudioCore(
   // (ninguém esperando): 62 chamadas para ~21 entregas em 07/09, US$ 3,37.
   const audio = await generatePodcastAudio(
     narracao,
-    { feature: 'tts_podcast', empresaId: conteudo.empresa_id },
+    { feature: 'tts_podcast', empresaId: conteudo.empresa_id, artifactKey: `micro_conteudos:${conteudo.id}` },
     opts.prazoAteMs ? { prazoAteMs: opts.prazoAteMs } : {},
   );
 

@@ -277,23 +277,23 @@ async function ffprobeDuration(url: string): Promise<number> {
  *   4) render chunked (renderVideoTask) → Bunny
  *   5) grava status/URLs/legendas em videos_gerados
  */
-export const gerarVideoModuloTask = task({
-  id: 'gerar-video-modulo',
-  // large-1x: o passo de avatar faz re-encode ffmpeg (normalizarFps 25→30) que
-  // estrangulava/penduravam a small-1x. CPU/RAM folgadas evitam o hang.
-  machine: 'large-1x',
-  maxDuration: 3600,
-  run: async (p: {
+export async function executarGeracaoVideoModulo(p: {
     videoId: string;
     roteiro: VideoRoteiro;
     brand?: { primary: string; secondary: string; background: string; font?: string };
     fps?: number; width?: number; height?: number; chunks?: number;
-  }) => {
+    /** Retake cirúrgico: os demais assets e os vídeos publicados ficam intactos. */
+    regerarCenas?: string[];
+  }) {
     const { videoId, roteiro } = p;
     try {
       // RESUME: parte dos assets já persistidos (retry do Trigger ou re-render de um
       // render_queued que não achou box) → NÃO re-gera narração/avatar/HeyGen.
       const assets: AssetMap = await getVideoAssets(videoId);
+      for (const id of p.regerarCenas || []) {
+        if (!roteiro.scenes.some(s => s.id === id)) throw new Error(`cena inexistente: ${id}`);
+        delete assets[id]; // mapa local; só persiste quando a nova composição estiver pronta
+      }
       const empresaIdDoVideo = await getVideoEmpresaId(videoId);
       // Duração medida nos bytes ENVIADOS nesta execução, por cena — conferida contra
       // o que o Storage serve antes de compor (invariante do passo 3).
@@ -328,11 +328,7 @@ export const gerarVideoModuloTask = task({
               voice: VOICE,
               style: NARRATION_STYLE_UNICO,
               segmentar: false,
-              // `correlationId` = vídeo. Sem ele, `tts_qa_log` e `ia_usage_log` sabem
-              // que uma cena saiu fora do registro e NÃO sabem de qual vídeo: em
-              // 10/09/2026 as 8 cenas publicadas por fail-open em 07/09 só puderam ser
-              // atribuídas pelos nomes dos arquivos no Storage, não pelo log.
-              ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo, correlationId: videoId },
+              ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo, artifactKey: `videos_gerados:${videoId}:take:${assinatura}` },
             });
             takeMp3 = audio.buffer;
             await storagePut('video-assets', `${videoId}/take-${assinatura}-${GERACAO_TAG()}.mp3`, takeMp3, 'audio/mpeg');
@@ -398,8 +394,7 @@ export const gerarVideoModuloTask = task({
 
       const comNarracao = cenasComTexto.filter((s) => !assets[s.id]?.src);
       await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
-        // `ledger` sem empresa de propósito: o vídeo é do MÓDULO-BASE (conteúdo
-        // canônico da plataforma), não de um tenant. Etiqueta vazia seria chute.
+        // Dono e artefato explícitos: a auditoria consegue localizar a cena servida.
         // `segmentar: false`: a cena é curta, cabe numa chamada, e só a chamada única
         // passa pelo portão de deriva (registro contra o alvo, tem fala?). O caminho
         // segmentado não tinha portão nenhum (06/09).
@@ -407,9 +402,7 @@ export const gerarVideoModuloTask = task({
           voice: VOICE,
           style: styleForScene(s.type),
           segmentar: false,
-          // Vídeo E cena: é o caminho costurado, onde o registro varia de uma cena para
-          // a outra — sem a etiqueta, o veredito não diz em qual vídeo isso aconteceu.
-          ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo, correlationId: `${videoId}:${s.id}` },
+          ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo, artifactKey: `videos_gerados:${videoId}:${s.id}` },
         });
         // Corta a cauda muda do TTS → avatar termina junto com a fala + Whisper não alucina no silêncio.
         // E garante a CABEÇA: a composição pula 33 ms do áudio (trimBefore), então a fala
@@ -531,9 +524,15 @@ export const gerarVideoModuloTask = task({
       console.error(`gerar-video-modulo ${videoId} FALHOU:`, e?.message || e);
       // Se gravar o status=error falhar, o job fica preso em 'processing' sem
       // sinal no DB — logamos esse caso (em vez de engolir mudo).
-      await patchVideo(videoId, { status: 'error', error: String(e?.message || e).slice(0, 500) })
+      await patchVideo(videoId, { ...(p.regerarCenas?.length ? {} : { status: 'error' }), error: String(e?.message || e).slice(0, 500) })
         .catch((pe) => console.error(`${videoId}: falha ao gravar status=error:`, pe?.message || pe));
       throw e;
     }
-  },
+}
+
+export const gerarVideoModuloTask = task({
+  id: 'gerar-video-modulo',
+  machine: 'large-1x',
+  maxDuration: 3600,
+  run: executarGeracaoVideoModulo,
 });

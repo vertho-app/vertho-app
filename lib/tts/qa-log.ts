@@ -25,6 +25,8 @@ export interface VereditoTts {
   metricas: MetricasDeriva;
   empresaId?: string | null;
   correlationId?: string | null;
+  artifactKey?: string | null;
+  synthesisId?: string | null;
 }
 
 const num = (v: number | undefined | null, casas: number) => (v == null || !Number.isFinite(v) ? null : Number(v.toFixed(casas)));
@@ -57,6 +59,8 @@ export async function gravarVereditosTts(vereditos: VereditoTts[]): Promise<bool
       timbre_vs_ref: num(v.metricas.timbreVsRefSigma, 3),
       empresa_id: v.empresaId ?? null,
       correlation_id: v.correlationId ?? null,
+      artifact_key: v.artifactKey ?? null,
+      synthesis_id: v.synthesisId ?? null,
     }));
     const { error } = await sb.from('tts_qa_log').insert(linhas);
     if (error) { console.warn('[tts-qa] veredito NÃO gravado:', error.message); return false; }

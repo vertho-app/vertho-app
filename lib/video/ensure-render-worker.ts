@@ -72,12 +72,15 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
   const JPB = Math.max(1, parseInt(process.env.RENDER_JOBS_PER_BOX || '3', 10));
 
   // Fan-out: nº de boxes desejado = ceil(fila / jobs_por_box), limitado a MAX.
-  const list = await h('/servers?label_selector=role%3Drender-worker').then((r) => r.json()).catch(() => null);
+  const list = await h('/servers?label_selector=role%3Drender-worker').then((r) => r.ok ? r.json() : null).catch(() => null);
+  if (!Array.isArray(list?.servers)) return { provisioned: false, alive: 0, reason: 'não foi possível verificar as boxes existentes; provisionamento recusado para evitar duplicação' };
   const alive = (list?.servers || []).filter((s: any) => ['initializing', 'starting', 'running'].includes(s.status));
   const depth = await queueDepth();
   const desired = Math.min(MAX, Math.max(1, Math.ceil(depth / JPB)));
-  const deficit = desired - alive.length;
-  if (deficit <= 0) return { provisioned: false, alive: alive.length, reason: `${alive.length} box(es) p/ fila ${depth} (desejado ${desired})` };
+  // Desligada/redimensionando ainda existe e custa. Não criar uma substituta por
+  // confundir manutenção transitória com ausência (medido em 10/09).
+  const deficit = Math.min(desired - alive.length, MAX - list.servers.length);
+  if (deficit <= 0) return { provisioned: false, alive: alive.length, reason: `${alive.length} box(es) ativa(s), ${list.servers.length} existente(s), teto ${MAX}, fila ${depth} (desejado ${desired})` };
 
   // ── LADDER de fallback (tipo × location) ──────────────────────────────────
   // resource_unavailable (412) é comum no CX shared: um tipo/location fica sem

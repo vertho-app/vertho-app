@@ -18,7 +18,7 @@ import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
 import { checarGatesSemana, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { resolverDesafiosDaSemana } from '@/lib/season-engine/kit/entrega-semana';
-import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento } from '@/lib/season-engine/fechamento-conversa';
+import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, fechamentoSeguro } from '@/lib/season-engine/fechamento-conversa';
 import { normalizarCompromisso } from '@/lib/season-engine/compromisso';
 import { MAX_TURNS_SOCRATIC, MAX_TURNS_ANALYTIC, MAX_TURNS_MISSAO_FEEDBACK } from '@/lib/season-engine/week-gating';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
@@ -435,12 +435,14 @@ export async function POST(request) {
         console.warn('[reflection] fechamento forçado falhou:', err?.message);
       }
       if (!pareceFechamento(respostaIA)) {
+        respostaIA = fechamentoSeguro();
         after(() => registrarConversaSemFechamento(sb, {
           empresaId: trilha.empresa_id,
           colaboradorId: trilha.colaborador_id,
           semana: Number(semana),
           tipoConversa,
           tentativas: 2,
+          fechamentoSeguro: true,
         }));
       }
     }
