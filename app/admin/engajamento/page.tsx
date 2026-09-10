@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import {
   AlertTriangle,
@@ -28,6 +28,7 @@ import AdminPageHeader from '@/components/admin/page-header';
 import EngagementEvolutionPanel from '@/components/engajamento/evolution-panel';
 import { SignalJourney } from '@/components/engajamento/signal-journey';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
+import { BLOCKER_META, engagementBlocker, hasEngagementSignal, isEngagementBlocker, type EngagementBlocker } from '@/lib/engajamento/prioridades';
 import { getEngajamentoEmpresa } from '@/actions/engajamento';
 
 const FMT: Record<string, {
@@ -45,18 +46,10 @@ const FMT: Record<string, {
 type Foco = 'todos' | 'atencao' | 'movimento';
 type AbaEngajamento = 'atual' | 'evolucao';
 
-function temSinal(pessoa: any): boolean {
-  return Boolean(
-    pessoa.abriuLink
-    || pessoa.formatosAbertos?.length
-    || pessoa.consumiu
-    || pessoa.enviouEvidencia
-    || pessoa.conversouTutor
-  );
-}
+const temSinal = hasEngagementSignal;
 
 function pedeAcompanhamento(pessoa: any): boolean {
-  return Boolean(pessoa.jornadaAtrasada || !temSinal(pessoa));
+  return Boolean(pessoa.jornadaAtrasada || engagementBlocker(pessoa));
 }
 
 function FormatosIcons({ lista, comRotulo = false }: { lista?: string[]; comRotulo?: boolean }) {
@@ -377,6 +370,16 @@ function FormatosResumo({ itens }: { itens: any[] }) {
   );
 }
 
+function ProximaAcao({ pessoa }: { pessoa: any }) {
+  const blocker = engagementBlocker(pessoa);
+  if (!blocker && !pessoa.jornadaAtrasada) return <span className="text-xs text-emerald-200">Evidência registrada</span>;
+  return <details className="max-w-sm text-xs">
+    <summary className="cursor-pointer text-cyan-200 focus-visible:outline-2 focus-visible:outline-cyan-300">{blocker ? BLOCKER_META[blocker].action : 'Verificar etapa pendente'}</summary>
+    <p className="mt-2 leading-relaxed text-white/65">{blocker ? BLOCKER_META[blocker].guidance : 'A posição individual está atrás do calendário da turma. Conferir qual etapa falta concluir antes de orientar a próxima semana.'}</p>
+    {blocker === 'ativacao' && <p className="mt-2 text-white/60">{pessoa.recebeuP1 === true || pessoa.recebeuP2 === true ? 'Há registro de envio de pílula; isso não confirma entrega ou leitura.' : pessoa.recebeuP1 === null || pessoa.recebeuP2 === null ? 'Envio desta semana sem registro suficiente. Conferir o histórico antes do contato.' : 'Sem registro de envio das pílulas neste recorte.'}</p>}
+  </details>;
+}
+
 function PessoaCard({ pessoa }: { pessoa: any }) {
   const atencao = pedeAcompanhamento(pessoa);
   return (
@@ -399,6 +402,7 @@ function PessoaCard({ pessoa }: { pessoa: any }) {
       </div>
       <div className="mt-3 border-t border-white/[0.06] pt-3"><Consumo pessoa={pessoa} compacto /></div>
       <div className="mt-3"><EntregaETutor pessoa={pessoa} /></div>
+      <div className="mt-3 border-t border-white/10 pt-3"><ProximaAcao pessoa={pessoa} /></div>
     </article>
   );
 }
@@ -413,14 +417,26 @@ export default function EngajamentoPage() {
   const [foco, setFoco] = useState<Foco>('todos');
   const [busca, setBusca] = useState('');
   const [aba, setAba] = useState<AbaEngajamento>('atual');
+  const [motivoSel, setMotivoSel] = useState<EngagementBlocker | 'atraso' | ''>('');
+  const [pessoaSel, setPessoaSel] = useState('');
+  const [erro, setErro] = useState('');
+  const requestId = useRef(0);
 
   const carregar = useCallback(async () => {
-    if (!empresaId) { setData(null); return; }
+    const currentRequest = ++requestId.current;
+    setData(null);
+    setErro('');
+    if (!empresaId) { setLoading(false); return; }
     setLoading(true);
     try {
-      setData(await getEngajamentoEmpresa(empresaId, semanaSel, cargoSel || null));
+      const result = await getEngajamentoEmpresa(empresaId, semanaSel, cargoSel || null);
+      if (currentRequest !== requestId.current) return;
+      if (result.resumo && 'erro' in result.resumo && result.resumo.erro) throw new Error(String(result.resumo.erro));
+      setData(result);
+    } catch {
+      if (currentRequest === requestId.current) setErro('Não foi possível carregar os sinais. Atualize para tentar novamente.');
     } finally {
-      setLoading(false);
+      if (currentRequest === requestId.current) setLoading(false);
     }
   }, [empresaId, semanaSel, cargoSel]);
 
@@ -434,6 +450,11 @@ export default function EngajamentoPage() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const params = new URLSearchParams(window.location.search);
+      const week = Number(params.get('semana'));
+      if (Number.isInteger(week) && week > 0) setSemanaSel(week);
+      setPessoaSel(params.get('pessoa') || '');
+      const blocker = params.get('pendencia');
+      if (isEngagementBlocker(blocker)) setMotivoSel(blocker);
       if (params.get('view') !== 'evolucao') return;
       setAba('evolucao');
       params.delete('view');
@@ -475,15 +496,25 @@ export default function EngajamentoPage() {
   const colabsVisiveis = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase('pt-BR');
     return colabsNaPosicao
+      .filter((c) => !pessoaSel || c.colaboradorId === pessoaSel)
+      .filter((c) => !motivoSel || ((semanaSel == null || c.semanaCalendario >= semanaSel) && (motivoSel === 'atraso' ? c.jornadaAtrasada : engagementBlocker(c) === motivoSel)))
       .filter((c) => foco === 'todos' || (foco === 'atencao' ? pedeAcompanhamento(c) : !pedeAcompanhamento(c)))
       .filter((c) => !termo || `${c.nome} ${c.cargo || ''}`.toLocaleLowerCase('pt-BR').includes(termo))
       .sort((a, b) => Number(pedeAcompanhamento(b)) - Number(pedeAcompanhamento(a)) || a.nome.localeCompare(b.nome));
-  }, [busca, colabsNaPosicao, foco]);
+  }, [busca, colabsNaPosicao, foco, motivoSel, pessoaSel, semanaSel]);
 
   const mostrarAtencao = () => {
     setFoco('atencao');
+    setMotivoSel('');
+    setPessoaSel('');
     window.setTimeout(() => document.getElementById('pessoas')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
   };
+
+  const selecionarPendencia = (value: EngagementBlocker | 'atraso') => {
+    setMotivoSel(value); setFoco('todos'); setBusca(''); setPessoaSel(''); setPosicaoSel(null);
+    window.setTimeout(() => document.getElementById('pessoas')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }), 0);
+  };
+  const elegiveisParaAcao = colabs.filter((person) => semanaSel == null || person.semanaCalendario >= semanaSel);
 
   const navegarAbas = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -610,16 +641,30 @@ export default function EngajamentoPage() {
         </div>
       )}
 
+      {empresaId && erro && <div role="alert" className="mb-5 rounded-xl border border-rose-300/25 bg-rose-300/5 p-5 text-sm text-rose-100">{erro}</div>}
+
       {empresaId && resumo && total === 0 && !loading && (
         <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.025] p-10 text-center">
           <BarChart3 size={22} className="mx-auto text-cyan-300/45" aria-hidden="true" />
-          <p className="mt-3 text-sm font-semibold text-white/70">Ainda não há pessoas na cadência</p>
-          <p className="mt-1 text-[11px] text-white/35">Os sinais aparecem depois do primeiro envio da jornada.</p>
+          <p className="mt-3 text-sm font-semibold text-white/70">Nenhuma pessoa neste recorte</p>
+          <p className="mt-1 text-[11px] text-white/35">Altere a semana ou a função para consultar outro grupo.</p>
         </div>
       )}
 
       {empresaId && resumo && total > 0 && (
         <div className="space-y-5">
+          <section aria-labelledby="acoes-title" className="rounded-2xl border border-cyan-300/20 bg-[#0b2137] p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div><h2 id="acoes-title" className="text-lg font-semibold text-white">Onde agir agora</h2><p className="mt-1 text-xs text-white/65">{elegiveisParaAcao.length} pessoas {semanaSel ? `que já chegaram à semana ${semanaSel}` : 'no histórico acumulado'} · escolha uma pendência para abrir a lista</p></div>
+              <Link href={`/admin/whatsapp?empresa=${encodeURIComponent(empresaId)}`} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/15 px-3 text-xs text-cyan-200 hover:bg-white/5"><Send size={14} /> Revisar envios</Link>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {([...Object.entries(BLOCKER_META).map(([key, value]) => ({ key: key as EngagementBlocker | 'atraso', label: value.label, action: value.action, count: elegiveisParaAcao.filter((person) => engagementBlocker(person) === key).length })), { key: 'atraso' as const, label: 'Etapa em atraso', action: 'Verificar posição na jornada', count: elegiveisParaAcao.filter((person) => person.jornadaAtrasada).length }]).map((item) => <button key={item.key} type="button" onClick={() => selecionarPendencia(item.key)} aria-pressed={motivoSel === item.key} className={`rounded-xl border p-4 text-left focus-visible:outline-2 focus-visible:outline-cyan-300 ${motivoSel === item.key ? 'border-cyan-300/60 bg-cyan-300/10' : 'border-white/15 bg-white/[0.025] hover:bg-white/5'}`}>
+                <span className="block text-xs text-white/70">{item.label}</span><span className="mt-1 block text-2xl font-semibold tabular-nums text-white">{item.count}</span><span className="mt-2 block text-xs text-cyan-200">{item.action} →</span>
+              </button>)}
+            </div>
+            <p className="mt-3 text-xs text-white/55">Cada pessoa aparece na primeira etapa pendente. Etapa em atraso pode se sobrepor aos demais grupos. Ausência de atividade não confirma falha de entrega.</p>
+          </section>
           <SignalJourney
             title={semanaSel ? `Como o grupo avançou na semana ${semanaSel}` : 'Como o grupo avança pela jornada'}
             description={semanaSel
@@ -725,7 +770,12 @@ export default function EngajamentoPage() {
                   </label>
                 </div>
               </div>
-              <p className="mt-3 text-[9px] text-white/25">Mostrando {colabsVisiveis.length} de {colabsNaPosicao.length} pessoas neste recorte.</p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <label className="text-xs text-white/70">Motivo da pendência <select aria-label="Motivo da pendência" value={motivoSel} onChange={(event) => setMotivoSel(event.target.value as typeof motivoSel)} className="ml-2 min-h-10 rounded-lg border border-white/15 bg-[#081a2f] px-3 text-white"><option value="">Todos os motivos</option>{Object.entries(BLOCKER_META).map(([key, meta]) => <option key={key} value={key}>{meta.label}</option>)}<option value="atraso">Etapa em atraso</option></select></label>
+                {pessoaSel && <span className="text-xs text-cyan-200">Pessoa selecionada pelo relatório</span>}
+                {(motivoSel || pessoaSel || busca || foco !== 'todos' || posicaoSel != null) && <button type="button" onClick={() => { setMotivoSel(''); setPessoaSel(''); setBusca(''); setFoco('todos'); setPosicaoSel(null); }} className="min-h-10 text-xs text-cyan-200 hover:underline">Limpar filtros da lista</button>}
+              </div>
+              <p role="status" className="mt-3 text-xs text-white/60">Mostrando {colabsVisiveis.length} de {colabsNaPosicao.length} pessoas neste recorte.</p>
             </div>
 
             <div className="grid gap-2 p-3 md:grid-cols-2 lg:hidden">
@@ -742,6 +792,7 @@ export default function EngajamentoPage() {
                     <th className="px-3 py-3 font-bold">Pílula 2</th>
                     <th className="px-3 py-3 font-bold">Consumo</th>
                     <th className="px-3 py-3 font-bold">Entrega e apoio</th>
+                    <th className="px-3 py-3 font-bold">Próxima ação</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -763,6 +814,7 @@ export default function EngajamentoPage() {
                         <td className="px-3 py-3"><PilulaSignal numero={2} recebeu={pessoa.recebeuP2} abriu={pessoa.abriuP2} formatos={pessoa.formatosP2} /></td>
                         <td className="px-3 py-3"><Consumo pessoa={pessoa} /></td>
                         <td className="px-3 py-3"><EntregaETutor pessoa={pessoa} /></td>
+                        <td className="min-w-[190px] px-3 py-3"><ProximaAcao pessoa={pessoa} /></td>
                       </tr>
                     );
                   })}

@@ -38,6 +38,17 @@ describe('engajamento por função', () => {
     expect(r.resumo.inscritos).toBe(3);
   });
 
+  it('semana selecionada exclui turmas que ainda não chegaram e preserva os filtros', async () => {
+    const r: any = await rollUpEngajamento('emp-1', 4);
+    expect(r.resumo.inscritos).toBe(1);
+    expect(r.colaboradores.map((c: any) => c.nome)).toEqual(['Caio']);
+    expect(r.semanas).toEqual([1, 2, 3, 4]);
+    expect(r.cargos).toContain('Professor(a)');
+    const semElegiveis: any = await rollUpEngajamento('emp-1', 4, null, 'Professor(a)');
+    expect(semElegiveis.resumo.inscritos).toBe(0);
+    expect(semElegiveis.semanas).toEqual([1, 2, 3, 4]);
+  });
+
   it('🔴 com filtro, o resumo desce da população recortada', async () => {
     const r: any = await rollUpEngajamento('emp-1', null, null, 'Professor(a)');
     expect(r.resumo.inscritos).toBe(2);

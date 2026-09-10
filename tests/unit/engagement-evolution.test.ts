@@ -183,14 +183,14 @@ describe('evolução semanal de engajamento', () => {
     }
   });
 
-  it('calcula risco por cargo e área antes do limite de 20 nomes prioritários', () => {
+  it('reconcilia risco por cargo e área com a lista completa de acompanhamento', () => {
     const dashboard = buildEngagementEvolutionDashboard({
       ...baseInput, events: [], progress: [],
       enrollments: Array.from({ length: 31 }, (_, i) => ({
         colaboradorId: String(i), nome: `Pessoa ${i}`, cargo: 'Professor', area: 'Educação', semanaAtual: 2,
       })),
     });
-    expect(dashboard.pessoasEmRisco).toHaveLength(20);
+    expect(dashboard.pessoasEmRisco).toHaveLength(31);
     expect(dashboard.cargos).toHaveLength(1);
     expect(dashboard.cargos[0]).toMatchObject({ participantes: 31, emRisco: 31, criticos: 31, riscoPct: 100 });
     expect(dashboard.areas[0].emRisco).toBe(31);

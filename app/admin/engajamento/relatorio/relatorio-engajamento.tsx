@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { getEngajamentoEmpresa, getEvolucaoEngajamentoEmpresa } from '@/actions/engajamento';
+import ReportPriorities from '@/components/engajamento/report-priorities';
+import { engagementDetailHref } from '@/lib/engajamento/prioridades';
 import type { EngagementEvolutionDashboard } from '@/lib/engagement-evolution';
 import { buildViews, type Audience, type Signal, type TrendPoint, type ReportView } from '@/lib/engajamento/relatorio-model';
 
@@ -71,7 +73,7 @@ function MetricDelta({ value }: { value: number }) {
 
 function EngagementThread({ data }: { data: ReportView }) {
   const steps = [
-    { label: 'Elegíveis', count: data.eligible, pct: 100, delta: null as number | null, color: '#77e7ee' },
+    { label: 'Elegíveis', count: data.eligible, pct: data.eligible ? 100 : 0, delta: null as number | null, color: '#77e7ee' },
     { label: 'Ativaram', count: data.activation.count, pct: data.activation.pct, delta: data.activation.delta, color: '#34c5cc' },
     { label: 'Consumiram', count: data.consumption.count, pct: data.consumption.pct, delta: data.consumption.delta, color: '#55d6a0' },
     { label: 'Evidenciaram', count: data.evidence.count, pct: data.evidence.pct, delta: data.evidence.delta, color: '#f4b740' },
@@ -89,7 +91,7 @@ function EngagementThread({ data }: { data: ReportView }) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-[var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300/70">
-            Fio de engajamento
+            Etapas da jornada
           </p>
           <h3 id="engagement-thread-title" className="mt-1 font-[var(--font-manrope)] text-lg font-semibold text-white">
             Onde o movimento perde força
@@ -113,44 +115,16 @@ function EngagementThread({ data }: { data: ReportView }) {
                   <div className="font-[var(--font-manrope)] text-base font-semibold tabular-nums" style={{ color: step.color }}>
                     {step.pct}%
                   </div>
-                  {step.delta != null && <MetricDelta value={step.delta} />}
+                  {step.delta != null && data.canCompare && <MetricDelta value={step.delta} />}
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        <svg
-          viewBox="0 0 880 82"
-          preserveAspectRatio="none"
-          className="mt-4 h-[82px] w-full"
-          role="img"
-          aria-label={`${data.eligible} elegíveis, ${data.activation.count} ativaram, ${data.consumption.count} consumiram e ${data.evidence.count} enviaram evidência`}
-        >
-          <defs>
-            <linearGradient id="engagement-flow-gradient" x1="0" x2="1">
-              <stop offset="0" stopColor="#77e7ee" />
-              <stop offset="0.55" stopColor="#34c5cc" />
-              <stop offset="0.78" stopColor="#55d6a0" />
-              <stop offset="1" stopColor="#f4b740" />
-            </linearGradient>
-            <filter id="engagement-flow-glow" x="-20%" y="-60%" width="140%" height="220%">
-              <feGaussianBlur stdDeviation="5" result="blur" />
-              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-          </defs>
-          <path
-            d="M 8 16 C 95 16, 150 23, 220 26 S 365 36, 440 39 S 585 46, 660 51 S 800 64, 872 67"
-            fill="none"
-            stroke="url(#engagement-flow-gradient)"
-            strokeWidth="11"
-            strokeLinecap="round"
-            filter="url(#engagement-flow-glow)"
-          />
-          {[{ x: 8, y: 16 }, { x: 220, y: 26 }, { x: 440, y: 39 }, { x: 660, y: 51 }, { x: 872, y: 67 }].map((point, index) => (
-            <circle key={index} cx={point.x} cy={point.y} r="4.5" fill="#07192f" stroke="#d9fbff" strokeWidth="2" />
-          ))}
-        </svg>
+        <div className="mt-4 grid grid-cols-4 gap-3" aria-hidden="true">
+          {steps.map((step) => <div key={step.label} className="h-2 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full" style={{ width: `${step.pct}%`, background: step.color }} /></div>)}
+        </div>
 
         {maior && (
           <div className="mt-2 flex items-center gap-2 text-xs text-rose-200/80">
@@ -170,7 +144,7 @@ function EngagementThread({ data }: { data: ReportView }) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-[var(--font-manrope)] text-sm font-semibold tabular-nums" style={{ color: step.color }}>{step.pct}%</span>
-                {step.delta != null && <MetricDelta value={step.delta} />}
+                {step.delta != null && data.canCompare && <MetricDelta value={step.delta} />}
               </div>
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-[10px] bg-white/[0.06]">
@@ -250,7 +224,7 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
                   {series.label}
                 </span>
                 <span className="font-[var(--font-manrope)] font-semibold text-white tabular-nums">
-                  {current}% <span className={current >= previous ? 'text-emerald-300' : 'text-rose-300'}>({signedDelta(current - previous)})</span>
+                  {current}% <span className={current >= previous ? 'text-emerald-300' : 'text-rose-300'}>({points.length > 1 ? signedDelta(current - previous) : 'sem comparação anterior'})</span>
                 </span>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-[10px] bg-white/[0.06]">
@@ -264,9 +238,9 @@ function TrendChart({ points }: { points: TrendPoint[] }) {
   );
 }
 
-function FocusList({ data }: { data: ReportView }) {
+function FocusList({ data, empresaId }: { data: ReportView; empresaId: string }) {
   return (
-    <section aria-labelledby="focus-title" className="h-full border-l border-white/[0.08] pl-0 lg:pl-7">
+    <section id="trajetorias-prioritarias" aria-labelledby="focus-title" className="h-full border-l border-white/[0.08] pl-0 lg:pl-7">
       <p className="font-[var(--font-manrope)] text-[10px] font-bold uppercase tracking-[0.2em] text-amber-200/70">
         Decisão
       </p>
@@ -274,7 +248,7 @@ function FocusList({ data }: { data: ReportView }) {
       <p className="mt-1 max-w-md text-xs leading-relaxed text-white/40">{data.focusSubtitle}</p>
 
       {data.focusItems.length === 0 ? (
-        <p className="mt-5 text-xs leading-relaxed text-white/40">Ninguém em acompanhamento nesta semana — bom sinal. O relatório volta a listar prioridades no próximo fechamento.</p>
+        <p className="mt-5 text-xs leading-relaxed text-white/40">Nenhuma trajetória crítica ou de atenção registrada na base de inscritos.</p>
       ) : (
         <div className="mt-5 divide-y divide-white/[0.07]">
           {data.focusItems.map((item, index) => {
@@ -294,6 +268,7 @@ function FocusList({ data }: { data: ReportView }) {
                     </span>
                   </div>
                   <p className="mt-2 text-xs leading-relaxed text-white/60">{item.reason}</p>
+                  {item.id && <Link href={engagementDetailHref(empresaId, item)} className="mt-2 inline-flex min-h-10 items-center gap-1 text-xs text-cyan-200 hover:underline">Ver sinais da pessoa <ArrowUpRight size={13} /></Link>}
                 </div>
               </div>
             );
@@ -358,6 +333,7 @@ export default function RelatorioEngajamento() {
       .then(([r, e]) => {
         if (!vivo) return;
         setRollup(r);
+        if (r.resumo && 'erro' in r.resumo && r.resumo.erro) throw new Error(String(r.resumo.erro));
         if (e.ok) {
           setEvolucao(e.data);
         } else {
@@ -387,9 +363,9 @@ export default function RelatorioEngajamento() {
   const semanaAtual = evolucao?.semanaAtual || evolucao?.semanas?.at(-1)?.semana || 0;
 
   const views = useMemo(() => {
-    if (loading || !rollup && !evolucao) return null;
+    if (loading || erro || !evolucao) return null;
     return buildViews({ empresaNome: companyName, rollup, evolucao });
-  }, [loading, rollup, evolucao, companyName]);
+  }, [loading, erro, rollup, evolucao, companyName]);
 
   const data = views?.[audience] || null;
 
@@ -400,7 +376,7 @@ export default function RelatorioEngajamento() {
   ), [empresaId]);
 
   const periodo = semanaAtual ? `Semana ${semanaAtual} · ${hoje}` : hoje;
-  const ritmoAtencao = (data?.risk.total || 0) > 0 || (data?.evidence.pct || 0) < 60;
+  const ritmoAtencao = Boolean(data?.priorities.length);
   const pdfHref = empresaId
     ? `/api/relatorios/engajamento/pdf?empresa=${encodeURIComponent(empresaId)}&publico=${audience}`
     : null;
@@ -460,7 +436,7 @@ export default function RelatorioEngajamento() {
           </div>
         )}
 
-        {empresaId && !loading && erro && !evolucao && !rollup?.resumo && (
+        {empresaId && !loading && erro && (
           <div className="flex items-start gap-3 rounded-[24px] border border-rose-300/20 bg-rose-400/[0.06] p-8 text-sm text-rose-100/80">
             <CircleAlert size={18} className="mt-0.5 shrink-0 text-rose-300" aria-hidden="true" />
             <div>
@@ -499,32 +475,27 @@ export default function RelatorioEngajamento() {
               </div>
             </header>
 
-            <div className="relative px-5 py-8 md:px-9 md:py-10">
-              <section className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-end">
+            <div className="relative px-5 py-5 md:px-9 md:py-6">
+              <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
                 <div>
-                  <div className="inline-flex items-center gap-2 text-[11px] font-semibold text-amber-200">
-                    <span className={`h-2 w-2 rounded-full ${ritmoAtencao ? 'bg-amber-300 shadow-[0_0_14px_rgba(244,183,64,.75)]' : 'bg-emerald-300 shadow-[0_0_14px_rgba(52,211,153,.75)]'}`} />
-                    {ritmoAtencao ? 'Ritmo em atenção' : 'Ritmo saudável'} · {data.scope}
-                  </div>
-                  <h2 className="mt-5 max-w-[820px] font-[var(--font-manrope)] text-[clamp(2rem,5vw,4.4rem)] font-semibold leading-[0.98] tracking-[-0.045em] text-white">
-                    {data.thesis}<br />
-                    <span className="font-[var(--font-serif)] font-normal italic tracking-[-0.02em] text-amber-200">{data.thesisAccent}</span>
-                  </h2>
-                  <p className="mt-5 max-w-2xl text-sm leading-6 text-white/55">{data.explanation}</p>
+                  <p className={`text-xs font-semibold ${ritmoAtencao ? 'text-amber-200' : 'text-cyan-200'}`}>{data.hasWeeklyData ? `Prioridade do fechamento · Semana ${data.week}` : 'Base semanal indisponível'}</p>
+                  <h2 className="mt-2 max-w-3xl font-[var(--font-manrope)] text-2xl font-semibold leading-tight tracking-tight text-white md:text-3xl">{data.thesis}</h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-6 text-white/70">{data.explanation}</p>
+                  <p className="mt-3 text-xs text-white/60">Base semanal: {data.eligible} elegíveis{data.canCompare ? ` · semana anterior: ${data.previousEligible}` : ' · sem comparação anterior disponível'}.</p>
+                  {data.previousEligible !== null && data.previousEligible !== data.eligible && <p className="mt-1 text-xs text-amber-200">A população elegível mudou. As taxas comparam grupos de tamanhos diferentes.</p>}
                 </div>
-
-                <aside className="border-l border-rose-300/25 pl-5" aria-label="Pessoas em risco">
-                  <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-rose-200/70">
-                    <CircleAlert size={13} aria-hidden="true" /> Requer acompanhamento
-                  </div>
-                  <div className="mt-3 flex items-end gap-3">
-                    <span className="font-[var(--font-manrope)] text-6xl font-semibold leading-none text-rose-200 tabular-nums">{data.risk.total}</span>
-                    <span className="pb-1.5 text-xs leading-5 text-white/45">{data.risk.critical} críticos<br />{data.risk.attention} em atenção</span>
-                  </div>
+                <aside className="rounded-xl border border-white/10 bg-white/[0.025] p-4" aria-label="Acompanhamento de todos os inscritos">
+                  <h3 className="text-xs font-semibold text-white/70">Trajetórias de todos os inscritos</h3>
+                  <p className="mt-2 text-3xl font-semibold tabular-nums text-white">{data.risk.total} <span className="text-xs font-normal text-white/60">de {data.enrolled}</span></p>
+                  <p className="mt-2 text-xs text-white/70">{data.risk.critical} críticos · {data.risk.attention} em atenção</p>
+                  <p className="mt-2 text-xs leading-relaxed text-white/60">Cada pessoa na sua semana atual. Este total usa uma base diferente do fechamento semanal.</p>
+                  <a href="#trajetorias-prioritarias" className="mt-3 inline-flex min-h-10 items-center text-xs text-cyan-200 hover:underline">Ver prioridades de acompanhamento</a>
                 </aside>
               </section>
 
-              <div className="mt-9">
+              <ReportPriorities key={audience} data={data} empresaId={empresaId} />
+
+              <div className="mt-1">
                 <EngagementThread data={data} />
               </div>
 
@@ -546,7 +517,7 @@ export default function RelatorioEngajamento() {
                   <TrendChart points={data.trend} />
                 </section>
 
-                <FocusList data={data} />
+                <FocusList data={data} empresaId={empresaId} />
               </div>
 
               <CargoBreakdown data={data} semana={semanaAtual} />
@@ -570,7 +541,7 @@ export default function RelatorioEngajamento() {
                 <div className="flex max-w-3xl items-start gap-3">
                   <ShieldCheck size={16} className="mt-0.5 shrink-0 text-cyan-200/70" aria-hidden="true" />
                   <p className="text-[11px] leading-relaxed text-white/35">
-                    Engajamento mede movimento na jornada, não desempenho. Os percentuais usam participantes previstos para o estágio no período e comparam snapshots semanais fechados. Nomes individuais nunca aparecem na mensagem do WhatsApp.
+                    Engajamento mede atividade na jornada. Crítico: sem atividade na primeira semana ou em duas semanas consecutivas. Atenção: índice abaixo de 40, semana sem atividade ou queda em relação à anterior. Índice: ativação 20 + consumo 30 + evidência 40 + tutor 10. As ações, os responsáveis e os prazos são sugestões para o acompanhamento da equipe.
                   </p>
                 </div>
                 <Link

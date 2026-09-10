@@ -1,8 +1,7 @@
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet, Svg, Line, Path, Circle, Link } from '@react-pdf/renderer';
 import { colors, pageStyles } from './styles';
-import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
-import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
+import { ReportSectionTitle } from './PdfReportCover';
 import type { ReportView } from '@/lib/engajamento/relatorio-model';
 
 const s = StyleSheet.create({
@@ -19,8 +18,9 @@ const s = StyleSheet.create({
   delta: { fontSize: 7, marginTop: 4 },
   risk: { backgroundColor: colors.melhorarBg, borderWidth: 1, borderColor: colors.melhorarBorder, borderRadius: 8, padding: 12, marginBottom: 12 },
   riskTitle: { fontSize: 10, fontWeight: 600, color: colors.orangeText, marginBottom: 5 },
-  focus: { borderWidth: 1, borderColor: colors.gray200, borderRadius: 7, padding: 12, marginBottom: 9 },
+  focus: { borderWidth: 1, borderColor: colors.gray200, borderRadius: 7, padding: 9, marginBottom: 7 },
   focusName: { fontSize: 10, fontWeight: 600, color: colors.navy, flex: 1 },
+  actionTitle: { fontSize: 10, fontWeight: 600, color: colors.navy, marginBottom: 4 },
   badge: { fontSize: 7, fontWeight: 600, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, marginLeft: 8 },
   subtitle: { fontSize: 8, color: colors.textMuted, marginTop: 4, marginBottom: 5 },
   secondary: { flex: 1, padding: 10, borderWidth: 1, borderColor: colors.gray200, borderRadius: 6 },
@@ -85,7 +85,7 @@ export default function RelatorioEngajamentoPDF({
   detailUrl: string;
 }) {
   const metrics = [
-    { label: 'Elegíveis', count: data.eligible, pct: 100, delta: null },
+    { label: 'Elegíveis', count: data.eligible, pct: data.eligible ? 100 : 0, delta: null },
     { label: 'Ativaram', ...data.activation },
     { label: 'Consumiram', ...data.consumption },
     { label: 'Evidenciaram', ...data.evidence },
@@ -105,18 +105,13 @@ export default function RelatorioEngajamentoPDF({
     </View>;
   }
   return <Document title={`Relatório de engajamento - ${empresaNome}`} author={mostrarVertho ? 'Vertho' : empresaNome}>
-    <PdfReportCover
-      bgBase64={getReportCoverBgBase64()} logoBase64={logoBase64} mostrarVertho={mostrarVertho}
-      titulo={['Engajamento', 'Semanal']} overline={data.eyebrow} nome={empresaNome}
-      cargo={period} mentorLabel={null} tagline="Do acompanhamento à ação."
-    />
     <Page size="A4" style={pageStyles.page}>
       <Header />
       <Text style={s.meta}>{empresaNome} · {period}</Text>
       <View style={s.section} wrap={false}>
         <ReportSectionTitle>Resumo executivo</ReportSectionTitle>
         <View style={s.box}>
-          <Text style={s.thesis}>{data.thesis} {data.thesisAccent}</Text>
+          <Text style={s.thesis}>{data.thesis}</Text>
           <Text style={s.text}>{data.explanation}</Text>
         </View>
       </View>
@@ -127,24 +122,25 @@ export default function RelatorioEngajamentoPDF({
             <Text style={s.count}>{metric.count}</Text>
             <Text style={s.label}>{metric.label}</Text>
             <Text style={s.text}>{metric.pct}% da base</Text>
-            {metric.delta !== null && <Text style={{ ...s.delta, color: metric.delta < 0 ? colors.flagRed : colors.textMuted }}>{delta(metric.delta)}</Text>}
+            {metric.delta !== null && data.canCompare && <Text style={{ ...s.delta, color: metric.delta < 0 ? colors.flagRed : colors.textMuted }}>{delta(metric.delta)}</Text>}
           </View>)}
         </View>
-        <Text style={{ ...s.caption, marginTop: 7 }}>Base elegível da semana {semana}: {data.eligible} participantes. Variações em pontos percentuais em relação ao fechamento anterior.</Text>
+        <Text style={{ ...s.caption, marginTop: 7 }}>Base elegível da semana {semana}: {data.eligible} participantes. {data.canCompare ? `Variações em pontos percentuais. Base anterior: ${data.previousEligible} pessoas.${data.previousEligible !== data.eligible ? ' A população elegível mudou entre as semanas.' : ''}` : 'Sem comparação anterior disponível.'}</Text>
       </View>
-      <View style={s.section} wrap={false}>
-        <ReportSectionTitle>Evolução semanal</ReportSectionTitle>
-        <Text style={s.caption}>Últimos fechamentos, com a mesma base e os mesmos critérios dos indicadores.</Text>
-        <Trend data={data} />
+      <View style={s.section}>
+        <ReportSectionTitle>Prioridades e plano de ação</ReportSectionTitle>
+        <Text style={{ ...s.caption, marginBottom: 8 }}>Grupos exclusivos da semana: {data.priorities.length ? data.priorities.map((item) => `${item.label}: ${item.count} (${item.pct}%)`).join(' · ') : 'nenhuma pendência registrada'}.</Text>
+        {data.actionPlan.map((action, index) => <View key={action.title} style={s.focus} wrap={false}>
+          <Text style={s.actionTitle}>{index + 1}. {action.title}</Text>
+          <Text style={{ ...s.text, marginTop: 5 }}>{action.description}</Text>
+          <Text style={{ ...s.caption, marginTop: 6 }}>Responsável sugerido: {action.owner} · Prazo sugerido: {action.deadline}</Text>
+        </View>)}
       </View>
-      <View style={s.section} wrap={false}>
-        <ReportSectionTitle>Sinais complementares</ReportSectionTitle>
-        <View style={s.row}>
-          {[[String(data.recovered), 'Recuperaram o ritmo'], [data.tutor, 'Usaram o Tira-Dúvidas'], [data.preferredFormat, 'Formato com maior adesão']].map(([value, text]) => <View key={text} style={s.secondary}>
-            <Text style={s.secondaryValue}>{value}</Text><Text style={s.caption}>{text}</Text>
-          </View>)}
-        </View>
+      <View style={s.risk} wrap={false}>
+        <Text style={s.riskTitle}>Acompanhamento geral: {data.risk.total} de {inscritos} inscritos</Text>
+        <Text style={s.text}>{data.risk.critical} críticos · {data.risk.attention} em atenção. Cada pessoa na sua semana atual; esta base é diferente dos {data.eligible} elegíveis do fechamento.</Text>
       </View>
+      <Link src={detailUrl.replace('&view=evolucao', '') + '#pessoas'} style={{ fontSize: 9, color: colors.linkBlue }}>Abrir a plataforma para revisar os sinais e orientar a próxima ação</Link>
       <Footer />
     </Page>
     <Page size="A4" style={pageStyles.page}>
@@ -176,11 +172,22 @@ export default function RelatorioEngajamentoPDF({
         </View>
         <Text style={s.cargoAction}><Text style={{ fontWeight: 600, color: colors.navy }}>Ação sugerida: </Text>{cargo.acao}</Text>
       </View>) : <Text style={s.text}>Sem dados por cargo disponíveis.</Text>}
+      <View style={{ ...s.section, marginTop: 15 }} wrap={false}>
+        <ReportSectionTitle>Como ler este relatório</ReportSectionTitle>
+        <Text style={s.text}>Crítico: ausência de atividade na primeira semana ou em duas semanas consecutivas. Atenção: semana sem atividade, índice abaixo de 40 ou queda em relação à anterior. Índice operacional: ativação 20 + consumo 30 + evidência 40 + tutor 10. Mede atividade na jornada.</Text>
+        <Text style={{ ...s.text, marginTop: 7 }}>A leitura de RH reúne prioridades por área e cargo; a do gestor permite acompanhamento nominal. O plano, os responsáveis e os prazos são sugestões para a equipe, sem atribuições ou envios automáticos.</Text>
+        <Link src={detailUrl} style={{ fontSize: 9, color: colors.linkBlue, marginTop: 12 }}>Ver dados detalhados na plataforma</Link>
+      </View>
       <Footer />
     </Page>
     <Page size="A4" style={pageStyles.page}>
       <Header />
       <Text style={s.meta}>{empresaNome} · {period}</Text>
+      <View style={s.section} wrap={false}>
+        <ReportSectionTitle>Evolução semanal</ReportSectionTitle>
+        <Text style={s.caption}>Percentuais sobre os elegíveis de cada semana. O tamanho da base pode mudar.</Text>
+        <Trend data={data} />
+      </View>
       <ReportSectionTitle>{data.focusTitle}</ReportSectionTitle>
       <Text style={{ ...s.text, marginBottom: 12 }}>{data.focusSubtitle}</Text>
       <View style={s.risk} wrap={false}>
@@ -196,12 +203,6 @@ export default function RelatorioEngajamentoPDF({
         <Text style={s.subtitle}>{item.context}</Text>
         <Text style={s.text}>{item.reason}</Text>
       </View>) : <Text style={s.text}>Ninguém em acompanhamento nesta semana.</Text>}
-      <View style={{ ...s.section, marginTop: 15 }} wrap={false}>
-        <ReportSectionTitle>Como ler este relatório</ReportSectionTitle>
-        <Text style={s.text}>Engajamento mede movimento na jornada, não desempenho. Ativação, consumo e evidência usam os participantes elegíveis de cada fechamento semanal. O uso do Tira-Dúvidas segue o último fechamento; o formato preferido considera o histórico de adesão.</Text>
-        <Text style={{ ...s.text, marginTop: 7 }}>A leitura de RH reúne prioridades por área e cargo. Cargos sem cadastro ficam em "Cargo não informado". A ação sugerida por cargo aponta a maior perda entre as etapas do fechamento; em empate, a primeira etapa. Os nomes individuais aparecem somente na leitura do gestor e no detalhe autenticado.</Text>
-        <Link src={detailUrl} style={{ fontSize: 9, color: colors.linkBlue, marginTop: 12 }}>Ver dados detalhados na plataforma</Link>
-      </View>
       <Footer />
     </Page>
   </Document>;

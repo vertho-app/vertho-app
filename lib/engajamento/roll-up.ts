@@ -114,8 +114,11 @@ export async function rollUpEngajamento(
    * no dia e diretores com 11%, somados num único 81 que não descreve nenhum
    * dos dois.
    */
-  const envios = cargo ? (enviosTodos as any[]).filter((e) => e.colaboradores?.cargo === cargo) : enviosTodos;
-  if (!envios?.length) return { resumo: { inscritos: 0 }, colaboradores: [], semanas: [1], cargos };
+  const enviosDaFuncao = cargo ? (enviosTodos as any[]).filter((e) => e.colaboradores?.cargo === cargo) : enviosTodos;
+  const semanasDisponiveis = Array.from({ length: Math.max(1, ...enviosTodos.map((e: any) => Number(e.semana_atual) || 1)) }, (_, i) => i + 1);
+  // Mesma elegibilidade do fechamento: quem ainda não chegou à semana não é pendência.
+  const envios = semFiltro ? enviosDaFuncao.filter((e: any) => (Number(e.semana_atual) || 1) >= semFiltro) : enviosDaFuncao;
+  if (!envios?.length) return { resumo: { inscritos: 0 }, colaboradores: [], semanas: semanasDisponiveis, cargos };
 
   // `semana_atual` é o RELÓGIO da cadência, não a posição individual. Para
   // dizer onde cada pessoa realmente está, carregamos a trilha mais recente e
@@ -330,8 +333,7 @@ export async function rollUpEngajamento(
     porFormato,
   };
 
-  const maxSemana = Math.max(1, ...(envios || []).map((e: any) => Number(e.semana_atual) || 1));
-  const semanas = Array.from({ length: maxSemana }, (_, i) => i + 1);
+  const semanas = semanasDisponiveis;
 
   return { resumo, colaboradores, semanas, cargos };
 }

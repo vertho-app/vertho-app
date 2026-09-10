@@ -1,4 +1,5 @@
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
+import type { EngagementBlocker } from '@/lib/engajamento/prioridades';
 export interface EngagementEnrollment {
   colaboradorId: string;
   nome: string;
@@ -90,6 +91,8 @@ export interface EngagementEvolutionDashboard {
   recuperados: number;
   emRisco: number;
   pessoasEmRisco: EngagementRiskPerson[];
+  /** Grupo exato do último fechamento; não mistura pessoas de semanas anteriores. */
+  pendenciasSemana?: Array<EngagementEnrollment & { pendencia: EngagementBlocker }>;
 }
 
 interface PersonWeekState {
@@ -141,12 +144,13 @@ function riskReason(
   currentScore: number,
   previousScore: number,
   currentTrajectory: EngagementTrajectory,
+  hasPrevious: boolean,
 ): string {
-  if (currentTrajectory === 'critical') return 'Sem atividade há duas semanas';
+  if (currentTrajectory === 'critical') return hasPrevious ? 'Sem atividade há duas semanas' : 'Sem atividade na primeira semana';
   if (!current.activated) return 'Sem atividade nesta semana';
   if (currentScore < previousScore) return `Queda de ${previousScore - currentScore} pontos`;
-  if (!current.evidence) return 'Ainda sem evidência prática';
   if (!current.consumed) return 'Consumo incompleto';
+  if (!current.evidence) return 'Ainda sem evidência prática';
   if (previous.activated && !current.activated) return 'Interrompeu a sequência';
   return 'Ritmo abaixo do esperado';
 }
@@ -203,6 +207,8 @@ export function buildEngagementEvolutionDashboard(input: {
   for (const event of input.events) {
     const week = Number(event.semana);
     if (!selectedIds.has(event.colaboradorId) || !Number.isFinite(week) || week < 1) continue;
+    // Chegada pelo canal e tentativa em semana trancada não são ativação.
+    if (!['abertura', 'formato', 'audio_fim'].includes(event.tipo || '')) continue;
     const state = getMutable(event.colaboradorId, week);
     state.activated = true;
     if (event.tipo === 'audio_fim') state.consumed = true;
@@ -352,6 +358,7 @@ export function buildEngagementEvolutionDashboard(input: {
           current.score,
           previous.score,
           currentTrajectory,
+          hasPrevious,
         ),
       });
     }
@@ -387,6 +394,12 @@ export function buildEngagementEvolutionDashboard(input: {
     trajetorias: trajectories,
     recuperados: recovered,
     emRisco: trajectories.attention + trajectories.critical,
-    pessoasEmRisco: riskPeople.slice(0, 20),
+    pessoasEmRisco: riskPeople,
+    pendenciasSemana: enrollments.filter((person) => person.semanaAtual >= maxWeek).flatMap((person) => {
+      const state = stateFor(person.colaboradorId, maxWeek);
+      if (state.evidence) return [];
+      const pendencia: EngagementBlocker = !state.activated ? 'ativacao' : !state.consumed ? 'consumo' : 'evidencia';
+      return [{ ...person, pendencia }];
+    }),
   };
 }
