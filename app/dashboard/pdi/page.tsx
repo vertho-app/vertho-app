@@ -9,9 +9,10 @@ import { loadPDI, baixarMeuPdiPdf } from './pdi-actions';
 import { PageContainer, PageHero } from '@/components/page-shell';
 import FirstViewVideo from '@/components/first-view-video';
 import { nivelOuNull } from '@/lib/nivel-regua';
+import { TUTORIAIS_PLATAFORMA } from '@/lib/tutorial-videos';
 
 // Vídeo tutorial do PDI (Bunny) — abre na 1ª vez que a pessoa recebe o PDI.
-const PDI_VIDEO_ID = 'b8a4534e-326a-4ba4-b638-befc63294dda';
+const PDI_VIDEO_ID = TUTORIAIS_PLATAFORMA.pdi.guid;
 
 const nivelColor = n => n >= 4 ? '#10B981' : n >= 3 ? '#06B6D4' : n >= 2 ? '#F59E0B' : '#EAB308';
 const nivelBg    = n => n >= 4 ? 'rgba(16,185,129,0.15)' : n >= 3 ? 'rgba(6,182,212,0.15)' : n >= 2 ? 'rgba(245,158,11,0.15)' : 'rgba(234,179,8,0.15)';

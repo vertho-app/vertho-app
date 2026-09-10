@@ -5,6 +5,7 @@ import { resolveTenantFromHeaders } from '@/lib/tenant-resolver';
 import { resolveTheme } from '@/lib/ui-resolver';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { isVideoPublico, resolverSlugPublico } from '@/lib/videos-publicos';
+import { resolverVersaoTutorial } from '@/lib/tutorial-videos';
 import LoginRedirect from './LoginRedirect';
 
 export const dynamic = 'force-dynamic';
@@ -53,7 +54,7 @@ export async function generateMetadata({ params }: { params: Promise<{ videoId: 
   const tenant = await resolveTenantFromHeaders(await headers());
   // O apelido curto tem que resolver AQUI também: é o endereço que a pessoa
   // recebe, e é dele que sai o preview do WhatsApp.
-  const videoId = resolverSlugPublico(param, tenant?.slug) || param;
+  const videoId = resolverVersaoTutorial(resolverSlugPublico(param, tenant?.slug) || param);
   if (!GUID_RE.test(videoId)) return { title: 'Vídeo' };
 
   const tenantName = tenant?.nome || 'Vertho';
@@ -94,7 +95,7 @@ export default async function VideoPage({ params }: { params: Promise<{ videoId:
 
   // Apelido curto (/v/boas-vindas) → GUID, dentro do tenant. O GUID continua
   // funcionando direto; o slug é só um endereço mais amigável pro convite.
-  const videoId = resolverSlugPublico(param, tenant?.slug) || param;
+  const videoId = resolverVersaoTutorial(resolverSlugPublico(param, tenant?.slug) || param);
   const valid = GUID_RE.test(videoId);
 
   // Vídeo de convite/boas-vindas: quem recebe ainda NÃO tem acesso, então o

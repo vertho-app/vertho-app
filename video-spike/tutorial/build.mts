@@ -9,10 +9,12 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FLOWS, type Flow, type Cut } from './storyboard';
+import { validarClipsTutorial, clipAtual, sha256, type TutorialAudioManifest } from './narration-config';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = path.join(HERE, 'out');
-const DEST = path.join(HERE, '..', 'remotion-tutorial', 'tutorial-active.json');
+const OUT_DIR = path.resolve(process.env.TUTORIAL_OUT_DIR || path.join(HERE, 'out'));
+const FRAMES_DIR = path.resolve(process.env.TUTORIAL_FRAMES_DIR || OUT_DIR);
+const PUBLIC_DIR = path.resolve(process.env.TUTORIAL_PUBLIC_DIR || path.join(HERE, '../..', 'public', 'video-spike'));
 
 const FPS = 30, W = 1920, H = 1080;
 const LEAD = 0.4, TAIL = 0.8, INTRO_S = 0, OUTRO_S = 3.0, MAX_WORDS = 9; // sem cartela silenciosa: a abertura narrada (beat) abre
@@ -58,21 +60,22 @@ function toCues(text: string, audioSec: number, leadFrames: number) {
 }
 
 function build(flow: Flow, cut: Cut) {
-  const framesRaw = JSON.parse(readFileSync(path.join(OUT_DIR, `${flow.id}.frames.json`), 'utf8')) as {
+  const framesRaw = JSON.parse(readFileSync(path.join(FRAMES_DIR, `${flow.id}.frames.json`), 'utf8')) as {
     frames: Record<string, { image: string; bbox: Box | null }>;
   };
-  const audioRaw = JSON.parse(readFileSync(path.join(OUT_DIR, `${flow.id}.audio.json`), 'utf8')) as {
-    clips: Array<{ id: string; audio: string; seconds: number }>;
-  };
-  const audioBy = new Map(audioRaw.clips.map((c) => [c.id, c]));
+  const audioRaw = JSON.parse(readFileSync(path.join(OUT_DIR, `${flow.id}.audio.json`), 'utf8')) as TutorialAudioManifest;
+  const chosen = flow.steps.filter((s) => s.cuts.includes(cut));
+  if (!chosen.length) throw new Error(`Corte sem etapas: ${flow.id}/${cut}`);
+  const audioBy = validarClipsTutorial({ id: flow.id, steps: chosen }, audioRaw);
+  if (sha256(readFileSync(path.join(PUBLIC_DIR, audioRaw.source.audio))) !== audioRaw.source.sha256) throw new Error('Take contínuo alterado após QA');
 
   const ritmo = RITMO[flow.id] || { lead: LEAD, tail: TAIL, outro: OUTRO_S };
-  const chosen = flow.steps.filter((s) => s.cuts.includes(cut));
   const introFrames = f(INTRO_S), outroFrames = f(ritmo.outro);
   let cursor = introFrames;
 
   const steps = chosen.map((step, i) => {
     const au = audioBy.get(step.id)!;
+    if (!clipAtual(au, au.key, readFileSync(path.join(PUBLIC_DIR, au.audio)))) throw new Error(`MP3 alterado após QA: ${step.id}`);
     const leadFrames = f(ritmo.lead);
     const audioFrames = f(au.seconds);
     const durationInFrames = leadFrames + audioFrames + f(ritmo.tail);
@@ -81,6 +84,8 @@ function build(flow: Flow, cut: Cut) {
 
     const isCartela = step.kind === 'cartela';
     const fr = !isCartela ? framesRaw.frames[step.captureId!] : undefined;
+    if (!isCartela && !fr?.image) throw new Error(`Captura ausente: ${flow.id}/${step.captureId}`);
+    if (fr?.image) readFileSync(path.join(PUBLIC_DIR, fr.image)); // falhar antes de gastar render
 
     return {
       id: step.id, index: i + 1, total: chosen.length,
@@ -107,8 +112,11 @@ function build(flow: Flow, cut: Cut) {
     steps,
   };
 
-  mkdirSync(path.dirname(DEST), { recursive: true });
-  writeFileSync(DEST, JSON.stringify(data, null, 2));
+  const dest = process.env.TUTORIAL_TIMELINE_DIR
+    ? path.resolve(process.env.TUTORIAL_TIMELINE_DIR, `${flow.id}.${cut}.timeline.json`)
+    : path.join(HERE, '..', 'remotion-tutorial', 'tutorial-active.json');
+  mkdirSync(path.dirname(dest), { recursive: true });
+  writeFileSync(dest, JSON.stringify(data, null, 2));
   console.log(`build "${flow.id}" corte "${cut}" → ${steps.length} beats · ${totalFrames}f (${(totalFrames / FPS).toFixed(1)}s)`);
 }
 

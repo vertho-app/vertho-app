@@ -1,7 +1,7 @@
 /**
  * Storyboard do vídeo canônico do Mapeamento (DISC), natural-only.
  *
- * UMA captura/narração (voz Achird/Beto) é a fonte; os CORTES selecionam beats:
+ * UMA captura/narração (Beto do elenco atual) é a fonte; os CORTES selecionam beats:
  *   - 'app'   → corte enxuto (~75-90s), foco em "como responder" (tela de abertura do /mapeamento)
  *   - 'ajuda' → corte completo (~2-2.5min), contexto + como responder + resultado (central de ajuda)
  *

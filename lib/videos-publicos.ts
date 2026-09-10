@@ -21,6 +21,8 @@
  * logo certa e o conteúdo errado — e ninguém veria, porque a página carrega
  * normalmente. O GUID continua valendo em qualquer host.
  */
+import { TUTORIAIS_PLATAFORMA, resolverVersaoTutorial } from '@/lib/tutorial-videos';
+
 export type VideoPublico = {
   /** GUID no Bunny Stream (library BUNNY_LIBRARY_ID). */
   guid: string;
@@ -34,7 +36,7 @@ export type VideoPublico = {
 
 export const VIDEOS_PUBLICOS: VideoPublico[] = [
   {
-    guid: '482e3eab-65bd-4e0d-98d6-1f2af6141071',
+    guid: TUTORIAIS_PLATAFORMA.boasvindasUniAnchieta.guid,
     tenant: 'unianchieta',
     slug: 'boas-vindas',
     // Enviado por WhatsApp no convite, antes do primeiro acesso. Gravado com
@@ -42,7 +44,7 @@ export const VIDEOS_PUBLICOS: VideoPublico[] = [
     motivo: 'Convite de boas-vindas — assistido antes de existir login',
   },
   {
-    guid: '747c65a8-1764-46c0-95d4-f9fb40873341',
+    guid: TUTORIAIS_PLATAFORMA.boasvindasMacae.guid,
     tenant: 'macae',
     slug: 'boas-vindas',
     // Mesma exceção da UniAnchieta, tenant diferente: o link vai na mensagem do
@@ -58,7 +60,7 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,48}$/;
 
 /** O vídeo pode ser assistido sem sessão? (recebe SEMPRE um GUID) */
 export function isVideoPublico(guid: string): boolean {
-  const alvo = (guid || '').toLowerCase();
+  const alvo = resolverVersaoTutorial((guid || '').toLowerCase());
   return VIDEOS_PUBLICOS.some((v) => v.guid === alvo);
 }
 

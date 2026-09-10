@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { VIDEOS_PUBLICOS, isVideoPublico, resolverSlugPublico } from '@/lib/videos-publicos';
 import { JORNADA_VIDEO_ID, APLICACAO_VIDEO_ID, CONCLUSAO_VIDEO_ID } from '@/lib/season-engine/programa-config';
+import { TUTORIAIS_PLATAFORMA, resolverVersaoTutorial } from '@/lib/tutorial-videos';
 
 /**
  * GUIDs dos tutoriais que vivem DENTRO do produto (Bunny library 636615).
@@ -18,6 +19,9 @@ import { JORNADA_VIDEO_ID, APLICACAO_VIDEO_ID, CONCLUSAO_VIDEO_ID } from '@/lib/
  * tiverem, entram aqui pelo mesmo caminho.
  */
 const TUTORIAIS_PRIVADOS = [
+  TUTORIAIS_PLATAFORMA.discApp.guid,
+  TUTORIAIS_PLATAFORMA.discAjuda.guid,
+  TUTORIAIS_PLATAFORMA.pdi.guid,
   '89812149-0c2e-4299-b1ba-3f27013aba25', // disc-app
   'a352dbdf-4515-45ba-8797-72f62798402c', // disc-ajuda
   JORNADA_VIDEO_ID,                        // jornada (e, por reuso, a semana trancada)
@@ -25,9 +29,24 @@ const TUTORIAIS_PRIVADOS = [
   APLICACAO_VIDEO_ID,                      // semana de missão
 ];
 
-const BOASVINDAS_UNIANCHIETA = '482e3eab-65bd-4e0d-98d6-1f2af6141071';
+const BOASVINDAS_UNIANCHIETA = TUTORIAIS_PLATAFORMA.boasvindasUniAnchieta.guid;
 
 describe('allowlist de vídeos públicos', () => {
+  it('preserva links antigos sem trocar sua condição de acesso', () => {
+    for (const tutorial of Object.values(TUTORIAIS_PLATAFORMA)) {
+      for (const guid of [tutorial.guid, ...tutorial.anteriores]) {
+        expect(resolverVersaoTutorial(guid)).toBe(tutorial.guid);
+        expect(isVideoPublico(guid)).toBe(isVideoPublico(tutorial.guid));
+      }
+    }
+    expect(isVideoPublico('a352dbdf-4515-45ba-8797-72f62798402c')).toBe(false);
+    expect(isVideoPublico('482e3eab-65bd-4e0d-98d6-1f2af6141071')).toBe(true);
+  });
+  it('um GUID nunca pertence a dois tutoriais', () => {
+    const ids = Object.values(TUTORIAIS_PLATAFORMA).flatMap(v => [v.guid,...v.anteriores]);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(resolverVersaoTutorial('guid-desconhecido')).toBe('guid-desconhecido');
+  });
   it('libera o vídeo de boas-vindas (quem recebe ainda não tem acesso)', () => {
     expect(isVideoPublico(BOASVINDAS_UNIANCHIETA)).toBe(true);
   });

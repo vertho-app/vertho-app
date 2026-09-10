@@ -7,6 +7,8 @@
  * O template Onboarding entra na Fase 2.
  */
 
+import { TUTORIAIS_PLATAFORMA } from '@/lib/tutorial-videos';
+
 export type ProgramaModo = 'regular' | 'onboarding' | 'piloto';
 export type ComplexidadeMissao = 'simples' | 'intermediario' | 'completo';
 export type FaseCarreira = 'junior' | 'pleno' | 'senior';
@@ -16,7 +18,7 @@ export type FaseCarreira = 'junior' | 'pleno' | 'senior';
  * mesma tela, mesma mecânica, então a narração não cita número de semana.
  * Usado no week page (FirstViewVideo) e no envio de segunda do triggerDiario.
  */
-export const APLICACAO_VIDEO_ID = '80f4da74-4384-419f-aab8-89ed346e7b5b';
+export const APLICACAO_VIDEO_ID = TUTORIAIS_PLATAFORMA.aplicacao.guid;
 
 /**
  * Tutorial da JORNADA semanal — abre na 1ª visita à lista de semanas
@@ -52,7 +54,7 @@ export const APLICACAO_VIDEO_ID = '80f4da74-4384-419f-aab8-89ed346e7b5b';
  * ar — a mesma ordem que o `semana_pendente_v2` seguiu em relação ao v1 na
  * Meta. Apagar primeiro deixa sem os dois se algo falhar.
  */
-export const JORNADA_VIDEO_ID = '64c4f43d-7c5d-4b1e-9433-725a1dddbf34';
+export const JORNADA_VIDEO_ID = TUTORIAIS_PLATAFORMA.jornada.guid;
 
 /**
  * Tutorial do que CONCLUI uma semana — mostrado na tela de semana trancada.

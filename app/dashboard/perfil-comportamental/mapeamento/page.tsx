@@ -12,6 +12,7 @@ import VideoModal from '@/components/video-modal';
 import BackButton from '@/components/back-button';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { normalizarDisc, computeLeadership, deriveProfile } from '@/lib/disc-mapeamento';
+import { TUTORIAIS_PLATAFORMA } from '@/lib/tutorial-videos';
 
 /* ───────────────────── DATA ───────────────────── */
 
@@ -65,7 +66,7 @@ const TOTAL_STEPS = RANKING_GROUPS.length + FORCED_PAIRS.length + 1;
 // Vídeo de instruções do mapeamento (Bunny Stream, library 636615).
 const BUNNY_LIBRARY = 636615;
 // v3 HD (1232x720): mesma edição da v2, em 1500 kbps. Capa GLOBAL (sem município).
-const INSTRUCTIONS_VIDEO_ID = 'a352dbdf-4515-45ba-8797-72f62798402c'; // Tutorial DISC completo (Bunny 636615)
+const INSTRUCTIONS_VIDEO_ID = TUTORIAIS_PLATAFORMA.discAjuda.guid;
 // Bump quando trocar o thumbnail no Bunny (busta o cache de edge da capa).
 const INSTRUCTIONS_THUMB_V = '5';
 

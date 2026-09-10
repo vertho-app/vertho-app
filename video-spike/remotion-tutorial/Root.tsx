@@ -16,6 +16,10 @@ export const RemotionRoot: React.FC = () => {
       width={d.width}
       height={d.height}
       defaultProps={d as unknown as Record<string, unknown> as TutorialData}
+      calculateMetadata={({ props }) => ({
+        durationInFrames: props.totalFrames, fps: props.fps,
+        width: props.width, height: props.height,
+      })}
     />
   );
 };

@@ -1,92 +1,61 @@
 /**
- * Gera a narração (voz Achird / Beto) de cada etapa do storyboard via o TTS da
- * marca (generateNarrationAudio → PCM Gemini + DSP → MP3). Mede a duração real
- * com ffprobe e grava `out/<flow>.audio.json`.
- *
- * Rodar:  npx tsx video-spike/tutorial/narrate.mts disc
+ * Tutorial genérico: um take contínuo do Beto atual, via Vertex, QA fechado.
+ * Não sintetize cada beat separadamente: isso sorteia um registro a cada tela.
+ * Depois: transcribe.py <mp3> → align.mts <flow> → build/render.
+ * Cache por texto + perfil completo + hash do arquivo, nunca só existência.
+ * --force cria outro take sem apagar o anterior.
+ * TUTORIAL_ENV_FILE / TUTORIAL_OUT_DIR / TUTORIAL_PUBLIC_DIR: worktree isolada.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FLOWS, type Flow } from './storyboard';
+import { FLOWS } from './storyboard';
+import { perfilTutorial, chaveNarracao, sha256, type TutorialNarration } from './narration-config';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(HERE, '../..');
-const PUBLIC_DIR = path.join(APP_ROOT, 'public', 'video-spike');
-const OUT_DIR = path.join(HERE, 'out');
-const VOICE = process.env.TUTORIAL_VOICE || 'Achird'; // Beto
-// A direção de estilo precisa CASAR com a voz masculina — senão o default da lib
-// ('voz feminina… mentora') briga com o timbre do Achird e a voz deriva (às vezes
-// puxa pro feminino) a cada segmento gerado.
-const STYLE_PADRAO = 'Narre em português do Brasil com voz masculina, grave e firme, tom de mentor experiente, seguro e sereno, dicção clara e ritmo constante, sem variação de gênero';
-
-// Direção de interpretação POR FLOW. Fica no código, não em env: a narração é
-// congelada por beat e regenerada aos pedaços — se o estilo viver só na variável
-// de ambiente, quem regerar um beat amanhã sem exportá-la reintroduz o tom antigo
-// e a voz muda no meio do vídeo.
-// `macae`: o take padrão ("grave, sereno, ritmo constante") soou desmotivado ao
-// dono — para um convite de boas-vindas o tom tem que levantar no fim.
-const STYLE_POR_FLOW: Record<string, string> = {
-  macae: 'Narre em português do Brasil com voz masculina, inspiradora e convidativa, tom de treinador que acredita em quem ouve. Comece acolhedor e ganhe energia ao longo da frase, terminando com convicção e otimismo. Dicção clara, sem dureza. Sem variação de gênero.',
-};
-
-const STYLE = process.env.TUTORIAL_STYLE || STYLE_POR_FLOW[process.argv[2] || ''] || STYLE_PADRAO;
-
-const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
-
-// .env.local → process.env (o TTS lê TTS_BACKEND/GOOGLE_SERVICE_ACCOUNT_JSON/etc.)
-for (const line of readFileSync(path.join(APP_ROOT, '.env.local'), 'utf8').split(/\r?\n/)) {
-  const i = line.indexOf('=');
-  if (i < 0) continue;
-  const k = line.slice(0, i).trim();
-  if (!process.env[k]) process.env[k] = line.slice(i + 1).trim().replace(/^"|"$/g, '');
-}
-
-function probeDuration(file: string): number {
-  const out = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', file], { encoding: 'utf8' });
-  return parseFloat(out.trim());
-}
-
-async function narrateFlow(flow: Flow) {
-  // import tardio: só depois de carregar o .env
-  const { generateNarrationAudio } = await import('../../lib/gemini-tts');
-  const audioDir = path.join(PUBLIC_DIR, 'tutorial', flow.id, 'audio');
-  mkdirSync(audioDir, { recursive: true });
-  mkdirSync(OUT_DIR, { recursive: true });
-
-  // Nome ESTÁVEL por beat (não por índice): reordenar o storyboard não muda o
-  // arquivo → o congelamento (skip se já existe) sobrevive a inclusões de beats.
-  // `--force` regenera tudo. O TTS é não-determinístico: congelar evita a voz
-  // "variar" entre renders quando só se acrescenta um beat.
-  const FORCE = process.argv.includes('--force');
-  const clips: Array<{ id: string; audio: string; seconds: number }> = [];
-  for (const step of flow.steps) {
-    const rel = `tutorial/${flow.id}/audio/${step.id}.mp3`;
-    const abs = path.join(PUBLIC_DIR, rel);
-    if (existsSync(abs) && !FORCE) {
-      clips.push({ id: step.id, audio: rel, seconds: probeDuration(abs) });
-      log(`· ${step.id.padEnd(14)} mantido (take congelado)`);
-      continue;
-    }
-    const t0 = Date.now();
-    const audio = await generateNarrationAudio(step.narration, { voice: VOICE, style: STYLE });
-    writeFileSync(abs, audio.buffer);
-    clips.push({ id: step.id, audio: rel, seconds: probeDuration(abs) });
-    log(`✓ ${step.id.padEnd(14)} ${probeDuration(abs).toFixed(1)}s  (gerado em ${((Date.now() - t0) / 1000).toFixed(1)}s)`);
-  }
-
-  const outPath = path.join(OUT_DIR, `${flow.id}.audio.json`);
-  writeFileSync(outPath, JSON.stringify({ flow: flow.id, voice: VOICE, clips }, null, 2));
-  log(`manifesto → ${path.relative(APP_ROOT, outPath)}`);
-}
+const PUBLIC_DIR = path.resolve(process.env.TUTORIAL_PUBLIC_DIR || path.join(APP_ROOT, 'public', 'video-spike'));
+const OUT_DIR = path.resolve(process.env.TUTORIAL_OUT_DIR || path.join(HERE, 'out'));
+const envFile = process.env.TUTORIAL_ENV_FILE || path.join(APP_ROOT, '.env.local');
+if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 async function main() {
-  const flowId = process.argv[2] || 'disc';
-  const flow = FLOWS[flowId];
-  if (!flow) throw new Error(`flow desconhecido: ${flowId}`);
-  log(`narração do flow "${flow.id}" · voz ${VOICE} · backend ${process.env.TTS_BACKEND || 'aistudio'}`);
-  await narrateFlow(flow);
+  const flow = FLOWS[process.argv[2] || 'disc'];
+  if (!flow) throw new Error('Tutorial desconhecido');
+  if (process.argv.some(a => a.startsWith('--only='))) throw new Error('Narre o tutorial inteiro, não beats isolados');
+  const profile = perfilTutorial(flow.id);
+  if (process.env.TUTORIAL_VOICE && process.env.TUTORIAL_VOICE !== profile.voice) throw new Error('TUTORIAL_VOICE diverge do elenco atual do Beto');
+  if (process.env.TUTORIAL_STYLE && process.env.TUTORIAL_STYLE !== profile.style) throw new Error('Direção deve ser versionada em narration-config.ts');
+  process.env.TTS_BACKEND = profile.backend;
+  process.env.GEMINI_TTS_VERTEX_MODEL = profile.model;
+  process.env.TTS_QA_GATE = 'on';
+  const text = flow.steps.map(s => s.narration).join('\n\n');
+  const key = chaveNarracao(flow.id, 'continuous', text, profile);
+  mkdirSync(OUT_DIR, { recursive: true });
+  const outPath = path.join(OUT_DIR, `${flow.id}.narration.json`);
+  const old: TutorialNarration | null = existsSync(outPath) ? JSON.parse(readFileSync(outPath, 'utf8')) : null;
+  if (!process.argv.includes('--force') && old?.schema === 3 && old.key === key && old.qa?.ok
+    && existsSync(path.join(PUBLIC_DIR, old.audio)) && sha256(readFileSync(path.join(PUBLIC_DIR, old.audio))) === old.sha256) {
+    console.log(`${flow.id}: take contínuo atual aprovado mantido`); return;
+  }
+  console.log(`${flow.id} · ${profile.voice} · ${profile.model} · Vertex · contínuo, sem saudação nominal`);
+  const { generateNarrationAudio } = await import('../../lib/gemini-tts');
+  const result = await generateNarrationAudio(text, {
+    voice: profile.voice, style: profile.style, segmentar: false,
+    tentativas: profile.tentativas, retakeParalelo: false,
+    ledger: { feature: 'tts_tutorial', artifactKey: `tutorial:${flow.id}:continuous:${key}` },
+  });
+  if (!result.qa?.ok) throw new Error('Áudio sem aprovação explícita do QA');
+  const audio = `tutorial/${flow.id}/audio/continuous-${key.slice(0, 12)}-${randomUUID().slice(0, 8)}.mp3`;
+  const abs = path.join(PUBLIC_DIR, audio);
+  mkdirSync(path.dirname(abs), { recursive: true });
+  writeFileSync(abs, result.buffer, { flag: 'wx' });
+  const seconds = Number(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', abs], { encoding: 'utf8', windowsHide: true }).trim());
+  if (!Number.isFinite(seconds) || seconds <= 0) throw new Error('Áudio sem duração');
+  const manifest: TutorialNarration = { schema: 3, flow: flow.id, profile, text, key, audio, seconds, sha256: sha256(result.buffer), qa: result.qa, createdAt: new Date().toISOString() };
+  writeFileSync(outPath, JSON.stringify(manifest, null, 2));
+  console.log(`APROVADO ${flow.id} ${seconds.toFixed(1)}s → ${abs}`);
 }
-
-main().catch((e) => { console.error('ERRO:', e?.message || e); process.exit(1); });
+main().catch(e => { console.error('ERRO:', e?.message || e); process.exitCode = 1; });
