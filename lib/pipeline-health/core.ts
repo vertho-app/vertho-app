@@ -324,6 +324,20 @@ export async function rodarEstrutural(): Promise<ResultadoCheck> {
     // gastar render num módulo que nenhum core usa.
     achados.push(...checarCelulaVideoEmError(await coletarCelulasVideoSemDeck(sb, reais)));
 
+    const contarPublicacoes = async (idadeMs: number) => {
+      const { count, error } = await sb.from('video_publicacoes')
+        .select('id,cell:videos_gerados!inner(empresa_id)', { count: 'exact', head: true })
+        .in('cell.empresa_id', [...reais]).in('estado', ['pendente', 'erro'])
+        .or(`estado.eq.erro,created_at.lt.${new Date(Date.now() - idadeMs).toISOString()}`);
+      if (error) throw new Error(`video_publicacoes: ${error.message}`);
+      return count || 0;
+    };
+    const [atrasadas, falhadas] = await Promise.all([contarPublicacoes(15 * 60_000), contarPublicacoes(2 * 3600_000)]);
+    achados.push(achado('video-publicacao-bunny', falhadas ? 'critico' : 'aviso',
+      'Vídeos enviados aguardando publicação no Bunny', atrasadas,
+      'Contagem de arquivos, não pessoas. A versão anterior continua disponível; upload aceito não significa encode reproduzível.',
+      { acao: 'O cron publicar_videos confere a fila a cada 5 minutos. Ver o estado no Bunny; não re-renderizar para esperar a codificação.' }));
+
     // R17: o cron de reconciliação consegue subir um worker? Lê AMBIENTE (como R8/R11b)
     // porque o rastro em tabela é ambíguo: sem box, `reconciliarPersonalizados` desfaz o
     // enfileiramento e o cron reporta "0 reenfileiradas" — igual a um dia sem lacuna.

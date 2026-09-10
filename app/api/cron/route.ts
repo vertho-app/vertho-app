@@ -294,6 +294,12 @@ export async function GET(req) {
       // coorte no instante do render e não há re-disparo. Aqui a lacuna é detectada
       // e a célula volta à fila; `personalizeCell` pula quem já está 'done'.
       // `limite` contém o custo: cada célula reconciliada custa um render de deck.
+      case 'publicar_videos': {
+        const { publicarVideosProntos } = await import('@/lib/video/publicacoes-bunny');
+        result = await publicarVideosProntos();
+        if (result.falhas) throw new Error(`Publicação Bunny: ${result.falhas} falha(s); versões anteriores preservadas`);
+        break;
+      }
       case 'reconciliar_videos': {
         const { reconciliarPersonalizados } = await import('@/lib/video/reconciliar-personalizados');
         const limite = parseInt(searchParams.get('limite') || process.env.RECONCILIAR_VIDEOS_LIMITE || '3', 10);

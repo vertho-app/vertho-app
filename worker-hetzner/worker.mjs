@@ -18,6 +18,7 @@ import { readFile, access, rm } from 'node:fs/promises';
 import { ensureBrowser, selectComposition, renderMedia } from '@remotion/renderer';
 import { personalizar, primeiroNome } from './personalizar.mjs';
 import { masterizarAudio } from './masterizar-audio.mjs';
+import { registrarPublicacao, confirmarPublicacoes } from './publicacao-bunny.mjs';
 
 const {
   DATABASE_URL,
@@ -183,12 +184,12 @@ async function personalizeCell(job, deckPath) {
       const buf = await readFile(outPath);
       const guid = await uploadToBunny(buf, `${nome} · ${job.id}`);
       const videoUrl = `https://iframe.mediadelivery.net/play/${BUNNY_LIB}/${guid}`;
-      await pool.query(
-        `UPDATE videos_personalizados SET status='done', video_url=$3, bunny_video_id=$4, bunny_library=$5, deck_fingerprint=$6, error=null, updated_at=now()
-         WHERE cell_video_id=$1 AND colaborador_id=$2`,
-        [job.id, c.id, videoUrl, guid, BUNNY_LIB, job.render_fingerprint]);
+      const publicacaoId = await registrarPublicacao(pool, { cellVideoId: job.id, colaboradorId: c.id,
+        bunnyId: guid, library: BUNNY_LIB, url: videoUrl, fingerprint: job.render_fingerprint,
+        altura: Math.round(job.render_inputprops.height * (job.render_scale || Number(VIDEO_RENDER_SCALE))) });
+      await confirmarPublicacoes(pool, { ids: [publicacaoId] }).catch(e => log('publicação seguirá no cron:', e?.message));
       await rm(outPath, { force: true }).catch(() => {});
-      ok++; log(`  ✓ ${nome} → ${guid}`);
+      ok++; log(`  ✓ upload ${nome} → ${guid} (publicação confirmada pelo Bunny/cron)`);
     } catch (e) {
       err++; log(`  ✗ ${nome} (${c.id}): ${e?.message || e}`);
       await pool.query("UPDATE videos_personalizados SET status=CASE WHEN status='done' THEN 'done' ELSE 'error' END, error=$3, updated_at=now() WHERE cell_video_id=$1 AND colaborador_id=$2",
@@ -272,11 +273,10 @@ async function renderOne(job) {
 
   const guid = await uploadToBunny(buf, title);
   const videoUrl = `https://iframe.mediadelivery.net/play/${BUNNY_LIB}/${guid}`;
-  await pool.query(
-    `UPDATE videos_gerados SET status='done', etapa='upload', video_url=$2, bunny_video_id=$3, bunny_library=$4, error=null, updated_at=now() WHERE id=$1`,
-    [job.id, videoUrl, guid, BUNNY_LIB],
-  );
-  log(`DONE ${job.id} → ${videoUrl}`);
+  const publicacaoId = await registrarPublicacao(pool, { cellVideoId: job.id, bunnyId: guid,
+    library: BUNNY_LIB, url: videoUrl, fingerprint: job.render_fingerprint, altura: Math.round(props.height * scale) });
+  await confirmarPublicacoes(pool, { ids: [publicacaoId] }).catch(e => log('publicação seguirá no cron:', e?.message));
+  log(`UPLOAD ${job.id} → ${videoUrl} (publicação confirmada pelo Bunny/cron)`);
 
   // Personalização nominal (Rota A): prepend "Olá, {nome}" por colaborador da
   // célula, na própria box (sobre o deck JÁ masterizado em `final`). Falha aqui

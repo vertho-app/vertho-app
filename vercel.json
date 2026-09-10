@@ -41,6 +41,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron?action=publicar_videos",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron?action=preparar_desafios",
       "schedule": "15 5 * * *"
     },

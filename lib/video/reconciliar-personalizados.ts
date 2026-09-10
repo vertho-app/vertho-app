@@ -160,7 +160,12 @@ export async function reconciliarPersonalizados(opts: {
     return { lacunas: [], pessoasSemVideoNominal: 0, celulasReenfileiradas: [], ignoradasPorLimite: 0, executado: executar };
   }
 
-  const celulas = celulasServidas(celulasRaw as any[]);
+  // Upload em encode não é lacuna de render. O outbox publica sem gastar box.
+  const publicacoes = await lerPaginado<any>('publicações Bunny', (de, ate) => sb
+    .from('video_publicacoes').select('id,cell_video_id').in('estado', ['pendente', 'erro']).order('id').range(de, ate));
+  const emPublicacao = new Set(publicacoes.map(p => p.cell_video_id));
+  const celulas = celulasServidas(celulasRaw as any[]).filter(c => !emPublicacao.has(c.id));
+  if (!celulas.length) return { lacunas: [], pessoasSemVideoNominal: 0, celulasReenfileiradas: [], ignoradasPorLimite: 0, executado: executar };
 
   // ⚠️ A leitura que truncou em 29/08/2026 (1.000 de 1.034). Ver `lerPaginado`.
   const persoTodos = await lerPaginado<any>('personalizados', (de, ate) => sb

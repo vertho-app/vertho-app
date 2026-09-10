@@ -159,6 +159,23 @@ describe('reconciliarPersonalizados · a leitura não pode virar amostra', () =>
 
   const updatesDaCelula = () => sb.escritas.filter((e) => e.tabela === 'videos_gerados' && e.op === 'update');
 
+  it('encode pendente, inclusive após a página 1.000, não gasta outro render', async () => {
+    dados = { videos_gerados: [CELULA], colaboradores: [pessoa(0)], videos_personalizados: [],
+      video_publicacoes: [...Array.from({ length: 1000 }, (_, i) => ({ id: `pub-${i}`, cell_video_id: `outra-${i}` })), { id: 'pub-alvo', cell_video_id: CELULA.id }] };
+    const r = await reconciliarPersonalizados({ executar: true });
+    expect(r.lacunas).toEqual([]);
+    expect(updatesDaCelula()).toHaveLength(0);
+    expect(ensureMock).not.toHaveBeenCalled();
+    expect(sb.chamadas.filter(c => c.tabela === 'video_publicacoes' && c.metodo === 'range')).toHaveLength(2);
+  });
+
+  it('falha na leitura do outbox impede re-render cego', async () => {
+    dados = { videos_gerados: [CELULA] };
+    sb.falharEm({ tabela: 'video_publicacoes', op: 'select', mensagem: 'outbox indisponível' });
+    await expect(reconciliarPersonalizados({ executar: true })).rejects.toThrow('outbox indisponível');
+    expect(ensureMock).not.toHaveBeenCalled();
+  });
+
   it('1.034 pessoas TODAS com vídeo nominal → nenhuma lacuna e nenhum render', async () => {
     // O denominador é de propósito maior que 1.000: com 999 o teste passaria
     // mesmo sem paginação, e provaria só que o código roda.
