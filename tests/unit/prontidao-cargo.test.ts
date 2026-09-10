@@ -33,8 +33,14 @@ function pessoa(over: Partial<any> = {}): any {
     knockoutMotivos: [],
     gaps: [],
     borderline: false,
+    tracos: [],
     ...over,
   };
+}
+
+/** Atalho: uma pessoa com N medidas de fit conhecidas. */
+function comTracos(id: string, fits: Record<string, number>): any {
+  return pessoa({ id, nome: id, tracos: Object.entries(fits).map(([label, fitPct]) => ({ label, bloco: 'Competência', fitPct })) });
 }
 
 function base(pessoas: any[], over: Partial<any> = {}): any {
@@ -171,6 +177,35 @@ describe('quando não dá para responder', () => {
   it('a falha de leitura do motor SOBE — não vira "ninguém está apto"', async () => {
     mockAggregate.mockRejectedValue(new Error('não foi possível ler os colaboradores'));
     await expect(compararProntidao({} as any, 'e', 'A', 'B')).rejects.toThrow('não foi possível ler');
+  });
+});
+
+describe('o gabarito do alvo discrimina?', () => {
+  it('acusa a medida que dá praticamente a mesma nota para todo mundo', async () => {
+    // O caso real que gerou isto (09/09/2026): 4 das 14 medidas do perfil de
+    // Gerente Comercial davam 100% para as 12 pessoas do pool. A ordem existia,
+    // mas quase não era produzida pelo gabarito.
+    responder(base([
+      comTracos('a', { 'Empatia': 100, 'Planejamento': 100, 'Estabilidade': 35 }),
+      comTracos('b', { 'Empatia': 100, 'Planejamento': 98, 'Estabilidade': 90 }),
+      comTracos('c', { 'Empatia': 100, 'Planejamento': 100, 'Estabilidade': 60 }),
+    ]), base([]));
+    const r = await compararProntidao({} as any, 'e', 'A', 'B');
+    expect(r.calibracaoAlvo.semDiscriminacao).toEqual(['Empatia', 'Planejamento']);
+    expect(r.calibracaoAlvo.totalMedidas).toBe(3);
+  });
+
+  it('uma pessoa só não vira "gabarito ruim" — não há o que separar com n=1', async () => {
+    responder(base([comTracos('a', { 'Empatia': 100, 'Estabilidade': 35 })]), base([]));
+    const r = await compararProntidao({} as any, 'e', 'A', 'B');
+    expect(r.calibracaoAlvo.semDiscriminacao).toEqual([]);
+  });
+
+  it('repassa os avisos do guardião do motor sem reescrevê-los', async () => {
+    const avisos = [{ traco: 'Objetividade', pct: 100, tipo: 'teto' as const }];
+    responder({ ...base([pessoa()]), avisosCalibracao: avisos }, base([]));
+    const r = await compararProntidao({} as any, 'e', 'A', 'B');
+    expect(r.calibracaoAlvo.avisos).toEqual(avisos);
   });
 });
 

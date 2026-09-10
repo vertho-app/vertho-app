@@ -208,6 +208,37 @@ export default function ProntidaoCargoView({ listar, comparar, scopeKey = 'defau
             )}
           </div>
 
+          {/* 🔴 O aviso vem ANTES da lista, e não num rodapé: um gabarito que não
+              separa produz uma ordem que parece resultado e é quase sorteio.
+              Quem lê a lista sem este aviso conclui que "todo mundo está apto". */}
+          {(dados.calibracaoAlvo.semDiscriminacao.length > 0 || dados.calibracaoAlvo.avisos.length > 0) && (
+            <div className="mb-3 rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] p-4">
+              <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-300">
+                <ShieldAlert size={14} /> O perfil de {dados.cargoAlvo} separa pouco este grupo
+              </p>
+              {dados.calibracaoAlvo.semDiscriminacao.length > 0 && (
+                <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                  <strong className="text-amber-200">
+                    {dados.calibracaoAlvo.semDiscriminacao.length} de {dados.calibracaoAlvo.totalMedidas}
+                  </strong>{' '}
+                  {dados.calibracaoAlvo.semDiscriminacao.length === 1 ? 'medida do perfil dá' : 'medidas do perfil dão'}{' '}
+                  praticamente a mesma nota para todas as {dados.avaliados} pessoas:{' '}
+                  <span className="text-slate-400">{dados.calibracaoAlvo.semDiscriminacao.join(' · ')}</span>.
+                </p>
+              )}
+              {dados.calibracaoAlvo.avisos.length > 0 && (
+                <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
+                  Faixa larga demais em: {dados.calibracaoAlvo.avisos.map((a) => `${a.traco} (${a.tipo === 'teto' ? 'satura' : 'zera'} em ${a.pct}%)`).join(' · ')}.
+                </p>
+              )}
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+                Com faixas largas, a aderência ao cargo de destino fica alta para quase todo mundo e a diferença entre os cargos
+                encolhe. Antes de decidir por estes números, vale revisar o perfil ideal de {dados.cargoAlvo} — é o gabarito que
+                precisa exigir o que a gestão exige.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             {dados.linhas.map((l, i) => {
               const t = tintaStatus(l);

@@ -59,6 +59,25 @@ export type Prontidao = {
   faixas: { recomendadoMin: number; ressalvasMin: number } | null;
   /** Pesos do cargo alvo: o que ele valoriza, que é o que explica o delta. */
   pesosAlvo: { bloco: string; pct: number }[];
+  /**
+   * 🔴 O GABARITO DO ALVO DISCRIMINA? Sem isto, a tela apresenta como resultado
+   * um número que o próprio motor sabe não separar ninguém.
+   *
+   * `Medido: 09/09/2026` — o dono perguntou como um representante comercial
+   * podia ter 91,6% de aderência ao perfil de GERENTE, cargo de gestão. A
+   * resposta estava no motor e não chegava à tela: das 14 medidas do gabarito de
+   * Gerente Comercial na ACME Demo, **4 davam 100% para as 12 pessoas do pool**
+   * (amplitude 0), e 11 das 14 tinham faixa larga o bastante para quase todo
+   * mundo saturar. O guardião de calibração já emitia o aviso; nenhuma TELA o
+   * lia — só o PDF de Adequação.
+   */
+  calibracaoAlvo: {
+    /** Avisos do guardião bilateral do motor (piso zera / teto satura). */
+    avisos: { traco: string; pct: number; tipo: 'piso' | 'teto' }[];
+    /** Medidas cuja variação no pool é desprezível — não separam ninguém. */
+    semDiscriminacao: string[];
+    totalMedidas: number;
+  };
   avaliados: number;
   /** Diagnóstico honesto quando não dá para responder. */
   indisponivel: null | 'sem_gabarito_alvo' | 'sem_pessoas_na_origem';
@@ -71,9 +90,40 @@ const VAZIO = (cargoOrigem: string, cargoAlvo: string, motivo: Prontidao['indisp
   linhas: [],
   faixas: null,
   pesosAlvo: [],
+  calibracaoAlvo: { avisos: [], semDiscriminacao: [], totalMedidas: 0 },
   avaliados: 0,
   indisponivel: motivo,
 });
+
+/**
+ * Quais medidas do gabarito não separam NINGUÉM neste pool.
+ *
+ * Amplitude (maior fit − menor fit) abaixo de 5 pontos: todo mundo recebe
+ * praticamente a mesma nota naquela medida, então ela não contribui para a
+ * ordem. É complementar ao aviso do motor, que olha saturação absoluta (>50% no
+ * teto ou no piso); aqui o que importa é a VARIAÇÃO dentro do grupo comparado —
+ * uma faixa pode não saturar e mesmo assim dar 90% para todos.
+ */
+const AMPLITUDE_MINIMA = 5;
+
+function medidasQueNaoSeparam(pessoas: PessoaAdequacao[]): { semDiscriminacao: string[]; totalMedidas: number } {
+  const porMedida = new Map<string, number[]>();
+  for (const p of pessoas) {
+    for (const t of ((p as any).tracos || []) as { label: string; fitPct: number }[]) {
+      if (!t?.label) continue;
+      if (!porMedida.has(t.label)) porMedida.set(t.label, []);
+      porMedida.get(t.label)!.push(t.fitPct || 0);
+    }
+  }
+  const semDiscriminacao: string[] = [];
+  for (const [label, fits] of porMedida) {
+    // Com uma pessoa só não há o que separar — declarar "não discrimina" ali
+    // seria transformar n=1 em defeito do gabarito.
+    if (fits.length < 2) continue;
+    if (Math.max(...fits) - Math.min(...fits) < AMPLITUDE_MINIMA) semDiscriminacao.push(label);
+  }
+  return { semDiscriminacao, totalMedidas: porMedida.size };
+}
 
 /** Índice por id, com o nome normalizado como rede de segurança. */
 function indexar(base: AdequacaoCargo): { porId: Map<string, PessoaAdequacao>; porNome: Map<string, PessoaAdequacao> } {
@@ -152,6 +202,10 @@ export async function compararProntidao(
     }),
     faixas: noAlvo.perfilIdeal.faixas || null,
     pesosAlvo: noAlvo.perfilIdeal.pesos || [],
+    calibracaoAlvo: {
+      avisos: noAlvo.avisosCalibracao || [],
+      ...medidasQueNaoSeparam(noAlvo.pessoas),
+    },
     avaliados: noAlvo.avaliados,
     indisponivel: null,
   };
