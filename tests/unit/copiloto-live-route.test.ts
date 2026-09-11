@@ -52,9 +52,9 @@ describe('rota de apoio ao vivo', () => {
     expect(callAI).toHaveBeenCalledWith(
       expect.any(String),
       expect.stringContaining('[vertho_local]'),
-      { model: 'gpt-5.6-luna' },
+      { model: 'gemini-3.8-flash' },
       700,
-      expect.objectContaining({ timeoutMs: 8000, reasoningEffort: 'none' }),
+      expect.objectContaining({ timeoutMs: 8000, reasoningEffort: 'low' }),
     );
   });
 
@@ -97,6 +97,21 @@ describe('rota de apoio ao vivo', () => {
     expect(prompt).toContain('TRECHO_14');
     expect(prompt).toContain('PERGUNTA_11');
     expect(prompt).not.toContain('PERGUNTA_12');
+  });
+
+  it('tenta o fallback 3.7 quando o 3.8 devolve JSON inválido', async () => {
+    vi.mocked(callAI)
+      .mockResolvedValueOnce('resposta sem JSON')
+      .mockResolvedValueOnce(JSON.stringify({
+        fase: 'analisar', sinal: 'neutro', objecao: null, descobertas_cobertas: [],
+        alerta: null, foco: 'Continue ouvindo.', perguntas: [],
+      }));
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(vi.mocked(callAI).mock.calls[0][2]).toEqual({ model: 'gemini-3.8-flash' });
+    expect(vi.mocked(callAI).mock.calls[1][2]).toEqual({ model: 'gemini-3.7-flash' });
   });
 
   it('devolve o banco PACE local quando todos os provedores falham', async () => {

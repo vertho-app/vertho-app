@@ -10,16 +10,12 @@
  */
 import { EXTRATOR_SYSTEM, EXTRATOR_SCHEMA, EXTRATOR_USER } from './prompts';
 import type { ExtracaoCargo, ItemEvid } from './adapter';
+import { buildGeminiGenerationConfig } from '@/lib/gemini-generation-config';
 
-// 3.7 desde 25/08/2026 (era 3.6). Metade do preço de input e 2,4× mais barato no
-// output ($0,75/$3,75 vs $1,50/$9), com índice AA maior (56 vs o 3.6) e #9 no
-// arena — melhor e mais barato ao mesmo tempo, que é raro o suficiente para
-// desconfiar. Por isso foi CONFERIDO nas duas coisas que este call-site exige,
-// contra os dois modelos lado a lado: structured output (responseSchema) e PDF
-// inline em base64. Mesma resposta, mesmo JSON válido.
-// ⚠️ `GEMINI_CARGO_MODEL` não existe na Vercel (conferido) — este default manda
-// de verdade. Se alguém criar a var, ela vence isto aqui.
-const CARGO_MODEL = process.env.GEMINI_CARGO_MODEL || 'gemini-3.7-flash';
+// 3.8 validado em 10/09/2026 com PDF inline + structured output usando a chave
+// da aplicação. O 3.7 permanece como fallback de rollout. A env é o kill switch.
+const CARGO_MODEL = process.env.GEMINI_CARGO_MODEL || 'gemini-3.8-flash';
+const CARGO_FALLBACK_MODEL = 'gemini-3.7-flash';
 const MAX_PDF_BYTES = 20 * 1024 * 1024; // 20MB inline (acima → Files API, fora de escopo)
 
 export interface ExtratorInput {
@@ -64,33 +60,43 @@ export async function extrairCargo(input: ExtratorInput): Promise<ExtracaoCargo>
   if (input.texto?.trim()) userParts.push({ text: `DOCUMENTO:\n${input.texto.trim()}` });
   userParts.push({ text: EXTRATOR_USER });
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${CARGO_MODEL}:generateContent?key=${apiKey}`;
-  const body = {
-    systemInstruction: { parts: [{ text: EXTRATOR_SYSTEM }] },
-    contents: [{ role: 'user', parts: userParts }],
-    generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: EXTRATOR_SCHEMA,
-      maxOutputTokens: 16384,
-      temperature: 0.2, // extração = fidelidade, não fluência
-    },
-  };
-
   let ultimoMotivo = 'sem resposta';
-  for (let tentativa = 1; tentativa <= 3; tentativa++) {
-    let res: Response;
-    try {
-      res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(120_000) });
-    } catch (e: any) { ultimoMotivo = `rede: ${e?.message}`; continue; }
-    if (!res.ok) {
-      const detalhe = (await res.text()).slice(0, 300);
-      if (res.status >= 400 && res.status < 500) throw new Error(`Gemini ${res.status}: ${detalhe}`); // 4xx não é transitório
-      ultimoMotivo = `Gemini ${res.status}: ${detalhe}`; continue;
+  const modelos = [
+    CARGO_MODEL,
+    ...(CARGO_MODEL.startsWith('gemini-3.8') ? [CARGO_FALLBACK_MODEL] : []),
+  ].filter((model, index, all) => all.indexOf(model) === index);
+
+  for (const model of modelos) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const body = {
+      systemInstruction: { parts: [{ text: EXTRATOR_SYSTEM }] },
+      contents: [{ role: 'user', parts: userParts }],
+      generationConfig: buildGeminiGenerationConfig({
+        model,
+        maxOutputTokens: 16384,
+        thinkingLevel: 'low',
+        responseMimeType: 'application/json',
+        responseSchema: EXTRATOR_SCHEMA,
+        legacyTemperature: 0.2,
+      }),
+    };
+
+    for (let tentativa = 1; tentativa <= 3; tentativa++) {
+      let res: Response;
+      try {
+        res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(120_000) });
+      } catch (e: any) { ultimoMotivo = `${model} rede: ${e?.message}`; continue; }
+      if (!res.ok) {
+        const detalhe = (await res.text()).slice(0, 300);
+        ultimoMotivo = `${model} ${res.status}: ${detalhe}`;
+        if (res.status >= 400 && res.status < 500) break; // contrato/acesso: tenta o fallback
+        continue;
+      }
+      const data: any = await res.json();
+      const txt = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      if (!txt) { ultimoMotivo = `${model}: resposta vazia (possível filtro/finishReason)`; continue; }
+      try { return normalizar(JSON.parse(txt)); } catch { ultimoMotivo = `${model}: JSON inválido`; }
     }
-    const data: any = await res.json();
-    const txt = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    if (!txt) { ultimoMotivo = 'resposta vazia (possível filtro/finishReason)'; continue; }
-    try { return normalizar(JSON.parse(txt)); } catch { ultimoMotivo = 'JSON inválido'; }
   }
-  throw new Error(`Extração de cargo falhou após 3 tentativas — ${ultimoMotivo}.`);
+  throw new Error(`Extração de cargo falhou no modelo primário e no fallback — ${ultimoMotivo}.`);
 }

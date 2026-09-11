@@ -31,7 +31,7 @@ async function main() {
 
   const ehPdf = extname(arquivo).toLowerCase() === '.pdf';
   const input = ehPdf ? { pdfBase64: readFileSync(arquivo).toString('base64'), nomeArquivo: arquivo } : { texto: readFileSync(arquivo, 'utf8'), nomeArquivo: arquivo };
-  console.log(C.dim(`documento: ${arquivo} (${ehPdf ? 'PDF nativo' : 'texto'}) · modelo ${process.env.GEMINI_CARGO_MODEL || 'gemini-3.5-flash'}\n`));
+  console.log(C.dim(`documento: ${arquivo} (${ehPdf ? 'PDF nativo' : 'texto'}) · modelo ${process.env.GEMINI_CARGO_MODEL || 'gemini-3.8-flash'}\n`));
 
   const ext = prepararRevisao(await extrairCargo(input));
   if (!ext.documento_valido) { console.log(C.r('documento_valido=false — não é uma descrição de cargo.')); console.log('trechos:', ext.trechos_ambiguos); process.exit(0); }

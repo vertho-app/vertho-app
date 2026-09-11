@@ -420,6 +420,7 @@ function PPPPageInner() {
               style={{ background: '#091D35' }}>
               <option value="claude-sonnet-5">Claude Sonnet 5</option>
               <option value="claude-opus-5">Claude Opus 5</option>
+              <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
               <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
               <option value="gpt-5.6-sol">GPT 5.6 Sol</option>
               <option value="gpt-5.6-terra">GPT 5.6 Terra</option>

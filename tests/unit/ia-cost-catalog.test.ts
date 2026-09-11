@@ -10,6 +10,8 @@ import {
 
 describe('catálogo de preços de IA', () => {
   it('mantém os preços oficiais vigentes revisados em 10/09/2026', () => {
+    expect(MODELS['gemini-3.8-flash']).toMatchObject({ inUsd: 0.75, outUsd: 3.75 });
+    expect(MODELS['gemini-3.7-flash']).toMatchObject({ inUsd: 0.75, outUsd: 3.75 });
     expect(MODELS['gemini-3.6-flash']).toMatchObject({ inUsd: 0.75, outUsd: 3.75 });
     expect(MODELS['gpt-5.6-luna']).toMatchObject({ inUsd: 0.2, outUsd: 1.2 });
     expect(MODELS['gpt-5.6-sol']).toMatchObject({ inUsd: 4, outUsd: 20 });

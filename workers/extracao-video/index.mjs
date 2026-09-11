@@ -15,7 +15,8 @@ import { promisify } from 'node:util';
 
 const exec = promisify(execFile);
 const ID = process.env.MICRO_CONTEUDO_ID;
-const MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.5-flash';
+const MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.8-flash';
+const MODEL_FALLBACK = 'gemini-3.6-flash';
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const AUDIO = '/tmp/audio.mp3';
 const MAX_AUDIO = 19 * 1024 * 1024;
@@ -83,24 +84,37 @@ Responda APENAS JSON válido:
   if (buf.length > MAX_AUDIO) return fail('Áudio > 19MB (vídeo longo demais para esta versão).');
 
   // 2) Gemini → texto-base.
-  const body = {
-    systemInstruction: { parts: [{ text: systemPrompt(idioma) }] },
-    contents: [{ role: 'user', parts: [
-      { inlineData: { mimeType: 'audio/mp3', data: buf.toString('base64') } },
-      { text: 'Extraia o texto-base deste áudio.' },
-    ] }],
-    generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192, temperature: 0.4, thinkingConfig: { thinkingBudget: 0 } },
-  };
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_KEY}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  });
-  if (!r.ok) return fail('Gemini ' + r.status + ': ' + (await r.text()).slice(0, 300));
-  const d = await r.json();
-  const txt = d?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('') || '';
   let parsed;
-  try { parsed = JSON.parse(txt.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()); }
-  catch { const m = txt.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch {} } }
-  if (!parsed?.texto_base) return fail('Gemini não retornou JSON com texto_base');
+  let ultimoErro = 'sem resposta';
+  const modelos = [MODEL, ...(MODEL.startsWith('gemini-3.8') ? [MODEL_FALLBACK] : [])]
+    .filter((model, index, all) => all.indexOf(model) === index);
+  for (const model of modelos) {
+    const body = {
+      systemInstruction: { parts: [{ text: systemPrompt(idioma) }] },
+      contents: [{ role: 'user', parts: [
+        { inlineData: { mimeType: 'audio/mp3', data: buf.toString('base64') } },
+        { text: 'Extraia o texto-base deste áudio.' },
+      ] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        maxOutputTokens: 8192,
+        ...(model.startsWith('gemini-3.8')
+          ? { thinkingConfig: { thinkingLevel: 'medium' } }
+          : { temperature: 0.4, thinkingConfig: { thinkingBudget: 0 } }),
+      },
+    };
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (!r.ok) { ultimoErro = `${model} ${r.status}: ${(await r.text()).slice(0, 300)}`; continue; }
+    const d = await r.json();
+    const txt = d?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('') || '';
+    try { parsed = JSON.parse(txt.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim()); }
+    catch { const m = txt.match(/\{[\s\S]*\}/); if (m) { try { parsed = JSON.parse(m[0]); } catch {} } }
+    if (parsed?.texto_base) break;
+    ultimoErro = `${model}: JSON sem texto_base`;
+  }
+  if (!parsed?.texto_base) return fail('Gemini: ' + ultimoErro);
 
   // 3) Salva e marca done.
   await sb.from('micro_conteudos').update({

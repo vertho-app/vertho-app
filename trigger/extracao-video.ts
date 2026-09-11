@@ -4,6 +4,7 @@ import { readFile, rm, mkdir, readdir } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { validarUrlPublica, assertDestinoPublico } from '@/lib/net-guard';
+import { buildGeminiGenerationConfig } from '@/lib/gemini-generation-config';
 
 const exec = promisify(execFile);
 
@@ -38,7 +39,8 @@ async function rPatch(table: string, query: string, body: any): Promise<void> {
   if (!r.ok) throw new Error(`Supabase PATCH ${table} ${r.status}: ${(await r.text()).slice(0, 200)}`);
 }
 
-const MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.5-flash';
+const MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.8-flash';
+const MODEL_FALLBACK = 'gemini-3.6-flash';
 const IDIOMA: Record<string, string> = {
   'pt-BR': 'português do Brasil', 'pt-PT': 'português de Portugal',
   'es-ES': 'espanhol', 'en-US': 'inglês',
@@ -47,20 +49,39 @@ const IDIOMA: Record<string, string> = {
 /** Transcreve UM bloco de áudio (≤15 min) fielmente, no idioma de saída. */
 async function transcreverBloco(buf: Buffer, idioma: string, n: number): Promise<string> {
   const system = `Você transcreve o ÁUDIO de um trecho de vídeo em texto fiel e legível (corrija só hesitações/ruído; NÃO invente, NÃO resuma). IDIOMA DA SAÍDA: ${idioma} (traduza se o áudio estiver em outra língua). Responda só o texto transcrito, sem comentários.`;
-  const body = {
-    systemInstruction: { parts: [{ text: system }] },
-    contents: [{ role: 'user', parts: [
-      { inlineData: { mimeType: 'audio/mp3', data: buf.toString('base64') } },
-      { text: `Transcreva fielmente este trecho (${n}).` },
-    ] }],
-    generationConfig: { maxOutputTokens: 8192, temperature: 0.2, thinkingConfig: { thinkingBudget: 0 } },
-  };
-  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-  });
-  if (!r.ok) throw new Error('Gemini ' + r.status + ': ' + (await r.text()).slice(0, 200));
-  const d: any = await r.json();
-  return d?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('') || '';
+  const modelos = [MODEL, ...(MODEL.startsWith('gemini-3.8') ? [MODEL_FALLBACK] : [])]
+    .filter((model, index, all) => all.indexOf(model) === index);
+  let ultimoErro = 'sem resposta';
+  for (const model of modelos) {
+    const body = {
+      systemInstruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [
+        { inlineData: { mimeType: 'audio/mp3', data: buf.toString('base64') } },
+        { text: `Transcreva fielmente este trecho (${n}).` },
+      ] }],
+      // Transcrição é sensível à latência; no 3.8 usamos low. O formato antigo
+      // fica restrito ao fallback 3.6 e nunca é enviado ao modelo novo.
+      generationConfig: buildGeminiGenerationConfig({
+        model,
+        maxOutputTokens: 8192,
+        thinkingLevel: 'low',
+        legacyTemperature: 0.2,
+        legacyThinkingBudget: 0,
+      }),
+    };
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      ultimoErro = `${model} ${r.status}: ${(await r.text()).slice(0, 200)}`;
+      continue;
+    }
+    const d: any = await r.json();
+    const texto = d?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('') || '';
+    if (texto.trim()) return texto;
+    ultimoErro = `${model}: resposta vazia`;
+  }
+  throw new Error(`Gemini: ${ultimoErro}`);
 }
 
 export const extrairVideoTask = task({

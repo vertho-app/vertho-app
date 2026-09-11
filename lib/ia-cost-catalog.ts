@@ -44,8 +44,10 @@ export const MODELS = {
   'claude-haiku-4-5':          { label: 'Claude Haiku 4.5',    inUsd: 1,    outUsd: 5 },
   'claude-haiku-4-5-20251001': { label: 'Claude Haiku 4.5',    inUsd: 1,    outUsd: 5 },
   // Google
-  // 3.7 e 3.6 Flash estão no preço promocional oficial até 31/12/2026. A tabela
+  // 3.8, 3.7 e 3.6 Flash estão no preço promocional oficial até 31/12/2026. A tabela
   // do Google anuncia $1,50/$7,50 a partir de 01/01/2027; revisar nessa data.
+  'gemini-3.8-flash':      { label: 'Gemini 3.8 Flash',      inUsd: 0.75, outUsd: 3.75 },
+  // Históricos + fallbacks de rollout: não remover enquanto houver linhas no ledger.
   'gemini-3.7-flash':      { label: 'Gemini 3.7 Flash',      inUsd: 0.75, outUsd: 3.75 },
   'gemini-3.6-flash':      { label: 'Gemini 3.6 Flash',      inUsd: 0.75, outUsd: 3.75 },
   'gemini-3.1-flash-lite':     { label: 'Gemini 3.1 Flash Lite',      inUsd: 0.25, outUsd: 1.50 },
@@ -550,7 +552,7 @@ export const CALLS = [
     inTokens: 1500,
     outTokens: 400,
     exec: 50,
-    defaultModel: 'gemini-3.7-flash',
+    defaultModel: 'gemini-3.8-flash',
     critical: false,
   },
   {
@@ -884,7 +886,7 @@ export const CALLS = [
     inTokens: 19200,
     outTokens: 1800,
     exec: 1,
-    defaultModel: 'gemini-3.5-flash',
+    defaultModel: 'gemini-3.8-flash',
     critical: false,
   },
   {
@@ -1034,7 +1036,7 @@ const CHECK_PRIMARIES = {
  * Pareia modelo primário ao auditor de FAMÍLIA DIFERENTE com força similar.
  * Garante que o auditor não compartilhe vieses do primário.
  *   Sonnet 4.6/5    ↔ GPT 5.6 Terra
- *   Gemini 3.6 Flash ↔ GPT 5.6 Luna
+ *   Gemini 3.8 Flash ↔ GPT 5.6 Luna
  *   Opus 5 / Sol    ↔ GPT 5.6 Sol / Opus 5
  */
 function crossLlmCheck(primaryModel) {
@@ -1042,10 +1044,12 @@ function crossLlmCheck(primaryModel) {
     'claude-opus-5':     'gpt-5.6-sol',
     'claude-sonnet-4-6': 'gpt-5.6-terra',
     'claude-sonnet-5':   'gpt-5.6-terra',
+    'gemini-3.8-flash':  'gpt-5.6-luna',
+    'gemini-3.7-flash':  'gpt-5.6-luna',
     'gemini-3.6-flash':  'gpt-5.6-luna',
     'gpt-5.6-sol':       'claude-opus-5',
     'gpt-5.6-terra':     'claude-sonnet-4-6',
-    'gpt-5.6-luna':      'gemini-3.6-flash',
+    'gpt-5.6-luna':      'gemini-3.8-flash',
   };
   return map[primaryModel] || primaryModel;
 }
@@ -1066,8 +1070,8 @@ function applyPreset(call, primaryFn) {
  * Presets de modelos por uso. Todos aplicam pareamento cross-LLM nos checks
  * automaticamente — auditor sempre é de família diferente do primário.
  *   - premium: Opus 5 em tudo crítico, Sonnet 4.6 no resto.
- *   - balanced: Sonnet 4.6 no crítico, Gemini 3.6 Flash no resto.
- *   - cheap: Gemini 3.6 Flash em quase tudo, Sonnet 4.6 só em scorers finais.
+ *   - balanced: Sonnet 4.6 em primárias; checks em GPT 5.6 Terra.
+ *   - cheap: Gemini 3.8 Flash em quase tudo, Sonnet 4.6 só em scorers finais.
  * Sonnet 5 ficou FORA dos defaults (piloto: tokens +40-68% e truncamento de
  * JSON — docs/CUSTO-QUALIDADE.md Resultado 3); segue selecionável nos dropdowns.
  */
@@ -1084,11 +1088,11 @@ export const PRESETS = {
   },
   cheap: {
     label: 'Barata (Gemini Flash + Sonnet onde obrigatório)',
-    desc: 'Gemini 3.6 Flash em tudo conversacional. Sonnet 4.6 apenas em scorers finais (sem 14, acumulada, IA4, proposta Radar). Checks pareados em GPT 5.6 Terra/Luna. Risco maior de erros pequenos.',
+    desc: 'Gemini 3.8 Flash em tudo conversacional. Sonnet 4.6 apenas em scorers finais (sem 14, acumulada, IA4, proposta Radar). Checks pareados em GPT 5.6 Terra/Luna. Risco maior de erros pequenos.',
     model: (call) => applyPreset(call, (c) => {
       const mustBeSonnet = ['sem14-scorer', 'acumulada-primaria', 'ia4-avaliacao', 'radar-proposta-pdf'];
       if (mustBeSonnet.includes(c.id)) return 'claude-sonnet-4-6';
-      return 'gemini-3.6-flash';
+      return 'gemini-3.8-flash';
     }),
   },
 };

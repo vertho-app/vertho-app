@@ -27,7 +27,7 @@ const DEFAULT_VALIDADOR = 'gpt-5.6-terra';
 // Auditores de reserva, em ordem, para quando o gerador cair na MESMA família
 // do validador preferido. Ver `auditorCrossFamilia` e o guard
 // `tests/unit/chat-dual-familia.test.ts`.
-const VALIDADORES_ALTERNATIVOS = ['gemini-3.7-flash', 'claude-sonnet-4-6'];
+const VALIDADORES_ALTERNATIVOS = ['gemini-3.8-flash', 'claude-sonnet-4-6'];
 const MAX_TURNOS = 10;
 const CONFIANCA_ENCERRAR = 80;
 const MIN_EVIDENCIAS_ENCERRAR = 2;

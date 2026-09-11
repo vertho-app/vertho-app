@@ -20,7 +20,7 @@
 //   1. Nenhum arquivo de produção fala HTTP direto com `api.anthropic.com`.
 //   2. Só o wrapper decide o formato do parâmetro de raciocínio — em QUALQUER
 //      provedor. O vocabulário muda: `budget_tokens` (Anthropic),
-//      `thinkingConfig.thinkingBudget` (Gemini), `reasoning_effort`
+//      `thinkingConfig.thinkingBudget|thinkingLevel` (Gemini), `reasoning_effort`
 //      (OpenAI-compatible). O invariante 2 nasceu (10/08) só com o vocabulário
 //      da Anthropic, e por isso não via `thinkingConfig:{thinkingBudget:0}` em
 //      `trigger/extracao-video.ts` — a MESMA classe, outro fornecedor,
@@ -75,11 +75,9 @@ const IGNORAR = new Set(['node_modules', '.next', '.git', 'dist', 'build']);
 const PODE_FALAR_HTTP_CRU: string[] = [];
 const PODE_DECIDIR_RACIOCINIO = [
   'actions/ai-client.ts',
-  // Dívida declarada (11/08): MULTIMODAL — mandam áudio/vídeo por `inlineData`, e
-  // `callAI` só transporta texto. Não é preguiça: rotear pelo wrapper hoje perderia
-  // a modalidade. Saem daqui quando `callGemini` aceitar partes não-textuais.
-  'lib/gemini-video.ts',        // vídeo → texto
-  'trigger/extracao-video.ts',  // áudio → transcrição
+  // Texto, PDF, vídeo e áudio compartilham a mesma bifurcação 3.8 × legado.
+  // Os callers multimodais continuam HTTP cru, mas não decidem mais o contrato.
+  'lib/gemini-generation-config.ts',
 ];
 
 // Arquivos que são PAYLOAD (string de HTML/markdown servida ao browser), não
@@ -145,7 +143,7 @@ describe('IA · nenhum request cru de Anthropic fora do wrapper', () => {
       infratores,
       `O formato do parâmetro de raciocínio muda por GERAÇÃO de modelo e por PROVEDOR\n` +
         `(Anthropic: enabled+budget_tokens até a 4.6 → adaptive+output_config.effort da\n` +
-        `4.7/5 em diante. Gemini: thinkingConfig.thinkingBudget. OpenAI: reasoning_effort).\n` +
+        `4.7/5 em diante. Gemini legado: thinkingBudget; 3.8+: thinkingLevel. OpenAI: reasoning_effort).\n` +
         `Quem monta esse corpo fora de actions/ai-client.ts fica FORA do fix quando o\n` +
         `contrato muda — foi assim que o vídeo passou 5 dias gerando zero.\n` +
         `Infratores: ${infratores.join(', ')}`,

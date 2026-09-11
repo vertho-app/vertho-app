@@ -73,8 +73,16 @@ async function generateLiveReading(system: string, prompt: string): Promise<{
   parsed: any;
   recoveredProvider: boolean;
 } | null> {
-  const preferredModel = process.env.COPILOTO_LIVE_MODEL || 'gpt-5.6-luna';
-  const models = [...new Set([preferredModel, 'gpt-5.6-luna'])];
+  // 3.8 em `low` mantém o apoio de reunião rápido. O wrapper tenta 3.7 antes
+  // de devolver erro; Luna continua como fallback de outra família.
+  const preferredModel = process.env.COPILOTO_LIVE_MODEL || 'gemini-3.8-flash';
+  // O 3.7 explícito cobre também resposta 200 com JSON inválido, que só o
+  // caller consegue detectar; falha HTTP/vazia já cai nele dentro do wrapper.
+  const models = [...new Set([
+    preferredModel,
+    ...(preferredModel.startsWith('gemini-3.8') ? ['gemini-3.7-flash'] : []),
+    'gpt-5.6-luna',
+  ])];
 
   for (let index = 0; index < models.length; index += 1) {
     const model = models[index];
@@ -84,7 +92,11 @@ async function generateLiveReading(system: string, prompt: string): Promise<{
         prompt,
         { model },
         700,
-        { taskKey: 'copiloto_ao_vivo', timeoutMs: 8000, reasoningEffort: 'none' },
+        {
+          taskKey: 'copiloto_ao_vivo',
+          timeoutMs: 8000,
+          reasoningEffort: model.startsWith('gemini') ? 'low' : 'none',
+        },
       );
       const parsed = await extractJSON(raw);
       if (!parsed) throw new Error('leitura sem JSON válido');

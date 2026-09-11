@@ -13,16 +13,28 @@
  */
 
 import { validarUrlPublica, fetchPublico } from '@/lib/net-guard';
+import { buildGeminiGenerationConfig } from '@/lib/gemini-generation-config';
 
-// FICA no 3.6 em 25/08/2026, enquanto os call-sites de TEXTO do Gemini foram
-// para o 3.7 (extrator de cargo, brief da escola, check de cenários). Não é
-// esquecimento: aqui a entrada é VÍDEO por `inlineData`, e a única verificação
-// que fiz do 3.7 cobriu texto, structured output e PDF inline — não vídeo.
-// Trocar sem provar a modalidade é exatamente o risco que já custou 5 dias de
-// zero vídeos gerados (ver o cabeçalho de `ia-request-cru-guard.test.ts`).
-// Próximo candidato à troca, com um vídeo real de teste antes.
-const VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.6-flash';
+// 3.8 promovido em 10/09/2026 só depois de canário real com MP4 inline,
+// structured output e thinking medium. O 3.6 permanece como fallback de
+// rollout porque esta modalidade já sofreu regressão silenciosa no passado.
+const VIDEO_MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.8-flash';
+const VIDEO_FALLBACK_MODEL = 'gemini-3.6-flash';
 const MAX_INLINE_BYTES = 20 * 1024 * 1024; // 20MB: acima disso precisa de Files API (Fase 3)
+
+const VIDEO_RESPONSE_SCHEMA = {
+  type: 'object',
+  properties: {
+    titulo: { type: 'string' },
+    resumo: { type: 'string' },
+    texto_base: { type: 'string' },
+    pontos_chave: { type: 'array', items: { type: 'string' } },
+    competencia_sugerida: { type: 'string' },
+    descritor_sugerido: { type: 'string' },
+    duracao_min: { type: 'integer' },
+  },
+  required: ['titulo', 'resumo', 'texto_base', 'pontos_chave'],
+};
 
 export interface VideoBaseExtraido {
   titulo: string;
@@ -155,78 +167,74 @@ export async function extrairConteudoDeVideo(
       + cats.map((c) => `• ${c.competencia}: ${c.descritores.length ? c.descritores.join(' | ') : '(sem descritores)'}`).join('\n')
     : '';
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${VIDEO_MODEL}:generateContent?key=${apiKey}`;
-  const body = {
-    systemInstruction: { parts: [{ text: buildSystem(idioma) }] },
-    contents: [{ role: 'user', parts: [mediaPart, { text: `Extraia o texto-base deste vídeo.${hint}` }] }],
-    generationConfig: {
-      responseMimeType: 'application/json',
-      // responseSchema (structured output nativo): o Gemini gera os campos como
-      // objeto e serializa em JSON SEMPRE válido, escapando aspas/quebras do
-      // texto_base markdown denso. Sem isto, conteúdo cheio de aspas (metáforas
-      // entre aspas, citações) quebrava o JSON.parse de forma intermitente.
-      responseSchema: {
-        type: 'object',
-        properties: {
-          titulo: { type: 'string' },
-          resumo: { type: 'string' },
-          texto_base: { type: 'string' },
-          pontos_chave: { type: 'array', items: { type: 'string' } },
-          competencia_sugerida: { type: 'string' },
-          descritor_sugerido: { type: 'string' },
-          duracao_min: { type: 'integer' },
-        },
-        required: ['titulo', 'resumo', 'texto_base', 'pontos_chave'],
-      },
-      maxOutputTokens: 65536, // folga p/ texto-base DENSO + thinking (vídeo de 25-45min → milhares de palavras) sem truncar o JSON
-      temperature: 0.4,
-      thinkingConfig: { thinkingBudget: -1 }, // dynamic: deixa o modelo planejar a extração completa (a folga de tokens acima evita truncar)
-    },
-  };
-
   // Retry (até 3x): o texto_base é markdown DENSO dentro de JSON, e o Gemini às
   // vezes deixa aspas/quebras não escapadas → JSON.parse falha de forma
   // intermitente (a extração que "volta sem fazer nada"). Cada tentativa é uma
-  // nova geração; ~1-2 bastam na prática. Erros HTTP 4xx (não-transitórios)
-  // abortam na hora; 5xx e parse inválido re-tentam.
+  // nova geração; ~1-2 bastam na prática. Erros HTTP 4xx trocam para o fallback;
+  // 5xx e parse inválido re-tentam antes da troca.
   let parsed: any = null;
   let ultimoMotivo = 'sem resposta';
-  for (let tentativa = 1; tentativa <= 3 && !parsed; tentativa++) {
-    let res: Response;
-    try {
-      res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(290_000),
-      });
-    } catch (e: any) {
-      ultimoMotivo = `rede: ${String(e?.message || e).slice(0, 120)}`;
-      continue;
-    }
-    if (!res.ok) {
-      const detail = (await res.text()).slice(0, 300);
-      if (res.status < 500) throw new Error(`Gemini vídeo ${res.status}: ${detail}`);
-      ultimoMotivo = `HTTP ${res.status}`;
-      continue;
-    }
-    const data = await res.json();
-    const cand = data?.candidates?.[0];
-    const txt = cand?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join('') || '';
-    if (!txt) { ultimoMotivo = 'conteúdo vazio (vídeo privado/indisponível?)'; continue; }
+  const modelos = [
+    VIDEO_MODEL,
+    ...(VIDEO_MODEL.startsWith('gemini-3.8') ? [VIDEO_FALLBACK_MODEL] : []),
+  ].filter((model, index, all) => all.indexOf(model) === index);
 
-    const clean = txt.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-    try {
-      parsed = JSON.parse(clean);
-    } catch {
-      // Tolerante: extrai o maior objeto {...} caso venha texto em volta.
-      const m = clean.match(/\{[\s\S]*\}/);
-      if (m) { try { parsed = JSON.parse(m[0]); } catch { /* segue */ } }
+  for (const model of modelos) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const body = {
+      systemInstruction: { parts: [{ text: buildSystem(idioma) }] },
+      contents: [{ role: 'user', parts: [mediaPart, { text: `Extraia o texto-base deste vídeo.${hint}` }] }],
+      // Structured output mantém o markdown denso escapado dentro do JSON.
+      generationConfig: buildGeminiGenerationConfig({
+        model,
+        maxOutputTokens: 65536,
+        thinkingLevel: 'medium',
+        responseMimeType: 'application/json',
+        responseSchema: VIDEO_RESPONSE_SCHEMA,
+        legacyTemperature: 0.4,
+        legacyThinkingBudget: -1,
+      }),
+    };
+
+    for (let tentativa = 1; tentativa <= 3 && !parsed; tentativa++) {
+      let res: Response;
+      try {
+        res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(290_000),
+        });
+      } catch (e: any) {
+        ultimoMotivo = `${model} rede: ${String(e?.message || e).slice(0, 120)}`;
+        continue;
+      }
+      if (!res.ok) {
+        const detail = (await res.text()).slice(0, 300);
+        ultimoMotivo = `${model} HTTP ${res.status}: ${detail}`;
+        if (res.status < 500) break; // contrato/acesso: tenta o fallback validado
+        continue;
+      }
+      const data = await res.json();
+      const cand = data?.candidates?.[0];
+      const txt = cand?.content?.parts?.map((p: any) => p?.text).filter(Boolean).join('') || '';
+      if (!txt) { ultimoMotivo = `${model}: conteúdo vazio (vídeo privado/indisponível?)`; continue; }
+
+      const clean = txt.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+      try {
+        parsed = JSON.parse(clean);
+      } catch {
+        // Tolerante: extrai o maior objeto {...} caso venha texto em volta.
+        const m = clean.match(/\{[\s\S]*\}/);
+        if (m) { try { parsed = JSON.parse(m[0]); } catch { /* segue */ } }
+      }
+      if (!parsed) ultimoMotivo = cand?.finishReason === 'MAX_TOKENS'
+        ? `${model}: resposta truncada (MAX_TOKENS)`
+        : `${model}: JSON inválido`;
     }
-    if (!parsed) ultimoMotivo = cand?.finishReason === 'MAX_TOKENS' ? 'resposta truncada (MAX_TOKENS)' : 'JSON inválido';
   }
   if (!parsed) {
-    throw new Error(`A extração não retornou um resultado válido após 3 tentativas (${ultimoMotivo}). Tente novamente.`);
+    throw new Error(`A extração não retornou um resultado válido no modelo primário nem no fallback (${ultimoMotivo}). Tente novamente.`);
   }
   return {
     titulo: normalizeModelText(parsed.titulo || 'Conteúdo de vídeo'),

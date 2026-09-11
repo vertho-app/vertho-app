@@ -42,6 +42,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const AI_MODELS = [
   { id: 'claude-sonnet-5',       label: 'Claude Sonnet 5',  provider: 'claude' },
   { id: 'claude-opus-5',         label: 'Claude Opus 5',    provider: 'claude' },
+  { id: 'gemini-3.8-flash',      label: 'Gemini 3.8 Flash', provider: 'gemini' },
   { id: 'gemini-3.6-flash',      label: 'Gemini 3.6 Flash', provider: 'gemini' },
   { id: 'gpt-5.6-sol',           label: 'GPT 5.6 Sol',      provider: 'openai' },
   { id: 'gpt-5.6-terra',         label: 'GPT 5.6 Terra',    provider: 'openai' },

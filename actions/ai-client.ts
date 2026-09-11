@@ -34,6 +34,7 @@ import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
 import { PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, usaMaxCompletionTokens } from '@/lib/ai-provedores';
 import { DEFAULT_COPILOTO_RESEARCH_MODEL, fallbackRespeitandoDual } from '@/lib/ai-tasks';
 import { contextoAtual, fracaoDoOrcamento } from '@/lib/execucao-contexto';
+import { buildGeminiGenerationConfig, type GeminiThinkingLevel } from '@/lib/gemini-generation-config';
 import { origemDaChamada } from '@/lib/origem-chamada';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
@@ -112,7 +113,9 @@ export interface AICallOptions {
   //  - Claude geração 5 / 4.7+ : vira `output_config.effort` (07/08). Antes era
   //    IGNORADO no ramo Anthropic, então "opus-5 em high" rodava em esforço
   //    PADRÃO com o rótulo errado — pior que falhar, porque a tabela mente.
-  //  - Gemini: ignorado.
+  //  - Gemini 3.8: vira `generationConfig.thinkingConfig.thinkingLevel`.
+  //    `none|minimal` caem em `low` porque o 3.8 não aceita esses níveis.
+  //    Nos Gemini legados segue ignorado para não mudar o contrato do fallback.
   reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   /**
    * INTERNO — preenchido por `callAI`/`callAIChat` quando falta `taskKey`.
@@ -187,7 +190,26 @@ async function withAIRetry<T>(fn: () => Promise<T>, label: string, max = 4): Pro
 const AI_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gpt-5.6-terra';
 // Escada consultada quando o preferido acima cairia na família do parceiro
 // Dual-IA da task. Ordem = quem tem mais cobertura de rota/preço primeiro.
-const AI_FALLBACK_ESCADA = ['gemini-3.7-flash', 'claude-sonnet-4-6', 'grok-4.6'];
+const AI_FALLBACK_ESCADA = ['gemini-3.8-flash', 'claude-sonnet-4-6', 'grok-4.6'];
+
+// Rollout do Gemini 3.8: mantém o 3.7 como rede de segurança temporária. O
+// fallback fica no wrapper para cobrir tanto `callAI` quanto `callAIChat` e não
+// depender de cada caller lembrar de implementar a segunda tentativa.
+const GEMINI_FLASH_FALLBACK_MODEL = 'gemini-3.7-flash';
+
+async function withGeminiRolloutFallback<T>(
+  model: string,
+  dispatch: (modelId: string) => Promise<T>,
+  caller: 'callAI' | 'callAIChat',
+): Promise<T> {
+  try {
+    return await withAIRetry(() => dispatch(model), model);
+  } catch (err: any) {
+    if (model !== 'gemini-3.8-flash' || isCapDeContaAIError(err)) throw err;
+    console.warn(`[${caller}] ${model} falhou — fallback de rollout p/ ${GEMINI_FLASH_FALLBACK_MODEL}`);
+    return withAIRetry(() => dispatch(GEMINI_FLASH_FALLBACK_MODEL), GEMINI_FLASH_FALLBACK_MODEL, 2);
+  }
+}
 
 export async function callAI(
   system: string,
@@ -217,7 +239,7 @@ export async function callAI(
   };
 
   try {
-    return await withAIRetry(() => dispatch(model), model);
+    return await withGeminiRolloutFallback(model, dispatch, 'callAI');
   } catch (err: any) {
     // CAP DE CONTA: falha limpa e etiquetada, sem fallback (F-E5). Cair para outro
     // provedor aqui gastaria em outra conta sem ninguém pedir e esconderia a causa.
@@ -287,7 +309,7 @@ export async function callAIChat(
   };
 
   try {
-    return await withAIRetry(() => dispatch(model), model);
+    return await withGeminiRolloutFallback(model, dispatch, 'callAIChat');
   } catch (err: any) {
     // Mesmo tratamento do gêmeo `callAI`: o knob global aterrissaria na família
     // do parceiro Dual-IA. Este ramo ficou para trás na primeira correção e o
@@ -807,6 +829,35 @@ async function callClaudeChat(
 
 // ── Gemini (Google AI REST) ─────────────────────────────────────────────────
 
+/**
+ * O Gemini 3.8 pensa em `medium` por padrão. Para os fluxos textuais curtos da
+ * plataforma, o default deliberado é `low`: preserva latência e impede que
+ * thinking vire a maior linha de output. Callers densos ainda podem pedir
+ * medium/high explicitamente; `thinking: true` equivale a medium.
+ */
+function geminiThinkingLevel(options: AICallOptions): GeminiThinkingLevel {
+  const effort = options.reasoningEffort;
+  if (effort === 'medium') return 'medium';
+  if (effort === 'high' || effort === 'xhigh' || effort === 'max') return 'high';
+  if (options.thinking) return 'medium';
+  return 'low';
+}
+
+function conteudoGeminiOuFalhaAlto(data: any, model: string): string {
+  const text = data?.candidates?.[0]?.content?.parts
+    ?.map((part: any) => part?.text || '')
+    .filter(Boolean)
+    .join('') || '';
+  if (text.trim()) return text;
+
+  const usage = data?.usageMetadata || {};
+  throw new Error(
+    `Gemini ${model} devolveu conteúdo VAZIO `
+    + `(finishReason=${data?.candidates?.[0]?.finishReason || 'ausente'}, `
+    + `output=${usage.candidatesTokenCount || 0}, thinking=${usage.thoughtsTokenCount || 0}).`,
+  );
+}
+
 async function callGemini(
   system: string,
   user: string,
@@ -823,7 +874,11 @@ async function callGemini(
   const body = {
     systemInstruction: { parts: [{ text: system }] },
     contents: [{ role: 'user', parts: [{ text: user }] }],
-    generationConfig: { maxOutputTokens: maxTokens },
+    generationConfig: buildGeminiGenerationConfig({
+      model,
+      maxOutputTokens: maxTokens,
+      thinkingLevel: geminiThinkingLevel(options),
+    }),
   };
 
   const res = await fetch(url, {
@@ -842,11 +897,12 @@ async function callGemini(
   const um = data.usageMetadata;
   await registrarUsoIA('gemini', model, um ? {
     inTokens: (um.promptTokenCount || 0) - (um.cachedContentTokenCount || 0),
-    outTokens: um.candidatesTokenCount || 0,
+    // Thinking é tarifado como output, mas vem separado de candidatesTokenCount.
+    outTokens: (um.candidatesTokenCount || 0) + (um.thoughtsTokenCount || 0),
     cacheRead: um.cachedContentTokenCount || 0,
     truncou: data?.candidates?.[0]?.finishReason === 'MAX_TOKENS',
   } : null, Date.now() - t0, options);
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return conteudoGeminiOuFalhaAlto(data, model);
 }
 
 // ── OpenAI (REST) ───────────────────────────────────────────────────────────
@@ -975,7 +1031,11 @@ async function callGeminiChat(
   const body = {
     systemInstruction: { parts: [{ text: system }] },
     contents,
-    generationConfig: { maxOutputTokens: maxTokens },
+    generationConfig: buildGeminiGenerationConfig({
+      model,
+      maxOutputTokens: maxTokens,
+      thinkingLevel: geminiThinkingLevel(options),
+    }),
   };
 
   const res = await fetch(url, {
@@ -994,11 +1054,11 @@ async function callGeminiChat(
   const um = data.usageMetadata;
   await registrarUsoIA('gemini', model, um ? {
     inTokens: (um.promptTokenCount || 0) - (um.cachedContentTokenCount || 0),
-    outTokens: um.candidatesTokenCount || 0,
+    outTokens: (um.candidatesTokenCount || 0) + (um.thoughtsTokenCount || 0),
     cacheRead: um.cachedContentTokenCount || 0,
     truncou: data?.candidates?.[0]?.finishReason === 'MAX_TOKENS',
   } : null, Date.now() - t0, options);
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  return conteudoGeminiOuFalhaAlto(data, model);
 }
 
 async function callOpenAIChat(

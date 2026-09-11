@@ -115,7 +115,7 @@ describe('Dual-IA — auditor de família diferente do gerador', () => {
     expect(() => familiaDoModelo('modelo-que-nao-existe-1.0')).toThrow(/família desconhecida/);
     expect(familiaDoModelo('claude-sonnet-5')).toBe('anthropic');
     expect(familiaDoModelo('gpt-5.6-terra')).toBe('openai');
-    expect(familiaDoModelo('gemini-3.7-flash')).toBe('google');
+    expect(familiaDoModelo('gemini-3.8-flash')).toBe('google');
     expect(familiaDoModelo('qwen3.8-max')).toBe('alibaba');
     expect(familiaDoModelo('muse-spark-1.2')).toBe('meta');
   });
@@ -159,7 +159,7 @@ describe('Dual-IA — auditor de família diferente do gerador', () => {
     expect(usaMaxCompletionTokens('gpt-5.6-terra')).toBe(true);
     // Claude e Gemini não passam por este caminho — têm ramo próprio no dispatch.
     expect(usaMaxCompletionTokens('claude-sonnet-5')).toBe(false);
-    expect(usaMaxCompletionTokens('gemini-3.7-flash')).toBe(false);
+    expect(usaMaxCompletionTokens('gemini-3.8-flash')).toBe(false);
   });
 
   it('todo provedor OpenAI-compatible declara prefixo, provider, env e url', async () => {

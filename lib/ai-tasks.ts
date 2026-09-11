@@ -168,10 +168,10 @@ export const MODELOS_DISPONIVEIS = [
   { id: 'gpt-5.6-terra', label: 'GPT 5.6 Terra' },
   { id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna' },
   // ── Google ──
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
+  // 3.7 e 3.6 ficam selecionáveis durante o rollout: são os fallbacks de
+  // segurança e também aparecem no histórico do ledger. Nenhum é default novo.
   { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
-  // 3.6 fica: ainda é o default de tarefas vivas (extrator de cargo, brief da
-  // escola, extração de vídeo). Tirar daqui tornaria inselecionável um modelo
-  // que segue em produção.
   { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
   // ── Demais famílias (a diversidade é o ativo: é ela que viabiliza o par
   //    cross-família quando o gerador não é Claude) ──
@@ -206,7 +206,7 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   recepcao_avaliacao: 'claude-sonnet-4-6',
   copiloto_pesquisa_empresa: DEFAULT_COPILOTO_RESEARCH_MODEL,
   copiloto_planejamento:     'gpt-5.6-terra',
-  copiloto_ao_vivo:          'gemini-3.7-flash',
+  copiloto_ao_vivo:          'gemini-3.8-flash',
   // As chamadas de pesquisa resolvem o primário pela env
   // COPILOTO_RESEARCH_MODEL e caem nos defaults daqui. Manter todas explícitas
   // evita que o runtime e a tela de custo atribuam modelos diferentes.
@@ -242,10 +242,13 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // `pulse_classify` fecha o par com `pulse_audit` (Terra/OpenAI): Gemini e
   // Google, entao cross-familia continua valendo. Extracao utilitaria de saida
   // curta — metade do input e 2,4x menos no output pelo catalogo.
-  pulse_classify:      'gemini-3.7-flash',
+  pulse_classify:      'gemini-3.8-flash',
   // `conteudo_tags`: classificacao de conteudo, saida curta, sem auditor a
   // jusante e sem nota derivada. Bloco F2.
-  conteudo_tags:       'gemini-3.7-flash',
+  conteudo_tags:       'gemini-3.8-flash',
+  // Fluxo direto em lib/escola-brief.ts também resolve por esta tabela; assim
+  // runtime, configuração da empresa e tela de custo apontam para o mesmo id.
+  escola_brief:        'gemini-3.8-flash',
   // Incumbentes tornados explícitos (antes: FALLBACK_GLOBAL por omissão).
   arguicao_turno:      'claude-sonnet-4-6',
   arguicao_avaliacao:  'claude-sonnet-4-6',
@@ -334,6 +337,9 @@ export const PINNED_TASKS = new Set([
   // por-task e devolveria o auditor à família do gerador. Foi assim que o guard
   // pegou o erro ao registrar esta task (26/08).
   'cenarios_lote_check',
+  // Resumo utilitário e barato: o modelo global do tenant não deve mascarar a
+  // migração para o Flash atual. Override explícito por task continua valendo.
+  'escola_brief',
 ]);
 
 /**

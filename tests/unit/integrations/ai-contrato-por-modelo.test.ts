@@ -84,6 +84,7 @@ const dialeto = (id: string): 'anthropic' | 'google' | 'openai' =>
 
 /** Claude que usa thinking adaptativo + output_config.effort (geração 5 / 4.7+). */
 const claudeAdaptativo = (id: string) => /^claude-(opus-5|sonnet-5|fable-5|mythos-5|opus-4-7|opus-4-8)/.test(id);
+const gemini38 = (id: string) => id.startsWith('gemini-3.8');
 
 const TODOS = MODELOS_DISPONIVEIS.map((m) => m.id);
 
@@ -105,7 +106,12 @@ function respostaFeliz(d: 'google' | 'openai', extras: any = {}) {
   if (d === 'google') {
     return {
       candidates: [{ content: { parts: [{ text: 'ok' }] }, finishReason: extras.finish ?? 'STOP' }],
-      usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5, cachedContentTokenCount: 0 },
+      usageMetadata: {
+        promptTokenCount: 10,
+        candidatesTokenCount: 5,
+        cachedContentTokenCount: 0,
+        thoughtsTokenCount: extras.thoughts ?? 0,
+      },
     };
   }
   return {
@@ -241,8 +247,10 @@ describe('EIXO 3 · reasoningEffort: onde chega e onde é DESCARTADO', () => {
       expect(corpo?.reasoning_effort, `${id} deveria mandar reasoning_effort`).toBe('high');
     } else if (d === 'anthropic' && claudeAdaptativo(id)) {
       expect(corpo?.output_config?.effort, `${id} deveria mandar output_config.effort`).toBe('high');
+    } else if (d === 'google' && gemini38(id)) {
+      expect(corpo?.generationConfig?.thinkingConfig?.thinkingLevel).toBe('high');
     } else {
-      // 🔴 DESCARTE DECLARADO: claude-sonnet-4-6 e todo gemini ignoram o effort.
+      // 🔴 DESCARTE DECLARADO: Claude 4.6 e Gemini legados ignoram o effort.
       // Mover para cá uma task que pede `high` NÃO é troca neutra — é perder o
       // parâmetro sem nenhum sinal.
       expect(corpo?.reasoning_effort, `${id}: effort apareceu onde não deveria`).toBeUndefined();
@@ -258,8 +266,17 @@ describe('EIXO 3 · reasoningEffort: onde chega e onde é DESCARTADO', () => {
     } else if (d === 'anthropic') {
       expect(corpo?.thinking?.type).toBe('enabled');
       expect(corpo?.thinking?.budget_tokens).toBeGreaterThan(0);
+    } else if (d === 'google' && gemini38(id)) {
+      expect(corpo?.generationConfig?.thinkingConfig).toEqual({ thinkingLevel: 'medium' });
     } else {
       expect(corpo?.thinking, `${id}: thinking vazou para um dialeto que não o aceita`).toBeUndefined();
+    }
+  });
+
+  it('Gemini 3.8 usa low por padrão e converte none/minimal para low', async () => {
+    for (const effort of [undefined, 'none', 'minimal', 'low'] as const) {
+      const corpo = await chamar('gemini-3.8-flash', 1000, effort ? { reasoningEffort: effort } : {});
+      expect(corpo?.generationConfig?.thinkingConfig).toEqual({ thinkingLevel: 'low' });
     }
   });
 
@@ -278,6 +295,38 @@ describe('EIXO 3 · reasoningEffort: onde chega e onde é DESCARTADO', () => {
       expect(corpo?.generationConfig?.temperature).toBeUndefined();
       expect(corpo?.temperature).toBeUndefined();
     }
+  });
+});
+
+describe('rollout Gemini 3.8', () => {
+  it('cai no 3.7 quando o 3.8 rejeita a chamada', async () => {
+    let chamada = 0;
+    vi.stubGlobal('fetch', async (url: string, init: any) => {
+      mocks.fetches.push({ url: String(url), body: JSON.parse(init?.body ?? '{}') });
+      chamada += 1;
+      if (chamada === 1) {
+        return {
+          ok: false,
+          status: 400,
+          text: async () => 'modelo indisponível',
+          json: async () => ({}),
+        } as any;
+      }
+      const payload = respostaFeliz('google');
+      return {
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify(payload),
+        json: async () => payload,
+      } as any;
+    });
+
+    await expect(callAI('S', 'U', { model: 'gemini-3.8-flash' }, 100, { taskKey: 't' }))
+      .resolves.toBe('ok');
+    expect(mocks.fetches.map((f) => f.url)).toEqual([
+      expect.stringContaining('/gemini-3.8-flash:generateContent'),
+      expect.stringContaining('/gemini-3.7-flash:generateContent'),
+    ]);
   });
 });
 
@@ -302,6 +351,13 @@ describe('EIXO 4 · truncamento vira status no ledger, em todo dialeto', () => {
     expect(mocks.ledger.at(-1)?.status, `${id}: truncamento não virou status`).toBe('truncado');
   });
 
+  it('Gemini soma thoughtsTokenCount ao output faturado no ledger', async () => {
+    mocks.claude = []; mocks.fetches = []; mocks.ledger = [];
+    prepararFetch(respostaFeliz('google', { thoughts: 17 }));
+    await callAI('S', 'U', { model: 'gemini-3.8-flash' }, 100, { taskKey: 't' });
+    expect(mocks.ledger.at(-1)?.output_tokens).toBe(22);
+  });
+
   it('Claude: stop_reason=max_tokens → truncado', async () => {
     const id = TODOS.find((m) => dialeto(m) === 'anthropic')!;
     mocks.claude = []; mocks.fetches = []; mocks.ledger = [];
@@ -320,10 +376,8 @@ describe('EIXO 4 · truncamento vira status no ledger, em todo dialeto', () => {
 });
 
 // ── EIXO 5 · 200 COM CONTEÚDO VAZIO ────────────────────────────────────────
-// "200 vazia fura fail-loud" é regra escrita da casa (FMEA §F-I17). Ela está
-// implementada no caminho OpenAI-compat e NÃO no do Gemini — que devolve `''`.
-// Este bloco documenta a assimetria em vez de escondê-la: seis prompts do bloco
-// F2 estão propostos para o Gemini, e é neles que ela passaria a valer.
+// "200 vazia fura fail-loud" é regra escrita da casa (FMEA §F-I17). Vale nos
+// dois dialetos: no Gemini, falhar alto também é o que aciona o fallback 3.7.
 describe('EIXO 5 · resposta 200 vazia', () => {
   it('OpenAI-compat FALHA ALTO quando gastou tokens e devolveu vazio', async () => {
     const id = TODOS.find((m) => dialeto(m) === 'openai')!;
@@ -336,19 +390,16 @@ describe('EIXO 5 · resposta 200 vazia', () => {
       .rejects.toThrow(/conteúdo VAZIO/);
   });
 
-  it('🔴 LACUNA DECLARADA: o Gemini devolve string vazia em silêncio', async () => {
-    const id = TODOS.find((m) => dialeto(m) === 'google')!;
+  it('Gemini FALHA ALTO e tenta o fallback quando gastou tokens e devolveu vazio', async () => {
+    const id = 'gemini-3.8-flash';
     mocks.claude = []; mocks.fetches = []; mocks.ledger = [];
     prepararFetch({
       candidates: [{ content: { parts: [{ text: '' }] }, finishReason: 'MAX_TOKENS' }],
       usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 900, cachedContentTokenCount: 0 },
     });
-    const r = await callAI('S', 'U', { model: id }, 1000, { taskKey: 't' });
-    // Este `expect` descreve o comportamento ATUAL, e é intencional que ele
-    // esteja aqui: quando alguém levar `conteudoOuFalhaAlto` para o ramo do
-    // Gemini, ESTE teste falha e obriga a atualizar a nota acima. Enquanto
-    // falhar não for verdade, a lacuna fica visível em vez de esquecida.
-    expect(r).toBe('');
+    await expect(callAI('S', 'U', { model: id }, 1000, { taskKey: 't' }))
+      .rejects.toThrow(/conteúdo VAZIO/);
+    expect(mocks.fetches.map((f) => f.url).join('\n')).toContain('gemini-3.7-flash');
     expect(mocks.ledger.at(-1)?.status).toBe('truncado');
   });
 });

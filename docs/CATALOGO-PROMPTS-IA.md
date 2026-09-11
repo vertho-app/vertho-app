@@ -849,7 +849,7 @@
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivo**: `actions/fase5/relatorios-envios.ts::checkCenarios`
-- **Modelo default**: `gemini-3.6-flash` quando não há modelo explícito.
+- **Modelo default**: `gpt-5.6-terra` quando não há modelo explícito.
 - **Max tokens**: 8192
 - **Temperature**: 0.4
 - **System prompt** (resumo editorial do prompt real):
@@ -2077,14 +2077,14 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 > `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
 
 - **Arquivo**: `lib/cargo-extracao/prompts.ts` + `extrator.ts`; caller em `actions/cargo-extracao.ts`.
-- **Modelo**: `gemini-3.6-flash` (env `GEMINI_CARGO_MODEL`). **Max tokens**: 16384; structured output nativo; até 3 tentativas.
+- **Modelo**: `gemini-3.8-flash` em `low` (env `GEMINI_CARGO_MODEL`), com fallback `gemini-3.7-flash`. **Max tokens**: 16384; structured output nativo; até 3 tentativas por modelo.
 - **Tarefa**: PDF/texto → campos canônicos consumidos pela IA2. Só extrai o que o documento sustenta; cada valor leva confiança e trecho literal; lacunas geram perguntas dirigidas para revisão humana.
 
 ### 20.2 Brief visual da escola a partir do PPP
 > `ATIVO` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
 
 - **Arquivo**: `lib/escola-brief.ts::resumirPPP`.
-- **Modelo**: `gemini-3.6-flash`. **Max tokens**: 2000.
+- **Modelo**: `gemini-3.8-flash` em `low`, com fallback central `gemini-3.7-flash`. **Max tokens**: 2000.
 - **Tarefa/output**: reduz até 60k chars de PPP aos campos `etapas`, `rede`, `contexto`, `ambientes`, `identidade` e `tom` que guiam estética/narração de vídeo; ignora burocracia, metas e marco legal sem tradução visual.
 
 ### 20.3 Narrativa do DNA Organizacional
@@ -2190,14 +2190,14 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 > `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
 
 - **Arquivo**: `lib/gemini-video.ts::buildSystem`; caller em `actions/extracao-video.ts`.
-- **Modelo**: `gemini-3.6-flash`. **Max tokens**: 65536; até 3 tentativas.
+- **Modelo**: `gemini-3.8-flash` em `medium`, com fallback `gemini-3.6-flash`. **Max tokens**: 65536; até 3 tentativas por modelo.
 - **Tarefa/output**: vídeo/áudio → JSON com título, resumo, `texto_base` markdown denso e proporcional à duração, pontos-chave e competência/descritor sugeridos. A regra central é **não resumir**: preservar definições, argumentos, exemplos, dados, passos, ressalvas e ordem do vídeo.
 
 ### 22.2 Transcrição/ tradução de áudio de vídeo longo
 > `ATIVO` · Prompt documentado como: `literal` · **Ausente até 25/08/2026**
 
 - **Arquivo**: `trigger/extracao-video.ts::transcreverBloco`.
-- **Modelo**: `gemini-3.5-flash`. **Max tokens**: 8192 por bloco de até 15 min; até 20 blocos.
+- **Modelo**: `gemini-3.8-flash` em `low`, com fallback `gemini-3.6-flash`. **Max tokens**: 8192 por bloco de até 15 min; até 20 blocos.
 - **Tarefa**: transcrever fielmente, corrigindo só hesitações/ruído, sem resumir nem inventar; traduz para o locale de saída quando necessário. A transcrição concatenada alimenta 16.4.
 
 ### 22.3 Direção de voz — narração/devolutiva/vídeo

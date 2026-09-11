@@ -13,11 +13,10 @@
  */
 
 import { callAI } from '@/actions/ai-client';
+import { getModelForTask } from '@/lib/ai-tasks';
 
-// 3.7 desde 25/08/2026: mesma família, metade do input e 2,4x menos no output,
-// indice maior nos dois leaderboards. Saida de texto puro via callAI — sem
-// modalidade nem schema em jogo aqui. `ESCOLA_BRIEF_MODEL` nao existe na Vercel.
-const BRIEF_MODEL = process.env.ESCOLA_BRIEF_MODEL || 'gemini-3.7-flash';
+// O default vive em DEFAULT_TASK_MODELS para que runtime, configuração e tela
+// de custo compartilhem a mesma decisão. A env segue como kill switch externo.
 
 export interface EscolaBrief {
   /** Etapas/segmentos atendidos. Ex: "Educação Infantil e Fundamental I". */
@@ -79,8 +78,9 @@ function parseBrief(raw: string): EscolaBrief {
  */
 export async function resumirPPP(ppp: string, empresaId: string | null = null): Promise<EscolaBrief> {
   if (!ppp?.trim()) throw new Error('PPP/descrição vazio');
-  const raw = await callAI(SYSTEM, ppp.trim().slice(0, 60000), { model: BRIEF_MODEL }, 2000, {
-    temperature: 0.3, taskKey: 'escola_brief', empresaId,
+  const model = process.env.ESCOLA_BRIEF_MODEL || await getModelForTask(empresaId, 'escola_brief');
+  const raw = await callAI(SYSTEM, ppp.trim().slice(0, 60000), { model }, 2000, {
+    reasoningEffort: 'low', taskKey: 'escola_brief', empresaId,
   });
   const brief = parseBrief(raw);
   if (!brief.identidade && !brief.contexto && !brief.etapas) {
