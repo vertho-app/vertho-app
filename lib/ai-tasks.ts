@@ -249,6 +249,10 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // Fluxo direto em lib/escola-brief.ts também resolve por esta tabela; assim
   // runtime, configuração da empresa e tela de custo apontam para o mesmo id.
   escola_brief:        'gemini-3.8-flash',
+  // O colaborador fictício do simulador precisa ser de OUTRA família do mentor
+  // Claude: usar Sonnet aqui faria o benchmark conversar consigo mesmo e tender
+  // ao mesmo estilo. Gemini 3.8 substitui o Haiku 4.5; low é aplicado no caller.
+  sim_aluno:            'gemini-3.8-flash',
   // Incumbentes tornados explícitos (antes: FALLBACK_GLOBAL por omissão).
   arguicao_turno:      'claude-sonnet-4-6',
   arguicao_avaliacao:  'claude-sonnet-4-6',
@@ -340,6 +344,10 @@ export const PINNED_TASKS = new Set([
   // Resumo utilitário e barato: o modelo global do tenant não deve mascarar a
   // migração para o Flash atual. Override explícito por task continua valendo.
   'escola_brief',
+  // Instrumento de medição: o modelo global do tenant não pode trocar o ator
+  // sintético e contaminar a comparação entre braços. Override explícito por
+  // `sim_aluno` continua sendo a porta de rollback controlado.
+  'sim_aluno',
 ]);
 
 /**
@@ -439,7 +447,8 @@ export async function getModelForTask(empresaId, taskKey) {
  * Régua: **tem preço E tem rota**, não "está no dropdown".
  * O dropdown é curadoria; a régua é o que faz a chamada funcionar. Existe modelo
  * legítimo fora da lista (`gpt-5.4-2026-03-05`, `gemini-3.1-flash-lite`, o Haiku
- * do simulador), e travar no dropdown proibiria configurá-los sem motivo.
+ * mantido para histórico/rollback), e travar no dropdown proibiria configurá-los
+ * sem motivo.
  *
  * ⚠️ O QUE ESTA VALIDAÇÃO **NÃO** PEGA — e por isso ela não basta sozinha:
  * o caso real de 25/08/2026 foi `gpt-5.4` configurado na ACME Demo. O id era

@@ -2144,3 +2144,36 @@ frágil do relatório e é justamente a que vira texto na tela do gestor e no PD
 real de semana de aplicação com transcrição gravada na base — não há um segundo
 tenant para replicar, e `acme` tem 1 conversa de semana 3. A conclusão vale para
 o instrumento, não para "todos os tenants".
+
+## 11/09/2026 — Haiku sai do ator sintético; Gemini 3.8 passa no canário
+
+O Haiku 4.5 continuava hardcoded no único papel ativo que ainda o usava:
+`sim_aluno`, o colaborador fictício do simulador de temporada. O Tira-Dúvidas,
+apesar de quatro documentos dizerem Haiku, já rodava em Sonnet 4.6. No ledger de
+90 dias, Haiku somava **1.940 chamadas / US$ 2,27 / 0,46%** do custo total; só
+`sim_aluno` ainda corresponde ao runtime atual (1.661 chamadas / US$ 1,93). As
+demais linhas eram experimentos já retirados do Modo Cena.
+
+**Canário A/B cego:** quatro contextos representativos, um por trajetória
+(`evolucao_confirmada`, `evolucao_parcial`, `estagnacao`, `regressao`), mesmos
+prompts e posições A/B alternadas. GPT 5.6 Terra julgou fidelidade ao perfil,
+realismo, coerência e contrato, sem receber o nome dos modelos.
+
+Na primeira rodada, Gemini 3.8 ficou em **8,88**, contra **8,13** do Haiku, mas
+os DOIS candidatos falharam no perfil de regressão na semana 13: narraram melhora
+quando deveriam mostrar perda de fôlego. Era defeito do prompt, não critério para
+escolher modelo. A instrução de regressão passou a explicitar a curva por semanas
+e a proibir evolução consolidada no fim.
+
+Na repetição após a correção:
+
+| Modelo | Média | Veredito por caso | Violação grave |
+|---|---:|---|---:|
+| **Gemini 3.8 Flash (`low`)** | **9,25** | 3 vitórias + 1 empate | 0 |
+| Claude Haiku 4.5 | 8,88 | 0 vitórias + 1 empate | 0 |
+
+**Decisão:** `sim_aluno` vira task pinned em `gemini-3.8-flash`, com effort
+`low` explícito e fallback central temporário em `gemini-3.7-flash`. O modelo é
+resolvido por `getModelForTask`, então runtime e tela de configuração deixam de
+divergir; override explícito por task preserva rollback. Haiku permanece no
+catálogo apenas para precificar o histórico.

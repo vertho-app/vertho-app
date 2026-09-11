@@ -1686,12 +1686,12 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Inputs user**: Colaborador (nome, cargo), competência, perfil-alvo (fraco/medio/forte + nível N1-N4), cenário (descrição), 4 perguntas (P1-P4). Distribuição: 30% fraco, 50% médio, 20% forte.
 - **Consumido por**: `respostas` (para testar IA4).
 
-### 13.2 Simulador de Temporada — Colab (Haiku)
+### 13.2 Simulador de Temporada — Colab (Gemini 3.8 Flash)
 > `AUXILIAR` · Prompt documentado como: `resumo_editorial`
 
 - **Arquivos**: `lib/season-engine/prompts/simulador-temporada.ts::promptSimuladorColab` + `promptSimuladorCompromisso`
 - **Caller**: `lib/season-engine/simulador-core.ts` (funções `simularSocratico`, `simularMissaoPratica`, `simularQualitativa`, `simularSem14Ate`; a action `actions/simulador-temporada.ts` delega ao core)
-- **Modelo**: `claude-haiku-4-5-20251001` (hardcoded via `SIM_MODEL` — rápido+barato)
+- **Modelo**: `getModelForTask(empresaId, 'sim_aluno')` — default pinned em `gemini-3.8-flash`, `thinkingLevel: low`; fallback central temporário `gemini-3.7-flash`. Override explícito por task continua sendo a porta de rollback.
 - **Max tokens**: 500-2500 (varia por cenário)
 - **Trigger**: Admin da Vertho (platform admin) usa em `/admin/vertho/simulador-temporada` pra simular 14 semanas de uma trilha completa.
 - **System prompt** (resumo editorial do prompt real em `lib/season-engine/prompts/simulador-temporada.ts`):
@@ -2292,12 +2292,12 @@ Por categoria (esta tabela é a fonte da contagem):
 ### Prompts que rodam em loop (processamento batch)
 - IA1 (1/cargo), IA2 (1/cargo), IA3 (1/competência×cargo), IA4 e Check IA4 (1/resposta), Cenários B, Reavaliação, Evolução Fusão (1/colaborador×competência), relatórios individuais/gestor, Blueprint (1/colaborador), módulos de manuscrito (1/transição×descritor), simulação de temporada (1/turno×duração do programa), Modo Cena (guarda+juiz+interlocutor por turno) e conteúdos por descritor.
 
-### Modelos não-default hardcoded
+### Modelos especiais fora do fallback global
 - **Chat audit Fase 3**: `gemini-3.1-flash-lite`.
-- **Simulador temporada (colaborador fictício)**: `claude-haiku-4-5-20251001`.
+- **Simulador temporada (colaborador fictício)**: task pinned `sim_aluno` em `gemini-3.8-flash` (`low`), com fallback `gemini-3.7-flash`.
 - **Tira-Dúvidas**: `claude-sonnet-4-6` hardcoded na rota.
 - **Modo Cena experimental**: `claude-opus-5` (papéis pesados) + `grok-4.6` (guarda/juiz).
-- **Multimodal**: Gemini 3.6 Flash (extrações/brief), Gemini 3.5 Flash (transcrição longa), Gemini 3.1 Flash TTS Preview e GPT Image 2.
+- **Multimodal**: Gemini 3.8 Flash (extrações, brief e vídeo; fallback 3.7/3.6 conforme o fluxo), Gemini 3.1 Flash TTS Preview e GPT Image 2.
 - **Pins por task**: Sonnet 5 nas quatro saídas longas; GPT 5.6 Terra nos auditores; Opus 5 no roteiro de vídeo. Consulte `lib/ai-tasks.ts`.
 
 ### Prompts não catalogados (intencionalmente)

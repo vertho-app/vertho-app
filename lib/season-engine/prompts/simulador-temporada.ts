@@ -24,10 +24,11 @@ const PERFIS: Record<string, string> = {
 - Respostas genéricas tipo "foi legal", "aprendi bastante", mas sem mal humor.`,
 
   regressao: `regressao:
-- Começa com mais energia ou densidade nas primeiras semanas.
-- Vai ficando mais curto, menos implicado ou mais cansado.
-- Pode continuar respondendo, mas com menos profundidade.
-- Não vira sabotador — só perde fôlego.`,
+- Sems 1-4: começa com mais energia ou densidade e consegue citar alguma situação concreta.
+- Sems 5-8: oscila mais, simplifica respostas e sustenta menos o que havia começado.
+- Sems 9-14: fica mais curto, menos implicado ou cansado; admite dificuldade de manter mudanças e pode relatar recaídas.
+- Nas semanas finais, NÃO narre evolução consolidada, resultado exemplar ou uma transformação crescente.
+- Continua respondendo sem virar sabotador — só perde fôlego e profundidade.`,
 };
 
 interface ChatMessage {

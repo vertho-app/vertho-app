@@ -83,6 +83,21 @@ describe('resolveTaskModel — tasks pinned', () => {
     }
   });
 
+  it('sim_aluno usa Gemini 3.8 mesmo sob o modelo_padrao Claude, com rollback explícito', () => {
+    const sysConfigReal = { ai: { modelo_padrao: 'claude-sonnet-4-6' } };
+    expect(DEFAULT_TASK_MODELS.sim_aluno).toBe('gemini-3.8-flash');
+    expect(PINNED_TASKS.has('sim_aluno')).toBe(true);
+    expect(resolveTaskModel(sysConfigReal, 'sim_aluno')).toBe('gemini-3.8-flash');
+
+    const rollback = {
+      ai: {
+        modelo_padrao: 'claude-sonnet-4-6',
+        modelos: { sim_aluno: 'claude-haiku-4-5-20251001' },
+      },
+    };
+    expect(resolveTaskModel(rollback, 'sim_aluno')).toBe('claude-haiku-4-5-20251001');
+  });
+
   /**
    * Decisão 12/08/2026 — Sonnet 5 nas tarefas de SAÍDA LONGA.
    *

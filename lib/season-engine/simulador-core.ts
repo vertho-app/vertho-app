@@ -7,6 +7,7 @@
  */
 import { tenantDb } from '@/lib/tenant-db';
 import { callAI, callAIChat } from '@/actions/ai-client';
+import { DEFAULT_TASK_MODELS, getModelForTask } from '@/lib/ai-tasks';
 import {
   promptSimuladorColab,
   promptSimuladorCompromisso,
@@ -46,13 +47,12 @@ RETORNE APENAS JSON VÁLIDO, sem markdown, sem backticks.`;
 
 // O "aluno" (colaborador simulado) é OVERHEAD de simulação (netado do baseline
 // via source='simulator' + taskKey='sim_aluno'). Escolha do modelo = REALISMO +
-// confiabilidade, não custo.
-// ⚠️ Tentamos gpt-5.6-luna (independência de família p/ evitar colusão com o
-// mentor Claude), mas ele 401 "insufficient permissions" INTERMITENTE com nossa
-// chave sk-proj (4/6 num probe direto) — inutilizável para um run longo. Isso
-// também expõe risco no acumulada_check (Onda 0) que usa Luna em produção.
-// Haiku 4.5 (Anthropic, confiável, mais barato) fica como aluno.
-const SIM_MODEL = { model: 'claude-haiku-4-5-20251001' };
+// independência do mentor, não custo. Em 11/09/2026, Gemini 3.8 venceu o Haiku
+// 4.5 no canário cego final (média 9,25 × 8,88) e preserva a família diferente
+// do mentor Claude. O default vive em `ai-tasks`; o caller resolve a
+// configuração explícita da empresa uma vez por execução. O fallback 3.8 → 3.7
+// é central no `ai-client`.
+const SIM_ALUNO_DEFAULT_MODEL = DEFAULT_TASK_MODELS.sim_aluno;
 
 // Modelo do MENTOR na simulação. Default = produção (Sonnet 4.6). O piloto de
 // custo passa 'claude-sonnet-5' num braço para medir tokens/tarefa (o +30% do
@@ -73,6 +73,20 @@ function simOpts(trilha: any, taskKey: string) {
     empresaId: trilha.empresa_id,
     colaboradorId: trilha.colaborador_id,
   };
+}
+
+/** Uma única porta para o ator sintético: modelo resolvido + esforço curto. */
+async function chamarAlunoSimulado(
+  system: string,
+  user: string,
+  maxTokens: number,
+  trilha: any,
+  model: string = SIM_ALUNO_DEFAULT_MODEL,
+) {
+  return (await callAI(system, user, { model }, maxTokens, {
+    ...simOpts(trilha, 'sim_aluno'),
+    reasoningEffort: 'low',
+  })).trim();
 }
 
 const MAX_TURNS = {
@@ -119,22 +133,23 @@ export async function simularUmaSemanaCore(sbRaw: any, { trilhaId, semana, perfi
   const plano = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
   const s = plano.find((x: any) => x.semana === Number(semana));
   if (!s) return { error: `Semana ${semana} não está no plano` };
+  const simAlunoModel = await getModelForTask(trilha.empresa_id, 'sim_aluno');
 
   try {
     if (s.tipo === 'conteudo' && s.descritor) {
-      await simularSocratico(tdb, trilha, colab, s, perfilEvolucao, mentorModel);
+      await simularSocratico(tdb, trilha, colab, s, perfilEvolucao, mentorModel, simAlunoModel);
       return { ok: true, semana: Number(semana), tipo: 'conteudo' };
     }
     if (s.tipo === 'aplicacao') {
-      await simularMissaoPratica(tdb, trilha, colab, s, perfilEvolucao, mentorModel);
+      await simularMissaoPratica(tdb, trilha, colab, s, perfilEvolucao, mentorModel, simAlunoModel);
       return { ok: true, semana: Number(semana), tipo: 'aplicacao' };
     }
     if (s.tipo === 'avaliacao' && Number(semana) === 13) {
-      await simularQualitativa(tdb, trilha, colab, s, perfilEvolucao, mentorModel);
+      await simularQualitativa(tdb, trilha, colab, s, perfilEvolucao, mentorModel, simAlunoModel);
       return { ok: true, semana: 13, tipo: 'qualitativa' };
     }
     if (s.tipo === 'avaliacao' && Number(semana) === 14) {
-      const r = await simularSem14Ate(tdb, trilha, colab, perfilEvolucao, mentorModel);
+      const r = await simularSem14Ate(tdb, trilha, colab, perfilEvolucao, mentorModel, simAlunoModel);
       return { ok: true, semana: 14, tipo: 'cenario_b', cenario_disponivel: r.cenarioOk };
     }
     return { ok: true, semana: Number(semana), tipo: 'skip', reason: 'sem ação definida' };
@@ -157,6 +172,7 @@ export async function simularTemporadaCore(sbRaw: any, { trilhaId, perfilEvoluca
 
   const plano = Array.isArray(trilha.temporada_plano) ? trilha.temporada_plano : [];
   if (!plano.length) return { error: 'Trilha sem temporada_plano' };
+  const simAlunoModel = await getModelForTask(trilha.empresa_id, 'sim_aluno');
 
   const steps = [];
 
@@ -166,19 +182,19 @@ export async function simularTemporadaCore(sbRaw: any, { trilhaId, perfilEvoluca
       if (semana > 13) break; // sem 14 tratada depois
 
       if (s.tipo === 'conteudo' && s.descritor) {
-        await simularSocratico(tdb, trilha, colab, s, perfilEvolucao, mentorModel);
+        await simularSocratico(tdb, trilha, colab, s, perfilEvolucao, mentorModel, simAlunoModel);
         steps.push({ semana, tipo: 'conteudo', ok: true });
       } else if (s.tipo === 'aplicacao') {
-        await simularMissaoPratica(tdb, trilha, colab, s, perfilEvolucao, mentorModel);
+        await simularMissaoPratica(tdb, trilha, colab, s, perfilEvolucao, mentorModel, simAlunoModel);
         steps.push({ semana, tipo: 'aplicacao_pratica', ok: true });
       } else if (s.tipo === 'avaliacao' && semana === 13) {
-        await simularQualitativa(tdb, trilha, colab, s, perfilEvolucao, mentorModel);
+        await simularQualitativa(tdb, trilha, colab, s, perfilEvolucao, mentorModel, simAlunoModel);
         steps.push({ semana: 13, tipo: 'qualitativa', ok: true });
       }
     }
 
     // Sem 14: inicia cenário B + gera resposta simulada (NÃO finaliza — admin scoring manual)
-    const sem14 = await simularSem14Ate(tdb, trilha, colab, perfilEvolucao, mentorModel);
+    const sem14 = await simularSem14Ate(tdb, trilha, colab, perfilEvolucao, mentorModel, simAlunoModel);
     steps.push({ semana: 14, tipo: 'cenario_b_resposta_gerada', ok: true, cenario_disponivel: sem14.cenarioOk });
 
     return { ok: true, steps, colab: colab?.nome_completo, perfilEvolucao };
@@ -189,7 +205,7 @@ export async function simularTemporadaCore(sbRaw: any, { trilhaId, perfilEvoluca
 }
 
 // ── SEM DE CONTEÚDO (socrático 6 turnos) ──
-async function simularSocratico(sb: any, trilha: any, colab: any, s: any, perfilEvolucao: string, mentorModel: string = MENTOR_MODEL_DEFAULT) {
+async function simularSocratico(sb: any, trilha: any, colab: any, s: any, perfilEvolucao: string, mentorModel: string = MENTOR_MODEL_DEFAULT, simAlunoModel: string = SIM_ALUNO_DEFAULT_MODEL) {
   const nome = (colab?.nome_completo || '').split(' ')[0];
   const desafio = s.conteudo?.desafio_texto || '';
   let historico: any[] = [];
@@ -228,7 +244,7 @@ async function simularSocratico(sb: any, trilha: any, colab: any, s: any, perfil
       competencia: trilha.competencia_foco, descritor: s.descritor,
       desafio, historico, turnUser: userTurn, cargo: colab?.cargo,
     });
-    const respColab = (await callAI(simP.system, simP.user, SIM_MODEL, 1000, simOpts(trilha, 'sim_aluno'))).trim();
+    const respColab = await chamarAlunoSimulado(simP.system, simP.user, 1000, trilha, simAlunoModel);
     historico.push({ role: 'user', content: respColab, timestamp: new Date().toISOString() });
   }
 
@@ -282,7 +298,7 @@ REGRAS:
 }
 
 // ── SEM DE APLICAÇÃO — modo PRÁTICA (10 turnos) ──
-async function simularMissaoPratica(sb: any, trilha: any, colab: any, s: any, perfilEvolucao: string, mentorModel: string = MENTOR_MODEL_DEFAULT) {
+async function simularMissaoPratica(sb: any, trilha: any, colab: any, s: any, perfilEvolucao: string, mentorModel: string = MENTOR_MODEL_DEFAULT, simAlunoModel: string = SIM_ALUNO_DEFAULT_MODEL) {
   const nome = (colab?.nome_completo || '').split(' ')[0];
   const cobertos = s.descritores_cobertos || [];
   const missaoTexto = s.missao?.texto || '';
@@ -292,7 +308,7 @@ async function simularMissaoPratica(sb: any, trilha: any, colab: any, s: any, pe
     perfilEvolucao, competencia: trilha.competencia_foco,
     descritoresCobertos: cobertos, cargo: colab?.cargo, missao: missaoTexto,
   });
-  const compromisso = (await callAI(cmp.system, cmp.user, SIM_MODEL, 500, simOpts(trilha, 'sim_aluno'))).trim();
+  const compromisso = await chamarAlunoSimulado(cmp.system, cmp.user, 500, trilha, simAlunoModel);
 
   // 2. set modo=pratica
   await upsertProgresso(sb, trilha, s.semana, {
@@ -312,7 +328,7 @@ async function simularMissaoPratica(sb: any, trilha: any, colab: any, s: any, pe
     competencia: trilha.competencia_foco, descritor: cobertos.join(', '),
     missao: missaoTexto, historico: [], turnUser: 1, cargo: colab?.cargo,
   });
-  const relatoInicial = (await callAI(simInit.system, simInit.user, SIM_MODEL, 1500, simOpts(trilha, 'sim_aluno'))).trim();
+  const relatoInicial = await chamarAlunoSimulado(simInit.system, simInit.user, 1500, trilha, simAlunoModel);
   historico.push({ role: 'user', content: relatoInicial, timestamp: new Date().toISOString() });
 
   for (let turnIA = 1; turnIA <= maxIA; turnIA++) {
@@ -335,7 +351,7 @@ async function simularMissaoPratica(sb: any, trilha: any, colab: any, s: any, pe
       competencia: trilha.competencia_foco, descritor: cobertos.join(', '),
       missao: missaoTexto, historico, turnUser, cargo: colab?.cargo,
     });
-    const respColab = (await callAI(simP.system, simP.user, SIM_MODEL, 1000, simOpts(trilha, 'sim_aluno'))).trim();
+    const respColab = await chamarAlunoSimulado(simP.system, simP.user, 1000, trilha, simAlunoModel);
     historico.push({ role: 'user', content: respColab, timestamp: new Date().toISOString() });
   }
 
@@ -389,7 +405,7 @@ REGRAS:
 }
 
 // ── SEM 13 QUALITATIVA (12 turnos) ──
-async function simularQualitativa(sb: any, trilha: any, colab: any, s: any, perfilEvolucao: string, mentorModel: string = MENTOR_MODEL_DEFAULT) {
+async function simularQualitativa(sb: any, trilha: any, colab: any, s: any, perfilEvolucao: string, mentorModel: string = MENTOR_MODEL_DEFAULT, simAlunoModel: string = SIM_ALUNO_DEFAULT_MODEL) {
   const nome = (colab?.nome_completo || '').split(' ')[0];
   const descritoresArr = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
 
@@ -421,7 +437,7 @@ async function simularQualitativa(sb: any, trilha: any, colab: any, s: any, perf
       competencia: trilha.competencia_foco, descritor: descritoresArr.map((d: any) => d.descritor).join(', '),
       historico, turnUser: turnIA, cargo: colab?.cargo,
     });
-    const respColab = (await callAI(simP.system, simP.user, SIM_MODEL, 1200, simOpts(trilha, 'sim_aluno'))).trim();
+    const respColab = await chamarAlunoSimulado(simP.system, simP.user, 1200, trilha, simAlunoModel);
     historico.push({ role: 'user', content: respColab, timestamp: new Date().toISOString() });
   }
 
@@ -457,8 +473,8 @@ async function simularQualitativa(sb: any, trilha: any, colab: any, s: any, perf
 }
 
 // ── SEM 14: prepara cenário B e gera resposta simulada (SEM scoring) ──
-async function simularSem14Ate(sb: any, trilha: any, colab: any, perfilEvolucao: string, mentorModel: string = MENTOR_MODEL_DEFAULT) {
-  void mentorModel; // sem 14 só gera a RESPOSTA do aluno (Luna); scoring é manual/separado
+async function simularSem14Ate(sb: any, trilha: any, colab: any, perfilEvolucao: string, mentorModel: string = MENTOR_MODEL_DEFAULT, simAlunoModel: string = SIM_ALUNO_DEFAULT_MODEL) {
+  void mentorModel; // sem 14 só gera a RESPOSTA do aluno; scoring é manual/separado
   const nome = (colab?.nome_completo || '').split(' ')[0];
   // Busca cenário B do banco_cenarios
   const { data: cenB } = await sb.from('banco_cenarios')
@@ -489,7 +505,7 @@ async function simularSem14Ate(sb: any, trilha: any, colab: any, perfilEvolucao:
     descritor: descritoresArr.map((d: any) => d.descritor).join(', '),
     cenario, historico: [], turnUser: 1, cargo: colab?.cargo,
   });
-  const resposta = (await callAI(simP.system, simP.user, SIM_MODEL, 2500, simOpts(trilha, 'sim_aluno'))).trim();
+  const resposta = await chamarAlunoSimulado(simP.system, simP.user, 2500, trilha, simAlunoModel);
 
   await upsertProgresso(sb, trilha, 14, {
     tipo: 'avaliacao',

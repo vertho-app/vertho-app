@@ -167,7 +167,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 - **Ações por temporada**: Pausar / Retomar / Arquivar / Regerar semana
 - **Prontidão piloto**: botão no header valida, por colaborador em modo piloto, formato-core dos top-4 descritores (bloqueador se nenhum conteúdo utilizável) e Cenário B do cargo (bloqueador do fechamento) — rodar ANTES de liberar a degustação
 - **Detalhe**: abre modal com transcripts completos, insights, avaliações IA
-- **Simulador**: botão "SIM" roda simulação completa (1 semana/chamada, 4 perfis, Haiku, barra de progresso)
+- **Simulador**: botão "SIM" roda simulação completa (1 semana/chamada, 4 perfis, Gemini 3.8 Flash em `low`, barra de progresso)
 
 ---
 
@@ -191,7 +191,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
    - ⚠️ **O que está GRAVADO na semana é placeholder.** O desafio real — e o conteúdo de kit — entram na **leitura**, pelo overlay do **Kit Semanal**, resolvidos por **(DISC × cargo)**. Ao investigar "o que a pessoa recebeu", ler o consumidor (`overlayKitNaSemana`), nunca o campo gravado. Ver `docs/KIT-SEMANAL.md`
 3. **Tira-Dúvidas** (NOVO): chat reativo sobre o conteúdo da semana
    - Guard-rail no descritor da semana (não divaga)
-   - Modelo: Haiku 4.5
+   - Modelo: Claude Sonnet 4.6
    - Sem limite de turnos, não altera status da semana
    - Persiste em `temporada_semana_progresso.tira_duvidas` JSONB
    - API: `POST /api/temporada/tira-duvidas`
@@ -559,7 +559,7 @@ repo; **não usar em material novo**.
 
 | Conversa | Onde | Turns IA | Modelo | Personalização |
 |---|---|---|---|---|
-| Tira-Dúvidas | sem 1-3, 5-7, 9-11 | ilimitado | Haiku 4.5 | guard-rail no descritor da semana |
+| Tira-Dúvidas | sem 1-3, 5-7, 9-11 | ilimitado | Sonnet 4.6 | guard-rail no descritor da semana |
 | Evidências (socrática) | sem 1-3, 5-7, 9-11 | 6 | Sonnet 4.6 | DISC + anti-alucinação + perguntas abertas |
 | Missão Feedback | sem 4, 8, 12 | 10 | Sonnet 4.6 | IA analisa relato da missão |
 | Analítica (fallback) | sem 4, 8, 12 | 10 | Sonnet 4.6 | alterna pontos fortes ↔ provocações |
@@ -567,7 +567,7 @@ repo; **não usar em material novo**.
 | Avaliação Acumulada | pós sem 13 | — (single-shot) | Sonnet 4.6 + auditor **GPT 5.6 Terra** | cega p/ nota inicial, max 8000+6000 tok |
 | Evolution cenário | sem 14 | — (wizard 4 perguntas) | Sonnet 4.6 + auditor **GPT 5.6 Terra** | triangulação + 4 notas, régua n1-n4 |
 | Arguição (defesa oral) | fechamento | 4-8 (por modo) | Sonnet 4.6 | modula ±0,5 por regra em CÓDIGO |
-| Simulador | admin | 1 sem/chamada | Haiku | 4 perfis comportamentais |
+| Simulador | admin | 1 sem/chamada | Gemini 3.8 Flash (`low`) | 4 perfis comportamentais |
 
 > **Auditores 2ª-IA padronizados em GPT 5.6 Terra desde 22/07** (decisão de qualidade, não de custo): `ia3_check`, `ia4_check`, `cenarios_b_check`, `acumulada_check`, `sem14_check`, `pulse_audit`, `modulo_base_auditor` — todos **pinned** em `lib/ai-tasks.ts`, imunes ao `modelo_padrao` do tenant. Detalhe em `docs/CUSTO-QUALIDADE.md`.
 

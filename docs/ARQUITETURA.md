@@ -31,7 +31,7 @@
 | **IA Principal** | Anthropic SDK (modelo em `lib/ai-tasks.ts`) | 0.96.0 | ✅ |
 | **IA Secundaria** | Google Gemini · OpenAI (`gpt-5.x`) · **Kimi/Moonshot** (`kimi*`, OpenAI-compatible) | via wrapper unico | ✅ |
 | **IA Validacao** | **GPT 5.6 Terra** — 7 auditores 2a-IA `pinned` em `lib/ai-tasks.ts` (desde 22/07) | — | ✅ |
-| **IA Leve** | Claude Haiku 4.5 (Tira-Duvidas, Simulador) | via SDK | ✅ |
+| **IA Leve** | Gemini 3.8 Flash (classificações, brief e simulador sintético) | via wrapper | ✅ |
 | **IA em lote** | Batch API da Anthropic **e** da OpenAI (−50%) — `lib/ai-batch.ts` | — | ✅ |
 | **Jobs de fundo** | Trigger.dev (deploy **MANUAL**, nao sai no `git push`) | 4.4.6 | ✅ |
 | **Video** | HeyGen (avatar) + Remotion (render, backend Hetzner) + Bunny Stream (hosting) | Remotion 4.0 | ✅ |
@@ -324,7 +324,7 @@ nextjs-app/
 │       ├── relatorios/pdf/route.ts
 │       ├── temporada/
 │       │   ├── reflection/route.ts    # Chat socratico/analitico (c/ grounding RAG)
-│       │   ├── tira-duvidas/route.ts  # Chat reativo Haiku 4.5 (c/ grounding RAG)
+│       │   ├── tira-duvidas/route.ts  # Chat reativo Sonnet 4.6 (c/ grounding RAG)
 │       │   ├── missao/route.ts        # set_modo + compromisso
 │       │   ├── evaluation/route.ts    # Sem 14 wizard + triangulacao
 │       │   └── concluida/pdf/route.ts # PDF Evolution Report
@@ -350,7 +350,7 @@ nextjs-app/
 │   ├── avaliacao-acumulada.ts    # Auto-trigger pos sem 13, dual-IA
 │   ├── evolution-report.ts       # Consolida sems 13+14
 │   ├── temporada-concluida.ts    # Dados tela Concluida
-│   ├── simulador-temporada.ts    # 1 sem/chamada, 4 perfis, Haiku
+│   ├── simulador-temporada.ts    # 1 sem/chamada, 4 perfis, Gemini 3.8 low
 │   ├── assessment-descritores.ts # CRUD assessment descritores
 │   ├── cenario-b.ts              # Cenario B
 │   ├── check-ia4.ts              # Validacao 4D x 25pts = 100
@@ -462,7 +462,7 @@ nextjs-app/
 │   │       ├── analytic.ts       # Feedback analitico: 10 turnos
 │   │       ├── challenge.ts      # Desafio semanal
 │   │       ├── scenario.ts       # Cenario situacional
-│   │       ├── tira-duvidas.ts   # Chat reativo Haiku 4.5 (c/ grounding)
+│   │       ├── tira-duvidas.ts   # Chat reativo Sonnet 4.6 (c/ grounding)
 │   │       ├── missao.ts         # Missao pratica
 │   │       ├── missao-feedback.ts # IA analisa relato (10 turnos, c/ grounding)
 │   │       ├── acumulado.ts      # Avaliacao acumulada (cega, dual-IA)
@@ -884,7 +884,7 @@ junto com ela**, que é o que custou 5 dias de vídeo em `docs/FMEA-PIPELINE.md`
 
 | Prompt | Arquivo | Turnos | Modelo | Uso |
 |---|---|---|---|---|
-| Tira-Duvidas | `tira-duvidas.ts` | ilimitado | Haiku 4.5 | Chat reativo, guard-rail descritor, grounding RAG |
+| Tira-Duvidas | `tira-duvidas.ts` | ilimitado | Sonnet 4.6 | Chat reativo, guard-rail descritor, grounding RAG |
 | Evidencias (socratica) | `socratic.ts` | 6 | Sonnet | DISC + anti-alucinacao + grounding RAG |
 | Desafio | `challenge.ts` | — | Sonnet | JSON: desafio_texto, acao_observavel, criterio_de_execucao, por_que_cabe_na_semana |
 | Cenario | `scenario.ts` | — | Sonnet | JSON + parseCenarioResponse + cenarioToMarkdown |
@@ -898,7 +898,7 @@ junto com ela**, que é o que custou 5 dias de vídeo em `docs/FMEA-PIPELINE.md`
 | Check Acumulada (6.11) | `acumulado.ts` | single-shot | auditor | 6 criterios ponderados, 3-status. validateAvaliacaoAcumuladaCheck |
 | Sem14 scorer (6.12) | `evolution-scenario.ts` | — | Sonnet | resumo_avaliacao ALWAYS object. validateEvolutionScenarioScore |
 | Check sem14 (6.13) | `evolution-scenario-check.ts` | — | Sonnet | 6 criterios. validateEvolutionScenarioCheck |
-| Simulador | `simulador-temporada.ts` | 1 sem/chamada | Haiku | 4 perfis comportamentais |
+| Simulador | `simulador-temporada.ts` | 1 sem/chamada | Gemini 3.8 Flash (`low`) | 4 perfis comportamentais |
 | Case Study | `case-study.ts` | — | Sonnet | Geracao de caso |
 | Texto | `text-content.ts` | — | Sonnet | Geracao de artigo |
 | Video Script | `video-script.ts` | — | Sonnet | Roteiro video (conteudo) |
@@ -936,7 +936,7 @@ Tabela `prompt_versions` (SHA-256 dedup). ⚠️ **A TABELA NÃO EXISTE** — ne
 | PDI | 6.000 |
 | PPP | 16.000 |
 | BETO tutor | 500 |
-| Tira-Duvidas | 500 (Haiku) |
+| Tira-Duvidas | 1.500 (Sonnet 4.6) |
 
 ---
 
@@ -1113,7 +1113,7 @@ Tabelas: sessoes_avaliacao, mensagens_chat, competencias, banco_cenarios
 
 2. Semanas 1-3, 5-7, 9-11 (conteudo):
    - Colab ve conteudo → "Marcar como realizado" (gate: clicar link)
-   - Tira-Duvidas: chat reativo (Haiku 4.5, sem limite turnos)
+   - Tira-Duvidas: chat reativo (Sonnet 4.6, sem limite turnos)
    - Evidencias: socratica 6 turnos (DISC, anti-alucinacao)
    - Fechamento: Desafio/Insight/Compromisso
 
