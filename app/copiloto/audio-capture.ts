@@ -4,6 +4,8 @@ const TARGET_RATE = 16000;
 
 export type CaptureState = 'parado' | 'conectando' | 'gravando' | 'erro';
 export type CaptureSurface = 'browser' | 'window' | 'monitor' | 'unknown';
+import { divergenciaDeSaida, type SaidaDeAudio } from '@/lib/copiloto/saida-de-audio';
+
 export type CaptureAudioLevels = { system: number; microphone: number };
 
 type SegmentPayload = {
@@ -20,6 +22,8 @@ type CaptureOptions = {
   onSurface?: (surface: CaptureSurface) => void;
   /** O usuário parou o compartilhamento (barra do Chrome ou botão): o cliente some sem erro. */
   onSystemTrackEnded?: () => void;
+  /** Tela inteira gravando um aparelho e a chamada tocando em outro. */
+  onOutputMismatch?: (saida: SaidaDeAudio) => void;
   /** A transcrição está atrasada em relação à fala (fila do executor cheia). */
   onLag?: (atrasado: boolean) => void;
   /** O socket caiu no meio da reunião e voltou. */
@@ -146,6 +150,19 @@ export class LocalMeetingCapture {
     this.microphoneStream = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
     });
+
+    // Só agora o navegador revela o NOME dos aparelhos: sem permissão de
+    // microfone concedida, `enumerateDevices` devolve rótulo vazio e não há o
+    // que comparar. Avisa, nunca barra — quem apontou o aplicativo da reunião
+    // para o dispositivo padrão na mão continua com uma captura que funciona.
+    if (surface === 'monitor') {
+      try {
+        const saida = divergenciaDeSaida(await navigator.mediaDevices.enumerateDevices());
+        if (saida) this.options.onOutputMismatch?.(saida);
+      } catch {
+        // Enumerar é diagnóstico: falhar aqui não pode derrubar a captura.
+      }
+    }
   }
 
   private async buildGraph() {

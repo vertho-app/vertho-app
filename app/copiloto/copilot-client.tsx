@@ -43,6 +43,9 @@ import {
   type LocalAsrState,
 } from './local-asr';
 import {
+  explicarDivergencia, REMEDIOS_DE_SAIDA, type SaidaDeAudio,
+} from '@/lib/copiloto/saida-de-audio';
+import {
   addAudioEvidence, assessAudioInputHealth, EMPTY_AUDIO_EVIDENCE,
   type AudioInputEvidence, type AudioInputHealth,
 } from './audio-health';
@@ -760,6 +763,8 @@ export default function CopilotClient({
   const [localAsrReadyNotice, setLocalAsrReadyNotice] = useState(false);
   const [captureSurface, setCaptureSurface] = useState<CaptureSurface>('unknown');
   const [audioHealth, setAudioHealth] = useState<AudioInputHealth>('checking');
+  /** As duas saídas do Windows, quando elas apontam para aparelhos diferentes. */
+  const [saidaDivergente, setSaidaDivergente] = useState<SaidaDeAudio | null>(null);
   const [audioLevels, setAudioLevels] = useState({ system: 0, microphone: 0 });
   const [shareEnded, setShareEnded] = useState(false);
   const [transcricaoAtrasada, setTranscricaoAtrasada] = useState(false);
@@ -1502,6 +1507,7 @@ export default function CopilotClient({
       onPartial,
       onLevels: onAudioLevels,
       onSurface: setCaptureSurface,
+      onOutputMismatch: setSaidaDivergente,
       onLag: (atrasado) => setTranscricaoAtrasada(atrasado),
       onReconnect: (estado) => {
         setConexaoAsr(estado === 'voltou' ? 'ok' : estado === 'perdido' ? 'reconectando' : 'perdida');
@@ -1731,13 +1737,26 @@ export default function CopilotClient({
         title: 'O compartilhamento da reunião foi encerrado.',
         detail: 'Você parou de compartilhar (pela barra do Chrome ou pelo botão). O microfone segue, mas o som do cliente não chega mais: recompartilhe para continuar.',
       }
+    // Antes dos 10 s do diagnóstico de saúde: a divergência de saída é medida no
+    // instante em que a captura abre, e esperar a evidência chegar custaria os
+    // primeiros minutos da reunião — que é justamente onde o cliente se apresenta.
+    // Só cala quando o som do cliente JÁ chegou, porque aí a divergência existe
+    // e não está atrapalhando (o aplicativo foi apontado para o aparelho padrão).
+    : saidaDivergente && captureSurface === 'monitor'
+      && audioHealth !== 'ready' && audioHealth !== 'system-only'
+    ? {
+        title: 'A voz do cliente não vai chegar por aqui.',
+        detail: `${explicarDivergencia(saidaDivergente)} ${REMEDIOS_DE_SAIDA[0]} ${REMEDIOS_DE_SAIDA[1]}`,
+      }
     : audioHealth === 'microphone-only'
     ? {
         title: 'Estou ouvindo apenas você.',
         detail: captureSurface === 'window'
           ? 'Você compartilhou uma janela, e janela nunca carrega áudio no Chrome. Recompartilhe: reunião no navegador, escolha a aba dela; reunião num aplicativo, escolha “Tela inteira” e marque “Compartilhar áudio do sistema”.'
           : captureSurface === 'monitor'
-            ? 'A tela veio sem o som do sistema. Recompartilhe escolhendo “Tela inteira” e marque “Compartilhar áudio do sistema” na mesma janela de seleção.'
+            ? (saidaDivergente
+              ? `${explicarDivergencia(saidaDivergente)} ${REMEDIOS_DE_SAIDA[0]}`
+              : 'A tela veio sem o som do sistema. Recompartilhe escolhendo “Tela inteira” e marque “Compartilhar áudio do sistema” na mesma janela de seleção.')
             : captureSurface === 'browser'
               ? 'O som da aba compartilhada não chegou. Confirme que escolheu a aba da reunião e ativou “Compartilhar áudio da guia” — se a reunião estiver noutra aba ou num aplicativo, o som não vem por aqui.'
               : 'O áudio dos participantes não chegou. Recompartilhe marcando a caixa de áudio na janela de seleção.',
