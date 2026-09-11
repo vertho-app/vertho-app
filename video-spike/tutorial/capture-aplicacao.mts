@@ -27,6 +27,8 @@ const PORT = process.argv[2] || '3000';
 const BASE = `http://acme-demo.localhost:${PORT}`;
 const IMGDIR = path.join(PUBLIC_DIR, 'tutorial', 'aplicacao');
 const PERSONA = 'paulo.demo@vertho.ai';
+// Tenant do host navegado — o script e a tela têm que olhar o MESMO recorte.
+const TENANT = new URL(BASE).hostname.split('.')[0];
 const SEMANA = 4;
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
 type Box = { x: number; y: number; width: number; height: number };
@@ -58,14 +60,25 @@ async function mint(email: string) {
 // dar a impressão de que o problema está resolvido.
 const db = () => new pg.Client({ connectionString: env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
 
-/** A trilha é resolvida por e-mail: o reset diário do acme-demo troca os ids. */
+/**
+ * A trilha é resolvida por e-mail: o reset diário do acme-demo troca os ids.
+ *
+ * 🔴 E POR TENANT. A mesma persona de demo existe em mais de um tenant
+ * (`bruna.demo` apareceu em `acme-demo` e em `gruposinal` em 11/09/2026), e sem
+ * o recorte este `order by criado_em desc limit 1` devolve a trilha do tenant
+ * que foi recriado por último. O script semeia uma trilha e a tela — que
+ * resolve o colaborador pelo HOST — lê outra, sem erro em lugar nenhum.
+ */
 async function resolverTrilha(): Promise<string> {
   const c = db(); await c.connect();
   const { rows } = await c.query(
-    `select t.id from trilhas t join colaboradores c on c.id = t.colaborador_id
-      where c.email = $1 order by t.criado_em desc limit 1`, [PERSONA]);
+    `select t.id from trilhas t
+       join colaboradores c on c.id = t.colaborador_id
+       join empresas e on e.id = c.empresa_id
+      where c.email = $1 and e.slug = $2
+      order by t.criado_em desc limit 1`, [PERSONA, TENANT]);
   await c.end();
-  if (!rows[0]) throw new Error(`sem trilha para ${PERSONA} — o reset do acme-demo rodou?`);
+  if (!rows[0]) throw new Error(`sem trilha para ${PERSONA} no tenant "${TENANT}" — o reset do acme-demo rodou?`);
   return rows[0].id;
 }
 

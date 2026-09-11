@@ -48,8 +48,38 @@ async function shot(page: Page, id: string, bbox: Box | null) {
   frames[id] = { image: rel, bbox };
   log(`✓ ${id.padEnd(14)} bbox=${bbox ? `${Math.round(bbox.x)},${Math.round(bbox.y)} ${Math.round(bbox.width)}×${Math.round(bbox.height)}` : '—'}`);
 }
-async function bboxAt(page: Page, re: RegExp) { return await page.getByText(re).first().boundingBox().catch(() => null); }
-async function frameTarget(page: Page, loc: ReturnType<Page['getByText']>) {
+/**
+ * O alvo está VISÍVEL no ponto em que a moldura vai cair?
+ *
+ * `count() > 0` prova que o nó existe; `boundingBox()` devolve a caixa mesmo com
+ * um modal por cima. Quem responde "o que a câmera vê naquele pixel" é o
+ * `elementFromPoint` — se o que está lá não é o alvo nem parente/filho dele,
+ * alguma coisa cobriu, e a moldura vai emoldurar essa outra coisa.
+ *
+ * Lança com o texto do INTRUSO: sem ele o erro vira "não sei o que aconteceu", e
+ * com ele o diagnóstico é imediato ("Seu Plano de Desenvolvimento Individual" =
+ * o modal do FirstViewVideo).
+ */
+async function conferirVisivel(page: Page, loc: ReturnType<Page['getByText']>, id: string) {
+  const intruso = await loc.evaluate((el: Element) => {
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return 'alvo com caixa zerada (invisível)';
+    const topo = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+    if (!topo) return 'nada no ponto do alvo (fora da viewport)';
+    if (topo === el || el.contains(topo) || topo.contains(el)) return null;
+    const texto = (topo.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    return `${topo.tagName.toLowerCase()}${topo.className ? '.' + String(topo.className).split(/\s+/)[0] : ''} — "${texto}"`;
+  }).catch(() => null as string | null);
+  if (intruso) throw new Error(`alvo COBERTO no beat "${id}": ${intruso}`);
+}
+
+async function bboxAt(page: Page, re: RegExp, id: string) {
+  const loc = page.getByText(re).first();
+  if (!(await loc.count().catch(() => 0))) throw new Error(`alvo nao encontrado na tela (${re}) - a tela mudou desde a ultima captura`);
+  await conferirVisivel(page, loc, id);
+  return await loc.boundingBox().catch(() => null);
+}
+async function frameTarget(page: Page, loc: ReturnType<Page['getByText']>, id: string) {
   // ALVO AUSENTE LANCA. Ate 10/09/2026 devolvia null, o `shot` imprimia "bbox=-" e a
   // captura seguia: sete semanas de mudanca de tela produziam PNGs sem destaque e um
   // log cheio de check verde. Quem descobria era o video, depois de renderizado.
@@ -58,6 +88,7 @@ async function frameTarget(page: Page, loc: ReturnType<Page['getByText']>) {
   }
   const b0 = await loc.boundingBox().catch(() => null);
   if (b0) { const sy = await page.evaluate(() => window.scrollY); await page.evaluate((y) => window.scrollTo(0, y), Math.max(0, Math.round(b0.y + sy - 200))); await page.waitForTimeout(400); }
+  await conferirVisivel(page, loc, id); // depois de rolar: é nesta posição que a moldura cai
   return await loc.boundingBox().catch(() => null);
 }
 
@@ -74,6 +105,30 @@ async function main() {
     document.documentElement.appendChild(s);
   });
 
+  /*
+   * 🔴 O MODAL DO TUTORIAL DO PDI COBRIU AS QUATRO CAPTURAS DO TUTORIAL DO PDI.
+   *
+   * `FirstViewVideo` (app/dashboard/pdi/page.tsx:280) abre sozinho na 1ª visita
+   * da seção e marca o visto em `localStorage` por colaborador. A captura nasce
+   * sempre em contexto NOVO, então ele abriu em cima de tudo — e o vídeo que
+   * tocava dentro dele era a versão ANTERIOR deste mesmo tutorial. As quatro
+   * molduras de destaque ficaram apontando para elementos atrás do modal.
+   *
+   * O `frameTarget` não pegou porque ele pergunta se o alvo EXISTE, e existia:
+   * `getByText` acha o nó no DOM e `boundingBox()` devolve a caixa mesmo com
+   * outra coisa por cima. Por isso, junto com esta dispensa, o `shot` passou a
+   * conferir OCLUSÃO — ver `conferirVisivel`.
+   *
+   * Esta é a TERCEIRA tela com `FirstViewVideo`; jornada e aplicação já
+   * dispensavam o modal desde 10/09, esta ficou de fora.
+   */
+  await page.addInitScript(() => {
+    try {
+      const orig = localStorage.getItem.bind(localStorage);
+      localStorage.getItem = (k: string) => (k.startsWith('vertho:video-visto:') ? '1' : orig(k));
+    } catch { /* localStorage indisponível */ }
+  });
+
   await page.goto(`${BASE}/dashboard/pdi`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.getByText(/Bruna Costa/i).first().waitFor({ timeout: 15000 });
   await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {});
@@ -81,11 +136,11 @@ async function main() {
   await page.evaluate(() => window.scrollTo(0, 0));
 
   // topo: título + Baixar PDF
-  await shot(page, 'pdi', await bboxAt(page, /Bruna Costa/i));
-  await shot(page, 'baixar', await bboxAt(page, /Baixar PDF/i));
+  await shot(page, 'pdi', await bboxAt(page, /Bruna Costa/i, 'pdi'));
+  await shot(page, 'baixar', await bboxAt(page, /Baixar PDF/i, 'baixar'));
 
   // competências / níveis (RESUMO DE DESEMPENHO)
-  const bComp = await frameTarget(page, page.getByText(/RESUMO DE DESEMPENHO/i).first());
+  const bComp = await frameTarget(page, page.getByText(/RESUMO DE DESEMPENHO/i).first(), 'competencias');
   await shot(page, 'competencias', bComp);
 
   // 1º bloco de competência (idx 0) já vem ABERTO (useState(idx===0)) → só rolar até ele.
@@ -97,7 +152,7 @@ async function main() {
   // versão daquele PDI. O destaque do beat é a COMPETÊNCIA, e todo card de competência
   // traz o selo de prioridade — isso vale para qualquer pessoa e qualquer conteúdo.
   const plano = page.getByRole('button').filter({ hasText: /Prioridade/i }).first();
-  const bPlano = await frameTarget(page, plano);
+  const bPlano = await frameTarget(page, plano, 'plano');
   await shot(page, 'plano', bPlano);
 
   await browser.close();

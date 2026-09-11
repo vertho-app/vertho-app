@@ -101,6 +101,31 @@ const DragHintOverlay: React.FC<{ localFrame: number }> = ({ localFrame }) => {
   );
 };
 
+/**
+ * Legenda queimada no quadro.
+ *
+ * 🔴 Vive aqui, e não inline, porque o ramo da CARTELA devolvia cedo e a legenda
+ * ficava só no ramo da tela. Efeito medido em 10/09/2026: os 7 flows abrem e
+ * fecham em cartela, então o primeiro e o último beat de TODO tutorial saíam
+ * mudos — 10s de narração sem legenda na abertura do PDI, e o fecho do
+ * boas-vindas genérico idem. Nada acusa: o beat renderiza certo, tem áudio, tem
+ * título, e a ausência é de uma coisa que ninguém enumera. Um bloco, dois
+ * chamadores — ramo novo que esquecer de chamar é visível na revisão.
+ */
+const Legenda: React.FC<{ cue: Cue | undefined }> = ({ cue }) => {
+  if (!cue) return null;
+  return (
+    <>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 240, background: `linear-gradient(to top, ${withAlpha('#03101f', 0.92)} 0%, ${withAlpha('#03101f', 0.55)} 55%, transparent 100%)`, pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 72, display: 'flex', justifyContent: 'center', padding: '0 240px' }}>
+        <span style={{ color: BRAND.ink, fontSize: 44, lineHeight: 1.28, fontWeight: 600, textAlign: 'center', textShadow: `0 2px 14px ${withAlpha('#000814', 0.8)}`, maxWidth: 1440 }}>
+          {cue.text}
+        </span>
+      </div>
+    </>
+  );
+};
+
 // ── Uma etapa: janela do app + Ken Burns + callout + eyebrow + legenda ──────
 const Step: React.FC<{ step: TStep }> = ({ step }) => {
   const frame = useCurrentFrame(); // relativo à Sequence
@@ -128,6 +153,7 @@ const Step: React.FC<{ step: TStep }> = ({ step }) => {
           )}
           <div style={{ color: BRAND.ink, fontSize: 84, fontWeight: 700, letterSpacing: -1, maxWidth: 1400 }}>{step.cartela.title}</div>
         </div>
+        <Legenda cue={cue} />
         <Sequence from={step.audioFromFrame} durationInFrames={step.audioDurationInFrames + fps}>
           <Audio src={staticFile(step.audio)} />
         </Sequence>
@@ -167,16 +193,7 @@ const Step: React.FC<{ step: TStep }> = ({ step }) => {
       </div>
 
       {/* legenda (burned) */}
-      {cue && (
-        <>
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 240, background: `linear-gradient(to top, ${withAlpha('#03101f', 0.92)} 0%, ${withAlpha('#03101f', 0.55)} 55%, transparent 100%)`, pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 72, display: 'flex', justifyContent: 'center', padding: '0 240px' }}>
-            <span style={{ color: BRAND.ink, fontSize: 44, lineHeight: 1.28, fontWeight: 600, textAlign: 'center', textShadow: `0 2px 14px ${withAlpha('#000814', 0.8)}`, maxWidth: 1440 }}>
-              {cue.text}
-            </span>
-          </div>
-        </>
-      )}
+      <Legenda cue={cue} />
 
       {/* áudio da narração (após o lead) */}
       <Sequence from={step.audioFromFrame} durationInFrames={step.audioDurationInFrames + fps}>

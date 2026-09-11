@@ -28,6 +28,9 @@ const OUT_DIR = path.join(HERE, 'out');
 // Porta errada captura a tela de OUTRA versão do app sem erro nenhum.
 const BASE = process.env.TUTORIAL_BASE || 'http://acme-demo.localhost:3000';
 const IMGDIR = path.join(PUBLIC_DIR, 'tutorial', 'jornada');
+// Tenant do host que a captura navega — a tela resolve o colaborador pelo
+// subdomínio, então toda query do script tem que usar o MESMO recorte.
+const TENANT = new URL(BASE).hostname.split('.')[0];
 const log = (...a: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...a);
 type Box = { x: number; y: number; width: number; height: number };
 
@@ -71,15 +74,31 @@ async function pg_() {
 let TRILHA = '';
 async function resolverTrilha() {
   const c = await pg_();
+  /*
+   * 🔴 O FILTRO DE TENANT NÃO É DECORAÇÃO: A MESMA PERSONA VIVE EM DOIS DEMOS.
+   *
+   * Em 11/09/2026 `bruna.demo@vertho.ai` passou a existir em `acme-demo` E em
+   * `gruposinal` (outro tenant de demo). Sem o `e.slug`, este `order by
+   * criado_em desc limit 1` devolvia a trilha do OUTRO tenant — e aí o script
+   * semeava uma trilha enquanto a tela, que resolve o colaborador pelo HOST,
+   * lia a outra. Nada falhava: o `update` achava a linha e devolvia rowCount 1.
+   *
+   * O estrago saíu no vídeo: o beat "concluida" narra "a semana é dada como
+   * concluída" e gravou a tela dizendo "Evidências · 1 de 6 respostas".
+   *
+   * É a regra que o CLAUDE.md já cobra do app ("NUNCA `.eq('email')` direto —
+   * usuário em 2+ empresas quebra"), e que o script de captura não seguia.
+   */
   const { rows } = await c.query(
     `select t.id from trilhas t
        join colaboradores co on co.id = t.colaborador_id
-      where co.email = $1
+       join empresas e on e.id = co.empresa_id
+      where co.email = $1 and e.slug = $2
       order by t.criado_em desc limit 1`,
-    ['bruna.demo@vertho.ai'],
+    ['bruna.demo@vertho.ai', TENANT],
   );
   await c.end();
-  if (!rows.length) throw new Error('trilha da bruna.demo não encontrada — rode o reset do acme-demo');
+  if (!rows.length) throw new Error(`trilha da bruna.demo no tenant "${TENANT}" não encontrada — rode o reset do acme-demo`);
   TRILHA = rows[0].id;
   log(`trilha resolvida: ${TRILHA}`);
 }
@@ -214,12 +233,14 @@ async function bboxDoBloco(page: Page, re: RegExp) {
  * de Evidências saía atrás da legenda, com o destaque cortado. Centralizar é o
  * único jeito de o alvo caber entre o cabeçalho da etapa e a legenda.
  */
-async function centralizar(page: Page, loc: ReturnType<Page['locator']>) {
+async function centralizar(page: Page, loc: ReturnType<Page['locator']>, id = 'alvo') {
   // ALVO AUSENTE LANCA. Ate 10/09/2026 devolvia null, o `shot` imprimia "bbox=-" e a
   // captura seguia: sete semanas de mudanca de tela produziam PNGs sem destaque e um
   // log cheio de check verde. Quem descobria era o video, depois de renderizado.
   if (!(await loc.count().catch(() => 0))) {
-    throw new Error(`alvo nao encontrado na tela: ${re} - a tela mudou desde a ultima captura`);
+    // A mensagem interpolava `re`, que NAO existe aqui (o parametro e `loc`):
+    // o guard lancava "re is not defined" em vez de dizer qual alvo sumiu.
+    throw new Error(`alvo nao encontrado na tela (${id}) - a tela mudou desde a ultima captura`);
   }
   await loc.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior })).catch(() => {});
   await page.waitForTimeout(500);
@@ -281,20 +302,48 @@ async function frameTarget(page: Page, re: RegExp) {
   return await loc.boundingBox().catch(() => null);
 }
 
-// Chip "vídeo" FAKE: clona o último chip de formato (herda o estilo real do app)
-// e troca o rótulo p/ "vídeo". Pedido do Rodrigo — o acme-demo não tem vídeo real.
-async function injectVideoChip(page: Page) {
-  await page.evaluate(() => {
-    const chips = Array.from(document.querySelectorAll('a[href*="/api/conteudo"]'));
-    if (!chips.length || chips.some((c) => /v[ií]deo/i.test(c.textContent || ''))) return;
-    const clone = chips[chips.length - 1].cloneNode(true) as HTMLElement;
-    const walker = document.createTreeWalker(clone, NodeFilter.SHOW_TEXT);
-    let node: Node | null; let textNode: Node | null = null;
-    while ((node = walker.nextNode())) if (node.textContent && node.textContent.trim()) textNode = node;
-    if (textNode) textNode.textContent = 'vídeo';
-    chips[chips.length - 1].parentElement!.appendChild(clone);
-  });
-  await page.waitForTimeout(250);
+/**
+ * Os chips de "DISPONÍVEL EM": video · audio · texto · case.
+ *
+ * 🔴 ERAM `a[href*="/api/conteudo"]` E VIRARAM `<button>`.
+ *
+ * A tela passou a abrir todo formato DENTRO da experiência (o `target=_blank`
+ * saía do aparelho na apresentação em celular), e com isso os âncoras viraram
+ * botões. O seletor antigo continuou no script casando ZERO elementos — e,
+ * como tudo aqui tolerava zero (`count()` num laço `for`, `.click().catch()`),
+ * nada falhou. O estrago, medido em 10/09/2026 no vídeo publicado:
+ *   · `bChips` = null → o beat "conteudo" saiu SEM moldura, justo o que narra
+ *     "toque no que combina mais com você";
+ *   · o `injectVideoChip` virou no-op → a narração prometia vídeo e a tela
+ *     mostrava três formatos (foi o que o dono viu);
+ *   · `chips.first().click()` não clicou → o beat "estado" gravou a barra
+ *     "Sua semana" antes de o conteúdo abrir.
+ *
+ * Locator por PAPEL + nome acessível: o rótulo do chip é a própria chave do
+ * formato (`FORMAT_ICON`), então ele sobrevive a troca de tag e de classe.
+ */
+function chipsDeFormato(page: Page) {
+  return page.getByRole('button', { name: /^(v[ií]deo|audio|á?udio|texto|case)$/i });
+}
+
+/**
+ * Espera o chip de VÍDEO, que chega tarde: `temVideo` vem de
+ * `resolverVideoDaSemana` — server action disparada num `useEffect`, não do HTML.
+ * Fotografar no `networkidle` pega a tela antes dele.
+ *
+ * Não é mais decoração: o acme-demo TEM deck pronto para esta célula exata
+ * (módulo 5faaf43b "Senso de urgência legítimo" × Representante Comercial × C,
+ * que é o cargo e a 1ª letra do perfil da bruna.demo). Até 10/09 o script
+ * clonava um chip FALSO porque a demo não tinha vídeo; hoje tem, e o falso
+ * escondia justamente a regressão do seletor.
+ */
+async function esperarChipVideo(page: Page) {
+  const video = page.getByRole('button', { name: /^v[ií]deo$/i });
+  await video.first().waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
+  if (!(await video.count().catch(() => 0))) {
+    throw new Error('chip de VÍDEO ausente na semana 1 — a narração do beat "conteudo" promete vídeo. '
+      + 'Confira o deck do módulo 5faaf43b para Representante Comercial/C no acme-demo.');
+  }
 }
 
 async function main() {
@@ -339,6 +388,16 @@ async function main() {
       localStorage.getItem = (k: string) => (k.startsWith('vertho:video-visto:') ? '1' : orig(k));
     } catch { /* localStorage indisponível */ }
   });
+  /*
+   * LIMPA ANTES, NÃO SÓ DEPOIS. O `limparConversa()` do fim devolve o tenant ao
+   * estado inicial, mas a captura não pode DEPENDER de ele ter rodado: basta uma
+   * execução interrompida no meio, ou alguém abrindo a tela como a bruna.demo,
+   * para a semana 1 chegar aqui com transcript. E aí o beat "conversa" perde o
+   * botão "Levantar evidências" — com transcript a tela já abre a conversa.
+   * Medido em 11/09/2026: uma sondagem manual deixou 1 turno gravado e a captura
+   * morreu no beat seguinte.
+   */
+  await limparConversa();
   // Estado inicial: semana ainda NÃO consumida — é assim que a pessoa chega,
   // e é o que faz a barra "Sua semana" mostrar o passo de conteúdo pendente.
   await setConsumed(false);
@@ -368,14 +427,17 @@ async function main() {
   await page.goto(`${BASE}/dashboard/temporada/semana/1`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.getByText(/Criação de senso de urgência/i).first().waitFor({ timeout: 15000 });
   await settle();
-  await injectVideoChip(page);
+  await esperarChipVideo(page);
   await page.evaluate(() => window.scrollTo(0, 0));
   await shot(page, 'semana', await bbox(page, /^Criação de senso de urgência$/i));
-  // chips de formato = links p/ /api/conteudo (union = bbox do highlight)
-  const chips = page.locator('a[href*="/api/conteudo"]');
+  // chips de formato (union = bbox do highlight). FALHA ALTO em zero: bbox nula
+  // aqui é um beat sem moldura, e foi assim que o defeito passou.
+  const chips = chipsDeFormato(page);
   let bChips: Box | null = null;
   const nc = await chips.count().catch(() => 0);
+  if (nc < 4) throw new Error(`chips de formato: ${nc} encontrados, esperados 4 (video/audio/texto/case) - a tela mudou`);
   for (let i = 0; i < nc; i++) bChips = union(bChips, await chips.nth(i).boundingBox().catch(() => null));
+  if (!bChips) throw new Error('bbox dos chips de formato ficou nula - o beat sairia sem moldura');
   await shot(page, 'conteudo', bChips);
 
   // Abre um formato (popup do PDF auto-fecha). A partir daqui as conversas
@@ -401,7 +463,7 @@ async function main() {
     undefined, { timeout: 15000 },
   ).catch(() => {});
   await settle();
-  await injectVideoChip(page);
+  await esperarChipVideo(page);
   const bTd = await frameTarget(page, /TIRA-DÚVIDAS/i);
   await shot(page, 'tiraduvidas', bTd);
   /*
@@ -411,7 +473,7 @@ async function main() {
    * e o botão que a pessoa precisa apertar nunca era destacado em momento
    * nenhum do vídeo.
    */
-  const bEv = await centralizar(page, page.getByRole('button', { name: /Levantar evidências/i }).first());
+  const bEv = await centralizar(page, page.getByRole('button', { name: /Levantar evidências/i }).first(), 'botão Levantar evidências');
   await shot(page, 'evidencias', bEv);
 
   /*
@@ -449,15 +511,24 @@ async function main() {
   // tentativa devolveu 1920x1146 — a pagina toda). Aqui o alvo e a frase.
   // Centralizado: o contador vive no PÉ do card da conversa, e sem isto ele
   // aterrissa exatamente sobre a legenda do vídeo.
-  await shot(page, 'progresso', await centralizar(page, page.getByText(/Faltam .* respostas/i).first()));
+  await shot(page, 'progresso', await centralizar(page, page.getByText(/Faltam .* respostas/i).first(), 'contador Faltam N respostas'));
 
   // 3) A SEMANA CONCLUÍDA — a faixa verde, o marco que a pessoa nunca via.
   await semearConversa(6, true);
   await page.goto(`${BASE}/dashboard/temporada/semana/1`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  /*
+   * FALHA ALTO. Este `waitFor` engolia a ausência com `.catch(() => {})` e o
+   * `bboxDoBloco` devolvia null — o beat que narra "a semana é dada como
+   * concluída" gravou, em 11/09/2026, a tela dizendo "Evidências · 1 de 6
+   * respostas", sem moldura nenhuma. A faixa verde É o beat: sem ela não há
+   * captura, há uma tela qualquer.
+   */
   await page.getByText(/Semana 1 concluída/i).first().waitFor({ timeout: 20000 }).catch(() => {});
   await settle();
   await page.evaluate(() => window.scrollTo(0, 0));
-  await shot(page, 'concluida', await bboxDoBloco(page, /Semana 1 concluída/i));
+  const bConcl = await bboxDoBloco(page, /Semana 1 concluída/i);
+  if (!bConcl) throw new Error('faixa "Semana 1 concluída" ausente — a semeadura não chegou à trilha que a TELA lê (confira o tenant)');
+  await shot(page, 'concluida', bConcl);
 
   // Captura não deixa rastro: devolve a semana ao estado inicial.
   await limparConversa();
