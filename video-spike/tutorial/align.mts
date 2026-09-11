@@ -43,74 +43,6 @@ const words = transcript.words.filter((w: { end: number }) => w.end <= audioEnd 
 const aligned = alignSteps(flow.steps, words, audioEnd);
 
 /*
- * O TAKE DIZ O QUE ESTÁ ESCRITO? (fidelidade texto × fala)
- *
- * 🔴 Dois defeitos do dono, 11/09/2026, com a mesma raiz: o TTS não leu o
- * roteiro, PARAFRASEOU.
- *   · boas-vindas genérico, 1:13 — roteiro "o material chega do seu jeito",
- *     áudio "do jeito certo". A legenda vem do roteiro, então a tela dizia uma
- *     frase e a voz dizia outra. O mesmo erro está no `macae`, já publicado.
- *   · boas-vindas genérico, fim — depois do "Até já!" o modelo acrescentou
- *     "Tchau, tchau! Tchau, tchau!", que não existe em lugar nenhum. Aquelas
- *     palavras não têm legenda de onde vir: o final saiu mudo de lettering.
- *
- * Nada no pipeline comparava as duas pontas, tendo as duas na mão. O portão de
- * TTS mede VOZ (registro, inclinação, timbre) e a transcrição do Whisper só
- * servia para CORTAR as fatias. `alignSteps` chega perto mas olha um lado só —
- * a COBERTURA do roteiro ("quanto do que escrevi foi dito"), com limiar de 96%;
- * num roteiro de 205 palavras isso tolera 8 palavras trocadas, e o "seu" que
- * virou "certo" custou 1. A pergunta que faltava é a inversa: sobrou fala?
- *
- * ⚠️ E ela NÃO pode ser feita ao relógio. A primeira versão desta trava comparou
- * `start` da palavra com o fim do roteiro e passou verde justamente no take que
- * a motivou: o Whisper amassou os quatro "tchau" em 60 ms (77,76 → 77,82)
- * enquanto o áudio segue até 78,08. Timestamp que o ASR não entendeu é lixo; o
- * que ele acerta é QUAIS palavras ouviu. Logo, contagem — não tempo.
- *
- * A saída é a que já existia e é auditável: `<flow>.review.json` com `audioEnd`,
- * `reason` e `reviewedAt`. A trava não proíbe o corte; obriga que um humano o
- * declare, em vez de o improviso virar vídeo em silêncio.
- */
-const fimDoRoteiro = aligned.at(-1)!.end;
-{
-  const doRoteiro = tokens(flow.steps.map((s) => s.narration).join(' ')).map(norm);
-  const falados = transcript.words.flatMap((w: { word: string }) => tokens(w.word)).map(norm);
-  // Avanço monotônico com janela curta, nos dois sentidos: o cursor marca a
-  // última palavra falada que o roteiro explica; o que sobra depois é improviso,
-  // e o que o cursor não encontrou é palavra escrita que ninguém disse.
-  let cursor = 0;
-  const naoDitas: { palavra: string; contexto: string }[] = [];
-  for (let k = 0; k < doRoteiro.length; k++) {
-    let achou = -1;
-    for (let q = cursor; q < Math.min(falados.length, cursor + 8); q++) if (falados[q] === doRoteiro[k]) { achou = q; break; }
-    if (achou < 0) naoDitas.push({ palavra: doRoteiro[k], contexto: doRoteiro.slice(Math.max(0, k - 4), k + 4).join(' ') });
-    else cursor = achou + 1;
-  }
-  const sobra = falados.slice(cursor);
-  /*
-   * PALAVRA NÃO DITA é REPORTADA, não fatal — e isso é uma escolha, não descuido.
-   * Medido nos 5 flows em 11/09: disc 0, pdi 0, jornada 1, macae 2,
-   * boas-vindas genérico 2. Parece um limiar em 2, mas não é: das 2 do `macae`
-   * uma é "pro" (o modelo disse "para o", mesma palavra) e a outra é o "seu" que
-   * o dono ouviu. O sinal real é 1 palavra nos dois casos, igual ao ruído do
-   * `jornada` ("a"). Cravar 2 aqui seria pôr a fronteira no valor modal com n=5
-   * — a armadilha que esta base já pagou antes. Então imprime-se a palavra COM O
-   * CONTEXTO: lido, "…material chega do [seu] jeito" não se confunde com "a".
-   */
-  for (const d of naoDitas) console.log(`  !! NAO FALOU "${d.palavra}"  em: ...${d.contexto}...`);
-  if (naoDitas.length) console.log(`  ${flow.id}: ${naoDitas.length} de ${doRoteiro.length} palavras do roteiro nao foram faladas`);
-  if (sobra.length >= 2 && !review) {
-    throw new Error(
-      `O take fala ${sobra.length} palavra(s) ALEM do roteiro: "${sobra.join(' ').slice(0, 120)}".\n`
-      + `  O roteiro termina em ${fimDoRoteiro.toFixed(2)}s e o take dura ${audioEnd.toFixed(2)}s.\n`
-      + `  A legenda vem do ROTEIRO, entao esse trecho sai sem legenda nenhuma.\n`
-      + `  Ou refaça o take, ou declare o corte em out/${flow.id}.review.json:\n`
-      + `  { "sourceSha256": "${source.sha256}", "audioEnd": <segundos>, "reason": "...", "reviewedAt": "${new Date().toISOString()}" }`,
-    );
-  }
-}
-
-/*
  * ONDE CORTAR: NO VALE DA ONDA, NÃO NO CARIMBO DO ASR.
  *
  * 🔴 Defeito ouvido pelo dono em 11/09/2026, no `disc-ajuda` aos 1:27: a fala
@@ -134,10 +66,20 @@ const fimDoRoteiro = aligned.at(-1)!.end;
 const PCM_HZ = 16000, JANELA_MS = 10;
 const pcm = execFileSync('ffmpeg', ['-v', 'error', '-i', audio, '-ac', '1', '-ar', String(PCM_HZ), '-f', 's16le', '-'],
   { maxBuffer: 512 * 1024 * 1024, windowsHide: true });
-/** Nível RMS em dB numa janela de 10 ms que começa em `t` segundos. */
+/**
+ * Nível RMS em dB numa janela de 10 ms que começa em `t` segundos.
+ *
+ * ⚠️ Fora do take devolve `+Infinity`, não um número. A primeira versão devolvia
+ * `0` com o comentário "fora do take: nunca escolher" — verdade para o corte,
+ * que procura o MÍNIMO, e mentira para quem procura FALA: 0 dB está acima de
+ * qualquer piso, então a varredura de "até onde o take fala" encontrava som no
+ * primeiro instante fora do buffer e reportava o fim do ARQUIVO como fim da
+ * fala. Sentinela serve a quem a escreveu; o segundo leitor paga. Infinito é
+ * ordenável para o mínimo e reconhecível por `Number.isFinite` para o resto.
+ */
 function nivelDb(t: number): number {
   const i0 = Math.round(t * PCM_HZ), n = Math.round((JANELA_MS / 1000) * PCM_HZ);
-  if (i0 < 0 || (i0 + n) * 2 > pcm.length) return 0; // fora do take: nunca escolher
+  if (i0 < 0 || (i0 + n) * 2 > pcm.length) return Number.POSITIVE_INFINITY;
   let soma = 0;
   for (let k = 0; k < n; k++) { const v = pcm.readInt16LE((i0 + k) * 2) / 32768; soma += v * v; }
   return 20 * Math.log10(Math.sqrt(soma / n) + 1e-9);
@@ -154,6 +96,98 @@ function refinarCorte(nominal: number) {
     if (db < melhorDb) { melhorDb = db; melhorT = t; }
   }
   return { t: melhorT, db: melhorDb, dbAntes };
+}
+
+/*
+ * O TAKE DIZ O QUE ESTÁ ESCRITO? (fidelidade texto × fala)
+ *
+ * 🔴 Defeito do dono, 11/09/2026, no boas-vindas genérico aos 1:13: o roteiro
+ * diz "o material chega do seu jeito" e a voz diz "do jeito certo". A legenda
+ * vem do roteiro, então a tela mostrava uma frase e o áudio dizia outra. O mesmo
+ * "seu" some no `macae`, que já está publicado.
+ *
+ * Nada no pipeline comparava as duas pontas, tendo as duas na mão: o portão de
+ * TTS mede VOZ (registro, inclinação, timbre) e a transcrição do Whisper só
+ * servia para CORTAR as fatias. `alignSteps` chega perto mas olha um lado só —
+ * a COBERTURA do roteiro, com limiar de 96%, o que num roteiro de 205 palavras
+ * tolera 8 trocadas; o "seu" custou 1.
+ *
+ * ⚠️ E A PERGUNTA INVERSA ("sobrou fala?") NÃO SE FAZ À TRANSCRIÇÃO.
+ *
+ * A primeira versão desta trava contava tokens depois do fim do roteiro e
+ * reprovava por "Tchau, tchau! Tchau, tchau!" no fim de dois takes. Fui medir a
+ * ONDA: nos dois, a fala termina e vira silêncio — o take do `macae` de 11/09
+ * fala até 74,70 s e some; o genérico publicado, até 77,90. Não há tchau nenhum.
+ * São quatro palavras carimbadas em 60 ms, que nenhuma boca produz: é o Whisper
+ * alucinando repetição no fim do arquivo, um modo de falha conhecido dele.
+ *
+ * Uma trava assim reprovaria take BOM por defeito do instrumento — e o instrumento
+ * de medir não é o mesmo que o de decidir. Quem responde "sobrou fala?" é o
+ * áudio: até onde existe SOM depois da última palavra do roteiro. Improviso de
+ * verdade ocupa segundos; alucinação de ASR não ocupa nada.
+ *
+ * A saída continua sendo o `<flow>.review.json` com `audioEnd`, `reason` e
+ * `reviewedAt` — a trava não proíbe o corte, obriga que um humano o declare.
+ */
+const fimDoRoteiro = aligned.at(-1)!.end;
+{
+  /*
+   * ⚠️ PALAVRINHA DE 1-2 LETRAS FICA DE FORA — dos DOIS lados.
+   *
+   * Este relatório é um avanço monotônico com janela de 8, e em 11/09/2026 ele
+   * gritou 12 palavras não ditas num take que estava perfeito. O ASR ouviu
+   * "à Vertho" como uma palavra só ("Averto"), então o "a" do roteiro não casou
+   * na posição dele — e a janela de 8 alcançou o "a" seguinte, de "com a gente".
+   * O cursor saltou para lá e órfãos ficaram todos os tokens do meio. Um único
+   * ruído virou uma frase inteira de falso alarme, que é como um aviso deixa de
+   * ser lido.
+   *
+   * Artigo e preposição são exatamente onde o ASR erra e onde a ausência não
+   * significa nada. Tirando-os dos dois lados, o casamento volta a ser 1:1 nas
+   * palavras que carregam sentido — e o defeito que motivou esta trava ("seu",
+   * 3 letras) continua sendo pego.
+   */
+  const conteudo = (t: string[]) => t.filter((w) => w.length >= 3);
+  const doRoteiro = conteudo(tokens(flow.steps.map((s) => s.narration).join(' ')).map(norm));
+  const falados = conteudo(transcript.words.flatMap((w: { word: string }) => tokens(w.word)).map(norm));
+  let cursor = 0;
+  const naoDitas: { palavra: string; contexto: string }[] = [];
+  for (let k = 0; k < doRoteiro.length; k++) {
+    let achou = -1;
+    for (let q = cursor; q < Math.min(falados.length, cursor + 8); q++) if (falados[q] === doRoteiro[k]) { achou = q; break; }
+    if (achou < 0) naoDitas.push({ palavra: doRoteiro[k], contexto: doRoteiro.slice(Math.max(0, k - 4), k + 4).join(' ') });
+    else cursor = achou + 1;
+  }
+  /*
+   * PALAVRA NÃO DITA é REPORTADA, não fatal — e isso é escolha, não descuido.
+   * Medido nos 5 flows em 11/09: disc 0, pdi 0, jornada 1, macae 2, genérico 2.
+   * Parece limiar em 2 e não é: das 2 do `macae`, uma é "pro" (o modelo disse
+   * "para o", mesma palavra) e a outra é o "seu" que o dono ouviu. O sinal real
+   * é 1 nos dois casos, igual ao ruído do `jornada` ("a"). Cravar 2 seria pôr a
+   * fronteira no valor modal com n=5. Então imprime-se COM CONTEXTO: lido,
+   * "…material chega do [seu] jeito" não se confunde com "a".
+   */
+  for (const d of naoDitas) console.log(`  !! NAO FALOU "${d.palavra}"  em: ...${d.contexto}...`);
+  if (naoDitas.length) console.log(`  ${flow.id}: ${naoDitas.length} de ${doRoteiro.length} palavras do roteiro nao foram faladas`);
+
+  // Até onde existe SOM no take? Varre do fim para trás procurando a última
+  // janela acima do piso de fala. `-45 dB` separa com folga: nestes takes a voz
+  // vive entre -13 e -30 dB e o silêncio entre -60 e -180.
+  const PISO_FALA_DB = -45, SOBRA_TOLERADA_S = 0.6;
+  let fimDoSom = fimDoRoteiro;
+  for (let t = audioEnd - 0.01; t > fimDoRoteiro; t -= 0.01) {
+    const db = nivelDb(t);
+    if (Number.isFinite(db) && db > PISO_FALA_DB) { fimDoSom = t; break; }
+  }
+  if (fimDoSom - fimDoRoteiro > SOBRA_TOLERADA_S && !review) {
+    throw new Error(
+      `O take continua FALANDO ${(fimDoSom - fimDoRoteiro).toFixed(2)}s depois do fim do roteiro `
+      + `(roteiro ate ${fimDoRoteiro.toFixed(2)}s, som ate ${fimDoSom.toFixed(2)}s de ${audioEnd.toFixed(2)}s).\n`
+      + `  A legenda vem do ROTEIRO, entao esse trecho sai sem legenda nenhuma.\n`
+      + `  Ou refaça o take, ou declare o corte em out/${flow.id}.review.json:\n`
+      + `  { "sourceSha256": "${source.sha256}", "audioEnd": <segundos>, "reason": "...", "reviewedAt": "${new Date().toISOString()}" }`,
+    );
+  }
 }
 
 /**

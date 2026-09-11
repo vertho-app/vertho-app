@@ -37,7 +37,28 @@ function acrescimoDeDirecao(flow: string): string {
   // idênticos, e na direção PURA mediu deriva média de +4,97 st/min (máx 10,97) em
   // 15 takes, com 14 reprovações por inclinação. O mesmo perfil que a sustentação
   // baixou de ~5,5 para ~1,4 no flow de Macaé.
-  if (flow === 'macae' || flow === 'boasvindas-geral') return '. Sustente a mesma altura de voz do começo ao fim — não suba o tom ao longo da narração, e não soe festivo.';
+  if (flow === 'macae') return '. Sustente a mesma altura de voz do começo ao fim — não suba o tom ao longo da narração, e não soe festivo.';
+  /*
+   * `boasvindas-geral` SAIU do par com `macae` em 11/09/2026, a pedido do dono:
+   * "o de boas-vindas podemos deixar mais entusiasmado o começo (é um boas-vindas!)".
+   *
+   * O pedido colide de frente com o "não soe festivo", que existe por medição:
+   * é o flow que reprovou 20 de 20 por deriva quando o roteiro abria e fechava
+   * em exclamação.
+   *
+   * ⚠️ A PRIMEIRA TENTATIVA DE ATENDER O PEDIDO FOI UM EXPERIMENTO CONFUNDIDO:
+   * troquei a DIREÇÃO ("abra caloroso e genuinamente contente…") e o TEXTO da
+   * abertura na mesma rodada. Deu 30 tentativas, 0 aprovadas, com a deriva de
+   * volta em 5-11 st/min — e sem saber qual das duas cobrava, porque as duas
+   * mexem no mesmo eixo. Medir duas coisas de uma vez é não medir nenhuma.
+   *
+   * Então a direção volta a ser a MEDIDA (a mesma do `macae`, que levou a deriva
+   * de ~5,5 para ~1,4) e o entusiasmo passa a vir só das PALAVRAS do roteiro —
+   * "Boas-vindas à Vertho", "é um prazer ter você com a gente" —, que é onde ele
+   * não custa inclinação. "Não soe festivo" não é o contrário de acolhedor: é o
+   * contrário de subir o tom ao longo da narração.
+   */
+  if (flow === 'boasvindas-geral') return '. Sustente a mesma altura de voz do começo ao fim — não suba o tom ao longo da narração, e não soe festivo.';
   // `aplicacao` e `jornada` passaram em 10/09 COM instrução de altura ("médio-alto" e
   // "registro médio"), mas passaram apesar dela, não graças a ela: um custou 11 takes e
   // o outro chegou na 5ª tentativa. A instrução de altura sai dos dois — fica só a de

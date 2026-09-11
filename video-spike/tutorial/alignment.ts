@@ -5,7 +5,7 @@ export function tokens(text: string): string[] {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/\bp\s+d\s+i\b/g, 'pdi').match(/[a-z0-9]+/g) || [];
 }
-const aliases: Record<string, string> = { vertho: 'verto', vertu: 'verto', pra: 'para', unianxieta: 'unianchieta', '16': 'dezesseis', '5': 'cinco', '2': 'dois', '1': 'um', '10': 'dez', '12': 'doze', '4': 'quatro', '6': 'seis' };
+const aliases: Record<string, string> = { vertho: 'verto', vertu: 'verto', averto: 'verto', /* o ASR gruda "a Vertho" numa palavra so */ pra: 'para', unianxieta: 'unianchieta', '16': 'dezesseis', '5': 'cinco', '2': 'dois', '1': 'um', '10': 'dez', '12': 'doze', '4': 'quatro', '6': 'seis' };
 export const norm = (s: string) => aliases[s] || s;
 
 export function alignSteps(steps: Array<{ id: string; narration: string }>, observed: WordTime[], duration: number): AlignedStep[] {

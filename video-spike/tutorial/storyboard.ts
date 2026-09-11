@@ -114,8 +114,30 @@ export const DISC: Flow = {
       title: 'O resultado — seu perfil',
       cuts: ['ajuda'],
       captureId: 'perfil',
+      /*
+       * 🔑 A FRASE-PONTE FICA NO BEAT DE CIMA — e isso é conserto de ÁUDIO, não
+       * de redação.
+       *
+       * "E o seu perfil não fica preso na tela." abria o beat `acoes` até
+       * 11/09/2026, e o dono ouviu a fala ENGASGAR ali. A causa, medida no take
+       * contínuo: o Beto lê "…entre as quatro dimensões. E o seu perfil…" sem
+       * respirar, então a fronteira entre os dois beats não tem silêncio para o
+       * corte cair — foi a única das 34 fronteiras dos 5 flows que o `align`
+       * marcou como "sem vale" (o melhor ponto disponível ficava a −31,8 dB,
+       * contra ≤ −69 dB de todas as outras). Cortar ali sempre vai soar.
+       *
+       * Com a ponte aqui, o corte passa a cair entre "…preso na tela." e "Lá em
+       * cima, três atalhos:", onde existem 340 ms de silêncio de verdade. E
+       * editorialmente é melhor: a frase fala do PERFIL, então pertence à tela
+       * do perfil; o corte acontece exatamente onde a tela nova é apresentada.
+       *
+       * ⚠️ Mover texto entre beats muda o que é enviado ao TTS (o separador de
+       * parágrafo anda de lugar), então exige take NOVO — o `align` recusa o
+       * anterior pela chave, e com razão: a pontuação e o parágrafo mudam a
+       * prosódia. Não dá para só re-fatiar o áudio antigo.
+       */
       narration:
-        'Assim que você termina, o seu perfil aparece na hora: o seu arquétipo e como o comportamento se distribui entre as quatro dimensões.',
+        'Assim que você termina, o seu perfil aparece na hora: o seu arquétipo e como o comportamento se distribui entre as quatro dimensões. E o seu perfil não fica preso na tela.',
       highlight: { text: 'Influência dominante', label: 'Seu arquétipo' },
     },
     {
@@ -124,7 +146,7 @@ export const DISC: Flow = {
       cuts: ['ajuda'],
       captureId: 'acoes',
       narration:
-        'E o seu perfil não fica preso na tela. Lá em cima, três atalhos: ouvir a devolutiva na voz do mentor, enviar um resumo no seu WhatsApp, ou baixar tudo em PDF para guardar e consultar quando quiser.',
+        'Lá em cima, três atalhos: ouvir a devolutiva na voz do mentor, enviar um resumo no seu WhatsApp, ou baixar tudo em PDF para guardar e consultar quando quiser.',
       highlight: { label: 'Ações do perfil' },
     },
     {
@@ -464,7 +486,7 @@ export const MACAE: Flow = {
     {
       id: 'abertura', title: 'Boas-vindas', cuts: FULL, kind: 'cartela',
       cartela: { eyebrow: 'Educação Integral · Macaé', title: 'Sua jornada começa aqui' },
-      narration: 'Olá! Aqui é o Beto, seu Gestor de Aprendizagem no projeto Educação Integral. Em um minuto eu te mostro como entrar e começar a sua primeira atividade.',
+      narration: 'Olá. Aqui é o Beto, seu Gestor de Aprendizagem no projeto Educação Integral. Em um minuto eu te mostro como entrar e começar a sua primeira atividade.',
     },
     {
       id: 'entrar', title: 'Como entrar', cuts: FULL, captureId: 'login',
@@ -503,7 +525,7 @@ export const MACAE: Flow = {
       // A pessoa não para no perfil: logo depois vem o mapeamento da COMPETÊNCIA
       // (cenários de Autocuidado). Anunciar aqui evita que ela conclua o perfil e
       // ache que acabou.
-      narration: 'Assim que terminar, vem o mapeamento da competência Autocuidado: é ele que mostra onde você está hoje e por onde a sua jornada começa. Eu vou estar com você em cada semana. Até já!',
+      narration: 'Assim que terminar, vem o mapeamento da competência Autocuidado: é ele que mostra onde você está hoje e por onde a sua jornada começa. Eu vou estar com você em cada semana. Até já.',
     },
   ],
 };
@@ -542,10 +564,21 @@ export const BOASVINDAS_GERAL: Flow = {
       //   "…ter você conosco!"  → F0 médio 167 Hz, deriva ~5,0 st/min, 20 takes, 0 aprovados
       //   "…ter você conosco."  → F0 131-139 Hz, aprovado na 4ª (139 Hz, deriva +1,0)
       // Quase 3 semitons por um sinal de pontuação. Duas exclamações seguidas ("Olá!" +
-      // "conosco!") fazem o modelo abrir animado e subir a narração inteira; o flow de
-      // Macaé, com o mesmo corpo e só um "Olá!", fica no registro. O conteúdo é idêntico.
+      // "conosco!") fazem o modelo abrir animado e subir a narração inteira.
+      //
+      // ⚠️ E UMA SÓ TAMBÉM BASTA — esta linha dizia o contrário. Até 11/09/2026 ela
+      // afirmava que "o flow de Macaé, com o mesmo corpo e só um 'Olá!', fica no
+      // registro", porque aquele take tinha passado. `Medido 11/09/2026`, com os dois
+      // roteiros ainda abrindo em "Olá!" e fechando em "Até já!": **20 tentativas, 0
+      // aprovadas**, todas por deriva de registro — mediana +4,4 st/min contra o teto
+      // de ~1,5, em 4 rodadas independentes. O take publicado em 10/09 passou na 3ª
+      // com +0,86: foi sorte, não margem. Uma amostra que passa não mede a taxa.
+      //
+      // As duas viraram ponto (só a pontuação; as palavras são as mesmas). A
+      // exclamação no FIM é do mesmo tipo de pedido que o veto de inclinação existe
+      // para pegar: "termine com convicção" é pedir deriva, e o modelo entrega.
       // Ao escrever roteiro novo: exclamação é dose, não pontuação padrão.
-      narration: 'Olá! Aqui é o Beto, seu Gestor de Aprendizagem. É um prazer ter você conosco. Em um minuto eu te mostro como entrar e começar a sua primeira atividade.',
+      narration: 'Aqui é o Beto, o seu Gestor de Aprendizagem. Boas-vindas à Vertho, é um prazer ter você com a gente. Em um minuto eu te mostro como entrar e começar a sua primeira atividade.',
     },
     {
       id: 'entrar', title: 'Como entrar', cuts: FULL, captureId: 'login',
@@ -574,7 +607,28 @@ export const BOASVINDAS_GERAL: Flow = {
     },
     {
       id: 'map-aprender', title: 'Como você aprende', cuts: FULL, captureId: 'map-aprender',
-      narration: 'Pra fechar, dê estrelas pra cada formato de conteúdo — pode gostar de vários. É assim que o material chega do seu jeito.',
+      /*
+       * 🔴 "É ASSIM QUE" SAIU — o modelo mexia nesta frase em 3 de 4 takes.
+       *
+       * `Medido 11/09/2026`, com a conferência de fidelidade que o `align` passou
+       * a fazer (antes disso NADA comparava roteiro com fala, e por isso o defeito
+       * chegou publicado):
+       *   · take publicado    → "o material chega do JEITO CERTO"   (omitiu "seu")
+       *   · take 69caec…c9dc  → "o material chega do JEITO CERTO"   (idem)
+       *   · take 69caec…aa01  → "NÃO é assim que o material chega do seu jeito"
+       *   · take 886be6…d8c0  → correto
+       * O terceiro INVERTE o sentido do beat. Os dois modos de falha atacam o
+       * mesmo ponto: "É assim que" é uma construção que o modelo ou normaliza
+       * para o idiomático ("do jeito certo") ou nega.
+       *
+       * "Assim, o material chega do seu jeito." diz a mesma coisa sem oferecer
+       * essa alça. A expressão "do seu jeito" fica — ela é a promessa do beat e
+       * ecoa o tagline do fecho.
+       *
+       * ⚠️ O `macae` mantém a frase antiga de propósito: está publicado e o dono
+       * pediu para não tocar. Se um dia for refeito, traga esta redação junto.
+       */
+      narration: 'Pra fechar, dê estrelas pra cada formato de conteúdo — pode gostar de vários. Assim, o material chega do seu jeito.',
     },
     {
       id: 'fecho', title: 'Fecho', cuts: FULL, kind: 'cartela',
@@ -582,7 +636,7 @@ export const BOASVINDAS_GERAL: Flow = {
       // O de Macaé anunciava a competência do programa dele ("Autocuidado"). Aqui a
       // frase diz a MECÂNICA, que vale para qualquer empresa: depois do perfil vem o
       // mapeamento de competência. Sem isso a pessoa conclui o perfil e acha que acabou.
-      narration: 'Assim que terminar, vem o mapeamento das suas competências: é ele que mostra onde você está hoje e por onde a sua jornada começa. Eu vou estar com você em cada semana. Até já!',
+      narration: 'Assim que terminar, a sua jornada começa. Eu vou estar com você em cada semana. Até já.',
     },
   ],
 };

@@ -19,7 +19,12 @@ import { TUTORIAIS_PLATAFORMA, resolverVersaoTutorial } from '@/lib/tutorial-vid
  * tiverem, entram aqui pelo mesmo caminho.
  */
 const TUTORIAIS_PRIVADOS = [
-  TUTORIAIS_PLATAFORMA.discApp.guid,
+  // ⛔ `discApp` saiu do catálogo em 11/09/2026 (corte sem consumidor). Os GUIDs
+  // dele seguem listados abaixo como literais: continuam tendo de ser PRIVADOS,
+  // e sumir da lista transformaria a cobertura em silêncio.
+  'd0343a67-998c-488f-acbf-7c1b9b1365fb', // disc-app (11/09)
+  'e995bd4a-c620-460d-8628-94bdf8fc87b7', // disc-app (10/09)
+  '980f3ac2-d821-4869-87f0-6100e7ce8167', // disc-app
   TUTORIAIS_PLATAFORMA.discAjuda.guid,
   TUTORIAIS_PLATAFORMA.pdi.guid,
   '89812149-0c2e-4299-b1ba-3f27013aba25', // disc-app

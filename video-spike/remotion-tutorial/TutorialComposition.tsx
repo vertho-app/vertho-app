@@ -239,7 +239,23 @@ const Outro: React.FC<{ marca?: 'vertho' | 'nenhuma'; titulo?: string; subtitulo
           <Img src={staticFile(LOGO)} style={{ width: 680, filter: `drop-shadow(0 8px 40px ${withAlpha('#000814', 0.6)})` }} />
         )}
         <div style={{ color: BRAND.inkDim, fontSize: 34, marginTop: 30 }}>
-          {semMarca ? (subtitulo || '') : 'Desenvolvimento de competências por IA'}
+          {/*
+            Tagline do fecho, escolhida pelo dono em 11/09/2026. A anterior era
+            "Desenvolvimento de competências por IA" — descrição de CATEGORIA,
+            escrita para quem compra, num quadro que fecha um vídeo falado em
+            segunda pessoa com a pessoa que vai usar. E punha "IA" no lugar de
+            honra, que é o meio, não o benefício.
+
+            Esta é a promessa que o próprio produto já faz em voz alta: o beat de
+            formatos narra "É assim que o material chega do seu jeito". O fecho
+            passa a ecoar o que a pessoa acabou de ouvir.
+
+            ⚠️ "Do seu jeito" é o FORMATO (DISC × cargo × preferência), nunca o
+            RITMO: a trilha é sequencial e a semana só fecha na conversa de
+            evidências. Se um dia alguém quiser esticar esta frase para "no seu
+            tempo", é o produto que passa a mentir.
+          */}
+          {semMarca ? (subtitulo || '') : 'Desenvolvimento profissional do seu jeito'}
         </div>
       </div>
     </AbsoluteFill>

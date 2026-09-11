@@ -29,7 +29,7 @@ async function upload(rel: string, title: string) {
 }
 
 const TODOS: [string, string][] = [
-  ['outputs/tutorial-disc-app.mp4', 'Tutorial · Mapeamento DISC — como responder'],
+  // ⛔ `disc-app` saiu em 11/09/2026: corte curto sem consumidor no app (ver lib/tutorial-videos.ts).
   ['outputs/tutorial-disc-ajuda.mp4', 'Tutorial · Mapeamento DISC — completo'],
   ['outputs/tutorial-jornada.mp4', 'Tutorial · Jornada semanal'],
   ['outputs/tutorial-pdi.mp4', 'Tutorial · PDI'],
