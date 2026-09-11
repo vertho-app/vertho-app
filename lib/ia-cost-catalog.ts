@@ -83,7 +83,12 @@ export const MODELS = {
   // Alibaba — Qwen3.8-Max (03/08/2026): 1M de contexto, multimodal, ~21 tok/s.
   // ⚠️ LENTO e VERBOSO: desqualificado para célula interativa, bom para lote.
   'qwen3.8-max':                { label: 'Qwen3.8 Max',         inUsd: 2,    outUsd: 6, cacheReadUsd: 0.25 },
-  // Meta Superintelligence Labs — Muse Spark 1.2 (05/08/2026): 1M de contexto.
+  // Meta Superintelligence Labs — Muse Spark 1.3 (02/09/2026): 1M de contexto.
+  // Id confirmado em 11/09/2026 no GET /v1/models da própria Meta Model API;
+  // preço padrão mantido em $1,25/$4,25 e cache read em $0,15 por 1M.
+  'muse-spark-1.3':             { label: 'Muse Spark 1.3',      inUsd: 1.25, outUsd: 4.25, cacheReadUsd: 0.15 },
+  // Histórico do ledger anterior à troca para 1.3.
+  // Muse Spark 1.2 (05/08/2026): 1M de contexto.
   // ⚠️ Modelo de RACIOCÍNIO, e o raciocínio sai DENTRO de `completion_tokens`:
   // medido em 25/08, gastou 125 tokens de raciocínio para responder "OK" — ou
   // seja, o custo real por tarefa é bem acima do que $4,25/1M sugere numa conta
@@ -115,6 +120,22 @@ export const MODELS = {
 };
 
 export const MODEL_IDS = Object.keys(MODELS);
+
+/**
+ * Modelos de texto homologados para comparação manual no centro FinOps.
+ * O catálogo completo continua acima para precificar histórico, embeddings,
+ * TTS e fallbacks; eles não precisam poluir o seletor de cenários.
+ */
+export const COST_SIMULATOR_MODEL_IDS = [
+  'claude-sonnet-5',
+  'claude-opus-5',
+  'gpt-5.6-sol',
+  'gpt-5.6-terra',
+  'gpt-5.6-luna',
+  'muse-spark-1.3',
+  'gemini-3.8-flash',
+  'kimi-k3',
+] as const satisfies ReadonlyArray<keyof typeof MODELS>;
 
 type ModelPrice = {
   label: string;

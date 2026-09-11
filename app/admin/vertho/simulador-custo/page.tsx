@@ -8,7 +8,7 @@ import BackButton from '@/components/back-button';
 import {
   CALLS,
   MODELS,
-  MODEL_IDS,
+  COST_SIMULATOR_MODEL_IDS,
   PRESETS,
   SCALE_LABEL,
   TASK_ESTIMATE_KEYS,
@@ -215,9 +215,12 @@ export default function SimuladorCustoPage() {
       {/* Tabela detalhada */}
       <div className="space-y-2">
         <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-2">{t('catalog.title')}</h2>
+        <p className="mb-3 text-[10px] leading-relaxed text-gray-500">Comparação limitada aos oito modelos homologados. Embeddings permanecem fixos porque usam uma família técnica própria.</p>
         {CALLS.map(call => {
           const u = units[call.scaleType as ScaleType] ?? 0;
           const c = calcCost(call, models[call.id], u);
+          const currentModel = models[call.id];
+          const currentIsCurated = COST_SIMULATOR_MODEL_IDS.some((id) => id === currentModel);
           return (
             <div key={call.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
               <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -246,17 +249,23 @@ export default function SimuladorCustoPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <select value={models[call.id]}
-                    onChange={e => { setPreset('custom'); setModels({ ...models, [call.id]: e.target.value }); }}
-                    className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white">
-                    {MODEL_IDS
-                      .filter(id => call.fase === 'RAG'
-                        ? id.startsWith('voyage')
-                        : !id.startsWith('voyage'))
-                      .map(id => (
+                  {call.fase === 'RAG' ? (
+                    <span className="rounded border border-white/10 bg-white/5 px-2 py-1 text-xs text-gray-400">
+                      {MODELS[currentModel]?.label || currentModel}
+                    </span>
+                  ) : (
+                    <select value={currentModel}
+                      aria-label={`Modelo para ${call.nome}`}
+                      onChange={e => { setPreset('custom'); setModels({ ...models, [call.id]: e.target.value }); }}
+                      className="bg-white/5 border border-white/10 rounded px-2 py-1 text-xs text-white">
+                      {!currentIsCurated && (
+                        <option value={currentModel} hidden>{MODELS[currentModel]?.label || currentModel} · atual</option>
+                      )}
+                      {COST_SIMULATOR_MODEL_IDS.map(id => (
                         <option key={id} value={id} className="bg-[#0d1426]">{MODELS[id].label}</option>
                       ))}
-                  </select>
+                    </select>
+                  )}
                   <div className="text-right min-w-[80px]">
                     <p className="text-sm font-bold text-emerald-300">USD {(c?.usd || 0).toFixed(3)}</p>
                     <p className="text-[10px] text-gray-500">

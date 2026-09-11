@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   MODELS,
+  COST_SIMULATOR_MODEL_IDS,
   OPENAI_WEB_SEARCH_USD_PER_CALL,
   calcCost,
   costFromTokens,
@@ -23,10 +24,24 @@ describe('catálogo de preços de IA', () => {
     expect(MODELS['claude-sonnet-5']).toMatchObject({ inUsd: 2, outUsd: 10 });
     expect(MODELS['claude-sonnet-4-6']).toMatchObject({ inUsd: 3, outUsd: 15 });
     expect(MODELS['muse-spark-1.2']).toMatchObject({ inUsd: 1.25, cacheReadUsd: 0.15, outUsd: 4.25 });
+    expect(MODELS['muse-spark-1.3']).toMatchObject({ inUsd: 1.25, cacheReadUsd: 0.15, outUsd: 4.25 });
     expect(MODELS['qwen3.8-max']).toMatchObject({ inUsd: 2, cacheReadUsd: 0.25, outUsd: 6 });
     expect(MODELS['kimi-k3']).toMatchObject({ inUsd: 3, cacheReadUsd: 0.30, outUsd: 15 });
     expect(MODELS['grok-4.6']).toMatchObject({ inUsd: 2, cacheReadUsd: 0.50, outUsd: 6 });
     expect(MODELS['voyage-3-large']).toMatchObject({ inUsd: 0.18, outUsd: 0 });
+  });
+
+  it('expõe no simulador somente os oito modelos homologados', () => {
+    expect(COST_SIMULATOR_MODEL_IDS).toEqual([
+      'claude-sonnet-5',
+      'claude-opus-5',
+      'gpt-5.6-sol',
+      'gpt-5.6-terra',
+      'gpt-5.6-luna',
+      'muse-spark-1.3',
+      'gemini-3.8-flash',
+      'kimi-k3',
+    ]);
   });
 
   it('usa preço de cache por provedor e a faixa longa do Grok', () => {
