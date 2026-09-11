@@ -36,6 +36,8 @@ const TODOS: [string, string][] = [
   ['outputs/tutorial-aplicacao.mp4', 'Tutorial · Semana de missão (aplicação)'],
   ['outputs/tutorial-boasvindas.mp4', 'UniAnchieta · Boas-vindas — entrar, mapeamento e cenários'],
   ['outputs/tutorial-macae.mp4', 'Macaé · Boas-vindas aos professores — entrar e mapeamento'],
+  // Sem nome de cliente: serve qualquer empresa que entrar (ver BOASVINDAS_GERAL).
+  ['outputs/tutorial-boasvindas-geral.mp4', 'Vertho · Boas-vindas — entrar e fazer seu mapeamento'],
 ];
 
 // Sem argumento sobe TODOS — e cada upload cria um guid NOVO, sem substituir o

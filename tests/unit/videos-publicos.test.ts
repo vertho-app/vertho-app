@@ -98,8 +98,31 @@ describe('apelido curto (/v/{slug})', () => {
     // O risco real do apelido curto: "boas-vindas" é o nome óbvio, e o segundo
     // cliente vai querer o mesmo. Servir o vídeo do vizinho carregaria a página
     // normalmente — com a logo certa e o conteúdo errado.
+    //
+    // Desde 10/09/2026 existe um boas-vindas GENÉRICO com `tenant: '*'`, então um
+    // tenant sem vídeo próprio resolve para ELE em vez de null. A invariante que
+    // continua valendo — e é a que importa — é que ninguém receba o vídeo ESPECÍFICO
+    // de outro cliente.
+    const proprios = [
+      TUTORIAIS_PLATAFORMA.boasvindasUniAnchieta.guid,
+      TUTORIAIS_PLATAFORMA.boasvindasMacae.guid,
+    ];
     for (const outro of ['acme-demo', 'ibipeba', 'projetomacae', 'bett']) {
-      expect(resolverSlugPublico('boas-vindas', outro), `vazou para ${outro}`).toBeNull();
+      const guid = resolverSlugPublico('boas-vindas', outro);
+      expect(proprios, `vazou vídeo de cliente para ${outro}`).not.toContain(guid);
+    }
+  });
+
+  it('cada tenant com vídeo PRÓPRIO recebe o próprio, não o genérico', () => {
+    // A ordem importa: procurar o curinga primeiro faria UniAnchieta e Macaé perderem
+    // os vídeos que já foram enviados por WhatsApp para as pessoas delas.
+    expect(resolverSlugPublico('boas-vindas', 'unianchieta')).toBe(TUTORIAIS_PLATAFORMA.boasvindasUniAnchieta.guid);
+    expect(resolverSlugPublico('boas-vindas', 'macae')).toBe(TUTORIAIS_PLATAFORMA.boasvindasMacae.guid);
+  });
+
+  it('tenant SEM vídeo próprio recebe o genérico', () => {
+    for (const novo of ['acme-demo', 'ibipeba', 'clientenovo']) {
+      expect(resolverSlugPublico('boas-vindas', novo), novo).toBe(TUTORIAIS_PLATAFORMA.boasvindasGeral.guid);
     }
   });
 

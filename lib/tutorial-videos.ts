@@ -7,6 +7,12 @@ export const TUTORIAIS_PLATAFORMA = {
   aplicacao: { guid: '80f4da74-4384-419f-aab8-89ed346e7b5b', anteriores: [] as string[] },
   boasvindasUniAnchieta: { guid: '482e3eab-65bd-4e0d-98d6-1f2af6141071', anteriores: [] as string[] },
   boasvindasMacae: { guid: '747c65a8-1764-46c0-95d4-f9fb40873341', anteriores: [] as string[] },
+  /**
+   * Boas-vindas GENÉRICO (10/09/2026) — o único sem nome de cliente, e por isso o
+   * único que serve qualquer empresa nova. Os dois acima continuam porque já foram
+   * enviados: os links estão em mensagens de WhatsApp que não dá para editar.
+   */
+  boasvindasGeral: { guid: '4f156a19-3517-40e1-86b4-4c170cf38899', anteriores: [] as string[] },
 } as const;
 
 /** Mantém /v/<GUID antigo> funcional, sem conceder acesso público por si só. */

@@ -26,7 +26,19 @@ import { TUTORIAIS_PLATAFORMA, resolverVersaoTutorial } from '@/lib/tutorial-vid
 export type VideoPublico = {
   /** GUID no Bunny Stream (library BUNNY_LIBRARY_ID). */
   guid: string;
-  /** Slug da empresa (`empresas.slug`) que pode usar o apelido curto. */
+  /**
+   * Slug da empresa (`empresas.slug`) que pode usar o apelido curto, ou `'*'` para
+   * QUALQUER tenant.
+   *
+   * O curinga só é aceitável para vídeo sem conteúdo de cliente — é o caso do
+   * boas-vindas genérico, e foi por isso que ele foi conferido beat a beat (zero
+   * menções a nome de empresa no material montado). O perigo que esta allowlist
+   * combate é servir o vídeo de um cliente no domínio de outro; num vídeo que não
+   * fala de cliente nenhum, esse perigo não existe.
+   *
+   * O tenant ESPECÍFICO sempre ganha do curinga (ver `resolverSlugPublico`): Macaé
+   * continua recebendo o vídeo de Macaé em `/v/boas-vindas`.
+   */
   tenant: string;
   /** Apelido curto: /v/{slug}. */
   slug: string;
@@ -54,6 +66,18 @@ export const VIDEOS_PUBLICOS: VideoPublico[] = [
     // o slug é resolvido POR TENANT, e é isso que impede um servir o outro.
     motivo: 'Convite de boas-vindas — assistido antes de existir login',
   },
+  {
+    guid: TUTORIAIS_PLATAFORMA.boasvindasGeral.guid,
+    tenant: '*',
+    slug: 'boas-vindas',
+    // Único com tenant CURINGA, e a razão é o conteúdo: este vídeo não cita empresa,
+    // programa nem cargo — foi gravado no `acme-demo` com persona fictícia criada e
+    // apagada na captura, e o material montado tem ZERO menções a "UniAnchieta",
+    // "Educação Integral", "Macaé" ou "Vertho" (conferido em 10/09/2026). Serve
+    // qualquer cliente novo sem produzir um vídeo por cliente. Os dois acima
+    // continuam ganhando no próprio tenant.
+    motivo: 'Convite de boas-vindas GENÉRICO — assistido antes de existir login, sem conteúdo de cliente',
+  },
 ];
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{1,48}$/;
@@ -72,6 +96,12 @@ export function isVideoPublico(guid: string): boolean {
 export function resolverSlugPublico(param: string, tenantSlug: string | null | undefined): string | null {
   const s = (param || '').toLowerCase();
   if (!tenantSlug || !SLUG_RE.test(s)) return null;
-  const achado = VIDEOS_PUBLICOS.find((v) => v.slug === s && v.tenant === tenantSlug.toLowerCase());
-  return achado?.guid || null;
+  const tenant = tenantSlug.toLowerCase();
+  // O ESPECÍFICO primeiro: quem tem vídeo próprio recebe o próprio, e só quem não tem
+  // cai no genérico. Procurar o curinga antes faria a UniAnchieta e Macaé perderem os
+  // vídeos que já foram enviados por WhatsApp para as pessoas delas.
+  const proprio = VIDEOS_PUBLICOS.find((v) => v.slug === s && v.tenant === tenant);
+  if (proprio) return proprio.guid;
+  const generico = VIDEOS_PUBLICOS.find((v) => v.slug === s && v.tenant === '*');
+  return generico?.guid || null;
 }
