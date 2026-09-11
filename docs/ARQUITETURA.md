@@ -291,7 +291,7 @@ nextjs-app/
 │   │       ├── evidencias/       # Conversas socraticas 1-12, extracao, transcript
 │   │       ├── avaliacao-acumulada/  # Nota por descritor + auditoria + regerar
 │   │       ├── auditoria-sem14/  # 4 notas + delta + regerar com feedback
-│   │       ├── simulador-custo/  # Calculadora interativa custo IA
+│   │       ├── simulador-custo/  # Centro FinOps: real, projeções e catálogo
 │   │       └── knowledge-base/   # CRUD base conhecimento RAG per-tenant
 │   ├── radar/                    # NOVO: Site publico Radar Vertho (radar.vertho.ai)
 │   │   ├── page.tsx              # Home com busca + 3 stats reais
@@ -1551,10 +1551,9 @@ Padrao das mensagens: explicar **o que** vai acontecer, **escopo** (todos / N it
 | Evidencias | `/admin/vertho/evidencias` | Conversas socraticas sem 1-12, extracao, transcript |
 | Avaliacao Acumulada | **`/admin/vertho/auditorias?tab=sem13`** | Nota por descritor + auditoria + regerar |
 | Auditoria Sem 14 | **`/admin/vertho/auditorias?tab=sem14`** | 4 notas (pre/acumulada/cenario/final) + delta + regerar com feedback |
-| Simulador de Custo | `/admin/vertho/simulador-custo` | Calculadora (catalogo x modelos x presets) **+ painel "Real medido (ledger)"** — `ia_usage_log` por janela 7/30/90d, via a funcao SQL `ia_uso_resumo` (mig 178) |
-| Custo de IA | `/admin/vertho/simulador-custo` | Catálogo estimado + real do ledger + custo por jornada + infra fixa. Substituiu `/admin/vertho/custo-ia` (HTML estático) em 01/09/2026 |
+| Custos de IA | `/admin/vertho/simulador-custo` | Centro FinOps em três abas: **Real** (`ia_usage_log`, janelas 7/30/90d), **Projeções** (escala, jornadas e infra) e **Catálogo** (chamadas, modelos e presets). Substituiu `/admin/vertho/custo-ia` em 01/09/2026 |
 | Modulos-Base | `/admin/vertho/modulos-base` | Autoria + auditoria dual-IA dos modulos canonicos de conteudo |
-| Auditorias / Orcamento | `/admin/vertho/auditorias`, `/admin/vertho/orcamento` | Auditoria de blueprints e orcamento |
+| Auditorias / Precificação | `/admin/vertho/auditorias`, `/admin/vertho/orcamento` | Auditoria de blueprints e deal desk comercial (escopo, preço, margem e caixa) |
 | Knowledge Base (RAG) | `/admin/vertho/knowledge-base` | CRUD + Upload PDF/DOCX + Seed + preview de busca (grounding per-tenant) |
 
 Todos com filtro `?empresa=` e back button context-aware. Dados via `lib/ia-cost-catalog.ts`.

@@ -105,6 +105,7 @@ export const NAV_ITEMS: NavItem[] = [
 
   // ── Comercial (admin-wide, interno Vertho) ────────────────────────────────
   { key: 'canal-comercial', labelKey: 'salesChannel',  subKey: 'salesChannelSub',       group: 'commercial', icon: Briefcase,  hrefFn: () => '/admin/comercial',               showWhenEmpresa: false, permission: 'sales_channel.view' },
+  { key: 'orcamento', labelKey: 'budget', subKey: 'costTableFinal', group: 'commercial', icon: Calculator, hrefFn: () => '/admin/vertho/orcamento', showWhenEmpresa: false, permission: 'sales_channel.view' },
   // ⛔ 'radar-empresas' saiu em 31/08/2026 — bloco OFF-LINE (lib/blocos-offline.ts).
   // A ingestão parou em 16/05 e o recurso de listas nunca foi usado. O acervo
   // (92 mil empresas) continua no banco; o que saiu é a interface de consulta.
@@ -120,7 +121,6 @@ export const NAV_ITEMS: NavItem[] = [
   // `docs/CUSTO-QUALIDADE.md` conta. O que só ele tinha (custo por jornada e infra
   // fixa) passou a ser CALCULADO no simulador; o histórico ficou no doc.
   { key: 'custo-ia',  labelKey: 'aiCost', subKey: 'callCatalog',    group: 'costs', icon: BarChart2,  hrefFn: () => '/admin/vertho/simulador-custo', permission: 'ai.costs.view' },
-  { key: 'orcamento', labelKey: 'budget', subKey: 'costTableFinal', group: 'costs', icon: Calculator, hrefFn: () => '/admin/vertho/orcamento',       permission: 'ai.costs.view' },
 
   // ── Sistema (governança + ferramentas internas) ───────────────────────────
   // Board: a execução acontece na máquina local (worker + CLIs por assinatura),

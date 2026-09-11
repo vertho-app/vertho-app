@@ -53,8 +53,8 @@ Rodado com sessão admin master real (`generate_link`+`verify`, cookie SSR no Pl
 | **Resultados** | Perfis Comportamentais, Relatórios ➊, Adequação (Fit) ➊, Evolução ➊ | — |
 | **Auditoria Vertho** | Evidências, Av. Acumulada, Sem 14 | — |
 | **Dados educacionais** | — | Radar (Ingestão), Qualidade Dados |
-| **Comercial** | — | Radar Empresas, Mercado Potencial, Potencial por Cidade |
-| **Custos** | Custos de IA, Orçamento | idem |
+| **Comercial** | — | Canal comercial, Precificação comercial, Mercado Potencial |
+| **Custos** | Custos de IA | idem |
 | **Sistema** | Simulador de Fluxo | Admins, Permissões, Auditoria, Lixeira, Ambiente Demo ➊ |
 
 ➊ = item novo no menu (a tela já existia; antes só era alcançável pelo hub ou por URL direta).

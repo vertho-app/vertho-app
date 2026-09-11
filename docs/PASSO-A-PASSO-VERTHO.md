@@ -346,9 +346,9 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 **`/admin/vertho/auditoria-sem14`** — 4 notas (pré/acumulada/cenário/final) + delta + regerar com feedback. Filtro `?empresa=`.
 
-**`/admin/vertho/simulador-custo`** — Calculadora interativa de custo IA (catálogo de chamadas × modelos × presets) **+ painel "Real medido (ledger)"** logo abaixo, lendo `ia_usage_log` por janela de 7/30/90 dias: custo real, cache hit-rate e breakdown por tarefa × modelo. Quando parte das chamadas usa modelo fora do catálogo, a UI avisa que o real está **subestimado** em vez de mentir um total.
+**`/admin/vertho/simulador-custo`** — Centro FinOps de IA com abas **Real**, **Projeções** e **Catálogo**. O Real lê `ia_usage_log` por janela de 7/30/90 dias; Projeções cruza escala, jornadas e infra; Catálogo permite auditar chamadas, modelos e presets. Quando parte das chamadas usa modelo fora do catálogo, a UI avisa que o real está **subestimado** em vez de mentir um total.
 
-**`/admin/vertho/simulador-custo`** — Custo de IA: catálogo estimado, real do ledger, custo por jornada e infra fixa (o plano e o log de decisões vivem em `docs/CUSTO-QUALIDADE.md`). **`/admin/vertho/modulos-base`** — autoria e auditoria dual-IA dos Módulos-Base. **`/admin/vertho/auditorias`** e **`/admin/vertho/orcamento`** — auditoria de blueprints e orçamento.
+**`/admin/vertho/simulador-custo`** — Custos de IA: real do ledger, projeções e catálogo técnico (o plano e o log de decisões vivem em `docs/CUSTO-QUALIDADE.md`). **`/admin/vertho/orcamento`** — Precificação comercial: escopo, régua de preço, custo all-in, margem, desconto seguro e exposição de caixa. **`/admin/vertho/modulos-base`** — autoria e auditoria dual-IA dos Módulos-Base. **`/admin/vertho/auditorias`** — auditoria de blueprints.
 
 **`/admin/engajamento`** (não é vertho-only) — workspace único com as abas **Visão atual** e
 **Evolução semanal**. As abas trocam o conteúdo no lugar, sem navegação ou mudança de URL, e mantêm
@@ -551,7 +551,8 @@ repo; **não usar em material novo**.
 | Equipe Evolução | — | — | `/dashboard/gestor/equipe-evolucao` |
 | Evidências (admin) | — | `/admin/vertho/evidencias` | — |
 | Auditoria sem 14 | — | `/admin/vertho/auditoria-sem14` | — |
-| Simulador de custo | — | `/admin/vertho/simulador-custo` | — |
+| Custos de IA (FinOps) | — | `/admin/vertho/simulador-custo` | — |
+| Precificação comercial | — | `/admin/vertho/orcamento` | — |
 
 ---
 

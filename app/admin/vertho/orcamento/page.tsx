@@ -2,19 +2,21 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard, Route } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard, Route, ShieldCheck } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { CALLS, PRESETS, calcCost, custoColabNaJornada, infraFixaTotal } from '@/lib/ia-cost-catalog';
-import { calcularProjeto } from '@/lib/orcamento/precificacao';
+import { ORCAMENTO_DEFAULTS, calcularProjeto } from '@/lib/orcamento/precificacao';
+import { COMMISSION_RATES } from '@/lib/sales/constants';
 import {
   PROGRAMA_JORNADA, PROGRAMA_REGULAR_DUO, PROGRAMA_REGULAR,
   PROGRAMA_ONBOARDING, PROGRAMA_PILOTO,
 } from '@/lib/season-engine/programa-config';
 
 type Metodo = 'votacao' | 'workshop';
-type PresetKey = 'premium' | 'balanced' | 'cheap';
+type PresetKey = 'atual' | 'premium' | 'balanced' | 'cheap';
 
-const PRESET_KEYS: PresetKey[] = ['premium', 'balanced', 'cheap'];
+const PRESET_KEYS: PresetKey[] = ['atual', 'premium', 'balanced', 'cheap'];
 
 /**
  * A jornada contratada muda o custo por pessoa mais do que qualquer outro campo
@@ -46,38 +48,8 @@ const JORNADAS = [
  * `precoPessoaCiclo` nasce em 1.200 = os 100/mês × 12 de antes, para o cenário
  * base sair no MESMO valor (R$ 125.500): a mecânica muda, o preço praticado não.
  */
-const PRECOS_DEFAULT = {
-  // PTAX de fechamento do BCB em 10/09/2026: R$ 5,1149; arredondada na tela.
-  // Continua editável para o orçamento aplicar margem cambial quando necessário.
-  cotacao: 5.12,              // USD → BRL
-  // ── Preço (o que a Vertho cobra) ──
-  precoSetupGeral: 2000,      // R$ implantação (one-time)
-  precoPessoaCiclo: 1200,     // R$ por pessoa por ciclo de programa
-  precoCluster: 2000,         // R$ por unidade (setup da unidade, one-time)
-  precoMatrizNova: 500,       // R$ por matriz criada do zero
-  precoMatrizAdaptada: 250,   // R$ por matriz adaptada do catálogo canônico
-  adicionalWorkshop: 15000,   // R$ por unidade quando o mapeamento é por workshop
-  descontoPct: 0,
-  margemAlvoPct: 60,          // piso de margem que decide o desconto máximo
-  // ── Custo (o que a Vertho gasta) ──
-  // R$/hora informado pelo dono em 07/09/2026. É a linha que faltava: sem ela o
-  // workshop entrava com R$ 15.000 de preço e ZERO de custo, e por isso aparecia
-  // como o item de maior margem da tela.
-  custoHora: 500,
-  horasImplantacao: 8,        // horas base do projeto, independentes de matriz
-  horasMatrizNova: 6,
-  horasMatrizAdaptada: 2,
-  horasWorkshop: 16,          // por unidade, quando o método é workshop
-  // Mensagens: medido em 20 dias (17/08–06/09), 1.181 templates; Ibipeba fecha
-  // 11,9 por pessoa no período, o que projeta ~16 no ciclo de 7 semanas.
-  // ⚠️ R$ 0,09 é o teto do UTILITY. Template que a Meta reclassifique como
-  // MARKETING custa 6× — 4 de 8 já voltaram assim em 14/08.
-  msgsPorPessoaCiclo: 16,
-  custoMsgUnitario: 0.09,
-  // Infra da plataforma (INFRA_FIXA no catálogo) rateada entre os clientes ativos.
-  clientesAtivos: 2,
-  reusoConteudo: 5,           // colaboradores que compartilham cada peça (1 = único por colab)
-};
+// Fonte única também usada na sugestão de preço das propostas comerciais.
+const PRECOS_DEFAULT = ORCAMENTO_DEFAULTS;
 
 function moneyBRL(v: number, locale: string) {
   return new Intl.NumberFormat(locale, { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 }).format(v);
@@ -226,12 +198,13 @@ export default function OrcamentoPage() {
   const [matrizAdaptadas, setMatrizAdaptadas] = useState(0);
   const [periodoMeses, setPeriodoMeses] = useState(12); // parcelas do pagamento
   const [ciclosPorAno, setCiclosPorAno] = useState(1); // ciclos de programa entregues
-  const [preset, setPreset] = useState<PresetKey>('balanced');
+  const [preset, setPreset] = useState<PresetKey>('atual');
   const [jornada, setJornada] = useState<string>('regular_duo');
   const cfgJornada = useMemo(
     () => (JORNADAS.find((j) => j.key === jornada) || JORNADAS[0]).cfg,
     [jornada],
   );
+  const presetLabel = preset === 'atual' ? 'Configuração atual da plataforma' : PRESETS[preset].label;
   // Geração de conteúdo — peças que CADA colaborador recebe por formato.
   const [conteudoColab, setConteudoColab] = useState({ podcast: 9, texto: 9 });
   function setConteudo<K extends keyof typeof conteudoColab>(k: K, v: number) {
@@ -245,14 +218,15 @@ export default function OrcamentoPage() {
   const [comAvatar, setComAvatar] = useState(true);
 
   // Inputs de pricing
-  const [pricing, setPricing] = useState(PRECOS_DEFAULT);
+  const [pricing, setPricing] = useState({ ...PRECOS_DEFAULT });
 
   function setPricingField<K extends keyof typeof PRECOS_DEFAULT>(k: K, v: number) {
     setPricing((p) => ({ ...p, [k]: v }));
   }
 
   const calc = useMemo(() => {
-    const presetFn = PRESETS[preset].model;
+    const presetFn = (call: (typeof CALLS)[number]) =>
+      preset === 'atual' ? call.defaultModel : PRESETS[preset].model(call);
 
     // Custo IA (USD)
     const custoSetupPorCluster = custoIASetupCluster(nPerfis, metodo, presetFn);
@@ -299,13 +273,21 @@ export default function OrcamentoPage() {
     const infra = infraFixaTotal();
     const infraMesUsd = ((infra.min + infra.max) / 2) / Math.max(1, pricing.clientesAtivos);
     const custoInfraBrl = infraMesUsd * mesesPrograma * pricing.cotacao;
-    const custoTotalBrl = custoIABrl + custoHorasBrl + custoMsgBrl + custoInfraBrl;
+    const custoOperacionalBrl = custoIABrl + custoHorasBrl + custoMsgBrl + custoInfraBrl;
+    const contingenciaRate = Math.max(0, pricing.contingenciaPct) / 100;
+    const custoContingenciaBrl = custoOperacionalBrl * contingenciaRate;
+    const custoEntregaBrl = custoOperacionalBrl + custoContingenciaBrl;
+    const comissaoRate = COMMISSION_RATES.acquisition + COMMISSION_RATES.recurring;
+    const impostosRate = Math.max(0, pricing.impostosPct) / 100;
 
     // ── Valor do projeto — pelo ESCOPO, nunca pelo prazo ──
     // A conta vive em `lib/orcamento/precificacao.ts` (pura, com teste): ela teve
     // um erro de MODELO, e modelo só não regride com guard.
-    const custoOneTime = custoHorasBrl + custoSetupTotal * pricing.cotacao
-      + (custoExtracaoTotal + custoVideoGeradoTotal) * pricing.cotacao;
+    const custoOneTime = (
+      custoHorasBrl +
+      custoSetupTotal * pricing.cotacao +
+      (custoExtracaoTotal + custoVideoGeradoTotal) * pricing.cotacao
+    ) * (1 + contingenciaRate);
     const parcelas = Math.max(1, periodoMeses || 1);
 
     const projeto = calcularProjeto(
@@ -328,8 +310,17 @@ export default function OrcamentoPage() {
         descontoPct: pricing.descontoPct,
         margemAlvoPct: pricing.margemAlvoPct,
       },
-      { totalBrl: custoTotalBrl, oneTimeBrl: custoOneTime, mesesPrograma },
+      {
+        totalBrl: custoEntregaBrl,
+        oneTimeBrl: custoOneTime,
+        mesesPrograma,
+        percentualSobreReceita: comissaoRate + impostosRate,
+      },
     );
+
+    const custoComissoesBrl = projeto.valorFinal * comissaoRate;
+    const custoImpostosBrl = projeto.valorFinal * impostosRate;
+    const custoTotalBrl = custoEntregaBrl + custoComissoesBrl + custoImpostosBrl;
 
     const tabelaSetupGeral = pricing.precoSetupGeral;
     const tabelaClusters = nClusters * pricing.precoCluster;
@@ -359,6 +350,11 @@ export default function OrcamentoPage() {
       custoHorasBrl,
       custoMsgBrl,
       custoInfraBrl,
+      custoOperacionalBrl,
+      custoContingenciaBrl,
+      custoComissoesBrl,
+      custoImpostosBrl,
+      comissaoPct: comissaoRate * 100,
       custoTotalBrl,
       mesesPrograma,
       tabelaPessoasCiclo,
@@ -387,21 +383,28 @@ export default function OrcamentoPage() {
   }, [nClusters, nPerfis, metodo, nColabs, periodoMeses, ciclosPorAno, adesaoPct, matrizNovas, matrizAdaptadas, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, nVideosGerados, comAvatar]);
 
   return (
-    <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
-      <BackButton href="/admin/dashboard" />
-      <div className="flex items-center gap-3 mb-6">
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <Calculator size={20} className="text-cyan-400" /> {t('title')}
+    <div className="max-w-[1320px] mx-auto px-4 py-6 sm:px-6 min-h-full">
+      <BackButton href="/admin-v2/negocios" />
+      <header className="mb-7 grid gap-5 border-b border-amber-300/15 pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Deal desk · proposta</p>
+          <h1 className="mt-2 flex items-center gap-2 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+            <Calculator size={24} className="text-amber-300" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">{t('subtitle')}</p>
+          <p className="mt-2 max-w-[74ch] text-xs leading-relaxed text-gray-400">{t('subtitle')}</p>
         </div>
-      </div>
+        <Link href="/admin/vertho/simulador-custo" className="inline-flex items-center gap-2 border-b border-cyan-300/30 pb-1 text-xs font-semibold text-cyan-300 hover:border-cyan-200 hover:text-cyan-200">
+          Ver composição técnica <ArrowRight size={13} />
+        </Link>
+      </header>
+
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <main className="min-w-0">
 
       {/* Escopo do orçamento */}
-      <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 mb-6">
-        <p className="text-xs uppercase tracking-widest text-cyan-300 mb-3">{t('scope.title')}</p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="rounded-sm border border-amber-300/20 bg-amber-300/[0.035] p-4 mb-5">
+        <p className="text-xs uppercase tracking-widest text-amber-300 mb-3">01 · {t('scope.title')}</p>
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4">
           <FieldNumber locale={locale} icon={<School size={14} />} label={t('scope.clusters.label')} sub={t('scope.clusters.sub')}
             value={nClusters} onChange={setNClusters} min={1} />
           <FieldNumber locale={locale} icon={<Briefcase size={14} />} label={t('scope.profiles.label')} sub={t('scope.profiles.sub')}
@@ -425,7 +428,7 @@ export default function OrcamentoPage() {
               {(['votacao', 'workshop'] as Metodo[]).map((m) => (
                 <button key={m} onClick={() => setMetodo(m)}
                   className={`flex-1 px-2 py-1.5 rounded text-xs font-bold border ${
-                    metodo === m ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300' : 'border-white/10 text-gray-400 hover:text-white'
+                    metodo === m ? 'bg-amber-400/15 border-amber-300/50 text-amber-200' : 'border-white/10 text-gray-400 hover:text-white'
                   }`}>
                   {m === 'votacao' ? t('methods.vote') : 'Workshop'}
                 </button>
@@ -446,7 +449,7 @@ export default function OrcamentoPage() {
             {JORNADAS.map((j) => (
               <button key={j.key} onClick={() => setJornada(j.key)}
                 className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
-                  jornada === j.key ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300' : 'border-white/10 text-gray-400 hover:text-white'
+                  jornada === j.key ? 'bg-amber-400/15 border-amber-300/50 text-amber-200' : 'border-white/10 text-gray-400 hover:text-white'
                 }`}>
                 {j.rotulo} <span className="font-normal opacity-70">· {j.sub}</span>
               </button>
@@ -477,26 +480,13 @@ export default function OrcamentoPage() {
           </div>
         </div>
 
-        {/* Preset IA */}
-        <div className="mt-3">
-          <label className="block text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('preset')}</label>
-          <div className="flex gap-2 flex-wrap">
-            {PRESET_KEYS.map((k) => (
-              <button key={k} onClick={() => setPreset(k)}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
-                  preset === k ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-300' : 'border-white/10 text-gray-400 hover:text-white'
-                }`}>
-                {PRESETS[k].label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Tabela de preços */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 mb-6">
-        <p className="text-xs uppercase tracking-widest text-gray-400 mb-3">{t('pricing.title')}</p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+      <div className="rounded-sm border border-white/10 bg-white/[0.02] p-4 mb-5">
+        <p className="text-xs uppercase tracking-widest text-amber-300 mb-1">02 · Régua de preço</p>
+        <p className="mb-3 text-[10px] text-gray-500">A mesma tabela alimenta a sugestão automática do formulário de propostas.</p>
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4">
           <FieldNumber locale={locale} label={t('pricing.exchange')} sub={t('pricing.perUsd', { value: money(pricing.cotacao) })} value={pricing.cotacao} onChange={(v) => setPricingField('cotacao', v)} allowDecimals min={0} />
           <FieldNumber locale={locale} label={t('pricing.generalSetup')} sub={t('pricing.fixed', { value: money(pricing.precoSetupGeral) })} value={pricing.precoSetupGeral} onChange={(v) => setPricingField('precoSetupGeral', v)} min={0} />
           <FieldNumber locale={locale} label="Por pessoa / ciclo" sub={`${money(pricing.precoPessoaCiclo)} por pessoa`} value={pricing.precoPessoaCiclo} onChange={(v) => setPricingField('precoPessoaCiclo', v)} min={0} />
@@ -505,17 +495,36 @@ export default function OrcamentoPage() {
           <FieldNumber locale={locale} label="Matriz adaptada" sub={`${money(pricing.precoMatrizAdaptada)} cada`} value={pricing.precoMatrizAdaptada} onChange={(v) => setPricingField('precoMatrizAdaptada', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.workshopPerCluster')} sub={t('pricing.ifWorkshop', { value: money(pricing.adicionalWorkshop) })} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.discount')} sub={`piso: ${calc.descontoMaxPct.toFixed(1)}%`} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} allowDecimals />
+          <FieldNumber locale={locale} label="Margem-alvo (%)" sub="define o desconto máximo" value={pricing.margemAlvoPct} onChange={(v) => setPricingField('margemAlvoPct', v)} min={0} allowDecimals />
+          <FieldNumber locale={locale} label="Impostos (%)" sub={pricing.impostosPct === 0 ? 'confirmar antes da proposta' : 'sobre a receita final'} value={pricing.impostosPct} onChange={(v) => setPricingField('impostosPct', v)} min={0} allowDecimals />
+          <FieldNumber locale={locale} label="Contingência (%)" sub="sobre o custo operacional" value={pricing.contingenciaPct} onChange={(v) => setPricingField('contingenciaPct', v)} min={0} allowDecimals />
         </div>
       </div>
 
       {/* Custo de entrega — as linhas que faltavam para a margem significar algo */}
-      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 mb-6">
-        <p className="text-xs uppercase tracking-widest text-amber-300 mb-1">Custo de entrega</p>
+      <div className="rounded-sm border border-white/10 bg-white/[0.02] p-4 mb-5">
+        <p className="text-xs uppercase tracking-widest text-amber-300 mb-1">03 · Custo de entrega</p>
         <p className="text-[10px] text-gray-500 mb-3">
           Até 07/09/2026 a margem olhava só a IA e respondia 96–99% em qualquer cenário. Estas são as
           linhas que faltavam — o workshop, em especial, tinha preço e nenhum custo.
         </p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+        <details className="mb-3 border-y border-white/[0.07] py-2">
+          <summary className="cursor-pointer text-[11px] font-semibold text-gray-300">
+            Cenário de modelos IA <span className="ml-2 font-normal text-amber-300">{presetLabel}</span>
+          </summary>
+          <p className="mt-2 text-[10px] leading-relaxed text-gray-500">O orçamento usa a configuração que está em produção. As alternativas abaixo servem apenas para análise de sensibilidade.</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {PRESET_KEYS.map((k) => (
+              <button key={k} onClick={() => setPreset(k)}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
+                  preset === k ? 'bg-amber-400/15 border-amber-300/50 text-amber-200' : 'border-white/10 text-gray-400 hover:text-white'
+                }`}>
+                {k === 'atual' ? 'Atual' : PRESETS[k].label}
+              </button>
+            ))}
+          </div>
+        </details>
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4">
           <FieldNumber locale={locale} label="Custo / hora" sub="implantação e workshop" value={pricing.custoHora} onChange={(v) => setPricingField('custoHora', v)} min={0} />
           <FieldNumber locale={locale} label="Horas de implantação" sub="base, fora as matrizes" value={pricing.horasImplantacao} onChange={(v) => setPricingField('horasImplantacao', v)} min={0} />
           <FieldNumber locale={locale} label="Horas / matriz nova" sub={`${pricing.horasMatrizAdaptada}h se adaptada`} value={pricing.horasMatrizNova} onChange={(v) => setPricingField('horasMatrizNova', v)} min={0} />
@@ -540,7 +549,22 @@ export default function OrcamentoPage() {
             <p className="text-[9px] uppercase text-gray-500">Infra · {calc.mesesPrograma} {calc.mesesPrograma === 1 ? 'mês' : 'meses'}</p>
             <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoInfraBrl)}</p>
           </div>
+          <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+            <p className="text-[9px] uppercase text-gray-500">Comissões · {calc.comissaoPct.toFixed(0)}%</p>
+            <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoComissoesBrl)}</p>
+          </div>
+          <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+            <p className="text-[9px] uppercase text-gray-500">Impostos · {pricing.impostosPct}%</p>
+            <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoImpostosBrl)}</p>
+          </div>
+          <div className="rounded-lg bg-white/[0.03] px-3 py-2">
+            <p className="text-[9px] uppercase text-gray-500">Contingência · {pricing.contingenciaPct}%</p>
+            <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoContingenciaBrl)}</p>
+          </div>
         </div>
+        {pricing.impostosPct === 0 && (
+          <p className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-amber-300"><ShieldCheck size={12} /> Impostos ainda estão zerados; confirme a alíquota antes de transformar o cenário em proposta.</p>
+        )}
         <p className="text-[10px] text-amber-300/80 mt-2">
           ⚠ Mensagem em MARKETING custa 6× o UTILITY, e 4 de 8 templates já voltaram assim (14/08).
           Nesse caso esta linha vai a {money(calc.custoMsgBrl * 6)}.
@@ -613,13 +637,19 @@ export default function OrcamentoPage() {
           <span className="text-violet-200 font-semibold">Total ({nVideosGerados.toLocaleString(locale)} vídeos): USD {calc.custoVideoGeradoTotal.toFixed(2)}</span>
         </div>
       </div>
+        </main>
 
-      {/* Resumo financeiro — o valor é do PROJETO; a parcela é forma de pagamento */}
-      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 mb-6">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl bg-white/[0.04] p-4 border border-cyan-400/20">
-            <p className="text-[10px] uppercase tracking-widest text-cyan-300">Valor do projeto</p>
-            <p className="text-3xl font-extrabold text-cyan-200 mt-1">{money(calc.valorTotalFinal)}</p>
+        {/* Folha de decisão sempre visível: preço, margem e risco de caixa. */}
+        <aside className="xl:sticky xl:top-6">
+      <div className="rounded-sm border border-amber-300/30 bg-[#17150e] p-5 shadow-[0_22px_70px_rgba(0,0,0,0.22)]">
+        <div className="mb-4 border-b border-amber-300/15 pb-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Folha de decisão</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-gray-500">Escopo → preço → margem → aprovação</p>
+        </div>
+        <div className="grid gap-3">
+          <div className="border-l-2 border-amber-300 bg-white/[0.035] p-4">
+            <p className="text-[10px] uppercase tracking-widest text-amber-300">Valor do projeto</p>
+            <p className="text-3xl font-extrabold text-amber-100 mt-1">{money(calc.valorTotalFinal)}</p>
             <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
               <div className="flex justify-between"><span>{t('financial.oneTime')}</span><span>{money(calc.oneTimeTabela)}</span></div>
               <div className="flex justify-between"><span>Programa · {calc.ciclos} {calc.ciclos === 1 ? 'ciclo' : 'ciclos'}</span><span>{money(calc.tabelaPrograma)}</span></div>
@@ -628,7 +658,7 @@ export default function OrcamentoPage() {
               )}
             </div>
           </div>
-          <div className="rounded-xl bg-white/[0.04] p-4 border border-emerald-400/20">
+          <div className="border-l-2 border-emerald-400 bg-white/[0.035] p-4">
             <p className="text-[10px] uppercase tracking-widest text-emerald-300">Parcela · {calc.parcelas}×</p>
             <p className="text-3xl font-extrabold text-emerald-200 mt-1">{money(calc.mensalidadeFlat)}<span className="text-base text-gray-400 font-normal"> {t('financial.perMonth')}</span></p>
             <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
@@ -639,8 +669,8 @@ export default function OrcamentoPage() {
         </div>
 
         {/* Sub-stats */}
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <KpiBox label="Custo cheio" value={money(calc.custoTotalBrl)} sub={`IA ${money(calc.custoIABrl)} + ${money(calc.custoTotalBrl - calc.custoIABrl)}`} tone="gray" />
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <KpiBox label="Custo all-in" value={money(calc.custoTotalBrl)} sub={`operação ${money(calc.custoOperacionalBrl)}`} tone="gray" />
           <KpiBox label={t('kpis.marginValue')} value={money(calc.margemAbs)} tone={calc.margemPct < pricing.margemAlvoPct ? 'amber' : 'emerald'} />
           <KpiBox label={t('kpis.marginPct')} value={`${calc.margemPct.toFixed(1)}%`} sub={`alvo ${pricing.margemAlvoPct}%`} tone={calc.margemPct < pricing.margemAlvoPct ? 'amber' : 'emerald'} />
           <KpiBox label="Exposição máxima" value={money(calc.piorSaldo?.saldo ?? 0)} sub={`mês ${calc.piorSaldo?.mes ?? 1}`} tone={(calc.piorSaldo?.saldo ?? 0) < 0 ? 'amber' : 'emerald'} />
@@ -689,6 +719,16 @@ export default function OrcamentoPage() {
             </p>
           </div>
         )}
+        <div className="mt-5 grid gap-2 border-t border-white/10 pt-4">
+          <Link href="/admin/comercial/propostas" className="inline-flex items-center justify-between bg-amber-300 px-3 py-2.5 text-xs font-bold text-[#17150e] hover:bg-amber-200">
+            Ir para propostas <ArrowRight size={13} />
+          </Link>
+          <Link href="/admin/vertho/simulador-custo" className="inline-flex items-center justify-between border border-white/10 px-3 py-2.5 text-xs font-semibold text-gray-300 hover:border-cyan-300/40 hover:text-cyan-200">
+            Auditar custo técnico <ArrowRight size={13} />
+          </Link>
+        </div>
+      </div>
+        </aside>
       </div>
 
       {/* Detalhamento */}
@@ -738,7 +778,7 @@ export default function OrcamentoPage() {
           <h3 className="text-xs uppercase tracking-widest text-amber-300 mb-3 flex items-center gap-1.5">
             <Calculator size={14} /> {t('breakdown.aiCost')}
           </h3>
-          <p className="text-[10px] text-gray-500">Preset: {PRESETS[preset].label}</p>
+          <p className="text-[10px] text-gray-500">Modelos: {presetLabel}</p>
           <p className="text-[10px] text-amber-300/70 mb-2">{t('ai.basis', { cycles: calc.ciclos })}</p>
           <div className="space-y-1.5 text-sm">
             <Row label={`${t('ai.setupLine', { clusters: nClusters, profiles: nPerfis, method: metodo })} ${t('ai.oneTimeTag')}`} value={`USD ${(nClusters * calc.custoSetupPorCluster).toFixed(2)}`} />

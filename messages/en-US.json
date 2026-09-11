@@ -598,7 +598,7 @@
         "dataQuality": "Data Quality",
         "boardPainel": "Board (AI panel)",
         "aiCost": "AI Costs",
-        "budget": "Budget",
+        "budget": "Commercial pricing",
         "potentialMarket": "Market Potential",
         "companyRadar": "Company Radar",
         "cityPotential": "City Potential",
@@ -643,8 +643,8 @@
         "saebIcaCensus": "Saeb / ICA / Censo",
         "radarQuality": "Radar quality",
         "boardPainelSub": "Four models, one question",
-        "callCatalog": "Call book",
-        "costTableFinal": "Cost / Table / Final",
+        "callCatalog": "Actuals · forecasts · catalog",
+        "costTableFinal": "Scope · price · margin",
         "citiesNetworksSchools": "Cities · Networks · Unified",
         "b2bIntelligence": "B2B commercial intelligence",
         "companiesSchoolsUnified": "Companies + Schools unified",
@@ -750,8 +750,8 @@
         "desc": "Upload Saeb/ICA/Census data"
       },
       "budget": {
-        "title": "Budget",
-        "desc": "AI cost, price table, final value"
+        "title": "Commercial pricing",
+        "desc": "Scope, price, margin and cash exposure"
       },
       "knowledge": {
         "title": "Knowledge Base",
@@ -3476,8 +3476,8 @@
     "footer": "Simple version · coverage calculated via RPC <code>diag_qualidade_distinct_chave</code>. If a font appears with \"—\" coverage, run migration 082."
   },
   "AdminBudget": {
-    "title": "Budget — Vertho AI Mentor",
-    "subtitle": "Calculates AI cost, list value, discount and final value in BRL.",
+    "title": "Commercial pricing",
+    "subtitle": "Turn scope into price, margin, safe discount and cash exposure — all in BRL.",
     "content": {
       "title": "Content Generation (per team member)",
       "hint": "Each team member receives N pieces per format. Reuse divides the cost: how many team members share each piece (1 = unique content per member). Video and podcast include media (TTS and Veo render).",
@@ -4058,8 +4058,8 @@
     }
   },
   "AdminCostSimulator": {
-    "title": "Cost Simulator — AI",
-    "subtitle": "Estimate of spending on AI calls per scale unit (team member, Radar school, lead, company). Catalog prices, checked Aug/2026.",
+    "title": "AI costs",
+    "subtitle": "Track actual ledger spend, forecast scale scenarios and audit the technical catalog in USD. Rates checked Sep/2026.",
     "real": {
       "heading": "Measured (ledger)",
       "sub": "Real cost of calls recorded in ia_usage_log. Compare with the estimate above.",

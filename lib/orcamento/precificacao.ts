@@ -33,6 +33,36 @@ export interface TabelaPreco {
   margemAlvoPct: number;
 }
 
+/**
+ * Fonte única da régua comercial usada pelo deal desk e pelo formulário de
+ * propostas. Valores operacionais continuam editáveis no deal desk, mas toda
+ * sugestão nasce daqui para não haver duas tabelas concorrentes.
+ */
+export const ORCAMENTO_DEFAULTS = {
+  // PTAX de fechamento do BCB em 10/09/2026 (R$ 5,1149), arredondada e
+  // editável para que o cenário possa aplicar a margem cambial da negociação.
+  cotacao: 5.12,
+  precoSetupGeral: 2000,
+  precoPessoaCiclo: 1200,
+  precoCluster: 2000,
+  precoMatrizNova: 500,
+  precoMatrizAdaptada: 250,
+  adicionalWorkshop: 15000,
+  descontoPct: 0,
+  margemAlvoPct: 60,
+  impostosPct: 0,
+  contingenciaPct: 0,
+  custoHora: 500, // valor informado pelo dono em 07/09/2026
+  horasImplantacao: 8,
+  horasMatrizNova: 6,
+  horasMatrizAdaptada: 2,
+  horasWorkshop: 16,
+  msgsPorPessoaCiclo: 16, // projeção conservadora do uso observado
+  custoMsgUnitario: 0.09, // teto de UTILITY; MARKETING precisa de cenário à parte
+  clientesAtivos: 2,
+  reusoConteudo: 5,
+};
+
 export interface EscopoProjeto {
   pessoas: number;
   /** Ciclos de programa entregues no contrato. É isto que dobra a entrega. */
@@ -52,6 +82,8 @@ export interface CustoProjeto {
   oneTimeBrl: number;
   /** Duração do PROGRAMA em meses — por ela o custo variável se distribui. */
   mesesPrograma: number;
+  /** Comissão, impostos e outras saídas que incidem sobre a receita final. */
+  percentualSobreReceita?: number;
 }
 
 export interface ResultadoProjeto {
@@ -63,6 +95,7 @@ export interface ResultadoProjeto {
   parcela: number;
   margemAbs: number;
   margemPct: number;
+  custoSobreReceita: number;
   /** Maior desconto que ainda respeita a margem-alvo. */
   descontoMaxPct: number;
   acimaDoPiso: boolean;
@@ -95,13 +128,16 @@ export function calcularProjeto(
   const desconto = valorTabela - valorFinal;
   const parcela = valorFinal / parcelas;
 
-  const margemAbs = valorFinal - custo.totalBrl;
+  const percentualSobreReceita = Math.max(0, custo.percentualSobreReceita || 0);
+  const custoSobreReceita = valorFinal * percentualSobreReceita;
+  const margemAbs = valorFinal - custo.totalBrl - custoSobreReceita;
   const margemPct = valorFinal > 0 ? (margemAbs / valorFinal) * 100 : 0;
 
   // Desconto máximo que preserva a margem-alvo. É o número que se precisa ANTES
   // de sentar na negociação — não o aviso depois de ceder.
   const alvo = Math.min(99, Math.max(0, preco.margemAlvoPct)) / 100;
-  const valorMinimo = custo.totalBrl / (1 - alvo);
+  const capacidadeDeCusto = 1 - alvo - percentualSobreReceita;
+  const valorMinimo = capacidadeDeCusto > 0 ? custo.totalBrl / capacidadeDeCusto : Number.POSITIVE_INFINITY;
   const descontoMaxPct = valorTabela > 0
     ? Math.max(0, (1 - valorMinimo / valorTabela) * 100)
     : 0;
@@ -114,7 +150,7 @@ export function calcularProjeto(
   for (let m = 1; m <= parcelas; m++) {
     const recebido = parcela * m;
     const gasto = custo.oneTimeBrl + variavel * Math.min(1, m / meses);
-    exposicao.push({ mes: m, saldo: recebido - gasto });
+    exposicao.push({ mes: m, saldo: recebido - gasto - recebido * percentualSobreReceita });
   }
   const piorSaldo = exposicao.reduce((min, e) => (e.saldo < min.saldo ? e : min), exposicao[0]);
 
@@ -127,8 +163,9 @@ export function calcularProjeto(
     parcela,
     margemAbs,
     margemPct,
+    custoSobreReceita,
     descontoMaxPct,
-    acimaDoPiso: (preco.descontoPct || 0) > descontoMaxPct,
+    acimaDoPiso: margemPct + 1e-9 < alvo * 100,
     exposicao,
     piorSaldo,
   };

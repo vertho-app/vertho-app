@@ -35,8 +35,7 @@ const ETAPAS = [
     descricao: 'Precificar, montar e conduzir a proposta até a decisão.',
     principal: { rotulo: 'Propostas', href: '/admin/comercial/propostas' },
     apoios: [
-      { rotulo: 'Orçamento', href: '/admin/vertho/orcamento' },
-      { rotulo: 'Simulador de custo', href: '/admin/vertho/simulador-custo' },
+      { rotulo: 'Precificação comercial', href: '/admin/vertho/orcamento' },
     ],
   },
   {

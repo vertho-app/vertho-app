@@ -80,6 +80,21 @@ describe('precificação do projeto', () => {
     expect(umPontoAcima.margemPct).toBeLessThan(PRECO.margemAlvoPct);
   });
 
+  it('comissão e impostos entram na margem e no desconto máximo', () => {
+    const comEncargos: CustoProjeto = {
+      ...CUSTO,
+      percentualSobreReceita: 0.21,
+    };
+    const r = calcularProjeto(BASE, PRECO, comEncargos);
+
+    expect(r.custoSobreReceita).toBeCloseTo(r.valorFinal * 0.21, 6);
+    expect(r.margemAbs).toBeCloseTo(r.valorFinal - CUSTO.totalBrl - r.custoSobreReceita, 6);
+
+    const noPiso = calcularProjeto(BASE, { ...PRECO, descontoPct: r.descontoMaxPct }, comEncargos);
+    expect(noPiso.margemPct).toBeCloseTo(PRECO.margemAlvoPct, 6);
+    expect(noPiso.acimaDoPiso).toBe(false);
+  });
+
   it('a exposição começa negativa e o pior mês não é o último', () => {
     // Com implantação concentrada na largada, o caixa afunda antes de virar.
     const r = calcularProjeto(BASE, PRECO, { totalBrl: 90_000, oneTimeBrl: 70_000, mesesPrograma: 4 });
@@ -97,5 +112,10 @@ describe('precificação do projeto', () => {
     // cliente compra, aumenta o tempo em que a Vertho financia a entrega.
     expect(em36.piorSaldo.saldo).toBeLessThan(em12.piorSaldo.saldo);
     expect(em36.valorFinal).toBe(em12.valorFinal);
+  });
+
+  it('o último saldo de caixa é a margem depois dos custos sobre a receita', () => {
+    const r = calcularProjeto(BASE, PRECO, { ...CUSTO, percentualSobreReceita: 0.21 });
+    expect(r.exposicao.at(-1)?.saldo).toBeCloseTo(r.margemAbs, 6);
   });
 });

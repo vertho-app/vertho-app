@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { DollarSign, Users, School, FileText, Building2, Clapperboard, UploadCloud, Activity, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowRight, BarChart3, DollarSign, Users, School, FileText, Building2, Clapperboard, UploadCloud, Activity, RefreshCw, ListTree, SlidersHorizontal } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
   CALLS,
@@ -19,12 +20,14 @@ import { getUsoRealIA, getCoberturaCatalogo, type UsoRealLinha, type CoberturaCa
 import type { AppLocale } from '@/i18n/routing';
 
 type ScaleType = 'colab' | 'conteudo' | 'extracao' | 'video_gerado' | 'pagina_radar' | 'lead_radar' | 'empresa';
+type CostTab = 'real' | 'projection' | 'catalog';
 
 const PRESET_KEYS = ['atual', 'premium', 'balanced', 'cheap'] as const;
 
 export default function SimuladorCustoPage() {
   const locale = useLocale() as AppLocale;
   const t = useTranslations('AdminCostSimulator');
+  const [tab, setTab] = useState<CostTab>('real');
   const [units, setUnits] = useState<Record<ScaleType, number>>({
     colab: 1,
     conteudo: 10,
@@ -83,16 +86,43 @@ export default function SimuladorCustoPage() {
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-6 sm:px-6 min-h-full">
-      <BackButton href="/admin/dashboard" />
-      <div className="flex items-center gap-3 mb-6">
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
-            <DollarSign size={20} className="text-emerald-400" /> {t('title')}
+      <BackButton href="/admin-v2/plataforma" />
+      <header className="mb-6 grid gap-5 border-b border-cyan-300/15 pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-300">FinOps · plataforma</p>
+          <h1 className="mt-2 flex items-center gap-2 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+            <DollarSign size={24} className="text-emerald-400" /> {t('title')}
           </h1>
-          <p className="text-xs text-gray-500">{t('subtitle')}</p>
+          <p className="mt-2 max-w-[76ch] text-xs leading-relaxed text-gray-400">{t('subtitle')}</p>
         </div>
+        <Link href="/admin/vertho/orcamento" className="inline-flex items-center gap-2 border-b border-amber-300/30 pb-1 text-xs font-semibold text-amber-300 hover:border-amber-200 hover:text-amber-200">
+          Usar na precificação <ArrowRight size={13} />
+        </Link>
+      </header>
+
+      <div role="tablist" aria-label="Visões de custo" className="mb-6 grid border border-white/10 bg-white/[0.015] sm:grid-cols-3">
+        {([
+          { key: 'real', label: 'Real', sub: 'ledger e cobertura', icon: <BarChart3 size={14} /> },
+          { key: 'projection', label: 'Projeções', sub: 'escala e jornadas', icon: <SlidersHorizontal size={14} /> },
+          { key: 'catalog', label: 'Catálogo', sub: 'modelos e chamadas', icon: <ListTree size={14} /> },
+        ] as const).map((item) => (
+          <button
+            key={item.key}
+            role="tab"
+            aria-selected={tab === item.key}
+            onClick={() => setTab(item.key)}
+            className={`flex items-center gap-3 border-b px-4 py-3 text-left transition-colors last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0 ${
+              tab === item.key ? 'border-cyan-300/50 bg-cyan-300/[0.08] text-cyan-200' : 'border-white/10 text-gray-500 hover:bg-white/[0.025] hover:text-gray-200'
+            }`}
+          >
+            {item.icon}
+            <span><span className="block text-xs font-bold">{item.label}</span><span className="block text-[10px] font-normal opacity-70">{item.sub}</span></span>
+          </button>
+        ))}
       </div>
 
+      {tab === 'projection' && (
+        <>
       {/* Inputs de escala */}
       <div className="grid gap-3 mb-4 grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
         <ScaleInput icon={<Users size={14} />} label={t('scale.colab.label')} sub={t('scale.colab.sub')} value={units.colab} onChange={v => setUnit('colab', v)} />
@@ -172,12 +202,16 @@ export default function SimuladorCustoPage() {
       {/* Custo por jornada — o mesmo catálogo lido pelas dimensões de cada modo */}
       <JornadasPanel locale={locale} preset={preset} nColabs={nColabs} />
 
-      {/* Real medido (ledger) */}
-      <RealPanel locale={locale} />
-
       {/* Infra fixa da plataforma */}
       <InfraPanel locale={locale} />
+        </>
+      )}
 
+      {/* Real medido (ledger) */}
+      {tab === 'real' && <RealPanel locale={locale} />}
+
+      {tab === 'catalog' && (
+        <>
       {/* Tabela detalhada */}
       <div className="space-y-2">
         <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-2">{t('catalog.title')}</h2>
@@ -244,6 +278,8 @@ export default function SimuladorCustoPage() {
           ))}
         </ul>
       </div>
+        </>
+      )}
     </div>
   );
 }

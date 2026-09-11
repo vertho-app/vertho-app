@@ -61,7 +61,7 @@ const GRUPOS = [
     itens: [
       // Um item só desde 01/09/2026: `custo-ia` (HTML estático) e `simulador-custo`
       // descreviam o mesmo assunto, e o primeiro prometia "consumo" sem ler o ledger.
-      { rotulo: 'Custo de IA', detalhe: 'catálogo estimado, real do ledger e custo por jornada', href: '/admin/vertho/simulador-custo' },
+      { rotulo: 'Custos de IA', detalhe: 'ledger real, projeções por escala e catálogo de modelos', href: '/admin/vertho/simulador-custo' },
     ],
   },
 ] as const;

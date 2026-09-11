@@ -84,8 +84,8 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
   const mensalComDesconto =
     (Number(values.monthly_value) || 0) * (1 - (Number(values.discount_requested) || 0) / 100);
 
-  // Valor mensal vem da tabela de preço quando as variáveis mudam (pacote,
-  // usuários, cargos). Pula o primeiro render para não sobrescrever o valor
+  // A parcela sugerida vem da régua única de projeto quando escopo ou prazo
+  // mudam. Pula o primeiro render para não sobrescrever o valor
   // salvo de uma proposta em edição. 'Custom' (sem fórmula) fica manual.
   const skipAuto = useRef(true);
   useEffect(() => {
@@ -94,10 +94,10 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
       product_package: values.product_package,
       number_of_users: num(values.number_of_users),
       number_of_roles_mapped: num(values.number_of_roles_mapped),
+      contract_duration_months: num(values.contract_duration_months),
     });
     if (sug != null) setValues((prev) => ({ ...prev, monthly_value: String(sug) }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.product_package, values.number_of_users, values.number_of_roles_mapped]);
+  }, [values.product_package, values.number_of_users, values.number_of_roles_mapped, values.contract_duration_months]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -177,7 +177,7 @@ export default function ProposalForm({ initial, opportunityId, onSubmit, submitt
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Valor mensal (R$)" error={fieldErrors.monthly_value}
-              hint="Sugerido pela tabela (pacote × usuários × cargos). Ajustável. 'Custom' é manual.">
+              hint="Régua de projeto: 1 unidade, 1 ciclo e cargos como matrizes novas; a vigência só divide. Ajustável; Custom é manual.">
               <input type="text" inputMode="numeric" value={brlDisplay(values.monthly_value)}
                 onChange={(e) => set('monthly_value', parseBRL(e.target.value))}
                 placeholder="R$ 0,00" className={INPUT_CLS} />

@@ -598,7 +598,7 @@
         "dataQuality": "Qualidade Dados",
         "boardPainel": "Board (painel de IA)",
         "aiCost": "Custos de IA",
-        "budget": "Orçamento",
+        "budget": "Precificação comercial",
         "potentialMarket": "Mercado Potencial",
         "companyRadar": "Radar Empresas",
         "cityPotential": "Potencial por Cidade",
@@ -643,8 +643,8 @@
         "saebIcaCensus": "Saeb / ICA / Censo",
         "radarQuality": "Radar quality",
         "boardPainelSub": "Quatro modelos, uma pergunta",
-        "callCatalog": "Catálogo de chamadas",
-        "costTableFinal": "Custo / Tabela / Final",
+        "callCatalog": "Real · projeções · catálogo",
+        "costTableFinal": "Âmbito · preço · margem",
         "citiesNetworksSchools": "Municípios · Redes · Unificado",
         "b2bIntelligence": "Inteligência comercial B2B",
         "companiesSchoolsUnified": "Empresas + Escolas unificado",
@@ -750,8 +750,8 @@
         "desc": "Subir dados Saeb/ICA/Censo"
       },
       "budget": {
-        "title": "Orçamento",
-        "desc": "Custo IA, tabela, valor final"
+        "title": "Precificação comercial",
+        "desc": "Âmbito, preço, margem e risco de caixa"
       },
       "knowledge": {
         "title": "Knowledge Base",
@@ -3244,8 +3244,8 @@
     }
   },
   "AdminCostSimulator": {
-    "title": "Simulador de Custo — IA",
-    "subtitle": "Estimativa de gasto com chamadas de IA por unidade de escala (colaborador, escola Radar, lead, empresa). Preços do catálogo, conferidos em ago/2026.",
+    "title": "Custos de IA",
+    "subtitle": "Acompanhe o ledger real, projete cenários de escala e audite o catálogo técnico em USD. Tarifas verificadas em set/2026.",
     "real": {
       "heading": "Real medido (ledger)",
       "sub": "Custo real das chamadas gravadas em ia_usage_log. Compare com a estimativa acima.",
@@ -3549,8 +3549,8 @@
     "footer": "Versão simples · cobertura calculada via RPC <code>diag_qualidade_distinct_chave</code>. Se uma fonte aparecer com cobertura \"—\", rode a migration 082."
   },
   "AdminBudget": {
-    "title": "Orçamento — Vertho Mentor IA",
-    "subtitle": "Calcula custo de IA, valor de tabela, desconto e valor final em BRL.",
+    "title": "Precificação comercial",
+    "subtitle": "Transforme o âmbito em preço, margem, desconto seguro e risco de caixa — tudo em BRL.",
     "content": {
       "title": "Geração de Conteúdo (por colaborador)",
       "hint": "Cada colaborador recebe N peças por formato. O reúso divide o custo: nº de colaboradores que partilham cada peça (1 = conteúdo único por colaborador). Vídeo e podcast incluem média (TTS e render Veo).",
