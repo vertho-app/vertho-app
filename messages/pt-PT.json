@@ -3261,38 +3261,40 @@
       "colModel": "Modelo",
       "colCalls": "Cham.",
       "colTokens": "Tokens in/out",
-      "colCache": "Cache r/w",
       "colCost": "USD",
+      "sortTokensHint": "Ordena pela soma dos tokens de entrada e saída",
       "refresh": "Atualizar"
     },
     "scale": {
+      "heading": "Volumes do cenário",
+      "description": "Não são valores de orçamento. Cada cartão indica uma quantidade operacional que multiplica as chamadas de IA; o custo técnico resultante alimenta a definição de preço.",
       "colab": {
         "label": "Colaboradores",
-        "sub": "ciclo Mentor IA"
+        "sub": "pessoas em 1 ciclo do Mentor IA"
       },
       "conteudo": {
         "label": "Conteúdos",
-        "sub": "peças autoradas (biblioteca)"
+        "sub": "novas peças criadas para a biblioteca"
       },
       "extracao": {
         "label": "Extrações",
-        "sub": "vídeo → módulo-base"
+        "sub": "vídeos-fonte processados em módulo-base"
       },
       "video_gerado": {
         "label": "Vídeos gerados",
-        "sub": "módulo-base → vídeo"
+        "sub": "módulos-base convertidos em vídeo"
       },
       "pagina_radar": {
         "label": "Páginas Radar",
-        "sub": "escolas/municípios únicos"
+        "sub": "escolas/municípios únicos analisados"
       },
       "lead_radar": {
         "label": "Leads Radar",
-        "sub": "PDFs gerados"
+        "sub": "propostas em PDF geradas para leads"
       },
       "empresa": {
         "label": "Empresas (setup)",
-        "sub": "one-time"
+        "sub": "novas empresas configuradas uma vez"
       }
     },
     "preset": {
@@ -3300,7 +3302,7 @@
       "current": "Config. atual"
     },
     "totals": {
-      "estimatedCost": "Custo estimado",
+      "estimatedCost": "Custo técnico estimado de IA",
       "perCollaborator": "{count} colab{count, plural, one {} other {s}} · ~USD {value} por colab (Mentor IA)",
       "tokens": "{input}M tokens input + {output}M output",
       "totalTokens": "= {total}M total",

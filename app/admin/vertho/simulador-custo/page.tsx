@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { ArrowRight, BarChart3, DollarSign, Users, School, FileText, Building2, Clapperboard, UploadCloud, Activity, RefreshCw, ListTree, SlidersHorizontal } from 'lucide-react';
+import { ArrowRight, ArrowUpDown, BarChart3, ChevronDown, ChevronUp, DollarSign, Users, School, FileText, Building2, Clapperboard, UploadCloud, Activity, RefreshCw, ListTree, SlidersHorizontal } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
   CALLS,
@@ -103,7 +103,7 @@ export default function SimuladorCustoPage() {
       <div role="tablist" aria-label="Visões de custo" className="mb-6 grid border border-white/10 bg-white/[0.015] sm:grid-cols-3">
         {([
           { key: 'real', label: 'Real', sub: 'ledger e cobertura', icon: <BarChart3 size={14} /> },
-          { key: 'projection', label: 'Projeções', sub: 'escala e jornadas', icon: <SlidersHorizontal size={14} /> },
+          { key: 'projection', label: 'Projeção técnica', sub: 'volumes e custo IA', icon: <SlidersHorizontal size={14} /> },
           { key: 'catalog', label: 'Catálogo', sub: 'modelos e chamadas', icon: <ListTree size={14} /> },
         ] as const).map((item) => (
           <button
@@ -124,6 +124,12 @@ export default function SimuladorCustoPage() {
       {tab === 'projection' && (
         <>
       {/* Inputs de escala */}
+      <div className="mb-3 max-w-3xl">
+        <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-300">
+          <SlidersHorizontal size={13} /> {t('scale.heading')}
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed text-gray-400">{t('scale.description')}</p>
+      </div>
       <div className="grid gap-3 mb-4 grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
         <ScaleInput icon={<Users size={14} />} label={t('scale.colab.label')} sub={t('scale.colab.sub')} value={units.colab} onChange={v => setUnit('colab', v)} />
         <ScaleInput icon={<FileText size={14} />} label={t('scale.conteudo.label')} sub={t('scale.conteudo.sub')} value={units.conteudo} onChange={v => setUnit('conteudo', v)} />
@@ -294,6 +300,8 @@ export default function SimuladorCustoPage() {
 }
 
 const WINDOWS = [7, 30, 90] as const;
+type RealSortKey = 'feature' | 'model' | 'calls' | 'tokens' | 'unitCost' | 'estimate' | 'cost';
+type SortDirection = 'asc' | 'desc';
 
 function RealPanel({ locale }: { locale: AppLocale }) {
   const t = useTranslations('AdminCostSimulator');
@@ -302,6 +310,10 @@ function RealPanel({ locale }: { locale: AppLocale }) {
   const [erro, setErro] = useState<string | null>(null);
   const [linhas, setLinhas] = useState<UsoRealLinha[] | null>(null);
   const [cobertura, setCobertura] = useState<CoberturaCatalogo | null>(null);
+  const [sort, setSort] = useState<{ key: RealSortKey; direction: SortDirection }>({
+    key: 'cost',
+    direction: 'desc',
+  });
 
   const tarefasEstimadas = useMemo(() => new Set(TASK_ESTIMATE_KEYS), []);
 
@@ -339,6 +351,65 @@ function RealPanel({ locale }: { locale: AppLocale }) {
     const desconhecidoPct = chamadas > 0 ? (1 - fracPeso / chamadas) * 100 : 0;
     return { custo, chamadas, inTok, outTok, cacheR, cacheW, cacheHit, desconhecidoPct };
   }, [linhas]);
+
+  const linhasOrdenadas = useMemo(() => {
+    const enriquecidas = (linhas || []).map((linha, originalIndex) => {
+      const custoPorChamada = linha.chamadas > 0 ? linha.custo_usd / linha.chamadas : 0;
+      const estimativa = custoEstimadoPorTask(linha.feature, linha.model);
+      const razao = estimativa != null && estimativa > 0 && linha.chamadas >= 3
+        ? custoPorChamada / estimativa
+        : null;
+
+      return {
+        linha,
+        originalIndex,
+        custoPorChamada,
+        estimativa,
+        razao,
+        totalTokens: linha.input_tokens + linha.output_tokens,
+      };
+    });
+
+    const valorDaOrdenacao = (item: (typeof enriquecidas)[number]): string | number | null => {
+      switch (sort.key) {
+        case 'feature': return item.linha.feature;
+        case 'model': return item.linha.model;
+        case 'calls': return item.linha.chamadas;
+        case 'tokens': return item.totalTokens;
+        case 'unitCost': return item.custoPorChamada;
+        case 'estimate': return item.estimativa;
+        case 'cost': return item.linha.custo_usd;
+      }
+    };
+
+    return enriquecidas.sort((a, b) => {
+      const valorA = valorDaOrdenacao(a);
+      const valorB = valorDaOrdenacao(b);
+
+      // Ausência de estimativa fica sempre no fim, em qualquer direção.
+      if (valorA == null && valorB == null) return a.originalIndex - b.originalIndex;
+      if (valorA == null) return 1;
+      if (valorB == null) return -1;
+
+      const comparacao = typeof valorA === 'string' && typeof valorB === 'string'
+        ? valorA.localeCompare(valorB, locale, { numeric: true, sensitivity: 'base' })
+        : Number(valorA) - Number(valorB);
+
+      if (comparacao === 0) return a.originalIndex - b.originalIndex;
+      return sort.direction === 'asc' ? comparacao : -comparacao;
+    });
+  }, [linhas, locale, sort]);
+
+  const ordenarPor = (key: RealSortKey) => {
+    setSort((atual) => {
+      if (atual.key === key) {
+        return { key, direction: atual.direction === 'asc' ? 'desc' : 'asc' };
+      }
+
+      const direction: SortDirection = key === 'feature' || key === 'model' ? 'asc' : 'desc';
+      return { key, direction };
+    });
+  };
 
   /**
    * Quanto do gasto REAL da janela caiu em tarefa que o catálogo não estima.
@@ -428,25 +499,26 @@ function RealPanel({ locale }: { locale: AppLocale }) {
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-[10px] uppercase tracking-wider text-gray-500 text-left">
-                  <th className="py-1.5 pr-3">{t('real.colFeature')}</th>
-                  <th className="py-1.5 pr-3">{t('real.colModel')}</th>
-                  <th className="py-1.5 pr-3 text-right">{t('real.colCalls')}</th>
-                  <th className="py-1.5 pr-3 text-right">{t('real.colTokens')}</th>
-                  <th className="py-1.5 pr-3 text-right">{t('real.colCache')}</th>
-                  <th className="py-1.5 pr-3 text-right">USD/cham.</th>
-                  <th className="py-1.5 pr-3 text-right">est.</th>
-                  <th className="py-1.5 text-right">{t('real.colCost')}</th>
+                  <SortableHeader label={t('real.colFeature')} sortKey="feature" sort={sort} onSort={ordenarPor} />
+                  <SortableHeader label={t('real.colModel')} sortKey="model" sort={sort} onSort={ordenarPor} />
+                  <SortableHeader label={t('real.colCalls')} sortKey="calls" sort={sort} onSort={ordenarPor} align="right" />
+                  <SortableHeader
+                    label={t('real.colTokens')}
+                    sortKey="tokens"
+                    sort={sort}
+                    onSort={ordenarPor}
+                    align="right"
+                    title={t('real.sortTokensHint')}
+                  />
+                  <SortableHeader label="USD/cham." sortKey="unitCost" sort={sort} onSort={ordenarPor} align="right" />
+                  <SortableHeader label="est." sortKey="estimate" sort={sort} onSort={ordenarPor} align="right" />
+                  <SortableHeader label={t('real.colCost')} sortKey="cost" sort={sort} onSort={ordenarPor} align="right" last />
                 </tr>
               </thead>
               <tbody className="text-gray-300" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                {linhas.map((l, i) => {
-                  const real = l.chamadas > 0 ? l.custo_usd / l.chamadas : 0;
-                  const est = custoEstimadoPorTask(l.feature, l.model);
-                  // Razão real/estimado só é legível quando as duas pontas existem
-                  // e a chamada rodou o bastante para a média significar algo.
-                  const razao = est != null && est > 0 && l.chamadas >= 3 ? real / est : null;
+                {linhasOrdenadas.map(({ linha: l, originalIndex, custoPorChamada: real, estimativa: est, razao }) => {
                   return (
-                    <tr key={`${l.feature}-${l.model}-${i}`} className="border-t border-white/[0.06]">
+                    <tr key={`${l.feature}-${l.model}-${originalIndex}`} className="border-t border-white/[0.06]">
                       <td className="py-1.5 pr-3 font-medium text-white">
                         {l.feature}
                         {est == null && l.feature !== 'untagged' && (
@@ -456,7 +528,6 @@ function RealPanel({ locale }: { locale: AppLocale }) {
                       <td className="py-1.5 pr-3 text-gray-400">{l.model}</td>
                       <td className="py-1.5 pr-3 text-right">{nf(l.chamadas)}</td>
                       <td className="py-1.5 pr-3 text-right">{nf(l.input_tokens)} / {nf(l.output_tokens)}</td>
-                      <td className="py-1.5 pr-3 text-right text-gray-500">{nf(l.cache_read_tokens)} / {nf(l.cache_write_tokens)}</td>
                       <td className="py-1.5 pr-3 text-right">{real.toFixed(4)}</td>
                       <td className="py-1.5 pr-3 text-right text-gray-500">
                         {est == null ? '—' : est.toFixed(4)}
@@ -528,6 +599,53 @@ function RealPanel({ locale }: { locale: AppLocale }) {
   );
 }
 
+function SortableHeader({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  align = 'left',
+  title,
+  last = false,
+}: {
+  label: string;
+  sortKey: RealSortKey;
+  sort: { key: RealSortKey; direction: SortDirection };
+  onSort: (key: RealSortKey) => void;
+  align?: 'left' | 'right';
+  title?: string;
+  last?: boolean;
+}) {
+  const ativo = sort.key === sortKey;
+  const ariaSort = ativo ? (sort.direction === 'asc' ? 'ascending' : 'descending') : 'none';
+
+  return (
+    <th
+      scope="col"
+      aria-sort={ariaSort}
+      className={`py-1.5 ${last ? '' : 'pr-3'} ${align === 'right' ? 'text-right' : 'text-left'}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        title={title}
+        className={`group inline-flex items-center gap-1 rounded-sm transition-colors hover:text-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/60 ${
+          align === 'right' ? 'ml-auto justify-end' : ''
+        } ${ativo ? 'text-cyan-300' : ''}`}
+      >
+        <span>{label}</span>
+        {ativo ? (
+          sort.direction === 'asc'
+            ? <ChevronUp size={12} aria-hidden="true" />
+            : <ChevronDown size={12} aria-hidden="true" />
+        ) : (
+          <ArrowUpDown size={11} aria-hidden="true" className="opacity-35 transition-opacity group-hover:opacity-80" />
+        )}
+      </button>
+    </th>
+  );
+}
+
 function ScaleInput({ icon, label, sub, value, onChange }: { icon: React.ReactNode; label: string; sub: string; value: number; onChange: (v: number) => void }) {
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
@@ -538,7 +656,7 @@ function ScaleInput({ icon, label, sub, value, onChange }: { icon: React.ReactNo
       <input type="number" min="0" value={value}
         onChange={e => onChange(parseInt(e.target.value || '0'))}
         className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-cyan-500" />
-      <p className="text-[9px] text-gray-600 mt-0.5">{sub}</p>
+      <p className="mt-1 text-[10px] leading-snug text-gray-500">{sub}</p>
     </div>
   );
 }

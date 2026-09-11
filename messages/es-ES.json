@@ -3261,38 +3261,40 @@
       "colModel": "Modelo",
       "colCalls": "Llam.",
       "colTokens": "Tokens in/out",
-      "colCache": "Cache r/w",
       "colCost": "USD",
+      "sortTokensHint": "Ordena por la suma de tokens de entrada y salida",
       "refresh": "Actualizar"
     },
     "scale": {
+      "heading": "Volúmenes del escenario",
+      "description": "No son valores de presupuesto. Cada tarjeta informa una cantidad operativa que multiplica las llamadas de IA; el coste técnico resultante alimenta la fijación de precios.",
       "colab": {
         "label": "Colaboradores",
-        "sub": "ciclo Mentor IA"
+        "sub": "personas en 1 ciclo de Mentor IA"
       },
       "conteudo": {
         "label": "Contenidos",
-        "sub": "piezas creadas (biblioteca)"
+        "sub": "nuevas piezas creadas para la biblioteca"
       },
       "extracao": {
         "label": "Extracciones",
-        "sub": "video → módulo base"
+        "sub": "vídeos fuente procesados en módulos base"
       },
       "video_gerado": {
         "label": "Videos generados",
-        "sub": "módulo base → video"
+        "sub": "módulos base convertidos en vídeos"
       },
       "pagina_radar": {
         "label": "Páginas Radar",
-        "sub": "escuelas/municipios únicos"
+        "sub": "escuelas/municipios únicos analizados"
       },
       "lead_radar": {
         "label": "Leads Radar",
-        "sub": "PDF generados"
+        "sub": "propuestas PDF generadas para leads"
       },
       "empresa": {
         "label": "Empresas (setup)",
-        "sub": "one-time"
+        "sub": "nuevas empresas configuradas una vez"
       }
     },
     "preset": {
@@ -3300,7 +3302,7 @@
       "current": "Config. actual"
     },
     "totals": {
-      "estimatedCost": "Coste estimado",
+      "estimatedCost": "Coste técnico estimado de IA",
       "perCollaborator": "{count} colab{count, plural, one {} other {s}} · ~USD {value} por colab (Mentor IA)",
       "tokens": "{input}M tokens input + {output}M output",
       "totalTokens": "= {total}M total",

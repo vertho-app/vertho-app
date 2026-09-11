@@ -4075,38 +4075,40 @@
       "colModel": "Model",
       "colCalls": "Calls",
       "colTokens": "Tokens in/out",
-      "colCache": "Cache r/w",
       "colCost": "USD",
+      "sortTokensHint": "Sorts by the sum of input and output tokens",
       "refresh": "Refresh"
     },
     "scale": {
+      "heading": "Scenario volumes",
+      "description": "These are operating quantities, not budget values. Each card multiplies the related AI calls; the resulting technical cost feeds pricing.",
       "colab": {
         "label": "Team members",
-        "sub": "AI Mentor cycle"
+        "sub": "people in one AI Mentor cycle"
       },
       "conteudo": {
         "label": "Content",
-        "sub": "authored pieces (library)"
+        "sub": "new pieces created for the library"
       },
       "extracao": {
         "label": "Extractions",
-        "sub": "video → base module"
+        "sub": "source videos processed into base modules"
       },
       "video_gerado": {
         "label": "Generated videos",
-        "sub": "base module → video"
+        "sub": "base modules converted into videos"
       },
       "pagina_radar": {
         "label": "Radar Pages",
-        "sub": "single schools/municipalities"
+        "sub": "unique schools/municipalities analyzed"
       },
       "lead_radar": {
         "label": "Lead Radar",
-        "sub": "Generated PDFs"
+        "sub": "PDF proposals generated for leads"
       },
       "empresa": {
         "label": "Companies (setup)",
-        "sub": "one-time"
+        "sub": "new companies configured once"
       }
     },
     "preset": {
@@ -4114,7 +4116,7 @@
       "current": "Current config"
     },
     "totals": {
-      "estimatedCost": "Estimated cost",
+      "estimatedCost": "Estimated technical AI cost",
       "perCollaborator": "{count} team member{count, plural, one {} other {s}} · ~USD {value} by team member (AI Mentor)",
       "tokens": "{input}M tokens input + {output}M output",
       "totalTokens": "= total {total}M",
