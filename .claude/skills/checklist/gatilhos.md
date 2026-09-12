@@ -1202,3 +1202,33 @@ No mesmo sweep, `medium` divergiu do baseline em 1 de 12 e `low` em 0 de 12, o q
 parecia ordenar os braços — até abrir e ver que a nota estava colada no corte N1/N2 e
 que **o próprio `high` divergia de si mesmo** (N3, N3, N2 na mesma resposta). Detalhe:
 `docs/CUSTO-QUALIDADE.md` §12/09 e a memória `project_ia4_effort_sweep`.
+
+---
+
+## § Mexeu em `lib/season-engine/programa-config.ts` (ou vai citar a duração do programa)
+
+**Padrão que casa:** editar um preset (`PROGRAMA_*`), acrescentar um `ProgramaModoLabel`,
+ou escrever "N semanas" em doc, proposta, slide, e-mail, orçamento ou artefato de marca.
+
+- [ ] **Não repita a duração fora do arquivo.** Ela já mudou três vezes (14 → 9 por
+      `programa_config` → 7 na Jornada). Toda citação vira dívida que envelhece sozinha.
+      O padrão correto é o do `docs/CATALOGO-PROMPTS-IA.md` §871: nomear os modos e mandar
+      ler `programa_modo` + `programa_config`, sem literal.
+- [ ] **Preset novo → 3 lugares**, senão o mapa do produto fica sem o modo que roda:
+      `CLAUDE.md` (domínio) · `docs/ARQUITETURA.md` §17.1 (a tabela comparativa) ·
+      `docs/PIPELINE-TRILHA.md` se mudar o motor.
+- [ ] **Confira qual modo RODA, não qual é o default do código.** `getProgramaConfigByModo`
+      cai em `PROGRAMA_REGULAR_DUO` para quem não tem rótulo, e isso não é o formato do
+      produto: `select programa_modo, count(*) from trilhas where criado_em > now() - interval
+      '90 days' group by 1`.
+- [ ] O preset tem `semanasCheckpoint`/`semanasMissao` **copiados por analogia** de outro
+      modo? Ver `feedback_regua_inventada_por_analogia` — o `[3, 5]` da Jornada convocava
+      para um ritual que não existe.
+
+**Consequência medida (03-12/09/2026):** o `CLAUDE.md` descrevia "Regular DUO (default, 14
+semanas), Onboarding (10), Piloto (2)" e **não citava a Jornada**, que entrou em 05/08 e
+responde por **112 das 152** trilhas dos últimos 90 dias. A tabela §17.1 da ARQUITETURA
+ficou **38 dias** sem a coluna dela. Um mapa operacional do produto inteiro foi desenhado
+com "14, 10 ou 2 semanas" e quem corrigiu foi o dono, por comentário — o repositório não
+tinha como. Mesma família de `project_docs_consolidacao`: a contradição morava DENTRO do
+`CLAUDE.md` (linha 240 sem a Jornada, linha 720 já falando dela), e a seção velha vinha primeiro.

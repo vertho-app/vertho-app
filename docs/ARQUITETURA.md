@@ -1553,7 +1553,7 @@ Padrao das mensagens: explicar **o que** vai acontecer, **escopo** (todos / N it
 | Auditoria Sem 14 | **`/admin/vertho/auditorias?tab=sem14`** | 4 notas (pre/acumulada/cenario/final) + delta + regerar com feedback |
 | Custos de IA | `/admin/vertho/simulador-custo` | Centro FinOps em três abas: **Real** (`ia_usage_log`, janelas 7/30/90d), **Projeções** (escala, jornadas e infra) e **Catálogo** (chamadas, modelos e presets). Substituiu `/admin/vertho/custo-ia` em 01/09/2026 |
 | Modulos-Base | `/admin/vertho/modulos-base` | Autoria + auditoria dual-IA dos modulos canonicos de conteudo |
-| Auditorias / Precificação | `/admin/vertho/auditorias`, `/admin/vertho/orcamento` | Auditoria de blueprints e deal desk comercial (escopo, preço, margem e caixa) |
+| Auditorias / Precificação | `/admin/vertho/auditorias`, `/admin/vertho/orcamento` | Auditoria de blueprints e deal desk comercial (escopo, preço, margem e caixa). Régua: `docs/ORCAMENTO.md` |
 | Knowledge Base (RAG) | `/admin/vertho/knowledge-base` | CRUD + Upload PDF/DOCX + Seed + preview de busca (grounding per-tenant) |
 
 Todos com filtro `?empresa=` e back button context-aware. Dados via `lib/ia-cost-catalog.ts`.
@@ -1683,23 +1683,23 @@ Z-API: WhatsApp gateway
 
 ## 17. Modos da engine (Regular DUO · Regular single · Onboarding · Piloto · Personalizado)
 
-> A mesma engine de trilha serve **cinco** modos. **Não são produtos diferentes** — só configuração. **Default global = Regular DUO** (2 competências em blocos paralelos). Single-comp virou escape hatch (`regular_single`). Onboarding (recém-formados) inalterado. **Piloto** (degustação de 2 semanas) em `docs/MODO-PILOTO.md`. **Personalizado** (`custom`, 22/07, mig 182) abre os três eixos do piloto — ver 17.12.
+> A mesma engine de trilha serve **seis** modos. **Não são produtos diferentes** — só configuração. **Default global = Regular DUO** (2 competências em blocos paralelos). Single-comp virou escape hatch (`regular_single`). Onboarding (recém-formados) inalterado. **Piloto** (degustação de 2 semanas de evidência + fechamento; `semanas: 3`) em `docs/MODO-PILOTO.md`. **Jornada** (`jornada`, 7 semanas) é o formato que serve os clientes hoje — 112 das 152 trilhas dos últimos 90 dias, medido 12/09/2026; ela entrou em 05/08/2026 e esta tabela ficou sem a coluna dela por 38 dias. **Personalizado** (`custom`, 22/07, mig 182) abre os três eixos do piloto — ver 17.12.
 >
 > **Resolução (mig 154, 02/07/2026)**: precedência de GERAÇÃO = `colaboradores.programa_modo` (override individual, NULL herda) → `sys_config.programa_modo` (default do tenant) → DUO, via `resolverModoColab` (fonte única). O rótulo resolvido é **carimbado** em `trilhas.programa_modo`; o RUNTIME (reflexão/fechamento/acumulada/report) resolve a config **do carimbo** (`getProgramaConfigDaTrilha`) — trocar o modo da empresa não afeta trilha em andamento; trilha legada sem carimbo cai no sys_config. Permite **misturar modos no mesmo tenant** (novatos em onboarding, veteranos em regular, lead em piloto).
 
 ### 17.1 Como diferem
 
-| Dimensão | **Regular DUO** *(default)* | Regular single *(`regular_single`)* | Onboarding *(`onboarding`)* | Piloto *(`piloto`)* | **Personalizado** *(`custom`)* |
-|---|---|---|---|---|---|
-| Duração | 14 semanas | 14 semanas | **10 semanas** | **2 semanas** + fechamento | **1 a 4 semanas** (config) |
-| Competências por trilha | **2 (em blocos paralelos)** | 1 (aprofundada) | **5 (em espiral)** | 1 (top-4 descritores por gap, 2 entregas/sem) | **1 ou 2** (config) |
-| Nível-meta na régua | 3 (proficiente) | 3 (proficiente) | **2 (autonomia supervisionada)** | 3 | 3 |
-| Missões | Sem 4, 8, 12 (**integradoras das 2 comps**) | Sem 4, 8, 12 (uni-competência) | **Sem 4, 7, 9 (multi-competência integradora)** | **nenhuma** | **nenhuma** |
-| Avaliação Acumulada | Sem 13 (auto-trigger, **por competência**) | Sem 13 (auto-trigger) | **Embutida nas missões 4/7/9 (parcial cumulativa)** | Auto ao concluir a sem 2 (persiste na sem 2) | Como o piloto, quando há fechamento |
-| Cenário B (wizard final) | Sem 14 | Sem 14 | **Sem 10** | **Slot 3, calendário espelhado na sem 2** + trava de piso (`piloto-v1`) | **Opcional** — sem ele, conclui na última semana de conteúdo |
-| Slots de conteúdo | `[1,2,3,5,6,7,9,10,11]` (3 blocos de 3) | `[1,2,3,5,6,7,9,10,11]` | `[2,3,5,6,8]` — sem 1 = calibragem | `[1,2]` (2 entregas cada) | 1 por semana configurada |
-| Acompanhamento | Gestor (por `gestor_email`) | Gestor | **Tutor** (por `tutorados_ids[]`) | Gestor | Gestor |
-| Push automatizado | — | — | **WhatsApp pro tutor nas sems 4 e 7** (sugestão de pauta) | — | cadência **pára no fim do plano** |
+| Dimensão | **Jornada** *(`jornada`)* — **em produção** | **Regular DUO** *(default)* | Regular single *(`regular_single`)* | Onboarding *(`onboarding`)* | Piloto *(`piloto`)* | **Personalizado** *(`custom`)* |
+|---|---|---|---|---|---|---|
+| Duração | **7 semanas** (6 de conteúdo + fechamento) | 14 semanas | 14 semanas | **10 semanas** | **2 semanas** + fechamento | **1 a 4 semanas** (config) |
+| Competências por trilha | **1** (DUO = 2 em sequência, não em paralelo) | **2 (em blocos paralelos)** | 1 (aprofundada) | **5 (em espiral)** | 1 (top-4 descritores por gap, 2 entregas/sem) | **1 ou 2** (config) |
+| Nível-meta na régua | 3 (proficiente) | 3 (proficiente) | 3 (proficiente) | **2 (autonomia supervisionada)** | 3 | 3 |
+| Missões | **nenhuma** — o desafio semanal cobre as 2 pílulas | Sem 4, 8, 12 (**integradoras das 2 comps**) | Sem 4, 8, 12 (uni-competência) | **Sem 4, 7, 9 (multi-competência integradora)** | **nenhuma** | **nenhuma** |
+| Avaliação Acumulada | **Sem 6**, ao fechar a última de conteúdo | Sem 13 (auto-trigger, **por competência**) | Sem 13 (auto-trigger) | **Embutida nas missões 4/7/9 (parcial cumulativa)** | Auto ao concluir a sem 2 (persiste na sem 2) | Como o piloto, quando há fechamento |
+| Cenário B (wizard final) | **Sem 7** | Sem 14 | Sem 14 | **Sem 10** | **Slot 3, calendário espelhado na sem 2** + trava de piso (`piloto-v1`) | **Opcional** — sem ele, conclui na última semana de conteúdo |
+| Slots de conteúdo | `[1,2,3,4,5,6]` (2 conteúdos/semana) | `[1,2,3,5,6,7,9,10,11]` (3 blocos de 3) | `[1,2,3,5,6,7,9,10,11]` | `[2,3,5,6,8]` — sem 1 = calibragem | `[1,2]` (2 entregas cada) | 1 por semana configurada |
+| Acompanhamento | Gestor | Gestor (por `gestor_email`) | Gestor | **Tutor** (por `tutorados_ids[]`) | Gestor | Gestor |
+| Push automatizado | cadência diária (pílula · pílula · evidência) | — | — | **WhatsApp pro tutor nas sems 4 e 7** (sugestão de pauta) | — | cadência **pára no fim do plano** |
 
 > Trilhas já persistidas (single-comp) **não são regeradas** — o plano salvo é servido como está; só nova geração usa DUO. Detalhe do DUO em **17.11**.
 

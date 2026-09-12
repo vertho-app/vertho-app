@@ -18,7 +18,7 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | Telas do produto (o que cada uma mostra, o que cada botão faz) | `docs/MANUAL-DE-TELAS.md` — o manual em si fica **fora do repo** (tem print de tenant) |
 > | Checklists (deploy, mudança grande, go-live) | `docs/CHECKLISTS.md` |
 > | Modos da engine | `docs/MODO-PILOTO.md` (piloto e personalizado) |
-> | Comercial / demo | `docs/PORTAL-REPRESENTANTE.md` · `docs/AMBIENTE-DEMO.md` |
+> | Comercial / orçamento / demo | `docs/ORCAMENTO.md` · `docs/PORTAL-REPRESENTANTE.md` · `docs/AMBIENTE-DEMO.md` |
 > | Treino de recepção médica (simulador, biblioteca N1–N4, calibração) | `docs/recepcao-medica.md` |
 > | White label via agência (plano, decisões pendentes, fases) | `docs/WHITE-LABEL-AGENCIA.md` |
 > | WhatsApp: caixa de entrada e migração p/ Cloud API | `docs/INBOX-WHATSAPP.md` |
@@ -236,9 +236,22 @@ tests/unit/          vitest
 
 - Competências (por cargo) × descritores × **4 níveis** (N1 lacuna → N4 referência). Ética é camada de valores (Alinhado/Tensão/Violação), não competência.
 - **DISC** → o perfil comportamental vira colunas `comp_*`/`lid_*` em `colaboradores`. O **motor de fit lê essas colunas** (não `descriptor_assessments`).
-- **Temporadas** (trilhas), por `programa_modo` (carimbo na trilha, mig 154):
-  - **Regular DUO** (default, 14 semanas), **Onboarding** (10), **Piloto** (2 semanas + fechamento).
-  - Fechamento (sem 14 / espelho no piloto): Cenário B + **scorer** + **check** (2ª IA) + **arguição** (defesa oral) + **trava** (piloto) + **Evolution Report**.
+- **Temporadas** (trilhas), por `programa_modo` (carimbo na trilha, mig 154). São **6 rótulos**
+  (`ProgramaModoLabel`), e **a duração de cada um se lê em `lib/season-engine/programa-config.ts`** —
+  este resumo não repete os números de propósito, pela mesma razão dos ids de modelo de IA.
+  - ⚠️ **O que roda em produção é a Jornada de 7 semanas** (6 de conteúdo + fechamento na 7),
+    não o DUO de 14. `Medido: 12/09/2026` — **112 das 152** trilhas dos últimos 90 dias são
+    `jornada`. `PROGRAMA_REGULAR_DUO` (14) continua sendo o *default de quem não tem
+    `programa_modo`*, o que não é a mesma coisa que "o formato do produto".
+  - A linha que estava aqui dizia "Regular DUO (default, 14 semanas), Onboarding (10), Piloto
+    (2 semanas)" e **não citava a Jornada** — o modo que efetivamente serve os clientes. Custo
+    medido: um mapa do produto inteiro foi desenhado em 03/09 com "14, 10 ou 2 semanas", e quem
+    corrigiu foi o dono, não o repositório. Duração é número que já mudou três vezes (14 → 9 por
+    `programa_config` → 7): leia o arquivo, não a memória.
+  - Fechamento (última semana do plano; espelho no piloto): Cenário B + **scorer** + **check**
+    (2ª IA) + **arguição** (defesa oral) + **trava** (piloto) + **Evolution Report**.
+  - 🔑 **Concluir no modo `jornada` ENCADEIA a próxima** (`encadearProximaJornada`, 05/08/2026):
+    a trilha seguinte é montada sozinha na competência seguinte. Fim de jornada não é fim de ciclo.
 - Scoring: `lib/scoring::calcularFitUnificado` (Adequação + Fit v2), knockouts como gate, `spec_version` versiona a régua (congela histórico).
 
 ## ⚠️ A forma GRAVADA ≠ o que é ENTREGUE — leia o CONSUMIDOR
