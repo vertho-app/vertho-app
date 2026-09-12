@@ -77,10 +77,16 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   `generativelanguage`) + conferir os parâmetros de raciocínio, não só o id. **Env da Vercel vence o código.**
 - Geração de fundo em lote usa `lib/ai-batch.ts` (−50%). Não rodar na mesma janela dois lotes que
   compartilham **fornecedor** (o TTS do Vertex serve narração E podcast — auto-saturação, 12/08).
-- 🔴 **"O código declara X" não prova que X roda.** A prova é o ledger:
-  `select model, requested_model, count(*) from ia_usage_log ... group by`. `requested_model` nulo com
-  um `model` que não é o default do código = **env sobrescrevendo** (12/09: `copiloto_pesquisa_*`,
-  **75 de 75** em `gpt-5.5` contra o `gpt-5.6-terra` declarado, US$ 30/60 d).
+- 🔴 **Ledger mostrando um modelo que o código não declara: veja a DATA antes de culpar a env.**
+  O ledger é registro do passado; o código de hoje pode ser outro. Cruze
+  `max(created_at)` da tarefa com `git log -S'<id do modelo>' -- <arquivo>` e leia
+  `git show <ref>^:<arquivo>`. (12/09: conclui que uma env sobrescrevia porque `copiloto_pesquisa_*`
+  tinha **75 de 75** em `gpt-5.5` contra o `gpt-5.6-terra` declarado — era o **hardcoded da época**,
+  trocado em `269fc845` de 10/09, e a última chamada do ledger era de 09/09. A data estava na minha
+  própria query.)
+- Tarefa que faz **busca na web** tem custo FORA dos tokens: US$ 0,01 por `web_search_call`
+  (`OPENAI_WEB_SEARCH_USD_PER_CALL`). Quem decide quantas buscas é o MODELO (5.5: ~24/chamada,
+  Terra: 4-5). Projetar ganho pela razão de preço por token erra a parte maior.
 - Migrou uma task para a geração 5? Ela herdou `effort: high` **sem ninguém decidir**, e lá o thinking
   vem ligado por padrão: mais barato por token, mais caro por chamada (`ia4_avaliacao`, 60 d: saída
   **5.584 → 11.567** tokens, US$ 0,0917 → **0,1160**). `reasoningEffort` é do CALL-SITE.

@@ -2293,11 +2293,17 @@ de `copiloto_pesquisa_*` saíram em `gpt-5.5` (US$ 5/30) com `requested_model`
 **nulo**, logo seria a env `OPENAI_WEB_SEARCH_MODEL` (`actions/ai-client.ts:474`)
 vencendo o código. **Isso está errado.**
 
-`git show 269fc845^:lib/ai-tasks.ts` mostra `copiloto_pesquisa_empresa: 'gpt-5.5'`
-**hardcoded** em `DEFAULT_TASK_MODELS`. O commit que trocou para Terra é
-`269fc845`, de **10/09/2026 20:25**, e a última chamada em `gpt-5.5` no ledger é de
-**09/09**. Não havia env nenhuma sobrescrevendo: o ledger reflete o código **da
-época**, e o código mudou depois.
+Duas medições derrubam: `git show 269fc845^:lib/copiloto/research.ts` mostra o id
+**hardcoded** (`process.env.COPILOTO_RESEARCH_MODEL || 'gpt-5.5'`), e
+`vercel env ls production` não tem **nenhuma** das duas envs. O commit que trocou
+para Terra é `269fc845`, de **10/09/2026 20:25**; a última pesquisa do ledger é de
+**09/09**, ou seja, nenhuma rodou depois da troca. Não havia nada a corrigir.
+
+⚠️ Também errei ao dizer que `COPILOTO_RESEARCH_MODEL` "não existe no código". Ele
+existe, em `lib/copiloto/research.ts` — eu havia grepado só `actions/ai-client.ts`,
+que lê **outro** nome (`OPENAI_WEB_SEARCH_MODEL`) como 2º nível. São dois nomes
+distintos no mesmo caminho, e como o `research.ts` sempre passa `model` explícito, o
+segundo nunca decide nesse fluxo.
 
 🔑 O dado que desmentia a hipótese estava na mesma query que a levantou — a coluna
 `max(created_at)` dizia 09/09. Comparei o ledger com o código de HOJE e li a
