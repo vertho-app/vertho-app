@@ -17,7 +17,7 @@ import {
   distribuirMatrizes,
   obterComissaoOrcamento,
   parcelasPorCiclos,
-  ratearCustoPorPessoa,
+  ratearValorPorPessoa,
   reusoConteudoPorCelula,
   type TabelaPreco,
   type EscopoProjeto,
@@ -72,9 +72,12 @@ describe('premissas comerciais do orçamento', () => {
     expect(obterComissaoOrcamento('canal_invalido').key).toBe('rc');
   });
 
-  it('rateia o custo all-in por pessoa no contrato e por ciclo', () => {
-    expect(ratearCustoPorPessoa(6000, 100, 3)).toEqual({ contrato: 60, porCiclo: 20 });
-    expect(ratearCustoPorPessoa(6000, 0, 3)).toEqual({ contrato: 0, porCiclo: 0 });
+  it('rateia investimento ou custo por pessoa no contrato e por ciclo', () => {
+    expect(ratearValorPorPessoa(6000, 100, 3)).toEqual({ contrato: 60, porCiclo: 20 });
+    const investimento = ratearValorPorPessoa(5_569_000, 3000, 6);
+    expect(investimento.contrato).toBeCloseTo(1856.33, 2);
+    expect(investimento.porCiclo).toBeCloseTo(309.39, 2);
+    expect(ratearValorPorPessoa(6000, 0, 3)).toEqual({ contrato: 0, porCiclo: 0 });
   });
 
   it('deriva duas parcelas por ciclo', () => {

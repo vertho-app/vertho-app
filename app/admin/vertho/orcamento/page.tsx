@@ -15,7 +15,7 @@ import {
   obterComissaoOrcamento,
   OPCOES_COMISSAO_ORCAMENTO,
   parcelasPorCiclos,
-  ratearCustoPorPessoa,
+  ratearValorPorPessoa,
   reusoConteudoPorCelula,
   type TipoComissaoOrcamento,
 } from '@/lib/orcamento/precificacao';
@@ -351,7 +351,8 @@ export default function OrcamentoPage() {
     const custoComissoesBrl = projeto.valorFinal * comissaoRate;
     const custoImpostosBrl = projeto.valorFinal * impostosRate;
     const custoTotalBrl = custoEntregaBrl + custoComissoesBrl + custoImpostosBrl;
-    const custoUnitario = ratearCustoPorPessoa(custoTotalBrl, nColabs, ciclos);
+    const investimentoUnitario = ratearValorPorPessoa(projeto.valorFinal, nColabs, ciclos);
+    const custoUnitario = ratearValorPorPessoa(custoTotalBrl, nColabs, ciclos);
 
     const tabelaSetupGeral = pricing.precoSetupGeral;
     const tabelaClusters = nClusters * pricing.precoCluster;
@@ -385,6 +386,8 @@ export default function OrcamentoPage() {
       comissaoLabel: comissao.label,
       comissaoPct: comissaoRate * 100,
       custoTotalBrl,
+      investimentoPorPessoaBrl: investimentoUnitario.contrato,
+      investimentoPorPessoaCicloBrl: investimentoUnitario.porCiclo,
       custoPorPessoaBrl: custoUnitario.contrato,
       custoPorPessoaCicloBrl: custoUnitario.porCiclo,
       mesesPrograma,
@@ -712,14 +715,18 @@ export default function OrcamentoPage() {
               {calc.descontoTotal > 0 && (
                 <div className="flex justify-between text-amber-300"><span>{t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })}</span><span>- {money(calc.descontoTotal)}</span></div>
               )}
-              <div className="mt-2 border-t border-amber-300/15 pt-2">
-                <div className="flex justify-between gap-3 font-semibold text-amber-100">
-                  <span>Custo all-in / pessoa</span>
-                  <span className="tabular-nums">{money(calc.custoPorPessoaBrl)}</span>
+              <div className="mt-3 grid grid-cols-2 border-t border-amber-300/15 pt-3">
+                <div className="pr-3">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-amber-300">Investimento / pessoa</p>
+                  <p className="mt-0.5 text-sm font-extrabold text-amber-100 tabular-nums">{money(calc.investimentoPorPessoaBrl)}</p>
+                  <p className="text-[9px] leading-relaxed text-gray-500">
+                    <span className="tabular-nums">{money(calc.investimentoPorPessoaCicloBrl)}</span> / ciclo · inclui setup rateado
+                  </p>
                 </div>
-                <div className="flex justify-between gap-3 text-gray-500">
-                  <span>por pessoa / ciclo</span>
-                  <span className="tabular-nums">{money(calc.custoPorPessoaCicloBrl)}</span>
+                <div className="border-l border-white/10 pl-3">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Custo interno / pessoa</p>
+                  <p className="mt-0.5 text-sm font-extrabold text-white tabular-nums">{money(calc.custoPorPessoaBrl)}</p>
+                  <p className="text-[9px] text-gray-500"><span className="tabular-nums">{money(calc.custoPorPessoaCicloBrl)}</span> / ciclo</p>
                 </div>
               </div>
             </div>

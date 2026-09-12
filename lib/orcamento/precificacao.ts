@@ -103,9 +103,9 @@ export function reusoConteudoPorCelula(pessoas: number, cargos: number): number 
   return Math.max(1, totalPessoas / totalCargos / PERFIS_DISC_POR_CARGO);
 }
 
-/** Expõe o custo all-in nas duas unidades úteis para a decisão comercial. */
-export function ratearCustoPorPessoa(
-  custoTotalBrl: number,
+/** Rateia qualquer valor do projeto por pessoa no contrato e em cada ciclo. */
+export function ratearValorPorPessoa(
+  valorTotalBrl: number,
   pessoas: number,
   ciclos: number,
 ): { contrato: number; porCiclo: number } {
@@ -113,7 +113,7 @@ export function ratearCustoPorPessoa(
   if (totalPessoas === 0) return { contrato: 0, porCiclo: 0 };
 
   const totalCiclos = Math.max(1, Math.floor(Number(ciclos) || 1));
-  const contrato = Math.max(0, Number(custoTotalBrl) || 0) / totalPessoas;
+  const contrato = Math.max(0, Number(valorTotalBrl) || 0) / totalPessoas;
   return { contrato, porCiclo: contrato / totalCiclos };
 }
 
