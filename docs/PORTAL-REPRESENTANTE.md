@@ -4,21 +4,20 @@
 > comerciais autônomos): CRM/pipeline, proteção de oportunidade, propostas com
 > aprovação interna Vertho, comissão estimada, carteira e materiais aprovados.
 
-## Estado em 27/07/2026 — congelado desde 07/07, e isso é intencional
+## Estado em 12/09/2026 — fluxo preservado, régua comercial compartilhada
 
-**Verificado:** nenhum commit tocou `app/representante/`, `app/admin/comercial/`,
-`lib/sales/`, `actions/sales/`, `components/sales/` ou o documento da proposta
-**desde 07/07** — MVPs 1-4 + kit + versionamento estão fechados; o esforço migrou
-para o motor da trilha, vídeo e segurança. Nenhuma migration `sales_*` depois da 168.
+Os MVPs 1-4, o kit e o versionamento continuam fechados, sem nova migration
+`sales_*` depois da 168. A mudança posterior relevante foi na precificação:
+`lib/sales/pricing.ts` deixou a tabela fictícia própria e passou a consumir
+`ORCAMENTO_DEFAULTS`, a mesma fonte do deal desk `/admin/vertho/orcamento`.
 
 **Volume em produção (medido 27/07):** 6 representantes · 19 oportunidades ·
 21 propostas · 19 contas na carteira · 139 eventos de comissão · 26 materiais.
 
-**⚠️ Pendência que continua aberta:** a tabela `PRICING` (`lib/sales/pricing.ts:12`)
-segue **PLACEHOLDER** — R$/usuário 25/45/35 e taxa de plataforma 400/600/500 são
-números de exemplo. O simulador de preço já está no fluxo de proposta, então **todo
-valor mensal sugerido ao RC hoje sai desses números fictícios**. Trocar as constantes
-do arquivo basta; a mecânica não muda.
+**Régua vigente:** R$ 300 por pessoa/ciclo, setup geral de R$ 2.000, R$ 2.000
+por unidade, matriz nova a R$ 1.000 e adaptada a R$ 500. O projeto é precificado
+por escopo; a vigência só divide o total em parcelas. Fonte, fórmulas e demais
+premissas: `docs/ORCAMENTO.md`.
 
 Débitos conhecidos, sem data: i18n do portal (pt-BR hardcoded), prorrogação manual de
 proteção (`extended`, previsto no MVP 2 e não implementado), material próprio para o
@@ -110,6 +109,9 @@ Demonstração"** no portal. Decisões:
   recorrente 12% na vigência; renovação 6%; expansão 9%+12%. MVP = estimativa
   na proposta; aceite do cliente materializa eventos `forecast` em
   `sales_commission_events` (hook MVP 2: accrued/paid/chargeback prontos).
+  Esta é a política do ledger financeiro. Não confundir com o seletor de custo
+  do deal desk — RC 20%, consultor parceiro 10% ou integrador 0% — que apenas
+  simula a margem do projeto e não grava eventos de comissão.
 - **Máquina de estados da proposta**: draft → submitted_for_approval →
   approved|changes_requested|rejected; approved → sent_to_client → accepted|lost.
   RC nunca aprova a própria proposta; só admin com `sales_channel.manage`.
@@ -284,8 +286,9 @@ ficam o fluxo e as seções. Commit `3316392f`.
   valor final do contrato após desconto. `calculateProposalFinancials` passou a
   devolver bruto + desconto em R$; a **mig 167** adicionou
   `sales_proposals.contract_value_gross` + `discount_amount` (o server grava o
-  financeiro inteiro). Commit `d6fe08a9`. ⚠️ **A tabela `PRICING` em `pricing.ts` é
-  PLACEHOLDER** (números de exemplo — ajustar com os valores reais da Vertho).
+  financeiro inteiro). Commit `d6fe08a9`. Desde 11/09, a sugestão usa a régua
+  compartilhada de `ORCAMENTO_DEFAULTS`; não existe mais uma tabela `PRICING`
+  fictícia concorrente. O detalhamento vigente está em `docs/ORCAMENTO.md`.
 - **Segmento e pacotes** (**mig 166**): segmento "Fundação" → **"Comércio"**
   (`comercio` no `customer_type`/`segment`); pacotes do dropdown passam a ser
   `onboarding` / `mentor_ia` / `piloto` / `custom` (`completo`/`pulso` mantidos como

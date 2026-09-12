@@ -2414,3 +2414,27 @@ O fallback da pesquisa é `gpt-5.6-sol` ($4/$20, quase o preço do 5.5): linha e
 e comendo a economia. E confirmar se as outras quatro trilhas caíram na mesma
 proporção — só a de notícias foi medida.
 
+## 12/09/2026 — custo de IA e orçamento deixam de disputar a mesma função
+
+O centro FinOps (`/admin/vertho/simulador-custo`) ficou responsável por **medir e
+projetar custo técnico**. O deal desk (`/admin/vertho/orcamento`) ficou responsável
+por **formar preço e testar margem**. A distinção é estrutural: o primeiro lê o
+ledger e o catálogo; o segundo incorpora escopo, pessoas, ciclos, horas internas,
+mensagens, infraestrutura, contingência, impostos e comissão.
+
+No FinOps, o seletor manual foi reduzido aos oito modelos homologados para
+comparação — Sonnet 5, Opus 5, GPT 5.6 Sol/Terra/Luna, Muse Spark 1.3, Gemini 3.8
+Flash e Kimi K3. O catálogo completo continua precificando histórico, TTS,
+embeddings e fallbacks. A tabela real perdeu a coluna de cache isolada e ganhou
+ordenação em todas as colunas úteis; tokens de cache continuam compondo os
+cálculos, apenas não ocupam uma coluna própria.
+
+No orçamento, a régua comercial e as fórmulas passaram a ter fonte única em
+`lib/orcamento/precificacao.ts`, também consumida pela sugestão de propostas. A
+folha de decisão agora separa **investimento do cliente** de **custo interno** por
+pessoa e por ciclo. O investimento unitário inclui o setup rateado; o custo
+unitário inclui IA, horas, mensagens, infra, contingência, comissão e impostos.
+
+Premissas, fórmulas e a distinção entre preço e custo de matriz vivem no documento
+canônico `docs/ORCAMENTO.md`; não repetir a tabela comercial neste log.
+

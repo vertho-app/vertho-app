@@ -1,6 +1,6 @@
 # Resumo de Retomada — Vertho App
 
-> Atualizado em 02/09/2026. O SHA de HEAD não é fixado aqui de propósito — ficava
+> Atualizado em 12/09/2026. O SHA de HEAD não é fixado aqui de propósito — ficava
 > obsoleto no commit seguinte e dava a impressão de que o resto do documento também estava.
 
 ## Onde esta o projeto
@@ -33,6 +33,14 @@ Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (rese
 ⚠️ `npm run lint` esta QUEBRADO desde o Next 16 (`next lint` removido) — usar `tsc --noEmit`.
 
 ## Frentes recentes
+
+**12/09 — FinOps separado da precificação comercial.** `/admin/vertho/simulador-custo`
+responde por custo real, projeções e catálogo de IA; `/admin/vertho/orcamento` virou
+o deal desk de escopo, preço, custo all-in, margem, desconto seguro e caixa. A régua
+única usa R$ 300 por pessoa/ciclo, matrizes nova/adaptada a R$ 1.000/R$ 500,
+margem-alvo de 50%, impostos de 20%, contingência de 10% e comissão de cenário por
+canal. A folha de decisão separa investimento do cliente de custo interno por pessoa
+e por ciclo, explicitando o rateio do setup. Doc canônico: `docs/ORCAMENTO.md`.
 
 **02/09 — Engajamento vira workspace visual com abas** (`1ba65ff7`). `/admin/engajamento` agora
 reúne **Visão atual** e **Evolução semanal** em abas reais: o conteúdo troca no lugar, os estados são
@@ -182,4 +190,4 @@ rastreavel (mig 169). ACME Demo: reset canonico unico.
 | `lib/video/`, `trigger/`, `worker-hetzner/` | pipeline de video |
 | `migrations/` | schema (sequencial, aplicado por script) |
 | `tests/unit/` | vitest (48 arquivos), inclui os guards de seguranca |
-| `docs/` | **PIPELINE-TRILHA** (mapa do produto), **FMEA-PIPELINE** (modos de falha), SECURITY-STATUS, CATALOGO-PROMPTS-IA, CUSTO-QUALIDADE, MODO-PILOTO, KIT-SEMANAL, PORTAL-REPRESENTANTE |
+| `docs/` | **PIPELINE-TRILHA** (mapa do produto), **FMEA-PIPELINE** (modos de falha), SECURITY-STATUS, CATALOGO-PROMPTS-IA, CUSTO-QUALIDADE, ORCAMENTO, MODO-PILOTO, KIT-SEMANAL, PORTAL-REPRESENTANTE |

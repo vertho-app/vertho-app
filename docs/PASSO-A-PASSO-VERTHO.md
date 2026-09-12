@@ -348,7 +348,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 **`/admin/vertho/simulador-custo`** — Centro FinOps de IA com abas **Real**, **Projeções** e **Catálogo**. O Real lê `ia_usage_log` por janela de 7/30/90 dias; Projeções cruza escala, jornadas e infra; Catálogo permite auditar chamadas, modelos e presets. Quando parte das chamadas usa modelo fora do catálogo, a UI avisa que o real está **subestimado** em vez de mentir um total.
 
-**`/admin/vertho/simulador-custo`** — Custos de IA: real do ledger, projeções e catálogo técnico (o plano e o log de decisões vivem em `docs/CUSTO-QUALIDADE.md`). **`/admin/vertho/orcamento`** — Precificação comercial: escopo, régua de preço, custo all-in, margem, desconto seguro e exposição de caixa. **`/admin/vertho/modulos-base`** — autoria e auditoria dual-IA dos Módulos-Base. **`/admin/vertho/auditorias`** — auditoria de blueprints.
+**`/admin/vertho/simulador-custo`** — Custos de IA: real do ledger, projeções e catálogo técnico (o plano e o log de decisões vivem em `docs/CUSTO-QUALIDADE.md`). **`/admin/vertho/orcamento`** — Precificação comercial: escopo, régua de preço, custo all-in, margem, desconto seguro e exposição de caixa; premissas e fórmulas em `docs/ORCAMENTO.md`. **`/admin/vertho/modulos-base`** — autoria e auditoria dual-IA dos Módulos-Base. **`/admin/vertho/auditorias`** — auditoria de blueprints.
 
 **`/admin/engajamento`** (não é vertho-only) — workspace único com as abas **Visão atual** e
 **Evolução semanal**. As abas trocam o conteúdo no lugar, sem navegação ou mudança de URL, e mantêm
