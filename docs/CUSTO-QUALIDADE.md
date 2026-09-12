@@ -2177,3 +2177,140 @@ Na repetição após a correção:
 resolvido por `getModelForTask`, então runtime e tela de configuração deixam de
 divergir; override explícito por task preserva rollback. Haiku permanece no
 catálogo apenas para precificar o histórico.
+
+## 12/09/2026 — a conta decomposta, e o `effort` que a IA4 nunca passou
+
+Rodada disparada pelo artigo da Anthropic sobre redução de custo. A primeira
+pergunta foi qual das técnicas dele vale aqui, e a resposta só sai da
+decomposição da conta — não da lista de técnicas.
+
+**`Medido:` 30 dias de `ia_usage_log`: US$ 333,03.** Anthropic US$ 236,49 (71%),
+OpenAI US$ 61,82, Gemini US$ 25,31. Dentro da parte Anthropic, **output ≈ US$ 185
+(78%)**, input frio US$ 55, cache write US$ 16, cache read US$ 2,6. É a mesma
+proporção de 30/08, então a conclusão daquela rodada segue valendo: caching
+disputa os 22% restantes, e a alavanca é o que sai.
+
+**O cache, aliás, já está no teto.** Onde funciona, funciona muito bem:
+`cena_turno` tem **41 leituras por write** (economizou ~US$ 13,58 no mês),
+`ia4_avaliacao` 9,05, `blueprint_gerar` 6,39. O write órfão que 30/08 mapeou ainda
+existe (`conteudo_texto`, `conteudo_podcast`, `conteudo_case`, `kit_semanal`, todos
+com `cache_read = 0`), mas o excedente real é **US$ 0,66/mês** — o write substitui
+o input frio, então o desperdício é o adicional de 25%, não o write inteiro. Não é
+alavanca. O TTL de 1 h que o artigo sugere não está em uso em lugar nenhum e não
+deveria entrar: o write de 1 h custa 2×, e o problema aqui já é write sem leitura.
+
+### O modelo novo é mais barato por token e mais caro por chamada
+
+`Medido:` mesma feature `ia4_avaliacao`, 60 dias, sem tocar em nada:
+
+| modelo | n | saída média | US$/chamada | latência |
+|---|---|---|---|---|
+| `claude-sonnet-5` | 378 | **11.567** | **0,1160** | 111 s |
+| `claude-sonnet-4-6` | 101 | 5.584 | 0,0917 | 93 s |
+
+O Sonnet 5 custa 33% menos por token de output (US$ 10 contra 15) e sai **26% mais
+caro por chamada**, porque produz **2,07× mais saída**. O delta é thinking: na
+geração 5 ele vem ligado por padrão e `output_config.effort` tem default `high`.
+
+Isso não é novidade do projeto — é a mesma medição que barrou `modulo_base_autor`
+no 4.6 (tokens +40-68%, Resultado 3 acima). O que faltava era o corolário: as
+tasks que **já** migraram herdaram o `high` sem ninguém decidir isso.
+`reasoningEffort` aparece em **15 call-sites** (Modo Cena, Copiloto,
+`escola-brief`, simulador) e em **nenhum** dos dois maiores gastos:
+`ia4_avaliacao` (US$ 32,96/30 d) e `blueprint_gerar` (US$ 28,24/30 d), 26% da conta
+Anthropic.
+
+### O sweep
+
+`scripts/_sweep-effort-ia4.ts` (local, `scripts/_*.ts` é gitignored). 12 respostas
+reais de Ibipeba **estratificadas por nível** (N3=2, N2=5, N1=5) × 3 braços × 3
+rodadas = 108 chamadas, US$ 10,49. Usa as peças de produção (`buildIA4UserPrompt`,
+`validarAvaliacaoIA4`, `consolidarNotasIA4`), não persiste nada e marca o ledger com
+`source = 'sweep_effort'`. A estratificação é obrigatória: a base é 55 de 77 em N1,
+e N1 é o caso fácil (regra 3 do `IA4_SYSTEM` manda dar no máximo N1 para resposta
+vaga). Amostra aleatória concluiria que qualquer effort serve.
+
+| braço | n | saída média | saída máx | US$/chamada | latência | nota | ruído (dp) |
+|---|---|---|---|---|---|---|---|
+| `high` (hoje) | 36 | 11.984 | 18.538 | 0,1323 | 111 s | 2,27 | 0,103 |
+| `medium` | 36 | 8.256 | 13.754 | 0,0950 | 76 s | 2,27 | 0,070 |
+| `low` | 36 | **5.175** | 7.333 | **0,0642** | **45 s** | 2,31 | 0,060 |
+
+Zero erro, zero JSON inválido, zero reprovação da `validarAvaliacaoIA4`, zero
+truncamento, 6 descritores nas 108. **A diferença de nota entre braços (0,00 e
++0,04) é menor que o ruído entre rodadas do mesmo braço.**
+
+### 🔑 A divergência de nível é da fronteira da régua, não do effort
+
+`medium` divergiu do baseline em 1 de 12 e `low` em 0 de 12 — o que não faz escada
+e por isso mereceu ser aberto:
+
+```
+2a02acbd   high   2.17 / 2.04 / 2.13  → N2 N2 N2
+           medium 2.00 / 1.98 / 1.93  → N2 N1 N1
+           low    2.23 / 2.20 / 2.20  → N2 N2 N2
+```
+
+A nota está colada no corte N1/N2. Quem decide o nível ali é onde a nota cai em
+relação ao degrau, não o effort. A prova é que **o `high` diverge de si mesmo**:
+em `22d76b6d` as três rodadas de `high` deram N3, N3, N2. Instabilidade
+intra-braço: `high` 1/12, `medium` 2/12, `low` 1/12.
+
+É exatamente o padrão de 09/09 acima (o extrator de conversa: estável na nota,
+instável no nível) e a mesma classe de `lib/nivel-regua.ts` — o ruído do modelo é
+pequeno, o degrau é que o amplifica. Ao comparar dois modelos ou dois efforts pela
+taxa de divergência de NÍVEL, medir antes quanto o braço de controle diverge dele
+mesmo; sem isso, ruído de fronteira vira veredito sobre a configuração.
+
+### Decisão e o que ficou por medir
+
+**Não aplicado, a pedido do dono (12/09): a IA4 segue em `high`.** O que estava na
+mesa: US$ 32,96 → 16,15/mês e latência 111 s → 45 s (a IA4 é a fase mais longa, e é
+ela que segura a fila de Server Actions do admin — daí `IA4_MAX_SINCRONO = 1`);
+`low` também derruba a saída máxima de 18.538 para 7.333 tokens, aposentando o
+truncamento que levou `IA4_MAX_TOKENS` a 64.000.
+
+⚠️ **Medi a NOTA, não o TEXTO.** `mediaDescritores` e `nivelGeral` são o que a
+consolidação em código produz, mas metade do produto da IA4 é o feedback que o
+colaborador lê: evidências citadas e recomendações de PDI não foram comparadas
+entre braços, e `low` pode escrever mais raso com a mesma nota. Também: um só
+tenant, e a base tem 2 N3 e **zero N4** — não há evidência no topo da régua.
+`blueprint_gerar` tem o mesmo perfil (14.018 tokens de saída, sem `effort`) e
+**não foi medido**.
+
+### Dois achados laterais, os dois abertos
+
+**O lote já existe e 80% não passa por ele.** O desconto de 50% do Batch API está
+comprovado no próprio ledger: `ia4_avaliacao` US$ 0,063/chamada em batch (n=43)
+contra 0,132 no síncrono (n=232); `blueprint_gerar` 0,074 (n=45) contra 0,143
+(n=175). Migrar metade do volume síncrono das duas vale ~US$ 14/mês sem tocar em
+prompt ou modelo. Falta descobrir por que o operador escolhe "Agora".
+
+**🔴 O Copiloto roda num modelo que o código não escolheu.** `lib/ai-tasks.ts:193`
+declara `gpt-5.6-terra` (US$ 2/12), mas **75 de 75 chamadas** de
+`copiloto_pesquisa_*` em 60 dias saíram em `gpt-5.5` (US$ 5/30), com
+`requested_model` **nulo** — ninguém pediu isso no call-site. US$ 30,37 em 60 dias,
+o maior custo unitário da conta (US$ 0,42/chamada). O caminho é
+`actions/ai-client.ts:474`: `options.model || process.env.OPENAI_WEB_SEARCH_MODEL
+|| DEFAULT_COPILOTO_RESEARCH_MODEL`. A env não está no `.env.local`, só na Vercel;
+`vercel env ls` travou na sessão, então **a env em si não foi lida** — a inferência
+vem do ledger mais o único caminho possível no código. Conferir com
+`vercel env ls production | grep OPENAI_WEB_SEARCH_MODEL`.
+
+⚠️ O comentário em `lib/ai-tasks.ts:211` chama essa env de
+`COPILOTO_RESEARCH_MODEL`, nome que **não existe no código**. Quem for corrigir
+procurando por ele não acha nada e conclui que não há env.
+
+### O instrumento mentiu antes de medir
+
+A 1ª versão do script lia `avaliacao.descritores`; a chave real é
+`avaliacao_por_descritor` (é a que `consolidarEPersistirIA4` usa).
+`consolidarNotasIA4` recebia `[]` e devolvia nota 0,00 / N1 nos **três** braços, a
+`validarAvaliacaoIA4` passava — ela olha a chave certa — e o relatório anunciava
+"mesmo nível em 1/1". **Concordância perfeita produzida por métrica morta.** Só foi
+pego porque uma resposta gravada como N3 saiu N1 no smoke de 3 chamadas; disparar
+as 108 direto teria gasto os US$ 10,49 para provar nada. O script agora conta
+`semDescritores` e bloqueia a leitura das colunas de nota quando há JSON válido com
+zero descritor. Regra que fica: **antes de rodar o experimento caro, rodar 1 caso e
+conferir se a métrica de qualidade se move** — métrica travada num valor constante
+parece consenso.

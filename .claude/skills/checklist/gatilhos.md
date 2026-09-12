@@ -77,6 +77,13 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   `generativelanguage`) + conferir os parâmetros de raciocínio, não só o id. **Env da Vercel vence o código.**
 - Geração de fundo em lote usa `lib/ai-batch.ts` (−50%). Não rodar na mesma janela dois lotes que
   compartilham **fornecedor** (o TTS do Vertex serve narração E podcast — auto-saturação, 12/08).
+- 🔴 **"O código declara X" não prova que X roda.** A prova é o ledger:
+  `select model, requested_model, count(*) from ia_usage_log ... group by`. `requested_model` nulo com
+  um `model` que não é o default do código = **env sobrescrevendo** (12/09: `copiloto_pesquisa_*`,
+  **75 de 75** em `gpt-5.5` contra o `gpt-5.6-terra` declarado, US$ 30/60 d).
+- Migrou uma task para a geração 5? Ela herdou `effort: high` **sem ninguém decidir**, e lá o thinking
+  vem ligado por padrão: mais barato por token, mais caro por chamada (`ia4_avaliacao`, 60 d: saída
+  **5.584 → 11.567** tokens, US$ 0,0917 → **0,1160**). `reasoningEffort` é do CALL-SITE.
 - `504` do gateway **não** prova trabalho perdido: medir pelo efeito **persistido** (8 de 10
   "falhas" estavam no Storage). `docs/FMEA-PIPELINE.md` F-V4.
 
@@ -1162,3 +1169,30 @@ guards de CI, porque `scripts/_*` é gitignored e a captura vive em `video-spike
 recorte devolvia a trilha do outro tenant. A captura semeou uma trilha enquanto a
 tela lia outra, com `rowCount 1` nos dois lados, e o beat que narra "a semana é
 dada como concluída" gravou a tela dizendo **"Evidências · 1 de 6 respostas"**.
+
+## § Vou rodar um experimento PAGO comparando configurações (effort, modelo, prompt)
+
+- [ ] **Rodar 1 caso primeiro e conferir que a métrica de qualidade SE MOVE.** Métrica
+      travada num valor constante parece consenso entre os braços.
+- [ ] A métrica lê a **mesma chave** que a produção consome? Comparar com o call-site
+      real (`consolidarEPersistirIA4` usa `avaliacao.avaliacao_por_descritor`).
+- [ ] A validação passar **não** prova que a métrica funciona: ela pode olhar a chave
+      certa enquanto a métrica olha a errada.
+- [ ] Amostra **estratificada pela fronteira**, não aleatória. A base costuma ser
+      dominada pelo caso fácil (IA4: 55 de 77 em N1, que a regra 3 do prompt resolve
+      sozinha) e ele não discrimina configuração nenhuma.
+- [ ] Repetições **no braço de controle também** — sem saber quanto ele diverge de si
+      mesmo, ruído vira veredito sobre a configuração.
+- [ ] Etiquetar as linhas do ledger (`source`) para o experimento não contaminar as
+      séries de custo de produção.
+
+**Consequência medida (12/09/2026):** o sweep de `effort` da IA4 lia
+`avaliacao.descritores`; a chave é `avaliacao_por_descritor`. `consolidarNotasIA4`
+recebia `[]` e devolvia nota **0,00 / N1 nos três braços**, a `validarAvaliacaoIA4`
+passava e o relatório anunciava **"mesmo nível em 1/1"** — concordância perfeita
+produzida por métrica morta. Pego só porque uma resposta gravada como N3 saiu N1 no
+smoke de 3 chamadas; disparar as 108 direto teria gasto **US$ 10,49** para provar nada.
+No mesmo sweep, `medium` divergiu do baseline em 1 de 12 e `low` em 0 de 12, o que
+parecia ordenar os braços — até abrir e ver que a nota estava colada no corte N1/N2 e
+que **o próprio `high` divergia de si mesmo** (N3, N3, N2 na mesma resposta). Detalhe:
+`docs/CUSTO-QUALIDADE.md` §12/09 e a memória `project_ia4_effort_sweep`.
