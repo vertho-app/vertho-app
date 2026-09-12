@@ -1124,3 +1124,41 @@ remotas) para subir um commit que **já estava no remoto** como `1468d74c`, byte
 byte idêntico nos 6 arquivos. Três commits locais de engajamento também eram
 duplicatas. No caminho, sujei 7 arquivos com CRLF e deixei 3 cópias na raiz do
 repo — tudo revertido, mas o ambiente do dono ficou instável por minutos à toa.
+
+## § Vou acrescentar um FILTRO (`-af`/`-vf`) a um comando ffmpeg que já funcionava
+
+Sem filtro, `-i entrada -ss X -t D` e `-ss X -i entrada -t D` devolvem a mesma
+fatia. **Com filtro, não**: o `-ss` de SAÍDA (depois do `-i`) é aplicado depois do
+grafo, então o filtro vê o arquivo INTEIRO a partir de 0, e o recorte pega o que
+o filtro já processou com o relógio errado.
+
+- [ ] Mova o `-ss` para **antes** do `-i` e deixe o `-t` depois; ponha
+      `asetpts=PTS-STARTPTS` como primeiro filtro.
+- [ ] **Meça o artefato depois de produzi-lo.** Duração certa e tamanho certo não
+      provam conteúdo: decodifique e confira o nível.
+
+**Consequência medida (11/09/2026):** uma rampa de 25 ms nas bordas das fatias de
+narração, escrita com `-ss` depois do `-i`, fez o `afade` marcar a saída em
+tempo-do-TAKE. **11 das 12 fatias do `disc` saíram a −180 dB** — silêncio
+absoluto. Nem o ffmpeg, nem o `align`, nem o `build` reclamaram, e DOIS vídeos
+foram renderizados inteiros com voz só no primeiro beat. Hoje o `align.mts`
+decodifica cada fatia e lança abaixo de −60 dB. Detalhe:
+`docs/FMEA-PIPELINE.md` §F-I34 e a memória `reference_ffmpeg_ss_antes_do_filtro`.
+
+## § Vou escrever num script que resolve PESSOA por e-mail (captura, seed, lote)
+
+O `CLAUDE.md` já proíbe `.eq('email')` direto no app (`findColabByEmail` resolve o
+tenant pelo header). **Os scripts não passam por essa regra** — e não passam pelos
+guards de CI, porque `scripts/_*` é gitignored e a captura vive em `video-spike/`.
+
+- [ ] O `select` junta `empresas` e filtra por `slug`? Se o script navega um host
+      (`<tenant>.localhost:3000`), derive o tenant DELE, para script e tela olharem
+      o mesmo recorte.
+- [ ] O `update` que "achou a linha" prova só que ACHOU UMA. `rowCount 1` não diz
+      qual.
+
+**Consequência medida (11/09/2026):** `bruna.demo@vertho.ai` passou a existir em
+`acme-demo` **e** em `gruposinal`, e o `order by criado_em desc limit 1` sem
+recorte devolvia a trilha do outro tenant. A captura semeou uma trilha enquanto a
+tela lia outra, com `rowCount 1` nos dois lados, e o beat que narra "a semana é
+dada como concluída" gravou a tela dizendo **"Evidências · 1 de 6 respostas"**.
