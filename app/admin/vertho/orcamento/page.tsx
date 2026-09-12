@@ -12,10 +12,13 @@ import {
   calcularProjeto,
   custoConteudoComReuso,
   distribuirMatrizes,
+  obterComissaoOrcamento,
+  OPCOES_COMISSAO_ORCAMENTO,
   parcelasPorCiclos,
+  ratearCustoPorPessoa,
   reusoConteudoPorCelula,
+  type TipoComissaoOrcamento,
 } from '@/lib/orcamento/precificacao';
-import { COMMISSION_RATES } from '@/lib/sales/constants';
 import {
   PROGRAMA_JORNADA, PROGRAMA_REGULAR_DUO, PROGRAMA_REGULAR,
   PROGRAMA_ONBOARDING, PROGRAMA_PILOTO,
@@ -227,6 +230,7 @@ export default function OrcamentoPage() {
     setMatrizNovas((atuais) => Math.min(v, atuais));
   }
   const [ciclosPorAno, setCiclosPorAno] = useState(1); // ciclos de programa entregues
+  const [tipoComissao, setTipoComissao] = useState<TipoComissaoOrcamento>('rc');
   const [preset, setPreset] = useState<PresetKey>('atual');
   const [jornada, setJornada] = useState<string>('jornada');
   const cfgJornada = useMemo(
@@ -302,7 +306,8 @@ export default function OrcamentoPage() {
     const contingenciaRate = Math.max(0, pricing.contingenciaPct) / 100;
     const custoContingenciaBrl = custoOperacionalBrl * contingenciaRate;
     const custoEntregaBrl = custoOperacionalBrl + custoContingenciaBrl;
-    const comissaoRate = COMMISSION_RATES.acquisition + COMMISSION_RATES.recurring;
+    const comissao = obterComissaoOrcamento(tipoComissao);
+    const comissaoRate = comissao.percentual / 100;
     const impostosRate = Math.max(0, pricing.impostosPct) / 100;
 
     // ── Valor do projeto — pelo ESCOPO, nunca pelo prazo ──
@@ -346,6 +351,7 @@ export default function OrcamentoPage() {
     const custoComissoesBrl = projeto.valorFinal * comissaoRate;
     const custoImpostosBrl = projeto.valorFinal * impostosRate;
     const custoTotalBrl = custoEntregaBrl + custoComissoesBrl + custoImpostosBrl;
+    const custoUnitario = ratearCustoPorPessoa(custoTotalBrl, nColabs, ciclos);
 
     const tabelaSetupGeral = pricing.precoSetupGeral;
     const tabelaClusters = nClusters * pricing.precoCluster;
@@ -376,8 +382,11 @@ export default function OrcamentoPage() {
       custoContingenciaBrl,
       custoComissoesBrl,
       custoImpostosBrl,
+      comissaoLabel: comissao.label,
       comissaoPct: comissaoRate * 100,
       custoTotalBrl,
+      custoPorPessoaBrl: custoUnitario.contrato,
+      custoPorPessoaCicloBrl: custoUnitario.porCiclo,
       mesesPrograma,
       tabelaPessoasCiclo,
       parcelas,
@@ -401,7 +410,7 @@ export default function OrcamentoPage() {
       tabelaPerfis,
       tabelaWorkshop,
     };
-  }, [nClusters, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, comAvatar, reusoConteudo]);
+  }, [nClusters, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, tipoComissao, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, comAvatar, reusoConteudo]);
 
   return (
     <div className="max-w-[1320px] mx-auto px-4 py-6 sm:px-6 min-h-full">
@@ -484,18 +493,18 @@ export default function OrcamentoPage() {
         {/* Matrizes: toda matriz que não nasce nova é adaptada. */}
         <div className="mt-3 grid gap-3 grid-cols-2 sm:grid-cols-3">
           <FieldNumber locale={locale} icon={<Briefcase size={14} />} label="Matrizes novas"
-            sub={`R$ ${pricing.precoMatrizNova} · ${pricing.horasMatrizNova}h cada`}
+            sub={`Preço ${money(pricing.precoMatrizNova)} · custo ${pricing.horasMatrizNova}h`}
             value={matrizNovas} onChange={(v) => setMatrizNovas(Math.min(nPerfis, v))} min={0} />
           <CalculatedField
             icon={<Briefcase size={14} />}
             label="Matrizes adaptadas"
             value={calc.matrizesAdaptadas.toLocaleString(locale)}
-            sub={`R$ ${pricing.precoMatrizAdaptada} · ${pricing.horasMatrizAdaptada}h cada`}
+            sub={`Preço ${money(pricing.precoMatrizAdaptada)} · custo ${pricing.horasMatrizAdaptada}h`}
           />
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-col justify-center">
             <p className="text-[10px] uppercase tracking-widest text-gray-500">Horas de gente</p>
             <p className="text-lg font-bold text-white tabular-nums">{calc.horasTotais} h</p>
-            <p className="text-[9px] text-gray-600">{money(calc.custoHorasBrl)} a {money(pricing.custoHora)}/h</p>
+            <p className="text-[9px] text-gray-600">Custo interno · {money(calc.custoHorasBrl)} a {money(pricing.custoHora)}/h</p>
           </div>
         </div>
 
@@ -510,8 +519,8 @@ export default function OrcamentoPage() {
           <FieldNumber locale={locale} label={t('pricing.generalSetup')} sub={t('pricing.fixed', { value: money(pricing.precoSetupGeral) })} value={pricing.precoSetupGeral} onChange={(v) => setPricingField('precoSetupGeral', v)} min={0} />
           <FieldNumber locale={locale} label="Por pessoa / ciclo" sub={`${money(pricing.precoPessoaCiclo)} por pessoa`} value={pricing.precoPessoaCiclo} onChange={(v) => setPricingField('precoPessoaCiclo', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.perCluster')} sub={t('pricing.setupValue', { value: money(pricing.precoCluster) })} value={pricing.precoCluster} onChange={(v) => setPricingField('precoCluster', v)} min={0} />
-          <FieldNumber locale={locale} label="Matriz nova" sub={`${money(pricing.precoMatrizNova)} cada`} value={pricing.precoMatrizNova} onChange={(v) => setPricingField('precoMatrizNova', v)} min={0} />
-          <FieldNumber locale={locale} label="Matriz adaptada" sub={`${money(pricing.precoMatrizAdaptada)} cada`} value={pricing.precoMatrizAdaptada} onChange={(v) => setPricingField('precoMatrizAdaptada', v)} min={0} />
+          <FieldNumber locale={locale} label="Preço / matriz nova" sub={`${money(pricing.precoMatrizNova)} cobrado por matriz`} value={pricing.precoMatrizNova} onChange={(v) => setPricingField('precoMatrizNova', v)} min={0} />
+          <FieldNumber locale={locale} label="Preço / matriz adaptada" sub={`${money(pricing.precoMatrizAdaptada)} cobrado por matriz`} value={pricing.precoMatrizAdaptada} onChange={(v) => setPricingField('precoMatrizAdaptada', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.workshopPerCluster')} sub={t('pricing.ifWorkshop', { value: money(pricing.adicionalWorkshop) })} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.discount')} sub={`piso: ${calc.descontoMaxPct.toFixed(1)}%`} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} allowDecimals />
           <FieldNumber locale={locale} label="Margem-alvo (%)" sub="define o desconto máximo" value={pricing.margemAlvoPct} onChange={(v) => setPricingField('margemAlvoPct', v)} min={0} allowDecimals />
@@ -524,8 +533,8 @@ export default function OrcamentoPage() {
       <div className="rounded-sm border border-white/10 bg-white/[0.02] p-4 mb-5">
         <p className="text-xs uppercase tracking-widest text-amber-300 mb-1">03 · Custo de entrega</p>
         <p className="text-[10px] text-gray-500 mb-3">
-          Até 07/09/2026 a margem olhava só a IA e respondia 96–99% em qualquer cenário. Estas são as
-          linhas que faltavam — o workshop, em especial, tinha preço e nenhum custo.
+          As horas são custo interno: entram no custo all-in e reduzem a margem, mas não são somadas
+          novamente ao preço das matrizes. O valor cobrado ao cliente fica na régua acima.
         </p>
         <details className="mb-3 border-y border-white/[0.07] py-2">
           <summary className="cursor-pointer text-[11px] font-semibold text-gray-300">
@@ -543,10 +552,41 @@ export default function OrcamentoPage() {
             ))}
           </div>
         </details>
+        <div className="mb-3 rounded-xl border border-amber-300/15 bg-amber-300/[0.035] p-3">
+          <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-200">Comissão comercial</p>
+              <p className="mt-0.5 text-[9px] text-gray-500">Escolha um canal por proposta · percentual sobre a receita final</p>
+            </div>
+            <p className="text-xs font-bold text-amber-100">{calc.comissaoLabel} · {calc.comissaoPct.toFixed(0)}%</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Tipo de comissão comercial">
+            {OPCOES_COMISSAO_ORCAMENTO.map((opcao) => {
+              const selecionada = tipoComissao === opcao.key;
+              return (
+                <button
+                  key={opcao.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={selecionada}
+                  onClick={() => setTipoComissao(opcao.key)}
+                  className={`flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 ${
+                    selecionada
+                      ? 'border-amber-300/55 bg-amber-300/10 text-amber-100'
+                      : 'border-white/10 bg-black/10 text-gray-400 hover:border-white/20 hover:text-white'
+                  }`}
+                >
+                  <span className="text-[11px] font-semibold leading-tight">{opcao.label}</span>
+                  <span className="shrink-0 text-sm font-extrabold tabular-nums">{opcao.percentual}%</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4">
-          <FieldNumber locale={locale} label="Custo / hora" sub="implantação e workshop" value={pricing.custoHora} onChange={(v) => setPricingField('custoHora', v)} min={0} />
-          <FieldNumber locale={locale} label="Horas de implantação" sub="base, fora as matrizes" value={pricing.horasImplantacao} onChange={(v) => setPricingField('horasImplantacao', v)} min={0} />
-          <FieldNumber locale={locale} label="Horas / matriz nova" sub={`${pricing.horasMatrizAdaptada}h se adaptada`} value={pricing.horasMatrizNova} onChange={(v) => setPricingField('horasMatrizNova', v)} min={0} />
+          <FieldNumber locale={locale} label="Custo / hora" sub="aplicado às horas internas" value={pricing.custoHora} onChange={(v) => setPricingField('custoHora', v)} min={0} />
+          <FieldNumber locale={locale} label="Horas de implantação" sub="custo interno, fora as matrizes" value={pricing.horasImplantacao} onChange={(v) => setPricingField('horasImplantacao', v)} min={0} />
+          <FieldNumber locale={locale} label="Horas / matriz nova" sub={`custo interno · adaptada: ${pricing.horasMatrizAdaptada}h`} value={pricing.horasMatrizNova} onChange={(v) => setPricingField('horasMatrizNova', v)} min={0} />
           <FieldNumber locale={locale} label="Horas / workshop" sub="por unidade" value={pricing.horasWorkshop} onChange={(v) => setPricingField('horasWorkshop', v)} min={0} />
           <FieldNumber locale={locale} label="Mensagens / pessoa / ciclo" sub={`${moneyBRLUnit(pricing.custoMsgUnitario, locale)} cada · UTILITY`} value={pricing.msgsPorPessoaCiclo} onChange={(v) => setPricingField('msgsPorPessoaCiclo', v)} min={0} />
           <FieldNumber locale={locale} label="Clientes ativos" sub="rateio da infra fixa" value={pricing.clientesAtivos} onChange={(v) => setPricingField('clientesAtivos', v)} min={1} />
@@ -569,8 +609,9 @@ export default function OrcamentoPage() {
             <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoInfraBrl)}</p>
           </div>
           <div className="rounded-lg bg-white/[0.03] px-3 py-2">
-            <p className="text-[9px] uppercase text-gray-500">Comissões · {calc.comissaoPct.toFixed(0)}%</p>
+            <p className="text-[9px] uppercase text-gray-500">Comissão · {calc.comissaoPct.toFixed(0)}%</p>
             <p className="text-sm font-bold text-white tabular-nums">{money(calc.custoComissoesBrl)}</p>
+            <p className="text-[9px] text-gray-600">{calc.comissaoLabel}</p>
           </div>
           <div className="rounded-lg bg-white/[0.03] px-3 py-2">
             <p className="text-[9px] uppercase text-gray-500">Impostos · {pricing.impostosPct}%</p>
@@ -671,6 +712,16 @@ export default function OrcamentoPage() {
               {calc.descontoTotal > 0 && (
                 <div className="flex justify-between text-amber-300"><span>{t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })}</span><span>- {money(calc.descontoTotal)}</span></div>
               )}
+              <div className="mt-2 border-t border-amber-300/15 pt-2">
+                <div className="flex justify-between gap-3 font-semibold text-amber-100">
+                  <span>Custo all-in / pessoa</span>
+                  <span className="tabular-nums">{money(calc.custoPorPessoaBrl)}</span>
+                </div>
+                <div className="flex justify-between gap-3 text-gray-500">
+                  <span>por pessoa / ciclo</span>
+                  <span className="tabular-nums">{money(calc.custoPorPessoaCicloBrl)}</span>
+                </div>
+              </div>
             </div>
           </div>
           <div className="border-l-2 border-emerald-400 bg-white/[0.035] p-4">

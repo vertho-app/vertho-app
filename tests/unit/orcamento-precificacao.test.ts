@@ -10,11 +10,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   CONTEUDO_POR_FORMATO_DEFAULT,
+  OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
   calcularProjeto,
   custoConteudoComReuso,
   distribuirMatrizes,
+  obterComissaoOrcamento,
   parcelasPorCiclos,
+  ratearCustoPorPessoa,
   reusoConteudoPorCelula,
   type TabelaPreco,
   type EscopoProjeto,
@@ -25,8 +28,8 @@ const PRECO: TabelaPreco = {
   setupGeral: 2000,
   pessoaCiclo: 300,
   unidade: 2000,
-  matrizNova: 500,
-  matrizAdaptada: 250,
+  matrizNova: 1000,
+  matrizAdaptada: 500,
   workshop: 15000,
   descontoPct: 0,
   margemAlvoPct: 50,
@@ -48,6 +51,8 @@ describe('premissas comerciais do orçamento', () => {
   it('mantém os padrões aprovados na régua única', () => {
     expect(ORCAMENTO_DEFAULTS).toMatchObject({
       precoPessoaCiclo: 300,
+      precoMatrizNova: 1000,
+      precoMatrizAdaptada: 500,
       margemAlvoPct: 50,
       impostosPct: 20,
       contingenciaPct: 10,
@@ -56,6 +61,20 @@ describe('premissas comerciais do orçamento', () => {
       custoMsgUnitario: 0.035,
     });
     expect(CONTEUDO_POR_FORMATO_DEFAULT).toBe(12);
+  });
+
+  it('oferece as três políticas de comissão aprovadas', () => {
+    expect(OPCOES_COMISSAO_ORCAMENTO.map(({ key, percentual }) => ({ key, percentual }))).toEqual([
+      { key: 'rc', percentual: 20 },
+      { key: 'consultor_parceiro', percentual: 10 },
+      { key: 'consultor_integrador', percentual: 0 },
+    ]);
+    expect(obterComissaoOrcamento('canal_invalido').key).toBe('rc');
+  });
+
+  it('rateia o custo all-in por pessoa no contrato e por ciclo', () => {
+    expect(ratearCustoPorPessoa(6000, 100, 3)).toEqual({ contrato: 60, porCiclo: 20 });
+    expect(ratearCustoPorPessoa(6000, 0, 3)).toEqual({ contrato: 0, porCiclo: 0 });
   });
 
   it('deriva duas parcelas por ciclo', () => {
@@ -106,9 +125,9 @@ describe('precificação do projeto', () => {
   });
 
   it('aplica o novo preço de R$ 300 por pessoa/ciclo', () => {
-    // 100 pessoas × R$ 300/ciclo + R$ 5.500 de one-time.
+    // 100 pessoas × R$ 300/ciclo + R$ 7.000 de one-time.
     const r = calcularProjeto(BASE, PRECO, CUSTO);
-    expect(r.valorTabela).toBe(35_500);
+    expect(r.valorTabela).toBe(37_000);
   });
 
   it('matriz reusada não entra na conta; adaptada entra pela metade', () => {

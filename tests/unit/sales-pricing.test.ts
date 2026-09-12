@@ -10,7 +10,7 @@ describe('sugestão de preço da proposta', () => {
       contract_duration_months: 12,
     });
 
-    expect(mensal).toBeCloseTo(35_500 / 12, 2);
+    expect(mensal).toBeCloseTo(37_000 / 12, 2);
   });
 
   it('o prazo só divide o projeto, sem alterar o valor total', () => {

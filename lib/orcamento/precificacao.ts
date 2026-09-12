@@ -45,8 +45,8 @@ export const ORCAMENTO_DEFAULTS = {
   precoSetupGeral: 2000,
   precoPessoaCiclo: 300,
   precoCluster: 2000,
-  precoMatrizNova: 500,
-  precoMatrizAdaptada: 250,
+  precoMatrizNova: 1000,
+  precoMatrizAdaptada: 500,
   adicionalWorkshop: 15000,
   descontoPct: 0,
   margemAlvoPct: 50,
@@ -65,6 +65,21 @@ export const ORCAMENTO_DEFAULTS = {
 export const MESES_POR_CICLO = 2;
 export const PERFIS_DISC_POR_CARGO = 4;
 export const CONTEUDO_POR_FORMATO_DEFAULT = 12;
+
+/** Canais mutuamente exclusivos usados para calcular o custo comercial. */
+export const OPCOES_COMISSAO_ORCAMENTO = [
+  { key: 'rc', label: 'RC', percentual: 20 },
+  { key: 'consultor_parceiro', label: 'Consultor parceiro', percentual: 10 },
+  { key: 'consultor_integrador', label: 'Consultor integrador', percentual: 0 },
+] as const;
+
+export type TipoComissaoOrcamento = (typeof OPCOES_COMISSAO_ORCAMENTO)[number]['key'];
+
+/** Retorna a política do canal; RC é o fallback seguro do orçamento. */
+export function obterComissaoOrcamento(tipo: string) {
+  return OPCOES_COMISSAO_ORCAMENTO.find((opcao) => opcao.key === tipo)
+    ?? OPCOES_COMISSAO_ORCAMENTO[0];
+}
 
 /** O programa padrão dura cerca de dois meses; a forma de pagamento acompanha a entrega. */
 export function parcelasPorCiclos(ciclos: number): number {
@@ -86,6 +101,20 @@ export function reusoConteudoPorCelula(pessoas: number, cargos: number): number 
   const totalPessoas = Math.max(0, Number(pessoas) || 0);
   const totalCargos = Math.max(1, Number(cargos) || 1);
   return Math.max(1, totalPessoas / totalCargos / PERFIS_DISC_POR_CARGO);
+}
+
+/** Expõe o custo all-in nas duas unidades úteis para a decisão comercial. */
+export function ratearCustoPorPessoa(
+  custoTotalBrl: number,
+  pessoas: number,
+  ciclos: number,
+): { contrato: number; porCiclo: number } {
+  const totalPessoas = Math.max(0, Number(pessoas) || 0);
+  if (totalPessoas === 0) return { contrato: 0, porCiclo: 0 };
+
+  const totalCiclos = Math.max(1, Math.floor(Number(ciclos) || 1));
+  const contrato = Math.max(0, Number(custoTotalBrl) || 0) / totalPessoas;
+  return { contrato, porCiclo: contrato / totalCiclos };
 }
 
 export type ConteudoPorFormato = {
