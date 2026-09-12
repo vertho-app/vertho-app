@@ -3,10 +3,18 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { ArrowRight, Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard, Route, ShieldCheck } from 'lucide-react';
+import { ArrowRight, BookOpen, Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard, Route, ShieldCheck } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { CALLS, PRESETS, calcCost, custoColabNaJornada, infraFixaTotal } from '@/lib/ia-cost-catalog';
-import { ORCAMENTO_DEFAULTS, calcularProjeto } from '@/lib/orcamento/precificacao';
+import {
+  ORCAMENTO_DEFAULTS,
+  CONTEUDO_POR_FORMATO_DEFAULT,
+  calcularProjeto,
+  custoConteudoComReuso,
+  distribuirMatrizes,
+  parcelasPorCiclos,
+  reusoConteudoPorCelula,
+} from '@/lib/orcamento/precificacao';
 import { COMMISSION_RATES } from '@/lib/sales/constants';
 import {
   PROGRAMA_JORNADA, PROGRAMA_REGULAR_DUO, PROGRAMA_REGULAR,
@@ -23,11 +31,12 @@ const PRESET_KEYS: PresetKey[] = ['atual', 'premium', 'balanced', 'cheap'];
  * desta tela: 7 semanas com 1 competência não paga o que 14 com 2 pagam.
  * Até 01/09/2026 o orçamento somava o `exec` fixo do catálogo (que descreve só o
  * Regular DUO) para qualquer proposta — uma jornada de 7 semanas entrava na conta
- * pelo dobro do que custa. Default = DUO, que é o default global da engine.
+ * pelo dobro do que custa. O orçamento agora abre na Jornada de 7 semanas, sem
+ * alterar o default global da engine usado na operação.
  */
 const JORNADAS = [
-  { key: 'regular_duo', rotulo: 'Regular DUO', sub: '14 sem · 2 comp', cfg: PROGRAMA_REGULAR_DUO },
   { key: 'jornada', rotulo: 'Jornada', sub: '7 sem · 1 comp', cfg: PROGRAMA_JORNADA },
+  { key: 'regular_duo', rotulo: 'Regular DUO', sub: '14 sem · 2 comp', cfg: PROGRAMA_REGULAR_DUO },
   { key: 'regular_single', rotulo: 'Regular', sub: '14 sem · 1 comp', cfg: PROGRAMA_REGULAR },
   { key: 'onboarding', rotulo: 'Onboarding', sub: '10 sem · 5 comp', cfg: PROGRAMA_ONBOARDING },
   { key: 'piloto', rotulo: 'Piloto', sub: 'degustação', cfg: PROGRAMA_PILOTO },
@@ -44,15 +53,24 @@ const JORNADAS = [
  *   · parcelar o MESMO projeto em 24 meses em vez de 12 → receita ×1,96, custo ×1,00
  *   · entregar o DOBRO do programa (2 ciclos) em 12 meses → receita ×1,00, custo ×1,99
  *
- * Agora o preço recorrente é por pessoa e por CICLO, e `parcelas` só divide.
- * `precoPessoaCiclo` nasce em 1.200 = os 100/mês × 12 de antes, para o cenário
- * base sair no MESMO valor (R$ 125.500): a mecânica muda, o preço praticado não.
+ * O preço recorrente é por pessoa e por CICLO, e `parcelas` só divide. Desde
+ * 12/09/2026, a forma de pagamento também deixa de ser uma dimensão solta:
+ * cada ciclo contratado gera duas parcelas.
  */
 // Fonte única também usada na sugestão de preço das propostas comerciais.
 const PRECOS_DEFAULT = ORCAMENTO_DEFAULTS;
 
 function moneyBRL(v: number, locale: string) {
   return new Intl.NumberFormat(locale, { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 }).format(v);
+}
+
+function moneyBRLUnit(v: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  }).format(v);
 }
 
 /**
@@ -120,16 +138,14 @@ function custoIAPorColab(presetFn: (call: any) => string, cfg: any): number {
  * compartilham cada peça) divide o custo — reuso=1 significa conteúdo único por
  * colaborador (custo máximo), reuso alto = biblioteca compartilhada (barato).
  *
- * ⚠️ VÍDEO NÃO ENTRA AQUI. O fluxo Veo foi descontinuado, e até 01/09/2026 esta
- * função ainda recebia `porColab.video` e `custoRenderVideoUsd` para multiplicar
- * por um `uVideo` fixado em zero: os dois campos existiam na tela, aceitavam
- * número e não moviam nada na conta. Vídeo hoje é o bloco "Vídeo gerado do
- * Módulo-Base", que escala por VÍDEO e não por pessoa.
+ * Os quatro formatos são orçados juntos. Vídeo usa o pipeline atual do
+ * Módulo-Base (Opus + HeyGen opcional + Remotion + TTS), não o Veo descontinuado.
  */
 function custoIAConteudo(
-  porColab: { podcast: number; texto: number },
+  porColab: { video: number; podcast: number; texto: number; case: number },
   nColabs: number,
   reuso: number,
+  comAvatar: boolean,
 ) {
   const byId = (id: string) => CALLS.find((c) => c.id === id);
   const unit = (id: string) => {
@@ -138,12 +154,27 @@ function custoIAConteudo(
     return calcCost(call, (call as any).defaultModel, 1)?.usd || 0;
   };
   const uPodcast = unit('conteudo-podcast-roteiro') + unit('conteudo-podcast-tts');
-  // Um PDF de texto percorre as três etapas. A expansão é condicional no código,
-  // mas entra 1× aqui como premissa conservadora de orçamento.
+  // PDFs de texto e case percorrem geração, expansão e layout. A expansão é
+  // condicional no código, mas entra 1× como premissa conservadora.
   const uTexto = unit('conteudo-texto') + unit('conteudo-expansao-pdf') + unit('conteudo-layout-plan');
-  const r = Math.max(1, reuso || 1);
-  const perColab = (porColab.podcast * uPodcast + porColab.texto * uTexto) / r;
-  return { perColab, total: perColab * nColabs, uPodcast, uTexto };
+  const uCase = unit('conteudo-case') + unit('conteudo-expansao-pdf') + unit('conteudo-layout-plan');
+  const uVideo = custoIAVideoGerado(1, comAvatar);
+  const custo = custoConteudoComReuso(
+    porColab,
+    { video: uVideo, podcast: uPodcast, texto: uTexto, case: uCase },
+    nColabs,
+    reuso,
+  );
+  const totalPecasPorColab = porColab.video + porColab.podcast + porColab.texto + porColab.case;
+  return {
+    perColab: custo.porPessoa,
+    total: custo.total,
+    totalPecasPorColab,
+    uVideo,
+    uPodcast,
+    uTexto,
+    uCase,
+  };
 }
 
 /**
@@ -164,9 +195,9 @@ function custoIAExtracao(nVideos: number, incluirAuditoria: boolean) {
 }
 
 /**
- * Custo de geração de VÍDEO a partir do Módulo-Base (Opus batch + HeyGen +
- * Remotion Hetzner + narração TTS). One-time por vídeo. Avatar opcional (sem
- * ele, sai só cenas animadas e o custo cai ~$0,47).
+ * Custo unitário de VÍDEO a partir do Módulo-Base (Opus batch + HeyGen +
+ * Remotion Hetzner + narração TTS). Avatar opcional (sem ele, sai só cenas
+ * animadas e o custo cai ~$0,47).
  */
 function custoIAVideoGerado(nVideos: number, comAvatar: boolean) {
   let total = 0;
@@ -189,33 +220,36 @@ export default function OrcamentoPage() {
   const [nPerfis, setNPerfis] = useState(3);
   const [metodo, setMetodo] = useState<Metodo>('votacao');
   const [nColabs, setNColabs] = useState(100);
-  // Quantas das pessoas da base entram de fato na trilha. Com preço fechado é
-  // risco de CUSTO, e o pior caso é 100% — por isso o default não é a média.
-  const [adesaoPct, setAdesaoPct] = useState(100);
-  // Das `nPerfis` matrizes, quantas nascem do zero e quantas adaptam o catálogo
-  // canônico. O resto é reuso puro, que não custa nem é cobrado.
+  // As matrizes restantes são sempre adaptadas: cargos = novas + adaptadas.
   const [matrizNovas, setMatrizNovas] = useState(3);
-  const [matrizAdaptadas, setMatrizAdaptadas] = useState(0);
-  const [periodoMeses, setPeriodoMeses] = useState(12); // parcelas do pagamento
+  function setCargos(v: number) {
+    setNPerfis(v);
+    setMatrizNovas((atuais) => Math.min(v, atuais));
+  }
   const [ciclosPorAno, setCiclosPorAno] = useState(1); // ciclos de programa entregues
   const [preset, setPreset] = useState<PresetKey>('atual');
-  const [jornada, setJornada] = useState<string>('regular_duo');
+  const [jornada, setJornada] = useState<string>('jornada');
   const cfgJornada = useMemo(
     () => (JORNADAS.find((j) => j.key === jornada) || JORNADAS[0]).cfg,
     [jornada],
   );
   const presetLabel = preset === 'atual' ? 'Configuração atual da plataforma' : PRESETS[preset].label;
-  // Geração de conteúdo — peças que CADA colaborador recebe por formato.
-  const [conteudoColab, setConteudoColab] = useState({ podcast: 9, texto: 9 });
+  // 48 peças por pessoa/ciclo: 12 de cada um dos quatro formatos.
+  const [conteudoColab, setConteudoColab] = useState({
+    video: CONTEUDO_POR_FORMATO_DEFAULT,
+    podcast: CONTEUDO_POR_FORMATO_DEFAULT,
+    texto: CONTEUDO_POR_FORMATO_DEFAULT,
+    case: CONTEUDO_POR_FORMATO_DEFAULT,
+  });
   function setConteudo<K extends keyof typeof conteudoColab>(k: K, v: number) {
     setConteudoColab((q) => ({ ...q, [k]: v }));
   }
   // Extração de vídeo → módulo-base (one-time, matéria-prima reusada).
   const [nVideosExtraidos, setNVideosExtraidos] = useState(0);
   const [auditarExtracao, setAuditarExtracao] = useState(true);
-  // Geração de vídeo a partir do módulo-base (one-time por vídeo; avatar opcional).
-  const [nVideosGerados, setNVideosGerados] = useState(0);
+  // O vídeo é um dos quatro formatos do conteúdo. Avatar segue opcional.
   const [comAvatar, setComAvatar] = useState(true);
+  const reusoConteudo = reusoConteudoPorCelula(nColabs, nPerfis);
 
   // Inputs de pricing
   const [pricing, setPricing] = useState({ ...PRECOS_DEFAULT });
@@ -232,7 +266,7 @@ export default function OrcamentoPage() {
     const custoSetupPorCluster = custoIASetupCluster(nPerfis, metodo, presetFn);
     const custoTaggingTotal = custoIATaggingTotal(presetFn);
     const custoPorColab = custoIAPorColab(presetFn, cfgJornada);
-    const conteudo = custoIAConteudo(conteudoColab, nColabs, pricing.reusoConteudo);
+    const conteudo = custoIAConteudo(conteudoColab, nColabs, reusoConteudo, comAvatar);
     const custoConteudoTotal = conteudo.total;
     const custoConteudoPorColab = conteudo.perColab;
 
@@ -240,27 +274,18 @@ export default function OrcamentoPage() {
     const custoExtracaoTotal = custoIAExtracao(nVideosExtraidos, auditarExtracao);
     const custoExtracaoPorVideo = custoIAExtracao(1, auditarExtracao);
 
-    // Geração de vídeo a partir do módulo-base (one-time por vídeo).
-    const custoVideoGeradoTotal = custoIAVideoGerado(nVideosGerados, comAvatar);
-    const custoVideoGeradoPorVideo = custoIAVideoGerado(1, comAvatar);
-
     // Setup + tagging: uma vez (implantação). Mentor IA + Conteúdo: por ciclo.
-    // ⚠️ Só as pessoas que ENTRAM na trilha consomem IA e mensagens: com preço
-    // fechado, a adesão é risco de custo, e o pior caso é 100% (todo mundo
-    // participa). Medido em 07/09: Macaé 29%, Ibipeba 69%.
-    const ciclos = Math.max(1, ciclosPorAno || 1);
-    const adesao = Math.min(1, Math.max(0, (adesaoPct || 0) / 100));
-    const pessoasAtivas = nColabs * adesao;
+    // A base inteira entra no pior caso de custo: adesão orçada = 100%.
+    const ciclos = Math.max(1, Math.floor(ciclosPorAno || 1));
+    const pessoasAtivas = nColabs;
     const custoSetupTotal = nClusters * custoSetupPorCluster + custoTaggingTotal;
     const custoColabsTotalAno = pessoasAtivas * custoPorColab * ciclos;
     const custoConteudoTotalAno = custoConteudoTotal * ciclos;
-    const custoIAUsd = custoSetupTotal + custoColabsTotalAno + custoConteudoTotalAno + custoExtracaoTotal + custoVideoGeradoTotal;
+    const custoIAUsd = custoSetupTotal + custoColabsTotalAno + custoConteudoTotalAno + custoExtracaoTotal;
     const custoIABrl = custoIAUsd * pricing.cotacao;
 
     // ── Custo cheio: IA + horas + mensagens + infra ──
-    const matrizesNovas = Math.max(0, Math.min(nPerfis, matrizNovas));
-    const matrizesAdaptadas = Math.max(0, Math.min(nPerfis - matrizesNovas, matrizAdaptadas));
-    const matrizesReusadas = Math.max(0, nPerfis - matrizesNovas - matrizesAdaptadas);
+    const { novas: matrizesNovas, adaptadas: matrizesAdaptadas } = distribuirMatrizes(nPerfis, matrizNovas);
     const horasTotais =
       pricing.horasImplantacao +
       matrizesNovas * pricing.horasMatrizNova +
@@ -286,9 +311,9 @@ export default function OrcamentoPage() {
     const custoOneTime = (
       custoHorasBrl +
       custoSetupTotal * pricing.cotacao +
-      (custoExtracaoTotal + custoVideoGeradoTotal) * pricing.cotacao
+      custoExtracaoTotal * pricing.cotacao
     ) * (1 + contingenciaRate);
-    const parcelas = Math.max(1, periodoMeses || 1);
+    const parcelas = parcelasPorCiclos(ciclos);
 
     const projeto = calcularProjeto(
       {
@@ -341,11 +366,8 @@ export default function OrcamentoPage() {
       acimaDoPiso: projeto.acimaDoPiso,
       exposicao: projeto.exposicao,
       piorSaldo: projeto.piorSaldo,
-      adesao,
-      pessoasAtivas,
       matrizesNovas,
       matrizesAdaptadas,
-      matrizesReusadas,
       horasTotais,
       custoHorasBrl,
       custoMsgBrl,
@@ -365,10 +387,10 @@ export default function OrcamentoPage() {
       custoConteudoTotal,
       custoConteudoTotalAno,
       custoConteudoPorColab,
+      totalPecasPorColab: conteudo.totalPecasPorColab,
+      custoVideoGeradoPorVideo: conteudo.uVideo,
       custoExtracaoTotal,
       custoExtracaoPorVideo,
-      custoVideoGeradoTotal,
-      custoVideoGeradoPorVideo,
       custoSetupTotal,
       custoColabsTotalAno,
       ciclos,
@@ -378,9 +400,8 @@ export default function OrcamentoPage() {
       tabelaClusters,
       tabelaPerfis,
       tabelaWorkshop,
-      periodo: parcelas,
     };
-  }, [nClusters, nPerfis, metodo, nColabs, periodoMeses, ciclosPorAno, adesaoPct, matrizNovas, matrizAdaptadas, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, nVideosGerados, comAvatar]);
+  }, [nClusters, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, comAvatar, reusoConteudo]);
 
   return (
     <div className="max-w-[1320px] mx-auto px-4 py-6 sm:px-6 min-h-full">
@@ -408,18 +429,18 @@ export default function OrcamentoPage() {
           <FieldNumber locale={locale} icon={<School size={14} />} label={t('scope.clusters.label')} sub={t('scope.clusters.sub')}
             value={nClusters} onChange={setNClusters} min={1} />
           <FieldNumber locale={locale} icon={<Briefcase size={14} />} label={t('scope.profiles.label')} sub={t('scope.profiles.sub')}
-            value={nPerfis} onChange={setNPerfis} min={1} />
+            value={nPerfis} onChange={setCargos} min={1} />
           <FieldNumber locale={locale} icon={<Users size={14} />} label={t('scope.collaborators.label')} sub={t('scope.collaborators.sub')}
             value={nColabs} onChange={setNColabs} min={0} />
-          <FieldNumber locale={locale} icon={<Users size={14} />} label="Adesão orçada (%)"
-            sub={`${Math.round(calc.pessoasAtivas)} em trilha · pior caso = 100%`}
-            value={adesaoPct} onChange={setAdesaoPct} min={0} />
-          <FieldNumber locale={locale} icon={<Calculator size={14} />} label="Parcelas"
-            sub="só divide o valor — não o multiplica"
-            value={periodoMeses} onChange={setPeriodoMeses} min={1} />
           <FieldNumber locale={locale} icon={<Calculator size={14} />} label="Ciclos entregues"
-            sub={`programa de ~${calc.mesesPrograma} ${calc.mesesPrograma === 1 ? 'mês' : 'meses'}`}
+            sub="cada ciclo gera 2 parcelas"
             value={ciclosPorAno} onChange={setCiclosPorAno} min={1} />
+          <CalculatedField
+            icon={<Calculator size={14} />}
+            label="Parcelas"
+            value={calc.parcelas.toLocaleString(locale)}
+            sub={`${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'} × 2`}
+          />
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-gray-500 mb-1">
               <Vote size={14} /> {t('scope.mapping')}
@@ -460,19 +481,17 @@ export default function OrcamentoPage() {
           </p>
         </div>
 
-        {/* Matrizes: criar, adaptar ou reusar — o item de maior variação de custo */}
-        <div className="mt-3 grid gap-3 grid-cols-2 sm:grid-cols-4">
+        {/* Matrizes: toda matriz que não nasce nova é adaptada. */}
+        <div className="mt-3 grid gap-3 grid-cols-2 sm:grid-cols-3">
           <FieldNumber locale={locale} icon={<Briefcase size={14} />} label="Matrizes novas"
             sub={`R$ ${pricing.precoMatrizNova} · ${pricing.horasMatrizNova}h cada`}
-            value={matrizNovas} onChange={setMatrizNovas} min={0} />
-          <FieldNumber locale={locale} icon={<Briefcase size={14} />} label="Matrizes adaptadas"
+            value={matrizNovas} onChange={(v) => setMatrizNovas(Math.min(nPerfis, v))} min={0} />
+          <CalculatedField
+            icon={<Briefcase size={14} />}
+            label="Matrizes adaptadas"
+            value={calc.matrizesAdaptadas.toLocaleString(locale)}
             sub={`R$ ${pricing.precoMatrizAdaptada} · ${pricing.horasMatrizAdaptada}h cada`}
-            value={matrizAdaptadas} onChange={setMatrizAdaptadas} min={0} />
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-col justify-center">
-            <p className="text-[10px] uppercase tracking-widest text-gray-500">Reusadas do catálogo</p>
-            <p className="text-lg font-bold text-emerald-300 tabular-nums">{calc.matrizesReusadas}</p>
-            <p className="text-[9px] text-gray-600">custo e preço zero</p>
-          </div>
+          />
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-col justify-center">
             <p className="text-[10px] uppercase tracking-widest text-gray-500">Horas de gente</p>
             <p className="text-lg font-bold text-white tabular-nums">{calc.horasTotais} h</p>
@@ -529,7 +548,7 @@ export default function OrcamentoPage() {
           <FieldNumber locale={locale} label="Horas de implantação" sub="base, fora as matrizes" value={pricing.horasImplantacao} onChange={(v) => setPricingField('horasImplantacao', v)} min={0} />
           <FieldNumber locale={locale} label="Horas / matriz nova" sub={`${pricing.horasMatrizAdaptada}h se adaptada`} value={pricing.horasMatrizNova} onChange={(v) => setPricingField('horasMatrizNova', v)} min={0} />
           <FieldNumber locale={locale} label="Horas / workshop" sub="por unidade" value={pricing.horasWorkshop} onChange={(v) => setPricingField('horasWorkshop', v)} min={0} />
-          <FieldNumber locale={locale} label="Mensagens / pessoa" sub={`${money(pricing.custoMsgUnitario)} cada · UTILITY`} value={pricing.msgsPorPessoaCiclo} onChange={(v) => setPricingField('msgsPorPessoaCiclo', v)} min={0} />
+          <FieldNumber locale={locale} label="Mensagens / pessoa / ciclo" sub={`${moneyBRLUnit(pricing.custoMsgUnitario, locale)} cada · UTILITY`} value={pricing.msgsPorPessoaCiclo} onChange={(v) => setPricingField('msgsPorPessoaCiclo', v)} min={0} />
           <FieldNumber locale={locale} label="Clientes ativos" sub="rateio da infra fixa" value={pricing.clientesAtivos} onChange={(v) => setPricingField('clientesAtivos', v)} min={1} />
         </div>
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
@@ -566,8 +585,8 @@ export default function OrcamentoPage() {
           <p className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-amber-300"><ShieldCheck size={12} /> Impostos ainda estão zerados; confirme a alíquota antes de transformar o cenário em proposta.</p>
         )}
         <p className="text-[10px] text-amber-300/80 mt-2">
-          ⚠ Mensagem em MARKETING custa 6× o UTILITY, e 4 de 8 templates já voltaram assim (14/08).
-          Nesse caso esta linha vai a {money(calc.custoMsgBrl * 6)}.
+          ⚠ A conta usa {moneyBRLUnit(pricing.custoMsgUnitario, locale)} por mensagem UTILITY. Se a Meta reclassificar
+          como MARKETING, o cenário de segurança continua sendo 6×: {money(calc.custoMsgBrl * 6)}.
         </p>
       </div>
 
@@ -577,14 +596,34 @@ export default function OrcamentoPage() {
           <Film size={14} /> {t('content.title')}
         </p>
         <p className="text-[10px] text-gray-500 mb-3">{t('content.hint')}</p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-6">
+          <FieldNumber locale={locale} icon={<Clapperboard size={14} />} label={t('content.video')} value={conteudoColab.video} onChange={(v) => setConteudo('video', v)} min={0} />
           <FieldNumber locale={locale} icon={<Headphones size={14} />} label={t('content.podcast')} value={conteudoColab.podcast} onChange={(v) => setConteudo('podcast', v)} min={0} />
           <FieldNumber locale={locale} icon={<FileText size={14} />} label={t('content.text')} value={conteudoColab.texto} onChange={(v) => setConteudo('texto', v)} min={0} />
-          <FieldNumber locale={locale} icon={<Users size={14} />} label={t('content.reuse')} sub={t('content.reuseHint')} value={pricing.reusoConteudo} onChange={(v) => setPricingField('reusoConteudo', v)} min={1} />
+          <FieldNumber locale={locale} icon={<BookOpen size={14} />} label={t('content.case')} value={conteudoColab.case} onChange={(v) => setConteudo('case', v)} min={0} />
+          <CalculatedField
+            icon={<Users size={14} />}
+            label={t('content.reuse')}
+            value={reusoConteudo.toLocaleString(locale, { maximumFractionDigits: 1 })}
+            sub={t('content.reuseHint')}
+          />
+          <div className="flex flex-col rounded-xl border border-white/10 bg-white/[0.02] p-3">
+            <p className="mb-1 min-h-[28px] text-[10px] uppercase tracking-widest text-gray-500">Avatar do vídeo</p>
+            <button
+              type="button"
+              onClick={() => setComAvatar((v) => !v)}
+              className={`rounded border px-2 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-300/70 ${comAvatar ? 'border-purple-400/50 bg-purple-500/20 text-purple-200' : 'border-white/10 text-gray-400'}`}
+            >
+              {comAvatar ? 'Com avatar' : 'Sem avatar'}
+            </button>
+            <p className="mt-1 text-[9px] text-gray-600">USD {calc.custoVideoGeradoPorVideo.toFixed(2)} / vídeo</p>
+          </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-4 text-[11px]">
+          <span className="font-semibold text-purple-100">{calc.totalPecasPorColab.toLocaleString(locale)} peças / colab / ciclo</span>
           <span className="text-purple-300 font-semibold">{t('content.perColab')}: USD {calc.custoConteudoPorColab.toFixed(2)}</span>
           <span className="text-purple-200 font-semibold">{t('content.total')}: USD {calc.custoConteudoTotal.toFixed(2)}</span>
+          <span className="font-semibold text-purple-200">{t('content.contractTotal')}: USD {calc.custoConteudoTotalAno.toFixed(2)}</span>
         </div>
       </div>
 
@@ -613,30 +652,6 @@ export default function OrcamentoPage() {
         </div>
       </div>
 
-      {/* Geração de vídeo a partir do Módulo-Base (avatar HeyGen + cenas Remotion + narração TTS) */}
-      <div className="rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 mb-6">
-        <p className="text-xs uppercase tracking-widest text-violet-300 mb-1 flex items-center gap-1.5">
-          <Clapperboard size={14} /> Vídeo gerado do Módulo-Base
-        </p>
-        <p className="text-[10px] text-gray-500 mb-3">
-          Vídeo com avatar falante, cenas animadas e narração própria (voz Aoede). One-time por vídeo. O HeyGen é a maior linha (~64%); o render Remotion roda em Hetzner efêmero (~USD 0,022/vídeo). Sem avatar, o custo cai ~USD 0,47.
-        </p>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-          <FieldNumber locale={locale} icon={<Clapperboard size={14} />} label="Vídeos a gerar" value={nVideosGerados} onChange={setNVideosGerados} min={0} />
-          <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-col">
-            <label className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Avatar falante</label>
-            <button onClick={() => setComAvatar((v) => !v)}
-              className={`mt-1 px-2 py-1.5 rounded text-xs font-bold border ${comAvatar ? 'bg-violet-500/20 border-violet-400/50 text-violet-300' : 'border-white/10 text-gray-400'}`}>
-              {comAvatar ? 'Com avatar (HeyGen)' : 'Só cenas animadas'}
-            </button>
-            <p className="text-[9px] text-gray-600 mt-0.5">HeyGen ≈ USD 0,47/vídeo</p>
-          </div>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-4 text-[11px]">
-          <span className="text-violet-300 font-semibold">Por vídeo (~90s): USD {calc.custoVideoGeradoPorVideo.toFixed(2)}</span>
-          <span className="text-violet-200 font-semibold">Total ({nVideosGerados.toLocaleString(locale)} vídeos): USD {calc.custoVideoGeradoTotal.toFixed(2)}</span>
-        </div>
-      </div>
         </main>
 
         {/* Folha de decisão sempre visível: preço, margem e risco de caixa. */}
@@ -748,9 +763,6 @@ export default function OrcamentoPage() {
             {calc.matrizesAdaptadas > 0 && (
               <Row label={`Matrizes adaptadas: ${calc.matrizesAdaptadas} × ${money(pricing.precoMatrizAdaptada)}`} value={money(calc.matrizesAdaptadas * pricing.precoMatrizAdaptada)} />
             )}
-            {calc.matrizesReusadas > 0 && (
-              <Row label={`Reusadas do catálogo: ${calc.matrizesReusadas}`} value={money(0)} muted />
-            )}
             {metodo === 'workshop' && (
               <Row label={`Workshop: ${nClusters} × ${money(pricing.adicionalWorkshop)}`} value={money(calc.tabelaWorkshop)} />
             )}
@@ -779,19 +791,18 @@ export default function OrcamentoPage() {
             <Calculator size={14} /> {t('breakdown.aiCost')}
           </h3>
           <p className="text-[10px] text-gray-500">Modelos: {presetLabel}</p>
-          <p className="text-[10px] text-amber-300/70 mb-2">{t('ai.basis', { cycles: calc.ciclos })}</p>
+          <p className="text-[10px] text-amber-300/70 mb-2">
+            {t('ai.basis', { cycles: calc.ciclos, weeks: cfgJornada.semanas, installments: calc.parcelas })}
+          </p>
           <div className="space-y-1.5 text-sm">
             <Row label={`${t('ai.setupLine', { clusters: nClusters, profiles: nPerfis, method: metodo })} ${t('ai.oneTimeTag')}`} value={`USD ${(nClusters * calc.custoSetupPorCluster).toFixed(2)}`} />
             <Row label={`${t('ai.tagging')} ${t('ai.oneTimeTag')}`} value={`USD ${calc.custoTaggingTotal.toFixed(2)}`} />
             <Row label={`${t('ai.mentorLine', { count: nColabs, value: calc.custoPorColab.toFixed(2) })}${calc.ciclos > 1 ? ` × ${calc.ciclos}` : ''}`} value={`USD ${calc.custoColabsTotalAno.toFixed(2)}`} />
             {calc.custoConteudoTotalAno > 0 && (
-              <Row label={`${t('content.title')}${calc.ciclos > 1 ? ` × ${calc.ciclos}` : ''}`} value={`USD ${calc.custoConteudoTotalAno.toFixed(2)}`} />
+              <Row label={`${t('content.title')} · ${calc.totalPecasPorColab}/colab/ciclo${calc.ciclos > 1 ? ` × ${calc.ciclos}` : ''}`} value={`USD ${calc.custoConteudoTotalAno.toFixed(2)}`} />
             )}
             {calc.custoExtracaoTotal > 0 && (
               <Row label={`Extração de vídeo: ${nVideosExtraidos.toLocaleString(locale)} vídeo(s) ${t('ai.oneTimeTag')}`} value={`USD ${calc.custoExtracaoTotal.toFixed(2)}`} />
-            )}
-            {calc.custoVideoGeradoTotal > 0 && (
-              <Row label={`Vídeo gerado${comAvatar ? ' (c/ avatar)' : ' (s/ avatar)'}: ${nVideosGerados.toLocaleString(locale)} vídeo(s) ${t('ai.oneTimeTag')}`} value={`USD ${calc.custoVideoGeradoTotal.toFixed(2)}`} />
             )}
             <div className="pt-1.5 border-t border-white/5">
               <Row label={t('ai.totalUsd')} value={`USD ${calc.custoIAUsd.toFixed(2)}`} bold />
@@ -813,6 +824,34 @@ export default function OrcamentoPage() {
 }
 
 // ─── Subcomponentes ──────────────────────────────────────────────
+
+function CalculatedField({
+  icon,
+  label,
+  value,
+  sub,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div className="flex flex-col rounded-xl border border-cyan-300/15 bg-cyan-300/[0.025] p-3">
+      <div className="mb-1 flex min-h-[28px] items-start justify-between gap-2 text-[10px] uppercase leading-tight tracking-widest text-gray-500">
+        <p className="flex items-start gap-1.5">
+          {icon && <span className="mt-0.5 shrink-0">{icon}</span>}
+          <span>{label}</span>
+        </p>
+        <span className="shrink-0 rounded-sm border border-cyan-300/20 px-1 py-0.5 text-[8px] font-bold tracking-wider text-cyan-300/80">auto</span>
+      </div>
+      <output className="block w-full rounded border border-dashed border-cyan-300/20 bg-cyan-300/[0.035] px-2 py-1.5 text-sm font-semibold tabular-nums text-cyan-100">
+        {value}
+      </output>
+      {sub && <p className="mt-0.5 min-h-[12px] text-[9px] text-gray-600">{sub}</p>}
+    </div>
+  );
+}
 
 function FieldNumber({
   icon, label, sub, value, onChange, min = 0, allowDecimals = false,

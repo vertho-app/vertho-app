@@ -8,17 +8,28 @@
  * na próxima vez que alguém "corrigir" a fórmula para premiar contrato longo.
  */
 import { describe, expect, it } from 'vitest';
-import { calcularProjeto, type TabelaPreco, type EscopoProjeto, type CustoProjeto } from '@/lib/orcamento/precificacao';
+import {
+  CONTEUDO_POR_FORMATO_DEFAULT,
+  ORCAMENTO_DEFAULTS,
+  calcularProjeto,
+  custoConteudoComReuso,
+  distribuirMatrizes,
+  parcelasPorCiclos,
+  reusoConteudoPorCelula,
+  type TabelaPreco,
+  type EscopoProjeto,
+  type CustoProjeto,
+} from '@/lib/orcamento/precificacao';
 
 const PRECO: TabelaPreco = {
   setupGeral: 2000,
-  pessoaCiclo: 1200,
+  pessoaCiclo: 300,
   unidade: 2000,
   matrizNova: 500,
   matrizAdaptada: 250,
   workshop: 15000,
   descontoPct: 0,
-  margemAlvoPct: 60,
+  margemAlvoPct: 50,
 };
 
 const BASE: EscopoProjeto = {
@@ -31,7 +42,49 @@ const BASE: EscopoProjeto = {
   parcelas: 12,
 };
 
-const CUSTO: CustoProjeto = { totalBrl: 20000, oneTimeBrl: 12000, mesesPrograma: 4 };
+const CUSTO: CustoProjeto = { totalBrl: 8000, oneTimeBrl: 5000, mesesPrograma: 4 };
+
+describe('premissas comerciais do orçamento', () => {
+  it('mantém os padrões aprovados na régua única', () => {
+    expect(ORCAMENTO_DEFAULTS).toMatchObject({
+      precoPessoaCiclo: 300,
+      margemAlvoPct: 50,
+      impostosPct: 20,
+      contingenciaPct: 10,
+      horasWorkshop: 8,
+      msgsPorPessoaCiclo: 25,
+      custoMsgUnitario: 0.035,
+    });
+    expect(CONTEUDO_POR_FORMATO_DEFAULT).toBe(12);
+  });
+
+  it('deriva duas parcelas por ciclo', () => {
+    expect(parcelasPorCiclos(1)).toBe(2);
+    expect(parcelasPorCiclos(3)).toBe(6);
+  });
+
+  it('transforma todos os cargos restantes em matrizes adaptadas', () => {
+    expect(distribuirMatrizes(50, 3)).toEqual({ novas: 3, adaptadas: 47 });
+    expect(distribuirMatrizes(2, 5)).toEqual({ novas: 2, adaptadas: 0 });
+  });
+
+  it('calcula o reúso médio por cargo e pelos quatro perfis DISC', () => {
+    expect(reusoConteudoPorCelula(3000, 50)).toBe(15);
+    expect(reusoConteudoPorCelula(2, 50)).toBe(1);
+  });
+
+  it('inclui vídeo, podcast, texto e estudo de caso no custo compartilhado', () => {
+    const custo = custoConteudoComReuso(
+      { video: 12, podcast: 12, texto: 12, case: 12 },
+      { video: 1, podcast: 2, texto: 3, case: 4 },
+      3000,
+      15,
+    );
+
+    expect(custo.porPessoa).toBe(8);
+    expect(custo.total).toBe(24_000);
+  });
+});
 
 describe('precificação do projeto', () => {
   it('o prazo NÃO muda o valor do projeto — só a parcela', () => {
@@ -52,11 +105,10 @@ describe('precificação do projeto', () => {
     expect(dois.valorFinal).toBeGreaterThan(um.valorFinal);
   });
 
-  it('preserva o valor que a tela praticava antes da mudança', () => {
-    // 100 pessoas × R$ 100/mês × 12 meses + R$ 5.500 de one-time = R$ 125.500.
-    // A mecânica mudou; o preço do cenário base, não.
+  it('aplica o novo preço de R$ 300 por pessoa/ciclo', () => {
+    // 100 pessoas × R$ 300/ciclo + R$ 5.500 de one-time.
     const r = calcularProjeto(BASE, PRECO, CUSTO);
-    expect(r.valorTabela).toBe(125_500);
+    expect(r.valorTabela).toBe(35_500);
   });
 
   it('matriz reusada não entra na conta; adaptada entra pela metade', () => {

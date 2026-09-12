@@ -43,25 +43,74 @@ export const ORCAMENTO_DEFAULTS = {
   // editável para que o cenário possa aplicar a margem cambial da negociação.
   cotacao: 5.12,
   precoSetupGeral: 2000,
-  precoPessoaCiclo: 1200,
+  precoPessoaCiclo: 300,
   precoCluster: 2000,
   precoMatrizNova: 500,
   precoMatrizAdaptada: 250,
   adicionalWorkshop: 15000,
   descontoPct: 0,
-  margemAlvoPct: 60,
-  impostosPct: 0,
-  contingenciaPct: 0,
+  margemAlvoPct: 50,
+  impostosPct: 20,
+  contingenciaPct: 10,
   custoHora: 500, // valor informado pelo dono em 07/09/2026
   horasImplantacao: 8,
   horasMatrizNova: 6,
   horasMatrizAdaptada: 2,
-  horasWorkshop: 16,
-  msgsPorPessoaCiclo: 16, // projeção conservadora do uso observado
-  custoMsgUnitario: 0.09, // teto de UTILITY; MARKETING precisa de cenário à parte
+  horasWorkshop: 8,
+  msgsPorPessoaCiclo: 25,
+  custoMsgUnitario: 0.035,
   clientesAtivos: 2,
-  reusoConteudo: 5,
 };
+
+export const MESES_POR_CICLO = 2;
+export const PERFIS_DISC_POR_CARGO = 4;
+export const CONTEUDO_POR_FORMATO_DEFAULT = 12;
+
+/** O programa padrão dura cerca de dois meses; a forma de pagamento acompanha a entrega. */
+export function parcelasPorCiclos(ciclos: number): number {
+  return Math.max(1, Math.floor(Number(ciclos) || 1)) * MESES_POR_CICLO;
+}
+
+/** Todo cargo que não exige uma matriz nova adapta uma matriz existente. */
+export function distribuirMatrizes(cargos: number, novasInformadas: number): {
+  novas: number;
+  adaptadas: number;
+} {
+  const total = Math.max(0, Math.floor(Number(cargos) || 0));
+  const novas = Math.max(0, Math.min(total, Math.floor(Number(novasInformadas) || 0)));
+  return { novas, adaptadas: total - novas };
+}
+
+/** Compartilhamento médio por célula de cargo × perfil DISC, com piso de uma pessoa. */
+export function reusoConteudoPorCelula(pessoas: number, cargos: number): number {
+  const totalPessoas = Math.max(0, Number(pessoas) || 0);
+  const totalCargos = Math.max(1, Number(cargos) || 1);
+  return Math.max(1, totalPessoas / totalCargos / PERFIS_DISC_POR_CARGO);
+}
+
+export type ConteudoPorFormato = {
+  video: number;
+  podcast: number;
+  texto: number;
+  case: number;
+};
+
+/** Soma os quatro formatos e aplica o compartilhamento médio entre pessoas. */
+export function custoConteudoComReuso(
+  quantidades: ConteudoPorFormato,
+  custosUnitarios: ConteudoPorFormato,
+  pessoas: number,
+  reuso: number,
+): { porPessoa: number; total: number } {
+  const formatos: (keyof ConteudoPorFormato)[] = ['video', 'podcast', 'texto', 'case'];
+  const custoBrutoPorPessoa = formatos.reduce(
+    (total, formato) => total
+      + Math.max(0, Number(quantidades[formato]) || 0) * Math.max(0, Number(custosUnitarios[formato]) || 0),
+    0,
+  );
+  const porPessoa = custoBrutoPorPessoa / Math.max(1, Number(reuso) || 1);
+  return { porPessoa, total: porPessoa * Math.max(0, Number(pessoas) || 0) };
+}
 
 export interface EscopoProjeto {
   pessoas: number;

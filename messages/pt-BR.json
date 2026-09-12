@@ -3479,17 +3479,17 @@
     "title": "Precificação comercial",
     "subtitle": "Transforme o escopo em preço, margem, desconto seguro e risco de caixa — tudo em BRL.",
     "content": {
-      "title": "Geração de Conteúdo (por colaborador)",
-      "hint": "Cada colaborador recebe N peças por formato. O reúso divide o custo: nº de colaboradores que compartilham cada peça (1 = conteúdo único por colaborador). Vídeo e podcast incluem mídia (TTS e render Veo).",
-      "video": "Vídeos/colab",
-      "podcast": "Podcasts/colab",
-      "text": "Textos/colab",
+      "title": "Geração de conteúdo (por colaborador e ciclo)",
+      "hint": "Padrão de 48 peças por colaborador/ciclo: 12 vídeos, 12 podcasts, 12 textos e 12 estudos de caso. O vídeo usa o pipeline Módulo-Base + avatar + Remotion; o reúso é calculado por célula de cargo e perfil DISC.",
+      "video": "Vídeos",
+      "podcast": "Podcasts",
+      "text": "Textos",
+      "case": "Estudos de caso",
       "reuse": "Reúso (colabs/peça)",
-      "reuseHint": "1 = único por colab",
-      "videoRenderUsd": "Render vídeo (USD)",
-      "videoRenderHint": "5 min 1080p · Veo Fast ($36)",
-      "perColab": "Por colaborador",
-      "total": "Total conteúdo"
+      "reuseHint": "pessoas ÷ cargos ÷ 4 perfis DISC",
+      "perColab": "Por colab/ciclo",
+      "total": "Por ciclo",
+      "contractTotal": "Total do contrato"
     },
     "scope": {
         "title": "Escopo",
@@ -3499,11 +3499,11 @@
         },
         "profiles": {
           "label": "Cargos",
-          "sub": "com matriz de competências"
+          "sub": "matrizes novas + adaptadas"
         },
         "collaborators": {
           "label": "Pessoas na base",
-          "sub": "total do contrato"
+          "sub": "100% entra no cálculo"
         },
         "period": {
           "label": "Parcelas",
@@ -3583,7 +3583,7 @@
       "setupLine": "Setup × {clusters} cluster{clusters, plural, one {} other {s}} ({profiles} perfis cada, {method})",
       "tagging": "Tagging conteúdos (1× total)",
       "oneTimeTag": "(1×)",
-      "basis": "Base: implantação (1×) + {cycles} ciclo(s) de 14 sem · 12 meses",
+      "basis": "Base: implantação (1×) + {cycles} ciclo(s) de {weeks} sem · {installments} parcelas",
       "mentorLine": "Mentor IA × {count} colab{count, plural, one {} other {s}} (USD {value} cada)",
       "totalUsd": "Total USD",
       "exchangeLine": "× {value} (cotação)"
@@ -3593,14 +3593,14 @@
         "items": [
           "O contrato é vendido pelo PROJETO: o preço vem do escopo (pessoas × ciclos + matrizes + implantação). As parcelas dividem esse valor — não o multiplicam.",
           "Ciclo = um programa completo da jornada escolhida. Dois ciclos entregam o dobro e custam o dobro; por isso valem o dobro.",
-          "Adesão orçada: só quem entra na trilha consome IA e mensagens. Com preço fechado, adesão baixa é margem melhor e entrega pior — orce em 100%.",
-          "Matriz nova consome horas e IA; adaptada consome menos; reusada do catálogo canônico não custa nem é cobrada.",
+          "A base inteira entra no custo de IA e mensagens: o orçamento trabalha sempre com adesão de 100%.",
+          "Matriz nova consome mais horas; todo cargo restante é calculado automaticamente como matriz adaptada.",
           "Unidade = escola ou filial. Afeta implantação e PPP, não o preço da matriz — a mesma matriz serve todas.",
           "Votação roda o fluxo de IA completo. Workshop pula IA1+IA2 e consome horas de consultoria por unidade.",
           "Custo cheio = IA (no preset escolhido) + horas de gente + mensagens de WhatsApp + infra rateada. A margem é sobre ele.",
-          "Mensagem em UTILITY custa cerca de R$ 0,09. Reclassificada como MARKETING pela Meta, custa 6× isso — já aconteceu com 4 de 8 templates.",
+          "Mensagem UTILITY parte de R$ 0,035. Se a Meta a reclassificar como MARKETING, use o cenário de segurança de 6×.",
           "O desconto máximo sai da margem-alvo. Acima dele, o orçamento precisa de aprovação antes de virar proposta.",
-          "Exposição = recebido menos entregue, mês a mês. Preço fechado pago em parcelas afunda o caixa no começo, e mais parcelas afundam mais.",
+          "Exposição = recebido menos entregue, parcela a parcela. O orçamento calcula duas parcelas por ciclo contratado.",
           "A tabela de preços é editável nesta tela e não fica registrada. Confira os valores antes de fechar uma proposta."
         ]
       }

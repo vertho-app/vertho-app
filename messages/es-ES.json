@@ -3554,17 +3554,17 @@
     "title": "Precios comerciales",
     "subtitle": "Convierte el alcance en precio, margen, descuento seguro y riesgo de caja — todo en BRL.",
     "content": {
-      "title": "Generación de Contenido (por colaborador)",
-      "hint": "Cada colaborador recibe N piezas por formato. El reúso divide el coste: nº de colaboradores que comparten cada pieza (1 = contenido único por colaborador). Vídeo y podcast incluyen medios (TTS y render Veo).",
-      "video": "Vídeos/colab",
-      "podcast": "Podcasts/colab",
-      "text": "Textos/colab",
+      "title": "Generación de contenido (por colaborador y ciclo)",
+      "hint": "El estándar es de 48 piezas por colaborador/ciclo: 12 vídeos, 12 podcasts, 12 textos y 12 estudios de caso. El vídeo usa el pipeline Módulo Base + avatar + Remotion; el reúso se calcula por celda de puesto y perfil DISC.",
+      "video": "Vídeos",
+      "podcast": "Podcasts",
+      "text": "Textos",
+      "case": "Estudios de caso",
       "reuse": "Reúso (colabs/pieza)",
-      "reuseHint": "1 = único por colab",
-      "videoRenderUsd": "Render vídeo (USD)",
-      "videoRenderHint": "5 min 1080p · Veo Fast ($36)",
-      "perColab": "Por colaborador",
-      "total": "Total contenido"
+      "reuseHint": "personas ÷ puestos ÷ 4 perfiles DISC",
+      "perColab": "Por colab/ciclo",
+      "total": "Por ciclo",
+      "contractTotal": "Total del contrato"
     },
     "scope": {
         "title": "Alcance",
@@ -3574,11 +3574,11 @@
         },
         "profiles": {
           "label": "Puestos",
-          "sub": "con matriz de competencias"
+          "sub": "matrices nuevas + adaptadas"
         },
         "collaborators": {
           "label": "Personas",
-          "sub": "total del contrato"
+          "sub": "100% entra en el cálculo"
         },
         "period": {
           "label": "Cuotas",
@@ -3658,7 +3658,7 @@
       "setupLine": "Setup × {clusters} cluster{clusters, plural, one {} other {s}} ({profiles} perfis cada, {method})",
       "tagging": "Tagging conteúdos (1× total)",
       "oneTimeTag": "(1×)",
-      "basis": "Base: implantación (1×) + {cycles} ciclo(s) de 14 sem · 12 meses",
+      "basis": "Base: implantación (1×) + {cycles} ciclo(s) de {weeks} sem · {installments} cuotas",
       "mentorLine": "Mentor IA × {count} colab{count, plural, one {} other {s}} (USD {value} cada)",
       "totalUsd": "Total USD",
       "exchangeLine": "× {value} (cotação)"
@@ -3668,14 +3668,14 @@
         "items": [
           "El contrato se vende por PROYECTO: el precio sale del alcance (personas × ciclos + matrices + implantación). Las cuotas dividen ese valor, no lo multiplican.",
           "Un ciclo es un programa completo de la jornada elegida. Dos ciclos entregan el doble y cuestan el doble; por eso valen el doble.",
-          "Adhesión presupuestada: solo quien entra en la trilha consume IA y mensajes. Con precio cerrado, poca adhesión es mejor margen y peor entrega — presupueste al 100%.",
-          "Una matriz nueva consume horas e IA; adaptada consume menos; reutilizada del catálogo canónico no cuesta ni se cobra.",
+          "Toda la base de personas entra en el coste de IA y mensajes: el presupuesto siempre considera una adhesión del 100%.",
+          "Una matriz nueva consume más horas; cada puesto restante se calcula automáticamente como matriz adaptada.",
           "Sede = escuela o sucursal. Afecta a la implantación y al PPP, no al precio de la matriz: la misma matriz sirve a todas.",
           "La votación ejecuta el flujo de IA completo. El taller omite IA1+IA2 y consume horas de consultoría por sede.",
           "Coste total = IA (en el preset elegido) + horas de personas + mensajes de WhatsApp + infraestructura prorrateada. El margen se mide sobre él.",
-          "Un mensaje UTILITY cuesta unos 0,09 R$. Reclasificado como MARKETING por Meta cuesta 6× eso, algo que ya pasó con 4 de 8 plantillas.",
+          "Un mensaje UTILITY parte de 0,035 R$. Si Meta lo reclasifica como MARKETING, use el escenario de seguridad de 6×.",
           "El descuento máximo sale del margen objetivo. Por encima, el presupuesto necesita aprobación antes de convertirse en propuesta.",
-          "Exposición = cobrado menos entregado, mes a mes. Un precio cerrado pagado en cuotas hunde la caja al principio, y más cuotas la hunden más.",
+          "Exposición = cobrado menos entregado, cuota a cuota. El presupuesto calcula dos cuotas por ciclo contratado.",
           "La tabla de precios es editable en esta pantalla y no queda registrada. Revise los valores antes de cerrar una propuesta."
         ]
       }

@@ -3479,17 +3479,17 @@
     "title": "Commercial pricing",
     "subtitle": "Turn scope into price, margin, safe discount and cash exposure — all in BRL.",
     "content": {
-      "title": "Content Generation (per team member)",
-      "hint": "Each team member receives N pieces per format. Reuse divides the cost: how many team members share each piece (1 = unique content per member). Video and podcast include media (TTS and Veo render).",
-      "video": "Videos/member",
-      "podcast": "Podcasts/member",
-      "text": "Texts/member",
+      "title": "Content generation (per team member and cycle)",
+      "hint": "The default is 48 pieces per member/cycle: 12 videos, 12 podcasts, 12 texts and 12 case studies. Video uses the Base Module + avatar + Remotion pipeline; reuse is calculated per role and DISC profile cell.",
+      "video": "Videos",
+      "podcast": "Podcasts",
+      "text": "Texts",
+      "case": "Case studies",
       "reuse": "Reuse (members/piece)",
-      "reuseHint": "1 = unique per member",
-      "videoRenderUsd": "Video render (USD)",
-      "videoRenderHint": "5 min 1080p · Veo Fast ($36)",
-      "perColab": "Per team member",
-      "total": "Content total"
+      "reuseHint": "people ÷ roles ÷ 4 DISC profiles",
+      "perColab": "Per member/cycle",
+      "total": "Per cycle",
+      "contractTotal": "Contract total"
     },
     "scope": {
         "title": "Scope",
@@ -3499,11 +3499,11 @@
         },
         "profiles": {
           "label": "Roles",
-          "sub": "with a competency matrix"
+          "sub": "new + adapted matrices"
         },
         "collaborators": {
           "label": "People",
-          "sub": "total under contract"
+          "sub": "100% included in cost"
         },
         "period": {
           "label": "Installments",
@@ -3583,7 +3583,7 @@
       "setupLine": "Setup × {clusters} cluster{clusters, plural, one {} other {s}} ({profiles} profiles each, {method})",
       "tagging": "Tagging content (1× total)",
       "oneTimeTag": "(1×)",
-      "basis": "Basis: setup (1×) + {cycles} cycle(s) of 14 wks · 12 months",
+      "basis": "Basis: setup (1×) + {cycles} cycle(s) of {weeks} wks · {installments} installments",
       "mentorLine": "AI Mentor × {count} team member{count, plural, one {} other {s}} (USD {value} each)",
       "totalUsd": "Total USD",
       "exchangeLine": "× {value} (quote)"
@@ -3593,14 +3593,14 @@
         "items": [
           "The contract is sold as a PROJECT: price comes from scope (people × cycles + matrices + onboarding). Installments split that value — they do not multiply it.",
           "A cycle is one complete run of the chosen journey. Two cycles deliver twice as much and cost twice as much, so they are worth twice as much.",
-          "Budgeted adoption: only people who start the journey consume AI and messages. At a fixed price, low adoption means better margin and worse delivery — budget at 100%.",
-          "A new matrix costs hours and AI; an adapted one costs less; one reused from the canonical catalog costs nothing and is not charged.",
+          "The full people base enters AI and messaging cost: the budget always assumes 100% adoption.",
+          "A new matrix uses more hours; every remaining role is automatically calculated as an adapted matrix.",
           "A site is a school or branch. It drives onboarding and PPP, not the matrix price — the same matrix serves all of them.",
           "Voting runs the full AI flow. A workshop skips IA1+IA2 and consumes consulting hours per site.",
           "Full cost = AI (at the chosen preset) + people hours + WhatsApp messages + shared infrastructure. Margin is measured against it.",
-          "A UTILITY message costs about R$ 0.09. Reclassified as MARKETING by Meta it costs 6× that — which already happened to 4 of 8 templates.",
+          "A UTILITY message starts at R$ 0.035. If Meta reclassifies it as MARKETING, use the 6× safety scenario.",
           "The discount ceiling comes from the target margin. Past it, the quote needs approval before it becomes a proposal.",
-          "Exposure is cash received minus cost delivered, month by month. A fixed price paid in installments goes negative early, and more installments go deeper.",
+          "Exposure is cash received minus cost delivered, installment by installment. The budget calculates two installments per contracted cycle.",
           "The price table is editable on this screen and is not recorded. Check the values before closing a proposal."
         ]
       }
