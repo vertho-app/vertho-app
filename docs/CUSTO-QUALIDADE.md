@@ -2286,20 +2286,32 @@ contra 0,132 no síncrono (n=232); `blueprint_gerar` 0,074 (n=45) contra 0,143
 (n=175). Migrar metade do volume síncrono das duas vale ~US$ 14/mês sem tocar em
 prompt ou modelo. Falta descobrir por que o operador escolhe "Agora".
 
-**🔴 O Copiloto roda num modelo que o código não escolheu.** `lib/ai-tasks.ts:193`
-declara `gpt-5.6-terra` (US$ 2/12), mas **75 de 75 chamadas** de
-`copiloto_pesquisa_*` em 60 dias saíram em `gpt-5.5` (US$ 5/30), com
-`requested_model` **nulo** — ninguém pediu isso no call-site. US$ 30,37 em 60 dias,
-o maior custo unitário da conta (US$ 0,42/chamada). O caminho é
-`actions/ai-client.ts:474`: `options.model || process.env.OPENAI_WEB_SEARCH_MODEL
-|| DEFAULT_COPILOTO_RESEARCH_MODEL`. A env não está no `.env.local`, só na Vercel;
-`vercel env ls` travou na sessão, então **a env em si não foi lida** — a inferência
-vem do ledger mais o único caminho possível no código. Conferir com
-`vercel env ls production | grep OPENAI_WEB_SEARCH_MODEL`.
+**🔴 CORRIGIDO NO MESMO DIA — e o erro vale mais que o achado.** A primeira versão
+desta seção dizia: "o Copiloto roda num modelo que o código não escolheu";
+`lib/ai-tasks.ts:193` declara `gpt-5.6-terra` (US$ 2/12), mas **75 de 75 chamadas**
+de `copiloto_pesquisa_*` saíram em `gpt-5.5` (US$ 5/30) com `requested_model`
+**nulo**, logo seria a env `OPENAI_WEB_SEARCH_MODEL` (`actions/ai-client.ts:474`)
+vencendo o código. **Isso está errado.**
 
-⚠️ O comentário em `lib/ai-tasks.ts:211` chama essa env de
-`COPILOTO_RESEARCH_MODEL`, nome que **não existe no código**. Quem for corrigir
-procurando por ele não acha nada e conclui que não há env.
+`git show 269fc845^:lib/ai-tasks.ts` mostra `copiloto_pesquisa_empresa: 'gpt-5.5'`
+**hardcoded** em `DEFAULT_TASK_MODELS`. O commit que trocou para Terra é
+`269fc845`, de **10/09/2026 20:25**, e a última chamada em `gpt-5.5` no ledger é de
+**09/09**. Não havia env nenhuma sobrescrevendo: o ledger reflete o código **da
+época**, e o código mudou depois.
+
+🔑 O dado que desmentia a hipótese estava na mesma query que a levantou — a coluna
+`max(created_at)` dizia 09/09. Comparei o ledger com o código de HOJE e li a
+diferença como conflito de precedência, quando era **defasagem temporal**. Regra
+que fica: ao explicar por que o ledger mostra um modelo que o código não declara,
+**cruzar a data da última chamada com `git log -S` do arquivo antes de culpar env**.
+O código tem histórico; o ledger é um registro do passado, não do estado atual.
+
+**E a causa do custo também não era o preço do token.** Metade da conta do Copiloto
+é `web_search_call` a US$ 0,01 (`OPENAI_WEB_SEARCH_USD_PER_CALL`,
+`lib/ia-cost-catalog.ts:157`), e quem decide o número de buscas é o **modelo**: o
+5.5 fazia ~24 por chamada, o Terra faz 4-5, daí os **−68%** reais. Eu havia
+projetado o ganho pela razão de preço por token (US$ 5/30 → 2/12), que é a parte
+menor. Detalhe na memória `project_copiloto_custo_busca_web`.
 
 ### O instrumento mentiu antes de medir
 
@@ -2314,3 +2326,85 @@ as 108 direto teria gasto os US$ 10,49 para provar nada. O script agora conta
 zero descritor. Regra que fica: **antes de rodar o experimento caro, rodar 1 caso e
 conferir se a métrica de qualidade se move** — métrica travada num valor constante
 parece consenso.
+
+## 12/09/2026 — o custo do Copiloto é BUSCA, não modelo
+
+A tela de custo por chamada mostrava as 6 tarefas mais caras da plataforma, e 5
+eram do Copiloto. A leitura óbvia ("o Copiloto é caro") está errada: **são as 6
+únicas tarefas que fazem busca na web**, e ele é o único módulo que busca.
+
+### A parcela que a estimativa não enxerga
+
+A Responses API cobra a busca **separadamente**: US$ 0,01 por `web_search_call`
+(`OPENAI_WEB_SEARCH_USD_PER_CALL`, `lib/ia-cost-catalog.ts`). `Medido:` ledger de
+28/08 a 09/09, tudo em `gpt-5.5`:
+
+| tarefa | US$ tokens | US$ busca | US$ real | buscas/chamada | in/chamada |
+|---|---|---|---|---|---|
+| `copiloto_pesquisa_empresa` | 6,04 | **4,91** | 10,94 | 22,3 | 27.691 |
+| `copiloto_pesquisa_noticias_externas` | 5,04 | **5,32** | 10,36 | 24,2 | 32.418 |
+| `copiloto_pesquisa_social_oficial` | 2,64 | **2,51** | 5,14 | 13,2 | 17.083 |
+| `copiloto_pesquisa_pessoas` | 1,00 | **1,21** | 2,20 | 24,1 | 33.253 |
+| `copiloto_pesquisa_pessoa` | 0,79 | **0,95** | 1,73 | 13,6 | 18.433 |
+
+Metade da conta é a ferramenta, não o modelo — e é exatamente isso que a coluna
+"est." da tela acusa com 1,7× a 2,1×: ela projeta só tokens, então não erra por
+pouco, ignora uma parcela inteira.
+
+A busca cobra **duas vezes**: a taxa, e os tokens do conteúdo das páginas que ela
+injeta na entrada. O prompt enviado tem 1.367 caracteres e a entrada chega a 33
+mil tokens. Entrada gigante em tarefa de busca não é prompt inchado.
+
+**Um planejamento custava US$ 1,76** (22 planejamentos = US$ 38,70; a pesquisa é
+79% disso). O resto da plataforma somou US$ 473,86 no mesmo período.
+
+### Quem decide quantas buscas é o MODELO, e isso pesa mais que o preço do token
+
+`Medido:` n=3 por braço, prompt de produção (`newsResearchPrompt`, Ford Slaviero):
+
+| braço | buscas | US$ médio | faixa entre execuções | fatos |
+|---|---|---|---|---|
+| `gpt-5.6-terra` como está | 4-5 | **0,1513** | 0,1397-0,1731 | 7, 7, 7 |
+| Terra + `max_tool_calls:4` + `search_context_size:'low'` | 4-5 | 0,1472 | 0,1376-0,1536 | 5, 5, 6 |
+| `gpt-5.5` (do ledger) | 24,2 | 0,4708 | — | — |
+
+🔴 **Teto de buscas: REPROVADO, não tentar de novo.** `max_tool_calls: 4` foi
+**desrespeitado** (5 buscas em 2 das 3 rodadas); a economia de 2,7% cai **dentro
+do ruído** (o braço sem teto varia 24% entre execuções idênticas); e a qualidade
+piorou de forma consistente, 7 fatos nas três rodadas contra 5, 5 e 6.
+`search_context_size: 'low'` não reduziu a entrada.
+
+⚠️ Com **n=1 o resultado sai invertido** ("o teto encarece", porque aquela
+execução fez 5 buscas contra 4) — o mesmo erro que a régua de variância do
+projeto já documenta.
+
+**A troca de modelo resolveu o que o teto não resolveria: −68% na trilha de
+notícias** (0,4708 → 0,1513, commit `269fc845` de 10/09). A razão principal não é
+o preço do token ($5/$30 → $2/$12): é o Terra fazer **4-5 buscas onde o 5.5 fazia
+24,2**. A parcela de ferramenta caiu de US$ 0,242 para ~US$ 0,045 por chamada.
+`Projeção (não medida):` se as outras quatro trilhas seguirem a proporção, o
+planejamento vai de US$ 1,76 para ~US$ 0,55.
+
+### Os dois alternativos testados
+
+- **Muse Spark 1.3** (`api.meta.ai`, $1,25/$4,25): **não tem busca** —
+  `tools:[{type:'web_search'}]` devolve `400 tools[0] did not match any supported
+  type`. Sem busca ele responde de memória e **inventou** o CEO da empresa,
+  citando o site dela como fonte; noutra chamada gastou 500 tokens (497 de
+  raciocínio) e devolveu texto vazio.
+- **Gemini 3.8 Flash** (`google_search`, $0,75/$3,75): **busca bem**, 4 a 6
+  consultas no prompt real, e acertou o CEO. 🔑 Mas **busca e saída estruturada
+  são excludentes nele**: com `responseMimeType:'application/json'`, ou pedindo
+  "responda SOMENTE o JSON", faz **0 buscas em 3 de 3** e **inventa** os fatos,
+  devolvendo um JSON bem-formado e falso. Com busca ligada, responde em markdown.
+  Seria viável em duas chamadas (pesquisar + estruturar) a ~US$ 0,04 contra US$
+  0,15 do Terra; **não adotado** — mais um caminho para falhar em cima de um custo
+  que acabou de cair 68%.
+
+### O que observar
+
+O fallback da pesquisa é `gpt-5.6-sol` ($4/$20, quase o preço do 5.5): linha em
+`gpt-5.6-sol` no ledger significa que o Terra está estourando o orçamento de tempo
+e comendo a economia. E confirmar se as outras quatro trilhas caíram na mesma
+proporção — só a de notícias foi medida.
+

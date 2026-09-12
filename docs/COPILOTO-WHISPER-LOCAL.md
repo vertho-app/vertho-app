@@ -101,6 +101,46 @@ cliente ficou em zero e só a voz do vendedor foi transcrita. O sintoma não é 
 transcrição: o servidor trata os dois canais com o mesmo detector e o mesmo
 limiar.
 
+### 🔴 Tela inteira também vem muda quando o Windows tem duas saídas
+
+`Medido: 11/09/2026` — mesma reunião, agora com **tela inteira e a caixa de áudio
+marcada**, e o canal do cliente continuou em zero. A causa não está no navegador:
+o Windows mantém **dois** dispositivos de saída padrão ao mesmo tempo, o
+**Padrão** (`eConsole`/`eMultimedia`) e o **de Comunicação** (`eCommunications`).
+Teams, Zoom e Meet em aplicativo mandam a voz do outro lado para o de
+**comunicação**; o Chrome, ao capturar `monitor`, grava o loopback do **Padrão**.
+Na máquina medida eram aparelhos diferentes — Padrão nos "Alto-falantes
+(Realtek(R) Audio)", Comunicação nos "Fones de ouvido (Realtek(R) Audio)".
+
+A captura funciona perfeitamente e grava silêncio: a faixa de áudio existe, o
+compartilhamento está ativo, e nenhum erro aparece em lugar nenhum. ⚠️ A janela
+"Som" do Windows **não distingue os dois papéis** a olho nu — ela rotula o
+aparelho apenas como "Dispositivo Padrão", então a captura de tela dela não serve
+de prova. Quem responde é o Core Audio
+(`IMMDeviceEnumerator::GetDefaultAudioEndpoint`, roles 0/1/2).
+
+**Conserto:** Som › Mais configurações de som › Reprodução › botão direito no
+aparelho da reunião › marcar **as duas** opções, "Definir como dispositivo
+padrão" E "Definir como dispositivo de comunicação padrão". Ou entrar pelo
+navegador e compartilhar a **aba**, que não passa pelo som do Windows.
+
+⚠️ **A divergência volta sozinha**: fone Bluetooth que conecta, ou caixa de som
+que liga, costuma ser promovido a padrão pelo Windows sem ninguém pedir.
+
+O produto passou a detectar isso em `lib/copiloto/saida-de-audio.ts`
+(`divergenciaDeSaida`), comparando os rótulos de `enumerateDevices()` nos
+`deviceId` `'default'` e `'communications'` — descontando o prefixo traduzido do
+Chrome ("Padrão - ", "Communications - "), sem o que dois nomes iguais parecem
+diferentes. Três decisões deliberadas: **avisa e nunca barra** (quem apontou o
+aplicativo para o dispositivo padrão na mão tem captura que funciona); **cala** se
+o som do cliente chegar assim mesmo; e **na dúvida não acusa** (rótulo vazio sem
+permissão de microfone, ausência do endpoint de comunicação em macOS/Linux, ou
+mesmo aparelho). O aviso sai no instante em que a captura abre, e não após os 10 s
+do diagnóstico de saúde, porque esperar custaria os primeiros minutos da reunião.
+
+O remédio que a tela dava antes — "recompartilhe marcando a caixa de áudio" —
+mandava repetir exatamente o passo que tinha falhado.
+
 🔑 **Com Teams ou Meet, entrar pelo navegador é o caminho mais simples**: a
 reunião vira uma aba, você compartilha só ela com o áudio da guia, e não precisa
 da tela inteira nem da barra de compartilhamento à mostra.

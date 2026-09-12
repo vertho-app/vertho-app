@@ -734,6 +734,30 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   uma trilha enquanto a tela lia outra. ⚠️ A 1ª versão da trava de fidelidade contava tokens da
   transcrição e reprovaria take BOM: o Whisper alucina repetição no fim do arquivo — quatro palavras
   em 60 ms que a onda mostra não existirem. Detalhe: `docs/FMEA-PIPELINE.md` §F-I34.
+- NÃO escrever régua de ORDENAÇÃO que mede só a FORMA do item (tem o campo escrito? tem link? é
+  recente? é longo?) quando o que decide é o ASSUNTO. Sem um termo que meça conteúdo, itens
+  incomparáveis empatam e o desempate cai numa proxy fraca — e o 1º item é o que a UI mostra e o
+  prompt cita. Medido 09/09: no planejamento da Ford Slaviero a frase de abertura sugerida ao
+  vendedor saiu de uma **nota fiscal de manutenção de um veículo (R$ 1.912)**, enquanto a matéria
+  sobre *"treinamento técnico dos colaboradores"* ficou em terceiro; os dois empatavam nos quatro
+  critérios formais e **2 pontos de recência** decidiram. 🔑 A prova cabe num comando: **troque UMA
+  variável e veja se a ordem inverte** (trocar só a data de publicação invertia). Três corolários:
+  termo ambíguo fica FORA do vocabulário ("contratação" é admitir gente ou comprar de fornecedor);
+  penalidade só se aplica na AUSÊNCIA de sinal positivo (senão licitação *de treinamento* é punida
+  por citar valor); e a fronteira entre dois termos do score vira `it()` próprio, em vez de emergir
+  dos pesos. ⚠️ Régua nova faz teste antigo passar pelo motivo errado — grepe os fixtures vizinhos
+  (um `it` que provava "a implicação decide" citava "Gestor novo…", e "gestor" virou termo de tema).
+- NÃO estimar custo de tarefa que usa FERRAMENTA (busca web) somando só tokens: a Responses API cobra
+  **US$ 0,01 por `web_search_call`** à parte, e quem decide quantas buscas fazer é o MODELO. Medido
+  12/09: metade da conta das 5 pesquisas do Copiloto era ferramenta, e a troca de `gpt-5.5` para
+  `gpt-5.6-terra` derrubou a trilha de notícias **68%** — não pelo preço do token, mas porque o Terra
+  faz **4-5 buscas onde o 5.5 fazia 24,2**. `max_tool_calls` foi medido e **REPROVADO** (desrespeitado,
+  economia dentro do ruído, −2 fatos). `docs/CUSTO-QUALIDADE.md` §12/09 "o custo do Copiloto é BUSCA".
+- NÃO concluir "env sobrescreveu o modelo" a partir do ledger sem ler o CÓDIGO NA DATA daquelas
+  chamadas (`git show <ref>^:<arquivo>`). Medido 12/09: 75 de 75 chamadas em `gpt-5.5` contra um
+  default de `gpt-5.6-terra` pareciam env fantasma, e eram só o hardcoded da época — o commit que
+  trocou é de dois dias antes e **nenhuma** das duas envs existe em produção. Ledger é histórico;
+  código no `HEAD` é presente.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
