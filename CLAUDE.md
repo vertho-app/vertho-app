@@ -749,15 +749,15 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   (um `it` que provava "a implicação decide" citava "Gestor novo…", e "gestor" virou termo de tema).
 - NÃO estimar custo de tarefa que usa FERRAMENTA (busca web) somando só tokens: a Responses API cobra
   **US$ 0,01 por `web_search_call`** à parte, e quem decide quantas buscas fazer é o MODELO. Medido
-  12/09: metade da conta das 5 pesquisas do Copiloto era ferramenta, e a troca de `gpt-5.5` para
-  `gpt-5.6-terra` derrubou a trilha de notícias **68%** — não pelo preço do token, mas porque o Terra
-  faz **4-5 buscas onde o 5.5 fazia 24,2**. `max_tool_calls` foi medido e **REPROVADO** (desrespeitado,
+  12/09: metade da conta das 5 pesquisas do Copiloto era ferramenta, e trocar o modelo de pesquisa
+  (o par em `lib/ai-tasks.ts`) derrubou a trilha de notícias **68%** — não pelo preço do token, mas
+  porque o modelo novo faz **4-5 buscas onde o anterior fazia 24,2**. `max_tool_calls` foi medido e **REPROVADO** (desrespeitado,
   economia dentro do ruído, −2 fatos). `docs/CUSTO-QUALIDADE.md` §12/09 "o custo do Copiloto é BUSCA".
 - NÃO concluir "env sobrescreveu o modelo" a partir do ledger sem ler o CÓDIGO NA DATA daquelas
-  chamadas (`git show <ref>^:<arquivo>`). Medido 12/09: 75 de 75 chamadas em `gpt-5.5` contra um
-  default de `gpt-5.6-terra` pareciam env fantasma, e eram só o hardcoded da época — o commit que
-  trocou é de dois dias antes e **nenhuma** das duas envs existe em produção. Ledger é histórico;
-  código no `HEAD` é presente.
+  chamadas (`git show <ref>^:<arquivo>`). Medido 12/09: 75 de 75 chamadas do Copiloto num modelo que
+  **não** era o default declarado em `lib/ai-tasks.ts` pareciam env fantasma, e eram só o id
+  hardcoded da época — o commit que trocou é de dois dias antes, e **nenhuma** das duas envs desse
+  caminho existe em produção. Ledger é histórico; código no `HEAD` é presente.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
