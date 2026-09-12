@@ -2025,3 +2025,75 @@ registros aparece DUAS vezes em `admin_audit_log`, uma delas como `ok` com o
 erro escondido em `detalhes`. Quem filtrar por `resultado = 'ok'` conta o dia em
 que o ambiente ficou sem relatórios como um dia bem-sucedido. Hoje só o `catch`
 audita falha.
+
+### F-I34 · O pipeline de tutorial não comparava ROTEIRO com FALA, tendo os dois na mão 🔴 (fechado 11/09/2026)
+
+**Gatilho:** `video-spike/tutorial/align.mts` — o corte fatiava o take pelos
+timestamps do Whisper e nunca perguntava se o take dizia o que estava escrito.
+`video-spike/remotion-tutorial/TutorialComposition.tsx` — o ramo `kind === 'cartela'`
+dava `return` antes do bloco de legenda.
+
+**Status:** já observado. Quatro defeitos numa rodada, **todos achados pelo dono
+assistindo** — nenhum por teste, guard ou log.
+
+**O que aconteceu.** Quatro camadas mediam coisas diferentes e nenhuma media a
+entrega:
+
+| defeito | a camada que deveria pegar | por que não pegou |
+|---|---|---|
+| voz diz "do jeito certo", legenda diz "do seu jeito" | portão de TTS | ele mede VOZ (registro, inclinação, timbre), não PALAVRA |
+| 1º e último beat de TODO tutorial sem legenda | render | o ramo da cartela devolvia antes; os 7 flows abrem E fecham em cartela |
+| modal do próprio tutorial cobrindo as 4 capturas do PDI | guard de captura | ele pergunta se o alvo EXISTE, e existia — atrás do modal |
+| narração promete vídeo, tela mostra 3 formatos | guard de captura | os chips viraram `<button>`; o seletor `a[href*="/api/conteudo"]` casava ZERO, e tudo ali tolerava zero |
+
+🔑 A raiz comum: **cada peça verificava o próprio contrato, e o produto é a
+composição.** `alignSteps` chegava perto — mede a COBERTURA do roteiro, com
+limiar de 96% — mas olha um lado só: num roteiro de 205 palavras, 96% tolera 8
+trocadas, e o "seu" que virou "certo" custou 1.
+
+**Correção (11/09).**
+- **Fidelidade texto × fala** no `align`: reporta, COM CONTEXTO, toda palavra de
+  conteúdo do roteiro que não foi dita, e lança quando o take continua falando
+  mais de 0,6 s depois da última palavra do roteiro. A medida do "continua
+  falando" é do ÁUDIO, não da transcrição — ver a armadilha abaixo.
+- **Legenda** virou componente `<Legenda>` com dois chamadores.
+- **Oclusão** (`capture-pdi.mts::conferirVisivel`): `elementFromPoint` no centro
+  do alvo; se o que está lá não é o alvo nem parente/filho, lança com o texto do
+  intruso.
+- **Chips** por PAPEL + nome acessível, exigindo os 4 e esperando o de vídeo, que
+  chega tarde (vem de `resolverVideoDaSemana`, server action num `useEffect`).
+
+**⚠️ A trava nasceu sobre o relato do instrumento e reprovaria take BOM.** A 1ª
+versão contava tokens da transcrição depois do fim do roteiro, porque o Whisper
+reportava "Tchau, tchau! Tchau, tchau!" no fim de dois takes. A onda mostra que
+**não existe tchau nenhum**: a fala termina e vira silêncio (74,71 s e 77,90 s),
+e são quatro palavras carimbadas em 60 ms — alucinação de repetição no fim de
+arquivo, modo de falha conhecido do Whisper. Confirme o defeito no SINAL antes de
+travar em cima do relato.
+
+**Dois modos silenciosos achados no conserto, ambos de artefato:**
+
+1. **Fatia MUDA.** A rampa de 25 ms nas bordas nasceu com `-ss` DEPOIS do `-i` —
+   seek de saída, que o ffmpeg aplica *depois* do grafo de filtros. O `afade` viu
+   o take inteiro desde 0 e zerou tudo o que vinha depois. **11 das 12 fatias do
+   `disc` a −180 dB**, e nem o ffmpeg, nem o `align`, nem o `build` reclamaram:
+   dois vídeos renderizados inteiros com voz só no primeiro beat. Hoje cada fatia
+   é decodificada depois de cortada e abaixo de −60 dB lança.
+2. **Captura resolvendo colaborador por e-mail SEM tenant.** `bruna.demo@vertho.ai`
+   passou a existir em `acme-demo` **e** em `gruposinal`, e o `order by criado_em
+   desc limit 1` devolvia a trilha do outro tenant: o script semeava uma e a tela,
+   que resolve pelo HOST, lia outra — com `rowCount 1` nos dois lados. O beat
+   "Semana concluída" gravou a tela dizendo "Evidências · 1 de 6 respostas". É a
+   regra que o `CLAUDE.md` já cobra do app (`findColabByEmail`), que os scripts de
+   captura não seguiam.
+
+**Corte de áudio: no VALE da onda, não no carimbo do ASR.** A conta antiga era o
+MEIO entre o fim de uma etapa e o começo da seguinte pelos timestamps do Whisper,
+e ela só funciona quando existe pausa. `Medido 11/09` nas 34 fronteiras dos 5
+flows: uma caía a **−18,0 dB**, em cima da voz (o dono ouviu a fala engasgar), e
+o `end` do Whisper é sistematicamente ADIANTADO. Procurando o ponto mais
+silencioso numa janela assimétrica (−60 ms, +300 ms), 33 passaram a cair em
+silêncio real (≤ −69 dB). A que resistiu não tinha vale nenhum — a voz emendava
+duas frases sem respirar — e o conserto foi **editorial**: mover a frase-ponte
+para o beat de cima, o que põe o corte num silêncio de 340 ms. Resultado medido
+no vídeo final: **−75,4 dB**.

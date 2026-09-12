@@ -722,6 +722,18 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   Campo novo não diverge de nada, então nada acusa: analogia vira régua
   plausível e o comentário ao lado a disfarça de decisão tomada. Sem fonte (dono,
   doc, valor em uso), deixe vazio e diga que está vazio.
+- NÃO entregar mídia (vídeo, áudio, tela) sem MEDIR o artefato produzido, e não construir a trava
+  sobre o RELATO de um instrumento sem antes confirmar o defeito no sinal bruto. Medido 11/09/2026
+  no pipeline de tutorial: quatro defeitos numa rodada, **todos achados pelo dono assistindo** — o
+  1º e o último beat de TODO tutorial saindo sem legenda, um modal cobrindo as 4 capturas do PDI
+  (o guard perguntava se o alvo EXISTE, e existia atrás dele), a narração prometendo um formato que
+  a tela não mostrava, e a voz dizendo "do jeito certo" onde a legenda dizia "do seu jeito" — esta
+  última porque **nada no pipeline comparava roteiro com fala**, tendo os dois na mão. E no conserto,
+  dois modos silenciosos: `-ss` DEPOIS do `-i` faz o `-af` ver o arquivo INTEIRO (11 de 12 fatias a
+  −180 dB, sem erro em lugar nenhum) e a captura resolvia colaborador por e-mail SEM tenant, semeando
+  uma trilha enquanto a tela lia outra. ⚠️ A 1ª versão da trava de fidelidade contava tokens da
+  transcrição e reprovaria take BOM: o Whisper alucina repetição no fim do arquivo — quatro palavras
+  em 60 ms que a onda mostra não existirem. Detalhe: `docs/FMEA-PIPELINE.md` §F-I34.
 - NÃO trabalho pós-response sem `after()`.
 - NÃO decidir auth no cliente com `getSession()` — é `getUser()`.
 - NÃO enviar comunicação real de tenant de demo.
