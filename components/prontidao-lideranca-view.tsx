@@ -176,12 +176,25 @@ function Parecer({ p, corte, exportar }: { p: any; corte: number; exportar?: (id
   );
 }
 
-export default function ProntidaoLiderancaView({ carregar, parecer, exportarParecer, scopeKey = 'default' }: {
+export default function ProntidaoLiderancaView({ carregar, parecer, exportarParecer, exportarConsolidado, scopeKey = 'default' }: {
   carregar: () => Promise<Resultado>;
   parecer: (colaboradorId: string) => Promise<Resultado>;
   exportarParecer?: (colaboradorId: string) => Promise<{ success: boolean; url?: string; error?: string }>;
+  exportarConsolidado?: () => Promise<{ success: boolean; url?: string; error?: string }>;
   scopeKey?: string;
 }) {
+  const [consolidando, setConsolidando] = useState(false);
+  const [consolidadoUrl, setConsolidadoUrl] = useState('');
+  const [erroConsolidado, setErroConsolidado] = useState('');
+  async function gerarConsolidado() {
+    if (!exportarConsolidado) return;
+    setConsolidando(true); setErroConsolidado(''); setConsolidadoUrl('');
+    try {
+      const r = await exportarConsolidado();
+      if (r.success && r.url) setConsolidadoUrl(r.url); else setErroConsolidado(r.error || 'Falha ao gerar o PDF.');
+    } catch { setErroConsolidado('Falha ao gerar o PDF.'); }
+    setConsolidando(false);
+  }
   const [data, setData] = useState<any>(null);
   const [erro, setErro] = useState('');
   const [code, setCode] = useState('');
@@ -250,6 +263,18 @@ export default function ProntidaoLiderancaView({ carregar, parecer, exportarPare
             {data.competencias.map((c: string) => <span key={c} className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-gray-300">{c}</span>)}
           </div>
         </div>
+        {exportarConsolidado && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {consolidadoUrl ? (
+              <a href={consolidadoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-brand-400/40 px-3 py-1.5 text-xs font-bold text-brand-300 hover:bg-brand-400/10"><FileText size={12} /> Abrir consolidado (PDF)</a>
+            ) : (
+              <button type="button" onClick={gerarConsolidado} disabled={consolidando} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-1.5 text-xs font-bold text-gray-200 hover:bg-white/5 disabled:opacity-50">
+                {consolidando ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />} Consolidado da equipe em PDF
+              </button>
+            )}
+            {erroConsolidado && <span className="text-xs text-red-300">{erroConsolidado}</span>}
+          </div>
+        )}
         {data.avisos?.length > 0 && (
           <div className="mt-3 rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 space-y-1">
             {data.avisos.map((a: string) => <p key={a} className="text-[11px] text-amber-200 flex items-start gap-1.5"><AlertTriangle size={11} className="mt-0.5 shrink-0" /> {a}</p>)}

@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { PageContainer } from '@/components/page-shell';
 import ProntidaoLiderancaView from '@/components/prontidao-lideranca-view';
 import { requireRoleAction } from '@/lib/auth/action-context';
-import { getProntidaoLideranca, getParecerLideranca } from '@/actions/prontidao-lideranca';
+import { getProntidaoLideranca, getParecerLideranca, exportarParecerPDF, exportarConsolidadoPDF } from '@/actions/prontidao-lideranca';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +17,13 @@ export default async function ProntidaoLiderancaPage() {
 
   return (
     <PageContainer>
-      <ProntidaoLiderancaView scopeKey="rh-session" carregar={getProntidaoLideranca} parecer={getParecerLideranca} />
+      <ProntidaoLiderancaView
+        scopeKey="rh-session"
+        carregar={getProntidaoLideranca}
+        parecer={getParecerLideranca}
+        exportarParecer={exportarParecerPDF}
+        exportarConsolidado={exportarConsolidadoPDF}
+      />
     </PageContainer>
   );
 }

@@ -22,6 +22,7 @@ describe('actions/prontidao-lideranca.ts — gate antes do primeiro await', () =
       'getProntidaoLideranca', 'getParecerLideranca',
       'getProntidaoLiderancaAdmin', 'getParecerLiderancaAdmin',
       'getConfigProntidaoAdmin', 'salvarConfigProntidaoAdmin', 'setModuloProntidaoAdmin', 'getCalibragemAdmin',
+      'exportarParecerPDF', 'exportarParecerPDFAdmin', 'exportarConsolidadoPDF', 'exportarConsolidadoPDFAdmin',
     ]);
   });
 

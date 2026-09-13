@@ -36,25 +36,59 @@ async function ctxRh(): Promise<{ empresaId: string } | { erro: string }> {
   return { empresaId: ctx.empresaId };
 }
 
-async function lerSysConfig(sb: any, empresaId: string): Promise<{ sysConfig: any } | Falha> {
+async function lerSysConfig(sb: any, empresaId: string): Promise<{ sysConfig: any; nome: string } | Falha> {
   // `empresas` não tem coluna empresa_id: sob tenantDb a leitura vai pelo `raw`
   // (o filtro por tenant aqui é o próprio `.eq('id', empresaId)`).
   const base = sb?.raw || sb;
-  const { data, error } = await base.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+  const { data, error } = await base.from('empresas').select('nome, sys_config').eq('id', empresaId).maybeSingle();
   if (error) return { success: false, error: `não foi possível ler a configuração: ${error.message}` };
   if (!data) return { success: false, error: 'Empresa não encontrada.' };
-  return { sysConfig: data.sys_config || {} };
+  return { sysConfig: data.sys_config || {}, nome: data.nome || '' };
 }
 
 /** Módulo contratado + programa configurado, ou a razão de não estar. */
-async function programa(sb: any, empresaId: string): Promise<{ cfg: ConfigProntidaoLideranca; sysConfig: any } | Falha> {
+async function programa(sb: any, empresaId: string): Promise<{ cfg: ConfigProntidaoLideranca; sysConfig: any; nome: string } | Falha> {
   const lido = await lerSysConfig(sb, empresaId);
   if ('error' in lido) return lido;
   const gate = canUseModulo(lido.sysConfig, MODULOS.PRONTIDAO_LIDERANCA);
   if (!gate.allowed) return { success: false, error: gate.message || 'Módulo não contratado.', code: gate.code };
   const cfg = lerConfigProntidao(lido.sysConfig);
   if (!cfg) return { success: false, error: 'O mapeamento de liderança ainda não foi configurado para esta empresa.', code: 'PROGRAMA_NAO_CONFIGURADO' };
-  return { cfg, sysConfig: lido.sysConfig };
+  return { cfg, sysConfig: lido.sysConfig, nome: lido.nome };
+}
+
+/**
+ * Render + Storage + link assinado (molde `_exportarPDF` do ranking). O PDF é
+ * VIEW do que a agregação calculou agora — por isso o nome carrega o instante.
+ */
+async function _exportar(sb: any, empresaId: string, alvo: { tipo: 'parecer'; colaboradorId: string } | { tipo: 'consolidado' }) {
+  try {
+    const p = await programa(sb, empresaId);
+    if ('error' in p) return p;
+    let buffer: Buffer;
+    let sufixo: string;
+    if (alvo.tipo === 'parecer') {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(alvo.colaboradorId)) return { success: false as const, error: 'Colaborador inválido.' };
+      const r = await carregarParecer(sb, empresaId, alvo.colaboradorId, p.cfg);
+      if ('indisponivel' in r) return { success: false as const, error: r.indisponivel, code: 'PARECER_INDISPONIVEL' };
+      const { renderParecerPDF } = await import('@/lib/prontidao-lideranca/parecer-pdf');
+      buffer = await renderParecerPDF({ empresaNome: p.nome, parecer: r, competencias: r.linha.posicao.competencias.map((c) => c.competencia) });
+      sufixo = `parecer-${alvo.colaboradorId}`;
+    } else {
+      const data = await agregarProntidaoLideranca(sb, empresaId, p.cfg);
+      const { renderConsolidadoPDF } = await import('@/lib/prontidao-lideranca/parecer-pdf');
+      buffer = await renderConsolidadoPDF({ empresaNome: p.nome, data });
+      sufixo = 'consolidado';
+    }
+    const path = `final/prontidao-lideranca/${empresaId}-${sufixo}-${Date.now()}.pdf`;
+    const up = await sb.storage.from('conteudos').upload(path, buffer, { contentType: 'application/pdf', upsert: true });
+    if (up.error) return { success: false as const, error: `Falha ao salvar PDF: ${up.error.message}` };
+    const signed = await sb.storage.from('conteudos').createSignedUrl(path, 60 * 30);
+    if (signed.error || !signed.data?.signedUrl) return { success: false as const, error: 'Falha ao gerar link do PDF.' };
+    return { success: true as const, url: signed.data.signedUrl as string };
+  } catch (e: any) {
+    return { success: false as const, error: e?.message || 'Erro ao gerar o PDF.' };
+  }
 }
 
 async function _get(sb: any, empresaId: string) {
@@ -191,4 +225,26 @@ export async function getCalibragemAdmin(empresaId: string) {
   } catch (e: any) {
     return { success: false as const, error: e?.message || 'Erro ao calcular a calibragem.' };
   }
+}
+
+// ── PDF: parecer individual e consolidado da equipe ───────────────────────────
+
+export async function exportarParecerPDF(colaboradorId: string) {
+  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro };
+  return _exportar(tenantDb(g.empresaId), g.empresaId, { tipo: 'parecer', colaboradorId });
+}
+
+export async function exportarParecerPDFAdmin(empresaId: string, colaboradorId: string) {
+  const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'exportarParecerPDFAdmin');
+  return _exportar(sb, empresaId, { tipo: 'parecer', colaboradorId });
+}
+
+export async function exportarConsolidadoPDF() {
+  const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro };
+  return _exportar(tenantDb(g.empresaId), g.empresaId, { tipo: 'consolidado' });
+}
+
+export async function exportarConsolidadoPDFAdmin(empresaId: string) {
+  const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'exportarConsolidadoPDFAdmin');
+  return _exportar(sb, empresaId, { tipo: 'consolidado' });
 }

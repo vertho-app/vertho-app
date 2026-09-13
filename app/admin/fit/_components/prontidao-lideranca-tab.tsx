@@ -15,6 +15,7 @@ import ProntidaoLiderancaView from '@/components/prontidao-lideranca-view';
 import {
   getConfigProntidaoAdmin, salvarConfigProntidaoAdmin, setModuloProntidaoAdmin,
   getProntidaoLiderancaAdmin, getParecerLiderancaAdmin, getCalibragemAdmin,
+  exportarParecerPDFAdmin, exportarConsolidadoPDFAdmin,
 } from '@/actions/prontidao-lideranca';
 import { DEFAULTS_PRONTIDAO, EXEMPLARES_MAX, EXEMPLARES_MIN } from '@/lib/prontidao-lideranca/config';
 
@@ -192,6 +193,8 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
           scopeKey={`${empresaId}:${versao}`}
           carregar={() => getProntidaoLiderancaAdmin(empresaId)}
           parecer={(id) => getParecerLiderancaAdmin(empresaId, id)}
+          exportarParecer={(id) => exportarParecerPDFAdmin(empresaId, id)}
+          exportarConsolidado={() => exportarConsolidadoPDFAdmin(empresaId)}
         />
       )}
 
