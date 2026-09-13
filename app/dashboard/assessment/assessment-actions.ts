@@ -8,6 +8,7 @@ import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { assessmentCompetencyWasAnswered, findAssessmentAnswer } from '@/lib/assessment/completion';
 import { competenciasDaDegustacao, isAssessmentDeDegustacao } from '@/lib/demo/convidado-demo';
+import { resolverTrilhoLideranca, respondeuHojeNoTrilho, trilhoDe, type Trilho } from '@/lib/prontidao-lideranca/trilho';
 
 /**
  * Lista de competências que ESTA pessoa responde — fonte única.
@@ -34,6 +35,39 @@ async function competenciasDoColaborador(
   );
   const degustacao = isAssessmentDeDegustacao(empresaIsDemo, colab.email);
   return { competencias: competenciasDaDegustacao(comCenario, degustacao), degustacao };
+}
+
+/**
+ * As competências do TRILHO pedido — fonte única das duas actions.
+ *
+ * `cargo`: o Top 5 do cargo da pessoa (com o corte da degustação), exatamente
+ * como sempre foi. `lideranca`: o Top 5 do CARGO-ALVO do programa de prontidão
+ * (`lib/prontidao-lideranca/trilho.ts`), com os cenários gerados para ESSE
+ * cargo — é o segundo mapeamento, separado do mapeamento do cargo. A
+ * degustação não tem trilho de liderança.
+ */
+type TrilhoResolvido =
+  | { ok: true; trilho: 'cargo'; competencias: any[]; degustacao: boolean; cargoCenario: string; umPorDia: false; cargoAlvo: null }
+  | { ok: true; trilho: 'lideranca'; competencias: any[]; degustacao: false; cargoCenario: string; umPorDia: boolean; cargoAlvo: string }
+  | { ok: false; error: string; code: string };
+
+async function competenciasDoTrilho(
+  sb: any,
+  colab: { id: string; empresa_id: string; cargo: string; email?: string | null; escola_id?: string | null },
+  empresa: { is_demo?: boolean | null; sys_config?: unknown } | null,
+  trilho: Trilho,
+): Promise<TrilhoResolvido> {
+  if (trilho === 'lideranca') {
+    const r = await resolverTrilhoLideranca(sb, colab, empresa?.sys_config);
+    // `'code' in r`, não `!r.ok`: com strict:false a união não estreita por booleano.
+    if ('code' in r) return { ok: false, error: r.message, code: r.code };
+    const competencias = await resolverTop5ComCenario(
+      sb, colab.empresa_id, r.cargoAlvo, r.competencias, colab.escola_id || null,
+    );
+    return { ok: true, trilho, competencias, degustacao: false, cargoCenario: r.cargoAlvo, umPorDia: r.cfg.um_por_dia, cargoAlvo: r.cargoAlvo };
+  }
+  const { competencias, degustacao } = await competenciasDoColaborador(sb, colab, empresa?.is_demo === true);
+  return { ok: true, trilho: 'cargo', competencias, degustacao, cargoCenario: colab.cargo, umPorDia: false, cargoAlvo: null };
 }
 
 async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string, top5: string[], escolaId: string | null = null) {
@@ -144,16 +178,16 @@ export async function getNomeCompetencia(competenciaId: string) {
  * Regra: 1 competência por dia, seguindo a ordem do Top 5 do cargo.
  * Dedupe diário: se já respondeu hoje, bloqueia até amanhã.
  */
-export async function getDiagnosticoDoDia() {
+export async function getDiagnosticoDoDia(trilho: Trilho = 'cargo') {
   try {
-    return await _getDiagnosticoDoDia();
+    return await _getDiagnosticoDoDia(trilhoDe(trilho));
   } catch (err) {
     console.error('[getDiagnosticoDoDia]', err);
     return { error: err?.message || 'Erro ao carregar diagnóstico' };
   }
 }
 
-async function _getDiagnosticoDoDia() {
+async function _getDiagnosticoDoDia(trilho: Trilho) {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
@@ -171,24 +205,40 @@ async function _getDiagnosticoDoDia() {
   }
 
   const { data: empresaRow, error: empresaErr } = await sb.from('empresas')
-    .select('is_demo')
+    .select('is_demo, sys_config')
     .eq('id', colab.empresa_id)
     .maybeSingle();
   if (empresaErr) return { error: empresaErr.message };
 
-  // Competências desta pessoa (com o corte da degustação, quando for o caso).
-  const { competencias: top5ComCenario, degustacao } = await competenciasDoColaborador(
-    sb, colab as any, empresaRow?.is_demo === true,
-  );
-  if (!top5ComCenario.length) return { error: 'Nenhuma competência configurada para seu cargo' };
+  // Competências do TRILHO pedido (cargo = Top 5 da pessoa, com o corte da
+  // degustação; liderança = Top 5 do cargo-alvo do programa de prontidão).
+  const resolvido = await competenciasDoTrilho(sb, colab as any, empresaRow, trilho);
+  if ('error' in resolvido) return { error: resolvido.error, code: resolvido.code };
+  const { competencias: top5ComCenario, degustacao, cargoCenario, umPorDia, cargoAlvo } = resolvido;
+  if (!top5ComCenario.length) {
+    return { error: trilho === 'lideranca' ? 'Nenhuma competência configurada para o cargo-alvo' : 'Nenhuma competência configurada para seu cargo' };
+  }
   const top5 = top5ComCenario;
+
+  // O trilho do cargo avisa a tela que existe o de liderança (e quanto falta),
+  // para a pessoa encontrar o segundo mapeamento sem link novo. Custa uma
+  // leitura de cargo — e nada quando o módulo não está contratado.
+  let trilhoLideranca: { disponivel: boolean; respondidas: number; total: number } | null = null;
 
   // Respostas já dadas pelo colaborador (filtra por competencia_id — mais confiável)
   const { data: respostas, error: respostasError } = await sb.from('respostas')
-    .select('competencia_id, competencia_nome, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, avaliacao_ia')
+    .select('competencia_id, competencia_nome, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, avaliacao_ia, timestamp_resposta')
     .eq('colaborador_id', colab.id)
     .eq('empresa_id', colab.empresa_id);
   if (respostasError) return { error: respostasError.message };
+
+  if (trilho === 'cargo') {
+    const lid = await competenciasDoTrilho(sb, colab as any, empresaRow, 'lideranca');
+    if (lid.ok && lid.competencias.length) {
+      const respondidasLid = lid.competencias.filter((c: any) => assessmentCompetencyWasAnswered(c, respostas || [])).length;
+      trilhoLideranca = { disponivel: true, respondidas: respondidasLid, total: lid.competencias.length };
+    }
+  }
   // Pega o primeiro do Top 5 que ainda não foi respondido. O ID é a chave
   // preferencial, mas o catálogo pode ser recomposto e receber novos UUIDs
   // preservando o nome. Nesse caso a resposta anterior continua válida.
@@ -200,6 +250,22 @@ async function _getDiagnosticoDoDia() {
   const pct = top5.length > 0 ? Math.round((respondidas / top5.length) * 100) : 0;
 
   const progresso = { pct, total: top5.length, respondidas };
+  const extrasTrilho = { trilho, cargoAlvo, trilhoLideranca };
+
+  // Um cenário por dia SÓ no trilho de liderança (decisão do programa). O
+  // trilho do cargo segue sem limite, como sempre foi. A tela já tem o estado
+  // "já respondeu hoje"; aqui ele volta a ter um caso que o produz.
+  if (trilho === 'lideranca' && umPorDia && pendentes.length && respondeuHojeNoTrilho(respostas || [], top5ComCenario)) {
+    return {
+      colaborador: { id: colab.id, nome: colab.nome_completo, cargo: colab.cargo },
+      progresso,
+      degustacao,
+      concluiuTudo: false,
+      respondeuHoje: true,
+      cenarioDoDia: null,
+      ...extrasTrilho,
+    };
+  }
   // A tela precisa saber que é degustação para encerrar mandando à etapa 02 e
   // explicar que a análise amadurece durante o percurso.
 
@@ -252,9 +318,11 @@ async function _getDiagnosticoDoDia() {
       degustacao,
       concluiuTudo: true,
       resultados,
-      temPdi: (pdiCount || 0) > 0,
+      // O PDI é do mapeamento do CARGO; no trilho de liderança o botão não faz sentido.
+      temPdi: trilho === 'cargo' && (pdiCount || 0) > 0,
       cenarioDoDia: null,
       respondeuHoje: false,
+      ...extrasTrilho,
     };
   }
 
@@ -264,7 +332,7 @@ async function _getDiagnosticoDoDia() {
   let query = sb.from('banco_cenarios')
     .select('id, titulo, descricao, alternativas')
     .eq('empresa_id', colab.empresa_id)
-    .eq('cargo', colab.cargo)
+    .eq('cargo', cargoCenario)
     .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
     .order('created_at', { ascending: false })
     .limit(1);
@@ -289,6 +357,7 @@ async function _getDiagnosticoDoDia() {
     degustacao,
     concluiuTudo: false,
     respondeuHoje: false,
+    ...extrasTrilho,
     proximaCompetencia: proxima.nome,
     cenarioDoDia: {
       cenarioId: cen.id,
@@ -308,16 +377,16 @@ async function _getDiagnosticoDoDia() {
  * Salva a resposta do diagnóstico do dia.
  * Calcula a próxima competência pendente e retorna.
  */
-export async function salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) {
+export async function salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, trilho: Trilho = 'cargo') {
   try {
-    return await _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload);
+    return await _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, trilhoDe(trilho));
   } catch (err) {
     console.error('[salvarRespostaDiagnostico]', err);
     return { error: err?.message || 'Erro ao salvar resposta' };
   }
 }
 
-async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) {
+async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, trilho: Trilho) {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
@@ -335,7 +404,38 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) 
 
   const sb = createSupabaseAdmin();
 
-  // Sem limite diário — o colaborador pode responder quantas competências quiser no mesmo dia
+  const { data: empresaRow, error: empresaErr } = await sb.from('empresas')
+    .select('is_demo, sys_config')
+    .eq('id', colab.empresa_id)
+    .maybeSingle();
+  if (empresaErr) return { error: empresaErr.message };
+
+  // A MESMA lista que a tela usa (por id, não por nome) — resolvida ANTES do
+  // upsert porque, no trilho de liderança, ela é o gate: o compId vem do
+  // browser e precisa pertencer ao trilho; e "um por dia" é regra do servidor,
+  // não da tela.
+  const resolvido = await competenciasDoTrilho(sb, colab as any, empresaRow, trilho);
+  if ('error' in resolvido) return { error: resolvido.error, code: resolvido.code };
+  const { competencias: top5ComCenario, degustacao, umPorDia } = resolvido;
+
+  if (trilho === 'lideranca') {
+    if (!top5ComCenario.some((c: any) => c.id === compId)) {
+      return { error: 'Esta competência não faz parte do seu mapeamento de liderança.', code: 'COMPETENCIA_FORA_DO_TRILHO' };
+    }
+    if (umPorDia) {
+      const { data: doDia, error: doDiaErr } = await sb.from('respostas')
+        .select('competencia_id, competencia_nome, timestamp_resposta')
+        .eq('colaborador_id', colab.id)
+        .eq('empresa_id', colab.empresa_id);
+      if (doDiaErr) return { error: doDiaErr.message };
+      // Reenviar a MESMA competência de hoje é edição, não um segundo cenário.
+      const outras = (doDia || []).filter((r: any) => r.competencia_id !== compId);
+      if (respondeuHojeNoTrilho(outras, top5ComCenario)) {
+        return { error: 'Você já respondeu o cenário de liderança de hoje. O próximo abre amanhã.', code: 'JA_RESPONDEU_HOJE' };
+      }
+    }
+  }
+  // Trilho do cargo: sem limite diário — o colaborador pode responder quantas competências quiser no mesmo dia
 
   // Upsert (conflito no índice único empresa_id + colaborador_id + competencia_id)
   const { error: upErr } = await sb.from('respostas').upsert({
@@ -356,17 +456,7 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload) 
   }, { onConflict: 'empresa_id,colaborador_id,competencia_id' });
   if (upErr) return { error: upErr.message };
 
-  const { data: empresaRow, error: empresaErr } = await sb.from('empresas')
-    .select('is_demo')
-    .eq('id', colab.empresa_id)
-    .maybeSingle();
-  if (empresaErr) return { error: empresaErr.message };
-
-  // Recalcula próxima pela MESMA lista que a tela usa (por id, não por nome)
-  const { competencias: top5ComCenario, degustacao } = await competenciasDoColaborador(
-    sb, colab as any, empresaRow?.is_demo === true,
-  );
-
+  // Recalcula a próxima pela lista já resolvida acima (a mesma da tela).
   const { data: respostas, error: respostasRecalcError } = await sb.from('respostas')
     .select('competencia_id,competencia_nome').eq('colaborador_id', colab.id).eq('empresa_id', colab.empresa_id);
   if (respostasRecalcError) return { error: respostasRecalcError.message };

@@ -29,6 +29,41 @@ const PROMPT_P = [
   'P4 — Análise',
 ];
 
+/**
+ * O segundo mapeamento, visível de dentro do primeiro. No trilho do CARGO mostra
+ * "você também tem o mapeamento de liderança" com o progresso; no trilho de
+ * LIDERANÇA mostra o caminho de volta. Só aparece quando o servidor disse que o
+ * trilho existe para esta pessoa (`trilhoLideranca.disponivel`) — a tela não
+ * decide elegibilidade.
+ */
+function CardTrilhoLideranca({ t, data, trilho, router }: { t: any; data: any; trilho: 'cargo' | 'lideranca'; router: any }) {
+  if (trilho === 'lideranca') {
+    return (
+      <button type="button" onClick={() => router.push('/dashboard/assessment')}
+        className="w-full py-2.5 rounded-xl text-xs font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">
+        {t('lideranca.backToCargo')}
+      </button>
+    );
+  }
+  const info = data?.trilhoLideranca;
+  if (!info?.disponivel) return null;
+  const concluido = info.total > 0 && info.respondidas >= info.total;
+  return (
+    <div className="rounded-xl p-4 border border-purple-400/30 text-left" style={{ background: 'rgba(158,78,221,0.08)' }}>
+      <p className="text-sm font-bold text-white mb-1">{t('lideranca.cardTitle')}</p>
+      <p className="text-xs text-gray-400 mb-3">
+        {concluido ? t('lideranca.cardTextDone') : t('lideranca.cardText', { done: info.respondidas, total: info.total })}
+      </p>
+      {!concluido && (
+        <button type="button" onClick={() => router.push('/dashboard/assessment?trilho=lideranca')}
+          className="w-full py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-br from-[#3B0A6D] to-[#9E4EDD] hover:brightness-110 transition">
+          {t('lideranca.cardCta')}
+        </button>
+      )}
+    </div>
+  );
+}
+
 // Vídeo de encerramento da avaliação (pedido do deck "Experiência do usuário - Elo"):
 // agradecimento + próximas etapas (PDI e Temporada).
 // TODO: vídeo em produção — trocar pelo ID real do Bunny Stream quando estiver pronto.
@@ -47,6 +82,10 @@ export default function AssessmentPage() {
   const [repr, setRepr] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveResult, setSaveResult] = useState(null);
+  // Qual mapeamento esta visita responde: o do CARGO (default) ou o de
+  // LIDERANÇA (`?trilho=lideranca`). Lido da URL no effect, não com
+  // useSearchParams, para a página não precisar de Suspense boundary.
+  const [trilho, setTrilho] = useState<'cargo' | 'lideranca'>('cargo');
   // Quais devolutivas estão abertas por inteiro. O card mostrava 320 caracteres
   // de um texto que tem ~1.200 — escondia três quartos da análise, e era
   // justamente a parte que explica o nível.
@@ -57,7 +96,10 @@ export default function AssessmentPage() {
   useEffect(() => {
     (async () => {
       try {
-        const r: any = await getDiagnosticoDoDia();
+        const q = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('trilho') : null;
+        const t0: 'cargo' | 'lideranca' = q === 'lideranca' ? 'lideranca' : 'cargo';
+        setTrilho(t0);
+        const r: any = await getDiagnosticoDoDia(t0);
         if (!r) { setError(t('emptyServer')); setPhase(PHASE.ERROR); return; }
         if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
         setData(r);
@@ -96,12 +138,12 @@ export default function AssessmentPage() {
     const r: any = await salvarRespostaDiagnostico(cen.cenarioId, cen.compId, cen.compNome, {
       ...respostas,
       repr,
-    });
+    }, trilho);
     setSaving(false);
     if (r.error) { flash(r.error); return; }
     setSaveResult(r);
     if (r.concluiuTudo) {
-      const refreshed: any = await getDiagnosticoDoDia();
+      const refreshed: any = await getDiagnosticoDoDia(trilho);
       if (refreshed && !refreshed.error) setData(refreshed);
       setPhase(PHASE.CONCLUIDO);
     } else setPhase(PHASE.CONFIRM);
@@ -148,7 +190,14 @@ export default function AssessmentPage() {
           <div className="flex items-center justify-between mb-1">
             <div>
               <p className="text-sm font-bold text-white">{data.colaborador.nome}</p>
-              <p className="text-xs text-gray-400">{data.colaborador.cargo}</p>
+              {data.trilho === 'lideranca' ? (
+                <>
+                  <p className="text-[10px] font-extrabold uppercase tracking-widest text-purple-300">{t('lideranca.header')}</p>
+                  {data.cargoAlvo && <p className="text-xs text-gray-400">{t('lideranca.target', { cargo: data.cargoAlvo })}</p>}
+                </>
+              ) : (
+                <p className="text-xs text-gray-400">{data.colaborador.cargo}</p>
+              )}
             </div>
             <span className="text-xs font-extrabold text-brand-400">{data.progresso.pct}%</span>
           </div>
@@ -187,6 +236,7 @@ export default function AssessmentPage() {
             className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">
             {t('explanation.start')}
           </button>
+          <div className="mt-3"><CardTrilhoLideranca t={t} data={data} trilho={trilho} router={router} /></div>
         </div>
       )}
 
@@ -314,7 +364,7 @@ export default function AssessmentPage() {
                 setRepr(null);
                 setPergIdx(0);
                 setSaveResult(null);
-                const r: any = await getDiagnosticoDoDia();
+                const r: any = await getDiagnosticoDoDia(trilho);
                 if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
                 setData(r);
                 if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
@@ -337,7 +387,8 @@ export default function AssessmentPage() {
         <div className="rounded-2xl p-6 border border-white/[0.06] text-center" style={{ background: '#0F2A4A' }}>
           <div className="text-5xl mb-3">✅</div>
           <p className="text-lg font-extrabold text-white mb-1">{t('today.title')}</p>
-          <p className="text-sm text-gray-400 mb-5">{t('today.description')}</p>
+          <p className="text-sm text-gray-400 mb-5">{trilho === 'lideranca' ? t('lideranca.todayDescription') : t('today.description')}</p>
+          <div className="mb-3"><CardTrilhoLideranca t={t} data={data} trilho={trilho} router={router} /></div>
           <button onClick={() => router.push('/dashboard')}
             className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">
             {t('confirm.dashboard')}
@@ -456,6 +507,7 @@ export default function AssessmentPage() {
           )}
 
           <div className="flex flex-col gap-2">
+            <CardTrilhoLideranca t={t} data={data} trilho={trilho} router={router} />
             {data?.temPdi && (
               <button onClick={() => router.push('/dashboard/pdi')}
                 className="w-full py-3 rounded-xl font-bold text-[#0C1829] bg-gradient-to-br from-brand-400 to-brand-600 hover:brightness-110 transition">

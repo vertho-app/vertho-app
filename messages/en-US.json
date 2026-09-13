@@ -4292,6 +4292,18 @@
       "viewPdi": "View my development plan →",
       "readMore": "Read full analysis",
       "readLess": "Show less"
+    },
+    "lideranca": {
+      "header": "Leadership mapping",
+      "target": "Target profile: {cargo}",
+      "cardTitle": "You also have the leadership mapping",
+      "cardText": "{done} of {total} scenarios answered · one scenario a day, ~5 min",
+      "cardTextDone": "Leadership mapping completed.",
+      "cardCta": "Go to the leadership mapping →",
+      "backToCargo": "← Back to your role mapping",
+      "todayDescription": "Come back tomorrow for the next leadership scenario.",
+      "doneTitle": "Leadership mapping completed, {name}!",
+      "doneDescription": "Your answers will be analyzed and cross-read with your behavioral profile. The result is presented by your leadership."
     }
   },
   "ManagerDashboard": {

@@ -3408,6 +3408,18 @@
       "viewPdi": "Ver mi plan de desarrollo →",
       "readMore": "Leer análisis completo",
       "readLess": "Ver menos"
+    },
+    "lideranca": {
+      "header": "Mapeo de liderazgo",
+      "target": "Perfil objetivo: {cargo}",
+      "cardTitle": "También tienes el mapeo de liderazgo",
+      "cardText": "{done} de {total} escenarios respondidos · un escenario al día, ~5 min",
+      "cardTextDone": "Mapeo de liderazgo concluido.",
+      "cardCta": "Ir al mapeo de liderazgo →",
+      "backToCargo": "← Volver al mapeo del cargo",
+      "todayDescription": "Vuelve mañana para el próximo escenario de liderazgo.",
+      "doneTitle": "¡Mapeo de liderazgo concluido, {name}!",
+      "doneDescription": "Tus respuestas serán analizadas y cruzadas con tu perfil conductual. El resultado lo presenta tu liderazgo."
     }
   },
   "AdminRadarFunnel": {

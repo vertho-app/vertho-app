@@ -3408,6 +3408,18 @@
       "viewPdi": "Ver o meu PDI →",
       "readMore": "Ler análise completa",
       "readLess": "Ver menos"
+    },
+    "lideranca": {
+      "header": "Mapeamento de liderança",
+      "target": "Perfil-alvo: {cargo}",
+      "cardTitle": "Também tem o mapeamento de liderança",
+      "cardText": "{done} de {total} cenários respondidos · um cenário por dia, ~5 min",
+      "cardTextDone": "Mapeamento de liderança concluído.",
+      "cardCta": "Ir para o mapeamento de liderança →",
+      "backToCargo": "← Voltar ao mapeamento do cargo",
+      "todayDescription": "Volte amanhã para o próximo cenário de liderança.",
+      "doneTitle": "Mapeamento de liderança concluído, {name}!",
+      "doneDescription": "As suas respostas serão analisadas e cruzadas com o seu perfil comportamental. O resultado é apresentado pela sua chefia."
     }
   },
   "AdminRadarFunnel": {
