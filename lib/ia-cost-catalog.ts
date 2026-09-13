@@ -65,6 +65,8 @@ export const MODELS = {
   // (o alias puro retorna model_not_found desde ~jul/2026). Mesmo preço.
   'gpt-5.4-2026-03-05':         { label: 'GPT 5.4',             inUsd: 2.5,  outUsd: 15 },
   'gpt-5.4-mini':               { label: 'GPT 5.4 Mini',        inUsd: 0.75, outUsd: 4.5 },
+  // Responses retorna o snapshot efetivo. Fonte oficial: /api/docs/models/gpt-5.4-mini (13/09/2026).
+  'gpt-5.4-mini-2026-03-17':    { label: 'GPT 5.4 Mini',        inUsd: 0.75, outUsd: 4.5 },
   'gpt-5.1':                    { label: 'GPT 5.1 (fallback)',  inUsd: 1.25, outUsd: 10 },
   // Moonshot (provider kimi no ai-client). Reasoning: o out inclui o thinking.
   'kimi-k3':                    { label: 'Kimi K3',             inUsd: 3,    outUsd: 15, cacheReadUsd: 0.30 },

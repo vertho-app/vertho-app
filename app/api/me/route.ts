@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { resolveAppLocale } from '@/lib/i18n';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { recepcaoHabilitada } from '@/lib/recepcao/flag';
+import { vendasHabilitado } from '@/lib/simulador-vendas/access';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,8 +69,10 @@ export async function GET() {
       } catch {}
     }
 
-    const treinoRecepcao = await recepcaoHabilitada((data as any)?.empresa_id);
-    return NextResponse.json(data ? { ...data, locale, platformAdmin, temTrilhaPossivel, treinoRecepcao } : {
+    const [treinoRecepcao, treinoVendas] = await Promise.all([
+      recepcaoHabilitada((data as any)?.empresa_id), vendasHabilitado((data as any)?.empresa_id),
+    ]);
+    return NextResponse.json(data ? { ...data, locale, platformAdmin, temTrilhaPossivel, treinoRecepcao, treinoVendas } : {
       nome_completo: user.email,
       foto_url: null,
       avatar_preset: null,

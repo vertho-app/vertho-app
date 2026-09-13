@@ -50,6 +50,9 @@ export interface AIConfig {
 }
 
 export interface AICallOptions {
+  /** Responses com schema estrito, para preservar contratos de agentes migrados.
+   * Mantém os prompts literais e não troca de provedor/modelo em caso de falha. */
+  responses?: { format: OpenAIJsonSchemaFormat };
   /** Identificador da tentativa, para conciliar custo sem aproximação por horário. */
   correlationId?: string;
   temperature?: number;
@@ -223,6 +226,9 @@ export async function callAI(
   if (!options.taskKey && options._origemCodigo === undefined) {
     options = { ...options, _origemCodigo: origemDaChamada() };
   }
+  if (options.responses) {
+    return withAIRetry(() => callResponses(system, [{ role: 'user', content: user }], model, maxTokens, options), model, options.maxRetries ?? 0);
+  }
   const locale = await resolveAILocale(options.locale);
   const localizedSystem = withLanguageInstruction(system, locale);
 
@@ -294,6 +300,9 @@ export async function callAIChat(
   // Sem etiqueta: guarda de onde veio ANTES de qualquer await (mig 231).
   if (!options.taskKey && options._origemCodigo === undefined) {
     options = { ...options, _origemCodigo: origemDaChamada() };
+  }
+  if (options.responses) {
+    return withAIRetry(() => callResponses(system, messages, model, maxTokens, options), model, options.maxRetries ?? 0);
   }
   const locale = await resolveAILocale(options.locale);
   const localizedSystem = withLanguageInstruction(system, locale);
@@ -454,6 +463,38 @@ type OpenAIJsonSchemaFormat = {
   strict: boolean;
   schema: Record<string, unknown>;
 };
+
+/** Mesmo transporte Responses do legado PACE, com o ledger único da Vertho. */
+async function callResponses(system: string, messages: ChatMessage[], model: string, maxTokens: number, options: AICallOptions): Promise<string> {
+  if (!/^(gpt-|o[134])/.test(model)) throw new Error('O contrato Responses exige um modelo OpenAI. Revise a configuração desta tarefa.');
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error('OPENAI_API_KEY não configurada');
+  const startedAt = Date.now();
+  const input = !system && messages.length === 1 && messages[0].role === 'user'
+    ? messages[0].content : [...(system ? [{ role: 'system', content: system }] : []), ...messages];
+  const response = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ model, input, store: false, max_output_tokens: maxTokens,
+      text: { format: { type: 'json_schema', ...options.responses!.format } },
+      ...(options.reasoningEffort ? { reasoning: { effort: options.reasoningEffort } } : {}),
+    }),
+    signal: AbortSignal.timeout(options.timeoutMs ?? AI_TIMEOUT_MS),
+  });
+  // Não logar payload ou resposta bruta: podem conter histórico de treinamento.
+  if (!response.ok) throw Object.assign(new Error(`OpenAI Responses HTTP ${response.status}`), { status: response.status });
+  const data = await response.json();
+  const u = data.usage, cache = u?.input_tokens_details?.cached_tokens || 0;
+  await registrarUsoIA('openai', data.model || model, u ? {
+    inTokens: Math.max(0, (u.input_tokens || 0) - cache), outTokens: u.output_tokens || 0,
+    cacheRead: cache, truncou: data.status === 'incomplete',
+  } : null, Date.now() - startedAt, options);
+  const parts = (data.output || []).filter((x: any) => x.type === 'message').flatMap((x: any) => x.content || []);
+  if (parts.some((x: any) => x.type === 'refusal')) throw new Error('O provedor recusou esta geração.');
+  if (data.status !== 'completed') throw new Error('Resposta incompleta do provedor.');
+  const text = typeof data.output_text === 'string' ? data.output_text : parts.filter((x: any) => x.type === 'output_text').map((x: any) => x.text).join('\n');
+  if (!text.trim()) throw new Error('Resposta vazia do provedor.');
+  return text;
+}
 
 /**
  * Busca pública com a Responses API da OpenAI.

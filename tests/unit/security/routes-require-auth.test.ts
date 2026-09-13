@@ -52,7 +52,7 @@ import { semComentarios } from '../../helpers/fonte';
  * devolve a sessão em MEMÓRIA e não valida nada, que é a distinção que custou
  * o laço `/rota` ↔ `/login` em 22/07.
  */
-const GATE_SESSAO = /\.auth\.getUser\s*\(|\b(requireUser|requireAdmin|requireRole|requirePermission|requireUserAction|requireAdminAction|requireAdminSupabase|requireEmpresaSupabase|requireLinhaSupabase|requirePlataformaSupabase|exigirAcessoPlataforma|checarAcessoPlataforma|getAuthenticatedEmail|requireRepresentative\w*|requireCommercialAdmin)\s*\(/;
+const GATE_SESSAO = /\.auth\.getUser\s*\(|\b(requireUser|requireAdmin|requireRole|requirePermission|requireUserAction|requireAdminAction|requireAdminSupabase|requireAdminRequestSupabase|requireEmpresaSupabase|requireLinhaSupabase|requirePlataformaSupabase|exigirAcessoPlataforma|checarAcessoPlataforma|getAuthenticatedEmail|requireRepresentative\w*|requireCommercialAdmin)\s*\(/;
 /** Autenticação de MÁQUINA: assinatura de webhook ou segredo compartilhado. */
 const GATE_MAQUINA = /\b(verifyQStashSignature|verifyZapiWebhook|verifyBunnyWebhook|verifySesWebhook|safeSecretEqual)\s*\(|CRON_SECRET|INTERNAL_API_KEY|x-internal-secret/;
 const CSRF = /\bcsrfCheck\s*\(/;

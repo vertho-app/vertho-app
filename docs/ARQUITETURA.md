@@ -20,6 +20,8 @@
 
 ## 1. Visao Geral da Stack
 
+**Simulador de vendas PACE (13/09/2026):** módulo comercial integrado à identidade, PostgreSQL e ledger da Vertho; cinco agentes com prompts versionados, liberação por empresa e sem importação de usos anteriores. Rotas `/admin/simulador-vendas` e `/dashboard/simulador-vendas`, migration 249. Arquitetura, operação e limites em [SIMULADOR-VENDAS.md](SIMULADOR-VENDAS.md).
+
 | Camada | Tecnologia | Versao | Status |
 |--------|-----------|--------|--------|
 | **Framework** | Next.js (App Router) | 16.2.4 | ✅ |

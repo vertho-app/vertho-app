@@ -47,7 +47,7 @@ import { semComentarios } from '../../helpers/fonte';
 const config = JSON.parse(readFileSync('config/tenant-mutation-allowlist.json', 'utf-8'));
 const allowlist: Record<string, number> = config.allowlist;
 
-const TABELAS_TENANT = ['trilhas', 'colaboradores', 'temporada_semana_progresso', 'banco_cenarios', 'competencias', 'cargos_empresa', 'micro_conteudos'];
+const TABELAS_TENANT = ['trilhas', 'colaboradores', 'temporada_semana_progresso', 'banco_cenarios', 'competencias', 'cargos_empresa', 'micro_conteudos', 'sim_vendas_config', 'sim_vendas_sessoes', 'sim_vendas_tentativas'];
 const PADRAO = new RegExp(
   `\\.from\\('(${TABELAS_TENANT.join('|')})'\\)\\s*\\n?\\s*\\.(update|delete)\\(`,
   'g',

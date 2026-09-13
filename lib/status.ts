@@ -216,3 +216,15 @@ export const RECEPCAO_SESSAO = {
   CONCLUIDA: 'concluida',
 } as const;
 export type RecepcaoSessaoStatus = (typeof RECEPCAO_SESSAO)[keyof typeof RECEPCAO_SESSAO];
+
+/** PACE: estado do treino de vendas, independente de trilhas e recepção. */
+export const VENDAS_SESSAO = {
+  PREPARANDO: 'preparando',
+  EM_ANDAMENTO: 'em_andamento',
+  CONCLUIDA: 'concluida',
+  INTERROMPIDA: 'interrompida',
+  ABANDONADA: 'abandonada',
+} as const;
+export type VendasSessaoStatus = (typeof VENDAS_SESSAO)[keyof typeof VENDAS_SESSAO];
+/** Checkpoint de geração, não estado da conversa. */
+export const VENDAS_TENTATIVA = { PENDENTE: 'pendente', ACEITA: 'aceita', REJEITADA: 'rejeitada' } as const;

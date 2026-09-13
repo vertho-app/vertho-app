@@ -121,7 +121,8 @@
       "profile": "Perfil",
       "teamEngagement": "Compromiso",
       "teamEvolution": "Evolución del equipo",
-      "receptionTraining": "Práctica de atención"
+      "receptionTraining": "Práctica de atención",
+      "salesTraining": "Simulador de ventas"
     },
     "platformPanel": "Administración Vertho",
     "logout": "Salir"
@@ -622,7 +623,8 @@
         "copilot": "Copiloto",
         "audits": "Auditorías (13/14)",
         "salesChannel": "Canal Comercial",
-        "receptionTraining": "Práctica de atención"
+        "receptionTraining": "Práctica de atención",
+        "salesTraining": "Simulador de ventas"
       },
       "subs": {
         "overview": "Visión general",
@@ -668,7 +670,8 @@
         "copilotSub": "Planificación y reunión PACE",
         "auditsSub": "Semana 13 · Semana 14",
         "salesChannelSub": "Representantes y propuestas",
-        "receptionPractice": "Recepción médica"
+        "receptionPractice": "Recepción médica",
+        "salesPractice": "Negociación PACE"
       },
       "groups": {
         "overview": "Visión general",

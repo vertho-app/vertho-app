@@ -5,6 +5,11 @@
  */
 
 export const AI_TASKS = [
+  { key: 'sim_vendas_criador', label: 'Vendas PACE — criador do cenário', fase: 'Treinamento' },
+  { key: 'sim_vendas_cliente', label: 'Vendas PACE — cliente simulado', fase: 'Treinamento' },
+  { key: 'sim_vendas_moderador', label: 'Vendas PACE — moderador', fase: 'Treinamento' },
+  { key: 'sim_vendas_intencao', label: 'Vendas PACE — intenção de encerramento', fase: 'Treinamento' },
+  { key: 'sim_vendas_gerente', label: 'Vendas PACE — avaliação', fase: 'Treinamento' },
   { key: 'recepcao_paciente', label: 'Recepção — paciente simulado', fase: 'Treinamento' },
   { key: 'recepcao_avaliacao', label: 'Recepção — avaliação do atendimento', fase: 'Treinamento' },
   // ── Fase 1 — Diagnóstico ─────────────────────────────────
@@ -202,6 +207,11 @@ export const DEFAULT_COPILOTO_RESEARCH_FALLBACK_MODEL = 'gpt-5.6-sol';
  * Gemini Flash auditando Claude, e do Pulso classifier + auditor).
  */
 export const DEFAULT_TASK_MODELS: Record<string, string> = {
+  sim_vendas_criador: 'gpt-5.4-2026-03-05',
+  sim_vendas_cliente: 'gpt-5.4-2026-03-05',
+  sim_vendas_moderador: 'gpt-5.4-mini',
+  sim_vendas_intencao: 'gpt-5.4-mini',
+  sim_vendas_gerente: 'gpt-5.4-2026-03-05',
   recepcao_paciente: 'claude-sonnet-4-6',
   recepcao_avaliacao: 'claude-sonnet-4-6',
   copiloto_pesquisa_empresa: DEFAULT_COPILOTO_RESEARCH_MODEL,
@@ -315,6 +325,8 @@ const FALLBACK_GLOBAL = 'claude-sonnet-4-6';
  * específica sabe o que está fazendo; o pin só barra o genérico.
  */
 export const PINNED_TASKS = new Set([
+  // Migração PACE: manter os modelos incumbentes; o default genérico não muda a régua.
+  'sim_vendas_criador', 'sim_vendas_cliente', 'sim_vendas_moderador', 'sim_vendas_intencao', 'sim_vendas_gerente',
   'modulo_base_auditor',
   'acumulada_check',
   'sem14_check',

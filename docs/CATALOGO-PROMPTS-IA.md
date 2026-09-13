@@ -1760,6 +1760,10 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 
 ---
 
+### 13.5 Simulador de vendas PACE — adição de 13/09/2026
+
+Cinco prompts migrados do simulador RNaves, sem alteração intencional do texto: `criador`, `cliente`, `moderador`, `intencao`, `gerente`, em `lib/simulador-vendas/prompts.ts`. Versão `pace-rnaves-2.1.1-vertho-1`; cada treino persiste texto, SHA-256 e modelo. Tarefas `sim_vendas_*`, chamadas por `callAI`/Responses com saída estruturada e custo no ledger. Modelos padrão: GPT-5.4 datado para criador/cliente/gerente e GPT-5.4 Mini para moderador/intenção. São agentes do treino real de vendas, não os atores sintéticos da temporada (§13.2). [Contrato e operação](SIMULADOR-VENDAS.md).
+
 ## Fase 4 (PDI legado)
 
 ### 14.1 Gerar PDIs

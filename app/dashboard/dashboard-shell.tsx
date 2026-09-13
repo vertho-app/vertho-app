@@ -17,6 +17,7 @@ type NavItem = {
   /** Some para o Admin da empresa, que chega no mesmo destino por outro caminho. */
   exceptoRh?: boolean;
   recepcao?: boolean;
+  vendas?: boolean;
 };
 
 // Fallback = tema Vertho atual (usado se o layout não passar theme).
@@ -66,6 +67,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock, participante: true },
   { href: '/dashboard/temporada', labelKey: 'season', icon: Play, participante: true },
   { href: '/dashboard/treino-atendimento', labelKey: 'receptionTraining', icon: MessageCircle, recepcao: true },
+  { href: '/dashboard/simulador-vendas', labelKey: 'salesTraining', icon: MessageCircle, vendas: true },
   { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp, participante: true },
 
   // ── O QUE A PESSOA ACOMPANHA ─────────────────────────────────────────────
@@ -106,14 +108,14 @@ function hrefAtivo(pathname: string, itens: NavItem[]): string | null {
   return candidatos.reduce((maior, href) => (href.length > maior.length ? href : maior));
 }
 
-export default function DashboardShell({ children, theme = DEFAULT_THEME, mostrarRecepcao = false }: { children: React.ReactNode; theme?: TenantTheme; mostrarRecepcao?: boolean }) {
+export default function DashboardShell({ children, theme = DEFAULT_THEME, mostrarRecepcao = false, mostrarVendas = false }: { children: React.ReactNode; theme?: TenantTheme; mostrarRecepcao?: boolean; mostrarVendas?: boolean }) {
   const t = useTranslations('DashboardShell');
   const router = useRouter();
   const pathname = usePathname();
   const isImmersiveContent = pathname.startsWith('/dashboard/conteudo/');
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
-  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean } | null>(null);
+  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean; treinoVendas?: boolean } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
   const ehAdminDaEmpresa = colaborador?.role === 'rh';
   // Cargo com Top 5 vazio não faz mapeamento nem trilha: as telas de jornada
@@ -127,6 +129,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME, mostra
   const ehAdminDaPlataforma = colaborador?.platformAdmin === true;
   const navItems = NAV_ITEMS.filter((it) =>
     (!it.recepcao || mostrarRecepcao || colaborador?.treinoRecepcao === true)
+    && (!it.vendas || mostrarVendas || colaborador?.treinoVendas === true)
     && (!it.gestorOnly || isGestorOuRH)
     && (!it.rhOnly || ehAdminDaEmpresa)
     && (!it.participante || (!ehAdminDaEmpresa && participaDaJornada))
@@ -323,7 +326,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME, mostra
         })}
       </nav>
 
-        {!/^\/dashboard\/temporada\/semana\//.test(pathname) && !pathname.startsWith('/dashboard/treino-atendimento') && !isImmersiveContent && <BetoChat />}
+        {!/^\/dashboard\/temporada\/semana\//.test(pathname) && !pathname.startsWith('/dashboard/treino-atendimento') && !pathname.startsWith('/dashboard/simulador-vendas') && !isImmersiveContent && <BetoChat />}
       </div>
     </PresentationEnvironment>
   );

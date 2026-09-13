@@ -9,6 +9,7 @@ import DashboardShell from './dashboard-shell';
 import { pushHabilitado } from '@/lib/notifications/flag';
 import { AtivarPush } from '@/components/notifications/ativar-push';
 import { recepcaoHabilitada } from '@/lib/recepcao/flag';
+import { vendasHabilitado } from '@/lib/simulador-vendas/access';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   await connection();
@@ -33,9 +34,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // recebe nem o componente no HTML — não é `display:none`, é ausência.
   const mostrarPush = await pushHabilitado(tenant?.id);
   const mostrarRecepcao = await recepcaoHabilitada(tenant?.id);
+  const mostrarVendas = await vendasHabilitado(tenant?.id);
 
   return (
-    <DashboardShell theme={theme} mostrarRecepcao={mostrarRecepcao}>
+    <DashboardShell theme={theme} mostrarRecepcao={mostrarRecepcao} mostrarVendas={mostrarVendas}>
       {mostrarPush ? (
         <div className="mb-4">
           <AtivarPush />

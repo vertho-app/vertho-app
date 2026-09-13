@@ -2,6 +2,7 @@ import { requirePermissionAction, requireUserAction, requireAdminAction } from '
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { can, type PermissionKey } from '@/lib/permissions';
 import { logAdminAction } from '@/lib/audit';
+import { requireAdmin } from '@/lib/auth/request-context';
 
 /**
  * ÚNICO ponto de `createSupabaseAdmin()` deste módulo.
@@ -15,6 +16,14 @@ import { logAdminAction } from '@/lib/audit';
  */
 function clienteServiceRole() {
   return createSupabaseAdmin();
+}
+
+/** Gate de plataforma para rotas (Bearer ou cookie), equivalente ao de actions. */
+export async function requireAdminRequestSupabase(req: Request, permission: PermissionKey = 'admin.access') {
+  const auth = await requireAdmin(req);
+  if (auth instanceof Response) return auth;
+  if (!(await can(auth, permission))) return Response.json({ error: 'Sem permissão para esta operação.' }, { status: 403 });
+  return { auth, sb: clienteServiceRole() };
 }
 
 /**
