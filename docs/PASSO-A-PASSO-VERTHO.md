@@ -124,6 +124,51 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 ---
 
+## Fluxo paralelo: Prontidão para Liderança (módulo contratado)
+
+Um segundo mapeamento, separado do mapeamento do cargo — a pessoa faz os dois. Detalhe do desenho:
+`docs/ARQUITETURA.md` §"Prontidão para Liderança — módulo".
+
+### L1. Contratar o módulo
+**Admin** · `/admin/empresas/{id}/configuracoes` → aba **Programa** → "Módulo Prontidão para Liderança" → Ligado → Salvar
+- Grava `sys_config.modulos.prontidao_lideranca = true`. Sem isso nada aparece para o cliente nem para os participantes.
+
+### L2. Preparar o cargo-alvo
+**Admin** · `/admin/cargos` (cargo de liderança, ex.: "Gerente Comercial")
+- Gabarito (perfil ideal, tela 4) → é o eixo de ESTILO.
+- Top 5 do cargo = as 5 competências de liderança → é o eixo de POSIÇÃO e o que gera cenário.
+- Matriz de descritores importada por planilha em `/admin/competencias` (uma linha por descritor,
+  `cargo` = cargo-alvo, N1–N4 preenchidos — N3 não fica vazio). ⚠️ Nome de competência do cargo-alvo
+  não pode repetir nome do Top 5 dos cargos da população (a validação recusa).
+- IA2 (gabarito) + IA3 (cenários + check) rodam normalmente para o cargo-alvo.
+
+### L3. Configurar o programa
+**Admin** · `/admin/fit?tab=prontidao` → **Configuração**
+- Cargo-alvo, população (empresa inteira ou uma turma), líderes de referência (3–5), um cenário por dia,
+  corte (3,00) e banda (0,33 até a aferição). Salvar valida e recusa configuração inválida com o motivo.
+
+### L4. Calibrar com os líderes de referência (antes da turma)
+- Os exemplares respondem o trilho de liderança (`/dashboard/assessment?trilho=lideranca`); IA4 + check.
+- **Admin** · aba **Calibragem** → Calcular: descritor em que um exemplar ficou abaixo do corte é suspeita
+  de rubrica → editar N3/N4 pelo lápis do descritor em `/admin/competencias` → reavaliar as respostas.
+- Nunca colocar as respostas dos exemplares no prompt.
+
+### L5. Aplicar na turma
+**Colaborador** · a tela de assessment mostra o card "Você também tem o mapeamento de liderança"; um
+cenário por dia (gate do servidor, dia de Brasília). Quem ocupa o cargo-alvo responde pelo trilho do cargo.
+**Admin** · IA4 — Avaliar + Check (mesma fila; nada muda).
+
+### L6. Ler e entregar
+**RH** · menu **Prontidão para liderança** → matriz 2×2, zona de revisão, parecer por pessoa com evidências,
+PDF do parecer e do consolidado. **Admin** vê o mesmo em `/admin/fit?tab=prontidao` → Prévia.
+- Quem cai na banda de incerteza não é classificado por máquina: leitura humana com as evidências.
+
+### L7. Aferir o instrumento (quando o dono mandar; custa IA)
+`npx tsx --env-file=.env.local scripts/_aferir-ia4-prontidao.ts --empresa <uuid> --n 10 --k 5`
+— test-retest sem persistir; imprime a banda sugerida para substituir o 0,33 emprestado.
+
+---
+
 ## Fase 3 — Motor de Temporadas
 
 ### 15. Popular o banco de micro-conteúdos

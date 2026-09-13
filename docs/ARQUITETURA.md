@@ -1239,6 +1239,76 @@ report), o Modo Cena (`lib/season-engine/cena/`, motor completo sem consumidor p
 decisao — ver o portao de fase 0 no cabecalho dele), o checkpoint do gestor (que
 hoje NAO grava nota) e o desempenho importado do cliente. Nada disso e perfil.
 
+### Prontidão para Liderança — módulo (13/09/2026)
+
+**O que é.** Um segundo mapeamento da pessoa, separado do mapeamento do cargo, cruzado com o perfil
+comportamental numa matriz de duas camadas. Genérico e multi-tenant; nasceu do escopo comercial da
+"Frente 7" e é vendido como **módulo contratado** (`sys_config.modulos.prontidao_lideranca`, gate
+fail-closed em `lib/access-gates/modulos.ts`).
+
+| camada | o que mede | fonte | decide? |
+|---|---|---|---|
+| **Posição** (eixo Y) | competência demonstrada nas competências do cargo-alvo | `descriptor_assessments.nota` → média por competência e geral | **sim** |
+| **Estilo** (eixo X) | aderência do perfil ao gabarito do cargo-alvo | `aggregateAdequacao(cargoAlvo, { poolCargos })` → `beta.pct` × `faixas.ressalvasMin` | **não** — explica onde o papel vai custar mais |
+
+As camadas **não se somam**: os quatro blocos do fit são o mesmo DISC (§"O que o fit NÃO
+sustenta"), então somar seria contar a mesma medida duas vezes. Quadrantes: `pronta`,
+`pronta_com_custo`, `potencial`, `nao_agora` — e `revisar` fora da matriz: média dentro de
+`corte ± banda` não é classificada por máquina (34% das notas caem sobre 2,00/3,00 e a releitura
+sozinha move a média até 0,33).
+
+**Configuração** (`empresas.sys_config.prontidao_lideranca`, chave de EMPRESA em
+`lib/turmas/chaves.ts`): `cargo_alvo` (cargo com `gabarito.tela4` e `top5_workshop` — as competências
+do programa são o Top 5 dele, a mesma fonte da IA3), `exemplares[]` (colaborador_id dos 3–5 líderes
+de referência), `escopo` (empresa inteira ou turma), `um_por_dia` (default true, só no trilho de
+liderança), `corte_nota` (default 3,00 = N3 meta), `banda` (default 0,33 — emprestado de
+`RUIDO_MEDIDO`; a aferição substitui). Validação fail-closed em
+`lib/prontidao-lideranca/config.ts`: recusa colisão de NOME entre o Top 5 do cargo-alvo e o de um
+cargo da população — `descriptor_assessments` tem UNIQUE `(colaborador_id, competencia, descritor)`
+por nome, e uma avaliação sobrescreveria a outra sem erro.
+
+**Aplicação — o trilho `lideranca`** (`app/dashboard/assessment/?trilho=lideranca`). A mesma tela e
+as mesmas actions do assessment, com o parâmetro `trilho`: as competências e os cenários são os do
+CARGO-ALVO (`resolverTop5ComCenario(sb, empresaId, cargoAlvo, …)`), o `compId` do browser precisa
+pertencer ao trilho, "um por dia" é gate do servidor pelo dia de Brasília (reenviar a mesma
+competência é edição). Quem responde: módulo contratado → programa configurado → **não** ocupa o
+cargo-alvo (para quem ocupa, o trilho é o do cargo) → na população → cargo-alvo com Top 5
+(`lib/prontidao-lideranca/trilho.ts`). O trilho do cargo ficou idêntico e devolve
+`trilhoLideranca {disponivel, respondidas, total}` para a tela oferecer o segundo mapeamento sem link
+novo. IA4 e o check não mudaram: a régua de descritores é resolvida por `cod_comp` sem filtro de
+cargo, e a fila é `avaliacao_ia is null`.
+
+**Leitura.** `lib/prontidao-lideranca/agregar.ts` (núcleo sem gate; pagina TUDO com `.order('id')`;
+exclui `role='rh'` e internos; erro de leitura LANÇA; quem não tem as duas pontas vai para lista
+própria com o motivo). `actions/prontidao-lideranca.ts`: par RH (papel `rh`, `tenantDb` da sessão)
+× admin (`admin.access`, empresa da rota), gate de módulo antes de ler; guard estático
+`tests/unit/prontidao-lideranca-gate-guard.test.ts`. Telas: `/dashboard/gestor/prontidao-lideranca`
+(RH; item de menu só com módulo contratado via `/api/me.prontidaoLideranca`) e a aba **Prontidão**
+em `/admin/fit` (configuração, prévia, calibragem). Toggle do módulo em Configurações → Programa.
+
+**Calibragem** — os exemplares AFEREM a rubrica, nunca entram no prompt (o exemplo do prompt vence a
+prosa: um literal virou 65,8% da base). Descritor em que um líder de referência ficou abaixo do
+corte → suspeita de rubrica → edição em `/admin/competencias` (`salvarDescritor`, só colunas de
+rubrica, N3 obrigatório) → reavaliar. O importador de planilha só INSERE; sem essa edição o laço não
+fecha.
+
+**PDF** (`lib/prontidao-lideranca/parecer-pdf.tsx`): parecer individual (capa, duas camadas com
+gaps ancorados, evidências literais de `respostas.avaliacao_ia`, auditoria da 2ª IA) e consolidado
+da equipe. View pura; Storage `conteudos/final/prontidao-lideranca/…`, link assinado de 30 min.
+
+**Aferição (test-retest)** — `lib/prontidao-lideranca/aferir.ts` (puro, versionado) +
+`scripts/_aferir-ia4-prontidao.ts` (operador, gitignored, molde `_medir-ia4-sem-censura.ts`): n
+respostas × k releituras com entrada idêntica, MONTAR/CHAMAR sem PERSISTIR, ledger `source:
+'medicao'`, imprime dp, amplitude, pares com nível instável e a `banda` sugerida. ⚠️ Nunca rodou:
+até rodar, a banda é emprestada.
+
+🔴 **Pendência do dono**: a coluna gerada `descriptor_assessments.nivel` usa cortes 1,5/2,5/3,5 e
+**contradiz** `lib/nivel-regua.ts` (2,0/3,0/3,5) — nota 1,7 é "em desenvolvimento" na coluna e N1 na
+régua oficial. Este módulo usa a NOTA + `nivelDaNota`, nunca a coluna. Corrigir a coluna é migration.
+
+Fora do escopo do módulo: a 3ª camada do escopo comercial (dados de desempenho do time) não vive na
+Vertho; a tela "Prontidão para o próximo cargo" (só estilo) segue oculta.
+
 ### Fluxo D: Dashboard Gestor
 ```
 1. Gestor acessa /dashboard/gestor/equipe-evolucao
