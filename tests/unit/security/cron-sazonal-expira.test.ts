@@ -31,15 +31,19 @@ import { join } from 'node:path';
  * (o mesmo `ate` da janela no código) e onde a trava vive.
  *
  * Job novo com data de fim entra AQUI no mesmo commit que o põe no vercel.json.
+ * `travaEm` é lido pela terceira asserção: `<arquivo> · <NOME_DA_CONSTANTE>`.
+ *
+ * Lista VAZIA desde 13/09/2026, quando o `encerramento_ibipeba` (janela
+ * 04–12/09) saiu do vercel.json junto com o código — foi a primeira entrada e
+ * este guarda fez o trabalho dele: ficou vermelho no dia seguinte ao fim da
+ * janela. Vazio é o estado correto, não o guarda desligado.
  */
-const CRONS_SAZONAIS = [
-  {
-    action: 'encerramento_ibipeba',
-    ate: '2026-09-12',
-    travaEm: 'actions/cron-jobs.ts · ENCERRAMENTO_IBIPEBA_JANELA',
-    porque: 'aviso de encerramento do programa de Ibipeba — disparo único, com rede de 5 dias',
-  },
-] as const;
+const CRONS_SAZONAIS: ReadonlyArray<{
+  action: string;
+  ate: string;
+  travaEm: string;
+  porque: string;
+}> = [];
 
 const RAIZ = join(__dirname, '..', '..', '..');
 
@@ -72,9 +76,15 @@ describe('cron sazonal expira', () => {
   it('a janela declarada aqui bate com a do código', () => {
     // Duas datas em dois arquivos divergem em silêncio: se o código aceitar
     // mais tempo do que esta lista supõe, o cron seguiria ativo sem ninguém ver.
-    const fonte = readFileSync(join(RAIZ, 'actions', 'cron-jobs.ts'), 'utf8');
-    const m = fonte.match(/ENCERRAMENTO_IBIPEBA_JANELA\s*=\s*\{[^}]*ate:\s*'([\d-]+)'/);
-    expect(m, 'ENCERRAMENTO_IBIPEBA_JANELA não encontrada em actions/cron-jobs.ts').toBeTruthy();
-    expect(m![1]).toBe(CRONS_SAZONAIS.find((c) => c.action === 'encerramento_ibipeba')!.ate);
+    for (const c of CRONS_SAZONAIS) {
+      const [arquivo, constante] = c.travaEm.split('·').map((p) => p.trim());
+      expect(arquivo, `travaEm de ${c.action} precisa ser "<arquivo.ts> · <CONSTANTE>"`).toMatch(/\S+\.ts$/);
+      expect(constante, `travaEm de ${c.action} sem o nome da constante`).toMatch(/^\S+$/);
+
+      const fonte = readFileSync(join(RAIZ, ...arquivo.split('/')), 'utf8');
+      const m = fonte.match(new RegExp(`${constante}\\s*=\\s*\\{[^}]*ate:\\s*'([\\d-]+)'`));
+      expect(m, `${constante} não encontrada em ${arquivo}`).toBeTruthy();
+      expect(m![1], `a janela de ${c.action} no código diverge desta lista`).toBe(c.ate);
+    }
   });
 });

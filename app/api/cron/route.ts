@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario, conarhFollowup, conarhReenvioT0, encerramentoIbipeba } from '@/actions/cron-jobs';
+import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario, conarhFollowup, conarhReenvioT0 } from '@/actions/cron-jobs';
 import { safeSecretEqual } from '@/lib/secure-compare';
 
 // trigger_diario virou DISPATCHER (fan-out QStash por empresa — uma task por
@@ -374,15 +374,13 @@ export async function GET(req) {
         break;
 
       /**
-       * Encerramento de Ibipeba — avisa quem ficou com semanas em aberto.
-       *
-       * AGENDADO com data de fim (`4-8 9` no vercel.json) e trava de janela no
-       * código. Depois de 12/09/2026 a action fica inerte sozinha, e a entrada
-       * do vercel.json pode sair. Ver o cabeçalho em `actions/cron-jobs.ts`.
+       * Encerramento de Ibipeba — REMOVIDO em 13/09/2026, depois de a janela
+       * (04–12/09) fechar com o lote disparado: 29 envios `encerramento_conteudo`,
+       * todos `sucesso` em `notification_deliveries`, medido no banco vivo. O
+       * resolvedor do template e o disparo manual continuam
+       * (`lib/notifications/envio-template-lote.ts`,
+       * `scripts/_disparar-encerramento-ibipeba.ts`).
        */
-      case 'encerramento_ibipeba':
-        result = await encerramentoIbipeba();
-        break;
 
       // Legados — ver `ACOES_SO_MANUAIS` no topo (o guard confere que seguem
       // fora do vercel.json).
