@@ -74,6 +74,10 @@ export const SPEC_CONFIG: Record<string, SpecChave> = {
     escopo: 'empresa', estrategia: 'raso',
     nota: 'O que a empresa CONTRATOU. O que a safra USA é a etapa instanciada — disponível ≠ instanciado.',
   },
+  prontidao_lideranca: {
+    escopo: 'empresa', estrategia: 'substitui',
+    nota: 'Programa de Prontidão para Liderança: cargo-alvo, exemplares, corte. O cargo-alvo e as competências dele são institucionais (gabarito + top5_workshop vivem por empresa); a POPULAÇÃO pode ser uma turma, mas isso é um campo DENTRO da chave, não um override por turma.',
+  },
   votacao_ativa: {
     escopo: 'empresa', estrategia: 'escalar',
     nota: '🔴 NÃO pode ser gate de turma: o resultado grava em cargos_empresa.top5_workshop, por CARGO e empresa-wide. Duas turmas do mesmo cargo votando disputariam o mesmo registro. Votação por turma exigiria versionar o perfil ideal (F1), que segue institucional.',

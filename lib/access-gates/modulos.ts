@@ -27,11 +27,14 @@ import type { GateResult, EmpresaConfig } from './types';
 /** Módulos opcionais conhecidos. Enum fechado: módulo novo entra aqui. */
 export const MODULOS = {
   PULSO: 'pulso',
+  /** Mapeamento de Prontidão para Liderança — `lib/prontidao-lideranca/`. */
+  PRONTIDAO_LIDERANCA: 'prontidao_lideranca',
 } as const;
 export type Modulo = (typeof MODULOS)[keyof typeof MODULOS];
 
 const ROTULO: Record<string, string> = {
   [MODULOS.PULSO]: 'Pulso de Desenvolvimento',
+  [MODULOS.PRONTIDAO_LIDERANCA]: 'Prontidão para Liderança',
 };
 
 /**
