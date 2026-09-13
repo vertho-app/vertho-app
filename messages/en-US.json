@@ -2140,6 +2140,19 @@
       "edit": "Edit Competency",
       "new": "New Competency"
     },
+    "descriptor": {
+      "edit": "Edit descriptor rubric",
+      "code": "Code",
+      "shortName": "Short name",
+      "full": "Full descriptor",
+      "n1": "Gap",
+      "n2": "Developing",
+      "n3": "Target",
+      "n4": "Reference",
+      "evidence": "Expected evidence",
+      "questions": "Target questions",
+      "hint": "N3 is the target and the decision cut — it cannot be empty. Fixing a rubric after calibration requires re-evaluating the answers."
+    },
     "fields": {
       "name": "Name",
       "namePlaceholder": "Competency name",

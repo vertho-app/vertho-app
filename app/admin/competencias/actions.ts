@@ -138,6 +138,55 @@ export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
   return { success: true, message: `${novos.length} competências importadas` };
 }
 
+/** Colunas de DESCRITOR que a edição pode tocar — a rubrica N1–N4 e o que a cerca. Nada mais.
+ *  (Não exportada: num arquivo 'use server' só funções async podem sair.) */
+const COLUNAS_DESCRITOR = [
+  'cod_desc', 'nome_curto', 'descritor_completo',
+  'n1_gap', 'n2_desenvolvimento', 'n3_meta', 'n4_referencia',
+  'evidencias_esperadas', 'perguntas_alvo',
+] as const;
+
+/**
+ * Edita a rubrica de UM descritor. Existe porque o importador só INSERE
+ * (linha já existente é ignorada em silêncio) e `salvarCompetencia` não toca
+ * n1..n4 — então corrigir um descritor depois da calibragem exigia apagar e
+ * recarregar, ou ir ao banco. A calibragem com líderes de referência fecha o
+ * laço aqui: exemplar abaixo do corte → reescreve N3/N4 → reavalia.
+ *
+ * Gate TENANT-SCOPED (`content.manage` na empresa da rota) e predicado de
+ * tenant na MESMA cadeia do update: o `id` vem do browser.
+ */
+export async function salvarDescritor(empresaId: string, id: string, campos: Record<string, unknown>) {
+  const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'salvarDescritor');
+  try {
+    if (!id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return { success: false, error: 'Descritor inválido' };
+    }
+    const registro: Record<string, string | null> = {};
+    for (const col of COLUNAS_DESCRITOR) {
+      if (col in (campos || {})) {
+        const v = String((campos as any)[col] ?? '').trim();
+        registro[col] = v || null;
+      }
+    }
+    if (!Object.keys(registro).length) return { success: false, error: 'Nada para salvar' };
+    if (registro.n3_meta === null && 'n3_meta' in registro) {
+      // N3 é a META do modelo e o corte da decisão; o importador aceita vazio, a edição avisa.
+      return { success: false, error: 'N3 (meta) não pode ficar vazio: é o nível que decide.' };
+    }
+    const { data, error } = await sb.from('competencias')
+      .update(registro)
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+      .select('id');
+    if (error) return { success: false, error: error.message };
+    if (!data?.length) return { success: false, error: 'Descritor não encontrado nesta empresa' };
+    return { success: true, message: 'Descritor salvo' };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 export async function copiarBaseParaEmpresa(empresaId: string, baseId: string, cargo: string | null = null) {
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
   const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'copiarBaseParaEmpresa');

@@ -10,7 +10,7 @@ import {
 import BackButton from '@/components/back-button';
 import {
   loadEmpresas, loadCompetencias, loadCompetenciasBase,
-  salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV, loadCargosEmpresa
+  salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV, loadCargosEmpresa, salvarDescritor
 } from './actions';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
 import { useConfirm } from '@/components/admin/confirm-dialog';
@@ -86,6 +86,25 @@ export default function CompetenciasPage() {
 
   function openAdd() { setEditComp(EMPTY_COMP); setShowModal(true); }
   function openEdit(c: any) { setEditComp({ ...c }); setShowModal(true); }
+
+  // Edição da RUBRICA de um descritor (N1–N4, evidências, perguntas). O modal
+  // de competência acima só toca nome/código/pilar/cargo/descrição; sem este,
+  // corrigir um descritor depois da calibragem exigia apagar e reimportar.
+  const [editDesc, setEditDesc] = useState<any>(null);
+  const [savingDesc, setSavingDesc] = useState(false);
+  function openEditDesc(d: any) { setEditDesc({ ...d }); }
+  async function handleSaveDesc() {
+    if (!editDesc?.id) return;
+    setSavingDesc(true);
+    const r = await salvarDescritor(empresaId, editDesc.id, {
+      cod_desc: editDesc.cod_desc, nome_curto: editDesc.nome_curto, descritor_completo: editDesc.descritor_completo,
+      n1_gap: editDesc.n1_gap, n2_desenvolvimento: editDesc.n2_desenvolvimento, n3_meta: editDesc.n3_meta, n4_referencia: editDesc.n4_referencia,
+      evidencias_esperadas: editDesc.evidencias_esperadas, perguntas_alvo: editDesc.perguntas_alvo,
+    });
+    setSavingDesc(false);
+    if (r.success) { flash(r.message!); setEditDesc(null); handleSelectEmpresa(empresaId); }
+    else flash(t('messages.error', { error: r.error }));
+  }
 
   async function handleSave() {
     if (!editComp.nome.trim()) return;
@@ -336,6 +355,8 @@ export default function CompetenciasPage() {
                           <div key={d.id} className="group px-4 py-2 text-[11px] text-gray-200 hover:bg-white/[0.02]">
                             <div className="flex items-center justify-between gap-2">
                               <span className="flex-1">{d.nome_curto || d.descritor_completo || '—'}</span>
+                              <button type="button" onClick={() => openEditDesc(d)} title={t('descriptor.edit')}
+                                className="w-6 h-6 flex items-center justify-center rounded text-gray-600 hover:text-cyan-400 shrink-0"><Pencil size={11} /></button>
                               <div className="flex items-center gap-1 shrink-0">
                                 {[
                                   { label: 'N1', has: hasN1 },
@@ -447,6 +468,59 @@ export default function CompetenciasPage() {
               <button onClick={handleSave} disabled={saving || !editComp.nome.trim()}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white bg-teal-600 hover:bg-teal-500 transition-colors disabled:opacity-50">
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                {t('actions.save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal: rubrica do descritor ─── */}
+      {editDesc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onMouseDown={e => { if (e.target === e.currentTarget) setEditDesc(null); }}>
+          <div className="rounded-xl border border-white/10 w-full max-w-2xl mx-4 p-6 max-h-[92dvh] overflow-y-auto" style={{ background: '#0F2A4A' }}>
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-bold text-white">{t('descriptor.edit')}</h2>
+              <button onClick={() => setEditDesc(null)} className="text-gray-500 hover:text-white"><X size={18} /></button>
+            </div>
+            <p className="text-[11px] text-gray-500 mb-4">{editDesc.nome} · {editDesc.cod_comp}</p>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { key: 'cod_desc', label: t('descriptor.code') },
+                  { key: 'nome_curto', label: t('descriptor.shortName') },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="block text-xs font-bold text-gray-400 mb-1">{f.label}</label>
+                    <input value={editDesc[f.key] || ''} onChange={e => setEditDesc((p: any) => ({ ...p, [f.key]: e.target.value }))}
+                      className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
+                  </div>
+                ))}
+              </div>
+              {[
+                { key: 'descritor_completo', label: t('descriptor.full'), rows: 2 },
+                { key: 'n1_gap', label: 'N1 · ' + t('descriptor.n1'), rows: 2 },
+                { key: 'n2_desenvolvimento', label: 'N2 · ' + t('descriptor.n2'), rows: 2 },
+                { key: 'n3_meta', label: 'N3 · ' + t('descriptor.n3'), rows: 2 },
+                { key: 'n4_referencia', label: 'N4 · ' + t('descriptor.n4'), rows: 2 },
+                { key: 'evidencias_esperadas', label: t('descriptor.evidence'), rows: 2 },
+                { key: 'perguntas_alvo', label: t('descriptor.questions'), rows: 2 },
+              ].map(f => (
+                <div key={f.key}>
+                  <label className="block text-xs font-bold text-gray-400 mb-1">{f.label}</label>
+                  <textarea value={editDesc[f.key] || ''} onChange={e => setEditDesc((p: any) => ({ ...p, [f.key]: e.target.value }))}
+                    rows={f.rows}
+                    className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50 resize-none" />
+                </div>
+              ))}
+              <p className="text-[10px] text-gray-500">{t('descriptor.hint')}</p>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setEditDesc(null)} className="px-4 py-2 rounded-lg text-sm text-gray-400 border border-white/10 hover:text-white transition-colors">{t('actions.cancel')}</button>
+              <button onClick={handleSaveDesc} disabled={savingDesc || !String(editDesc.n3_meta || '').trim()}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white bg-teal-600 hover:bg-teal-500 transition-colors disabled:opacity-50">
+                {savingDesc ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 {t('actions.save')}
               </button>
             </div>

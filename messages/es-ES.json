@@ -2140,6 +2140,19 @@
       "edit": "Editar Competencia",
       "new": "Nueva Competencia"
     },
+    "descriptor": {
+      "edit": "Editar rúbrica del descriptor",
+      "code": "Código",
+      "shortName": "Nombre corto",
+      "full": "Descriptor completo",
+      "n1": "Brecha",
+      "n2": "En desarrollo",
+      "n3": "Meta",
+      "n4": "Referencia",
+      "evidence": "Evidencias esperadas",
+      "questions": "Preguntas objetivo",
+      "hint": "N3 es la meta y el corte de la decisión — no puede quedar vacío. Corregir la rúbrica tras la calibración exige reevaluar las respuestas."
+    },
     "fields": {
       "name": "Nombre",
       "namePlaceholder": "Nombre de la competencia",

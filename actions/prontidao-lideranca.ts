@@ -13,7 +13,7 @@
  * diferentes para quem lê.
  */
 import { getUserContext } from '@/lib/authz';
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { MODULOS, canUseModulo } from '@/lib/access-gates/modulos';
 import { listarTurmasDoTenant } from '@/lib/turmas/contexto';
@@ -37,7 +37,10 @@ async function ctxRh(): Promise<{ empresaId: string } | { erro: string }> {
 }
 
 async function lerSysConfig(sb: any, empresaId: string): Promise<{ sysConfig: any } | Falha> {
-  const { data, error } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+  // `empresas` não tem coluna empresa_id: sob tenantDb a leitura vai pelo `raw`
+  // (o filtro por tenant aqui é o próprio `.eq('id', empresaId)`).
+  const base = sb?.raw || sb;
+  const { data, error } = await base.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
   if (error) return { success: false, error: `não foi possível ler a configuração: ${error.message}` };
   if (!data) return { success: false, error: 'Empresa não encontrada.' };
   return { sysConfig: data.sys_config || {} };
@@ -84,12 +87,14 @@ async function _parecer(sb: any, empresaId: string, colaboradorId: string) {
 
 export async function getProntidaoLideranca() {
   const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro };
-  return _get(createSupabaseAdmin(), g.empresaId);
+  // tenantDb, não o client cru: o escopo é a empresa da sessão e o filtro vai
+  // em toda leitura de tabela de tenant por construção (regra do CLAUDE.md).
+  return _get(tenantDb(g.empresaId), g.empresaId);
 }
 
 export async function getParecerLideranca(colaboradorId: string) {
   const g = await ctxRh(); if ('erro' in g) return { success: false as const, error: g.erro };
-  return _parecer(createSupabaseAdmin(), g.empresaId, colaboradorId);
+  return _parecer(tenantDb(g.empresaId), g.empresaId, colaboradorId);
 }
 
 // ── Preview e configuração do admin (empresa da rota) ─────────────────────────

@@ -78,6 +78,7 @@ async function carregarNotas(sb: any, empresaId: string, ids: string[], competen
     .select('colaborador_id, competencia, descritor, nota')
     .eq('empresa_id', empresaId)
     .in('colaborador_id', ids)
+    .order('id')            // paginação sem ORDER BY repete/pula linha entre páginas
     .range(de, ate), 'as notas por descritor');
   return rows
     .filter((r) => chaves.has(chaveCompetencia(r.competencia)))
@@ -92,6 +93,7 @@ async function carregarAuditoria(sb: any, empresaId: string, ids: string[], comp
     .select('colaborador_id, competencia_nome, status_ia4')
     .eq('empresa_id', empresaId)
     .in('colaborador_id', ids)
+    .order('id')
     .range(de, ate), 'as respostas');
   for (const r of rows) {
     if (!chaves.has(chaveCompetencia(r.competencia_nome))) continue;

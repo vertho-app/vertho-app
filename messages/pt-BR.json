@@ -2140,6 +2140,19 @@
       "edit": "Editar Competência",
       "new": "Nova Competência"
     },
+    "descriptor": {
+      "edit": "Editar rubrica do descritor",
+      "code": "Código",
+      "shortName": "Nome curto",
+      "full": "Descritor completo",
+      "n1": "Lacuna",
+      "n2": "Em desenvolvimento",
+      "n3": "Meta",
+      "n4": "Referência",
+      "evidence": "Evidências esperadas",
+      "questions": "Perguntas-alvo",
+      "hint": "N3 é a meta e o corte da decisão — não fica vazio. Corrigir a rubrica depois da calibragem exige reavaliar as respostas."
+    },
     "fields": {
       "name": "Nome",
       "namePlaceholder": "Nome da competência",
