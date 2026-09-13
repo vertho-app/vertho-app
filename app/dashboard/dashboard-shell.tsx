@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
-import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn, Activity, MessageCircle } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn, Activity, MessageCircle, Compass } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import { PresentationEnvironment } from '@/components/dashboard/presentation-role-switcher';
@@ -14,6 +14,8 @@ import type { TenantTheme } from '@/lib/ui-resolver';
 type NavItem = {
   href: string; labelKey: string; icon: any;
   gestorOnly?: boolean; rhOnly?: boolean; participante?: boolean;
+  /** Só aparece quando a empresa contratou o módulo de Prontidão para Liderança (`/api/me`). */
+  moduloProntidao?: boolean;
   /** Some para o Admin da empresa, que chega no mesmo destino por outro caminho. */
   exceptoRh?: boolean;
   recepcao?: boolean;
@@ -83,6 +85,7 @@ const NAV_ITEMS: NavItem[] = [
   // Vertho em /admin. O ranking das vagas segue visível ao RH em .../ranking, que
   // já inclui `eh_vaga`. Ver o docstring de `gestor/selecao/page.tsx`.
   { href: '/dashboard/gestor/ranking', labelKey: 'ranking', icon: ListOrdered, rhOnly: true },
+  { href: '/dashboard/gestor/prontidao-lideranca', labelKey: 'prontidaoLideranca', icon: Compass, rhOnly: true, moduloProntidao: true },
   { href: '/dashboard/relatorios', labelKey: 'reports', icon: FileChartColumn, rhOnly: true },
 
   { href: '/dashboard/perfil', labelKey: 'profile', icon: User },
@@ -115,7 +118,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME, mostra
   const isImmersiveContent = pathname.startsWith('/dashboard/conteudo/');
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
-  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean; treinoVendas?: boolean } | null>(null);
+  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean; treinoVendas?: boolean; prontidaoLideranca?: boolean } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
   const ehAdminDaEmpresa = colaborador?.role === 'rh';
   // Cargo com Top 5 vazio não faz mapeamento nem trilha: as telas de jornada
@@ -132,6 +135,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME, mostra
     && (!it.vendas || mostrarVendas || colaborador?.treinoVendas === true)
     && (!it.gestorOnly || isGestorOuRH)
     && (!it.rhOnly || ehAdminDaEmpresa)
+    && (!it.moduloProntidao || colaborador?.prontidaoLideranca === true)
     && (!it.participante || (!ehAdminDaEmpresa && participaDaJornada))
     && (!it.exceptoRh || !ehAdminDaEmpresa),
   );

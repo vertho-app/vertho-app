@@ -111,6 +111,7 @@
   "DashboardShell": {
     "nav": {
       "home": "Inicio",
+      "prontidaoLideranca": "Preparación para el liderazgo",
       "ranking": "Adecuación",
       "reports": "Informes",
       "team": "Equipo",
@@ -2506,7 +2507,8 @@
       "fit": "Fit v2",
       "ranking": "Ranking (vista de RR. HH.)",
       "calibracao": "Calibración",
-      "devBadge": "dev/interno"
+      "devBadge": "dev/interno",
+      "prontidao": "Preparación para el liderazgo"
     }
   },
   "AdminPPP": {
@@ -4493,6 +4495,10 @@
       "programTitle": "Programa de la PRÓXIMA generación de ruta — la ruta en curso corre por su sello"
     },
     "program": {
+      "moduloProntidaoTitle": "Módulo Preparación para el Liderazgo",
+      "moduloProntidaoDesc": "Contratado aparte. Encendido, RR. HH. ve la lectura de la matriz y la ruta de liderazgo se abre para la población configurada en Adecuación → Preparación.",
+      "moduloProntidaoOn": "Encendido",
+      "moduloProntidaoOff": "Apagado",
       "title": "Modo del programa",
       "desc": "Regular = ruta de 14 semanas con hasta 2 competencias en profundidad. Onboarding = 10 semanas en espiral cubriendo hasta 5 competencias (recién graduados / autonomía supervisada).",
       "journey": "Jornada (7 semanas)",

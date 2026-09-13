@@ -389,6 +389,19 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
             )}
           </Panel>
 
+          <Panel title={t('program.moduloProntidaoTitle')}>
+            <p className="text-[10px] text-gray-500 mb-3">{t('program.moduloProntidaoDesc')}</p>
+            {/* Grava em sys_config.modulos.prontidao_lideranca pelo mesmo "Salvar" da aba
+                (o objeto inteiro sobe em salvarConfig). Fail-closed: ausente = desligado. */}
+            <button type="button"
+              onClick={() => setConfig(prev => ({ ...prev, modulos: { ...((prev as any).modulos || {}), prontidao_lideranca: !((prev as any).modulos?.prontidao_lideranca === true) } }))}
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold border transition ${
+                (config as any).modulos?.prontidao_lideranca === true ? 'border-emerald-400/40 text-emerald-300 bg-emerald-400/10' : 'border-white/10 text-gray-300 hover:bg-white/5'
+              }`}>
+              {(config as any).modulos?.prontidao_lideranca === true ? t('program.moduloProntidaoOn') : t('program.moduloProntidaoOff')}
+            </button>
+          </Panel>
+
           <Panel title={t('program.careerTitle')}>
             <p className="text-[10px] text-gray-500 mb-3">
               {t.rich('program.careerDesc', { b: (chunks) => <b>{chunks}</b> })}

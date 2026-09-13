@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import {
   Loader2, BarChart3, Trophy, Target, Users, Zap, ChevronDown,
   AlertTriangle, CheckCircle, TrendingUp, TrendingDown, RefreshCw,
-  Sparkles, Download, FileText,
+  Sparkles, Download, FileText, Compass,
 } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import {
@@ -19,6 +19,7 @@ import { gerarRelatorioAdequacao } from '@/actions/adequacao-cargo';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import RankingTab from './_components/ranking-tab';
 import CalibracaoTab from './_components/calibracao-tab';
+import ProntidaoLiderancaTab from './_components/prontidao-lideranca-tab';
 
 const FAIXA_COLORS = {
   excelente: { bg: 'bg-green-400/15', text: 'text-green-400' },
@@ -143,7 +144,7 @@ function ForcaItem({ f }) {
 //   calibracao → ferramenta DEV de calibração do gabarito (badge dev/interno)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TAB_KEYS = ['fit', 'ranking', 'calibracao'];
+const TAB_KEYS = ['fit', 'ranking', 'calibracao', 'prontidao'];
 
 // Wrapper com Suspense: FitPageInner usa useSearchParams. Sem o boundary, chegar
 // via redirect() (ex.: /empresas/[id]/calibracao → /fit?tab=calibracao) causava
@@ -174,6 +175,7 @@ function FitPageInner() {
     { key: 'fit', label: t('tabs.fit'), icon: BarChart3, color: 'text-cyan-400', dev: false },
     { key: 'ranking', label: t('tabs.ranking'), icon: Trophy, color: 'text-amber-400', dev: false },
     { key: 'calibracao', label: t('tabs.calibracao'), icon: Target, color: 'text-emerald-400', dev: true },
+    { key: 'prontidao', label: t('tabs.prontidao'), icon: Compass, color: 'text-purple-400', dev: false },
   ];
 
   return (
@@ -208,6 +210,8 @@ function FitPageInner() {
         <div className="text-center py-10"><p className="text-gray-400">{t('missingCompany')}</p></div>
       ) : tab === 'ranking' ? (
         <RankingTab empresaId={empresaId} />
+      ) : tab === 'prontidao' ? (
+        <ProntidaoLiderancaTab empresaId={empresaId} />
       ) : tab === 'calibracao' ? (
         <CalibracaoTab empresaId={empresaId} />
       ) : (

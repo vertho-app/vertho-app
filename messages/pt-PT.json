@@ -111,6 +111,7 @@
   "DashboardShell": {
     "nav": {
       "home": "Início",
+      "prontidaoLideranca": "Prontidão para liderança",
       "ranking": "Adequação",
       "reports": "Relatórios",
       "team": "Equipa",
@@ -2506,7 +2507,8 @@
       "fit": "Fit v2",
       "ranking": "Ranking (pré-visualização RH)",
       "calibracao": "Calibração",
-      "devBadge": "dev/interno"
+      "devBadge": "dev/interno",
+      "prontidao": "Prontidão para liderança"
     }
   },
   "AdminPPP": {
@@ -4493,6 +4495,10 @@
       "programTitle": "Programa da PRÓXIMA geração de trilha — a trilha em curso corre pelo carimbo dela"
     },
     "program": {
+      "moduloProntidaoTitle": "Módulo Prontidão para Liderança",
+      "moduloProntidaoDesc": "Contratado à parte. Ligado, o RH vê a leitura da matriz e o trilho de liderança abre para a população configurada em Adequação → Prontidão.",
+      "moduloProntidaoOn": "Ligado",
+      "moduloProntidaoOff": "Desligado",
       "title": "Modo do programa",
       "desc": "Regular = trilha de 14 semanas com até 2 competências em profundidade. Onboarding = 10 semanas em espiral cobrindo até 5 competências (recém-formados / autonomia supervisionada).",
       "journey": "Jornada (7 semanas)",
