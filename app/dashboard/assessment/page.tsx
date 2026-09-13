@@ -1,8 +1,8 @@
 'use client';
 import { toast } from 'sonner';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, CheckCircle, ArrowRight, Target, Calendar, FileText, Trophy } from 'lucide-react';
@@ -68,9 +68,24 @@ function CardTrilhoLideranca({ t, data, trilho, router }: { t: any; data: any; t
 // agradecimento + próximas etapas (PDI e Temporada).
 // TODO: vídeo em produção — trocar pelo ID real do Bunny Stream quando estiver pronto.
 
+// Wrapper com Suspense: `useSearchParams` num client component exige o boundary
+// para o prerender (mesmo padrão de /admin/fit). O trilho vem da URL como
+// DEPENDÊNCIA do effect — `router.push` para a mesma rota com outra query não
+// remonta o componente, então um effect `[]` deixava a tela presa no trilho
+// anterior (o card do segundo mapeamento mudava a URL e nada mais).
 export default function AssessmentPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-[60dvh]"><Loader2 size={32} className="animate-spin text-brand-400" /></div>}>
+      <AssessmentInner />
+    </Suspense>
+  );
+}
+
+function AssessmentInner() {
   const t = useTranslations('Assessment');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const trilhoQuery: 'cargo' | 'lideranca' = searchParams.get('trilho') === 'lideranca' ? 'lideranca' : 'cargo';
   const supabase = getSupabase();
 
   const [phase, setPhase] = useState(PHASE.LOADING);
@@ -94,12 +109,17 @@ export default function AssessmentPage() {
   function flash(msg) { toast.error(msg); }
 
   useEffect(() => {
+    let ativo = true;
+    // Troca de trilho na mesma rota: zera o que era do trilho anterior antes de
+    // carregar o novo — senão a resposta meio digitada do cargo vaza para o de
+    // liderança.
+    setTrilho(trilhoQuery);
+    setPhase(PHASE.LOADING); setError(''); setData(null);
+    setRespostas({ r1: '', r2: '', r3: '', r4: '' }); setRepr(null); setPergIdx(0); setSaveResult(null);
     (async () => {
       try {
-        const q = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('trilho') : null;
-        const t0: 'cargo' | 'lideranca' = q === 'lideranca' ? 'lideranca' : 'cargo';
-        setTrilho(t0);
-        const r: any = await getDiagnosticoDoDia(t0);
+        const r: any = await getDiagnosticoDoDia(trilhoQuery);
+        if (!ativo) return;
         if (!r) { setError(t('emptyServer')); setPhase(PHASE.ERROR); return; }
         if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
         setData(r);
@@ -107,12 +127,16 @@ export default function AssessmentPage() {
         else if (r.respondeuHoje) setPhase(PHASE.HOJE);
         else setPhase(PHASE.EXPLICACAO);
       } catch (e) {
+        if (!ativo) return;
         console.error('[assessment init]', e);
         setError(e?.message || t('loadError'));
         setPhase(PHASE.ERROR);
       }
     })();
-  }, []);
+    return () => { ativo = false; };
+    // `t` é estável por locale; a dependência real é o trilho da URL.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trilhoQuery]);
 
   const currentR = useMemo(() => respostas[`r${pergIdx + 1}`] || '', [respostas, pergIdx]);
 
@@ -489,12 +513,21 @@ export default function AssessmentPage() {
               </div>
             </>
           ) : (
+            trilho === 'lideranca' ? (
+              <>
+                {/* O trilho de liderança não gera PDI nem "relatório personalizado": o
+                    resultado chega pela liderança. Prometer o do cargo aqui seria mentir. */}
+                <p className="text-xl font-black text-white mb-1">{t('lideranca.doneTitle', { name: data?.colaborador?.nome?.split(' ')[0] || '' })}</p>
+                <p className="text-sm text-gray-300 mb-5">{t('lideranca.doneDescription')}</p>
+              </>
+            ) : (
             <>
               <p className="text-xl font-black text-white mb-1">{t('done.title', { name: data?.colaborador?.nome?.split(' ')[0] || '' })}</p>
               <p className="text-sm text-gray-300 mb-5">
                 {t.rich('done.description', { br: () => <br /> })}
               </p>
             </>
+            )
           )}
 
           {/* Degustação: a análise leva ~2 min e o roteiro continua. Em vez de

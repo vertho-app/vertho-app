@@ -161,7 +161,7 @@ function PaginaEvidencias({ p, empresaNome }: { p: Parecer; empresaNome: string 
       <Text style={s.eyebrow}>Evidências · trechos da própria resposta</Text>
       <Text style={s.h2}>O que sustenta cada nota</Text>
       {p.evidencias.map((ev) => (
-        <View key={ev.competencia} style={s.card} wrap={false}>
+        <View key={ev.competencia} style={s.card}>
           <View style={s.row}>
             <Text style={s.h3}>{ev.competencia}</Text>
             <Text style={s.small}>{ev.auditoria ? `auditoria: ${ev.auditoria.replace(/_/g, ' ')}` : ev.descritores.length ? 'sem auditoria' : 'sem avaliação'}</Text>
@@ -222,7 +222,7 @@ export async function renderConsolidadoPDF(input: ConsolidadoPDFInput): Promise<
         <Text style={s.eyebrow}>Matriz · competência demonstrada × aderência de estilo</Text>
         <Text style={s.h2}>Quem está onde</Text>
         {ORDEM_QUADRANTES.map((q) => (
-          <View key={q} style={s.card} wrap={false}>
+          <View key={q} style={s.card}>
             <View style={s.row}><Pill q={q} /><Text style={s.small}>{porQ(q).length} pessoa(s)</Text></View>
             <Text style={{ color: T.mute, marginTop: 6, marginBottom: 6, lineHeight: 1.4 }}>{RECOMENDACAO_POR_QUADRANTE[q]}</Text>
             {porQ(q).map((l) => (
@@ -236,7 +236,7 @@ export async function renderConsolidadoPDF(input: ConsolidadoPDFInput): Promise<
           </View>
         ))}
         {(data.incompletos.length > 0 || data.semEstilo.length > 0 || data.naoIniciados > 0) && (
-          <View style={s.card} wrap={false}>
+          <View style={s.card}>
             <Text style={s.h3}>Fora da matriz</Text>
             {data.naoIniciados > 0 && <Text>{data.naoIniciados} não iniciaram o mapeamento de liderança.</Text>}
             {data.incompletos.map((i) => <Text key={i.colaboradorId}>{i.nome} — mapeamento incompleto ({i.cobertas}/{i.total}; faltam {i.faltantes.join(', ')})</Text>)}
@@ -244,7 +244,7 @@ export async function renderConsolidadoPDF(input: ConsolidadoPDFInput): Promise<
           </View>
         )}
         {data.avisos.length > 0 && (
-          <View style={s.card} wrap={false}><Text style={s.h3}>Avisos do cálculo</Text>{data.avisos.map((a) => <Text key={a} style={{ color: T.clay }}>{a}</Text>)}</View>
+          <View style={s.card}><Text style={s.h3}>Avisos do cálculo</Text>{data.avisos.map((a) => <Text key={a} style={{ color: T.clay }}>{a}</Text>)}</View>
         )}
         <Rodape empresaNome={empresaNome} />
       </Page>

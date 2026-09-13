@@ -3,14 +3,18 @@ import { criarSupabaseMock } from '../../helpers/supabase-mock';
 import { resolverTrilhoLideranca, respondeuHojeNoTrilho, diaEmSaoPaulo, trilhoDe } from '@/lib/prontidao-lideranca/trilho';
 
 const LID5 = ['Priorização', 'Gestão por dados', 'Desenvolvimento de pessoas', 'Conversa difícil', 'Delegação'];
-const colab = { id: 'c1', empresa_id: 'emp', cargo: 'Vendedor' };
+const colab = { id: 'c1', empresa_id: 'emp', cargo: 'Vendedor', role: 'colaborador', email: 'ana@cliente.com' };
 const contratado = { modulos: { prontidao_lideranca: true } };
 const cfg = { ...contratado, prontidao_lideranca: { cargo_alvo: 'Gerente Comercial' } };
 
-function mock(opts: { top5?: string[] | null; turmaDaPessoa?: string | null } = {}) {
+function mock(opts: { cargos?: any[] | null; turmaDaPessoa?: string | null } = {}) {
   return criarSupabaseMock({
+    lista: (tabela) => {
+      // O trilho lê a LISTA de cargos da empresa e casa o alvo por nome normalizado.
+      if (tabela === 'cargos_empresa') return opts.cargos === null ? [] : (opts.cargos ?? [{ nome: 'Gerente Comercial', top5_workshop: LID5 }, { nome: 'Vendedor', top5_workshop: ['Prospecção'] }]);
+      return [];
+    },
     resolver: (tabela) => {
-      if (tabela === 'cargos_empresa') return opts.top5 === null ? null : { nome: 'Gerente Comercial', top5_workshop: opts.top5 ?? LID5 };
       if (tabela === 'turma_membros') return opts.turmaDaPessoa ? { id: 'm1', turma_id: opts.turmaDaPessoa, config_override: {} } : null;
       if (tabela === 'turmas') return opts.turmaDaPessoa ? { id: opts.turmaDaPessoa, nome: 'T', sys_config: {}, data_inicio: null, status: 'em_jornada' } : null;
       return null;
@@ -34,6 +38,13 @@ describe('resolverTrilhoLideranca — quem responde o segundo mapeamento', () =>
     expect(r).toMatchObject({ ok: false, code: 'OCUPA_CARGO_ALVO' });
   });
 
+  it('rh e e-mail interno ficam fora — a mesma exclusão que a matriz aplica', async () => {
+    expect(await resolverTrilhoLideranca(mock().client, { ...colab, role: 'rh' }, cfg)).toMatchObject({ ok: false, code: 'FORA_DA_POPULACAO' });
+    expect(await resolverTrilhoLideranca(mock().client, { ...colab, email: 'alguem@vertho.ai' }, cfg)).toMatchObject({ ok: false, code: 'FORA_DA_POPULACAO' });
+    // persona de demo não é interna
+    expect(await resolverTrilhoLideranca(mock().client, { ...colab, email: 'ana.demo@vertho.ai' }, cfg)).toMatchObject({ ok: true });
+  });
+
   it('escopo por turma: fora da turma do programa é fora da população', async () => {
     const porTurma = { ...contratado, prontidao_lideranca: { cargo_alvo: 'Gerente Comercial', escopo: { tipo: 'turma', turmaId: 't-prog' } } };
     expect(await resolverTrilhoLideranca(mock({ turmaDaPessoa: 't-outra' }).client, colab, porTurma)).toMatchObject({ ok: false, code: 'FORA_DA_POPULACAO' });
@@ -42,8 +53,14 @@ describe('resolverTrilhoLideranca — quem responde o segundo mapeamento', () =>
   });
 
   it('cargo-alvo sem Top 5 (ou inexistente) recusa com código próprio', async () => {
-    expect(await resolverTrilhoLideranca(mock({ top5: [] }).client, colab, cfg)).toMatchObject({ ok: false, code: 'CARGO_ALVO_SEM_TOP5' });
-    expect(await resolverTrilhoLideranca(mock({ top5: null }).client, colab, cfg)).toMatchObject({ ok: false, code: 'CARGO_ALVO_SEM_TOP5' });
+    expect(await resolverTrilhoLideranca(mock({ cargos: [{ nome: 'Gerente Comercial', top5_workshop: [] }] }).client, colab, cfg)).toMatchObject({ ok: false, code: 'CARGO_ALVO_SEM_TOP5' });
+    expect(await resolverTrilhoLideranca(mock({ cargos: null }).client, colab, cfg)).toMatchObject({ ok: false, code: 'CARGO_ALVO_SEM_TOP5' });
+  });
+
+  it('o cargo-alvo casa por nome normalizado e devolve o nome CANÔNICO do cargo', async () => {
+    const digitado = { ...contratado, prontidao_lideranca: { cargo_alvo: '  gerente COMERCIAL ' } };
+    const r = await resolverTrilhoLideranca(mock().client, colab, digitado);
+    expect(r).toMatchObject({ ok: true, cargoAlvo: 'Gerente Comercial', competencias: LID5 });
   });
 
   it('caminho feliz: as competências são o Top 5 do cargo-alvo', async () => {
@@ -52,7 +69,7 @@ describe('resolverTrilhoLideranca — quem responde o segundo mapeamento', () =>
     expect((r as any).cfg.um_por_dia).toBe(true);
   });
 
-  it('erro de leitura do cargo-alvo LANÇA — não vira "sem competências"', async () => {
+  it('erro de leitura dos cargos LANÇA — não vira "sem competências"', async () => {
     const sb = mock();
     sb.falharEm({ tabela: 'cargos_empresa', op: 'select', mensagem: 'timeout' });
     await expect(resolverTrilhoLideranca(sb.client, colab, cfg)).rejects.toThrow(/cargo-alvo/);

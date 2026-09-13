@@ -12,3 +12,7 @@ export * from './estilo';
 export * from './matriz';
 export * from './calibragem';
 export * from './aferir';
+export * from './evidencias';
+// `agregar`, `trilho` e `habilitado` fazem I/O e ficam FORA do barril de
+// propósito: importá-los num client component arrastaria o motor de scoring e
+// o Supabase para o bundle (a lição de `prontidao-flag.ts`).

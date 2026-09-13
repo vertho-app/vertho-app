@@ -12,10 +12,10 @@ import type { LinhaMatriz } from '@/lib/prontidao-lideranca/matriz';
 const linha: LinhaMatriz = {
   colaboradorId: '11111111-2222-4333-8444-555555555555', nome: 'Ana Souza', cargo: 'Vendedora', quadrante: 'pronta_com_custo',
   posicao: {
-    colaboradorId: 'x', total: 2, cobertas: 2, completo: true, faltantes: [], mediaGeral: 3.4, nivelGeral: 3, posicao: 'demonstra', gaps: ['Delegação'],
+    colaboradorId: 'x', total: 2, cobertas: 2, completo: true, faltantes: [], mediaGeral: 3.4, nivelGeral: 3, posicao: 'demonstra', gaps: ['Delegação'], parciais: [],
     competencias: [
-      { competencia: 'Priorização', media: 3.8, nivel: 4, descritores: 6, posicao: 'demonstra', gap: false },
-      { competencia: 'Delegação', media: 2.4, nivel: 2, descritores: 6, posicao: 'nao_demonstra', gap: true },
+      { competencia: 'Priorização', media: 3.8, nivel: 4, descritores: 6, parcial: false, posicao: 'demonstra', gap: false },
+      { competencia: 'Delegação', media: 2.4, nivel: 2, descritores: 6, parcial: false, posicao: 'nao_demonstra', gap: true },
     ],
   },
   estilo: { colaboradorId: 'x', nome: 'Ana Souza', aderenciaPct: 61.2, estilo: 'distante', status: 'abaixo_do_corte', statusLabel: 'Abaixo do corte', bloqueadoNoAlvo: false, motivosBloqueio: [], lacunas: [{ traco: 'Comando', bloco: 'Competencia', fitPct: 40 }], borderline: false },

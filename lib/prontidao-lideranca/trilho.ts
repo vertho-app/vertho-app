@@ -6,17 +6,21 @@
  * competências. Vive em `lib/` (sem gate de sessão) para ser testável com o mock
  * do Supabase e reusado pela tela de assessment e pela leitura do RH — a mesma
  * régua nos dois lados, senão a tela convida para um trilho que a leitura não
- * reconhece.
+ * reconhece. Por isso a exclusão de `role='rh'` e de e-mails internos está AQUI
+ * também: `carregarPopulacao` (agregar.ts) os deixa fora da matriz, e um RH
+ * respondendo cinco cenários que nunca aparecem seria trabalho jogado fora.
  *
  * As competências do trilho são o `top5_workshop` do CARGO-ALVO — a mesma fonte
- * que a IA3 usa para gerar cenários. A pessoa que ocupa o cargo-alvo responde
- * essas competências pelo trilho normal (cargo); para ela o trilho de liderança
- * seria a mesma prova duas vezes.
+ * que a IA3 usa para gerar cenários. O cargo-alvo casa por nome NORMALIZADO
+ * (`chaveCompetencia`), como a validação e a agregação: "gerente comercial"
+ * gravado à mão tem que achar "Gerente Comercial". A pessoa que ocupa o
+ * cargo-alvo responde essas competências pelo trilho normal (cargo).
  */
 import { MODULOS, canUseModulo } from '@/lib/access-gates/modulos';
 import { carregarParticipacaoAtiva } from '@/lib/turmas/contexto';
+import { isInternalEmail } from '@/lib/internal-emails';
 import { assessmentCompetencyWasAnswered, type AssessmentAnswerRef } from '@/lib/assessment/completion';
-import { lerConfigProntidao, ocupaCargoAlvo, type ConfigProntidaoLideranca } from './config';
+import { chaveCompetencia, lerConfigProntidao, ocupaCargoAlvo, type ConfigProntidaoLideranca } from './config';
 
 export type Trilho = 'cargo' | 'lideranca';
 
@@ -43,13 +47,21 @@ const RECUSA: Record<CodigoRecusaTrilho, string> = {
   CARGO_ALVO_SEM_TOP5: 'O cargo-alvo do mapeamento de liderança ainda não tem competências definidas.',
 };
 
+export interface ColabParaTrilho {
+  id: string;
+  empresa_id: string;
+  cargo?: string | null;
+  role?: string | null;
+  email?: string | null;
+}
+
 /**
  * Decide se a pessoa responde o trilho de liderança. Ordem das recusas: da
  * mais barata (sem I/O) para a mais cara. Lança só em erro de leitura.
  */
 export async function resolverTrilhoLideranca(
   sb: any,
-  colab: { id: string; empresa_id: string; cargo?: string | null },
+  colab: ColabParaTrilho,
   sysConfigEmpresa: unknown,
 ): Promise<ResolucaoTrilhoLideranca> {
   const recusa = (code: CodigoRecusaTrilho): ResolucaoTrilhoLideranca => ({ ok: false, code, message: RECUSA[code] });
@@ -58,18 +70,20 @@ export async function resolverTrilhoLideranca(
   const cfg = lerConfigProntidao(sysConfigEmpresa);
   if (!cfg) return recusa('PROGRAMA_NAO_CONFIGURADO');
   if (ocupaCargoAlvo(colab.cargo, cfg)) return recusa('OCUPA_CARGO_ALVO');
+  // A mesma exclusão da população que a leitura aplica (agregar.ts).
+  if (colab.role === 'rh' || isInternalEmail(colab.email)) return recusa('FORA_DA_POPULACAO');
 
   if (cfg.escopo.tipo === 'turma') {
     const { turma } = await carregarParticipacaoAtiva(sb, colab.empresa_id, colab.id);
     if (!turma || turma.id !== cfg.escopo.turmaId) return recusa('FORA_DA_POPULACAO');
   }
 
-  const { data: cargo, error } = await sb.from('cargos_empresa')
+  const { data: cargos, error } = await sb.from('cargos_empresa')
     .select('nome, top5_workshop')
-    .eq('empresa_id', colab.empresa_id)
-    .eq('nome', cfg.cargo_alvo)
-    .maybeSingle();
+    .eq('empresa_id', colab.empresa_id);
   if (error) throw new Error(`não foi possível ler o cargo-alvo: ${error.message}`);
+  const alvoChave = chaveCompetencia(cfg.cargo_alvo);
+  const cargo = (cargos || []).find((c: any) => chaveCompetencia(c?.nome) === alvoChave) || null;
   const top5: string[] = Array.isArray(cargo?.top5_workshop)
     ? cargo.top5_workshop.map((s: unknown) => String(s ?? '').trim()).filter(Boolean)
     : [];
@@ -93,6 +107,10 @@ export interface RespostaComData extends AssessmentAnswerRef {
  * A pessoa já respondeu HOJE alguma competência do trilho? Só respostas que
  * pertencem ao trilho contam — o trilho do cargo nunca bloqueia o de liderança
  * nem o contrário.
+ *
+ * ⚠️ É checagem de leitura, não trava de banco: duas submissões no mesmo
+ * segundo passam as duas (TOCTOU). Aceito: o custo é uma pessoa responder dois
+ * cenários num dia, e o upsert de `respostas` continua único por competência.
  */
 export function respondeuHojeNoTrilho(
   respostas: RespostaComData[],

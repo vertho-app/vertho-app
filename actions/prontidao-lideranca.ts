@@ -17,14 +17,19 @@ import { tenantDb } from '@/lib/tenant-db';
 import { requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { MODULOS, canUseModulo } from '@/lib/access-gates/modulos';
 import { listarTurmasDoTenant } from '@/lib/turmas/contexto';
+import { logAdminAction } from '@/lib/audit';
+import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import {
-  CHAVE_CONFIG, lerConfigProntidao, validarConfigProntidao, type ConfigProntidaoLideranca,
+  CHAVE_CONFIG, chaveCompetencia, lerConfigProntidao, validarConfigProntidao, type ConfigProntidaoLideranca,
 } from '@/lib/prontidao-lideranca/config';
 import {
   agregarProntidaoLideranca, carregarParecer, carregarCalibragem, carregarCargosParaValidacao, carregarPopulacao,
 } from '@/lib/prontidao-lideranca/agregar';
 
 type Falha = { success: false; error: string; code?: string };
+
+/** Parecer é documento NOMINAL: vai no bucket privado dos relatórios, nunca no `conteudos` (público). */
+const BUCKET_PDF = 'relatorios-pdf';
 
 async function ctxRh(): Promise<{ empresaId: string } | { erro: string }> {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
@@ -80,10 +85,14 @@ async function _exportar(sb: any, empresaId: string, alvo: { tipo: 'parecer'; co
       buffer = await renderConsolidadoPDF({ empresaNome: p.nome, data });
       sufixo = 'consolidado';
     }
-    const path = `final/prontidao-lideranca/${empresaId}-${sufixo}-${Date.now()}.pdf`;
-    const up = await sb.storage.from('conteudos').upload(path, buffer, { contentType: 'application/pdf', upsert: true });
+    // Bucket PRIVADO (`conteudos` é público — `storage.buckets.public = true`,
+    // medido 13/09) e path DETERMINÍSTICO por (empresa, pessoa): cada export
+    // sobrescreve o anterior em vez de acumular um arquivo nominal por clique.
+    // O link é assinado (30 min); sem ele a URL não abre.
+    const path = `prontidao-lideranca/${empresaId}/${sufixo}.pdf`;
+    const up = await sb.storage.from(BUCKET_PDF).upload(path, buffer, { contentType: 'application/pdf', upsert: true });
     if (up.error) return { success: false as const, error: `Falha ao salvar PDF: ${up.error.message}` };
-    const signed = await sb.storage.from('conteudos').createSignedUrl(path, 60 * 30);
+    const signed = await sb.storage.from(BUCKET_PDF).createSignedUrl(path, 60 * 30);
     if (signed.error || !signed.data?.signedUrl) return { success: false as const, error: 'Falha ao gerar link do PDF.' };
     return { success: true as const, url: signed.data.signedUrl as string };
   } catch (e: any) {
@@ -178,36 +187,68 @@ export async function getConfigProntidaoAdmin(empresaId: string) {
  * (padrão de `actions/perfil-externo.ts`). Fail-closed: configuração inválida
  * não é gravada, e os erros voltam nomeados.
  */
+/**
+ * Gate `admin.access` (não `settings.company.manage`): o papel `rh` TEM
+ * settings.company.manage no role base, e um `'use server'` é endpoint HTTP —
+ * com o gate antigo o RH do cliente ligava o módulo pago e reescrevia o
+ * programa pelo action id, sem passar por tela nenhuma. "A Vertho opera, o
+ * cliente consome" (§26) vale para a escrita, não só para o menu.
+ */
 export async function salvarConfigProntidaoAdmin(empresaId: string, cfgRaw: unknown) {
-  const sb = await requireEmpresaSupabase(empresaId, 'settings.company.manage', 'salvarConfigProntidaoAdmin');
+  const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'salvarConfigProntidaoAdmin');
   try {
     const cfg = lerConfigProntidao({ [CHAVE_CONFIG]: cfgRaw });
     if (!cfg) return { success: false as const, error: 'Informe o cargo-alvo.', erros: ['Informe o cargo-alvo.'] };
-    const [cargos, pessoas] = await Promise.all([carregarCargosParaValidacao(sb, empresaId), carregarPopulacao(sb, empresaId, cfg)]);
+    // Os exemplares são validados contra o TENANT inteiro, não contra o escopo:
+    // líder de referência costuma ocupar o cargo-alvo e não estar na turma dos
+    // participantes — com o escopo, a validação recusava exatamente eles.
+    const todaEmpresa: ConfigProntidaoLideranca = { ...cfg, escopo: { tipo: 'empresa_inteira' } };
+    const [cargos, pessoasDoEscopo, pessoasDoTenant] = await Promise.all([
+      carregarCargosParaValidacao(sb, empresaId),
+      carregarPopulacao(sb, empresaId, cfg),
+      carregarPopulacao(sb, empresaId, todaEmpresa),
+    ]);
     const validacao = validarConfigProntidao(cfg, {
-      cargos, cargosDaPopulacao: pessoas.map((p) => p.cargo || ''), colaboradorIdsDoTenant: new Set(pessoas.map((p) => p.id)),
+      cargos,
+      cargosDaPopulacao: pessoasDoEscopo.map((p) => p.cargo || ''),
+      colaboradorIdsDoTenant: new Set(pessoasDoTenant.map((p) => p.id)),
     });
     if (!validacao.ok) return { success: false as const, error: validacao.erros[0], erros: validacao.erros, avisos: validacao.avisos };
+    // Grava o nome CANÔNICO do cargo (o da linha em cargos_empresa), não o texto
+    // digitado: trilho e agregação casam por nome normalizado, mas o cenário do
+    // dia é buscado por `.eq('cargo', …)` exato.
+    const alvo = cargos.find((c) => chaveCompetencia(c.nome) === chaveCompetencia(cfg.cargo_alvo));
+    const cfgCanonica: ConfigProntidaoLideranca = { ...cfg, cargo_alvo: alvo?.nome || cfg.cargo_alvo };
     const lido = await lerSysConfig(sb, empresaId);
     if ('error' in lido) return lido;
-    const merged = { ...(lido.sysConfig || {}), [CHAVE_CONFIG]: cfg };
+    const merged = { ...(lido.sysConfig || {}), [CHAVE_CONFIG]: cfgCanonica };
     const { error } = await sb.from('empresas').update({ sys_config: merged }).eq('id', empresaId);
     if (error) return { success: false as const, error: error.message };
-    return { success: true as const, cfg, avisos: validacao.avisos };
+    await logAdminAction({
+      adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+      acao: 'prontidao_lideranca.configurar', empresaId, alvo: 'sys_config.prontidao_lideranca',
+      detalhes: { cargo_alvo: cfgCanonica.cargo_alvo, exemplares: cfgCanonica.exemplares.length, escopo: cfgCanonica.escopo.tipo, corte: cfgCanonica.corte_nota, banda: cfgCanonica.banda },
+    });
+    return { success: true as const, cfg: cfgCanonica, avisos: validacao.avisos };
   } catch (e: any) {
     return { success: false as const, error: e?.message || 'Erro ao salvar a configuração.' };
   }
 }
 
-/** Liga/desliga o módulo em `sys_config.modulos.prontidao_lideranca`. */
+/** Liga/desliga o módulo em `sys_config.modulos.prontidao_lideranca`. Só plataforma (ver o gate acima). */
 export async function setModuloProntidaoAdmin(empresaId: string, ligado: boolean) {
-  const sb = await requireEmpresaSupabase(empresaId, 'settings.company.manage', 'setModuloProntidaoAdmin');
+  const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'setModuloProntidaoAdmin');
   try {
     const lido = await lerSysConfig(sb, empresaId);
     if ('error' in lido) return lido;
     const modulos = { ...((lido.sysConfig || {}).modulos || {}), [MODULOS.PRONTIDAO_LIDERANCA]: ligado === true };
     const { error } = await sb.from('empresas').update({ sys_config: { ...(lido.sysConfig || {}), modulos } }).eq('id', empresaId);
     if (error) return { success: false as const, error: error.message };
+    await logAdminAction({
+      adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+      acao: ligado ? 'prontidao_lideranca.modulo.ligar' : 'prontidao_lideranca.modulo.desligar', empresaId, alvo: 'sys_config.modulos',
+      detalhes: { modulo: MODULOS.PRONTIDAO_LIDERANCA, ligado: ligado === true },
+    });
     return { success: true as const, contratado: ligado === true };
   } catch (e: any) {
     return { success: false as const, error: e?.message || 'Erro ao alterar o módulo.' };

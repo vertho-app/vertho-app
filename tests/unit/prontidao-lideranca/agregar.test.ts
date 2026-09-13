@@ -112,6 +112,30 @@ describe('agregarProntidaoLideranca', () => {
     expect(vi.mocked(aggregateAdequacao)).not.toHaveBeenCalled();
   });
 
+  it('competência coberta com poucos descritores é marcada como PARCIAL, não escondida', async () => {
+    // Ana: Priorização com 2 descritores (parcial), Delegação com 2 (parcial) — abaixo de 3
+    const r = await agregarProntidaoLideranca(mock().client, 'emp', cfg);
+    const ana = r.linhas.find((l) => l.nome === 'Ana')!;
+    expect(ana.posicao.competencias.map((c) => [c.descritores, c.parcial])).toEqual([[2, true], [2, true]]);
+    expect(ana.posicao.parciais).toEqual(LID);
+  });
+
+  it('gabarito existe mas ninguém na população tem cargo: aviso, e todos sem estilo', async () => {
+    cenario.colabs = cenario.colabs.map((c) => (c.role === 'rh' ? c : { ...c, cargo: null }));
+    const r = await agregarProntidaoLideranca(mock().client, 'emp', cfg);
+    expect(r.avisos.join(' ')).toMatch(/Ninguém na população tem cargo/);
+    expect(r.linhas).toEqual([]);
+    expect(vi.mocked(aggregateAdequacao)).not.toHaveBeenCalled();
+  });
+
+  it('apenasIds restringe a população — o parecer de uma pessoa não recalcula a empresa', async () => {
+    const r = await agregarProntidaoLideranca(mock().client, 'emp', cfg, { apenasIds: ['bia'] });
+    expect(r.populacao).toBe(1);
+    expect(r.linhas.map((l) => l.nome)).toEqual(['Bia']);
+    // o pool do fit é só o cargo da pessoa
+    expect(vi.mocked(aggregateAdequacao).mock.calls[0][3]).toEqual({ poolCargos: ['Vendedor'] });
+  });
+
   it('falha de leitura das notas LANÇA — não vira "ninguém mapeado"', async () => {
     const sb = mock();
     sb.falharEm({ tabela: 'descriptor_assessments', op: 'select', mensagem: 'timeout' });

@@ -36,6 +36,13 @@ describe('lerConfigProntidao', () => {
     expect(cfg.corte_nota).toBe(2.5);
     expect(cfg.banda).toBe(DEFAULTS_PRONTIDAO.banda);
   });
+
+  it('corte e banda gravados à mão fora da escala são GRAMPEADOS na leitura', () => {
+    const cfg = lerConfigProntidao({ prontidao_lideranca: { cargo_alvo: 'X', corte_nota: 7, banda: -0.5 } })!;
+    expect(cfg.corte_nota).toBe(4);
+    expect(cfg.banda).toBe(0);
+    expect(lerConfigProntidao({ prontidao_lideranca: { cargo_alvo: 'X', corte_nota: 0.2, banda: 3 } })).toMatchObject({ corte_nota: 1, banda: 1 });
+  });
 });
 
 describe('validarConfigProntidao', () => {

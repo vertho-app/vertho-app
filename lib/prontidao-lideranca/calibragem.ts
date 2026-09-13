@@ -44,7 +44,12 @@ export interface Calibragem {
   descritoresParaRevisar: DescritorCalibragem[];
   /** Todos os descritores vistos, na ordem das competências do programa. */
   todos: DescritorCalibragem[];
+  /** O que limita a leitura (poucos exemplares, exemplares sem nota). */
+  avisos: string[];
 }
+
+/** Abaixo disto a calibragem descreve um ou dois líderes, não um padrão da casa. */
+export const EXEMPLARES_MIN_CALIBRAGEM = 3;
 
 const arred2 = (v: number) => Math.round(v * 100) / 100;
 
@@ -119,12 +124,25 @@ export function calibrarComExemplares(args: {
     })
     .filter((p) => p.faltantes.length > 0);
 
+  const comMapeamentoCompleto = args.exemplares.length - pendentes.length;
+  const avisos: string[] = [];
+  if (args.exemplares.length < EXEMPLARES_MIN_CALIBRAGEM) {
+    avisos.push(`Só ${args.exemplares.length} líder(es) de referência: abaixo de ${EXEMPLARES_MIN_CALIBRAGEM} a leitura descreve pessoas, não o padrão da casa.`);
+  }
+  if (comMapeamentoCompleto < args.exemplares.length) {
+    avisos.push(`${args.exemplares.length - comMapeamentoCompleto} exemplar(es) ainda sem mapeamento completo — a lista de revisão está incompleta.`);
+  }
+  // "Abaixo do corte" aqui é `< corte` de propósito, sem a banda da matriz: a
+  // calibragem procura rubrica frouxa, e um líder reconhecido a 2,9 num
+  // descritor que a casa chama de padrão já é sinal. A banda protege a PESSOA
+  // na classificação; a régua precisa de sinal mais sensível.
   return {
     corte,
     exemplares: args.exemplares.length,
-    comMapeamentoCompleto: args.exemplares.length - pendentes.length,
+    comMapeamentoCompleto,
     pendentes,
     descritoresParaRevisar,
     todos,
+    avisos,
   };
 }

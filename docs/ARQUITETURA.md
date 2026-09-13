@@ -1294,7 +1294,18 @@ fecha.
 
 **PDF** (`lib/prontidao-lideranca/parecer-pdf.tsx`): parecer individual (capa, duas camadas com
 gaps ancorados, evidências literais de `respostas.avaliacao_ia`, auditoria da 2ª IA) e consolidado
-da equipe. View pura; Storage `conteudos/final/prontidao-lideranca/…`, link assinado de 30 min.
+da equipe. View pura. 🔴 Vai para o bucket PRIVADO `relatorios-pdf` (`conteudos` é público —
+`storage.buckets.public = true`, medido 13/09 — e o Ranking de Adequação ainda grava lá), com path
+determinístico por (empresa, pessoa) e `upsert`: cada export sobrescreve o anterior; link assinado
+de 30 min.
+
+**Escrita é da plataforma.** `salvarConfigProntidaoAdmin` e `setModuloProntidaoAdmin` exigem
+`admin.access` — o papel `rh` tem `settings.company.manage` no role base, e por action id ligava o
+módulo pago. Pelo mesmo motivo `salvarConfig` (Configurações da empresa) passou a PRESERVAR
+`sys_config.modulos` gravado: contratar módulo não entra pelo objeto inteiro. Toda escrita do
+módulo vai para `admin_audit_log` (`prontidao_lideranca.*`, `competencias.descritor.editar`).
+`salvarDescritor` não toca `cod_desc`/`nome_curto`: são a CHAVE das avaliações gravadas
+(`descriptor_assessments.descritor`), e renomear separaria o histórico em duas linhas.
 
 **Aferição (test-retest)** — `lib/prontidao-lideranca/aferir.ts` (puro, versionado) +
 `scripts/_aferir-ia4-prontidao.ts` (operador, gitignored, molde `_medir-ia4-sem-censura.ts`): n

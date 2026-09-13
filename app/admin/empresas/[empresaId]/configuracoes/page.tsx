@@ -391,15 +391,14 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
 
           <Panel title={t('program.moduloProntidaoTitle')}>
             <p className="text-[10px] text-gray-500 mb-3">{t('program.moduloProntidaoDesc')}</p>
-            {/* Grava em sys_config.modulos.prontidao_lideranca pelo mesmo "Salvar" da aba
-                (o objeto inteiro sobe em salvarConfig). Fail-closed: ausente = desligado. */}
-            <button type="button"
-              onClick={() => setConfig(prev => ({ ...prev, modulos: { ...((prev as any).modulos || {}), prontidao_lideranca: !((prev as any).modulos?.prontidao_lideranca === true) } }))}
-              className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold border transition ${
-                (config as any).modulos?.prontidao_lideranca === true ? 'border-emerald-400/40 text-emerald-300 bg-emerald-400/10' : 'border-white/10 text-gray-300 hover:bg-white/5'
-              }`}>
+            {/* Só LEITURA: o liga/desliga vive em Adequação → Prontidão (action com
+                admin.access). `salvarConfig` preserva `modulos` de propósito — o papel
+                rh tem settings.company.manage e não pode contratar módulo. */}
+            <span className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold border ${
+              (config as any).modulos?.prontidao_lideranca === true ? 'border-emerald-400/40 text-emerald-300 bg-emerald-400/10' : 'border-white/10 text-gray-400'
+            }`}>
               {(config as any).modulos?.prontidao_lideranca === true ? t('program.moduloProntidaoOn') : t('program.moduloProntidaoOff')}
-            </button>
+            </span>
           </Panel>
 
           <Panel title={t('program.careerTitle')}>

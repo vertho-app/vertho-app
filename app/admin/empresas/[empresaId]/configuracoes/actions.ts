@@ -40,8 +40,19 @@ export async function salvarConfig(empresaId, sysConfig) {
   if (problemasDeModelo.length) {
     return { success: false, error: `Modelo de IA inválido — ${problemasDeModelo.join('; ')}` };
   }
+  // `modulos` (o que a empresa CONTRATOU) não entra por aqui: esta action tem
+  // gate `settings.company.manage`, que o papel `rh` possui, e um 'use server'
+  // é endpoint HTTP — pelo objeto inteiro o RH do cliente ligava módulo pago
+  // (medido 13/09: era assim desde o Pulso). Contratar é decisão de plataforma,
+  // gravada por action própria com `admin.access` (ex.: setModuloProntidaoAdmin).
+  const { data: atual, error: erroAtual } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
+  if (erroAtual) return { success: false, error: erroAtual.message };
+  const modulosGravados = (atual?.sys_config || {}).modulos;
+  const paraGravar = modulosGravados === undefined
+    ? (() => { const { modulos: _ignorado, ...resto } = sysConfig || {}; return resto; })()
+    : { ...(sysConfig || {}), modulos: modulosGravados };
   const { error } = await sb.from('empresas')
-    .update({ sys_config: sysConfig })
+    .update({ sys_config: paraGravar })
     .eq('id', empresaId);
   if (error) return { success: false, error: error.message };
   await logAdminAction({

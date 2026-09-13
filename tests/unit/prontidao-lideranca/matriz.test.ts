@@ -81,7 +81,8 @@ function posicao(mediaGeral: number, pos: PosicaoPessoa['posicao'], gaps: { comp
   return {
     colaboradorId: 'c1', total: 5, cobertas: 5, completo: true, faltantes: [], mediaGeral, nivelGeral: 3, posicao: pos,
     gaps: gaps.map((g) => g.competencia),
-    competencias: gaps.map((g) => ({ competencia: g.competencia, media: g.media, nivel: 2, descritores: 6, posicao: 'nao_demonstra' as const, gap: true })),
+    parciais: [],
+    competencias: gaps.map((g) => ({ competencia: g.competencia, media: g.media, nivel: 2, descritores: 6, parcial: false, posicao: 'nao_demonstra' as const, gap: true })),
   };
 }
 const estiloOk: EstiloPessoa = { colaboradorId: 'c1', nome: 'Ana', aderenciaPct: 88, estilo: 'aderente', status: 'recomendado', statusLabel: 'Recomendado', bloqueadoNoAlvo: false, motivosBloqueio: [], lacunas: [], borderline: false };

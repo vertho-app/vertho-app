@@ -92,13 +92,16 @@ export function lerConfigProntidao(sysConfig: unknown): ConfigProntidaoLideranca
   const r = raw as Record<string, unknown>;
   const cargoAlvo = String(r.cargo_alvo ?? '').trim();
   if (!cargoAlvo) return null;
+  // Clamp na LEITURA também: a validação só roda ao salvar pela tela, e a chave é
+  // JSONB livre — um corte 7 gravado à mão faria todo mundo "não demonstrar".
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
   return {
     cargo_alvo: cargoAlvo,
     exemplares: listaDeStrings(r.exemplares),
     escopo: lerEscopo(r.escopo),
     um_por_dia: r.um_por_dia === undefined ? DEFAULTS_PRONTIDAO.um_por_dia : r.um_por_dia === true,
-    corte_nota: num(r.corte_nota, DEFAULTS_PRONTIDAO.corte_nota),
-    banda: num(r.banda, DEFAULTS_PRONTIDAO.banda),
+    corte_nota: clamp(num(r.corte_nota, DEFAULTS_PRONTIDAO.corte_nota), 1, 4),
+    banda: clamp(num(r.banda, DEFAULTS_PRONTIDAO.banda), 0, 1),
   };
 }
 

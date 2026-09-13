@@ -14,6 +14,7 @@ const LID5 = ['Priorização e uso do tempo', 'Gestão por dados', 'Desenvolvime
 
 const cenario = {
   cargo: 'Vendedor',
+  role: 'colaborador',
   sysConfig: {} as any,
   respostas: [] as any[],
 };
@@ -43,6 +44,8 @@ sb = criarSupabaseMock({
     return null;
   },
   lista: (table) => {
+    // O trilho lê a LISTA de cargos e casa o alvo por nome normalizado.
+    if (table === 'cargos_empresa') return [{ nome: 'Gerente Comercial', top5_workshop: LID5 }, { nome: 'Vendedor', top5_workshop: CARGO5 }];
     if (table === 'competencias') return comps;
     if (table === 'respostas') return respostasNoBanco();
     if (table === 'banco_cenarios') return comps.map((c) => ({ id: `cen-${c.id}`, competencia_id: c.id }));
@@ -54,7 +57,7 @@ sb = criarSupabaseMock({
 vi.mock('next/server', () => ({ after: () => {} }));
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/lib/authz', () => ({
-  findColabByEmail: vi.fn(async () => ({ id: 'colab-1', nome_completo: 'Ana', cargo: cenario.cargo, empresa_id: 'emp', escola_id: null, email: 'ana@cliente.com' })),
+  findColabByEmail: vi.fn(async () => ({ id: 'colab-1', nome_completo: 'Ana', cargo: cenario.cargo, role: cenario.role, empresa_id: 'emp', escola_id: null, email: 'ana@cliente.com' })),
 }));
 vi.mock('@/lib/auth/action-context', () => ({ getAuthenticatedEmailFromAction: vi.fn(async () => 'ana@cliente.com') }));
 vi.mock('@/lib/turmas', () => ({ configEfetivaDoColaborador: vi.fn(async () => ({})) }));
@@ -72,6 +75,7 @@ describe('trilho de liderança na action do assessment', () => {
   beforeEach(() => {
     sb.reset();
     cenario.cargo = 'Vendedor';
+    cenario.role = 'colaborador';
     cenario.sysConfig = {};
     cenario.respostas = [];
   });
@@ -108,6 +112,17 @@ describe('trilho de liderança na action do assessment', () => {
     expect(await getDiagnosticoDoDia('lideranca')).toMatchObject({ code: 'OCUPA_CARGO_ALVO' });
     const cargo: any = await getDiagnosticoDoDia('cargo');
     expect(cargo.trilhoLideranca).toBeNull();
+  });
+
+  it('o papel rh fica fora do trilho — a mesma exclusão que a matriz aplica; e o card não aparece para ele', async () => {
+    cenario.sysConfig = CONTRATADO;
+    cenario.role = 'rh';
+    expect(await getDiagnosticoDoDia('lideranca')).toMatchObject({ code: 'FORA_DA_POPULACAO' });
+    const cargo: any = await getDiagnosticoDoDia('cargo');
+    expect(cargo.trilhoLideranca).toBeNull();
+    const r: any = await salvarRespostaDiagnostico('cen-l-1', 'l-1', LID5[0], respostaValida, 'lideranca');
+    expect(r).toMatchObject({ code: 'FORA_DA_POPULACAO' });
+    expect(sb.escritas).toHaveLength(0);
   });
 
   it('um por dia: respondida uma competência de liderança hoje, o trilho fecha até amanhã — e o do cargo não', async () => {

@@ -40,6 +40,18 @@ async function lerTudo<T>(montar: (de: number, ate: number) => any, rotulo: stri
   return out;
 }
 
+/**
+ * `.in()` vai na URL do PostgREST: 300 UUIDs são ~11 KB de query string e o
+ * gateway recusa antes de o Postgres ver a consulta (Macaé tem 283 pessoas).
+ * Lotes de 100 mantêm a seletividade sem estourar a URL.
+ */
+const LOTE_IN = 100;
+function emLotes<T>(itens: T[], tamanho = LOTE_IN): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < itens.length; i += tamanho) out.push(itens.slice(i, i + tamanho));
+  return out;
+}
+
 export interface PessoaPopulacao { id: string; nome: string; cargo: string | null; email: string | null }
 
 /** População do programa: escopo (empresa inteira ou turma) menos rh e internos. */
@@ -50,11 +62,17 @@ export async function carregarPopulacao(sb: any, empresaId: string, cfg: ConfigP
     ids = escopo.colaboradorIds;
     if (!ids.length) return [];
   }
-  const rows = await lerTudo<any>((de, ate) => {
-    let q = sb.from('colaboradores').select('id, nome_completo, cargo, email, role').eq('empresa_id', empresaId);
-    if (ids) q = q.in('id', ids);
-    return q.order('nome_completo').range(de, ate);
-  }, 'os colaboradores');
+  // Ordem por `id` no fim: `nome_completo` é nulo e duplicável, e paginação por
+  // coluna não-única pula/repete linha entre páginas.
+  const lotes: (string[] | null)[] = ids ? emLotes(ids) : [null];
+  const rows: any[] = [];
+  for (const lote of lotes) {
+    rows.push(...await lerTudo<any>((de, ate) => {
+      let q = sb.from('colaboradores').select('id, nome_completo, cargo, email, role').eq('empresa_id', empresaId);
+      if (lote) q = q.in('id', lote);
+      return q.order('nome_completo').order('id').range(de, ate);
+    }, 'os colaboradores'));
+  }
   return rows
     .filter((c) => c.role !== 'rh' && !isInternalEmail(c.email))
     .map((c) => ({ id: c.id, nome: c.nome_completo || 'Colaborador', cargo: c.cargo || null, email: c.email || null }));
@@ -74,12 +92,15 @@ export async function carregarCargosParaValidacao(sb: any, empresaId: string): P
 async function carregarNotas(sb: any, empresaId: string, ids: string[], competencias: string[]): Promise<NotaDescritor[]> {
   if (!ids.length) return [];
   const chaves = new Set(competencias.map(chaveCompetencia));
-  const rows = await lerTudo<any>((de, ate) => sb.from('descriptor_assessments')
-    .select('colaborador_id, competencia, descritor, nota')
-    .eq('empresa_id', empresaId)
-    .in('colaborador_id', ids)
-    .order('id')            // paginação sem ORDER BY repete/pula linha entre páginas
-    .range(de, ate), 'as notas por descritor');
+  const rows: any[] = [];
+  for (const lote of emLotes(ids)) {
+    rows.push(...await lerTudo<any>((de, ate) => sb.from('descriptor_assessments')
+      .select('colaborador_id, competencia, descritor, nota')
+      .eq('empresa_id', empresaId)
+      .in('colaborador_id', lote)
+      .order('id')            // paginação sem ORDER BY repete/pula linha entre páginas
+      .range(de, ate), 'as notas por descritor'));
+  }
   return rows
     .filter((r) => chaves.has(chaveCompetencia(r.competencia)))
     .map((r) => ({ colaboradorId: r.colaborador_id, competencia: r.competencia, descritor: r.descritor, nota: Number(r.nota) }));
@@ -89,12 +110,15 @@ async function carregarAuditoria(sb: any, empresaId: string, ids: string[], comp
   const pendente = new Map<string, boolean>();
   if (!ids.length) return pendente;
   const chaves = new Set(competencias.map(chaveCompetencia));
-  const rows = await lerTudo<any>((de, ate) => sb.from('respostas')
-    .select('colaborador_id, competencia_nome, status_ia4')
-    .eq('empresa_id', empresaId)
-    .in('colaborador_id', ids)
-    .order('id')
-    .range(de, ate), 'as respostas');
+  const rows: any[] = [];
+  for (const lote of emLotes(ids)) {
+    rows.push(...await lerTudo<any>((de, ate) => sb.from('respostas')
+      .select('colaborador_id, competencia_nome, status_ia4')
+      .eq('empresa_id', empresaId)
+      .in('colaborador_id', lote)
+      .order('id')
+      .range(de, ate), 'as respostas'));
+  }
   for (const r of rows) {
     if (!chaves.has(chaveCompetencia(r.competencia_nome))) continue;
     if (normalizarAuditoria(r.status_ia4) === 'revisar') pendente.set(r.colaborador_id, true);
@@ -128,9 +152,16 @@ export interface ProntidaoLideranca {
  * A leitura completa do programa. Cruza por `colaborador_id`; quem não tem as
  * duas pontas vai para a lista própria com o motivo — nunca some.
  */
-export async function agregarProntidaoLideranca(sb: any, empresaId: string, cfg: ConfigProntidaoLideranca): Promise<ProntidaoLideranca> {
+export async function agregarProntidaoLideranca(
+  sb: any,
+  empresaId: string,
+  cfg: ConfigProntidaoLideranca,
+  opts: { /** Restringe a população a estes ids (o parecer de UMA pessoa não recalcula a empresa inteira). */ apenasIds?: string[] } = {},
+): Promise<ProntidaoLideranca> {
   const avisos: string[] = [];
-  const [populacao, cargos] = await Promise.all([carregarPopulacao(sb, empresaId, cfg), carregarCargosParaValidacao(sb, empresaId)]);
+  const [populacaoToda, cargos] = await Promise.all([carregarPopulacao(sb, empresaId, cfg), carregarCargosParaValidacao(sb, empresaId)]);
+  const apenas = opts.apenasIds ? new Set(opts.apenasIds) : null;
+  const populacao = apenas ? populacaoToda.filter((p) => apenas.has(p.id)) : populacaoToda;
   const alvo = cargos.find((c) => chaveCompetencia(c.nome) === chaveCompetencia(cfg.cargo_alvo)) || null;
   const competencias = alvo?.top5 || [];
   if (!alvo) avisos.push(`Cargo-alvo "${cfg.cargo_alvo}" não existe mais em cargos_empresa.`);
@@ -159,6 +190,8 @@ export async function agregarProntidaoLideranca(sb: any, empresaId: string, cfg:
     }
   } else if (alvo && !alvo.temGabarito) {
     avisos.push('O cargo-alvo não tem gabarito (perfil ideal): o eixo de estilo fica indisponível.');
+  } else if (alvo?.temGabarito && populacao.length && !cargosDaPopulacao.length) {
+    avisos.push('Ninguém na população tem cargo preenchido: o eixo de estilo fica indisponível para todos.');
   }
 
   const exemplares = new Set(cfg.exemplares);
@@ -218,7 +251,9 @@ export interface Parecer {
  * evidências literais por competência do programa.
  */
 export async function carregarParecer(sb: any, empresaId: string, colaboradorId: string, cfg: ConfigProntidaoLideranca): Promise<Parecer | { indisponivel: string }> {
-  const agg = await agregarProntidaoLideranca(sb, empresaId, cfg);
+  // Só esta pessoa: os números são os mesmos da matriz (posição é por pessoa e a
+  // aderência ao gabarito é imune ao pool), sem recalcular a empresa inteira.
+  const agg = await agregarProntidaoLideranca(sb, empresaId, cfg, { apenasIds: [colaboradorId] });
   const linha = agg.linhas.find((l) => l.colaboradorId === colaboradorId);
   if (!linha) {
     const inc = agg.incompletos.find((i) => i.colaboradorId === colaboradorId);

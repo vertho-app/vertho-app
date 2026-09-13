@@ -44,10 +44,20 @@ export interface CompetenciaPosicao {
   media: number | null;
   nivel: Nivel | null;
   descritores: number;
+  /**
+   * Coberta com POUCOS descritores (menos de `DESCRITORES_MIN_CONFIAVEL`): a
+   * média existe, mas vem de 1 ou 2 notas — a IA4 grava a régua inteira de
+   * uma vez, então isto é sinal de omissão do modelo ou de régua curta, e o
+   * parecer avisa em vez de esconder.
+   */
+  parcial: boolean;
   posicao: Posicao | null;
   /** Média no ramo de baixo da banda: é gap nomeável no parecer. */
   gap: boolean;
 }
+
+/** Abaixo disto a média de uma competência é sinal fraco (a régua canônica tem 6). */
+export const DESCRITORES_MIN_CONFIAVEL = 3;
 
 export interface PosicaoPessoa {
   colaboradorId: string;
@@ -64,6 +74,8 @@ export interface PosicaoPessoa {
   posicao: Posicao | null;
   /** Competências com média no ramo de baixo (≤ corte − banda). */
   gaps: string[];
+  /** Competências cobertas com poucos descritores — ver `CompetenciaPosicao.parcial`. */
+  parciais: string[];
 }
 
 /** 3 + 0,33 não é 3,33 em binário; a fronteira exata precisa de folga. */
@@ -120,14 +132,15 @@ export function calcularPosicoes(
     const linhas: CompetenciaPosicao[] = ordem.map(({ nome, chave }) => {
       const descs = comps.get(chave);
       if (!descs || !descs.size) {
-        return { competencia: nome, media: null, nivel: null, descritores: 0, posicao: null, gap: false };
+        return { competencia: nome, media: null, nivel: null, descritores: 0, parcial: false, posicao: null, gap: false };
       }
       // Um descritor com mais de uma linha (grafias que a normalização junta) entra pela média dele.
       const mediasDesc = [...descs.values()].map((arr) => arr.reduce((a, b) => a + b, 0) / arr.length);
       const media = arred2(mediasDesc.reduce((a, b) => a + b, 0) / mediasDesc.length);
       const posicao = classificarNota(media, corte, banda);
       return {
-        competencia: nome, media, nivel: nivelDaNota(media), descritores: descs.size, posicao,
+        competencia: nome, media, nivel: nivelDaNota(media), descritores: descs.size,
+        parcial: descs.size < DESCRITORES_MIN_CONFIAVEL, posicao,
         gap: posicao === 'nao_demonstra',
       };
     });
@@ -147,6 +160,7 @@ export function calcularPosicoes(
       nivelGeral: mediaGeral == null ? null : nivelDaNota(mediaGeral),
       posicao: mediaGeral == null ? null : classificarNota(mediaGeral, corte, banda),
       gaps: linhas.filter((l) => l.gap).map((l) => l.competencia),
+      parciais: linhas.filter((l) => l.parcial).map((l) => l.competencia),
     });
   }
   return out;

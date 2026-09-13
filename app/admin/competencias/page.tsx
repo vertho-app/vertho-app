@@ -486,17 +486,17 @@ export default function CompetenciasPage() {
             </div>
             <p className="text-[11px] text-gray-500 mb-4">{editDesc.nome} · {editDesc.cod_comp}</p>
             <div className="space-y-3">
+              {/* Código e nome curto são a CHAVE das avaliações gravadas (descriptor_assessments.descritor):
+                  renomear separaria o histórico em duas linhas. Só leitura aqui, de propósito. */}
               <div className="grid grid-cols-2 gap-3">
-                {[
-                  { key: 'cod_desc', label: t('descriptor.code') },
-                  { key: 'nome_curto', label: t('descriptor.shortName') },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label className="block text-xs font-bold text-gray-400 mb-1">{f.label}</label>
-                    <input value={editDesc[f.key] || ''} onChange={e => setEditDesc((p: any) => ({ ...p, [f.key]: e.target.value }))}
-                      className="w-full rounded-lg border border-white/10 bg-[#091D35] text-white text-sm px-3 py-2 focus:outline-none focus:border-cyan-400/50" />
-                  </div>
-                ))}
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-1">{t('descriptor.code')}</label>
+                  <p className="rounded-lg border border-white/[0.06] bg-[#091D35]/60 text-gray-400 text-sm px-3 py-2">{editDesc.cod_desc || '—'}</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-400 mb-1">{t('descriptor.shortName')}</label>
+                  <p className="rounded-lg border border-white/[0.06] bg-[#091D35]/60 text-gray-400 text-sm px-3 py-2">{editDesc.nome_curto || '—'}</p>
+                </div>
               </div>
               {[
                 { key: 'descritor_completo', label: t('descriptor.full'), rows: 2 },

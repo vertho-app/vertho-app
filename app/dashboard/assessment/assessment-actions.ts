@@ -192,7 +192,7 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
 
-  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, email, empresa_id, escola_id');
+  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, email, empresa_id, escola_id, role');
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const sb = createSupabaseAdmin();
@@ -399,7 +399,7 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
     return { error: 'Representatividade inválida' };
   }
 
-  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, email, empresa_id, escola_id');
+  const colab = await findColabByEmail(email, 'id, nome_completo, cargo, email, empresa_id, escola_id, role');
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const sb = createSupabaseAdmin();

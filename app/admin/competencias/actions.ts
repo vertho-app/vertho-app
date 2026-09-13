@@ -1,7 +1,8 @@
 'use server';
 
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
-import { requirePermissionAction, assertTenantAccessAction } from '@/lib/auth/action-context';
+import { requirePermissionAction, assertTenantAccessAction, getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
+import { logAdminAction } from '@/lib/audit';
 import { createSupabaseAdmin } from '@/lib/supabase';
 
 export async function loadEmpresas() {
@@ -138,13 +139,21 @@ export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
   return { success: true, message: `${novos.length} competências importadas` };
 }
 
-/** Colunas de DESCRITOR que a edição pode tocar — a rubrica N1–N4 e o que a cerca. Nada mais.
- *  (Não exportada: num arquivo 'use server' só funções async podem sair.) */
+/**
+ * Colunas de DESCRITOR que a edição pode tocar — a rubrica N1–N4 e o que a
+ * cerca. `cod_desc` e `nome_curto` ficam FORA de propósito: são a CHAVE.
+ * `descriptor_assessments.descritor` é gravado por nome (resolvido contra
+ * `cod_desc`/`nome_curto` em `resolverNomeOficial`), então renomear um descritor
+ * que já tem avaliações separa o histórico em duas linhas — o mesmo defeito
+ * que `lib/descritores.ts` existe para impedir. (Não exportada: num arquivo
+ * 'use server' só funções async podem sair.)
+ */
 const COLUNAS_DESCRITOR = [
-  'cod_desc', 'nome_curto', 'descritor_completo',
+  'descritor_completo',
   'n1_gap', 'n2_desenvolvimento', 'n3_meta', 'n4_referencia',
   'evidencias_esperadas', 'perguntas_alvo',
 ] as const;
+const NIVEIS = ['n1_gap', 'n2_desenvolvimento', 'n3_meta', 'n4_referencia'] as const;
 
 /**
  * Edita a rubrica de UM descritor. Existe porque o importador só INSERE
@@ -170,9 +179,12 @@ export async function salvarDescritor(empresaId: string, id: string, campos: Rec
       }
     }
     if (!Object.keys(registro).length) return { success: false, error: 'Nada para salvar' };
-    if (registro.n3_meta === null && 'n3_meta' in registro) {
-      // N3 é a META do modelo e o corte da decisão; o importador aceita vazio, a edição avisa.
-      return { success: false, error: 'N3 (meta) não pode ficar vazio: é o nível que decide.' };
+    // Nenhum dos quatro níveis pode ser APAGADO pela edição: a régua da IA4 lê
+    // os quatro, e "Não definido" num nível é o que faz o modelo inventar o
+    // descritor. (O importador só exige N1, N2 e N4; N3 é a meta e o corte.)
+    const apagados = NIVEIS.filter((n) => n in registro && registro[n] === null);
+    if (apagados.length) {
+      return { success: false, error: `${apagados.map((n) => n.split('_')[0].toUpperCase()).join(', ')} não pode ficar vazio: a régua precisa dos quatro níveis.` };
     }
     const { data, error } = await sb.from('competencias')
       .update(registro)
@@ -181,6 +193,11 @@ export async function salvarDescritor(empresaId: string, id: string, campos: Rec
       .select('id');
     if (error) return { success: false, error: error.message };
     if (!data?.length) return { success: false, error: 'Descritor não encontrado nesta empresa' };
+    await logAdminAction({
+      adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+      acao: 'competencias.descritor.editar', empresaId, alvo: id,
+      detalhes: { colunas: Object.keys(registro) },
+    });
     return { success: true, message: 'Descritor salvo' };
   } catch (err: any) {
     return { success: false, error: err.message };
