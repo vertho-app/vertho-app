@@ -5,7 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import {
   IA4_SYSTEM, IA4_COLAB_COLS,
   carregarContextoLoteIA4, carregarContextoRespostaIA4, buildIA4UserPrompt,
-  validarAvaliacaoIA4, consolidarEPersistirIA4, avaliarUmaRespostaCore, IA4_MAX_TOKENS,
+  validarAvaliacaoIA4, consolidarEPersistirIA4, avaliarUmaRespostaCore, comModeloDaTask, IA4_MAX_TOKENS,
 } from '@/lib/ia4-avaliacao';
 import {
   montarCheckIA4Prompt, processCheckResult, persistirCheckIA4, checarUmaRespostaCore,
@@ -83,7 +83,10 @@ export const gerarIA4BatchTask = task({
       const ids: string[] = Array.isArray(pp.items) ? pp.items.map((i: any) => i.id ?? i) : [];
       // Avaliações que já existem e nunca passaram pela 2ª IA — entram só na onda 2.
       const checkOnlyIds: string[] = Array.isArray(pp.checkOnlyIds) ? pp.checkOnlyIds : [];
-      const genModel = String(aiConfig?.model || 'claude-sonnet-4-6');
+      // Sem escolha explícita, o modelo vem do pino da task / override do tenant —
+      // o literal aqui fazia o lote inteiro rodar em 4.6 enquanto o síncrono do
+      // mesmo dia podia rodar em Sonnet 5 (medido 13/09: 492 × 101 no ledger).
+      const genModel = String(aiConfig?.model || (await comModeloDaTask({}, empresaId)).model);
       const checkModel: string | null = aiConfig?.checkModel || null;
 
       const tdb = tenantDb(empresaId);

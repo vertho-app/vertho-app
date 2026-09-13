@@ -224,6 +224,20 @@ export const IA4_CALL_OPTIONS = { timeoutMs: 240000, maxRetries: 0 } as const;
 export const IA4_MAX_TOKENS = 64000;
 
 /**
+ * Resolve o modelo da IA4 quando o caller NÃO escolheu um.
+ *
+ * Fonte única dos três caminhos de avaliação (síncrono, reavaliação, lote): sem
+ * ela, "config declarada não é config aplicada" — o pino da task e o override do
+ * tenant ficam valendo só para quem chama `getModelForTask` na mão.
+ * `empresaId` ausente cai no default da task (o `getModelForTask` já trata).
+ */
+export async function comModeloDaTask(aiConfig: AIConfig, empresaId?: string | null): Promise<AIConfig> {
+  if (aiConfig?.model) return aiConfig;
+  const { getModelForTask } = await import('@/lib/ai-tasks');
+  return { ...aiConfig, model: await getModelForTask(empresaId as any, 'ia4_avaliacao') };
+}
+
+/**
  * Quantas respostas o caminho SÍNCRONO ainda aceita antes de delegar ao lote.
  *
  * Derivado do dado, não escolhido: `ia_usage_log` mede p95 de **156 s** por
@@ -637,14 +651,25 @@ export async function avaliarUmaRespostaCore(
   // ledger sem empresa nenhuma.
   const ia4Opts = { ...IA4_CALL_OPTIONS, cachedUserPrefix };
   const rotulo = colab?.nome_completo || resp.colaborador_id;
+  // 🔴 SEM ISTO O PINO DA TASK NÃO VALE NO CAMINHO DE PRODUÇÃO (medido 13/09/2026).
+  // `callAI` faz `aiConfig?.model || DEFAULT_MODEL` e NÃO consulta o registro de
+  // tasks — o `taskKey` só marca o custo no ledger. Como o seletor da tela abre
+  // em `claude-sonnet-4-6`, quem não trocasse o dropdown rodava no 4.6 enquanto
+  // `DEFAULT_TASK_MODELS.ia4_avaliacao` declarava `claude-sonnet-5`: no ledger de
+  // 90 dias, **492 chamadas em Sonnet 5 e 101 em 4.6**, na mesma população. Duas
+  // réguas na mesma média é o que o módulo de prontidão não pode ter.
+  // A escolha explícita do operador continua vencendo; o que muda é a AUSÊNCIA
+  // dela — que agora cai no pino da task (e no override do tenant), não no
+  // default genérico do wrapper.
+  const cfg = await comModeloDaTask(aiConfig, resp.empresa_id);
 
-  let resultado = await callAI(IA4_SYSTEM, user, aiConfig, IA4_MAX_TOKENS, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
+  let resultado = await callAI(IA4_SYSTEM, user, cfg, IA4_MAX_TOKENS, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
   let avaliacao = await extractJSON(resultado);
 
   if (!avaliacao) {
     console.warn(`[IA4] retry para ${rotulo}: primeira resposta sem JSON`);
     const userRetry = `${user}\n\n=== ATENÇÃO ===\nSua resposta anterior não foi um JSON válido. Retorne APENAS o JSON, sem texto antes ou depois, sem markdown.`;
-    resultado = await callAI(IA4_SYSTEM, userRetry, aiConfig, IA4_MAX_TOKENS, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
+    resultado = await callAI(IA4_SYSTEM, userRetry, cfg, IA4_MAX_TOKENS, { ...ia4Opts, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
     avaliacao = await extractJSON(resultado);
   }
 

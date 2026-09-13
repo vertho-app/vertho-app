@@ -20,7 +20,7 @@ import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
 import {
   consolidarNotasIA4, blocoConsolidacao, normalizarNiveisDaAvaliacao,
-  IA4_CALL_OPTIONS, IA4_MAX_TOKENS,
+  comModeloDaTask, IA4_CALL_OPTIONS, IA4_MAX_TOKENS,
 } from '@/lib/ia4-avaliacao';
 
 const IA4_REVIEW_SYSTEM = `Você é o Motor de Revisão de Avaliações da Vertho Mentor IA.
@@ -204,7 +204,12 @@ ${resumoAnterior || '(formato legado — sem detalhamento por descritor)'}`);
 6. Documente mudanças E preservações no tratamento_do_feedback`);
 
     const user = userBlocks.join('\n\n');
-    const resultado = await callAI(IA4_REVIEW_SYSTEM, user, aiConfig, IA4_MAX_TOKENS, { ...IA4_CALL_OPTIONS, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
+    // Sem modelo escolhido, cai no pino da task — não no default do wrapper.
+    // Aqui vale ainda mais que na IA4 original: reavaliar é o caminho que
+    // CONSERTA uma avaliação reprovada, e consertar noutro modelo trocaria a
+    // régua de uma pessoa no meio da mesma população.
+    const cfgRev = await comModeloDaTask(aiConfig, resp.empresa_id);
+    const resultado = await callAI(IA4_REVIEW_SYSTEM, user, cfgRev, IA4_MAX_TOKENS, { ...IA4_CALL_OPTIONS, taskKey: 'ia4_avaliacao', empresaId: resp.empresa_id });
     let revisao = await extractJSON(resultado);
 
     if (!revisao) return { success: false, error: 'IA não retornou revisão válida' };
