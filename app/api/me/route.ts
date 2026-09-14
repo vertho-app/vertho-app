@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { recepcaoHabilitada } from '@/lib/recepcao/flag';
 import { vendasHabilitado } from '@/lib/simulador-vendas/access';
 import { prontidaoLiderancaHabilitada } from '@/lib/prontidao-lideranca/habilitado';
+import { acessoSimuladoresDoColaborador } from '@/lib/simuladores/acesso';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,11 +71,15 @@ export async function GET() {
       } catch {}
     }
 
-    const [treinoRecepcao, treinoVendas, prontidaoLideranca] = await Promise.all([
+    const [recepcaoEmpresa, vendasEmpresa, liderancaEmpresa, acessoSimuladores] = await Promise.all([
       recepcaoHabilitada((data as any)?.empresa_id), vendasHabilitado((data as any)?.empresa_id),
       // Módulo contratado → o menu do RH mostra "Prontidão para liderança".
       prontidaoLiderancaHabilitada(sbServico, (data as any)?.empresa_id),
+      acessoSimuladoresDoColaborador(data),
     ]);
+    const treinoRecepcao = recepcaoEmpresa && (platformAdmin || acessoSimuladores.atendimento);
+    const treinoVendas = vendasEmpresa && (platformAdmin || acessoSimuladores.vendas);
+    const prontidaoLideranca = liderancaEmpresa && (platformAdmin || acessoSimuladores.lideranca);
     return NextResponse.json(data ? { ...data, locale, platformAdmin, temTrilhaPossivel, treinoRecepcao, treinoVendas, prontidaoLideranca } : {
       nome_completo: user.email,
       foto_url: null,

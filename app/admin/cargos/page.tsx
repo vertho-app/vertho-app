@@ -9,6 +9,7 @@ import { loadEmpresas, loadCargos, salvarTop5, salvarCompetenciasFoco, salvarEhL
 import BackButton from '@/components/back-button';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import VotacaoTab from './_components/votacao-tab';
+import SimuladoresTab from './_components/simuladores-tab';
 
 // Wrapper com Suspense: CargosPageInner usa useSearchParams. Sem o boundary,
 // chegar via redirect() (ex.: /empresas/[id]/votacao → /cargos?tab=votacao)
@@ -20,6 +21,7 @@ export default function CargosPage() {
 function CargosPageInner() {
   const router = useRouter();
   const t = useTranslations('AdminRoles');
+  const tSim = useTranslations('AdminSimuladores');
   // Contexto de empresa (path → ?empresa= → filtro do header); a tela tem seletor
   // próprio, então o contexto entra só como valor inicial/fallback do estado local.
   const { empresaId: empresaParam } = useEmpresaContexto();
@@ -27,7 +29,7 @@ function CargosPageInner() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab');
   const [tab, setTab] = useState(
-    ['top5', 'votacao'].includes(initialTab || '') ? (initialTab as string) : 'top5'
+    ['top5', 'votacao', 'simuladores'].includes(initialTab || '') ? (initialTab as string) : 'top5'
   );
   const [empresas, setEmpresas] = useState<any[]>([]);
   const [empresaId, setEmpresaId] = useState(empresaParam || '');
@@ -165,6 +167,7 @@ function CargosPageInner() {
         {[
           { key: 'top5', label: t('tabs.top5'), icon: Target, color: 'text-orange-400' },
           { key: 'votacao', label: t('tabs.votacao'), icon: BarChart3, color: 'text-cyan-400' },
+          { key: 'simuladores', label: tSim('tab'), icon: Check, color: 'text-teal-400' },
         ].map(tb => (
           <button key={tb.key} onClick={() => setTab(tb.key)}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
@@ -189,6 +192,10 @@ function CargosPageInner() {
       )}
 
       {/* ══════════════ TAB: TOP 5 (curadoria por cargo) ══════════════ */}
+      {tab === 'simuladores' && (empresaId
+        ? <SimuladoresTab key={empresaId} empresaId={empresaId} />
+        : <p className="py-12 text-center text-sm text-gray-400">{t('selectCompany')}</p>)}
+
       {tab === 'top5' && (<>
       {/* Toast */}
       {/* Loading */}

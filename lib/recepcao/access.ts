@@ -2,6 +2,7 @@ import 'server-only';
 import { requireUser, type AuthenticatedContext } from '@/lib/auth/request-context';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { can } from '@/lib/permissions';
+import { acessoSimuladoresDoColaborador } from '@/lib/simuladores/acesso';
 
 export class RecepcaoError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -31,6 +32,8 @@ export async function contextoRecepcao(req: Request, solicitada?: string | null,
   if (error) throw new RecepcaoError(503, 'O treinamento está temporariamente indisponível.');
   const habilitado = config?.habilitado === true;
   if (!habilitado && !auth.isPlatformAdmin) throw new RecepcaoError(403, 'O treino de atendimento ainda não está habilitado para sua clínica.');
+  if (!auth.isPlatformAdmin && !(await acessoSimuladoresDoColaborador(auth.colaborador)).atendimento)
+    throw new RecepcaoError(403, 'O treino de atendimento não está liberado para seu cargo.');
   let ownerKey:string;
   if (auth.isPlatformAdmin) {
     const {data:admin,error} = await sb.from('platform_admins').select('id').eq('email',auth.email.toLowerCase()).maybeSingle();

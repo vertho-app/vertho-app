@@ -37,7 +37,7 @@ describe('salvarConfig — chaves só-plataforma', () => {
   beforeEach(() => { gate.mockClear(); });
 
   it('a lista cobre contrato E programa', () => {
-    expect([...CHAVES_SO_PLATAFORMA]).toEqual(['modulos', 'prontidao_lideranca']);
+    expect([...CHAVES_SO_PLATAFORMA]).toEqual(['modulos', 'prontidao_lideranca', 'simuladores_por_cargo']);
   });
 
   it('preserva o que está GRAVADO e ignora o que o cliente mandou', async () => {
@@ -45,16 +45,19 @@ describe('salvarConfig — chaves só-plataforma', () => {
       modulos: { prontidao_lideranca: true, pulso: false },
       prontidao_lideranca: { cargo_alvo: 'Gerente Comercial', corte_nota: 3 },
       cadencia: { dia: 'segunda' },
+      simuladores_por_cargo: { consultor: { vendas: false } },
     });
     await salvarConfig('emp-A', {
       modulos: { prontidao_lideranca: true, pulso: true },                       // tentou contratar o Pulso
       prontidao_lideranca: { cargo_alvo: 'Estagiário', corte_nota: 4 },          // tentou reescrever o programa
       cadencia: { dia: 'quinta' },                                               // isto é operação: passa
+      simuladores_por_cargo: { consultor: { vendas: true } },
     });
     expect(payloadSalvo()).toEqual({
       modulos: { prontidao_lideranca: true, pulso: false },
       prontidao_lideranca: { cargo_alvo: 'Gerente Comercial', corte_nota: 3 },
       cadencia: { dia: 'quinta' },
+      simuladores_por_cargo: { consultor: { vendas: false } },
     });
   });
 

@@ -1,2 +1,6 @@
 import TreinoRecepcao from '@/components/recepcao/treino';
-export default function Page() { return <TreinoRecepcao/>; }
+import { exigirAcessoPaginaSimulador } from '@/lib/simuladores/pagina';
+export default async function Page() {
+  await exigirAcessoPaginaSimulador('atendimento');
+  return <TreinoRecepcao/>;
+}

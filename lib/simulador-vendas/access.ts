@@ -4,6 +4,7 @@ import { can } from '@/lib/permissions';
 import { tenantDb } from '@/lib/tenant-db';
 import { SimuladorError } from './core';
 import { CONFIG_COLUNAS, type Config } from './schema';
+import { acessoSimuladoresDoColaborador } from '@/lib/simuladores/acesso';
 
 export function empresaAutorizada(auth: AuthenticatedContext, solicitada?: string | null) {
   const empresaId = auth.isPlatformAdmin ? solicitada || auth.empresaId : auth.empresaId;
@@ -40,6 +41,8 @@ export async function contexto(
   const config = configResult.data as Config | null;
   if (!auth.isPlatformAdmin && !config?.habilitado)
     throw new SimuladorError(403, 'O simulador de vendas ainda não está habilitado para sua empresa.');
+  if (!auth.isPlatformAdmin && !(await acessoSimuladoresDoColaborador(auth.colaborador)).vendas)
+    throw new SimuladorError(403, 'O simulador de vendas não está liberado para seu cargo.');
   let ownerKey: string;
   if (auth.isPlatformAdmin) {
     const { data, error } = await tdb.raw

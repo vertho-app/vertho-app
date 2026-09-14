@@ -111,7 +111,7 @@ function hrefAtivo(pathname: string, itens: NavItem[]): string | null {
   return candidatos.reduce((maior, href) => (href.length > maior.length ? href : maior));
 }
 
-export default function DashboardShell({ children, theme = DEFAULT_THEME, mostrarRecepcao = false, mostrarVendas = false }: { children: React.ReactNode; theme?: TenantTheme; mostrarRecepcao?: boolean; mostrarVendas?: boolean }) {
+export default function DashboardShell({ children, theme = DEFAULT_THEME }: { children: React.ReactNode; theme?: TenantTheme }) {
   const t = useTranslations('DashboardShell');
   const router = useRouter();
   const pathname = usePathname();
@@ -131,8 +131,8 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME, mostra
   // decide é o servidor, no /api/me; o gate real é o layout de /admin.
   const ehAdminDaPlataforma = colaborador?.platformAdmin === true;
   const navItems = NAV_ITEMS.filter((it) =>
-    (!it.recepcao || mostrarRecepcao || colaborador?.treinoRecepcao === true)
-    && (!it.vendas || mostrarVendas || colaborador?.treinoVendas === true)
+    (!it.recepcao || colaborador?.treinoRecepcao === true)
+    && (!it.vendas || colaborador?.treinoVendas === true)
     && (!it.gestorOnly || isGestorOuRH)
     && (!it.rhOnly || ehAdminDaEmpresa)
     && (!it.moduloProntidao || colaborador?.prontidaoLideranca === true)

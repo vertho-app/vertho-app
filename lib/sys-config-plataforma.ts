@@ -24,6 +24,8 @@ export const CHAVES_SO_PLATAFORMA = [
   'modulos',
   /** Cargo-alvo, exemplares, população e corte do mapeamento de liderança. */
   'prontidao_lideranca',
+  /** Liberação dos simuladores por cargo, editada na aba própria de Cargos. */
+  'simuladores_por_cargo',
 ] as const;
 
 export type ChaveSoPlataforma = (typeof CHAVES_SO_PLATAFORMA)[number];
