@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  Award,
   CheckCircle2,
   ChevronDown,
   ClipboardCheck,
@@ -33,7 +34,7 @@ import { SignalJourney } from '@/components/engajamento/signal-journey';
 import { getEngajamentoDoTime } from '../actions';
 import { engagementBlocker, hasEngagementSignal } from '@/lib/engajamento/prioridades';
 
-type Foco = 'todos' | 'atencao' | 'movimento';
+type Foco = 'todos' | 'atencao' | 'movimento' | 'finalizados';
 
 const NENHUMA_PESSOA: any[] = [];
 
@@ -45,11 +46,37 @@ const FORMATOS: Record<string, { label: string; Icon: LucideIcon; classe: string
 };
 
 const temSinal = hasEngagementSignal;
+
+/**
+ * Fechou a última semana do plano. Mesma régua do painel de RH
+ * (`lib/engajamento/posicao-jornada.ts`); aqui a tela só lê o veredito.
+ */
+function finalizouJornada(pessoa: any): boolean {
+  return Boolean(pessoa?.jornadaConcluida);
+}
+
 function pedeAcompanhamento(pessoa: any): boolean {
+  if (finalizouJornada(pessoa)) return false;
   return Boolean(pessoa.jornadaAtrasada || engagementBlocker(pessoa));
 }
 
 function EtapaJornada({ pessoa }: { pessoa: any }) {
+  // O estado terminal vem antes de "Posição indisponível" e de "pendente": o
+  // relógio da turma segue andando depois do fim do plano, e quem terminou não
+  // pode voltar a aparecer como atrasado.
+  if (finalizouJornada(pessoa)) {
+    const total = Number(pessoa.totalSemanasJornada);
+    return (
+      <span
+        title="Concluiu a última semana do plano"
+        className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-fuchsia-300/35 bg-fuchsia-300/[0.14] px-2.5 py-1 text-[10px] font-semibold tabular-nums text-fuchsia-100"
+      >
+        <Award size={11} aria-hidden="true" />
+        Jornada concluída{Number.isFinite(total) && total > 0 ? ` · ${total} de ${total} semanas` : ''}
+      </span>
+    );
+  }
+
   if (pessoa.semanaAcessivel == null) {
     return (
       <span className="inline-flex rounded-full border border-white/[0.07] bg-white/[0.025] px-2 py-1 text-[10px] font-semibold text-white/28">
@@ -61,7 +88,7 @@ function EtapaJornada({ pessoa }: { pessoa: any }) {
   const meta = pessoa.jornadaAtrasada
     ? { label: 'etapa pendente', dot: 'bg-amber-400', classe: 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200' }
     : pessoa.semanaAcessivelConcluida
-      ? { label: 'concluída', dot: 'bg-emerald-400', classe: 'border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-200' }
+      ? { label: 'etapa concluída', dot: 'bg-violet-400', classe: 'border-violet-300/25 bg-violet-300/[0.09] text-violet-200' }
       : { label: 'em curso', dot: 'bg-brand-400', classe: 'border-brand-300/20 bg-brand-300/[0.08] text-brand-200' };
 
   return (
@@ -76,6 +103,16 @@ function EtapaJornada({ pessoa }: { pessoa: any }) {
 }
 
 function statusDaPessoa(pessoa: any): { label: string; detail: string; classe: string } {
+  if (finalizouJornada(pessoa)) {
+    const total = Number(pessoa.totalSemanasJornada);
+    return {
+      label: 'Jornada concluída',
+      detail: Number.isFinite(total) && total > 0
+        ? `Concluiu as ${total} semanas do plano.`
+        : 'Concluiu a última semana do plano.',
+      classe: 'border-fuchsia-300/35 bg-fuchsia-300/[0.14] text-fuchsia-100',
+    };
+  }
   if (!temSinal(pessoa)) {
     return {
       label: 'Sem sinal registrado',
@@ -210,18 +247,26 @@ function CoordenacaoBloco({ grupo }: { grupo: { nome: string; pessoas: any[]; at
 
 function PessoaRow({ pessoa }: { pessoa: any }) {
   const atencao = pedeAcompanhamento(pessoa);
+  const finalizada = finalizouJornada(pessoa);
   const status = statusDaPessoa(pessoa);
 
   return (
     <article className={`rounded-[16px] border p-4 transition-colors ${
-      atencao
-        ? 'border-amber-300/15 bg-amber-300/[0.035]'
-        : 'border-white/[0.07] bg-white/[0.02] hover:bg-white/[0.035]'
+      finalizada
+        ? 'border-fuchsia-300/25 bg-fuchsia-300/[0.05]'
+        : atencao
+          ? 'border-amber-300/15 bg-amber-300/[0.035]'
+          : 'border-white/[0.07] bg-white/[0.02] hover:bg-white/[0.035]'
     }`}>
       <div className="grid gap-4 md:grid-cols-[minmax(170px,1fr)_minmax(150px,0.85fr)_minmax(260px,1.25fr)_minmax(150px,0.85fr)] md:items-center">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${atencao ? 'bg-amber-400' : 'bg-emerald-400/75'}`} aria-hidden="true" />
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                finalizada ? 'bg-fuchsia-300' : atencao ? 'bg-amber-400' : 'bg-emerald-400/75'
+              }`}
+              aria-hidden="true"
+            />
             <p className={`truncate text-[13px] font-semibold ${atencao ? 'text-amber-100' : 'text-white'}`}>{pessoa.nome}</p>
           </div>
           <p className="ml-3.5 mt-0.5 truncate text-[10px] text-white/35">{pessoa.cargo || 'Cargo não informado'}</p>
@@ -302,6 +347,7 @@ export default function EngajamentoDoTimePage() {
   const resumo = dados?.resumo || {};
   const total = Number(resumo.inscritos) || 0;
   const emAtencao = pessoas.filter(pedeAcompanhamento).length;
+  const finalizaram = pessoas.filter(finalizouJornada).length;
   const etapasPendentes = pessoas.filter((pessoa) => pessoa.jornadaAtrasada).length;
   const semSinal = pessoas.filter((pessoa) => !temSinal(pessoa)).length;
   const semEvidencia = pessoas.filter((pessoa) => !pessoa.enviouEvidencia).length;
@@ -314,7 +360,12 @@ export default function EngajamentoDoTimePage() {
   const pessoasVisiveis = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase('pt-BR');
     return pessoas
-      .filter((pessoa) => foco === 'todos' || (foco === 'atencao' ? pedeAcompanhamento(pessoa) : !pedeAcompanhamento(pessoa)))
+      .filter((pessoa) => {
+        if (foco === 'todos') return true;
+        if (foco === 'atencao') return pedeAcompanhamento(pessoa);
+        if (foco === 'finalizados') return finalizouJornada(pessoa);
+        return !pedeAcompanhamento(pessoa) && !finalizouJornada(pessoa);
+      })
       .filter((pessoa) => !termo || `${pessoa.nome} ${pessoa.cargo || ''}`.toLocaleLowerCase('pt-BR').includes(termo))
       .sort((a, b) => Number(pedeAcompanhamento(b)) - Number(pedeAcompanhamento(a)) || a.nome.localeCompare(b.nome));
   }, [busca, foco, pessoas]);
@@ -519,7 +570,8 @@ export default function EngajamentoDoTimePage() {
                   {([
                     ['todos', 'Todos', pessoas.length],
                     ['atencao', 'Acompanhar', emAtencao],
-                    ['movimento', 'Em movimento', pessoas.length - emAtencao],
+                    ['movimento', 'Em movimento', pessoas.length - emAtencao - finalizaram],
+                    ...(finalizaram > 0 ? [['finalizados', 'Finalizaram', finalizaram] as const] : []),
                   ] as const).map(([valor, label, quantidade]) => (
                     <button
                       key={valor}
@@ -527,7 +579,11 @@ export default function EngajamentoDoTimePage() {
                       onClick={() => setFoco(valor)}
                       aria-pressed={foco === valor}
                       className={`rounded-full px-2.5 py-1.5 text-[9px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-300 ${
-                        foco === valor ? 'bg-brand-300/12 text-brand-200' : 'text-white/35 hover:text-white/70'
+                        foco !== valor
+                          ? 'text-white/35 hover:text-white/70'
+                          : valor === 'finalizados'
+                            ? 'bg-fuchsia-300/14 text-fuchsia-100'
+                            : 'bg-brand-300/12 text-brand-200'
                       }`}
                     >
                       {label} <span className="ml-0.5 font-mono">{quantidade}</span>

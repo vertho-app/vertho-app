@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import Link from 'next/link';
 import {
   AlertTriangle,
+  Award,
   BarChart3,
   BookOpen,
   CheckCircle2,
@@ -42,12 +43,53 @@ const FMT: Record<string, {
   case: { Icon: BookOpen, cor: 'text-amber-300', fundo: 'bg-amber-300/10 border-amber-300/20', label: 'Caso' },
 };
 
-type Foco = 'todos' | 'atencao' | 'movimento';
+type Foco = 'todos' | 'atencao' | 'movimento' | 'finalizados';
 type AbaEngajamento = 'atual' | 'evolucao';
+
+/**
+ * Os quatro estados da posição na jornada — fonte única de cor e rótulo.
+ *
+ * 🔴 O terminal era `emerald` e ficava indistinguível do `cyan` de "em curso":
+ * hues vizinhos (160 × 190) num bloco de poucos pixels. Em Ibipeba, 14/09/2026,
+ * a barra da semana 9 tinha 6 em curso e 1 finalizada e lia como sólida — a
+ * pergunta "quantas finalizaram?" não tinha resposta na tela. O estado terminal
+ * passou para a família violeta/magenta, que não tem vizinho nesta paleta.
+ *
+ * `finalizada` ≠ `concluida`: `concluida` é quem fechou a etapa da vez e espera
+ * a próxima; `finalizada` é quem fechou a ÚLTIMA semana do plano.
+ */
+const ESTADO_JORNADA = {
+  pendente: {
+    label: 'etapa pendente',
+    dot: 'bg-amber-400',
+    chip: 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200',
+  },
+  curso: {
+    label: 'em curso',
+    dot: 'bg-cyan-400',
+    chip: 'border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-200',
+  },
+  concluida: {
+    label: 'etapa concluída',
+    dot: 'bg-violet-400',
+    chip: 'border-violet-300/25 bg-violet-300/[0.09] text-violet-200',
+  },
+  finalizada: {
+    label: 'jornada concluída',
+    dot: 'bg-fuchsia-300',
+    chip: 'border-fuchsia-300/35 bg-fuchsia-300/[0.14] text-fuchsia-100',
+  },
+} as const;
 
 const temSinal = hasEngagementSignal;
 
+/** Fechou a última semana do plano — o roll-up decide, a tela só lê. */
+function finalizouJornada(pessoa: any): boolean {
+  return Boolean(pessoa?.jornadaConcluida);
+}
+
 function pedeAcompanhamento(pessoa: any): boolean {
+  if (finalizouJornada(pessoa)) return false;
   return Boolean(pessoa.jornadaAtrasada || engagementBlocker(pessoa));
 }
 
@@ -87,16 +129,33 @@ function SemanaBadge({ pessoa }: { pessoa: any }) {
     );
   }
 
+  // O estado terminal vem PRIMEIRO: o relógio da cadência pode seguir andando
+  // depois do fim do plano, e sem esta ordem quem terminou apareceria como
+  // "etapa pendente" na semana seguinte ao encerramento.
+  if (finalizouJornada(pessoa)) {
+    const total = Number(pessoa.totalSemanasJornada);
+    const escopo = Number.isFinite(total) && total > 0 ? ` · ${total} de ${total} semanas` : '';
+    return (
+      <span
+        title={`Concluiu a última semana do plano. Calendário da turma: semana ${pessoa.semanaCalendario}`}
+        className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-1 text-[10px] font-semibold tabular-nums ${ESTADO_JORNADA.finalizada.chip}`}
+      >
+        <Award size={11} aria-hidden="true" />
+        Jornada concluída{escopo}
+      </span>
+    );
+  }
+
   const situacao = pessoa.jornadaAtrasada
-    ? { label: 'etapa pendente', dot: 'bg-amber-400', style: 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200' }
+    ? ESTADO_JORNADA.pendente
     : pessoa.semanaAcessivelConcluida
-      ? { label: 'concluída', dot: 'bg-emerald-400', style: 'border-emerald-300/20 bg-emerald-300/[0.08] text-emerald-200' }
-      : { label: 'em curso', dot: 'bg-cyan-400', style: 'border-cyan-300/20 bg-cyan-300/[0.08] text-cyan-200' };
+      ? ESTADO_JORNADA.concluida
+      : ESTADO_JORNADA.curso;
 
   return (
     <span
       title={`Calendário da turma: semana ${pessoa.semanaCalendario}`}
-      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-1 text-[10px] font-semibold tabular-nums ${situacao.style}`}
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-1 text-[10px] font-semibold tabular-nums ${situacao.chip}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${situacao.dot}`} aria-hidden="true" />
       Semana {pessoa.semanaAcessivel} · {situacao.label}
@@ -205,16 +264,19 @@ function DistribuicaoJornada({
 }) {
   const distribuicao = semanas.map((semana) => {
     const pessoas = colaboradores.filter((c) => Number(c.semanaAcessivel) === semana);
-    const pendentes = pessoas.filter((c) => c.jornadaAtrasada).length;
-    const concluidas = pessoas.filter((c) => !c.jornadaAtrasada && c.semanaAcessivelConcluida).length;
+    const finalizadas = pessoas.filter(finalizouJornada).length;
+    const pendentes = pessoas.filter((c) => !finalizouJornada(c) && c.jornadaAtrasada).length;
+    const concluidas = pessoas.filter((c) => !finalizouJornada(c) && !c.jornadaAtrasada && c.semanaAcessivelConcluida).length;
     return {
       semana,
       total: pessoas.length,
       pendentes,
       concluidas,
-      emCurso: pessoas.length - pendentes - concluidas,
+      finalizadas,
+      emCurso: pessoas.length - pendentes - concluidas - finalizadas,
     };
   });
+  const totalFinalizadas = colaboradores.filter(finalizouJornada).length;
   const maiorTotal = Math.max(1, ...distribuicao.map((item) => item.total));
   const calendarios = colaboradores
     .map((c) => Number(c.semanaCalendario))
@@ -240,7 +302,20 @@ function DistribuicaoJornada({
           >
             Onde as pessoas estão agora
           </h2>
-          <p className="mt-1 text-[10px] text-white/35">{calendarioTexto}. Selecione uma semana para filtrar a lista.</p>
+          <p className="mt-1 text-[10px] text-white/35">
+            {calendarioTexto}. Selecione uma semana para filtrar a lista.
+          </p>
+          {/* A barra responde "onde estão"; só este número responde "quantas
+              terminaram" — chegar à última semana e concluí-la são estados
+              diferentes, e a posição sozinha não os separa. */}
+          {totalFinalizadas > 0 && (
+            <p className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-semibold ${ESTADO_JORNADA.finalizada.chip}`}>
+              <Award size={11} aria-hidden="true" />
+              {totalFinalizadas === 1
+                ? '1 pessoa concluiu a jornada'
+                : `${totalFinalizadas} pessoas concluíram a jornada`}
+            </p>
+          )}
         </div>
         {posicaoSelecionada && (
           <button
@@ -255,7 +330,7 @@ function DistribuicaoJornada({
 
       <div className="overflow-x-auto pb-1">
         <div className="flex min-w-max items-end gap-2">
-          {distribuicao.map(({ semana, total, pendentes, emCurso, concluidas }) => {
+          {distribuicao.map(({ semana, total, pendentes, emCurso, concluidas, finalizadas }) => {
             const selecionada = posicaoSelecionada === semana;
             const altura = total === 0 ? 4 : Math.max(14, Math.round((total / maiorTotal) * 54));
             return (
@@ -264,7 +339,7 @@ function DistribuicaoJornada({
                 type="button"
                 disabled={total === 0}
                 aria-pressed={selecionada}
-                aria-label={`${total} pessoa${total === 1 ? '' : 's'} na semana ${semana}`}
+                aria-label={`${total} pessoa${total === 1 ? '' : 's'} na semana ${semana}${finalizadas > 0 ? `, ${finalizadas} com a jornada concluída` : ''}`}
                 onClick={() => onSelecionar(selecionada ? null : semana)}
                 className={`group w-[78px] shrink-0 rounded-[16px] border p-2 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 disabled:cursor-default ${
                   selecionada
@@ -278,9 +353,15 @@ function DistribuicaoJornada({
                     style={{ height: `${altura}px` }}
                   >
                     {total === 0 && <span className="h-full bg-white/[0.07]" />}
-                    {pendentes > 0 && <span className="bg-amber-400" style={{ flexGrow: pendentes }} />}
-                    {emCurso > 0 && <span className="bg-cyan-400" style={{ flexGrow: emCurso }} />}
-                    {concluidas > 0 && <span className="bg-emerald-400" style={{ flexGrow: concluidas }} />}
+                    {pendentes > 0 && <span className={ESTADO_JORNADA.pendente.dot} style={{ flexGrow: pendentes }} />}
+                    {emCurso > 0 && <span className={ESTADO_JORNADA.curso.dot} style={{ flexGrow: emCurso }} />}
+                    {concluidas > 0 && <span className={ESTADO_JORNADA.concluida.dot} style={{ flexGrow: concluidas }} />}
+                    {/* Piso de 6px: 1 finalizada entre 7 pessoas virava uma
+                        faixa de ~8px que o olho não separa do vizinho. A fatia
+                        do marco é a que menos pode desaparecer. */}
+                    {finalizadas > 0 && (
+                      <span className={ESTADO_JORNADA.finalizada.dot} style={{ flexGrow: finalizadas, minHeight: 6 }} />
+                    )}
                   </span>
                 </span>
                 <span className={`mt-2 block text-[9px] font-bold uppercase tracking-[0.12em] ${selecionada ? 'text-cyan-200' : 'text-white/35'}`}>
@@ -294,9 +375,14 @@ function DistribuicaoJornada({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-white/[0.06] pt-3 text-[9px] text-white/35">
-        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> etapa pendente</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-cyan-400" /> em curso</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> etapa concluída</span>
+        {/* A legenda sai do próprio mapa, na ordem em que as fatias são
+            empilhadas: estado novo aparece aqui sem ninguém lembrar. */}
+        {Object.values(ESTADO_JORNADA).map((estado) => (
+          <span key={estado.label} className="inline-flex items-center gap-1.5">
+            <span className={`h-1.5 w-1.5 rounded-full ${estado.dot}`} />
+            {estado.label}
+          </span>
+        ))}
         {semPosicao > 0 && <span>{semPosicao} sem posição disponível</span>}
       </div>
     </section>
@@ -371,6 +457,15 @@ function FormatosResumo({ itens }: { itens: any[] }) {
 
 function ProximaAcao({ pessoa }: { pessoa: any }) {
   const blocker = engagementBlocker(pessoa);
+  if (finalizouJornada(pessoa)) {
+    const total = Number(pessoa.totalSemanasJornada);
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-fuchsia-100">
+        <Award size={12} aria-hidden="true" />
+        Jornada concluída{Number.isFinite(total) && total > 0 ? ` · ${total} semanas` : ''}
+      </span>
+    );
+  }
   if (!blocker && !pessoa.jornadaAtrasada) return <span className="text-xs text-emerald-200">Evidência registrada</span>;
   return <details className="max-w-sm text-xs">
     <summary className="cursor-pointer text-cyan-200 focus-visible:outline-2 focus-visible:outline-cyan-300">{blocker ? BLOCKER_META[blocker].action : 'Verificar etapa pendente'}</summary>
@@ -381,8 +476,13 @@ function ProximaAcao({ pessoa }: { pessoa: any }) {
 
 function PessoaCard({ pessoa }: { pessoa: any }) {
   const atencao = pedeAcompanhamento(pessoa);
+  const finalizada = finalizouJornada(pessoa);
   return (
-    <article className={`rounded-[16px] border p-4 ${atencao ? 'border-amber-300/16 bg-amber-300/[0.035]' : 'border-white/[0.07] bg-white/[0.02]'}`}>
+    <article className={`rounded-[16px] border p-4 ${
+      finalizada
+        ? 'border-fuchsia-300/25 bg-fuchsia-300/[0.05]'
+        : atencao ? 'border-amber-300/16 bg-amber-300/[0.035]' : 'border-white/[0.07] bg-white/[0.02]'
+    }`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-[13px] font-semibold text-white">{pessoa.nome}</p>
@@ -429,10 +529,22 @@ function PessoasList({ pessoas }: { pessoas: any[] }) {
                   {pessoas.map((pessoa) => {
                     const atencao = pedeAcompanhamento(pessoa);
                     return (
-                      <tr key={pessoa.colaboradorId} className={`border-t border-white/[0.055] transition-colors hover:bg-white/[0.025] ${atencao ? 'bg-amber-300/[0.018]' : ''}`}>
+                      <tr
+                        key={pessoa.colaboradorId}
+                        className={`border-t border-white/[0.055] transition-colors hover:bg-white/[0.025] ${
+                          finalizouJornada(pessoa) ? 'bg-fuchsia-300/[0.035]' : atencao ? 'bg-amber-300/[0.018]' : ''
+                        }`}
+                      >
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-2">
-                            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${atencao ? 'bg-amber-400' : 'bg-emerald-400/70'}`} aria-hidden="true" />
+                            <span
+                              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                                finalizouJornada(pessoa)
+                                  ? ESTADO_JORNADA.finalizada.dot
+                                  : atencao ? 'bg-amber-400' : 'bg-emerald-400/70'
+                              }`}
+                              aria-hidden="true"
+                            />
                             <div className="min-w-0">
                               <p className={`max-w-[210px] truncate text-[12px] font-semibold ${atencao ? 'text-amber-100' : 'text-white/85'}`}>{pessoa.nome}</p>
                               <p className="max-w-[210px] truncate text-[9px] text-white/30">{pessoa.cargo || 'Cargo não informado'}</p>
@@ -566,13 +678,19 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
   const emAtencao = colabs.filter(pedeAcompanhamento).length;
   const etapasPendentes = colabs.filter((c) => c.jornadaAtrasada).length;
   const semSinal = colabs.filter((c) => !temSinal(c)).length;
+  const finalizaram = colabs.filter(finalizouJornada).length;
 
   const colabsVisiveis = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase('pt-BR');
     return colabsNaPosicao
       .filter((c) => !pessoaSel || c.colaboradorId === pessoaSel)
       .filter((c) => !motivoSel || ((semanaSel == null || c.semanaCalendario >= semanaSel) && (motivoSel === 'atraso' ? c.jornadaAtrasada : engagementBlocker(c) === motivoSel)))
-      .filter((c) => foco === 'todos' || (foco === 'atencao' ? pedeAcompanhamento(c) : !pedeAcompanhamento(c)))
+      .filter((c) => {
+        if (foco === 'todos') return true;
+        if (foco === 'atencao') return pedeAcompanhamento(c);
+        if (foco === 'finalizados') return finalizouJornada(c);
+        return !pedeAcompanhamento(c) && !finalizouJornada(c);
+      })
       .filter((c) => !termo || `${c.nome} ${c.cargo || ''}`.toLocaleLowerCase('pt-BR').includes(termo))
       .sort((a, b) => Number(pedeAcompanhamento(b)) - Number(pedeAcompanhamento(a)) || a.nome.localeCompare(b.nome));
   }, [busca, colabsNaPosicao, foco, motivoSel, pessoaSel, semanaSel]);
@@ -809,6 +927,9 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
                   </h2>
                   <p className="mt-1 text-[10px] text-white/32">
                     {etapasPendentes} com etapa pendente · {semSinal} sem sinal registrado
+                    {finalizaram > 0 && (
+                      <> · <span className="font-semibold text-fuchsia-100">{finalizaram} com a jornada concluída</span></>
+                    )}
                   </p>
                 </div>
 
@@ -817,7 +938,13 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
                     {([
                       ['todos', 'Todos', colabsNaPosicao.length],
                       ['atencao', 'Acompanhar', colabsNaPosicao.filter(pedeAcompanhamento).length],
-                      ['movimento', 'Em movimento', colabsNaPosicao.filter((c) => !pedeAcompanhamento(c)).length],
+                      // "Em movimento" exclui quem terminou: os quatro
+                      // segmentos somam o recorte, e quem fechou o plano não é
+                      // alguém para empurrar, é alguém para reconhecer.
+                      ['movimento', 'Em movimento', colabsNaPosicao.filter((c) => !pedeAcompanhamento(c) && !finalizouJornada(c)).length],
+                      ...(colabs.some(finalizouJornada)
+                        ? [['finalizados', 'Finalizaram', colabsNaPosicao.filter(finalizouJornada).length] as const]
+                        : []),
                     ] as const).map(([valor, label, quantidade]) => (
                       <button
                         key={valor}
@@ -825,7 +952,11 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
                         onClick={() => setFoco(valor)}
                         aria-pressed={foco === valor}
                         className={`rounded-full px-2.5 py-1.5 text-[9px] font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 ${
-                          foco === valor ? 'bg-cyan-300/12 text-cyan-200' : 'text-white/35 hover:text-white/70'
+                          foco !== valor
+                            ? 'text-white/35 hover:text-white/70'
+                            : valor === 'finalizados'
+                              ? 'bg-fuchsia-300/14 text-fuchsia-100'
+                              : 'bg-cyan-300/12 text-cyan-200'
                         }`}
                       >
                         {label} <span className="ml-0.5 font-mono">{quantidade}</span>

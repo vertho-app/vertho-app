@@ -33,8 +33,18 @@ export function hasEngagementSignal(person: {
     || person.enviouEvidencia || person.conversouTutor || person.deuPlay);
 }
 
-/** Grupos exclusivos: uma pessoa aparece na primeira etapa que falta concluir. */
-export function engagementBlocker(person: Parameters<typeof hasEngagementSignal>[0]): EngagementBlocker | null {
+/**
+ * Grupos exclusivos: uma pessoa aparece na primeira etapa que falta concluir.
+ *
+ * Quem fechou a última semana do plano (`jornadaConcluida`) não tem etapa a
+ * faltar — cobrar consumo ou evidência de quem terminou o programa é pendência
+ * inventada, e era o que a lista fazia com a única pessoa que concluiu a
+ * jornada em Ibipeba (14/09/2026).
+ */
+export function engagementBlocker(
+  person: Parameters<typeof hasEngagementSignal>[0] & { jornadaConcluida?: boolean },
+): EngagementBlocker | null {
+  if (person.jornadaConcluida) return null;
   if (person.enviouEvidencia) return null;
   if (!hasEngagementSignal(person)) return 'ativacao';
   return person.consumiu ? 'evidencia' : 'consumo';

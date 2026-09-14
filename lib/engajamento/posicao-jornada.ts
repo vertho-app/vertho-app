@@ -8,6 +8,10 @@ export interface PosicaoJornada {
   atrasada: boolean;
   /** A própria semana acessível já foi concluída (pessoa em dia aguardando a próxima). */
   semanaConcluida: boolean;
+  /** Última semana do plano DESTA pessoa — `null` quando o plano não pôde ser lido. */
+  totalSemanas: number | null;
+  /** A última semana do plano está concluída: a jornada terminou, não há próxima etapa. */
+  jornadaConcluida: boolean;
 }
 
 /**
@@ -29,7 +33,7 @@ export function derivarPosicaoJornada(input: {
   now?: Date;
 }): PosicaoJornada {
   if (!input.confiavel) {
-    return { semanaAcessivel: null, atrasada: false, semanaConcluida: false };
+    return { semanaAcessivel: null, atrasada: false, semanaConcluida: false, totalSemanas: null, jornadaConcluida: false };
   }
 
   const semanaCalendarioBruta = Number(input.semanaCalendario);
@@ -50,9 +54,29 @@ export function derivarPosicaoJornada(input: {
     Number(p?.semana) === semanaAcessivel && p?.status === PROGRESSO.CONCLUIDO
   ));
 
+  // Fim da jornada = a ÚLTIMA semana do plano está concluída.
+  //
+  // 🔴 Não use `semanaAcessivel >= totalSemanas`: `primeiraSemanaAcessivel`
+  // PARTE do calendário e nunca sobe acima dele, então quem fecha o plano antes
+  // do relógio chegar ao fim continua com a semana acessível travada no
+  // calendário — a comparação só passaria a valer na semana em que já não
+  // importa (medido em 02/09/2026, dry-run do aviso de encerramento).
+  //
+  // Plano ilegível devolve `totalSemanas: null` e `jornadaConcluida: false`:
+  // sem saber onde o plano termina, não se afirma que alguém chegou ao fim.
+  const semanasDoPlano = (Array.isArray(input.plano) ? input.plano : [])
+    .map((s: any) => Number(s?.semana))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  const totalSemanas = semanasDoPlano.length ? Math.max(...semanasDoPlano) : null;
+  const jornadaConcluida = totalSemanas != null && progressos.some((p: any) => (
+    Number(p?.semana) === totalSemanas && p?.status === PROGRESSO.CONCLUIDO
+  ));
+
   return {
     semanaAcessivel,
     atrasada: semanaAcessivel < semanaCalendario,
     semanaConcluida,
+    totalSemanas,
+    jornadaConcluida,
   };
 }

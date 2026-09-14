@@ -274,8 +274,13 @@ export async function rollUpEngajamento(
       semanaAtual: semanaCalendario,
       semanaCalendario,
       semanaAcessivel: posicao.semanaAcessivel,
-      jornadaAtrasada: posicao.atrasada,
+      // Quem fechou a última semana do plano não está atrasado nem "em curso":
+      // terminou. O relógio da cadência pode seguir andando, então o estado
+      // terminal tem precedência sobre o atraso em toda leitura.
+      jornadaAtrasada: posicao.atrasada && !posicao.jornadaConcluida,
       semanaAcessivelConcluida: posicao.semanaConcluida,
+      jornadaConcluida: posicao.jornadaConcluida,
+      totalSemanasJornada: posicao.totalSemanas,
       status: e.status,
       recebeuP1: recebeuNaSemana(e.ultima_pilula1_em, e),
       recebeuP2: recebeuNaSemana(e.ultima_pilula2_em, e),
@@ -329,6 +334,10 @@ export async function rollUpEngajamento(
     })(),
     enviaramEvidencia: colaboradores.filter((c) => c.enviouEvidencia).length,
     conversaramTutor: colaboradores.filter((c) => c.conversouTutor).length,
+    // Quem fechou a ÚLTIMA semana do plano. Não é o mesmo que "chegou à última
+    // semana": em Ibipeba, 14/09/2026, 7 pessoas estavam posicionadas na semana
+    // 9 e só 1 havia concluído — a tela dizia "em curso" para as duas coisas.
+    finalizaramJornada: colaboradores.filter((c) => c.jornadaConcluida).length,
     porPilula,
     porFormato,
   };
