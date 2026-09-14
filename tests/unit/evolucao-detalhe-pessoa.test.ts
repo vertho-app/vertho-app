@@ -166,12 +166,10 @@ describe('o card abre o relatório da pessoa', () => {
       expect(rota).toContain('isPlatformAdmin');
       expect(rota).toContain('resolverMarcaPdf(');
     }
-    // O consolidado aceita `?empresa=` SÓ para a plataforma: para gestor e RH o
-    // parâmetro é descartado, senão é PII cross-tenant a um parâmetro de
-    // distância. Um `||` aqui deixaria o parâmetro valer quando a sessão não
-    // tem empresa, que é exatamente o caso a proteger.
-    expect(consolidado).toContain('auth.isPlatformAdmin && empresaPedida ? empresaPedida : auth.empresaId');
-    expect(consolidado).not.toContain('empresaPedida || auth.empresaId');
+    // Quem decide de que empresa é o consolidado é `resolverEmpresaDoRelatorio`
+    // (régua e casos em `empresa-do-relatorio.test.ts`): `?empresa=` só vale
+    // para a plataforma, e a guarda mede o valor RESOLVIDO, não a sessão.
+    expect(consolidado).toContain("resolverEmpresaDoRelatorio(auth, searchParams.get('empresa'))");
   });
 
   it('não vai ao banco para abrir o detalhe: o relatório já vem na lista', () => {

@@ -7,6 +7,7 @@ import { carregarEvolucaoRH } from '@/lib/relatorios/evolucao-center';
 import { resolverRecorteDeTurma } from '@/lib/relatorios/recorte-turma';
 import { resolverMarcaPdf, marcaVertho, nomeArquivoMarca } from '@/lib/pdf-marca';
 import { requireRole } from '@/lib/auth/request-context';
+import { resolverEmpresaDoRelatorio } from '@/lib/auth/empresa-do-relatorio';
 
 /**
  * PDF executivo de evolução — o agregado do fim de jornada, pelo recorte que o
@@ -42,19 +43,19 @@ export async function GET(request: Request) {
     const auth = await requireRole(request, ['gestor', 'rh', 'admin']);
     if (auth instanceof Response) return auth;
 
-    if (!auth.empresaId) {
-      return NextResponse.json({ error: 'sessão sem empresa' }, { status: 403 });
-    }
-
     const { searchParams } = new URL(request.url);
     const turmaId = searchParams.get('turma');
     const contentDisposition = searchParams.get('view') === 'inline' ? 'inline' : 'attachment';
-    // `?empresa=` só existe para a plataforma (ver item 2 do cabeçalho). Para
-    // gestor e RH o parâmetro é lido e DESCARTADO: quem decide o tenant é a
-    // sessão. O `||` não serve aqui — ele deixaria o parâmetro valer sempre que
-    // a sessão não tivesse empresa, que é o caso a proteger.
-    const empresaPedida = searchParams.get('empresa');
-    const empresaId = auth.isPlatformAdmin && empresaPedida ? empresaPedida : auth.empresaId;
+
+    // `?empresa=` só vale para a plataforma (ver item 2 do cabeçalho); para
+    // gestor e RH o parâmetro é descartado. A guarda vem DEPOIS e mede o valor
+    // RESOLVIDO: o platform admin desta base tem `empresaId` nulo na sessão, e
+    // exigir a empresa da sessão antes de ler o parâmetro respondia
+    // "sessão sem empresa" para o botão que informa a empresa na URL.
+    const empresaId = resolverEmpresaDoRelatorio(auth, searchParams.get('empresa'));
+    if (!empresaId) {
+      return NextResponse.json({ error: 'nenhuma empresa para este relatório' }, { status: 403 });
+    }
 
     const tdb = tenantDb(empresaId);
     const empresaResult = await tdb.raw.from('empresas').select('nome').eq('id', empresaId).maybeSingle();
