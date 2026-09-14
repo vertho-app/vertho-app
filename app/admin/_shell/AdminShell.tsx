@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { AdminShellContext } from './AdminShellContext';
+import { empresaDaNavegacao } from './empresa-da-navegacao';
 import { loadAdminShellEmpresas, loadAdminShellPermissoes, type EmpresaLite, type AdminShellPermissoes } from './actions';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
@@ -13,8 +14,10 @@ const FILTER_KEY = 'vertho-admin-filter-empresa';
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  // empresaId da ROTA quando estamos numa página escopada (/admin/empresas/{id}/...).
-  const routeEmpresaId = pathname?.match(/^\/admin\/empresas\/([^/]+)/)?.[1];
+  const searchParams = useSearchParams();
+  // empresaId que a NAVEGAÇÃO pede: path escopado (/admin/empresas/{id}/...) OU
+  // `?empresa=` (ver `empresa-da-navegacao.ts` para o porquê do query entrar).
+  const routeEmpresaId = empresaDaNavegacao(pathname, searchParams?.get('empresa'));
   const [empresas, setEmpresas] = useState<EmpresaLite[]>([]);
   const [empresaFiltro, setEmpresaFiltroState] = useState<string>('all');
   const [collapsed, setCollapsed] = useState(false);

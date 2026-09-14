@@ -6,7 +6,7 @@ import { join } from 'node:path';
  * GUARD: todo export de `actions/prontidao-lideranca.ts` aplica o gate ANTES do
  * primeiro `await` de dado. Num arquivo 'use server' cada export é um endpoint
  * HTTP; um `await sb.from(...)` antes do gate leria dado de tenant para quem
- * não tem sessão. A saída nomeia pessoas e diz quem está pronto para liderar —
+ * não tem sessão. A saída nomeia pessoas e diz quem está pronto para liderar:
  * a régua é a do Ranking (mesmo par RH/admin), verificada aqui por texto.
  */
 const GATES = ['ctxRh()', 'requireEmpresaSupabase('];
@@ -53,5 +53,32 @@ describe('actions/prontidao-lideranca.ts — gate antes do primeiro await', () =
       const params = bloco.slice(bloco.indexOf('(') + 1, bloco.indexOf(')'));
       if (!nome.endsWith('Admin')) expect(params, nome).not.toMatch(/empresaId/);
     }
+  });
+});
+
+/**
+ * O CORTE não tem mais campo na tela (é 3,00 para todo mundo desde 14/09), mas
+ * `sys_config.prontidao_lideranca` é JSONB livre e um tenant pode ter outro
+ * valor gravado à mão. Se a tela parar de ENVIAR `corte_nota` no salvar,
+ * `lerConfigProntidao` aplica o default e apaga esse ajuste em silêncio, no
+ * primeiro "Salvar programa" clicado por outro motivo.
+ *
+ * É a classe "campo de UI sumiu, régua do servidor ficou": tirar o input é
+ * seguro, parar de mandar o valor não é. Nada mais nesta base pega isso.
+ */
+describe('a tela sem campo de corte ainda PRESERVA o corte gravado', () => {
+  const tab = readFileSync(join(process.cwd(), 'app', 'admin', 'fit', '_components', 'prontidao-lideranca-tab.tsx'), 'utf8');
+
+  it('o payload do salvar leva corte_nota', () => {
+    const chamada = tab.slice(tab.indexOf('salvarConfigProntidaoAdmin(empresaId, {'));
+    expect(chamada.slice(0, chamada.indexOf('});'))).toMatch(/corte_nota:/);
+  });
+
+  it('o corte lido da config entra no form (senão o salvar mandaria o default)', () => {
+    expect(tab).toMatch(/corte_nota: r\.cfg\.corte_nota/);
+  });
+
+  it('e o input de corte realmente saiu da tela', () => {
+    expect(tab).not.toMatch(/type="number"[^>]*value=\{form\.corte_nota\}/);
   });
 });

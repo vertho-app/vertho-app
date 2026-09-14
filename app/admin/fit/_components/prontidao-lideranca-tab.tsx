@@ -159,17 +159,21 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="flex items-center gap-2 text-xs text-gray-300"><input type="checkbox" checked={form.um_por_dia} onChange={(e) => setForm((f) => ({ ...f, um_por_dia: e.target.checked }))} /> um cenário por dia (só no trilho de liderança)</label>
-            <label className="block">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Corte: nota que conta como demonstrada (1 a 4)</span>
-              <input type="number" step="0.05" min={1} max={4} value={form.corte_nota} onChange={(e) => setForm((f) => ({ ...f, corte_nota: Number(e.target.value) }))} className={inputCls} style={bg} />
-              <span className="block mt-1 text-[10px] text-gray-500">
-                Média por competência a partir da qual a pessoa demonstra a competência. 3,00 é o N3 da régua, o nível de meta do modelo.
-                A classificação é binária: {fmt(form.corte_nota)} ou acima demonstra, abaixo não demonstra.
-              </span>
-            </label>
-          </div>
+          {/*
+            O CORTE não tem campo: é 3,00 (o N3 da régua) para todo mundo, por
+            decisão do dono em 14/09. Ele SEGUE no `form` e vai no salvar, e isso
+            é de propósito: `sys_config.prontidao_lideranca` é JSONB livre, então
+            um tenant pode ter outro valor gravado à mão. Omitir o campo no
+            salvar faria `lerConfigProntidao` aplicar o default e APAGAR esse
+            ajuste em silêncio, no primeiro clique em "Salvar programa" feito
+            por outro motivo.
+          */}
+          <label className="flex items-center gap-2 text-xs text-gray-300"><input type="checkbox" checked={form.um_por_dia} onChange={(e) => setForm((f) => ({ ...f, um_por_dia: e.target.checked }))} /> um cenário por dia (só no trilho de liderança)</label>
+          {form.corte_nota !== DEFAULTS_PRONTIDAO.corte_nota && (
+            <p className="text-[11px] text-amber-200 rounded-lg border border-amber-400/30 bg-amber-400/5 px-3 py-2">
+              Esta empresa tem corte {fmt(form.corte_nota)}, diferente do padrão {fmt(DEFAULTS_PRONTIDAO.corte_nota)}. O valor foi gravado direto no `sys_config` e é preservado ao salvar.
+            </p>
+          )}
 
           {erros.length > 0 && <div className="rounded-lg border border-red-400/30 bg-red-400/5 p-3 space-y-1">{erros.map((e) => <p key={e} className="text-[11px] text-red-200 flex gap-1.5"><AlertTriangle size={11} className="mt-0.5 shrink-0" /> {e}</p>)}</div>}
           {avisos.length > 0 && <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 space-y-1">{avisos.map((a) => <p key={a} className="text-[11px] text-amber-200">{a}</p>)}</div>}
