@@ -30,4 +30,18 @@ describe('papel Admin Sócio', () => {
     expect(BASE_ROLE_PERMISSIONS.socio).not.toContain('platform_admins.manage');
     expect(BASE_ROLE_PERMISSIONS.socio).not.toContain('permissions.manage');
   });
+
+  /**
+   * `program.configure` existe porque nenhuma chave anterior fechava sozinha:
+   * `settings.company.manage` o rh TEM; `admin.access` o socio TEM (e
+   * `autorizarEmpresa` libera qualquer isPlatformAdmin depois de checar a
+   * permissão). Contratar módulo pago e reescrever o programa de um cliente é
+   * governança — o desenho do papel Sócio declara "nenhuma ação geradora".
+   */
+  it('program.configure é exclusiva do master: nem socio nem rh nem gestor', () => {
+    expect(hasBasePermission('platform_admin', 'program.configure')).toBe(true);
+    for (const papel of ['socio', 'rh', 'gestor', 'colaborador', 'tutor'] as const) {
+      expect(hasBasePermission(papel, 'program.configure'), papel).toBe(false);
+    }
+  });
 });

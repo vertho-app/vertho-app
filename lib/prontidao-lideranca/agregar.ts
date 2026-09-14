@@ -19,7 +19,7 @@ import { aggregateAdequacao, type PessoaAdequacao } from '@/lib/adequacao-cargo/
 import { isInternalEmail } from '@/lib/internal-emails';
 import { resolverEscopoDeLote } from '@/lib/turmas/escopo';
 import { chaveCompetencia, type ConfigProntidaoLideranca, type CargoParaValidacao } from './config';
-import { calcularPosicoes, type NotaDescritor, type PosicaoPessoa } from './posicao';
+import { calcularPosicoes, DESCRITORES_MIN_CONFIAVEL, type NotaDescritor, type PosicaoPessoa } from './posicao';
 import { lerEstilo, type EstiloPessoa, type Faixas } from './estilo';
 import { montarLinha, ordenarLinhas, contarPorQuadrante, type LinhaMatriz, type Quadrante } from './matriz';
 import { extrairEvidencias, normalizarAuditoria, type EvidenciasCompetencia } from './evidencias';
@@ -218,6 +218,14 @@ export async function agregarProntidaoLideranca(
     if (linha) linhas.push(linha);
   }
 
+  // Cobertura fraca é AVISO, não silêncio: a pessoa entra na matriz (tem as
+  // duas camadas), mas uma competência decidida por 1 ou 2 descritores de 6 não
+  // sustenta veredito. Sem isto, `parcial` seria campo calculado que ninguém lê.
+  const comParcial = [...posicoes.values()].filter((p) => p.completo && p.parciais.length);
+  if (comParcial.length) {
+    avisos.push(`${comParcial.length} pessoa(s) com competência coberta por menos de ${DESCRITORES_MIN_CONFIAVEL} descritores — a média ali é sinal fraco, não veredito.`);
+  }
+
   const ordenadas = ordenarLinhas(linhas);
   return {
     cargoAlvo: alvo?.nome || cfg.cargo_alvo,
@@ -263,16 +271,22 @@ export async function carregarParecer(sb: any, empresaId: string, colaboradorId:
     return { indisponivel: 'Pessoa fora da população do programa ou sem mapeamento iniciado.' };
   }
   const chaves = new Set(agg.competencias.map(chaveCompetencia));
+  // Ordem DECLARADA: o catálogo pode ser recomposto com UUID novo preservando o
+  // nome (`lib/assessment/completion.ts`), então duas linhas com o mesmo
+  // `competencia_nome` coexistem. Sem `.order()` quem vence é a ordem que o
+  // Postgres devolver — e é este documento que leva o nome da pessoa.
   const { data, error } = await sb.from('respostas')
     .select('id, competencia_id, competencia_nome, avaliacao_ia, status_ia4, avaliado_em, feedback_ia4')
     .eq('empresa_id', empresaId)
-    .eq('colaborador_id', colaboradorId);
+    .eq('colaborador_id', colaboradorId)
+    .order('avaliado_em', { ascending: false, nullsFirst: false })
+    .order('id');
   if (error) throw new Error(`não foi possível ler as respostas: ${error.message}`);
   const porComp = new Map<string, EvidenciasCompetencia>();
   for (const r of data || []) {
     const chave = chaveCompetencia(r.competencia_nome);
     if (!chaves.has(chave)) continue;
-    porComp.set(chave, extrairEvidencias(r));
+    if (!porComp.has(chave)) porComp.set(chave, extrairEvidencias(r));   // a mais recente vence
   }
   const evidencias = agg.competencias.map((c) => porComp.get(chaveCompetencia(c)) || {
     respostaId: null, competenciaId: null, competencia: c, auditoria: null, avaliadoEm: null, feedback: null, descritores: [],

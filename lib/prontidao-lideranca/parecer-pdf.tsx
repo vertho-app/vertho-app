@@ -14,7 +14,7 @@ import React from 'react';
 import { Document, Page, View, Text, StyleSheet, Font, renderToBuffer } from '@react-pdf/renderer';
 import type { Parecer, ProntidaoLideranca } from './agregar';
 import { QUADRANTE_LABEL, RECOMENDACAO_POR_QUADRANTE, ORDEM_QUADRANTES, type Quadrante } from './matriz';
-import { POSICAO_LABEL } from './posicao';
+import { DESCRITORES_MIN_CONFIAVEL, POSICAO_LABEL } from './posicao';
 import { ESTILO_LABEL } from './estilo';
 
 const CDN = 'https://cdn.jsdelivr.net/fontsource/fonts';
@@ -125,12 +125,18 @@ function PaginaPosicao({ p, empresaNome }: { p: Parecer; empresaNome: string }) 
         <View style={s.row}><Text style={s.h3}>Média geral {fmtNota(l.posicao.mediaGeral)} — {POSICAO_LABEL[l.posicao.posicao!]}</Text><Text style={s.small}>corte {fmtNota(p.corte)} · banda ±{fmtNota(p.banda)}</Text></View>
         {l.posicao.competencias.map((c) => (
           <View key={c.competencia} style={[s.linha, s.row]}>
-            <Text style={{ flex: 1, color: c.gap ? T.vermelho : T.ink }}>{c.competencia}</Text>
+            <Text style={{ flex: 1, color: c.gap ? T.vermelho : T.ink }}>{c.competencia}{c.parcial ? ' *' : ''}</Text>
             <Text style={{ width: 60, textAlign: 'right' }}>{fmtNota(c.media)}</Text>
+            <Text style={{ width: 46, textAlign: 'right', color: T.mute }}>{c.descritores} desc.</Text>
             <Text style={{ width: 30, textAlign: 'right', color: T.mute }}>N{c.nivel ?? '—'}</Text>
             <Text style={{ width: 90, textAlign: 'right', color: T.mute }}>{c.posicao ? POSICAO_LABEL[c.posicao] : '—'}</Text>
           </View>
         ))}
+        {l.posicao.parciais.length > 0 && (
+          <Text style={{ marginTop: 8, color: T.clay }}>
+            * {l.posicao.parciais.join(', ')} — coberta(s) por menos de {DESCRITORES_MIN_CONFIAVEL} descritores. A média ali é sinal fraco: leia as evidências antes de usá-la.
+          </Text>
+        )}
         {l.frasesGap.length > 0 && (
           <View style={{ marginTop: 10 }}>
             <Text style={[s.eyebrow, { color: T.vermelho }]}>Gaps nomeados</Text>

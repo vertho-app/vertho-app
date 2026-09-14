@@ -8,6 +8,7 @@ import { logAdminAction } from '@/lib/audit';
 import { addVercelDomain, removeVercelDomain } from '@/lib/vercel-domain';
 import { isAppLocale, locales } from '@/i18n/routing';
 import { TENANT_GLOSSARIO_CACHE_TAG, TENANT_LOCALE_CACHE_TAG } from '@/lib/i18n-server';
+import { CHAVES_SO_PLATAFORMA } from '@/lib/sys-config-plataforma';
 
 export async function loadConfig(empresaId) {
   const sb = await requireAdminSupabase();
@@ -40,17 +41,27 @@ export async function salvarConfig(empresaId, sysConfig) {
   if (problemasDeModelo.length) {
     return { success: false, error: `Modelo de IA inválido — ${problemasDeModelo.join('; ')}` };
   }
-  // `modulos` (o que a empresa CONTRATOU) não entra por aqui: esta action tem
-  // gate `settings.company.manage`, que o papel `rh` possui, e um 'use server'
-  // é endpoint HTTP — pelo objeto inteiro o RH do cliente ligava módulo pago
-  // (medido 13/09: era assim desde o Pulso). Contratar é decisão de plataforma,
-  // gravada por action própria com `admin.access` (ex.: setModuloProntidaoAdmin).
+  // 🔴 CHAVES DE PLATAFORMA NÃO ENTRAM PELO OBJETO INTEIRO.
+  //
+  // Esta action tem gate `settings.company.manage`, que o papel `rh` POSSUI, e
+  // num 'use server' todo export é endpoint HTTP: o cliente monta o payload. A
+  // tela carrega o `sys_config` inteiro no state e devolve tudo — então
+  // qualquer chave que decida CONTRATO ou PROGRAMA seria escrivível pelo RH
+  // por aqui, mesmo com a action própria dela endurecida.
+  //
+  // Medido 13/09: `modulos` era assim desde o Pulso, e `prontidao_lideranca`
+  // nasceu com o mesmo furo — proteger só `modulos` teria fechado a instância e
+  // deixado a classe aberta. A lista abaixo é a classe; chave nova de
+  // plataforma entra AQUI no mesmo commit que a cria.
+  // Guard: `tests/unit/security/sys-config-chaves-plataforma.test.ts`.
   const { data: atual, error: erroAtual } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
   if (erroAtual) return { success: false, error: erroAtual.message };
-  const modulosGravados = (atual?.sys_config || {}).modulos;
-  const paraGravar = modulosGravados === undefined
-    ? (() => { const { modulos: _ignorado, ...resto } = sysConfig || {}; return resto; })()
-    : { ...(sysConfig || {}), modulos: modulosGravados };
+  const gravado = atual?.sys_config || {};
+  const paraGravar: Record<string, any> = { ...(sysConfig || {}) };
+  for (const chave of CHAVES_SO_PLATAFORMA) {
+    if (chave in gravado) paraGravar[chave] = gravado[chave];
+    else delete paraGravar[chave];
+  }
   const { error } = await sb.from('empresas')
     .update({ sys_config: paraGravar })
     .eq('id', empresaId);

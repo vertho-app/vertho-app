@@ -209,18 +209,26 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
           {calib && (
             <>
               <p className="text-xs text-gray-300">{calib.exemplares} exemplar(es) · {calib.comMapeamentoCompleto} com mapeamento completo · corte {fmt(calib.corte)}</p>
+              {calib.avisos?.length > 0 && (
+                <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 space-y-1">
+                  {calib.avisos.map((a: string) => <p key={a} className="text-[11px] text-amber-200 flex items-start gap-1.5"><AlertTriangle size={11} className="mt-0.5 shrink-0" /> {a}</p>)}
+                </div>
+              )}
               {calib.pendentes.length > 0 && (
                 <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 text-[11px] text-amber-200">
                   Pendentes: {calib.pendentes.map((p: any) => `${p.nome || p.colaboradorId} (faltam ${p.faltantes.join(', ')})`).join(' · ')}
                 </div>
               )}
               <div className="rounded-lg border border-white/[0.06] overflow-hidden" style={bg}>
+                {/* `n de N` é o denominador: "2 abaixo" significa coisas opostas com 2 ou 30 exemplares avaliados. */}
                 <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 px-3 py-2 text-[10px] font-extrabold uppercase tracking-widest text-gray-500 border-b border-white/[0.06]"><span>Competência</span><span>Descritor</span><span>Abaixo do corte</span><span>Média</span></div>
                 {calib.descritoresParaRevisar.map((d: any) => (
                   <div key={`${d.competencia}|${d.descritor}`} className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 px-3 py-2 text-xs border-b border-white/[0.04] last:border-b-0">
                     <span className="text-gray-300">{d.competencia}</span>
                     <span className="text-white">{d.descritor}</span>
-                    <span className="text-red-300">{d.abaixoDoCorte.map((e: any) => `${e.nome || '?'} ${fmt(e.nota)}`).join(', ')}</span>
+                    <span className="text-red-300">
+                      <b>{d.abaixoDoCorte.length} de {d.avaliados}</b> · {d.abaixoDoCorte.map((e: any) => `${e.nome || '?'} ${fmt(e.nota)}`).join(', ')}
+                    </span>
                     <span className="tabular-nums text-gray-400 text-right">{fmt(d.media)}</span>
                   </div>
                 ))}

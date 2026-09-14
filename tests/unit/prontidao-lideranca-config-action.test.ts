@@ -3,8 +3,9 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
 
 /**
  * As duas actions que ESCREVEM o programa de prontidão. O que se prova aqui:
- * o gate é `admin.access` (o papel rh tem settings.company.manage e, por action
- * id, ligava o módulo pago), o cargo-alvo é gravado com o nome CANÔNICO da
+ * o gate é `program.configure` — a única chave que exclui o `rh` (tem
+ * settings.company.manage) E o `socio` (tem admin.access) —, o cargo-alvo é
+ * gravado com o nome CANÔNICO da
  * linha de cargos_empresa (o cenário do dia é buscado por nome exato), a
  * configuração inválida não é gravada, e toda escrita vai para a auditoria.
  */
@@ -43,16 +44,16 @@ vi.mock('@/lib/audit', () => ({ logAdminAction: (...args: any[]) => auditoria(..
 vi.mock('@/lib/authz', () => ({ getUserContext: vi.fn() }));
 vi.mock('@/lib/turmas/contexto', () => ({ listarTurmasDoTenant: vi.fn(async () => []), carregarParticipacaoAtiva: vi.fn() }));
 
-import { salvarConfigProntidaoAdmin, setModuloProntidaoAdmin } from '@/actions/prontidao-lideranca';
+import { salvarConfigProntidaoAdmin, setModuloAdmin, setModuloProntidaoAdmin } from '@/actions/prontidao-lideranca';
 
 const escritaSysConfig = () => sb.escritas.find((e) => e.tabela === 'empresas' && e.op === 'update')?.payload?.sys_config;
 
 describe('salvarConfigProntidaoAdmin', () => {
   beforeEach(() => { sb = mock(); gate.mockClear(); auditoria.mockClear(); cenario.sysConfig = { modulos: { prontidao_lideranca: true } }; });
 
-  it('gate admin.access; grava o cargo-alvo com o nome canônico; audita', async () => {
+  it('gate program.configure; grava o cargo-alvo com o nome canônico; audita', async () => {
     const r: any = await salvarConfigProntidaoAdmin('emp-A', { cargo_alvo: '  gerente COMERCIAL ', exemplares: ['gil', 'gil', 'ana'], um_por_dia: false, corte_nota: 3, banda: 0.25 });
-    expect(gate).toHaveBeenCalledWith('emp-A', 'admin.access', 'salvarConfigProntidaoAdmin');
+    expect(gate).toHaveBeenCalledWith('emp-A', 'program.configure', 'salvarConfigProntidaoAdmin');
     expect(r.success).toBe(true);
     expect(r.cfg.cargo_alvo).toBe('Gerente Comercial');
     expect(escritaSysConfig()).toMatchObject({
@@ -83,12 +84,25 @@ describe('salvarConfigProntidaoAdmin', () => {
 describe('setModuloProntidaoAdmin', () => {
   beforeEach(() => { sb = mock(); gate.mockClear(); auditoria.mockClear(); cenario.sysConfig = { ai: { modelo_padrao: 'x' }, modulos: { pulso: false } }; });
 
-  it('gate admin.access; liga só a chave do módulo, preserva o resto; audita', async () => {
+  it('gate program.configure; liga só a chave do módulo, preserva o resto; audita', async () => {
     const r: any = await setModuloProntidaoAdmin('emp-A', true);
-    expect(gate).toHaveBeenCalledWith('emp-A', 'admin.access', 'setModuloProntidaoAdmin');
+    expect(gate).toHaveBeenCalledWith('emp-A', 'program.configure', 'setModuloAdmin');
     expect(r).toEqual({ success: true, contratado: true });
     expect(escritaSysConfig()).toEqual({ ai: { modelo_padrao: 'x' }, modulos: { pulso: false, prontidao_lideranca: true } });
-    expect(auditoria.mock.calls[0][0]).toMatchObject({ acao: 'prontidao_lideranca.modulo.ligar', empresaId: 'emp-A' });
+    expect(auditoria.mock.calls[0][0]).toMatchObject({ acao: 'modulo.ligar', empresaId: 'emp-A', detalhes: { modulo: 'prontidao_lideranca', ligado: true } });
+  });
+
+  it('a porta genérica liga QUALQUER módulo — o Pulso nunca teve tela e exigia UPDATE no banco', async () => {
+    const r: any = await setModuloAdmin('emp-A', 'pulso', true);
+    expect(gate).toHaveBeenCalledWith('emp-A', 'program.configure', 'setModuloAdmin');
+    expect(r).toEqual({ success: true, contratado: true });
+    expect(escritaSysConfig()).toEqual({ ai: { modelo_padrao: 'x' }, modulos: { pulso: true } });
+  });
+
+  it('módulo desconhecido é recusado sem escrever — o nome vem do cliente', async () => {
+    const r: any = await setModuloAdmin('emp-A', 'inventado' as any, true);
+    expect(r).toMatchObject({ success: false, error: 'Módulo desconhecido.' });
+    expect(sb.escritas).toHaveLength(0);
   });
 
   it('falha de leitura da empresa não vira escrita', async () => {

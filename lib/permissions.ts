@@ -30,7 +30,8 @@ export type PermissionKey =
   | 'sales_channel.view'
   | 'sales_channel.manage'
   | 'exports.run'
-  | 'trash.manage';
+  | 'trash.manage'
+  | 'program.configure';
 
 export type PermissionRisk = 'low' | 'medium' | 'high' | 'critical';
 
@@ -79,6 +80,16 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { key: 'sales_channel.manage', domain: 'Canal Comercial', label: 'Gerenciar canal de representantes', description: 'Aprovar propostas, gerenciar RCs, materiais e eventos de comissão.', risk: 'critical' },
   { key: 'exports.run', domain: 'Dados', label: 'Exportar dados', description: 'Gerar planilhas, PDFs e saídas em lote.', risk: 'high' },
   { key: 'trash.manage', domain: 'Dados', label: 'Gerenciar lixeira', description: 'Visualizar e restaurar/remover registros excluídos.', risk: 'critical' },
+  // 🔑 A ÚNICA CHAVE QUE EXCLUI O SÓCIO **E** O RH — e é por isso que ela existe.
+  //
+  // `settings.company.manage` exclui o sócio mas INCLUI o rh; `admin.access`
+  // exclui o rh mas INCLUI o sócio (`socio` o tem, e `autorizarEmpresa` libera
+  // qualquer `isPlatformAdmin`). Nenhuma das duas fecha sozinha contratar
+  // módulo pago / reescrever o programa de um cliente — e o desenho do papel
+  // Sócio declara "NENHUMA ação destrutiva ou geradora" (ver abaixo).
+  // Como `platform_admin` recebe `PERMISSIONS.map(p => p.key)` e os outros
+  // papéis só têm o que está listado, a chave nasce exclusiva do master.
+  { key: 'program.configure', domain: 'Configurações', label: 'Contratar módulo e configurar programa', description: 'Ligar/desligar módulos pagos e definir o programa de um cliente (cargo-alvo, população, corte).', risk: 'critical' },
 ];
 
 export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {

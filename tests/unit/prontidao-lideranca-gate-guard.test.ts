@@ -21,17 +21,26 @@ describe('actions/prontidao-lideranca.ts — gate antes do primeiro await', () =
     expect(nomes).toEqual([
       'getProntidaoLideranca', 'getParecerLideranca',
       'getProntidaoLiderancaAdmin', 'getParecerLiderancaAdmin',
-      'getConfigProntidaoAdmin', 'salvarConfigProntidaoAdmin', 'setModuloProntidaoAdmin', 'getCalibragemAdmin',
+      'getConfigProntidaoAdmin', 'salvarConfigProntidaoAdmin', 'setModuloAdmin', 'setModuloProntidaoAdmin', 'getCalibragemAdmin',
       'exportarParecerPDF', 'exportarParecerPDFAdmin', 'exportarConsolidadoPDF', 'exportarConsolidadoPDFAdmin',
     ]);
   });
 
+  const nomes = blocos.map((b) => b.slice(0, b.indexOf('(')));
+
   for (const bloco of blocos) {
     const nome = bloco.slice(0, bloco.indexOf('('));
-    it(`${nome}: o primeiro await é um gate`, () => {
+    it(`${nome}: o primeiro await é um gate (ou delega a um export gatado)`, () => {
       const corpo = bloco.slice(bloco.indexOf('{'));
       const primeiroAwait = corpo.indexOf('await ');
-      expect(primeiroAwait).toBeGreaterThan(-1);
+      if (primeiroAwait === -1) {
+        // Atalho sem await só passa se DELEGAR a outro export deste arquivo —
+        // que o próprio laço verifica. Qualquer outro corpo sem await é um
+        // export que não gata nada.
+        const delegado = corpo.match(/return\s+(\w+)\s*\(/)?.[1];
+        expect(delegado && nomes.includes(delegado), `${nome} não tem await nem delega: ${corpo.slice(0, 80)}`).toBe(true);
+        return;
+      }
       const trecho = corpo.slice(primeiroAwait, primeiroAwait + 60);
       expect(GATES.some((g) => trecho.includes(g)), `${nome} começa com: ${trecho}`).toBe(true);
     });

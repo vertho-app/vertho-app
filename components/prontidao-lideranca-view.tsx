@@ -116,8 +116,11 @@ function Parecer({ p, corte, exportar }: { p: any; corte: number; exportar?: (id
           <ul className="space-y-1">
             {l.posicao.competencias.map((c: any) => (
               <li key={c.competencia} className="flex items-center justify-between gap-2 text-xs">
-                <span className={c.gap ? 'text-red-300' : 'text-gray-200'}>{c.competencia}</span>
-                <span className="tabular-nums text-gray-400">{fmtNota(c.media)} · N{c.nivel ?? '—'}</span>
+                <span className={c.gap ? 'text-red-300' : 'text-gray-200'}>
+                  {c.competencia}
+                  {c.parcial && <span className="ml-1 text-amber-300" title={`só ${c.descritores} descritor(es) avaliado(s)`}>· sinal fraco</span>}
+                </span>
+                <span className="tabular-nums text-gray-400">{fmtNota(c.media)} · N{c.nivel ?? '—'} <span className="text-gray-600">({c.descritores}d)</span></span>
               </li>
             ))}
           </ul>

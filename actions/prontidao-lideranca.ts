@@ -15,7 +15,7 @@
 import { getUserContext } from '@/lib/authz';
 import { tenantDb } from '@/lib/tenant-db';
 import { requireEmpresaSupabase } from '@/lib/admin-supabase';
-import { MODULOS, canUseModulo } from '@/lib/access-gates/modulos';
+import { MODULOS, canUseModulo, type Modulo } from '@/lib/access-gates/modulos';
 import { listarTurmasDoTenant } from '@/lib/turmas/contexto';
 import { logAdminAction } from '@/lib/audit';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
@@ -188,14 +188,17 @@ export async function getConfigProntidaoAdmin(empresaId: string) {
  * não é gravada, e os erros voltam nomeados.
  */
 /**
- * Gate `admin.access` (não `settings.company.manage`): o papel `rh` TEM
- * settings.company.manage no role base, e um `'use server'` é endpoint HTTP —
- * com o gate antigo o RH do cliente ligava o módulo pago e reescrevia o
- * programa pelo action id, sem passar por tela nenhuma. "A Vertho opera, o
- * cliente consome" (§26) vale para a escrita, não só para o menu.
+ * Gate `program.configure` — a única chave que exclui o `rh` E o `socio`.
+ *
+ * `settings.company.manage` (o gate original) o `rh` tem; `admin.access` o
+ * `socio` tem, e `autorizarEmpresa` libera qualquer `isPlatformAdmin`. Num
+ * `'use server'` todo export é endpoint HTTP: com qualquer uma das duas, alguém
+ * que não decide contrato conseguia ligar módulo pago e reescrever o programa
+ * pelo action id, sem passar por tela. "A Vertho opera, o cliente consome"
+ * (§26) vale para a escrita, não só para o menu.
  */
 export async function salvarConfigProntidaoAdmin(empresaId: string, cfgRaw: unknown) {
-  const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'salvarConfigProntidaoAdmin');
+  const sb = await requireEmpresaSupabase(empresaId, 'program.configure', 'salvarConfigProntidaoAdmin');
   try {
     const cfg = lerConfigProntidao({ [CHAVE_CONFIG]: cfgRaw });
     if (!cfg) return { success: false as const, error: 'Informe o cargo-alvo.', erros: ['Informe o cargo-alvo.'] };
@@ -235,24 +238,37 @@ export async function salvarConfigProntidaoAdmin(empresaId: string, cfgRaw: unkn
   }
 }
 
-/** Liga/desliga o módulo em `sys_config.modulos.prontidao_lideranca`. Só plataforma (ver o gate acima). */
-export async function setModuloProntidaoAdmin(empresaId: string, ligado: boolean) {
-  const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'setModuloProntidaoAdmin');
+/**
+ * Liga/desliga QUALQUER módulo contratado em `sys_config.modulos.<nome>`.
+ *
+ * Genérica de propósito: o Pulso existe desde a mig 096 e nunca teve porta —
+ * a `remediation` do gate manda "ativar no painel da empresa (Configurações →
+ * Módulos)", e essa aba nunca existiu; ligar exigia UPDATE no banco. Um
+ * `setModuloProntidaoAdmin` teria repetido o buraco no módulo seguinte.
+ */
+export async function setModuloAdmin(empresaId: string, modulo: Modulo, ligado: boolean) {
+  const sb = await requireEmpresaSupabase(empresaId, 'program.configure', 'setModuloAdmin');
   try {
+    if (!Object.values(MODULOS).includes(modulo)) return { success: false as const, error: 'Módulo desconhecido.' };
     const lido = await lerSysConfig(sb, empresaId);
     if ('error' in lido) return lido;
-    const modulos = { ...((lido.sysConfig || {}).modulos || {}), [MODULOS.PRONTIDAO_LIDERANCA]: ligado === true };
+    const modulos = { ...((lido.sysConfig || {}).modulos || {}), [modulo]: ligado === true };
     const { error } = await sb.from('empresas').update({ sys_config: { ...(lido.sysConfig || {}), modulos } }).eq('id', empresaId);
     if (error) return { success: false as const, error: error.message };
     await logAdminAction({
       adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
-      acao: ligado ? 'prontidao_lideranca.modulo.ligar' : 'prontidao_lideranca.modulo.desligar', empresaId, alvo: 'sys_config.modulos',
-      detalhes: { modulo: MODULOS.PRONTIDAO_LIDERANCA, ligado: ligado === true },
+      acao: ligado ? 'modulo.ligar' : 'modulo.desligar', empresaId, alvo: 'sys_config.modulos',
+      detalhes: { modulo, ligado: ligado === true },
     });
     return { success: true as const, contratado: ligado === true };
   } catch (e: any) {
     return { success: false as const, error: e?.message || 'Erro ao alterar o módulo.' };
   }
+}
+
+/** Atalho da aba de Prontidão. Mesma porta, mesmo gate. */
+export async function setModuloProntidaoAdmin(empresaId: string, ligado: boolean) {
+  return setModuloAdmin(empresaId, MODULOS.PRONTIDAO_LIDERANCA, ligado);
 }
 
 /** Calibragem: onde o instrumento coloca os líderes de referência. */
