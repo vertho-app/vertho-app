@@ -8,11 +8,17 @@ import { logAdminAction } from '@/lib/audit';
 import { MODULOS, canUseModulo } from '@/lib/access-gates/modulos';
 import { acessoDoCargo, CHAVE_ACESSO_SIMULADORES, type AcessoSimuladores } from '@/lib/simuladores/acesso-cargo';
 
-const entradaSchema = z.object({
-  empresaId: z.uuid(), cargoId: z.uuid(),
+const cargoSchema = z.object({
+  cargoId: z.uuid(),
   acesso: z.object({ vendas: z.boolean(), atendimento: z.boolean(), lideranca: z.boolean() }).strict(),
   anterior: z.object({ vendas: z.boolean(), atendimento: z.boolean(), lideranca: z.boolean() }).strict(),
 }).strict();
+type AlteracaoCargo = { cargoId: string; acesso: AcessoSimuladores; anterior: AcessoSimuladores };
+// O formato individual permanece válido para abas abertas antes deste deploy.
+const entradaSchema = z.union([
+  z.object({ empresaId: z.uuid(), cargos: z.array(cargoSchema).min(1).max(1000) }).strict(),
+  cargoSchema.extend({ empresaId: z.uuid() }).transform(({ empresaId, ...cargo }) => ({ empresaId, cargos: [cargo] })),
+]);
 
 export async function carregarAcessosSimuladores(empresaId: string) {
   await requireAdminAction();
@@ -47,26 +53,37 @@ export async function carregarAcessosSimuladores(empresaId: string) {
   }
 }
 
-export async function salvarAcessoSimuladores(entrada: {
-  empresaId: string; cargoId: string; acesso: AcessoSimuladores; anterior: AcessoSimuladores;
-}) {
+export async function salvarAcessoSimuladores(entrada: { empresaId: string } & (AlteracaoCargo | { cargos: AlteracaoCargo[] })) {
   const auth = await requireAdminAction('settings.company.manage');
   const parsed = entradaSchema.safeParse(entrada);
   if (!parsed.success) return { success: false, error: 'Configuração de acesso inválida.' };
-  const { empresaId, cargoId, acesso, anterior } = parsed.data;
+  const { empresaId, cargos } = parsed.data;
+  const ids = cargos.map(c => c.cargoId);
+  if (new Set(ids).size !== ids.length) return { success: false, error: 'Há cargos repetidos na configuração.' };
   try {
     const tdb = tenantDb(empresaId);
-    const { data: cargo, error } = await tdb.from('cargos_empresa').select('id').eq('id', cargoId).maybeSingle();
-    if (error) return { success: false, error: 'Não foi possível consultar o cargo.' };
-    if (!cargo) return { success: false, error: 'Cargo não encontrado nesta empresa.' };
+    // Valida todos os cargos antes da única gravação, em blocos para limitar a URL do PostgREST.
+    for (let inicio = 0; inicio < ids.length; inicio += 100) {
+      const bloco = ids.slice(inicio, inicio + 100);
+      const { data, error } = await tdb.from('cargos_empresa').select('id').in('id', bloco);
+      if (error) return { success: false, error: 'Não foi possível consultar os cargos.' };
+      const encontrados = new Set((data || []).map(c => c.id));
+      if (bloco.some(id => !encontrados.has(id))) return { success: false, error: 'Cargo não encontrado nesta empresa.' };
+    }
     const result = await gravarSysConfig(tdb, empresaId, atual => {
-      const gravado = acessoDoCargo(atual, cargoId);
-      if (Object.keys(anterior).some(chave => gravado[chave] !== anterior[chave]))
-        return { erro: 'Outra pessoa alterou os acessos deste cargo. Recarregue a aba antes de salvar.' };
-      return { ...atual, [CHAVE_ACESSO_SIMULADORES]: { ...(atual[CHAVE_ACESSO_SIMULADORES] || {}), [cargoId]: acesso } };
+      const regras = { ...(atual[CHAVE_ACESSO_SIMULADORES] || {}) };
+      for (const { cargoId, acesso, anterior } of cargos) {
+        const gravado = acessoDoCargo(atual, cargoId);
+        if (Object.keys(anterior).some(chave => gravado[chave] !== anterior[chave]))
+          return { erro: 'Outra pessoa alterou os acessos de um dos cargos. Recarregue a aba antes de salvar.' };
+        regras[cargoId] = acesso;
+      }
+      return { ...atual, [CHAVE_ACESSO_SIMULADORES]: regras };
     });
     if (!result.ok) return { success: false, error: result.erro };
-    await logAdminAction({ adminEmail: auth.email, empresaId, acao: 'simuladores.acesso_cargo', alvo: cargoId, detalhes: { anterior, acesso } });
+    await Promise.all(cargos.map(({ cargoId, anterior, acesso }) => logAdminAction({
+      adminEmail: auth.email, empresaId, acao: 'simuladores.acesso_cargo', alvo: cargoId, detalhes: { anterior, acesso },
+    })));
     return { success: true };
   } catch {
     return { success: false, error: 'Não foi possível salvar os acessos. Tente novamente.' };

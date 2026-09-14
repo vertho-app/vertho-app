@@ -2,7 +2,7 @@
   "AdminSimuladores": {
     "tab": "Simuladores",
     "title": "Acesso aos simuladores por cargo",
-    "description": "Marque quais simuladores cada cargo pode acessar e salve as alterações na linha do cargo.",
+    "description": "Marque quais simuladores cada cargo pode acessar e salve todas as alterações de uma vez.",
     "defaults": "Cargos sem uma regra salva, cargos novos e pessoas sem cargo cadastrado mantêm a liberação atual. A seleção só dá acesso aos módulos habilitados na empresa.",
     "vendas": "Vendas",
     "atendimento": "Atendimento",
@@ -12,8 +12,7 @@
     "configure": "Configurar módulo",
     "leadershipHint": "Prontidão para liderança continua disponível apenas para usuários com perfil de RH. Esta configuração controla o acesso à tela, aos relatórios e aos PDFs; não muda quem participa do mapeamento. Administradores da plataforma mantêm o acesso administrativo.",
     "role": "Cargo",
-    "save": "Salvar",
-    "saveRole": "Salvar acessos de {cargo}",
+    "save": "Salvar alterações",
     "search": "Buscar cargo",
     "pending": "{count} cargo(s) com alterações não salvas",
     "allSaved": "Nenhuma alteração pendente",
@@ -22,7 +21,7 @@
     "loading": "Carregando acessos…",
     "loadError": "Não foi possível carregar os acessos.",
     "saveError": "Não foi possível salvar os acessos. Tente novamente.",
-    "saved": "Acessos de {cargo} salvos.",
+    "saved": "Acessos salvos.",
     "retry": "Tentar novamente"
   },
   "SimuladorVendas": {

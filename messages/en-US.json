@@ -2,7 +2,7 @@
   "AdminSimuladores": {
     "tab": "Simulators",
     "title": "Simulator access by job title",
-    "description": "Select the simulators each job title can access, then save changes on that row.",
+    "description": "Select the simulators each job title can access, then save all changes at once.",
     "defaults": "Job titles without a saved rule, new job titles, and people without a registered job title keep their current access. Selections only grant access to modules enabled for the company.",
     "vendas": "Sales",
     "atendimento": "Customer service",
@@ -12,8 +12,7 @@
     "configure": "Configure module",
     "leadershipHint": "Leadership readiness remains available only to users with the HR role. This setting controls access to the page, reports, and PDFs; it does not change who participates in the assessment. Platform administrators retain administrative access.",
     "role": "Job title",
-    "save": "Save",
-    "saveRole": "Save access for {cargo}",
+    "save": "Save changes",
     "search": "Search job titles",
     "pending": "{count} job title(s) with unsaved changes",
     "allSaved": "No pending changes",
@@ -22,7 +21,7 @@
     "loading": "Loading access…",
     "loadError": "Could not load access settings.",
     "saveError": "Could not save access settings. Please try again.",
-    "saved": "Access saved for {cargo}.",
+    "saved": "Access settings saved.",
     "retry": "Try again"
   },
   "SimuladorVendas": {
