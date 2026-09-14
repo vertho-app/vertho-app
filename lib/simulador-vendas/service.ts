@@ -44,12 +44,12 @@ export async function consultarHistorico(c: Contexto, cursor?: string | null) {
     .limit(31);
   banco(list.error);
   const pagina = paginaDeHistorico(list.data as LinhaResumo[], 30);
-  // A lista individual é navegação, não uma prévia da devolutiva. A nota e o
-  // indicador de relatório permitiam antecipar o resultado antes da avaliação
-  // da experiência. A gestão usa historicoEquipe(), com projeção própria.
+  // A nota final faz parte do resumo do treino no histórico do participante.
+  // O relatório detalhado continua protegido pela avaliação da experiência;
+  // por isso seu indicador não é exposto nesta lista de navegação.
   return {
     ...pagina,
-    historico: pagina.historico.map((item) => ({ ...item, nota: null, temRelatorio: false })),
+    historico: pagina.historico.map((item) => ({ ...item, temRelatorio: false })),
   };
 }
 export async function consultar(c: Contexto, id?: string | null) {

@@ -155,7 +155,7 @@ describe('PACE: leitura individual e recuperação depois do prazo', () => {
           : [],
     });
     const pagina = await consultarHistorico(c());
-    expect(pagina.historico[0]).toMatchObject({ nota: null, temRelatorio: false });
+    expect(pagina.historico[0]).toMatchObject({ nota: 8.5, temRelatorio: false });
     expect(sb.chamadas).toContainEqual({
       tabela: 'sim_vendas_sessoes',
       metodo: 'select',

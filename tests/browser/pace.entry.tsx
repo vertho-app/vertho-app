@@ -120,7 +120,7 @@ const dados = (id = empresaA) => ({
       }
     : null,
   historico: (historicoExtra.length ? historicoExtra.slice(0, 30) : states[id] ? [resumo(states[id])] : []).map(
-    (item) => (admin ? item : { ...item, nota: null, temRelatorio: false }),
+    (item) => (admin ? item : { ...item, temRelatorio: false }),
   ),
   proximoCursor: historicoExtra.length ? 'proxima' : null,
 });

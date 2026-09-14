@@ -116,6 +116,9 @@ try {
   await expect(page.getByLabel('Sua mensagem', { exact: true })).toBeEnabled({ timeout: 12000 });
   checks++;
   await page.goto(`${origin}/?history=1`);
+  await page.getByText('Dificuldade: Baixo', { exact: true }).first().waitFor();
+  await page.getByText('Nota PACE 6,5', { exact: true }).first().waitFor();
+  await page.screenshot({ path: `${dir}/historico-dificuldade-nota-desktop.png`, fullPage: true });
   await page.getByRole('button', { name: 'Carregar mais', exact: true }).click();
   await page.getByRole('button', { name: /Cliente 31/ }).click();
   await page.getByRole('heading', { name: 'Conte como foi a experiência', exact: true }).waitFor();
@@ -175,6 +178,17 @@ try {
     );
     await page.screenshot({ path: `${dir}/mobile-${locale}.png`, fullPage: true });
     checks++;
+    if (locale === 'pt-BR') {
+      await page.goto(`${origin}/?history=1&locale=${locale}`);
+      await page.getByText('Dificuldade: Baixo', { exact: true }).first().waitFor();
+      assert.equal(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+        true,
+        'overflow histórico mobile',
+      );
+      await page.screenshot({ path: `${dir}/historico-dificuldade-nota-mobile.png`, fullPage: true });
+      checks++;
+    }
     await page.goto(`${origin}/?active=1&completed=1&locale=${locale}`);
     await page.getByRole('radio').first().waitFor();
     assert.equal(

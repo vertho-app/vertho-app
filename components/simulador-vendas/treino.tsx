@@ -450,10 +450,18 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       key={h.id}
                       onClick={() => void abrir(h.id)}
                     >
-                      <span className="block">{h.nome || t('preparing')}</span>
-                      <small className="text-slate-400">
-                        {new Date(h.criadoEm).toLocaleDateString(locale)} · {t(`status_${h.status}`)}
-                        {h.nota !== null ? ' · ' + h.nota.toLocaleString(locale) : ''}
+                      <span className={styles.historyTitle}>
+                        <span>{h.nome || t('preparing')}</span>
+                        <span className={styles.historyScore}>
+                          {t('score')} {h.nota !== null ? h.nota.toLocaleString(locale) : '—'}
+                        </span>
+                      </span>
+                      <small className={styles.historyMeta}>
+                        <span>{t('historyDifficulty', { level: t(`level${h.nivel}`) })}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>
+                          {new Date(h.criadoEm).toLocaleDateString(locale)} · {t(`status_${h.status}`)}
+                        </span>
                       </small>
                     </button>
                   ))}
