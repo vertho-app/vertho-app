@@ -2,7 +2,7 @@
   "AdminSimuladores": {
     "tab": "Simuladores",
     "title": "Acceso a los simuladores por cargo",
-    "description": "Selecciona los simuladores a los que puede acceder cada cargo y guarda los cambios en su fila.",
+    "description": "Selecciona los simuladores a los que puede acceder cada cargo y guarda todos los cambios a la vez.",
     "defaults": "Los cargos sin una regla guardada, los cargos nuevos y las personas sin cargo registrado conservan el acceso actual. La selección solo permite acceder a los módulos habilitados para la empresa.",
     "vendas": "Ventas",
     "atendimento": "Atención al cliente",
@@ -12,8 +12,7 @@
     "configure": "Configurar módulo",
     "leadershipHint": "Preparación para el liderazgo sigue disponible solo para usuarios con perfil de RR. HH. Esta configuración controla el acceso a la pantalla, los informes y los PDF; no cambia quién participa en la evaluación. Los administradores de la plataforma conservan el acceso administrativo.",
     "role": "Cargo",
-    "save": "Guardar",
-    "saveRole": "Guardar accesos de {cargo}",
+    "save": "Guardar cambios",
     "search": "Buscar cargo",
     "pending": "{count} cargo(s) con cambios sin guardar",
     "allSaved": "No hay cambios pendientes",
@@ -22,7 +21,7 @@
     "loading": "Cargando accesos…",
     "loadError": "No se han podido cargar los accesos.",
     "saveError": "No se han podido guardar los accesos. Inténtalo de nuevo.",
-    "saved": "Accesos de {cargo} guardados.",
+    "saved": "Accesos guardados.",
     "retry": "Reintentar"
   },
   "SimuladorVendas": {

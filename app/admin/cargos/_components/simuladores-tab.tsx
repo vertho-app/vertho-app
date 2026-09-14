@@ -18,7 +18,7 @@ export default function SimuladoresTab({ empresaId }: { empresaId: string }) {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
   const [busca, setBusca] = useState('');
-  const [salvando, setSalvando] = useState<Record<string, boolean>>({});
+  const [salvando, setSalvando] = useState(false);
   const [recarregar, setRecarregar] = useState(0);
 
   useEffect(() => {
@@ -34,16 +34,18 @@ export default function SimuladoresTab({ empresaId }: { empresaId: string }) {
     return () => { ativo = false; };
   }, [empresaId, recarregar, t]);
 
-  async function salvar(cargo: Cargo) {
-    setSalvando(prev => ({ ...prev, [cargo.id]: true }));
-    const acesso = { ...edits[cargo.id] };
+  async function salvar() {
+    if (salvando || !alterados.length) return;
+    setSalvando(true);
+    const alteracoes = alterados.map(cargo => ({ cargoId: cargo.id, acesso: { ...edits[cargo.id] }, anterior: cargo.acesso }));
     try {
-      const result = await salvarAcessoSimuladores({ empresaId, cargoId: cargo.id, acesso, anterior: cargo.acesso });
+      const result = await salvarAcessoSimuladores({ empresaId, cargos: alteracoes });
       if (!result.success) { toast.error(result.error); return; }
-      setCargos(prev => prev.map(c => c.id === cargo.id ? { ...c, acesso } : c));
-      toast.success(t('saved', { cargo: cargo.nome }));
+      const salvos = new Map(alteracoes.map(c => [c.cargoId, c.acesso]));
+      setCargos(prev => prev.map(c => salvos.has(c.id) ? { ...c, acesso: salvos.get(c.id)! } : c));
+      toast.success(t('saved'));
     } catch { toast.error(t('saveError')); }
-    finally { setSalvando(prev => ({ ...prev, [cargo.id]: false })); }
+    finally { setSalvando(false); }
   }
 
   const links: Record<Simulador, string> = {
@@ -52,7 +54,8 @@ export default function SimuladoresTab({ empresaId }: { empresaId: string }) {
     lideranca: `/admin/fit?empresa=${empresaId}&tab=prontidao`,
   };
   const visiveis = cargos.filter(c => c.nome.toLocaleLowerCase().includes(busca.toLocaleLowerCase().trim()));
-  const pendentes = cargos.filter(c => SIMULADORES.some(s => edits[c.id]?.[s] !== c.acesso[s])).length;
+  const alterados = cargos.filter(c => SIMULADORES.some(s => edits[c.id]?.[s] !== c.acesso[s]));
+  const pendentes = alterados.length;
 
   if (loading) return <div role="status" className="flex items-center justify-center gap-2 py-12 text-gray-300"><Loader2 size={20} className="animate-spin" />{t('loading')}</div>;
   if (erro) return <div role="alert" className="rounded-xl border border-red-400/25 bg-red-400/5 p-5 text-sm text-red-200">
@@ -86,7 +89,6 @@ export default function SimuladoresTab({ empresaId }: { empresaId: string }) {
           <thead className="border-b border-white/10 bg-white/[0.03] text-gray-300"><tr>
             <th scope="col" className="px-4 py-3 text-left">{t('role')}</th>
             {SIMULADORES.map(sim => <th scope="col" key={sim} className="px-3 py-3 text-center text-xs">{t(sim)}</th>)}
-            <th scope="col" className="px-3 py-3"><span className="sr-only">{t('save')}</span></th>
           </tr></thead>
           <tbody className="divide-y divide-white/[0.06]">
             {visiveis.map(cargo => {
@@ -94,19 +96,21 @@ export default function SimuladoresTab({ empresaId }: { empresaId: string }) {
               return <tr key={cargo.id} className={alterado ? 'bg-cyan-400/[0.04]' : ''}>
                 <th scope="row" className="min-w-36 px-4 py-4 text-left font-medium text-white">{cargo.nome}</th>
                 {SIMULADORES.map(sim => <td key={sim} className="px-3 py-3 text-center">
-                  <input type="checkbox" aria-label={`${cargo.nome} — ${t(sim)}`} checked={edits[cargo.id]?.[sim] === true} disabled={salvando[cargo.id]}
+                  <input type="checkbox" aria-label={`${cargo.nome} — ${t(sim)}`} checked={edits[cargo.id]?.[sim] === true} disabled={salvando}
                     onChange={e => setEdits(prev => ({ ...prev, [cargo.id]: { ...prev[cargo.id], [sim]: e.target.checked } }))}
                     className="h-5 w-5 cursor-pointer accent-cyan-400 disabled:cursor-wait" />
                 </td>)}
-                <td className="px-3 py-3"><button disabled={!alterado || salvando[cargo.id]} onClick={() => salvar(cargo)} aria-label={t('saveRole', { cargo: cargo.nome })}
-                  className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-500 disabled:opacity-40 disabled:cursor-default">
-                  {salvando[cargo.id] ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}{t('save')}
-                </button></td>
               </tr>;
             })}
-            {!visiveis.length && <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">{t('noResults')}</td></tr>}
+            {!visiveis.length && <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">{t('noResults')}</td></tr>}
           </tbody>
         </table>
+      </div>
+      <div className="flex justify-end">
+        <button disabled={!pendentes || salvando} onClick={salvar} aria-busy={salvando}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-500 disabled:opacity-40 disabled:cursor-default sm:w-auto">
+          {salvando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}{t('save')}
+        </button>
       </div>
     </>}
   </div>;

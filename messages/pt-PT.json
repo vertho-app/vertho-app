@@ -2,7 +2,7 @@
   "AdminSimuladores": {
     "tab": "Simuladores",
     "title": "Acesso aos simuladores por função",
-    "description": "Assinale os simuladores a que cada função pode aceder e guarde as alterações na linha da função.",
+    "description": "Assinale os simuladores a que cada função pode aceder e guarde todas as alterações de uma vez.",
     "defaults": "Funções sem uma regra guardada, funções novas e pessoas sem função registada mantêm o acesso atual. A seleção só dá acesso aos módulos ativados na empresa.",
     "vendas": "Vendas",
     "atendimento": "Atendimento",
@@ -12,8 +12,7 @@
     "configure": "Configurar módulo",
     "leadershipHint": "Prontidão para liderança continua disponível apenas para utilizadores com perfil de RH. Esta configuração controla o acesso ao ecrã, aos relatórios e aos PDF; não altera quem participa no mapeamento. Os administradores da plataforma mantêm o acesso administrativo.",
     "role": "Função",
-    "save": "Guardar",
-    "saveRole": "Guardar acessos de {cargo}",
+    "save": "Guardar alterações",
     "search": "Pesquisar função",
     "pending": "{count} função(ões) com alterações por guardar",
     "allSaved": "Sem alterações pendentes",
@@ -22,7 +21,7 @@
     "loading": "A carregar acessos…",
     "loadError": "Não foi possível carregar os acessos.",
     "saveError": "Não foi possível guardar os acessos. Tente novamente.",
-    "saved": "Acessos de {cargo} guardados.",
+    "saved": "Acessos guardados.",
     "retry": "Tentar novamente"
   },
   "SimuladorVendas": {
