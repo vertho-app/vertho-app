@@ -3,6 +3,14 @@
 ALTER TABLE public.sim_vendas_config ADD COLUMN IF NOT EXISTS revisao integer NOT NULL DEFAULT 1;
 ALTER TABLE public.sim_vendas_config ADD COLUMN IF NOT EXISTS periodo_inicio timestamptz;
 ALTER TABLE public.sim_vendas_config ADD COLUMN IF NOT EXISTS periodo_fim timestamptz;
+-- Pré-condição para bancos v1: nunca inventar datas contratuais nem desligar
+-- clientes automaticamente. O arquivo inteiro é transacional no aplicador.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM public.sim_vendas_config
+    WHERE habilitado AND (periodo_inicio IS NULL OR periodo_fim IS NULL)) THEN
+    RAISE EXCEPTION 'SIM_PRAZO_BACKFILL: defina os prazos contratuais ou desabilite explicitamente as configurações v1 antes de aplicar a migration 250';
+  END IF;
+END $$;
 COMMENT ON COLUMN public.sim_vendas_config.revisao IS 'Compare-and-swap da configuração. Criação exige revisão 0; edição exige a versão lida.';
 COMMENT ON COLUMN public.sim_vendas_config.periodo_inicio IS 'Início inclusivo do prazo contratado; sem limite de uso ou gasto no período.';
 COMMENT ON COLUMN public.sim_vendas_config.periodo_fim IS 'Fim exclusivo do prazo contratado. Histórico continua consultável durante a retenção.';

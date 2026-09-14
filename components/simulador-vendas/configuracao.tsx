@@ -129,6 +129,7 @@ export default function Configuracao({
         </span>
         <span className={styles.muted}>{t('loginHelp')}</span>
       </label>
+      <p className={`${styles.muted} mt-3`} role="note">{t('disableHistoryWarning')}</p>
       <p className={`${styles.muted} mt-5`}>{t('retention', { months: RETENCAO_MESES })}</p>
       <button className={`${styles.primary} mt-6`} disabled={salvando} type="submit">
         {t('saveConfig')}

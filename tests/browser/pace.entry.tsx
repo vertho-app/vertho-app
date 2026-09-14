@@ -2,7 +2,9 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { NextIntlClientProvider } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import TreinoVendas from '../../components/simulador-vendas/treino';
+import { ConfirmDialogProvider, useConfirm } from '../../components/admin/confirm-dialog';
 import { estado, relatorio } from '../fixtures/simulador-vendas';
 import { visaoPublica } from '../../lib/simulador-vendas/core';
 import { comandoSchema, configSchema, type Estado } from '../../lib/simulador-vendas/schema';
@@ -17,6 +19,23 @@ const admin = params.has('admin'),
   empresaB = '10000000-0000-4000-8000-000000000004';
 const locale = params.get('locale') || 'pt-BR',
   catalogo = { 'pt-BR': pt, 'pt-PT': ptpt, 'en-US': en, 'es-ES': es };
+function ExclusaoPreview() {
+  const confirmar = useConfirm();
+  const t = useTranslations('SimuladorVendas');
+  return <main className="min-h-screen p-6 text-white" style={{ background: '#091D35' }}>
+    <button
+      data-testid="pace-exclusion-preview"
+      className="rounded-lg border border-red-400/30 px-4 py-2 text-red-300"
+      onClick={() => confirmar({
+        title: 'Excluir cadastro de demonstração',
+        message: t('exclusionBackup', { days: 7 }),
+        scopeNote: t('exclusionImpact', { sessions: 2, attempts: 5 }),
+        severity: 'critical',
+        typedConfirmation: 'Horizonte',
+      })}
+    >Excluir cadastro de demonstração</button>
+  </main>;
+}
 let processando = params.has('processing');
 const states: Record<string, Estado | null> = {
   [empresaA]: params.has('active') ? estado() : null,
@@ -191,7 +210,9 @@ const root = createRoot(document.getElementById('root')!);
 const render = () =>
   root.render(
     <NextIntlClientProvider locale={locale} messages={catalogo[locale]} timeZone="America/Sao_Paulo">
-      <TreinoVendas admin={admin} />
+      {params.has('confirmation')
+        ? <ConfirmDialogProvider><ExclusaoPreview /></ConfirmDialogProvider>
+        : <TreinoVendas admin={admin} />}
     </NextIntlClientProvider>,
   );
 w.__paceContexto = (id: string) => {

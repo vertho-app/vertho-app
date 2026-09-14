@@ -6,6 +6,8 @@ import type { Contexto } from './access';
 import { SimuladorError } from './core';
 import { lerCursor, paginaDeHistorico, type LinhaResumo } from './historico';
 
+const MAX_COLABORADORES_ESCOPO = 10_000;
+
 export async function podeVerEquipe(auth: AuthenticatedContext): Promise<boolean> {
   return (
     (auth.isPlatformAdmin || ['rh', 'gestor', 'tutor'].includes(auth.role)) &&
@@ -18,13 +20,15 @@ export async function escopoEquipe(c: Contexto): Promise<string[] | null> {
     throw new SimuladorError(403, 'Seu perfil não permite acompanhar esta equipe.');
   if (c.auth.isPlatformAdmin) return null;
   const ids: string[] = [];
-  for (let pagina = 0; ; pagina++) {
+  for (let pagina = 0; pagina <= MAX_COLABORADORES_ESCOPO / 500; pagina++) {
     const { data, error } = await c.tdb
       .from('colaboradores')
       .select('id,empresa_id,gestor_email')
       .order('id')
-      .range(pagina * 500, pagina * 500 + 499);
+      .range(pagina * 500, Math.min(pagina * 500 + 499, MAX_COLABORADORES_ESCOPO));
     if (error) throw new SimuladorError(503, 'Não foi possível consultar as permissões da equipe.');
+    if (pagina * 500 + data.length > MAX_COLABORADORES_ESCOPO)
+      throw new SimuladorError(422, 'A equipe excede o tamanho desta consulta. Solicite ao suporte uma exportação assistida; relatórios individuais continuam disponíveis.');
     ids.push(...data.filter((p) => canViewColabJourney(c.auth, p)).map((p) => p.id));
     if (data.length < 500) return ids;
   }
@@ -43,16 +47,27 @@ export async function historicoEquipe(c: Contexto, cursor?: string | null) {
   return paginaDeHistorico(data as LinhaResumo[], 50);
 }
 export async function relatorioEquipe(c: Contexto, id: string) {
-  const ids = await escopoEquipe(c);
-  if (ids?.length === 0) throw new SimuladorError(404, 'Relatório não encontrado na sua equipe.');
+  if (!(await podeVerEquipe(c.auth)))
+    throw new SimuladorError(403, 'Seu perfil não permite acompanhar esta equipe.');
   const { data, error } = await c.tdb
     .from('sim_vendas_sessoes')
     .select('id,colaborador_id,resumo,relatorio:estado->relatorio')
     .eq('id', id)
     .maybeSingle();
   if (error) throw new SimuladorError(503, 'Não foi possível consultar o relatório.');
-  if (!data?.relatorio || (ids !== null && !ids.includes(data.colaborador_id)))
+  if (!data?.relatorio)
     throw new SimuladorError(404, 'Relatório não encontrado na sua equipe.');
+  if (!c.auth.isPlatformAdmin) {
+    if (!data.colaborador_id) throw new SimuladorError(404, 'Relatório não encontrado na sua equipe.');
+    const { data: pessoa, error: pessoaError } = await c.tdb
+      .from('colaboradores')
+      .select('id,empresa_id,gestor_email')
+      .eq('id', data.colaborador_id)
+      .maybeSingle();
+    if (pessoaError) throw new SimuladorError(503, 'Não foi possível consultar as permissões deste relatório.');
+    if (!canViewColabJourney(c.auth, pessoa))
+      throw new SimuladorError(404, 'Relatório não encontrado na sua equipe.');
+  }
   return {
     id: data.id,
     nomeVendedor: data.resumo.nomeVendedor,

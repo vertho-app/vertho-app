@@ -28,10 +28,40 @@ import { PROMPTS, mensagensDoPrompt } from '@/lib/simulador-vendas/prompts';
 import { lerCursor, paginaDeHistorico } from '@/lib/simulador-vendas/historico';
 import { maskTextPII } from '@/lib/pii-masker';
 import { modeloPaceCompativel } from '@/lib/simulador-vendas/modelos';
+import { TRACOS_DIVERSIDADE } from '@/lib/simulador-vendas/diversidade';
 
 const comando = (acao: Comando['acao'], extra = {}) =>
   ({ acao, requestId: crypto.randomUUID(), sessaoId: estado().id, revisao: 1, ...extra }) as Comando;
 describe('PACE v2: contratos, evidências e acesso ilimitado por prazo', () => {
+  it('o catálogo único de diversidade alimenta o prompt sem alterar seus literais', () => {
+    expect(TRACOS_DIVERSIDADE).toHaveLength(10);
+    expect(PROMPTS.criador).toContain(TRACOS_DIVERSIDADE.map((t) => `- ${t}`).join('\n'));
+  });
+  it.each(['duplicada', 'severidade', 'fase', 'turno', 'motivo'])('moderação inconsistente (%s) falha antes do gerente pago e permite abandonar', async (caso) => {
+    const s = estado(); s.versaoRegua = REGUA_VERSION;
+    s.mensagens = [{ id: 'm', turno: 1, autor: 'vendedor', texto: 'Fala', fase: 'preparar' }];
+    s.moderacoes = [{ ...semViolacao, violacao: true, categoria: 'jailbreak', severidade: 'leve', motivo: 'Manipulação', fase: 'preparar', turno: 1 }];
+    if (caso === 'duplicada') s.moderacoes.push(s.moderacoes[0]);
+    if (caso === 'severidade') (s.moderacoes[0] as any).severidade = 'inventada';
+    if (caso === 'fase') s.moderacoes[0].fase = 'engajar';
+    if (caso === 'turno') s.moderacoes[0].turno = 2;
+    if (caso === 'motivo') s.moderacoes[0].motivo = ' ';
+    const gerar = vi.fn();
+    await expect(executarCore(s, comando('encerrar'), gerar as Gerar)).rejects.toMatchObject({ status: 409, message: expect.stringContaining('suporte') });
+    expect(gerar).not.toHaveBeenCalled();
+    const abandonado = await executarCore(s, comando('abandonar'), gerar as Gerar);
+    expect(abandonado.status).toBe('abandonada');
+    expect(abandonado.mensagens).toEqual(s.mensagens);
+    expect(gerar).not.toHaveBeenCalled();
+  });
+  it('validação v2 não atribui média nem confia em violações do gerente', () => {
+    const s = estado(); s.versaoRegua = REGUA_VERSION;
+    const r = structuredClone(relatorio); r.Media = 9.5;
+    r.Violacoes = [{ turno: 100, categoria: 'jailbreak', severidade: 'grave', motivo: 'Inventado', fase: 'engajar', pilar_penalizado: 'E', reducao_aplicada: 2.5 }];
+    validarRelatorio(r, s);
+    expect(r.Media).toBe(9.5);
+    expect(pontuarRelatorio(r, s).Violacoes).toEqual([]);
+  });
   it.each([1, 2, 3] as const)(
     'valida cenário literal do nível %s, incluindo preços não aplicáveis',
     (nivel) => {

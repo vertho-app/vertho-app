@@ -35,7 +35,7 @@ export default function Relatorio({
             </div>
             <meter
               className="w-full my-2"
-              min={0}
+              min={0.5}
               max={10}
               value={r[p]}
               aria-label={t('scoreLabel', { name: t(nome) })}

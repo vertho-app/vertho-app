@@ -1,20 +1,16 @@
 import 'server-only';
-import { createHash, randomUUID } from 'node:crypto';
-import { gzipSync } from 'node:zlib';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { tenantDb } from '@/lib/tenant-db';
 import { logAdminAction } from '@/lib/audit';
+import { BACKUP_DIAS, PREFIXOS_BACKUP_PACE, exigirBucketPrivado, gravarBackupConferido, removerBackupRecusado } from './backup';
 
 // Mesma janela operacional dos backups de segurança de actions/backup.ts.
 // Não é histórico consultável do participante; bucket privado, sem URL pública.
-const BACKUP_DIAS = 7;
-const PREFIXO = 'pace-retencao';
 type Candidata = {
   id: string;
   hash: string;
   documento: { sessao: { empresa_id: string; id: string }; tentativas: unknown[] };
 };
-const checksum = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 
 export async function expurgarComBackup(
   tdb: ReturnType<typeof tenantDb>,
@@ -23,57 +19,75 @@ export async function expurgarComBackup(
 ) {
   if (candidata.documento.sessao.empresa_id !== empresaId || candidata.documento.sessao.id !== candidata.id)
     throw new Error('PACE: snapshot fora do escopo');
-  const bytes = gzipSync(
-    Buffer.from(JSON.stringify({ politica: '6 meses', salvoEm: new Date().toISOString(), ...candidata })),
-  );
-  const caminho = `${PREFIXO}/${new Date().toISOString().slice(0, 10)}_${randomUUID()}.json.gz`;
-  const bucket = tdb.storage.from('backups');
-  const upload = await bucket.upload(caminho, bytes, { contentType: 'application/gzip', upsert: false });
-  if (upload.error) throw new Error('PACE: backup falhou; nenhum expurgo autorizado');
-  const download = await bucket.download(caminho);
-  if (
-    download.error ||
-    !download.data ||
-    checksum(new Uint8Array(await download.data.arrayBuffer())) !== checksum(bytes)
-  )
-    throw new Error('PACE: backup não conferido; nenhum expurgo autorizado');
+  const { caminho } = await gravarBackupConferido(tdb.storage, 'pace-retencao', { politica: '6 meses', ...candidata });
   const removido = await tdb.rpc('sim_vendas_expurgar', {
     p_empresa: empresaId,
     p_id: candidata.id,
     p_hash: candidata.hash,
   });
   if (removido.error) throw new Error('PACE: falha ao expurgar o snapshot conferido');
-  return removido.data === true;
+  if (removido.data === false) {
+    await removerBackupRecusado(tdb.storage, caminho);
+    return false;
+  }
+  if (removido.data !== true) throw new Error('PACE: resposta de expurgo desconhecida; backup preservado');
+  return true;
 }
 
 /** Núcleo headless; somente o cron autenticado o chama. Nunca retorna conversas. */
 export async function executarRetencaoPace(registro: SupabaseClient, deadline = Date.now() + 700_000) {
-  const bucket = await registro.storage.getBucket('backups');
-  if (bucket.error || !bucket.data || bucket.data.public)
-    throw new Error('PACE: bucket de backup privado indisponível');
+  await exigirBucketPrivado(registro.storage);
   let removidas = 0,
     alteradas = 0,
     empresas = 0;
   const falhas: string[] = [];
-  let cursor = '';
-  for (;;) {
+  const checkpoint = await registro.from('sim_vendas_manutencao').select('cursor_empresa').eq('chave', 'retencao').maybeSingle();
+  if (checkpoint.error) throw new Error('PACE: não foi possível recuperar o cursor da retenção');
+  let cursor = checkpoint.data?.cursor_empresa || '';
+  // Cursor significa "última empresa concluída". Nunca avançar antes de
+  // terminar o tenant atual, senão um corte de orçamento pularia seu restante.
+  let proximaEmpresa: string | null = cursor || null;
+  let parcial = false;
+  const esgotado = () => Date.now() >= deadline || removidas + alteradas >= 1000;
+  // Rotacionar primeiro impede que um acervo grande adie indefinidamente os
+  // backups vencidos. Prefixos exclusivos, nunca os backups de outros módulos.
+  const corte = new Date(Date.now() - BACKUP_DIAS * 86_400_000).toISOString().slice(0, 10);
+  for (const prefixo of PREFIXOS_BACKUP_PACE) {
+    for (;;) {
+      if (Date.now() >= deadline) { parcial = true; break; }
+      const lista = await registro.storage.from('backups').list(prefixo, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
+      if (lista.error) throw new Error('PACE: não foi possível conferir a retenção dos backups');
+      const vencidos = lista.data.filter((f) => /^\d{4}-\d{2}-\d{2}_[0-9a-f-]{36}\.json\.gz$/.test(f.name) && f.name.slice(0, 10) < corte);
+      if (!vencidos.length) break;
+      const apagados = await registro.storage.from('backups').remove(vencidos.map((f) => `${prefixo}/${f.name}`));
+      if (apagados.error) throw new Error('PACE: falha na retenção dos backups de segurança');
+    }
+  }
+  varredura: for (;;) {
+    if (esgotado()) { parcial = true; break; }
     // empresas é o registro global de tenants; conteúdo só entra no tenantDb abaixo.
     let query = registro.from('empresas').select('id').order('id').limit(200);
     if (cursor) query = query.gt('id', cursor);
     const pagina = await query;
     if (pagina.error) throw new Error('PACE: não foi possível enumerar empresas para retenção');
+    if (!pagina.data?.length && cursor) {
+      cursor = '';
+      proximaEmpresa = null;
+      continue;
+    }
     for (const empresa of pagina.data || []) {
+      if (esgotado()) { parcial = true; break varredura; }
       const tdb = tenantDb(empresa.id);
       try {
         for (;;) {
-          if (Date.now() > deadline || removidas + alteradas >= 1000)
-            throw new Error('PACE: manutenção parcial; há trabalho para a próxima execução');
-          const lote = await tdb.rpc('sim_vendas_retencao_lote', { p_empresa: empresa.id, p_limite: 5 });
+          if (esgotado()) { parcial = true; break varredura; }
+          const lote = await tdb.rpc('sim_vendas_retencao_lote', { p_empresa: empresa.id, p_limite: Math.min(5, 1000 - removidas - alteradas) });
           if (lote.error || !Array.isArray(lote.data))
             throw new Error('PACE: falha ao consultar candidatos à retenção');
           if (!lote.data.length) break;
           let houveMudanca = false;
           for (const candidata of lote.data as Candidata[]) {
+            if (esgotado()) { parcial = true; break varredura; }
             if (await expurgarComBackup(tdb, empresa.id, candidata)) removidas++;
             else {
               alteradas++;
@@ -90,36 +104,19 @@ export async function executarRetencaoPace(registro: SupabaseClient, deadline = 
           tipo: e instanceof Error ? e.message : 'erro',
         });
       }
+      proximaEmpresa = empresa.id;
     }
-    if ((pagina.data?.length || 0) < 200 || Date.now() > deadline) break;
+    if ((pagina.data?.length || 0) < 200) { proximaEmpresa = null; break; }
     cursor = pagina.data!.at(-1)!.id;
   }
-  // Pasta exclusiva; jamais toca os backups diários ou de outros módulos.
-  const corte = new Date(Date.now() - BACKUP_DIAS * 86_400_000).toISOString().slice(0, 10);
-  for (;;) {
-    const lista = await registro.storage
-      .from('backups')
-      .list(PREFIXO, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
-    if (lista.error) throw new Error('PACE: não foi possível conferir a retenção dos backups');
-    const vencidos = lista.data.filter(
-      (f) => /^\d{4}-\d{2}-\d{2}_[0-9a-f-]{36}\.json\.gz$/.test(f.name) && f.name.slice(0, 10) < corte,
-    );
-    if (!vencidos.length) break;
-    const apagados = await registro.storage
-      .from('backups')
-      .remove(vencidos.map((f) => `${PREFIXO}/${f.name}`));
-    if (apagados.error) throw new Error('PACE: falha na retenção dos backups de segurança');
-    if (Date.now() > deadline) {
-      falhas.push('backups_pendentes');
-      break;
-    }
-  }
+  const salvo = await registro.from('sim_vendas_manutencao').upsert({ chave: 'retencao', cursor_empresa: proximaEmpresa, updated_at: new Date().toISOString() });
+  if (salvo.error) throw new Error('PACE: não foi possível salvar o cursor da retenção');
   await logAdminAction({
     adminEmail: 'system:cron',
     acao: 'sim_vendas.retencao',
     alvo: 'PACE',
-    detalhes: { meses: 6, removidas, alteradas, empresas, falhas: falhas.length },
-    resultado: falhas.length ? 'erro' : 'ok',
+    detalhes: { meses: 6, removidas, alteradas, empresas, parcial, proximaEmpresa, falhas: falhas.length },
+    resultado: falhas.length ? 'erro' : parcial ? 'parcial' : 'ok',
   });
   if (falhas.length)
     throw new Error(
@@ -129,6 +126,8 @@ export async function executarRetencaoPace(registro: SupabaseClient, deadline = 
     removidas,
     alteradas,
     empresas,
-    message: `PACE: ${removidas} sessão(ões) expiradas removidas com backup; ${alteradas} alteradas preservadas`,
+    parcial,
+    proximaEmpresa,
+    message: `PACE: ${removidas} sessão(ões) expiradas removidas com backup; ${alteradas} alteradas preservadas${parcial ? '; manutenção parcial, com continuação na próxima execução' : ''}`,
   };
 }

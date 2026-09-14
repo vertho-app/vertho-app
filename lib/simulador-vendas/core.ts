@@ -103,6 +103,9 @@ export function validarRelatorio(r: Saidas['gerente'], s: Estado) {
     if (new Set(itens.map((d) => d.nome)).size !== itens.length) throw new Error('Descoberta duplicada');
   }
   if (
+    // Só pace-1 recebe violações declaradas pelo gerente. No pace-2 elas são
+    // derivadas exclusivamente do registro do moderador, em pontuarRelatorio.
+    s.versaoRegua !== REGUA_VERSION &&
     r.Violacoes.some(
       (v) =>
         !violacoesRegistradas(s).some(
@@ -116,8 +119,10 @@ export function validarRelatorio(r: Saidas['gerente'], s: Estado) {
   ) {
     throw new Error('Violação sem registro do moderador');
   }
-  // Média aritmética é calculada pelo código, mantendo a régua PACE em passos de 0,5.
-  r.Media = Math.max(0.5, Math.round(((r.P + r.A + r.C + r.E) / 4) * 2) / 2);
+  // Compatibilidade com a validação legada. A régua v2 só publica a média
+  // depois de aplicar as penalidades, em pontuarRelatorio.
+  if (s.versaoRegua !== REGUA_VERSION)
+    r.Media = Math.max(0.5, Math.round(((r.P + r.A + r.C + r.E) / 4) * 2) / 2);
 }
 
 export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promise<Estado> {
@@ -202,6 +207,16 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
     if (s.status === VENDAS_SESSAO.CONCLUIDA) return s;
     if (s.status !== VENDAS_SESSAO.EM_ANDAMENTO || !s.mensagens.some((m) => m.autor === 'vendedor'))
       throw new SimuladorError(409, 'Converse com o cliente antes de gerar o relatório.');
+    // Estado inconsistente não se corrige regenerando uma resposta paga.
+    // Verificar ANTES do gerente também evita reutilizar um checkpoint envenenado.
+    try {
+      violacoesRegistradas(s);
+    } catch {
+      throw new SimuladorError(
+        409,
+        'O registro deste treino precisa de revisão pelo suporte. Nenhuma nova avaliação foi cobrada. Você pode abandonar este treino e iniciar outro; a conversa será preservada no histórico.',
+      );
+    }
     const bruto = await gerar(
       'gerente',
       {

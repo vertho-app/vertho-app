@@ -28,7 +28,7 @@ import { iniciarEnviosTemporada, pausarEnviosTemporada } from '@/actions/envios-
 import { auditarBlueprint, filaAuditBlueprint } from '@/actions/blueprint';
 import { TURMA_ENCERRADAS } from '@/lib/status';
 import {
-  loadEmpresaPipeline, excluirEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
+  loadEmpresaPipeline, excluirEmpresa, preverExclusaoEmpresa, limparRegistros, limparMapeamento, limparMapeamentoCompetencias, limparCenariosB, limparReavaliacaoSessoes, definirSenhaTesteEmpresa, loadColaboradoresLista,
   rodarIA1, rodarIA2, rodarIA3,
   verStatusEnvios,
   rodarIA4, rodarIA4Uma, listarPendentesIA4, listarPendentesCheck, checarUmaAvaliacao,
@@ -196,6 +196,7 @@ const serif: React.CSSProperties = {
 
 export default function EmpresaPipelinePage({ params }: { params: Promise<{ empresaId: string }> }) {
   const t = useTranslations('AdminCompanyPipeline');
+  const tPace = useTranslations('SimuladorVendas');
   const confirmDialog = useConfirm();
   const locale = useLocale();
   const { empresaId } = use(params);
@@ -1270,17 +1271,23 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
 
                   <button disabled={dangerLoading}
                     onClick={async () => {
-                      const ok = await confirmDialog({
-                        title: t('danger.deleteCompany'),
-                        message: t('danger.confirmDeleteCompany', { name: empresa.nome }),
-                        severity: 'critical',
-                        typedConfirmation: empresa.nome,
-                      });
-                      if (!ok) return;
                       setDangerLoading(true);
-                      const r = await excluirEmpresa(empresaId);
-                      if (r.success) router.push('/admin/dashboard');
-                      else { addLog(`❌ ${r.error}`, 'error'); setDangerLoading(false); }
+                      try {
+                        const previa = await preverExclusaoEmpresa(empresaId);
+                        if (!previa.success || !previa.data) { addLog(previa.error, 'error'); return; }
+                        const ok = await confirmDialog({
+                          title: t('danger.deleteCompany'),
+                          message: <><p>{t('danger.confirmDeleteCompany', { name: empresa.nome })}</p><p>{tPace('exclusionBackup', { days: previa.data.backupDias })}</p></>,
+                          scopeNote: tPace('exclusionImpact', { sessions: previa.data.sessoes, attempts: previa.data.tentativas }),
+                          severity: 'critical',
+                          typedConfirmation: empresa.nome,
+                        });
+                        if (!ok) return;
+                        const r = await excluirEmpresa(empresaId, previa.data.confirmacao);
+                        if (r.success) router.push('/admin/dashboard');
+                        else addLog(`❌ ${r.error}`, 'error');
+                      } catch { addLog(tPace('exclusionUnavailable'), 'error'); }
+                      finally { setDangerLoading(false); }
                     }}
                     className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-30"
                     style={{ color: '#F97354', border: '1px solid rgba(239,68,68,.3)', background: 'rgba(239,68,68,.04)' }}>

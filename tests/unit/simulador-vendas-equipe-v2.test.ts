@@ -81,14 +81,14 @@ describe('PACE: gestão com régua da equipe, sem conversa no browser', () => {
   it('relatório direto de pessoa fora da equipe é 404', async () => {
     sb = criarSupabaseMock({
       lista: (t) => (t === 'colaboradores' ? pessoas : []),
-      resolver: () => ({ id: 's', colaborador_id: 'outro', resumo: {}, relatorio }),
+      resolver: (t) => t === 'colaboradores' ? pessoas[2] : ({ id: 's', colaborador_id: 'outro', resumo: {}, relatorio }),
     });
     await expect(relatorioEquipe(c(), 's')).rejects.toMatchObject({ status: 404 });
   });
   it('relatório autorizado só seleciona relatório e resumo, jamais mensagens', async () => {
     sb = criarSupabaseMock({
       lista: (t) => (t === 'colaboradores' ? pessoas : []),
-      resolver: () => ({
+      resolver: (t) => t === 'colaboradores' ? pessoas[1] : ({
         id: 's',
         colaborador_id: 'liderado',
         resumo: { nomeVendedor: 'Ana', versaoRegua: 'pace-2' },
@@ -98,6 +98,33 @@ describe('PACE: gestão com régua da equipe, sem conversa no browser', () => {
     expect(await relatorioEquipe(c(), 's')).toMatchObject({ id: 's', relatorio });
     const sel = sb.chamadas.find((x) => x.tabela === 'sim_vendas_sessoes' && x.metodo === 'select')!.args[0];
     expect(sel).toBe('id,colaborador_id,resumo,relatorio:estado->relatorio');
+    expect(sb.chamadas).toContainEqual({ tabela: 'colaboradores', metodo: 'eq', args: ['id', 'liderado'] });
+    expect(sb.chamadas.some((x) => x.tabela === 'colaboradores' && x.metodo === 'range')).toBe(false);
+  });
+  it('relatório individual mantém os gates de papel/permissão antes de ler', async () => {
+    await expect(relatorioEquipe(c('colaborador'), 's')).rejects.toMatchObject({ status: 403 });
+    vi.mocked(can).mockResolvedValue(false);
+    await expect(relatorioEquipe(c(), 's')).rejects.toMatchObject({ status: 403 });
+    expect(sb.chamadas).toHaveLength(0);
+  });
+  it('erro na leitura da pessoa não vira 404 nem permissão concedida', async () => {
+    sb = criarSupabaseMock({ resolver: () => ({ id: 's', colaborador_id: 'liderado', resumo: {}, relatorio }) });
+    sb.falharEm({ tabela: 'colaboradores', op: 'select', mensagem: 'timeout' });
+    await expect(relatorioEquipe(c(), 's')).rejects.toMatchObject({ status: 503 });
+  });
+  it('treino sem cadastro associado só é visível ao administrador da plataforma', async () => {
+    sb = criarSupabaseMock({ resolver: () => ({ id: 's', colaborador_id: null, resumo: {}, relatorio }) });
+    await expect(relatorioEquipe(c('rh'), 's')).rejects.toMatchObject({ status: 404 });
+    const ctx = c(); ctx.auth.isPlatformAdmin = true;
+    expect(await relatorioEquipe(ctx, 's')).toMatchObject({ id: 's', relatorio });
+    expect(sb.chamadas.some((x) => x.tabela === 'colaboradores')).toBe(false);
+  });
+  it('enumeração não percorre mais de 10.000 pessoas nem devolve recorte truncado', async () => {
+    let pagina = 0;
+    sb = criarSupabaseMock({ lista: () => Array.from({ length: pagina++ === 20 ? 1 : 500 }, (_, i) => ({ id: String(i), empresa_id: empresa, gestor_email: null })) });
+    await expect(escopoEquipe(c('rh'))).rejects.toMatchObject({ status: 422 });
+    expect(pagina).toBe(21);
+    expect(sb.chamadas.filter((x) => x.metodo === 'range').at(-1)!.args).toEqual([10000, 10000]);
   });
 });
 describe('PACE: leitura individual e recuperação depois do prazo', () => {

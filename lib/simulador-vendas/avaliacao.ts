@@ -11,8 +11,9 @@ export function violacoesRegistradas(s: Estado): Saidas['gerente']['Violacoes'] 
     .map((m) => {
       if (
         !m.categoria ||
-        !m.severidade ||
-        !m.motivo ||
+        !Object.hasOwn(PENALIDADE, m.severidade || '') ||
+        !m.motivo?.trim() ||
+        !Number.isInteger(m.turno) || m.turno < 1 ||
         !PILAR_POR_FASE[m.fase] ||
         vistos.has(m.turno) ||
         !s.mensagens.some((f) => f.autor === 'vendedor' && f.turno === m.turno && f.fase === m.fase)

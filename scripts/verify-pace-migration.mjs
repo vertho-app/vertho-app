@@ -11,6 +11,57 @@ const check = (v, m) => {
   assert.ok(v, m);
   checks++;
 };
+const somenteLeitura = process.argv.includes('--check');
+
+async function verificarProducao() {
+  const relacoes = (await db.query(`
+    select c.relname,c.relrowsecurity
+      from pg_class c
+     where c.relnamespace='public'::regnamespace and c.relkind='r'
+       and c.relname like 'sim_vendas_%'
+  `)).rows;
+  const esperadas = ['sim_vendas_config','sim_vendas_manutencao','sim_vendas_prompt_versions','sim_vendas_sessoes','sim_vendas_tentativas'];
+  check(esperadas.every((nome) => relacoes.some((r) => r.relname === nome && r.relrowsecurity)), '249/250/251: tabelas e RLS');
+  const colunas = (await db.query(`
+    select column_name from information_schema.columns
+     where table_schema='public' and table_name='sim_vendas_config'
+  `)).rows.map((r) => r.column_name);
+  check(['revisao','periodo_inicio','periodo_fim'].every((c) => colunas.includes(c)), '250: colunas de prazo/revisão');
+  check((await db.query(`select count(*)::int n from sim_vendas_config
+    where habilitado and (periodo_inicio is null or periodo_fim is null)`)).rows[0].n === 0, '250: nenhuma configuração ativa sem prazo');
+  const funcoes = (await db.query(`
+    select proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+     where n.nspname='public' and p.proname in (
+       'sim_vendas_configurar','sim_vendas_historico_equipe','sim_vendas_exportar',
+       'sim_vendas_retencao_lote','sim_vendas_expurgar','sim_vendas_exclusao_snapshot',
+       'sim_vendas_excluir_cadastro')
+  `)).rows.map((r) => r.proname);
+  check(new Set(funcoes).size === 7, '250/251: RPCs publicadas');
+  for (const role of ['anon', 'authenticated']) {
+    check((await db.query(`
+      select count(*)::int n from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+       where n.nspname='public' and p.proname like 'sim_vendas_%'
+         and has_function_privilege($1,p.oid,'EXECUTE')
+    `, [role])).rows[0].n === 0, `${role}: nenhuma RPC PACE executável`);
+    check((await db.query(`
+      select count(*)::int n from pg_class c
+       where c.relnamespace='public'::regnamespace and c.relkind='r'
+         and c.relname like 'sim_vendas_%' and has_table_privilege($1,c.oid,'SELECT')
+    `, [role])).rows[0].n === 0, `${role}: nenhuma tabela PACE legível`);
+  }
+  const fks = (await db.query(`
+    select conname,confdeltype,pg_get_constraintdef(oid) definicao
+      from pg_constraint
+     where conname in ('sim_vendas_config_empresa_id_fkey','sim_vendas_sessoes_empresa_id_fkey',
+       'sim_vendas_sessoes_colab_fk','sim_vendas_tentativas_empresa_id_fkey','sim_vendas_tentativas_sessao_fk')
+  `)).rows;
+  check(fks.length === 5, '251: cinco FKs PACE conferidas');
+  check(fks.filter((f) => f.conname !== 'sim_vendas_sessoes_colab_fk' && f.conname !== 'sim_vendas_tentativas_sessao_fk').every((f) => f.confdeltype === 'a'), '251: raízes sem cascata silenciosa');
+  check(fks.find((f) => f.conname === 'sim_vendas_sessoes_colab_fk')?.confdeltype === 'n', '251: exclusão legada de pessoa preserva treino');
+  check(fks.find((f) => f.conname === 'sim_vendas_tentativas_sessao_fk')?.confdeltype === 'c', '251: sessão ainda expurga tentativas');
+  check((await db.query(`select count(*)::int n from sim_vendas_sessoes where estado ? 'prompts'`)).rows[0].n === 0, '250: sessões sem snapshot literal de prompts');
+  console.log(JSON.stringify({ checks, modo: 'somente leitura', migrations: [249,250,251], status: 'ok' }));
+}
 async function falha(sql, args, codigo) {
   await db.query('SAVEPOINT falha_esperada');
   let erro;
@@ -22,6 +73,10 @@ async function falha(sql, args, codigo) {
     await db.query('ROLLBACK TO SAVEPOINT falha_esperada');
   }
   check(erro && (erro.message.includes(codigo) || erro.code === codigo), `esperado ${codigo}`);
+}
+if (somenteLeitura) {
+  try { await verificarProducao(); } finally { await db.end(); }
+  process.exit(0);
 }
 try {
   await db.query('BEGIN');
@@ -64,6 +119,31 @@ try {
     ).rows[0].n === 5,
     '5 FKs CASCADE',
   );
+  const hardening = readFileSync('migrations/251-simulador-vendas-exclusao-segura.sql', 'utf8');
+  await db.query(hardening);
+  await db.query(hardening);
+  checks++;
+  for (const role of ['anon', 'authenticated']) {
+    const tabs = (await db.query(
+      "select c.relname,c.relrowsecurity,has_table_privilege($1,c.oid,'SELECT') acesso from pg_class c where c.relnamespace='public'::regnamespace and c.relkind='r' and c.relname like 'sim_vendas_%'",
+      [role],
+    )).rows;
+    check(tabs.length === 5 && tabs.every((t) => t.relrowsecurity && !t.acesso), `251: RLS/acesso direto ${role}`);
+  }
+  const empresaPreflight = randomUUID();
+  await db.query("insert into empresas(id,nome,slug,segmento) values($1,'PACE preflight',$2,'corporativo')",
+    [empresaPreflight, `pace-preflight-${empresaPreflight}`]);
+  await db.query(`insert into sim_vendas_config(empresa_id,habilitado,briefing,updated_by,periodo_inicio,periodo_fim)
+    values($1,false,$2,'verificacao@example.test',null,null)`,
+    [empresaPreflight, 'Contexto fictício longo o bastante para validar o preflight da migration.']);
+  await db.query('alter table sim_vendas_config drop constraint sim_vendas_config_periodo_check');
+  await db.query('update sim_vendas_config set habilitado=true where empresa_id=$1', [empresaPreflight]);
+  await falha(migration, [], 'SIM_PRAZO_BACKFILL');
+  await db.query('update sim_vendas_config set habilitado=false where empresa_id=$1', [empresaPreflight]);
+  await db.query(migration);
+  await db.query('delete from sim_vendas_config where empresa_id=$1', [empresaPreflight]);
+  await db.query('delete from empresas where id=$1', [empresaPreflight]);
+  await db.query(hardening); // 250 testa o estado-base; 251 fecha novamente as FKs.
   for (const [base, esperado] of [
     ['2026-08-31T12:00:00Z', '2027-02-28T12:00:00.000Z'],
     ['2023-08-31T12:00:00Z', '2024-02-29T12:00:00.000Z'],
@@ -205,6 +285,61 @@ try {
     (await db.query('select sim_vendas_exportar($1,$2,null,null) r', [a, []])).rows[0].r.linhas.length === 0,
     'exportação sem equipe vazia',
   );
+
+  // Exclusão 251: apenas dados fictícios criados dentro desta transação.
+  const empresaFake = randomUUID(), colabLegado = randomUUID(), colabAdmin = randomUUID();
+  const sessaoLegada = randomUUID(), sessaoAdmin = randomUUID();
+  await db.query(
+    "insert into empresas(id,nome,slug,segmento) values($1,'PACE verificação transacional',$2,'corporativo')",
+    [empresaFake, `pace-check-${empresaFake}`],
+  );
+  await db.query(
+    "insert into colaboradores(id,empresa_id,email,nome_completo) values($1,$3,$2,'Legado'),($4,$3,$5,'Administrativo')",
+    [colabLegado, `pace-legado-${colabLegado}@example.test`, empresaFake, colabAdmin, `pace-admin-${colabAdmin}@example.test`],
+  );
+  for (const [sid, cid] of [[sessaoLegada, colabLegado], [sessaoAdmin, colabAdmin]]) {
+    await db.query(
+      'insert into sim_vendas_sessoes(id,empresa_id,owner_key,colaborador_id,estado) values($1,$2,$3,$4,$5)',
+      [sid, empresaFake, `colab:${cid}`, cid, { id: sid, status: 'abandonada', mensagens: [] }],
+    );
+    await db.query(
+      "insert into sim_vendas_tentativas(id,empresa_id,sessao_id,request_id,etapa,tentativa,modelo,prompt_hash) values($1,$2,$3,$4,'moderador',1,'verificacao','hash')",
+      [randomUUID(), empresaFake, sid, randomUUID()],
+    );
+  }
+  await db.query('delete from colaboradores where id=$1 and empresa_id=$2', [colabLegado, empresaFake]);
+  check((await db.query('select colaborador_id from sim_vendas_sessoes where id=$1', [sessaoLegada])).rows[0].colaborador_id === null,
+    'delete legado desassocia e preserva treino');
+  await falha('delete from empresas where id=$1', [empresaFake], 'foreign key');
+
+  const snapColab = (await db.query('select sim_vendas_exclusao_snapshot($1,$2) s', [empresaFake, colabAdmin])).rows[0].s;
+  check(snapColab.sessoes === 1 && snapColab.tentativas === 1, 'snapshot administrativo limitado à pessoa');
+  await falha(
+    "select sim_vendas_excluir_cadastro($1,$2,$3,'pace-exclusao/2026-09-14_00000000-0000-4000-8000-000000000000.json.gz',$4,$5)",
+    [empresaFake, colabAdmin, snapColab.hash, 'c'.repeat(64), 'verificacao@example.test'],
+    'SIM_BACKUP',
+  );
+  const inserirBackup = async () => {
+    const caminho = `pace-exclusao/2026-09-14_${randomUUID()}.json.gz`;
+    await db.query('insert into storage.objects(bucket_id,name) values($1,$2)', ['backups', caminho]);
+    return caminho;
+  };
+  const backupColab = await inserirBackup();
+  await db.query('select sim_vendas_excluir_cadastro($1,$2,$3,$4,$5,$6)',
+    [empresaFake, colabAdmin, snapColab.hash, backupColab, 'c'.repeat(64), 'verificacao@example.test']);
+  check((await db.query('select count(*)::int n from colaboradores where id=$1', [colabAdmin])).rows[0].n === 0,
+    'exclusão confirmada remove pessoa e seu treino');
+  check((await db.query("select count(*)::int n from admin_audit_log where acao='sim_vendas.exclusao_cadastro' and alvo=$1", [colabAdmin])).rows[0].n === 1,
+    'auditoria obrigatória na mesma transação');
+
+  const snapEmpresa = (await db.query('select sim_vendas_exclusao_snapshot($1,null) s', [empresaFake])).rows[0].s;
+  const backupEmpresa = await inserirBackup();
+  await db.query('select sim_vendas_excluir_cadastro($1,null,$2,$3,$4,$5)',
+    [empresaFake, snapEmpresa.hash, backupEmpresa, 'd'.repeat(64), 'verificacao@example.test']);
+  check((await db.query('select count(*)::int n from empresas where id=$1', [empresaFake])).rows[0].n === 0,
+    'empresa e acervo PACE removidos atomicamente');
+  check((await db.query("select count(*)::int n from admin_audit_log where acao='sim_vendas.exclusao_cadastro' and alvo=$1 and empresa_id is null", [empresaFake])).rows[0].n === 1,
+    'auditoria sobrevive à exclusão da empresa');
   console.log(
     JSON.stringify({
       checks,

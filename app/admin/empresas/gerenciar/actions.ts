@@ -2,9 +2,10 @@
 
 import { z } from 'zod';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { assertTenantAccessAction } from '@/lib/auth/action-context';
+import { assertTenantAccessAction, requireAdminAction } from '@/lib/auth/action-context';
 import { protectedAction, protectedLoader } from '@/lib/auth/protected-action';
-import { updateColaboradorInTenant, deleteColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant, listEmailsInTenant, createColaboradoresLoteInTenant } from '@/lib/repositories/colaboradores-repo';
+import { updateColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant, listEmailsInTenant, createColaboradoresLoteInTenant } from '@/lib/repositories/colaboradores-repo';
+import { preverExclusaoPace, excluirCadastroComBackupPace } from '@/lib/simulador-vendas/exclusao';
 import { upsertCargoInTenant, deleteCargoInTenant } from '@/lib/repositories/cargos-empresa-repo';
 import { logAdminAction } from '@/lib/audit';
 import { excludeInternalEmails } from '@/lib/internal-emails';
@@ -384,11 +385,22 @@ export async function atualizarColaborador(input: z.infer<typeof AtualizarColabo
   return _atualizarColaborador(input);
 }
 
-const ExcluirColaboradorSchema = z.object({ empresaId: z.string().uuid(), id: z.string().uuid() });
+const PreviaExclusaoSchema = z.object({ empresaId: z.string().uuid(), id: z.string().uuid() });
+const ExcluirColaboradorSchema = PreviaExclusaoSchema.extend({ confirmacao: z.string().regex(/^[0-9a-f]{64}$/) });
+const _preverExclusaoColaborador = protectedAction('users.manage', PreviaExclusaoSchema, async (ctx, { empresaId, id }) => {
+  // Gate explícito no corpo delegado: cada export `use server` é um endpoint.
+  await requireAdminAction('users.manage');
+  await assertTenantAccessAction(ctx, empresaId);
+  return preverExclusaoPace(empresaId, { tipo: 'colaborador', id });
+});
+export async function preverExclusaoColaborador(input: z.infer<typeof PreviaExclusaoSchema>) {
+  return _preverExclusaoColaborador(input);
+}
 
-const _excluirColaborador = protectedAction('users.manage', ExcluirColaboradorSchema, async (ctx, { empresaId, id }) => {
+const _excluirColaborador = protectedAction('users.manage', ExcluirColaboradorSchema, async (ctx, { empresaId, id, confirmacao }) => {
+  await requireAdminAction('users.manage');
   await assertTenantAccessAction(ctx, empresaId); // defense-in-depth (no-op p/ platform admin)
-  const removido = await deleteColaboradorInTenant(await requireAdminSupabase(), empresaId, id);
+  const removido = await excluirCadastroComBackupPace(empresaId, { tipo: 'colaborador', id }, confirmacao, ctx.email);
   if (!removido) throw new Error('colaborador não encontrado nesta empresa');
   await logAdminAction({
     adminEmail: ctx.email, acao: 'colaborador.excluir', empresaId,

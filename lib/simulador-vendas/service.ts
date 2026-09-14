@@ -8,6 +8,7 @@ import { SimuladorError, executarCore, recebido, visaoPublica } from './core';
 import type { Contexto } from './access';
 import { REGUA_VERSION, type Estado, type Comando } from './schema';
 import { periodoVigente } from './prazo';
+import { TRACOS_DIVERSIDADE } from './diversidade';
 import { podeVerEquipe } from './equipe';
 import { aplicarCursor, COLUNAS_HISTORICO, paginaDeHistorico, type LinhaResumo } from './historico';
 
@@ -109,18 +110,7 @@ export async function executar(c: Contexto, original: Comando) {
         .limit(10);
       banco(diversidadeError);
       const anteriores = ultimos.map((r: { traco?: string }) => r.traco).filter(Boolean) as string[];
-      const tracos = [
-        'Cético de alta exigência técnica',
-        'Entusiasmado mas burocrático (depende do comitê)',
-        'Sob forte pressão de prazo',
-        'Veterano cansado de promessas vazias',
-        'Recém-promovido tentando provar valor',
-        'Inovador frustrado com a lentidão da empresa',
-        'Tradicionalista resistente a mudanças',
-        'Negociador agressivo focado em preço',
-        'Relacional, decide por confiança',
-        'Analítico extremo, decide só por dados',
-      ];
+      const tracos = TRACOS_DIVERSIDADE;
       const opcoes = tracos.filter((t) => !anteriores.includes(t));
       const indice = Number.parseInt(cmd.requestId.slice(0, 8), 16);
       const estado: Estado = {

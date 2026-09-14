@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser, requireRole, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import { csrfCheck } from '@/lib/csrf';
+import { z } from 'zod';
+import { preverExclusaoPace, excluirCadastroComBackupPace } from '@/lib/simulador-vendas/exclusao';
+import { falha, json } from '@/lib/simulador-vendas/http';
 
 // Whitelist de colunas editáveis via este CRUD genérico. Sem isso, o body cru
 // era inserido/atualizado direto com service-role — um rh poderia setar role
@@ -141,12 +144,14 @@ export async function DELETE(req: Request) {
   const guard = assertTenantAccess(auth, existente.empresa_id);
   if (guard) return guard;
 
-  const { error } = await sb.from('colaboradores').delete()
-    .eq('id', id).eq('empresa_id', existente.empresa_id);
-  if (error) {
-    const { erroExclusao } = await import('@/lib/erros-exclusao');
-    const falha=erroExclusao(error);
-    return NextResponse.json({ error:falha.message }, { status:falha.status });
-  }
-  return NextResponse.json({ success: true });
+  try {
+    const alvo = { tipo: 'colaborador' as const, id: z.string().uuid().parse(id) };
+    const confirmacao = req.headers.get('x-confirmacao-exclusao-pace');
+    if (!confirmacao) {
+      const previa = await preverExclusaoPace(existente.empresa_id, alvo);
+      return json({ error: 'Confira a prévia e confirme a exclusão reenviando x-confirmacao-exclusao-pace.', previa }, 409);
+    }
+    await excluirCadastroComBackupPace(existente.empresa_id, alvo, confirmacao, auth.email);
+    return json({ success: true });
+  } catch (error) { return falha(error); }
 }

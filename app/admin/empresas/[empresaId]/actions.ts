@@ -5,6 +5,9 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { removeVercelDomain } from '@/lib/vercel-domain';
 import { excludeInternalEmails } from '@/lib/internal-emails';
+import { z } from 'zod';
+import { preverExclusaoPace, excluirCadastroComBackupPace } from '@/lib/simulador-vendas/exclusao';
+import { SimuladorError } from '@/lib/simulador-vendas/core';
 
 export async function loadEmpresaPipeline(empresaId) {
   await requireAdminAction();
@@ -93,26 +96,30 @@ export async function loadEmpresaPipeline(empresaId) {
   return { success: true, empresa, totalColab, fases };
 }
 
-export async function excluirEmpresa(empresaId) {
+export async function preverExclusaoEmpresa(empresaId: string) {
+  await requireAdminAction('companies.manage');
+  try {
+    return { success: true, data: await preverExclusaoPace(z.string().uuid().parse(empresaId), { tipo: 'empresa' }) };
+  } catch (error) {
+    return { success: false, error: error instanceof SimuladorError ? error.message : 'Não foi possível conferir o impacto da exclusão.' };
+  }
+}
+
+export async function excluirEmpresa(empresaId: string, confirmacao?: string) {
   const ctx = await requireAdminAction('companies.manage');
-  const sb = await requireAdminSupabase();
-
-  const { data: empresa } = await sb.from('empresas')
-    .select('slug, nome')
-    .eq('id', empresaId)
-    .single();
-
-  const { error } = await sb.from('empresas').delete().eq('id', empresaId);
-  if (error) {
+  let empresa: { slug: string | null; nome: string | null };
+  try {
+    empresa = await excluirCadastroComBackupPace(z.string().uuid().parse(empresaId), { tipo: 'empresa' }, confirmacao, ctx.email);
+  } catch (error) {
     await logAdminAction({
-      adminEmail: ctx.email, acao: 'empresa.excluir', empresaId, empresaSlug: empresa?.slug,
-      alvo: empresa?.nome, detalhes: { erro: error.message }, resultado: 'erro',
+      adminEmail: ctx.email, acao: 'empresa.excluir', empresaId,
+      detalhes: { motivo: error instanceof SimuladorError ? error.message : 'Falha ao excluir com backup' }, resultado: 'erro',
     });
-    const { erroExclusao } = await import('@/lib/erros-exclusao');
-    return { success: false, error: erroExclusao(error).message };
+    return { success: false, error: error instanceof SimuladorError ? error.message : 'Não foi possível excluir com backup. Confira o cadastro antes de tentar novamente.' };
   }
 
-  if (empresa?.slug) removeVercelDomain(empresa.slug).catch(() => {});
+  // Aguardar a limpeza: trabalho solto pós-response pode morrer na Vercel.
+  if (empresa?.slug) await removeVercelDomain(empresa.slug).catch(() => {});
 
   await logAdminAction({
     adminEmail: ctx.email, acao: 'empresa.excluir', empresaId, empresaSlug: empresa?.slug,

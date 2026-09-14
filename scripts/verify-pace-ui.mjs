@@ -96,6 +96,7 @@ try {
   await page.getByRole('button', { name: 'Encerrar e receber devolutiva', exact: true }).click();
   await page.getByRole('button', { name: 'Confirmar encerramento', exact: true }).click();
   await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).waitFor();
+  assert.equal(await page.locator('meter').first().getAttribute('min'), '0.5');
   await page.screenshot({ path: `${dir}/relatorio-desktop.png`, fullPage: true });
   checks++;
   await page.goto(`${origin}/?active=1&processing=1`);
@@ -129,12 +130,19 @@ try {
   await page.getByLabel('Início do acesso', { exact: true }).fill('2026-09-13T09:00');
   await page.getByLabel('Fim do acesso', { exact: true }).fill('2026-12-13T18:00');
   await page.screenshot({ path: `${dir}/config-desktop.png`, fullPage: true });
+  await page.locator('[role="note"]').waitFor();
   await page.getByRole('button', { name: 'Salvar configuração', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Salvar configuração', exact: true })).toBeEnabled();
   assert.equal(
     await page.evaluate(() => window.__paceWrites.at(-1).periodoInicio),
     '2026-09-13T12:00:00.000Z',
   );
+  checks++;
+  await page.goto(`${origin}/?confirmation=1`);
+  await page.getByTestId('pace-exclusion-preview').click();
+  await page.getByRole('alertdialog').waitFor();
+  await page.getByText(/7 dias/).waitFor();
+  await page.screenshot({ path: `${dir}/exclusao-desktop.png`, fullPage: true });
   checks++;
   // Mudança de contexto enquanto respostas antigas ainda chegam; novo finally é soberano.
   await page.goto(`${origin}/?admin=1&empresa=${empresaA}`);
@@ -159,6 +167,16 @@ try {
       `overflow ${locale}`,
     );
     await page.screenshot({ path: `${dir}/mobile-${locale}.png`, fullPage: true });
+    checks++;
+    await page.goto(`${origin}/?confirmation=1&locale=${locale}`);
+    await page.getByTestId('pace-exclusion-preview').click();
+    await page.getByRole('alertdialog').waitFor();
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
+      `overflow confirmação ${locale}`,
+    );
+    await page.screenshot({ path: `${dir}/exclusao-mobile-${locale}.png`, fullPage: true });
     checks++;
   }
   assert.deepEqual(errors, []);

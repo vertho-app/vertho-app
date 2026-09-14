@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
@@ -9,7 +9,7 @@ import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
 import {
-  loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador,
+  loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador, preverExclusaoColaborador,
   criarColaborador, exportarColaboradoresXLSX,
   loadCargos, salvarCargo, excluirCargo, sincronizarCargosDeColaboradores, importarCargosLote,
   derivarGestorEmailPorNome,
@@ -25,6 +25,7 @@ const CARGO_FIELDS = [
 
 export default function GerenciarPage() {
   const t = useTranslations('AdminCollaborators');
+  const tPace = useTranslations('SimuladorVendas');
   const router = useRouter();
   const confirmDialog = useConfirm();
   const searchParams = useSearchParams();
@@ -57,6 +58,10 @@ export default function GerenciarPage() {
   const [editData, setEditData] = useState<any>({});
   const [saving, setSaving] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  const tenantAtual = useRef<string | null>(tenantId);
+
+  useEffect(() => { tenantAtual.current = tenantId; }, [tenantId]);
 
   // `msg` renderiza no rodapé, DEPOIS da tabela inteira — numa empresa com
   // centenas de colaboradores o retorno da ação cai fora da viewport e o erro
@@ -220,15 +225,30 @@ export default function GerenciarPage() {
     notify(t('messages.exported', { count: r.n }));
   }
 
-  async function handleDelete(id, nome) {
-    const ok = await confirmDialog({
-      title: t('confirm.deleteCollaborator', { name: nome || t('fallback.collaborator') }),
-      severity: 'danger',
-    });
-    if (!ok) return;
-    const r = await excluirColaborador({ empresaId: tenantId, id });
-    if (r.success) { refresh(); notify(t('messages.collaboratorDeleted')); }
-    else notify(t('messages.error', { error: r.error }), 'error');
+  async function handleDelete(id: string, nome: string | null) {
+    const empresaId = tenantId;
+    if (!empresaId || excluindoId) return;
+    setExcluindoId(id);
+    try {
+      const previa = await preverExclusaoColaborador({ empresaId, id });
+      if (!previa.success || !previa.data) { notify(t('messages.error', { error: previa.error }), 'error'); return; }
+      const ok = await confirmDialog({
+        title: t('confirm.deleteCollaborator', { name: nome || t('fallback.collaborator') }),
+        scopeNote: tPace('exclusionImpact', { sessions: previa.data.sessoes, attempts: previa.data.tentativas }),
+        message: tPace('exclusionBackup', { days: previa.data.backupDias }),
+        severity: 'danger',
+      });
+      if (!ok) return;
+      const r = await excluirColaborador({ empresaId, id, confirmacao: previa.data.confirmacao });
+      if (r.success) {
+        if (tenantAtual.current === empresaId) await refresh();
+        notify(t('messages.collaboratorDeleted'));
+      } else notify(t('messages.error', { error: r.error }), 'error');
+    } catch {
+      notify(tPace('exclusionUnavailable'), 'error');
+    } finally {
+      setExcluindoId(null);
+    }
   }
 
   async function handleSyncCargos() {
@@ -519,7 +539,14 @@ export default function GerenciarPage() {
                               <td className="px-4 py-2 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   <button onClick={() => startEdit(c)} className="text-gray-600 hover:text-cyan-400"><Pencil size={13} /></button>
-                                  <button onClick={() => handleDelete(c.id, c.nome_completo)} className="text-gray-600 hover:text-red-400"><Trash2 size={13} /></button>
+                                  <button
+                                    onClick={() => handleDelete(c.id, c.nome_completo)}
+                                    disabled={excluindoId !== null}
+                                    aria-label={t('confirm.deleteCollaborator', { name: c.nome_completo || t('fallback.collaborator') })}
+                                    className="text-gray-600 hover:text-red-400 disabled:opacity-40"
+                                  >
+                                    {excluindoId === c.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                  </button>
                                 </div>
                               </td>
                             </>

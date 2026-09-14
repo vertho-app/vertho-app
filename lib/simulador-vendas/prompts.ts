@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import type { Etapa } from './schema';
+import { TRACOS_DIVERSIDADE } from './diversidade';
 
 // Base RNaves 2.1.1, contrato Vertho v2. O catálogo preserva cada versão literalmente.
 const TEXTOS: Record<Etapa, string> = {
@@ -23,16 +24,7 @@ const TEXTOS: Record<Etapa, string> = {
     '',
     'Para evitar arquétipos repetitivos, antes de criar o personagem escolha mentalmente UM traço dominante entre os abaixo (ou use `{{seed_diversidade}}` se fornecido, ou evite os listados em `{{tracos_anteriores}}`). O personagem inteiro deve respirar esse traço.',
     '',
-    '- Cético de alta exigência técnica',
-    '- Entusiasmado mas burocrático (depende do comitê)',
-    '- Sob forte pressão de prazo',
-    '- Veterano cansado de promessas vazias',
-    '- Recém-promovido tentando provar valor',
-    '- Inovador frustrado com a lentidão da empresa',
-    '- Tradicionalista resistente a mudanças',
-    '- Negociador agressivo focado em preço',
-    '- Relacional, decide por confiança',
-    '- Analítico extremo, decide só por dados',
+    ...TRACOS_DIVERSIDADE.map((traco) => `- ${traco}`),
     '',
     '## Personalidade DISC (obrigatória)',
     '',
