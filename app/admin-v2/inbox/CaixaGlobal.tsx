@@ -369,7 +369,6 @@ export default function CaixaGlobal() {
           onAtualizar={atualizar}
           onVoltar={fechar}
           numeros={numeros}
-          numeros={numeros}
           contexto={caixa.empresas.find((e) => e.id === ativa?.empresaId)?.nome ?? null}
           anexo={anexo}
           onAnexar={anexar}

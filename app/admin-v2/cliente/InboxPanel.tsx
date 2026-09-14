@@ -193,7 +193,6 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
           onAtualizar={atualizar}
           onVoltar={fechar}
           numeros={numeros}
-          numeros={numeros}
           anexo={anexo}
           onAnexar={anexar}
           onEnviarAnexo={enviarAnexo}
