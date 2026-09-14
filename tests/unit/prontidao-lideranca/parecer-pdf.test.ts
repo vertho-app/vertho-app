@@ -19,13 +19,12 @@ const linha: LinhaMatriz = {
     ],
   },
   estilo: { colaboradorId: 'x', nome: 'Ana Souza', aderenciaPct: 61.2, estilo: 'distante', status: 'abaixo_do_corte', statusLabel: 'Abaixo do corte', bloqueadoNoAlvo: false, motivosBloqueio: [], lacunas: [{ traco: 'Comando', bloco: 'Competencia', fitPct: 40 }], borderline: false },
-  frasesGap: ['Delegação — média 2,40 (corte 3,00)'],
-  ehExemplar: true,
+  frasesGap: ['Delegação: média 2,40 (corte 3,00)'],
   auditoriaPendente: true,
 };
 
 const parecer: Parecer = {
-  linha, calculadoEm: '2026-09-13T15:00:00Z', cargoAlvo: 'Gerente Comercial', corte: 3, banda: 0.33,
+  linha, calculadoEm: '2026-09-13T15:00:00Z', cargoAlvo: 'Gerente Comercial', corte: 3,
   evidencias: [
     { respostaId: 'r1', competenciaId: 'c1', competencia: 'Priorização', auditoria: 'aprovado', avaliadoEm: null, feedback: null, descritores: [
       { descritor: 'Foco no que move o número', nota: 3.8, nivelSugerido: 4, confianca: 0.9, sustentacao: 'forte', racional: null, limites: [], evidencias: [{ resposta: 'R1', trecho: 'listei as três contas que decidem o trimestre antes de abrir a agenda', forca: 'forte' }] },
@@ -37,11 +36,11 @@ const parecer: Parecer = {
 };
 
 const consolidado: ProntidaoLideranca = {
-  cargoAlvo: 'Gerente Comercial', competencias: ['Priorização', 'Delegação'], calculadoEm: '2026-09-13T15:00:00Z', corte: 3, banda: 0.33,
-  populacao: 4, linhas: [linha], porQuadrante: { pronta: 0, pronta_com_custo: 1, potencial: 0, nao_agora: 0, revisar: 0 },
+  cargoAlvo: 'Gerente Comercial', competencias: ['Priorização', 'Delegação'], calculadoEm: '2026-09-13T15:00:00Z', corte: 3,
+  populacao: 4, linhas: [linha], porQuadrante: { pronta: 0, pronta_com_custo: 1, potencial: 0, nao_agora: 0 },
   incompletos: [{ colaboradorId: 'b', nome: 'Bia', cargo: 'SDR', cobertas: 1, total: 2, faltantes: ['Delegação'] }],
   semEstilo: [{ colaboradorId: 'c', nome: 'Caio', cargo: null, motivo: 'sem perfil comportamental' }],
-  naoIniciados: 1, exemplares: [linha.colaboradorId], faixas: { recomendadoMin: 86.5, ressalvasMin: 75.4 },
+  naoIniciados: 1, faixas: { recomendadoMin: 86.5, ressalvasMin: 75.4 },
   avisos: ['2 medida(s) do gabarito do alvo não discriminam neste pool (ver Calibração do gabarito).'],
 };
 

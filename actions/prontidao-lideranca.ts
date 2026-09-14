@@ -1,15 +1,15 @@
 'use server';
 /**
- * Prontidão para Liderança — as portas de entrada pela web.
+ * Prontidão para Liderança: as portas de entrada pela web.
  *
- * Molde: `actions/ranking-adequacao.ts`. Cada leitura existe em par —
+ * Molde: `actions/ranking-adequacao.ts`. Cada leitura existe em par:
  * RH self-service (papel `rh`, empresa DA SESSÃO, nunca do argumento) e
  * preview de admin (`admin.access`, empresa da rota). Todo export aplica o
  * gate ANTES de qualquer leitura de dado; o núcleo (`lib/prontidao-lideranca/`)
  * não autoriza ninguém.
  *
  * O gate de MÓDULO vem logo depois do de sessão: módulo não contratado
- * responde com código, não com tela vazia — "vazio" e "não comprou" são coisas
+ * responde com código, não com tela vazia: "vazio" e "não comprou" são coisas
  * diferentes para quem lê.
  */
 import { getUserContext } from '@/lib/authz';
@@ -25,7 +25,7 @@ import {
   CHAVE_CONFIG, chaveCompetencia, lerConfigProntidao, validarConfigProntidao, type ConfigProntidaoLideranca,
 } from '@/lib/prontidao-lideranca/config';
 import {
-  agregarProntidaoLideranca, carregarParecer, carregarCalibragem, carregarCargosParaValidacao, carregarPopulacao,
+  agregarProntidaoLideranca, carregarParecer, carregarCargosParaValidacao, carregarPopulacao,
 } from '@/lib/prontidao-lideranca/agregar';
 
 type Falha = { success: false; error: string; code?: string };
@@ -68,7 +68,7 @@ async function programa(sb: any, empresaId: string): Promise<{ cfg: ConfigPronti
 
 /**
  * Render + Storage + link assinado (molde `_exportarPDF` do ranking). O PDF é
- * VIEW do que a agregação calculou agora — por isso o nome carrega o instante.
+ * VIEW do que a agregação calculou agora, por isso o nome carrega o instante.
  */
 async function _exportar(sb: any, empresaId: string, alvo: { tipo: 'parecer'; colaboradorId: string } | { tipo: 'consolidado' }) {
   try {
@@ -89,7 +89,7 @@ async function _exportar(sb: any, empresaId: string, alvo: { tipo: 'parecer'; co
       buffer = await renderConsolidadoPDF({ empresaNome: p.nome, data });
       sufixo = 'consolidado';
     }
-    // Bucket PRIVADO (`conteudos` é público — `storage.buckets.public = true`,
+    // Bucket PRIVADO (`conteudos` é público: `storage.buckets.public = true`,
     // medido 13/09) e path DETERMINÍSTICO por (empresa, pessoa): cada export
     // sobrescreve o anterior em vez de acumular um arquivo nominal por clique.
     // O link é assinado (30 min); sem ele a URL não abre.
@@ -156,7 +156,7 @@ export async function getParecerLiderancaAdmin(empresaId: string, colaboradorId:
   return _parecer(sb, empresaId, colaboradorId);
 }
 
-/** Tudo que a aba de configuração precisa: estado atual, cargos elegíveis, turmas e pessoas (para escolher exemplares). */
+/** Tudo que a aba de configuração precisa: estado atual, cargos elegíveis e turmas. */
 export async function getConfigProntidaoAdmin(empresaId: string) {
   const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'getConfigProntidaoAdmin');
   try {
@@ -167,10 +167,10 @@ export async function getConfigProntidaoAdmin(empresaId: string) {
     const [cargos, turmas, pessoas] = await Promise.all([
       carregarCargosParaValidacao(sb, empresaId),
       listarTurmasDoTenant(sb, empresaId),
-      carregarPopulacao(sb, empresaId, { cargo_alvo: '', exemplares: [], escopo: { tipo: 'empresa_inteira' }, um_por_dia: true, corte_nota: 3, banda: 0.33 }),
+      carregarPopulacao(sb, empresaId, { cargo_alvo: '', escopo: { tipo: 'empresa_inteira' }, um_por_dia: true, corte_nota: 3 }),
     ]);
     const validacao = cfg
-      ? validarConfigProntidao(cfg, { cargos, cargosDaPopulacao: pessoas.map((p) => p.cargo || ''), colaboradorIdsDoTenant: new Set(pessoas.map((p) => p.id)) })
+      ? validarConfigProntidao(cfg, { cargos, cargosDaPopulacao: pessoas.map((p) => p.cargo || '') })
       : null;
     return {
       success: true as const,
@@ -179,7 +179,7 @@ export async function getConfigProntidaoAdmin(empresaId: string) {
       validacao,
       cargos: cargos.filter((c) => c.temGabarito || c.top5.length),
       turmas: (turmas || []).map((t: any) => ({ id: t.id, nome: t.nome, status: t.status })),
-      pessoas: pessoas.map((p) => ({ id: p.id, nome: p.nome, cargo: p.cargo })),
+      populacao: pessoas.length,
     };
   } catch (e: any) {
     return { success: false as const, error: e?.message || 'Erro ao carregar a configuração.' };
@@ -187,13 +187,11 @@ export async function getConfigProntidaoAdmin(empresaId: string) {
 }
 
 /**
- * Grava `sys_config.prontidao_lideranca` — read-modify-write do objeto inteiro
+ * Grava `sys_config.prontidao_lideranca`: read-modify-write do objeto inteiro
  * (padrão de `actions/perfil-externo.ts`). Fail-closed: configuração inválida
  * não é gravada, e os erros voltam nomeados.
- */
-/**
- * Gate `program.configure` — a única chave que exclui o `rh` E o `socio`.
  *
+ * Gate `program.configure`, a única chave que exclui o `rh` E o `socio`.
  * `settings.company.manage` (o gate original) o `rh` tem; `admin.access` o
  * `socio` tem, e `autorizarEmpresa` libera qualquer `isPlatformAdmin`. Num
  * `'use server'` todo export é endpoint HTTP: com qualquer uma das duas, alguém
@@ -206,19 +204,13 @@ export async function salvarConfigProntidaoAdmin(empresaId: string, cfgRaw: unkn
   try {
     const cfg = lerConfigProntidao({ [CHAVE_CONFIG]: cfgRaw });
     if (!cfg) return { success: false as const, error: 'Informe o cargo-alvo.', erros: ['Informe o cargo-alvo.'] };
-    // Os exemplares são validados contra o TENANT inteiro, não contra o escopo:
-    // líder de referência costuma ocupar o cargo-alvo e não estar na turma dos
-    // participantes — com o escopo, a validação recusava exatamente eles.
-    const todaEmpresa: ConfigProntidaoLideranca = { ...cfg, escopo: { tipo: 'empresa_inteira' } };
-    const [cargos, pessoasDoEscopo, pessoasDoTenant] = await Promise.all([
+    const [cargos, pessoasDoEscopo] = await Promise.all([
       carregarCargosParaValidacao(sb, empresaId),
       carregarPopulacao(sb, empresaId, cfg),
-      carregarPopulacao(sb, empresaId, todaEmpresa),
     ]);
     const validacao = validarConfigProntidao(cfg, {
       cargos,
       cargosDaPopulacao: pessoasDoEscopo.map((p) => p.cargo || ''),
-      colaboradorIdsDoTenant: new Set(pessoasDoTenant.map((p) => p.id)),
     });
     if (!validacao.ok) return { success: false as const, error: validacao.erros[0], erros: validacao.erros, avisos: validacao.avisos };
     // Grava o nome CANÔNICO do cargo (o da linha em cargos_empresa), não o texto
@@ -231,7 +223,7 @@ export async function salvarConfigProntidaoAdmin(empresaId: string, cfgRaw: unkn
     await logAdminAction({
       adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
       acao: 'prontidao_lideranca.configurar', empresaId, alvo: 'sys_config.prontidao_lideranca',
-      detalhes: { cargo_alvo: cfgCanonica.cargo_alvo, exemplares: cfgCanonica.exemplares.length, escopo: cfgCanonica.escopo.tipo, corte: cfgCanonica.corte_nota, banda: cfgCanonica.banda },
+      detalhes: { cargo_alvo: cfgCanonica.cargo_alvo, escopo: cfgCanonica.escopo.tipo, corte: cfgCanonica.corte_nota },
     });
     return { success: true as const, cfg: cfgCanonica, avisos: validacao.avisos };
   } catch (e: any) {
@@ -242,7 +234,7 @@ export async function salvarConfigProntidaoAdmin(empresaId: string, cfgRaw: unkn
 /**
  * Liga/desliga QUALQUER módulo contratado em `sys_config.modulos.<nome>`.
  *
- * Genérica de propósito: o Pulso existe desde a mig 096 e nunca teve porta —
+ * Genérica de propósito: o Pulso existe desde a mig 096 e nunca teve porta:
  * a `remediation` do gate manda "ativar no painel da empresa (Configurações →
  * Módulos)", e essa aba nunca existiu; ligar exigia UPDATE no banco. Um
  * `setModuloProntidaoAdmin` teria repetido o buraco no módulo seguinte.
@@ -273,18 +265,6 @@ export async function setModuloProntidaoAdmin(empresaId: string, ligado: boolean
   return setModuloAdmin(empresaId, MODULOS.PRONTIDAO_LIDERANCA, ligado);
 }
 
-/** Calibragem: onde o instrumento coloca os líderes de referência. */
-export async function getCalibragemAdmin(empresaId: string) {
-  const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'getCalibragemAdmin');
-  try {
-    const p = await programa(sb, empresaId);
-    if ('error' in p) return p;
-    const data = await carregarCalibragem(sb, empresaId, p.cfg);
-    return { success: true as const, data };
-  } catch (e: any) {
-    return { success: false as const, error: e?.message || 'Erro ao calcular a calibragem.' };
-  }
-}
 
 // ── PDF: parecer individual e consolidado da equipe ───────────────────────────
 

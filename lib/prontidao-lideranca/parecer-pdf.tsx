@@ -1,11 +1,11 @@
 /**
- * PDF do PARECER DE PRONTIDÃO (individual) e do CONSOLIDADO da equipe —
+ * PDF do PARECER DE PRONTIDÃO (individual) e do CONSOLIDADO da equipe:
  * @react-pdf/renderer, no molde visual de `lib/adequacao-cargo/ranking-pdf.tsx`
  * (Tinta & Sinal, Fraunces + Inter).
  *
  * VIEW PURA do que a agregação calculou: não recomputa, não chama IA. As
  * frases de gap chegam ANCORADAS (competência + média + corte) e são impressas
- * como vieram — o PDF não reescreve o parecer.
+ * como vieram: o PDF não reescreve o parecer.
  *
  * ⚠️ Nada de "→" no texto: a subset Inter dos PDFs não cobre a seta e o glifo
  * sai em branco (medido: 19 glifos fora do subset). Usa "—".
@@ -37,7 +37,6 @@ const COR_Q: Record<Quadrante, { cor: string; fundo: string }> = {
   pronta_com_custo: { cor: T.clay, fundo: CL.zClay },
   potencial: { cor: T.teal, fundo: CL.zCyan },
   nao_agora: { cor: T.vermelho, fundo: CL.zVerm },
-  revisar: { cor: T.lilas, fundo: CL.zLilas },
 };
 
 const s = StyleSheet.create({
@@ -58,7 +57,7 @@ const s = StyleSheet.create({
   quote: { fontSize: 8.5, color: T.ink, marginLeft: 10, marginTop: 2, borderLeftWidth: 2, borderLeftColor: CL.linha, paddingLeft: 6 },
 });
 
-const DISCLAIMER = 'Apoio à decisão. Este documento organiza o que a pessoa demonstrou e o que o perfil dela indica — não decide por ninguém. O parecer é insumo da empresa; a decisão é dela.';
+const DISCLAIMER = 'Apoio à decisão. Este documento organiza o que a pessoa demonstrou e o que o perfil dela indica, sem decidir por ninguém. O parecer é insumo da empresa; a decisão é dela.';
 const fmtNota = (v: number | null | undefined) => (v == null ? '—' : Number(v).toFixed(2).replace('.', ','));
 const fmtPct = (v: number | null | undefined) => (v == null ? '—' : `${Number(v).toFixed(1).replace('.', ',')}%`);
 const fmtDataHora = (iso: string) => {
@@ -97,16 +96,15 @@ function CapaParecer({ p, empresaNome }: { p: Parecer; empresaNome: string }) {
       <View style={{ marginTop: 120 }}>
         <Text style={s.eyebrowDark}>Parecer de prontidão para liderança</Text>
         <Text style={s.h1}>{l.nome}</Text>
-        <Text style={{ color: T.off, opacity: 0.8, marginTop: 4, fontSize: 10 }}>{l.cargo || 'sem cargo'}  —  perfil-alvo: {p.cargoAlvo}</Text>
+        <Text style={{ color: T.off, opacity: 0.8, marginTop: 4, fontSize: 10 }}>{l.cargo || 'sem cargo'}  ·  perfil-alvo: {p.cargoAlvo}</Text>
         <View style={{ marginTop: 22, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
           <Pill q={l.quadrante as Quadrante} />
-          {l.ehExemplar && <Text style={[s.pill, { color: T.clay, backgroundColor: 'rgba(224,161,86,0.18)' }]}>líder de referência</Text>}
         </View>
         <Text style={{ color: T.off, opacity: 0.85, marginTop: 18, fontSize: 9.5, lineHeight: 1.5, maxWidth: 420 }}>{RECOMENDACAO_POR_QUADRANTE[l.quadrante as Quadrante]}</Text>
       </View>
       <View style={{ position: 'absolute', bottom: 46, left: 46, right: 46 }}>
         <View style={s.row}>
-          <View><Text style={s.eyebrowDark}>Competência demonstrada</Text><Text style={{ fontFamily: DISPLAY, fontSize: 22, color: T.off }}>{fmtNota(l.posicao.mediaGeral)}</Text><Text style={{ fontSize: 7.5, color: T.off, opacity: 0.7 }}>média geral · corte {fmtNota(p.corte)} ± {fmtNota(p.banda)}</Text></View>
+          <View><Text style={s.eyebrowDark}>Competência demonstrada</Text><Text style={{ fontFamily: DISPLAY, fontSize: 22, color: T.off }}>{fmtNota(l.posicao.mediaGeral)}</Text><Text style={{ fontSize: 7.5, color: T.off, opacity: 0.7 }}>média geral · corte {fmtNota(p.corte)}</Text></View>
           <View><Text style={s.eyebrowDark}>Aderência de estilo</Text><Text style={{ fontFamily: DISPLAY, fontSize: 22, color: T.off }}>{fmtPct(l.estilo.aderenciaPct)}</Text><Text style={{ fontSize: 7.5, color: T.off, opacity: 0.7 }}>{ESTILO_LABEL[l.estilo.estilo]}</Text></View>
           <View><Text style={s.eyebrowDark}>Calculado em</Text><Text style={{ fontSize: 10, color: T.off, marginTop: 6 }}>{fmtDataHora(p.calculadoEm)}</Text><Text style={{ fontSize: 7.5, color: T.off, opacity: 0.7 }}>não é snapshot</Text></View>
         </View>
@@ -122,7 +120,7 @@ function PaginaPosicao({ p, empresaNome }: { p: Parecer; empresaNome: string }) 
       <Text style={s.eyebrow}>Camada 1 · o que a pessoa demonstrou</Text>
       <Text style={s.h2}>Posição por competência</Text>
       <View style={s.card}>
-        <View style={s.row}><Text style={s.h3}>Média geral {fmtNota(l.posicao.mediaGeral)} — {POSICAO_LABEL[l.posicao.posicao!]}</Text><Text style={s.small}>corte {fmtNota(p.corte)} · banda ±{fmtNota(p.banda)}</Text></View>
+        <View style={s.row}><Text style={s.h3}>Média geral {fmtNota(l.posicao.mediaGeral)} · {POSICAO_LABEL[l.posicao.posicao!]}</Text><Text style={s.small}>corte {fmtNota(p.corte)}</Text></View>
         {l.posicao.competencias.map((c) => (
           <View key={c.competencia} style={[s.linha, s.row]}>
             <Text style={{ flex: 1, color: c.gap ? T.vermelho : T.ink }}>{c.competencia}{c.parcial ? ' *' : ''}</Text>
@@ -134,7 +132,7 @@ function PaginaPosicao({ p, empresaNome }: { p: Parecer; empresaNome: string }) 
         ))}
         {l.posicao.parciais.length > 0 && (
           <Text style={{ marginTop: 8, color: T.clay }}>
-            * {l.posicao.parciais.join(', ')} — coberta(s) por menos de {DESCRITORES_MIN_CONFIAVEL} descritores. A média ali é sinal fraco: leia as evidências antes de usá-la.
+            * {l.posicao.parciais.join(', ')} · coberta(s) por menos de {DESCRITORES_MIN_CONFIAVEL} descritores. A média ali é sinal fraco: leia as evidências antes de usá-la.
           </Text>
         )}
         {l.frasesGap.length > 0 && (
@@ -149,7 +147,7 @@ function PaginaPosicao({ p, empresaNome }: { p: Parecer; empresaNome: string }) 
       <Text style={s.eyebrow}>Camada 2 · leitura de estilo (não decide)</Text>
       <Text style={s.h2}>Aderência ao perfil-alvo</Text>
       <View style={s.card}>
-        <View style={s.row}><Text style={s.h3}>{fmtPct(l.estilo.aderenciaPct)} — {ESTILO_LABEL[l.estilo.estilo]}</Text><Text style={s.small}>{l.estilo.statusLabel}</Text></View>
+        <View style={s.row}><Text style={s.h3}>{fmtPct(l.estilo.aderenciaPct)} · {ESTILO_LABEL[l.estilo.estilo]}</Text><Text style={s.small}>{l.estilo.statusLabel}</Text></View>
         <Text style={{ color: T.mute, marginBottom: 6, lineHeight: 1.4 }}>O estilo mostra onde o papel vai custar mais energia. Ele não altera a posição: os quatro blocos do perfil derivam da mesma medida comportamental e não separam cargos vizinhos.</Text>
         {l.estilo.bloqueadoNoAlvo && <Text style={{ color: T.clay, marginBottom: 6 }}>Requisito eliminatório do gabarito não atendido: {l.estilo.motivosBloqueio.join('; ') || 'ver gabarito'}. Aqui é leitura, não desqualificação.</Text>}
         {l.estilo.lacunas.length ? l.estilo.lacunas.map((g) => (
@@ -174,8 +172,8 @@ function PaginaEvidencias({ p, empresaNome }: { p: Parecer; empresaNome: string 
           </View>
           {ev.descritores.length ? ev.descritores.map((d) => (
             <View key={d.descritor} style={{ marginTop: 4 }}>
-              <Text><Text style={{ fontWeight: 600 }}>{d.descritor}</Text> — {fmtNota(d.nota)}{d.sustentacao ? ` · sustentação ${d.sustentacao}` : ''}</Text>
-              {d.evidencias.map((e, i) => <Text key={i} style={s.quote}>“{e.trecho}” <Text style={s.mute}>— {e.resposta}{e.forca ? `, ${e.forca}` : ''}</Text></Text>)}
+              <Text><Text style={{ fontWeight: 600 }}>{d.descritor}</Text> · {fmtNota(d.nota)}{d.sustentacao ? ` · sustentação ${d.sustentacao}` : ''}</Text>
+              {d.evidencias.map((e, i) => <Text key={i} style={s.quote}>“{e.trecho}” <Text style={s.mute}>· {e.resposta}{e.forca ? `, ${e.forca}` : ''}</Text></Text>)}
               {!d.evidencias.length && d.limites.length > 0 && <Text style={[s.quote, { color: T.clay }]}>sem trecho; limites: {d.limites.join('; ')}</Text>}
             </View>
           )) : <Text style={s.mute}>Resposta ainda não avaliada.</Text>}
@@ -189,7 +187,7 @@ function PaginaEvidencias({ p, empresaNome }: { p: Parecer; empresaNome: string 
 export async function renderParecerPDF(input: ParecerPDFInput): Promise<Buffer> {
   const { parecer: p, empresaNome } = input;
   return renderToBuffer(
-    <Document producer="Vertho" creator="Vertho" title={`Parecer de prontidão — ${p.linha.nome}`}>
+    <Document producer="Vertho" creator="Vertho" title={`Parecer de prontidão · ${p.linha.nome}`}>
       <CapaParecer p={p} empresaNome={empresaNome} />
       <PaginaPosicao p={p} empresaNome={empresaNome} />
       <PaginaEvidencias p={p} empresaNome={empresaNome} />
@@ -208,13 +206,13 @@ export async function renderConsolidadoPDF(input: ConsolidadoPDFInput): Promise<
   const { data, empresaNome } = input;
   const porQ = (q: Quadrante) => data.linhas.filter((l) => l.quadrante === q);
   return renderToBuffer(
-    <Document producer="Vertho" creator="Vertho" title={`Prontidão para liderança — ${data.cargoAlvo}`}>
+    <Document producer="Vertho" creator="Vertho" title={`Prontidão para liderança · ${data.cargoAlvo}`}>
       <Page size="A4" style={s.pageDark}>
         <View style={s.row}><Marca /><Text style={s.eyebrowDark}>{empresaNome}</Text></View>
         <View style={{ marginTop: 120 }}>
           <Text style={s.eyebrowDark}>Consolidado da equipe</Text>
           <Text style={s.h1}>Prontidão para liderança</Text>
-          <Text style={{ color: T.off, opacity: 0.8, marginTop: 4, fontSize: 10 }}>perfil-alvo: {data.cargoAlvo} — calculado em {fmtDataHora(data.calculadoEm)}</Text>
+          <Text style={{ color: T.off, opacity: 0.8, marginTop: 4, fontSize: 10 }}>perfil-alvo: {data.cargoAlvo} · calculado em {fmtDataHora(data.calculadoEm)}</Text>
           <Text style={{ color: T.off, opacity: 0.75, marginTop: 10, fontSize: 9 }}>Competências: {data.competencias.join(' · ')}</Text>
         </View>
         <View style={{ position: 'absolute', bottom: 46, left: 46, right: 46, flexDirection: 'row', gap: 14 }}>
@@ -233,7 +231,7 @@ export async function renderConsolidadoPDF(input: ConsolidadoPDFInput): Promise<
             <Text style={{ color: T.mute, marginTop: 6, marginBottom: 6, lineHeight: 1.4 }}>{RECOMENDACAO_POR_QUADRANTE[q]}</Text>
             {porQ(q).map((l) => (
               <View key={l.colaboradorId} style={[s.linha, s.row]}>
-                <Text style={{ flex: 1 }}>{l.ehExemplar ? '★ ' : ''}{l.nome} <Text style={s.mute}>· {l.cargo || '—'}</Text></Text>
+                <Text style={{ flex: 1 }}>{l.nome} <Text style={s.mute}>· {l.cargo || '—'}</Text></Text>
                 <Text style={{ width: 70, textAlign: 'right' }}>{fmtNota(l.posicao.mediaGeral)}</Text>
                 <Text style={{ width: 70, textAlign: 'right', color: T.mute }}>{fmtPct(l.estilo.aderenciaPct)}</Text>
               </View>
@@ -245,8 +243,8 @@ export async function renderConsolidadoPDF(input: ConsolidadoPDFInput): Promise<
           <View style={s.card}>
             <Text style={s.h3}>Fora da matriz</Text>
             {data.naoIniciados > 0 && <Text>{data.naoIniciados} não iniciaram o mapeamento de liderança.</Text>}
-            {data.incompletos.map((i) => <Text key={i.colaboradorId}>{i.nome} — mapeamento incompleto ({i.cobertas}/{i.total}; faltam {i.faltantes.join(', ')})</Text>)}
-            {data.semEstilo.map((x) => <Text key={x.colaboradorId}>{x.nome} — {x.motivo}</Text>)}
+            {data.incompletos.map((i) => <Text key={i.colaboradorId}>{i.nome} · mapeamento incompleto ({i.cobertas}/{i.total}; faltam {i.faltantes.join(', ')})</Text>)}
+            {data.semEstilo.map((x) => <Text key={x.colaboradorId}>{x.nome} · {x.motivo}</Text>)}
           </View>
         )}
         {data.avisos.length > 0 && (

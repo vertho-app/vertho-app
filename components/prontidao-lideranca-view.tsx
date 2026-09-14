@@ -1,21 +1,22 @@
 'use client';
 /**
- * PRONTIDÃO PARA LIDERANÇA — a matriz de duas camadas, por pessoa.
+ * PRONTIDÃO PARA LIDERANÇA: a matriz de duas camadas, por pessoa.
  *
  * Componente compartilhado (RH self-service e preview de admin), no padrão de
  * `prontidao-cargo-view`: as actions entram por prop, uma tela serve os dois
  * escopos. Sem IA na leitura: tudo aqui é o que o núcleo puro calculou.
  *
  * O que a tela diz de propósito:
- *  1. "Calculado em <hora>" — não é snapshot; recomputa a cada abertura.
- *  2. A zona de revisão fica FORA da matriz, com lista própria: quem cai na
- *     banda do instrumento não é classificado por máquina.
- *  3. Cada gap vem com a média e o corte na mesma frase — rótulo sem número não
+ *  1. "Calculado em <hora>": não é snapshot, recomputa a cada abertura.
+ *  2. Os dois eixos da matriz são CRESCENTES e as pontas vêm rotuladas com
+ *     baixa/alta. Uma seta sozinha se lê nos dois sentidos, e a posição de cada
+ *     quadrante só significa alguma coisa se o sentido do eixo for inequívoco.
+ *  3. Cada gap vem com a média e o corte na mesma frase: rótulo sem número não
  *     aparece em lugar nenhum.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, ChevronDown, ChevronUp, FileText, Star, AlertTriangle } from 'lucide-react';
-import { QUADRANTE_LABEL, RECOMENDACAO_POR_QUADRANTE, ORDEM_QUADRANTES, type Quadrante } from '@/lib/prontidao-lideranca/matriz';
+import { Loader2, ChevronDown, ChevronUp, FileText, AlertTriangle } from 'lucide-react';
+import { QUADRANTE_LABEL, RECOMENDACAO_POR_QUADRANTE, ORDEM_QUADRANTES, GRID_QUADRANTES, type Quadrante } from '@/lib/prontidao-lideranca/matriz';
 import { POSICAO_LABEL } from '@/lib/prontidao-lideranca/posicao';
 import { ESTILO_LABEL } from '@/lib/prontidao-lideranca/estilo';
 
@@ -30,12 +31,14 @@ function horaBr(iso: string): string {
   return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+/** Colunas da lista (ver o comentário no cabeçalho da tabela). */
+const COLUNAS = { gridTemplateColumns: 'minmax(0,1fr) auto 3.5rem 5rem 1rem' } as const;
+
 const TINTA: Record<Quadrante, { cor: string; fundo: string; borda: string }> = {
   pronta: { cor: '#34D399', fundo: 'rgba(52,211,153,.10)', borda: 'rgba(52,211,153,.35)' },
   pronta_com_custo: { cor: '#FBBF24', fundo: 'rgba(251,191,36,.10)', borda: 'rgba(251,191,36,.35)' },
   potencial: { cor: '#34C5CC', fundo: 'rgba(52,197,204,.10)', borda: 'rgba(52,197,204,.35)' },
   nao_agora: { cor: '#F87171', fundo: 'rgba(248,113,113,.10)', borda: 'rgba(248,113,113,.35)' },
-  revisar: { cor: '#C4B5FD', fundo: 'rgba(196,181,253,.10)', borda: 'rgba(196,181,253,.35)' },
 };
 
 function Pill({ q }: { q: Quadrante }) {
@@ -59,7 +62,7 @@ function Celula({ q, linhas, onAbrir }: { q: Quadrante; linhas: any[]; onAbrir: 
         {linhas.map((l) => (
           <button key={l.colaboradorId} type="button" onClick={() => onAbrir(l.colaboradorId)}
             className="rounded-md px-2 py-0.5 text-[11px] text-gray-200 bg-white/[0.06] hover:bg-white/[0.12] transition">
-            {l.ehExemplar && <Star size={9} className="inline mr-1 -mt-0.5 text-amber-300" />}{l.nome}
+            {l.nome}
           </button>
         ))}
         {!linhas.length && <span className="text-[11px] text-gray-500">ninguém aqui</span>}
@@ -89,7 +92,6 @@ function Parecer({ p, corte, exportar }: { p: any; corte: number; exportar?: (id
           <p className="text-sm font-bold text-white">{l.nome} <span className="text-gray-500 font-normal">· {l.cargo || 'sem cargo'}</span></p>
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <Pill q={l.quadrante} />
-            {l.ehExemplar && <span className="text-[10px] text-amber-300 font-bold">líder de referência</span>}
             {l.auditoriaPendente && <span className="text-[10px] text-amber-300 font-bold inline-flex items-center gap-1"><AlertTriangle size={10} /> auditoria pediu revisão</span>}
           </div>
         </div>
@@ -135,7 +137,7 @@ function Parecer({ p, corte, exportar }: { p: any; corte: number; exportar?: (id
           <p className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500 mb-2">Estilo · leitura, não veredito</p>
           <p className="text-xs text-gray-400 mb-2">Aderência ao perfil-alvo <b className="text-white">{fmtPct(l.estilo.aderenciaPct)}</b> · {ESTILO_LABEL[l.estilo.estilo as keyof typeof ESTILO_LABEL]}</p>
           {l.estilo.bloqueadoNoAlvo && (
-            <p className="text-[11px] text-amber-300 mb-2">Requisito eliminatório do gabarito não atendido: {l.estilo.motivosBloqueio.join('; ') || 'ver gabarito'}. Aqui é leitura de onde o papel vai custar mais — não desqualifica.</p>
+            <p className="text-[11px] text-amber-300 mb-2">Requisito eliminatório do gabarito não atendido: {l.estilo.motivosBloqueio.join('; ') || 'ver gabarito'}. Aqui é leitura de onde o papel vai custar mais, e não desqualifica.</p>
           )}
           {l.estilo.lacunas.length > 0 ? (
             <ul className="space-y-1">
@@ -164,7 +166,7 @@ function Parecer({ p, corte, exportar }: { p: any; corte: number; exportar?: (id
                     <li key={d.descritor} className="text-[11px]">
                       <p className="text-gray-200"><b>{d.descritor}</b> · {fmtNota(d.nota)}{d.sustentacao ? ` · sustentação ${d.sustentacao}` : ''}</p>
                       {d.evidencias.map((e: any, i: number) => (
-                        <p key={i} className="ml-2 text-gray-400 italic">“{e.trecho}” <span className="not-italic text-gray-600">— {e.resposta}{e.forca ? `, ${e.forca}` : ''}</span></p>
+                        <p key={i} className="ml-2 text-gray-400 italic">“{e.trecho}” <span className="not-italic text-gray-600">· {e.resposta}{e.forca ? `, ${e.forca}` : ''}</span></p>
                       ))}
                       {!d.evidencias.length && d.limites.length > 0 && <p className="ml-2 text-amber-300/80">sem trecho; limites: {d.limites.join('; ')}</p>}
                     </li>
@@ -237,7 +239,7 @@ export default function ProntidaoLiderancaView({ carregar, parecer, exportarPare
   }
 
   const porQuadrante = useMemo(() => {
-    const m: Record<Quadrante, any[]> = { pronta: [], pronta_com_custo: [], potencial: [], nao_agora: [], revisar: [] };
+    const m: Record<Quadrante, any[]> = { pronta: [], pronta_com_custo: [], potencial: [], nao_agora: [] };
     for (const l of data?.linhas || []) m[l.quadrante as Quadrante].push(l);
     return m;
   }, [data]);
@@ -260,7 +262,7 @@ export default function ProntidaoLiderancaView({ carregar, parecer, exportarPare
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-widest text-purple-300">Prontidão para liderança</p>
             <h2 className="text-lg font-black text-white">Perfil-alvo: {data.cargoAlvo}</h2>
-            <p className="text-xs text-gray-400 mt-1">Calculado em {horaBr(data.calculadoEm)} · {data.populacao} pessoas na população · corte {fmtNota(data.corte)} ± {fmtNota(data.banda)}</p>
+            <p className="text-xs text-gray-400 mt-1">Calculado em {horaBr(data.calculadoEm)} · {data.populacao} pessoas na população · corte {fmtNota(data.corte)}</p>
           </div>
           <div className="flex flex-wrap gap-1 max-w-md">
             {data.competencias.map((c: string) => <span key={c} className="rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-gray-300">{c}</span>)}
@@ -285,30 +287,44 @@ export default function ProntidaoLiderancaView({ carregar, parecer, exportarPare
         )}
       </div>
 
-      {/* Matriz 2×2: Y = competência demonstrada (cima demonstra), X = estilo (direita aderente) */}
-      <div className="grid gap-2 md:grid-cols-[auto_1fr]">
-        <div className="hidden md:flex items-center justify-center"><span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>competência demonstrada →</span></div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Celula q="pronta_com_custo" linhas={porQuadrante.pronta_com_custo} onAbrir={abrir} />
-          <Celula q="pronta" linhas={porQuadrante.pronta} onAbrir={abrir} />
-          <Celula q="nao_agora" linhas={porQuadrante.nao_agora} onAbrir={abrir} />
-          <Celula q="potencial" linhas={porQuadrante.potencial} onAbrir={abrir} />
-        </div>
-        <div className="hidden md:block" />
-        <p className="text-center text-[10px] font-extrabold uppercase tracking-widest text-gray-500">aderência de estilo ao perfil-alvo →</p>
-      </div>
+      {/*
+        Matriz 2x2 com os dois eixos CRESCENTES, lida do `GRID_QUADRANTES` (fonte
+        única, para a ordem não divergir aqui e no PDF). Cada eixo tem as pontas
+        rotuladas baixa/alta: uma seta sozinha se lê nos dois sentidos, e sem o
+        sentido inequívoco a posição do quadrante não informa nada.
 
-      {porQuadrante.revisar.length > 0 && (
-        <div className="rounded-xl p-3" style={{ background: TINTA.revisar.fundo, border: `1px solid ${TINTA.revisar.borda}` }}>
-          <p className="text-xs font-extrabold mb-1" style={{ color: TINTA.revisar.cor }}>Zona de revisão · {porQuadrante.revisar.length}</p>
-          <p className="text-[11px] text-gray-400 mb-2">Média dentro de ±{fmtNota(data.banda)} do corte: a releitura do instrumento sozinha move esse número. Leitura humana com as evidências.</p>
-          <div className="flex flex-wrap gap-1">
-            {porQuadrante.revisar.map((l: any) => (
-              <button key={l.colaboradorId} type="button" onClick={() => abrir(l.colaboradorId)} className="rounded-md px-2 py-0.5 text-[11px] text-gray-200 bg-white/[0.06] hover:bg-white/[0.12]">{l.nome}</button>
-            ))}
-          </div>
+        O alinhamento do eixo X é ESTRUTURAL: ele é uma célula do mesmo grid,
+        em `md:col-start-3`, a coluna das células. A primeira tentativa repetia
+        o bloco do eixo Y invisível como espelho, e o espelho saiu com largura
+        ZERO (o `hidden` venceu o `md:flex`), então o alinhamento que apareceu
+        na tela era coincidência.
+
+        Os rótulos seguem o MESMO breakpoint das células (`sm`, 640px). Com eles
+        em `md` havia uma faixa de 640 a 768 onde a matriz aparecia 2x2 e o
+        sentido dos eixos não: matriz sem eixo declarado é a ambiguidade que
+        este bloco existe para fechar. Abaixo de 640 as células empilham e aí
+        não há eixo nenhum a declarar.
+      */}
+      <div className="grid grid-cols-1 gap-x-2 gap-y-1.5 sm:grid-cols-[auto_auto_1fr]">
+        <div className="hidden sm:flex sm:row-span-2 items-center justify-center">
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-gray-500" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+            competência demonstrada
+          </span>
         </div>
-      )}
+        <div className="hidden sm:flex sm:row-span-2 flex-col justify-between py-3 text-[9px] font-bold uppercase tracking-wider text-gray-600">
+          <span>alta</span>
+          <span>baixa</span>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 sm:row-span-2">
+          {GRID_QUADRANTES.map((q) => <Celula key={q} q={q} linhas={porQuadrante[q]} onAbrir={abrir} />)}
+        </div>
+        <div className="sm:col-start-3">
+          <div className="flex justify-between text-[9px] font-bold uppercase tracking-wider text-gray-600">
+            <span>baixa</span><span>alta</span>
+          </div>
+          <p className="text-center text-[10px] font-extrabold uppercase tracking-widest text-gray-500">aderência de estilo ao perfil-alvo</p>
+        </div>
+      </div>
 
       {(data.incompletos.length > 0 || data.semEstilo.length > 0 || data.naoIniciados > 0) && (
         <div className="rounded-xl border border-white/[0.06] p-3 text-[11px] text-gray-400 space-y-1" style={{ background: '#0F2A4A' }}>
@@ -319,16 +335,29 @@ export default function ProntidaoLiderancaView({ carregar, parecer, exportarPare
       )}
 
       <div className="rounded-2xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
-        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 px-4 py-2 text-[10px] font-extrabold uppercase tracking-widest text-gray-500 border-b border-white/[0.06]">
-          <span>Pessoa</span><span>Quadrante</span><span className="text-right">Média</span><span className="text-right">Aderência</span>
+        {/*
+          Colunas com largura FIXA em vez de `auto`: com `auto` as três da direita
+          encolhem até o conteúdo e encostam umas nas outras, e o cabeçalho sai
+          embolado (visto em 14/09). O chevron ganha coluna própria para não
+          empurrar o número da aderência.
+
+          ⚠️ Vai por `style`, não por classe do Tailwind: a classe arbitrária
+          `grid-cols-[minmax(0,1fr)_...]` NÃO é gerada (a vírgula quebra o
+          parser), e o efeito é silencioso: a classe fica no DOM, o CSS não
+          existe e o grid cai para UMA coluna. Medido em 14/09, com
+          `gridTemplateColumns` computado em `1007.74px`. Nenhum teste vê isso.
+        */}
+        <div className="grid gap-x-4 px-4 py-2 text-[10px] font-extrabold uppercase tracking-widest text-gray-500 border-b border-white/[0.06]" style={COLUNAS}>
+          <span>Pessoa</span><span className="text-center">Quadrante</span><span className="text-right">Média</span><span className="text-right">Aderência</span><span />
         </div>
         {data.linhas.map((l: any) => (
           <div key={l.colaboradorId} className="border-b border-white/[0.04] last:border-b-0">
-            <button type="button" onClick={() => abrir(l.colaboradorId)} className="w-full grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center px-4 py-2.5 text-left hover:bg-white/[0.03]">
-              <span className="text-sm text-white truncate">{l.ehExemplar && <Star size={11} className="inline mr-1 -mt-0.5 text-amber-300" />}{l.nome} <span className="text-gray-500 text-xs">· {l.cargo || '—'}</span>{l.auditoriaPendente && <AlertTriangle size={11} className="inline ml-1 -mt-0.5 text-amber-300" />}</span>
-              <Pill q={l.quadrante} />
+            <button type="button" onClick={() => abrir(l.colaboradorId)} className="w-full grid gap-x-4 items-center px-4 py-2.5 text-left hover:bg-white/[0.03]" style={COLUNAS}>
+              <span className="text-sm text-white truncate">{l.nome} <span className="text-gray-500 text-xs">· {l.cargo || '—'}</span>{l.auditoriaPendente && <AlertTriangle size={11} className="inline ml-1 -mt-0.5 text-amber-300" />}</span>
+              <span className="justify-self-center"><Pill q={l.quadrante} /></span>
               <span className="text-xs tabular-nums text-gray-300 text-right">{fmtNota(l.posicao.mediaGeral)}</span>
-              <span className="text-xs tabular-nums text-gray-300 text-right inline-flex items-center justify-end gap-1">{fmtPct(l.estilo.aderenciaPct)} {aberto === l.colaboradorId ? <ChevronUp size={12} /> : <ChevronDown size={12} />}</span>
+              <span className="text-xs tabular-nums text-gray-300 text-right">{fmtPct(l.estilo.aderenciaPct)}</span>
+              <span className="text-gray-400 justify-self-end">{aberto === l.colaboradorId ? <ChevronUp size={12} /> : <ChevronDown size={12} />}</span>
             </button>
             {aberto === l.colaboradorId && (
               <div className="px-4 pb-4">

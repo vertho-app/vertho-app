@@ -1,5 +1,5 @@
 /**
- * EIXO X da matriz — o ESTILO: aderência do perfil comportamental da pessoa ao
+ * EIXO X da matriz, o ESTILO: aderência do perfil comportamental da pessoa ao
  * gabarito do cargo-alvo, lida do motor de adequação (`aggregateAdequacao`).
  *
  * Puro: recebe a `PessoaAdequacao` já calculada.
@@ -8,7 +8,7 @@
  * colaboradores): os quatro blocos do fit são o mesmo DISC sob nomes diferentes
  * (`lid = DISC/2` em 294 de 311; `comp_comando × D = 0,992`), e perfil não
  * separa cargos vizinhos (índice de separação 0,47 em Ibipeba; 0,50 é o acaso).
- * Por isso o estilo NÃO entra na conta da posição — ele só diz onde a pessoa vai
+ * Por isso o estilo NÃO entra na conta da posição: ele só diz onde a pessoa vai
  * gastar mais energia no papel. `bloqueadoNoAlvo` é leitura, nunca veredito.
  */
 import type { PessoaAdequacao } from '@/lib/adequacao-cargo/aggregate';
@@ -34,7 +34,7 @@ export interface EstiloPessoa {
   /** Reprovou um requisito eliminatório do gabarito. Aviso no parecer, não decisão. */
   bloqueadoNoAlvo: boolean;
   motivosBloqueio: string[];
-  /** Os traços mais distantes do alvo — onde o papel vai custar mais. */
+  /** Os traços mais distantes do alvo, onde o papel vai custar mais. */
   lacunas: { traco: string; bloco: string; fitPct: number }[];
   borderline: boolean;
 }

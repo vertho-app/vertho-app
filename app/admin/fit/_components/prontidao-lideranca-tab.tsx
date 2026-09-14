@@ -1,25 +1,24 @@
 'use client';
 /**
- * Aba "Prontidão" do workspace Adequação (admin) — três lentes:
- *   configuração → o programa (cargo-alvo, população, exemplares, corte);
- *   prévia       → a MESMA leitura que o RH vê, com as actions de admin;
- *   calibragem   → onde o instrumento coloca os líderes de referência.
+ * Aba "Prontidão" do workspace Adequação (admin), duas lentes:
+ *   configuração → o programa (cargo-alvo, população, corte);
+ *   prévia       → a MESMA leitura que o RH vê, com as actions de admin.
  *
  * A Vertho opera, o cliente consome (§26): tudo que escreve mora aqui, no
  * admin; o RH só lê.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Save, Power, RefreshCw, Star, AlertTriangle } from 'lucide-react';
+import { Loader2, Save, Power, RefreshCw, AlertTriangle } from 'lucide-react';
 import ProntidaoLiderancaView from '@/components/prontidao-lideranca-view';
 import {
   getConfigProntidaoAdmin, salvarConfigProntidaoAdmin, setModuloProntidaoAdmin,
-  getProntidaoLiderancaAdmin, getParecerLiderancaAdmin, getCalibragemAdmin,
+  getProntidaoLiderancaAdmin, getParecerLiderancaAdmin,
   exportarParecerPDFAdmin, exportarConsolidadoPDFAdmin,
 } from '@/actions/prontidao-lideranca';
-import { chaveCompetencia, DEFAULTS_PRONTIDAO, EXEMPLARES_MAX, EXEMPLARES_MIN } from '@/lib/prontidao-lideranca/config';
+import { DEFAULTS_PRONTIDAO } from '@/lib/prontidao-lideranca/config';
 
-type Sub = 'config' | 'previa' | 'calibragem';
+type Sub = 'config' | 'previa';
 const fmt = (v: number | null | undefined) => (v == null ? '—' : Number(v).toFixed(2).replace('.', ','));
 
 export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string }) {
@@ -27,23 +26,20 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
   const [info, setInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
-    cargo_alvo: '', exemplares: [] as string[], escopoTipo: 'empresa_inteira' as 'empresa_inteira' | 'turma', turmaId: '',
-    um_por_dia: DEFAULTS_PRONTIDAO.um_por_dia as boolean, corte_nota: DEFAULTS_PRONTIDAO.corte_nota as number, banda: DEFAULTS_PRONTIDAO.banda as number,
+    cargo_alvo: '', escopoTipo: 'empresa_inteira' as 'empresa_inteira' | 'turma', turmaId: '',
+    um_por_dia: DEFAULTS_PRONTIDAO.um_por_dia as boolean, corte_nota: DEFAULTS_PRONTIDAO.corte_nota as number,
   });
   const [salvando, setSalvando] = useState(false);
   const [alternando, setAlternando] = useState(false);
   const [falha, setFalha] = useState<string | null>(null);
   const [erros, setErros] = useState<string[]>([]);
   const [avisos, setAvisos] = useState<string[]>([]);
-  const [busca, setBusca] = useState('');
   const [versao, setVersao] = useState(0);
-  const [calib, setCalib] = useState<any>(null);
-  const [calibLoading, setCalibLoading] = useState(false);
 
   /**
    * O gate (`requireEmpresaSupabase`) fica FORA do try da action, de propósito:
    * negação não pode virar `{ success: false }` engolido. O preço é que ela
-   * chega aqui como REJEIÇÃO, e sem try o `setLoading(false)` nunca roda — a aba
+   * chega aqui como REJEIÇÃO, e sem try o `setLoading(false)` nunca roda e a aba
    * ficava girando para sempre, sem toast e sem texto (visto em 14/09 com uma
    * sessão sem `admin.access`). Spinner eterno é o pior formato de "negado".
    */
@@ -61,9 +57,9 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
       setInfo(r);
       if (r.cfg) {
         setForm({
-          cargo_alvo: r.cfg.cargo_alvo, exemplares: r.cfg.exemplares,
+          cargo_alvo: r.cfg.cargo_alvo,
           escopoTipo: r.cfg.escopo.tipo, turmaId: r.cfg.escopo.tipo === 'turma' ? r.cfg.escopo.turmaId : '',
-          um_por_dia: r.cfg.um_por_dia, corte_nota: r.cfg.corte_nota, banda: r.cfg.banda,
+          um_por_dia: r.cfg.um_por_dia, corte_nota: r.cfg.corte_nota,
         });
       }
       setErros(r.validacao?.erros || []);
@@ -86,44 +82,13 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
   async function salvar() {
     setSalvando(true); setErros([]); setAvisos([]);
     const r: any = await salvarConfigProntidaoAdmin(empresaId, {
-      cargo_alvo: form.cargo_alvo, exemplares: form.exemplares,
+      cargo_alvo: form.cargo_alvo,
       escopo: form.escopoTipo === 'turma' ? { tipo: 'turma', turmaId: form.turmaId } : { tipo: 'empresa_inteira' },
-      um_por_dia: form.um_por_dia, corte_nota: Number(form.corte_nota), banda: Number(form.banda),
+      um_por_dia: form.um_por_dia, corte_nota: Number(form.corte_nota),
     });
     if (r.success) { toast.success('Programa salvo.'); setAvisos(r.avisos || []); setVersao((v) => v + 1); await recarregar(); }
     else { setErros(r.erros || [r.error]); setAvisos(r.avisos || []); toast.error(r.error || 'Configuração inválida.'); }
     setSalvando(false);
-  }
-
-  async function calcularCalibragem() {
-    setCalibLoading(true); setCalib(null);
-    const r: any = await getCalibragemAdmin(empresaId);
-    if (r.success) setCalib(r.data); else toast.error(r.error || 'Erro.');
-    setCalibLoading(false);
-  }
-
-  /**
-   * Líder de referência é quem JÁ ocupa o cargo-alvo — a lista crua mistura a
-   * população inteira, e quem não ocupa é candidato (a régua que recusa está em
-   * `validarConfigProntidao`; aqui só se evita oferecer o errado). O filtro usa
-   * o cargo do FORMULÁRIO, não o salvo: trocar o cargo-alvo no select tem que
-   * mudar a lista antes de salvar. Quem já está escolhido continua visível fora
-   * do cargo, senão a troca deixaria um exemplar marcado e sem como desmarcar.
-   */
-  const { lista: pessoasFiltradas, total: totalCandidatos } = useMemo(() => {
-    const q = busca.trim().toLowerCase();
-    const alvo = chaveCompetencia(form.cargo_alvo);
-    const todas = (info?.pessoas || []) as { id: string; nome: string; cargo: string | null }[];
-    // Sem cargo-alvo não há lista: qualquer escolha aqui seria recusada no salvar.
-    const doAlvo = alvo ? todas.filter((p) => chaveCompetencia(p.cargo) === alvo || form.exemplares.includes(p.id)) : [];
-    const achadas = q ? doAlvo.filter((p) => p.nome.toLowerCase().includes(q) || (p.cargo || '').toLowerCase().includes(q)) : doAlvo;
-    return { lista: achadas.slice(0, 40), total: achadas.length };
-  }, [info, busca, form.cargo_alvo, form.exemplares]);
-
-  const foraDoAlvo = (cargo: string | null) => !!form.cargo_alvo && chaveCompetencia(cargo) !== chaveCompetencia(form.cargo_alvo);
-
-  function toggleExemplar(id: string) {
-    setForm((f) => ({ ...f, exemplares: f.exemplares.includes(id) ? f.exemplares.filter((x) => x !== id) : [...f.exemplares, id] }));
   }
 
   if (loading && !info) return <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>;
@@ -151,7 +116,7 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
       <div className="rounded-xl p-4 border border-white/[0.06] flex flex-wrap items-center justify-between gap-3" style={{ background: '#0F2A4A' }}>
         <div>
           <p className="text-sm font-bold text-white">Módulo Prontidão para Liderança</p>
-          <p className="text-[11px] text-gray-400">{info.contratado ? 'Contratado — o RH vê a leitura e o menu; o trilho de liderança abre para a população.' : 'Não contratado — nada aparece para o cliente nem para os participantes.'}</p>
+          <p className="text-[11px] text-gray-400">{info.contratado ? 'Contratado: o RH vê a leitura e o menu, e o trilho de liderança abre para a população.' : 'Não contratado: nada aparece para o cliente nem para os participantes.'}</p>
         </div>
         <button type="button" onClick={alternarModulo} disabled={alternando}
           className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold border transition disabled:opacity-50 ${info.contratado ? 'border-emerald-400/40 text-emerald-300 hover:bg-emerald-400/10' : 'border-white/10 text-gray-300 hover:bg-white/5'}`}>
@@ -160,7 +125,7 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
       </div>
 
       <div className="flex gap-1 p-1 rounded-xl border border-white/[0.06]" style={bg}>
-        {([['config', 'Configuração'], ['previa', 'Prévia da leitura'], ['calibragem', 'Calibragem']] as [Sub, string][]).map(([k, label]) => (
+        {([['config', 'Configuração'], ['previa', 'Prévia da leitura']] as [Sub, string][]).map(([k, label]) => (
           <button key={k} type="button" onClick={() => setSub(k)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${sub === k ? 'bg-white/[0.06] text-white' : 'text-gray-500 hover:text-gray-300'}`}>{label}</button>
         ))}
@@ -172,12 +137,12 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
             <label className="block">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Cargo-alvo (perfil de liderança)</span>
               <select value={form.cargo_alvo} onChange={(e) => setForm((f) => ({ ...f, cargo_alvo: e.target.value }))} className={inputCls} style={bg}>
-                <option value="">— escolha —</option>
+                <option value="">escolha o cargo</option>
                 {(info.cargos || []).map((c: any) => (
                   <option key={c.nome} value={c.nome}>{c.nome} · {c.temGabarito ? 'gabarito' : 'SEM gabarito'} · Top {c.top5.length}</option>
                 ))}
               </select>
-              <span className="block mt-1 text-[10px] text-gray-500">As competências do mapeamento são o Top 5 deste cargo — as mesmas que geram os cenários.</span>
+              <span className="block mt-1 text-[10px] text-gray-500">As competências do mapeamento são o Top 5 deste cargo, as mesmas que geram os cenários.</span>
             </label>
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">População</span>
@@ -187,60 +152,23 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
               </div>
               {form.escopoTipo === 'turma' && (
                 <select value={form.turmaId} onChange={(e) => setForm((f) => ({ ...f, turmaId: e.target.value }))} className={`${inputCls} mt-2`} style={bg}>
-                  <option value="">— turma —</option>
+                  <option value="">escolha a turma</option>
                   {(info.turmas || []).map((t: any) => <option key={t.id} value={t.id}>{t.nome} ({t.status})</option>)}
                 </select>
               )}
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2">
             <label className="flex items-center gap-2 text-xs text-gray-300"><input type="checkbox" checked={form.um_por_dia} onChange={(e) => setForm((f) => ({ ...f, um_por_dia: e.target.checked }))} /> um cenário por dia (só no trilho de liderança)</label>
             <label className="block">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Corte — nota que conta como demonstrada (1–4)</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Corte: nota que conta como demonstrada (1 a 4)</span>
               <input type="number" step="0.05" min={1} max={4} value={form.corte_nota} onChange={(e) => setForm((f) => ({ ...f, corte_nota: Number(e.target.value) }))} className={inputCls} style={bg} />
-              <span className="block mt-1 text-[10px] text-gray-500">Média por competência a partir da qual a pessoa demonstra a competência. 3,00 é o N3 da régua — o nível de meta do modelo.</span>
+              <span className="block mt-1 text-[10px] text-gray-500">
+                Média por competência a partir da qual a pessoa demonstra a competência. 3,00 é o N3 da régua, o nível de meta do modelo.
+                A classificação é binária: {fmt(form.corte_nota)} ou acima demonstra, abaixo não demonstra.
+              </span>
             </label>
-            <label className="block">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Banda de revisão (±) — onde a máquina não decide</span>
-              <input type="number" step="0.01" min={0} max={1} value={form.banda} onChange={(e) => setForm((f) => ({ ...f, banda: Number(e.target.value) }))} className={inputCls} style={bg} />
-              <span className="block mt-1 text-[10px] text-gray-500">Quanto a mesma resposta relida pela IA move a média. Dentro dela a diferença para o corte é ruído, então a pessoa vai para leitura humana em vez de ser classificada. 0,33 é emprestado do instrumento de conversa; a aferição substitui.</span>
-            </label>
-          </div>
-          <p className="text-[11px] text-gray-400 rounded-lg border border-white/[0.06] px-3 py-2" style={bg}>
-            Com estes valores: <span className="text-emerald-300 font-semibold">demonstra</span> a partir de {fmt(Number(form.corte_nota) + Number(form.banda))}
-            {' · '}<span className="text-rose-300 font-semibold">não demonstra</span> até {fmt(Number(form.corte_nota) - Number(form.banda))}
-            {' · '}entre as duas, <span className="text-amber-300 font-semibold">revisão humana</span>.
-            {Number(form.banda) === 0 && ' Banda 0 desliga a revisão: tudo vira demonstra ou não demonstra no corte exato.'}
-          </p>
-
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Líderes de referência ({form.exemplares.length}) · o escopo prevê {EXEMPLARES_MIN} a {EXEMPLARES_MAX}</span>
-              <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="buscar pessoa…" className="px-2 py-1 rounded-md text-xs text-white border border-white/10 outline-none" style={bg} />
-            </div>
-            <span className="block mt-1 text-[10px] text-gray-500">
-              Quem já ocupa o cargo-alvo — é a nota deles que diz onde a rubrica coloca um bom líder. Quem não ocupa é avaliado pelo programa e não pode calibrá-lo.
-            </span>
-            <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-white/[0.06] divide-y divide-white/[0.04]" style={bg}>
-              {pessoasFiltradas.map((p) => (
-                <label key={p.id} className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-200 hover:bg-white/[0.03] cursor-pointer">
-                  <input type="checkbox" checked={form.exemplares.includes(p.id)} onChange={() => toggleExemplar(p.id)} />
-                  {form.exemplares.includes(p.id) && <Star size={10} className="text-amber-300" />}
-                  <span>{p.nome}</span>
-                  <span className={foraDoAlvo(p.cargo) ? 'text-amber-300' : 'text-gray-500'}>· {p.cargo || '—'}{foraDoAlvo(p.cargo) && ' · não ocupa o cargo-alvo'}</span>
-                </label>
-              ))}
-              {!pessoasFiltradas.length && (
-                <p className="px-3 py-2 text-xs text-gray-500">
-                  {form.cargo_alvo ? `ninguém ocupa "${form.cargo_alvo}" nesta população` : 'escolha o cargo-alvo primeiro'}
-                </p>
-              )}
-            </div>
-            {totalCandidatos > pessoasFiltradas.length && (
-              <span className="block mt-1 text-[10px] text-gray-500">mostrando {pessoasFiltradas.length} de {totalCandidatos} — use a busca para chegar aos demais.</span>
-            )}
-            <p className="mt-1 text-[10px] text-gray-500">Eles não fazem o trilho de liderança: para quem ocupa o cargo-alvo, esse Top 5 já é o do próprio mapeamento do cargo, e é dele que vêm as notas. A calibragem mostra onde a régua os coloca; o conserto é no texto do descritor, nunca no prompt.</p>
           </div>
 
           {erros.length > 0 && <div className="rounded-lg border border-red-400/30 bg-red-400/5 p-3 space-y-1">{erros.map((e) => <p key={e} className="text-[11px] text-red-200 flex gap-1.5"><AlertTriangle size={11} className="mt-0.5 shrink-0" /> {e}</p>)}</div>}
@@ -265,51 +193,6 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
         />
       )}
 
-      {sub === 'calibragem' && (
-        <div className="rounded-xl p-4 border border-white/[0.06] space-y-3" style={{ background: '#0F2A4A' }}>
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-gray-400">Onde o instrumento coloca os líderes de referência. Descritor em que um exemplar ficou abaixo do corte é suspeita de rubrica — revise o texto de N3/N4 e reavalie.</p>
-            <button type="button" onClick={calcularCalibragem} disabled={calibLoading} className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-gray-200 hover:bg-white/5 disabled:opacity-50">
-              {calibLoading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} Calcular
-            </button>
-          </div>
-          {calib && (
-            <>
-              <p className="text-xs text-gray-300">{calib.exemplares} exemplar(es) · {calib.comMapeamentoCompleto} com mapeamento completo · corte {fmt(calib.corte)}</p>
-              {calib.avisos?.length > 0 && (
-                <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 space-y-1">
-                  {calib.avisos.map((a: string) => <p key={a} className="text-[11px] text-amber-200 flex items-start gap-1.5"><AlertTriangle size={11} className="mt-0.5 shrink-0" /> {a}</p>)}
-                </div>
-              )}
-              {calib.pendentes.length > 0 && (
-                <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 text-[11px] text-amber-200">
-                  Pendentes: {calib.pendentes.map((p: any) => `${p.nome || p.colaboradorId} (faltam ${p.faltantes.join(', ')})`).join(' · ')}
-                </div>
-              )}
-              <div className="rounded-lg border border-white/[0.06] overflow-hidden" style={bg}>
-                {/* `n de N` é o denominador: "2 abaixo" significa coisas opostas com 2 ou 30 exemplares avaliados. */}
-                <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 px-3 py-2 text-[10px] font-extrabold uppercase tracking-widest text-gray-500 border-b border-white/[0.06]"><span>Competência</span><span>Descritor</span><span>Abaixo do corte</span><span>Média</span></div>
-                {calib.descritoresParaRevisar.map((d: any) => (
-                  <div key={`${d.competencia}|${d.descritor}`} className="grid grid-cols-[1fr_1fr_auto_auto] gap-2 px-3 py-2 text-xs border-b border-white/[0.04] last:border-b-0">
-                    <span className="text-gray-300">{d.competencia}</span>
-                    <span className="text-white">{d.descritor}</span>
-                    <span className="text-red-300">
-                      <b>{d.abaixoDoCorte.length} de {d.avaliados}</b> · {d.abaixoDoCorte.map((e: any) => `${e.nome || '?'} ${fmt(e.nota)}`).join(', ')}
-                    </span>
-                    <span className="tabular-nums text-gray-400 text-right">{fmt(d.media)}</span>
-                  </div>
-                ))}
-                {!calib.descritoresParaRevisar.length && <p className="px-3 py-3 text-xs text-gray-400">Nenhum descritor com exemplar abaixo do corte{calib.todos.length ? '' : ' — ainda sem notas dos exemplares'}.</p>}
-              </div>
-              {calib.todos.length > 0 && (
-                <details className="text-xs text-gray-400"><summary className="cursor-pointer">Todos os descritores ({calib.todos.length})</summary>
-                  <ul className="mt-2 space-y-0.5">{calib.todos.map((d: any) => <li key={`${d.competencia}|${d.descritor}`}>{d.competencia} · {d.descritor} · média {fmt(d.media)} · {d.avaliados} exemplar(es)</li>)}</ul>
-                </details>
-              )}
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }

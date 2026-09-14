@@ -3,10 +3,10 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
 
 /**
  * As duas actions que ESCREVEM o programa de prontidão. O que se prova aqui:
- * o gate é `program.configure` — a única chave que exclui o `rh` (tem
- * settings.company.manage) E o `socio` (tem admin.access) —, o cargo-alvo é
- * gravado com o nome CANÔNICO da
- * linha de cargos_empresa (o cenário do dia é buscado por nome exato), a
+ * o gate é `program.configure`, a única chave que exclui o `rh` (tem
+ * settings.company.manage) E o `socio` (tem admin.access); o cargo-alvo é
+ * gravado com o nome CANÔNICO da linha de cargos_empresa (o cenário do dia é
+ * buscado por nome exato), a
  * configuração inválida não é gravada, e toda escrita vai para a auditoria.
  */
 const LID = ['Priorização', 'Delegação'];
@@ -55,29 +55,28 @@ describe('salvarConfigProntidaoAdmin', () => {
   beforeEach(() => { sb = mock(); gate.mockClear(); auditoria.mockClear(); cenario.sysConfig = { modulos: { prontidao_lideranca: true } }; });
 
   it('gate program.configure; grava o cargo-alvo com o nome canônico; audita', async () => {
-    const r: any = await salvarConfigProntidaoAdmin('emp-A', { cargo_alvo: '  gerente COMERCIAL ', exemplares: ['gil', 'gil', 'ana'], um_por_dia: false, corte_nota: 3, banda: 0.25 });
+    const r: any = await salvarConfigProntidaoAdmin('emp-A', { cargo_alvo: '  gerente COMERCIAL ', um_por_dia: false, corte_nota: 3 });
     expect(gate).toHaveBeenCalledWith('emp-A', 'program.configure', 'salvarConfigProntidaoAdmin');
     expect(r.success).toBe(true);
     expect(r.cfg.cargo_alvo).toBe('Gerente Comercial');
     expect(escritaSysConfig()).toMatchObject({
       modulos: { prontidao_lideranca: true },
-      prontidao_lideranca: { cargo_alvo: 'Gerente Comercial', exemplares: ['gil', 'ana'], um_por_dia: false, corte_nota: 3, banda: 0.25, escopo: { tipo: 'empresa_inteira' } },
+      prontidao_lideranca: { cargo_alvo: 'Gerente Comercial', um_por_dia: false, corte_nota: 3, escopo: { tipo: 'empresa_inteira' } },
     });
     expect(auditoria).toHaveBeenCalledTimes(1);
     expect(auditoria.mock.calls[0][0]).toMatchObject({ acao: 'prontidao_lideranca.configurar', empresaId: 'emp-A' });
   });
 
-  it('escopo por turma: exemplar fora da turma (o gerente) é aceito — a validação de pertencimento é do TENANT', async () => {
-    const r: any = await salvarConfigProntidaoAdmin('emp-A', { cargo_alvo: 'Gerente Comercial', exemplares: ['gil'], escopo: { tipo: 'turma', turmaId: 't1' } });
+  it('escopo por turma é gravado como veio', async () => {
+    const r: any = await salvarConfigProntidaoAdmin('emp-A', { cargo_alvo: 'Gerente Comercial', escopo: { tipo: 'turma', turmaId: 't1' } });
     expect(r.success).toBe(true);
-    expect(escritaSysConfig()?.prontidao_lideranca).toMatchObject({ escopo: { tipo: 'turma', turmaId: 't1' }, exemplares: ['gil'] });
+    expect(escritaSysConfig()?.prontidao_lideranca).toMatchObject({ escopo: { tipo: 'turma', turmaId: 't1' } });
   });
 
   it('configuração inválida não é gravada nem auditada, e os erros voltam nomeados', async () => {
-    const r: any = await salvarConfigProntidaoAdmin('emp-A', { cargo_alvo: 'Diretor', exemplares: ['x9'] });
+    const r: any = await salvarConfigProntidaoAdmin('emp-A', { cargo_alvo: 'Diretor' });
     expect(r.success).toBe(false);
     expect(r.erros.join(' ')).toMatch(/não existe/);
-    expect(r.erros.join(' ')).toMatch(/exemplar/);
     expect(sb.escritas).toHaveLength(0);
     expect(auditoria).not.toHaveBeenCalled();
     expect(await salvarConfigProntidaoAdmin('emp-A', {})).toMatchObject({ success: false, error: 'Informe o cargo-alvo.' });

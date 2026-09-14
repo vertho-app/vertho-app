@@ -1,16 +1,16 @@
 /**
- * TRILHO DE LIDERANÇA — o segundo mapeamento da pessoa, separado do mapeamento
+ * TRILHO DE LIDERANÇA: o segundo mapeamento da pessoa, separado do mapeamento
  * do cargo (decisão do dono, 13/09/2026: a pessoa faz os dois).
  *
  * Este núcleo decide se ESTA pessoa responde o trilho de liderança e com quais
  * competências. Vive em `lib/` (sem gate de sessão) para ser testável com o mock
- * do Supabase e reusado pela tela de assessment e pela leitura do RH — a mesma
+ * do Supabase e reusado pela tela de assessment e pela leitura do RH, a mesma
  * régua nos dois lados, senão a tela convida para um trilho que a leitura não
  * reconhece. Por isso a exclusão de `role='rh'` e de e-mails internos está AQUI
  * também: `carregarPopulacao` (agregar.ts) os deixa fora da matriz, e um RH
  * respondendo cinco cenários que nunca aparecem seria trabalho jogado fora.
  *
- * As competências do trilho são o `top5_workshop` do CARGO-ALVO — a mesma fonte
+ * As competências do trilho são o `top5_workshop` do CARGO-ALVO, a mesma fonte
  * que a IA3 usa para gerar cenários. O cargo-alvo casa por nome NORMALIZADO
  * (`chaveCompetencia`), como a validação e a agregação: "gerente comercial"
  * gravado à mão tem que achar "Gerente Comercial". A pessoa que ocupa o
@@ -92,7 +92,7 @@ export async function resolverTrilhoLideranca(
   return { ok: true, cfg, cargoAlvo: cargo.nome || cfg.cargo_alvo, competencias: top5 };
 }
 
-/** 'YYYY-MM-DD' no fuso do produto — o "dia" do um-por-dia é o de Brasília, não o UTC. */
+/** 'YYYY-MM-DD' no fuso do produto: o "dia" do um-por-dia é o de Brasília, não o UTC. */
 export function diaEmSaoPaulo(d: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -105,7 +105,7 @@ export interface RespostaComData extends AssessmentAnswerRef {
 
 /**
  * A pessoa já respondeu HOJE alguma competência do trilho? Só respostas que
- * pertencem ao trilho contam — o trilho do cargo nunca bloqueia o de liderança
+ * pertencem ao trilho contam: o trilho do cargo nunca bloqueia o de liderança
  * nem o contrário.
  *
  * ⚠️ É checagem de leitura, não trava de banco: duas submissões no mesmo

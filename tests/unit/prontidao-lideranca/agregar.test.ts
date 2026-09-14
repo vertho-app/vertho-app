@@ -33,7 +33,7 @@ vi.mock('@/lib/adequacao-cargo/aggregate', () => ({ aggregateAdequacao: vi.fn(as
 import { agregarProntidaoLideranca, carregarParecer } from '@/lib/prontidao-lideranca/agregar';
 import { aggregateAdequacao } from '@/lib/adequacao-cargo/aggregate';
 
-const cfg = { cargo_alvo: 'gerente', exemplares: ['ana'], escopo: { tipo: 'empresa_inteira' as const }, um_por_dia: true, corte_nota: 3, banda: 0.33 };
+const cfg = { cargo_alvo: 'gerente', escopo: { tipo: 'empresa_inteira' as const }, um_por_dia: true, corte_nota: 3 };
 
 function mock() {
   return criarSupabaseMock({
@@ -78,7 +78,7 @@ describe('agregarProntidaoLideranca', () => {
     expect(r.competencias).toEqual(LID);
     expect(r.populacao).toBe(4);
     expect(r.linhas.map((l) => [l.nome, l.quadrante])).toEqual([['Ana', 'pronta'], ['Bia', 'nao_agora']]);
-    expect(r.porQuadrante).toEqual({ pronta: 1, pronta_com_custo: 0, potencial: 0, nao_agora: 1, revisar: 0 });
+    expect(r.porQuadrante).toEqual({ pronta: 1, pronta_com_custo: 0, potencial: 0, nao_agora: 1 });
     expect(r.incompletos).toEqual([{ colaboradorId: 'caio', nome: 'Caio', cargo: 'SDR', cobertas: 1, total: 2, faltantes: ['Delegação'] }]);
     expect(r.naoIniciados).toBe(1); // Dora
     expect(r.semEstilo).toEqual([]);
@@ -87,14 +87,13 @@ describe('agregarProntidaoLideranca', () => {
     expect(vi.mocked(aggregateAdequacao).mock.calls[0][3]).toEqual({ poolCargos: ['Vendedor', 'SDR'] });
   });
 
-  it('marca exemplar e auditoria pendente na linha; gaps saem ancorados', async () => {
+  it('marca auditoria pendente na linha; gaps saem ancorados', async () => {
     const r = await agregarProntidaoLideranca(mock().client, 'emp', cfg);
     const ana = r.linhas.find((l) => l.nome === 'Ana')!;
     const bia = r.linhas.find((l) => l.nome === 'Bia')!;
-    expect(ana.ehExemplar).toBe(true);
     expect(ana.auditoriaPendente).toBe(false);
     expect(bia.auditoriaPendente).toBe(true);
-    expect(bia.frasesGap).toEqual(['Priorização — média 2,10 (corte 3,00)', 'Delegação — média 2,40 (corte 3,00)']);
+    expect(bia.frasesGap).toEqual(['Priorização: média 2,10 (corte 3,00)', 'Delegação: média 2,40 (corte 3,00)']);
   });
 
   it('posição completa sem perfil no fit → semEstilo (nunca some); gabarito ausente → aviso e todos sem estilo', async () => {

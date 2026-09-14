@@ -1,5 +1,5 @@
 /**
- * Configuração do programa de Prontidão para Liderança — leitura tipada e
+ * Configuração do programa de Prontidão para Liderança: leitura tipada e
  * validação FAIL-CLOSED da chave `empresas.sys_config.prontidao_lideranca`.
  *
  * Por que a validação mora aqui, pura, e não na action: a chave é JSONB livre e
@@ -11,7 +11,7 @@
  * `descriptor_assessments` tem UNIQUE `(colaborador_id, competencia, descritor)`
  * por NOME de competência (não por id). Se o cargo-alvo tiver uma competência
  * com o mesmo nome de uma do Top 5 do cargo da pessoa, a avaliação do trilho de
- * liderança SOBRESCREVE a do cargo (ou vice-versa) sem erro nenhum — a IA4 grava
+ * liderança SOBRESCREVE a do cargo (ou vice-versa) sem erro nenhum: a IA4 grava
  * por upsert. Recusar na configuração é o único ponto onde isso é visível.
  */
 import { normalizeAssessmentCompetency } from '@/lib/assessment/completion';
@@ -22,7 +22,7 @@ export const CHAVE_CONFIG = 'prontidao_lideranca' as const;
  * Igualdade de nome de competência/cargo NESTE módulo = a régua do próprio
  * assessment (sem acento, sem caixa): é ela que decide "esta competência já foi
  * respondida?", e o Top 5 vem digitado enquanto `competencias.nome` vem da
- * planilha — "Gestao" e "Gestão" são a mesma competência para quem responde.
+ * planilha. "Gestao" e "Gestão" são a mesma competência para quem responde.
  */
 export const chaveCompetencia = (v: unknown): string => normalizeAssessmentCompetency(v);
 
@@ -33,44 +33,27 @@ export type EscopoProntidao =
 export interface ConfigProntidaoLideranca {
   /** Nome do cargo (cargos_empresa.nome) cujo gabarito e Top 5 definem o programa. */
   cargo_alvo: string;
-  /** colaborador_id dos líderes de referência (o escopo comercial prevê 3 a 5). */
-  exemplares: string[];
   /** Quem participa. Default: a empresa inteira (menos rh e e-mails internos). */
   escopo: EscopoProntidao;
   /** Um cenário por dia SÓ no trilho de liderança. Default: ligado. */
   um_por_dia: boolean;
-  /** Corte da posição, na escala 1–4. Default: 3,00 (N3 = meta do modelo). */
-  corte_nota: number;
   /**
-   * Meia-largura da zona de revisão humana em torno do corte. Default: 0,33 —
-   * a amplitude máxima que a releitura do instrumento de CONVERSA produziu
-   * (`RUIDO_MEDIDO`). O mapeamento por cenários ainda não foi aferido; quando
-   * for (`lib/prontidao-lideranca/aferir.ts`), este default deve ser trocado
-   * pelo número medido.
+   * Corte da posição, na escala 1 a 4. Default: 3,00, que é o N3 da régua, o
+   * nível de meta do modelo. A classificação é binária no corte: média igual ou
+   * acima demonstra, abaixo não demonstra.
    */
-  banda: number;
+  corte_nota: number;
 }
 
 export const DEFAULTS_PRONTIDAO = {
   um_por_dia: true,
   corte_nota: 3.0,
-  banda: 0.33,
   escopo: { tipo: 'empresa_inteira' } as EscopoProntidao,
 } as const;
 
 const num = (v: unknown, fallback: number): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
-};
-
-const listaDeStrings = (v: unknown): string[] => {
-  if (!Array.isArray(v)) return [];
-  const out: string[] = [];
-  for (const item of v) {
-    const s = String(item ?? '').trim();
-    if (s && !out.includes(s)) out.push(s);
-  }
-  return out;
 };
 
 function lerEscopo(v: unknown): EscopoProntidao {
@@ -81,8 +64,11 @@ function lerEscopo(v: unknown): EscopoProntidao {
 
 /**
  * Lê a chave do `sys_config` da empresa. Devolve `null` quando o programa não
- * está configurado (chave ausente ou sem cargo-alvo) — "não configurado" é um
+ * está configurado (chave ausente ou sem cargo-alvo). "Não configurado" é um
  * estado, não um erro; quem chama decide o que dizer.
+ *
+ * Chaves de versões anteriores (`exemplares`, `banda`) são simplesmente
+ * ignoradas: o JSONB gravado pode tê-las, o tipo não as tem mais.
  */
 export function lerConfigProntidao(sysConfig: unknown): ConfigProntidaoLideranca | null {
   const raw = (sysConfig && typeof sysConfig === 'object')
@@ -93,22 +79,20 @@ export function lerConfigProntidao(sysConfig: unknown): ConfigProntidaoLideranca
   const cargoAlvo = String(r.cargo_alvo ?? '').trim();
   if (!cargoAlvo) return null;
   // Clamp na LEITURA também: a validação só roda ao salvar pela tela, e a chave é
-  // JSONB livre — um corte 7 gravado à mão faria todo mundo "não demonstrar".
+  // JSONB livre. Um corte 7 gravado à mão faria todo mundo "não demonstrar".
   const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
   return {
     cargo_alvo: cargoAlvo,
-    exemplares: listaDeStrings(r.exemplares),
     escopo: lerEscopo(r.escopo),
     um_por_dia: r.um_por_dia === undefined ? DEFAULTS_PRONTIDAO.um_por_dia : r.um_por_dia === true,
     corte_nota: clamp(num(r.corte_nota, DEFAULTS_PRONTIDAO.corte_nota), 1, 4),
-    banda: clamp(num(r.banda, DEFAULTS_PRONTIDAO.banda), 0, 1),
   };
 }
 
 export interface CargoParaValidacao {
   nome: string;
   temGabarito: boolean;
-  /** `top5_workshop` do cargo — as competências que geram cenário. */
+  /** `top5_workshop` do cargo: as competências que geram cenário. */
   top5: string[];
 }
 
@@ -117,14 +101,6 @@ export interface ContextoValidacao {
   cargos: CargoParaValidacao[];
   /** Nomes de cargo das pessoas na população (para a checagem de colisão). */
   cargosDaPopulacao: string[];
-  /** Quando fornecido, cada exemplar precisa estar aqui. */
-  colaboradorIdsDoTenant?: Set<string> | null;
-  /**
-   * Pessoas do tenant COM o cargo de cada uma. Quando fornecida, substitui
-   * `colaboradorIdsDoTenant` na checagem de pertencimento e habilita a régua do
-   * líder de referência (ele precisa ocupar o cargo-alvo — ver abaixo).
-   */
-  pessoasDoTenant?: { id: string; nome: string; cargo: string | null }[] | null;
 }
 
 export interface ValidacaoConfig {
@@ -135,8 +111,6 @@ export interface ValidacaoConfig {
 
 /** O escopo comercial fixa 5 competências × 6 descritores; fora disso é aviso, não erro. */
 export const COMPETENCIAS_ESPERADAS = 5;
-export const EXEMPLARES_MIN = 3;
-export const EXEMPLARES_MAX = 5;
 
 /**
  * Valida a configuração contra o estado do tenant. Puro: recebe o que leu quem
@@ -182,33 +156,6 @@ export function validarConfigProntidao(
   }
 
   if (!(cfg.corte_nota >= 1 && cfg.corte_nota <= 4)) erros.push('corte_nota precisa estar entre 1,00 e 4,00.');
-  if (!(cfg.banda >= 0 && cfg.banda <= 1)) erros.push('banda precisa estar entre 0 e 1.');
-
-  if (cfg.exemplares.length < EXEMPLARES_MIN || cfg.exemplares.length > EXEMPLARES_MAX) {
-    avisos.push(`O escopo prevê ${EXEMPLARES_MIN} a ${EXEMPLARES_MAX} líderes de referência; há ${cfg.exemplares.length}.`);
-  }
-  const porId = ctx.pessoasDoTenant ? new Map(ctx.pessoasDoTenant.map((p) => [p.id, p])) : null;
-  const idsDoTenant = porId ? new Set(porId.keys()) : ctx.colaboradorIdsDoTenant;
-  if (idsDoTenant) {
-    const fora = cfg.exemplares.filter((id) => !idsDoTenant.has(id));
-    if (fora.length) erros.push(`${fora.length} exemplar(es) não pertence(m) a esta empresa.`);
-  }
-
-  // O líder de referência tem que OCUPAR o cargo-alvo, e a razão é circular:
-  // quem não ocupa é CANDIDATO — responde o trilho de liderança, e é justamente
-  // por isso que `resolverTrilhoLideranca` recusa o ocupante (para ele esse Top 5
-  // já é o do próprio cargo). Calibrar a rubrica com quem foi medido POR ela é
-  // aferir o instrumento contra ele mesmo: a calibragem sairia sempre coerente,
-  // provando nada. Erro, não aviso — a calibragem não avisa que está circular.
-  if (porId && chaveCargo) {
-    const intrusos = cfg.exemplares.map((id) => porId.get(id)).filter((p) => p && chaveCompetencia(p.cargo) !== chaveCargo);
-    if (intrusos.length) {
-      erros.push(
-        'Líder de referência precisa ocupar o cargo-alvo (quem não ocupa é avaliado pelo programa). '
-        + `Fora dele: ${intrusos.map((p) => `${p.nome} — ${p.cargo || 'sem cargo'}`).join('; ')}.`,
-      );
-    }
-  }
 
   return { ok: erros.length === 0, erros, avisos };
 }

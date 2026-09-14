@@ -21,7 +21,7 @@ describe('actions/prontidao-lideranca.ts — gate antes do primeiro await', () =
     expect(nomes).toEqual([
       'getProntidaoLideranca', 'getParecerLideranca',
       'getProntidaoLiderancaAdmin', 'getParecerLiderancaAdmin',
-      'getConfigProntidaoAdmin', 'salvarConfigProntidaoAdmin', 'setModuloAdmin', 'setModuloProntidaoAdmin', 'getCalibragemAdmin',
+      'getConfigProntidaoAdmin', 'salvarConfigProntidaoAdmin', 'setModuloAdmin', 'setModuloProntidaoAdmin',
       'exportarParecerPDF', 'exportarParecerPDFAdmin', 'exportarConsolidadoPDF', 'exportarConsolidadoPDFAdmin',
     ]);
   });

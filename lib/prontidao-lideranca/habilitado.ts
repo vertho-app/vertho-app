@@ -1,5 +1,5 @@
 /**
- * "A empresa contratou o módulo?" — leitura mínima para o `/api/me` decidir se
+ * "A empresa contratou o módulo?": leitura mínima para o `/api/me` decidir se
  * o item de menu aparece. Fail-closed: falha de leitura vira "não habilitado"
  * (o menu esconde; a página, se aberta por URL, aplica o gate real).
  */

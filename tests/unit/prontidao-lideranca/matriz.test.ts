@@ -1,20 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   quadranteDe, fraseGap, fraseAncorada, montarLinha, contarPorQuadrante, ordenarLinhas,
-  ORDEM_QUADRANTES, RECOMENDACAO_POR_QUADRANTE, QUADRANTE_LABEL,
+  ORDEM_QUADRANTES, GRID_QUADRANTES, RECOMENDACAO_POR_QUADRANTE, QUADRANTE_LABEL,
 } from '@/lib/prontidao-lideranca/matriz';
 import { lerEstilo, type EstiloPessoa } from '@/lib/prontidao-lideranca/estilo';
 import type { PosicaoPessoa } from '@/lib/prontidao-lideranca/posicao';
 import type { PessoaAdequacao } from '@/lib/adequacao-cargo/aggregate';
 
-describe('quadranteDe — as camadas se cruzam, não se somam', () => {
-  it('cobre os quatro quadrantes e a zona de revisão', () => {
+describe('quadranteDe: as camadas se cruzam, não se somam', () => {
+  it('cobre os quatro quadrantes', () => {
     expect(quadranteDe('demonstra', 'aderente')).toBe('pronta');
     expect(quadranteDe('demonstra', 'distante')).toBe('pronta_com_custo');
     expect(quadranteDe('nao_demonstra', 'aderente')).toBe('potencial');
     expect(quadranteDe('nao_demonstra', 'distante')).toBe('nao_agora');
-    expect(quadranteDe('zona_de_revisao', 'aderente')).toBe('revisar');
-    expect(quadranteDe('zona_de_revisao', 'distante')).toBe('revisar');
   });
 
   it('estilo nunca rebaixa quem demonstra para fora de "pronta*"', () => {
@@ -28,14 +26,39 @@ describe('quadranteDe — as camadas se cruzam, não se somam', () => {
       expect(QUADRANTE_LABEL[q]).toBeTruthy();
       expect(RECOMENDACAO_POR_QUADRANTE[q].length).toBeGreaterThan(40);
     }
-    expect(new Set(ORDEM_QUADRANTES).size).toBe(5);
+    expect(new Set(ORDEM_QUADRANTES).size).toBe(4);
+  });
+
+  /**
+   * O eixo desenhado errado não quebra teste nenhum: ele só põe a pessoa no
+   * canto errado da tela, com o número certo ao lado. Por isso a disposição é
+   * DERIVADA de `quadranteDe` aqui, em vez de conferida contra uma lista fixa
+   * que repetiria o mesmo engano da tela.
+   */
+  it('GRID_QUADRANTES põe cada quadrante na célula que os dois eixos crescentes exigem', () => {
+    expect(GRID_QUADRANTES).toHaveLength(4);
+    expect(new Set(GRID_QUADRANTES)).toEqual(new Set(ORDEM_QUADRANTES));
+
+    // Grid de 2 colunas: [0]=cima-esq, [1]=cima-dir, [2]=baixo-esq, [3]=baixo-dir.
+    // Y cresce para CIMA (demonstra em cima), X cresce para a DIREITA (aderente à direita).
+    const esperado = [
+      quadranteDe('demonstra', 'distante'),      // cima, esquerda
+      quadranteDe('demonstra', 'aderente'),      // cima, direita
+      quadranteDe('nao_demonstra', 'distante'),  // baixo, esquerda
+      quadranteDe('nao_demonstra', 'aderente'),  // baixo, direita
+    ];
+    expect(GRID_QUADRANTES).toEqual(esperado);
+
+    // E o canto de cada extremo, dito por nome, para a inversão não passar calada.
+    expect(GRID_QUADRANTES[1]).toBe('pronta');      // o mais alto nos dois eixos
+    expect(GRID_QUADRANTES[2]).toBe('nao_agora');   // o mais baixo nos dois eixos
   });
 });
 
 describe('frase de gap ancorada', () => {
   it('cita competência, média e corte na mesma sentença, em vírgula decimal', () => {
     const f = fraseGap('Desenvolvimento de pessoas', 2.4, 3);
-    expect(f).toBe('Desenvolvimento de pessoas — média 2,40 (corte 3,00)');
+    expect(f).toBe('Desenvolvimento de pessoas: média 2,40 (corte 3,00)');
     expect(fraseAncorada(f, 'Desenvolvimento de pessoas', 2.4, 3)).toBe(true);
   });
   it('rótulo sem número NÃO passa como ancorado', () => {
@@ -91,7 +114,7 @@ describe('montarLinha / contar / ordenar', () => {
   it('linha carrega quadrante e frases de gap ancoradas; incompleta não vira linha', () => {
     const l = montarLinha({ colaboradorId: 'c1', nome: 'Ana', cargo: 'Vendedor', posicao: posicao(2.5, 'nao_demonstra', [{ competencia: 'Delegação', media: 2.1 }]), estilo: estiloOk, corte: 3 })!;
     expect(l.quadrante).toBe('potencial');
-    expect(l.frasesGap).toEqual(['Delegação — média 2,10 (corte 3,00)']);
+    expect(l.frasesGap).toEqual(['Delegação: média 2,10 (corte 3,00)']);
     const incompleta = { ...posicao(0, null), completo: false, mediaGeral: null };
     expect(montarLinha({ colaboradorId: 'c2', nome: 'Bia', cargo: null, posicao: incompleta, estilo: estiloOk, corte: 3 })).toBeNull();
   });
@@ -103,11 +126,10 @@ describe('montarLinha / contar / ordenar', () => {
       mk('Zé', 'nao_demonstra', 2.0, 'distante'),
       mk('Ana', 'demonstra', 3.4, 'aderente'),
       mk('Bia', 'demonstra', 3.6, 'aderente'),
-      mk('Caio', 'zona_de_revisao', 3.0, 'aderente'),
       mk('Duda', 'demonstra', 3.6, 'distante'),
       mk('Eva', 'demonstra', 3.6, 'aderente', 90),
     ];
-    expect(ordenarLinhas(linhas).map((l) => l.nome)).toEqual(['Eva', 'Bia', 'Ana', 'Duda', 'Zé', 'Caio']);
-    expect(contarPorQuadrante(linhas)).toEqual({ pronta: 3, pronta_com_custo: 1, potencial: 0, nao_agora: 1, revisar: 1 });
+    expect(ordenarLinhas(linhas).map((l) => l.nome)).toEqual(['Eva', 'Bia', 'Ana', 'Duda', 'Zé']);
+    expect(contarPorQuadrante(linhas)).toEqual({ pronta: 3, pronta_com_custo: 1, potencial: 0, nao_agora: 1 });
   });
 });

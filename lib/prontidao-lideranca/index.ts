@@ -1,5 +1,5 @@
 /**
- * Módulo Prontidão para Liderança — núcleo PURO (sem I/O, sem IA).
+ * Módulo Prontidão para Liderança: núcleo PURO (sem I/O, sem IA).
  *
  * Duas camadas cruzadas por pessoa: POSIÇÃO (competência demonstrada, das notas
  * por descritor) × ESTILO (aderência do perfil ao gabarito do cargo-alvo). A
@@ -10,8 +10,6 @@ export * from './config';
 export * from './posicao';
 export * from './estilo';
 export * from './matriz';
-export * from './calibragem';
-export * from './aferir';
 export * from './evidencias';
 // `agregar`, `trilho` e `habilitado` fazem I/O e ficam FORA do barril de
 // propósito: importá-los num client component arrastaria o motor de scoring e

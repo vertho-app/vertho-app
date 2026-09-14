@@ -1,10 +1,10 @@
 /**
- * EVIDÊNCIAS — o trecho da própria resposta que sustenta cada nota. Puro.
+ * EVIDÊNCIAS: o trecho da própria resposta que sustenta cada nota. Puro.
  *
  * `descriptor_assessments` guarda só a nota; o trecho literal, a confiança, a
  * sustentação e os limites vivem no JSONB `respostas.avaliacao_ia` que a IA4
  * devolve (`avaliacao_por_descritor[]`, ver `lib/ia4-avaliacao.ts`). O parecer
- * lê daqui — uma nota sem trecho é opinião; com trecho é evidência citada.
+ * lê daqui. Uma nota sem trecho é opinião; com trecho é evidência citada.
  *
  * O veredito da 2ª IA (`respostas.status_ia4`) vem junto: uma avaliação em
  * `revisar` continua contando na matriz, mas o parecer avisa.
