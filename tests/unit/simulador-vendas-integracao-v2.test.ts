@@ -98,6 +98,7 @@ describe('PACE v2: núcleo usando gerador real, com fronteira HTTP mockada', () 
       });
     }
     const schema = (vi.mocked(callAI).mock.calls[4][4] as any).responses.format.schema;
+    expect(schema.properties.P.minimum).toBe(0);
     expect(schema.properties.P.multipleOf).toBe(0.5);
     expect(schema.required).not.toContain('Media');
     expect(schema.required).not.toContain('Violacoes');

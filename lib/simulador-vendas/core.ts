@@ -1,6 +1,6 @@
 import type { Comando, Estado, Etapa, Saidas } from './schema';
 import { VENDAS_SESSAO } from '@/lib/status';
-import { MAX_TURNOS, FASES, REGUA_VERSION } from './schema';
+import { MAX_TURNOS, FASES, usaGerenteBruto } from './schema';
 import { pontuarRelatorio, validarFalaCliente, validarModeracao, violacoesRegistradas } from './avaliacao';
 
 export class SimuladorError extends Error {
@@ -107,9 +107,9 @@ export function validarRelatorio(r: Saidas['gerente'], s: Estado) {
     if (new Set(itens.map((d) => d.nome)).size !== itens.length) throw new Error('Descoberta duplicada');
   }
   if (
-    // Só pace-1 recebe violações declaradas pelo gerente. No pace-2 elas são
+    // Só pace-1 recebe violações declaradas pelo gerente. Da pace-2 em diante elas são
     // derivadas exclusivamente do registro do moderador, em pontuarRelatorio.
-    s.versaoRegua !== REGUA_VERSION &&
+    !usaGerenteBruto(s.versaoRegua) &&
     r.Violacoes.some(
       (v) =>
         !violacoesRegistradas(s).some(
@@ -125,7 +125,7 @@ export function validarRelatorio(r: Saidas['gerente'], s: Estado) {
   }
   // Compatibilidade com a validação legada. A régua v2 só publica a média
   // depois de aplicar as penalidades, em pontuarRelatorio.
-  if (s.versaoRegua !== REGUA_VERSION)
+  if (!usaGerenteBruto(s.versaoRegua))
     r.Media = Math.max(0.5, Math.round(((r.P + r.A + r.C + r.E) / 4) * 2) / 2);
 }
 
@@ -178,7 +178,7 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
         {
           bloco_dinamico: JSON.stringify(s.cenario, null, 2),
           historico:
-            s.versaoRegua === REGUA_VERSION
+            usaGerenteBruto(s.versaoRegua)
               ? next.mensagens.map(({ turno, autor, fase, texto }) => ({ turno, autor, fase, texto }))
               : next.mensagens
                   .map((m) => `**${m.autor === 'vendedor' ? 'Vendedor' : 'Cliente'}:** ${m.texto}`)
@@ -225,7 +225,7 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
       'gerente',
       {
         thread_completa:
-          s.versaoRegua === REGUA_VERSION
+          usaGerenteBruto(s.versaoRegua)
             ? s.mensagens.map(({ turno, autor, fase, texto }) => ({ turno, autor, fase, texto }))
             : s.mensagens
                 .map(

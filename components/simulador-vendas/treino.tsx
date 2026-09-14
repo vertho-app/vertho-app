@@ -9,6 +9,7 @@ import { PageContainer, PageHero } from '@/components/page-shell';
 import { FASES, RETENCAO_MESES, type Comando, type Config, type Estado } from '@/lib/simulador-vendas/schema';
 import type { SessaoPublica } from '@/lib/simulador-vendas/core';
 import type { ResumoTreino } from '@/lib/simulador-vendas/historico';
+import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 import Relatorio from './relatorio';
 import Avaliacao from './avaliacao';
 import Gestao from './gestao';
@@ -464,7 +465,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       <span className={styles.historyTitle}>
                         <span>{h.nome || t('preparing')}</span>
                         <span className={styles.historyScore}>
-                          {t('score')} {h.nota !== null ? h.nota.toLocaleString(locale) : '—'}
+                          {t('score')} {formatarNotaPace(h.nota, locale)}
                         </span>
                       </span>
                       <small className={styles.historyMeta}>

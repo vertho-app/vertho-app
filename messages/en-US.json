@@ -148,6 +148,7 @@
     "cocreation": "Co-creation",
     "engagement": "Engagement",
     "scoreLabel": "{name} score",
+    "scoreZeroHelp": "— indicates no evidence for that pillar and counts as zero in the average.",
     "recommendations": "For your next conversation",
     "result_fechou_ideal": "Closed on ideal terms",
     "result_fechou_aceitavel": "Closed on acceptable terms",

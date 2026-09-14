@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import type { ResumoTreino } from '@/lib/simulador-vendas/historico';
+import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 import type { Saidas } from '@/lib/simulador-vendas/schema';
 import { montarCsv } from '@/lib/simulador-vendas/csv';
 import Relatorio from './relatorio';
@@ -198,7 +199,7 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
                 </td>
                 <td className="pr-4 whitespace-nowrap">{new Date(r.criadoEm).toLocaleDateString(locale)}</td>
                 <td className="pr-4">{t(`status_${r.status}`)}</td>
-                <td className="pr-4">{r.nota?.toLocaleString(locale) ?? '—'}</td>
+                <td className="pr-4">{formatarNotaPace(r.nota, locale)}</td>
                 <td>
                   <button disabled={ocupado || !r.temRelatorio} onClick={() => void abrir(r.id)}>
                     {t('viewReport')}

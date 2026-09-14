@@ -148,6 +148,7 @@
     "cocreation": "Cocriação",
     "engagement": "Envolvimento",
     "scoreLabel": "Nota de {name}",
+    "scoreZeroHelp": "— indica ausência de evidência nesse pilar e equivale a zero no cálculo da média.",
     "recommendations": "Para a próxima conversa",
     "result_fechou_ideal": "Fechou no ideal",
     "result_fechou_aceitavel": "Fechou no aceitável",

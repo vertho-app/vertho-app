@@ -1,5 +1,5 @@
 import type { Estado, Saidas } from './schema';
-import { REGUA_VERSION } from './schema';
+import { REGUA_VERSION, usaGerenteBruto } from './schema';
 
 export const PILAR_POR_FASE = { preparar: 'P', analisar: 'A', cocriar: 'C', engajar: 'E' } as const;
 export const PENALIDADE = { leve: 0.5, moderada: 1.5, grave: 2.5 } as const;
@@ -36,15 +36,18 @@ export function violacoesRegistradas(s: Estado): Saidas['gerente']['Violacoes'] 
 /** Executada uma única vez após recuperar/validar o checkpoint BRUTO do gerente. */
 export function pontuarRelatorio(bruto: Saidas['gerente'], s: Estado): Saidas['gerente'] {
   const r = structuredClone(bruto);
-  if (s.versaoRegua === REGUA_VERSION) {
+  const piso = s.versaoRegua === REGUA_VERSION ? 0 : 0.5;
+  if (usaGerenteBruto(s.versaoRegua)) {
     r.Violacoes = violacoesRegistradas(s);
     for (const v of r.Violacoes) {
       const antes = r[v.pilar_penalizado];
-      r[v.pilar_penalizado] = Math.max(0.5, antes - v.reducao_aplicada);
+      r[v.pilar_penalizado] = Math.max(piso, antes - v.reducao_aplicada);
       v.reducao_aplicada = antes - r[v.pilar_penalizado];
     }
   }
-  r.Media = Math.max(0.5, Math.round((r.P + r.A + r.C + r.E) / 2) / 2);
+  // Os quatro pilares têm o mesmo peso (25%). A forma reduzida abaixo equivale
+  // a arredondar a média aritmética para o passo de 0,5 mais próximo.
+  r.Media = Math.max(piso, Math.round((r.P + r.A + r.C + r.E) / 2) / 2);
   return r;
 }
 
