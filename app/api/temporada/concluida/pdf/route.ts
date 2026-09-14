@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { renderTemporadaConcluidaPDF } from '@/lib/temporada-concluida-pdf';
 import { requireUser, assertEmailAccess } from '@/lib/auth/request-context';
-import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
+import { resolverMarcaPdf, marcaVertho, nomeArquivoMarca } from '@/lib/pdf-marca';
 
 /**
  * GET /api/temporada/concluida/pdf
@@ -32,9 +32,18 @@ export async function GET(request: Request) {
     if (dados.error) return NextResponse.json({ error: dados.error }, { status: 404 });
 
     // A marca é do TENANT, não da rota: cliente white-label recebe o PDF com o
-    // logo dele e sem nenhuma identificação da Vertho — inclusive no nome do
+    // logo dele e sem nenhuma identificação da Vertho, inclusive no nome do
     // arquivo, que é o que aparece na pasta de Downloads de quem recebe.
-    const marca = await resolverMarcaPdf(auth.empresaId);
+    //
+    // 🔴 Exceção: quando quem baixa é a PLATAFORMA (platform admin lendo o
+    // relatório de outra pessoa, do /admin), o documento sai com a marca Vertho
+    // — decisão do dono, 14/09/2026. E não é só política: `auth.empresaId` de
+    // um platform admin é a empresa do cadastro DELE, então resolver a marca por
+    // ali produziria o logo de um tenant no relatório de outro, que é justamente
+    // o erro que o white-label existe para impedir.
+    const marca = emailParam && auth.isPlatformAdmin
+      ? marcaVertho()
+      : await resolverMarcaPdf(auth.empresaId);
     const buffer = await renderTemporadaConcluidaPDF(dados, marca);
     const prefixo = nomeArquivoMarca('vertho-temporada', marca);
     const fileName = `${prefixo}-${dados.trilha.numeroTemporada}-${(dados.colab.nome || 'colab').replace(/\s+/g, '-')}.pdf`;

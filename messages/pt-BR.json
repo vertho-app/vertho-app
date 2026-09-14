@@ -2618,6 +2618,7 @@
     }
   },
   "AdminEvolution": {
+    "consolidatedPdf": "Consolidado em PDF",
     "title": "Evolução — Temporadas Concluídas",
     "subtitle": "{count, plural, one {# colaborador com Evolution Report} other {# colaboradores com Evolution Report}}",
     "loading": "Carregando...",
@@ -2635,6 +2636,7 @@
       "estagnacao": "Estável"
     },
     "detail": {
+      "pdf": "Relatório em PDF",
       "after": "Depois",
       "attention": "Ponto de atenção",
       "before": "Antes",

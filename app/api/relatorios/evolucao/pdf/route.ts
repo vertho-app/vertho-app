@@ -5,7 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import RelatorioEvolucaoPDF from '@/components/pdf/RelatorioEvolucao';
 import { carregarEvolucaoRH } from '@/lib/relatorios/evolucao-center';
 import { resolverRecorteDeTurma } from '@/lib/relatorios/recorte-turma';
-import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
+import { resolverMarcaPdf, marcaVertho, nomeArquivoMarca } from '@/lib/pdf-marca';
 import { requireRole } from '@/lib/auth/request-context';
 
 /**
@@ -20,9 +20,13 @@ import { requireRole } from '@/lib/auth/request-context';
  *    PDF que envelhece em silêncio enquanto mais gente fecha a jornada — e a
  *    pergunta que este documento responde ("quem evoluiu?") muda toda semana.
  *
- * 2. **O tenant vem da SESSÃO, nunca do browser.** Não há parâmetro de empresa.
- *    A rota é nominal por natureza (nomes, cargos, notas), então `empresaId` do
- *    cliente seria uma leitura cross-tenant de PII a um parâmetro de distância.
+ * 2. **O tenant vem da SESSÃO, nunca do browser** — com UMA exceção, e ela é
+ *    gatada: a rota é nominal por natureza (nomes, cargos, notas), então
+ *    `empresaId` vindo do cliente seria uma leitura cross-tenant de PII a um
+ *    parâmetro de distância. Para gestor e RH continua sendo assim: o parâmetro
+ *    é ignorado. Só `isPlatformAdmin` pode pedir outra empresa, porque é o
+ *    alcance que ele já tem em toda a área /admin (onde a empresa vem da rota e
+ *    o gate é o papel), e é de lá que o botão desta tela sai.
  *
  * 3. **Não há cache no Storage.** O agregado muda a cada fechamento; servir um
  *    PDF salvo faria o RH baixar um retrato antigo achando que é o de hoje. A
@@ -45,9 +49,15 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const turmaId = searchParams.get('turma');
     const contentDisposition = searchParams.get('view') === 'inline' ? 'inline' : 'attachment';
+    // `?empresa=` só existe para a plataforma (ver item 2 do cabeçalho). Para
+    // gestor e RH o parâmetro é lido e DESCARTADO: quem decide o tenant é a
+    // sessão. O `||` não serve aqui — ele deixaria o parâmetro valer sempre que
+    // a sessão não tivesse empresa, que é o caso a proteger.
+    const empresaPedida = searchParams.get('empresa');
+    const empresaId = auth.isPlatformAdmin && empresaPedida ? empresaPedida : auth.empresaId;
 
-    const tdb = tenantDb(auth.empresaId);
-    const empresaResult = await tdb.raw.from('empresas').select('nome').eq('id', auth.empresaId).maybeSingle();
+    const tdb = tenantDb(empresaId);
+    const empresaResult = await tdb.raw.from('empresas').select('nome').eq('id', empresaId).maybeSingle();
     if (empresaResult.error) {
       // O supabase-js RETORNA `{ error }`. Sem checar, a falha viraria um PDF com
       // o nome da empresa em branco — e o documento circula assim.
@@ -58,16 +68,18 @@ export async function GET(request: Request) {
 
     // Mesma régua de recorte da tela: turma de outro tenant ou encerrada cai
     // para a empresa inteira, e o PDF diz qual recorte saiu.
-    const recorte = await resolverRecorteDeTurma(tdb.raw, auth.empresaId, turmaId);
-    const data = await carregarEvolucaoRH(auth.empresaId, { colaboradorIds: recorte.colaboradorIds });
+    const recorte = await resolverRecorteDeTurma(tdb.raw, empresaId, turmaId);
+    const data = await carregarEvolucaoRH(empresaId, { colaboradorIds: recorte.colaboradorIds });
 
     // Leitura falhou: o documento sai dizendo isso, em vez de sair mostrando
     // zero evolução — que pareceria resultado do programa, não avaria nossa.
     if (data.indisponivel) {
-      console.error('[pdf-evolucao] agregado indisponível para', auth.empresaId);
+      console.error('[pdf-evolucao] agregado indisponível para', empresaId);
     }
 
-    const marca = await resolverMarcaPdf(auth.empresaId);
+    // Baixado pela PLATAFORMA sai com a marca Vertho (decisão do dono,
+    // 14/09/2026); baixado pelo CLIENTE segue a flag `pdf_sem_marca` do tenant.
+    const marca = auth.isPlatformAdmin ? marcaVertho() : await resolverMarcaPdf(empresaId);
     const sufixo = (recorte.turma?.nome || empresaNome || 'evolucao').replace(/\s+/g, '-').toLowerCase();
     const filename = `${nomeArquivoMarca('vertho-evolucao', marca)}-${sufixo}.pdf`;
 

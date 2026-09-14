@@ -62,12 +62,28 @@ async function logoDoTenant(url: string | null | undefined): Promise<string | nu
 }
 
 /**
+ * A marca da Vertho, explícita.
+ *
+ * Existe para quem SABE que o documento é da plataforma, em vez de passar
+ * `null` para `resolverMarcaPdf` e depender do fallback: "não sei de quem é o
+ * tenant" e "este documento é nosso" são intenções diferentes, e ler uma no
+ * lugar da outra é o que faz a marca errada sair sem ninguém perceber.
+ *
+ * Decisão do dono, 14/09/2026: relatório baixado pela PLATAFORMA sai com a marca
+ * Vertho. Isso não afeta o download do CLIENTE, que segue a flag
+ * `pdf_sem_marca` — o combinado com Macaé (17/08) continua valendo lá.
+ */
+export function marcaVertho(): MarcaPdf {
+  return { logoBase64: getLogoCoverBase64(), mostrarVertho: true };
+}
+
+/**
  * Resolve a marca do PDF de uma empresa. Sem `empresaId` (ou em erro de leitura)
  * devolve a marca Vertho — é o comportamento de sempre, e o modo sem marca só
  * existe para quem ligou a flag explicitamente.
  */
 export async function resolverMarcaPdf(empresaId: string | null | undefined): Promise<MarcaPdf> {
-  const padrao: MarcaPdf = { logoBase64: getLogoCoverBase64(), mostrarVertho: true };
+  const padrao: MarcaPdf = marcaVertho();
   if (!empresaId) return padrao;
 
   const hit = cache.get(empresaId);

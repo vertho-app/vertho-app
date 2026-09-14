@@ -2618,6 +2618,7 @@
     }
   },
   "AdminEvolution": {
+    "consolidatedPdf": "Consolidated PDF",
     "title": "Evolution — Completed Seasons",
     "subtitle": "{count, plural, one {# team member with Evolution Report} other {# team members with Evolution Report}}",
     "loading": "Loading...",
@@ -2635,6 +2636,7 @@
       "estagnacao": "Stable"
     },
     "detail": {
+      "pdf": "Report as PDF",
       "after": "After",
       "attention": "Point of attention",
       "before": "Before",

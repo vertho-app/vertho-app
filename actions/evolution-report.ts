@@ -45,8 +45,20 @@ export async function loadEvolutionReportsEmpresa(empresaId: string) {
       !internosEvSet.has(t.colaborador_id) && t.evolution_report?.modo !== 'piloto');
 
     const ids = (trilhas || []).map(t => t.colaborador_id);
-    const { data: colabs } = await tdb.from('colaboradores')
-      .select('id, nome_completo, cargo, area_depto').in('id', ids);
+    // `email` entra porque é a chave do PDF individual
+    // (`/api/temporada/concluida/pdf?email=`), que a tela oferece por pessoa.
+    //
+    // O `{ error }` do supabase-js é RETORNADO, não lançado: sem esta checagem,
+    // falha de leitura deixava `colabs` nulo, o mapa vazio e a tela mostrava a
+    // lista inteira com nome "—" e sem cargo, como se o cadastro estivesse
+    // vazio. Aqui é leitura de CONSTRUÇÃO (tela de admin, para decidir), então
+    // falha alto com mensagem acionável em vez de degradar calada.
+    const { data: colabs, error: erroColabs } = await tdb.from('colaboradores')
+      .select('id, nome_completo, email, cargo, area_depto').in('id', ids);
+    if (erroColabs) {
+      console.error('[VERTHO] loadEvolutionReportsEmpresa colaboradores:', erroColabs.message);
+      return { error: 'não foi possível ler os colaboradores desta empresa' };
+    }
     const colabMap = Object.fromEntries((colabs || []).map(c => [c.id, c]));
 
     const trilhasComColab = (trilhas || []).map(t => ({ ...t, colab: colabMap[t.colaborador_id] || null }));

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { TrendingUp, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { TrendingUp, ChevronDown, ChevronRight, X, FileDown } from 'lucide-react';
 import { loadEvolutionReportsEmpresa } from '@/actions/evolution-report';
 import BackButton from '@/components/back-button';
 import AdminPageHeader from '@/components/admin/page-header';
@@ -85,7 +85,17 @@ export default function EvolucaoAdminPage() {
 
       {/* Lista de colabs */}
       <div className="mt-8">
-      <h2 className="text-sm uppercase text-gray-400 mb-3">{t('evaluatedCollaborators', { count: data.trilhas.length })}</h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm uppercase text-gray-400">{t('evaluatedCollaborators', { count: data.trilhas.length })}</h2>
+        {/* Link, não fetch: a rota autentica por cookie e devolve
+            `Content-Disposition: attachment`, então o browser baixa sozinho. */}
+        <a
+          href={`/api/relatorios/evolucao/pdf?empresa=${encodeURIComponent(empresaId)}`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-cyan-200 transition-colors hover:bg-cyan-300/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+        >
+          <FileDown size={12} aria-hidden="true" /> {t('consolidatedPdf')}
+        </a>
+      </div>
         <div className="grid md:grid-cols-2 gap-3">
           {data.trilhas.map(t => (
             <ColabRow key={t.id} trilha={t} onAbrir={() => setTrilhaAberta(t)} />
@@ -278,14 +288,24 @@ function DetalheDaPessoa({ trilha, onClose }) {
               {trilha.colab?.nome_completo || '—'}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('detail.close')}
-            className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {trilha.colab?.email && (
+              <a
+                href={`/api/temporada/concluida/pdf?email=${encodeURIComponent(trilha.colab.email)}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-cyan-300/30 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-cyan-200 transition-colors hover:bg-cyan-300/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+              >
+                <FileDown size={12} aria-hidden="true" /> {t('detail.pdf')}
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label={t('detail.close')}
+              className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="space-y-5 p-5 md:px-6">

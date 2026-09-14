@@ -135,6 +135,45 @@ describe('o card abre o relatório da pessoa', () => {
     expect(TELA).not.toContain("d.convergencia === 'estagnacao'");
   });
 
+  /**
+   * Os dois PDFs de evolução existiam e não tinham botão nesta tela: o
+   * individual só no painel do gestor do tenant, o consolidado só em
+   * /dashboard/relatorios. Quem estava no /admin tinha que sair da tela.
+   */
+  it('a tela oferece o PDF individual e o consolidado', () => {
+    expect(TELA).toContain('/api/temporada/concluida/pdf?email=');
+    expect(TELA).toContain('/api/relatorios/evolucao/pdf?empresa=');
+    expect(TELA).toContain("t('detail.pdf')");
+    expect(TELA).toContain("t('consolidatedPdf')");
+    // O email do alvo vem do payload da lista, não montado na tela.
+    expect(TELA).toContain('trilha.colab?.email');
+    const acao = readFileSync('actions/evolution-report.ts', 'utf8');
+    expect(acao).toContain("select('id, nome_completo, email, cargo, area_depto')");
+  });
+
+  /**
+   * 🔴 Marca dos PDFs baixados pela PLATAFORMA: Vertho (decisão do dono,
+   * 14/09/2026). Não é só política: `auth.empresaId` de um platform admin é a
+   * empresa do cadastro DELE, então resolver a marca por ali imprimiria o logo
+   * de um tenant no relatório de outro. O download do CLIENTE não muda: segue a
+   * flag `pdf_sem_marca`, que é o combinado com Macaé desde 17/08.
+   */
+  it('o PDF baixado pela plataforma sai com a marca Vertho, e o do cliente não muda', () => {
+    const individual = readFileSync('app/api/temporada/concluida/pdf/route.ts', 'utf8');
+    const consolidado = readFileSync('app/api/relatorios/evolucao/pdf/route.ts', 'utf8');
+    for (const rota of [individual, consolidado]) {
+      expect(rota).toContain('marcaVertho()');
+      expect(rota).toContain('isPlatformAdmin');
+      expect(rota).toContain('resolverMarcaPdf(');
+    }
+    // O consolidado aceita `?empresa=` SÓ para a plataforma: para gestor e RH o
+    // parâmetro é descartado, senão é PII cross-tenant a um parâmetro de
+    // distância. Um `||` aqui deixaria o parâmetro valer quando a sessão não
+    // tem empresa, que é exatamente o caso a proteger.
+    expect(consolidado).toContain('auth.isPlatformAdmin && empresaPedida ? empresaPedida : auth.empresaId');
+    expect(consolidado).not.toContain('empresaPedida || auth.empresaId');
+  });
+
   it('não vai ao banco para abrir o detalhe: o relatório já vem na lista', () => {
     const acao = readFileSync('actions/evolution-report.ts', 'utf8');
     expect(acao).toContain('evolution_report');
