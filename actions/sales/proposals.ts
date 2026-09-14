@@ -11,6 +11,7 @@
 // Só admin (sales_channel.manage) aprova/recusa/pede ajustes. Financeiro é
 // SEMPRE recalculado no server (lib/sales/commissions) — nunca confiamos no valor do client.
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { isPlatformAdmin } from '@/lib/authz';
 import {
   requireRepresentativeAction,
   requireRepresentativeOrAdminAction,
@@ -49,12 +50,27 @@ function proposalPatchFromInput(input: Record<string, any>): Record<string, any>
   return { ...patch, ...fin };
 }
 
-export async function listProposals(filters?: { status?: string; representanteId?: string }) {
+export async function listProposals(
+  filters?: { status?: string; representanteId?: string },
+  visao?: 'canal',
+) {
   const ctx = await requireRepresentativeOrAdminAction();
   const sb = createSupabaseAdmin();
+  // `visao: 'canal'` é pedido pela página /admin/comercial/propostas. O parâmetro
+  // escolhe a VISÃO; a IDENTIDADE decide se pode — RC puro pedindo 'canal' leva
+  // FORBIDDEN. Sem ele, quem tem linha em sales_representatives é classificado
+  // como RC (requireRepresentativeOrAdminAction dá precedência ao RC) e veria só
+  // as próprias propostas mesmo estando na tela de canal.
+  const canal = visao === 'canal';
+  if (canal && !(await isPlatformAdmin(ctx.email))) {
+    return { success: false as const, error: 'FORBIDDEN: visão do canal é só de platform admin' };
+  }
+  // Canal: admin puro (sem linha de RC) ou platform admin que pediu o canal.
+  // RC: quem tem linha de RC e não pediu o canal — o portal dele segue escopado.
+  const visaoCanal = canal || ctx.kind === 'admin';
   let q = sb.from('sales_proposals').select(PROPOSAL_SELECT).order('created_at', { ascending: false });
-  if (ctx.kind === 'representative') q = q.eq('representante_id', ctx.rep.id);
-  else if (filters?.representanteId) q = q.eq('representante_id', filters.representanteId);
+  if (!visaoCanal && ctx.kind === 'representative') q = q.eq('representante_id', ctx.rep.id);
+  else if (visaoCanal && filters?.representanteId) q = q.eq('representante_id', filters.representanteId);
   if (filters?.status) q = q.eq('status', filters.status);
   const { data, error } = await q;
   if (error) return { success: false as const, error: error.message };
@@ -67,12 +83,19 @@ export async function getProposal(proposalId: string) {
   const { data, error } = await sb.from('sales_proposals').select(PROPOSAL_SELECT).eq('id', proposalId).maybeSingle();
   if (error) return { success: false as const, error: error.message };
   if (!data) return { success: false as const, error: 'Proposta não encontrada' };
-  if (ctx.kind === 'representative' && data.representante_id !== ctx.rep.id) {
+  // Platform admin é admin do canal MESMO quando também tem linha em
+  // sales_representatives: requireRepresentativeOrAdminAction dá precedência ao
+  // RC, mas a visão dele aqui é a do canal. Sem isso, um admin+RC não abria
+  // NENHUMA proposta que não fosse sua — desde a mig 254, nenhuma do deal desk
+  // (representante_id NULL não casa com id nenhum) — e não via os comentários
+  // internos. Anti-IDOR preservado: RC que não é platform admin segue trancado.
+  const ehAdmin = ctx.kind === 'admin' || (await isPlatformAdmin(ctx.email));
+  if (ctx.kind === 'representative' && !ehAdmin && data.representante_id !== ctx.rep.id) {
     return { success: false as const, error: 'FORBIDDEN: proposta de outro representante' };
   }
   // Comentários internos só para admin.
   let comments: any[] = [];
-  if (ctx.kind === 'admin') {
+  if (ehAdmin) {
     const { data: c } = await sb.from('sales_admin_comments').select('*').eq('proposal_id', proposalId).order('created_at', { ascending: false });
     comments = c || [];
   }
