@@ -41,15 +41,15 @@ describe('resolverTrilhoLideranca — quem responde o segundo mapeamento', () =>
    * mapeamento do cargo. Com matriz própria a recusa passou a excluir metade do
    * público que o instrumento existe para medir.
    */
-  it('quem OCUPA o cargo-alvo responde, na variante de gestor em exercício', async () => {
+  it('quem OCUPA o cargo-alvo responde, na variante de líder em exercício', async () => {
     const r: any = await resolverTrilhoLideranca(mock().client, { ...colab, cargo: 'gerente comercial' }, cfg);
-    expect(r).toMatchObject({ ok: true, variante: 'gestor', cargoDaMatriz: VARIANTES.gestor });
+    expect(r).toMatchObject({ ok: true, variante: 'lider', cargoDaMatriz: VARIANTES.lider });
     expect(r.competencias).toEqual(LID5);
   });
 
-  it('quem NÃO ocupa responde a variante de potencial sucessor', async () => {
+  it('quem NÃO ocupa responde a variante de futuro líder', async () => {
     const r: any = await resolverTrilhoLideranca(mock().client, colab, cfg);
-    expect(r).toMatchObject({ ok: true, variante: 'potencial', cargoDaMatriz: VARIANTES.potencial });
+    expect(r).toMatchObject({ ok: true, variante: 'futuro', cargoDaMatriz: VARIANTES.futuro });
   });
 
   it('rh e e-mail interno ficam fora — a mesma exclusão que a matriz aplica', async () => {

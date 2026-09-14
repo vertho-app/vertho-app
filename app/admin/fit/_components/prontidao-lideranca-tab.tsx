@@ -89,7 +89,16 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
   async function reinstalar() {
     setInstalando(true);
     const r: any = await reinstalarMatrizLiderancaAdmin(empresaId);
-    if (r.success) { toast.success(`Matriz instalada: ${r.inseridos} novos, ${r.atualizados} atualizados.`); await recarregar(); setVersao((v) => v + 1); }
+    if (r.success) {
+      toast.success(`Matriz instalada: ${r.inseridos} novos, ${r.atualizados} atualizados.`);
+      // Âncora de uma versão anterior da matriz: competências que ninguém mede
+      // mais e um cargo que não é de ninguém. A plataforma não apaga cargo de
+      // tenant sozinha, então quem opera precisa VER para decidir.
+      if (r.ancorasOrfas?.length) {
+        toast.warning(`Sobrou de uma matriz anterior: ${r.ancorasOrfas.join(', ')}. Apague o cargo e as competências dele à mão.`, { duration: 15000 });
+      }
+      await recarregar(); setVersao((v) => v + 1);
+    }
     else toast.error(r.error || 'Erro ao instalar a matriz.');
     setInstalando(false);
   }

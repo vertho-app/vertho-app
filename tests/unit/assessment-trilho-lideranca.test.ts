@@ -117,7 +117,7 @@ describe('trilho de liderança na action do assessment', () => {
    * global isso passou a excluir justamente o gestor em exercício, que é
    * metade do público do instrumento.
    */
-  it('quem ocupa o cargo-alvo RESPONDE, e o cenário é buscado pela variante de gestor', async () => {
+  it('quem ocupa o cargo-alvo RESPONDE, e o cenário é buscado pela variante de líder', async () => {
     cenario.sysConfig = CONTRATADO;
     cenario.cargo = 'Gerente Comercial';
     const lid: any = await getDiagnosticoDoDia('lideranca');
@@ -127,17 +127,17 @@ describe('trilho de liderança na action do assessment', () => {
     const cargosBuscados = sb.chamadas
       .filter((c) => c.tabela === 'competencias' && c.metodo === 'eq' && c.args[0] === 'cargo')
       .map((c) => c.args[1]);
-    expect(cargosBuscados).toContain(VARIANTES.gestor);
+    expect(cargosBuscados).toContain(VARIANTES.lider);
     expect(cargosBuscados).not.toContain('Gerente Comercial');
   });
 
-  it('quem NÃO ocupa o cargo-alvo tem o cenário buscado pela variante de potencial', async () => {
+  it('quem NÃO ocupa o cargo-alvo tem o cenário buscado pela variante de futuro líder', async () => {
     cenario.sysConfig = CONTRATADO;
     await getDiagnosticoDoDia('lideranca');
     const cargosBuscados = sb.chamadas
       .filter((c) => c.tabela === 'competencias' && c.metodo === 'eq' && c.args[0] === 'cargo')
       .map((c) => c.args[1]);
-    expect(cargosBuscados).toContain(VARIANTES.potencial);
+    expect(cargosBuscados).toContain(VARIANTES.futuro);
   });
 
   it('o papel rh fica fora do trilho — a mesma exclusão que a matriz aplica; e o card não aparece para ele', async () => {
