@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { criarSupabaseMock } from '../../helpers/supabase-mock';
 import { resolverTrilhoLideranca, respondeuHojeNoTrilho, diaEmSaoPaulo, trilhoDe } from '@/lib/prontidao-lideranca/trilho';
+import { COMPETENCIAS_LIDERANCA, VARIANTES } from '@/lib/simuladores/lideranca/matriz-global';
 
-const LID5 = ['Priorização', 'Gestão por dados', 'Desenvolvimento de pessoas', 'Conversa difícil', 'Delegação'];
+/** O trilho mede a MATRIZ GLOBAL desde 14/09/2026, não o Top 5 do cargo-alvo. */
+const LID5 = [...COMPETENCIAS_LIDERANCA];
 const colab = { id: 'c1', empresa_id: 'emp', cargo: 'Vendedor', role: 'colaborador', email: 'ana@cliente.com' };
 const contratado = { modulos: { prontidao_lideranca: true } };
 const cfg = { ...contratado, prontidao_lideranca: { cargo_alvo: 'Gerente Comercial' } };
@@ -33,9 +35,21 @@ describe('resolverTrilhoLideranca — quem responde o segundo mapeamento', () =>
     expect(r).toMatchObject({ ok: false, code: 'PROGRAMA_NAO_CONFIGURADO' });
   });
 
-  it('quem ocupa o cargo-alvo responde pelo trilho do cargo', async () => {
-    const r = await resolverTrilhoLideranca(mock().client, { ...colab, cargo: 'gerente comercial' }, cfg);
-    expect(r).toMatchObject({ ok: false, code: 'OCUPA_CARGO_ALVO' });
+  /**
+   * Até 14/09/2026 quem ocupava o cargo-alvo era RECUSADO, e fazia sentido
+   * enquanto as competências eram o Top 5 desse cargo: ele já as respondia pelo
+   * mapeamento do cargo. Com matriz própria a recusa passou a excluir metade do
+   * público que o instrumento existe para medir.
+   */
+  it('quem OCUPA o cargo-alvo responde, na variante de gestor em exercício', async () => {
+    const r: any = await resolverTrilhoLideranca(mock().client, { ...colab, cargo: 'gerente comercial' }, cfg);
+    expect(r).toMatchObject({ ok: true, variante: 'gestor', cargoDaMatriz: VARIANTES.gestor });
+    expect(r.competencias).toEqual(LID5);
+  });
+
+  it('quem NÃO ocupa responde a variante de potencial sucessor', async () => {
+    const r: any = await resolverTrilhoLideranca(mock().client, colab, cfg);
+    expect(r).toMatchObject({ ok: true, variante: 'potencial', cargoDaMatriz: VARIANTES.potencial });
   });
 
   it('rh e e-mail interno ficam fora — a mesma exclusão que a matriz aplica', async () => {
@@ -52,9 +66,14 @@ describe('resolverTrilhoLideranca — quem responde o segundo mapeamento', () =>
     expect(await resolverTrilhoLideranca(mock({ turmaDaPessoa: 't-prog' }).client, colab, porTurma)).toMatchObject({ ok: true, cargoAlvo: 'Gerente Comercial' });
   });
 
-  it('cargo-alvo sem Top 5 (ou inexistente) recusa com código próprio', async () => {
-    expect(await resolverTrilhoLideranca(mock({ cargos: [{ nome: 'Gerente Comercial', top5_workshop: [] }] }).client, colab, cfg)).toMatchObject({ ok: false, code: 'CARGO_ALVO_SEM_TOP5' });
-    expect(await resolverTrilhoLideranca(mock({ cargos: null }).client, colab, cfg)).toMatchObject({ ok: false, code: 'CARGO_ALVO_SEM_TOP5' });
+  it('cargo-alvo que não existe mais recusa com código próprio', async () => {
+    expect(await resolverTrilhoLideranca(mock({ cargos: null }).client, colab, cfg)).toMatchObject({ ok: false, code: 'CARGO_ALVO_NAO_EXISTE' });
+  });
+
+  /** Top 5 vazio no cargo-alvo deixou de importar: o que se mede é a matriz. */
+  it('cargo-alvo SEM Top 5 já não impede o trilho', async () => {
+    const r = await resolverTrilhoLideranca(mock({ cargos: [{ nome: 'Gerente Comercial', top5_workshop: [] }] }).client, colab, cfg);
+    expect(r).toMatchObject({ ok: true, competencias: LID5 });
   });
 
   it('o cargo-alvo casa por nome normalizado e devolve o nome CANÔNICO do cargo', async () => {
@@ -63,7 +82,7 @@ describe('resolverTrilhoLideranca — quem responde o segundo mapeamento', () =>
     expect(r).toMatchObject({ ok: true, cargoAlvo: 'Gerente Comercial', competencias: LID5 });
   });
 
-  it('caminho feliz: as competências são o Top 5 do cargo-alvo', async () => {
+  it('caminho feliz: as competências são as da matriz global', async () => {
     const r = await resolverTrilhoLideranca(mock().client, colab, cfg);
     expect(r).toMatchObject({ ok: true, cargoAlvo: 'Gerente Comercial', competencias: LID5 });
     expect((r as any).cfg.um_por_dia).toBe(true);

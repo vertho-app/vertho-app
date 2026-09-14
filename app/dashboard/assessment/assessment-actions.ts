@@ -42,9 +42,14 @@ async function competenciasDoColaborador(
  *
  * `cargo`: o Top 5 do cargo da pessoa (com o corte da degustação), exatamente
  * como sempre foi. `lideranca`: o Top 5 do CARGO-ALVO do programa de prontidão
- * (`lib/prontidao-lideranca/trilho.ts`), com os cenários gerados para ESSE
- * cargo — é o segundo mapeamento, separado do mapeamento do cargo. A
- * degustação não tem trilho de liderança.
+ * (`lib/prontidao-lideranca/trilho.ts`): é o segundo mapeamento, separado do
+ * mapeamento do cargo. A degustação não tem trilho de liderança.
+ *
+ * ⚠️ O `cargo` que busca os cenários do trilho de liderança é o da VARIANTE da
+ * matriz ("Gestor Comercial" / "Futuro Líder"), não o cargo-alvo da empresa: é
+ * sob a variante que as competências e os cenários da matriz global ficam
+ * gravados (`lib/simuladores/lideranca/instalar.ts`). Passar o cargo-alvo aqui
+ * devolveria lista VAZIA, sem erro nenhum.
  */
 type TrilhoResolvido =
   | { ok: true; trilho: 'cargo'; competencias: any[]; degustacao: boolean; cargoCenario: string; umPorDia: false; cargoAlvo: null }
@@ -62,9 +67,9 @@ async function competenciasDoTrilho(
     // `'code' in r`, não `!r.ok`: com strict:false a união não estreita por booleano.
     if ('code' in r) return { ok: false, error: r.message, code: r.code };
     const competencias = await resolverTop5ComCenario(
-      sb, colab.empresa_id, r.cargoAlvo, r.competencias, colab.escola_id || null,
+      sb, colab.empresa_id, r.cargoDaMatriz, r.competencias, colab.escola_id || null,
     );
-    return { ok: true, trilho, competencias, degustacao: false, cargoCenario: r.cargoAlvo, umPorDia: r.cfg.um_por_dia, cargoAlvo: r.cargoAlvo };
+    return { ok: true, trilho, competencias, degustacao: false, cargoCenario: r.cargoDaMatriz, umPorDia: r.cfg.um_por_dia, cargoAlvo: r.cargoAlvo };
   }
   const { competencias, degustacao } = await competenciasDoColaborador(sb, colab, empresa?.is_demo === true);
   return { ok: true, trilho: 'cargo', competencias, degustacao, cargoCenario: colab.cargo, umPorDia: false, cargoAlvo: null };

@@ -1,16 +1,22 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
+import { COMPETENCIAS_LIDERANCA, VARIANTES } from '@/lib/simuladores/lideranca/matriz-global';
 
 /**
  * O trilho de LIDERANÇA é o segundo mapeamento da pessoa — separado do
- * mapeamento do cargo, com as competências do cargo-alvo e "um cenário por
+ * mapeamento do cargo, com as competências da MATRIZ GLOBAL e "um cenário por
  * dia". Aqui se prova NA ACTION (molde: degustacao-assessment-action.test.ts):
- * é ela que decide o que a tela mostra, o que o servidor aceita gravar e — o
- * que mais importa — que o trilho do cargo continua exatamente como era.
+ * é ela que decide o que a tela mostra, o que o servidor aceita gravar e, o
+ * que mais importa, que o trilho do cargo continua exatamente como era.
+ *
+ * ⚠️ Desde 14/09/2026 as competências de liderança ficam gravadas sob o cargo
+ * da VARIANTE ("Gestor Comercial" / "Futuro Líder"), não sob o cargo-alvo da
+ * empresa. O mock ignora filtros, então a prova de que a busca usa a variante
+ * é uma asserção sobre `sb.chamadas`, no `it` próprio lá embaixo.
  */
 
 const CARGO5 = ['Prospecção', 'Negociação', 'Pós-venda', 'Resiliência', 'Metas'];
-const LID5 = ['Priorização e uso do tempo', 'Gestão por dados', 'Desenvolvimento de pessoas', 'Conversa difícil', 'Delegação e span'];
+const LID5 = [...COMPETENCIAS_LIDERANCA];
 
 const cenario = {
   cargo: 'Vendedor',
@@ -30,7 +36,7 @@ function respostasNoBanco() {
 
 const comps = [
   ...CARGO5.map((nome, i) => ({ id: `c-${i + 1}`, nome, cod_desc: null })),
-  ...LID5.map((nome, i) => ({ id: `l-${i + 1}`, nome, cod_desc: null })),
+  ...LID5.map((nome, i) => ({ id: `l-${i + 1}`, nome, cod_desc: null })),   // sob a variante em uso
 ];
 
 sb = criarSupabaseMock({
@@ -92,7 +98,7 @@ describe('trilho de liderança na action do assessment', () => {
     expect(cargo.cenarioDoDia?.compNome).toBe(CARGO5[0]);
   });
 
-  it('com programa configurado: o trilho entrega as competências do CARGO-ALVO, e o do cargo avisa que ele existe', async () => {
+  it('com programa configurado: o trilho entrega as competências da MATRIZ, e o do cargo avisa que ele existe', async () => {
     cenario.sysConfig = CONTRATADO;
 
     const lid: any = await getDiagnosticoDoDia('lideranca');
@@ -106,12 +112,32 @@ describe('trilho de liderança na action do assessment', () => {
     expect(cargo.cenarioDoDia?.compName ?? cargo.cenarioDoDia?.compNome).toBe(CARGO5[0]);
   });
 
-  it('quem ocupa o cargo-alvo não tem trilho de liderança', async () => {
+  /**
+   * Até 14/09/2026 quem ocupava o cargo-alvo era RECUSADO aqui. Com a matriz
+   * global isso passou a excluir justamente o gestor em exercício, que é
+   * metade do público do instrumento.
+   */
+  it('quem ocupa o cargo-alvo RESPONDE, e o cenário é buscado pela variante de gestor', async () => {
     cenario.sysConfig = CONTRATADO;
     cenario.cargo = 'Gerente Comercial';
-    expect(await getDiagnosticoDoDia('lideranca')).toMatchObject({ code: 'OCUPA_CARGO_ALVO' });
-    const cargo: any = await getDiagnosticoDoDia('cargo');
-    expect(cargo.trilhoLideranca).toBeNull();
+    const lid: any = await getDiagnosticoDoDia('lideranca');
+    expect(lid.error).toBeUndefined();
+    expect(lid).toMatchObject({ trilho: 'lideranca' });
+    expect(lid.progresso).toMatchObject({ total: 5 });
+    const cargosBuscados = sb.chamadas
+      .filter((c) => c.tabela === 'competencias' && c.metodo === 'eq' && c.args[0] === 'cargo')
+      .map((c) => c.args[1]);
+    expect(cargosBuscados).toContain(VARIANTES.gestor);
+    expect(cargosBuscados).not.toContain('Gerente Comercial');
+  });
+
+  it('quem NÃO ocupa o cargo-alvo tem o cenário buscado pela variante de potencial', async () => {
+    cenario.sysConfig = CONTRATADO;
+    await getDiagnosticoDoDia('lideranca');
+    const cargosBuscados = sb.chamadas
+      .filter((c) => c.tabela === 'competencias' && c.metodo === 'eq' && c.args[0] === 'cargo')
+      .map((c) => c.args[1]);
+    expect(cargosBuscados).toContain(VARIANTES.potencial);
   });
 
   it('o papel rh fica fora do trilho — a mesma exclusão que a matriz aplica; e o card não aparece para ele', async () => {
