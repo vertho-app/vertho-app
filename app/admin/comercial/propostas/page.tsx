@@ -22,7 +22,10 @@ export default function PropostasAdminPage() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const [p, r] = await Promise.all([listProposals(), listRepresentativesForAdmin()]);
+      // 'canal': a visão de canal, não a de RC. Quem tem linha em
+      // sales_representatives seria classificado como RC e veria só as próprias —
+      // a action verifica por identidade que quem pede o canal é platform admin.
+      const [p, r] = await Promise.all([listProposals(undefined, 'canal'), listRepresentativesForAdmin()]);
       if (p.success) setProposals(p.data);
       else setError(p.error || 'Falha ao carregar propostas');
       if (r.success) setReps(r.data);
@@ -45,7 +48,7 @@ export default function PropostasAdminPage() {
         <AdminPageHeader
           icon={FileText}
           title="Propostas do canal"
-          subtitle="Todas as propostas dos representantes — aprovação interna Vertho"
+          subtitle="Todas as propostas do canal — dos representantes e as criadas pelo deal desk"
           backHref="/admin/comercial"
         />
 
