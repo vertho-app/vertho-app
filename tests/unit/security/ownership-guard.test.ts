@@ -59,8 +59,17 @@ const GATES_FRACOS = /requireUserAction|requireRoleAction|getAuthenticatedEmailF
  * Os `require*Representative*`/`requireCommercialAdmin*` entraram em 10/08: o
  * Portal do Representante inteiro usa esse idioma, e sem eles 32 exports
  * ficavam fora da conta — sem gate reconhecido, mas gatados de verdade.
+ *
+ * `requirePlataformaSupabase` entrou em 14/09 pelo MESMO motivo, e sem afrouxar
+ * nada: ele é `await requireAdminAction(permission)` seguido do cliente
+ * service-role (`lib/admin-supabase.ts:58-61`), ou seja, um wrapper de um gate
+ * que esta lista já aceita. Sem ele o guard acusava 6 exports do deal desk
+ * (`actions/sales/proposals-admin.ts`, `actions/orcamento/cenarios.ts`), que
+ * exigem `sales_channel.manage` sobre recurso da PLATAFORMA, onde não há posse
+ * de colaborador nem de tenant a conferir. Guard que acusa quem fez certo vira
+ * ruído, e ruído é como um guard morre.
  */
-const GATES_FORTES = /requireAdminAction|requireAdminSupabase|protectedAction|requirePermissionAction|requireEmpresaSupabase|requireAdminOrCron|requireRepresentative\w*Action|requireCommercialAdminAction|\bisPlatformAdmin\s*\(/;
+const GATES_FORTES = /requireAdminAction|requireAdminSupabase|requirePlataformaSupabase|protectedAction|requirePermissionAction|requireEmpresaSupabase|requireAdminOrCron|requireRepresentative\w*Action|requireCommercialAdminAction|\bisPlatformAdmin\s*\(/;
 // ⚠️ `\bisPlatformAdmin\s*\(` casa a CHAMADA (`await isPlatformAdmin(email)`, um
 // gate), não a propriedade `ctx.isPlatformAdmin`, que costuma ser só o bypass do
 // admin dentro de uma regra maior. Trocar um pelo outro afrouxaria o guard em
