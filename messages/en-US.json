@@ -2597,7 +2597,7 @@
     "missingCompanyParam": "Pass?company={id} in the URL",
     "empty": {
       "title": "No season completed in this company yet.",
-      "description": "Wait for contributors to finish weeks 13-14."
+      "description": "Each person's report shows up here once their journey is closed."
     },
     "evaluatedCollaborators": "Evaluated team members ({count})",
     "descriptorSummary": "{descriptors, plural, one {# descriptor} other {# descriptors}} · {evaluations, plural, one {# assessment} other {# assessments}}",
@@ -2606,6 +2606,27 @@
       "evolucao_confirmada": "Confirmed",
       "evolucao_parcial": "Partial",
       "estagnacao": "Stable"
+    },
+    "detail": {
+      "after": "After",
+      "attention": "Point of attention",
+      "averagePost": "Closing average score",
+      "before": "Before",
+      "byDescriptor": "Descriptor by descriptor",
+      "close": "Close",
+      "closingSummary": "Closing summary",
+      "competency": "Focus competency",
+      "cta": "view results",
+      "eyebrow": "Evolution Report",
+      "generatedAt": "Generated on",
+      "insight": "Overall reading",
+      "justification": "How the score was supported",
+      "mainAdvance": "Main advance",
+      "nextStep": "Recommended next step",
+      "noDescriptors": "This report has no descriptors.",
+      "open": "Open {name}'s report",
+      "title": "Evolution report for {name}",
+      "weakEvidence": "No evidence in the conversation: the qualitative reading does not count toward this descriptor."
     }
   },
   "AdminFit": {

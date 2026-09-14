@@ -2597,7 +2597,7 @@
     "missingCompanyParam": "Pasa ?empresa={id} en la URL",
     "empty": {
       "title": "Aún no hay ninguna temporada concluida en esta empresa.",
-      "description": "Espera a que los colaboradores finalicen las semanas 13-14."
+      "description": "El informe de cada persona aparece aquí cuando se cierra su trayecto."
     },
     "evaluatedCollaborators": "Colaboradores evaluados ({count})",
     "descriptorSummary": "{descriptors, plural, one {# descriptor} other {# descriptores}} · {evaluations, plural, one {# evaluación} other {# evaluaciones}}",
@@ -2606,6 +2606,27 @@
       "evolucao_confirmada": "Confirmada",
       "evolucao_parcial": "Parcial",
       "estagnacao": "Estable"
+    },
+    "detail": {
+      "after": "Después",
+      "attention": "Punto de atención",
+      "averagePost": "Nota media al cierre",
+      "before": "Antes",
+      "byDescriptor": "Descriptor por descriptor",
+      "close": "Cerrar",
+      "closingSummary": "Resumen del cierre",
+      "competency": "Competencia foco",
+      "cta": "ver resultados",
+      "eyebrow": "Evolution Report",
+      "generatedAt": "Generado el",
+      "insight": "Lectura general",
+      "justification": "Cómo se sustentó la nota",
+      "mainAdvance": "Principal avance",
+      "nextStep": "Siguiente paso recomendado",
+      "noDescriptors": "Este informe no trajo descriptores.",
+      "open": "Abrir el informe de {name}",
+      "title": "Informe de evolución de {name}",
+      "weakEvidence": "Sin evidencia en la conversación: la lectura cualitativa no entra en el veredicto de este descriptor."
     }
   },
   "AdminFit": {

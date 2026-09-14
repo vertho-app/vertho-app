@@ -251,13 +251,16 @@ function DetalheModal({ data, loading, onClose, sb }) {
     // com canto de 16px — um tom preto que não existe em nenhuma outra tela do
     // produto (só nos modais do /admin, que são outra área).
     <div
-      className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-start justify-center p-2 md:p-6 overflow-y-auto"
+      className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-start justify-center p-2 md:p-6"
       role="dialog"
       aria-modal="true"
       aria-label="Detalhe do liderado"
       onClick={onClose}
     >
-      <div className="max-w-3xl w-full my-4 md:my-8 rounded-[24px] border border-white/[0.1] bg-[#071829] shadow-2xl" onClick={e => e.stopPropagation()}>
+      {/* Quem ROLA é o painel: com o scroll no backdrop, o cabeçalho sticky
+          para na borda de conteúdo do container e o padding dele vira uma
+          faixa por onde o texto aparece ACIMA do nome do liderado. */}
+      <div className="max-h-full w-full max-w-3xl overflow-y-auto overscroll-contain rounded-[24px] border border-white/[0.1] bg-[#071829] shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between gap-4 p-4 md:px-6 border-b border-white/[0.08] bg-[#071829] rounded-t-[24px]">
           <div className="min-w-0">
             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-brand-300">Evolução da equipe</p>

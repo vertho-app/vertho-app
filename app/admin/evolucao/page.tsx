@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { TrendingUp, ChevronDown, ChevronRight } from 'lucide-react';
+import { TrendingUp, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { loadEvolutionReportsEmpresa } from '@/actions/evolution-report';
 import BackButton from '@/components/back-button';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
+import { rotuloConvergencia, qualitativaSustenta } from '@/lib/season-engine/convergencia';
+import { normalizarResumoAvaliacao } from '@/lib/season-engine/resumo-avaliacao';
+import { descritorParaHumano } from '@/lib/descritor-humano';
 
 /**
  * Os vereditos que a régua PRODUZ (`lib/season-engine/convergencia.ts`).
@@ -31,6 +34,10 @@ export default function EvolucaoAdminPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
+  // O relatório INTEIRO de cada pessoa já vem no payload da lista
+  // (`loadEvolutionReportsEmpresa` seleciona `evolution_report`), então abrir o
+  // detalhe é estado de tela: nenhuma ida ao banco, nenhum spinner.
+  const [trilhaAberta, setTrilhaAberta] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -81,10 +88,12 @@ export default function EvolucaoAdminPage() {
       <h2 className="text-sm uppercase text-gray-400 mb-3">{t('evaluatedCollaborators', { count: data.trilhas.length })}</h2>
         <div className="grid md:grid-cols-2 gap-3">
           {data.trilhas.map(t => (
-            <ColabRow key={t.id} trilha={t} />
+            <ColabRow key={t.id} trilha={t} onAbrir={() => setTrilhaAberta(t)} />
           ))}
         </div>
       </div>
+
+      {trilhaAberta && <DetalheDaPessoa trilha={trilhaAberta} onClose={() => setTrilhaAberta(null)} />}
     </Wrapper>
   );
 }
@@ -183,23 +192,207 @@ function CompetenciaCard({ nome, descritores, expanded, onToggle }: { nome?: any
   );
 }
 
-function ColabRow({ trilha }) {
+function ColabRow({ trilha, onAbrir }) {
   const locale = useLocale();
   const t = useTranslations('AdminEvolution');
   const resumo = trilha.evolution_report?.resumo || {};
+  const nome = trilha.colab?.nome_completo || '—';
   return (
-    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-      <div className="flex items-center justify-between mb-1">
-        <div className="text-sm font-bold text-white">{trilha.colab?.nome_completo || '—'}</div>
-        <span className="text-[10px] text-gray-500">{new Date(trilha.evolution_generated_at).toLocaleDateString(locale)}</span>
+    // `button`, não `div` com onClick: o card abre o relatório de uma pessoa, e
+    // quem navega por teclado precisa chegar nele e acioná-lo.
+    <button
+      type="button"
+      onClick={onAbrir}
+      aria-label={t('detail.open', { name: nome })}
+      className="w-full p-3 text-left rounded-lg bg-white/5 border border-white/10 transition-colors hover:border-cyan-300/30 hover:bg-white/[0.08] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300"
+    >
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="text-sm font-bold text-white">{nome}</div>
+        <span className="text-[10px] text-gray-500 shrink-0">{new Date(trilha.evolution_generated_at).toLocaleDateString(locale)}</span>
       </div>
       <div className="text-[11px] text-gray-400 mb-2">{trilha.colab?.cargo} · {trilha.competencia_foco}</div>
       {/* Símbolo sozinho não se explica, e o card é a primeira coisa que se lê
           nesta tela: o rótulo do veredito vai ao lado, com a palavra da régua. */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px]">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
         <span className="text-emerald-400">✓ {resumo.confirmadas || 0} {t('statuses.evolucao_confirmada')}</span>
         <span className="text-amber-400">~ {resumo.parciais || 0} {t('statuses.evolucao_parcial')}</span>
         <span className="text-gray-400">= {resumo.estagnacoes || 0} {t('statuses.estagnacao')}</span>
+        <span className="ml-auto text-cyan-300">{t('detail.cta')}</span>
+      </div>
+    </button>
+  );
+}
+
+/** Cores por veredito, para o detalhe. Mesmas famílias do resumo agregado. */
+const TINTA_VEREDITO = {
+  evolucao_confirmada: { borda: 'border-emerald-500/25', fundo: 'bg-emerald-500/[0.06]', tinta: 'text-emerald-300' },
+  evolucao_parcial: { borda: 'border-amber-500/25', fundo: 'bg-amber-500/[0.06]', tinta: 'text-amber-300' },
+  estagnacao: { borda: 'border-white/10', fundo: 'bg-white/[0.03]', tinta: 'text-gray-300' },
+};
+
+/**
+ * O relatório de UMA pessoa, descritor a descritor.
+ *
+ * A tela mostrava só os contadores, e a pergunta que eles levantam ("4 parciais
+ * em quê?") não tinha resposta em lugar nenhum do /admin: era preciso entrar no
+ * painel do gestor do tenant, ou gerar o PDF. O dado já estava no payload.
+ */
+function DetalheDaPessoa({ trilha, onClose }) {
+  const locale = useLocale();
+  const t = useTranslations('AdminEvolution');
+  const report = trilha.evolution_report || {};
+  const descritores = Array.isArray(report.descritores) ? report.descritores : [];
+  const resumoAvaliacao = normalizarResumoAvaliacao(report.resumo_avaliacao);
+
+  // Esc fecha. Sem isto, um overlay sem borda de scroll prende quem abriu por
+  // teclado, que é justamente quem não vai clicar no fundo.
+  useEffect(() => {
+    const aoTeclar = (evento: KeyboardEvent) => { if (evento.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [onClose]);
+
+  return (
+    // 🔴 Quem ROLA é o painel, não o fundo. Com `overflow-y-auto` no backdrop, o
+    // cabeçalho `sticky` para na borda de conteúdo do container e o padding dele
+    // (`p-2 md:p-6`) vira uma faixa por onde o texto do relatório aparece ACIMA
+    // do nome da pessoa, cortado. Visto no harness, em 14/09/2026.
+    <div
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/80 p-2 backdrop-blur-sm md:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('detail.title', { name: trilha.colab?.nome_completo || '' })}
+      onClick={onClose}
+    >
+      <div
+        className="max-h-full w-full max-w-3xl overflow-y-auto overscroll-contain rounded-[24px] border border-white/[0.1] bg-[#071829] shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between gap-4 rounded-t-[24px] border-b border-white/[0.08] bg-[#071829] p-4 md:px-6">
+          <div className="min-w-0">
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-cyan-300">{t('detail.eyebrow')}</p>
+            <h2
+              className="mt-0.5 truncate text-xl text-white"
+              style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
+            >
+              {trilha.colab?.nome_completo || '—'}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('detail.close')}
+            className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-white/[0.06] hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-5 md:px-6">
+          <section className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
+            <span className="text-gray-400">{trilha.colab?.cargo || '—'}</span>
+            <span className="text-gray-400">
+              {t('detail.competency')}: <span className="text-cyan-300">{trilha.competencia_foco || '—'}</span>
+            </span>
+            {report.nota_media_pos != null && (
+              <span className="text-gray-400">
+                {t('detail.averagePost')}: <span className="font-bold text-white">{Number(report.nota_media_pos).toFixed(1)}</span>
+              </span>
+            )}
+            <span className="text-gray-500">
+              {t('detail.generatedAt')} {new Date(trilha.evolution_generated_at).toLocaleDateString(locale)}
+            </span>
+          </section>
+
+          {report.insight_geral && (
+            <section>
+              <p className="mb-1 text-[10px] uppercase tracking-widest text-cyan-400">{t('detail.insight')}</p>
+              <p className="border-l-2 border-cyan-500/40 pl-3 text-xs italic leading-relaxed text-gray-200">{report.insight_geral}</p>
+            </section>
+          )}
+
+          {resumoAvaliacao && (
+            <section>
+              <p className="mb-1 text-[10px] uppercase tracking-widest text-gray-500">{t('detail.closingSummary')}</p>
+              <p className="text-xs leading-relaxed text-gray-200">{resumoAvaliacao.mensagem}</p>
+              {resumoAvaliacao.avanco && (
+                <p className="mt-2 text-xs text-gray-300">
+                  <span className="font-bold text-emerald-300">{t('detail.mainAdvance')}: </span>{resumoAvaliacao.avanco}
+                </p>
+              )}
+              {resumoAvaliacao.atencao && (
+                <p className="mt-1 text-xs text-gray-300">
+                  <span className="font-bold text-amber-300">{t('detail.attention')}: </span>{resumoAvaliacao.atencao}
+                </p>
+              )}
+              {resumoAvaliacao.evidencias.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {resumoAvaliacao.evidencias.map((evidencia, i) => (
+                    <li key={i} className="border-l border-white/15 pl-2 text-[11px] italic text-gray-400">{evidencia}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+
+          <section>
+            <p className="mb-2 text-[10px] uppercase tracking-widest text-gray-500">{t('detail.byDescriptor')}</p>
+            {descritores.length === 0 ? (
+              <p className="text-xs text-gray-500">{t('detail.noDescriptors')}</p>
+            ) : (
+              <div className="space-y-2">
+                {descritores.map((d, i) => {
+                  const cfg = TINTA_VEREDITO[d.convergencia] || TINTA_VEREDITO.estagnacao;
+                  const pre = Number(d.nota_pre);
+                  const pos = Number(d.nota_pos);
+                  const temNotas = Number.isFinite(pre) && Number.isFinite(pos);
+                  return (
+                    <div key={i} className={`rounded-lg border p-3 ${cfg.borda} ${cfg.fundo}`}>
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <p className="text-xs font-bold text-white">{descritorParaHumano(d.descritor)}</p>
+                        <span className={`shrink-0 text-[11px] font-bold ${cfg.tinta}`}>
+                          {temNotas && <>{pre.toFixed(1)} → {pos.toFixed(1)} ({(pos - pre) >= 0 ? '+' : ''}{(pos - pre).toFixed(1)}) · </>}
+                          {rotuloConvergencia(d.convergencia)}
+                        </span>
+                      </div>
+                      {/* Evidência fraca é o que explica veredito baixo apesar de
+                          nota que subiu: a régua não deixa a qualitativa votar
+                          quando o descritor não foi discutido na conversa. */}
+                      {!qualitativaSustenta(d) && (
+                        <p className="mt-1 text-[10px] text-amber-200/70">{t('detail.weakEvidence')}</p>
+                      )}
+                      {d.antes && (
+                        <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+                          <span className="font-bold text-gray-500">{t('detail.before')}: </span>{d.antes}
+                        </p>
+                      )}
+                      {d.depois && (
+                        <p className="mt-1 text-[11px] leading-relaxed text-gray-300">
+                          <span className="font-bold text-gray-500">{t('detail.after')}: </span>{d.depois}
+                        </p>
+                      )}
+                      {d.justificativa_cenario && (
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-cyan-300 focus-visible:outline-2 focus-visible:outline-cyan-300">
+                            {t('detail.justification')}
+                          </summary>
+                          <p className="mt-1 text-[11px] leading-relaxed text-gray-400">{d.justificativa_cenario}</p>
+                        </details>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {report.proximo_passo && (
+            <section>
+              <p className="mb-1 text-[10px] uppercase tracking-widest text-emerald-400">{t('detail.nextStep')}</p>
+              <p className="text-xs leading-relaxed text-gray-200">{report.proximo_passo}</p>
+            </section>
+          )}
+        </div>
       </div>
     </div>
   );
