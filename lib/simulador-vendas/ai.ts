@@ -9,7 +9,7 @@ import { PROMPTS, PROMPT_VERSION, hashPrompt, renderPrompt, mensagensDoPrompt } 
 import {
   ETAPAS,
   SAIDAS,
-  REGUA_VERSION,
+  usaGerenteBruto,
   gerenteBrutoSchema,
   type Estado,
   type Etapa,
@@ -61,11 +61,11 @@ export function gerador(c: Contexto, s: Estado, requestId: string, deadline = Da
         ? mensagensDoPrompt(texto, valores)
         : { system: '', user: renderPrompt(texto, valores) };
     const promptHash = hashPrompt(mensagens.system ? JSON.stringify(mensagens) : mensagens.user);
-    const bruto = etapa === 'gerente' && s.versaoRegua === REGUA_VERSION;
+    const bruto = etapa === 'gerente' && usaGerenteBruto(s.versaoRegua);
     const schema = bruto ? gerenteBrutoSchema : SAIDAS[etapa];
     const parse = (v: unknown): Saidas[K] => {
       const r = schema.parse(etapa === 'gerente' ? normalizarRelatorio(v) : v);
-      return (bruto ? { ...r, Media: 0.5, Violacoes: [] } : r) as Saidas[K];
+      return (bruto ? { ...r, Media: 0, Violacoes: [] } : r) as Saidas[K];
     };
     const busca = () =>
       c.tdb

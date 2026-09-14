@@ -1,5 +1,6 @@
 'use client';
 import type { Saidas } from '@/lib/simulador-vendas/schema';
+import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 import { useLocale, useTranslations } from 'next-intl';
 const pilares = [
   ['P', 'preparation', 'Preparacao'],
@@ -21,21 +22,22 @@ export default function Relatorio({
       <div className="flex items-baseline justify-between gap-4 mb-4">
         <h2 className="text-xl">{t('reportTitle')}</h2>
         <span className="text-3xl tabular-nums">
-          {r.Media.toLocaleString(locale)}
+          {formatarNotaPace(r.Media, locale)}
           <small className="text-sm text-slate-400"> / 10</small>
         </span>
       </div>
       <p className="text-sm text-slate-300 leading-relaxed mb-5">{r.Resumo}</p>
+      <p className="text-xs text-slate-400 mb-4">{t('scoreZeroHelp')}</p>
       <div className="grid sm:grid-cols-2 gap-3">
         {pilares.map(([p, nome, detalhe]) => (
           <article key={p} className="border border-white/10 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold">{t(nome)}</h3>
-              <span className="tabular-nums text-brand-300">{r[p].toLocaleString(locale)}</span>
+              <span className="tabular-nums text-brand-300">{formatarNotaPace(r[p], locale)}</span>
             </div>
             <meter
               className="w-full my-2"
-              min={0.5}
+              min={0}
               max={10}
               value={r[p]}
               aria-label={t('scoreLabel', { name: t(nome) })}

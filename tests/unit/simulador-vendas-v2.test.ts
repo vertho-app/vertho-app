@@ -17,6 +17,7 @@ import {
 import {
   FASES,
   REGUA_VERSION,
+  usaGerenteBruto,
   cenarioSchema,
   configSchema,
   relatorioSchema,
@@ -29,10 +30,11 @@ import { lerCursor, paginaDeHistorico } from '@/lib/simulador-vendas/historico';
 import { maskTextPII } from '@/lib/pii-masker';
 import { modeloPaceCompativel } from '@/lib/simulador-vendas/modelos';
 import { TRACOS_DIVERSIDADE } from '@/lib/simulador-vendas/diversidade';
+import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 
 const comando = (acao: Comando['acao'], extra = {}) =>
   ({ acao, requestId: crypto.randomUUID(), sessaoId: estado().id, revisao: 1, ...extra }) as Comando;
-describe('PACE v2: contratos, evidências e acesso ilimitado por prazo', () => {
+describe('PACE v3: contratos, evidências e acesso ilimitado por prazo', () => {
   it('o catálogo único de diversidade alimenta o prompt sem alterar seus literais', () => {
     expect(TRACOS_DIVERSIDADE).toHaveLength(10);
     expect(PROMPTS.criador).toContain(TRACOS_DIVERSIDADE.map((t) => `- ${t}`).join('\n'));
@@ -127,7 +129,7 @@ describe('PACE v2: contratos, evidências e acesso ilimitado por prazo', () => {
     expect(bruto.Violacoes).toEqual([]); // checkpoint intacto para retries.
     expect(pontuarRelatorio(bruto, s)).toEqual(r);
   });
-  it('piso 0,5 informa só a redução aplicada, sem inventar nota negativa', () => {
+  it('pace-3 usa piso zero e considera os quatro pilares com peso igual', () => {
     const s = estado();
     s.versaoRegua = REGUA_VERSION;
     s.mensagens = [{ id: '1', turno: 1, autor: 'vendedor', texto: 'Fala', fase: 'preparar' }];
@@ -143,8 +145,17 @@ describe('PACE v2: contratos, evidências e acesso ilimitado por prazo', () => {
       },
     ];
     const r = pontuarRelatorio({ ...relatorio, P: 1 }, s);
-    expect(r.P).toBe(0.5);
-    expect(r.Violacoes[0].reducao_aplicada).toBe(0.5);
+    expect(r.P).toBe(0);
+    expect(r.Violacoes[0].reducao_aplicada).toBe(1);
+    const semEvidencia = pontuarRelatorio({ ...relatorio, P: 10, A: 8, C: 6, E: 0 }, { ...s, moderacoes: [] });
+    expect(semEvidencia.Media).toBe(6); // (10 + 8 + 6 + 0) / 4; 25% por pilar.
+    expect(
+      pontuarRelatorio({ ...relatorio, P: 0, A: 0, C: 0, E: 0 }, { ...s, moderacoes: [] }).Media,
+    ).toBe(0);
+    const pace2 = pontuarRelatorio({ ...relatorio, P: 1 }, { ...s, versaoRegua: 'pace-2' });
+    expect(pace2.P).toBe(0.5);
+    expect(pace2.Violacoes[0].reducao_aplicada).toBe(0.5);
+    expect(usaGerenteBruto('pace-2')).toBe(true);
     s.moderacoes.push(s.moderacoes[0]);
     expect(() => pontuarRelatorio(relatorio, s)).toThrow('inconsistente');
   });
@@ -218,7 +229,13 @@ describe('PACE v2: contratos, evidências e acesso ilimitado por prazo', () => {
     expect(normal.Resumo).toHaveLength(500);
     expect(normal.P).toBe(7.5);
     expect(r.Resumo).toHaveLength(505);
+    expect(relatorioSchema.safeParse(normalizarRelatorio({ ...r, P: 0 })).success).toBe(true);
     expect(relatorioSchema.safeParse(normalizarRelatorio({ ...r, P: 11 })).success).toBe(false);
+  });
+  it('exibe zero como traço sem alterar o valor calculado', () => {
+    expect(formatarNotaPace(0, 'pt-BR')).toBe('—');
+    expect(formatarNotaPace(null, 'pt-BR')).toBe('—');
+    expect(formatarNotaPace(0.5, 'pt-BR')).toBe('0,5');
   });
   it('prazo tem início inclusivo/fim exclusivo e nenhum campo de teto é aceito', () => {
     const c = { periodo_inicio: '2026-01-01T00:00:00Z', periodo_fim: '2026-02-01T00:00:00Z' };

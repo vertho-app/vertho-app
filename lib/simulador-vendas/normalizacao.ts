@@ -8,7 +8,7 @@ export function normalizarRelatorio(valor: unknown): unknown {
   };
   for (const chave of ['P', 'A', 'C', 'E', 'Media']) {
     const v = r[chave];
-    if (typeof v === 'number' && Number.isFinite(v) && v >= 0.5 && v <= 10) r[chave] = Math.round(v * 2) / 2;
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 10) r[chave] = Math.round(v * 2) / 2;
   }
   for (const chave of ['Preparacao', 'Analise', 'Cocriacao', 'Engajamento']) cortar(r, chave, 280);
   cortar(r, 'Resumo', 500);

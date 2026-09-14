@@ -8,7 +8,11 @@ export const faseSchema = z.enum(FASES);
 export const ROTULOS = { preparar: 'Preparar', analisar: 'Analisar', cocriar: 'Cocriar', engajar: 'Engajar' };
 export const NIVEIS = { 1: 'Júnior', 2: 'Pleno', 3: 'Sênior' };
 export const MAX_TURNOS = 60; // Limite técnico de contexto e tamanho da sessão.
-export const REGUA_VERSION = 'pace-2';
+export const REGUA_VERSION = 'pace-3';
+/** A pace-2 já separava notas brutas do gerente e pontuação determinística no servidor. */
+export function usaGerenteBruto(versao?: string) {
+  return versao === 'pace-2' || versao === REGUA_VERSION;
+}
 export const RETENCAO_MESES = 6;
 const texto = z.string();
 const objecao = z.object({ descricao: texto.trim().min(1), minimo_aceitavel: texto, ideal: texto });
@@ -79,7 +83,7 @@ export const clienteSchema = z.object({
   fala: texto.trim().min(1).max(400),
 });
 export const intencaoSchema = z.object({ intencao_encerrar: z.boolean(), confianca });
-const nota = z.number().min(0.5).max(10).multipleOf(0.5);
+const nota = z.number().min(0).max(10).multipleOf(0.5);
 const descoberta = z.object({
   nome: texto,
   turno: z.number().int().positive(),
