@@ -290,6 +290,41 @@ export async function setModuloProntidaoAdmin(empresaId: string, ligado: boolean
 }
 
 /**
+ * Os cenários que faltam para as competências da matriz, nas duas variantes.
+ *
+ * REUSA `listarFilaIA3` inteira em vez de reconstruir a fila: ela já resolve o
+ * `competencia_id` por `(cargo, nome)` (preferindo a linha-cabeçalho, e caindo
+ * na primeira quando não há, que é o caso da matriz e de todo cargo da base),
+ * já expande por PPP e já marca `jaGerado`. Reimplementar isso aqui seria um
+ * segundo lugar para a mesma régua divergir.
+ *
+ * Os itens voltam prontos para o laço da tela chamar `rodarIA3Uma` um a um: é
+ * o padrão de `app/admin/empresas/[empresaId]/page.tsx`, e existe porque cada
+ * cenário cabe em 60s mas dez não cabem numa server action só.
+ */
+export async function listarCenariosLiderancaAdmin(empresaId: string) {
+  await requireEmpresaSupabase(empresaId, 'program.configure', 'listarCenariosLiderancaAdmin');
+  try {
+    const { listarFilaIA3 } = await import('@/actions/fase1');
+    const r: any = await listarFilaIA3(empresaId);
+    if (!r?.success) return { success: false as const, error: r?.error || 'Não foi possível ler a fila de cenários.' };
+    // ⚠️ `listarFilaIA3` devolve a fila em `data`, não em `fila`: ler a chave
+    // errada daria lista VAZIA e "nenhum cenário falta", que é o pior retorno.
+    const daMatriz = (r.data || []).filter((i: any) => ehCargoAncoraLideranca(i.cargo));
+    return {
+      success: true as const,
+      total: daMatriz.length,
+      faltam: daMatriz.filter((i: any) => !i.jaGerado).length,
+      itens: daMatriz.filter((i: any) => !i.jaGerado).map((i: any) => ({
+        cargo: i.cargo, competencia_id: i.competencia_id, nome: i.nome, ppp_escola_id: i.ppp_escola_id ?? null,
+      })),
+    };
+  } catch (e: any) {
+    return { success: false as const, error: e?.message || 'Erro ao listar os cenários.' };
+  }
+}
+
+/**
  * Reinstala a matriz global no tenant. Idempotente: atualiza o texto das linhas
  * que já existem e insere as que faltam. É o caminho para propagar uma correção
  * de rubrica depois que o arquivo mudou.
