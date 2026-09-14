@@ -86,6 +86,7 @@ try {
   await page.screenshot({ path: `${dir}/inicio-desktop.png`, fullPage: true });
   checks++;
   await page.goto(`${origin}/?active=1`);
+  assert.equal(await page.getByRole('button', { name: 'Encerrar sem relatório', exact: true }).count(), 0);
   const input = page.getByLabel('Sua mensagem', { exact: true });
   await input.fill('Como isso impacta o trabalho da equipe?');
   await input.press('Enter');

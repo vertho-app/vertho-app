@@ -56,7 +56,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     [ocupado, setOcupado] = useState(''),
     [erro, setErro] = useState('');
   const [texto, setTexto] = useState(''),
-    [confirmar, setConfirmar] = useState<'encerrar' | 'abandonar' | null>(null),
+    [confirmar, setConfirmar] = useState<'encerrar' | null>(null),
     [feedback, setFeedback] = useState(feedbackVazio);
   const pending = useRef<{ key: string; id: string } | null>(null),
     running = useRef(false),
@@ -612,16 +612,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       {!sessao.turnosRestantes && <p className={`${styles.muted} mt-2`}>{t('turnLimit')}</p>}
                     </div>
                   )}
-                  {(aberto || preparando) && (
-                    <button className="mt-4" disabled={travado} onClick={() => setConfirmar('abandonar')}>
-                      {t('abandon')}
-                    </button>
-                  )}
                   {confirmar && (
                     <div className="rounded-2xl border border-brand-300/30 p-4 mt-4">
-                      <p className="text-sm mb-3">
-                        {t(confirmar === 'encerrar' ? 'confirmFinish' : 'confirmAbandon')}
-                      </p>
+                      <p className="text-sm mb-3">{t('confirmFinish')}</p>
                       <div className="flex gap-3">
                         <button onClick={() => void agir(confirmar)} disabled={travado}>
                           {t('confirm')}

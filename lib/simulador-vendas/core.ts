@@ -218,7 +218,7 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
     } catch {
       throw new SimuladorError(
         409,
-        'O registro deste treino precisa de revisão pelo suporte. Nenhuma nova avaliação foi cobrada. Você pode abandonar este treino e iniciar outro; a conversa será preservada no histórico.',
+        'O registro deste treino precisa de revisão pelo suporte. Nenhuma nova avaliação foi cobrada. Entre em contato com o suporte para liberar um novo treino; a conversa foi preservada no histórico.',
       );
     }
     const bruto = await gerar(
