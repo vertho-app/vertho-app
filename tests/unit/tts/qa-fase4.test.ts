@@ -5,7 +5,7 @@
  * exige silêncio onde silêncio é o correto: amostra pequena, semana sem geração).
  */
 import { describe, it, expect } from 'vitest';
-import { checarTaxaRetakeTts, checarCanarioTts, checarCalibracaoVoz, TTS_RETAKE_AMOSTRA_MINIMA, TTS_CANARIO_TIMBRE_MAX, type RetakeTtsAgregado, type CanarioObservado, type CalibracaoVozObservada } from '@/lib/pipeline-health/regras';
+import { checarTaxaRetakeTts, checarCanarioTts, checarCalibracaoVoz, ehFeatureDeProducao, TTS_RETAKE_AMOSTRA_MINIMA, TTS_CANARIO_TIMBRE_MAX, type RetakeTtsAgregado, type CanarioObservado, type CalibracaoVozObservada } from '@/lib/pipeline-health/regras';
 import { assinaturaTimbre, distanciaTimbre, combinarAssinaturas, medirDeriva } from '@/lib/tts/deriva';
 import { ELENCO, CALIBRACAO_AMOSTRA_MINIMA, vozesComCalibracaoProvisoria } from '@/lib/tts/elenco';
 
@@ -49,6 +49,53 @@ describe('R18 · taxa de retake do portão', () => {
     expect(um.contagem).toBe(1); // um grupo, não uma contagem de arquivos publicados
     const cinco = checarTaxaRetakeTts([agregado({ publicadasReprovadas: 5, reprovadas: 6, tentativas: 16 })])!;
     expect(cinco.severidade).toBe('critico');
+  });
+});
+
+describe('R18 · o que NÃO é produção não entra na conta', () => {
+  // 14/09/2026: `tts_calibracao_beto` (as 18 sínteses que MEDIRAM o alvo de 128 Hz
+  // do Beto) entrou no health como "67 % de reprovação sem resolução". Reprovar
+  // contra o alvo velho é o objetivo de uma calibração, não um defeito dela.
+  it('calibração e experimento ficam FORA; produção continua dentro', () => {
+    expect(ehFeatureDeProducao('tts_calibracao_beto')).toBe(false);
+    expect(ehFeatureDeProducao('tts_tutorial_experimento')).toBe(false);
+    expect(ehFeatureDeProducao('tts_devolutiva')).toBe(true);
+    expect(ehFeatureDeProducao('tts_tutorial')).toBe(true);
+    expect(ehFeatureDeProducao('tts_podcast')).toBe(true);
+  });
+
+  // A âncora mede o FILTRO, não a régua: sem exclusão, este agregado alarma.
+  it('o filtro é o que separa — os MESMOS números alarmam como produção', () => {
+    const numeros = { sinteses: 18, tentativas: 18, reprovadas: 12 };
+    const calibracao = agregado({ feature: 'tts_calibracao_beto', voz: VOZ_BETO, ...numeros });
+    const producao = agregado({ feature: 'tts_devolutiva', voz: VOZ_BETO, ...numeros });
+
+    // A regra não conhece feature: os dois alarmam se chegarem até ela.
+    expect(checarTaxaRetakeTts([producao])).not.toBeNull();
+    expect(checarTaxaRetakeTts([calibracao])).not.toBeNull();
+
+    // Quem separa é o filtro da coleta — e ele deixa passar só a produção.
+    const entrada = [calibracao, producao].filter((a) => ehFeatureDeProducao(a.feature));
+    expect(entrada.map((a) => a.feature)).toEqual(['tts_devolutiva']);
+    const achado = checarTaxaRetakeTts(entrada)!;
+    expect(achado.amostra).toHaveLength(1);
+    expect(achado.amostra![0]).toContain('tts_devolutiva');
+    expect(achado.contagem).toBe(1);
+  });
+
+  // Sem denominador o filtro seria vacuamente verdadeiro: uma lista só de
+  // instrumentação tem que ESVAZIAR a regra, não virar achado de contagem 0.
+  it('semana só de calibração → nenhum achado', () => {
+    const so = [agregado({ feature: 'tts_calibracao_beto', sinteses: 18, tentativas: 18, reprovadas: 12 })]
+      .filter((a) => ehFeatureDeProducao(a.feature));
+    expect(so).toHaveLength(0);
+    expect(checarTaxaRetakeTts(so)).toBeNull();
+  });
+
+  it('feature vazia ou ausente não é produção (não inventa grupo sem nome)', () => {
+    expect(ehFeatureDeProducao('')).toBe(false);
+    expect(ehFeatureDeProducao(null)).toBe(false);
+    expect(ehFeatureDeProducao(undefined)).toBe(false);
   });
 });
 

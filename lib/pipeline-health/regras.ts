@@ -964,6 +964,26 @@ export const TTS_RETAKE_AMOSTRA_MINIMA = 5;
 export const TTS_RETAKE_TAXA_AVISO = 0.4;
 export const TTS_RETAKE_TAXA_CRITICA = 0.7;
 
+/**
+ * Features do `tts_qa_log` que NÃO são produção: calibração de voz e experimentos.
+ *
+ * Existe por causa de 10-14/09/2026: `tts_calibracao_beto` — as 18 sínteses que
+ * MEDIRAM o alvo de 128 Hz do Beto — entrou no health como "67 % de reprovação sem
+ * resolução", ao lado de features reais. Reprovar contra o alvo velho é o OBJETIVO
+ * de uma calibração; contá-la como defeito faz o alarme crescer justamente quando
+ * alguém está consertando a régua, e some com o sinal real no meio do ruído.
+ *
+ * O critério é a feature ser de instrumentação, não o quanto ela reprova: um
+ * experimento que reprova 0 % também não é evidência de saúde da produção.
+ */
+export const TTS_FEATURES_INSTRUMENTACAO = [/^tts_calibracao/, /_experimento$/] as const;
+
+/** `false` para calibração e experimento — o que a R18 não deve somar como produção. */
+export function ehFeatureDeProducao(feature: string | null | undefined): boolean {
+  const f = String(feature || '');
+  return f !== '' && !TTS_FEATURES_INSTRUMENTACAO.some((re) => re.test(f));
+}
+
 export function checarTaxaRetakeTts(agregados: RetakeTtsAgregado[]): Achado | null {
   const amostra: string[] = [];
   let critico = false, contagem = 0;
@@ -982,7 +1002,7 @@ export function checarTaxaRetakeTts(agregados: RetakeTtsAgregado[]): Achado | nu
     critico ? 'critico' : 'aviso',
     'TTS: grupos de voz/modelo com reprovação sem resolução (7 dias)',
     contagem,
-    'A contagem é de grupos, não áudios ou pessoas. O log registra a tentativa escolhida pelo sintetizador; não comprova publicação, reprodução nem que o arquivo ainda é servido. Incidentes resolvidos e tenants de demonstração são excluídos.',
+    'A contagem é de grupos, não áudios ou pessoas. O log registra a tentativa escolhida pelo sintetizador; não comprova publicação, reprodução nem que o arquivo ainda é servido. Incidentes resolvidos, tenants de demonstração e features de calibração/experimento são excluídos.',
     { amostra, acao: 'Ver tts_qa_log (motivos por tentativa). Se for o modelo: rodar o canário (cron canario_tts) e comparar F0/timbre com a assinatura. Se for o limiar: recalibrar LIMIARES_DERIVA com as âncoras humanas.' },
   );
 }

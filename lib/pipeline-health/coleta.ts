@@ -1,4 +1,4 @@
-import { type RetakeTtsAgregado, type CanarioObservado, type CalibracaoVozObservada, TTS_CANARIO_JANELA_DIAS } from './regras';
+import { type RetakeTtsAgregado, type CanarioObservado, type CalibracaoVozObservada, TTS_CANARIO_JANELA_DIAS, ehFeatureDeProducao } from './regras';
 /**
  * Coleta do health-check: transforma o estado do banco nas estruturas que
  * `regras.ts` avalia.
@@ -593,7 +593,9 @@ export async function coletarQaTts(sb: any): Promise<{ portao: RetakeTtsAgregado
     if ((data || []).length < 1000) break;
   }
   const porChave = new Map<string, RetakeTtsAgregado>();
-  for (const l of linhas.filter((x) => x.origem === 'portao' && !x.resolved_at && !idsDemo.has(x.empresa_id) && new Date(x.created_at).getTime() >= desde7)) {
+  // `ehFeatureDeProducao` fica ao lado do filtro de demo porque é a mesma pergunta:
+  // esta linha descreve o que uma PESSOA recebeu? Calibração e experimento, não.
+  for (const l of linhas.filter((x) => x.origem === 'portao' && !x.resolved_at && !idsDemo.has(x.empresa_id) && ehFeatureDeProducao(x.feature) && new Date(x.created_at).getTime() >= desde7)) {
     const k = `${l.feature}|${l.voz}|${l.modelo || 'desconhecido'}`;
     const a = porChave.get(k) || { feature: l.feature, voz: l.voz, modelo: l.modelo || 'desconhecido', sinteses: 0, tentativas: 0, reprovadas: 0, publicadasReprovadas: 0 };
     a.tentativas++;
