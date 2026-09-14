@@ -6,9 +6,9 @@
 //     após aprovação da Vertho (a proposta que vai ao cliente é a aprovada).
 //   • getPropostaPublica: leitura pública por token (sem sessão), registra a
 //     abertura e devolve o VM cliente-safe. Usada pela página /proposta/[token].
-import crypto from 'node:crypto';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireRepresentativeAction } from '@/lib/sales/permissions';
+import { novoTokenProposta } from '@/lib/sales/proposal-token';
 import { buildProposalDocument, type ProposalDocumentVM } from '@/lib/sales/proposal-document';
 import type { SalesProposal } from '@/lib/sales/types';
 
@@ -29,7 +29,7 @@ export async function gerarLinkProposta(proposalId: string) {
 
   let token = p.public_token as string | null;
   if (!token) {
-    token = crypto.randomBytes(18).toString('base64url'); // 144 bits, url-safe
+    token = novoTokenProposta();
     const { error } = await sb.from('sales_proposals')
       .update({ public_token: token, updated_at: new Date().toISOString() }).eq('id', proposalId);
     if (error) return { success: false as const, error: error.message };
@@ -51,7 +51,11 @@ export async function getPropostaPublica(token: string): Promise<ProposalDocumen
     p.account_id
       ? sb.from('sales_accounts').select('legal_name, trade_name').eq('id', p.account_id).maybeSingle()
       : Promise.resolve({ data: null }),
-    sb.from('sales_representatives').select('name, email, phone').eq('id', p.representante_id).maybeSingle(),
+    // Proposta do deal desk não tem RC (mig 254): sem este ramo, `.eq('id', null)`
+    // viraria `id=eq.null` no PostgREST — query inútil em vez de "sem representante".
+    p.representante_id
+      ? sb.from('sales_representatives').select('name, email, phone').eq('id', p.representante_id).maybeSingle()
+      : Promise.resolve({ data: null }),
     p.opportunity_id
       ? sb.from('sales_opportunities').select('identified_need').eq('id', p.opportunity_id).maybeSingle()
       : Promise.resolve({ data: null }),

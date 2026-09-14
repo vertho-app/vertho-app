@@ -87,15 +87,24 @@ export type SalesOpportunity = {
 
 export type SalesProposal = {
   id: string;
-  representante_id: string;
+  /** NULL = proposta criada pela Vertho no deal desk, sem RC (mig 254). */
+  representante_id: string | null;
   opportunity_id: string | null;
   account_id: string | null;
   proposal_number: string;
+  /** Texto livre usado pelo documento quando não há conta no CRM (mig 254). */
+  cliente_nome: string | null;
   customer_type: string | null;
   number_of_users: number | null;
   number_of_roles_mapped: number | null;
   product_package: string | null;
-  contract_duration_months: 12 | 24 | 36 | null;
+  /**
+   * 12/24/36 no formulário do RC (`CONTRACT_DURATIONS`); qualquer valor 1..360
+   * quando vem do deal desk, onde a vigência É o número de parcelas do projeto
+   * (ciclos × 2). CHECK afrouxado na mig 254 — não restrinja de volta sem antes
+   * olhar `actions/sales/proposals-admin.ts`.
+   */
+  contract_duration_months: number | null;
   discount_requested: number | null;
   payment_terms: string | null;
   included_scope: string | null;
@@ -109,6 +118,12 @@ export type SalesProposal = {
   estimated_total_commission: number | null;
   margin_alert: boolean;
   status: ProposalStatus;
+  /**
+   * Admin que criou (mig 254, só no caminho do deal desk). Preenchido junto com
+   * `approved_by`, torna visível na linha que nesse caminho quem cria é quem
+   * aprova — o controle de quatro olhos do fluxo do RC não se aplica.
+   */
+  created_by_email: string | null;
   approved_by: string | null;
   approved_at: string | null;
   rejection_reason: string | null;

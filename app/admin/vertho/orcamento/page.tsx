@@ -1,11 +1,31 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
-import { ArrowRight, BookOpen, Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard, Route, ShieldCheck } from 'lucide-react';
+import { ArrowRight, BookOpen, Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard, Route, ShieldCheck, Save, FolderOpen, Trash2, Copy, Send } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { CALLS, PRESETS, calcCost, custoColabNaJornada, infraFixaTotal } from '@/lib/ia-cost-catalog';
+import {
+  entradasPadrao,
+  escopoPropostaDoCenario,
+  normalizarEntradas,
+  type EntradasOrcamento,
+  type ListasValidas,
+  type ResumoOrcamento,
+} from '@/lib/orcamento/cenario';
+import {
+  carregarOrcamento,
+  excluirOrcamento,
+  listarOrcamentos,
+  salvarOrcamento,
+  type OrcamentoSalvo,
+} from '@/actions/orcamento/cenarios';
+import { criarPropostaDeOrcamento } from '@/actions/sales/proposals-admin';
+import { calculateProposalFinancials } from '@/lib/sales/commissions';
+import {
+  CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGES, PRODUCT_PACKAGE_LABELS,
+} from '@/lib/sales/constants';
 import {
   ORCAMENTO_DEFAULTS,
   CONTEUDO_POR_FORMATO_DEFAULT,
@@ -44,6 +64,19 @@ const JORNADAS = [
   { key: 'onboarding', rotulo: 'Onboarding', sub: '10 sem · 5 comp', cfg: PROGRAMA_ONBOARDING },
   { key: 'piloto', rotulo: 'Piloto', sub: 'degustação', cfg: PROGRAMA_PILOTO },
 ] as const;
+
+/**
+ * As chaves válidas de preset e jornada — fonte única para `normalizarEntradas`.
+ *
+ * Um cenário salvo há meses pode trazer uma chave que não existe mais (preset
+ * renomeado, jornada retirada da oferta). Sem esta lista, `PRESETS[preset].label`
+ * lançaria ao reabrir o orçamento: a tela inteira morreria por um campo de um
+ * jsonb antigo. Chave desconhecida cai no default, não quebra.
+ */
+const LISTAS_VALIDAS: ListasValidas = {
+  presets: PRESET_KEYS,
+  jornadas: JORNADAS.map((j) => j.key),
+};
 
 /**
  * ⚠️ O PRAZO NÃO ENTRA NO PREÇO (07/09/2026).
@@ -415,6 +448,277 @@ export default function OrcamentoPage() {
     };
   }, [nClusters, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, tipoComissao, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, comAvatar, reusoConteudo]);
 
+  // ── Orçamento salvo (mig 253) ──────────────────────────────────────────────
+  // `id` nulo = cenário novo; preenchido = este cenário já existe no banco e
+  // "Salvar" o sobrescreve. É o que distingue atualizar de criar uma cópia.
+  const [ident, setIdent] = useState<{
+    id: string | null;
+    nome: string;
+    cliente: string;
+    propostaId: string | null;
+  }>({ id: null, nome: '', cliente: '', propostaId: null });
+  const [salvos, setSalvos] = useState<OrcamentoSalvo[]>([]);
+  const [listaAberta, setListaAberta] = useState(false);
+  const [aviso, setAviso] = useState<{ tom: 'ok' | 'erro'; texto: string } | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+
+  // Conversão em proposta: o escopo é editável porque vira texto que o CLIENTE lê.
+  const [convAberta, setConvAberta] = useState(false);
+  const [convEscopo, setConvEscopo] = useState('');
+  const [convPagamento, setConvPagamento] = useState('');
+  const [convTipoCliente, setConvTipoCliente] = useState('');
+  const [convPacote, setConvPacote] = useState('');
+
+  /**
+   * Junta o estado da tela num `EntradasOrcamento`. Tipar o retorno é o que
+   * impede a deriva: campo novo no tipo obriga a acrescentá-lo aqui (e, ao lado,
+   * em `aplicarEntradas`), senão não compila.
+   */
+  function coletarEntradas(): EntradasOrcamento {
+    return {
+      nClusters,
+      nPerfis,
+      nColabs,
+      matrizNovas,
+      ciclosPorAno,
+      metodo,
+      tipoComissao,
+      preset,
+      jornada,
+      conteudoColab,
+      nVideosExtraidos,
+      auditarExtracao,
+      comAvatar,
+      pricing,
+    };
+  }
+
+  /** Devolve um cenário normalizado à tela. Sempre via `normalizarEntradas`. */
+  function aplicarEntradas(e: EntradasOrcamento) {
+    setNClusters(e.nClusters);
+    setNPerfis(e.nPerfis);
+    setNColabs(e.nColabs);
+    // A régua é `cargos = novas + adaptadas`: novas nunca passam de cargos.
+    setMatrizNovas(Math.min(e.nPerfis, e.matrizNovas));
+    setCiclosPorAno(e.ciclosPorAno);
+    setMetodo(e.metodo);
+    setTipoComissao(e.tipoComissao);
+    // Seguro: normalizarEntradas só devolve chave presente em LISTAS_VALIDAS.
+    setPreset(e.preset as PresetKey);
+    setJornada(e.jornada);
+    setConteudoColab(e.conteudoColab);
+    setNVideosExtraidos(e.nVideosExtraidos);
+    setAuditarExtracao(e.auditarExtracao);
+    setComAvatar(e.comAvatar);
+    setPricing(e.pricing);
+  }
+
+  /**
+   * A folha de decisão CONGELADA. Não é cache de `calc`: é o registro do que foi
+   * decidido com a régua deste dia. Reabrir o cenário recalcula com a régua
+   * nova; o que está gravado aqui continua sendo o número aprovado.
+   */
+  const resumo: ResumoOrcamento = {
+    valorTabela: calc.valorTotalTabela,
+    valorFinal: calc.valorTotalFinal,
+    desconto: calc.descontoTotal,
+    parcela: calc.mensalidadeFlat,
+    parcelas: calc.parcelas,
+    margemAbs: calc.margemAbs,
+    margemPct: calc.margemPct,
+    descontoMaxPct: calc.descontoMaxPct,
+    acimaDoPiso: calc.acimaDoPiso,
+    custoTotalBrl: calc.custoTotalBrl,
+    custoOperacionalBrl: calc.custoOperacionalBrl,
+    custoIABrl: calc.custoIABrl,
+    investimentoPorPessoaBrl: calc.investimentoPorPessoaBrl,
+    custoPorPessoaBrl: calc.custoPorPessoaBrl,
+    mesesPrograma: calc.mesesPrograma,
+    ciclos: calc.ciclos,
+    pessoas: nColabs,
+    unidades: nClusters,
+    cargos: nPerfis,
+    jornada,
+    piorSaldo: calc.piorSaldo ?? { mes: 1, saldo: 0 },
+  };
+
+  const recarregarSalvos = useCallback(async () => {
+    try {
+      const r = await listarOrcamentos();
+      if (r.success) setSalvos(r.data);
+    } catch {
+      // A lista é conveniência: falhar ao buscá-la não pode quebrar a tela, que
+      // continua calculando o cenário normalmente.
+    }
+  }, []);
+
+  // `void`: a busca é disparada e o resultado chega por setState — não há o que
+  // aguardar na montagem. O lint `set-state-in-effect` avisa aqui e no
+  // FieldNumber abaixo; é mount-fetch legítimo, e o repo não suprime a regra.
+  useEffect(() => {
+    void recarregarSalvos();
+  }, [recarregarSalvos]);
+
+  async function aoSalvar() {
+    if (ocupado) return;
+    setOcupado(true);
+    setAviso(null);
+    try {
+      const r = await salvarOrcamento({
+        id: ident.id,
+        nome: ident.nome,
+        cliente: ident.cliente || null,
+        entradas: coletarEntradas(),
+        resultado: resumo,
+      });
+      if (!r.success) {
+        setAviso({ tom: 'erro', texto: r.error });
+        return;
+      }
+      setIdent((i) => ({ ...i, id: r.data }));
+      setAviso({ tom: 'ok', texto: ident.id ? 'Orçamento atualizado.' : 'Orçamento salvo.' });
+      await recarregarSalvos();
+    } catch (e: any) {
+      setAviso({ tom: 'erro', texto: e?.message || 'Não foi possível salvar o orçamento.' });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function aoCarregar(id: string) {
+    if (ocupado) return;
+    setOcupado(true);
+    setAviso(null);
+    try {
+      const r = await carregarOrcamento(id);
+      if (!r.success) {
+        setAviso({ tom: 'erro', texto: r.error });
+        return;
+      }
+      const entradas = normalizarEntradas(r.data.entradas, LISTAS_VALIDAS);
+      if (!entradas) {
+        setAviso({ tom: 'erro', texto: 'Este cenário está ilegível no banco — não dá para reabrir.' });
+        return;
+      }
+      aplicarEntradas(entradas);
+      setIdent({
+        id: r.data.id,
+        nome: r.data.nome,
+        cliente: r.data.cliente ?? '',
+        propostaId: r.data.propostaId ?? null,
+      });
+      setConvAberta(false);
+      setAviso({ tom: 'ok', texto: `“${r.data.nome}” carregado nos campos acima.` });
+    } catch (e: any) {
+      setAviso({ tom: 'erro', texto: e?.message || 'Não foi possível carregar o orçamento.' });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  async function aoExcluir(id: string, nome: string) {
+    if (ocupado) return;
+    if (!window.confirm(`Excluir o orçamento “${nome}”? Não dá para desfazer.`)) return;
+    setOcupado(true);
+    setAviso(null);
+    try {
+      const r = await excluirOrcamento(id);
+      if (!r.success) {
+        setAviso({ tom: 'erro', texto: r.error });
+        return;
+      }
+      // Excluir o que está aberto desvincula a tela, sem mexer nos números.
+      setIdent((i) => (i.id === id ? { id: null, nome: '', cliente: '', propostaId: null } : i));
+      setAviso({ tom: 'ok', texto: `“${nome}” excluído.` });
+      await recarregarSalvos();
+    } catch (e: any) {
+      setAviso({ tom: 'erro', texto: e?.message || 'Não foi possível excluir o orçamento.' });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  /** Desvincula: o próximo "Salvar" cria uma cópia em vez de sobrescrever. */
+  function aoSalvarComoNovo() {
+    setIdent((i) => ({
+      id: null,
+      nome: i.nome ? `${i.nome} (cópia)` : '',
+      cliente: i.cliente,
+      propostaId: null,
+    }));
+    setConvAberta(false);
+    setAviso(null);
+  }
+
+  function aoRestaurarPadrao() {
+    if (!window.confirm('Voltar todos os campos ao padrão da régua? O que não estiver salvo se perde.')) return;
+    aplicarEntradas(entradasPadrao(LISTAS_VALIDAS));
+    setIdent({ id: null, nome: '', cliente: '', propostaId: null });
+    setConvAberta(false);
+    setAviso(null);
+  }
+
+  // ── Conversão em proposta (mig 254) ────────────────────────────────────────
+  /**
+   * Prévia do que vai ser gravado, calculada com a MESMA função pura que o
+   * server usa (`calculateProposalFinancials`). Sem isto o admin confirmaria uma
+   * conversão sem ver que a vigência da proposta são as parcelas do projeto
+   * (2 numa jornada de 7 semanas), não 12 meses.
+   */
+  const previaProposta = useMemo(() => {
+    const vigencia = Math.max(1, calc.parcelas);
+    const mensal = Math.round((calc.valorTotalTabela / vigencia) * 100) / 100;
+    return {
+      vigencia,
+      mensal,
+      ...calculateProposalFinancials({
+        monthly_value: mensal,
+        contract_duration_months: vigencia,
+        discount_requested: pricing.descontoPct,
+      }),
+    };
+  }, [calc.parcelas, calc.valorTotalTabela, pricing.descontoPct]);
+
+  function aoAbrirConversao() {
+    const j = JORNADAS.find((x) => x.key === jornada) ?? JORNADAS[0];
+    setConvEscopo(escopoPropostaDoCenario(coletarEntradas(), resumo, {
+      rotulo: j.rotulo,
+      semanas: j.cfg.semanas,
+    }));
+    setConvPagamento(`${calc.parcelas} parcelas de ${money(calc.mensalidadeFlat)}`);
+    setConvAberta(true);
+  }
+
+  async function aoConverter() {
+    if (!ident.id || ocupado) return;
+    setOcupado(true);
+    setAviso(null);
+    try {
+      const r = await criarPropostaDeOrcamento({
+        orcamentoId: ident.id,
+        includedScope: convEscopo,
+        paymentTerms: convPagamento || null,
+        customerType: convTipoCliente || null,
+        productPackage: convPacote || null,
+      });
+      if (!r.success || !r.data) {
+        setAviso({ tom: 'erro', texto: r.error || 'Não foi possível converter o orçamento.' });
+        return;
+      }
+      setIdent((i) => ({ ...i, propostaId: r.data!.id }));
+      setConvAberta(false);
+      setAviso({
+        tom: 'ok',
+        texto: `Proposta ${r.data.numero} criada como rascunho · ${money(r.data.totalContrato)} em ${r.data.vigenciaMeses}×.`,
+      });
+      await recarregarSalvos();
+    } catch (e: any) {
+      setAviso({ tom: 'erro', texto: e?.message || 'Não foi possível converter o orçamento.' });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
   return (
     <div className="max-w-[1320px] mx-auto px-4 py-6 sm:px-6 min-h-full">
       <BackButton href="/admin-v2/negocios" />
@@ -430,6 +734,115 @@ export default function OrcamentoPage() {
           Ver composição técnica <ArrowRight size={13} />
         </Link>
       </header>
+
+      {/* Orçamentos salvos — retomar uma negociação em vez de refazer o cenário */}
+      <div className="mb-5 rounded-sm border border-white/10 bg-white/[0.02]">
+        <button
+          type="button"
+          onClick={() => setListaAberta((v) => !v)}
+          aria-expanded={listaAberta}
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-amber-300">
+            <FolderOpen size={14} /> Orçamentos salvos
+            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold text-gray-400">
+              {salvos.length}
+            </span>
+          </span>
+          <span className="text-[10px] text-gray-500">{listaAberta ? 'recolher' : 'abrir um cenário'}</span>
+        </button>
+
+        {listaAberta && (
+          <div className="border-t border-white/10 px-4 py-3">
+            {salvos.length === 0 ? (
+              <p className="text-[11px] text-gray-500">
+                Nada salvo ainda. Dê um nome ao cenário na folha de decisão e salve — o valor, a
+                margem e a exposição de caixa ficam congelados com a régua de hoje.
+              </p>
+            ) : (
+              <ul className="divide-y divide-white/[0.06]">
+                {salvos.map((s) => {
+                  const aberto = s.id === ident.id;
+                  const r = s.resultado;
+                  return (
+                    <li key={s.id} className="flex flex-wrap items-center gap-3 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className={`truncate text-xs font-bold ${aberto ? 'text-amber-200' : 'text-white'}`}>
+                          {s.nome}
+                          {aberto && <span className="ml-2 text-[9px] font-semibold uppercase tracking-wider text-amber-300/80">aberto</span>}
+                          {s.propostaId && (
+                            <Link
+                              href={`/admin/comercial/propostas/${s.propostaId}`}
+                              className="ml-2 text-[9px] font-semibold uppercase tracking-wider text-emerald-300/80 hover:text-emerald-200"
+                            >
+                              → proposta
+                            </Link>
+                          )}
+                        </p>
+                        <p className="mt-0.5 truncate text-[10px] text-gray-500">
+                          {s.cliente ? `${s.cliente} · ` : ''}
+                          {r ? `${r.pessoas.toLocaleString(locale)} pessoas · ${r.unidades} un · ${r.cargos} cargos · ${r.parcelas}×` : 'sem resumo'}
+                          {s.criadoEm ? ` · ${new Date(s.criadoEm).toLocaleDateString(locale)}` : ''}
+                        </p>
+                      </div>
+                      {r && (
+                        <div className="flex shrink-0 gap-4 text-right">
+                          <div>
+                            <p className="text-[9px] uppercase tracking-wider text-gray-500">Projeto</p>
+                            <p className="text-xs font-extrabold tabular-nums text-amber-100">{money(r.valorFinal)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] uppercase tracking-wider text-gray-500">Parcela</p>
+                            <p className="text-xs font-bold tabular-nums text-emerald-200">{money(r.parcela)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[9px] uppercase tracking-wider text-gray-500">Margem</p>
+                            <p className={`text-xs font-bold tabular-nums ${r.margemPct < 0 || r.acimaDoPiso ? 'text-amber-300' : 'text-emerald-300'}`}>
+                              {r.margemPct.toFixed(1)}%
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex shrink-0 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => aoCarregar(s.id)}
+                          disabled={ocupado || aberto}
+                          className="rounded border border-white/10 px-2.5 py-1.5 text-[11px] font-semibold text-gray-300 hover:border-amber-300/40 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          Abrir
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => aoExcluir(s.id, s.nome)}
+                          disabled={ocupado}
+                          aria-label={`Excluir ${s.nome}`}
+                          className="rounded border border-white/10 p-1.5 text-gray-500 hover:border-red-400/40 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+
+      {aviso && (
+        <p
+          role="status"
+          className={`mb-5 rounded-sm border px-3 py-2 text-[11px] font-semibold ${
+            aviso.tom === 'ok'
+              ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+              : 'border-red-400/40 bg-red-500/10 text-red-200'
+          }`}
+        >
+          {aviso.texto}
+        </p>
+      )}
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         <main className="min-w-0">
@@ -792,6 +1205,221 @@ export default function OrcamentoPage() {
             </p>
           </div>
         )}
+        {/* Salvar o cenário — congela a decisão com a régua deste dia */}
+        <div className="mt-5 border-t border-white/10 pt-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Salvar orçamento</p>
+          <p className="mt-1 text-[10px] leading-relaxed text-gray-500">
+            Grava os campos e congela esta folha de decisão. Reabrir o cenário recalcula com a régua
+            vigente; o número salvo continua sendo o do dia.
+          </p>
+          <div className="mt-3 grid gap-2">
+            <div>
+              <label htmlFor="orc-nome" className="mb-1 block text-[9px] uppercase tracking-widest text-gray-500">
+                Nome do cenário
+              </label>
+              <input
+                id="orc-nome"
+                type="text"
+                value={ident.nome}
+                maxLength={120}
+                placeholder="ex.: Rede X · 3.000 pessoas · 6 ciclos"
+                onChange={(e) => setIdent((i) => ({ ...i, nome: e.target.value }))}
+                className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none focus:border-amber-300"
+              />
+            </div>
+            <div>
+              <label htmlFor="orc-cliente" className="mb-1 block text-[9px] uppercase tracking-widest text-gray-500">
+                Cliente <span className="normal-case text-gray-600">(opcional)</span>
+              </label>
+              <input
+                id="orc-cliente"
+                type="text"
+                value={ident.cliente}
+                maxLength={120}
+                placeholder="texto livre — não precisa estar no CRM"
+                onChange={(e) => setIdent((i) => ({ ...i, cliente: e.target.value }))}
+                className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none focus:border-amber-300"
+              />
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2">
+            <button
+              type="button"
+              onClick={aoSalvar}
+              disabled={ocupado || !ident.nome.trim()}
+              className="inline-flex items-center justify-between gap-2 bg-amber-300 px-3 py-2.5 text-xs font-bold text-[#17150e] hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {ocupado ? 'Salvando…' : ident.id ? 'Atualizar orçamento' : 'Salvar orçamento'}
+              <Save size={13} />
+            </button>
+            {ident.id && (
+              <button
+                type="button"
+                onClick={aoSalvarComoNovo}
+                disabled={ocupado}
+                className="inline-flex items-center justify-between gap-2 border border-white/10 px-3 py-2 text-[11px] font-semibold text-gray-300 hover:border-amber-300/40 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Salvar como novo <Copy size={12} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={aoRestaurarPadrao}
+              disabled={ocupado}
+              className="inline-flex items-center justify-between gap-2 px-3 py-1.5 text-[10px] font-semibold text-gray-500 hover:text-gray-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Restaurar padrão da régua
+            </button>
+          </div>
+        </div>
+
+        {/* Converter em proposta — só existe para cenário já salvo */}
+        <div className="mt-5 border-t border-white/10 pt-4">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Virar proposta</p>
+          {ident.propostaId ? (
+            <>
+              <p className="mt-1 text-[10px] leading-relaxed text-gray-500">
+                Este cenário já gerou uma proposta. Converter de novo é bloqueado no server.
+              </p>
+              <Link
+                href={`/admin/comercial/propostas/${ident.propostaId}`}
+                className="mt-3 inline-flex items-center justify-between gap-2 border border-emerald-400/40 bg-emerald-500/10 px-3 py-2.5 text-xs font-bold text-emerald-200 hover:bg-emerald-500/20"
+              >
+                Abrir proposta <ArrowRight size={13} />
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="mt-1 text-[10px] leading-relaxed text-gray-500">
+                Cria uma proposta <strong className="font-semibold text-gray-400">sem RC</strong>, em
+                nome da Vertho, com os números congelados deste cenário. Sem RC não há comissão.
+              </p>
+              <button
+                type="button"
+                onClick={aoAbrirConversao}
+                disabled={ocupado || !ident.id}
+                title={ident.id ? undefined : 'Salve o orçamento antes de converter'}
+                className="mt-3 inline-flex w-full items-center justify-between gap-2 border border-white/10 px-3 py-2.5 text-xs font-semibold text-gray-300 hover:border-amber-300/40 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {ident.id ? 'Converter em proposta' : 'Salvar para poder converter'} <Send size={13} />
+              </button>
+            </>
+          )}
+
+          {convAberta && ident.id && (
+            <div className="mt-3 rounded-sm border border-amber-300/25 bg-amber-300/[0.04] p-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300">
+                Conferir antes de criar
+              </p>
+              <dl className="mt-2 space-y-1 text-[11px]">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Vigência (= parcelas do projeto)</dt>
+                  <dd className="font-bold tabular-nums text-white">{previaProposta.vigencia}×</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Valor mensal de tabela</dt>
+                  <dd className="font-bold tabular-nums text-white">{money(previaProposta.mensal)}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-gray-500">Bruto · desconto {pricing.descontoPct}%</dt>
+                  <dd className="tabular-nums text-gray-400">
+                    {money(previaProposta.contract_value_gross)} − {money(previaProposta.discount_amount)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2 border-t border-amber-300/15 pt-1">
+                  <dt className="font-semibold text-amber-200">Total do contrato</dt>
+                  <dd className="font-extrabold tabular-nums text-amber-100">
+                    {money(previaProposta.total_contract_value)}
+                  </dd>
+                </div>
+              </dl>
+              <p className="mt-2 text-[9px] leading-relaxed text-amber-300/70">
+                O total tem de bater com o valor do projeto acima. A vigência são as parcelas da
+                entrega ({calc.ciclos} {calc.ciclos === 1 ? 'ciclo' : 'ciclos'} × 2), não 12 meses.
+              </p>
+
+              <label htmlFor="conv-escopo" className="mt-3 mb-1 block text-[9px] uppercase tracking-widest text-gray-500">
+                Escopo incluído — o cliente lê isto
+              </label>
+              <textarea
+                id="conv-escopo"
+                rows={9}
+                value={convEscopo}
+                onChange={(e) => setConvEscopo(e.target.value)}
+                className="w-full resize-y rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] leading-relaxed text-white outline-none focus:border-amber-300"
+              />
+              <p className="mt-1 text-[9px] text-gray-600">
+                Pré-preenchido a partir do cenário. Revise: uma linha vira um item da proposta.
+              </p>
+
+              <label htmlFor="conv-pagamento" className="mt-3 mb-1 block text-[9px] uppercase tracking-widest text-gray-500">
+                Condições de pagamento
+              </label>
+              <input
+                id="conv-pagamento"
+                type="text"
+                value={convPagamento}
+                onChange={(e) => setConvPagamento(e.target.value)}
+                className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-white outline-none focus:border-amber-300"
+              />
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div>
+                  <label htmlFor="conv-tipo" className="mb-1 block text-[9px] uppercase tracking-widest text-gray-500">
+                    Tipo de cliente
+                  </label>
+                  <select
+                    id="conv-tipo"
+                    value={convTipoCliente}
+                    onChange={(e) => setConvTipoCliente(e.target.value)}
+                    className="w-full rounded border border-white/10 bg-[#17150e] px-2 py-1.5 text-[11px] text-white outline-none focus:border-amber-300"
+                  >
+                    <option value="">—</option>
+                    {CUSTOMER_TYPES.map((c) => (
+                      <option key={c} value={c}>{CUSTOMER_TYPE_LABELS[c]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="conv-pacote" className="mb-1 block text-[9px] uppercase tracking-widest text-gray-500">
+                    Pacote
+                  </label>
+                  <select
+                    id="conv-pacote"
+                    value={convPacote}
+                    onChange={(e) => setConvPacote(e.target.value)}
+                    className="w-full rounded border border-white/10 bg-[#17150e] px-2 py-1.5 text-[11px] text-white outline-none focus:border-amber-300"
+                  >
+                    <option value="">—</option>
+                    {PRODUCT_PACKAGES.map((p) => (
+                      <option key={p} value={p}>{PRODUCT_PACKAGE_LABELS[p]}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={aoConverter}
+                  disabled={ocupado || !convEscopo.trim()}
+                  className="inline-flex items-center justify-center gap-1.5 bg-amber-300 px-3 py-2 text-[11px] font-bold text-[#17150e] hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {ocupado ? 'Criando…' : 'Criar proposta'} <Send size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConvAberta(false)}
+                  disabled={ocupado}
+                  className="inline-flex items-center justify-center border border-white/10 px-3 py-2 text-[11px] font-semibold text-gray-400 hover:text-white disabled:opacity-40"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="mt-5 grid gap-2 border-t border-white/10 pt-4">
           <Link href="/admin/comercial/propostas" className="inline-flex items-center justify-between bg-amber-300 px-3 py-2.5 text-xs font-bold text-[#17150e] hover:bg-amber-200">
             Ir para propostas <ArrowRight size={13} />

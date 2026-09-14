@@ -1,6 +1,6 @@
 # Orçamento e régua comercial
 
-> Estado vigente em 12/09/2026. Este é o documento canônico da precificação
+> Estado vigente em 14/09/2026. Este é o documento canônico da precificação
 > comercial. A fonte executável fica em `lib/orcamento/precificacao.ts`; quando
 > houver divergência, código e testes vencem o texto.
 
@@ -16,22 +16,104 @@ comparação de modelos. O orçamento é um *deal desk*: combina escopo, preço,
 custos internos, impostos, comissão e contingência. Um mede a operação; o outro
 apoia uma decisão comercial.
 
-A tela de orçamento calcula um cenário no navegador; ela não cria nem persiste
-uma proposta. A proposta é criada no fluxo comercial e usa a mesma régua-base
-por meio de `lib/sales/pricing.ts`.
+A tela calcula o cenário no navegador e o **salva** em `orcamento_cenarios`
+(mig 253): nome, cliente em texto livre, as entradas que reproduzem a tela e a
+folha de decisão congelada. Salvar não cria proposta — a proposta segue nascendo
+no fluxo comercial, que usa a mesma régua-base por meio de `lib/sales/pricing.ts`.
+
+## Orçamentos salvos
+
+| Decisão | Regra |
+|---|---|
+| O que se grava | `entradas` (reproduz a tela) **e** `resultado` (congela a decisão do dia) |
+| Por que os dois | A régua e o catálogo de IA evoluem. Só `resultado` seria uma foto sem reprodução; só `entradas` recalcularia com a régua nova e mostraria outro valor sem que ninguém tivesse decidido nada |
+| Cliente | Texto livre, não FK para `sales_accounts`: o deal desk orça antes de o prospect existir no CRM |
+| Escopo | Tabela **não** é multi-tenant (sem `empresa_id`). É ferramenta interna Vertho, como `board_paineis`. O isolamento é a rota `/admin/vertho/*` + grant `service_role` |
+| Gate | `requirePlataformaSupabase`: `sales_channel.manage` na escrita, `sales_channel.view` na leitura |
+| Exclusão | Definitiva, com `confirm` na tela e registro em `admin_audit_log` |
+| Cenário antigo | `normalizarEntradas` preenche campo ausente com o default da régua e derruba chave de preset/jornada que não existe mais — sem isso, `PRESETS[preset].label` lançaria e a tela inteira morreria ao reabrir um orçamento velho |
+
+## Conversão em proposta
+
+Um orçamento salvo vira proposta em `sales_proposals` (mig 254), por
+`actions/sales/proposals-admin.ts`. É um caminho **separado** do Portal do
+Representante, e as diferenças são decisões, não omissões:
+
+| | Fluxo do RC (`proposals.ts`) | Deal desk (`proposals-admin.ts`) |
+|---|---|---|
+| Dono | `representante_id` obrigatório | **Nulo** — proposta da Vertho, sem RC |
+| Oportunidade | Exigida e aberta | Nenhuma (o deal desk orça antes do CRM) |
+| Nome do cliente | Vem de `sales_accounts` | `cliente_nome`, texto livre do orçamento |
+| Vigência | 12, 24 ou 36 (`CONTRACT_DURATIONS`) | **As parcelas do projeto** (`ciclos × 2`) |
+| Comissão | 9% aquisição + 12% recorrente no aceite | **Nenhuma** — sem RC não há quem receba |
+| Quatro olhos | RC submete, admin aprova | Quem cria aprova; `created_by_email` + `approved_by` registram |
+| Autor | O RC | O platform admin |
+
+### O mapeamento de vigência
+
+Os dois lados tinham eixos incompatíveis: o orçamento parcela por **entrega**
+(`parcelas = ciclos × 2`, então uma jornada de 7 semanas são 2 parcelas) e a
+proposta só aceitava 12/24/36. O mapeamento ingênuo — `monthly_value` = parcela
+do orçamento com vigência 12 — multiplica o contrato por **6×**, e é sobre
+`total_contract_value` que o aceite materializa comissão.
+
+O mapeamento adotado (decisão de 14/09/2026: preservar as parcelas):
+
+```text
+contract_duration_months = parcelas do orçamento      (2 numa jornada de 7 semanas)
+monthly_value            = valor de tabela ÷ parcelas
+discount_requested       = desconto aplicado na tela
+→ contract_value_gross   = valor de tabela
+→ total_contract_value   = valor final do orçamento
+```
+
+O CHECK da coluna passou a `> 0 AND <= 360`; o dropdown do RC continua 12/24/36.
+`tests/unit/orcamento-conversao.test.ts` fixa os dois lados: o total tem de bater
+com o valor do projeto, e a vigência tem de ser as parcelas.
+
+### Efeitos colaterais aceitos
+
+- **Renovação**: `markProposalAccepted` calcula `renewal_date = início +
+  contract_duration_months`. Com vigência 2, a renovação fica a 2 meses e
+  `RENEWAL_SOON_DAYS = 90` acende "renovação próxima" imediatamente. É coerente
+  com vender por projeto e não por assinatura — a coluna descreve o fim do que
+  foi vendido.
+- **Escopo revisado por gente**: `included_scope` vira os bullets que o cliente
+  lê em `/proposta/[token]`. A tela pré-preenche com `escopoPropostaDoCenario`,
+  mas o server exige texto não vazio: gerar e gravar sem revisão seria publicar
+  texto comercial derivado de uma calculadora.
+- **Documento sem RC**: `buildProposalDocument` já caía em
+  `'Representante Vertho'`; com `cliente_nome` o nome do cliente também aparece.
+
+### A propriedade que não pode ser perdida
+
+Cada action de `proposals-admin.ts` exige `representante_id IS NULL`. Sem isso o
+arquivo viraria atalho para um admin aprovar, enviar ou aceitar a proposta **de
+um RC** por cima do fluxo que existe para impedir exatamente isso. Proposta com
+RC continua sendo operada só pelo Portal do Representante.
 
 ## Fontes únicas
 
 - `lib/orcamento/precificacao.ts`: premissas, fórmulas puras e políticas de
   comissão do cenário.
+- `lib/orcamento/cenario.ts`: o formato do cenário salvo — tipos, defaults e
+  `normalizarEntradas`/`normalizarResumo` (a fronteira entre o jsonb e a tela).
 - `app/admin/vertho/orcamento/page.tsx`: composição dos custos operacionais e
   interface do deal desk.
+- `actions/orcamento/cenarios.ts`: salvar, listar, carregar e excluir.
+- `actions/sales/proposals-admin.ts`: conversão em proposta e ciclo de vida sem RC.
+- `components/sales/proposal-deal-desk-panel.tsx`: a UI desse ciclo de vida, na
+  página da proposta.
+- `migrations/253-orcamento-cenarios.sql`: a tabela de cenários.
+- `migrations/254-proposta-do-deal-desk.sql`: proposta sem RC e vigência do projeto.
 - `lib/sales/pricing.ts`: sugestão automática no formulário de propostas,
   alimentada por `ORCAMENTO_DEFAULTS`.
 - `lib/ia-cost-catalog.ts`: custo técnico de chamadas, modelos e infraestrutura
   de IA.
-- `tests/unit/orcamento-precificacao.test.ts` e
-  `tests/unit/sales-pricing.test.ts`: guardas contra regressão da régua.
+- `tests/unit/orcamento-precificacao.test.ts`,
+  `tests/unit/orcamento-cenario.test.ts`, `tests/unit/orcamento-acoes.test.ts` e
+  `tests/unit/sales-pricing.test.ts`: guardas contra regressão da régua e do
+  cenário salvo.
 
 ## Premissas aprovadas
 
@@ -165,12 +247,22 @@ Ao mudar qualquer premissa comercial:
 
 1. alterar `ORCAMENTO_DEFAULTS` ou a função pura correspondente;
 2. conferir o impacto tanto no orçamento quanto em `simularMensalidade`;
-3. atualizar os testes unitários com o novo cenário-base;
-4. atualizar este documento, sem copiar a régua para outro `.md`;
-5. rodar `npm run typecheck`, testes de precificação, build e smoke após o
+3. lembrar que **os orçamentos já salvos não mudam junto**: `resultado` segue
+   congelado no valor do dia, e `entradas` recarrega com a régua nova apenas nos
+   campos que o cenário não gravou. Se a mudança precisa valer para cenários
+   antigos, isso é uma decisão de migração de dados — não um efeito colateral
+   silencioso;
+4. se a mudança cria ou remove um campo de cenário, atualizar
+   `EntradasOrcamento`/`ResumoOrcamento` e `normalizarEntradas` juntos: é o que
+   faz um cenário de seis meses atrás continuar abrindo;
+5. atualizar os testes unitários com o novo cenário-base;
+6. atualizar este documento, sem copiar a régua para outro `.md`;
+7. rodar `npm run typecheck`, testes de precificação, build e smoke após o
    deploy.
 
 O simulador de propostas ainda representa todos os cargos informados como
 matrizes novas, pois seu formulário não recebe a divisão nova/adaptada. Se essa
 divisão passar a fazer parte da proposta, o contrato de `PricingInput` também
-precisa evoluir.
+precisa evoluir. A conversão do deal desk **não** tem essa limitação: ela leva
+`cargos` e o cenário completo, e a divisão novas/adaptadas aparece no escopo
+gerado por `escopoPropostaDoCenario`.
