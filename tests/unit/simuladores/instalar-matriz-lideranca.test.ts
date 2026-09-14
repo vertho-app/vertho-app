@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { criarSupabaseMock } from '../../helpers/supabase-mock';
-import { instalarMatrizLideranca, estadoMatrizLideranca } from '@/lib/simuladores/lideranca/instalar';
+import { instalarMatrizLideranca, estadoMatrizLideranca, MARCA_ANCORA } from '@/lib/simuladores/lideranca/instalar';
 import { COMPETENCIAS_LIDERANCA, VARIANTES } from '@/lib/simuladores/lideranca/matriz-global';
 
 /**
@@ -43,10 +43,10 @@ describe('instalarMatrizLideranca', () => {
 
   it('reinstalar é idempotente: atualiza em vez de duplicar', async () => {
     const jaInstalado = [
-      { id: 'c-gc', nome: VARIANTES.gestor, top5_workshop: [...COMPETENCIAS_LIDERANCA] },
-      { id: 'c-fl', nome: VARIANTES.potencial, top5_workshop: [...COMPETENCIAS_LIDERANCA] },
+      { id: 'c-gc', nome: VARIANTES.lider, top5_workshop: [...COMPETENCIAS_LIDERANCA] },
+      { id: 'c-fl', nome: VARIANTES.futuro, top5_workshop: [...COMPETENCIAS_LIDERANCA] },
     ];
-    const comps = [{ id: 'x1', cod_comp: 'GC01', cod_desc: 'GC01_D1', cargo: VARIANTES.gestor }];
+    const comps = [{ id: 'x1', cod_comp: 'LD01', cod_desc: 'LD01_D1', cargo: VARIANTES.lider }];
     sb = mock(jaInstalado, comps);
 
     const r = await instalarMatrizLideranca(sb.client, 'emp-A');
@@ -58,19 +58,51 @@ describe('instalarMatrizLideranca', () => {
   });
 
   /**
-   * 🔴 O caso que justifica o fail-loud. Um cargo REAL chamado "Gestor
-   * Comercial" existe de verdade em empresa comercial. Gravar por cima
+   * 🔴 O caso que justifica o fail-loud. "Líder" é nome que uma empresa pode
+   * ter cadastrado como cargo de verdade. Gravar por cima
    * reescreveria o `top5_workshop` e o `gabarito` dele, e o gabarito é o que
    * alimenta o eixo de estilo do Ranking. Recusa a instalação INTEIRA.
    */
   it('cargo homônimo REAL recusa sem escrever nada', async () => {
-    const real = [{ id: 'c-real', nome: VARIANTES.gestor, top5_workshop: ['Negociação', 'Prospecção'], gabarito: { tela4: {} } }];
+    const real = [{ id: 'c-real', nome: VARIANTES.lider, top5_workshop: ['Negociação', 'Prospecção'], gabarito: { tela4: {} } }];
     sb = mock(real);
     const r = await instalarMatrizLideranca(sb.client, 'emp-A');
     expect(r.ok).toBe(false);
     expect(r.erro).toMatch(/já tem cargo com o nome/);
-    expect(r.erro).toMatch(VARIANTES.gestor);
+    expect(r.erro).toMatch(VARIANTES.lider);
     expect(sb.escritas).toHaveLength(0);
+  });
+
+  /**
+   * 🔴 O caso que quase custou a troca de matriz (medido em 14/09). A âncora
+   * gravada por uma versão ANTERIOR carrega o Top 5 antigo; comparar só o Top 5
+   * a leria como cargo real da empresa e recusaria a instalação inteira, sem a
+   * matriz nunca atualizar. A marca na descrição é estável entre versões.
+   */
+  it('âncora de uma versão ANTERIOR da matriz é reconhecida como nossa e atualizada', async () => {
+    const antiga = [
+      { id: 'c-1', nome: VARIANTES.lider, top5_workshop: ['Competência Velha A', 'Competência Velha B'], descricao: `${MARCA_ANCORA} Criado pela plataforma.` },
+      { id: 'c-2', nome: VARIANTES.futuro, top5_workshop: ['Competência Velha A'], descricao: `${MARCA_ANCORA} Criado pela plataforma.` },
+    ];
+    sb = mock(antiga);
+    const r = await instalarMatrizLideranca(sb.client, 'emp-A');
+    expect(r.ok).toBe(true);
+    expect(r.cargos.every((c) => c.criado)).toBe(false);
+    const updates = sb.escritas.filter((e) => e.tabela === 'cargos_empresa' && e.op === 'update');
+    expect(updates).toHaveLength(2);
+    expect(updates[0].payload.top5_workshop).toEqual([...COMPETENCIAS_LIDERANCA]);
+  });
+
+  /** Âncora de uma variante que não existe mais vira lixo: relatada, nunca apagada sozinha. */
+  it('relata âncora ÓRFÃ (variante extinta) sem apagá-la', async () => {
+    const comOrfa = [
+      { id: 'c-velho', nome: 'Gestor Comercial', top5_workshop: ['X'], descricao: `${MARCA_ANCORA} Criado pela plataforma.` },
+    ];
+    sb = mock(comOrfa);
+    const r = await instalarMatrizLideranca(sb.client, 'emp-A');
+    expect(r.ok).toBe(true);
+    expect(r.ancorasOrfas).toEqual(['Gestor Comercial']);
+    expect(sb.escritas.filter((e) => e.op === 'delete')).toHaveLength(0);
   });
 
   it('erro de leitura dos cargos não vira instalação', async () => {

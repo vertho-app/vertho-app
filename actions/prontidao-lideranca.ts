@@ -308,7 +308,12 @@ export async function reinstalarMatrizLiderancaAdmin(empresaId: string) {
       acao: 'prontidao_lideranca.matriz_instalar', empresaId, alvo: 'competencias',
       detalhes: { inseridos: r.descritoresInseridos, atualizados: r.descritoresAtualizados, cargos: r.cargos.map((c) => c.nome) },
     });
-    return { success: true as const, inseridos: r.descritoresInseridos, atualizados: r.descritoresAtualizados };
+    return {
+      success: true as const,
+      inseridos: r.descritoresInseridos,
+      atualizados: r.descritoresAtualizados,
+      ancorasOrfas: r.ancorasOrfas,
+    };
   } catch (e: any) {
     return { success: false as const, error: e?.message || 'Erro ao instalar a matriz.' };
   }

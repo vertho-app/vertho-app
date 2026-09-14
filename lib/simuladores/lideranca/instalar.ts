@@ -20,6 +20,18 @@
  */
 import { VARIANTES, linhasDaVariante, COMPETENCIAS_LIDERANCA, type VarianteLideranca, type LinhaMatriz } from './matriz-global';
 
+/**
+ * Marca gravada na `descricao` do cargo-âncora. É o que distingue uma âncora
+ * NOSSA de um cargo real homônimo, e precisa ser estável entre VERSÕES da
+ * matriz: o `top5_workshop` não serve para isso, porque muda junto com ela.
+ *
+ * Medido em 14/09/2026, trocando a matriz comercial pela transversal: a âncora
+ * gravada na versão anterior ficou com o Top 5 antigo, o instalador a leu como
+ * cargo real da empresa e RECUSOU a instalação inteira. A matriz nunca
+ * atualizaria, e o motivo não aparecia em lugar nenhum.
+ */
+export const MARCA_ANCORA = 'Âncora da matriz global de liderança.';
+
 export interface ResultadoInstalacao {
   ok: boolean;
   erro?: string;
@@ -27,6 +39,13 @@ export interface ResultadoInstalacao {
   cargos: { variante: VarianteLideranca; nome: string; criado: boolean }[];
   descritoresInseridos: number;
   descritoresAtualizados: number;
+  /**
+   * Âncoras de uma versão ANTERIOR da matriz: trazem a marca, mas o nome não é
+   * mais o de nenhuma variante. Ficam como lixo (competências que ninguém mede
+   * e um cargo que não é de ninguém). São RELATADAS, nunca apagadas sozinhas:
+   * apagar cargo e competência de um tenant é decisão de quem opera.
+   */
+  ancorasOrfas: string[];
 }
 
 /** Colunas que a instalação escreve em `competencias`. */
@@ -54,11 +73,11 @@ const chaveDesc = (cod_comp: unknown, cod_desc: unknown) =>
  * empresa recusa a instalação inteira; e escrita que falha volta como erro.
  */
 export async function instalarMatrizLideranca(sb: any, empresaId: string): Promise<ResultadoInstalacao> {
-  const vazio: ResultadoInstalacao = { ok: false, cargos: [], descritoresInseridos: 0, descritoresAtualizados: 0 };
+  const vazio: ResultadoInstalacao = { ok: false, cargos: [], descritoresInseridos: 0, descritoresAtualizados: 0, ancorasOrfas: [] };
 
   const nomes = Object.values(VARIANTES) as string[];
   const { data: cargosExistentes, error: erroCargos } = await sb.from('cargos_empresa')
-    .select('id, nome, top5_workshop, gabarito')
+    .select('id, nome, top5_workshop, gabarito, descricao')
     .eq('empresa_id', empresaId);
   if (erroCargos) return { ...vazio, erro: `não foi possível ler os cargos: ${erroCargos.message}` };
 
@@ -68,10 +87,15 @@ export async function instalarMatrizLideranca(sb: any, empresaId: string): Promi
    * 🔴 Um cargo com o nome da variante que NÃO seja nosso é um cargo real da
    * empresa. Gravar por cima reescreveria o `top5_workshop` e o `gabarito` dele
    * em silêncio, e o gabarito é o que alimenta o eixo de estilo do Ranking.
-   * Nosso é o que já tem exatamente as 5 competências da matriz no Top 5.
+   *
+   * Nosso é o que traz a MARCA na descrição (estável entre versões da matriz)
+   * ou o que já tem exatamente as 5 competências da versão atual no Top 5. Só
+   * o segundo critério não bastava: na troca de matriz a âncora antiga carrega
+   * o Top 5 antigo e seria lida como cargo de verdade.
    */
   const nossas = new Set(COMPETENCIAS_LIDERANCA);
   const ehNosso = (c: any) => {
+    if (String(c?.descricao ?? '').startsWith(MARCA_ANCORA)) return true;
     const t5 = Array.isArray(c?.top5_workshop) ? c.top5_workshop.map((s: unknown) => String(s ?? '').trim()) : [];
     return t5.length === nossas.size && t5.every((n: string) => nossas.has(n));
   };
@@ -93,7 +117,7 @@ export async function instalarMatrizLideranca(sb: any, empresaId: string): Promi
       // Sem gabarito de propósito: o eixo de estilo usa o gabarito do cargo-alvo
       // REAL da empresa, não o desta âncora. `eh_vaga`/`eh_pool_candidatos`
       // ficam no default (false) para não entrar em tela de seleção.
-      descricao: 'Âncora da matriz global de liderança. Criado pela plataforma; não é um cargo da empresa.',
+      descricao: `${MARCA_ANCORA} Criado pela plataforma; não é um cargo da empresa.`,
     };
     if (existente) {
       const { error } = await sb.from('cargos_empresa').update(campos).eq('id', existente.id).eq('empresa_id', empresaId);
@@ -137,7 +161,11 @@ export async function instalarMatrizLideranca(sb: any, empresaId: string): Promi
     inseridos = novos.length;
   }
 
-  return { ok: true, cargos, descritoresInseridos: inseridos, descritoresAtualizados: atualizados };
+  const ancorasOrfas = (cargosExistentes || [])
+    .filter((c: any) => String(c?.descricao ?? '').startsWith(MARCA_ANCORA) && !nomes.includes(String(c?.nome || '').trim()))
+    .map((c: any) => String(c.nome));
+
+  return { ok: true, cargos, descritoresInseridos: inseridos, descritoresAtualizados: atualizados, ancorasOrfas };
 }
 
 /** A matriz está instalada e completa neste tenant? Leitura barata, para a tela. */

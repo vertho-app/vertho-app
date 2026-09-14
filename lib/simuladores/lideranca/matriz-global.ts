@@ -29,8 +29,8 @@ import bruto from './matriz-global.json';
  * é por `cargo` que `competencias` e `banco_cenarios` são chaveadas.
  */
 export const VARIANTES = {
-  gestor: 'Gestor Comercial',
-  potencial: 'Futuro Líder',
+  lider: 'Líder',
+  futuro: 'Futuro Líder',
 } as const;
 
 export type VarianteLideranca = keyof typeof VARIANTES;
@@ -49,9 +49,9 @@ export function ehCargoAncoraLideranca(nome: unknown): boolean {
   return (Object.values(VARIANTES) as string[]).includes(n);
 }
 
-/** Quem OCUPA o cargo-alvo é gestor em exercício; quem não ocupa é potencial sucessor. */
+/** Quem OCUPA o cargo-alvo é líder em exercício; quem não ocupa é futuro líder. */
 export function varianteDe(ocupaCargoAlvo: boolean): VarianteLideranca {
-  return ocupaCargoAlvo ? 'gestor' : 'potencial';
+  return ocupaCargoAlvo ? 'lider' : 'futuro';
 }
 
 export interface LinhaMatriz {
@@ -84,7 +84,7 @@ export function linhasDaVariante(variante: VarianteLideranca): LinhaMatriz[] {
  * de propósito: é o que torna as notas comparáveis entre os dois públicos.
  */
 export const COMPETENCIAS_LIDERANCA: readonly string[] = Object.freeze(
-  [...new Set(LINHAS.filter((l) => l.cargo === VARIANTES.gestor).map((l) => l.nome))],
+  [...new Set(LINHAS.filter((l) => l.cargo === VARIANTES.lider).map((l) => l.nome))],
 );
 
 /** Quantos descritores cada competência tem na matriz (a régua canônica tem 6). */
