@@ -9,6 +9,7 @@ import { addVercelDomain, removeVercelDomain } from '@/lib/vercel-domain';
 import { isAppLocale, locales } from '@/i18n/routing';
 import { TENANT_GLOSSARIO_CACHE_TAG, TENANT_LOCALE_CACHE_TAG } from '@/lib/i18n-server';
 import { CHAVES_SO_PLATAFORMA } from '@/lib/sys-config-plataforma';
+import { gravarSysConfig } from '@/lib/sys-config-escrita';
 
 export async function loadConfig(empresaId) {
   const sb = await requireAdminSupabase();
@@ -54,18 +55,19 @@ export async function salvarConfig(empresaId, sysConfig) {
   // deixado a classe aberta. A lista abaixo é a classe; chave nova de
   // plataforma entra AQUI no mesmo commit que a cria.
   // Guard: `tests/unit/security/sys-config-chaves-plataforma.test.ts`.
-  const { data: atual, error: erroAtual } = await sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle();
-  if (erroAtual) return { success: false, error: erroAtual.message };
-  const gravado = atual?.sys_config || {};
-  const paraGravar: Record<string, any> = { ...(sysConfig || {}) };
-  for (const chave of CHAVES_SO_PLATAFORMA) {
-    if (chave in gravado) paraGravar[chave] = gravado[chave];
-    else delete paraGravar[chave];
-  }
-  const { error } = await sb.from('empresas')
-    .update({ sys_config: paraGravar })
-    .eq('id', empresaId);
-  if (error) return { success: false, error: error.message };
+  //
+  // A política roda DENTRO da mutação porque `gravarSysConfig` a reaplica sobre
+  // o estado novo quando outro write entra no meio (trava otimista por
+  // `updated_at`) — aplicar antes usaria um retrato velho do que está gravado.
+  const r = await gravarSysConfig(sb, empresaId, (gravado) => {
+    const paraGravar: Record<string, any> = { ...(sysConfig || {}) };
+    for (const chave of CHAVES_SO_PLATAFORMA) {
+      if (chave in gravado) paraGravar[chave] = gravado[chave];
+      else delete paraGravar[chave];
+    }
+    return paraGravar;
+  });
+  if (!r.ok) return { success: false, error: r.erro };
   await logAdminAction({
     adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
     acao: 'empresa.editar', empresaId, alvo: 'sys_config',
@@ -196,13 +198,8 @@ export async function resumirPPPEscola(empresaId, ppp) {
     const { resumirPPP } = await import('@/lib/escola-brief');
     const brief = await resumirPPP(ppp, empresaId);
 
-    const { data: current } = await sb.from('empresas')
-      .select('sys_config').eq('id', empresaId).single();
-    const merged = { ...(current?.sys_config || {}), video_escola: brief };
-
-    const { error } = await sb.from('empresas')
-      .update({ sys_config: merged }).eq('id', empresaId);
-    if (error) return { success: false, error: error.message };
+    const r = await gravarSysConfig(sb, empresaId, (atual) => ({ ...atual, video_escola: brief }));
+    if (!r.ok) return { success: false, error: r.erro };
 
     await logAdminAction({
       adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
@@ -256,13 +253,8 @@ export async function gerarBriefDoPPP(empresaId: string, pppEscolaId?: string) {
 
     const brief = await resumirPPP(fonte, empresaId);
 
-    const { data: current } = await sb.from('empresas')
-      .select('sys_config').eq('id', empresaId).single();
-    const merged = { ...(current?.sys_config || {}), video_escola: brief };
-
-    const { error: upErr } = await sb.from('empresas')
-      .update({ sys_config: merged }).eq('id', empresaId);
-    if (upErr) return { success: false, error: upErr.message };
+    const r = await gravarSysConfig(sb, empresaId, (atual) => ({ ...atual, video_escola: brief }));
+    if (!r.ok) return { success: false, error: r.erro };
 
     await logAdminAction({
       adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',

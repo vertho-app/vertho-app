@@ -2,6 +2,7 @@
 
 import { tenantDb } from '@/lib/tenant-db';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
+import { gravarSysConfig } from '@/lib/sys-config-escrita';
 import {
   montarOPQ32Profile,
   extrairMetadadosOPQ32,
@@ -32,19 +33,15 @@ export async function setEmpresaFonteExterna(
   fonte: 'opq32' | 'hogan' | 'mbti' | 'big5' | null,
 ): Promise<{ success: boolean; error?: string }> {
   const sb = await requireEmpresaSupabase(empresaId, 'settings.company.manage', 'setEmpresaFonteExterna');
-  const { data: emp } = await sb
-    .from('empresas')
-    .select('sys_config')
-    .eq('id', empresaId)
-    .maybeSingle();
-  const cfg = (emp?.sys_config as any) || {};
-  if (fonte) cfg.perfil_externo_fonte = fonte;
-  else delete cfg.perfil_externo_fonte;
-  const { error } = await sb
-    .from('empresas')
-    .update({ sys_config: cfg })
-    .eq('id', empresaId);
-  if (error) return { success: false, error: error.message };
+  // Trava otimista (`lib/sys-config-escrita`): esta action grava o objeto
+  // INTEIRO, e sem ela um salvamento concorrente da tela de Configurações
+  // apagava a fonte externa que acabou de ser definida — ou o contrário.
+  const r = await gravarSysConfig(sb, empresaId, (cfg) => {
+    if (fonte) return { ...cfg, perfil_externo_fonte: fonte };
+    const { perfil_externo_fonte: _removido, ...resto } = cfg;
+    return resto;
+  });
+  if (!r.ok) return { success: false, error: r.erro };
   return { success: true };
 }
 

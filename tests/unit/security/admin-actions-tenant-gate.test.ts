@@ -27,9 +27,20 @@ function makeClient() {
       select: () => b, eq: () => b, in: () => b, not: () => b, or: () => b,
       order: () => b, limit: () => b, neq: () => b, is: () => b,
       update: () => b, delete: () => b, insert: () => b, upsert: () => b,
-      single: async () => ({ data: { id: 'x', nome: 'Empresa', slug: 'emp', empresa_id: tenantDoRegistro }, error: null }),
-      maybeSingle: async () => ({ data: { id: 'x', empresa_id: tenantDoRegistro }, error: null }),
-      then: undefined, // await no builder devolve o próprio objeto (error = undefined)
+      single: async () => ({ data: { id: 'x', nome: 'Empresa', slug: 'emp', empresa_id: tenantDoRegistro, updated_at: 't1' }, error: null }),
+      // `updated_at` é a versão que a trava otimista de `sys_config` pinta no
+      // UPDATE (`lib/sys-config-escrita`); sem ele o write nunca casa e o
+      // caminho legítimo falharia por conflito, não por gate.
+      maybeSingle: async () => ({ data: { id: 'x', empresa_id: tenantDoRegistro, sys_config: {}, updated_at: 't1' }, error: null }),
+      // `await` no builder devolve o próprio objeto (error = undefined). A
+      // escrita com trava termina em `.select('id')` e lê `data.length`, então
+      // o builder precisa parecer uma linha escrita.
+      then: undefined,
+      // `const { data } = await builder` lê estes campos: a trava termina em
+      // `.select('id')` e exige UMA linha de volta para considerar que ganhou a
+      // corrida. Sem isso o caminho legítimo falha por conflito, não por gate.
+      data: [{ id: 'x' }],
+      error: null,
     };
     return b;
   };

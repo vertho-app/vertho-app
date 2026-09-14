@@ -8,6 +8,7 @@ import { findColabByEmail } from '@/lib/authz';
 import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { carregarVotacaoStatus } from '@/lib/home/loaders';
+import { gravarSysConfig } from '@/lib/sys-config-escrita';
 
 // Heurística leve pra classificar device a partir do user-agent.
 // Não tenta cobrir 100% dos casos — só os principais. Bots vão pra 'bot'.
@@ -151,48 +152,44 @@ export async function salvarVoto(competencias: string[], sugestaoNova?: string) 
 
 export async function toggleVotacao(empresaId: string, ativa: boolean) {
   const sb = await requireEmpresaSupabase(empresaId, 'settings.company.manage', 'toggleVotacao');
-  const { data: empresa } = await sb.from('empresas')
-    .select('sys_config').eq('id', empresaId).maybeSingle();
+  // As três flags de etapa vivem no MESMO objeto e são gravadas inteiras: sem a
+  // trava otimista (`lib/sys-config-escrita`), dois toggles quase simultâneos
+  // desfazem um ao outro — e etapa é o que libera a tela do participante.
+  const r = await gravarSysConfig(sb, empresaId, (config) => {
+    const proximo: Record<string, any> = { ...config, votacao_ativa: ativa };
+    if (proximo.perfil_externo_fonte) {
+      // Perfil externo (OPQ32/Hogan): o perfil nativo fica bloqueado sempre e NÃO
+      // é etapa do fluxo. Só abrir a votação reinicia o mapeamento de cenários —
+      // fechar não pode apagar uma liberação que o admin acabou de fazer.
+      if (ativa) proximo.mapeamento_cenarios_liberado = false;
+    } else if (ativa || proximo.perfil_comportamental_liberado !== true) {
+      proximo.perfil_comportamental_liberado = false;
+      proximo.mapeamento_cenarios_liberado = false;
+    }
+    return proximo;
+  });
 
-  const config = empresa?.sys_config || {};
-  config.votacao_ativa = ativa;
-  if (config.perfil_externo_fonte) {
-    // Perfil externo (OPQ32/Hogan): o perfil nativo fica bloqueado sempre e NÃO
-    // é etapa do fluxo. Só abrir a votação reinicia o mapeamento de cenários —
-    // fechar não pode apagar uma liberação que o admin acabou de fazer.
-    if (ativa) config.mapeamento_cenarios_liberado = false;
-  } else if (ativa || config.perfil_comportamental_liberado !== true) {
-    config.perfil_comportamental_liberado = false;
-    config.mapeamento_cenarios_liberado = false;
-  }
-
-  const { error } = await sb.from('empresas')
-    .update({ sys_config: config }).eq('id', empresaId);
-
-  if (error) return { success: false, error: error.message };
+  if (!r.ok) return { success: false, error: r.erro };
   return { success: true, message: ativa ? 'Votação aberta' : 'Votação fechada' };
 }
 
 export async function togglePerfilComportamental(empresaId: string, liberado: boolean) {
   const sb = await requireEmpresaSupabase(empresaId, 'settings.company.manage', 'togglePerfilComportamental');
-  const { data: empresa } = await sb.from('empresas')
-    .select('sys_config').eq('id', empresaId).maybeSingle();
+  const r = await gravarSysConfig(sb, empresaId, (config) => {
+    // A pré-condição é reavaliada a cada tentativa: se a votação foi aberta
+    // entre a leitura e a escrita, liberar aqui teria furado o gate.
+    if (liberado && config.votacao_ativa === true) {
+      return { erro: 'Feche a votação antes de liberar o perfil comportamental.' };
+    }
+    const proximo: Record<string, any> = { ...config, perfil_comportamental_liberado: liberado };
+    // Cascata só vale onde o perfil É pré-requisito. Empresa com fonte externa
+    // (OPQ32/Hogan) fica com o perfil bloqueado de forma permanente — arrastar os
+    // cenários junto tornaria o mapeamento inalcançável nesses tenants.
+    if (!liberado && !proximo.perfil_externo_fonte) proximo.mapeamento_cenarios_liberado = false;
+    return proximo;
+  });
 
-  const config = empresa?.sys_config || {};
-  if (liberado && config.votacao_ativa === true) {
-    return { success: false, error: 'Feche a votação antes de liberar o perfil comportamental.' };
-  }
-
-  config.perfil_comportamental_liberado = liberado;
-  // Cascata só vale onde o perfil É pré-requisito. Empresa com fonte externa
-  // (OPQ32/Hogan) fica com o perfil bloqueado de forma permanente — arrastar os
-  // cenários junto tornaria o mapeamento inalcançável nesses tenants.
-  if (!liberado && !config.perfil_externo_fonte) config.mapeamento_cenarios_liberado = false;
-
-  const { error } = await sb.from('empresas')
-    .update({ sys_config: config }).eq('id', empresaId);
-
-  if (error) return { success: false, error: error.message };
+  if (!r.ok) return { success: false, error: r.erro };
   return {
     success: true,
     message: liberado ? 'Perfil comportamental liberado' : 'Perfil comportamental bloqueado',
@@ -201,27 +198,22 @@ export async function togglePerfilComportamental(empresaId: string, liberado: bo
 
 export async function toggleMapeamentoCenarios(empresaId: string, liberado: boolean) {
   const sb = await requireEmpresaSupabase(empresaId, 'settings.company.manage', 'toggleMapeamentoCenarios');
-  const { data: empresa } = await sb.from('empresas')
-    .select('sys_config').eq('id', empresaId).maybeSingle();
+  const r = await gravarSysConfig(sb, empresaId, (config) => {
+    if (liberado && config.votacao_ativa === true) {
+      return { erro: 'Feche a votação antes de liberar o mapeamento de cenários.' };
+    }
+    const proximo: Record<string, any> = { ...config };
+    // Liberar cenários arrasta o perfil junto (pré-requisito) — EXCETO em empresa
+    // com fonte externa de perfil, onde o DISC nativo não existe e o perfil deve
+    // permanecer bloqueado.
+    if (liberado && !proximo.perfil_externo_fonte) {
+      proximo.perfil_comportamental_liberado = true;
+    }
+    proximo.mapeamento_cenarios_liberado = liberado;
+    return proximo;
+  });
 
-  const config = empresa?.sys_config || {};
-  if (liberado && config.votacao_ativa === true) {
-    return { success: false, error: 'Feche a votação antes de liberar o mapeamento de cenários.' };
-  }
-
-  // Liberar cenários arrasta o perfil junto (pré-requisito) — EXCETO em empresa
-  // com fonte externa de perfil, onde o DISC nativo não existe e o perfil deve
-  // permanecer bloqueado.
-  if (liberado && !config.perfil_externo_fonte) {
-    config.perfil_comportamental_liberado = true;
-  }
-
-  config.mapeamento_cenarios_liberado = liberado;
-
-  const { error } = await sb.from('empresas')
-    .update({ sys_config: config }).eq('id', empresaId);
-
-  if (error) return { success: false, error: error.message };
+  if (!r.ok) return { success: false, error: r.erro };
   return {
     success: true,
     message: liberado ? 'Mapeamento de cenários liberado' : 'Mapeamento de cenários bloqueado',

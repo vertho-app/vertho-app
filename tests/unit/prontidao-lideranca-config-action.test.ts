@@ -18,10 +18,13 @@ const auditoria = vi.fn(async (..._args: any[]) => {});
 function mock() {
   return criarSupabaseMock({
     resolver: (tabela) => {
-      if (tabela === 'empresas') return { nome: 'ACME', sys_config: cenario.sysConfig };
+      // `updated_at` é a VERSÃO que `gravarSysConfig` usa como trava otimista.
+      if (tabela === 'empresas') return { nome: 'ACME', sys_config: cenario.sysConfig, updated_at: 't1' };
       if (tabela === 'turmas') return { id: 't1', nome: 'Turma 1' };
       return null;
     },
+    // O update pinta `.eq('updated_at')` e lê `.select('id')`: linha de volta = ganhou a corrida.
+    escrita: (tabela, op) => (tabela === 'empresas' && op === 'update' ? [{ id: 'emp-A' }] : null),
     lista: (tabela) => {
       if (tabela === 'cargos_empresa') return [
         { nome: 'Gerente Comercial', gabarito: { tela4: {} }, top5_workshop: LID },

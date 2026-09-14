@@ -18,6 +18,7 @@ import { requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { MODULOS, canUseModulo, type Modulo } from '@/lib/access-gates/modulos';
 import { listarTurmasDoTenant } from '@/lib/turmas/contexto';
 import { logAdminAction } from '@/lib/audit';
+import { gravarSysConfig } from '@/lib/sys-config-escrita';
 import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import {
   CHAVE_CONFIG, chaveCompetencia, lerConfigProntidao, validarConfigProntidao, type ConfigProntidaoLideranca,
@@ -222,11 +223,8 @@ export async function salvarConfigProntidaoAdmin(empresaId: string, cfgRaw: unkn
     // dia é buscado por `.eq('cargo', …)` exato.
     const alvo = cargos.find((c) => chaveCompetencia(c.nome) === chaveCompetencia(cfg.cargo_alvo));
     const cfgCanonica: ConfigProntidaoLideranca = { ...cfg, cargo_alvo: alvo?.nome || cfg.cargo_alvo };
-    const lido = await lerSysConfig(sb, empresaId);
-    if ('error' in lido) return lido;
-    const merged = { ...(lido.sysConfig || {}), [CHAVE_CONFIG]: cfgCanonica };
-    const { error } = await sb.from('empresas').update({ sys_config: merged }).eq('id', empresaId);
-    if (error) return { success: false as const, error: error.message };
+    const gravou = await gravarSysConfig(sb, empresaId, (atual) => ({ ...atual, [CHAVE_CONFIG]: cfgCanonica }));
+    if (!gravou.ok) return { success: false as const, error: gravou.erro };
     await logAdminAction({
       adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
       acao: 'prontidao_lideranca.configurar', empresaId, alvo: 'sys_config.prontidao_lideranca',
@@ -250,11 +248,12 @@ export async function setModuloAdmin(empresaId: string, modulo: Modulo, ligado: 
   const sb = await requireEmpresaSupabase(empresaId, 'program.configure', 'setModuloAdmin');
   try {
     if (!Object.values(MODULOS).includes(modulo)) return { success: false as const, error: 'Módulo desconhecido.' };
-    const lido = await lerSysConfig(sb, empresaId);
-    if ('error' in lido) return lido;
-    const modulos = { ...((lido.sysConfig || {}).modulos || {}), [modulo]: ligado === true };
-    const { error } = await sb.from('empresas').update({ sys_config: { ...(lido.sysConfig || {}), modulos } }).eq('id', empresaId);
-    if (error) return { success: false as const, error: error.message };
+    // Trava otimista: contratar módulo grava o objeto inteiro, e a tela de
+    // Configurações regrava um retrato velho de tudo o que não está no formulário.
+    const gravou = await gravarSysConfig(sb, empresaId, (atual) => ({
+      ...atual, modulos: { ...(atual.modulos || {}), [modulo]: ligado === true },
+    }));
+    if (!gravou.ok) return { success: false as const, error: gravou.erro };
     await logAdminAction({
       adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
       acao: ligado ? 'modulo.ligar' : 'modulo.desligar', empresaId, alvo: 'sys_config.modulos',
