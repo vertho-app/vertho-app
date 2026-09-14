@@ -59,7 +59,13 @@ async function verificarProducao() {
   check(fks.filter((f) => f.conname !== 'sim_vendas_sessoes_colab_fk' && f.conname !== 'sim_vendas_tentativas_sessao_fk').every((f) => f.confdeltype === 'a'), '251: raízes sem cascata silenciosa');
   check(fks.find((f) => f.conname === 'sim_vendas_sessoes_colab_fk')?.confdeltype === 'n', '251: exclusão legada de pessoa preserva treino');
   check(fks.find((f) => f.conname === 'sim_vendas_tentativas_sessao_fk')?.confdeltype === 'c', '251: sessão ainda expurga tentativas');
-  check((await db.query(`select count(*)::int n from sim_vendas_sessoes where estado ? 'prompts'`)).rows[0].n === 0, '250: sessões sem snapshot literal de prompts');
+  check((await db.query(`
+    select count(*)::int n from sim_vendas_sessoes s
+     where jsonb_typeof(s.estado->'prompts') is distinct from 'object'
+        or exists (select 1 from jsonb_each(s.estado->'prompts') p
+          where jsonb_typeof(p.value) <> 'object'
+             or (p.value - array['id','hash','versao','modelo']) <> '{}'::jsonb)
+  `)).rows[0].n === 0, '250: sessões guardam só referência/hash/versão/modelo dos prompts');
   console.log(JSON.stringify({ checks, modo: 'somente leitura', migrations: [249,250,251], status: 'ok' }));
 }
 async function falha(sql, args, codigo) {
