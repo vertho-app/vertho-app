@@ -55,6 +55,8 @@
     "level3": "Avanzado",
     "levelHelp": "Cuanto mayor sea el grado, más objeciones y resistencia presentará el cliente. Tú guías desde el primer contacto hasta el compromiso.",
     "start": "Iniciar práctica",
+    "newSimulation": "Nueva simulación",
+    "newSimulationLocked": "Finaliza la simulación actual para iniciar una nueva.",
     "history": "Tus prácticas",
     "historyDifficulty": "Dificultad: {level}",
     "more": "Cargar más",

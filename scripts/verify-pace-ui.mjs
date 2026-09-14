@@ -87,6 +87,8 @@ try {
   checks++;
   await page.goto(`${origin}/?active=1`);
   assert.equal(await page.getByRole('button', { name: 'Encerrar sem relatório', exact: true }).count(), 0);
+  await expect(page.getByRole('button', { name: 'Nova simulação', exact: true })).toBeDisabled();
+  await page.getByText('Conclua a simulação atual para iniciar uma nova.', { exact: true }).waitFor();
   const input = page.getByLabel('Sua mensagem', { exact: true });
   await input.fill('Como isso impacta o trabalho da equipe?');
   await input.press('Enter');
@@ -117,6 +119,7 @@ try {
   await expect(page.getByLabel('Sua mensagem', { exact: true })).toBeEnabled({ timeout: 12000 });
   checks++;
   await page.goto(`${origin}/?history=1`);
+  await expect(page.getByRole('button', { name: 'Nova simulação', exact: true })).toBeEnabled();
   await page.getByText('Dificuldade: Baixo', { exact: true }).first().waitFor();
   await page.getByText('Nota PACE 6,5', { exact: true }).first().waitFor();
   await page.screenshot({ path: `${dir}/historico-dificuldade-nota-desktop.png`, fullPage: true });

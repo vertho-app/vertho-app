@@ -269,12 +269,14 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
   const travado = !!ocupado || sessao?.processando === true;
   const aberto = sessao?.status === VENDAS_SESSAO.EM_ANDAMENTO,
     preparando = sessao?.status === VENDAS_SESSAO.PREPARANDO;
-  const podeNovo =
-    !aberto &&
-    !preparando &&
-    !dados?.historico.some((h) =>
+  const temTreinoAberto = !!(
+    aberto ||
+    preparando ||
+    dados?.historico.some((h) =>
       [VENDAS_SESSAO.EM_ANDAMENTO, VENDAS_SESSAO.PREPARANDO].some((status) => status === h.status),
-    );
+    )
+  );
+  const podeNovo = !temTreinoAberto;
   const terminou =
     sessao &&
     [VENDAS_SESSAO.CONCLUIDA, VENDAS_SESSAO.INTERROMPIDA].some((status) => status === sessao.status);
@@ -429,7 +431,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                     disabled={travado || !dados.configurado || !dados.podeTreinar}
                     onClick={() => void agir('iniciar')}
                   >
-                    {t('start')}
+                    {t(dados.historico.length ? 'newSimulation' : 'start')}
                     <ArrowRight size={16} />
                   </button>
                 </>
@@ -438,6 +440,15 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                 <p className={`${styles.muted} mt-4`}>
                   {t(`level${sessao.nivel}`)} · {t(`status_${sessao.status}`)}
                 </p>
+              )}
+              {temTreinoAberto && (
+                <div className={styles.newSimulationLocked}>
+                  <button className={styles.newSimulationButton} disabled>
+                    {t('newSimulation')}
+                    <ArrowRight size={16} />
+                  </button>
+                  <p className={styles.muted}>{t('newSimulationLocked')}</p>
+                </div>
               )}
               {dados.historico.length > 0 && (
                 <nav aria-label={t('history')} className={styles.history}>

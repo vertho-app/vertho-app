@@ -55,6 +55,8 @@
     "level3": "Avançado",
     "levelHelp": "Quanto maior o grau, mais objeções e resistência o cliente apresenta. Conduza desde o primeiro contacto até ao compromisso.",
     "start": "Iniciar treino",
+    "newSimulation": "Nova simulação",
+    "newSimulationLocked": "Conclua a simulação atual para iniciar uma nova.",
     "history": "Os seus treinos",
     "historyDifficulty": "Dificuldade: {level}",
     "more": "Carregar mais",

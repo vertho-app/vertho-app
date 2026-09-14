@@ -34,6 +34,8 @@
 .historyTitle>span:first-child { min-width:0; overflow-wrap:anywhere; }
 .historyScore { flex:0 0 auto; padding:.18rem .4rem; border:1px solid color-mix(in srgb,var(--pace-accent) 30%,transparent); border-radius:.45rem; background:color-mix(in srgb,var(--pace-accent) 8%,transparent); color:#a5f3fc; font-size:.65rem; font-weight:700; white-space:nowrap; }
 .historyMeta { display:flex; flex-wrap:wrap; gap:.15rem .32rem; color:#94a3b8; font-size:.7rem; line-height:1.45; }
+.newSimulationLocked { display:grid; gap:.55rem; margin-top:1rem; padding-top:1rem; border-top:1px solid #ffffff12; }
+.newSimulationButton { width:100%; justify-content:center; }
 .empty { padding:3rem 1rem; text-align:center; color:#94a3b8; line-height:1.7; }
 .feedback { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
 .evaluation { margin-top:1.5rem; padding:1.35rem; border:1px solid color-mix(in srgb,var(--pace-accent) 38%,transparent); border-radius:1rem; background:linear-gradient(145deg,color-mix(in srgb,var(--pace-accent) 8%,transparent),#ffffff03 58%); }

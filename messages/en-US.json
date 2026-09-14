@@ -55,6 +55,8 @@
     "level3": "Advanced",
     "levelHelp": "The higher the difficulty, the more objections and resistance the client presents. You lead from first contact to commitment.",
     "start": "Start practice",
+    "newSimulation": "New simulation",
+    "newSimulationLocked": "Complete the current simulation to start a new one.",
     "history": "Your practice sessions",
     "historyDifficulty": "Difficulty: {level}",
     "more": "Load more",
