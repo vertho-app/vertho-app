@@ -106,9 +106,23 @@ try {
   for (const nota of notasMaximas) await nota.check();
   await page.getByRole('button', { name: 'Enviar avaliação e abrir devolutiva', exact: true }).click();
   await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).waitFor();
-  assert.equal(await page.locator('meter').first().getAttribute('min'), '0.5');
+  assert.equal(await page.locator('meter').first().getAttribute('min'), '0');
   await page.screenshot({ path: `${dir}/relatorio-desktop.png`, fullPage: true });
   checks += 2;
+  await page.goto(`${origin}/?active=1&completed=1&rated=1&zero=1`);
+  const engajamentoZero = page.locator('article').filter({
+    has: page.getByRole('heading', { name: 'Engajamento', exact: true }),
+  });
+  await engajamentoZero.getByText('—', { exact: true }).waitFor();
+  assert.equal(await engajamentoZero.locator('meter').getAttribute('min'), '0');
+  assert.equal(await engajamentoZero.locator('meter').getAttribute('value'), '0');
+  await page
+    .getByText('— indica ausência de evidência naquele pilar e equivale a zero no cálculo da média.', {
+      exact: true,
+    })
+    .waitFor();
+  await page.screenshot({ path: `${dir}/relatorio-nota-zero-desktop.png`, fullPage: true });
+  checks++;
   await page.goto(`${origin}/?active=1&processing=1`);
   await page.getByText('Há uma resposta em processamento.', { exact: false }).waitFor();
   await expect(page.getByLabel('Sua mensagem', { exact: true })).toBeDisabled();

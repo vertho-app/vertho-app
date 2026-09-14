@@ -7,7 +7,7 @@ import TreinoVendas from '../../components/simulador-vendas/treino';
 import { ConfirmDialogProvider, useConfirm } from '../../components/admin/confirm-dialog';
 import { estado, relatorio } from '../fixtures/simulador-vendas';
 import { visaoPublica } from '../../lib/simulador-vendas/core';
-import { comandoSchema, configSchema, type Estado } from '../../lib/simulador-vendas/schema';
+import { comandoSchema, configSchema, REGUA_VERSION, type Estado } from '../../lib/simulador-vendas/schema';
 import pt from '../../messages/pt-BR.json';
 import ptpt from '../../messages/pt-PT.json';
 import en from '../../messages/en-US.json';
@@ -42,7 +42,7 @@ const states: Record<string, Estado | null> = {
   [empresaB]: null,
 };
 if (states[empresaA]) {
-  states[empresaA]!.versaoRegua = 'pace-2';
+  states[empresaA]!.versaoRegua = REGUA_VERSION;
   states[empresaA]!.mensagens = [
     {
       id: 'v1',
@@ -62,8 +62,19 @@ if (states[empresaA]) {
   states[empresaA]!.fase = 'analisar';
   if (params.has('completed')) {
     states[empresaA]!.status = 'concluida';
-    states[empresaA]!.relatorio = { ...relatorio, Media: 5.5 };
+    states[empresaA]!.relatorio = params.has('zero')
+      ? { ...relatorio, E: 0, Media: 4.5 }
+      : { ...relatorio, Media: 5.5 };
     states[empresaA]!.encerradoEm = new Date().toISOString();
+    if (params.has('rated'))
+      states[empresaA]!.feedback = {
+        realismo: 5,
+        desafio: 5,
+        interacao: 5,
+        utilidade: 5,
+        aprendizado: 5,
+        comentario: '',
+      };
   }
 }
 const configs = Object.fromEntries(
@@ -86,9 +97,9 @@ const resumo = (s: Estado) => ({
   nivel: s.nivel,
   nome: 'Beatriz',
   nomeVendedor: s.nomeVendedor,
-  nota: s.feedback ? s.relatorio?.Media || null : null,
+  nota: s.feedback ? (s.relatorio?.Media ?? null) : null,
   temRelatorio: !!s.relatorio && !!s.feedback,
-  versaoRegua: 'pace-2',
+  versaoRegua: REGUA_VERSION,
   testeAdmin: admin,
 });
 const historicoExtra = params.has('history')
@@ -151,7 +162,7 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
   }
   if (url.includes('/gestao')) {
     if (q.has('sessaoId'))
-      return Response.json({ id: q.get('sessaoId'), nomeVendedor: 'Ana', versaoRegua: 'pace-2', relatorio });
+      return Response.json({ id: q.get('sessaoId'), nomeVendedor: 'Ana', versaoRegua: REGUA_VERSION, relatorio });
     if (q.has('exportar'))
       return Response.json({
         linhas: [
@@ -164,7 +175,7 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
             E: 4,
             Media: 5.5,
             Resumo: 'Diagnóstico',
-            versaoRegua: 'pace-2',
+            versaoRegua: REGUA_VERSION,
           },
         ],
       });
