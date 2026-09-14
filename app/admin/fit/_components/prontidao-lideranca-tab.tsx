@@ -17,7 +17,7 @@ import {
   getProntidaoLiderancaAdmin, getParecerLiderancaAdmin, getCalibragemAdmin,
   exportarParecerPDFAdmin, exportarConsolidadoPDFAdmin,
 } from '@/actions/prontidao-lideranca';
-import { DEFAULTS_PRONTIDAO, EXEMPLARES_MAX, EXEMPLARES_MIN } from '@/lib/prontidao-lideranca/config';
+import { chaveCompetencia, DEFAULTS_PRONTIDAO, EXEMPLARES_MAX, EXEMPLARES_MIN } from '@/lib/prontidao-lideranca/config';
 
 type Sub = 'config' | 'previa' | 'calibragem';
 const fmt = (v: number | null | undefined) => (v == null ? '—' : Number(v).toFixed(2).replace('.', ','));
@@ -32,6 +32,7 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
   });
   const [salvando, setSalvando] = useState(false);
   const [alternando, setAlternando] = useState(false);
+  const [falha, setFalha] = useState<string | null>(null);
   const [erros, setErros] = useState<string[]>([]);
   const [avisos, setAvisos] = useState<string[]>([]);
   const [busca, setBusca] = useState('');
@@ -39,9 +40,23 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
   const [calib, setCalib] = useState<any>(null);
   const [calibLoading, setCalibLoading] = useState(false);
 
+  /**
+   * O gate (`requireEmpresaSupabase`) fica FORA do try da action, de propósito:
+   * negação não pode virar `{ success: false }` engolido. O preço é que ela
+   * chega aqui como REJEIÇÃO, e sem try o `setLoading(false)` nunca roda — a aba
+   * ficava girando para sempre, sem toast e sem texto (visto em 14/09 com uma
+   * sessão sem `admin.access`). Spinner eterno é o pior formato de "negado".
+   */
   const recarregar = useCallback(async () => {
-    setLoading(true);
-    const r: any = await getConfigProntidaoAdmin(empresaId);
+    setLoading(true); setFalha(null);
+    let r: any;
+    try {
+      r = await getConfigProntidaoAdmin(empresaId);
+    } catch (e: any) {
+      setFalha(e?.message || 'Não foi possível carregar o programa.');
+      setLoading(false);
+      return;
+    }
     if (r.success) {
       setInfo(r);
       if (r.cfg) {
@@ -53,7 +68,7 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
       }
       setErros(r.validacao?.erros || []);
       setAvisos(r.validacao?.avisos || []);
-    } else toast.error(r.error || 'Erro ao carregar.');
+    } else { setFalha(r.error || 'Erro ao carregar.'); toast.error(r.error || 'Erro ao carregar.'); }
     setLoading(false);
   }, [empresaId]);
 
@@ -87,17 +102,44 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
     setCalibLoading(false);
   }
 
-  const pessoasFiltradas = useMemo(() => {
+  /**
+   * Líder de referência é quem JÁ ocupa o cargo-alvo — a lista crua mistura a
+   * população inteira, e quem não ocupa é candidato (a régua que recusa está em
+   * `validarConfigProntidao`; aqui só se evita oferecer o errado). O filtro usa
+   * o cargo do FORMULÁRIO, não o salvo: trocar o cargo-alvo no select tem que
+   * mudar a lista antes de salvar. Quem já está escolhido continua visível fora
+   * do cargo, senão a troca deixaria um exemplar marcado e sem como desmarcar.
+   */
+  const { lista: pessoasFiltradas, total: totalCandidatos } = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    const lista = (info?.pessoas || []) as { id: string; nome: string; cargo: string | null }[];
-    return (q ? lista.filter((p) => p.nome.toLowerCase().includes(q) || (p.cargo || '').toLowerCase().includes(q)) : lista).slice(0, 40);
-  }, [info, busca]);
+    const alvo = chaveCompetencia(form.cargo_alvo);
+    const todas = (info?.pessoas || []) as { id: string; nome: string; cargo: string | null }[];
+    // Sem cargo-alvo não há lista: qualquer escolha aqui seria recusada no salvar.
+    const doAlvo = alvo ? todas.filter((p) => chaveCompetencia(p.cargo) === alvo || form.exemplares.includes(p.id)) : [];
+    const achadas = q ? doAlvo.filter((p) => p.nome.toLowerCase().includes(q) || (p.cargo || '').toLowerCase().includes(q)) : doAlvo;
+    return { lista: achadas.slice(0, 40), total: achadas.length };
+  }, [info, busca, form.cargo_alvo, form.exemplares]);
+
+  const foraDoAlvo = (cargo: string | null) => !!form.cargo_alvo && chaveCompetencia(cargo) !== chaveCompetencia(form.cargo_alvo);
 
   function toggleExemplar(id: string) {
     setForm((f) => ({ ...f, exemplares: f.exemplares.includes(id) ? f.exemplares.filter((x) => x !== id) : [...f.exemplares, id] }));
   }
 
   if (loading && !info) return <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-cyan-400" /></div>;
+  if (falha && !info) {
+    return (
+      <div className="rounded-xl p-4 border border-rose-400/30 flex flex-wrap items-center justify-between gap-3" style={{ background: '#0F2A4A' }}>
+        <div className="flex items-start gap-2 text-sm text-rose-200">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>{falha}</span>
+        </div>
+        <button type="button" onClick={() => void recarregar()} className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold border border-white/10 text-gray-300 hover:bg-white/5">
+          <RefreshCw size={12} /> Tentar de novo
+        </button>
+      </div>
+    );
+  }
   if (!info) return null;
 
   const inputCls = 'w-full px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40';
@@ -154,26 +196,51 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
 
           <div className="grid gap-3 md:grid-cols-3">
             <label className="flex items-center gap-2 text-xs text-gray-300"><input type="checkbox" checked={form.um_por_dia} onChange={(e) => setForm((f) => ({ ...f, um_por_dia: e.target.checked }))} /> um cenário por dia (só no trilho de liderança)</label>
-            <label className="block"><span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Corte (1–4)</span><input type="number" step="0.05" min={1} max={4} value={form.corte_nota} onChange={(e) => setForm((f) => ({ ...f, corte_nota: Number(e.target.value) }))} className={inputCls} style={bg} /></label>
-            <label className="block"><span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Banda de revisão (±)</span><input type="number" step="0.01" min={0} max={1} value={form.banda} onChange={(e) => setForm((f) => ({ ...f, banda: Number(e.target.value) }))} className={inputCls} style={bg} /><span className="block mt-1 text-[10px] text-gray-500">0,33 é emprestado do instrumento de conversa; a aferição substitui.</span></label>
+            <label className="block">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Corte — nota que conta como demonstrada (1–4)</span>
+              <input type="number" step="0.05" min={1} max={4} value={form.corte_nota} onChange={(e) => setForm((f) => ({ ...f, corte_nota: Number(e.target.value) }))} className={inputCls} style={bg} />
+              <span className="block mt-1 text-[10px] text-gray-500">Média por competência a partir da qual a pessoa demonstra a competência. 3,00 é o N3 da régua — o nível de meta do modelo.</span>
+            </label>
+            <label className="block">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Banda de revisão (±) — onde a máquina não decide</span>
+              <input type="number" step="0.01" min={0} max={1} value={form.banda} onChange={(e) => setForm((f) => ({ ...f, banda: Number(e.target.value) }))} className={inputCls} style={bg} />
+              <span className="block mt-1 text-[10px] text-gray-500">Quanto a mesma resposta relida pela IA move a média. Dentro dela a diferença para o corte é ruído, então a pessoa vai para leitura humana em vez de ser classificada. 0,33 é emprestado do instrumento de conversa; a aferição substitui.</span>
+            </label>
           </div>
+          <p className="text-[11px] text-gray-400 rounded-lg border border-white/[0.06] px-3 py-2" style={bg}>
+            Com estes valores: <span className="text-emerald-300 font-semibold">demonstra</span> a partir de {fmt(Number(form.corte_nota) + Number(form.banda))}
+            {' · '}<span className="text-rose-300 font-semibold">não demonstra</span> até {fmt(Number(form.corte_nota) - Number(form.banda))}
+            {' · '}entre as duas, <span className="text-amber-300 font-semibold">revisão humana</span>.
+            {Number(form.banda) === 0 && ' Banda 0 desliga a revisão: tudo vira demonstra ou não demonstra no corte exato.'}
+          </p>
 
           <div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Líderes de referência ({form.exemplares.length}) · o escopo prevê {EXEMPLARES_MIN} a {EXEMPLARES_MAX}</span>
               <input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="buscar pessoa…" className="px-2 py-1 rounded-md text-xs text-white border border-white/10 outline-none" style={bg} />
             </div>
+            <span className="block mt-1 text-[10px] text-gray-500">
+              Quem já ocupa o cargo-alvo — é a nota deles que diz onde a rubrica coloca um bom líder. Quem não ocupa é avaliado pelo programa e não pode calibrá-lo.
+            </span>
             <div className="mt-2 max-h-56 overflow-y-auto rounded-lg border border-white/[0.06] divide-y divide-white/[0.04]" style={bg}>
               {pessoasFiltradas.map((p) => (
                 <label key={p.id} className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-200 hover:bg-white/[0.03] cursor-pointer">
                   <input type="checkbox" checked={form.exemplares.includes(p.id)} onChange={() => toggleExemplar(p.id)} />
                   {form.exemplares.includes(p.id) && <Star size={10} className="text-amber-300" />}
-                  <span>{p.nome}</span><span className="text-gray-500">· {p.cargo || '—'}</span>
+                  <span>{p.nome}</span>
+                  <span className={foraDoAlvo(p.cargo) ? 'text-amber-300' : 'text-gray-500'}>· {p.cargo || '—'}{foraDoAlvo(p.cargo) && ' · não ocupa o cargo-alvo'}</span>
                 </label>
               ))}
-              {!pessoasFiltradas.length && <p className="px-3 py-2 text-xs text-gray-500">ninguém encontrado</p>}
+              {!pessoasFiltradas.length && (
+                <p className="px-3 py-2 text-xs text-gray-500">
+                  {form.cargo_alvo ? `ninguém ocupa "${form.cargo_alvo}" nesta população` : 'escolha o cargo-alvo primeiro'}
+                </p>
+              )}
             </div>
-            <p className="mt-1 text-[10px] text-gray-500">Eles respondem o instrumento ANTES da turma. A calibragem mostra onde a régua os coloca; o conserto é no texto do descritor, nunca no prompt.</p>
+            {totalCandidatos > pessoasFiltradas.length && (
+              <span className="block mt-1 text-[10px] text-gray-500">mostrando {pessoasFiltradas.length} de {totalCandidatos} — use a busca para chegar aos demais.</span>
+            )}
+            <p className="mt-1 text-[10px] text-gray-500">Eles não fazem o trilho de liderança: para quem ocupa o cargo-alvo, esse Top 5 já é o do próprio mapeamento do cargo, e é dele que vêm as notas. A calibragem mostra onde a régua os coloca; o conserto é no texto do descritor, nunca no prompt.</p>
           </div>
 
           {erros.length > 0 && <div className="rounded-lg border border-red-400/30 bg-red-400/5 p-3 space-y-1">{erros.map((e) => <p key={e} className="text-[11px] text-red-200 flex gap-1.5"><AlertTriangle size={11} className="mt-0.5 shrink-0" /> {e}</p>)}</div>}

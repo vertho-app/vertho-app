@@ -85,6 +85,37 @@ describe('validarConfigProntidao', () => {
     expect(v2.erros[0]).toMatch(/1 exemplar/);
   });
 
+  /**
+   * A régua que fecha o círculo: quem NÃO ocupa o cargo-alvo é candidato — ele
+   * responde o trilho de liderança e é medido pela mesma rubrica que estaria
+   * calibrando. A calibragem não tem como acusar isso sozinha (sai coerente por
+   * construção), então a recusa é aqui.
+   */
+  it('exemplar que não ocupa o cargo-alvo é ERRO, com nome e cargo na mensagem', () => {
+    const pessoas = [
+      { id: 'e1', nome: 'Gil', cargo: 'Gerente Comercial' },
+      { id: 'e2', nome: 'Ana', cargo: 'Vendedor' },
+      { id: 'e3', nome: 'Rui', cargo: '  gerente COMERCIAL ' },
+    ];
+    const v = validarConfigProntidao(base, { cargos, cargosDaPopulacao: ['Vendedor'], pessoasDoTenant: pessoas });
+    expect(v.ok).toBe(false);
+    // Rui passa: a comparação é normalizada (caixa/acento), como no resto do módulo.
+    expect(v.erros.join(' ')).toMatch(/Ana — Vendedor/);
+    expect(v.erros.join(' ')).not.toMatch(/Gil|Rui/);
+
+    const soOcupantes = pessoas.map((p) => ({ ...p, cargo: 'Gerente Comercial' }));
+    expect(validarConfigProntidao(base, { cargos, cargosDaPopulacao: ['Vendedor'], pessoasDoTenant: soOcupantes }).ok).toBe(true);
+  });
+
+  it('pessoasDoTenant também responde pelo pertencimento (substitui colaboradorIdsDoTenant)', () => {
+    const v = validarConfigProntidao(base, {
+      cargos, cargosDaPopulacao: [],
+      pessoasDoTenant: [{ id: 'e1', nome: 'Gil', cargo: 'Gerente Comercial' }],
+    });
+    expect(v.ok).toBe(false);
+    expect(v.erros.join(' ')).toMatch(/2 exemplar\(es\) não pertence/);
+  });
+
   it('recusa corte/banda fora da escala e turma sem id', () => {
     expect(validarConfigProntidao({ ...base, corte_nota: 4.5 }, { cargos, cargosDaPopulacao: [] }).erros.join(' ')).toMatch(/corte_nota/);
     expect(validarConfigProntidao({ ...base, banda: -0.1 }, { cargos, cargosDaPopulacao: [] }).erros.join(' ')).toMatch(/banda/);

@@ -119,6 +119,12 @@ export interface ContextoValidacao {
   cargosDaPopulacao: string[];
   /** Quando fornecido, cada exemplar precisa estar aqui. */
   colaboradorIdsDoTenant?: Set<string> | null;
+  /**
+   * Pessoas do tenant COM o cargo de cada uma. Quando fornecida, substitui
+   * `colaboradorIdsDoTenant` na checagem de pertencimento e habilita a régua do
+   * líder de referência (ele precisa ocupar o cargo-alvo — ver abaixo).
+   */
+  pessoasDoTenant?: { id: string; nome: string; cargo: string | null }[] | null;
 }
 
 export interface ValidacaoConfig {
@@ -181,9 +187,27 @@ export function validarConfigProntidao(
   if (cfg.exemplares.length < EXEMPLARES_MIN || cfg.exemplares.length > EXEMPLARES_MAX) {
     avisos.push(`O escopo prevê ${EXEMPLARES_MIN} a ${EXEMPLARES_MAX} líderes de referência; há ${cfg.exemplares.length}.`);
   }
-  if (ctx.colaboradorIdsDoTenant) {
-    const fora = cfg.exemplares.filter((id) => !ctx.colaboradorIdsDoTenant!.has(id));
+  const porId = ctx.pessoasDoTenant ? new Map(ctx.pessoasDoTenant.map((p) => [p.id, p])) : null;
+  const idsDoTenant = porId ? new Set(porId.keys()) : ctx.colaboradorIdsDoTenant;
+  if (idsDoTenant) {
+    const fora = cfg.exemplares.filter((id) => !idsDoTenant.has(id));
     if (fora.length) erros.push(`${fora.length} exemplar(es) não pertence(m) a esta empresa.`);
+  }
+
+  // O líder de referência tem que OCUPAR o cargo-alvo, e a razão é circular:
+  // quem não ocupa é CANDIDATO — responde o trilho de liderança, e é justamente
+  // por isso que `resolverTrilhoLideranca` recusa o ocupante (para ele esse Top 5
+  // já é o do próprio cargo). Calibrar a rubrica com quem foi medido POR ela é
+  // aferir o instrumento contra ele mesmo: a calibragem sairia sempre coerente,
+  // provando nada. Erro, não aviso — a calibragem não avisa que está circular.
+  if (porId && chaveCargo) {
+    const intrusos = cfg.exemplares.map((id) => porId.get(id)).filter((p) => p && chaveCompetencia(p.cargo) !== chaveCargo);
+    if (intrusos.length) {
+      erros.push(
+        'Líder de referência precisa ocupar o cargo-alvo (quem não ocupa é avaliado pelo programa). '
+        + `Fora dele: ${intrusos.map((p) => `${p.nome} — ${p.cargo || 'sem cargo'}`).join('; ')}.`,
+      );
+    }
   }
 
   return { ok: erros.length === 0, erros, avisos };
