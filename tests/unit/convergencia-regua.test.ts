@@ -6,6 +6,8 @@ import {
   CORTE_PARCIAL,
   classificarConvergencia,
   rotuloConvergencia,
+  avancoExibido,
+  formatarAvanco,
   NIVEL_META_CONFIRMADA,
 } from '@/lib/season-engine/convergencia';
 
@@ -60,6 +62,40 @@ describe('Régua de convergência', () => {
     expect(rotuloConvergencia(CONVERGENCIA.ESTAVEL)).toBe('Estável');
     expect(rotuloConvergencia(null)).toBe('Sem medição');
     expect(rotuloConvergencia('valor_que_nao_existe')).toBe('Sem medição');
+  });
+
+  /**
+   * O avanço exibido tem PISO EM ZERO (decisão do dono, 14/09/2026): se a régua
+   * não afirma regressão, a tela não mostra "-0,2" ao lado de "Estável". O caso
+   * real é a Marta em Ibipeba, descritor "Organização do plano": 2,3 → 2,1, que
+   * é ruído do instrumento (desvio de 0,07, amplitude até 0,33) e aparecia como
+   * piora no relatório que o gestor lê.
+   */
+  it('o avanço exibido nunca é negativo', () => {
+    expect(avancoExibido(2.3, 2.1)).toBe(0);
+    expect(formatarAvanco(2.3, 2.1)).toBe('0.0');
+    expect(formatarAvanco(2, 2)).toBe('0.0');
+    expect(formatarAvanco(2, 2.3)).toBe('+0.3');
+    expect(formatarAvanco(2.1, 2.8)).toBe('+0.7');
+  });
+
+  it('arredonda antes do piso, para não exibir "+0.0"', () => {
+    // 0,04 de avanço não sobrevive a uma casa decimal: vira o piso, não um
+    // sinal de mais seguido de zero. (2,05 fica de fora de propósito: o float
+    // de `2.05 - 2` é 0,04999…, e testar a fronteira exata em binário mede o
+    // IEEE 754, não a régua.)
+    expect(formatarAvanco(2, 2.04)).toBe('0.0');
+    expect(formatarAvanco(2, 2.06)).toBe('+0.1');
+  });
+
+  it('nota ausente não vira zero', () => {
+    // Zero afirma "manteve o patamar"; sem nota não há o que afirmar. E
+    // `Number(null)` é 0, então a guarda tem que ser explícita: sem ela,
+    // `avancoExibido(null, 2.5)` devolvia +2,5 de avanço inventado.
+    expect(avancoExibido(null, 2.5)).toBeNull();
+    expect(avancoExibido('', 2.5)).toBeNull();
+    expect(formatarAvanco(2.5, undefined)).toBeNull();
+    expect(formatarAvanco('n/a', 2)).toBeNull();
   });
 
   /**

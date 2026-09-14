@@ -106,6 +106,24 @@ describe('o card abre o relatório da pessoa', () => {
     }
   });
 
+  /**
+   * Nota absoluta fora, avanço dentro (decisão do dono, 14/09/2026): "2,0 → 2,3"
+   * e "nota média no fechamento: 2,2" convidam a comparar pessoas por um ponto
+   * de partida que ninguém escolheu, e a diferença negativa afirma piora que a
+   * régua não sustenta. Sobra o que a leitura pede: quanto andou e o veredito.
+   */
+  it('o detalhe mostra o avanço e o veredito, não o par de notas', () => {
+    // A âncora é o TRECHO do detalhe: `media_pre.toFixed(1)` do agregado por
+    // competência (a média da população, outra leitura) contém a mesma
+    // substring e faria este teste passar ou falhar pelo motivo errado.
+    const detalhe = TELA.slice(TELA.indexOf('function DetalheDaPessoa'));
+    expect(detalhe).toContain('formatarAvanco(d.nota_pre, d.nota_pos)');
+    expect(detalhe).not.toContain('nota_pre.toFixed');
+    expect(detalhe).not.toContain('nota_pos.toFixed');
+    expect(detalhe).not.toContain('nota_media_pos');
+    expect(TELA).not.toContain('averagePost');
+  });
+
   it('o detalhe lê as réguas em vez de reimplementá-las', () => {
     expect(TELA).toContain("from '@/lib/season-engine/convergencia'");
     expect(TELA).toContain("from '@/lib/season-engine/resumo-avaliacao'");

@@ -7,7 +7,7 @@ import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import { listarEquipeEvolucao, loadLideradoConcluida } from './actions';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-import { CONVERGENCIA, rotuloConvergencia } from '@/lib/season-engine/convergencia';
+import { CONVERGENCIA, rotuloConvergencia, formatarAvanco } from '@/lib/season-engine/convergencia';
 
 // 🔑 CLASSE DE COR É LITERAL, NUNCA MONTADA.
 //
@@ -190,7 +190,7 @@ export default function EquipeEvolucaoPage() {
                         <>
                           {' · '}
                           <span className={`${cfg.tinta} font-bold`}>
-                            {r.mediaPre.toFixed(1)} → {r.mediaPos.toFixed(1)} ({r.delta > 0 ? '+' : ''}{r.delta.toFixed(1)})
+                            {formatarAvanco(r.mediaPre, r.mediaPos)}
                           </span>
                         </>
                       )}
@@ -303,7 +303,9 @@ function DetalheModal({ data, loading, onClose, sb }) {
                       <div className="flex justify-between text-xs">
                         <p className="font-bold text-white truncate">{descritorParaHumano(d.descritor)}</p>
                         <span className={`${cfg.tinta} font-bold shrink-0`}>
-                          {d.nota_pre} → {d.nota_pos} ({(d.nota_pos - d.nota_pre).toFixed(1)})
+                          {/* Avanço com piso em zero, sem o par de notas: a régua
+                              não afirma queda, então a tela também não. */}
+                          {formatarAvanco(d.nota_pre, d.nota_pos)} · {cfg.label}
                         </span>
                       </div>
                       {d.depois && <p className="text-[10px] text-gray-400 mt-1">{d.depois}</p>}

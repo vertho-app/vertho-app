@@ -7,7 +7,7 @@ import { loadEvolutionReportsEmpresa } from '@/actions/evolution-report';
 import BackButton from '@/components/back-button';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
-import { rotuloConvergencia, qualitativaSustenta } from '@/lib/season-engine/convergencia';
+import { rotuloConvergencia, qualitativaSustenta, formatarAvanco } from '@/lib/season-engine/convergencia';
 import { normalizarResumoAvaliacao } from '@/lib/season-engine/resumo-avaliacao';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 
@@ -294,11 +294,11 @@ function DetalheDaPessoa({ trilha, onClose }) {
             <span className="text-gray-400">
               {t('detail.competency')}: <span className="text-cyan-300">{trilha.competencia_foco || '—'}</span>
             </span>
-            {report.nota_media_pos != null && (
-              <span className="text-gray-400">
-                {t('detail.averagePost')}: <span className="font-bold text-white">{Number(report.nota_media_pos).toFixed(1)}</span>
-              </span>
-            )}
+            {/* A nota média do fechamento saiu do cabeçalho (decisão do dono,
+                14/09/2026): número absoluto numa régua de 4, sem a régua ao
+                lado, não diz o que a pessoa desenvolveu e convida a comparar
+                gente por um ponto de partida que ninguém escolheu. O que fica é
+                o avanço por descritor e o veredito. */}
             <span className="text-gray-500">
               {t('detail.generatedAt')} {new Date(trilha.evolution_generated_at).toLocaleDateString(locale)}
             </span>
@@ -343,15 +343,15 @@ function DetalheDaPessoa({ trilha, onClose }) {
               <div className="space-y-2">
                 {descritores.map((d, i) => {
                   const cfg = TINTA_VEREDITO[d.convergencia] || TINTA_VEREDITO.estagnacao;
-                  const pre = Number(d.nota_pre);
-                  const pos = Number(d.nota_pos);
-                  const temNotas = Number.isFinite(pre) && Number.isFinite(pos);
+                  const avanco = formatarAvanco(d.nota_pre, d.nota_pos);
                   return (
                     <div key={i} className={`rounded-lg border p-3 ${cfg.borda} ${cfg.fundo}`}>
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
                         <p className="text-xs font-bold text-white">{descritorParaHumano(d.descritor)}</p>
+                        {/* Só o AVANÇO e o veredito. O par "2,0 → 2,3" saiu, e o
+                            avanço tem piso em zero: a régua não afirma queda. */}
                         <span className={`shrink-0 text-[11px] font-bold ${cfg.tinta}`}>
-                          {temNotas && <>{pre.toFixed(1)} → {pos.toFixed(1)} ({(pos - pre) >= 0 ? '+' : ''}{(pos - pre).toFixed(1)}) · </>}
+                          {avanco && <>{avanco} · </>}
                           {rotuloConvergencia(d.convergencia)}
                         </span>
                       </div>

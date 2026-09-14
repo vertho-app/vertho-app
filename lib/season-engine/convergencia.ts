@@ -98,6 +98,42 @@ export function rotuloConvergencia(valor: string | null | undefined): string {
 }
 
 /**
+ * O AVANÇO exibido, com piso em zero.
+ *
+ * Decisão do dono do produto (14/09/2026), corolário da ausência de veredito de
+ * regressão: se a régua não afirma que alguém regrediu, a TELA não pode mostrar
+ * "-0,2" ao lado de "Estável". Aquele número é a variação do instrumento (0,07
+ * de desvio e até 0,33 de amplitude ao reler a mesma conversa, medido em 09/09),
+ * e exibido como queda ele afirma sobre a pessoa, para o gestor dela, uma piora
+ * que a medição não sustenta.
+ *
+ * O par de notas também sai das telas: "2,0 → 2,3" convida a comparar pessoas
+ * por uma nota de partida que nenhuma delas escolheu. O que a leitura pede é
+ * quanto andou e qual o veredito.
+ *
+ * `null` quando falta nota: ausência não é zero.
+ */
+export function avancoExibido(notaPre: unknown, notaPos: unknown): number | null {
+  // 🔴 `Number(null)` é 0 e `Number('')` também: sem esta guarda, nota ausente
+  // no início vira "partiu de zero" e o avanço sai do tamanho da nota final.
+  if (notaPre == null || notaPre === '' || notaPos == null || notaPos === '') return null;
+  const pre = Number(notaPre);
+  const pos = Number(notaPos);
+  if (!Number.isFinite(pre) || !Number.isFinite(pos)) return null;
+  // Arredonda ANTES de aplicar o piso: +0,04 exibido como "+0.0" seria um avanço
+  // que a casa decimal não mostra.
+  const arredondado = Math.round((pos - pre) * 10) / 10;
+  return Math.max(0, arredondado);
+}
+
+/** O mesmo avanço já em texto: `+0.3` quando andou, `0.0` quando manteve. */
+export function formatarAvanco(notaPre: unknown, notaPos: unknown): string | null {
+  const avanco = avancoExibido(notaPre, notaPos);
+  if (avanco == null) return null;
+  return avanco > 0 ? `+${avanco.toFixed(1)}` : '0.0';
+}
+
+/**
  * Classifica um descritor comparando nota_pre (início da temporada), nota_pos
  * (cenário do fechamento) e nivel_percebido (qualitativa da semana anterior).
  *
