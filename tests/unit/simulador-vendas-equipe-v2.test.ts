@@ -133,7 +133,29 @@ describe('PACE: leitura individual e recuperação depois do prazo', () => {
     sb = criarSupabaseMock();
   });
   it('histórico é enxuto, ordenado e limitado a 31 para detectar próxima página', async () => {
-    await consultarHistorico(c());
+    sb = criarSupabaseMock({
+      lista: (t) =>
+        t === 'sim_vendas_sessoes'
+          ? [
+              {
+                id: estado().id,
+                created_at: estado().criadoEm,
+                colaborador_id: 'eu',
+                resumo: {
+                  status: 'concluida',
+                  nivel: 1,
+                  nome: 'Beatriz',
+                  nomeVendedor: 'Ana',
+                  nota: 8.5,
+                  temRelatorio: true,
+                  versaoRegua: 'pace-2',
+                },
+              },
+            ]
+          : [],
+    });
+    const pagina = await consultarHistorico(c());
+    expect(pagina.historico[0]).toMatchObject({ nota: null, temRelatorio: false });
     expect(sb.chamadas).toContainEqual({
       tabela: 'sim_vendas_sessoes',
       metodo: 'select',
@@ -151,10 +173,11 @@ describe('PACE: leitura individual e recuperação depois do prazo', () => {
     sb.falharEm({ tabela: 'sim_vendas_sessoes', op: 'select', mensagem: 'timeout' });
     await expect(consultar(c())).rejects.toMatchObject({ status: 503 });
   });
-  it('nota concluída continua recuperável depois do prazo sem claim/IA', async () => {
+  it('devolutiva já avaliada continua recuperável depois do prazo sem claim/IA', async () => {
     const s = estado();
     s.status = 'concluida';
     s.relatorio = relatorio;
+    s.feedback = { realismo: 5, desafio: 4, interacao: 5, utilidade: 4, aprendizado: 5, comentario: '' };
     sb = criarSupabaseMock({
       resolver: () => ({ id: s.id, estado: s, revisao: s.revisao, lock_until: null }),
     });

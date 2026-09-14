@@ -51,7 +51,11 @@ export function visaoPublica(s: Estado) {
         }
       : null,
     mensagens: s.mensagens,
-    relatorio: s.relatorio,
+    // A devolutiva é preparada no encerramento, mas só é entregue ao
+    // participante depois da avaliação da experiência. O gate vive no servidor:
+    // ocultar apenas no componente permitiria contorná-lo chamando a API.
+    relatorio: s.feedback ? s.relatorio : null,
+    avaliacaoPendente: !!s.relatorio && !s.feedback,
     feedback: s.feedback,
     aviso:
       s.moderacoes.filter((m) => m.violacao && m.acao_sugerida !== 'registrar_e_seguir').at(-1)?.motivo ||
@@ -246,6 +250,8 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
   } else {
     if (![VENDAS_SESSAO.CONCLUIDA, VENDAS_SESSAO.INTERROMPIDA].some((status) => status === s.status))
       throw new SimuladorError(409, 'Conclua o treino antes de avaliar a experiência.');
+    if (s.feedback)
+      throw new SimuladorError(409, 'A avaliação desta experiência já foi registrada.');
     next.feedback = cmd.feedback;
   }
   next.revisao++;

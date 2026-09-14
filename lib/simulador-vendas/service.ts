@@ -43,7 +43,14 @@ export async function consultarHistorico(c: Contexto, cursor?: string | null) {
     .order('id', { ascending: false })
     .limit(31);
   banco(list.error);
-  return paginaDeHistorico(list.data as LinhaResumo[], 30);
+  const pagina = paginaDeHistorico(list.data as LinhaResumo[], 30);
+  // A lista individual é navegação, não uma prévia da devolutiva. A nota e o
+  // indicador de relatório permitiam antecipar o resultado antes da avaliação
+  // da experiência. A gestão usa historicoEquipe(), com projeção própria.
+  return {
+    ...pagina,
+    historico: pagina.historico.map((item) => ({ ...item, nota: null, temRelatorio: false })),
+  };
 }
 export async function consultar(c: Contexto, id?: string | null) {
   const pagina = await consultarHistorico(c);

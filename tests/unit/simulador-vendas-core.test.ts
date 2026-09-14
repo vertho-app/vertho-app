@@ -14,6 +14,32 @@ describe('simulador PACE — invariantes de conversa', () => {
     expect(publico.cenario.nome).toBe('Beatriz');
     for (const segredo of ['GABARITO_RESERVADO', 'PRECO_SECRETO', 'BRIEFING_PRIVADO', 'PROMPT_PRIVADO', 'Previsibilidade']) expect(serializado).not.toContain(segredo);
   });
+  it('libera a devolutiva somente depois da avaliação da experiência', () => {
+    const s = estado();
+    s.status = 'concluida';
+    s.relatorio = relatorio;
+    expect(visaoPublica(s)).toMatchObject({ relatorio: null, avaliacaoPendente: true, feedback: null });
+    s.feedback = { realismo: 5, desafio: 4, interacao: 5, utilidade: 4, aprendizado: 5, comentario: '' };
+    expect(visaoPublica(s)).toMatchObject({ relatorio, avaliacaoPendente: false, feedback: s.feedback });
+  });
+  it('preserva a primeira avaliação e recusa substituição silenciosa', async () => {
+    const s = estado();
+    s.status = 'concluida';
+    s.relatorio = relatorio;
+    s.feedback = { realismo: 5, desafio: 4, interacao: 5, utilidade: 4, aprendizado: 5, comentario: '' };
+    await expect(
+      executarCore(
+        s,
+        cmd('feedback', {
+          revisao: s.revisao,
+          requestId: '30000000-0000-4000-8000-000000000003',
+          feedback: { ...s.feedback, realismo: 1 },
+        }),
+        geracao() as Gerar,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(s.feedback.realismo).toBe(5);
+  });
   it('registra aviso moderado e ainda entrega a fala do cliente', async () => {
     const gerar = geracao({ violacao: true, categoria: 'jailbreak', severidade: 'moderada', acao_sugerida: 'avisar_vendedor', confianca: 'alta', motivo: 'Mantenha a negociação.' });
     const s = await executarCore(estado(), cmd('responder', { mensagem: 'Bom dia' }), gerar as Gerar);

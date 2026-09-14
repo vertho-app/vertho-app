@@ -95,10 +95,17 @@ try {
   checks++;
   await page.getByRole('button', { name: 'Encerrar e receber devolutiva', exact: true }).click();
   await page.getByRole('button', { name: 'Confirmar encerramento', exact: true }).click();
+  await page.getByRole('heading', { name: 'Conte como foi a experiência', exact: true }).waitFor();
+  assert.equal(await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).count(), 0);
+  await page.screenshot({ path: `${dir}/avaliacao-antes-relatorio-desktop.png`, fullPage: true });
+  const notasMaximas = await page.getByRole('radio', { name: '5 de 5', exact: true }).all();
+  assert.equal(notasMaximas.length, 5);
+  for (const nota of notasMaximas) await nota.check();
+  await page.getByRole('button', { name: 'Enviar avaliação e abrir devolutiva', exact: true }).click();
   await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).waitFor();
   assert.equal(await page.locator('meter').first().getAttribute('min'), '0.5');
   await page.screenshot({ path: `${dir}/relatorio-desktop.png`, fullPage: true });
-  checks++;
+  checks += 2;
   await page.goto(`${origin}/?active=1&processing=1`);
   await page.getByText('Há uma resposta em processamento.', { exact: false }).waitFor();
   await expect(page.getByLabel('Sua mensagem', { exact: true })).toBeDisabled();
@@ -111,7 +118,7 @@ try {
   await page.goto(`${origin}/?history=1`);
   await page.getByRole('button', { name: 'Carregar mais', exact: true }).click();
   await page.getByRole('button', { name: /Cliente 31/ }).click();
-  await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Conte como foi a experiência', exact: true }).waitFor();
   checks++;
   await page.goto(`${origin}/?admin=1&empresa=${empresaA}&history=1`);
   await page.getByRole('button', { name: 'Histórico da equipe', exact: true }).click();
@@ -167,6 +174,15 @@ try {
       `overflow ${locale}`,
     );
     await page.screenshot({ path: `${dir}/mobile-${locale}.png`, fullPage: true });
+    checks++;
+    await page.goto(`${origin}/?active=1&completed=1&locale=${locale}`);
+    await page.getByRole('radio').first().waitFor();
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+      true,
+      `overflow avaliação ${locale}`,
+    );
+    await page.screenshot({ path: `${dir}/avaliacao-mobile-${locale}.png`, fullPage: true });
     checks++;
     await page.goto(`${origin}/?confirmation=1&locale=${locale}`);
     await page.getByTestId('pace-exclusion-preview').click();

@@ -10,6 +10,7 @@ import { FASES, RETENCAO_MESES, type Comando, type Config, type Estado } from '@
 import type { SessaoPublica } from '@/lib/simulador-vendas/core';
 import type { ResumoTreino } from '@/lib/simulador-vendas/historico';
 import Relatorio from './relatorio';
+import Avaliacao from './avaliacao';
 import Gestao from './gestao';
 import Configuracao from './configuracao';
 import Processamento from './processamento';
@@ -32,7 +33,6 @@ type Dados = {
   proximoCursor: string | null;
 };
 type Feedback = NonNullable<Estado['feedback']>;
-const CAMPOS_FEEDBACK = ['realismo', 'desafio', 'interacao', 'utilidade', 'aprendizado'] as const;
 const feedbackVazio: Feedback = {
   realismo: 0,
   desafio: 0,
@@ -625,63 +625,20 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                   {sessao.status === VENDAS_SESSAO.INTERROMPIDA && (
                     <p className="text-sm text-amber-200 mt-4">{t('interrupted')}</p>
                   )}
-                  {sessao.relatorio && (
+                  {terminou && (
+                    <Avaliacao
+                      feedback={feedback}
+                      salvo={!!sessao.feedback}
+                      comDevolutiva={sessao.status === VENDAS_SESSAO.CONCLUIDA}
+                      desabilitado={travado}
+                      onChange={setFeedback}
+                      onSubmit={() => void agir('feedback')}
+                    />
+                  )}
+                  {sessao.feedback && sessao.relatorio && (
                     <div className="border-t border-white/10 pt-6 mt-6">
                       <Relatorio relatorio={sessao.relatorio} versao={sessao.versaoRegua} />
                     </div>
-                  )}
-                  {terminou && (
-                    <details className="mt-6 border-t border-white/10 pt-5">
-                      <summary className="cursor-pointer text-sm">
-                        {t(sessao.feedback ? 'feedbackSaved' : 'feedbackTitle')}
-                      </summary>
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          void agir('feedback');
-                        }}
-                        className="mt-4"
-                      >
-                        <div className={styles.feedback}>
-                          {CAMPOS_FEEDBACK.map((k) => (
-                            <label key={k}>
-                              {t(k)}
-                              <select
-                                required
-                                disabled={travado}
-                                value={feedback[k] || ''}
-                                onChange={(e) =>
-                                  setFeedback((prev) => ({ ...prev, [k]: Number(e.target.value) }))
-                                }
-                              >
-                                <option value="">{t('selectRating')}</option>
-                                {[1, 2, 3, 4, 5].map((n) => (
-                                  <option key={n} value={n}>
-                                    {n}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          ))}
-                        </div>
-                        <label className="mt-4" htmlFor="pace-comentario">
-                          {t('comment')}
-                        </label>
-                        <textarea
-                          id="pace-comentario"
-                          className="mt-2"
-                          value={feedback.comentario}
-                          disabled={travado}
-                          onChange={(e) => setFeedback((prev) => ({ ...prev, comentario: e.target.value }))}
-                          rows={3}
-                          maxLength={2000}
-                        />
-                        {sessao.feedback && <p className={styles.muted}>{t('feedbackEdit')}</p>}
-                        <button type="submit" disabled={travado} className="mt-3">
-                          {t('saveFeedback')}
-                        </button>
-                      </form>
-                    </details>
                   )}
                 </>
               )}

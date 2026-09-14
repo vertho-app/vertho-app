@@ -60,6 +60,11 @@ if (states[empresaA]) {
     },
   ];
   states[empresaA]!.fase = 'analisar';
+  if (params.has('completed')) {
+    states[empresaA]!.status = 'concluida';
+    states[empresaA]!.relatorio = { ...relatorio, Media: 5.5 };
+    states[empresaA]!.encerradoEm = new Date().toISOString();
+  }
 }
 const configs = Object.fromEntries(
   [empresaA, empresaB].map((id) => [
@@ -81,8 +86,8 @@ const resumo = (s: Estado) => ({
   nivel: s.nivel,
   nome: 'Beatriz',
   nomeVendedor: s.nomeVendedor,
-  nota: s.relatorio?.Media || null,
-  temRelatorio: !!s.relatorio,
+  nota: s.feedback ? s.relatorio?.Media || null : null,
+  temRelatorio: !!s.relatorio && !!s.feedback,
   versaoRegua: 'pace-2',
   testeAdmin: admin,
 });
@@ -114,7 +119,9 @@ const dados = (id = empresaA) => ({
         processandoAte: processando ? new Date(Date.now() + 320000).toISOString() : null,
       }
     : null,
-  historico: historicoExtra.length ? historicoExtra.slice(0, 30) : states[id] ? [resumo(states[id])] : [],
+  historico: (historicoExtra.length ? historicoExtra.slice(0, 30) : states[id] ? [resumo(states[id])] : []).map(
+    (item) => (admin ? item : { ...item, nota: null, temRelatorio: false }),
+  ),
   proximoCursor: historicoExtra.length ? 'proxima' : null,
 });
 w.__paceWrites = [];
