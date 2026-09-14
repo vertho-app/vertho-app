@@ -10,8 +10,8 @@ import { engagementBlocker } from '@/lib/engajamento/prioridades';
  * card "Onde as pessoas estão agora" mostrava **7** na semana 9 e a lista dizia
  * "Semana 9 · em curso" para todas as sete. No banco, uma havia concluído a
  * semana 9 (a última do plano), uma estava no meio da arguição e cinco não
- * tinham escrito nada. Duas coisas diferentes — chegar à última etapa e
- * terminá-la — tinham o mesmo rótulo e a mesma cor.
+ * tinham escrito nada. Duas coisas diferentes (chegar à última etapa e
+ * terminá-la) tinham o mesmo rótulo e a mesma cor.
  *
  * Além disso, o estado terminal era `emerald` ao lado do `cyan` de "em curso":
  * hues vizinhos, e numa fatia de poucos pixels a barra lia como sólida.
@@ -101,7 +101,7 @@ describe('a cor do estado terminal se separa do "em curso"', () => {
     expect(PAINEL).toContain('minHeight: 6');
   });
 
-  it('a legenda sai do mapa de estados — estado novo não fica sem rótulo', () => {
+  it('a legenda sai do mapa de estados: estado novo não fica sem rótulo', () => {
     expect(PAINEL).toContain('Object.values(ESTADO_JORNADA).map');
     const estados = PAINEL.slice(PAINEL.indexOf('const ESTADO_JORNADA'), PAINEL.indexOf('const temSinal'));
     expect((estados.match(/label:/g) || []).length).toBe(4);

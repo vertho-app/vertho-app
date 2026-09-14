@@ -336,7 +336,7 @@ export async function rollUpEngajamento(
     conversaramTutor: colaboradores.filter((c) => c.conversouTutor).length,
     // Quem fechou a ÚLTIMA semana do plano. Não é o mesmo que "chegou à última
     // semana": em Ibipeba, 14/09/2026, 7 pessoas estavam posicionadas na semana
-    // 9 e só 1 havia concluído — a tela dizia "em curso" para as duas coisas.
+    // 9 e só 1 havia concluído, e a tela dizia "em curso" para as duas coisas.
     finalizaramJornada: colaboradores.filter((c) => c.jornadaConcluida).length,
     porPilula,
     porFormato,

@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, Users, TrendingUp, TrendingDown, Minus, ChevronRight, Clock, X, FileDown, Download } from 'lucide-react';
+import { Loader2, Users, TrendingUp, Minus, ChevronRight, Clock, X, FileDown, Download } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import { listarEquipeEvolucao, loadLideradoConcluida } from './actions';
 import { descritorParaHumano } from '@/lib/descritor-humano';
+import { CONVERGENCIA, rotuloConvergencia } from '@/lib/season-engine/convergencia';
 
 // 🔑 CLASSE DE COR É LITERAL, NUNCA MONTADA.
 //
@@ -16,11 +17,18 @@ import { descritorParaHumano } from '@/lib/descritor-humano';
 // (`amber`, `cyan`, `gray`) não apareciam literalmente em nenhum arquivo do
 // projeto, então esses cards saíam SEM o tom que classifica o status, e as duas
 // que funcionavam só funcionavam de carona em outra tela que as citava.
+//
+// ⚠️ E o rótulo dos três VEREDITOS sai de `rotuloConvergencia`, nunca escrito
+// aqui. O valor gravado é vocabulário de engenharia (`estagnacao`) e o que a
+// pessoa lê é outro ("Estável"): esta tela dizia "Estagnação" enquanto o PDF do
+// mesmo relatório dizia "Estável", que é a divergência que o arquivo da régua
+// existe para impedir. Os demais status (em andamento, sem trilha, arquivada)
+// não são veredito de convergência e seguem locais.
 const STATUS_CFG = {
-  em_andamento:        { icon: Clock,      label: 'Em andamento',         borda: 'border-cyan-500/20',    fundo: 'bg-cyan-500/[0.03]',    tinta: 'text-cyan-300' },
-  evolucao_confirmada: { icon: TrendingUp, label: 'Evolução confirmada',  borda: 'border-emerald-500/20', fundo: 'bg-emerald-500/[0.03]', tinta: 'text-emerald-300' },
-  evolucao_parcial:    { icon: TrendingUp, label: 'Evolução parcial',     borda: 'border-amber-500/20',   fundo: 'bg-amber-500/[0.03]',   tinta: 'text-amber-300' },
-  estagnacao:          { icon: Minus,      label: 'Estagnação',           borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-300' },
+  em_andamento:        { icon: Clock,      label: 'Em andamento',                                borda: 'border-cyan-500/20',    fundo: 'bg-cyan-500/[0.03]',    tinta: 'text-cyan-300' },
+  evolucao_confirmada: { icon: TrendingUp, label: rotuloConvergencia(CONVERGENCIA.CONFIRMADA),   borda: 'border-emerald-500/20', fundo: 'bg-emerald-500/[0.03]', tinta: 'text-emerald-300' },
+  evolucao_parcial:    { icon: TrendingUp, label: rotuloConvergencia(CONVERGENCIA.PARCIAL),      borda: 'border-amber-500/20',   fundo: 'bg-amber-500/[0.03]',   tinta: 'text-amber-300' },
+  estagnacao:          { icon: Minus,      label: rotuloConvergencia(CONVERGENCIA.ESTAVEL),      borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-300' },
   sem_trilha:          { icon: X,          label: 'Sem trilha',           borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
   arquivada:           { icon: X,          label: 'Arquivada',            borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
 };
@@ -94,8 +102,8 @@ export default function EquipeEvolucaoPage() {
       </div>
 
       {/* A evolução só existe DEPOIS que uma jornada encerra: o veredito
-          (confirmada · parcial · estagnação · regressão) vem do Evolution
-          Report, que nasce no fechamento. Sem nenhuma encerrada, esta tela
+          (confirmada · parcial · estável) vem do Evolution Report, que nasce no
+          fechamento. Sem nenhuma encerrada, esta tela
           desenhava seis KPIs zerados e uma lista de "em andamento" sem delta —
           prometia evolução e não tinha nenhuma. Em Macaé, 0 de 282. */}
       {resumo && resumo.encerradas === 0 && (

@@ -96,7 +96,7 @@ describe('derivarPosicaoJornada', () => {
 
   /**
    * Fim de jornada. `Medido em Ibipeba, 14/09/2026`: 7 pessoas posicionadas na
-   * semana 9 (o fim do plano encurtado) e só 1 com a semana 9 concluída — a tela
+   * semana 9 (o fim do plano encurtado) e só 1 com a semana 9 concluída. A tela
    * chamava as duas coisas de "em curso", e a pergunta "quantas finalizaram?"
    * não tinha resposta.
    */
@@ -127,7 +127,7 @@ describe('derivarPosicaoJornada', () => {
     /**
      * 🔴 A armadilha que uma régua por `semanaAcessivel` cairia:
      * `primeiraSemanaAcessivel` parte do CALENDÁRIO e nunca sobe acima dele, então
-     * quem está em dia tem a semana acessível igual ao relógio — e `9 >= 9` diria
+     * quem está em dia tem a semana acessível igual ao relógio, e `9 >= 9` diria
      * "terminou" para quem só chegou à porta da última etapa.
      */
     it('estar na última semana acessível não é ter terminado', () => {
@@ -158,8 +158,8 @@ describe('derivarPosicaoJornada', () => {
 
       // 🔴 `semanaAcessivel` NÃO é limitada pelo plano: com a 9 concluída, a
       // semana 10 "abre" e a posição vira 10 num plano de 9. Sem o estado
-      // terminal, a tela anunciaria "Semana 10 · em curso" para quem terminou —
-      // é por isso que `jornadaConcluida` é lido ANTES de posição e atraso.
+      // terminal, a tela anunciaria "Semana 10 · em curso" para quem terminou.
+      // É por isso que `jornadaConcluida` é lido ANTES de posição e atraso.
       expect(posicao.semanaAcessivel).toBe(10);
       expect(posicao.atrasada).toBe(false);
       expect(posicao.totalSemanas).toBe(9);

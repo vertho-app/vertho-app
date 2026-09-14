@@ -8,7 +8,7 @@ export interface PosicaoJornada {
   atrasada: boolean;
   /** A própria semana acessível já foi concluída (pessoa em dia aguardando a próxima). */
   semanaConcluida: boolean;
-  /** Última semana do plano DESTA pessoa — `null` quando o plano não pôde ser lido. */
+  /** Última semana do plano DESTA pessoa (`null` quando o plano não pôde ser lido). */
   totalSemanas: number | null;
   /** A última semana do plano está concluída: a jornada terminou, não há próxima etapa. */
   jornadaConcluida: boolean;
@@ -59,7 +59,7 @@ export function derivarPosicaoJornada(input: {
   // 🔴 Não use `semanaAcessivel >= totalSemanas`: `primeiraSemanaAcessivel`
   // PARTE do calendário e nunca sobe acima dele, então quem fecha o plano antes
   // do relógio chegar ao fim continua com a semana acessível travada no
-  // calendário — a comparação só passaria a valer na semana em que já não
+  // calendário: a comparação só passaria a valer na semana em que já não
   // importa (medido em 02/09/2026, dry-run do aviso de encerramento).
   //
   // Plano ilegível devolve `totalSemanas: null` e `jornadaConcluida: false`:

@@ -47,11 +47,11 @@ type Foco = 'todos' | 'atencao' | 'movimento' | 'finalizados';
 type AbaEngajamento = 'atual' | 'evolucao';
 
 /**
- * Os quatro estados da posição na jornada — fonte única de cor e rótulo.
+ * Os quatro estados da posição na jornada: fonte única de cor e rótulo.
  *
  * 🔴 O terminal era `emerald` e ficava indistinguível do `cyan` de "em curso":
  * hues vizinhos (160 × 190) num bloco de poucos pixels. Em Ibipeba, 14/09/2026,
- * a barra da semana 9 tinha 6 em curso e 1 finalizada e lia como sólida — a
+ * a barra da semana 9 tinha 6 em curso e 1 finalizada e lia como sólida, e a
  * pergunta "quantas finalizaram?" não tinha resposta na tela. O estado terminal
  * passou para a família violeta/magenta, que não tem vizinho nesta paleta.
  *
@@ -83,7 +83,7 @@ const ESTADO_JORNADA = {
 
 const temSinal = hasEngagementSignal;
 
-/** Fechou a última semana do plano — o roll-up decide, a tela só lê. */
+/** Fechou a última semana do plano: o roll-up decide, a tela só lê. */
 function finalizouJornada(pessoa: any): boolean {
   return Boolean(pessoa?.jornadaConcluida);
 }
@@ -306,7 +306,7 @@ function DistribuicaoJornada({
             {calendarioTexto}. Selecione uma semana para filtrar a lista.
           </p>
           {/* A barra responde "onde estão"; só este número responde "quantas
-              terminaram" — chegar à última semana e concluí-la são estados
+              terminaram": chegar à última semana e concluí-la são estados
               diferentes, e a posição sozinha não os separa. */}
           {totalFinalizadas > 0 && (
             <p className={`mt-1.5 inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-semibold ${ESTADO_JORNADA.finalizada.chip}`}>

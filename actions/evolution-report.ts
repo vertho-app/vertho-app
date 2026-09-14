@@ -60,7 +60,7 @@ export async function loadEvolutionReportsEmpresa(empresaId: string) {
         if (!porCompetencia[comp]) porCompetencia[comp] = {};
         if (!porCompetencia[comp][d.descritor]) {
           porCompetencia[comp][d.descritor] = {
-            evolucao_confirmada: 0, evolucao_parcial: 0, estagnacao: 0, regressao: 0,
+            evolucao_confirmada: 0, evolucao_parcial: 0, estagnacao: 0,
             notas_pre: [], notas_pos: [],
           };
         }

@@ -2605,8 +2605,7 @@
     "statuses": {
       "evolucao_confirmada": "Confirmed",
       "evolucao_parcial": "Partial",
-      "estagnacao": "Stagnation",
-      "regressao": "Regression"
+      "estagnacao": "Stable"
     }
   },
   "AdminFit": {

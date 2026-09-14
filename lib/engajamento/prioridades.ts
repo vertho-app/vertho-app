@@ -37,7 +37,7 @@ export function hasEngagementSignal(person: {
  * Grupos exclusivos: uma pessoa aparece na primeira etapa que falta concluir.
  *
  * Quem fechou a última semana do plano (`jornadaConcluida`) não tem etapa a
- * faltar — cobrar consumo ou evidência de quem terminou o programa é pendência
+ * faltar. Cobrar consumo ou evidência de quem terminou o programa é pendência
  * inventada, e era o que a lista fazia com a única pessoa que concluiu a
  * jornada em Ibipeba (14/09/2026).
  */

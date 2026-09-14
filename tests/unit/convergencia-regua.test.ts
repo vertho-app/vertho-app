@@ -77,6 +77,47 @@ describe('Régua de convergência', () => {
   });
 });
 
+/**
+ * As TELAS também são consumidoras do rótulo, e foi por elas que a divergência
+ * entrou. `Medido: 14/09/2026`: o PDF dizia "Estável" (usa `rotuloConvergencia`)
+ * enquanto `/admin/evolucao` e `/dashboard/gestor/equipe-evolucao` diziam
+ * "Estagnação" à mão, e a tela de admin ainda mostrava um quarto card e uma
+ * quarta coluna de REGRESSÃO, veredito removido da régua em 01/09, com ZERO
+ * ocorrências nos 234 descritores medidos de toda a base. Número que não pode
+ * sair de 0 ocupava um quarto do resumo, e o dono perguntou o que aquilo era.
+ */
+describe('as telas de evolução não inventam vocabulário', () => {
+  const LOCALES = ['pt-BR', 'pt-PT', 'es-ES', 'en-US'];
+  const ADMIN = readFileSync('app/admin/evolucao/page.tsx', 'utf8');
+  const GESTOR = readFileSync('app/dashboard/gestor/equipe-evolucao/page.tsx', 'utf8');
+
+  it('o painel do gestor lê o rótulo da régua em vez de escrevê-lo', () => {
+    expect(GESTOR).toContain("from '@/lib/season-engine/convergencia'");
+    expect(GESTOR).toContain('rotuloConvergencia(CONVERGENCIA.ESTAVEL)');
+    expect(GESTOR).not.toContain("label: 'Estagnação'");
+  });
+
+  it('o rótulo de "estável" no pt-BR é o mesmo da régua', () => {
+    const msgs = JSON.parse(readFileSync('messages/pt-BR.json', 'utf8'));
+    expect(msgs.AdminEvolution.statuses.estagnacao).toBe(rotuloConvergencia(CONVERGENCIA.ESTAVEL));
+  });
+
+  it('nenhum locale oferece rótulo para um veredito que a régua não produz', () => {
+    for (const locale of LOCALES) {
+      const msgs = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8'));
+      const chaves = Object.keys(msgs.AdminEvolution.statuses);
+      expect(chaves.sort()).toEqual(Object.values(CONVERGENCIA).slice().sort());
+    }
+  });
+
+  it('a tela de admin não conta nem pinta regressão', () => {
+    expect(ADMIN).not.toContain('regressoes');
+    expect(ADMIN).not.toContain('d.regressao');
+    // O resumo agregado e as barras derivam de CONV: três vereditos, três colunas.
+    expect(ADMIN).toContain('grid-cols-3');
+  });
+});
+
 describe('meta de nível na convergência', () => {
   it('não confirma quem subiu muito mas não chegou à meta', () => {
     // O caso real que motivou a régua (02/09/2026): 1,68 → 2,58 é um salto
