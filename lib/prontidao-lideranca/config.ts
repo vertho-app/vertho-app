@@ -9,12 +9,14 @@
  *
  * ⚠️ A colisão que a validação existe para impedir é silenciosa em produção:
  * `descriptor_assessments` tem UNIQUE `(colaborador_id, competencia, descritor)`
- * por NOME de competência (não por id). Se o cargo-alvo tiver uma competência
- * com o mesmo nome de uma do Top 5 do cargo da pessoa, a avaliação do trilho de
- * liderança SOBRESCREVE a do cargo (ou vice-versa) sem erro nenhum: a IA4 grava
- * por upsert. Recusar na configuração é o único ponto onde isso é visível.
+ * por NOME de competência (não por id). Se uma competência da MATRIZ GLOBAL
+ * tiver o mesmo nome de uma do Top 5 do cargo da pessoa, a avaliação do trilho
+ * de liderança SOBRESCREVE a do cargo (ou vice-versa) sem erro nenhum: a IA4
+ * grava por upsert. Recusar na configuração é o único ponto onde isso é visível.
+ * `Medido: 14/09/2026` zero colisão das 5 da matriz em toda a base.
  */
 import { normalizeAssessmentCompetency } from '@/lib/assessment/completion';
+import { COMPETENCIAS_LIDERANCA } from '@/lib/simuladores/lideranca/matriz-global';
 
 export const CHAVE_CONFIG = 'prontidao_lideranca' as const;
 
@@ -31,7 +33,13 @@ export type EscopoProntidao =
   | { tipo: 'turma'; turmaId: string };
 
 export interface ConfigProntidaoLideranca {
-  /** Nome do cargo (cargos_empresa.nome) cujo gabarito e Top 5 definem o programa. */
+  /**
+   * Nome do cargo (cargos_empresa.nome) de referência do programa. Desde
+   * 14/09/2026 ele NÃO decide mais o que se mede: as competências vêm da matriz
+   * global. O cargo-alvo decide três outras coisas: de quem é o gabarito do
+   * eixo de estilo, quem é candidato, e qual VARIANTE da matriz a pessoa
+   * responde (ocupa = gestor em exercício; não ocupa = potencial sucessor).
+   */
   cargo_alvo: string;
   /** Quem participa. Default: a empresa inteira (menos rh e e-mails internos). */
   escopo: EscopoProntidao;
@@ -109,9 +117,6 @@ export interface ValidacaoConfig {
   avisos: string[];
 }
 
-/** O escopo comercial fixa 5 competências × 6 descritores; fora disso é aviso, não erro. */
-export const COMPETENCIAS_ESPERADAS = 5;
-
 /**
  * Valida a configuração contra o estado do tenant. Puro: recebe o que leu quem
  * chamou. `ok: false` tem pelo menos um erro; avisos nunca bloqueiam.
@@ -128,15 +133,14 @@ export function validarConfigProntidao(
   if (!alvo) {
     erros.push(`Cargo-alvo "${cfg.cargo_alvo}" não existe em cargos_empresa.`);
   } else {
+    // O gabarito continua obrigatório: é dele que sai o eixo de estilo. O Top 5
+    // do cargo-alvo, não: o programa mede a matriz global, não o cargo.
     if (!alvo.temGabarito) erros.push(`Cargo-alvo "${alvo.nome}" não tem gabarito (perfil ideal, tela 4). Gere o gabarito antes.`);
-    if (!alvo.top5.length) erros.push(`Cargo-alvo "${alvo.nome}" não tem Top 5 (top5_workshop). São as competências que o programa mede.`);
-    else if (alvo.top5.length !== COMPETENCIAS_ESPERADAS) {
-      avisos.push(`Cargo-alvo tem ${alvo.top5.length} competências no Top 5; o escopo do mapeamento prevê ${COMPETENCIAS_ESPERADAS}.`);
-    }
 
-    // Colisão por NOME (ver cabeçalho): competência do cargo-alvo com o mesmo
-    // nome de uma competência do Top 5 de um cargo da população.
-    const nomesAlvo = new Set(alvo.top5.map(chaveCompetencia).filter(Boolean));
+    // Colisão por NOME (ver cabeçalho): competência da MATRIZ com o mesmo nome
+    // de uma competência do Top 5 de um cargo da população. A avaliação por
+    // descritor é gravada por nome, então uma sobrescreveria a outra.
+    const nomesAlvo = new Set(COMPETENCIAS_LIDERANCA.map(chaveCompetencia).filter(Boolean));
     const cargosPop = new Set(ctx.cargosDaPopulacao.map(chaveCompetencia).filter(Boolean));
     for (const cargo of ctx.cargos) {
       const chave = chaveCompetencia(cargo.nome);
@@ -144,7 +148,7 @@ export function validarConfigProntidao(
       const colisoes = cargo.top5.filter((n) => nomesAlvo.has(chaveCompetencia(n)));
       if (colisoes.length) {
         erros.push(
-          `A competência "${colisoes[0]}" está no Top 5 do cargo "${cargo.nome}" e também no cargo-alvo. `
+          `A competência "${colisoes[0]}" está no Top 5 do cargo "${cargo.nome}" e também na matriz de liderança. `
           + 'A avaliação por descritor é gravada por NOME de competência e uma sobrescreveria a outra. Renomeie uma delas.',
         );
       }
@@ -160,11 +164,16 @@ export function validarConfigProntidao(
   return { ok: erros.length === 0, erros, avisos };
 }
 
-/** Competências do programa = Top 5 do cargo-alvo, na ordem do cargo. */
-export function competenciasDoPrograma(cfg: ConfigProntidaoLideranca, cargos: CargoParaValidacao[]): string[] {
-  const chave = chaveCompetencia(cfg.cargo_alvo);
-  const alvo = cargos.find((c) => chaveCompetencia(c.nome) === chave);
-  return alvo ? [...alvo.top5] : [];
+/**
+ * Competências do programa = a MATRIZ GLOBAL, igual em todo tenant.
+ *
+ * Era o `top5_workshop` do cargo-alvo até 14/09/2026, o que fazia o instrumento
+ * mudar de cliente para cliente e as notas não serem comparáveis entre eles.
+ * Os parâmetros ficam na assinatura porque os chamadores passam o contexto e
+ * uma variação futura por cargo voltaria por aqui.
+ */
+export function competenciasDoPrograma(_cfg?: ConfigProntidaoLideranca, _cargos?: CargoParaValidacao[]): string[] {
+  return [...COMPETENCIAS_LIDERANCA];
 }
 
 /** A pessoa ocupa o cargo-alvo? Para ela o trilho é o do cargo, não o de liderança. */

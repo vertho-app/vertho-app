@@ -27,6 +27,8 @@ import {
 import {
   agregarProntidaoLideranca, carregarParecer, carregarCargosParaValidacao, carregarPopulacao,
 } from '@/lib/prontidao-lideranca/agregar';
+import { instalarMatrizLideranca, estadoMatrizLideranca } from '@/lib/simuladores/lideranca/instalar';
+import { COMPETENCIAS_LIDERANCA, ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
 
 type Falha = { success: false; error: string; code?: string };
 
@@ -164,10 +166,11 @@ export async function getConfigProntidaoAdmin(empresaId: string) {
     if ('error' in lido) return lido;
     const contratado = canUseModulo(lido.sysConfig, MODULOS.PRONTIDAO_LIDERANCA).allowed;
     const cfg = lerConfigProntidao(lido.sysConfig);
-    const [cargos, turmas, pessoas] = await Promise.all([
+    const [cargos, turmas, pessoas, matriz] = await Promise.all([
       carregarCargosParaValidacao(sb, empresaId),
       listarTurmasDoTenant(sb, empresaId),
       carregarPopulacao(sb, empresaId, { cargo_alvo: '', escopo: { tipo: 'empresa_inteira' }, um_por_dia: true, corte_nota: 3 }),
+      estadoMatrizLideranca(sb, empresaId),
     ]);
     const validacao = cfg
       ? validarConfigProntidao(cfg, { cargos, cargosDaPopulacao: pessoas.map((p) => p.cargo || '') })
@@ -177,9 +180,15 @@ export async function getConfigProntidaoAdmin(empresaId: string) {
       contratado,
       cfg,
       validacao,
-      cargos: cargos.filter((c) => c.temGabarito || c.top5.length),
+      // Os cargos-ÂNCORA da matriz ("Gestor Comercial" / "Futuro Líder") existem
+      // só para pendurar as competências e os cenários das variantes: não são
+      // cargos da empresa e não podem ser oferecidos como cargo-alvo. Sem este
+      // filtro a tela oferecia os dois, marcados "SEM gabarito" (visto em 14/09).
+      cargos: cargos.filter((c) => c.temGabarito || c.top5.length).filter((c) => !ehCargoAncoraLideranca(c.nome)),
       turmas: (turmas || []).map((t: any) => ({ id: t.id, nome: t.nome, status: t.status })),
       populacao: pessoas.length,
+      matriz,
+      competencias: [...COMPETENCIAS_LIDERANCA],
     };
   } catch (e: any) {
     return { success: false as const, error: e?.message || 'Erro ao carregar a configuração.' };
@@ -249,11 +258,26 @@ export async function setModuloAdmin(empresaId: string, modulo: Modulo, ligado: 
       ...atual, modulos: { ...(atual.modulos || {}), [modulo]: ligado === true },
     }));
     if (!gravou.ok) return { success: false as const, error: gravou.erro };
+
+    // Ligar o simulador de liderança INSTALA a matriz global no tenant. Sem
+    // isso o módulo fica contratado e sem instrumento: a IA4 lê a régua por
+    // `competencias` do tenant e a fila da IA3 sai de `cargos_empresa`, e
+    // nenhuma das duas existe até aqui. Falha da instalação não desfaz o
+    // contrato (já gravado), mas VOLTA na resposta: módulo ligado sem matriz é
+    // exatamente o estado que não pode passar despercebido.
+    let matriz: { ok: boolean; erro?: string } | null = null;
+    if (ligado === true && modulo === MODULOS.PRONTIDAO_LIDERANCA) {
+      matriz = await instalarMatrizLideranca(sb, empresaId);
+    }
+
     await logAdminAction({
       adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
       acao: ligado ? 'modulo.ligar' : 'modulo.desligar', empresaId, alvo: 'sys_config.modulos',
-      detalhes: { modulo, ligado: ligado === true },
+      detalhes: { modulo, ligado: ligado === true, matrizInstalada: matriz ? matriz.ok : undefined },
     });
+    if (matriz && !matriz.ok) {
+      return { success: true as const, contratado: true, avisoMatriz: matriz.erro };
+    }
     return { success: true as const, contratado: ligado === true };
   } catch (e: any) {
     return { success: false as const, error: e?.message || 'Erro ao alterar o módulo.' };
@@ -263,6 +287,31 @@ export async function setModuloAdmin(empresaId: string, modulo: Modulo, ligado: 
 /** Atalho da aba de Prontidão. Mesma porta, mesmo gate. */
 export async function setModuloProntidaoAdmin(empresaId: string, ligado: boolean) {
   return setModuloAdmin(empresaId, MODULOS.PRONTIDAO_LIDERANCA, ligado);
+}
+
+/**
+ * Reinstala a matriz global no tenant. Idempotente: atualiza o texto das linhas
+ * que já existem e insere as que faltam. É o caminho para propagar uma correção
+ * de rubrica depois que o arquivo mudou.
+ *
+ * ⚠️ A IA4 lê `competencias` AO VIVO (diferente do simulador de recepção, onde
+ * o cenário guarda um snapshot da rubrica). Reinstalar com texto novo muda a
+ * régua de reavaliações futuras; não reescreve nota já gravada.
+ */
+export async function reinstalarMatrizLiderancaAdmin(empresaId: string) {
+  const sb = await requireEmpresaSupabase(empresaId, 'program.configure', 'reinstalarMatrizLiderancaAdmin');
+  try {
+    const r = await instalarMatrizLideranca(sb, empresaId);
+    if (!r.ok) return { success: false as const, error: r.erro };
+    await logAdminAction({
+      adminEmail: (await getAuthenticatedEmailFromAction()) || 'desconhecido',
+      acao: 'prontidao_lideranca.matriz_instalar', empresaId, alvo: 'competencias',
+      detalhes: { inseridos: r.descritoresInseridos, atualizados: r.descritoresAtualizados, cargos: r.cargos.map((c) => c.nome) },
+    });
+    return { success: true as const, inseridos: r.descritoresInseridos, atualizados: r.descritoresAtualizados };
+  } catch (e: any) {
+    return { success: false as const, error: e?.message || 'Erro ao instalar a matriz.' };
+  }
 }
 
 

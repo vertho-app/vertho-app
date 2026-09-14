@@ -3,6 +3,7 @@ import {
   lerConfigProntidao, validarConfigProntidao, competenciasDoPrograma, ocupaCargoAlvo,
   DEFAULTS_PRONTIDAO, type CargoParaValidacao,
 } from '@/lib/prontidao-lideranca/config';
+import { COMPETENCIAS_LIDERANCA } from '@/lib/simuladores/lideranca/matriz-global';
 
 const LID5 = ['Priorização e uso do tempo', 'Gestão por dados', 'Desenvolvimento de pessoas', 'Conversa difícil', 'Delegação e span'];
 const cargos: CargoParaValidacao[] = [
@@ -62,26 +63,34 @@ describe('validarConfigProntidao', () => {
     expect(v).toEqual({ ok: true, erros: [], avisos: [] });
   });
 
-  it('recusa cargo-alvo inexistente, sem gabarito ou sem Top 5', () => {
+  it('recusa cargo-alvo inexistente ou sem gabarito; Top 5 vazio já NÃO é erro', () => {
     expect(validarConfigProntidao({ ...base, cargo_alvo: 'Diretor' }, { cargos, cargosDaPopulacao: [] }).erros[0]).toMatch(/não existe/);
     expect(validarConfigProntidao({ ...base, cargo_alvo: 'SDR' }, { cargos, cargosDaPopulacao: [] }).erros.join(' ')).toMatch(/gabarito/);
+    // O gabarito continua obrigatório (é o eixo de estilo); o Top 5 do cargo-alvo
+    // não, porque o que se mede é a matriz global.
     const semTop5 = [{ nome: 'Chefe', temGabarito: true, top5: [] }];
-    expect(validarConfigProntidao({ ...base, cargo_alvo: 'Chefe' }, { cargos: semTop5, cargosDaPopulacao: [] }).erros.join(' ')).toMatch(/Top 5/);
+    expect(validarConfigProntidao({ ...base, cargo_alvo: 'Chefe' }, { cargos: semTop5, cargosDaPopulacao: [] }).ok).toBe(true);
   });
 
-  it('recusa colisão de NOME entre o Top 5 do cargo-alvo e o de um cargo da população', () => {
+  /**
+   * `descriptor_assessments` é UNIQUE por NOME de competência. Se um cargo da
+   * população tiver no Top 5 uma competência com o mesmo nome de uma da matriz,
+   * as duas avaliações se sobrescrevem em silêncio.
+   */
+  it('recusa colisão de NOME entre a MATRIZ e o Top 5 de um cargo da população', () => {
+    const daMatriz = COMPETENCIAS_LIDERANCA[0];
     const comColisao: CargoParaValidacao[] = [
       cargos[0],
-      { nome: 'Vendedor', temGabarito: true, top5: ['Prospecção', 'gestão por DADOS'] }, // mesma competência, grafia diferente
+      { nome: 'Vendedor', temGabarito: true, top5: ['Prospecção', daMatriz.toUpperCase()] }, // grafia diferente, mesma competência
     ];
     const v = validarConfigProntidao(base, { cargos: comColisao, cargosDaPopulacao: ['Vendedor'] });
     expect(v.ok).toBe(false);
-    expect(v.erros[0]).toMatch(/gestão por DADOS/);
     expect(v.erros[0]).toMatch(/NOME/);
+    expect(v.erros[0]).toMatch(/matriz de liderança/);
   });
 
   it('ignora a colisão quando o cargo não está na população', () => {
-    const comColisao: CargoParaValidacao[] = [cargos[0], { nome: 'Analista', temGabarito: true, top5: ['Gestão por dados'] }];
+    const comColisao: CargoParaValidacao[] = [cargos[0], { nome: 'Analista', temGabarito: true, top5: [COMPETENCIAS_LIDERANCA[0]] }];
     expect(validarConfigProntidao(base, { cargos: comColisao, cargosDaPopulacao: ['Vendedor'] }).ok).toBe(true);
   });
 
@@ -90,18 +99,19 @@ describe('validarConfigProntidao', () => {
     expect(validarConfigProntidao({ ...base, escopo: { tipo: 'turma', turmaId: '' } }, { cargos, cargosDaPopulacao: [] }).erros.join(' ')).toMatch(/turmaId/);
   });
 
-  it('Top 5 com número diferente de 5 é aviso, não erro', () => {
+  it('o tamanho do Top 5 do cargo-alvo deixou de gerar aviso', () => {
     const v = validarConfigProntidao({ ...base, cargo_alvo: 'Vendedor' }, { cargos, cargosDaPopulacao: [] });
-    expect(v.ok).toBe(true);
-    expect(v.avisos.join(' ')).toMatch(/prevê 5/);
+    expect(v).toEqual({ ok: true, erros: [], avisos: [] });
   });
 });
 
 describe('competenciasDoPrograma / ocupaCargoAlvo', () => {
   const cfg = lerConfigProntidao({ prontidao_lideranca: { cargo_alvo: 'gerente comercial' } })!;
-  it('resolve o Top 5 do cargo-alvo por nome normalizado', () => {
-    expect(competenciasDoPrograma(cfg, cargos)).toEqual(LID5);
-    expect(competenciasDoPrograma({ ...cfg, cargo_alvo: 'Ninguém' }, cargos)).toEqual([]);
+  /** O instrumento é o mesmo em todo tenant: não depende do cargo nem da empresa. */
+  it('devolve a matriz global, seja qual for o cargo-alvo', () => {
+    expect(competenciasDoPrograma(cfg, cargos)).toEqual([...COMPETENCIAS_LIDERANCA]);
+    expect(competenciasDoPrograma({ ...cfg, cargo_alvo: 'Ninguem' }, cargos)).toEqual([...COMPETENCIAS_LIDERANCA]);
+    expect(competenciasDoPrograma()).toEqual([...COMPETENCIAS_LIDERANCA]);
   });
   it('quem ocupa o cargo-alvo responde pelo trilho do cargo', () => {
     expect(ocupaCargoAlvo('Gerente Comercial', cfg)).toBe(true);

@@ -14,7 +14,7 @@ import ProntidaoLiderancaView from '@/components/prontidao-lideranca-view';
 import {
   getConfigProntidaoAdmin, salvarConfigProntidaoAdmin, setModuloProntidaoAdmin,
   getProntidaoLiderancaAdmin, getParecerLiderancaAdmin,
-  exportarParecerPDFAdmin, exportarConsolidadoPDFAdmin,
+  exportarParecerPDFAdmin, exportarConsolidadoPDFAdmin, reinstalarMatrizLiderancaAdmin,
 } from '@/actions/prontidao-lideranca';
 import { DEFAULTS_PRONTIDAO } from '@/lib/prontidao-lideranca/config';
 
@@ -35,6 +35,7 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
   const [erros, setErros] = useState<string[]>([]);
   const [avisos, setAvisos] = useState<string[]>([]);
   const [versao, setVersao] = useState(0);
+  const [instalando, setInstalando] = useState(false);
 
   /**
    * O gate (`requireEmpresaSupabase`) fica FORA do try da action, de propósito:
@@ -74,9 +75,23 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
     if (!info) return;
     setAlternando(true);
     const r: any = await setModuloProntidaoAdmin(empresaId, !info.contratado);
-    if (r.success) { toast.success(r.contratado ? 'Módulo ligado.' : 'Módulo desligado.'); await recarregar(); setVersao((v) => v + 1); }
+    if (r.success) {
+      toast.success(r.contratado ? 'Módulo ligado.' : 'Módulo desligado.');
+      // Ligar instala a matriz. Se a instalação falhou, o módulo está contratado
+      // e sem instrumento: isso precisa aparecer, não sumir atrás do sucesso.
+      if (r.avisoMatriz) toast.error(`Módulo ligado, mas a matriz não instalou: ${r.avisoMatriz}`, { duration: 12000 });
+      await recarregar(); setVersao((v) => v + 1);
+    }
     else toast.error(r.error || 'Erro.');
     setAlternando(false);
+  }
+
+  async function reinstalar() {
+    setInstalando(true);
+    const r: any = await reinstalarMatrizLiderancaAdmin(empresaId);
+    if (r.success) { toast.success(`Matriz instalada: ${r.inseridos} novos, ${r.atualizados} atualizados.`); await recarregar(); setVersao((v) => v + 1); }
+    else toast.error(r.error || 'Erro ao instalar a matriz.');
+    setInstalando(false);
   }
 
   async function salvar() {
@@ -139,10 +154,13 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
               <select value={form.cargo_alvo} onChange={(e) => setForm((f) => ({ ...f, cargo_alvo: e.target.value }))} className={inputCls} style={bg}>
                 <option value="">escolha o cargo</option>
                 {(info.cargos || []).map((c: any) => (
-                  <option key={c.nome} value={c.nome}>{c.nome} · {c.temGabarito ? 'gabarito' : 'SEM gabarito'} · Top {c.top5.length}</option>
+                  <option key={c.nome} value={c.nome}>{c.nome} · {c.temGabarito ? 'gabarito' : 'SEM gabarito'}</option>
                 ))}
               </select>
-              <span className="block mt-1 text-[10px] text-gray-500">As competências do mapeamento são o Top 5 deste cargo, as mesmas que geram os cenários.</span>
+              <span className="block mt-1 text-[10px] text-gray-500">
+                Não decide o que se mede (isso é a matriz global). Decide de quem é o gabarito do eixo de estilo, quem é candidato,
+                e qual variante cada pessoa responde: quem ocupa este cargo responde a de gestor em exercício, quem não ocupa a de potencial.
+              </span>
             </label>
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">População</span>
@@ -157,6 +175,35 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
                 </select>
               )}
             </div>
+          </div>
+
+          {/* A matriz global: o que o simulador mede, igual em todo tenant. */}
+          <div className="rounded-lg border border-white/[0.06] p-3 space-y-2" style={bg}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Matriz de competências de liderança (global)</p>
+                <p className="text-[11px] mt-0.5" style={{ color: info.matriz?.instalada ? '#34D399' : '#FBBF24' }}>
+                  {info.matriz?.erro
+                    ? `não foi possível verificar: ${info.matriz.erro}`
+                    : info.matriz?.instalada
+                      ? `instalada nesta empresa (${info.matriz.descritores} descritores)`
+                      : `NÃO instalada (${info.matriz?.descritores ?? 0} de ${info.matriz?.esperado ?? 0} descritores). O trilho não abre sem ela.`}
+                </p>
+              </div>
+              <button type="button" onClick={reinstalar} disabled={instalando}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-gray-200 hover:bg-white/5 disabled:opacity-50">
+                {instalando ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />} {info.matriz?.instalada ? 'Reinstalar' : 'Instalar'}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {(info.competencias || []).map((c: string) => (
+                <span key={c} className="rounded-md px-2 py-0.5 text-[11px] text-gray-300 bg-white/[0.06]">{c}</span>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-500">
+              As mesmas 5 competências em todas as empresas, com a mesma régua, para as notas serem comparáveis entre clientes.
+              A avaliação lê a rubrica ao vivo: reinstalar com texto novo vale para reavaliações futuras e não reescreve nota já dada.
+            </p>
           </div>
 
           {/*
