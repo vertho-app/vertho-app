@@ -85,7 +85,9 @@ export function buildProposalDocument(
     validaAte: valida.toISOString(),
     expirada: valida.getTime() < Date.now(),
     cliente: {
-      nome: account?.trade_name || account?.legal_name || 'Cliente',
+      // Conta do CRM tem precedência; sem ela, o nome em texto livre que veio do
+      // orçamento do deal desk (mig 254). Só cai em 'Cliente' se não houver nenhum.
+      nome: account?.trade_name || account?.legal_name || proposal.cliente_nome || 'Cliente',
       tipo: proposal.customer_type ? (CUSTOMER_TYPE_LABELS[proposal.customer_type] || proposal.customer_type) : null,
     },
     contexto: extra?.contexto?.trim() || null,

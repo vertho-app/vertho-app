@@ -8,6 +8,7 @@ import AdminPageHeader from '@/components/admin/page-header';
 import ProposalStatusBadge from '@/components/sales/proposal-status-badge';
 import OpportunityStageBadge from '@/components/sales/opportunity-stage-badge';
 import ProposalApprovalPanel from '@/components/sales/proposal-approval-panel';
+import ProposalDealDeskPanel from '@/components/sales/proposal-deal-desk-panel';
 import {
   COMMISSION_RATES, CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGE_LABELS,
 } from '@/lib/sales/constants';
@@ -66,7 +67,7 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
         <AdminPageHeader
           icon={FileText}
           title={proposal ? `Proposta ${proposal.proposal_number}` : 'Proposta'}
-          subtitle={proposal ? (proposal.account?.trade_name || proposal.account?.legal_name || undefined) : undefined}
+          subtitle={proposal ? (proposal.account?.trade_name || proposal.account?.legal_name || proposal.cliente_nome || undefined) : undefined}
           backHref="/admin/comercial/propostas"
           actions={proposal ? <ProposalStatusBadge status={proposal.status} size="md" /> : undefined}
         />
@@ -91,42 +92,70 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-gray-500">Total do contrato</p>
                   <p className="text-lg font-bold text-white mt-0.5">{fmtBRL(proposal.total_contract_value)}</p>
-                  <p className="text-[10px] text-gray-500">{fmtBRLExact(proposal.monthly_value)}/mês · {proposal.contract_duration_months ?? '—'} meses</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">
-                    Comissão aquisição ({fmtPercent(COMMISSION_RATES.acquisition)})
+                  <p className="text-[10px] text-gray-500">
+                    {fmtBRLExact(proposal.monthly_value)}/{proposal.representante_id ? 'mês' : 'parcela'} · {proposal.contract_duration_months ?? '—'} {proposal.representante_id ? 'meses' : 'parcelas'}
                   </p>
-                  <p className="text-lg font-bold text-amber-300 mt-0.5">{fmtBRL(proposal.estimated_acquisition_commission)}</p>
                 </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">
-                    Comissão recorrente ({fmtPercent(COMMISSION_RATES.recurring)})
-                  </p>
-                  <p className="text-lg font-bold text-amber-300 mt-0.5">{fmtBRL(proposal.estimated_recurring_commission)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-500">Comissão total estimada</p>
-                  <p className="text-lg font-bold text-amber-400 mt-0.5">{fmtBRL(proposal.estimated_total_commission)}</p>
-                </div>
+                {proposal.representante_id ? (
+                  <>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                        Comissão aquisição ({fmtPercent(COMMISSION_RATES.acquisition)})
+                      </p>
+                      <p className="text-lg font-bold text-amber-300 mt-0.5">{fmtBRL(proposal.estimated_acquisition_commission)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                        Comissão recorrente ({fmtPercent(COMMISSION_RATES.recurring)})
+                      </p>
+                      <p className="text-lg font-bold text-amber-300 mt-0.5">{fmtBRL(proposal.estimated_recurring_commission)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-500">Comissão total estimada</p>
+                      <p className="text-lg font-bold text-amber-400 mt-0.5">{fmtBRL(proposal.estimated_total_commission)}</p>
+                    </div>
+                  </>
+                ) : (
+                  // R$ 0,00 pareceria bug. Sem RC não há quem receba — dizer isso
+                  // é diferente de mostrar zero.
+                  <div className="col-span-3">
+                    <p className="text-[10px] uppercase tracking-wider text-gray-500">Comissão</p>
+                    <p className="text-sm font-bold text-gray-300 mt-0.5">
+                      Nenhuma — proposta da Vertho, sem representante
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Painel de decisão */}
-            <ProposalApprovalPanel
-              proposalId={proposal.id}
-              status={proposal.status}
-              approvedBy={proposal.approved_by}
-              approvedAt={proposal.approved_at}
-              rejectionReason={proposal.rejection_reason}
-              onDone={carregar}
-            />
+            {/* Painel de decisão. Proposta do deal desk (sem RC, mig 254) tem o
+                próprio ciclo de vida: o painel de aprovação só age em
+                `submitted_for_approval`, estado que o fluxo do RC produz. */}
+            {proposal.representante_id ? (
+              <ProposalApprovalPanel
+                proposalId={proposal.id}
+                status={proposal.status}
+                approvedBy={proposal.approved_by}
+                approvedAt={proposal.approved_at}
+                rejectionReason={proposal.rejection_reason}
+                onDone={carregar}
+              />
+            ) : (
+              <ProposalDealDeskPanel
+                proposalId={proposal.id}
+                status={proposal.status}
+                publicToken={proposal.public_token}
+                createdByEmail={proposal.created_by_email}
+                approvedBy={proposal.approved_by}
+                onDone={carregar}
+              />
+            )}
 
             {/* Dados da proposta */}
             <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4">
               <h2 className="text-sm font-bold text-white mb-3">Dados da proposta</h2>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
-                <Field label="Cliente" value={proposal.account?.trade_name || proposal.account?.legal_name || '—'} />
+                <Field label="Cliente" value={proposal.account?.trade_name || proposal.account?.legal_name || proposal.cliente_nome || '—'} />
                 <Field
                   label="Oportunidade"
                   value={proposal.opportunity ? (
@@ -146,7 +175,14 @@ export default function PropostaDetalhePage({ params }: { params: Promise<{ prop
                 />
                 <Field label="Nº de usuários" value={proposal.number_of_users ?? '—'} />
                 <Field label="Cargos mapeados" value={proposal.number_of_roles_mapped ?? '—'} />
-                <Field label="Duração do contrato" value={proposal.contract_duration_months ? `${proposal.contract_duration_months} meses` : '—'} />
+                {/* Sem RC, "meses" mentiria: a vigência É o número de parcelas do
+                    projeto (mig 254), não um contrato anual. */}
+                <Field
+                  label={proposal.representante_id ? 'Duração do contrato' : 'Parcelas do projeto'}
+                  value={proposal.contract_duration_months
+                    ? `${proposal.contract_duration_months} ${proposal.representante_id ? 'meses' : 'parcelas'}`
+                    : '—'}
+                />
                 <Field label="Desconto solicitado" value={proposal.discount_requested != null ? `${proposal.discount_requested}%` : '—'} />
                 <Field label="Condições de pagamento" value={proposal.payment_terms || '—'} />
                 <Field label="Criada em" value={fmtDateTime(proposal.created_at)} />
