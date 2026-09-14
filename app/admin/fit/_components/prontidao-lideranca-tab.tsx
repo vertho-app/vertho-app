@@ -9,13 +9,15 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, Save, Power, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Loader2, Save, Power, RefreshCw, AlertTriangle, Sparkles } from 'lucide-react';
 import ProntidaoLiderancaView from '@/components/prontidao-lideranca-view';
 import {
   getConfigProntidaoAdmin, salvarConfigProntidaoAdmin, setModuloProntidaoAdmin,
   getProntidaoLiderancaAdmin, getParecerLiderancaAdmin,
   exportarParecerPDFAdmin, exportarConsolidadoPDFAdmin, reinstalarMatrizLiderancaAdmin,
+  listarCenariosLiderancaAdmin,
 } from '@/actions/prontidao-lideranca';
+import { rodarIA3Uma } from '@/actions/fase1';
 import { DEFAULTS_PRONTIDAO } from '@/lib/prontidao-lideranca/config';
 
 type Sub = 'config' | 'previa';
@@ -36,6 +38,8 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
   const [avisos, setAvisos] = useState<string[]>([]);
   const [versao, setVersao] = useState(0);
   const [instalando, setInstalando] = useState(false);
+  const [cenarios, setCenarios] = useState<{ total: number; faltam: number; itens: any[] } | null>(null);
+  const [gerando, setGerando] = useState<{ feito: number; total: number } | null>(null);
 
   /**
    * O gate (`requireEmpresaSupabase`) fica FORA do try da action, de propósito:
@@ -84,6 +88,45 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
     }
     else toast.error(r.error || 'Erro.');
     setAlternando(false);
+  }
+
+  const carregarCenarios = useCallback(async () => {
+    const r: any = await listarCenariosLiderancaAdmin(empresaId);
+    setCenarios(r.success ? { total: r.total, faltam: r.faltam, itens: r.itens } : null);
+  }, [empresaId]);
+
+  useEffect(() => { void carregarCenarios(); }, [carregarCenarios, versao]);
+
+  /**
+   * Gera os cenários que faltam, UM POR VEZ. É o padrão do pipeline
+   * (`app/admin/empresas/[empresaId]/page.tsx`): cada cenário cabe em 60s, dez
+   * não cabem numa server action só, e `callAI` aborta em 120s.
+   *
+   * O custo aparece ANTES do clique, no rótulo do botão: quem decide gastar
+   * precisa saber quanto, e custo desconhecido não é custo zero.
+   */
+  async function gerarCenarios() {
+    if (!cenarios?.itens?.length) return;
+    const itens = cenarios.itens;
+    setGerando({ feito: 0, total: itens.length });
+    let ok = 0;
+    const falhas: string[] = [];
+    for (let i = 0; i < itens.length; i += 1) {
+      const it = itens[i];
+      setGerando({ feito: i, total: itens.length });
+      try {
+        const r: any = await rodarIA3Uma(empresaId, it.cargo, it.competencia_id, it.ppp_escola_id ?? null);
+        if (r?.success) ok += 1; else falhas.push(`${it.nome} (${it.cargo}): ${r?.error || 'erro'}`);
+      } catch (e: any) {
+        falhas.push(`${it.nome} (${it.cargo}): ${e?.message || 'erro'}`);
+      }
+    }
+    setGerando(null);
+    if (ok) toast.success(`${ok} cenário(s) gerado(s).`);
+    // Falha de um item não pode sumir atrás do sucesso dos outros: sem cenário,
+    // aquela competência não abre para ninguém.
+    if (falhas.length) toast.error(`${falhas.length} falhou(aram): ${falhas.slice(0, 3).join(' · ')}`, { duration: 15000 });
+    await carregarCenarios();
   }
 
   async function reinstalar() {
@@ -213,6 +256,30 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
               As mesmas 5 competências em todas as empresas, com a mesma régua, para as notas serem comparáveis entre clientes.
               A avaliação lê a rubrica ao vivo: reinstalar com texto novo vale para reavaliações futuras e não reescreve nota já dada.
             </p>
+
+            {/* Cenários: sem eles a matriz está instalada e o trilho não abre. */}
+            <div className="mt-2 pt-2 border-t border-white/[0.06] flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Cenários do trilho</p>
+                <p className="text-[11px] mt-0.5" style={{ color: cenarios && cenarios.faltam === 0 && cenarios.total > 0 ? '#34D399' : '#FBBF24' }}>
+                  {!cenarios
+                    ? 'verificando…'
+                    : cenarios.total === 0
+                      ? 'instale a matriz primeiro'
+                      : cenarios.faltam === 0
+                        ? `os ${cenarios.total} cenários estão gerados`
+                        : `faltam ${cenarios.faltam} de ${cenarios.total}. Sem cenário a competência não abre para quem responde.`}
+                </p>
+              </div>
+              {!!cenarios?.faltam && (
+                <button type="button" onClick={gerarCenarios} disabled={!!gerando}
+                  className="inline-flex items-center gap-2 rounded-lg border border-amber-400/40 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-400/10 disabled:opacity-50">
+                  {gerando
+                    ? <><Loader2 size={12} className="animate-spin" /> gerando {gerando.feito + 1} de {gerando.total}…</>
+                    : <><Sparkles size={12} /> Gerar {cenarios.faltam} cenário(s) · {cenarios.faltam} chamada(s) de IA</>}
+                </button>
+              )}
+            </div>
           </div>
 
           {/*
