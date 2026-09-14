@@ -47,6 +47,15 @@ export interface SaidaWhatsApp {
   dedupeKey?: string | null;
   /** wamid, quando a Meta devolveu um. */
   wamid?: string | null;
+  /**
+   * Número que ENVIOU — `phone_number_id` da Meta (mig 252).
+   *
+   * Quando ausente, cai no número inicial (`PHONE_NUMBER_ID`): o histórico e os
+   * caminhos sem contexto de conversa continuam gravando como antes. Quem chama
+   * com contexto (resposta na conversa) passa o `ultimo_numero_id` — é assim que
+   * a thread sabe por onde cada lado falou.
+   */
+  fromPhoneId?: string | null;
   /** Preenchido quando o envio falhou — a tentativa aparece na thread. */
   erro?: string | null;
   /** Payload no formato da Meta (anexo), lido por `midiaIdDoRaw`. */
@@ -71,7 +80,7 @@ export async function registrarSaida(s: SaidaWhatsApp, sb?: ClientMinimo): Promi
       colaborador_id: s.colaboradorId ?? null,
       wa_message_id: s.wamid ?? null,
       to_phone: s.telefone,
-      from_phone_id: process.env.PHONE_NUMBER_ID || null,
+      from_phone_id: s.fromPhoneId ?? process.env.PHONE_NUMBER_ID ?? null,
       tipo: s.tipo,
       texto: s.texto ?? null,
       template_nome: s.templateNome ?? null,

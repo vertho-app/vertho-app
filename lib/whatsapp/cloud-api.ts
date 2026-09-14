@@ -21,6 +21,7 @@ import { normalizePhone } from '@/lib/phone';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { alternarNonoDigito } from './nono-digito';
+import { resolverNumeroParaEnvio } from './numeros';
 import { registrarSaida } from './registro-saida';
 import { corpoDoTemplatePorNome } from './templates';
 import type { TipoMidia } from '@/lib/inbox/anexos';
@@ -116,6 +117,22 @@ export function cloudApiConfigurada(): boolean {
   return Boolean(token() && phoneNumberId());
 }
 
+/**
+ * O número que vai na URL de envio — resolvido, nunca cru (mig 252).
+ *
+ * Centraliza a ÚNICA decisão de "por qual número sai" para os 4 envios deste
+ * módulo (texto, mídia, template, OTP). O `numeroId` pedido vem da conversa
+ * (`ultimo_numero_id`); sem ele, cai no inicial — que é o comportamento de
+ * quem já está no ar com 1 número. Devolve também o id efetivo, porque a
+ * telemetria (`notification_deliveries.from_phone_id`) e o conteúdo
+ * (`whatsapp_mensagens_enviadas.from_phone_id`) precisam gravar POR ONDE saiu,
+ * não por onde se pediu.
+ */
+function numeroDoEnvio(meta?: EnvioTemplateMeta): { urlId: string; gravadoId: string | null } {
+  const r = resolverNumeroParaEnvio(meta?.numeroId);
+  return { urlId: r.id, gravadoId: r.id || null };
+}
+
 export interface EnvioTemplateResult {
   ok: boolean;
   /** wamid — liga o envio ao webhook de status (mig 212). */
@@ -143,6 +160,15 @@ export interface EnvioTemplateMeta {
   origem?: 'inbox' | 'cadencia';
   /** Quem clicou. Ausente = automático. Só usado no registro do conteúdo. */
   autorEmail?: string | null;
+  /**
+   * Número de ORIGEM do envio — `phone_number_id` da Meta (mig 252).
+   *
+   * É o número pelo qual a pessoa escreveu (`ultimo_numero_id` da conversa):
+   * responder pelo mesmo número mantém o fio. Ausente = número inicial
+   * (`PHONE_NUMBER_ID`) — o histórico e a cadência sem contexto caem aqui, e
+   * nada muda para quem já está no ar com 1 número.
+   */
+  numeroId?: string | null;
 }
 
 /**
@@ -245,8 +271,10 @@ export async function enviarTextoCloud(
   };
 
   let resultado: EnvioTemplateResult;
+  // O número de ORIGEM (mig 252): responder sai pelo mesmo número que recebeu.
+  const via = numeroDoEnvio(meta);
   try {
-    const res = await fetch(`${BASE}/${phoneNumberId()}/messages`, {
+    const res = await fetch(`${BASE}/${via.urlId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo),
@@ -277,6 +305,7 @@ export async function enviarTextoCloud(
       error: resultado.ok ? null : (resultado.reason ?? null),
       dedupeKey: meta?.dedupeKey ?? null,
       providerMessageId: resultado.providerMessageId ?? null,
+      fromPhoneId: via.gravadoId,
     });
   } catch (e) {
     await telemetriaFalhou(e, meta);
@@ -296,6 +325,7 @@ export async function enviarTextoCloud(
       dedupeKey: meta?.dedupeKey ?? null,
       wamid: resultado.providerMessageId ?? null,
       erro: resultado.ok ? null : (resultado.reason ?? 'falha desconhecida'),
+      fromPhoneId: via.gravadoId,
     });
   }
 
@@ -446,8 +476,10 @@ export async function enviarMidiaCloud(
   };
 
   let resultado: EnvioTemplateResult;
+  // O número de ORIGEM (mig 252): anexo da resposta sai pelo mesmo número.
+  const via = numeroDoEnvio(meta);
   try {
-    const res = await fetch(`${BASE}/${phoneNumberId()}/messages`, {
+    const res = await fetch(`${BASE}/${via.urlId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo),
@@ -477,6 +509,7 @@ export async function enviarMidiaCloud(
       error: resultado.ok ? null : (resultado.reason ?? null),
       dedupeKey: meta?.dedupeKey ?? null,
       providerMessageId: resultado.providerMessageId ?? null,
+      fromPhoneId: via.gravadoId,
     });
   } catch (e) {
     await telemetriaFalhou(e, meta);
@@ -494,6 +527,7 @@ export async function enviarMidiaCloud(
       dedupeKey: meta?.dedupeKey ?? null,
       wamid: resultado.providerMessageId ?? null,
       erro: resultado.ok ? null : (resultado.reason ?? 'falha desconhecida'),
+      fromPhoneId: via.gravadoId,
       // Mesmo formato do que CHEGA, para `midiaIdDoRaw` servir os dois lados.
       raw: input.mediaId ? { [input.tipo]: { id: input.mediaId } } : null,
     });
@@ -689,8 +723,10 @@ export async function enviarTemplateCloud(
   };
 
   let resultado: EnvioTemplateResult;
+  // O número de ORIGEM (mig 252): template da cadência pode fixar o número.
+  const via = numeroDoEnvio(meta);
   try {
-    const res = await fetch(`${BASE}/${phoneNumberId()}/messages`, {
+    const res = await fetch(`${BASE}/${via.urlId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo),
@@ -720,6 +756,7 @@ export async function enviarTemplateCloud(
       error: resultado.ok ? null : (resultado.reason ?? null),
       dedupeKey: meta?.dedupeKey ?? null,
       providerMessageId: resultado.providerMessageId ?? null,
+      fromPhoneId: via.gravadoId,
     });
   } catch (e) {
     await telemetriaFalhou(e, meta);
@@ -741,6 +778,7 @@ export async function enviarTemplateCloud(
       dedupeKey: meta?.dedupeKey ?? null,
       wamid: resultado.providerMessageId ?? null,
       erro: resultado.ok ? null : (resultado.reason ?? 'falha desconhecida'),
+      fromPhoneId: via.gravadoId,
     });
   }
 
@@ -790,8 +828,10 @@ export async function enviarTemplateOtp(
   };
 
   let resultado: EnvioTemplateResult;
+  // OTP sai pelo inicial salvo pedido explícito (mig 252): acesso não tem conversa.
+  const via = numeroDoEnvio(meta);
   try {
-    const res = await fetch(`${BASE}/${phoneNumberId()}/messages`, {
+    const res = await fetch(`${BASE}/${via.urlId}/messages`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo),
@@ -825,6 +865,7 @@ export async function enviarTemplateOtp(
       error: resultado.ok ? null : (resultado.reason ?? null),
       dedupeKey: meta?.dedupeKey ?? null,
       providerMessageId: resultado.providerMessageId ?? null,
+      fromPhoneId: via.gravadoId,
     });
   } catch (e) {
     await telemetriaFalhou(e, meta);
@@ -846,6 +887,7 @@ export async function enviarTemplateOtp(
       dedupeKey: meta?.dedupeKey ?? null,
       wamid: resultado.providerMessageId ?? null,
       erro: resultado.ok ? null : (resultado.reason ?? 'falha desconhecida'),
+      fromPhoneId: via.gravadoId,
     });
   }
 

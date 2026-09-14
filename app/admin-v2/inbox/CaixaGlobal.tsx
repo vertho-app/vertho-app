@@ -13,6 +13,8 @@ import { rotuloDoTipo } from '@/lib/inbox/caixa';
 import { restanteLegivel } from '@/lib/inbox/janela';
 import type { FilaNaoIdentificada } from '@/lib/inbox/tipos';
 import { AtivarPushInbox } from '@/components/notifications/ativar-push-inbox';
+import { listarNumerosRemetentes } from '../cliente/numeros-actions';
+import { rotuloDoNumero, type NumeroRemetente } from '@/lib/whatsapp/numeros';
 
 /**
  * Caixa de entrada da EQUIPE — todas as empresas numa lista só.
@@ -61,6 +63,8 @@ export default function CaixaGlobal() {
   const [erro, setErro] = useState<string | null>(null);
   const [empresaFiltro, setEmpresaFiltro] = useState('');
   const [soNaoLidas, setSoNaoLidas] = useState(false);
+  const [numeros, setNumeros] = useState<NumeroRemetente[]>([]);
+  const [numeroFiltro, setNumeroFiltro] = useState('');
   /**
    * Mostrar também quem só RECEBEU (a cadência mandou, a pessoa não escreveu).
    *
@@ -74,14 +78,16 @@ export default function CaixaGlobal() {
   const [avisoFila, setAvisoFila] = useState<string | null>(null);
   const [agindo, startAcao] = useTransition();
 
+  useEffect(() => { let vivo = true; listarNumerosRemetentes().then((ns) => { if (vivo) setNumeros(ns); }).catch(() => {}); return () => { vivo = false; }; }, []);
+
   const recarregarCaixa = useCallback(async () => {
     try {
-      setCaixa(await listarCaixaGlobal({ incluirSemResposta }));
+      setCaixa(await listarCaixaGlobal({ incluirSemResposta, numeroId: numeroFiltro || null }));
       setErro(null);
     } catch (e: any) {
       setErro(e?.message || 'Falha ao carregar a caixa.');
     }
-  }, [incluirSemResposta]);
+  }, [incluirSemResposta, numeroFiltro]);
 
   const recarregarFila = useCallback(async () => {
     try {
@@ -267,6 +273,7 @@ export default function CaixaGlobal() {
           <input type="checkbox" checked={soNaoLidas} onChange={(e) => setSoNaoLidas(e.target.checked)} />
           só não lidas
         </label>
+            {numeros.length > 1 && (<label className="flex items-center gap-1.5 text-[12px] text-[var(--ink-dim)]">numero <select value={numeroFiltro} onChange={(e) => setNumeroFiltro(e.target.value)} className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-2 py-1 text-[12px] outline-none focus:border-[var(--cyan)]"><option value="">todos</option>{numeros.map((n) => (<option key={n.id} value={n.id}>{rotuloDoNumero(n.id, numeros)}</option>))}</select></label>)}
         <label
           className="flex items-center gap-1.5 text-[12px] text-[var(--ink-dim)]"
           title="Inclui quem recebeu mensagem nossa e ainda não respondeu — a caixa vira o registro do canal, não só das respostas"
@@ -338,7 +345,7 @@ export default function CaixaGlobal() {
                 </span>
                 <span className="flex items-center gap-1.5 font-mono text-[10px] text-[var(--ink-faint)]">
                   <span className={semCliente ? 'text-[var(--warning)]' : 'text-[var(--lilac)]'}>
-                    {c.empresa ?? 'sem cliente'}
+                    {(c.numerosIds?.length > 1 || (numeros.length > 1 && c.numeroId)) && (<span className="text-[var(--cyan)]">via {rotuloDoNumero(c.numeroId, numeros)} · </span>)}{c.empresa ?? 'sem cliente'}
                   </span>
                   ·{' '}
                   {c.recebidas === 0
@@ -361,6 +368,8 @@ export default function CaixaGlobal() {
           enviando={enviando}
           onAtualizar={atualizar}
           onVoltar={fechar}
+          numeros={numeros}
+          numeros={numeros}
           contexto={caixa.empresas.find((e) => e.id === ativa?.empresaId)?.nome ?? null}
           anexo={anexo}
           onAnexar={anexar}

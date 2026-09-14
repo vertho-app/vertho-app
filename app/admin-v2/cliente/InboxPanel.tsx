@@ -4,12 +4,14 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Inbox } from 'lucide-react';
 import { listarConversas } from './inbox-actions';
+import { listarNumerosRemetentes } from './numeros-actions';
 import ThreadView from '../_inbox/ThreadView';
 import { useConversa } from '../_inbox/useConversa';
 import { useIntervaloVisivel } from '../_inbox/useIntervaloVisivel';
 import type { Conversa } from '@/lib/inbox/tipos';
 import { rotuloDoTipo } from '@/lib/inbox/caixa';
 import { restanteLegivel } from '@/lib/inbox/janela';
+import { rotuloDoNumero, type NumeroRemetente } from '@/lib/whatsapp/numeros';
 
 /**
  * Caixa de entrada do WhatsApp no workspace do cliente — só as conversas DESTA
@@ -34,15 +36,29 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
   const [erroLista, setErroLista] = useState<string | null>(null);
   /** Também quem só recebeu (ver o mesmo controle em `/admin-v2/inbox`). */
   const [incluirSemResposta, setIncluirSemResposta] = useState(false);
+  /**
+   * Filtro por número remetente (mig 252). Vazio = todos.
+   *
+   * Só aparece quando há 2+ números no catálogo: com 1 número o seletor seria
+   * ruído, e o filtro seria fixo — a tela não cobra decisão que não existe.
+   */
+  const [numeros, setNumeros] = useState<NumeroRemetente[]>([]);
+  const [numeroFiltro, setNumeroFiltro] = useState('');
+
+  useEffect(() => {
+    let vivo = true;
+    listarNumerosRemetentes().then((ns) => { if (vivo) setNumeros(ns); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
 
   const recarregar = useCallback(async () => {
     try {
-      setConversas(await listarConversas(empresaId, { incluirSemResposta }));
+      setConversas(await listarConversas(empresaId, { incluirSemResposta, numeroId: numeroFiltro || null }));
       setErroLista(null);
     } catch (e: any) {
       setErroLista(e?.message || 'Falha ao carregar conversas.');
     }
-  }, [empresaId, incluirSemResposta]);
+  }, [empresaId, incluirSemResposta, numeroFiltro]);
 
   const conversa = useConversa(recarregar);
   const { abrir, fechar, atualizar, estaAtiva, thread, aviso, rascunho, escrever, enviar, enviando, ativa, anexo, anexar, enviarAnexo } = conversa;
@@ -74,6 +90,7 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
    * em que ele muda alguma coisa.
    */
   const controle = (
+    <div className="flex flex-wrap items-center gap-3">
     <label
       className="flex items-center gap-1.5 text-[12px] text-[var(--ink-dim)]"
       title="Inclui quem recebeu mensagem nossa e ainda não respondeu"
@@ -85,6 +102,16 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
       />
       mostrar enviadas sem resposta
     </label>
+    {numeros.length > 1 && (
+      <label className="flex items-center gap-1.5 text-[12px] text-[var(--ink-dim)]">
+        numero
+        <select value={numeroFiltro} onChange={(e) => setNumeroFiltro(e.target.value)} className="rounded-lg border border-white/[0.1] bg-white/[0.03] px-2 py-1 text-[12px] outline-none focus:border-[var(--cyan)]">
+          <option value="">todos</option>
+          {numeros.map((n) => (<option key={n.id} value={n.id}>{rotuloDoNumero(n.id, numeros)}</option>))}
+        </select>
+      </label>
+    )}
+    </div>
   );
 
   if (!conversas?.length) {
@@ -144,7 +171,7 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
                   {c.ultimoLado === 'equipe' && <span>nós: </span>}
                   {c.ultimoTexto || rotuloDoTipo(c.ultimoTipo)}
                 </span>
-                <span className="font-mono text-[10px] text-[var(--ink-faint)]">
+                {(c.numerosIds?.length > 1 || (numeros.length > 1 && c.numeroId)) && (<span className="font-mono text-[10px] text-[var(--cyan)]">via {rotuloDoNumero(c.numeroId, numeros)} </span>)}<span className="font-mono text-[10px] text-[var(--ink-faint)]">
                   {c.recebidas === 0
                     ? `${c.enviadas} enviada(s) · sem resposta`
                     : c.janela.estado === 'aberta'
@@ -165,6 +192,8 @@ export default function InboxPanel({ empresaId }: { empresaId: string }) {
           enviando={enviando}
           onAtualizar={atualizar}
           onVoltar={fechar}
+          numeros={numeros}
+          numeros={numeros}
           anexo={anexo}
           onAnexar={anexar}
           onEnviarAnexo={enviarAnexo}

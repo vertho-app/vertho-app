@@ -15,7 +15,8 @@
 > | **Caixa da equipe (todas as empresas + não identificados)** | `app/admin-v2/inbox/` |
 > | Thread e estado da conversa, compartilhados | `app/admin-v2/_inbox/` |
 > | Núcleos puros (janela, thread, caixa, rascunhos) | `lib/inbox/` |
-> | Schema | mig 212 (inbound), 214 (templates), 215 (enviadas + lida), **216 (view de conversas)** |
+> | Catálogo de números remetentes (2º número) | `lib/whatsapp/numeros.ts` (mig 252) |
+> | Schema | mig 212 (inbound), 214 (templates), 215 (enviadas + lida), **216 (view de conversas)**, **252 (segundo número)** |
 > | Testes | `tests/unit/integrations/inbox-*.test.ts`, `whatsapp-cloud-*.test.ts` |
 >
 > **A revisão de 14/08 mudou o escopo.** A v1 previa só leitura; o pedido original era ver **e
@@ -204,6 +205,10 @@ O que a fase 2 exige, e não é pouco:
 1. **Envio de texto livre pela Cloud API.** `lib/whatsapp/cloud-api.ts` hoje só manda template.
 2. **A resposta sai pelo MESMO `to_phone_id` da conversa** — sem failover para o número por QR.
    Responder de outro número quebra o fio da conversa para quem recebe.
+   ✅ Implementado na mig 252 (14/09/2026): `prepararEnvio` lê o `to_phone_id` da
+   última recebida, `cloud-api.ts` envia por ele (`numeroId`), e com 2+ números a
+   tela mostra filtro + "via …" por conversa. Sem `WHATSAPP_NUMEROS_EXTRA`, tudo
+   cai no inicial — comportamento idêntico ao de 1 número.
 3. **Revalidar a janela NO SERVIDOR, no instante do envio.** O estado renderizado envelhece: o
    gestor abre com a janela aberta, escreve cinco minutos e envia com ela fechada. Confiar na tela
    produz erro 131047 da Meta e uma mensagem que a pessoa nunca recebe.

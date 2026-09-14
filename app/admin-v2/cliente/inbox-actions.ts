@@ -42,17 +42,21 @@ async function exigirPlataforma() {
  */
 export async function listarConversas(
   empresaId: string,
-  opts?: { incluirSemResposta?: boolean },
+  opts?: { incluirSemResposta?: boolean; numeroId?: string | null },
 ): Promise<Conversa[]> {
   await exigirPlataforma();
   const tdb = tenantDb(empresaId);
 
   let q = tdb.from('whatsapp_conversas')
-    .select('empresa_id, from_phone, ultima_em, ultima_recebida_em, total, enviadas, nao_lidas, ultimo_texto, ultimo_tipo, ultimo_lado, colaborador_id, ambiguidade')
+    .select('empresa_id, from_phone, ultima_em, ultima_recebida_em, total, enviadas, nao_lidas, ultimo_texto, ultimo_tipo, ultimo_lado, colaborador_id, ambiguidade, ultimo_numero_id, numeros_ids')
     .order('ultima_em', { ascending: false })
     .limit(300);
   // A view traz os DOIS lados desde a mig 220; `total` conta só o que ELA mandou.
   if (!opts?.incluirSemResposta) q = q.gt('total', 0);
+  // Filtro por número (mig 252): conversa que passou por aquele número — seja
+  // na última mensagem ou em qualquer ponto (`numeros_ids` conta o histórico).
+  const numeroId = (opts?.numeroId || '').trim();
+  if (numeroId) q = q.contains('numeros_ids', [numeroId]);
 
   const { data, error } = await q;
   if (error) throw new Error(`conversas: ${error.message}`);
@@ -95,7 +99,7 @@ export async function carregarThread(empresaId: string, telefone: string): Promi
   const formas = formasDoTelefone(telefone);
 
   const { data: recebidas, error: e1 } = await tdb.from('whatsapp_mensagens_recebidas')
-    .select('id, texto, tipo, recebida_em, raw, colaborador_id')
+    .select('id, texto, tipo, recebida_em, raw, colaborador_id, to_phone_id')
     .in('from_phone', formas)
     .order('recebida_em', { ascending: false })
     .limit(TETO_THREAD);
@@ -110,7 +114,7 @@ export async function carregarThread(empresaId: string, telefone: string): Promi
    * sem nenhum erro na tela. Ver `lib/whatsapp/nono-digito.ts`.
    */
   const { data: enviadas, error: e2 } = await tdb.from('whatsapp_mensagens_enviadas')
-    .select('id, texto, tipo, template_nome, autor_email, origem, erro, enviada_em, wa_message_id, raw')
+    .select('id, texto, tipo, template_nome, autor_email, origem, erro, enviada_em, wa_message_id, raw, from_phone_id')
     .in('to_phone', formas)
     .order('enviada_em', { ascending: false })
     .limit(TETO_THREAD);
@@ -143,14 +147,20 @@ export async function carregarThread(empresaId: string, telefone: string): Promi
   // DESC ⇒ a mais recente é a PRIMEIRA. Ler `.at(-1)` aqui pegaria a mais antiga
   // das 300 e a janela nasceria fechada com a conversa viva.
   const ultimaRecebida = (recebidas || [])[0] as any;
+  // O banco fala snake_case (`to_phone_id`/`from_phone_id`); a thread fala
+  // `numero_id` (mig 252). O mapeamento vive aqui, na borda, não no montador.
+  const paraThread = {
+    recebidas: ((recebidas || []) as any[]).map((r) => ({ ...r, numero_id: r.to_phone_id ?? null })),
+    enviadas: ((enviadas || []) as any[]).map((s) => ({ ...s, numero_id: s.from_phone_id ?? null })),
+  };
   return {
     telefone,
     nome,
     colaboradorId,
     janela: calcularJanela(ultimaRecebida?.recebida_em ?? null),
     itens: montarThread({
-      recebidas: (recebidas || []) as any,
-      enviadas: (enviadas || []) as any,
+      recebidas: paraThread.recebidas as any,
+      enviadas: paraThread.enviadas as any,
       entregas: entregas as any,
     }),
   };
@@ -198,6 +208,11 @@ interface Preparo {
   ok: boolean;
   /** Presente quando `ok`. */
   colaboradorId?: string | null;
+  /**
+   * Número de ORIGEM da conversa — `to_phone_id` da última recebida (mig 252).
+   * É por ele que a resposta sai. NULL = histórico sem número = número inicial.
+   */
+  numeroId?: string | null;
   /** Presente quando `!ok` — já é a resposta pronta para o cliente. */
   resposta?: ResultadoEnvio;
 }
@@ -205,7 +220,7 @@ interface Preparo {
 async function prepararEnvio(tdb: any, telefone: string, dedupe: string | null): Promise<Preparo> {
   // 1) Estado REAL da janela, agora.
   const { data: ultima, error: eU } = await tdb.from('whatsapp_mensagens_recebidas')
-    .select('recebida_em, colaborador_id')
+    .select('recebida_em, colaborador_id, to_phone_id')
     .in('from_phone', formasDoTelefone(telefone))
     .order('recebida_em', { ascending: false })
     .limit(1)
@@ -236,7 +251,7 @@ async function prepararEnvio(tdb: any, telefone: string, dedupe: string | null):
     if (jaExiste) return { ok: false, resposta: { ok: true, wamid: (jaExiste as any).wa_message_id ?? null } };
   }
 
-  return { ok: true, colaboradorId: (ultima as any)?.colaborador_id ?? null };
+  return { ok: true, colaboradorId: (ultima as any)?.colaborador_id ?? null, numeroId: (ultima as any)?.to_phone_id ?? null };
 }
 
 /**
@@ -273,7 +288,7 @@ export async function responderConversa(args: {
   // mesmo envio apareceriam como duas mensagens na thread.
   const r = await enviarTextoCloud(
     { phone: args.telefone, texto },
-    { motivo: 'atendimento', empresaId: args.empresaId, colaboradorId, dedupeKey: dedupe, origem: 'inbox' },
+    { motivo: 'atendimento', empresaId: args.empresaId, colaboradorId, dedupeKey: dedupe, origem: 'inbox', numeroId: preparo.numeroId ?? null },
   );
 
   // 4) Grava o CONTEÚDO — inclusive quando falha. Uma resposta que não saiu
@@ -288,6 +303,7 @@ export async function responderConversa(args: {
     tipo: 'text',
     texto,
     resultado: r,
+    numeroId: preparo.numeroId ?? null,
   });
 
   return r.ok
@@ -310,6 +326,8 @@ async function gravarEnviada(tdb: any, d: {
   texto: string | null;
   /** Payload no MESMO formato da Meta — é o que faz `midiaIdDoRaw` servir os dois lados. */
   raw?: Record<string, unknown> | null;
+  /** Número de ORIGEM (mig 252): o mesmo pelo qual a pessoa escreveu. */
+  numeroId?: string | null;
   resultado: { ok: boolean; providerMessageId?: string | null; reason?: string };
 }): Promise<void> {
   const { error } = await tdb.from('whatsapp_mensagens_enviadas').insert({
@@ -317,7 +335,7 @@ async function gravarEnviada(tdb: any, d: {
     colaborador_id: d.colaboradorId,
     wa_message_id: d.resultado.providerMessageId ?? null,
     to_phone: d.telefone,
-    from_phone_id: process.env.PHONE_NUMBER_ID || null,
+    from_phone_id: d.numeroId ?? process.env.PHONE_NUMBER_ID ?? null,
     tipo: d.tipo,
     texto: d.texto,
     raw: (d.raw ?? null) as any,
@@ -416,6 +434,7 @@ export async function responderComAnexo(args: {
       empresaId, colaboradorId, telefone, email, dedupe,
       tipo: classe.tipo!, texto: legenda || null, raw: { filename: nome },
       resultado: { ok: false, reason: `falha ao assinar o link: ${eA?.message ?? 'sem URL'}` },
+      numeroId: preparo.numeroId ?? null,
     });
     return { ok: false, motivo: 'Não foi possível preparar o arquivo para envio.' };
   }
@@ -423,7 +442,7 @@ export async function responderComAnexo(args: {
   // 3) Envia pelo link.
   const r = await enviarMidiaCloud(
     { phone: telefone, tipo: classe.tipo!, link: assinada.signedUrl, legenda, nomeArquivo: nome },
-    { motivo: 'atendimento-anexo', empresaId, colaboradorId, dedupeKey: dedupe, origem: 'inbox' },
+    { motivo: 'atendimento-anexo', empresaId, colaboradorId, dedupeKey: dedupe, origem: 'inbox', numeroId: preparo.numeroId ?? null },
   );
 
   // 4) Grava no formato DA META, com o `storage_path` para a limpeza saber o que
@@ -435,6 +454,7 @@ export async function responderComAnexo(args: {
     texto: legenda || null,
     raw: { filename: nome, storage_path: args.path, mime },
     resultado: r,
+    numeroId: preparo.numeroId ?? null,
   });
 
   return r.ok

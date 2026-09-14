@@ -17,7 +17,7 @@
 import { calcularJanela } from './janela';
 import type { Conversa, ConversaGlobal, ResumoCaixa } from './tipos';
 
-/** Linha crua da view `whatsapp_conversas` (mig 216, ampliada na 220). */
+/** Linha crua da view `whatsapp_conversas` (mig 216, ampliada na 220 e na 252). */
 export interface LinhaConversa {
   empresa_id: string | null;
   from_phone: string;
@@ -40,6 +40,10 @@ export interface LinhaConversa {
   ultimo_lado?: 'pessoa' | 'equipe' | null;
   colaborador_id: string | null;
   ambiguidade: string | null;
+  /** Número da mensagem mais recente — é por ele que a resposta sai (mig 252). */
+  ultimo_numero_id?: string | null;
+  /** Todos os números da conversa — filtro e breakdown (mig 252). */
+  numeros_ids?: string[] | null;
 }
 
 /**
@@ -76,6 +80,8 @@ function paraConversa(l: LinhaConversa, nomes: Map<string, string>, agora: numbe
     recebidas,
     enviadas: Number(l.enviadas) || 0,
     ultimoLado: l.ultimo_lado === 'equipe' ? 'equipe' : 'pessoa',
+    numeroId: l.ultimo_numero_id ?? null,
+    numerosIds: Array.isArray(l.numeros_ids) ? l.numeros_ids.filter(Boolean).map(String) : [],
     /*
      * A janela é do ÚLTIMO RECEBIDO — é ele que a reabre. Nunca do que enviamos.
      *

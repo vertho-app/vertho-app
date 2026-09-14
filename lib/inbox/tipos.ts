@@ -33,6 +33,18 @@ export interface Conversa {
    * alguém esperando resposta; a mesma frase vinda de nós é o último disparo.
    */
   ultimoLado: 'pessoa' | 'equipe';
+  /**
+   * Número da mensagem mais recente (`ultimo_numero_id` da view, mig 252).
+   *
+   * É por ele que a resposta sai — e é o que a tela mostra como "por onde".
+   * NULL = histórico sem número = número inicial.
+   */
+  numeroId: string | null;
+  /**
+   * Todos os números que já apareceram na conversa (`numeros_ids` da view).
+   * Array vazio = só histórico sem número. Serve ao filtro e ao breakdown.
+   */
+  numerosIds: string[];
 }
 
 /**

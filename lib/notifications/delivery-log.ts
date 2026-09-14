@@ -53,6 +53,13 @@ export interface EntregaInput {
    * sabe, que é exatamente o que a mig 212 existe para resolver.
    */
   providerMessageId?: string | null;
+  /**
+   * Número que ENVIOU — `phone_number_id` da Meta (mig 252).
+   *
+   * NULL = histórico ou caminho que não sabe (cai no número inicial). É o que
+   * permite o dash responder "quantas saíram por cada número" sem adivinhar.
+   */
+  fromPhoneId?: string | null;
 }
 
 const TABELA = 'notification_deliveries';
@@ -82,6 +89,7 @@ export async function registrarEntrega(
         error: input.error ?? null,
         dedupe_key: input.dedupeKey ?? null,
         provider_message_id: input.providerMessageId ?? null,
+        from_phone_id: input.fromPhoneId ?? null,
       })
       .select('id')
       .single();

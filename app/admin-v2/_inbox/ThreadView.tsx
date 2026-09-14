@@ -6,6 +6,7 @@ import type { ThreadCompleta } from '@/lib/inbox/tipos';
 import { restanteLegivel } from '@/lib/inbox/janela';
 import { MIMES_ACEITOS } from '@/lib/inbox/anexos';
 import SeletorEmoji from './SeletorEmoji';
+import { rotuloDoNumero, type NumeroRemetente } from '@/lib/whatsapp/numeros';
 
 /**
  * A conversa aberta — um componente só, usado pela caixa do cliente e pela caixa
@@ -68,6 +69,7 @@ export default function ThreadView({
   onAtualizar,
   onVoltar,
   contexto,
+  numeros,
   anexo,
   onAnexar,
   onEnviarAnexo,
@@ -81,6 +83,11 @@ export default function ThreadView({
   onAtualizar: () => void;
   /** Linha extra no cabeçalho — na caixa global, de que cliente é a conversa. */
   contexto?: string | null;
+  /**
+   * Catálogo de números (mig 252). Quando há 2+, cada mensagem mostra "por onde"
+   * passou — sem ele, a conversa pareceria de um número só.
+   */
+  numeros?: NumeroRemetente[];
   anexo: File | null;
   onAnexar: (f: File | null) => void;
   onEnviarAnexo: () => void;
@@ -144,7 +151,7 @@ export default function ThreadView({
           <p className="font-mono text-[10px] text-[var(--ink-faint)]">
             {thread.telefone}
             {contexto ? ` · ${contexto}` : ''}
-          </p>
+          {(() => { const vistos = [...new Set((thread?.itens ?? []).map((m) => m.numeroId).filter(Boolean))]; return (numeros?.length ?? 0) > 1 || vistos.length > 1 ? (<span className="text-[var(--cyan)]"> · via {rotuloDoNumero((thread?.itens ?? []).slice(-1)[0]?.numeroId ?? null, numeros)}</span>) : null; })()}</p>
         </div>
         <button
           type="button"
@@ -226,7 +233,7 @@ export default function ThreadView({
         {aviso && (
           <p className="mb-2 rounded-lg bg-[#e74c3c1a] px-3 py-2 text-[12px] text-[#ff9b90]">{aviso}</p>
         )}
-        {j?.podeTextoLivre ? (
+          {j?.podeTextoLivre ? (
           <div className="flex flex-col gap-2">
             {anexo && (
               <div className="flex items-center gap-2 rounded-lg border border-[var(--cyan)]/30 bg-[#34c5cc12] px-3 py-2 text-[12px]">

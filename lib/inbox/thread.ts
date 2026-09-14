@@ -52,6 +52,14 @@ export interface ItemThread {
   lidaEm?: string | null;
   /** Quem enviou, quando foi uma pessoa da equipe. */
   autorEmail?: string | null;
+  /**
+   * Número por onde esta mensagem passou (mig 252).
+   *
+   * Nas recebidas = o número que RECEBEU (para onde ela escreveu); nas enviadas
+   * = o que ENVIOU. NULL = histórico sem número = número inicial. A tela usa
+   * para dizer "por onde" sem partir a conversa em duas.
+   */
+  numeroId?: string | null;
   erro?: string | null;
 }
 
@@ -61,6 +69,8 @@ export interface LinhaRecebida {
   texto: string | null;
   tipo: string;
   recebida_em: string;
+  /** Número que RECEBEU (to_phone_id, mig 212) — por onde ELA escreveu. */
+  numero_id?: string | null;
   raw?: any;
 }
 
@@ -75,6 +85,8 @@ export interface LinhaEnviada {
   erro: string | null;
   enviada_em: string;
   wa_message_id: string | null;
+  /** Número que ENVIOU (from_phone_id, mig 215) — por onde NÓS saímos. */
+  numero_id?: string | null;
   /** Payload no formato da Meta quando é anexo: `{ image: { id } }`. */
   raw?: any;
 }
@@ -156,6 +168,7 @@ export function montarThread(args: {
       tipo: r.tipo,
       midiaId: midiaIdDoRaw(r.raw),
       nomeArquivo: nomeDoArquivoDoRaw(r.raw),
+      numeroId: r.numero_id ?? null,
     });
   }
 
@@ -179,6 +192,7 @@ export function montarThread(args: {
       storagePath: s.raw?.storage_path ? String(s.raw.storage_path) : null,
       rotulo: s.template_nome,
       autorEmail: s.autor_email,
+      numeroId: s.numero_id ?? null,
       status: st?.provider_status ?? null,
       entregueEm: st?.delivered_at ?? null,
       lidaEm: st?.opened_at ?? null,

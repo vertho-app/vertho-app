@@ -53,9 +53,9 @@ export interface CaixaGlobal {
   truncada: boolean;
 }
 
-/** Colunas da view `whatsapp_conversas` (mig 220 — os dois lados). */
+/** Colunas da view `whatsapp_conversas` (mig 220 — os dois lados; 252 — o número). */
 const COLUNAS_CONVERSA =
-  'empresa_id, from_phone, ultima_em, ultima_recebida_em, total, enviadas, nao_lidas, ultimo_texto, ultimo_tipo, ultimo_lado, colaborador_id, ambiguidade';
+  'empresa_id, from_phone, ultima_em, ultima_recebida_em, total, enviadas, nao_lidas, ultimo_texto, ultimo_tipo, ultimo_lado, colaborador_id, ambiguidade, ultimo_numero_id, numeros_ids';
 
 /**
  * Todas as conversas, de todas as empresas, mais recente primeiro.
@@ -66,7 +66,7 @@ const COLUNAS_CONVERSA =
  * Ligado, ela vira o registro do canal — útil para "o que foi mandado para
  * fulano?" e para ver de quem o silêncio é antigo.
  */
-export async function listarCaixaGlobal(opts?: { incluirSemResposta?: boolean }): Promise<CaixaGlobal> {
+export async function listarCaixaGlobal(opts?: { incluirSemResposta?: boolean; numeroId?: string | null }): Promise<CaixaGlobal> {
   await exigirPlataforma();
   const sb = await requireAdminSupabase();
 
@@ -76,6 +76,9 @@ export async function listarCaixaGlobal(opts?: { incluirSemResposta?: boolean })
     .limit(TETO_CONVERSAS);
   // `total` = mensagens DELA. Sem o filtro, entra quem nunca respondeu.
   if (!opts?.incluirSemResposta) q = q.gt('total', 0);
+  // Filtro por número (mig 252) — mesmo critério da caixa do cliente.
+  const numeroId = (opts?.numeroId || '').trim();
+  if (numeroId) q = q.contains('numeros_ids', [numeroId]);
 
   const { data, error } = await q;
   if (error) throw new Error(`caixa: ${error.message}`);
