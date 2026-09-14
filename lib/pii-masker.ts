@@ -98,7 +98,8 @@ export function maskTextPII(texto: string | null | undefined, extraMap: PIIMap =
   // Emails
   out = out.replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]');
   // Telefones BR (com/sem DDD, com/sem traço)
-  out = out.replace(/\(?\d{2,3}\)?\s?9?\d{4,5}[-\s]?\d{4}/g, '[telefone]');
+  // Não consumir apenas um pedaço de CNPJ/identificador de 14 dígitos.
+  out = out.replace(/(?<!\d)(?:\+?55[\s.-]?)?\(?[1-9]\d\)?[\s.-]?(?:9\d{4}|\d{4})[-\s]?\d{4}(?!\d)/g, '[telefone]');
   // CPF
   out = out.replace(/\d{3}\.\d{3}\.\d{3}-\d{2}/g, '[cpf]');
   // Substituições customizadas (nome → alias)

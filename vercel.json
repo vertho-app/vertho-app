@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron?action=retencao_pace",
+      "schedule": "40 5 * * *"
+    },
+    {
       "path": "/api/cron?action=cleanup_sessoes",
       "schedule": "0 5 * * *"
     },

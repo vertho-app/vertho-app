@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { cleanupSessoes, triggerSegunda, triggerQuinta, triggerDiario, conarhFollowup, conarhReenvioT0 } from '@/actions/cron-jobs';
 import { safeSecretEqual } from '@/lib/secure-compare';
+import { createSupabaseAdmin } from '@/lib/supabase';
+
+function clienteCron() { return createSupabaseAdmin(); }
 
 // trigger_diario virou DISPATCHER (fan-out QStash por empresa — uma task por
 // empresa, processada na rota worker com maxDuration próprio), então ele mesmo
@@ -81,6 +84,13 @@ export async function GET(req) {
     let result;
 
     switch (action) {
+      case 'retencao_pace': {
+        // Este job também falha fechado em desenvolvimento: o banco é produção.
+        if (!cronSecret || !safeSecretEqual(authHeader?.replace('Bearer ', ''),cronSecret)) return NextResponse.json({ error:'Unauthorized' },{ status:401 });
+        const { executarRetencaoPace } = await import('@/lib/simulador-vendas/retencao');
+        result = await executarRetencaoPace(clienteCron());
+        break;
+      }
       case 'cleanup_sessoes':
         result = await cleanupSessoes();
         // Aproveita o cron diário pra recalcular taxa_conclusao dos micro-conteúdos
@@ -262,9 +272,8 @@ export async function GET(req) {
       // competências na semana 5 e nenhum dos 3 pares (competência × cargo) novos tinha
       // kit, com o piloto já na semana 3 — ninguém dispara o que ninguém sabe que falta.
       case 'preparar_desafios': {
-        const { createSupabaseAdmin } = await import('@/lib/supabase');
         const { prepararDesafiosDaCoorte } = await import('@/lib/season-engine/kit/plano-desafios');
-        const sb = createSupabaseAdmin();
+        const sb = clienteCron();
         const { data: empresas, error } = await sb.from('empresas').select('id,slug').eq('is_demo', false);
         if (error) throw error;
         const resultados: any[] = [];

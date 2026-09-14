@@ -477,6 +477,7 @@ export async function validarModelosDoSysConfig(sysConfig: any): Promise<string[
   // Mesmo padrão que `getModelForTask` já usa aqui embaixo com o supabase.
   const { MODELS } = await import('@/lib/ia-cost-catalog');
   const { modeloTemRota } = await import('@/lib/ai-provedores');
+  const { modeloPaceCompativel } = await import('@/lib/simulador-vendas/modelos');
 
   const ai = sysConfig?.ai || {};
   const declarados: Array<{ onde: string; modelo: unknown }> = [];
@@ -492,6 +493,10 @@ export async function validarModelosDoSysConfig(sysConfig: any): Promise<string[
     if (modelo === '' || modelo === null || modelo === undefined) continue;
     if (typeof modelo !== 'string' || !modelo.trim()) {
       problemas.push(`${onde}: modelo precisa ser texto (recebido: ${typeof modelo})`);
+      continue;
+    }
+    if (onde.startsWith('sim_vendas_') && !modeloPaceCompativel(modelo)) {
+      problemas.push(`${onde}: "${modelo}" não foi validado para o formato estruturado do PACE. Use um dos modelos compatíveis do simulador.`);
       continue;
     }
     if (!modeloTemRota(modelo)) {

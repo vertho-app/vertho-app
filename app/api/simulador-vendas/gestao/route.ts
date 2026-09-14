@@ -1,23 +1,31 @@
 import { z } from 'zod';
-import { requireAdminRequestSupabase } from '@/lib/admin-supabase';
-import { tenantDb } from '@/lib/tenant-db';
+import { requireUser } from '@/lib/auth/request-context';
+import { readLimiter } from '@/lib/rate-limit';
+import { contexto } from '@/lib/simulador-vendas/access';
+import { historicoEquipe,relatorioEquipe,escopoEquipe } from '@/lib/simulador-vendas/equipe';
 import { falha, json } from '@/lib/simulador-vendas/http';
-import { visaoPublica } from '@/lib/simulador-vendas/core';
-import type { Estado } from '@/lib/simulador-vendas/schema';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
   try {
-    const ctx = await requireAdminRequestSupabase(req, 'reports.individual.view'); if (ctx instanceof Response) return ctx;
+    const auth = await requireUser(req); if (auth instanceof Response) return auth;
+    const limited = await readLimiter.check(req,`sim-vendas-gestao:${auth.email}`); if (limited) return limited;
     const q = new URL(req.url).searchParams;
-    const empresaId = z.string().uuid().parse(q.get('empresaId'));
-    const pagina = z.coerce.number().int().min(0).max(100000).parse(q.get('pagina') || 0);
-    const tdb = tenantDb(empresaId);
-    const result = await tdb.from('sim_vendas_sessoes').select('id,estado,created_at,colaborador_id', { count: 'exact' })
-      .order('created_at', { ascending: false }).order('id').range(pagina * 50, pagina * 50 + 49);
-    if (result.error) return json({ error: 'Não foi possível consultar o histórico da empresa.' }, 503);
-    return json({ total: result.count, pagina, treinos: result.data.map((r: { estado: Estado; colaborador_id: string | null }) => ({
-      ...visaoPublica(r.estado), nomeVendedor: r.estado.nomeVendedor, testeAdmin: !r.colaborador_id,
-    })) });
+    const empresaId = q.get('empresaId'); if (empresaId) z.string().uuid().parse(empresaId);
+    const c = await contexto(req,empresaId,false,auth); if (c instanceof Response) return c;
+    const id = q.get('sessaoId');
+    if (id) return json(await relatorioEquipe(c,z.string().uuid().parse(id)));
+    if (q.get('exportar')==='1') {
+      const ids = await escopoEquipe(c);
+      const inicio = q.get('inicio'),fim = q.get('fim');
+      if (inicio) z.string().datetime().parse(inicio);
+      if (fim) z.string().datetime().parse(fim);
+      if (inicio && fim && Date.parse(fim)<=Date.parse(inicio)) return json({error:'Selecione um período válido.'},400);
+      const { data,error } = await c.tdb.rpc('sim_vendas_exportar',{p_empresa:c.empresaId,p_colaboradores:ids,p_inicio:inicio,p_fim:fim});
+      if (error) return json({error:'Não foi possível exportar o histórico.'},503);
+      if (data?.excedido || !data || Buffer.byteLength(JSON.stringify(data),'utf8')>3000000) return json({error:'Há muitos treinos neste recorte. Selecione um período menor para exportar.'},422);
+      return json(data);
+    }
+    return json(await historicoEquipe(c,q.get('cursor')));
   } catch (e) { return falha(e); }
 }

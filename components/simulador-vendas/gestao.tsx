@@ -1,39 +1,236 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
-import type { SessaoPublica } from '@/lib/simulador-vendas/core';
+import type { ResumoTreino } from '@/lib/simulador-vendas/historico';
+import type { Saidas } from '@/lib/simulador-vendas/schema';
+import { montarCsv } from '@/lib/simulador-vendas/csv';
 import Relatorio from './relatorio';
-type Treino = SessaoPublica & { nomeVendedor: string; testeAdmin: boolean };
+
+type Pagina = { historico: ResumoTreino[]; proximoCursor: string | null };
+type Detalhe = { id: string; nomeVendedor: string; versaoRegua: string; relatorio: Saidas['gerente'] };
+type LinhaExportacao = {
+  id: string;
+  nomeVendedor: string;
+  testeAdmin: boolean;
+  criadoEm: string;
+  nivel: number;
+  status: ResumoTreino['status'];
+  versaoRegua: string;
+  P: number;
+  A: number;
+  C: number;
+  E: number;
+  Media: number;
+  Resumo: string;
+};
 export default function Gestao({ empresaId }: { empresaId: string }) {
-  const [pagina, setPagina] = useState(0), [dados, setDados] = useState<{ total: number; treinos: Treino[] } | null>(null);
-  const [erro, setErro] = useState(''), [ocupado, setOcupado] = useState(false), [selecionado, setSelecionado] = useState<Treino | null>(null);
-  async function carregar(p: number) {
-    const r = await fetchAuth(`/api/simulador-vendas/gestao?empresaId=${encodeURIComponent(empresaId)}&pagina=${p}`, { cache: 'no-store' });
-    const d = await r.json(); if (!r.ok) throw new Error(d.error || 'Não foi possível consultar o histórico.'); return d;
+  const t = useTranslations('SimuladorVendas'),
+    locale = useLocale();
+  const [cursores, setCursores] = useState<Array<string | null>>([null]),
+    [dados, setDados] = useState<Pagina | null>(null);
+  const [erro, setErro] = useState(''),
+    [ocupado, setOcupado] = useState(false),
+    [selecionado, setSelecionado] = useState<Detalhe | null>(null);
+  const [inicio, setInicio] = useState(''),
+    [fim, setFim] = useState('');
+  const vivo = useRef(true),
+    operacao = useRef(0);
+  const pagina = cursores.length - 1,
+    cursor = cursores[pagina];
+  useEffect(() => {
+    vivo.current = true;
+    return () => {
+      vivo.current = false;
+      operacao.current++;
+    };
+  }, []);
+  async function consultar(extras: Record<string, string> = {}) {
+    const q = new URLSearchParams({ empresaId, ...extras });
+    const r = await fetchAuth('/api/simulador-vendas/gestao?' + q, { cache: 'no-store' }),
+      d = await r.json();
+    if (!r.ok) throw new Error(d.error || t('genericError'));
+    return d;
   }
   useEffect(() => {
-    let alive = true; setOcupado(true); setErro('');
-    carregar(pagina).then(d => { if (alive) setDados(d); }).catch(e => { if (alive) setErro(e.message); }).finally(() => { if (alive) setOcupado(false); });
-    return () => { alive = false; };
-  }, [empresaId, pagina]);
-  async function exportar() {
-    setOcupado(true); setErro('');
+    let alive = true;
+    setOcupado(true);
+    setErro('');
+    consultar(cursor ? { cursor } : {})
+      .then((d) => {
+        if (alive) setDados(d);
+      })
+      .catch((e) => {
+        if (alive) setErro(e.message);
+      })
+      .finally(() => {
+        if (alive) setOcupado(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [empresaId, cursor]);
+  async function abrir(id: string) {
+    const ticket = ++operacao.current;
+    setOcupado(true);
+    setErro('');
     try {
-      const rows: Treino[] = []; let total = 0;
-      for (let p = 0; ; p++) { const d = await carregar(p); total = d.total; rows.push(...d.treinos); if (rows.length >= total || d.treinos.length === 0) break; }
-      if (rows.length !== total) throw new Error('O histórico mudou durante a exportação. Tente novamente.');
-      const cell = (v: unknown) => { const s = String(v ?? ''); return '"' + (/^[=+@\-\t\r]/.test(s) ? "'" : '') + s.replace(/"/g, '""') + '"'; };
-      const csv = [['Participante', 'Teste administrativo', 'Data', 'Nível', 'Estado', 'P', 'A', 'C', 'E', 'Média', 'Resumo'], ...rows.map(r => [r.nomeVendedor, r.testeAdmin ? 'Sim' : 'Não', r.criadoEm, r.nivel, r.status, r.relatorio?.P, r.relatorio?.A, r.relatorio?.C, r.relatorio?.E, r.relatorio?.Media, r.relatorio?.Resumo])].map(row => row.map(cell).join(';')).join('\r\n');
-      const url = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
-      const link = document.createElement('a'); link.href = url; link.download = 'treinos-vendas-pace.csv'; link.click(); URL.revokeObjectURL(url);
-    } catch (e) { setErro(e instanceof Error ? e.message : 'Não foi possível exportar.'); } finally { setOcupado(false); }
+      const d = await consultar({ sessaoId: id });
+      if (vivo.current && ticket === operacao.current) setSelecionado(d);
+    } catch (e) {
+      if (vivo.current && ticket === operacao.current)
+        setErro(e instanceof Error ? e.message : t('genericError'));
+    } finally {
+      if (vivo.current && ticket === operacao.current) setOcupado(false);
+    }
   }
-  return <section><div className="flex justify-between gap-4 items-center mb-5"><p className="text-sm text-slate-300">{dados?.total ?? '…'} treinos nesta empresa</p><button onClick={exportar} disabled={ocupado || !dados?.total}>Exportar histórico CSV</button></div>
-    {erro && <p role="alert" className="text-amber-200 my-3">{erro}</p>}
-    <div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead><tr className="text-slate-400 border-b border-white/10">{['Participante', 'Data', 'Estado', 'Nota PACE', 'Relatório'].map(h => <th key={h} className="py-3 pr-4 font-medium">{h}</th>)}</tr></thead>
-      <tbody>{dados?.treinos.map(r => <tr key={r.id} className="border-b border-white/10"><td className="py-3 pr-4">{r.nomeVendedor}{r.testeAdmin && <small className="block text-slate-400">Teste administrativo</small>}</td><td className="pr-4 whitespace-nowrap">{new Date(r.criadoEm).toLocaleDateString('pt-BR')}</td><td className="pr-4">{r.status.replace('_', ' ')}</td><td className="pr-4">{r.relatorio?.Media ?? '—'}</td><td><button disabled={!r.relatorio} onClick={() => setSelecionado(r)}>Ver relatório</button></td></tr>)}</tbody></table></div>
-    {dados?.total === 0 && <p className="text-slate-400 py-8">O histórico aparecerá aqui após o primeiro treino.</p>}
-    <div className="flex items-center gap-3 mt-5"><button disabled={ocupado || pagina === 0} onClick={() => setPagina(p => p - 1)}>Anterior</button><span className="text-sm">Página {pagina + 1}</span><button disabled={ocupado || (pagina + 1) * 50 >= (dados?.total || 0)} onClick={() => setPagina(p => p + 1)}>Próxima</button></div>
-    {selecionado?.relatorio && <div className="border border-white/15 rounded-xl p-5 mt-6"><div className="flex justify-between items-center mb-5"><p>{selecionado.nomeVendedor}</p><button onClick={() => setSelecionado(null)}>Fechar relatório</button></div><Relatorio relatorio={selecionado.relatorio}/></div>}
-  </section>;
+  async function exportar() {
+    const ticket = ++operacao.current;
+    setOcupado(true);
+    setErro('');
+    try {
+      const extras: Record<string, string> = { exportar: '1' };
+      if (inicio) extras.inicio = new Date(inicio + 'T00:00:00').toISOString();
+      if (fim) {
+        const ultimo = new Date(fim + 'T00:00:00');
+        ultimo.setDate(ultimo.getDate() + 1);
+        extras.fim = ultimo.toISOString();
+      }
+      // Projeção de um único snapshot SQL. Não repagina enquanto dados mudam.
+      const d: { linhas: LinhaExportacao[] } = await consultar(extras);
+      if (!vivo.current || ticket !== operacao.current) return;
+      if (!Array.isArray(d.linhas) || new Set(d.linhas.map((r) => r.id)).size !== d.linhas.length)
+        throw new Error(t('genericError'));
+      const csv = montarCsv([
+        [
+          'ID',
+          t('participant'),
+          t('adminTest'),
+          t('date'),
+          t('level'),
+          t('state'),
+          'P',
+          'A',
+          'C',
+          'E',
+          t('average'),
+          t('summary'),
+          t('version', { version: '' }),
+        ],
+        ...d.linhas.map((r) => [
+          r.id,
+          r.nomeVendedor,
+          t(r.testeAdmin ? 'yes' : 'no'),
+          r.criadoEm,
+          r.nivel,
+          t(`status_${r.status}`),
+          r.P,
+          r.A,
+          r.C,
+          r.E,
+          r.Media,
+          r.Resumo,
+          r.versaoRegua,
+        ]),
+      ]);
+      const url = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'pace.csv';
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      if (vivo.current && ticket === operacao.current)
+        setErro(e instanceof Error ? e.message : t('genericError'));
+    } finally {
+      if (vivo.current && ticket === operacao.current) setOcupado(false);
+    }
+  }
+  return (
+    <section>
+      <p className="text-sm text-slate-300 mb-4">{t('teamScope')}</p>
+      <div className="flex flex-wrap gap-4 items-end mb-5">
+        <label className="text-sm">
+          {t('exportStart')}
+          <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} disabled={ocupado} />
+        </label>
+        <label className="text-sm">
+          {t('exportEnd')}
+          <input
+            type="date"
+            value={fim}
+            min={inicio || undefined}
+            onChange={(e) => setFim(e.target.value)}
+            disabled={ocupado}
+          />
+        </label>
+        <button onClick={() => void exportar()} disabled={ocupado}>
+          {t('export')}
+        </button>
+      </div>
+      {erro && (
+        <p role="alert" className="text-amber-200 my-3">
+          {erro}
+        </p>
+      )}
+      {ocupado && (
+        <p role="status" className="text-sm text-slate-400 mb-3">
+          {t('loading')}
+        </p>
+      )}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left">
+          <thead>
+            <tr className="text-slate-400 border-b border-white/10">
+              {['participant', 'date', 'state', 'score', 'report'].map((h) => (
+                <th key={h} className="py-3 pr-4 font-medium">
+                  {t(h)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dados?.historico.map((r) => (
+              <tr key={r.id} className="border-b border-white/10">
+                <td className="py-3 pr-4">
+                  {r.nomeVendedor}
+                  {r.testeAdmin && <small className="block text-slate-400">{t('adminTest')}</small>}
+                </td>
+                <td className="pr-4 whitespace-nowrap">{new Date(r.criadoEm).toLocaleDateString(locale)}</td>
+                <td className="pr-4">{t(`status_${r.status}`)}</td>
+                <td className="pr-4">{r.nota?.toLocaleString(locale) ?? '—'}</td>
+                <td>
+                  <button disabled={ocupado || !r.temRelatorio} onClick={() => void abrir(r.id)}>
+                    {t('viewReport')}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {dados?.historico.length === 0 && <p className="text-slate-400 py-8">{t('emptyHistory')}</p>}
+      <div className="flex items-center gap-3 mt-5">
+        <button disabled={ocupado || pagina === 0} onClick={() => setCursores((c) => c.slice(0, -1))}>
+          {t('previous')}
+        </button>
+        <span className="text-sm">{t('page', { n: pagina + 1 })}</span>
+        <button
+          disabled={ocupado || !dados?.proximoCursor}
+          onClick={() => setCursores((c) => [...c, dados!.proximoCursor])}
+        >
+          {t('next')}
+        </button>
+      </div>
+      {selecionado && (
+        <div className="border border-white/15 rounded-2xl p-5 mt-6">
+          <div className="flex justify-between items-center mb-5">
+            <p>{selecionado.nomeVendedor}</p>
+            <button onClick={() => setSelecionado(null)}>{t('closeReport')}</button>
+          </div>
+          <Relatorio relatorio={selecionado.relatorio} versao={selecionado.versaoRegua} />
+        </div>
+      )}
+    </section>
+  );
 }

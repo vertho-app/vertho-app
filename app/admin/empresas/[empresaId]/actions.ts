@@ -108,7 +108,8 @@ export async function excluirEmpresa(empresaId) {
       adminEmail: ctx.email, acao: 'empresa.excluir', empresaId, empresaSlug: empresa?.slug,
       alvo: empresa?.nome, detalhes: { erro: error.message }, resultado: 'erro',
     });
-    return { success: false, error: error.message };
+    const { erroExclusao } = await import('@/lib/erros-exclusao');
+    return { success: false, error: erroExclusao(error).message };
   }
 
   if (empresa?.slug) removeVercelDomain(empresa.slug).catch(() => {});

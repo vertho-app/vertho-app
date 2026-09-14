@@ -13,6 +13,7 @@
 
 // Supabase admin client (mesmo `any` pragmático do resto do módulo).
 type Sb = any;
+import { erroExclusao } from '@/lib/erros-exclusao';
 
 export async function findColaboradorInTenant(sb: Sb, empresaId: string, id: string): Promise<any | null> {
   const { data } = await sb
@@ -46,7 +47,7 @@ export async function deleteColaboradorInTenant(sb: Sb, empresaId: string, id: s
     .eq('id', id)
     .select('id, nome_completo')
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(erroExclusao(error).message);
   return data || null;
 }
 

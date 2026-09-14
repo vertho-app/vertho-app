@@ -135,13 +135,18 @@ export async function DELETE(req: Request) {
   if (!id) return NextResponse.json({ error: 'id obrigatório' }, { status: 400 });
 
   const sb = createSupabaseAdmin();
-  const { data: existente } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
+  const { data: existente,error: leituraError } = await sb.from('colaboradores').select('empresa_id').eq('id', id).maybeSingle();
+  if (leituraError) return NextResponse.json({ error:'Não foi possível consultar o cadastro.' },{ status:503 });
   if (!existente) return NextResponse.json({ error: 'colab não encontrado' }, { status: 404 });
   const guard = assertTenantAccess(auth, existente.empresa_id);
   if (guard) return guard;
 
   const { error } = await sb.from('colaboradores').delete()
     .eq('id', id).eq('empresa_id', existente.empresa_id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    const { erroExclusao } = await import('@/lib/erros-exclusao');
+    const falha=erroExclusao(error);
+    return NextResponse.json({ error:falha.message }, { status:falha.status });
+  }
   return NextResponse.json({ success: true });
 }

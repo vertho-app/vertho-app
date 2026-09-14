@@ -5,7 +5,7 @@ import { requireUser } from '@/lib/auth/request-context';
 import { comContexto } from '@/lib/execucao-contexto';
 import { contexto } from '@/lib/simulador-vendas/access';
 import { comandoSchema } from '@/lib/simulador-vendas/schema';
-import { consultar, executar } from '@/lib/simulador-vendas/service';
+import { consultar, consultarHistorico, executar } from '@/lib/simulador-vendas/service';
 import { falha, json } from '@/lib/simulador-vendas/http';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
     if (empresa) z.string().uuid().parse(empresa);
     if (id) z.string().uuid().parse(id);
     const c = await contexto(req, empresa, false, auth); if (c instanceof Response) return c;
-    return json(await consultar(c, id));
+    return json(q.get('historico')==='1'?await consultarHistorico(c,q.get('cursor')):await consultar(c,id));
   } catch (e) { return falha(e); }
 }
 export async function POST(req: Request) {
@@ -27,6 +27,7 @@ export async function POST(req: Request) {
     try {
       const csrf = csrfCheck(req); if (csrf) return csrf;
       const auth = await requireUser(req); if (auth instanceof Response) return auth;
+      const identityLimited = await readLimiter.check(req, `sim-vendas-escrita:${auth.email}`); if (identityLimited) return identityLimited;
       const raw = await req.text(); if (raw.length > 16000) return json({ error: 'Mensagem muito longa.' }, 413);
       const cmd = comandoSchema.parse(JSON.parse(raw));
       const c = await contexto(req, cmd.empresaId, true, auth); if (c instanceof Response) return c;

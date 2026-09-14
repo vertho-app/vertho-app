@@ -15,7 +15,7 @@ export const relatorio: Saidas['gerente'] = { P: 7, A: 6, C: 5, E: 4, Media: 10,
 export const semViolacao: Saidas['moderador'] = { violacao: false, categoria: null, severidade: null, acao_sugerida: null, confianca: null, motivo: null };
 export function estado(): Estado {
   return { id: '10000000-0000-4000-8000-000000000001', revisao: 1, status: 'em_andamento', nivel: 1, nomeVendedor: 'Ana',
-    briefing: 'BRIEFING_PRIVADO', prompts: Object.fromEntries(ETAPAS.map(e => [e, { texto: 'PROMPT_PRIVADO', hash: 'hash', versao: '1', modelo: 'gpt-5.4-2026-03-05' }])) as Estado['prompts'],
+    briefing: 'BRIEFING_PRIVADO', prompts: Object.fromEntries(ETAPAS.map(e => [e, { texto: 'PROMPT_PRIVADO', hash: 'cde43cbbeb7a2ebd1a5e66a0476b3d9961273013285909ed7bba8ad9eced3a82', versao: '1', modelo: 'gpt-5.4-2026-03-05' }])) as Estado['prompts'],
     cenario: structuredClone(cenario), fase: 'preparar', mensagens: [], moderacoes: [], intencao: null, relatorio: null, feedback: null,
     criadoEm: '2026-09-13T12:00:00.000Z', encerradoEm: null, recibos: [] };
 }

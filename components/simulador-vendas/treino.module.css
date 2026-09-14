@@ -34,3 +34,4 @@
 .feedback { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
 @media(max-width:800px) { .workspace { grid-template-columns:minmax(0,1fr); } .chat { max-height:55dvh; } .history { max-height:230px; overflow:auto; } .feedback { grid-template-columns:1fr; } }
 @media(prefers-reduced-motion:reduce) { .root * { scroll-behavior:auto; animation:none!important; } }
+.root input[type='date'], .root input[type='datetime-local'] { color-scheme: dark; }
