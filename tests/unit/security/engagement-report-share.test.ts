@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ENGAGEMENT_REPORT_SHARE_TTL_SECONDS,
   expandEngagementReportDate,
+  issueEngagementReportLongShareUrl,
   issueEngagementReportShareToken,
   issueEngagementReportShareUrl,
   issueEngagementReportShortShareUrl,
@@ -27,6 +28,9 @@ describe('link público do relatório de engajamento', () => {
     const token = new URL(url).pathname.split('/').at(-1)!;
     expect(verifyEngagementReportShortShareToken(token, 'projetomacae', EMPRESA, '2026-09-14', NOW))
       .toMatchObject({ tenant: 'projetomacae', empresaId: EMPRESA, reportDate: '2026-09-14' });
+    expect(issueEngagementReportShareUrl({
+      tenantSlug: 'projetomacae', empresaId: EMPRESA, storagePath: PATH, nowSeconds: NOW,
+    })).toMatch(/\/r\/e\/20260914\//);
   });
 
   it('recusa o link curto expirado, adulterado ou aberto em outro tenant', () => {
@@ -50,7 +54,7 @@ describe('link público do relatório de engajamento', () => {
 
   it('usa o domínio do tenant e valida o token durante sete dias', () => {
     const options = { tenantSlug: 'projetomacae', empresaId: EMPRESA, storagePath: PATH, nowSeconds: NOW };
-    const url = issueEngagementReportShareUrl(options);
+    const url = issueEngagementReportLongShareUrl(options);
     expect(url).toMatch(/^https:\/\/projetomacae\.vertho\.ai\/relatorios\/engajamento\//);
     const token = new URL(url).pathname.split('/').at(-1)!;
     expect(verifyEngagementReportShareToken(token, 'projetomacae', NOW + ENGAGEMENT_REPORT_SHARE_TTL_SECONDS - 1))

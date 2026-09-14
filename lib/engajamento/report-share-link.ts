@@ -95,9 +95,20 @@ export function issueEngagementReportShareToken(options: IssueEngagementReportSh
   return `${encoded}.${signature(encoded).toString('base64url')}`;
 }
 
-export function issueEngagementReportShareUrl(options: IssueEngagementReportShareOptions): string {
+export function issueEngagementReportLongShareUrl(options: IssueEngagementReportShareOptions): string {
   const token = issueEngagementReportShareToken(options);
   return tenantUrl(options.tenantSlug, `/relatorios/engajamento/${token}`);
+}
+
+export function issueEngagementReportShareUrl(options: IssueEngagementReportShareOptions): string {
+  if (!validStoragePath(options.storagePath, options.tenantSlug)) throw new Error('Caminho do relatório inválido.');
+  const reportDate = options.storagePath.split('/')[2] || '';
+  return issueEngagementReportShortShareUrl({
+    tenantSlug: options.tenantSlug,
+    empresaId: options.empresaId,
+    reportDate,
+    nowSeconds: options.nowSeconds,
+  });
 }
 
 export function compactEngagementReportDate(reportDate: string): string {
