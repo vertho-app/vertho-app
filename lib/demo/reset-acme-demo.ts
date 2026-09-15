@@ -1,4 +1,5 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { encontrarCelulaVideoDemo } from '@/lib/demo/celula-video';
 import { tenantUrl } from '@/lib/domain';
 import { randomBytes } from 'node:crypto';
 import {
@@ -1263,14 +1264,12 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       : await sb.from('micro_conteudos').insert(videoNoCatalogo);
     if (gravouCatalogo.error) throw new Error(`gravar video no catalogo: ${gravouCatalogo.error.message}`);
 
-    const celulaExistente = await sb.from('videos_gerados')
-      .select('id')
-      .eq('modulo_base_id', cfg.moduloId).eq('empresa_id', destId)
-      .eq('cargo', cfg.cargo).eq('disc_dominante', cfg.disc)
-      .neq('status', 'error').maybeSingle();
-    if (celulaExistente.error) throw new Error(`celula do video da jornada: ${celulaExistente.error.message}`);
+    const celulaExistente = await encontrarCelulaVideoDemo(sb, {
+      id: cfg.celulaId, moduloId: cfg.moduloId, empresaId: destId,
+      cargo: cfg.cargo, disc: cfg.disc,
+    });
 
-    const cellId = celulaExistente.data?.id || cfg.celulaId;
+    const cellId = celulaExistente?.id || cfg.celulaId;
     const payloadCelula = {
       modulo_base_id: cfg.moduloId,
       empresa_id: destId,
@@ -1284,7 +1283,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       created_by: 'demo-jornada',
       error: null,
     };
-    const gravou = celulaExistente.data?.id
+    const gravou = celulaExistente?.id
       ? await sb.from('videos_gerados').update(payloadCelula).eq('id', cellId).eq('empresa_id', destId)
       : await sb.from('videos_gerados').insert({ id: cellId, ...payloadCelula });
     if (gravou.error) throw new Error(`gravar celula do video da jornada: ${gravou.error.message}`);
@@ -1418,14 +1417,10 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       if (kitContentsResult.error) throw new Error(`vincular kit ao módulo da apresentação: ${kitContentsResult.error.message}`);
     }
 
-    const existingCell = await must('load célula do vídeo da apresentação', sb.from('videos_gerados')
-      .select('id')
-      .eq('modulo_base_id', videoInfra.moduleId)
-      .eq('empresa_id', destId)
-      .eq('cargo', DEMO_PRESENTATION_VIDEO.cargo)
-      .eq('disc_dominante', 'C')
-      .neq('status', 'error')
-      .maybeSingle());
+    const existingCell = await encontrarCelulaVideoDemo(sb, {
+      id: videoInfra.cellId, moduloId: videoInfra.moduleId, empresaId: destId,
+      cargo: DEMO_PRESENTATION_VIDEO.cargo, disc: 'C',
+    });
     const cellId = existingCell?.id || videoInfra.cellId;
     const cellPayload = {
       modulo_base_id: videoInfra.moduleId,
