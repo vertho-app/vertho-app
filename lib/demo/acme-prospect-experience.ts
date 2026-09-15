@@ -16,11 +16,6 @@ import {
 export { isAcmeProspectAuthUser } from '@/lib/demo/acme-prospect-tracking';
 
 const ACME_DEMO_SLUG = 'acme-demo';
-const ACME_MANAGER = {
-  nome: 'Carla Menezes',
-  email: 'carla.demo@vertho.ai',
-} as const;
-
 export type AcmeProspectExperienceResult =
   | { ok: true; access: AcmeProspectExperienceAccess }
   | { ok: false; error: string };
@@ -133,8 +128,28 @@ export async function prepareAcmeProspectExperience(
       cargo: role.cargo,
       role: 'colaborador',
       area_depto: role.area,
-      gestor_nome: ACME_MANAGER.nome,
-      gestor_email: ACME_MANAGER.email,
+      // 🔴 O convidado NÃO é liderado de ninguém, e isto é ISOLAMENTO, não
+      // cosmética. Ele nascia pendurado na gerente do roster comercial
+      // (`carla.demo@vertho.ai`), por cópia do padrão das personas de
+      // Representante Comercial, desde que a experiência nasceu (`d1b559c4`,
+      // 31/08/2026). Só que a visão GESTOR das etapas 02–04 loga exatamente
+      // como ela, e `resolverEscopoDoGestor` lista liderados por `gestor_email`
+      // sem filtro nenhum de convidado: cada visitante lia o NOME REAL e o
+      // cargo de todos os que degustaram antes dele — o pipeline comercial
+      // inteiro, entregue a quem pedisse um link. `Medido 15/09/2026:` 10 de 10
+      // convidados vivos (7 no `acme-demo`, 3 no `gruposinal`) estavam na
+      // equipe dela.
+      //
+      // O vínculo nunca serviu à jornada de quem responde: `gestor_email` é a
+      // régua que dá a OUTRA pessoa o direito de ver esta (`canViewColabJourney`),
+      // nunca um requisito de quem é visto. Duas personas do próprio elenco
+      // (Mariana, Renato) já vivem com gestor nulo. Sem gestor, o convidado
+      // fica fora do escopo de qualquer papel por DUAS camadas: `ilike` não
+      // casa NULL no banco, e a igualdade em código também não.
+      //
+      // Guard: `tests/unit/degustacao-convidado-sem-gestor.test.ts`.
+      gestor_nome: null,
+      gestor_email: null,
       gestor_whatsapp: null,
       telefone: null,
       whatsapp: null,
