@@ -27,7 +27,7 @@ export async function GET(
   }
 
   // 2) Conta + representante + contexto da oportunidade (para o VM cliente-facing)
-  const [{ data: account }, { data: rep }, { data: opp }] = await Promise.all([
+  const [{ data: account }, { data: rep }, { data: opp }, { data: orc }] = await Promise.all([
     proposal.account_id
       ? sb.from('sales_accounts').select('legal_name,trade_name').eq('id', proposal.account_id).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -37,9 +37,16 @@ export async function GET(
     proposal.opportunity_id
       ? sb.from('sales_opportunities').select('identified_need').eq('id', proposal.opportunity_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    // Mesma carga da página (`getPropostaPublica`): PDF e página vêm do MESMO
+    // VM, então o que alimenta um tem que alimentar o outro — senão o cliente
+    // baixa um documento com menos informação do que leu na tela.
+    sb.from('orcamento_cenarios').select('entradas, resultado').eq('proposta_id', proposal.id).maybeSingle(),
   ]);
 
-  const doc = buildProposalDocument(proposal, account, rep, { contexto: (opp as any)?.identified_need ?? null });
+  const doc = buildProposalDocument(proposal, account, rep, {
+    contexto: (opp as any)?.identified_need ?? null,
+    orcamento: orc,
+  });
 
   const buffer = await renderToBuffer(
     // @ts-ignore - JSX em route handler com renderToBuffer

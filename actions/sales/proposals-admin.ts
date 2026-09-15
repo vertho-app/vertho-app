@@ -39,6 +39,7 @@ import { calculateProposalFinancials } from '@/lib/sales/commissions';
 import { CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGE_LABELS } from '@/lib/sales/constants';
 import { novoTokenProposta } from '@/lib/sales/proposal-token';
 import { normalizarResumo } from '@/lib/orcamento/cenario';
+import { validateWhatsApp } from '@/lib/phone';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -61,6 +62,10 @@ export type EntradaConversao = {
   customerType?: string | null;
   productPackage?: string | null;
   accountId?: string | null;
+  /** Contato que assina o documento (mig 255) — os três são obrigatórios. */
+  contatoNome: string;
+  contatoEmail: string;
+  contatoWhatsapp: string;
 };
 
 function numeroPositivoOu(v: unknown, limite: number): number | null {
@@ -142,6 +147,23 @@ export async function criarPropostaDeOrcamento(
   const accountId = typeof bruto.accountId === 'string' && bruto.accountId ? bruto.accountId : null;
   const paymentTerms = typeof bruto.paymentTerms === 'string' ? bruto.paymentTerms.trim() : '';
 
+  // ── Contato do documento (mig 255) ────────────────────────────────────────
+  // Obrigatório: a proposta do deal desk não tem RC, e sem estes três campos o
+  // documento que vai ao cliente não diz com quem falar. Era exatamente o que
+  // acontecia com a PROP-2026-0008 — "Representante Vertho", sem e-mail nem
+  // telefone, no rodapé de um contrato de sete dígitos.
+  const contatoNome = typeof bruto.contatoNome === 'string' ? bruto.contatoNome.trim() : '';
+  const contatoEmail = typeof bruto.contatoEmail === 'string' ? bruto.contatoEmail.trim().toLowerCase() : '';
+  const contatoWhats = typeof bruto.contatoWhatsapp === 'string' ? bruto.contatoWhatsapp.trim() : '';
+  if (!contatoNome) return { success: false, error: 'Informe o nome de quem assina a proposta pela Vertho.' };
+  if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(contatoEmail)) {
+    return { success: false, error: 'Informe um e-mail de contato válido para o cliente responder.' };
+  }
+  const fone = validateWhatsApp(contatoWhats);
+  if (!('e164' in fone)) {
+    return { success: false, error: `WhatsApp do contato: ${fone.error}` };
+  }
+
   // ── O orçamento é a fonte dos números ──
   const { data: orc, error: erroOrc } = await sb
     .from('orcamento_cenarios')
@@ -204,6 +226,10 @@ export async function criarPropostaDeOrcamento(
       discount_requested: descontoPct,
       payment_terms: paymentTerms || null,
       included_scope: escopo,
+      contact_name: contatoNome,
+      contact_email: contatoEmail,
+      // E.164 sem "+", normalizado: é o que monta o link wa.me do documento.
+      contact_phone: fone.e164,
       // `commercial_notes` NÃO é interno: buildProposalDocument o expõe como
       // `notasComerciais` no documento que o cliente lê. A proveniência fica em
       // created_by_email + orcamento_cenarios.proposta_id + admin_audit_log.

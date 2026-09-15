@@ -271,6 +271,50 @@ ficam o fluxo e as seções. Commit `3316392f`.
   mostrar o **valor mensal** (recorrência é a decisão comercial), e o total do
   contrato virou card menor ao lado.
 
+## Documento comercial 2.0 — informação, aceite e contato (14/09)
+
+O documento era **visualmente correto e comercialmente pobre**: abria com "Proposta
+Comercial / Para: Cliente", explicava a Vertho em duas linhas e terminava num
+contato sem e-mail nem telefone. Numa proposta de R$ 1,5 milhão (PROP-2026-0008),
+tudo que o cliente lia sobre o que ia receber eram os seis bullets do escopo.
+
+O que mudou (mesma dupla: página pública + PDF, do MESMO VM):
+
+- **Abertura com a decisão na primeira dobra** — capa navy da marca com o
+  investimento total e, logo abaixo, a faixa de métricas do programa
+  (participantes · cargos · ciclos · duração). Esses números vinham do orçamento
+  e **nunca tinham saído de lá**.
+- 🔴 **Fronteira de custo**: eles saem de `orcamento_cenarios.entradas/resultado`,
+  os mesmos jsonb que carregam margem, custo por pessoa, custo de IA e desconto
+  máximo. `lib/sales/proposal-programa.ts` é a ÚNICA porta e é uma **allowlist** —
+  campo novo no orçamento não passa por esquecimento. Travado em
+  `tests/unit/sales-proposta-documento.test.ts`, com a linha REAL do orçamento
+  como entrada (fixture limpa não prova vedação nenhuma).
+- **Seções novas**: 3 pilares (diagnóstico / trilha / evidência), 8 entregas do
+  que está incluso, "o que cada pessoa recebe × o que a instituição recebe",
+  cronograma com duração e ENTREGA por etapa, investimento por participante.
+  O conteúdo institucional é constante em `lib/sales/proposal-document.ts` — é a
+  mesma história em toda proposta e precisa de um lugar revisado uma vez só.
+  ⛔ Nada ali cita bloco off-line: o "não incluso" explicava o **Pulso** para
+  negar eNPS, e o Pulso está fora do ar desde 31/08.
+- **Destinatário não se inventa**: sem conta no CRM e sem `cliente_nome`, o bloco
+  SOME (antes escrevia "Cliente" na capa). Usar o nome do CENÁRIO do orçamento
+  seria pior — aquele campo é interno.
+- **Contato é campo da proposta** (mig 255: `contact_name/email/phone`),
+  obrigatório na conversão do deal desk e validado no server (`validateWhatsApp`,
+  E.164 sem "+", que é o que monta o `wa.me`). Precedência: proposta → RC →
+  canais públicos da Vertho. A tela de orçamento lembra o último contato usado.
+- **Aceite pelo próprio link** (mig 255: `accepted_*`), decisão do dono:
+  `registrarAceitePublico` exige **nome, cargo e e-mail**, guarda IP e user-agent,
+  é **idempotente** (segundo clique não reescreve quem assinou primeiro), recusa
+  proposta expirada ou fora de `approved`/`sent_to_client`, e tem rate limit por
+  token. ⚠️ Os três campos são DECLARAÇÃO do cliente — ninguém autenticou ninguém.
+  Verificado ponta a ponta em 14/09 com uma proposta DESCARTÁVEL (criada, aceita
+  pelo navegador e apagada) — o script fica fora do repo, como todo `scripts/_*`.
+
+Detalhe visual e as duas armadilhas do PDF (rgba vira verde; ✓/✕/→ somem):
+`docs/DESIGN-SYSTEM.md`.
+
 ## Correções e simulador de preço (06/07)
 
 - **Toaster montado no `RepresentativeShell`** (`components/sales/representative-shell.tsx:259`):

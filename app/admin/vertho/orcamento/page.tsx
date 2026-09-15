@@ -468,6 +468,13 @@ export default function OrcamentoPage() {
   const [convPagamento, setConvPagamento] = useState('');
   const [convTipoCliente, setConvTipoCliente] = useState('');
   const [convPacote, setConvPacote] = useState('');
+  // Contato que assina o documento (mig 255). Obrigatório no server: sem RC, é
+  // a única coisa que diz ao cliente com quem falar. Guardado no navegador
+  // porque é quase sempre o mesmo — redigitar a cada conversão é o atrito que
+  // faz alguém deixar em branco.
+  const [convContatoNome, setConvContatoNome] = useState('');
+  const [convContatoEmail, setConvContatoEmail] = useState('');
+  const [convContatoWhats, setConvContatoWhats] = useState('');
 
   /**
    * Junta o estado da tela num `EntradasOrcamento`. Tipar o retorno é o que
@@ -679,7 +686,16 @@ export default function OrcamentoPage() {
     };
   }, [calc.parcelas, calc.valorTotalTabela, pricing.descontoPct]);
 
+  const CONTATO_LS = 'vertho.orcamento.contatoProposta';
+
   function aoAbrirConversao() {
+    try {
+      const salvo = JSON.parse(window.localStorage.getItem(CONTATO_LS) || '{}');
+      if (!convContatoNome && typeof salvo.nome === 'string') setConvContatoNome(salvo.nome);
+      if (!convContatoEmail && typeof salvo.email === 'string') setConvContatoEmail(salvo.email);
+      if (!convContatoWhats && typeof salvo.whats === 'string') setConvContatoWhats(salvo.whats);
+    } catch { /* storage bloqueado: os campos só ficam vazios */ }
+
     const j = JORNADAS.find((x) => x.key === jornada) ?? JORNADAS[0];
     setConvEscopo(escopoPropostaDoCenario(coletarEntradas(), resumo, {
       rotulo: j.rotulo,
@@ -700,11 +716,19 @@ export default function OrcamentoPage() {
         paymentTerms: convPagamento || null,
         customerType: convTipoCliente || null,
         productPackage: convPacote || null,
+        contatoNome: convContatoNome,
+        contatoEmail: convContatoEmail,
+        contatoWhatsapp: convContatoWhats,
       });
       if (!r.success || !r.data) {
         setAviso({ tom: 'erro', texto: r.error || 'Não foi possível converter o orçamento.' });
         return;
       }
+      try {
+        window.localStorage.setItem(CONTATO_LS, JSON.stringify({
+          nome: convContatoNome, email: convContatoEmail, whats: convContatoWhats,
+        }));
+      } catch { /* storage bloqueado: só não lembra na próxima */ }
       setIdent((i) => ({ ...i, propostaId: r.data!.id }));
       setConvAberta(false);
       setAviso({
@@ -1398,11 +1422,46 @@ export default function OrcamentoPage() {
                 </div>
               </div>
 
+              <div className="mt-3 border-t border-amber-300/15 pt-3">
+                <p className="text-[9px] uppercase tracking-widest text-gray-500">
+                  Contato que assina a proposta — o cliente vê e responde aqui
+                </p>
+                <input
+                  id="conv-contato-nome"
+                  type="text"
+                  value={convContatoNome}
+                  onChange={(e) => setConvContatoNome(e.target.value)}
+                  placeholder="Nome de quem assina"
+                  aria-label="Nome do contato na Vertho"
+                  className="mt-1.5 w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-white outline-none placeholder:text-gray-600 focus:border-amber-300"
+                />
+                <div className="mt-1.5 grid grid-cols-2 gap-2">
+                  <input
+                    id="conv-contato-email"
+                    type="email"
+                    value={convContatoEmail}
+                    onChange={(e) => setConvContatoEmail(e.target.value)}
+                    placeholder="e-mail"
+                    aria-label="E-mail do contato na Vertho"
+                    className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-white outline-none placeholder:text-gray-600 focus:border-amber-300"
+                  />
+                  <input
+                    id="conv-contato-whats"
+                    type="tel"
+                    value={convContatoWhats}
+                    onChange={(e) => setConvContatoWhats(e.target.value)}
+                    placeholder="WhatsApp (11 91180-7809)"
+                    aria-label="WhatsApp do contato na Vertho"
+                    className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-white outline-none placeholder:text-gray-600 focus:border-amber-300"
+                  />
+                </div>
+              </div>
+
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={aoConverter}
-                  disabled={ocupado || !convEscopo.trim()}
+                  disabled={ocupado || !convEscopo.trim() || !convContatoNome.trim() || !convContatoEmail.trim() || !convContatoWhats.trim()}
                   className="inline-flex items-center justify-center gap-1.5 bg-amber-300 px-3 py-2 text-[11px] font-bold text-[#17150e] hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {ocupado ? 'Criando…' : 'Criar proposta'} <Send size={12} />

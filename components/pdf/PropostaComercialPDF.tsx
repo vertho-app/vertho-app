@@ -1,7 +1,12 @@
 import React from 'react';
-import { Document, Page, Text, View, Image, StyleSheet, Font } from '@react-pdf/renderer';
-import { fmtBRL, fmtDate } from '@/lib/sales/formatters';
+import { Document, Page, Text, View, Image, StyleSheet, Font, Svg, Path, Line } from '@react-pdf/renderer';
+import { fmtBRL, fmtDate, fmtDateTime, fmtTelefone } from '@/lib/sales/formatters';
 import type { ProposalDocumentVM } from '@/lib/sales/proposal-document';
+
+// PDF do documento da proposta. Consome o MESMO VM da página pública
+// (`buildProposalDocument`) e segue a mesma ordem de seções: quem lê na tela e
+// quem baixa o arquivo precisa receber a mesma proposta. Ao mexer numa seção
+// aqui, olhe `app/proposta/[token]/page.tsx` — e vice-versa.
 
 // ── Fontes do template (registradas localmente, mesmo padrão do fontsource) ──
 const FS = 'https://cdn.jsdelivr.net/fontsource/fonts';
@@ -31,8 +36,19 @@ Font.register({
 });
 Font.registerHyphenationCallback((word: string) => [word]);
 
-// ── Paleta clara / editorial ────────────────────────────────────────────────
+// ── Paleta clara / editorial + capa navy da marca ───────────────────────────
 const c = {
+  navy: '#0F2B54',
+  cyan: '#34C5CC',
+  // ⚠️ react-pdf NÃO entende `rgba()` — uma cor assim sai com o canal errado
+  // (a linha da capa renderizou VERDE). Sobre a capa navy, os tons de branco
+  // vão PRÉ-COMPOSTOS em hex. Nada de rgba neste arquivo.
+  brancoDim: '#A4AEBE',      // branco 62% sobre navy
+  brancoSuave: '#C1C8D3',    // 74%
+  brancoFraco: '#939FB2',    // 55%
+  linhaCapa: '#354D6F',      // 16%
+  seloCyanBg: '#164766',
+  seloNeutroBg: '#31496C',
   indigo: '#4F46E5',
   indigoSoft: '#C3BFF7',   // texto sobre a barra índigo
   chipBg: '#EEF0FE',
@@ -44,95 +60,139 @@ const c = {
   border: '#E7E9EF',
   borderFooter: '#ECEEF3',
   pink: '#C4488A',
+  green: '#166534',
+  greenBg: '#DCFCE7',
   white: '#FFFFFF',
 };
+
+const PAD_H = 46;
 
 const s = StyleSheet.create({
   page: {
     flexDirection: 'column',
     backgroundColor: c.white,
-    paddingTop: 44,
+    paddingTop: 0,
     paddingBottom: 56,
-    paddingHorizontal: 46,
+    paddingHorizontal: PAD_H,
     fontFamily: 'IBMPlexSans',
     color: c.ink,
   },
 
-  // Brand + pill
-  brandRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  brandLeft: { flexDirection: 'row', alignItems: 'center' },
-  brandSquare: { width: 16, height: 16, borderRadius: 4, backgroundColor: c.indigo, marginRight: 8 },
-  brandName: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 15, color: c.ink, letterSpacing: -0.2 },
-  brandLogo: { height: 16, width: 68, objectFit: 'contain' },
-  pill: {
-    fontFamily: 'IBMPlexMono', fontSize: 7.5, letterSpacing: 1.5,
-    color: c.faint, backgroundColor: c.chipBg,
-    paddingHorizontal: 9, paddingVertical: 5, borderRadius: 5,
-    textTransform: 'uppercase',
+  // Capa navy (sangra para as bordas: a página tem padding horizontal)
+  capa: {
+    marginHorizontal: -PAD_H,
+    paddingHorizontal: PAD_H,
+    paddingTop: 34,
+    paddingBottom: 26,
+    backgroundColor: c.navy,
   },
+  capaTopo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  capaLogo: { height: 17, width: 72, objectFit: 'contain' },
+  brandName: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 15, color: c.white, letterSpacing: -0.2 },
+  capaMeta: { alignItems: 'flex-end' },
+  capaMetaLine: { fontFamily: 'IBMPlexMono', fontSize: 8, color: c.brancoDim, lineHeight: 1.85 },
+  capaMetaValue: { color: c.white },
+  eyebrowCyan: {
+    fontFamily: 'IBMPlexMono', fontSize: 8, letterSpacing: 1.4,
+    color: c.cyan, textTransform: 'uppercase', marginBottom: 8,
+  },
+  capaTitulo: {
+    fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 30, lineHeight: 1.05,
+    letterSpacing: -0.8, color: c.white, maxWidth: '86%',
+  },
+  capaPara: { fontSize: 11, color: c.brancoSuave, marginTop: 12 },
+  capaParaNome: { color: c.white, fontWeight: 600 },
+  capaSelo: {
+    marginTop: 14, alignSelf: 'flex-start',
+    fontFamily: 'IBMPlexMono', fontSize: 7.5, letterSpacing: 1.1, textTransform: 'uppercase',
+    paddingHorizontal: 9, paddingVertical: 4, borderRadius: 5,
+  },
+  // ⚠️ O divisor e um View de 1pt PREENCHIDO, nao um `borderTopWidth`: com
+  // borda o react-pdf pintou a linha de VERDE sobre a capa navy (visto no
+  // PDF renderizado, 14/09/2026) — nao e o hex, e a borda.
+  capaDivisor: { height: 1, backgroundColor: c.linhaCapa, marginTop: 22 },
+  capaTotalWrap: { marginTop: 16 },
+  capaTotalLabel: { fontFamily: 'IBMPlexMono', fontSize: 7.5, letterSpacing: 1.3, color: c.brancoFraco, textTransform: 'uppercase' },
+  capaTotalLinha: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 4 },
+  capaTotalValor: { fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 28, color: c.white, letterSpacing: -0.6 },
+  capaTotalCond: { fontSize: 10, color: c.brancoSuave, marginLeft: 12, marginBottom: 4 },
 
-  // Hero
-  hero: { marginTop: 30, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  heroTitle: { fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 34, lineHeight: 1, letterSpacing: -0.6, color: c.ink },
-  heroMeta: { alignItems: 'flex-end' },
-  heroMetaLine: { fontFamily: 'IBMPlexMono', fontSize: 8.5, color: c.muted, lineHeight: 1.9 },
-  heroMetaValue: { color: c.ink },
-
-  // Selo
-  seloRow: { marginTop: 12, flexDirection: 'row' },
-  selo: {
-    fontFamily: 'IBMPlexMono', fontSize: 8, letterSpacing: 1.2,
-    color: c.white, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 5,
-    textTransform: 'uppercase',
+  // Faixa de métricas
+  metricas: {
+    marginHorizontal: -PAD_H, paddingHorizontal: PAD_H,
+    backgroundColor: c.chipBg, paddingVertical: 12,
+    flexDirection: 'row', justifyContent: 'space-between',
   },
-
-  // Para
-  paraBlock: {
-    marginTop: 24, borderWidth: 1, borderColor: c.border, borderRadius: 12,
-    paddingVertical: 16, paddingHorizontal: 18,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
-  paraLabel: { fontFamily: 'IBMPlexMono', fontSize: 8, letterSpacing: 1.3, color: c.faint, textTransform: 'uppercase' },
-  paraNome: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 16, color: c.ink, marginTop: 4 },
-  paraTipo: {
-    fontSize: 9, color: c.muted, backgroundColor: c.cardBg,
-    paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999,
-  },
+  metrica: { flex: 1, alignItems: 'center' },
+  metricaValor: { fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 17, color: c.indigo, letterSpacing: -0.4 },
+  metricaLabel: { fontSize: 8, color: c.muted, marginTop: 1 },
 
   // Seções
-  section: { marginTop: 26 },
+  section: { marginTop: 24 },
   sectionLabel: {
     fontFamily: 'IBMPlexMono', fontSize: 8, letterSpacing: 1.3, color: c.indigo,
-    textTransform: 'uppercase', marginBottom: 12,
+    textTransform: 'uppercase', marginBottom: 8,
+  },
+  sectionTitle: {
+    fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 16, color: c.ink,
+    letterSpacing: -0.4, marginBottom: 10,
   },
 
-  // Contexto / corpo
-  bodyText: { fontSize: 11, lineHeight: 1.6, color: c.ink2 },
+  // Corpo
+  bodyText: { fontSize: 10.5, lineHeight: 1.6, color: c.ink2 },
   indigoStrong: { color: c.indigo, fontWeight: 600 },
+
+  // Pilares
+  pilarRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  pilar: {
+    width: '32%', borderWidth: 1, borderColor: c.border, borderRadius: 10,
+    paddingVertical: 13, paddingHorizontal: 12,
+  },
+  pilarNum: { fontFamily: 'IBMPlexMono', fontSize: 8.5, color: c.indigo, marginBottom: 5 },
+  pilarTitulo: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 11, color: c.ink, marginBottom: 4 },
+  pilarTexto: { fontSize: 8.8, lineHeight: 1.5, color: c.muted },
 
   // Escopo chips
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   chip: {
     width: '48.5%', backgroundColor: c.chipBg, borderRadius: 8,
     paddingVertical: 10, paddingHorizontal: 14, marginBottom: 9,
-    fontSize: 10, fontWeight: 500, color: c.ink,
+    fontSize: 10, fontWeight: 500, color: c.ink2, lineHeight: 1.45,
   },
+  notaFina: { fontSize: 9, color: c.muted, marginTop: 2 },
 
-  // Investimento cards
-  invRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  invCard: {
-    flex: 1, borderWidth: 1, borderColor: c.border, borderRadius: 10, padding: 14,
+  // Entregas
+  entregaGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  entrega: { width: '48%', flexDirection: 'row', marginBottom: 11 },
+  entregaMark: { marginRight: 7, marginTop: 2.5 },
+  entregaTitulo: { fontSize: 10, fontWeight: 600, color: c.ink },
+  entregaTexto: { fontSize: 8.8, lineHeight: 1.5, color: c.muted, marginTop: 2 },
+
+  // Dois lados
+  ladoRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  lado: {
+    width: '48.5%', borderWidth: 1, borderColor: c.border, borderRadius: 10,
+    paddingVertical: 14, paddingHorizontal: 14,
   },
-  invCardLabel: { fontSize: 9, color: c.faint },
-  invCardValue: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 16, color: c.ink, marginTop: 4 },
+  ladoTitulo: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 11, color: c.ink, marginBottom: 8 },
+  ladoItem: { flexDirection: 'row', marginBottom: 6 },
+  ladoMark: { fontSize: 9.5, marginRight: 7, lineHeight: 1.5 },
+  ladoTexto: { flex: 1, fontSize: 9, color: c.ink2, lineHeight: 1.5 },
+
+  // Investimento
   totalBar: {
-    marginTop: 11, backgroundColor: c.indigo, borderRadius: 12,
+    backgroundColor: c.indigo, borderRadius: 12,
     paddingVertical: 18, paddingHorizontal: 20,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
   totalLabel: { fontFamily: 'IBMPlexMono', fontSize: 7.5, letterSpacing: 1.3, color: c.indigoSoft, textTransform: 'uppercase' },
-  totalCond: { fontSize: 9, color: c.indigoSoft, marginTop: 6 },
+  totalCond: { fontSize: 9.5, color: c.white, marginTop: 6 },
+  totalDesconto: { fontSize: 8.5, color: c.indigoSoft, marginTop: 4 },
   totalValue: { fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 26, color: c.white, letterSpacing: -0.4 },
+  invRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
+  invCard: { flex: 1, borderWidth: 1, borderColor: c.border, borderRadius: 10, padding: 13 },
+  invCardLabel: { fontSize: 8.5, color: c.faint, lineHeight: 1.35 },
+  invCardValue: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 15, color: c.ink, marginTop: 4 },
 
   // Cronograma
   cronoWrap: { borderLeftWidth: 1.5, borderLeftColor: c.border, paddingLeft: 18 },
@@ -141,19 +201,21 @@ const s = StyleSheet.create({
     position: 'absolute', left: -22.5, top: 2, width: 9, height: 9, borderRadius: 4.5,
     backgroundColor: c.indigo,
   },
+  cronoHead: { flexDirection: 'row', alignItems: 'baseline' },
   cronoFase: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 11, color: c.ink },
+  cronoDuracao: { fontFamily: 'IBMPlexMono', fontSize: 8, color: c.faint, marginLeft: 8 },
   cronoDesc: { fontSize: 9.5, color: c.muted, lineHeight: 1.5, marginTop: 2 },
+  cronoEntrega: { fontSize: 9, color: c.indigo, lineHeight: 1.45, marginTop: 3 },
+  cronoEntregaRotulo: { fontWeight: 600 },
 
-  // Não incluso
-  naoGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  naoItem: { width: '48%', flexDirection: 'row', marginBottom: 9 },
-  naoMark: { color: c.pink, fontSize: 9.5, marginRight: 8, lineHeight: 1.5 },
-  naoText: { flex: 1, fontSize: 9.5, color: c.ink2, lineHeight: 1.5 },
-
-  // Premissas
-  premItem: { flexDirection: 'row', marginBottom: 8 },
-  premMark: { color: c.indigo, fontSize: 10, marginRight: 8, lineHeight: 1.5 },
-  premText: { flex: 1, fontSize: 10, color: c.ink2, lineHeight: 1.5 },
+  // Condições (premissas + não incluso)
+  condRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  condCol: { width: '48.5%', backgroundColor: c.cardBg, borderRadius: 10, paddingVertical: 14, paddingHorizontal: 14 },
+  condTitulo: { fontSize: 10, fontWeight: 600, color: c.ink, marginBottom: 8 },
+  condItem: { flexDirection: 'row', marginBottom: 6 },
+  condMarkIndigo: { color: c.indigo, fontSize: 9.5, marginRight: 7, lineHeight: 1.5 },
+  condMarkPink: { marginRight: 7, marginTop: 2.5 },
+  condTexto: { flex: 1, fontSize: 8.8, color: c.ink2, lineHeight: 1.5 },
 
   // Observações
   obsText: { fontSize: 10, color: c.ink2, lineHeight: 1.55 },
@@ -167,14 +229,28 @@ const s = StyleSheet.create({
   passoNum: { fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 11, color: c.indigo },
   passoText: { fontSize: 10, color: c.ink2, marginTop: 6, lineHeight: 1.5 },
 
+  // Aceite
+  aceiteBox: {
+    marginTop: 24, borderRadius: 12, paddingVertical: 16, paddingHorizontal: 18,
+    backgroundColor: c.greenBg,
+  },
+  aceiteTitulo: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 13, color: c.green },
+  aceiteTexto: { fontSize: 9.5, color: c.ink2, lineHeight: 1.55, marginTop: 5 },
+  chamadaBox: {
+    marginTop: 24, borderRadius: 12, paddingVertical: 16, paddingHorizontal: 18,
+    backgroundColor: c.chipBg,
+  },
+  chamadaTitulo: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 13, color: c.ink },
+  chamadaTexto: { fontSize: 9.5, color: c.ink2, lineHeight: 1.55, marginTop: 5 },
+
   // Contato
   contato: {
-    marginTop: 26, borderWidth: 1, borderColor: c.border, borderRadius: 12,
+    marginTop: 16, borderWidth: 1, borderColor: c.border, borderRadius: 12,
     paddingVertical: 18, paddingHorizontal: 20,
     flexDirection: 'row', alignItems: 'center',
   },
   avatar: {
-    width: 44, height: 44, borderRadius: 11, backgroundColor: c.indigo,
+    width: 44, height: 44, borderRadius: 11, backgroundColor: c.navy,
     alignItems: 'center', justifyContent: 'center', marginRight: 16,
   },
   avatarText: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 16, color: c.white },
@@ -184,7 +260,7 @@ const s = StyleSheet.create({
 
   // Footer
   footer: {
-    position: 'absolute', bottom: 26, left: 46, right: 46,
+    position: 'absolute', bottom: 26, left: PAD_H, right: PAD_H,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     borderTopWidth: 1, borderTopColor: c.borderFooter, paddingTop: 8,
   },
@@ -198,8 +274,49 @@ function initiais(nome: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <Text style={s.sectionLabel}>{children}</Text>;
+function fmtNum(v: number | null | undefined): string {
+  return v == null ? '—' : v.toLocaleString('pt-BR');
+}
+
+/**
+ * Check e xis DESENHADOS.
+ *
+ * A fonte do PDF (IBM Plex no subset latin) não tem ✓ nem ✕: o react-pdf
+ * desenha VAZIO, sem erro nenhum — a linha chega ao cliente sem marcação. Foi o
+ * que aconteceu com a coluna "não está incluso" até 14/09/2026 (dívida
+ * declarada em tests/unit/pdf-glifos-guard.test.ts). Svg não depende de fonte.
+ */
+function Check({ cor = c.indigo }: { cor?: string }) {
+  return (
+    <Svg width={8} height={8} viewBox="0 0 12 12">
+      <Path d="M1.8 6.4 L4.6 9.2 L10.2 3" stroke={cor} strokeWidth={1.9} fill="none" />
+    </Svg>
+  );
+}
+
+function Xis({ cor = c.pink }: { cor?: string }) {
+  return (
+    <Svg width={7} height={7} viewBox="0 0 12 12">
+      <Line x1={2} y1={2} x2={10} y2={10} stroke={cor} strokeWidth={1.7} />
+      <Line x1={10} y1={2} x2={2} y2={10} stroke={cor} strokeWidth={1.7} />
+    </Svg>
+  );
+}
+
+function Secao(
+  { eyebrow, titulo, children, semQuebra }:
+  { eyebrow: string; titulo?: string; children: React.ReactNode; semQuebra?: boolean },
+) {
+  return (
+    // `semQuebra` mantém título e conteúdo na MESMA página: sem isso o react-pdf
+    // deixou "O que acontece depois do aceite" sozinho no pé de uma página e os
+    // quatro cards na seguinte.
+    <View style={s.section} wrap={!semQuebra}>
+      <Text style={s.sectionLabel}>{eyebrow}</Text>
+      {titulo ? <Text style={s.sectionTitle}>{titulo}</Text> : null}
+      {children}
+    </View>
+  );
 }
 
 function Footer() {
@@ -218,78 +335,128 @@ export default function PropostaComercialPDF({
   doc: ProposalDocumentVM;
   logoBase64?: string;
 }) {
-  const { cliente, investimento, representante } = doc;
-  const aceita = doc.status === 'accepted';
+  const { cliente, investimento: inv, programa: pg, contato } = doc;
+  const aceita = doc.status === 'accepted' || doc.aceite != null;
   const escopoVazio = doc.escopoItens.length === 0;
-  const temDesconto = investimento.descontoPercent != null && investimento.descontoPercent > 0;
+  const temDesconto = inv.descontoPercent != null && Number(inv.descontoPercent) > 0;
+
+  const pessoas = pg?.pessoas ?? null;
+  const metricas: { valor: string; label: string }[] = [];
+  if (pessoas) metricas.push({ valor: fmtNum(pessoas), label: pessoas === 1 ? 'participante' : 'participantes' });
+  if (pg?.cargos) metricas.push({ valor: fmtNum(pg.cargos), label: pg.cargos === 1 ? 'cargo mapeado' : 'cargos mapeados' });
+  if (pg?.ciclos) metricas.push({ valor: fmtNum(pg.ciclos), label: pg.ciclos === 1 ? 'ciclo' : 'ciclos' });
+  if (pg?.mesesPrograma) metricas.push({ valor: fmtNum(pg.mesesPrograma), label: pg.mesesPrograma === 1 ? 'mês' : 'meses de programa' });
+  else if (!inv.vendidoPorProjeto && inv.meses) metricas.push({ valor: fmtNum(inv.meses), label: 'meses de contrato' });
+
+  const invCards = [
+    inv.porPessoa != null ? { label: 'Por participante, no programa inteiro', valor: fmtBRL(inv.porPessoa) } : null,
+    inv.mensal != null
+      ? { label: inv.vendidoPorProjeto ? 'Valor de cada parcela' : 'Valor mensal', valor: fmtBRL(inv.mensal) }
+      : null,
+    inv.meses != null
+      ? {
+        label: inv.vendidoPorProjeto ? 'Parcelas' : 'Vigência',
+        valor: inv.vendidoPorProjeto ? `${inv.meses}×` : `${inv.meses} meses`,
+      }
+      : null,
+  ].filter(Boolean) as { label: string; valor: string }[];
 
   return (
     <Document title={`Proposta Comercial ${doc.numero}`}>
       <Page size="A4" style={s.page} wrap>
-        {/* BRAND + PILL */}
-        <View style={s.brandRow}>
-          <View style={s.brandLeft}>
+        {/* CAPA */}
+        <View style={s.capa}>
+          <View style={s.capaTopo}>
             {logoBase64 ? (
-              <Image src={logoBase64} style={s.brandLogo} />
+              <Image src={logoBase64} style={s.capaLogo} />
             ) : (
-              <>
-                <View style={s.brandSquare} />
-                <Text style={s.brandName}>vertho</Text>
-              </>
+              <Text style={s.brandName}>vertho</Text>
             )}
+            <View style={s.capaMeta}>
+              <Text style={s.capaMetaLine}>Nº <Text style={s.capaMetaValue}>{doc.numero}</Text></Text>
+              <Text style={s.capaMetaLine}>EMITIDA <Text style={s.capaMetaValue}>{fmtDate(doc.emitidaEm)}</Text></Text>
+              <Text style={s.capaMetaLine}>VÁLIDA ATÉ <Text style={s.capaMetaValue}>{fmtDate(doc.validaAte)}</Text></Text>
+            </View>
           </View>
-          <Text style={s.pill}>Proposta Comercial</Text>
+
+          <View style={{ marginTop: 30 }}>
+            <Text style={s.eyebrowCyan}>Proposta comercial</Text>
+            <Text style={s.capaTitulo}>Programa de desenvolvimento de competências</Text>
+            {cliente.nome ? (
+              <Text style={s.capaPara}>
+                Preparada para <Text style={s.capaParaNome}>{cliente.nome}</Text>
+                {cliente.tipo ? ` · ${cliente.tipo}` : ''}
+              </Text>
+            ) : null}
+          </View>
+
+          {aceita && (
+            <Text style={{ ...s.capaSelo, backgroundColor: c.seloCyanBg, color: c.cyan }}>
+              Proposta aceita
+            </Text>
+          )}
+          {doc.expirada && !aceita && (
+            <Text style={{ ...s.capaSelo, backgroundColor: c.seloNeutroBg, color: c.white }}>
+              Validade expirada
+            </Text>
+          )}
+
+          {inv.total != null && (
+            <View>
+              <View style={s.capaDivisor} />
+              <View style={s.capaTotalWrap}>
+                <Text style={s.capaTotalLabel}>
+                  {inv.vendidoPorProjeto ? 'Investimento total do programa' : 'Valor total do contrato'}
+                </Text>
+                <View style={s.capaTotalLinha}>
+                  <Text style={s.capaTotalValor}>{fmtBRL(inv.total)}</Text>
+                  {inv.condicoesPagamento ? (
+                    <Text style={s.capaTotalCond}>{inv.condicoesPagamento}</Text>
+                  ) : null}
+                </View>
+              </View>
+            </View>
+          )}
         </View>
 
-        {/* HERO */}
-        <View style={s.hero}>
-          <Text style={s.heroTitle}>Proposta{'\n'}Comercial</Text>
-          <View style={s.heroMeta}>
-            <Text style={s.heroMetaLine}>
-              Nº <Text style={s.heroMetaValue}>{doc.numero}</Text>
-            </Text>
-            <Text style={s.heroMetaLine}>
-              EMITIDA <Text style={s.heroMetaValue}>{fmtDate(doc.emitidaEm)}</Text>
-            </Text>
-            <Text style={s.heroMetaLine}>
-              VÁLIDA <Text style={s.heroMetaValue}>{fmtDate(doc.validaAte)}</Text>
-            </Text>
-          </View>
-        </View>
-
-        {/* SELO */}
-        {(aceita || doc.expirada) && (
-          <View style={s.seloRow}>
-            {aceita ? (
-              <Text style={{ ...s.selo, backgroundColor: c.indigo }}>Aceita</Text>
-            ) : (
-              <Text style={{ ...s.selo, backgroundColor: c.pink }}>Expirada</Text>
-            )}
+        {/* MÉTRICAS */}
+        {metricas.length > 0 && (
+          <View style={s.metricas}>
+            {metricas.map((m, i) => (
+              <View key={i} style={s.metrica}>
+                <Text style={s.metricaValor}>{m.valor}</Text>
+                <Text style={s.metricaLabel}>{m.label}</Text>
+              </View>
+            ))}
           </View>
         )}
 
-        {/* PARA */}
-        <View style={s.paraBlock} wrap={false}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.paraLabel}>Para</Text>
-            <Text style={s.paraNome}>{cliente.nome}</Text>
-          </View>
-          {cliente.tipo && <Text style={s.paraTipo}>{cliente.tipo}</Text>}
-        </View>
-
         {/* CONTEXTO */}
-        <View style={s.section}>
-          <SectionLabel>// Contexto</SectionLabel>
+        <Secao eyebrow="// Contexto" titulo="Por que este programa">
+          {doc.contexto ? <Text style={{ ...s.bodyText, marginBottom: 8 }}>{doc.contexto}</Text> : null}
           <Text style={s.bodyText}>
-            {doc.contexto ? `${doc.contexto} ` : ''}
-            A Vertho desenvolve competências por IA: diagnóstico por cargo, trilha individual e um{' '}
-            <Text style={s.indigoStrong}>Mentor IA</Text> que acompanha a aplicação prática no dia a dia.
+            Formação genérica trata pessoas diferentes como se fossem a mesma pessoa — e termina sem
+            deixar rastro do que mudou. A Vertho faz o contrário: entende o perfil e o nível de cada
+            participante, entrega o desenvolvimento no formato em que ela aprende e{' '}
+            <Text style={s.indigoStrong}>mede a evolução</Text> com evidência ao fim de cada ciclo.
           </Text>
-        </View>
+        </Secao>
+
+        {/* PILARES */}
+        <Secao eyebrow="// Como a Vertho trabalha" titulo="Diagnóstico, trilha e evidência no mesmo fluxo">
+          <View style={s.pilarRow}>
+            {doc.pilares.map((p, i) => (
+              <View key={i} style={s.pilar} wrap={false}>
+                <Text style={s.pilarNum}>{String(i + 1).padStart(2, '0')}</Text>
+                <Text style={s.pilarTitulo}>{p.titulo}</Text>
+                <Text style={s.pilarTexto}>{p.texto}</Text>
+              </View>
+            ))}
+          </View>
+        </Secao>
 
         {/* ESCOPO */}
-        <View style={s.section}>
-          <SectionLabel>// Escopo incluído</SectionLabel>
+        <Secao eyebrow="// Escopo desta proposta" titulo="O que está dimensionado aqui">
           {escopoVazio ? (
             <Text style={s.bodyText}>Pacote: {doc.produto || '—'}</Text>
           ) : (
@@ -299,97 +466,112 @@ export default function PropostaComercialPDF({
               ))}
             </View>
           )}
-        </View>
+          {pg?.conteudosPorPessoaCiclo != null && (
+            <Text style={s.notaFina}>
+              {/* Por PESSOA — ver o comentário gêmeo na página pública. */}
+              São {fmtNum(pg.conteudosPorPessoaCiclo)} conteúdos por pessoa a cada ciclo
+              {pg.ciclos && pg.ciclos > 1
+                ? ` — ${fmtNum(pg.conteudosPorPessoaCiclo * pg.ciclos)} ao longo dos ${pg.ciclos} ciclos`
+                : ''}.
+            </Text>
+          )}
+        </Secao>
+
+        {/* ENTREGAS */}
+        <Secao eyebrow="// O que está incluso" titulo="Tudo o que acompanha o programa">
+          <View style={s.entregaGrid}>
+            {doc.entregas.map((e, i) => (
+              <View key={i} style={s.entrega} wrap={false}>
+                <View style={s.entregaMark}><Check /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.entregaTitulo}>{e.titulo}</Text>
+                  <Text style={s.entregaTexto}>{e.texto}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </Secao>
+
+        {/* DOIS LADOS */}
+        <Secao eyebrow="// Quem recebe o quê" titulo="Para cada pessoa, e para a instituição">
+          <View style={s.ladoRow}>
+            {[
+              { titulo: 'Cada participante recebe', itens: doc.paraPessoa, cor: c.indigo },
+              { titulo: 'A instituição recebe', itens: doc.paraInstituicao, cor: c.navy },
+            ].map((bloco, i) => (
+              <View key={i} style={{ ...s.lado, borderTopWidth: 2.5, borderTopColor: bloco.cor }} wrap={false}>
+                <Text style={s.ladoTitulo}>{bloco.titulo}</Text>
+                {bloco.itens.map((item, j) => (
+                  <View key={j} style={s.ladoItem}>
+                    <Text style={{ ...s.ladoMark, color: bloco.cor }}>›</Text>
+                    <Text style={s.ladoTexto}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        </Secao>
 
         {/* INVESTIMENTO */}
-        <View style={s.section}>
-          <SectionLabel>// Investimento</SectionLabel>
-          <View style={s.invRow}>
-            <View style={{ ...s.invCard, marginRight: 10 }}>
-              <Text style={s.invCardLabel}>Valor total do contrato</Text>
-              <Text style={s.invCardValue}>{fmtBRL(investimento.total)}</Text>
-            </View>
-            <View style={{ ...s.invCard, marginRight: temDesconto ? 10 : 0 }}>
-              <Text style={s.invCardLabel}>Vigência</Text>
-              <Text style={s.invCardValue}>
-                {investimento.meses != null ? `${investimento.meses} meses` : '—'}
-              </Text>
-            </View>
-            {temDesconto && (
-              <View style={s.invCard}>
-                <Text style={s.invCardLabel}>Desconto</Text>
-                <Text style={s.invCardValue}>{investimento.descontoPercent}%</Text>
-              </View>
-            )}
-          </View>
+        <Secao eyebrow="// Investimento" titulo="O que está sendo proposto">
           <View style={s.totalBar} wrap={false}>
-            <View style={{ flex: 1 }}>
-              <Text style={s.totalLabel}>Valor mensal</Text>
-              {investimento.condicoesPagamento && (
-                <Text style={s.totalCond}>{investimento.condicoesPagamento}</Text>
-              )}
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={s.totalLabel}>
+                {inv.vendidoPorProjeto ? 'Investimento total do programa' : 'Valor total do contrato'}
+              </Text>
+              {inv.condicoesPagamento ? <Text style={s.totalCond}>{inv.condicoesPagamento}</Text> : null}
+              {temDesconto ? (
+                <Text style={s.totalDesconto}>Inclui desconto comercial de {Number(inv.descontoPercent)}%.</Text>
+              ) : null}
             </View>
-            <Text style={s.totalValue}>{fmtBRL(investimento.mensal)}</Text>
+            <Text style={s.totalValue}>{fmtBRL(inv.total)}</Text>
           </View>
-        </View>
+          {invCards.length > 0 && (
+            <View style={s.invRow}>
+              {invCards.map((card, i) => (
+                <View
+                  key={i}
+                  style={{ ...s.invCard, marginRight: i < invCards.length - 1 ? 10 : 0 }}
+                >
+                  <Text style={s.invCardLabel}>{card.label}</Text>
+                  <Text style={s.invCardValue}>{card.valor}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+          <Text style={{ ...s.notaFina, marginTop: 10 }}>
+            Esta proposta é válida até {fmtDate(doc.validaAte)}.
+          </Text>
+        </Secao>
 
         {/* CRONOGRAMA */}
         {doc.cronograma.length > 0 && (
-          <View style={s.section}>
-            <SectionLabel>// Cronograma</SectionLabel>
+          <Secao eyebrow="// Como funciona" titulo="Do setup ao relatório de evolução">
             <View style={s.cronoWrap}>
               {doc.cronograma.map((fase, i) => (
                 <View key={i} style={s.cronoItem} wrap={false}>
                   <View style={s.cronoDot} />
-                  <Text style={s.cronoFase}>{fase.fase}</Text>
+                  <View style={s.cronoHead}>
+                    <Text style={s.cronoFase}>{fase.fase}</Text>
+                    {fase.duracao ? <Text style={s.cronoDuracao}>{fase.duracao}</Text> : null}
+                  </View>
                   <Text style={s.cronoDesc}>{fase.descricao}</Text>
+                  {fase.entrega ? (
+                    <Text style={s.cronoEntrega}>
+                      {/* Sem seta: → não existe no subset da fonte e sai vazio. */}
+                      <Text style={s.cronoEntregaRotulo}>Entrega: </Text>{fase.entrega}
+                    </Text>
+                  ) : null}
                 </View>
               ))}
             </View>
-          </View>
-        )}
-
-        {/* NÃO INCLUSO */}
-        {doc.naoIncluso.length > 0 && (
-          <View style={s.section}>
-            <SectionLabel>// O que não está incluso</SectionLabel>
-            <View style={s.naoGrid}>
-              {doc.naoIncluso.map((item, i) => (
-                <View key={i} style={s.naoItem}>
-                  <Text style={s.naoMark}>✕</Text>
-                  <Text style={s.naoText}>{item}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* PREMISSAS */}
-        {doc.premissas.length > 0 && (
-          <View style={s.section}>
-            <SectionLabel>// Premissas</SectionLabel>
-            {doc.premissas.map((item, i) => (
-              <View key={i} style={s.premItem}>
-                <Text style={s.premMark}>›</Text>
-                <Text style={s.premText}>{item}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* OBSERVAÇÕES */}
-        {doc.notasComerciais && (
-          <View style={s.section}>
-            <SectionLabel>// Observações</SectionLabel>
-            <Text style={s.obsText}>{doc.notasComerciais}</Text>
-          </View>
+          </Secao>
         )}
 
         {/* PRÓXIMOS PASSOS */}
         {doc.proximosPassos.length > 0 && (
-          <View style={s.section}>
-            <SectionLabel>// Próximos passos</SectionLabel>
-            <View style={s.passosGrid}>
+          <Secao eyebrow="// Próximos passos" titulo="O que acontece depois do aceite" semQuebra>
+            <View style={s.passosGrid} wrap={false}>
               {doc.proximosPassos.map((passo, i) => (
                 <View key={i} style={s.passoCard} wrap={false}>
                   <Text style={s.passoNum}>{String(i + 1).padStart(2, '0')}</Text>
@@ -397,19 +579,77 @@ export default function PropostaComercialPDF({
                 </View>
               ))}
             </View>
-          </View>
+          </Secao>
         )}
+
+        {/* OBSERVAÇÕES */}
+        {doc.notasComerciais && (
+          <Secao eyebrow="// Observações">
+            <Text style={s.obsText}>{doc.notasComerciais}</Text>
+          </Secao>
+        )}
+
+        {/* CONDIÇÕES */}
+        {(doc.premissas.length > 0 || doc.naoIncluso.length > 0) && (
+          <Secao eyebrow="// Condições" titulo="Premissas e limites do escopo">
+            <View style={s.condRow}>
+              {doc.premissas.length > 0 && (
+                <View style={s.condCol}>
+                  <Text style={s.condTitulo}>Premissas</Text>
+                  {doc.premissas.map((item, i) => (
+                    <View key={i} style={s.condItem}>
+                      <Text style={s.condMarkIndigo}>›</Text>
+                      <Text style={s.condTexto}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+              {doc.naoIncluso.length > 0 && (
+                <View style={s.condCol}>
+                  <Text style={s.condTitulo}>O que não está incluso</Text>
+                  {doc.naoIncluso.map((item, i) => (
+                    <View key={i} style={s.condItem}>
+                      <View style={s.condMarkPink}><Xis /></View>
+                      <Text style={s.condTexto}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </Secao>
+        )}
+
+        {/* ACEITE / CHAMADA */}
+        {aceita ? (
+          <View style={s.aceiteBox} wrap={false}>
+            <Text style={s.aceiteTitulo}>Proposta aceita</Text>
+            <Text style={s.aceiteTexto}>
+              {doc.aceite
+                ? `Registrado por ${doc.aceite.nome}${doc.aceite.cargo ? ` (${doc.aceite.cargo})` : ''} em ${fmtDateTime(doc.aceite.em)}.`
+                : 'O aceite desta proposta já está registrado.'}
+            </Text>
+          </View>
+        ) : doc.podeAceitar ? (
+          <View style={s.chamadaBox} wrap={false}>
+            <Text style={s.chamadaTitulo}>Vamos começar?</Text>
+            <Text style={s.chamadaTexto}>
+              O aceite pode ser registrado na própria página desta proposta, ou respondendo ao seu
+              contato na Vertho. O ambiente da instituição fica no ar em até 2 dias úteis após o
+              recebimento do material de setup.
+            </Text>
+          </View>
+        ) : null}
 
         {/* CONTATO */}
         <View style={s.contato} wrap={false}>
           <View style={s.avatar}>
-            <Text style={s.avatarText}>{initiais(representante.nome)}</Text>
+            <Text style={s.avatarText}>{initiais(contato.nome)}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={s.contatoLabel}>Seu contato na Vertho</Text>
-            <Text style={s.contatoNome}>{representante.nome}</Text>
-            {representante.email && <Text style={s.contatoLinha}>{representante.email}</Text>}
-            {representante.telefone && <Text style={s.contatoLinha}>{representante.telefone}</Text>}
+            <Text style={s.contatoNome}>{contato.nome}</Text>
+            {contato.email && <Text style={s.contatoLinha}>{contato.email}</Text>}
+            {contato.whatsapp && <Text style={s.contatoLinha}>{fmtTelefone(contato.whatsapp)}</Text>}
           </View>
         </View>
 

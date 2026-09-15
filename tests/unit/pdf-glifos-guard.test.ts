@@ -62,8 +62,9 @@ const AUSENTES: Record<string, string> = {
  * PDF comercial sem abrir o arquivo é como o defeito nasce.
  */
 const DIVIDA: Record<string, string> = {
-  'components/pdf/PropostaComercialPDF.tsx':
-    'o ✕ da coluna "não inclui" sai em branco — a linha fica sem marcação nenhuma',
+  // `PropostaComercialPDF` saiu daqui em 14/09/2026: o ✕ (e o ✓ e a → que o
+  // redesenho tinha acabado de introduzir) viraram `<Svg>` — conferido no PDF
+  // renderizado, não só no código.
   'components/pdf/RadarPropostaPDF.tsx':
     'a ★ da escola-alvo, o → dos bullets e o ≥ das notas de rodapé saem vazios',
 };
