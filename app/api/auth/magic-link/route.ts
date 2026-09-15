@@ -100,6 +100,41 @@ export async function POST(req: NextRequest) {
 
     const redirect = resolveSafeAuthRedirect(req, redirectTo);
 
+    // 🔴 CADASTRAR NÃO É DAR ACESSO — e as duas portas de login discordavam.
+    //
+    // `generateLink` NÃO cria usuário: quem está em `colaboradores` mas não em
+    // `auth.users` recebia "Falha ao gerar link", um sintoma que não fala de
+    // cadastro nenhum. A porta do WhatsApp (phone-magic-link/request) já resolve
+    // isso criando a conta on-demand; a porta do e-mail não, e a assimetria
+    // deixava gente importada por CSV sem caminho NENHUM para entrar —
+    // `importarColaboradoresLote` é um INSERT em `colaboradores` e nada mais.
+    // Medido em 15/09/2026: 16 professores de `macae` e 20 pessoas da
+    // `4life-educacao` (importadas 4 dias antes) nessa situação, invisíveis
+    // porque ninguém tenta entrar e reportar.
+    //
+    // Criar aqui é seguro: só se chega a esta linha depois do `recipient.eligible`
+    // acima, que exige ser colaborador do tenant, platform admin ou representante
+    // ativo. O anti-enumeração continua antes, intacto.
+    //
+    // E-mail já confirmado pelo mesmo motivo de platform-admins: a pessoa entra
+    // POR magic link, e o primeiro acesso não pode depender de um e-mail de
+    // confirmação que este fluxo não envia.
+    // O try/catch é o mesmo de `atualizarColaborador`: criar a conta é um passo
+    // AUXILIAR, e nada aqui pode impedir de entrar quem já tem conta. Se falhar
+    // e a conta não existir, o `generateLink` abaixo falha e o erro dele é o que
+    // o usuário vê.
+    try {
+      const { error: createErr } = await sb.auth.admin.createUser({
+        email: trimmed,
+        email_confirm: true,
+      });
+      if (createErr && !/already|registered|exists/i.test(createErr.message)) {
+        console.warn('[magic-link] createUser:', createErr.message);
+      }
+    } catch (e: any) {
+      console.warn('[magic-link] createUser:', e?.message || e);
+    }
+
     // Gera magic link via admin API (sem o rate limit de SMTP do Supabase Auth).
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',

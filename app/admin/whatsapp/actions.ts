@@ -754,6 +754,24 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
       await Promise.all(bloco.map(async (colab: any, i: number) => {
       const idx = inicio + i;
       try {
+        // Mesma regra de /api/auth/magic-link: `generateLink` NÃO cria usuário,
+        // e quem foi importado por CSV está em `colaboradores` sem estar em
+        // `auth.users`. Sem isto, o lote reporta "Falha ao gerar magic link"
+        // pessoa a pessoa — e o escopo fail-closed acima já garantiu que quem
+        // chega aqui é da turma escolhida. Idempotente: conta que já existe
+        // volta como erro "already registered" e segue o fluxo.
+        try {
+          const { error: createErr } = await sb.auth.admin.createUser({
+            email: colab.email,
+            email_confirm: true,
+          });
+          if (createErr && !/already|registered|exists/i.test(createErr.message)) {
+            console.warn('[magic-links] createUser:', createErr.message);
+          }
+        } catch (e: any) {
+          console.warn('[magic-links] createUser:', e?.message || e);
+        }
+
         const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
           type: 'magiclink',
           email: colab.email,

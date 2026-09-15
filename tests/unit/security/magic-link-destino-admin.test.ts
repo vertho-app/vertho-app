@@ -40,6 +40,10 @@ const sb = criarSupabaseMock({
 const client = sb.client;
 client.auth = {
   admin: {
+    // A rota cria a conta antes de gerar o link (quem passou na elegibilidade
+    // PODE entrar; `generateLink` não cria usuário). Sem este mock o fluxo
+    // inteiro caía antes de enviar.
+    createUser: vi.fn(async () => ({ data: { user: null }, error: null })),
     generateLink: vi.fn(async () => ({
       data: { properties: { hashed_token: 'tok-abc123', action_link: 'https://projeto.supabase.co/auth/v1/verify?token=x' } },
       error: null,

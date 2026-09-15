@@ -589,8 +589,19 @@ Os dois caminhos de login **nao sao equivalentes** pra quem nunca entrou:
 
 | entrada | rota | cria `auth.users`? | canais do link |
 |---|---|---|---|
-| e-mail | `app/api/auth/magic-link/route.ts` | **NAO** — `admin.generateLink({type:'magiclink'})` direto → *"Falha ao gerar link"* | e-mail **+** WhatsApp (`sendAccessLink`) |
+| e-mail | `app/api/auth/magic-link/route.ts` | **SIM, desde 15/09/2026** — `admin.createUser` DEPOIS do gate de elegibilidade. Antes disso ia direto pro `generateLink` e devolvia *"Falha ao gerar link"* | e-mail **+** WhatsApp (`sendAccessLink`) |
 | telefone | `app/api/auth/phone-magic-link/request/route.ts:61` | **SIM** — `admin.createUser` antes do link | **so WhatsApp** (`channels:['whatsapp']`) |
+
+⚠️ **A assimetria foi fechada, o import continua NAO criando conta.** Em 15/09/2026 a porta de
+e-mail passou a se auto-provisionar como a de telefone ja fazia, e o disparo em lote do admin
+(`enviarMagicLinksWhatsApp`) tambem — eram os dois call-sites de `generateLink` que serviam gente
+sem conta. O que **nao** mudou: `importarColaboradoresLote` segue sendo um INSERT em
+`colaboradores` e nada mais, entao logo apos um import as contas ainda **nao existem** — elas
+nascem no primeiro pedido de link. Consequencia pratica: contar `auth.users` para medir engajamento
+continua errado, e quem precisa das contas ANTES do disparo (para conferir, ou porque vai medir)
+provisiona na mao. Guarda: `tests/unit/security/magic-link-cria-conta.test.ts`, que prova tambem o
+par — o anti-enumeracao roda ANTES da criacao, senao a rota vira fabrica de `auth.users` para
+qualquer e-mail digitado.
 
 Duas consequencias que nao aparecem em log nenhum:
 
