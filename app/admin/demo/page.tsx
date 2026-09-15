@@ -107,9 +107,12 @@ const TENANTS: Record<TenantSlug, { nome: string; descricao: string; oculto?: bo
   gruposinal: {
     nome: 'Grupo Sinal',
     descricao: 'Demonstração contextualizada para a oportunidade comercial',
-    // Oculto a pedido do dono em 01/09/2026. Já tinha saído da sala de
-    // apresentação (`PRESENTATION_ROOMS`); o card era o que restava dele aqui.
-    oculto: true,
+    // Oculto a pedido do dono em 01/09/2026, de VOLTA em 15/09, quando o
+    // ambiente passou a oferecer degustação. É a régua escrita logo acima:
+    // ambiente fora do seletor é ambiente cujos convidados ninguém acompanha, e
+    // `AMBIENTES_DEGUSTACAO` também filtra o que está oculto — mantê-lo
+    // escondido agora esconderia o ambiente de quem vai criar o roteiro E o
+    // convidado de quem precisa acompanhá-lo.
   },
 };
 

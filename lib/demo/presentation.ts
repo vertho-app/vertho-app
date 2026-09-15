@@ -59,6 +59,19 @@ export const DEMO_PRESENTATION_ROOMS = {
     rotulo: 'ACME Demo',
     roles: DEMO_PRESENTATION_ROLES,
   },
+  gruposinal: {
+    tenantSlug: 'gruposinal',
+    rotulo: 'Grupo Sinal',
+    // Mesmo roster do ACME (mesmas personas atendem as três visões), então os
+    // rótulos continuam os do produto — o que muda é a IDENTIDADE da empresa
+    // que o prospect vê depois de entrar. Os hosts, esses, têm que ser
+    // próprios: o hostname identifica a sala INTEIRA, papel e ambiente.
+    roles: [
+      { key: 'usuario', label: 'Usuário', hostSlug: 'usuario-sinal', homePath: '/dashboard' },
+      { key: 'gestor', label: 'Gestor', hostSlug: 'gestor-sinal', homePath: '/dashboard/gestor' },
+      { key: 'rh', label: 'RH', hostSlug: 'rh-sinal', homePath: '/dashboard' },
+    ],
+  },
   'escolas-acme': {
     tenantSlug: 'escolas-acme',
     rotulo: 'Rede de Escolas ACME',

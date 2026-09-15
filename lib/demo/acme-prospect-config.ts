@@ -40,6 +40,13 @@ export type AcmeProspectRoleKey = typeof ACME_PROSPECT_ROLES[number]['key'];
  */
 export const DEMO_PROSPECT_ROLES_POR_AMBIENTE = {
   'acme-demo': ACME_PROSPECT_ROLES,
+  // O Grupo Sinal aponta para a MESMA lista do ACME, e não para uma cópia: ele
+  // usa o roster comercial (decisão do dono em 03/09/2026 — o que distingue os
+  // dois ambientes é a identidade da empresa, não o conteúdo), então os cargos
+  // que têm matriz lá são exatamente estes quatro. Uma cópia envelheceria
+  // sozinha no dia em que o roster comercial ganhasse ou perdesse um cargo, e a
+  // divergência só apareceria na frente do prospect.
+  gruposinal: ACME_PROSPECT_ROLES,
   'escolas-acme': [
     {
       key: 'professor',
@@ -207,6 +214,10 @@ export const DEMO_PROSPECT_TENANTS = {
     // com uma forma DIFERENTE criaria duas regras para a mesma coisa, e a conta
     // criada antes do registro deixaria de ser reconhecida pela faxina depois.
     authPrefix: 'convidado.escolas-acme.',
+  },
+  gruposinal: {
+    slug: 'gruposinal',
+    authPrefix: 'convidado.gruposinal.',
   },
 } as const;
 

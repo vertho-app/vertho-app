@@ -169,6 +169,13 @@ seletor (`TENANTS[slug].oculto`) tem os convidados fora do acompanhamento: em
 02/09 o `gruposinal` está nas duas condições ao mesmo tempo — protegido do reset
 e invisível na tela.
 
+✅ **A do `gruposinal` venceu em 07/09 e a data cumpriu o papel dela**: o ciclo
+voltou sozinho, e `Medido 15/09/2026:` o reset das 04h recriou o elenco (todos
+os colaboradores com `created_at` 07:01 UTC). Nenhuma pausa vigora hoje. Com o
+ambiente oferecendo passaporte desde 15/09, o motivo que a criou — proteger o
+trabalho do convidado nomeado — tem caminho que não depende de ninguém lembrar
+de uma data.
+
 ### Prazo, retenção e o que sobrevive ao reset (03/09/2026)
 
 O passaporte vale **10 dias** (`DEGUSTACAO_DIAS_DE_VALIDADE`), até as 04h BRT do
@@ -259,9 +266,27 @@ No `cadastro` não existem as visões 02–04, e o cartão mostra só as duas ma
 que ele pode cumprir — pintar as outras como "Aguardando" inventaria etapa que
 ninguém alcança.
 
-⚠️ **O passaporte só existe no ACME, mas o acompanhamento é por tenant**: até
-01/09/2026 a leitura era fixa no `acme-demo` e o Alpheu, convidado real do Grupo
-Sinal, nunca apareceu na tela. Trocar o seletor de ambiente troca a lista.
+⚠️ **O acompanhamento é por tenant**: até 01/09/2026 a leitura era fixa no
+`acme-demo` e o Alpheu, convidado real do Grupo Sinal, nunca apareceu na tela.
+Trocar o seletor de ambiente troca a lista.
+
+Em **15/09/2026** o `gruposinal` passou a oferecer **passaporte** (era só ACME e
+escolas): registro em `DEMO_PROSPECT_TENANTS` com prefixo próprio
+(`convidado.gruposinal.`), os quatro cargos do roster comercial em
+`DEMO_PROSPECT_ROLES_POR_AMBIENTE` — apontando para a MESMA lista do ACME, não
+uma cópia — e sala própria em `DEMO_PRESENTATION_ROOMS`
+(`usuario-sinal` · `gestor-sinal` · `rh-sinal`), sem a qual a action recusa o
+roteiro: ela exige as três visões do MESMO ambiente. O card do Grupo Sinal
+também voltou ao seletor (`oculto` removido) — é a régua da própria tela:
+ambiente fora do seletor é ambiente cujos convidados ninguém acompanha.
+
+🔑 **Isso muda a resposta para "como dar uma degustação ao Alpheu".** Pela
+conta corporativa dele (origem `cadastro`) o trabalho **não** atravessa o reset
+— a preservação é pelo prefixo `convidado.<ambiente>.`, e o e-mail dele não tem
+— então dependia de `resetPausadoAte`, que é janela e vence. Pelo passaporte, a
+durabilidade vem por construção. A sala do Grupo Sinal ficou FORA do card de
+sala ao vivo (`PRESENTATION_ROOMS`, na tela): a degustação a prepara sozinha, e
+o ambiente segue sem ocupar espaço numa tela usada às pressas.
 
 O primeiro acesso de quem entrou por `cadastro` não tem carimbo do app: vem do
 `last_sign_in_at` do Supabase Auth pela RPC `demo_guest_auth_activity` (mig 237,
