@@ -269,6 +269,18 @@ describe('aceite', () => {
     expect(doc.aceite).toBeNull();
   });
 
+
+  it('proposta COM representante não é aceita pelo link — o aceite dele fecha oportunidade e comissão', () => {
+    // `markProposalAccepted` fecha a oportunidade como ganha, ativa a conta e
+    // materializa os eventos de comissão. Um carimbo vindo do link público
+    // pularia os três, em silêncio.
+    const doc = buildProposalDocument(
+      propostaBase({ representante_id: 'rc-1', approved_at: new Date().toISOString() }),
+      null, null, {},
+    );
+    expect(doc.podeAceitar).toBe(false);
+  });
+
   it('proposta expirada não pode ser aceita pela página', () => {
     const velha = new Date(Date.now() - 60 * 86400_000).toISOString();
     const doc = buildProposalDocument(propostaBase({ approved_at: velha }), null, null, {});
