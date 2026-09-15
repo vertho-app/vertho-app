@@ -318,7 +318,11 @@ export async function GET(req) {
         result = {
           ...r,
           message: `Reconciliação: ${r.pessoasSemVideoNominal} pessoa(s) sem vídeo nominal em ${r.lacunas.length} célula(s) · ${r.celulasReenfileiradas.length} re-enfileirada(s)`
-            + (r.ignoradasPorLimite ? ` · ${r.ignoradasPorLimite} adiada(s) pelo limite de ${limite}` : ''),
+            + (r.ignoradasPorLimite ? ` · ${r.ignoradasPorLimite} adiada(s) pelo limite de ${limite}` : '')
+            // Sai no log do cron pelo mesmo motivo do `ignoradasPorLimite`: uma
+            // varredura que pula trabalho precisa dizer quanto pulou, senão
+            // "não reconciliei" chega igual a "não havia lacuna".
+            + (r.ignoradasPorDemo ? ` · ${r.ignoradasPorDemo} de ambiente de demonstração` : ''),
         };
         break;
       }

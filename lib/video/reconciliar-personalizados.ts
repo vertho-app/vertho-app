@@ -18,12 +18,22 @@
  * Reconciliar = devolver a célula à fila (`render_queued`); o worker re-renderiza o
  * deck e personaliza os faltantes — `personalizeCell` já pula quem está 'done'.
  *
- * POR QUE ISSO NÃO PREJUDICA QUEM JÁ TEM VÍDEO
+ * POR QUE ISSO NÃO PREJUDICA QUEM JÁ TEM VÍDEO — *enquanto o re-render não falha*
  * `resolverCelulaVideo` busca a célula com `.neq('status','error')` — ou seja, ela
  * continua sendo encontrada durante o re-render — e, quando o colaborador tem
  * personalizado 'done', devolve ELE com status 'done'. Quem já está personalizado
  * não percebe o re-render. Só quem está sem personalizado vê "preparando seu
  * vídeo", que é exatamente a verdade naquele momento.
+ *
+ * 🔴 **A ressalva no título não é estilo — foi medida em 15/09/2026.** O re-render
+ * que FALHA carimba `status='error'`, e aí o mesmo `.neq('status','error')` que
+ * protegia passa a ESCONDER o deck que já estava publicado: a célula sai da
+ * entrega inteira, não só do nominal. Ou seja, o pior caso desta rodada não é
+ * "continua sem o nome" — é trocar o vídeo que existia por nenhum vídeo. No
+ * `escolas-acme` foi exatamente isso, com o deck tocando no Bunny o tempo todo.
+ * Por isso o ambiente de demonstração saiu da varredura (ver passo 0); para
+ * cliente real, a correção da classe — não rebaixar célula que tem deck
+ * publicado — segue em aberto.
  *
  * CUSTO
  * Um render de deck por célula reconciliada. Por isso há `limite` (default baixo):
@@ -48,6 +58,12 @@ export interface ResultadoReconciliacao {
   pessoasSemVideoNominal: number;
   celulasReenfileiradas: string[];
   ignoradasPorLimite: number;
+  /**
+   * Células puladas por serem de ambiente de demonstração. Sai no resultado (e
+   * no log do cron) porque "não reconciliei" não pode chegar igual a "não havia
+   * lacuna" — é a mesma régua do fallback com rastro.
+   */
+  ignoradasPorDemo: number;
   executado: boolean;
 }
 
@@ -144,6 +160,31 @@ export async function reconciliarPersonalizados(opts: {
   const { executar = false, limite = 3, empresaId } = opts;
   const sb = createSupabaseAdmin();
 
+  // 0) AMBIENTE DE DEMONSTRAÇÃO FICA DE FORA — e não é higiene de alarme, é o
+  //    ciclo que derrubou a entrega.
+  //
+  //    🔴 Medido 15/09/2026 no `escolas-acme`: o reset noturno recria os
+  //    colaboradores com IDs NOVOS, então o personalizado deles nunca sobrevive
+  //    à madrugada. A lacuna é ETERNA por construção (7 professores DISC S, zero
+  //    nominais), e a célula era devolvida à fila todo dia. O re-render passou
+  //    dos 40min do watchdog, abortou, e o `error` da tentativa NOVA sobrescreveu
+  //    o `done` de um deck que estava publicado e tocando no Bunny — a visão de
+  //    colaborador da demo ficou sem vídeo, 4 dias, sem ninguém ser avisado (a
+  //    R16 do health ignora tenant demo e exige "erro E nenhum deck").
+  //
+  //    Ou seja: ali a reconciliação pagava render de GPU toda noite para produzir
+  //    um trabalho que o reset apaga em seguida, e o preço do fracasso era a
+  //    entrega que já existia. Mesmo filtro que `coletarCelulasVideoSemDeck` já
+  //    aplica desde 06/09, pela razão gêmea.
+  //
+  //    Vale também para `empresaId` explícito: o motivo não é permissão, é que o
+  //    trabalho é inútil naquele ambiente — uma régua só, sem caminho paralelo.
+  const { data: demos, error: demoErr } = await sb.from('empresas').select('id').eq('is_demo', true);
+  // Falha aqui NÃO pode virar "não há demo": seguiria reconciliando exatamente o
+  // que esta rodada existe para poupar.
+  if (demoErr) throw new Error(`listar tenants de demonstração: ${demoErr.message}`);
+  const idsDemo = new Set(((demos as any[]) || []).map((e) => String(e.id)));
+
   // 1) Células prontas e servíveis. Só 'done': célula em render já vai personalizar
   //    ao terminar, e re-enfileirar o que está na fila seria trabalho em dobro.
   const celulasRaw = await lerPaginado<any>('células', (de, ate) => {
@@ -156,16 +197,22 @@ export async function reconciliarPersonalizados(opts: {
     if (empresaId) q = q.eq('empresa_id', empresaId);
     return q;
   });
-  if (!celulasRaw?.length) {
-    return { lacunas: [], pessoasSemVideoNominal: 0, celulasReenfileiradas: [], ignoradasPorLimite: 0, executado: executar };
+  // O corte do ambiente de demonstração acontece AQUI, antes de qualquer
+  // contagem: entrar na lista e sair depois faria a célula de demo ocupar o
+  // `limite` de custo e empurrar uma célula de cliente real para amanhã.
+  const semDemo = ((celulasRaw as any[]) || []).filter((c) => !idsDemo.has(String(c.empresa_id)));
+  const ignoradasPorDemo = ((celulasRaw as any[]) || []).length - semDemo.length;
+  if (ignoradasPorDemo) console.log(`[reconciliar] ${ignoradasPorDemo} célula(s) de ambiente de demonstração ignorada(s)`);
+  if (!semDemo.length) {
+    return { lacunas: [], pessoasSemVideoNominal: 0, celulasReenfileiradas: [], ignoradasPorLimite: 0, ignoradasPorDemo, executado: executar };
   }
 
   // Upload em encode não é lacuna de render. O outbox publica sem gastar box.
   const publicacoes = await lerPaginado<any>('publicações Bunny', (de, ate) => sb
     .from('video_publicacoes').select('id,cell_video_id').in('estado', ['pendente', 'erro']).order('id').range(de, ate));
   const emPublicacao = new Set(publicacoes.map(p => p.cell_video_id));
-  const celulas = celulasServidas(celulasRaw as any[]).filter(c => !emPublicacao.has(c.id));
-  if (!celulas.length) return { lacunas: [], pessoasSemVideoNominal: 0, celulasReenfileiradas: [], ignoradasPorLimite: 0, executado: executar };
+  const celulas = celulasServidas(semDemo).filter(c => !emPublicacao.has(c.id));
+  if (!celulas.length) return { lacunas: [], pessoasSemVideoNominal: 0, celulasReenfileiradas: [], ignoradasPorLimite: 0, ignoradasPorDemo, executado: executar };
 
   // ⚠️ A leitura que truncou em 29/08/2026 (1.000 de 1.034). Ver `lerPaginado`.
   const persoTodos = await lerPaginado<any>('personalizados', (de, ate) => sb
@@ -235,7 +282,7 @@ export async function reconciliarPersonalizados(opts: {
   const pessoasSemVideoNominal = new Set(lacunas.flatMap((l) => l.faltantes.map((f) => f.colaboradorId))).size;
 
   if (!executar) {
-    return { lacunas, pessoasSemVideoNominal, celulasReenfileiradas: [], ignoradasPorLimite: Math.max(0, lacunas.length - limite), executado: false };
+    return { lacunas, pessoasSemVideoNominal, celulasReenfileiradas: [], ignoradasPorLimite: Math.max(0, lacunas.length - limite), ignoradasPorDemo, executado: false };
   }
 
   // 3) Devolve à fila, respeitando o teto.
@@ -302,6 +349,7 @@ export async function reconciliarPersonalizados(opts: {
           lacunas, pessoasSemVideoNominal,
           celulasReenfileiradas: [],   // nada ficou enfileirado: dizer 3 seria mentir no log do cron
           ignoradasPorLimite: Math.max(0, lacunas.length - alvos.length),
+          ignoradasPorDemo,
           executado: true,
           bloqueio: motivo,
         };
@@ -314,6 +362,7 @@ export async function reconciliarPersonalizados(opts: {
     lacunas, pessoasSemVideoNominal,
     celulasReenfileiradas: reenfileiradas,
     ignoradasPorLimite: Math.max(0, lacunas.length - alvos.length),
+    ignoradasPorDemo,
     executado: true,
     ...(falhas.length ? { bloqueio: `falha ao enfileirar: ${falhas.join('; ')}` } : {}),
   };
