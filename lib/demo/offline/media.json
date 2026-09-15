@@ -1,0 +1,66 @@
+[
+  {
+    "path": "media/semana-1-case.pdf",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/texto/Did_tica_e_estrat_gias_de_ensino/1788291288858.pdf",
+    "bytes": 225323,
+    "sha256": "3a19c52aac45ab7fc62ce185241452c319d3b1d0d73155d71c7a273009b9d385",
+    "type": "application/pdf",
+    "label": "Semana 1 · case"
+  },
+  {
+    "path": "media/semana-1-audio.mp3",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/final/audio/Did_tica_e_estrat_gias_de_ensino/bf74662b-92ae-488e-b334-27869ea184a6-1788294727621.mp3",
+    "bytes": 2544476,
+    "sha256": "8107a90c085f2bf77186ddb3a4cf03ecfe3845264433360cebb4c5a2fb80487b",
+    "type": "audio/mpeg",
+    "label": "Semana 1 · audio"
+  },
+  {
+    "path": "media/semana-1-texto.pdf",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/texto/Did_tica_e_estrat_gias_de_ensino/1788291132222.pdf",
+    "bytes": 232657,
+    "sha256": "15c38b828f46b9ab05ea81a4f17263277017f98bc74bf0df76587e44e41d5d2c",
+    "type": "application/pdf",
+    "label": "Semana 1 · texto"
+  },
+  {
+    "path": "media/semana-1-video.mp4",
+    "source": "https://vz-3d55d19e-b06.b-cdn.net/d10efea7-06bb-4e09-8439-157ab5019abb/play_720p.mp4",
+    "bytes": 18482773,
+    "sha256": "4eb1030ff284a0d471a20c558328b37ab7f5afa3b6f353942aafd33834dd8afe",
+    "type": "video/mp4",
+    "label": "Semana 1 · video"
+  },
+  {
+    "path": "media/semana-2-case.pdf",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/texto/Did_tica_e_estrat_gias_de_ensino/1788290867729.pdf",
+    "bytes": 228894,
+    "sha256": "8c0f2e24a3bad993fb295a197ae385f02338afc4e273784d7f2b0024cb30f497",
+    "type": "application/pdf",
+    "label": "Semana 2 · case"
+  },
+  {
+    "path": "media/semana-2-audio.mp3",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/final/audio/Did_tica_e_estrat_gias_de_ensino/03a7cc8c-ceef-43bf-8f6b-44b01ba2427e-1788294469250.mp3",
+    "bytes": 2491186,
+    "sha256": "d9c7c77618725df64e23e2632c30cf8d95c404d699c5809edf28e96ba33f44e5",
+    "type": "audio/mpeg",
+    "label": "Semana 2 · audio"
+  },
+  {
+    "path": "media/semana-2-texto.pdf",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/texto/Did_tica_e_estrat_gias_de_ensino/1788290708492.pdf",
+    "bytes": 233838,
+    "sha256": "7701334013d0c1b7cc44b41ffff0182fac6af83701c905906244ba8008ef85c0",
+    "type": "application/pdf",
+    "label": "Semana 2 · texto"
+  },
+  {
+    "path": "media/semana-2-video.mp4",
+    "source": "https://vz-3d55d19e-b06.b-cdn.net/b2d8e565-1126-4831-a213-11b51717cb56/play_720p.mp4",
+    "bytes": 15434709,
+    "sha256": "373ead56db9d9e3c4bedff6952dca224b9c73a184526c6a0fcfaaf68a6f6ef94",
+    "type": "video/mp4",
+    "label": "Semana 2 · video"
+  }
+]

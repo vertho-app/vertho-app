@@ -135,3 +135,6 @@ scripts/_*.mjs
 /FEATURES-E-BENEFICIOS.md
 /PASSO-A-PASSO-VERTHO.md
 /RESUMO.md
+
+# Pacote estático de apresentação: gerado sem rede pelo prebuild/predev.
+/public/apresentacao-offline/

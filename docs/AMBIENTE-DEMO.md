@@ -1,5 +1,54 @@
 # Ambientes de Demonstração
 
+## Apresentação escolar sem internet
+
+Disponível em `https://professor-escolas.vertho.ai/apresentacao-offline/index.html`
+e pelo botão **Offline** na barra da sala escolar. Prepare pelo Wi-Fi, no mesmo
+navegador e aparelho que serão usados para apresentar. O pacote só sinaliza
+**Pronto para apresentar offline** depois de baixar e conferir todos os arquivos.
+Salve o endereço nos favoritos; abra esse endereço diretamente quando estiver sem
+rede. Troque Professor(a), Coordenação e Direção no seletor local da apresentação.
+
+Inclui os perfis e avaliações do fixture escolar, PDI de Marina, relatório da
+coordenação, panorama da direção e os quatro formatos das semanas 1 e 2 (vídeo,
+áudio, texto e case). **Não inclui conversa com IA, login offline nem gravação ou
+sincronização de avaliações.** Reiniciar demonstração apenas retorna ao começo.
+O retrato dos dados fictícios tem sua data visível; o pacote não consulta o banco.
+
+**Conferir pacote** relê os arquivos salvos e valida tamanho e SHA-256. Antes de
+um evento, confira, desligue a internet, feche e reabra o navegador e teste a mídia.
+Se o navegador apagar o armazenamento, será necessário preparar novamente com
+conexão. **Atualizar pacote** aparece quando há uma versão nova. Downloads
+incompletos, cancelados ou sem espaço não substituem o pacote anterior.
+
+### Implementação e verificação
+
+- Fonte TypeScript em `lib/demo/offline/`; `data.ts` projeta apenas campos
+  demonstrativos do fixture e roster, sem contatos, sessões ou conversas.
+- `media.json` fixa os arquivos públicos, tamanhos e hashes. Ao trocar a mídia,
+  atualize o manifesto a partir dos novos arquivos completos; builds não fazem
+  downloads e não precisam de segredos. As semanas vêm do plano congelado de
+  Marina e usam os vídeos editoriais de `escolas-videos-jornada.json`.
+- `npm run build:demo-offline` gera `public/apresentacao-offline/` (ignorado no Git).
+  `predev` e `prebuild` executam o mesmo gerador. HTML, CSS, JavaScript e fontes
+  locais entram no manifesto; o pacote inicial mede cerca de 38,4 MiB.
+- Worker exclusivo em `/apresentacao-offline/sw.js`, com escopo explícito
+  `/apresentacao-offline/`. `public/sw.js` continua apenas push. O novo worker
+  atende somente os arquivos desse pacote; não captura API, auth ou dashboard.
+- Cache temporário + validação completa + ponteiro ativo atômico. O pacote
+  anterior é preservado; limpeza fica no namespace próprio e sob lock entre abas.
+  Requests explícitas de atualização passam pela rede, para evitar baixar o HTML
+  antigo do próprio cache. Range requests permitem buscar trechos de vídeo/áudio.
+- Unitários: `tests/unit/demo-offline.test.ts` (corrupção, quota, cancelamento,
+  preservação do anterior, escopo de arquivos e intervalos de mídia).
+- Canary manual: `node scripts/verify-demo-offline.mts`, depois do build do pacote.
+  Baixa as mídias públicas reais, testa atualização, desliga o servidor de origem,
+  reinicia o Chrome sem conexão e percorre os três perfis e quatro formatos.
+  Também confere telas a 390px e invalida a prontidão ao remover um vídeo do cache.
+  `--origin=https://professor-escolas.vertho.ai` verifica a publicação real.
+
+## Ambientes online
+
 Tenant `acme-demo` (empresa "ACME Demo") que os vendedores usam nas demos para clientes. Nasce com um estado rico e é resetado ao estado inicial sob demanda e toda madrugada.
 
 O tenant `gruposinal` (`https://gruposinal.vertho.ai`) é uma instância contextualizada
