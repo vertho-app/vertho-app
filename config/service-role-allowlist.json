@@ -140,7 +140,7 @@
     "actions/sales/demo-access.ts": 1,
     "actions/sales/materials.ts": 5,
     "actions/sales/opportunities.ts": 8,
-    "actions/sales/proposal-share.ts": 2,
+    "actions/sales/proposal-share.ts": 3,
     "actions/sales/proposals.ts": 13,
     "actions/sales/representatives.ts": 3,
     "app/api/sales/materials/[id]/download/route.ts": 1,

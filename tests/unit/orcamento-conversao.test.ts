@@ -110,9 +110,24 @@ beforeEach(() => {
 
 const ESCOPO = 'Programa Jornada de 7 semanas · 1 ciclo\n100 pessoas';
 
+/**
+ * Contato do documento (mig 255): obrigatorio na conversao. Fica num helper
+ * porque a AUSENCIA dele e assunto de um `it` proprio — nos outros casos o que
+ * se testa e dinheiro e autoria, e um campo faltando ali reprovaria pelo motivo
+ * errado.
+ */
+const CONTATO = {
+  contatoNome: 'Rodrigo Naves',
+  contatoEmail: 'rodrigo@vertho.ai',
+  contatoWhatsapp: '11911807809',
+};
+const entrada = (extra: Record<string, any> = {}) =>
+  ({ orcamentoId: 'orc-1', includedScope: ESCOPO, ...CONTATO, ...extra }) as any;
+
+
 describe('criarPropostaDeOrcamento — o mapeamento de dinheiro', () => {
   it('vigência = parcelas do projeto, e mensal = valor de tabela ÷ parcelas', async () => {
-    const r: any = await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    const r: any = await criarPropostaDeOrcamento(entrada());
     expect(r.success).toBe(true);
 
     const gravado = insertDeProposta();
@@ -131,7 +146,7 @@ describe('criarPropostaDeOrcamento — o mapeamento de dinheiro', () => {
     };
     cenario.orcamento.entradas.pricing.descontoPct = 10;
 
-    await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    await criarPropostaDeOrcamento(entrada());
 
     const gravado = insertDeProposta();
     expect(gravado.contract_duration_months).toBe(4);
@@ -143,18 +158,17 @@ describe('criarPropostaDeOrcamento — o mapeamento de dinheiro', () => {
 
   it('o desconto vem das ENTRADAS gravadas, não derivado de valorFinal/valorTabela', async () => {
     cenario.orcamento.entradas.pricing.descontoPct = 25;
-    await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    await criarPropostaDeOrcamento(entrada());
     // > 15% liga margin_alert — o histórico do desconto sobrevive na proposta.
     expect(insertDeProposta()).toMatchObject({ discount_requested: 25, margin_alert: true });
   });
 
   it('os números vêm do BANCO, não do que o cliente mandou', async () => {
-    const r: any = await criarPropostaDeOrcamento({
-      orcamentoId: 'orc-1',
-      includedScope: ESCOPO,
+    const r: any = await criarPropostaDeOrcamento(entrada({
       // tentativa de inflar o contrato por parâmetro
-      ...({ monthly_value: 999999, total_contract_value: 999999 } as any),
-    });
+      monthly_value: 999999,
+      total_contract_value: 999999,
+    }));
     expect(r.success).toBe(true);
     expect(insertDeProposta().monthly_value).toBe(16000);
     expect(insertDeProposta().total_contract_value).toBe(32000);
@@ -163,7 +177,7 @@ describe('criarPropostaDeOrcamento — o mapeamento de dinheiro', () => {
 
 describe('criarPropostaDeOrcamento — autoria e vínculo', () => {
   it('nasce sem RC, em rascunho, com o autor e o nome do cliente do orçamento', async () => {
-    await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    await criarPropostaDeOrcamento(entrada());
     expect(insertDeProposta()).toMatchObject({
       representante_id: null,
       opportunity_id: null,
@@ -177,19 +191,19 @@ describe('criarPropostaDeOrcamento — autoria e vínculo', () => {
 
   it('cliente em texto livre vira cliente_nome — sem ele o documento diria "Cliente"', async () => {
     cenario.orcamento.cliente = null;
-    await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    await criarPropostaDeOrcamento(entrada());
     expect(insertDeProposta().cliente_nome).toBeNull();
   });
 
   it('vincula o orçamento à proposta criada', async () => {
-    await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    await criarPropostaDeOrcamento(entrada());
     const vinculo = escritasEm('orcamento_cenarios', 'update')[0]?.payload;
     expect(vinculo).toBeTruthy();
     expect(vinculo.proposta_id).toBeTruthy();
   });
 
   it('gate sales_channel.manage; audita a criação', async () => {
-    await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    await criarPropostaDeOrcamento(entrada());
     expect(gate).toHaveBeenCalledWith('sales_channel.manage');
     expect(acoesAuditadas()).toContain('proposta_deal_desk.criar');
   });
@@ -199,7 +213,7 @@ describe('criarPropostaDeOrcamento — autoria e vínculo', () => {
     // header daquele arquivo diz que ele exclui "tudo que é interno". Gravar ali
     // a proveniência ("gerada a partir do orçamento X") vazaria o deal desk para
     // o cliente. A proveniência vive em created_by_email + proposta_id + auditoria.
-    await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    await criarPropostaDeOrcamento(entrada());
     const gravado = insertDeProposta();
     expect(gravado.commercial_notes).toBeNull();
     expect(JSON.stringify(gravado)).not.toMatch(/deal desk|orçamento "Rede/i);
@@ -209,7 +223,7 @@ describe('criarPropostaDeOrcamento — autoria e vínculo', () => {
     // `calculateProposalFinancials` calcula 9% + 12% sempre. Deixar isso gravado
     // faria a tela do admin mostrar ~R$ 6,7 mil de comissão numa proposta que não
     // paga nenhuma — e número de comissão na tela é número em que alguém age.
-    await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    await criarPropostaDeOrcamento(entrada());
     const gravado = insertDeProposta();
     expect(gravado.estimated_acquisition_commission).toBe(0);
     expect(gravado.estimated_recurring_commission).toBe(0);
@@ -224,7 +238,7 @@ describe('criarPropostaDeOrcamento — o que recusa', () => {
   it('escopo vazio não cria proposta: é o texto que o CLIENTE lê', async () => {
     for (const includedScope of ['', '   ', undefined as any]) {
       sb = mock();
-      const r: any = await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope });
+      const r: any = await criarPropostaDeOrcamento(entrada({ includedScope }));
       expect(r.success).toBe(false);
       expect(r.error).toMatch(/escopo/i);
       expect(escritasEm('sales_proposals')).toHaveLength(0);
@@ -234,7 +248,7 @@ describe('criarPropostaDeOrcamento — o que recusa', () => {
 
   it('orçamento já convertido não vira duas propostas', async () => {
     cenario.orcamento.proposta_id = 'prop-antiga';
-    const r: any = await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    const r: any = await criarPropostaDeOrcamento(entrada());
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/já foi convertido/i);
     expect(escritasEm('sales_proposals')).toHaveLength(0);
@@ -242,33 +256,28 @@ describe('criarPropostaDeOrcamento — o que recusa', () => {
 
   it('orçamento inexistente não cria proposta', async () => {
     cenario.orcamento = null;
-    const r: any = await criarPropostaDeOrcamento({ orcamentoId: 'orc-fantasma', includedScope: ESCOPO });
+    const r: any = await criarPropostaDeOrcamento(entrada({ orcamentoId: 'orc-fantasma' }));
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/não encontrado/i);
     expect(escritasEm('sales_proposals')).toHaveLength(0);
   });
 
   it('tipo de cliente e pacote inválidos são recusados antes de escrever (há CHECK no banco)', async () => {
-    const r1: any = await criarPropostaDeOrcamento({
-      orcamentoId: 'orc-1', includedScope: ESCOPO, customerType: 'ong',
-    });
+    const r1: any = await criarPropostaDeOrcamento(entrada({ customerType: 'ong' }));
     expect(r1.success).toBe(false);
     expect(escritasEm('sales_proposals')).toHaveLength(0);
 
     sb = mock();
-    const r2: any = await criarPropostaDeOrcamento({
-      orcamentoId: 'orc-1', includedScope: ESCOPO, productPackage: 'pacote_inventado',
-    });
+    const r2: any = await criarPropostaDeOrcamento(entrada({ productPackage: 'pacote_inventado' }));
     expect(r2.success).toBe(false);
     expect(escritasEm('sales_proposals')).toHaveLength(0);
   });
 
   it('valores aceitos passam e chegam à linha', async () => {
-    const r: any = await criarPropostaDeOrcamento({
-      orcamentoId: 'orc-1', includedScope: ESCOPO,
+    const r: any = await criarPropostaDeOrcamento(entrada({
       customerType: 'rede_ensino', productPackage: 'custom',
       paymentTerms: '2 parcelas de R$ 16.000,00',
-    });
+    }));
     expect(r.success).toBe(true);
     expect(insertDeProposta()).toMatchObject({
       customer_type: 'rede_ensino',
@@ -277,16 +286,49 @@ describe('criarPropostaDeOrcamento — o que recusa', () => {
     });
   });
 
+
+  it('sem contato, a conversão RECUSA: o documento público não pode sair sem quem responde', async () => {
+    for (const faltando of ['contatoNome', 'contatoEmail', 'contatoWhatsapp']) {
+      sb = mock();
+      const e = entrada();
+      e[faltando] = '';
+      const r: any = await criarPropostaDeOrcamento(e);
+      expect(r.success, `${faltando} vazio deveria recusar`).toBe(false);
+      expect(escritasEm('sales_proposals')).toHaveLength(0);
+    }
+  });
+
+  it('e-mail e WhatsApp do contato são validados antes de escrever', async () => {
+    const r1: any = await criarPropostaDeOrcamento(entrada({ contatoEmail: 'rodrigo@vertho' }));
+    expect(r1.success).toBe(false);
+    expect(r1.error).toMatch(/e-mail/i);
+
+    sb = mock();
+    const r2: any = await criarPropostaDeOrcamento(entrada({ contatoWhatsapp: '1234' }));
+    expect(r2.success).toBe(false);
+    expect(r2.error).toMatch(/WhatsApp/i);
+    expect(escritasEm('sales_proposals')).toHaveLength(0);
+  });
+
+  it('o WhatsApp é gravado em E.164 sem "+" — é o que monta o link wa.me do documento', async () => {
+    await criarPropostaDeOrcamento(entrada({ contatoWhatsapp: '(11) 91180-7809' }));
+    expect(insertDeProposta()).toMatchObject({
+      contact_name: 'Rodrigo Naves',
+      contact_email: 'rodrigo@vertho.ai',
+      contact_phone: '5511911807809',
+    });
+  });
+
   it('falha ao gerar o número não cria proposta sem número (a coluna é NOT NULL UNIQUE)', async () => {
     sb.client.rpc = vi.fn(async () => ({ data: null, error: { message: 'sequence broken' } }));
-    const r: any = await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    const r: any = await criarPropostaDeOrcamento(entrada());
     expect(r.success).toBe(false);
     expect(escritasEm('sales_proposals')).toHaveLength(0);
   });
 
   it('erro do banco vira {success:false} com a mensagem', async () => {
     sb.falharEm({ tabela: 'sales_proposals', op: 'insert', mensagem: 'duplicate key' });
-    const r: any = await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    const r: any = await criarPropostaDeOrcamento(entrada());
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/duplicate key/);
     expect(auditoria).not.toHaveBeenCalled();
@@ -294,7 +336,7 @@ describe('criarPropostaDeOrcamento — o que recusa', () => {
 
   it('vínculo que falha é reportado COM o número — senão o admin não sabe o que procurar', async () => {
     sb.falharEm({ tabela: 'orcamento_cenarios', op: 'update', mensagem: 'timeout' });
-    const r: any = await criarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: ESCOPO });
+    const r: any = await criarPropostaDeOrcamento(entrada());
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/PROP-2026-0001/);
     expect(r.error).toMatch(/não converta de novo/i);

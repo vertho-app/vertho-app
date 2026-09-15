@@ -118,16 +118,19 @@ V cyan (`#34C5CC`) sobre navy (`#0F2B54`) — `app/icon.svg`
 
 # Documento da proposta comercial (tema claro/editorial)
 
-> Sub-sistema visual distinto do design system da UI web acima. Aplica-se **apenas** ao documento que o cliente do RC recebe: a página pública `app/proposta/[token]/page.tsx` e o PDF `components/pdf/PropostaComercialPDF.tsx`. Redesenhado em 06/07/2026 (commit `3316392f`) a partir de um template "visualmente claro" fornecido pelo Rodrigo. **Não** usa a paleta escura da marca — é claro/editorial por design (documento formal impresso/enviado ao cliente).
+> Sub-sistema visual distinto do design system da UI web acima. Aplica-se **apenas** ao documento que o cliente recebe: a página pública `app/proposta/[token]/page.tsx` e o PDF `components/pdf/PropostaComercialPDF.tsx`. Corpo claro/editorial por design (documento formal, impresso e enviado ao cliente), a partir de um template fornecido pelo Rodrigo em 06/07/2026 (`3316392f`). **Redesenhado em 14/09/2026**: o corpo continua claro; a ABERTURA passou a ser uma capa navy da marca, porque a primeira dobra de um documento comercial é onde a decisão começa.
 
 ## Paleta
 
 | Swatch | Hex | Uso |
 |--------|-----|-----|
-| ⬜ | `#FFFFFF` | Fundo (branco) |
-| 🟪 | `#4F46E5` | **Acento índigo** — brand, títulos de destaque, barra de investimento, marcadores `›` |
-| 🟦 | `#EEF0FE` | Índigo-claro — chips do escopo incluído |
-| 🩷 | `#C4488A` | Rosa — marcador `✕` de "O que não está incluso" |
+| 🟦 | `#0F2B54` | **Navy da marca** — capa, avatar do contato, borda do card "a instituição recebe" |
+| ⬛ | `#071628` | Navy profundo — fim do gradiente da capa |
+| 🟩 | `#34C5CC` | Cyan da marca — eyebrow e selo sobre a capa (só lá) |
+| ⬜ | `#FFFFFF` | Fundo do corpo |
+| 🟪 | `#4F46E5` | **Acento índigo** — títulos de seção, barra de investimento, marcadores `›`, ações |
+| 🟦 | `#EEF0FE` | Índigo-claro — chips do escopo e faixa de métricas |
+| 🩷 | `#C4488A` | Rosa — marcador de "o que não está incluso" |
 | ⬛ | `#A2A8B8` | Cinza do footer / meta |
 
 ## Tipografia
@@ -144,18 +147,26 @@ Na página: variáveis `--font-prop-display/body/mono` (com fallback às famíli
 
 | Seção | Tratamento |
 |-------|------------|
-| Brand | Quadradinho índigo + wordmark "vertho" + pill "Proposta Comercial" |
-| Hero | Título grande (Space Grotesk, tracking negativo) |
-| Para | Card do destinatário |
-| `// Contexto` | Rótulo mono + texto |
-| `// Escopo incluído` | Chips índigo-claro (`#EEF0FE`) |
-| `// Investimento` | Cards + **barra índigo grande com o VALOR MENSAL** (invertido em `2de61dd2`); total do contrato em card menor |
-| `// Cronograma` | Timeline com bolinhas |
-| `// O que não está incluso` | Lista com `✕` rosa (`#C4488A`) |
-| `// Premissas` | Lista com `›` índigo |
+| Barra de ação (só na página) | Sticky, `no-print`: nº + validade, "Baixar PDF" e "Aceitar proposta" |
+| Capa | Navy com gradiente cyan/índigo · logo CLARO · nº/emissão/validade · título · "Preparada para {cliente}" (some se não houver nome) · selo de aceita/expirada · **investimento total na primeira dobra** |
+| Faixa de métricas | Fundo `#EEF0FE` com participantes · cargos · ciclos · duração (vêm do orçamento; sem eles, a faixa some) |
+| `// Contexto` | Dor do cliente (quando há) + o argumento institucional |
+| `// Como a Vertho trabalha` | 3 pilares: diagnóstico, trilha, evidência |
+| `// Escopo desta proposta` | Chips índigo-claro com o texto revisado do orçamento |
+| `// O que está incluso` | 8 entregas com título + descrição (check em `<Svg>` no PDF) |
+| `// Quem recebe o quê` | Duas colunas: cada participante × a instituição |
+| `// Investimento` | Barra índigo com o TOTAL + cards (por participante · parcela · parcelas) |
+| `// Como funciona` | Timeline de 5 etapas com duração e a entrega de cada uma |
 | `// Próximos passos` | Cards numerados 01-04 |
-| Contato | Avatar de iniciais + dados do RC |
+| `// Condições` | Premissas e "o que não está incluso" lado a lado, em cinza |
+| Aceite | Formulário (nome, cargo, e-mail + confirmação) na página; no PDF, a chamada equivalente |
+| Contato | Avatar de iniciais + contato da proposta, com WhatsApp e e-mail |
 | Footer | Texto mono, cinza |
+
+## Duas armadilhas MEDIDAS no PDF (14/09/2026)
+
+1. **`rgba()` não existe para o react-pdf.** `borderTopColor: 'rgba(255,255,255,.16)'` saiu **verde** sobre a capa navy. Os tons de branco vão pré-compostos em hex — e o divisor é um `View` de 1pt preenchido, porque mesmo com hex a BORDA saiu errada.
+2. **Glifo fora do subset sai vazio** (ver `tests/unit/pdf-glifos-guard.test.ts`): `✓`, `✕` e `→` desapareceram sem erro. Check e xis viraram `<Svg>`; a seta virou o rótulo "Entrega:".
 
 ---
 
