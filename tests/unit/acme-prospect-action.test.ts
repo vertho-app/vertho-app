@@ -6,6 +6,8 @@ const h = vi.hoisted(() => ({
   presentationResult: null as any,
   prospectResult: null as any,
   prospectArgs: [] as any[],
+  ticketArgs: [] as Array<Record<string, any>>,
+  salas: [] as string[],
   cleanupResult: { expiredRemoved: 0, activeCount: 0, nextExpiry: null } as any,
   cleanupSlugs: [] as string[],
   resetDemo: vi.fn(async () => ({ ok: true, counts: { colaboradores: 30 } })),
@@ -37,11 +39,21 @@ vi.mock('@/lib/demo/reset-acme-demo', () => ({
 
 vi.mock('@/lib/demo/presentation', () => ({
   DEMO_PRESENTATION_TENANT_SLUG: 'acme-demo',
-  demoPresentationAuthUrl: (roleKey: string, ticket: string) => `https://${roleKey}-demo.vertho.ai/auth/apresentacao?ticket=${ticket}`,
+  isDemoPresentationTenant: (slug: unknown) => h.salas.includes(String(slug)),
+  // O HOST carrega o ambiente — é o que a rota compara contra o ticket. O mock
+  // precisa refletir isso, senão host e ticket nunca divergem aqui e o teste
+  // não consegue enxergar o defeito que existe justamente entre os dois.
+  demoPresentationAuthUrl: (roleKey: string, ticket: string, _root: unknown, tenantSlug = 'acme-demo') =>
+    `https://${roleKey}-${tenantSlug}.vertho.ai/auth/apresentacao?ticket=${ticket}`,
 }));
 
 vi.mock('@/lib/demo/presentation-ticket', () => ({
-  issueDemoPresentationTicket: () => 'tracked-ticket',
+  // O ticket ASSINA o ambiente. Devolvê-lo no valor torna visível, no teste, de
+  // que sala o passe diz ser.
+  issueDemoPresentationTicket: (now: unknown, options: unknown, tenantSlug?: string) => {
+    h.ticketArgs.push({ now, options, tenantSlug });
+    return `tracked-ticket:${tenantSlug ?? 'DEFAULT'}`;
+  },
 }));
 
 vi.mock('@/lib/demo/acme-prospect-experience', () => ({
@@ -83,6 +95,8 @@ describe('action do roteiro de experiência ACME', () => {
     h.calls = [];
     h.audits = [];
     h.prospectArgs = [];
+    h.ticketArgs = [];
+    h.salas = ['acme-demo', 'escolas-acme', 'gruposinal'];
     h.cleanupResult = { expiredRemoved: 0, activeCount: 0, nextExpiry: null };
     h.cleanupSlugs = [];
     h.resetDemo.mockClear();
@@ -114,6 +128,50 @@ describe('action do roteiro de experiência ACME', () => {
     });
     expect(h.prospectArgs[2]).toBe('admin@vertho.ai');
     expect((result as any).visoes.every((view: any) => view.url.includes('tracked-ticket'))).toBe(true);
+  });
+
+  /**
+   * 🔴 O ticket e o HOST têm que falar do mesmo ambiente.
+   *
+   * `/auth/apresentacao` compara os dois de propósito: a assinatura prova que o
+   * passe é nosso, não que ele é DESTA sala. A URL já era montada com o `slug`
+   * do roteiro e o ticket saía no DEFAULT — com um ambiente só, os dois
+   * coincidiam por acidente; a partir do segundo, toda etapa 02–04 morria em
+   * "apresentacao-invalida" na frente do prospect.
+   *
+   * `Medido 15/09/2026:` o primeiro roteiro do Grupo Sinal respondeu, em
+   * produção, `307 → /login?error=apresentacao-invalida` nas três visões.
+   */
+  it('🔴 o ticket das etapas 02–04 é emitido para o ambiente do roteiro, não para o default', async () => {
+    const result = await prepararExperienciaProspectAcme(validInput, 'gruposinal');
+
+    expect(result).toMatchObject({ success: true });
+    expect(h.ticketArgs.at(-1)?.tenantSlug).toBe('gruposinal');
+    for (const view of (result as any).visoes) {
+      // O host diz `-gruposinal`; o ticket precisa dizer o mesmo.
+      expect(view.url).toContain('gruposinal.vertho.ai');
+      expect(view.url).toContain('tracked-ticket:gruposinal');
+    }
+  });
+
+  it('a auditoria do roteiro registra o ambiente REAL, não a constante do ACME', async () => {
+    await prepararExperienciaProspectAcme(validInput, 'gruposinal');
+    expect(h.audits.at(-1)?.alvo).toBe('gruposinal');
+  });
+
+  it('recusa ambiente que oferece degustação mas não tem sala, antes de criar convidado', async () => {
+    // A allowlist de degustação e a de salas são listas diferentes: um ambiente
+    // pode entrar numa antes da outra. `gruposinal` É um ambiente de degustação
+    // válido aqui — o que falta é a SALA —, senão o teste passaria pelo guard
+    // anterior e não provaria nada sobre este.
+    h.salas = ['acme-demo'];
+
+    const semSala = await prepararExperienciaProspectAcme(validInput, 'gruposinal');
+
+    expect(semSala).toMatchObject({ success: false });
+    expect((semSala as any).error).toContain('sala de apresentação');
+    expect(h.calls).not.toContain('prospect');
+    expect(h.calls).not.toContain('presentation');
   });
 
   it('rejeita entrada inválida antes de preparar sessões ou criar convidado', async () => {

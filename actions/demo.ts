@@ -158,6 +158,21 @@ export async function prepararExperienciaProspectAcme(
   if (!Object.prototype.hasOwnProperty.call(DEMO_PROSPECT_TENANTS, slug)) {
     return { success: false as const, error: 'Ambiente de demonstração inválido.' };
   }
+  // 🔴 Oferecer degustação e TER SALA são duas listas diferentes, e o roteiro
+  // precisa das duas: as etapas 02–04 são a sala do MESMO ambiente. Enquanto
+  // isto era um `as any` na chamada abaixo, o compilador não cobrava a
+  // diferença — e ela não some, porque um ambiente pode passar a oferecer
+  // degustação antes de ganhar sala.
+  if (!isDemoPresentationTenant(slug)) {
+    const error = `O ambiente ${slug} não tem sala de apresentação para as etapas 02–04.`;
+    await logAdminAction({
+      adminEmail: ctx.email,
+      acao: 'demo.prepare_prospect_experience',
+      alvo: slug,
+      detalhes: { error },
+    });
+    return { success: false as const, error };
+  }
   const parsed = validateAcmeProspectExperienceInput(input, slug);
   if (parsed.ok === false) {
     await logAdminAction({
@@ -170,7 +185,7 @@ export async function prepararExperienciaProspectAcme(
   }
 
   const lifecycle = createAcmeProspectLifecycle();
-  const presentation = await prepararAcessosApresentacaoDemo(slug as any);
+  const presentation = await prepararAcessosApresentacaoDemo(slug);
   const rawPresentationViews = presentation.acessos || [];
   const missingViews = ACME_PROSPECT_EXPERIENCE_VIEWS
     .filter((required) => !rawPresentationViews.some((view) => view.roleKey === required.roleKey))
@@ -188,10 +203,18 @@ export async function prepararExperienciaProspectAcme(
   }
 
   const issuedAt = Math.floor(Date.now() / 1_000);
+  // 🔴 O ticket carrega o AMBIENTE, e `/auth/apresentacao` o confere contra o
+  // hostname — a assinatura prova que o passe é nosso, não que é DESTE ambiente.
+  // A URL abaixo já era montada com o `slug` (host da sala certa) e o ticket
+  // saía no DEFAULT (`acme-demo`): com um ambiente só os dois coincidiam por
+  // acidente, e com dois toda etapa 02–04 morria em "apresentacao-invalida" —
+  // na frente do prospect, que é o pior lugar para descobrir.
+  // `Medido 15/09/2026:` o primeiro roteiro do Grupo Sinal respondeu
+  // `307 → /login?error=apresentacao-invalida` nas três visões.
   const trackedTicket = issueDemoPresentationTicket(issuedAt, {
     prospectSessionId: lifecycle.sessionId,
     expiresAtSeconds: Math.floor(Date.parse(lifecycle.expiresAt) / 1_000),
-  });
+  }, slug);
   const presentationViews = rawPresentationViews.map((view) => ({
     ...view,
     url: demoPresentationAuthUrl(view.roleKey, trackedTicket, undefined, slug),
@@ -200,7 +223,11 @@ export async function prepararExperienciaProspectAcme(
   await logAdminAction({
     adminEmail: ctx.email,
     acao: 'demo.prepare_prospect_experience',
-    alvo: DEMO_PRESENTATION_TENANT_SLUG,
+    // O ambiente REAL do roteiro. Era a constante `acme-demo`, enquanto os três
+    // ramos de erro já gravavam o `slug` — então a auditoria dizia a verdade
+    // quando falhava e mentia quando dava certo. `Medido 15/09/2026:` as duas
+    // degustações criadas no `gruposinal` ficaram registradas como `acme-demo`.
+    alvo: slug,
     detalhes: r.ok === true
       ? {
           sessionId: r.access.sessionId,
