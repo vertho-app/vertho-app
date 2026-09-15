@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { VendasSessaoStatus } from '@/lib/status';
 import { matrizAvaliacaoSchema } from './matriz-avaliacao';
+import { CODIGOS_DESCRITORES, REFERENCIAS_MANUAL } from './fontes';
 
 export const ETAPAS = ['criador', 'cliente', 'moderador', 'intencao', 'gerente'] as const;
 export type Etapa = (typeof ETAPAS)[number];
@@ -14,10 +15,12 @@ export const ROTULOS = {
 };
 export const NIVEIS = { 1: 'Júnior', 2: 'Pleno', 3: 'Sênior' };
 export const MAX_TURNOS = 60; // Limite técnico de contexto e tamanho da sessão.
-export const REGUA_VERSION = 'pace-4';
+export const REGUA_VERSION = 'pace-5';
 /** A pace-2 já separava notas brutas do gerente e pontuação determinística no servidor. */
 export function usaGerenteBruto(versao?: string) {
-  return versao === 'pace-2' || versao === 'pace-3' || versao === REGUA_VERSION;
+  return (
+    versao === 'pace-2' || versao === 'pace-3' || versao === 'pace-4' || versao === REGUA_VERSION
+  );
 }
 export const RETENCAO_MESES = 6;
 const texto = z.string();
@@ -144,8 +147,16 @@ export const relatorioLegadoSchema = z.object({
     }),
   ),
 });
+export const recomendacaoDocumentalSchema =
+  relatorioLegadoSchema.shape.Recomendacoes.element.extend({
+    descritor: z.enum(CODIGOS_DESCRITORES),
+    referencia_manual: z.enum(REFERENCIAS_MANUAL),
+  });
 export const relatorioSchema = relatorioLegadoSchema.extend({
   Matriz: matrizAvaliacaoSchema.optional(),
+  Recomendacoes: z.array(
+    z.union([recomendacaoDocumentalSchema, relatorioLegadoSchema.shape.Recomendacoes.element]),
+  ),
 });
 export const SAIDAS = {
   criador: cenarioSchema,
@@ -162,6 +173,12 @@ export const gerenteBrutoSchema = relatorioLegadoSchema.omit({
 export const gerenteMatrizSchema = gerenteBrutoSchema
   .omit({ P: true, A: true, C: true, E: true })
   .extend({ Matriz: matrizAvaliacaoSchema });
+export const gerenteDocumentalSchema = gerenteMatrizSchema
+  .omit({ Beneficios_ocultos_descobertos: true, Objecoes_profundas_descobertas: true })
+  .extend({
+    Recomendacoes: z.array(recomendacaoDocumentalSchema).min(3).max(5),
+    Resultado: z.enum(['fechou_aceitavel', 'nao_fechou', 'inconclusivo']),
+  });
 export type Saidas = { [K in Etapa]: z.infer<(typeof SAIDAS)[K]> };
 const pontuacaoFeedback = z.number().int().min(1).max(5);
 export const feedbackSchema = z.object({

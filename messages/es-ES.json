@@ -206,7 +206,12 @@
     "matrix_A": "Analizar",
     "matrix_C": "Co-crear",
     "matrix_E": "Comprometer",
-    "matrixZeroHelp": "— indica que la etapa no tiene puntos y cuenta como cero en la media. Consulta la cobertura de evidencias y las posibles deducciones por conducta."
+    "matrixZeroHelp": "— indica que la etapa no tiene puntos y cuenta como cero en la media. Consulta la cobertura de evidencias y las posibles deducciones por conducta.",
+    "documentScoreHelp": "La nota de cada etapa es la media de los niveles observados × 2,5, redondeada en pasos de 0,5. La planificación tiene evaluación propia; P, A, C y E componen la media general. La conducta se evalúa mediante los descriptores, sin deducciones adicionales.",
+    "documentZeroHelp": "— indica que no se observaron descriptores en la etapa. Cuenta como cero solo en la media de la práctica; no asigna N1 a la competencia.",
+    "documentSources": "Referencias metodológicas exclusivas: Manual de la Metodología PACE v8 y la matriz de competencias PACE aprobada. El plan y la conversación aportan las evidencias de esta práctica.",
+    "documentReference": "Matriz: {descriptor} · Manual v8: {section}",
+    "documentAgreement": "Acuerdo de compra registrado"
   },
   "Beto": {
     "greeting": "¡Hola! Soy Beto, tu mentor de desarrollo. ¿Cómo puedo ayudarte?",

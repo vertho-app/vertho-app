@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { criarSupabaseMock, type SupabaseMock } from '../helpers/supabase-mock';
 import { estado, cenario, relatorio, semViolacao } from '../fixtures/simulador-vendas';
-import { relatorioMatriz, PLANO, FALA } from '../fixtures/simulador-vendas-matriz';
+import { relatorioDocumental, PLANO, FALA } from '../fixtures/simulador-vendas-matriz';
 import { REGUA_VERSION, ETAPAS, type Estado, type Comando } from '@/lib/simulador-vendas/schema';
 import type { Contexto } from '@/lib/simulador-vendas/access';
 let sb: SupabaseMock;
@@ -43,13 +43,13 @@ function novo() {
   ) as Estado['prompts'];
   return s;
 }
-describe('PACE v4: núcleo usando gerador real, com fronteira HTTP mockada', () => {
+describe('PACE v5: núcleo usando gerador real, com fronteira HTTP mockada', () => {
   beforeEach(() => {
     sb = criarSupabaseMock({ resolver: (t) => (t === 'sim_vendas_config' ? config : null) });
     vi.mocked(callAI).mockReset();
     vi.mocked(getModelForTask).mockResolvedValue('gpt-5.4-2026-03-05');
   });
-  it('criador → moderador → cliente → intenção → gerente, checkpoint bruto e penalidade única', async () => {
+  it('criador → moderador → cliente → intenção → gerente, apenas duas fontes e sem desconto extra', async () => {
     const outputs = [
       cenario,
       {
@@ -63,7 +63,7 @@ describe('PACE v4: núcleo usando gerador real, com fronteira HTTP mockada', () 
       },
       { fase: 'analisar', fase_mudou: true, fala: 'Vamos entender a operação.' },
       { intencao_encerrar: false, confianca: 'alta' },
-      relatorioMatriz(),
+      relatorioDocumental(),
     ];
     vi.mocked(callAI).mockImplementation(async () => JSON.stringify(outputs.shift()));
     let s = novo();
@@ -86,8 +86,9 @@ describe('PACE v4: núcleo usando gerador real, com fronteira HTTP mockada', () 
     });
     await comando('encerrar');
     expect(s.status).toBe('concluida');
-    expect(s.relatorio!.P).toBe(7);
-    expect(s.relatorio!.Violacoes).toHaveLength(1);
+    expect(s.relatorio!.P).toBe(7.5);
+    expect(s.relatorio!.Violacoes).toHaveLength(0);
+    expect(s.moderacoes).toHaveLength(1); // proteção da conversa preservada.
     expect(s.notasBrutas!.P).toBe(7.5);
     expect(s.relatorio!.Matriz?.descritores).toHaveLength(30);
     expect(callAI).toHaveBeenCalledTimes(5);
@@ -105,8 +106,14 @@ describe('PACE v4: núcleo usando gerador real, com fronteira HTTP mockada', () 
     expect(schema.required).toContain('Matriz');
     expect(schema.required).not.toContain('Media');
     expect(schema.required).not.toContain('Violacoes');
-    const checkpoint = sb.escritas.filter((e) => e.op === 'update' && e.payload.status === 'aceita').at(-1)!
-      .payload.resultado;
+    expect(schema.properties).not.toHaveProperty('Beneficios_ocultos_descobertos');
+    const dadosGerente = JSON.parse(vi.mocked(callAI).mock.calls[4][1]);
+    expect(Object.keys(dadosGerente).sort()).toEqual(['planejamento', 'thread_completa']);
+    expect(vi.mocked(callAI).mock.calls[4][0]).toContain('Manual da Metodologia PACE_v8.docx');
+    expect(schema.properties.Recomendacoes.items.required).toContain('referencia_manual');
+    const checkpoint = sb.escritas
+      .filter((e) => e.op === 'update' && e.payload.status === 'aceita')
+      .at(-1)!.payload.resultado;
     expect(checkpoint.P).toBe(0); // provisório: notas são calculadas depois da validação.
     expect(checkpoint.Matriz).toEqual(s.relatorio!.Matriz);
     expect(vi.mocked(callAI).mock.calls[2][1]).not.toContain(PLANO);
@@ -148,7 +155,10 @@ describe('PACE v4: núcleo usando gerador real, com fronteira HTTP mockada', () 
     sb = criarSupabaseMock({
       resolver: (t) =>
         t === 'sim_vendas_config'
-          ? { ...config, periodo_fim: ++leituras === 1 ? config.periodo_fim : '2000-01-01T00:00:00Z' }
+          ? {
+              ...config,
+              periodo_fim: ++leituras === 1 ? config.periodo_fim : '2000-01-01T00:00:00Z',
+            }
           : null,
     });
     vi.mocked(callAI).mockResolvedValue('não JSON');

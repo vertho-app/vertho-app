@@ -3,7 +3,13 @@ import { useTranslations } from 'next-intl';
 import { COMPETENCIAS_PACE } from '@/lib/simulador-vendas/matriz';
 import { consolidarMatriz, type AvaliacaoMatriz } from '@/lib/simulador-vendas/matriz-avaliacao';
 
-export default function MatrizPace({ matriz }: { matriz: AvaliacaoMatriz }) {
+export default function MatrizPace({
+  matriz,
+  documental = false,
+}: {
+  matriz: AvaliacaoMatriz;
+  documental?: boolean;
+}) {
   const t = useTranslations('SimuladorVendas');
   const resultados = consolidarMatriz(matriz);
   return (
@@ -75,7 +81,9 @@ export default function MatrizPace({ matriz }: { matriz: AvaliacaoMatriz }) {
           );
         })}
       </div>
-      <p className="text-xs text-slate-400 mt-4">{t('matrixScoreHelp')}</p>
+      <p className="text-xs text-slate-400 mt-4">
+        {t(documental ? 'documentScoreHelp' : 'matrixScoreHelp')}
+      </p>
     </section>
   );
 }

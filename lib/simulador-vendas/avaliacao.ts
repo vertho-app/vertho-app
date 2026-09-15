@@ -1,6 +1,7 @@
 import type { Estado, Saidas } from './schema';
 import { usaGerenteBruto } from './schema';
 import { notasDaMatriz, usaMatrizPace, validarMatriz } from './matriz-avaliacao';
+import { usaFontesDocumentais } from './fontes';
 
 export const PILAR_POR_FASE = {
   preparar: 'P',
@@ -45,7 +46,10 @@ export function pontuarRelatorio(bruto: Saidas['gerente'], s: Estado): Saidas['g
   const r = structuredClone(bruto);
   const piso = s.versaoRegua === 'pace-3' || usaMatrizPace(s.versaoRegua) ? 0 : 0.5;
   if (usaMatrizPace(s.versaoRegua)) Object.assign(r, notasDaMatriz(validarMatriz(r.Matriz, s)));
-  if (usaGerenteBruto(s.versaoRegua)) {
+  // A matriz já avalia transparência, respeito e limites. Descontos avulsos
+  // não constam das duas fontes autorizadas; ficam apenas nas réguas legadas.
+  if (usaFontesDocumentais(s.versaoRegua)) r.Violacoes = [];
+  else if (usaGerenteBruto(s.versaoRegua)) {
     r.Violacoes = violacoesRegistradas(s);
     for (const v of r.Violacoes) {
       const antes = r[v.pilar_penalizado];

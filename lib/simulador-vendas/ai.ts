@@ -12,6 +12,7 @@ import {
   usaGerenteBruto,
   gerenteBrutoSchema,
   gerenteMatrizSchema,
+  gerenteDocumentalSchema,
   relatorioLegadoSchema,
   type Estado,
   type Etapa,
@@ -25,6 +26,7 @@ import { modeloPaceCompativel } from './modelos';
 import { periodoVigente } from './prazo';
 import { normalizarRelatorio } from './normalizacao';
 import { usaMatrizPace } from './matriz-avaliacao';
+import { usaFontesDocumentais } from './fontes';
 
 const TAREFAS = {
   criador: 'sim_vendas_criador',
@@ -72,26 +74,35 @@ export function gerador(
   ): Promise<Saidas[K]> => {
     const spec = s.prompts[etapa];
     const texto = await textoDoSnapshot(c.tdb, etapa, spec);
-    const mensagens =
-      spec.versao === PROMPT_VERSION || spec.versao === 'pace-rnaves-2.1.2-vertho-3'
-        ? mensagensDoPrompt(texto, valores)
-        : { system: '', user: renderPrompt(texto, valores) };
+    const mensagens = [
+      PROMPT_VERSION,
+      'pace-rnaves-2.1.2-vertho-3',
+      'pace-rnaves-2.1.2-vertho-4',
+    ].includes(spec.versao)
+      ? mensagensDoPrompt(texto, valores)
+      : { system: '', user: renderPrompt(texto, valores) };
     const promptHash = hashPrompt(mensagens.system ? JSON.stringify(mensagens) : mensagens.user);
     const bruto = etapa === 'gerente' && usaGerenteBruto(s.versaoRegua);
     const matriz = etapa === 'gerente' && usaMatrizPace(s.versaoRegua);
-    const schema = matriz
-      ? gerenteMatrizSchema
-      : bruto
-        ? gerenteBrutoSchema
-        : etapa === 'gerente'
-          ? relatorioLegadoSchema
-          : SAIDAS[etapa];
+    const documental = etapa === 'gerente' && usaFontesDocumentais(s.versaoRegua);
+    const schema = documental
+      ? gerenteDocumentalSchema
+      : matriz
+        ? gerenteMatrizSchema
+        : bruto
+          ? gerenteBrutoSchema
+          : etapa === 'gerente'
+            ? relatorioLegadoSchema
+            : SAIDAS[etapa];
     const parse = (v: unknown): Saidas[K] => {
       const r = schema.parse(etapa === 'gerente' ? normalizarRelatorio(v) : v);
       return (
         bruto
           ? {
               ...(matriz ? { P: 0, A: 0, C: 0, E: 0 } : {}),
+              ...(documental
+                ? { Beneficios_ocultos_descobertos: [], Objecoes_profundas_descobertas: [] }
+                : {}),
               ...r,
               Media: 0,
               Violacoes: [],

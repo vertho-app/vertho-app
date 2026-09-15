@@ -13,6 +13,8 @@ import {
   usaMatrizPace,
   validarMatriz,
 } from './matriz-avaliacao';
+import { usaFontesDocumentais } from './fontes';
+import { recomendacaoDocumentalSchema } from './schema';
 
 export class SimuladorError extends Error {
   constructor(
@@ -108,6 +110,21 @@ export function validarCenario(c: Saidas['criador'], s: Pick<Estado, 'nomeVended
 }
 export function validarRelatorio(r: Saidas['gerente'], s: Estado) {
   if (usaMatrizPace(s.versaoRegua)) validarMatriz(r.Matriz, s);
+  if (usaFontesDocumentais(s.versaoRegua)) {
+    if (r.Recomendacoes.length < 3 || r.Recomendacoes.length > 5)
+      throw new Error('Devolutiva documental exige 3 a 5 recomendações');
+    r.Recomendacoes.forEach((item, i) => {
+      recomendacaoDocumentalSchema.parse(item);
+      if (item.prioritaria !== (i === 0))
+        throw new Error('Prioridade da recomendação inconsistente');
+    });
+    if (
+      r.Beneficios_ocultos_descobertos.length ||
+      r.Objecoes_profundas_descobertas.length ||
+      r.Resultado === 'fechou_ideal'
+    )
+      throw new Error('Critério de gabarito fora das fontes documentais');
+  }
   for (const descoberta of [
     ...r.Beneficios_ocultos_descobertos,
     ...r.Objecoes_profundas_descobertas,
@@ -282,8 +299,12 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
                   `[Turno ${m.turno}] **${m.autor === 'vendedor' ? 'Vendedor' : 'Cliente'}:** ${m.texto}`,
               )
               .join('\n'),
-        personagem_json: JSON.stringify(s.cenario, null, 2),
-        violacoes_moderador: JSON.stringify(s.moderacoes),
+        ...(!usaFontesDocumentais(s.versaoRegua)
+          ? {
+              personagem_json: JSON.stringify(s.cenario, null, 2),
+              violacoes_moderador: JSON.stringify(s.moderacoes),
+            }
+          : {}),
         ...(usaMatrizPace(s.versaoRegua) ? { planejamento: s.planejamento || '' } : {}),
       },
       (r) => validarRelatorio(r, s),

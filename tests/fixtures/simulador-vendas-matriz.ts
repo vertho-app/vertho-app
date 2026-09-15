@@ -47,3 +47,34 @@ export function avaliacaoMatriz(nivel: 1 | 2 | 3 | 4 = 3): AvaliacaoMatriz {
 export function relatorioMatriz() {
   return { ...structuredClone(relatorio), Matriz: avaliacaoMatriz() };
 }
+export function estadoDocumental() {
+  return { ...estadoMatriz(), versaoRegua: 'pace-5' };
+}
+export function relatorioDocumental() {
+  return {
+    ...relatorioMatriz(),
+    Recomendacoes: [
+      {
+        titulo: 'Confirme o diagnóstico',
+        descricao: 'Retome com o cliente as prioridades antes de propor.',
+        prioritaria: true,
+        descritor: 'A6',
+        referencia_manual: 'analisar' as const,
+      },
+      {
+        titulo: 'Defina o avanço',
+        descricao: 'Prepare um objetivo de reunião e uma alternativa de continuidade.',
+        prioritaria: false,
+        descritor: 'PL2',
+        referencia_manual: 'planejamento' as const,
+      },
+      {
+        titulo: 'Combine próximos passos',
+        descricao: 'Confirme ação, responsável e prazo com o cliente.',
+        prioritaria: false,
+        descritor: 'E3',
+        referencia_manual: 'engajar' as const,
+      },
+    ],
+  };
+}

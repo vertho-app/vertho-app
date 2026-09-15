@@ -41,6 +41,12 @@ export async function verificarMatrizUI(page: Page, origin: string, dir: string)
     exact: true,
   });
   await section.waitFor();
+  await page
+    .getByText('Matriz: A6 · Manual v8: Etapa 2 — Analisar Detalhadamente', { exact: true })
+    .waitFor();
+  await page
+    .getByText(/Referências metodológicas exclusivas: Manual da Metodologia PACE v8/)
+    .waitFor();
   await expect(section.locator(':scope > div > article')).toHaveCount(5);
   await section.getByText('N3 · evidência parcial', { exact: true }).waitFor();
   await section.getByText('4 de 6 descritores observados', { exact: true }).waitFor();

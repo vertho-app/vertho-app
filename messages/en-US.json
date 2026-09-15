@@ -206,7 +206,12 @@
     "matrix_A": "Analyze",
     "matrix_C": "Co-create",
     "matrix_E": "Engage",
-    "matrixZeroHelp": "— means the stage has no points and counts as zero in the average. Check evidence coverage and any conduct deductions."
+    "matrixZeroHelp": "— means the stage has no points and counts as zero in the average. Check evidence coverage and any conduct deductions.",
+    "documentScoreHelp": "Each stage score is the mean of observed levels × 2.5, rounded to 0.5 increments. Planning has its own assessment; P, A, C and E make up the overall average. Conduct is assessed through descriptors, with no additional deductions.",
+    "documentZeroHelp": "— means no descriptors were observed for the stage. It counts as zero only in the practice average; it does not assign N1 to the competency.",
+    "documentSources": "Exclusive methodological references: PACE Methodology Manual v8 and the approved PACE competency matrix. The plan and conversation provide the evidence for this exercise.",
+    "documentReference": "Matrix: {descriptor} · Manual v8: {section}",
+    "documentAgreement": "Purchase agreement recorded"
   },
   "Beto": {
     "greeting": "Hi! I'm Beto, your development mentor. How can I help?",

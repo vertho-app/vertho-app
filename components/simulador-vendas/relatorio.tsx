@@ -3,6 +3,7 @@ import type { Saidas } from '@/lib/simulador-vendas/schema';
 import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 import { useLocale, useTranslations } from 'next-intl';
 import MatrizPace from './matriz';
+import { MANUAL_PACE, usaFontesDocumentais } from '@/lib/simulador-vendas/fontes';
 const pilares = [
   ['P', 'preparation', 'Preparacao'],
   ['A', 'analysis', 'Analise'],
@@ -18,6 +19,7 @@ export default function Relatorio({
 }) {
   const t = useTranslations('SimuladorVendas'),
     locale = useLocale();
+  const documental = usaFontesDocumentais(versao);
   return (
     <section aria-label={t('report')}>
       <div className="flex items-baseline justify-between gap-4 mb-4">
@@ -29,7 +31,7 @@ export default function Relatorio({
       </div>
       <p className="text-sm text-slate-300 leading-relaxed mb-5">{r.Resumo}</p>
       <p className="text-xs text-slate-400 mb-4">
-        {t(r.Matriz ? 'matrixZeroHelp' : 'scoreZeroHelp')}
+        {t(documental ? 'documentZeroHelp' : r.Matriz ? 'matrixZeroHelp' : 'scoreZeroHelp')}
       </p>
       <div className="grid sm:grid-cols-2 gap-3">
         {pilares.map(([p, nome, detalhe]) => (
@@ -49,18 +51,32 @@ export default function Relatorio({
           </article>
         ))}
       </div>
-      {r.Matriz && <MatrizPace matriz={r.Matriz} />}
+      {r.Matriz && <MatrizPace matriz={r.Matriz} documental={documental} />}
       <h3 className="font-semibold mt-6 mb-2">{t('recommendations')}</h3>
       <ol className="space-y-3 list-decimal pl-5">
         {r.Recomendacoes.map((item, i) => (
           <li key={i} className="text-sm text-slate-300">
             <strong className="text-white">{item.titulo}</strong>
             <p>{item.descricao}</p>
+            {documental && 'descritor' in item && (
+              <p className="text-xs text-slate-400 mt-1">
+                {t('documentReference', {
+                  descriptor: item.descritor,
+                  section: MANUAL_PACE.trechos[item.referencia_manual].secao,
+                })}
+              </p>
+            )}
           </li>
         ))}
       </ol>
       <div className="mt-6 border-t border-white/10 pt-4 text-sm text-slate-300">
-        <p className="font-semibold text-white">{t(`result_${r.Resultado}`)}</p>
+        <p className="font-semibold text-white">
+          {t(
+            documental && r.Resultado === 'fechou_aceitavel'
+              ? 'documentAgreement'
+              : `result_${r.Resultado}`,
+          )}
+        </p>
         {r.Preco_final && <p>{r.Preco_final}</p>}
         {r.Compromissos_obtidos && <p className="mt-1">{r.Compromissos_obtidos}</p>}
       </div>
@@ -98,6 +114,7 @@ export default function Relatorio({
         </details>
       )}
       <p className="text-xs text-slate-400 mt-6">{t('disclaimer')}</p>
+      {documental && <p className="text-xs text-slate-400 mt-2">{t('documentSources')}</p>}
       <p className="text-xs text-slate-400 mt-2">{t('version', { version: versao || 'pace-1' })}</p>
     </section>
   );
