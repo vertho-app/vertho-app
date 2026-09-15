@@ -1,7 +1,18 @@
 import type { Comando, Estado, Etapa, Saidas } from './schema';
 import { VENDAS_SESSAO } from '@/lib/status';
 import { MAX_TURNOS, FASES, usaGerenteBruto } from './schema';
-import { pontuarRelatorio, validarFalaCliente, validarModeracao, violacoesRegistradas } from './avaliacao';
+import {
+  pontuarRelatorio,
+  validarFalaCliente,
+  validarModeracao,
+  violacoesRegistradas,
+} from './avaliacao';
+import {
+  notasDaMatriz,
+  planejamentoPendente,
+  usaMatrizPace,
+  validarMatriz,
+} from './matriz-avaliacao';
 
 export class SimuladorError extends Error {
   constructor(
@@ -21,6 +32,7 @@ export function assinatura(cmd: Comando): string {
   // Revisão não entra: retry após recuperar o estado deve reconhecer o mesmo comando.
   if (cmd.acao === 'iniciar') return JSON.stringify([cmd.acao, cmd.nivel]);
   if (cmd.acao === 'responder') return JSON.stringify([cmd.acao, cmd.mensagem]);
+  if (cmd.acao === 'planejar') return JSON.stringify([cmd.acao, cmd.planejamento]);
   if (cmd.acao === 'feedback') return JSON.stringify([cmd.acao, cmd.feedback]);
   return cmd.acao;
 }
@@ -51,6 +63,8 @@ export function visaoPublica(s: Estado) {
         }
       : null,
     mensagens: s.mensagens,
+    planejamento: s.planejamento || null,
+    planejamentoPendente: planejamentoPendente(s),
     // A devolutiva é preparada no encerramento, mas só é entregue ao
     // participante depois da avaliação da experiência. O gate vive no servidor:
     // ocultar apenas no componente permitiria contorná-lo chamando a API.
@@ -58,12 +72,15 @@ export function visaoPublica(s: Estado) {
     avaliacaoPendente: !!s.relatorio && !s.feedback,
     feedback: s.feedback,
     aviso:
-      s.moderacoes.filter((m) => m.violacao && m.acao_sugerida !== 'registrar_e_seguir').at(-1)?.motivo ||
-      null,
+      s.moderacoes.filter((m) => m.violacao && m.acao_sugerida !== 'registrar_e_seguir').at(-1)
+        ?.motivo || null,
     sugerirEncerramento: s.intencao?.intencao_encerrar === true && s.intencao.confianca !== 'baixa',
     versaoRegua: s.versaoRegua || 'pace-1',
     dadosMascarados: s.dadosMascarados === true,
-    turnosRestantes: Math.max(0, MAX_TURNOS - s.mensagens.filter((m) => m.autor === 'vendedor').length),
+    turnosRestantes: Math.max(
+      0,
+      MAX_TURNOS - s.mensagens.filter((m) => m.autor === 'vendedor').length,
+    ),
   };
 }
 export type SessaoPublica = ReturnType<typeof visaoPublica> & {
@@ -90,7 +107,11 @@ export function validarCenario(c: Saidas['criador'], s: Pick<Estado, 'nomeVended
     throw new Error('Preços devem ser preenchidos em conjunto ou ambos não aplicáveis');
 }
 export function validarRelatorio(r: Saidas['gerente'], s: Estado) {
-  for (const descoberta of [...r.Beneficios_ocultos_descobertos, ...r.Objecoes_profundas_descobertas]) {
+  if (usaMatrizPace(s.versaoRegua)) validarMatriz(r.Matriz, s);
+  for (const descoberta of [
+    ...r.Beneficios_ocultos_descobertos,
+    ...r.Objecoes_profundas_descobertas,
+  ]) {
     const fala = s.mensagens.find((m) => m.autor === 'vendedor' && m.turno === descoberta.turno);
     if (!fala || !fala.texto.includes(descoberta.citacao_vendedor))
       throw new Error('Citação sem evidência literal do vendedor');
@@ -104,7 +125,8 @@ export function validarRelatorio(r: Saidas['gerente'], s: Estado) {
       throw new Error('Objeção profunda fora do gabarito');
   }
   for (const itens of [r.Beneficios_ocultos_descobertos, r.Objecoes_profundas_descobertas]) {
-    if (new Set(itens.map((d) => d.nome)).size !== itens.length) throw new Error('Descoberta duplicada');
+    if (new Set(itens.map((d) => d.nome)).size !== itens.length)
+      throw new Error('Descoberta duplicada');
   }
   if (
     // Só pace-1 recebe violações declaradas pelo gerente. Da pace-2 em diante elas são
@@ -149,12 +171,30 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
       (c) => validarCenario(c, s),
     );
     next.status = VENDAS_SESSAO.EM_ANDAMENTO;
+  } else if (cmd.acao === 'planejar') {
+    if (
+      !usaMatrizPace(s.versaoRegua) ||
+      s.status !== VENDAS_SESSAO.EM_ANDAMENTO ||
+      !s.cenario ||
+      s.mensagens.length ||
+      s.planejamento
+    )
+      throw new SimuladorError(
+        409,
+        'O planejamento deve ser registrado uma vez, antes da conversa.',
+      );
+    next.planejamento = cmd.planejamento;
   } else if (cmd.acao === 'responder') {
     if (s.status !== VENDAS_SESSAO.EM_ANDAMENTO)
       throw new SimuladorError(409, 'Este treino não está aberto para respostas.');
+    if (planejamentoPendente(s))
+      throw new SimuladorError(409, 'Registre seu planejamento antes de conversar com o cliente.');
     const turno = s.mensagens.filter((m) => m.autor === 'vendedor').length + 1;
     if (turno > MAX_TURNOS)
-      throw new SimuladorError(400, 'O limite de mensagens foi alcançado. Gere o relatório para concluir.');
+      throw new SimuladorError(
+        400,
+        'O limite de mensagens foi alcançado. Gere o relatório para concluir.',
+      );
     next.mensagens.push({
       id: `${cmd.requestId}:v`,
       turno,
@@ -177,12 +217,16 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
         'cliente',
         {
           bloco_dinamico: JSON.stringify(s.cenario, null, 2),
-          historico:
-            usaGerenteBruto(s.versaoRegua)
-              ? next.mensagens.map(({ turno, autor, fase, texto }) => ({ turno, autor, fase, texto }))
-              : next.mensagens
-                  .map((m) => `**${m.autor === 'vendedor' ? 'Vendedor' : 'Cliente'}:** ${m.texto}`)
-                  .join('\n'),
+          historico: usaGerenteBruto(s.versaoRegua)
+            ? next.mensagens.map(({ turno, autor, fase, texto }) => ({
+                turno,
+                autor,
+                fase,
+                texto,
+              }))
+            : next.mensagens
+                .map((m) => `**${m.autor === 'vendedor' ? 'Vendedor' : 'Cliente'}:** ${m.texto}`)
+                .join('\n'),
           input_vendedor: cmd.mensagem,
           fase_atual: s.fase,
           sinal_moderador: moderador.violacao ? JSON.stringify(moderador) : '',
@@ -190,7 +234,8 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
         (c) => {
           const salto = FASES.indexOf(c.fase) - FASES.indexOf(s.fase);
           if (salto < 0 || salto > 1) throw new Error('Transição PACE inválida');
-          if (c.fase_mudou !== (salto === 1)) throw new Error('Sinal de transição PACE inconsistente');
+          if (c.fase_mudou !== (salto === 1))
+            throw new Error('Sinal de transição PACE inconsistente');
           validarFalaCliente(c.fala);
         },
       );
@@ -224,31 +269,43 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
     const bruto = await gerar(
       'gerente',
       {
-        thread_completa:
-          usaGerenteBruto(s.versaoRegua)
-            ? s.mensagens.map(({ turno, autor, fase, texto }) => ({ turno, autor, fase, texto }))
-            : s.mensagens
-                .map(
-                  (m) =>
-                    `[Turno ${m.turno}] **${m.autor === 'vendedor' ? 'Vendedor' : 'Cliente'}:** ${m.texto}`,
-                )
-                .join('\n'),
+        thread_completa: usaGerenteBruto(s.versaoRegua)
+          ? s.mensagens.map(({ turno, autor, fase, texto }) => ({
+              turno,
+              autor,
+              fase,
+              texto,
+            }))
+          : s.mensagens
+              .map(
+                (m) =>
+                  `[Turno ${m.turno}] **${m.autor === 'vendedor' ? 'Vendedor' : 'Cliente'}:** ${m.texto}`,
+              )
+              .join('\n'),
         personagem_json: JSON.stringify(s.cenario, null, 2),
         violacoes_moderador: JSON.stringify(s.moderacoes),
+        ...(usaMatrizPace(s.versaoRegua) ? { planejamento: s.planejamento || '' } : {}),
       },
       (r) => validarRelatorio(r, s),
     );
-    next.notasBrutas = { P: bruto.P, A: bruto.A, C: bruto.C, E: bruto.E };
+    next.notasBrutas =
+      usaMatrizPace(s.versaoRegua) && bruto.Matriz
+        ? notasDaMatriz(bruto.Matriz)
+        : { P: bruto.P, A: bruto.A, C: bruto.C, E: bruto.E };
     next.relatorio = pontuarRelatorio(bruto, s);
     next.status = VENDAS_SESSAO.CONCLUIDA;
     next.encerradoEm = new Date().toISOString();
   } else if (cmd.acao === 'abandonar') {
-    if (![VENDAS_SESSAO.PREPARANDO, VENDAS_SESSAO.EM_ANDAMENTO].some((status) => status === s.status))
+    if (
+      ![VENDAS_SESSAO.PREPARANDO, VENDAS_SESSAO.EM_ANDAMENTO].some((status) => status === s.status)
+    )
       throw new SimuladorError(409, 'Este treino já foi encerrado.');
     next.status = VENDAS_SESSAO.ABANDONADA;
     next.encerradoEm = new Date().toISOString();
   } else {
-    if (![VENDAS_SESSAO.CONCLUIDA, VENDAS_SESSAO.INTERROMPIDA].some((status) => status === s.status))
+    if (
+      ![VENDAS_SESSAO.CONCLUIDA, VENDAS_SESSAO.INTERROMPIDA].some((status) => status === s.status)
+    )
       throw new SimuladorError(409, 'Conclua o treino antes de avaliar a experiência.');
     if (s.feedback)
       throw new SimuladorError(409, 'A avaliação desta experiência já foi registrada.');

@@ -2,6 +2,7 @@
 import type { Saidas } from '@/lib/simulador-vendas/schema';
 import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 import { useLocale, useTranslations } from 'next-intl';
+import MatrizPace from './matriz';
 const pilares = [
   ['P', 'preparation', 'Preparacao'],
   ['A', 'analysis', 'Analise'],
@@ -27,12 +28,14 @@ export default function Relatorio({
         </span>
       </div>
       <p className="text-sm text-slate-300 leading-relaxed mb-5">{r.Resumo}</p>
-      <p className="text-xs text-slate-400 mb-4">{t('scoreZeroHelp')}</p>
+      <p className="text-xs text-slate-400 mb-4">
+        {t(r.Matriz ? 'matrixZeroHelp' : 'scoreZeroHelp')}
+      </p>
       <div className="grid sm:grid-cols-2 gap-3">
         {pilares.map(([p, nome, detalhe]) => (
           <article key={p} className="border border-white/10 rounded-xl p-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">{t(nome)}</h3>
+              <h3 className="text-sm font-semibold">{t(r.Matriz ? `matrix_${p}` : nome)}</h3>
               <span className="tabular-nums text-brand-300">{formatarNotaPace(r[p], locale)}</span>
             </div>
             <meter
@@ -46,6 +49,7 @@ export default function Relatorio({
           </article>
         ))}
       </div>
+      {r.Matriz && <MatrizPace matriz={r.Matriz} />}
       <h3 className="font-semibold mt-6 mb-2">{t('recommendations')}</h3>
       <ol className="space-y-3 list-decimal pl-5">
         {r.Recomendacoes.map((item, i) => (
@@ -64,16 +68,18 @@ export default function Relatorio({
         <details className="mt-5 text-sm">
           <summary className="cursor-pointer">{t('discoveries')}</summary>
           <ul className="mt-3 space-y-3">
-            {[...r.Beneficios_ocultos_descobertos, ...r.Objecoes_profundas_descobertas].map((d, i) => (
-              <li key={i}>
-                <p>
-                  {d.nome} · {t('turn', { n: d.turno })}
-                </p>
-                <blockquote className="border-l-2 border-brand-400 pl-3 mt-1 text-slate-300">
-                  {d.citacao_vendedor}
-                </blockquote>
-              </li>
-            ))}
+            {[...r.Beneficios_ocultos_descobertos, ...r.Objecoes_profundas_descobertas].map(
+              (d, i) => (
+                <li key={i}>
+                  <p>
+                    {d.nome} · {t('turn', { n: d.turno })}
+                  </p>
+                  <blockquote className="border-l-2 border-brand-400 pl-3 mt-1 text-slate-300">
+                    {d.citacao_vendedor}
+                  </blockquote>
+                </li>
+              ),
+            )}
           </ul>
         </details>
       )}

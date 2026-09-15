@@ -1,7 +1,13 @@
 import type { Estado, Saidas } from './schema';
-import { REGUA_VERSION, usaGerenteBruto } from './schema';
+import { usaGerenteBruto } from './schema';
+import { notasDaMatriz, usaMatrizPace, validarMatriz } from './matriz-avaliacao';
 
-export const PILAR_POR_FASE = { preparar: 'P', analisar: 'A', cocriar: 'C', engajar: 'E' } as const;
+export const PILAR_POR_FASE = {
+  preparar: 'P',
+  analisar: 'A',
+  cocriar: 'C',
+  engajar: 'E',
+} as const;
 export const PENALIDADE = { leve: 0.5, moderada: 1.5, grave: 2.5 } as const;
 
 export function violacoesRegistradas(s: Estado): Saidas['gerente']['Violacoes'] {
@@ -13,7 +19,8 @@ export function violacoesRegistradas(s: Estado): Saidas['gerente']['Violacoes'] 
         !m.categoria ||
         !Object.hasOwn(PENALIDADE, m.severidade || '') ||
         !m.motivo?.trim() ||
-        !Number.isInteger(m.turno) || m.turno < 1 ||
+        !Number.isInteger(m.turno) ||
+        m.turno < 1 ||
         !PILAR_POR_FASE[m.fase] ||
         vistos.has(m.turno) ||
         !s.mensagens.some((f) => f.autor === 'vendedor' && f.turno === m.turno && f.fase === m.fase)
@@ -36,7 +43,8 @@ export function violacoesRegistradas(s: Estado): Saidas['gerente']['Violacoes'] 
 /** Executada uma única vez após recuperar/validar o checkpoint BRUTO do gerente. */
 export function pontuarRelatorio(bruto: Saidas['gerente'], s: Estado): Saidas['gerente'] {
   const r = structuredClone(bruto);
-  const piso = s.versaoRegua === REGUA_VERSION ? 0 : 0.5;
+  const piso = s.versaoRegua === 'pace-3' || usaMatrizPace(s.versaoRegua) ? 0 : 0.5;
+  if (usaMatrizPace(s.versaoRegua)) Object.assign(r, notasDaMatriz(validarMatriz(r.Matriz, s)));
   if (usaGerenteBruto(s.versaoRegua)) {
     r.Violacoes = violacoesRegistradas(s);
     for (const v of r.Violacoes) {
@@ -67,7 +75,9 @@ export function validarFalaCliente(fala: string) {
     /\b(?:minimo_aceitavel|gatilho_revelacao|gatilho_descoberta|nota_corte_objecao|nota_corte_preco|contexto_gerente|violacoes_moderador|thread_completa)\b/i.test(
       fala,
     ) ||
-    /<\/?(?:system|developer|gabarito|bloco_dinamico|personagem_json|instrucoes_reservadas)\b/i.test(fala)
+    /<\/?(?:system|developer|gabarito|bloco_dinamico|personagem_json|instrucoes_reservadas)\b/i.test(
+      fala,
+    )
   ) {
     throw new Error('Resposta contém estrutura reservada da simulação');
   }

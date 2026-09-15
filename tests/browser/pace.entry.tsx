@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import TreinoVendas from '../../components/simulador-vendas/treino';
 import { ConfirmDialogProvider, useConfirm } from '../../components/admin/confirm-dialog';
 import { estado, relatorio } from '../fixtures/simulador-vendas';
+import { estadoMatriz, relatorioMatriz, PLANO } from '../fixtures/simulador-vendas-matriz';
 import { visaoPublica } from '../../lib/simulador-vendas/core';
 import { comandoSchema, configSchema, REGUA_VERSION, type Estado } from '../../lib/simulador-vendas/schema';
 import pt from '../../messages/pt-BR.json';
@@ -42,7 +43,7 @@ const states: Record<string, Estado | null> = {
   [empresaB]: null,
 };
 if (states[empresaA]) {
-  states[empresaA]!.versaoRegua = REGUA_VERSION;
+  states[empresaA]!.versaoRegua = 'pace-3';
   states[empresaA]!.mensagens = [
     {
       id: 'v1',
@@ -75,6 +76,18 @@ if (states[empresaA]) {
         aprendizado: 5,
         comentario: '',
       };
+  }
+}
+if (params.has('matrix')) {
+  states[empresaA] = estadoMatriz();
+  if (params.has('planning')) {
+    states[empresaA]!.planejamento = undefined;
+    states[empresaA]!.mensagens = [];
+  }
+  if (params.has('completed')) {
+    states[empresaA]!.status = 'concluida';
+    states[empresaA]!.relatorio = { ...relatorioMatriz(), P: 7.5, A: 7.5, C: 7.5, E: 7.5, Media: 7.5 };
+    states[empresaA]!.feedback = { realismo: 5, desafio: 5, interacao: 5, utilidade: 5, aprendizado: 5, comentario: '' };
   }
 }
 const configs = Object.fromEntries(
@@ -199,9 +212,11 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
   if (cmd.acao === 'iniciar') {
     states[target] = estado();
     states[target]!.id = cmd.requestId;
+    if (params.has('matrix')) states[target]!.versaoRegua = REGUA_VERSION;
   }
   const s = states[target];
   if (!s) throw Error('fixture sem sessão');
+  if (cmd.acao === 'planejar') s.planejamento = cmd.planejamento;
   if (cmd.acao === 'responder') {
     const n = s.mensagens.filter((m) => m.autor === 'vendedor').length + 1;
     s.mensagens.push(
@@ -216,7 +231,7 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
     );
   }
   if (cmd.acao === 'encerrar') {
-    s.relatorio = { ...relatorio, Media: 5.5 };
+    s.relatorio = params.has('matrix') ? { ...relatorioMatriz(), Media: 7.5 } : { ...relatorio, Media: 5.5 };
     s.status = 'concluida';
   }
   if (cmd.acao === 'abandonar') s.status = 'abandonada';

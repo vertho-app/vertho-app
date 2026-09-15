@@ -12,7 +12,13 @@ import { TRACOS_DIVERSIDADE } from './diversidade';
 import { podeVerEquipe } from './equipe';
 import { aplicarCursor, COLUNAS_HISTORICO, paginaDeHistorico, type LinhaResumo } from './historico';
 
-type Row = { id: string; estado: Estado; revisao: number; lock_until: string | null; created_at: string };
+type Row = {
+  id: string;
+  estado: Estado;
+  revisao: number;
+  lock_until: string | null;
+  created_at: string;
+};
 const owned = (c: Contexto, colunas = 'id,estado,revisao,lock_until,created_at') =>
   c.tdb.from('sim_vendas_sessoes').select(colunas).eq('owner_key', c.ownerKey);
 function banco(error: { message?: string } | null) {
@@ -49,7 +55,10 @@ export async function consultarHistorico(c: Contexto, cursor?: string | null) {
   // por isso seu indicador não é exposto nesta lista de navegação.
   return {
     ...pagina,
-    historico: pagina.historico.map((item) => ({ ...item, temRelatorio: false })),
+    historico: pagina.historico.map((item) => ({
+      ...item,
+      temRelatorio: false,
+    })),
   };
 }
 export async function consultar(c: Contexto, id?: string | null) {
@@ -73,7 +82,11 @@ export async function consultar(c: Contexto, id?: string | null) {
     configurado: !!c.config,
     admin: c.auth.isPlatformAdmin,
     podeTreinar: vigente && (await can(c.auth, 'assessments.answer')),
-    prazo: { inicio: c.config?.periodo_inicio || null, fim: c.config?.periodo_fim || null, vigente },
+    prazo: {
+      inicio: c.config?.periodo_inicio || null,
+      fim: c.config?.periodo_fim || null,
+      vigente,
+    },
     podeVerEquipe: await podeVerEquipe(c.auth),
     podeConfigurar: c.auth.isPlatformAdmin && (await can(c.auth, 'settings.company.manage')),
     ...(c.auth.isPlatformAdmin ? { config: c.config } : {}),
@@ -87,10 +100,15 @@ export async function executar(c: Contexto, original: Comando) {
   const cmd: Comando =
     original.acao === 'responder'
       ? { ...original, mensagem: maskTextPII(original.mensagem).trim() }
-      : original;
+      : original.acao === 'planejar'
+        ? {
+            ...original,
+            planejamento: maskTextPII(original.planejamento).trim(),
+          }
+        : original;
   const exigirPrazo = () => {
     if (
-      ['iniciar', 'responder', 'encerrar'].includes(cmd.acao) &&
+      ['iniciar', 'planejar', 'responder', 'encerrar'].includes(cmd.acao) &&
       !c.auth.isPlatformAdmin &&
       !periodoVigente(c.config)
     ) {
@@ -107,7 +125,8 @@ export async function executar(c: Contexto, original: Comando) {
     if (existing.data) row = existing.data;
     else {
       exigirPrazo();
-      if (!c.config) throw new SimuladorError(400, 'Salve o briefing comercial da empresa antes de iniciar.');
+      if (!c.config)
+        throw new SimuladorError(400, 'Salve o briefing comercial da empresa antes de iniciar.');
       const { data: ultimos, error: diversidadeError } = await owned(
         c,
         'traco:estado->cenario->personagem->>traco_dominante',
@@ -116,7 +135,9 @@ export async function executar(c: Contexto, original: Comando) {
         .order('id', { ascending: false })
         .limit(10);
       banco(diversidadeError);
-      const anteriores = ultimos.map((r: { traco?: string }) => r.traco).filter(Boolean) as string[];
+      const anteriores = ultimos
+        .map((r: { traco?: string }) => r.traco)
+        .filter(Boolean) as string[];
       const tracos = TRACOS_DIVERSIDADE;
       const opcoes = tracos.filter((t) => !anteriores.includes(t));
       const indice = Number.parseInt(cmd.requestId.slice(0, 8), 16);
@@ -163,7 +184,10 @@ export async function executar(c: Contexto, original: Comando) {
     if (!loaded.data) throw new SimuladorError(404, 'Treino não encontrado.');
     row = loaded.data;
   }
-  if (recebido(row.estado, cmd) || (cmd.acao === 'encerrar' && row.estado.status === VENDAS_SESSAO.CONCLUIDA))
+  if (
+    recebido(row.estado, cmd) ||
+    (cmd.acao === 'encerrar' && row.estado.status === VENDAS_SESSAO.CONCLUIDA)
+  )
     return { sessao: publico(row) };
   // Um recibo já persistido continua recuperável depois do prazo, sem nova geração.
   exigirPrazo();
@@ -191,14 +215,31 @@ export async function executar(c: Contexto, original: Comando) {
       ...row.estado,
       dadosMascarados:
         row.estado.dadosMascarados ||
-        (original.acao === 'responder' && cmd.acao === 'responder' && original.mensagem !== cmd.mensagem),
+        (original.acao === 'responder' &&
+          cmd.acao === 'responder' &&
+          original.mensagem !== cmd.mensagem) ||
+        (original.acao === 'planejar' &&
+          cmd.acao === 'planejar' &&
+          original.planejamento !== cmd.planejamento),
     };
     const next = await executarCore(base, cmd, gerador(c, row.estado, cmd.requestId, deadline));
-    const committed = await c.tdb.rpc('sim_vendas_commit', { ...args, p_estado: next });
+    const committed = await c.tdb.rpc('sim_vendas_commit', {
+      ...args,
+      p_estado: next,
+    });
     banco(committed.error);
     if (!committed.data)
-      throw new SimuladorError(409, 'O treino mudou durante o envio. Atualize para recuperar a conversa.');
-    return { sessao: { ...visaoPublica(next), processando: false, processandoAte: null } };
+      throw new SimuladorError(
+        409,
+        'O treino mudou durante o envio. Atualize para recuperar a conversa.',
+      );
+    return {
+      sessao: {
+        ...visaoPublica(next),
+        processando: false,
+        processandoAte: null,
+      },
+    };
   } finally {
     const release = await c.tdb
       .from('sim_vendas_sessoes')
@@ -206,6 +247,9 @@ export async function executar(c: Contexto, original: Comando) {
       .eq('id', row.id)
       .eq('owner_key', c.ownerKey)
       .eq('lock_token', token);
-    if (release.error) console.error('[sim-vendas] lease aguardará expiração', { sessao: row.id });
+    if (release.error)
+      console.error('[sim-vendas] lease aguardará expiração', {
+        sessao: row.id,
+      });
   }
 }

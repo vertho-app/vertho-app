@@ -6,7 +6,13 @@ import { useLocale, useTranslations } from 'next-intl';
 import { ArrowRight, Loader2, Send, RotateCcw } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { PageContainer, PageHero } from '@/components/page-shell';
-import { FASES, RETENCAO_MESES, type Comando, type Config, type Estado } from '@/lib/simulador-vendas/schema';
+import {
+  FASES,
+  RETENCAO_MESES,
+  type Comando,
+  type Config,
+  type Estado,
+} from '@/lib/simulador-vendas/schema';
 import type { SessaoPublica } from '@/lib/simulador-vendas/core';
 import type { ResumoTreino } from '@/lib/simulador-vendas/historico';
 import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
@@ -56,6 +62,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
   const [carregando, setCarregando] = useState(true),
     [ocupado, setOcupado] = useState(''),
     [erro, setErro] = useState('');
+  const [plano, setPlano] = useState('');
   const [texto, setTexto] = useState(''),
     [confirmar, setConfirmar] = useState<'encerrar' | null>(null),
     [feedback, setFeedback] = useState(feedbackVazio);
@@ -65,7 +72,10 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     leitura = useRef(0);
   const fim = useRef<HTMLDivElement>(null);
   const data = (iso: string) =>
-    new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
+    new Date(iso).toLocaleString(locale, {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
   async function api(url: string, init?: RequestInit) {
     const response = await fetchAuth(url, { ...init, cache: 'no-store' }),
       body = await response.json();
@@ -92,6 +102,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       };
     });
     setSessao(d.sessao);
+    if (d.sessao?.planejamento) setPlano(d.sessao.planejamento);
     setFeedback(d.sessao?.feedback || feedbackVazio);
   }
   useEffect(() => {
@@ -123,6 +134,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     setDados(null);
     setSessao(null);
     setTexto('');
+    setPlano('');
     pending.current = null;
     setConfirmar(null);
     setAba('treino');
@@ -157,26 +169,37 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     return () => window.clearInterval(timer);
   }, [sessao?.id, sessao?.processando, ocupado, empresaId]);
   async function agir(acao: Comando['acao']) {
-    if (running.current || (acao === 'responder' && !texto.trim())) return;
+    if (
+      running.current ||
+      (acao === 'responder' && !texto.trim()) ||
+      (acao === 'planejar' && !plano.trim())
+    )
+      return;
     const ticket = generation.current;
     running.current = true;
     setOcupado(acao);
     setErro('');
     setConfirmar(null);
     const conteudo =
-      acao === 'responder'
-        ? { mensagem: texto.trim() }
-        : acao === 'feedback'
-          ? { feedback }
-          : acao === 'iniciar'
-            ? { nivel: sessao?.status === VENDAS_SESSAO.PREPARANDO ? sessao.nivel : nivel }
-            : {};
+      acao === 'planejar'
+        ? { planejamento: plano.trim() }
+        : acao === 'responder'
+          ? { mensagem: texto.trim() }
+          : acao === 'feedback'
+            ? { feedback }
+            : acao === 'iniciar'
+              ? {
+                  nivel: sessao?.status === VENDAS_SESSAO.PREPARANDO ? sessao.nivel : nivel,
+                }
+              : {};
     const key = JSON.stringify([empresaId, acao, acao === 'iniciar' ? null : sessao?.id, conteudo]);
     if (!pending.current || pending.current.key !== key)
       pending.current = {
         key,
         id:
-          acao === 'iniciar' && sessao?.status === VENDAS_SESSAO.PREPARANDO ? sessao.id : crypto.randomUUID(),
+          acao === 'iniciar' && sessao?.status === VENDAS_SESSAO.PREPARANDO
+            ? sessao.id
+            : crypto.randomUUID(),
       };
     const body = {
       acao,
@@ -195,6 +218,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       setSessao(d.sessao);
       pending.current = null;
       if (acao === 'responder' || acao === 'iniciar') setTexto('');
+      if (acao === 'iniciar') setPlano('');
       await carregar(empresaId, d.sessao.id, ticket).catch(() => {
         if (ticket === generation.current) setErro(t('savedRefresh'));
       });
@@ -220,11 +244,13 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       await carregar(empresaId, id, ticket);
       if (ticket === generation.current) {
         setTexto('');
+        setPlano('');
         pending.current = null;
         setConfirmar(null);
       }
     } catch (e) {
-      if (ticket === generation.current) setErro(e instanceof Error ? e.message : t('genericError'));
+      if (ticket === generation.current)
+        setErro(e instanceof Error ? e.message : t('genericError'));
     } finally {
       if (ticket === generation.current) {
         running.current = false;
@@ -259,7 +285,8 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
             : prev,
         );
     } catch (e) {
-      if (ticket === generation.current) setErro(e instanceof Error ? e.message : t('genericError'));
+      if (ticket === generation.current)
+        setErro(e instanceof Error ? e.message : t('genericError'));
     } finally {
       if (ticket === generation.current) {
         running.current = false;
@@ -280,7 +307,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
   const podeNovo = !temTreinoAberto;
   const terminou =
     sessao &&
-    [VENDAS_SESSAO.CONCLUIDA, VENDAS_SESSAO.INTERROMPIDA].some((status) => status === sessao.status);
+    [VENDAS_SESSAO.CONCLUIDA, VENDAS_SESSAO.INTERROMPIDA].some(
+      (status) => status === sessao.status,
+    );
   return (
     <PageContainer className={styles.root}>
       <PageHero
@@ -294,7 +323,11 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
         <div className={styles.admin}>
           <label>
             {t('company')}
-            <select value={empresaId} disabled={travado} onChange={(e) => setEmpresaId(e.target.value)}>
+            <select
+              value={empresaId}
+              disabled={travado}
+              onChange={(e) => setEmpresaId(e.target.value)}
+            >
               <option value="">{t('selectCompany')}</option>
               {empresas.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -391,14 +424,19 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
             <div className={`${styles.card} mb-4`}>
               <p className={styles.muted}>
                 {dados.prazo.vigente && dados.prazo.inicio && dados.prazo.fim
-                  ? t('periodNotice', { start: data(dados.prazo.inicio), end: data(dados.prazo.fim) })
+                  ? t('periodNotice', {
+                      start: data(dados.prazo.inicio),
+                      end: data(dados.prazo.fim),
+                    })
                   : t('periodClosed')}
               </p>
             </div>
           )}
           <div className={`${styles.workspace} mt-5`}>
             <aside className={styles.card}>
-              <h2 className="text-lg mb-3">{t(sessao?.cenario ? 'beforeChat' : 'nextChallenge')}</h2>
+              <h2 className="text-lg mb-3">
+                {t(sessao?.cenario ? 'beforeChat' : 'nextChallenge')}
+              </h2>
               {sessao?.cenario && (
                 <>
                   <p className="font-semibold">{sessao.cenario.nome}</p>
@@ -453,7 +491,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
               )}
               {dados.historico.length > 0 && (
                 <nav aria-label={t('history')} className={styles.history}>
-                  <h3 className="text-xs uppercase tracking-wider text-slate-400 mb-1">{t('history')}</h3>
+                  <h3 className="text-xs uppercase tracking-wider text-slate-400 mb-1">
+                    {t('history')}
+                  </h3>
                   {dados.historico.map((h) => (
                     <button
                       className={`${styles.historyItem} ${sessao?.id === h.id ? styles.historyActive : ''}`}
@@ -469,10 +509,15 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                         </span>
                       </span>
                       <small className={styles.historyMeta}>
-                        <span>{t('historyDifficulty', { level: t(`level${h.nivel}`) })}</span>
+                        <span>
+                          {t('historyDifficulty', {
+                            level: t(`level${h.nivel}`),
+                          })}
+                        </span>
                         <span aria-hidden="true">·</span>
                         <span>
-                          {new Date(h.criadoEm).toLocaleDateString(locale)} · {t(`status_${h.status}`)}
+                          {new Date(h.criadoEm).toLocaleDateString(locale)} ·{' '}
+                          {t(`status_${h.status}`)}
                         </span>
                       </small>
                     </button>
@@ -531,40 +576,90 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       {t('piiApplied')}
                     </p>
                   )}
-                  <div className={styles.chat} role="log" aria-label={t('chat')} aria-live="polite">
-                    {aberto && sessao.mensagens.length === 0 && (
-                      <p className={styles.muted}>
-                        {t('openChat', { name: sessao.cenario?.nome || t('client') })}
-                      </p>
-                    )}
-                    {sessao.mensagens.map((m) => (
-                      <article
-                        className={`${styles.message} ${m.autor === 'vendedor' ? styles.seller : ''}`}
-                        key={m.id}
-                        data-author={m.autor}
+                  {aberto && sessao.planejamentoPendente && (
+                    <form
+                      className="mb-6 space-y-3"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void agir('planejar');
+                      }}
+                    >
+                      <h2 className="text-lg font-semibold">{t('planningTitle')}</h2>
+                      <p className="text-sm text-slate-300">{t('planningHelp')}</p>
+                      <label htmlFor="pace-plano">{t('planningLabel')}</label>
+                      <textarea
+                        id="pace-plano"
+                        rows={7}
+                        maxLength={6000}
+                        value={plano}
+                        disabled={travado || !dados.podeTreinar}
+                        onChange={(e) => setPlano(e.target.value)}
+                        placeholder={t('planningPlaceholder')}
+                      />
+                      <p className={styles.muted}>{t('piiHelp')}</p>
+                      <button
+                        type="submit"
+                        className={styles.primary}
+                        disabled={travado || !plano.trim() || !dados.podeTreinar}
                       >
-                        <small>
-                          {m.autor === 'vendedor' ? t('you') : sessao.cenario?.nome || t('client')} ·{' '}
-                          {t('turn', { n: m.turno })}
-                        </small>
-                        <p>{m.texto}</p>
-                      </article>
-                    ))}
-                    {ocupado && ['iniciar', 'responder', 'encerrar'].includes(ocupado) && (
-                      <p role="status" className="text-sm text-brand-200 flex gap-2 items-center">
-                        <Loader2 size={16} className="motion-safe:animate-spin" />
-                        {t(
-                          ocupado === 'encerrar'
-                            ? 'analyzing'
-                            : ocupado === 'iniciar'
-                              ? 'creating'
-                              : 'responding',
-                        )}
+                        {ocupado === 'planejar' ? t('planningSaving') : t('planningStart')}
+                        <ArrowRight size={16} />
+                      </button>
+                    </form>
+                  )}
+                  {sessao.planejamento && (
+                    <details className="mb-5 text-sm">
+                      <summary className="cursor-pointer">{t('planningSaved')}</summary>
+                      <p className="mt-3 whitespace-pre-wrap text-slate-300">
+                        {sessao.planejamento}
                       </p>
-                    )}
-                    <div ref={fim} />
-                  </div>
-                  {aberto && (
+                    </details>
+                  )}
+                  {!sessao.planejamentoPendente && (
+                    <div
+                      className={styles.chat}
+                      role="log"
+                      aria-label={t('chat')}
+                      aria-live="polite"
+                    >
+                      {aberto && !sessao.planejamentoPendente && sessao.mensagens.length === 0 && (
+                        <p className={styles.muted}>
+                          {t('openChat', {
+                            name: sessao.cenario?.nome || t('client'),
+                          })}
+                        </p>
+                      )}
+                      {sessao.mensagens.map((m) => (
+                        <article
+                          className={`${styles.message} ${m.autor === 'vendedor' ? styles.seller : ''}`}
+                          key={m.id}
+                          data-author={m.autor}
+                        >
+                          <small>
+                            {m.autor === 'vendedor'
+                              ? t('you')
+                              : sessao.cenario?.nome || t('client')}{' '}
+                            · {t('turn', { n: m.turno })}
+                          </small>
+                          <p>{m.texto}</p>
+                        </article>
+                      ))}
+                      {ocupado && ['iniciar', 'responder', 'encerrar'].includes(ocupado) && (
+                        <p role="status" className="text-sm text-brand-200 flex gap-2 items-center">
+                          <Loader2 size={16} className="motion-safe:animate-spin" />
+                          {t(
+                            ocupado === 'encerrar'
+                              ? 'analyzing'
+                              : ocupado === 'iniciar'
+                                ? 'creating'
+                                : 'responding',
+                          )}
+                        </p>
+                      )}
+                      <div ref={fim} />
+                    </div>
+                  )}
+                  {aberto && !sessao.planejamentoPendente && (
                     <form
                       className={styles.composer}
                       onSubmit={(e) => {
@@ -600,7 +695,12 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                         <button
                           className={styles.primary}
                           type="submit"
-                          disabled={travado || !texto.trim() || !sessao.turnosRestantes || !dados.podeTreinar}
+                          disabled={
+                            travado ||
+                            !texto.trim() ||
+                            !sessao.turnosRestantes ||
+                            !dados.podeTreinar
+                          }
                         >
                           <Send size={16} />
                           {t('send')}
@@ -610,7 +710,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       <p className={`${styles.muted} mt-2`}>{t('piiHelp')}</p>
                     </form>
                   )}
-                  {aberto && (
+                  {aberto && !sessao.planejamentoPendente && (
                     <div className="mt-6">
                       <button
                         disabled={travado || !sessao.mensagens.length || !dados.podeTreinar}
@@ -621,7 +721,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       {sessao.sugerirEncerramento && (
                         <p className={`${styles.muted} mt-2`}>{t('suggestFinish')}</p>
                       )}
-                      {!sessao.turnosRestantes && <p className={`${styles.muted} mt-2`}>{t('turnLimit')}</p>}
+                      {!sessao.turnosRestantes && (
+                        <p className={`${styles.muted} mt-2`}>{t('turnLimit')}</p>
+                      )}
                     </div>
                   )}
                   {confirmar && (

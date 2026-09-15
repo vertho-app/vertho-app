@@ -1,3 +1,4 @@
+import { verificarMatrizUI } from '../tests/browser/pace-matriz.checks.ts';
 // Componentes/CSS reais; endpoints exclusivamente fictícios, sem login/IA externa.
 import { build } from 'esbuild';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -227,6 +228,7 @@ try {
     await page.screenshot({ path: `${dir}/exclusao-mobile-${locale}.png`, fullPage: true });
     checks++;
   }
+  checks += await verificarMatrizUI(page, origin, dir);
   assert.deepEqual(errors, []);
   console.log(
     JSON.stringify({

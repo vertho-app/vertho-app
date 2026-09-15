@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { criarSupabaseMock, type SupabaseMock } from '../helpers/supabase-mock';
 import { estado } from '../fixtures/simulador-vendas';
+import { estadoMatriz } from '../fixtures/simulador-vendas-matriz';
 import type { Contexto } from '@/lib/simulador-vendas/access';
 import type { Estado } from '@/lib/simulador-vendas/schema';
 let sb: SupabaseMock, s: Estado;
@@ -38,5 +39,18 @@ describe('persistência de comandos PACE', () => {
     sb.falharEm({ tabela: 'sim_vendas_sessoes', op: 'select', mensagem: 'timeout' });
     await expect(executar(ctx(), comando())).rejects.toMatchObject({ status: 503 });
     expect(sb.client.rpc).not.toHaveBeenCalled(); expect(gerador).not.toHaveBeenCalled();
+  });
+  it('planejamento usa a mesma lease e o mesmo tenant, mascara dados pessoais e não chama IA', async () => {
+    s = { ...estadoMatriz(), planejamento: undefined, mensagens: [] };
+    sb.client.rpc.mockResolvedValue({ data: true, error: null });
+    const c = ctx(); c.auth.isPlatformAdmin = true;
+    const cmd = { ...comando(), acao: 'planejar' as const, planejamento: 'Vou falar com pessoa@example.com sobre o plano.' };
+    const result = await executar(c, cmd);
+    expect(result.sessao.planejamento).not.toContain('pessoa@example.com');
+    expect(result.sessao.dadosMascarados).toBe(true);
+    const gravado = sb.client.rpc.mock.calls.find(([nome]) => nome === 'sim_vendas_commit')![1];
+    expect(gravado).toMatchObject({ p_empresa: 'empresa-a', p_owner: 'colab:colab-a' });
+    expect(gravado.p_estado.planejamento).toBe(result.sessao.planejamento);
+    expect(vi.mocked(gerador).mock.results[0].value).not.toHaveBeenCalled();
   });
 });

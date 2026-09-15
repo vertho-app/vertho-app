@@ -11,6 +11,8 @@ import {
   SAIDAS,
   usaGerenteBruto,
   gerenteBrutoSchema,
+  gerenteMatrizSchema,
+  relatorioLegadoSchema,
   type Estado,
   type Etapa,
   type Saidas,
@@ -22,6 +24,7 @@ import { arquivarPrompt, textoDoSnapshot } from './catalogo';
 import { modeloPaceCompativel } from './modelos';
 import { periodoVigente } from './prazo';
 import { normalizarRelatorio } from './normalizacao';
+import { usaMatrizPace } from './matriz-avaliacao';
 
 const TAREFAS = {
   criador: 'sim_vendas_criador',
@@ -42,13 +45,26 @@ export async function snapshotPrompts(empresaId: string): Promise<PromptSnapshot
           `Configure um modelo compatível com o PACE para o agente ${etapa} antes de iniciar.`,
         );
       const id = await arquivarPrompt(tdb, etapa, PROMPT_VERSION, PROMPTS[etapa]);
-      return [etapa, { id, hash: hashPrompt(PROMPTS[etapa]), versao: PROMPT_VERSION, modelo }];
+      return [
+        etapa,
+        {
+          id,
+          hash: hashPrompt(PROMPTS[etapa]),
+          versao: PROMPT_VERSION,
+          modelo,
+        },
+      ];
     }),
   );
   return Object.fromEntries(entries) as PromptSnapshot;
 }
 
-export function gerador(c: Contexto, s: Estado, requestId: string, deadline = Date.now() + 270000): Gerar {
+export function gerador(
+  c: Contexto,
+  s: Estado,
+  requestId: string,
+  deadline = Date.now() + 270000,
+): Gerar {
   return async <K extends Etapa>(
     etapa: K,
     valores: Record<string, unknown>,
@@ -57,15 +73,31 @@ export function gerador(c: Contexto, s: Estado, requestId: string, deadline = Da
     const spec = s.prompts[etapa];
     const texto = await textoDoSnapshot(c.tdb, etapa, spec);
     const mensagens =
-      spec.versao === PROMPT_VERSION
+      spec.versao === PROMPT_VERSION || spec.versao === 'pace-rnaves-2.1.2-vertho-3'
         ? mensagensDoPrompt(texto, valores)
         : { system: '', user: renderPrompt(texto, valores) };
     const promptHash = hashPrompt(mensagens.system ? JSON.stringify(mensagens) : mensagens.user);
     const bruto = etapa === 'gerente' && usaGerenteBruto(s.versaoRegua);
-    const schema = bruto ? gerenteBrutoSchema : SAIDAS[etapa];
+    const matriz = etapa === 'gerente' && usaMatrizPace(s.versaoRegua);
+    const schema = matriz
+      ? gerenteMatrizSchema
+      : bruto
+        ? gerenteBrutoSchema
+        : etapa === 'gerente'
+          ? relatorioLegadoSchema
+          : SAIDAS[etapa];
     const parse = (v: unknown): Saidas[K] => {
       const r = schema.parse(etapa === 'gerente' ? normalizarRelatorio(v) : v);
-      return (bruto ? { ...r, Media: 0, Violacoes: [] } : r) as Saidas[K];
+      return (
+        bruto
+          ? {
+              ...(matriz ? { P: 0, A: 0, C: 0, E: 0 } : {}),
+              ...r,
+              Media: 0,
+              Violacoes: [],
+            }
+          : r
+      ) as Saidas[K];
     };
     const busca = () =>
       c.tdb
@@ -77,7 +109,10 @@ export function gerador(c: Contexto, s: Estado, requestId: string, deadline = Da
         .order('tentativa', { ascending: false });
     const { data: anteriores, error } = await busca();
     if (error)
-      throw new SimuladorError(503, 'Não foi possível recuperar a resposta anterior. Tente novamente.');
+      throw new SimuladorError(
+        503,
+        'Não foi possível recuperar a resposta anterior. Tente novamente.',
+      );
     if (anteriores.some((r: any) => r.prompt_hash !== promptHash || r.modelo !== spec.modelo))
       throw new SimuladorError(409, 'Este envio pertence a outro conteúdo. Atualize o treino.');
     const aceita = anteriores.find((r: any) => r.status === VENDAS_TENTATIVA.ACEITA);
@@ -93,7 +128,8 @@ export function gerador(c: Contexto, s: Estado, requestId: string, deadline = Da
           .from('sim_vendas_config')
           .select('habilitado,periodo_inicio,periodo_fim')
           .maybeSingle();
-        if (prazoError) throw new SimuladorError(503, 'Não foi possível verificar o prazo de acesso.');
+        if (prazoError)
+          throw new SimuladorError(503, 'Não foi possível verificar o prazo de acesso.');
         if (!data?.habilitado || !periodoVigente(data))
           throw new SimuladorError(
             403,
@@ -108,18 +144,17 @@ export function gerador(c: Contexto, s: Estado, requestId: string, deadline = Da
         );
       const id = randomUUID(),
         tentativa = (anteriores[0]?.tentativa || 0) + retry + 1;
-      const { error: insertError } = await c.tdb
-        .from('sim_vendas_tentativas')
-        .insert({
-          id,
-          sessao_id: s.id,
-          request_id: requestId,
-          etapa,
-          tentativa,
-          modelo: spec.modelo,
-          prompt_hash: promptHash,
-        });
-      if (insertError) throw new SimuladorError(503, 'Não foi possível registrar o envio. Tente novamente.');
+      const { error: insertError } = await c.tdb.from('sim_vendas_tentativas').insert({
+        id,
+        sessao_id: s.id,
+        request_id: requestId,
+        etapa,
+        tentativa,
+        modelo: spec.modelo,
+        prompt_hash: promptHash,
+      });
+      if (insertError)
+        throw new SimuladorError(503, 'Não foi possível registrar o envio. Tente novamente.');
       try {
         const jsonSchema = z.toJSONSchema(schema, { target: 'draft-7' });
         delete jsonSchema.$schema;
@@ -127,7 +162,7 @@ export function gerador(c: Contexto, s: Estado, requestId: string, deadline = Da
           mensagens.system,
           mensagens.user,
           { model: spec.modelo },
-          etapa === 'criador' || etapa === 'gerente' ? 8000 : 2500,
+          matriz ? 16000 : etapa === 'criador' || etapa === 'gerente' ? 8000 : 2500,
           {
             taskKey: TAREFAS[etapa],
             empresaId: c.empresaId,
@@ -135,9 +170,18 @@ export function gerador(c: Contexto, s: Estado, requestId: string, deadline = Da
             correlationId: id,
             source: c.auth.isPlatformAdmin ? 'piloto' : 'wrapper',
             locale: 'pt-BR',
-            timeoutMs: Math.min(remaining, etapa === 'criador' || etapa === 'gerente' ? 110000 : 60000),
+            timeoutMs: Math.min(
+              remaining,
+              etapa === 'criador' || etapa === 'gerente' ? 110000 : 60000,
+            ),
             maxRetries: 0,
-            responses: { format: { name: `pace_${etapa}`, strict: true, schema: jsonSchema } },
+            responses: {
+              format: {
+                name: `pace_${etapa}`,
+                strict: true,
+                schema: jsonSchema,
+              },
+            },
           },
         );
         const result = parse(JSON.parse(raw));
@@ -163,7 +207,11 @@ export function gerador(c: Contexto, s: Estado, requestId: string, deadline = Da
           .update({
             status: VENDAS_TENTATIVA.REJEITADA,
             erro_codigo:
-              e instanceof z.ZodError ? 'schema' : e instanceof SyntaxError ? 'json' : 'geracao_ou_validacao',
+              e instanceof z.ZodError
+                ? 'schema'
+                : e instanceof SyntaxError
+                  ? 'json'
+                  : 'geracao_ou_validacao',
             finished_at: new Date().toISOString(),
           })
           .eq('id', id)
