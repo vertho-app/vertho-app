@@ -1,0 +1,4232 @@
+{
+  "capturedAt": "2026-09-15T22:23:29.626Z",
+  "totalWeeks": 7,
+  "weeks": [
+    {
+      "number": 1,
+      "title": "Criação de senso de urgência",
+      "competency": "Negociação e Fechamento",
+      "challenge": "Em cada proposta que você enviar esta semana, inclua um motivo real e verdadeiro para o cliente decidir agora — e observe como ele reage a essa razão.",
+      "evidence": "As 3 propostas têm a razão explicitada por escrito, e você registrou a reação do cliente a cada uma.",
+      "formats": [
+        {
+          "key": "video",
+          "title": "Criação de senso de urgência",
+          "path": "media/urgencia-video.mp4"
+        },
+        {
+          "key": "case",
+          "title": "Estudo de caso: o cliente que \"vai pensar\"",
+          "path": "media/urgencia-case.pdf"
+        },
+        {
+          "key": "audio",
+          "title": "Podcast: urgência genuína em 5 minutos",
+          "path": "media/urgencia-audio.mp3"
+        },
+        {
+          "key": "texto",
+          "title": "Criando senso de urgência sem pressão",
+          "path": "media/urgencia-texto.pdf"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Criação de senso de urgência",
+      "competency": "Negociação e Fechamento",
+      "challenge": "Em cada proposta que você enviar esta semana, inclua um motivo real e verdadeiro para o cliente decidir agora — e observe como ele reage a essa razão.",
+      "evidence": "As 3 propostas têm a razão explicitada por escrito, e você registrou a reação do cliente a cada uma.",
+      "formats": [
+        {
+          "key": "video",
+          "title": "Criação de senso de urgência",
+          "path": "media/urgencia-video.mp4"
+        },
+        {
+          "key": "case",
+          "title": "Estudo de caso: o cliente que \"vai pensar\"",
+          "path": "media/urgencia-case.pdf"
+        },
+        {
+          "key": "audio",
+          "title": "Podcast: urgência genuína em 5 minutos",
+          "path": "media/urgencia-audio.mp3"
+        },
+        {
+          "key": "texto",
+          "title": "Criando senso de urgência sem pressão",
+          "path": "media/urgencia-texto.pdf"
+        }
+      ]
+    }
+  ],
+  "assessments": {
+    "ana": [],
+    "paulo": [
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Criação de senso de urgência",
+        "score": 1.5
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Tratamento de objeções",
+        "score": 1.75
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Saber a hora de recuar",
+        "score": 1.83
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Negociação de condições e contrato",
+        "score": 1.75
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Condução ao fechamento",
+        "score": 1.5
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Defesa de preço e margem",
+        "score": 1.83
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D03 — Ação baseada em dados",
+        "score": 1.75
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D01 — Foco e compromisso com a meta",
+        "score": 2
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D06 — Cumprimento de processo e disciplina comercial",
+        "score": 2.25
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D05 — Busca por melhoria contínua",
+        "score": 2.25
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D04 — Responsabilidade pelos resultados",
+        "score": 2.25
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D02 — Acompanhamento de indicadores próprios",
+        "score": 1.75
+      }
+    ],
+    "bruna": [
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação escrita profissional",
+        "score": 1.75
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Clareza e objetividade",
+        "score": 1.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Adaptação ao interlocutor",
+        "score": 1.4
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Foco em valor e benefício",
+        "score": 1.75
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Demonstração e prova",
+        "score": 1
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Condução de reuniões",
+        "score": 1.85
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Criação de senso de urgência",
+        "score": 1.33
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Tratamento de objeções",
+        "score": 1.5
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Saber a hora de recuar",
+        "score": 2.33
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Negociação de condições e contrato",
+        "score": 2
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Condução ao fechamento",
+        "score": 1.5
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Defesa de preço e margem",
+        "score": 1.67
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Retenção e fidelização",
+        "score": 1.75
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Construção de confiança",
+        "score": 2
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Cumprimento de combinados",
+        "score": 2.25
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Transição para o pós-venda",
+        "score": 1.25
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Expansão da carteira",
+        "score": 1.25
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Gestão de reclamações e problemas",
+        "score": 1.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Lidar com a rejeição",
+        "score": 1
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Constância de atividade",
+        "score": 1
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Gestão da pressão por metas",
+        "score": 1
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Autoconfiança e postura",
+        "score": 1
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Recuperação após perdas",
+        "score": 1
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Automotivação e disciplina",
+        "score": 1
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Ação baseada em dados",
+        "score": 1.67
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Foco e compromisso com a meta",
+        "score": 1.81
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Cumprimento de processo e disciplina comercial",
+        "score": 2.25
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Busca por melhoria contínua",
+        "score": 2.25
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Responsabilidade pelos resultados",
+        "score": 2.17
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Acompanhamento de indicadores próprios",
+        "score": 1.75
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D03 — Ação baseada em dados",
+        "score": 1.88
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D01 — Foco e compromisso com a meta",
+        "score": 1.83
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D06 — Cumprimento de processo e disciplina comercial",
+        "score": 2.25
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D05 — Busca por melhoria contínua",
+        "score": 2.5
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D04 — Responsabilidade pelos resultados",
+        "score": 2.13
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "REP10-D02 — Acompanhamento de indicadores próprios",
+        "score": 2
+      }
+    ],
+    "carla": [],
+    "mariana": [
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 1.5
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 1.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.75
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.5
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.5
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 1.5
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 1.5
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 1.5
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "FIN01-D01 — Leitura do contexto e identificação do problema",
+        "score": 3.1
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "FIN01-D02 — Critério de priorização e tomada de decisão",
+        "score": 3.23
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "FIN01-D03 — Execução com método e acompanhamento",
+        "score": 3.5
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "FIN01-D04 — Comunicação com stakeholders",
+        "score": 3.07
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "FIN01-D05 — Colaboração e negociação de dependências",
+        "score": 2.93
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "FIN01-D06 — Aprendizado, ética e melhoria contínua",
+        "score": 3.5
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.33
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.33
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.33
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.67
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.5
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.11
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.33
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.17
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.17
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 1.7
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.9
+      }
+    ],
+    "renato": [],
+    "lucas": [
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação escrita profissional",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Foco em valor e benefício",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.5
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Adaptação ao interlocutor",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Condução de reuniões",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Clareza e objetividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Demonstração e prova",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Negociação de condições e contrato",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Saber a hora de recuar",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Criação de senso de urgência",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Tratamento de objeções",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Condução ao fechamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Defesa de preço e margem",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Construção de confiança",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Retenção e fidelização",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Transição para o pós-venda",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Cumprimento de combinados",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Gestão de reclamações e problemas",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Expansão da carteira",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Recuperação após perdas",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Constância de atividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Automotivação e disciplina",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Lidar com a rejeição",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Autoconfiança e postura",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Gestão da pressão por metas",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Foco e compromisso com a meta",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Ação baseada em dados",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Busca por melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Cumprimento de processo e disciplina comercial",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Acompanhamento de indicadores próprios",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Responsabilidade pelos resultados",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 1.8
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 1.9
+      }
+    ],
+    "camila": [
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.8
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.7
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.1
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação escrita profissional",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Foco em valor e benefício",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Adaptação ao interlocutor",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Condução de reuniões",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Clareza e objetividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Demonstração e prova",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Negociação de condições e contrato",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Saber a hora de recuar",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Criação de senso de urgência",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Tratamento de objeções",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Condução ao fechamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Defesa de preço e margem",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Construção de confiança",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Retenção e fidelização",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Transição para o pós-venda",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Cumprimento de combinados",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Gestão de reclamações e problemas",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Expansão da carteira",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Recuperação após perdas",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Constância de atividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Automotivação e disciplina",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Lidar com a rejeição",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Autoconfiança e postura",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Gestão da pressão por metas",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Foco e compromisso com a meta",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Ação baseada em dados",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Busca por melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Cumprimento de processo e disciplina comercial",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Acompanhamento de indicadores próprios",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Responsabilidade pelos resultados",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 1.5
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.8
+      }
+    ],
+    "diego": [
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 1.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 1.7
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação escrita profissional",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Foco em valor e benefício",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Adaptação ao interlocutor",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Condução de reuniões",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Clareza e objetividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Demonstração e prova",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Negociação de condições e contrato",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Saber a hora de recuar",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Criação de senso de urgência",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Tratamento de objeções",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Condução ao fechamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Defesa de preço e margem",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Construção de confiança",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Retenção e fidelização",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Transição para o pós-venda",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Cumprimento de combinados",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Gestão de reclamações e problemas",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Expansão da carteira",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Recuperação após perdas",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Constância de atividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Automotivação e disciplina",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Lidar com a rejeição",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Autoconfiança e postura",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Gestão da pressão por metas",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Foco e compromisso com a meta",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Ação baseada em dados",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Busca por melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Cumprimento de processo e disciplina comercial",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Acompanhamento de indicadores próprios",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Responsabilidade pelos resultados",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.1
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 1.8
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.1
+      }
+    ],
+    "fernanda": [
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.1
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.7
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação escrita profissional",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Foco em valor e benefício",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Adaptação ao interlocutor",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Condução de reuniões",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Clareza e objetividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Demonstração e prova",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Negociação de condições e contrato",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Saber a hora de recuar",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Criação de senso de urgência",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Tratamento de objeções",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Condução ao fechamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Defesa de preço e margem",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Construção de confiança",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Retenção e fidelização",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Transição para o pós-venda",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Cumprimento de combinados",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Gestão de reclamações e problemas",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Expansão da carteira",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Recuperação após perdas",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Constância de atividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Automotivação e disciplina",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Lidar com a rejeição",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Autoconfiança e postura",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Gestão da pressão por metas",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Foco e compromisso com a meta",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Ação baseada em dados",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Busca por melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Cumprimento de processo e disciplina comercial",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Acompanhamento de indicadores próprios",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Responsabilidade pelos resultados",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 1.9
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.7
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.6
+      }
+    ],
+    "joao": [
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.7
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação escrita profissional",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Foco em valor e benefício",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Adaptação ao interlocutor",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Condução de reuniões",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Clareza e objetividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Demonstração e prova",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Negociação de condições e contrato",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Saber a hora de recuar",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Criação de senso de urgência",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Tratamento de objeções",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Condução ao fechamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Defesa de preço e margem",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Construção de confiança",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Retenção e fidelização",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Transição para o pós-venda",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Cumprimento de combinados",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Gestão de reclamações e problemas",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Expansão da carteira",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Recuperação após perdas",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Constância de atividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Automotivação e disciplina",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Lidar com a rejeição",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Autoconfiança e postura",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Gestão da pressão por metas",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Foco e compromisso com a meta",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Ação baseada em dados",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Busca por melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Cumprimento de processo e disciplina comercial",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Acompanhamento de indicadores próprios",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Responsabilidade pelos resultados",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.1
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.7
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 1.9
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2
+      }
+    ],
+    "patricia": [
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 1.9
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação escrita profissional",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Foco em valor e benefício",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Adaptação ao interlocutor",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Condução de reuniões",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Clareza e objetividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Demonstração e prova",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Negociação de condições e contrato",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Saber a hora de recuar",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Criação de senso de urgência",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Tratamento de objeções",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Condução ao fechamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Defesa de preço e margem",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Construção de confiança",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Retenção e fidelização",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Transição para o pós-venda",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Cumprimento de combinados",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Gestão de reclamações e problemas",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Expansão da carteira",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Recuperação após perdas",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Constância de atividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Automotivação e disciplina",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Lidar com a rejeição",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Autoconfiança e postura",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Gestão da pressão por metas",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Foco e compromisso com a meta",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Ação baseada em dados",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Busca por melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Cumprimento de processo e disciplina comercial",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Acompanhamento de indicadores próprios",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Responsabilidade pelos resultados",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.1
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.7
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.7
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.6
+      }
+    ],
+    "rafael": [
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação escrita profissional",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Foco em valor e benefício",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Adaptação ao interlocutor",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Condução de reuniões",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Clareza e objetividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Demonstração e prova",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Negociação de condições e contrato",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Saber a hora de recuar",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Criação de senso de urgência",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Tratamento de objeções",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Condução ao fechamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Defesa de preço e margem",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Construção de confiança",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Retenção e fidelização",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Transição para o pós-venda",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Cumprimento de combinados",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Gestão de reclamações e problemas",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Expansão da carteira",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Recuperação após perdas",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Constância de atividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Automotivação e disciplina",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Lidar com a rejeição",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Autoconfiança e postura",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Gestão da pressão por metas",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Foco e compromisso com a meta",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Ação baseada em dados",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Busca por melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Cumprimento de processo e disciplina comercial",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Acompanhamento de indicadores próprios",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Responsabilidade pelos resultados",
+        "score": 2.6
+      }
+    ],
+    "beatriz": [
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação escrita profissional",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Foco em valor e benefício",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Adaptação ao interlocutor",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Condução de reuniões",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Clareza e objetividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Demonstração e prova",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Negociação de condições e contrato",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Saber a hora de recuar",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Criação de senso de urgência",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Tratamento de objeções",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Condução ao fechamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Defesa de preço e margem",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Construção de confiança",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Retenção e fidelização",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Transição para o pós-venda",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Cumprimento de combinados",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Gestão de reclamações e problemas",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Expansão da carteira",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Recuperação após perdas",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Constância de atividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Automotivação e disciplina",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Lidar com a rejeição",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Autoconfiança e postura",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Gestão da pressão por metas",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Foco e compromisso com a meta",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Ação baseada em dados",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Busca por melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Cumprimento de processo e disciplina comercial",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Acompanhamento de indicadores próprios",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Responsabilidade pelos resultados",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.5
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 1.8
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 1.9
+      }
+    ],
+    "thiago": [
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.8
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.7
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Comunicação escrita profissional",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Foco em valor e benefício",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Adaptação ao interlocutor",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Condução de reuniões",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Clareza e objetividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação e Apresentação de Valor",
+        "descriptor": "Demonstração e prova",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Negociação de condições e contrato",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Saber a hora de recuar",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Criação de senso de urgência",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Tratamento de objeções",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Condução ao fechamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Defesa de preço e margem",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Construção de confiança",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Retenção e fidelização",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Transição para o pós-venda",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Cumprimento de combinados",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Gestão de reclamações e problemas",
+        "score": 2.6
+      },
+      {
+        "competency": "Relacionamento e Pós-venda",
+        "descriptor": "Expansão da carteira",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Recuperação após perdas",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Constância de atividade",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Automotivação e disciplina",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Lidar com a rejeição",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Autoconfiança e postura",
+        "score": 2.6
+      },
+      {
+        "competency": "Resiliência e Constância",
+        "descriptor": "Gestão da pressão por metas",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Foco e compromisso com a meta",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Ação baseada em dados",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Busca por melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Cumprimento de processo e disciplina comercial",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Acompanhamento de indicadores próprios",
+        "score": 2.6
+      },
+      {
+        "competency": "Orientação a Metas e Resultados",
+        "descriptor": "Responsabilidade pelos resultados",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.1
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 1.5
+      },
+      {
+        "competency": "Negociação e Fechamento",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.8
+      }
+    ],
+    "marcelo": [
+      {
+        "competency": "Coaching e Desenvolvimento de Vendedores",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Coaching e Desenvolvimento de Vendedores",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Coaching e Desenvolvimento de Vendedores",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Coaching e Desenvolvimento de Vendedores",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Coaching e Desenvolvimento de Vendedores",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Coaching e Desenvolvimento de Vendedores",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Inteligência de Mercado e Visão Competitiva",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Inteligência de Mercado e Visão Competitiva",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Inteligência de Mercado e Visão Competitiva",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Inteligência de Mercado e Visão Competitiva",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Inteligência de Mercado e Visão Competitiva",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Inteligência de Mercado e Visão Competitiva",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação Estratégica e Suporte a Deals",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação Estratégica e Suporte a Deals",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação Estratégica e Suporte a Deals",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação Estratégica e Suporte a Deals",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação Estratégica e Suporte a Deals",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Negociação Estratégica e Suporte a Deals",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Planejamento Comercial, Priorização e Execução de Estratégia",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Planejamento Comercial, Priorização e Execução de Estratégia",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Planejamento Comercial, Priorização e Execução de Estratégia",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Planejamento Comercial, Priorização e Execução de Estratégia",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Planejamento Comercial, Priorização e Execução de Estratégia",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Planejamento Comercial, Priorização e Execução de Estratégia",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Gestão de Performance, Indicadores e Accountability",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Gestão de Performance, Indicadores e Accountability",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Gestão de Performance, Indicadores e Accountability",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Gestão de Performance, Indicadores e Accountability",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Gestão de Performance, Indicadores e Accountability",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Gestão de Performance, Indicadores e Accountability",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      }
+    ],
+    "juliana": [
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 1.9
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.1
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.7
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.7
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      }
+    ],
+    "eduardo": [
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      }
+    ],
+    "aline": [
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.5
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.1
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 1.8
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 1.9
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.5
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 1.7
+      }
+    ],
+    "gustavo": [
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 1.5
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 1.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.9
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.8
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.1
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.9
+      }
+    ],
+    "isabela": [
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.1
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.9
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.8
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 1.5
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.9
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 1.6
+      }
+    ],
+    "leandro": [
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 1.5
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.1
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 1.8
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 1.8
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 1.7
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      }
+    ],
+    "natalia": [
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.1
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 1.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 1.7
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 1.8
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Análise de Indicadores Financeiros",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Organização de Rotinas e Prazos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação Financeira para Não Especialistas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Critério e Ética no Tratamento de Informações",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Controle, Precisão e Confiabilidade dos Dados",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.1
+      }
+    ],
+    "debora": [
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      }
+    ],
+    "felipe": [
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      }
+    ],
+    "gabriela": [
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      }
+    ],
+    "henrique": [
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      }
+    ],
+    "larissa": [
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      }
+    ],
+    "rodrigo": [
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Priorização e Gestão da Rotina Operacional",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Resolução de Problemas e Gargalos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Liderança de Equipe e Alinhamento Diário",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Melhoria Contínua de Processos",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Leitura do contexto e identificação do problema",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Critério de priorização e tomada de decisão",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Execução com método e acompanhamento",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Comunicação com stakeholders",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Colaboração e negociação de dependências",
+        "score": 2.6
+      },
+      {
+        "competency": "Comunicação entre Áreas",
+        "descriptor": "Aprendizado, ética e melhoria contínua",
+        "score": 2.6
+      }
+    ],
+    "vanessa": []
+  }
+}

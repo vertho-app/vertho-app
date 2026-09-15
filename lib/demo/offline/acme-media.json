@@ -1,0 +1,34 @@
+[
+  {
+    "path": "media/urgencia-case.pdf",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/acme/0cd912711119c438c6501484f6439cff225a292587d40490f49006d7eed54d49.pdf",
+    "bytes": 115835,
+    "sha256": "0cd912711119c438c6501484f6439cff225a292587d40490f49006d7eed54d49",
+    "type": "application/pdf",
+    "label": "Semanas 1 e 2 · case"
+  },
+  {
+    "path": "media/urgencia-audio.mp3",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/acme/c47bfcd2f092922664a5bef4c399149e22c5219e30119f6befbbef6f13306d12.mp3",
+    "bytes": 893387,
+    "sha256": "c47bfcd2f092922664a5bef4c399149e22c5219e30119f6befbbef6f13306d12",
+    "type": "audio/mpeg",
+    "label": "Semanas 1 e 2 · audio"
+  },
+  {
+    "path": "media/urgencia-texto.pdf",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/acme/9d3fe30a597a7aadbffe07153f2a39e8536c43c69a3442b79db1b8e69126a8c8.pdf",
+    "bytes": 118209,
+    "sha256": "9d3fe30a597a7aadbffe07153f2a39e8536c43c69a3442b79db1b8e69126a8c8",
+    "type": "application/pdf",
+    "label": "Semanas 1 e 2 · texto"
+  },
+  {
+    "path": "media/urgencia-video.mp4",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/acme/a975ad5d951163e95f14b44e62bcdf992ac331afb7df8e2f89c773acdbc92584.mp4",
+    "bytes": 9507405,
+    "sha256": "a975ad5d951163e95f14b44e62bcdf992ac331afb7df8e2f89c773acdbc92584",
+    "type": "video/mp4",
+    "label": "Semanas 1 e 2 · vídeo da Bruna"
+  }
+]

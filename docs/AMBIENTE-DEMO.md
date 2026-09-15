@@ -1,17 +1,27 @@
 # Ambientes de Demonstração
 
-## Apresentação escolar sem internet
+## Apresentações sem internet
 
-Disponível em `https://professor-escolas.vertho.ai/apresentacao-offline/index.html`
-e pelo botão **Offline** na barra da sala escolar. Prepare pelo Wi-Fi, no mesmo
+| Demo | Endereço | Pacote inicial |
+| --- | --- | --- |
+| Rede de escolas | `https://professor-escolas.vertho.ai/apresentacao-offline/index.html` | Cerca de 39 MB |
+| ACME empresarial | `https://usuario-demo.vertho.ai/apresentacao-offline-acme/index.html` | Cerca de 11 MB |
+
+Também disponível pelo botão **Offline** na barra de cada sala. Prepare pelo Wi-Fi, no mesmo
 navegador e aparelho que serão usados para apresentar. O pacote só sinaliza
 **Pronto para apresentar offline** depois de baixar e conferir todos os arquivos.
 Salve o endereço nos favoritos; abra esse endereço diretamente quando estiver sem
-rede. Troque Professor(a), Coordenação e Direção no seletor local da apresentação.
+rede. Troque de visão no seletor local da apresentação: Professor(a), Coordenação
+e Direção na escolar; Colaborador(a), Gestor(a) e RH na ACME.
 
-Inclui os perfis e avaliações do fixture escolar, PDI de Marina, relatório da
-coordenação, panorama da direção e os quatro formatos das semanas 1 e 2 (vídeo,
-áudio, texto e case). **Não inclui conversa com IA, login offline nem gravação ou
+Na escolar, inclui os perfis e avaliações do fixture, PDI de Marina, relatório da
+coordenação e panorama da direção. Na ACME, inclui o elenco de 30 pessoas fictícias,
+PDI de Bruna, relatório de Carla e panorama de Helena. As duas demos incluem os
+quatro formatos das semanas 1 e 2 (vídeo, áudio, texto e case). Na ACME essas semanas
+compartilham o tema **Criação de senso de urgência** e os mesmos arquivos; cada mídia
+é baixada uma única vez, incluindo o vídeo nominal de Bruna.
+
+**Não inclui conversa com IA, login offline nem gravação ou
 sincronização de avaliações.** Reiniciar demonstração apenas retorna ao começo.
 O retrato dos dados fictícios tem sua data visível; o pacote não consulta o banco.
 
@@ -23,17 +33,26 @@ incompletos, cancelados ou sem espaço não substituem o pacote anterior.
 
 ### Implementação e verificação
 
-- Fonte TypeScript em `lib/demo/offline/`; `data.ts` projeta apenas campos
-  demonstrativos do fixture e roster, sem contatos, sessões ou conversas.
-- `media.json` fixa os arquivos públicos, tamanhos e hashes. Ao trocar a mídia,
+- Fonte TypeScript em `lib/demo/offline/`; `data.ts` e `acme-data.ts` projetam apenas
+  campos demonstrativos dos fixtures e rosters, sem contatos, sessões ou conversas.
+  A ACME complementa o fixture antigo com `acme-content.json`: semanas resolvidas
+  pelo overlay real dos kits e notas numéricas das 30 pessoas declaradas no roster,
+  indexadas por chave fictícia, sem IDs de colaboradores ou convidados. Os relatórios
+  usam os geradores canônicos `criarRelatorioGestorAcmeDemo` e `criarRelatorioRhAcmeDemo`.
+- `media.json` (escola) e `acme-media.json` fixam os arquivos públicos, tamanhos e hashes. Ao trocar a mídia,
   atualize o manifesto a partir dos novos arquivos completos; builds não fazem
   downloads e não precisam de segredos. As semanas vêm do plano congelado de
-  Marina e usam os vídeos editoriais de `escolas-videos-jornada.json`.
-- `npm run build:demo-offline` gera `public/apresentacao-offline/` (ignorado no Git).
+  Marina e usam os vídeos editoriais de `escolas-videos-jornada.json`. As mídias da
+  ACME são cópias imutáveis do material entregue a Bruna, em
+  `conteudos/demo-offline/acme/<sha256>.<ext>`, independentes de login e do reset.
+- `npm run build:demo-offline` gera `public/apresentacao-offline/` e
+  `public/apresentacao-offline-acme/` (ignorados no Git).
   `predev` e `prebuild` executam o mesmo gerador. HTML, CSS, JavaScript e fontes
-  locais entram no manifesto; o pacote inicial mede cerca de 38,4 MiB.
-- Worker exclusivo em `/apresentacao-offline/sw.js`, com escopo explícito
-  `/apresentacao-offline/`. `public/sw.js` continua apenas push. O novo worker
+  locais entram nos manifestos; a ACME compartilha as mídias repetidas entre semanas.
+- `environment.ts` define nomes, visões, caminhos e namespaces de cada ambiente.
+  Workers exclusivos em `/apresentacao-offline/sw.js` e `/apresentacao-offline-acme/sw.js`,
+  cada um com escopo explícito no próprio diretório. O endereço e cache escolar
+  existente são preservados. `public/sw.js` continua apenas push. Cada worker
   atende somente os arquivos desse pacote; não captura API, auth ou dashboard.
 - Cache temporário + validação completa + ponteiro ativo atômico. O pacote
   anterior é preservado; limpeza fica no namespace próprio e sob lock entre abas.
@@ -45,7 +64,11 @@ incompletos, cancelados ou sem espaço não substituem o pacote anterior.
   Baixa as mídias públicas reais, testa atualização, desliga o servidor de origem,
   reinicia o Chrome sem conexão e percorre os três perfis e quatro formatos.
   Também confere telas a 390px e invalida a prontidão ao remover um vídeo do cache.
-  `--origin=https://professor-escolas.vertho.ai` verifica a publicação real.
+  `--origin=https://professor-escolas.vertho.ai` verifica a publicação escolar real.
+  Para ACME, use `--acme`; o teste local também prepara a escola na mesma origem,
+  registra o worker de push e confirma que ambos sobrevivem ao preparo/atualização
+  da ACME e à reabertura offline. Publicação ACME:
+  `node scripts/verify-demo-offline.mts --acme --origin=https://usuario-demo.vertho.ai`.
 
 ## Ambientes online
 

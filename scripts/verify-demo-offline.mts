@@ -3,6 +3,16 @@ import { createServer } from "node:http";
 import { readFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
+import { offlineEnvironment } from "../lib/demo/offline/environment.ts";
+
+const tenant = process.argv.includes("--acme") ? "acme-demo" : "escolas-acme";
+const environment = offlineEnvironment(tenant);
+const base = environment.base;
+const mediaToRemove =
+  tenant === "acme-demo"
+    ? "media/urgencia-video.mp4"
+    : "media/semana-1-video.mp4";
+const screenshotPrefix = `.tmp/offline-${tenant}`;
 
 // Manual canary with real public demo media. No accounts, writes or AI calls.
 const directory = resolve(".tmp/offline-browser-" + Date.now());
@@ -10,18 +20,27 @@ await mkdir(directory, { recursive: true });
 const explicitOrigin = process.argv
   .find((arg) => arg.startsWith("--origin="))
   ?.slice(9);
+const checkIsolation = tenant === "acme-demo" && !explicitOrigin;
 let server: ReturnType<typeof createServer> | undefined;
 let updatePublished = false;
 if (!explicitOrigin) {
   server = createServer(async (req, res) => {
     const path = new URL(req.url!, "http://localhost").pathname;
-    if (!path.startsWith("/apresentacao-offline/") || path.includes("..")) {
+    const allowed =
+      path.startsWith(base) ||
+      (checkIsolation &&
+        (path.startsWith("/apresentacao-offline/") || path === "/sw.js"));
+    if (!allowed || path.includes("..")) {
       res.writeHead(404).end();
       return;
     }
     try {
       let file = await readFile(resolve("public", path.slice(1)));
-      if (updatePublished && path.endsWith("/index.html"))
+      if (
+        updatePublished &&
+        path.startsWith(base) &&
+        path.endsWith("/index.html")
+      )
         file = Buffer.from(
           file
             .toString()
@@ -30,11 +49,15 @@ if (!explicitOrigin) {
               'data-version="aaaaaaaaaaaaaaaa"',
             ),
         );
-      if (updatePublished && path.endsWith("/package.json")) {
+      if (
+        updatePublished &&
+        path.startsWith(base) &&
+        path.endsWith("/package.json")
+      ) {
         const pack = JSON.parse(file.toString());
         pack.version = "aaaaaaaaaaaaaaaa";
         const html = (
-          await readFile("public/apresentacao-offline/index.html", "utf8")
+          await readFile(`public${base}index.html`, "utf8")
         ).replace(
           /data-version="[a-f0-9]+"/,
           'data-version="aaaaaaaaaaaaaaaa"',
@@ -66,10 +89,13 @@ if (!explicitOrigin) {
       res.writeHead(404).end();
     }
   });
-  await new Promise<void>((done) => server!.listen(4186, "127.0.0.1", done));
+  await new Promise<void>((done) =>
+    server!.listen(tenant === "acme-demo" ? 4187 : 4186, "127.0.0.1", done),
+  );
 }
-const origin = explicitOrigin || "http://127.0.0.1:4186";
-const url = `${origin}/apresentacao-offline/index.html`;
+const origin =
+  explicitOrigin || `http://127.0.0.1:${tenant === "acme-demo" ? 4187 : 4186}`;
+const url = `${origin}${base}index.html`;
 const options = {
   channel: "chrome",
   headless: true,
@@ -82,12 +108,28 @@ const listen = () =>
   page.on("pageerror", (error) => errors.push(error.message));
 listen();
 try {
+  if (checkIsolation) {
+    await page.goto(`${origin}/apresentacao-offline/index.html`);
+    await page.evaluate(async () => {
+      await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+      await (
+        await caches.open("offline-isolation-sentinel")
+      ).put("/sentinel", new Response("preservar"));
+    });
+    await page.getByRole("button", { name: /Preparar apresentação/ }).click();
+    await expect(
+      page.getByText("Pronto para apresentar offline", { exact: true }),
+    ).toBeVisible({ timeout: 180000 });
+  }
   await page.goto(url);
   await page.getByRole("button", { name: /Preparar apresentação/ }).click();
   await expect(
     page.getByText("Pronto para apresentar offline", { exact: true }),
   ).toBeVisible({ timeout: 180000 });
-  await page.screenshot({ path: ".tmp/offline-preparado.png", fullPage: true });
+  await page.screenshot({
+    path: `${screenshotPrefix}-preparado.png`,
+    fullPage: true,
+  });
   console.log("PREPARADO", await page.getByRole("status").innerText());
   if (server) {
     updatePublished = true;
@@ -118,6 +160,40 @@ try {
     page.getByText("Pronto para apresentar offline", { exact: true }),
   ).toBeVisible({ timeout: 30000 });
   await expect(page.getByText("Sem conexão", { exact: true })).toBeVisible();
+  if (checkIsolation) {
+    const scopes = await page.evaluate(async () =>
+      (await navigator.serviceWorker.getRegistrations())
+        .map((registration) => new URL(registration.scope).pathname)
+        .sort(),
+    );
+    expect(scopes).toEqual(
+      ["/", "/apresentacao-offline-acme/", "/apresentacao-offline/"].sort(),
+    );
+    expect(
+      await page.evaluate(async () =>
+        (
+          await (
+            await caches.open("offline-isolation-sentinel")
+          ).match("/sentinel")
+        )?.text(),
+      ),
+    ).toBe("preservar");
+    const school = await context.newPage();
+    await school.goto(`${origin}/apresentacao-offline/index.html`);
+    await expect(
+      school.getByText("Pronto para apresentar offline", { exact: true }),
+    ).toBeVisible({ timeout: 30000 });
+    await expect(
+      school.getByText("Marina Rocha", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      school.getByText("Rede de Escolas ACME", { exact: true }),
+    ).toBeVisible();
+    await school.close();
+    console.log(
+      "ISOLAMENTO: escola e ACME coexistem offline; cache externo e worker de push preservados.",
+    );
+  }
   for (const number of [1, 2]) {
     await page.getByRole("button", { name: /Minha jornada/ }).click();
     await page
@@ -139,7 +215,7 @@ try {
       .toBeGreaterThan(90.2);
     await video.evaluate((el: HTMLVideoElement) => el.pause());
     await page.screenshot({
-      path: `.tmp/offline-semana-${number}.png`,
+      path: `${screenshotPrefix}-semana-${number}.png`,
       fullPage: false,
     });
     await page.getByRole("tab", { name: "Áudio", exact: true }).click();
@@ -186,15 +262,21 @@ try {
       exact: true,
     }),
   ).toBeVisible();
-  for (const role of ["coordenacao", "direcao"]) {
+  for (const role of ["manager", "organization"]) {
     await page.getByLabel("Visão apresentada").selectOption(role);
     await page.getByRole("button", { name: "Equipe", exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "Marina Rocha", exact: true }),
+      page.getByRole("heading", {
+        name: environment.names.participant,
+        exact: true,
+      }),
     ).toBeVisible();
     await page
       .getByRole("button", {
-        name: role === "direcao" ? "Relatório da rede" : "Relatório da equipe",
+        name:
+          role === "organization"
+            ? environment.organizationReportButton
+            : "Relatório da equipe",
         exact: true,
       })
       .click();
@@ -202,16 +284,19 @@ try {
       page.getByRole("heading", { name: "Visão geral", exact: true }),
     ).toBeVisible();
     await page.screenshot({
-      path: `.tmp/offline-${role}.png`,
+      path: `${screenshotPrefix}-${role}.png`,
       fullPage: false,
     });
   }
   await page
     .getByRole("button", { name: "Reiniciar demonstração", exact: true })
     .click();
-  await expect(page.getByLabel("Visão apresentada")).toHaveValue("professor");
+  await expect(page.getByLabel("Visão apresentada")).toHaveValue("participant");
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: ".tmp/offline-celular.png", fullPage: true });
+  await page.screenshot({
+    path: `${screenshotPrefix}-celular.png`,
+    fullPage: true,
+  });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -219,15 +304,16 @@ try {
   ).toBe(true);
   expect(errors).toEqual([]);
   // Loss of one file invalidates readiness instead of silently streaming online.
-  await page.evaluate(async () => {
-    const meta = await caches.open("vertho-escolas-offline-v1-meta");
-    const pack = await (await meta.match(
-      "/apresentacao-offline/_active",
-    ))!.json();
-    await (
-      await caches.open(pack.cacheName)
-    ).delete("/apresentacao-offline/media/semana-1-video.mp4");
-  });
+  await page.evaluate(
+    async ({ cachePrefix, base, mediaToRemove }) => {
+      const meta = await caches.open(`${cachePrefix}meta`);
+      const pack = await (await meta.match(`${base}_active`))!.json();
+      await (
+        await caches.open(pack.cacheName)
+      ).delete(`${base}${mediaToRemove}`);
+    },
+    { cachePrefix: environment.cachePrefix, base, mediaToRemove },
+  );
   await page
     .getByRole("button", { name: "Conferir pacote", exact: true })
     .click();

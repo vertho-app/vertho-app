@@ -22,11 +22,13 @@ export type OfflinePerson = {
   manager: string | null;
   disc: number[];
   profile: string;
+  profileAvailable?: boolean;
   report: Record<string, ReportValue>;
   assessments: { competency: string; descriptor: string; score: number }[];
 };
 export type OfflineData = {
   capturedAt: string;
+  totalWeeks: number;
   people: OfflinePerson[];
   weeks: {
     number: number;

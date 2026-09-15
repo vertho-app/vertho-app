@@ -12,9 +12,84 @@ import {
   verifyPackage,
 } from "@/lib/demo/offline/cache";
 import { schoolOfflineData } from "@/lib/demo/offline/data";
+import { acmeOfflineData } from "@/lib/demo/offline/acme-data";
+import { offlineEnvironment } from "@/lib/demo/offline/environment";
+import schoolMedia from "@/lib/demo/offline/media.json";
+import acmeMedia from "@/lib/demo/offline/acme-media.json";
 import type { OfflinePackage } from "@/lib/demo/offline/types";
 
 describe("Apresentação offline: mídia e limites", () => {
+  it("mantém os pacotes em escopos e caches distintos, preservando o endereço escolar", () => {
+    const school = offlineEnvironment("escolas-acme");
+    const acme = offlineEnvironment("acme-demo");
+    expect(school.base).toBe("/apresentacao-offline/");
+    expect(school.cachePrefix).toBe("vertho-escolas-offline-v1-");
+    expect(acme.base.startsWith(school.base)).toBe(false);
+    expect(school.base.startsWith(acme.base)).toBe(false);
+    expect(acme.cachePrefix.startsWith(school.cachePrefix)).toBe(false);
+    expect(acme.roles.organization).toBe("RH");
+    expect(acme.names.participant).toBe("Bruna Costa");
+  });
+  it("projeta as 30 pessoas fictícias da ACME e deduplica o conteúdo compartilhado pelas semanas", () => {
+    const data = acmeOfflineData();
+    expect(data.people).toHaveLength(30);
+    expect(data.totalWeeks).toBe(7);
+    expect(
+      data.people.find((p) => p.key === "bruna")?.assessments.length,
+    ).toBeGreaterThan(0);
+    expect(data.people.find((p) => p.key === "ana")?.profileAvailable).toBe(
+      false,
+    );
+    expect(data.people.find((p) => p.key === "vanessa")?.profileAvailable).toBe(
+      false,
+    );
+    expect(data.people.some((p) => p.manager === "Carla Menezes")).toBe(true);
+    expect(data.weeks.map((w) => w.title)).toEqual([
+      "Criação de senso de urgência",
+      "Criação de senso de urgência",
+    ]);
+    expect(
+      new Set(data.weeks.flatMap((w) => w.formats.map((f) => f.path))).size,
+    ).toBe(4);
+    expect(data.coordination.resumo_executivo).toBeTruthy();
+    expect(data.direction.resumo_executivo).toBeTruthy();
+    const serialized = JSON.stringify(data);
+    for (const value of [
+      "Marina Rocha",
+      "Renata Coelho",
+      "Cláudia Amorim",
+      "@vertho.ai",
+      "colaborador_id",
+      "access_token",
+      '"respostas":',
+    ])
+      expect(serialized.includes(value), value).toBe(false);
+  });
+  it("todos os formatos das duas demos possuem arquivo verificado no próprio manifesto", () => {
+    for (const [data, media] of [
+      [schoolOfflineData(), schoolMedia],
+      [acmeOfflineData(), acmeMedia],
+    ] as const) {
+      for (const week of data.weeks) {
+        expect(week.formats.map((f) => f.key).sort()).toEqual([
+          "audio",
+          "case",
+          "texto",
+          "video",
+        ]);
+        for (const format of week.formats) {
+          const asset = media.find((a) => a.path === format.path);
+          expect(asset, format.path).toBeDefined();
+          expect(asset!.bytes).toBeGreaterThan(1000);
+          expect(asset!.sha256).toMatch(/^[a-f0-9]{64}$/);
+        }
+      }
+    }
+    expect(acmeMedia).toHaveLength(4);
+    expect(
+      acmeMedia.some((a) => schoolMedia.some((b) => b.source === a.source)),
+    ).toBe(false);
+  });
   it("atende início, busca, fim e intervalos inválidos de vídeo", () => {
     expect(byteRange("bytes=0-1", 100)).toEqual({ start: 0, end: 1 });
     expect(byteRange("bytes=40-", 100)).toEqual({ start: 40, end: 99 });

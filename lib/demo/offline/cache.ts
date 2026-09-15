@@ -1,7 +1,8 @@
 import type { OfflineAsset, OfflinePackage } from "./types";
+import { ENVIRONMENT } from "./environment";
 
-export const BASE = "/apresentacao-offline/";
-export const CACHE_PREFIX = "vertho-escolas-offline-v1-";
+export const BASE = ENVIRONMENT.base;
+export const CACHE_PREFIX = ENVIRONMENT.cachePrefix;
 export const META_CACHE = `${CACHE_PREFIX}meta`;
 export const ACTIVE_KEY = `${BASE}_active`;
 export type InstalledPackage = OfflinePackage & {

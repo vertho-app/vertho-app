@@ -4,7 +4,7 @@ import fixture from "../escolas-demo-fixture.json";
 import { PERSONAS_ESCOLARES, DIRETORIO_ESCOLAR } from "../rosters/escolar";
 import type { OfflineData, ReportValue } from "./types";
 
-const pick = (value: any, keys: string[]): Record<string, ReportValue> =>
+export const pick = (value: any, keys: string[]): Record<string, ReportValue> =>
   Object.fromEntries(
     keys.filter((key) => value?.[key] != null).map((key) => [key, value[key]]),
   );
@@ -14,6 +14,7 @@ export function schoolOfflineData(): OfflineData {
   const marina = artifacts["marina.demo@vertho.ai"];
   return {
     capturedAt: fixture._meta.capturedAt,
+    totalWeeks: marina.trilha.row.temporada_plano.length,
     people: [...PERSONAS_ESCOLARES, ...DIRETORIO_ESCOLAR].map((person) => {
       const a = artifacts[person.email];
       return {

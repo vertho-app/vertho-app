@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { ChevronDown, Download, Eye, Loader2, Monitor, Smartphone } from 'lucide-react';
+import { offlineEnvironment } from '@/lib/demo/offline/environment';
 import {
   DEMO_PRESENTATION_DEVICES,
   DEMO_PRESENTATION_DEVICE_PARAM,
@@ -188,10 +189,10 @@ function PresentationControls({
             </span>
           </span>
         </label>
-        {currentRole.tenantSlug === 'escolas-acme' && (
-          <a href="/apresentacao-offline/index.html" target="_blank" rel="noreferrer"
+        {(currentRole.tenantSlug === 'escolas-acme' || currentRole.tenantSlug === 'acme-demo') && (
+          <a href={`${offlineEnvironment(currentRole.tenantSlug).base}index.html`} target="_blank" rel="noreferrer"
             className="flex shrink-0 items-center gap-2 rounded-xl px-3 text-xs font-bold text-cyan-300 hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-cyan-300"
-            title="Preparar apresentação offline da demo escolar">
+            title="Preparar apresentação offline desta demo">
             <Download size={15} aria-hidden="true" /><span className="hidden sm:inline">Offline</span>
             <span className="sr-only sm:hidden">Preparar apresentação offline</span>
           </a>

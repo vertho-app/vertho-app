@@ -29,6 +29,7 @@ import type {
   OfflinePackage,
   ReportValue,
 } from "./types";
+import { ENVIRONMENT } from "./environment";
 import "./style.css";
 
 declare const __DEMO_DATA__: OfflineData;
@@ -104,17 +105,9 @@ function Report({ content }: { content: Record<string, ReportValue> }) {
     </div>
   );
 }
-const roleNames = {
-  professor: "Professor(a)",
-  coordenacao: "Coordenação",
-  direcao: "Direção",
-};
+const roleNames = ENVIRONMENT.roles;
 type Role = keyof typeof roleNames;
-const personNames = {
-  professor: "Marina Rocha",
-  coordenacao: "Renata Coelho",
-  direcao: "Cláudia Amorim",
-};
+const personNames = ENVIRONMENT.names;
 const icons = {
   video: Play,
   audio: Headphones,
@@ -174,11 +167,11 @@ function App() {
   const [error, setError] = useState("");
   const [progress, setProgress] = useState(0);
   const [online, setOnline] = useState(navigator.onLine);
-  const [role, setRole] = useState<Role>("professor");
+  const [role, setRole] = useState<Role>("participant");
   const [screen, setScreen] = useState("inicio");
   const [weekNumber, setWeekNumber] = useState(1);
   const [format, setFormat] = useState("video");
-  const [personKey, setPersonKey] = useState("marina");
+  const [personKey, setPersonKey] = useState(ENVIRONMENT.participantKey);
   const [mobile, setMobile] = useState(false);
   const [latest, setLatest] = useState<OfflinePackage | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -234,7 +227,7 @@ function App() {
     try {
       const registration = await navigator.serviceWorker.register(
         `${BASE}sw.js`,
-        { scope: "/apresentacao-offline/", updateViaCache: "none" },
+        { scope: BASE, updateViaCache: "none" },
       );
       if (!registration.active)
         await new Promise<void>((resolve, reject) => {
@@ -284,9 +277,7 @@ function App() {
       setMessage("Pacote completo neste aparelho.");
       if (
         pack.version !== version ||
-        !navigator.serviceWorker.controller?.scriptURL.endsWith(
-          "/apresentacao-offline/sw.js",
-        )
+        !navigator.serviceWorker.controller?.scriptURL.endsWith(`${BASE}sw.js`)
       )
         location.reload();
     } catch (e) {
@@ -332,11 +323,15 @@ function App() {
   }
   function selectRole(next: Role) {
     setRole(next);
-    setPersonKey(next === "professor" ? "marina" : "renata");
+    setPersonKey(
+      next === "participant"
+        ? ENVIRONMENT.participantKey
+        : ENVIRONMENT.managerKey,
+    );
     navigate("inicio");
   }
   function restart() {
-    selectRole("professor");
+    selectRole("participant");
     setWeekNumber(1);
     setFormat("video");
   }
@@ -344,8 +339,8 @@ function App() {
   const week = data.weeks.find((w) => w.number === weekNumber)!;
   const selectedFormat = week.formats.find((f) => f.key === format)!;
   const team =
-    role === "coordenacao"
-      ? data.people.filter((p) => p.manager === "Renata Coelho")
+    role === "manager"
+      ? data.people.filter((p) => p.manager === ENVIRONMENT.names.manager)
       : data.people;
   const sectionTitle =
     screen === "semana"
@@ -357,16 +352,16 @@ function App() {
           : screen === "pdi"
             ? "Plano de desenvolvimento"
             : screen === "relatorio"
-              ? role === "direcao"
-                ? "Panorama da rede"
+              ? role === "organization"
+                ? ENVIRONMENT.organizationReport
                 : "Acompanhamento da equipe"
               : screen === "equipe"
                 ? "Nossa equipe"
-                : role === "professor"
+                : role === "participant"
                   ? "Sua jornada de desenvolvimento"
-                  : role === "coordenacao"
-                    ? "Desenvolvimento da equipe docente"
-                    : "Rede de Escolas ACME";
+                  : role === "manager"
+                    ? ENVIRONMENT.managerTitle
+                    : ENVIRONMENT.name;
   const totalBytes = latest?.assets.reduce((sum, item) => sum + item.bytes, 0);
   return (
     <>
@@ -381,7 +376,7 @@ function App() {
         >
           vertho<span>MENTOR IA</span>
         </a>
-        <span className="school-name">Rede de Escolas ACME</span>
+        <span className="school-name">{ENVIRONMENT.name}</span>
         <span className="connection">
           {online ? <Wifi size={16} /> : <WifiOff size={16} />}
           {online ? "Com conexão" : "Sem conexão"}
@@ -411,13 +406,13 @@ function App() {
               onClick={() => navigate("inicio")}
             >
               <GraduationCap size={18} />
-              {role === "professor" ? "Minha jornada" : "Visão geral"}
+              {role === "participant" ? "Minha jornada" : "Visão geral"}
             </button>
-            {role === "professor" ? (
+            {role === "participant" ? (
               <>
                 <button
                   onClick={() => {
-                    setPersonKey("marina");
+                    setPersonKey(ENVIRONMENT.participantKey);
                     navigate("perfil");
                   }}
                 >
@@ -426,7 +421,7 @@ function App() {
                 </button>
                 <button
                   onClick={() => {
-                    setPersonKey("marina");
+                    setPersonKey(ENVIRONMENT.participantKey);
                     navigate("competencias");
                   }}
                 >
@@ -446,7 +441,9 @@ function App() {
                 </button>
                 <button onClick={() => navigate("relatorio")}>
                   <FileText size={18} />
-                  Relatório {role === "direcao" ? "da rede" : "da equipe"}
+                  {role === "organization"
+                    ? ENVIRONMENT.organizationReportButton
+                    : "Relatório da equipe"}
                 </button>
               </>
             )}
@@ -550,10 +547,7 @@ function App() {
             <section className="panel empty">
               <Download size={36} />
               <h2>Prepare uma vez, apresente sem conexão.</h2>
-              <p>
-                O pacote inclui as três visões da escola, relatórios e as
-                semanas 1 e 2 em vídeo, áudio, texto e case.
-              </p>
+              <p>{ENVIRONMENT.packageIntro}</p>
               <p>
                 Mantenha esta aba aberta durante o download. Depois, salve este
                 endereço nos favoritos e teste com a internet desligada.
@@ -561,18 +555,16 @@ function App() {
             </section>
           ) : (
             <>
-              {screen === "inicio" && role === "professor" && (
+              {screen === "inicio" && role === "participant" && (
                 <>
                   <section className="panel journey-intro">
                     <span className="eyebrow">SUA TEMPORADA</span>
-                    <h2>Didática e estratégias de ensino</h2>
-                    <p>
-                      Do planejamento à participação de todos em sala de aula.
-                    </p>
+                    <h2>{data.weeks[0].competency}</h2>
+                    <p>{ENVIRONMENT.journeyIntro}</p>
                     <div className="journey-track">
-                      <span>1 · Ritmo e transições</span>
+                      <span>1 · {data.weeks[0].title}</span>
                       <ArrowRight size={20} />
-                      <span>2 · Engajamento ativo</span>
+                      <span>2 · {data.weeks[1].title}</span>
                     </div>
                   </section>
                   <div className="week-grid">
@@ -586,7 +578,9 @@ function App() {
                           navigate("semana");
                         }}
                       >
-                        <span className="eyebrow">SEMANA {w.number} DE 7</span>
+                        <span className="eyebrow">
+                          SEMANA {w.number} DE {data.totalWeeks}
+                        </span>
                         <h2>{w.title}</h2>
                         <p>{w.challenge}</p>
                         <span className="formats">
@@ -690,18 +684,18 @@ function App() {
                   </div>
                 </>
               )}
-              {screen === "inicio" && role !== "professor" && (
+              {screen === "inicio" && role !== "participant" && (
                 <>
                   <section className="panel">
                     <span className="eyebrow">
-                      {role === "coordenacao"
-                        ? "ESCOLA ACME VILA NOVA"
-                        : "DESENVOLVIMENTO PEDAGÓGICO"}
+                      {role === "manager"
+                        ? ENVIRONMENT.managerEyebrow
+                        : ENVIRONMENT.organizationEyebrow}
                     </span>
                     <h2>
-                      {role === "coordenacao"
-                        ? "Conhecer a equipe para apoiar cada professor."
-                        : "Uma visão integrada do desenvolvimento da rede."}
+                      {role === "manager"
+                        ? ENVIRONMENT.managerIntro
+                        : ENVIRONMENT.organizationIntro}
                     </h2>
                     <p>
                       Acompanhe os perfis, as competências avaliadas e as
@@ -720,7 +714,7 @@ function App() {
                       </div>
                       <div>
                         <strong>{new Set(team.map((p) => p.unit)).size}</strong>
-                        <span>Unidades com participantes</span>
+                        <span>{ENVIRONMENT.unitLabel}</span>
                       </div>
                     </div>
                   </section>
@@ -744,14 +738,11 @@ function App() {
                     >
                       <FileText size={28} />
                       <h2>
-                        {role === "direcao"
-                          ? "Panorama da rede"
+                        {role === "organization"
+                          ? ENVIRONMENT.organizationReport
                           : "Relatório da equipe"}
                       </h2>
-                      <p>
-                        Leitura das prioridades e ações recomendadas para a
-                        escola.
-                      </p>
+                      <p>{ENVIRONMENT.reportIntro}</p>
                       <strong>
                         Abrir relatório <ArrowRight size={18} />
                       </strong>
@@ -791,7 +782,15 @@ function App() {
                   ))}
                 </section>
               )}
-              {screen === "perfil" && (
+              {screen === "perfil" && person.profileAvailable === false && (
+                <section className="panel">
+                  <p>
+                    O mapeamento comportamental desta pessoa ainda não foi
+                    realizado.
+                  </p>
+                </section>
+              )}
+              {screen === "perfil" && person.profileAvailable !== false && (
                 <>
                   <section className="panel">
                     <div className="disc-bars">
@@ -833,7 +832,7 @@ function App() {
               {screen === "relatorio" && (
                 <Report
                   content={
-                    role === "direcao" ? data.direction : data.coordination
+                    role === "organization" ? data.direction : data.coordination
                   }
                 />
               )}
