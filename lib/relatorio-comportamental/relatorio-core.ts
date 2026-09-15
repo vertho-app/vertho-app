@@ -24,12 +24,30 @@ import { storageSlug } from '@/lib/storage-slug';
 export const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
 export const BUCKET = 'relatorios-pdf';
 
+/**
+ * Textos interpretativos do relatório DISC.
+ *
+ * 🔴 ETIQUETA E TENANT (15/09/2026). A chamada rodava sem `taskKey` e sem
+ * `empresaId`: caía no ledger como `feature: 'untagged'` com `empresa_id` nulo,
+ * ou seja, invisível TANTO no custo por fase QUANTO no custo por empresa.
+ * `Medido:` US$ 0,0403 de média em 8 chamadas de 02/09 (o único jeito de achá-las
+ * era o `origem_codigo`, `gerarTextosLLM ← main`, que só existe porque o
+ * wrapper carimba o call-site quando a etiqueta falta). É um custo por PESSOA
+ * que todo mapeamento paga, não um caso de borda: some da conta do cliente e
+ * reaparece como plataforma.
+ *
+ * O `empresaId` já estava no escopo, usado na LINHA DE CIMA para escolher o
+ * modelo — a mesma forma do achado que criou o guard de 07/09.
+ */
 export async function gerarTextosLLM(raw, empresaId) {
   const prompt = buildBehavioralReportPrompt(raw);
   const system = 'Você é um analista comportamental sênior da Vertho. DISC é tendência, não sentença. Nunca use linguagem determinista. Responda APENAS com JSON válido, sem markdown nem comentários.';
   const { getModelForTask } = await import('@/lib/ai-tasks');
   const model = await getModelForTask(empresaId, 'relatorio_comportamental');
-  const rawAnswer = await callAI(system, prompt, { model }, 4096);
+  const rawAnswer = await callAI(system, prompt, { model }, 4096, {
+    taskKey: 'relatorio_comportamental',
+    empresaId,
+  });
 
   const cleaned = String(rawAnswer || '')
     .replace(/```json\s*/gi, '')
