@@ -338,3 +338,79 @@ describe('reconciliarPersonalizados · não enfileirar o que ninguém vai drenar
     expect(sb.escritas.some((e) => e.tabela === 'degradacao_log')).toBe(false);
   });
 });
+
+/**
+ * 🔴 AMBIENTE DE DEMONSTRAÇÃO — o ciclo que trocava o vídeo por nenhum vídeo.
+ *
+ * Medido 15/09/2026 no `escolas-acme`. O reset noturno recria os colaboradores
+ * com IDs NOVOS, então o personalizado deles nunca sobrevive à madrugada: a
+ * lacuna é ETERNA por construção e a célula era devolvida à fila todo dia. O
+ * re-render passou dos 40min do watchdog, abortou, e o `error` da tentativa NOVA
+ * sobrescreveu o `done` de um deck publicado — a visão de colaborador da demo
+ * ficou sem vídeo por 4 dias, com o vídeo tocando no Bunny o tempo todo.
+ *
+ * O teste do FILTRO sozinho não provaria nada (lista vazia também dá zero
+ * lacuna), então ele vem em PAR com o mesmo cenário em tenant real — é a
+ * diferença entre os dois que mostra que o corte é pelo `is_demo`, e não porque
+ * o cenário não produz lacuna.
+ */
+describe('reconciliarPersonalizados · ambiente de demonstração fica fora', () => {
+  const CELULA = {
+    id: 'cel-demo', empresa_id: 'emp-demo', cargo: 'Professor(a)',
+    disc_dominante: 'S', modulo_base_id: 'mb-1', created_at: '2026-09-02T00:00:00Z',
+  };
+  const PESSOA = {
+    id: 'colab-1', nome_completo: 'Marina Rocha', cargo: 'Professor(a)',
+    perfil_dominante: 'SI', empresa_id: 'emp-demo',
+  };
+
+  beforeEach(() => {
+    sb.reset();
+    escritaCasa = true;
+    ensureMock.mockReset();
+    ensureMock.mockResolvedValue({ provisioned: true, created: [1], alive: 1, reason: '+1 box' });
+    dados = {};
+  });
+
+  it('🔴 célula de tenant `is_demo` não é reconciliada nem paga render', async () => {
+    dados = {
+      empresas: [{ id: 'emp-demo' }],   // a leitura é `.eq('is_demo', true)`
+      videos_gerados: [CELULA],
+      colaboradores: [PESSOA],
+      videos_personalizados: [],        // 1 pessoa, 0 nominais: a lacuna EXISTE
+    };
+
+    const r = await reconciliarPersonalizados({ executar: true });
+
+    expect(r.ignoradasPorDemo).toBe(1);
+    expect(r.lacunas).toEqual([]);
+    expect(r.pessoasSemVideoNominal).toBe(0);
+    // O que custava dinheiro e derrubava a entrega: nenhum dos dois acontece.
+    expect(sb.escritas.filter((e) => e.tabela === 'videos_gerados' && e.op === 'update')).toHaveLength(0);
+    expect(ensureMock).not.toHaveBeenCalled();
+  });
+
+  it('o PAR: a MESMA célula em tenant real continua sendo reconciliada', async () => {
+    dados = {
+      empresas: [{ id: 'outro-tenant-qualquer' }],   // emp-demo NÃO é demo aqui
+      videos_gerados: [CELULA],
+      colaboradores: [PESSOA],
+      videos_personalizados: [],
+    };
+
+    const r = await reconciliarPersonalizados({ executar: true });
+
+    expect(r.ignoradasPorDemo).toBe(0);
+    expect(r.lacunas).toHaveLength(1);
+    expect(r.celulasReenfileiradas).toEqual(['cel-demo']);
+  });
+
+  it('falha ao listar os tenants de demonstração NÃO vira "não há demo"', async () => {
+    // Seguir daqui reconciliaria exatamente o que esta rodada existe para poupar.
+    dados = { videos_gerados: [CELULA], colaboradores: [PESSOA], videos_personalizados: [] };
+    sb.falharEm({ tabela: 'empresas', op: 'select', mensagem: 'empresas indisponível' });
+
+    await expect(reconciliarPersonalizados({ executar: true })).rejects.toThrow('empresas indisponível');
+    expect(ensureMock).not.toHaveBeenCalled();
+  });
+});
