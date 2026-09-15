@@ -228,6 +228,23 @@ const PROXIMOS_PASSOS_PADRAO = [
 /** Status em que o cliente ainda pode registrar o aceite pela página pública. */
 const ACEITAVEIS = ['approved', 'sent_to_client'];
 
+/**
+ * O aceite pela página só vale para proposta SEM RC (deal desk).
+ *
+ * Aceitar uma proposta do RC não é só carimbar `accepted`: `markProposalAccepted`
+ * fecha a oportunidade como ganha, ativa a conta na carteira (carimbando início e
+ * renovação) e materializa os eventos de comissão. Um carimbo vindo do link
+ * público pularia os três — a oportunidade ficaria aberta, a conta fora da
+ * carteira e o RC sem comissão de um negócio fechado, sem nada acusando.
+ *
+ * Então a página oferece o aceite onde ele é completo, e manda falar com o
+ * contato onde não é. Reabrir isto exige extrair o núcleo de `markProposalAccepted`
+ * para `lib/` e chamá-lo daqui — não basta afrouxar a condição.
+ */
+export function aceitePublicoPermitido(proposal: Pick<SalesProposal, 'status' | 'representante_id'>): boolean {
+  return ACEITAVEIS.includes(proposal.status) && proposal.representante_id == null;
+}
+
 function textoOuNull(v: unknown): string | null {
   const s = typeof v === 'string' ? v.trim() : '';
   return s || null;
@@ -331,7 +348,7 @@ export function buildProposalDocument(
     aceite: aceiteEm && aceiteNome
       ? { nome: aceiteNome, cargo: textoOuNull((proposal as any).accepted_by_role), em: aceiteEm }
       : null,
-    podeAceitar: ACEITAVEIS.includes(proposal.status) && !expirada,
+    podeAceitar: aceitePublicoPermitido(proposal) && !expirada,
     status: proposal.status,
   };
 }

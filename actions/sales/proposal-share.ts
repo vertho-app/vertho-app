@@ -10,7 +10,10 @@ import { headers } from 'next/headers';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireRepresentativeAction } from '@/lib/sales/permissions';
 import { novoTokenProposta } from '@/lib/sales/proposal-token';
-import { buildProposalDocument, PROPOSAL_VALIDITY_DAYS, type ProposalDocumentVM } from '@/lib/sales/proposal-document';
+import {
+  buildProposalDocument, aceitePublicoPermitido, PROPOSAL_VALIDITY_DAYS,
+  type ProposalDocumentVM,
+} from '@/lib/sales/proposal-document';
 import { validarAceite, ipDoCliente } from '@/lib/sales/proposal-aceite';
 import { createRateLimiter } from '@/lib/rate-limit';
 import type { SalesProposal } from '@/lib/sales/types';
@@ -18,9 +21,9 @@ import type { SalesProposal } from '@/lib/sales/types';
 // Estados em que a proposta já pode ser enviada ao cliente.
 const SHAREABLE_STATUSES = ['approved', 'sent_to_client', 'accepted'];
 
-// Estados em que o CLIENTE ainda pode aceitar pelo link. 'accepted' fica de fora
-// de propósito: quem já aceitou cai no ramo idempotente, não reescreve o aceite.
-const ACEITAVEIS = ['approved', 'sent_to_client'];
+// Quem pode aceitar pelo link é a MESMA régua do documento
+// (`aceitePublicoPermitido`): status aceitável E proposta sem RC. 'accepted'
+// fica de fora de propósito — quem já aceitou cai no ramo idempotente.
 
 /**
  * 5 tentativas por minuto POR TOKEN. O endpoint é público e escreve no banco:
@@ -123,7 +126,7 @@ export async function registrarAceitePublico(token: string, dados: unknown): Pro
 
   const sb = createSupabaseAdmin();
   const { data: p, error: erroLeitura } = await sb.from('sales_proposals')
-    .select('id, status, approved_at, created_at, accepted_at, accepted_by_name, accepted_by_role')
+    .select('id, status, representante_id, approved_at, created_at, accepted_at, accepted_by_name, accepted_by_role')
     .eq('public_token', token).maybeSingle();
   // Falha de LEITURA não pode virar "proposta não encontrada": o supabase-js
   // devolve `{ error }` com `data: null`, e uma coluna que ainda não existe no
@@ -146,8 +149,11 @@ export async function registrarAceitePublico(token: string, dados: unknown): Pro
   if (p.status === 'accepted') {
     return { success: false, error: 'Esta proposta já consta como aceita. Fale com o seu contato na Vertho.' };
   }
-  if (!ACEITAVEIS.includes(p.status)) {
-    return { success: false, error: 'Esta proposta não está disponível para aceite. Fale com o seu contato na Vertho.' };
+  // A régua é a mesma do documento: a página não oferece o botão onde isto
+  // recusa. Aqui ela vale de novo porque a action é um endpoint HTTP — quem tem
+  // o token chama direto, sem passar pela tela.
+  if (!aceitePublicoPermitido(p as any)) {
+    return { success: false, error: 'Esta proposta não está disponível para aceite aqui. Fale com o seu contato na Vertho.' };
   }
 
   // Validade: a mesma régua do documento (emissão + PROPOSAL_VALIDITY_DAYS).
