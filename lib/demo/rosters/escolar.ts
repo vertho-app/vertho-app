@@ -19,6 +19,7 @@ import type { DemoRoster, DemoRosterDescritor } from '@/lib/demo/rosters/types';
 // evidências e perguntas-alvo), capturada por
 // `scripts/_extrair-descritores-escolares.ts`.
 import reguaEscolar from '@/lib/demo/escolas-descritores.json';
+import videosJornada from '@/lib/demo/escolas-videos-jornada.json';
 import { REGUA_ESCOLAR } from '@/lib/demo/escolar-evolucao-fixture';
 
 const DIRECAO = 'Diretor(a) Escolar';
@@ -450,6 +451,7 @@ export const ROSTER_ESCOLAR: DemoRoster = {
    * `competencias` (por tenant) derruba o reset inteiro — ver
    * `demo-reset-modulo-ancora.test.ts`.
    */
+  videosDaJornada: videosJornada as NonNullable<DemoRoster['videosDaJornada']>,
   videoDaJornada: {
     moduloId: 'b7e4c1a2-3d5f-4e88-9a10-6c2f8d3b7e41',
     celulaId: '58df245a-f782-415b-a0fb-1eaf9003ac26',

@@ -23,6 +23,7 @@ import { join } from 'path';
 
 const RESET = join(__dirname, '..', '..', 'lib', 'demo', 'reset-acme-demo.ts');
 const fonte = readFileSync(RESET, 'utf8');
+const fonteVideos = readFileSync(join(__dirname, '..', '..', 'lib', 'demo', 'video-jornada.ts'), 'utf8');
 
 /** Recorta cada objeto passado a `.from('modulos_base_conteudo').upsert({ … })`. */
 function upsertsDeModulo(texto: string): string[] {
@@ -39,7 +40,7 @@ function upsertsDeModulo(texto: string): string[] {
 }
 
 describe('âncora do módulo-base no reset da demo', () => {
-  const blocos = upsertsDeModulo(fonte);
+  const blocos = [...upsertsDeModulo(fonte), ...upsertsDeModulo(fonteVideos)];
 
   it('o reset realmente cria módulos-base (o guard não mede o nada)', () => {
     // Sem esta âncora, remover os upserts deixaria o teste verde por vacuidade.

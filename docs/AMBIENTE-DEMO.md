@@ -19,6 +19,24 @@ Os dois tenants permanecem com `is_demo=true` e, portanto, sem disparos automát
 - **Adequação / Ranking real por cargo**: as personas nascem com colunas comportamentais (`comp_*`/`lid_*`) derivadas do DISC → o motor de fit as pontua. Aderências de referência (medidas em 24/08, com as personas já na régua do produto): Mariana/Financeiro **95,0** (Excelente), Renato/Operações **89,1** (Excelente), Carla/Gerente **87,8** (Excelente), Paulo/Representante **83,6** mas **"Não recomendado"** (knockout de Persistência — nota alta não passa por cima de requisito eliminatório), Ana/Representante **83,3** (Alta), Bruna/Representante **46,2** (Baixa — CS não casa com D/I do cargo). ✅ **O fit é pré-computado pelo próprio reset** (`precomputarFit`, best-effort, sem custo de IA) — a aba Fit v2 de `/admin/fit` abre populada, sem ninguém precisar clicar "Calcular Fit". Antes de 25/08 não era: `fit_resultados` tem `ON DELETE CASCADE` em `colaborador_id`, o reset recria os colaboradores e o ranking **amanhecia vazio todo dia**, dependendo de um passo manual que ninguém lembra na hora da demo. A contagem sai no `counts.fit_resultados` do resultado do reset.
 - Envios reais **desligados** (gate por tenant `empresas.is_demo` no `envio-guard` + personas com e-mail `*.demo@vertho.ai` interno e sem telefone → WhatsApp no-op).
 
+## Vídeos da jornada escolar
+
+A professora Marina tem vídeos próprios nas semanas **1 (Ritmo e transições)**,
+**2 (Engajamento ativo)** e **3 (Recursos didáticos)**. Os dois primeiros seguem
+o texto e o desafio das semanas que ficam acessíveis no início da demonstração.
+Os assets publicados ficam no roster escolar; as semanas 1 e 2 usam
+`lib/demo/escolas-videos-jornada.json`.
+
+`recomporVideosDaJornadaDemo` (`lib/demo/video-jornada.ts`) é compartilhado pelo
+reset e pela manutenção pontual: restaura o catálogo, o vínculo dos quatro
+formatos ao módulo correto e o vídeo nominal da persona atual. Não altera a
+trilha nem conclui semanas. Vídeos prontos são reaproveitados sem geração de IA.
+
+Uma célula fixa com erro de renderização continua ocupando seu ID no banco.
+O reset deve recuperá-la por atualização quando não houver uma célula viva que
+a substitua; tentar inserir novamente o ID aborta a recomposição da demo.
+Essa recuperação é comum às demos escolar e empresarial.
+
 ## Reset
 Os tenants usam uma fonte única (`lib/demo/reset-acme-demo.ts::resetDemoTenant`,
 TENANT-SAFE — todo delete/insert é filtrado pelo `empresa_id` do tenant escolhido):

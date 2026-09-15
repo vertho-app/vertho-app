@@ -256,6 +256,8 @@ export type DemoRoster = {
     /** Semana em curso (a de checkpoint). Sem ela, só as concluídas entram. */
     emAndamento?: number;
   };
+  /** Outros temas com assets prontos, restaurados junto ao vídeo original. */
+  videosDaJornada?: NonNullable<DemoRoster['videoDaJornada']>[];
   videoDaJornada?: {
     /** UUID fixo do módulo-base criado para a demo (nunca o de um cliente). */
     moduloId: string;
@@ -288,6 +290,8 @@ export type DemoRoster = {
     celulaId: string;
     /** Asset já renderizado no Bunny. */
     bunnyVideoId: string;
+    /** Duração medida no asset publicado. */
+    duracaoMin?: number;
     /**
      * A versão NOMINAL ("Olá, Fulana"), que a persona vê no lugar do genérico.
      *
