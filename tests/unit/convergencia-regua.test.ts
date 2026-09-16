@@ -34,7 +34,7 @@ describe('Régua de convergência', () => {
   });
 
   it('avanço exibido 0,0 é ESTÁVEL mesmo com leitura qualitativa positiva (16/09/2026)', () => {
-    // O caso real: Elisângela, 2,5 → 2,3 com qualitativa 3, saía "0,0 · Evolução
+    // O caso real: 2,5 → 2,3 com qualitativa 3, saía "0,0 · Evolução
     // parcial" no PDF. O veredito não pode afirmar avanço ao lado de um zero.
     expect(classificarConvergencia({ nota_pre: 2.5, nota_pos: 2.3, nivel_percebido: 3 }))
       .toBe(CONVERGENCIA.ESTAVEL);
@@ -72,6 +72,25 @@ describe('Régua de convergência', () => {
       .toBe(CONVERGENCIA.ESTAVEL);
   });
 
+  it('o corte compara o avanço que a pessoa lê: "+0,2" nunca sai Estável (16/09/2026)', () => {
+    // Os pares reais: em ponto flutuante as duas subtrações dão 0,19999…, e
+    // os descritores saíam "+0,2 · Estável" (1,0 → 1,2 e 1,3 → 1,5, pares gravados).
+    expect(1.2 - 1.0).toBeLessThan(CORTE_PARCIAL);
+    expect(classificarConvergencia({ nota_pre: 1.0, nota_pos: 1.2, nivel_percebido: null }))
+      .toBe(CONVERGENCIA.PARCIAL);
+    expect(classificarConvergencia({ nota_pre: 1.3, nota_pos: 1.5, nivel_percebido: 1 }))
+      .toBe(CONVERGENCIA.PARCIAL);
+    // Varre toda nota de uma casa: o veredito nunca contradiz o número exibido.
+    for (let a = 10; a <= 40; a++) {
+      for (let b = 10; b <= 40; b++) {
+        const [pre, pos] = [a / 10, b / 10];
+        const v = classificarConvergencia({ nota_pre: pre, nota_pos: pos, nivel_percebido: null });
+        const exibido = avancoExibido(pre, pos) as number;
+        expect(v === CONVERGENCIA.PARCIAL, `${pre} → ${pos} exibe +${exibido}`).toBe(exibido >= CORTE_PARCIAL);
+      }
+    }
+  });
+
   it('rotula sem expor o vocabulário do banco', () => {
     expect(rotuloConvergencia(CONVERGENCIA.ESTAVEL)).toBe('Estável');
     expect(rotuloConvergencia(null)).toBe('Sem medição');
@@ -81,7 +100,7 @@ describe('Régua de convergência', () => {
   /**
    * O avanço exibido tem PISO EM ZERO (decisão do dono, 14/09/2026): se a régua
    * não afirma regressão, a tela não mostra "-0,2" ao lado de "Estável". O caso
-   * real é a Marta em Ibipeba, descritor "Organização do plano": 2,3 → 2,1, que
+   * real, em produção, é o descritor "Organização do plano": 2,3 → 2,1, que
    * é ruído do instrumento (desvio de 0,07, amplitude até 0,33) e aparecia como
    * piora no relatório que o gestor lê.
    */

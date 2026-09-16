@@ -142,8 +142,8 @@ export function formatarValorAvanco(avanco: number | null | undefined): string |
  * dos avanços exibidos, cada um já com piso zero, em uma casa decimal.
  *
  * 🔴 NÃO é "média das notas finais menos média das iniciais" (16/09/2026). Essa
- * conta leva para dentro as quedas que o documento não mostra: no PDF da
- * Elisângela, "Apoio técnico e monitoramento das unidades" listava +0,1, 0,0,
+ * conta leva para dentro as quedas que o documento não mostra: num PDF real,
+ * "Apoio técnico e monitoramento das unidades" listava +0,1, 0,0,
  * +0,3, +0,3 e 0,0, e o cabeçalho dizia "Avanço médio 0,0", porque Registro e
  * devolutiva (2,0 → 1,4) e Presença junto às unidades (2,9 → 2,2) puxavam a
  * média das notas para baixo. Se a queda não existe no descritor, não pode
@@ -211,13 +211,22 @@ export function classificarConvergencia({
   // 🔴 AVANÇO EXIBIDO 0,0 É ESTÁVEL, sem exceção (decisão do dono, 16/09/2026).
   // A leitura qualitativa sustentava "parcial" sozinha mesmo com a nota do
   // cenário caindo, e o relatório passou a mostrar "0,0 · Evolução parcial"
-  // (Elisângela, "Intervenção baseada em evidências": 2,5 → 2,3 com qualitativa
+  // (caso real, "Intervenção baseada em evidências": 2,5 → 2,3 com qualitativa
   // 3), um veredito de avanço ao lado de um avanço zero. `Medido:` 4 descritores
   // em 4 relatórios de Ibipeba. A régua decide pelo MESMO número que a pessoa lê
   // (arredondado e com piso), então os dois não se contradizem mais.
-  if (avancoExibido(nota_pre, nota_pos) === 0) return CONVERGENCIA.ESTAVEL;
-  if (delta >= CORTE_CONFIRMADA && qualitativaPositiva && alcancouMeta) return CONVERGENCIA.CONFIRMADA;
-  if (delta >= CORTE_PARCIAL || qualitativaPositiva) return CONVERGENCIA.PARCIAL;
+  //
+  // 🔴 E os CORTES também comparam o avanço exibido, não o delta cru (16/09/2026).
+  // Em ponto flutuante `1.2 - 1.0` é 0,19999…, abaixo de `CORTE_PARCIAL`, e a
+  // tela arredonda para "+0,2": três descritores gravados, em dois relatórios
+  // reais, saíram "+0,2 · Estável". O teste antigo passava porque
+  // `2 + CORTE_PARCIAL` arredonda para cima. Nota ausente não tem avanço
+  // exibido; aí vale o delta, como antes.
+  const avanco = avancoExibido(nota_pre, nota_pos);
+  if (avanco === 0) return CONVERGENCIA.ESTAVEL;
+  const medido = avanco ?? delta;
+  if (medido >= CORTE_CONFIRMADA && qualitativaPositiva && alcancouMeta) return CONVERGENCIA.CONFIRMADA;
+  if (medido >= CORTE_PARCIAL || qualitativaPositiva) return CONVERGENCIA.PARCIAL;
   // Queda cai aqui de propósito: sem veredito de regressão, o piso da régua é
   // "manteve o patamar". Ver o cabeçalho de CONVERGENCIA.
   return CONVERGENCIA.ESTAVEL;
