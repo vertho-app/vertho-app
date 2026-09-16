@@ -108,20 +108,24 @@ describe('leitura qualitativa fraca não vota na convergência', () => {
       nivel_percebido: qualitativaSustenta({ forca_evidencia: forca }) ? nivel : null,
     });
 
+  // ⚠️ Nota final 1,6, e não 1,5: desde 16/09/2026 avanço exibido 0,0 é ESTÁVEL
+  // por regra própria, e com 1,5 → 1,5 o filtro de força deixaria de ser o que
+  // decide (o teste passaria mesmo sem ele). +0,1 fica abaixo do corte de
+  // parcial, então é a leitura qualitativa que vota.
   it('🔴 o caso real: descritor NÃO discutido não vira "evolução parcial"', () => {
     // `nivel_percebido` 2.0 é o DEFAULT do validador quando o campo falta, e
     // 1,5 é a média de baseline medida em Ibipeba. Sem o filtro de força, o
     // `2.0 > 1.5` bastava para classificar como parcial.
-    const comFiltro = classificar(1.5, 1.5, 2.0, 'fraca');
-    const semFiltro = classificarConvergencia({ nota_pre: 1.5, nota_pos: 1.5, nivel_percebido: 2.0 });
+    const comFiltro = classificar(1.5, 1.6, 2.0, 'fraca');
+    const semFiltro = classificarConvergencia({ nota_pre: 1.5, nota_pos: 1.6, nivel_percebido: 2.0 });
     expect(semFiltro).toBe(CONVERGENCIA.PARCIAL);
     expect(comFiltro).not.toBe(CONVERGENCIA.PARCIAL);
     expect(comFiltro).toBe(CONVERGENCIA.ESTAVEL);
   });
 
   it('leitura com base moderada ou forte continua valendo', () => {
-    expect(classificar(1.5, 1.5, 2.5, 'moderada')).toBe(CONVERGENCIA.PARCIAL);
-    expect(classificar(1.5, 1.5, 2.5, 'forte')).toBe(CONVERGENCIA.PARCIAL);
+    expect(classificar(1.5, 1.6, 2.5, 'moderada')).toBe(CONVERGENCIA.PARCIAL);
+    expect(classificar(1.5, 1.6, 2.5, 'forte')).toBe(CONVERGENCIA.PARCIAL);
   });
 
   it('a nota do scorer decide sozinha quando ela existe, com ou sem qualitativa', () => {
@@ -132,6 +136,6 @@ describe('leitura qualitativa fraca não vota na convergência', () => {
   });
 
   it('força ausente é tratada como fraca — o report não inventa confiança', () => {
-    expect(classificar(1.5, 1.5, 2.0, null)).toBe(CONVERGENCIA.ESTAVEL);
+    expect(classificar(1.5, 1.6, 2.0, null)).toBe(CONVERGENCIA.ESTAVEL);
   });
 });
