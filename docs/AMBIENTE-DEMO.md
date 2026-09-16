@@ -238,6 +238,70 @@ visões Colaborador, Gestor e RH. A linha de acompanhamento sobrevive à expira�
 e à remoção do colaborador temporário, preservando o histórico comercial; o
 WhatsApp opcional nunca é persistido.
 
+### Versão B: convite guiado (16/09/2026)
+
+**Por que existe.** `Medido 16/09/2026` nos 8 prospects reais desde 08/09: 0
+fizeram o DISC, 0 responderam a situação, 0 abriram qualquer visão 02 a 04. E o
+"acesso pessoal" do painel era, na maioria, o **robô de preview do WhatsApp**: o
+GET de `/auth/degustacao` cria a sessão e carimba, e 6 dos 8 tinham uma única
+sessão aberta 12 s a 1 min 44 s depois da criação, sem nenhum JavaScript rodando
+(navegador de verdade dispara `POST /dashboard` cerca de 2 s depois do
+`GET /dashboard`; essas aberturas não dispararam). A única pessoa confirmada
+abriu no iPhone 6 h depois e parou na home genérica, com o botão do DISC atrás da
+barra de navegação.
+
+**O que muda para o prospect** (a A continua igual e selecionável no painel):
+
+| | A (quatro links) | B (convite guiado) |
+|---|---|---|
+| Mensagem | 4 etapas, 4 links | ~3 linhas, 1 link |
+| Link | `/auth/degustacao?passe=` (GET cria sessão) | `/degustacao?passe=` (página, **não** cria sessão) |
+| Ordem | você, colaborador, gestor, RH | gestor, RH, colaborador; perfil opcional |
+| Sessão nasce | no GET (robô incluído) | no POST do botão pessoal (clique) |
+| `/dashboard` do convidado | home de colaborador | volta para a página (`lib/demo/degustacao-casa.ts`) |
+| "Abriu" no painel | `personal_accessed_at` (contaminado) | `invite_opened_at` (beacon após interação ou clique) |
+
+**Peças.** Coluna `experience_version` e `invite_opened_at` (mig 256).
+`lib/demo/degustacao-acesso.ts` concentra a decisão de acesso das quatro portas
+(GET da A, POST do botão, beacon, página): passe, hostname CRU (host de sala é
+recusado) e sessão viva no banco. A página (`app/degustacao/page.tsx`) só lê: o
+teste `degustacao-pagina` prova zero escritas e nenhuma chamada ao Auth. Ela
+mostra só estados (visto, perfil pronto, devolutiva pronta), nunca resultado:
+quem tem o link não vê perfil nem nota. O botão pessoal manda uma CHAVE de
+destino (`mapeamento`, `perfil`, `assessment`), nunca caminho, e `/dashboard` não
+é destino (seria laço). As rotas de escrita da pasta são vigiadas por
+`tests/unit/security/degustacao-rotas-guard.test.ts`, porque `routes-require-auth`
+só varre `app/api`.
+
+**Painel.** Selo A/B por passaporte; na B, seis marcos: Abriu, Gestor, RH,
+Colaborador, Perfil, Situação (primeira resposta, lida de `respostas`). O botão de
+lembrete gera o texto curto com o link da página; num passaporte A vivo ele
+**converte a linha para B** (auditado em `demo.prospect_invite_reminder`, sem a
+URL), que é como os prospects do roteiro antigo ganham o convite novo sem perder
+o que fizeram.
+
+⚠️ **Escolas:** até a mig 256 a CHECK de `role_key` só aceitava os quatro cargos
+comerciais, então todo passaporte de `professor` falharia no insert.
+
+### Os passaportes fora do ACME eram invisíveis (16/09/2026)
+
+`isEmailDeConvidadoDemo` e `readAcmeProspectAuthContext` só conheciam o prefixo
+`convidado.acme.`. `Medido`: os 3 passaportes do Grupo Sinal de 15/09 tinham
+sessão criada e `personal_accessed_at` nulo, não apareciam no painel e o
+assessment deles não era tratado como degustação. Hoje o e-mail técnico é lido
+por `lerEmailDePassaporte` (prefixo registrado + 20 hex), e a listagem de
+passaportes vale para qualquer ambiente de degustação. A faxina continua por
+ambiente, de propósito.
+
+### 🔴 A visão de RH listava os convidados pelo nome (16/09/2026)
+
+A sala de apresentação entrega a visão de RH a todo prospect, e o RH enxerga a
+empresa inteira. A tela Equipe e a Equipe em evolução listavam os convidados reais
+(9 no `acme-demo`, 3 no `gruposinal`). Em tenant `is_demo` essas listas passam
+por `recortarElencoDemo` (`lib/demo/elenco-visivel.ts`): aparece só o elenco
+(`*.demo@vertho.ai`), por pertencimento. As visões agregadas já excluíam conta
+interna.
+
 ### Pausar o reset de um ambiente (com data de fim)
 
 O reset noturno (07:00 UTC, 04h BRT) percorre **todos** os ambientes de

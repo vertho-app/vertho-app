@@ -22,6 +22,7 @@ import {
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import {
+  gerarConviteDegustacao,
   listarConvidadosDemo,
   prepararExperienciaProspectAcme,
   prepararSalaApresentacaoDemo,
@@ -34,9 +35,11 @@ import {
   DEMO_PROSPECT_TENANTS,
   type DemoProspectTenantSlug,
   buildAcmeProspectShareText,
+  buildDegustacaoConviteText,
   getAcmeProspectExperienceSteps,
   type AcmeProspectExperienceAccess,
   type AcmeProspectRoleKey,
+  type DegustacaoVersao,
   type DemoGuestProgress,
 } from '@/lib/demo/acme-prospect-config';
 
@@ -56,11 +59,35 @@ type ProspectForm = {
   empresa: string;
   whatsapp: string;
   roleKey: AcmeProspectRoleKey;
+  versao: DegustacaoVersao;
 };
 
 type ProspectAccessView = AcmeProspectExperienceAccess & {
   whatsapp: string;
   views: PresentationLinkDemo[];
+  /** Ambiente em que o roteiro foi criado: a cópia do convite B depende dele. */
+  slug: DemoProspectTenantSlug;
+};
+
+/** Lembrete gerado sob clique, por passaporte. */
+type LembreteView = { texto: string; url: string; convertidoParaB: boolean } | { erro: string };
+
+/**
+ * As duas versões do roteiro, como o vendedor as escolhe.
+ *
+ * A B nasceu de uma medição (16/09/2026): com a A, 0 de 8 prospects reais
+ * abriram qualquer visão e o "acesso" do painel era o robô de preview do
+ * WhatsApp. A A continua aqui, inteira, a um clique.
+ */
+const VERSOES_DO_ROTEIRO: Record<DegustacaoVersao, { rotulo: string; resumo: string }> = {
+  B: {
+    rotulo: 'B · convite guiado',
+    resumo: 'Um link para uma página de boas-vindas. Primeiro as visões de gestor, RH e colaborador; o perfil é opcional. O painel só marca "Abriu" com gente de verdade.',
+  },
+  A: {
+    rotulo: 'A · quatro links',
+    resumo: 'O roteiro original: a etapa 01 entra direto no app e as três visões vêm em seguida. O acesso da 01 é carimbado também pelo robô de preview.',
+  },
 };
 
 /**
@@ -82,6 +109,7 @@ const EMPTY_PROSPECT_FORM: ProspectForm = {
   empresa: '',
   whatsapp: '',
   roleKey: 'representante-comercial',
+  versao: 'A',
 };
 
 const inputClass = 'w-full rounded-lg border border-white/10 bg-[#081523]/80 px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-white/20 focus:border-emerald-300/45 focus:ring-2 focus:ring-emerald-300/10';
@@ -146,6 +174,8 @@ export default function AdminDemoPage() {
   const [carregandoProgress, setCarregandoProgress] = useState(true);
   const [progressUpdatedAt, setProgressUpdatedAt] = useState<Date | null>(null);
   const [copiado, setCopiado] = useState<string | null>(null);
+  const [lembretes, setLembretes] = useState<Record<string, LembreteView>>({});
+  const [gerandoLembrete, setGerandoLembrete] = useState<string | null>(null);
   // Ambiente da DEGUSTAÇÃO: independente do ambiente selecionado lá em cima,
   // que é o alvo do reset. Amarrar os dois faria a escolha do que recriar mudar
   // em que ambiente o prospect entra — duas decisões diferentes, um controle só.
@@ -325,6 +355,7 @@ export default function AdminDemoPage() {
         nome: prospectForm.nome,
         empresa: prospectForm.empresa,
         roleKey: prospectForm.roleKey,
+        versao: prospectForm.versao,
       }, degustacaoSlug);
       if (!r.success) {
         toast.error(`Falha ao preparar experiência: ${r.error || 'erro'}`);
@@ -334,9 +365,13 @@ export default function AdminDemoPage() {
         ...r.acesso,
         whatsapp: prospectForm.whatsapp.trim(),
         views: r.visoes,
+        slug: degustacaoSlug,
       });
-      await carregarAndamento({ silencioso: true });
-      toast.success('Roteiro com as quatro perspectivas criado.');
+      // O acompanhamento mostra o ambiente escolhido LÁ EM CIMA. Roteiro criado
+      // em outro ambiente "sumia" da lista: aqui a lista passa a ser a dele.
+      if (tenantSlug !== degustacaoSlug) selecionarTenant(degustacaoSlug as TenantSlug);
+      else await carregarAndamento({ silencioso: true });
+      toast.success(prospectForm.versao === 'B' ? 'Convite guiado criado.' : 'Roteiro com as quatro perspectivas criado.');
     } catch (e: any) {
       toast.error(`Erro: ${e?.message || 'inesperado'}`);
     } finally {
@@ -345,14 +380,40 @@ export default function AdminDemoPage() {
   }
 
   function mensagemProspect(acesso: ProspectAccessView) {
-    return buildAcmeProspectShareText(acesso);
+    return acesso.versao === 'B'
+      ? buildDegustacaoConviteText(acesso, acesso.slug)
+      : buildAcmeProspectShareText(acesso);
+  }
+
+  function abrirWhatsappComTexto(texto: string, whatsapp: string = '') {
+    let digits = whatsapp.replace(/\D/g, '');
+    if (digits.length === 10 || digits.length === 11) digits = `55${digits}`;
+    const target = digits ? `https://wa.me/${digits}` : 'https://wa.me/';
+    window.open(`${target}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener,noreferrer');
+  }
+
+  async function gerarLembrete(sessionId: string) {
+    setGerandoLembrete(sessionId);
+    try {
+      const r = await gerarConviteDegustacao(tenantSlug as DemoProspectTenantSlug, sessionId);
+      if (!r.success) {
+        setLembretes((atuais) => ({ ...atuais, [sessionId]: { erro: r.error || 'erro' } }));
+        return;
+      }
+      setLembretes((atuais) => ({
+        ...atuais,
+        [sessionId]: { texto: r.texto, url: r.url, convertidoParaB: r.convertidoParaB },
+      }));
+      if (r.convertidoParaB) await carregarAndamento({ silencioso: true });
+    } catch (e: any) {
+      setLembretes((atuais) => ({ ...atuais, [sessionId]: { erro: e?.message || 'erro inesperado' } }));
+    } finally {
+      setGerandoLembrete(null);
+    }
   }
 
   function compartilharProspectWhatsapp(acesso: ProspectAccessView) {
-    let digits = acesso.whatsapp.replace(/\D/g, '');
-    if (digits.length === 10 || digits.length === 11) digits = `55${digits}`;
-    const target = digits ? `https://wa.me/${digits}` : 'https://wa.me/';
-    window.open(`${target}?text=${encodeURIComponent(mensagemProspect(acesso))}`, '_blank', 'noopener,noreferrer');
+    abrirWhatsappComTexto(mensagemProspect(acesso), acesso.whatsapp);
   }
 
   function formatProspectExpiry(value: string) {
@@ -508,21 +569,38 @@ export default function AdminDemoPage() {
                     Boolean(experience.accessClosedAt)
                     || Date.parse(experience.expiresAt || '') <= (progressUpdatedAt?.getTime() || 0)
                   );
+                  const versaoB = comPassaporte && experience.versao === 'B';
                   // Quem entrou por cadastro não tem as visões 02–04: mostrá-las
                   // como "Aguardando" inventaria uma etapa que ninguém pode cumprir.
-                  const milestones = comPassaporte
+                  // Na B, "Abriu" é a abertura VERIFICADA (navegador de verdade ou
+                  // clique), na ordem em que a página oferece as coisas.
+                  const milestones: ReadonlyArray<readonly [string, string | null]> = versaoB
                     ? [
-                      ['Acesso pessoal', experience.personalAccessedAt],
-                      ['DISC', experience.discCompletedAt],
-                      ['Colaborador', experience.colaboradorAccessedAt],
+                      ['Abriu', experience.conviteAbertoEm],
                       ['Gestor', experience.gestorAccessedAt],
                       ['RH', experience.rhAccessedAt],
-                    ] as const
-                    : [
-                      ['Acesso', experience.personalAccessedAt],
-                      ['DISC', experience.discCompletedAt],
-                    ] as const;
+                      ['Colaborador', experience.colaboradorAccessedAt],
+                      ['Perfil', experience.discCompletedAt],
+                      ['Situação', experience.situacaoRespondidaEm],
+                    ]
+                    : comPassaporte
+                      ? [
+                        ['Acesso pessoal', experience.personalAccessedAt],
+                        ['DISC', experience.discCompletedAt],
+                        ['Colaborador', experience.colaboradorAccessedAt],
+                        ['Gestor', experience.gestorAccessedAt],
+                        ['RH', experience.rhAccessedAt],
+                      ]
+                      : [
+                        ['Acesso', experience.personalAccessedAt],
+                        ['DISC', experience.discCompletedAt],
+                      ];
                   const completed = milestones.filter(([, value]) => Boolean(value)).length;
+                  // Lembrete: passaporte vivo sem abertura verificada. Na A, o
+                  // "acesso" pode ter sido o robô, então todo A vivo pode receber o
+                  // convite novo (o botão converte para B).
+                  const podeLembrar = comPassaporte && !expired && !(versaoB && experience.conviteAbertoEm);
+                  const lembrete = lembretes[experience.id];
                   return (
                     <article key={experience.id} className="relative overflow-hidden rounded-xl border border-white/10 bg-[#081523]/85 p-3.5">
                       <span className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full bg-[#0b1928]" aria-hidden="true" />
@@ -534,6 +612,14 @@ export default function AdminDemoPage() {
                             <span className={`rounded-full border px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-wide ${comPassaporte ? 'border-emerald-300/20 bg-emerald-300/[0.06] text-emerald-200/70' : 'border-white/10 bg-white/[0.04] text-white/40'}`}>
                               {comPassaporte ? 'Passaporte' : 'Cadastro'}
                             </span>
+                            {comPassaporte && (
+                              <span
+                                title={VERSOES_DO_ROTEIRO[versaoB ? 'B' : 'A'].rotulo}
+                                className={`rounded-full border px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-wide ${versaoB ? 'border-cyan-300/25 bg-cyan-300/[0.07] text-cyan-200/80' : 'border-white/10 bg-white/[0.04] text-white/40'}`}
+                              >
+                                Versão {versaoB ? 'B' : 'A'}
+                              </span>
+                            )}
                           </div>
                           <p className="mt-0.5 text-[9px] text-white/35">{experience.contexto} · {experience.cargo}</p>
                         </div>
@@ -549,10 +635,11 @@ export default function AdminDemoPage() {
                         </div>
                       </div>
 
-                      {/* 5 colunas SEMPRE: com duas marcas esticadas na largura toda,
-                          o cartão de cadastro não alinha com os de passaporte e a
-                          comparação entre pessoas se perde. */}
-                      <ol className="mt-3 grid grid-cols-2 gap-1.5 sm:grid-cols-5" aria-label={`Andamento de ${experience.nome}`}>
+                      {/* 5 colunas SEMPRE na A e no cadastro: com duas marcas esticadas
+                          na largura toda, o cartão de cadastro não alinha com os de
+                          passaporte e a comparação entre pessoas se perde. A B tem
+                          seis marcos e usa seis colunas. */}
+                      <ol className={`mt-3 grid grid-cols-2 gap-1.5 ${versaoB ? 'sm:grid-cols-6' : 'sm:grid-cols-5'}`} aria-label={`Andamento de ${experience.nome}`}>
                         {milestones.map(([label, timestamp], index) => {
                           const done = Boolean(timestamp);
                           return (
@@ -568,6 +655,52 @@ export default function AdminDemoPage() {
                           );
                         })}
                       </ol>
+
+                      {podeLembrar && (
+                        <div className="mt-2.5 border-t border-dashed border-white/[0.07] pt-2.5">
+                          {!lembrete && (
+                            <button
+                              type="button"
+                              onClick={() => void gerarLembrete(experience.id)}
+                              disabled={gerandoLembrete === experience.id}
+                              className="flex items-center gap-1.5 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.05] px-2.5 py-1.5 text-[9px] font-bold text-cyan-200/85 hover:bg-cyan-300/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/50 disabled:opacity-50"
+                            >
+                              {gerandoLembrete === experience.id
+                                ? <Loader2 size={11} className="animate-spin" aria-hidden="true" />
+                                : <MessageCircle size={11} aria-hidden="true" />}
+                              {versaoB ? 'Lembrar com o mesmo link' : 'Enviar o convite novo (versão B)'}
+                            </button>
+                          )}
+                          {lembrete && 'erro' in lembrete && (
+                            <p className="text-[9px] text-amber-200/75">Não foi possível gerar o lembrete: {lembrete.erro}</p>
+                          )}
+                          {lembrete && 'texto' in lembrete && (
+                            <div className="space-y-2">
+                              <p className="whitespace-pre-line rounded-lg bg-black/20 px-2.5 py-2 text-[9px] leading-relaxed text-white/60">{lembrete.texto}</p>
+                              {lembrete.convertidoParaB && (
+                                <p className="text-[8px] text-cyan-200/60">Este roteiro passou para a versão B. O link antigo da etapa 01 continua abrindo.</p>
+                              )}
+                              <div className="flex flex-wrap gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => void copiar(lembrete.texto, `lembrete-${experience.id}`)}
+                                  className="flex items-center gap-1 rounded-lg bg-white/[0.07] px-2.5 py-1.5 text-[9px] font-bold text-white/70 hover:bg-white/[0.12]"
+                                >
+                                  {copiado === `lembrete-${experience.id}` ? <Check size={11} className="text-emerald-300" /> : <Copy size={11} />}
+                                  Copiar lembrete
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => abrirWhatsappComTexto(lembrete.texto)}
+                                  className="flex items-center gap-1 rounded-lg bg-emerald-500/15 px-2.5 py-1.5 text-[9px] font-bold text-emerald-300 hover:bg-emerald-500/20"
+                                >
+                                  <MessageCircle size={11} /> Abrir no WhatsApp
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </article>
                   );
                 })}
@@ -691,9 +824,13 @@ export default function AdminDemoPage() {
                     <UserPlus size={15} aria-hidden="true" />
                     <span className="text-[9px] font-bold uppercase tracking-[0.18em]">Degustação individual</span>
                   </div>
-                  <h2 className="text-sm font-bold text-white">Crie um roteiro em quatro perspectivas</h2>
+                  <h2 className="text-sm font-bold text-white">
+                    {prospectForm.versao === 'B' ? 'Crie um convite guiado' : 'Crie um roteiro em quatro perspectivas'}
+                  </h2>
                   <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-gray-400">
-                    A pessoa começa do zero e depois conhece as visões prontas de colaborador, gestor e RH.
+                    {prospectForm.versao === 'B'
+                      ? 'A pessoa recebe um link só, vê primeiro as visões prontas de gestor, RH e colaborador e, se quiser, descobre o próprio perfil.'
+                      : 'A pessoa começa do zero e depois conhece as visões prontas de colaborador, gestor e RH.'}
                   </p>
                 </div>
                 {/* Era um selo fixo dizendo "ACME": informava o ambiente e não
@@ -718,13 +855,38 @@ export default function AdminDemoPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-1 sm:grid-cols-4" aria-label="Perspectivas da experiência">
-                {[
-                  ['01', 'Você'],
-                  ['02', 'Colaborador'],
-                  ['03', 'Gestor'],
-                  ['04', 'RH'],
-                ].map(([number, label], index) => (
+              <div className="mt-4 grid gap-2 sm:grid-cols-2" role="group" aria-label="Versão do roteiro">
+                {(['B', 'A'] as const).map((versao) => {
+                  const ativa = prospectForm.versao === versao;
+                  return (
+                    <button
+                      key={versao}
+                      type="button"
+                      onClick={() => { updateProspectForm('versao', versao); setProspectAccess(null); }}
+                      aria-pressed={ativa}
+                      className={`rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50 ${ativa ? 'border-emerald-300/45 bg-emerald-300/[0.08]' : 'border-white/10 bg-black/10 hover:bg-white/[0.04]'}`}
+                    >
+                      <span className={`block text-[11px] font-bold ${ativa ? 'text-emerald-100' : 'text-white/70'}`}>{VERSOES_DO_ROTEIRO[versao].rotulo}</span>
+                      <span className="mt-1 block text-[9px] leading-relaxed text-white/40">{VERSOES_DO_ROTEIRO[versao].resumo}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-1 sm:grid-cols-4" aria-label="Perspectivas da experiência">
+                {(prospectForm.versao === 'B'
+                  ? [
+                    ['01', 'Gestor'],
+                    ['02', 'RH'],
+                    ['03', 'Colaborador'],
+                    ['+', 'Seu perfil'],
+                  ]
+                  : [
+                    ['01', 'Você'],
+                    ['02', 'Colaborador'],
+                    ['03', 'Gestor'],
+                    ['04', 'RH'],
+                  ]).map(([number, label], index) => (
                   <div key={number} className="relative flex items-center gap-2 rounded-lg bg-black/10 px-2 py-2">
                     <span className="font-mono text-[9px] text-emerald-300/70">{number}</span>
                     <span className="truncate text-[9px] font-semibold text-white/55">{label}</span>
@@ -829,6 +991,28 @@ export default function AdminDemoPage() {
 
                     <div className="my-4 border-t border-dashed border-white/10" />
 
+                    {prospectAccess.versao === 'B' ? (
+                      <div className="space-y-2" aria-label="Convite guiado do prospect">
+                        <div className="flex items-start gap-3 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.045] px-3 py-3">
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[11px] font-bold text-white">Link único da página de boas-vindas</span>
+                            <span className="mt-0.5 block break-all font-mono text-[8px] leading-relaxed text-white/35">{prospectAccess.url}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => copiar(prospectAccess.url, `prospect-link-${prospectAccess.sessionId}`)}
+                            aria-label="Copiar o link do convite"
+                            className="flex shrink-0 items-center gap-1 rounded-lg bg-white/[0.06] px-2 py-1.5 text-[9px] font-bold text-white/55 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/50"
+                          >
+                            {copiado === `prospect-link-${prospectAccess.sessionId}` ? <Check size={11} className="text-emerald-300" /> : <Copy size={11} />}
+                            Link
+                          </button>
+                        </div>
+                        <p className="whitespace-pre-line rounded-xl border border-white/[0.07] bg-black/20 px-3 py-3 text-[10px] leading-relaxed text-white/60">
+                          {mensagemProspect(prospectAccess)}
+                        </p>
+                      </div>
+                    ) : (
                     <div className="space-y-2" aria-label="Roteiro de experiência do prospect">
                       {getAcmeProspectExperienceSteps(prospectAccess).map((step, index) => {
                         const copyKey = `prospect-step-${prospectAccess.sessionId}-${step.number}`;
@@ -859,6 +1043,7 @@ export default function AdminDemoPage() {
                         );
                       })}
                     </div>
+                    )}
 
                     <div className="mt-4 grid gap-2 sm:grid-cols-2">
                       <button
@@ -879,7 +1064,9 @@ export default function AdminDemoPage() {
                       </button>
                     </div>
                     <p className="mt-3 text-[9px] leading-relaxed text-amber-200/65">
-                      A etapa 01 usa um link individual REABRÍVEL: vale até as 04h BRT de D+10 e pode ser aberto quantas vezes forem precisas, retomando de onde a pessoa parou. Vencido o prazo, o acesso é revogado, mas o que ela fez continua no ambiente por 30 dias.
+                      {prospectAccess.versao === 'B'
+                        ? 'O link é individual e REABRÍVEL até as 04h BRT de D+10. Abrir a página não cria sessão: o robô de preview do WhatsApp não marca nada, e "Abriu" só aparece quando uma pessoa interage. Vencido o prazo, o que ela fez continua no ambiente por 30 dias.'
+                        : 'A etapa 01 usa um link individual REABRÍVEL: vale até as 04h BRT de D+10 e pode ser aberto quantas vezes forem precisas, retomando de onde a pessoa parou. Vencido o prazo, o acesso é revogado, mas o que ela fez continua no ambiente por 30 dias.'}
                     </p>
                   </div>
                 </div>

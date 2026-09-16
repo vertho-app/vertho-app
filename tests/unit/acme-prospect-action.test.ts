@@ -76,7 +76,59 @@ vi.mock('@/lib/demo/acme-prospect-tracking', () => ({
   listAcmeProspectProgress: vi.fn(),
 }));
 
-import { prepararExperienciaProspectAcme, resetarDemo } from '@/actions/demo';
+const convite = vi.hoisted(() => ({
+  resultado: null as any,
+  chamadas: [] as Array<[string, string]>,
+}));
+vi.mock('@/lib/demo/degustacao-convite', () => ({
+  prepararConviteGuiado: async (slug: string, sessionId: string) => {
+    h.calls.push('convite');
+    convite.chamadas.push([slug, sessionId]);
+    return convite.resultado;
+  },
+}));
+
+import { gerarConviteDegustacao, prepararExperienciaProspectAcme, resetarDemo } from '@/actions/demo';
+
+describe('action do lembrete da degustação B', () => {
+  beforeEach(() => {
+    h.calls = [];
+    h.audits = [];
+    convite.chamadas = [];
+    convite.resultado = {
+      ok: true,
+      url: 'https://acme-demo.vertho.ai/degustacao?passe=segredo.assinado',
+      nome: 'Pedro Santos',
+      convertido: true,
+    };
+  });
+
+  it('gate primeiro; devolve o texto curto com o link; a auditoria NÃO leva a URL', async () => {
+    const r: any = await gerarConviteDegustacao('acme-demo', 'aaaaaaaaaaaaaaaaaaaa');
+
+    expect(h.calls).toEqual(['gate', 'convite', 'audit']);
+    expect(r).toMatchObject({ success: true, convertidoParaB: true });
+    expect(r.texto).toContain('Oi, Pedro!');
+    expect(r.texto).toContain(r.url);
+    expect(JSON.stringify(h.audits)).not.toContain('passe=');
+    expect(h.audits[0]).toMatchObject({ acao: 'demo.prospect_invite_reminder', alvo: 'acme-demo' });
+  });
+
+  it('🔴 ambiente fora da allowlist (inclusive nome de protótipo) é recusado antes do núcleo', async () => {
+    for (const slug of ['macae', 'constructor', '__proto__']) {
+      const r: any = await gerarConviteDegustacao(slug as any, 'aaaaaaaaaaaaaaaaaaaa');
+      expect(r.success).toBe(false);
+    }
+    expect(convite.chamadas).toHaveLength(0);
+  });
+
+  it('recusa do núcleo vira erro na tela e auditoria com resultado de erro', async () => {
+    convite.resultado = { ok: false, error: 'Este acesso já venceu ou foi encerrado. Crie um roteiro novo.' };
+    const r: any = await gerarConviteDegustacao('acme-demo', 'aaaaaaaaaaaaaaaaaaaa');
+    expect(r).toEqual({ success: false, error: 'Este acesso já venceu ou foi encerrado. Crie um roteiro novo.' });
+    expect(h.audits[0]).toMatchObject({ resultado: 'erro' });
+  });
+});
 
 const validInput = {
   nome: 'Marina Souza',

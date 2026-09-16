@@ -49,6 +49,9 @@ type TrackedSessionRow = {
   gestor_accessed_at: string | null;
   rh_accessed_at: string | null;
   access_closed_at: string | null;
+  /** Mig 256. Ausente no mock antigo e em linha anterior à migration: vale A. */
+  experience_version?: string | null;
+  invite_opened_at?: string | null;
 };
 
 export type AcmeProspectAuthContext = {
@@ -267,7 +270,7 @@ export async function listDemoProspectProgress(slug: string, client?: any): Prom
   const sb = demoAdmin(client);
   const empresaId = await demoTenantId(sb, slug);
   const { data, error } = await sb.from('demo_prospect_sessions')
-    .select('session_id,colaborador_id,auth_email,prospect_name,prospect_company,cargo,created_at,expires_at,personal_accessed_at,disc_completed_at,colaborador_accessed_at,gestor_accessed_at,rh_accessed_at,access_closed_at')
+    .select('session_id,colaborador_id,auth_email,prospect_name,prospect_company,cargo,created_at,expires_at,personal_accessed_at,disc_completed_at,colaborador_accessed_at,gestor_accessed_at,rh_accessed_at,access_closed_at,experience_version,invite_opened_at')
     .eq('empresa_id', empresaId)
     .order('created_at', { ascending: false })
     .limit(50);
@@ -290,6 +293,12 @@ export async function listDemoProspectProgress(slug: string, client?: any): Prom
     }
   }
 
+  const situacaoRespondidaEm = await firstAnswerTimesByCollaborator(
+    sb,
+    empresaId,
+    [...new Set(rows.map((row) => row.colaborador_id).filter((id): id is string => Boolean(id)))],
+  );
+
   return rows.map((row) => ({
     sessionId: row.session_id,
     authEmail: row.auth_email,
@@ -298,13 +307,41 @@ export async function listDemoProspectProgress(slug: string, client?: any): Prom
     cargo: row.cargo,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
+    versao: row.experience_version === 'B' ? 'B' as const : 'A' as const,
+    conviteAbertoEm: row.invite_opened_at ?? null,
     personalAccessedAt: row.personal_accessed_at,
     discCompletedAt: row.disc_completed_at,
     colaboradorAccessedAt: row.colaborador_accessed_at,
     gestorAccessedAt: row.gestor_accessed_at,
     rhAccessedAt: row.rh_accessed_at,
+    situacaoRespondidaEm: row.colaborador_id ? situacaoRespondidaEm.get(row.colaborador_id) ?? null : null,
     accessClosedAt: row.access_closed_at,
   }));
+}
+
+/**
+ * Quando cada convidado respondeu a situação do cargo (a PRIMEIRA resposta).
+ *
+ * Existe porque "não fez o cenário" era uma das perguntas do dono sobre a
+ * degustação, e o acompanhamento não tinha como responder: o marco não era
+ * gravado em lugar nenhum da tabela de passaportes. A resposta mora em
+ * `respostas`, então é lida de lá, escopada no tenant.
+ */
+async function firstAnswerTimesByCollaborator(client: any, empresaId: string, ids: string[]) {
+  const mapa = new Map<string, string>();
+  if (ids.length === 0) return mapa;
+  const { data, error } = await client.from('respostas')
+    .select('colaborador_id,created_at')
+    .eq('empresa_id', empresaId)
+    .in('colaborador_id', ids);
+  if (error) throw new Error(`carregar respostas dos convidados: ${error.message}`);
+  for (const row of (data || []) as Array<{ colaborador_id: string; created_at: string }>) {
+    const atual = mapa.get(String(row.colaborador_id));
+    if (!atual || Date.parse(row.created_at) < Date.parse(atual)) {
+      mapa.set(String(row.colaborador_id), String(row.created_at));
+    }
+  }
+  return mapa;
 }
 
 type DemoGuestRow = {
@@ -385,11 +422,14 @@ export async function listDemoGuestProgress(
     cargo: row.cargo,
     createdAt: row.createdAt,
     expiresAt: row.expiresAt,
+    versao: row.versao,
+    conviteAbertoEm: row.conviteAbertoEm,
     personalAccessedAt: row.personalAccessedAt,
     discCompletedAt: row.discCompletedAt,
     colaboradorAccessedAt: row.colaboradorAccessedAt,
     gestorAccessedAt: row.gestorAccessedAt,
     rhAccessedAt: row.rhAccessedAt,
+    situacaoRespondidaEm: row.situacaoRespondidaEm,
     accessClosedAt: row.accessClosedAt,
   }));
 
@@ -403,11 +443,14 @@ export async function listDemoGuestProgress(
       cargo: row.cargo || 'Sem cargo',
       createdAt: row.created_at,
       expiresAt: null,
+      versao: null,
+      conviteAbertoEm: null,
       personalAccessedAt: acessos.get(email) ?? null,
       discCompletedAt: row.mapeamento_em,
       colaboradorAccessedAt: null,
       gestorAccessedAt: null,
       rhAccessedAt: null,
+      situacaoRespondidaEm: null,
       accessClosedAt: null,
     };
   });

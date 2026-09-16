@@ -111,6 +111,7 @@ const cenario = {
   isDemo: true as boolean,
   sessoes: [passaporte] as any[],
   colaboradores: COLABORADORES_ACME as any[],
+  respostas: [] as any[],
 };
 
 const sb = criarSupabaseMock({
@@ -118,6 +119,7 @@ const sb = criarSupabaseMock({
   lista: (table) => {
     if (table === 'demo_prospect_sessions') return cenario.sessoes;
     if (table === 'colaboradores') return cenario.colaboradores;
+    if (table === 'respostas') return cenario.respostas;
     return [];
   },
 });
@@ -145,6 +147,7 @@ describe('acompanhamento dos convidados de um tenant de demonstração', () => {
     cenario.isDemo = true;
     cenario.sessoes = [passaporte];
     cenario.colaboradores = COLABORADORES_ACME;
+    cenario.respostas = [];
   });
 
   it('lista o passaporte e o cadastro manual, sem o elenco fixo nem a conta de staff', async () => {
@@ -217,6 +220,32 @@ describe('acompanhamento dos convidados de um tenant de demonstração', () => {
     expect(sb.chamadas).toContainEqual(
       expect.objectContaining({ tabela: 'colaboradores', metodo: 'eq', args: ['empresa_id', 'gruposinal-id'] }),
     );
+  });
+
+  it('passaporte B traz versão, abertura verificada e a situação respondida (primeira resposta, lida no tenant)', async () => {
+    cenario.sessoes = [{ ...passaporte, experience_version: 'B', invite_opened_at: '2026-09-16T18:12:40.000Z' }];
+    cenario.respostas = [
+      { colaborador_id: 'colab-passaporte', created_at: '2026-09-16T19:05:00.000Z' },
+      { colaborador_id: 'colab-passaporte', created_at: '2026-09-16T18:40:00.000Z' },
+    ];
+
+    const lista = await listDemoGuestProgress('acme-demo', sb.client);
+
+    expect(lista[0]).toMatchObject({
+      origem: 'passaporte',
+      versao: 'B',
+      conviteAbertoEm: '2026-09-16T18:12:40.000Z',
+      situacaoRespondidaEm: '2026-09-16T18:40:00.000Z',
+    });
+    expect(sb.chamadas).toContainEqual(
+      expect.objectContaining({ tabela: 'respostas', metodo: 'eq', args: ['empresa_id', 'acme-demo-id'] }),
+    );
+  });
+
+  it('linha sem versão (anterior à mig 256) é A, sem abertura verificada; cadastro não tem versão', async () => {
+    const lista = await listDemoGuestProgress('acme-demo', sb.client);
+    expect(lista[0]).toMatchObject({ origem: 'passaporte', versao: 'A', conviteAbertoEm: null, situacaoRespondidaEm: null });
+    expect(lista[1]).toMatchObject({ origem: 'cadastro', versao: null });
   });
 
   it('falha alto quando o acesso do convidado não pode ser lido', async () => {

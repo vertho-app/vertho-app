@@ -79,10 +79,26 @@ export function getPapelDaDegustacao(slug: string, key: unknown) {
   return papeisDaDegustacao(slug).find((role) => role.key === key) ?? null;
 }
 
+/**
+ * Qual roteiro o vendedor manda.
+ *
+ * - `A`: quatro links; o da etapa 01 loga direto (e o robô de preview do
+ *   WhatsApp "entra" junto, porque o GET cria a sessão).
+ * - `B` (16/09/2026): um link só, para a página de boas-vindas
+ *   (`/degustacao`), que não cria sessão. Primeiro as visões prontas; o perfil
+ *   comportamental vira convite opcional.
+ *
+ * Linha sem versão é A: é o que todo passaporte anterior à mig 256 foi.
+ */
+export const DEGUSTACAO_VERSOES = ['A', 'B'] as const;
+export type DegustacaoVersao = typeof DEGUSTACAO_VERSOES[number];
+
 export type AcmeProspectExperienceInput = {
   nome: string;
   empresa: string;
   roleKey: AcmeProspectRoleKey;
+  /** Ausente vale A. */
+  versao?: DegustacaoVersao;
 };
 
 export type AcmeProspectExperienceAccess = {
@@ -92,6 +108,7 @@ export type AcmeProspectExperienceAccess = {
   cargo: string;
   url: string;
   expiresAt: string;
+  versao: DegustacaoVersao;
 };
 
 export const ACME_PROSPECT_EXPERIENCE_VIEWS = [
@@ -143,11 +160,16 @@ export type AcmeProspectProgress = {
   cargo: string;
   createdAt: string;
   expiresAt: string;
+  versao: DegustacaoVersao;
+  /** Abertura VERIFICADA do convite (só a versão B registra). */
+  conviteAbertoEm: string | null;
   personalAccessedAt: string | null;
   discCompletedAt: string | null;
   colaboradorAccessedAt: string | null;
   gestorAccessedAt: string | null;
   rhAccessedAt: string | null;
+  /** Primeira resposta da situação do cargo, lida de `respostas`. */
+  situacaoRespondidaEm: string | null;
   accessClosedAt: string | null;
 };
 
@@ -181,11 +203,15 @@ export type DemoGuestProgress = {
   cargo: string;
   createdAt: string;
   expiresAt: string | null;
+  /** Só o passaporte tem roteiro; o cadastro vem `null`. */
+  versao: DegustacaoVersao | null;
+  conviteAbertoEm: string | null;
   personalAccessedAt: string | null;
   discCompletedAt: string | null;
   colaboradorAccessedAt: string | null;
   gestorAccessedAt: string | null;
   rhAccessedAt: string | null;
+  situacaoRespondidaEm: string | null;
   accessClosedAt: string | null;
 };
 
@@ -331,11 +357,201 @@ export function validateAcmeProspectExperienceInput(
   if (!role) {
     return { ok: false, error: 'Escolha um papel demonstrativo válido.' };
   }
+  // Ausente é A (o formulário antigo não mandava versão). Qualquer outro valor é
+  // ERRO, nunca A em silêncio: a action é endpoint HTTP, e um valor estranho
+  // virar o roteiro antigo sem aviso esconderia o problema de quem chamou.
+  const versao = raw.versao === undefined || raw.versao === null || raw.versao === ''
+    ? 'A'
+    : (DEGUSTACAO_VERSOES as readonly unknown[]).includes(raw.versao)
+      ? raw.versao as DegustacaoVersao
+      : null;
+  if (!versao) {
+    return { ok: false, error: 'Escolha uma versão de roteiro válida.' };
+  }
 
   return {
     ok: true,
-    value: { nome, empresa, roleKey: role.key },
+    value: { nome, empresa, roleKey: role.key, versao },
   };
+}
+
+/**
+ * O que muda de um ambiente para outro no convite e na página da versão B.
+ *
+ * Escrito por extenso, sem artigo montado em cima de campo livre: "a
+ * coordenação" e "o gestor" não saem de uma regra, e texto que vai para fora com
+ * concordância errada desqualifica a conversa antes de ela começar.
+ * `tests/unit/degustacao-versao-b.test.ts` cobra uma entrada por ambiente de
+ * `DEMO_PROSPECT_TENANTS`.
+ */
+export type CopiaDaDegustacaoGuiada = {
+  /** Onde a pessoa está, dito para ela ("numa empresa de demonstração"). */
+  contexto: string;
+  /** Quem acompanha, no convite: "o gestor e o RH acompanham". */
+  quemAcompanha: string;
+  /** Cartões na ORDEM em que aparecem na página. */
+  visoes: ReadonlyArray<{
+    roleKey: AcmeProspectPresentationRoleKey;
+    titulo: string;
+    descricao: string;
+  }>;
+};
+
+const VISOES_EMPRESA: CopiaDaDegustacaoGuiada['visoes'] = [
+  {
+    roleKey: 'gestor',
+    titulo: 'O que o gestor acompanha',
+    descricao: 'A equipe, a adequação de cada pessoa ao cargo e onde apoiar o próximo passo.',
+  },
+  {
+    roleKey: 'rh',
+    titulo: 'O painel do RH',
+    descricao: 'O panorama da empresa, os indicadores do programa e os relatórios prontos.',
+  },
+  {
+    roleKey: 'usuario',
+    titulo: 'A jornada de quem participa',
+    descricao: 'Diagnóstico, plano de desenvolvimento e a trilha semanal, pelo olhar do colaborador.',
+  },
+];
+
+export const COPIA_DEGUSTACAO_GUIADA: Record<DemoProspectTenantSlug, CopiaDaDegustacaoGuiada> = {
+  'acme-demo': {
+    contexto: 'numa empresa de demonstração',
+    quemAcompanha: 'o gestor e o RH acompanham',
+    visoes: VISOES_EMPRESA,
+  },
+  gruposinal: {
+    contexto: 'num ambiente de demonstração',
+    quemAcompanha: 'o gestor e o RH acompanham',
+    visoes: VISOES_EMPRESA,
+  },
+  'escolas-acme': {
+    contexto: 'numa rede de escolas de demonstração',
+    quemAcompanha: 'a coordenação e a direção acompanham',
+    visoes: [
+      {
+        roleKey: 'gestor',
+        titulo: 'O que a coordenação acompanha',
+        descricao: 'Os professores, a adequação de cada um à função e onde apoiar o próximo passo.',
+      },
+      {
+        roleKey: 'rh',
+        titulo: 'O painel da direção',
+        descricao: 'O panorama da rede, os indicadores do programa e os relatórios prontos.',
+      },
+      {
+        roleKey: 'usuario',
+        titulo: 'A jornada do professor',
+        descricao: 'Diagnóstico, plano de desenvolvimento e a trilha semanal, pelo olhar de quem dá aula.',
+      },
+    ],
+  },
+};
+
+export function copiaDaDegustacaoGuiada(slug: string): CopiaDaDegustacaoGuiada {
+  return Object.prototype.hasOwnProperty.call(COPIA_DEGUSTACAO_GUIADA, slug)
+    ? COPIA_DEGUSTACAO_GUIADA[slug as DemoProspectTenantSlug]
+    : COPIA_DEGUSTACAO_GUIADA['acme-demo'];
+}
+
+function primeiroNome(nome: string): string {
+  return nome.trim().split(/\s+/)[0] || nome.trim();
+}
+
+/**
+ * Convite da versão B: um link, poucas linhas.
+ *
+ * O texto da A tinha quatro etapas e quatro links, e a primeira era trabalho.
+ * `Medido 16/09/2026`: 0 de 8 prospects abriram qualquer uma das visões, que não
+ * pedem esforço nenhum. Aqui o convite diz o que a pessoa vê e oferece o perfil
+ * como opção.
+ *
+ * Sem minuto em número (mesma régua do texto da A: duração prometida em texto
+ * que sai para o cliente vira dívida) e sem o nome da empresa numa frase que
+ * precisaria de artigo.
+ */
+export function buildDegustacaoConviteText(
+  access: { nome: string; url: string; expiresAt: string },
+  slug: string,
+): string {
+  const copia = copiaDaDegustacaoGuiada(slug);
+  return [
+    `Olá, ${primeiroNome(access.nome)}!`,
+    '',
+    `Preparei um acesso para você conhecer a Vertho por dentro, ${copia.contexto}. `
+      + `Em poucos minutos você vê o que ${copia.quemAcompanha} e, se quiser, descobre o seu perfil comportamental.`,
+    '',
+    access.url,
+    '',
+    `O link é só seu e fica ativo até ${formatAcmeProspectExpiry(access.expiresAt)} (horário de Brasília).`,
+  ].join('\n');
+}
+
+/** Lembrete para quem ainda não abriu: o MESMO link, sem repetir o convite inteiro. */
+export function buildDegustacaoLembreteText(access: { nome: string; url: string }): string {
+  return [
+    `Oi, ${primeiroNome(access.nome)}! Passando para lembrar do acesso à Vertho que preparei para você. `
+      + 'Leva poucos minutos:',
+    '',
+    access.url,
+  ].join('\n');
+}
+
+/**
+ * Para onde o botão pessoal da página leva, por CHAVE. O formulário manda a
+ * chave, nunca um caminho: nada que venha do cliente vira destino de redirect.
+ *
+ * ⚠️ `/dashboard` não entra de propósito: para o convidado B ele volta para a
+ * página de boas-vindas, e um destino que redireciona para a origem é laço.
+ */
+export const DESTINOS_DEGUSTACAO = {
+  mapeamento: '/dashboard/perfil-comportamental/mapeamento',
+  perfil: '/dashboard/perfil-comportamental',
+  assessment: '/dashboard/assessment',
+} as const;
+
+export type DestinoDegustacao = keyof typeof DESTINOS_DEGUSTACAO;
+
+export function destinoDaDegustacao(chave: unknown): string | null {
+  if (typeof chave !== 'string') return null;
+  return Object.prototype.hasOwnProperty.call(DESTINOS_DEGUSTACAO, chave)
+    ? DESTINOS_DEGUSTACAO[chave as DestinoDegustacao]
+    : null;
+}
+
+/**
+ * Estado pessoal do convidado, só com booleanos (a página não mostra resultado).
+ *
+ * ⚠️ Não existe "começou o perfil" aqui, de propósito: o único rastro disso
+ * seria `personal_accessed_at`, que nos passaportes da versão A foi carimbado
+ * pelo robô de preview. Um passaporte A reenviado como B mostraria "continue
+ * seu perfil" a quem nunca abriu nada. Só entra o que é fato no banco.
+ */
+export type EstadoPessoalDegustacao = {
+  discFeito: boolean;
+  respondeuSituacao: boolean;
+  devolutivaPronta: boolean;
+};
+
+export type PassoPessoalDegustacao =
+  | 'descobrir-perfil'
+  | 'responder-situacao'
+  | 'aguardar-devolutiva'
+  | 'ler-devolutiva';
+
+/**
+ * O próximo passo pessoal. A situação do cargo só é oferecida DEPOIS do perfil:
+ * a pessoa vê o resultado do DISC antes de lhe pedirem mais trabalho.
+ */
+export function passoPessoalDaDegustacao(estado: EstadoPessoalDegustacao): PassoPessoalDegustacao {
+  if (estado.respondeuSituacao) return estado.devolutivaPronta ? 'ler-devolutiva' : 'aguardar-devolutiva';
+  return estado.discFeito ? 'responder-situacao' : 'descobrir-perfil';
+}
+
+/** A seção pessoal sobe para o topo quando a pessoa já avançou nela. */
+export function pessoalVemPrimeiro(estado: EstadoPessoalDegustacao): boolean {
+  return estado.discFeito || estado.respondeuSituacao;
 }
 
 /**

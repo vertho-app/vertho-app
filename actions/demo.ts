@@ -29,9 +29,11 @@ import {
   ACME_PROSPECT_EXPERIENCE_VIEWS,
   DEMO_PROSPECT_TENANTS,
   type DemoProspectTenantSlug,
+  buildDegustacaoLembreteText,
   validateAcmeProspectExperienceInput,
   type AcmeProspectExperienceInput,
 } from '@/lib/demo/acme-prospect-config';
+import { prepararConviteGuiado } from '@/lib/demo/degustacao-convite';
 
 /** Reset sob demanda do tenant demo escolhido, com allowlist tipada e auditoria. */
 export async function resetarDemo(slug: DemoTenantSlug = 'acme-demo') {
@@ -235,10 +237,54 @@ export async function prepararExperienciaProspectAcme(
           empresa: r.access.empresa,
           cargo: r.access.cargo,
           expiresAt: r.access.expiresAt,
+          // Sem a URL, de propósito: o passe é a chave de entrada do convidado.
+          versao: r.access.versao ?? parsed.value.versao ?? 'A',
           visoes: presentationViews.map((view) => view.roleKey),
         }
       : { error: r.error },
   });
   if (r.ok === false) return { success: false as const, error: r.error };
   return { success: true as const, acesso: r.access, visoes: presentationViews };
+}
+
+/**
+ * Lembrete do painel: devolve o link da página de boas-vindas de um passaporte
+ * vivo e o texto curto para reenviar. Passaporte A vira B aqui (a auditoria
+ * registra), que é como os prospects do roteiro de quatro links ganham o convite
+ * novo sem perder o que já fizeram.
+ *
+ * `use server` = endpoint HTTP: ambiente e sessão chegam do cliente, então o
+ * gate vem primeiro e o núcleo valida os dois de novo. A URL NÃO vai para a
+ * auditoria.
+ */
+export async function gerarConviteDegustacao(slug: DemoProspectTenantSlug, sessionId: string) {
+  const ctx = await requireAdminAction();
+  if (!Object.prototype.hasOwnProperty.call(DEMO_PROSPECT_TENANTS, slug)) {
+    return { success: false as const, error: 'Ambiente de demonstração inválido.' };
+  }
+  const r = await prepararConviteGuiado(slug, sessionId);
+  // `'error' in r`, não `!r.ok`: com `strict: false` a união por booleano não
+  // estreita o tipo.
+  if ('error' in r) {
+    await logAdminAction({
+      adminEmail: ctx.email,
+      acao: 'demo.prospect_invite_reminder',
+      alvo: slug,
+      detalhes: { sessionId: String(sessionId || '').slice(0, 40), error: r.error },
+      resultado: 'erro',
+    });
+    return { success: false as const, error: r.error };
+  }
+  await logAdminAction({
+    adminEmail: ctx.email,
+    acao: 'demo.prospect_invite_reminder',
+    alvo: slug,
+    detalhes: { sessionId, convertidoParaB: r.convertido },
+  });
+  return {
+    success: true as const,
+    url: r.url,
+    texto: buildDegustacaoLembreteText({ nome: r.nome, url: r.url }),
+    convertidoParaB: r.convertido,
+  };
 }

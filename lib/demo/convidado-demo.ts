@@ -11,7 +11,7 @@ import { lerEmailDePassaporte } from '@/lib/demo/acme-prospect-config';
  * e quem foi cadastrado à mão.
  *
  * ⚠️ O e-mail técnico do passaporte (`convidado.<ambiente>.<id>@vertho.ai`) É
- * interno pela régua canônica — de propósito, para ficar fora dos indicadores.
+ * interno pela régua canônica, de propósito, para ficar fora dos indicadores.
  * Aqui ele é a exceção explícita: é justamente a pessoa que estamos
  * acompanhando. Até 16/09/2026 a exceção só reconhecia o prefixo do ACME, e o
  * passaporte do Grupo Sinal caía como "interno" (ver `lerEmailDePassaporte`).
