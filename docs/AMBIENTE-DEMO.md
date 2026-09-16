@@ -7,7 +7,8 @@
 | Rede de escolas | `https://professor-escolas.vertho.ai/apresentacao-offline/index.html` | Cerca de 39 MB |
 | ACME empresarial | `https://usuario-demo.vertho.ai/apresentacao-offline-acme/index.html` | Cerca de 11 MB |
 
-Também disponível pelo botão **Offline** na barra de cada sala. Prepare pelo Wi-Fi, no mesmo
+Também disponível pelo botão **Preparar offline** em cada card de ambiente na seção
+**Apresentação** da tela administrativa `/admin/demo`. Prepare pelo Wi-Fi, no mesmo
 navegador e aparelho que serão usados para apresentar. O pacote só sinaliza
 **Pronto para apresentar offline** depois de baixar e conferir todos os arquivos.
 Salve o endereço nos favoritos; abra esse endereço diretamente quando estiver sem

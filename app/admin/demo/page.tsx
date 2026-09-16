@@ -10,6 +10,7 @@ import {
   Check,
   Clock,
   Copy,
+  Download,
   ExternalLink,
   Loader2,
   MessageCircle,
@@ -26,7 +27,8 @@ import {
   prepararSalaApresentacaoDemo,
   resetarDemo,
 } from '@/actions/demo';
-import { launchDemoPresentationAccess } from '@/lib/demo/presentation';
+import { demoPresentationUrl, launchDemoPresentationAccess } from '@/lib/demo/presentation';
+import { offlineEnvironment } from '@/lib/demo/offline/environment';
 import {
   papeisDaDegustacao,
   DEMO_PROSPECT_TENANTS,
@@ -587,7 +589,7 @@ export default function AdminDemoPage() {
                 <div>
                   <div className="mb-2 flex items-center gap-2 text-cyan-300">
                     <MonitorPlay size={15} aria-hidden="true" />
-                    <span className="text-[9px] font-bold uppercase tracking-[0.18em]">Apresentação ao vivo</span>
+                    <span className="text-[9px] font-bold uppercase tracking-[0.18em]">Apresentação</span>
                   </div>
                   <h2 className="text-sm font-bold text-white">Escolha o ambiente e apresente</h2>
                   <p className="mt-1 text-[11px] leading-relaxed text-gray-400">
@@ -595,7 +597,7 @@ export default function AdminDemoPage() {
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full border border-white/10 bg-black/15 px-2 py-1 font-mono text-[9px] text-white/45">
-                  AO VIVO
+                  AO VIVO · OFFLINE
                 </span>
               </div>
 
@@ -607,32 +609,48 @@ export default function AdminDemoPage() {
                     const aberto = presentationOpened.has(`${sala.slug}:${VISAO_DE_ENTRADA}`);
                     const carregando = preparandoApresentacao && !acesso;
                     return (
-                      <button
-                        type="button"
+                      <div
                         key={sala.slug}
-                        onClick={() => acesso && abrirVisaoApresentacao(acesso, sala.slug)}
-                        disabled={!acesso || busy}
-                        className="group rounded-xl border border-white/10 bg-[#081523]/75 p-3 text-left transition-colors hover:border-cyan-300/35 hover:bg-[#0b1b2c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-wait disabled:opacity-65"
+                        className="overflow-hidden rounded-xl border border-white/10 bg-[#081523]/75"
                       >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-white">{sala.nome}</span>
-                          {carregando
-                            ? <Loader2 size={13} className="animate-spin text-cyan-300" aria-hidden="true" />
-                            : <ExternalLink size={13} className="text-white/35 transition-colors group-hover:text-cyan-300" aria-hidden="true" />}
-                        </span>
-                        <span className="mt-1 block truncate text-[9px] text-white/40">
-                          {acesso ? `${acesso.visao} · ${acesso.nome}` : 'Preparando…'}
-                        </span>
-                        <span className={`mt-3 flex items-center gap-1.5 text-[9px] font-bold ${aberto ? 'text-emerald-300' : 'text-cyan-300'}`}>
-                          {carregando
-                            ? 'Disponibilizando acesso…'
-                            : aberto
-                              ? 'Sessão ativa'
-                              : acesso
-                                ? 'Abrir esta demo'
-                                : 'Acesso indisponível'}
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => acesso && abrirVisaoApresentacao(acesso, sala.slug)}
+                          disabled={!acesso || busy}
+                          className="group block w-full rounded-xl p-3 text-left transition-colors hover:bg-[#0b1b2c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400 disabled:cursor-wait disabled:opacity-65"
+                        >
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-white">{sala.nome}</span>
+                            {carregando
+                              ? <Loader2 size={13} className="animate-spin text-cyan-300" aria-hidden="true" />
+                              : <ExternalLink size={13} className="text-white/35 transition-colors group-hover:text-cyan-300" aria-hidden="true" />}
+                          </span>
+                          <span className="mt-1 block truncate text-[9px] text-white/40">
+                            {acesso ? `${acesso.visao} · ${acesso.nome}` : 'Preparando…'}
+                          </span>
+                          <span className={`mt-3 flex items-center gap-1.5 text-[9px] font-bold ${aberto ? 'text-emerald-300' : 'text-cyan-300'}`}>
+                            {carregando
+                              ? 'Disponibilizando acesso…'
+                              : aberto
+                                ? 'Sessão ativa'
+                                : acesso
+                                  ? 'Abrir esta demo'
+                                  : 'Acesso indisponível'}
+                          </span>
+                        </button>
+                        <div className="border-t border-white/10 px-3 py-2.5">
+                          <a
+                            href={demoPresentationUrl(VISAO_DE_ENTRADA, `${offlineEnvironment(sala.slug).base}index.html`, undefined, sala.slug)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Preparar apresentação offline de ${sala.nome}`}
+                            className="flex min-h-9 items-center justify-center gap-2 rounded-lg border border-cyan-300/20 bg-cyan-300/[0.05] px-3 py-2 text-[11px] font-bold text-cyan-200 transition-colors hover:border-cyan-300/40 hover:bg-cyan-300/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                          >
+                            <Download size={14} aria-hidden="true" />
+                            Preparar offline
+                          </a>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -655,6 +673,9 @@ export default function AdminDemoPage() {
 
                 <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
                   Os dois ambientes ficam disponíveis automaticamente, cada um com as três visões prontas. Dentro da demo, use “Visão apresentada” para trocar de função sem login e “Dispositivo” para alternar entre Computador e a experiência responsiva de Celular.
+                </p>
+                <p className="mt-2 text-[10px] leading-relaxed text-gray-400">
+                  Para apresentar sem internet, use “Preparar offline” no mesmo navegador e aparelho da apresentação. Aguarde “Pronto para apresentar offline” e salve o endereço nos favoritos.
                 </p>
               </div>
             </div>
