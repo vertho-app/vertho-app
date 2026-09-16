@@ -61,7 +61,13 @@ export function agruparPorCompetencia<T = any>(
     const media = (campo: 'nota_pre' | 'nota_pos') =>
       medidos.reduce((soma, d: any) => soma + Number(d[campo]), 0) / medidos.length;
     g.nivelInicial = nivelDaNota(media('nota_pre'));
-    g.nivelFinal = nivelDaNota(media('nota_pos'));
+    // 🔴 SEM REGRESSÃO TAMBÉM NA COMPETÊNCIA (decisão do dono, 16/09/2026): se o
+    // nível da média cair, o nível exibido é o de partida. Mesmo conceito do
+    // descritor (avanço com piso zero, sem veredito de regressão): queda entre o
+    // diagnóstico e o fechamento é variação do instrumento, não alguém que
+    // desaprendeu. Sem este piso, o papel mostraria um nível menor sem nenhum
+    // sinal de queda ao lado.
+    g.nivelFinal = Math.max(g.nivelInicial, nivelDaNota(media('nota_pos'))) as Nivel;
     g.subiuDeNivel = g.nivelFinal > g.nivelInicial;
   }
   return grupos;

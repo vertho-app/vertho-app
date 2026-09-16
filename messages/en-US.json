@@ -1414,7 +1414,7 @@
     "back": "← Back",
     "competencyProgress": "Average progress",
     "finalLevel": "Final level",
-    "levelUp": "Level up",
+    "levelUp": "Congratulations! You improved your level in this competency",
     "backToSeason": "Back to season",
     "downloadPdf": "Download PDF",
     "pdfError": "Error generating PDF",
@@ -1540,7 +1540,7 @@
       "consolidated": "Competency roll-up",
       "stable": "Stable",
       "finalLevel": "Final level",
-      "levelUp": "Level up",
+      "levelUp": "Congratulations! You improved your level in this competency",
       "behaviors": "behaviors"
     },
     "pilotClosing": "Closing",

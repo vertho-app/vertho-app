@@ -233,14 +233,17 @@ export default function TemporadaConcluidaPage() {
                 <div>
                   <p className="text-sm font-bold text-brand-300">{grupo.competencia}</p>
                   {/* Nível da MÉDIA da competência (nunca a nota) e parabéns quando subiu. */}
-                  {grupo.nivelFinal != null && (
+                  {grupo.nivelFinal != null && grupo.subiuDeNivel && (
                     <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <b className="text-white">N{grupo.nivelInicial} → N{grupo.nivelFinal}</b>
+                      <span className="inline-flex items-center gap-1 text-amber-300 font-bold">
+                        <PartyPopper size={13} /> {t('levelUp')}
+                      </span>
+                    </p>
+                  )}
+                  {grupo.nivelFinal != null && !grupo.subiuDeNivel && (
+                    <p className="text-xs text-gray-400 mt-0.5">
                       {t('finalLevel')} <b className="text-white">N{grupo.nivelFinal}</b>
-                      {grupo.subiuDeNivel && (
-                        <span className="inline-flex items-center gap-1 text-amber-300 font-bold">
-                          <PartyPopper size={13} /> {t('levelUp')}
-                        </span>
-                      )}
                     </p>
                   )}
                 </div>

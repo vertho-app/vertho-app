@@ -103,6 +103,14 @@ describe('descritores agrupados por competência', () => {
     expect(n4).toMatchObject({ nivelInicial: 3, nivelFinal: 4, subiuDeNivel: true });
   });
 
+  it('nível que CAI permanece o de partida: sem regressão também na competência (16/09/2026)', () => {
+    // Média 3,10 (N3) → 2,80 (N2): o papel diz "Nível final N3", sem parabéns.
+    const [caiu] = agruparPorCompetencia([
+      { competencia: 'C', nota_pre: 3.1, nota_pos: 2.8 },
+    ]);
+    expect(caiu).toMatchObject({ nivelInicial: 3, nivelFinal: 3, subiuDeNivel: false });
+  });
+
   it('descritor sem nota fica fora do avanço e do nível em vez de contar como zero', () => {
     const [g] = agruparPorCompetencia([
       { competencia: 'C', nota_pre: 2, nota_pos: 2.4 },

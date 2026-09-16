@@ -1414,7 +1414,7 @@
     "back": "← Volver",
     "competencyProgress": "Avance medio",
     "finalLevel": "Nivel final",
-    "levelUp": "Subió de nivel",
+    "levelUp": "¡Felicitaciones! Mejoraste tu nivel en esta competencia",
     "backToSeason": "Volver a la temporada",
     "downloadPdf": "Descargar PDF",
     "pdfError": "Error al generar el PDF",
@@ -1540,7 +1540,7 @@
       "consolidated": "Consolidado de la competencia",
       "stable": "Estable",
       "finalLevel": "Nivel final",
-      "levelUp": "Subió de nivel",
+      "levelUp": "¡Felicitaciones! Mejoraste tu nivel en esta competencia",
       "behaviors": "comportamientos"
     },
     "pilotClosing": "Cierre",

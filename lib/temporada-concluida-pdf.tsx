@@ -68,6 +68,7 @@ const s = StyleSheet.create({
   nivelLinha: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   nivel: { fontFamily: 'NotoSans', fontSize: fonts.small, color: colors.textSecondary },
   subiu: { fontFamily: 'NotoSans', fontSize: fonts.small, fontWeight: 700, color: COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].fg },
+  nivelSubiu: { fontFamily: 'NotoSans', fontSize: fonts.small, fontWeight: 700, color: colors.navy },
   competenciaAvanco: { fontFamily: 'NotoSans', fontSize: fonts.small, fontWeight: 700, color: colors.navy },
 });
 
@@ -135,6 +136,15 @@ export function avancoDoPdf(notaPre: unknown, notaPos: unknown): string | null {
 export function avancoValorPdf(avanco: number | null | undefined): string | null {
   if (avanco == null || !Number.isFinite(avanco)) return null;
   return avanco > 0 ? `+${num(avanco)}` : num(0);
+}
+
+/** Seta "de → para". Em SVG porque o U+2192 não existe no subset da fonte do corpo. */
+function Seta() {
+  return (
+    <Svg width={9} height={9} viewBox="0 0 24 24">
+      <Path d="M4 12h14M12 5l7 7-7 7" stroke={colors.navy} strokeWidth={2.6} fill="none" />
+    </Svg>
+  );
 }
 
 /** Estrela de "parabéns". Desenhada em SVG: emoji fora do subset da fonte sai em branco. */
@@ -337,11 +347,19 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
                     <View style={{ flex: 1 }}>
                       <Text style={s.competencia}>{grupo.competencia}</Text>
                       {/* Nível da MÉDIA da competência, nunca a nota; estrela quando subiu. */}
-                      {grupo.nivelFinal != null && (
+                      {/* Subiu: "N1 → N2 ★ Parabéns!…" (texto do dono, 16/09/2026). Manteve: só o nível final. */}
+                      {grupo.nivelFinal != null && grupo.subiuDeNivel && (
+                        <View style={s.nivelLinha}>
+                          <Text style={s.nivelSubiu}>{`N${grupo.nivelInicial}`}</Text>
+                          <Seta />
+                          <Text style={s.nivelSubiu}>{`N${grupo.nivelFinal}`}</Text>
+                          <Estrela />
+                          <Text style={s.subiu}>Parabéns! Você melhorou seu nível nesta competência</Text>
+                        </View>
+                      )}
+                      {grupo.nivelFinal != null && !grupo.subiuDeNivel && (
                         <View style={s.nivelLinha}>
                           <Text style={s.nivel}>{`Nível final N${grupo.nivelFinal}`}</Text>
-                          {grupo.subiuDeNivel && <Estrela />}
-                          {grupo.subiuDeNivel && <Text style={s.subiu}>Subiu de nível</Text>}
                         </View>
                       )}
                     </View>

@@ -355,14 +355,17 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
                 <div key={i} className="flex items-baseline justify-between gap-3 flex-wrap">
                   <p className="text-sm font-bold text-white">
                     {c.competencia || '-'}
-                    {c.nivelFinal != null && (
+                    {c.nivelFinal != null && c.subiuDeNivel && (
+                      <span className="ml-2 text-[11px] font-normal text-gray-400">
+                        <b className="text-white">N{c.nivelInicial} → N{c.nivelFinal}</b>
+                        <span className="ml-1.5 inline-flex items-center gap-1 text-amber-300 font-bold">
+                          <PartyPopper size={12} /> {t('report.levelUp')}
+                        </span>
+                      </span>
+                    )}
+                    {c.nivelFinal != null && !c.subiuDeNivel && (
                       <span className="ml-2 text-[11px] font-normal text-gray-400">
                         {t('report.finalLevel')} <b className="text-white">N{c.nivelFinal}</b>
-                        {c.subiuDeNivel && (
-                          <span className="ml-1.5 inline-flex items-center gap-1 text-amber-300 font-bold">
-                            <PartyPopper size={12} /> {t('report.levelUp')}
-                          </span>
-                        )}
                       </span>
                     )}
                   </p>

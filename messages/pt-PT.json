@@ -1414,7 +1414,7 @@
     "back": "← Voltar",
     "competencyProgress": "Avanço médio",
     "finalLevel": "Nível final",
-    "levelUp": "Subiu de nível",
+    "levelUp": "Parabéns! Melhorou o seu nível nesta competência",
     "backToSeason": "Voltar à temporada",
     "downloadPdf": "Transferir PDF",
     "pdfError": "Erro ao gerar PDF",
@@ -1540,7 +1540,7 @@
       "consolidated": "Consolidado da competência",
       "stable": "Estável",
       "finalLevel": "Nível final",
-      "levelUp": "Subiu de nível",
+      "levelUp": "Parabéns! Melhorou o seu nível nesta competência",
       "behaviors": "comportamentos"
     },
     "pilotClosing": "Fecho",
