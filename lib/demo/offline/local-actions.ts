@@ -2,13 +2,15 @@ import { ENVIRONMENT } from './environment';
 import { currentLocation, currentPerson, demo, notifyOnlineOnly, onlineOnly } from './runtime';
 import { derivarArquetipo, derivarTagsExecutivas, insightsHardcoded } from '@/lib/disc-arquetipos';
 import { normalizeManagerReportInsight, normalizeRhReportInsight } from '@/lib/relatorios/dashboard-insights';
+import { nivelDaNota } from '@/lib/nivel-regua';
+import { PROGRESSO, TRILHA } from '@/lib/status';
 
 function colab(key?: string) {
   const person = currentPerson(key);
   return { ...person.details, id: person.key, nome: person.name, nome_completo: person.name, cargo: person.role, area_depto: person.unit, perfil_dominante: person.profile, d_natural: person.disc[0], i_natural: person.disc[1], s_natural: person.disc[2], c_natural: person.disc[3] };
 }
 function panorama() {
-  return { empresaNome: ENVIRONMENT.name, pessoas: demo.people.length, comPerfil: demo.people.filter(p => p.profileAvailable !== false).length, comMapeamento: demo.people.filter(p => p.assessments.length).length, emJornada: Object.values(demo.tracks).filter(t => t?.status === 'ativa').length, emDia: Object.values(demo.tracks).filter(t => t?.status === 'ativa').length, atrasadas: 0, jornadasEncerradas: Object.values(demo.tracks).filter(t => t?.status === 'concluida').length, indisponivel: false };
+  return { empresaNome: ENVIRONMENT.name, pessoas: demo.people.length, comPerfil: demo.people.filter(p => p.profileAvailable !== false).length, comMapeamento: demo.people.filter(p => p.assessments.length).length, emJornada: Object.values(demo.tracks).filter(t => t?.status === TRILHA.ATIVA).length, emDia: Object.values(demo.tracks).filter(t => t?.status === TRILHA.ATIVA).length, atrasadas: 0, jornadasEncerradas: Object.values(demo.tracks).filter(t => t?.status === TRILHA.CONCLUIDA).length, indisponivel: false };
 }
 export async function loadHomeData() {
   return { dashboard: { colaborador: colab(), view: currentLocation().role === 'organization' ? 'rh' : 'colaborador', competenciaFoco: demo.weeks[0].competency },
@@ -43,7 +45,7 @@ export async function getDiagnosticoDoDia() {
   return { colaborador: colab(), progresso: { pct: 100, total: names.length, respondidas: names.length }, concluiuTudo: true, temPdi: true, trilho: 'cargo', resultados: names.map(name => {
     const rows = person.assessments.filter(a => a.competency === name);
     const nota = rows.reduce((sum,a) => sum+a.score,0)/rows.length;
-    return { competencia: name, avaliada: true, nivel: Math.floor(nota), nota, pontosFortes: [], pontosAtencao: [], feedback: '' };
+    return { competencia: name, avaliada: true, nivel: nivelDaNota(nota), nota, pontosFortes: [], pontosAtencao: [], feedback: '' };
   }) };
 }
 export async function loadTemporada(key?: string) {
@@ -68,11 +70,11 @@ export async function resolverVideoDaSemanaGestor(_key: string, competency?: str
 export async function getGestorHomeData() {
   const rh = currentLocation().role === 'organization';
   const team = demo.people.filter(p => rh || p.manager === ENVIRONMENT.names.manager);
-  const active = team.filter(p => demo.tracks[p.key]?.status === 'ativa');
+  const active = team.filter(p => demo.tracks[p.key]?.status === TRILHA.ATIVA);
   return { ok: true, scope: rh ? 'rh' : 'gestor',
     kpis: { liderados: { total: team.length, em_trilha: active.length, sem_trilha: team.length-active.length }, em_andamento: { count: active.length, distribuicao_semanas: [{ semana: 1, pessoas: active.length }] }, checkpoints: { pendentes: 0, respondidos: 0 }, atividade_semana: { ativos: active.length, total: team.length } },
     alertas: [], checkpointsPendentes: [],
-    equipe: team.map(p => ({ colabId: p.key, colab: p.name, cargo: p.role, status: demo.tracks[p.key]?.status === 'ativa' ? 'em_andamento' : demo.tracks[p.key]?.status || 'sem_trilha', competenciaFoco: p.assessments[0]?.competency || null, semana: demo.tracks[p.key] ? 1 : null, totalSemanas: demo.tracks[p.key]?.temporada_plano.length || null, delta: null, perfilDominante: p.profile, fontePerfilExterno: null, turma: null, motivoSemTrilha: p.profileAvailable === false ? 'sem_perfil' : 'sem_mapeamento', atrasada: false })),
+    equipe: team.map(p => ({ colabId: p.key, colab: p.name, cargo: p.role, status: demo.tracks[p.key]?.status === TRILHA.ATIVA ? PROGRESSO.EM_ANDAMENTO : demo.tracks[p.key]?.status || 'sem_trilha', competenciaFoco: p.assessments[0]?.competency || null, semana: demo.tracks[p.key] ? 1 : null, totalSemanas: demo.tracks[p.key]?.temporada_plano.length || null, delta: null, perfilDominante: p.profile, fontePerfilExterno: null, turma: null, motivoSemTrilha: p.profileAvailable === false ? 'sem_perfil' : 'sem_mapeamento', atrasada: false })),
     perfis: team.map(p => ({ colabId: p.key, colab: p.name, cargo: p.role, fonte: p.profileAvailable === false ? 'sem_perfil' : 'disc', letraDom: p.profile, d: p.disc[0], i:p.disc[1], s:p.disc[2], c:p.disc[3] })),
     reportDashboard: { id: 'gestor', generatedAt: demo.capturedAt, pdfUrl: `${ENVIRONMENT.base}documents/gestor.pdf`, insight: normalizeManagerReportInsight(demo.coordination) } };
 }
