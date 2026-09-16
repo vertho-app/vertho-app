@@ -73,10 +73,25 @@ export async function GET(req: NextRequest) {
   const consumir = req.nextUrl.searchParams.get('ir') === '1';
   const ua = req.headers.get('user-agent');
 
-  // Sem parâmetro utilizável → login, sem detalhe. Dizer "token inválido" versus
-  // "tenant inexistente" entregaria a quem testa a informação de quais slugs
-  // existem.
-  if (!dados || !t) return NextResponse.redirect(new URL('/login?error=link-invalido', req.url));
+  // 🔴 SEM `t` NENHUM é a PORTA do tenant, não um link de acesso quebrado.
+  //
+  // O `boas_vindas_v2` manda `<tenant>/entrar` sem token DE PROPÓSITO (credencial
+  // no corpo da mensagem ficaria visível na caixa de entrada — o link com token é
+  // o `acesso_vertho`, por botão). Só que esta linha tratava ausência igual a
+  // token inválido, e desde 18/08 o login LÊ o `?error=` e mostra "Seu link de
+  // acesso expirou ou já foi usado". Medido em 16/09/2026: a primeira mensagem do
+  // programa levaria quem NUNCA recebeu link nenhum a um aviso de link queimado.
+  // Nunca apareceu porque as únicas 38 boas-vindas da base saíram em 17/08, um
+  // dia antes do aviso existir — e elas seguem no WhatsApp dos diretores de
+  // Macaé com este mesmo endereço.
+  //
+  // Não vaza nada: sem parâmetro não há slug a testar.
+  if (!t) return NextResponse.redirect(new URL('/login', req.url));
+
+  // `t` presente mas ilegível → login com o aviso, sem detalhe. Dizer "token
+  // inválido" versus "tenant inexistente" entregaria a quem testa a informação de
+  // quais slugs existem.
+  if (!dados) return NextResponse.redirect(new URL('/login?error=link-invalido', req.url));
 
   // O slug PRECISA existir. A regex garante só a forma; sem esta consulta,
   // qualquer string bem-formada viraria um subdomínio de destino.

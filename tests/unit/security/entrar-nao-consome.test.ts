@@ -79,6 +79,33 @@ describe('🔴 o token não é consumido sem toque explícito', () => {
   });
 });
 
+describe('🔴 `/entrar` sem token é a PORTA do tenant, não link queimado', () => {
+  // Medido em 16/09/2026: o `boas_vindas_v2` manda `<tenant>/entrar` sem `t`, e a
+  // rota respondia `/login?error=link-invalido` — que o login mostra como "Seu
+  // link de acesso expirou ou já foi usado". Primeira mensagem do programa,
+  // pessoa que nunca recebeu link, aviso de link gasto.
+
+  it('sem `t` vai para o login LIMPO, sem aviso de erro', async () => {
+    const r = await chamar('');
+    const u = new URL(r.headers.get('location')!);
+    expect(u.pathname).toBe('/login');
+    expect(u.searchParams.has('error')).toBe(false);
+  });
+
+  it('`t` vazio (`?t=`) também é ausência, não link inválido', async () => {
+    const u = new URL((await chamar('?t=')).headers.get('location')!);
+    expect(u.pathname).toBe('/login');
+    expect(u.searchParams.has('error')).toBe(false);
+  });
+
+  it('⚠️ o par: `t` PRESENTE e malformado continua avisando', async () => {
+    // Quem abre um link de acesso que não se lê precisa do aviso e do caminho
+    // para pedir outro. Afrouxar os dois casos juntos apagaria esse aviso.
+    const loc = (await chamar('?t=isso-nao-e-um-token')).headers.get('location')!;
+    expect(loc).toContain('/login?error=link-invalido');
+  });
+});
+
 describe('com `ir=1` — o único caminho que consome', () => {
   it('vai para o callback no subdomínio do tenant', async () => {
     const loc = (await chamar(`?t=${encodeURIComponent(T)}&ir=1`)).headers.get('location')!;
