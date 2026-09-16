@@ -125,6 +125,12 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - 🔴 **Ligou o template num call-site? procure os OUTROS.** `sendAccessLink` tinha 4 e só 1 passava o
   `acessoParam` → 28 falhas de login medidas (14-16/08). O antídoto não é repetir a linha: é DERIVAR
   do que todos já passam, num lugar só (`derivarParametroAcesso`).
+- 🔴 **Empresa nova, ou empresa mudando de número?** O número remetente é decidido por
+  `WHATSAPP_NUMEROS_EXTRA` (`empresas` de cada número), e empresa fora da variável sai pelo número
+  inicial **sem erro nenhum**. Desde 16/09/2026 a 4Life está no +55 11 5199-1865 e a Amazon Bowling
+  deve entrar lá quando for criada: editar a variável + deploy, e confirmar pelo `from_phone_id` do
+  primeiro envio. Envio novo que não passar `empresaId` no `meta` cai no inicial pelo mesmo motivo.
+  Receita de número novo: `docs/INBOX-WHATSAPP.md` §7.1.
 
 ## 8. Auth, sessão, login
 

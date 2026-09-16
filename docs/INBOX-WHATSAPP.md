@@ -220,6 +220,27 @@ O que a fase 2 exige, e não é pouco:
    `inbox-fluxo.test.ts` e R12 em `pipeline-health-regras.test.ts`, validados por 8 mutações.
    ⚠️ Fora do alcance: o legado Z-API (fallback da cadência, aviso ao tutor, áudio do relatório,
    magic link em lote da tela antiga) não passa por número nenhum da Cloud API.
+
+   **Ligar um número novo na WABA (receita medida em 16/09/2026):**
+   1. Nome aprovado e código verificado **não** colocam o número na Cloud API. O WhatsApp Manager
+      mostra "pendente" e isso não anda sozinho: falta `POST /{id}/register` com
+      `{messaging_product:'whatsapp', pin}`. O PIN de 6 dígitos vira a verificação em duas etapas.
+      Diagnóstico em uma chamada: `GET /{id}?fields=status,platform_type,health_status`.
+   2. Número que JÁ está no ar e não tem PIN: `POST /{id}` com `{pin}`, **nunca** `/register` de novo.
+      A API devolveu `success:true` com `is_pin_enabled` ainda `false` na leitura imediata (virou
+      `true` em ~1 min), e o Manager seguiu mostrando "desativado" até ativar pela própria tela com o
+      mesmo PIN. Leitura logo após escrita na Meta não prova nada.
+   3. Assinatura do webhook é da WABA: o número novo herda, sem configurar. Templates também são da
+      WABA e servem aos dois números (template de teste entregue em 9 s pelo número novo).
+   4. `WHATSAPP_NUMEROS_EXTRA` na Vercel **sem** marcar Sensitive (precisa reler). Atenção:
+      `vercel env pull` escreve o JSON sem escapar as aspas internas, e `loadEnvFile` lê só `[{`:
+      valide pelo texto cru da linha. Empresa nova no número = editar a variável + deploy; sem isso
+      ela sai pelo número inicial, calada.
+   5. Selo azul: a conta comercial oficial exige 30 dias na plataforma, portfólio verificado, PIN no
+      número e nome aprovado, e é concedida por notoriedade (recusa = 30 dias para pedir de novo). O
+      status por API é o CAMPO `?fields=official_business_account` (o edge dá 400). O Meta Verified
+      pago do WhatsApp se assina pelo app WhatsApp Business: fontes secundárias dizem que número de
+      API não assina (a página oficial não confirmou).
 3. **Revalidar a janela NO SERVIDOR, no instante do envio.** O estado renderizado envelhece: o
    gestor abre com a janela aberta, escreve cinco minutos e envia com ela fechada. Confiar na tela
    produz erro 131047 da Meta e uma mensagem que a pessoa nunca recebe.
@@ -450,6 +471,13 @@ mudou de forma no caminho, e é a forma que importa:
   (`whatsapp-webhook-check-cego`), nunca silêncio.
   A qualidade veio de brinde no mesmo custo e é o único aviso PRÉVIO de restrição — em 11/08 um
   disparo em lote derrubou um número e o sinal chegou como canal morto, não como métrica.
+  ✅ **16/09/2026: todos os números, e HTTP 200 deixou de ser "número ok".** A R12 inspeciona também
+  cada item de `WHATSAPP_NUMEROS_EXTRA` (qualidade e bloqueio são por número). E `Medido:` o
+  +55 11 5199-1865 antes do registro respondia **200** com `status PENDING`, `platform_type
+  NOT_APPLICABLE` e `health_status.can_send_message BLOCKED` (erro 141000): a régua antiga o daria
+  como saudável. Hoje reprova `can_send_message = BLOCKED` ou `platform_type ≠ CLOUD_API`. Os erros
+  de SIP (138024/138025) aparecem mesmo com envio AVAILABLE, por isso a leitura é do campo, nunca da
+  presença de erro.
 - **Três pontos cegos fechados**: gravar a mensagem enviada (🔴 `critico` — ela SAIU e a thread não
   mostra, então o atendente reescreve e a pessoa recebe duas), `marcarLida` (aviso) e a telemetria
   do `cloud-api` (sem a linha, o `wamid` não existe e o status nunca casa). Os três morriam em
