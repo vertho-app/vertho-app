@@ -7,7 +7,8 @@ import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import { listarEquipeEvolucao, loadLideradoConcluida } from './actions';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-import { CONVERGENCIA, rotuloConvergencia, formatarAvanco } from '@/lib/season-engine/convergencia';
+import { CONVERGENCIA, rotuloConvergencia, formatarAvanco, formatarValorAvanco } from '@/lib/season-engine/convergencia';
+import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 
 // 🔑 CLASSE DE COR É LITERAL, NUNCA MONTADA.
 //
@@ -26,8 +27,8 @@ import { CONVERGENCIA, rotuloConvergencia, formatarAvanco } from '@/lib/season-e
 // não são veredito de convergência e seguem locais.
 const STATUS_CFG = {
   em_andamento:        { icon: Clock,      label: 'Em andamento',                                borda: 'border-cyan-500/20',    fundo: 'bg-cyan-500/[0.03]',    tinta: 'text-cyan-300' },
-  evolucao_confirmada: { icon: TrendingUp, label: rotuloConvergencia(CONVERGENCIA.CONFIRMADA),   borda: 'border-emerald-500/20', fundo: 'bg-emerald-500/[0.03]', tinta: 'text-emerald-300' },
-  evolucao_parcial:    { icon: TrendingUp, label: rotuloConvergencia(CONVERGENCIA.PARCIAL),      borda: 'border-amber-500/20',   fundo: 'bg-amber-500/[0.03]',   tinta: 'text-amber-300' },
+  evolucao_confirmada: { icon: TrendingUp, label: rotuloConvergencia(CONVERGENCIA.CONFIRMADA), ...COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA] },
+  evolucao_parcial:    { icon: TrendingUp, label: rotuloConvergencia(CONVERGENCIA.PARCIAL),    ...COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL] },
   estagnacao:          { icon: Minus,      label: rotuloConvergencia(CONVERGENCIA.ESTAVEL),      borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-300' },
   sem_trilha:          { icon: X,          label: 'Sem trilha',           borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
   arquivada:           { icon: X,          label: 'Arquivada',            borda: 'border-white/10',       fundo: 'bg-white/[0.02]',       tinta: 'text-gray-400' },
@@ -71,8 +72,9 @@ export default function EquipeEvolucaoPage() {
   const filtrados = useMemo(() => {
     let list = filtro === 'todos' ? rows : rows.filter(r => r.status === filtro);
     list = [...list].sort((a, b) => {
-      if (ordem === 'delta_desc') return (b.delta ?? -999) - (a.delta ?? -999);
-      if (ordem === 'delta_asc') return (a.delta ?? 999) - (b.delta ?? 999);
+      // Ordena pelo avanço que a tela MOSTRA, não pelo delta cru (que leva quedas).
+      if (ordem === 'delta_desc') return (b.avancoMedio ?? -999) - (a.avancoMedio ?? -999);
+      if (ordem === 'delta_asc') return (a.avancoMedio ?? 999) - (b.avancoMedio ?? 999);
       if (ordem === 'nome') return (a.colab || '').localeCompare(b.colab || '');
       return 0;
     });
@@ -186,11 +188,11 @@ export default function EquipeEvolucaoPage() {
                     </div>
                     <p className="text-[11px] text-gray-400 truncate">
                       {r.competencia ? <>{r.competencia} · T{r.temporada}</> : 'sem trilha ativa'}
-                      {r.delta != null && (
+                      {r.avancoMedio != null && (
                         <>
                           {' · '}
                           <span className={`${cfg.tinta} font-bold`}>
-                            {formatarAvanco(r.mediaPre, r.mediaPos)}
+                            {formatarValorAvanco(r.avancoMedio)}
                           </span>
                         </>
                       )}

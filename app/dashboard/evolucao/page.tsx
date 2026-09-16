@@ -9,10 +9,11 @@ import { loadEvolucao } from './evolucao-actions';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { CONVERGENCIA } from '@/lib/season-engine/convergencia';
+import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 
 const PILL_POR_CONVERGENCIA: Record<string, { chave: string; pill: string }> = {
-  [CONVERGENCIA.CONFIRMADA]: { chave: 'classification.confirmed', pill: 'bg-green-500/12 text-green-300 border border-green-500/22' },
-  [CONVERGENCIA.PARCIAL]: { chave: 'classification.partial', pill: 'bg-[#9ae2e6]/8 text-[#9ae2e6] border border-[#9ae2e6]/16' },
+  [CONVERGENCIA.CONFIRMADA]: { chave: 'classification.confirmed', pill: COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA].pilula },
+  [CONVERGENCIA.PARCIAL]: { chave: 'classification.partial', pill: COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL].pilula },
   [CONVERGENCIA.ESTAVEL]: { chave: 'classification.stable', pill: 'bg-white/[0.06] text-white/70 border border-white/12' },
 };
 

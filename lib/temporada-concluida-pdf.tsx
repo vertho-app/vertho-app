@@ -23,12 +23,13 @@
  * `Font family not registered: NotoSans` com a fonte registrada.
  */
 import React from 'react';
-import { Document, Page, Text, View, Image, StyleSheet, renderToBuffer } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet, Svg, Path, renderToBuffer } from '@react-pdf/renderer';
 import { colors, fonts, pageStyles } from '@/components/pdf/styles';
 import PdfReportCover, { ReportSectionTitle } from '@/components/pdf/PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { MarcaPdf } from '@/lib/pdf-marca';
 import { avancoExibido, rotuloConvergencia, CONVERGENCIA } from '@/lib/season-engine/convergencia';
+import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 
 const s = StyleSheet.create({
@@ -60,10 +61,13 @@ const s = StyleSheet.create({
   eyebrow: { fontFamily: 'NotoSans', fontSize: fonts.caption, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 },
   insight: { fontFamily: 'NotoSans', fontSize: fonts.small, fontStyle: 'italic', color: colors.textSecondary, lineHeight: 1.5 },
   competenciaLinha: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 10,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10,
     marginTop: 8, marginBottom: 6,
   },
-  competencia: { fontFamily: 'NotoSans', fontSize: fonts.body, fontWeight: 700, color: colors.navy, flex: 1 },
+  competencia: { fontFamily: 'NotoSans', fontSize: fonts.body, fontWeight: 700, color: colors.navy },
+  nivelLinha: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  nivel: { fontFamily: 'NotoSans', fontSize: fonts.small, color: colors.textSecondary },
+  subiu: { fontFamily: 'NotoSans', fontSize: fonts.small, fontWeight: 700, color: COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].fg },
   competenciaAvanco: { fontFamily: 'NotoSans', fontSize: fonts.small, fontWeight: 700, color: colors.navy },
 });
 
@@ -96,11 +100,14 @@ function PageFooter({ label }: { label: string }) {
 // Este PDF ficou para trás com um card "Regressões 0" e o rótulo antigo
 // "Estagnação": o documento que a pessoa leva para casa dizia o que a tela não
 // diz mais.
-const CONV: Record<string, { cor: string; bg: string; label: string }> = {
-  [CONVERGENCIA.CONFIRMADA]: { cor: colors.green,   bg: '#F0FDF4',      label: rotuloConvergencia(CONVERGENCIA.CONFIRMADA) },
-  [CONVERGENCIA.PARCIAL]:    { cor: colors.orange,  bg: '#FFF7ED',      label: rotuloConvergencia(CONVERGENCIA.PARCIAL) },
-  [CONVERGENCIA.ESTAVEL]:    { cor: colors.gray500, bg: colors.gray100, label: rotuloConvergencia(CONVERGENCIA.ESTAVEL) },
-};
+//
+// Cores: `COR_VEREDITO_PAPEL`, a paleta única dos vereditos (confirmada verde
+// escuro, parcial verde claro; decisão do dono, 16/09/2026).
+const CONV: Record<string, { cor: string; bg: string; label: string }> = Object.fromEntries(
+  [CONVERGENCIA.CONFIRMADA, CONVERGENCIA.PARCIAL, CONVERGENCIA.ESTAVEL].map((v) => [
+    v, { cor: COR_VEREDITO_PAPEL[v].fg, bg: COR_VEREDITO_PAPEL[v].bg, label: rotuloConvergencia(v) },
+  ]),
+);
 const convDe = (k: string) => CONV[k] || CONV[CONVERGENCIA.ESTAVEL];
 
 const primeiroNome = (nome: string) => String(nome || '').trim().split(/\s+/)[0] || '';
@@ -121,9 +128,22 @@ const num = (v: any, casas = 1) => Number(v).toFixed(casas).replace('.', ',');
  * telas: só a vírgula decimal é do PDF.
  */
 export function avancoDoPdf(notaPre: unknown, notaPos: unknown): string | null {
-  const avanco = avancoExibido(notaPre, notaPos);
-  if (avanco == null) return null;
+  return avancoValorPdf(avancoExibido(notaPre, notaPos));
+}
+
+/** Um avanço JÁ calculado (piso zero) no formato do PDF: "+0,4" ou "0,0". */
+export function avancoValorPdf(avanco: number | null | undefined): string | null {
+  if (avanco == null || !Number.isFinite(avanco)) return null;
   return avanco > 0 ? `+${num(avanco)}` : num(0);
+}
+
+/** Estrela de "parabéns". Desenhada em SVG: emoji fora do subset da fonte sai em branco. */
+function Estrela() {
+  return (
+    <Svg width={9} height={9} viewBox="0 0 24 24">
+      <Path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z" fill="#F59E0B" />
+    </Svg>
+  );
 }
 
 /**
@@ -168,13 +188,18 @@ function MomentosDeInsight({ momentos }: { momentos: any[] }) {
   if (!momentos?.length) return null;
   return (
     <View style={s.section}>
-      <ReportSectionTitle>Momentos de insight</ReportSectionTitle>
-      {momentos.map((m: any, i: number) => (
-        <View key={i} style={s.card} wrap={false}>
-          <Text style={s.eyebrow}>Semana {m.semana}{m.descritor ? ` · ${m.descritor}` : ''}</Text>
-          <Text style={s.insight}>{m.insight}</Text>
-        </View>
-      ))}
+      {momentos.map((m: any, i: number) => {
+        const card = (
+          <View key={i} style={s.card} wrap={false}>
+            <Text style={s.eyebrow}>Semana {m.semana}{m.descritor ? ` · ${m.descritor}` : ''}</Text>
+            <Text style={s.insight}>{m.insight}</Text>
+          </View>
+        );
+        // Título preso ao primeiro card (ver "Missões executadas").
+        return i === 0
+          ? <View key={i} wrap={false}><ReportSectionTitle>Momentos de insight</ReportSectionTitle>{card}</View>
+          : card;
+      })}
     </View>
   );
 }
@@ -309,11 +334,20 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
               <View wrap={false}>
                 {grupo.competencia && (
                   <View style={s.competenciaLinha}>
-                    <Text style={s.competencia}>{grupo.competencia}</Text>
-                    {/* O resultado da COMPETÊNCIA é o avanço médio, nunca a nota
-                        (mesma régua e mesmo piso do descritor). */}
-                    {avancoDoPdf(grupo.mediaPre, grupo.mediaPos) && (
-                      <Text style={s.competenciaAvanco}>{`Avanço médio ${avancoDoPdf(grupo.mediaPre, grupo.mediaPos)}`}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.competencia}>{grupo.competencia}</Text>
+                      {/* Nível da MÉDIA da competência, nunca a nota; estrela quando subiu. */}
+                      {grupo.nivelFinal != null && (
+                        <View style={s.nivelLinha}>
+                          <Text style={s.nivel}>{`Nível final N${grupo.nivelFinal}`}</Text>
+                          {grupo.subiuDeNivel && <Estrela />}
+                          {grupo.subiuDeNivel && <Text style={s.subiu}>Subiu de nível</Text>}
+                        </View>
+                      )}
+                    </View>
+                    {/* O resultado da COMPETÊNCIA é o avanço médio dos descritores. */}
+                    {avancoValorPdf(grupo.avancoMedio) && (
+                      <Text style={s.competenciaAvanco}>{`Avanço médio ${avancoValorPdf(grupo.avancoMedio)}`}</Text>
                     )}
                   </View>
                 )}
@@ -328,16 +362,24 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
 
         {missoes?.length > 0 && (
           <View style={s.section}>
-            <ReportSectionTitle>Missões executadas</ReportSectionTitle>
-            {missoes.map((m: any, i: number) => (
-              <View key={i} style={s.card} wrap={false}>
-                <Text style={s.eyebrow}>
-                  Semana {m.semana} · {m.modo === 'pratica' ? 'Missão real' : 'Cenário escrito'}
-                </Text>
-                {m.compromisso && <Text style={s.antesDepois}><Text style={s.rotulo}>Compromisso: </Text>{m.compromisso}</Text>}
-                {m.sintese && <Text style={s.antesDepois}><Text style={s.rotulo}>Síntese: </Text>{m.sintese}</Text>}
-              </View>
-            ))}
+            {missoes.map((m: any, i: number) => {
+              const card = (
+                <View key={i} style={s.card} wrap={false}>
+                  <Text style={s.eyebrow}>
+                    Semana {m.semana} · {m.modo === 'pratica' ? 'Missão real' : 'Cenário escrito'}
+                  </Text>
+                  {m.compromisso && <Text style={s.antesDepois}><Text style={s.rotulo}>Compromisso: </Text>{m.compromisso}</Text>}
+                  {m.sintese && <Text style={s.antesDepois}><Text style={s.rotulo}>Síntese: </Text>{m.sintese}</Text>}
+                </View>
+              );
+              // Título preso ao primeiro card: solto, caía no pé da página 4 do
+              // PDF do Helmar com a missão na 5 (16/09/2026). O maior card de
+              // missão da base (2.665 caracteres, o dele) ocupa ~80% da página,
+              // então título + card ainda cabem.
+              return i === 0
+                ? <View key={i} wrap={false}><ReportSectionTitle>Missões executadas</ReportSectionTitle>{card}</View>
+                : card;
+            })}
           </View>
         )}
 

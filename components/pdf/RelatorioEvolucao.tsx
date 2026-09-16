@@ -28,6 +28,7 @@ import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/render
 import { colors, pageStyles, fonts } from './styles';
 import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
+import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
 import {
   CONVERGENCIA, rotuloConvergencia, CORTE_CONFIRMADA, CORTE_PARCIAL, NIVEL_META_CONFIRMADA,
 } from '@/lib/season-engine/convergencia';
@@ -88,8 +89,9 @@ const s = StyleSheet.create({
 
 /** Paleta por veredito. Uma só, para a pílula e o cartão não divergirem. */
 const TINTA = {
-  [CONVERGENCIA.CONFIRMADA]: { fg: '#14532D', bg: '#F0FDF4', border: '#BBF7D0' },
-  [CONVERGENCIA.PARCIAL]: { fg: '#0C4A6E', bg: '#F0F9FF', border: '#BAE6FD' },
+  // Paleta única do veredito (`convergencia-cores`): confirmada verde escuro, parcial verde claro.
+  [CONVERGENCIA.CONFIRMADA]: { fg: COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].fg, bg: COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].bg, border: COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].borda },
+  [CONVERGENCIA.PARCIAL]: { fg: COR_VEREDITO_PAPEL[CONVERGENCIA.PARCIAL].fg, bg: COR_VEREDITO_PAPEL[CONVERGENCIA.PARCIAL].bg, border: COR_VEREDITO_PAPEL[CONVERGENCIA.PARCIAL].borda },
   [CONVERGENCIA.ESTAVEL]: { fg: '#78350F', bg: '#FFFBEB', border: '#FDE68A' },
   semVeredito: { fg: colors.gray600, bg: colors.gray100, border: colors.gray200 },
 };

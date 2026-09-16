@@ -4,23 +4,25 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, Sparkles, Trophy, Target, MessageSquare, CheckCircle2, TrendingUp, Minus, Download, Award } from 'lucide-react';
+import { Loader2, Sparkles, Trophy, Target, MessageSquare, CheckCircle2, TrendingUp, Minus, Download, Award, PartyPopper } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import ReactMarkdown from 'react-markdown';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-import { formatarAvanco } from '@/lib/season-engine/convergencia';
+import { formatarAvanco, formatarValorAvanco, CONVERGENCIA } from '@/lib/season-engine/convergencia';
+import { COR_VEREDITO_TELA, corTela } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 
 // Sem veredito de regressão (a régua não tem desde 01/09) e sem nota absoluta:
 // cada descritor mostra só o AVANÇO, com piso em zero, e o veredito. Decisão do
 // dono aplicada às telas de admin e do gestor em 14/09; esta tela, que é a da
 // própria pessoa e a que baixa o PDF, ficou para trás até 16/09.
-const CONVERGENCIA = {
-  evolucao_confirmada: { cor: 'emerald', icon: TrendingUp, labelKey: 'confirmed' },
-  evolucao_parcial:    { cor: 'amber',   icon: TrendingUp, labelKey: 'partial' },
-  estagnacao:          { cor: 'gray',    icon: Minus,      labelKey: 'stagnation' },
+// Cores pela paleta única do veredito (`convergencia-cores`).
+const VEREDITO = {
+  evolucao_confirmada: { icon: TrendingUp, labelKey: 'confirmed' },
+  evolucao_parcial:    { icon: TrendingUp, labelKey: 'partial' },
+  estagnacao:          { icon: Minus,      labelKey: 'stagnation' },
 };
 
 export default function TemporadaConcluidaPage() {
@@ -207,8 +209,8 @@ export default function TemporadaConcluidaPage() {
       {/* Resumo numérico */}
       <GlassCard className="mb-6 border-brand-500/20 bg-brand-500/[0.03]">
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <Stat label={t('stats.confirmed')} valor={resumo.confirmadas || 0} cor="text-emerald-400" />
-          <Stat label={t('stats.partial')} valor={resumo.parciais || 0} cor="text-amber-400" />
+          <Stat label={t('stats.confirmed')} valor={resumo.confirmadas || 0} cor={COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA].tinta} />
+          <Stat label={t('stats.partial')} valor={resumo.parciais || 0} cor={COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL].tinta} />
           {/* Relatório anterior a 01/09 ainda pode ter `regressoes`: manteve o patamar, conta como estável. */}
           <Stat label={t('stats.stagnated')} valor={(resumo.estagnacoes || 0) + (resumo.regressoes || 0)} cor="text-gray-400" />
         </div>
@@ -227,35 +229,49 @@ export default function TemporadaConcluidaPage() {
         {agruparPorCompetencia(descritores).map((grupo, g) => (
           <div key={g} className="mb-4">
             {grupo.competencia && (
-              <div className="flex items-baseline justify-between gap-3 mb-2">
-                <p className="text-sm font-bold text-brand-300">{grupo.competencia}</p>
-                {/* Resultado da competência = avanço médio, nunca a nota. */}
-                {formatarAvanco(grupo.mediaPre, grupo.mediaPos) && (
+              <div className="flex items-start justify-between gap-3 mb-2">
+                <div>
+                  <p className="text-sm font-bold text-brand-300">{grupo.competencia}</p>
+                  {/* Nível da MÉDIA da competência (nunca a nota) e parabéns quando subiu. */}
+                  {grupo.nivelFinal != null && (
+                    <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      {t('finalLevel')} <b className="text-white">N{grupo.nivelFinal}</b>
+                      {grupo.subiuDeNivel && (
+                        <span className="inline-flex items-center gap-1 text-amber-300 font-bold">
+                          <PartyPopper size={13} /> {t('levelUp')}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                </div>
+                {/* Resultado da competência = média dos avanços exibidos, nunca a nota. */}
+                {formatarValorAvanco(grupo.avancoMedio) && (
                   <span className="text-xs text-gray-400 shrink-0">
-                    {t('competencyProgress')} <b className="text-brand-300">{formatarAvanco(grupo.mediaPre, grupo.mediaPos)}</b>
+                    {t('competencyProgress')} <b className="text-brand-300">{formatarValorAvanco(grupo.avancoMedio)}</b>
                   </span>
                 )}
               </div>
             )}
             <div className="space-y-2">
               {grupo.descritores.map((d, i) => {
-                const conv = CONVERGENCIA[d.convergencia] || CONVERGENCIA.estagnacao;
+                const conv = VEREDITO[d.convergencia] || VEREDITO.estagnacao;
+                const cor = corTela(d.convergencia);
                 const Icon = conv.icon;
                 const avanco = formatarAvanco(d.nota_pre, d.nota_pos);
                 return (
-                  <GlassCard key={i} className={`border-${conv.cor}-500/20 bg-${conv.cor}-500/[0.03]`}>
+                  <GlassCard key={i} className={`${cor.borda} ${cor.fundo}`}>
                     <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-${conv.cor}-500/15`}>
-                        <Icon size={18} className={`text-${conv.cor}-400`} />
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${cor.icone}`}>
+                        <Icon size={18} className={cor.tinta} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-3 flex-wrap">
                           <p className="text-sm font-bold text-white">{descritorParaHumano(d.descritor)}</p>
                           {avanco && (
-                            <span className={`text-xs font-bold shrink-0 text-${conv.cor}-400`}>{avanco}</span>
+                            <span className={`text-xs font-bold shrink-0 ${cor.tinta}`}>{avanco}</span>
                           )}
                         </div>
-                        <p className={`text-[10px] uppercase text-${conv.cor}-400 mt-1`}>{t(`classification.${conv.labelKey}`)}</p>
+                        <p className={`text-[10px] uppercase mt-1 ${cor.tinta}`}>{t(`classification.${conv.labelKey}`)}</p>
                         {d.antes && d.depois && (
                           <div className="mt-2 text-xs space-y-0.5">
                             <p className="text-gray-500"><span className="text-gray-400">{t('before')}</span> {d.antes}</p>

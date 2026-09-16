@@ -4,14 +4,15 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText, Headphones, Award, ArrowLeft, Eye } from 'lucide-react';
+import { Loader2, BookOpen, Target, Sparkles, Lock, Check, Play, Video, FileText, Headphones, Award, ArrowLeft, Eye, PartyPopper } from 'lucide-react';
 import { loadTemporada, loadTemporadaPorEmail } from '@/actions/temporadas';
 import { PageContainer, PageHero, GlassCard } from '@/components/page-shell';
 import { semanaLiberadaPorData, formatarLiberacao, turnosIaNecessarios, contarTurnosIa } from '@/lib/season-engine/week-gating';
 import { qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import FirstViewVideo from '@/components/first-view-video';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-import { formatarAvanco } from '@/lib/season-engine/convergencia';
+import { formatarAvanco, formatarValorAvanco } from '@/lib/season-engine/convergencia';
+import { corTela } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 // Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a
 // temporada. A constante mora em programa-config: a tela da semana trancada
@@ -312,10 +313,11 @@ function Center({ children }: { children: React.ReactNode }) {
 // Sem veredito de regressão e sem nota absoluta (ver `avancoExibido` em
 // lib/season-engine/convergencia.ts): o card mostra quanto cada comportamento
 // andou, com piso em zero, e o veredito.
-const CONVERGENCIA: Record<string, { cor: string; icon: string }> = {
-  evolucao_confirmada: { cor: 'emerald', icon: '✅' },
-  evolucao_parcial:    { cor: 'amber',   icon: '🟡' },
-  estagnacao:          { cor: 'gray',    icon: '⚪' },
+// Cores pela paleta única do veredito (`convergencia-cores`).
+const CONVERGENCIA: Record<string, { icon: string }> = {
+  evolucao_confirmada: { icon: '✅' },
+  evolucao_parcial:    { icon: '🟢' },
+  estagnacao:          { icon: '⚪' },
 };
 
 function EvolutionReportCard({ report, t }: { report: any; t: any }) {
@@ -348,10 +350,22 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
           </p>
           <div className="space-y-1">
             {consolidados.map((c, i) => {
-              const avanco = formatarAvanco(c.mediaPre, c.mediaPos);
+              const avanco = formatarValorAvanco(c.avancoMedio);
               return (
                 <div key={i} className="flex items-baseline justify-between gap-3 flex-wrap">
-                  <p className="text-sm font-bold text-white">{c.competencia || '-'}</p>
+                  <p className="text-sm font-bold text-white">
+                    {c.competencia || '-'}
+                    {c.nivelFinal != null && (
+                      <span className="ml-2 text-[11px] font-normal text-gray-400">
+                        {t('report.finalLevel')} <b className="text-white">N{c.nivelFinal}</b>
+                        {c.subiuDeNivel && (
+                          <span className="ml-1.5 inline-flex items-center gap-1 text-amber-300 font-bold">
+                            <PartyPopper size={12} /> {t('report.levelUp')}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-gray-300">
                     {avanco && <span className="text-brand-300 font-bold">{avanco} · </span>}
                     <span className="text-gray-400">{c.descritores.length} {t('report.behaviors')}</span>
@@ -371,10 +385,10 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
           const avanco = formatarAvanco(d.nota_pre, d.nota_pos);
           const estavel = avanco == null || avanco === '0.0';
           return (
-            <div key={i} className={`p-2 rounded-lg bg-white/5 border border-${conv.cor}-500/20`}>
+            <div key={i} className={`p-2 rounded-lg bg-white/5 border ${corTela(d.convergencia).borda}`}>
               <div className="flex items-center justify-between">
                 <div className="text-xs font-bold text-white">{conv.icon} {descritorParaHumano(d.descritor)}</div>
-                <div className={`text-[10px] font-bold ${estavel ? 'text-gray-400' : `text-${conv.cor}-400`}`}>
+                <div className={`text-[10px] font-bold ${estavel ? 'text-gray-400' : corTela(d.convergencia).tinta}`}>
                   {estavel ? t('report.stable') : avanco}
                 </div>
               </div>

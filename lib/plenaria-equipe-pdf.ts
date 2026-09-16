@@ -4,6 +4,8 @@
  */
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
 import React from 'react';
+import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
+import { formatarValorAvanco } from '@/lib/season-engine/convergencia';
 
 const styles = StyleSheet.create({
   page: { padding: 44, fontSize: 10, fontFamily: 'Helvetica', lineHeight: 1.5, color: '#1f2937' },
@@ -29,8 +31,9 @@ function sanitize(s) {
 
 const COR = {
   em_andamento:         '#0891B2', // cyan
-  evolucao_confirmada:  '#059669',
-  evolucao_parcial:     '#D97706',
+  // Paleta única do veredito (`convergencia-cores`): confirmada verde escuro, parcial verde claro.
+  evolucao_confirmada:  COR_VEREDITO_PAPEL.evolucao_confirmada.fg,
+  evolucao_parcial:     COR_VEREDITO_PAPEL.evolucao_parcial.fg,
   estagnacao:           '#6B7280',
   regressao:            '#DC2626',
   sem_trilha:           '#9CA3AF',
@@ -40,7 +43,7 @@ const LABEL = {
   em_andamento:         'Em andamento',
   evolucao_confirmada:  'Evolucao confirmada',
   evolucao_parcial:     'Evolucao parcial',
-  estagnacao:           'Estagnacao',
+  estagnacao:           'Estavel',
   regressao:            'Regressao',
   sem_trilha:           'Sem trilha',
   arquivada:            'Arquivada',
@@ -69,9 +72,10 @@ export function PlenariaEquipePDF({ gestorNome, empresa, resumo, rows, eyebrow, 
         stat('Em andamento', resumo.emAndamento || 0, COR.em_andamento),
       ),
       React.createElement(View, { style: styles.statGrid },
-        stat('Estagnacao', resumo.estagnacao || 0, COR.estagnacao),
-        stat('Regressao', resumo.regressao || 0, COR.regressao),
+        // Sem card de regressão: a régua não tem esse veredito desde 01/09/2026.
+        stat('Estavel', resumo.estagnacao || 0, COR.estagnacao),
         stat('Sem trilha', resumo.semTrilha || 0, COR.sem_trilha),
+        React.createElement(View, { style: { flex: 1 } }),
         React.createElement(View, { style: { flex: 1 } }),
       ),
 
@@ -87,8 +91,9 @@ export function PlenariaEquipePDF({ gestorNome, empresa, resumo, rows, eyebrow, 
               React.createElement(Text, { style: styles.small }, sanitize(`${r.cargo || '-'}${r.competencia ? ' - ' + r.competencia : ''}`)),
             ),
             React.createElement(View, { style: { alignItems: 'flex-end' } },
-              r.delta != null && React.createElement(Text, { style: { fontSize: 9, color: cor, fontWeight: 700 } },
-                `${r.mediaPre.toFixed(1)} -> ${r.mediaPos.toFixed(1)} (${r.delta > 0 ? '+' : ''}${r.delta.toFixed(1)})`
+              // Só o avanço médio exibido (piso zero), sem notas: mesma régua da tela.
+              r.avancoMedio != null && React.createElement(Text, { style: { fontSize: 9, color: cor, fontWeight: 700 } },
+                `Avanco medio ${formatarValorAvanco(r.avancoMedio).replace('.', ',')}`
               ),
               React.createElement(Text, { style: { ...styles.pill, color: cor, marginTop: 2 } }, sanitize(label)),
             ),

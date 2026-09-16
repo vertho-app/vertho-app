@@ -13,6 +13,7 @@ import InAppPdfDocument from '@/components/pdf/in-app-pdf-document';
 import type { RhReportDocument, RhReportKind, RhReportsCenter, RhReportsScope } from '@/lib/relatorios/rh-center';
 import type { EvolucaoAgregado } from '@/lib/relatorios/evolucao-center';
 import { TETO_N3 } from '@/lib/nivel-regua';
+import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 import type { RhDescriptorScope } from '@/lib/relatorios/dashboard-insights';
 
 type DashboardTab = 'overview' | 'evolution' | 'roles' | 'priorities' | 'documents';
@@ -270,8 +271,9 @@ function JourneyPulse({ reports, t }: { reports: RhReportsCenter; t: any }) {
    recalculado aqui — ver `lib/relatorios/evolucao-center.ts`.                */
 
 const VERDICT_STYLE: Record<string, { chave: string; cor: string; fundo: string }> = {
-  evolucao_confirmada: { chave: 'confirmed', cor: '#34D399', fundo: 'rgba(52,211,153,.12)' },
-  evolucao_parcial: { chave: 'partial', cor: '#67E8F9', fundo: 'rgba(103,232,249,.1)' },
+  // Paleta única do veredito (`convergencia-cores`): confirmada verde escuro, parcial verde claro.
+  evolucao_confirmada: { chave: 'confirmed', cor: COR_VEREDITO_TELA.evolucao_confirmada.hex, fundo: COR_VEREDITO_TELA.evolucao_confirmada.hexFundo },
+  evolucao_parcial: { chave: 'partial', cor: COR_VEREDITO_TELA.evolucao_parcial.hex, fundo: COR_VEREDITO_TELA.evolucao_parcial.hexFundo },
   estagnacao: { chave: 'stable', cor: 'rgba(255,255,255,.62)', fundo: 'rgba(255,255,255,.06)' },
 };
 
@@ -458,8 +460,8 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
   }
 
   const cards = [
-    { key: 'confirmed', valor: resumo.confirmadas, cor: '#34D399' },
-    { key: 'partial', valor: resumo.parciais, cor: '#67E8F9' },
+    { key: 'confirmed', valor: resumo.confirmadas, cor: COR_VEREDITO_TELA.evolucao_confirmada.hex },
+    { key: 'partial', valor: resumo.parciais, cor: COR_VEREDITO_TELA.evolucao_parcial.hex },
     { key: 'stable', valor: resumo.estaveis, cor: 'rgba(255,255,255,.72)' },
   ] as const;
 
@@ -537,8 +539,8 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
           </p>
           <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
             {[
-              { chave: 'confirmed', cor: '#34D399' },
-              { chave: 'partial', cor: '#67E8F9' },
+              { chave: 'confirmed', cor: COR_VEREDITO_TELA.evolucao_confirmada.hex },
+              { chave: 'partial', cor: COR_VEREDITO_TELA.evolucao_parcial.hex },
               { chave: 'stable', cor: 'rgba(255,255,255,.72)' },
             ].map(({ chave, cor }) => (
               <div key={chave} className="flex gap-2 text-[12px] leading-relaxed">

@@ -12,7 +12,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
-import { avancoDoPdf, contadoresDoPdf } from '@/lib/temporada-concluida-pdf';
+import { avancoDoPdf, avancoValorPdf, contadoresDoPdf } from '@/lib/temporada-concluida-pdf';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { semComentarios } from '../helpers/fonte';
 
@@ -57,36 +57,62 @@ describe('descritores agrupados por competência', () => {
   it('descritor sem competência não some: fica num grupo sem título', () => {
     const grupos = agruparPorCompetencia([{ descritor: 'X' }, { competencia: '  ', descritor: 'Y' }]);
     expect(grupos).toEqual([{
-      competencia: null, descritores: [{ descritor: 'X' }, { competencia: '  ', descritor: 'Y' }], mediaPre: null, mediaPos: null,
+      competencia: null, descritores: [{ descritor: 'X' }, { competencia: '  ', descritor: 'Y' }],
+      avancoMedio: null, nivelInicial: null, nivelFinal: null, subiuDeNivel: false,
     }]);
     expect(agruparPorCompetencia(null)).toEqual([]);
   });
 
-  it('o resultado da competência é o AVANÇO médio, com o mesmo piso do descritor', () => {
-    // Elisângela, 16/09: as duas competências da trilha DUO, notas reais.
+  /**
+   * 🔴 O caso que o dono apontou (16/09/2026): "Apoio técnico" listava +0,1, 0,0,
+   * +0,3, +0,3 e 0,0 e o cabeçalho dizia "Avanço médio 0,0", porque a conta era
+   * média das notas finais menos média das iniciais, e as quedas de Registro e
+   * devolutiva (2,0 → 1,4) e Presença (2,9 → 2,2) entravam escondidas. Notas
+   * REAIS da Elisângela.
+   */
+  it('avanço médio da competência é a média dos avanços EXIBIDOS (notas reais da Elisângela)', () => {
     const [avaliacao, apoio] = agruparPorCompetencia([
       { competencia: 'Avaliação', nota_pre: 2, nota_pos: 3.2 },
       { competencia: 'Avaliação', nota_pre: 2, nota_pos: 2.5 },
       { competencia: 'Avaliação', nota_pre: 2.5, nota_pos: 2.1 },
       { competencia: 'Avaliação', nota_pre: 2.5, nota_pos: 2.3 },
-      { competencia: 'Apoio', nota_pre: 2.9, nota_pos: 2.2 },
+      { competencia: 'Apoio', nota_pre: 2, nota_pos: 2.1 },
       { competencia: 'Apoio', nota_pre: 2, nota_pos: 1.4 },
+      { competencia: 'Apoio', nota_pre: 2, nota_pos: 2.3 },
+      { competencia: 'Apoio', nota_pre: 2, nota_pos: 2.3 },
+      { competencia: 'Apoio', nota_pre: 2.9, nota_pos: 2.2 },
     ]);
-    // média 2,25 → 2,525: +0,3
-    expect(avancoDoPdf(avaliacao.mediaPre, avaliacao.mediaPos)).toBe('+0,3');
-    // média 2,45 → 1,8: cai, e o papel diz 0,0
-    expect(avancoDoPdf(apoio.mediaPre, apoio.mediaPos)).toBe('0,0');
+    expect(avancoValorPdf(apoio.avancoMedio)).toBe('+0,1');     // (0,1 + 0 + 0,3 + 0,3 + 0) / 5
+    expect(avancoValorPdf(avaliacao.avancoMedio)).toBe('+0,4'); // (1,2 + 0,5 + 0 + 0) / 4
   });
 
-  it('descritor sem nota fica fora da média em vez de contar como zero', () => {
+  it('nível final é o da MÉDIA das notas; subiu só quando o nível da média sobe', () => {
+    // Helmar, Planejamento: média 1,70 (N1) → 2,53 (N2).
+    const [subiu] = agruparPorCompetencia([
+      { competencia: 'P', nota_pre: 1.5, nota_pos: 2.4 },
+      { competencia: 'P', nota_pre: 1.9, nota_pos: 2.66 },
+    ]);
+    expect(subiu).toMatchObject({ nivelInicial: 1, nivelFinal: 2, subiuDeNivel: true });
+    // Elisângela, Avaliação: 2,25 (N2) → 2,53 (N2): mesmo nível, sem parabéns.
+    const [manteve] = agruparPorCompetencia([
+      { competencia: 'A', nota_pre: 2.25, nota_pos: 2.53 },
+    ]);
+    expect(manteve).toMatchObject({ nivelFinal: 2, subiuDeNivel: false });
+    // N4 abre acima de 3,5 (régua oficial), não em 4,0.
+    const [n4] = agruparPorCompetencia([{ competencia: 'X', nota_pre: 3.2, nota_pos: 3.6 }]);
+    expect(n4).toMatchObject({ nivelInicial: 3, nivelFinal: 4, subiuDeNivel: true });
+  });
+
+  it('descritor sem nota fica fora do avanço e do nível em vez de contar como zero', () => {
     const [g] = agruparPorCompetencia([
       { competencia: 'C', nota_pre: 2, nota_pos: 2.4 },
       { competencia: 'C', nota_pre: null, nota_pos: 3 },
     ]);
-    expect(g.mediaPre).toBe(2);
-    expect(g.mediaPos).toBe(2.4);
+    expect(g.avancoMedio).toBe(0.4);
+    expect(g).toMatchObject({ nivelInicial: 2, nivelFinal: 2 });
     const [vazio] = agruparPorCompetencia([{ competencia: 'C', nota_pre: null, nota_pos: null }]);
-    expect(avancoDoPdf(vazio.mediaPre, vazio.mediaPos)).toBeNull();
+    expect(avancoValorPdf(vazio.avancoMedio)).toBeNull();
+    expect(vazio.nivelFinal).toBeNull();
   });
 });
 

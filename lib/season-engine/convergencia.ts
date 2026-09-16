@@ -128,9 +128,37 @@ export function avancoExibido(notaPre: unknown, notaPos: unknown): number | null
 
 /** O mesmo avanço já em texto: `+0.3` quando andou, `0.0` quando manteve. */
 export function formatarAvanco(notaPre: unknown, notaPos: unknown): string | null {
-  const avanco = avancoExibido(notaPre, notaPos);
-  if (avanco == null) return null;
+  return formatarValorAvanco(avancoExibido(notaPre, notaPos));
+}
+
+/** Um avanço JÁ calculado (piso zero) em texto: `+0.3` ou `0.0`; `null` se não há. */
+export function formatarValorAvanco(avanco: number | null | undefined): string | null {
+  if (avanco == null || !Number.isFinite(avanco)) return null;
   return avanco > 0 ? `+${avanco.toFixed(1)}` : '0.0';
+}
+
+/**
+ * Avanço de um CONJUNTO de descritores (uma competência, uma pessoa): a MÉDIA
+ * dos avanços exibidos, cada um já com piso zero, em uma casa decimal.
+ *
+ * 🔴 NÃO é "média das notas finais menos média das iniciais" (16/09/2026). Essa
+ * conta leva para dentro as quedas que o documento não mostra: no PDF da
+ * Elisângela, "Apoio técnico e monitoramento das unidades" listava +0,1, 0,0,
+ * +0,3, +0,3 e 0,0, e o cabeçalho dizia "Avanço médio 0,0", porque Registro e
+ * devolutiva (2,0 → 1,4) e Presença junto às unidades (2,9 → 2,2) puxavam a
+ * média das notas para baixo. Se a queda não existe no descritor, não pode
+ * existir escondida no agregado. O dono estranhou na hora.
+ *
+ * `null` quando nenhum descritor tem as duas notas.
+ */
+export function avancoMedioExibido(
+  descritores: Array<{ nota_pre?: unknown; nota_pos?: unknown }> | null | undefined,
+): number | null {
+  const avancos = (Array.isArray(descritores) ? descritores : [])
+    .map((d) => avancoExibido(d?.nota_pre, d?.nota_pos))
+    .filter((a): a is number => a != null);
+  if (!avancos.length) return null;
+  return Math.round((avancos.reduce((soma, a) => soma + a, 0) / avancos.length) * 10) / 10;
 }
 
 /**

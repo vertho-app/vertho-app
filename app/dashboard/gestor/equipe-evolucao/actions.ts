@@ -5,6 +5,7 @@ import { getUserContext, mesmoEmail, canViewColabJourney, findColabByEmail } fro
 import { escaparLike } from '@/lib/sql-like';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
+import { avancoMedioExibido } from '@/lib/season-engine/convergencia';
 
 /**
  * Lista os liderados do gestor com temporada (em andamento ou concluída)
@@ -73,6 +74,10 @@ export async function listarEquipeEvolucao() {
       ? descritores.reduce((a, d) => a + (d.nota_pre || 0), 0) / descritores.length
       : null;
     const delta = (mediaPos != null && mediaPre != null) ? mediaPos - mediaPre : null;
+    // O que a TELA mostra da pessoa: a média dos avanços exibidos nos descritores
+    // (piso zero em cada um). `delta` acima segue só para o PDF de plenária antigo
+    // não quebrar; ele leva quedas que o detalhe da pessoa não mostra (16/09/2026).
+    const avancoMedio = avancoMedioExibido(descritores);
 
     // Classificação agregada
     let status = 'sem_trilha';
@@ -98,7 +103,7 @@ export async function listarEquipeEvolucao() {
       temporada: t?.numero_temporada || null,
       statusTrilha: t?.status || null,
       status,
-      mediaPre, mediaPos, delta,
+      mediaPre, mediaPos, delta, avancoMedio,
       resumoDescritores: resumo,
     };
   });

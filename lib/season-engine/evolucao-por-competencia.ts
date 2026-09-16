@@ -1,31 +1,39 @@
+import { avancoMedioExibido } from '@/lib/season-engine/convergencia';
+import { nivelDaNota, type Nivel } from '@/lib/nivel-regua';
+
 /**
  * Agrupa os descritores do Evolution Report pela competência a que pertencem,
- * na ordem em que aparecem no relatório.
+ * na ordem em que aparecem no relatório, com o resultado de cada competência.
  *
- * 🔑 POR QUE (16/09/2026, pergunta do dono olhando o PDF da Elisângela). As
+ * 🔑 POR QUE (16/09/2026, perguntas do dono olhando o PDF da Elisângela). As
  * trilhas DUO trabalham DUAS competências, e cada descritor do relatório já
  * carrega a sua (`evolution-report-core` grava `d.competencia`). Mas o PDF e a
  * tela da temporada concluída listavam os 9 descritores corridos, citando as
- * competências só juntas no subtítulo ("A + B"): quem lia não sabia a qual
- * competência cada comportamento pertencia. O layout era do tempo da trilha de
- * uma competência só.
+ * competências só juntas no subtítulo ("A + B"), e não diziam como cada
+ * competência terminou.
  *
- * Pura e sem dependência de UI: serve ao PDF (servidor) e à tela ('use client').
+ * O resultado da competência tem duas partes, e nenhuma é a nota:
+ *   · `avancoMedio`: média dos avanços EXIBIDOS dos descritores (piso zero em
+ *     cada um), a mesma régua do descritor (ver `avancoMedioExibido`);
+ *   · `nivelFinal` (e se SUBIU): o nível da régua oficial (`nivelDaNota`)
+ *     aplicado à MÉDIA das notas da competência. Nível de média, e não de
+ *     descritor, porque é o que a medição sustenta: o nível de um descritor
+ *     isolado troca em 32% das repontuações, o da média oscila 0,07
+ *     (`lib/nivel-regua.ts`).
+ *
+ * Pura e sem dependência de UI: serve ao PDF (servidor) e às telas ('use client').
  */
 export interface GrupoCompetencia<T> {
   /** `null` quando o descritor não traz competência (relatório antigo). */
   competencia: string | null;
   descritores: T[];
-  /**
-   * Médias das notas dos descritores que têm AS DUAS (`null` se nenhum tem).
-   * Não são para exibir: a tela e o PDF só mostram o AVANÇO da competência,
-   * `formatarAvanco(mediaPre, mediaPos)`, com o mesmo piso em zero do descritor
-   * (decisão do dono, 16/09/2026: "e a nota da competência?"). `Number(null)` é
-   * 0, então descritor sem nota de partida fica de fora da média, senão puxaria
-   * o "antes" para baixo e inventaria avanço.
-   */
-  mediaPre: number | null;
-  mediaPos: number | null;
+  /** Média dos avanços exibidos; `null` se nenhum descritor tem as duas notas. */
+  avancoMedio: number | null;
+  /** Nível da média das notas iniciais / finais (só descritores com as duas notas). */
+  nivelInicial: Nivel | null;
+  nivelFinal: Nivel | null;
+  /** O nível da média subiu entre o diagnóstico e o fechamento. */
+  subiuDeNivel: boolean;
 }
 
 // `T = any` e leitura por `any`: as telas recebem o relatório como `any` (jsonb),
@@ -39,16 +47,22 @@ export function agruparPorCompetencia<T = any>(
     const competencia = String((d as any)?.competencia || '').trim() || null;
     let grupo = grupos.find((g) => g.competencia === competencia);
     if (!grupo) {
-      grupo = { competencia, descritores: [], mediaPre: null, mediaPos: null };
+      grupo = { competencia, descritores: [], avancoMedio: null, nivelInicial: null, nivelFinal: null, subiuDeNivel: false };
       grupos.push(grupo);
     }
     grupo.descritores.push(d);
   }
   for (const g of grupos) {
+    g.avancoMedio = avancoMedioExibido(g.descritores as any[]);
+    // `Number(null)` é 0: descritor sem uma das notas fica fora da média, senão
+    // puxaria o nível para baixo por dado faltando.
     const medidos = g.descritores.filter((d: any) => temNota(d?.nota_pre) && temNota(d?.nota_pos));
     if (!medidos.length) continue;
-    g.mediaPre = medidos.reduce((soma, d: any) => soma + Number(d.nota_pre), 0) / medidos.length;
-    g.mediaPos = medidos.reduce((soma, d: any) => soma + Number(d.nota_pos), 0) / medidos.length;
+    const media = (campo: 'nota_pre' | 'nota_pos') =>
+      medidos.reduce((soma, d: any) => soma + Number(d[campo]), 0) / medidos.length;
+    g.nivelInicial = nivelDaNota(media('nota_pre'));
+    g.nivelFinal = nivelDaNota(media('nota_pos'));
+    g.subiuDeNivel = g.nivelFinal > g.nivelInicial;
   }
   return grupos;
 }

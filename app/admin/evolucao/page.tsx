@@ -7,7 +7,8 @@ import { loadEvolutionReportsEmpresa } from '@/actions/evolution-report';
 import BackButton from '@/components/back-button';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
-import { rotuloConvergencia, qualitativaSustenta, formatarAvanco } from '@/lib/season-engine/convergencia';
+import { rotuloConvergencia, qualitativaSustenta, formatarAvanco, CONVERGENCIA } from '@/lib/season-engine/convergencia';
+import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 import { normalizarResumoAvaliacao } from '@/lib/season-engine/resumo-avaliacao';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 
@@ -21,10 +22,11 @@ import { descritorParaHumano } from '@/lib/descritor-humano';
  * descritores com veredito em toda a base, ZERO com `regressao`. Era um número
  * que não podia sair de 0, ocupando um quarto do resumo.
  */
+// Cores pela paleta única do veredito (`convergencia-cores`).
 const CONV = {
-  evolucao_confirmada: { cor: 'emerald' },
-  evolucao_parcial: { cor: 'amber' },
-  estagnacao: { cor: 'gray' },
+  evolucao_confirmada: COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA],
+  evolucao_parcial: COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL],
+  estagnacao: COR_VEREDITO_TELA[CONVERGENCIA.ESTAVEL],
 };
 
 export default function EvolucaoAdminPage() {
@@ -143,8 +145,8 @@ function ResumoGeral({ porCompetencia }: { porCompetencia: any }) {
   return (
     <div className="grid grid-cols-3 gap-3 mb-6">
       {Object.entries(CONV).map(([k, c]: [string, any]) => (
-        <div key={k} className={`rounded-xl p-4 bg-${c.cor}-500/10 border border-${c.cor}-500/20`}>
-          <div className={`text-2xl font-bold text-${c.cor}-400`}>{stats[k]}</div>
+        <div key={k} className={`rounded-xl p-4 border ${c.fundo} ${c.borda}`}>
+          <div className={`text-2xl font-bold ${c.tinta}`}>{stats[k]}</div>
           <div className="text-xs text-gray-400 mt-1">{t(`statuses.${k}`)}</div>
           <div className="text-[10px] text-gray-500">{Math.round(stats[k] / total * 100)}%</div>
         </div>
@@ -185,12 +187,12 @@ function CompetenciaCard({ nome, descritores, expanded, onToggle }: { nome?: any
                 <div className="flex h-2 rounded-full overflow-hidden bg-white/5">
                   {Object.entries(CONV).map(([k, c]: [string, any]) => {
                     const pct = total > 0 ? (d[k] / total * 100) : 0;
-                    return <div key={k} className={`bg-${c.cor}-500`} style={{ width: `${pct}%` }} title={`${t(`statuses.${k}`)}: ${d[k]}`} />;
+                    return <div key={k} className={c.solido} style={{ width: `${pct}%` }} title={`${t(`statuses.${k}`)}: ${d[k]}`} />;
                   })}
                 </div>
                 <div className="flex justify-between mt-1 text-[10px] text-gray-500">
                   {Object.entries(CONV).map(([k, c]: [string, any]) => (
-                    <span key={k} className={`text-${c.cor}-400`}>{t(`statuses.${k}`)}: {d[k]}</span>
+                    <span key={k} className={c.tinta}>{t(`statuses.${k}`)}: {d[k]}</span>
                   ))}
                 </div>
               </div>
@@ -235,8 +237,8 @@ function ColabRow({ trilha, onAbrir }) {
 
 /** Cores por veredito, para o detalhe. Mesmas famílias do resumo agregado. */
 const TINTA_VEREDITO = {
-  evolucao_confirmada: { borda: 'border-emerald-500/25', fundo: 'bg-emerald-500/[0.06]', tinta: 'text-emerald-300' },
-  evolucao_parcial: { borda: 'border-amber-500/25', fundo: 'bg-amber-500/[0.06]', tinta: 'text-amber-300' },
+  evolucao_confirmada: COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA],
+  evolucao_parcial: COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL],
   estagnacao: { borda: 'border-white/10', fundo: 'bg-white/[0.03]', tinta: 'text-gray-300' },
 };
 
