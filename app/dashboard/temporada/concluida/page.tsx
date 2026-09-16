@@ -4,18 +4,23 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, Sparkles, Trophy, Target, MessageSquare, CheckCircle2, TrendingUp, TrendingDown, Minus, Download, Award } from 'lucide-react';
+import { Loader2, Sparkles, Trophy, Target, MessageSquare, CheckCircle2, TrendingUp, Minus, Download, Award } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import ReactMarkdown from 'react-markdown';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { descritorParaHumano } from '@/lib/descritor-humano';
+import { formatarAvanco } from '@/lib/season-engine/convergencia';
+import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 
+// Sem veredito de regressão (a régua não tem desde 01/09) e sem nota absoluta:
+// cada descritor mostra só o AVANÇO, com piso em zero, e o veredito. Decisão do
+// dono aplicada às telas de admin e do gestor em 14/09; esta tela, que é a da
+// própria pessoa e a que baixa o PDF, ficou para trás até 16/09.
 const CONVERGENCIA = {
   evolucao_confirmada: { cor: 'emerald', icon: TrendingUp, labelKey: 'confirmed' },
   evolucao_parcial:    { cor: 'amber',   icon: TrendingUp, labelKey: 'partial' },
   estagnacao:          { cor: 'gray',    icon: Minus,      labelKey: 'stagnation' },
-  regressao:           { cor: 'red',     icon: TrendingDown, labelKey: 'regression' },
 };
 
 export default function TemporadaConcluidaPage() {
@@ -201,11 +206,11 @@ export default function TemporadaConcluidaPage() {
 
       {/* Resumo numérico */}
       <GlassCard className="mb-6 border-brand-500/20 bg-brand-500/[0.03]">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-3 gap-3 mb-4">
           <Stat label={t('stats.confirmed')} valor={resumo.confirmadas || 0} cor="text-emerald-400" />
           <Stat label={t('stats.partial')} valor={resumo.parciais || 0} cor="text-amber-400" />
-          <Stat label={t('stats.stagnated')} valor={resumo.estagnacoes || 0} cor="text-gray-400" />
-          <Stat label={t('stats.regressions')} valor={resumo.regressoes || 0} cor="text-red-400" />
+          {/* Relatório anterior a 01/09 ainda pode ter `regressoes`: manteve o patamar, conta como estável. */}
+          <Stat label={t('stats.stagnated')} valor={(resumo.estagnacoes || 0) + (resumo.regressoes || 0)} cor="text-gray-400" />
         </div>
         {evolutionReport?.insight_geral && (
           <p className="text-sm text-gray-200 italic border-l-2 border-brand-500/50 pl-3">
@@ -217,39 +222,46 @@ export default function TemporadaConcluidaPage() {
       {/* Bloco 1 — Comparativo por descritor */}
       <section className="mb-8">
         <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-3">{t('sections.descriptor')}</h2>
-        <div className="space-y-2">
-          {descritores.map((d, i) => {
-            const conv = CONVERGENCIA[d.convergencia] || CONVERGENCIA.estagnacao;
-            const Icon = conv.icon;
-            const delta = Number((d.nota_pos - d.nota_pre).toFixed(1));
-            return (
-              <GlassCard key={i} className={`border-${conv.cor}-500/20 bg-${conv.cor}-500/[0.03]`}>
-                <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-${conv.cor}-500/15`}>
-                    <Icon size={18} className={`text-${conv.cor}-400`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <p className="text-sm font-bold text-white">{descritorParaHumano(d.descritor)}</p>
-                      <div className="text-xs text-right shrink-0">
-                        <span className="text-gray-400">{d.nota_pre}</span>
-                        <span className={`text-${conv.cor}-400 font-bold mx-2`}>→ {d.nota_pos}</span>
-                        <span className={`text-[10px] text-${conv.cor}-400`}>({delta > 0 ? '+' : ''}{delta})</span>
+        {/* Agrupado por competência: na trilha DUO são duas, e a lista corrida
+            não dizia a qual cada comportamento pertence (mesma função do PDF). */}
+        {agruparPorCompetencia(descritores).map((grupo, g) => (
+          <div key={g} className="mb-4">
+            {grupo.competencia && (
+              <p className="text-sm font-bold text-brand-300 mb-2">{grupo.competencia}</p>
+            )}
+            <div className="space-y-2">
+              {grupo.descritores.map((d, i) => {
+                const conv = CONVERGENCIA[d.convergencia] || CONVERGENCIA.estagnacao;
+                const Icon = conv.icon;
+                const avanco = formatarAvanco(d.nota_pre, d.nota_pos);
+                return (
+                  <GlassCard key={i} className={`border-${conv.cor}-500/20 bg-${conv.cor}-500/[0.03]`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-${conv.cor}-500/15`}>
+                        <Icon size={18} className={`text-${conv.cor}-400`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <p className="text-sm font-bold text-white">{descritorParaHumano(d.descritor)}</p>
+                          {avanco && (
+                            <span className={`text-xs font-bold shrink-0 text-${conv.cor}-400`}>{avanco}</span>
+                          )}
+                        </div>
+                        <p className={`text-[10px] uppercase text-${conv.cor}-400 mt-1`}>{t(`classification.${conv.labelKey}`)}</p>
+                        {d.antes && d.depois && (
+                          <div className="mt-2 text-xs space-y-0.5">
+                            <p className="text-gray-500"><span className="text-gray-400">{t('before')}</span> {d.antes}</p>
+                            <p className="text-gray-200"><span className="text-brand-400">{t('after')}</span> {d.depois}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <p className={`text-[10px] uppercase text-${conv.cor}-400 mt-1`}>{t(`classification.${conv.labelKey}`)}</p>
-                    {d.antes && d.depois && (
-                      <div className="mt-2 text-xs space-y-0.5">
-                        <p className="text-gray-500"><span className="text-gray-400">{t('before')}</span> {d.antes}</p>
-                        <p className="text-gray-200"><span className="text-brand-400">{t('after')}</span> {d.depois}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </GlassCard>
-            );
-          })}
-        </div>
+                  </GlassCard>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </section>
 
       {/* Bloco 2 — Momentos da temporada */}
@@ -333,11 +345,6 @@ export default function TemporadaConcluidaPage() {
                 <p className="text-[10px] uppercase text-purple-400 font-bold tracking-widest mb-1">{t('final.feedback')}</p>
                 <p className="text-sm text-gray-200">{sem14.resumo_avaliacao.mensagem_geral}</p>
               </div>
-            )}
-            {sem14.nota_media_pos != null && (
-              <p className="text-xs text-gray-400 mt-3">
-                {t('final.postAverage')} <span className="text-purple-300 font-bold">{Number(sem14.nota_media_pos).toFixed(1)}/4.0</span>
-              </p>
             )}
           </GlassCard>
         </section>

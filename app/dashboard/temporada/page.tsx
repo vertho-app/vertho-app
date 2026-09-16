@@ -11,6 +11,7 @@ import { semanaLiberadaPorData, formatarLiberacao, turnosIaNecessarios, contarTu
 import { qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import FirstViewVideo from '@/components/first-view-video';
 import { descritorParaHumano } from '@/lib/descritor-humano';
+import { formatarAvanco } from '@/lib/season-engine/convergencia';
 // Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a
 // temporada. A constante mora em programa-config: a tela da semana trancada
 // serve o MESMO vídeo, e duas cópias do GUID divergiriam sem erro visível.
@@ -307,11 +308,13 @@ function Center({ children }: { children: React.ReactNode }) {
   );
 }
 
-const CONVERGENCIA: Record<string, { label: string; cor: string; icon: string }> = {
-  evolucao_confirmada: { label: 'Evolução confirmada', cor: 'emerald', icon: '✅' },
-  evolucao_parcial:    { label: 'Evolução parcial',    cor: 'amber',   icon: '🟡' },
-  estagnacao:          { label: 'Estagnação',          cor: 'gray',    icon: '⚪' },
-  regressao:           { label: 'Regressão',           cor: 'red',     icon: '🔻' },
+// Sem veredito de regressão e sem nota absoluta (ver `avancoExibido` em
+// lib/season-engine/convergencia.ts): o card mostra quanto cada comportamento
+// andou, com piso em zero, e o veredito.
+const CONVERGENCIA: Record<string, { cor: string; icon: string }> = {
+  evolucao_confirmada: { cor: 'emerald', icon: '✅' },
+  evolucao_parcial:    { cor: 'amber',   icon: '🟡' },
+  estagnacao:          { cor: 'gray',    icon: '⚪' },
 };
 
 function EvolutionReportCard({ report, t }: { report: any; t: any }) {
@@ -321,14 +324,18 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
   // nunca dizia como a competencia terminou. Quem le a tela tinha de somar de
   // cabeca. A media sai dos mesmos descritores exibidos, entao o consolidado e
   // sempre coerente com a lista logo abaixo dele.
+  //
+  // A média usa só descritores com as DUAS notas: `Number(null)` é 0, e um
+  // descritor sem nota de partida puxaria o "antes" para baixo e inventaria
+  // avanço.
+  const medidos = descritores.filter((d: any) => d.nota_pre != null && d.nota_pos != null);
+  const media = (campo: string) => medidos.reduce((soma: number, d: any) => soma + Number(d[campo]), 0) / medidos.length;
   const consolidado = descritores.length
     ? {
         competencia: descritores[0]?.competencia || null,
-        pre: descritores.reduce((soma: number, d: any) => soma + Number(d.nota_pre || 0), 0) / descritores.length,
-        pos: descritores.reduce((soma: number, d: any) => soma + Number(d.nota_pos || 0), 0) / descritores.length,
+        avanco: medidos.length ? formatarAvanco(media('nota_pre'), media('nota_pos')) : null,
       }
     : null;
-  const deltaConsolidado = consolidado ? Number((consolidado.pos - consolidado.pre).toFixed(1)) : 0;
 
   return (
     <GlassCard className="mb-6 border-brand-500/30 bg-gradient-to-br from-brand-500/5 to-emerald-500/5">
@@ -347,11 +354,8 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
           <div className="flex items-baseline justify-between gap-3 flex-wrap">
             <p className="text-sm font-bold text-white">{consolidado.competencia || '-'}</p>
             <p className="text-xs text-gray-300">
-              {consolidado.pre.toFixed(1)} <span className="text-gray-500">-&gt;</span>{' '}
-              <span className="text-brand-300 font-bold">{consolidado.pos.toFixed(1)}</span>{' '}
-              <span className="text-gray-400">
-                ({deltaConsolidado > 0 ? '+' : ''}{deltaConsolidado.toFixed(1)}) · {descritores.length} {t('report.behaviors')}
-              </span>
+              {consolidado.avanco && <span className="text-brand-300 font-bold">{consolidado.avanco} · </span>}
+              <span className="text-gray-400">{descritores.length} {t('report.behaviors')}</span>
             </p>
           </div>
         </div>
@@ -359,18 +363,17 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
       <div className="space-y-2 mb-3">
         {descritores.map((d: any, i: number) => {
           const conv = CONVERGENCIA[d.convergencia] || CONVERGENCIA.estagnacao;
-          const delta = Number((d.nota_pos - d.nota_pre).toFixed(1));
-          // Delta <= 0 é ESTÁVEL, e é assim que se diz: "manteve o patamar".
-          // Um "(-0.1)" na tela lê-se como o programa tendo piorado a pessoa,
+          // Avanço com piso em zero: "0.0" é ESTÁVEL, e é assim que se diz. Um
+          // "(-0.1)" na tela lê-se como o programa tendo piorado a pessoa,
           // quando a diferença está dentro do ruído da própria medida.
-          const estavel = delta <= 0;
+          const avanco = formatarAvanco(d.nota_pre, d.nota_pos);
+          const estavel = avanco == null || avanco === '0.0';
           return (
             <div key={i} className={`p-2 rounded-lg bg-white/5 border border-${conv.cor}-500/20`}>
               <div className="flex items-center justify-between">
                 <div className="text-xs font-bold text-white">{conv.icon} {descritorParaHumano(d.descritor)}</div>
-                <div className="text-[10px] text-gray-400">
-                  {d.nota_pre} → <span className={`text-${conv.cor}-400 font-bold`}>{d.nota_pos}</span>{' '}
-                  {estavel ? t('report.stable') : `(+${delta})`}
+                <div className={`text-[10px] font-bold ${estavel ? 'text-gray-400' : `text-${conv.cor}-400`}`}>
+                  {estavel ? t('report.stable') : avanco}
                 </div>
               </div>
               {d.depois && <div className="text-[11px] text-gray-400 mt-1">{d.depois}</div>}

@@ -11,6 +11,7 @@ import ReactMarkdown from 'react-markdown';
 import MicInput from '@/components/mic-input';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { PROGRESSO } from '@/lib/status';
+import { formatarAvanco } from '@/lib/season-engine/convergencia';
 
 const MIN_CHARS = 20;
 const MIN_CHARS_ARG = 3; // arguição é conversa — respostas curtas são válidas
@@ -607,22 +608,12 @@ export default function Sem14Page() {
               </div>
               <p className="text-[11px] text-gray-500 mt-2">{t('done.pilotNote')}</p>
             </div>
-          ) : (
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            <div className="text-center rounded-lg bg-white/[0.05] p-3">
-              <p className="text-xl font-bold text-white">{avaliacao.nota_media_pre}</p>
-              <p className="text-[10px] text-gray-500 uppercase">{t('done.pre')}</p>
-            </div>
-            <div className="text-center rounded-lg bg-white/[0.05] p-3">
-              <p className="text-xl font-bold text-brand-400">{avaliacao.nota_media_pos}</p>
-              <p className="text-[10px] text-gray-500 uppercase">{t('done.post')}</p>
-            </div>
-            <div className="text-center rounded-lg bg-white/[0.05] p-3">
-              <p className={`text-xl font-bold ${Number(avaliacao.delta_medio) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {Number(avaliacao.delta_medio) > 0 ? '+' : ''}{avaliacao.delta_medio}
-              </p>
-              <p className="text-[10px] text-gray-500 uppercase">Delta</p>
-            </div>
+          ) : formatarAvanco(avaliacao.nota_media_pre, avaliacao.nota_media_pos) && (
+          /* Só o avanço médio, com piso em zero: sem nota de partida, sem nota
+             final e sem queda em vermelho (mesma régua do relatório e do PDF). */
+          <div className="text-center rounded-lg bg-white/[0.05] p-3 mb-4">
+            <p className="text-xl font-bold text-emerald-400">{formatarAvanco(avaliacao.nota_media_pre, avaliacao.nota_media_pos)}</p>
+            <p className="text-[10px] text-gray-500 uppercase">{t('done.progress')}</p>
           </div>
           )}
           {avaliacao.resumo_avaliacao?.mensagem_geral && (

@@ -28,6 +28,8 @@ import { colors, fonts, pageStyles } from '@/components/pdf/styles';
 import PdfReportCover, { ReportSectionTitle } from '@/components/pdf/PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { MarcaPdf } from '@/lib/pdf-marca';
+import { avancoExibido, rotuloConvergencia, CONVERGENCIA } from '@/lib/season-engine/convergencia';
+import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 
 const s = StyleSheet.create({
   section: { marginBottom: 14 },
@@ -57,6 +59,10 @@ const s = StyleSheet.create({
   statValue: { fontFamily: 'NotoSans', fontSize: 20, fontWeight: 700, marginTop: 3 },
   eyebrow: { fontFamily: 'NotoSans', fontSize: fonts.caption, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 },
   insight: { fontFamily: 'NotoSans', fontSize: fonts.small, fontStyle: 'italic', color: colors.textSecondary, lineHeight: 1.5 },
+  competencia: {
+    fontFamily: 'NotoSans', fontSize: fonts.body, fontWeight: 700, color: colors.navy,
+    marginTop: 8, marginBottom: 6,
+  },
 });
 
 /** Cabeçalho navy fixo — o mesmo dos outros relatórios (`pageStyles.header`). */
@@ -79,36 +85,79 @@ function PageFooter({ label }: { label: string }) {
 }
 
 // Status de convergência: a cor vem da paleta do DS (`colors`), não de hex
-// soltos — a mesma régua que pinta o veredito nas telas.
+// soltos, e o RÓTULO vem de `rotuloConvergencia`, a mesma função das telas.
+//
+// 🔴 Sem "Regressão" (16/09/2026, pedido do dono olhando o PDF da Elisângela).
+// A régua não tem esse veredito desde 01/09 (ninguém desaprende uma
+// competência; queda entre diagnóstico e fechamento é variação do
+// instrumento), e as telas de admin e do gestor perderam a coluna em 14/09.
+// Este PDF ficou para trás com um card "Regressões 0" e o rótulo antigo
+// "Estagnação": o documento que a pessoa leva para casa dizia o que a tela não
+// diz mais.
 const CONV: Record<string, { cor: string; bg: string; label: string }> = {
-  evolucao_confirmada: { cor: colors.green,   bg: '#F0FDF4',      label: 'Evolução confirmada' },
-  evolucao_parcial:    { cor: colors.orange,  bg: '#FFF7ED',      label: 'Evolução parcial' },
-  estagnacao:          { cor: colors.gray500, bg: colors.gray100, label: 'Estagnação' },
-  regressao:           { cor: colors.flagRed, bg: '#FEF2F2',      label: 'Regressão' },
+  [CONVERGENCIA.CONFIRMADA]: { cor: colors.green,   bg: '#F0FDF4',      label: rotuloConvergencia(CONVERGENCIA.CONFIRMADA) },
+  [CONVERGENCIA.PARCIAL]:    { cor: colors.orange,  bg: '#FFF7ED',      label: rotuloConvergencia(CONVERGENCIA.PARCIAL) },
+  [CONVERGENCIA.ESTAVEL]:    { cor: colors.gray500, bg: colors.gray100, label: rotuloConvergencia(CONVERGENCIA.ESTAVEL) },
 };
-const convDe = (k: string) => CONV[k] || CONV.estagnacao;
+const convDe = (k: string) => CONV[k] || CONV[CONVERGENCIA.ESTAVEL];
 
 const primeiroNome = (nome: string) => String(nome || '').trim().split(/\s+/)[0] || '';
 
-// 🔴 A SETA "→" NÃO EXISTE NA FONTE DOS PDFs.
-//
-// O corpo é a Inter no subset `latin` do fontsource (registrada como 'NotoSans'
-// em `components/pdf/styles`), e esse subset cobre U+2191 e U+2193 mas PULA o
-// U+2192. Medido em 03/09/2026 com fontkit sobre o TTF que o PDF baixa. O
-// arquivo anterior escrevia `${nota_pre} → ${nota_pos}` e o `sanitize()` engolia
-// a seta antes de ela chegar ao render — o card saía "2  4", com o buraco no
-// lugar exato onde mora o sentido da frase. Aqui a transição é dita em
-// português, que é o que o leitor lê de qualquer jeito.
-//
 // Números em vírgula decimal: o documento inteiro é em português.
+// ⚠️ Não use a seta "→" em texto de PDF: o subset `latin` da fonte do corpo PULA
+// o U+2192 (medido 03/09/2026 com fontkit) e o glifo sai em branco.
 const num = (v: any, casas = 1) => Number(v).toFixed(casas).replace('.', ',');
-const transicao = (pre: any, pos: any) => `de ${num(pre)} para ${num(pos)}`;
+
+/**
+ * O avanço de um descritor como o PDF escreve: "+1,2" quando andou, "0,0"
+ * quando manteve, `null` quando falta nota.
+ *
+ * 🔴 SÓ O AVANÇO, COM PISO EM ZERO, e nenhuma nota (decisão do dono, 14/09 nas
+ * telas e 16/09 neste PDF). O par "de 2,0 para 3,2" convida a comparar pessoas
+ * por uma nota de partida que ninguém escolheu, e uma diferença negativa afirma
+ * uma piora que a medição não sustenta. A régua é `avancoExibido`, a mesma das
+ * telas: só a vírgula decimal é do PDF.
+ */
+export function avancoDoPdf(notaPre: unknown, notaPos: unknown): string | null {
+  const avanco = avancoExibido(notaPre, notaPos);
+  if (avanco == null) return null;
+  return avanco > 0 ? `+${num(avanco)}` : num(0);
+}
+
+/**
+ * Os três contadores do topo. Relatório gravado antes de 01/09 ainda pode ter
+ * `regressoes`: esse descritor manteve o patamar, então soma em "Estáveis" em
+ * vez de desaparecer da conta.
+ */
+export function contadoresDoPdf(resumo: any) {
+  return {
+    confirmadas: Number(resumo?.confirmadas) || 0,
+    parciais: Number(resumo?.parciais) || 0,
+    estaveis: (Number(resumo?.estagnacoes) || 0) + (Number(resumo?.regressoes) || 0),
+  };
+}
 
 function Stat({ label, valor, cor }: { label: string; valor: number; cor: string }) {
   return (
     <View style={s.stat}>
       <Text style={s.statLabel}>{label}</Text>
       <Text style={{ ...s.statValue, color: cor }}>{String(valor)}</Text>
+    </View>
+  );
+}
+
+function CardDescritor({ d }: { d: any }) {
+  const cfg = convDe(d.convergencia);
+  const avanco = avancoDoPdf(d.nota_pre, d.nota_pos);
+  return (
+    <View style={{ ...s.card, backgroundColor: cfg.bg, borderColor: cfg.bg }} wrap={false}>
+      <View style={s.row}>
+        <Text style={s.cardTitle}>{d.descritor}</Text>
+        {avanco && <Text style={{ ...s.delta, color: cfg.cor }}>{avanco}</Text>}
+      </View>
+      <Text style={{ ...s.pill, color: cfg.cor, backgroundColor: colors.white }}>{cfg.label}</Text>
+      {d.antes && <Text style={s.antesDepois}><Text style={s.rotulo}>Antes: </Text>{d.antes}</Text>}
+      {d.depois && <Text style={s.antesDepois}><Text style={s.rotulo}>Depois: </Text>{d.depois}</Text>}
     </View>
   );
 }
@@ -210,7 +259,7 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
   if (evolutionReport?.modo === 'piloto') return <TemporadaPilotoPDF dados={dados} marca={marca} />;
 
   const descritores = evolutionReport?.descritores || [];
-  const resumo = evolutionReport?.resumo || {};
+  const contadores = contadoresDoPdf(evolutionReport?.resumo);
   const totalSemanas = trilha?.totalSemanas || 14;
   const rodape = marca.mostrarVertho ? 'Vertho Mentor IA' : 'Relatório de temporada';
 
@@ -235,10 +284,9 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
           <Text style={s.intro}>{`${totalSemanas} semanas dedicadas a ${trilha?.competencia || ''}.`}</Text>
 
           <View style={s.statGrid}>
-            <Stat label="Confirmadas" valor={resumo.confirmadas || 0} cor={CONV.evolucao_confirmada.cor} />
-            <Stat label="Parciais" valor={resumo.parciais || 0} cor={CONV.evolucao_parcial.cor} />
-            <Stat label="Estáveis" valor={resumo.estagnacoes || 0} cor={CONV.estagnacao.cor} />
-            <Stat label="Regressões" valor={resumo.regressoes || 0} cor={CONV.regressao.cor} />
+            <Stat label="Confirmadas" valor={contadores.confirmadas} cor={CONV[CONVERGENCIA.CONFIRMADA].cor} />
+            <Stat label="Parciais" valor={contadores.parciais} cor={CONV[CONVERGENCIA.PARCIAL].cor} />
+            <Stat label="Estáveis" valor={contadores.estaveis} cor={CONV[CONVERGENCIA.ESTAVEL].cor} />
           </View>
 
           {evolutionReport?.insight_geral && (
@@ -248,23 +296,21 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
 
         <View style={s.section}>
           <ReportSectionTitle>Descritor a descritor</ReportSectionTitle>
-          {descritores.map((d: any, i: number) => {
-            const cfg = convDe(d.convergencia);
-            const deltaNum = Number(d.nota_pos) - Number(d.nota_pre);
-            return (
-              <View key={i} style={{ ...s.card, backgroundColor: cfg.bg, borderColor: cfg.bg }} wrap={false}>
-                <View style={s.row}>
-                  <Text style={s.cardTitle}>{d.descritor}</Text>
-                  <Text style={{ ...s.delta, color: cfg.cor }}>
-                    {`${transicao(d.nota_pre, d.nota_pos)} (${deltaNum > 0 ? '+' : ''}${num(deltaNum)})`}
-                  </Text>
-                </View>
-                <Text style={{ ...s.pill, color: cfg.cor, backgroundColor: colors.white }}>{cfg.label}</Text>
-                {d.antes && <Text style={s.antesDepois}><Text style={s.rotulo}>Antes: </Text>{d.antes}</Text>}
-                {d.depois && <Text style={s.antesDepois}><Text style={s.rotulo}>Depois: </Text>{d.depois}</Text>}
+          {/* Agrupado por competência: a trilha DUO tem duas, e a lista corrida
+              não dizia a qual cada comportamento pertence. */}
+          {agruparPorCompetencia(descritores).map((grupo, g) => (
+            <View key={g}>
+              {/* O título da competência vai PRESO ao primeiro card: sozinho, ele
+                  caiu no pé da página 2 com os cards na 3 (medido na folha de
+                  contato do PDF da Elisângela, 16/09). `minPresenceAhead` não
+                  segurou; `wrap={false}` no par segura. */}
+              <View wrap={false}>
+                {grupo.competencia && <Text style={s.competencia}>{grupo.competencia}</Text>}
+                {grupo.descritores[0] && <CardDescritor d={grupo.descritores[0]} />}
               </View>
-            );
-          })}
+              {grupo.descritores.slice(1).map((d: any, i: number) => <CardDescritor key={i} d={d} />)}
+            </View>
+          ))}
         </View>
 
         <MomentosDeInsight momentos={momentos} />
@@ -285,15 +331,15 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
         )}
 
         {sem14 && (
-          <View style={s.section}>
+          // Título e devolutiva juntos: separados, "Avaliação final / Devolutiva"
+          // ficava no pé de uma página e o texto na seguinte. A maior devolutiva
+          // da base tem 1.589 caracteres (medido 16/09), cabe numa página.
+          <View style={s.section} wrap={false}>
             <ReportSectionTitle>Avaliação final</ReportSectionTitle>
             {sem14?.resumo_avaliacao?.mensagem_geral && (
               <View style={s.card}>
                 <Text style={s.rotulo}>Devolutiva</Text>
                 <Text style={{ ...s.text, marginTop: 3 }}>{sem14.resumo_avaliacao.mensagem_geral}</Text>
-                {sem14.nota_media_pos != null && (
-                  <Text style={s.muted}>{`Nota média pós-temporada: ${num(sem14.nota_media_pos)}/4,0`}</Text>
-                )}
               </View>
             )}
           </View>

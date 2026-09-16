@@ -1262,8 +1262,7 @@
     },
     "done": {
       "title": "Avaliação concluída",
-      "pre": "Pré",
-      "post": "Pós",
+      "progress": "Avanço médio",
       "viewReport": "Ver relatório completo →",
       "demoScore": "Nota da demonstração",
       "pilotNote": "No piloto, a avaliação demonstra o método da temporada completa — não mede evolução em 2 semanas."
@@ -1430,14 +1429,12 @@
     "stats": {
       "confirmed": "Confirmadas",
       "partial": "Parciais",
-      "stagnated": "Estagnadas",
-      "regressions": "Regressões"
+      "stagnated": "Estáveis"
     },
     "classification": {
       "confirmed": "Evolução confirmada",
       "partial": "Evolução parcial",
-      "stagnation": "Estagnação",
-      "regression": "Regressão"
+      "stagnation": "Estável"
     },
     "sections": {
       "descriptor": "Descritor a descritor",
@@ -1456,8 +1453,7 @@
       "cardTitle": "Cenário B · Resposta e devolutiva",
       "viewScenario": "Ver o cenário apresentado",
       "viewAnswer": "Ver a sua resposta",
-      "feedback": "Devolutiva",
-      "postAverage": "Nota média pós-temporada:"
+      "feedback": "Devolutiva"
     },
     "pilot": {
       "eyebrow": "Piloto concluído",
