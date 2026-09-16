@@ -231,6 +231,16 @@ export const DEGRADACAO = {
    * audível por "áudio não gerado".
    */
   TTS_QA_REPROVADO_PUBLICADO: 'tts-qa-reprovado-publicado',
+  /**
+   * fechamento-core: a nota do Cenário B não saiu (scorer abortado, parse
+   * vazio ou gravação falhou). `critico`: a pessoa fez tudo e ficou sem nota.
+   *
+   * Existe porque a falha era invisível em TODAS as camadas (16/09/2026): a
+   * chamada abortada não grava linha no `ia_usage_log`, o erro só ia para o
+   * console de uma função cujo log expira, e a semana ficava `em_andamento`,
+   * igual à de quem simplesmente não terminou. Helmar passou 8 dias assim.
+   */
+  FECHAMENTO_SCORER_FALHOU: 'fechamento-scorer-falhou',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

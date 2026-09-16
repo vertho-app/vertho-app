@@ -55,6 +55,45 @@ export interface PontuarFechamentoArgs {
    * (getModelForTask) para override por tenant.
    */
   checkModel?: string;
+  /**
+   * Instante (epoch ms) até o qual o fechamento inteiro precisa terminar. Quem
+   * roda dentro de uma função com `maxDuration` passa o prazo; o scorer e o
+   * check recebem `timeoutMs` do que SOBRA, em vez do teto fixo do `callAI`.
+   * Ausente (script, admin): tetos de `SCORER_TIMEOUT_MAX_MS` e do check.
+   */
+  prazoMs?: number;
+  /** Atribuição de custo no ledger (sem isto as linhas entram sem empresa). */
+  ledger?: { empresaId?: string | null; colaboradorId?: string | null };
+}
+
+/**
+ * 🔴 POR QUE O SCORER TEM TIMEOUT PRÓPRIO (16/09/2026). Ele pede 10.000 tokens,
+ * e o default do `callAI` é 120 s. `Medido:` a única execução que passou em
+ * produção levou **119.748 ms** para 7.093 tokens (~59 tok/s), a 0,25 s do corte.
+ * Nas outras duas, a chamada foi abortada e a pessoa ficou sem nota. No teto de
+ * tokens, a ~59 tok/s, são ~170 s: 210 s dá margem sem estourar a função.
+ */
+export const SCORER_TIMEOUT_MAX_MS = 210_000;
+/** O que fica reservado, depois do scorer, para check + gravação + relatório. */
+const RESERVA_POS_SCORER_MS = 45_000;
+/** Abaixo disto uma tentativa de scorer não termina: nem começa (a 2ª inclusive). */
+export const SCORER_TIMEOUT_MIN_MS = 90_000;
+const CHECK_TIMEOUT_MAX_MS = 120_000;
+const RESERVA_POS_CHECK_MS = 10_000;
+const CHECK_TIMEOUT_MIN_MS = 20_000;
+
+/** `timeoutMs` do scorer para o que sobra do prazo; `null` = não cabe uma tentativa. */
+export function timeoutDoScorer(prazoMs: number | undefined, agoraMs: number): number | null {
+  if (prazoMs == null) return SCORER_TIMEOUT_MAX_MS;
+  const t = Math.min(SCORER_TIMEOUT_MAX_MS, prazoMs - agoraMs - RESERVA_POS_SCORER_MS);
+  return t >= SCORER_TIMEOUT_MIN_MS ? t : null;
+}
+
+/** `timeoutMs` do check; `undefined` = default do wrapper; `null` = não cabe. */
+export function timeoutDoCheck(prazoMs: number | undefined, agoraMs: number): number | null | undefined {
+  if (prazoMs == null) return undefined;
+  const t = Math.min(CHECK_TIMEOUT_MAX_MS, prazoMs - agoraMs - RESERVA_POS_CHECK_MS);
+  return t >= CHECK_TIMEOUT_MIN_MS ? t : null;
 }
 
 export interface PontuarFechamentoMeta {
@@ -138,7 +177,7 @@ EXPECTATIVA DESTA RODADA:
 - Reconheça melhora real quando ela aconteceu`;
 
 export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<PontuarFechamentoResultado> {
-  const { competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, config, regeracao, evidenciasArguicao, checkModel } = args;
+  const { competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, config, regeracao, evidenciasArguicao, checkModel, prazoMs, ledger } = args;
   const { isPiloto, semanaFinal, semanasEvidencia, notaPrograma } = reguaTemporalDoPrograma(config);
 
   const meta: PontuarFechamentoMeta = {
@@ -161,8 +200,16 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
 
   let parsed: any = {};
   for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    const timeoutMs = timeoutDoScorer(prazoMs, Date.now());
+    if (timeoutMs == null) {
+      meta.warnings.push(`scorer: sem tempo no prazo do fechamento para a tentativa ${tentativa}`);
+      break;
+    }
     meta.tentativas = tentativa;
-    const r = await callAI(systemScore, user, {}, 10000, { taskKey: 'sem14_scorer' });
+    const r = await callAI(systemScore, user, {}, 10000, {
+      taskKey: 'sem14_scorer', timeoutMs,
+      empresaId: ledger?.empresaId ?? null, colaboradorId: ledger?.colaboradorId ?? null,
+    });
     try {
       parsed = validateEvolutionScenarioScore(parseJsonIA(r));
     } catch (e: any) {
@@ -212,30 +259,39 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
 
   // ── Check (2ª IA) — nunca derruba o fechamento; falha vira warning ──
   let auditoria: any = null;
-  try {
-    const { system: sCheck, user: uCheck } = promptEvolutionScenarioCheck({
-      competencia, descritores, cenario, resposta,
-      avaliacaoPrimaria: parsed,
-      evidenciasAcumuladas,
-      semanaFinal, semanasEvidencia, notaPrograma,
-    });
-    const systemCheck = regeracao ? sCheck + APPENDIX_CHECK_REGEN(regeracao.feedbackAuditoria) : sCheck;
-    // 2ª IA (auditor) configurável — default GPT 5.6 **Terra** (DEFAULT_TASK_MODELS.sem14_check).
-    // Este comentário dizia "Luna" até 25/08/2026; o default virou Terra em 22/07,
-    // quando todas as dupla-checagens foram padronizadas. Comentário de modelo
-    // envelhece calado: quem lê daqui decide a troca pelo texto, não pela tabela.
-    // Caller pode passar checkModel resolvido por empresa; senão cai no default da task.
-    const sem14CheckModel = checkModel || DEFAULT_TASK_MODELS['sem14_check'];
-    const rCheck = await callAI(systemCheck, uCheck, sem14CheckModel ? { model: sem14CheckModel } : {}, 8000, { taskKey: 'sem14_check' });
-    auditoria = validateEvolutionScenarioCheck(parseJsonIA(rCheck));
+  const timeoutCheck = timeoutDoCheck(prazoMs, Date.now());
+  if (timeoutCheck === null) {
+    meta.warnings.push('check da 2ª IA pulado: sem tempo no prazo do fechamento');
+  } else {
+    try {
+      const { system: sCheck, user: uCheck } = promptEvolutionScenarioCheck({
+        competencia, descritores, cenario, resposta,
+        avaliacaoPrimaria: parsed,
+        evidenciasAcumuladas,
+        semanaFinal, semanasEvidencia, notaPrograma,
+      });
+      const systemCheck = regeracao ? sCheck + APPENDIX_CHECK_REGEN(regeracao.feedbackAuditoria) : sCheck;
+      // 2ª IA (auditor) configurável — default GPT 5.6 **Terra** (DEFAULT_TASK_MODELS.sem14_check).
+      // Este comentário dizia "Luna" até 25/08/2026; o default virou Terra em 22/07,
+      // quando todas as dupla-checagens foram padronizadas. Comentário de modelo
+      // envelhece calado: quem lê daqui decide a troca pelo texto, não pela tabela.
+      // Caller pode passar checkModel resolvido por empresa; senão cai no default da task.
+      const sem14CheckModel = checkModel || DEFAULT_TASK_MODELS['sem14_check'];
+      const rCheck = await callAI(systemCheck, uCheck, sem14CheckModel ? { model: sem14CheckModel } : {}, 8000, {
+        taskKey: 'sem14_check',
+        ...(timeoutCheck != null ? { timeoutMs: timeoutCheck } : {}),
+        empresaId: ledger?.empresaId ?? null, colaboradorId: ledger?.colaboradorId ?? null,
+      });
+      auditoria = validateEvolutionScenarioCheck(parseJsonIA(rCheck));
 
-    if (regeracao && auditoria?.resumo_auditoria) {
-      const resumo = auditoria.resumo_auditoria.toLowerCase();
-      const temComparacao = ['corrig', 'melhora', 'manteve', 'persist', 'anterior', 'segunda', 'resolv', 'parcial'].some(w => resumo.includes(w));
-      if (!temComparacao) meta.warnings.push('resumo_auditoria da 2ª rodada pode não estar comparando com a anterior');
+      if (regeracao && auditoria?.resumo_auditoria) {
+        const resumo = auditoria.resumo_auditoria.toLowerCase();
+        const temComparacao = ['corrig', 'melhora', 'manteve', 'persist', 'anterior', 'segunda', 'resolv', 'parcial'].some(w => resumo.includes(w));
+        if (!temComparacao) meta.warnings.push('resumo_auditoria da 2ª rodada pode não estar comparando com a anterior');
+      }
+    } catch (e: any) {
+      meta.warnings.push(`check da 2ª IA falhou: ${e?.message}`);
     }
-  } catch (e: any) {
-    meta.warnings.push(`check da 2ª IA falhou: ${e?.message}`);
   }
 
   return { ok: true, parsed, auditoria, meta };

@@ -27,6 +27,50 @@ function argMsgsFromHistorico(hist) {
     .filter(m => m.content);
 }
 
+/** Intervalo do acompanhamento da pontuação. O `aiLimiter` da rota é 10/min. */
+const POLL_FECHAMENTO_MS = 8000;
+const POLL_FECHAMENTO_MAX = 60;
+
+/**
+ * Onde está a pontuação do fechamento, do ponto de vista de quem espera.
+ * `pendente` = tudo respondido e nunca pedida; `lento` = o acompanhamento
+ * esgotou sem resposta. A régua de verdade é `estadoDoFechamento`, no servidor.
+ */
+function PainelFechamento({ estado, onGerar, onVerResultado, t }) {
+  if (estado === 'avaliado') {
+    return (
+      <button onClick={onVerResultado}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#091D35] font-bold text-sm">
+        <CheckCircle2 size={16} /> {t('arguicao.seeResult')}
+      </button>
+    );
+  }
+  if (estado === 'processando') {
+    return (
+      <div className="rounded-xl border border-brand-500/20 bg-brand-500/[0.05] p-4 flex items-start gap-3">
+        <Loader2 size={18} className="animate-spin text-brand-400 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-semibold text-white">{t('fechamento.processingTitle')}</p>
+          <p className="text-xs text-gray-400 mt-1 leading-relaxed">{t('fechamento.processingBody')}</p>
+        </div>
+      </div>
+    );
+  }
+  const corpo = estado === 'lento' ? t('fechamento.slowBody')
+    : estado === 'erro' ? t('fechamento.errorBody')
+    : t('fechamento.pendingBody');
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-sm font-semibold text-white">{t('fechamento.pendingTitle')}</p>
+      <p className="text-xs text-gray-400 mt-1 mb-3 leading-relaxed">{corpo}</p>
+      <button onClick={onGerar}
+        className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#091D35] font-bold text-sm">
+        {estado === 'pronto' ? t('fechamento.generate') : t('fechamento.retry')}
+      </button>
+    </div>
+  );
+}
+
 /**
  * Avaliação Final da Temporada (semana do cenário B — regular=14, onboarding=10).
  * Wizard com cenário + 4 perguntas + botões anterior/próxima + submit final.
@@ -47,12 +91,16 @@ export default function Sem14Page() {
   const [cenario, setCenario] = useState('');
   const [perguntas, setPerguntas] = useState([]);
   const [respostas, setRespostas] = useState(['', '', '', '']);
-  const [step, setStep] = useState(-1); // -1 = loading, 0 = cenário, 1..4 = pergunta, 6 = finalizada, 7 = arguição (chat)
+  const [step, setStep] = useState(-1); // -1 = loading, 0 = cenário, 1..4 = pergunta, 6 = finalizada, 7 = arguição (chat), 8 = pontuação (gerando / retomar)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [avaliacao, setAvaliacao] = useState(null);
   const [semCenarioB, setSemCenarioB] = useState(14); // derivado do plano
   const [preparando, setPreparando] = useState(false); // piloto: acumulada em Trigger.dev
+  // Pontuação do fechamento (roda no servidor, fora do request): processando | pronto | erro | lento | avaliado
+  const [fechamento, setFechamento] = useState(null);
+  // Quantas respostas ao cenário já estão gravadas: reenviar essas empurraria falas duplicadas.
+  const [respostasSalvas, setRespostasSalvas] = useState(0);
 
   // Arguição (defesa oral) — modo CHAT turn-by-turn após as 4 perguntas.
   const [argMsgs, setArgMsgs] = useState([]); // { role: 'assistant'|'user', content }
@@ -107,6 +155,21 @@ export default function Sem14Page() {
         return;
       }
 
+      // Tudo respondido (e a arguição, se houve, concluída) sem nota: a
+      // pontuação está rodando, falhou ou nunca foi pedida. 🔴 Antes este caso
+      // caía no formulário das 4 respostas (o ramo `fb.cenario && fb.perguntas`
+      // abaixo), e reenviar dali duplicava falas e pagava o scorer de novo.
+      const respostasFeitas = (fb.transcript_completo || []).filter(m => m.role === 'user').length;
+      const nPerguntas = Array.isArray(fb.perguntas) ? fb.perguntas.length : 0;
+      if (fb.cenario && nPerguntas > 0 && respostasFeitas >= nPerguntas && !(fb.arguicao && !fb.arguicao.concluida)) {
+        setCenario(fb.cenario);
+        setPerguntas(fb.perguntas);
+        setStep(8);
+        const estado = await acompanharFechamento(r.trilha.id, semCB);
+        if (estado === 'avaliado') setStep(6);
+        return;
+      }
+
       // Arguição em andamento (colab reabriu no meio da defesa oral): entra
       // direto no chat, reconstruindo do histórico persistido (feedback.arguicao).
       if (fb.arguicao && !fb.arguicao.concluida && prog?.status !== PROGRESSO.CONCLUIDO) {
@@ -131,6 +194,7 @@ export default function Sem14Page() {
           respostasExistentes.forEach((r, i) => { if (i < 4) next[i] = r; });
           return next;
         });
+        setRespostasSalvas(Math.min(respostasExistentes.length, 4));
         setStep(0);
       } else {
         await doInit(r.trilha.id, semCB);
@@ -181,6 +245,57 @@ export default function Sem14Page() {
     }
   }
 
+  /**
+   * Acompanha a pontuação do fechamento até ela concluir ou parar. Devolve o
+   * estado final. `fechamento_status` é só leitura: nunca dispara pontuação.
+   */
+  async function acompanharFechamento(tid, semCB) {
+    for (let i = 0; i < POLL_FECHAMENTO_MAX && pollRef.current; i++) {
+      if (i > 0) await new Promise((res) => setTimeout(res, POLL_FECHAMENTO_MS));
+      if (!pollRef.current) return null;
+      const resp = await fetchAuth('/api/temporada/evaluation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trilhaId: tid, semana: semCB, action: 'fechamento_status' }),
+      }).catch(() => null);
+      if (!resp?.ok) continue; // 429 do limitador ou rede: tenta na próxima volta
+      const s = await resp.json().catch(() => ({}));
+      if (s.estado === 'avaliado') {
+        setAvaliacao(s.avaliacao);
+        setFechamento('avaliado');
+        return 'avaliado';
+      }
+      if (s.estado === 'processando') { setFechamento('processando'); continue; }
+      if (s.estado === 'erro') { setFechamento('erro'); return 'erro'; }
+      if (s.estado === 'pronto-para-pontuar') { setFechamento('pronto'); return 'pronto'; }
+      // Qualquer outro estado (ex.: respondendo) não é deste painel: volta ao cenário.
+      setStep(0);
+      return s.estado || null;
+    }
+    if (pollRef.current) setFechamento('lento');
+    return 'lento';
+  }
+
+  async function gerarAvaliacaoFinal() {
+    setFechamento('processando');
+    const resp = await fetchAuth('/api/temporada/evaluation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trilhaId, semana: semCenarioB, action: 'finalizar' }),
+    }).catch(() => null);
+    const data = resp ? await resp.json().catch(() => ({})) : {};
+    if (data.estado === 'avaliado') {
+      setAvaliacao(data.avaliacao);
+      setFechamento('avaliado');
+      return;
+    }
+    if (data.estado === 'processando') {
+      await acompanharFechamento(trilhaId, semCenarioB);
+      return;
+    }
+    setFechamento('erro');
+  }
+
   // Auto-scroll do chat da arguição ao chegar mensagem nova / IA "pensando".
   useEffect(() => {
     if (step === 7) argEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -198,7 +313,7 @@ export default function Sem14Page() {
     setBusy(true);
     // Envia as 4 respostas em sequência (pedagogicamente correto — o backend
     // espera 4 mensagens antes do scorer). Reusa o fluxo send existente.
-    for (let i = 0; i < respostas.length; i++) {
+    for (let i = respostasSalvas; i < respostas.length; i++) {
       const r = await fetchAuth('/api/temporada/evaluation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -220,11 +335,21 @@ export default function Sem14Page() {
           setStep(7);
           return;
         }
-        if (data.finished && data.avaliacao) setAvaliacao(data.avaliacao);
+        // Arguição desligada: a pontuação foi disparada no servidor.
+        setRespostasSalvas(respostas.length);
+        setBusy(false);
+        setStep(8);
+        if (data.finalizando || data.fechamento === 'avaliado') {
+          setFechamento('processando');
+          const estado = await acompanharFechamento(trilhaId, semCenarioB);
+          if (estado === 'avaliado') setStep(6);
+        } else {
+          setFechamento('erro');
+        }
+        return;
       }
     }
     setBusy(false);
-    setStep(6);
   }
 
   async function enviarArguicao() {
@@ -248,11 +373,16 @@ export default function Sem14Page() {
       }
       const data = await r.json();
       if (data.message) setArgMsgs(prev => [...prev, { role: 'assistant', content: stripMetaCli(data.message) }]);
-      // Encerrou a arguição → o scorer já rodou no backend (com a fusão da defesa).
-      // Mostra o fecho da IA + botão para ver o resultado.
+      // Encerrou a arguição → a pontuação (com a fusão da defesa) roda no
+      // servidor. Mostra o fecho da IA e acompanha até a nota sair.
       if (data.arguicaoConcluida) {
-        if (data.avaliacao) setAvaliacao(data.avaliacao);
         setArgConcluida(true);
+        if (data.finalizando || data.fechamento === 'avaliado') {
+          setFechamento('processando');
+          acompanharFechamento(trilhaId, semCenarioB);
+        } else {
+          setFechamento('erro');
+        }
       } else {
         setArgTurno(data.turno || argTurno + 1);
       }
@@ -301,15 +431,15 @@ export default function Sem14Page() {
             <p className="text-xs text-gray-400">{cargo}</p>
           </div>
           <p className="text-xs font-bold text-brand-400">
-            {step <= 0 ? '0%' : (step === 6 || step === 7) ? '100%' : `${Math.round(((step - 1) / 4) * 100)}%`}
+            {step <= 0 ? '0%' : (step >= 6) ? '100%' : `${Math.round(((step - 1) / 4) * 100)}%`}
           </p>
         </div>
         <div className="mt-3 h-1.5 rounded-full bg-white/5 overflow-hidden">
           <div className="h-full bg-gradient-to-r from-brand-500 to-emerald-500 transition-all"
-            style={{ width: (step === 6 || step === 7) ? '100%' : step > 0 ? `${((step - 1) / 4) * 100}%` : '0%' }} />
+            style={{ width: (step >= 6) ? '100%' : step > 0 ? `${((step - 1) / 4) * 100}%` : '0%' }} />
         </div>
         <p className="text-[10px] text-gray-500 mt-2">
-          {step === 7 ? t('arguicao.badge') : step === 6 ? t('progress.done') : t('progress.weekCompetency', { week: semCenarioB, competency: competencia })}
+          {step === 7 ? t('arguicao.badge') : step === 6 ? t('progress.done') : step === 8 ? t('fechamento.eyebrow') : t('progress.weekCompetency', { week: semCenarioB, competency: competencia })}
         </p>
       </div>
 
@@ -427,10 +557,8 @@ export default function Sem14Page() {
           </div>
 
           {argConcluida ? (
-            <button onClick={() => setStep(6)}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#091D35] font-bold text-sm">
-              <CheckCircle2 size={16} /> {t('arguicao.seeResult')}
-            </button>
+            <PainelFechamento estado={fechamento} t={t}
+              onVerResultado={() => setStep(6)} onGerar={gerarAvaliacaoFinal} />
           ) : (
             <>
               <div className="flex items-start justify-between gap-2 mb-2">
@@ -450,6 +578,15 @@ export default function Sem14Page() {
               </button>
             </>
           )}
+        </div>
+      )}
+
+      {/* STEP 8: pontuação gerando, ou retomada quando não saiu */}
+      {step === 8 && (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          <p className="text-xs uppercase tracking-widest text-brand-400 font-bold mb-3">{t('fechamento.eyebrow')}</p>
+          <PainelFechamento estado={fechamento} t={t}
+            onVerResultado={() => setStep(6)} onGerar={gerarAvaliacaoFinal} />
         </div>
       )}
 

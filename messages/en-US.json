@@ -1277,6 +1277,17 @@
       "sending": "Sending...",
       "turnHint": "Turn {turno} · answer naturally",
       "seeResult": "See assessment result"
+    },
+    "fechamento": {
+      "eyebrow": "Final assessment",
+      "processingTitle": "Generating your final assessment",
+      "processingBody": "It usually takes 2 to 3 minutes. You can close this screen: the result is saved and will show up here when it's ready.",
+      "pendingTitle": "Your final assessment still needs to be generated",
+      "pendingBody": "Your answers are saved. The assessment just needs to be generated.",
+      "errorBody": "The last attempt to generate the assessment didn't finish. Your answers are saved, so you can simply try again.",
+      "slowBody": "This is taking longer than usual. Your answers are saved, so you can try again if you like.",
+      "generate": "Generate final assessment",
+      "retry": "Try again"
     }
   },
   "SeasonWeek": {

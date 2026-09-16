@@ -8,8 +8,6 @@
     "lib/pulse/dual-ai.ts:pulse_audit": "Idem Pulso, off-line.",
     "lib/season-engine/arguicao.ts:arguicao_turno": "Dívida: 0 linha no ledger em 30 dias. Corrigir quando a arguição voltar a rodar.",
     "lib/season-engine/arguicao.ts:arguicao_avaliacao": "Dívida: 0 linha no ledger em 30 dias.",
-    "lib/season-engine/fechamento-scorer.ts:sem14_scorer": "Dívida: 0 linha no ledger em 30 dias (fechamento da semana 14).",
-    "lib/season-engine/fechamento-scorer.ts:sem14_check": "Dívida: 0 linha no ledger em 30 dias.",
     "lib/season-engine/avaliacao-acumulada-core.ts:acumulada_primaria": "Dívida: as 4 chamadas de 30 dias saíram COM empresa por outro caminho; este ramo não foi exercitado.",
     "actions/fase5/evolucao.ts:evolucao_fusao": "Dívida: 0 linha no ledger em 30 dias.",
     "actions/fase5/evolucao.ts:evolucao_plenaria": "Dívida: 0 linha no ledger em 30 dias.",

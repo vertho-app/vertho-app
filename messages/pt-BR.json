@@ -1277,6 +1277,17 @@
       "sending": "Enviando...",
       "turnHint": "Turno {turno} · responda com naturalidade",
       "seeResult": "Ver resultado da avaliação"
+    },
+    "fechamento": {
+      "eyebrow": "Avaliação final",
+      "processingTitle": "Gerando sua avaliação final",
+      "processingBody": "Costuma levar de 2 a 3 minutos. Pode fechar esta tela: o resultado fica salvo e aparece aqui quando estiver pronto.",
+      "pendingTitle": "Falta gerar a sua avaliação final",
+      "pendingBody": "Suas respostas estão salvas. Falta só gerar a avaliação.",
+      "errorBody": "A última tentativa de gerar a avaliação não terminou. Suas respostas estão salvas: é só tentar de novo.",
+      "slowBody": "Está demorando mais que o normal. Suas respostas estão salvas: se quiser, tente de novo.",
+      "generate": "Gerar avaliação final",
+      "retry": "Tentar de novo"
     }
   },
   "SeasonWeek": {

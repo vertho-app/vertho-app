@@ -5,8 +5,8 @@ import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
-import { pontuarFechamento } from '@/lib/season-engine/fechamento-scorer';
-import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
+import { reservarFinalizacao, finalizarFechamentoCore } from '@/lib/season-engine/fechamento-core';
+import { estadoDoFechamento, resumoDaAvaliacao, respostasDoCenario } from '@/lib/season-engine/estado-fechamento';
 import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { parseJsonIA } from '@/lib/ai-json';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
@@ -16,13 +16,19 @@ import { TURNOS_IA_AVALIACAO_QUALITATIVA } from '@/lib/season-engine/week-gating
 import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, fechamentoSeguro } from '@/lib/season-engine/fechamento-conversa';
 import { buscarCenarioBComFallback } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
-import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { PROGRESSO } from '@/lib/status';
 import { comContexto } from '@/lib/execucao-contexto';
 
-// Fechamento encadeia arguição (até 4 turnos) + extração + scorer + check 2ª IA
-// + Evolution Report num único request — passa dos 60s default. Fluid até 300s.
+// O turno final da arguição (turno + extração) e a pontuação em `after()`
+// (scorer + check 2ª IA + Evolution Report) dividem esta função. Fluid até 300s.
 export const maxDuration = 300;
+
+/**
+ * Até quando, contado do início do request, a pontuação disparada em `after()`
+ * pode rodar. 15 s abaixo do `maxDuration`: gravar a nota e o relatório também
+ * precisam caber. `pontuarFechamento` distribui o que sobra entre scorer e check.
+ */
+const PRAZO_FECHAMENTO_MS = 285_000;
 
 /**
  * POST /api/temporada/evaluation
@@ -63,6 +69,7 @@ export async function POST(request) {
   // chamada de IA daqui entra como runtime "desconhecido" e a pergunta
   // "estamos perto do timeout?" fica sem denominador.
   return comContexto({ runtime: 'rota', orcamentoMs: 300 * 1000, onde: 'api/temporada/evaluation' }, async () => {
+  const inicioMs = Date.now();
   try {
     const csrf = csrfCheck(request);
     if (csrf) return csrf;
@@ -272,108 +279,50 @@ export async function POST(request) {
       const piiArg = { map: piiMap, nomeMasked: colabMasked?.nome };
 
       /**
-       * Pontua o fechamento a partir das 4 respostas ao cenário (+ arguição, se
-       * concluída). Amarração da Fase C: extraído do branch 'send' para ser
-       * reusado pelo fim da ARGUIÇÃO — quando a defesa oral encerra, é AQUI que
-       * a nota sai (o motor da arguição, Fase A, deixava isso solto). Devolve
-       * `{ status, json }` para o caller montar a resposta HTTP.
+       * Dispara a pontuação do fechamento FORA do request.
+       *
+       * 🔴 Até 16/09/2026 a nota saía aqui dentro, no mesmo request da última
+       * fala da arguição, e o scorer abortava no teto de 120 s do `callAI`
+       * (medido: a única execução que passou levou 119.748 ms). Agora a reserva
+       * é síncrona e a pontuação roda em `after()`: a resposta volta em
+       * segundos, e fechar o celular não perde a nota. A tela acompanha por
+       * `fechamento_status`.
+       *
+       * O núcleo é o mesmo do script de resgate (`fechamento-core`), então o
+       * caminho que roda em produção é o que os testes exercitam.
        */
-      const finalizarComScorer = async (
-        { cenario, perguntas, historico, dados }:
-        { cenario: string; perguntas: any[]; historico: any[]; dados: any },
-      ): Promise<{ status: number; json: any }> => {
-        // N1 (belts-and-suspenders): o gate vive no `action:'init'`. Se por algum
-        // caminho o fechamento chegar aqui sem passar por ele (ex.: cenário já
-        // persistido de antes do gate, ou chamada direta send/arguir), NUNCA
-        // pontuar o piloto sem a acumulada pronta — devolve "processando".
-        if (programaConfig.modo === 'piloto') {
-          const { data: acumChk } = await sb.from('temporada_semana_progresso')
-            .select('acumulada_status, acumulada_started_at')
-            .eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
-          if (!gateAcumuladaPiloto(acumChk, Date.now()).pronto) {
-            return { status: 202, json: { processando: true, message: 'Estamos preparando sua avaliação com base em toda a sua jornada. Isso leva alguns instantes…' } };
-          }
+      const dispararFinalizacao = async () => {
+        const reserva = await reservarFinalizacao(trilhaId, { empresaId: trilha.empresa_id });
+        // `in`, não `.ok`: com `strict: false` a união por booleano não estreita.
+        if (!('token' in reserva)) {
+          return { estado: reserva.estado, erro: reserva.erro ?? null, avaliacao: reserva.avaliacao ?? null };
         }
-        // Monta "resposta" como concatenação das 4 respostas rotuladas por dimensão
-        const respostasUser = historico.filter((m: any) => m.role === 'user');
-        const respostaAgregada = perguntas.map((p: any, i: number) =>
-          `[${p.dimensao}] ${p.texto}\n→ ${respostasUser[i]?.content || '(sem resposta)'}`
-        ).join('\n\n');
-
-        // Enriquece descritores com a régua de maturidade (n1-n4) + nota_pre FRESH
-        // de descriptor_assessments (não do snapshot JSONB, que pode estar desatualizado).
-        const enriquecidos = await enriquecerComRegua({
-          db: sb, sbGlobal: sb, empresaId: trilha.empresa_id,
-          competencia: trilha.competencia_foco, descritores,
+        const token = reserva.token;
+        after(async () => {
+          const r = await finalizarFechamentoCore(trilhaId, {
+            empresaId: trilha.empresa_id, token, prazoMs: inicioMs + PRAZO_FECHAMENTO_MS,
+          });
+          if ('erro' in r) console.error('[VERTHO] fechamento sem nota:', trilhaId, r.erro);
         });
-        const descritoresComRegua = await sobreporNotaFresh(sb, trilha.colaborador_id, trilha.competencia_foco, enriquecidos);
-
-        // Carrega avaliação acumulada (se já calculada no fim da semana da acumulada).
-        const { data: progAcum } = await sb.from('temporada_semana_progresso')
-          .select('feedback').eq('trilha_id', trilhaId).eq('semana', semAcumulada).maybeSingle();
-        const acumuladoPrimaria = normalizarAcumuladoPrimaria(progAcum?.feedback?.acumulado);
-
-        // Agrega evidências de TODAS as semanas até a acumulada. A nota_pos NUNCA
-        // sai só do cenário. Piloto: a reflexão da semana evidencia os 2 descritores.
-        const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(sb, trilhaId, descritoresComRegua, semAcumulada);
-
-        // PII masking pra chamadas IA externas (map compartilhado do bloco).
-        const respostaMasked = maskTextPII(respostaAgregada, piiMap);
-        const evidenciasMasked = maskTextPII(evidenciasAcumuladas, piiMap);
-
-        // Scorer + trava + check — NÚCLEO compartilhado com a auditoria-sem14.
-        const resultadoScorer = await pontuarFechamento({
-          competencia: competenciasLabel,
-          descritores: descritoresComRegua,
-          cenario,
-          resposta: respostaMasked,
-          nomeColab: colabMasked.nome,
-          perfilDominante: colab?.perfil_dominante,
-          evidenciasAcumuladas: evidenciasMasked,
-          acumuladoPrimaria,
-          config: programaConfig,
-          // Fusão da arguição (Fase B): modula a nota se a defesa oral concluiu.
-          evidenciasArguicao: dados.arguicao?.concluida ? dados.arguicao.extracao : null,
-        });
-        if (resultadoScorer.meta.warnings.length) {
-          console.warn('[VERTHO] fechamento warnings:', resultadoScorer.meta.warnings.join(' | '));
-        }
-        // Guard: parse vazio ou narrativa piloto inválida → NÃO finaliza. Erro
-        // recuperável — a última resposta não foi persistida, reenviar reprocessa.
-        if (!resultadoScorer.ok) {
-          return { status: 502, json: {
-            error: 'A avaliação automática falhou ao processar sua resposta. Nada foi perdido — envie a última resposta novamente para reprocessar.',
-          } };
-        }
-        const parsed = resultadoScorer.parsed;
-        const auditoria = resultadoScorer.auditoria;
-
-        // Despersonaliza campos textuais do output (primária)
-        if (parsed?.resumo_avaliacao?.mensagem_geral) parsed.resumo_avaliacao.mensagem_geral = unmaskPII(parsed.resumo_avaliacao.mensagem_geral, piiMap);
-        if (Array.isArray(parsed?.avaliacao_por_descritor)) {
-          parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => ({
-            ...d, justificativa: unmaskPII(d.justificativa, piiMap),
-          }));
-        }
-        if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
-
-        const novoSlot = {
-          ...dados, ...parsed,
-          auditoria, // { nota_auditoria, status, ajustes_sugeridos, alertas, resumo_auditoria }
-          cenario, transcript_completo: historico, cenario_resposta: respostaAgregada,
-        };
-        await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: true });
-
-        // Gera Evolution Report automático (núcleo headless: sessão do colab, tenant via B5)
-        const report = await gerarEvolutionReportCore(trilhaId, { empresaId: auth.empresaId });
-
-        return { status: 200, json: {
-          finished: true,
-          avaliacao: parsed,
-          auditoria,
-          evolution_report: report.evolution_report,
-        } };
+        return { estado: 'processando' as const, erro: null, avaliacao: null };
       };
+
+      // Acompanhamento da pontuação (tela em polling). Só leitura.
+      if (action === 'fechamento_status') {
+        const leitura = estadoDoFechamento(prog, { arguicaoAtiva: !!programaConfig.arguicao?.ativa }, Date.now());
+        return NextResponse.json({
+          ...leitura,
+          avaliacao: leitura.estado === 'avaliado' ? resumoDaAvaliacao(dados) : null,
+        });
+      }
+
+      // Retomada: a pessoa já respondeu tudo e a nota não saiu (ou nunca foi pedida).
+      if (action === 'finalizar') {
+        const r = await dispararFinalizacao();
+        if (r.estado === 'processando') return NextResponse.json({ estado: 'processando' }, { status: 202 });
+        if (r.estado === 'avaliado') return NextResponse.json({ estado: 'avaliado', avaliacao: r.avaliacao });
+        return NextResponse.json({ estado: r.estado, error: r.erro || `fechamento não pode ser pontuado agora (${r.estado})` }, { status: 409 });
+      }
 
       if (action === 'init') {
         // Gate do piloto: o fechamento só abre quando a avaliação acumulada
@@ -474,12 +423,15 @@ export async function POST(request) {
         if (concluida) arguicao.extracao = await extrairEvidenciasArguicao(ctxArg, estado, aiConfig, piiArg);
         const novoSlot = { ...dados, arguicao };
         await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot, finished: false });
-        // AMARRAÇÃO (Fase C): ao encerrar a defesa oral, a nota sai AGORA — o
-        // scorer roda com a extração da arguição (Fase B funde no pontuarFechamento).
-        // A resposta última mensagem da IA (reply) vem junto pro colab ver o fecho.
+        // AMARRAÇÃO (Fase C): ao encerrar a defesa oral, a pontuação é DISPARADA
+        // (em after(), com a extração da arguição fundida no scorer). O fecho da
+        // IA (reply) volta já; a nota chega pelo `fechamento_status`.
         if (concluida) {
-          const r = await finalizarComScorer({ cenario: dados.cenario, perguntas: dados.perguntas || [], historico, dados: novoSlot });
-          return NextResponse.json({ ...r.json, arguicaoConcluida: true, message: reply, turno: estado.turno }, { status: r.status });
+          const r = await dispararFinalizacao();
+          return NextResponse.json({
+            arguicaoConcluida: true, message: reply, turno: estado.turno,
+            finalizando: r.estado === 'processando', fechamento: r.estado,
+          });
         }
         return NextResponse.json({ arguindo: true, arguicaoConcluida: false, message: reply, turno: estado.turno, finished: false });
       }
@@ -490,7 +442,21 @@ export async function POST(request) {
       const perguntas = dados.perguntas || [];
       if (!cenario || !perguntas.length) return NextResponse.json({ error: 'cenário não iniciado — chame action=init primeiro' }, { status: 400 });
 
-      historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
+      /**
+       * 🔴 RESPOSTAS COMPLETAS NÃO RECEBEM MAIS FALA. Antes, quem reabria a tela
+       * sem nota caía no formulário e reenviava as 4 respostas: cada `send`
+       * empurrava uma fala nova (Marta ficou com 5) e rodava o scorer outra vez,
+       * até 4 pontuações pagas por clique. Com tudo respondido, só resta abrir a
+       * arguição que falta ou pedir a pontuação (`finalizar`).
+       */
+      if (respostasDoCenario(dados) >= perguntas.length) {
+        if (!(programaConfig.arguicao?.ativa && !dados.arguicao)) {
+          const leitura = estadoDoFechamento(prog, { arguicaoAtiva: !!programaConfig.arguicao?.ativa }, Date.now());
+          return NextResponse.json({ error: 'As respostas do cenário já foram registradas.', fechamento: leitura.estado }, { status: 409 });
+        }
+      } else {
+        historico.push({ role: 'user', content: message, timestamp: new Date().toISOString() });
+      }
 
       const respostasColab = historico.filter(m => m.role === 'user').length; // 1..4
 
@@ -515,10 +481,12 @@ export async function POST(request) {
         return NextResponse.json({ arguindo: true, arguicaoConcluida: false, message: reply, turno: 1, finished: false });
       }
 
-      // Colab respondeu à última pergunta (e arguição off, ou já concluída) →
-      // scorer. Núcleo extraído em finalizarComScorer (reusado pela arguição).
-      const r = await finalizarComScorer({ cenario, perguntas, historico, dados });
-      return NextResponse.json(r.json, { status: r.status });
+      // Última resposta com a arguição desligada: grava a resposta e dispara a
+      // pontuação pelo MESMO caminho da arguição (um só lugar pontua).
+      const novoSlotFinal = { ...dados, transcript_completo: historico, cenario, perguntas };
+      await upsertProg(sb, { prog, trilhaId, semana, tipo: 'avaliacao', empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id, slotKey, novoSlot: novoSlotFinal, finished: false });
+      const r = await dispararFinalizacao();
+      return NextResponse.json({ finalizando: r.estado === 'processando', fechamento: r.estado, finished: false });
     }
 
     return NextResponse.json({ error: `Semana ${semana} inválida pra /evaluation — esperado ${semAcumulada} ou ${semCenarioB}` }, { status: 400 });
