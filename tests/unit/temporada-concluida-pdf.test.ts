@@ -56,8 +56,37 @@ describe('descritores agrupados por competência', () => {
 
   it('descritor sem competência não some: fica num grupo sem título', () => {
     const grupos = agruparPorCompetencia([{ descritor: 'X' }, { competencia: '  ', descritor: 'Y' }]);
-    expect(grupos).toEqual([{ competencia: null, descritores: [{ descritor: 'X' }, { competencia: '  ', descritor: 'Y' }] }]);
+    expect(grupos).toEqual([{
+      competencia: null, descritores: [{ descritor: 'X' }, { competencia: '  ', descritor: 'Y' }], mediaPre: null, mediaPos: null,
+    }]);
     expect(agruparPorCompetencia(null)).toEqual([]);
+  });
+
+  it('o resultado da competência é o AVANÇO médio, com o mesmo piso do descritor', () => {
+    // Elisângela, 16/09: as duas competências da trilha DUO, notas reais.
+    const [avaliacao, apoio] = agruparPorCompetencia([
+      { competencia: 'Avaliação', nota_pre: 2, nota_pos: 3.2 },
+      { competencia: 'Avaliação', nota_pre: 2, nota_pos: 2.5 },
+      { competencia: 'Avaliação', nota_pre: 2.5, nota_pos: 2.1 },
+      { competencia: 'Avaliação', nota_pre: 2.5, nota_pos: 2.3 },
+      { competencia: 'Apoio', nota_pre: 2.9, nota_pos: 2.2 },
+      { competencia: 'Apoio', nota_pre: 2, nota_pos: 1.4 },
+    ]);
+    // média 2,25 → 2,525: +0,3
+    expect(avancoDoPdf(avaliacao.mediaPre, avaliacao.mediaPos)).toBe('+0,3');
+    // média 2,45 → 1,8: cai, e o papel diz 0,0
+    expect(avancoDoPdf(apoio.mediaPre, apoio.mediaPos)).toBe('0,0');
+  });
+
+  it('descritor sem nota fica fora da média em vez de contar como zero', () => {
+    const [g] = agruparPorCompetencia([
+      { competencia: 'C', nota_pre: 2, nota_pos: 2.4 },
+      { competencia: 'C', nota_pre: null, nota_pos: 3 },
+    ]);
+    expect(g.mediaPre).toBe(2);
+    expect(g.mediaPos).toBe(2.4);
+    const [vazio] = agruparPorCompetencia([{ competencia: 'C', nota_pre: null, nota_pos: null }]);
+    expect(avancoDoPdf(vazio.mediaPre, vazio.mediaPos)).toBeNull();
   });
 });
 
@@ -91,6 +120,7 @@ describe('traduções', () => {
       expect(j.SeasonDone.final.postAverage).toBeUndefined();
       expect(j.SeasonFinal.done.pre).toBeUndefined();
       expect(j.SeasonFinal.done.progress).toBeTruthy();
+      expect(j.SeasonDone.competencyProgress).toBeTruthy();
       expect(String(j.SeasonDone.classification.stagnation)).toMatch(/^(Estável|Stable|Estable)$/);
     });
   }

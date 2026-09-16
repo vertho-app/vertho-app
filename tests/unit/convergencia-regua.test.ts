@@ -28,8 +28,22 @@ describe('Régua de convergência', () => {
       .toBe(CONVERGENCIA.CONFIRMADA);
   });
 
-  it('sustenta evolução parcial só com a leitura qualitativa', () => {
+  it('sustenta evolução parcial só com a leitura qualitativa, desde que haja avanço', () => {
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.1, nivel_percebido: 3 }))
+      .toBe(CONVERGENCIA.PARCIAL);
+  });
+
+  it('avanço exibido 0,0 é ESTÁVEL mesmo com leitura qualitativa positiva (16/09/2026)', () => {
+    // O caso real: Elisângela, 2,5 → 2,3 com qualitativa 3, saía "0,0 · Evolução
+    // parcial" no PDF. O veredito não pode afirmar avanço ao lado de um zero.
+    expect(classificarConvergencia({ nota_pre: 2.5, nota_pos: 2.3, nivel_percebido: 3 }))
+      .toBe(CONVERGENCIA.ESTAVEL);
     expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2, nivel_percebido: 3 }))
+      .toBe(CONVERGENCIA.ESTAVEL);
+    // A fronteira é o número EXIBIDO: +0,04 aparece como "0,0", +0,06 como "+0,1".
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.04, nivel_percebido: 3 }))
+      .toBe(CONVERGENCIA.ESTAVEL);
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.06, nivel_percebido: 3 }))
       .toBe(CONVERGENCIA.PARCIAL);
   });
 

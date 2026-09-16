@@ -12,6 +12,7 @@ import { qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import FirstViewVideo from '@/components/first-view-video';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { formatarAvanco } from '@/lib/season-engine/convergencia';
+import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 // Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a
 // temporada. A constante mora em programa-config: a tela da semana trancada
 // serve o MESMO vídeo, e duas cópias do GUID divergiriam sem erro visível.
@@ -325,17 +326,11 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
   // cabeca. A media sai dos mesmos descritores exibidos, entao o consolidado e
   // sempre coerente com a lista logo abaixo dele.
   //
-  // A média usa só descritores com as DUAS notas: `Number(null)` é 0, e um
-  // descritor sem nota de partida puxaria o "antes" para baixo e inventaria
-  // avanço.
-  const medidos = descritores.filter((d: any) => d.nota_pre != null && d.nota_pos != null);
-  const media = (campo: string) => medidos.reduce((soma: number, d: any) => soma + Number(d[campo]), 0) / medidos.length;
-  const consolidado = descritores.length
-    ? {
-        competencia: descritores[0]?.competencia || null,
-        avanco: medidos.length ? formatarAvanco(media('nota_pre'), media('nota_pos')) : null,
-      }
-    : null;
+  // 🔴 UM consolidado POR competência (16/09/2026). Antes a média juntava os
+  // descritores das DUAS competências da trilha DUO e rotulava o resultado com
+  // o nome da primeira. As médias vêm de `agruparPorCompetencia`, a mesma
+  // função do PDF, e só entram descritores com as duas notas.
+  const consolidados = agruparPorCompetencia(descritores);
 
   return (
     <GlassCard className="mb-6 border-brand-500/30 bg-gradient-to-br from-brand-500/5 to-emerald-500/5">
@@ -346,17 +341,24 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
       {report.insight_geral && (
         <p className="text-sm text-gray-200 italic mb-4">"{report.insight_geral}"</p>
       )}
-      {consolidado && (
+      {consolidados.length > 0 && (
         <div className="mb-3 rounded-lg border border-brand-400/25 bg-brand-400/[0.06] p-3">
           <p className="text-[10px] uppercase tracking-[0.14em] font-bold text-brand-300/80 mb-1">
             {t('report.consolidated')}
           </p>
-          <div className="flex items-baseline justify-between gap-3 flex-wrap">
-            <p className="text-sm font-bold text-white">{consolidado.competencia || '-'}</p>
-            <p className="text-xs text-gray-300">
-              {consolidado.avanco && <span className="text-brand-300 font-bold">{consolidado.avanco} · </span>}
-              <span className="text-gray-400">{descritores.length} {t('report.behaviors')}</span>
-            </p>
+          <div className="space-y-1">
+            {consolidados.map((c, i) => {
+              const avanco = formatarAvanco(c.mediaPre, c.mediaPos);
+              return (
+                <div key={i} className="flex items-baseline justify-between gap-3 flex-wrap">
+                  <p className="text-sm font-bold text-white">{c.competencia || '-'}</p>
+                  <p className="text-xs text-gray-300">
+                    {avanco && <span className="text-brand-300 font-bold">{avanco} · </span>}
+                    <span className="text-gray-400">{c.descritores.length} {t('report.behaviors')}</span>
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

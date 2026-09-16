@@ -16,6 +16,16 @@ export interface GrupoCompetencia<T> {
   /** `null` quando o descritor não traz competência (relatório antigo). */
   competencia: string | null;
   descritores: T[];
+  /**
+   * Médias das notas dos descritores que têm AS DUAS (`null` se nenhum tem).
+   * Não são para exibir: a tela e o PDF só mostram o AVANÇO da competência,
+   * `formatarAvanco(mediaPre, mediaPos)`, com o mesmo piso em zero do descritor
+   * (decisão do dono, 16/09/2026: "e a nota da competência?"). `Number(null)` é
+   * 0, então descritor sem nota de partida fica de fora da média, senão puxaria
+   * o "antes" para baixo e inventaria avanço.
+   */
+  mediaPre: number | null;
+  mediaPos: number | null;
 }
 
 // `T = any` e leitura por `any`: as telas recebem o relatório como `any` (jsonb),
@@ -29,10 +39,20 @@ export function agruparPorCompetencia<T = any>(
     const competencia = String((d as any)?.competencia || '').trim() || null;
     let grupo = grupos.find((g) => g.competencia === competencia);
     if (!grupo) {
-      grupo = { competencia, descritores: [] };
+      grupo = { competencia, descritores: [], mediaPre: null, mediaPos: null };
       grupos.push(grupo);
     }
     grupo.descritores.push(d);
   }
+  for (const g of grupos) {
+    const medidos = g.descritores.filter((d: any) => temNota(d?.nota_pre) && temNota(d?.nota_pos));
+    if (!medidos.length) continue;
+    g.mediaPre = medidos.reduce((soma, d: any) => soma + Number(d.nota_pre), 0) / medidos.length;
+    g.mediaPos = medidos.reduce((soma, d: any) => soma + Number(d.nota_pos), 0) / medidos.length;
+  }
   return grupos;
+}
+
+function temNota(v: unknown): boolean {
+  return v != null && v !== '' && Number.isFinite(Number(v));
 }

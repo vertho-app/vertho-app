@@ -1412,6 +1412,7 @@
   },
   "SeasonDone": {
     "back": "← Voltar",
+    "competencyProgress": "Avanço médio",
     "backToSeason": "Voltar à temporada",
     "downloadPdf": "Transferir PDF",
     "pdfError": "Erro ao gerar PDF",

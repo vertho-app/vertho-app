@@ -180,6 +180,14 @@ export function classificarConvergencia({
   // leitura.
   const alcancouMeta = nota_pos >= nivelMeta;
 
+  // 🔴 AVANÇO EXIBIDO 0,0 É ESTÁVEL, sem exceção (decisão do dono, 16/09/2026).
+  // A leitura qualitativa sustentava "parcial" sozinha mesmo com a nota do
+  // cenário caindo, e o relatório passou a mostrar "0,0 · Evolução parcial"
+  // (Elisângela, "Intervenção baseada em evidências": 2,5 → 2,3 com qualitativa
+  // 3), um veredito de avanço ao lado de um avanço zero. `Medido:` 4 descritores
+  // em 4 relatórios de Ibipeba. A régua decide pelo MESMO número que a pessoa lê
+  // (arredondado e com piso), então os dois não se contradizem mais.
+  if (avancoExibido(nota_pre, nota_pos) === 0) return CONVERGENCIA.ESTAVEL;
   if (delta >= CORTE_CONFIRMADA && qualitativaPositiva && alcancouMeta) return CONVERGENCIA.CONFIRMADA;
   if (delta >= CORTE_PARCIAL || qualitativaPositiva) return CONVERGENCIA.PARCIAL;
   // Queda cai aqui de propósito: sem veredito de regressão, o piso da régua é

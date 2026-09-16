@@ -59,10 +59,12 @@ const s = StyleSheet.create({
   statValue: { fontFamily: 'NotoSans', fontSize: 20, fontWeight: 700, marginTop: 3 },
   eyebrow: { fontFamily: 'NotoSans', fontSize: fonts.caption, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 3 },
   insight: { fontFamily: 'NotoSans', fontSize: fonts.small, fontStyle: 'italic', color: colors.textSecondary, lineHeight: 1.5 },
-  competencia: {
-    fontFamily: 'NotoSans', fontSize: fonts.body, fontWeight: 700, color: colors.navy,
+  competenciaLinha: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', gap: 10,
     marginTop: 8, marginBottom: 6,
   },
+  competencia: { fontFamily: 'NotoSans', fontSize: fonts.body, fontWeight: 700, color: colors.navy, flex: 1 },
+  competenciaAvanco: { fontFamily: 'NotoSans', fontSize: fonts.small, fontWeight: 700, color: colors.navy },
 });
 
 /** Cabeçalho navy fixo — o mesmo dos outros relatórios (`pageStyles.header`). */
@@ -305,7 +307,16 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
                   contato do PDF da Elisângela, 16/09). `minPresenceAhead` não
                   segurou; `wrap={false}` no par segura. */}
               <View wrap={false}>
-                {grupo.competencia && <Text style={s.competencia}>{grupo.competencia}</Text>}
+                {grupo.competencia && (
+                  <View style={s.competenciaLinha}>
+                    <Text style={s.competencia}>{grupo.competencia}</Text>
+                    {/* O resultado da COMPETÊNCIA é o avanço médio, nunca a nota
+                        (mesma régua e mesmo piso do descritor). */}
+                    {avancoDoPdf(grupo.mediaPre, grupo.mediaPos) && (
+                      <Text style={s.competenciaAvanco}>{`Avanço médio ${avancoDoPdf(grupo.mediaPre, grupo.mediaPos)}`}</Text>
+                    )}
+                  </View>
+                )}
                 {grupo.descritores[0] && <CardDescritor d={grupo.descritores[0]} />}
               </View>
               {grupo.descritores.slice(1).map((d: any, i: number) => <CardDescritor key={i} d={d} />)}

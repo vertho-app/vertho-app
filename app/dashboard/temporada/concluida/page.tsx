@@ -227,7 +227,15 @@ export default function TemporadaConcluidaPage() {
         {agruparPorCompetencia(descritores).map((grupo, g) => (
           <div key={g} className="mb-4">
             {grupo.competencia && (
-              <p className="text-sm font-bold text-brand-300 mb-2">{grupo.competencia}</p>
+              <div className="flex items-baseline justify-between gap-3 mb-2">
+                <p className="text-sm font-bold text-brand-300">{grupo.competencia}</p>
+                {/* Resultado da competência = avanço médio, nunca a nota. */}
+                {formatarAvanco(grupo.mediaPre, grupo.mediaPos) && (
+                  <span className="text-xs text-gray-400 shrink-0">
+                    {t('competencyProgress')} <b className="text-brand-300">{formatarAvanco(grupo.mediaPre, grupo.mediaPos)}</b>
+                  </span>
+                )}
+              </div>
             )}
             <div className="space-y-2">
               {grupo.descritores.map((d, i) => {

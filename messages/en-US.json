@@ -1412,6 +1412,7 @@
   },
   "SeasonDone": {
     "back": "← Back",
+    "competencyProgress": "Average progress",
     "backToSeason": "Back to season",
     "downloadPdf": "Download PDF",
     "pdfError": "Error generating PDF",
