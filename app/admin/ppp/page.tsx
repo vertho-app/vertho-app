@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash2, RefreshCw, School } from 'lucide-react';
 import { loadEmpresa, loadPPPs, excluirPPP } from './actions';
 import { extrairPPP } from '@/actions/ppp';
+import { decodificarTexto } from '@/lib/parse-spreadsheet';
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
@@ -339,7 +340,8 @@ function PPPPageInner() {
                             text = result.value || '';
                             info = t('upload.docx');
                           } else if (lower.endsWith('.txt')) {
-                            text = await file.text();
+                            // .txt "ANSI" do Bloco de Notas é Windows-1252: file.text() gravaria U+FFFD
+                            text = decodificarTexto(await file.arrayBuffer());
                             info = t('upload.txt');
                           } else {
                             // .doc/.ppt/.pptx — sem parser dedicado; fallback bruto e aviso
