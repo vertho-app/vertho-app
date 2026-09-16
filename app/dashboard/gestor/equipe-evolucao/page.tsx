@@ -201,7 +201,7 @@ export default function EquipeEvolucaoPage() {
                     {/* Subiu de nível em alguma competência: parabéns na linha (16/09/2026). */}
                     {(r.competencias || []).filter((c) => c.subiuDeNivel).map((c, i) => (
                       <p key={i} className="text-[10px] font-bold text-amber-300 mt-0.5 inline-flex items-center gap-1 mr-3">
-                        <PartyPopper size={11} aria-hidden="true" /> {c.competencia}: N{c.nivelInicial} → N{c.nivelFinal}
+                        <PartyPopper size={11} aria-hidden="true" /> {c.competencia}: Nível {c.nivelInicial} → Nível {c.nivelFinal}
                       </p>
                     ))}
                     <p className={`text-[10px] uppercase tracking-widest ${cfg.tinta} mt-0.5`}>{cfg.label}</p>
@@ -313,10 +313,10 @@ function DetalheModal({ data, loading, onClose, sb }) {
                           <p className="text-xs font-bold text-brand-300">{grupo.competencia}</p>
                           {grupo.nivelFinal != null && (grupo.subiuDeNivel ? (
                             <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold text-amber-300">
-                              N{grupo.nivelInicial} → N{grupo.nivelFinal} <PartyPopper size={12} aria-hidden="true" /> Subiu de nível
+                              Nível {grupo.nivelInicial} → Nível {grupo.nivelFinal} <PartyPopper size={12} aria-hidden="true" /> Subiu de nível
                             </p>
                           ) : (
-                            <p className="mt-0.5 text-[11px] text-gray-400">Nível final N{grupo.nivelFinal}</p>
+                            <p className="mt-0.5 text-[11px] text-gray-400">Nível {grupo.nivelFinal}</p>
                           ))}
                         </div>
                         {formatarValorAvanco(grupo.avancoMedio) && (

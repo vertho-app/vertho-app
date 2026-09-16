@@ -1413,7 +1413,7 @@
   "SeasonDone": {
     "back": "← Back",
     "competencyProgress": "Average progress",
-    "finalLevel": "Final level",
+    "level": "Level {n}",
     "levelUp": "Congratulations! You improved your level in this competency",
     "backToSeason": "Back to season",
     "downloadPdf": "Download PDF",
@@ -1539,7 +1539,7 @@
       "nextStep": "Next step:",
       "consolidated": "Competency roll-up",
       "stable": "Stable",
-      "finalLevel": "Final level",
+      "level": "Level {n}",
       "levelUp": "Congratulations! You improved your level in this competency",
       "behaviors": "behaviors"
     },
@@ -2661,7 +2661,7 @@
   "AdminEvolution": {
     "consolidatedPdf": "Consolidated PDF",
     "levelUp": "Level up",
-    "finalLevel": "Final level",
+    "level": "Level {n}",
     "competencyProgress": "Average progress",
     "title": "Evolution — Completed Seasons",
     "subtitle": "{count, plural, one {# team member with Evolution Report} other {# team members with Evolution Report}}",

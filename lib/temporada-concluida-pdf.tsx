@@ -350,16 +350,16 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
                       {/* Subiu: "N1 → N2 ★ Parabéns!…" (texto do dono, 16/09/2026). Manteve: só o nível final. */}
                       {grupo.nivelFinal != null && grupo.subiuDeNivel && (
                         <View style={s.nivelLinha}>
-                          <Text style={s.nivelSubiu}>{`N${grupo.nivelInicial}`}</Text>
+                          <Text style={s.nivelSubiu}>{`Nível ${grupo.nivelInicial}`}</Text>
                           <Seta />
-                          <Text style={s.nivelSubiu}>{`N${grupo.nivelFinal}`}</Text>
+                          <Text style={s.nivelSubiu}>{`Nível ${grupo.nivelFinal}`}</Text>
                           <Estrela />
                           <Text style={s.subiu}>Parabéns! Você melhorou seu nível nesta competência</Text>
                         </View>
                       )}
                       {grupo.nivelFinal != null && !grupo.subiuDeNivel && (
                         <View style={s.nivelLinha}>
-                          <Text style={s.nivel}>{`Nível final N${grupo.nivelFinal}`}</Text>
+                          <Text style={s.nivel}>{`Nível ${grupo.nivelFinal}`}</Text>
                         </View>
                       )}
                     </View>

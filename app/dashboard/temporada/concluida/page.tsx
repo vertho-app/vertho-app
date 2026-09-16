@@ -235,7 +235,7 @@ export default function TemporadaConcluidaPage() {
                   {/* Nível da MÉDIA da competência (nunca a nota) e parabéns quando subiu. */}
                   {grupo.nivelFinal != null && grupo.subiuDeNivel && (
                     <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                      <b className="text-white">N{grupo.nivelInicial} → N{grupo.nivelFinal}</b>
+                      <b className="text-white">{t('level', { n: grupo.nivelInicial })} → {t('level', { n: grupo.nivelFinal })}</b>
                       <span className="inline-flex items-center gap-1 text-amber-300 font-bold">
                         <PartyPopper size={13} /> {t('levelUp')}
                       </span>
@@ -243,7 +243,7 @@ export default function TemporadaConcluidaPage() {
                   )}
                   {grupo.nivelFinal != null && !grupo.subiuDeNivel && (
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {t('finalLevel')} <b className="text-white">N{grupo.nivelFinal}</b>
+                      <b className="text-white">{t('level', { n: grupo.nivelFinal })}</b>
                     </p>
                   )}
                 </div>

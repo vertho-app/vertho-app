@@ -234,10 +234,10 @@ function ColabRow({ trilha, onAbrir }) {
             <span>{g.competencia || trilha.competencia_foco}</span>
             {g.nivelFinal != null && (g.subiuDeNivel ? (
               <span className="inline-flex items-center gap-1 font-bold text-amber-300">
-                · N{g.nivelInicial} → N{g.nivelFinal} <PartyPopper size={11} aria-hidden="true" /> {t('levelUp')}
+                · {t('level', { n: g.nivelInicial })} → {t('level', { n: g.nivelFinal })} <PartyPopper size={11} aria-hidden="true" /> {t('levelUp')}
               </span>
             ) : (
-              <span className="text-gray-500">· N{g.nivelFinal}</span>
+              <span className="text-gray-500">· {t('level', { n: g.nivelFinal })}</span>
             ))}
           </div>
         ))}
@@ -282,10 +282,10 @@ function CabecalhoCompetencia({ grupo, t }) {
         <p className="text-xs font-bold text-cyan-300">{grupo.competencia}</p>
         {grupo.nivelFinal != null && (grupo.subiuDeNivel ? (
           <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold text-amber-300">
-            N{grupo.nivelInicial} → N{grupo.nivelFinal} <PartyPopper size={12} aria-hidden="true" /> {t('levelUp')}
+            {t('level', { n: grupo.nivelInicial })} → {t('level', { n: grupo.nivelFinal })} <PartyPopper size={12} aria-hidden="true" /> {t('levelUp')}
           </p>
         ) : (
-          <p className="mt-0.5 text-[11px] text-gray-400">{t('finalLevel')} N{grupo.nivelFinal}</p>
+          <p className="mt-0.5 text-[11px] text-gray-400">{t('level', { n: grupo.nivelFinal })}</p>
         ))}
       </div>
       {avanco && (
