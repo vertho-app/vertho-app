@@ -320,7 +320,7 @@ function DetalheModal({ data, loading, onClose, sb }) {
                           ))}
                         </div>
                         {formatarValorAvanco(grupo.avancoMedio) && (
-                          <span className="text-[11px] text-gray-400">Avanço médio <b className="text-brand-300">{formatarValorAvanco(grupo.avancoMedio)}</b></span>
+                          <span className="text-[11px] text-gray-400">Avanço <b className="text-brand-300">{formatarValorAvanco(grupo.avancoMedio)}</b></span>
                         )}
                       </div>
                     )}

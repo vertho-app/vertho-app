@@ -91,9 +91,9 @@ export function PlenariaEquipePDF({ gestorNome, empresa, resumo, rows, eyebrow, 
               React.createElement(Text, { style: styles.small }, sanitize(`${r.cargo || '-'}${r.competencia ? ' - ' + r.competencia : ''}`)),
             ),
             React.createElement(View, { style: { alignItems: 'flex-end' } },
-              // Só o avanço médio exibido (piso zero), sem notas: mesma régua da tela.
+              // Só o avanço exibido (média dos descritores, piso zero), sem notas: mesma régua da tela.
               r.avancoMedio != null && React.createElement(Text, { style: { fontSize: 9, color: cor, fontWeight: 700 } },
-                `Avanco medio ${formatarValorAvanco(r.avancoMedio).replace('.', ',')}`
+                `Avanco ${formatarValorAvanco(r.avancoMedio).replace('.', ',')}`
               ),
               React.createElement(Text, { style: { ...styles.pill, color: cor, marginTop: 2 } }, sanitize(label)),
             ),

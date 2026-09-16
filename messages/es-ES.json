@@ -1262,7 +1262,7 @@
     },
     "done": {
       "title": "Evaluación concluida",
-      "progress": "Avance medio",
+      "progress": "Avance",
       "viewReport": "Ver informe completo →",
       "demoScore": "Nota de la demostración",
       "pilotNote": "En el piloto, la evaluación demuestra el método de la temporada completa — no mide evolución en 2 semanas."
@@ -1412,7 +1412,7 @@
   },
   "SeasonDone": {
     "back": "← Volver",
-    "competencyProgress": "Avance medio",
+    "competencyProgress": "Avance",
     "level": "Nivel {n}",
     "levelUp": "¡Felicitaciones! Mejoraste tu nivel en esta competencia",
     "backToSeason": "Volver a la temporada",
@@ -2662,7 +2662,7 @@
     "consolidatedPdf": "Consolidado en PDF",
     "levelUp": "Subió de nivel",
     "level": "Nivel {n}",
-    "competencyProgress": "Avance medio",
+    "competencyProgress": "Avance",
     "title": "Evolución — Temporadas Concluidas",
     "subtitle": "{count, plural, one {# colaborador con Evolution Report} other {# colaboradores con Evolution Report}}",
     "loading": "Cargando...",

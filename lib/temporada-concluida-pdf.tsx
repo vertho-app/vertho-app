@@ -66,10 +66,18 @@ const s = StyleSheet.create({
   },
   competencia: { fontFamily: 'NotoSans', fontSize: fonts.body, fontWeight: 700, color: colors.navy },
   nivelLinha: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  nivel: { fontFamily: 'NotoSans', fontSize: fonts.small, color: colors.textSecondary },
-  subiu: { fontFamily: 'NotoSans', fontSize: fonts.small, fontWeight: 700, color: COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].fg },
-  nivelSubiu: { fontFamily: 'NotoSans', fontSize: fonts.small, fontWeight: 700, color: colors.navy },
-  competenciaAvanco: { fontFamily: 'NotoSans', fontSize: fonts.small, fontWeight: 700, color: colors.navy },
+  // Destaque da competência no início: é o indicador da régua de maturidade.
+  destaque: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+    borderWidth: 1, borderColor: colors.gray200, borderLeftWidth: 4, borderLeftColor: colors.navy,
+    borderRadius: 6, backgroundColor: colors.summaryBg, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 8,
+  },
+  destaqueNome: { fontFamily: 'NotoSans', fontSize: 12, fontWeight: 700, color: colors.navy },
+  destaqueNivel: { fontFamily: 'NotoSans', fontSize: fonts.body, color: colors.textSecondary },
+  destaqueNivelSubiu: { fontFamily: 'NotoSans', fontSize: fonts.body, fontWeight: 700, color: colors.navy },
+  destaqueSubiu: { fontFamily: 'NotoSans', fontSize: fonts.body, fontWeight: 700, color: COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].fg },
+  destaqueAvanco: { alignItems: 'flex-end' },
+  destaqueAvancoValor: { fontFamily: 'NotoSans', fontSize: 22, fontWeight: 700, color: colors.navy, marginTop: 1 },
 });
 
 /** Cabeçalho navy fixo — o mesmo dos outros relatórios (`pageStyles.header`). */
@@ -139,18 +147,18 @@ export function avancoValorPdf(avanco: number | null | undefined): string | null
 }
 
 /** Seta "de → para". Em SVG porque o U+2192 não existe no subset da fonte do corpo. */
-function Seta() {
+function Seta({ tamanho = 9 }: { tamanho?: number }) {
   return (
-    <Svg width={9} height={9} viewBox="0 0 24 24">
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24">
       <Path d="M4 12h14M12 5l7 7-7 7" stroke={colors.navy} strokeWidth={2.6} fill="none" />
     </Svg>
   );
 }
 
 /** Estrela de "parabéns". Desenhada em SVG: emoji fora do subset da fonte sai em branco. */
-function Estrela() {
+function Estrela({ tamanho = 9 }: { tamanho?: number }) {
   return (
-    <Svg width={9} height={9} viewBox="0 0 24 24">
+    <Svg width={tamanho} height={tamanho} viewBox="0 0 24 24">
       <Path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z" fill="#F59E0B" />
     </Svg>
   );
@@ -190,6 +198,46 @@ function CardDescritor({ d }: { d: any }) {
       <Text style={{ ...s.pill, color: cfg.cor, backgroundColor: colors.white }}>{cfg.label}</Text>
       {d.antes && <Text style={s.antesDepois}><Text style={s.rotulo}>Antes: </Text>{d.antes}</Text>}
       {d.depois && <Text style={s.antesDepois}><Text style={s.rotulo}>Depois: </Text>{d.depois}</Text>}
+    </View>
+  );
+}
+
+/**
+ * Uma competência no destaque do início: nome, nível e avanço.
+ *
+ * 🔑 É o indicador da régua de maturidade, por isso abre o documento (pedido do
+ * dono, 16/09/2026). Nível da MÉDIA das notas finais, que nunca cai abaixo do de
+ * partida; avanço = média dos avanços exibidos dos descritores. Nenhuma nota.
+ * O rótulo é "Avanço", sem "médio" (mesmo pedido).
+ */
+function DestaqueCompetencia({ grupo }: { grupo: ReturnType<typeof agruparPorCompetencia>[number] }) {
+  const avanco = avancoValorPdf(grupo.avancoMedio);
+  return (
+    <View style={s.destaque} wrap={false}>
+      <View style={{ flex: 1 }}>
+        <Text style={s.destaqueNome}>{grupo.competencia}</Text>
+        {/* Subiu: "Nível 1 → Nível 2 ★ Parabéns!…" (texto do dono, 16/09/2026). Manteve: só o nível. */}
+        {grupo.nivelFinal != null && grupo.subiuDeNivel && (
+          <View style={{ ...s.nivelLinha, marginTop: 4 }}>
+            <Text style={s.destaqueNivelSubiu}>{`Nível ${grupo.nivelInicial}`}</Text>
+            <Seta tamanho={10} />
+            <Text style={s.destaqueNivelSubiu}>{`Nível ${grupo.nivelFinal}`}</Text>
+            <Estrela tamanho={10} />
+            <Text style={s.destaqueSubiu}>Parabéns! Você melhorou seu nível nesta competência</Text>
+          </View>
+        )}
+        {grupo.nivelFinal != null && !grupo.subiuDeNivel && (
+          <View style={{ ...s.nivelLinha, marginTop: 4 }}>
+            <Text style={s.destaqueNivel}>{`Nível ${grupo.nivelFinal}`}</Text>
+          </View>
+        )}
+      </View>
+      {avanco && (
+        <View style={s.destaqueAvanco}>
+          <Text style={s.statLabel}>Avanço</Text>
+          <Text style={s.destaqueAvancoValor}>{avanco}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -296,9 +344,12 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
   if (evolutionReport?.modo === 'piloto') return <TemporadaPilotoPDF dados={dados} marca={marca} />;
 
   const descritores = evolutionReport?.descritores || [];
+  const grupos = agruparPorCompetencia(descritores);
+  const comCompetencia = grupos.filter((g) => g.competencia);
   const contadores = contadoresDoPdf(evolutionReport?.resumo);
   const totalSemanas = trilha?.totalSemanas || 14;
   const rodape = marca.mostrarVertho ? 'Vertho Mentor IA' : 'Relatório de temporada';
+  const devolutiva = sem14?.resumo_avaliacao?.mensagem_geral;
 
   return (
     <Document title={`Temporada ${trilha?.numeroTemporada} — ${colab?.nome || ''}`}>
@@ -316,57 +367,48 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
       <Page size="A4" style={pageStyles.page} wrap>
         <PageHeader logoBase64={marca.logoBase64} label={`Temporada ${trilha?.numeroTemporada}`} />
 
+        {/* ORDEM DO DOCUMENTO (dono, 16/09/2026): abre com a devolutiva da
+            avaliação final, que "já traz de bate pronto o resumo da evolução";
+            depois as competências em destaque; o `insight_geral`, que abria o
+            documento, fecha como "Mensagem final". */}
         <View style={s.section}>
           <ReportSectionTitle>{`${primeiroNome(colab?.nome)}, veja o que mudou em você`}</ReportSectionTitle>
-          <Text style={s.intro}>{`${totalSemanas} semanas dedicadas a ${trilha?.competencia || ''}.`}</Text>
-
-          <View style={s.statGrid}>
-            <Stat label="Confirmadas" valor={contadores.confirmadas} cor={CONV[CONVERGENCIA.CONFIRMADA].cor} />
-            <Stat label="Parciais" valor={contadores.parciais} cor={CONV[CONVERGENCIA.PARCIAL].cor} />
-            <Stat label="Estáveis" valor={contadores.estaveis} cor={CONV[CONVERGENCIA.ESTAVEL].cor} />
-          </View>
-
-          {evolutionReport?.insight_geral && (
-            <Text style={s.quote}>{evolutionReport.insight_geral}</Text>
-          )}
+          {devolutiva
+            ? <Text style={s.text}>{devolutiva}</Text>
+            : <Text style={s.intro}>{`${totalSemanas} semanas dedicadas a ${trilha?.competencia || ''}.`}</Text>}
         </View>
 
+        {comCompetencia.length > 0 && (
+          <View style={s.section} wrap={false}>
+            <ReportSectionTitle>{comCompetencia.length > 1 ? 'Suas competências' : 'Sua competência'}</ReportSectionTitle>
+            {comCompetencia.map((grupo, g) => <DestaqueCompetencia key={g} grupo={grupo} />)}
+          </View>
+        )}
+
         <View style={s.section}>
-          <ReportSectionTitle>Descritor a descritor</ReportSectionTitle>
+          {/* Os contadores contam DESCRITORES, então abrem esta seção. Presos ao
+              título para ele não ficar sozinho no pé da página. */}
+          <View wrap={false}>
+            <ReportSectionTitle>Descritor a descritor</ReportSectionTitle>
+            <View style={s.statGrid}>
+              <Stat label="Confirmadas" valor={contadores.confirmadas} cor={CONV[CONVERGENCIA.CONFIRMADA].cor} />
+              <Stat label="Parciais" valor={contadores.parciais} cor={CONV[CONVERGENCIA.PARCIAL].cor} />
+              <Stat label="Estáveis" valor={contadores.estaveis} cor={CONV[CONVERGENCIA.ESTAVEL].cor} />
+            </View>
+          </View>
           {/* Agrupado por competência: a trilha DUO tem duas, e a lista corrida
-              não dizia a qual cada comportamento pertence. */}
-          {agruparPorCompetencia(descritores).map((grupo, g) => (
+              não dizia a qual cada comportamento pertence. Nível e avanço ficam
+              no destaque do início; aqui só o nome, para não repetir. */}
+          {grupos.map((grupo, g) => (
             <View key={g}>
-              {/* O título da competência vai PRESO ao primeiro card: sozinho, ele
+              {/* O nome da competência vai PRESO ao primeiro card: sozinho, ele
                   caiu no pé da página 2 com os cards na 3 (medido na folha de
                   contato do PDF da Elisângela, 16/09). `minPresenceAhead` não
                   segurou; `wrap={false}` no par segura. */}
               <View wrap={false}>
                 {grupo.competencia && (
                   <View style={s.competenciaLinha}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={s.competencia}>{grupo.competencia}</Text>
-                      {/* Nível da MÉDIA da competência, nunca a nota; estrela quando subiu. */}
-                      {/* Subiu: "N1 → N2 ★ Parabéns!…" (texto do dono, 16/09/2026). Manteve: só o nível final. */}
-                      {grupo.nivelFinal != null && grupo.subiuDeNivel && (
-                        <View style={s.nivelLinha}>
-                          <Text style={s.nivelSubiu}>{`Nível ${grupo.nivelInicial}`}</Text>
-                          <Seta />
-                          <Text style={s.nivelSubiu}>{`Nível ${grupo.nivelFinal}`}</Text>
-                          <Estrela />
-                          <Text style={s.subiu}>Parabéns! Você melhorou seu nível nesta competência</Text>
-                        </View>
-                      )}
-                      {grupo.nivelFinal != null && !grupo.subiuDeNivel && (
-                        <View style={s.nivelLinha}>
-                          <Text style={s.nivel}>{`Nível ${grupo.nivelFinal}`}</Text>
-                        </View>
-                      )}
-                    </View>
-                    {/* O resultado da COMPETÊNCIA é o avanço médio dos descritores. */}
-                    {avancoValorPdf(grupo.avancoMedio) && (
-                      <Text style={s.competenciaAvanco}>{`Avanço médio ${avancoValorPdf(grupo.avancoMedio)}`}</Text>
-                    )}
+                    <Text style={s.competencia}>{grupo.competencia}</Text>
                   </View>
                 )}
                 {grupo.descritores[0] && <CardDescritor d={grupo.descritores[0]} />}
@@ -401,25 +443,19 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
           </View>
         )}
 
-        {sem14 && (
-          // Título e devolutiva juntos: separados, "Avaliação final / Devolutiva"
-          // ficava no pé de uma página e o texto na seguinte. A maior devolutiva
-          // da base tem 1.589 caracteres (medido 16/09), cabe numa página.
-          <View style={s.section} wrap={false}>
-            <ReportSectionTitle>Avaliação final</ReportSectionTitle>
-            {sem14?.resumo_avaliacao?.mensagem_geral && (
-              <View style={s.card}>
-                <Text style={s.rotulo}>Devolutiva</Text>
-                <Text style={{ ...s.text, marginTop: 3 }}>{sem14.resumo_avaliacao.mensagem_geral}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
         {evolutionReport?.proximo_passo && (
           <View style={s.section}>
             <ReportSectionTitle>Próximos passos</ReportSectionTitle>
             <Text style={s.text}>{evolutionReport.proximo_passo}</Text>
+          </View>
+        )}
+
+        {evolutionReport?.insight_geral && (
+          // Título e texto juntos, pelo mesmo motivo dos outros títulos: o maior
+          // `insight_geral` da base tem 556 caracteres (medido 16/09).
+          <View style={s.section} wrap={false}>
+            <ReportSectionTitle>Mensagem final</ReportSectionTitle>
+            <Text style={s.quote}>{evolutionReport.insight_geral}</Text>
           </View>
         )}
 

@@ -12,7 +12,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
-import { avancoDoPdf, avancoValorPdf, contadoresDoPdf } from '@/lib/temporada-concluida-pdf';
+import { isValidElement } from 'react';
+import { avancoDoPdf, avancoValorPdf, contadoresDoPdf, TemporadaConcluidaPDF } from '@/lib/temporada-concluida-pdf';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { semComentarios } from '../helpers/fonte';
 
@@ -158,4 +159,67 @@ describe('traduções', () => {
       expect(String(j.SeasonDone.classification.stagnation)).toMatch(/^(Estável|Stable|Estable)$/);
     });
   }
+});
+
+/**
+ * A ORDEM do documento (pedido do dono, 16/09/2026, olhando o PDF do Helmar):
+ * abre com a devolutiva da avaliação final sob "<nome>, veja o que mudou em
+ * você"; logo depois as competências em destaque, com nível e "Avanço" (sem
+ * "médio"), que são o indicador da régua de maturidade; o `insight_geral`, que
+ * abria o documento, fecha como "Mensagem final".
+ *
+ * Lê o texto da ÁRVORE que o componente monta, na ordem em que vai para o papel,
+ * sem renderizar: o render baixa a fonte da CDN, e teste de unidade não depende
+ * de rede.
+ */
+describe('ordem do PDF da temporada', () => {
+  function textos(no: any, out: string[] = []): string[] {
+    if (no == null || typeof no === 'boolean') return out;
+    if (typeof no === 'string' || typeof no === 'number') { out.push(String(no)); return out; }
+    if (Array.isArray(no)) { for (const n of no) textos(n, out); return out; }
+    if (isValidElement(no)) {
+      const { type, props } = no as any;
+      return typeof type === 'function' ? textos(type(props), out) : textos(props?.children, out);
+    }
+    return out;
+  }
+
+  const dados = {
+    colab: { nome: 'Helmar Teste', cargo: 'Gestão Escolar' },
+    trilha: { competencia: 'Planejamento + Autocuidado', numeroTemporada: 1, totalSemanas: 9 },
+    evolutionReport: {
+      insight_geral: 'TEXTO-DO-INSIGHT-GERAL',
+      resumo: { confirmadas: 0, parciais: 2, estagnacoes: 1 },
+      descritores: [
+        { competencia: 'Planejamento', descritor: 'Organização do plano', nota_pre: 1.5, nota_pos: 2.7, convergencia: 'evolucao_parcial' },
+        { competencia: 'Planejamento', descritor: 'Gestão de riscos', nota_pre: 1.9, nota_pos: 2.8, convergencia: 'evolucao_parcial' },
+        { competencia: 'Autocuidado', descritor: 'Limites profissionais', nota_pre: 2.2, nota_pos: 2.1, convergencia: 'estagnacao' },
+      ],
+    },
+    momentos: [],
+    missoes: [],
+    sem14: { resumo_avaliacao: { mensagem_geral: 'TEXTO-DA-DEVOLUTIVA' } },
+  };
+  const marca = { logoBase64: null, mostrarVertho: true } as any;
+  const texto = () => textos(TemporadaConcluidaPDF({ dados, marca })).join('\n');
+
+  it('devolutiva, competências em destaque, descritores e, por último, a mensagem final', () => {
+    const t = texto();
+    const ordem = ['veja o que mudou em você', 'TEXTO-DA-DEVOLUTIVA', 'Suas competências', 'Avanço',
+      'Descritor a descritor', 'Mensagem final', 'TEXTO-DO-INSIGHT-GERAL'];
+    const posicoes = ordem.map((trecho) => t.indexOf(trecho));
+    for (const [i, p] of posicoes.entries()) expect(p, `"${ordem[i]}" não está no PDF`).toBeGreaterThanOrEqual(0);
+    expect(posicoes).toEqual([...posicoes].sort((a, b) => a - b));
+  });
+
+  it('o destaque traz nível e avanço de cada competência, e o parabéns aparece uma vez só', () => {
+    const t = texto();
+    expect(t).toContain('Nível 1\nNível 2'); // Planejamento: média 1,70 → 2,75
+    expect(t).toContain('+1,1');              // (1,2 + 0,9) / 2 → 1,05 → 1,1
+    expect(t.split('Parabéns! Você melhorou seu nível nesta competência')).toHaveLength(2);
+    expect(t).not.toMatch(/médio/i);
+    // a devolutiva saiu do fim do documento: sem a seção antiga
+    expect(t).not.toContain('Avaliação final');
+    expect(t).not.toContain('Devolutiva');
+  });
 });

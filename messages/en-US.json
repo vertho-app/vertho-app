@@ -1262,7 +1262,7 @@
     },
     "done": {
       "title": "Assessment completed",
-      "progress": "Average progress",
+      "progress": "Progress",
       "viewReport": "See full report →",
       "demoScore": "Demonstration score",
       "pilotNote": "In the pilot, the assessment demonstrates the full-season method — it does not measure growth over 2 weeks."
@@ -1412,7 +1412,7 @@
   },
   "SeasonDone": {
     "back": "← Back",
-    "competencyProgress": "Average progress",
+    "competencyProgress": "Progress",
     "level": "Level {n}",
     "levelUp": "Congratulations! You improved your level in this competency",
     "backToSeason": "Back to season",
@@ -2662,7 +2662,7 @@
     "consolidatedPdf": "Consolidated PDF",
     "levelUp": "Level up",
     "level": "Level {n}",
-    "competencyProgress": "Average progress",
+    "competencyProgress": "Progress",
     "title": "Evolution — Completed Seasons",
     "subtitle": "{count, plural, one {# team member with Evolution Report} other {# team members with Evolution Report}}",
     "loading": "Loading...",
