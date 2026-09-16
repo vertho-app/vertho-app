@@ -434,7 +434,7 @@ nextjs-app/
 │   ├── competencias-base.ts      # Arrays educacao/corporativo + PILAR_COLORS
 │   ├── pdf-assets.ts             # Assets para PDFs
 │   ├── markdown-to-pdf.ts        # Converter markdown para PDF
-│   ├── parse-spreadsheet.ts      # Parser planilhas (read-excel-file v8)
+│   ├── parse-spreadsheet.ts      # Parser planilhas (read-excel-file v8); CSV em UTF-8 ou Windows-1252, com aspas
 │   ├── pii-masker.ts             # Mascara PII antes de enviar para LLMs externos
 │   ├── ai-tasks.ts               # Tasks IA auxiliares
 │   ├── ia-cost-catalog.ts        # Catalogo chamadas IA x modelos x presets (inclui RAG)

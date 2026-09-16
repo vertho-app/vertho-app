@@ -1232,3 +1232,33 @@ ficou **38 dias** sem a coluna dela. Um mapa operacional do produto inteiro foi 
 com "14, 10 ou 2 semanas" e quem corrigiu foi o dono, por comentário — o repositório não
 tinha como. Mesma família de `project_docs_consolidacao`: a contradição morava DENTRO do
 `CLAUDE.md` (linha 240 sem a Jornada, linha 720 já falando dela), e a seção velha vinha primeiro.
+
+---
+
+## § Vou ler ARQUIVO enviado pela pessoa como texto (CSV, TXT), ou subir fix que roda no NAVEGADOR
+
+**Padrão que casa:** `file.text()`, `readAsText` ou `new TextDecoder()` sem `fatal` sobre um
+`<input type="file">` · `lib/parse-spreadsheet.ts` · qualquer correção em código de cliente cujo
+efeito a pessoa vai testar logo depois do deploy.
+
+- [ ] **Decodifique com `decodificarTexto`** (`lib/parse-spreadsheet.ts`): UTF-8 estrito, e o que não
+      for UTF-8 válido sai como Windows-1252. O Excel no Windows salva "CSV (separado por ponto e
+      vírgula)" em Windows-1252, e o Bloco de Notas antigo salva `.txt` "ANSI". `file.text()` troca
+      cada acento por U+FFFD e **isso é gravado**: o byte original some, não há conserto no banco.
+- [ ] **CSV não se quebra com `split('\n')`/`split(sep)`.** Célula com aspas, `;` ou Alt+Enter desloca
+      as colunas da linha inteira, sem erro. Use `separarCsv`.
+- [ ] **Limpar import corrompido exige APAGAR antes de reimportar.** `importarCargosLote` pula nome
+      já cadastrado: reimportar mantém o `�` onde o nome não tem acento ("duplicatas ignoradas") e
+      duplica o cargo onde tem.
+- [ ] **Fix que roda no navegador: mande abrir aba nova (ou Ctrl+Shift+R) SEMPRE**, não "se a aba
+      estava aberta". A Skew Protection prende a aba à versão com que ela carregou por até 12 h. Se
+      voltar "mesmo erro", `get_runtime_logs` na janela da ação: o `dep=` do POST diz qual versão
+      atendeu, antes de reabrir o código.
+
+**Consequência medida (16/09/2026):** 4 cargos da 4life-educacao gravados como
+`Coordena��o Pedag�gica` a partir de um CSV do Excel. Com o fix no ar, a reimportação voltou com `�`
+de novo: o POST das 14:47 UTC saiu de `dpl_3VCR…` (versão antiga) enquanto o resto do tráfego do
+mesmo minuto já estava na nova. Foram duas limpezas de 4 cargos; na aba nova (14:56, `dpl_ADNV…`),
+0 `�`. Varrendo a classe, o `.txt` do PPP (`app/admin/ppp/page.tsx`) tinha o mesmo `file.text()`:
+0 de 19 PPPs afetados, corrigido pela régua. O Radar (off-line) ficou de fora de propósito.
+Memória `feedback_deploy` §dep=.
