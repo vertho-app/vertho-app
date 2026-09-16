@@ -109,7 +109,9 @@ const EMPTY_PROSPECT_FORM: ProspectForm = {
   empresa: '',
   whatsapp: '',
   roleKey: 'representante-comercial',
-  versao: 'A',
+  // B é o padrão desde a verificação em produção de 16/09/2026 (robô sem efeito,
+  // caminho de uma pessoa no iPhone e limpeza conferidos). A A segue a um clique.
+  versao: 'B',
 };
 
 const inputClass = 'w-full rounded-lg border border-white/10 bg-[#081523]/80 px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-white/20 focus:border-emerald-300/45 focus:ring-2 focus:ring-emerald-300/10';
