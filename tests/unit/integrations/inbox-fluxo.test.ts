@@ -6,7 +6,7 @@
 // contrário devolve dados válidos da parte errada da conversa; uma associação
 // larga demais reescreve linha de outro tenant sem erro nenhum. Nenhuma delas
 // aparece na tela — só aqui.
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import crypto from 'crypto';
 import { criarSupabaseMock, type SupabaseMock } from '../../helpers/supabase-mock';
 
@@ -164,6 +164,46 @@ describe('webhook — a quem a mensagem recebida pertence', () => {
     // Gravar mesmo sem dono é o ponto: o número da Cloud API não tem aplicativo,
     // então o que não for gravado aqui não existe em lugar nenhum.
     expect(gravada?.op).toBe('upsert');
+  });
+});
+
+describe('webhook: resposta automática sai pelo número que recebeu', () => {
+  const urls: string[] = [];
+  const fetchOriginal = global.fetch;
+
+  beforeEach(() => {
+    urls.length = 0;
+    process.env.META_WHATSAPPBUSINESS_API = 'token-de-teste';
+    process.env.PHONE_NUMBER_ID = '111';
+    process.env.WHATSAPP_NUMEROS_EXTRA = JSON.stringify([{ id: '222', rotulo: '+55 11 5199-1865' }]);
+    global.fetch = vi.fn(async (url: any) => {
+      urls.push(String(url));
+      return { ok: true, status: 200, json: async () => ({ messages: [{ id: 'wamid.OUT' }] }) } as any;
+    }) as any;
+  });
+  afterEach(() => {
+    delete process.env.META_WHATSAPPBUSINESS_API;
+    delete process.env.PHONE_NUMBER_ID;
+    delete process.env.WHATSAPP_NUMEROS_EXTRA;
+    global.fetch = fetchOriginal;
+  });
+
+  it('🔴 recusa escrita para o 222 é respondida pelo 222', async () => {
+    // Antes a resposta não levava o número de destino e saía sempre pelo
+    // inicial, fora da janela de 24h daquela conversa.
+    novoMock({ lista: (t) => (t === 'colaboradores' ? [{ id: 'c1', empresa_id: 'e1' }] : []) });
+    const payload = payloadMensagem();
+    const valor = payload.entry[0].changes[0].value;
+    valor.metadata.phone_number_id = '222';
+    valor.messages[0].text.body = 'SAIR';
+
+    await POST(requisicao(payload));
+
+    // A resposta roda dentro de `after()`, que o POST não aguarda: espera o envio.
+    await vi.waitFor(() => expect(urls.some((u) => u.includes('/messages'))).toBe(true), { timeout: 2000 });
+    const envios = urls.filter((u) => u.includes('/messages'));
+    expect(envios.some((u) => u.includes('/222/messages'))).toBe(true);
+    expect(envios.some((u) => u.includes('/111/messages'))).toBe(false);
   });
 });
 
@@ -409,6 +449,45 @@ describe('escrita local que falha não pode sumir', () => {
     await marcarLida('e1', '5511999998888');
 
     expect(h.degradacoes).toHaveLength(0);
+  });
+
+  describe('o número gravado na thread é o que o envio usa', () => {
+    beforeEach(() => {
+      process.env.PHONE_NUMBER_ID = '111';
+      process.env.WHATSAPP_NUMEROS_EXTRA = JSON.stringify([{ id: '222', rotulo: '+55 11 5199-1865', empresas: ['e1'] }]);
+    });
+    afterEach(() => {
+      delete process.env.PHONE_NUMBER_ID;
+      delete process.env.WHATSAPP_NUMEROS_EXTRA;
+    });
+
+    it('🔴 conversa sem número de origem grava o número DA EMPRESA, não o inicial', async () => {
+      // Histórico sem `to_phone_id`: quem decide é a empresa. Gravar o pedido
+      // (nulo → PHONE_NUMBER_ID) punha a thread dizendo 111 com o envio saindo no 222.
+      const sb = novoMock({
+        resolver: (t) => (t === 'whatsapp_mensagens_recebidas'
+          ? { recebida_em: new Date(AGORA - 3600_000).toISOString(), colaborador_id: 'c1', to_phone_id: null }
+          : null),
+      });
+
+      await responderConversa({ empresaId: 'e1', telefone: '5511999998888', texto: 'oi' });
+
+      const gravada = sb.escritas.find((e) => e.tabela === 'whatsapp_mensagens_enviadas');
+      expect(gravada?.payload.from_phone_id).toBe('222');
+    });
+
+    it('conversa pelo inicial continua gravando o inicial, mesmo com a empresa ligada ao 222', async () => {
+      const sb = novoMock({
+        resolver: (t) => (t === 'whatsapp_mensagens_recebidas'
+          ? { recebida_em: new Date(AGORA - 3600_000).toISOString(), colaborador_id: 'c1', to_phone_id: '111' }
+          : null),
+      });
+
+      await responderConversa({ empresaId: 'e1', telefone: '5511999998888', texto: 'oi' });
+
+      const gravada = sb.escritas.find((e) => e.tabela === 'whatsapp_mensagens_enviadas');
+      expect(gravada?.payload.from_phone_id).toBe('111');
+    });
   });
 });
 

@@ -95,6 +95,11 @@ export async function responderPedidoDeResumo(input: {
   waMessageId: string;
   /** Host do tenant, quando conhecido — vira o link do painel. */
   hostTenant?: string | null;
+  /**
+   * Número para o qual o gestor escreveu (`to_phone_id`). A resposta sai por ele:
+   * a janela de 24h é por número, e sem isto o resumo saía sempre pelo inicial.
+   */
+  numeroId?: string | null;
 }): Promise<Resultado> {
   try {
     // Porta 1 — o telefone resolveu para UMA pessoa. `decidirDono` já é
@@ -136,7 +141,7 @@ export async function responderPedidoDeResumo(input: {
 
     const r = await enviarTextoCloud(
       { phone: input.telefone, texto: formatarResumo(resumo) },
-      { motivo: KIND_RESUMO_GESTOR, dedupeKey, empresaId: input.empresaId, colaboradorId: input.colaboradorId },
+      { motivo: KIND_RESUMO_GESTOR, dedupeKey, empresaId: input.empresaId, colaboradorId: input.colaboradorId, numeroId: input.numeroId ?? null },
     );
     if (!r.ok) return { enviou: false, motivo: r.reason || 'envio recusado' };
     return { enviou: true };

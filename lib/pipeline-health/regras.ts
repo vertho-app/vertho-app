@@ -712,6 +712,12 @@ export interface SaudeCanalEntrada {
   qualidade: string | null;
   nomeVerificado: string | null;
   motivo: string | null;
+  /**
+   * Números de `WHATSAPP_NUMEROS_EXTRA`. Entram na MESMA régua do inicial
+   * (16/09/2026): qualidade e bloqueio são por número, e um segundo número que
+   * ninguém inspeciona pode cair sem que nada acuse.
+   */
+  extras?: Array<{ id: string; rotulo: string; numeroOk: boolean | null; qualidade: string | null; motivo: string | null }>;
 }
 
 export function checarCanalEntradaWhatsapp(s: SaudeCanalEntrada): Achado[] {
@@ -731,40 +737,61 @@ export function checarCanalEntradaWhatsapp(s: SaudeCanalEntrada): Achado[] {
     ));
   }
 
-  // Cegueira em QUALQUER das duas metades vira achado. `inscrito` e `numeroOk`
+  // Todos os números na MESMA régua, cada achado listando QUAIS números. Um id
+  // por tipo de problema (e não por número) mantém a série histórica estável; o
+  // número afetado vai na amostra, que é o que torna o alerta acionável.
+  const extras = s.extras ?? [];
+  const numeros = [
+    { rotulo: 'número inicial (PHONE_NUMBER_ID)', numeroOk: s.numeroOk, qualidade: s.qualidade, motivo: s.motivo },
+    ...extras,
+  ];
+
+  // Cegueira em QUALQUER das metades vira achado. `inscrito` e `numeroOk`
   // vêm de chamadas diferentes: um ambiente com token e sem `PHONE_NUMBER_ID`
   // responde a primeira e não a segunda, e tratar isso como "ok" seria a mesma
-  // falha que a regra existe para pegar, um nível acima.
-  if (s.inscrito === null || s.numeroOk === null) {
+  // falha que a regra existe para pegar, um nível acima. Extra sem resposta idem.
+  const extrasCegos = extras.filter((n) => n.numeroOk === null);
+  if (s.inscrito === null || s.numeroOk === null || extrasCegos.length) {
     out.push(achado(
       'whatsapp-webhook-check-cego', 'aviso',
       'Não foi possível verificar a saúde do canal de entrada',
       1,
       `O canal pode estar de pé ou caído — este check não conseguiu perguntar${s.motivo ? ` (${s.motivo})` : ''}. Enquanto isso, uma queda do inbound continua indistinguível de "ninguém escreveu".`,
-      { acao: 'Conferir WABA_ID, PHONE_NUMBER_ID e META_WHATSAPPBUSINESS_API na Vercel (o token precisa de whatsapp_business_management).' },
+      {
+        amostra: extrasCegos.map((n) => `${n.rotulo}: ${n.motivo ?? 'sem resposta'}`),
+        acao: 'Conferir WABA_ID, PHONE_NUMBER_ID, WHATSAPP_NUMEROS_EXTRA e META_WHATSAPPBUSINESS_API na Vercel (o token precisa de whatsapp_business_management).',
+      },
     ));
   }
 
-  if (s.numeroOk === false) {
+  const semEnvio = numeros.filter((n) => n.numeroOk === false);
+  if (semEnvio.length) {
     out.push(achado(
       'whatsapp-numero-inacessivel', 'critico',
-      'O número da Cloud API não respondeu com a credencial atual',
-      1,
-      'Nenhuma mensagem sai — inclusive o OTP de login, que hoje tenta este caminho antes do legado.',
-      { acao: 'Conferir PHONE_NUMBER_ID e a validade do token do system user no painel da Meta.' },
+      'Número da Cloud API sem condição de enviar',
+      semEnvio.length,
+      'Nenhuma mensagem sai por esse número. No inicial isso inclui o OTP de login, que hoje tenta este caminho antes do legado; num número extra, tudo das empresas ligadas a ele.',
+      {
+        amostra: semEnvio.map((n) => `${n.rotulo}${n.motivo ? `: ${n.motivo}` : ''}`),
+        acao: 'Conferir o registro do número (GET /{id}?fields=status,platform_type,health_status; PENDING pede POST /{id}/register) e a validade do token do system user no painel da Meta.',
+      },
     ));
   }
 
-  const q = (s.qualidade || '').toUpperCase();
-  if (q === 'RED' || q === 'YELLOW') {
+  for (const q of ['RED', 'YELLOW'] as const) {
+    const afetados = numeros.filter((n) => (n.qualidade || '').toUpperCase() === q);
+    if (!afetados.length) continue;
     out.push(achado(
       `whatsapp-qualidade-${q.toLowerCase()}`, q === 'RED' ? 'critico' : 'aviso',
       `Qualidade do número em ${q} na Meta`,
-      1,
+      afetados.length,
       q === 'RED'
-        ? 'A Meta já restringiu ou está prestes a restringir o número: o limite de mensagens cai e o canal pode morrer para todos os tenants de uma vez.'
+        ? 'A Meta já restringiu ou está prestes a restringir o número: o limite de mensagens cai e o canal pode morrer para todos os tenants daquele número de uma vez.'
         : 'Sinal PRÉVIO de restrição — bloqueios e "marcar como spam" acumulados. É a janela para agir antes de perder o número.',
-      { acao: 'Reduzir disparo em lote, revisar copy dos templates e conferir o painel de qualidade da WABA.' },
+      {
+        amostra: afetados.map((n) => n.rotulo),
+        acao: 'Reduzir disparo em lote, revisar copy dos templates e conferir o painel de qualidade da WABA.',
+      },
     ));
   }
 

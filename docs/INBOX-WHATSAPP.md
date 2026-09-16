@@ -209,6 +209,17 @@ O que a fase 2 exige, e não é pouco:
    última recebida, `cloud-api.ts` envia por ele (`numeroId`), e com 2+ números a
    tela mostra filtro + "via …" por conversa. Sem `WHATSAPP_NUMEROS_EXTRA`, tudo
    cai no inicial — comportamento idêntico ao de 1 número.
+   ✅ **Número por EMPRESA (16/09/2026).** O +55 11 5199-1865 (`1250415214830990`) serve a 4Life e
+   a Amazon Bowling. Cada item de `WHATSAPP_NUMEROS_EXTRA` aceita `empresas: [<empresas.id>]`, e
+   `resolverNumeroParaEnvio(pedido, empresaId)` decide nesta ordem: número da conversa, número da
+   empresa, inicial. A conversa vence porque a janela de 24h é por número. Assim cadência, acesso,
+   OTP e lote dessas empresas saem pelo número delas sem nenhum chamador saber disso: todos já
+   passam `empresaId` no `meta`. Empresa nova entra editando a variável (não Sensitive) e fazendo
+   deploy. As respostas automáticas do webhook (recusa e "VER") passaram a levar o `to_phone_id`,
+   e a thread grava o número efetivo, não o pedido. Testes: `whatsapp-numero-origem.test.ts`,
+   `inbox-fluxo.test.ts` e R12 em `pipeline-health-regras.test.ts`, validados por 8 mutações.
+   ⚠️ Fora do alcance: o legado Z-API (fallback da cadência, aviso ao tutor, áudio do relatório,
+   magic link em lote da tela antiga) não passa por número nenhum da Cloud API.
 3. **Revalidar a janela NO SERVIDOR, no instante do envio.** O estado renderizado envelhece: o
    gestor abre com a janela aberta, escreve cinco minutos e envia com ela fechada. Confiar na tela
    produz erro 131047 da Meta e uma mensagem que a pessoa nunca recebe.
@@ -370,9 +381,9 @@ Estimativa da fase 1: **poucas horas**, por ser consulta sobre dados que já exi
 - [x] Janela expirada ENTRE a renderização e o envio → erro explicado, não mensagem perdida.
 - [x] Duplo clique não envia duas vezes (chave de idempotência; a versão **atômica** segue pendente — §9.2).
 - [x] Conversa ambígua não tem campo de resposta.
-- [ ] **Resposta sai pelo mesmo número da conversa.** ⚠️ NÃO cumprido: o envio usa
-      `process.env.PHONE_NUMBER_ID`, não o `to_phone_id` gravado. Com um número só, indistinguível;
-      com o segundo número (proposta A=acesso / B=jornada) passa a responder pelo remetente errado.
+- [x] **Resposta sai pelo mesmo número da conversa.** Cumprido na mig 252 (14/09/2026) para a
+      caixa, e em 16/09/2026 para as respostas automáticas do webhook (recusa e "VER"), que ainda
+      saíam pelo inicial. O segundo número entrou por EMPRESA, não pela proposta A=acesso / B=jornada.
 - [x] Falha da Meta aparece para quem enviou, não só no log.
 
 ---
@@ -757,8 +768,11 @@ de ser robô. Cada uma mata o teste correspondente. O par continua sendo
 
 ### 9.3 O que continua aberto — e por quê
 
-- **Responder pelo `to_phone_id` da conversa** (§7.1). Com dois números, a chave da conversa é
-  `(to_phone_id, from_phone)`. É o item com data marcada: quebra quando o segundo número entrar.
+- ~~**Responder pelo `to_phone_id` da conversa**~~ fechado (mig 252 + 16/09/2026, ver §7.1). O que
+  sobra dele: a view `whatsapp_conversas` agrupa por `(empresa_id, telefone)`, não por número, e a
+  identificação de quem escreve (`decidirDono`) ignora o número de destino. Telefone cadastrado em
+  mais de uma empresa continua caindo em "sem cliente" mesmo quando o número recebido só serve uma
+  delas.
 - **Idempotência atômica.** A chave é `(telefone, 40 primeiros caracteres, minuto)` e o fluxo é
   "consulta → chama a Meta → insere". Dois cliques simultâneos passam os dois; e uma tentativa que
   **falhou** faz a repetição encontrar a linha e devolver `ok: true` com `wa_message_id` nulo. O

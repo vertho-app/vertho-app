@@ -564,4 +564,43 @@ describe('R12 · canal de entrada do WhatsApp', () => {
       'whatsapp-numero-inacessivel', 'whatsapp-qualidade-red', 'whatsapp-webhook-sem-inscricao',
     ]);
   });
+
+  // Números extras (16/09/2026): qualidade e bloqueio são POR NÚMERO. Com o
+  // inicial saudável, só estes testes provam que o extra não passa calado.
+  const extra = (over: Record<string, unknown> = {}) => ({
+    id: '222', rotulo: '+55 11 5199-1865 (4Life)', numeroOk: true, qualidade: 'GREEN', motivo: null, ...over,
+  });
+
+  it('🔴 extra em RED com o inicial GREEN ainda é crítico, e diz QUAL número', () => {
+    const [a] = checarCanalEntradaWhatsapp(saude({ extras: [extra({ qualidade: 'RED' })] }));
+    expect(a.id).toBe('whatsapp-qualidade-red');
+    expect(a.severidade).toBe('critico');
+    expect(a.contagem).toBe(1);
+    expect(a.amostra).toEqual(['+55 11 5199-1865 (4Life)']);
+  });
+
+  it('🔴 extra sem condição de enviar é crítico e leva o motivo na amostra', () => {
+    const achados = checarCanalEntradaWhatsapp(saude({ extras: [extra({ numeroOk: false, motivo: 'envio BLOQUEADO pela Meta: (141000)' })] }));
+    const a = achados.find((x) => x.id === 'whatsapp-numero-inacessivel');
+    expect(a?.severidade).toBe('critico');
+    expect(a?.amostra?.[0]).toContain('141000');
+  });
+
+  it('extra que não respondeu é cegueira, não saúde', () => {
+    const achados = checarCanalEntradaWhatsapp(saude({ extras: [extra({ numeroOk: null, qualidade: null, motivo: 'número rede: sem resposta' })] }));
+    const cego = achados.find((x) => x.id === 'whatsapp-webhook-check-cego');
+    expect(cego?.severidade).toBe('aviso');
+    expect(cego?.amostra?.[0]).toContain('5199-1865');
+  });
+
+  it('inicial e extra no mesmo problema viram UM achado com os dois números', () => {
+    const achados = checarCanalEntradaWhatsapp(saude({ qualidade: 'YELLOW', extras: [extra({ qualidade: 'YELLOW' })] }));
+    expect(achados).toHaveLength(1);
+    expect(achados[0].contagem).toBe(2);
+    expect(achados[0].amostra).toHaveLength(2);
+  });
+
+  it('extras saudáveis não geram achado', () => {
+    expect(checarCanalEntradaWhatsapp(saude({ extras: [extra()] }))).toEqual([]);
+  });
 });

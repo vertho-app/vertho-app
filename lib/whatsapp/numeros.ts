@@ -15,15 +15,26 @@
  * - O número INICIAL continua vindo de `PHONE_NUMBER_ID` (nada muda para quem
  *   já está no ar: NULL no histórico = este número).
  * - Números extras vêm de `WHATSAPP_NUMEROS_EXTRA`, JSON opcional:
- *   `[{"id":"<phone_number_id>","rotulo":"+55 11 9XXXX-XXXX","nome":"Atendimento"}]`.
+ *   `[{"id":"<phone_number_id>","rotulo":"+55 11 9XXXX-XXXX","nome":"Atendimento","empresas":["<empresas.id>"]}]`.
  *   Sem a variável, o catálogo tem só o inicial — zero configuração para 1 número.
- * - `resolverNumeroParaEnvio(id?)` é a ÚNICA decisão de "por qual número sai":
- *   id conhecido → ele; id ausente/nulo → inicial; id desconhecido → inicial
- *   (fail-safe: melhor sair pelo número certo-do-que-sempre do que não sair —
- *   e o `resolvidoComoInicial` conta a divergência em vez de escondê-la).
+ * - `empresas` liga TENANTS a um número (16/09/2026: 4Life e Amazon Bowling no
+ *   +55 11 5199-1865). Tudo dessas empresas que não é resposta a uma conversa
+ *   (cadência, acesso, OTP, lote) sai por ele. Empresa nova entra editando a
+ *   variável e fazendo deploy: o vínculo mora junto do número de propósito, para
+ *   não existir "empresa apontando para número que o catálogo não conhece".
+ * - `resolverNumeroParaEnvio(pedido?, empresaId?)` é a ÚNICA decisão de "por
+ *   qual número sai", nesta ordem:
+ *     1. `pedido` conhecido (número da CONVERSA) → ele. Vence a empresa porque a
+ *        janela de 24h é POR NÚMERO: responder por outro número quebra o fio e,
+ *        fora de template, a Meta recusa.
+ *     2. `empresaId` ligada a um extra → esse extra.
+ *     3. Inicial, com `caiuNoInicial: true` (fail-safe: melhor sair pelo número
+ *        de sempre do que não sair). ⚠️ Hoje nenhum chamador CONTA essa queda:
+ *        o campo existe para quem precisar, não é alarme.
  *
  * Pura e sem I/O de propósito: quem decide "por onde" não precisa de banco —
- * o número de origem já vem gravado nas mensagens (to_phone_id/from_phone_id).
+ * o número de origem já vem gravado nas mensagens (to_phone_id/from_phone_id),
+ * e o `empresaId` já viaja no `meta` de todo envio de tenant.
  */
 
 export interface NumeroRemetente {
@@ -35,11 +46,22 @@ export interface NumeroRemetente {
   nome?: string | null;
   /** `true` no número que já estava no ar antes da mig 252. */
   inicial: boolean;
+  /**
+   * `empresas.id` cujos envios sem conversa saem por este número. Vazio no
+   * inicial: ele é o destino de quem não está ligado a nenhum.
+   */
+  empresas?: string[];
 }
 
 /** O número que já estava no ar — fallback de tudo. */
 export function numeroInicial(): NumeroRemetente {
-  return { id: process.env.PHONE_NUMBER_ID || '', rotulo: '', nome: null, inicial: true };
+  return { id: process.env.PHONE_NUMBER_ID || '', rotulo: '', nome: null, inicial: true, empresas: [] };
+}
+
+/** Só strings não vazias: um item torto não pode desligar o vínculo inteiro. */
+function lerEmpresas(bruto: unknown): string[] {
+  if (!Array.isArray(bruto)) return [];
+  return bruto.filter((e) => typeof e === 'string' && e.trim()).map((e) => String(e).trim());
 }
 
 function lerExtras(): NumeroRemetente[] {
@@ -55,6 +77,7 @@ function lerExtras(): NumeroRemetente[] {
         rotulo: typeof n.rotulo === 'string' ? n.rotulo : '',
         nome: typeof n.nome === 'string' ? n.nome : null,
         inicial: false,
+        empresas: lerEmpresas(n.empresas),
       }));
   } catch {
     // Variável malformada não pode derrubar envio: o catálogo cai para o inicial.
@@ -85,16 +108,25 @@ export interface NumeroResolvido {
  *
  * `pedido` é o número de ORIGEM da conversa (`ultimo_numero_id` da view, ou o
  * `to_phone_id` da última recebida): responder pelo mesmo número mantém o fio.
- * Ausente (histórico sem número, cadência sem contexto) ou desconhecido
- * (número removido da WABA) → inicial, com `caiuNoInicial: true` para o
- * chamador contar — nunca exceção, porque exceção aqui é mensagem que não sai.
+ * `empresaId` é o tenant do envio: sem conversa (cadência, acesso, OTP), é ele
+ * que escolhe o número. Pedido ausente (histórico sem número, cadência) ou
+ * desconhecido (número removido da WABA) passa para a empresa; empresa sem
+ * vínculo → inicial. Nunca exceção, porque exceção aqui é mensagem que não sai.
  */
-export function resolverNumeroParaEnvio(pedido?: string | null): NumeroResolvido {
+export function resolverNumeroParaEnvio(pedido?: string | null, empresaId?: string | null): NumeroResolvido {
   const inicial = numeroInicial().id;
+  const extras = lerExtras();
+
   const p = (pedido || '').trim();
-  if (!p) return { id: inicial, caiuNoInicial: true };
-  if (p === inicial) return { id: p, caiuNoInicial: false };
-  if (lerExtras().some((n) => n.id === p)) return { id: p, caiuNoInicial: false };
+  if (p && p === inicial) return { id: p, caiuNoInicial: false };
+  if (p && extras.some((n) => n.id === p)) return { id: p, caiuNoInicial: false };
+
+  // Empresa em dois números: vale o PRIMEIRO da lista, para a escolha não
+  // depender de nada além da ordem que está escrita na variável.
+  const e = (empresaId || '').trim();
+  const daEmpresa = e ? extras.find((n) => n.empresas?.includes(e)) : undefined;
+  if (daEmpresa) return { id: daEmpresa.id, caiuNoInicial: false };
+
   return { id: inicial, caiuNoInicial: true };
 }
 

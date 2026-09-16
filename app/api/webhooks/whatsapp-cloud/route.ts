@@ -279,6 +279,7 @@ export async function POST(req: Request) {
               empresaId,
               telefone: m.fromPhone,
               waMessageId: m.waMessageId,
+              numeroId: m.toPhoneId,
             });
             if (!r.enviou) console.log('[whatsapp-cloud] VER não respondido:', r.motivo);
           } else if (ehRecusa(m.texto)) {
@@ -287,9 +288,12 @@ export async function POST(req: Request) {
             // o pedido ficar SEM resposta — aí a saída que sobra é o Bloquear,
             // e bloqueio derruba o quality_rating do número, que é de todos os
             // tenants.
+            //
+            // `numeroId` é o número para o qual a pessoa ESCREVEU: a janela de
+            // 24h é por número, e responder pelo outro quebra o fio (16/09/2026).
             await enviarTextoCloud(
               { phone: m.fromPhone, texto: TEXTO_RECUSA },
-              { motivo: 'resumo-gestor-recusa', dedupeKey: `recusa:${m.waMessageId}`, empresaId },
+              { motivo: 'resumo-gestor-recusa', dedupeKey: `recusa:${m.waMessageId}`, empresaId, numeroId: m.toPhoneId },
             );
           }
         } catch (e: any) {

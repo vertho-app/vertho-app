@@ -8,6 +8,7 @@ import { montarConversas, type LinhaConversa } from '@/lib/inbox/caixa';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { enviarTextoCloud, enviarMidiaCloud } from '@/lib/whatsapp/cloud-api';
 import { formasDoTelefone } from '@/lib/whatsapp/nono-digito';
+import { resolverNumeroParaEnvio } from '@/lib/whatsapp/numeros';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { classificarMidia, BUCKET_ANEXOS, TTL_LINK_SEGUNDOS } from '@/lib/inbox/anexos';
 import type { Conversa, ThreadCompleta, ResultadoEnvio } from '@/lib/inbox/tipos';
@@ -335,7 +336,10 @@ async function gravarEnviada(tdb: any, d: {
     colaborador_id: d.colaboradorId,
     wa_message_id: d.resultado.providerMessageId ?? null,
     to_phone: d.telefone,
-    from_phone_id: d.numeroId ?? process.env.PHONE_NUMBER_ID ?? null,
+    // O número por onde SAIU, pela mesma função que o envio usa: gravar o
+    // PEDIDO divergia de `notification_deliveries` quando o pedido não estava no
+    // catálogo, ou quando, sem conversa, quem decide é a empresa (16/09/2026).
+    from_phone_id: resolverNumeroParaEnvio(d.numeroId, d.empresaId).id || null,
     tipo: d.tipo,
     texto: d.texto,
     raw: (d.raw ?? null) as any,

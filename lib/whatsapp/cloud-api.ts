@@ -21,7 +21,7 @@ import { normalizePhone } from '@/lib/phone';
 import { registrarEntrega } from '@/lib/notifications/delivery-log';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { alternarNonoDigito } from './nono-digito';
-import { resolverNumeroParaEnvio } from './numeros';
+import { resolverNumeroParaEnvio, listarNumeros, rotuloDoNumero } from './numeros';
 import { registrarSaida } from './registro-saida';
 import { corpoDoTemplatePorNome } from './templates';
 import type { TipoMidia } from '@/lib/inbox/anexos';
@@ -122,14 +122,15 @@ export function cloudApiConfigurada(): boolean {
  *
  * Centraliza a ÚNICA decisão de "por qual número sai" para os 4 envios deste
  * módulo (texto, mídia, template, OTP). O `numeroId` pedido vem da conversa
- * (`ultimo_numero_id`); sem ele, cai no inicial — que é o comportamento de
- * quem já está no ar com 1 número. Devolve também o id efetivo, porque a
+ * (`ultimo_numero_id`); sem ele, decide a empresa do envio (`empresaId` ligado
+ * a um número em `WHATSAPP_NUMEROS_EXTRA`); sem vínculo, cai no inicial, que é
+ * o comportamento de quem já está no ar com 1 número. Devolve também o id efetivo, porque a
  * telemetria (`notification_deliveries.from_phone_id`) e o conteúdo
  * (`whatsapp_mensagens_enviadas.from_phone_id`) precisam gravar POR ONDE saiu,
  * não por onde se pediu.
  */
 function numeroDoEnvio(meta?: EnvioTemplateMeta): { urlId: string; gravadoId: string | null } {
-  const r = resolverNumeroParaEnvio(meta?.numeroId);
+  const r = resolverNumeroParaEnvio(meta?.numeroId, meta?.empresaId);
   return { urlId: r.id, gravadoId: r.id || null };
 }
 
@@ -164,9 +165,9 @@ export interface EnvioTemplateMeta {
    * Número de ORIGEM do envio — `phone_number_id` da Meta (mig 252).
    *
    * É o número pelo qual a pessoa escreveu (`ultimo_numero_id` da conversa):
-   * responder pelo mesmo número mantém o fio. Ausente = número inicial
-   * (`PHONE_NUMBER_ID`) — o histórico e a cadência sem contexto caem aqui, e
-   * nada muda para quem já está no ar com 1 número.
+   * responder pelo mesmo número mantém o fio, e por isso ele VENCE a empresa.
+   * Ausente = o número ligado ao `empresaId` ou, sem vínculo, o inicial
+   * (`PHONE_NUMBER_ID`). Ver `resolverNumeroParaEnvio`.
    */
   numeroId?: string | null;
 }
@@ -554,8 +555,78 @@ export interface SaudeCloudApi {
   /** GREEN | YELLOW | RED | UNKNOWN — qualidade do número, medida pela Meta. */
   qualidade: string | null;
   nomeVerificado: string | null;
-  /** Por que ficou sem saber. Preenchido só quando algo acima é `null`. */
+  /** Por que ficou sem saber, ou por que o número não envia. */
   motivo: string | null;
+  /**
+   * Os números de `WHATSAPP_NUMEROS_EXTRA`, com a MESMA pergunta do inicial.
+   * Qualidade e bloqueio são por número, e o segundo número existe para isolar
+   * exatamente isso: sem esta lista, ele podia ser bloqueado sem alarme (16/09/2026).
+   */
+  extras: SaudeNumero[];
+}
+
+/** O que a Meta responde sobre UM número remetente. */
+export interface SaudeNumero {
+  id: string;
+  /** Rótulo para o alerta: "+55 11 5199-1865 (4Life)". */
+  rotulo: string;
+  numeroOk: boolean | null;
+  qualidade: string | null;
+  nomeVerificado: string | null;
+  motivo: string | null;
+}
+
+/**
+ * Por que um número que RESPONDE não consegue enviar, ou `null` se consegue.
+ *
+ * 🔴 HTTP 200 NÃO É "NÚMERO OK". Medido em 16/09/2026 no +55 11 5199-1865: nome
+ * aprovado, código verificado, GET respondendo 200, e mesmo assim `status
+ * PENDING`, `platform_type NOT_APPLICABLE` e `can_send_message BLOCKED` (erro
+ * 141000: faltava o `POST /{id}/register`). Antes desta função o check olhava só
+ * o status HTTP e teria dado o número como saudável.
+ *
+ * Só BLOCKED reprova. Os erros de SIP (138024/138025) aparecem mesmo com o envio
+ * AVAILABLE, porque são de chamada de voz, e por isso a leitura é do campo
+ * `can_send_message`, nunca da presença de erro.
+ */
+function motivoDeNumeroSemEnvio(json: any): string | null {
+  const saude = json?.health_status;
+  if (saude?.can_send_message === 'BLOCKED') {
+    const erros = (Array.isArray(saude.entities) ? saude.entities : [])
+      .filter((ent: any) => ent?.can_send_message === 'BLOCKED')
+      .flatMap((ent: any) => (Array.isArray(ent?.errors) ? ent.errors : []))
+      .map((er: any) => `${er?.error_description || 'sem descrição'}${er?.error_code ? ` (${er.error_code})` : ''}`);
+    return `envio BLOQUEADO pela Meta: ${erros.join('; ') || 'sem detalhe'}`.slice(0, 240);
+  }
+  if (json?.platform_type && json.platform_type !== 'CLOUD_API') {
+    return `número fora da Cloud API (platform_type=${json.platform_type}, status=${json?.status ?? '?'})`;
+  }
+  return null;
+}
+
+/** Pergunta à Meta por UM número. Nunca lança: rede caída vira `numeroOk: null`. */
+async function inspecionarNumero(id: string): Promise<Omit<SaudeNumero, 'id' | 'rotulo'>> {
+  const vazio = { numeroOk: null, qualidade: null, nomeVerificado: null, motivo: null };
+  try {
+    const res = await fetch(`${BASE}/${id}?fields=verified_name,quality_rating,platform_type,status,health_status`, {
+      headers: { Authorization: `Bearer ${token()}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(TIMEOUT_META_MIDIA_MS),
+    });
+    const json: any = await res.json().catch(() => null);
+    if (!res.ok) {
+      return { ...vazio, numeroOk: false, motivo: `número HTTP ${res.status}${json?.error?.message ? ': ' + json.error.message : ''}` };
+    }
+    const bloqueio = motivoDeNumeroSemEnvio(json);
+    return {
+      numeroOk: !bloqueio,
+      qualidade: json?.quality_rating ? String(json.quality_rating) : null,
+      nomeVerificado: json?.verified_name ? String(json.verified_name) : null,
+      motivo: bloqueio,
+    };
+  } catch (e: any) {
+    return { ...vazio, motivo: `número rede: ${motivoDeRede(e, TIMEOUT_META_MIDIA_MS)}` };
+  }
 }
 
 /** WABA (conta) — separado do número; é nela que vive a inscrição do webhook. */
@@ -584,7 +655,7 @@ const wabaId = () => process.env.WABA_ID || '';
 export async function inspecionarCloudApi(): Promise<SaudeCloudApi> {
   const vazio: SaudeCloudApi = {
     configurada: Boolean(token()),
-    inscrito: null, appsInscritos: [], numeroOk: null, qualidade: null, nomeVerificado: null, motivo: null,
+    inscrito: null, appsInscritos: [], numeroOk: null, qualidade: null, nomeVerificado: null, motivo: null, extras: [],
   };
   // ⚠️ O GATE É O TOKEN, não `cloudApiConfigurada()`. A diferença importa: aquela
   // função exige também o `PHONE_NUMBER_ID`, que é o que permite ENVIAR. O
@@ -623,28 +694,21 @@ export async function inspecionarCloudApi(): Promise<SaudeCloudApi> {
     }
   }
 
-  // 2) O número e a qualidade dele.
+  // 2) O número inicial e a qualidade dele.
   if (!phoneNumberId()) {
     out.motivo = out.motivo ?? 'PHONE_NUMBER_ID ausente — não dá para verificar o número';
-    return out;
+  } else {
+    const n = await inspecionarNumero(phoneNumberId());
+    out.numeroOk = n.numeroOk;
+    out.qualidade = n.qualidade;
+    out.nomeVerificado = n.nomeVerificado;
+    if (n.motivo) out.motivo = out.motivo ?? n.motivo;
   }
-  try {
-    const res = await fetch(`${BASE}/${phoneNumberId()}?fields=verified_name,quality_rating,platform_type`, {
-      headers: { Authorization: `Bearer ${token()}` },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(TIMEOUT_META_MIDIA_MS),
-    });
-    const json: any = await res.json().catch(() => null);
-    if (!res.ok) {
-      out.numeroOk = false;
-      out.motivo = out.motivo ?? `número HTTP ${res.status}${json?.error?.message ? ': ' + json.error.message : ''}`;
-    } else {
-      out.numeroOk = true;
-      out.qualidade = json?.quality_rating ? String(json.quality_rating) : null;
-      out.nomeVerificado = json?.verified_name ? String(json.verified_name) : null;
-    }
-  } catch (e: any) {
-    out.motivo = out.motivo ?? `número rede: ${motivoDeRede(e, TIMEOUT_META_MIDIA_MS)}`;
+
+  // 3) Os extras, com a mesma pergunta. Fora do `if` acima de propósito: um
+  // ambiente sem o inicial ainda tem que saber se os outros estão de pé.
+  for (const extra of listarNumeros().filter((x) => !x.inicial)) {
+    out.extras.push({ id: extra.id, rotulo: rotuloDoNumero(extra.id), ...(await inspecionarNumero(extra.id)) });
   }
 
   return out;
@@ -723,7 +787,7 @@ export async function enviarTemplateCloud(
   };
 
   let resultado: EnvioTemplateResult;
-  // O número de ORIGEM (mig 252): template da cadência pode fixar o número.
+  // O número de ORIGEM (mig 252) ou, sem conversa, o da empresa do envio.
   const via = numeroDoEnvio(meta);
   try {
     const res = await fetch(`${BASE}/${via.urlId}/messages`, {
@@ -828,7 +892,7 @@ export async function enviarTemplateOtp(
   };
 
   let resultado: EnvioTemplateResult;
-  // OTP sai pelo inicial salvo pedido explícito (mig 252): acesso não tem conversa.
+  // Acesso não tem conversa: sai pelo número da empresa do login, ou pelo inicial.
   const via = numeroDoEnvio(meta);
   try {
     const res = await fetch(`${BASE}/${via.urlId}/messages`, {
