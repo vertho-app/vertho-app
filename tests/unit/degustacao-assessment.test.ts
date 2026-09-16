@@ -19,6 +19,24 @@ describe('quem está em degustação', () => {
     expect(isEmailDeConvidadoDemo('convidado.acme.aaaaaaaaaaaaaaaaaaaa@vertho.ai')).toBe(true);
   });
 
+  it('🔴 passaporte de QUALQUER ambiente de degustação é convidado, e o cenário dele é degustação', () => {
+    // `Medido 16/09/2026`: os passaportes do Grupo Sinal caíam como conta
+    // interna, e o assessment deles sairia completo, sem avaliação automática.
+    for (const email of [
+      'convidado.gruposinal.bbbbbbbbbbbbbbbbbbbb@vertho.ai',
+      'convidado.escolas-acme.cccccccccccccccccccc@vertho.ai',
+    ]) {
+      expect(isEmailDeConvidadoDemo(email)).toBe(true);
+      expect(isAssessmentDeDegustacao(true, email)).toBe(true);
+    }
+  });
+
+  it('só a forma INTEIRA de passaporte vale: prefixo sem a sessão, ou de ambiente não registrado, não é convidado', () => {
+    expect(isEmailDeConvidadoDemo('convidado.gruposinal.nao-e-sessao@vertho.ai')).toBe(false);
+    expect(isEmailDeConvidadoDemo('convidado.gruposinal.bbbbbbbbbbbbbbbbbbb@vertho.ai')).toBe(false);
+    expect(isEmailDeConvidadoDemo('convidado.outro-lugar.bbbbbbbbbbbbbbbbbbbb@vertho.ai')).toBe(false);
+  });
+
   it('convidado nomeado do seed e cadastro manual são convidados', () => {
     expect(isEmailDeConvidadoDemo('alpheu.sousa@gruposinal.com')).toBe(true);
     expect(isEmailDeConvidadoDemo('PLGcardoso@gmail.com')).toBe(true);

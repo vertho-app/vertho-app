@@ -136,6 +136,8 @@ export type AcmeProspectExperienceStep = {
 
 export type AcmeProspectProgress = {
   sessionId: string;
+  /** E-mail técnico da conta, com o prefixo do ambiente (não se remonta: lê-se). */
+  authEmail: string;
   nome: string;
   empresa: string;
   cargo: string;
@@ -254,6 +256,38 @@ export function acmeProspectAuthEmail(sessionId: string): string {
 /** Igual ao anterior, com o prefixo do ambiente que hospeda o convidado. */
 export function demoProspectAuthEmail(slug: string, sessionId: string): string {
   return `${demoProspectAuthPrefix(slug)}${sessionId}${ACME_PROSPECT_AUTH_SUFFIX}`;
+}
+
+/**
+ * O caminho de volta do e-mail técnico: de QUAL ambiente e de QUAL sessão ele é.
+ *
+ * 🔴 POR QUE ISTO EXISTE. Quem reconhecia o convidado conhecia um prefixo só, o
+ * do ACME (`convidado.acme.`). Quando a degustação passou a existir em outros
+ * ambientes, a criação ganhou prefixo por ambiente e os leitores ficaram para
+ * trás. `Medido 16/09/2026` nos 3 passaportes do Grupo Sinal: sessão criada no
+ * Auth e `personal_accessed_at` nulo nos três (o carimbo nunca reconheceu a
+ * conta), o painel não os listava e o cenário deles não era tratado como
+ * degustação (sairia o assessment completo, sem avaliação automática).
+ *
+ * Exige o formato inteiro (prefixo registrado + 20 hex + sufixo), e não só o
+ * começo: um e-mail que apenas COMEÇA com o prefixo não é passaporte.
+ *
+ * ⚠️ A faxina NÃO usa esta função de propósito: ela varre um ambiente por vez,
+ * com o prefixo daquele ambiente, para nunca apagar o convidado vivo de outro.
+ */
+export function lerEmailDePassaporte(
+  email: unknown,
+): { slug: DemoProspectTenantSlug; sessionId: string } | null {
+  const valor = String(email ?? '').trim().toLowerCase();
+  if (!valor.endsWith(ACME_PROSPECT_AUTH_SUFFIX)) return null;
+  for (const tenant of Object.values(DEMO_PROSPECT_TENANTS)) {
+    if (!valor.startsWith(tenant.authPrefix)) continue;
+    const sessionId = valor.slice(tenant.authPrefix.length, -ACME_PROSPECT_AUTH_SUFFIX.length);
+    if (ACME_PROSPECT_SESSION_PATTERN.test(sessionId)) {
+      return { slug: tenant.slug, sessionId };
+    }
+  }
+  return null;
 }
 
 function cleanHumanText(value: unknown): string {

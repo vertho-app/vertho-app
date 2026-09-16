@@ -8,8 +8,9 @@ import {
   ACME_PROSPECT_AUTH_PREFIX,
   ACME_PROSPECT_AUTH_SUFFIX,
   ACME_PROSPECT_SESSION_PATTERN,
-  acmeProspectAuthEmail,
   demoProspectAuthPrefix,
+  getDemoProspectTenant,
+  lerEmailDePassaporte,
   type AcmeProspectPresentationRoleKey,
   type AcmeProspectProgress,
   type DemoGuestProgress,
@@ -97,8 +98,22 @@ export function isDemoProspectAuthUser(user: ProspectAuthUser, prefix: string): 
     && user.user_metadata?.vertho_demo_access === ACME_PROSPECT_AUTH_MARKER;
 }
 
+/**
+ * Prefixo do ambiente DESTA conta, lido do próprio e-mail. Conta que não tem
+ * forma de passaporte volta `null`, e quem pergunta trata como "não é convidado".
+ */
+function prefixoDoPassaporte(user: ProspectAuthUser): string | null {
+  const passaporte = lerEmailDePassaporte(user.email);
+  return passaporte ? demoProspectAuthPrefix(passaporte.slug) : null;
+}
+
+/**
+ * Convidado de passaporte de QUALQUER ambiente de degustação (o nome ficou do
+ * tempo em que só o ACME tinha degustação; a régua é a do ambiente da conta).
+ */
 export function isAcmeProspectAuthUser(user: ProspectAuthUser): boolean {
-  return isDemoProspectAuthUser(user, ACME_PROSPECT_AUTH_PREFIX);
+  const prefixo = prefixoDoPassaporte(user);
+  return prefixo !== null && isDemoProspectAuthUser(user, prefixo);
 }
 
 export function readDemoProspectAuthContext(
@@ -123,11 +138,20 @@ export function readDemoProspectAuthContext(
   };
 }
 
+/**
+ * Contexto do convidado de passaporte, no ambiente da própria conta.
+ *
+ * 🔴 Lia só o prefixo do ACME. `Medido 16/09/2026:` os 3 passaportes do Grupo
+ * Sinal abriram sessão e ficaram com `personal_accessed_at` nulo, porque para
+ * esta função eles não eram convidados. O callback e `/auth/degustacao` herdam a
+ * correção sem trocar de import.
+ */
 export function readAcmeProspectAuthContext(
   user: ProspectAuthUser,
   now: Date = new Date(),
 ): AcmeProspectAuthContext | null {
-  return readDemoProspectAuthContext(user, ACME_PROSPECT_AUTH_PREFIX, now);
+  const prefixo = prefixoDoPassaporte(user);
+  return prefixo ? readDemoProspectAuthContext(user, prefixo, now) : null;
 }
 
 /**
@@ -148,10 +172,6 @@ async function demoTenantId(client: any, slug: string) {
     throw new Error(`O tenant ${slug} não existe ou não está marcado como demonstração.`);
   }
   return data.id as string;
-}
-
-async function acmeTenant(client: any) {
-  return demoTenantId(client, ACME_DEMO_SLUG);
 }
 
 async function listProspectAuthUsers(
@@ -232,9 +252,20 @@ async function mappingTimesByCollaborator(client: any, empresaId: string, ids: s
     .map((row: any) => [String(row.id), String(row.mapeamento_em)]));
 }
 
+/** Passaportes do ACME Demo, o ambiente onde a degustação nasceu. */
 export async function listAcmeProspectProgress(client?: any): Promise<AcmeProspectProgress[]> {
+  return listDemoProspectProgress(ACME_DEMO_SLUG, client);
+}
+
+/**
+ * Passaportes de um ambiente de degustação, do mais novo ao mais antigo.
+ *
+ * Era fixa no ACME: o painel do Grupo Sinal não mostrava os passaportes criados
+ * lá (medido em 16/09/2026, 3 passaportes invisíveis).
+ */
+export async function listDemoProspectProgress(slug: string, client?: any): Promise<AcmeProspectProgress[]> {
   const sb = demoAdmin(client);
-  const empresaId = await acmeTenant(sb);
+  const empresaId = await demoTenantId(sb, slug);
   const { data, error } = await sb.from('demo_prospect_sessions')
     .select('session_id,colaborador_id,auth_email,prospect_name,prospect_company,cargo,created_at,expires_at,personal_accessed_at,disc_completed_at,colaborador_accessed_at,gestor_accessed_at,rh_accessed_at,access_closed_at')
     .eq('empresa_id', empresaId)
@@ -261,6 +292,7 @@ export async function listAcmeProspectProgress(client?: any): Promise<AcmeProspe
 
   return rows.map((row) => ({
     sessionId: row.session_id,
+    authEmail: row.auth_email,
     nome: row.prospect_name,
     empresa: row.prospect_company,
     cargo: row.cargo,
@@ -289,6 +321,12 @@ type DemoGuestRow = {
  * convidado mora em `lib/demo/convidado-demo` (mesma que o assessment usa para
  * decidir a degustação); aqui só se acrescenta o que é próprio desta lista:
  * quem já entrou como passaporte não entra de novo como cadastro.
+ *
+ * ⚠️ `cobertos` sai do `auth_email` de CADA linha de passaporte, não de um
+ * e-mail remontado com o prefixo do ACME: com o convidado de outro ambiente
+ * reconhecido, a remontagem faria o passaporte do Grupo Sinal aparecer duas
+ * vezes. E o passaporte que perdeu a linha de acompanhamento continua visível,
+ * como cadastro, de propósito.
  */
 function isDemoGuestEmail(email: string | null | undefined, cobertos: Set<string>): boolean {
   const valor = String(email || '').trim().toLowerCase();
@@ -314,8 +352,9 @@ async function signInTimesByEmail(client: any, emails: string[]) {
 }
 
 /**
- * Acompanhamento comercial de um tenant de demonstração: passaportes (só o
- * ACME os tem) mais todo convidado do tenant, na ordem em que entraram.
+ * Acompanhamento comercial de um tenant de demonstração: os passaportes do
+ * ambiente (em qualquer ambiente que ofereça degustação) mais todo convidado do
+ * tenant, na ordem em que entraram.
  */
 export async function listDemoGuestProgress(
   slug: string,
@@ -324,8 +363,8 @@ export async function listDemoGuestProgress(
   const sb = demoAdmin(client);
   const empresaId = await demoTenantId(sb, slug);
 
-  const passaportes = slug === ACME_DEMO_SLUG ? await listAcmeProspectProgress(sb) : [];
-  const cobertos = new Set(passaportes.map((p) => acmeProspectAuthEmail(p.sessionId).toLowerCase()));
+  const passaportes = getDemoProspectTenant(slug) ? await listDemoProspectProgress(slug, sb) : [];
+  const cobertos = new Set(passaportes.map((p) => p.authEmail.trim().toLowerCase()));
 
   const { data, error } = await sb.from('colaboradores')
     .select('id,nome_completo,email,cargo,created_at,mapeamento_em')

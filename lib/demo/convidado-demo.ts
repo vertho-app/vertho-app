@@ -1,5 +1,5 @@
 import { isDemoPersonaEmail, isInternalEmail } from '@/lib/internal-emails';
-import { ACME_PROSPECT_AUTH_PREFIX } from '@/lib/demo/acme-prospect-config';
+import { lerEmailDePassaporte } from '@/lib/demo/acme-prospect-config';
 
 /**
  * Quem, dentro de um tenant de demonstração, é CONVIDADO — e não cenário.
@@ -10,9 +10,11 @@ import { ACME_PROSPECT_AUTH_PREFIX } from '@/lib/demo/acme-prospect-config';
  * degustação, o convidado nomeado do perfil do tenant (Alpheu, no Grupo Sinal)
  * e quem foi cadastrado à mão.
  *
- * ⚠️ O e-mail técnico do passaporte (`convidado.acme.<id>@vertho.ai`) É interno
- * pela régua canônica — de propósito, para ficar fora dos indicadores. Aqui ele
- * é a exceção explícita: é justamente a pessoa que estamos acompanhando.
+ * ⚠️ O e-mail técnico do passaporte (`convidado.<ambiente>.<id>@vertho.ai`) É
+ * interno pela régua canônica — de propósito, para ficar fora dos indicadores.
+ * Aqui ele é a exceção explícita: é justamente a pessoa que estamos
+ * acompanhando. Até 16/09/2026 a exceção só reconhecia o prefixo do ACME, e o
+ * passaporte do Grupo Sinal caía como "interno" (ver `lerEmailDePassaporte`).
  *
  * Régua ÚNICA, dois consumidores: o acompanhamento comercial em `/admin/demo`
  * (quem aparece na lista) e o assessment (quem responde a versão curta). Se as
@@ -23,7 +25,7 @@ export function isEmailDeConvidadoDemo(email: string | null | undefined): boolea
   const valor = String(email || '').trim().toLowerCase();
   if (!valor) return false;
   if (isDemoPersonaEmail(valor)) return false;
-  if (valor.startsWith(ACME_PROSPECT_AUTH_PREFIX)) return true;
+  if (lerEmailDePassaporte(valor)) return true;
   return !isInternalEmail(valor);
 }
 

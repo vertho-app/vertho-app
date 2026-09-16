@@ -84,6 +84,28 @@ const COLABORADORES_SINAL = [
   },
 ];
 
+/** Passaporte criado no Grupo Sinal, com o prefixo do ambiente (15/09/2026). */
+const passaporteSinal = {
+  ...passaporte,
+  session_id: 'bbbbbbbbbbbbbbbbbbbb',
+  colaborador_id: 'colab-passaporte-sinal',
+  auth_email: 'convidado.gruposinal.bbbbbbbbbbbbbbbbbbbb@vertho.ai',
+  prospect_name: 'Convidada do Sinal',
+  prospect_company: 'Grupo Sinal',
+  cargo: 'Analista Financeiro',
+  personal_accessed_at: null,
+  disc_completed_at: null,
+};
+
+const COLABORADOR_PASSAPORTE_SINAL = {
+  id: 'colab-passaporte-sinal',
+  nome_completo: 'Convidada do Sinal',
+  email: 'convidado.gruposinal.bbbbbbbbbbbbbbbbbbbb@vertho.ai',
+  cargo: 'Analista Financeiro',
+  created_at: '2026-09-15T11:52:24.000Z',
+  mapeamento_em: null,
+};
+
 const cenario = {
   slug: 'acme-demo',
   isDemo: true as boolean,
@@ -170,18 +192,23 @@ describe('acompanhamento dos convidados de um tenant de demonstração', () => {
 
   it('acompanha o tenant pedido, e não sempre o ACME', async () => {
     cenario.slug = 'gruposinal';
-    cenario.colaboradores = COLABORADORES_SINAL;
+    cenario.sessoes = [passaporteSinal];
+    cenario.colaboradores = [COLABORADOR_PASSAPORTE_SINAL, ...COLABORADORES_SINAL];
 
     const lista = await listDemoGuestProgress('gruposinal', sb.client);
 
-    expect(lista).toHaveLength(1);
-    expect(lista[0]).toMatchObject({
-      nome: 'Alpheu',
-      origem: 'cadastro',
-      contexto: 'alpheu.sousa@gruposinal.com',
-    });
-    // fora do ACME não existe passaporte: consultar a tabela seria ruído
-    expect(sb.chamadas.some((c) => c.tabela === 'demo_prospect_sessions')).toBe(false);
+    // 🔴 O passaporte do Grupo Sinal aparece COMO PASSAPORTE, uma vez só.
+    // `Medido 16/09/2026`: a listagem só buscava passaportes no ACME, e os três
+    // do Grupo Sinal não apareciam na tela de ninguém.
+    expect(lista.map((item) => [item.nome, item.origem])).toEqual([
+      ['Convidada do Sinal', 'passaporte'],
+      ['Alpheu', 'cadastro'],
+    ]);
+    expect(lista[1]).toMatchObject({ contexto: 'alpheu.sousa@gruposinal.com' });
+    // a tabela de passaportes é lida no tenant pedido
+    expect(sb.chamadas).toContainEqual(
+      expect.objectContaining({ tabela: 'demo_prospect_sessions', metodo: 'eq', args: ['empresa_id', 'gruposinal-id'] }),
+    );
     // e a PERGUNTA tem que citar o tenant pedido — sem isto o teste mediria só
     // o cenário que ele mesmo montou, e um slug fixo no código passaria verde
     expect(sb.chamadas).toContainEqual(

@@ -169,4 +169,35 @@ describe('acompanhamento dos prospects ACME', () => {
       payload: expect.objectContaining({ personal_accessed_at: expect.any(String) }),
     }));
   });
+
+  it('🔴 registra o acesso do convidado de OUTRO ambiente (Grupo Sinal), não só do ACME', async () => {
+    // `Medido 16/09/2026`: os 3 passaportes do Grupo Sinal abriram sessão e
+    // ficaram com o carimbo nulo, porque a conta não era reconhecida.
+    const recorded = await recordAcmeProspectPersonalAccess({
+      email: 'convidado.gruposinal.33333333333333333333@vertho.ai',
+      user_metadata: {
+        vertho_demo_access: 'acme-prospect-experience-v1',
+        vertho_demo_session_id: '33333333333333333333',
+        expires_at: '2999-09-03T07:00:00.000Z',
+      },
+    });
+
+    expect(recorded).toBe(true);
+    expect(sb.chamadas).toContainEqual(expect.objectContaining({
+      tabela: 'demo_prospect_sessions', metodo: 'eq', args: ['session_id', '33333333333333333333'],
+    }));
+  });
+
+  it('conta sem forma de passaporte não gera carimbo, mesmo com o marcador no metadado', async () => {
+    const recorded = await recordAcmeProspectPersonalAccess({
+      email: 'convidado.gruposinal.curto@vertho.ai',
+      user_metadata: {
+        vertho_demo_access: 'acme-prospect-experience-v1',
+        expires_at: '2999-09-03T07:00:00.000Z',
+      },
+    });
+
+    expect(recorded).toBe(false);
+    expect(sb.escritas).toHaveLength(0);
+  });
 });
