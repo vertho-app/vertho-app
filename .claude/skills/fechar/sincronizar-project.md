@@ -176,6 +176,13 @@ disco, a comparação é aproximada; depois de uma rodada inteira subida via `gi
 - **`javascript_tool` pode voltar `[BLOCKED: Cookie/query string data]`** quando o script devolve
   texto grande da página do claude.ai. Devolver só o que decide (contagens, um nome por vez) passa;
   despejar a lista inteira não. `get_page_text` continua funcionando para a leitura completa.
+  🔴 **BLOCKED não quer dizer que o script não rodou.** `Medido: 16/09/2026` — o laço de remoção
+  voltou BLOCKED (o retorno era um log curto com nomes e "clique"), e a releitura mostrou as 7
+  duplicatas JÁ removidas: 23 → 16. Repetir o laço por achar que falhou apagaria versões novas. O
+  que salvou foi a regra acima: re-listar e ler, nunca reagir ao retorno. Uma trava que ajuda: antes
+  de cada clique, conferir se o kB do card-alvo é o da versão ANTIGA esperada, e parar se não for.
+  E o `get_page_text` logo após abrir a página não trouxe a seção Contexto; a lista por JS, com
+  espera de ~3 s, trouxe os 23.
 - **Confirme a remoção pela LISTA, não pelo clique.** O primeiro clique de remoção que dei não teve
   efeito nenhum e eu quase segui em frente. Re-listar depois de cada remoção é o que separa
   "removido" de "achei que removi".
