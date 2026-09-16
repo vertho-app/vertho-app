@@ -25,8 +25,18 @@ export type OfflinePerson = {
   profileAvailable?: boolean;
   report: Record<string, ReportValue>;
   assessments: { competency: string; descriptor: string; score: number }[];
+  details?: Record<string, string | number | null>;
 };
 export type OfflineData = {
+  tracks: Record<string, {
+    status: string;
+    competencia_foco: string | null;
+    programa_modo: string | null;
+    programa_config: any;
+    data_inicio: string | null;
+    temporada_plano: any[];
+    progresso: { semana: number; status: string; conteudo_consumido: boolean | null }[];
+  } | null>;
   capturedAt: string;
   totalWeeks: number;
   people: OfflinePerson[];

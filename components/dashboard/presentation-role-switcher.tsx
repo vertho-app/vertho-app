@@ -92,7 +92,7 @@ type PresentationControlsProps = {
   onDeviceChange: (device: DemoPresentationDeviceKey) => void;
 };
 
-function PresentationControls({
+export function PresentationControls({
   currentRole,
   device,
   switching,

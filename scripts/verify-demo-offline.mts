@@ -73,7 +73,7 @@ if (!explicitOrigin) {
         );
         file = Buffer.from(JSON.stringify(pack));
       }
-      const type = path.endsWith(".js")
+      const type = (path.endsWith(".js") || path.endsWith(".mjs"))
         ? "text/javascript"
         : path.endsWith(".css")
           ? "text/css"
@@ -81,7 +81,7 @@ if (!explicitOrigin) {
             ? "application/json"
             : path.endsWith(".woff2")
               ? "font/woff2"
-              : "text/html";
+              : path.endsWith(".pdf") ? "application/pdf" : path.endsWith(".png") ? "image/png" : path.endsWith(".jpg") ? "image/jpeg" : "text/html";
       res
         .writeHead(200, { "Content-Type": type, "Cache-Control": "no-store" })
         .end(file);
@@ -107,224 +107,137 @@ const errors: string[] = [];
 const listen = () =>
   page.on("pageerror", (error) => errors.push(error.message));
 listen();
+async function openPreparation(target = page) {
+  if (!(await target.getByRole("dialog", { name: "Preparo offline" }).isVisible()))
+    await target.getByRole("button", { name: "Preparo offline", exact: true }).click();
+}
+async function prepare(target = page) {
+  await target.getByRole("button", { name: /Preparar apresentação/ }).click();
+  await expect.poll(() => target.evaluate(async () => {
+    const names = await caches.keys();
+    const prefix = location.pathname.includes("offline-acme") ? "vertho-acme-offline-v1-" : "vertho-escolas-offline-v1-";
+    return names.some(name => name.startsWith(prefix) && !name.endsWith("meta"));
+  }).catch(() => false), { timeout: 180000 }).toBe(true);
+  // The first installation can reload into the new worker-controlled document.
+  await expect.poll(async () => {
+    await openPreparation(target);
+    return target.getByText("Pronto para apresentar offline", { exact: true }).isVisible();
+  }, { timeout: 180000 }).toBe(true);
+}
+const go = async (path: string, role = "participant") => {
+  await page.goto(`${url}#/${role}${path}`);
+};
 try {
   if (checkIsolation) {
     await page.goto(`${origin}/apresentacao-offline/index.html`);
     await page.evaluate(async () => {
       await navigator.serviceWorker.register("/sw.js", { scope: "/" });
-      await (
-        await caches.open("offline-isolation-sentinel")
-      ).put("/sentinel", new Response("preservar"));
+      await (await caches.open("offline-isolation-sentinel")).put("/sentinel", new Response("preservar"));
     });
-    await page.getByRole("button", { name: /Preparar apresentação/ }).click();
-    await expect(
-      page.getByText("Pronto para apresentar offline", { exact: true }),
-    ).toBeVisible({ timeout: 180000 });
+    await prepare();
   }
   await page.goto(url);
-  await page.getByRole("button", { name: /Preparar apresentação/ }).click();
-  await expect(
-    page.getByText("Pronto para apresentar offline", { exact: true }),
-  ).toBeVisible({ timeout: 180000 });
-  await page.screenshot({
-    path: `${screenshotPrefix}-preparado.png`,
-    fullPage: true,
-  });
+  await prepare();
+  await page.screenshot({ path: `${screenshotPrefix}-preparado.png` });
   console.log("PREPARADO", await page.getByRole("status").innerText());
   if (server) {
     updatePublished = true;
     await page.reload();
-    await page
-      .getByRole("button", { name: "Atualizar pacote", exact: true })
-      .click();
-    await expect
-      .poll(() => page.locator("html").getAttribute("data-version"))
-      .toBe("aaaaaaaaaaaaaaaa");
-    await expect(
-      page.getByText("Pronto para apresentar offline", { exact: true }),
-    ).toBeVisible();
-    console.log(
-      "ATUALIZAÇÃO: novo pacote substituiu o anterior, sem receber shell velho do cache.",
-    );
+    await openPreparation();
+    await page.getByRole("button", { name: "Atualizar pacote", exact: true }).click();
+    await expect.poll(() => page.locator("html").getAttribute("data-version")).toBe("aaaaaaaaaaaaaaaa");
+    await openPreparation();
+    await expect(page.getByText("Pronto para apresentar offline", { exact: true })).toBeVisible();
+    console.log("ATUALIZAÇÃO: novo pacote ativo, sem servir HTML antigo.");
   }
   await context.close();
-  // Stop the origin entirely: a service worker update check from the browser
-  // itself must not accidentally mask an app dependency in the offline test.
-  if (server) await new Promise<void>((done) => server!.close(() => done()));
+  if (server) await new Promise<void>(done => server!.close(() => done()));
   context = await chromium.launchPersistentContext(directory, options);
   await context.setOffline(true);
   page = await context.newPage();
   listen();
   await page.goto(url);
-  await expect(
-    page.getByText("Pronto para apresentar offline", { exact: true }),
-  ).toBeVisible({ timeout: 30000 });
-  await expect(page.getByText("Sem conexão", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Seu próximo avanço começa hoje" })).toBeVisible();
+  await openPreparation();
+  await expect(page.getByText("Pronto para apresentar offline", { exact: true })).toBeVisible({ timeout: 30000 });
+  await expect(page.getByText(/Sem conexão · Dados fictícios/)).toBeVisible();
+  await page.getByRole("button", { name: "Apresentar", exact: true }).click();
+  await page.screenshot({ path: `${screenshotPrefix}-home.png` });
   if (checkIsolation) {
-    const scopes = await page.evaluate(async () =>
-      (await navigator.serviceWorker.getRegistrations())
-        .map((registration) => new URL(registration.scope).pathname)
-        .sort(),
-    );
-    expect(scopes).toEqual(
-      ["/", "/apresentacao-offline-acme/", "/apresentacao-offline/"].sort(),
-    );
-    expect(
-      await page.evaluate(async () =>
-        (
-          await (
-            await caches.open("offline-isolation-sentinel")
-          ).match("/sentinel")
-        )?.text(),
-      ),
-    ).toBe("preservar");
+    expect(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).map(r => new URL(r.scope).pathname).sort()))
+      .toEqual(["/", "/apresentacao-offline-acme/", "/apresentacao-offline/"].sort());
+    expect(await page.evaluate(async () => (await (await caches.open("offline-isolation-sentinel")).match("/sentinel"))?.text())).toBe("preservar");
     const school = await context.newPage();
     await school.goto(`${origin}/apresentacao-offline/index.html`);
-    await expect(
-      school.getByText("Pronto para apresentar offline", { exact: true }),
-    ).toBeVisible({ timeout: 30000 });
-    await expect(
-      school.getByText("Marina Rocha", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      school.getByText("Rede de Escolas ACME", { exact: true }),
-    ).toBeVisible();
+    await expect(school.getByText("Olá, Marina", { exact: true })).toBeVisible();
+    await openPreparation(school);
+    await expect(school.getByText("Pronto para apresentar offline", { exact: true })).toBeVisible({ timeout: 30000 });
     await school.close();
-    console.log(
-      "ISOLAMENTO: escola e ACME coexistem offline; cache externo e worker de push preservados.",
-    );
+    console.log("ISOLAMENTO: duas demos, cache externo e push preservados.");
   }
-  for (const number of [1, 2]) {
-    await page.getByRole("button", { name: /Minha jornada/ }).click();
-    await page
-      .getByRole("button", { name: new RegExp(`SEMANA ${number} DE 7`) })
-      .click();
-    const video = page.locator("video");
-    await video.evaluate(async (el: HTMLVideoElement) => {
-      el.muted = true;
-      await el.play();
-    });
-    await expect
-      .poll(() => video.evaluate((el: HTMLVideoElement) => el.currentTime))
-      .toBeGreaterThan(0.5);
-    await video.evaluate((el: HTMLVideoElement) => {
-      el.currentTime = 90;
-    });
-    await expect
-      .poll(() => video.evaluate((el: HTMLVideoElement) => el.currentTime))
-      .toBeGreaterThan(90.2);
-    await video.evaluate((el: HTMLVideoElement) => el.pause());
-    await page.screenshot({
-      path: `${screenshotPrefix}-semana-${number}.png`,
-      fullPage: false,
-    });
-    await page.getByRole("tab", { name: "Áudio", exact: true }).click();
-    await page.locator("audio").evaluate(async (el: HTMLAudioElement) => {
-      el.muted = true;
-      await el.play();
-    });
-    await expect
-      .poll(() =>
-        page
-          .locator("audio")
-          .evaluate((el: HTMLAudioElement) => el.currentTime),
-      )
-      .toBeGreaterThan(0.5);
-    for (const format of ["Texto", "Case"]) {
-      await page.getByRole("tab", { name: format, exact: true }).click();
-      const src = await page.locator("iframe").getAttribute("src");
-      const pdf = await page.evaluate(async (path: string) => {
-        const response = await fetch(path);
-        return {
-          status: response.status,
-          type: response.headers.get("content-type"),
-          prefix: (await response.text()).slice(0, 5),
-        };
-      }, src!);
-      expect(pdf).toEqual({
-        status: 200,
-        type: "application/pdf",
-        prefix: "%PDF-",
-      });
-    }
-    console.log("SEMANA", number, "vídeo com busca + áudio + texto + case OK");
+  await go('/dashboard/temporada/semana/1');
+  const video = page.locator('video');
+  await video.evaluate(async (el: HTMLVideoElement) => { el.muted = true; await el.play(); });
+  await expect.poll(() => video.evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(0.5);
+  await video.evaluate((el: HTMLVideoElement) => { el.currentTime = 90; });
+  await expect.poll(() => video.evaluate((el: HTMLVideoElement) => el.currentTime)).toBeGreaterThan(90.2);
+  await video.evaluate((el: HTMLVideoElement) => el.pause());
+  await page.screenshot({ path: `${screenshotPrefix}-semana-1.png` });
+  await page.getByRole('button', { name: 'audio', exact: true }).click();
+  await page.locator('audio').evaluate(async (el: HTMLAudioElement) => { el.muted = true; await el.play(); });
+  await expect.poll(() => page.locator('audio').evaluate((el: HTMLAudioElement) => el.currentTime)).toBeGreaterThan(0.5);
+  for (const format of ['texto', 'case']) {
+    await page.getByRole('button', { name: format, exact: true }).click();
+    const src = await page.locator(`iframe[title^="${format}:"]`).getAttribute('src');
+    expect(await page.evaluate(async (path: string) => {
+      const response = await fetch(path);
+      return { status: response.status, type: response.headers.get('content-type'), prefix: (await response.text()).slice(0, 5) };
+    }, src!)).toEqual({ status: 200, type: 'application/pdf', prefix: '%PDF-' });
   }
-  await page.getByRole("button", { name: "Meu perfil", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Seu perfil", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "Meu desenvolvimento", exact: true })
-    .click();
-  await expect(
-    page.getByRole("heading", {
-      name: "Plano de desenvolvimento",
-      exact: true,
-    }),
-  ).toBeVisible();
-  for (const role of ["manager", "organization"]) {
-    await page.getByLabel("Visão apresentada").selectOption(role);
-    await page.getByRole("button", { name: "Equipe", exact: true }).click();
-    await expect(
-      page.getByRole("heading", {
-        name: environment.names.participant,
-        exact: true,
-      }),
-    ).toBeVisible();
-    await page
-      .getByRole("button", {
-        name:
-          role === "organization"
-            ? environment.organizationReportButton
-            : "Relatório da equipe",
-        exact: true,
-      })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: "Visão geral", exact: true }),
-    ).toBeVisible();
-    await page.screenshot({
-      path: `${screenshotPrefix}-${role}.png`,
-      fullPage: false,
-    });
-  }
-  await page
-    .getByRole("button", { name: "Reiniciar demonstração", exact: true })
-    .click();
-  await expect(page.getByLabel("Visão apresentada")).toHaveValue("participant");
+  console.log('MÍDIAS: vídeo com busca, áudio, texto e case sem conexão.');
+  await go('/dashboard/temporada/semana/2');
+  // Preserve the online progression rule, including the same locked-week screen.
+  await expect(page.getByRole('heading', { name: 'Semana 2 ainda não liberada' })).toBeVisible();
+  await go('/dashboard/perfil-comportamental');
+  await expect(page.getByText(environment.names.participant, { exact: true })).toBeVisible();
+  await go('/dashboard/pdi');
+  await expect(page.getByRole('heading', { name: environment.names.participant, exact: true })).toBeVisible();
+  await page.getByLabel('Trocar função apresentada').selectOption('gestor');
+  await expect(page.getByRole('heading', { name: 'Minha equipe', exact: true })).toBeVisible();
+  await page.screenshot({ path: `${screenshotPrefix}-manager.png` });
+  await page.getByLabel('Trocar função apresentada').selectOption('rh');
+  await expect(page.getByText(`Olá, ${environment.names.organization.split(' ')[0]}`, { exact: true })).toBeVisible();
+  await go('/dashboard/relatorios', 'organization');
+  await expect(page.getByRole('button', { name: 'Documentos', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Documentos', exact: true }).click();
+  await page.getByRole('button', { name: /Abrir relatório/i }).first().click();
+  await expect.poll(() => page.locator('canvas').first().evaluate((c: HTMLCanvasElement) => {
+    const pixels = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+    let ink = 0;
+    for (let i = 0; i < pixels.length; i += 64) if (pixels[i + 3] > 200 && pixels[i] < 220) ink++;
+    return ink;
+  }).catch(() => 0), { timeout: 30000 }).toBeGreaterThan(500);
+  await page.screenshot({ path: `${screenshotPrefix}-organization-pdf.png` });
+  console.log('PERFIS: participante, gestor e RH; relatório PDF renderizado sem rede.');
+  await page.getByLabel('Trocar função apresentada').selectOption('usuario');
+  await page.getByLabel('Trocar dispositivo apresentado').selectOption('mobile');
+  const phone = page.frameLocator('iframe[title="Apresentação no celular"]');
+  await expect(phone.getByRole('heading', { name: 'Seu próximo avanço começa hoje' })).toBeVisible();
+  await page.getByLabel('Trocar dispositivo apresentado').selectOption('desktop');
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({
-    path: `${screenshotPrefix}-celular.png`,
-    fullPage: true,
-  });
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
+  await page.screenshot({ path: `${screenshotPrefix}-celular.png`, fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
-  // Loss of one file invalidates readiness instead of silently streaming online.
-  await page.evaluate(
-    async ({ cachePrefix, base, mediaToRemove }) => {
-      const meta = await caches.open(`${cachePrefix}meta`);
-      const pack = await (await meta.match(`${base}_active`))!.json();
-      await (
-        await caches.open(pack.cacheName)
-      ).delete(`${base}${mediaToRemove}`);
-    },
-    { cachePrefix: environment.cachePrefix, base, mediaToRemove },
-  );
-  await page
-    .getByRole("button", { name: "Conferir pacote", exact: true })
-    .click();
-  await expect(page.getByRole("alert")).toContainText("Falta baixar");
-  await expect(
-    page.getByText("Pronto para apresentar offline", { exact: true }),
-  ).not.toBeVisible();
-  console.log(
-    "PASSOU: navegador reiniciado offline, três perfis, mídias, relatórios, responsividade e arquivo perdido. Erros JS:",
-    errors.length,
-  );
+  await page.evaluate(async ({ cachePrefix, base, mediaToRemove }) => {
+    const meta = await caches.open(`${cachePrefix}meta`);
+    const pack = await (await meta.match(`${base}_active`))!.json();
+    await (await caches.open(pack.cacheName)).delete(`${base}${mediaToRemove}`);
+  }, { cachePrefix: environment.cachePrefix, base, mediaToRemove });
+  await openPreparation();
+  await page.getByRole('button', { name: 'Conferir pacote', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('Falta baixar');
+  await expect(page.getByText('Pronto para apresentar offline', { exact: true })).not.toBeVisible();
+  console.log('PASSOU: atualização, reinício offline, UI compartilhada, três visões, mídias, PDF, celular e arquivo perdido.');
 } finally {
   await context.close();
   await new Promise<void>((done) =>

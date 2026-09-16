@@ -1,0 +1,1834 @@
+{
+  "acme-demo": {
+    "capturedAt": "2026-09-16T20:14:49.437Z",
+    "tracks": {
+      "ana": null,
+      "paulo": null,
+      "bruna": {
+        "status": "ativa",
+        "competencia_foco": "Negociação e Fechamento",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": "2026-09-16",
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": "Negociação e Fechamento",
+            "descritor": "Criação de senso de urgência",
+            "conteudo": {
+              "desafio_texto": "Aplique Criação de senso de urgência em uma situação real esta semana e observe o resultado.",
+              "criterio_de_execucao": null
+            }
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": "Negociação e Fechamento",
+            "descritor": "Criação de senso de urgência",
+            "conteudo": {
+              "desafio_texto": "Aplique Criação de senso de urgência em uma situação real esta semana e observe o resultado.",
+              "criterio_de_execucao": null
+            }
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": "Negociação e Fechamento",
+            "descritor": "Tratamento de objeções",
+            "conteudo": {
+              "desafio_texto": "Aplique Tratamento de objeções em uma situação real esta semana e observe o resultado.",
+              "criterio_de_execucao": null
+            }
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": "Negociação e Fechamento",
+            "descritor": "Condução ao fechamento",
+            "conteudo": {
+              "desafio_texto": "Aplique Condução ao fechamento em uma situação real esta semana e observe o resultado.",
+              "criterio_de_execucao": null
+            }
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": "Negociação e Fechamento",
+            "descritor": "Condução ao fechamento",
+            "conteudo": {
+              "desafio_texto": "Aplique Condução ao fechamento em uma situação real esta semana e observe o resultado.",
+              "criterio_de_execucao": null
+            }
+          },
+          {
+            "semana": 6,
+            "tipo": "conteudo",
+            "competencia": "Negociação e Fechamento",
+            "descritor": "Defesa de preço e margem",
+            "conteudo": {
+              "desafio_texto": "Aplique Defesa de preço e margem em uma situação real esta semana e observe o resultado.",
+              "criterio_de_execucao": null
+            }
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "em_andamento",
+            "conteudo_consumido": false
+          },
+          {
+            "semana": 2,
+            "status": "pendente",
+            "conteudo_consumido": false
+          },
+          {
+            "semana": 3,
+            "status": "pendente",
+            "conteudo_consumido": false
+          },
+          {
+            "semana": 4,
+            "status": "pendente",
+            "conteudo_consumido": false
+          },
+          {
+            "semana": 5,
+            "status": "pendente",
+            "conteudo_consumido": false
+          },
+          {
+            "semana": 6,
+            "status": "pendente",
+            "conteudo_consumido": false
+          },
+          {
+            "semana": 7,
+            "status": "pendente",
+            "conteudo_consumido": false
+          }
+        ]
+      },
+      "carla": null,
+      "mariana": {
+        "status": "concluida",
+        "competencia_foco": "Controle, Precisão e Confiabilidade dos Dados",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "renato": null,
+      "lucas": {
+        "status": "concluida",
+        "competencia_foco": "Comunicação e Apresentação de Valor",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "camila": {
+        "status": "concluida",
+        "competencia_foco": "Negociação e Fechamento",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "diego": {
+        "status": "concluida",
+        "competencia_foco": "Comunicação e Apresentação de Valor",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "fernanda": {
+        "status": "concluida",
+        "competencia_foco": "Negociação e Fechamento",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "joao": {
+        "status": "concluida",
+        "competencia_foco": "Comunicação e Apresentação de Valor",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "patricia": {
+        "status": "concluida",
+        "competencia_foco": "Negociação e Fechamento",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "rafael": {
+        "status": "ativa",
+        "competencia_foco": "Comunicação e Apresentação de Valor",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": "2026-08-19",
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "beatriz": {
+        "status": "concluida",
+        "competencia_foco": "Comunicação e Apresentação de Valor",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "thiago": {
+        "status": "concluida",
+        "competencia_foco": "Negociação e Fechamento",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "marcelo": {
+        "status": "ativa",
+        "competencia_foco": "Coaching e Desenvolvimento de Vendedores",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": "2026-08-19",
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "juliana": {
+        "status": "concluida",
+        "competencia_foco": "Análise de Indicadores Financeiros",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "eduardo": {
+        "status": "ativa",
+        "competencia_foco": "Priorização e Gestão da Rotina Operacional",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": "2026-08-19",
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "aline": {
+        "status": "concluida",
+        "competencia_foco": "Controle, Precisão e Confiabilidade dos Dados",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "gustavo": {
+        "status": "concluida",
+        "competencia_foco": "Análise de Indicadores Financeiros",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "isabela": {
+        "status": "concluida",
+        "competencia_foco": "Controle, Precisão e Confiabilidade dos Dados",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "leandro": {
+        "status": "concluida",
+        "competencia_foco": "Análise de Indicadores Financeiros",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "natalia": {
+        "status": "concluida",
+        "competencia_foco": "Controle, Precisão e Confiabilidade dos Dados",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": null,
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "avaliacao",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 2,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 3,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 4,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 5,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 6,
+            "status": "concluido",
+            "conteudo_consumido": true
+          },
+          {
+            "semana": 7,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "debora": {
+        "status": "ativa",
+        "competencia_foco": "Priorização e Gestão da Rotina Operacional",
+        "programa_modo": "jornada",
+        "programa_config": null,
+        "data_inicio": "2026-08-19",
+        "temporada_plano": [
+          {
+            "semana": 1,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 2,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 3,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 4,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 5,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 6,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          },
+          {
+            "semana": 7,
+            "tipo": "conteudo",
+            "competencia": null,
+            "descritor": null,
+            "conteudo": null
+          }
+        ],
+        "progresso": [
+          {
+            "semana": 1,
+            "status": "concluido",
+            "conteudo_consumido": true
+          }
+        ]
+      },
+      "felipe": null,
+      "gabriela": null,
+      "henrique": null,
+      "larissa": null,
+      "rodrigo": null,
+      "vanessa": null
+    }
+  },
+  "escolas-acme": {
+    "capturedAt": "2026-09-16T20:14:50.572Z",
+    "tracks": {
+      "marina": null,
+      "paula": null,
+      "tiago": null,
+      "renata": null,
+      "sergio": null,
+      "ana_luiza": null,
+      "carlos_e": null,
+      "juliana_s": null,
+      "marcos_v": null,
+      "fernanda_c": null,
+      "bruno_a": null,
+      "patricia_m": null,
+      "rafael_t": null,
+      "leticia_b": null
+    }
+  }
+}

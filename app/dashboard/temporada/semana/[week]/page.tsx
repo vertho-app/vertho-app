@@ -1310,7 +1310,11 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
       )}
       {ativo === 'video' && videoPronto && (
         <div className="aspect-video rounded-lg overflow-hidden bg-black">
-          <iframe key={`video-${mediaSession}`} ref={videoIframeRef} src={embedUrl} className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen />
+          {vid.local_url ? (
+            <video key={`video-${mediaSession}`} src={vid.local_url} className="w-full h-full" controls playsInline preload="metadata" onPlay={() => onAbrirConteudo?.()} />
+          ) : (
+            <iframe key={`video-${mediaSession}`} ref={videoIframeRef} src={embedUrl} className="w-full h-full" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowFullScreen />
+          )}
           {vid?.isPersonalizado && <p className="text-[10px] text-emerald-400 font-semibold mt-1">· com seu nome</p>}
         </div>
       )}

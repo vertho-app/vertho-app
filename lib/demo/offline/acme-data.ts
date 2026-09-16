@@ -12,6 +12,7 @@ import {
 } from "../acme-rh-report-fixture";
 import { pick } from "./data";
 import type { OfflineData } from "./types";
+import uiSnapshot from './ui-snapshot.json';
 
 export function acmeOfflineData(): OfflineData {
   const roster = [...PERSONAS, ...ACME_DEMO_REPORT_DIRECTORY];
@@ -19,6 +20,7 @@ export function acmeOfflineData(): OfflineData {
   const additional = extra.personaArtifacts as Record<string, any>;
   const manager = PERSONAS.find((person) => person.key === "carla")!;
   return {
+    tracks: uiSnapshot['acme-demo'].tracks,
     capturedAt: snapshot.capturedAt,
     totalWeeks: snapshot.totalWeeks,
     weeks: snapshot.weeks,
@@ -36,6 +38,7 @@ export function acmeOfflineData(): OfflineData {
         role: person.cargo,
         unit: person.area_depto,
         manager: person.gestor_nome || null,
+        details: Object.fromEntries(Object.entries(person).filter(([key, value]) => key.startsWith('comp_') && typeof value === 'number')) as Record<string, number>,
         profileAvailable,
         disc: [
           person.d_natural,
@@ -68,6 +71,10 @@ export function acmeOfflineData(): OfflineData {
       "competencias",
       "blueprint_objetivos",
       "mensagem_final",
+      "perfil_comportamental",
+      "resumo_desempenho",
+      "trilha_mapa",
+      "blueprint_conteudos",
     ]),
     coordination: pick(
       criarRelatorioGestorAcmeDemo(

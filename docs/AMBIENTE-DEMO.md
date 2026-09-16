@@ -4,16 +4,23 @@
 
 | Demo | Endereço | Pacote inicial |
 | --- | --- | --- |
-| Rede de escolas | `https://professor-escolas.vertho.ai/apresentacao-offline/index.html` | Cerca de 39 MB |
-| ACME empresarial | `https://usuario-demo.vertho.ai/apresentacao-offline-acme/index.html` | Cerca de 11 MB |
+| Rede de escolas | `https://professor-escolas.vertho.ai/apresentacao-offline/index.html` | Cerca de 42 MB |
+| ACME empresarial | `https://usuario-demo.vertho.ai/apresentacao-offline-acme/index.html` | Cerca de 14 MB |
 
 Também disponível pelo botão **Preparar offline** em cada card de ambiente na seção
 **Apresentação** da tela administrativa `/admin/demo`. Prepare pelo Wi-Fi, no mesmo
 navegador e aparelho que serão usados para apresentar. O pacote só sinaliza
 **Pronto para apresentar offline** depois de baixar e conferir todos os arquivos.
 Salve o endereço nos favoritos; abra esse endereço diretamente quando estiver sem
-rede. Troque de visão no seletor local da apresentação: Professor(a), Coordenação
-e Direção na escolar; Colaborador(a), Gestor(a) e RH na ACME.
+rede. Use os mesmos seletores **Visão apresentada** e **Dispositivo** da sala online.
+Depois do preparo, o painel se recolhe; o ícone **Preparo offline** no canto superior
+direito permite conferir e atualizar. Quem já salvou a versão anterior deve usar
+**Atualizar pacote** com conexão para receber a interface compartilhada.
+
+A versão offline reutiliza o `DashboardShell`, as páginas React e o CSS da aplicação
+online: início, jornada, temporada, conteúdo da semana, perfil, avaliação, PDI,
+equipe, evolução e relatórios. Cores, fontes, menus, barra de apresentação e leitores
+são os mesmos. Mantém também as regras de liberação das semanas do retrato salvo.
 
 Na escolar, inclui os perfis e avaliações do fixture, PDI de Marina, relatório da
 coordenação e panorama da direção. Na ACME, inclui o elenco de 30 pessoas fictícias,
@@ -23,7 +30,8 @@ compartilham o tema **Criação de senso de urgência** e os mesmos arquivos; ca
 é baixada uma única vez, incluindo o vídeo nominal de Bruna.
 
 **Não inclui conversa com IA, login offline nem gravação ou
-sincronização de avaliações.** Reiniciar demonstração apenas retorna ao começo.
+sincronização de avaliações.** Ações que dependem desses serviços mostram um aviso
+e permitem continuar a apresentação.
 O retrato dos dados fictícios tem sua data visível; o pacote não consulta o banco.
 
 **Conferir pacote** relê os arquivos salvos e valida tamanho e SHA-256. Antes de
@@ -40,6 +48,13 @@ incompletos, cancelados ou sem espaço não substituem o pacote anterior.
   pelo overlay real dos kits e notas numéricas das 30 pessoas declaradas no roster,
   indexadas por chave fictícia, sem IDs de colaboradores ou convidados. Os relatórios
   usam os geradores canônicos `criarRelatorioGestorAcmeDemo` e `criarRelatorioRhAcmeDemo`.
+- `build-adapters.ts` substitui sessão, navegação e server actions apenas no bundle
+  estático. Os módulos `use server` nunca entram no pacote: leituras usam os dados
+  fictícios locais e mutações ficam indisponíveis. O transporte bloqueia chamadas
+  de API externas ao pacote. Não altera autenticação nem regras da aplicação online.
+  `ui-snapshot.json` contém planos e progresso do roster fictício, sem IDs ou contatos.
+  `documents/` guarda PDFs gerados pelos mesmos componentes React-PDF do produto;
+  o leitor PDF e seu worker também são empacotados para funcionar sem rede.
 - `media.json` (escola) e `acme-media.json` fixam os arquivos públicos, tamanhos e hashes. Ao trocar a mídia,
   atualize o manifesto a partir dos novos arquivos completos; builds não fazem
   downloads e não precisam de segredos. As semanas vêm do plano congelado de

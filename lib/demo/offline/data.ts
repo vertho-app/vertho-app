@@ -3,6 +3,7 @@
 import fixture from "../escolas-demo-fixture.json";
 import { PERSONAS_ESCOLARES, DIRETORIO_ESCOLAR } from "../rosters/escolar";
 import type { OfflineData, ReportValue } from "./types";
+import snapshot from './ui-snapshot.json';
 
 export const pick = (value: any, keys: string[]): Record<string, ReportValue> =>
   Object.fromEntries(
@@ -13,6 +14,18 @@ export function schoolOfflineData(): OfflineData {
   const artifacts = fixture.personaArtifacts as Record<string, any>;
   const marina = artifacts["marina.demo@vertho.ai"];
   return {
+    tracks: {
+      ...snapshot['escolas-acme'].tracks,
+      marina: {
+        status: marina.trilha.row.status,
+        competencia_foco: marina.trilha.row.competencia_foco,
+        programa_modo: marina.trilha.row.programa_modo,
+        programa_config: marina.trilha.row.programa_config,
+        data_inicio: marina.trilha.row.data_inicio,
+        temporada_plano: marina.trilha.row.temporada_plano.map((week: any) => ({ semana: week.semana, tipo: week.tipo, competencia: week.competencia || null, descritor: week.descritor || null })),
+        progresso: [],
+      },
+    },
     capturedAt: fixture._meta.capturedAt,
     totalWeeks: marina.trilha.row.temporada_plano.length,
     people: [...PERSONAS_ESCOLARES, ...DIRETORIO_ESCOLAR].map((person) => {
@@ -23,6 +36,7 @@ export function schoolOfflineData(): OfflineData {
         role: person.cargo,
         unit: person.area_depto,
         manager: person.gestor_nome || null,
+        details: Object.fromEntries(Object.entries(person).filter(([key, value]) => key.startsWith('comp_') && typeof value === 'number')) as Record<string, number>,
         disc: [
           person.d_natural,
           person.i_natural,
@@ -77,6 +91,10 @@ export function schoolOfflineData(): OfflineData {
       "competencias",
       "blueprint_objetivos",
       "mensagem_final",
+      "perfil_comportamental",
+      "resumo_desempenho",
+      "trilha_mapa",
+      "blueprint_conteudos",
     ]),
     coordination: pick(
       artifacts["renata.demo@vertho.ai"].relatorioGestor.conteudo,
