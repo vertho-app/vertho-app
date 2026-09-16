@@ -599,4 +599,84 @@ describe('prepararLoteTemplate', () => {
       expect(lote.excluidos[0].motivo).toMatch(/sem cadência ativa ou trilha gerada/);
     });
   });
+
+  /**
+   * `avaliacao_final_pendente`: quem só tem o Cenário B em aberto.
+   *
+   * 🔑 Nasceu em 16/09/2026 porque nenhum aprovado descrevia esse estado sem
+   * afirmar algo falso (ver o comentário do template). Os casos travam as duas
+   * bordas que fariam a mensagem mentir: quem ainda não chegou lá e quem já tem
+   * nota, inclusive a nota que está sendo gerada naquele instante.
+   */
+  describe('avaliacao_final_pendente', () => {
+    // 1 conteúdo · 2 qualitativa · 3 Cenário B (a ÚLTIMA semana de avaliação do plano)
+    const planoFechamento = [
+      { semana: 1, tipo: 'conteudo', conteudos_dia: [{ conteudo: { core_titulo: 'Escuta ativa' } }] },
+      { semana: 2, tipo: 'avaliacao' },
+      { semana: 3, tipo: 'avaliacao' },
+    ];
+    const prog = (semana: number, status: string, feedback: any = null) => ({
+      trilha_id: 'trilha-1', colaborador_id: 'c1', semana, status, reflexao: null, feedback,
+    });
+
+    it('inclui quem só tem o Cenário B em aberto; o botão leva à semana dele, não à do calendário', async () => {
+      const sb = mock(contextoCadencia({
+        semanaAtual: 4, // calendário já passou do fim do plano
+        plano: planoFechamento,
+        progressos: [prog(1, PROGRESSO.CONCLUIDO), prog(2, PROGRESSO.CONCLUIDO), prog(3, PROGRESSO.EM_ANDAMENTO)],
+      }));
+      const lote = await prepararLoteTemplate(sb.client, {
+        empresaId: 'emp-1', template: 'avaliacao_final_pendente', colabs: [professor()],
+      });
+      expect(lote.alvos).toHaveLength(1);
+      expect(lote.alvos[0].params).toEqual(['Maria']);
+      expect(lote.alvos[0].botaoParam).toBe('macae/3');
+    });
+
+    it('EXCLUI quem ainda está na conversa qualitativa (não chegou à avaliação final)', async () => {
+      const sb = mock(contextoCadencia({
+        semanaAtual: 4,
+        plano: planoFechamento,
+        progressos: [prog(1, PROGRESSO.CONCLUIDO), prog(2, PROGRESSO.EM_ANDAMENTO)],
+      }));
+      const lote = await prepararLoteTemplate(sb.client, {
+        empresaId: 'emp-1', template: 'avaliacao_final_pendente', colabs: [professor()],
+      });
+      expect(lote.alvos).toHaveLength(0);
+      expect(lote.excluidos[0]).toMatchObject({ motivo: 'ainda não chegou à avaliação final', quantidade: 1 });
+    });
+
+    it('EXCLUI quem já concluiu a avaliação final', async () => {
+      const sb = mock(contextoCadencia({
+        semanaAtual: 3,
+        plano: planoFechamento,
+        progressos: [prog(1, PROGRESSO.CONCLUIDO), prog(2, PROGRESSO.CONCLUIDO), prog(3, PROGRESSO.CONCLUIDO)],
+      }));
+      const lote = await prepararLoteTemplate(sb.client, {
+        empresaId: 'emp-1', template: 'avaliacao_final_pendente', colabs: [professor()],
+      });
+      expect(lote.alvos).toHaveLength(0);
+      expect(lote.excluidos[0]).toMatchObject({ motivo: 'avaliação final já concluída', quantidade: 1 });
+    });
+
+    it('EXCLUI quem está com a nota sendo gerada AGORA (não manda "pendente" a quem acabou de terminar)', async () => {
+      const perguntas = ['SITUAÇÃO', 'AÇÃO', 'RACIOCÍNIO', 'AUTOSSENSIBILIDADE'].map((d) => ({ dimensao: d, texto: d }));
+      const transcript = perguntas.flatMap((p, i) => [{ role: 'assistant', content: p.texto }, { role: 'user', content: `r${i}` }]);
+      const feedback = {
+        cenario: '## C', perguntas, transcript_completo: transcript,
+        arguicao: { turno: 7, concluida: true, historico: [] },
+        finalizacao: { status: 'processando', iniciada_em: new Date(Date.now() - 30_000).toISOString() },
+      };
+      const sb = mock(contextoCadencia({
+        semanaAtual: 4,
+        plano: planoFechamento,
+        progressos: [prog(1, PROGRESSO.CONCLUIDO), prog(2, PROGRESSO.CONCLUIDO), prog(3, PROGRESSO.EM_ANDAMENTO, feedback)],
+      }));
+      const lote = await prepararLoteTemplate(sb.client, {
+        empresaId: 'emp-1', template: 'avaliacao_final_pendente', colabs: [professor()],
+      });
+      expect(lote.alvos).toHaveLength(0);
+      expect(lote.excluidos[0]).toMatchObject({ motivo: 'avaliação final sendo gerada agora', quantidade: 1 });
+    });
+  });
 });

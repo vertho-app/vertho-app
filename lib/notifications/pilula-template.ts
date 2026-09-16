@@ -366,6 +366,17 @@ const CONTRATOS: Record<string, MontarParams> = {
    * fixo do gate), nunca o da semana do calendário — mandar quem está preso na 1
    * para a semana 7 é oferecer outra porta fechada.
    */
+  /**
+   * Avaliação final pendente. `{{1}}`=nome; botão `<slug>/<semana do Cenário B>`.
+   * A semana vem do resolvedor da tela (a do Cenário B no plano), nunca do
+   * calendário: o calendário passa do fim do plano e mandaria para uma semana
+   * que não existe.
+   */
+  avaliacao_final_pendente: (a) => ({
+    params: [a.nome],
+    botaoParam: caminhoDoBotao({ slug: a.slug, semana: a.semana, formato: null, pilula: null }),
+  }),
+
   encerramento_conteudo: (a) => ({
     params: [a.nome, a.instituicao || '', deepLinkSemana(a.baseUrl, a.semana, a.formato, a.pilula)],
     botaoParam: null,

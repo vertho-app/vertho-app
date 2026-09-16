@@ -593,6 +593,46 @@ export const TEMPLATES = {
   },
 
   /**
+   * AVALIAÇÃO FINAL PENDENTE: quem já passou das semanas de conteúdo e ainda não
+   * fechou o Cenário B.
+   *
+   * 🔑 POR QUE ELE PRECISA EXISTIR (16/09/2026, Ibipeba). Oito pessoas estavam só
+   * com a avaliação final em aberto, e nenhum template aprovado dizia isso sem
+   * afirmar algo falso: `encerramento_conteudo` diz que "ainda há semanas em
+   * aberto" e que concluí-las libera a avaliação final (a semana aberta É a
+   * avaliação); `semana_pendente_v2` fala em conversa de evidências e vídeo, que
+   * a semana do Cenário B não tem; `retomada_trilha` afirma duas semanas sem
+   * atividade; `registro_evidencia` promete ajustar "as próximas semanas", que
+   * não existem.
+   *
+   * 🔑 POR QUE UTILITY. Mesmo padrão dos que passaram: afirma o estado da conta e
+   * o que ele destrava, sem urgência, sem nome do produto, sem exclamação e sem
+   * descrever como a etapa funciona (isso vive na tela). Os nomes são os da
+   * TELA: "avaliação final" é o rótulo do card da semana e "Relatório de
+   * Evolução" é o título do resultado.
+   *
+   * Link em botão, `app.vertho.ai/ir/<slug>/<semana do Cenário B>`: a página da
+   * semana redireciona sozinha para a tela do Cenário B.
+   *
+   * ⚠️ Se voltar MARKETING, aceitar e usar assim mesmo (mesma decisão do
+   * `encerramento_conteudo`): re-submeter copy limítrofe é o gatilho da escada de
+   * punição, que recategoriza TODOS os UTILITY da WABA.
+   */
+  avaliacao_final_pendente: {
+    name: 'avaliacao_final_pendente',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. As semanas de conteúdo da sua trilha foram concluídas, e a avaliação final continua pendente.\n\nO Relatório de Evolução é gerado quando a avaliação final é concluída.',
+    example: ['Maria'],
+    botao: {
+      // Rótulo funcional, igual ao `semana_pendente_v2` ("Abrir a semana").
+      texto: 'Abrir a avaliação final',
+      url: 'https://app.vertho.ai/ir/{{1}}',
+      exemplo: 'https://app.vertho.ai/ir/ibipeba/9',
+    },
+  },
+
+  /**
    * SEGUNDA de quem está TRAVADO: o conteúdo da semana E a pendência dela, numa
    * mensagem só.
    *

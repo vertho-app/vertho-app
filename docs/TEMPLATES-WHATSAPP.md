@@ -60,7 +60,7 @@ Sobravam e-mail e push. E os dois templates que existiam para esse momento (`mis
 'evidencia'`. Eles têm a mesma forma e textos diferentes: trocar um pelo outro entrega a cobrança
 errada para a pessoa certa, e nada no typecheck acusaria.
 
-### Tela de Envios: 16 templates com público automático
+### Tela de Envios: 17 templates com público automático
 
 Selecionar um template em `/admin/whatsapp` **não depende de o operador reconstruir a regra de
 negócio nos selects**. A turma (ou empresa inteira com justificativa) define o universo; o servidor
@@ -88,6 +88,7 @@ semana/slot, portanto uma semana não bloqueia a seguinte.
 | `registro_evidencia` | APPROVED/UTILITY | Semana acessível é de aplicação e ainda não foi concluída |
 | `retomada_trilha` | APPROVED/UTILITY | Cadência ativa e último carimbo de envio ocorreu há pelo menos 14 dias |
 | `encerramento_conteudo` | **PENDING/UTILITY** | Trilha ativa e semana acessível anterior à avaliação final; com o catálogo Meta carregado, fica indisponível enquanto pendente |
+| `avaliacao_final_pendente` | **NÃO SUBMETIDO** (16/09) | Semana acessível é a do Cenário B, sem nota e sem nota sendo gerada; indisponível na tela até APPROVED |
 | `trilha_concluida` | APPROVED/UTILITY | A trilha mais recente está concluída |
 
 A prévia expõe a mesma sequência usada no disparo:
@@ -127,6 +128,7 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `resultado_perfil` | nome | link | — | — | — |
 | `plano_desenvolvimento` | nome | link de `/dashboard/pdi` | — | — | — |
 | `trilha_liberada_v2` | nome | competência | total de semanas | link da trilha | — |
+| `avaliacao_final_pendente` ⏳ | nome |  |  |  | `<slug>/<semana do Cenário B>` |
 | `trilha_concluida` | nome | competência | total de semanas | link do resultado | — |
 | `conteudo_semana_pendente_v3` | nome | semana acessível | tema | link da semana | — |
 | `semana_pendente_v2` | nome | semana do calendário | semana pendente | — | `<slug>/<semana pendente>` |
@@ -182,6 +184,7 @@ exemplo, continua saindo apenas quando um humano escolhe e confirma o lote.
 | Template | Consumidor atual | Regra que impede público errado |
 |---|---|---|
 | `trilha_liberada_v2` | Tela de Envios | Trilha ativa e ainda não iniciada |
+| `avaliacao_final_pendente` | Tela de Envios | Semana acessível = Cenário B, não concluída, `feedback.finalizacao` fora de `processando` |
 | `trilha_concluida` | Tela de Envios | Trilha mais recente concluída |
 | `plano_desenvolvimento` | Cron + tela de Envios | Relatório individual/PDI existente |
 | `avaliacao_pendente` | Script + tela de Envios | Cenários configurados e zero respostas |

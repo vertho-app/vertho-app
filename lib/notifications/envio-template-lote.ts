@@ -34,6 +34,7 @@ import { aplicarTetoLote, criarPaceadorSincrono } from '@/lib/whatsapp/cadencia'
 import { tenantUrl } from '@/lib/domain';
 import { primeiraSemanaAcessivel } from '@/lib/season-engine/week-gating';
 import { ehSemanaDeImplementacao, semanaCenarioBDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { estadoDoFechamento, type EstadoFechamento } from '@/lib/season-engine/estado-fechamento';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
 
@@ -69,6 +70,11 @@ interface ContextoCadenciaEnvio {
   planoDaSemana: any | null;
   conteudoPrincipal: any | null;
   statusDaSemana: string | null;
+  /**
+   * Estado do fechamento quando a semana acessível é a do Cenário B (senão
+   * `null`). Régua única com a tela e a rota (`estadoDoFechamento`).
+   */
+  estadoFechamento: EstadoFechamento | null;
   ultimaAtividadeEm: number | null;
 }
 
@@ -293,6 +299,29 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
     }
     return { args: base(c, ctx, { semana: cadencia.semanaAcessivel }) };
   },
+  /**
+   * Avaliação final pendente: a semana que a pessoa consegue abrir é a do
+   * Cenário B e ela ainda não tem nota.
+   *
+   * A semana acessível é o sinal, não o calendário: com o calendário além do fim
+   * do plano, quem concluiu a semana anterior tem a do Cenário B como acessível
+   * (`primeiraSemanaAcessivel` desce até a primeira que abre).
+   */
+  avaliacao_final_pendente: (c, ctx) => {
+    const cadencia = exigirCadencia(c, ctx);
+    if ('excluir' in cadencia) return cadencia;
+    const semCenarioB = semanaCenarioBDoPlano(cadencia.plano, 14);
+    if (cadencia.semanaAcessivel !== semCenarioB) {
+      return { excluir: 'ainda não chegou à avaliação final' };
+    }
+    if (cadencia.statusDaSemana === PROGRESSO.CONCLUIDO || cadencia.estadoFechamento === 'avaliado') {
+      return { excluir: 'avaliação final já concluída' };
+    }
+    if (cadencia.estadoFechamento === 'processando') {
+      return { excluir: 'avaliação final sendo gerada agora' };
+    }
+    return { args: base(c, ctx, { semana: semCenarioB }) };
+  },
   trilha_concluida: (c, ctx) => {
     const trilha = ctx.trilhaPorColab.get(c.id);
     if (!trilha) return { excluir: 'sem trilha gerada' };
@@ -355,11 +384,13 @@ const VARIAVEIS_DE: Record<string, string[]> = {
   registro_evidencia: ['primeiro nome', 'semana de aplicação', 'link da semana'],
   retomada_trilha: ['primeiro nome', 'link da semana acessível'],
   encerramento_conteudo: ['primeiro nome', 'instituição', 'link da semana acessível'],
+  avaliacao_final_pendente: ['primeiro nome'],
   trilha_concluida: ['primeiro nome', 'competência da trilha', 'total de semanas', 'link do resultado'],
 };
 
 const BOTAO_DE: Record<string, string> = {
   semana_pendente_v2: 'link da semana pendente',
+  avaliacao_final_pendente: 'link da semana do Cenário B',
 };
 
 const ALVO_DE: Record<string, string> = {
@@ -378,6 +409,7 @@ const ALVO_DE: Record<string, string> = {
   registro_evidencia: 'está numa semana de aplicação ainda não concluída',
   retomada_trilha: 'tem trilha ativa e está há pelo menos 14 dias sem atividade de envio',
   encerramento_conteudo: 'tem trilha ativa e ainda não alcançou a avaliação final',
+  avaliacao_final_pendente: 'chegou à avaliação final (Cenário B) e ainda não tem nota',
   trilha_concluida: 'concluiu a trilha mais recente',
 };
 
@@ -397,6 +429,7 @@ const ROTULO_DE: Record<string, string> = {
   registro_evidencia: 'Registro de evidências pendente',
   retomada_trilha: 'Retomada por inatividade',
   encerramento_conteudo: 'Etapa de conteúdo encerrada',
+  avaliacao_final_pendente: 'Avaliação final pendente',
   trilha_concluida: 'Trilha concluída',
 };
 
@@ -416,6 +449,7 @@ const ETAPA_DE: Record<string, string> = {
   registro_evidencia: 'Pendências e retomada',
   retomada_trilha: 'Pendências e retomada',
   encerramento_conteudo: 'Pendências e retomada',
+  avaliacao_final_pendente: 'Pendências e retomada',
   trilha_concluida: 'Jornada',
 };
 
@@ -428,6 +462,7 @@ const TEMPLATES_CADENCIA_MANUAL = new Set([
   'registro_evidencia',
   'retomada_trilha',
   'encerramento_conteudo',
+  'avaliacao_final_pendente',
 ]);
 
 const TEMPLATES_AVALIACAO_MANUAL = new Set([
@@ -675,6 +710,9 @@ async function carregarCadenciaManual(
       planoDaSemana,
       conteudoPrincipal: conteudos[0] || null,
       statusDaSemana: progressoDaSemana?.status ? String(progressoDaSemana.status) : null,
+      estadoFechamento: semanaAcessivel === semanaCenarioBDoPlano(plano, 14)
+        ? estadoDoFechamento(progressoDaSemana, { arguicaoAtiva: !!progressoDaSemana?.feedback?.arguicao }, Date.now()).estado
+        : null,
       ultimaAtividadeEm: atividades.length ? Math.max(...atividades) : null,
     });
   }
