@@ -46,7 +46,7 @@ describe('paleta do veredito', () => {
 
 const SUPERFICIES = [
   'lib/temporada-concluida-pdf.tsx',
-  'app/dashboard/temporada/concluida/page.tsx',
+  'components/temporada/relatorio-temporada-concluida.tsx',
   'app/dashboard/temporada/page.tsx',
   'app/dashboard/gestor/equipe-evolucao/page.tsx',
   'app/admin/evolucao/page.tsx',

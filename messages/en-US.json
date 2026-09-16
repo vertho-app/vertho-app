@@ -1427,7 +1427,7 @@
     "hero": {
       "eyebrow": "{number} Season Completed",
       "title": "{name}, see what has changed in you",
-      "subtitle": "14 weeks dedicated to <strong>{competency}</strong>."
+      "subtitle": "{weeks} weeks dedicated to <strong>{competency}</strong>."
     },
     "stats": {
       "confirmed": "Confirmed",
@@ -1444,7 +1444,9 @@
       "insights": "Insight moments",
       "missions": "Missions you performed",
       "finalAssessment": "Final assessment",
-      "nextSteps": "Next steps"
+      "nextSteps": "Next steps",
+      "competencies": "{count, plural, one {Your competency} other {Your competencies}}",
+      "finalMessage": "Final message"
     },
     "mission": {
       "real": "Real mission",
@@ -1453,7 +1455,7 @@
       "synthesis": "Summary:"
     },
     "final": {
-      "cardTitle": "Scenario B · Response and feedback",
+      "cardTitle": "Scenario B and your response",
       "viewScenario": "See the scenario presented",
       "viewAnswer": "See your answer",
       "feedback": "Feedback"

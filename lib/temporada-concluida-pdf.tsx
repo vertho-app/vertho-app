@@ -102,7 +102,7 @@ function PageFooter({ label }: { label: string }) {
 // Status de convergência: a cor vem da paleta do DS (`colors`), não de hex
 // soltos, e o RÓTULO vem de `rotuloConvergencia`, a mesma função das telas.
 //
-// 🔴 Sem "Regressão" (16/09/2026, pedido do dono olhando o PDF da Elisângela).
+// 🔴 Sem "Regressão" (16/09/2026, pedido do dono olhando um PDF real).
 // A régua não tem esse veredito desde 01/09 (ninguém desaprende uma
 // competência; queda entre diagnóstico e fechamento é variação do
 // instrumento), e as telas de admin e do gestor perderam a coluna em 14/09.
@@ -403,7 +403,7 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
             <View key={g}>
               {/* O nome da competência vai PRESO ao primeiro card: sozinho, ele
                   caiu no pé da página 2 com os cards na 3 (medido na folha de
-                  contato do PDF da Elisângela, 16/09). `minPresenceAhead` não
+                  contato de um PDF real, 16/09). `minPresenceAhead` não
                   segurou; `wrap={false}` no par segura. */}
               <View wrap={false}>
                 {grupo.competencia && (
@@ -433,8 +433,8 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
                 </View>
               );
               // Título preso ao primeiro card: solto, caía no pé da página 4 do
-              // PDF do Helmar com a missão na 5 (16/09/2026). O maior card de
-              // missão da base (2.665 caracteres, o dele) ocupa ~80% da página,
+              // PDF real com a missão na 5 (16/09/2026). O maior card de
+              // missão da base (2.665 caracteres, o desse PDF) ocupa ~80% da página,
               // então título + card ainda cabem.
               return i === 0
                 ? <View key={i} wrap={false}><ReportSectionTitle>Missões executadas</ReportSectionTitle>{card}</View>

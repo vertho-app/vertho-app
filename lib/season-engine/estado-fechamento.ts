@@ -14,7 +14,7 @@ import { PROGRESSO } from '@/lib/status';
  * com `arguicao.concluida = true`, semana `em_andamento` e nenhuma nota. E a
  * tela, que só conhecia "concluída", "arguindo" e "respondendo", mandava a
  * pessoa de volta ao formulário das 4 respostas. Reenviar dali empurrava uma
- * 5ª resposta e rodava o scorer de novo. Helmar ficou 8 dias nesse estado.
+ * 5ª resposta e rodava o scorer de novo. Uma pessoa ficou 8 dias nesse estado.
  *
  * `finalizacao` vive no próprio slot (`feedback.finalizacao`) e é gravada pelo
  * `fechamento-core`: `processando` com carimbo ao reservar, `erro` ao falhar,

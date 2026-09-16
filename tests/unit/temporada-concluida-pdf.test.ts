@@ -1,7 +1,7 @@
 /**
  * O que a pessoa leva para casa da temporada: o PDF e a tela de onde ele sai.
  *
- * 🔴 POR QUE (16/09/2026). O dono abriu o PDF da Elisângela e encontrou o que as
+ * 🔴 POR QUE (16/09/2026). O dono abriu um PDF real e encontrou o que as
  * telas de admin e do gestor tinham deixado de mostrar em 14/09: um card
  * "Regressões", o par "de 2,0 para 3,2" em cada descritor, a nota média do
  * fechamento e o rótulo "Estagnação". A régua não tem veredito de regressão
@@ -12,7 +12,10 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
-import { isValidElement } from 'react';
+import { isValidElement, createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { NextIntlClientProvider } from 'next-intl';
+import RelatorioTemporadaConcluida from '@/components/temporada/relatorio-temporada-concluida';
 import { avancoDoPdf, avancoValorPdf, contadoresDoPdf, TemporadaConcluidaPDF } from '@/lib/temporada-concluida-pdf';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { semComentarios } from '../helpers/fonte';
@@ -69,9 +72,9 @@ describe('descritores agrupados por competência', () => {
    * +0,3, +0,3 e 0,0 e o cabeçalho dizia "Avanço médio 0,0", porque a conta era
    * média das notas finais menos média das iniciais, e as quedas de Registro e
    * devolutiva (2,0 → 1,4) e Presença (2,9 → 2,2) entravam escondidas. Notas
-   * REAIS da Elisângela.
+   * REAIS de um relatório de produção.
    */
-  it('avanço médio da competência é a média dos avanços EXIBIDOS (notas reais da Elisângela)', () => {
+  it('avanço da competência é a média dos avanços EXIBIDOS (notas reais)', () => {
     const [avaliacao, apoio] = agruparPorCompetencia([
       { competencia: 'Avaliação', nota_pre: 2, nota_pos: 3.2 },
       { competencia: 'Avaliação', nota_pre: 2, nota_pos: 2.5 },
@@ -88,13 +91,13 @@ describe('descritores agrupados por competência', () => {
   });
 
   it('nível final é o da MÉDIA das notas; subiu só quando o nível da média sobe', () => {
-    // Helmar, Planejamento: média 1,70 (N1) → 2,53 (N2).
+    // Caso real, Planejamento: média 1,70 (N1) → 2,53 (N2).
     const [subiu] = agruparPorCompetencia([
       { competencia: 'P', nota_pre: 1.5, nota_pos: 2.4 },
       { competencia: 'P', nota_pre: 1.9, nota_pos: 2.66 },
     ]);
     expect(subiu).toMatchObject({ nivelInicial: 1, nivelFinal: 2, subiuDeNivel: true });
-    // Elisângela, Avaliação: 2,25 (N2) → 2,53 (N2): mesmo nível, sem parabéns.
+    // Caso real, Avaliação: 2,25 (N2) → 2,53 (N2): mesmo nível, sem parabéns.
     const [manteve] = agruparPorCompetencia([
       { competencia: 'A', nota_pre: 2.25, nota_pos: 2.53 },
     ]);
@@ -132,7 +135,7 @@ describe('descritores agrupados por competência', () => {
  */
 const SUPERFICIES: Array<[string, string[]]> = [
   ['lib/temporada-concluida-pdf.tsx', ['label="Regressões"', 'transicao(', 'Nota média pós-temporada', "label: 'Regressão'", "label: 'Estagnação'"]],
-  ['app/dashboard/temporada/concluida/page.tsx', ["t('stats.regressions')", "labelKey: 'regression'", "t('final.postAverage')", '→ {d.nota_pos}']],
+  ['components/temporada/relatorio-temporada-concluida.tsx', ["t('stats.regressions')", "labelKey: 'regression'", "t('final.postAverage')", '→ {d.nota_pos}']],
   ['app/dashboard/temporada/page.tsx', ["label: 'Regressão'", "label: 'Estagnação'", '{d.nota_pre} →', 'consolidado.pre.toFixed']],
   ['app/dashboard/temporada/sem14/page.tsx', ["t('done.pre')", "t('done.post')", '{avaliacao.delta_medio}']],
 ];
@@ -162,7 +165,7 @@ describe('traduções', () => {
 });
 
 /**
- * A ORDEM do documento (pedido do dono, 16/09/2026, olhando o PDF do Helmar):
+ * A ORDEM do documento (pedido do dono, 16/09/2026, olhando um PDF real):
  * abre com a devolutiva da avaliação final sob "<nome>, veja o que mudou em
  * você"; logo depois as competências em destaque, com nível e "Avanço" (sem
  * "médio"), que são o indicador da régua de maturidade; o `insight_geral`, que
@@ -185,7 +188,7 @@ describe('ordem do PDF da temporada', () => {
   }
 
   const dados = {
-    colab: { nome: 'Helmar Teste', cargo: 'Gestão Escolar' },
+    colab: { nome: 'Pessoa Teste', cargo: 'Gestão Escolar' },
     trilha: { competencia: 'Planejamento + Autocuidado', numeroTemporada: 1, totalSemanas: 9 },
     evolutionReport: {
       insight_geral: 'TEXTO-DO-INSIGHT-GERAL',
@@ -221,5 +224,62 @@ describe('ordem do PDF da temporada', () => {
     // a devolutiva saiu do fim do documento: sem a seção antiga
     expect(t).not.toContain('Avaliação final');
     expect(t).not.toContain('Devolutiva');
+  });
+});
+
+/**
+ * A TELA segue a mesma ordem do PDF (dono, 16/09/2026: "espelhar"). Renderiza o
+ * componente real com as traduções reais, sem sessão, e confere a ordem no HTML.
+ */
+describe('ordem da tela Temporada Concluída', () => {
+  const dadosTela = {
+    colab: { nome: 'Pessoa Teste' },
+    trilha: { competencia: 'Planejamento + Autocuidado', numeroTemporada: 1, totalSemanas: 9 },
+    evolutionReport: {
+      insight_geral: 'TEXTO-DO-INSIGHT-GERAL',
+      resumo: { confirmadas: 0, parciais: 2, estagnacoes: 1 },
+      descritores: [
+        { competencia: 'Planejamento', descritor: 'Organização do plano', nota_pre: 1.5, nota_pos: 2.7, convergencia: 'evolucao_parcial' },
+        { competencia: 'Planejamento', descritor: 'Gestão de riscos', nota_pre: 1.9, nota_pos: 2.8, convergencia: 'evolucao_parcial' },
+        { competencia: 'Autocuidado', descritor: 'Limites profissionais', nota_pre: 2.2, nota_pos: 2.1, convergencia: 'estagnacao' },
+      ],
+    },
+    momentos: [],
+    missoes: [],
+    sem14: { cenario: 'CENARIO', resposta: 'RESPOSTA', resumo_avaliacao: { mensagem_geral: 'TEXTO-DA-DEVOLUTIVA' } },
+  };
+
+  function htmlDaTela(locale: string, data: any) {
+    const messages = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8'));
+    return renderToStaticMarkup(createElement(NextIntlClientProvider, {
+      locale, messages, timeZone: 'America/Sao_Paulo',
+      children: createElement(RelatorioTemporadaConcluida, { data }),
+    }));
+  }
+
+  function textoDaTela(locale: string) {
+    return htmlDaTela(locale, dadosTela).replace(/<[^>]+>/g, '\n').replace(/&gt;/g, '>').split('\n').map((l) => l.trim()).filter(Boolean).join('\n');
+  }
+
+  it('devolutiva, competências em destaque, descritores e, por último, a mensagem final', () => {
+    const t = textoDaTela('pt-BR');
+    const ordem = ['Pessoa, veja o que mudou em você', '9 semanas dedicadas a', 'TEXTO-DA-DEVOLUTIVA',
+      'Suas competências', 'Avanço', 'Descritor a descritor', 'Confirmadas', 'Mensagem final', 'TEXTO-DO-INSIGHT-GERAL'];
+    const posicoes = ordem.map((trecho) => t.indexOf(trecho));
+    for (const [i, p] of posicoes.entries()) expect(p, `"${ordem[i]}" não está na tela`).toBeGreaterThanOrEqual(0);
+    expect(posicoes).toEqual([...posicoes].sort((a, b) => a - b));
+    expect(t).not.toMatch(/médio/i);
+    expect(t).not.toContain('14 semanas');
+    expect(t.split('Parabéns! Você melhorou seu nível nesta competência')).toHaveLength(2);
+    // a devolutiva aparece uma vez só: saiu do card do cenário
+    expect(t.split('TEXTO-DA-DEVOLUTIVA')).toHaveLength(2);
+  });
+
+  it('uma competência no singular, nos 4 idiomas', () => {
+    const uma = { ...dadosTela, evolutionReport: { ...dadosTela.evolutionReport, descritores: dadosTela.evolutionReport.descritores.slice(0, 2) } };
+    const esperado: Record<string, string> = { 'pt-BR': 'Sua competência', 'pt-PT': 'A sua competência', 'en-US': 'Your competency', 'es-ES': 'Tu competencia' };
+    for (const [loc, titulo] of Object.entries(esperado)) {
+      expect(htmlDaTela(loc, uma), loc).toContain(`>${titulo}<`);
+    }
   });
 });

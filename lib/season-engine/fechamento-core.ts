@@ -178,7 +178,7 @@ export async function finalizarFechamentoCore(
 
     // "resposta" = as N primeiras falas do colaborador, rotuladas por dimensão.
     // As N PRIMEIRAS de propósito: o reenvio antigo deixou falas duplicadas
-    // depois delas (Marta tem 5), e elas não são resposta a pergunta nenhuma.
+    // depois delas (um caso real tem 5), e elas não são resposta a pergunta nenhuma.
     const respostasUser = historico.filter((m: any) => m.role === 'user');
     const respostaAgregada = perguntas.map((p: any, i: number) =>
       `[${p.dimensao}] ${p.texto}\n→ ${respostasUser[i]?.content || '(sem resposta)'}`,

@@ -445,7 +445,7 @@ export async function POST(request) {
       /**
        * 🔴 RESPOSTAS COMPLETAS NÃO RECEBEM MAIS FALA. Antes, quem reabria a tela
        * sem nota caía no formulário e reenviava as 4 respostas: cada `send`
-       * empurrava uma fala nova (Marta ficou com 5) e rodava o scorer outra vez,
+       * empurrava uma fala nova (um caso real ficou com 5) e rodava o scorer outra vez,
        * até 4 pontuações pagas por clique. Com tudo respondido, só resta abrir a
        * arguição que falta ou pedir a pontuação (`finalizar`).
        */

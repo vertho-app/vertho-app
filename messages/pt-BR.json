@@ -1427,7 +1427,7 @@
     "hero": {
       "eyebrow": "Temporada {number} concluída",
       "title": "{name}, veja o que mudou em você",
-      "subtitle": "14 semanas dedicadas a <strong>{competency}</strong>."
+      "subtitle": "{weeks} semanas dedicadas a <strong>{competency}</strong>."
     },
     "stats": {
       "confirmed": "Confirmadas",
@@ -1444,7 +1444,9 @@
       "insights": "Momentos de insight",
       "missions": "Missões que você executou",
       "finalAssessment": "Avaliação final",
-      "nextSteps": "Próximos passos"
+      "nextSteps": "Próximos passos",
+      "competencies": "{count, plural, one {Sua competência} other {Suas competências}}",
+      "finalMessage": "Mensagem final"
     },
     "mission": {
       "real": "Missão real",
@@ -1453,7 +1455,7 @@
       "synthesis": "Síntese:"
     },
     "final": {
-      "cardTitle": "Cenário B · Resposta e devolutiva",
+      "cardTitle": "Cenário B e sua resposta",
       "viewScenario": "Ver o cenário apresentado",
       "viewAnswer": "Ver sua resposta",
       "feedback": "Devolutiva"

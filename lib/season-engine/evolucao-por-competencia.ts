@@ -5,7 +5,7 @@ import { nivelDaNota, type Nivel } from '@/lib/nivel-regua';
  * Agrupa os descritores do Evolution Report pela competência a que pertencem,
  * na ordem em que aparecem no relatório, com o resultado de cada competência.
  *
- * 🔑 POR QUE (16/09/2026, perguntas do dono olhando o PDF da Elisângela). As
+ * 🔑 POR QUE (16/09/2026, perguntas do dono olhando um PDF real). As
  * trilhas DUO trabalham DUAS competências, e cada descritor do relatório já
  * carrega a sua (`evolution-report-core` grava `d.competencia`). Mas o PDF e a
  * tela da temporada concluída listavam os 9 descritores corridos, citando as
