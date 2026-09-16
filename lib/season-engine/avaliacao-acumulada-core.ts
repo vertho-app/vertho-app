@@ -169,7 +169,10 @@ export async function gerarAvaliacaoAcumuladaParcialCore(trilhaId: string, compe
   for (const comp of competenciasFiltro) {
     const descsComp = descritores.filter((d: any) => d.competencia === comp);
     if (!descsComp.length) continue;
-    const descritoresComRegua = await enriquecerComRegua({ db: tdb, sbGlobal: sbRaw, competencia: comp, descritores: descsComp });
+    const descritoresComRegua = await enriquecerComRegua({
+      db: tdb, sbGlobal: sbRaw, competencia: comp, descritores: descsComp, cargo: colab?.cargo ?? null,
+      degradacao: { fluxo: 'trilha', chave: trilhaId, empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
+    });
     const descritoresFresh = await sobreporNotaFresh(tdb, trilha.colaborador_id, comp, descritoresComRegua);
     const evidenciasAcumuladas = await agregarEvidencias(tdb, trilhaId, descritoresFresh, trilha.temporada_plano, semFim);
 
@@ -228,7 +231,10 @@ async function avaliarCompAcumulada(
   competencia: string, descritores: any[], semanaAcumulada: number, nivelMetaAlvo: 2 | 3,
 ): Promise<{ primaria?: any; auditoria?: any; error?: string }> {
   // Enriquece com régua + nota_atual fresh (por competência → régua correta)
-  const descritoresComRegua = await enriquecerComRegua({ db: tdb, sbGlobal: sbRaw, competencia, descritores });
+  const descritoresComRegua = await enriquecerComRegua({
+    db: tdb, sbGlobal: sbRaw, competencia, descritores, cargo: colab?.cargo ?? null,
+    degradacao: { fluxo: 'trilha', chave: trilha.id, empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
+  });
   const descritoresFresh = await sobreporNotaFresh(tdb, trilha.colaborador_id, competencia, descritoresComRegua);
 
   // Agrega evidências até a semana de acumulada (regular=13)

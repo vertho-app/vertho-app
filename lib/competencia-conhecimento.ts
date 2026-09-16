@@ -14,6 +14,8 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolverModuloBaseParaConteudo } from '@/lib/season-engine/modulo-base-integration';
+import { chaveDescritor, stripCodigoDescritor } from '@/lib/descritores';
+import { escolherLinhaDaRegua } from '@/lib/matriz-por-cargo';
 
 export interface DescritorConhecimento {
   competencia: string | null;
@@ -29,25 +31,34 @@ export interface DescritorConhecimento {
 
 /**
  * Busca a linha de `competencias` do descritor da semana.
- * Casa por empresa + nome_curto (descritor); se a competência for conhecida,
- * refina por ela (evita ambiguidade entre descritores homônimos).
- * Retorna null se não houver match ou se o descritor estiver sem conteúdo.
+ * Casa por empresa + competência + chave normalizada do descritor (o plano pode
+ * guardá-lo com código: `COO03_D1 — Consciência de limites`) e ESCOLHE a linha
+ * pelo código/cargo (`escolherLinhaDaRegua`): o mesmo descritor existe em cargos
+ * diferentes com definição diferente, e o `.limit(1)` de antes devolvia qualquer um.
+ * Retorna null se não houver match, se for ambíguo, ou se estiver sem conteúdo.
  */
 export async function carregarConhecimentoDescritor(
   sb: SupabaseClient,
   empresaId: string,
   descritorNome?: string | null,
   competenciaNome?: string | null,
+  cargo?: string | null,
 ): Promise<DescritorConhecimento | null> {
   if (!empresaId || !descritorNome) return null;
 
-  const cols = 'nome, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia, evidencias_esperadas, perguntas_alvo';
+  const cols = 'nome, cargo, cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia, evidencias_esperadas, perguntas_alvo';
   let q = sb.from('competencias').select(cols)
     .eq('empresa_id', empresaId)
-    .eq('nome_curto', descritorNome);
+    .not('cod_desc', 'is', null);
   if (competenciaNome) q = q.eq('nome', competenciaNome);
+  else q = q.eq('nome_curto', stripCodigoDescritor(descritorNome));
 
-  const { data } = await q.limit(1).maybeSingle<any>();
+  const { data: linhas, error } = await q;
+  // Tutor é ENTREGA: sem a definição ele segue respondendo, então degrada (o caller loga).
+  if (error) throw new Error(`conhecimento do descritor: ${error.message}`);
+  const chave = chaveDescritor(descritorNome);
+  const candidatas = ((linhas || []) as any[]).filter((l) => chaveDescritor(l.nome_curto || '') === chave);
+  const { linha: data } = escolherLinhaDaRegua(candidatas, { cargo, descritor: descritorNome });
   if (!data || !data.descritor_completo) return null;
 
   return {
@@ -134,7 +145,7 @@ export function formatBlocoConhecimentoDescritor(c: DescritorConhecimento | null
  */
 export async function carregarModuloBaseParaTutor(
   sb: SupabaseClient,
-  opts: { competenciaNome?: string | null; nivelMin?: number; locale?: string; contexto_pedagogico?: string | null; empresaId?: string | null },
+  opts: { competenciaNome?: string | null; nivelMin?: number; locale?: string; contexto_pedagogico?: string | null; empresaId?: string | null; cargo?: string | null },
 ): Promise<string> {
   if (!opts.competenciaNome) return '';
   try {
@@ -144,6 +155,8 @@ export async function carregarModuloBaseParaTutor(
       locale: opts.locale,
       contexto_pedagogico: opts.contexto_pedagogico || undefined,
       empresaId: opts.empresaId || undefined,
+      // Sem o cargo, o módulo de uma matriz homônima de OUTRO cargo disputava a vaga.
+      cargo: opts.cargo || undefined,
     });
     if (!res?.modulo) return '';
     return formatBlocoModuloBaseTutor(res.modulo);

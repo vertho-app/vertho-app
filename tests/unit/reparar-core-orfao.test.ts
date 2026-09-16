@@ -65,6 +65,21 @@ describe('repararCoreOrfaoDaSemana · re-seleção roteada pelo motor (F-I2)', (
     expect(slot.conteudo.desafio_texto).toBe('DESAFIO DA IA');
   });
 
+  it('core de OUTRO cargo não conta como válido — o motor não o serviria, então é re-selecionado', async () => {
+    // Antes (16/09/2026) a validade era checada no pool CRU: um core de outro cargo
+    // presente no banco passava por válido e ficava. Medido: 20 cores assim em planos
+    // gravados (tenant de demonstração).
+    const slot = {
+      semana: 1, tipo: 'conteudo', competencia: 'Autocuidado', descritor: 'D1', nivel_atual: 2,
+      conteudo: { core_id: 'c-cargo-alheio', core_titulo: 'Alheio', core_url: null, formato_core: 'video', core_reuso: false, formatos_disponiveis: {}, fallback_gerado: false, desafio_texto: 'X' },
+    };
+
+    const r = await repararCoreOrfaoDaSemana(sbComPool(pool), slot, OPTS);
+
+    expect(r.reparados).toBe(1);
+    expect(slot.conteudo.core_id).toBe('cA');
+  });
+
   it('core VÁLIDO não é trocado — a pessoa já viu aquele conteúdo', async () => {
     const conteudo = { core_id: 'cA', core_titulo: 'Conteúdo A', core_url: null, formato_core: 'texto', core_reuso: false, formatos_disponiveis: { texto: { id: 'cA' } }, fallback_gerado: false, desafio_texto: 'X' };
     const slot = { semana: 1, tipo: 'conteudo', competencia: 'Autocuidado', descritor: 'D1', nivel_atual: 2, conteudo };

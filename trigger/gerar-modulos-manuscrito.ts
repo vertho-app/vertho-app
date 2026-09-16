@@ -9,7 +9,7 @@ import {
   montarReqsManuscrito,
   persistirModuloDeManuscrito,
   modulosExistentes,
-  chaveModulo,
+  moduloJaExiste,
 } from '@/lib/manuscrito-modulos';
 import { extractCorpo, validarCorpo } from '@/lib/modulo-base-autor';
 import { auditarModulosCore } from '@/lib/modulo-base-auditor';
@@ -118,6 +118,9 @@ export const gerarModulosManuscritoTask = task({
       const parse = await parsearManuscrito(Buffer.from(pp.docxBase64, 'base64'));
       const { resolvidos, error: errResolve } = await resolverDescritores(sb, parse, empresaId, {
         codCompAlvo: pp.codCompAlvo || null,
+        // Só vem quando o código existe em cargos com descritores DIFERENTES e o
+        // admin escolheu na tela; cópias idênticas resolvem sozinhas.
+        cargo: pp.cargo || null,
       });
       if (errResolve || !resolvidos) throw new Error(errResolve || 'falha ao resolver descritores');
 
@@ -131,8 +134,9 @@ export const gerarModulosManuscritoTask = task({
       // 2) Idempotência: pula o que já existe, salvo se o admin pediu substituir.
       const jaExistem = substituir
         ? new Set<string>()
-        : await modulosExistentes(sb, { compIds: resolvidos.map((r) => r.comp.id), empresaId, locale });
-      const pendentes = reqs.filter((r) => !jaExistem.has(chaveModulo(r.comp.id, r.nivel_entrada, r.nivel_destino)));
+        : await modulosExistentes(sb, { compIds: resolvidos.flatMap((r) => r.idsEquivalentes ?? [r.comp.id]), empresaId, locale });
+      // Módulo-base é por MATRIZ: o que já existe em qualquer cópia idêntica conta.
+      const pendentes = reqs.filter((r) => !moduloJaExiste(jaExistem, r.idsEquivalentes, r.nivel_entrada, r.nivel_destino));
       const pulados = reqs.length - pendentes.length;
 
       const total = pendentes.length;
@@ -286,6 +290,7 @@ export const gerarModulosManuscritoTask = task({
           codManuscrito: parse.cod_comp,
           microblocos: r.microblocos,
           createdBy,
+          contextoCargo: r.contextoCargo,
         });
         if (ins.error) {
           resultados.push({ modulo: rotulo, ok: false, error: ins.error });

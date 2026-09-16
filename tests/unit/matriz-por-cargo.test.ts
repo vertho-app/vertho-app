@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { criarSupabaseMock, type Chamada, type SupabaseMock } from '../helpers/supabase-mock';
+import type { SupabaseMock } from '../helpers/supabase-mock';
+import { criarMockDeTabelas } from '../helpers/tabela-filtrada';
 
 /**
  * A MESMA MATRIZ EM DOIS CARGOS DA MESMA EMPRESA (16/09/2026).
@@ -78,35 +79,8 @@ function matriz(empresa_id: string, cargo: string, prefixo: string) {
   return linhas;
 }
 
-/** Filtra como o PostgREST filtraria. `order`/`limit`/`or` não mudam QUEM volta nestes fluxos. */
-function aplicar(linhas: any[], cadeia: Chamada[]): any[] {
-  return cadeia.reduce((acc, { metodo, args: [col, a, b] }) => {
-    if (metodo === 'eq') return acc.filter((l) => l[col] === a);
-    if (metodo === 'neq') return acc.filter((l) => l[col] !== a);
-    if (metodo === 'in') return acc.filter((l) => (a as any[]).includes(l[col]));
-    if (metodo === 'is') return acc.filter((l) => (a === null ? l[col] == null : l[col] === a));
-    if (metodo === 'not' && a === 'is' && b === null) return acc.filter((l) => l[col] != null);
-    return acc;
-  }, linhas);
-}
-
-/**
- * Devolve SÓ as colunas do select, como o PostgREST. Sem isto a linha voltava
- * inteira e um select que esquecesse `cargo` passava verde (medido por mutação:
- * 3 sites esquecendo a coluna, 0 testes vermelhos).
- */
-function projetar(linhas: any[], cols: string): any[] {
-  if (!cols || cols.trim() === '*' || cols.includes('(')) return linhas;
-  const campos = cols.split(',').map((c) => c.trim()).filter(Boolean);
-  return linhas.map((l) => Object.fromEntries(campos.filter((c) => c in l).map((c) => [c, l[c]])));
-}
-
-function novoMock() {
-  return criarSupabaseMock({
-    lista: (t, cols, cadeia) => projetar(aplicar(tabelas[t] || [], cadeia), cols),
-    resolver: (t, cols, cadeia) => projetar(aplicar(tabelas[t] || [], cadeia), cols)[0] ?? null,
-  });
-}
+// Filtra e projeta colunas como o PostgREST (tests/helpers/tabela-filtrada).
+const novoMock = () => criarMockDeTabelas(() => tabelas);
 
 beforeEach(() => {
   // Professor primeiro: um `find` sem cargo pega a linha dele quando se pede a auxiliar.

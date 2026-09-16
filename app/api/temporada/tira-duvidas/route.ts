@@ -148,7 +148,7 @@ export async function POST(request) {
     let conhecimentoDescritor = '';
     try {
       const conhecimento = await carregarConhecimentoDescritor(
-        sb, trilha.empresa_id, semanaPlan.descritor, competenciaSemana,
+        sb, trilha.empresa_id, semanaPlan.descritor, competenciaSemana, colab.cargo,
       );
       const blocoDescritor = formatBlocoConhecimentoDescritor(conhecimento);
 
@@ -157,6 +157,7 @@ export async function POST(request) {
         competenciaNome: competenciaSemana,
         nivelMin, // locale default pt-BR; contexto pedagógico resolvido no engine de geração
         empresaId: trilha.empresa_id,
+        cargo: colab.cargo,
       });
 
       conhecimentoDescritor = [blocoDescritor, blocoModulo].filter(Boolean).join('\n\n');

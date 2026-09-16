@@ -13,6 +13,7 @@
  */
 
 import { embedQuery } from '@/lib/embeddings';
+import { idsDasCopiasEquivalentes } from '@/lib/matriz-por-cargo';
 
 type Nivel = 'N1' | 'N2' | 'N3' | 'N4';
 
@@ -69,16 +70,19 @@ export async function resolverModuloBaseParaConteudo(
 
   let competencia_ids: string[] = [];
   if (opts.empresaId) {
-    let cq = sb.from('competencias')
-      .select('id').eq('empresa_id', opts.empresaId).ilike('nome', opts.competenciaNome);
-    // REGRA: competência é ÚNICA POR CARGO — "Autocuidado" de Coordenação ≠ de Gestão
-    // Escolar (descritores/níveis/contexto próprios). Quando um cargo específico é
-    // pedido, casa SÓ com as linhas daquele cargo; nunca sourceia do MB de outro cargo.
-    // (Os módulos canônicos por `competencia_base_id` seguem valendo como base genérica.)
+    const { data: ec, error: errEc } = await sb.from('competencias')
+      .select('id, cargo, cod_comp, cod_desc, nome_curto').eq('empresa_id', opts.empresaId).ilike('nome', opts.competenciaNome);
+    if (errEc) throw new Error(`módulo-base: competências de "${opts.competenciaNome}": ${errEc.message}`);
+    // REGRA: "Autocuidado" de Coordenação ≠ de Gestão Escolar (descritores/níveis
+    // próprios) — nunca sourceia o MB de uma matriz DIFERENTE. Mas o módulo-base é
+    // feito UMA VEZ POR MATRIZ (decisão do dono, 16/09/2026): a cópia idêntica da
+    // matriz em outro cargo serve (assinatura igual, lib/matriz-por-cargo). O que é
+    // por cargo é o conteúdo gerado em cima dele. Os canônicos (`competencia_base_id`)
+    // seguem valendo como base genérica.
     const cargoEsp = String(opts.cargo || '').trim();
-    if (cargoEsp && cargoEsp.toLowerCase() !== 'todos') cq = cq.eq('cargo', cargoEsp);
-    const { data: ec } = await cq;
-    competencia_ids = (ec || []).map((c: any) => c.id);
+    competencia_ids = cargoEsp && cargoEsp.toLowerCase() !== 'todos'
+      ? idsDasCopiasEquivalentes((ec || []) as any[], cargoEsp)
+      : (ec || []).map((c: any) => c.id);
   }
   if (!competencia_base_ids.length && !competencia_ids.length) return null;
 

@@ -12,6 +12,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { montarUserPrompt, SYSTEM_AUTOR, type Nivel } from '@/lib/modulo-base-autor';
 import { TRANSICOES, type DescritorGroup, type ManuscritoParseResult } from '@/lib/manuscrito-parser';
+import { escolherCopiaDaMatriz, chaveDoCodigoDescritor, rotuloDosCargos, caberNoLimite } from '@/lib/matriz-por-cargo';
 
 /** As fatias por transição chegam a ~68k chars; 80k dá folga sem truncar. */
 export const LIMITE_FONTE_MANUSCRITO = 80000;
@@ -43,6 +44,14 @@ export interface DescritorResolvido {
   comp: CompetenciaRow;
   /** true = casou também pelo `nome_curto`, não só pela ordem. */
   matchExato: boolean;
+  /**
+   * Ids deste descritor em TODAS as cópias idênticas da matriz (inclui `comp.id`).
+   * O módulo-base é por matriz: a idempotência tem de reconhecer o módulo ancorado
+   * em qualquer cópia, senão copiar a matriz para outro cargo e reimportar duplica.
+   */
+  idsEquivalentes?: string[];
+  /** Cargos que compartilham esta matriz (vazio/ausente = só o cargo da linha). */
+  cargosDaMatriz?: string[];
 }
 
 /**
@@ -60,8 +69,8 @@ export async function resolverDescritores(
   sb: SupabaseClient,
   parse: ManuscritoParseResult,
   empresaId?: string | null,
-  opts?: { codCompAlvo?: string | null },
-): Promise<{ resolvidos?: DescritorResolvido[]; avisos: string[]; error?: string }> {
+  opts?: { codCompAlvo?: string | null; cargo?: string | null },
+): Promise<{ resolvidos?: DescritorResolvido[]; avisos: string[]; error?: string; cargosDisponiveis?: string[] }> {
   const tabela = empresaId ? 'competencias' : 'competencias_base';
   // O código do manuscrito e o código do catálogo do tenant podem divergir: o
   // manuscrito de Gerenciamento de Conflitos vem como DIR08 (numeração do
@@ -81,7 +90,19 @@ export async function resolverDescritores(
   const { data, error } = await q.order('cod_desc');
   if (error) return { avisos: [], error: error.message };
 
-  const linhas = (data || []) as CompetenciaRow[];
+  let linhas = (data || []) as CompetenciaRow[];
+  // A matriz é gravada POR CARGO: a mesma matriz em 2 cargos devolve 12 linhas
+  // para 6 descritores. O módulo-base é por matriz — ancora numa cópia e registra
+  // as equivalentes; cópias DIFERENTES com o mesmo código pedem a escolha do cargo.
+  let cargosDaMatriz: string[] = [];
+  let idsPorDescritor = new Map<string, string[]>();
+  if (empresaId && linhas.length) {
+    const copia = escolherCopiaDaMatriz(linhas, opts?.cargo);
+    if ('erro' in copia) return { avisos: [], error: `${codAlvo}: ${copia.erro}`, cargosDisponiveis: copia.cargosDisponiveis };
+    linhas = copia.linhas;
+    cargosDaMatriz = copia.cargos;
+    idsPorDescritor = copia.idsPorDescritor;
+  }
   if (!linhas.length) {
     return { avisos: [], error: `Competência ${codAlvo} não encontrada em ${tabela}${empresaId ? ' para esta empresa' : ''}.` };
   }
@@ -103,8 +124,15 @@ export async function resolverDescritores(
     if (!matchExato) {
       avisos.push(`Descritor ${i + 1}: manuscrito diz "${g.descritor}", banco diz "${comp.nome_curto}" (${comp.cod_desc}). Casado pela ordem.`);
     }
-    return { indice: g.indice, descritorManuscrito: g.descritor, comp, matchExato };
+    return {
+      indice: g.indice, descritorManuscrito: g.descritor, comp, matchExato,
+      idsEquivalentes: idsPorDescritor.get(chaveDoCodigoDescritor(comp.cod_desc)) ?? [comp.id],
+      cargosDaMatriz,
+    };
   });
+  if (cargosDaMatriz.length > 1) {
+    avisos.push(`Matriz compartilhada por ${cargosDaMatriz.length} cargos (${cargosDaMatriz.join(', ')}): os módulos servem a todos.`);
+  }
   return { resolvidos, avisos };
 }
 
@@ -115,6 +143,10 @@ export interface ReqModulo {
   nivel_destino: Nivel;
   descritor: string;
   comp: CompetenciaRow;
+  /** Ids do descritor em todas as cópias idênticas da matriz (idempotência). */
+  idsEquivalentes: string[];
+  /** Cargo(s) que o módulo serve — vai para a autoria e para `contexto_pedagogico`. */
+  contextoCargo: string;
   microblocos: string[];
   system: string;
   user: string;
@@ -138,6 +170,8 @@ export function montarReqsManuscrito(opts: {
   parse.descritores.forEach((grupo: DescritorGroup, di) => {
     if (filtro.size && !filtro.has(grupo.indice)) return;
     const { comp } = resolvidos[di];
+    // Com um cargo só, é exatamente `comp.cargo` (texto do prompt idêntico ao de antes).
+    const contextoCargo = rotuloDosCargos(resolvidos[di].cargosDaMatriz, comp.cargo);
     grupo.transicoes.forEach((t, ti) => {
       reqs.push({
         customId: `d${di}t${ti}`,
@@ -146,13 +180,15 @@ export function montarReqsManuscrito(opts: {
         nivel_destino: t.nivel_destino,
         descritor: grupo.descritor,
         comp,
+        idsEquivalentes: resolvidos[di].idsEquivalentes ?? [comp.id],
+        contextoCargo,
         microblocos: t.microblocos,
         system: SYSTEM_AUTOR,
         user: montarUserPrompt(comp, t.nivel_entrada, t.nivel_destino, {
           docxTexto: t.textoFonte,
           termoCanonico,
           limiteFonte: LIMITE_FONTE_MANUSCRITO,
-          contextoCargo: comp.cargo || undefined,
+          contextoCargo: contextoCargo || undefined,
         }),
       });
     });
@@ -180,6 +216,8 @@ export async function persistirModuloDeManuscrito(
     codManuscrito: string;
     microblocos: string[];
     createdBy: string;
+    /** Cargo(s) que o módulo serve. Ausente = o cargo da linha (comportamento de antes). */
+    contextoCargo?: string | null;
   },
 ): Promise<{ id?: string; error?: string }> {
   const isEmpresa = !!args.empresaId;
@@ -203,8 +241,10 @@ export async function persistirModuloDeManuscrito(
     descritor: ancora.slice(0, 200),
     finalidade: `Matéria-prima pedagógica do manuscrito ${args.codManuscrito} para a transição ${args.nivel_entrada}→${args.nivel_destino} em "${args.comp.nome}".`.slice(0, 400),
     // Nomeia o cargo → a auditora aplica o gancho de contexto de cargo (exemplos
-    // ancorados no cargo deixam de ser "falta de universalidade").
-    contexto_pedagogico: (args.comp.cargo || '').slice(0, 80) || null,
+    // ancorados no cargo deixam de ser "falta de universalidade"). Matriz
+    // compartilhada: todos os cargos, para o bônus de cargo do resolver valer a cada um.
+    // CHECK da mig 122: no máximo 80 caracteres — só cargos INTEIROS que caibam.
+    contexto_pedagogico: caberNoLimite(args.contextoCargo ?? args.comp.cargo ?? '', 80) || null,
     tags: ['importado-manuscrito', args.codManuscrito.slice(0, 40), ...args.microblocos.slice(0, 8)],
     conteudo_central: args.corpo.conteudo_central,
     conteudo_aplicavel: args.corpo.conteudo_aplicavel,
@@ -238,3 +278,7 @@ export async function modulosExistentes(
 }
 
 export const chaveModulo = (compId: string, ne: string, nd: string) => `${compId}|${ne}|${nd}`;
+
+/** O módulo desta transição já existe em QUALQUER cópia idêntica da matriz? */
+export const moduloJaExiste = (existentes: Set<string>, ids: string[], ne: string, nd: string) =>
+  ids.some((id) => existentes.has(chaveModulo(id, ne, nd)));

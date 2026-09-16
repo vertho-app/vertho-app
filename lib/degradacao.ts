@@ -241,6 +241,18 @@ export const DEGRADACAO = {
    * igual à de quem simplesmente não terminou. Helmar passou 8 dias assim.
    */
   FECHAMENTO_SCORER_FALHOU: 'fechamento-scorer-falhou',
+  /**
+   * régua (lib/season-engine/regua.ts): descritor da trilha sem régua N1-N4 — sem
+   * linha que case, ou linhas homônimas de cargos com réguas diferentes. A
+   * avaliação segue com a "escala genérica 1-4" do prompt. `aviso`: sai nota,
+   * só que contra um critério genérico.
+   *
+   * Existe porque era invisível (16/09/2026): em Ibipeba, 9 trilhas de
+   * Coordenação guardam o descritor com código (`COO03_D1 — …`), que não casava
+   * com nada, e 3 acumuladas + 1 fechamento já tinham pontuado assim, sem linha
+   * nenhuma no log.
+   */
+  REGUA_AUSENTE: 'regua-ausente',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

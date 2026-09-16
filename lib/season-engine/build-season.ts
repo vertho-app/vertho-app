@@ -265,7 +265,9 @@ export async function repararCoreOrfaoDaSemana(
     if (empresaId) q = q.or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
     else q = q.is('empresa_id', null);
     const { data: poolRows } = await q;
-    const pool = (poolRows || []) as MicroConteudo[];
+    // O que o motor SERVIRIA a este cargo hoje: fora de kit e do cargo ou genérico.
+    // Com o pool cru, um core de OUTRO cargo passava por válido e ficava.
+    const pool = conteudosServiveisPorCargo(conteudosDoBuild((poolRows || []) as MicroConteudo[]), cargo);
 
     const coreId = cont.core_id as string | null | undefined;
     if (coreId && pool.some((c) => c.id === coreId)) continue;
@@ -338,6 +340,13 @@ export function conteudosServiveisPorCargo<T extends { cargo?: string | null }>(
     const cc = normCargoStr(c.cargo);
     return cc === alvo || cc === '' || cc === 'todos';
   });
+}
+
+/** Quantos candidatos a montagem poderia servir ao cargo — a régua de ampliar a faixa de nível. */
+export function servemAoCargo<T extends { kit_id?: string | null; disc?: string | null; cargo?: string | null }>(
+  itens: T[], cargoAlvo?: string | null,
+): number {
+  return conteudosServiveisPorCargo(conteudosDoBuild(itens || []), cargoAlvo).length;
 }
 
 function computarScoreConteudo(c: MicroConteudo): number {
@@ -611,7 +620,10 @@ async function montarSemanaConteudo(
     return q;
   };
   let { data: candidatos } = await buildQ(true);
-  if (!candidatos || candidatos.length <= 1) {
+  // Conta o que SERVE a este cargo, não o que a query trouxe: com a mesma
+  // competência em 2 cargos, a faixa podia vir cheia só do OUTRO cargo — a busca
+  // sem nível não rodava e a montagem abortava com o conteúdo do cargo fora da faixa.
+  if (servemAoCargo((candidatos || []) as MicroConteudo[], cargo) <= 1) {
     const { data: todos } = await buildQ(false);
     candidatos = todos || candidatos || [];
   }

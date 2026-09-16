@@ -28,6 +28,10 @@ export default function ImportarManuscritoPage() {
   const [filename, setFilename] = useState<string>('');
 
   const [analisando, setAnalisando] = useState(false);
+  // Só aparece quando o código existe em cargos com descritores DIFERENTES — o
+  // servidor recusa adivinhar e devolve a lista; cópias idênticas nem perguntam.
+  const [cargosDisponiveis, setCargosDisponiveis] = useState<string[]>([]);
+  const [cargo, setCargo] = useState('');
   const [preview, setPreview] = useState<PreviewManuscrito | null>(null);
   const [termo, setTermo] = useState('');
   const [substituir, setSubstituir] = useState(false);
@@ -54,6 +58,7 @@ export default function ImportarManuscritoPage() {
       return;
     }
     reset();
+    setCargosDisponiveis([]); setCargo('');
     setFilename(file.name);
     setB64(Buffer.from(await file.arrayBuffer()).toString('base64'));
   }
@@ -62,7 +67,8 @@ export default function ImportarManuscritoPage() {
     if (!b64) { toast.error('Escolha o arquivo .docx'); return; }
     setAnalisando(true);
     try {
-      const r = await analisarManuscrito({ arquivoBase64: b64, filename, empresaId: empresaId || null });
+      const r = await analisarManuscrito({ arquivoBase64: b64, filename, empresaId: empresaId || null, cargo: cargo || null });
+      if (r.cargosDisponiveis?.length) setCargosDisponiveis(r.cargosDisponiveis);
       if (r.error || !r.preview) { toast.error(r.error || 'Falha ao analisar'); return; }
       setPreview(r.preview);
       setTermo(r.preview.termoSugerido);
@@ -102,6 +108,7 @@ export default function ImportarManuscritoPage() {
       apenasDescritores: apenas,
       substituirExistentes: substituir,
       auditar,
+      cargo: cargo || null,
     });
     if (!r.success) { toast.error(r.error); return; }
     setJobId(r.jobId!); setStatusJob('running');
@@ -146,11 +153,24 @@ export default function ImportarManuscritoPage() {
         <p className="text-[10px] uppercase tracking-widest text-emerald-300 mb-2 flex items-center gap-1.5"><Upload size={13} /> 1. Manuscrito</p>
 
         <label className="block text-[11px] text-gray-400 mb-1">Competência da empresa (vazio = catálogo canônico)</label>
-        <select value={empresaId} onChange={(e) => { setEmpresaId(e.target.value); reset(); }}
+        <select value={empresaId} onChange={(e) => { setEmpresaId(e.target.value); reset(); setCargosDisponiveis([]); setCargo(''); }}
           className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none mb-3">
           <option value="">— catálogo canônico (competencias_base) —</option>
           {empresas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
         </select>
+
+        {cargosDisponiveis.length > 0 && (
+          <>
+            <label className="block text-[11px] text-amber-200 mb-1">
+              Este código existe em mais de um cargo com descritores diferentes. Escolha a matriz de qual cargo o manuscrito cobre:
+            </label>
+            <select value={cargo} onChange={(e) => { setCargo(e.target.value); reset(); }}
+              className="w-full bg-white/5 border border-amber-400/30 rounded-lg px-3 py-2 text-sm text-white outline-none mb-3">
+              <option value="">— escolha o cargo —</option>
+              {cargosDisponiveis.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </>
+        )}
 
         <div className="flex items-center gap-2 flex-wrap">
           <input type="file" accept=".docx" disabled={analisando}
@@ -179,6 +199,11 @@ export default function ImportarManuscritoPage() {
               {preview.stats.totalMicroblocos} microblocos · {preview.stats.totalDescritores} descritores ·{' '}
               {(preview.stats.charsUteis / 1000).toFixed(0)}k chars úteis
             </p>
+            {preview.cargosDaMatriz.length > 1 && (
+              <p className="text-[11px] text-emerald-200 mt-1">
+                Matriz compartilhada: os módulos servem a {preview.cargosDaMatriz.join(', ')}.
+              </p>
+            )}
           </div>
 
           {preview.avisos.length > 0 && (

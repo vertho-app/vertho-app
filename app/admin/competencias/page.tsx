@@ -289,11 +289,13 @@ export default function CompetenciasPage() {
 
       {/* Table — agrupada por competência */}
       {!loadingComps && comps.length > 0 && (() => {
-        // Agrupar por cod_comp (ou nome se não tiver cod)
+        // Agrupar por CARGO + cod_comp (ou nome se não tiver cod). A matriz é gravada
+        // por cargo: a mesma matriz em 2 cargos viraria UM cartão com 12 descritores,
+        // e o excluir do cartão apaga todos os descritores do grupo — as duas cópias.
         const filtered = comps.filter((c: any) => !filtroCargo || c.cargo === filtroCargo);
         const grupos: Record<string, any> = {};
         filtered.forEach((c: any) => {
-          const key = c.cod_comp || c.nome;
+          const key = `${c.cargo || ''}::${c.cod_comp || c.nome}`;
           if (!grupos[key]) grupos[key] = { comp: c, descritores: [] };
           if (c.cod_desc || c.nome_curto || c.descritor_completo) {
             grupos[key].descritores.push(c);
@@ -311,13 +313,14 @@ export default function CompetenciasPage() {
           <p className="text-[10px] text-gray-500 mb-2">{t('summary', { competencies: compCount, descriptors: descCount })}</p>
           <div className="space-y-2">
             {uniqueComps.map(({ comp: c, descritores }: any) => (
-              <div key={c.cod_comp || c.id} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
+              <div key={`${c.cargo || ''}::${c.cod_comp || c.id}`} className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
                 {/* Competência header */}
                 <div className="flex items-center gap-4 px-4 py-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-white">{c.nome}</span>
                       <span className="text-[9px] font-mono text-cyan-400/70 bg-cyan-400/10 px-1.5 py-0.5 rounded">{c.cod_comp}</span>
+                      {!filtroCargo && c.cargo && <span className="text-[9px] text-gray-300 bg-white/5 px-1.5 py-0.5 rounded">{c.cargo}</span>}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       {c.pilar && <span className="text-[10px] text-gray-300">{c.pilar}</span>}

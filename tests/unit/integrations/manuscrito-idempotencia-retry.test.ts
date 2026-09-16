@@ -143,10 +143,12 @@ vi.mock('@/lib/manuscrito-parser', () => ({
 vi.mock('@/lib/manuscrito-modulos', () => ({
   resolverDescritores: async () => ({ resolvidos: [{ comp: { id: 'comp-1' } }] }),
   montarReqsManuscrito: () => [
-    { customId: 'req-0', system: 'S', user: 'U', comp: { id: 'comp-1' }, nivel_entrada: 'N1', nivel_destino: 'N2' },
+    { customId: 'req-0', system: 'S', user: 'U', comp: { id: 'comp-1' }, idsEquivalentes: ['comp-1'], contextoCargo: 'X', nivel_entrada: 'N1', nivel_destino: 'N2' },
   ],
   modulosExistentes: async () => new Set<string>(),
   chaveModulo: (c: string, a: string, b: string) => `${c}:${a}:${b}`,
+  // Mesmo contrato do real: existe em QUALQUER cópia idêntica da matriz.
+  moduloJaExiste: (s: Set<string>, ids: string[], a: string, b: string) => ids.some((id) => s.has(`${id}:${a}:${b}`)),
   persistirModuloDeManuscrito: async () => ({ id: mocks.idsPersistidos[mocks.chamadasPersistir++] ?? 'mod-x' }),
 }));
 

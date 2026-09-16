@@ -8,8 +8,10 @@
 import { normDescritor } from '@/lib/blueprint/to-descriptors';
 
 /**
- * O brief serve a este colaborador? Brief SEM cargo é curinga (kits 'todos' do
- * legado); colaborador sem cargo aceita qualquer um (não há como discriminar).
+ * O brief serve a este colaborador? Brief GENÉRICO é curinga — sem cargo ou com
+ * `'todos'`, que é como ele é gravado (`kit_briefs.cargo` é NOT NULL DEFAULT
+ * 'todos', e é o padrão da tela); colaborador sem cargo aceita qualquer um (não há
+ * como discriminar). Kit do próprio cargo continua preferido na ordenação.
  *
  * Existe porque a preferência por cargo era só ORDENAÇÃO: quando o brief do cargo
  * certo não tinha o DISC da pessoa, o loop seguia e servia o kit de OUTRO cargo —
@@ -17,11 +19,15 @@ import { normDescritor } from '@/lib/blueprint/to-descriptors';
  * sem nada avisar. Medido em ibipeba (29/07): 18 leituras nessa situação. Decisão do
  * Rodrigo: barrar e registrar. Conteúdo do cargo errado é pior que o genérico, que
  * ao menos não afirma um contexto que não é o da pessoa.
+ *
+ * ⚠️ Até 16/09/2026 só o VAZIO era curinga: o `'todos'` gravado caía no `b === c` e
+ * era barrado para todo colaborador com cargo, ao contrário do que a decisão (e o
+ * KIT-SEMANAL.md) dizem. Não afetou ninguém porque nenhum kit genérico existia.
  */
 export function cargoServe(cargoBrief: string | null | undefined, cargoColab: string | null | undefined): boolean {
   const b = String(cargoBrief || '').trim().toLowerCase();
   const c = String(cargoColab || '').trim().toLowerCase();
-  if (!b || !c) return true;
+  if (!b || b === 'todos' || !c) return true;
   return b === c;
 }
 

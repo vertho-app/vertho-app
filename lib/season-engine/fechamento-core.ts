@@ -190,6 +190,8 @@ export async function finalizarFechamentoCore(
     const enriquecidos = await enriquecerComRegua({
       db: tdb, sbGlobal: tdb.raw, empresaId: null,
       competencia: trilha.competencia_foco, descritores,
+      cargo: colab?.cargo ?? null,
+      degradacao: { fluxo: 'trilha', chave: trilhaId, empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
     });
     const descritoresComRegua = await sobreporNotaFresh(tdb, trilha.colaborador_id, trilha.competencia_foco, enriquecidos);
 

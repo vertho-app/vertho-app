@@ -21,7 +21,7 @@ import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supaba
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { regionOpts } from '@/lib/trigger-region';
 import { parsearManuscrito, TRANSICOES, type ManuscritoParseResult } from '@/lib/manuscrito-parser';
-import { resolverDescritores } from '@/lib/manuscrito-modulos';
+import { resolverDescritores, modulosExistentes, moduloJaExiste } from '@/lib/manuscrito-modulos';
 import type { gerarModulosManuscritoTask } from '@/trigger/gerar-modulos-manuscrito';
 
 /** Uma célula da matriz descritor × transição do preview. */
@@ -55,6 +55,8 @@ export interface PreviewManuscrito {
   /** Quantos módulos seriam realmente gerados (descontados os que já existem). */
   aGerar: number;
   jaExistem: number;
+  /** Cargos que compartilham a matriz — o módulo-base é por matriz e serve a todos. */
+  cargosDaMatriz: string[];
 }
 
 /**
@@ -68,7 +70,9 @@ export async function analisarManuscrito(opts: {
   filename?: string;
   empresaId?: string | null;
   locale?: string;
-}): Promise<{ preview?: PreviewManuscrito; error?: string }> {
+  /** Só quando o código existe em cargos com descritores diferentes (a tela oferece). */
+  cargo?: string | null;
+}): Promise<{ preview?: PreviewManuscrito; error?: string; cargosDisponiveis?: string[] }> {
   try {
     // A5: `empresaId` vem do cliente. Nulo = catálogo canônico (global), que a
     // partir de 24/08 é só platform admin.
@@ -89,25 +93,21 @@ export async function analisarManuscrito(opts: {
       return { error: e?.message || 'Não foi possível parsear o manuscrito.' };
     }
 
-    const { resolvidos, avisos: avisosMatch, error } = await resolverDescritores(sb, parse, empresaId);
-    if (error || !resolvidos) return { error: error || 'falha ao resolver descritores' };
+    const { resolvidos, avisos: avisosMatch, error, cargosDisponiveis } = await resolverDescritores(sb, parse, empresaId, { cargo: opts.cargo || null });
+    if (error || !resolvidos) return { error: error || 'falha ao resolver descritores', cargosDisponiveis };
 
-    // Módulos já existentes, para a matriz mostrar o que seria pulado.
-    const col = empresaId ? 'competencia_id' : 'competencia_base_id';
-    const { data: existentes } = await sb
-      .from('modulos_base_conteudo')
-      .select(`${col}, nivel_entrada, nivel_destino`)
-      .in(col, resolvidos.map((r) => r.comp.id))
-      .eq('locale', locale)
-      .neq('status', 'obsoleto');
-    const chaves = new Set((existentes || []).map((m: any) => `${m[col]}|${m.nivel_entrada}|${m.nivel_destino}`));
+    // Módulos já existentes, para a matriz mostrar o que seria pulado. Mesma régua
+    // da task: o módulo-base é por matriz, então conta o de qualquer cópia idêntica.
+    const chaves = await modulosExistentes(sb, {
+      compIds: resolvidos.flatMap((r) => r.idsEquivalentes ?? [r.comp.id]), empresaId, locale,
+    });
 
     let aGerar = 0;
     let jaExistem = 0;
     const descritores = parse.descritores.map((g, i) => {
       const r = resolvidos[i];
       const celulas = g.transicoes.map((t) => {
-        const jaExiste = chaves.has(`${r.comp.id}|${t.nivel_entrada}|${t.nivel_destino}`);
+        const jaExiste = moduloJaExiste(chaves, r.idsEquivalentes ?? [r.comp.id], t.nivel_entrada, t.nivel_destino);
         jaExiste ? jaExistem++ : aGerar++;
         return {
           nivel_entrada: t.nivel_entrada,
@@ -144,6 +144,7 @@ export async function analisarManuscrito(opts: {
         recursos: parse.recursos,
         aGerar,
         jaExistem,
+        cargosDaMatriz: resolvidos[0]?.cargosDaMatriz ?? [],
       },
     };
   } catch (err: any) {
@@ -167,6 +168,8 @@ export async function enqueueManuscritoBatch(opts: {
   substituirExistentes?: boolean;
   /** Auditoria Dual-IA (GPT-5.4) sobre os módulos gerados. Default: true. */
   auditar?: boolean;
+  /** Cargo escolhido na tela quando o código existe em cargos com descritores diferentes. */
+  cargo?: string | null;
 }) {
   try {
     const ctx = await requireAdminAction('content.manage');
@@ -183,7 +186,7 @@ export async function enqueueManuscritoBatch(opts: {
     }
 
     const empresaId = opts.empresaId || null;
-    const { resolvidos, error } = await resolverDescritores(sb, parse, empresaId);
+    const { resolvidos, error } = await resolverDescritores(sb, parse, empresaId, { cargo: opts.cargo || null });
     if (error || !resolvidos) return { success: false as const, error: error || 'falha ao resolver descritores' };
 
     const nDesc = opts.apenasDescritores?.length || parse.descritores.length;
@@ -194,6 +197,8 @@ export async function enqueueManuscritoBatch(opts: {
       titulo: parse.titulo,
       cargoManuscrito: parse.cargo,
       empresaId,
+      // A task re-resolve os descritores: sem o cargo escolhido, cairia no mesmo erro.
+      cargo: opts.cargo || null,
       locale: opts.locale || 'pt-BR',
       termoCanonico: opts.termoCanonico || null,
       apenasDescritores: opts.apenasDescritores || null,

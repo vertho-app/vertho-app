@@ -126,6 +126,8 @@ export async function regerarScoringComFeedback(progressoId) {
   const enriquecidos = await enriquecerComRegua({
     db: sb, sbGlobal: sb, empresaId: trilha.empresa_id,
     competencia: trilha.competencia_foco, descritores,
+    cargo: colab?.cargo ?? null,
+    degradacao: { fluxo: 'trilha', chave: trilha.id, empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
   });
   const descritoresComRegua = await sobreporNotaFresh(sb, trilha.colaborador_id, trilha.competencia_foco, enriquecidos);
 
