@@ -292,6 +292,23 @@ describe('rotuloDoNumero — o que a tela mostra', () => {
   it('id desconhecido não inventa rótulo', () => {
     expect(rotuloDoNumero('999', [])).toMatch(/^número 999/);
   });
+
+  it('o inicial de produção mostra número e nome, não "número inicial"', () => {
+    process.env.PHONE_NUMBER_ID = '1256487020887128';
+    expect(rotuloDoNumero('1256487020887128')).toBe('+55 11 5236-0168 (Pilotos)');
+  });
+
+  it('histórico sem número (NULL) mostra o rótulo do inicial', () => {
+    process.env.PHONE_NUMBER_ID = '1256487020887128';
+    expect(rotuloDoNumero(null)).toBe('+55 11 5236-0168 (Pilotos)');
+  });
+
+  it('🔴 PHONE_NUMBER_ID trocado NÃO herda o rótulo do número antigo', () => {
+    // O rótulo é do id: aplicá-lo a outro número faria a tela mostrar um
+    // telefone por onde nada está saindo.
+    process.env.PHONE_NUMBER_ID = '999000';
+    expect(rotuloDoNumero('999000')).toBe('número inicial');
+  });
 });
 
 describe('thread e caixa carregam o número (sem partir a conversa)', () => {

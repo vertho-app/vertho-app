@@ -53,9 +53,25 @@ export interface NumeroRemetente {
   empresas?: string[];
 }
 
+/**
+ * Rótulo do número INICIAL, amarrado ao id. Os extras trazem o rótulo na própria
+ * variável; o inicial vem só de `PHONE_NUMBER_ID`, sem lugar para nome, e a
+ * tela mostrava "número inicial" (16/09/2026). Pelo id, e não fixo: se a
+ * variável passar a apontar para outro número, o rótulo antigo não é aplicado a
+ * ele e a tela volta ao genérico em vez de mostrar um número que não é o dele.
+ */
+const ROTULO_DO_INICIAL: Record<string, { rotulo: string; nome: string }> = {
+  '1256487020887128': { rotulo: '+55 11 5236-0168', nome: 'Pilotos' },
+};
+
 /** O número que já estava no ar — fallback de tudo. */
 export function numeroInicial(): NumeroRemetente {
-  return { id: process.env.PHONE_NUMBER_ID || '', rotulo: '', nome: null, inicial: true, empresas: [] };
+  const id = process.env.PHONE_NUMBER_ID || '';
+  // `hasOwnProperty` por higiene de lookup em objeto literal (`in` casaria
+  // "constructor" pelo protótipo; aqui sairia rótulo vazio, mas não é para contar
+  // com isso). E não `Object.hasOwn`: este arquivo também roda no navegador (inbox).
+  const conhecido = Object.prototype.hasOwnProperty.call(ROTULO_DO_INICIAL, id) ? ROTULO_DO_INICIAL[id] : null;
+  return { id, rotulo: conhecido?.rotulo ?? '', nome: conhecido?.nome ?? null, inicial: true, empresas: [] };
 }
 
 /** Só strings não vazias: um item torto não pode desligar o vínculo inteiro. */
@@ -132,10 +148,10 @@ export function resolverNumeroParaEnvio(pedido?: string | null, empresaId?: stri
 
 /** Rótulo para a tela: "+55 11 … (Atendimento)" ou o id cru quando desconhecido. */
 export function rotuloDoNumero(id: string | null | undefined, catalogo?: NumeroRemetente[]): string {
-  if (!id) return 'número inicial';
   const cat = catalogo ?? listarNumeros();
-  const n = cat.find((x) => x.id === id);
-  if (!n) return `número ${id.slice(0, 6)}…`;
+  // NULL é histórico sem número, que saiu pelo inicial: mostra o rótulo DELE.
+  const n = id ? cat.find((x) => x.id === id) : cat.find((x) => x.inicial);
+  if (!n) return id ? `número ${id.slice(0, 6)}…` : 'número inicial';
   const base = n.rotulo || 'número inicial';
   return n.nome ? `${base} (${n.nome})` : base;
 }
