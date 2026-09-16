@@ -6,6 +6,7 @@ import { escaparLike } from '@/lib/sql-like';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { avancoMedioExibido } from '@/lib/season-engine/convergencia';
+import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 
 /**
  * Lista os liderados do gestor com temporada (em andamento ou concluída)
@@ -78,6 +79,10 @@ export async function listarEquipeEvolucao() {
     // (piso zero em cada um). `delta` acima segue só para o PDF de plenária antigo
     // não quebrar; ele leva quedas que o detalhe da pessoa não mostra (16/09/2026).
     const avancoMedio = avancoMedioExibido(descritores);
+    // Nível por competência (da média, nunca cai) para a linha dizer se subiu.
+    const competencias = agruparPorCompetencia(descritores).map((g) => ({
+      competencia: g.competencia, nivelInicial: g.nivelInicial, nivelFinal: g.nivelFinal, subiuDeNivel: g.subiuDeNivel,
+    }));
 
     // Classificação agregada
     let status = 'sem_trilha';
@@ -103,7 +108,7 @@ export async function listarEquipeEvolucao() {
       temporada: t?.numero_temporada || null,
       statusTrilha: t?.status || null,
       status,
-      mediaPre, mediaPos, delta, avancoMedio,
+      mediaPre, mediaPos, delta, avancoMedio, competencias,
       resumoDescritores: resumo,
     };
   });

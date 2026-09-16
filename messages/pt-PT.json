@@ -2660,6 +2660,9 @@
   },
   "AdminEvolution": {
     "consolidatedPdf": "Consolidado em PDF",
+    "levelUp": "Subiu de nível",
+    "finalLevel": "Nível final",
+    "competencyProgress": "Avanço médio",
     "title": "Evolução — Temporadas Concluídas",
     "subtitle": "{count, plural, one {# colaborador com Evolution Report} other {# colaboradores com Evolution Report}}",
     "loading": "A carregar...",

@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, Users, TrendingUp, Minus, ChevronRight, Clock, X, FileDown, Download } from 'lucide-react';
+import { Loader2, Users, TrendingUp, Minus, ChevronRight, Clock, X, FileDown, Download, PartyPopper } from 'lucide-react';
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import { listarEquipeEvolucao, loadLideradoConcluida } from './actions';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { CONVERGENCIA, rotuloConvergencia, formatarAvanco, formatarValorAvanco } from '@/lib/season-engine/convergencia';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
+import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 
 // 🔑 CLASSE DE COR É LITERAL, NUNCA MONTADA.
 //
@@ -197,6 +198,12 @@ export default function EquipeEvolucaoPage() {
                         </>
                       )}
                     </p>
+                    {/* Subiu de nível em alguma competência: parabéns na linha (16/09/2026). */}
+                    {(r.competencias || []).filter((c) => c.subiuDeNivel).map((c, i) => (
+                      <p key={i} className="text-[10px] font-bold text-amber-300 mt-0.5 inline-flex items-center gap-1 mr-3">
+                        <PartyPopper size={11} aria-hidden="true" /> {c.competencia}: N{c.nivelInicial} → N{c.nivelFinal}
+                      </p>
+                    ))}
                     <p className={`text-[10px] uppercase tracking-widest ${cfg.tinta} mt-0.5`}>{cfg.label}</p>
                   </div>
                   {canOpen && <ChevronRight size={14} className="text-gray-500" />}
@@ -298,22 +305,43 @@ function DetalheModal({ data, loading, onClose, sb }) {
             <section>
               <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-2">Descritor a descritor</p>
               <div className="space-y-1.5">
-                {descritores.map((d, i) => {
-                  const cfg = STATUS_CFG[d.convergencia] || STATUS_CFG.estagnacao;
-                  return (
-                    <div key={i} className={`p-2 rounded border ${cfg.borda} ${cfg.fundo}`}>
-                      <div className="flex justify-between text-xs">
-                        <p className="font-bold text-white truncate">{descritorParaHumano(d.descritor)}</p>
-                        <span className={`${cfg.tinta} font-bold shrink-0`}>
-                          {/* Avanço com piso em zero, sem o par de notas: a régua
-                              não afirma queda, então a tela também não. */}
-                          {formatarAvanco(d.nota_pre, d.nota_pos)} · {cfg.label}
-                        </span>
+                {agruparPorCompetencia(descritores).map((grupo, g) => (
+                  <div key={g} className="space-y-1.5">
+                    {grupo.competencia && (
+                      <div className="flex flex-wrap items-start justify-between gap-2 pt-1">
+                        <div>
+                          <p className="text-xs font-bold text-brand-300">{grupo.competencia}</p>
+                          {grupo.nivelFinal != null && (grupo.subiuDeNivel ? (
+                            <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold text-amber-300">
+                              N{grupo.nivelInicial} → N{grupo.nivelFinal} <PartyPopper size={12} aria-hidden="true" /> Subiu de nível
+                            </p>
+                          ) : (
+                            <p className="mt-0.5 text-[11px] text-gray-400">Nível final N{grupo.nivelFinal}</p>
+                          ))}
+                        </div>
+                        {formatarValorAvanco(grupo.avancoMedio) && (
+                          <span className="text-[11px] text-gray-400">Avanço médio <b className="text-brand-300">{formatarValorAvanco(grupo.avancoMedio)}</b></span>
+                        )}
                       </div>
-                      {d.depois && <p className="text-[10px] text-gray-400 mt-1">{d.depois}</p>}
-                    </div>
-                  );
-                })}
+                    )}
+                    {grupo.descritores.map((d, i) => {
+                      const cfg = STATUS_CFG[d.convergencia] || STATUS_CFG.estagnacao;
+                      return (
+                        <div key={i} className={`p-2 rounded border ${cfg.borda} ${cfg.fundo}`}>
+                          <div className="flex justify-between text-xs">
+                            <p className="font-bold text-white truncate">{descritorParaHumano(d.descritor)}</p>
+                            <span className={`${cfg.tinta} font-bold shrink-0`}>
+                              {/* Avanço com piso em zero, sem o par de notas: a régua
+                                  não afirma queda, então a tela também não. */}
+                              {formatarAvanco(d.nota_pre, d.nota_pos)} · {cfg.label}
+                            </span>
+                          </div>
+                          {d.depois && <p className="text-[10px] text-gray-400 mt-1">{d.depois}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </section>
             {report?.proximo_passo && (

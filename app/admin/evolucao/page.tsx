@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { TrendingUp, ChevronDown, ChevronRight, X, FileDown } from 'lucide-react';
+import { TrendingUp, ChevronDown, ChevronRight, X, FileDown, PartyPopper } from 'lucide-react';
 import { loadEvolutionReportsEmpresa } from '@/actions/evolution-report';
 import BackButton from '@/components/back-button';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
-import { rotuloConvergencia, qualitativaSustenta, formatarAvanco, CONVERGENCIA } from '@/lib/season-engine/convergencia';
+import { rotuloConvergencia, qualitativaSustenta, formatarAvanco, formatarValorAvanco, CONVERGENCIA } from '@/lib/season-engine/convergencia';
+import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 import { normalizarResumoAvaliacao } from '@/lib/season-engine/resumo-avaliacao';
 import { descritorParaHumano } from '@/lib/descritor-humano';
@@ -208,6 +209,7 @@ function ColabRow({ trilha, onAbrir }) {
   const locale = useLocale();
   const t = useTranslations('AdminEvolution');
   const resumo = trilha.evolution_report?.resumo || {};
+  const grupos = agruparPorCompetencia(trilha.evolution_report?.descritores);
   const nome = trilha.colab?.nome_completo || '—';
   return (
     // `button`, não `div` com onClick: o card abre o relatório de uma pessoa, e
@@ -222,12 +224,29 @@ function ColabRow({ trilha, onAbrir }) {
         <div className="text-sm font-bold text-white">{nome}</div>
         <span className="text-[10px] text-gray-500 shrink-0">{new Date(trilha.evolution_generated_at).toLocaleDateString(locale)}</span>
       </div>
-      <div className="text-[11px] text-gray-400 mb-2">{trilha.colab?.cargo} · {trilha.competencia_foco}</div>
+      <div className="text-[11px] text-gray-400">{trilha.colab?.cargo}</div>
+      {/* Uma linha POR competência, com o nível e o parabéns quando subiu
+          (16/09/2026: o card citava só a competência foco e não dizia se o
+          nível subiu). Nível da MÉDIA da competência, que nunca cai. */}
+      <div className="mt-0.5 mb-2 space-y-0.5">
+        {(grupos.length ? grupos : [{ competencia: trilha.competencia_foco, nivelFinal: null } as any]).map((g, i) => (
+          <div key={i} className="flex flex-wrap items-center gap-x-1.5 text-[11px] text-gray-400">
+            <span>{g.competencia || trilha.competencia_foco}</span>
+            {g.nivelFinal != null && (g.subiuDeNivel ? (
+              <span className="inline-flex items-center gap-1 font-bold text-amber-300">
+                · N{g.nivelInicial} → N{g.nivelFinal} <PartyPopper size={11} aria-hidden="true" /> {t('levelUp')}
+              </span>
+            ) : (
+              <span className="text-gray-500">· N{g.nivelFinal}</span>
+            ))}
+          </div>
+        ))}
+      </div>
       {/* Símbolo sozinho não se explica, e o card é a primeira coisa que se lê
           nesta tela: o rótulo do veredito vai ao lado, com a palavra da régua. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
-        <span className="text-emerald-400">✓ {resumo.confirmadas || 0} {t('statuses.evolucao_confirmada')}</span>
-        <span className="text-amber-400">~ {resumo.parciais || 0} {t('statuses.evolucao_parcial')}</span>
+        <span className={COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA].tinta}>✓ {resumo.confirmadas || 0} {t('statuses.evolucao_confirmada')}</span>
+        <span className={COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL].tinta}>~ {resumo.parciais || 0} {t('statuses.evolucao_parcial')}</span>
         <span className="text-gray-400">= {resumo.estagnacoes || 0} {t('statuses.estagnacao')}</span>
         <span className="ml-auto text-cyan-300">{t('detail.cta')}</span>
       </div>
@@ -249,6 +268,33 @@ const TINTA_VEREDITO = {
  * em quê?") não tinha resposta em lugar nenhum do /admin: era preciso entrar no
  * painel do gestor do tenant, ou gerar o PDF. O dado já estava no payload.
  */
+/**
+ * Cabeçalho de uma competência no detalhe: nível da média (N1 → N2 com parabéns
+ * quando subiu; nunca cai) e avanço médio dos descritores exibidos. Mesma função
+ * (`agruparPorCompetencia`) do PDF e da tela da pessoa.
+ */
+function CabecalhoCompetencia({ grupo, t }) {
+  if (!grupo.competencia) return null;
+  const avanco = formatarValorAvanco(grupo.avancoMedio);
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-2 pt-1">
+      <div>
+        <p className="text-xs font-bold text-cyan-300">{grupo.competencia}</p>
+        {grupo.nivelFinal != null && (grupo.subiuDeNivel ? (
+          <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-bold text-amber-300">
+            N{grupo.nivelInicial} → N{grupo.nivelFinal} <PartyPopper size={12} aria-hidden="true" /> {t('levelUp')}
+          </p>
+        ) : (
+          <p className="mt-0.5 text-[11px] text-gray-400">{t('finalLevel')} N{grupo.nivelFinal}</p>
+        ))}
+      </div>
+      {avanco && (
+        <span className="text-[11px] text-gray-400">{t('competencyProgress')} <b className="text-cyan-300">{avanco}</b></span>
+      )}
+    </div>
+  );
+}
+
 function DetalheDaPessoa({ trilha, onClose }) {
   const locale = useLocale();
   const t = useTranslations('AdminEvolution');
@@ -363,47 +409,52 @@ function DetalheDaPessoa({ trilha, onClose }) {
               <p className="text-xs text-gray-500">{t('detail.noDescriptors')}</p>
             ) : (
               <div className="space-y-2">
-                {descritores.map((d, i) => {
-                  const cfg = TINTA_VEREDITO[d.convergencia] || TINTA_VEREDITO.estagnacao;
-                  const avanco = formatarAvanco(d.nota_pre, d.nota_pos);
-                  return (
-                    <div key={i} className={`rounded-lg border p-3 ${cfg.borda} ${cfg.fundo}`}>
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <p className="text-xs font-bold text-white">{descritorParaHumano(d.descritor)}</p>
-                        {/* Só o AVANÇO e o veredito. O par "2,0 → 2,3" saiu, e o
-                            avanço tem piso em zero: a régua não afirma queda. */}
-                        <span className={`shrink-0 text-[11px] font-bold ${cfg.tinta}`}>
-                          {avanco && <>{avanco} · </>}
-                          {rotuloConvergencia(d.convergencia)}
-                        </span>
-                      </div>
-                      {/* Evidência fraca é o que explica veredito baixo apesar de
-                          nota que subiu: a régua não deixa a qualitativa votar
-                          quando o descritor não foi discutido na conversa. */}
-                      {!qualitativaSustenta(d) && (
-                        <p className="mt-1 text-[10px] text-amber-200/70">{t('detail.weakEvidence')}</p>
-                      )}
-                      {d.antes && (
-                        <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
-                          <span className="font-bold text-gray-500">{t('detail.before')}: </span>{d.antes}
-                        </p>
-                      )}
-                      {d.depois && (
-                        <p className="mt-1 text-[11px] leading-relaxed text-gray-300">
-                          <span className="font-bold text-gray-500">{t('detail.after')}: </span>{d.depois}
-                        </p>
-                      )}
-                      {d.justificativa_cenario && (
-                        <details className="mt-2">
-                          <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-cyan-300 focus-visible:outline-2 focus-visible:outline-cyan-300">
-                            {t('detail.justification')}
-                          </summary>
-                          <p className="mt-1 text-[11px] leading-relaxed text-gray-400">{d.justificativa_cenario}</p>
-                        </details>
-                      )}
-                    </div>
-                  );
-                })}
+                {agruparPorCompetencia(descritores).map((grupo, g) => (
+                  <div key={g} className="space-y-2">
+                    <CabecalhoCompetencia grupo={grupo} t={t} />
+                    {grupo.descritores.map((d, i) => {
+                      const cfg = TINTA_VEREDITO[d.convergencia] || TINTA_VEREDITO.estagnacao;
+                      const avanco = formatarAvanco(d.nota_pre, d.nota_pos);
+                      return (
+                        <div key={i} className={`rounded-lg border p-3 ${cfg.borda} ${cfg.fundo}`}>
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <p className="text-xs font-bold text-white">{descritorParaHumano(d.descritor)}</p>
+                            {/* Só o AVANÇO e o veredito. O par "2,0 → 2,3" saiu, e o
+                                avanço tem piso em zero: a régua não afirma queda. */}
+                            <span className={`shrink-0 text-[11px] font-bold ${cfg.tinta}`}>
+                              {avanco && <>{avanco} · </>}
+                              {rotuloConvergencia(d.convergencia)}
+                            </span>
+                          </div>
+                          {/* Evidência fraca é o que explica veredito baixo apesar de
+                              nota que subiu: a régua não deixa a qualitativa votar
+                              quando o descritor não foi discutido na conversa. */}
+                          {!qualitativaSustenta(d) && (
+                            <p className="mt-1 text-[10px] text-amber-200/70">{t('detail.weakEvidence')}</p>
+                          )}
+                          {d.antes && (
+                            <p className="mt-2 text-[11px] leading-relaxed text-gray-400">
+                              <span className="font-bold text-gray-500">{t('detail.before')}: </span>{d.antes}
+                            </p>
+                          )}
+                          {d.depois && (
+                            <p className="mt-1 text-[11px] leading-relaxed text-gray-300">
+                              <span className="font-bold text-gray-500">{t('detail.after')}: </span>{d.depois}
+                            </p>
+                          )}
+                          {d.justificativa_cenario && (
+                            <details className="mt-2">
+                              <summary className="cursor-pointer text-[10px] uppercase tracking-widest text-cyan-300 focus-visible:outline-2 focus-visible:outline-cyan-300">
+                                {t('detail.justification')}
+                              </summary>
+                              <p className="mt-1 text-[11px] leading-relaxed text-gray-400">{d.justificativa_cenario}</p>
+                            </details>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             )}
           </section>
