@@ -7,6 +7,8 @@ import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { avancoMedioExibido } from '@/lib/season-engine/convergencia';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
+import { isTenantDemo } from '@/lib/demo/envio-guard';
+import { recortarElencoDemo } from '@/lib/demo/elenco-visivel';
 
 /**
  * Lista os liderados do gestor com temporada (em andamento ou concluída)
@@ -53,6 +55,10 @@ export async function listarEquipeEvolucao() {
   // Segunda trava, em CÓDIGO: o banco filtra por padrão, a igualdade decide.
   colabs = (colabs || []).filter((c: any) => c.role !== 'rh');
   if (isGestor && meuEmail) colabs = (colabs || []).filter((c: any) => mesmoEmail(c.gestor_email, meuEmail));
+  // Mesma régua de `resolverEscopoDoGestor`: em tenant de demonstração a lista
+  // é o elenco. Esta tela mostra a empresa inteira ao RH, pessoa por pessoa,
+  // inclusive quem nunca teve trilha, e é aberta pelo prospect na sala.
+  colabs = recortarElencoDemo(colabs || [], await isTenantDemo(empresaId));
   if (!colabs?.length) return { ok: true, rows: [], resumo: { total: 0 } };
 
   // Trilhas desses colabs
