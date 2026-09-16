@@ -1,6 +1,7 @@
 'use server';
 
 import { tenantDb } from '@/lib/tenant-db';
+import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 import { callAI, type AIConfig } from '../ai-client';
 import { extractJSON } from '../utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
@@ -43,19 +44,16 @@ export async function gerarEvolucaoFusao(empresaId: string, aiConfig: AIConfig =
 
     // Competências (parent rows, cod_desc IS NULL). Sem coluna gabarito.
     const { data: competencias, error: compErr } = await tdb.from('competencias')
-      .select('id, nome, cod_comp').is('cod_desc', null);
+      .select('id, nome, cod_comp, cargo').is('cod_desc', null);
     if (compErr) return { success: false, error: `competencias: ${compErr.message}` };
     const compMap = {};
     (competencias || []).forEach(c => { compMap[c.id] = c; });
 
-    // Descritores por competencia via cod_comp (mesmo padrão de iniciarReavaliacaoLote)
+    // Descritores de cada competência na matriz do cargo dela (lib/matriz-por-cargo)
     const descritoresMap = {};
     for (const comp of competencias || []) {
-      const { data: descs } = await tdb.from('competencias')
-        .select('cod_desc, nome_curto, descritor_completo')
-        .eq('cod_comp', comp.cod_comp)
-        .not('cod_desc', 'is', null);
-      descritoresMap[comp.id] = (descs || []).map((d, i) =>
+      const descs = await buscarDescritoresDaCompetencia(tdb, comp, 'cod_desc, nome_curto, descritor_completo');
+      descritoresMap[comp.id] = descs.map((d, i) =>
         `${d.cod_desc || `D${i + 1}`}: ${d.nome_curto || d.descritor_completo || ''}`
       );
     }

@@ -85,10 +85,17 @@ export interface SupabaseMock {
 }
 
 export interface OpcoesMock {
-  /** `data` de `.maybeSingle()` / `.single()`, por tabela e colunas do select. */
-  resolver?: (tabela: string, cols: string) => any;
-  /** `data` quando a cadeia é aguardada direto (lista). Default: `[]`. */
-  lista?: (tabela: string, cols: string) => any[];
+  /**
+   * `data` de `.maybeSingle()` / `.single()`, por tabela e colunas do select.
+   *
+   * `cadeia` = os elos DESTA query (`.eq`, `.in`, `.is`…), na ordem — para a
+   * resposta depender do filtro pedido. Existe porque `chamadas` é global: com
+   * queries em paralelo (`mapComLimite`), ler "o último `eq` depois do último
+   * `select`" pega o filtro de OUTRA cadeia. Quem não precisa ignora o argumento.
+   */
+  resolver?: (tabela: string, cols: string, cadeia: Chamada[]) => any;
+  /** `data` quando a cadeia é aguardada direto (lista). Default: `[]`. Mesma `cadeia` do `resolver`. */
+  lista?: (tabela: string, cols: string, cadeia: Chamada[]) => any[];
   /** `count` devolvido quando o select pede `{ count: 'exact' }`. */
   contagem?: (tabela: string) => number | null;
   /**
@@ -127,8 +134,13 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
     let op: Operacao = 'select';
     let querCount = false;
     let payload: any = null;
+    const cadeia: Chamada[] = [];
 
-    const registrar = (metodo: string, args: any[]) => { chamadas.push({ tabela, metodo, args }); };
+    const registrar = (metodo: string, args: any[]) => {
+      const elo = { tabela, metodo, args };
+      chamadas.push(elo);
+      cadeia.push(elo);
+    };
 
     const resultadoLista = () => {
       const f = acharFalha(tabela, op, payload);
@@ -137,7 +149,7 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
         escritas.push({ tabela, op, payload });
         return { data: escrita(tabela, op, payload), error: null, count: null };
       }
-      return { data: lista(tabela, cols), error: null, count: querCount ? contagem(tabela) : null };
+      return { data: lista(tabela, cols, cadeia), error: null, count: querCount ? contagem(tabela) : null };
     };
 
     const filtro = (nome: string) => (...args: any[]) => { registrar(nome, args); return b; };
@@ -159,13 +171,13 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
         const f = acharFalha(tabela, op, payload);
         if (f) return { data: null, error: erroDe(f) };
         if (op !== 'select') { escritas.push({ tabela, op, payload }); return { data: payload, error: null }; }
-        return { data: resolver(tabela, cols), error: null };
+        return { data: resolver(tabela, cols, cadeia), error: null };
       },
       single: async () => {
         const f = acharFalha(tabela, op, payload);
         if (f) return { data: null, error: erroDe(f) };
         if (op !== 'select') { escritas.push({ tabela, op, payload }); return { data: payload, error: null }; }
-        return { data: resolver(tabela, cols), error: null };
+        return { data: resolver(tabela, cols, cadeia), error: null };
       },
       // `await sb.from(x).select()` sem terminador: a cadeia é thenable.
       then: (resolve: any, reject: any) => Promise.resolve(resultadoLista()).then(resolve, reject),

@@ -1,6 +1,6 @@
 {
   "description": "E11 (auditoria 22/08) — estoque CONGELADO da classe \"error não checado\": o supabase-js retorna { data, error } e não lança, então quem ignora o retorno vira falha silenciosa. Chave = arquivo, valor = fingerprints (hash do trecho normalizado). Por fingerprint e não por contagem porque contagem deixa a dívida TROCAR DE LUGAR sem o guard ver (modo de falha documentado no E8). Esta lista SÓ ENCOLHE. Guard: tests/unit/security/error-nao-checado-guard.test.ts",
-  "total_declarado": 928,
+  "total_declarado": 915,
   "gerado_em": "2026-08-24",
   "allowlist": {
     "actions/adequacao-cargo.ts": {
@@ -179,13 +179,10 @@
       "7da1123a": 1,
       "847c3cb6": 1,
       "93aa2390": 1,
-      "9bbcd604": 1,
       "a93bef11": 1,
       "b0345fa0": 1,
       "b9d39749": 1,
-      "cfa6f050": 1,
       "d0eddb9e": 1,
-      "d368053d": 1,
       "de0cd495": 1,
       "e42fb649": 1,
       "e6c0de43": 1
@@ -195,7 +192,6 @@
       "79ed6cbc": 1,
       "8011ae13": 1,
       "8e7174da": 1,
-      "9ffea742": 1,
       "a93bef11": 2,
       "adc1e03a": 1,
       "df755a54": 1,
@@ -922,8 +918,6 @@
     },
     "lib/check-ia4-core.ts": {
       "1b68bb9c": 1,
-      "1ef5746c": 1,
-      "33df66f3": 1,
       "6c10396b": 1,
       "bd1514e8": 1,
       "e6b69a7c": 1
@@ -989,32 +983,25 @@
       "defbc100": 1
     },
     "lib/ia3-cenarios.ts": {
-      "22277982": 1,
       "0016d79d": 1,
-      "10770c86": 1,
       "1a1f016d": 1,
       "251008b9": 1,
       "2afc4c40": 1,
       "38dadfb3": 1,
-      "76ee98cd": 1,
       "9b32c816": 1,
       "defbc100": 1
     },
     "lib/ia4-avaliacao.ts": {
-      "4bb763a4": 1,
-      "537430ad": 1,
       "950488c9": 1,
       "a0add070": 1,
       "a623bf19": 1,
       "fc84d150": 1
     },
     "lib/ia4-reavaliacao.ts": {
-      "02420f14": 1,
       "24ba3d81": 1,
       "3a8fa8d5": 1,
       "7fdb939f": 1,
-      "c20bdf72": 1,
-      "dbafa6ef": 1
+      "c20bdf72": 1
     },
     "lib/manuscrito-modulos.ts": {
       "cab3b176": 1

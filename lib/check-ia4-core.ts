@@ -18,6 +18,8 @@ import { extractJSON } from '@/actions/utils';
 import { formatPerfilContext } from '@/lib/perfil-comportamental';
 import { getModelForTask } from '@/lib/ai-tasks';
 import { nivelDaNota } from '@/lib/nivel-regua';
+import { tenantDb } from '@/lib/tenant-db';
+import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 
 /**
  * Itens do CHECKLIST do auditor. A 2ª IA responde SIM/NÃO em cada um; a nota é
@@ -184,13 +186,13 @@ export async function montarCheckIA4Prompt(
 
   let compNome = '', reguaTexto = '';
   if (resp.competencia_id) {
-    const { data: comp } = await sb.from('competencias')
-      .select('nome, cod_comp').eq('id', resp.competencia_id).maybeSingle();
+    const { data: comp, error: compErr } = await sb.from('competencias')
+      .select('nome, cod_comp, cargo').eq('id', resp.competencia_id).maybeSingle();
+    if (compErr) throw new Error(`Check IA4: competência ${resp.competencia_id}: ${compErr.message}`);
     compNome = comp?.nome || '';
-    const { data: descs } = await sb.from('competencias')
-      .select('cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-      .eq('empresa_id', empresaId).eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
-    if (descs?.length) {
+    const descs = await buscarDescritoresDaCompetencia(tenantDb(empresaId), comp,
+      'cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia');
+    if (descs.length) {
       reguaTexto = descs.map((d: any, i: number) =>
         `D${i + 1} ${d.cod_desc}: ${d.nome_curto}\n  N1: ${d.n1_gap || '—'}\n  N2: ${d.n2_desenvolvimento || '—'}\n  N3: ${d.n3_meta || '—'}\n  N4: ${d.n4_referencia || '—'}`
       ).join('\n\n');

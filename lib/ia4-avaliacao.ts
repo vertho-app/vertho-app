@@ -21,6 +21,7 @@ import { formatPerfilContext } from '@/lib/perfil-comportamental';
 import { resolverNomeOficial, chaveDescritor } from '@/lib/descritores';
 import { buscarContextoPPP } from '@/lib/ia2-gabarito';
 import { nivelDaNota } from '@/lib/nivel-regua';
+import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 
 export const IA4_SYSTEM = `Você é o Motor de Avaliação de Competências da Vertho Mentor IA.
 
@@ -300,16 +301,15 @@ export async function carregarContextoRespostaIA4(tdb: any, sbRaw: SupabaseClien
   let compNome = '', compCod = '', descritoresTexto = '';
   let descsOficiais: any[] = []; // régua oficial — usada também p/ resolver o nome persistido
   if (resp.competencia_id) {
-    const { data: comp } = await tdb.from('competencias')
-      .select('nome, cod_comp, descricao').eq('id', resp.competencia_id).maybeSingle();
+    const { data: comp, error: compErr } = await tdb.from('competencias')
+      .select('nome, cod_comp, cargo, descricao').eq('id', resp.competencia_id).maybeSingle();
+    if (compErr) throw new Error(`IA4: competência ${resp.competencia_id}: ${compErr.message}`);
     compNome = comp?.nome || '';
     compCod = comp?.cod_comp || '';
-    const { data: descs } = await tdb.from('competencias')
-      .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-      .eq('cod_comp', comp?.cod_comp)
-      .not('cod_desc', 'is', null);
-    descsOficiais = descs || [];
-    if (descs?.length) {
+    const descs = await buscarDescritoresDaCompetencia(tdb, comp,
+      'cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia');
+    descsOficiais = descs;
+    if (descs.length) {
       descritoresTexto = descs.map((d: any, i: number) => {
         return `DESCRITOR ${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo || ''}
 N1 (Emergente): ${d.n1_gap || 'Não definido'}

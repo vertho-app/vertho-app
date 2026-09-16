@@ -37,7 +37,7 @@ function mock() {
   return criarSupabaseMock({
     resolver: (tabela) => {
       if (tabela === 'banco_cenarios') return { titulo: 'T', descricao: 'D', alternativas: { perguntas: [] } };
-      if (tabela === 'competencias') return { nome: 'Priorização', cod_comp: 'GC01', descricao: '' };
+      if (tabela === 'competencias') return { nome: 'Priorização', cod_comp: 'GC01', cargo: 'Vendedor', descricao: '' };
       return null;
     },
     lista: (tabela) => (tabela === 'competencias' ? [{ cod_desc: 'D1', nome_curto: 'X', n1_gap: 'a', n2_desenvolvimento: 'b', n3_meta: 'c', n4_referencia: 'd' }] : []),

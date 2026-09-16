@@ -82,7 +82,7 @@ function resultadosBase(resp: any, opts: { upsertErr?: any; avaliacao?: any } = 
     ],
     colaboradores: [{ data: [{ id: 'colab-1', nome_completo: 'Fulano Teste' }], error: null }],
     competencias: [
-      { data: { nome: 'Coordenação', cod_comp: 'COO03', descricao: '' }, error: null },
+      { data: { nome: 'Coordenação', cod_comp: 'COO03', cargo: 'Analista', descricao: '' }, error: null },
       { data: [], error: null },                      // régua oficial (vazia ok)
     ],
   };

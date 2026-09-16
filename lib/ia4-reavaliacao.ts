@@ -16,6 +16,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { tenantDb } from '@/lib/tenant-db';
+import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
 import {
@@ -148,13 +149,13 @@ export async function reavaliarRespostaCore(sbRaw: SupabaseClient, respostaId: s
 
     let compNome = '', compCod = '', descritoresTexto = '';
     if (resp.competencia_id) {
-      const { data: comp } = await tdb.from('competencias')
-        .select('nome, cod_comp').eq('id', resp.competencia_id).maybeSingle();
+      const { data: comp, error: compErr } = await tdb.from('competencias')
+        .select('nome, cod_comp, cargo').eq('id', resp.competencia_id).maybeSingle();
+      if (compErr) return { success: false, error: `competência: ${compErr.message}` };
       compNome = comp?.nome || ''; compCod = comp?.cod_comp || '';
-      const { data: descs } = await tdb.from('competencias')
-        .select('cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-        .eq('cod_comp', comp?.cod_comp).not('cod_desc', 'is', null);
-      if (descs?.length) {
+      const descs = await buscarDescritoresDaCompetencia(tdb, comp,
+        'cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia');
+      if (descs.length) {
         descritoresTexto = descs.map((d: any, i: number) =>
           `D${i + 1}: ${d.cod_desc} — ${d.nome_curto || ''}\nN1: ${d.n1_gap || ''}\nN2: ${d.n2_desenvolvimento || ''}\nN3: ${d.n3_meta || ''}\nN4: ${d.n4_referencia || ''}`
         ).join('\n\n');

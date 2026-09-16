@@ -11,6 +11,7 @@ import { travaRegeneracao } from '@/lib/ia3-cenarios';
 import { buscarContextoPPP, buscarValoresDaRede } from '@/lib/ia2-gabarito';
 import { TEMP, type Fase5Config } from './_shared';
 import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
+import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 
 // System prompt do check de cenário B — harmonizado com o check do cenário A
 const CHECK_CEN_B_SYSTEM = `Você é o auditor de qualidade do Cenário B da Vertho.
@@ -91,15 +92,13 @@ Um bom Cenário B não é apenas "plausível". Ele precisa ser metodologicamente
 REGRA: Se cenário for bem escrito mas metodologicamente fraco como
 COMPLEMENTO do A, PENALIZE. Prefira rigor a elegância.`;
 
-// Helper: busca descritores (linhas filhas em competencias com mesmo cod_comp).
-// Recebe tdb (tenant-scoped) — empresa_id é injetado automaticamente.
-async function fetchDescritoresTexto(tdb, codComp) {
-  if (!codComp) return '';
-  const { data: descs } = await tdb.from('competencias')
-    .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-    .eq('cod_comp', codComp)
-    .not('cod_desc', 'is', null);
-  if (!descs?.length) return '';
+// Helper: descritores da competência NA MATRIZ DO CARGO dela — a mesma matriz
+// pode estar copiada em 2 cargos (lib/matriz-por-cargo). Recebe a linha da
+// competência (com `cargo`) e o tdb (tenant-scoped: empresa_id injetado).
+async function fetchDescritoresTexto(tdb, comp) {
+  const descs = await buscarDescritoresDaCompetencia(tdb, comp,
+    'cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia');
+  if (!descs.length) return '';
   return descs.map((d, i) => `D${i + 1}: ${d.cod_desc} — ${d.nome_curto || ''}\nN1: ${d.n1_gap || ''}\nN2: ${d.n2_desenvolvimento || ''}\nN3: ${d.n3_meta || ''}\nN4: ${d.n4_referencia || ''}`).join('\n\n');
 }
 
@@ -348,11 +347,11 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
 
     // Batch (era 1 query por competência) + descritores em pool de DB (8)
     const { data: compsRows } = compIdsNeeded.length
-      ? await tdb.from('competencias').select('id, nome, descricao, cod_comp').in('id', compIdsNeeded)
+      ? await tdb.from('competencias').select('id, nome, descricao, cod_comp, cargo').in('id', compIdsNeeded)
       : { data: [] };
     for (const comp of compsRows || []) compMap[comp.id] = comp;
     await mapComLimite(Object.values(compMap) as any[], 8, async (comp: any) => {
-      descritoresMap[comp.id] = await fetchDescritoresTexto(tdb, comp.cod_comp);
+      descritoresMap[comp.id] = await fetchDescritoresTexto(tdb, comp);
     });
     const compIds = Object.keys(compMap);
 
@@ -482,10 +481,11 @@ export async function checkCenarioBUm(cenarioId: string, modelo: string | null =
     if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional não tem check)' };
     const tdb = tenantDb(cen.empresa_id);
 
-    const { data: comp } = await tdb.from('competencias')
-      .select('id, nome, cod_comp').eq('id', cen.competencia_id).maybeSingle();
+    const { data: comp, error: compErr } = await tdb.from('competencias')
+      .select('id, nome, cod_comp, cargo').eq('id', cen.competencia_id).maybeSingle();
+    if (compErr) return { success: false, error: `competência: ${compErr.message}` };
 
-    const descritoresTexto = comp ? await fetchDescritoresTexto(tdb, comp.cod_comp) : '';
+    const descritoresTexto = comp ? await fetchDescritoresTexto(tdb, comp) : '';
     const pppResumo = await fetchPppResumo(tdb, cen.empresa_id);
 
     // Buscar cenário A correspondente pra comparação
@@ -523,11 +523,12 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
     const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', cen.empresa_id).single();
 
-    const { data: comp } = await tdb.from('competencias')
-      .select('id, nome, descricao, cod_comp').eq('id', cen.competencia_id).maybeSingle();
+    const { data: comp, error: compErr } = await tdb.from('competencias')
+      .select('id, nome, descricao, cod_comp, cargo').eq('id', cen.competencia_id).maybeSingle();
+    if (compErr) return { success: false, error: `competência: ${compErr.message}` };
     if (!comp) return { success: false, error: 'Competência não encontrada' };
 
-    const descritoresTexto = await fetchDescritoresTexto(tdb, comp.cod_comp);
+    const descritoresTexto = await fetchDescritoresTexto(tdb, comp);
 
     // Buscar cenário A original para referência (qualquer tipo != cenario_b para mesma comp+cargo)
     const { data: cenA } = await tdb.from('banco_cenarios')
@@ -693,12 +694,12 @@ export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     // o alvo seguro pra primeira leva de paralelização (review 03/07).
     const compIdsChk = [...new Set(pendentes.map(c => c.competencia_id).filter(Boolean))];
     const { data: compsChk } = compIdsChk.length
-      ? await tdb.from('competencias').select('id, nome, cod_comp').in('id', compIdsChk)
+      ? await tdb.from('competencias').select('id, nome, cod_comp, cargo').in('id', compIdsChk)
       : { data: [] };
     const compCache = Object.fromEntries((compsChk || []).map(c => [c.id, c]));
     const descCache = {};
     await mapComLimite(Object.values(compCache) as any[], 8, async (comp: any) => {
-      descCache[comp.id] = await fetchDescritoresTexto(tdb, comp.cod_comp);
+      descCache[comp.id] = await fetchDescritoresTexto(tdb, comp);
     });
 
     const resultados = await mapComLimite(pendentes as any[], 4, async (cen: any) => {

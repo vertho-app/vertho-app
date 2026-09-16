@@ -2,6 +2,7 @@
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
+import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 import { callAI, callAIChat, type AIConfig } from '../ai-client';
 import { extractJSON } from '../utils';
 import { requireAdminAction, requireUserAction } from '@/lib/auth/action-context';
@@ -63,22 +64,30 @@ export async function iniciarReavaliacaoLote(empresaId: string, aiConfig: AIConf
       compByNomeCargoMap[`${c.nome}::${c.cargo}`] = c;
     });
 
-    // Descritores por cod_comp (linhas filhas em competencias) — UMA query
-    // agrupada em memória (era 1 query por competência, N+1 puro)
+    // Descritores por (cod_comp, cargo) — UMA query agrupada em memória (era 1
+    // query por competência, N+1 puro). O cargo entra no filtro E na chave: a
+    // mesma matriz pode estar copiada em 2 cargos (lib/matriz-por-cargo).
     const descritoresCache = {};
     const codComps = [...new Set((competencias || []).map(c => c.cod_comp).filter(Boolean))];
-    const { data: todosDescs } = codComps.length
+    const cargos = [...new Set((competencias || []).map(c => c.cargo).filter(Boolean))];
+    const { data: todosDescs, error: descErr } = codComps.length && cargos.length
       ? await tdb.from('competencias')
-          .select('cod_comp, cod_desc, nome_curto, descritor_completo')
+          .select('cod_comp, cargo, cod_desc, nome_curto, descritor_completo')
           .in('cod_comp', codComps)
+          .in('cargo', cargos)
           .not('cod_desc', 'is', null)
-      : { data: [] };
-    const descsPorCodComp = {};
+      : { data: [], error: null };
+    if (descErr) return { success: false, error: `descritores: ${descErr.message}` };
+    const descsPorCompCargo = {};
     for (const d of todosDescs || []) {
-      (descsPorCodComp[d.cod_comp] = descsPorCodComp[d.cod_comp] || []).push(d);
+      const chave = `${d.cod_comp}::${d.cargo}`;
+      (descsPorCompCargo[chave] = descsPorCompCargo[chave] || []).push(d);
     }
     for (const comp of competencias || []) {
-      const descs = descsPorCodComp[comp.cod_comp];
+      // Sem cargo a competência fica fora do `.in('cargo')`: lê as irmãs sem cargo.
+      const descs = comp.cargo
+        ? descsPorCompCargo[`${comp.cod_comp}::${comp.cargo}`]
+        : await buscarDescritoresDaCompetencia(tdb, comp, 'cod_desc, nome_curto, descritor_completo');
       descritoresCache[comp.id] = (descs || []).map((d, i) => ({
         codigo: d.cod_desc || `D${i + 1}`,
         nome: d.nome_curto || d.descritor_completo || `Descritor ${i + 1}`,

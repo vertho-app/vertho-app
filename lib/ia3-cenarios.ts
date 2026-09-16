@@ -15,6 +15,7 @@ import { callAI, type AIConfig } from '@/actions/ai-client';
 import { extractJSON } from '@/actions/utils';
 import { buscarContextoPPP, buscarValores } from '@/lib/ia2-gabarito';
 import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
+import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 
 // ── Prompts (movidos VERBATIM de fase1.ts) ──────────────────────────────────
 
@@ -312,10 +313,13 @@ export async function montarContextoIA3(
     .eq('id', competenciaId).single();
   if (!comp) return { ok: false, error: 'Competência não encontrada' };
 
-  const { data: descritores } = await tdb.from('competencias')
-    .select('cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia')
-    .eq('cod_comp', comp.cod_comp)
-    .not('cod_desc', 'is', null);
+  let descritores: any[];
+  try {
+    descritores = await buscarDescritoresDaCompetencia(tdb, comp,
+      'cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia');
+  } catch (e: any) {
+    return { ok: false, error: e.message };
+  }
 
   const contextoPPP = await buscarContextoPPP(tdb, { empresaId, pppEscolaId });
   const valores = await buscarValores(tdb, empresa.nome);
@@ -509,17 +513,15 @@ export async function montarCheckIA3Prompt(sbRaw: any, cen: any): Promise<{ syst
   let descritoresTexto = '';
   if (cen.competencia_id) {
     const sbForComp = tdb || sbRaw;
-    const { data: comp } = await sbForComp.from('competencias')
-      .select('nome, cod_comp, descricao')
+    const { data: comp, error: compErr } = await sbForComp.from('competencias')
+      .select('nome, cod_comp, cargo, descricao')
       .eq('id', cen.competencia_id)
-      .single();
+      .maybeSingle();
+    if (compErr) throw new Error(`Check IA3: competência ${cen.competencia_id}: ${compErr.message}`);
     if (comp) compNome = comp.nome;
 
-    const { data: descs } = await sbForComp.from('competencias')
-      .select('cod_desc, nome_curto, descritor_completo')
-      .eq('cod_comp', comp?.cod_comp)
-      .not('cod_desc', 'is', null);
-    if (descs?.length) {
+    const descs = await buscarDescritoresDaCompetencia(sbForComp, comp, 'cod_desc, nome_curto, descritor_completo');
+    if (descs.length) {
       descritoresTexto = descs.map((d: any, i: number) => `D${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo}`).join('\n');
     }
   }

@@ -14,6 +14,7 @@ import {
 } from '@/lib/ia2-gabarito';
 import { gerarCenarioIA3Core, checkCenarioIA3Core, regenerarCenarioIA3ComTrava } from '@/lib/ia3-cenarios';
 import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
+import { casarSelecaoIA1 } from '@/lib/matriz-por-cargo';
 
 // ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
 // Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
@@ -184,13 +185,9 @@ export async function rodarIA1(empresaId: string, aiConfig: AIConfig = {}, opts:
           const usedIds = new Set();
           for (let i = 0; i < (resultado.top10 || []).length; i++) {
             const sel = resultado.top10[i];
-            const selId = (sel.id || sel.cod_comp || '').trim().toLowerCase();
-            const selNome = (sel.nome || '').trim().toLowerCase();
-
-            const match = competencias.find((c: any) => !usedIds.has(c.id) && c.cod_comp && selId && c.cod_comp.toLowerCase() === selId)
-              || competencias.find((c: any) => !usedIds.has(c.id) && selNome && c.nome.toLowerCase() === selNome)
-              || competencias.find((c: any) => !usedIds.has(c.id) && selNome && c.nome.toLowerCase().includes(selNome))
-              || competencias.find((c: any) => !usedIds.has(c.id) && selNome && selNome.includes(c.nome.toLowerCase()));
+            // Só entre as linhas do CARGO: a empresa pode ter a mesma matriz em
+            // outro cargo, e o id gravado precisa ser o que a entrega encontra.
+            const match = casarSelecaoIA1(competencias as any[], cargoNomeRaw, sel, usedIds as Set<string>);
 
             if (!match) continue;
             usedIds.add(match.id);

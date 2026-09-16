@@ -4,6 +4,7 @@ import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supaba
 import { requirePermissionAction, assertTenantAccessAction, getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { chaveDaLinhaDaMatriz } from '@/lib/matriz-por-cargo';
 
 export async function loadEmpresas() {
   const sb = await requireAdminSupabase();
@@ -97,12 +98,9 @@ export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
   const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'importarCompetenciasCSV');
   const { data: existentes } = await sb.from('competencias')
     .select('cod_comp, cod_desc, nome_curto, nome, cargo').eq('empresa_id', empresaId);
-  // Dedup por cod_comp+cod_desc (ou cod_comp+nome_curto se cod_desc vazio)
-  const keyOf = (c: any) => {
-    const comp = (c.cod_comp || c.nome || '').trim();
-    const desc = (c.cod_desc || c.nome_curto || '').trim();
-    return `${comp}||${desc}`.toLowerCase();
-  };
+  // Dedup por cargo+cod_comp+cod_desc: a matriz é POR CARGO, e a mesma matriz em
+  // outro cargo não é repetida (lib/matriz-por-cargo).
+  const keyOf = chaveDaLinhaDaMatriz;
   const existSet = new Set((existentes || []).map(keyOf));
 
   // Dedup interno do lote também (evita linhas repetidas no mesmo arquivo)
