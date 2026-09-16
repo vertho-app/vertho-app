@@ -133,6 +133,25 @@ semanas depois, no conteúdo entregue. O casamento dos descritores em si continu
 Linhas sem `cod_desc` são ignoradas: são o registro pré-matriz da competência,
 preservado porque `respostas.competencia_id` aponta para ele.
 
+### 1.3 A mesma matriz em mais de um cargo (16/09/2026)
+
+A matriz é gravada POR CARGO, então a matriz de professor usada também pela auxiliar são
+duas cópias com o mesmo `cod_comp` — e `WHERE cod_comp='TCH12'` devolve 12 linhas para 6
+capítulos, o que reprovava o import ("o manuscrito tem 6, TCH12 tem 12"). O módulo-base é
+feito **uma vez por matriz** (decisão do dono), então:
+
+- **cópias idênticas** (mesma assinatura: `cod_desc` + nome do descritor): ancora na do 1º
+  cargo em ordem alfabética (determinístico) e registra os ids das outras. A autoria e o
+  `contexto_pedagogico` nomeiam todos os cargos (este cortado inteiro no CHECK de 80
+  caracteres), e a prévia mostra "Matriz compartilhada";
+- **idempotência** por qualquer cópia (`moduloJaExiste`): sem isso, copiar a matriz para
+  um cargo novo e reimportar duplicaria os 18 módulos;
+- **mesmo código com descritores DIFERENTES** em cargos distintos: não adivinha — o erro
+  lista os cargos e a tela oferece a escolha, que segue até a task (`params.cargo`).
+
+O resolver de conteúdo reconhece o módulo ancorado em qualquer cópia idêntica
+(`docs/MODULOS-BASE-CONTEUDO.md`, "Como o engine consome").
+
 ## 2. Um módulo = um par de faixas adjacentes + a síntese
 
 A transição N2→N3 precisa do ponto de partida (faixa N2) e do destino (faixa N3).
@@ -365,7 +384,8 @@ basta. Para a tabela do apêndice, só `convertToHtml` preserva `<table>`.
 
 **Idempotência.** A chave natural é `(competencia_id, nivel_entrada, nivel_destino,
 locale)`. Não há UNIQUE nela — só `(grupo_id, locale)`. Dedup no código, ou índice
-parcial.
+parcial. Com a matriz em vários cargos, o `competencia_id` pode ser o de qualquer cópia
+idêntica: confira contra todas (`moduloJaExiste`, §1.3).
 
 **`CHECK (nivel_destino > nivel_entrada)`** compara pela ordem do enum, então
 permite N1→N4. A regra "sempre 1 nível de diferença" é de negócio; o parser a garante.

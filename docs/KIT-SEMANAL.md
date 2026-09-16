@@ -254,6 +254,13 @@ legado; colaborador sem cargo aceita qualquer um). Como essas leituras voltam ao
 **não podem sumir**: o cache marca `barradoPorCargo` e o overlay registra `kit-cargo-divergente`,
 tipo separado de `kit-ausente-disc` porque a ação é gerar UMA célula, não escrever um tema.
 
+⚠️ **Até 16/09/2026 o curinga do legado não existia no código.** `cargoServe` só tratava o VAZIO
+como curinga, e o genérico é gravado como `'todos'` (`kit_briefs.cargo` NOT NULL DEFAULT 'todos', e
+é o padrão da tela) — então o kit genérico era barrado para todo colaborador com cargo, ao contrário
+desta decisão. Não afetou ninguém (0 kits `'todos'` na base), mas é o caminho de um kit por matriz
+servindo a vários cargos. Agora `'todos'` é curinga; o kit do próprio cargo continua vencendo o
+genérico, e o de outro cargo específico continua barrado (`tests/unit/kit-cargo-todos.test.ts`).
+
 📏 **Cobertura real de ibipeba (medida 29/07, pela chave que o consumidor usa):** 37 temas, 21
 completos nos 4 DISC, **33 células (tema × DISC) vazias**. Contar por `brief × DISC` dá 55 — número
 inflado, porque o mesmo tema existe gravado nas duas grafias e a chave normalizada os une. Ao medir
