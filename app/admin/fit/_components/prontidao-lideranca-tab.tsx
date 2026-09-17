@@ -182,7 +182,7 @@ export default function ProntidaoLiderancaTab({ empresaId }: { empresaId: string
       {/* Cabeçalho: estado do módulo */}
       <div className="rounded-xl p-4 border border-white/[0.06] flex flex-wrap items-center justify-between gap-3" style={{ background: '#0F2A4A' }}>
         <div>
-          <p className="text-sm font-bold text-white">Módulo Prontidão para Liderança</p>
+          <p className="text-sm font-bold text-white">Simulador de liderança</p>
           <p className="text-[11px] text-gray-400">{info.contratado ? 'Contratado: o RH vê a leitura e o menu, e o trilho de liderança abre para a população.' : 'Não contratado: nada aparece para o cliente nem para os participantes.'}</p>
         </div>
         <button type="button" onClick={alternarModulo} disabled={alternando}

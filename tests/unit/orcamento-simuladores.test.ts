@@ -103,19 +103,40 @@ describe('cenário salvo e escopo da proposta', () => {
     const iMentor = linhas.findIndex((l) => l.startsWith('Mentor IA'));
     expect(linhas.slice(iMentor - 2, iMentor)).toEqual([
       'Simulador de vendas para 1.200 pessoas',
-      'Prontidão para liderança para 1 pessoa',
+      'Simulador de liderança para 1 pessoa',
     ]);
-    expect(linhas.join('\n')).not.toMatch(/Treino de atendimento/);
+    expect(linhas.join('\n')).not.toMatch(/Simulador de atendimento/);
   });
 
   it('sem simulador, o escopo não ganha linha nenhuma', () => {
     const texto = escopoPropostaDoCenario(entradasPadrao(LISTAS), { pessoas: 100, unidades: 1, cargos: 3, ciclos: 1 } as any, JORNADA);
-    expect(texto).not.toMatch(/Simulador|Treino de atendimento|Prontidão/);
+    expect(texto).not.toMatch(/Simulador/);
   });
 
   it('o texto também não promete acesso acima das pessoas do programa', () => {
     const e = { ...entradasPadrao(LISTAS), simuladores: { vendas: 300, atendimento: 0, lideranca: 0 } };
     const texto = escopoPropostaDoCenario(e, { pessoas: 100, unidades: 1, cargos: 3, ciclos: 1 } as any, JORNADA);
     expect(texto).toMatch(/^Simulador de vendas para 100 pessoas$/m);
+  });
+});
+
+describe('nome dos simuladores (decisão do Rodrigo, 17/09/2026)', () => {
+  it('os três se chamam "Simulador de …", sem "Treino" nem "Prontidão"', async () => {
+    const { ROTULO_SIMULADOR } = await import('@/lib/orcamento/precificacao');
+    expect(ROTULO_SIMULADOR).toEqual({
+      vendas: 'Simulador de vendas',
+      atendimento: 'Simulador de atendimento',
+      lideranca: 'Simulador de liderança',
+    });
+  });
+
+  it('nenhum idioma chama o módulo pelos nomes antigos', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const antigos = /prontid[ãa]o (para|de) (a )?lideran[çc]a|treino de atendimento|leadership readiness|reception training|preparaci[óo]n para el liderazgo|pr[áa]ctica de atenci[óo]n/i;
+    for (const loc of ['pt-BR', 'pt-PT', 'en-US', 'es-ES']) {
+      const texto = readFileSync(join(__dirname, '..', '..', 'messages', `${loc}.json`), 'utf8');
+      expect(texto.match(antigos)?.[0], loc).toBeUndefined();
+    }
   });
 });

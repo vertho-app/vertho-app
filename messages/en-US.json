@@ -6,11 +6,11 @@
     "defaults": "Job titles without a saved rule, new job titles, and people without a registered job title keep their current access. Selections only grant access to modules enabled for the company.",
     "vendas": "Sales",
     "atendimento": "Customer service",
-    "lideranca": "Leadership readiness",
+    "lideranca": "Leadership",
     "enabled": "Enabled for this company",
     "disabled": "Not enabled for this company",
     "configure": "Configure module",
-    "leadershipHint": "Leadership readiness remains available only to users with the HR role. This setting controls access to the page, reports, and PDFs; it does not change who participates in the assessment. Platform administrators retain administrative access.",
+    "leadershipHint": "The leadership simulator remains available only to users with the HR role. This setting controls access to the page, reports, and PDFs; it does not change who participates in the assessment. Platform administrators retain administrative access.",
     "role": "Job title",
     "save": "Save changes",
     "search": "Search job titles",
@@ -327,7 +327,7 @@
   "DashboardShell": {
     "nav": {
       "home": "Home",
-      "prontidaoLideranca": "Leadership readiness",
+      "prontidaoLideranca": "Leadership simulator",
       "ranking": "Job Fit",
       "reports": "Reports",
       "team": "Team",
@@ -2789,7 +2789,7 @@
       "ranking": "Ranking (HR preview)",
       "calibracao": "Calibration",
       "devBadge": "dev/internal",
-      "prontidao": "Leadership readiness"
+      "prontidao": "Leadership simulator"
     }
   },
   "AdminPPP": {
@@ -4776,8 +4776,8 @@
       "programTitle": "Program for the NEXT track generation — an in-flight track runs on its own stamp"
     },
     "program": {
-      "moduloProntidaoTitle": "Leadership Readiness module",
-      "moduloProntidaoDesc": "Sold separately. When on, HR sees the matrix reading and the leadership track opens for the population configured under Job Fit → Readiness.",
+      "moduloProntidaoTitle": "Leadership simulator",
+      "moduloProntidaoDesc": "Sold separately. When on, HR sees the matrix reading and the leadership track opens for the population configured under Job Fit → Leadership simulator.",
       "moduloProntidaoOn": "On",
       "moduloProntidaoOff": "Off",
       "title": "Program mode",

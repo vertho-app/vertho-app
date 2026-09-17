@@ -76,7 +76,7 @@ export const SPEC_CONFIG: Record<string, SpecChave> = {
   },
   prontidao_lideranca: {
     escopo: 'empresa', estrategia: 'substitui',
-    nota: 'Programa de Prontidão para Liderança: cargo-alvo, exemplares, corte. O cargo-alvo e as competências dele são institucionais (gabarito + top5_workshop vivem por empresa); a POPULAÇÃO pode ser uma turma, mas isso é um campo DENTRO da chave, não um override por turma.',
+    nota: 'Simulador de liderança: cargo-alvo, exemplares, corte. O cargo-alvo e as competências dele são institucionais (gabarito + top5_workshop vivem por empresa); a POPULAÇÃO pode ser uma turma, mas isso é um campo DENTRO da chave, não um override por turma.',
   },
   votacao_ativa: {
     escopo: 'empresa', estrategia: 'escalar',

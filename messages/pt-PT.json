@@ -6,11 +6,11 @@
     "defaults": "Funções sem uma regra guardada, funções novas e pessoas sem função registada mantêm o acesso atual. A seleção só dá acesso aos módulos ativados na empresa.",
     "vendas": "Vendas",
     "atendimento": "Atendimento",
-    "lideranca": "Prontidão para liderança",
+    "lideranca": "Liderança",
     "enabled": "Ativado na empresa",
     "disabled": "Não ativado na empresa",
     "configure": "Configurar módulo",
-    "leadershipHint": "Prontidão para liderança continua disponível apenas para utilizadores com perfil de RH. Esta configuração controla o acesso ao ecrã, aos relatórios e aos PDF; não altera quem participa no mapeamento. Os administradores da plataforma mantêm o acesso administrativo.",
+    "leadershipHint": "O simulador de liderança continua disponível apenas para utilizadores com perfil de RH. Esta configuração controla o acesso ao ecrã, aos relatórios e aos PDF; não altera quem participa no mapeamento. Os administradores da plataforma mantêm o acesso administrativo.",
     "role": "Função",
     "save": "Guardar alterações",
     "search": "Pesquisar função",
@@ -327,7 +327,7 @@
   "DashboardShell": {
     "nav": {
       "home": "Início",
-      "prontidaoLideranca": "Prontidão para liderança",
+      "prontidaoLideranca": "Simulador de liderança",
       "ranking": "Adequação",
       "reports": "Relatórios",
       "team": "Equipa",
@@ -2789,7 +2789,7 @@
       "ranking": "Ranking (pré-visualização RH)",
       "calibracao": "Calibração",
       "devBadge": "dev/interno",
-      "prontidao": "Prontidão para liderança"
+      "prontidao": "Simulador de liderança"
     }
   },
   "AdminPPP": {
@@ -4776,8 +4776,8 @@
       "programTitle": "Programa da PRÓXIMA geração de trilha — a trilha em curso corre pelo carimbo dela"
     },
     "program": {
-      "moduloProntidaoTitle": "Módulo Prontidão para Liderança",
-      "moduloProntidaoDesc": "Contratado à parte. Ligado, o RH vê a leitura da matriz e o trilho de liderança abre para a população configurada em Adequação → Prontidão.",
+      "moduloProntidaoTitle": "Simulador de liderança",
+      "moduloProntidaoDesc": "Contratado à parte. Ligado, o RH vê a leitura da matriz e o trilho de liderança abre para a população configurada em Adequação → Simulador de liderança.",
       "moduloProntidaoOn": "Ligado",
       "moduloProntidaoOff": "Desligado",
       "title": "Modo do programa",

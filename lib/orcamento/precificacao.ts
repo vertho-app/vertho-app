@@ -77,11 +77,15 @@ export const ORCAMENTO_DEFAULTS = {
   custoTreinoSimuladorUsd: 0.155,
 };
 
-/** Nome de cada simulador como o CLIENTE lê (menu do produto e escopo da proposta). */
+/**
+ * Nome de cada simulador como o CLIENTE lê (menu do produto e escopo da proposta).
+ * Os três são "Simulador de …", decisão do Rodrigo (17/09/2026): nada de
+ * "Treino de atendimento" nem "Prontidão para liderança".
+ */
 export const ROTULO_SIMULADOR: Record<Simulador, string> = {
   vendas: 'Simulador de vendas',
-  atendimento: 'Treino de atendimento',
-  lideranca: 'Prontidão para liderança',
+  atendimento: 'Simulador de atendimento',
+  lideranca: 'Simulador de liderança',
 };
 
 /** Pessoas com acesso por simulador. Zero = simulador fora do escopo. */

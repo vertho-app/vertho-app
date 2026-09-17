@@ -426,7 +426,7 @@ describe('simuladores incluídos (17/09/2026)', () => {
     });
     expect(doc.simuladores.map((x) => [x.nome, x.pessoas])).toEqual([
       ['Simulador de vendas', 100],
-      ['Prontidão para liderança', 100],
+      ['Simulador de liderança', 100],
     ]);
     expect(doc.simuladores.every((x) => x.descricao.length > 60)).toBe(true);
   });

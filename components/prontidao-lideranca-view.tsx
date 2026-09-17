@@ -220,7 +220,7 @@ export default function ProntidaoLiderancaView({ carregar, parecer, exportarPare
         const r = await carregarRef.current();
         if (!ativo) return;
         if (r.success) setData(r.data); else { setErro(r.error || 'Erro.'); setCode(r.code || ''); }
-      } catch { if (ativo) setErro('Não foi possível calcular a prontidão.'); }
+      } catch { if (ativo) setErro('Não foi possível carregar o simulador de liderança.'); }
       if (ativo) setLoading(false);
     })();
     return () => { ativo = false; };
@@ -260,7 +260,7 @@ export default function ProntidaoLiderancaView({ carregar, parecer, exportarPare
       <div className="rounded-2xl border border-white/[0.06] p-5" style={{ background: '#0F2A4A' }}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-extrabold uppercase tracking-widest text-purple-300">Prontidão para liderança</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-widest text-purple-300">Simulador de liderança</p>
             <h2 className="text-lg font-black text-white">Perfil-alvo: {data.cargoAlvo}</h2>
             <p className="text-xs text-gray-400 mt-1">Calculado em {horaBr(data.calculadoEm)} · {data.populacao} pessoas na população · corte {fmtNota(data.corte)}</p>
           </div>

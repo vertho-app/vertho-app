@@ -77,7 +77,7 @@ const Pill = ({ q }: { q: Quadrante }) => (
 );
 
 const Rodape = ({ empresaNome }: { empresaNome: string }) => (
-  <Text style={s.footer} fixed render={({ pageNumber, totalPages }) => `${empresaNome} · Prontidão para Liderança · ${pageNumber}/${totalPages} · ${DISCLAIMER}`} />
+  <Text style={s.footer} fixed render={({ pageNumber, totalPages }) => `${empresaNome} · Simulador de liderança · ${pageNumber}/${totalPages} · ${DISCLAIMER}`} />
 );
 
 // ── PARECER INDIVIDUAL ───────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ function CapaParecer({ p, empresaNome }: { p: Parecer; empresaNome: string }) {
     <Page size="A4" style={s.pageDark}>
       <View style={s.row}><Marca /><Text style={s.eyebrowDark}>{empresaNome}</Text></View>
       <View style={{ marginTop: 120 }}>
-        <Text style={s.eyebrowDark}>Parecer de prontidão para liderança</Text>
+        <Text style={s.eyebrowDark}>Parecer do simulador de liderança</Text>
         <Text style={s.h1}>{l.nome}</Text>
         <Text style={{ color: T.off, opacity: 0.8, marginTop: 4, fontSize: 10 }}>{l.cargo || 'sem cargo'}  ·  perfil-alvo: {p.cargoAlvo}</Text>
         <View style={{ marginTop: 22, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -187,7 +187,7 @@ function PaginaEvidencias({ p, empresaNome }: { p: Parecer; empresaNome: string 
 export async function renderParecerPDF(input: ParecerPDFInput): Promise<Buffer> {
   const { parecer: p, empresaNome } = input;
   return renderToBuffer(
-    <Document producer="Vertho" creator="Vertho" title={`Parecer de prontidão · ${p.linha.nome}`}>
+    <Document producer="Vertho" creator="Vertho" title={`Parecer do simulador de liderança · ${p.linha.nome}`}>
       <CapaParecer p={p} empresaNome={empresaNome} />
       <PaginaPosicao p={p} empresaNome={empresaNome} />
       <PaginaEvidencias p={p} empresaNome={empresaNome} />
@@ -206,12 +206,12 @@ export async function renderConsolidadoPDF(input: ConsolidadoPDFInput): Promise<
   const { data, empresaNome } = input;
   const porQ = (q: Quadrante) => data.linhas.filter((l) => l.quadrante === q);
   return renderToBuffer(
-    <Document producer="Vertho" creator="Vertho" title={`Prontidão para liderança · ${data.cargoAlvo}`}>
+    <Document producer="Vertho" creator="Vertho" title={`Simulador de liderança · ${data.cargoAlvo}`}>
       <Page size="A4" style={s.pageDark}>
         <View style={s.row}><Marca /><Text style={s.eyebrowDark}>{empresaNome}</Text></View>
         <View style={{ marginTop: 120 }}>
           <Text style={s.eyebrowDark}>Consolidado da equipe</Text>
-          <Text style={s.h1}>Prontidão para liderança</Text>
+          <Text style={s.h1}>Simulador de liderança</Text>
           <Text style={{ color: T.off, opacity: 0.8, marginTop: 4, fontSize: 10 }}>perfil-alvo: {data.cargoAlvo} · calculado em {fmtDataHora(data.calculadoEm)}</Text>
           <Text style={{ color: T.off, opacity: 0.75, marginTop: 10, fontSize: 9 }}>Competências: {data.competencias.join(' · ')}</Text>
         </View>

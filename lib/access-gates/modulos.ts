@@ -34,7 +34,7 @@ export type Modulo = (typeof MODULOS)[keyof typeof MODULOS];
 
 const ROTULO: Record<string, string> = {
   [MODULOS.PULSO]: 'Pulso de Desenvolvimento',
-  [MODULOS.PRONTIDAO_LIDERANCA]: 'Prontidão para Liderança',
+  [MODULOS.PRONTIDAO_LIDERANCA]: 'Simulador de liderança',
 };
 
 /**

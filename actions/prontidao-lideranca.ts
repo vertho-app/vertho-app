@@ -43,7 +43,7 @@ async function ctxRh(): Promise<{ empresaId: string } | { erro: string }> {
   if (ctx?.role !== 'rh') return { erro: 'Acesso exclusivo do RH.' };
   if (!ctx.empresaId) return { erro: 'RH sem empresa vinculada.' };
   if (!ctx.isPlatformAdmin && !(await acessoSimuladoresDoColaborador(ctx.colaborador)).lideranca)
-    return { erro: 'Prontidão para liderança não está liberada para seu cargo.' };
+    return { erro: 'O simulador de liderança não está liberado para seu cargo.' };
   return { empresaId: ctx.empresaId };
 }
 
@@ -113,7 +113,7 @@ async function _get(sb: any, empresaId: string) {
     const data = await agregarProntidaoLideranca(sb, empresaId, p.cfg);
     return { success: true as const, data };
   } catch (e: any) {
-    return { success: false as const, error: e?.message || 'Erro ao calcular a prontidão.' };
+    return { success: false as const, error: e?.message || 'Erro ao carregar o simulador de liderança.' };
   }
 }
 
