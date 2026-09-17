@@ -229,12 +229,17 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
         Teclado abre por `has-focus-visible`, NÃO por `focus-within`: o botão
         clicado com o mouse guarda o foco, e com `focus-within` a coluna ficava
         aberta por cima da tela depois da navegação.
+        🔴 Aberta, a coluna fica em z-[44]: acima do conteúdo (até z-40) e ABAIXO
+        da barra da sala de apresentação (z-[45], rente à coluna). Em z-50 ela
+        cobria a barra, e o ponto de "Voltar ao início" virava o botão Sair: quem
+        descia o mouse pela coluna até a barra deslogava da sala (visto no
+        navegador em 16/09/2026).
         Sem classe arbitrária com vírgula: o Tailwind não gera e a regra some
         calada (memória `reference_tailwind_classe_arbitraria_virgula`).
       */}
       <aside
         data-menu="lateral"
-        className="group/menu hidden md:flex fixed left-0 top-0 h-full w-20 overflow-hidden border-r border-white/[0.08] flex-col py-6 gap-6 z-40 transition-[width] duration-200 ease-out hover:w-60 hover:z-50 hover:shadow-2xl has-focus-visible:w-60 has-focus-visible:z-50 has-focus-visible:shadow-2xl"
+        className="group/menu hidden md:flex fixed left-0 top-0 h-full w-20 overflow-hidden border-r border-white/[0.08] flex-col py-6 gap-6 z-40 transition-[width] duration-200 ease-out hover:w-60 hover:z-[44] hover:shadow-2xl has-focus-visible:w-60 has-focus-visible:z-[44] has-focus-visible:shadow-2xl"
         style={{ background: theme.bgStart, backdropFilter: 'blur(12px)' }}
       >
         <div className="flex w-60 items-center gap-3 px-5">

@@ -74,6 +74,26 @@ describe('menu lateral do dashboard', () => {
     expect(asideDoMenu()).not.toMatch(/focus-within/);
   });
 
+  it('🔴 aberta, a coluna fica ABAIXO da barra da sala de apresentação e acima do conteúdo', () => {
+    // Medido no navegador em 16/09/2026: em z-50 a coluna aberta cobria a barra
+    // (z-[45], rente à coluna), e o ponto de "Voltar ao início" virava o botão
+    // Sair. As duas grandezas são lidas do código, não copiadas aqui.
+    const barra = readFileSync(path.resolve(__dirname, '../../components/dashboard/presentation-role-switcher.tsx'), 'utf8');
+    const zDaBarra = Number(barra.match(/className="fixed [^"]*\bz-\[(\d+)\]/)?.[1]);
+    expect(Number.isFinite(zDaBarra)).toBe(true);
+
+    const classesDoMenu = asideDoMenu().match(/className="(group\/menu [^"]*)"/)?.[1] ?? '';
+    // fim da classe por espaço ou fim do texto: `\b` não casa depois de `]`
+    const zAberto = [...classesDoMenu.matchAll(/(?:hover|has-focus-visible):z-(?:\[(\d+)\]|(\d+))(?=\s|$)/g)]
+      .map(([, colchete, simples]) => Number(colchete ?? simples));
+    // os dois gatilhos declaram a camada
+    expect(zAberto).toHaveLength(2);
+    for (const z of zAberto) {
+      expect(z).toBeLessThan(zDaBarra);
+      expect(z).toBeGreaterThan(40);
+    }
+  });
+
   it('abrir a coluna não empurra o conteúdo', () => {
     expect(fonte).toMatch(/<main className=\{`[^`]*\bmd:ml-20\b/);
     expect(asideDoMenu()).toMatch(/className="[^"]*\bfixed\b/);
