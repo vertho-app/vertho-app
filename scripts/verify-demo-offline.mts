@@ -5,6 +5,7 @@ import { readFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { createHash } from "node:crypto";
 import { offlineEnvironment } from "../lib/demo/offline/environment.ts";
+import { ARQUIVO_MIDIA, MIDIA_OFFLINE, STORAGE_PUBLICO } from "../lib/demo/offline/midia-rewrites.mjs";
 
 const tenant = process.argv.includes("--acme") ? "acme-demo" : "escolas-acme";
 const environment = offlineEnvironment(tenant);
@@ -33,6 +34,20 @@ if (!explicitOrigin) {
         (path.startsWith("/apresentacao-offline/") || path === "/sw.js"));
     if (!allowed || path.includes("..")) {
       res.writeHead(404).end();
+      return;
+    }
+    // Em produção quem serve `<base>midia/` é o rewrite do next.config.
+    const midia = MIDIA_OFFLINE.find((m) => path.startsWith(`${m.base}midia/`));
+    if (midia) {
+      const arquivo = path.slice(`${midia.base}midia/`.length);
+      if (!ARQUIVO_MIDIA.test(arquivo)) {
+        res.writeHead(404).end();
+        return;
+      }
+      const upstream = await fetch(`${STORAGE_PUBLICO}/${midia.storage}/${arquivo}`);
+      res
+        .writeHead(upstream.status, { "Content-Type": upstream.headers.get("content-type") || "application/octet-stream", "Cache-Control": "no-store" })
+        .end(Buffer.from(await upstream.arrayBuffer()));
       return;
     }
     try {

@@ -1,7 +1,7 @@
 [
   {
     "path": "media/semana-1-case.pdf",
-    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/texto/Did_tica_e_estrat_gias_de_ensino/1788291288858.pdf",
+    "source": "/apresentacao-offline/midia/3a19c52aac45ab7fc62ce185241452c319d3b1d0d73155d71c7a273009b9d385.pdf",
     "bytes": 225323,
     "sha256": "3a19c52aac45ab7fc62ce185241452c319d3b1d0d73155d71c7a273009b9d385",
     "type": "application/pdf",
@@ -9,7 +9,7 @@
   },
   {
     "path": "media/semana-1-audio.mp3",
-    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/escolas/46fa1dbda91015414dfbde4c02693ad258c23325fb4a3a15ac75c5c6c3fa21e2.mp3",
+    "source": "/apresentacao-offline/midia/46fa1dbda91015414dfbde4c02693ad258c23325fb4a3a15ac75c5c6c3fa21e2.mp3",
     "bytes": 2385815,
     "sha256": "46fa1dbda91015414dfbde4c02693ad258c23325fb4a3a15ac75c5c6c3fa21e2",
     "type": "audio/mpeg",
@@ -17,7 +17,7 @@
   },
   {
     "path": "media/semana-1-texto.pdf",
-    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/texto/Did_tica_e_estrat_gias_de_ensino/1788291132222.pdf",
+    "source": "/apresentacao-offline/midia/15c38b828f46b9ab05ea81a4f17263277017f98bc74bf0df76587e44e41d5d2c.pdf",
     "bytes": 232657,
     "sha256": "15c38b828f46b9ab05ea81a4f17263277017f98bc74bf0df76587e44e41d5d2c",
     "type": "application/pdf",
@@ -25,7 +25,7 @@
   },
   {
     "path": "media/semana-1-video.mp4",
-    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/escolas/595429554384bd7953621d2599c931f44fcb00a9d7e64911ad80164f891b1c57.mp4",
+    "source": "/apresentacao-offline/midia/595429554384bd7953621d2599c931f44fcb00a9d7e64911ad80164f891b1c57.mp4",
     "bytes": 17850910,
     "sha256": "595429554384bd7953621d2599c931f44fcb00a9d7e64911ad80164f891b1c57",
     "type": "video/mp4",
@@ -33,7 +33,7 @@
   },
   {
     "path": "media/semana-2-case.pdf",
-    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/texto/Did_tica_e_estrat_gias_de_ensino/1788290867729.pdf",
+    "source": "/apresentacao-offline/midia/8c0f2e24a3bad993fb295a197ae385f02338afc4e273784d7f2b0024cb30f497.pdf",
     "bytes": 228894,
     "sha256": "8c0f2e24a3bad993fb295a197ae385f02338afc4e273784d7f2b0024cb30f497",
     "type": "application/pdf",
@@ -41,7 +41,7 @@
   },
   {
     "path": "media/semana-2-audio.mp3",
-    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/escolas/5cbddd4fb5c8c3041d2404355e2c1cd9c18a72554fa58b72099e08793102cd26.mp3",
+    "source": "/apresentacao-offline/midia/5cbddd4fb5c8c3041d2404355e2c1cd9c18a72554fa58b72099e08793102cd26.mp3",
     "bytes": 2477975,
     "sha256": "5cbddd4fb5c8c3041d2404355e2c1cd9c18a72554fa58b72099e08793102cd26",
     "type": "audio/mpeg",
@@ -49,7 +49,7 @@
   },
   {
     "path": "media/semana-2-texto.pdf",
-    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/texto/Did_tica_e_estrat_gias_de_ensino/1788290708492.pdf",
+    "source": "/apresentacao-offline/midia/7701334013d0c1b7cc44b41ffff0182fac6af83701c905906244ba8008ef85c0.pdf",
     "bytes": 233838,
     "sha256": "7701334013d0c1b7cc44b41ffff0182fac6af83701c905906244ba8008ef85c0",
     "type": "application/pdf",
@@ -57,7 +57,7 @@
   },
   {
     "path": "media/semana-2-video.mp4",
-    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/escolas/3d434ed2ec839b5d3b4ff6d48b58d1b09ee21970b8de28c5150f33478b9e3485.mp4",
+    "source": "/apresentacao-offline/midia/3d434ed2ec839b5d3b4ff6d48b58d1b09ee21970b8de28c5150f33478b9e3485.mp4",
     "bytes": 14923172,
     "sha256": "3d434ed2ec839b5d3b4ff6d48b58d1b09ee21970b8de28c5150f33478b9e3485",
     "type": "video/mp4",

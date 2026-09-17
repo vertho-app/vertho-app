@@ -18,6 +18,7 @@ import schoolMedia from "@/lib/demo/offline/media.json";
 import acmeMedia from "@/lib/demo/offline/acme-media.json";
 import videosJornadaEscolar from "@/lib/demo/escolas-videos-jornada.json";
 import fixtureEscolas from "@/lib/demo/escolas-demo-fixture.json";
+import { ARQUIVO_MIDIA, MIDIA_OFFLINE, rewritesDaMidiaOffline } from "@/lib/demo/offline/midia-rewrites.mjs";
 import type { OfflinePackage } from "@/lib/demo/offline/types";
 
 describe("Apresentação offline: mídia e limites", () => {
@@ -95,19 +96,47 @@ describe("Apresentação offline: mídia e limites", () => {
   it("a escolar empacota o vídeo e o podcast nominais da Marina, não o deck nem o MP3-base", () => {
     // 17/09/2026: o manifesto apontava para o deck da célula e para o áudio
     // sem saudação, e a apresentação da professora saía sem "Olá, Marina".
-    const genericos = new Set<string>([
+    // Os bytes do deck e do MP3-base que o pacote levava (medidos no manifesto
+    // antigo). A origem deixou de dizer de onde a mídia veio, então quem denuncia
+    // a volta do genérico é o conteúdo.
+    const shasGenericos = new Set([
+      "4eb1030ff284a0d471a20c558328b37ab7f5afa3b6f353942aafd33834dd8afe",
+      "373ead56db9d9e3c4bedff6952dca224b9c73a184526c6a0fcfaaf68a6f6ef94",
+      "8107a90c085f2bf77186ddb3a4cf03ecfe3845264433360cebb4c5a2fb80487b",
+      "d9c7c77618725df64e23e2632c30cf8d95c404d699c5809edf28e96ba33f44e5",
+    ]);
+    const idsGenericos = [
       ...videosJornadaEscolar.map((v) => v.bunnyVideoId),
       ...(fixtureEscolas as any).personaArtifacts["marina.demo@vertho.ai"].trilha.row.temporada_plano
-        .map((w: any) => w.conteudo?.formatos_disponiveis?.audio?.url)
+        .map((w: any) => w.conteudo?.formatos_disponiveis?.audio?.id)
         .filter(Boolean),
-    ]);
+    ];
     const midias = schoolMedia.filter((a) => /-(video|audio)\./.test(a.path));
     expect(midias).toHaveLength(4);
     for (const asset of midias) {
-      expect([...genericos].some((g) => asset.source.includes(g)), asset.path).toBe(false);
-      // Cópia imutável: o reset move o podcast personalizado para o UUID novo.
-      expect(asset.source, asset.path).toContain(`/demo-offline/escolas/${asset.sha256}.`);
+      expect(shasGenericos.has(asset.sha256), asset.path).toBe(false);
+      expect(idsGenericos.some((id) => asset.source.includes(id)), asset.path).toBe(false);
     }
+  });
+  it("toda mídia dos dois pacotes sai pelo mesmo domínio, com nome igual ao conteúdo", () => {
+    // 17/09/2026: o app offline INSTALADO bloqueia URL externa fora da lista
+    // gravada no build dele, e é ele quem baixa a versão nova. Com o podcast numa
+    // URL nova do Storage, "Atualizar pacote" falhava com conexão. Mesmo domínio
+    // dentro da base é o que todas as versões publicadas aceitam.
+    for (const [tenant, media] of [
+      ["escolas-acme", schoolMedia],
+      ["acme-demo", acmeMedia],
+    ] as const) {
+      const { base } = offlineEnvironment(tenant);
+      const rewrite = rewritesDaMidiaOffline().find((r) => r.source.startsWith(`${base}midia/`));
+      expect(rewrite, `${tenant} sem rewrite de mídia`).toBeDefined();
+      for (const asset of media) {
+        const ext = asset.path.split(".").pop();
+        expect(asset.source, asset.path).toBe(`${base}midia/${asset.sha256}.${ext}`);
+        expect(ARQUIVO_MIDIA.test(asset.source.slice(`${base}midia/`.length)), asset.path).toBe(true);
+      }
+    }
+    expect(MIDIA_OFFLINE.map((m) => m.storage)).toEqual(["demo-offline/escolas", "demo-offline/acme"]);
   });
   it("atende início, busca, fim e intervalos inválidos de vídeo", () => {
     expect(byteRange("bytes=0-1", 100)).toEqual({ start: 0, end: 1 });

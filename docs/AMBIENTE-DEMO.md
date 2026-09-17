@@ -62,12 +62,20 @@ incompletos, cancelados ou sem espaço não substituem o pacote anterior.
   downloads e não precisam de segredos. As semanas vêm do plano congelado de
   Marina. Vídeo e podcast são cópias imutáveis das versões nominais dela
   (`videos_personalizados` das células de `escolas-videos-jornada.json` e
-  `final/audio-personalizado/<conteúdo>/<Marina>.mp3`), em
-  `conteudos/demo-offline/escolas/<sha256>.<ext>`; texto e case seguem nos PDFs do
-  fixture. `tests/unit/demo-offline.test.ts` recusa manifesto com o deck da célula ou
-  o MP3-base. A cópia é necessária porque o reset recria a persona com UUID novo e
-  move o áudio personalizado toda noite. As mídias da ACME são cópias imutáveis do material entregue a Bruna, em
-  `conteudos/demo-offline/acme/<sha256>.<ext>`, independentes de login e do reset.
+  `final/audio-personalizado/<conteúdo>/<Marina>.mp3`); texto e case são os PDFs do
+  fixture. A cópia é necessária porque o reset recria a persona com UUID novo e move
+  o áudio personalizado toda noite. As mídias da ACME são cópias imutáveis do
+  material entregue a Bruna. Todas ficam em `conteudos/demo-offline/<escolas|acme>/<sha256>.<ext>`.
+- 🔴 **O `source` de toda mídia é do MESMO domínio**: `<base>midia/<sha256>.<ext>`, que
+  o rewrite de `lib/demo/offline/midia-rewrites.mjs` (importado pelo `next.config.mjs`)
+  repassa ao Storage. Quem baixa a versão nova é o app JÁ INSTALADO, e ele bloqueia
+  (503) toda URL externa fora da lista gravada no build dele (`__OFFLINE_MEDIA__`).
+  Em 17/09/2026 o podcast da Marina mudou para uma URL nova do Storage e "Atualizar
+  pacote" falhou com conexão ("Não foi possível baixar Semana 1 · podcast da Marina").
+  Mesmo domínio dentro da base é o que transporte, service worker e `validatePackage`
+  de todas as versões publicadas aceitam. `tests/unit/demo-offline.test.ts` exige o
+  formato nos dois manifestos e recusa os bytes do deck e do MP3-base antigos; o
+  canário local (`verify-demo-offline.mts`) repassa `midia/` ao Storage como o rewrite.
 - `npm run build:demo-offline` gera `public/apresentacao-offline/` e
   `public/apresentacao-offline-acme/` (ignorados no Git).
   `predev` e `prebuild` executam o mesmo gerador. HTML, CSS, JavaScript e fontes
