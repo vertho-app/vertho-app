@@ -9,6 +9,7 @@ import { formatarAvanco, formatarValorAvanco, CONVERGENCIA } from '@/lib/season-
 import { COR_VEREDITO_TELA, corTela } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { textosDoRelatorio } from '@/lib/season-engine/relatorio-texto';
+import TeiaEvolucao from '@/components/temporada/teia-evolucao';
 
 // Sem veredito de regressão (a régua não tem desde 01/09) e sem nota absoluta:
 // cada descritor mostra só o AVANÇO, com piso em zero, e o veredito. Decisão do
@@ -147,6 +148,11 @@ export default function RelatorioTemporadaConcluida({ data: dadosBrutos }: { dat
             {grupo.competencia && (
               <p className="text-base font-bold text-brand-300 mb-2">{t('competencyTitle', { name: grupo.competencia })}</p>
             )}
+            {/* A teia abre o grupo: os mesmos comportamentos dos cards abaixo,
+                com o início e o fim da temporada sobrepostos (pedido do dono,
+                17/09/2026). O fim tem PISO no início — o desenho não afirma
+                queda que a régua não afirma (`lib/season-engine/teia-evolucao`). */}
+            <TeiaEvolucao descritores={grupo.descritores} competencia={grupo.competencia} />
             <div className="space-y-2">
               {grupo.descritores.map((d, i) => {
                 const conv = VEREDITO[d.convergencia] || VEREDITO.estagnacao;

@@ -1433,6 +1433,13 @@
       "partial": "Avanço de pelo menos 0,2",
       "stable": "Mesmo patamar do início"
     },
+    "chart": {
+      "legendStart": "No início da temporada",
+      "legendEnd": "No fim da temporada",
+      "scale": "Escala de {min} a {max}",
+      "note": "Onde o comportamento ficou no mesmo patamar, as duas linhas tocam-se.",
+      "alt": "Teia dos comportamentos observáveis de {competency}, com a medição do início e a do fim da temporada sobrepostas."
+    },
     "backToSeason": "Voltar à temporada",
     "downloadPdf": "Transferir PDF",
     "pdfError": "Erro ao gerar PDF",

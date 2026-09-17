@@ -1433,6 +1433,13 @@
       "partial": "Avance de al menos 0,2",
       "stable": "Mismo nivel del inicio"
     },
+    "chart": {
+      "legendStart": "Al inicio de la temporada",
+      "legendEnd": "Al final de la temporada",
+      "scale": "Escala de {min} a {max}",
+      "note": "Donde el comportamiento se mantuvo en el mismo nivel, las dos líneas se tocan.",
+      "alt": "Tela de araña de los comportamientos observables de {competency}, con la medición del inicio y la del final de la temporada superpuestas."
+    },
     "backToSeason": "Volver a la temporada",
     "downloadPdf": "Descargar PDF",
     "pdfError": "Error al generar el PDF",

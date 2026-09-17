@@ -1433,6 +1433,13 @@
       "partial": "Progress of at least 0.2",
       "stable": "Same level as at the start"
     },
+    "chart": {
+      "legendStart": "At the start of the season",
+      "legendEnd": "At the end of the season",
+      "scale": "Scale from {min} to {max}",
+      "note": "Where the behavior stayed at the same level, the two lines meet.",
+      "alt": "Radar of the observable behaviors in {competency}, with the start and the end of the season overlaid."
+    },
     "backToSeason": "Back to season",
     "downloadPdf": "Download PDF",
     "pdfError": "Error generating PDF",

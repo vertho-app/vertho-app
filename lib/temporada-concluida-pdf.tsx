@@ -23,7 +23,7 @@
  * `Font family not registered: NotoSans` com a fonte registrada.
  */
 import React from 'react';
-import { Document, Page, Text, View, Image, StyleSheet, Svg, Path, renderToBuffer } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet, Svg, Path, Polygon, Line, Circle, renderToBuffer } from '@react-pdf/renderer';
 import { colors, fonts, pageStyles } from '@/components/pdf/styles';
 import PdfReportCover, { ReportSectionTitle } from '@/components/pdf/PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
@@ -31,6 +31,7 @@ import type { MarcaPdf } from '@/lib/pdf-marca';
 import { avancoExibido, rotuloConvergencia, CONVERGENCIA } from '@/lib/season-engine/convergencia';
 import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
+import { montarTeia, temTeia, NOTA_MAX, NOTA_MIN } from '@/lib/season-engine/teia-evolucao';
 import { textosDoRelatorio } from '@/lib/season-engine/relatorio-texto';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { createTranslator } from 'next-intl';
@@ -95,6 +96,14 @@ const s = StyleSheet.create({
   destaqueFrase: { fontFamily: 'NotoSans', fontSize: fonts.small, color: colors.textSecondary, lineHeight: 1.5, marginTop: 6 },
   statExplicacao: { fontFamily: 'NotoSans', fontSize: fonts.caption, color: colors.textSecondary, lineHeight: 1.45, marginTop: 4 },
   destaqueAvancoValor: { fontFamily: 'NotoSans', fontSize: 22, fontWeight: 700, color: colors.navy, marginTop: 1 },
+  // A teia da competência: o bloco inteiro é uma figura, com legenda embaixo.
+  teiaBloco: { alignItems: 'center', marginTop: 4, marginBottom: 8 },
+  teiaRotulo: { fontFamily: 'NotoSans', fontSize: 6.5 },
+  teiaNivel: { fontFamily: 'NotoSans', fontSize: 6 },
+  teiaLegenda: { flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 2 },
+  teiaLegendaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  teiaLegendaTexto: { fontFamily: 'NotoSans', fontSize: fonts.caption, color: colors.textMuted },
+  teiaNota: { fontFamily: 'NotoSans', fontSize: fonts.caption, color: colors.textMuted, marginTop: 3, textAlign: 'center' },
 });
 
 /** Cabeçalho navy fixo — o mesmo dos outros relatórios (`pageStyles.header`). */
@@ -222,6 +231,94 @@ function EscalaDeNiveis({ inicial, final }: { inicial: number | null; final: num
           </View>
         );
       })}
+    </View>
+  );
+}
+
+/**
+ * A TEIA da competência: os mesmos comportamentos dos cards abaixo, com o
+ * diagnóstico e o fechamento sobrepostos (pedido do dono, 17/09/2026).
+ *
+ * Geometria, escala e o PISO do fechamento vêm do núcleo
+ * (`lib/season-engine/teia-evolucao`), compartilhado com a tela: o papel e a
+ * tela não podem desenhar o mesmo relatório com réguas diferentes — é a lição
+ * de `convergencia.ts`, uma pasta acima.
+ *
+ * Cores validadas pelo `scripts/validate_palette.js` da skill `dataviz` contra
+ * a superfície BRANCA do papel: `#2C6BE7` × `#166534` passa nos seis checks
+ * (ΔE 26,7 em deuteranopia). O navy da marca reprova como cor de série (fora da
+ * banda de lightness e abaixo do piso de chroma) — por isso o azul aqui não é o
+ * `colors.navy` do documento.
+ * Identidade nunca só na cor: o início é TRACEJADO, o fim é sólido, e há
+ * legenda logo abaixo.
+ */
+const TEIA_INICIO = '#2C6BE7';
+const TEIA_FIM = COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].fg; // #166534
+
+function TeiaDaCompetencia({ descritores }: { descritores: any[] }) {
+  const teia = montarTeia(descritores, {
+    centro: { x: 232, y: 132 },
+    raio: 84,
+    folgaRotulo: 11,
+    larguraRotulo: 18,
+  });
+  // Menos de 3 comportamentos medidos: não há polígono, e os cards abaixo já
+  // contam a mesma história.
+  if (!teia) return null;
+
+  return (
+    <View style={s.teiaBloco} wrap={false}>
+      <Svg width={464} height={272} viewBox="0 0 464 272">
+        {teia.aneis.map((anel) => (
+          <Polygon key={anel.valor} points={anel.pontos} fill="none" stroke={colors.gray300} strokeWidth={0.5} />
+        ))}
+        {teia.eixos.map((eixo, i) => (
+          <Line key={i} x1={teia.centro.x} y1={teia.centro.y} x2={eixo.vertice.x} y2={eixo.vertice.y} stroke={colors.gray200} strokeWidth={0.5} />
+        ))}
+        <Polygon points={teia.poligonoFim} fill={TEIA_FIM} fillOpacity={0.16} stroke={TEIA_FIM} strokeWidth={1.6} />
+        {/* Tracejado: o início se lê mesmo onde as duas linhas coincidem. */}
+        <Polygon points={teia.poligonoInicio} fill="none" stroke={TEIA_INICIO} strokeWidth={1.6} strokeDasharray="4 2.5" />
+        {teia.eixos.map((eixo, i) => (
+          <Circle key={`p${i}`} cx={eixo.pontoFim.x} cy={eixo.pontoFim.y} r={2.6} fill={TEIA_FIM} stroke={colors.white} strokeWidth={1} />
+        ))}
+        {/* Os números dos níveis vêm por ÚLTIMO: desenhados antes, o marcador do
+            vértice cobria o "2" (visto na captura de um relatório real). */}
+        {teia.aneis.map((anel) => (
+          <Text key={`n${anel.valor}`} x={anel.rotuloEm.x + 5} y={anel.rotuloEm.y + 2.5} style={s.teiaNivel} fill={colors.textMuted}>
+            {String(anel.valor)}
+          </Text>
+        ))}
+        {teia.eixos.map((eixo, i) =>
+          eixo.linhas.map((linha, l) => (
+            <Text
+              key={`${i}-${l}`}
+              x={eixo.pontoRotulo.x}
+              y={eixo.pontoRotulo.y + 2.5 + (l - (eixo.linhas.length - 1) / 2) * 8}
+              textAnchor={eixo.ancora}
+              style={s.teiaRotulo}
+              fill={colors.textSecondary}
+            >
+              {linha}
+            </Text>
+          )),
+        )}
+      </Svg>
+      <View style={s.teiaLegenda}>
+        <View style={s.teiaLegendaItem}>
+          <Svg width={16} height={4}>
+            <Line x1={0} y1={2} x2={16} y2={2} stroke={TEIA_INICIO} strokeWidth={1.6} strokeDasharray="4 2.5" />
+          </Svg>
+          <Text style={s.teiaLegendaTexto}>{tr('chart.legendStart')}</Text>
+        </View>
+        <View style={s.teiaLegendaItem}>
+          <Svg width={16} height={4}>
+            <Line x1={0} y1={2} x2={16} y2={2} stroke={TEIA_FIM} strokeWidth={1.6} />
+          </Svg>
+          <Text style={s.teiaLegendaTexto}>{tr('chart.legendEnd')}</Text>
+        </View>
+        <Text style={s.teiaLegendaTexto}>{tr('chart.scale', { min: NOTA_MIN, max: NOTA_MAX })}</Text>
+      </View>
+      <Text style={s.teiaNota}>{tr('chart.note')}</Text>
     </View>
   );
 }
@@ -461,18 +558,23 @@ export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: an
               no destaque do início; aqui só o nome, para não repetir. */}
           {grupos.map((grupo, g) => (
             <View key={g}>
-              {/* O nome da competência vai PRESO ao primeiro card: sozinho, ele
-                  caiu no pé da página 2 com os cards na 3 (medido na folha de
-                  contato de um PDF real, 16/09). `minPresenceAhead` não
-                  segurou; `wrap={false}` no par segura. */}
+              {/* O nome da competência NUNCA vai sozinho: solto, ele caiu no pé
+                  da página 2 com os cards na 3 (medido na folha de contato de um
+                  PDF real, 16/09). `minPresenceAhead` não segurou; `wrap={false}`
+                  no par segura. Desde 17/09 quem viaja com o título é a TEIA —
+                  título + teia ocupam ~40% da página útil, e o primeiro card
+                  fica livre logo abaixo. Sem teia (menos de 3 comportamentos
+                  medidos), o par volta a ser título + primeiro card. */}
               <View wrap={false}>
                 {grupo.competencia && (
                   <View style={s.competenciaLinha}>
                     <Text style={s.competencia}>{tr('competencyTitle', { name: grupo.competencia })}</Text>
                   </View>
                 )}
-                {grupo.descritores[0] && <CardDescritor d={grupo.descritores[0]} />}
+                <TeiaDaCompetencia descritores={grupo.descritores} />
+                {!temTeia(grupo.descritores) && grupo.descritores[0] && <CardDescritor d={grupo.descritores[0]} />}
               </View>
+              {temTeia(grupo.descritores) && grupo.descritores[0] && <CardDescritor d={grupo.descritores[0]} />}
               {grupo.descritores.slice(1).map((d: any, i: number) => <CardDescritor key={i} d={d} />)}
             </View>
           ))}
