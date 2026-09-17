@@ -126,6 +126,122 @@ export function escolherCopiaDaMatriz<T extends LinhaDaMatriz>(
 
 const SEPARADOR_CARGOS = ' · ';
 
+/** Linha de `competencias` com o que o catálogo da extração precisa. */
+export interface LinhaDoCatalogo extends LinhaDaMatriz {
+  id: string;
+  nome?: string | null;
+  pilar?: string | null;
+  descricao?: string | null;
+  descritor_completo?: string | null;
+}
+
+/** Uma MATRIZ no catálogo que a extração oferece à IA. */
+export interface EntradaDoCatalogo {
+  /** Linha onde o módulo ancora (determinística). */
+  id: string;
+  nome: string;
+  pilar: string | null;
+  descricao: string | null;
+  descritor_completo: string | null;
+  /** Cargos que têm esta matriz (cópias idênticas). */
+  cargos: string[];
+  /** Nome, com os cargos quando o nome se repete em matrizes diferentes. */
+  rotulo: string;
+  /** Descritores SÓ desta matriz: nome curto + descrição longa (contexto). */
+  descritores: Array<{ nome_curto: string; descricao_longa: string | null }>;
+}
+
+const normNome = (s?: string | null) => String(s || '').trim().toLowerCase();
+
+/**
+ * Catálogo de competências da EMPRESA para a extração de material → módulo-base:
+ * UMA ENTRADA POR MATRIZ, não por nome.
+ *
+ * Por que existe (16/09/2026): o catálogo agrupava por NOME, ficava com a 1ª linha
+ * e juntava os descritores de todos os cargos daquele nome. Em Ibipeba
+ * ("Autocuidado e resiliência emocional" em COO03 e DIR02, descritores homônimos
+ * e réguas diferentes) o módulo ancorava num cargo qualquer e o descritor podia
+ * sair da matriz do outro. Agora:
+ * - cópias idênticas (a mesma matriz em vários cargos) são UMA entrada — o
+ *   módulo-base é por matriz — ancorada na cópia do 1º cargo em ordem alfabética;
+ * - mesmo nome com descritores diferentes são entradas SEPARADAS, cada uma com os
+ *   seus descritores e o cargo no rótulo;
+ * - `cargo` informado → só as matrizes desse cargo.
+ * `nomeParaId` só resolve nome que aponta para UMA entrada: nome ambíguo não é
+ * resolvido por nome.
+ */
+export function montarCatalogoDaEmpresa(
+  linhas: LinhaDoCatalogo[],
+  opts: { cargo?: string | null } = {},
+): { entradas: EntradaDoCatalogo[]; nomeParaId: Map<string, string> } {
+  const doEscopo = opts.cargo ? linhas.filter((l) => normCargo(l.cargo) === normCargo(opts.cargo)) : linhas;
+  const porMatriz = new Map<string, ReturnType<typeof copiasDaMatriz<LinhaDoCatalogo>>>();
+  for (const copia of copiasDaMatriz(doEscopo)) {
+    const lista = porMatriz.get(copia.assinatura);
+    if (lista) lista.push(copia); else porMatriz.set(copia.assinatura, [copia]);
+  }
+
+  const entradas: EntradaDoCatalogo[] = [];
+  for (const copias of porMatriz.values()) {
+    const ordenadas = [...copias].sort((a, b) => porNomeDeCargo(a.cargo, b.cargo));
+    const base = [...ordenadas[0].linhas].sort((a, b) => String(a.cod_desc || '').localeCompare(String(b.cod_desc || '')));
+    // Âncora: a linha-competência (sem cod_desc) quando existe; senão o 1º descritor.
+    const ancora = base.find((l) => !l.cod_desc) || base[0];
+    const nome = String(ancora.nome || base.find((l) => l.nome)?.nome || '').trim();
+    if (!nome) continue;
+    const descritores: EntradaDoCatalogo['descritores'] = [];
+    for (const l of base) {
+      // Descritor oficial = nome_curto; cai para a descrição longa só se faltar.
+      const curto = String(l.nome_curto || '').trim() || String(l.descritor_completo || '').trim();
+      if (!curto || descritores.some((d) => d.nome_curto === curto)) continue;
+      const longo = String(l.descritor_completo || '').trim();
+      descritores.push({ nome_curto: curto, descricao_longa: longo && longo !== curto ? longo : null });
+    }
+    entradas.push({
+      id: ancora.id,
+      nome,
+      pilar: base.find((l) => l.pilar)?.pilar ?? null,
+      descricao: base.find((l) => l.descricao)?.descricao ?? null,
+      descritor_completo: ancora.descritor_completo ?? base.find((l) => l.descritor_completo)?.descritor_completo ?? null,
+      cargos: ordenadas.map((c) => String(c.cargo || '')).filter(Boolean),
+      rotulo: nome,
+      descritores,
+    });
+  }
+
+  const porNome = new Map<string, EntradaDoCatalogo[]>();
+  for (const e of entradas) {
+    const k = normNome(e.nome);
+    const lista = porNome.get(k);
+    if (lista) lista.push(e); else porNome.set(k, [e]);
+  }
+  const nomeParaId = new Map<string, string>();
+  for (const [k, lista] of porNome) {
+    if (lista.length === 1) { nomeParaId.set(k, lista[0].id); continue; }
+    for (const e of lista) e.rotulo = `${e.nome} (${e.cargos.join(', ') || 'sem cargo'})`;
+  }
+  entradas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR') || a.rotulo.localeCompare(b.rotulo, 'pt-BR'));
+  return { entradas, nomeParaId };
+}
+
+/**
+ * Nomes que, no catálogo, apontam para MAIS DE UMA matriz — com os cargos de cada.
+ * Direcionar a extração para um desses nomes sem cargo é ambíguo.
+ */
+export function nomesAmbiguos(entradas: EntradaDoCatalogo[]): Map<string, string[]> {
+  const porNome = new Map<string, EntradaDoCatalogo[]>();
+  for (const e of entradas) {
+    const k = normNome(e.nome);
+    const lista = porNome.get(k);
+    if (lista) lista.push(e); else porNome.set(k, [e]);
+  }
+  const out = new Map<string, string[]>();
+  for (const [, lista] of porNome) {
+    if (lista.length > 1) out.set(lista[0].nome, lista.flatMap((e) => e.cargos).sort(porNomeDeCargo));
+  }
+  return out;
+}
+
 /** Rótulo dos cargos que uma matéria-prima serve (autoria e `contexto_pedagogico`). */
 export function rotuloDosCargos(cargos: string[] | null | undefined, cargoDaLinha?: string | null): string {
   return (cargos && cargos.length ? cargos.join(SEPARADOR_CARGOS) : String(cargoDaLinha || '')).trim();

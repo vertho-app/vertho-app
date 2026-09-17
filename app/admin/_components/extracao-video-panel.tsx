@@ -35,10 +35,15 @@ export default function ExtracaoVideoPanel({
   const [pilarDirecionador, setPilarDirecionador] = useState('');
   const [competenciaDirecionadora, setCompetenciaDirecionadora] = useState('');
   const [competenciaBaseDirecionadora, setCompetenciaBaseDirecionadora] = useState('');
+  // A matriz é gravada por cargo: o mesmo nome de competência pode ter descritores
+  // diferentes em cargos diferentes. Sem o cargo, direcionar para esse nome é
+  // ambíguo e a extração recusa (lib/modulos-base/pipeline).
+  const [cargoDirecionador, setCargoDirecionador] = useState('');
   const [opcoesDirecionamento, setOpcoesDirecionamento] = useState<{
     pilares: string[];
-    competencias: { nome: string; pilar: string | null; competenciaBaseId: string | null; origem: 'empresa' | 'base'; detalhe?: string | null }[];
-  }>({ pilares: [], competencias: [] });
+    competencias: { nome: string; pilar: string | null; competenciaBaseId: string | null; origem: 'empresa' | 'base'; detalhe?: string | null; cargos?: string[] }[];
+    cargos: string[];
+  }>({ pilares: [], competencias: [], cargos: [] });
 
   // Síncrono.
   const [url, setUrl] = useState('');
@@ -103,13 +108,14 @@ export default function ExtracaoVideoPanel({
     setPilarDirecionador('');
     setCompetenciaDirecionadora('');
     setCompetenciaBaseDirecionadora('');
+    setCargoDirecionador('');
     if (alcance === 'empresa' && !escopoEmpresaId) {
-      setOpcoesDirecionamento({ pilares: [], competencias: [] });
+      setOpcoesDirecionamento({ pilares: [], competencias: [], cargos: [] });
       return () => { vivo = false; };
     }
     listarDirecionadoresExtracao(escopoEmpresaId).then((r) => {
       if (!vivo) return;
-      setOpcoesDirecionamento(r.data || { pilares: [], competencias: [] });
+      setOpcoesDirecionamento(r.data ? { ...r.data, cargos: r.data.cargos || [] } : { pilares: [], competencias: [], cargos: [] });
     });
     return () => { vivo = false; };
   }, [alcance, escopoEmpresaId]);
@@ -117,11 +123,14 @@ export default function ExtracaoVideoPanel({
   function flash(msg) { toast(msg); }
   function isYouTubeUrl(v: string) { return /(?:youtube\.com|youtu\.be)/i.test(v); }
   function direcionamentoAtual(): DirecionamentoExtracao | null {
-    if (!pilarDirecionador && !competenciaDirecionadora && !competenciaBaseDirecionadora) return null;
+    // Cargo só existe no escopo de empresa (o catálogo canônico não é por cargo).
+    const cargo = alcance === 'empresa' ? cargoDirecionador : '';
+    if (!pilarDirecionador && !competenciaDirecionadora && !competenciaBaseDirecionadora && !cargo) return null;
     return {
       pilar: pilarDirecionador || null,
       competencia: competenciaDirecionadora || null,
       competenciaBaseId: competenciaBaseDirecionadora || null,
+      cargo: cargo || null,
     };
   }
 
@@ -252,6 +261,7 @@ export default function ExtracaoVideoPanel({
   function SeletorAlcance() {
     const competenciasFiltradas = opcoesDirecionamento.competencias
       .filter((c) => !pilarDirecionador || c.pilar === pilarDirecionador)
+      .filter((c) => !cargoDirecionador || !c.cargos || c.cargos.includes(cargoDirecionador))
       .slice(0, 250);
     return (
       <div className="mt-2">
@@ -280,6 +290,20 @@ export default function ExtracaoVideoPanel({
             {empresas.map((e) => <option key={e.id} value={e.id}>{e.nome}</option>)}
           </select>
         )}
+        {alcance === 'empresa' && opcoesDirecionamento.cargos.length > 0 && (
+          <select value={cargoDirecionador} onChange={(e) => {
+            const cargo = e.target.value;
+            setCargoDirecionador(cargo);
+            // A competência escolhida pode não existir no cargo novo.
+            const aindaVale = !competenciaDirecionadora || opcoesDirecionamento.competencias
+              .some((c) => c.nome === competenciaDirecionadora && (!cargo || !c.cargos || c.cargos.includes(cargo)));
+            if (!aindaVale) { setCompetenciaDirecionadora(''); setCompetenciaBaseDirecionadora(''); }
+          }}
+            className="mt-2 w-full bg-[#091D35] border border-white/10 rounded-lg px-3 py-2 text-xs text-white outline-none">
+            <option value="">Cargo (opcional: a matriz de qual cargo orienta a extração)</option>
+            {opcoesDirecionamento.cargos.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
         <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
           <select value={pilarDirecionador} onChange={(e) => {
             setPilarDirecionador(e.target.value);
@@ -303,6 +327,7 @@ export default function ExtracaoVideoPanel({
             {competenciasFiltradas.map((c, i) => (
               <option key={`${c.origem}-${c.competenciaBaseId || i}-${c.nome}`} value={`${c.nome}||${c.competenciaBaseId || ''}`}>
                 {c.nome}{c.pilar ? ` · ${c.pilar}` : ''}{c.origem === 'empresa' ? ' · empresa' : ' · canônica'}
+                {!cargoDirecionador && c.cargos && c.cargos.length > 1 ? ` · ${c.cargos.join(', ')}` : ''}
               </option>
             ))}
           </select>

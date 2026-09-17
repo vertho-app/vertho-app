@@ -19,17 +19,21 @@ export type DirecionamentoExtracao = {
   pilar?: string | null;
   competencia?: string | null;
   competenciaBaseId?: string | null;
+  /** Cargo cuja matriz orienta a extração (escopo empresa; desambigua nomes repetidos). */
+  cargo?: string | null;
 };
 
 function limparDirecionamento(d?: DirecionamentoExtracao | null): DirecionamentoExtracao | null {
   const pilar = String(d?.pilar || '').trim().slice(0, 160);
   const competencia = String(d?.competencia || '').trim().slice(0, 220);
   const competenciaBaseId = String(d?.competenciaBaseId || '').trim();
-  if (!pilar && !competencia && !competenciaBaseId) return null;
+  const cargo = String(d?.cargo || '').trim().slice(0, 160);
+  if (!pilar && !competencia && !competenciaBaseId && !cargo) return null;
   return {
     pilar: pilar || null,
     competencia: competencia || null,
     competenciaBaseId: competenciaBaseId || null,
+    cargo: cargo || null,
   };
 }
 
@@ -188,6 +192,7 @@ export async function submeterMaterialAsync(
       pilar_direcionador: direcionamento?.pilar || null,
       competencia_direcionadora: direcionamento?.competencia || null,
       competencia_base_id_direcionadora: direcionamento?.competenciaBaseId || null,
+      cargo_direcionador: direcionamento?.cargo || null,
     }).select('id').maybeSingle();
     if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
 
@@ -235,6 +240,7 @@ export async function submeterTextoBaseAsync(
       pilar_direcionador: direcionamento?.pilar || null,
       competencia_direcionadora: direcionamento?.competencia || null,
       competencia_base_id_direcionadora: direcionamento?.competenciaBaseId || null,
+      cargo_direcionador: direcionamento?.cargo || null,
     }).select('id').maybeSingle();
     if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
 
@@ -286,6 +292,7 @@ export async function submeterExtracaoAsync(origemEmpresaId: string | null, url:
       pilar_direcionador: direcionamento?.pilar || null,
       competencia_direcionadora: direcionamento?.competencia || null,
       competencia_base_id_direcionadora: direcionamento?.competenciaBaseId || null,
+      cargo_direcionador: direcionamento?.cargo || null,
     }).select('id').maybeSingle();
     if (error || !novo?.id) return { error: error?.message || 'Falha ao criar registro' };
 
@@ -334,25 +341,34 @@ export async function listarDirecionadoresExtracao(empresaId?: string | null) {
         competenciaBaseId: string | null;
         origem: 'empresa' | 'base';
         detalhe?: string | null;
+        /** Cargos que têm esta competência — a tela filtra por cargo e mostra quando há mais de um. */
+        cargos?: string[];
       }[] = [];
-      const seen = new Set<string>();
+      const porChave = new Map<string, (typeof competencias)[number]>();
       const pilares = new Set<string>();
+      const cargos = new Set<string>();
 
       for (const row of (data || []) as any[]) {
         const nome = String(row.nome || '').trim();
         if (!nome) continue;
         const pilar = String(row.pilar || '').trim() || null;
+        const cargo = String(row.cargo || '').trim();
         const key = `${pilar || ''}|${nome.toLowerCase()}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          competencias.push({
+        let entrada = porChave.get(key);
+        if (!entrada) {
+          entrada = {
             nome,
             pilar,
             competenciaBaseId: null,
             origem: 'empresa',
             detalhe: row.cargo || row.descritor_completo || null,
-          });
+            cargos: [],
+          };
+          porChave.set(key, entrada);
+          competencias.push(entrada);
         }
+        if (cargo && !entrada.cargos!.includes(cargo)) entrada.cargos!.push(cargo);
+        if (cargo) cargos.add(cargo);
         if (pilar) pilares.add(pilar);
       }
 
@@ -361,6 +377,7 @@ export async function listarDirecionadoresExtracao(empresaId?: string | null) {
         data: {
           pilares: [...pilares].sort((a, b) => a.localeCompare(b)),
           competencias,
+          cargos: [...cargos].sort((a, b) => a.localeCompare(b, 'pt-BR')),
         },
       };
     }
@@ -400,10 +417,11 @@ export async function listarDirecionadoresExtracao(empresaId?: string | null) {
 
     const pilares = Array.from(new Set(competencias.map((c) => c.pilar).filter(Boolean) as string[]))
       .sort((a, b) => a.localeCompare(b));
-    return { data: { pilares, competencias } };
+    // Catálogo canônico não é por cargo.
+    return { data: { pilares, competencias, cargos: [] as string[] } };
   } catch (err: any) {
     console.error('[listarDirecionadoresExtracao]', err);
-    return { data: { pilares: [], competencias: [] } };
+    return { data: { pilares: [], competencias: [], cargos: [] as string[] } };
   }
 }
 

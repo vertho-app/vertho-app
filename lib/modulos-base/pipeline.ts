@@ -29,6 +29,7 @@ import {
   auditarModulosCore,
 } from '@/lib/modulo-base-auditor';
 import { chamarIAComRetry } from '@/lib/modulo-base-autor';
+import { montarCatalogoDaEmpresa, nomesAmbiguos, type LinhaDoCatalogo } from '@/lib/matriz-por-cargo';
 
 // ── Tipos e helpers compartilhados com actions/modulos-base.ts ────────────────
 
@@ -190,15 +191,24 @@ export type DirecionamentoModuloBase = {
   pilar?: string | null;
   competencia?: string | null;
   competenciaBaseId?: string | null;
+  /**
+   * Cargo cuja matriz orienta a extração (escopo empresa). A matriz é gravada por
+   * cargo e o mesmo NOME de competência pode ter descritores diferentes em cargos
+   * diferentes: sem o cargo, direcionar para esse nome é ambíguo.
+   */
+  cargo?: string | null;
 };
 interface SegCtx {
   compsListagem: string;
   direcionamentoTexto: string;
   idSet: Set<string>;
+  /** Nome (lower) → id, só para nomes com UMA entrada no escopo. */
   nomeParaId: Map<string, string>;
-  /** id da competência → nome (p/ ancorar o descritor no modelo da empresa). */
-  idToNome: Map<string, string>;
-  /** nome da competência (lower) → descritores do modelo (empresa). */
+  /**
+   * id da entrada do catálogo → descritores DAQUELA matriz (empresa). Por id, não
+   * por nome: o mesmo nome existe com descritores diferentes em outro cargo, e a
+   * lista por nome misturava as duas matrizes.
+   */
   descritoresPorComp: Map<string, string[]>;
   model: string;
   /** true = catálogo da EMPRESA (ids vão para competencia_id, não competencia_base_id). */
@@ -217,8 +227,7 @@ interface SegCtx {
  */
 function ancorarDescritor(competenciaId: string | null | undefined, descritorLivre: string, ctx: SegCtx): string {
   if (!competenciaId) return descritorLivre;
-  const nome = ctx.idToNome.get(competenciaId);
-  const opcoes = nome ? ctx.descritoresPorComp.get(String(nome).trim().toLowerCase()) : null;
+  const opcoes = ctx.descritoresPorComp.get(competenciaId);
   if (!opcoes || !opcoes.length) return descritorLivre;
   const mt = _toks(descritorLivre || '');
   let best = opcoes[0], bestHit = -1;
@@ -233,6 +242,8 @@ function ancorarDescritor(competenciaId: string | null | undefined, descritorLiv
 type CompetenciaSeg = {
   id: string;
   nome: string;
+  /** Empresa: nome + cargos quando o nome se repete em matrizes diferentes. */
+  rotulo?: string;
   segmento: string;
   descricao?: string;
   pilar?: string | null;
@@ -446,37 +457,48 @@ ${texto}`;
  */
 async function segmentarTranscricao(
   transcricao: string, tituloVideo: string, direcionamento?: DirecionamentoModuloBase | null, empresaId?: string | null,
-): Promise<{ secoes: SegSecao[]; diag: string }> {
+): Promise<{ secoes: SegSecao[]; diag: string; erro?: string }> {
   const sb = createSupabaseAdmin();
   // Escopo de EMPRESA → usa o catálogo de competências DELA (pilares próprios, ex.:
-  // Empreendedorismo na Macaé). Global → catálogo canônico. competencias tem linhas
-  // duplicadas por cargo → dedup por nome (1 competência = 1 entrada no catálogo).
+  // Empreendedorismo na Macaé). Global → catálogo canônico. A matriz é gravada por
+  // cargo → o catálogo é UMA ENTRADA POR MATRIZ (lib/matriz-por-cargo): cópias
+  // idênticas em vários cargos são uma entrada; o mesmo nome com descritores
+  // diferentes são entradas separadas, com o cargo no rótulo.
   let lista: CompetenciaSeg[];
   // Empresa: o descritor do módulo é SEMPRE o NOME_CURTO oficial do descritor da
   // matriz (ex.: "Escuta ativa"), NÃO a descrição longa. Guardamos os nome_curto
-  // por competência (p/ a IA copiar e o ancorarDescritor casar) + a descrição
-  // longa só como CONTEXTO no catálogo (ajuda a IA a casar o trecho ao descritor).
-  const descritoresPorComp = new Map<string, string[]>();          // nome_curto[]
-  const descricaoLongaDe = new Map<string, string>();              // `${compK}|${curtoLower}` → descrição longa
+  // por ENTRADA (p/ a IA copiar e o ancorarDescritor casar) + a descrição longa só
+  // como CONTEXTO no catálogo (ajuda a IA a casar o trecho ao descritor).
+  const descritoresPorComp = new Map<string, string[]>();          // id da entrada → nome_curto[]
+  const descricaoLongaDe = new Map<string, string>();              // `${id}|${curtoLower}` → descrição longa
+  let nomeParaIdEmpresa: Map<string, string> | null = null;
+  let ambiguos = new Map<string, string[]>();
+  const cargoDir = String(direcionamento?.cargo || '').trim();
   if (empresaId) {
-    const { data: comps } = await sb.from('competencias')
-      .select('id, nome, nome_curto, cargo, descricao, pilar, descritor_completo')
+    const { data: comps, error: errComps } = await sb.from('competencias')
+      .select('id, nome, nome_curto, cargo, cod_comp, cod_desc, descricao, pilar, descritor_completo')
       .eq('empresa_id', empresaId).order('nome');
-    const porNome = new Map<string, CompetenciaSeg>();
-    for (const c of (comps || []) as any[]) {
-      const k = String(c.nome || '').trim().toLowerCase();
-      if (k && !porNome.has(k)) porNome.set(k, { ...c, segmento: c.cargo || 'empresa' });
-      // Descritor oficial = nome_curto; cai pra descrição longa só se faltar nome_curto.
-      const curto = String(c.nome_curto || '').trim() || String(c.descritor_completo || '').trim();
-      const longo = String(c.descritor_completo || '').trim();
-      if (k && curto) {
-        if (!descritoresPorComp.has(k)) descritoresPorComp.set(k, []);
-        const arr = descritoresPorComp.get(k)!;
-        if (!arr.includes(curto)) arr.push(curto);
-        if (longo && longo !== curto) descricaoLongaDe.set(`${k}|${curto.toLowerCase()}`, longo);
+    if (errComps) {
+      const msg = `Não foi possível ler as competências da empresa: ${errComps.message}`;
+      return { secoes: [], diag: msg, erro: msg };
+    }
+    const catalogo = montarCatalogoDaEmpresa((comps || []) as LinhaDoCatalogo[], { cargo: cargoDir || null });
+    if (cargoDir && !catalogo.entradas.length) {
+      const msg = `O cargo "${cargoDir}" não tem competências nesta empresa (verifique o direcionamento).`;
+      return { secoes: [], diag: msg, erro: msg };
+    }
+    for (const e of catalogo.entradas) {
+      descritoresPorComp.set(e.id, e.descritores.map((d) => d.nome_curto));
+      for (const d of e.descritores) {
+        if (d.descricao_longa) descricaoLongaDe.set(`${e.id}|${d.nome_curto.toLowerCase()}`, d.descricao_longa);
       }
     }
-    lista = [...porNome.values()];
+    lista = catalogo.entradas.map((e) => ({
+      id: e.id, nome: e.nome, rotulo: e.rotulo, segmento: e.cargos.join(', ') || 'empresa',
+      descricao: e.descricao ?? undefined, pilar: e.pilar, descritor_completo: e.descritor_completo,
+    }));
+    nomeParaIdEmpresa = catalogo.nomeParaId;
+    ambiguos = nomesAmbiguos(catalogo.entradas);
   } else {
     const { data: comps } = await sb.from('competencias_base')
       .select('id, nome, segmento, descricao, pilar, descritor_completo')
@@ -511,7 +533,19 @@ async function segmentarTranscricao(
       // O pilar/competência direcionado não existe neste catálogo — config, não
       // aderência. Sinaliza distinto pra não confundir com "material não aderente".
       const alvo = direcionamento?.competencia || direcionamento?.pilar || direcionamento?.competenciaBaseId;
-      return { secoes: [], diag: `direcionamento "${alvo}" não encontrado no catálogo ${empresaId ? 'da empresa' : 'canônico'} (verifique o pilar/competência)` };
+      const msg = `direcionamento "${alvo}" não encontrado no catálogo ${empresaId ? 'da empresa' : 'canônico'} (verifique o pilar/competência)`;
+      return { secoes: [], diag: msg, erro: msg };
+    }
+    // Competência direcionada cujo NOME existe em matrizes diferentes, sem cargo:
+    // qualquer escolha seria sorteio (e os descritores são de matrizes distintas).
+    // Pede o cargo ANTES de gastar IA, em vez de ancorar num cargo qualquer.
+    if (hintComp && empresaId && !cargoDir) {
+      const nomesNoEscopo = new Set(listaEscopo.map((c) => _normc(c.nome)));
+      const conflito = [...ambiguos].find(([nome]) => nomesNoEscopo.has(_normc(nome)));
+      if (conflito) {
+        const msg = `A competência "${conflito[0]}" existe em mais de um cargo com descritores diferentes (${conflito[1].join(', ')}). Escolha o cargo no direcionamento.`;
+        return { secoes: [], diag: msg, erro: msg };
+      }
     }
   }
 
@@ -528,7 +562,7 @@ async function segmentarTranscricao(
   const direcionamentoTexto = exclusivo
     ? `ESCOPO EXCLUSIVO DA EXTRAÇÃO (regra absoluta — SOBREPÕE qualquer instrução do sistema sobre "sempre escolher uma competência"):
 - Pilar: ${direcionamento?.pilar || '—'}
-- Competência: ${direcionamento?.competencia || '—'}
+- Competência: ${direcionamento?.competencia || '—'}${cargoDir ? `\n- Cargo: ${cargoDir}` : ''}
 O catálogo abaixo já contém SOMENTE as competências válidas deste escopo.
 1. Crie seções APENAS para trechos que tratam GENUINAMENTE deste escopo.
 2. Trecho que NÃO seja deste escopo: IGNORE — não emita seção, não force, não aproxime "mais ou menos", não classifique no que sobrou.
@@ -538,15 +572,14 @@ O catálogo abaixo já contém SOMENTE as competências válidas deste escopo.
   // ESCOLHE um deles (semântica > token snap). Global: 1 linha por competência.
   const compsListagem = listaOrdenada.slice(0, 200).map((c) => {
     if (empresaId) {
-      const k = String(c.nome).trim().toLowerCase();
-      const ds = descritoresPorComp.get(k) || [];
+      const ds = descritoresPorComp.get(c.id) || [];
       // Lista o NOME_CURTO (o que vai no campo "descritor") + a descrição longa só
       // como contexto pra IA casar o trecho ao descritor certo.
       const dl = ds.map((d) => {
-        const longo = descricaoLongaDe.get(`${k}|${d.toLowerCase()}`);
+        const longo = descricaoLongaDe.get(`${c.id}|${d.toLowerCase()}`);
         return `    • ${d}${longo ? ` — ${longo}` : ''}`;
       }).join('\n');
-      return `- ${c.id} :: ${c.nome}${c.pilar ? ' (' + c.pilar + ')' : ''}${dl ? `\n  DESCRITORES desta competência (copie o NOME CURTO — o texto ANTES do "—" — literalmente no campo "descritor"):\n${dl}` : ''}`;
+      return `- ${c.id} :: ${c.rotulo || c.nome}${c.pilar ? ' (' + c.pilar + ')' : ''}${dl ? `\n  DESCRITORES desta competência (copie o NOME CURTO — o texto ANTES do "—" — literalmente no campo "descritor"):\n${dl}` : ''}`;
     }
     return `- ${c.id} :: ${c.nome} (${c.segmento}${c.pilar ? ' / ' + c.pilar : ''})${c.descritor_completo || c.descricao ? ' — ' + (c.descritor_completo || c.descricao) : ''}`;
   }).join('\n');
@@ -554,8 +587,11 @@ O catálogo abaixo já contém SOMENTE as competências válidas deste escopo.
     compsListagem,
     direcionamentoTexto,
     idSet: new Set(listaEscopo.map((c) => c.id)),
-    nomeParaId: new Map(listaEscopo.map((c) => [c.nome.trim().toLowerCase(), c.id])),
-    idToNome: new Map(listaEscopo.map((c) => [c.id, c.nome])),
+    // Empresa: só nomes com UMA matriz, e só dentro do escopo — o id resolvido por
+    // nome não é re-checado contra `idSet` em `segmentarJanela`.
+    nomeParaId: nomeParaIdEmpresa
+      ? new Map([...nomeParaIdEmpresa].filter(([, id]) => listaEscopo.some((c) => c.id === id)))
+      : new Map(listaEscopo.map((c) => [c.nome.trim().toLowerCase(), c.id])),
     descritoresPorComp,
     model: await getModelForTask(null as any, 'modulo_base_autor'),
     empresa: !!empresaId,
@@ -650,7 +686,11 @@ export async function criarModulosDeTranscricao(opts: {
 
   const dir = opts.direcionamento;
   const exclusivo = !!(dir?.pilar || dir?.competencia || dir?.competenciaBaseId);
-  const { secoes, diag } = await segmentarTranscricao(opts.transcricao, opts.tituloVideo || '', dir, opts.empresaId);
+  const { secoes, diag, erro } = await segmentarTranscricao(opts.transcricao, opts.tituloVideo || '', dir, opts.empresaId);
+  // Configuração/leitura inválida (direcionamento inexistente, competência ambígua
+  // sem cargo, catálogo ilegível): é ERRO, não "material não aderente" — status
+  // `vazio` diria ao admin que o material não serve, quando o que falta é escolher.
+  if (erro) return { modulos: [], error: erro };
   if (!secoes.length) {
     if (exclusivo) {
       // Material processado, mas nada aderente ao escopo direcionado: 0 módulos é
@@ -715,9 +755,12 @@ export async function segmentarEEstruturarExtracao(
   opts: { transcricao?: string; titulo?: string | null; locale?: string } = {},
 ): Promise<{ ok?: true; moduloIds?: string[]; n?: number; idempotente?: boolean; error?: string; httpStatus?: number }> {
   const sb = createSupabaseAdmin();
-  const { data: ext } = await sb.from('extracoes_video')
-    .select('id, status, modulo_base_ids, escopo_empresa_id, url, transcricao, pilar_direcionador, competencia_direcionadora, competencia_base_id_direcionadora')
+  const { data: ext, error: errExt } = await sb.from('extracoes_video')
+    .select('id, status, modulo_base_ids, escopo_empresa_id, url, transcricao, pilar_direcionador, competencia_direcionadora, competencia_base_id_direcionadora, cargo_direcionador')
     .eq('id', extracaoId).maybeSingle();
+  // Falha de leitura não é "não encontrada": coluna nova sem migration (42703), por
+  // exemplo, derruba a query inteira e virava um 404 enganoso.
+  if (errExt) return { error: `falha ao ler a extração: ${errExt.message}`, httpStatus: 500 };
   if (!ext) return { error: 'extração não encontrada', httpStatus: 404 };
   if (ext.status === 'done' && Array.isArray(ext.modulo_base_ids) && ext.modulo_base_ids.length) {
     return { ok: true, moduloIds: ext.modulo_base_ids, n: ext.modulo_base_ids.length, idempotente: true };
@@ -739,6 +782,7 @@ export async function segmentarEEstruturarExtracao(
       pilar: ext.pilar_direcionador || null,
       competencia: ext.competencia_direcionadora || null,
       competenciaBaseId: ext.competencia_base_id_direcionadora || null,
+      cargo: ext.cargo_direcionador || null,
     },
   });
 
