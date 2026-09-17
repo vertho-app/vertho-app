@@ -6,6 +6,7 @@ import type { ThreadCompleta } from '@/lib/inbox/tipos';
 import { restanteLegivel } from '@/lib/inbox/janela';
 import { MIMES_ACEITOS } from '@/lib/inbox/anexos';
 import SeletorEmoji from './SeletorEmoji';
+import { ImagemDaConversa, AudioDaConversa } from './MidiaDaConversa';
 import { rotuloDoNumero, type NumeroRemetente } from '@/lib/whatsapp/numeros';
 
 /**
@@ -186,13 +187,15 @@ export default function ThreadView({
                   responde pelo celular.
                 */}
                 {urlDoAnexo(it) && (
+                  it.tipo === 'image' || it.tipo === 'sticker' ? (
+                    // Sem o ícone ao lado: a própria miniatura diz que é imagem,
+                    // e a largura da bolha vai toda para ela ficar legível.
+                    <ImagemDaConversa alt={it.nomeArquivo || 'imagem'} src={urlDoAnexo(it)!} />
+                  ) : (
                   <div className="mb-1 flex items-center gap-2">
                     <IconeTipo tipo={it.tipo} />
                     {it.tipo === 'audio' || it.tipo === 'voice' ? (
-                      <audio controls preload="none" className="h-8" src={urlDoAnexo(it)!} />
-                    ) : it.tipo === 'image' || it.tipo === 'sticker' ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img alt={it.nomeArquivo || 'imagem'} src={urlDoAnexo(it)!} className="max-h-52 rounded-lg" />
+                      <AudioDaConversa src={urlDoAnexo(it)!} />
                     ) : (
                       <a
                         href={urlDoAnexo(it)!}
@@ -206,13 +209,14 @@ export default function ThreadView({
                       </a>
                     )}
                   </div>
+                  )
                 )}
 
                 {it.texto ? (
                   <p className="whitespace-pre-wrap break-words">{it.texto}</p>
                 ) : !urlDoAnexo(it) ? (
                   <p className="italic text-[var(--ink-faint)]">
-                    {it.rotulo ? `enviado: ${it.rotulo}` : '(sem conteúdo)'}
+                    {it.nota ? it.nota : it.rotulo ? `enviado: ${it.rotulo}` : '(sem conteúdo)'}
                   </p>
                 ) : null}
 

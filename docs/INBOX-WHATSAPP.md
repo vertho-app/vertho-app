@@ -350,6 +350,9 @@ os candidatos a dono e a associação auditada.
 `texto = NULL` com `tipo = 'audio'` significa "mandou um áudio", não "mandou nada". A tela
 mostra o tipo. Tratar como vazio esconderia que a pessoa respondeu.
 
+🔴 **A Meta apaga a mídia recebida em poucos dias; a cópia é NOSSA** (ver §9.6). O arquivo vai
+para o bucket `inbox-midia-recebida` quando a mensagem chega, e a tela lê de lá.
+
 ---
 
 ## 6. Riscos
@@ -809,14 +812,18 @@ de ser robô. Cada uma mata o teste correspondente. O par continua sendo
   faltava chegou junto com o primeiro tráfego real, e ela era o oposto do esperado: não era caso
   raro, era a turma inteira.
 - **Mídia carregada inteira em memória** (`arrayBuffer`) — documento pode ter até 100 MB. Streaming,
-  limite explícito, `X-Content-Type-Options: nosniff` e `attachment` para documento.
+  limite explícito, `X-Content-Type-Options: nosniff` e `attachment` para documento. Desde 17/09 o
+  arquivo é baixado UMA vez (webhook, para o Storage) e a tela recebe redirect para URL assinada,
+  então a memória pesa no `after()` do webhook, não a cada visualização.
 - **Webhook processa tudo antes do 200.** Mover para fila é correto em princípio, mas **não** para o
   inbound: hoje o retry da Meta é a rede de segurança de uma gravação que falha. O que deve sair da
   linha síncrona são `statuses` e eventos de template, que são medição.
 - **Unicidade nos eventos de template** (`whatsapp_template_eventos` é insert puro; a Meta reentrega).
 - **`read` e indicador de digitação na Meta**, e **`context.id`** (mensagem citada) — este dá para
   extrair do `raw` já gravado, na leitura, sem migration.
-- **Retenção/LGPD** de texto, `raw` e mídias, com auditoria de acesso à mídia.
+- **Retenção/LGPD** de texto, `raw` e mídias, com auditoria de acesso à mídia. Desde 17/09 a mídia
+  recebida também fica guardada SEM prazo (decisão do Rodrigo: igual ao texto), então a decisão de
+  retenção, quando vier, é uma só para os dois.
 - **A view agrega em memória do Postgres** (`UNION ALL` das duas tabelas + `GROUP BY`, sem
   materialização). Medido em 17/08 com 11 mensagens: **0,8 ms**. O plano é sequencial nas duas
   tabelas, então cresce linear com o volume — a conta a refazer quando o inbound passar de algumas
@@ -896,3 +903,35 @@ não chegou. O fallback é `null` (= "nunca escreveu"), nunca `ultima_em`; valid
 ⚠️ Duas consultas que pareciam redundantes deixaram de ser: a fila de não identificados e o
 reprocessamento filtram `total > 0` explicitamente. Sem isso, um envio gravado sem `empresa_id`
 apareceria na fila como se fosse alguém esperando resposta.
+
+### 9.6 A rodada de 17/09/2026: a Meta apaga a mídia, e a caixa só guardava o id
+
+**Sintoma** (relatado pelo Rodrigo com prints): imagem recebida aparecendo quebrada, áudio com o
+player em "0:00 / 0:00" que não tocava, e print de celular pequeno demais para ler. Numa das
+conversas a atendente respondeu à pessoa *"Não consegui abrir a imagem que você me enviou"*.
+
+**Causa, medida contra a Graph:** o webhook gravava só o `media id`, e o proxy buscava o arquivo na
+Meta a cada visualização. A Meta **apaga** a mídia recebida. Das 23 mídias recebidas desde 14/08,
+**19 respondiam `400 (#100/33) Object … does not exist`**; a mais nova perdida tinha 7 dias e meio,
+e as de 2 dias ou menos ainda baixavam. As 19 **não têm volta**: não existe cópia em lugar nenhum
+(número na Cloud API não tem aplicativo). As 2 que a equipe enviou em 15/08 por `id` também sumiram.
+
+| Parte | O que mudou |
+|---|---|
+| Bucket | `inbox-midia-recebida` (mig 259), privado, **sem** lista de MIME (quem escolhe o tipo é quem manda) e **sem prazo**. Separado de `inbox-anexos`, que é documentado como descartável |
+| Webhook | `after()` próprio copia cada mídia (`guardarMidiaRecebida`); falha vira `whatsapp-midia-nao-guardada` no `degradacao_log` |
+| Proxy `/api/inbox/midia/[id]` | 1º a cópia (redirect 307 para URL assinada de 1 h); 2º a Meta, já copiando; 3º **410 com frase** quando nenhum dos dois tem. Redirect e não binário: a resposta da função é cortada em 4,5 MB, e o player de áudio precisa de `Range` |
+| `urlDaMidia` | devolve `expirada: true` no `#100/33`, para a tela não dizer "tente de novo" sobre arquivo que deixou de existir |
+| Tela | imagem maior e abre em tela cheia; falha de imagem/áudio vira frase com o motivo que a rota sabe; áudio com `preload="metadata"` (com `none`, áudio bom e áudio inexistente eram o mesmo "0:00") |
+| Legenda | a legenda da foto ficava só no `raw` (o webhook grava `texto` só de texto e botão). A foto de 25/08 dizia *"Ta concluída no sistema"* e a tela não mostrava. Lida na montagem da thread, vale para o histórico |
+| Sem conteúdo | `reaction` vira "reagiu com 👍", e `unsupported` (erro 131051) diz que o WhatsApp não repassa aquele tipo e sugere reenviar, em vez de "(sem conteúdo)" |
+
+Backfill no mesmo dia (`scripts/_backfill-midia-recebida.ts`, fora do versionamento): **4 guardadas,
+21 expiradas** (19 recebidas + 2 enviadas).
+
+🔑 **A lição:** guardar o *ponteiro* para um arquivo de terceiro é guardar uma promessa com prazo
+que não é nosso. O defeito não aparecia em nenhum teste nem no primeiro dia de uso, porque a mídia
+recém-chegada sempre baixava; ele só existe depois de uma semana, que é quando alguém volta à
+conversa.
+
+⚠️ **Não verificado:** reprodução de `audio/ogg; codecs=opus` no Safari do iPhone.

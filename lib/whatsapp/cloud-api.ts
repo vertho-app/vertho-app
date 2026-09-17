@@ -103,8 +103,8 @@ async function comRetry<T extends { ok: boolean; reason?: string }>(
   for (let i = 0; i < tentativas; i++) {
     ultimo = await operacao();
     if (ultimo.ok) return ultimo;
-    // Só rede/5xx merecem outra chance. 404 (mídia expirada) e 401 (token) são
-    // definitivos: repetir só atrasa o erro que já se sabe.
+    // Só rede/5xx merecem outra chance. Mídia expirada (400 #100/33, medido) e
+    // 401 (token) são definitivos: repetir só atrasa o erro que já se sabe.
     const transitorio = /rede:|HTTP 5\d\d|HTTP 429/.test(ultimo.reason || '');
     if (!transitorio || i === tentativas - 1) return ultimo;
     await esperar(300 * 3 ** i);
@@ -333,12 +333,27 @@ export async function enviarTextoCloud(
   return resultado;
 }
 
+export interface UrlDaMidia {
+  ok: boolean;
+  url?: string;
+  mime?: string;
+  reason?: string;
+  /**
+   * A Meta diz que o objeto não existe mais. É DEFINITIVO: a mídia recebida é
+   * apagada lá depois de alguns dias (medido 17/09/2026: 19 de 23 davam
+   * `400 (#100/33)`, a mais nova com 7 dias e meio; as de 2 dias ou menos baixavam). A tela
+   * precisa distinguir isto de falha de rede: "tente de novo" não serve para um
+   * arquivo que deixou de existir.
+   */
+  expirada?: boolean;
+}
+
 /** URL temporária de uma mídia recebida. Expira em minutos — não repassar ao browser. */
-export async function urlDaMidia(mediaId: string): Promise<{ ok: boolean; url?: string; mime?: string; reason?: string }> {
+export async function urlDaMidia(mediaId: string): Promise<UrlDaMidia> {
   return comRetry(() => urlDaMidiaUmaVez(mediaId));
 }
 
-async function urlDaMidiaUmaVez(mediaId: string): Promise<{ ok: boolean; url?: string; mime?: string; reason?: string }> {
+async function urlDaMidiaUmaVez(mediaId: string): Promise<UrlDaMidia> {
   if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
   try {
     const res = await fetch(`${BASE}/${mediaId}`, {
@@ -348,7 +363,14 @@ async function urlDaMidiaUmaVez(mediaId: string): Promise<{ ok: boolean; url?: s
     });
     const json: any = await res.json().catch(() => null);
     if (!res.ok || !json?.url) {
-      return { ok: false, reason: `mídia HTTP ${res.status}${json?.error?.message ? ': ' + json.error.message : ''}` };
+      // `#100` com subcode 33 é o "Object … does not exist" da Graph, que é o
+      // que a mídia apagada devolve. O 404 entra junto por segurança de forma.
+      const expirada = res.status === 404 || (json?.error?.code === 100 && json?.error?.error_subcode === 33);
+      return {
+        ok: false,
+        expirada,
+        reason: `mídia HTTP ${res.status}${json?.error?.message ? ': ' + json.error.message : ''}`,
+      };
     }
     return { ok: true, url: json.url, mime: json.mime_type };
   } catch (e: any) {

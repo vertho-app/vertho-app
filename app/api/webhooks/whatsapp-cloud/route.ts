@@ -8,6 +8,8 @@ import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { fanoutInboxPush } from '@/lib/notifications/inbox-push';
 import { ehPedidoDeResumo, ehRecusa, responderPedidoDeResumo, TEXTO_RECUSA } from '@/lib/notifications/ver-gestor';
 import { enviarTextoCloud } from '@/lib/whatsapp/cloud-api';
+import { midiaIdDoRaw } from '@/lib/inbox/thread';
+import { guardarMidiaRecebida } from '@/lib/inbox/midia-recebida';
 
 /**
  * Webhook da WhatsApp Cloud API — mensagens recebidas e status de entrega.
@@ -241,6 +243,33 @@ export async function POST(req: Request) {
         detalhe: { wamid: m.waMessageId, motivo: e?.message || String(e) },
       });
     }
+  }
+
+  // Cópia da MÍDIA: agora, e não quando alguém abrir a conversa.
+  //
+  // 🔴 A Meta apaga a mídia recebida em poucos dias (medido 17/09/2026: 19 de 23
+  // já tinham sumido), e um número na Cloud API não tem aplicativo onde ela
+  // ficasse. Sem esta cópia, a foto ou o áudio da pessoa deixa de existir antes
+  // de a equipe chegar à conversa. Em `after()` próprio, separado do push: uma
+  // falha de notificação não pode custar o arquivo, nem o contrário.
+  const comMidia = paraPush
+    .map(({ m }) => ({ m, mediaId: midiaIdDoRaw(m.raw) }))
+    .filter((x): x is { m: (typeof paraPush)[number]['m']; mediaId: string } => Boolean(x.mediaId));
+  if (comMidia.length) {
+    after(async () => {
+      for (const { m, mediaId } of comMidia) {
+        const r = await guardarMidiaRecebida(mediaId, sb);
+        if (r.estado === 'guardada' || r.estado === 'ja-guardada') continue;
+        console.error(`[whatsapp-cloud] mídia não guardada estado=${r.estado} media=${mediaId}:`, r.reason);
+        await registrarDegradacao({
+          fluxo: 'envio',
+          tipo: DEGRADACAO.WHATSAPP_MIDIA_NAO_GUARDADA,
+          chave: 'webhook',
+          severidade: 'aviso',
+          detalhe: { wamid: m.waMessageId, mediaId, estado: r.estado, motivo: r.reason ?? null },
+        });
+      }
+    });
   }
 
   // Push da inbox para a equipe — DEPOIS da resposta, via after().

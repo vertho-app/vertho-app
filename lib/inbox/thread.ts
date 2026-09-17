@@ -46,6 +46,12 @@ export interface ItemThread {
   storagePath?: string | null;
   /** Rótulo do que foi enviado quando não há texto (ex.: "pilula"). */
   rotulo?: string | null;
+  /**
+   * O que dizer de uma mensagem RECEBIDA sem texto nem arquivo (reação, tipo
+   * que a API não repassa). Sem isto a tela escrevia "(sem conteúdo)", que
+   * parece mensagem vazia quando a pessoa fez alguma coisa.
+   */
+  nota?: string | null;
   /** Estado do provedor: sent | delivered | read | failed. */
   status?: string | null;
   entregueEm?: string | null;
@@ -137,6 +143,42 @@ export function nomeDoArquivoDoRaw(raw: any): string | null {
 }
 
 /**
+ * Legenda da mídia que a pessoa MANDOU.
+ *
+ * 🔴 O webhook grava `texto` só de mensagem de texto e botão, então a legenda
+ * de uma foto ficava apenas no `raw` e nunca chegava à tela. Medido 17/09/2026:
+ * a foto de 25/08 com "Ta concluída no sistema" aparecia como imagem sem
+ * legenda nenhuma, e a pessoa tinha dito o que era. Lida aqui, na montagem, vale
+ * também para as mensagens já gravadas.
+ */
+export function legendaDoRaw(raw: any): string | null {
+  if (!raw || typeof raw !== 'object') return null;
+  for (const k of ['image', 'video', 'document']) {
+    const legenda = raw?.[k]?.caption;
+    if (typeof legenda === 'string' && legenda.trim()) return legenda;
+  }
+  return null;
+}
+
+/**
+ * Frase para a mensagem recebida que não tem texto nem arquivo.
+ *
+ * `unsupported` é o erro 131051 da Meta ("Message type unknown"): a pessoa
+ * mandou algo que a Cloud API não repassa. O que se sabe é só isso, então a
+ * frase não chuta qual foi o formato; diz o que a equipe pode fazer.
+ */
+export function notaSemConteudo(tipo: string, raw: any): string | null {
+  if (tipo === 'reaction') {
+    const emoji = raw?.reaction?.emoji;
+    return emoji ? `reagiu com ${emoji}` : 'removeu a reação';
+  }
+  if (tipo === 'unsupported') {
+    return 'mandou um tipo de mensagem que o WhatsApp não repassa para a caixa de entrada. Peça para reenviar como texto, foto ou áudio.';
+  }
+  return null;
+}
+
+/**
  * Une os três lados numa linha do tempo única, do mais antigo ao mais recente.
  *
  * A deduplicação importa: um envio da inbox aparece nas DUAS tabelas — texto em
@@ -164,10 +206,11 @@ export function montarThread(args: {
       id: `rec:${r.id}`,
       autor: 'pessoa',
       em: r.recebida_em,
-      texto: r.texto,
+      texto: r.texto ?? legendaDoRaw(r.raw),
       tipo: r.tipo,
       midiaId: midiaIdDoRaw(r.raw),
       nomeArquivo: nomeDoArquivoDoRaw(r.raw),
+      nota: notaSemConteudo(r.tipo, r.raw),
       numeroId: r.numero_id ?? null,
     });
   }

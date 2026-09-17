@@ -114,6 +114,15 @@ export const DEGRADACAO = {
    */
   WHATSAPP_INBOUND_PERDIDO: 'whatsapp-inbound-perdido',
   /**
+   * envio: a mensagem com mídia foi gravada, mas a CÓPIA do arquivo não foi
+   * para o Storage. Ainda há conserto (a tela tenta de novo quando alguém abre),
+   * mas só enquanto a Meta guardar o original, e ela apaga em poucos dias
+   * (medido 17/09/2026: 19 de 23 já tinham sumido). Depois disso a foto ou o
+   * áudio que a pessoa mandou deixa de existir. `aviso` porque o texto da
+   * conversa segue inteiro.
+   */
+  WHATSAPP_MIDIA_NAO_GUARDADA: 'whatsapp-midia-nao-guardada',
+  /**
    * envio: evento de status (delivered/read/failed) não foi aplicado. Degrada a
    * MEDIÇÃO, não a entrega — a mensagem chegou, só não sabemos. Daí `aviso`.
    */
