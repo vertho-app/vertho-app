@@ -144,6 +144,69 @@ const s = StyleSheet.create({
   pilarTitulo: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 11, color: c.ink, marginBottom: 4 },
   pilarTexto: { fontSize: 8.8, lineHeight: 1.5, color: c.muted },
 
+  // Curadoria humana + IA
+  blocoRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  bloco: {
+    width: '48.5%', borderWidth: 1, borderColor: c.border, borderRadius: 10,
+    paddingVertical: 14, paddingHorizontal: 14, borderTopWidth: 2.5,
+  },
+  blocoTitulo: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 11, color: c.ink },
+  blocoResumo: { fontSize: 9, color: c.muted, lineHeight: 1.45, marginTop: 3, marginBottom: 7 },
+
+  // Exemplo de cenário
+  cenarioRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  cenarioSituacao: { width: '40%', backgroundColor: c.navy, borderRadius: 10, paddingVertical: 14, paddingHorizontal: 14 },
+  cenarioRotulo: {
+    fontFamily: 'IBMPlexMono', fontWeight: 500, fontSize: 7.5, letterSpacing: 1, color: c.cyan,
+    textTransform: 'uppercase', marginBottom: 7,
+  },
+  cenarioTexto: { fontSize: 9.5, lineHeight: 1.55, color: c.white },
+  cenarioPerguntas: { width: '57.5%' },
+  pergunta: {
+    flexDirection: 'row', borderWidth: 1, borderColor: c.border, borderRadius: 8,
+    paddingVertical: 7, paddingHorizontal: 10, marginBottom: 5,
+  },
+  perguntaNum: { fontFamily: 'IBMPlexMono', fontSize: 8, color: c.roxo, width: 18, marginTop: 1 },
+  perguntaNome: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 9.5, color: c.ink },
+  perguntaTexto: { fontSize: 8.8, lineHeight: 1.45, color: c.ink2, marginTop: 1 },
+  faixaCyan: {
+    backgroundColor: c.cyanSoft, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12,
+    marginTop: 4, fontSize: 9, lineHeight: 1.5, color: c.ink2,
+  },
+
+  // Personalização
+  intro: { fontSize: 10, lineHeight: 1.55, color: c.ink2, marginBottom: 9 },
+  pessoaGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  pessoaCard: { borderWidth: 1, borderColor: c.border, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 12, marginBottom: 9 },
+  pessoaNome: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 10.5, color: c.ink },
+  pessoaTexto: { fontSize: 8.8, lineHeight: 1.45, color: c.muted, marginTop: 3 },
+  pessoaFoco: {
+    marginTop: 7, paddingLeft: 7, borderLeftWidth: 2, borderLeftColor: c.cyan,
+    fontSize: 8.8, fontWeight: 600, color: c.navy,
+  },
+  fechamento: { fontSize: 10, lineHeight: 1.5, color: c.ink2, fontWeight: 500, marginTop: 2 },
+
+  // Fundadores
+  fundRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  fundCard: {
+    width: '32%', borderWidth: 1, borderColor: c.border, borderRadius: 10,
+    paddingVertical: 13, paddingHorizontal: 10, alignItems: 'center',
+  },
+  fundFoto: { width: 58, height: 58, borderRadius: 29, marginBottom: 8, objectFit: 'cover' },
+  fundNome: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 10.5, color: c.ink, textAlign: 'center' },
+  fundBio: { fontSize: 8.5, lineHeight: 1.45, color: c.muted, textAlign: 'center', marginTop: 4 },
+
+  // Inteligência para a gestão
+  gestaoBox: { borderWidth: 1, borderColor: c.border, borderRadius: 10 },
+  gestaoItem: { flexDirection: 'row', paddingVertical: 7, paddingHorizontal: 12 },
+  gestaoMarca: { color: c.cyanMarca, fontSize: 10, marginRight: 8, lineHeight: 1.4 },
+  gestaoTexto: { flex: 1, fontSize: 10, lineHeight: 1.4, color: c.ink },
+  gestaoNiveis: {
+    backgroundColor: c.cardBg, paddingVertical: 7, paddingHorizontal: 12,
+    fontFamily: 'IBMPlexMono', fontSize: 7.5, letterSpacing: 0.8, color: c.muted, textTransform: 'uppercase',
+    borderBottomLeftRadius: 10, borderBottomRightRadius: 10,
+  },
+
   // Trajetória (quadro de logos)
   trajetoria: {
     borderWidth: 1, borderColor: c.border, borderRadius: 10,
@@ -361,11 +424,14 @@ export default function PropostaComercialPDF({
   doc,
   logoBase64,
   trajetoriaLogosBase64,
+  fotosFundadores,
 }: {
   doc: ProposalDocumentVM;
   logoBase64?: string;
   /** Quadro "Por onde já caminhamos"; sem ele a seção some. */
   trajetoriaLogosBase64?: string;
+  /** Foto de cada fundador por `arquivo`; foto ausente só esconde a imagem. */
+  fotosFundadores?: Record<string, string>;
 }) {
   const { cliente, investimento: inv, programa: pg, contato } = doc;
   const aceita = doc.status === 'accepted' || doc.aceite != null;
@@ -475,6 +541,67 @@ export default function PropostaComercialPDF({
           </View>
         </Secao>
 
+        {/* CURADORIA HUMANA + IA */}
+        <Secao eyebrow="// Pessoas e IA" titulo="Curadoria humana e IA, cada uma no seu papel">
+          <View style={s.blocoRow}>
+            {[
+              { bloco: doc.curadoria.humano, cor: c.navy },
+              { bloco: doc.curadoria.ia, cor: c.cyan },
+            ].map(({ bloco, cor }, i) => (
+              <View key={i} style={{ ...s.bloco, borderTopColor: cor }}>
+                <Text style={s.blocoTitulo}>{bloco.titulo}</Text>
+                <Text style={s.blocoResumo}>{bloco.resumo}</Text>
+                {bloco.itens.map((item, j) => (
+                  <View key={j} style={s.ladoItem}>
+                    <Text style={{ ...s.ladoMark, color: i === 0 ? c.navy : c.cyanMarca }}>›</Text>
+                    <Text style={s.ladoTexto}>{item}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+          </View>
+        </Secao>
+
+        {/* EXEMPLO DE CENÁRIO */}
+        <Secao eyebrow="// Diagnóstico" titulo="Diagnosticar não é fazer prova. É entender comportamento">
+          <View style={s.cenarioRow}>
+            <View style={s.cenarioSituacao}>
+              <Text style={s.cenarioRotulo}>{doc.cenario.rotulo}</Text>
+              <Text style={s.cenarioTexto}>{doc.cenario.situacao}</Text>
+            </View>
+            <View style={s.cenarioPerguntas}>
+              {doc.cenario.perguntas.map((q, i) => (
+                <View key={i} style={s.pergunta}>
+                  <Text style={s.perguntaNum}>{String(i + 1).padStart(2, '0')}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.perguntaNome}>{q.nome}</Text>
+                    <Text style={s.perguntaTexto}>{q.pergunta}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+          <Text style={s.faixaCyan}>{doc.cenario.fechamento}</Text>
+        </Secao>
+
+        {/* PERSONALIZAÇÃO */}
+        <Secao eyebrow="// Personalização" titulo={doc.personalizacao.titulo}>
+          <Text style={s.intro}>{doc.personalizacao.intro}</Text>
+          <View style={s.pessoaGrid}>
+            {doc.personalizacao.pessoas.map((pessoa, i) => (
+              <View
+                key={i}
+                style={{ ...s.pessoaCard, width: doc.personalizacao.pessoas.length === 3 ? '32%' : '48.5%' }}
+              >
+                <Text style={s.pessoaNome}>{pessoa.nome}</Text>
+                <Text style={s.pessoaTexto}>{pessoa.necessidade}</Text>
+                <Text style={s.pessoaFoco}>Foco: {pessoa.foco}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={s.fechamento}>{doc.personalizacao.fechamento}</Text>
+        </Secao>
+
         {/* TRAJETÓRIA — "e de seus fundadores" de propósito: nem todo logo é
             cliente da Vertho. Ver o comentário gêmeo na página pública. */}
         {trajetoriaLogosBase64 ? (
@@ -484,6 +611,21 @@ export default function PropostaComercialPDF({
             </View>
           </Secao>
         ) : null}
+
+        {/* QUEM MOVE A VERTHO */}
+        <Secao eyebrow="// Quem move a Vertho" titulo="Experiência em educação, aprendizagem e tecnologia">
+          <View style={s.fundRow}>
+            {doc.fundadores.map((f) => (
+              <View key={f.nome} style={s.fundCard}>
+                {fotosFundadores?.[f.arquivo] ? (
+                  <Image src={fotosFundadores[f.arquivo]} style={s.fundFoto} />
+                ) : null}
+                <Text style={s.fundNome}>{f.nome}</Text>
+                <Text style={s.fundBio}>{f.bio}</Text>
+              </View>
+            ))}
+          </View>
+        </Secao>
 
         {/* ESCOPO — única lista que vem de DADO (`included_scope`, uma linha por
             item): cresce sem teto, então quebra por linha de chips. */}
@@ -533,6 +675,25 @@ export default function PropostaComercialPDF({
                 ))}
               </View>
             ))}
+          </View>
+        </Secao>
+
+        {/* INTELIGÊNCIA PARA A GESTÃO */}
+        <Secao eyebrow="// Inteligência para a gestão" titulo="Enquanto cada pessoa evolui, a gestão enxerga o todo">
+          <Text style={s.intro}>
+            A gestão deixa de acompanhar só a presença e passa a acompanhar evolução, evidências e prioridades.
+          </Text>
+          <View style={s.gestaoBox}>
+            {doc.gestao.perguntas.map((q, i) => (
+              <View
+                key={i}
+                style={{ ...s.gestaoItem, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: c.border }}
+              >
+                <Text style={s.gestaoMarca}>›</Text>
+                <Text style={s.gestaoTexto}>{q}</Text>
+              </View>
+            ))}
+            <Text style={s.gestaoNiveis}>Visão por nível: {doc.gestao.niveis}</Text>
           </View>
         </Secao>
 

@@ -51,6 +51,41 @@ export type ProposalEtapa = {
   entrega?: string;
 };
 
+/**
+ * Versão do texto institucional. Escola e rede de ensino leem o exemplo da
+ * coordenação e das professoras; o resto lê o de liderança. Os três decks de
+ * venda (educação pública, privada e corporativo) fazem essa mesma divisão.
+ */
+export type ProposalSegmento = 'educacao' | 'corporativo';
+
+export type ProposalCuradoria = {
+  humano: { titulo: string; resumo: string; itens: string[] };
+  ia: { titulo: string; resumo: string; itens: string[] };
+};
+
+export type ProposalCenario = {
+  rotulo: string;
+  situacao: string;
+  perguntas: { nome: string; pergunta: string }[];
+  fechamento: string;
+};
+
+export type ProposalPersonalizacao = {
+  titulo: string;
+  intro: string;
+  pessoas: { nome: string; necessidade: string; foco: string }[];
+  fechamento: string;
+};
+
+export type ProposalFundador = {
+  nome: string;
+  bio: string;
+  /** Arquivo em `public/proposta/` (a página serve, o PDF lê por `fs`). */
+  arquivo: string;
+};
+
+export type ProposalGestao = { perguntas: string[]; niveis: string };
+
 export type ProposalDocumentVM = {
   numero: string;
   emitidaEm: string;   // ISO
@@ -86,7 +121,13 @@ export type ProposalDocumentVM = {
      */
     vendidoPorProjeto: boolean;
   };
+  segmento: ProposalSegmento;
   pilares: { titulo: string; texto: string }[];
+  curadoria: ProposalCuradoria;
+  cenario: ProposalCenario;
+  personalizacao: ProposalPersonalizacao;
+  fundadores: ProposalFundador[];
+  gestao: ProposalGestao;
   entregas: { titulo: string; texto: string }[];
   paraPessoa: string[];
   paraInstituicao: string[];
@@ -136,6 +177,13 @@ const ENTREGAS_PADRAO = [
     texto: 'Perfil comportamental e nível por competência de cada participante, a partir de cenários reais do cotidiano.',
   },
   {
+    // O "PDI" do produto é o relatório individual (`relatorios`, tipo individual):
+    // por competência, foco de 30 dias, ações, checklist e evidência esperada,
+    // ancorados nas respostas da pessoa. Não prometer mais do que isso.
+    titulo: 'Plano de Desenvolvimento Individualizado (PDI)',
+    texto: 'Por competência, o foco, as ações e a evidência esperada, a partir das respostas da própria pessoa no diagnóstico.',
+  },
+  {
     titulo: 'Trilha semanal personalizada',
     texto: 'Conteúdo, desafio prático e reflexão a cada semana, no ritmo de cada pessoa.',
   },
@@ -159,6 +207,7 @@ const ENTREGAS_PADRAO = [
 
 const PARA_PESSOA_PADRAO = [
   'Um perfil comportamental com narrativa — não um rótulo de quatro letras.',
+  'Um PDI com o foco, as ações e a evidência esperada em cada competência.',
   'Trilha no formato que ela aprende melhor, contextualizada pelo cargo.',
   'Desafios aplicados ao trabalho real, não exercícios genéricos.',
   'Mentor IA disponível para tirar dúvidas ao longo da semana.',
@@ -172,6 +221,129 @@ const PARA_INSTITUICAO_PADRAO = [
   'Dossiê por gestor, para conversas de desenvolvimento com evidência.',
   'Plenária institucional de fechamento com os resultados do ciclo.',
 ];
+
+// ── Blocos vindos dos decks de venda (17/09/2026, pedido do Rodrigo) ────────
+// Texto dos decks "Educação Pública", "Educação Privada" e "Apresentação 2",
+// com os erros de digitação corrigidos. Cada afirmação sobre o produto foi
+// conferida no código: o cenário tem mesmo 4 perguntas abertas (p1 a p4) e é
+// gerado por cargo, competência e contexto da empresa.
+
+const CURADORIA: Record<ProposalSegmento, ProposalCuradoria> = {
+  educacao: {
+    humano: {
+      titulo: 'Curadoria humana',
+      resumo: 'Garante contexto, qualidade e coerência com a proposta da instituição.',
+      itens: ['Definição das competências', 'Construção e validação das situações', 'Critérios de avaliação', 'Conteúdo e contextualização', 'Governança'],
+    },
+    ia: {
+      titulo: 'IA + automação',
+      resumo: 'Dá velocidade e escala ao que a curadoria define.',
+      itens: ['Análise das respostas', 'Identificação de padrões', 'Recomendação e personalização', 'Mobilização e acompanhamento'],
+    },
+  },
+  corporativo: {
+    humano: {
+      titulo: 'Curadoria humana',
+      resumo: 'Garante contexto, qualidade e coerência com o negócio.',
+      itens: ['Definição das competências', 'Construção e validação das situações', 'Critérios de avaliação', 'Conteúdo e contextualização', 'Governança'],
+    },
+    ia: {
+      titulo: 'IA + automação',
+      resumo: 'Dá velocidade e escala ao que a curadoria define.',
+      itens: ['Análise das respostas', 'Identificação de padrões', 'Recomendação e personalização', 'Mobilização e acompanhamento'],
+    },
+  },
+};
+
+const CENARIO: Record<ProposalSegmento, ProposalCenario> = {
+  educacao: {
+    rotulo: 'Cenário situacional · Coordenação',
+    situacao: 'Uma família questiona a coordenação após uma advertência. O professor teve razão em parte, '
+      + 'mas a comunicação com a família poderia ter acontecido antes.',
+    perguntas: [
+      { nome: 'Escolha', pergunta: 'Como conduz a conversa?' },
+      { nome: 'Execução', pergunta: 'Que combinados propõe?' },
+      { nome: 'Tensão humana', pergunta: 'Como reage à crítica?' },
+      { nome: 'Sustentação', pergunta: 'Como acompanha se resolveu?' },
+    ],
+    fechamento: 'Não é prova. É uma forma de identificar como o profissional decide, se comunica e age na rotina. '
+      + 'O resultado é uma fotografia clara do que desenvolver, por profissional, equipe e competência.',
+  },
+  corporativo: {
+    rotulo: 'Cenário situacional · Liderança',
+    situacao: 'Sexta-feira, dois caminhões saíram sem a conferência dupla que o procedimento exige, e um cliente '
+      + 'estratégico abriu reclamação formal. Diego, coordenador de expedição há oito meses e liderando gente pela '
+      + 'primeira vez, tinha ido para a linha cobrir a falta de dois conferentes. Renata, a gestora, precisa fechar a conversa.',
+    perguntas: [
+      { nome: 'Escolha', pergunta: 'Você fecha cobrando a regra ou reconhecendo o esforço? O que escolhe e o que perde ao escolher?' },
+      { nome: 'Execução', pergunta: 'Na próxima sexta faltam dois conferentes de novo. O que muda na rotina do Diego, e como vocês vão enxergar que mudou?' },
+      { nome: 'Tensão humana', pergunta: 'Diego reage: "Se eu parasse para conferir, o caminhão não saía." O que você responde?' },
+      { nome: 'Sustentação', pergunta: 'Daqui a 30 dias, como você vai saber que isso mudou de verdade, e não só na semana da reclamação?' },
+    ],
+    fechamento: 'Não é prova nem quiz. A situação é gerada para o cargo, a competência e o contexto da empresa, '
+      + 'e cada pergunta força uma decisão com custo. Ninguém digita relatório depois.',
+  },
+};
+
+const PERSONALIZACAO: Record<ProposalSegmento, ProposalPersonalizacao> = {
+  educacao: {
+    titulo: 'Mesma função, necessidades diferentes',
+    intro: 'A personalização parte do nível, do perfil e das necessidades que o diagnóstico identificou.',
+    pessoas: [
+      { nome: 'Professora A', necessidade: 'Tem boa relação com a turma, mas precisa tornar as devolutivas às famílias mais claras e frequentes.', foco: 'comunicação com famílias' },
+      { nome: 'Professor B', necessidade: 'Domina o conteúdo, mas tem dificuldade para adaptar a prática a diferentes perfis de aprendizagem.', foco: 'diferenciação pedagógica e inclusão' },
+      { nome: 'Professor C', necessidade: 'Engaja os alunos, mas precisa registrar evidências e acompanhar a evolução com mais consistência.', foco: 'acompanhamento da aprendizagem' },
+      { nome: 'Professora D', necessidade: 'Chegou alinhada à cultura da escola, mas ainda precisa fortalecer planejamento e gestão de sala.', foco: 'planejamento e gestão de sala' },
+    ],
+    fechamento: 'A competência pode ser a mesma. O que cada professor precisa desenvolver pode ser diferente.',
+  },
+  corporativo: {
+    titulo: 'Mesma competência, jornadas diferentes',
+    intro: 'A personalização parte do nível, do perfil e das necessidades que o diagnóstico identificou. Exemplo com a competência liderança:',
+    pessoas: [
+      { nome: 'Pessoa A', necessidade: 'Precisa tornar as conversas de desenvolvimento mais objetivas e frequentes.', foco: 'feedback' },
+      { nome: 'Pessoa B', necessidade: 'Centraliza decisões e precisa ampliar a autonomia do time.', foco: 'delegação' },
+      { nome: 'Pessoa C', necessidade: 'Precisa estruturar critérios para decidir com mais segurança.', foco: 'tomada de decisão' },
+    ],
+    fechamento: 'Cada pessoa trabalha só o que precisa, a partir do ponto em que está.',
+  },
+};
+
+/** Exportado para o guard que confere se cada foto existe e chega à Vercel. */
+export const FUNDADORES: ProposalFundador[] = [
+  {
+    nome: 'Samuel Protetti',
+    bio: '30 anos em aprendizagem e comunicação. 2.000+ educadores e gestores formados. Projetos com UNESCO, Banco Mundial e GIZ.',
+    arquivo: 'fundador-samuel-protetti-2026-09.jpg',
+  },
+  {
+    nome: 'Juliane Cavalcante',
+    bio: '25+ anos em educação e comunicação. 3.000+ alunos ao longo da carreira. Mestre em Comunicação pela USP.',
+    arquivo: 'fundador-juliane-cavalcante-2026-09.jpg',
+  },
+  {
+    nome: 'Rodrigo Naves',
+    bio: '20+ anos em T&D e tecnologia. Liderou programas em larga escala e criou plataformas com 23 mil+ usuários.',
+    arquivo: 'fundador-rodrigo-naves-2026-09.jpg',
+  },
+];
+
+const PERGUNTAS_GESTAO = [
+  'Onde estão as principais lacunas de desenvolvimento?',
+  'Quais equipes precisam de apoio?',
+  'Que temas devem virar formação coletiva?',
+  'Quem precisa se desenvolver antes de assumir novas responsabilidades?',
+  'O que evoluiu depois das jornadas?',
+];
+const NIVEIS_GESTAO: Record<ProposalSegmento, string> = {
+  educacao: 'profissional · equipe · função · escola',
+  corporativo: 'pessoa · equipe · função · organização',
+};
+
+/** Escola e rede de ensino leem a versão de educação; o resto, a corporativa. */
+export function segmentoDoCliente(customerType: string | null | undefined): ProposalSegmento {
+  return customerType === 'escola' || customerType === 'rede_ensino' ? 'educacao' : 'corporativo';
+}
 
 // Seções institucionais padrão do documento (iguais ao modelo de proposta do kit).
 const NAO_INCLUSO_PADRAO = [
@@ -305,6 +477,7 @@ export function buildProposalDocument(
     ? Math.round(Number(total) / pessoas)
     : null;
 
+  const segmento = segmentoDoCliente(proposal.customer_type);
   const aceiteEm = textoOuNull((proposal as any).accepted_at);
   const aceiteNome = textoOuNull((proposal as any).accepted_by_name);
 
@@ -335,7 +508,13 @@ export function buildProposalDocument(
       // A venda por projeto é exatamente o caminho que tem orçamento vinculado.
       vendidoPorProjeto: programa != null,
     },
+    segmento,
     pilares: PILARES_PADRAO,
+    curadoria: CURADORIA[segmento],
+    cenario: CENARIO[segmento],
+    personalizacao: PERSONALIZACAO[segmento],
+    fundadores: FUNDADORES,
+    gestao: { perguntas: PERGUNTAS_GESTAO, niveis: NIVEIS_GESTAO[segmento] },
     entregas: ENTREGAS_PADRAO,
     paraPessoa: PARA_PESSOA_PADRAO,
     paraInstituicao: PARA_INSTITUICAO_PADRAO,

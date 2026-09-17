@@ -144,6 +144,16 @@ o `#1C8A90` fica em 4,13:1 (piso 4,5). Por isso ele pinta fundo, ponto, borda e 
 destaque vai em navy (14:1) ou roxo (4,58:1). Botão cyan leva texto **navy** (6,7:1): branco sobre
 cyan dá 2:1.
 
+## Duas versões do texto (17/09/2026)
+
+Os blocos que vieram dos decks de venda têm versão de **educação** (cliente
+`escola` ou `rede_ensino`) e **corporativa** (o resto), escolhida por
+`segmentoDoCliente(customer_type)` em `lib/sales/proposal-document.ts`, que é a
+fonte única da página e do PDF. Toda afirmação sobre o produto nesses blocos foi
+conferida no código (o cenário tem mesmo 4 perguntas abertas; o PDI é o relatório
+individual, com foco, ações e evidência por competência). Testes em
+`tests/unit/sales-proposta-documento.test.ts`.
+
 ## Tipografia
 
 | Fonte | Uso |
@@ -163,10 +173,15 @@ Na página: variáveis `--font-prop-display/body/mono` (com fallback às famíli
 | Faixa de métricas | Fundo cyan claro `#DBF6F7` com participantes · cargos · ciclos · duração (vêm do orçamento; sem eles, a faixa some) |
 | `// Contexto` | Dor do cliente (quando há) + o argumento institucional |
 | `// Como a Vertho trabalha` | 3 pilares: diagnóstico, trilha, evidência |
+| `// Pessoas e IA` | Curadoria humana × IA + automação, dois cards (borda navy e cyan) |
+| `// Diagnóstico` | Um cenário real: situação num bloco navy + as 4 perguntas (Escolha, Execução, Tensão humana, Sustentação) + faixa cyan "Não é prova" |
+| `// Personalização` | Professoras A a D (educação) ou Pessoas A a C com a competência liderança (corporativo), cada card com o "Foco" |
 | `// Por onde já caminhamos` | "Experiências da Vertho e de seus fundadores" + quadro de logos (`public/proposta/trajetoria-logos-2026-09.jpg`, recortado do slide comercial só na área branca). ⚠️ O "e de seus fundadores" fica: nem todo logo é cliente da Vertho. No PDF a imagem é lida por `fs` e precisa estar no `outputFileTracingIncludes` (guard: `tests/unit/proposta-trajetoria-asset.test.ts`) |
+| `// Quem move a Vertho` | 3 fundadores com foto redonda e bio (`public/proposta/fundador-*.jpg`, lidas por `fs` no PDF) |
 | `// Escopo desta proposta` | Chips cyan claro com o texto revisado do orçamento |
 | `// O que está incluso` | 8 entregas com título + descrição (check em `<Svg>` no PDF) |
-| `// Quem recebe o quê` | Duas colunas: cada participante × a instituição |
+| `// Quem recebe o quê` | Duas colunas: cada participante × a instituição (o PDI aparece aqui e nas entregas) |
+| `// Inteligência para a gestão` | As 5 perguntas que a gestão passa a responder + "Visão por nível" |
 | `// Investimento` | Barra navy com o TOTAL + cards (por participante · parcela · parcelas) |
 | `// Como funciona` | Timeline de 5 etapas com duração e a entrega de cada uma |
 | `// Próximos passos` | Cards numerados 01-04 |

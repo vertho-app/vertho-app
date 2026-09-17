@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getLogoCoverBase64, getTrajetoriaLogosBase64 } from '@/lib/pdf-assets';
+import { getImagemPropostaBase64, getLogoCoverBase64, getTrajetoriaLogosBase64 } from '@/lib/pdf-assets';
 import { buildProposalDocument } from '@/lib/sales/proposal-document';
 import PropostaComercialPDF from '@/components/pdf/PropostaComercialPDF';
 
@@ -55,12 +55,20 @@ export async function GET(
     console.error('[proposta/pdf] quadro de logos da trajetória não carregou: public/proposta/trajetoria-logos-2026-09.jpg');
   }
 
+  const fotosFundadores: Record<string, string> = {};
+  for (const f of doc.fundadores) {
+    const foto = getImagemPropostaBase64(f.arquivo);
+    if (foto) fotosFundadores[f.arquivo] = foto;
+    else console.error(`[proposta/pdf] foto do fundador não carregou: public/proposta/${f.arquivo}`);
+  }
+
   const buffer = await renderToBuffer(
     // @ts-ignore - JSX em route handler com renderToBuffer
     React.createElement(PropostaComercialPDF, {
       doc,
       logoBase64: getLogoCoverBase64() || undefined,
       trajetoriaLogosBase64: trajetoriaLogos || undefined,
+      fotosFundadores,
     }),
   );
 

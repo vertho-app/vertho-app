@@ -47,6 +47,27 @@ export function getTrajetoriaLogosBase64(): string | null {
   return cachedTrajetoriaLogos;
 }
 
+const cacheImagemProposta = new Map<string, string | null>();
+
+/**
+ * Imagem de `public/proposta/` (fotos dos fundadores) como data URI. O nome é
+ * validado contra caminho: só arquivo solto da pasta, jpg ou png. Mesmo aviso
+ * do quadro de logos: precisa estar no `outputFileTracingIncludes`.
+ */
+export function getImagemPropostaBase64(arquivo: string): string | null {
+  if (!/^[a-z0-9-]+\.(jpg|png)$/.test(arquivo)) return null;
+  if (cacheImagemProposta.has(arquivo)) return cacheImagemProposta.get(arquivo) ?? null;
+  let uri: string | null = null;
+  try {
+    const mime = arquivo.endsWith('.png') ? 'png' : 'jpeg';
+    uri = `data:image/${mime};base64,${readFileSync(join(process.cwd(), 'public', 'proposta', arquivo)).toString('base64')}`;
+  } catch {
+    uri = null;
+  }
+  cacheImagemProposta.set(arquivo, uri);
+  return uri;
+}
+
 let cachedReportCoverBg: string | null = null;
 let cachedReportCoverBgTried = false;
 

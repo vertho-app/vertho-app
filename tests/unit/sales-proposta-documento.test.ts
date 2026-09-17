@@ -358,3 +358,50 @@ describe('conteúdo institucional', () => {
     expect(doc.cronograma.every((e) => e.descricao.length > 20)).toBe(true);
   });
 });
+
+describe('blocos vindos dos decks de venda (17/09/2026)', () => {
+  it('escola e rede de ensino leem a versão de educação; o resto, a corporativa', () => {
+    for (const tipo of ['escola', 'rede_ensino']) {
+      const doc = buildProposalDocument(propostaBase({ customer_type: tipo }), null, null, {});
+      expect(doc.segmento, tipo).toBe('educacao');
+      expect(doc.cenario.rotulo).toMatch(/Coordenação/);
+      expect(doc.personalizacao.pessoas.map((p) => p.nome)).toContain('Professora A');
+      expect(doc.gestao.niveis).toMatch(/escola/);
+    }
+    for (const tipo of ['empresa', 'comercio', 'outro', null]) {
+      const doc = buildProposalDocument(propostaBase({ customer_type: tipo }), null, null, {});
+      expect(doc.segmento, String(tipo)).toBe('corporativo');
+      expect(doc.cenario.rotulo).toMatch(/Liderança/);
+      expect(doc.personalizacao.pessoas.map((p) => p.nome)).toContain('Pessoa A');
+      expect(doc.gestao.niveis).toMatch(/organização/);
+    }
+  });
+
+  it('o cenário tem as 4 perguntas abertas que o produto gera (p1 a p4)', () => {
+    for (const tipo of ['escola', 'empresa']) {
+      const doc = buildProposalDocument(propostaBase({ customer_type: tipo }), null, null, {});
+      expect(doc.cenario.perguntas.map((q) => q.nome)).toEqual(['Escolha', 'Execução', 'Tensão humana', 'Sustentação']);
+    }
+  });
+
+  it('o PDI aparece nas entregas e no que cada participante recebe', () => {
+    const doc = buildProposalDocument(propostaBase(), null, null, {});
+    expect(doc.entregas.map((e) => e.titulo)).toContain('Plano de Desenvolvimento Individualizado (PDI)');
+    expect(doc.paraPessoa.some((i) => /\bPDI\b/.test(i))).toBe(true);
+  });
+
+  it('os três fundadores vêm com foto e bio', () => {
+    const doc = buildProposalDocument(propostaBase(), null, null, {});
+    expect(doc.fundadores.map((f) => f.nome)).toEqual(['Samuel Protetti', 'Juliane Cavalcante', 'Rodrigo Naves']);
+    expect(doc.fundadores.every((f) => f.arquivo.endsWith('.jpg') && f.bio.length > 40)).toBe(true);
+  });
+
+  it('o texto novo não usa glifo que a fonte do PDF não tem nem traz os erros dos decks', () => {
+    for (const tipo of ['escola', 'empresa']) {
+      const doc = buildProposalDocument(propostaBase({ customer_type: tipo }), null, null, {});
+      const texto = JSON.stringify([doc.curadoria, doc.cenario, doc.personalizacao, doc.fundadores, doc.gestao]);
+      expect(texto).not.toMatch(/[→←✓✔✗✘✕≥≤●★]/);
+      expect(texto).not.toMatch(/diferençação|não sala|expedicação/);
+    }
+  });
+});

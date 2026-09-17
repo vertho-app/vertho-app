@@ -553,6 +553,96 @@ export default async function PropostaPublicaPage(
             </div>
           </Secao>
 
+          {/* Curadoria humana + IA: responde a "a IA decide sozinha?" */}
+          <Secao eyebrow="// Pessoas e IA" titulo="Curadoria humana e IA, cada uma no seu papel">
+            <div className="prop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[
+                { bloco: doc.curadoria.humano, borda: C.navy, marca: C.navy },
+                { bloco: doc.curadoria.ia, borda: C.cyan, marca: C.cyanMarca },
+              ].map(({ bloco, borda, marca }, i) => (
+                <div
+                  key={i}
+                  style={{ border: `1px solid ${C.line}`, borderTop: `3px solid ${borda}`, borderRadius: 12, padding: '20px 20px 18px' }}
+                >
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 16, fontWeight: 600, letterSpacing: '-.01em' }}>{bloco.titulo}</div>
+                  <p style={{ fontSize: 13.5, lineHeight: 1.55, color: C.muted, margin: '4px 0 12px' }}>{bloco.resumo}</p>
+                  <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 7 }}>
+                    {bloco.itens.map((item, j) => (
+                      <li key={j} style={{ display: 'flex', gap: 10, fontSize: 13.5, lineHeight: 1.5, color: C.ink2 }}>
+                        <span style={{ color: marca, flexShrink: 0 }}>›</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </Secao>
+
+          {/* Exemplo real de cenário: a prova do diagnóstico que não é prova */}
+          <Secao eyebrow="// Diagnóstico" titulo="Diagnosticar não é fazer prova. É entender comportamento">
+            <div className="prop-grid-2" style={{ display: 'grid', gridTemplateColumns: '5fr 7fr', gap: 12 }}>
+              <div style={{ background: C.navy, borderRadius: 12, padding: '20px 22px' }}>
+                <Eyebrow cor={C.cyan}>{doc.cenario.rotulo}</Eyebrow>
+                <p style={{ fontSize: 15, lineHeight: 1.65, margin: 0, color: 'rgba(255,255,255,.9)' }}>{doc.cenario.situacao}</p>
+              </div>
+              <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {doc.cenario.perguntas.map((q, i) => (
+                  <li
+                    key={i}
+                    style={{ border: `1px solid ${C.line}`, borderRadius: 10, padding: '12px 14px', display: 'flex', gap: 12 }}
+                  >
+                    <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: C.roxo, paddingTop: 2, flexShrink: 0 }}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <div>
+                      <div style={{ fontFamily: FONT_DISPLAY, fontSize: 14, fontWeight: 600 }}>{q.nome}</div>
+                      <div style={{ fontSize: 13.5, lineHeight: 1.5, color: C.ink2, marginTop: 2 }}>{q.pergunta}</div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <p
+              style={{
+                margin: '12px 0 0', background: C.cyanSoft, borderRadius: 10, padding: '12px 16px',
+                fontSize: 13.5, lineHeight: 1.55, color: C.ink2,
+              }}
+            >
+              {doc.cenario.fechamento}
+            </p>
+          </Secao>
+
+          {/* Personalização: a mesma função/competência, jornadas diferentes */}
+          <Secao eyebrow="// Personalização" titulo={doc.personalizacao.titulo} intro={doc.personalizacao.intro}>
+            <div
+              className={doc.personalizacao.pessoas.length === 3 ? 'prop-grid-3' : 'prop-grid-2'}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: doc.personalizacao.pessoas.length === 3 ? 'repeat(3, 1fr)' : '1fr 1fr',
+                gap: 12,
+              }}
+            >
+              {doc.personalizacao.pessoas.map((pessoa, i) => (
+                <div key={i} style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: '18px 18px 16px' }}>
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 15, fontWeight: 600, letterSpacing: '-.01em' }}>{pessoa.nome}</div>
+                  <p style={{ fontSize: 13.5, lineHeight: 1.55, color: C.muted, margin: '6px 0 0' }}>{pessoa.necessidade}</p>
+                  <div
+                    style={{
+                      marginTop: 12, paddingLeft: 10, borderLeft: `3px solid ${C.cyan}`,
+                      fontSize: 13, fontWeight: 600, color: C.navy,
+                    }}
+                  >
+                    Foco: {pessoa.foco}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p style={{ fontSize: 14.5, lineHeight: 1.55, color: C.ink2, margin: '14px 0 0', fontWeight: 500 }}>
+              {doc.personalizacao.fechamento}
+            </p>
+          </Secao>
+
           {/* Trajetória: logos recortados do slide comercial. O subtítulo diz "e de
               seus fundadores" de propósito: nem todo logo é cliente da Vertho, e
               o texto não pode prometer o contrário. */}
@@ -573,6 +663,29 @@ export default async function PropostaPublicaPage(
                 sizes="(max-width: 720px) 100vw, 780px"
                 style={{ width: '100%', height: 'auto', display: 'block' }}
               />
+            </div>
+          </Secao>
+
+          {/* Quem move a Vertho: completa o "e de seus fundadores" dos logos */}
+          <Secao eyebrow="// Quem move a Vertho" titulo="Experiência em educação, aprendizagem e tecnologia">
+            <div className="prop-grid-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+              {doc.fundadores.map((f) => (
+                <div
+                  key={f.nome}
+                  style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: '22px 18px 18px', textAlign: 'center' }}
+                >
+                  <Image
+                    src={`/proposta/${f.arquivo}`}
+                    alt={f.nome}
+                    width={360}
+                    height={360}
+                    sizes="96px"
+                    style={{ width: 88, height: 88, borderRadius: '50%', objectFit: 'cover', display: 'block', margin: '0 auto 12px' }}
+                  />
+                  <div style={{ fontFamily: FONT_DISPLAY, fontSize: 16, fontWeight: 600, letterSpacing: '-.01em' }}>{f.nome}</div>
+                  <p style={{ fontSize: 13, lineHeight: 1.55, color: C.muted, margin: '6px 0 0' }}>{f.bio}</p>
+                </div>
+              ))}
             </div>
           </Secao>
 
@@ -663,6 +776,36 @@ export default async function PropostaPublicaPage(
                   </ul>
                 </div>
               ))}
+            </div>
+          </Secao>
+
+          {/* Inteligência para a gestão: as perguntas que a gestão passa a responder */}
+          <Secao
+            eyebrow="// Inteligência para a gestão"
+            titulo="Enquanto cada pessoa evolui, a gestão enxerga o todo"
+            intro="A gestão deixa de acompanhar só a presença e passa a acompanhar evolução, evidências e prioridades."
+          >
+            <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, overflow: 'hidden' }}>
+              {doc.gestao.perguntas.map((q, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex', gap: 12, padding: '13px 18px', fontSize: 14.5, lineHeight: 1.45, color: C.ink,
+                    borderTop: i === 0 ? 'none' : `1px solid ${C.line}`,
+                  }}
+                >
+                  <span style={{ color: C.cyanMarca, flexShrink: 0 }}>›</span>
+                  <span>{q}</span>
+                </div>
+              ))}
+              <div
+                style={{
+                  background: C.cardSoft, borderTop: `1px solid ${C.line}`, padding: '11px 18px',
+                  fontFamily: FONT_MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: C.muted,
+                }}
+              >
+                Visão por nível: <span style={{ color: C.navy }}>{doc.gestao.niveis}</span>
+              </div>
             </div>
           </Secao>
 
