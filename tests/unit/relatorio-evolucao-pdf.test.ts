@@ -51,7 +51,7 @@ describe('as afirmações do papel vêm das fontes vivas', () => {
   it('lê a régua de convergência, a de nível e o ruído medido por IMPORT', () => {
     // Se um destes sair do import, o número continua no papel depois de deixar
     // de ser verdade — e nada na tela acusa.
-    for (const simbolo of ['CORTE_CONFIRMADA', 'CORTE_PARCIAL', 'NIVEL_META_CONFIRMADA', 'TETO_N3', 'RUIDO_MEDIDO', 'rotuloConvergencia']) {
+    for (const simbolo of ['CORTE_CONFIRMADA', 'CORTE_PARCIAL', 'TETO_N3', 'RUIDO_MEDIDO', 'rotuloConvergencia']) {
       expect(FONTE).toContain(simbolo);
     }
     expect(FONTE).toMatch(/import \{[\s\S]*?rotuloConvergencia[\s\S]*?\} from '@\/lib\/season-engine\/convergencia'/);

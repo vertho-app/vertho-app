@@ -8,7 +8,6 @@ import {
   rotuloConvergencia,
   avancoExibido,
   formatarAvanco,
-  NIVEL_META_CONFIRMADA,
 } from '@/lib/season-engine/convergencia';
 
 /**
@@ -67,12 +66,12 @@ describe('Régua de convergência', () => {
   it('trata as fronteiras dos cortes como inclusivas para o lado melhor', () => {
     expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2 + CORTE_PARCIAL, nivel_percebido: null }))
       .toBe(CONVERGENCIA.PARCIAL);
-    // 2 + 0,5 = 2,5 sobe o suficiente mas NÃO alcança a meta (N3): confirmada
-    // exige as duas coisas desde 02/09/2026.
+    // 2 + 0,5 = 2,5 confirma com a conversa sustentando, mesmo sem chegar ao
+    // Nível 3 (a meta saiu da régua em 17/09/2026).
     expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2 + CORTE_CONFIRMADA, nivel_percebido: 2.5 }))
-      .toBe(CONVERGENCIA.PARCIAL);
-    expect(classificarConvergencia({ nota_pre: 2.5, nota_pos: NIVEL_META_CONFIRMADA, nivel_percebido: 2.9 }))
       .toBe(CONVERGENCIA.CONFIRMADA);
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.4, nivel_percebido: 2.5 }))
+      .toBe(CONVERGENCIA.PARCIAL);
     expect(classificarConvergencia({ nota_pre: 2, nota_pos: 1.9, nivel_percebido: null }))
       .toBe(CONVERGENCIA.ESTAVEL);
   });
@@ -195,22 +194,25 @@ describe('as telas de evolução não inventam vocabulário', () => {
   });
 });
 
-describe('meta de nível na convergência', () => {
-  it('não confirma quem subiu muito mas não chegou à meta', () => {
-    // O caso real que motivou a régua (02/09/2026): 1,68 → 2,58 é um salto
-    // grande, e ainda assim a pessoa não está proficiente. "Confirmada" promete
-    // ao gestor uma competência instalada.
+describe('confirmada não depende do nível de chegada (17/09/2026)', () => {
+  it('+1,1 que para no Nível 2 confirma quando a conversa sustenta', () => {
+    // De 02/09 a 17/09 isto era "parcial" por não chegar ao N3, e saía em verde
+    // claro ao lado de um "+1,0" confirmado. O card mostra o avanço, não o nível.
+    expect(classificarConvergencia({ nota_pre: 1.5, nota_pos: 2.6, nivel_percebido: 2.4 }))
+      .toBe(CONVERGENCIA.CONFIRMADA);
     expect(classificarConvergencia({ nota_pre: 1.68, nota_pos: 2.58, nivel_percebido: 2.6 }))
+      .toBe(CONVERGENCIA.CONFIRMADA);
+  });
+
+  it('avanço grande sem a conversa sustentar continua parcial', () => {
+    expect(classificarConvergencia({ nota_pre: 1.5, nota_pos: 2.6, nivel_percebido: null }))
+      .toBe(CONVERGENCIA.PARCIAL);
+    expect(classificarConvergencia({ nota_pre: 1.5, nota_pos: 2.6, nivel_percebido: 1.5 }))
       .toBe(CONVERGENCIA.PARCIAL);
   });
 
-  it('confirma quando o salto E a meta acontecem', () => {
-    expect(classificarConvergencia({ nota_pre: 2.4, nota_pos: 3.1, nivel_percebido: 3 }))
-      .toBe(CONVERGENCIA.CONFIRMADA);
-  });
-
-  it('respeita a meta do programa quando ela é outra (onboarding = N2)', () => {
-    expect(classificarConvergencia({ nota_pre: 1.4, nota_pos: 2.1, nivel_percebido: 2, nivelMeta: 2 }))
-      .toBe(CONVERGENCIA.CONFIRMADA);
+  it('a assinatura não aceita mais meta de nível', () => {
+    const fonte = readFileSync('lib/season-engine/convergencia.ts', 'utf8');
+    expect(fonte).not.toMatch(/nivelMeta|alcancouMeta|NIVEL_META_CONFIRMADA\s*=/);
   });
 });

@@ -30,7 +30,7 @@ import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
 import {
-  CONVERGENCIA, rotuloConvergencia, CORTE_CONFIRMADA, CORTE_PARCIAL, NIVEL_META_CONFIRMADA,
+  CONVERGENCIA, rotuloConvergencia, CORTE_CONFIRMADA, CORTE_PARCIAL,
 } from '@/lib/season-engine/convergencia';
 import { RUIDO_MEDIDO } from '@/lib/season-engine/prompts/extrator-conversa';
 import { TETO_N3 } from '@/lib/nivel-regua';
@@ -471,7 +471,7 @@ export default function RelatorioEvolucaoPDF({
 
           <Text style={s.h3}>Quando a evolução é chamada de confirmada</Text>
           <Text style={s.p}>
-            {`Confirmada exige três coisas ao mesmo tempo: avanço de ao menos ${num(CORTE_CONFIRMADA)} ponto, o relato da própria pessoa sustentando a mudança, e a nota de chegada alcançando N${NIVEL_META_CONFIRMADA}. Subir muito sem chegar a N${NIVEL_META_CONFIRMADA} é evolução parcial: "confirmada" se lê como "pode contar com isso", e essa promessa exige o patamar, não só o movimento.`}
+            {`Confirmada exige duas coisas ao mesmo tempo: avanço de ao menos ${num(CORTE_CONFIRMADA)} ponto e o relato da própria pessoa sustentando a mudança. O nível de chegada não entra na conta: avanço grande sustentado pelo relato é evolução confirmada, qualquer que seja o patamar de partida.`}
           </Text>
           <Text style={s.p}>
             {`Parcial cobre avanço de ao menos ${num(CORTE_PARCIAL)} ponto (o relato da pessoa, sozinho, não basta). Estável é o piso: o patamar de partida se manteve, e é só isso que a medição sustenta.`}

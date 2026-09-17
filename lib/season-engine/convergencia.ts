@@ -63,19 +63,20 @@ export const CORTE_CONFIRMADA = 0.5;
 export const CORTE_PARCIAL = 0.2;
 
 /**
- * Nível que a nota de fechamento precisa ALCANÇAR para o veredito ser
- * "confirmada" — não basta ter subido.
+ * 🔴 CONFIRMADA NÃO EXIGE MAIS CHEGAR AO NÍVEL 3 (decisão do dono, 17/09/2026).
  *
- * Decisão do dono do produto (02/09/2026): quem saiu de 1,68 e chegou a 2,58
- * evoluiu bastante, mas ainda não está proficiente; carimbar isso como
- * "evolução confirmada" promete ao gestor uma competência instalada que a
- * pessoa ainda não tem. Enquanto a meta não é atingida, o veredito é
- * "evolução parcial", que é exatamente o que aconteceu.
+ * De 02/09 a 17/09 a régua só confirmava quem alcançava N3: "quem saiu de 1,68
+ * e chegou a 2,58 evoluiu bastante, mas ainda não está proficiente". No papel
+ * isso virou uma contradição que a pessoa não tinha como entender: "+1,1" em
+ * verde claro ("parcial") ao lado de "+1,0" em verde escuro, porque o card
+ * mostra o avanço e não o nível. `Medido:` 25 descritores gravados com avanço de
+ * 0,5 ou mais saíram parciais, TODOS por não chegar ao N3 (15 só por isso, 10
+ * também com conversa fraca). Os relatórios gravados não foram reclassificados
+ * nesta mudança.
  *
- * É o mesmo N3 de `nivelMetaAlvo` no ProgramaConfig; o parâmetro existe para o
- * onboarding, cuja meta é N2.
+ * O nível da COMPETÊNCIA continua no relatório (nível de partida e de chegada);
+ * o que saiu foi o nível como condição do veredito de cada descritor.
  */
-export const NIVEL_META_CONFIRMADA = 3;
 
 /**
  * Rótulos de APRESENTAÇÃO. O valor gravado no banco (`estagnacao`) é
@@ -166,9 +167,8 @@ export function avancoMedioExibido(
  * (cenário do fechamento) e nivel_percebido (qualitativa da semana anterior).
  *
  * A leitura qualitativa NÃO é um empate técnico: ela promove para confirmada
- * (junto com o delta e a meta). Um número que sobe sem nenhuma evidência de
- * percepção é justamente o caso que a régua quer manter em "parcial", não em
- * "confirmada".
+ * (junto com o avanço). Um número que sobe sem nenhuma evidência de percepção é
+ * justamente o caso que a régua quer manter em "parcial", não em "confirmada".
  *
  * 🔴 Ela NÃO sustenta mais uma parcial sozinha (decisão do dono, 17/09/2026).
  * Com "+0,1" e a conversa mostrando evolução, o descritor saía "Evolução
@@ -200,20 +200,13 @@ export function classificarConvergencia({
   nota_pre,
   nota_pos,
   nivel_percebido,
-  nivelMeta = NIVEL_META_CONFIRMADA,
 }: {
   nota_pre: number;
   nota_pos: number;
   nivel_percebido: number | null;
-  /** Meta do programa (N3 no regular/jornada, N2 no onboarding). */
-  nivelMeta?: number;
 }): Convergencia {
   const delta = nota_pos - nota_pre;
   const qualitativaPositiva = nivel_percebido != null && nivel_percebido > nota_pre;
-  // Subir muito sem chegar à meta é evolução PARCIAL: o gestor lê "confirmada"
-  // como "pode contar com isso", e 2,58 numa régua de 4 ainda não sustenta essa
-  // leitura.
-  const alcancouMeta = nota_pos >= nivelMeta;
 
   // 🔴 AVANÇO EXIBIDO 0,0 É ESTÁVEL, sem exceção (decisão do dono, 16/09/2026).
   // A leitura qualitativa sustentava "parcial" sozinha mesmo com a nota do
@@ -232,7 +225,7 @@ export function classificarConvergencia({
   const avanco = avancoExibido(nota_pre, nota_pos);
   if (avanco === 0) return CONVERGENCIA.ESTAVEL;
   const medido = avanco ?? delta;
-  if (medido >= CORTE_CONFIRMADA && qualitativaPositiva && alcancouMeta) return CONVERGENCIA.CONFIRMADA;
+  if (medido >= CORTE_CONFIRMADA && qualitativaPositiva) return CONVERGENCIA.CONFIRMADA;
   if (medido >= CORTE_PARCIAL) return CONVERGENCIA.PARCIAL;
   // Queda cai aqui de propósito: sem veredito de regressão, o piso da régua é
   // "manteve o patamar". Ver o cabeçalho de CONVERGENCIA.
