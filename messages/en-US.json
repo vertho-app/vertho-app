@@ -1420,7 +1420,7 @@
     "levelUp": "Congratulations! You improved your level in this competency",
     "competenciesIntro": "Your result is measured by competency, on a 4-level scale. Progress shows how much the competency's behaviors advanced, on average, between the start and the end of the season.",
     "levelFromTo": "In {competency}, you were at Level {from} and moved up to Level {to}, out of 4 possible levels.",
-    "levelKept": "In {competency}, you are at Level {n}, out of 4 possible levels.",
+    "levelKept": "In {competency}, you stayed at Level {n}, out of 4 possible levels.",
     "behaviorsIntro": "Each competency shows up in concrete, everyday behaviors, which we call observable behaviors. Each box below shows one of them: the number is how much it advanced between the start and the end of the season, on a scale of 1 to 4 (progress can range from 0 to 3), and the text shows what changed in your practice.",
     "countersIntro": "Of the {total} behaviors observed this season:",
     "legend": {

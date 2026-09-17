@@ -236,7 +236,8 @@ describe('ordem do PDF da temporada', () => {
     const t = texto();
     const pt = JSON.parse(readFileSync('messages/pt-BR.json', 'utf8')).SeasonDone;
     expect(t).toContain('Em Planejamento, você estava no Nível 1 e avançou para o Nível 2, de 4 níveis possíveis.');
-    expect(t).toContain('Em Autocuidado, você está no Nível 2, de 4 níveis possíveis.');
+    // Quem não subiu "se manteve" no nível (dono, 17/09/2026), não "está".
+    expect(t).toContain('Em Autocuidado, você se manteve no Nível 2, de 4 níveis possíveis.');
     for (const chave of ['competenciesIntro', 'behaviorsIntro']) expect(t).toContain(pt[chave]);
     for (const chave of ['confirmed', 'partial', 'stable']) expect(t).toContain(pt.legend[chave]);
     expect(t).toContain('Dos 3 comportamentos observados nesta temporada:');

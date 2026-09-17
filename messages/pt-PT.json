@@ -1420,7 +1420,7 @@
     "levelUp": "Parabéns! Melhorou o seu nível nesta competência",
     "competenciesIntro": "O seu resultado é medido por competência, numa escala de 4 níveis. O avanço mostra quanto os comportamentos da competência avançaram, em média, entre o início e o fim da temporada.",
     "levelFromTo": "Em {competency}, estava no Nível {from} e avançou para o Nível {to}, de 4 níveis possíveis.",
-    "levelKept": "Em {competency}, está no Nível {n}, de 4 níveis possíveis.",
+    "levelKept": "Em {competency}, manteve-se no Nível {n}, de 4 níveis possíveis.",
     "behaviorsIntro": "Cada competência manifesta-se em comportamentos concretos do dia a dia, a que chamamos comportamentos observáveis. Cada quadro abaixo mostra um deles: o número é quanto avançou entre o início e o fim da temporada, numa escala de 1 a 4 (o avanço pode ir de 0 a 3), e o texto mostra o que mudou na sua prática.",
     "countersIntro": "Dos {total} comportamentos observados nesta temporada:",
     "legend": {
