@@ -10,6 +10,12 @@ Não há ferramentas de escrita, execução de comandos, SQL livre, envio de men
 
 Consultas disponíveis: contagens de cadastros/trilhas, nomes de cargos e competências, cadastro e presença de perfil comportamental, status de trilhas e metadados de relatórios por pessoa identificada. Não lê respostas de avaliações, conversas, telefones, conteúdo de relatórios ou configurações privadas. Nomes ambíguos pedem esclarecimento. Falhas são evidência de indisponibilidade, nunca ausência de registros. O registro de custo da IA usa o ledger já existente, com a task `ipi`; não há gravação de dados de negócio pelo assistente.
 
+## Decisões de acesso e apresentação
+
+**Medido: 17/09/2026**, na liberação de acesso (`7ddac612`) e no ajuste das apresentações (`7fe19e26`). A mesma conta `@vertho.ai` pode usar a plataforma internamente ou representar uma persona de demonstração. Portanto, três decisões são independentes: quem pode conversar, quais dados a conta pode consultar e em que ambiente o personagem aparece. Reutilizar o papel administrativo para liberar o bot excluía contas internas sem esse papel; reutilizar somente o domínio para exibir o botão fazia o assistente interno aparecer na apresentação ao cliente.
+
+A identificação visual das duas demos usa o tenant canônico entregue por `proxy.js` a `app/dashboard/layout.tsx`. Checar apenas um hostname de persona deixaria outras visões ou a prévia em iframe de fora. O layout não monta o componente nessas apresentações, sem mudar a autorização da API ou do Beto. O uso normal continua liberado por domínio, com o escopo de dados conferido separadamente no servidor. Não usar a exceção de personas de `lib/internal-emails.ts` para decidir o acesso do Ipi: esse helper existe para a população de relatórios.
+
 ## Modelo de IA
 
 Modelo principal: Claude Sonnet 4.6 (`claude-sonnet-4-6`), resolvido pela task `ipi` em `lib/ai-tasks.ts` nas duas etapas (planejamento da consulta e resposta). O wrapper padrão mantém o fallback de provedor.

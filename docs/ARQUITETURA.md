@@ -2349,6 +2349,12 @@ O wipe apaga `colaboradores` inteiro. Duas categorias escapam disso, por caminho
 
 🔑 **A conta do E2E não é detalhe de teste, é dependência do CI.** Entre 01/09 e 09/09 o reset noturno a apagava e nada a repunha: **185 de 188 runs vermelhos**, com o login ainda passando (a conta existia em `auth.users`) e o relatório mostrando cinco falhas de tela que não nomeavam a causa. A medição completa está no cabeçalho de `lib/demo/conta-verificacao.ts` — o registro fica no código, ao lado de quem o lê, como em `lib/blocos-offline.ts`.
 
+### 24.4 Ipi: acesso, dados e apresentação são decisões independentes (17/09/2026)
+
+O assistente interno aceita contas autenticadas `@vertho.ai` sem exigir papel administrativo. Essa liberação não amplia o acesso aos dados: a API e o catálogo de leitura preservam empresa, permissões e escopo da conta. A visibilidade nas apresentações é uma terceira decisão, porque as personas de demo também usam o domínio interno.
+
+**Medido: 17/09/2026**: o botão apareceu nas apresentações Acme após a liberação por domínio; `7fe19e26` passou a suprimi-lo no layout servidor pelo tenant canônico, cobrindo as diferentes visões e a prévia de celular. O contrato e a justificativa ficam em [IPI.md](IPI.md), inclusive a distinção em relação ao filtro de população descrito em §24.1.
+
 ---
 
 ## 25. Escala — pacote "1000 usuários simultâneos" (04/08/2026)

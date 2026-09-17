@@ -1270,3 +1270,15 @@ mesmo minuto já estava na nova. Foram duas limpezas de 4 cargos; na aba nova (1
 0 `�`. Varrendo a classe, o `.txt` do PPP (`app/admin/ppp/page.tsx`) tinha o mesmo `file.text()`:
 0 de 19 PPPs afetados, corrigido pela régua. O Radar (off-line) ficou de fora de propósito.
 Memória `feedback_deploy` §dep=.
+
+## § Build Next em worktree com `node_modules` por junction
+
+Conferir se o destino da junction está dentro de `turbopack.root`. Em worktree isolado,
+uma raiz temporária no ancestral comum do workspace permite validar o build; restaurar
+`next.config.mjs` em `finally` e confirmar diff vazio nesse arquivo antes do commit.
+Não concluir que todo build por junction é impossível nem usar o working tree compartilhado
+como substituto da versão isolada. Receita: memória `reference_worktree_isolado`.
+
+**Medido: 17/09/2026**, rodada Ipi: três builds passaram com a raiz temporária em
+`C:/GAS/Vertho App`; a configuração original voltou antes dos commits. A orientação
+anterior dizia que o build era impossível e recomendava esperar apenas pela Vercel.
