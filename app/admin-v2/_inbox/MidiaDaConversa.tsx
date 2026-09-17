@@ -16,7 +16,9 @@ import { AlertTriangle, ExternalLink, Maximize2, X } from 'lucide-react';
  *    (arquivo apagado pelo WhatsApp é diferente de falha de rede).
  * 2. **Imagem ilegível.** Print de celular é alto e estreito: limitado a 208 px
  *    de altura, a tela de uma lista de nomes virava uma faixa de 100 px de
- *    largura. A miniatura cresceu e abre em tela cheia com um clique.
+ *    largura. A miniatura cresceu e abre em tela cheia com um clique. Ajustado
+ *    à altura da tela, um print de 1600 px ainda sai a ~40%, então um segundo
+ *    clique mostra o tamanho real, com rolagem.
  */
 
 interface Falha {
@@ -86,12 +88,18 @@ function MidiaIndisponivel({ falha, src }: { falha: Falha; src: string }) {
 
 export function ImagemDaConversa({ src, alt }: { src: string; alt: string }) {
   const [ampliada, setAmpliada] = useState(false);
+  const [tamanhoReal, setTamanhoReal] = useState(false);
   const { falha, aoFalhar } = useFalha(src, 'imagem');
+
+  const fechar = () => {
+    setAmpliada(false);
+    setTamanhoReal(false);
+  };
 
   useEffect(() => {
     if (!ampliada) return;
     const aoTeclar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setAmpliada(false);
+      if (e.key === 'Escape') fechar();
     };
     window.addEventListener('keydown', aoTeclar);
     return () => window.removeEventListener('keydown', aoTeclar);
@@ -125,9 +133,12 @@ export function ImagemDaConversa({ src, alt }: { src: string; alt: string }) {
           aria-modal="true"
           aria-label="Imagem ampliada"
           className="fixed inset-0 z-[90] flex flex-col bg-[#030a14f0] p-3 sm:p-6"
-          onClick={() => setAmpliada(false)}
+          onClick={fechar}
         >
           <div className="mb-2 flex shrink-0 items-center justify-end gap-2">
+            <span className="mr-auto hidden text-[12px] text-white/60 sm:inline">
+              {tamanhoReal ? 'Clique na imagem para ajustar à tela' : 'Clique na imagem para ver em tamanho real'}
+            </span>
             <a
               href={src}
               target="_blank"
@@ -139,7 +150,7 @@ export function ImagemDaConversa({ src, alt }: { src: string; alt: string }) {
             </a>
             <button
               type="button"
-              onClick={() => setAmpliada(false)}
+              onClick={fechar}
               aria-label="Fechar"
               autoFocus
               className="rounded-lg p-1.5 text-white/80 transition-colors hover:bg-white/10 hover:text-white"
@@ -147,13 +158,27 @@ export function ImagemDaConversa({ src, alt }: { src: string; alt: string }) {
               <X size={18} />
             </button>
           </div>
-          <div className="flex min-h-0 flex-1 items-center justify-center">
+          {/*
+            Em tamanho real a caixa ROLA e não centraliza: centralizar com flex
+            um conteúdo maior que a caixa corta o topo e a esquerda, que ficam
+            fora do alcance da barra de rolagem.
+          */}
+          <div
+            className={`min-h-0 flex-1 ${tamanhoReal ? 'overflow-auto' : 'flex items-center justify-center'}`}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               alt={alt}
               src={src}
-              onClick={(e) => e.stopPropagation()}
-              className="max-h-full max-w-full cursor-default rounded-lg object-contain"
+              onClick={(e) => {
+                e.stopPropagation();
+                setTamanhoReal((v) => !v);
+              }}
+              className={
+                tamanhoReal
+                  ? 'mx-auto block max-w-none cursor-zoom-out rounded-lg'
+                  : 'max-h-full max-w-full cursor-zoom-in rounded-lg object-contain'
+              }
             />
           </div>
         </div>,
