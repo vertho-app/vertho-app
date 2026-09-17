@@ -258,6 +258,17 @@ export type DemoRoster = {
     concluidas: number;
     /** Semana em curso (a de checkpoint). Sem ela, só as concluídas entram. */
     emAndamento?: number;
+    /**
+     * A conversa de evidências de CADA semana concluída, congelada da rota real.
+     *
+     * 🔴 O produto só conclui semana de conteúdo NA conversa, e a tela da semana
+     * só se dá por concluída com o transcript gravado. Sem isto a demo mostrava
+     * a semana concluída na lista e "0 de 6 respostas" ao abri-la (17/09/2026); e
+     * clicar em "Levantar evidências" abria conversa nova, que regrava a semana
+     * como em andamento. `tests/unit/demo-percurso-evidencias.test.ts` exige uma
+     * por semana concluída.
+     */
+    evidencias?: Array<{ semana: number; descritor: string; reflexao: Record<string, any> }>;
   };
   /** Outros temas com assets prontos, restaurados junto ao vídeo original. */
   videosDaJornada?: NonNullable<DemoRoster['videoDaJornada']>[];

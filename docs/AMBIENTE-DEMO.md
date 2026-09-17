@@ -132,6 +132,28 @@ O reset deve recuperá-la por atualização quando não houver uma célula viva 
 a substitua; tentar inserir novamente o ID aborta a recomposição da demo.
 Essa recuperação é comum às demos escolar e empresarial.
 
+## Conversas de evidências da Marina
+
+As semanas 1 e 2 da Marina nascem concluídas **com a conversa que as concluiu**
+(`lib/demo/escolas-evidencias-jornada.json`, ligada em `percursoDaPersona.evidencias`
+do roster escolar). O produto só conclui semana de conteúdo na conversa, e a tela da
+semana só se dá por concluída com o transcript gravado. Até 17/09/2026 o reset gravava
+`concluido` com `reflexao: null`: a lista mostrava a semana concluída e a tela, "0 de 6
+respostas". Clicar em "Levantar evidências" abria conversa nova (paga) e regravava a
+semana como em andamento.
+
+As conversas saíram da rota real (`/api/temporada/reflection`, logado como Marina):
+mentor, desafio do kit e extração são os do produto; só a fala da professora veio do
+aluno simulado (`promptSimuladorColab`, evolução confirmada, instruído a falar no
+feminino). O reset repete sem IA e recarimba as mensagens com a data de conclusão.
+`tests/unit/demo-percurso-evidencias.test.ts` exige, para toda semana concluída de
+persona com percurso, os 6 turnos da régua `turnosIaNecessarios`, a extração e o
+descritor da semana no plano.
+
+⚠️ Semanas concluídas das pessoas de APOIO e da Mariana (ACME e Grupo Sinal) seguem
+sem conversa: o plano delas é um esqueleto (`{semana, tipo}`, sem conteúdo), feito para
+o painel de Evolução, e não abre como jornada navegável.
+
 ## Reset
 Os tenants usam uma fonte única (`lib/demo/reset-acme-demo.ts::resetDemoTenant`,
 TENANT-SAFE — todo delete/insert é filtrado pelo `empresa_id` do tenant escolhido):

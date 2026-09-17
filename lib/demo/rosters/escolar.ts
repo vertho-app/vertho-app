@@ -20,6 +20,7 @@ import type { DemoRoster, DemoRosterDescritor } from '@/lib/demo/rosters/types';
 // `scripts/_extrair-descritores-escolares.ts`.
 import reguaEscolar from '@/lib/demo/escolas-descritores.json';
 import videosJornada from '@/lib/demo/escolas-videos-jornada.json';
+import evidenciasJornada from '@/lib/demo/escolas-evidencias-jornada.json';
 import { REGUA_ESCOLAR } from '@/lib/demo/escolar-evolucao-fixture';
 
 const DIRECAO = 'Diretor(a) Escolar';
@@ -429,7 +430,14 @@ export const ROSTER_ESCOLAR: DemoRoster = {
    * vê "Ação esta semana · Marina Rocha", clica em "Ver jornada" e cai na semana
    * que abre com o vídeo que diz o nome dela.
    */
-  percursoDaPersona: { personaKey: 'marina', concluidas: 2, emAndamento: 3 },
+  percursoDaPersona: {
+    personaKey: 'marina',
+    concluidas: 2,
+    emAndamento: 3,
+    // As conversas que concluíram as semanas 1 e 2, geradas pela rota real e
+    // congeladas. Ver docs/AMBIENTE-DEMO.md §Conversas de evidências da Marina.
+    evidencias: evidenciasJornada as NonNullable<DemoRoster['percursoDaPersona']>['evidencias'],
+  },
   panorama: {
     semPerfil: ['rafael_t'],
     mapeados: ['paula', 'tiago', 'ana_luiza', 'carlos_e', 'juliana_s', 'marcos_v', 'fernanda_c', 'bruno_a', 'patricia_m', 'leticia_b'],

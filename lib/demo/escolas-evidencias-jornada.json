@@ -1,0 +1,222 @@
+[
+  {
+    "semana": 1,
+    "descritor": "Ritmo e transições",
+    "reflexao": {
+      "citacao_chave": "o que mais ajudou foi ter avisado eles no começo da aula sobre o combinado das palmas, porque os que estavam prestando atenção lembraram na hora e puxaram os outros",
+      "relato_resumo": "A colaboradora planejou os blocos de tempo da aula e combinou o sinal de duas palmas com o 8º ano B. A turma chegou agitada após o intervalo, o que consumiu cerca de dez minutos só para estabelecer atenção. Quando usou as palmas, parte da turma respondeu, mas foi necessário elevar a voz para que todos parassem. Ela identificou que ter avisado o combinado no início da aula foi o que fez a sinalização funcionar minimamente, e conectou esse princípio a situações de trabalho em grupo.",
+      "sinais_extraidos": {
+        "autopercepcao": true,
+        "exemplo_concreto": true,
+        "conexao_com_pratica": true,
+        "compromisso_especifico": false
+      },
+      "desafio_realizado": "parcial",
+      "insight_principal": "Antecipar o combinado com a turma — antes de iniciar, não durante — é o que cria condição para que o sinal de transição seja reconhecido e seguido. Sem esse aviso prévio, o sinal seria percebido como arbitrário.",
+      "compromisso_origem": "ia",
+      "qualidade_reflexao": "media",
+      "compromisso_proxima": "Na próxima atividade em grupo, definir e comunicar antes os tempos de cada etapa — pesquisa e escrita — e combinar o sinal de transição com a turma.",
+      "limites_da_conversa": [
+        "O compromisso final foi formulado e nomeado pela IA no fechamento; a colaboradora não o verbalizou como assumido.",
+        "Apenas uma transição da aula foi relatada em detalhe; não é possível avaliar consistência do uso do sinal ao longo da aula.",
+        "A conexão com trabalho em grupo ficou no campo da intenção e especulação ('talvez o ritmo renda mais'), sem relato de execução prévia ou planejamento concreto já iniciado.",
+        "Não há informação sobre outras aulas da semana, o que limita leitura de padrão ou repetição."
+      ],
+      "transcript_completo": [
+        {
+          "role": "assistant",
+          "turn": 1,
+          "content": "Oi! Essa semana o desafio era planejar os tempos de cada parte da aula antes de entrar em sala e usar um sinal combinado com a turma pra marcar as transições. Como foi quando você tentou colocar isso em prática?",
+          "timestamp": "2026-09-17T12:31:27.820Z"
+        },
+        {
+          "role": "user",
+          "content": "Olha, foi bem interessante tentar fazer isso, mas confesso que foi mais difícil do que eu imaginava. Eu planejei certinho os blocos de tempo para a explicação e para a atividade em grupo, e até combinei duas palmas com eles para mudar de momento. Só que na prática a turma demorou muito para engrenar no primeiro exercício e eu acabei me perdendo um pouco no relógio. No fim deu certo, mas senti que ainda preciso pegar o jeito com esse controle de tempo.",
+          "timestamp": "2026-09-17T12:31:30.439Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 2,
+          "content": "Que turma era essa e em que momento do dia a aula aconteceu?",
+          "timestamp": "2026-09-17T12:31:32.397Z"
+        },
+        {
+          "role": "user",
+          "content": "Era com o 8º ano B, logo na primeira aula depois do intervalo da tarde. Eles já entraram meio agitados, conversando sobre o recreio, e eu demorei uns bons dez minutos só pra conseguir a atenção de todo mundo. Aí quando tentei dar as palmas pro primeiro bloco terminar, parece que ninguém nem ouviu direito.",
+          "timestamp": "2026-09-17T12:31:35.166Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 3,
+          "content": "Você mencionou que demorou pra conseguir a atenção deles — e quando as palmas finalmente funcionaram, como ficou o clima da turma nesse momento?",
+          "timestamp": "2026-09-17T12:31:37.599Z"
+        },
+        {
+          "role": "user",
+          "content": "Ficou meio dividido, sabe? Alguns alunos até pararam e me olharam na hora, mas outros continuaram rindo e guardando o lanche como se nada tivesse acontecendo. Acabei tendo que elevar um pouco a voz junto com as palmas pra conseguir que todos virassem pra frente, então senti que a transição foi meio truncada, não tão natural quanto eu queria. Mas pelo menos serviu pra cortar aquela dispersão total do recreio.",
+          "timestamp": "2026-09-17T12:31:40.964Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 4,
+          "content": "Você falou que não ficou tão natural quanto queria — pensando em tudo que aconteceu, o que você acha que fez a maior diferença pra que as palmas funcionassem pelo menos em parte?",
+          "timestamp": "2026-09-17T12:31:43.802Z"
+        },
+        {
+          "role": "user",
+          "content": "Acho que o que mais ajudou foi ter avisado eles no começo da aula sobre o combinado das palmas, porque os que estavam prestando atenção lembraram na hora e puxaram os outros. Se eu não tivesse falado nada antes, acho que teriam achado que eu só estava chamando a atenção deles de um jeito aleatório. Mas ainda assim sinto que dependeu muito de eu insistir, não foi algo automático deles.",
+          "timestamp": "2026-09-17T12:31:46.125Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 5,
+          "content": "Pensando nisso que você percebeu — que avisar antes fez diferença — em que outra situação da sua semana como professor esse mesmo princípio poderia aparecer?",
+          "timestamp": "2026-09-17T12:31:48.730Z"
+        },
+        {
+          "role": "user",
+          "content": "Acho que em trabalho em grupo, com certeza. Quase sempre que eu divido a sala sem dar instruções bem claras antes do tempo de cada etapa, eles se perdem conversando e não entregam no prazo. Se eu combinar antes com eles quanto tempo têm pra pesquisar e quanto tempo têm pra escrever, talvez o ritmo da aula renda bem mais.",
+          "timestamp": "2026-09-17T12:31:51.279Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 6,
+          "content": "✅ **Desafio**: parcial\n📝 **Insight**: Antecipar combinados com a turma — antes, não durante — é o que cria condição para transições funcionarem.\n🎯 **Compromisso**: Na próxima atividade em grupo, definir e comunicar antes os tempos de cada etapa (pesquisa e escrita) e combinar o sinal de transição.\n\nVocê chegou sozinha a uma conexão que vai além do desafio desta semana — isso é o que faz o aprendizado virar algo seu.",
+          "timestamp": "2026-09-17T12:31:55.760Z"
+        }
+      ],
+      "avaliacao_por_descritor": [
+        {
+          "limite": "Não há relato sobre como as demais transições da aula ocorreram, nem se o sinal foi reforçado ou adaptado após a primeira tentativa. O relato cobre um único momento de transição.",
+          "apareceu": true,
+          "descritor": "Ritmo e transições",
+          "observacao": "A colaboradora planejou blocos de tempo e combinou um sinal (duas palmas) com a turma antes da aula. Na prática, o sinal funcionou parcialmente: alguns alunos responderam, outros não. Ela precisou elevar a voz para complementar. A transição ocorreu, mas de forma truncada. Não há relato de ajuste ou segunda tentativa ao longo da mesma aula.",
+          "forca_evidencia": "moderada",
+          "trecho_sustentador": "acabei tendo que elevar um pouco a voz junto com as palmas pra conseguir que todos virassem pra frente, então senti que a transição foi meio truncada, não tão natural quanto eu queria"
+        }
+      ]
+    }
+  },
+  {
+    "semana": 2,
+    "descritor": "Engajamento ativo",
+    "reflexao": {
+      "citacao_chave": "É meio doido perceber que o formato da minha aula às vezes afasta quem mais precisa falar",
+      "relato_resumo": "A colaboradora aplicou a técnica de trabalho em duplas numa aula de revisão de ciências na quinta-feira. Enfrentou dificuldade inicial de organização, mas observou participação de alunos habitualmente silenciosos. Relatou caso concreto do Lucas, aluno do 6º ano que raramente participa, que conseguiu explicar o ciclo da água ao colega após intervenção calma da professora. A partir dessa observação, chegou à percepção de que o formato da aula em grande grupo pode inibir alunos mais quietos e que sua própria prática de chamar quem levanta a mão reforça essa dinâmica.",
+      "sinais_extraidos": {
+        "autopercepcao": true,
+        "exemplo_concreto": true,
+        "conexao_com_pratica": true,
+        "compromisso_especifico": true
+      },
+      "desafio_realizado": "sim",
+      "insight_principal": "O silêncio de alguns alunos não é desinteresse, mas medo de errar na frente de todos — e o formato da aula em grande grupo tem papel ativo nisso, incluindo o hábito da professora de chamar quem já está engajado.",
+      "compromisso_origem": "ia",
+      "qualidade_reflexao": "alta",
+      "compromisso_proxima": "Antes das perguntas de revisão no quadro, dar 1 minuto para cada aluno comentar a resposta com quem senta do lado antes de abrir para o grupo.",
+      "limites_da_conversa": [
+        "A colaboradora admitiu ter se perdido na circulação pela sala, mas não detalhou quantos alunos ou duplas conseguiu acompanhar além do Lucas.",
+        "O compromisso foi proposto como possibilidade ('eu podia') e não como afirmação firme; a consolidação final foi feita pela IA.",
+        "Não há evidência de como a técnica foi recebida pela turma de forma geral — o relato se concentra quase exclusivamente no episódio com o Lucas.",
+        "A profundidade da reflexão foi fortemente mediada pelas perguntas socráticas da IA; não é possível avaliar o nível de reflexão autônoma da colaboradora."
+      ],
+      "transcript_completo": [
+        {
+          "role": "assistant",
+          "turn": 1,
+          "content": "Oi! Que bom te ver por aqui 😊\n\nEssa semana o desafio era experimentar a técnica de pares na sala — dividir a turma em duplas com papéis definidos e ficar de olho em quem ficava quietinho pra chamar pelo nome.\n\nComo foi quando você tentou colocar isso em prática?",
+          "timestamp": "2026-09-17T12:32:19.412Z"
+        },
+        {
+          "role": "user",
+          "content": "Oi! Então, eu tentei aplicar numa aula de revisão de ciências na quinta-feira. No começo foi um pouco caótico pra organizar quem falava e quem ouvia, porque alguns queriam só falar por cima do outro, sabe? Mas depois que engrenou, achei interessante ver alguns alunos que quase nunca participam tentando explicar pro colega. Ainda senti que me perdi um pouco na hora de circular e dar atenção pra todo mundo, mas no geral foi uma experiência boa.",
+          "timestamp": "2026-09-17T12:32:21.762Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 2,
+          "content": "Você falou que viu alunos que quase nunca participam tentando explicar pro colega — isso chamou atenção.\n\nTem algum aluno específico que você lembra de ter observado nesse momento? O que aconteceu com ele?",
+          "timestamp": "2026-09-17T12:32:24.208Z"
+        },
+        {
+          "role": "user",
+          "content": "Lembro do Lucas, do 6º ano. Ele costuma ficar super encolhido no fundo e quase não abre a boca no grupão, mas na dupla com o Pedro ele teve que falar a parte dele sobre o ciclo da água. Quando eu cheguei perto, ele deu uma travada de vergonha, mas eu perguntei com calma o que ele estava explicando e ele conseguiu terminar o raciocínio. Foi simples, mas para ele já foi um passo enorme.",
+          "timestamp": "2026-09-17T12:32:27.280Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 3,
+          "content": "Esse momento com o Lucas — o que você acha que fez ele conseguir terminar o raciocínio dessa vez, sendo que no grupão ele costuma não abrir a boca?",
+          "timestamp": "2026-09-17T12:32:29.642Z"
+        },
+        {
+          "role": "user",
+          "content": "Acho que foi o fato de não ter a sala inteira olhando pra ele, sabe? Falar só pro Pedro parecia menos intimidador, e quando eu cheguei perto, tentei não fazer parecer uma cobrança, só mostrei que tava curiosa pra ouvir o que ele tava dizendo. Talvez ter a tarefa divididinha também tirou aquele peso de errar na frente de todo mundo. Mas confesso que ainda preciso entender melhor como manter esse ritmo sem ter que ficar colada nele o tempo todo.",
+          "timestamp": "2026-09-17T12:32:33.186Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 4,
+          "content": "Você descreveu algo bem interessante: o Lucas falou numa situação pequena, com audiência menor, sem peso de errar na frente de todos.\n\nO que isso te diz sobre o que pode estar impedindo outros alunos de participar nas suas aulas no geral?",
+          "timestamp": "2026-09-17T12:32:35.777Z"
+        },
+        {
+          "role": "user",
+          "content": "Me faz pensar que às vezes a gente acha que eles tão desinteressados ou com preguiça, mas no fundo é só medo de passar vergonha na frente dos outros trinta colegas. Eu acabo chamando quem levanta a mão mais rápido pra aula render, e isso deve deixar os mais quietos ainda mais invisíveis. É meio doido perceber que o formato da minha aula às vezes afasta quem mais precisa falar, sabe?",
+          "timestamp": "2026-09-17T12:32:37.910Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 5,
+          "content": "Essa percepção — de que o formato pode afastar quem mais precisa — é forte.\n\nEm que outro momento da sua rotina de aula você acha que conseguiria criar esse espaço menor, menos exposto, pra quem costuma ficar invisível?",
+          "timestamp": "2026-09-17T12:32:40.546Z"
+        },
+        {
+          "role": "user",
+          "content": "Talvez no início da aula, quando eu passo aquelas perguntas de revisão no quadro pra checar o que lembraram da semana passada. Em vez de pedir pra alguém responder em voz alta logo de cara, eu podia deixar eles comentarem a resposta rapidinho com quem senta do lado. Até na hora de corrigir exercícios individuais acho que daria pra fazer isso antes de eu ir pro quadro. Já tiraria um pouco dessa pressão de ter que acertar de primeira na frente de todo mundo.",
+          "timestamp": "2026-09-17T12:32:42.834Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 6,
+          "content": "✅ **Desafio**: realizado\n📝 **Insight**: O silêncio de alguns alunos pode ser menos desinteresse e mais medo de errar na frente de todos — e o formato da aula tem mais poder sobre isso do que parece.\n🎯 **Compromisso**: Na próxima semana, antes das perguntas de revisão no quadro, dar 1 minuto pra cada aluno comentar a resposta com quem senta do lado antes de abrir pro grupo.\n\nVocê saiu dessa conversa com uma percepção que veio da sua própria sala, do Lucas de verdade — isso tem um peso que nenhum material didático consegue dar.",
+          "timestamp": "2026-09-17T12:32:50.218Z"
+        }
+      ],
+      "avaliacao_por_descritor": [
+        {
+          "limite": "Não há informação sobre quantas duplas ela conseguiu acompanhar além do Lucas, e ela própria admitiu ter se perdido na circulação.",
+          "apareceu": true,
+          "descritor": "Engajamento ativo",
+          "observacao": "A colaboradora não apenas executou a técnica, mas circulou pela sala, observou alunos específicos e interagiu ativamente com o Lucas no momento de travada, ajustando sua abordagem em tempo real.",
+          "forca_evidencia": "forte",
+          "trecho_sustentador": "quando eu cheguei perto, tentei não fazer parecer uma cobrança, só mostrei que tava curiosa pra ouvir o que ele tava dizendo"
+        },
+        {
+          "limite": "A reflexão foi provocada pelas perguntas da IA; não há evidência de que ela teria chegado a esse nível sozinha sem a mediação socrática.",
+          "apareceu": true,
+          "descritor": "Reflexão sobre a prática",
+          "observacao": "A colaboradora conectou a observação do Lucas a uma percepção mais ampla sobre o formato da aula e o comportamento dos alunos silenciosos, indo além do episódio pontual.",
+          "forca_evidencia": "forte",
+          "trecho_sustentador": "É meio doido perceber que o formato da minha aula às vezes afasta quem mais precisa falar"
+        },
+        {
+          "limite": "Insight emergiu em resposta direta à pergunta da IA; o nível de internalização prévia não é verificável.",
+          "apareceu": true,
+          "descritor": "Insight genuíno",
+          "observacao": "A colaboradora identificou que o silêncio dos alunos pode ser medo de exposição, não desinteresse, e reconheceu que sua própria prática de chamar quem levanta a mão reforça a invisibilidade dos mais quietos.",
+          "forca_evidencia": "forte",
+          "trecho_sustentador": "a gente acha que eles tão desinteressados ou com preguiça, mas no fundo é só medo de passar vergonha na frente dos outros trinta colegas"
+        },
+        {
+          "limite": "A colaboradora não verbalizou o compromisso como promessa firme; usou 'eu podia', indicando possibilidade, não comprometimento declarado.",
+          "apareceu": true,
+          "descritor": "Compromisso concreto",
+          "observacao": "A colaboradora propôs espontaneamente dois contextos de aplicação (revisão no quadro e correção de exercícios) antes do resumo da IA, indicando que a ideia partiu dela. No entanto, o formato exato do compromisso foi consolidado pelo mentor no fechamento.",
+          "forca_evidencia": "moderada",
+          "trecho_sustentador": "em vez de pedir pra alguém responder em voz alta logo de cara, eu podia deixar eles comentarem a resposta rapidinho com quem senta do lado"
+        }
+      ]
+    }
+  }
+]

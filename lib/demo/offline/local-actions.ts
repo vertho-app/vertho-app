@@ -64,7 +64,8 @@ export async function resolverVideoDaSemana(_competency?: string, descriptor?: s
   const week = demo.weeks.find(w => w.title === descriptor);
   if (!week) return { available: false, status: 'unavailable' };
   const video = week.formats.find(f => f.key === 'video')!;
-  return { available: true, status: 'done', bunny_video_id: video.path, bunny_library: 'offline', local_url: ENVIRONMENT.base+video.path, isPersonalizado: ENVIRONMENT.tenant === 'acme-demo' };
+  // As duas demos empacotam o vídeo nominal da persona (Bruna, Marina); o manifesto é quem garante.
+  return { available: true, status: 'done', bunny_video_id: video.path, bunny_library: 'offline', local_url: ENVIRONMENT.base+video.path, isPersonalizado: true };
 }
 export async function resolverVideoDaSemanaGestor(_key: string, competency?: string, descriptor?: string) { return resolverVideoDaSemana(competency, descriptor); }
 export async function getGestorHomeData() {
