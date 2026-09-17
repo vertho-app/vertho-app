@@ -149,7 +149,9 @@ disco, a comparação é aproximada; depois de uma rodada inteira subida via `gi
    efeito e a lista continua intacta. E clicar no card **abre a visualização**, não o menu.
 8. **Fechar contando.** Ao final tem que haver **exatamente 16**, um por nome, todos com o tamanho
    do repo. Duplicata sobrando é pior que arquivo velho: o Project passa a responder com as duas
-   versões. O fecho barato, num comando:
+   versões. 🔴 **Conte na página RECARREGADA**, com uns 5 s entre o último clique e a navegação: a
+   lista sem recarregar some com o card na hora, mesmo quando a exclusão não persistiu (ver
+   Armadilhas, 17/09). O fecho barato, num comando:
 
    ```js
    const itens = [...getUl().children].map(li => li.innerText.replace(/\s+/g, ' ').trim());
@@ -159,6 +161,11 @@ disco, a comparação é aproximada; depois de uma rodada inteira subida via `gi
 
 ## Armadilhas registradas
 
+- 🔴 **A lista sem recarregar mostra remoção que não persistiu.** `Medido: 17/09/2026`: 4 remoções,
+  e a lista marcava 16 cards e 0 duplicados. Recarregada, tinha 17: o `DESIGN-SYSTEM.md` ANTIGO
+  (11,1 kB) estava de volta. Foi o clique que saiu 1,5 s antes da navegação (Suponho: a exclusão não
+  chegou ao servidor). Repetido com 6 s de espera, fechou em 16 depois do reload. A trava que deixou
+  repetir sem medo: o laço só clica se o card-alvo tiver o kB da versão ANTIGA.
 - **O LOG do laço de remoção não prova o que saiu — só a listagem final prova.** `Medido: 09/09/2026`
   — o laço registrou *"removi: CLAUDE.md 68,1"*, *"removi: CLAUDE.md 70,1"* e *"removi:
   FMEA-PIPELINE.md 158,8"*, ou seja, dizia ter apagado as duas versões NOVAS, e mesmo assim o estado
