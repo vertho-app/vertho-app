@@ -121,6 +121,26 @@ describe('experiência temporária de prospect no ACME', () => {
       prospect_company: 'Empresa Horizonte',
       expires_at: result.access.expiresAt,
     });
+    // 🔴 A versão A não manda a coluna nova: o payload continua o de antes da
+    // mig 256, e a coluna preenche 'A' pelo default.
+    expect(tracking?.payload).not.toHaveProperty('experience_version');
+    expect(result.access.versao).toBe('A');
+  });
+
+  it('versão B: grava a versão e o link abre a PÁGINA de boas-vindas, que não cria sessão', async () => {
+    const result = await prepareAcmeProspectExperience({ ...validInput, versao: 'B' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const link = new URL(result.access.url);
+    expect(link.hostname).toBe('acme-demo.vertho.ai');
+    expect(link.pathname).toMatch(/^\/c\/[A-Za-z0-9_-]{24}$/);
+    expect(link.search).toBe('');
+    expect(result.access.versao).toBe('B');
+
+    const tracking = sb.escritas.find((write) => write.tabela === 'demo_prospect_sessions' && write.op === 'insert');
+    expect(tracking?.payload).toMatchObject({ experience_version: 'B' });
+    expect(generateLink).not.toHaveBeenCalled();
   });
 
   it('falha fechado antes de qualquer escrita quando o alvo não é tenant demo', async () => {
@@ -185,12 +205,26 @@ describe('contratos puros da experiência ACME', () => {
       roleKey: 'analista-financeiro',
     })).toEqual({
       ok: true,
-      value: { nome: 'Marina Souza', empresa: 'Empresa Horizonte', roleKey: 'analista-financeiro' },
+      // sem versão na entrada é o roteiro A, o de antes da versão B existir
+      value: { nome: 'Marina Souza', empresa: 'Empresa Horizonte', roleKey: 'analista-financeiro', versao: 'A' },
     });
     expect(validateAcmeProspectExperienceInput({
       ...validInput,
       roleKey: 'admin',
     })).toEqual({ ok: false, error: 'Escolha um papel demonstrativo válido.' });
+  });
+
+  it('aceita a versão B e RECUSA versão desconhecida (nunca vira A em silêncio)', () => {
+    expect(validateAcmeProspectExperienceInput({ ...validInput, versao: 'B' })).toMatchObject({
+      ok: true,
+      value: { versao: 'B' },
+    });
+    for (const versao of ['C', 'b', 1, true, { versao: 'B' }]) {
+      expect(validateAcmeProspectExperienceInput({ ...validInput, versao })).toEqual({
+        ok: false,
+        error: 'Escolha uma versão de roteiro válida.',
+      });
+    }
   });
 
   it('calcula 04h BRT do décimo dia pela data civil brasileira, inclusive à noite', () => {
@@ -215,6 +249,7 @@ describe('contratos puros da experiência ACME', () => {
       empresa: 'Empresa Horizonte',
       cargo: 'Representante Comercial',
       expiresAt: '2026-09-02T07:00:00.000Z',
+      versao: 'A' as const,
       url: 'https://acme-demo.vertho.ai/acesso-pessoal',
       views: [
         { roleKey: 'rh' as const, url: 'https://rh-demo.vertho.ai/acesso-rh' },

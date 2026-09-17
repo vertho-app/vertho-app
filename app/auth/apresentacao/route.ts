@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import {
   DEMO_PRESENTATION_DEVICE_PARAM,
+  DEMO_PRESENTATION_RETURN_PARAM,
   DEMO_PRESENTATION_TICKET_PARAM,
   getDemoPresentationDeviceQueryValue,
   getDemoPresentationRoleFromHostname,
   parseDemoPresentationDevice,
 } from '@/lib/demo/presentation';
 import { verifyDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
+import { lerCodigoCurto } from '@/lib/demo/degustacao-link-curto';
 import { gerarMagicLinkPapelApresentacaoDemo } from '@/lib/demo/reset-acme-demo';
 import { recordAcmeProspectPresentationAccess } from '@/lib/demo/acme-prospect-tracking';
 
@@ -86,5 +88,17 @@ export async function GET(req: NextRequest) {
     DEMO_PRESENTATION_DEVICE_PARAM,
     getDemoPresentationDeviceQueryValue(device),
   );
+  // "Voltar ao início": o código do link curto da página de boas-vindas só
+  // atravessa quando foi assinado para ESTE ambiente e é da MESMA sessão do
+  // ticket. Código de outra pessoa, de outro ambiente ou forjado é descartado em
+  // silêncio: a sala abre normalmente, só sem o botão.
+  const volta = req.nextUrl.searchParams.get(DEMO_PRESENTATION_RETURN_PARAM);
+  if (
+    volta
+    && ticketPayload.prospectSessionId
+    && lerCodigoCurto(volta, ticketPayload.tenant) === ticketPayload.prospectSessionId
+  ) {
+    destino.searchParams.set(DEMO_PRESENTATION_RETURN_PARAM, volta);
+  }
   return NextResponse.redirect(destino);
 }

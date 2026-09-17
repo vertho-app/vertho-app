@@ -38,6 +38,12 @@ export async function loadHomeData() {
   const email = await getAuthenticatedEmailFromAction();
   if (!email) return { error: 'Não autenticado' };
 
+  // Convidado da degustação B: a casa dele é a página do roteiro, não a home de
+  // colaborador. Quem não tem e-mail com forma de passaporte não paga consulta.
+  const { hrefDaCasaDoConvidado } = await import('@/lib/demo/degustacao-casa');
+  const casaDoConvidado = await hrefDaCasaDoConvidado(email);
+  if (casaDoConvidado) return { degustacaoGuiada: { href: casaDoConvidado } };
+
   const ctx = await getUserContext(email);
   if (!ctx?.colaborador) return { error: 'Colaborador nao encontrado para este e-mail' };
 

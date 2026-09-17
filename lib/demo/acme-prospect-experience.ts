@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { tenantUrl } from '@/lib/domain';
 import { emitirPasseDegustacao } from '@/lib/demo/degustacao-passe';
+import { linkCurtoDaDegustacao } from '@/lib/demo/degustacao-link-curto';
 import { tenantDb } from '@/lib/tenant-db';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import {
@@ -175,6 +176,7 @@ export async function prepareAcmeProspectExperience(
       throw new Error(`criar acesso temporário: ${authError?.message || 'usuário não retornado'}`);
     }
 
+    const versao = parsed.value.versao ?? 'A';
     const { error: trackingError } = await tdb.from('demo_prospect_sessions').insert({
       session_id: sessionId,
       colaborador_id: colaboradorId,
@@ -185,6 +187,9 @@ export async function prepareAcmeProspectExperience(
       cargo: role.label,
       created_by_email: createdByEmail,
       expires_at: expiresAt,
+      // Só a B grava a versão: o payload da A continua EXATAMENTE o de antes da
+      // mig 256, e a coluna preenche 'A' pelo default.
+      ...(versao === 'B' ? { experience_version: 'B' } : {}),
     });
     if (trackingError) {
       throw new Error(`criar acompanhamento do prospect: ${trackingError.message}`);
@@ -213,8 +218,7 @@ export async function prepareAcmeProspectExperience(
         empresa: parsed.value.empresa,
         cargo: role.label,
         expiresAt,
-        // 🔴 NUNCA aponte o link do convidado direto para `/auth/callback`.
-        //
+        versao,
         // 🔴 NUNCA aponte o link do convidado direto para `/auth/callback`.
         //
         // O callback chama `verifyOtp`, que CONSOME o token — e o link do
@@ -226,7 +230,15 @@ export async function prepareAcmeProspectExperience(
         //
         // O passe resolve os dois problemas de uma vez: não carrega token de
         // sessão (o robô não tem o que queimar) e é reabrível dentro do prazo.
-        url: tenantUrl(slug, `/auth/degustacao?passe=${encodeURIComponent(passe)}`),
+        //
+        // Na versão B o link abre a PÁGINA de boas-vindas, que não cria sessão
+        // nenhuma: o robô vê a página e nada acontece. `Medido 16/09/2026:` na A,
+        // o GET do robô carimbava o "acesso" de 6 dos 8 prospects entre 12 s e
+        // 1 min 44 s depois da criação. E vai pelo link CURTO (`/c/<código>`,
+        // 24 caracteres), não pelo passe inteiro, que passava de 150.
+        url: versao === 'B'
+          ? linkCurtoDaDegustacao(slug, sessionId)
+          : tenantUrl(slug, `/auth/degustacao?passe=${encodeURIComponent(passe)}`),
       },
     };
   } catch (error: any) {

@@ -16,7 +16,10 @@ describe('normalização dos relatórios para dashboards', () => {
 
     expect(insight?.indicators.evaluated).toBe(30);
     expect(insight?.indicators.levels.map((item) => item.percentage)).toEqual([12, 31, 39, 18]);
-    expect(insight?.roles).toHaveLength(4);
+    // 3, não 4: desde 16/09/2026 a gestão comercial só lidera e não tem nível
+    // médio de mapeamento para aparecer na visão por cargo.
+    expect(insight?.roles).toHaveLength(3);
+    expect(insight?.roles.map((item) => item.role)).not.toContain('Gerente Comercial');
     expect(insight?.roleFocus[0]).toMatchObject({
       role: 'Representante Comercial',
       competency: 'Negociação e Fechamento',

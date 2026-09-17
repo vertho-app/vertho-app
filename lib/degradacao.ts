@@ -253,10 +253,17 @@ export const DEGRADACAO = {
    * nenhuma no log.
    */
   REGUA_AUSENTE: 'regua-ausente',
+  /**
+   * demo (lib/demo/degustacao-casa.ts): o convidado da degustação B abriu o
+   * `/dashboard` e a leitura da própria sessão falhou. A home genérica aparece
+   * no lugar da página de boas-vindas. `aviso`: a pessoa entra, só que sem o
+   * roteiro que o convite prometeu.
+   */
+  DEGUSTACAO_CASA_INDISPONIVEL: 'degustacao-casa-indisponivel',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
-export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat';
+export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat' | 'demo';
 export type DegradacaoSeveridade = 'info' | 'aviso' | 'critico';
 
 export interface DegradacaoInput {

@@ -207,7 +207,10 @@ export type DemoRoster = {
    * Cargos que existem para ADEQUAÇÃO, não para jornada: entram no ranking (o
    * fit lê as colunas comportamentais) e têm o Top 5 zerado, para a tela não
    * convidar ao mapeamento quem não participa dele. É o mesmo tratamento que o
-   * cargo de gestão recebe no elenco comercial.
+   * cargo de gestão recebe no elenco comercial (desde 16/09/2026).
+   *
+   * Vale para o cargo do fixture E para o construído: a régua é
+   * `lib/demo/rosters/cargo-sem-assessment.ts`, e mais nenhuma.
    */
   cargosSemAssessment?: string[];
   /**

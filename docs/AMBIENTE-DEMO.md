@@ -97,13 +97,13 @@ Os dois tenants permanecem com `is_demo=true` e, portanto, sem disparos automát
 
 ## O que o cliente vê ao abrir (tudo pronto, SEM IA no reset)
 - **6 participantes** em estágios diferentes da jornada e em **áreas diferentes**, mais **1 persona de RH** que consome o panorama da empresa:
-  - **Ana** (Representante Comercial, IS, novo), **Paulo** (Rep. Comercial, IC, parcial), **Bruna** (Rep. Comercial, CS, completo), **Carla** (Gerente Comercial, D, gestora).
+  - **Ana** (Representante Comercial, IS, novo), **Paulo** (Rep. Comercial, IC, parcial), **Bruna** (Rep. Comercial, CS, completo), **Carla** (Gerente Comercial, D, gestora; **só lidera** desde 16/09/2026: sem mapeamento, situação, trilha ou PDI individual, como a coordenação das escolas).
   - **Mariana** (Analista Financeiro, CS, completo) e **Renato** (Coordenador de Operações, DS, novo) — cargos fora de vendas (Financeiro e Operações).
   - **Helena** (Gerente de Recursos Humanos, papel `rh`) — sem DISC/trilha por desenho; vê o funil, colaboradores, ranking e relatórios e não entra nas métricas de participantes.
 - **DISC / Perfil Comportamental** das 6 (narrativas LLM `report_texts` congeladas → relatório abre instantâneo).
 - **Mapeamento de competências avaliado** (respostas com nota da IA4 + `descriptor_assessments`): Bruna 5, Mariana 5 (30 `descriptor_assessments` congelados), Paulo 2.
 - **Jornadas/trilhas de 7 semanas** no `acme-demo`: 6 semanas de conteúdo e fechamento na semana 7. A trilha rica da Bruna preserva o conteúdo congelado de Negociação e Fechamento; o Grupo Sinal continua no programa regular de 14 semanas.
-- **4 cargos completos** (competências + descritores + Top10 + cenários com rubrica N1-N4): Representante Comercial, Gerente Comercial, Analista Financeiro, Coordenador de Operações.
+- **4 cargos completos** (competências + descritores + Top10 + cenários com rubrica N1-N4): Representante Comercial, Gerente Comercial, Analista Financeiro, Coordenador de Operações. O Gerente Comercial nasce com **Top 5 vazio** (só lidera): mantém competências, cenários e gabarito, entra no ranking de adequação e não é convidado a mapeamento. Funil do ACME desde 16/09/2026: 30 pessoas · 28 com perfil · **24** mapeadas · **19** em jornada · 16 em dia · **3** atrasadas · 15 concluídas (o Marcelo, Gerente Comercial do diretório, saiu do mapeamento, da jornada e dos atrasados).
 - **Adequação / Ranking real por cargo**: as personas nascem com colunas comportamentais (`comp_*`/`lid_*`) derivadas do DISC → o motor de fit as pontua. Aderências de referência (medidas em 24/08, com as personas já na régua do produto): Mariana/Financeiro **95,0** (Excelente), Renato/Operações **89,1** (Excelente), Carla/Gerente **87,8** (Excelente), Paulo/Representante **83,6** mas **"Não recomendado"** (knockout de Persistência — nota alta não passa por cima de requisito eliminatório), Ana/Representante **83,3** (Alta), Bruna/Representante **46,2** (Baixa — CS não casa com D/I do cargo). ✅ **O fit é pré-computado pelo próprio reset** (`precomputarFit`, best-effort, sem custo de IA) — a aba Fit v2 de `/admin/fit` abre populada, sem ninguém precisar clicar "Calcular Fit". Antes de 25/08 não era: `fit_resultados` tem `ON DELETE CASCADE` em `colaborador_id`, o reset recria os colaboradores e o ranking **amanhecia vazio todo dia**, dependendo de um passo manual que ninguém lembra na hora da demo. A contagem sai no `counts.fit_resultados` do resultado do reset.
 - Envios reais **desligados** (gate por tenant `empresas.is_demo` no `envio-guard` + personas com e-mail `*.demo@vertho.ai` interno e sem telefone → WhatsApp no-op).
 
@@ -200,8 +200,8 @@ ambiente.
 
 Para um prospect percorrer a experiência como ele mesmo sem criar um tenant
 contextualizado, use **Degustação individual** em `/admin/demo`. O operador
-informa nome, empresa, WhatsApp opcional e escolhe um dos quatro cargos completos
-do fixture. A action é fixada no `acme-demo` — não recebe slug do client — e
+informa nome, empresa, WhatsApp opcional e escolhe um dos cargos que percorrem a
+jornada (três no comercial desde 16/09/2026: a gestão comercial só lidera). A action é fixada no `acme-demo` (não recebe slug do client) e
 prepara um roteiro de quatro etapas:
 
 1. **Comece como você:** um colaborador zerado, uma identidade Auth aleatória
@@ -237,6 +237,105 @@ mostra o primeiro acesso pessoal, a conclusão do DISC e a primeira entrada nas
 visões Colaborador, Gestor e RH. A linha de acompanhamento sobrevive à expiração
 e à remoção do colaborador temporário, preservando o histórico comercial; o
 WhatsApp opcional nunca é persistido.
+
+### Versão B: convite guiado (16/09/2026)
+
+**Por que existe.** `Medido 16/09/2026` nos 8 prospects reais desde 08/09: 0
+fizeram o DISC, 0 responderam a situação, 0 abriram qualquer visão 02 a 04. E o
+"acesso pessoal" do painel era, na maioria, o **robô de preview do WhatsApp**: o
+GET de `/auth/degustacao` cria a sessão e carimba, e 6 dos 8 tinham uma única
+sessão aberta 12 s a 1 min 44 s depois da criação, sem nenhum JavaScript rodando
+(navegador de verdade dispara `POST /dashboard` cerca de 2 s depois do
+`GET /dashboard`; essas aberturas não dispararam). A única pessoa confirmada
+abriu no iPhone 6 h depois e parou na home genérica, com o botão do DISC atrás da
+barra de navegação.
+
+**O que muda para o prospect** (a A continua igual e selecionável no painel):
+
+| | A (quatro links) | B (convite guiado) |
+|---|---|---|
+| Mensagem | 4 etapas, 4 links | ~3 linhas, 1 link |
+| Link | `/auth/degustacao?passe=` (GET cria sessão) | `/c/<código>` curto (página, **não** cria sessão); `/degustacao?passe=` segue abrindo |
+| Ordem | você, colaborador, gestor, RH | gestor, RH, colaborador; perfil opcional |
+| Sessão nasce | no GET (robô incluído) | no POST do botão pessoal (clique) |
+| `/dashboard` do convidado | home de colaborador | volta para a página (`lib/demo/degustacao-casa.ts`) |
+| "Abriu" no painel | `personal_accessed_at` (contaminado) | `invite_opened_at` (beacon após interação ou clique) |
+
+**Peças.** Coluna `experience_version` e `invite_opened_at` (mig 256).
+`lib/demo/degustacao-acesso.ts` concentra a decisão de acesso das quatro portas
+(GET da A, POST do botão, beacon, página): passe, hostname CRU (host de sala é
+recusado) e sessão viva no banco. A página (`app/degustacao/page.tsx`) só lê: o
+teste `degustacao-pagina` prova zero escritas e nenhuma chamada ao Auth. Ela
+mostra só estados (visto, perfil pronto, devolutiva pronta), nunca resultado:
+quem tem o link não vê perfil nem nota. O botão pessoal manda uma CHAVE de
+destino (`mapeamento`, `perfil`, `assessment`), nunca caminho, e `/dashboard` não
+é destino (seria laço). As rotas de escrita da pasta são vigiadas por
+`tests/unit/security/degustacao-rotas-guard.test.ts`, porque `routes-require-auth`
+só varre `app/api`.
+
+**Painel.** Selo A/B por passaporte; na B, seis marcos: Abriu, Gestor, RH,
+Colaborador, Perfil, Situação (primeira resposta, lida de `respostas`). O botão de
+lembrete gera o texto curto com o link da página; num passaporte A vivo ele
+**converte a linha para B** (auditado em `demo.prospect_invite_reminder`, sem a
+URL), que é como os prospects do roteiro antigo ganham o convite novo sem perder
+o que fizeram.
+
+⚠️ **Escolas:** até a mig 256 a CHECK de `role_key` só aceitava os quatro cargos
+comerciais, então todo passaporte de `professor` falharia no insert.
+
+### Ajustes da versão B (16/09/2026, noite)
+
+**Link curto.** O convite e o lembrete levam `https://<ambiente>.vertho.ai/c/<código>`,
+24 caracteres em vez dos ~160 do passe. Sem tabela e sem migration: o código é a
+sessão (10 bytes) seguida de 8 bytes de HMAC sobre `ambiente|sessão`
+(`lib/demo/degustacao-link-curto.ts`, contexto de assinatura PRÓPRIO). A
+assinatura não é enfeite: o id da sessão aparece em claro no ticket da sala, e
+sem ela quem tivesse um ticket montaria o link da pessoa. O ambiente sai do
+hostname de quem abre, então o código de um ambiente não vale no vizinho. O prazo
+continua sendo o da linha em `demo_prospect_sessions`. `/c/<código>` e
+`/degustacao?passe=` renderizam a MESMA página (`app/degustacao/pagina-da-degustacao.tsx`).
+
+**Página responsiva.** No computador a página abre em até 1120 px, com os três
+cartões de visão lado a lado e a seção pessoal em duas colunas; no celular segue
+em coluna.
+
+**Voltar ao início.** Cada visão leva o código curto em `volta`. A rota
+`/auth/apresentacao` só o repassa se ele for do MESMO ambiente e da MESMA sessão
+do ticket (código de outra pessoa, de outro ambiente ou forjado é descartado e a
+sala abre sem o botão). Nas salas, "Voltar ao início" aparece no topo da barra e
+o seletor de dispositivo some para o convidado.
+
+**Menu lateral expansível** (vale para todo o dashboard). Recolhido, é a coluna de
+ícones; com o mouse ou com o teclado (`has-focus-visible`, não `focus-within`,
+senão a coluna ficava aberta depois do clique) ele abre por cima do conteúdo e
+mostra o nome de cada item. Cada destino tem um ícone próprio: o treino de
+atendimento e o simulador de vendas usavam o mesmo balão.
+`tests/unit/dashboard-shell-menu.test.ts` cobra os dois.
+
+**Gestor só lidera.** Ver "Degustação: só entra cargo que PERCORRE a jornada".
+Passaporte antigo com cargo de Gerente Comercial continua abrindo: depois do DISC
+a página mostra só o perfil (`perfil-pronto`), porque o cargo não tem situação. A
+página pergunta pelo Top 5 com a mesma chave da avaliação (o cargo do
+colaborador), para as duas nunca discordarem.
+
+### Os passaportes fora do ACME eram invisíveis (16/09/2026)
+
+`isEmailDeConvidadoDemo` e `readAcmeProspectAuthContext` só conheciam o prefixo
+`convidado.acme.`. `Medido`: os 3 passaportes do Grupo Sinal de 15/09 tinham
+sessão criada e `personal_accessed_at` nulo, não apareciam no painel e o
+assessment deles não era tratado como degustação. Hoje o e-mail técnico é lido
+por `lerEmailDePassaporte` (prefixo registrado + 20 hex), e a listagem de
+passaportes vale para qualquer ambiente de degustação. A faxina continua por
+ambiente, de propósito.
+
+### 🔴 A visão de RH listava os convidados pelo nome (16/09/2026)
+
+A sala de apresentação entrega a visão de RH a todo prospect, e o RH enxerga a
+empresa inteira. A tela Equipe e a Equipe em evolução listavam os convidados reais
+(9 no `acme-demo`, 3 no `gruposinal`). Em tenant `is_demo` essas listas passam
+por `recortarElencoDemo` (`lib/demo/elenco-visivel.ts`): aparece só o elenco
+(`*.demo@vertho.ai`), por pertencimento. As visões agregadas já excluíam conta
+interna.
 
 ### Pausar o reset de um ambiente (com data de fim)
 
@@ -378,7 +477,7 @@ Trocar o seletor de ambiente troca a lista.
 
 Em **15/09/2026** o `gruposinal` passou a oferecer **passaporte** (era só ACME e
 escolas): registro em `DEMO_PROSPECT_TENANTS` com prefixo próprio
-(`convidado.gruposinal.`), os quatro cargos do roster comercial em
+(`convidado.gruposinal.`), os cargos do roster comercial (quatro na época; três desde 16/09/2026) em
 `DEMO_PROSPECT_ROLES_POR_AMBIENTE` — apontando para a MESMA lista do ACME, não
 uma cópia — e sala própria em `DEMO_PRESENTATION_ROOMS`
 (`usuario-sinal` · `gestor-sinal` · `rh-sinal`), sem a qual a action recusa o
@@ -467,7 +566,7 @@ Os artefatos pesados são **gerados 1x e congelados**, replicados no reset sem c
 
 ### Cargos extra (fora do fixture)
 Alguns cargos são construídos **fresco no código** do reset, não vêm do fixture:
-- `DEMO_EXTRA_ROLES` (`lib/demo/reset-acme-demo.ts`) — pacote COMPLETO de **Analista Financeiro**, **Coordenador de Operações** e **Gerente Comercial** (5 competências + 6 descritores cada + Top10 + cenários). O Gerente Comercial e o Diretor Geral entram em `DEMO_EXCLUDED_ROLES` (o fixture do acme só tinha o cargo + Top5 vestigial, sem competências/cenários) — o Gerente é reconstruído aqui em pacote completo; o Diretor Geral segue fora da demo.
+- `DEMO_EXTRA_ROLES` (`lib/demo/reset-acme-demo.ts`): pacote COMPLETO de **Analista Financeiro**, **Coordenador de Operações** e **Gerente Comercial** (5 competências + 6 descritores cada + Top10 + cenários). O Gerente Comercial e o Diretor Geral entram em `DEMO_EXCLUDED_ROLES` (o fixture do acme só tinha o cargo + Top5 vestigial, sem competências/cenários); o Gerente é reconstruído aqui em pacote completo; o Diretor Geral segue fora da demo. Desde 16/09/2026 o Gerente Comercial está em `cargosSemAssessment` e nasce com Top 5 e foco vazios; a régua do cargo que só lidera é uma só (`lib/demo/rosters/cargo-sem-assessment.ts`) e vale no fixture (`seedCargos`), no cargo construído (`insertDemoExtraRoles`), nas respostas (`seedRespostas`) e no PDI individual da central do RH.
 - Gabaritos (IA2) + cenários ricos (IA3, rubrica N1-N4 + descritores-alvo) desses 3 cargos são congelados em `lib/demo/acme-demo-extra-artifacts.json` (gerados 1x pelo pipeline headless, aplicados no reset SEM custo de IA).
 
 ### Colunas comportamentais (`comp_*`/`lid_*`)
@@ -556,6 +655,18 @@ aquele cargo morria na etapa 01 em "Cenário para X ainda não foi gerado".
 Guard: `tests/unit/degustacao-cargo-com-matriz.test.ts` cruza as duas listas
 (cargo oferecido × `cargosSemAssessment` do roster). Verificação de ponta a
 ponta: `scripts/_verificar-degustacao.ts` (cargo · matriz · cenário A).
+
+**16/09/2026: o Gerente Comercial saiu da degustação do ACME e do Grupo Sinal**
+(decisão do dono: o gestor só lidera). 🔴 Declarar o cargo em
+`cargosSemAssessment` NÃO bastava, e o guard acima continuaria verde: ele compara
+código com código. O Gerente Comercial é construído pelo reset, e o construtor
+gravava o Top 5 cheio sem olhar a lista; com o Top 5 zerado de verdade, o Marcelo
+seguiria contado como mapeado e o DNA Organizacional (24 contra 25) derrubaria o
+reset depois do wipe. `tests/unit/demo-cargo-so-lidera.test.ts` cobre a régua do
+cargo construído, o uso dela nos pontos do seed e o funil dos dois rosters
+(ninguém que só lidera em mapeados, jornada, concluídos ou atrasados). O efeito no
+banco chega no reset noturno (04:00, Brasília). O pacote offline
+(`lib/demo/offline`) é uma foto congelada e ainda mostra o Marcelo avaliado.
 
 ## Pegadinhas
 - `descriptor_assessments.nivel` é coluna **GENERATED ALWAYS** — capture/replay a descartam (senão o insert falha).

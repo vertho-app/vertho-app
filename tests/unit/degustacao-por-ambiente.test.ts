@@ -51,6 +51,13 @@ describe('degustação por ambiente', () => {
     expect(getPapelDaDegustacao('escolas-acme', 'professor')?.cargo).toBe('Professor(a)');
   });
 
+  it('nome de propriedade do Object não é ambiente: cai no elenco padrão sem lançar', () => {
+    // `DEMO_PROSPECT_ROLES_POR_AMBIENTE['constructor']` é a função `Object`:
+    // indexar direto devolvia algo sem `.find`, e a validação lançava.
+    expect(papeisDaDegustacao('constructor')).toBe(ACME_PROSPECT_ROLES);
+    expect(getPapelDaDegustacao('toString', 'representante-comercial')?.cargo).toBe('Representante Comercial');
+  });
+
   it('a validação recusa o papel que não pertence ao ambiente', () => {
     const entrada = { nome: 'Marina Souza', empresa: 'Colégio Horizonte', roleKey: 'representante-comercial' };
     const escolar = validateAcmeProspectExperienceInput(entrada, 'escolas-acme');

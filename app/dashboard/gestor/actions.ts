@@ -1,6 +1,8 @@
 'use server';
 
 import { anexarCoordenador } from '@/lib/engajamento/coordenadores';
+import { isTenantDemo } from '@/lib/demo/envio-guard';
+import { recortarElencoDemo } from '@/lib/demo/elenco-visivel';
 
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getUserContext } from '@/lib/authz';
@@ -187,6 +189,10 @@ const COLS_LIDERADO = 'id, nome_completo, cargo, email, area_depto, perfil_domin
  * Existe como função porque a home do gestor e a tela de engajamento do time
  * precisam do MESMO recorte. Duas cópias desta regra divergiriam calado — e o
  * modo de falhar é o pior possível: um gestor vendo gente que não é dele.
+ *
+ * Em tenant de DEMONSTRAÇÃO o recorte ainda passa por `recortarElencoDemo`: a
+ * visão de RH da sala de apresentação abre para qualquer prospect, e sem isso
+ * ela listava pelo nome os convidados da degustação (medido em 16/09/2026).
  */
 export async function resolverEscopoDoGestor(
   sb: any,
@@ -216,9 +222,10 @@ export async function resolverEscopoDoGestor(
   // listagem casar gestores que NÃO são o mesmo. Refina em código com igualdade
   // exata (case-insensitive): é a MESMA régua do gate de posse em
   // getPerfilExternoPdfUrl, então ver e abrir nunca divergem.
-  const liderados = (colabs || []).filter((c: any) =>
+  const doEscopo = (colabs || []).filter((c: any) =>
     c.role !== 'rh' && (!isGestor || !emailNormalizado || (c.gestor_email || '').toLowerCase().trim() === emailNormalizado),
   );
+  const liderados = recortarElencoDemo(doEscopo, await isTenantDemo(empresaId));
   return { liderados, liderIds: liderados.map((c: any) => c.id) };
 }
 

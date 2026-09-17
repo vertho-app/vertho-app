@@ -86,8 +86,19 @@ export default function DashboardHomePage() {
       // Uma única action consolidada: 1 cadeia de auth no servidor (antes
       // eram 4 actions + 1 check de votação + 1 fetch de API route, cada um
       // com auth completa). Falhas são por seção — ver home-actions.ts.
+      let redirecionando = false;
       try {
         const r: any = await loadHomeData();
+        // Convidado da degustação B: a casa é a página do roteiro. Só aceita o
+        // link curto (`/c/<código>`) ou o longo (`/degustacao?`), e o `loading`
+        // fica ligado até a navegação: sem isso a tela piscaria "colaborador não
+        // encontrado".
+        const casa = r?.degustacaoGuiada?.href;
+        if (typeof casa === 'string' && (/^\/c\/[A-Za-z0-9_-]{24}$/.test(casa) || casa.startsWith('/degustacao?'))) {
+          redirecionando = true;
+          router.replace(casa);
+          return;
+        }
         if (r && !r.error) {
           if (r.dashboard && !r.dashboard.error) setData(r.dashboard);
           if (r.panoramaRH) setPanoramaRH(r.panoramaRH);
@@ -101,7 +112,7 @@ export default function DashboardHomePage() {
       } catch (e) {
         console.error('[home] loadHomeData failed:', e);
       } finally {
-        setLoading(false);
+        if (!redirecionando) setLoading(false);
       }
     }
     init();
