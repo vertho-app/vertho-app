@@ -387,6 +387,50 @@ briefs duplicados por tupla.
   a regra era só texto no `CLAUDE.md`, cada release nova reintroduzia. **Grep de padrão perigoso vira
   teste, não parágrafo.**
 
+### F-I36 · A matriz é por CARGO: leitura por NOME ou CÓDIGO sem o cargo sorteia régua, descritor ou âncora ✅ (fechado 16-17/09/2026)
+Vizinho do F-I10: a mesma família de "leitura que reduz a uma linha sem dizer qual".
+- **Gatilho:** `competencias` tem uma linha por descritor, com `cargo`. O mesmo nome ou código aparece
+  em mais de um cargo da mesma empresa de dois jeitos:
+  (a) **matrizes diferentes com o mesmo nome**: Ibipeba tem 8 nomes assim, entre eles
+  "Autocuidado e resiliência emocional" em COO03 e DIR02 (5 descritores homônimos, 0 réguas iguais);
+  (b) **a mesma matriz copiada em N cargos** (4Life, decisão do dono de 16/09): mesmo `cod_comp`.
+  Toda leitura só por nome ou código devolve as linhas dos dois cargos e escolhe pela ordem.
+- **Efeitos medidos:**
+  - régua do fechamento e da acumulada (`lib/season-engine/regua.ts`, "a última linha vence"): a
+    coordenadora recebia a régua de Gestão Escolar em 5 de 6 descritores. Prova só-leitura nos dados
+    reais: 7 de 18 descritores certos antes, 18 de 18 depois;
+  - descritor gravado com código na trilha (`COO03_D1 — Consciência de limites`, 9 trilhas de
+    Coordenação) não casava com `nome_curto` nenhum: **3 acumuladas + 1 fechamento pontuados com a
+    "escala genérica 1-4"** (`lib/season-engine/prompts/acumulado.ts:37`), sem registro. O dono decidiu
+    não reprocessar (17/09);
+  - o caso (b) era latente (nenhum tenant tinha a cópia). Com uma matriz de 6 descritores em 2 cargos:
+    o import CSV respondia "0 novas" e descartava a cópia; 8 leituras de descritor só por `cod_comp`
+    devolviam 12 (IA3, checks, IA4, reavaliação, Cenário B, evolução); o IA1 podia gravar o id do
+    outro cargo; o import de manuscrito falhava fechado ("tem 12");
+  - o catálogo da extração de material agrupava por nome: o módulo ancorava num cargo qualquer, e o
+    descritor podia sair da outra matriz.
+- **Correção** (`245bbf33`, `b1a4aa8b`, `9af775c9`), fonte única `lib/matriz-por-cargo.ts`:
+  - descritores por `cod_comp` + cargo da LINHA da competência (`buscarDescritoresDaCompetencia`), nunca
+    o cargo do colaborador (o trilho de liderança usa a variante da matriz);
+  - linha homônima escolhida por código no texto, depois cargo, depois réguas idênticas; senão nenhuma,
+    registrada como `regua-ausente` (`escolherLinhaDaRegua`, usada pela régua e pelo Tira-Dúvidas);
+  - "mesma matriz" é pela ASSINATURA (código + `cod_desc` + nome do descritor normalizado), nunca só
+    pelo nome. O módulo-base é **por matriz** e o conteúdo gerado é por cargo: o resolver aceita cópias
+    idênticas; o manuscrito ancora numa cópia com idempotência em todas; a extração monta o catálogo
+    por matriz e aceita `cargo_direcionador` (mig 257), recusando nome ambíguo sem cargo antes da IA;
+  - kit `'todos'` voltou a ser curinga (a decisão de 29/07 dizia isso, o código barrava); a montagem
+    conta o que serve ao cargo antes de ampliar a faixa de nível.
+- **Guardas:** `tests/unit/security/descritor-sem-cargo-guard.test.ts` (cadeia com `cod_comp` sem
+  `cargo`, sem allowlist) e os testes `matriz-por-cargo`, `matriz-compartilhada`,
+  `extracao-matriz-por-cargo`, `kit-cargo-todos`, `build-faixa-nivel-cargo`: 41 mutações no código de
+  produção, todas vermelhas. O mock responde pela tabela filtrada e projeta as colunas do select
+  (`tests/helpers/tabela-filtrada.ts`): com a linha inteira, um select sem `cargo` passava verde.
+- **Resíduo (não corrigido, não medido):** `sobreporNotaFresh` (`lib/season-engine/regua.ts:141`)
+  casa `descriptor_assessments.descritor` pelo texto cru: descritor da trilha com código só pega a
+  nota fresca se o assessment guardar o mesmo texto, senão fica o snapshot. A comparação de cargo é
+  exata no SQL (vídeo, Cenário B) e normalizada em memória (conteúdo, kit). Colaborador sem cargo
+  recebe kit de qualquer cargo.
+
 ### F-I12 · Módulo-Base com TÍTULO no lugar do descritor → conteúdo ancora no assunto vizinho ✅ (corrigido 28/07)
 - **Gatilho:** o resolver casa o descritor da semana contra `modulos_base_conteudo.descritor`
   (embedding quando há vetor, tokens quando não). Se a extração gravou nesse campo um **título

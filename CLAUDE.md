@@ -483,6 +483,11 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   **recalcular `descritor_embedding`** (o vetor tem precedência sobre tokens, então o antigo continua
   mandando). Medido 28/07: 18 MBs assim fizeram 14 conteúdos ancorarem no assunto vizinho, em
   silêncio — **F-I12** do `docs/FMEA-PIPELINE.md`. Guarda: R9 do health estrutural.
+- NÃO ler competência, descritor ou régua por NOME ou `cod_comp` sem o CARGO. A matriz é gravada
+  **por cargo**, e o mesmo nome existe em matrizes diferentes (Ibipeba) e a mesma matriz em N cargos
+  (4Life). Use `lib/matriz-por-cargo.ts`; "mesma matriz" é pela assinatura, nunca pelo nome. Medido
+  16/09: a coordenadora recebia a régua de Gestão Escolar em 5 de 6 descritores, e 4 notas saíram
+  com escala genérica (**F-I36**). Guarda: `descritor-sem-cargo-guard`.
 - NÃO contar a categoria de um template da Meta antes de `APPROVED` — o veredito da CRIAÇÃO é
   PROVISÓRIO e muda na revisão. Medido 14/08: **4 de 8** submetidos como UTILITY voltaram MARKETING,
   e MARKETING custa **6×** (R$ 0,40-0,55 contra R$ 0,06-0,09). Eu escrevi no código que a assinatura
