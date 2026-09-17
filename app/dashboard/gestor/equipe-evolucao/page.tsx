@@ -7,7 +7,7 @@ import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import { listarEquipeEvolucao, loadLideradoConcluida } from './actions';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-import { CONVERGENCIA, rotuloConvergencia, formatarAvanco, formatarValorAvanco } from '@/lib/season-engine/convergencia';
+import { CONVERGENCIA, rotuloConvergencia, formatarAvanco, formatarValorAvanco, exibeAntesDepois } from '@/lib/season-engine/convergencia';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
 import { DICA_VEREDITO } from '@/lib/season-engine/convergencia-dicas';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
@@ -344,7 +344,8 @@ function DetalheModal({ data, loading, onClose, sb }) {
                               {formatarAvanco(d.nota_pre, d.nota_pos)} · {cfg.label}
                             </span>
                           </div>
-                          {d.depois && <p className="text-[10px] text-gray-400 mt-1">{d.depois}</p>}
+                          {/* Relato só quando a conversa sustenta: ver `exibeAntesDepois`. */}
+                          {exibeAntesDepois(d) && d.depois && <p className="text-[10px] text-gray-400 mt-1">{d.depois}</p>}
                         </div>
                       );
                     })}

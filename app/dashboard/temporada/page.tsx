@@ -11,7 +11,7 @@ import { semanaLiberadaPorData, formatarLiberacao, turnosIaNecessarios, contarTu
 import { qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import FirstViewVideo from '@/components/first-view-video';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-import { formatarAvanco, formatarValorAvanco } from '@/lib/season-engine/convergencia';
+import { formatarAvanco, formatarValorAvanco, exibeAntesDepois } from '@/lib/season-engine/convergencia';
 import { corTela } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 // Vídeo tutorial da Jornada (Bunny) — abre na 1ª vez que a pessoa abre a
@@ -395,7 +395,8 @@ function EvolutionReportCard({ report, t }: { report: any; t: any }) {
                   {estavel ? t('report.stable') : avanco}
                 </div>
               </div>
-              {d.depois && <div className="text-[11px] text-gray-400 mt-1">{d.depois}</div>}
+              {/* Relato só quando a conversa sustenta: ver `exibeAntesDepois`. */}
+              {exibeAntesDepois(d) && d.depois && <div className="text-[11px] text-gray-400 mt-1">{d.depois}</div>}
             </div>
           );
         })}

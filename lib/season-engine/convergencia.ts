@@ -178,6 +178,34 @@ export function qualitativaSustenta(q: { forca_evidencia?: string | null } | nul
 }
 
 /**
+ * O par "Antes/Depois" deste descritor aparece no relatório que a PESSOA lê?
+ *
+ * 🔴 Decisão do dono do produto (17/09/2026). Quando a conversa não tocou no
+ * descritor, o extrator carimba `forca_evidencia: 'fraca'` e escreve, nos campos
+ * livres, alguma variação de "Não abordado na conversa" — a frase não está em
+ * lugar nenhum do código, é o modelo sendo honesto sobre base curta. O card
+ * mostrava esse texto logo abaixo de "+0,3 · Evolução parcial", que vem do
+ * cenário do fechamento: o documento afirmava um avanço e, na linha seguinte,
+ * que não houve conversa sobre ele.
+ *
+ * `Medido: 17/09/2026` — 53 dos 109 descritores com veredito em Ibipeba têm base
+ * fraca; em 3 deles o "não abordado" está escrito com todas as letras.
+ *
+ * É só APRESENTAÇÃO: a régua não muda (desde 17/09 o veredito é só pelo avanço),
+ * o texto continua no `evolution_report` e a tela de auditoria do admin segue
+ * mostrando os dois campos — lá ela AVISA que a base é fraca, que é o certo para
+ * quem audita e o errado para quem recebe o relatório.
+ *
+ * ⚠️ Só esconde quando a força foi MEDIDA e deu fraca. Campo ausente são os
+ * relatórios anteriores ao carimbo e os fixtures das demos (`Medido:` 222
+ * descritores em 3 tenants de demonstração, 17/09/2026), onde o texto é curado e
+ * continua aparecendo: ausência de medição não é medição de ausência.
+ */
+export function exibeAntesDepois(d: { forca_evidencia?: string | null } | null | undefined): boolean {
+  return d?.forca_evidencia !== 'fraca';
+}
+
+/**
  * Classifica um descritor SÓ PELO AVANÇO exibido entre nota_pre (início da
  * temporada) e nota_pos (cenário do fechamento):
  *

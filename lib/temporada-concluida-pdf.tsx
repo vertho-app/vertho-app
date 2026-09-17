@@ -28,7 +28,7 @@ import { colors, fonts, pageStyles } from '@/components/pdf/styles';
 import PdfReportCover, { ReportSectionTitle } from '@/components/pdf/PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { MarcaPdf } from '@/lib/pdf-marca';
-import { avancoExibido, rotuloConvergencia, CONVERGENCIA } from '@/lib/season-engine/convergencia';
+import { avancoExibido, exibeAntesDepois, rotuloConvergencia, CONVERGENCIA } from '@/lib/season-engine/convergencia';
 import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { montarTeia, temTeia, NOTA_MAX, NOTA_MIN } from '@/lib/season-engine/teia-evolucao';
@@ -326,6 +326,9 @@ function TeiaDaCompetencia({ descritores }: { descritores: any[] }) {
 function CardDescritor({ d }: { d: any }) {
   const cfg = convDe(d.convergencia);
   const avanco = avancoDoPdf(d.nota_pre, d.nota_pos);
+  // Base fraca não traz relato: o texto vira "Não abordado na conversa" embaixo
+  // do avanço do cenário, e o card se contradiz. Ver `exibeAntesDepois`.
+  const relato = exibeAntesDepois(d);
   return (
     <View style={{ ...s.card, backgroundColor: cfg.bg, borderColor: cfg.bg }} wrap={false}>
       <View style={s.row}>
@@ -333,8 +336,8 @@ function CardDescritor({ d }: { d: any }) {
         {avanco && <Text style={{ ...s.delta, color: cfg.cor }}>{avanco}</Text>}
       </View>
       <Text style={{ ...s.pill, color: cfg.cor, backgroundColor: colors.white }}>{cfg.label}</Text>
-      {d.antes && <Text style={s.antesDepois}><Text style={s.rotulo}>Antes: </Text>{d.antes}</Text>}
-      {d.depois && <Text style={s.antesDepois}><Text style={s.rotulo}>Depois: </Text>{d.depois}</Text>}
+      {relato && d.antes && <Text style={s.antesDepois}><Text style={s.rotulo}>Antes: </Text>{d.antes}</Text>}
+      {relato && d.depois && <Text style={s.antesDepois}><Text style={s.rotulo}>Depois: </Text>{d.depois}</Text>}
     </View>
   );
 }

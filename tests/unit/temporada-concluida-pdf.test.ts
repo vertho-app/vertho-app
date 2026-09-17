@@ -20,6 +20,31 @@ import { avancoDoPdf, avancoValorPdf, contadoresDoPdf, TemporadaConcluidaPDF } f
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { semComentarios } from '../helpers/fonte';
 
+/**
+ * O texto do PDF na ordem em que vai para o papel, lido da ÁRVORE que o
+ * componente monta, sem renderizar: o render baixa a fonte da CDN, e teste de
+ * unidade não depende de rede.
+ */
+function textos(no: any, out: string[] = []): string[] {
+  if (no == null || typeof no === 'boolean') return out;
+  if (typeof no === 'string' || typeof no === 'number') { out.push(String(no)); return out; }
+  if (Array.isArray(no)) { for (const n of no) textos(n, out); return out; }
+  if (isValidElement(no)) {
+    const { type, props } = no as any;
+    return typeof type === 'function' ? textos(type(props), out) : textos(props?.children, out);
+  }
+  return out;
+}
+
+/** A TELA equivalente, renderizada com as traduções reais e sem sessão. */
+function htmlDaTela(locale: string, data: any) {
+  const messages = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8'));
+  return renderToStaticMarkup(createElement(NextIntlClientProvider, {
+    locale, messages, timeZone: 'America/Sao_Paulo',
+    children: createElement(RelatorioTemporadaConcluida, { data }),
+  }));
+}
+
 describe('avanço no PDF', () => {
   it('só o avanço, com vírgula decimal', () => {
     expect(avancoDoPdf(2.0, 3.2)).toBe('+1,2');
@@ -176,17 +201,6 @@ describe('traduções', () => {
  * de rede.
  */
 describe('ordem do PDF da temporada', () => {
-  function textos(no: any, out: string[] = []): string[] {
-    if (no == null || typeof no === 'boolean') return out;
-    if (typeof no === 'string' || typeof no === 'number') { out.push(String(no)); return out; }
-    if (Array.isArray(no)) { for (const n of no) textos(n, out); return out; }
-    if (isValidElement(no)) {
-      const { type, props } = no as any;
-      return typeof type === 'function' ? textos(type(props), out) : textos(props?.children, out);
-    }
-    return out;
-  }
-
   const dados = {
     colab: { nome: 'Pessoa Teste', cargo: 'Gestão Escolar' },
     trilha: { competencia: 'Planejamento + Autocuidado', numeroTemporada: 1, totalSemanas: 9 },
@@ -308,14 +322,6 @@ describe('ordem da tela Temporada Concluída', () => {
     sem14: { cenario: 'CENARIO', resposta: 'RESPOSTA', resumo_avaliacao: { mensagem_geral: 'TEXTO-DA-DEVOLUTIVA' } },
   };
 
-  function htmlDaTela(locale: string, data: any) {
-    const messages = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8'));
-    return renderToStaticMarkup(createElement(NextIntlClientProvider, {
-      locale, messages, timeZone: 'America/Sao_Paulo',
-      children: createElement(RelatorioTemporadaConcluida, { data }),
-    }));
-  }
-
   function textoDaTela(locale: string) {
     return htmlDaTela(locale, dadosTela).replace(/<[^>]+>/g, '\n').replace(/&gt;/g, '>').split('\n').map((l) => l.trim()).filter(Boolean).join('\n');
   }
@@ -372,5 +378,80 @@ describe('ordem da tela Temporada Concluída', () => {
     for (const [loc, titulo] of Object.entries(esperado)) {
       expect(htmlDaTela(loc, uma), loc).toContain(`>${titulo}<`);
     }
+  });
+});
+
+/**
+ * 🔴 RELATO SEM BASE NA CONVERSA NÃO VAI PARA O DOCUMENTO DA PESSOA
+ * (dono, 17/09/2026).
+ *
+ * Os dados são o caso real que o dono abriu: "Rituais formativos", do relatório
+ * de 16/09 em Ibipeba. O avanço de +0,3 vem do cenário do fechamento; o
+ * "Antes/Depois" vem da conversa da semana anterior, e ali o extrator tinha
+ * escrito "Não abordado na conversa" nos dois campos. O card afirmava um avanço
+ * e, na linha seguinte, que não houve conversa sobre ele.
+ *
+ * O veredito NÃO muda (é só pelo avanço desde 17/09) e o texto continua gravado
+ * no `evolution_report` — some do papel e da tela da pessoa, não da auditoria.
+ */
+describe('Antes/Depois só quando a conversa sustenta', () => {
+  const COMPETENCIA = 'Colaboração docente e cultura formativa';
+  const BASE_FRACA = {
+    competencia: COMPETENCIA, descritor: 'Rituais formativos',
+    nota_pre: 1.5, nota_pos: 1.8, convergencia: 'evolucao_parcial',
+    forca_evidencia: 'fraca',
+    antes: 'Não abordado na conversa', depois: 'Não abordado na conversa',
+  };
+  const COM_BASE = {
+    competencia: COMPETENCIA, descritor: 'Segurança para aprender',
+    nota_pre: 2.0, nota_pos: 2.8, convergencia: 'evolucao_parcial',
+    forca_evidencia: 'moderada',
+    antes: 'ANTES-COM-BASE', depois: 'DEPOIS-COM-BASE',
+  };
+  // Sem o campo: relatório anterior ao carimbo de 03/09 e os fixtures das demos.
+  const SEM_CARIMBO = {
+    competencia: COMPETENCIA, descritor: 'Troca de práticas',
+    nota_pre: 2.0, nota_pos: 2.4, convergencia: 'evolucao_parcial',
+    antes: 'ANTES-DE-FIXTURE', depois: 'DEPOIS-DE-FIXTURE',
+  };
+
+  const dados = {
+    colab: { nome: 'Pessoa Teste', cargo: 'Coordenação Pedagógica' },
+    trilha: { competencia: COMPETENCIA, numeroTemporada: 1, totalSemanas: 7 },
+    evolutionReport: {
+      resumo: { confirmadas: 0, parciais: 3, estagnacoes: 0 },
+      descritores: [BASE_FRACA, COM_BASE, SEM_CARIMBO],
+    },
+    momentos: [],
+    missoes: [],
+    sem14: { resumo_avaliacao: { mensagem_geral: 'TEXTO-DA-DEVOLUTIVA' } },
+  };
+  const noPdf = () => textos(TemporadaConcluidaPDF({ dados, marca: { logoBase64: null, mostrarVertho: true } as any })).join('\n');
+
+  it('o PDF esconde o relato de base fraca, e o card continua com o avanço do cenário', () => {
+    const t = noPdf();
+    expect(t).toContain('Rituais formativos');
+    expect(t).toContain('+0,3');
+    expect(t).not.toContain('Não abordado na conversa');
+  });
+
+  it('o descritor que a conversa TOCOU mantém os dois campos', () => {
+    const t = noPdf();
+    expect(t).toContain('ANTES-COM-BASE');
+    expect(t).toContain('DEPOIS-COM-BASE');
+  });
+
+  it('força ausente não é força fraca: relatório antigo e demo seguem com o relato', () => {
+    const t = noPdf();
+    expect(t).toContain('ANTES-DE-FIXTURE');
+    expect(t).toContain('DEPOIS-DE-FIXTURE');
+  });
+
+  it('a tela da pessoa segue a mesma régua do papel', () => {
+    const html = htmlDaTela('pt-BR', { ...dados, colab: { nome: 'Pessoa Teste' } });
+    expect(html).toContain('Rituais formativos');
+    expect(html).not.toContain('Não abordado na conversa');
+    expect(html).toContain('DEPOIS-COM-BASE');
+    expect(html).toContain('DEPOIS-DE-FIXTURE');
   });
 });

@@ -5,7 +5,7 @@ import { Sparkles, Trophy, Target, CheckCircle2, TrendingUp, Minus, PartyPopper 
 import { GlassCard } from '@/components/page-shell';
 import ReactMarkdown from 'react-markdown';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-import { formatarAvanco, formatarValorAvanco, CONVERGENCIA } from '@/lib/season-engine/convergencia';
+import { formatarAvanco, formatarValorAvanco, exibeAntesDepois, CONVERGENCIA } from '@/lib/season-engine/convergencia';
 import { COR_VEREDITO_TELA, corTela } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { textosDoRelatorio } from '@/lib/season-engine/relatorio-texto';
@@ -173,7 +173,8 @@ export default function RelatorioTemporadaConcluida({ data: dadosBrutos }: { dat
                           )}
                         </div>
                         <p className={`text-[10px] uppercase mt-1 ${cor.tinta}`}>{t(`classification.${conv.labelKey}`)}</p>
-                        {d.antes && d.depois && (
+                        {/* Relato só quando a conversa sustenta: ver `exibeAntesDepois`. */}
+                        {exibeAntesDepois(d) && d.antes && d.depois && (
                           <div className="mt-2 text-xs space-y-0.5">
                             <p className="text-gray-500"><span className="text-gray-400">{t('before')}</span> {d.antes}</p>
                             <p className="text-gray-200"><span className="text-brand-400">{t('after')}</span> {d.depois}</p>
