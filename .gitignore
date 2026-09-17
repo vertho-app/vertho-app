@@ -139,3 +139,6 @@ scripts/_*.mjs
 # Pacote estático de apresentação: gerado sem rede pelo prebuild/predev.
 /public/apresentacao-offline/
 /public/apresentacao-offline-acme/
+
+# Índice privado do Ipi, reconstruído a cada build; nunca servido por public/.
+/.ipi/

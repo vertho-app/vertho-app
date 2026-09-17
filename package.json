@@ -6,8 +6,8 @@
     "node": ">=24.13.1 <25.0.0"
   },
   "scripts": {
-    "predev": "node scripts/build-demo-offline.mts",
-    "prebuild": "node scripts/build-demo-offline.mts",
+    "predev": "node scripts/build-demo-offline.mts && node scripts/build-ipi-knowledge.mts",
+    "prebuild": "node scripts/build-demo-offline.mts && node scripts/build-ipi-knowledge.mts",
     "build:demo-offline": "node scripts/build-demo-offline.mts",
     "dev": "next dev --turbopack",
     "build": "next build",

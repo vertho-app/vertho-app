@@ -4,6 +4,7 @@ import { getTranslations } from 'next-intl/server';
 import { ShieldAlert } from 'lucide-react';
 import { checkAdminAccess } from './admin-actions';
 import AdminShell from './_shell/AdminShell';
+import IpiAccess from '@/components/ipi/ipi-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,5 +32,5 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     );
   }
 
-  return <AdminShell>{children}</AdminShell>;
+  return <AdminShell>{children}<IpiAccess /></AdminShell>;
 }

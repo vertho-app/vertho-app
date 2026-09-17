@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { ShieldAlert } from 'lucide-react';
 import { checarAcessoPlataforma } from '@/lib/authz-plataforma';
 import ShellV2 from './_shell/ShellV2';
+import IpiAccess from '@/components/ipi/ipi-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,5 +40,5 @@ export default async function AdminV2Layout({ children }: { children: React.Reac
     );
   }
 
-  return <ShellV2>{children}</ShellV2>;
+  return <ShellV2>{children}<IpiAccess /></ShellV2>;
 }

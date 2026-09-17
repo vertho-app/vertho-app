@@ -122,6 +122,7 @@ export const AI_TASKS = [
   { key: 'evolucao_plenaria', label: 'Evolução — plenária', fase: 'Fase 5' },
   { key: 'reavaliacao_chat', label: 'Reavaliação — chat', fase: 'Fase 5' },
   { key: 'beto', label: 'BETO — assistente do colaborador', fase: 'Assistentes' },
+  { key: 'ipi', label: 'Ipi — ajuda operacional interna (somente leitura)', fase: 'Assistentes' },
   { key: 'sim_aluno', label: 'Simulador — aluno', fase: 'Simulador' },
   { key: 'chat_simulador', label: 'Simulador — chat', fase: 'Simulador' },
   { key: 'copiloto_pesquisa_empresa', label: 'Copiloto PACE — pesquisa pública', fase: 'Copiloto' },
@@ -207,6 +208,7 @@ export const DEFAULT_COPILOTO_RESEARCH_FALLBACK_MODEL = 'gpt-5.6-sol';
  * Gemini Flash auditando Claude, e do Pulso classifier + auditor).
  */
 export const DEFAULT_TASK_MODELS: Record<string, string> = {
+  ipi: 'claude-sonnet-4-6',
   sim_vendas_criador: 'gpt-5.4-2026-03-05',
   sim_vendas_cliente: 'gpt-5.4-2026-03-05',
   sim_vendas_moderador: 'gpt-5.4-mini',
