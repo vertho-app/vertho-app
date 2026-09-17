@@ -18,9 +18,8 @@ export async function POST(req: Request) {
     if (csrf) return csrf;
     const auth = await requireUser(req);
     if (auth instanceof Response) return auth;
-    if (!auth.isPlatformAdmin || !isIpiEmail(auth.email)) return json({ error: 'O Ipi está disponível apenas para o usuário autorizado.' }, 403);
+    if (!isIpiEmail(auth.email)) return json({ error: 'O Ipi está disponível para usuários @vertho.ai.' }, 403);
     const permissions = await getEffectivePermissionKeys(auth);
-    if (!permissions.has('admin.access')) return json({ error: 'Seu perfil não tem acesso ao Ipi.' }, 403);
     const limited = await limiter.check(req, `ipi:${auth.email}`);
     if (limited) return limited;
     if (Number(req.headers.get('content-length') || 0) > 80_000) return json({ error: 'Conversa muito longa. Inicie uma nova conversa.' }, 413);
@@ -30,6 +29,11 @@ export async function POST(req: Request) {
     try { parsed = JSON.parse(body); } catch { return json({ error: 'Mensagem inválida.' }, 400); }
     const validated = ipiRequestSchema.safeParse(parsed);
     if (!validated.success) return json({ error: 'Confira a mensagem e a empresa selecionada.' }, 400);
+    // O domínio libera o assistente, não o acesso aos dados de outras empresas.
+    if (!auth.isPlatformAdmin) {
+      if (validated.data.empresaId && validated.data.empresaId !== auth.empresaId) return json({ error: 'Sem acesso aos dados desta empresa.' }, 403);
+      validated.data.empresaId = auth.empresaId || null;
+    }
     return await comContexto({ runtime: 'rota', orcamentoMs: 120_000, onde: '/api/ipi' }, async () => json(await answerIpi(auth, permissions, validated.data)));
   } catch {
     console.error('[ipi] Falha na consulta ou na geração da orientação.');

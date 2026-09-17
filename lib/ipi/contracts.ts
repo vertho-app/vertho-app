@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const ipiRequestSchema = z.object({
   message: z.string().trim().min(1).max(2400),
   history: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(6500) }).strict()).max(10).default([]),
-  pathname: z.string().max(240).regex(/^\/admin(?:-v2)?(?:\/[a-zA-Z0-9_/-]*)?$/),
+  pathname: z.string().max(240).regex(/^\/(?:admin(?:-v2)?|dashboard|representante)(?:\/[a-zA-Z0-9_/-]*)?$/),
   empresaId: z.string().uuid().nullable().default(null),
 }).strict();
 
@@ -21,10 +21,10 @@ export type IpiReply = { answer: string; consultedAt: string };
 export type KnowledgeChunk = { kind: 'manual' | 'codigo'; title: string; reference: string; route?: string; text: string };
 export type KnowledgeIndex = { version: 1; digest: string; chunks: KnowledgeChunk[] };
 
-/** Liberação inicial individual. E-mail validado pela sessão, nunca pelo body. */
+/** Acesso pelo domínio da sessão, independentemente do perfil de usuário. */
 export function isIpiEmail(email?: string | null): boolean {
   const value = email?.trim().toLowerCase() || '';
-  return value === 'rodrigo@vertho.ai';
+  return /^[^\s@]+@vertho\.ai$/.test(value);
 }
 
 export function safeIpiHref(route: string | undefined, empresaId: string | null): string | undefined {

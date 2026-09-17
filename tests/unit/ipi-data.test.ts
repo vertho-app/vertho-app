@@ -26,6 +26,31 @@ describe('Ipi — consultas fechadas e isoladas', () => {
     await expect(readIpiData({ ...auth, email: 'pessoa@cliente.com' }, permissions, companyId, plan(['resumo']))).rejects.toThrow('IPI_FORBIDDEN');
     expect(shared.sb.chamadas).toHaveLength(0);
   });
+  it('permite orientação sem permissão administrativa', async () => {
+    const result = await readIpiData({ ...auth, isPlatformAdmin: false, role: 'colaborador', empresaId: companyId }, new Set(), companyId, plan([]));
+    expect(result).toEqual([]);
+    expect(shared.sb.chamadas).toHaveLength(0);
+  });
+  it('rejeita outra empresa mesmo com permissões de leitura', async () => {
+    await expect(readIpiData({ ...auth, isPlatformAdmin: false, role: 'rh', empresaId: 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb' }, permissions, companyId, plan(['resumo']))).rejects.toThrow('IPI_FORBIDDEN');
+    expect(shared.sb.chamadas).toHaveLength(0);
+  });
+  it('mantém as permissões de dados sem bloquear o assistente', async () => {
+    const result = await readIpiData({ ...auth, isPlatformAdmin: false, role: 'colaborador', empresaId: companyId }, new Set(), companyId, plan(['resumo']));
+    expect(result[0].text).toContain('não tem permissão');
+    expect(shared.sb.chamadas).toHaveLength(0);
+  });
+  it('não converte acesso à equipe em consulta da empresa inteira', async () => {
+    const result = await readIpiData({ ...auth, isPlatformAdmin: false, role: 'gestor', empresaId: companyId }, permissions, companyId, plan(['resumo']));
+    expect(result[0].text).toContain('empresa inteira não foi executada');
+    expect(shared.sb.chamadas).toHaveLength(0);
+  });
+  it('permite RH consultar a própria empresa com as permissões necessárias', async () => {
+    const allowed = new Set(permissions); allowed.delete('admin.access');
+    await readIpiData({ ...auth, isPlatformAdmin: false, role: 'rh', empresaId: companyId }, allowed, companyId, plan(['resumo']));
+    expect(shared.sb.chamadas.some(call => call.tabela === 'colaboradores' && call.metodo === 'eq' && call.args[0] === 'empresa_id' && call.args[1] === companyId)).toBe(true);
+    expect(shared.sb.escritas).toHaveLength(0);
+  });
   it('filtra TODA leitura de tenant e não grava nada', async () => {
     await readIpiData(auth, permissions, companyId, plan(['resumo', 'colaboradores', 'competencias']));
     for (const table of ['colaboradores', 'cargos_empresa', 'competencias', 'trilhas']) {

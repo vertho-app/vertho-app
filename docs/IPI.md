@@ -1,12 +1,12 @@
 # Ipi — assistência operacional interna
 
-O Ipi orienta admins e analistas no preenchimento, navegação, relatórios e pré-requisitos da Vertho. É separado do Beto e aparece nos shells `/admin` e `/admin-v2`.
+O Ipi orienta usuários internos no preenchimento, navegação, relatórios e pré-requisitos da Vertho. É separado do Beto e aparece nos shells `/admin`, `/admin-v2`, `/dashboard` e `/representante`. No dashboard, seu botão fica acima do Beto.
 
 ## Acesso e limites
 
-O componente servidor e `POST /api/ipi` exigem sessão autenticada, cadastro como administrador da plataforma, permissão efetiva `admin.access` e e-mail exato `rodrigo@vertho.ai` (liberação inicial individual, solicitada em 17/09/2026). Outras contas, inclusive internas `@vertho.ai`, ficam bloqueadas. A identidade não vem do body. A rota valida origem, tamanho, histórico e empresa, limita a oito perguntas por minuto por usuário e não permite cache da resposta.
+O componente servidor e `POST /api/ipi` exigem somente sessão autenticada e domínio exato `@vertho.ai`, independentemente de papel ou permissão `admin.access` (liberação ampliada solicitada em 17/09/2026). Subdomínios e outros domínios ficam bloqueados. A identidade não vem do body. A rota valida origem, tamanho, histórico e empresa, limita a oito perguntas por minuto por usuário e não permite cache da resposta.
 
-Não há ferramentas de escrita, execução de comandos, SQL livre, envio de mensagens ou alteração de programação. O catálogo de consultas em `lib/ipi/data.ts` contém somente SELECTs, com colunas fixas, limite de resultados, permissões específicas e `tenantDb(empresaId)`. Admins de plataforma podem consultar qualquer empresa, como no painel; o modelo não escolhe a empresa. A leitura de `empresas` usa id exato. Sem empresa selecionada, não há consulta de dados.
+Não há ferramentas de escrita, execução de comandos, SQL livre, envio de mensagens ou alteração de programação. O catálogo de consultas em `lib/ipi/data.ts` contém somente SELECTs, com colunas fixas, limite de resultados, permissões específicas e `tenantDb(empresaId)`. Admins de plataforma podem consultar qualquer empresa, como no painel; os demais ficam limitados à empresa da sessão, revalidada tanto na rota quanto no catálogo de leitura. O modelo não escolhe a empresa. O acesso ao assistente não amplia permissões de dados: as consultas empresariais exigem `companies.view`, as permissões específicas de cada dado e escopo de empresa inteira (admin de plataforma ou RH). Perfis com escopo de equipe, tutorados ou dados próprios continuam recebendo orientação pelo manual e código, sem executar esse catálogo de consultas globais. A leitura de `empresas` usa id exato. Sem empresa selecionada, não há consulta de dados.
 
 Consultas disponíveis: contagens de cadastros/trilhas, nomes de cargos e competências, cadastro e presença de perfil comportamental, status de trilhas e metadados de relatórios por pessoa identificada. Não lê respostas de avaliações, conversas, telefones, conteúdo de relatórios ou configurações privadas. Nomes ambíguos pedem esclarecimento. Falhas são evidência de indisponibilidade, nunca ausência de registros. O registro de custo da IA usa o ledger já existente, com a task `ipi`; não há gravação de dados de negócio pelo assistente.
 
@@ -25,6 +25,6 @@ O painel não mostra fontes consultadas nem marcadores como `[F1]` ou `[D1]`. O 
 
 ## Verificação
 
-`npx vitest run tests/unit/security/ipi-access.test.ts tests/unit/ipi-data.test.ts tests/unit/ipi-knowledge.test.ts tests/unit/ipi-answer.test.ts`
+`npx vitest run tests/unit/security/ipi-access.test.ts tests/unit/ipi-data.test.ts tests/unit/ipi-knowledge.test.ts tests/unit/ipi-answer.test.ts tests/unit/ipi-visibility.test.ts`
 
-Cobertura: acesso exclusivo ao Rodrigo, bloqueio de outros admins internos, sessão, permissão negada, identidade adulterada, origem, cota, esquema de consulta, filtro de tenant, ambiguidade, falhas do banco, ausência de escrita e busca no extrato real. Build gera o índice e o inclui no artefato de servidor; typecheck e suíte completa fazem parte da publicação.
+Cobertura: acesso de contas @vertho.ai sem papel administrativo, visibilidade nos shells, bloqueio de outros domínios, sessão, permissões de dados, identidade adulterada, origem, cota, esquema de consulta, isolamento de tenant e escopo de dados, ambiguidade, falhas do banco, ausência de escrita e busca no extrato real. Build gera o índice e o inclui no artefato de servidor; typecheck e suíte completa fazem parte da publicação.

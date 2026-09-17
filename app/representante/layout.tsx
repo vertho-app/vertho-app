@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { getRepresentativeContext } from '@/actions/sales/representatives';
 import RepresentativeShell from '@/components/sales/representative-shell';
+import IpiAccess from '@/components/ipi/ipi-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,5 +42,5 @@ export default async function RepresentanteLayout({ children }: { children: Reac
     );
   }
 
-  return <RepresentativeShell rep={{ name: rep.name }}>{children}</RepresentativeShell>;
+  return <RepresentativeShell rep={{ name: rep.name }}>{children}<IpiAccess /></RepresentativeShell>;
 }

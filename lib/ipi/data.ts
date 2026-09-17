@@ -6,7 +6,8 @@ import { isIpiEmail, type IpiPlan, type IpiEvidence } from './contracts';
 
 /** Catálogo fechado de SELECTs. O modelo nunca escolhe tabela, coluna, SQL ou empresa. */
 export async function readIpiData(auth: AuthenticatedContext, permissions: Set<PermissionKey>, empresaId: string | null, plan: IpiPlan): Promise<IpiEvidence[]> {
-  if (!isIpiEmail(auth.email) || !auth.isPlatformAdmin || !permissions.has('admin.access')) throw new Error('IPI_FORBIDDEN');
+  if (!isIpiEmail(auth.email)) throw new Error('IPI_FORBIDDEN');
+  if (empresaId && !auth.isPlatformAdmin && empresaId !== auth.empresaId) throw new Error('IPI_FORBIDDEN');
   if (!plan.data.length) return [];
   if (!empresaId) return [{ id: 'D1', kind: 'dados', title: 'Empresa não selecionada', reference: 'Contexto da consulta', text: 'Nenhuma consulta foi executada. Peça para selecionar uma empresa no painel antes de conferir dados.' }];
   const tdb = tenantDb(empresaId);
@@ -15,6 +16,8 @@ export async function readIpiData(auth: AuthenticatedContext, permissions: Set<P
     evidence.push({ id: `D${evidence.length + 1}`, kind: 'dados', title, reference: `Consulta de leitura · ${new Date().toISOString()}`, text: JSON.stringify(payload) });
   }
   if (!permissions.has('companies.view')) { add('Acesso aos dados', { aviso: 'Seu perfil não tem permissão para consultar empresas.' }); return evidence; }
+  // Este catálogo consulta a empresa inteira, não equipes, tutorados ou registros próprios.
+  if (!auth.isPlatformAdmin && auth.role !== 'rh') { add('Acesso aos dados', { aviso: 'Seu perfil tem acesso limitado à equipe ou aos próprios dados. Esta consulta da empresa inteira não foi executada; a orientação pelo manual e código continua disponível.' }); return evidence; }
   const company = await tdb.raw.from('empresas').select('id, nome').eq('id', empresaId).maybeSingle();
   if (company.error) { add('Empresa', { erro: 'Não foi possível consultar a empresa. Não concluir que ela não existe.' }); return evidence; }
   if (!company.data) { add('Empresa', { aviso: 'Empresa selecionada não encontrada.' }); return evidence; }

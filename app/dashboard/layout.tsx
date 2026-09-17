@@ -8,6 +8,7 @@ import { isPlatformAdmin } from '@/lib/authz';
 import DashboardShell from './dashboard-shell';
 import { pushHabilitado } from '@/lib/notifications/flag';
 import { AtivarPush } from '@/components/notifications/ativar-push';
+import IpiAccess from '@/components/ipi/ipi-access';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   await connection();
@@ -40,6 +41,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       ) : null}
       {children}
+      <IpiAccess />
     </DashboardShell>
   );
 }

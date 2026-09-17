@@ -16,12 +16,12 @@ function IpiAvatar() {
   return <span className={styles.mark} aria-hidden="true"><img src="/ipi-avatar.png" alt="" width={335} height={597} className={styles.avatarImage} /></span>;
 }
 
-export default function IpiChat() {
+export default function IpiChat({ defaultEmpresaId = null }: { defaultEmpresaId?: string | null }) {
   const pathname = usePathname() || '/admin';
   const search = useSearchParams();
   const shell = useContext(AdminShellContext);
   const fromPath = pathname.match(/^\/admin(?:-v2)?\/(?:empresas|clientes)\/([0-9a-f-]{36})(?:\/|$)/i)?.[1];
-  const selected = fromPath || search?.get('empresa') || (shell?.empresaFiltro !== 'all' ? shell?.empresaFiltro : null);
+  const selected = defaultEmpresaId || fromPath || search?.get('empresa') || (shell?.empresaFiltro !== 'all' ? shell?.empresaFiltro : null);
   const empresaId = selected && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(selected) ? selected : null;
   const companyName = shell?.empresaSelecionada?.id === empresaId ? shell.empresaSelecionada.nome : empresaId ? 'Empresa desta tela' : 'Nenhuma empresa selecionada';
   const [open, setOpen] = useState(false);
@@ -90,7 +90,7 @@ export default function IpiChat() {
   }
 
   return <>
-    <button ref={launcher} type="button" className={styles.launcher} onClick={() => setOpen(true)} aria-label="Abrir o Ipi, assistente da plataforma" aria-haspopup="dialog" aria-expanded={open}>
+    <button ref={launcher} type="button" className={`${styles.launcher} ${pathname.startsWith('/dashboard') ? styles.dashboardLauncher : ''}`} onClick={() => setOpen(true)} aria-label="Abrir o Ipi, assistente da plataforma" aria-haspopup="dialog" aria-expanded={open}>
       <IpiAvatar />
     </button>
     <dialog ref={dialog} className={styles.dialog} aria-labelledby="ipi-title" onCancel={() => setOpen(false)} onClose={() => setOpen(false)}>
