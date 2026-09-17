@@ -200,7 +200,7 @@ describe('ordem do PDF da temporada', () => {
       ],
     },
     momentos: [],
-    missoes: [],
+    missoes: [{ semana: 4, modo: 'pratica', compromisso: 'COMPROMISSO', sintese: 'A colab conduziu o Conselho de Classe.' }],
     sem14: { resumo_avaliacao: { mensagem_geral: 'TEXTO-DA-DEVOLUTIVA' } },
   };
   const marca = { logoBase64: null, mostrarVertho: true } as any;
@@ -209,7 +209,7 @@ describe('ordem do PDF da temporada', () => {
   it('devolutiva, competências em destaque, descritores e, por último, a mensagem final', () => {
     const t = texto();
     const ordem = ['veja o que mudou em você', 'TEXTO-DA-DEVOLUTIVA', 'Suas competências', 'Avanço',
-      'Descritor a descritor', 'Mensagem final', 'TEXTO-DO-INSIGHT-GERAL'];
+      'Comportamentos observáveis', 'Mensagem final', 'TEXTO-DO-INSIGHT-GERAL'];
     const posicoes = ordem.map((trecho) => t.indexOf(trecho));
     for (const [i, p] of posicoes.entries()) expect(p, `"${ordem[i]}" não está no PDF`).toBeGreaterThanOrEqual(0);
     expect(posicoes).toEqual([...posicoes].sort((a, b) => a - b));
@@ -224,6 +224,39 @@ describe('ordem do PDF da temporada', () => {
     // a devolutiva saiu do fim do documento: sem a seção antiga
     expect(t).not.toContain('Avaliação final');
     expect(t).not.toContain('Devolutiva');
+  });
+
+  /**
+   * Revisão de 17/09/2026: dizer de qual competência é o resultado, de onde a
+   * pessoa partiu e aonde chegou "de 4 níveis possíveis"; o que é cada quadro e
+   * o que o número mede; o que é cada contador, sem desvalorizar a parcial; e
+   * "colaborador(a)" por extenso. Os textos são os MESMOS da tela (pt-BR).
+   */
+  it('explica nível, avanço e os três contadores com os textos da tela', () => {
+    const t = texto();
+    const pt = JSON.parse(readFileSync('messages/pt-BR.json', 'utf8')).SeasonDone;
+    expect(t).toContain('Em Planejamento, você estava no Nível 1 e avançou para o Nível 2, de 4 níveis possíveis.');
+    expect(t).toContain('Em Autocuidado, você está no Nível 2, de 4 níveis possíveis.');
+    for (const chave of ['competenciesIntro', 'behaviorsIntro']) expect(t).toContain(pt[chave]);
+    for (const chave of ['confirmed', 'partial', 'stable']) expect(t).toContain(pt.legend[chave]);
+    expect(t).toContain('Dos 3 comportamentos observados nesta temporada:');
+    // a régua de 4 níveis inteira aparece em cada competência
+    expect(t.split('Nível 4')).toHaveLength(3);
+  });
+
+  it('parcial é apresentada como evolução real, e estável não como piora', () => {
+    const { legend } = JSON.parse(readFileSync('messages/pt-BR.json', 'utf8')).SeasonDone;
+    expect(legend.partial).toMatch(/evolução real/);
+    expect(legend.stable).toMatch(/Não é piora/);
+    for (const texto of Object.values(legend) as string[]) expect(texto).not.toMatch(/apenas|só um pouco|insuficiente|fraca/i);
+  });
+
+  it('síntese com "colab" sai por extenso, e o rodapé é Vertho.ai', () => {
+    const t = texto();
+    expect(t).toContain('O(a) colaborador(a) conduziu o Conselho de Classe.');
+    expect(t).not.toMatch(/colab(?![\p{L}])/u);
+    expect(t).toContain('Vertho.ai');
+    expect(t).not.toContain('Vertho Mentor IA');
   });
 });
 
@@ -264,7 +297,7 @@ describe('ordem da tela Temporada Concluída', () => {
   it('devolutiva, competências em destaque, descritores e, por último, a mensagem final', () => {
     const t = textoDaTela('pt-BR');
     const ordem = ['Pessoa, veja o que mudou em você', '9 semanas dedicadas a', 'TEXTO-DA-DEVOLUTIVA',
-      'Suas competências', 'Avanço', 'Descritor a descritor', 'Confirmadas', 'Mensagem final', 'TEXTO-DO-INSIGHT-GERAL'];
+      'Suas competências', 'Avanço', 'Comportamentos observáveis', 'Confirmadas', 'Mensagem final', 'TEXTO-DO-INSIGHT-GERAL'];
     const posicoes = ordem.map((trecho) => t.indexOf(trecho));
     for (const [i, p] of posicoes.entries()) expect(p, `"${ordem[i]}" não está na tela`).toBeGreaterThanOrEqual(0);
     expect(posicoes).toEqual([...posicoes].sort((a, b) => a - b));
@@ -273,6 +306,20 @@ describe('ordem da tela Temporada Concluída', () => {
     expect(t.split('Parabéns! Você melhorou seu nível nesta competência')).toHaveLength(2);
     // a devolutiva aparece uma vez só: saiu do card do cenário
     expect(t.split('TEXTO-DA-DEVOLUTIVA')).toHaveLength(2);
+  });
+
+  it('explica nível, avanço e contadores com os mesmos textos do PDF, e a vírgula decimal', () => {
+    const t = textoDaTela('pt-BR');
+    const pt = JSON.parse(readFileSync('messages/pt-BR.json', 'utf8')).SeasonDone;
+    expect(t).toContain('Em Planejamento, você estava no Nível 1 e avançou para o Nível 2, de 4 níveis possíveis.');
+    for (const chave of ['competenciesIntro', 'behaviorsIntro']) expect(t).toContain(pt[chave]);
+    for (const chave of ['confirmed', 'partial', 'stable']) expect(t).toContain(pt.legend[chave]);
+    expect(t).toContain('+1,1');
+    expect(t).not.toContain('+1.1');
+    // e no quadro de cada comportamento, não só no destaque da competência
+    expect(t).toContain('+1,2');
+    expect(t).not.toContain('+1.2');
+    expect(textoDaTela('en-US')).toContain('+1.1');
   });
 
   it('uma competência no singular, nos 4 idiomas', () => {

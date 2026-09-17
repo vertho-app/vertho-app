@@ -1,6 +1,6 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Sparkles, Trophy, Target, CheckCircle2, TrendingUp, Minus, PartyPopper } from 'lucide-react';
 import { GlassCard } from '@/components/page-shell';
 import ReactMarkdown from 'react-markdown';
@@ -8,6 +8,7 @@ import { descritorParaHumano } from '@/lib/descritor-humano';
 import { formatarAvanco, formatarValorAvanco, CONVERGENCIA } from '@/lib/season-engine/convergencia';
 import { COR_VEREDITO_TELA, corTela } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
+import { textosDoRelatorio } from '@/lib/season-engine/relatorio-texto';
 
 // Sem veredito de regressão (a régua não tem desde 01/09) e sem nota absoluta:
 // cada descritor mostra só o AVANÇO, com piso em zero, e o veredito. Decisão do
@@ -35,8 +36,13 @@ const VEREDITO = {
  * Vive fora da página para ser renderizável sem sessão: é assim que o teste
  * confere a ordem e que a captura de tela usa a marcação real.
  */
-export default function RelatorioTemporadaConcluida({ data }: { data: any }) {
+export default function RelatorioTemporadaConcluida({ data: dadosBrutos }: { data: any }) {
   const t = useTranslations('SeasonDone');
+  const locale = useLocale();
+  // Vírgula decimal onde o idioma usa vírgula: a explicação diz "0,5 ou mais" e
+  // o número ao lado não pode dizer "+0.8".
+  const dec = (v: string | null) => (v && !locale.startsWith('en') ? v.replace('.', ',') : v);
+  const data = textosDoRelatorio(dadosBrutos);
   const { colab, trilha, evolutionReport, momentos = [], missoes = [], sem14 } = data;
   const firstName = (colab?.nome || '').split(' ')[0];
   const descritores = evolutionReport?.descritores || [];
@@ -71,14 +77,15 @@ export default function RelatorioTemporadaConcluida({ data }: { data: any }) {
       {/* Competências em destaque: nível da MÉDIA (nunca a nota) e avanço */}
       {comCompetencia.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-3">{t('sections.competencies', { count: comCompetencia.length })}</h2>
+          <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-2">{t('sections.competencies', { count: comCompetencia.length })}</h2>
+          <p className="text-sm text-gray-400 mb-3">{t('competenciesIntro')}</p>
           <div className="space-y-2">
             {comCompetencia.map((grupo, g) => {
-              const avanco = formatarValorAvanco(grupo.avancoMedio);
+              const avanco = dec(formatarValorAvanco(grupo.avancoMedio));
               return (
                 <GlassCard key={g} className="border-brand-500/25 bg-brand-500/[0.05] border-l-4 border-l-brand-400">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
                       <p className="text-base font-bold text-white">{grupo.competencia}</p>
                       {grupo.nivelFinal != null && grupo.subiuDeNivel && (
                         <p className="text-sm text-gray-300 mt-1 flex items-center gap-x-2 gap-y-1 flex-wrap">
@@ -90,6 +97,18 @@ export default function RelatorioTemporadaConcluida({ data }: { data: any }) {
                       )}
                       {grupo.nivelFinal != null && !grupo.subiuDeNivel && (
                         <p className="text-sm text-gray-300 mt-1">{t('level', { n: grupo.nivelFinal })}</p>
+                      )}
+                      {/* A régua de 4 níveis e a frase dizendo de onde partiu e
+                          aonde chegou (revisão de 17/09/2026, igual ao PDF). */}
+                      {grupo.nivelFinal != null && (
+                        <>
+                          <EscalaDeNiveis inicial={grupo.nivelInicial} final={grupo.nivelFinal} rotulo={(n) => t('level', { n })} />
+                          <p className="text-xs text-gray-400 mt-2">
+                            {grupo.subiuDeNivel
+                              ? t('levelFromTo', { competency: grupo.competencia, from: grupo.nivelInicial, to: grupo.nivelFinal })
+                              : t('levelKept', { competency: grupo.competencia, n: grupo.nivelFinal })}
+                          </p>
+                        </>
                       )}
                     </div>
                     {avanco && (
@@ -108,13 +127,17 @@ export default function RelatorioTemporadaConcluida({ data }: { data: any }) {
 
       {/* Descritor a descritor, abrindo com os contadores (contam descritores) */}
       <section className="mb-8">
-        <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-3">{t('sections.descriptor')}</h2>
+        <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-2">{t('sections.descriptor')}</h2>
+        {/* O que é cada quadro, o que o número mede e o que cada contador quer
+            dizer, sem desvalorizar a evolução parcial (revisão de 17/09/2026). */}
+        <p className="text-sm text-gray-400 mb-3">{t('behaviorsIntro')}</p>
+        <p className="text-sm text-gray-300 mb-2">{t('countersIntro', { total: descritores.length })}</p>
         <GlassCard className="mb-4 border-brand-500/20 bg-brand-500/[0.03]">
-          <div className="grid grid-cols-3 gap-3">
-            <Stat label={t('stats.confirmed')} valor={resumo.confirmadas || 0} cor={COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA].tinta} />
-            <Stat label={t('stats.partial')} valor={resumo.parciais || 0} cor={COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL].tinta} />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Stat label={t('stats.confirmed')} valor={resumo.confirmadas || 0} cor={COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA].tinta} explicacao={t('legend.confirmed')} />
+            <Stat label={t('stats.partial')} valor={resumo.parciais || 0} cor={COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL].tinta} explicacao={t('legend.partial')} />
             {/* Relatório anterior a 01/09 ainda pode ter `regressoes`: manteve o patamar, conta como estável. */}
-            <Stat label={t('stats.stagnated')} valor={(resumo.estagnacoes || 0) + (resumo.regressoes || 0)} cor="text-gray-400" />
+            <Stat label={t('stats.stagnated')} valor={(resumo.estagnacoes || 0) + (resumo.regressoes || 0)} cor="text-gray-400" explicacao={t('legend.stable')} />
           </div>
         </GlassCard>
         {/* Agrupado por competência: na trilha DUO são duas. Nível e avanço estão
@@ -129,7 +152,7 @@ export default function RelatorioTemporadaConcluida({ data }: { data: any }) {
                 const conv = VEREDITO[d.convergencia] || VEREDITO.estagnacao;
                 const cor = corTela(d.convergencia);
                 const Icon = conv.icon;
-                const avanco = formatarAvanco(d.nota_pre, d.nota_pos);
+                const avanco = dec(formatarAvanco(d.nota_pre, d.nota_pos));
                 return (
                   <GlassCard key={i} className={`${cor.borda} ${cor.fundo}`}>
                     <div className="flex items-start gap-3">
@@ -265,11 +288,36 @@ export default function RelatorioTemporadaConcluida({ data }: { data: any }) {
   );
 }
 
-function Stat({ label, valor, cor }) {
+function Stat({ label, valor, cor, explicacao }) {
   return (
-    <div>
-      <p className="text-[9px] uppercase tracking-widest text-gray-500">{label}</p>
-      <p className={`text-2xl font-extrabold ${cor}`}>{valor}</p>
+    <div className="flex items-start gap-3 sm:block">
+      <div className="w-24 shrink-0 sm:w-auto">
+        <p className="text-[9px] uppercase tracking-widest text-gray-500">{label}</p>
+        <p className={`text-2xl font-extrabold ${cor}`}>{valor}</p>
+      </div>
+      {explicacao && <p className="text-xs text-gray-400 sm:mt-1">{explicacao}</p>}
+    </div>
+  );
+}
+
+/**
+ * A régua de 4 níveis, para a pessoa se situar: até o nível de partida em cor
+ * da marca, o que subiu nesta temporada em verde, o resto só contornado.
+ */
+function EscalaDeNiveis({ inicial, final, rotulo }: { inicial: number | null; final: number; rotulo: (n: number) => string }) {
+  const partida = inicial ?? final;
+  return (
+    <div className="grid grid-cols-4 gap-1 mt-3">
+      {[1, 2, 3, 4].map((n) => {
+        const conquistado = n > partida && n <= final;
+        const alcancado = n <= partida;
+        const estilo = conquistado
+          ? 'bg-emerald-500/70 border-emerald-400 text-white'
+          : alcancado ? 'bg-brand-500/40 border-brand-400/60 text-white' : 'border-white/15 text-gray-500';
+        return (
+          <span key={n} className={`rounded-md border py-1 text-center text-[11px] font-semibold ${estilo}`}>{rotulo(n)}</span>
+        );
+      })}
     </div>
   );
 }

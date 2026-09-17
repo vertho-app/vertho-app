@@ -31,6 +31,16 @@ import type { MarcaPdf } from '@/lib/pdf-marca';
 import { avancoExibido, rotuloConvergencia, CONVERGENCIA } from '@/lib/season-engine/convergencia';
 import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
+import { textosDoRelatorio } from '@/lib/season-engine/relatorio-texto';
+import { createTranslator } from 'next-intl';
+import mensagensPtBR from '@/messages/pt-BR.json';
+
+/**
+ * Os textos que a TELA também mostra (títulos, níveis, as explicações do
+ * relatório) vêm das MESMAS traduções dela, em pt-BR: o papel e a tela não
+ * podem explicar a régua de dois jeitos.
+ */
+const tr = createTranslator({ locale: 'pt-BR', messages: mensagensPtBR as any, namespace: 'SeasonDone' }) as any;
 
 const s = StyleSheet.create({
   section: { marginBottom: 14 },
@@ -68,7 +78,7 @@ const s = StyleSheet.create({
   nivelLinha: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   // Destaque da competência no início: é o indicador da régua de maturidade.
   destaque: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12,
     borderWidth: 1, borderColor: colors.gray200, borderLeftWidth: 4, borderLeftColor: colors.navy,
     borderRadius: 6, backgroundColor: colors.summaryBg, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 8,
   },
@@ -77,6 +87,11 @@ const s = StyleSheet.create({
   destaqueNivelSubiu: { fontFamily: 'NotoSans', fontSize: fonts.body, fontWeight: 700, color: colors.navy },
   destaqueSubiu: { fontFamily: 'NotoSans', fontSize: fonts.body, fontWeight: 700, color: COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].fg },
   destaqueAvanco: { alignItems: 'flex-end' },
+  escala: { flexDirection: 'row', gap: 3, marginTop: 8 },
+  escalaDegrau: { flex: 1, borderRadius: 3, borderWidth: 1, paddingVertical: 3, alignItems: 'center' },
+  escalaTexto: { fontFamily: 'NotoSans', fontSize: fonts.caption, fontWeight: 600 },
+  destaqueFrase: { fontFamily: 'NotoSans', fontSize: fonts.small, color: colors.textSecondary, lineHeight: 1.5, marginTop: 6 },
+  statExplicacao: { fontFamily: 'NotoSans', fontSize: fonts.caption, color: colors.textSecondary, lineHeight: 1.45, marginTop: 4 },
   destaqueAvancoValor: { fontFamily: 'NotoSans', fontSize: 22, fontWeight: 700, color: colors.navy, marginTop: 1 },
 });
 
@@ -177,11 +192,34 @@ export function contadoresDoPdf(resumo: any) {
   };
 }
 
-function Stat({ label, valor, cor }: { label: string; valor: number; cor: string }) {
+function Stat({ label, valor, cor, explicacao }: { label: string; valor: number; cor: string; explicacao?: string }) {
   return (
     <View style={s.stat}>
       <Text style={s.statLabel}>{label}</Text>
       <Text style={{ ...s.statValue, color: cor }}>{String(valor)}</Text>
+      {explicacao && <Text style={s.statExplicacao}>{explicacao}</Text>}
+    </View>
+  );
+}
+
+/**
+ * A régua de 4 níveis, para a pessoa se situar: até o nível de partida em
+ * navy, o que subiu nesta temporada em verde, o resto em cinza.
+ */
+function EscalaDeNiveis({ inicial, final }: { inicial: number | null; final: number }) {
+  const partida = inicial ?? final;
+  return (
+    <View style={s.escala}>
+      {[1, 2, 3, 4].map((n) => {
+        const conquistado = n > partida && n <= final;
+        const alcancado = n <= partida;
+        const bg = conquistado ? COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].fg : alcancado ? colors.navy : colors.white;
+        return (
+          <View key={n} style={{ ...s.escalaDegrau, backgroundColor: bg, borderColor: conquistado || alcancado ? bg : colors.gray300 }}>
+            <Text style={{ ...s.escalaTexto, color: conquistado || alcancado ? colors.white : colors.textMuted }}>{tr('level', { n })}</Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -219,22 +257,35 @@ function DestaqueCompetencia({ grupo }: { grupo: ReturnType<typeof agruparPorCom
         {/* Subiu: "Nível 1 → Nível 2 ★ Parabéns!…" (texto do dono, 16/09/2026). Manteve: só o nível. */}
         {grupo.nivelFinal != null && grupo.subiuDeNivel && (
           <View style={{ ...s.nivelLinha, marginTop: 4 }}>
-            <Text style={s.destaqueNivelSubiu}>{`Nível ${grupo.nivelInicial}`}</Text>
+            <Text style={s.destaqueNivelSubiu}>{tr('level', { n: grupo.nivelInicial })}</Text>
             <Seta tamanho={10} />
-            <Text style={s.destaqueNivelSubiu}>{`Nível ${grupo.nivelFinal}`}</Text>
+            <Text style={s.destaqueNivelSubiu}>{tr('level', { n: grupo.nivelFinal })}</Text>
             <Estrela tamanho={10} />
-            <Text style={s.destaqueSubiu}>Parabéns! Você melhorou seu nível nesta competência</Text>
+            <Text style={s.destaqueSubiu}>{tr('levelUp')}</Text>
           </View>
         )}
         {grupo.nivelFinal != null && !grupo.subiuDeNivel && (
           <View style={{ ...s.nivelLinha, marginTop: 4 }}>
-            <Text style={s.destaqueNivel}>{`Nível ${grupo.nivelFinal}`}</Text>
+            <Text style={s.destaqueNivel}>{tr('level', { n: grupo.nivelFinal })}</Text>
           </View>
+        )}
+        {/* Revisão de 17/09/2026: dizer com todas as letras de qual competência
+            é o resultado, de onde a pessoa partiu, aonde chegou e que a escala
+            tem 4 níveis ("prefiro pecar pelo excesso"). */}
+        {grupo.nivelFinal != null && (
+          <>
+            <EscalaDeNiveis inicial={grupo.nivelInicial} final={grupo.nivelFinal} />
+            <Text style={s.destaqueFrase}>
+              {grupo.subiuDeNivel
+                ? tr('levelFromTo', { competency: grupo.competencia, from: grupo.nivelInicial, to: grupo.nivelFinal })
+                : tr('levelKept', { competency: grupo.competencia, n: grupo.nivelFinal })}
+            </Text>
+          </>
         )}
       </View>
       {avanco && (
         <View style={s.destaqueAvanco}>
-          <Text style={s.statLabel}>Avanço</Text>
+          <Text style={s.statLabel}>{tr('competencyProgress')}</Text>
           <Text style={s.destaqueAvancoValor}>{avanco}</Text>
         </View>
       )}
@@ -271,7 +322,7 @@ function MomentosDeInsight({ momentos }: { momentos: any[] }) {
 function TemporadaPilotoPDF({ dados, marca }: { dados: any; marca: MarcaPdf }) {
   const { colab, trilha, evolutionReport, momentos, sem14 } = dados;
   const descritores = evolutionReport?.descritores || [];
-  const rodape = marca.mostrarVertho ? 'Vertho Mentor IA · Piloto' : 'Piloto';
+  const rodape = marca.mostrarVertho ? 'Vertho.ai · Piloto' : 'Piloto';
 
   return (
     <Document title={`Piloto — ${colab?.nome || ''}`}>
@@ -339,7 +390,8 @@ function TemporadaPilotoPDF({ dados, marca }: { dados: any; marca: MarcaPdf }) {
   );
 }
 
-export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: MarcaPdf }) {
+export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: any; marca: MarcaPdf }) {
+  const dados = textosDoRelatorio(dadosBrutos);
   const { colab, trilha, evolutionReport, momentos, missoes, sem14 } = dados;
   if (evolutionReport?.modo === 'piloto') return <TemporadaPilotoPDF dados={dados} marca={marca} />;
 
@@ -348,7 +400,8 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
   const comCompetencia = grupos.filter((g) => g.competencia);
   const contadores = contadoresDoPdf(evolutionReport?.resumo);
   const totalSemanas = trilha?.totalSemanas || 14;
-  const rodape = marca.mostrarVertho ? 'Vertho Mentor IA' : 'Relatório de temporada';
+  // "Vertho.ai" no rodapé (revisão de 17/09/2026), a marca como a pessoa a encontra.
+  const rodape = marca.mostrarVertho ? 'Vertho.ai' : 'Relatório de temporada';
   const devolutiva = sem14?.resumo_avaliacao?.mensagem_geral;
 
   return (
@@ -380,20 +433,25 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
 
         {comCompetencia.length > 0 && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>{comCompetencia.length > 1 ? 'Suas competências' : 'Sua competência'}</ReportSectionTitle>
+            <ReportSectionTitle>{tr('sections.competencies', { count: comCompetencia.length })}</ReportSectionTitle>
+            <Text style={s.intro}>{tr('competenciesIntro')}</Text>
             {comCompetencia.map((grupo, g) => <DestaqueCompetencia key={g} grupo={grupo} />)}
           </View>
         )}
 
         <View style={s.section}>
-          {/* Os contadores contam DESCRITORES, então abrem esta seção. Presos ao
-              título para ele não ficar sozinho no pé da página. */}
+          {/* Os contadores contam COMPORTAMENTOS, então abrem esta seção, cada
+              um com o que significa (revisão de 17/09/2026: explicar de forma
+              didática e sem desvalorizar a evolução parcial). Presos ao título
+              para ele não ficar sozinho no pé da página. */}
           <View wrap={false}>
-            <ReportSectionTitle>Descritor a descritor</ReportSectionTitle>
+            <ReportSectionTitle>{tr('sections.descriptor')}</ReportSectionTitle>
+            <Text style={s.intro}>{tr('behaviorsIntro')}</Text>
+            <Text style={{ ...s.intro, marginBottom: 6 }}>{tr('countersIntro', { total: descritores.length })}</Text>
             <View style={s.statGrid}>
-              <Stat label="Confirmadas" valor={contadores.confirmadas} cor={CONV[CONVERGENCIA.CONFIRMADA].cor} />
-              <Stat label="Parciais" valor={contadores.parciais} cor={CONV[CONVERGENCIA.PARCIAL].cor} />
-              <Stat label="Estáveis" valor={contadores.estaveis} cor={CONV[CONVERGENCIA.ESTAVEL].cor} />
+              <Stat label={tr('stats.confirmed')} valor={contadores.confirmadas} cor={CONV[CONVERGENCIA.CONFIRMADA].cor} explicacao={tr('legend.confirmed')} />
+              <Stat label={tr('stats.partial')} valor={contadores.parciais} cor={CONV[CONVERGENCIA.PARCIAL].cor} explicacao={tr('legend.partial')} />
+              <Stat label={tr('stats.stagnated')} valor={contadores.estaveis} cor={CONV[CONVERGENCIA.ESTAVEL].cor} explicacao={tr('legend.stable')} />
             </View>
           </View>
           {/* Agrupado por competência: a trilha DUO tem duas, e a lista corrida
@@ -454,7 +512,7 @@ export function TemporadaConcluidaPDF({ dados, marca }: { dados: any; marca: Mar
           // Título e texto juntos, pelo mesmo motivo dos outros títulos: o maior
           // `insight_geral` da base tem 556 caracteres (medido 16/09).
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>Mensagem final</ReportSectionTitle>
+            <ReportSectionTitle>{tr('sections.finalMessage')}</ReportSectionTitle>
             <Text style={s.quote}>{evolutionReport.insight_geral}</Text>
           </View>
         )}

@@ -1415,6 +1415,16 @@
     "competencyProgress": "Avance",
     "level": "Nivel {n}",
     "levelUp": "¡Felicitaciones! Mejoraste tu nivel en esta competencia",
+    "competenciesIntro": "Tu resultado se mide por competencia, en una escala de 4 niveles. El avance muestra cuánto avanzaron, en promedio, los comportamientos de la competencia entre el inicio y el final de la temporada.",
+    "levelFromTo": "En {competency}, estabas en el Nivel {from} y avanzaste al Nivel {to}, de 4 niveles posibles.",
+    "levelKept": "En {competency}, estás en el Nivel {n}, de 4 niveles posibles.",
+    "behaviorsIntro": "Cada competencia se manifiesta en comportamientos concretos del día a día, que llamamos comportamientos observables. Cada recuadro muestra uno de ellos: el número es cuánto avanzó entre el inicio y el final de la temporada, en una escala de 1 a 4 (el avance puede ir de 0 a 3), y el texto muestra qué cambió en tu práctica.",
+    "countersIntro": "De los {total} comportamientos observados en esta temporada:",
+    "legend": {
+      "confirmed": "Avance de 0,5 o más, con el comportamiento ya en el Nivel 3 o superior y el cambio claro en tus conversaciones.",
+      "partial": "Avance de 0,2 o más (o 0,1 cuando el cambio aparece en tus conversaciones). Es un avance real, que se está consolidando.",
+      "stable": "El comportamiento se mantuvo en su punto de partida (avance de 0,0 o 0,1). No es un retroceso: es la base para el próximo ciclo."
+    },
     "backToSeason": "Volver a la temporada",
     "downloadPdf": "Descargar PDF",
     "pdfError": "Error al generar el PDF",
@@ -1440,7 +1450,7 @@
       "stagnation": "Estable"
     },
     "sections": {
-      "descriptor": "Descriptor por descriptor",
+      "descriptor": "Comportamientos observables",
       "insights": "Momentos de insight",
       "missions": "Misiones que ejecutaste",
       "finalAssessment": "Evaluación final",

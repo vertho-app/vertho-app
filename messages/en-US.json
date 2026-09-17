@@ -1415,6 +1415,16 @@
     "competencyProgress": "Progress",
     "level": "Level {n}",
     "levelUp": "Congratulations! You improved your level in this competency",
+    "competenciesIntro": "Your result is measured by competency, on a 4-level scale. Progress shows how much the competency's behaviors advanced, on average, between the start and the end of the season.",
+    "levelFromTo": "In {competency}, you were at Level {from} and moved up to Level {to}, out of 4 possible levels.",
+    "levelKept": "In {competency}, you are at Level {n}, out of 4 possible levels.",
+    "behaviorsIntro": "Each competency shows up in concrete, everyday behaviors, which we call observable behaviors. Each box below shows one of them: the number is how much it advanced between the start and the end of the season, on a scale of 1 to 4 (progress can range from 0 to 3), and the text shows what changed in your practice.",
+    "countersIntro": "Of the {total} behaviors observed this season:",
+    "legend": {
+      "confirmed": "Progress of 0.5 or more, with the behavior already at Level 3 or above and the change clear in your conversations.",
+      "partial": "Progress of 0.2 or more (or 0.1 when the change shows in your conversations). It is real progress, still consolidating.",
+      "stable": "The behavior stayed at its starting level (progress of 0.0 or 0.1). It is not a decline: it is the base for the next cycle."
+    },
     "backToSeason": "Back to season",
     "downloadPdf": "Download PDF",
     "pdfError": "Error generating PDF",
@@ -1440,7 +1450,7 @@
       "stagnation": "Stable"
     },
     "sections": {
-      "descriptor": "Descriptor by descriptor",
+      "descriptor": "Observable behaviors",
       "insights": "Insight moments",
       "missions": "Missions you performed",
       "finalAssessment": "Final assessment",
