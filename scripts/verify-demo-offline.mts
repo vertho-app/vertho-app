@@ -1,3 +1,4 @@
+import { verifyOfflinePanels } from './verify-demo-offline-panels.mts';
 import { chromium, expect } from "@playwright/test";
 import { createServer } from "node:http";
 import { readFile, mkdir } from "node:fs/promises";
@@ -219,6 +220,7 @@ try {
   }).catch(() => 0), { timeout: 30000 }).toBeGreaterThan(500);
   await page.screenshot({ path: `${screenshotPrefix}-organization-pdf.png` });
   console.log('PERFIS: participante, gestor e RH; relatório PDF renderizado sem rede.');
+  await verifyOfflinePanels(page, tenant);
   await page.getByLabel('Trocar função apresentada').selectOption('usuario');
   await page.getByLabel('Trocar dispositivo apresentado').selectOption('mobile');
   const phone = page.frameLocator('iframe[title="Apresentação no celular"]');
@@ -233,8 +235,8 @@ try {
     const pack = await (await meta.match(`${base}_active`))!.json();
     await (await caches.open(pack.cacheName)).delete(`${base}${mediaToRemove}`);
   }, { cachePrefix: environment.cachePrefix, base, mediaToRemove });
-  await openPreparation();
-  await page.getByRole('button', { name: 'Conferir pacote', exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Conferir pacote', exact: true })).toHaveCount(0);
   await expect(page.getByRole('alert')).toContainText('Falta baixar');
   await expect(page.getByText('Pronto para apresentar offline', { exact: true })).not.toBeVisible();
   console.log('PASSOU: atualização, reinício offline, UI compartilhada, três visões, mídias, PDF, celular e arquivo perdido.');

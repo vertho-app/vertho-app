@@ -1,6 +1,6 @@
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import postcss from 'postcss';
 import tailwindcss from '@tailwindcss/postcss';
@@ -107,9 +107,9 @@ for (const tenant of ["escolas-acme", "acme-demo"] as OfflineTenant[]) {
     await writeFile(resolve(output, path), bytes);
     assets.push({ path, source: base+path, type, bytes: bytes.length, sha256: hash(bytes), label: 'Recursos da aplicação' });
   }
-  for (const name of ['pdi', 'gestor', 'rh']) {
-    const path = `documents/${name}.pdf`;
-    const bytes = await readFile(resolve('lib/demo/offline/documents', tenant, `${name}.pdf`));
+  for (const file of (await readdir(resolve('lib/demo/offline/documents', tenant))).filter(name => name.endsWith('.pdf')).sort()) {
+    const path = `documents/${file}`;
+    const bytes = await readFile(resolve('lib/demo/offline/documents', tenant, file));
     await mkdir(resolve(output, 'documents'), { recursive: true });
     await writeFile(resolve(output, path), bytes);
     assets.push({ path, source: base+path, type: 'application/pdf', bytes: bytes.length, sha256: hash(bytes), label: 'Relatórios da demonstração' });

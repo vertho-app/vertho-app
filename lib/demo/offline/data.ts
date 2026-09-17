@@ -1,3 +1,4 @@
+import panelsSnapshot from './panels-snapshot.json';
 // Build-time only. Explicit projection of the public, fictional school fixture.
 // Never export users, credentials, production queries or assessment conversations.
 import fixture from "../escolas-demo-fixture.json";
@@ -14,6 +15,7 @@ export function schoolOfflineData(): OfflineData {
   const artifacts = fixture.personaArtifacts as Record<string, any>;
   const marina = artifacts["marina.demo@vertho.ai"];
   return {
+    panels: panelsSnapshot['escolas-acme'] as OfflineData['panels'],
     tracks: {
       ...snapshot['escolas-acme'].tracks,
       marina: {

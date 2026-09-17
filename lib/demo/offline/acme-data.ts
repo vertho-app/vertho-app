@@ -1,3 +1,4 @@
+import panelsSnapshot from './panels-snapshot.json';
 // Only the declared fictional ACME roster. Guests and live report prose never
 // enter this bundle; the numeric snapshot is explicitly keyed to that roster.
 import fixture from "../acme-demo-fixture.json";
@@ -20,6 +21,7 @@ export function acmeOfflineData(): OfflineData {
   const additional = extra.personaArtifacts as Record<string, any>;
   const manager = PERSONAS.find((person) => person.key === "carla")!;
   return {
+    panels: panelsSnapshot['acme-demo'] as OfflineData['panels'],
     tracks: uiSnapshot['acme-demo'].tracks,
     capturedAt: snapshot.capturedAt,
     totalWeeks: snapshot.totalWeeks,

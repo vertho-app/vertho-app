@@ -27,7 +27,17 @@ export type OfflinePerson = {
   assessments: { competency: string; descriptor: string; score: number }[];
   details?: Record<string, string | number | null>;
 };
+export type OfflinePanels = {
+  engagementPdfPath?: string;
+  capturedAt: string;
+  engagement: Record<'manager' | 'organization', Record<string, any>>;
+  evolution: Record<string, { ok: true; data: import('@/lib/engagement-evolution').EngagementEvolutionDashboard }>;
+  team: { ok: boolean; rows: any[]; resumo: Record<string, number>; escopo: string };
+  details: Record<string, any>;
+  rankings: Record<string, any>;
+};
 export type OfflineData = {
+  panels: OfflinePanels;
   tracks: Record<string, {
     status: string;
     competencia_foco: string | null;

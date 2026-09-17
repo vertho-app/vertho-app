@@ -24,11 +24,28 @@ export function offlineAdapters(): Plugin {
       if (/^[\s\uFEFF]*['"]use server['"]/.test(source)) {
         const tree = ts.createSourceFile(args.path, source, ts.ScriptTarget.Latest, true);
         const names = tree.statements.filter(ts.isFunctionDeclaration).filter(node => node.modifiers?.some(m => m.kind === ts.SyntaxKind.ExportKeyword)).map(node => node.name?.text).filter(Boolean) as string[];
-        const local = await readFile(resolve(offline, 'local-actions.ts'), 'utf8');
-        const known = new Set([...local.matchAll(/export (?:async function|const|function) (\w+)/g)].map(m => m[1]));
-        return { contents: `import * as local from ${JSON.stringify(resolve(offline, 'local-actions.ts'))};\n`+names.map(name => `export const ${name} = local.${known.has(name) ? name : 'unavailable'};`).join('\n'), loader: 'ts' };
+        const modules = ['local-actions.ts', 'panel-actions.ts'];
+        const sources = await Promise.all(modules.map(file => readFile(resolve(offline, file), 'utf8')));
+        const exportsByModule = sources.map(source => new Set([...source.matchAll(/export (?:async function|const|function) (\w+)/g)].map(m => m[1])));
+        const imports = modules.map((file, i) => `import * as actions${i} from ${JSON.stringify(resolve(offline, file))};`).join('\n');
+        const exports = names.map(name => {
+          const index = exportsByModule.findIndex(known => known.has(name));
+          return `export const ${name} = ${index < 0 ? 'actions0.unavailable' : `actions${index}.${name}`};`;
+        });
+        return { contents: imports + '\n' + exports.join('\n'), loader: 'ts' };
       }
       if (/['"]server-only['"]/.test(source)) throw new Error(`Server dependency in offline UI: ${args.path}`);
+      const normalizedPath = args.path.replaceAll('\\', '/');
+      if (normalizedPath.endsWith('/lib/engajamento/surface.ts')) source = source.replace(
+        "pdf: `/api/relatorios/engajamento/pdf${surface === 'admin' ? query : ''}`",
+        "pdf: __OFFLINE_BASE__ + 'documents/engajamento.pdf'",
+      );
+      if (normalizedPath.endsWith('/components/engajamento/engagement-panel.tsx')) {
+        source = `import { currentLocation as offlineLocation, replacePresentationHistory } from ${JSON.stringify(resolve(offline, 'runtime.ts'))};\n` + source;
+        source = source.replaceAll('window.location.search', 'offlineLocation().search')
+          .replaceAll('window.location.pathname', 'offlineLocation().pathname')
+          .replaceAll('window.history.replaceState(', 'replacePresentationHistory(');
+      }
       // Shared UI image references remain under the worker's isolated scope.
       if (args.path.endsWith('beto-chat.tsx')) source = source.replace('src="/beto-avatar.jpg"', 'src={__OFFLINE_BASE__ + "assets/beto-avatar.jpg"}');
       if (args.path.endsWith('dashboard-shell.tsx')) source = source.replace("logoUrl: '/logo-vertho.png'", 'logoUrl: __OFFLINE_BASE__ + "assets/logo-vertho.png"');

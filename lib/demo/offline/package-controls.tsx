@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Check, Download, Settings2, WifiOff, X } from 'lucide-react';
+import { Download, Settings2, WifiOff, X } from 'lucide-react';
 import { BASE, installedPackage, preparePackage, verifyPackage, type InstalledPackage } from './cache';
 import type { OfflinePackage } from './types';
 export default function PackageControls() {
@@ -140,25 +140,6 @@ export default function PackageControls() {
     }
   }
 
-  async function verify() {
-    if (!installed || busy) return;
-    setBusy(true);
-    setError("");
-    setMessage("Conferindo todos os arquivos salvos…");
-    try {
-      await verifyPackage(installed);
-      setReady(true);
-      setMessage(
-        "Conferido: telas e conteúdos completos. Desligue a internet e reabra este endereço para testar.",
-      );
-    } catch (e) {
-      setReady(false);
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const totalBytes = latest?.assets.reduce((sum, item) => sum + item.bytes, 0) || 0;
   return <>
     <button type="button" onClick={() => setOpen(true)} title="Preparo offline" aria-label="Preparo offline" className="fixed right-4 top-4 z-[45] grid h-9 w-9 place-items-center rounded-full border border-white/15 bg-[#071321]/90 text-white/60 shadow-lg hover:text-cyan-300">
@@ -172,7 +153,6 @@ export default function PackageControls() {
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
           <button className="flex items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 disabled:opacity-40" onClick={prepare} disabled={busy || !online}><Download size={16} />{ready ? latest && latest.version !== installed?.version ? 'Atualizar pacote' : 'Baixar novamente' : `Preparar apresentação${totalBytes ? ` · ${Math.ceil(totalBytes/1048576)} MB` : ''}`}</button>
-          {ready && <button className="flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-bold" onClick={verify} disabled={busy}><Check size={16} />Conferir pacote</button>}
           {busy && <button className="rounded-lg border border-white/15 px-4 py-2.5 text-sm" onClick={() => abort.current?.abort()}>Cancelar</button>}
         </div>
         {busy && <progress className="mt-4 w-full accent-cyan-400" max="100" value={progress} aria-label="Progresso do download" />}

@@ -15,6 +15,12 @@ import Conta from '../../../app/dashboard/perfil/page';
 import Assessment from '../../../app/dashboard/assessment/page';
 import Gestor from '../../../app/dashboard/gestor/page';
 import Evolucao from '../../../app/dashboard/evolucao/page';
+import TeamEngagement from '../../../app/dashboard/gestor/engajamento/team-engagement';
+import RhEngagementPanel from '../../../components/engajamento/rh-panel';
+import EquipeEvolucao from '../../../app/dashboard/gestor/equipe-evolucao/page';
+import RankingTabs from '../../../app/dashboard/gestor/ranking/ranking-tabs';
+import { PageContainer } from '../../../components/page-shell';
+import { ENVIRONMENT } from './environment';
 import Relatorios from '../../../app/dashboard/relatorios/relatorios-rh-view';
 import PackageControls from './package-controls';
 import { currentLocation, installLocalTransport, onlineOnly, useLocation } from './runtime';
@@ -25,7 +31,7 @@ installLocalTransport();
 const weeks = new Map(Array.from({length: 14}, (_,i) => [String(i+1), Promise.resolve({week: String(i+1)})]));
 const reports = rhReports();
 function Routes() {
-  const { pathname } = currentLocation();
+  const { pathname, role } = currentLocation();
   const week = pathname.match(/^\/dashboard\/temporada\/semana\/(\d+)$/)?.[1];
   if (week) return <Semana params={weeks.get(week)!} />;
   switch (pathname) {
@@ -37,6 +43,10 @@ function Routes() {
     case '/dashboard/perfil': return <Conta />;
     case '/dashboard/assessment': return <Assessment />;
     case '/dashboard/gestor': return <Gestor />;
+    case '/dashboard/gestor/engajamento': return role === 'organization' ? <RhEngagementPanel empresaId={ENVIRONMENT.tenant} empresaNome={ENVIRONMENT.name} /> : <TeamEngagement />;
+    case '/dashboard/gestor/engajamento/relatorio': return <RhEngagementPanel empresaId={ENVIRONMENT.tenant} empresaNome={ENVIRONMENT.name} report />;
+    case '/dashboard/gestor/equipe-evolucao': return <EquipeEvolucao />;
+    case '/dashboard/gestor/ranking': return <PageContainer><RankingTabs /></PageContainer>;
     case '/dashboard/evolucao': return <Evolucao />;
     case '/dashboard/relatorios': return <Relatorios reports={reports as any} />;
     default: return <div className="mx-auto max-w-lg px-5 py-12 text-sm text-white/60">{onlineOnly}</div>;
