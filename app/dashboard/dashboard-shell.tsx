@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
-import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn, Activity, MessageCircle, Compass } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn, Activity, Headset, Handshake, ChartLine, Compass } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import { PresentationEnvironment } from '@/components/dashboard/presentation-role-switcher';
@@ -68,8 +68,12 @@ const NAV_ITEMS: NavItem[] = [
   // mesma razão que tirou a jornada da home dele. Ver `home-rh.tsx`.
   { href: '/dashboard/jornada', labelKey: 'journey', icon: Clock, participante: true },
   { href: '/dashboard/temporada', labelKey: 'season', icon: Play, participante: true },
-  { href: '/dashboard/treino-atendimento', labelKey: 'receptionTraining', icon: MessageCircle, recepcao: true },
-  { href: '/dashboard/simulador-vendas', labelKey: 'salesTraining', icon: MessageCircle, vendas: true },
+  // Um ícone por destino (16/09/2026, pedido do dono): os dois simuladores
+  // usavam o mesmo balão de conversa, e a evolução da equipe repetia a seta da
+  // evolução individual. Na coluna só de ícones, ícone repetido é item que
+  // ninguém distingue. `tests/unit/dashboard-shell-menu.test.ts` cobra.
+  { href: '/dashboard/treino-atendimento', labelKey: 'receptionTraining', icon: Headset, recepcao: true },
+  { href: '/dashboard/simulador-vendas', labelKey: 'salesTraining', icon: Handshake, vendas: true },
   { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp, participante: true },
 
   // ── O QUE A PESSOA ACOMPANHA ─────────────────────────────────────────────
@@ -79,7 +83,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard/gestor/engajamento', labelKey: 'teamEngagement', icon: Activity, gestorOnly: true },
   // Para o RH a evolução já é uma ABA da central de relatórios: no menu, o
   // mesmo destino apareceria duas vezes na mesma tela.
-  { href: '/dashboard/gestor/equipe-evolucao', labelKey: 'teamEvolution', icon: TrendingUp, gestorOnly: true, exceptoRh: true },
+  { href: '/dashboard/gestor/equipe-evolucao', labelKey: 'teamEvolution', icon: ChartLine, gestorOnly: true, exceptoRh: true },
   // Seleção saiu daqui em 24/08/2026: era a única tela de OPERAÇÃO no menu do
   // cliente (criar vaga · gerar perfil · avaliar candidatos) e virou operação da
   // Vertho em /admin. O ranking das vagas segue visível ao RH em .../ranking, que
@@ -216,60 +220,92 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
         }}
       >
 
-      {/* Sidebar (desktop) */}
+      {/*
+        Sidebar (desktop), EXPANSÍVEL (16/09/2026, sugestão do dono: "para quem
+        está vendo pela 1ª vez pode ajudar"). Recolhida, é a coluna de ícones de
+        sempre; ao passar o mouse ou navegar pelo teclado ela abre por CIMA do
+        conteúdo (o `md:ml-20` do main não muda, então nada salta) e mostra o nome
+        de cada item. No celular a barra inferior já tinha os nomes.
+        Teclado abre por `has-focus-visible`, NÃO por `focus-within`: o botão
+        clicado com o mouse guarda o foco, e com `focus-within` a coluna ficava
+        aberta por cima da tela depois da navegação.
+        Sem classe arbitrária com vírgula: o Tailwind não gera e a regra some
+        calada (memória `reference_tailwind_classe_arbitraria_virgula`).
+      */}
       <aside
-        className="hidden md:flex fixed left-0 top-0 h-full w-20 border-r border-white/[0.08] flex-col items-center py-6 gap-8 z-40"
+        data-menu="lateral"
+        className="group/menu hidden md:flex fixed left-0 top-0 h-full w-20 overflow-hidden border-r border-white/[0.08] flex-col py-6 gap-6 z-40 transition-[width] duration-200 ease-out hover:w-60 hover:z-50 hover:shadow-2xl has-focus-visible:w-60 has-focus-visible:z-50 has-focus-visible:shadow-2xl"
         style={{ background: theme.bgStart, backdropFilter: 'blur(12px)' }}
       >
-        {/* ✅ UserAvatar substitui o botão com initials hardcoded */}
-        <UserAvatar
-          name={colaborador?.nome_completo ?? user?.email}
-          photoUrl={colaborador?.foto_url}
-          avatarPreset={colaborador?.avatar_preset}
-          size={40}
-          onClick={() => router.push('/dashboard/perfil')}
-        />
+        <div className="flex w-60 items-center gap-3 px-5">
+          {/* ✅ UserAvatar substitui o botão com initials hardcoded */}
+          <UserAvatar
+            name={colaborador?.nome_completo ?? user?.email}
+            photoUrl={colaborador?.foto_url}
+            avatarPreset={colaborador?.avatar_preset}
+            size={40}
+            onClick={() => router.push('/dashboard/perfil')}
+          />
+          <span className="min-w-0 truncate text-sm font-semibold text-white/85 opacity-0 transition-opacity duration-200 group-hover/menu:opacity-100 group-has-focus-visible/menu:opacity-100">
+            {colaborador?.nome_completo?.split(' ')[0] || ''}
+          </span>
+        </div>
 
-        <nav className="flex flex-col gap-6 flex-1">
+        <nav className="flex w-60 flex-1 flex-col gap-2">
           {navItems.map(item => {
             const isActive = item.href === ativo;
             const Icon = item.icon;
             const label = t(`nav.${item.labelKey}`);
             return (
-              <div key={item.href} className="relative group">
-                <button
-                  onClick={() => router.push(item.href)}
-                  title={label}
-                  className={`transition-all duration-300 block ${
-                    isActive
-                      ? 'scale-110'
-                      : 'text-gray-500 hover:text-white hover:scale-110 active:scale-95'
-                  }`}
-                  style={isActive ? { color: theme.accent, filter: `drop-shadow(0 0 8px ${theme.accent})` } : undefined}
-                >
-                  <Icon size={22} />
-                </button>
-                <span className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1 rounded-md bg-slate-800/95 text-white text-xs font-semibold whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-white/10 shadow-lg z-50">
+              <button
+                key={item.href}
+                onClick={() => router.push(item.href)}
+                aria-label={label}
+                aria-current={isActive ? 'page' : undefined}
+                data-menu-item={item.href}
+                className={`flex w-full items-center gap-4 px-[29px] py-2 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:bg-white/[0.06] ${
+                  isActive ? '' : 'text-gray-500 hover:bg-white/[0.04] hover:text-white'
+                }`}
+                style={isActive ? { color: theme.accent } : undefined}
+              >
+                <Icon
+                  size={22}
+                  className="shrink-0"
+                  style={isActive ? { filter: `drop-shadow(0 0 8px ${theme.accent})` } : undefined}
+                />
+                <span className="whitespace-nowrap text-sm font-semibold opacity-0 transition-opacity duration-200 group-hover/menu:opacity-100 group-has-focus-visible/menu:opacity-100">
                   {label}
                 </span>
-              </div>
+              </button>
             );
           })}
         </nav>
 
-        {ehAdminDaPlataforma && (
-          <button
-            onClick={() => router.push('/admin/dashboard')}
-            title={t('platformPanel')}
-            className="text-gray-500 hover:text-white transition-colors"
-          >
-            <ShieldCheck size={20} />
-          </button>
-        )}
+        <div className="flex w-60 flex-col gap-2">
+          {ehAdminDaPlataforma && (
+            <button
+              onClick={() => router.push('/admin/dashboard')}
+              aria-label={t('platformPanel')}
+              className="flex w-full items-center gap-4 px-[30px] py-2 text-left text-gray-500 transition-colors hover:bg-white/[0.04] hover:text-white focus-visible:outline-none focus-visible:bg-white/[0.06]"
+            >
+              <ShieldCheck size={20} className="shrink-0" />
+              <span className="whitespace-nowrap text-sm font-semibold opacity-0 transition-opacity duration-200 group-hover/menu:opacity-100 group-has-focus-visible/menu:opacity-100">
+                {t('platformPanel')}
+              </span>
+            </button>
+          )}
 
-        <button onClick={handleLogout} title={t('logout')} className="text-gray-500 hover:text-red-400 transition-colors">
-          <LogOut size={20} />
-        </button>
+          <button
+            onClick={handleLogout}
+            aria-label={t('logout')}
+            className="flex w-full items-center gap-4 px-[30px] py-2 text-left text-gray-500 transition-colors hover:bg-white/[0.04] hover:text-red-400 focus-visible:outline-none focus-visible:bg-white/[0.06]"
+          >
+            <LogOut size={20} className="shrink-0" />
+            <span className="whitespace-nowrap text-sm font-semibold opacity-0 transition-opacity duration-200 group-hover/menu:opacity-100 group-has-focus-visible/menu:opacity-100">
+              {t('logout')}
+            </span>
+          </button>
+        </div>
       </aside>
 
       {/* Header mobile */}
