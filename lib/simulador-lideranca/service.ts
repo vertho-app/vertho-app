@@ -1,9 +1,9 @@
-import "server-only";
-import { randomUUID } from "node:crypto";
-import { maskTextPII } from "@/lib/pii-masker";
-import { DOSSIÊS } from "./prompts";
-import { gerador, hash, novoEstado } from "./ai";
-import { episodioPublico, executarCore, visaoPublica } from "./core";
+import 'server-only';
+import { randomUUID } from 'node:crypto';
+import { maskTextPII } from '@/lib/pii-masker';
+import { DOSSIÊS } from './prompts';
+import { gerador, hash, novoEstado } from './ai';
+import { episodioPublico, executarCore, visaoPublica } from './core';
 import {
   LiderancaError,
   VERSAO,
@@ -11,8 +11,8 @@ import {
   type Estado,
   type Episodio,
   type Comando,
-} from "./schema";
-import type { Contexto } from "./access";
+} from './schema';
+import type { Contexto } from './access';
 
 type Row = {
   id: string;
@@ -22,14 +22,14 @@ type Row = {
 };
 const owned = (c: Contexto) =>
   c.tdb
-    .from("sim_lideranca_jornadas")
-    .select("id,estado,revisao,lock_until")
-    .eq("owner_key", c.ownerKey);
+    .from('sim_lideranca_jornadas')
+    .select('id,estado,revisao,lock_until')
+    .eq('owner_key', c.ownerKey);
 function banco(error: unknown) {
   if (error)
     throw new LiderancaError(
       503,
-      "Não foi possível salvar ou recuperar o encontro. Tente novamente.",
+      'Não foi possível salvar ou recuperar o encontro. Tente novamente.',
     );
 }
 const publico = (r: Row) => ({
@@ -58,11 +58,11 @@ export async function consultar(
   let temMais = false;
   if (row) {
     const lista = await c.tdb
-      .from("sim_lideranca_episodios")
-      .select("id,indice,repeticao,created_at")
-      .eq("jornada_id", row.id)
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: false })
+      .from('sim_lideranca_episodios')
+      .select('id,indice,repeticao,created_at')
+      .eq('jornada_id', row.id)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(pagina * 20, pagina * 20 + 20);
     banco(lista.error);
     historico = lista.data.slice(0, 20);
@@ -70,17 +70,17 @@ export async function consultar(
     const alvo = episodioId || (!selecionado ? historico[0]?.id : null);
     if (alvo) {
       const ep = await c.tdb
-        .from("sim_lideranca_episodios")
-        .select("episodio")
-        .eq("jornada_id", row.id)
-        .eq("id", alvo)
+        .from('sim_lideranca_episodios')
+        .select('episodio')
+        .eq('jornada_id', row.id)
+        .eq('id', alvo)
         .maybeSingle();
       banco(ep.error);
-      if (!ep.data) throw new LiderancaError(404, "Encontro não encontrado.");
+      if (!ep.data) throw new LiderancaError(404, 'Encontro não encontrado.');
       selecionado = episodioPublico(ep.data.episodio as Episodio);
     }
   } else if (episodioId)
-    throw new LiderancaError(404, "Encontro não encontrado.");
+    throw new LiderancaError(404, 'Encontro não encontrado.');
   return {
     empresaId: c.empresaId,
     empresaNome: c.empresaNome,
@@ -97,7 +97,7 @@ export type Dados = Awaited<ReturnType<typeof consultar>>;
 export async function executar(c: Contexto, entrada: Comando) {
   const deadline = Date.now() + 270000;
   const cmd = comandoSchema.parse(
-    "texto" in entrada
+    'texto' in entrada
       ? { ...entrada, texto: maskTextPII(entrada.texto).trim() }
       : entrada,
   );
@@ -105,61 +105,59 @@ export async function executar(c: Contexto, entrada: Comando) {
   let loaded = await owned(c).maybeSingle();
   banco(loaded.error);
   if (!loaded.data) {
-    if (cmd.acao !== "iniciar")
-      throw new LiderancaError(409, "Comece sua jornada antes de continuar.");
+    if (cmd.acao !== 'iniciar')
+      throw new LiderancaError(409, 'Comece sua jornada antes de continuar.');
     const estado = await novoEstado(c);
-    const created = await c.tdb
-      .from("sim_lideranca_jornadas")
-      .insert({
-        id: cmd.requestId,
-        owner_key: c.ownerKey,
-        colaborador_id: c.colaboradorId,
-        estado,
-      });
-    if (created.error?.code !== "23505") banco(created.error);
+    const created = await c.tdb.from('sim_lideranca_jornadas').insert({
+      id: cmd.requestId,
+      owner_key: c.ownerKey,
+      colaborador_id: c.colaboradorId,
+      estado,
+    });
+    if (created.error?.code !== '23505') banco(created.error);
     loaded = await owned(c).maybeSingle();
     banco(loaded.error);
   }
   const row = loaded.data as Row | null;
   if (!row)
-    throw new LiderancaError(503, "Não foi possível começar sua jornada.");
+    throw new LiderancaError(503, 'Não foi possível começar sua jornada.');
   if (row.estado.versao !== VERSAO)
     throw new LiderancaError(
       409,
-      "Atualize a página para retomar esta versão da jornada.",
+      'Atualize a página para retomar esta versão da jornada.',
     );
   const recibo = row.estado.recibos.find((r) => r.id === cmd.requestId);
   if (recibo) {
     if (recibo.hash !== comandoHash)
       throw new LiderancaError(
         409,
-        "Este envio já foi usado para outro conteúdo.",
+        'Este envio já foi usado para outro conteúdo.',
       );
     return consultar(c);
   }
   if (row.revisao !== cmd.revisao)
     throw new LiderancaError(
       409,
-      "O encontro mudou em outra aba. Atualize antes de continuar.",
+      'O encontro mudou em outra aba. Atualize antes de continuar.',
     );
   const token = randomUUID();
   const claimed = await c.tdb
-    .from("sim_lideranca_jornadas")
+    .from('sim_lideranca_jornadas')
     .update({
       lock_token: token,
       lock_until: new Date(Date.now() + 330000).toISOString(),
     })
-    .eq("id", row.id)
-    .eq("owner_key", c.ownerKey)
-    .eq("revisao", row.revisao)
+    .eq('id', row.id)
+    .eq('owner_key', c.ownerKey)
+    .eq('revisao', row.revisao)
     .or(`lock_until.is.null,lock_until.lte.${new Date().toISOString()}`)
-    .select("id")
+    .select('id')
     .maybeSingle();
   banco(claimed.error);
   if (!claimed.data)
     throw new LiderancaError(
       409,
-      "Há um envio em processamento. Aguarde e atualize o encontro.",
+      'Há um envio em processamento. Aguarde e atualize o encontro.',
     );
   try {
     const result = await executarCore(
@@ -169,7 +167,7 @@ export async function executar(c: Contexto, entrada: Comando) {
       DOSSIÊS,
     );
     result.estado.recibos.push({ id: cmd.requestId, hash: comandoHash });
-    const salvo = await c.tdb.rpc("sim_lideranca_salvar", {
+    const salvo = await c.tdb.rpc('sim_lideranca_salvar', {
       p_id: row.id,
       p_empresa: c.empresaId,
       p_owner: c.ownerKey,
@@ -182,16 +180,16 @@ export async function executar(c: Contexto, entrada: Comando) {
     if (!salvo.data)
       throw new LiderancaError(
         409,
-        "A confirmação do envio expirou. Atualize e tente novamente.",
+        'A confirmação do envio expirou. Atualize e tente novamente.',
       );
     return consultar(c, result.arquivo?.id);
   } finally {
     const release = await c.tdb
-      .from("sim_lideranca_jornadas")
+      .from('sim_lideranca_jornadas')
       .update({ lock_token: null, lock_until: null })
-      .eq("id", row.id)
-      .eq("owner_key", c.ownerKey)
-      .eq("lock_token", token);
-    if (release.error) console.error("[sim-lideranca] falha ao liberar envio");
+      .eq('id', row.id)
+      .eq('owner_key', c.ownerKey)
+      .eq('lock_token', token);
+    if (release.error) console.error('[sim-lideranca] falha ao liberar envio');
   }
 }

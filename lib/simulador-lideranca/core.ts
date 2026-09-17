@@ -1,5 +1,5 @@
-import { nivelDaNota } from "@/lib/nivel-regua";
-import { CONTEXTO, EPISODIOS } from "./episodios";
+import { nivelDaNota } from '@/lib/nivel-regua';
+import { CONTEXTO, EPISODIOS } from './episodios';
 import {
   LiderancaError,
   MAX_TURNOS,
@@ -10,8 +10,8 @@ import {
   type Consequencia,
   type Comando,
   type Gerar,
-} from "./schema";
-import type { LinhaMatriz } from "@/lib/simuladores/lideranca/matriz-global";
+} from './schema';
+import type { LinhaMatriz } from '@/lib/simuladores/lideranca/matriz-global';
 
 export function validarAvaliacao(
   a: Avaliacao,
@@ -20,25 +20,25 @@ export function validarAvaliacao(
 ) {
   const codigos = new Set(matriz.map((d) => d.cod_desc));
   if (a.descritores.length !== codigos.size)
-    throw new Error("Cobertura inválida");
+    throw new Error('Cobertura inválida');
   for (const d of a.descritores) {
     if (!codigos.delete(d.codigo))
-      throw new Error("Código repetido ou desconhecido");
+      throw new Error('Código repetido ou desconhecido');
     if ((d.nivel === null) !== (d.evidencias.length === 0))
-      throw new Error("Nota sem evidência ou evidência sem nota");
+      throw new Error('Nota sem evidência ou evidência sem nota');
     for (const prova of d.evidencias) {
       const fonte =
-        prova.fonte === "fala"
+        prova.fonte === 'fala'
           ? e.mensagens.find(
-              (m) => m.autor === "lider" && m.turno === prova.turno,
+              (m) => m.autor === 'lider' && m.turno === prova.turno,
             )?.texto
           : prova.turno !== 0
             ? null
-            : prova.fonte === "planejamento"
+            : prova.fonte === 'planejamento'
               ? e.plano
               : e.reflexao;
       if (!fonte || !fonte.includes(prova.trecho))
-        throw new Error("Citação não encontrada na fonte");
+        throw new Error('Citação não encontrada na fonte');
     }
   }
 }
@@ -47,12 +47,12 @@ export function validarConsequencia(c: Consequencia, e: Episodio) {
     if (
       !e.mensagens.some(
         (m) =>
-          m.autor === "lider" &&
+          m.autor === 'lider' &&
           m.turno === a.turno &&
           m.texto.includes(a.trecho),
       )
     )
-      throw new Error("Acordo sem fala que o sustente");
+      throw new Error('Acordo sem fala que o sustente');
   }
 }
 export function resumoAvaliacao(a: Avaliacao, matriz: LinhaMatriz[]) {
@@ -115,35 +115,35 @@ export async function executarCore(
   let arquivo: Episodio | null = null;
   const ativo = s.ativo;
   if (
-    cmd.acao === "iniciar" ||
-    cmd.acao === "avancar" ||
-    cmd.acao === "repetir"
+    cmd.acao === 'iniciar' ||
+    cmd.acao === 'avancar' ||
+    cmd.acao === 'repetir'
   ) {
     if (ativo)
       throw new LiderancaError(
         409,
-        "Conclua o encontro aberto antes de iniciar outro.",
+        'Conclua o encontro aberto antes de iniciar outro.',
       );
-    const indice = cmd.acao === "repetir" ? cmd.episodio : s.concluidos.length;
+    const indice = cmd.acao === 'repetir' ? cmd.episodio : s.concluidos.length;
     if (indice >= EPISODIOS.length)
       throw new LiderancaError(
         409,
-        "Jornada concluída. Escolha um encontro para repetir.",
+        'Jornada concluída. Escolha um encontro para repetir.',
       );
-    if (cmd.acao === "iniciar" && s.concluidos.length)
+    if (cmd.acao === 'iniciar' && s.concluidos.length)
       throw new LiderancaError(
         409,
-        "Sua jornada já começou. Continue do próximo encontro.",
+        'Sua jornada já começou. Continue do próximo encontro.',
       );
-    if (cmd.acao === "repetir" && !s.concluidos[indice])
+    if (cmd.acao === 'repetir' && !s.concluidos[indice])
       throw new LiderancaError(
         409,
-        "Você só pode repetir encontros já concluídos.",
+        'Você só pode repetir encontros já concluídos.',
       );
     const antecedentes = s.concluidos
       .slice(0, indice)
       .map((e) => e.consequencia!);
-    const abertura = await gerar("abertura", {
+    const abertura = await gerar('abertura', {
       contexto: CONTEXTO,
       encontro: EPISODIOS[indice],
       dossie: dossies[indice],
@@ -152,12 +152,12 @@ export async function executarCore(
     s.ativo = {
       id: cmd.requestId,
       indice,
-      repeticao: cmd.acao === "repetir",
+      repeticao: cmd.acao === 'repetir',
       iniciadoEm: new Date().toISOString(),
       encerradoEm: null,
       contexto: abertura.contexto,
       plano: null,
-      mensagens: [{ turno: 0, autor: "personagem", texto: abertura.fala }],
+      mensagens: [{ turno: 0, autor: 'personagem', texto: abertura.fala }],
       reflexao: null,
       antecedentes,
       consequencia: null,
@@ -165,30 +165,30 @@ export async function executarCore(
     };
   } else {
     if (!ativo)
-      throw new LiderancaError(409, "Abra um encontro para continuar.");
-    const turnos = ativo.mensagens.filter((m) => m.autor === "lider").length;
-    if (cmd.acao === "planejar") {
+      throw new LiderancaError(409, 'Abra um encontro para continuar.');
+    const turnos = ativo.mensagens.filter((m) => m.autor === 'lider').length;
+    if (cmd.acao === 'planejar') {
       if (ativo.plano !== null)
-        throw new LiderancaError(409, "A preparação já foi registrada.");
+        throw new LiderancaError(409, 'A preparação já foi registrada.');
       ativo.plano = cmd.texto;
     } else {
       if (!ativo.plano)
         throw new LiderancaError(
           409,
-          "Registre sua preparação antes de conversar.",
+          'Registre sua preparação antes de conversar.',
         );
-      if (cmd.acao === "responder") {
+      if (cmd.acao === 'responder') {
         if (turnos >= MAX_TURNOS)
           throw new LiderancaError(
             409,
-            "Conclua sua reflexão para receber a devolutiva deste encontro.",
+            'Conclua sua reflexão para receber a devolutiva deste encontro.',
           );
         ativo.mensagens.push({
           turno: turnos + 1,
-          autor: "lider",
+          autor: 'lider',
           texto: cmd.texto,
         });
-        const resposta = await gerar("personagem", {
+        const resposta = await gerar('personagem', {
           contexto: CONTEXTO,
           encontro: EPISODIOS[ativo.indice],
           dossie: dossies[ativo.indice],
@@ -198,19 +198,19 @@ export async function executarCore(
         });
         ativo.mensagens.push({
           turno: turnos + 1,
-          autor: "personagem",
+          autor: 'personagem',
           texto: resposta.fala,
         });
       } else {
         if (turnos < MIN_TURNOS)
           throw new LiderancaError(
             409,
-            "Converse por pelo menos três rodadas antes de concluir.",
+            'Converse por pelo menos três rodadas antes de concluir.',
           );
         ativo.reflexao = cmd.texto;
         // Avaliador não recebe dossiê, consequência gerada nem dados dos outros encontros.
         ativo.avaliacao = await gerar(
-          "avaliador",
+          'avaliador',
           {
             competenciaFoco: EPISODIOS[ativo.indice].competencia,
             matriz: s.matriz,
@@ -221,7 +221,7 @@ export async function executarCore(
           (a) => validarAvaliacao(a, ativo, s.matriz),
         );
         ativo.consequencia = await gerar(
-          "consequencia",
+          'consequencia',
           {
             encontro: EPISODIOS[ativo.indice],
             antecedentes: ativo.antecedentes,

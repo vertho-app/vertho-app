@@ -1,12 +1,12 @@
-import "server-only";
-import { createHash, randomUUID } from "node:crypto";
-import { z } from "zod";
-import { callAI } from "@/actions/ai-client";
-import { getModelForTask } from "@/lib/ai-tasks";
-import { modeloPaceCompativel } from "@/lib/simulador-vendas/modelos";
-import { linhasDaVariante } from "@/lib/simuladores/lideranca/matriz-global";
-import { contexto, type Contexto } from "./access";
-import { PROMPTS } from "./prompts";
+import 'server-only';
+import { createHash, randomUUID } from 'node:crypto';
+import { z } from 'zod';
+import { callAI } from '@/actions/ai-client';
+import { getModelForTask } from '@/lib/ai-tasks';
+import { modeloPaceCompativel } from '@/lib/simulador-vendas/modelos';
+import { linhasDaVariante } from '@/lib/simuladores/lideranca/matriz-global';
+import { contexto, type Contexto } from './access';
+import { PROMPTS } from './prompts';
 import {
   LiderancaError,
   SAIDAS,
@@ -15,18 +15,18 @@ import {
   type Etapa,
   type Gerar,
   type Saidas,
-} from "./schema";
+} from './schema';
 
 export const TAREFAS = {
-  abertura: "sim_lideranca_abertura",
-  personagem: "sim_lideranca_personagem",
-  consequencia: "sim_lideranca_consequencia",
-  avaliador: "sim_lideranca_avaliador",
+  abertura: 'sim_lideranca_abertura',
+  personagem: 'sim_lideranca_personagem',
+  consequencia: 'sim_lideranca_consequencia',
+  avaliador: 'sim_lideranca_avaliador',
 } as const;
 export const hash = (v: unknown) =>
-  createHash("sha256").update(JSON.stringify(v)).digest("hex");
+  createHash('sha256').update(JSON.stringify(v)).digest('hex');
 export async function novoEstado(c: Contexto): Promise<Estado> {
-  const modelos = {} as Estado["modelos"];
+  const modelos = {} as Estado['modelos'];
   for (const etapa of Object.keys(TAREFAS) as Etapa[]) {
     modelos[etapa] = await getModelForTask(c.empresaId, TAREFAS[etapa]);
     if (!modeloPaceCompativel(modelos[etapa]))
@@ -63,21 +63,21 @@ export function gerador(
       modelo: s.modelos[etapa],
     });
     const anterior = await c.tdb
-      .from("sim_lideranca_chamadas")
-      .select("id,prompt_hash,resultado")
-      .eq("jornada_id", jornadaId)
-      .eq("request_id", requestId)
-      .eq("etapa", etapa)
+      .from('sim_lideranca_chamadas')
+      .select('id,prompt_hash,resultado')
+      .eq('jornada_id', jornadaId)
+      .eq('request_id', requestId)
+      .eq('etapa', etapa)
       .maybeSingle();
     if (anterior.error)
-      throw new LiderancaError(503, "Não foi possível recuperar este envio.");
+      throw new LiderancaError(503, 'Não foi possível recuperar este envio.');
     if (
       anterior.data?.prompt_hash !== undefined &&
       anterior.data.prompt_hash !== promptHash
     )
       throw new LiderancaError(
         409,
-        "Este envio já foi usado para outro conteúdo. Atualize a página.",
+        'Este envio já foi usado para outro conteúdo. Atualize a página.',
       );
     const schema = SAIDAS[etapa];
     const parse = (raw: unknown) => schema.parse(raw) as Saidas[E];
@@ -90,43 +90,41 @@ export function gerador(
     await contexto(c.auth, c.empresaId);
     const id = anterior.data?.id || randomUUID();
     if (!anterior.data) {
-      const registro = await c.tdb
-        .from("sim_lideranca_chamadas")
-        .insert({
-          id,
-          jornada_id: jornadaId,
-          request_id: requestId,
-          etapa,
-          prompt_hash: promptHash,
-        });
+      const registro = await c.tdb.from('sim_lideranca_chamadas').insert({
+        id,
+        jornada_id: jornadaId,
+        request_id: requestId,
+        etapa,
+        prompt_hash: promptHash,
+      });
       if (registro.error)
-        throw new LiderancaError(503, "Não foi possível registrar este envio.");
+        throw new LiderancaError(503, 'Não foi possível registrar este envio.');
     }
-    const jsonSchema = z.toJSONSchema(schema, { target: "draft-7" });
+    const jsonSchema = z.toJSONSchema(schema, { target: 'draft-7' });
     delete jsonSchema.$schema;
     for (let tentativa = 0; tentativa < 2; tentativa++) {
       const restante = deadline - Date.now() - 5000;
       if (restante < 15000)
         throw new LiderancaError(
           503,
-          "A geração demorou mais que o previsto. Tente novamente para continuar deste ponto.",
+          'A geração demorou mais que o previsto. Tente novamente para continuar deste ponto.',
         );
       try {
         const raw = await callAI(
           s.prompts[etapa],
           JSON.stringify(dados),
           { model: s.modelos[etapa] },
-          etapa === "avaliador" ? 16000 : 3500,
+          etapa === 'avaliador' ? 16000 : 3500,
           {
             taskKey: TAREFAS[etapa],
             empresaId: c.empresaId,
             colaboradorId: c.colaboradorId,
             correlationId: id,
-            source: c.auth.isPlatformAdmin ? "piloto" : "wrapper",
-            locale: "pt-BR",
+            source: c.auth.isPlatformAdmin ? 'piloto' : 'wrapper',
+            locale: 'pt-BR',
             timeoutMs: Math.min(
               restante,
-              etapa === "avaliador" ? 115000 : 65000,
+              etapa === 'avaliador' ? 115000 : 65000,
             ),
             maxRetries: 0,
             responses: {
@@ -141,14 +139,14 @@ export function gerador(
         const valor = parse(JSON.parse(raw));
         validar?.(valor);
         const salvo = await c.tdb
-          .from("sim_lideranca_chamadas")
+          .from('sim_lideranca_chamadas')
           .update({ resultado: valor })
-          .eq("id", id)
-          .eq("jornada_id", jornadaId);
+          .eq('id', id)
+          .eq('jornada_id', jornadaId);
         if (salvo.error)
           throw new LiderancaError(
             503,
-            "A resposta foi gerada, mas o salvamento não foi confirmado. Tente novamente.",
+            'A resposta foi gerada, mas o salvamento não foi confirmado. Tente novamente.',
           );
         return valor;
       } catch (e) {
@@ -161,16 +159,16 @@ export function gerador(
               /Cobertura|Código|Nota sem|Citação|Acordo sem/.test(e.message)))
         )
           continue;
-        console.error("[sim-lideranca] geração rejeitada", {
+        console.error('[sim-lideranca] geração rejeitada', {
           etapa,
-          tipo: e instanceof Error ? e.name : "erro",
+          tipo: e instanceof Error ? e.name : 'erro',
         });
         throw new LiderancaError(
           502,
-          "Não foi possível validar a resposta. Sua conversa foi preservada; tente novamente.",
+          'Não foi possível validar a resposta. Sua conversa foi preservada; tente novamente.',
         );
       }
     }
-    throw new LiderancaError(502, "Não foi possível concluir a geração.");
+    throw new LiderancaError(502, 'Não foi possível concluir a geração.');
   };
 }

@@ -1,6 +1,6 @@
-"use client";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+'use client';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowRight,
   Check,
@@ -8,36 +8,39 @@ import {
   RotateCcw,
   Send,
   Loader2,
-} from "lucide-react";
-import { fetchAuth } from "@/lib/auth/fetch-auth";
-import { CONTEXTO, EPISODIOS } from "@/lib/simulador-lideranca/episodios";
+} from 'lucide-react';
+import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { CONTEXTO, EPISODIOS } from '@/lib/simulador-lideranca/episodios';
 import {
   MIN_TURNOS,
   MAX_TURNOS,
   type Comando,
-} from "@/lib/simulador-lideranca/schema";
-import type { Dados } from "@/lib/simulador-lideranca/service";
-import { resumoAvaliacao } from "@/lib/simulador-lideranca/core";
-import Ditado from "@/components/simulador-vendas/ditado";
-import styles from "./treino.module.css";
+} from '@/lib/simulador-lideranca/schema';
+import type { Dados } from '@/lib/simulador-lideranca/service';
+import { resumoAvaliacao } from '@/lib/simulador-lideranca/core';
+import Ditado from '@/components/simulador-vendas/ditado';
+import styles from './treino.module.css';
 
 async function api(url: string, body?: unknown): Promise<Dados> {
   const res = await fetchAuth(
     url,
     body
       ? {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         }
-      : { cache: "no-store" },
+      : { cache: 'no-store' },
   );
   const data = await res.json();
   if (!res.ok)
-    throw Object.assign(new Error(data.error || "Não foi possível recuperar o encontro."), { status: res.status });
+    throw Object.assign(
+      new Error(data.error || 'Não foi possível recuperar o encontro.'),
+      { status: res.status },
+    );
   return data;
 }
-type Acao = Comando["acao"];
+type Acao = Comando['acao'];
 export default function TreinoLideranca({
   admin = false,
   empresaId,
@@ -45,29 +48,30 @@ export default function TreinoLideranca({
   admin?: boolean;
   empresaId?: string;
 }) {
-  const t = useTranslations("SimuladorLideranca"),
+  const t = useTranslations('SimuladorLideranca'),
     locale = useLocale();
   const [dados, setDados] = useState<Dados | null>(null);
-  const [erro, setErro] = useState(""),
+  const [erro, setErro] = useState(''),
     [loading, setLoading] = useState(true),
     [busy, setBusy] = useState(false);
-  const [plano, setPlano] = useState(""),
-    [texto, setTexto] = useState(""),
-    [reflexao, setReflexao] = useState("");
+  const [plano, setPlano] = useState(''),
+    [texto, setTexto] = useState(''),
+    [reflexao, setReflexao] = useState('');
   const [refletindo, setRefletindo] = useState(false);
   const pending = useRef<{ key: string; body: unknown } | null>(null),
     running = useRef(false),
     generation = useRef(0),
     reads = useRef(0);
-  const chat = useRef<HTMLDivElement>(null), passos = useRef<HTMLOListElement>(null);
-  const url = `/api/simulador-lideranca${empresaId ? `?empresaId=${empresaId}` : ""}`;
+  const chat = useRef<HTMLDivElement>(null),
+    passos = useRef<HTMLOListElement>(null);
+  const url = `/api/simulador-lideranca${empresaId ? `?empresaId=${empresaId}` : ''}`;
   const carregar = useCallback(
     async (id?: string, pagina = 0) => {
       const gen = generation.current,
         seq = ++reads.current;
       try {
         const d = await api(
-          `${url}${url.includes("?") ? "&" : "?"}pagina=${pagina}${id ? `&episodioId=${id}` : ""}`,
+          `${url}${url.includes('?') ? '&' : '?'}pagina=${pagina}${id ? `&episodioId=${id}` : ''}`,
         );
         if (gen === generation.current && seq === reads.current) setDados(d);
       } catch (e) {
@@ -85,10 +89,10 @@ export default function TreinoLideranca({
     reads.current++;
     pending.current = null;
     setDados(null);
-    setErro("");
-    setPlano("");
-    setTexto("");
-    setReflexao("");
+    setErro('');
+    setPlano('');
+    setTexto('');
+    setReflexao('');
     setRefletindo(false);
     setLoading(true);
     if (!admin || empresaId) void carregar();
@@ -113,28 +117,34 @@ export default function TreinoLideranca({
     if (chat.current) chat.current.scrollTop = chat.current.scrollHeight;
   }, [ep?.id, ep?.mensagens.length]);
   useEffect(() => {
-    const passo = passos.current?.querySelector<HTMLElement>('[data-active="true"]');
-    if (passo && passos.current) passos.current.scrollLeft = Math.max(0, passo.offsetLeft - passos.current.offsetLeft - 12);
+    const passo = passos.current?.querySelector<HTMLElement>(
+      '[data-active="true"]',
+    );
+    if (passo && passos.current)
+      passos.current.scrollLeft = Math.max(
+        0,
+        passo.offsetLeft - passos.current.offsetLeft - 12,
+      );
   }, [ep?.indice]);
   const bloqueado = busy || processando;
   const vivo = !!ep && ep.id === jornada?.ativo?.id;
-  const turno = ep?.mensagens.filter((m) => m.autor === "lider").length || 0;
+  const turno = ep?.mensagens.filter((m) => m.autor === 'lider').length || 0;
   const concluido = jornada?.concluidos.length || 0;
   const info = ep ? EPISODIOS[ep.indice] : null;
   async function enviar(acao: Acao, valor?: string | number) {
     if (running.current || bloqueado) return;
     running.current = true;
     setBusy(true);
-    setErro("");
+    setErro('');
     reads.current++;
     const gen = generation.current;
     const payload = {
       acao,
       ...(empresaId ? { empresaId } : {}),
       revisao: jornada?.revisao || 0,
-      ...(typeof valor === "string"
+      ...(typeof valor === 'string'
         ? { texto: valor }
-        : typeof valor === "number"
+        : typeof valor === 'number'
           ? { episodio: valor }
           : {}),
     };
@@ -151,13 +161,14 @@ export default function TreinoLideranca({
       if (gen !== generation.current) return;
       setDados(d);
       pending.current = null;
-      setTexto("");
-      setReflexao("");
-      setPlano("");
+      setTexto('');
+      setReflexao('');
+      setPlano('');
       setRefletindo(false);
     } catch (e) {
       if (gen === generation.current) {
-        if ((e as Error & { status?: number }).status === 409) pending.current = null;
+        if ((e as Error & { status?: number }).status === 409)
+          pending.current = null;
         setErro((e as Error).message);
         await carregar();
       }
@@ -168,33 +179,33 @@ export default function TreinoLideranca({
   }
   const data = (iso: string) =>
     new Date(iso).toLocaleString(locale, {
-      dateStyle: "short",
-      timeStyle: "short",
+      dateStyle: 'short',
+      timeStyle: 'short',
     });
   return (
     <main className={styles.root}>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>{t("eyebrow")}</p>
-          <h1>{t("title")}</h1>
-          <p className={styles.subtitle}>{t("subtitle")}</p>
+          <p className={styles.eyebrow}>{t('eyebrow')}</p>
+          <h1>{t('title')}</h1>
+          <p className={styles.subtitle}>{t('subtitle')}</p>
         </div>
         <a
           className={styles.link}
           href={
             admin
-              ? `/admin/fit${empresaId ? `?empresa=${empresaId}&tab=prontidao` : ""}`
-              : "/dashboard/assessment?trilho=lideranca"
+              ? `/admin/fit${empresaId ? `?empresa=${empresaId}&tab=prontidao` : ''}`
+              : '/dashboard/assessment?trilho=lideranca'
           }
         >
-          {t(admin ? "config" : "assessment")} <ArrowRight size={15} />
+          {t(admin ? 'config' : 'assessment')} <ArrowRight size={15} />
         </a>
       </header>
-      {admin && <p className={styles.notice}>{t("adminNotice")}</p>}
+      {admin && <p className={styles.notice}>{t('adminNotice')}</p>}
       {admin && !empresaId ? (
         <section className={styles.panel}>
-          <h2>{t("chooseCompany")}</h2>
-          <p>{t("chooseCompanyHint")}</p>
+          <h2>{t('chooseCompany')}</h2>
+          <p>{t('chooseCompanyHint')}</p>
         </section>
       ) : (
         <>
@@ -204,28 +215,32 @@ export default function TreinoLideranca({
               <button
                 type="button"
                 onClick={() => {
-                  setErro("");
+                  setErro('');
                   void carregar();
                 }}
                 disabled={busy}
               >
-                {t("refresh")}
+                {t('refresh')}
               </button>
             </div>
           )}
           {loading ? (
             <p className={styles.loading} role="status">
               <Loader2 size={20} />
-              {t("loading")}
+              {t('loading')}
             </p>
           ) : (
             dados && (
               <>
                 <div className={styles.progress}>
                   <span>{dados.empresaNome}</span>
-                  <span>{t("progress", { done: concluido })}</span>
+                  <span>{t('progress', { done: concluido })}</span>
                 </div>
-                <ol ref={passos} className={styles.steps} aria-label={t("journey")}>
+                <ol
+                  ref={passos}
+                  className={styles.steps}
+                  aria-label={t('journey')}
+                >
                   {EPISODIOS.map((item, i) => (
                     <li
                       key={item.competencia}
@@ -247,7 +262,7 @@ export default function TreinoLideranca({
                               : jornada?.concluidos[i]?.id,
                           );
                         }}
-                        aria-current={ep?.indice === i ? "step" : undefined}
+                        aria-current={ep?.indice === i ? 'step' : undefined}
                       >
                         <span className={styles.stepNumber}>
                           {i < concluido ? (
@@ -260,7 +275,7 @@ export default function TreinoLideranca({
                         </span>
                         <span>
                           <b>{t(`step${i}`)}</b>
-                          <small>{t("encounter", { n: i + 1 })}</small>
+                          <small>{t('encounter', { n: i + 1 })}</small>
                         </span>
                       </button>
                     </li>
@@ -269,10 +284,10 @@ export default function TreinoLideranca({
                 {(busy || processando) && (
                   <p className={styles.notice} role="status">
                     <Loader2 size={17} />
-                    {t("processing")}
+                    {t('processing')}
                     {processando && (
                       <span>
-                        {t("resumeBy", {
+                        {t('resumeBy', {
                           time: new Date(
                             jornada!.processandoAte!,
                           ).toLocaleTimeString(locale),
@@ -283,24 +298,24 @@ export default function TreinoLideranca({
                 )}
                 {!ep && (
                   <section className={`${styles.panel} ${styles.intro}`}>
-                    <p className={styles.eyebrow}>{t("team")}</p>
-                    <h2>{t("introTitle")}</h2>
+                    <p className={styles.eyebrow}>{t('team')}</p>
+                    <h2>{t('introTitle')}</h2>
                     <p>{CONTEXTO}</p>
                     <div className={styles.people}>
-                      {["Ana", "Bruno", "Camila", "Rafa"].map((nome) => (
+                      {['Ana', 'Bruno', 'Camila', 'Rafa'].map((nome) => (
                         <span key={nome}>
                           <i>{nome[0]}</i>
                           {nome}
                         </span>
                       ))}
                     </div>
-                    <p className={styles.muted}>{t("introHint")}</p>
+                    <p className={styles.muted}>{t('introHint')}</p>
                     <button
                       className={styles.primary}
                       disabled={bloqueado}
-                      onClick={() => void enviar("iniciar")}
+                      onClick={() => void enviar('iniciar')}
                     >
-                      {t("start")} <ArrowRight size={17} />
+                      {t('start')} <ArrowRight size={17} />
                     </button>
                   </section>
                 )}
@@ -312,24 +327,24 @@ export default function TreinoLideranca({
                         <h2>{info.titulo}</h2>
                         <p>{ep.contexto}</p>
                         <div className={styles.focus}>
-                          <small>{t("focus")}</small>
+                          <small>{t('focus')}</small>
                           <strong>{info.nome}</strong>
                           <p>{info.objetivo}</p>
                         </div>
                         {ep.repeticao && (
-                          <p className={styles.notice}>{t("replayNotice")}</p>
+                          <p className={styles.notice}>{t('replayNotice')}</p>
                         )}
                         {ep.plano && (
                           <details>
-                            <summary>{t("yourPlan")}</summary>
+                            <summary>{t('yourPlan')}</summary>
                             <p className={styles.pre}>{ep.plano}</p>
                           </details>
                         )}
                       </section>
                       <details className={styles.history}>
-                        <summary>{t("history")}</summary>
+                        <summary>{t('history')}</summary>
                         {!dados.historico.length && (
-                          <p className={styles.muted}>{t("emptyHistory")}</p>
+                          <p className={styles.muted}>{t('emptyHistory')}</p>
                         )}
                         {dados.historico.map((h) => (
                           <button
@@ -342,8 +357,8 @@ export default function TreinoLideranca({
                             }}
                           >
                             <span>
-                              {t("encounter", { n: h.indice + 1 })} ·{" "}
-                              {t(h.repeticao ? "replay" : "original")}
+                              {t('encounter', { n: h.indice + 1 })} ·{' '}
+                              {t(h.repeticao ? 'replay' : 'original')}
                             </span>
                             <small>{data(h.created_at)}</small>
                           </button>
@@ -359,7 +374,7 @@ export default function TreinoLideranca({
                                 )
                               }
                             >
-                              {t("previous")}
+                              {t('previous')}
                             </button>
                           )}
                           {dados.temMais && (
@@ -372,7 +387,7 @@ export default function TreinoLideranca({
                                 )
                               }
                             >
-                              {t("nextPage")}
+                              {t('nextPage')}
                             </button>
                           )}
                         </div>
@@ -383,15 +398,15 @@ export default function TreinoLideranca({
                         <form
                           onSubmit={(e) => {
                             e.preventDefault();
-                            void enviar("planejar", plano);
+                            void enviar('planejar', plano);
                           }}
                           className={styles.preparation}
                         >
-                          <p className={styles.eyebrow}>{t("preparation")}</p>
-                          <h2>{t("planTitle")}</h2>
-                          <p>{t("planHint")}</p>
+                          <p className={styles.eyebrow}>{t('preparation')}</p>
+                          <h2>{t('planTitle')}</h2>
+                          <p>{t('planHint')}</p>
                           <label htmlFor="lideranca-plano">
-                            {t("planLabel")}
+                            {t('planLabel')}
                           </label>
                           <textarea
                             id="lideranca-plano"
@@ -403,7 +418,7 @@ export default function TreinoLideranca({
                             required
                             disabled={bloqueado}
                           />
-                          <p className={styles.muted}>{t("minChars")}</p>
+                          <p className={styles.muted}>{t('minChars')}</p>
                           <div className={styles.actions}>
                             <Ditado
                               disabled={bloqueado}
@@ -415,7 +430,7 @@ export default function TreinoLideranca({
                               className={styles.primary}
                               disabled={bloqueado || plano.trim().length < 20}
                             >
-                              {t("savePlan")} <ArrowRight size={17} />
+                              {t('savePlan')} <ArrowRight size={17} />
                             </button>
                           </div>
                         </form>
@@ -431,7 +446,7 @@ export default function TreinoLideranca({
                             </div>
                             {ep.encerradoEm && (
                               <span className={styles.badge}>
-                                {t("completed")}
+                                {t('completed')}
                               </span>
                             )}
                           </div>
@@ -439,19 +454,19 @@ export default function TreinoLideranca({
                             ref={chat}
                             className={styles.chat}
                             role="log"
-                            aria-label={t("conversation")}
-                            aria-live={vivo ? "polite" : "off"}
+                            aria-label={t('conversation')}
+                            aria-live={vivo ? 'polite' : 'off'}
                           >
                             {ep.mensagens.map((m, i) => (
                               <div
-                                className={`${styles.message} ${m.autor === "lider" ? styles.leader : ""}`}
+                                className={`${styles.message} ${m.autor === 'lider' ? styles.leader : ''}`}
                                 key={`${ep.id}-${i}`}
                               >
                                 <small>
-                                  {m.autor === "lider"
-                                    ? t("you")
+                                  {m.autor === 'lider'
+                                    ? t('you')
                                     : info.personagem}
-                                  {m.autor === "lider" && ` · ${m.turno}`}
+                                  {m.autor === 'lider' && ` · ${m.turno}`}
                                 </small>
                                 <p>{m.texto}</p>
                               </div>
@@ -462,13 +477,13 @@ export default function TreinoLideranca({
                               className={styles.composer}
                               onSubmit={(e) => {
                                 e.preventDefault();
-                                void enviar("responder", texto);
+                                void enviar('responder', texto);
                               }}
                             >
                               {turno < MAX_TURNOS ? (
                                 <>
                                   <label htmlFor="lideranca-fala">
-                                    {t("messageLabel", {
+                                    {t('messageLabel', {
                                       name: info.personagem,
                                     })}
                                   </label>
@@ -492,26 +507,26 @@ export default function TreinoLideranca({
                                       className={styles.primary}
                                       disabled={bloqueado || !texto.trim()}
                                     >
-                                      {t("send")} <Send size={16} />
+                                      {t('send')} <Send size={16} />
                                     </button>
                                   </div>
                                 </>
                               ) : (
-                                <p>{t("turnLimit")}</p>
+                                <p>{t('turnLimit')}</p>
                               )}
                               <div className={styles.actions}>
                                 <p className={styles.muted}>
-                                  {t("rounds", { n: turno, max: MAX_TURNOS })}
+                                  {t('rounds', { n: turno, max: MAX_TURNOS })}
                                 </p>
                                 <button
                                   type="button"
                                   disabled={bloqueado || turno < MIN_TURNOS}
                                   onClick={() => setRefletindo(true)}
                                 >
-                                  {t("finish")}
+                                  {t('finish')}
                                 </button>
                               </div>
-                              <p className={styles.muted}>{t("fictionHint")}</p>
+                              <p className={styles.muted}>{t('fictionHint')}</p>
                             </form>
                           )}
                           {vivo && refletindo && (
@@ -519,12 +534,12 @@ export default function TreinoLideranca({
                               className={styles.composer}
                               onSubmit={(e) => {
                                 e.preventDefault();
-                                void enviar("encerrar", reflexao);
+                                void enviar('encerrar', reflexao);
                               }}
                             >
-                              <h3>{t("reflectionTitle")}</h3>
+                              <h3>{t('reflectionTitle')}</h3>
                               <label htmlFor="lideranca-reflexao">
-                                {t("reflectionHint")}
+                                {t('reflectionHint')}
                               </label>
                               <textarea
                                 id="lideranca-reflexao"
@@ -536,14 +551,14 @@ export default function TreinoLideranca({
                                 disabled={bloqueado}
                                 required
                               />
-                              <p className={styles.muted}>{t("minChars")}</p>
+                              <p className={styles.muted}>{t('minChars')}</p>
                               <div className={styles.actions}>
                                 <button
                                   type="button"
                                   disabled={bloqueado}
                                   onClick={() => setRefletindo(false)}
                                 >
-                                  {t("backToChat")}
+                                  {t('backToChat')}
                                 </button>
                                 <button
                                   className={styles.primary}
@@ -551,7 +566,7 @@ export default function TreinoLideranca({
                                     bloqueado || reflexao.trim().length < 20
                                   }
                                 >
-                                  {t("getFeedback")}
+                                  {t('getFeedback')}
                                 </button>
                               </div>
                             </form>
@@ -560,17 +575,17 @@ export default function TreinoLideranca({
                       )}
                       {ep.avaliacao && jornada && (
                         <section className={styles.report}>
-                          <p className={styles.eyebrow}>{t("feedback")}</p>
-                          <h2>{t("feedbackTitle")}</h2>
+                          <p className={styles.eyebrow}>{t('feedback')}</p>
+                          <h2>{t('feedbackTitle')}</h2>
                           <p>{ep.avaliacao.sintese}</p>
-                          <p className={styles.notice}>{t("assessmentNote")}</p>
+                          <p className={styles.notice}>{t('assessmentNote')}</p>
                           {ep.consequencia && (
                             <div className={styles.outcome}>
-                              <h3>{t("consequence")}</h3>
+                              <h3>{t('consequence')}</h3>
                               <p>{ep.consequencia.narrativa}</p>
                               {!!ep.consequencia.acordos.length && (
                                 <>
-                                  <h4>{t("agreements")}</h4>
+                                  <h4>{t('agreements')}</h4>
                                   <ul>
                                     {ep.consequencia.acordos.map((a, i) => (
                                       <li key={i}>{a.descricao}</li>
@@ -580,7 +595,7 @@ export default function TreinoLideranca({
                               )}
                               {!!ep.consequencia.pendencias.length && (
                                 <>
-                                  <h4>{t("openPoints")}</h4>
+                                  <h4>{t('openPoints')}</h4>
                                   <ul>
                                     {ep.consequencia.pendencias.map((p, i) => (
                                       <li key={i}>{p}</li>
@@ -611,7 +626,7 @@ export default function TreinoLideranca({
                                     <span>
                                       {c.nome}
                                       <small>
-                                        {t("coverage", {
+                                        {t('coverage', {
                                           n: c.observados,
                                           total: c.total,
                                         })}
@@ -619,22 +634,22 @@ export default function TreinoLideranca({
                                     </span>
                                     <b>
                                       {c.nivel === null
-                                        ? t("notObserved")
+                                        ? t('notObserved')
                                         : `N${c.nivel} · ${c.nota!.toLocaleString(locale, { maximumFractionDigits: 2 })}/4`}
                                     </b>
                                   </summary>
                                   {anterior && (
                                     <p className={styles.muted}>
-                                      {t("comparison", {
+                                      {t('comparison', {
                                         before:
                                           anterior.nota?.toLocaleString(
                                             locale,
                                             { maximumFractionDigits: 2 },
-                                          ) || "—",
+                                          ) || '—',
                                         after:
                                           c.nota?.toLocaleString(locale, {
                                             maximumFractionDigits: 2,
-                                          }) || "—",
+                                          }) || '—',
                                       })}
                                     </p>
                                   )}
@@ -650,11 +665,11 @@ export default function TreinoLideranca({
                                           key={d.cod_desc}
                                         >
                                           <h4>
-                                            {d.nome_curto}{" "}
+                                            {d.nome_curto}{' '}
                                             <span>
                                               {a.nivel
                                                 ? `N${a.nivel}`
-                                                : t("notObserved")}
+                                                : t('notObserved')}
                                             </span>
                                           </h4>
                                           <p>{a.justificativa}</p>
@@ -663,18 +678,18 @@ export default function TreinoLideranca({
                                               “{v.trecho}”
                                               <small>
                                                 {t(
-                                                  v.fonte === "fala"
-                                                    ? "speechEvidence"
-                                                    : v.fonte === "planejamento"
-                                                      ? "planEvidence"
-                                                      : "reflectionEvidence",
+                                                  v.fonte === 'fala'
+                                                    ? 'speechEvidence'
+                                                    : v.fonte === 'planejamento'
+                                                      ? 'planEvidence'
+                                                      : 'reflectionEvidence',
                                                   { n: v.turno },
                                                 )}
                                               </small>
                                             </blockquote>
                                           ))}
                                           <details>
-                                            <summary>{t("rubric")}</summary>
+                                            <summary>{t('rubric')}</summary>
                                             <ol className={styles.rubric}>
                                               {[
                                                 d.n1_gap,
@@ -696,20 +711,20 @@ export default function TreinoLideranca({
                             },
                           )}
                           <div className={styles.practice}>
-                            <h3>{t("nextPractice")}</h3>
+                            <h3>{t('nextPractice')}</h3>
                             <p>{ep.avaliacao.proximaPratica}</p>
                           </div>
                           <details>
-                            <summary>{t("yourReflection")}</summary>
+                            <summary>{t('yourReflection')}</summary>
                             <p className={styles.pre}>{ep.reflexao}</p>
                           </details>
                           <div className={styles.actions}>
                             <button
                               disabled={bloqueado || !!jornada.ativo}
-                              onClick={() => void enviar("repetir", ep.indice)}
+                              onClick={() => void enviar('repetir', ep.indice)}
                             >
                               <RotateCcw size={16} />
-                              {t("repeat")}
+                              {t('repeat')}
                             </button>
                             {jornada.ativo ? (
                               <button
@@ -717,20 +732,20 @@ export default function TreinoLideranca({
                                 disabled={bloqueado}
                                 onClick={() => void carregar()}
                               >
-                                {t("resume")}
+                                {t('resume')}
                               </button>
                             ) : concluido < 5 ? (
                               <button
                                 className={styles.primary}
                                 disabled={bloqueado}
-                                onClick={() => void enviar("avancar")}
+                                onClick={() => void enviar('avancar')}
                               >
-                                {t("continue", { n: concluido + 1 })}
+                                {t('continue', { n: concluido + 1 })}
                                 <ArrowRight size={16} />
                               </button>
                             ) : (
                               <span className={styles.badge}>
-                                {t("journeyCompleted")}
+                                {t('journeyCompleted')}
                               </span>
                             )}
                           </div>

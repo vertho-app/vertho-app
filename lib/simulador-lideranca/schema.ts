@@ -1,13 +1,13 @@
-import { z } from "zod";
-import type { LinhaMatriz } from "@/lib/simuladores/lideranca/matriz-global";
+import { z } from 'zod';
+import type { LinhaMatriz } from '@/lib/simuladores/lideranca/matriz-global';
 
-export const VERSAO = "lideranca-jornada-1";
+export const VERSAO = 'lideranca-jornada-1';
 export const MAX_TURNOS = 16;
 export const MIN_TURNOS = 3;
 const texto = (max: number) => z.string().trim().min(1).max(max);
 const evidencia = z
   .object({
-    fonte: z.enum(["planejamento", "fala", "reflexao"]),
+    fonte: z.enum(['planejamento', 'fala', 'reflexao']),
     turno: z.number().int().min(0),
     trecho: texto(800),
   })
@@ -55,7 +55,7 @@ export type Avaliacao = z.infer<typeof avaliacaoSchema>;
 export type Consequencia = z.infer<typeof consequenciaSchema>;
 export type Mensagem = {
   turno: number;
-  autor: "lider" | "personagem";
+  autor: 'lider' | 'personagem';
   texto: string;
 };
 export type Episodio = {
@@ -72,7 +72,7 @@ export type Episodio = {
   consequencia: Consequencia | null;
   avaliacao: Avaliacao | null;
 };
-export type Etapa = "abertura" | "personagem" | "consequencia" | "avaliador";
+export type Etapa = 'abertura' | 'personagem' | 'consequencia' | 'avaliador';
 export type Estado = {
   versao: typeof VERSAO;
   matriz: LinhaMatriz[];
@@ -87,30 +87,30 @@ const base = {
   empresaId: z.uuid().optional(),
   revisao: z.number().int().min(0),
 };
-export const comandoSchema = z.discriminatedUnion("acao", [
-  z.object({ ...base, acao: z.literal("iniciar") }).strict(),
-  z.object({ ...base, acao: z.literal("avancar") }).strict(),
+export const comandoSchema = z.discriminatedUnion('acao', [
+  z.object({ ...base, acao: z.literal('iniciar') }).strict(),
+  z.object({ ...base, acao: z.literal('avancar') }).strict(),
   z
     .object({
       ...base,
-      acao: z.literal("repetir"),
+      acao: z.literal('repetir'),
       episodio: z.number().int().min(0).max(4),
     })
     .strict(),
   z
     .object({
       ...base,
-      acao: z.literal("planejar"),
+      acao: z.literal('planejar'),
       texto: texto(6000).min(20),
     })
     .strict(),
   z
-    .object({ ...base, acao: z.literal("responder"), texto: texto(3000) })
+    .object({ ...base, acao: z.literal('responder'), texto: texto(3000) })
     .strict(),
   z
     .object({
       ...base,
-      acao: z.literal("encerrar"),
+      acao: z.literal('encerrar'),
       texto: texto(4000).min(20),
     })
     .strict(),
