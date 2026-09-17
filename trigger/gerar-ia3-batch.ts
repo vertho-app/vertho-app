@@ -204,7 +204,7 @@ export const gerarIA3BatchTask = task({
           const resultado = await extractJSON(texto);
           const norm = resultado ? validarRespostaIA3(resultado, p.ctx.descritores.length) : null;
           if (norm && norm.errors.length === 0) {
-            const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas);
+            const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas, p.ctx.descritores);
             const persist = await persistirCenarioIA3(p.ctx.tdb, {
               compId: p.ctx.comp.id, cargoNome: p.item.cargo, pppEscolaId: p.item.ppp_escola_id ?? null,
               titulo: norm.cen.titulo || norm.titulo, contexto: norm.cen.contexto || norm.contexto, alternativas,

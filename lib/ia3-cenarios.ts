@@ -376,8 +376,10 @@ export function validarRespostaIA3(resultado: any, numDescritores: number): Resp
   return { cen, titulo, contexto, perguntas, errors };
 }
 
-export function montarAlternativasIA3(resultado: any, cen: any, perguntas: any[]): Record<string, any> {
+export function montarAlternativasIA3(resultado: any, cen: any, perguntas: any[], descritores?: { cod_desc?: string | null }[]): Record<string, any> {
   return {
+    ...(descritores?.length && descritores.every(d => typeof d.cod_desc === 'string')
+      ? { descritores_ordem: descritores.map(d => d.cod_desc) } : {}),
     perguntas: (resultado.perguntas || resultado.questions || cen.perguntas || perguntas),
     faceta_testada_principal: cen.faceta_testada_principal || null,
     tradeoff_testado: cen.tradeoff_testado || null,
@@ -494,7 +496,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
     }
   }
 
-  const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas);
+  const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas, descritores);
   const p = await persistirCenarioIA3(tdb, {
     compId: comp.id, cargoNome, pppEscolaId,
     titulo: norm.cen.titulo || norm.titulo, contexto: norm.cen.contexto || norm.contexto, alternativas,
@@ -508,6 +510,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
 /** Monta o prompt do check a partir da ROW do cenário (mesma lógica do síncrono). */
 export async function montarCheckIA3Prompt(sbRaw: any, cen: any): Promise<{ system: string; user: string }> {
   const tdb = cen.empresa_id ? tenantDb(cen.empresa_id) : null;
+  const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
 
   let compNome = '';
   let descritoresTexto = '';
@@ -520,7 +523,7 @@ export async function montarCheckIA3Prompt(sbRaw: any, cen: any): Promise<{ syst
     if (compErr) throw new Error(`Check IA3: competência ${cen.competencia_id}: ${compErr.message}`);
     if (comp) compNome = comp.nome;
 
-    const descs = await buscarDescritoresDaCompetencia(sbForComp, comp, 'cod_desc, nome_curto, descritor_completo');
+    const descs = await buscarDescritoresDaCompetencia(sbForComp, comp, 'cod_desc, nome_curto, descritor_completo', alt.descritores_ordem);
     if (descs.length) {
       descritoresTexto = descs.map((d: any, i: number) => `D${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo}`).join('\n');
     }
@@ -542,7 +545,6 @@ export async function montarCheckIA3Prompt(sbRaw: any, cen: any): Promise<{ syst
     pppResumo = contexto.slice(0, 500);   // o check é auditoria: 500 chars bastam de âncora
   }
 
-  const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
   const perguntasArr = alt.perguntas || (Array.isArray(alt) ? alt : []);
   const perguntasTexto = perguntasArr.map((p: any) => {
     let t = `P${p.numero || ''}: ${p.texto || JSON.stringify(p)}`;
@@ -713,7 +715,7 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
   const norm = resultado ? validarRespostaIA3(resultado, descritores.length) : null;
   if (!norm) return { success: false, error: 'IA não retornou cenário válido — NADA foi alterado (a versão atual continua valendo)' };
 
-  const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas);
+  const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas, descritores);
   const candidato = {
     empresa_id: cen.empresa_id,
     competencia_id: cen.competencia_id,

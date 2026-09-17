@@ -283,6 +283,7 @@ export async function carregarContextoLoteIA4(tdb: any, sbRaw: SupabaseClient, e
 /** Contexto POR RESPOSTA: cenário respondido + régua da competência. */
 export async function carregarContextoRespostaIA4(tdb: any, sbRaw: SupabaseClient, resp: any): Promise<ContextoRespostaIA4> {
   let cenarioTexto = '', perguntasTexto = '';
+  let ordemDoCenario: unknown;
   if (resp.cenario_id) {
     const { data: cen } = await sbRaw.from('banco_cenarios')
       .select('titulo, descricao, alternativas')
@@ -290,6 +291,7 @@ export async function carregarContextoRespostaIA4(tdb: any, sbRaw: SupabaseClien
     if (cen) {
       cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
       const altObj = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
+      ordemDoCenario = (altObj as any).descritores_ordem;
       const pergs = (altObj as any).perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
       perguntasTexto = pergs.map((p: any, i: number) => {
         const num = p.numero || i + 1;
@@ -307,7 +309,7 @@ export async function carregarContextoRespostaIA4(tdb: any, sbRaw: SupabaseClien
     compNome = comp?.nome || '';
     compCod = comp?.cod_comp || '';
     const descs = await buscarDescritoresDaCompetencia(tdb, comp,
-      'cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia');
+      'cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia', ordemDoCenario);
     descsOficiais = descs;
     if (descs.length) {
       descritoresTexto = descs.map((d: any, i: number) => {

@@ -136,12 +136,14 @@ export async function reavaliarRespostaCore(sbRaw: SupabaseClient, respostaId: s
       .eq('id', resp.colaborador_id).single();
 
     let cenarioTexto = '', perguntasTexto = '';
+    let ordemDoCenario: unknown;
     if (resp.cenario_id) {
       const { data: cen } = await sbRaw.from('banco_cenarios')
         .select('titulo, descricao, alternativas').eq('id', resp.cenario_id).maybeSingle();
       if (cen) {
         cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
         const altObj2 = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
+        ordemDoCenario = (altObj2 as any).descritores_ordem;
         const pergs = altObj2.perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
         perguntasTexto = pergs.map((p: any, i: number) => `P${p.numero || i + 1}: ${p.texto || ''}`).join('\n');
       }
@@ -154,7 +156,7 @@ export async function reavaliarRespostaCore(sbRaw: SupabaseClient, respostaId: s
       if (compErr) return { success: false, error: `competência: ${compErr.message}` };
       compNome = comp?.nome || ''; compCod = comp?.cod_comp || '';
       const descs = await buscarDescritoresDaCompetencia(tdb, comp,
-        'cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia');
+        'cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia', ordemDoCenario);
       if (descs.length) {
         descritoresTexto = descs.map((d: any, i: number) =>
           `D${i + 1}: ${d.cod_desc} — ${d.nome_curto || ''}\nN1: ${d.n1_gap || ''}\nN2: ${d.n2_desenvolvimento || ''}\nN3: ${d.n3_meta || ''}\nN4: ${d.n4_referencia || ''}`

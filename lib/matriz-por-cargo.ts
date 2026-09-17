@@ -339,10 +339,27 @@ export interface CompetenciaDaMatriz {
  * erro, e não "sem cargo": `null` é dado, `undefined` é esquecimento — e cairia
  * calado no ramo `is null`, devolvendo régua vazia.
  */
+/** Cenários novos preservam o vínculo D1..Dn por código, inclusive após reset/import. */
+export function alinharDescritoresDoCenario<T extends { cod_desc?: string | null }>(
+  descritores: T[], ordem: unknown,
+): T[] {
+  if (ordem === undefined) return descritores; // histórico sem snapshot
+  if (!Array.isArray(ordem) || !ordem.length || ordem.length !== descritores.length ||
+      new Set(ordem).size !== ordem.length || ordem.some(c => typeof c !== 'string')) {
+    throw new Error('Ordem dos descritores do cenário inválida');
+  }
+  const porCodigo = new Map(descritores.map(d => [d.cod_desc, d]));
+  if (porCodigo.size !== descritores.length || ordem.some(c => !porCodigo.has(c))) {
+    throw new Error('A matriz não corresponde aos descritores do cenário');
+  }
+  return ordem.map(c => porCodigo.get(c)!);
+}
+
 export async function buscarDescritoresDaCompetencia(
   db: any,
   comp: CompetenciaDaMatriz | null | undefined,
   colunas: string,
+  ordemDoCenario?: unknown,
 ): Promise<any[]> {
   if (!comp?.cod_comp) return [];
   if (comp.cargo === undefined) {
@@ -355,7 +372,7 @@ export async function buscarDescritoresDaCompetencia(
   if (error) {
     throw new Error(`Descritores de ${comp.cod_comp} (${comp.cargo || 'sem cargo'}): ${error.message}`);
   }
-  return data || [];
+  return alinharDescritoresDoCenario(data || [], ordemDoCenario);
 }
 
 /**

@@ -758,3 +758,12 @@ banco chega no reset noturno (04:00, Brasília). O pacote offline
 - ⛔ *(resolvido em 01/09)* Reset noturno cobria só o ACME: o Grupo Sinal era tenant demo desde 25/08 e **nunca foi recomposto**, e o preflight de convidados lia sempre o ACME (um convidado ativo lá adiaria o reset do vizinho).
 - Tenant por vendedor (`acme-demo-<rep>`) contra colisão simultânea — o reset sob demanda mitiga.
 - Season "em ANDAMENTO" de verdade (a trilha nasce gerada mas sem semanas concluídas).
+
+
+### Cenários de Liderança e identidade da régua (17/09/2026)
+
+As duas demos têm dez cenários revisados cada (cinco competências × duas variantes). A configuração atual usa Gerente Comercial no ACME Demo e Coordenador(a) Pedagógico(a) na Rede de Escolas ACME. Os fixtures de segurança foram atualizados depois da revisão; a curadoria corrente no banco continua prevalecendo.
+
+`alternativas.descritores_ordem` congela os códigos na ordem usada ao construir cada cenário. IA3/check, IA4/check e reavaliação alinham a régua a esse vínculo: uma reinstalação da matriz não pode fazer D1 passar a representar outro comportamento. A recomposição preserva esse campo. Cenários antigos sem o campo mantêm a leitura histórica. Geração síncrona e batch passam a registrar a ordem; matriz incompleta ou divergente do snapshot gera erro explícito.
+
+Validação: `tests/unit/simuladores/lideranca-ordem-cenario.test.ts` cobre reordenação das linhas, inconsistência da matriz e recomposição com novos IDs. As notas de qualidade do instrumento (`nota_check`, 0–100) são auditoria administrativa; o desempenho do participante segue a matriz N1–N4.

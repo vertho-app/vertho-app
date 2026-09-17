@@ -173,12 +173,14 @@ export async function montarCheckIA4Prompt(
     .eq('id', resp.colaborador_id).maybeSingle();
 
   let cenarioTexto = '', perguntasTexto = '';
+  let ordemDoCenario: unknown;
   if (resp.cenario_id) {
     const { data: cen } = await sb.from('banco_cenarios')
       .select('titulo, descricao, alternativas').eq('id', resp.cenario_id).maybeSingle();
     if (cen) {
       cenarioTexto = `${cen.titulo}\n${cen.descricao}`;
       const altObj = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
+      ordemDoCenario = (altObj as any).descritores_ordem;
       const pergs = (altObj as any).perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []);
       perguntasTexto = pergs.map((p: any, i: number) => `P${p.numero || i + 1}: ${p.texto || ''}`).join('\n');
     }
@@ -191,7 +193,7 @@ export async function montarCheckIA4Prompt(
     if (compErr) throw new Error(`Check IA4: competência ${resp.competencia_id}: ${compErr.message}`);
     compNome = comp?.nome || '';
     const descs = await buscarDescritoresDaCompetencia(tenantDb(empresaId), comp,
-      'cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia');
+      'cod_desc, nome_curto, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia', ordemDoCenario);
     if (descs.length) {
       reguaTexto = descs.map((d: any, i: number) =>
         `D${i + 1} ${d.cod_desc}: ${d.nome_curto}\n  N1: ${d.n1_gap || '—'}\n  N2: ${d.n2_desenvolvimento || '—'}\n  N3: ${d.n3_meta || '—'}\n  N4: ${d.n4_referencia || '—'}`
