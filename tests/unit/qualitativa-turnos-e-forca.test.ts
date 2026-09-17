@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { turnosIaNecessarios, TURNOS_IA_AVALIACAO_QUALITATIVA } from '@/lib/season-engine/week-gating';
 import { qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
-import { classificarConvergencia, CONVERGENCIA, qualitativaSustenta } from '@/lib/season-engine/convergencia';
+import { qualitativaSustenta } from '@/lib/season-engine/convergencia';
 
 /**
  * A CONVERSA QUALITATIVA: onde ela fica, quanto custa, e quando a leitura dela
@@ -95,49 +96,24 @@ describe('turnosIaNecessarios', () => {
 
 const MAX_CONTEUDO = 6;
 
-describe('leitura qualitativa fraca não vota na convergência', () => {
-  /**
-   * Chama a MESMA função que o report usa (`qualitativaSustenta`), não uma
-   * cópia da regra. A 1ª versão deste helper replicava o `if` aqui dentro, e a
-   * prova de mutação passou VERDE: quebrar o report não quebrava o teste,
-   * porque o teste nunca tocava no report.
-   */
-  const classificar = (nota_pre: number, nota_pos: number, nivel: number | null, forca: string | null) =>
-    classificarConvergencia({
-      nota_pre, nota_pos,
-      nivel_percebido: qualitativaSustenta({ forca_evidencia: forca }) ? nivel : null,
-    });
-
-  // ⚠️ Desde 17/09/2026 a leitura qualitativa só vota na CONFIRMADA (sozinha ela
-  // não sustenta mais parcial). O caso que prova o filtro é, então, um avanço
-  // grande que chega ao Nível 3: é a conversa que separa confirmada de parcial.
-  it('🔴 descritor NÃO discutido não confirma evolução', () => {
-    // `nivel_percebido` 2.0 é o DEFAULT do validador quando o campo falta. Sem o
-    // filtro de força, `2.0 > 1.9` bastava para confirmar um avanço que a
-    // conversa nunca tocou.
-    const comFiltro = classificar(1.9, 3.1, 2.0, 'fraca');
-    const semFiltro = classificarConvergencia({ nota_pre: 1.9, nota_pos: 3.1, nivel_percebido: 2.0 });
-    expect(semFiltro).toBe(CONVERGENCIA.CONFIRMADA);
-    expect(comFiltro).toBe(CONVERGENCIA.PARCIAL);
+describe('força da evidência da conversa (informação, não veredito)', () => {
+  // ⚠️ Até 17/09/2026 esta força decidia se a leitura qualitativa VOTAVA no
+  // veredito. Desde então o veredito é só pelo avanço, e `qualitativaSustenta`
+  // alimenta o aviso da tela de admin ("sem evidência na conversa sobre este
+  // descritor"). O que continua valendo é a leitura conservadora da força.
+  it('fraca não sustenta; moderada e forte sustentam', () => {
+    expect(qualitativaSustenta({ forca_evidencia: 'fraca' })).toBe(false);
+    expect(qualitativaSustenta({ forca_evidencia: 'moderada' })).toBe(true);
+    expect(qualitativaSustenta({ forca_evidencia: 'forte' })).toBe(true);
   });
 
-  it('leitura com base moderada ou forte continua valendo', () => {
-    expect(classificar(1.9, 3.1, 2.5, 'moderada')).toBe(CONVERGENCIA.CONFIRMADA);
-    expect(classificar(1.9, 3.1, 2.5, 'forte')).toBe(CONVERGENCIA.CONFIRMADA);
+  it('força ausente é tratada como fraca: o report não inventa confiança', () => {
+    expect(qualitativaSustenta({ forca_evidencia: null })).toBe(false);
+    expect(qualitativaSustenta(undefined)).toBe(false);
   });
 
-  it('conversa mostrando evolução não transforma "+0,1" em parcial (17/09/2026)', () => {
-    expect(classificar(1.5, 1.6, 2.5, 'forte')).toBe(CONVERGENCIA.ESTAVEL);
-  });
-
-  it('a nota do scorer decide sozinha quando ela existe, com ou sem qualitativa', () => {
-    // Delta grande e meta alcançada: confirmada exige as duas pontas, então
-    // base fraca a rebaixa para parcial — e isso é o comportamento certo.
-    expect(classificar(1.5, 3.2, 3.4, 'forte')).toBe(CONVERGENCIA.CONFIRMADA);
-    expect(classificar(1.5, 3.2, 3.4, 'fraca')).toBe(CONVERGENCIA.PARCIAL);
-  });
-
-  it('força ausente é tratada como fraca — o report não inventa confiança', () => {
-    expect(classificar(1.5, 1.6, 2.0, null)).toBe(CONVERGENCIA.ESTAVEL);
+  it('o report classifica sem passar a leitura qualitativa para a régua', () => {
+    const core = readFileSync('lib/season-engine/evolution-report-core.ts', 'utf8');
+    expect(core).toContain('classificarConvergencia({ nota_pre, nota_pos })');
   });
 });

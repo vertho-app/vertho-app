@@ -223,7 +223,7 @@ export function construirEvolucao(
           : regua.textos.depois(pessoa.cargo, competencia, descritor),
         justificativa_cenario: regua.textos.justificativa(perfil),
         // A régua de produção decide. Nunca carimbar o veredito à mão aqui.
-        convergencia: classificarConvergencia({ nota_pre, nota_pos, nivel_percebido }),
+        convergencia: classificarConvergencia({ nota_pre, nota_pos }),
       };
     });
 

@@ -2710,7 +2710,7 @@
       "noDescriptors": "Este informe no trajo descriptores.",
       "open": "Abrir el informe de {name}",
       "title": "Informe de evolución de {name}",
-      "weakEvidence": "Sin evidencia en la conversación: la lectura cualitativa no entra en el veredicto de este descriptor."
+      "weakEvidence": "Sin evidencia en la conversación sobre este descriptor: el antes y después tienen poca base."
     }
   },
   "AdminFit": {

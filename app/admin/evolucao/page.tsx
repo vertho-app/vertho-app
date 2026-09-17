@@ -426,9 +426,9 @@ function DetalheDaPessoa({ trilha, onClose }) {
                               {rotuloConvergencia(d.convergencia)}
                             </span>
                           </div>
-                          {/* Evidência fraca é o que explica veredito baixo apesar de
-                              nota que subiu: a régua não deixa a qualitativa votar
-                              quando o descritor não foi discutido na conversa. */}
+                          {/* Evidência fraca: a conversa não tocou neste descritor, então
+                              o "Antes/Depois" abaixo tem pouca base. Informação para quem
+                              lê; o veredito é só pelo avanço desde 17/09/2026. */}
                           {!qualitativaSustenta(d) && (
                             <p className="mt-1 text-[10px] text-amber-200/70">{t('detail.weakEvidence')}</p>
                           )}

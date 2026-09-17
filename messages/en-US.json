@@ -2710,7 +2710,7 @@
       "noDescriptors": "This report has no descriptors.",
       "open": "Open {name}'s report",
       "title": "Evolution report for {name}",
-      "weakEvidence": "No evidence in the conversation: the qualitative reading does not count toward this descriptor."
+      "weakEvidence": "No evidence in the conversation about this descriptor: the before and after have little basis."
     }
   },
   "AdminFit": {

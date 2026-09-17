@@ -472,10 +472,10 @@ export default function RelatorioEvolucaoPDF({
 
           <Text style={s.h3}>Quando a evolução é chamada de confirmada</Text>
           <Text style={s.p}>
-            {`Confirmada exige duas coisas ao mesmo tempo: avanço de ao menos ${num(CORTE_CONFIRMADA)} ponto e o relato da própria pessoa sustentando a mudança. O nível de chegada não entra na conta: avanço grande sustentado pelo relato é evolução confirmada, qualquer que seja o patamar de partida.`}
+            {`Confirmada é avanço de ao menos ${num(CORTE_CONFIRMADA)} ponto entre o diagnóstico e o cenário do fechamento. O veredito é decidido só pelo avanço: nem o nível de chegada nem o relato da pessoa entram na conta. O relato aparece nos comentários de cada comportamento (antes e depois).`}
           </Text>
           <Text style={s.p}>
-            {`Parcial cobre avanço de ao menos ${num(CORTE_PARCIAL)} ponto (o relato da pessoa, sozinho, não basta). Estável é o piso: o patamar de partida se manteve, e é só isso que a medição sustenta.`}
+            {`Parcial cobre avanço de ao menos ${num(CORTE_PARCIAL)} ponto. Estável é o piso: o patamar de partida se manteve, e é só isso que a medição sustenta.`}
           </Text>
 
           <Text style={s.h3}>A precisão do instrumento</Text>

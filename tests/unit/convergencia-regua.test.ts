@@ -17,37 +17,37 @@ import {
  * que a segunda cópia não volte por descuido.
  */
 describe('Régua de convergência', () => {
-  it('exige delta E leitura qualitativa para confirmar', () => {
-    // Delta grande sozinho NÃO confirma: é a diferença entre "o número subiu"
-    // e "a mudança foi percebida". Trocar o `&&` por `||` no motor faz este
-    // caso virar confirmada e o teste falhar.
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 3, nivel_percebido: null }))
-      .toBe(CONVERGENCIA.PARCIAL);
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 3, nivel_percebido: 3 }))
-      .toBe(CONVERGENCIA.CONFIRMADA);
+  it('só o avanço decide: 0,5 confirma, 0,2 é parcial, o resto é estável (17/09/2026)', () => {
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 3 })).toBe(CONVERGENCIA.CONFIRMADA);
+    expect(classificarConvergencia({ nota_pre: 1.5, nota_pos: 2.6 })).toBe(CONVERGENCIA.CONFIRMADA);
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.4 })).toBe(CONVERGENCIA.PARCIAL);
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.1 })).toBe(CONVERGENCIA.ESTAVEL);
   });
 
-  it('a leitura qualitativa NÃO sustenta parcial sozinha: "+0,1" é estável (17/09/2026)', () => {
-    // Antes, 2,0 → 2,1 com a conversa mostrando evolução saía "Evolução parcial",
-    // e o contador não conseguia dizer "avanço de pelo menos 0,2" sem mentir.
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.1, nivel_percebido: 3 }))
-      .toBe(CONVERGENCIA.ESTAVEL);
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.2, nivel_percebido: 3 }))
-      .toBe(CONVERGENCIA.PARCIAL);
+  it('a conversa não entra: a régua nem recebe a leitura qualitativa', () => {
+    // O veredito não pode mudar por um campo que a pessoa não vê no card. Passar
+    // a leitura "à força" não altera nada, e a assinatura não a declara mais.
+    const semConversa = classificarConvergencia({ nota_pre: 1.5, nota_pos: 2.6 });
+    const comConversa = classificarConvergencia({ nota_pre: 1.5, nota_pos: 2.6, nivel_percebido: 1 } as any);
+    expect(comConversa).toBe(semConversa);
+    const fonte = readFileSync('lib/season-engine/convergencia.ts', 'utf8');
+    const corpo = fonte.slice(fonte.indexOf('export function classificarConvergencia'))
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    expect(corpo).not.toMatch(/nivel_percebido|qualitativa/);
   });
 
   it('avanço exibido 0,0 é ESTÁVEL mesmo com leitura qualitativa positiva (16/09/2026)', () => {
     // O caso real: 2,5 → 2,3 com qualitativa 3, saía "0,0 · Evolução
     // parcial" no PDF. O veredito não pode afirmar avanço ao lado de um zero.
-    expect(classificarConvergencia({ nota_pre: 2.5, nota_pos: 2.3, nivel_percebido: 3 }))
+    expect(classificarConvergencia({ nota_pre: 2.5, nota_pos: 2.3 }))
       .toBe(CONVERGENCIA.ESTAVEL);
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2, nivel_percebido: 3 }))
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2 }))
       .toBe(CONVERGENCIA.ESTAVEL);
     // A fronteira é o número EXIBIDO: +0,04 aparece como "0,0" e +0,16 como
     // "+0,2", que já é parcial mesmo sendo menos que 0,2 cru.
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.04, nivel_percebido: 3 }))
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.04 }))
       .toBe(CONVERGENCIA.ESTAVEL);
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.16, nivel_percebido: null }))
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.16 }))
       .toBe(CONVERGENCIA.PARCIAL);
   });
 
@@ -55,24 +55,22 @@ describe('Régua de convergência', () => {
     // Decisão do dono (01/09/2026): ninguém desaprende uma competência, então
     // uma nota que cai descreve a variação do instrumento, não a pessoa. Se
     // alguém reintroduzir um piso de regressão, estes casos ficam vermelhos.
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 1.85, nivel_percebido: null }))
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 1.85 }))
       .toBe(CONVERGENCIA.ESTAVEL);
-    expect(classificarConvergencia({ nota_pre: 3.5, nota_pos: 1.2, nivel_percebido: null }))
+    expect(classificarConvergencia({ nota_pre: 3.5, nota_pos: 1.2 }))
       .toBe(CONVERGENCIA.ESTAVEL);
     expect(Object.values(CONVERGENCIA)).not.toContain('regressao');
     expect(rotuloConvergencia('regressao')).toBe('Sem medição');
   });
 
   it('trata as fronteiras dos cortes como inclusivas para o lado melhor', () => {
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2 + CORTE_PARCIAL, nivel_percebido: null }))
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2 + CORTE_PARCIAL }))
       .toBe(CONVERGENCIA.PARCIAL);
-    // 2 + 0,5 = 2,5 confirma com a conversa sustentando, mesmo sem chegar ao
-    // Nível 3 (a meta saiu da régua em 17/09/2026).
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2 + CORTE_CONFIRMADA, nivel_percebido: 2.5 }))
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2 + CORTE_CONFIRMADA }))
       .toBe(CONVERGENCIA.CONFIRMADA);
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.4, nivel_percebido: 2.5 }))
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.4 }))
       .toBe(CONVERGENCIA.PARCIAL);
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 1.9, nivel_percebido: null }))
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 1.9 }))
       .toBe(CONVERGENCIA.ESTAVEL);
   });
 
@@ -80,20 +78,19 @@ describe('Régua de convergência', () => {
     // Os pares reais: em ponto flutuante as duas subtrações dão 0,19999…, e
     // os descritores saíam "+0,2 · Estável" (1,0 → 1,2 e 1,3 → 1,5, pares gravados).
     expect(1.2 - 1.0).toBeLessThan(CORTE_PARCIAL);
-    expect(classificarConvergencia({ nota_pre: 1.0, nota_pos: 1.2, nivel_percebido: null }))
+    expect(classificarConvergencia({ nota_pre: 1.0, nota_pos: 1.2 }))
       .toBe(CONVERGENCIA.PARCIAL);
-    expect(classificarConvergencia({ nota_pre: 1.3, nota_pos: 1.5, nivel_percebido: 1 }))
+    expect(classificarConvergencia({ nota_pre: 1.3, nota_pos: 1.5 }))
       .toBe(CONVERGENCIA.PARCIAL);
-    // Varre toda nota de uma casa, com e sem conversa mostrando evolução: parcial
-    // ou confirmada acontece exatamente quando o número exibido é 0,2 ou mais.
+    // Varre toda nota de uma casa: o veredito é exatamente a faixa do número
+    // exibido (0,5+ confirmada, 0,2+ parcial, resto estável).
     for (let a = 10; a <= 40; a++) {
       for (let b = 10; b <= 40; b++) {
         const [pre, pos] = [a / 10, b / 10];
         const exibido = avancoExibido(pre, pos) as number;
-        for (const nivel_percebido of [null, 4]) {
-          const v = classificarConvergencia({ nota_pre: pre, nota_pos: pos, nivel_percebido });
-          expect(v !== CONVERGENCIA.ESTAVEL, `${pre} → ${pos} exibe +${exibido} (conversa ${nivel_percebido})`).toBe(exibido >= CORTE_PARCIAL);
-        }
+        const esperado = exibido >= CORTE_CONFIRMADA ? CONVERGENCIA.CONFIRMADA
+          : exibido >= CORTE_PARCIAL ? CONVERGENCIA.PARCIAL : CONVERGENCIA.ESTAVEL;
+        expect(classificarConvergencia({ nota_pre: pre, nota_pos: pos }), `${pre} → ${pos} exibe +${exibido}`).toBe(esperado);
       }
     }
   });
@@ -195,20 +192,11 @@ describe('as telas de evolução não inventam vocabulário', () => {
 });
 
 describe('confirmada não depende do nível de chegada (17/09/2026)', () => {
-  it('+1,1 que para no Nível 2 confirma quando a conversa sustenta', () => {
+  it('+1,1 que para no Nível 2 confirma', () => {
     // De 02/09 a 17/09 isto era "parcial" por não chegar ao N3, e saía em verde
     // claro ao lado de um "+1,0" confirmado. O card mostra o avanço, não o nível.
-    expect(classificarConvergencia({ nota_pre: 1.5, nota_pos: 2.6, nivel_percebido: 2.4 }))
-      .toBe(CONVERGENCIA.CONFIRMADA);
-    expect(classificarConvergencia({ nota_pre: 1.68, nota_pos: 2.58, nivel_percebido: 2.6 }))
-      .toBe(CONVERGENCIA.CONFIRMADA);
-  });
-
-  it('avanço grande sem a conversa sustentar continua parcial', () => {
-    expect(classificarConvergencia({ nota_pre: 1.5, nota_pos: 2.6, nivel_percebido: null }))
-      .toBe(CONVERGENCIA.PARCIAL);
-    expect(classificarConvergencia({ nota_pre: 1.5, nota_pos: 2.6, nivel_percebido: 1.5 }))
-      .toBe(CONVERGENCIA.PARCIAL);
+    expect(classificarConvergencia({ nota_pre: 1.5, nota_pos: 2.6 })).toBe(CONVERGENCIA.CONFIRMADA);
+    expect(classificarConvergencia({ nota_pre: 1.68, nota_pos: 2.58 })).toBe(CONVERGENCIA.CONFIRMADA);
   });
 
   it('a assinatura não aceita mais meta de nível', () => {

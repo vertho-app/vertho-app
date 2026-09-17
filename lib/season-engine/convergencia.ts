@@ -163,50 +163,48 @@ export function avancoMedioExibido(
 }
 
 /**
- * Classifica um descritor comparando nota_pre (início da temporada), nota_pos
- * (cenário do fechamento) e nivel_percebido (qualitativa da semana anterior).
+ * A leitura qualitativa deste descritor tem base na conversa?
  *
- * A leitura qualitativa NÃO é um empate técnico: ela promove para confirmada
- * (junto com o avanço). Um número que sobe sem nenhuma evidência de percepção é
- * justamente o caso que a régua quer manter em "parcial", não em "confirmada".
- *
- * 🔴 Ela NÃO sustenta mais uma parcial sozinha (decisão do dono, 17/09/2026).
- * Com "+0,1" e a conversa mostrando evolução, o descritor saía "Evolução
- * parcial", e o relatório não conseguia dizer em uma linha o que é parcial
- * ("avanço de pelo menos 0,2" ficava falso nesses casos). Parcial passou a ser
- * só avanço exibido de 0,2 ou mais. `Medido:` 2 descritores gravados estavam
- * nessa exceção; por decisão do dono, NÃO foram reclassificados.
- */
-/**
- * A leitura qualitativa deste descritor pode VOTAR na convergência?
- *
- * 🔴 Só quando a conversa a sustenta. O extrator marca `forca_evidencia: 'fraca'`
- * para descritor que não foi discutido — está no prompt —, mas o validador dá
- * `nivel_percebido` **default 2.0** quando o campo falta. Com `nota_pre` em 1,5
- * (a média medida em Ibipeba), `2.0 > 1.5` bastava para o descritor sair como
- * "evolução parcial" no relatório que vai para a Secretaria, por um número que
- * ninguém afirmou.
- *
- * Função exportada, e não um `if` dentro do report, para ser exercitável: era
- * uma linha inline, e a prova de mutação passou VERDE porque o teste replicava
- * a lógica em vez de chamá-la.
+ * O extrator marca `forca_evidencia: 'fraca'` para descritor que não foi
+ * discutido, e o validador dá `nivel_percebido` **default 2.0** quando o campo
+ * falta. Até 17/09/2026 isto decidia se a leitura VOTAVA no veredito; desde
+ * então o veredito é só pelo número (ver `classificarConvergencia`), e a função
+ * serve à INFORMAÇÃO: a tela de admin avisa quando a conversa não tocou no
+ * descritor, para quem lê o "Antes/Depois" saber o peso daquele texto.
  */
 export function qualitativaSustenta(q: { forca_evidencia?: string | null } | null | undefined): boolean {
   const f = q?.forca_evidencia;
   return f != null && f !== 'fraca';
 }
 
+/**
+ * Classifica um descritor SÓ PELO AVANÇO exibido entre nota_pre (início da
+ * temporada) e nota_pos (cenário do fechamento):
+ *
+ *   · confirmada: avanço de 0,5 ou mais;
+ *   · parcial:    avanço de 0,2 ou mais;
+ *   · estável:    o resto, inclusive queda.
+ *
+ * 🔴 A CONVERSA NÃO VOTA MAIS NO VEREDITO (decisão do dono, 17/09/2026). No mesmo
+ * dia saíram as duas exigências que o número não mostrava: chegar ao Nível 3
+ * (de 02/09) e a leitura qualitativa sustentar a mudança. No papel, "+1,1" em
+ * verde claro ao lado de "+1,0" em verde escuro, e o contador "Avanço de pelo
+ * menos 0,5" ficava falso. A conversa continua no relatório onde ela sempre
+ * falou: nos comentários de cada descritor ("Antes/Depois" vêm da leitura
+ * qualitativa) e nos textos da competência (devolutiva e mensagem final).
+ * "Não vamos complicar" (dono): sem selo, sem veredito paralelo.
+ *
+ * Antes, também na mesma semana: "+0,1" com a conversa positiva deixou de ser
+ * parcial. Nenhuma dessas mudanças reclassificou relatório gravado.
+ */
 export function classificarConvergencia({
   nota_pre,
   nota_pos,
-  nivel_percebido,
 }: {
   nota_pre: number;
   nota_pos: number;
-  nivel_percebido: number | null;
 }): Convergencia {
   const delta = nota_pos - nota_pre;
-  const qualitativaPositiva = nivel_percebido != null && nivel_percebido > nota_pre;
 
   // 🔴 AVANÇO EXIBIDO 0,0 É ESTÁVEL, sem exceção (decisão do dono, 16/09/2026).
   // A leitura qualitativa sustentava "parcial" sozinha mesmo com a nota do
@@ -225,7 +223,7 @@ export function classificarConvergencia({
   const avanco = avancoExibido(nota_pre, nota_pos);
   if (avanco === 0) return CONVERGENCIA.ESTAVEL;
   const medido = avanco ?? delta;
-  if (medido >= CORTE_CONFIRMADA && qualitativaPositiva) return CONVERGENCIA.CONFIRMADA;
+  if (medido >= CORTE_CONFIRMADA) return CONVERGENCIA.CONFIRMADA;
   if (medido >= CORTE_PARCIAL) return CONVERGENCIA.PARCIAL;
   // Queda cai aqui de propósito: sem veredito de regressão, o piso da régua é
   // "manteve o patamar". Ver o cabeçalho de CONVERGENCIA.

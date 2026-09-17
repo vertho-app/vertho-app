@@ -2710,7 +2710,7 @@
       "noDescriptors": "Este relatório não trouxe descritores.",
       "open": "Abrir o relatório de {name}",
       "title": "Relatório de evolução de {name}",
-      "weakEvidence": "Sem evidência na conversa: a leitura qualitativa não entra no veredito deste descritor."
+      "weakEvidence": "Sem evidência na conversa sobre este descritor: o antes e depois têm pouca base."
     }
   },
   "AdminFit": {

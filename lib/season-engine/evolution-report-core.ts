@@ -6,7 +6,7 @@ import { PROGRESSO, TRILHA } from '@/lib/status';
 import { encadearProximaJornada } from './encadear-jornada';
 // Régua de convergência em FONTE ÚNICA — o fixture da demo classifica pela
 // mesma função, senão a vitrine mostraria um veredito que o motor não produz.
-import { CONVERGENCIA, classificarConvergencia, qualitativaSustenta } from './convergencia';
+import { CONVERGENCIA, classificarConvergencia } from './convergencia';
 
 /**
  * Fim de jornada = começo da próxima (modo `jornada`, 05/08/2026). Roda DEPOIS
@@ -161,6 +161,12 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
       const nota_pos = n.nota_pos ?? q.nivel_percebido ?? nota_pre;
 
       /**
+       * ⚠️ HISTÓRICO: desde 17/09/2026 a leitura qualitativa NÃO vota no
+       * veredito, forte ou fraca (a régua é só pelo avanço; ver
+       * `classificarConvergencia`). O `nivel_percebido` e a força seguem no
+       * report como informação. O texto abaixo explica por que a leitura fraca
+       * já tinha deixado de votar em 03/09.
+       *
        * 🔴 LEITURA FRACA NÃO VOTA NA CONVERGÊNCIA (03/09/2026).
        *
        * O extrator da conversa qualitativa é honesto sobre base curta: quando um
@@ -184,7 +190,6 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
        * turnos para ~12 descritores, base fraca já era frequente.
        */
       const forcaEvidencia = q.forca_evidencia ?? null;
-      const baseSustenta = qualitativaSustenta(q);
       return {
         competencia: d.competencia || trilha.competencia_foco,
         descritor: d.descritor,
@@ -195,10 +200,7 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
         antes: q.antes || null,
         depois: q.depois || null,
         justificativa_cenario: n.justificativa || null,
-        convergencia: classificarConvergencia({
-          nota_pre, nota_pos,
-          nivel_percebido: baseSustenta ? q.nivel_percebido : null,
-        }),
+        convergencia: classificarConvergencia({ nota_pre, nota_pos }),
       };
     });
 
