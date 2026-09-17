@@ -145,7 +145,7 @@ export default function RelatorioTemporadaConcluida({ data: dadosBrutos }: { dat
         {grupos.map((grupo, g) => (
           <div key={g} className="mb-4">
             {grupo.competencia && (
-              <p className="text-sm font-bold text-brand-300 mb-2">{grupo.competencia}</p>
+              <p className="text-base font-bold text-brand-300 mb-2">{t('competencyTitle', { name: grupo.competencia })}</p>
             )}
             <div className="space-y-2">
               {grupo.descritores.map((d, i) => {

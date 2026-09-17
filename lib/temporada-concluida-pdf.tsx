@@ -73,9 +73,10 @@ const s = StyleSheet.create({
   insight: { fontFamily: 'NotoSans', fontSize: fonts.small, fontStyle: 'italic', color: colors.textSecondary, lineHeight: 1.5 },
   competenciaLinha: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10,
-    marginTop: 8, marginBottom: 6,
+    marginTop: 10, marginBottom: 7,
   },
-  competencia: { fontFamily: 'NotoSans', fontSize: fonts.body, fontWeight: 700, color: colors.navy },
+  // "Competência: xxx", maior que o título do comportamento (dono, 17/09/2026).
+  competencia: { fontFamily: 'NotoSans', fontSize: 12, fontWeight: 700, color: colors.navy },
   nivelLinha: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   // Destaque da competência no início: é o indicador da régua de maturidade.
   destaque: {
@@ -467,7 +468,7 @@ export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: an
               <View wrap={false}>
                 {grupo.competencia && (
                   <View style={s.competenciaLinha}>
-                    <Text style={s.competencia}>{grupo.competencia}</Text>
+                    <Text style={s.competencia}>{tr('competencyTitle', { name: grupo.competencia })}</Text>
                   </View>
                 )}
                 {grupo.descritores[0] && <CardDescritor d={grupo.descritores[0]} />}

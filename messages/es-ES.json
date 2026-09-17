@@ -1421,6 +1421,7 @@
     "competenciesIntro": "Tu resultado se mide por competencia, en una escala de 4 niveles. El avance muestra cuánto avanzaron, en promedio, los comportamientos de la competencia entre el inicio y el final de la temporada.",
     "levelFromTo": "En {competency}, estabas en el Nivel {from} y avanzaste al Nivel {to}, de 4 niveles posibles.",
     "levelKept": "En {competency}, te mantuviste en el Nivel {n}, de 4 niveles posibles.",
+    "competencyTitle": "Competencia: {name}",
     "behaviorsIntro": "Cada competencia se manifiesta en comportamientos concretos del día a día, que llamamos comportamientos observables. Cada recuadro muestra uno de ellos: el número es cuánto avanzó entre el inicio y el final de la temporada, en una escala de 1 a 4 (el avance puede ir de 0 a 3), y el texto muestra qué cambió en tu práctica.",
     "countersIntro": "De los {total} comportamientos observados en esta temporada:",
     "legend": {
