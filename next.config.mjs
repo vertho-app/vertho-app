@@ -2,6 +2,7 @@ import { withSentryConfig } from '@sentry/nextjs';
 import createNextIntlPlugin from 'next-intl/plugin';
 import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { rewritesDaMidiaOffline } from './lib/demo/offline/midia-rewrites.mjs';
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 const withNextIntl = createNextIntlPlugin();
@@ -113,16 +114,19 @@ const nextConfig = {
 
   async rewrites() {
     const gammaHome = process.env.GAMMA_HOME_URL?.replace(/\/+$/, '') || '';
-    if (!gammaHome) return [];
 
     return {
-      beforeFiles: [
-        {
-          source: '/',
-          has: [{ type: 'host', value: '(www\\.)?vertho\\.ai' }],
-          destination: `${gammaHome}/`,
-        },
-      ],
+      beforeFiles: gammaHome
+        ? [
+            {
+              source: '/',
+              has: [{ type: 'host', value: '(www\\.)?vertho\\.ai' }],
+              destination: `${gammaHome}/`,
+            },
+          ]
+        : [],
+      // Mídias dos pacotes offline pelo mesmo domínio: ver lib/demo/offline/midia-rewrites.mjs.
+      afterFiles: rewritesDaMidiaOffline(),
     };
   },
 };
