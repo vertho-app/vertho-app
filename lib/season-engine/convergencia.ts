@@ -166,9 +166,16 @@ export function avancoMedioExibido(
  * (cenário do fechamento) e nivel_percebido (qualitativa da semana anterior).
  *
  * A leitura qualitativa NÃO é um empate técnico: ela promove para confirmada
- * (junto com o delta) e sustenta sozinha uma evolução parcial. Um número que
- * sobe sem nenhuma evidência de percepção é justamente o caso que a régua
- * quer manter em "parcial", não em "confirmada".
+ * (junto com o delta e a meta). Um número que sobe sem nenhuma evidência de
+ * percepção é justamente o caso que a régua quer manter em "parcial", não em
+ * "confirmada".
+ *
+ * 🔴 Ela NÃO sustenta mais uma parcial sozinha (decisão do dono, 17/09/2026).
+ * Com "+0,1" e a conversa mostrando evolução, o descritor saía "Evolução
+ * parcial", e o relatório não conseguia dizer em uma linha o que é parcial
+ * ("avanço de pelo menos 0,2" ficava falso nesses casos). Parcial passou a ser
+ * só avanço exibido de 0,2 ou mais. `Medido:` 2 descritores gravados estavam
+ * nessa exceção; por decisão do dono, NÃO foram reclassificados.
  */
 /**
  * A leitura qualitativa deste descritor pode VOTAR na convergência?
@@ -226,7 +233,7 @@ export function classificarConvergencia({
   if (avanco === 0) return CONVERGENCIA.ESTAVEL;
   const medido = avanco ?? delta;
   if (medido >= CORTE_CONFIRMADA && qualitativaPositiva && alcancouMeta) return CONVERGENCIA.CONFIRMADA;
-  if (medido >= CORTE_PARCIAL || qualitativaPositiva) return CONVERGENCIA.PARCIAL;
+  if (medido >= CORTE_PARCIAL) return CONVERGENCIA.PARCIAL;
   // Queda cai aqui de propósito: sem veredito de regressão, o piso da régua é
   // "manteve o patamar". Ver o cabeçalho de CONVERGENCIA.
   return CONVERGENCIA.ESTAVEL;

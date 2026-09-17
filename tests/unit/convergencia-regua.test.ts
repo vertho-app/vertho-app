@@ -28,8 +28,12 @@ describe('Régua de convergência', () => {
       .toBe(CONVERGENCIA.CONFIRMADA);
   });
 
-  it('sustenta evolução parcial só com a leitura qualitativa, desde que haja avanço', () => {
+  it('a leitura qualitativa NÃO sustenta parcial sozinha: "+0,1" é estável (17/09/2026)', () => {
+    // Antes, 2,0 → 2,1 com a conversa mostrando evolução saía "Evolução parcial",
+    // e o contador não conseguia dizer "avanço de pelo menos 0,2" sem mentir.
     expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.1, nivel_percebido: 3 }))
+      .toBe(CONVERGENCIA.ESTAVEL);
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.2, nivel_percebido: 3 }))
       .toBe(CONVERGENCIA.PARCIAL);
   });
 
@@ -40,10 +44,11 @@ describe('Régua de convergência', () => {
       .toBe(CONVERGENCIA.ESTAVEL);
     expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2, nivel_percebido: 3 }))
       .toBe(CONVERGENCIA.ESTAVEL);
-    // A fronteira é o número EXIBIDO: +0,04 aparece como "0,0", +0,06 como "+0,1".
+    // A fronteira é o número EXIBIDO: +0,04 aparece como "0,0" e +0,16 como
+    // "+0,2", que já é parcial mesmo sendo menos que 0,2 cru.
     expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.04, nivel_percebido: 3 }))
       .toBe(CONVERGENCIA.ESTAVEL);
-    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.06, nivel_percebido: 3 }))
+    expect(classificarConvergencia({ nota_pre: 2, nota_pos: 2.16, nivel_percebido: null }))
       .toBe(CONVERGENCIA.PARCIAL);
   });
 
@@ -80,13 +85,16 @@ describe('Régua de convergência', () => {
       .toBe(CONVERGENCIA.PARCIAL);
     expect(classificarConvergencia({ nota_pre: 1.3, nota_pos: 1.5, nivel_percebido: 1 }))
       .toBe(CONVERGENCIA.PARCIAL);
-    // Varre toda nota de uma casa: o veredito nunca contradiz o número exibido.
+    // Varre toda nota de uma casa, com e sem conversa mostrando evolução: parcial
+    // ou confirmada acontece exatamente quando o número exibido é 0,2 ou mais.
     for (let a = 10; a <= 40; a++) {
       for (let b = 10; b <= 40; b++) {
         const [pre, pos] = [a / 10, b / 10];
-        const v = classificarConvergencia({ nota_pre: pre, nota_pos: pos, nivel_percebido: null });
         const exibido = avancoExibido(pre, pos) as number;
-        expect(v === CONVERGENCIA.PARCIAL, `${pre} → ${pos} exibe +${exibido}`).toBe(exibido >= CORTE_PARCIAL);
+        for (const nivel_percebido of [null, 4]) {
+          const v = classificarConvergencia({ nota_pre: pre, nota_pos: pos, nivel_percebido });
+          expect(v !== CONVERGENCIA.ESTAVEL, `${pre} → ${pos} exibe +${exibido} (conversa ${nivel_percebido})`).toBe(exibido >= CORTE_PARCIAL);
+        }
       }
     }
   });

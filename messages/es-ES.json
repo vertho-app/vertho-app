@@ -1422,7 +1422,7 @@
     "countersIntro": "De los {total} comportamientos observados en esta temporada:",
     "legend": {
       "confirmed": "Avance de al menos 0,5",
-      "partial": "Avance de al menos 0,1",
+      "partial": "Avance de al menos 0,2",
       "stable": "Mismo nivel del inicio"
     },
     "backToSeason": "Volver a la temporada",

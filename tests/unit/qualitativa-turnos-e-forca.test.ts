@@ -108,24 +108,26 @@ describe('leitura qualitativa fraca não vota na convergência', () => {
       nivel_percebido: qualitativaSustenta({ forca_evidencia: forca }) ? nivel : null,
     });
 
-  // ⚠️ Nota final 1,6, e não 1,5: desde 16/09/2026 avanço exibido 0,0 é ESTÁVEL
-  // por regra própria, e com 1,5 → 1,5 o filtro de força deixaria de ser o que
-  // decide (o teste passaria mesmo sem ele). +0,1 fica abaixo do corte de
-  // parcial, então é a leitura qualitativa que vota.
-  it('🔴 o caso real: descritor NÃO discutido não vira "evolução parcial"', () => {
-    // `nivel_percebido` 2.0 é o DEFAULT do validador quando o campo falta, e
-    // 1,5 é a média de baseline medida em Ibipeba. Sem o filtro de força, o
-    // `2.0 > 1.5` bastava para classificar como parcial.
-    const comFiltro = classificar(1.5, 1.6, 2.0, 'fraca');
-    const semFiltro = classificarConvergencia({ nota_pre: 1.5, nota_pos: 1.6, nivel_percebido: 2.0 });
-    expect(semFiltro).toBe(CONVERGENCIA.PARCIAL);
-    expect(comFiltro).not.toBe(CONVERGENCIA.PARCIAL);
-    expect(comFiltro).toBe(CONVERGENCIA.ESTAVEL);
+  // ⚠️ Desde 17/09/2026 a leitura qualitativa só vota na CONFIRMADA (sozinha ela
+  // não sustenta mais parcial). O caso que prova o filtro é, então, um avanço
+  // grande que chega ao Nível 3: é a conversa que separa confirmada de parcial.
+  it('🔴 descritor NÃO discutido não confirma evolução', () => {
+    // `nivel_percebido` 2.0 é o DEFAULT do validador quando o campo falta. Sem o
+    // filtro de força, `2.0 > 1.9` bastava para confirmar um avanço que a
+    // conversa nunca tocou.
+    const comFiltro = classificar(1.9, 3.1, 2.0, 'fraca');
+    const semFiltro = classificarConvergencia({ nota_pre: 1.9, nota_pos: 3.1, nivel_percebido: 2.0 });
+    expect(semFiltro).toBe(CONVERGENCIA.CONFIRMADA);
+    expect(comFiltro).toBe(CONVERGENCIA.PARCIAL);
   });
 
   it('leitura com base moderada ou forte continua valendo', () => {
-    expect(classificar(1.5, 1.6, 2.5, 'moderada')).toBe(CONVERGENCIA.PARCIAL);
-    expect(classificar(1.5, 1.6, 2.5, 'forte')).toBe(CONVERGENCIA.PARCIAL);
+    expect(classificar(1.9, 3.1, 2.5, 'moderada')).toBe(CONVERGENCIA.CONFIRMADA);
+    expect(classificar(1.9, 3.1, 2.5, 'forte')).toBe(CONVERGENCIA.CONFIRMADA);
+  });
+
+  it('conversa mostrando evolução não transforma "+0,1" em parcial (17/09/2026)', () => {
+    expect(classificar(1.5, 1.6, 2.5, 'forte')).toBe(CONVERGENCIA.ESTAVEL);
   });
 
   it('a nota do scorer decide sozinha quando ela existe, com ou sem qualitativa', () => {

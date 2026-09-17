@@ -1422,7 +1422,7 @@
     "countersIntro": "Of the {total} behaviors observed this season:",
     "legend": {
       "confirmed": "Progress of at least 0.5",
-      "partial": "Progress of at least 0.1",
+      "partial": "Progress of at least 0.2",
       "stable": "Same level as at the start"
     },
     "backToSeason": "Back to season",

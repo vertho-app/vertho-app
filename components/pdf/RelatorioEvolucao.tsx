@@ -474,7 +474,7 @@ export default function RelatorioEvolucaoPDF({
             {`Confirmada exige três coisas ao mesmo tempo: avanço de ao menos ${num(CORTE_CONFIRMADA)} ponto, o relato da própria pessoa sustentando a mudança, e a nota de chegada alcançando N${NIVEL_META_CONFIRMADA}. Subir muito sem chegar a N${NIVEL_META_CONFIRMADA} é evolução parcial: "confirmada" se lê como "pode contar com isso", e essa promessa exige o patamar, não só o movimento.`}
           </Text>
           <Text style={s.p}>
-            {`Parcial cobre avanço de ao menos ${num(CORTE_PARCIAL)} ponto, ou o relato sustentando a mudança sozinho. Estável é o piso: o patamar de partida se manteve, e é só isso que a medição sustenta.`}
+            {`Parcial cobre avanço de ao menos ${num(CORTE_PARCIAL)} ponto (o relato da pessoa, sozinho, não basta). Estável é o piso: o patamar de partida se manteve, e é só isso que a medição sustenta.`}
           </Text>
 
           <Text style={s.h3}>A precisão do instrumento</Text>
