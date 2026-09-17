@@ -10,25 +10,13 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { AppLocale, defaultLocale } from '@/i18n/routing';
-import { localeLanguageName } from '@/lib/i18n';
+import { withLanguageInstruction } from '@/lib/ai-language';
 import { callAI } from '@/actions/ai-client';
 import { costFromTokens } from '@/lib/ia-cost-catalog';
 import { IA_BATCH, type IaBatchStatus } from '@/lib/status';
 
 const AI_TIMEOUT_MS = 120000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// Espelha o withLanguageInstruction do ai-client (mantém o conteúdo batcheado
-// idêntico ao do caminho síncrono). Batch do kit roda sem cookies → pt-BR default.
-function withLanguageInstruction(system: string, locale: AppLocale): string {
-  const language = localeLanguageName(locale);
-  return `${system}
-
-═══ IDIOMA DA EXPERIÊNCIA ═══
-Use ${language} em todo texto destinado ao usuário final.
-Mantenha nomes de campos JSON, enums técnicos, códigos e identificadores exatamente como especificados no prompt.
-Se o prompt exigir JSON, retorne JSON válido e traduza apenas os valores textuais voltados ao usuário.`;
-}
 
 export interface BatchReq {
   customId: string;

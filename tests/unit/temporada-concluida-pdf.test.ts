@@ -220,6 +220,14 @@ describe('ordem do PDF da temporada', () => {
   const marca = { logoBase64: null, mostrarVertho: true } as any;
   const texto = () => textos(TemporadaConcluidaPDF({ dados, marca })).join('\n');
 
+  it('o PDF revisa a concordância da devolutiva antiga antes de renderizar', () => {
+    const antigo = { ...dados, sem14: { resumo_avaliacao: { mensagem_geral: 'O peso que você vem carregando sozinha. A equipe está preparada.' } } };
+    const t = textos(TemporadaConcluidaPDF({ dados: antigo, marca })).join('\n');
+    expect(t).toContain('O peso que você vem carregando por conta própria. A equipe está preparada.');
+    expect(t).not.toContain('carregando sozinha');
+    expect(antigo.sem14.resumo_avaliacao.mensagem_geral).toContain('carregando sozinha');
+  });
+
   it('devolutiva, competências em destaque, descritores e, por último, a mensagem final', () => {
     const t = texto();
     const ordem = ['veja o que mudou em você', 'TEXTO-DA-DEVOLUTIVA', 'Suas competências', 'Avanço',
@@ -325,6 +333,14 @@ describe('ordem da tela Temporada Concluída', () => {
   function textoDaTela(locale: string) {
     return htmlDaTela(locale, dadosTela).replace(/<[^>]+>/g, '\n').replace(/&gt;/g, '>').split('\n').map((l) => l.trim()).filter(Boolean).join('\n');
   }
+
+  it('a tela revisa a mesma devolutiva antiga e preserva a resposta literal', () => {
+    const antigo = { ...dadosTela, sem14: { resposta: 'Eu disse: você está preparada.', resumo_avaliacao: { mensagem_geral: 'O peso que você vem carregando sozinha. A equipe está preparada.' } } };
+    const html = htmlDaTela('pt-BR', antigo);
+    expect(html).toContain('O peso que você vem carregando por conta própria. A equipe está preparada.');
+    expect(html).not.toContain('carregando sozinha');
+    expect(html).toContain('Eu disse: você está preparada.');
+  });
 
   it('devolutiva, competências em destaque, descritores e, por último, a mensagem final', () => {
     const t = textoDaTela('pt-BR');

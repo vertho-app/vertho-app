@@ -73,6 +73,29 @@ flowchart TB
 
 ## Camada 0 — Insumos (o que precisa existir antes de tudo)
 
+### Redação personalizada sem presumir gênero (17/09/2026)
+
+O cadastro não precisa de gênero para personalizar os textos. `lib/ai-language.ts`
+centraliza a orientação de usar "você" e descrever ações sem presumir gênero pelo
+nome, cargo, perfil ou personagem. Os caminhos com política de idioma de `callAI`,
+`callAIChat` e os lotes Anthropic e OpenAI usam a mesma instrução. O contrato
+Responses do simulador PACE, que transporta prompts literais, permanece separado.
+Citações literais,
+identidades dos personagens, critérios de avaliação e formato JSON são preservados.
+
+Na apresentação, `lib/redacao-sem-genero.ts` revisa construções conhecidas com
+sujeito explícito (por exemplo, "você vem carregando sozinha" → "você vem
+carregando por conta própria"). A revisão alimenta tela/PDF da temporada,
+resumo do fechamento e leitura do admin, inclusive para avaliações antigas.
+Ela não grava no banco, recalcula notas ou altera respostas/citações. As regras
+são deliberadamente limitadas: não são um analisador completo de português e
+não garantem ausência de marcação em qualquer texto livre. "A equipe está
+preparada" não é erro de tratamento. PDFs já baixados precisam ser baixados novamente.
+
+Testes: `redacao-sem-genero`, `relatorio-texto`, `temporada-concluida-pdf` e
+`integrations/ai-redacao-sem-genero` (corpos reais das requests com transporte
+simulado; não confundem entrega da instrução com obediência do modelo).
+
 | Insumo | Onde vive | Quem produz | Obrigatório? |
 |---|---|---|---|
 | Colaborador | `colaboradores` (`nome_completo`, `cargo`, `empresa_id`) | cadastro / import | **sim** |

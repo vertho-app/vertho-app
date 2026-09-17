@@ -24,7 +24,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
 import { AppLocale, defaultLocale } from '@/i18n/routing';
-import { localeCookieName, localeLanguageName, resolveAppLocale } from '@/lib/i18n';
+import { localeCookieName, resolveAppLocale } from '@/lib/i18n';
+import { withLanguageInstruction } from '@/lib/ai-language';
 import { costFromTokens, openAIWebSearchToolCost } from '@/lib/ia-cost-catalog';
 // Predicados PUROS vivem em lib/. ⚠️ Este comentário dizia que o arquivo é
 // `'use server'` e que todo export precisa ser async — deixou de valer em 24/08
@@ -143,17 +144,6 @@ async function resolveAILocale(explicitLocale?: AppLocale): Promise<AppLocale> {
   } catch {
     return defaultLocale;
   }
-}
-
-function withLanguageInstruction(system: string, locale: AppLocale): string {
-  const language = localeLanguageName(locale);
-
-  return `${system}
-
-═══ IDIOMA DA EXPERIÊNCIA ═══
-Use ${language} em todo texto destinado ao usuário final.
-Mantenha nomes de campos JSON, enums técnicos, códigos e identificadores exatamente como especificados no prompt.
-Se o prompt exigir JSON, retorne JSON válido e traduza apenas os valores textuais voltados ao usuário.`;
 }
 
 /**

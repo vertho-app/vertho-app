@@ -19,6 +19,8 @@
  * banco, não o que o gerador de hoje produziria.
  */
 
+import { resumoSemTratamentoDeGenero } from '@/lib/redacao-sem-genero';
+
 export interface ResumoAvaliacao {
   /** O texto que a pessoa lê. Sempre presente quando a função devolve algo. */
   mensagem: string;
@@ -35,6 +37,7 @@ function texto(valor: unknown): string | null {
 }
 
 export function normalizarResumoAvaliacao(valor: unknown): ResumoAvaliacao | null {
+  valor = resumoSemTratamentoDeGenero(valor);
   const comoTexto = texto(valor);
   if (comoTexto) return { mensagem: comoTexto, avanco: null, atencao: null, evidencias: [] };
 

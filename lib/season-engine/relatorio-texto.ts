@@ -1,4 +1,5 @@
 import { descritorParaHumano } from '@/lib/descritor-humano';
+import { resumoSemTratamentoDeGenero, semTratamentoDeGenero } from '@/lib/redacao-sem-genero';
 
 /**
  * Texto que entra no relatório da temporada (PDF e tela) do jeito que a pessoa
@@ -62,7 +63,7 @@ export function semAbreviacaoColab<T>(texto: T): T {
  */
 export function textosDoRelatorio(dados: any): any {
   if (!dados) return dados;
-  const t = <T,>(x: T): T => semCodigoDaMatriz(semAbreviacaoColab(x));
+  const t = <T,>(x: T): T => semTratamentoDeGenero(semCodigoDaMatriz(semAbreviacaoColab(x)));
   const er = dados.evolutionReport;
   return {
     ...dados,
@@ -70,6 +71,7 @@ export function textosDoRelatorio(dados: any): any {
       ...er,
       insight_geral: t(er.insight_geral),
       proximo_passo: t(er.proximo_passo),
+      resumo_avaliacao: resumoSemTratamentoDeGenero(er.resumo_avaliacao),
       descritores: Array.isArray(er.descritores)
         ? er.descritores.map((d: any) => ({
           ...d,
@@ -88,10 +90,12 @@ export function textosDoRelatorio(dados: any): any {
       : dados.missoes,
     sem14: dados.sem14 && {
       ...dados.sem14,
-      resumo_avaliacao: dados.sem14.resumo_avaliacao && {
-        ...dados.sem14.resumo_avaliacao,
-        mensagem_geral: t(dados.sem14.resumo_avaliacao.mensagem_geral),
-      },
+      resumo_avaliacao: typeof dados.sem14.resumo_avaliacao === 'string'
+        ? t(dados.sem14.resumo_avaliacao)
+        : dados.sem14.resumo_avaliacao && {
+          ...resumoSemTratamentoDeGenero(dados.sem14.resumo_avaliacao),
+          mensagem_geral: t(dados.sem14.resumo_avaliacao.mensagem_geral),
+        },
     },
   };
 }
