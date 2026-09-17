@@ -248,6 +248,8 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
         sempre; ao passar o mouse ou navegar pelo teclado ela abre por CIMA do
         conteúdo (o `md:ml-20` do main não muda, então nada salta) e mostra o nome
         de cada item. No celular a barra inferior já tinha os nomes.
+        Aberta, ela tem 256 px (w-64): em 240 px, "Simulações de atendimento"
+        terminava a 1 px da borda (medido no navegador em 17/09/2026).
         Teclado abre por `has-focus-visible`, NÃO por `focus-within`: o botão
         clicado com o mouse guarda o foco, e com `focus-within` a coluna ficava
         aberta por cima da tela depois da navegação.
@@ -261,10 +263,10 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
       */}
       <aside
         data-menu="lateral"
-        className="group/menu hidden md:flex fixed left-0 top-0 h-full w-20 overflow-hidden border-r border-white/[0.08] flex-col py-6 gap-6 z-40 transition-[width] duration-200 ease-out hover:w-60 hover:z-[44] hover:shadow-2xl has-focus-visible:w-60 has-focus-visible:z-[44] has-focus-visible:shadow-2xl"
+        className="group/menu hidden md:flex fixed left-0 top-0 h-full w-20 overflow-hidden border-r border-white/[0.08] flex-col py-6 gap-6 z-40 transition-[width] duration-200 ease-out hover:w-64 hover:z-[44] hover:shadow-2xl has-focus-visible:w-64 has-focus-visible:z-[44] has-focus-visible:shadow-2xl"
         style={{ background: theme.bgStart, backdropFilter: 'blur(12px)' }}
       >
-        <div className="flex w-60 items-center gap-3 px-5">
+        <div className="flex w-64 items-center gap-3 px-5">
           {/* ✅ UserAvatar substitui o botão com initials hardcoded */}
           <UserAvatar
             name={colaborador?.nome_completo ?? user?.email}
@@ -278,7 +280,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
           </span>
         </div>
 
-        <nav className="flex w-60 flex-1 flex-col gap-2">
+        <nav className="flex w-64 flex-1 flex-col gap-2">
           {navItems.map(item => {
             const isActive = item.href === ativo;
             const Icon = item.icon;
@@ -308,7 +310,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
           })}
         </nav>
 
-        <div className="flex w-60 flex-col gap-2">
+        <div className="flex w-64 flex-col gap-2">
           {ehAdminDaPlataforma && (
             <button
               onClick={() => router.push('/admin/dashboard')}
@@ -370,27 +372,38 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
         {children}
       </main>
 
-      {/* Bottom Nav mobile */}
+      {/*
+        Bottom Nav mobile. ROLA na horizontal quando os itens não cabem.
+        Medido no iPhone em 17/09/2026: o gestor tinha 8 itens e a colaboradora 7,
+        e os últimos (Perfil entre eles) ficavam FORA da tela, sem como alcançar;
+        os rótulos longos quebravam em três linhas e vazavam a barra. Cada item tem
+        largura fixa e o rótulo vai a no máximo duas linhas. `w-max min-w-full`:
+        com poucos itens eles se espalham; com muitos, a faixa passa da tela sem
+        espaço negativo (com `justify-around` o primeiro item sumiria à esquerda).
+      */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 flex items-center justify-around border-t border-white/[0.06] z-40"
+        data-menu="inferior"
+        className="md:hidden fixed bottom-0 left-0 right-0 overflow-x-auto border-t border-white/[0.06] z-40 [scrollbar-width:none]"
         style={{ height: 'var(--nav-height)', background: theme.bgStart }}
       >
-        {navItems.map(item => {
-          const isActive = item.href === ativo;
-          const Icon = item.icon;
-          const label = t(`nav.${item.labelKey}`);
-          return (
-            <button
-              key={item.href}
-              onClick={() => router.push(item.href)}
-              className={`flex flex-col items-center gap-0.5 py-1 px-3 transition-colors ${isActive ? '' : 'text-gray-500'}`}
-              style={isActive ? { color: theme.accent } : undefined}
-            >
-              <Icon size={20} />
-              <span className="text-[10px] font-semibold">{label}</span>
-            </button>
-          );
-        })}
+        <div className="flex h-full w-max min-w-full items-center justify-around">
+          {navItems.map(item => {
+            const isActive = item.href === ativo;
+            const Icon = item.icon;
+            const label = t(`nav.${item.labelKey}`);
+            return (
+              <button
+                key={item.href}
+                onClick={() => router.push(item.href)}
+                className={`flex w-[76px] shrink-0 flex-col items-center gap-0.5 py-1 transition-colors ${isActive ? '' : 'text-gray-500'}`}
+                style={isActive ? { color: theme.accent } : undefined}
+              >
+                <Icon size={20} className="shrink-0" />
+                <span className="line-clamp-2 w-full text-center text-[10px] font-semibold leading-tight">{label}</span>
+              </button>
+            );
+          })}
+        </div>
       </nav>
 
         {!/^\/dashboard\/temporada\/semana\//.test(pathname) && !pathname.startsWith('/dashboard/treino-atendimento') && !pathname.startsWith('/dashboard/simulador-vendas') && !isImmersiveContent && <BetoChat />}

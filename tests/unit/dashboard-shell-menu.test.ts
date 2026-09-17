@@ -97,8 +97,10 @@ describe('menu lateral do dashboard', () => {
   it('a coluna abre com o mouse e com o TECLADO, e mostra o nome de cada item', () => {
     const aside = asideDoMenu();
     expect(aside).toMatch(/className="group\/menu [^"]*\bw-20\b/);
-    expect(aside).toMatch(/className="[^"]*\bhover:w-60\b/);
-    expect(aside).toMatch(/className="[^"]*\bhas-focus-visible:w-60\b/);
+    // 256 px: em 240 px o rótulo mais longo terminava a 1 px da borda (17/09/2026)
+    expect(aside).toMatch(/className="[^"]*\bhover:w-64\b/);
+    expect(aside).toMatch(/className="[^"]*\bhas-focus-visible:w-64\b/);
+    expect(aside.match(/className="flex w-64\b/g)?.length).toBe(3);
 
     // todo rótulo escondido aparece nos DOIS gatilhos
     const rotulos = [...aside.matchAll(/<span className="([^"]*\bopacity-0\b[^"]*)"/g)].map(([, classes]) => classes);
@@ -133,6 +135,18 @@ describe('menu lateral do dashboard', () => {
       expect(z).toBeLessThan(zDaBarra);
       expect(z).toBeGreaterThan(40);
     }
+  });
+
+  it('🔴 no celular a barra inferior ROLA e todo item fica alcançável', () => {
+    // Medido no iPhone em 17/09/2026: com 7 ou 8 itens, os últimos (Perfil entre
+    // eles) ficavam fora da tela, e os rótulos quebravam em três linhas.
+    const inicio = fonte.indexOf('data-menu="inferior"');
+    expect(inicio).toBeGreaterThan(-1);
+    const barra = fonte.slice(inicio, fonte.indexOf('</nav>', inicio));
+    expect(barra).toMatch(/className="md:hidden fixed [^"]*\boverflow-x-auto\b/);
+    expect(barra).toContain('className="flex h-full w-max min-w-full items-center justify-around"');
+    expect(barra).toMatch(/className=\{`flex w-\[76px\] shrink-0 /);
+    expect(barra).toMatch(/<span className="line-clamp-2 w-full /);
   });
 
   it('abrir a coluna não empurra o conteúdo', () => {

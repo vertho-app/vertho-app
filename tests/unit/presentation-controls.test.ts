@@ -44,6 +44,20 @@ describe('barra da sala de apresentação', () => {
     expect(link).toMatch(/<span class="hidden min-w-0 sm:block">/);
   });
 
+  it('🔴 no celular os seletores ficam sem o ícone: com os três controles, a barra cobria o Beto', () => {
+    const html = barra('https://acme-demo.vertho.ai/c/AAAAAAAAAAAAAAAAAAAAAAAA');
+    for (const rotulo of ['Trocar função apresentada', 'Trocar dispositivo apresentado']) {
+      const label = html.slice(html.lastIndexOf('<label', html.indexOf(rotulo)), html.indexOf(rotulo));
+      // o primeiro span do label é o ícone
+      const icone = label.match(/<span class="([^"]*)" aria-hidden="true">/)?.[1] ?? '';
+      expect(icone, `ícone de "${rotulo}"`).toMatch(/(^|\s)hidden(\s|$)/);
+      expect(icone, `ícone de "${rotulo}"`).toContain('sm:grid');
+    }
+    // o "Voltar" mantém o ícone: no celular é tudo o que ele mostra
+    const voltar = html.slice(html.indexOf('<a '), html.indexOf('</a>'));
+    expect(voltar.match(/<span class="([^"]*)" aria-hidden="true">/)?.[1]).toMatch(/^grid /);
+  });
+
   it('quem apresenta (sem convite) continua com os dois seletores e sem o "Voltar"', () => {
     const html = barra(null);
     expect(html).not.toContain('voltar-ao-inicio');

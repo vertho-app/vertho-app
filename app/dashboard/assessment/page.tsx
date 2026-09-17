@@ -38,6 +38,8 @@ const PROMPT_P = [
  */
 function CardTrilhoLideranca({ t, data, trilho, router }: { t: any; data: any; trilho: 'cargo' | 'lideranca'; router: any }) {
   if (trilho === 'lideranca') {
+    // Quem só lidera não tem mapeamento de cargo para onde voltar.
+    if (data?.trilhoCargo?.disponivel === false) return null;
     return (
       <button type="button" onClick={() => router.push('/dashboard/assessment')}
         className="w-full py-2.5 rounded-xl text-xs font-bold text-gray-300 border border-white/10 hover:bg-white/5 transition">

@@ -23,6 +23,8 @@ const cenario = {
   role: 'colaborador',
   sysConfig: {} as any,
   respostas: [] as any[],
+  /** Top 5 do cargo da pessoa: vazio é quem só lidera. */
+  top5Cargo: CARGO5 as string[],
 };
 
 let sb: ReturnType<typeof criarSupabaseMock>;
@@ -43,7 +45,7 @@ sb = criarSupabaseMock({
   resolver: (table, cols) => {
     // O mock ignora filtros: as duas leituras de cargos_empresa se distinguem pelo select.
     if (table === 'cargos_empresa') {
-      return cols.includes('nome') ? { nome: 'Gerente Comercial', top5_workshop: LID5 } : { top5_workshop: CARGO5 };
+      return cols.includes('nome') ? { nome: 'Gerente Comercial', top5_workshop: LID5 } : { top5_workshop: cenario.top5Cargo };
     }
     if (table === 'empresas') return { is_demo: false, sys_config: cenario.sysConfig };
     if (table === 'banco_cenarios') return { id: 'cen-1', titulo: 'Cenário', descricao: 'Contexto', alternativas: [] };
@@ -84,6 +86,25 @@ describe('trilho de liderança na action do assessment', () => {
     cenario.role = 'colaborador';
     cenario.sysConfig = {};
     cenario.respostas = [];
+    cenario.top5Cargo = CARGO5;
+  });
+
+  it('🔴 quem só lidera não recebe o caminho de volta a um mapeamento de cargo que não existe (17/09/2026)', async () => {
+    cenario.sysConfig = CONTRATADO;
+    cenario.cargo = 'Gerente Comercial';
+
+    const comCargo: any = await getDiagnosticoDoDia('lideranca');
+    expect(comCargo.trilhoCargo).toEqual({ disponivel: true });
+
+    cenario.top5Cargo = [];
+    const soLidera: any = await getDiagnosticoDoDia('lideranca');
+    expect(soLidera.error).toBeUndefined();
+    expect(soLidera.trilhoCargo).toEqual({ disponivel: false });
+
+    // no trilho do cargo o campo não se aplica
+    cenario.top5Cargo = CARGO5;
+    const cargo: any = await getDiagnosticoDoDia('cargo');
+    expect(cargo.trilhoCargo).toBeNull();
   });
 
   it('sem módulo contratado o trilho recusa com código — e o trilho do cargo nem menciona o de liderança', async () => {

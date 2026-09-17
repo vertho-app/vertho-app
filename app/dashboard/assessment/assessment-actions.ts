@@ -237,6 +237,23 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
     .eq('empresa_id', colab.empresa_id);
   if (respostasError) return { error: respostasError.message };
 
+  // No trilho de liderança, a tela oferece "Voltar ao mapeamento do cargo". Quem
+  // só lidera (cargo com Top 5 vazio) não tem para onde voltar: o botão levaria a
+  // "Nenhuma competência configurada". Lê só o Top 5 em `cargos_empresa` (a
+  // régua do /api/me), sem buscar competências pelo cargo da pessoa, que é
+  // exatamente o que o trilho de liderança não pode fazer.
+  let trilhoCargo: { disponivel: boolean } | null = null;
+  if (trilho === 'lideranca') {
+    const { data: cargoDaPessoa, error: erroCargo } = await sb.from('cargos_empresa')
+      .select('top5_workshop')
+      .eq('empresa_id', colab.empresa_id)
+      .eq('nome', colab.cargo)
+      .maybeSingle();
+    // Na dúvida (erro de leitura), mostra o caminho de volta, como o menu faz.
+    const top5DoCargo = (cargoDaPessoa as any)?.top5_workshop;
+    trilhoCargo = { disponivel: erroCargo ? true : Array.isArray(top5DoCargo) && top5DoCargo.length > 0 };
+  }
+
   if (trilho === 'cargo') {
     const lid = await competenciasDoTrilho(sb, colab as any, empresaRow, 'lideranca');
     if (lid.ok && lid.competencias.length) {
@@ -255,7 +272,7 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
   const pct = top5.length > 0 ? Math.round((respondidas / top5.length) * 100) : 0;
 
   const progresso = { pct, total: top5.length, respondidas };
-  const extrasTrilho = { trilho, cargoAlvo, trilhoLideranca };
+  const extrasTrilho = { trilho, cargoAlvo, trilhoLideranca, trilhoCargo };
 
   // Um cenário por dia SÓ no trilho de liderança (decisão do programa). O
   // trilho do cargo segue sem limite, como sempre foi. A tela já tem o estado

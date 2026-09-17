@@ -25,6 +25,16 @@ describe('telas dos simuladores para quem só acompanha', () => {
     expect(trechoAntes).toContain('{!soAcompanha&&<button');
   });
 
+  it('simulador de liderança: quem só lidera não recebe o "Voltar ao mapeamento do cargo"', () => {
+    // A action diz `trilhoCargo.disponivel` (assessment-trilho-lideranca.test.ts);
+    // aqui fica preso que o card do trilho usa a marca antes de desenhar o botão.
+    const fonte = ler('app/dashboard/assessment/page.tsx');
+    const inicio = fonte.indexOf("if (trilho === 'lideranca') {");
+    expect(inicio).toBeGreaterThan(-1);
+    const trecho = fonte.slice(inicio, fonte.indexOf("t('lideranca.backToCargo')", inicio));
+    expect(trecho).toContain('if (data?.trilhoCargo?.disponivel === false) return null;');
+  });
+
   it('vendas: a aba de treino só aparece para quem treina (ou para quem administra a plataforma)', () => {
     const fonte = ler('components/simulador-vendas/treino.tsx');
     const inicio = fonte.indexOf("{t('trainTab')}");
