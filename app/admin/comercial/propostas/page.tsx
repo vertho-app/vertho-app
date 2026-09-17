@@ -11,12 +11,19 @@ import { PRODUCT_PACKAGE_LABELS, PROPOSAL_STATUSES, PROPOSAL_STATUS_LABELS } fro
 import { fmtBRL } from '@/lib/sales/formatters';
 import type { SalesProposal, SalesRepresentative } from '@/lib/sales/types';
 
+/** Valor do filtro de representante que seleciona as propostas do deal desk (sem RC). */
+const SEM_RC = '__deal_desk__';
+
 export default function PropostasAdminPage() {
   const [proposals, setProposals] = useState<SalesProposal[]>([]);
   const [reps, setReps] = useState<SalesRepresentative[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('submitted_for_approval');
+  // Abre em TODOS os status. Até 17/09/2026 abria em "Enviada para aprovação",
+  // e quem voltava do detalhe de uma proposta aprovada (as do deal desk nascem e
+  // são aprovadas pelo admin) não a encontrava na lista. A fila de aprovação
+  // continua a um clique, com a contagem no próprio seletor.
+  const [statusFilter, setStatusFilter] = useState<string>('');
   const [repFilter, setRepFilter] = useState<string>('');
 
   useEffect(() => {
@@ -38,7 +45,7 @@ export default function PropostasAdminPage() {
   const filtered = useMemo(
     () => proposals.filter((p) =>
       (!statusFilter || p.status === statusFilter) &&
-      (!repFilter || p.representante_id === repFilter)),
+      (!repFilter || (repFilter === SEM_RC ? !p.representante_id : p.representante_id === repFilter))),
     [proposals, statusFilter, repFilter],
   );
 
@@ -72,6 +79,7 @@ export default function PropostasAdminPage() {
             className="px-3 py-1.5 rounded-lg text-xs text-white border border-white/10 bg-[#091D35]"
           >
             <option value="">Todos os representantes</option>
+            <option value={SEM_RC}>Deal desk · Vertho, sem RC ({proposals.filter((p) => !p.representante_id).length})</option>
             {reps.map((r) => (
               <option key={r.id} value={r.id}>{r.name}</option>
             ))}
@@ -108,9 +116,15 @@ export default function PropostasAdminPage() {
                         {p.proposal_number}
                       </Link>
                     </td>
-                    <td className="px-3 py-2 text-gray-300">{repById.get(p.representante_id) || '—'}</td>
+                    <td className="px-3 py-2 text-gray-300">
+                      {p.representante_id
+                        ? (repById.get(p.representante_id) || '—')
+                        : <span className="text-cyan-300/80">Deal desk · Vertho</span>}
+                    </td>
                     <td className="px-3 py-2 text-white">
-                      {p.account?.trade_name || p.account?.legal_name || '—'}
+                      {/* Proposta do deal desk costuma não ter conta no CRM: o nome
+                          vem do orçamento (`cliente_nome`), como no documento. */}
+                      {p.account?.trade_name || p.account?.legal_name || p.cliente_nome || '—'}
                     </td>
                     <td className="px-3 py-2 text-gray-400">
                       {p.product_package ? (PRODUCT_PACKAGE_LABELS[p.product_package] || p.product_package) : '—'}
