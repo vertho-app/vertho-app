@@ -278,13 +278,34 @@ no texto que o cliente lê.
 Rodrigo, travadas em `tests/unit/orcamento-conversao.test.ts`:
 
 - número sempre como #.### ("1.000 pessoas"), exceto valores em reais;
-- matrizes só pelo total ("50 matrizes de competência, uma por cargo"), sem a
-  divisão entre novas e adaptadas;
+- matrizes só pelo total ("50 matrizes de competência"), sem a divisão entre novas
+  e adaptadas, e sem repetir "50 cargos mapeados" na linha de pessoas (é o mesmo
+  número: uma matriz por cargo). Por votação, a linha diz "definidas por votação
+  dos colaboradores";
 - conteúdo sem quantidade: "Vídeos, podcasts, textos e casos personalizados para
   cada pessoa". O documento também deixou de dizer "N conteúdos por pessoa a cada
   ciclo";
 - workshop em linha própria ("Workshop presencial para definir, com a equipe da
-  instituição, as competências de cada cargo"), e não no fim de "cargos mapeados".
+  instituição, as competências de cada cargo"), e não no fim de "cargos mapeados";
+- simuladores NÃO entram no escopo: o documento tem a seção "Simuladores incluídos",
+  lida do orçamento (só a contagem de acessos, nunca o preço).
+
+### Orçamento editado depois de virar proposta (17/09/2026)
+
+A conversão é de mão única e o server recusa converter de novo. Até esta data,
+editar o orçamento depois não chegava à proposta: o "Futuro SA" ganhou simuladores
+e passou a valer R$ 1.599.000 enquanto a PROP-2026-0008 seguia em R$ 1.569.000, e
+o documento misturava as duas versões (métricas lidas do orçamento ao vivo, valor
+da proposta).
+
+Agora o orçamento convertido tem **"Atualizar proposta com este orçamento"**
+(`atualizarPropostaDeOrcamento`). Regrava escopo (revisado no mesmo painel),
+valor, parcela, vigência, desconto e condições a partir do orçamento **salvo**,
+pela mesma conta da conversão (`numerosDoOrcamento`). Não toca em número,
+contato, tipo de cliente, link público nem status. Recusa proposta com RC e
+proposta aceita, perdida ou substituída, e repete essas travas no próprio
+`update` (o cliente pode aceitar pelo link entre a leitura e a escrita). Update
+que não casa linha é erro, não sucesso. Audita o antes e o depois do valor.
 
 ### Simuladores (17/09/2026)
 

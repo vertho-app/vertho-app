@@ -15,6 +15,8 @@
 // item de "não incluso" explicava o Pulso para dizer que não era eNPS — falava
 // de um bloco desligado para negar outra coisa.)
 import { PRODUCT_PACKAGE_LABELS, CUSTOMER_TYPE_LABELS } from './constants';
+import { ROTULO_SIMULADOR } from '@/lib/orcamento/precificacao';
+import { SIMULADORES, type Simulador } from '@/lib/simuladores/acesso-cargo';
 import type { SalesProposal } from './types';
 import { extrairProgramaDoOrcamento, type OrcamentoVinculado, type ProposalPrograma } from './proposal-programa';
 
@@ -86,6 +88,8 @@ export type ProposalFundador = {
 
 export type ProposalGestao = { perguntas: string[]; niveis: string };
 
+export type ProposalSimulador = { nome: string; descricao: string; pessoas: number };
+
 export type ProposalDocumentVM = {
   numero: string;
   emitidaEm: string;   // ISO
@@ -128,6 +132,8 @@ export type ProposalDocumentVM = {
   personalizacao: ProposalPersonalizacao;
   fundadores: ProposalFundador[];
   gestao: ProposalGestao;
+  /** Simuladores incluídos (vazio = a seção some). Contagem vem do orçamento. */
+  simuladores: ProposalSimulador[];
   entregas: { titulo: string; texto: string }[];
   paraPessoa: string[];
   paraInstituicao: string[];
@@ -340,6 +346,21 @@ const NIVEIS_GESTAO: Record<ProposalSegmento, string> = {
   corporativo: 'pessoa · equipe · função · organização',
 };
 
+/**
+ * O que cada simulador é, para quem nunca o viu. Conferido no produto
+ * (17/09/2026): vendas em docs/SIMULADOR-VENDAS.md, atendimento em
+ * docs/recepcao-medica.md e liderança em lib/prontidao-lideranca/ (segundo
+ * mapeamento, separado do cargo).
+ */
+const DESCRICAO_SIMULADOR: Record<Simulador, string> = {
+  vendas: 'Conversas de venda com um cliente simulado por IA, a partir dos produtos, do público e das condições '
+    + 'da própria empresa, com devolutiva por competência na metodologia PACE.',
+  atendimento: 'Atendimentos com um cliente simulado por IA, em casos que a instituição pode adaptar, avaliados '
+    + 'por competência em quatro níveis e com espaço para revisão humana.',
+  lideranca: 'Um segundo mapeamento, separado do cargo, que mostra quem está pronto para liderar e em que estilo, '
+    + 'com relatório para o RH.',
+};
+
 /** Escola e rede de ensino leem a versão de educação; o resto, a corporativa. */
 export function segmentoDoCliente(customerType: string | null | undefined): ProposalSegmento {
   return customerType === 'escola' || customerType === 'rede_ensino' ? 'educacao' : 'corporativo';
@@ -515,6 +536,9 @@ export function buildProposalDocument(
     personalizacao: PERSONALIZACAO[segmento],
     fundadores: FUNDADORES,
     gestao: { perguntas: PERGUNTAS_GESTAO, niveis: NIVEIS_GESTAO[segmento] },
+    simuladores: SIMULADORES
+      .filter((s) => (programa?.simuladores?.[s] ?? 0) > 0)
+      .map((s) => ({ nome: ROTULO_SIMULADOR[s], descricao: DESCRICAO_SIMULADOR[s], pessoas: programa!.simuladores![s] })),
     entregas: ENTREGAS_PADRAO,
     paraPessoa: PARA_PESSOA_PADRAO,
     paraInstituicao: PARA_INSTITUICAO_PADRAO,

@@ -37,6 +37,7 @@ vi.mock('@/lib/audit', () => ({
 
 import {
   aprovarPropostaAdmin,
+  atualizarPropostaDeOrcamento,
   criarPropostaDeOrcamento,
   gerarLinkPropostaAdmin,
   marcarPropostaAceitaAdmin,
@@ -502,14 +503,22 @@ describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
     const linhas = escopoPropostaDoCenario(entradas, resumo, jornada).split('\n');
     expect(linhas.length).toBe(6);
     expect(linhas[0]).toMatch(/Jornada de 7 semanas · 1 ciclo/);
-    expect(linhas[1]).toMatch(/100 pessoas · 1 unidade · 3 cargos mapeados por votação/);
+    expect(linhas[1]).toBe('100 pessoas · 1 unidade');
     expect(linhas[3]).toBe('Vídeos, podcasts, textos e casos personalizados para cada pessoa');
   });
 
   it('matrizes só pelo total, sem a divisão interna entre novas e adaptadas', () => {
     const texto = escopoPropostaDoCenario(entradas, resumo, jornada);
-    expect(texto.split('\n')[2]).toBe('3 matrizes de competência, uma por cargo');
+    expect(texto.split('\n')[2]).toBe('3 matrizes de competência, definidas por votação dos colaboradores');
     expect(texto).not.toMatch(/nova|adaptad/);
+  });
+
+  it('não repete o número de cargos ao lado do de matrizes (uma matriz por cargo)', () => {
+    for (const metodo of ['votacao', 'workshop']) {
+      const texto = escopoPropostaDoCenario({ ...entradas, metodo }, resumo, jornada);
+      expect(texto, metodo).not.toMatch(/cargos? mapead/);
+      expect(texto.match(/\b3\b/g), metodo).toHaveLength(1);
+    }
   });
 
   it('não expõe a quantidade de conteúdos por pessoa/ciclo', () => {
@@ -531,7 +540,7 @@ describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
       { rotulo: 'Regular DUO', semanas: 14 },
     ).split('\n');
     expect(linhas[0]).toMatch(/Regular DUO de 14 semanas · 3 ciclos/);
-    expect(linhas[1]).toBe('100 pessoas · 4 unidades · 1 cargo mapeado');
+    expect(linhas[1]).toBe('100 pessoas · 4 unidades');
     expect(linhas[2]).toBe('4 workshops presenciais, um por unidade, para definir com a equipe as competências de cada cargo');
     expect(linhas[3]).toBe('1 matriz de competência');
   });
@@ -562,8 +571,8 @@ describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
       { rotulo: 'Piloto', semanas: 1 },
     );
     expect(singular).toMatch(/1 semana · 1 ciclo/);
-    expect(singular).toMatch(/1 pessoa · 1 unidade · 1 cargo mapeado por/);
-    expect(singular).toMatch(/^1 matriz de competência$/m);
+    expect(singular).toMatch(/^1 pessoa · 1 unidade$/m);
+    expect(singular).toMatch(/^1 matriz de competência, definida por votação dos colaboradores$/m);
     expect(singular).toMatch(/Extração de 1 vídeo institucional/);
     expect(singular).not.toMatch(/institucionalis|1 vídeos|1 pessoas|1 semanas/);
   });
@@ -591,5 +600,113 @@ describe('a migration 254', () => {
     expect(sql).toMatch(/QUATRO OLHOS/);
     expect(sql).toMatch(/SEM COMISSÃO/);
     expect(sql).toMatch(/RENOVAÇÃO/);
+  });
+});
+
+describe('atualizarPropostaDeOrcamento — orçamento editado depois de virar proposta', () => {
+  /** O update casa a linha: devolve [{id}]. Sem isto o mock devolve null e a action acusa corrida. */
+  function mockQueGrava() {
+    return criarSupabaseMock({
+      resolver: (tabela) => {
+        if (tabela === 'orcamento_cenarios') return cenario.orcamento;
+        if (tabela === 'sales_proposals') return cenario.proposta;
+        return null;
+      },
+      escrita: (tabela, op) => (tabela === 'sales_proposals' && op === 'update' ? [{ id: 'prop-1' }] : null),
+    });
+  }
+  const updateDaProposta = () => escritasEm('sales_proposals', 'update')[0]?.payload;
+  const atualizar = (extra: Record<string, any> = {}) =>
+    atualizarPropostaDeOrcamento({ orcamentoId: 'orc-1', includedScope: 'Escopo novo\n200 pessoas', ...extra } as any);
+
+  beforeEach(() => {
+    cenario.orcamento.proposta_id = 'prop-1';
+    // O orçamento mudou depois da conversão: simuladores entraram e o valor subiu.
+    cenario.orcamento.resultado = {
+      ...ORCAMENTO.resultado, valorTabela: 38000, valorFinal: 38000, parcela: 19000, pessoas: 200,
+    };
+    sb = mockQueGrava();
+  });
+
+  it('regrava valor, parcela e escopo a partir do orçamento SALVO', async () => {
+    const r: any = await atualizar({ paymentTerms: '2 parcelas de R$ 19.000,00' });
+    expect(r.success).toBe(true);
+    expect(updateDaProposta()).toMatchObject({
+      contract_duration_months: 2,
+      monthly_value: 19000,
+      total_contract_value: 38000,
+      number_of_users: 200,
+      included_scope: 'Escopo novo\n200 pessoas',
+      payment_terms: '2 parcelas de R$ 19.000,00',
+    });
+    expect(r.data).toMatchObject({ numero: 'PROP-2026-0001', totalContrato: 38000 });
+  });
+
+  it('não mexe em status, contato, número nem link: só no que vem do orçamento', async () => {
+    await atualizar();
+    const payload = updateDaProposta();
+    for (const campo of ['status', 'contact_name', 'contact_email', 'contact_phone', 'proposal_number', 'public_token', 'customer_type']) {
+      expect(payload, campo).not.toHaveProperty(campo);
+    }
+  });
+
+  it('os números vêm do BANCO, não do que o cliente mandou', async () => {
+    await atualizar({ monthly_value: 1, total_contract_value: 1 });
+    expect(updateDaProposta()).toMatchObject({ monthly_value: 19000, total_contract_value: 38000 });
+  });
+
+  it('orçamento que ainda não virou proposta é recusado sem escrita', async () => {
+    cenario.orcamento.proposta_id = null;
+    const r: any = await atualizar();
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/Converter em proposta/);
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it('proposta com RC é recusada: segue pelo Portal do Representante', async () => {
+    cenario.proposta = { ...PROPOSTA_SEM_RC, representante_id: 'rc-1' };
+    const r: any = await atualizar();
+    expect(r.success).toBe(false);
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it.each(['accepted', 'lost', 'superseded'])('proposta %s não muda mais de valor', async (status) => {
+    cenario.proposta = { ...PROPOSTA_SEM_RC, status };
+    const r: any = await atualizar();
+    expect(r.success).toBe(false);
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it('as travas se repetem NA ESCRITA (aceite pelo link entre a leitura e o update)', async () => {
+    await atualizar();
+    const cadeia = sb.chamadas
+      .filter((c: any) => c.tabela === 'sales_proposals')
+      .map((c: any) => `${c.metodo}:${JSON.stringify(c.args)}`)
+      .join(' ');
+    expect(cadeia).toMatch(/is:\["representante_id",null\]/);
+    expect(cadeia).toMatch(/not:\["status","in","\(accepted,lost,superseded\)"\]/);
+  });
+
+  it('update que não casa linha nenhuma é erro, não sucesso', async () => {
+    sb = mock(); // escrita devolve null: o update "passou" sem gravar nada
+    cenario.orcamento.proposta_id = 'prop-1';
+    const r: any = await atualizar();
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(/mudou de estado/);
+  });
+
+  it('escopo vazio é recusado', async () => {
+    const r: any = await atualizar({ includedScope: '   ' });
+    expect(r.success).toBe(false);
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it('audita o antes e o depois do valor', async () => {
+    await atualizar();
+    const chamada: any = auditoria.mock.calls.find((c: any[]) => c[0].acao === 'proposta_deal_desk.atualizar');
+    expect(chamada?.[0].detalhes).toMatchObject({
+      antes: { total: 32000, parcelas: 2 },
+      depois: { total: 38000, parcelas: 2 },
+    });
   });
 });

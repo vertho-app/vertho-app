@@ -716,6 +716,47 @@ export default async function PropostaPublicaPage(
             </Secao>
           )}
 
+          {/* Simuladores incluídos: seção própria, fora do escopo (decisão do Rodrigo, 17/09/2026) */}
+          {doc.simuladores.length > 0 && (
+            <Secao eyebrow="// Simuladores" titulo="Simuladores incluídos nesta proposta">
+              <div
+                className={doc.simuladores.length === 1 ? undefined : doc.simuladores.length === 2 ? 'prop-grid-2' : 'prop-grid-3'}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: doc.simuladores.length === 1 ? '1fr' : doc.simuladores.length === 2 ? '1fr 1fr' : 'repeat(3, 1fr)',
+                  gap: 12,
+                }}
+              >
+                {doc.simuladores.map((sim) => (
+                  <div
+                    key={sim.nome}
+                    style={{
+                      background: `linear-gradient(160deg, ${C.navy} 0%, ${C.navyDeep} 100%)`,
+                      borderRadius: 12,
+                      padding: '20px 20px 18px',
+                      color: C.white,
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}
+                  >
+                    <div style={{ fontFamily: FONT_DISPLAY, fontSize: 17, fontWeight: 600, letterSpacing: '-.01em' }}>{sim.nome}</div>
+                    <p style={{ fontSize: 13.5, lineHeight: 1.55, margin: '8px 0 14px', color: 'rgba(255,255,255,.82)', flex: 1 }}>
+                      {sim.descricao}
+                    </p>
+                    <div
+                      style={{
+                        alignSelf: 'flex-start', background: C.cyan, color: C.navy, borderRadius: 999,
+                        padding: '5px 12px', fontSize: 12.5, fontWeight: 600,
+                      }}
+                    >
+                      {sim.pessoas.toLocaleString('pt-BR')} {sim.pessoas === 1 ? 'pessoa com acesso' : 'pessoas com acesso'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Secao>
+          )}
+
           {/* O que está incluso */}
           <Secao eyebrow="// O que está incluso" titulo="Tudo o que acompanha o programa">
             <div className="prop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 28px' }}>

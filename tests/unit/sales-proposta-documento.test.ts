@@ -71,6 +71,9 @@ const ORC_REAL = {
 const CHAVES_PERMITIDAS = new Set([
   'pessoas', 'cargos', 'ciclos', 'unidades', 'mesesPrograma',
   'jornada', 'conteudoColab', 'video', 'podcast', 'texto', 'case',
+  // Só a CONTAGEM de acessos por simulador (17/09/2026). O preço do simulador
+  // mora em `entradas.pricing` e continua de fora.
+  'simuladores', 'vendas', 'atendimento', 'lideranca',
 ]);
 
 /** Toda chave e todo número dos dois jsonb, recursivamente. */
@@ -125,13 +128,14 @@ describe('fronteira de custo do documento público', () => {
       // 5 ciclos × 2 meses = as 10 parcelas. O jsonb gravou 8 (conta antiga por
       // semanas) e NÃO pode vencer: a duração sai dos ciclos.
       mesesPrograma: 10,
+      simuladores: null,           // este orçamento não tem simulador
     });
 
     // Negativo: o objeto tem EXATAMENTE essas chaves — uma chave a mais aqui
     // seria um campo do orçamento passando junto sem ninguém perceber.
     expect(Object.keys(pg!).sort()).toEqual([
       'cargos', 'ciclos', 'mesesPrograma',
-      'pessoas', 'semanasPorCiclo', 'unidades',
+      'pessoas', 'semanasPorCiclo', 'simuladores', 'unidades',
     ]);
   });
 
@@ -403,5 +407,48 @@ describe('blocos vindos dos decks de venda (17/09/2026)', () => {
       expect(texto).not.toMatch(/[→←✓✔✗✘✕≥≤●★]/);
       expect(texto).not.toMatch(/diferençação|não sala|expedicação/);
     }
+  });
+});
+
+describe('simuladores incluídos (17/09/2026)', () => {
+  const comSimuladores = (simuladores: any, preco = 37.5) => ({
+    ...ORC_REAL,
+    entradas: {
+      ...(ORC_REAL as any).entradas,
+      simuladores,
+      pricing: { ...(ORC_REAL as any).entradas.pricing, precoSimuladorPessoaCiclo: preco },
+    },
+  });
+
+  it('cada simulador com acesso vira um cartão, com a contagem do orçamento', () => {
+    const doc = buildProposalDocument(propostaBase(), null, null, {
+      orcamento: comSimuladores({ vendas: 100, atendimento: 0, lideranca: 100 }),
+    });
+    expect(doc.simuladores.map((x) => [x.nome, x.pessoas])).toEqual([
+      ['Simulador de vendas', 100],
+      ['Prontidão para liderança', 100],
+    ]);
+    expect(doc.simuladores.every((x) => x.descricao.length > 60)).toBe(true);
+  });
+
+  it('sem simulador no orçamento (ou sem orçamento) a seção some', () => {
+    expect(buildProposalDocument(propostaBase(), null, null, { orcamento: ORC_REAL }).simuladores).toEqual([]);
+    expect(buildProposalDocument(propostaBase(), null, null, {}).simuladores).toEqual([]);
+  });
+
+  it('acesso nunca passa das pessoas do programa, e lixo no jsonb vira zero', () => {
+    const doc = buildProposalDocument(propostaBase(), null, null, {
+      orcamento: comSimuladores({ vendas: 5000, atendimento: 'x', lideranca: -2, extra: 9 }),
+    });
+    expect(doc.simuladores.map((x) => [x.nome, x.pessoas])).toEqual([['Simulador de vendas', 1000]]);
+  });
+
+  it('o preço do simulador não chega ao documento', () => {
+    const doc = buildProposalDocument(propostaBase(), null, null, {
+      orcamento: comSimuladores({ vendas: 100, atendimento: 0, lideranca: 0 }, 37.5),
+    });
+    const serializado = JSON.stringify(doc);
+    expect(serializado).not.toContain('37.5');
+    expect(serializado).not.toContain('precoSimulador');
   });
 });

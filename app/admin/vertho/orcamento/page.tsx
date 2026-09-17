@@ -22,7 +22,7 @@ import {
   salvarOrcamento,
   type OrcamentoSalvo,
 } from '@/actions/orcamento/cenarios';
-import { criarPropostaDeOrcamento } from '@/actions/sales/proposals-admin';
+import { atualizarPropostaDeOrcamento, criarPropostaDeOrcamento } from '@/actions/sales/proposals-admin';
 import { calculateProposalFinancials } from '@/lib/sales/commissions';
 import {
   CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS, PRODUCT_PACKAGES, PRODUCT_PACKAGE_LABELS,
@@ -487,6 +487,9 @@ export default function OrcamentoPage() {
 
   // Conversão em proposta: o escopo é editável porque vira texto que o CLIENTE lê.
   const [convAberta, setConvAberta] = useState(false);
+  // O mesmo painel serve para criar a proposta e para atualizar a que o
+  // orçamento já gerou (orçamento editado depois da conversão).
+  const [convModo, setConvModo] = useState<'criar' | 'atualizar'>('criar');
   const [convEscopo, setConvEscopo] = useState('');
   const [convPagamento, setConvPagamento] = useState('');
   const [convTipoCliente, setConvTipoCliente] = useState('');
@@ -713,7 +716,8 @@ export default function OrcamentoPage() {
 
   const CONTATO_LS = 'vertho.orcamento.contatoProposta';
 
-  function aoAbrirConversao() {
+  function aoAbrirConversao(modo: 'criar' | 'atualizar' = 'criar') {
+    setConvModo(modo);
     try {
       const salvo = JSON.parse(window.localStorage.getItem(CONTATO_LS) || '{}');
       if (!convContatoNome && typeof salvo.nome === 'string') setConvContatoNome(salvo.nome);
@@ -728,6 +732,33 @@ export default function OrcamentoPage() {
     }));
     setConvPagamento(`${calc.parcelas} parcelas de ${money(calc.mensalidadeFlat)}`);
     setConvAberta(true);
+  }
+
+  async function aoAtualizar() {
+    if (!ident.id || ocupado) return;
+    setOcupado(true);
+    setAviso(null);
+    try {
+      const r = await atualizarPropostaDeOrcamento({
+        orcamentoId: ident.id,
+        includedScope: convEscopo,
+        paymentTerms: convPagamento || null,
+      });
+      if (!r.success || !r.data) {
+        setAviso({ tom: 'erro', texto: r.error || 'Não foi possível atualizar a proposta.' });
+        return;
+      }
+      setConvAberta(false);
+      setAviso({
+        tom: 'ok',
+        texto: `Proposta ${r.data.numero} atualizada · ${money(r.data.totalContrato)} em ${r.data.vigenciaMeses}×. Quem estiver com a proposta aberta precisa recarregar.`,
+      });
+      await recarregarSalvos();
+    } catch (e: any) {
+      setAviso({ tom: 'erro', texto: e?.message || 'Não foi possível atualizar a proposta.' });
+    } finally {
+      setOcupado(false);
+    }
   }
 
   async function aoConverter() {
@@ -1356,8 +1387,17 @@ export default function OrcamentoPage() {
           {ident.propostaId ? (
             <>
               <p className="mt-1 text-[10px] leading-relaxed text-gray-500">
-                Este cenário já gerou uma proposta. Converter de novo é bloqueado no server.
+                Este cenário já gerou uma proposta. Mudou o orçamento depois? Salve e atualize a
+                proposta: escopo, valor, parcela e condições passam a seguir o orçamento salvo.
               </p>
+              <button
+                type="button"
+                onClick={() => aoAbrirConversao('atualizar')}
+                disabled={ocupado}
+                className="mt-3 inline-flex w-full items-center justify-between gap-2 border border-white/10 px-3 py-2.5 text-xs font-semibold text-gray-300 hover:border-amber-300/40 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Atualizar proposta com este orçamento <Send size={13} />
+              </button>
               <Link
                 href={`/admin/comercial/propostas/${ident.propostaId}`}
                 className="mt-3 inline-flex items-center justify-between gap-2 border border-emerald-400/40 bg-emerald-500/10 px-3 py-2.5 text-xs font-bold text-emerald-200 hover:bg-emerald-500/20"
@@ -1373,7 +1413,7 @@ export default function OrcamentoPage() {
               </p>
               <button
                 type="button"
-                onClick={aoAbrirConversao}
+                onClick={() => aoAbrirConversao('criar')}
                 disabled={ocupado || !ident.id}
                 title={ident.id ? undefined : 'Salve o orçamento antes de converter'}
                 className="mt-3 inline-flex w-full items-center justify-between gap-2 border border-white/10 px-3 py-2.5 text-xs font-semibold text-gray-300 hover:border-amber-300/40 hover:text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
@@ -1386,7 +1426,7 @@ export default function OrcamentoPage() {
           {convAberta && ident.id && (
             <div className="mt-3 rounded-sm border border-amber-300/25 bg-amber-300/[0.04] p-3">
               <p className="text-[10px] font-bold uppercase tracking-widest text-amber-300">
-                Conferir antes de criar
+                {convModo === 'atualizar' ? 'Conferir antes de atualizar' : 'Conferir antes de criar'}
               </p>
               <dl className="mt-2 space-y-1 text-[11px]">
                 <div className="flex justify-between gap-2">
@@ -1440,6 +1480,14 @@ export default function OrcamentoPage() {
                 className="w-full rounded border border-white/10 bg-white/5 px-2 py-1.5 text-[11px] text-white outline-none focus:border-amber-300"
               />
 
+              {convModo === 'atualizar' ? (
+                <p className="mt-3 border-t border-amber-300/15 pt-3 text-[10px] leading-relaxed text-amber-200/80">
+                  Usa o orçamento <strong>SALVO</strong>: se mudou algo nesta tela, salve antes. Número,
+                  contato, tipo de cliente e link da proposta continuam os mesmos. Proposta aceita,
+                  perdida ou substituída não muda mais.
+                </p>
+              ) : (
+                <>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div>
                   <label htmlFor="conv-tipo" className="mb-1 block text-[9px] uppercase tracking-widest text-gray-500">
@@ -1510,14 +1558,22 @@ export default function OrcamentoPage() {
                 </div>
               </div>
 
+                </>
+              )}
+
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={aoConverter}
-                  disabled={ocupado || !convEscopo.trim() || !convContatoNome.trim() || !convContatoEmail.trim() || !convContatoWhats.trim()}
+                  onClick={convModo === 'atualizar' ? aoAtualizar : aoConverter}
+                  disabled={
+                    ocupado || !convEscopo.trim()
+                    || (convModo === 'criar' && (!convContatoNome.trim() || !convContatoEmail.trim() || !convContatoWhats.trim()))
+                  }
                   className="inline-flex items-center justify-center gap-1.5 bg-amber-300 px-3 py-2 text-[11px] font-bold text-[#17150e] hover:bg-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {ocupado ? 'Criando…' : 'Criar proposta'} <Send size={12} />
+                  {convModo === 'atualizar'
+                    ? (ocupado ? 'Atualizando…' : 'Atualizar proposta')
+                    : (ocupado ? 'Criando…' : 'Criar proposta')} <Send size={12} />
                 </button>
                 <button
                   type="button"

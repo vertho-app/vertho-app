@@ -68,10 +68,63 @@ export type EntradaConversao = {
   contatoWhatsapp: string;
 };
 
+export type EntradaAtualizacao = {
+  orcamentoId: string;
+  /** Escopo REVISTO por gente, como na conversão. */
+  includedScope: string;
+  paymentTerms?: string | null;
+};
+
+/**
+ * Estados em que a proposta já fechou: mudar valor ou escopo reescreveria o que
+ * o cliente aceitou, ou ressuscitaria uma proposta perdida/substituída.
+ */
+const FECHADAS: Record<string, string> = {
+  accepted: 'aceita',
+  lost: 'perdida',
+  superseded: 'substituída por outra versão',
+};
+
 function numeroPositivoOu(v: unknown, limite: number): number | null {
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) return null;
   return Math.min(limite, Math.max(0, n));
+}
+
+/**
+ * Os números da proposta a partir do orçamento GRAVADO. Fonte única de criar e
+ * de atualizar: duas cópias desta conta divergiriam em silêncio, e é sobre
+ * `total_contract_value` que o aceite age.
+ */
+function numerosDoOrcamento(resultado: unknown, entradasBrutas: unknown) {
+  const resumo = normalizarResumo(resultado);
+  if (!resumo || resumo.valorFinal <= 0) {
+    return { erro: 'O orçamento salvo não tem um valor de projeto válido.' } as const;
+  }
+
+  // O desconto vem das ENTRADAS gravadas (a % que a tela aplicou), não derivado
+  // de valorFinal/valorTabela — assim `margin_alert` e o histórico do desconto
+  // sobrevivem na proposta.
+  const entradas = entradasBrutas && typeof entradasBrutas === 'object' ? (entradasBrutas as any) : {};
+  const descontoPct = numeroPositivoOu(entradas?.pricing?.descontoPct, 100) ?? 0;
+
+  const vigencia = resumo.parcelas;
+  const monthly = round2(resumo.valorTabela / vigencia);
+  const fin = calculateProposalFinancials({
+    monthly_value: monthly,
+    contract_duration_months: vigencia,
+    discount_requested: descontoPct,
+  });
+  // Sem RC não existe comissão a pagar. Deixar a estimativa preenchida faria a
+  // tela do admin exibir um valor que nunca sai do caixa — e número de comissão
+  // na tela é número em que alguém age. `total/gross/desconto` seguem corretos.
+  const finSemComissao = {
+    ...fin,
+    estimated_acquisition_commission: 0,
+    estimated_recurring_commission: 0,
+    estimated_total_commission: 0,
+  };
+  return { resumo, descontoPct, vigencia, monthly, fin, finSemComissao } as const;
 }
 
 /**
@@ -176,33 +229,9 @@ export async function criarPropostaDeOrcamento(
     return { success: false, error: 'Este orçamento já foi convertido em proposta.' };
   }
 
-  const resumo = normalizarResumo(orc.resultado);
-  if (!resumo || resumo.valorFinal <= 0) {
-    return { success: false, error: 'O orçamento salvo não tem um valor de projeto válido.' };
-  }
-
-  // O desconto vem das ENTRADAS gravadas (a % que a tela aplicou), não derivado
-  // de valorFinal/valorTabela — assim `margin_alert` e o histórico do desconto
-  // sobrevivem na proposta.
-  const entradas = orc.entradas && typeof orc.entradas === 'object' ? (orc.entradas as any) : {};
-  const descontoPct = numeroPositivoOu(entradas?.pricing?.descontoPct, 100) ?? 0;
-
-  const vigencia = resumo.parcelas;
-  const monthly = round2(resumo.valorTabela / vigencia);
-  const fin = calculateProposalFinancials({
-    monthly_value: monthly,
-    contract_duration_months: vigencia,
-    discount_requested: descontoPct,
-  });
-  // Sem RC não existe comissão a pagar. Deixar a estimativa preenchida faria a
-  // tela do admin exibir um valor que nunca sai do caixa — e número de comissão
-  // na tela é número em que alguém age. `total/gross/desconto` seguem corretos.
-  const finSemComissao = {
-    ...fin,
-    estimated_acquisition_commission: 0,
-    estimated_recurring_commission: 0,
-    estimated_total_commission: 0,
-  };
+  const numeros = numerosDoOrcamento(orc.resultado, orc.entradas);
+  if ('erro' in numeros) return { success: false, error: numeros.erro };
+  const { resumo, descontoPct, vigencia, monthly, fin, finSemComissao } = numeros;
 
   const { data: numero, error: erroNumero } = await sb.rpc('sales_next_proposal_number');
   if (erroNumero) return { success: false, error: `Falha ao gerar número: ${erroNumero.message}` };
@@ -267,6 +296,107 @@ export async function criarPropostaDeOrcamento(
     data: {
       id: propostaId,
       numero: numero as string,
+      valorMensal: monthly,
+      vigenciaMeses: vigencia,
+      totalContrato: fin.total_contract_value,
+    },
+  };
+}
+
+/**
+ * Atualiza a proposta que um orçamento JÁ gerou, a partir do orçamento salvo.
+ *
+ * Existe porque a conversão é de mão única (um orçamento, uma proposta) e editar
+ * o orçamento depois não chegava à proposta. Medido 17/09/2026: o "Futuro SA"
+ * ganhou simuladores e passou a valer R$ 1.599.000, e a PROP-2026-0008 seguiu
+ * em R$ 1.569.000 enquanto a faixa de métricas do documento já lia o orçamento
+ * novo, ao vivo. O documento misturava as duas versões.
+ *
+ * Os números saem da LINHA DO BANCO pela mesma conta da conversão
+ * (`numerosDoOrcamento`); do cliente vêm só o escopo revisado e as condições.
+ * Número, contato, link público, tipo de cliente e status ficam como estão.
+ * Recusa proposta com RC (helper do arquivo) e proposta já fechada (`FECHADAS`).
+ */
+export async function atualizarPropostaDeOrcamento(
+  input: EntradaAtualizacao,
+): Promise<ActionResult<PropostaCriada>> {
+  const sb = await requirePlataformaSupabase('sales_channel.manage');
+  const email = await getAuthenticatedEmailFromAction();
+  if (!email) return { success: false, error: 'Sessão expirada. Entre de novo para continuar.' };
+
+  const bruto = (input ?? {}) as Record<string, unknown>;
+  const orcamentoId = typeof bruto.orcamentoId === 'string' ? bruto.orcamentoId.trim() : '';
+  if (!orcamentoId) return { success: false, error: 'Informe o orçamento salvo.' };
+  const escopo = typeof bruto.includedScope === 'string' ? bruto.includedScope.trim() : '';
+  if (!escopo) {
+    return { success: false, error: 'Revise o escopo: é o texto que o cliente lê no documento da proposta.' };
+  }
+  const paymentTerms = typeof bruto.paymentTerms === 'string' ? bruto.paymentTerms.trim() : '';
+
+  const { data: orc, error: erroOrc } = await sb
+    .from('orcamento_cenarios')
+    .select('id, entradas, resultado, proposta_id')
+    .eq('id', orcamentoId)
+    .maybeSingle();
+  if (erroOrc) return { success: false, error: erroOrc.message };
+  if (!orc) return { success: false, error: 'Orçamento não encontrado' };
+  if (!orc.proposta_id) {
+    return { success: false, error: 'Este orçamento ainda não virou proposta: use "Converter em proposta".' };
+  }
+
+  const alvo = await exigirPropostaDoDealDesk(sb, String(orc.proposta_id));
+  if (alvo.erro) return { success: false, error: alvo.erro };
+  const proposta = alvo.proposta;
+  if (FECHADAS[proposta.status]) {
+    return {
+      success: false,
+      error: `A proposta ${proposta.proposal_number} já está ${FECHADAS[proposta.status]}: valor e escopo não mudam mais.`,
+    };
+  }
+
+  const numeros = numerosDoOrcamento(orc.resultado, orc.entradas);
+  if ('erro' in numeros) return { success: false, error: numeros.erro };
+  const { resumo, descontoPct, vigencia, monthly, fin, finSemComissao } = numeros;
+
+  const { data: gravadas, error: erroUpdate } = await sb
+    .from('sales_proposals')
+    .update({
+      number_of_users: resumo.pessoas > 0 ? resumo.pessoas : null,
+      number_of_roles_mapped: resumo.cargos > 0 ? resumo.cargos : null,
+      contract_duration_months: vigencia,
+      discount_requested: descontoPct,
+      payment_terms: paymentTerms || null,
+      included_scope: escopo,
+      monthly_value: monthly,
+      ...finSemComissao,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', proposta.id)
+    // As mesmas duas travas de antes, repetidas NA ESCRITA: entre a leitura e o
+    // update a proposta pode ter sido aceita (link público) ou ganho RC.
+    .is('representante_id', null)
+    .not('status', 'in', `(${Object.keys(FECHADAS).join(',')})`)
+    .select('id');
+  if (erroUpdate) return { success: false, error: erroUpdate.message };
+  if (!gravadas || gravadas.length !== 1) {
+    return {
+      success: false,
+      error: `A proposta ${proposta.proposal_number} mudou de estado durante a atualização. Recarregue e confira antes de tentar de novo.`,
+    };
+  }
+
+  await auditar(email, 'proposta_deal_desk.atualizar', proposta.proposal_number, {
+    orcamentoId,
+    propostaId: proposta.id,
+    antes: { total: proposta.total_contract_value, parcelas: proposta.contract_duration_months },
+    depois: { total: fin.total_contract_value, parcelas: vigencia },
+  });
+
+  return {
+    success: true,
+    data: {
+      id: String(proposta.id),
+      numero: proposta.proposal_number,
       valorMensal: monthly,
       vigenciaMeses: vigencia,
       totalContrato: fin.total_contract_value,

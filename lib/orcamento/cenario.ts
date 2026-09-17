@@ -23,7 +23,6 @@ import {
   CONTEUDO_POR_FORMATO_DEFAULT,
   OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
-  ROTULO_SIMULADOR,
   obterComissaoOrcamento,
   semSimuladores,
   type PessoasPorSimulador,
@@ -295,13 +294,16 @@ export function escopoPropostaDoCenario(
   const workshop = e.metodo === 'workshop';
 
   // O que o cliente NÃO lê aqui, por decisão do Rodrigo (17/09/2026): a divisão
-  // entre matrizes novas e adaptadas (conta interna de preço) e a quantidade de
-  // conteúdos por pessoa/ciclo.
+  // entre matrizes novas e adaptadas (conta interna de preço), a quantidade de
+  // conteúdos por pessoa/ciclo, e "N cargos mapeados" ao lado de "N matrizes"
+  // (é o mesmo número dito duas vezes: uma matriz por cargo).
+  const matrizes = p(r.cargos, 'matriz de competência', 'matrizes de competência');
   const linhas = [
     `Programa ${jornada.rotulo} de ${p(jornada.semanas, 'semana', 'semanas')} · ${p(r.ciclos, 'ciclo', 'ciclos')}`,
-    `${p(r.pessoas, 'pessoa', 'pessoas')} · ${p(r.unidades, 'unidade', 'unidades')} · `
-      + `${p(r.cargos, 'cargo mapeado', 'cargos mapeados')}${workshop ? '' : ' por votação'}`,
-    r.cargos === 1 ? '1 matriz de competência' : `${n(r.cargos)} matrizes de competência, uma por cargo`,
+    `${p(r.pessoas, 'pessoa', 'pessoas')} · ${p(r.unidades, 'unidade', 'unidades')}`,
+    workshop
+      ? matrizes
+      : `${matrizes}, ${r.cargos === 1 ? 'definida' : 'definidas'} por votação dos colaboradores`,
     'Vídeos, podcasts, textos e casos personalizados para cada pessoa',
     'Mentor IA e trilhas personalizadas por cargo e perfil comportamental',
     'Relatório de evolução por competência ao fim de cada ciclo',
@@ -317,13 +319,9 @@ export function escopoPropostaDoCenario(
         : `${n(r.unidades)} workshops presenciais, um por unidade, para definir com a equipe as competências de cada cargo`,
     );
   }
-  // Um simulador por linha, antes do Mentor IA. Cenário antigo não tem o campo.
-  const iMentor = linhas.findIndex((l) => l.startsWith('Mentor IA'));
-  const sims = (Object.keys(ROTULO_SIMULADOR) as (keyof PessoasPorSimulador)[])
-    .map((s) => ({ s, pessoas: Math.min(r.pessoas, Math.max(0, e.simuladores?.[s] ?? 0)) }))
-    .filter((x) => x.pessoas > 0)
-    .map((x) => `${ROTULO_SIMULADOR[x.s]} para ${p(x.pessoas, 'pessoa', 'pessoas')}`);
-  linhas.splice(iMentor, 0, ...sims);
+  // Simuladores NÃO entram aqui: o documento tem a seção "Simuladores incluídos",
+  // lida do orçamento (decisão do Rodrigo, 17/09/2026). Repetir num chip seria
+  // dizer a mesma coisa duas vezes.
 
   if (e.nVideosExtraidos > 0) {
     const iConteudo = linhas.findIndex((l) => l.startsWith('Vídeos, podcasts'));

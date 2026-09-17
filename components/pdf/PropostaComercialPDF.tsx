@@ -207,6 +207,16 @@ const s = StyleSheet.create({
     borderBottomLeftRadius: 10, borderBottomRightRadius: 10,
   },
 
+  // Simuladores incluídos
+  simRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  simCard: { backgroundColor: c.navy, borderRadius: 10, paddingVertical: 14, paddingHorizontal: 14 },
+  simNome: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 11.5, color: c.white },
+  simTexto: { fontSize: 9, lineHeight: 1.5, color: c.brancoSuave, marginTop: 5, marginBottom: 9 },
+  simPessoas: {
+    alignSelf: 'flex-start', backgroundColor: c.cyan, color: c.navy, borderRadius: 10,
+    paddingVertical: 3, paddingHorizontal: 9, fontSize: 8.5, fontWeight: 600,
+  },
+
   // Trajetória (quadro de logos)
   trajetoria: {
     borderWidth: 1, borderColor: c.border, borderRadius: 10,
@@ -642,6 +652,29 @@ export default function PropostaComercialPDF({
           {escopoLinhas.slice(1).map((linha, i) => <LinhaChips key={i} itens={linha} />)}
           {/* Sem contagem de conteúdos: ver o comentário gêmeo na página pública. */}
         </Secao>
+
+        {/* SIMULADORES INCLUÍDOS (só quando há) */}
+        {doc.simuladores.length > 0 && (
+          <Secao eyebrow="// Simuladores" titulo="Simuladores incluídos nesta proposta">
+            <View style={s.simRow}>
+              {doc.simuladores.map((sim) => (
+                <View
+                  key={sim.nome}
+                  style={{
+                    ...s.simCard,
+                    width: doc.simuladores.length === 1 ? '100%' : doc.simuladores.length === 2 ? '48.5%' : '32%',
+                  }}
+                >
+                  <Text style={s.simNome}>{sim.nome}</Text>
+                  <Text style={s.simTexto}>{sim.descricao}</Text>
+                  <Text style={s.simPessoas}>
+                    {sim.pessoas.toLocaleString('pt-BR')} {sim.pessoas === 1 ? 'pessoa com acesso' : 'pessoas com acesso'}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Secao>
+        )}
 
         {/* ENTREGAS */}
         <Secao eyebrow="// O que está incluso" titulo="Tudo o que acompanha o programa">

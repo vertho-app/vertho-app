@@ -11,6 +11,7 @@
 // silencioso. O teste `proposal-programa.test.ts` trava isso.
 import { getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
 import { mesesDoPrograma } from '@/lib/orcamento/precificacao';
+import { SIMULADORES, type Simulador } from '@/lib/simuladores/acesso-cargo';
 
 export type ProposalPrograma = {
   /** Participantes do programa. */
@@ -25,6 +26,11 @@ export type ProposalPrograma = {
   semanasPorCiclo: number | null;
   /** Duração total do programa em meses. */
   mesesPrograma: number | null;
+  /**
+   * Pessoas com acesso a cada simulador. Só as três chaves conhecidas, só a
+   * CONTAGEM: preço e custo do simulador moram no mesmo jsonb e não passam.
+   */
+  simuladores: Record<Simulador, number> | null;
 };
 
 /**
@@ -42,6 +48,17 @@ const JORNADAS_CONHECIDAS = new Set(['jornada', 'regular_duo', 'regular_single',
 function inteiroPositivo(v: unknown): number | null {
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+/** Pessoas por simulador, nunca acima das pessoas do programa; null se nenhum. */
+function extrairSimuladores(bruto: unknown, pessoas: number | null): Record<Simulador, number> | null {
+  const b = bruto && typeof bruto === 'object' ? (bruto as Record<string, unknown>) : {};
+  const teto = pessoas ?? Number.MAX_SAFE_INTEGER;
+  const por = SIMULADORES.reduce(
+    (acc, s) => ({ ...acc, [s]: Math.min(teto, inteiroPositivo(b[s]) ?? 0) }),
+    {} as Record<Simulador, number>,
+  );
+  return SIMULADORES.some((s) => por[s] > 0) ? por : null;
 }
 
 /** Linha do orçamento como ela sai do banco — só os dois jsonb interessam. */
@@ -76,6 +93,7 @@ export function extrairProgramaDoOrcamento(orc: OrcamentoVinculado): ProposalPro
     // salvo antes de 17/09/2026 congelou a conta antiga por semanas (5 ciclos =
     // 8 meses), e a proposta mostraria uma duração diferente das parcelas.
     mesesPrograma: ciclos ? mesesDoPrograma(ciclos) : null,
+    simuladores: extrairSimuladores(e.simuladores, inteiroPositivo(r.pessoas)),
   };
 
   // Orçamento vazio/corrompido não vira seção de números em branco.

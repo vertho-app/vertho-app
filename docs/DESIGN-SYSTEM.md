@@ -179,6 +179,7 @@ Na página: variáveis `--font-prop-display/body/mono` (com fallback às famíli
 | `// Por onde já caminhamos` | "Experiências da Vertho e de seus fundadores" + quadro de logos (`public/proposta/trajetoria-logos-2026-09.jpg`, recortado do slide comercial só na área branca). ⚠️ O "e de seus fundadores" fica: nem todo logo é cliente da Vertho. No PDF a imagem é lida por `fs` e precisa estar no `outputFileTracingIncludes` (guard: `tests/unit/proposta-trajetoria-asset.test.ts`) |
 | `// Quem move a Vertho` | 3 fundadores com foto redonda e bio (`public/proposta/fundador-*.jpg`, lidas por `fs` no PDF) |
 | `// Escopo desta proposta` | Chips cyan claro com o texto revisado do orçamento |
+| `// Simuladores` | Só quando o orçamento tem simulador: um cartão navy por simulador (nome, o que faz, "N pessoas com acesso" em pílula cyan). A contagem vem do orçamento; o preço nunca |
 | `// O que está incluso` | 8 entregas com título + descrição (check em `<Svg>` no PDF) |
 | `// Quem recebe o quê` | Duas colunas: cada participante × a instituição (o PDI aparece aqui e nas entregas) |
 | `// Inteligência para a gestão` | As 5 perguntas que a gestão passa a responder + "Visão por nível" |
