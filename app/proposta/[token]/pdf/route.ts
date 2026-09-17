@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import React from 'react';
 import { renderToBuffer } from '@react-pdf/renderer';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { getLogoCoverBase64 } from '@/lib/pdf-assets';
+import { getLogoCoverBase64, getTrajetoriaLogosBase64 } from '@/lib/pdf-assets';
 import { buildProposalDocument } from '@/lib/sales/proposal-document';
 import PropostaComercialPDF from '@/components/pdf/PropostaComercialPDF';
 
@@ -48,11 +48,19 @@ export async function GET(
     orcamento: orc,
   });
 
+  const trajetoriaLogos = getTrajetoriaLogosBase64();
+  if (!trajetoriaLogos) {
+    // A seção some do PDF; sem este log, sumiria calada. Causa provável: o
+    // arquivo fora do `outputFileTracingIncludes` (next.config.mjs).
+    console.error('[proposta/pdf] quadro de logos da trajetória não carregou: public/proposta/trajetoria-logos-2026-09.jpg');
+  }
+
   const buffer = await renderToBuffer(
     // @ts-ignore - JSX em route handler com renderToBuffer
     React.createElement(PropostaComercialPDF, {
       doc,
       logoBase64: getLogoCoverBase64() || undefined,
+      trajetoriaLogosBase64: trajetoriaLogos || undefined,
     }),
   );
 

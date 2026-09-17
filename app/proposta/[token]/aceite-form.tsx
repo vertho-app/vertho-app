@@ -13,9 +13,9 @@ import { registrarAceitePublico } from '@/actions/sales/proposal-share';
 type Props = {
   token: string;
   cores: {
-    accent: string; accentSoft: string; ink: string; ink2: string;
-    muted: string; muted2: string; line: string; white: string;
-    green: string; greenBg: string; danger: string;
+    navy: string; cyan: string; cyanClaro: string; cyanSoft: string;
+    ink: string; ink2: string; muted: string; muted2: string;
+    line: string; white: string; danger: string;
   };
   fontes: { display: string; body: string; mono: string };
 };
@@ -59,11 +59,11 @@ export default function AceiteForm({ token, cores: C, fontes: F }: Props) {
     return (
       <div
         style={{
-          background: C.greenBg,
-          border: `1px solid ${C.green}33`,
+          background: C.cyanSoft,
+          border: `1px solid ${C.cyanClaro}`,
           borderRadius: 14,
           padding: '22px 24px',
-          color: C.green,
+          color: C.navy,
           fontFamily: F.body,
         }}
       >
@@ -156,7 +156,7 @@ export default function AceiteForm({ token, cores: C, fontes: F }: Props) {
           type="checkbox"
           checked={confirmado}
           onChange={(e) => setConfirmado(e.target.checked)}
-          style={{ marginTop: 3, width: 16, height: 16, accentColor: C.accent, flexShrink: 0 }}
+          style={{ marginTop: 3, width: 16, height: 16, accentColor: C.navy, flexShrink: 0 }}
         />
         <span>
           Li esta proposta e concordo com o escopo, o investimento e as condições descritas. Tenho
@@ -177,8 +177,9 @@ export default function AceiteForm({ token, cores: C, fontes: F }: Props) {
           border: 'none',
           borderRadius: 10,
           padding: '15px 20px',
-          background: pronto && !enviando ? C.accent : C.line,
-          color: pronto && !enviando ? C.white : C.muted,
+          // Botão cyan com texto NAVY (6,70:1). Branco sobre o cyan dá 2:1.
+          background: pronto && !enviando ? C.cyan : C.line,
+          color: pronto && !enviando ? C.navy : C.muted,
           fontFamily: F.display,
           fontSize: 15.5,
           fontWeight: 600,

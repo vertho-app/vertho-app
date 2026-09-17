@@ -37,7 +37,8 @@ escura** e sempre foi. Aplicar os aliases claros numa tela é o erro mais fácil
 (flags em `components/pdf/tokens.ts`). Não "corrija" um hex para o valor do DS achando que é bug.
 
 **Sub-sistemas com paleta própria por decisão** (não são desvio): documento da **proposta comercial**
-(claro/editorial, Space Grotesk + IBM Plex, índigo `#4F46E5`) e os **vídeos Remotion**
+(claro/editorial, Space Grotesk + IBM Plex; desde 16/09/2026 com as cores OFICIAIS da marca via
+`components/pdf/tokens.ts`, o índigo `#4F46E5` saiu) e os **vídeos Remotion**
 (`video-spike/remotion/theme.tsx`). Ambos em `docs/DESIGN-SYSTEM.md`.
 
 ## Cor não é fixa: white-label por tenant

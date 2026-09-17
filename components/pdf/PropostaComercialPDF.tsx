@@ -2,6 +2,7 @@ import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet, Font, Svg, Path, Line } from '@react-pdf/renderer';
 import { fmtBRL, fmtDate, fmtDateTime, fmtTelefone } from '@/lib/sales/formatters';
 import type { ProposalDocumentVM } from '@/lib/sales/proposal-document';
+import { brand, neutralRamps } from '@/components/pdf/tokens';
 
 // PDF do documento da proposta. Consome o MESMO VM da página pública
 // (`buildProposalDocument`) e segue a mesma ordem de seções: quem lê na tela e
@@ -36,33 +37,33 @@ Font.register({
 });
 Font.registerHyphenationCallback((word: string) => [word]);
 
-// ── Paleta clara / editorial + capa navy da marca ───────────────────────────
+// ── Paleta oficial da marca (16/09/2026) ────────────────────────────────────
+// Mesma troca da página pública: navy, cyan, roxo e a rampa neutra indigo-tinted
+// vêm dos tokens; o índigo #4F46E5 do template saiu. O cyan não serve de TEXTO
+// pequeno sobre branco (reprova no contraste): pinta fundo, ponto e marcador.
+const N = neutralRamps.indigo;
 const c = {
-  navy: '#0F2B54',
-  cyan: '#34C5CC',
+  navy: brand.navy[500],
+  navyClaro: brand.navy[300],
+  cyan: brand.cyan[500],
+  cyanClaro: brand.cyan[300],
+  cyanSoft: brand.cyan[100],
+  cyanMarca: brand.cyan[700],
+  roxo: brand.purple[500],
   // ⚠️ react-pdf NÃO entende `rgba()` — uma cor assim sai com o canal errado
   // (a linha da capa renderizou VERDE). Sobre a capa navy, os tons de branco
   // vão PRÉ-COMPOSTOS em hex. Nada de rgba neste arquivo.
   brancoDim: '#A4AEBE',      // branco 62% sobre navy
   brancoSuave: '#C1C8D3',    // 74%
-  brancoFraco: '#939FB2',    // 55%
-  linhaCapa: '#354D6F',      // 16%
   seloCyanBg: '#164766',
   seloNeutroBg: '#31496C',
-  indigo: '#4F46E5',
-  indigoSoft: '#C3BFF7',   // texto sobre a barra índigo
-  chipBg: '#EEF0FE',
-  cardBg: '#F5F6FA',
-  ink: '#0E1116',
-  ink2: '#2B313C',
-  muted: '#5A6472',
-  faint: '#8189A0',
-  border: '#E7E9EF',
-  borderFooter: '#ECEEF3',
-  pink: '#C4488A',
-  green: '#166534',
-  greenBg: '#DCFCE7',
-  white: '#FFFFFF',
+  cardBg: N.bgLight,
+  ink: N.textStrong,
+  ink2: N.g700,
+  muted: N.g600,
+  faint: N.g500,
+  border: N.border,
+  white: brand.white,
 };
 
 const PAD_H = 46;
@@ -107,31 +108,22 @@ const s = StyleSheet.create({
     fontFamily: 'IBMPlexMono', fontSize: 7.5, letterSpacing: 1.1, textTransform: 'uppercase',
     paddingHorizontal: 9, paddingVertical: 4, borderRadius: 5,
   },
-  // ⚠️ O divisor e um View de 1pt PREENCHIDO, nao um `borderTopWidth`: com
-  // borda o react-pdf pintou a linha de VERDE sobre a capa navy (visto no
-  // PDF renderizado, 14/09/2026) — nao e o hex, e a borda.
-  capaDivisor: { height: 1, backgroundColor: c.linhaCapa, marginTop: 22 },
-  capaTotalWrap: { marginTop: 16 },
-  capaTotalLabel: { fontFamily: 'IBMPlexMono', fontSize: 7.5, letterSpacing: 1.3, color: c.brancoFraco, textTransform: 'uppercase' },
-  capaTotalLinha: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 4 },
-  capaTotalValor: { fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 28, color: c.white, letterSpacing: -0.6 },
-  capaTotalCond: { fontSize: 10, color: c.brancoSuave, marginLeft: 12, marginBottom: 4 },
 
   // Faixa de métricas
   metricas: {
     marginHorizontal: -PAD_H, paddingHorizontal: PAD_H,
-    backgroundColor: c.chipBg, paddingVertical: 12,
+    backgroundColor: c.cyanSoft, paddingVertical: 12,
     flexDirection: 'row', justifyContent: 'space-between',
   },
   metrica: { flex: 1, alignItems: 'center' },
-  metricaValor: { fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 17, color: c.indigo, letterSpacing: -0.4 },
+  metricaValor: { fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 17, color: c.navy, letterSpacing: -0.4 },
   metricaLabel: { fontSize: 8, color: c.muted, marginTop: 1 },
 
   // Seções
   section: { marginTop: 24 },
   sectionLabel: {
-    fontFamily: 'IBMPlexMono', fontSize: 8, letterSpacing: 1.3, color: c.indigo,
-    textTransform: 'uppercase', marginBottom: 8,
+    fontFamily: 'IBMPlexMono', fontWeight: 500, fontSize: 10, letterSpacing: 1.2, color: c.roxo,
+    textTransform: 'uppercase', marginBottom: 7,
   },
   sectionTitle: {
     fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 16, color: c.ink,
@@ -140,7 +132,7 @@ const s = StyleSheet.create({
 
   // Corpo
   bodyText: { fontSize: 10.5, lineHeight: 1.6, color: c.ink2 },
-  indigoStrong: { color: c.indigo, fontWeight: 600 },
+  destaque: { color: c.navy, fontWeight: 600 },
 
   // Pilares
   pilarRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -148,14 +140,21 @@ const s = StyleSheet.create({
     width: '32%', borderWidth: 1, borderColor: c.border, borderRadius: 10,
     paddingVertical: 13, paddingHorizontal: 12,
   },
-  pilarNum: { fontFamily: 'IBMPlexMono', fontSize: 8.5, color: c.indigo, marginBottom: 5 },
+  pilarNum: { fontFamily: 'IBMPlexMono', fontSize: 8.5, color: c.roxo, marginBottom: 5 },
   pilarTitulo: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 11, color: c.ink, marginBottom: 4 },
   pilarTexto: { fontSize: 8.8, lineHeight: 1.5, color: c.muted },
 
+  // Trajetória (quadro de logos)
+  trajetoria: {
+    borderWidth: 1, borderColor: c.border, borderRadius: 10,
+    paddingVertical: 12, paddingHorizontal: 14,
+  },
+  trajetoriaImg: { width: '100%', objectFit: 'contain' },
+
   // Escopo chips
-  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  chipLinha: { flexDirection: 'row', justifyContent: 'space-between' },
   chip: {
-    width: '48.5%', backgroundColor: c.chipBg, borderRadius: 8,
+    width: '48.5%', backgroundColor: c.cyanSoft, borderRadius: 8,
     paddingVertical: 10, paddingHorizontal: 14, marginBottom: 9,
     fontSize: 10, fontWeight: 500, color: c.ink2, lineHeight: 1.45,
   },
@@ -181,13 +180,13 @@ const s = StyleSheet.create({
 
   // Investimento
   totalBar: {
-    backgroundColor: c.indigo, borderRadius: 12,
+    backgroundColor: c.navy, borderRadius: 12,
     paddingVertical: 18, paddingHorizontal: 20,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  totalLabel: { fontFamily: 'IBMPlexMono', fontSize: 7.5, letterSpacing: 1.3, color: c.indigoSoft, textTransform: 'uppercase' },
+  totalLabel: { fontFamily: 'IBMPlexMono', fontSize: 7.5, letterSpacing: 1.3, color: c.cyanClaro, textTransform: 'uppercase' },
   totalCond: { fontSize: 9.5, color: c.white, marginTop: 6 },
-  totalDesconto: { fontSize: 8.5, color: c.indigoSoft, marginTop: 4 },
+  totalDesconto: { fontSize: 8.5, color: c.cyanClaro, marginTop: 4 },
   totalValue: { fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 26, color: c.white, letterSpacing: -0.4 },
   invRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
   invCard: { flex: 1, borderWidth: 1, borderColor: c.border, borderRadius: 10, padding: 13 },
@@ -199,13 +198,13 @@ const s = StyleSheet.create({
   cronoItem: { position: 'relative', marginBottom: 13 },
   cronoDot: {
     position: 'absolute', left: -22.5, top: 2, width: 9, height: 9, borderRadius: 4.5,
-    backgroundColor: c.indigo,
+    backgroundColor: c.cyan,
   },
   cronoHead: { flexDirection: 'row', alignItems: 'baseline' },
   cronoFase: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 11, color: c.ink },
   cronoDuracao: { fontFamily: 'IBMPlexMono', fontSize: 8, color: c.faint, marginLeft: 8 },
   cronoDesc: { fontSize: 9.5, color: c.muted, lineHeight: 1.5, marginTop: 2 },
-  cronoEntrega: { fontSize: 9, color: c.indigo, lineHeight: 1.45, marginTop: 3 },
+  cronoEntrega: { fontSize: 9, color: c.navyClaro, lineHeight: 1.45, marginTop: 3 },
   cronoEntregaRotulo: { fontWeight: 600 },
 
   // Condições (premissas + não incluso)
@@ -213,8 +212,8 @@ const s = StyleSheet.create({
   condCol: { width: '48.5%', backgroundColor: c.cardBg, borderRadius: 10, paddingVertical: 14, paddingHorizontal: 14 },
   condTitulo: { fontSize: 10, fontWeight: 600, color: c.ink, marginBottom: 8 },
   condItem: { flexDirection: 'row', marginBottom: 6 },
-  condMarkIndigo: { color: c.indigo, fontSize: 9.5, marginRight: 7, lineHeight: 1.5 },
-  condMarkPink: { marginRight: 7, marginTop: 2.5 },
+  condMarkSeta: { color: c.cyanMarca, fontSize: 9.5, marginRight: 7, lineHeight: 1.5 },
+  condMarkXis: { marginRight: 7, marginTop: 2.5 },
   condTexto: { flex: 1, fontSize: 8.8, color: c.ink2, lineHeight: 1.5 },
 
   // Observações
@@ -226,19 +225,19 @@ const s = StyleSheet.create({
     width: '48.5%', backgroundColor: c.cardBg, borderRadius: 10,
     paddingVertical: 14, paddingHorizontal: 16, marginBottom: 12,
   },
-  passoNum: { fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 11, color: c.indigo },
+  passoNum: { fontFamily: 'SpaceGrotesk', fontWeight: 700, fontSize: 11, color: c.roxo },
   passoText: { fontSize: 10, color: c.ink2, marginTop: 6, lineHeight: 1.5 },
 
   // Aceite
   aceiteBox: {
     marginTop: 24, borderRadius: 12, paddingVertical: 16, paddingHorizontal: 18,
-    backgroundColor: c.greenBg,
+    backgroundColor: c.cyanSoft,
   },
-  aceiteTitulo: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 13, color: c.green },
+  aceiteTitulo: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 13, color: c.navy },
   aceiteTexto: { fontSize: 9.5, color: c.ink2, lineHeight: 1.55, marginTop: 5 },
   chamadaBox: {
     marginTop: 24, borderRadius: 12, paddingVertical: 16, paddingHorizontal: 18,
-    backgroundColor: c.chipBg,
+    backgroundColor: c.cyanSoft,
   },
   chamadaTitulo: { fontFamily: 'SpaceGrotesk', fontWeight: 600, fontSize: 13, color: c.ink },
   chamadaTexto: { fontSize: 9.5, color: c.ink2, lineHeight: 1.55, marginTop: 5 },
@@ -262,7 +261,7 @@ const s = StyleSheet.create({
   footer: {
     position: 'absolute', bottom: 26, left: PAD_H, right: PAD_H,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderTopWidth: 1, borderTopColor: c.borderFooter, paddingTop: 8,
+    borderTopWidth: 1, borderTopColor: c.border, paddingTop: 8,
   },
   footerText: { fontFamily: 'IBMPlexMono', fontSize: 8, letterSpacing: 0.6, color: c.faint },
 });
@@ -286,7 +285,7 @@ function fmtNum(v: number | null | undefined): string {
  * que aconteceu com a coluna "não está incluso" até 14/09/2026 (dívida
  * declarada em tests/unit/pdf-glifos-guard.test.ts). Svg não depende de fonte.
  */
-function Check({ cor = c.indigo }: { cor?: string }) {
+function Check({ cor = c.cyanMarca }: { cor?: string }) {
   return (
     <Svg width={8} height={8} viewBox="0 0 12 12">
       <Path d="M1.8 6.4 L4.6 9.2 L10.2 3" stroke={cor} strokeWidth={1.9} fill="none" />
@@ -294,7 +293,7 @@ function Check({ cor = c.indigo }: { cor?: string }) {
   );
 }
 
-function Xis({ cor = c.pink }: { cor?: string }) {
+function Xis({ cor = c.roxo }: { cor?: string }) {
   return (
     <Svg width={7} height={7} viewBox="0 0 12 12">
       <Line x1={2} y1={2} x2={10} y2={10} stroke={cor} strokeWidth={1.7} />
@@ -303,18 +302,48 @@ function Xis({ cor = c.pink }: { cor?: string }) {
   );
 }
 
+/**
+ * Seção do documento. Por padrão fica INTEIRA numa página: partida, o react-pdf
+ * deixava o título no pé de uma página e o conteúdo na seguinte (medido
+ * 16/09/2026 no escopo, com um chip cortado ao meio). Corrigir seção por seção
+ * não fecha — segurar uma empurra a próxima e deixa o título DELA órfão — e
+ * `minPresenceAhead` no título não segurou.
+ *
+ * ⚠️ Inteira só serve para conteúdo de tamanho CONHECIDO. Seção maior que a
+ * página com `wrap={false}` sobrepõe o texto e perde itens (medido com 30 itens
+ * de escopo injetados). Conteúdo que vem de dado passa `podeQuebrar` e, se for
+ * lista, entrega a primeira linha em `primeiraLinha`: ela viaja presa ao título.
+ */
 function Secao(
-  { eyebrow, titulo, children, semQuebra }:
-  { eyebrow: string; titulo?: string; children: React.ReactNode; semQuebra?: boolean },
+  { eyebrow, titulo, children, podeQuebrar, primeiraLinha }:
+  {
+    eyebrow: string; titulo?: string; children?: React.ReactNode;
+    podeQuebrar?: boolean; primeiraLinha?: React.ReactNode;
+  },
 ) {
   return (
-    // `semQuebra` mantém título e conteúdo na MESMA página: sem isso o react-pdf
-    // deixou "O que acontece depois do aceite" sozinho no pé de uma página e os
-    // quatro cards na seguinte.
-    <View style={s.section} wrap={!semQuebra}>
-      <Text style={s.sectionLabel}>{eyebrow}</Text>
-      {titulo ? <Text style={s.sectionTitle}>{titulo}</Text> : null}
+    <View style={s.section} wrap={!!podeQuebrar}>
+      <View wrap={false}>
+        <Text style={s.sectionLabel}>{eyebrow}</Text>
+        {titulo ? <Text style={s.sectionTitle}>{titulo}</Text> : null}
+        {primeiraLinha}
+      </View>
       {children}
+    </View>
+  );
+}
+
+/** Pares [a, b], [c, d]… — cada linha de chips é uma unidade que não parte. */
+function emLinhas<T>(itens: T[], porLinha = 2): T[][] {
+  const linhas: T[][] = [];
+  for (let i = 0; i < itens.length; i += porLinha) linhas.push(itens.slice(i, i + porLinha));
+  return linhas;
+}
+
+function LinhaChips({ itens }: { itens: string[] }) {
+  return (
+    <View style={s.chipLinha} wrap={false}>
+      {itens.map((item, i) => <Text key={i} style={s.chip}>{item}</Text>)}
     </View>
   );
 }
@@ -331,13 +360,17 @@ function Footer() {
 export default function PropostaComercialPDF({
   doc,
   logoBase64,
+  trajetoriaLogosBase64,
 }: {
   doc: ProposalDocumentVM;
   logoBase64?: string;
+  /** Quadro "Por onde já caminhamos"; sem ele a seção some. */
+  trajetoriaLogosBase64?: string;
 }) {
   const { cliente, investimento: inv, programa: pg, contato } = doc;
   const aceita = doc.status === 'accepted' || doc.aceite != null;
   const escopoVazio = doc.escopoItens.length === 0;
+  const escopoLinhas = emLinhas(doc.escopoItens);
   const temDesconto = inv.descontoPercent != null && Number(inv.descontoPercent) > 0;
 
   const pessoas = pg?.pessoas ?? null;
@@ -401,22 +434,8 @@ export default function PropostaComercialPDF({
             </Text>
           )}
 
-          {inv.total != null && (
-            <View>
-              <View style={s.capaDivisor} />
-              <View style={s.capaTotalWrap}>
-                <Text style={s.capaTotalLabel}>
-                  {inv.vendidoPorProjeto ? 'Investimento total do programa' : 'Valor total do contrato'}
-                </Text>
-                <View style={s.capaTotalLinha}>
-                  <Text style={s.capaTotalValor}>{fmtBRL(inv.total)}</Text>
-                  {inv.condicoesPagamento ? (
-                    <Text style={s.capaTotalCond}>{inv.condicoesPagamento}</Text>
-                  ) : null}
-                </View>
-              </View>
-            </View>
-          )}
+          {/* SEM valor na capa (decisão do Rodrigo, 16/09/2026): o escopo vem antes
+              do preço. O investimento fica só na seção "// Investimento". */}
         </View>
 
         {/* MÉTRICAS */}
@@ -432,13 +451,14 @@ export default function PropostaComercialPDF({
         )}
 
         {/* CONTEXTO */}
-        <Secao eyebrow="// Contexto" titulo="Por que este programa">
+        {/* `podeQuebrar`: o contexto é texto livre da oportunidade. */}
+        <Secao eyebrow="// Contexto" titulo="Por que este programa" podeQuebrar>
           {doc.contexto ? <Text style={{ ...s.bodyText, marginBottom: 8 }}>{doc.contexto}</Text> : null}
           <Text style={s.bodyText}>
             Formação genérica trata pessoas diferentes como se fossem a mesma pessoa — e termina sem
             deixar rastro do que mudou. A Vertho faz o contrário: entende o perfil e o nível de cada
             participante, entrega o desenvolvimento no formato em que ela aprende e{' '}
-            <Text style={s.indigoStrong}>mede a evolução</Text> com evidência ao fim de cada ciclo.
+            <Text style={s.destaque}>mede a evolução</Text> com evidência ao fim de cada ciclo.
           </Text>
         </Secao>
 
@@ -455,17 +475,29 @@ export default function PropostaComercialPDF({
           </View>
         </Secao>
 
-        {/* ESCOPO */}
-        <Secao eyebrow="// Escopo desta proposta" titulo="O que está dimensionado aqui">
-          {escopoVazio ? (
+        {/* TRAJETÓRIA — "e de seus fundadores" de propósito: nem todo logo é
+            cliente da Vertho. Ver o comentário gêmeo na página pública. */}
+        {trajetoriaLogosBase64 ? (
+          <Secao eyebrow="// Por onde já caminhamos" titulo="Experiências da Vertho e de seus fundadores">
+            <View style={s.trajetoria}>
+              <Image src={trajetoriaLogosBase64} style={s.trajetoriaImg} />
+            </View>
+          </Secao>
+        ) : null}
+
+        {/* ESCOPO — única lista que vem de DADO (`included_scope`, uma linha por
+            item): cresce sem teto, então quebra por linha de chips. */}
+        <Secao
+          eyebrow="// Escopo desta proposta"
+          titulo="O que está dimensionado aqui"
+          podeQuebrar
+          primeiraLinha={escopoVazio ? (
             <Text style={s.bodyText}>Pacote: {doc.produto || '—'}</Text>
           ) : (
-            <View style={s.chipGrid}>
-              {doc.escopoItens.map((item, i) => (
-                <Text key={i} style={s.chip}>{item}</Text>
-              ))}
-            </View>
+            <LinhaChips itens={escopoLinhas[0]} />
           )}
+        >
+          {escopoLinhas.slice(1).map((linha, i) => <LinhaChips key={i} itens={linha} />)}
           {pg?.conteudosPorPessoaCiclo != null && (
             <Text style={s.notaFina}>
               {/* Por PESSOA — ver o comentário gêmeo na página pública. */}
@@ -496,14 +528,14 @@ export default function PropostaComercialPDF({
         <Secao eyebrow="// Quem recebe o quê" titulo="Para cada pessoa, e para a instituição">
           <View style={s.ladoRow}>
             {[
-              { titulo: 'Cada participante recebe', itens: doc.paraPessoa, cor: c.indigo },
-              { titulo: 'A instituição recebe', itens: doc.paraInstituicao, cor: c.navy },
+              { titulo: 'Cada participante recebe', itens: doc.paraPessoa, borda: c.cyan, marca: c.cyanMarca },
+              { titulo: 'A instituição recebe', itens: doc.paraInstituicao, borda: c.navy, marca: c.navy },
             ].map((bloco, i) => (
-              <View key={i} style={{ ...s.lado, borderTopWidth: 2.5, borderTopColor: bloco.cor }} wrap={false}>
+              <View key={i} style={{ ...s.lado, borderTopWidth: 2.5, borderTopColor: bloco.borda }} wrap={false}>
                 <Text style={s.ladoTitulo}>{bloco.titulo}</Text>
                 {bloco.itens.map((item, j) => (
                   <View key={j} style={s.ladoItem}>
-                    <Text style={{ ...s.ladoMark, color: bloco.cor }}>›</Text>
+                    <Text style={{ ...s.ladoMark, color: bloco.marca }}>›</Text>
                     <Text style={s.ladoTexto}>{item}</Text>
                   </View>
                 ))}
@@ -570,7 +602,7 @@ export default function PropostaComercialPDF({
 
         {/* PRÓXIMOS PASSOS */}
         {doc.proximosPassos.length > 0 && (
-          <Secao eyebrow="// Próximos passos" titulo="O que acontece depois do aceite" semQuebra>
+          <Secao eyebrow="// Próximos passos" titulo="O que acontece depois do aceite">
             <View style={s.passosGrid} wrap={false}>
               {doc.proximosPassos.map((passo, i) => (
                 <View key={i} style={s.passoCard} wrap={false}>
@@ -584,7 +616,7 @@ export default function PropostaComercialPDF({
 
         {/* OBSERVAÇÕES */}
         {doc.notasComerciais && (
-          <Secao eyebrow="// Observações">
+          <Secao eyebrow="// Observações" podeQuebrar>
             <Text style={s.obsText}>{doc.notasComerciais}</Text>
           </Secao>
         )}
@@ -598,7 +630,7 @@ export default function PropostaComercialPDF({
                   <Text style={s.condTitulo}>Premissas</Text>
                   {doc.premissas.map((item, i) => (
                     <View key={i} style={s.condItem}>
-                      <Text style={s.condMarkIndigo}>›</Text>
+                      <Text style={s.condMarkSeta}>›</Text>
                       <Text style={s.condTexto}>{item}</Text>
                     </View>
                   ))}
@@ -609,7 +641,7 @@ export default function PropostaComercialPDF({
                   <Text style={s.condTitulo}>O que não está incluso</Text>
                   {doc.naoIncluso.map((item, i) => (
                     <View key={i} style={s.condItem}>
-                      <View style={s.condMarkPink}><Xis /></View>
+                      <View style={s.condMarkXis}><Xis /></View>
                       <Text style={s.condTexto}>{item}</Text>
                     </View>
                   ))}
@@ -619,37 +651,40 @@ export default function PropostaComercialPDF({
           </Secao>
         )}
 
-        {/* ACEITE / CHAMADA */}
-        {aceita ? (
-          <View style={s.aceiteBox} wrap={false}>
-            <Text style={s.aceiteTitulo}>Proposta aceita</Text>
-            <Text style={s.aceiteTexto}>
-              {doc.aceite
-                ? `Registrado por ${doc.aceite.nome}${doc.aceite.cargo ? ` (${doc.aceite.cargo})` : ''} em ${fmtDateTime(doc.aceite.em)}.`
-                : 'O aceite desta proposta já está registrado.'}
-            </Text>
-          </View>
-        ) : doc.podeAceitar ? (
-          <View style={s.chamadaBox} wrap={false}>
-            <Text style={s.chamadaTitulo}>Vamos começar?</Text>
-            <Text style={s.chamadaTexto}>
-              O aceite pode ser registrado na própria página desta proposta, ou respondendo ao seu
-              contato na Vertho. O ambiente da instituição fica no ar em até 2 dias úteis após o
-              recebimento do material de setup.
-            </Text>
-          </View>
-        ) : null}
+        {/* ACEITE / CHAMADA + CONTATO — no MESMO bloco sem quebra: separados, o
+            contato caía sozinho numa página em branco (medido 16/09/2026). */}
+        <View wrap={false}>
+          {aceita ? (
+            <View style={s.aceiteBox} wrap={false}>
+              <Text style={s.aceiteTitulo}>Proposta aceita</Text>
+              <Text style={s.aceiteTexto}>
+                {doc.aceite
+                  ? `Registrado por ${doc.aceite.nome}${doc.aceite.cargo ? ` (${doc.aceite.cargo})` : ''} em ${fmtDateTime(doc.aceite.em)}.`
+                  : 'O aceite desta proposta já está registrado.'}
+              </Text>
+            </View>
+          ) : doc.podeAceitar ? (
+            <View style={s.chamadaBox} wrap={false}>
+              <Text style={s.chamadaTitulo}>Vamos começar?</Text>
+              <Text style={s.chamadaTexto}>
+                O aceite pode ser registrado na própria página desta proposta, ou respondendo ao seu
+                contato na Vertho. O ambiente da instituição fica no ar em até 2 dias úteis após o
+                recebimento do material de setup.
+              </Text>
+            </View>
+          ) : null}
 
-        {/* CONTATO */}
-        <View style={s.contato} wrap={false}>
-          <View style={s.avatar}>
-            <Text style={s.avatarText}>{initiais(contato.nome)}</Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.contatoLabel}>Seu contato na Vertho</Text>
-            <Text style={s.contatoNome}>{contato.nome}</Text>
-            {contato.email && <Text style={s.contatoLinha}>{contato.email}</Text>}
-            {contato.whatsapp && <Text style={s.contatoLinha}>{fmtTelefone(contato.whatsapp)}</Text>}
+          {/* CONTATO */}
+          <View style={s.contato} wrap={false}>
+            <View style={s.avatar}>
+              <Text style={s.avatarText}>{initiais(contato.nome)}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.contatoLabel}>Seu contato na Vertho</Text>
+              <Text style={s.contatoNome}>{contato.nome}</Text>
+              {contato.email && <Text style={s.contatoLinha}>{contato.email}</Text>}
+              {contato.whatsapp && <Text style={s.contatoLinha}>{fmtTelefone(contato.whatsapp)}</Text>}
+            </View>
           </View>
         </View>
 
