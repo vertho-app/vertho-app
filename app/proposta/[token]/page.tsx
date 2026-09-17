@@ -689,34 +689,7 @@ export default async function PropostaPublicaPage(
             </div>
           </Secao>
 
-          {/* Escopo do orçamento */}
-          {escopo.length > 0 && (
-            <Secao eyebrow="// Escopo desta proposta" titulo="O que está dimensionado aqui">
-              <div className="prop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {escopo.map((item, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      background: C.cyanSoft,
-                      borderRadius: 10,
-                      padding: '14px 16px',
-                      fontSize: 13.5,
-                      fontWeight: 500,
-                      lineHeight: 1.45,
-                      color: C.ink2,
-                    }}
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-              {/* Sem contagem de conteúdos por pessoa/ciclo (decisão do Rodrigo,
-                  17/09/2026): o escopo diz "vídeos, podcasts, textos e casos
-                  personalizados para cada pessoa" e para aí. */}
-            </Secao>
-          )}
-
-          {/* Simuladores incluídos: seção própria, fora do escopo (decisão do Rodrigo, 17/09/2026) */}
+          {/* Simuladores incluídos: vem ANTES do escopo, que também os lista (Rodrigo, 17/09/2026) */}
           {doc.simuladores.length > 0 && (
             <Secao eyebrow="// Simuladores" titulo="Simuladores incluídos nesta proposta">
               <div
@@ -754,6 +727,33 @@ export default async function PropostaPublicaPage(
                   </div>
                 ))}
               </div>
+            </Secao>
+          )}
+
+          {/* Escopo do orçamento */}
+          {escopo.length > 0 && (
+            <Secao eyebrow="// Escopo desta proposta" titulo="O que está dimensionado aqui">
+              <div className="prop-grid-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {escopo.map((item, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      background: C.cyanSoft,
+                      borderRadius: 10,
+                      padding: '14px 16px',
+                      fontSize: 13.5,
+                      fontWeight: 500,
+                      lineHeight: 1.45,
+                      color: C.ink2,
+                    }}
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+              {/* Sem contagem de conteúdos por pessoa/ciclo (decisão do Rodrigo,
+                  17/09/2026): o escopo diz "vídeos, podcasts, textos e casos
+                  personalizados para cada pessoa" e para aí. */}
             </Secao>
           )}
 

@@ -23,6 +23,7 @@ import {
   CONTEUDO_POR_FORMATO_DEFAULT,
   OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
+  ROTULO_SIMULADOR,
   obterComissaoOrcamento,
   semSimuladores,
   type PessoasPorSimulador,
@@ -319,9 +320,15 @@ export function escopoPropostaDoCenario(
         : `${n(r.unidades)} workshops presenciais, um por unidade, para definir com a equipe as competências de cada cargo`,
     );
   }
-  // Simuladores NÃO entram aqui: o documento tem a seção "Simuladores incluídos",
-  // lida do orçamento (decisão do Rodrigo, 17/09/2026). Repetir num chip seria
-  // dizer a mesma coisa duas vezes.
+  // Um simulador por linha, antes do Mentor IA, nunca acima das pessoas do
+  // programa. O documento TAMBÉM tem a seção "Simuladores incluídos" (logo antes
+  // do escopo): o Rodrigo quis os dois, 17/09/2026. Cenário antigo não tem o campo.
+  const iMentor = linhas.findIndex((l) => l.startsWith('Mentor IA'));
+  const sims = (Object.keys(ROTULO_SIMULADOR) as (keyof PessoasPorSimulador)[])
+    .map((s) => ({ s, pessoas: Math.min(r.pessoas, Math.max(0, e.simuladores?.[s] ?? 0)) }))
+    .filter((x) => x.pessoas > 0)
+    .map((x) => `${ROTULO_SIMULADOR[x.s]} para ${p(x.pessoas, 'pessoa', 'pessoas')}`);
+  linhas.splice(iMentor, 0, ...sims);
 
   if (e.nVideosExtraidos > 0) {
     const iConteudo = linhas.findIndex((l) => l.startsWith('Vídeos, podcasts'));

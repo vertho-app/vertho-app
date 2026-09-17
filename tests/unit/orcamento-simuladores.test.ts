@@ -96,9 +96,26 @@ describe('cenário salvo e escopo da proposta', () => {
     expect(lido.simuladores).toEqual({ vendas: 40, atendimento: 10, lideranca: 0 });
   });
 
-  it('simulador NÃO vira linha do escopo: o documento tem seção própria para eles', () => {
+  it('cada simulador incluído vira uma linha do escopo, antes do Mentor IA', () => {
     const e = { ...entradasPadrao(LISTAS), nColabs: 1200, simuladores: { vendas: 1200, atendimento: 0, lideranca: 1 } };
-    const texto = escopoPropostaDoCenario(e, { pessoas: 1200, unidades: 1, cargos: 3, ciclos: 2 } as any, JORNADA);
+    const resumo: any = { pessoas: 1200, unidades: 1, cargos: 3, ciclos: 2 };
+    const linhas = escopoPropostaDoCenario(e, resumo, JORNADA).split('\n');
+    const iMentor = linhas.findIndex((l) => l.startsWith('Mentor IA'));
+    expect(linhas.slice(iMentor - 2, iMentor)).toEqual([
+      'Simulador de vendas para 1.200 pessoas',
+      'Prontidão para liderança para 1 pessoa',
+    ]);
+    expect(linhas.join('\n')).not.toMatch(/Treino de atendimento/);
+  });
+
+  it('sem simulador, o escopo não ganha linha nenhuma', () => {
+    const texto = escopoPropostaDoCenario(entradasPadrao(LISTAS), { pessoas: 100, unidades: 1, cargos: 3, ciclos: 1 } as any, JORNADA);
     expect(texto).not.toMatch(/Simulador|Treino de atendimento|Prontidão/);
+  });
+
+  it('o texto também não promete acesso acima das pessoas do programa', () => {
+    const e = { ...entradasPadrao(LISTAS), simuladores: { vendas: 300, atendimento: 0, lideranca: 0 } };
+    const texto = escopoPropostaDoCenario(e, { pessoas: 100, unidades: 1, cargos: 3, ciclos: 1 } as any, JORNADA);
+    expect(texto).toMatch(/^Simulador de vendas para 100 pessoas$/m);
   });
 });

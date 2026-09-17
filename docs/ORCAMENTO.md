@@ -287,7 +287,8 @@ Rodrigo, travadas em `tests/unit/orcamento-conversao.test.ts`:
   ciclo";
 - workshop em linha própria ("Workshop presencial para definir, com a equipe da
   instituição, as competências de cada cargo"), e não no fim de "cargos mapeados";
-- simuladores NÃO entram no escopo: o documento tem a seção "Simuladores incluídos",
+- um simulador por linha ("Simulador de vendas para 100 pessoas"), antes do Mentor
+  IA. O documento também tem a seção "Simuladores incluídos", logo ANTES do escopo,
   lida do orçamento (só a contagem de acessos, nunca o preço).
 
 ### Orçamento editado depois de virar proposta (17/09/2026)

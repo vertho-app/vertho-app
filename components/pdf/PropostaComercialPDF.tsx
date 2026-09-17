@@ -637,23 +637,7 @@ export default function PropostaComercialPDF({
           </View>
         </Secao>
 
-        {/* ESCOPO — única lista que vem de DADO (`included_scope`, uma linha por
-            item): cresce sem teto, então quebra por linha de chips. */}
-        <Secao
-          eyebrow="// Escopo desta proposta"
-          titulo="O que está dimensionado aqui"
-          podeQuebrar
-          primeiraLinha={escopoVazio ? (
-            <Text style={s.bodyText}>Pacote: {doc.produto || '—'}</Text>
-          ) : (
-            <LinhaChips itens={escopoLinhas[0]} />
-          )}
-        >
-          {escopoLinhas.slice(1).map((linha, i) => <LinhaChips key={i} itens={linha} />)}
-          {/* Sem contagem de conteúdos: ver o comentário gêmeo na página pública. */}
-        </Secao>
-
-        {/* SIMULADORES INCLUÍDOS (só quando há) */}
+        {/* SIMULADORES INCLUÍDOS (só quando há), antes do escopo: ver a página pública */}
         {doc.simuladores.length > 0 && (
           <Secao eyebrow="// Simuladores" titulo="Simuladores incluídos nesta proposta">
             <View style={s.simRow}>
@@ -675,6 +659,22 @@ export default function PropostaComercialPDF({
             </View>
           </Secao>
         )}
+
+        {/* ESCOPO — única lista que vem de DADO (`included_scope`, uma linha por
+            item): cresce sem teto, então quebra por linha de chips. */}
+        <Secao
+          eyebrow="// Escopo desta proposta"
+          titulo="O que está dimensionado aqui"
+          podeQuebrar
+          primeiraLinha={escopoVazio ? (
+            <Text style={s.bodyText}>Pacote: {doc.produto || '—'}</Text>
+          ) : (
+            <LinhaChips itens={escopoLinhas[0]} />
+          )}
+        >
+          {escopoLinhas.slice(1).map((linha, i) => <LinhaChips key={i} itens={linha} />)}
+          {/* Sem contagem de conteúdos: ver o comentário gêmeo na página pública. */}
+        </Secao>
 
         {/* ENTREGAS */}
         <Secao eyebrow="// O que está incluso" titulo="Tudo o que acompanha o programa">
