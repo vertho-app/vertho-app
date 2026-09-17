@@ -1,7 +1,7 @@
 import { connection } from 'next/server';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { resolveTenantFromHeaders } from '@/lib/tenant-resolver';
+import { getTenantSlug, resolveTenantFromHeaders } from '@/lib/tenant-resolver';
 import { resolveTheme } from '@/lib/ui-resolver';
 import { getRepresentativeContext } from '@/lib/sales/permissions';
 import { isPlatformAdmin } from '@/lib/authz';
@@ -26,6 +26,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Resolve o tema do tenant (white-label) server-side. Sem branding → fallbacks
   // são o tema Vertho atual, então não há mudança visual para quem não customiza.
   const h = await headers();
+  // Os aliases de usuário/gestor/RH chegam com o slug canônico da apresentação.
+  const ocultarIpi = ['acme-demo', 'escolas-acme'].includes(getTenantSlug(h) || '');
   const tenant = await resolveTenantFromHeaders(h);
   const theme = resolveTheme(tenant?.ui_config);
 
@@ -41,7 +43,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       ) : null}
       {children}
-      <IpiAccess />
+      {!ocultarIpi && <IpiAccess />}
     </DashboardShell>
   );
 }

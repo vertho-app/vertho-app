@@ -1,6 +1,6 @@
 # Ipi — assistência operacional interna
 
-O Ipi orienta usuários internos no preenchimento, navegação, relatórios e pré-requisitos da Vertho. É separado do Beto e aparece nos shells `/admin`, `/admin-v2`, `/dashboard` e `/representante`. No dashboard, seu botão fica acima do Beto.
+O Ipi orienta usuários internos no preenchimento, navegação, relatórios e pré-requisitos da Vertho. É separado do Beto e aparece nos shells `/admin`, `/admin-v2`, `/dashboard` e `/representante`. No dashboard, seu botão fica acima do Beto. Nas apresentações da Acme Demo (`acme-demo`) e da Rede de Escolas Acme (`escolas-acme`), o layout não monta o Ipi, incluindo as diferentes visões e a prévia de celular. A regra usa o slug canônico resolvido pelo proxy, sem alterar o acesso nas demais áreas.
 
 ## Acesso e limites
 
