@@ -211,7 +211,9 @@
     "documentZeroHelp": "— indica que no se observaron descriptores en la etapa. Cuenta como cero solo en la media de la práctica; no asigna N1 a la competencia.",
     "documentSources": "Referencias metodológicas exclusivas: Manual de la Metodología PACE v8 y la matriz de competencias PACE aprobada. El plan y la conversación aportan las evidencias de esta práctica.",
     "documentReference": "Matriz: {descriptor} · Manual v8: {section}",
-    "documentAgreement": "Acuerdo de compra registrado"
+    "documentAgreement": "Acuerdo de compra registrado",
+    "matrixScaleHelp": "Las notas de 1 a 4 se calculan a partir de los descriptores observados. N3 es la meta. El promedio general incluye las cinco competencias, incluida Planificación comercial. Los elementos sin evidencia observable quedan sin nota.",
+    "legacyScaleHelp": "Esta evaluación es anterior a la matriz actual. La nota se convirtió de 0–10 a 1–4; se conservaron los criterios originales."
   },
   "Beto": {
     "greeting": "¡Hola! Soy Beto, tu mentor de desarrollo. ¿Cómo puedo ayudarte?",

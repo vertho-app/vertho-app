@@ -9,7 +9,12 @@ import { montarCsv } from '@/lib/simulador-vendas/csv';
 import Relatorio from './relatorio';
 
 type Pagina = { historico: ResumoTreino[]; proximoCursor: string | null };
-type Detalhe = { id: string; nomeVendedor: string; versaoRegua: string; relatorio: Saidas['gerente'] };
+type Detalhe = {
+  id: string;
+  nomeVendedor: string;
+  versaoRegua: string;
+  relatorio: Saidas['gerente'];
+};
 type LinhaExportacao = {
   id: string;
   nomeVendedor: string;
@@ -18,6 +23,7 @@ type LinhaExportacao = {
   nivel: number;
   status: ResumoTreino['status'];
   versaoRegua: string;
+  PL: number | null;
   P: number;
   A: number;
   C: number;
@@ -48,7 +54,9 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
   }, []);
   async function consultar(extras: Record<string, string> = {}) {
     const q = new URLSearchParams({ empresaId, ...extras });
-    const r = await fetchAuth('/api/simulador-vendas/gestao?' + q, { cache: 'no-store' }),
+    const r = await fetchAuth('/api/simulador-vendas/gestao?' + q, {
+        cache: 'no-store',
+      }),
       d = await r.json();
     if (!r.ok) throw new Error(d.error || t('genericError'));
     return d;
@@ -100,7 +108,10 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
       // Projeção de um único snapshot SQL. Não repagina enquanto dados mudam.
       const d: { linhas: LinhaExportacao[] } = await consultar(extras);
       if (!vivo.current || ticket !== operacao.current) return;
-      if (!Array.isArray(d.linhas) || new Set(d.linhas.map((r) => r.id)).size !== d.linhas.length)
+      if (
+        !Array.isArray(d.linhas) ||
+        new Set(d.linhas.map((r) => r.id)).size !== d.linhas.length
+      )
         throw new Error(t('genericError'));
       const csv = montarCsv([
         [
@@ -110,10 +121,11 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
           t('date'),
           t('level'),
           t('state'),
-          'P',
-          'A',
-          'C',
-          'E',
+          'PL (1–4)',
+          'P (1–4)',
+          'A (1–4)',
+          'C (1–4)',
+          'E (1–4)',
           t('average'),
           t('summary'),
           t('version', { version: '' }),
@@ -125,6 +137,7 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
           r.criadoEm,
           r.nivel,
           t(`status_${r.status}`),
+          r.PL,
           r.P,
           r.A,
           r.C,
@@ -134,7 +147,9 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
           r.versaoRegua,
         ]),
       ]);
-      const url = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
+      const url = URL.createObjectURL(
+        new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }),
+      );
       const link = document.createElement('a');
       link.href = url;
       link.download = 'pace.csv';
@@ -153,7 +168,12 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
       <div className="flex flex-wrap gap-4 items-end mb-5">
         <label className="text-sm">
           {t('exportStart')}
-          <input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} disabled={ocupado} />
+          <input
+            type="date"
+            value={inicio}
+            onChange={(e) => setInicio(e.target.value)}
+            disabled={ocupado}
+          />
         </label>
         <label className="text-sm">
           {t('exportEnd')}
@@ -195,13 +215,22 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
               <tr key={r.id} className="border-b border-white/10">
                 <td className="py-3 pr-4">
                   {r.nomeVendedor}
-                  {r.testeAdmin && <small className="block text-slate-400">{t('adminTest')}</small>}
+                  {r.testeAdmin && (
+                    <small className="block text-slate-400">
+                      {t('adminTest')}
+                    </small>
+                  )}
                 </td>
-                <td className="pr-4 whitespace-nowrap">{new Date(r.criadoEm).toLocaleDateString(locale)}</td>
+                <td className="pr-4 whitespace-nowrap">
+                  {new Date(r.criadoEm).toLocaleDateString(locale)}
+                </td>
                 <td className="pr-4">{t(`status_${r.status}`)}</td>
                 <td className="pr-4">{formatarNotaPace(r.nota, locale)}</td>
                 <td>
-                  <button disabled={ocupado || !r.temRelatorio} onClick={() => void abrir(r.id)}>
+                  <button
+                    disabled={ocupado || !r.temRelatorio}
+                    onClick={() => void abrir(r.id)}
+                  >
                     {t('viewReport')}
                   </button>
                 </td>
@@ -210,9 +239,14 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
           </tbody>
         </table>
       </div>
-      {dados?.historico.length === 0 && <p className="text-slate-400 py-8">{t('emptyHistory')}</p>}
+      {dados?.historico.length === 0 && (
+        <p className="text-slate-400 py-8">{t('emptyHistory')}</p>
+      )}
       <div className="flex items-center gap-3 mt-5">
-        <button disabled={ocupado || pagina === 0} onClick={() => setCursores((c) => c.slice(0, -1))}>
+        <button
+          disabled={ocupado || pagina === 0}
+          onClick={() => setCursores((c) => c.slice(0, -1))}
+        >
           {t('previous')}
         </button>
         <span className="text-sm">{t('page', { n: pagina + 1 })}</span>
@@ -227,9 +261,14 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
         <div className="border border-white/15 rounded-2xl p-5 mt-6">
           <div className="flex justify-between items-center mb-5">
             <p>{selecionado.nomeVendedor}</p>
-            <button onClick={() => setSelecionado(null)}>{t('closeReport')}</button>
+            <button onClick={() => setSelecionado(null)}>
+              {t('closeReport')}
+            </button>
           </div>
-          <Relatorio relatorio={selecionado.relatorio} versao={selecionado.versaoRegua} />
+          <Relatorio
+            relatorio={selecionado.relatorio}
+            versao={selecionado.versaoRegua}
+          />
         </div>
       )}
     </section>

@@ -159,3 +159,12 @@ Os limites abaixo são uma **proposta operacional inicial**, não padrões cient
 O painel atual permite acompanhar parte dessas medidas; cobertura por variante, revisão da amostra, divergência, janela de 7 dias e percentis de custo ainda precisam de apuração do lote. Não apresentar estes gates como automação já implementada. Começar com 1–2 clínicas definidas pelo responsável e registrar datas, versões, participantes e decisão de passagem em ata do piloto.
 
 Permissão específica de revisão e experiência de telefone com turnos próprios ficam como evoluções de produto. A revisão mantém os controles atuais de papel, escopo de equipe, empresa, autoria e permissão; não há afrouxamento de acesso nesta correção.
+
+
+### Matriz Vertho 5 × 6 e escala 1–4 (17/09/2026)
+
+A matriz de Atendimento agora reúne cinco competências: Acolhimento e condução sob pressão; Compreensão da demanda; Clareza e precisão; Resolução e encaminhamento; Procedimentos e proteção de informações. A fonte versionada é `lib/recepcao/matriz.ts`: seis descritores por competência, cada um com N1–N4. N3 é a meta.
+
+Novas versões de cenário congelam a matriz e os critérios de aplicação. O avaliador devolve 30 classificações com oportunidades e evidências literais; o código calcula a média 1–4 dos descritores observados por competência e depois a média das competências observadas, com peso igual. Sem oportunidade, não há nota; a cobertura fica explícita. A nota 1–4 e a versão da matriz são gravadas no relatório. A sugestão de dificuldade usa N3 (nota 3) nas novas avaliações.
+
+Os snapshots antigos permanecem intactos. Na leitura, suas notas são convertidas de 0–100 para 1–4 por `1 + 3 × nota / 100` e identificadas como avaliações legadas, sem criar descritores retroativamente. A biblioteca anterior em `competencias-base.ts` permanece exclusivamente para os catálogos e testes históricos x.2; a matriz vigente é `matriz.ts`. Publicação dos novos casos x.3 exige o código compatível já implantado, backup dos registros e novas versões, sem editar conteúdo publicado.

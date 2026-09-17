@@ -3,7 +3,11 @@ import type { Saidas } from '@/lib/simulador-vendas/schema';
 import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 import { useLocale, useTranslations } from 'next-intl';
 import MatrizPace from './matriz';
-import { MANUAL_PACE, usaFontesDocumentais } from '@/lib/simulador-vendas/fontes';
+import { relatorioPacePublico } from '@/lib/simulador-vendas/escala';
+import {
+  MANUAL_PACE,
+  usaFontesDocumentais,
+} from '@/lib/simulador-vendas/fontes';
 const pilares = [
   ['P', 'preparation', 'Preparacao'],
   ['A', 'analysis', 'Analise'],
@@ -11,7 +15,7 @@ const pilares = [
   ['E', 'engagement', 'Engajamento'],
 ] as const;
 export default function Relatorio({
-  relatorio: r,
+  relatorio: original,
   versao,
 }: {
   relatorio: Saidas['gerente'];
@@ -19,6 +23,7 @@ export default function Relatorio({
 }) {
   const t = useTranslations('SimuladorVendas'),
     locale = useLocale();
+  const r = relatorioPacePublico(original, versao)!;
   const documental = usaFontesDocumentais(versao);
   return (
     <section aria-label={t('report')}>
@@ -26,28 +31,38 @@ export default function Relatorio({
         <h2 className="text-xl">{t('reportTitle')}</h2>
         <span className="text-3xl tabular-nums">
           {formatarNotaPace(r.Media, locale)}
-          <small className="text-sm text-slate-400"> / 10</small>
+          <small className="text-sm text-slate-400"> / 4</small>
         </span>
       </div>
       <p className="text-sm text-slate-300 leading-relaxed mb-5">{r.Resumo}</p>
       <p className="text-xs text-slate-400 mb-4">
-        {t(documental ? 'documentZeroHelp' : r.Matriz ? 'matrixZeroHelp' : 'scoreZeroHelp')}
+        {t(
+          r.escalaOriginal && !r.Matriz ? 'legacyScaleHelp' : 'matrixScaleHelp',
+        )}
       </p>
       <div className="grid sm:grid-cols-2 gap-3">
         {pilares.map(([p, nome, detalhe]) => (
           <article key={p} className="border border-white/10 rounded-xl p-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">{t(r.Matriz ? `matrix_${p}` : nome)}</h3>
-              <span className="tabular-nums text-brand-300">{formatarNotaPace(r[p], locale)}</span>
+              <h3 className="text-sm font-semibold">
+                {t(r.Matriz ? `matrix_${p}` : nome)}
+              </h3>
+              <span className="tabular-nums text-brand-300">
+                {formatarNotaPace(r[p], locale)}
+              </span>
             </div>
-            <meter
-              className="w-full my-2"
-              min={0}
-              max={10}
-              value={r[p]}
-              aria-label={t('scoreLabel', { name: t(nome) })}
-            />
-            <p className="text-sm text-slate-300 leading-relaxed">{r[detalhe]}</p>
+            {r[p] !== null && (
+              <meter
+                className="w-full my-2"
+                min={1}
+                max={4}
+                value={r[p]!}
+                aria-label={t('scoreLabel', { name: t(nome) })}
+              />
+            )}
+            <p className="text-sm text-slate-300 leading-relaxed">
+              {r[detalhe]}
+            </p>
           </article>
         ))}
       </div>
@@ -78,24 +93,30 @@ export default function Relatorio({
           )}
         </p>
         {r.Preco_final && <p>{r.Preco_final}</p>}
-        {r.Compromissos_obtidos && <p className="mt-1">{r.Compromissos_obtidos}</p>}
+        {r.Compromissos_obtidos && (
+          <p className="mt-1">{r.Compromissos_obtidos}</p>
+        )}
       </div>
-      {[...r.Beneficios_ocultos_descobertos, ...r.Objecoes_profundas_descobertas].length > 0 && (
+      {[
+        ...r.Beneficios_ocultos_descobertos,
+        ...r.Objecoes_profundas_descobertas,
+      ].length > 0 && (
         <details className="mt-5 text-sm">
           <summary className="cursor-pointer">{t('discoveries')}</summary>
           <ul className="mt-3 space-y-3">
-            {[...r.Beneficios_ocultos_descobertos, ...r.Objecoes_profundas_descobertas].map(
-              (d, i) => (
-                <li key={i}>
-                  <p>
-                    {d.nome} · {t('turn', { n: d.turno })}
-                  </p>
-                  <blockquote className="border-l-2 border-brand-400 pl-3 mt-1 text-slate-300">
-                    {d.citacao_vendedor}
-                  </blockquote>
-                </li>
-              ),
-            )}
+            {[
+              ...r.Beneficios_ocultos_descobertos,
+              ...r.Objecoes_profundas_descobertas,
+            ].map((d, i) => (
+              <li key={i}>
+                <p>
+                  {d.nome} · {t('turn', { n: d.turno })}
+                </p>
+                <blockquote className="border-l-2 border-brand-400 pl-3 mt-1 text-slate-300">
+                  {d.citacao_vendedor}
+                </blockquote>
+              </li>
+            ))}
           </ul>
         </details>
       )}
@@ -114,8 +135,12 @@ export default function Relatorio({
         </details>
       )}
       <p className="text-xs text-slate-400 mt-6">{t('disclaimer')}</p>
-      {documental && <p className="text-xs text-slate-400 mt-2">{t('documentSources')}</p>}
-      <p className="text-xs text-slate-400 mt-2">{t('version', { version: versao || 'pace-1' })}</p>
+      {documental && (
+        <p className="text-xs text-slate-400 mt-2">{t('documentSources')}</p>
+      )}
+      <p className="text-xs text-slate-400 mt-2">
+        {t('version', { version: versao || 'pace-1' })}
+      </p>
     </section>
   );
 }

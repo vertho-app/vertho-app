@@ -101,3 +101,10 @@ Base: `docs/CHECKLISTS.md` §1. Checklist específico:
 Testes do núcleo, acesso, checkpoints, serviço e Responses em `tests/unit/simulador-vendas-*.test.ts` e `tests/unit/integrations/simulador-vendas-responses.test.ts`. Os guards de leitura/mutação também cobrem as tabelas PACE. `node --env-file=.env.local scripts/verify-pace-migration.mjs` executa o contrato SQL em transação com rollback integral; `node --env-file=.env.local scripts/verify-pace-migration.mjs --check` é o portão somente leitura que confirma 249/250/251 no banco já publicado. `node scripts/verify-pace-ui.mjs` verifica os componentes e CSS reais com APIs fictícias (quatro idiomas, mobile, paginação, CSV, lease e troca de contexto), salvando imagens em `tmp/pace-ui-v2`. A sonda real usa somente o tenant de demonstração, identificada como verificação técnica, com liberação de participantes desligada.
 
 Rollback operacional: desligar a liberação por empresa e restaurar uma revisão compatível com referências de prompt e `pace-2`/`pace-3`. Código anterior à migration 250 não entende os novos snapshots: não voltar a ele sem restauração literal controlada. Preservar tabelas, catálogo e relatórios; não apagar dados para reverter a interface.
+
+
+### Escala comum Vertho — pace-6 (17/09/2026)
+
+As novas avaliações persistem notas de 1 a 4, calculadas diretamente da matriz PACE. Cada competência usa a média dos descritores observados; a média geral inclui as cinco competências com peso igual, incluindo Planejamento comercial. Itens não observados são nulos e não entram na média. A conversão para N1–N4 permanece em `nivelDaNota`, sem arredondamento prévio. E5/E6 continuam não observáveis na reunião inicial.
+
+Relatório, histórico, gestão e CSV usam a escala 1–4. Avaliações históricas sem matriz são apresentadas com conversão linear `1 + 3 × nota / 10`, identificadas como legadas; zero previamente usado como ausência de evidência continua sem nota. Os snapshots originais e versões dos prompts são preservados. A pesquisa de experiência mantém seu instrumento próprio. A versão pace-6 preserva a exclusividade do manual PACE v8 e da matriz como fontes metodológicas.

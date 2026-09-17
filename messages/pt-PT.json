@@ -211,7 +211,9 @@
     "documentZeroHelp": "— indica que a etapa não teve descritores observados e conta como zero apenas na média do treino. Isto não atribui N1 à competência.",
     "documentSources": "Referências metodológicas exclusivas: Manual da Metodologia PACE v8 e Matriz de competências PACE aprovada. O plano e a conversa são as evidências deste treino.",
     "documentReference": "Matriz: {descriptor} · Manual v8: {section}",
-    "documentAgreement": "Acordo de compra registado"
+    "documentAgreement": "Acordo de compra registado",
+    "matrixScaleHelp": "Notas de 1 a 4 calculadas pelos descritores observados. N3 é a meta. A média global reúne as cinco competências, incluindo Planeamento comercial. Sem evidência observável, o item fica sem nota.",
+    "legacyScaleHelp": "Avaliação anterior à matriz atual. A nota foi convertida de 0–10 para 1–4; os critérios originais foram preservados."
   },
   "Beto": {
     "greeting": "Olá! Sou o Beto, o seu mentor de desenvolvimento. Como posso ajudar?",

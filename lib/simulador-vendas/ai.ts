@@ -5,7 +5,13 @@ import { callAI } from '@/actions/ai-client';
 import { getModelForTask } from '@/lib/ai-tasks';
 import { tenantDb } from '@/lib/tenant-db';
 import { VENDAS_TENTATIVA } from '@/lib/status';
-import { PROMPTS, PROMPT_VERSION, hashPrompt, renderPrompt, mensagensDoPrompt } from './prompts';
+import {
+  PROMPTS,
+  PROMPT_VERSION,
+  hashPrompt,
+  renderPrompt,
+  mensagensDoPrompt,
+} from './prompts';
 import {
   ETAPAS,
   SAIDAS,
@@ -36,7 +42,9 @@ const TAREFAS = {
   gerente: 'sim_vendas_gerente',
 } as const;
 
-export async function snapshotPrompts(empresaId: string): Promise<PromptSnapshot> {
+export async function snapshotPrompts(
+  empresaId: string,
+): Promise<PromptSnapshot> {
   const tdb = tenantDb(empresaId);
   const entries = await Promise.all(
     ETAPAS.map(async (etapa) => {
@@ -46,7 +54,12 @@ export async function snapshotPrompts(empresaId: string): Promise<PromptSnapshot
           400,
           `Configure um modelo compatível com o PACE para o agente ${etapa} antes de iniciar.`,
         );
-      const id = await arquivarPrompt(tdb, etapa, PROMPT_VERSION, PROMPTS[etapa]);
+      const id = await arquivarPrompt(
+        tdb,
+        etapa,
+        PROMPT_VERSION,
+        PROMPTS[etapa],
+      );
       return [
         etapa,
         {
@@ -78,13 +91,17 @@ export function gerador(
       PROMPT_VERSION,
       'pace-rnaves-2.1.2-vertho-3',
       'pace-rnaves-2.1.2-vertho-4',
+      'pace-rnaves-2.1.2-vertho-5',
     ].includes(spec.versao)
       ? mensagensDoPrompt(texto, valores)
       : { system: '', user: renderPrompt(texto, valores) };
-    const promptHash = hashPrompt(mensagens.system ? JSON.stringify(mensagens) : mensagens.user);
+    const promptHash = hashPrompt(
+      mensagens.system ? JSON.stringify(mensagens) : mensagens.user,
+    );
     const bruto = etapa === 'gerente' && usaGerenteBruto(s.versaoRegua);
     const matriz = etapa === 'gerente' && usaMatrizPace(s.versaoRegua);
-    const documental = etapa === 'gerente' && usaFontesDocumentais(s.versaoRegua);
+    const documental =
+      etapa === 'gerente' && usaFontesDocumentais(s.versaoRegua);
     const schema = documental
       ? gerenteDocumentalSchema
       : matriz
@@ -101,7 +118,10 @@ export function gerador(
           ? {
               ...(matriz ? { P: 0, A: 0, C: 0, E: 0 } : {}),
               ...(documental
-                ? { Beneficios_ocultos_descobertos: [], Objecoes_profundas_descobertas: [] }
+                ? {
+                    Beneficios_ocultos_descobertos: [],
+                    Objecoes_profundas_descobertas: [],
+                  }
                 : {}),
               ...r,
               Media: 0,
@@ -124,9 +144,18 @@ export function gerador(
         503,
         'Não foi possível recuperar a resposta anterior. Tente novamente.',
       );
-    if (anteriores.some((r: any) => r.prompt_hash !== promptHash || r.modelo !== spec.modelo))
-      throw new SimuladorError(409, 'Este envio pertence a outro conteúdo. Atualize o treino.');
-    const aceita = anteriores.find((r: any) => r.status === VENDAS_TENTATIVA.ACEITA);
+    if (
+      anteriores.some(
+        (r: any) => r.prompt_hash !== promptHash || r.modelo !== spec.modelo,
+      )
+    )
+      throw new SimuladorError(
+        409,
+        'Este envio pertence a outro conteúdo. Atualize o treino.',
+      );
+    const aceita = anteriores.find(
+      (r: any) => r.status === VENDAS_TENTATIVA.ACEITA,
+    );
     if (aceita) {
       const result = parse(aceita.resultado);
       validar?.(result);
@@ -140,7 +169,10 @@ export function gerador(
           .select('habilitado,periodo_inicio,periodo_fim')
           .maybeSingle();
         if (prazoError)
-          throw new SimuladorError(503, 'Não foi possível verificar o prazo de acesso.');
+          throw new SimuladorError(
+            503,
+            'Não foi possível verificar o prazo de acesso.',
+          );
         if (!data?.habilitado || !periodoVigente(data))
           throw new SimuladorError(
             403,
@@ -155,17 +187,22 @@ export function gerador(
         );
       const id = randomUUID(),
         tentativa = (anteriores[0]?.tentativa || 0) + retry + 1;
-      const { error: insertError } = await c.tdb.from('sim_vendas_tentativas').insert({
-        id,
-        sessao_id: s.id,
-        request_id: requestId,
-        etapa,
-        tentativa,
-        modelo: spec.modelo,
-        prompt_hash: promptHash,
-      });
+      const { error: insertError } = await c.tdb
+        .from('sim_vendas_tentativas')
+        .insert({
+          id,
+          sessao_id: s.id,
+          request_id: requestId,
+          etapa,
+          tentativa,
+          modelo: spec.modelo,
+          prompt_hash: promptHash,
+        });
       if (insertError)
-        throw new SimuladorError(503, 'Não foi possível registrar o envio. Tente novamente.');
+        throw new SimuladorError(
+          503,
+          'Não foi possível registrar o envio. Tente novamente.',
+        );
       try {
         const jsonSchema = z.toJSONSchema(schema, { target: 'draft-7' });
         delete jsonSchema.$schema;
@@ -173,7 +210,11 @@ export function gerador(
           mensagens.system,
           mensagens.user,
           { model: spec.modelo },
-          matriz ? 16000 : etapa === 'criador' || etapa === 'gerente' ? 8000 : 2500,
+          matriz
+            ? 16000
+            : etapa === 'criador' || etapa === 'gerente'
+              ? 8000
+              : 2500,
           {
             taskKey: TAREFAS[etapa],
             empresaId: c.empresaId,
@@ -228,14 +269,16 @@ export function gerador(
           .eq('id', id)
           .eq('sessao_id', s.id)
           .eq('status', VENDAS_TENTATIVA.PENDENTE);
-        if (finish.error) console.error('[sim-vendas] tentativa não finalizada', { id, etapa });
+        if (finish.error)
+          console.error('[sim-vendas] tentativa não finalizada', { id, etapa });
         if (e instanceof SimuladorError) throw e;
         // Uma regeneração de formato/regra. Erros de rede não repetem automaticamente.
         if (
           retry === 0 &&
           (e instanceof z.ZodError ||
             e instanceof SyntaxError ||
-            (e instanceof Error && !/OpenAI|prov[eê]dor|fetch|timeout|abort/i.test(e.message)))
+            (e instanceof Error &&
+              !/OpenAI|prov[eê]dor|fetch|timeout|abort/i.test(e.message)))
         )
           continue;
         console.error('[sim-vendas] geração rejeitada', {

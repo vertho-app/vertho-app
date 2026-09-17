@@ -1,19 +1,39 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { criarSupabaseMock, type SupabaseMock } from '../helpers/supabase-mock';
-import { estado, cenario, relatorio, semViolacao } from '../fixtures/simulador-vendas';
-import { relatorioDocumental, PLANO, FALA } from '../fixtures/simulador-vendas-matriz';
-import { REGUA_VERSION, ETAPAS, type Estado, type Comando } from '@/lib/simulador-vendas/schema';
+import {
+  estado,
+  cenario,
+  relatorio,
+  semViolacao,
+} from '../fixtures/simulador-vendas';
+import {
+  relatorioDocumental,
+  PLANO,
+  FALA,
+} from '../fixtures/simulador-vendas-matriz';
+import {
+  REGUA_VERSION,
+  ETAPAS,
+  type Estado,
+  type Comando,
+} from '@/lib/simulador-vendas/schema';
 import type { Contexto } from '@/lib/simulador-vendas/access';
 let sb: SupabaseMock;
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn() }));
-vi.mock('@/lib/ai-tasks', () => ({ getModelForTask: vi.fn(async () => 'gpt-5.4-2026-03-05') }));
+vi.mock('@/lib/ai-tasks', () => ({
+  getModelForTask: vi.fn(async () => 'gpt-5.4-2026-03-05'),
+}));
 import { callAI } from '@/actions/ai-client';
 import { getModelForTask } from '@/lib/ai-tasks';
 import { tenantDb } from '@/lib/tenant-db';
 import { gerador, snapshotPrompts } from '@/lib/simulador-vendas/ai';
 import { executarCore } from '@/lib/simulador-vendas/core';
-import { PROMPTS, PROMPT_VERSION, hashPrompt } from '@/lib/simulador-vendas/prompts';
+import {
+  PROMPTS,
+  PROMPT_VERSION,
+  hashPrompt,
+} from '@/lib/simulador-vendas/prompts';
 import { textoDoSnapshot } from '@/lib/simulador-vendas/catalogo';
 const config = {
   habilitado: true,
@@ -43,9 +63,11 @@ function novo() {
   ) as Estado['prompts'];
   return s;
 }
-describe('PACE v5: núcleo usando gerador real, com fronteira HTTP mockada', () => {
+describe('PACE v6: núcleo usando gerador real, com fronteira HTTP mockada', () => {
   beforeEach(() => {
-    sb = criarSupabaseMock({ resolver: (t) => (t === 'sim_vendas_config' ? config : null) });
+    sb = criarSupabaseMock({
+      resolver: (t) => (t === 'sim_vendas_config' ? config : null),
+    });
     vi.mocked(callAI).mockReset();
     vi.mocked(getModelForTask).mockResolvedValue('gpt-5.4-2026-03-05');
   });
@@ -61,11 +83,17 @@ describe('PACE v5: núcleo usando gerador real, com fronteira HTTP mockada', () 
         confianca: 'alta',
         motivo: 'Pedido de alteração da nota.',
       },
-      { fase: 'analisar', fase_mudou: true, fala: 'Vamos entender a operação.' },
+      {
+        fase: 'analisar',
+        fase_mudou: true,
+        fala: 'Vamos entender a operação.',
+      },
       { intencao_encerrar: false, confianca: 'alta' },
       relatorioDocumental(),
     ];
-    vi.mocked(callAI).mockImplementation(async () => JSON.stringify(outputs.shift()));
+    vi.mocked(callAI).mockImplementation(async () =>
+      JSON.stringify(outputs.shift()),
+    );
     let s = novo();
     s.status = 'preparando';
     s.cenario = null;
@@ -86,10 +114,10 @@ describe('PACE v5: núcleo usando gerador real, com fronteira HTTP mockada', () 
     });
     await comando('encerrar');
     expect(s.status).toBe('concluida');
-    expect(s.relatorio!.P).toBe(7.5);
+    expect(s.relatorio!.P).toBe(3);
     expect(s.relatorio!.Violacoes).toHaveLength(0);
     expect(s.moderacoes).toHaveLength(1); // proteção da conversa preservada.
-    expect(s.notasBrutas!.P).toBe(7.5);
+    expect(s.notasBrutas!.P).toBe(3);
     expect(s.relatorio!.Matriz?.descritores).toHaveLength(30);
     expect(callAI).toHaveBeenCalledTimes(5);
     for (const chamada of vi.mocked(callAI).mock.calls) {
@@ -101,16 +129,26 @@ describe('PACE v5: núcleo usando gerador real, com fronteira HTTP mockada', () 
         responses: { format: { strict: true } },
       });
     }
-    const schema = (vi.mocked(callAI).mock.calls[4][4] as any).responses.format.schema;
+    const schema = (vi.mocked(callAI).mock.calls[4][4] as any).responses.format
+      .schema;
     expect(schema.properties.P).toBeUndefined();
     expect(schema.required).toContain('Matriz');
     expect(schema.required).not.toContain('Media');
     expect(schema.required).not.toContain('Violacoes');
-    expect(schema.properties).not.toHaveProperty('Beneficios_ocultos_descobertos');
+    expect(schema.properties).not.toHaveProperty(
+      'Beneficios_ocultos_descobertos',
+    );
     const dadosGerente = JSON.parse(vi.mocked(callAI).mock.calls[4][1]);
-    expect(Object.keys(dadosGerente).sort()).toEqual(['planejamento', 'thread_completa']);
-    expect(vi.mocked(callAI).mock.calls[4][0]).toContain('Manual da Metodologia PACE_v8.docx');
-    expect(schema.properties.Recomendacoes.items.required).toContain('referencia_manual');
+    expect(Object.keys(dadosGerente).sort()).toEqual([
+      'planejamento',
+      'thread_completa',
+    ]);
+    expect(vi.mocked(callAI).mock.calls[4][0]).toContain(
+      'Manual da Metodologia PACE_v8.docx',
+    );
+    expect(schema.properties.Recomendacoes.items.required).toContain(
+      'referencia_manual',
+    );
     const checkpoint = sb.escritas
       .filter((e) => e.op === 'update' && e.payload.status === 'aceita')
       .at(-1)!.payload.resultado;
@@ -121,7 +159,9 @@ describe('PACE v5: núcleo usando gerador real, com fronteira HTTP mockada', () 
   });
   it('modelo incompatível impede snapshot antes de qualquer IA', async () => {
     vi.mocked(getModelForTask).mockResolvedValue('claude-sonnet-4-6');
-    await expect(snapshotPrompts('empresa-a')).rejects.toMatchObject({ status: 400 });
+    await expect(snapshotPrompts('empresa-a')).rejects.toMatchObject({
+      status: 400,
+    });
     expect(callAI).not.toHaveBeenCalled();
     expect(sb.escritas).toHaveLength(0);
   });
@@ -142,11 +182,16 @@ describe('PACE v5: núcleo usando gerador real, com fronteira HTTP mockada', () 
       hash: hashPrompt(PROMPTS.cliente),
       modelo: 'gpt-5.4-2026-03-05',
     };
-    await expect(textoDoSnapshot(tenantDb('empresa-a'), 'cliente', spec)).rejects.toMatchObject({
+    await expect(
+      textoDoSnapshot(tenantDb('empresa-a'), 'cliente', spec),
+    ).rejects.toMatchObject({
       status: 503,
     });
     await expect(
-      textoDoSnapshot(tenantDb('empresa-a'), 'cliente', { ...spec, texto: 'adulterado' }),
+      textoDoSnapshot(tenantDb('empresa-a'), 'cliente', {
+        ...spec,
+        texto: 'adulterado',
+      }),
     ).rejects.toMatchObject({ status: 503 });
     expect(callAI).not.toHaveBeenCalled();
   });
@@ -157,20 +202,33 @@ describe('PACE v5: núcleo usando gerador real, com fronteira HTTP mockada', () 
         t === 'sim_vendas_config'
           ? {
               ...config,
-              periodo_fim: ++leituras === 1 ? config.periodo_fim : '2000-01-01T00:00:00Z',
+              periodo_fim:
+                ++leituras === 1 ? config.periodo_fim : '2000-01-01T00:00:00Z',
             }
           : null,
     });
     vi.mocked(callAI).mockResolvedValue('não JSON');
     await expect(
-      gerador(contexto(), novo(), crypto.randomUUID())('moderador', { input_vendedor: 'Olá' }),
+      gerador(
+        contexto(),
+        novo(),
+        crypto.randomUUID(),
+      )('moderador', { input_vendedor: 'Olá' }),
     ).rejects.toMatchObject({ status: 403 });
     expect(callAI).toHaveBeenCalledOnce();
   });
   it('falha na leitura do prazo não autoriza IA', async () => {
-    sb.falharEm({ tabela: 'sim_vendas_config', op: 'select', mensagem: 'timeout' });
+    sb.falharEm({
+      tabela: 'sim_vendas_config',
+      op: 'select',
+      mensagem: 'timeout',
+    });
     await expect(
-      gerador(contexto(), novo(), crypto.randomUUID())('moderador', { input_vendedor: 'Olá' }),
+      gerador(
+        contexto(),
+        novo(),
+        crypto.randomUUID(),
+      )('moderador', { input_vendedor: 'Olá' }),
     ).rejects.toMatchObject({ status: 503 });
     expect(callAI).not.toHaveBeenCalled();
   });

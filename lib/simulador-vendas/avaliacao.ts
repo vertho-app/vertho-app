@@ -1,7 +1,12 @@
 import type { Estado, Saidas } from './schema';
 import { usaGerenteBruto } from './schema';
-import { notasDaMatriz, usaMatrizPace, validarMatriz } from './matriz-avaliacao';
+import {
+  notasDaMatriz,
+  usaMatrizPace,
+  validarMatriz,
+} from './matriz-avaliacao';
 import { usaFontesDocumentais } from './fontes';
+import { pontuacaoMatriz } from './escala';
 
 export const PILAR_POR_FASE = {
   preparar: 'P',
@@ -11,7 +16,9 @@ export const PILAR_POR_FASE = {
 } as const;
 export const PENALIDADE = { leve: 0.5, moderada: 1.5, grave: 2.5 } as const;
 
-export function violacoesRegistradas(s: Estado): Saidas['gerente']['Violacoes'] {
+export function violacoesRegistradas(
+  s: Estado,
+): Saidas['gerente']['Violacoes'] {
   const vistos = new Set<number>();
   return s.moderacoes
     .filter((m) => m.violacao)
@@ -24,7 +31,10 @@ export function violacoesRegistradas(s: Estado): Saidas['gerente']['Violacoes'] 
         m.turno < 1 ||
         !PILAR_POR_FASE[m.fase] ||
         vistos.has(m.turno) ||
-        !s.mensagens.some((f) => f.autor === 'vendedor' && f.turno === m.turno && f.fase === m.fase)
+        !s.mensagens.some(
+          (f) =>
+            f.autor === 'vendedor' && f.turno === m.turno && f.fase === m.fase,
+        )
       ) {
         throw new Error('Registro de moderação inconsistente');
       }
@@ -42,31 +52,49 @@ export function violacoesRegistradas(s: Estado): Saidas['gerente']['Violacoes'] 
 }
 
 /** Executada uma única vez após recuperar/validar o checkpoint BRUTO do gerente. */
-export function pontuarRelatorio(bruto: Saidas['gerente'], s: Estado): Saidas['gerente'] {
+export function pontuarRelatorio(
+  bruto: Saidas['gerente'],
+  s: Estado,
+): Saidas['gerente'] {
   const r = structuredClone(bruto);
-  const piso = s.versaoRegua === 'pace-3' || usaMatrizPace(s.versaoRegua) ? 0 : 0.5;
-  if (usaMatrizPace(s.versaoRegua)) Object.assign(r, notasDaMatriz(validarMatriz(r.Matriz, s)));
+  if (s.versaoRegua === 'pace-6')
+    return {
+      ...r,
+      ...pontuacaoMatriz(validarMatriz(r.Matriz, s)),
+      Violacoes: [],
+    };
+  const piso =
+    s.versaoRegua === 'pace-3' || usaMatrizPace(s.versaoRegua) ? 0 : 0.5;
+  if (usaMatrizPace(s.versaoRegua))
+    Object.assign(r, notasDaMatriz(validarMatriz(r.Matriz, s)));
   // A matriz já avalia transparência, respeito e limites. Descontos avulsos
   // não constam das duas fontes autorizadas; ficam apenas nas réguas legadas.
   if (usaFontesDocumentais(s.versaoRegua)) r.Violacoes = [];
   else if (usaGerenteBruto(s.versaoRegua)) {
     r.Violacoes = violacoesRegistradas(s);
     for (const v of r.Violacoes) {
-      const antes = r[v.pilar_penalizado];
+      const antes = r[v.pilar_penalizado] ?? 0;
       r[v.pilar_penalizado] = Math.max(piso, antes - v.reducao_aplicada);
-      v.reducao_aplicada = antes - r[v.pilar_penalizado];
+      v.reducao_aplicada = antes - (r[v.pilar_penalizado] ?? 0);
     }
   }
   // Os quatro pilares têm o mesmo peso (25%). A forma reduzida abaixo equivale
   // a arredondar a média aritmética para o passo de 0,5 mais próximo.
-  r.Media = Math.max(piso, Math.round((r.P + r.A + r.C + r.E) / 2) / 2);
+  r.Media = Math.max(
+    piso,
+    Math.round(((r.P ?? 0) + (r.A ?? 0) + (r.C ?? 0) + (r.E ?? 0)) / 2) / 2,
+  );
   return r;
 }
 
 export function validarModeracao(m: Saidas['moderador']) {
   if (
     m.violacao &&
-    (!m.categoria || !m.severidade || !m.confianca || !m.acao_sugerida || !m.motivo?.trim())
+    (!m.categoria ||
+      !m.severidade ||
+      !m.confianca ||
+      !m.acao_sugerida ||
+      !m.motivo?.trim())
   ) {
     throw new Error('Violação sem classificação completa');
   }

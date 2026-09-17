@@ -211,7 +211,9 @@
     "documentZeroHelp": "— means no descriptors were observed for the stage. It counts as zero only in the practice average; it does not assign N1 to the competency.",
     "documentSources": "Exclusive methodological references: PACE Methodology Manual v8 and the approved PACE competency matrix. The plan and conversation provide the evidence for this exercise.",
     "documentReference": "Matrix: {descriptor} · Manual v8: {section}",
-    "documentAgreement": "Purchase agreement recorded"
+    "documentAgreement": "Purchase agreement recorded",
+    "matrixScaleHelp": "Scores from 1 to 4 are calculated from observed descriptors. N3 is the target. The overall average includes all five competencies, including Sales planning. Items without observable evidence remain unscored.",
+    "legacyScaleHelp": "This assessment predates the current competency matrix. The score was converted from 0–10 to 1–4; the original criteria were preserved."
   },
   "Beto": {
     "greeting": "Hi! I'm Beto, your development mentor. How can I help?",

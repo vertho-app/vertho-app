@@ -3,7 +3,9 @@ import { nivelDaNota } from '@/lib/nivel-regua';
 import { COMPETENCIAS_PACE, MATRIZ_VERSION } from './matriz';
 import type { Estado } from './schema';
 
-const codigos = COMPETENCIAS_PACE.flatMap((c) => c.descritores.map((d) => d.codigo));
+const codigos = COMPETENCIAS_PACE.flatMap((c) =>
+  c.descritores.map((d) => d.codigo),
+);
 const evidenciaSchema = z.object({
   origem: z.enum(['planejamento', 'conversa']),
   turno: z.number().int().positive().nullable(),
@@ -15,7 +17,9 @@ export const matrizAvaliacaoSchema = z.object({
     .array(
       z.object({
         codigo: z.enum(codigos as [string, ...string[]]),
-        nivel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).nullable(),
+        nivel: z
+          .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
+          .nullable(),
         justificativa: z.string().trim().min(1).max(240),
         evidencias: z.array(evidenciaSchema).max(2),
       }),
@@ -26,19 +30,25 @@ export type AvaliacaoMatriz = z.infer<typeof matrizAvaliacaoSchema>;
 
 /** A versão distingue a escala do exercício dos três graus de dificuldade do cliente. */
 export function usaMatrizPace(versao?: string) {
-  return versao === 'pace-4' || versao === 'pace-5';
+  return versao === 'pace-4' || versao === 'pace-5' || versao === 'pace-6';
 }
-export function planejamentoPendente(s: Pick<Estado, 'versaoRegua' | 'planejamento'>) {
+export function planejamentoPendente(
+  s: Pick<Estado, 'versaoRegua' | 'planejamento'>,
+) {
   return usaMatrizPace(s.versaoRegua) && !s.planejamento?.trim();
 }
 
-export function validarMatriz(matriz: unknown, s: Pick<Estado, 'planejamento' | 'mensagens'>) {
+export function validarMatriz(
+  matriz: unknown,
+  s: Pick<Estado, 'planejamento' | 'mensagens'>,
+) {
   const m = matrizAvaliacaoSchema.parse(matriz);
   if (new Set(m.descritores.map((d) => d.codigo)).size !== codigos.length)
     throw new Error('Descritor da matriz ausente ou repetido');
   for (const d of m.descritores) {
     if (d.nivel === null) {
-      if (d.evidencias.length) throw new Error('Descritor não observado com evidências pontuadas');
+      if (d.evidencias.length)
+        throw new Error('Descritor não observado com evidências pontuadas');
       continue;
     }
     // A conversa inicial não prova execução de pós-venda. Um compromisso é avaliado em E3/E4.
@@ -47,12 +57,20 @@ export function validarMatriz(matriz: unknown, s: Pick<Estado, 'planejamento' | 
     if (!d.evidencias.length) throw new Error('Nível sem evidência observável');
     for (const e of d.evidencias) {
       if (d.codigo.startsWith('PL')) {
-        if (e.origem !== 'planejamento' || e.turno !== null || !s.planejamento?.includes(e.citacao))
+        if (
+          e.origem !== 'planejamento' ||
+          e.turno !== null ||
+          !s.planejamento?.includes(e.citacao)
+        )
           throw new Error('Evidência de planejamento inválida');
       } else {
-        const fala = s.mensagens.find((f) => f.autor === 'vendedor' && f.turno === e.turno);
+        const fala = s.mensagens.find(
+          (f) => f.autor === 'vendedor' && f.turno === e.turno,
+        );
         if (e.origem !== 'conversa' || !fala?.texto.includes(e.citacao))
-          throw new Error('Evidência de descritor sem citação literal do vendedor');
+          throw new Error(
+            'Evidência de descritor sem citação literal do vendedor',
+          );
       }
     }
   }
@@ -62,7 +80,9 @@ export function validarMatriz(matriz: unknown, s: Pick<Estado, 'planejamento' | 
 /** A ausência de observação fica fora da média 1–4, nunca vira N1. */
 export function consolidarMatriz(m: AvaliacaoMatriz) {
   return COMPETENCIAS_PACE.map((c) => {
-    const descritores = c.descritores.map((d) => m.descritores.find((a) => a.codigo === d.codigo));
+    const descritores = c.descritores.map((d) =>
+      m.descritores.find((a) => a.codigo === d.codigo),
+    );
     const observados = descritores.filter((d) => d?.nivel != null);
     const nota = observados.length
       ? observados.reduce((soma, d) => soma + d!.nivel!, 0) / observados.length

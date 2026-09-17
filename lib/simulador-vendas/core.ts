@@ -14,6 +14,7 @@ import {
   validarMatriz,
 } from './matriz-avaliacao';
 import { usaFontesDocumentais } from './fontes';
+import { relatorioPacePublico, pontuacaoMatriz } from './escala';
 import { recomendacaoDocumentalSchema } from './schema';
 
 export class SimuladorError extends Error {
@@ -34,7 +35,8 @@ export function assinatura(cmd: Comando): string {
   // Revisão não entra: retry após recuperar o estado deve reconhecer o mesmo comando.
   if (cmd.acao === 'iniciar') return JSON.stringify([cmd.acao, cmd.nivel]);
   if (cmd.acao === 'responder') return JSON.stringify([cmd.acao, cmd.mensagem]);
-  if (cmd.acao === 'planejar') return JSON.stringify([cmd.acao, cmd.planejamento]);
+  if (cmd.acao === 'planejar')
+    return JSON.stringify([cmd.acao, cmd.planejamento]);
   if (cmd.acao === 'feedback') return JSON.stringify([cmd.acao, cmd.feedback]);
   return cmd.acao;
 }
@@ -42,7 +44,10 @@ export function recebido(s: Estado, cmd: Comando): boolean {
   const recibo = s.recibos.find((r) => r.requestId === cmd.requestId);
   if (!recibo) return false;
   if (recibo.assinatura !== assinatura(cmd))
-    throw new SimuladorError(409, 'Este envio já foi usado para outra ação. Atualize o treino.');
+    throw new SimuladorError(
+      409,
+      'Este envio já foi usado para outra ação. Atualize o treino.',
+    );
   return true;
 }
 export function visaoPublica(s: Estado) {
@@ -70,13 +75,18 @@ export function visaoPublica(s: Estado) {
     // A devolutiva é preparada no encerramento, mas só é entregue ao
     // participante depois da avaliação da experiência. O gate vive no servidor:
     // ocultar apenas no componente permitiria contorná-lo chamando a API.
-    relatorio: s.feedback ? s.relatorio : null,
+    relatorio: s.feedback
+      ? relatorioPacePublico(s.relatorio, s.versaoRegua)
+      : null,
     avaliacaoPendente: !!s.relatorio && !s.feedback,
     feedback: s.feedback,
     aviso:
-      s.moderacoes.filter((m) => m.violacao && m.acao_sugerida !== 'registrar_e_seguir').at(-1)
-        ?.motivo || null,
-    sugerirEncerramento: s.intencao?.intencao_encerrar === true && s.intencao.confianca !== 'baixa',
+      s.moderacoes
+        .filter((m) => m.violacao && m.acao_sugerida !== 'registrar_e_seguir')
+        .at(-1)?.motivo || null,
+    sugerirEncerramento:
+      s.intencao?.intencao_encerrar === true &&
+      s.intencao.confianca !== 'baixa',
     versaoRegua: s.versaoRegua || 'pace-1',
     dadosMascarados: s.dadosMascarados === true,
     turnosRestantes: Math.max(
@@ -90,23 +100,36 @@ export type SessaoPublica = ReturnType<typeof visaoPublica> & {
   processandoAte?: string | null;
 };
 
-export function validarCenario(c: Saidas['criador'], s: Pick<Estado, 'nomeVendedor' | 'nivel'>) {
+export function validarCenario(
+  c: Saidas['criador'],
+  s: Pick<Estado, 'nomeVendedor' | 'nivel'>,
+) {
   if (c.personagem.negociacao.nome_vendedor !== s.nomeVendedor)
     throw new Error('Nome do vendedor divergente');
   if (c.personagem.negociacao.objecoes.length !== s.nivel)
     throw new Error('Quantidade de objeções divergente do nível');
-  if (c.personagem.personalidade_nivel.nivel !== ['Junior', 'Pleno', 'Senior'][s.nivel - 1])
+  if (
+    c.personagem.personalidade_nivel.nivel !==
+    ['Junior', 'Pleno', 'Senior'][s.nivel - 1]
+  )
     throw new Error('Nível divergente');
-  if (s.nivel === 3 && c.personagem.personalidade_nivel.cenarios_validos.length !== 2)
+  if (
+    s.nivel === 3 &&
+    c.personagem.personalidade_nivel.cenarios_validos.length !== 2
+  )
     throw new Error('Sênior exige dois cenários válidos');
   const n = c.personagem.negociacao;
   if (
-    new Set(n.beneficios_ocultos.map((b) => b.nome)).size !== n.beneficios_ocultos.length ||
-    new Set(n.objecoes_profundas.map((o) => o.descricao)).size !== n.objecoes_profundas.length
+    new Set(n.beneficios_ocultos.map((b) => b.nome)).size !==
+      n.beneficios_ocultos.length ||
+    new Set(n.objecoes_profundas.map((o) => o.descricao)).size !==
+      n.objecoes_profundas.length
   )
     throw new Error('Identificadores de descoberta repetidos');
   if (!!n.preco.ideal.trim() !== !!n.preco.minimo_aceitavel.trim())
-    throw new Error('Preços devem ser preenchidos em conjunto ou ambos não aplicáveis');
+    throw new Error(
+      'Preços devem ser preenchidos em conjunto ou ambos não aplicáveis',
+    );
 }
 export function validarRelatorio(r: Saidas['gerente'], s: Estado) {
   if (usaMatrizPace(s.versaoRegua)) validarMatriz(r.Matriz, s);
@@ -129,19 +152,32 @@ export function validarRelatorio(r: Saidas['gerente'], s: Estado) {
     ...r.Beneficios_ocultos_descobertos,
     ...r.Objecoes_profundas_descobertas,
   ]) {
-    const fala = s.mensagens.find((m) => m.autor === 'vendedor' && m.turno === descoberta.turno);
+    const fala = s.mensagens.find(
+      (m) => m.autor === 'vendedor' && m.turno === descoberta.turno,
+    );
     if (!fala || !fala.texto.includes(descoberta.citacao_vendedor))
       throw new Error('Citação sem evidência literal do vendedor');
   }
   for (const d of r.Beneficios_ocultos_descobertos) {
-    if (!s.cenario?.personagem.negociacao.beneficios_ocultos.some((b) => b.nome === d.nome))
+    if (
+      !s.cenario?.personagem.negociacao.beneficios_ocultos.some(
+        (b) => b.nome === d.nome,
+      )
+    )
       throw new Error('Benefício fora do gabarito');
   }
   for (const d of r.Objecoes_profundas_descobertas) {
-    if (!s.cenario?.personagem.negociacao.objecoes_profundas.some((o) => o.descricao === d.nome))
+    if (
+      !s.cenario?.personagem.negociacao.objecoes_profundas.some(
+        (o) => o.descricao === d.nome,
+      )
+    )
       throw new Error('Objeção profunda fora do gabarito');
   }
-  for (const itens of [r.Beneficios_ocultos_descobertos, r.Objecoes_profundas_descobertas]) {
+  for (const itens of [
+    r.Beneficios_ocultos_descobertos,
+    r.Objecoes_profundas_descobertas,
+  ]) {
     if (new Set(itens.map((d) => d.nome)).size !== itens.length)
       throw new Error('Descoberta duplicada');
   }
@@ -165,13 +201,25 @@ export function validarRelatorio(r: Saidas['gerente'], s: Estado) {
   // Compatibilidade com a validação legada. A régua v2 só publica a média
   // depois de aplicar as penalidades, em pontuarRelatorio.
   if (!usaGerenteBruto(s.versaoRegua))
-    r.Media = Math.max(0.5, Math.round(((r.P + r.A + r.C + r.E) / 4) * 2) / 2);
+    r.Media = Math.max(
+      0.5,
+      Math.round(
+        (((r.P ?? 0) + (r.A ?? 0) + (r.C ?? 0) + (r.E ?? 0)) / 4) * 2,
+      ) / 2,
+    );
 }
 
-export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promise<Estado> {
+export async function executarCore(
+  s: Estado,
+  cmd: Comando,
+  gerar: Gerar,
+): Promise<Estado> {
   if (recebido(s, cmd)) return s;
   if (cmd.acao !== 'iniciar' && cmd.revisao !== s.revisao)
-    throw new SimuladorError(409, 'O treino mudou em outra aba. Atualize a conversa.');
+    throw new SimuladorError(
+      409,
+      'O treino mudou em outra aba. Atualize a conversa.',
+    );
   const next = structuredClone(s);
   if (cmd.acao === 'iniciar') {
     if (s.status !== VENDAS_SESSAO.PREPARANDO || cmd.nivel !== s.nivel)
@@ -203,9 +251,15 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
     next.planejamento = cmd.planejamento;
   } else if (cmd.acao === 'responder') {
     if (s.status !== VENDAS_SESSAO.EM_ANDAMENTO)
-      throw new SimuladorError(409, 'Este treino não está aberto para respostas.');
+      throw new SimuladorError(
+        409,
+        'Este treino não está aberto para respostas.',
+      );
     if (planejamentoPendente(s))
-      throw new SimuladorError(409, 'Registre seu planejamento antes de conversar com o cliente.');
+      throw new SimuladorError(
+        409,
+        'Registre seu planejamento antes de conversar com o cliente.',
+      );
     const turno = s.mensagens.filter((m) => m.autor === 'vendedor').length + 1;
     if (turno > MAX_TURNOS)
       throw new SimuladorError(
@@ -219,8 +273,13 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
       texto: cmd.mensagem,
       fase: s.fase,
     });
-    const moderador = await gerar('moderador', { input_vendedor: cmd.mensagem }, validarModeracao);
-    if (moderador.violacao) next.moderacoes.push({ ...moderador, turno, fase: s.fase });
+    const moderador = await gerar(
+      'moderador',
+      { input_vendedor: cmd.mensagem },
+      validarModeracao,
+    );
+    if (moderador.violacao)
+      next.moderacoes.push({ ...moderador, turno, fase: s.fase });
     if (
       moderador.violacao &&
       moderador.acao_sugerida === 'encerrar_sessao' &&
@@ -242,7 +301,10 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
                 texto,
               }))
             : next.mensagens
-                .map((m) => `**${m.autor === 'vendedor' ? 'Vendedor' : 'Cliente'}:** ${m.texto}`)
+                .map(
+                  (m) =>
+                    `**${m.autor === 'vendedor' ? 'Vendedor' : 'Cliente'}:** ${m.texto}`,
+                )
                 .join('\n'),
           input_vendedor: cmd.mensagem,
           fase_atual: s.fase,
@@ -250,7 +312,8 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
         },
         (c) => {
           const salto = FASES.indexOf(c.fase) - FASES.indexOf(s.fase);
-          if (salto < 0 || salto > 1) throw new Error('Transição PACE inválida');
+          if (salto < 0 || salto > 1)
+            throw new Error('Transição PACE inválida');
           if (c.fase_mudou !== (salto === 1))
             throw new Error('Sinal de transição PACE inconsistente');
           validarFalaCliente(c.fala);
@@ -271,8 +334,14 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
     }
   } else if (cmd.acao === 'encerrar') {
     if (s.status === VENDAS_SESSAO.CONCLUIDA) return s;
-    if (s.status !== VENDAS_SESSAO.EM_ANDAMENTO || !s.mensagens.some((m) => m.autor === 'vendedor'))
-      throw new SimuladorError(409, 'Converse com o cliente antes de gerar o relatório.');
+    if (
+      s.status !== VENDAS_SESSAO.EM_ANDAMENTO ||
+      !s.mensagens.some((m) => m.autor === 'vendedor')
+    )
+      throw new SimuladorError(
+        409,
+        'Converse com o cliente antes de gerar o relatório.',
+      );
     // Estado inconsistente não se corrige regenerando uma resposta paga.
     // Verificar ANTES do gerente também evita reutilizar um checkpoint envenenado.
     try {
@@ -305,31 +374,45 @@ export async function executarCore(s: Estado, cmd: Comando, gerar: Gerar): Promi
               violacoes_moderador: JSON.stringify(s.moderacoes),
             }
           : {}),
-        ...(usaMatrizPace(s.versaoRegua) ? { planejamento: s.planejamento || '' } : {}),
+        ...(usaMatrizPace(s.versaoRegua)
+          ? { planejamento: s.planejamento || '' }
+          : {}),
       },
       (r) => validarRelatorio(r, s),
     );
     next.notasBrutas =
       usaMatrizPace(s.versaoRegua) && bruto.Matriz
-        ? notasDaMatriz(bruto.Matriz)
+        ? s.versaoRegua === 'pace-6'
+          ? pontuacaoMatriz(bruto.Matriz)
+          : notasDaMatriz(bruto.Matriz)
         : { P: bruto.P, A: bruto.A, C: bruto.C, E: bruto.E };
     next.relatorio = pontuarRelatorio(bruto, s);
     next.status = VENDAS_SESSAO.CONCLUIDA;
     next.encerradoEm = new Date().toISOString();
   } else if (cmd.acao === 'abandonar') {
     if (
-      ![VENDAS_SESSAO.PREPARANDO, VENDAS_SESSAO.EM_ANDAMENTO].some((status) => status === s.status)
+      ![VENDAS_SESSAO.PREPARANDO, VENDAS_SESSAO.EM_ANDAMENTO].some(
+        (status) => status === s.status,
+      )
     )
       throw new SimuladorError(409, 'Este treino já foi encerrado.');
     next.status = VENDAS_SESSAO.ABANDONADA;
     next.encerradoEm = new Date().toISOString();
   } else {
     if (
-      ![VENDAS_SESSAO.CONCLUIDA, VENDAS_SESSAO.INTERROMPIDA].some((status) => status === s.status)
+      ![VENDAS_SESSAO.CONCLUIDA, VENDAS_SESSAO.INTERROMPIDA].some(
+        (status) => status === s.status,
+      )
     )
-      throw new SimuladorError(409, 'Conclua o treino antes de avaliar a experiência.');
+      throw new SimuladorError(
+        409,
+        'Conclua o treino antes de avaliar a experiência.',
+      );
     if (s.feedback)
-      throw new SimuladorError(409, 'A avaliação desta experiência já foi registrada.');
+      throw new SimuladorError(
+        409,
+        'A avaliação desta experiência já foi registrada.',
+      );
     next.feedback = cmd.feedback;
   }
   next.revisao++;

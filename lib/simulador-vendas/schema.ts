@@ -3,7 +3,13 @@ import type { VendasSessaoStatus } from '@/lib/status';
 import { matrizAvaliacaoSchema } from './matriz-avaliacao';
 import { CODIGOS_DESCRITORES, REFERENCIAS_MANUAL } from './fontes';
 
-export const ETAPAS = ['criador', 'cliente', 'moderador', 'intencao', 'gerente'] as const;
+export const ETAPAS = [
+  'criador',
+  'cliente',
+  'moderador',
+  'intencao',
+  'gerente',
+] as const;
 export type Etapa = (typeof ETAPAS)[number];
 export const FASES = ['preparar', 'analisar', 'cocriar', 'engajar'] as const;
 export const faseSchema = z.enum(FASES);
@@ -15,11 +21,15 @@ export const ROTULOS = {
 };
 export const NIVEIS = { 1: 'Júnior', 2: 'Pleno', 3: 'Sênior' };
 export const MAX_TURNOS = 60; // Limite técnico de contexto e tamanho da sessão.
-export const REGUA_VERSION = 'pace-5';
+export const REGUA_VERSION = 'pace-6';
 /** A pace-2 já separava notas brutas do gerente e pontuação determinística no servidor. */
 export function usaGerenteBruto(versao?: string) {
   return (
-    versao === 'pace-2' || versao === 'pace-3' || versao === 'pace-4' || versao === REGUA_VERSION
+    versao === 'pace-2' ||
+    versao === 'pace-3' ||
+    versao === 'pace-4' ||
+    versao === 'pace-5' ||
+    versao === REGUA_VERSION
   );
 }
 export const RETENCAO_MESES = 6;
@@ -37,7 +47,12 @@ export const cenarioSchema = z.object({
     cargo: texto,
     empresa: texto,
     cidade: texto,
-    personalidade_pace: z.enum(['Dominante', 'Influente', 'Estável', 'Conforme']),
+    personalidade_pace: z.enum([
+      'Dominante',
+      'Influente',
+      'Estável',
+      'Conforme',
+    ]),
     traco_dominante: texto,
     tom_linguagem: texto,
     historia: texto,
@@ -93,7 +108,9 @@ export const moderadorSchema = z.object({
   violacao: z.boolean(),
   categoria: categoria.nullable(),
   severidade: severidade.nullable(),
-  acao_sugerida: z.enum(['registrar_e_seguir', 'avisar_vendedor', 'encerrar_sessao']).nullable(),
+  acao_sugerida: z
+    .enum(['registrar_e_seguir', 'avisar_vendedor', 'encerrar_sessao'])
+    .nullable(),
   confianca: confianca.nullable(),
   motivo: texto.nullable(),
 });
@@ -130,7 +147,12 @@ export const relatorioLegadoSchema = z.object({
       prioritaria: z.boolean(),
     }),
   ),
-  Resultado: z.enum(['fechou_ideal', 'fechou_aceitavel', 'nao_fechou', 'inconclusivo']),
+  Resultado: z.enum([
+    'fechou_ideal',
+    'fechou_aceitavel',
+    'nao_fechou',
+    'inconclusivo',
+  ]),
   Preco_final: texto,
   Compromissos_obtidos: texto,
   Beneficios_ocultos_descobertos: z.array(descoberta),
@@ -153,9 +175,20 @@ export const recomendacaoDocumentalSchema =
     referencia_manual: z.enum(REFERENCIAS_MANUAL),
   });
 export const relatorioSchema = relatorioLegadoSchema.extend({
+  P: z.number().min(0).max(10).nullable(),
+  A: z.number().min(0).max(10).nullable(),
+  C: z.number().min(0).max(10).nullable(),
+  E: z.number().min(0).max(10).nullable(),
+  Media: z.number().min(0).max(10).nullable(),
+  PL: z.number().min(1).max(4).nullable().optional(),
+  escalaNota: z.literal('1-4').optional(),
+  escalaOriginal: z.literal('0-10').optional(),
   Matriz: matrizAvaliacaoSchema.optional(),
   Recomendacoes: z.array(
-    z.union([recomendacaoDocumentalSchema, relatorioLegadoSchema.shape.Recomendacoes.element]),
+    z.union([
+      recomendacaoDocumentalSchema,
+      relatorioLegadoSchema.shape.Recomendacoes.element,
+    ]),
   ),
 });
 export const SAIDAS = {
@@ -174,7 +207,10 @@ export const gerenteMatrizSchema = gerenteBrutoSchema
   .omit({ P: true, A: true, C: true, E: true })
   .extend({ Matriz: matrizAvaliacaoSchema });
 export const gerenteDocumentalSchema = gerenteMatrizSchema
-  .omit({ Beneficios_ocultos_descobertos: true, Objecoes_profundas_descobertas: true })
+  .omit({
+    Beneficios_ocultos_descobertos: true,
+    Objecoes_profundas_descobertas: true,
+  })
   .extend({
     Recomendacoes: z.array(recomendacaoDocumentalSchema).min(3).max(5),
     Resultado: z.enum(['fechou_aceitavel', 'nao_fechou', 'inconclusivo']),
@@ -243,7 +279,9 @@ export const configSchema = z
   .strict()
   .superRefine((c, ctx) => {
     const temPeriodo =
-      !!c.periodoInicio && !!c.periodoFim && Date.parse(c.periodoFim) > Date.parse(c.periodoInicio);
+      !!c.periodoInicio &&
+      !!c.periodoFim &&
+      Date.parse(c.periodoFim) > Date.parse(c.periodoInicio);
     if ((c.periodoInicio !== null || c.periodoFim !== null) && !temPeriodo)
       ctx.addIssue({
         code: 'custom',
@@ -264,7 +302,8 @@ export type Config = {
   periodo_inicio: string | null;
   periodo_fim: string | null;
 };
-export const CONFIG_COLUNAS = 'habilitado,briefing,revisao,periodo_inicio,periodo_fim';
+export const CONFIG_COLUNAS =
+  'habilitado,briefing,revisao,periodo_inicio,periodo_fim';
 export type PromptSnapshot = Record<
   Etapa,
   { texto?: string; id?: string; hash: string; versao: string; modelo: string }
