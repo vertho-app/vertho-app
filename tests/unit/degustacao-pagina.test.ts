@@ -125,7 +125,11 @@ describe('página de boas-vindas da degustação B', () => {
     });
     // quem tem o link não vê resultado por aqui (os campos de credencial saem da
     // comparação: base64 aleatório pode conter qualquer sequência de letras)
-    const { passe: _passe, visoes, ...resto } = pagina;
+    // `expiraEm` sai junto: é o relógio, não conteúdo. O ISO traz `ss.mmm`, então
+    // um vencimento às 43,210s vira "…43.210Z" e CASA o "3.2" que a linha abaixo
+    // procura — o teste reprovava ~1% das execuções, por um campo que não é o
+    // alvo da asserção (visto na suíte em 17/09/2026).
+    const { passe: _passe, visoes, expiraEm: _expiraEm, ...resto } = pagina;
     const semCredenciais = { ...resto, visoes: visoes.map(({ url: _url, ...visao }: any) => visao) };
     // Por CHAVE, não por substring: "situacaoDisponivel" contém "nivel" e casava.
     const json = JSON.stringify(semCredenciais);
