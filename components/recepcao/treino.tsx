@@ -329,20 +329,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       )}
       {dados && (
         <nav className={styles.tabs} aria-label="Áreas do treinamento">
-          {!soAcompanha && (
-            <button
-              aria-current={aba === 'treino' ? 'page' : undefined}
-              disabled={!!ocupado || vozOcupada}
-              onClick={() => {
-                setAba('treino');
-                carregar(empresaId, sessao?.id).catch((e) =>
-                  setErro(e.message),
-                );
-              }}
-            >
-              Meu treino
-            </button>
-          )}
+          {!soAcompanha&&<button aria-current={aba==='treino'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>{setAba('treino');carregar(empresaId,sessao?.id).catch(e=>setErro(e.message))}}>Meu treino</button>}
           {dados.podeEquipe && (
             <button
               aria-current={aba === 'equipe' ? 'page' : undefined}
