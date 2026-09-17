@@ -27,7 +27,9 @@ coordenação e panorama da direção. Na ACME, inclui o elenco de 30 pessoas fi
 PDI de Bruna, relatório de Carla e panorama de Helena. As duas demos incluem os
 quatro formatos das semanas 1 e 2 (vídeo, áudio, texto e case). Na ACME essas semanas
 compartilham o tema **Criação de senso de urgência** e os mesmos arquivos; cada mídia
-é baixada uma única vez, incluindo o vídeo nominal de Bruna.
+é baixada uma única vez, incluindo o vídeo nominal de Bruna. Na escolar, vídeo e podcast
+das duas semanas são os de Marina, abertos por "Olá, Marina" (até 17/09/2026 o pacote
+levava o deck genérico e o áudio-base, sem o nome).
 
 **Não inclui conversa com IA, login offline nem gravação ou
 sincronização de avaliações.** Ações que dependem desses serviços mostram um aviso
@@ -58,8 +60,13 @@ incompletos, cancelados ou sem espaço não substituem o pacote anterior.
 - `media.json` (escola) e `acme-media.json` fixam os arquivos públicos, tamanhos e hashes. Ao trocar a mídia,
   atualize o manifesto a partir dos novos arquivos completos; builds não fazem
   downloads e não precisam de segredos. As semanas vêm do plano congelado de
-  Marina e usam os vídeos editoriais de `escolas-videos-jornada.json`. As mídias da
-  ACME são cópias imutáveis do material entregue a Bruna, em
+  Marina. Vídeo e podcast são cópias imutáveis das versões nominais dela
+  (`videos_personalizados` das células de `escolas-videos-jornada.json` e
+  `final/audio-personalizado/<conteúdo>/<Marina>.mp3`), em
+  `conteudos/demo-offline/escolas/<sha256>.<ext>`; texto e case seguem nos PDFs do
+  fixture. `tests/unit/demo-offline.test.ts` recusa manifesto com o deck da célula ou
+  o MP3-base. A cópia é necessária porque o reset recria a persona com UUID novo e
+  move o áudio personalizado toda noite. As mídias da ACME são cópias imutáveis do material entregue a Bruna, em
   `conteudos/demo-offline/acme/<sha256>.<ext>`, independentes de login e do reset.
 - `npm run build:demo-offline` gera `public/apresentacao-offline/` e
   `public/apresentacao-offline-acme/` (ignorados no Git).
@@ -672,6 +679,7 @@ banco chega no reset noturno (04:00, Brasília). O pacote offline
 - `descriptor_assessments.nivel` é coluna **GENERATED ALWAYS** — capture/replay a descartam (senão o insert falha).
 - `gerarTemporada` exige competência COM `descriptor_assessments` — passar `competencia` válida.
 - O render do PDF via tsx falha (`Font family not registered: NotoSans`) — mas `report_texts` salva ANTES, e o PDF regenera on-demand no app (o que congelamos é o `report_texts`, não o binário).
+- Tabela nova com FK para `colaboradores` precisa de `ON DELETE CASCADE` (ou entrar em `DEMO_RESET_TABLES`). O reset apaga trilhas, avaliações e cenários ANTES de `colaboradores`; uma FK que bloqueia faz ele abortar com o tenant pela metade. Aconteceu em 16 e 17/09/2026 com `video_publicacoes` (mig 248): a Marina amanheceu sem trilha e o `demo.reset` registrou `erro` no `admin_audit_log`. Corrigido na mig 258.
 
 ## Follow-ups (não feitos)
 - ⛔ *(resolvido em 01/09)* Reset noturno cobria só o ACME: o Grupo Sinal era tenant demo desde 25/08 e **nunca foi recomposto**, e o preflight de convidados lia sempre o ACME (um convidado ativo lá adiaria o reset do vizinho).

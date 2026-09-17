@@ -16,6 +16,8 @@ import { acmeOfflineData } from "@/lib/demo/offline/acme-data";
 import { offlineEnvironment } from "@/lib/demo/offline/environment";
 import schoolMedia from "@/lib/demo/offline/media.json";
 import acmeMedia from "@/lib/demo/offline/acme-media.json";
+import videosJornadaEscolar from "@/lib/demo/escolas-videos-jornada.json";
+import fixtureEscolas from "@/lib/demo/escolas-demo-fixture.json";
 import type { OfflinePackage } from "@/lib/demo/offline/types";
 
 describe("Apresentação offline: mídia e limites", () => {
@@ -89,6 +91,23 @@ describe("Apresentação offline: mídia e limites", () => {
     expect(
       acmeMedia.some((a) => schoolMedia.some((b) => b.source === a.source)),
     ).toBe(false);
+  });
+  it("a escolar empacota o vídeo e o podcast nominais da Marina, não o deck nem o MP3-base", () => {
+    // 17/09/2026: o manifesto apontava para o deck da célula e para o áudio
+    // sem saudação, e a apresentação da professora saía sem "Olá, Marina".
+    const genericos = new Set<string>([
+      ...videosJornadaEscolar.map((v) => v.bunnyVideoId),
+      ...(fixtureEscolas as any).personaArtifacts["marina.demo@vertho.ai"].trilha.row.temporada_plano
+        .map((w: any) => w.conteudo?.formatos_disponiveis?.audio?.url)
+        .filter(Boolean),
+    ]);
+    const midias = schoolMedia.filter((a) => /-(video|audio)\./.test(a.path));
+    expect(midias).toHaveLength(4);
+    for (const asset of midias) {
+      expect([...genericos].some((g) => asset.source.includes(g)), asset.path).toBe(false);
+      // Cópia imutável: o reset move o podcast personalizado para o UUID novo.
+      expect(asset.source, asset.path).toContain(`/demo-offline/escolas/${asset.sha256}.`);
+    }
   });
   it("atende início, busca, fim e intervalos inválidos de vídeo", () => {
     expect(byteRange("bytes=0-1", 100)).toEqual({ start: 0, end: 1 });

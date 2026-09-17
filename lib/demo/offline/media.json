@@ -9,11 +9,11 @@
   },
   {
     "path": "media/semana-1-audio.mp3",
-    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/final/audio/Did_tica_e_estrat_gias_de_ensino/bf74662b-92ae-488e-b334-27869ea184a6-1788294727621.mp3",
-    "bytes": 2544476,
-    "sha256": "8107a90c085f2bf77186ddb3a4cf03ecfe3845264433360cebb4c5a2fb80487b",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/escolas/46fa1dbda91015414dfbde4c02693ad258c23325fb4a3a15ac75c5c6c3fa21e2.mp3",
+    "bytes": 2385815,
+    "sha256": "46fa1dbda91015414dfbde4c02693ad258c23325fb4a3a15ac75c5c6c3fa21e2",
     "type": "audio/mpeg",
-    "label": "Semana 1 · audio"
+    "label": "Semana 1 · podcast da Marina"
   },
   {
     "path": "media/semana-1-texto.pdf",
@@ -25,11 +25,11 @@
   },
   {
     "path": "media/semana-1-video.mp4",
-    "source": "https://vz-3d55d19e-b06.b-cdn.net/d10efea7-06bb-4e09-8439-157ab5019abb/play_720p.mp4",
-    "bytes": 18482773,
-    "sha256": "4eb1030ff284a0d471a20c558328b37ab7f5afa3b6f353942aafd33834dd8afe",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/escolas/595429554384bd7953621d2599c931f44fcb00a9d7e64911ad80164f891b1c57.mp4",
+    "bytes": 17850910,
+    "sha256": "595429554384bd7953621d2599c931f44fcb00a9d7e64911ad80164f891b1c57",
     "type": "video/mp4",
-    "label": "Semana 1 · video"
+    "label": "Semana 1 · vídeo da Marina"
   },
   {
     "path": "media/semana-2-case.pdf",
@@ -41,11 +41,11 @@
   },
   {
     "path": "media/semana-2-audio.mp3",
-    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/final/audio/Did_tica_e_estrat_gias_de_ensino/03a7cc8c-ceef-43bf-8f6b-44b01ba2427e-1788294469250.mp3",
-    "bytes": 2491186,
-    "sha256": "d9c7c77618725df64e23e2632c30cf8d95c404d699c5809edf28e96ba33f44e5",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/escolas/5cbddd4fb5c8c3041d2404355e2c1cd9c18a72554fa58b72099e08793102cd26.mp3",
+    "bytes": 2477975,
+    "sha256": "5cbddd4fb5c8c3041d2404355e2c1cd9c18a72554fa58b72099e08793102cd26",
     "type": "audio/mpeg",
-    "label": "Semana 2 · audio"
+    "label": "Semana 2 · podcast da Marina"
   },
   {
     "path": "media/semana-2-texto.pdf",
@@ -57,10 +57,10 @@
   },
   {
     "path": "media/semana-2-video.mp4",
-    "source": "https://vz-3d55d19e-b06.b-cdn.net/b2d8e565-1126-4831-a213-11b51717cb56/play_720p.mp4",
-    "bytes": 15434709,
-    "sha256": "373ead56db9d9e3c4bedff6952dca224b9c73a184526c6a0fcfaaf68a6f6ef94",
+    "source": "https://xwuqrgrvakxtphbmudwj.supabase.co/storage/v1/object/public/conteudos/demo-offline/escolas/3d434ed2ec839b5d3b4ff6d48b58d1b09ee21970b8de28c5150f33478b9e3485.mp4",
+    "bytes": 14923172,
+    "sha256": "3d434ed2ec839b5d3b4ff6d48b58d1b09ee21970b8de28c5150f33478b9e3485",
     "type": "video/mp4",
-    "label": "Semana 2 · video"
+    "label": "Semana 2 · vídeo da Marina"
   }
 ]
