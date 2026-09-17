@@ -19,7 +19,7 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   Renumerar sempre a sua. Guard: `tests/unit/security/migrations-numeracao-guard.test.ts`
   (varre o **diretório**, não `git ls-files`, porque a colisão nasce untracked).
   E no **remoto** (`git fetch` + `git ls-tree --name-only origin/master migrations/ | tail -3`): a do
-  dono pode nascer em outra máquina, e o guard só a vê depois do merge (17/09: 256 × 256, virou 257).
+  dono pode nascer em outra máquina, e o guard só a vê depois do merge (16/09: 256 × 256, virou 257).
 - 🔴 `CREATE INDEX CONCURRENTLY` e qualquer DDL proibido em transaction **não vai** por
   `apply-migration.mjs` (ele manda o arquivo inteiro numa query = transaction implícita).
   Script statement-a-statement; template: `scripts/_criar-indices-escala.mjs`.

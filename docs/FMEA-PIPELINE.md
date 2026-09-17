@@ -387,7 +387,7 @@ briefs duplicados por tupla.
   a regra era só texto no `CLAUDE.md`, cada release nova reintroduzia. **Grep de padrão perigoso vira
   teste, não parágrafo.**
 
-### F-I36 · A matriz é por CARGO: leitura por NOME ou CÓDIGO sem o cargo sorteia régua, descritor ou âncora ✅ (fechado 16-17/09/2026)
+### F-I36 · A matriz é por CARGO: leitura por NOME ou CÓDIGO sem o cargo sorteia régua, descritor ou âncora ✅ (fechado 16/09/2026)
 Vizinho do F-I10: a mesma família de "leitura que reduz a uma linha sem dizer qual".
 - **Gatilho:** `competencias` tem uma linha por descritor, com `cargo`. O mesmo nome ou código aparece
   em mais de um cargo da mesma empresa de dois jeitos:
