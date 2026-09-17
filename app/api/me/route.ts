@@ -87,12 +87,12 @@ export async function GET() {
     const treinoVendas = vendasEmpresa && (platformAdmin || soAcompanha || acessoSimuladores.vendas);
     const prontidaoLideranca = liderancaEmpresa && (platformAdmin || acessoSimuladores.lideranca);
 
-    // Simulador de liderança no menu do GESTOR: o trilho de liderança dele. Só
+    // Simulador interativo no menu da população do trilho: líderes e futuros líderes. Só
     // quando ele de fato responde o trilho (módulo contratado, cargo liberado e
     // dentro da população do programa), com a MESMA régua da tela de
     // mapeamento; sem isso o item levaria a "não está aberto para você".
     let simuladorLideranca = false;
-    if (sbServico && (data as any)?.role === 'gestor' && liderancaEmpresa && (platformAdmin || acessoSimuladores.lideranca)) {
+    if (sbServico && (data as any)?.role !== 'rh' && liderancaEmpresa && (platformAdmin || acessoSimuladores.lideranca)) {
       try {
         const { data: empresa, error } = await sbServico.from('empresas')
           .select('sys_config')

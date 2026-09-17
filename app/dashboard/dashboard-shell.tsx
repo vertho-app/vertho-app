@@ -24,7 +24,7 @@ type NavItem = {
   treina?: boolean;
   /** Item de ACOMPANHAMENTO da equipe: só para quem só acompanha (gestor e RH). */
   acompanha?: boolean;
-  /** Simulador de liderança do gestor: o trilho de liderança dele (`/api/me`). */
+  /** Simulador interativo: a população autorizada do trilho de liderança (`/api/me`). */
   simuladorLideranca?: boolean;
 };
 
@@ -85,7 +85,7 @@ const NAV_ITEMS: NavItem[] = [
   // LIDERANÇA; o RH não pratica nenhum.
   { href: '/dashboard/treino-atendimento', labelKey: 'receptionTraining', icon: Headset, recepcao: true, treina: true },
   { href: '/dashboard/simulador-vendas', labelKey: 'salesTraining', icon: Handshake, vendas: true, treina: true },
-  { href: '/dashboard/assessment?trilho=lideranca', labelKey: 'leadershipSimulator', icon: Crown, simuladorLideranca: true },
+  { href: '/dashboard/simulador-lideranca', labelKey: 'leadershipSimulator', icon: Crown, simuladorLideranca: true },
   { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp, participante: true },
 
   // ── O QUE A PESSOA ACOMPANHA ─────────────────────────────────────────────

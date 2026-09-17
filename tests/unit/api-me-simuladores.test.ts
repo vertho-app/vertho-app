@@ -100,7 +100,7 @@ describe('/api/me: simuladores no menu', () => {
     expect(await me()).toMatchObject({ simuladorLideranca: false });
   });
 
-  it('sem módulo, sem liberação do cargo, ou quem não é gestor: sem simulador de liderança e sem consulta', async () => {
+  it('sem módulo, sem liberação do cargo, ou RH: sem treino de liderança e sem consulta', async () => {
     mocks.acesso = { vendas: false, atendimento: false, lideranca: true };
     mocks.colab = cadastro('gestor');
     mocks.lideranca = false;
@@ -111,11 +111,18 @@ describe('/api/me: simuladores no menu', () => {
     expect(await me()).toMatchObject({ simuladorLideranca: false });
 
     mocks.acesso = { vendas: false, atendimento: false, lideranca: true };
-    for (const role of ['rh', 'colaborador']) {
+    for (const role of ['rh']) {
       mocks.colab = cadastro(role);
       expect(await me()).toMatchObject({ simuladorLideranca: false });
     }
     expect(mocks.resolver).not.toHaveBeenCalled();
+  });
+
+  it('futuro líder dentro da população configurada também encontra o treino', async () => {
+    mocks.colab = cadastro('colaborador');
+    mocks.lideranca = true;
+    mocks.acesso = { vendas: false, atendimento: false, lideranca: true };
+    expect(await me()).toMatchObject({ simuladorLideranca: true });
   });
 
   it('falha ao ler a configuração esconde o item, sem derrubar a rota', async () => {

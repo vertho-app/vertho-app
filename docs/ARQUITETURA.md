@@ -510,7 +510,7 @@ nextjs-app/
 ├── video-spike/                  # NOVO: Composicao Remotion VerthoVideo (13 templates de cena)
 │   └── remotion/
 ├── tests/                        # Vitest (331 arquivos / 3.365 testes) + Playwright
-├── migrations/                   # 218 arquivos SQL (000 + 022 -> 236, com gaps)
+├── migrations/                   # 242 arquivos SQL (000 + 022 -> 260, com gaps)
 ├── tsconfig.json                 # TypeScript config (strict:false, allowJs, checkJs:false)
 ├── docs/                         # ÚNICO lugar de .md novo (27/07) — indice no CLAUDE.md
 │   ├── ARQUITETURA.md            # este arquivo (saiu da raiz em 27/07)

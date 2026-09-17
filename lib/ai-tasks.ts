@@ -5,6 +5,10 @@
  */
 
 export const AI_TASKS = [
+  { key: 'sim_lideranca_abertura', label: 'Liderança — abertura do encontro', fase: 'Treinamento' },
+  { key: 'sim_lideranca_personagem', label: 'Liderança — personagem', fase: 'Treinamento' },
+  { key: 'sim_lideranca_consequencia', label: 'Liderança — consequências', fase: 'Treinamento' },
+  { key: 'sim_lideranca_avaliador', label: 'Liderança — devolutiva pela matriz', fase: 'Treinamento' },
   { key: 'sim_vendas_criador', label: 'Vendas PACE — criador do cenário', fase: 'Treinamento' },
   { key: 'sim_vendas_cliente', label: 'Vendas PACE — cliente simulado', fase: 'Treinamento' },
   { key: 'sim_vendas_moderador', label: 'Vendas PACE — moderador', fase: 'Treinamento' },
@@ -208,6 +212,10 @@ export const DEFAULT_COPILOTO_RESEARCH_FALLBACK_MODEL = 'gpt-5.6-sol';
  * Gemini Flash auditando Claude, e do Pulso classifier + auditor).
  */
 export const DEFAULT_TASK_MODELS: Record<string, string> = {
+  sim_lideranca_abertura: 'gpt-5.4-2026-03-05',
+  sim_lideranca_personagem: 'gpt-5.4-2026-03-05',
+  sim_lideranca_consequencia: 'gpt-5.4-2026-03-05',
+  sim_lideranca_avaliador: 'gpt-5.4-2026-03-05',
   ipi: 'claude-sonnet-4-6',
   sim_vendas_criador: 'gpt-5.4-2026-03-05',
   sim_vendas_cliente: 'gpt-5.4-2026-03-05',
@@ -327,6 +335,7 @@ const FALLBACK_GLOBAL = 'claude-sonnet-4-6';
  * específica sabe o que está fazendo; o pin só barra o genérico.
  */
 export const PINNED_TASKS = new Set([
+  'sim_lideranca_abertura', 'sim_lideranca_personagem', 'sim_lideranca_consequencia', 'sim_lideranca_avaliador',
   // Migração PACE: manter os modelos incumbentes; o default genérico não muda a régua.
   'sim_vendas_criador', 'sim_vendas_cliente', 'sim_vendas_moderador', 'sim_vendas_intencao', 'sim_vendas_gerente',
   'modulo_base_auditor',
@@ -497,7 +506,7 @@ export async function validarModelosDoSysConfig(sysConfig: any): Promise<string[
       problemas.push(`${onde}: modelo precisa ser texto (recebido: ${typeof modelo})`);
       continue;
     }
-    if (onde.startsWith('sim_vendas_') && !modeloPaceCompativel(modelo)) {
+    if ((onde.startsWith('sim_vendas_') || onde.startsWith('sim_lideranca_')) && !modeloPaceCompativel(modelo)) {
       problemas.push(`${onde}: "${modelo}" não foi validado para o formato estruturado do PACE. Use um dos modelos compatíveis do simulador.`);
       continue;
     }

@@ -3,7 +3,7 @@ import {
   BookMarked, BookOpen, Video, Database, GraduationCap as GradIcon, BarChart2,
   Calculator, LayoutDashboard, TrendingUp, Target, Shield, LockKeyhole,
   ScrollText, Trash2, CalendarDays, Send, Package, School, Settings,
-  FileBarChart, Crosshair, FlaskConical, Briefcase, MessagesSquare, DollarSign, Bot,
+  FileBarChart, Crosshair, FlaskConical, Briefcase, MessagesSquare, DollarSign, Bot, Crown,
 } from 'lucide-react';
 
 // ── nav items (sidebar) ─────────────────────────────────────────────────────
@@ -128,6 +128,7 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'board',      labelKey: 'boardPainel', subKey: 'boardPainelSub', group: 'system', icon: MessagesSquare, hrefFn: () => '/admin/vertho/board', showWhenEmpresa: false },
   { key: 'simulador',  labelKey: 'simulator',   subKey: 'flowTest',       group: 'system', icon: Zap,          hrefFn: () => '/admin/simulador',       showWhenAll: false },
   { key: 'vendas-pace', labelKey: 'salesTraining', subKey: 'salesPractice', group: 'commercial', icon: MessagesSquare, hrefFn: (id) => `/admin/simulador-vendas${id ? `?empresa=${id}` : ''}` },
+  { key: 'lideranca-treino', labelKey: 'leadershipTraining', subKey: 'leadershipPractice', group: 'commercial', icon: Crown, hrefFn: (id) => `/admin/simulador-lideranca${id ? `?empresa=${id}` : ''}` },
   { key: 'recepcao', labelKey: 'receptionTraining', subKey: 'receptionPractice', group: 'system', icon: MessagesSquare, hrefFn: (id) => `/admin/treino-atendimento${id ? `?empresa=${id}` : ''}` },
   { key: 'admins',     labelKey: 'admins',      subKey: 'platformAdmins', group: 'system', icon: Shield,       hrefFn: () => '/admin/platform-admins', showWhenEmpresa: false },
   { key: 'permissoes', labelKey: 'permissions', subKey: 'rolesPermissions', group: 'system', icon: LockKeyhole, hrefFn: () => '/admin/permissoes',     showWhenEmpresa: false },

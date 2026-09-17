@@ -78,9 +78,9 @@ describe('menu lateral do dashboard', () => {
     expect(fonte).toMatch(/const soAcompanha = colaborador\?\.soAcompanhaSimuladores === true;/);
   });
 
-  it('o simulador de liderança leva ao trilho de liderança e só aparece com a flag do servidor', () => {
+  it('o simulador de liderança leva à jornada interativa e só aparece com a flag do servidor', () => {
     const lideranca = itensDoMenu().find((item) => item.labelKey === 'leadershipSimulator');
-    expect(lideranca?.href).toBe('/dashboard/assessment?trilho=lideranca');
+    expect(lideranca?.href).toBe('/dashboard/simulador-lideranca');
     expect(lideranca?.resto).toMatch(/\bsimuladorLideranca: true\b/);
     expect(fonte).toMatch(/\(!it\.simuladorLideranca \|\| colaborador\?\.simuladorLideranca === true\)/);
   });
