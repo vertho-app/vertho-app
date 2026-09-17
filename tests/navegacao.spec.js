@@ -33,14 +33,31 @@ test.describe('Navegação autenticada', () => {
     // layout de COLABORADOR; a conta de smoke é RH e a sidebar dela tem outros
     // itens. As rotas de colaborador seguem cobertas por URL no
     // fluxos-criticos.spec.js; conta colaboradora de smoke fica para a fase 2.
-    await page.getByRole('button', { name: 'Equipe' }).click();
+    //
+    // 16/09/2026: DENTRO do menu lateral e com nome exato. O `name` do
+    // getByRole casa por SUBSTRING, e a home do RH tem dois cartões que também
+    // são botões ("Equipe · O progresso de cada..." e "Evolução da equipe ·
+    // Como os níveis..."). O item do menu só aparece depois do /api/me; quando
+    // a home carregava antes, o clique virava strict mode violation (1
+    // vermelho em 25 runs, nas duas tentativas). A corrida existia desde 25/08.
+    const menu = page.locator('[data-menu="lateral"]');
+    // Clique depois de a tela ASSENTAR, como a pessoa faz. A tela de destino
+    // dispara uma server action ao montar, e o Next descarta a navegação que
+    // estiver em curso quando a action começa: no trace de 16/09, o RSC de
+    // /dashboard/perfil voltou 200 e a URL nunca mudou, porque o
+    // POST /dashboard/gestor saiu 220 ms depois do clique.
+    const telaAssentada = () => expect(page.locator('main .animate-spin')).toHaveCount(0, { timeout: 30000 });
+
+    await menu.getByRole('button', { name: 'Equipe', exact: true }).click();
     await page.waitForURL('**/gestor**');
+    await telaAssentada();
 
     // exact: o avatar também é botão "Perfil de Smoke E2E" (strict mode, 30/08)
-    await page.getByRole('button', { name: 'Perfil', exact: true }).click();
+    await menu.getByRole('button', { name: 'Perfil', exact: true }).click();
     await page.waitForURL('**/perfil');
+    await telaAssentada();
 
-    await page.getByRole('button', { name: 'Início', exact: true }).click();
+    await menu.getByRole('button', { name: 'Início', exact: true }).click();
     await page.waitForURL('**/dashboard');
   });
 
