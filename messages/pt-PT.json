@@ -336,7 +336,7 @@
       "profile": "Perfil",
       "teamEngagement": "Envolvimento",
       "teamEvolution": "Evolução da equipa",
-      "receptionTraining": "Treino de atendimento",
+      "receptionTraining": "Simulador de atendimento",
       "salesTraining": "Simulador de vendas"
     },
     "platformPanel": "Administração Vertho",
@@ -838,7 +838,7 @@
         "copilot": "Copiloto",
         "audits": "Auditorias (13/14)",
         "salesChannel": "Canal Comercial",
-        "receptionTraining": "Treino de atendimento",
+        "receptionTraining": "Simulador de atendimento",
         "salesTraining": "Simulador de vendas"
       },
       "subs": {

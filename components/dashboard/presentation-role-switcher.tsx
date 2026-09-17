@@ -111,9 +111,10 @@ type PresentationControlsProps = {
   onRoleChange: (role: DemoPresentationRoleKey) => void;
   onDeviceChange: (device: DemoPresentationDeviceKey) => void;
   /**
-   * Link da página de boas-vindas. Quando existe, quem está na sala é o
-   * PROSPECT (veio do convite), não quem apresenta: o seletor de dispositivo
-   * dá lugar ao "Voltar ao início".
+   * Link da página de boas-vindas. Quando existe, quem está na sala veio do
+   * convite, e o "Voltar ao início" entra ANTES dos dois seletores. O seletor de
+   * dispositivo continua (pedido do dono em 17/09/2026: ele tinha saído na
+   * véspera para o convidado, e fez falta).
    */
   linkDeVolta?: string | null;
 };
@@ -152,15 +153,19 @@ export function PresentationControls({
       <div className="flex items-stretch overflow-hidden rounded-2xl border border-white/15 bg-[#071321]/95 p-1.5 shadow-[0_16px_46px_rgba(0,0,0,0.42)] backdrop-blur-xl">
         {linkDeVolta && (
           <>
+            {/* No celular, só o ícone: com os dois seletores, o texto passaria da
+                largura da tela e a barra (overflow-hidden) cortaria o último. */}
             <a
               href={linkDeVolta}
               data-sala="voltar-ao-inicio"
+              aria-label="Voltar ao início"
+              title="Voltar ao início"
               className="flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]/40"
             >
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[var(--brand-400,#22d3ee)]/10 text-[var(--brand-300,#67e8f9)]" aria-hidden="true">
                 <ArrowLeft size={14} />
               </span>
-              <span className="min-w-0">
+              <span className="hidden min-w-0 sm:block">
                 <span className="hidden text-[8px] font-bold uppercase tracking-[0.18em] text-white/40 sm:block">
                   Página inicial
                 </span>
@@ -202,11 +207,6 @@ export function PresentationControls({
           </span>
         </label>
 
-        {/* Quem veio do convite está no aparelho de verdade: o seletor de
-            dispositivo é ferramenta de quem APRESENTA, e no celular ele abriria
-            uma moldura de celular dentro do celular. */}
-        {!linkDeVolta && (
-        <>
         <span className="my-1 w-px shrink-0 bg-white/10" aria-hidden="true" />
 
         <label className="group flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05] focus-within:bg-white/[0.06] focus-within:ring-2 focus-within:ring-[var(--brand-400,#22d3ee)]/25">
@@ -240,8 +240,6 @@ export function PresentationControls({
             </span>
           </span>
         </label>
-        </>
-        )}
       </div>
     </div>
   );

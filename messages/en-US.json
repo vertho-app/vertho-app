@@ -336,7 +336,7 @@
       "profile": "Profile",
       "teamEngagement": "Engagement",
       "teamEvolution": "Team evolution",
-      "receptionTraining": "Reception training",
+      "receptionTraining": "Reception simulator",
       "salesTraining": "Sales simulator"
     },
     "platformPanel": "Vertho Administration",
@@ -838,7 +838,7 @@
         "copilot": "Copilot",
         "audits": "Audits (13/14)",
         "salesChannel": "Sales Channel",
-        "receptionTraining": "Reception training",
+        "receptionTraining": "Reception simulator",
         "salesTraining": "Sales simulator"
       },
       "subs": {

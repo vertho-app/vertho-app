@@ -62,7 +62,7 @@ describe('toda superfície que pinta veredito lê a paleta única', () => {
     expect(fonte).toContain('convergencia-cores');
     // As cores antigas de "parcial" (âmbar/laranja/ciano/azul) não voltam por cópia.
     // Âncoras EXATAS do veredito: o troféu âmbar da tela é ícone, não veredito.
-    for (const velha of ["cor: 'amber'", 'valor={resumo.parciais || 0} cor="text-amber-400"', 'text-amber-400">~', "'#D97706'", "'#67E8F9'", "'#0C4A6E'", 'colors.orange', 'bg-[#9ae2e6]']) {
+    for (const velha of ["cor: 'amber'", 'valor={resumo.parciais || 0} cor="text-amber-400"', 'text-amber-400">~', 'valor={resumo.evolucaoParcial} cor="text-amber-300"', "'#D97706'", "'#67E8F9'", "'#0C4A6E'", 'colors.orange', 'bg-[#9ae2e6]']) {
       expect(fonte, `"${velha}" voltou em ${arquivo}`).not.toContain(velha);
     }
   });

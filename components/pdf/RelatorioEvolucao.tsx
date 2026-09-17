@@ -29,6 +29,7 @@ import { colors, pageStyles, fonts } from './styles';
 import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
+import { DICA_VEREDITO } from '@/lib/season-engine/convergencia-dicas';
 import {
   CONVERGENCIA, rotuloConvergencia, CORTE_CONFIRMADA, CORTE_PARCIAL,
 } from '@/lib/season-engine/convergencia';
@@ -278,15 +279,15 @@ export default function RelatorioEvolucaoPDF({
           <View style={s.cards}>
             <CartaoVeredito
               n={resumo.confirmadas} total={cobertura.medidos} veredito={CONVERGENCIA.CONFIRMADA}
-              hint={'Aplicou sem ser induzido e sustentou sob restrição nova.'}
+              hint={DICA_VEREDITO[CONVERGENCIA.CONFIRMADA]}
             />
             <CartaoVeredito
               n={resumo.parciais} total={cobertura.medidos} veredito={CONVERGENCIA.PARCIAL}
-              hint={'Avançou, ainda apoiado na estrutura da conversa.'}
+              hint={DICA_VEREDITO[CONVERGENCIA.PARCIAL]}
             />
             <CartaoVeredito
               n={resumo.estaveis} total={cobertura.medidos} veredito={CONVERGENCIA.ESTAVEL}
-              hint={'Reconhece o caminho; o fechamento não trouxe um caso real.'}
+              hint={DICA_VEREDITO[CONVERGENCIA.ESTAVEL]}
             />
             <CartaoVeredito
               n={resumo.semVeredito} total={cobertura.medidos} veredito={null} ultimo

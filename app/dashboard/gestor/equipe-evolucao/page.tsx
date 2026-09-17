@@ -9,6 +9,7 @@ import { listarEquipeEvolucao, loadLideradoConcluida } from './actions';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import { CONVERGENCIA, rotuloConvergencia, formatarAvanco, formatarValorAvanco } from '@/lib/season-engine/convergencia';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
+import { DICA_VEREDITO } from '@/lib/season-engine/convergencia-dicas';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 
 // 🔑 CLASSE DE COR É LITERAL, NUNCA MONTADA.
@@ -131,9 +132,16 @@ export default function EquipeEvolucaoPage() {
           <Card label="Com trilha" valor={resumo.total - resumo.semTrilha} cor="text-white"
             detalhe={resumo.semTrilha > 0 ? `${resumo.semTrilha} sem trilha` : null} />
           <Card label="Em andamento" valor={resumo.emAndamento} cor="text-brand-300" />
-          <Card label="Confirmadas" valor={resumo.evolucaoConfirmada} cor="text-emerald-300" />
-          <Card label="Parciais" valor={resumo.evolucaoParcial} cor="text-amber-300" />
-          <Card label="Estável" valor={resumo.estagnacao} cor="text-gray-400" />
+          {/* 17/09/2026: cada veredito diz o que significa, com a MESMA frase do
+              relatório de evolução (`convergencia-dicas`), e pinta com a paleta
+              única: "Parciais" ainda saía em âmbar, contra a decisão de 16/09
+              (parcial verde claro, confirmada verde mais escuro). */}
+          <Card label="Confirmadas" valor={resumo.evolucaoConfirmada} cor={COR_VEREDITO_TELA[CONVERGENCIA.CONFIRMADA].tinta}
+            detalhe={DICA_VEREDITO[CONVERGENCIA.CONFIRMADA]} />
+          <Card label="Parciais" valor={resumo.evolucaoParcial} cor={COR_VEREDITO_TELA[CONVERGENCIA.PARCIAL].tinta}
+            detalhe={DICA_VEREDITO[CONVERGENCIA.PARCIAL]} />
+          <Card label="Estável" valor={resumo.estagnacao} cor={COR_VEREDITO_TELA[CONVERGENCIA.ESTAVEL].tinta}
+            detalhe={DICA_VEREDITO[CONVERGENCIA.ESTAVEL]} />
         </div>
       )}
 
@@ -230,7 +238,7 @@ function Card({ label, valor, cor, detalhe = null }) {
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <p className="text-[10px] uppercase text-gray-500 tracking-widest">{label}</p>
       <p className={`text-2xl font-extrabold ${cor}`}>{valor}</p>
-      {detalhe && <p className="text-[10px] text-white/35 mt-0.5">{detalhe}</p>}
+      {detalhe && <p className="text-[11px] leading-snug text-white/45 mt-1">{detalhe}</p>}
     </div>
   );
 }
