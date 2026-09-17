@@ -122,14 +122,15 @@ describe('fronteira de custo do documento público', () => {
       ciclos: 5,
       unidades: 1,
       semanasPorCiclo: 7,          // PROGRAMA_JORNADA
-      mesesPrograma: 8,
-      conteudosPorPessoaCiclo: 48, // 12 × 4 formatos
+      // 5 ciclos × 2 meses = as 10 parcelas. O jsonb gravou 8 (conta antiga por
+      // semanas) e NÃO pode vencer: a duração sai dos ciclos.
+      mesesPrograma: 10,
     });
 
     // Negativo: o objeto tem EXATAMENTE essas chaves — uma chave a mais aqui
     // seria um campo do orçamento passando junto sem ninguém perceber.
     expect(Object.keys(pg!).sort()).toEqual([
-      'cargos', 'ciclos', 'conteudosPorPessoaCiclo', 'mesesPrograma',
+      'cargos', 'ciclos', 'mesesPrograma',
       'pessoas', 'semanasPorCiclo', 'unidades',
     ]);
   });

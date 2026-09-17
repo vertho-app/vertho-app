@@ -264,5 +264,29 @@ O simulador de propostas ainda representa todos os cargos informados como
 matrizes novas, pois seu formulário não recebe a divisão nova/adaptada. Se essa
 divisão passar a fazer parte da proposta, o contrato de `PricingInput` também
 precisa evoluir. A conversão do deal desk **não** tem essa limitação: ela leva
-`cargos` e o cenário completo, e a divisão novas/adaptadas aparece no escopo
-gerado por `escopoPropostaDoCenario`.
+`cargos` e o cenário completo. A divisão novas/adaptadas entra no PREÇO, mas não
+no texto que o cliente lê.
+
+### O rascunho de escopo que o cliente lê (17/09/2026)
+
+`escopoPropostaDoCenario` gera os bullets de `/proposta/[token]`. Regras do
+Rodrigo, travadas em `tests/unit/orcamento-conversao.test.ts`:
+
+- número sempre como #.### ("1.000 pessoas"), exceto valores em reais;
+- matrizes só pelo total ("50 matrizes de competência, uma por cargo"), sem a
+  divisão entre novas e adaptadas;
+- conteúdo sem quantidade: "Vídeos, podcasts, textos e casos personalizados para
+  cada pessoa". O documento também deixou de dizer "N conteúdos por pessoa a cada
+  ciclo";
+- workshop em linha própria ("Workshop presencial para definir, com a equipe da
+  instituição, as competências de cada cargo"), e não no fim de "cargos mapeados".
+
+### Duração do programa = parcelas (17/09/2026)
+
+`mesesDoPrograma(ciclos)` = ciclos × 2 = `parcelasPorCiclos(ciclos)`. Antes a
+calculadora estimava por semanas (7 × ciclos ÷ 4,345), e a PROP-2026-0008 dizia
+"8 meses de programa" ao lado de "10 parcelas". A infra é rateada por essa
+duração (5 ciclos: +R$ 996 a +R$ 1.992 de custo, menos de 0,13 ponto de margem
+num projeto de R$ 1,569 mi). O documento da proposta deriva a duração dos
+`ciclos`, não do `resultado.mesesPrograma` gravado, porque cenário salvo antes
+desta data congelou a conta antiga.

@@ -503,22 +503,42 @@ describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
     expect(linhas.length).toBe(6);
     expect(linhas[0]).toMatch(/Jornada de 7 semanas · 1 ciclo/);
     expect(linhas[1]).toMatch(/100 pessoas · 1 unidade · 3 cargos mapeados por votação/);
-    expect(linhas[3]).toMatch(/12 vídeos, 12 podcasts, 12 textos e 12 cases/);
+    expect(linhas[3]).toBe('Vídeos, podcasts, textos e casos personalizados para cada pessoa');
   });
 
-  it('separa matrizes novas de adaptadas pela régua (cargos = novas + adaptadas)', () => {
-    const linhas = escopoPropostaDoCenario(entradas, resumo, jornada).split('\n');
-    expect(linhas[2]).toMatch(/1 nova, 2 adaptadas/);
+  it('matrizes só pelo total, sem a divisão interna entre novas e adaptadas', () => {
+    const texto = escopoPropostaDoCenario(entradas, resumo, jornada);
+    expect(texto.split('\n')[2]).toBe('3 matrizes de competência, uma por cargo');
+    expect(texto).not.toMatch(/nova|adaptad/);
   });
 
-  it('workshop e plural aparecem certos', () => {
-    const texto = escopoPropostaDoCenario(
+  it('não expõe a quantidade de conteúdos por pessoa/ciclo', () => {
+    const texto = escopoPropostaDoCenario(entradas, resumo, jornada);
+    expect(texto).not.toMatch(/\b12\b|pessoa\/ciclo/);
+  });
+
+  it('número sai como #.### (1.000, nunca 1000)', () => {
+    const texto = escopoPropostaDoCenario(entradas, { ...resumo, pessoas: 1000, cargos: 1200 }, jornada);
+    expect(texto).toMatch(/1\.000 pessoas/);
+    expect(texto).toMatch(/1\.200 matrizes/);
+    expect(texto).not.toMatch(/\b1000\b|\b1200\b/);
+  });
+
+  it('workshop ganha linha própria e o plural aparece certo', () => {
+    const linhas = escopoPropostaDoCenario(
       { ...entradas, metodo: 'workshop' },
       { ...resumo, cargos: 1, unidades: 4, ciclos: 3 },
       { rotulo: 'Regular DUO', semanas: 14 },
-    );
-    expect(texto).toMatch(/Regular DUO de 14 semanas · 3 ciclos/);
-    expect(texto).toMatch(/4 unidades · 1 cargo mapeado por workshop/);
+    ).split('\n');
+    expect(linhas[0]).toMatch(/Regular DUO de 14 semanas · 3 ciclos/);
+    expect(linhas[1]).toBe('100 pessoas · 4 unidades · 1 cargo mapeado');
+    expect(linhas[2]).toBe('4 workshops presenciais, um por unidade, para definir com a equipe as competências de cada cargo');
+    expect(linhas[3]).toBe('1 matriz de competência');
+  });
+
+  it('workshop numa unidade só fala no singular', () => {
+    const texto = escopoPropostaDoCenario({ ...entradas, metodo: 'workshop' }, resumo, jornada);
+    expect(texto).toMatch(/^Workshop presencial para definir, com a equipe da instituição, as competências de cada cargo$/m);
   });
 
   it('extração de vídeo entra no escopo só quando existe', () => {
@@ -543,7 +563,7 @@ describe('escopoPropostaDoCenario — o rascunho que o admin revisa', () => {
     );
     expect(singular).toMatch(/1 semana · 1 ciclo/);
     expect(singular).toMatch(/1 pessoa · 1 unidade · 1 cargo mapeado por/);
-    expect(singular).toMatch(/1 vídeo, 1 podcast, 1 texto e 1 case por pessoa\/ciclo/);
+    expect(singular).toMatch(/^1 matriz de competência$/m);
     expect(singular).toMatch(/Extração de 1 vídeo institucional/);
     expect(singular).not.toMatch(/institucionalis|1 vídeos|1 pessoas|1 semanas/);
   });

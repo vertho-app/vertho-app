@@ -10,6 +10,7 @@
 // objeto inteiro nem um spread — um campo novo no orçamento viraria vazamento
 // silencioso. O teste `proposal-programa.test.ts` trava isso.
 import { getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
+import { mesesDoPrograma } from '@/lib/orcamento/precificacao';
 
 export type ProposalPrograma = {
   /** Participantes do programa. */
@@ -24,8 +25,6 @@ export type ProposalPrograma = {
   semanasPorCiclo: number | null;
   /** Duração total do programa em meses. */
   mesesPrograma: number | null;
-  /** Conteúdos por pessoa a cada ciclo (vídeo + podcast + texto + case). */
-  conteudosPorPessoaCiclo: number | null;
 };
 
 /**
@@ -66,18 +65,17 @@ export function extrairProgramaDoOrcamento(orc: OrcamentoVinculado): ProposalPro
     ? inteiroPositivo(getProgramaConfigByModo(jornada).semanas)
     : null;
 
-  const c = (e.conteudoColab && typeof e.conteudoColab === 'object' ? e.conteudoColab : {}) as Record<string, unknown>;
-  const somaConteudos = ['video', 'podcast', 'texto', 'case']
-    .reduce((acc, k) => acc + (inteiroPositivo(c[k]) ?? 0), 0);
-
+  const ciclos = inteiroPositivo(r.ciclos);
   const programa: ProposalPrograma = {
     pessoas: inteiroPositivo(r.pessoas),
     cargos: inteiroPositivo(r.cargos),
-    ciclos: inteiroPositivo(r.ciclos),
+    ciclos,
     unidades: inteiroPositivo(r.unidades),
     semanasPorCiclo,
-    mesesPrograma: inteiroPositivo(r.mesesPrograma),
-    conteudosPorPessoaCiclo: somaConteudos > 0 ? somaConteudos : null,
+    // Derivado dos CICLOS, não do `resultado.mesesPrograma` gravado: orçamento
+    // salvo antes de 17/09/2026 congelou a conta antiga por semanas (5 ciclos =
+    // 8 meses), e a proposta mostraria uma duração diferente das parcelas.
+    mesesPrograma: ciclos ? mesesDoPrograma(ciclos) : null,
   };
 
   // Orçamento vazio/corrompido não vira seção de números em branco.

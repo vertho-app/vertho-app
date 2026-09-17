@@ -81,9 +81,19 @@ export function obterComissaoOrcamento(tipo: string) {
     ?? OPCOES_COMISSAO_ORCAMENTO[0];
 }
 
-/** O programa padrão dura cerca de dois meses; a forma de pagamento acompanha a entrega. */
-export function parcelasPorCiclos(ciclos: number): number {
+/**
+ * Duração do programa em meses: cada ciclo dura dois meses (regra do Rodrigo,
+ * 17/09/2026). Até então a calculadora estimava por semanas da jornada
+ * (7 × ciclos ÷ 4,345), e a proposta de 5 ciclos dizia "8 meses de programa" ao
+ * lado de "10 parcelas".
+ */
+export function mesesDoPrograma(ciclos: number): number {
   return Math.max(1, Math.floor(Number(ciclos) || 1)) * MESES_POR_CICLO;
+}
+
+/** A forma de pagamento acompanha a entrega: uma parcela por mês de programa. */
+export function parcelasPorCiclos(ciclos: number): number {
+  return mesesDoPrograma(ciclos);
 }
 
 /** Todo cargo que não exige uma matriz nova adapta uma matriz existente. */

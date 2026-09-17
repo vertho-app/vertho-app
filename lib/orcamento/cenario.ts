@@ -23,7 +23,6 @@ import {
   CONTEUDO_POR_FORMATO_DEFAULT,
   OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
-  distribuirMatrizes,
   obterComissaoOrcamento,
   type ConteudoPorFormato,
   type TipoComissaoOrcamento,
@@ -271,26 +270,41 @@ export function escopoPropostaDoCenario(
   r: ResumoOrcamento,
   jornada: { rotulo: string; semanas: number },
 ): string {
-  const { novas, adaptadas } = distribuirMatrizes(r.cargos, e.matrizNovas);
-  const c = e.conteudoColab;
   // Este texto vira bullet no documento do cliente: plural errado aqui é erro
   // publicado, não cosmetic. `institucional → institucionais` (l vira is) é o
-  // caso que uma concatenação de sufixo erra em silêncio.
-  const p = (n: number, um: string, varios: string) => `${n} ${n === 1 ? um : varios}`;
+  // caso que uma concatenação de sufixo erra em silêncio. E número sai sempre
+  // como #.### ("1.000 pessoas", nunca "1000"), regra do Rodrigo de 17/09/2026.
+  const n = (v: number) => v.toLocaleString('pt-BR');
+  const p = (v: number, um: string, varios: string) => `${n(v)} ${v === 1 ? um : varios}`;
+  const workshop = e.metodo === 'workshop';
 
+  // O que o cliente NÃO lê aqui, por decisão do Rodrigo (17/09/2026): a divisão
+  // entre matrizes novas e adaptadas (conta interna de preço) e a quantidade de
+  // conteúdos por pessoa/ciclo.
   const linhas = [
     `Programa ${jornada.rotulo} de ${p(jornada.semanas, 'semana', 'semanas')} · ${p(r.ciclos, 'ciclo', 'ciclos')}`,
     `${p(r.pessoas, 'pessoa', 'pessoas')} · ${p(r.unidades, 'unidade', 'unidades')} · `
-      + `${p(r.cargos, 'cargo mapeado', 'cargos mapeados')} por ${e.metodo === 'workshop' ? 'workshop' : 'votação'}`,
-    `Matrizes de competência: ${p(novas, 'nova', 'novas')}, ${p(adaptadas, 'adaptada', 'adaptadas')}`,
-    `${p(c.video, 'vídeo', 'vídeos')}, ${p(c.podcast, 'podcast', 'podcasts')}, `
-      + `${p(c.texto, 'texto', 'textos')} e ${p(c.case, 'case', 'cases')} por pessoa/ciclo`,
+      + `${p(r.cargos, 'cargo mapeado', 'cargos mapeados')}${workshop ? '' : ' por votação'}`,
+    r.cargos === 1 ? '1 matriz de competência' : `${n(r.cargos)} matrizes de competência, uma por cargo`,
+    'Vídeos, podcasts, textos e casos personalizados para cada pessoa',
     'Mentor IA e trilhas personalizadas por cargo e perfil comportamental',
     'Relatório de evolução por competência ao fim de cada ciclo',
   ];
-  if (e.nVideosExtraidos > 0) {
+  if (workshop) {
+    // Linha própria logo depois do tamanho do programa: é entrega presencial,
+    // cobrada à parte, e sumia no fim de "cargos mapeados por workshop".
     linhas.splice(
-      3,
+      2,
+      0,
+      r.unidades === 1
+        ? 'Workshop presencial para definir, com a equipe da instituição, as competências de cada cargo'
+        : `${n(r.unidades)} workshops presenciais, um por unidade, para definir com a equipe as competências de cada cargo`,
+    );
+  }
+  if (e.nVideosExtraidos > 0) {
+    const iConteudo = linhas.findIndex((l) => l.startsWith('Vídeos, podcasts'));
+    linhas.splice(
+      iConteudo,
       0,
       `Extração de ${p(e.nVideosExtraidos, 'vídeo institucional', 'vídeos institucionais')} como matéria-prima do conteúdo`,
     );

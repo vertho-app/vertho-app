@@ -34,6 +34,7 @@ import {
   distribuirMatrizes,
   obterComissaoOrcamento,
   OPCOES_COMISSAO_ORCAMENTO,
+  mesesDoPrograma,
   parcelasPorCiclos,
   ratearValorPorPessoa,
   reusoConteudoPorCelula,
@@ -330,8 +331,9 @@ export default function OrcamentoPage() {
       (metodo === 'workshop' ? nClusters * pricing.horasWorkshop : 0);
     const custoHorasBrl = horasTotais * pricing.custoHora;
     const custoMsgBrl = pessoasAtivas * pricing.msgsPorPessoaCiclo * pricing.custoMsgUnitario * ciclos;
-    // Duração real do PROGRAMA (não do contrato): é por ela que a infra é rateada.
-    const mesesPrograma = Math.max(1, Math.round((cfgJornada.semanas * ciclos) / 4.345));
+    // Duração do programa (= parcelas, dois meses por ciclo): é por ela que a
+    // infra é rateada e o custo variável se distribui na exposição de caixa.
+    const mesesPrograma = mesesDoPrograma(ciclos);
     const infra = infraFixaTotal();
     const infraMesUsd = ((infra.min + infra.max) / 2) / Math.max(1, pricing.clientesAtivos);
     const custoInfraBrl = infraMesUsd * mesesPrograma * pricing.cotacao;

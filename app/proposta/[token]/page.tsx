@@ -597,18 +597,9 @@ export default async function PropostaPublicaPage(
                   </div>
                 ))}
               </div>
-              {pg?.conteudosPorPessoaCiclo != null && (
-                <p style={{ fontSize: 13, color: C.muted, margin: '12px 0 0' }}>
-                  {/* Por PESSOA, nunca pessoas × ciclos × formatos: o conteúdo é gerado por
-                      célula (competência × descritor × DISC × cargo) e reaproveitado por quem
-                      compartilha a célula. "240.000 peças" seria número de entrega vendido
-                      como número de peça distinta. */}
-                  São {fmtNum(pg.conteudosPorPessoaCiclo)} conteúdos por pessoa a cada ciclo
-                  {pg.ciclos && pg.ciclos > 1
-                    ? ` — ${fmtNum(pg.conteudosPorPessoaCiclo * pg.ciclos)} ao longo dos ${pg.ciclos} ciclos`
-                    : ''}.
-                </p>
-              )}
+              {/* Sem contagem de conteúdos por pessoa/ciclo (decisão do Rodrigo,
+                  17/09/2026): o escopo diz "vídeos, podcasts, textos e casos
+                  personalizados para cada pessoa" e para aí. */}
             </Secao>
           )}
 

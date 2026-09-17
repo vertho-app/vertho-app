@@ -498,15 +498,7 @@ export default function PropostaComercialPDF({
           )}
         >
           {escopoLinhas.slice(1).map((linha, i) => <LinhaChips key={i} itens={linha} />)}
-          {pg?.conteudosPorPessoaCiclo != null && (
-            <Text style={s.notaFina}>
-              {/* Por PESSOA — ver o comentário gêmeo na página pública. */}
-              São {fmtNum(pg.conteudosPorPessoaCiclo)} conteúdos por pessoa a cada ciclo
-              {pg.ciclos && pg.ciclos > 1
-                ? ` — ${fmtNum(pg.conteudosPorPessoaCiclo * pg.ciclos)} ao longo dos ${pg.ciclos} ciclos`
-                : ''}.
-            </Text>
-          )}
+          {/* Sem contagem de conteúdos: ver o comentário gêmeo na página pública. */}
         </Secao>
 
         {/* ENTREGAS */}

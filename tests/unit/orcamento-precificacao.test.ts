@@ -16,6 +16,7 @@ import {
   custoConteudoComReuso,
   distribuirMatrizes,
   obterComissaoOrcamento,
+  mesesDoPrograma,
   parcelasPorCiclos,
   ratearValorPorPessoa,
   reusoConteudoPorCelula,
@@ -83,6 +84,14 @@ describe('premissas comerciais do orçamento', () => {
   it('deriva duas parcelas por ciclo', () => {
     expect(parcelasPorCiclos(1)).toBe(2);
     expect(parcelasPorCiclos(3)).toBe(6);
+  });
+
+  it('a duração do programa em meses é igual ao número de parcelas', () => {
+    // Regra do dono (17/09/2026). A conta antiga por semanas dava 8 para 5 ciclos.
+    expect(mesesDoPrograma(5)).toBe(10);
+    for (const ciclos of [1, 2, 3, 4, 5, 6, 12]) {
+      expect(mesesDoPrograma(ciclos)).toBe(parcelasPorCiclos(ciclos));
+    }
   });
 
   it('transforma todos os cargos restantes em matrizes adaptadas', () => {
