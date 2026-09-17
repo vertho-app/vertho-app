@@ -7,6 +7,14 @@
 // mensagem do WhatsApp. Nenhuma dessas superfícies tem revisão antes de chegar
 // na pessoa.
 //
+// 🔴 E O GUARD TINHA TRÊS BURACOS (17/09/2026): o dono achou
+// "COO03_D1 — Consciência de limites" no PDF da temporada concluída, código que
+// "nunca pode aparecer". O PDF mora em `lib/`, fora das áreas varridas; o padrão
+// `app/dashboard/**/*.tsx` do git não casa arquivo na RAIZ da pasta (a home,
+// `app/dashboard/page.tsx`, também mostrava o campo cru); e a linha do tempo da
+// temporada escrevia `{s.descritor || t(…)}` numa linha SEM tag, que a régua
+// descartava. Os três estão cobertos abaixo, cada um com o seu caso.
+//
 // 🔑 A RÉGUA QUE ESTE GUARD CODIFICA: limpar na EXIBIÇÃO, nunca no dado nem em
 // quem CASA. O `descritor` cru é a chave que resolve kit e vídeo
 // (`resolverVideoDaSemana`) — por isso `descritor={entrega.descritor}` como
@@ -21,7 +29,7 @@ import { descritorParaHumano, descritoresParaHumano } from '@/lib/descritor-huma
 const RAIZ = process.cwd();
 
 /** Superfícies que o COLABORADOR vê. Admin fica fora: lá o código desambigua. */
-const AREAS = ['app/dashboard/', 'components/pdf/'];
+const AREAS = ['app/dashboard/', 'components/pdf/', 'components/temporada/', 'lib/temporada-concluida-pdf.tsx'];
 
 /**
  * Reduz a linha ao que é RENDERIZADO, e devolve `''` quando não há JSX.
@@ -45,8 +53,26 @@ function jsxRenderizado(linha: string): string {
 
 const TEXTO_JSX = /\{[^{}]*\bdescritor\b[^{}]*\}/;
 
+/**
+ * A linha exibe o descritor CRU?
+ *   1. JSX com tag na mesma linha: `<p>{d.descritor}</p>`;
+ *   2. expressão filha SOZINHA na linha (JSX quebrado em várias linhas):
+ *      `{s.descritor || t(…)}`;
+ *   3. atributo que o navegador MOSTRA: `title=`, `alt=`, `aria-label=`.
+ */
+function exibeDescritorCru(linha: string): boolean {
+  if (/descritor(es)?ParaHumano/.test(linha)) return false;
+  const codigo = jsxRenderizado(linha);
+  if (codigo && TEXTO_JSX.test(codigo)) return true;
+  const semComentario = linha.replace(/\/\/.*$/, '').trim();
+  if (/^\{(?!\s*\/\*)[^:]*?\.descritor\b/.test(semComentario)) return true;
+  return /\b(title|alt|aria-label)=\{[^}]*\.descritor\b/.test(linha);
+}
+
 function arquivos(): string[] {
-  return execSync('git ls-files "app/dashboard/**/*.tsx" "components/pdf/**/*.tsx"', {
+  // Pathspec do git SEM glob mágico: `*` atravessa `/`, então `app/dashboard/*.tsx`
+  // pega a raiz E as subpastas. O `**/` exigia uma subpasta e deixava a home de fora.
+  return execSync('git ls-files -- "app/dashboard/*.tsx" "components/pdf/*.tsx" "components/temporada/*.tsx" "lib/temporada-concluida-pdf.tsx"', {
     cwd: RAIZ, encoding: 'utf8',
   }).split('\n').map((l) => l.trim()).filter(Boolean);
 }
@@ -59,10 +85,7 @@ describe('descritor que o colaborador lê', () => {
       if (!AREAS.some((a) => arq.startsWith(a))) continue;
       const linhas = readFileSync(join(RAIZ, arq), 'utf8').split('\n');
       linhas.forEach((linha, i) => {
-        const codigo = jsxRenderizado(linha);
-        if (!codigo || !TEXTO_JSX.test(codigo)) return;
-        if (/descritor(es)?ParaHumano/.test(codigo)) return;
-        violacoes.push(`${arq}:${i + 1}  ${linha.trim().slice(0, 110)}`);
+        if (exibeDescritorCru(linha)) violacoes.push(`${arq}:${i + 1}  ${linha.trim().slice(0, 110)}`);
       });
     }
 
@@ -76,21 +99,28 @@ describe('descritor que o colaborador lê', () => {
     expect(lista.length).toBeGreaterThan(10);
     const comDescritor = lista.filter((a) => readFileSync(join(RAIZ, a), 'utf8').includes('descritor'));
     expect(comDescritor.length).toBeGreaterThan(0);
+    // os três buracos de 17/09: cada superfície entra na varredura
+    for (const arq of ['app/dashboard/page.tsx', 'lib/temporada-concluida-pdf.tsx', 'components/temporada/relatorio-temporada-concluida.tsx']) {
+      expect(lista, `${arq} fora da varredura`).toContain(arq);
+    }
   });
 
   it('🔴 a régua separa EXIBIÇÃO das quatro formas que só carregam o valor', () => {
-    const exibe = (l: string) => {
-      const c = jsxRenderizado(l);
-      return !!c && TEXTO_JSX.test(c);
-    };
     // Exibe → tem que pegar
-    expect(exibe('<p className="x">{d.descritor}</p>')).toBe(true);
-    expect(exibe('<div className="x">{conv.icon} {d.descritor}</div>')).toBe(true);
+    expect(exibeDescritorCru('<p className="x">{d.descritor}</p>')).toBe(true);
+    expect(exibeDescritorCru('<div className="x">{conv.icon} {d.descritor}</div>')).toBe(true);
+    expect(exibeDescritorCru('<Text style={s.cardTitle}>{d.descritor}</Text>')).toBe(true);
+    expect(exibeDescritorCru("            <Text style={s.eyebrow}>Semana {m.semana}{m.descritor ? ` · ${m.descritor}` : ''}</Text>")).toBe(true);
+    expect(exibeDescritorCru("                  {s.descritor || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`)}")).toBe(true);
+    expect(exibeDescritorCru("                  title={s.descritor || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`)}")).toBe(true);
     // Não exibe → não pode pegar (os quatro falsos positivos da 1ª execução)
-    expect(exibe('{/* Bloco 1 — Comparativo por descritor */}')).toBe(false);
-    expect(exibe('<ConteudoViewer descritor={entrega.descritor} semana={5} />')).toBe(false);
-    expect(exibe("  : (conteudo ? [{ dia: 'semana', descritor: semana.descritor, conteudo }] : []);")).toBe(false);
-    expect(exibe('function ConteudoViewer({ conteudo, competencia, descritor, pilula }) {')).toBe(false);
+    expect(exibeDescritorCru('{/* Bloco 1 — Comparativo por descritor */}')).toBe(false);
+    expect(exibeDescritorCru('<ConteudoViewer descritor={entrega.descritor} semana={5} />')).toBe(false);
+    expect(exibeDescritorCru("  : (conteudo ? [{ dia: 'semana', descritor: semana.descritor, conteudo }] : []);")).toBe(false);
+    expect(exibeDescritorCru('function ConteudoViewer({ conteudo, competencia, descritor, pilula }) {')).toBe(false);
+    // e a forma limpa, em qualquer posição
+    expect(exibeDescritorCru("                  {descritorParaHumano(s.descritor) || t('x')}")).toBe(false);
+    expect(exibeDescritorCru('{grupo.descritores.map((d, i) => (')).toBe(false);
   });
 });
 

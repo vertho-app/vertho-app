@@ -244,11 +244,33 @@ describe('ordem do PDF da temporada', () => {
     expect(t.split('Nível 4')).toHaveLength(3);
   });
 
-  it('parcial é apresentada como evolução real, e estável não como piora', () => {
-    const { legend } = JSON.parse(readFileSync('messages/pt-BR.json', 'utf8')).SeasonDone;
-    expect(legend.partial).toMatch(/evolução real/);
-    expect(legend.stable).toMatch(/Não é piora/);
-    for (const texto of Object.values(legend) as string[]) expect(texto).not.toMatch(/apenas|só um pouco|insuficiente|fraca/i);
+  it('cada contador tem um texto BREVE, sem detalhar a régua (dono, 17/09/2026)', () => {
+    for (const loc of ['pt-BR', 'pt-PT', 'en-US', 'es-ES']) {
+      const { legend } = JSON.parse(readFileSync(`messages/${loc}.json`, 'utf8')).SeasonDone;
+      for (const texto of Object.values(legend) as string[]) {
+        expect(texto.length, `${loc}: "${texto}"`).toBeLessThanOrEqual(30);
+        expect(texto).not.toMatch(/apenas|só um pouco|insuficiente|fraca|piora|conversa/i);
+      }
+      expect(legend.confirmed).toMatch(/0[,.]5/);
+    }
+  });
+
+  it('🔴 o código da matriz NUNCA aparece no PDF (dono, 17/09/2026)', () => {
+    const comCodigo = {
+      ...dados,
+      momentos: [{ semana: 2, descritor: 'COO03_D6 — Busca de apoio', insight: 'INSIGHT' }],
+      evolutionReport: {
+        ...dados.evolutionReport,
+        descritores: [
+          { competencia: 'Autocuidado', descritor: 'COO03_D1 — Consciência de limites', nota_pre: 1.3, nota_pos: 3.0, convergencia: 'evolucao_confirmada' },
+          ...dados.evolutionReport.descritores,
+        ],
+      },
+    };
+    const t = textos(TemporadaConcluidaPDF({ dados: comCodigo, marca })).join('\n');
+    expect(t).toContain('Consciência de limites');
+    expect(t).toContain('Busca de apoio');
+    expect(t).not.toMatch(/[A-Z]{2,5}\d{1,3}_[A-Z]\d+/);
   });
 
   it('síntese com "colab" sai por extenso, e o rodapé é Vertho.ai', () => {
@@ -320,6 +342,23 @@ describe('ordem da tela Temporada Concluída', () => {
     expect(t).toContain('+1,2');
     expect(t).not.toContain('+1.2');
     expect(textoDaTela('en-US')).toContain('+1.1');
+  });
+
+  it('🔴 o código da matriz NUNCA aparece na tela', () => {
+    const comCodigo = {
+      ...dadosTela,
+      momentos: [{ semana: 2, descritor: 'COO03_D6 — Busca de apoio', insight: 'INSIGHT' }],
+      evolutionReport: {
+        ...dadosTela.evolutionReport,
+        descritores: [
+          { competencia: 'Autocuidado', descritor: 'COO03_D1 — Consciência de limites', nota_pre: 1.3, nota_pos: 3.0, convergencia: 'evolucao_confirmada' },
+          ...dadosTela.evolutionReport.descritores,
+        ],
+      },
+    };
+    const html = htmlDaTela('pt-BR', comCodigo);
+    expect(html).toContain('Consciência de limites');
+    expect(html).not.toMatch(/[A-Z]{2,5}\d{1,3}_[A-Z]\d+/);
   });
 
   it('uma competência no singular, nos 4 idiomas', () => {

@@ -269,10 +269,10 @@ export default function TemporadaPage() {
                 {/* ✅ Semana em andamento ganha nome em serif */}
                 <div
                   className="text-[11px] font-bold text-white truncate"
-                  title={s.descritor || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`)}
+                  title={descritorParaHumano(s.descritor) || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`)}
                   style={emAndamento ? { ...serifStyle, fontSize: 12, fontWeight: 400 } : undefined}
                 >
-                  {s.descritor || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`)}
+                  {descritorParaHumano(s.descritor) || t(`type.${TIPO_LABEL_KEY[s.tipo] || 'episode'}`)}
                 </div>
                 {s.conteudo?.formato_core && liberada && (
                   <div className="text-[9px] text-gray-500 mt-0.5">{s.conteudo.formato_core}</div>

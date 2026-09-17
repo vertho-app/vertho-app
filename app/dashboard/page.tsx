@@ -15,6 +15,7 @@ import HomeRH from './home-rh';
 import VideoModal from '@/components/video-modal';
 import { ContentThumb } from '@/components/content-thumb';
 import { getRecommendedContentHref } from '@/lib/home/recommended-content-link';
+import { descritorParaHumano } from '@/lib/descritor-humano';
 
 const BUNNY_LIBRARY = 636615;
 
@@ -597,7 +598,7 @@ export default function DashboardHomePage() {
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold mb-1.5 ${pillColors[item.formato] || pillColors.video}`}>
                         {label}
                       </span>
-                      <p className="text-[12px] text-white/50 line-clamp-1">{item.descritor || item.competencia || ''}</p>
+                      <p className="text-[12px] text-white/50 line-clamp-1">{descritorParaHumano(item.descritor) || item.competencia || ''}</p>
                     </div>
                   </>
                 );

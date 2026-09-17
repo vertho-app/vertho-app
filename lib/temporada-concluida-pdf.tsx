@@ -32,6 +32,7 @@ import { avancoExibido, rotuloConvergencia, CONVERGENCIA } from '@/lib/season-en
 import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { textosDoRelatorio } from '@/lib/season-engine/relatorio-texto';
+import { descritorParaHumano } from '@/lib/descritor-humano';
 import { createTranslator } from 'next-intl';
 import mensagensPtBR from '@/messages/pt-BR.json';
 
@@ -230,7 +231,7 @@ function CardDescritor({ d }: { d: any }) {
   return (
     <View style={{ ...s.card, backgroundColor: cfg.bg, borderColor: cfg.bg }} wrap={false}>
       <View style={s.row}>
-        <Text style={s.cardTitle}>{d.descritor}</Text>
+        <Text style={s.cardTitle}>{descritorParaHumano(d.descritor)}</Text>
         {avanco && <Text style={{ ...s.delta, color: cfg.cor }}>{avanco}</Text>}
       </View>
       <Text style={{ ...s.pill, color: cfg.cor, backgroundColor: colors.white }}>{cfg.label}</Text>
@@ -300,7 +301,7 @@ function MomentosDeInsight({ momentos }: { momentos: any[] }) {
       {momentos.map((m: any, i: number) => {
         const card = (
           <View key={i} style={s.card} wrap={false}>
-            <Text style={s.eyebrow}>Semana {m.semana}{m.descritor ? ` · ${m.descritor}` : ''}</Text>
+            <Text style={s.eyebrow}>Semana {m.semana}{m.descritor ? ` · ${descritorParaHumano(m.descritor)}` : ''}</Text>
             <Text style={s.insight}>{m.insight}</Text>
           </View>
         );
@@ -355,7 +356,7 @@ function TemporadaPilotoPDF({ dados, marca }: { dados: any; marca: MarcaPdf }) {
           {descritores.map((d: any, i: number) => (
             <View key={i} style={s.card} wrap={false}>
               <View style={s.row}>
-                <Text style={s.cardTitle}>{d.descritor}</Text>
+                <Text style={s.cardTitle}>{descritorParaHumano(d.descritor)}</Text>
                 {d.baseline != null && (
                   <Text style={{ ...s.delta, color: colors.navy }}>{`${num(d.baseline)}/4,0`}</Text>
                 )}

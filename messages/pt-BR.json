@@ -1421,9 +1421,9 @@
     "behaviorsIntro": "Cada competência aparece em comportamentos concretos do dia a dia, que chamamos de comportamentos observáveis. Cada quadro abaixo mostra um deles: o número é quanto ele avançou entre o início e o fim da temporada, numa escala de 1 a 4 (o avanço pode ir de 0 a 3), e o texto mostra o que mudou na sua prática.",
     "countersIntro": "Dos {total} comportamentos observados nesta temporada:",
     "legend": {
-      "confirmed": "Avanço de 0,5 ou mais, com o comportamento já no Nível 3 ou acima e a mudança clara nas suas conversas.",
-      "partial": "Avanço de 0,2 ou mais (ou 0,1 quando a mudança aparece nas suas conversas). É evolução real, que está se consolidando.",
-      "stable": "O comportamento ficou no patamar do início (avanço de 0,0 ou 0,1). Não é piora: é a base para o próximo ciclo."
+      "confirmed": "Avanço de pelo menos 0,5",
+      "partial": "Avanço de pelo menos 0,1",
+      "stable": "Mesmo patamar do início"
     },
     "backToSeason": "Voltar à temporada",
     "downloadPdf": "Baixar PDF",
