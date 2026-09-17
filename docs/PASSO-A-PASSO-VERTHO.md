@@ -346,11 +346,13 @@ PDF do parecer e do consolidado. **Admin** vê o mesmo em `/admin/fit?tab=pronti
   emissão**: temporada concluída **e** participação ≥ 75% (`calcularParticipacao`); **piloto/degustação
   NÃO emite**. Bloqueio devolve `motivo: 'piloto' | 'participacao'` → a UI explica o critério em vez de
   só falhar
-- Classificação de cada descritor:
-  - Evolução confirmada: nota_pos >= nota_pre + 0.5 **e** qualitativa positiva
-  - Evolução parcial: nota_pos >= nota_pre + 0.2 **ou** qualitativa positiva
-  - Estagnação: delta entre -0.2 e +0.2
-  - Regressão: nota_pos < nota_pre - 0.2
+- Classificação de cada descritor (régua de 17/09/2026, só pelo avanço exibido; detalhe em
+  `docs/ARQUITETURA.md` §26.5.1):
+  - Evolução confirmada: avanço de 0,5 ou mais
+  - Evolução parcial: avanço de 0,2 ou mais
+  - Estável: o resto, inclusive queda (não existe veredito de regressão desde 01/09/2026)
+  - A conversa não entra no veredito: aparece nos comentários ("Antes/Depois") de cada descritor
+  - O relatório mostra só o avanço (nunca a nota) e o nível da competência (1 a 4, que nunca cai)
 
 ---
 
@@ -361,7 +363,7 @@ PDF do parecer e do consolidado. **Admin** vê o mesmo em `/admin/fit?tab=pronti
 
 - Lista de liderados com:
   - Delta por descritor
-  - Status: evolução confirmada / parcial / estagnação / regressão
+  - Status: evolução confirmada / parcial / estável
 - Filtros + ordenação
 - Click-through: modal com detalhe completo do colab
 - PDF individual por colab: `resumo_executivo` sempre objeto, `risco_se_nao_agir` incluído
@@ -378,7 +380,7 @@ PDF do parecer e do consolidado. **Admin** vê o mesmo em `/admin/fit?tab=pronti
 ### 27. Evolution Report da empresa (Admin)
 **Admin** · `/admin/evolucao?empresa={id}`
 
-- 4 KPIs agregados: total de confirmadas / parciais / estagnações / regressões (com %)
+- 3 KPIs agregados: total de confirmadas / parciais / estáveis (com %)
 - Expansível por competência: cada descritor com barra horizontal + média pré→pós
 - Lista de colabs avaliados com resumo
 - Usado para decidir próximo ciclo de treinamento

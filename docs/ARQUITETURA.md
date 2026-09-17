@@ -2442,12 +2442,42 @@ do NOME (ibipeba tem 11 perfis acumulados).
 
 ### 26.5 Evolução só depois do fechamento
 
-O veredito (confirmada · parcial · estagnação · regressão) nasce do Evolution Report, que só existe
+O veredito (confirmada · parcial · estável; a régua está em 26.5.1) nasce do Evolution Report, que só existe
 no fechamento. Sem nenhuma trilha concluída, `/dashboard/gestor/equipe-evolucao` desenhava seis
 KPIs zerados e uma lista de "em andamento" sem delta — `medido em macae:` 0 encerradas de 282, com
 o título anunciando "Total 282". Hoje `resumo.encerradas === 0` troca tudo por um estado vazio
 (inclusive o botão de Plenária PDF, que sairia em branco), e o atalho da home só aparece com
 `jornadasEncerradas > 0`.
+
+### 26.5.1 A régua do veredito (estado de 17/09/2026)
+
+Fonte única: `lib/season-engine/convergencia.ts::classificarConvergencia({ nota_pre, nota_pos })`.
+O veredito de cada descritor sai **só do avanço exibido** (nota final menos inicial, arredondada a
+uma casa e com piso zero, `avancoExibido`):
+
+| Veredito (rótulo) | Valor gravado | Regra |
+|---|---|---|
+| Evolução confirmada | `evolucao_confirmada` | avanço exibido ≥ 0,5 |
+| Evolução parcial | `evolucao_parcial` | avanço exibido ≥ 0,2 |
+| Estável | `estagnacao` | o resto, inclusive queda |
+
+Por que chegou aqui, em quatro passos da mesma semana (todos decisão do dono, olhando o PDF que a
+pessoa recebe):
+
+1. **Sem regressão** (01/09): queda entre diagnóstico e fechamento é variação do instrumento.
+2. **"+0,0" é estável** (16/09): a leitura qualitativa sustentava "parcial" com avanço zero.
+3. **Os cortes comparam o número EXIBIDO** (16/09): `1.2 - 1.0` é 0,19999… em ponto flutuante, e
+   três descritores gravados saíram "+0,2 · Estável".
+4. **Nada que o card não mostra decide o veredito** (17/09): saiu "chegar ao Nível 3" (02/09) e saiu
+   a leitura qualitativa. `Medido:` 25 descritores gravados com avanço ≥ 0,5 estavam "parciais", todos
+   por não chegar ao N3, e o papel mostrava "+1,1" em verde claro ao lado de "+1,0" em verde escuro.
+
+A conversa **não sumiu da avaliação**: ela fala nos comentários de cada descritor ("Antes/Depois" vêm
+da leitura qualitativa) e nos textos da competência (devolutiva, mensagem final).
+`qualitativaSustenta` segue exportada só para o aviso da tela de admin.
+
+⚠️ **Relatórios gravados NÃO foram reclassificados** em nenhuma dessas mudanças. Um PDF antigo pode
+mostrar "+0,5 · Evolução parcial" ou "+0,1 · Evolução parcial"; relatório novo, não.
 
 ### 26.6 Vocabulário
 

@@ -64,7 +64,7 @@ A plataforma agora é **trilíngue** (pt-BR / pt-PT / es-ES) e aceita **login po
 | Feature | O que é | Benefício |
 |---|---|---|
 | **Dashboard do Gestor** | Hub com KPIs da equipe + atalhos | Visão de líder em 1 tela, sem dashboards genéricos. |
-| **Equipe — Evolução** | Lista de liderados com delta + status (confirmada / parcial / estagnação / regressão) + filtros + ordenação | Identifica em segundos quem precisa de atenção, sem planilha. |
+| **Equipe — Evolução** | Lista de liderados com avanço + status (confirmada / parcial / estável) + filtros + ordenação | Identifica em segundos quem precisa de atenção, sem planilha. |
 | **Modal de detalhe + PDF Individual** | Click-through em cada liderado → PDF do relatório individual | Conversa de feedback embasada — chega com documento, não com "achismo". |
 | **Plenária da Equipe (PDF)** | Documento consolidado do time: forças coletivas, riscos, oportunidades | Reunião de plenária em 30 minutos com dados, não em 3 horas pesando "vibes". |
 | **Relatório Gestor (IA)** | Geração de relatório de devolutiva por colaborador para o gestor: resumo executivo, risco se não agir, impacto se não agir | Discurso pronto pra feedback formal, com argumento de impacto/risco. |

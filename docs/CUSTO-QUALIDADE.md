@@ -2105,6 +2105,10 @@ agrega antes de comparar com o T0, então é o número que decide o veredito):
 - **`CORTE_CONFIRMADA` = 0,50 está fora do ruído.** O maior salto que o ruído
   produziu sozinho foi 0,33, e "confirmada" ainda exige qualitativa positiva e
   alcançar N3. Um veredito de evolução confirmada não sai de ruído.
+  ⚠️ **Atualização 17/09/2026:** a régua passou a ser SÓ pelo avanço exibido (saíram a
+  exigência de N3 e a da qualitativa; `docs/ARQUITETURA.md` §26.5.1). O 0,50 continua fora
+  do ruído medido, mas sem a segunda fonte a confirmada depende só da diferença entre duas
+  notas, e o corte de 0,20 da parcial (abaixo) ficou sem nenhum amortecedor.
 - 🔴 **`CORTE_PARCIAL` = 0,20 está DENTRO do ruído.** Ruído médio 0,16 e máximo
   0,33 na mesma conversa. Um delta entre 0,20 e 0,33 é indistinguível de
   repontuação, e é exatamente a faixa que hoje produz "evolução parcial".
