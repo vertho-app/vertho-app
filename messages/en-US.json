@@ -337,7 +337,10 @@
       "teamEngagement": "Engagement",
       "teamEvolution": "Team evolution",
       "receptionTraining": "Reception simulator",
-      "salesTraining": "Sales simulator"
+      "salesTraining": "Sales simulator",
+      "receptionTeam": "Reception simulations",
+      "salesTeam": "Sales simulations",
+      "leadershipSimulator": "Leadership simulator"
     },
     "platformPanel": "Vertho Administration",
     "logout": "Sign out"

@@ -337,7 +337,10 @@
       "teamEngagement": "Envolvimento",
       "teamEvolution": "Evolução da equipa",
       "receptionTraining": "Simulador de atendimento",
-      "salesTraining": "Simulador de vendas"
+      "salesTraining": "Simulador de vendas",
+      "receptionTeam": "Simulações de atendimento",
+      "salesTeam": "Simulações de vendas",
+      "leadershipSimulator": "Simulador de liderança"
     },
     "platformPanel": "Administração Vertho",
     "logout": "Sair"

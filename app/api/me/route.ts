@@ -7,6 +7,8 @@ import { recepcaoHabilitada } from '@/lib/recepcao/flag';
 import { vendasHabilitado } from '@/lib/simulador-vendas/access';
 import { prontidaoLiderancaHabilitada } from '@/lib/prontidao-lideranca/habilitado';
 import { acessoSimuladoresDoColaborador } from '@/lib/simuladores/acesso';
+import { soAcompanhaSimuladores } from '@/lib/simuladores/papel';
+import { resolverTrilhoLideranca } from '@/lib/prontidao-lideranca/trilho';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +20,7 @@ export async function GET() {
 
     const data = await findColabByEmail(
       user.email,
-      'nome_completo, foto_url, avatar_preset, role, locale, empresa_id, cargo',
+      'id, nome_completo, foto_url, avatar_preset, role, locale, empresa_id, cargo',
     );
 
     /**
@@ -77,10 +79,45 @@ export async function GET() {
       prontidaoLiderancaHabilitada(sbServico, (data as any)?.empresa_id),
       acessoSimuladoresDoColaborador(data),
     ]);
-    const treinoRecepcao = recepcaoEmpresa && (platformAdmin || acessoSimuladores.atendimento);
-    const treinoVendas = vendasEmpresa && (platformAdmin || acessoSimuladores.vendas);
+    // Gestor e RH ACOMPANHAM atendimento e vendas (17/09/2026): o item do menu
+    // aparece com a empresa habilitada, sem depender da liberação por cargo, que
+    // diz quem TREINA. O menu troca o nome do item para o de acompanhamento.
+    const soAcompanha = soAcompanhaSimuladores({ role: (data as any)?.role, isPlatformAdmin: platformAdmin });
+    const treinoRecepcao = recepcaoEmpresa && (platformAdmin || soAcompanha || acessoSimuladores.atendimento);
+    const treinoVendas = vendasEmpresa && (platformAdmin || soAcompanha || acessoSimuladores.vendas);
     const prontidaoLideranca = liderancaEmpresa && (platformAdmin || acessoSimuladores.lideranca);
-    return NextResponse.json(data ? { ...data, locale, platformAdmin, temTrilhaPossivel, treinoRecepcao, treinoVendas, prontidaoLideranca } : {
+
+    // Simulador de liderança no menu do GESTOR: o trilho de liderança dele. Só
+    // quando ele de fato responde o trilho (módulo contratado, cargo liberado e
+    // dentro da população do programa), com a MESMA régua da tela de
+    // mapeamento; sem isso o item levaria a "não está aberto para você".
+    let simuladorLideranca = false;
+    if (sbServico && (data as any)?.role === 'gestor' && liderancaEmpresa && (platformAdmin || acessoSimuladores.lideranca)) {
+      try {
+        const { data: empresa, error } = await sbServico.from('empresas')
+          .select('sys_config')
+          .eq('id', (data as any).empresa_id)
+          .maybeSingle();
+        if (error) console.error('[api/me] configuração do simulador de liderança:', error.message);
+        else if (empresa) {
+          const trilho = await resolverTrilhoLideranca(sbServico, {
+            id: (data as any).id,
+            empresa_id: (data as any).empresa_id,
+            cargo: (data as any).cargo,
+            role: (data as any).role,
+            email: user.email,
+          }, empresa.sys_config);
+          simuladorLideranca = trilho.ok;
+        }
+      } catch (erro: any) {
+        // Na dúvida, esconde: o item levaria a uma tela que recusa.
+        console.error('[api/me] trilho de liderança:', erro?.message);
+      }
+    }
+
+    // O id do cadastro entrou na leitura para a régua do trilho; não sai na resposta.
+    const { id: _id, ...publico } = (data || {}) as any;
+    return NextResponse.json(data ? { ...publico, locale, platformAdmin, temTrilhaPossivel, treinoRecepcao, treinoVendas, prontidaoLideranca, soAcompanhaSimuladores: soAcompanha, simuladorLideranca } : {
       nome_completo: user.email,
       foto_url: null,
       avatar_preset: null,

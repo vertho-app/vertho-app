@@ -60,6 +60,11 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   useEffect(() => {
     if (admin && empresaNaUrl && empresas.some(e => e.id === empresaNaUrl)) setEmpresaId(empresaNaUrl);
   }, [admin, empresaNaUrl, empresas]);
+  // Gestor e RH acompanham a equipe e não treinam (17/09/2026): a tela abre na aba da equipe.
+  const soAcompanha = !admin && dados?.soAcompanha === true;
+  useEffect(() => {
+    if (soAcompanha && aba === 'treino') setAba('equipe');
+  }, [soAcompanha, aba]);
   useEffect(() => {
     const ticket = ++generation.current;
     setDados(null); setSessao(null); setInput(''); pending.current = null; createId.current = null;
@@ -140,8 +145,9 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       <label>Clínica vinculada ao treino<select value={empresaId} disabled={!!ocupado} onChange={e => setEmpresaId(e.target.value)}><option value="">Selecione uma empresa</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></label>
       {dados && <div><p>{dados.habilitado ? 'Disponível para a equipe desta clínica.' : 'Disponível apenas para teste administrativo.'}</p>{podeConfigurar && <button className={styles.secondary} disabled={!!ocupado} onClick={habilitar}>{dados.habilitado ? 'Desabilitar para a equipe' : 'Habilitar para a equipe'}</button>}</div>}
     </section>}
-    {dados&&<nav className={styles.tabs} aria-label="Áreas do treinamento"><button aria-current={aba==='treino'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>{setAba('treino');carregar(empresaId,sessao?.id).catch(e=>setErro(e.message))}}>Meu treino</button>{dados.podeEquipe&&<button aria-current={aba==='equipe'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>setAba('equipe')}>Equipe e revisões</button>}{dados.podeCenarios&&<button aria-current={aba==='cenarios'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>setAba('cenarios')}>Cenários</button>}{dados.podeCenarios&&<button aria-current={aba==='competencias'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>setAba('competencias')}>Competências</button>}</nav>}
-    {dados&&aba!=='treino'&&<GestaoRecepcao key={`${empresaId}-${aba}`} empresaId={empresaId||dados.empresaId} visao={aba} admin={admin}/>}
+    {dados&&<nav className={styles.tabs} aria-label="Áreas do treinamento">{!soAcompanha&&<button aria-current={aba==='treino'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>{setAba('treino');carregar(empresaId,sessao?.id).catch(e=>setErro(e.message))}}>Meu treino</button>}{dados.podeEquipe&&<button aria-current={aba==='equipe'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>setAba('equipe')}>Equipe e revisões</button>}{dados.podeCenarios&&<button aria-current={aba==='cenarios'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>setAba('cenarios')}>Cenários</button>}{dados.podeCenarios&&<button aria-current={aba==='competencias'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>setAba('competencias')}>Competências</button>}</nav>}
+    {soAcompanha&&!dados.podeEquipe&&<div className={styles.empty}>O acompanhamento da equipe não está disponível para o seu perfil.</div>}
+    {dados&&aba!=='treino'&&!(soAcompanha&&!dados.podeEquipe)&&<GestaoRecepcao key={`${empresaId}-${aba}`} empresaId={empresaId||dados.empresaId} visao={aba} admin={admin}/>}
     <div hidden={aba!=='treino'}>
     {erro && <div role="alert" className={styles.error}><AlertCircle size={19}/><span>{erro}</span><button onClick={() => { setErro(''); carregar().catch(e => setErro(e.message)); }} disabled={!!ocupado}>Atualizar</button></div>}
     {carregando ? <div className={styles.empty}><Loader2 className={styles.spin}/> Carregando seu espaço de treino…</div> : !dados ? <div className={styles.empty}>{admin && !empresaId ? 'Selecione a empresa para experimentar o atendimento.' : 'O treinamento será exibido aqui quando seu acesso estiver disponível.'}</div> : <>

@@ -33,6 +33,8 @@ type Dados = {
   podeTreinar: boolean;
   podeConfigurar: boolean;
   podeVerEquipe: boolean;
+  /** Gestor e RH: acompanham a equipe e não treinam (17/09/2026). */
+  soAcompanha: boolean;
   config?: Config | null;
   sessao: SessaoPublica | null;
   prazo: { inicio: string | null; fim: string | null; vigente: boolean };
@@ -341,14 +343,17 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       )}
       {dados && (admin || dados.podeVerEquipe) && (
         <nav aria-label={t('areas')} className={styles.tabs}>
-          <button
-            className={aba === 'treino' ? styles.tabActive : undefined}
-            disabled={travado}
-            aria-current={aba === 'treino' ? 'page' : undefined}
-            onClick={() => setAba('treino')}
-          >
-            {t('trainTab')}
-          </button>
+          {/* Gestor e RH acompanham a equipe e não treinam (17/09/2026). */}
+          {(admin || !dados.soAcompanha) && (
+            <button
+              className={aba === 'treino' ? styles.tabActive : undefined}
+              disabled={travado}
+              aria-current={aba === 'treino' ? 'page' : undefined}
+              onClick={() => setAba('treino')}
+            >
+              {t('trainTab')}
+            </button>
+          )}
           {dados.podeConfigurar && (
             <button
               className={aba === 'config' ? styles.tabActive : undefined}

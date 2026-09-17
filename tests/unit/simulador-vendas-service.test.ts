@@ -54,3 +54,22 @@ describe('persistência de comandos PACE', () => {
     expect(vi.mocked(gerador).mock.results[0].value).not.toHaveBeenCalled();
   });
 });
+
+describe('quem só acompanha não treina (17/09/2026)', () => {
+  beforeEach(() => { sb = criarSupabaseMock({ lista: () => [] }); });
+  const vigente = { habilitado: true, periodo_inicio: '2026-01-01T00:00:00Z', periodo_fim: '2099-01-01T00:00:00Z' };
+
+  it('gestor e RH recebem podeTreinar falso e a marca de acompanhamento, mesmo no prazo', async () => {
+    const { consultar } = await import('@/lib/simulador-vendas/service');
+    for (const role of ['gestor', 'rh']) {
+      const c = { ...ctx(), auth: { isPlatformAdmin: false, role }, config: vigente, soAcompanha: true } as unknown as Contexto;
+      expect(await consultar(c)).toMatchObject({ podeTreinar: false, soAcompanha: true });
+    }
+  });
+
+  it('colaborador no prazo treina', async () => {
+    const { consultar } = await import('@/lib/simulador-vendas/service');
+    const c = { ...ctx(), auth: { isPlatformAdmin: false, role: 'colaborador' }, config: vigente, soAcompanha: false } as unknown as Contexto;
+    expect(await consultar(c)).toMatchObject({ podeTreinar: true, soAcompanha: false });
+  });
+});

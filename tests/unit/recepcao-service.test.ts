@@ -137,3 +137,9 @@ test('revisão stale sem recibo não sobrescreve conversa', async () => {
   await expect(executar(ctx, comando())).rejects.toThrow('outra aba');
   expect(mock.gerar).not.toHaveBeenCalled();
 });
+
+test('gestor e RH só acompanham: a leitura avisa a tela para abrir na equipe (17/09/2026)', async () => {
+  const gestor = { ...ctx, auth: { ...mock.auth, role: 'gestor' }, soAcompanha: true };
+  expect(await consultar(gestor)).toMatchObject({ soAcompanha: true, podeEquipe: true });
+  expect(await consultar({ ...ctx, soAcompanha: false })).toMatchObject({ soAcompanha: false });
+});

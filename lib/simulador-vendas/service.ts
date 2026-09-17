@@ -81,7 +81,9 @@ export async function consultar(c: Contexto, id?: string | null) {
     habilitado: c.config?.habilitado === true,
     configurado: !!c.config,
     admin: c.auth.isPlatformAdmin,
-    podeTreinar: vigente && (await can(c.auth, 'assessments.answer')),
+    podeTreinar: vigente && !c.soAcompanha && (await can(c.auth, 'assessments.answer')),
+    // Gestor e RH: a tela abre na gestão e esconde a aba de treino.
+    soAcompanha: c.soAcompanha,
     prazo: {
       inicio: c.config?.periodo_inicio || null,
       fim: c.config?.periodo_fim || null,

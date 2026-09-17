@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { SimuladorError } from './core';
 import { CONFIG_COLUNAS, type Config } from './schema';
 import { acessoSimuladoresDoColaborador } from '@/lib/simuladores/acesso';
+import { soAcompanhaSimuladores } from '@/lib/simuladores/papel';
 
 export function empresaAutorizada(auth: AuthenticatedContext, solicitada?: string | null) {
   const empresaId = auth.isPlatformAdmin ? solicitada || auth.empresaId : auth.empresaId;
@@ -28,6 +29,11 @@ export async function contexto(
   const auth = autenticado ?? (await requireUser(req));
   if (auth instanceof Response) return auth;
   const empresaId = empresaAutorizada(auth, empresa);
+  // Gestor e RH acompanham a equipe e não treinam (decisão do dono, 17/09/2026).
+  // A leitura continua aberta para eles: é por ela que chegam à aba de gestão.
+  const soAcompanha = soAcompanhaSimuladores(auth);
+  if (escrita && soAcompanha)
+    throw new SimuladorError(403, 'No simulador de vendas, gestão e RH acompanham a equipe; quem treina é quem vende.');
   if (escrita && !(await can(auth, 'assessments.answer')))
     throw new SimuladorError(403, 'Seu perfil não permite realizar treinos.');
   const tdb = tenantDb(empresaId);
@@ -41,7 +47,8 @@ export async function contexto(
   const config = configResult.data as Config | null;
   if (!auth.isPlatformAdmin && !config?.habilitado)
     throw new SimuladorError(403, 'O simulador de vendas ainda não está habilitado para sua empresa.');
-  if (!auth.isPlatformAdmin && !(await acessoSimuladoresDoColaborador(auth.colaborador)).vendas)
+  // A liberação por cargo diz quem TREINA; quem só acompanha não depende dela.
+  if (!auth.isPlatformAdmin && !soAcompanha && !(await acessoSimuladoresDoColaborador(auth.colaborador)).vendas)
     throw new SimuladorError(403, 'O simulador de vendas não está liberado para seu cargo.');
   let ownerKey: string;
   if (auth.isPlatformAdmin) {
@@ -58,6 +65,7 @@ export async function contexto(
     empresaId,
     empresaNome: empresaResult.data.nome,
     config,
+    soAcompanha,
     ownerKey,
     tdb,
     colaboradorId: auth.isPlatformAdmin ? null : auth.colaborador.id,

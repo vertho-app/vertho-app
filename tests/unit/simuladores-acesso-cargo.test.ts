@@ -66,6 +66,34 @@ describe('liberação dos simuladores por cargo', () => {
       await expect(contexto(new Request('https://app.vertho.ai/api'), null, escrita, auth)).rejects.toThrow('cargo');
     expect(sb.escritas).toHaveLength(0);
   });
+  describe('gestor e RH só acompanham atendimento e vendas (17/09/2026)', () => {
+    const req = () => new Request('https://app.vertho.ai/api');
+
+    it.each(['gestor', 'rh'])('%s: treinar é recusado nas duas APIs, mesmo com o cargo liberado', async (role) => {
+      regra = { vendas: true, atendimento: true, lideranca: true };
+      const pessoa = { ...auth, role } as AuthenticatedContext;
+      await expect(contextoRecepcao(req(), null, true, pessoa)).rejects.toThrow('quem treina é quem atende');
+      await expect(contexto(req(), null, true, pessoa)).rejects.toThrow('quem treina é quem vende');
+      expect(sb.escritas).toHaveLength(0);
+    });
+
+    it.each(['gestor', 'rh'])('%s: a leitura (o acompanhamento) abre mesmo com o cargo SEM liberação', async (role) => {
+      regra = SEM_ACESSO;
+      const pessoa = { ...auth, role } as AuthenticatedContext;
+      await expect(contextoRecepcao(req(), null, false, pessoa)).resolves.toMatchObject({ empresaId: 'empresa-a', soAcompanha: true });
+      await expect(contexto(req(), null, false, pessoa)).resolves.toMatchObject({ empresaId: 'empresa-a', soAcompanha: true });
+    });
+
+    it('colaborador continua dependendo da liberação do cargo, e treinando quando liberado', async () => {
+      regra = SEM_ACESSO;
+      await expect(contextoRecepcao(req(), null, false, auth)).rejects.toThrow('cargo');
+      await expect(contexto(req(), null, false, auth)).rejects.toThrow('cargo');
+      regra = { vendas: true, atendimento: true, lideranca: false };
+      await expect(contextoRecepcao(req(), null, true, auth)).resolves.toMatchObject({ soAcompanha: false });
+      await expect(contexto(req(), null, true, auth)).resolves.toMatchObject({ soAcompanha: false });
+    });
+  });
+
   it('admin da plataforma mantém preview independente do cargo', async () => {
     regra = SEM_ACESSO;
     const admin = { ...auth, isPlatformAdmin: true };

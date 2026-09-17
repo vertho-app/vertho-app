@@ -31,6 +31,8 @@ export async function consultar(c: Ctx, id?: string | null) {
     .map(r => ({ nivel: r.estado.cenario.publico.nivel ?? null, nota: r.estado.relatorio?.nota ?? null })));
   return {
     empresaId: c.empresaId, empresaNome: c.empresaNome, habilitado: c.habilitado, admin: c.auth.isPlatformAdmin,
+    // Gestor e RH: a tela abre na aba da equipe e esconde "Meu treino".
+    soAcompanha: c.soAcompanha,
     ficha: cenarios[0]?.ficha || cenario.publico, cenarios, nivelSugerido, sessao: row ? publico(row) : null,
     podeEquipe: (c.auth.isPlatformAdmin || ['rh','gestor','tutor'].includes(c.auth.role)) && await can(c.auth,'journey.team.view') && await can(c.auth,'reports.individual.view'),
     podeCenarios: await can(c.auth,'content.manage'),

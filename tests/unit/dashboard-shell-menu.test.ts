@@ -8,6 +8,10 @@ import { describe, expect, it } from 'vitest';
  * Duas coisas que só a imagem mostrava: os dois simuladores com o mesmo ícone e
  * a coluna só de ícones sem nome nenhum para quem entra pela primeira vez. O
  * visual em si se confere no navegador; aqui fica preso o que o faz funcionar.
+ *
+ * 17/09/2026: atendimento e vendas viram TREINO para quem atende e vende, e
+ * ACOMPANHAMENTO (mesmo destino, outro nome) para gestor e RH; o gestor ganha o
+ * simulador de liderança.
  */
 const fonte = readFileSync(path.resolve(__dirname, '../../app/dashboard/dashboard-shell.tsx'), 'utf8');
 
@@ -20,8 +24,8 @@ function blocoDosItens(): string {
 }
 
 function itensDoMenu() {
-  return [...blocoDosItens().matchAll(/\{ href: '([^']+)'[^}]*?icon: (\w+)/g)]
-    .map(([, href, icone]) => ({ href, icone }));
+  return [...blocoDosItens().matchAll(/\{ href: '([^']+)', labelKey: '(\w+)', icon: (\w+)([^}]*)\}/g)]
+    .map(([, href, labelKey, icone, resto]) => ({ href, labelKey, icone, resto }));
 }
 
 function asideDoMenu(): string {
@@ -38,9 +42,13 @@ describe('menu lateral do dashboard', () => {
     // denominador: se a leitura do bloco quebrar, o teste não pode passar vazio
     expect(itens.length).toBeGreaterThanOrEqual(10);
 
-    const porIcone = new Map<string, string[]>();
-    for (const { href, icone } of itens) porIcone.set(icone, [...(porIcone.get(icone) ?? []), href]);
-    const repetidos = [...porIcone.entries()].filter(([, hrefs]) => hrefs.length > 1);
+    // O mesmo destino pode aparecer duas vezes (treino e acompanhamento), com o
+    // mesmo ícone; destinos DIFERENTES nunca dividem ícone.
+    const porIcone = new Map<string, Set<string>>();
+    for (const { href, icone } of itens) porIcone.set(icone, new Set([...(porIcone.get(icone) ?? []), href]));
+    const repetidos = [...porIcone.entries()]
+      .filter(([, hrefs]) => hrefs.size > 1)
+      .map(([icone, hrefs]) => `${icone}: ${[...hrefs].join(', ')}`);
     expect(repetidos).toEqual([]);
   });
 
@@ -51,6 +59,39 @@ describe('menu lateral do dashboard', () => {
     expect(atendimento?.icone).toBeTruthy();
     expect(vendas?.icone).toBeTruthy();
     expect(atendimento!.icone).not.toBe(vendas!.icone);
+  });
+
+  it('🔴 atendimento e vendas: um item para quem TREINA e outro para quem ACOMPANHA, mesmo destino, nomes diferentes', () => {
+    const itens = itensDoMenu();
+    for (const href of ['/dashboard/treino-atendimento', '/dashboard/simulador-vendas']) {
+      const doDestino = itens.filter((item) => item.href === href);
+      expect(doDestino).toHaveLength(2);
+      const treino = doDestino.find((item) => /\btreina: true\b/.test(item.resto));
+      const acompanhamento = doDestino.find((item) => /\bacompanha: true\b/.test(item.resto));
+      expect(treino, `${href} sem item de treino`).toBeTruthy();
+      expect(acompanhamento, `${href} sem item de acompanhamento`).toBeTruthy();
+      expect(treino!.labelKey).not.toBe(acompanhamento!.labelKey);
+    }
+    // e o filtro usa as duas marcas, com a régua que vem do servidor
+    expect(fonte).toMatch(/\(!it\.treina \|\| !soAcompanha\)/);
+    expect(fonte).toMatch(/\(!it\.acompanha \|\| soAcompanha\)/);
+    expect(fonte).toMatch(/const soAcompanha = colaborador\?\.soAcompanhaSimuladores === true;/);
+  });
+
+  it('o simulador de liderança leva ao trilho de liderança e só aparece com a flag do servidor', () => {
+    const lideranca = itensDoMenu().find((item) => item.labelKey === 'leadershipSimulator');
+    expect(lideranca?.href).toBe('/dashboard/assessment?trilho=lideranca');
+    expect(lideranca?.resto).toMatch(/\bsimuladorLideranca: true\b/);
+    expect(fonte).toMatch(/\(!it\.simuladorLideranca \|\| colaborador\?\.simuladorLideranca === true\)/);
+  });
+
+  it('todo item do menu tem nome nas quatro línguas', () => {
+    const faltando: string[] = [];
+    for (const locale of ['pt-BR', 'pt-PT', 'en-US', 'es-ES']) {
+      const nav = JSON.parse(readFileSync(path.resolve(__dirname, `../../messages/${locale}.json`), 'utf8')).DashboardShell.nav;
+      for (const { labelKey } of itensDoMenu()) if (!nav[labelKey]) faltando.push(`${locale}: ${labelKey}`);
+    }
+    expect(faltando).toEqual([]);
   });
 
   it('a coluna abre com o mouse e com o TECLADO, e mostra o nome de cada item', () => {

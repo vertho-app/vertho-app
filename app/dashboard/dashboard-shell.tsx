@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { localeCookieName } from '@/lib/i18n';
-import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn, Activity, Headset, Handshake, ChartLine, Compass } from 'lucide-react';
+import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, ShieldCheck, FileChartColumn, Activity, Headset, Handshake, ChartLine, Compass, Crown } from 'lucide-react';
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import { PresentationEnvironment } from '@/components/dashboard/presentation-role-switcher';
@@ -20,6 +20,12 @@ type NavItem = {
   exceptoRh?: boolean;
   recepcao?: boolean;
   vendas?: boolean;
+  /** Item de TREINO: some para quem só acompanha (gestor e RH). */
+  treina?: boolean;
+  /** Item de ACOMPANHAMENTO da equipe: só para quem só acompanha (gestor e RH). */
+  acompanha?: boolean;
+  /** Simulador de liderança do gestor: o trilho de liderança dele (`/api/me`). */
+  simuladorLideranca?: boolean;
 };
 
 // Fallback = tema Vertho atual (usado se o layout não passar theme).
@@ -72,8 +78,14 @@ const NAV_ITEMS: NavItem[] = [
   // usavam o mesmo balão de conversa, e a evolução da equipe repetia a seta da
   // evolução individual. Na coluna só de ícones, ícone repetido é item que
   // ninguém distingue. `tests/unit/dashboard-shell-menu.test.ts` cobra.
-  { href: '/dashboard/treino-atendimento', labelKey: 'receptionTraining', icon: Headset, recepcao: true },
-  { href: '/dashboard/simulador-vendas', labelKey: 'salesTraining', icon: Handshake, vendas: true },
+  //
+  // 17/09/2026 (pedido do dono): atendimento e vendas são TREINO de quem atende
+  // e vende. Gestor e RH não treinam: os mesmos destinos aparecem para eles mais
+  // abaixo, com nome de acompanhamento. O gestor pratica o simulador de
+  // LIDERANÇA; o RH não pratica nenhum.
+  { href: '/dashboard/treino-atendimento', labelKey: 'receptionTraining', icon: Headset, recepcao: true, treina: true },
+  { href: '/dashboard/simulador-vendas', labelKey: 'salesTraining', icon: Handshake, vendas: true, treina: true },
+  { href: '/dashboard/assessment?trilho=lideranca', labelKey: 'leadershipSimulator', icon: Crown, simuladorLideranca: true },
   { href: '/dashboard/evolucao', labelKey: 'evolution', icon: TrendingUp, participante: true },
 
   // ── O QUE A PESSOA ACOMPANHA ─────────────────────────────────────────────
@@ -84,6 +96,10 @@ const NAV_ITEMS: NavItem[] = [
   // Para o RH a evolução já é uma ABA da central de relatórios: no menu, o
   // mesmo destino apareceria duas vezes na mesma tela.
   { href: '/dashboard/gestor/equipe-evolucao', labelKey: 'teamEvolution', icon: ChartLine, gestorOnly: true, exceptoRh: true },
+  // Os simuladores como ACOMPANHAMENTO: mesma tela, que para gestor e RH abre
+  // direto na aba da equipe e sem a parte de treinar.
+  { href: '/dashboard/treino-atendimento', labelKey: 'receptionTeam', icon: Headset, recepcao: true, acompanha: true },
+  { href: '/dashboard/simulador-vendas', labelKey: 'salesTeam', icon: Handshake, vendas: true, acompanha: true },
   // Seleção saiu daqui em 24/08/2026: era a única tela de OPERAÇÃO no menu do
   // cliente (criar vaga · gerar perfil · avaliar candidatos) e virou operação da
   // Vertho em /admin. O ranking das vagas segue visível ao RH em .../ranking, que
@@ -122,7 +138,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const isImmersiveContent = pathname.startsWith('/dashboard/conteudo/');
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
-  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean; treinoVendas?: boolean; prontidaoLideranca?: boolean } | null>(null);
+  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean; treinoVendas?: boolean; prontidaoLideranca?: boolean; soAcompanhaSimuladores?: boolean; simuladorLideranca?: boolean } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
   const ehAdminDaEmpresa = colaborador?.role === 'rh';
   // Cargo com Top 5 vazio não faz mapeamento nem trilha: as telas de jornada
@@ -134,6 +150,9 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   // (medido 24/08/2026: nenhum link para /admin fora do próprio /admin). Quem
   // decide é o servidor, no /api/me; o gate real é o layout de /admin.
   const ehAdminDaPlataforma = colaborador?.platformAdmin === true;
+  // Quem decide é o servidor (`soAcompanhaSimuladores` em lib/simuladores/papel),
+  // que já descontou quem administra a plataforma.
+  const soAcompanha = colaborador?.soAcompanhaSimuladores === true;
   const navItems = NAV_ITEMS.filter((it) =>
     (!it.recepcao || colaborador?.treinoRecepcao === true)
     && (!it.vendas || colaborador?.treinoVendas === true)
@@ -141,7 +160,10 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
     && (!it.rhOnly || ehAdminDaEmpresa)
     && (!it.moduloProntidao || colaborador?.prontidaoLideranca === true)
     && (!it.participante || (!ehAdminDaEmpresa && participaDaJornada))
-    && (!it.exceptoRh || !ehAdminDaEmpresa),
+    && (!it.exceptoRh || !ehAdminDaEmpresa)
+    && (!it.treina || !soAcompanha)
+    && (!it.acompanha || soAcompanha)
+    && (!it.simuladorLideranca || colaborador?.simuladorLideranca === true),
   );
   const ativo = hrefAtivo(pathname, navItems);
 
