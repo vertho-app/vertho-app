@@ -120,18 +120,29 @@ V cyan (`#34C5CC`) sobre navy (`#0F2B54`) — `app/icon.svg`
 
 > Sub-sistema visual distinto do design system da UI web acima. Aplica-se **apenas** ao documento que o cliente recebe: a página pública `app/proposta/[token]/page.tsx` e o PDF `components/pdf/PropostaComercialPDF.tsx`. Corpo claro/editorial por design (documento formal, impresso e enviado ao cliente), a partir de um template fornecido pelo Rodrigo em 06/07/2026 (`3316392f`). **Redesenhado em 14/09/2026**: o corpo continua claro; a ABERTURA passou a ser uma capa navy da marca, porque a primeira dobra de um documento comercial é onde a decisão começa.
 
-## Paleta
+## Paleta (oficial da marca desde 16/09/2026)
 
-| Swatch | Hex | Uso |
-|--------|-----|-----|
-| 🟦 | `#0F2B54` | **Navy da marca** — capa, avatar do contato, borda do card "a instituição recebe" |
-| ⬛ | `#071628` | Navy profundo — fim do gradiente da capa |
-| 🟩 | `#34C5CC` | Cyan da marca — eyebrow e selo sobre a capa (só lá) |
-| ⬜ | `#FFFFFF` | Fundo do corpo |
-| 🟪 | `#4F46E5` | **Acento índigo** — títulos de seção, barra de investimento, marcadores `›`, ações |
-| 🟦 | `#EEF0FE` | Índigo-claro — chips do escopo e faixa de métricas |
-| 🩷 | `#C4488A` | Rosa — marcador de "o que não está incluso" |
-| ⬛ | `#A2A8B8` | Cinza do footer / meta |
+Página e PDF leem as cores de **`components/pdf/tokens.ts`** (`brand` + `neutralRamps.indigo`), não
+de hex solto. O índigo `#4F46E5`, o índigo-claro `#EEF0FE` e o rosa `#C4488A` do template original
+**saíram**: não eram cores da marca.
+
+| Swatch | Hex | Token | Uso |
+|--------|-----|-------|-----|
+| 🟦 | `#0F2B54` | `brand.navy[500]` | **Navy** — capa, títulos e texto forte, números das métricas, barra de investimento, avatar, botão do WhatsApp |
+| ⬛ | `#06152B` | `brand.navy[900]` | Navy profundo — fim do gradiente da capa e da barra de investimento |
+| 🟦 | `#2F568C` | `brand.navy[300]` | Navy claro — a "entrega" de cada etapa do cronograma |
+| 🟩 | `#34C5CC` | `brand.cyan[500]` | **Cyan** — botão "Aceitar proposta" (com texto NAVY), pontos da timeline, borda do card "cada participante", sublinhado do e-mail |
+| 🟩 | `#DBF6F7` | `brand.cyan[100]` | Cyan claro — faixa de métricas, chips do escopo, fundo do check, caixa "proposta aceita" |
+| 🟩 | `#9AE2E6` | `brand.cyan[300]` | Rótulos sobre a barra navy · marca-texto de "mede a evolução" |
+| 🟩 | `#1C8A90` | `brand.cyan[700]` | Marcadores `›` e check (glifo, não texto) |
+| 🟪 | `#9E4EDD` | `brand.purple[500]` | **Roxo** — rótulos de seção (`// Contexto`), numeração 01-04, `✕` do "não incluso" |
+| 🌈 | cyan → roxo | gradiente assinatura | Só a borda do bloco de aceite na página (o momento de destaque) |
+| ⬜ | `#F7F7FB` · `#E0DEE9` | `neutralRamps.indigo` | Cards cinza e bordas; texto de corpo `#403C56`, secundário `#5A566F` |
+
+⚠️ **O cyan não é cor de TEXTO pequeno sobre claro.** Medido: `#34C5CC` sobre branco dá ~2:1 e até
+o `#1C8A90` fica em 4,13:1 (piso 4,5). Por isso ele pinta fundo, ponto, borda e botão, e o texto de
+destaque vai em navy (14:1) ou roxo (4,58:1). Botão cyan leva texto **navy** (6,7:1): branco sobre
+cyan dá 2:1.
 
 ## Tipografia
 
@@ -139,7 +150,7 @@ V cyan (`#34C5CC`) sobre navy (`#0F2B54`) — `app/icon.svg`
 |-------|-----|
 | **Space Grotesk** | Títulos, hero, números (valores) |
 | **IBM Plex Sans** | Corpo do texto |
-| **IBM Plex Mono** | Rótulos de seção (`// Contexto`), meta, footer |
+| **IBM Plex Mono** | Rótulos de seção (`// Contexto`: 13px/500 na página, 10pt no PDF desde 16/09/2026), meta, footer |
 
 Na página: variáveis `--font-prop-display/body/mono` (com fallback às famílias). No PDF as fontes são registradas localmente via **fontsource** (`Font.register`, CDN jsdelivr) dentro do próprio `PropostaComercialPDF.tsx` — **não** mexe no `styles.ts` compartilhado dos outros PDFs.
 
@@ -148,25 +159,31 @@ Na página: variáveis `--font-prop-display/body/mono` (com fallback às famíli
 | Seção | Tratamento |
 |-------|------------|
 | Barra de ação (só na página) | Sticky, `no-print`: nº + validade, "Baixar PDF" e "Aceitar proposta" |
-| Capa | Navy com gradiente cyan/índigo · logo CLARO · nº/emissão/validade · título · "Preparada para {cliente}" (some se não houver nome) · selo de aceita/expirada · **investimento total na primeira dobra** |
-| Faixa de métricas | Fundo `#EEF0FE` com participantes · cargos · ciclos · duração (vêm do orçamento; sem eles, a faixa some) |
+| Capa | Navy com brilho cyan/roxo · logo CLARO · nº/emissão/validade · título · "Preparada para {cliente}" (some se não houver nome) · selo de aceita/expirada · **SEM valor** (decisão do Rodrigo, 16/09/2026: quem lê entende o escopo antes do preço; até então o total ia na primeira dobra) |
+| Faixa de métricas | Fundo cyan claro `#DBF6F7` com participantes · cargos · ciclos · duração (vêm do orçamento; sem eles, a faixa some) |
 | `// Contexto` | Dor do cliente (quando há) + o argumento institucional |
 | `// Como a Vertho trabalha` | 3 pilares: diagnóstico, trilha, evidência |
-| `// Escopo desta proposta` | Chips índigo-claro com o texto revisado do orçamento |
+| `// Por onde já caminhamos` | "Experiências da Vertho e de seus fundadores" + quadro de logos (`public/proposta/trajetoria-logos-2026-09.jpg`, recortado do slide comercial só na área branca). ⚠️ O "e de seus fundadores" fica: nem todo logo é cliente da Vertho. No PDF a imagem é lida por `fs` e precisa estar no `outputFileTracingIncludes` (guard: `tests/unit/proposta-trajetoria-asset.test.ts`) |
+| `// Escopo desta proposta` | Chips cyan claro com o texto revisado do orçamento |
 | `// O que está incluso` | 8 entregas com título + descrição (check em `<Svg>` no PDF) |
 | `// Quem recebe o quê` | Duas colunas: cada participante × a instituição |
-| `// Investimento` | Barra índigo com o TOTAL + cards (por participante · parcela · parcelas) |
+| `// Investimento` | Barra navy com o TOTAL + cards (por participante · parcela · parcelas) |
 | `// Como funciona` | Timeline de 5 etapas com duração e a entrega de cada uma |
 | `// Próximos passos` | Cards numerados 01-04 |
 | `// Condições` | Premissas e "o que não está incluso" lado a lado, em cinza |
-| Aceite | Formulário (nome, cargo, e-mail + confirmação) na página; no PDF, a chamada equivalente |
+| Aceite | Formulário (nome, cargo, e-mail + confirmação) na página; no PDF, a chamada equivalente, **presa ao contato** no mesmo bloco sem quebra |
 | Contato | Avatar de iniciais + contato da proposta, com WhatsApp e e-mail |
 | Footer | Texto mono, cinza |
 
-## Duas armadilhas MEDIDAS no PDF (14/09/2026)
+## Armadilhas MEDIDAS no PDF (14 e 16/09/2026)
 
 1. **`rgba()` não existe para o react-pdf.** `borderTopColor: 'rgba(255,255,255,.16)'` saiu **verde** sobre a capa navy. Os tons de branco vão pré-compostos em hex — e o divisor é um `View` de 1pt preenchido, porque mesmo com hex a BORDA saiu errada.
 2. **Glifo fora do subset sai vazio** (ver `tests/unit/pdf-glifos-guard.test.ts`): `✓`, `✕` e `→` desapareceram sem erro. Check e xis viraram `<Svg>`; a seta virou o rótulo "Entrega:".
+3. **Seções partidas entre páginas (16/09/2026).** O contato caía sozinho numa 5ª página em branco, e o título "O que está dimensionado aqui" ficava no pé da página 1 com um chip cortado ao meio. A regra que fechou, em `Secao`:
+   - **Seção inteira por padrão** (`wrap={false}`), porque corrigir uma seção por vez não fecha: segurar o escopo empurrou "Quem recebe o quê" e deixou o título DELA órfão. `minPresenceAhead` no rótulo/título foi medido e não segurou.
+   - ⚠️ **Inteira só para tamanho CONHECIDO.** Com 30 itens de escopo injetados, a seção maior que a página sobrepôs o texto e perdeu itens (o react-pdf avisa `can't wrap between pages and it's bigger than available page height` e segue). Das listas do documento, só o **escopo** vem de dado (`included_scope`); ele passa `podeQuebrar`, quebra por **linha de chips** e leva a primeira linha presa ao título (`primeiraLinha`). Contexto e observações (texto livre) também passam `podeQuebrar`.
+   - Chamada de aceite + contato num único `View wrap={false}`.
+   - Verificação: renderizar a proposta real **e** o caso injetado, e olhar cada página (`scripts/_render-proposta-pdf.ts`, local e fora do git, aceita `INJETAR_GRANDE=1`).
 
 ---
 

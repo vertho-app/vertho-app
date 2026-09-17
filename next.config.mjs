@@ -32,6 +32,8 @@ const nextConfig = {
   // routes sejam incluídos no bundle serverless na Vercel.
   outputFileTracingIncludes: {
     '/api/relatorios/**': ['./public/logo-vertho.png', './public/logo-vertho-cover.png', './public/template-fundo-relatorios.png'],
+    // Quadro "Por onde já caminhamos" do PDF da proposta (lib/pdf-assets.ts).
+    '/proposta/**': ['./public/proposta/trajetoria-logos-2026-09.jpg'],
     '/**': [
       './public/logo-vertho.png',
       './public/logo-vertho-cover.png',

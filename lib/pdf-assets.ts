@@ -25,6 +25,28 @@ export function getLogoCoverBase64(): string | null {
   return cachedLogoCover;
 }
 
+let cachedTrajetoriaLogos: string | null = null;
+let cachedTrajetoriaLogosTried = false;
+
+/**
+ * Quadro de logos "Por onde já caminhamos" (experiências da Vertho e dos
+ * fundadores) do documento da proposta, como data URI. Recortado do slide
+ * comercial só na área branca: título e subtítulo são texto vivo no documento.
+ * ⚠️ Lido por `fs` na rota do PDF: o arquivo precisa estar no
+ * `outputFileTracingIncludes` do next.config.mjs, senão some só na Vercel.
+ */
+export function getTrajetoriaLogosBase64(): string | null {
+  if (cachedTrajetoriaLogosTried) return cachedTrajetoriaLogos;
+  cachedTrajetoriaLogosTried = true;
+  try {
+    const p = join(process.cwd(), 'public', 'proposta', 'trajetoria-logos-2026-09.jpg');
+    cachedTrajetoriaLogos = `data:image/jpeg;base64,${readFileSync(p).toString('base64')}`;
+  } catch {
+    cachedTrajetoriaLogos = null;
+  }
+  return cachedTrajetoriaLogos;
+}
+
 let cachedReportCoverBg: string | null = null;
 let cachedReportCoverBgTried = false;
 
