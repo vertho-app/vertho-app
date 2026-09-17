@@ -23,7 +23,10 @@ import {
   CONTEUDO_POR_FORMATO_DEFAULT,
   OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
+  ROTULO_SIMULADOR,
   obterComissaoOrcamento,
+  semSimuladores,
+  type PessoasPorSimulador,
   type ConteudoPorFormato,
   type TipoComissaoOrcamento,
 } from './precificacao';
@@ -50,6 +53,8 @@ export type EntradasOrcamento = {
   nVideosExtraidos: number;
   auditarExtracao: boolean;
   comAvatar: boolean;
+  /** Pessoas com acesso a cada simulador; zero = fora do escopo. */
+  simuladores: PessoasPorSimulador;
   pricing: PricingOrcamento;
 };
 
@@ -136,6 +141,7 @@ export function entradasPadrao(listas: ListasValidas): EntradasOrcamento {
     nVideosExtraidos: 0,
     auditarExtracao: true,
     comAvatar: true,
+    simuladores: semSimuladores(),
     pricing: { ...ORCAMENTO_DEFAULTS },
   };
 }
@@ -177,10 +183,19 @@ export function normalizarEntradas(bruto: unknown, listas: ListasValidas): Entra
     pricing[chave] = real(pricingBruto[chave], padrao.pricing[chave], MINIMOS_PRICING[chave] ?? 0);
   }
 
+  // Cenário salvo antes de 17/09/2026 não tem `simuladores`: abre com zero, e
+  // ninguém tem acesso além das pessoas do programa.
+  const nColabs = inteiro(b.nColabs, padrao.nColabs, 0);
+  const simBruto = objeto(b.simuladores);
+  const simuladores = (Object.keys(padrao.simuladores) as (keyof PessoasPorSimulador)[]).reduce(
+    (acc, s) => ({ ...acc, [s]: Math.min(nColabs, inteiro(simBruto[s], 0, 0)) }),
+    {} as PessoasPorSimulador,
+  );
+
   return {
     nClusters: inteiro(b.nClusters, padrao.nClusters, 1),
     nPerfis,
-    nColabs: inteiro(b.nColabs, padrao.nColabs, 0),
+    nColabs,
     // Uma matriz "nova" além do número de cargos não existe: o resto é adaptada.
     matrizNovas: Math.min(nPerfis, inteiro(b.matrizNovas, padrao.matrizNovas, 0)),
     ciclosPorAno: inteiro(b.ciclosPorAno, padrao.ciclosPorAno, 1),
@@ -192,6 +207,7 @@ export function normalizarEntradas(bruto: unknown, listas: ListasValidas): Entra
     nVideosExtraidos: inteiro(b.nVideosExtraidos, padrao.nVideosExtraidos, 0),
     auditarExtracao: booleano(b.auditarExtracao, padrao.auditarExtracao),
     comAvatar: booleano(b.comAvatar, padrao.comAvatar),
+    simuladores,
     pricing,
   };
 }
@@ -301,6 +317,14 @@ export function escopoPropostaDoCenario(
         : `${n(r.unidades)} workshops presenciais, um por unidade, para definir com a equipe as competências de cada cargo`,
     );
   }
+  // Um simulador por linha, antes do Mentor IA. Cenário antigo não tem o campo.
+  const iMentor = linhas.findIndex((l) => l.startsWith('Mentor IA'));
+  const sims = (Object.keys(ROTULO_SIMULADOR) as (keyof PessoasPorSimulador)[])
+    .map((s) => ({ s, pessoas: Math.min(r.pessoas, Math.max(0, e.simuladores?.[s] ?? 0)) }))
+    .filter((x) => x.pessoas > 0)
+    .map((x) => `${ROTULO_SIMULADOR[x.s]} para ${p(x.pessoas, 'pessoa', 'pessoas')}`);
+  linhas.splice(iMentor, 0, ...sims);
+
   if (e.nVideosExtraidos > 0) {
     const iConteudo = linhas.findIndex((l) => l.startsWith('Vídeos, podcasts'));
     linhas.splice(

@@ -15,6 +15,8 @@
  * mensalidade é forma de pagamento, não assinatura.
  */
 
+import { SIMULADORES, type Simulador } from '@/lib/simuladores/acesso-cargo';
+
 export interface TabelaPreco {
   /** R$ de implantação, uma vez, independente de tamanho. */
   setupGeral: number;
@@ -28,6 +30,8 @@ export interface TabelaPreco {
   matrizAdaptada: number;
   /** R$ por unidade quando o mapeamento é por workshop presencial. */
   workshop: number;
+  /** R$ por pessoa com acesso a UM simulador, por ciclo. Ausente = zero. */
+  simuladorPessoaCiclo?: number;
   descontoPct: number;
   /** Piso de margem que decide o desconto máximo. */
   margemAlvoPct: number;
@@ -60,7 +64,57 @@ export const ORCAMENTO_DEFAULTS = {
   msgsPorPessoaCiclo: 25,
   custoMsgUnitario: 0.035,
   clientesAtivos: 2,
+  // Simuladores (vendas, atendimento, liderança), decisão do Rodrigo em
+  // 17/09/2026: cobrados por pessoa com acesso e por ciclo, mas SEM régua de
+  // preço ainda. Zero aqui não é cortesia: a tela avisa quando um simulador
+  // entra no escopo com preço zero.
+  precoSimuladorPessoaCiclo: 0,
+  // 2 treinos por semana nas semanas 2, 4 e 6 da jornada (Rodrigo, 17/09/2026).
+  treinosSimuladorPessoaCiclo: 6,
+  // Pior caso medido no ledger: treino de vendas a US$ 0,154 (4 treinos,
+  // 13-15/09/2026). O de atendimento mediu R$ 0,34 em 06/09. Amostra pequena:
+  // recalibrar quando houver uso real.
+  custoTreinoSimuladorUsd: 0.155,
 };
+
+/** Nome de cada simulador como o CLIENTE lê (menu do produto e escopo da proposta). */
+export const ROTULO_SIMULADOR: Record<Simulador, string> = {
+  vendas: 'Simulador de vendas',
+  atendimento: 'Treino de atendimento',
+  lideranca: 'Prontidão para liderança',
+};
+
+/** Pessoas com acesso por simulador. Zero = simulador fora do escopo. */
+export type PessoasPorSimulador = Record<Simulador, number>;
+
+export function semSimuladores(): PessoasPorSimulador {
+  return SIMULADORES.reduce((acc, s) => ({ ...acc, [s]: 0 }), {} as PessoasPorSimulador);
+}
+
+/**
+ * Soma de acessos: uma pessoa em dois simuladores conta duas vezes, porque o
+ * preço e o custo são por pessoa POR simulador. Ninguém tem acesso além da base.
+ */
+export function acessosSimuladores(por: PessoasPorSimulador, pessoasDoPrograma: number): number {
+  const teto = Math.max(0, Math.floor(Number(pessoasDoPrograma) || 0));
+  return SIMULADORES.reduce(
+    (total, s) => total + Math.min(teto, Math.max(0, Math.floor(Number(por[s]) || 0))),
+    0,
+  );
+}
+
+/** Custo de IA dos simuladores no contrato: acessos × treinos × custo do treino × ciclos. */
+export function custoSimuladoresBrl(p: {
+  acessos: number;
+  treinosPessoaCiclo: number;
+  custoTreinoUsd: number;
+  ciclos: number;
+  cotacao: number;
+}): number {
+  const pos = (v: number) => Math.max(0, Number(v) || 0);
+  return pos(p.acessos) * pos(p.treinosPessoaCiclo) * pos(p.custoTreinoUsd)
+    * Math.max(1, Math.floor(Number(p.ciclos) || 1)) * pos(p.cotacao);
+}
 
 export const MESES_POR_CICLO = 2;
 export const PERFIS_DISC_POR_CARGO = 4;
@@ -159,6 +213,8 @@ export interface EscopoProjeto {
   matrizesNovas: number;
   matrizesAdaptadas: number;
   workshop: boolean;
+  /** Acessos a simuladores (`acessosSimuladores`). Ausente = nenhum. */
+  simuladorAcessos?: number;
   /** Em quantas parcelas o cliente paga. NÃO entra no preço. */
   parcelas: number;
 }
@@ -177,6 +233,8 @@ export interface CustoProjeto {
 export interface ResultadoProjeto {
   oneTime: number;
   programa: number;
+  /** Simuladores: acessos × preço × ciclos. Recorrente, como o programa. */
+  simuladores: number;
   valorTabela: number;
   valorFinal: number;
   desconto: number;
@@ -209,8 +267,10 @@ export function calcularProjeto(
 
   // O programa escala por pessoa e por ciclo — as duas dimensões da entrega.
   const programa = escopo.pessoas * preco.pessoaCiclo * ciclos;
+  const simuladores = Math.max(0, escopo.simuladorAcessos || 0)
+    * Math.max(0, preco.simuladorPessoaCiclo || 0) * ciclos;
 
-  const valorTabela = oneTime + programa;
+  const valorTabela = oneTime + programa + simuladores;
   const fator = 1 - (preco.descontoPct || 0) / 100;
   const valorFinal = valorTabela * fator;
   const desconto = valorTabela - valorFinal;
@@ -245,6 +305,7 @@ export function calcularProjeto(
   return {
     oneTime,
     programa,
+    simuladores,
     valorTabela,
     valorFinal,
     desconto,

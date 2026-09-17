@@ -58,6 +58,8 @@ describe('entradasPadrao — os defaults com que a tela abre', () => {
       nVideosExtraidos: 0,
       auditarExtracao: true,
       comAvatar: true,
+      // A tela abre sem simulador no escopo.
+      simuladores: { vendas: 0, atendimento: 0, lideranca: 0 },
       pricing: { ...ORCAMENTO_DEFAULTS },
     });
   });

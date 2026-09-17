@@ -124,6 +124,8 @@ RC continua sendo operada só pelo Portal do Representante.
 | Adesão | Sempre 100% das pessoas da base; não há card editável |
 | Jornada padrão | Jornada de 7 semanas e 1 competência |
 | Ciclos e parcelas | Cada ciclo gera 2 parcelas; o prazo divide, não multiplica o projeto |
+| Duração do programa | Igual às parcelas: ciclos × 2 meses (`mesesDoPrograma`) |
+| Simuladores | Pessoas com acesso a cada um (vendas, atendimento, liderança); zero = fora do escopo; nunca acima das pessoas do programa |
 | Matrizes adaptadas | `máx(0, cargos − matrizes novas)` |
 | Conteúdo | 48 peças por pessoa/ciclo: 12 vídeos, 12 podcasts, 12 textos e 12 cases |
 | Reúso de conteúdo | `máx(1, pessoas ÷ cargos ÷ 4 perfis DISC)` |
@@ -140,6 +142,7 @@ RC continua sendo operada só pelo Portal do Representante.
 | Matriz nova | R$ 1.000,00 |
 | Matriz adaptada | R$ 500,00 |
 | Workshop por unidade | R$ 15.000,00 |
+| Simulador por pessoa com acesso, por ciclo | **R$ 0,00: sem régua ainda** (decisão do Rodrigo, 17/09/2026). A tela avisa quando um simulador entra no escopo com preço zero |
 | Desconto inicial | 0% |
 | Margem-alvo | 50% |
 
@@ -155,6 +158,8 @@ RC continua sendo operada só pelo Portal do Representante.
 | Mensagens por pessoa/ciclo | 25 |
 | Custo por mensagem UTILITY | R$ 0,035 |
 | Clientes ativos para rateio da infraestrutura | 2 |
+| Treinos de simulador por pessoa/ciclo | 6 (2 por semana nas semanas 2, 4 e 6) |
+| Custo por treino de simulador | US$ 0,155: pior caso medido no ledger (vendas, 4 treinos, 13-15/09/2026; atendimento mediu R$ 0,34 em 06/09). Amostra pequena: recalibrar com uso real |
 | Contingência sobre custo operacional | 10% |
 | Impostos sobre receita final | 20% |
 
@@ -280,6 +285,26 @@ Rodrigo, travadas em `tests/unit/orcamento-conversao.test.ts`:
   ciclo";
 - workshop em linha própria ("Workshop presencial para definir, com a equipe da
   instituição, as competências de cada cargo"), e não no fim de "cargos mapeados".
+
+### Simuladores (17/09/2026)
+
+Os três simuladores do produto (`SIMULADORES` em `lib/simuladores/acesso-cargo.ts`)
+entram no orçamento por **acesso**: uma pessoa em dois simuladores conta duas
+vezes, porque preço e custo são por pessoa POR simulador (`acessosSimuladores`).
+
+- **Preço** (`calcularProjeto`): acessos × preço por pessoa/ciclo × ciclos,
+  recorrente como o programa e sujeito ao mesmo desconto.
+- **Custo** (`custoSimuladoresBrl`): acessos × treinos por pessoa/ciclo × custo do
+  treino × ciclos × cotação. Entra no custo operacional **mesmo com preço zero**:
+  simulador dado de graça continua consumindo IA.
+- **Escopo do cliente**: uma linha por simulador incluído, antes do Mentor IA
+  ("Simulador de vendas para 1.200 pessoas").
+- **Cenário salvo antes** abre com todos os simuladores em zero.
+- ⚠️ As chamadas dos simuladores no ledger não gravam `colaborador_id`: dá
+  para medir custo por treino, não por pessoa.
+
+Testes: `tests/unit/orcamento-simuladores.test.ts` (validado por mutação: tirar
+os simuladores do valor derruba o teste).
 
 ### Duração do programa = parcelas (17/09/2026)
 
