@@ -1,0 +1,1486 @@
+{
+  "origem": "escolas-acme: curados pelo painel em 17/09/2026 e congelados como rede de segurança do reset (a curadoria do banco vence)",
+  "ultimaMudancaNoBanco": "2026-09-17T15:36:10.075046+00:00",
+  "configuracao": {
+    "escopo": {
+      "tipo": "empresa_inteira"
+    },
+    "cargo_alvo": "Coordenador(a) Pedagógico(a)",
+    "corte_nota": 3,
+    "um_por_dia": true
+  },
+  "cenarios": [
+    {
+      "cargo": "Líder",
+      "competencia": "Análise e Diagnóstico de Situações",
+      "cod_comp": "LD01",
+      "conteudo": {
+        "colaborador_id": null,
+        "alternativas": {
+          "perguntas": [
+            {
+              "texto": "Quais informações Beatriz precisa levantar antes de concluir por quê os planejamentos estão incompletos? O que já é fato e o que ainda é interpretação?",
+              "numero": 1,
+              "objetivo_diagnostico": "Verificar se o avaliado distingue fato de hipótese, identifica lacunas de informação e recusa concluir com base em um episódio ou impressão.",
+              "descritores_primarios": [
+                1,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: Conclui que os professores não estão comprometidos ou que a reorganização explica tudo, sem distinguir fato de interpretação. | N2: Lista informações genéricas que seriam úteis, sem conectá-las às hipóteses possíveis. | N3: Separa o que está registrado nas atas (fato) do que ainda precisa verificar, formula hipóteses individuais e de contexto e indica como checar cada uma. | N4: Além de N3, identifica qual informação ausente é mais crítica para não intervir na causa errada e propõe como obtê-la dentro do prazo.",
+              "resposta_generica_falha_porque": "Listar 'preciso conversar com os professores' sem especificar o que perguntar, sobre qual hipótese e com qual critério de análise não demonstra raciocínio diagnóstico — é protocolo de boa intenção, não de investigação."
+            },
+            {
+              "texto": "Como Beatriz pode verificar se o problema está nos professores, no novo modelo de planejamento, na reorganização de turmas — ou numa combinação? O que ela faria para distinguir essas hipóteses com os dados disponíveis?",
+              "numero": 2,
+              "objetivo_diagnostico": "Avaliar se o avaliado diferencia causas individuais de causas de contexto, propõe verificações pertinentes e reconhece que as hipóteses podem se combinar.",
+              "descritores_primarios": [
+                2,
+                3
+              ],
+              "o_que_diferencia_niveis": "N1: Atribui o problema a um único fator (geralmente o professor) sem investigar contexto. | N2: Cita que o contexto pode influenciar, mas não indica como verificar nem o que a verificação mudaria na intervenção. | N3: Diferencia as três hipóteses, indica o que observar ou cruzar para distingui-las e ajusta a intervenção possível a cada causa. | N4: Propõe cruzar os dados disponíveis (quem recebeu turma nova × quem entregou incompleto × tempo no novo modelo) e reconhece explicitamente o que ainda não pode concluir com esses dados.",
+              "resposta_generica_falha_porque": "Dizer 'cada caso é um caso' sem propor como distingui-los operacionalmente não diferencia hipóteses — é relativismo sem método diagnóstico."
+            },
+            {
+              "texto": "Descreva como o planejamento é produzido na prática: quais etapas, quanto tempo demanda, onde costuma travar. Como a reorganização de turmas e o novo modelo alteraram esse fluxo?",
+              "numero": 3,
+              "objetivo_diagnostico": "Verificar se o avaliado examina o fluxo de trabalho que produz os planejamentos — etapas, carga, dependências, gargalos — em vez de tratar o resultado final como explicação suficiente.",
+              "descritores_primarios": [
+                5,
+                4
+              ],
+              "o_que_diferencia_niveis": "N1: Trata 'planejamento incompleto' como explicação e não examina como ele é produzido ou o que mudou no processo. | N2: Descreve o processo de forma superficial, sem localizar onde ocorre o atraso ou o que mudou concretamente. | N3: Identifica uma etapa ou dependência crítica no fluxo (ex.: tempo de preenchimento do novo modelo, acesso a materiais das turmas novas) e relaciona ao problema observado, comparando com o período anterior à reorganização. | N4: Confronta informações de etapas relacionadas, distingue onde está o sintoma e onde está a causa provável, e indica o que precisa verificar para confirmar.",
+              "resposta_generica_falha_porque": "Responder apenas 'o fluxo piorou com as mudanças' sem identificar qual etapa, por quê e como isso explica os 7 casos não localiza o problema — é impressão, não análise de processo."
+            },
+            {
+              "texto": "Beatriz tem 5 dias. Com as hipóteses em aberto, qual encaminhamento apresentaria a Renata agora — e o que precisaria acontecer nos próximos dias para confirmar, ajustar ou abandonar esse encaminhamento?",
+              "numero": 4,
+              "objetivo_diagnostico": "Avaliar se o avaliado formula uma decisão provisória baseada nas evidências disponíveis, explicita o que ainda falta apurar e define critérios para revisar a intervenção — sem fechar o diagnóstico prematuramente.",
+              "descritores_primarios": [
+                6,
+                1
+              ],
+              "o_que_diferencia_niveis": "N1: Apresenta uma conclusão definitiva sobre causa e intervenção, desconsiderando hipóteses alternativas ou informações que as contrariam. | N2: Propõe esperar mais informações sem definir o que apurará, em quanto tempo e com qual critério de decisão. | N3: Apresenta hipótese principal, intervenção provisória vinculada a ela, e indica qual evidência, em qual prazo, levaria a ajustar ou abandonar o encaminhamento. | N4: Integra as hipóteses abertas à proposta, diferencia o que já pode encaminhar do que depende de apuração, e explicita por que manteria ou revisaria cada parte da intervenção conforme novas informações chegam.",
+              "resposta_generica_falha_porque": "Propor 'monitorar os próximos planejamentos' sem definir o que monitora, com qual critério e o que decidirá com base nisso não fecha o ciclo diagnóstico — é adiamento com nome de acompanhamento."
+            }
+          ],
+          "dilema_etico": {
+            "caminho_etico": "Beatriz suspende o julgamento individual, mapeia o fluxo real de produção dos planejamentos e apresenta hipóteses distintas com as evidências disponíveis — mesmo que isso signifique admitir que parte do problema pode ser de responsabilidade da gestão.",
+            "caminho_facil": "Beatriz comunica à Renata que o problema é falta de comprometimento dos professores e propõe cobrança individual, evitando questionar o processo ou o novo modelo que a própria gestão adotou.",
+            "valor_testado": "Decisão com evidência / Cuidado com quem ensina"
+          },
+          "tradeoff_testado": "Agir rápido para responder à diretora em 5 dias versus investigar com rigor suficiente para não intervir na causa errada — o tempo disponível não permite as duas coisas em sua totalidade.",
+          "confianca_cenario": 0.87,
+          "fator_complicador": "Beatriz não sabe se os professores com planejamentos incompletos são exatamente os que receberam turmas novas ou os que tiveram maior dificuldade com o novo modelo — ou ambos, ou nenhum. Qualquer intervenção precipitada pode responsabilizar individualmente quem enfrenta problema de contexto, ou isentar quem simplesmente não priorizou.",
+          "riscos_do_cenario": [
+            "Avaliado pode focar excessivamente no conflito com Renata e desviar do diagnóstico como objeto central",
+            "A reorganização de turmas pode ser percebida como resposta óbvia, reduzindo a tensão diagnóstica se não for tratada explicitamente como hipótese a verificar"
+          ],
+          "stakeholders_centrais": [
+            "Beatriz",
+            "Renata"
+          ],
+          "faceta_testada_principal": "Distinção entre causas de contexto e causas individuais a partir de evidências, com identificação do ponto crítico no fluxo de produção dos planejamentos antes de propor intervenção.",
+          "mapa_cobertura_descritores": {
+            "D1": [
+              1,
+              4
+            ],
+            "D2": [
+              1,
+              2
+            ],
+            "D3": [
+              2
+            ],
+            "D4": [
+              3
+            ],
+            "D5": [
+              3
+            ],
+            "D6": [
+              4
+            ]
+          },
+          "armadilha_de_resposta_generica": "Dizer 'conversar com todos os professores para entender o que está acontecendo' não resolve porque Beatriz tem 5 dias, 7 professores e hipóteses muito diferentes em jogo — sem priorizar o que investigar primeiro e como, a resposta não diferencia diagnóstico de boa intenção."
+        },
+        "titulo": "Planejamentos incompletos, diagnóstico incerto",
+        "descricao": "Terceiro bimestre. Beatriz, coordenadora pedagógica de uma unidade de rede privada de educação básica, identifica nas atas das reuniões semanais que 7 dos 12 professores entregaram planejamentos incompletos nos últimos 40 dias — prazo que a direção exige cumprimento integral. A diretora, Renata, sinalizou que espera uma explicação e um encaminhamento em 5 dias. O que Beatriz sabe: houve reorganização de turmas no início do bimestre (três professores receberam turmas novas) e o modelo de planejamento foi atualizado com novos campos. O que ela não sabe: se os 7 professores são os mesmos que receberam turmas novas, quanto tempo o preenchimento do novo modelo demanda, em qual etapa os planejamentos param, e se há casos de professores que dominam o modelo mas ainda assim não entregam. Com 5 dias, Beatriz não consegue investigar tudo e definir intervenção ao mesmo tempo.",
+        "nota_check": 86,
+        "status_check": "aprovado_com_ressalvas",
+        "dimensoes_check": {
+          "auditabilidade": 8,
+          "clareza_tradeoff": 13,
+          "poder_discriminante": 14,
+          "realismo_contextual": 14,
+          "contencao_sobriedade": 9,
+          "aderencia_competencia": 14,
+          "cobertura_descritores": 14
+        },
+        "justificativa_check": "O cenário é crível, contido e apresenta trade-off real entre responder à diretora no prazo e evitar uma intervenção prematura. A cobertura declarada é coerente e todos os descritores aparecem em ao menos uma pergunta, mas a P3 reduz o poder discriminante ao convidar o avaliado a inventar ou descrever um fluxo, em vez de demonstrar como o diagnosticaria.",
+        "sugestao_check": "Reformular a P3 para exigir um plano de mapeamento do fluxo baseado em fontes, etapas, amostra, comparação antes/depois e critério para localizar o gargalo. Na P2, explicitar quais evidências diferenciariam capacidade, condições de trabalho e disposição, elevando a precisão de D3.",
+        "alertas_check": {
+          "alertas": [
+            "O prazo de 5 dias cria tensão adequada, mas não deve ser tratado como impedimento absoluto de investigar e agir: respostas de maior nível devem poder propor uma intervenção reversível enquanto coletam evidências prioritárias.",
+            "A reorganização de turmas é uma hipótese saliente no enunciado; o avaliador deve penalizar respostas que a adotem como explicação sem cruzar os dados dos sete professores, o histórico de entregas e a etapa do fluxo afetada.",
+            "As rubricas N3 e N4 são úteis, porém devem orientar a correção para evidências observáveis e ações priorizadas, não para mera repetição dos termos 'hipótese', 'cruzamento de dados' e 'validação'."
+          ],
+          "ponto_mais_forte": "O cenário mantém o objeto diagnóstico no centro: exige separar evidências de hipóteses, cruzar causas individuais e contextuais, analisar o fluxo de trabalho e revisar decisões conforme novos dados surgem.",
+          "ponto_mais_fraco": "A P3 pede que o avaliado descreva um fluxo que ele não conhece diretamente, o que pode induzir respostas especulativas ou genéricas sobre processos educacionais em vez de avaliar como ele investigaria o fluxo real.",
+          "perguntas_com_risco": [
+            {
+              "numero": 3,
+              "problema": "A formulação pressupõe acesso ao fluxo real e pode ser respondida com uma descrição hipotética plausível, sem demonstrar método concreto de levantamento, priorização ou validação.",
+              "correcao_recomendada": "Reformular para: \"Como Beatriz levantaria, em 5 dias, o fluxo de produção dos planejamentos e identificaria a etapa mais crítica? Quais etapas, registros ou comparações ela priorizaria?\""
+            },
+            {
+              "numero": 2,
+              "problema": "Embora trate capacidade e condições, a dimensão de disposição individual pode ficar implícita e receber resposta superficial, centrada apenas em turma nova e novo modelo.",
+              "correcao_recomendada": "Pedir explicitamente indicadores que permitam distinguir falta de capacidade/condições de baixa adesão, sem assumir previamente que a causa é comportamental."
+            }
+          ],
+          "descritores_sem_cobertura": []
+        },
+        "checked_at": "2026-09-17T15:36:09.349+00:00",
+        "tipo_cenario": null,
+        "p1": null,
+        "p2": null,
+        "p3": null,
+        "p4": null,
+        "ppp_escola_id": null,
+        "nota_check_legado": null,
+        "status_check_legado": null,
+        "checked_at_legado": null,
+        "auditor_legado": null
+      }
+    },
+    {
+      "cargo": "Líder",
+      "competencia": "Desenvolvimento de Pessoas",
+      "cod_comp": "LD02",
+      "conteudo": {
+        "colaborador_id": null,
+        "alternativas": {
+          "perguntas": [
+            {
+              "texto": "Com duas horas semanais, como você distribui o apoio entre Rafael e Amanda nas próximas 6 semanas? Justifique a alocação pelas necessidades de cada um.",
+              "numero": 1,
+              "objetivo_diagnostico": "Revelar se o avaliado diferencia o apoio com base em critérios explícitos de necessidade e impacto, ou distribui igualitariamente sem critério.",
+              "descritores_primarios": [
+                5,
+                1
+              ],
+              "o_que_diferencia_niveis": "N1: divide o tempo igualmente ou vai para quem pede, sem justificar | N2: reconhece que as necessidades são diferentes, mas não define alocação nem critério | N3: define quanto tempo cada um recebe e justifica pela necessidade, pelo impacto sobre alunos e pelo contexto de cada professor, escolhendo abordagens distintas | N4: define alocação, antecipa desequilíbrios e estabelece como revisará a distribuição se a resposta de um deles mudar",
+              "resposta_generica_falha_porque": "Dizer 'vou equilibrar o apoio conforme a necessidade de cada um' não resolve porque o tempo é limitado e fixo — qualquer resposta que não defina quanto vai para cada um e por quê não diagnostica priorização real."
+            },
+            {
+              "texto": "Para o problema de Amanda com gestão de turma, que abordagem você escolhe e por quê essa, considerando que ela pede orientação com frequência?",
+              "numero": 2,
+              "objetivo_diagnostico": "Revelar se o avaliado escolhe e justifica uma abordagem de desenvolvimento calibrada à autonomia e ao momento de Amanda, ou aplica apoio genérico e diretivo.",
+              "descritores_primarios": [
+                1,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: faz pela Amanda ou repete orientações genéricas sem considerar o que ela já sabe | N2: sugere observação de aula ou conversa com um par, mas sem objetivo definido para a conexão | N3: escolhe uma abordagem (ex.: observação com devolutiva estruturada ou conexão com par experiente em gestão), justifica pela necessidade específica e define o objetivo da ação | N4: além de justificar, combina com Amanda o que ela fará de forma autônoma e define como verificará se a abordagem está funcionando antes de mantê-la ou mudar",
+              "resposta_generica_falha_porque": "Sugerir 'buscar apoio de um colega' sem definir quem, para quê e como verificar o resultado não evidencia conexão intencional com fontes de aprendizagem."
+            },
+            {
+              "texto": "Você vai atribuir a Rafael a liderança do piloto de recuperação em Matemática. Como define resultado esperado, autonomia, apoio e critério de qualidade para essa delegação?",
+              "numero": 3,
+              "objetivo_diagnostico": "Revelar se o avaliado estrutura a delegação de forma a desenvolver Rafael — com clareza de escopo, autonomia calibrada e verificação — ou apenas transfere a tarefa sem suporte desenvolvedora.",
+              "descritores_primarios": [
+                4,
+                3
+              ],
+              "o_que_diferencia_niveis": "N1: informa Rafael sobre o piloto sem definir escopo, autonomia ou apoio | N2: esclarece o resultado esperado, mas deixa indefinido o nível de autonomia ou quando intervir | N3: define resultado, escopo, o que Rafael decide sozinho, o que precisa combinar antes, e qual apoio receberá durante o piloto | N4: além disso, estabelece critérios de qualidade proporcionais ao risco, combina checkpoints e verifica o entendimento sem retirar a responsabilidade de Rafael",
+              "resposta_generica_falha_porque": "Dizer 'vou delegar e acompanhar de perto' não evidencia critério de qualidade, limite de autonomia nem como o acompanhamento será calibrado ao longo do processo."
+            },
+            {
+              "texto": "Antes do Conselho de Classe, como você vai saber se Rafael e Amanda evoluíram? Que evidência observável define para cada um e o que faz se a evolução não ocorrer?",
+              "numero": 4,
+              "objetivo_diagnostico": "Revelar se o avaliado define evidências concretas e prazos de verificação e se conecta a ausência de evolução a um ajuste no apoio — ou apenas monitora sem critério.",
+              "descritores_primarios": [
+                6,
+                3
+              ],
+              "o_que_diferencia_niveis": "N1: não define como verificar; espera o Conselho para avaliar | N2: propõe acompanhar ou ver se melhorou, sem comportamento observável nem prazo definido | N3: define um comportamento ou entrega observável para cada professor e um momento de verificação antes do Conselho | N4: define a evidência, a fonte (ex.: observação de aula, registro do piloto), e o que fará — ampliar, manter ou reduzir o suporte — se a evolução não ocorrer em cada caso",
+              "resposta_generica_falha_porque": "Dizer 'vou observar a evolução e ver se precisam de mais apoio' não evidencia objeto de verificação nem critério para ajustar o suporte — resposta genérica passa pela pergunta sem revelar nível."
+            }
+          ],
+          "dilema_etico": {
+            "caminho_etico": "Alocar apoio considerando o impacto sobre os alunos em defasagem, mesmo que Rafael não solicite e que a conversa seja mais difícil",
+            "caminho_facil": "Concentrar o tempo em Amanda porque ela pede, é nova e responde visivelmente ao apoio",
+            "valor_testado": "Equidade — apoiar quem mais precisa, não quem mais pressiona"
+          },
+          "tradeoff_testado": "Dedicar mais tempo a Amanda, que pede apoio e está em desenvolvimento inicial, ou a Rafael, cujo problema impacta mais alunos em defasagem — sabendo que não há tempo suficiente para os dois com a mesma intensidade.",
+          "confianca_cenario": 0.88,
+          "fator_complicador": "Rafael é experiente e não sinaliza necessidade de ajuda, o que torna politicamente mais fácil ignorá-lo — mas pedagogicamente mais custoso para os alunos. Atribuir-lhe o piloto é ao mesmo tempo uma delegação desenvolvedora e um risco de execução.",
+          "riscos_do_cenario": [
+            "Avaliado pode interpretar o piloto de Rafael como punição, desviando o foco do diagnóstico de delegação",
+            "A limitação de tempo pode ser ignorada se o avaliado propuser soluções que ampliem a carga (ex.: adicionar reuniões), diluindo o trade-off"
+          ],
+          "stakeholders_centrais": [
+            "Rafael",
+            "Amanda"
+          ],
+          "faceta_testada_principal": "Distribuição de atenção diferenciada e calibração do apoio conforme necessidade, capacidade e risco — incluindo delegação com desenvolvimento como instrumento de crescimento.",
+          "mapa_cobertura_descritores": {
+            "D1": [
+              1,
+              2
+            ],
+            "D2": [
+              2
+            ],
+            "D3": [
+              3,
+              4
+            ],
+            "D4": [
+              3
+            ],
+            "D5": [
+              1
+            ],
+            "D6": [
+              4
+            ]
+          },
+          "armadilha_de_resposta_generica": "Dizer que vai 'conversar com os dois e montar um plano' não resolve porque o tempo é fixo e insuficiente para apoio igualmente intenso — qualquer resposta que evite a priorização explicita não funciona como diagnóstico."
+        },
+        "titulo": "Dois professores, um tempo escasso",
+        "descricao": "Uma coordenadora pedagógica de uma rede privada de educação básica com três unidades tem duas horas semanais de formação individual disponíveis para sua equipe. Rafael, professor de Matemática com 8 anos de casa, apresenta resultados consistentes, mas usa estratégias expositivas em turmas com 40% de defasagem — sem adaptação. Amanda, professora nova de Língua Portuguesa, planeja com intenção, mas tem dificuldade em conduzir a aula quando os alunos se dispersam — e pede orientação com frequência. O próximo Conselho de Classe é em 6 semanas. A coordenadora precisa decidir como distribuir o tempo de apoio entre os dois. Ela não pode atender os dois com a mesma intensidade sem comprometer a qualidade do acompanhamento. A decisão sobre Rafael inclui atribuir a ele a liderança de um piloto de recuperação em Matemática para o grupo de maior defasagem — com escopo, prazo e critério de qualidade definidos por ela.",
+        "nota_check": 88,
+        "status_check": "aprovado_com_ressalvas",
+        "dimensoes_check": {
+          "auditabilidade": 8,
+          "clareza_tradeoff": 14,
+          "poder_discriminante": 17,
+          "realismo_contextual": 14,
+          "contencao_sobriedade": 8,
+          "aderencia_competencia": 14,
+          "cobertura_descritores": 13
+        },
+        "justificativa_check": "O instrumento é consistente com Desenvolvimento de Pessoas e apresenta perguntas concretas, níveis de diferenciação úteis e um trade-off que não pode ser resolvido por apoio igualitário. A principal ressalva é que a evidência de conexão com fontes de aprendizagem em P2 não é obrigatória, além de o contexto ficar ligeiramente acima do limite recomendado de contenção.",
+        "sugestao_check": "Enxugar o contexto, removendo detalhes redundantes sobre a rede e concentrando a descrição no dilema de alocação. Reformular P2 para obrigar a escolha de uma fonte de aprendizagem e sua aplicação prática, preservando também a decisão sobre o nível de apoio direto da coordenadora.",
+        "alertas_check": {
+          "alertas": [
+            "O contexto parece exceder marginalmente o teto de 900 caracteres, embora permaneça sóbrio e operacional.",
+            "Na avaliação das respostas, não aceitar como N3 em P2 uma orientação genérica ou apenas uma conversa; deve haver fonte de aprendizagem definida, objetivo comportamental e racional de adequação.",
+            "Em P1, respostas que tentem ampliar artificialmente a disponibilidade de tempo com reuniões extras devem ser tratadas como evasão do trade-off declarado."
+          ],
+          "ponto_mais_forte": "O cenário impõe uma restrição real de tempo e obriga uma priorização explícita entre necessidades de desenvolvimento distintas, tornando particularmente forte o diagnóstico de distribuição de atenção, escolha de abordagem e calibração de apoio.",
+          "ponto_mais_fraco": "D2 fica metodologicamente vulnerável: P2 permite uma resposta de coaching, observação e devolutiva estruturada sem exigir de modo inequívoco a conexão de Amanda com uma fonte de aprendizagem específica.",
+          "perguntas_com_risco": [
+            {
+              "numero": 2,
+              "problema": "A pergunta aceita uma abordagem direta da coordenadora sem necessariamente revelar se o avaliado conecta Amanda a uma fonte de aprendizagem, reduzindo a evidência específica de D2.",
+              "correcao_recomendada": "Incluir exigência explícita de indicar qual fonte de aprendizagem será mobilizada, por que ela é adequada ao estágio de Amanda e como ela será usada para desenvolver autonomia."
+            },
+            {
+              "numero": 3,
+              "problema": "O piloto pode ser interpretado como uma tarefa adicional corretiva para Rafael, e não como delegação desenvolvedora, caso o avaliado não explicite o ganho de desenvolvimento associado à responsabilidade.",
+              "correcao_recomendada": "Acrescentar na pergunta ou no contexto que a coordenadora pretende usar o piloto também para ampliar a capacidade de Rafael de adaptar estratégias para alunos com defasagem."
+            }
+          ],
+          "descritores_sem_cobertura": []
+        },
+        "checked_at": "2026-09-17T15:33:33.034+00:00",
+        "tipo_cenario": null,
+        "p1": null,
+        "p2": null,
+        "p3": null,
+        "p4": null,
+        "ppp_escola_id": null,
+        "nota_check_legado": null,
+        "status_check_legado": null,
+        "checked_at_legado": null,
+        "auditor_legado": null
+      }
+    },
+    {
+      "cargo": "Líder",
+      "competencia": "Comunicação e Conversas de Liderança",
+      "cod_comp": "LD03",
+      "conteudo": {
+        "colaborador_id": null,
+        "alternativas": {
+          "perguntas": [
+            {
+              "texto": "Como você abre essa conversa com Mariana? O que você diz nos primeiros dois minutos e por que escolhe começar desse jeito, e não de outro?",
+              "numero": 1,
+              "objetivo_diagnostico": "Revelar se o avaliado prepara e explicita o propósito da conversa com exemplo concreto ou se abre de forma vaga/acusatória; e se nomeia o comportamento observado sem rótulo de caráter.",
+              "descritores_primarios": [
+                1,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: Abre com julgamento ('você não fez o que combinamos'), acusação vaga ou sem propósito claro. | N2: Menciona que quer 'conversar sobre a aula' sem exemplificar o que foi observado ou qual é o objetivo da conversa. | N3: Explicita o propósito ('quero devolver o que observei e entender o que aconteceu com os combinados') e apresenta pelo menos um exemplo verificável do que foi visto. | N4: Além do propósito e do exemplo, abre espaço para checar se Mariana tem o mesmo entendimento do que foi combinado antes de avançar.",
+              "resposta_generica_falha_porque": "Dizer 'vou criar um clima acolhedor antes de entrar no assunto' não especifica o que será dito nem como o propósito será explicitado — e adia o momento de nomear os fatos concretos, que é exatamente o que o ciclo anterior já deixou de fazer."
+            },
+            {
+              "texto": "Mariana diz: 'Essas crianças chegam sem base de casa, não tem muito o que fazer em sala.' O que você responde — e o que você NÃO diz, mesmo que queira?",
+              "numero": 2,
+              "objetivo_diagnostico": "Revelar como o avaliado sustenta sua posição diante de divergência com argumento legítimo parcial: se consegue reconhecer o que é válido no argumento de Mariana sem abandonar o dado concreto (38%, combinados não implementados) e sem atacar ou ceder sem examinar.",
+              "descritores_primarios": [
+                3,
+                5
+              ],
+              "o_que_diferencia_niveis": "N1: Rebate imediatamente ('isso não justifica') ou concorda sem examinar, descartando a evidência dos combinados. | N2: Reconhece o argumento de Mariana mas repete sua posição sem respondê-lo de fato, ou cede sem verificar consequências para os alunos. | N3: Reconhece o que é real na fala de Mariana, responde ao conteúdo com o dado observado e retoma o objetivo: o que está na governabilidade da sala de aula. | N4: Diferencia o que é restrição real (contexto das famílias) do que é escolha pedagógica (ausência das intervenções combinadas), incorpora o que é válido e constrói encaminhamento sem abandonar os requisitos do cargo.",
+              "resposta_generica_falha_porque": "'Vou validar o sentimento dela e depois retomar' não é suficiente — o avaliado precisa mostrar o que diz de fato em resposta ao argumento, não apenas que vai 'acolher e redirecionar'."
+            },
+            {
+              "texto": "Ao final da conversa, o que você combina com Mariana? Descreva o acordo: quem faz o quê, até quando, e como você vai saber que aconteceu.",
+              "numero": 3,
+              "objetivo_diagnostico": "Revelar se o avaliado constrói acordos com ação, responsável, prazo e forma de verificação, e se verifica a viabilidade do acordo com Mariana antes de encerrar.",
+              "descritores_primarios": [
+                4,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: Encerra sem acordo ou com imposição ('você precisa mudar a abordagem') sem combinado concreto. | N2: Define uma ação genérica ('Mariana vai tentar variar mais as atividades') sem prazo, responsável claro ou forma de verificação. | N3: Combina ação específica, responsável, prazo e forma de verificação (ex.: 'Mariana aplica a atividade diferenciada com o grupo X até quinta, me mostra o registro na reunião'). | N4: Além do acordo, verifica com Mariana se é viável dado o contexto e combina o que acontece se surgir um impedimento — dentro do que é papel de cada um.",
+              "resposta_generica_falha_porque": "'Vamos combinar um plano de ação juntos' não é um acordo — é intenção. O avaliado precisa descrever o conteúdo concreto do que seria combinado, não apenas o processo."
+            },
+            {
+              "texto": "A conversa terminou. A reunião pedagógica é em dois dias. O que você faz no intervalo — e como Mariana sabe o que esperar de você até o próximo contato formal?",
+              "numero": 4,
+              "objetivo_diagnostico": "Revelar se o avaliado define continuidade com momento, formato e responsáveis, e se estabelece o que será observado no intervalo e como sinalizar dificuldades — distinguindo acompanhamento real de monitoramento simbólico.",
+              "descritores_primarios": [
+                6,
+                1
+              ],
+              "o_que_diferencia_niveis": "N1: Trata a conversa como encerrada, sem próximos passos definidos. | N2: Afirma que vai 'acompanhar' sem definir quando, como ou quem sinaliza o quê. | N3: Combina um próximo contato com momento definido, formato e responsáveis (ex.: 'antes da reunião de quinta, troco uma mensagem com Mariana sobre como foi a atividade'). | N4: Define também o que será observado no intervalo, como Mariana pode sinalizar dificuldade antes do próximo contato, e como o acordo será retomado na reunião pedagógica sem expor Mariana desnecessariamente.",
+              "resposta_generica_falha_porque": "'Vou estar disponível caso ela precise' não é continuidade — é passividade com nome bonito. O avaliado precisa mostrar iniciativa estruturada, não disponibilidade reativa."
+            }
+          ],
+          "dilema_etico": {
+            "caminho_etico": "Nomear com clareza e respeito o que foi observado e o que não foi implementado, mesmo diante da resistência prévia de Mariana, porque os alunos com defasagem dependem de intervenção concreta no próximo ciclo.",
+            "caminho_facil": "Suavizar ou adiar o feedback sobre os combinados não cumpridos para preservar a relação e o clima antes da reunião pedagógica, priorizando o conforto imediato de Mariana.",
+            "valor_testado": "Cuidado com quem ensina versus Aprendizagem no centro"
+          },
+          "tradeoff_testado": "Preservar o vínculo e o protagonismo de Mariana na reunião de dois dias versus nomear com clareza o não cumprimento dos combinados anteriores e o impacto nos alunos — sabendo que suavizar a conversa repete o padrão que não funcionou no ciclo anterior.",
+          "confianca_cenario": 0.88,
+          "fator_complicador": "Mariana já enquadrou o problema como injustiça antes mesmo da conversa começar. Entrar na reunião sem abordar essa narrativa significa validá-la; abordá-la diretamente pode confirmar, aos olhos dela, que a coordenação está na defensiva. Qualquer resposta genérica de 'acolhimento' ou 'escuta' sem conteúdo específico reforça o impasse.",
+          "riscos_do_cenario": [
+            "O avaliado pode desviar para discussão sobre o 'fofoca' (o comentário que chegou por terceiros) em vez do foco central, que é o feedback sobre prática e combinados — o cenário não deixa explícito se o coordenador deve ou não mencionar que ficou sabendo do comentário.",
+            "A reunião pedagógica em dois dias pode ser tratada como justificativa para adiar a conversa, esvaziando o dilema — o facilitador deve reforçar que a conversa acontece hoje."
+          ],
+          "stakeholders_centrais": [
+            "Mariana",
+            "você (coordenador pedagógico)"
+          ],
+          "faceta_testada_principal": "Condução de conversa de feedback com evidências concretas e divergência ativa — especificamente a capacidade de nomear comportamentos observados sem rotular a pessoa, sustentar a posição diante de resistência legítima e construir acordos verificáveis com quem discorda do diagnóstico.",
+          "mapa_cobertura_descritores": {
+            "D1": [
+              1,
+              4
+            ],
+            "D2": [
+              1,
+              3
+            ],
+            "D3": [
+              2
+            ],
+            "D4": [
+              3
+            ],
+            "D5": [
+              2
+            ],
+            "D6": [
+              4
+            ]
+          },
+          "armadilha_de_resposta_generica": "Dizer 'vou escutar Mariana, entender a perspectiva dela e construir um plano junto' não resolve este cenário porque: (1) há combinados anteriores não cumpridos que precisam ser nomeados com exemplos verificáveis — escuta sem isso é omissão; (2) a narrativa de que 'é culpa da família' precisa ser respondida com conteúdo, não apenas acolhida; (3) a reunião em dois dias cria urgência real — um plano vago não protege os alunos nem Mariana."
+        },
+        "titulo": "A devolutiva que divide a equipe",
+        "descricao": "Você é coordenador pedagógico de uma unidade em crescimento de uma rede privada de educação básica com três escolas. A rede tem como prática estabelecida a observação de aula com devolutiva mensal: o coordenador observa, devolve em até uma semana e registra os combinados. Mariana, professora de 7º ano com seis anos na escola, é respeitada pelos colegas e tem histórico de bom relacionamento com famílias. Nos últimos dois bimestres, os dados do conselho de classe mostram que a turma dela tem o maior índice de estudantes sem progressão na competência leitora da unidade — 38% abaixo do esperado. Você observou a aula de Mariana na semana passada. O que viu: predominância de atividades expositivas sem checagem de compreensão, ausência de diferenciação para os alunos sinalizados no conselho anterior, e nenhuma das intervenções combinadas no último encontro de devolutiva foi implementada. Mariana sabe que você observou e está aguardando o retorno. Ela disse a uma colega — e isso chegou até você — que 'a coordenação quer culpar o professor pelo que é problema de família'. Você tem 40 minutos disponíveis para a conversa hoje à tarde. A reunião pedagógica semanal acontece em dois dias, e Mariana tem papel central nela.",
+        "nota_check": 90,
+        "status_check": "aprovado",
+        "dimensoes_check": {
+          "auditabilidade": 7,
+          "clareza_tradeoff": 15,
+          "poder_discriminante": 18,
+          "realismo_contextual": 15,
+          "contencao_sobriedade": 5,
+          "aderencia_competencia": 15,
+          "cobertura_descritores": 15
+        },
+        "justificativa_check": "O instrumento tem trade-off real, evidências observáveis, progressão de perguntas coerente e diferencia claramente respostas superficiais de respostas de liderança madura. Os seis descritores estão efetivamente cobertos e respostas genéricas não bastam para bom desempenho. A principal limitação é de contenção: há excesso de contexto para um instrumento de produção, além de uma ambiguidade operacional sobre o comentário de Mariana.",
+        "sugestao_check": null,
+        "alertas_check": {
+          "alertas": [
+            "Reduzir o contexto para até 900 caracteres, preservando apenas: dados de desempenho, comportamentos observados, combinados não implementados, divergência de Mariana e prazo da conversa.",
+            "Definir explicitamente no guia de aplicação que o comentário ouvido por terceiros não deve ser trazido à conversa, salvo se Mariana o apresentar diretamente; isso evita que avaliados sejam pontuados por interpretar uma ambiguidade não central.",
+            "A reunião pedagógica em dois dias deve permanecer como marco de continuidade, mas não como justificativa para antecipar exposição pública ou adiar a devolutiva individual."
+          ],
+          "ponto_mais_forte": "O cenário força uma conversa de liderança baseada em evidências, na qual escutar não é suficiente: o avaliado precisa sustentar uma posição diante da divergência, separar restrições contextuais de escolhas pedagógicas e converter a conversa em acordos verificáveis.",
+          "ponto_mais_fraco": "O contexto está significativamente acima do limite de 900 caracteres e inclui informações periféricas que podem dispersar o foco avaliativo, especialmente o comentário obtido por terceiros e a reunião pedagógica como elemento adicional de pressão.",
+          "perguntas_com_risco": [
+            {
+              "numero": 2,
+              "problema": "A solicitação sobre o que o avaliado NÃO diz pode induzir respostas performáticas ou moralmente desejáveis, sem demonstrar plenamente a formulação concreta da devolutiva.",
+              "correcao_recomendada": "Manter a exigência de resposta concreta e reduzir o complemento para: 'Como você responde, reconhecendo o que é válido e retomando o que está na governabilidade da sala?'"
+            },
+            {
+              "numero": 4,
+              "problema": "A associação de D1 à continuidade é menos direta do que a associação com D6; a pergunta avalia prioritariamente acompanhamento e previsibilidade dos próximos passos.",
+              "correcao_recomendada": "Manter D6 como descritor central e tratar D1 como secundário apenas se o critério explicitar que o propósito do próximo contato deve ser comunicado."
+            }
+          ],
+          "descritores_sem_cobertura": []
+        },
+        "checked_at": "2026-09-17T15:26:41.922+00:00",
+        "tipo_cenario": null,
+        "p1": null,
+        "p2": null,
+        "p3": null,
+        "p4": null,
+        "ppp_escola_id": null,
+        "nota_check_legado": null,
+        "status_check_legado": null,
+        "checked_at_legado": null,
+        "auditor_legado": null
+      }
+    },
+    {
+      "cargo": "Líder",
+      "competencia": "Priorização e Tomada de Decisão",
+      "cod_comp": "LD04",
+      "conteudo": {
+        "colaborador_id": null,
+        "alternativas": {
+          "perguntas": [
+            {
+              "texto": "Você consegue fazer cinco devolutivas com qualidade, não oito. Quem você prioriza, em que ordem, e qual critério explícito sustenta essa escolha?",
+              "numero": 1,
+              "objetivo_diagnostico": "Revelar se o avaliado opera com critério articulado e explícito de priorização ou se decide por pressão, proximidade ou ordem de chegada — e se consegue nomear a renúncia",
+              "descritores_primarios": [
+                1,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: Prioriza quem pediu primeiro (Mariana) ou quem a direção mencionou, sem critério declarado, e assume que 'vai dar pra encaixar os oito de algum jeito' | N2: Reconhece que não caberá todo mundo mas não nomeia quem fica de fora nem explica por quê escolheu essa ordem | N3: Define critério explícito (ex.: 'priorizo pelo impacto nos indicadores de aprendizagem das turmas prioritárias, portanto Roberto primeiro; Mariana entra como segunda prioridade pelo risco de adoecimento'), nomeia os professores que ficarão fora neste ciclo e explica a lógica | N4: Além de nomear e justificar, identifica que se o contexto de Mariana piorar (adoecimento confirmado) o critério precisa ser revisado e já prevê como monitorar esse sinal",
+              "resposta_generica_falha_porque": "Dizer 'vou priorizar os casos mais urgentes' sem nomear quem são e sem explicitar o que torna um caso mais urgente que outro não discrimina — qualquer pessoa diria isso"
+            },
+            {
+              "texto": "Como você comunica à direção que fará cinco devolutivas, não oito — sem abrir mão da qualidade e sem esconder o impacto dessa escolha?",
+              "numero": 2,
+              "objetivo_diagnostico": "Revelar se o avaliado consegue sustentar um limite real perante uma expectativa institucional, comunicar impactos com clareza e propor encaminhamento — sem ceder à pressão de prometer o que não é viável",
+              "descritores_primarios": [
+                2,
+                3
+              ],
+              "o_que_diferencia_niveis": "N1: Promete as oito para não gerar conflito com a direção ou simplesmente entrega o número sem discutir qualidade | N2: Reconhece o limite ao conversar com a direção, mas mantém o compromisso de oito devolutivas 'de algum jeito', sem ajustar a meta | N3: Nomeia o limite de capacidade, explicita o que ficará de fora neste ciclo, apresenta o impacto (professores sem devolutiva neste bimestre) e propõe encaminhamento para eles (ex.: check-in breve, reagendamento no próximo ciclo) | N4: Além disso, combina com a direção um indicador de retomada e propõe o que será apresentado na reunião da mantenedora como dado honesto de intervenção",
+              "resposta_generica_falha_porque": "Dizer 'vou ser transparente com a direção' sem detalhar o que exatamente comunicará e o que proporá como alternativa não revela nada sobre a capacidade de sustentar limites reais sob pressão institucional"
+            },
+            {
+              "texto": "Mariana sinalizou risco de adoecimento e pediu prioridade. Se você não a colocar nas cinco primeiras, como conduz essa conversa com ela?",
+              "numero": 3,
+              "objetivo_diagnostico": "Revelar como o avaliado lida com a tensão humana de comunicar uma renúncia para alguém que está vulnerável — se consegue ser honesto sem abandonar a pessoa e sem ceder ao critério errado por pressão emocional",
+              "descritores_primarios": [
+                2,
+                5
+              ],
+              "o_que_diferencia_niveis": "N1: Evita a conversa ou cede à pressão de Mariana e a coloca na frente de Roberto sem rever o critério — decide por pressão emocional | N2: Comunica que ela ficará de fora neste ciclo mas sem explicar o critério nem oferecer nenhum encaminhamento, deixando a situação de risco sem resposta | N3: Conversa com Mariana, explicita o critério usado (impacto pedagógico nas turmas prioritárias), reconhece a singularidade da situação dela e oferece encaminhamento proporcional ao risco sinalizado (ex.: conversa de acolhimento já nesta semana, devolutiva garantida no próximo ciclo) | N4: Distingue o que a devolutiva pedagógica resolve do que o risco de adoecimento exige, trata os dois como questões separadas com encaminhamentos diferentes, e explicita como aplicaria o mesmo critério se outro professor estivesse na mesma situação",
+              "resposta_generica_falha_porque": "Dizer 'vou acolher Mariana e explicar a situação' sem especificar o que dirá sobre o critério de priorização e o que oferecerá concretamente não diferencia quem realmente enfrenta o dilema de quem apenas nomeia a intenção de ser empático"
+            },
+            {
+              "texto": "Três semanas depois, como você saberá se as cinco devolutivas realizadas produziram impacto — e o que fará com os três professores que ficaram de fora neste ciclo?",
+              "numero": 4,
+              "objetivo_diagnostico": "Revelar se o avaliado pensa em consequências futuras específicas, define sinais de revisão e fecha o ciclo com os que ficaram fora — ou abandona o problema depois da decisão imediata",
+              "descritores_primarios": [
+                3,
+                4,
+                6
+              ],
+              "o_que_diferencia_niveis": "N1: Não define nenhum indicador de acompanhamento e não menciona os três que ficaram fora — a decisão termina no momento em que é tomada | N2: Menciona que 'vai acompanhar o desenvolvimento' de forma genérica, sem critério nem prazo, e não propõe retomada para os professores não contemplados | N3: Define sinais específicos de impacto para as cinco devolutivas realizadas (ex.: mudança observável na prática até o próximo conselho de classe), estabelece quando e como os três professores restantes serão contemplados e registra o comprometimento | N4: Define premissas que poderiam alterar a ordem de priorização no próximo ciclo (ex.: se Mariana apresentar sintomas de adoecimento, o plano muda), estabelece um ponto de revisão explícito e comunica aos três professores o prazo combinado de retomada",
+              "resposta_generica_falha_porque": "Dizer 'vou monitorar e ajustar conforme necessário' sem nomear o que será monitorado, com que frequência e o que dispararia uma revisão não diferencia pensamento estratégico de intenção vaga — a pergunta exige especificidade sobre consequências futuras e sobre o que acontece com quem ficou de fora"
+            }
+          ],
+          "dilema_etico": {
+            "caminho_etico": "Nomear o limite real de capacidade, explicitar o critério de priorização, comunicar à direção o que ficará de fora e propor encaminhamento para os professores não contemplados no ciclo atual",
+            "caminho_facil": "Prometer as oito devolutivas à direção para atender à expectativa da mantenedora, realizando-as de forma superficial ou sem devolutiva estruturada de fato",
+            "valor_testado": "Cuidado com quem ensina versus Decisão com evidência"
+          },
+          "tradeoff_testado": "Priorizar pelo critério pedagógico (Roberto, maior impacto nos indicadores de aprendizagem) ou pelo critério de cuidado com quem ensina (Mariana, risco de adoecimento) — sabendo que fazer os oito compromete a qualidade e que deixar alguém de fora tem custo visível",
+          "confianca_cenario": 0.88,
+          "fator_complicador": "A pressão da mantenedora por quantidade (oito devolutivas) conflita com a capacidade real (cinco com qualidade), e ceder à quantidade seria trair o valor de cuidado com quem ensina e o próprio sentido da prática — mas negar a quantidade expõe a coordenação perante a direção",
+          "riscos_do_cenario": [
+            "Avaliado pode desviar para soluções logísticas (pedir reforço, ajustar agenda de outra forma) sem enfrentar o trade-off central de priorização entre Mariana e Roberto",
+            "O cenário exige que o avaliado assuma que não há solução que contemple todos, mas avaliadores precisam ser orientados a não aceitar respostas que contornem essa premissa"
+          ],
+          "stakeholders_centrais": [
+            "Mariana",
+            "Roberto"
+          ],
+          "faceta_testada_principal": "Escolhas e renúncias em contexto de capacidade limitada: nomear o que fica de fora, explicitar o critério usado e comunicar impactos — sem ilusão de que tudo caberá",
+          "mapa_cobertura_descritores": {
+            "D1": [
+              1
+            ],
+            "D2": [
+              1,
+              2,
+              3
+            ],
+            "D3": [
+              2,
+              4
+            ],
+            "D4": [
+              4
+            ],
+            "D5": [
+              3
+            ],
+            "D6": [
+              4
+            ]
+          },
+          "armadilha_de_resposta_generica": "Dizer 'vou conversar com a direção e ver como reorganizar a agenda' não resolve porque o limite de tempo já está dado e não há reorganização que encaixe oito devolutivas de qualidade em duas horas semanais por três semanas — a resposta precisa nomear quem fica de fora e por quê"
+        },
+        "titulo": "Devolutivas em colapso: o que fica de fora quando o tempo acaba",
+        "descricao": "Você é coordenador pedagógico de uma escola da rede privada de educação básica, unidade de médio porte com três turmas de 9º ano em defasagem identificada no último conselho de classe. A direção comprometeu-se com a mantenedora em apresentar, no encontro bimestral da rede daqui a três semanas, dados de intervenção e evidências de que a coordenação está atuando. Isso significa, na prática, realizar observações de aula com devolutiva para pelo menos oito professores até lá. Você tem, no máximo, duas horas semanais de agenda protegida para essa função — o restante está tomado por reuniões pedagógicas, atendimentos a famílias e demandas administrativas. Ao mapear o que é viável, você percebe que consegue fazer, no máximo, cinco devolutivas com a qualidade que o processo exige. Mariana, professora de Matemática e uma das mais sobrecarregadas da equipe, pediu para ser observada com urgência: está insegura com a turma e sinaliza risco de adoecimento. Roberto, professor de Português, é o que apresenta indicadores mais críticos de aprendizagem na turma prioritária e tecnicamente deveria ter prioridade pedagógica. Fazer devolutiva para os oito seria sacrificar a qualidade ou estourar um limite que já está no teto. Não há como encaixar os dois critérios sem custo real.",
+        "nota_check": 75,
+        "status_check": "revisar",
+        "dimensoes_check": {
+          "auditabilidade": 7,
+          "clareza_tradeoff": 14,
+          "poder_discriminante": 12,
+          "realismo_contextual": 13,
+          "contencao_sobriedade": 5,
+          "aderencia_competencia": 13,
+          "cobertura_descritores": 11
+        },
+        "justificativa_check": "O instrumento tem um trade-off real, critérios explicitáveis e boas âncoras de diferenciação entre níveis. Porém, sua principal pergunta não dispõe das informações necessárias para sustentar a priorização completa que cobra, reduzindo a validade diagnóstica e permitindo que respostas aparentemente sofisticadas se apoiem em pressupostos não verificáveis. O contexto também excede o limite de contenção previsto, sem ganho proporcional para a decisão.",
+        "sugestao_check": "Reduzir o contexto para até 900 caracteres e inserir uma matriz breve dos oito professores, com variáveis comparáveis e suficientes para decidir. Em seguida, tornar D6 explícito em P4 por meio de uma incerteza concreta, gatilhos de revisão e prazo decisório.",
+        "alertas_check": {
+          "alertas": [
+            "A diferenciação N3 de P1 determina que o avaliado nomeie professores que ficarão de fora, mas esses professores não existem como personagens ou perfis no estímulo.",
+            "Há risco de avaliadores premiarem uma escolha entre Mariana e Roberto como se ela resolvesse a priorização das cinco vagas, embora ainda restem seis casos sem critério aplicado.",
+            "O contexto é mais longo que o limite de 900 caracteres e acumula detalhes institucionais que não mudam a decisão central."
+          ],
+          "ponto_mais_forte": "O cenário apresenta uma restrição de capacidade concreta e inegociável, obrigando o avaliado a reconhecer que não é possível entregar oito devolutivas com qualidade. O trade-off entre impacto pedagógico e risco de adoecimento é relevante para a competência e dificulta respostas de conciliação superficial.",
+          "ponto_mais_fraco": "A pergunta central exige ordenar cinco prioridades e nomear quem ficará de fora, mas o cenário só oferece informações comparáveis sobre Mariana e Roberto. Sem dados mínimos sobre os outros seis professores, não há base auditável para avaliar a qualidade da ordem escolhida nem para exigir que o avaliado nomeie os três excluídos.",
+          "perguntas_com_risco": [
+            {
+              "numero": 1,
+              "problema": "Exige priorização em ordem e nomeação dos excluídos entre oito professores, mas apenas dois têm perfil, necessidade e impacto descritos. O avaliado precisará inventar dados sobre os demais ou responder em abstração.",
+              "correcao_recomendada": "Apresentar uma lista enxuta dos oito professores com dados comparáveis, como turma atendida, indicador pedagógico, urgência e histórico de devolutiva; ou reformular a pergunta para decidir explicitamente apenas entre Mariana e Roberto e definir o critério para os demais."
+            },
+            {
+              "numero": 4,
+              "problema": "D6 aparece no mapa, mas a pergunta se concentra em mensuração de impacto e retomada. A incerteza da decisão só surge de modo indireto na diferenciação N4.",
+              "correcao_recomendada": "Incluir uma informação incerta que exija regra de revisão, por exemplo: 'Você ainda não sabe se a dificuldade de Mariana resultará em afastamento nem se a intervenção de Roberto terá adesão. Que sinais fariam você rever a ordem e em que momento?'"
+            },
+            {
+              "numero": 2,
+              "problema": "A formulação permite uma resposta predominantemente comunicacional, sem obrigar o avaliado a converter a decisão em plano sustentável de capacidade para o ciclo seguinte.",
+              "correcao_recomendada": "Exigir que o avaliado apresente o limite operacional, o impacto da não execução, a medida mínima de continuidade para os não priorizados e a condição objetiva para retomar a capacidade no próximo ciclo."
+            }
+          ],
+          "descritores_sem_cobertura": []
+        },
+        "checked_at": "2026-09-17T15:28:04.976+00:00",
+        "tipo_cenario": null,
+        "p1": null,
+        "p2": null,
+        "p3": null,
+        "p4": null,
+        "ppp_escola_id": null,
+        "nota_check_legado": null,
+        "status_check_legado": null,
+        "checked_at_legado": null,
+        "auditor_legado": null
+      }
+    },
+    {
+      "cargo": "Líder",
+      "competencia": "Autoconsciência e Aprendizagem Contínua",
+      "cod_comp": "LD05",
+      "conteudo": {
+        "colaborador_id": null,
+        "alternativas": {
+          "perguntas": [
+            {
+              "texto": "Você tem 40 minutos e pode fazer apenas uma ação estruturada antes da reunião. O que escolhe, o que adía e que risco você assume com essa escolha?",
+              "numero": 1,
+              "objetivo_diagnostico": "Revelar se o avaliado toma uma decisão real com custo explícito ou escapa para uma resposta que concilia tudo sem sacrifício.",
+              "descritores_primarios": [
+                1,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: escolhe sem nomear o que perde ou culpa Carla pela situação | N2: nomeia a escolha mas não menciona o custo ou o risco da opção preterida | N3: define a prioridade, nomeia o que adia e reconhece o risco assumido | N4: define a prioridade, nomeia o que adia, reconhece o risco e indica como reduzirá esse risco dentro da restrição de tempo",
+              "resposta_generica_falha_porque": "Dizer 'vou resolver os dois' ou 'vou combinar com a equipe' ignora a restrição declarada e não demonstra decisão com custo real."
+            },
+            {
+              "texto": "As colegas relataram o estado de Carla e você recebeu esse relato informalmente. Como você usa essa informação — e o que ainda precisa verificar antes de agir?",
+              "numero": 2,
+              "objetivo_diagnostico": "Verificar se o avaliado distingue o que é dado útil do que é rumor, examina a validade da fonte e define o que precisa confirmar — em vez de agir diretamente sobre o relato ou descartá-lo.",
+              "descritores_primarios": [
+                3,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: age diretamente sobre o relato ou o descarta por ser informal | N2: aceita o relato como verdade ou o rejeita sem examinar — nenhuma distinção entre dado e interpretação | N3: identifica o que o relato informa, o que ainda precisa confirmar e como verificará com a própria Carla | N4: distingue dado de interpretação, define o que verificará, reconhece sua contribuição para a situação que gerou o relato e ajusta a abordagem com base nisso",
+              "resposta_generica_falha_porque": "Dizer 'vou ouvir Carla para entender o que aconteceu' sem distinguir o que já se sabe do que ainda é incerto não demonstra uso ativo e crítico do feedback recebido."
+            },
+            {
+              "texto": "Se optar por conversar com Carla antes da reunião, como conduz essa conversa — e o que faz diferente do que fez na devolutiva para não repetir o padrão?",
+              "numero": 3,
+              "objetivo_diagnostico": "Verificar se o avaliado identifica um comportamento próprio concreto que contribuiu para o rompimento e demonstra ajuste observável — não só intenção.",
+              "descritores_primarios": [
+                4,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: planeja a conversa centrada em corrigir Carla, sem nomear comportamento próprio | N2: reconhece que 'poderia ter sido diferente', mas não identifica o que mudaria na prática | N3: nomeia um comportamento próprio que contribuiu para o rompimento e descreve o ajuste concreto que fará na condução | N4: nomeia o comportamento, descreve o ajuste, verifica durante a conversa se a interação está mais produtiva e sustenta o ajuste se Carla reagir com resistência",
+              "resposta_generica_falha_porque": "Dizer 'vou ser mais cuidadoso e empático' sem nomear o que especificamente foi problemático na devolutiva não demonstra identificação do padrão a ser ajustado."
+            },
+            {
+              "texto": "Que limite seu este episódio revelou na condução de devolutivas? De quem ou de qual prática você buscaria apoio para não repetir — e como saberá se o ajuste funcionou?",
+              "numero": 4,
+              "objetivo_diagnostico": "Verificar se o avaliado reconhece um limite técnico ou emocional real, define uma fonte de apoio externa e indica mecanismo de verificação — não apenas intenção de melhora.",
+              "descritores_primarios": [
+                6,
+                5
+              ],
+              "o_que_diferencia_niveis": "N1: não reconhece limite próprio ou afirma que o problema foi de Carla | N2: admite que 'poderia melhorar', mas não nomeia o limite nem define como obterá apoio | N3: expõe um limite concreto, nomeia uma fonte adequada de apoio e define como buscará esse apoio | N4: expõe o limite, busca apoio de forma específica, integra o que recebeu à sua prática e indica como verificará se devolutivas futuras produziram resultado diferente",
+              "resposta_generica_falha_porque": "Dizer 'vou estudar mais sobre feedback' sem nomear o limite específico revelado pelo episódio e sem definir fonte e mecanismo de verificação não demonstra transferência de aprendizagem nem reconhecimento real de limite."
+            }
+          ],
+          "dilema_etico": {
+            "caminho_etico": "Nomear a própria contribuição para o rompimento, priorizar a reparação mesmo com custo para a agenda pedagógica e buscar apoio para calibrar devolutivas futuras.",
+            "caminho_facil": "Conduzir a reunião normalmente, registrar o encaminhamento e tratar o caso de Carla como problema dela, protegendo a autoridade pedagógica da coordenação.",
+            "valor_testado": "Cuidado com quem ensina"
+          },
+          "tradeoff_testado": "Usar os 40 minutos disponíveis para reparar a relação com Carla (reduz o risco de perdê-la, mas adia o encaminhamento pedagógico coletivo) ou preparar o encaminhamento das turmas prioritárias (cumpre a agenda, mas mantém a fratura com Carla e o risco de ela não participar do conselho).",
+          "confianca_cenario": 0.87,
+          "fator_complicador": "Carla é referência para uma das turmas prioritárias — as duas escolhas estão conectadas, mas não resolvem o problema simultaneamente no tempo disponível.",
+          "riscos_do_cenario": [
+            "Avaliado pode focar exclusivamente na gestão de Carla e omitir a dimensão pedagógica, reduzindo a pressão do trade-off",
+            "O prazo de 40 minutos pode parecer arbitrário se o avaliador não reforçar a restrição durante a aplicação"
+          ],
+          "stakeholders_centrais": [
+            "Carla",
+            "coordenadora"
+          ],
+          "faceta_testada_principal": "Responsabilidade pela própria atuação combinada com reconhecimento de limites: o líder precisa nomear sua contribuição para o rompimento, decidir o que prioriza e admitir o que não sabe fazer sozinho.",
+          "mapa_cobertura_descritores": {
+            "D1": [
+              1
+            ],
+            "D2": [
+              1,
+              2,
+              3
+            ],
+            "D3": [
+              2
+            ],
+            "D4": [
+              3
+            ],
+            "D5": [
+              4
+            ],
+            "D6": [
+              4
+            ]
+          },
+          "armadilha_de_resposta_generica": "Dizer que vai 'conversar com Carla e garantir o encaminhamento' ignora o tempo físico disponível — a resposta que não nomeia o que será adiado e o risco assumido não demonstra decisão real."
+        },
+        "titulo": "Devolutiva que saiu do controle",
+        "descricao": "Carla, professora de 7 anos de rede, recebeu na semana passada uma devolutiva de observação de aula conduzida pela coordenadora. Durante o encontro, a coordenadora elevou o tom ao citar dados de defasagem da turma, Carla saiu sem responder e não apareceu na reunião pedagógica seguinte. Duas colegas relataram informalmente que Carla está considerando pedir transferência de unidade. Faltam 40 minutos para a próxima reunião pedagógica — a única janela coletiva antes do conselho de classe, que ocorre em 5 dias. Nessa reunião estava previsto definir o encaminhamento para as três turmas com maior defasagem, envolvendo Carla como referência de uma delas. O líder pode usar os 40 minutos antes da reunião para UMA ação estruturada: conversa individual com Carla ou preparação do encaminhamento das turmas prioritárias. A outra ação ficará para depois do conselho — com risco de atraso ou de Carla não estar mais disponível.",
+        "nota_check": 60,
+        "status_check": "revisar",
+        "dimensoes_check": {
+          "auditabilidade": 7,
+          "clareza_tradeoff": 14,
+          "poder_discriminante": 5,
+          "realismo_contextual": 12,
+          "contencao_sobriedade": 7,
+          "aderencia_competencia": 11,
+          "cobertura_descritores": 4
+        },
+        "justificativa_check": "O cenário tem um dilema operacional forte e perguntas que podem revelar responsabilização, autorregulação e reconhecimento de limites. Contudo, há incoerência metodológica entre descritores, perguntas e mapa de cobertura: D1 e D3 são apenas rotulados, não efetivamente eliciados. Como todos os descritores relevantes da competência precisam ter cobertura válida, aplica-se o teto de 60 pontos.",
+        "sugestao_check": "Reestruture P2 para avaliar uso de feedback real sobre a atuação do líder e revise P1, ou acrescente uma pergunta específica, para forçar a consideração de uma perspectiva divergente. Em seguida, alinhe o contexto para eliminar a ambiguidade sobre quem conduziu a devolutiva e atualize o mapa de cobertura somente após validar as evidências comportamentais exigidas.",
+        "alertas_check": {
+          "alertas": [
+            "O cenário apresenta ao menos três atores/grupos com influência na decisão: Carla, a coordenadora/líder e as colegas. Embora ainda manejável, isso reduz a sobriedade e torna mais importante definir com precisão quem é o avaliado.",
+            "A instrução de que só uma ação estruturada cabe nos 40 minutos é útil, mas deve ser mantida explicitamente pelo aplicador para impedir que o avaliado responda com uma combinação irrealista de conversa individual e preparação completa.",
+            "A competência indicada inclui aprendizagem contínua; no formato atual, a maior parte da evidência está concentrada em gestão de conflito imediato, e não no ciclo completo de receber feedback, refletir, buscar apoio, aplicar e verificar aprendizagem."
+          ],
+          "ponto_mais_forte": "O trade-off temporal é concreto, compreensível e difícil de contornar: priorizar a reparação com Carla exige adiar a preparação pedagógica, e priorizar a agenda coletiva mantém um risco relacional relevante.",
+          "ponto_mais_fraco": "O mapa declara cobertura de D1 e D3, mas as perguntas não avaliam essas dimensões de forma válida: P1 mede priorização e responsabilização, não abertura a perspectivas diferentes; P2 trata um relato informal sobre Carla como informação a verificar, e não como feedback recebido, utilizado e convertido em aprendizagem.",
+          "perguntas_com_risco": [
+            {
+              "numero": 1,
+              "problema": "D1 está declarado como descritor primário, mas a pergunta não exige que o líder busque, considere ou incorpore uma perspectiva diferente. É possível responder muito bem à escolha de prioridade sem demonstrar abertura a perspectivas.",
+              "correcao_recomendada": "Incluir uma exigência explícita sobre qual perspectiva divergente o líder precisará considerar antes de sustentar sua decisão e como essa perspectiva poderá alterar sua abordagem."
+            },
+            {
+              "numero": 2,
+              "problema": "A pergunta avalia checagem de rumores, qualidade da informação e prudência decisória, mas não uso de feedback. O relato das colegas não é devolutiva sobre a atuação do líder e pode ser respondido por uma lógica genérica de validação de fonte.",
+              "correcao_recomendada": "Substituir por uma pergunta sobre como o líder utiliza a devolutiva recebida de Carla, de um par ou da própria coordenadora sobre sua condução da conversa, distinguindo conteúdo, reação defensiva e mudança prática."
+            },
+            {
+              "numero": 3,
+              "problema": "Há ambiguidade de papel: o contexto afirma que a devolutiva foi conduzida pela coordenadora, enquanto a pergunta pressupõe que o avaliado conduziu a devolutiva e teve comportamento próprio a revisar.",
+              "correcao_recomendada": "Definir inequivocamente que o avaliado é a coordenadora/líder que conduziu a devolutiva, ou reescrever o contexto para que a responsabilidade pela conversa anterior seja explicitamente atribuída ao líder."
+            },
+            {
+              "numero": 4,
+              "problema": "Pode aceitar respostas abstratas como 'preciso melhorar minha comunicação e pedir apoio', pois a pergunta não ancora qual evidência futura demonstrará transferência da aprendizagem em situação comparável.",
+              "correcao_recomendada": "Exigir a definição de um comportamento observável em uma próxima devolutiva, uma fonte específica de evidência e um critério de sucesso verificável."
+            }
+          ],
+          "descritores_sem_cobertura": [
+            "D1",
+            "D3"
+          ]
+        },
+        "checked_at": "2026-09-17T15:33:50.221+00:00",
+        "tipo_cenario": null,
+        "p1": null,
+        "p2": null,
+        "p3": null,
+        "p4": null,
+        "ppp_escola_id": null,
+        "nota_check_legado": null,
+        "status_check_legado": null,
+        "checked_at_legado": null,
+        "auditor_legado": null
+      }
+    },
+    {
+      "cargo": "Futuro Líder",
+      "competencia": "Análise e Diagnóstico de Situações",
+      "cod_comp": "FL01",
+      "conteudo": {
+        "colaborador_id": null,
+        "alternativas": {
+          "perguntas": [
+            {
+              "texto": "Antes da reunião com Marcelo, quais informações você consideraria e o que ainda precisaria levantar para não chegar com uma conclusão já formada?",
+              "numero": 1,
+              "objetivo_diagnostico": "Revelar se o avaliado distingue fato de interpretação, identifica o que já sabe versus o que ainda falta, e resiste à conclusão prematura induzida pelo rótulo da diretora.",
+              "descritores_primarios": [
+                1,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: Aceita o diagnóstico da diretora ('perdeu o gás') e planeja a conversa como cobrança, sem questionar o que está por trás dos dados. | N2: Menciona que precisa 'ouvir Marcelo' de forma genérica, sem especificar quais informações buscaria nem como separaria causas. | N3: Distingue os fatos disponíveis (queda de aproveitamento, registros incompletos, devolutivas não realizadas) das hipóteses que ainda precisam ser testadas, e aponta ao menos uma hipótese de contexto (turma reorganizada, perda de horário coletivo) que merece investigação antes da reunião. | N4: Mapeia sistematicamente o que sabe, o que interpreta e o que não sabe; identifica qual informação seria decisiva para diferenciar as hipóteses e como obtê-la antes ou durante a conversa com Marcelo.",
+              "resposta_generica_falha_porque": "Dizer 'preciso ouvir todos os lados' não resolve: o cenário tem dados concretos (queda de 74% para 51%, turma reorganizada, horário perdido) que precisam ser nomeados e organizados — quem não os usa está improvisando, não diagnosticando."
+            },
+            {
+              "texto": "Como você conduziria a reunião de 40 minutos com Marcelo para investigar causas sem que ela vire defesa ou cobrança? O que perguntaria e em que ordem?",
+              "numero": 2,
+              "objetivo_diagnostico": "Avaliar se o avaliado consegue operacionalizar uma escuta investigativa — com hipóteses explícitas sobre capacidade, condições e disposição — sem colapsar a conversa em julgamento ou em escuta passiva sem direção.",
+              "descritores_primarios": [
+                3,
+                6
+              ],
+              "o_que_diferencia_niveis": "N1: Planeja a conversa como 'alinhamento de expectativas' ou cobrança disfarçada de diálogo; não formula hipóteses antes de entrar. | N2: Menciona que vai 'fazer perguntas abertas' ou 'dar espaço para Marcelo falar', sem estrutura que diferencie causas e sem hipóteses a testar. | N3: Organiza a conversa em torno de hipóteses distintas (ex.: algo mudou na turma? no planejamento coletivo? na vida de Marcelo?), faz perguntas que permitem verificar cada hipótese e sinaliza que ajustará a intervenção conforme a resposta. | N4: Apresenta as hipóteses a Marcelo de forma transparente, pergunta diretamente o que ele considera mais relevante, integra a resposta ao diagnóstico em tempo real e explicita por que uma ou outra explicação ganhou peso — ou exige mais dados.",
+              "resposta_generica_falha_porque": "A reunião tem 40 minutos e uma expectativa da diretora até o fim da semana. 'Ouvir com empatia' não é resposta: o avaliado precisa demonstrar que entra na conversa com hipóteses organizadas e sai com informação que sustenta — ou revisa — o diagnóstico."
+            },
+            {
+              "texto": "Suponha que Marcelo relate que a turma 8º B tomou muito mais tempo de preparo desde a reorganização e que ele se sente sem suporte. Como você leria esse dado em relação ao histórico de desempenho e aos outros sinais observados?",
+              "numero": 3,
+              "objetivo_diagnostico": "Verificar se o avaliado consegue comparar o relato atual com o padrão histórico, localizar quando a mudança ocorreu e resistir à causalidade simples — sem assumir que o relato de Marcelo é a explicação definitiva.",
+              "descritores_primarios": [
+                4,
+                5
+              ],
+              "o_que_diferencia_niveis": "N1: Aceita o relato de Marcelo como explicação completa e encaminha 'apoio' sem investigar se o dado é consistente com o que aconteceu antes. | N2: Reconhece que o relato é relevante, mas não o cruza com o histórico nem localiza o ponto de inflexão. | N3: Relaciona o relato à reorganização da turma no início do ano, ao horário coletivo perdido em março e à queda de aproveitamento no 2º bimestre — delimitando o período e comparando com o desempenho anterior para verificar coerência. | N4: Identifica que a mudança tem ao menos duas explicações possíveis que se combinam (fator de contexto + sobrecarga), examina qual etapa do trabalho foi mais afetada (planejamento, execução, avaliação) e nomeia o que ainda precisaria verificar para distinguir sintoma de causa.",
+              "resposta_generica_falha_porque": "Concordar com Marcelo ou discordar dele sem cruzar o relato com os dados já disponíveis (período, queda de desempenho, eventos associados) é leitura de episódio, não análise de padrão — resposta que falha nos descritores D4 e D5."
+            },
+            {
+              "texto": "Silvia espera um encaminhamento concreto até sexta. O que você levaria a ela e como apresentaria sua análise considerando que ela já formou uma opinião sobre Marcelo?",
+              "numero": 4,
+              "objetivo_diagnostico": "Avaliar se o avaliado consegue reportar um diagnóstico ainda parcial sem distorcê-lo para agradar a hierarquia — e se sustenta a distinção entre hipótese e conclusão mesmo sob pressão de prazo.",
+              "descritores_primarios": [
+                1,
+                6
+              ],
+              "o_que_diferencia_niveis": "N1: Confirma o diagnóstico da diretora ('de fato, Marcelo precisa de uma intervenção') para fechar o caso e evitar conflito. | N2: Relata a conversa com Marcelo de forma descritiva, sem hipótese estruturada nem distinção clara entre o que foi verificado e o que ainda está aberto. | N3: Apresenta a Silvia as hipóteses levantadas, o que foi confirmado e o que ainda não pode ser concluído, propõe um próximo passo específico e sustenta que o encaminhamento depende de qual hipótese for validada. | N4: Integra as evidências à análise, explicita por que a hipótese de 'perda de gás' é insuficiente sem considerar os fatores de contexto, propõe encaminhamentos distintos para cada cenário possível e nomeia o que precisaria acontecer para revisar o diagnóstico.",
+              "resposta_generica_falha_porque": "Dizer 'vou apresentar o que apurei' é insuficiente: o cenário exige que o avaliado sustente uma análise ainda aberta diante de uma liderança que já concluiu — sem capitular e sem confrontar sem evidência. Resposta que não nomeia a tensão entre pressão hierárquica e rigor diagnóstico revela N1 ou N2."
+            }
+          ],
+          "dilema_etico": {
+            "caminho_etico": "Conduzir a reunião com Marcelo como coleta de informação, separar hipóteses individuais das de contexto, e reportar à diretora com as hipóteses levantadas — mesmo que isso gere desconforto ou atrase o encaminhamento esperado.",
+            "caminho_facil": "Realizar a conversa 'séria' com Marcelo já enquadrada como cobrança de desempenho, entregar um encaminhamento formal à diretora até sexta e fechar o caso como resolvido.",
+            "valor_testado": "Decisão com evidência + Cuidado com quem ensina"
+          },
+          "tradeoff_testado": "Atender à pressão da diretora com um encaminhamento rápido (que reforça o rótulo de 'perda de gás') versus conduzir uma investigação adequada que pode contrariar o diagnóstico já circulado — com risco de tensão com a gestão e de parecer omisso.",
+          "confianca_cenario": 0.88,
+          "fator_complicador": "O rótulo foi emitido publicamente pela diretora na frente da equipe. Contestar a leitura dela sem evidências equivale a confronto; aceitá-la sem investigação viola o valor 'decisão com evidência' e pode prejudicar Marcelo injustamente.",
+          "riscos_do_cenario": [
+            "Avaliados com experiência em RH podem focar excessivamente na gestão do relacionamento com a diretora, desviando do foco diagnóstico da competência.",
+            "O cenário depende do avaliado reconhecer os indícios de contexto (turma reorganizada, horário perdido) — se o texto não for lido com atenção, a tensão central pode passar despercebida."
+          ],
+          "stakeholders_centrais": [
+            "Marcelo",
+            "Silvia"
+          ],
+          "faceta_testada_principal": "Distinção entre fatores individuais e de contexto antes de nomear o problema e definir a intervenção — especialmente quando há pressão de hierarquia para agir rápido com base em impressão.",
+          "mapa_cobertura_descritores": {
+            "D1": [
+              1,
+              4
+            ],
+            "D2": [
+              1,
+              2
+            ],
+            "D3": [
+              2
+            ],
+            "D4": [
+              3
+            ],
+            "D5": [
+              3
+            ],
+            "D6": [
+              2,
+              4
+            ]
+          },
+          "armadilha_de_resposta_generica": "Dizer 'vou ouvir o Marcelo antes de concluir' é insuficiente: o cenário exige que o avaliado especifique O QUE vai investigar, COMO vai separar causas plausíveis e O QUE faria com cada resposta possível. Resposta vaga não resolve a pressão da diretora nem protege Marcelo."
+        },
+        "titulo": "O professor que parou de entregar",
+        "descricao": "Você é coordenador pedagógico de uma das unidades de uma rede privada de educação básica com três escolas e cerca de 180 profissionais. A rede valoriza decisão com evidência e cuidado com quem ensina.\n\nMarcelo, professor de Matemática do 7º e 8º ano, sempre foi referência na escola. Nos últimos dois bimestres, o padrão mudou: os registros de planejamento chegam incompletos, duas devolutivas agendadas não aconteceram por iniciativa dele, e o índice de aproveitamento do 8º B — sua turma mais numerosa, com 34 alunos — caiu de 74% para 51% entre o 1º e o 2º bimestre.\n\nNa última reunião pedagógica, a diretora Silvia comentou, diante da equipe, que 'Marcelo parece ter perdido o gás' e sugeriu que você 'chame ele para uma conversa séria antes que piore'. A frase ficou no ar. Outros professores ouviram.\n\nVocê tem agendada para amanhã uma reunião de 40 minutos com Marcelo. Você sabe que ele é respeitado pela equipe, que a turma 8º B foi reorganizada no início do ano com a chegada de seis alunos com histórico de defasagem significativa, e que o planejamento coletivo de Matemática perdeu um horário semanal em março por remanejamento de grade.\n\nA diretora espera um encaminhamento concreto até o fim da semana. Você ainda não conversou com Marcelo.",
+        "nota_check": 86,
+        "status_check": "aprovado_com_ressalvas",
+        "dimensoes_check": {
+          "auditabilidade": 9,
+          "clareza_tradeoff": 14,
+          "poder_discriminante": 19,
+          "realismo_contextual": 14,
+          "contencao_sobriedade": 4,
+          "aderencia_competencia": 14,
+          "cobertura_descritores": 12
+        },
+        "justificativa_check": "O instrumento é metodologicamente forte: apresenta evidências concretas, uma pressão real por decisão e perguntas que exigem hipóteses, validação e encaminhamento proporcional ao grau de certeza. Contudo, perde sobriedade operacional pelo tamanho do contexto e pode melhorar a mensuração de análise do fluxo de trabalho, hoje concentrada no nível mais alto da P3.",
+        "sugestao_check": "Reduzir o contexto para até 900 caracteres, preservando somente os dados necessários à decisão: mudança de desempenho, registros incompletos, turma reorganizada, perda do horário coletivo, pressão da diretora e prazo. Reestruture a P3 para exigir análise explícita das etapas de planejamento, execução e avaliação em todos os níveis de resposta, sem antecipar que a explicação de Marcelo é necessariamente consistente.",
+        "alertas_check": {
+          "alertas": [
+            "O cenário contém mais de 900 caracteres no bloco de contexto, contrariando o critério de contenção para uso em produção.",
+            "Há uma diferença entre o mapa de cobertura, que atribui D2 à P2, e os descritores primários da própria P2, que listam apenas D3 e D6; convém declarar D2 como secundário ou ajustar a pergunta."
+          ],
+          "ponto_mais_forte": "O cenário sustenta uma distinção diagnóstica clara entre fatos, interpretações e hipóteses causais, sob pressão hierárquica por uma conclusão rápida. As rubricas N1 a N4 tornam respostas superficiais visivelmente diferentes de respostas investigativas e fundamentadas.",
+          "ponto_mais_fraco": "O contexto está excessivamente longo para o limite operacional de 900 caracteres e a P3 induz uma hipótese contextual específica antes de o avaliado precisar formulá-la. Além disso, D5 aparece de modo efetivamente exigido apenas no critério N4 da P3, reduzindo sua cobertura discriminante nos níveis intermediários.",
+          "perguntas_com_risco": [
+            {
+              "numero": 3,
+              "problema": "A pergunta apresenta o relato de Marcelo já associado à sobrecarga da turma e ao suporte insuficiente, o que pode induzir o avaliado a validar essa explicação. A análise do fluxo de trabalho fica explícita apenas no nível N4 da rubrica.",
+              "correcao_recomendada": "Reformular para pedir que o avaliado identifique quais etapas do trabalho de Marcelo precisam ser examinadas, quais evidências confirmariam ou enfraqueceriam o relato e como distinguiria sobrecarga, falha de processo e fator individual."
+            },
+            {
+              "numero": 2,
+              "problema": "A cobertura de D2 no mapa é apenas implícita: a pergunta prioriza capacidade, condições e disposição, mas não exige claramente investigação das relações de trabalho e do contexto pedagógico.",
+              "correcao_recomendada": "Incluir explicitamente a investigação sobre interações com a turma, apoio da coordenação, mudanças na rotina coletiva e condições de trabalho, mantendo a distinção entre fatores individuais e contextuais."
+            }
+          ],
+          "descritores_sem_cobertura": []
+        },
+        "checked_at": "2026-09-17T15:22:09.457+00:00",
+        "tipo_cenario": null,
+        "p1": null,
+        "p2": null,
+        "p3": null,
+        "p4": null,
+        "ppp_escola_id": null,
+        "nota_check_legado": null,
+        "status_check_legado": null,
+        "checked_at_legado": null,
+        "auditor_legado": null
+      }
+    },
+    {
+      "cargo": "Futuro Líder",
+      "competencia": "Desenvolvimento de Pessoas",
+      "cod_comp": "FL02",
+      "conteudo": {
+        "colaborador_id": null,
+        "alternativas": {
+          "perguntas": [
+            {
+              "texto": "Você tem uma observação com devolutiva por semana nas próximas 6 semanas. Quem prioriza, qual critério define essa escolha e qual sinal mínimo fará você rever a decisão antes do conselho?",
+              "numero": 1,
+              "objetivo_diagnostico": "Revelar se o avaliado prioriza com critério baseado em necessidade e risco — ou por preferência, facilidade relacional ou visibilidade do problema. Exige gatilho objetivo de revisão, não apenas intenção.",
+              "descritores_primarios": [
+                5,
+                3
+              ],
+              "o_que_diferencia_niveis": "N1: escolhe sem critério ou tenta atender os dois igualmente, ignorando a restrição | N2: reconhece que precisa priorizar, mas o critério é vago ('quem precisa mais') sem definir sinal de revisão | N3: nomeia quem prioriza, justifica pela necessidade e pelo risco para os alunos, define um sinal objetivo para rever (ex.: queda em indicador de Marcela, pedido dela) | N4: além do N3, define o nível mínimo de atenção que garantirá ao caso não priorizado e o gatilho de revisão com prazo ou evidência",
+              "resposta_generica_falha_porque": "Afirmar 'priorizaria Rafael por ser mais novo' sem critério de risco para os alunos de Marcela, sem sinal de revisão e sem definir o que garante ao outro caso é insuficiente para discriminar N2 de N3"
+            },
+            {
+              "texto": "Para o caso que receberá menos presença sua nas próximas semanas, que fonte de aprendizagem você indicaria e qual seria o objetivo específico dessa conexão para essa pessoa?",
+              "numero": 2,
+              "objetivo_diagnostico": "Revelar se o avaliado consegue conectar a pessoa certa à fonte certa com propósito definido — ou se centraliza o apoio em si mesmo mesmo reconhecendo limitação de agenda.",
+              "descritores_primarios": [
+                2,
+                1
+              ],
+              "o_que_diferencia_niveis": "N1: não indica fonte externa, assume que vai dar conta sozinho ou indica algo genérico ('pode buscar formações') | N2: sugere uma fonte sem ligar à necessidade específica da pessoa (ex.: 'indicaria uma formação de metodologia') | N3: nomeia uma fonte adequada ao diagnóstico da pessoa (ex.: para Marcela — par experiente de outra unidade que fez releitura de sequências; para Rafael — protocolo de devolutiva usado pela rede) e define o objetivo da conexão | N4: além do N3, combina com os envolvidos como verificar se a conexão gerou mudança prática, sem transferir ao outro a responsabilidade de conduzir o desenvolvimento",
+              "resposta_generica_falha_porque": "Indicar 'cursos online' ou 'conversar com colegas' sem especificar fonte, adequação ao diagnóstico e objetivo da conexão não mobiliza D2 em nível avaliativo — é resposta que qualquer pessoa daria sem examinar a necessidade"
+            },
+            {
+              "texto": "Marcela tem 8 anos de rede e tende a interpretar intervenção como desconfiança. Como você conduziria a conversa de desenvolvimento com ela sem retirar sua responsabilidade sobre a própria prática?",
+              "numero": 3,
+              "objetivo_diagnostico": "Revelar como o avaliado calibra autonomia e apoio diante de resistência previsível — se controla excessivamente, recua por conforto relacional ou mantém a responsabilidade na pessoa com apoio estruturado.",
+              "descritores_primarios": [
+                3,
+                4
+              ],
+              "o_que_diferencia_niveis": "N1: evita a conversa para não criar conflito, ou impõe mudança sem considerar a trajetória dela | N2: propõe conversa respeitosa mas deixa indefinido o que Marcela precisa entregar e qual apoio receberá | N3: define resultado esperado, o apoio que oferecerá e deixa claro que a condução da mudança é responsabilidade de Marcela, não dele | N4: combina com Marcela os critérios de qualidade e os momentos de verificação, proporcional ao risco, verificando o entendimento sem assumir a responsabilidade que é dela",
+              "resposta_generica_falha_porque": "'Conversaria com respeito e escutaria o ponto de vista dela' não revela como o avaliado lida com o não-movimento após a conversa — que é exatamente o que discrimina N2 de N3 neste caso"
+            },
+            {
+              "texto": "Como você saberá, ao final do bimestre, se Rafael e Marcela evoluíram? O que observará, em que momento e o que fará se um deles não apresentar mudança?",
+              "numero": 4,
+              "objetivo_diagnostico": "Revelar se o avaliado define evidência observável e prazo de verificação — ou apenas monitora de forma vaga — e se prevê ajuste de apoio diante da ausência de evolução.",
+              "descritores_primarios": [
+                6,
+                5
+              ],
+              "o_que_diferencia_niveis": "N1: não define como verificar ou usa percepção subjetiva sem objeto ('vou sentir se melhorou') | N2: propõe acompanhar ou verificar sem definir comportamento observável, prazo ou diferenciação entre os dois casos | N3: define um comportamento ou entrega observável para cada um (ex.: Rafael — qualidade das devolutivas na observação de novembro; Marcela — variação na sequência em relação ao bimestre anterior) e uma ocasião de verificação | N4: além do N3, define o que fará se a evolução não ocorrer — ajuste no tipo de apoio, mudança de fonte, conversa estruturada — sem depender apenas do conselho de classe como único momento de diagnóstico",
+              "resposta_generica_falha_porque": "'Observarei as aulas e conversarei no conselho de classe' não discrimina N2 de N3 — falta o objeto observável e o que muda no apoio se não houver evolução"
+            }
+          ],
+          "dilema_etico": {
+            "caminho_etico": "Definir priorização com critério explícito, garantir nível mínimo de apoio ao caso não priorizado e indicar fonte de aprendizagem adequada para quem receberá menos presença direta",
+            "caminho_facil": "Acompanhar Rafael (mais receptivo, necessidade evidente) e deixar Marcela sem intervenção estruturada, assumindo que a experiência dela dispensa atenção",
+            "valor_testado": "Equidade — apoio distribuído pela necessidade, não pela facilidade de acesso ou pelo vínculo com o coordenador"
+          },
+          "tradeoff_testado": "Investir atenção intensiva em Rafael (menor experiência, maior urgência visível) significa reduzir o acompanhamento de Marcela (risco mais silencioso, mas igualmente real para os alunos). Não há como resolver os dois casos com a mesma intensidade nas 6 semanas disponíveis.",
+          "confianca_cenario": 0.88,
+          "fator_complicador": "Marcela é veterana e pode interpretar qualquer intervenção como desconfiança — resistência previsível. Rafael pode interpretar acompanhamento intenso como vigilância. A escolha de priorização carrega risco relacional em qualquer direção.",
+          "riscos_do_cenario": [
+            "Avaliado pode tentar resolver a restrição de agenda reorganizando a rotina — resposta deve ser acolhida se apresentar critério e monitoramento, não descartada automaticamente",
+            "A resistência de Marcela pode desviar o foco para gestão de conflito, diluindo a avaliação de desenvolvimento de pessoas"
+          ],
+          "stakeholders_centrais": [
+            "Rafael",
+            "Marcela"
+          ],
+          "faceta_testada_principal": "Distribuição deliberada de atenção e desenvolvimento individualizado: a capacidade de priorizar apoio com critério, indicar fontes externas de aprendizagem adequadas a cada necessidade e definir como verificar evolução — sem abandonar quem não foi priorizado.",
+          "mapa_cobertura_descritores": {
+            "D1": [
+              2
+            ],
+            "D2": [
+              2
+            ],
+            "D3": [
+              3
+            ],
+            "D4": [
+              3
+            ],
+            "D5": [
+              1,
+              4
+            ],
+            "D6": [
+              4
+            ]
+          },
+          "armadilha_de_resposta_generica": "Dizer 'conversaria com os dois, observaria os dois e daria devolutiva para os dois' ignora a restrição concreta de agenda declarada no cenário. A resposta precisa nomear quem prioriza, por quê, e o que garante ao outro — sem essa escolha, não há diagnóstico."
+        },
+        "titulo": "Dois professores, atenção limitada",
+        "descricao": "Você coordena uma unidade de uma rede privada de educação básica com três escolas. São 14 professores sob sua responsabilidade. Restam 6 semanas para o conselho de classe bimestral. Rafael, 2 anos na rede, tem dificuldade em estruturar devolutivas aos alunos — suas aulas são dinâmicas, mas os estudantes não sabem onde estão. Marcela, 8 anos na rede, entrou em piloto automático: repete sequências do ano anterior sem ajustar ao perfil atual da turma. Você tem agenda para uma observação de aula com devolutiva por semana. Não dá para acompanhar os dois com a mesma intensidade no mesmo período.",
+        "nota_check": 60,
+        "status_check": "revisar",
+        "dimensoes_check": {
+          "auditabilidade": 6,
+          "clareza_tradeoff": 9,
+          "poder_discriminante": 8,
+          "realismo_contextual": 12,
+          "contencao_sobriedade": 8,
+          "aderencia_competencia": 10,
+          "cobertura_descritores": 7
+        },
+        "justificativa_check": "O cenário é realista, contido e tem uma intenção diagnóstica adequada para Desenvolvimento de Pessoas, especialmente em distribuição de atenção, fontes de aprendizagem e verificação de evolução. Contudo, há incoerência entre descritores primários e mapa de cobertura, além de ausência substantiva de uma situação de delegação desenvolvedora para D4; isso configura erro grave e limita a validade do instrumento para a competência declarada.",
+        "sugestao_check": "Corrigir primeiro o mapa de cobertura e redesenhar a P3 para inserir uma delegação real com propósito de desenvolvimento. Em seguida, tornar a restrição de alocação mais mensurável e conectar P4 à decisão de priorização tomada em P1, para impedir respostas genéricas de monitoramento.",
+        "alertas_check": {
+          "alertas": [
+            "Erro grave: incoerência entre os descritores primários declarados nas perguntas e o mapa de cobertura, pois D3 consta em P1 mas o mapa registra D3 apenas em P3.",
+            "Erro grave: D4 — Delegação com desenvolvimento — não é efetivamente testado por P3; responsabilizar Marcela pela própria prática não equivale a delegar uma entrega ou responsabilidade desenvolvedora.",
+            "O trade-off é promissor, mas ainda permite uma resposta conciliadora se o avaliado alegar redistribuir agenda ou realizar observações curtas adicionais sem que a pergunta imponha um limite mensurável."
+          ],
+          "ponto_mais_forte": "O cenário estabelece uma restrição operacional concreta e plausível — seis observações com devolutiva para dois professores com necessidades distintas — que favorece a avaliação de priorização de atenção e acompanhamento diferenciado.",
+          "ponto_mais_fraco": "A cobertura declarada não é metodologicamente coerente: D3 aparece como descritor primário da P1, mas não consta no mapa de cobertura, e D4 é declarado na P3 sem que a pergunta coloque o avaliado diante de uma situação real de delegação com finalidade desenvolvedora.",
+          "perguntas_com_risco": [
+            {
+              "numero": 1,
+              "problema": "D3 é declarado como primário na pergunta, mas está ausente do mapa de cobertura. Além disso, o avaliado pode priorizar um professor e ainda distribuir as seis observações entre ambos sem explicitar uma renúncia operacional suficientemente verificável.",
+              "correcao_recomendada": "Alinhar o mapa para incluir D3 em P1 ou retirar D3 dos descritores primários. Especificar que priorização significa reservar, por exemplo, ao menos quatro das seis observações para um caso, exigindo que o avaliado declare a alocação."
+            },
+            {
+              "numero": 3,
+              "problema": "A pergunta avalia conversa de desenvolvimento, autonomia e gestão de resistência, mas não avalia delegação com desenvolvimento. Marcela não recebe uma responsabilidade delegada, uma entrega delimitada, critérios de qualidade ou espaço para exercer uma nova atribuição.",
+              "correcao_recomendada": "Reformular para pedir a delegação de uma ação concreta a Marcela, como redesenhar e testar uma sequência didática para uma turma, compartilhando o aprendizado com um par, com limites de autonomia, apoio e critérios de acompanhamento definidos."
+            },
+            {
+              "numero": 4,
+              "problema": "Aceita uma resposta parcialmente genérica sobre indicadores e acompanhamento, pois não obriga o avaliado a relacionar a verificação ao nível de atenção distinto definido em P1 nem a estabelecer evidência comparável antes e depois.",
+              "correcao_recomendada": "Exigir uma linha de base, uma evidência observável por docente, uma data intermediária e uma decisão explícita de realocação de atenção caso o caso não priorizado apresente piora."
+            }
+          ],
+          "descritores_sem_cobertura": [
+            "D4"
+          ]
+        },
+        "checked_at": "2026-09-17T15:34:54.173+00:00",
+        "tipo_cenario": null,
+        "p1": null,
+        "p2": null,
+        "p3": null,
+        "p4": null,
+        "ppp_escola_id": null,
+        "nota_check_legado": null,
+        "status_check_legado": null,
+        "checked_at_legado": null,
+        "auditor_legado": null
+      }
+    },
+    {
+      "cargo": "Futuro Líder",
+      "competencia": "Comunicação e Conversas de Liderança",
+      "cod_comp": "FL03",
+      "conteudo": {
+        "colaborador_id": null,
+        "alternativas": {
+          "perguntas": [
+            {
+              "texto": "Você vai realizar a devolutiva amanhã às 14h. Como você abre essa conversa — o que diz nos primeiros dois minutos e por quê escolhe essa entrada?",
+              "numero": 1,
+              "objetivo_diagnostico": "Revelar se o avaliado sabe explicitar propósito e ancorar a conversa em comportamento observado antes de qualquer julgamento — e se consegue abrir espaço para o entendimento de Carla sem perder o fio condutor",
+              "descritores_primarios": [
+                1,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: abre com avaliação da pessoa ('você está desmotivada') ou acusação ('você evitou a conversa duas vezes') sem ancorar em fato / N2: apresenta o tema de forma vaga ('quero conversar sobre sua aula') sem o exemplo concreto que torna a conversa verificável / N3: explicita o propósito ('quero devolver o que observei em 18/X para combinarmos um encaminhamento'), nomeia o comportamento específico (encerramento antecipado, dois estudantes sem atendimento) e abre para Carla contextualizar antes de concluir / N4: além do N3, escolhe a abertura considerando o histórico de adiamentos — explicita que entende que o momento é difícil para Carla e que isso não muda a necessidade da conversa, diferenciando cuidado de conivência",
+              "resposta_generica_falha_porque": "Dizer 'abriria de forma acolhedora, explicando o objetivo' não revela se o avaliado sabe ancorar em comportamento verificável nem como lida com o risco de Carla contestar a entrada da conversa"
+            },
+            {
+              "texto": "No meio da devolutiva, Carla diz: 'Qualquer professor teria feito o mesmo naquela semana — você não sabe o que está acontecendo comigo.' Como você responde nesse momento?",
+              "numero": 2,
+              "objetivo_diagnostico": "Revelar como o avaliado gerencia uma divergência real — se consegue escutar o argumento de Carla, responder ao conteúdo sem abandonar os dados observados e sem atacar ou ceder por evitação",
+              "descritores_primarios": [
+                3,
+                5
+              ],
+              "o_que_diferencia_niveis": "N1: interrompe, desqualifica ('isso não é justificativa') ou ameaça consequências para encerrar a discussão / N2: repete o dado observado sem responder ao argumento de Carla ou cede ('então vamos deixar pra outro momento') sem examinar as consequências / N3: reconhece o argumento ('quero entender o que estava acontecendo'), faz pergunta pertinente, usa a resposta para diferenciar contexto de padrão e retoma o objetivo da conversa / N4: diferencia o que é circunstancial do que é recorrente (liga ao dado do conselho de classe — 43% de tarefas não entregues), incorpora o que é válido na fala de Carla e constrói encaminhamento sem abandonar o que precisa ser dito",
+              "resposta_generica_falha_porque": "Dizer 'escutaria com empatia e buscaria entender a perspectiva dela' não revela o que o avaliado faz com o argumento de Carla — a pergunta exige uma resposta de conteúdo, não de postura"
+            },
+            {
+              "texto": "Ao final da conversa, que acordo você propõe para os próximos 8 dias — antes do conselho de classe — e como verifica se ele é viável para Carla?",
+              "numero": 3,
+              "objetivo_diagnostico": "Revelar se o avaliado constrói acordos com os elementos mínimos de verificabilidade (ação, responsável, prazo, forma de verificar) e se considera a viabilidade real dentro da rotina de Carla antes de fechar",
+              "descritores_primarios": [
+                4,
+                6
+              ],
+              "o_que_diferencia_niveis": "N1: encerra sem acordo ('vamos ver como vai') ou impõe algo fora de sua autoridade / N2: propõe ação genérica ('Carla vai prestar mais atenção no tempo de aula') sem prazo nem forma de verificar / N3: combina ação específica, responsável, prazo e forma de verificação ('Carla registra no diário o horário de encerramento das três próximas aulas; nos encontramos na quinta da semana que vem para ver isso juntos') / N4: além do N3, verifica com Carla se o acordo é viável dado o projeto de leitura que ela conduz no intervalo, e combina o que fazer se surgir impedimento — por exemplo, quem sinaliza e como",
+              "resposta_generica_falha_porque": "Dizer 'combinaria um acompanhamento próximo e estaria disponível' não é um acordo verificável — a pergunta exige que o avaliado nomeie o quê, quem, quando e como, e que mostre que testou a viabilidade com Carla antes de fechar"
+            },
+            {
+              "texto": "Dois professores estavam observando como você agiria com Carla. Como você lida com isso nos dias seguintes — sem expor Carla e sem deixar o protocolo parecer opcional?",
+              "numero": 4,
+              "objetivo_diagnostico": "Revelar se o avaliado entende que a credibilidade do protocolo é construída por comportamento consistente e comunicação de propósito — não por exposição de casos ou por silêncio que deixa a equipe interpretar livremente",
+              "descritores_primarios": [
+                1,
+                6
+              ],
+              "o_que_diferencia_niveis": "N1: expõe o caso de Carla como exemplo ('fiz a devolutiva mesmo com resistência') ou ignora completamente o efeito de modelagem na equipe / N2: afirma que 'vai continuar acompanhando todos' sem nenhuma ação concreta que sinalize à equipe que o protocolo foi mantido / N3: retoma nas reuniões pedagógicas o propósito do protocolo de devolutiva sem citar o caso de Carla, e mantém o calendário de observações visível e cumprido para todos / N4: além do N3, define o que vai observar no intervalo até o próximo conselho de classe para saber se o protocolo está sendo percebido como legítimo pela equipe — por exemplo, se os outros professores agendariam sem resistência — e como sinalizaria dificuldades à direção",
+              "resposta_generica_falha_porque": "Dizer 'manteria a postura profissional e não comentaria o caso' é resposta de senso comum — a pergunta exige que o avaliado mostre como sustenta a credibilidade do papel de forma ativa, não apenas pela omissão de falar sobre Carla"
+            }
+          ],
+          "dilema_etico": {
+            "caminho_etico": "Realizar a devolutiva no prazo, nomeando os comportamentos observados com base em evidências concretas, reconhecendo a sobrecarga sem usá-la como justificativa para não falar do impacto pedagógico, e construindo um acordo viável dentro da realidade de Carla",
+            "caminho_facil": "Adiar mais uma vez a devolutiva, justificando internamente que Carla 'já sabe' o que foi observado e que o momento não é propício — preservando a relação e evitando o conflito",
+            "valor_testado": "Cuidado com quem ensina versus Decisão com evidência"
+          },
+          "tradeoff_testado": "Preservar o vínculo com Carla e reconhecer sua sobrecarga versus sustentar o protocolo de devolutiva que dá credibilidade ao papel de coordenação perante toda a equipe — adiar é proteger a relação no curto prazo e destruir a prática no médio prazo",
+          "confianca_cenario": 0.88,
+          "fator_complicador": "Carla não está errada ao se sentir sobrecarregada — o projeto de leitura é legítimo e valorizado pela escola. Isso torna difícil abordar o comportamento sem que pareça punição a quem se engaja. A tentação de 'reconhecer o esforço e deixar passar' é real e eticamente sedutora",
+          "riscos_do_cenario": [
+            "Avaliado pode focar excessivamente na gestão de agenda e desviar do conteúdo da conversa em si, respondendo bem a P2 sem revelar nada sobre D2 ou D3",
+            "A sobrecarga de Carla pode ser usada como elemento de compaixão que mascare respostas N1/N2 como se fossem N3/N4 — o avaliador precisa distinguir acolhimento genuíno de evitação disfarçada"
+          ],
+          "stakeholders_centrais": [
+            "Carla",
+            "você (coordenador)"
+          ],
+          "faceta_testada_principal": "Conduzir uma conversa de feedback com alguém que resiste ao encontro — mantendo foco no comportamento observado sem rotular a pessoa, construindo um acordo verificável mesmo diante da sobrecarga real do interlocutor",
+          "mapa_cobertura_descritores": {
+            "D1": [
+              1,
+              4
+            ],
+            "D2": [
+              1
+            ],
+            "D3": [
+              2
+            ],
+            "D4": [
+              3
+            ],
+            "D5": [
+              2
+            ],
+            "D6": [
+              3,
+              4
+            ]
+          },
+          "armadilha_de_resposta_generica": "Dizer 'conversaria com Carla de forma empática, ouviria seu lado e construiríamos juntos um plano' não resolve o cenário porque não responde à escolha real: fazer amanhã às 14h, com dados concretos que ela pode contestar, enquanto a equipe observa — empatia sem decisão é exatamente o que um N2 faz"
+        },
+        "titulo": "A devolutiva que Carla não quer receber",
+        "descricao": "Você é coordenador pedagógico de uma das unidades de uma rede privada de educação básica com três escolas. A rede tem como meta tornar a devolutiva ao professor uma prática regular — toda observação de aula deve gerar um retorno estruturado em até uma semana. Carla, professora de 6º ano com oito anos na escola, foi observada há seis dias. Na observação, você registrou que ela encerrou a aula 12 minutos antes do sinal, sem atividade prevista, e que dois estudantes ficaram sem atendimento enquanto ela organizava o caderno de chamada. No conselho de classe do bimestre anterior, a turma dela apareceu com o maior índice de tarefas não entregues da unidade — 43%. Você já tentou agendar a devolutiva duas vezes. Na primeira, Carla disse que estava com a voz rouca. Na segunda, pediu para adiar porque 'a semana estava pesada'. Você sabe, por conversa de corredor, que Carla está sobrecarregada: acumula um projeto voluntário de leitura que ela mesma criou e que consome seu intervalo. Outros dois professores estão observando como você vai agir com ela — se a devolutiva não acontecer, o protocolo perde credibilidade perante a equipe. Você tem janela de agenda amanhã às 14h, único horário viável antes do próximo conselho de classe, que ocorre em 8 dias.",
+        "nota_check": 85,
+        "status_check": "aprovado_com_ressalvas",
+        "dimensoes_check": {
+          "auditabilidade": 9,
+          "clareza_tradeoff": 12,
+          "poder_discriminante": 17,
+          "realismo_contextual": 14,
+          "contencao_sobriedade": 6,
+          "aderencia_competencia": 13,
+          "cobertura_descritores": 14
+        },
+        "justificativa_check": "O cenário apresenta um conflito profissional crível, dados observáveis e perguntas que exigem decisões e formulações concretas, especialmente nas três primeiras etapas da conversa. Contudo, o excesso de informações contextuais reduz a sobriedade operacional, e a quarta pergunta amplia o construto avaliado para além da conversa de feedback individual.",
+        "sugestao_check": "Reduzir o contexto para até 900 caracteres, preservando apenas: observação de aula, dois adiamentos, prazo de oito dias e pressão de credibilidade do protocolo. Reformular P4 para testar continuidade do acordo com Carla e reposicionar os 43% como dado a explorar, sem sugerir que comprovam recorrência dos comportamentos observados.",
+        "alertas_check": {
+          "alertas": [
+            "O contexto contém mais informações do que o necessário para produzir evidência comportamental; projeto voluntário, conversa de corredor e dados do conselho podem competir pela atenção do avaliado.",
+            "A instrução de que a devolutiva ocorrerá obrigatoriamente amanhã reduz parcialmente o trade-off decisório; o foco passa a ser a qualidade da condução, e não a decisão entre adiar ou realizar.",
+            "O avaliador deve evitar premiar assertividade punitiva como sustentação de protocolo ou acolhimento excessivo como escuta qualificada."
+          ],
+          "ponto_mais_forte": "As perguntas P1, P2 e P3 formam uma sequência diagnóstica consistente de conversa de liderança: abertura baseada em fatos, manejo de divergência e fechamento com acordo verificável. As diferenciações N1-N4 são operacionais e tornam respostas superficiais visivelmente distintas de respostas competentes.",
+          "ponto_mais_fraco": "O contexto está excessivamente longo para uso produtivo e P4 se desloca parcialmente da competência de condução de conversa para gestão da percepção coletiva e sustentação de protocolo. Além disso, a associação entre os comportamentos observados na aula e os 43% de tarefas não entregues pode induzir uma inferência causal não comprovada.",
+          "perguntas_com_risco": [
+            {
+              "numero": 2,
+              "problema": "O nível N4 orienta o avaliado a conectar o dado de 43% de tarefas não entregues aos fatos observados, embora o cenário não estabeleça relação causal entre eles. Isso pode premiar uma conversa baseada em interpretação não validada.",
+              "correcao_recomendada": "Manter o dado de 43% apenas como tema adicional a investigar, exigindo que o avaliado diferencie explicitamente fato observado, percepção de Carla e hipótese a ser verificada."
+            },
+            {
+              "numero": 4,
+              "problema": "Avalia mais a comunicação institucional sobre o protocolo e a leitura do clima da equipe do que a competência central de comunicação em uma conversa de liderança com Carla.",
+              "correcao_recomendada": "Substituir por uma pergunta sobre como o avaliado retomaria o acordo com Carla caso ela não execute o combinado, ou declarar P4 como item complementar de liderança sistêmica, fora da pontuação principal da competência."
+            }
+          ],
+          "descritores_sem_cobertura": []
+        },
+        "checked_at": "2026-09-17T15:23:31.751+00:00",
+        "tipo_cenario": null,
+        "p1": null,
+        "p2": null,
+        "p3": null,
+        "p4": null,
+        "ppp_escola_id": null,
+        "nota_check_legado": null,
+        "status_check_legado": null,
+        "checked_at_legado": null,
+        "auditor_legado": null
+      }
+    },
+    {
+      "cargo": "Futuro Líder",
+      "competencia": "Priorização e Tomada de Decisão",
+      "cod_comp": "FL04",
+      "conteudo": {
+        "colaborador_id": null,
+        "alternativas": {
+          "perguntas": [
+            {
+              "texto": "Com 6 horas semanais disponíveis e duas frentes — devolutivas e preparação do conselho — o que você preserva integralmente, o que reduz e qual critério orienta essa escolha?",
+              "numero": 1,
+              "objetivo_diagnostico": "Revelar se o avaliado consegue explicitar um critério de priorização coerente e nomear a renúncia concreta, ou se tenta acomodar tudo sem reconhecer o limite real",
+              "descritores_primarios": [
+                1,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: Tenta encaixar as duas frentes integralmente ou decide por quem pressionou mais, sem mencionar limite de horas | N2: Reconhece que algo ficará de fora, mas não nomeia o quê nem o critério | N3: Explicita qual frente preserva, qual reduz, e enuncia o critério usado (ex.: impacto sobre turmas com defasagem, prazo inegociável do conselho) | N4: Além de nomear a renúncia, verifica dependências entre as frentes e define em que condição a ordem seria revista",
+              "resposta_generica_falha_porque": "Dizer 'equilibrarei as prioridades conforme urgência' não resolve — o cenário exige que algo fique de fora; sem nomear o quê, o avaliado não demonstra priorização real"
+            },
+            {
+              "texto": "Considerando a frente que você preservou e a que reduziu, como tornará a execução viável nos 18 dias? O que ficará deliberadamente fora do escopo e qual impacto você aceita?",
+              "numero": 2,
+              "objetivo_diagnostico": "Revelar se o avaliado ajusta a execução à capacidade real — sem manter compromissos incompatíveis — e se consegue nomear o impacto aceito em vez de prometer qualidade integral",
+              "descritores_primarios": [
+                3,
+                4
+              ],
+              "o_que_diferencia_niveis": "N1: Mantém todos os compromissos originais sem ajuste, aumentando exigência sobre si ou sobre a equipe | N2: Reconhece que algo será reduzido, mas mantém promessa de qualidade plena sem explicar como | N3: Ajusta prazo ou escopo de forma específica, nomeia o impacto aceito (ex.: 3 professores receberão devolutiva após o conselho) e explicita consequências futuras | N4: Define medida para reduzir o efeito adverso da renúncia (ex.: comunicar aos professores adiados com antecedência e combinar nova data) e um ponto de revisão",
+              "resposta_generica_falha_porque": "'Farei o possível dentro do prazo' não especifica o que sai do escopo nem o impacto — a pergunta exige nomeação concreta da perda e aceite explícito do risco"
+            },
+            {
+              "texto": "Renata retorna com carga máxima de 60% por tempo indeterminado. A rede tem um critério de retorno igual ao aplicado a outro professor há três meses. Como você aplica esse critério com Renata, sabendo que a capacidade dela pode não mudar nas próximas semanas?",
+              "numero": 3,
+              "objetivo_diagnostico": "Revelar se o avaliado aplica critério organizacional de forma consistente entre casos comparáveis, sem abrir exceção por conveniência, e se decide com encaminhamento justificado diante de incerteza real",
+              "descritores_primarios": [
+                5,
+                6
+              ],
+              "o_que_diferencia_niveis": "N1: Decide por pressão do conselho ou preferência — flexibiliza o critério para Renata sem examinar a consistência com o caso anterior | N2: Menciona o critério de retorno gradual, mas o aplica sem considerar a incerteza clínica nem o precedente comparável | N3: Distingue o caso de Renata do anterior se houver diferença relevante, justifica com critério pertinente e define encaminhamento para enquanto a capacidade permanecer incerta | N4: Explicita como o critério será comunicado e aplicado em casos futuros semelhantes, define salvaguardas e sinais que indicariam revisão da decisão",
+              "resposta_generica_falha_porque": "'Conversarei com Renata para entender como ela está' não responde à consistência do critério nem à decisão sob incerteza — a pergunta exige posição sobre o precedente e encaminhamento com prazo indefinido"
+            },
+            {
+              "texto": "Ao final dos 18 dias, como você saberá se a decisão que tomou funcionou? Defina dois indicadores — um para a frente preservada, um para a reduzida — com limiar, responsável e ação de correção.",
+              "numero": 4,
+              "objetivo_diagnostico": "Revelar se o avaliado vincula o monitoramento às renúncias reais feitas nas respostas anteriores, com indicadores específicos e ação de correção pré-definida, ou se recorre a acompanhamento genérico",
+              "descritores_primarios": [
+                3,
+                4
+              ],
+              "o_que_diferencia_niveis": "N1: Cita acompanhamento genérico ('vou monitorar o andamento') sem indicador ou limiar | N2: Menciona indicadores, mas não os conecta às escolhas feitas nem define quem age quando | N3: Define dois indicadores diretamente ligados às frentes preservada e reduzida, com limiar e responsável | N4: Além dos indicadores, define ação de correção proporcional e ponto de revisão antecipado — antes do próximo ciclo — para o caso em que o limiar seja atingido",
+              "resposta_generica_falha_porque": "Indicadores desconectados das renúncias específicas (ex.: 'satisfação geral da equipe') não demonstram que o avaliado compreende o que monitorar em função do que abriu mão — a pergunta exige vínculo direto com as decisões anteriores"
+            }
+          ],
+          "dilema_etico": {
+            "caminho_etico": "Aplicar o mesmo critério de retorno gradual sem acúmulo, comunicar o impacto que isso gera na frente que ficará reduzida e definir encaminhamento para quando a capacidade de Renata for revista",
+            "caminho_facil": "Aplicar a Renata um critério mais flexível do que o aplicado ao colega há três meses — por urgência do conselho ou por preferência pessoal — sem explicitar a exceção",
+            "valor_testado": "Cuidado com quem ensina e Equidade"
+          },
+          "tradeoff_testado": "Preservar a qualidade das devolutivas (compromisso com desenvolvimento docente individual) ou garantir a preparação coletiva do conselho de classe (compromisso com leitura das turmas e encaminhamentos) — as duas frentes não cabem integralmente nas 6 horas semanais disponíveis",
+          "confianca_cenario": 0.87,
+          "fator_complicador": "Renata não é uma terceira frente: ela é uma condição de limite que atravessa qualquer decisão — sua carga restrita afeta diretamente o conselho e as devolutivas, e a ausência de previsão clínica impede planejamento com data definida",
+          "riscos_do_cenario": [
+            "Avaliado pode tratar Renata como frente paralela e não como condição de contorno, diluindo o foco",
+            "A referência ao colega com retorno anterior pode ser ignorada, esvaziando o teste de D5"
+          ],
+          "stakeholders_centrais": [
+            "Renata",
+            "equipe docente das 8 devolutivas pendentes"
+          ],
+          "faceta_testada_principal": "Priorização explícita com renúncia nomeada: escolher entre duas demandas legítimas sob capacidade real insuficiente, comunicar impactos e operar com critério consistente sob incerteza",
+          "mapa_cobertura_descritores": {
+            "D1": [
+              1
+            ],
+            "D2": [
+              1,
+              2
+            ],
+            "D3": [
+              2,
+              4
+            ],
+            "D4": [
+              2,
+              4
+            ],
+            "D5": [
+              3
+            ],
+            "D6": [
+              3
+            ]
+          },
+          "armadilha_de_resposta_generica": "Dizer 'priorizarei as duas frentes de forma equilibrada' ou 'conversarei com todos para alinhar' não resolve: a conta de horas não fecha, alguém ficará sem devolutiva no prazo ou o conselho chegará com dados insuficientes — a resposta precisa nomear qual frente perde escopo e por quê"
+        },
+        "titulo": "18 dias, duas frentes, uma coordenadora de volta",
+        "descricao": "Você é coordenador(a) pedagógico(a) de uma unidade de rede privada de educação básica. Faltam 18 dias úteis para o conselho de classe bimestral. Nesse período, o protocolo da rede prevê também a rodada mensal de devolutivas de aula — 8 professores aguardam retorno de observações já feitas. Sua capacidade semanal de trabalho pedagógico direto é de 10 horas, mas o encontro bimestral da rede consome 4 horas nesse ciclo, restando 6 horas úteis por semana. Renata, professora do 6º ano afastada por licença médica há 30 dias, retorna amanhã com restrição formal: carga máxima de 60% por tempo indeterminado — sem previsão clínica de revisão nas próximas semanas. A rede tem um critério registrado para retornos de licença: carga gradual, sem acúmulo de demandas não essenciais no primeiro ciclo de retorno. Outro professor passou por retorno similar há três meses com o mesmo critério aplicado. Você precisa decidir o que preserva integralmente, o que reduz ou adia, e como operará com Renata dentro do limite — sem saber quando ele mudará.",
+        "nota_check": 78,
+        "status_check": "revisar",
+        "dimensoes_check": {
+          "auditabilidade": 6,
+          "clareza_tradeoff": 14,
+          "poder_discriminante": 12,
+          "realismo_contextual": 14,
+          "contencao_sobriedade": 5,
+          "aderencia_competencia": 14,
+          "cobertura_descritores": 13
+        },
+        "justificativa_check": "O instrumento tem trade-off central claro, dados de capacidade e boa articulação entre P1 e P2, produzindo diferença relevante entre respostas de baixo e alto nível. Porém, ultrapassa os limites de contenção, introduz uma terceira frente decisória pouco especificada com Renata e não fornece dados suficientes para que D5 e D6 sejam observados por comportamento decisório, e não por declaração de princípio.",
+        "sugestao_check": "Reduzir o contexto para até 900 caracteres e manter duas decisões integradas: a priorização entre conselho e devolutivas, e a alocação concreta de Renata como condição de capacidade dessa mesma escolha. Informe uma atribuição específica que precisará ser mantida, reduzida ou redistribuída; então reformule P3 para exigir decisão, precedente comparável, impacto aceito e gatilho de revisão. Encurte P3 e P4 para até 200 caracteres.",
+        "alertas_check": {
+          "alertas": [
+            "O contexto contém mais informação do que o necessário para a decisão central e excede o limite de contenção estabelecido.",
+            "Renata pode ser tratada como uma frente paralela, em vez de condição de contorno da priorização principal, fragmentando o construto avaliado.",
+            "O precedente do outro professor é citado, mas sem detalhes comparáveis suficientes para diferenciar aplicação consistente de repetição genérica da política."
+          ],
+          "ponto_mais_forte": "O cenário impõe insuficiência objetiva de capacidade e exige uma renúncia explícita entre duas demandas legítimas. P1 e P2 dificultam respostas conciliatórias e avaliam diretamente critérios, escolhas, impacto e viabilidade de execução.",
+          "ponto_mais_fraco": "A decisão sobre Renata é pouco operacionalizada: não há informação sobre sua carga anterior, atribuições essenciais, distribuição de aulas ou qual demanda concreta seria redistribuída. Assim, P3 tende a medir adesão declaratória a uma política já dada, e não decisão consistente em incerteza.",
+          "perguntas_com_risco": [
+            {
+              "numero": 3,
+              "problema": "A pergunta informa que já existe um critério formal aplicável, mas não apresenta uma decisão operacional concreta sobre carga, atribuições ou redistribuição. Isso permite responder genericamente que aplicará o critério e acompanhará a situação, sem demonstrar D5 e D6 em profundidade.",
+              "correcao_recomendada": "Adicionar a carga ou as atribuições que Renata tinha antes da licença e uma necessidade concreta de cobertura. Exigir que o avaliado defina o que Renata manterá, o que será redistribuído e em qual evidência revisará essa composição."
+            },
+            {
+              "numero": 4,
+              "problema": "A pergunta é metodologicamente útil, mas extensa e pode deslocar a avaliação para desenho de indicadores, reduzindo o foco em priorização e decisão.",
+              "correcao_recomendada": "Encurtar e vincular a pergunta a uma decisão já tomada: 'Para a frente preservada e a reduzida, indique um sinal de execução, um limiar e a ação caso o limiar seja atingido.'"
+            }
+          ],
+          "descritores_sem_cobertura": []
+        },
+        "checked_at": "2026-09-17T15:34:51.935+00:00",
+        "tipo_cenario": null,
+        "p1": null,
+        "p2": null,
+        "p3": null,
+        "p4": null,
+        "ppp_escola_id": null,
+        "nota_check_legado": null,
+        "status_check_legado": null,
+        "checked_at_legado": null,
+        "auditor_legado": null
+      }
+    },
+    {
+      "cargo": "Futuro Líder",
+      "competencia": "Autoconsciência e Aprendizagem Contínua",
+      "cod_comp": "FL05",
+      "conteudo": {
+        "colaborador_id": null,
+        "alternativas": {
+          "perguntas": [
+            {
+              "texto": "Ao rever o episódio antes da reunião pedagógica, o que você identifica como erro seu e o que avalia como observação ainda válida? Como chegou a essa distinção?",
+              "numero": 1,
+              "objetivo_diagnostico": "Revelar se o avaliado consegue separar o que foi uma falha real de atuação (imprecisão na formulação sem evidência registrada) do que permanece como dado pedagógico legítimo — sem recuar tudo nem defender tudo.",
+              "descritores_primarios": [
+                2,
+                1
+              ],
+              "o_que_diferencia_niveis": "N1: Rejeita ter errado ('Renata exagerou') ou capitula integralmente ('errei em tudo, foi inadequado'). | N2: Reconhece que 'poderia ter sido mais cuidadoso', sem identificar o que exatamente foi o erro e por quê. | N3: Identifica que o uso de 'claramente' sem registro de frequência foi a falha concreta e mantém que a observação sobre interrupção dos alunos é válida, explicando a distinção. | N4: Além da distinção, explicita como vai comunicar isso — reconhecendo a falha com precisão e comunicando o que permanece válido — e considera a perspectiva de Renata sem abandonar a função da devolutiva.",
+              "resposta_generica_falha_porque": "Dizer 'errei na forma, mas não no conteúdo' sem especificar qual ação foi o erro e por que a observação permanece válida é insuficiente — o cenário exige que o avaliado sustente a distinção com evidência, não com intenção."
+            },
+            {
+              "texto": "Na reunião pedagógica com Renata presente, o que você faz e o que não faz? Justifique a escolha considerando o que pode perder em cada caminho.",
+              "numero": 2,
+              "objetivo_diagnostico": "Revelar como o avaliado toma decisão sob pressão social e gerencia o impacto do próprio comportamento no grupo — testando autorregulação, consciência do custo de cada opção e capacidade de sustentar posição sem escalar conflito.",
+              "descritores_primarios": [
+                4,
+                2
+              ],
+              "o_que_diferencia_niveis": "N1: Evita o assunto na reunião ou responde à pressão do grupo defendendo-se como vítima de má interpretação. | N2: Reconhece que foi um momento difícil, mas não define o que fará de diferente na reunião nem antecipa o impacto de cada escolha. | N3: Define uma ação concreta (ex.: reconhecer a imprecisão publicamente antes que o tema se instale) e nomeia o que abre mão ao fazer isso (ex.: não retoma o conteúdo da observação naquele espaço). | N4: Sustenta o ajuste mesmo que o grupo pressione, monitora se a interação ficou mais produtiva e distingue o que é espaço de grupo do que precisa de conversa individual com Renata.",
+              "resposta_generica_falha_porque": "Dizer que vai 'criar um espaço seguro e escutar o grupo' não enfrenta a escolha real: a reunião já está contaminada, Renata já falou, e qualquer ação tem custo — a resposta precisa nomear o trade-off, não dissolvê-lo."
+            },
+            {
+              "texto": "Renata procura você antes da reunião e diz: 'Fui honesta com o grupo porque você me avaliou, não me apoiou. Você sabe que errou.' O que você responde e como conduz esse momento?",
+              "numero": 3,
+              "objetivo_diagnostico": "Revelar como o avaliado usa o feedback direto e carregado emocionalmente — se examina o conteúdo sem desqualificar a fonte nem aceitar tudo sem distinção, e se consegue autorregular sob provocação explícita.",
+              "descritores_primarios": [
+                3,
+                4
+              ],
+              "o_que_diferencia_niveis": "N1: Desqualifica Renata ('você interpretou errado') ou cede completamente para encerrar a tensão. | N2: Aceita o feedback de forma genérica ('entendo que você se sentiu assim') sem examinar o que há de verificável no que ela disse. | N3: Distingue o que é válido no feedback de Renata (a formulação imprecisa de fato soou como julgamento) do que ainda precisa verificar (se a estrutura da devolutiva como um todo foi inadequada), sem perder a postura. | N4: Define um ajuste coerente com o válido no feedback, justifica por que não abandona o conteúdo pedagógico observado, e propõe como retomar a devolutiva com Renata em condição mais segura.",
+              "resposta_generica_falha_porque": "Dizer que vai 'ouvir com empatia e encontrar um caminho juntos' não resolve: Renata fez uma afirmação direta ('você sabe que errou') que exige que o avaliado examine o conteúdo — uma resposta emocional sem exame factual não discrimina N2 de N3."
+            },
+            {
+              "texto": "Você já conduziu uma situação parecida antes — devolutiva que gerou reação negativa de um professor. O que aprendeu naquele caso e como isso se aplica aqui? Onde esse aprendizado pode não funcionar?",
+              "numero": 4,
+              "objetivo_diagnostico": "Revelar se o avaliado transfere aprendizagens com adaptação — identificando o que é comparável entre as situações, o que é diferente, e onde o aprendizado anterior pode falhar — ou se apenas repete a solução anterior sem exame.",
+              "descritores_primarios": [
+                5,
+                6
+              ],
+              "o_que_diferencia_niveis": "N1: Repete o que fez antes como receita ('da última vez resolvi com uma conversa individual e funcionou') sem examinar diferenças. | N2: Menciona a experiência anterior, mas não extrai o aprendizado aplicável nem indica onde pode não funcionar. | N3: Extrai um aprendizado pertinente e indica uma diferença relevante entre os casos (ex.: 'desta vez o conflito já é público, então a conversa individual não resolve o grupo'). | N4: Adapta a aplicação do aprendizado à diferença identificada, nomeia o limite do próprio repertório e define como vai buscar apoio ou verificar se a estratégia está funcionando.",
+              "resposta_generica_falha_porque": "Dizer que 'cada situação é única' sem extrair nenhum aprendizado transferível é N1 encoberto; dizer que 'vai usar o que aprendeu' sem indicar onde pode não funcionar não discrimina N2 de N3 — o cenário exige que o avaliado identifique tanto a pertinência quanto o limite da transferência."
+            }
+          ],
+          "dilema_etico": {
+            "caminho_etico": "Reconhecer a imprecisão na formulação com evidência (sem o registro de frequência, o advérbio não tinha sustentação) e, ao mesmo tempo, manter o conteúdo observado como dado legítimo a ser retomado em condição adequada, cuidando da relação sem abrir mão da função pedagógica da devolutiva.",
+            "caminho_facil": "Pedir desculpa genérica a Renata e ao grupo, deixar o assunto passar e não retomar o conteúdo da devolutiva para não gerar novo conflito.",
+            "valor_testado": "Decisão com evidência + Cuidado com quem ensina"
+          },
+          "tradeoff_testado": "Reconhecer publicamente o erro de formulação (o advérbio 'claramente' sem registro de frequência) sem abandonar o conteúdo pedagógico da devolutiva, que permanece relevante — reconhecer tudo para apaziguar o grupo versus sustentar o que é válido mesmo sob pressão.",
+          "confianca_cenario": 0.88,
+          "fator_complicador": "A reação de Renata ganhou adesão coletiva antes que você pudesse responder, o que transforma um erro pontual de linguagem em um problema de credibilidade da prática de devolutiva para toda a equipe — qualquer recuo total invalida a ferramenta; qualquer defesa sem autocrítica aprofunda a ruptura.",
+          "riscos_do_cenario": [
+            "Avaliado pode focar apenas no gerenciamento do conflito interpessoal e ignorar a dimensão pedagógica da devolutiva, estreitando o diagnóstico de D5 e D6.",
+            "A presença da direção pode desviar o foco para gestão de imagem institucional em vez de autoconsciência, especialmente em perfis mais políticos."
+          ],
+          "stakeholders_centrais": [
+            "Renata",
+            "Direção"
+          ],
+          "faceta_testada_principal": "Responsabilidade pela própria atuação combinada com uso produtivo de feedback — a faceta central é a capacidade de distinguir o que foi um erro genuíno de condução do que permanece como observação válida, sem recuar integralmente nem manter a posição sem revisão.",
+          "mapa_cobertura_descritores": {
+            "D1": [
+              1
+            ],
+            "D2": [
+              1,
+              2
+            ],
+            "D3": [
+              3
+            ],
+            "D4": [
+              2,
+              3
+            ],
+            "D5": [
+              4
+            ],
+            "D6": [
+              4
+            ]
+          },
+          "armadilha_de_resposta_generica": "Dizer que vai 'conversar com Renata, ouvir o grupo e ajustar a prática' não enfrenta o trade-off: o avaliado precisa indicar o que, especificamente, foi seu erro versus o que permanece como observação válida — sem essa distinção, a resposta não discrimina N2 de N3."
+        },
+        "titulo": "A devolutiva que incomoda",
+        "descricao": "Você é coordenador pedagógico de uma das unidades de uma rede privada de educação básica com três escolas. Há dois meses, a rede implantou a prática de observação de aula com devolutiva mensal. Você observou a aula de Renata, professora com oito anos de casa, muito respeitada pela equipe. Na devolutiva, você apontou que ela interrompe os alunos antes que terminem de responder e que isso pode estar limitando a participação da turma. Renata ouviu em silêncio, agradeceu e saiu. Na semana seguinte, em reunião pedagógica, ela disse ao grupo que 'a observação virou julgamento' e que se sentiu avaliada, não apoiada. Dois colegas concordaram em voz alta. Você percebe, ao rever o que disse, que usou a expressão 'você claramente não deixa os alunos concluírem' — um dado de frequência que você não tinha registrado com precisão. A direção sinalizou que quer conversar com você sobre o episódio antes do próximo encontro da rede, daqui a cinco dias. Neste intervalo, há uma reunião pedagógica marcada, e Renata estará presente.",
+        "nota_check": 79,
+        "status_check": "revisar",
+        "dimensoes_check": {
+          "auditabilidade": 8,
+          "clareza_tradeoff": 13,
+          "poder_discriminante": 18,
+          "realismo_contextual": 14,
+          "contencao_sobriedade": 3,
+          "aderencia_competencia": 13,
+          "cobertura_descritores": 10
+        },
+        "justificativa_check": "O núcleo diagnóstico é consistente com Autoconsciência e Aprendizagem Contínua, especialmente para responsabilidade pela atuação, uso de feedback e autorregulação sob exposição social. Contudo, o cenário está acima do nível de contenção previsto e a cobertura de abertura a perspectivas diferentes e reconhecimento de limites/busca de apoio é mais declarada no mapa do que obrigatoriamente observável nas respostas.",
+        "sugestao_check": "Reduzir o contexto para até 900 caracteres, retirando ou minimizando a pressão da direção e concentrando o caso na devolutiva imprecisa e na reação pública de Renata. Reforçar D1 em P1 ou P3 com uma demanda explícita de revisão a partir da perspectiva alheia e tornar D6 diretamente observável em P4, sem depender exclusivamente de experiência pregressa.",
+        "alertas_check": {
+          "alertas": [
+            "O contexto combina três tensões operacionais; embora não configure erro grave pelo limite formal de quatro tensões, reduz sobriedade e pode deslocar a resposta para gestão de imagem diante da direção.",
+            "P1 e P3 exploram o mesmo incidente e a mesma distinção entre formulação inadequada e conteúdo válido; há boa triangulação, mas risco de redundância se a avaliação não diferenciar claramente análise prévia de uso do feedback direto.",
+            "O campo de riscos declarados contém uma redação truncada e associa o foco interpessoal a D5 e D6 de modo pouco preciso, o que reduz a utilidade do metadado para revisão e correção."
+          ],
+          "ponto_mais_forte": "O cenário produz boa discriminação entre reconhecimento superficial de erro e revisão responsável da própria atuação. P1 e P3 exigem que o avaliado separe fato, interpretação, impacto e ação corretiva, tornando insuficiente uma resposta apenas conciliadora ou defensiva.",
+          "ponto_mais_fraco": "A contenção está comprometida: o contexto excede o limite de 900 caracteres e acumula três frentes de pressão — erro técnico na devolutiva, conflito público com a professora/equipe e sinalização da direção. Além disso, D1 e D6 aparecem de modo periférico, predominantemente nos indicadores de nível alto, e não são exigidos com clareza pela formulação das perguntas.",
+          "perguntas_com_risco": [
+            {
+              "numero": 1,
+              "problema": "D1 está mapeado como descritor primário, mas a pergunta pode ser respondida integralmente por análise factual da própria conduta, sem demonstrar abertura efetiva à perspectiva de Renata ou dos colegas.",
+              "correcao_recomendada": "Incluir uma exigência explícita: \"Que aspecto da reação de Renata ou dos colegas pode indicar algo que você ainda não considerou na sua devolutiva?\""
+            },
+            {
+              "numero": 2,
+              "problema": "A pergunta contém um trade-off relevante, mas induz uma solução específica nos exemplos de diferenciação: reconhecer publicamente a imprecisão e não retomar o conteúdo pedagógico no grupo. Isso pode reduzir a variedade de estratégias legítimas.",
+              "correcao_recomendada": "Avaliar a qualidade da delimitação entre reparação pública e aprofundamento individual, sem pressupor que uma única sequência de ações seja a resposta esperada."
+            },
+            {
+              "numero": 4,
+              "problema": "D6 depende de o avaliado relatar experiência prévia comparável e só aparece de forma explícita no N4. Candidatos com menor histórico de liderança podem ter desvantagem por repertório, não por menor autoconsciência.",
+              "correcao_recomendada": "Reformular para incluir uma alternativa: \"Com base em experiência anterior ou em como você buscaria referências para agir...\" e perguntar diretamente que apoio, dado ou interlocutor seria necessário diante do limite identificado."
+            }
+          ],
+          "descritores_sem_cobertura": []
+        },
+        "checked_at": "2026-09-17T15:25:11.062+00:00",
+        "tipo_cenario": null,
+        "p1": null,
+        "p2": null,
+        "p3": null,
+        "p4": null,
+        "ppp_escola_id": null,
+        "nota_check_legado": null,
+        "status_check_legado": null,
+        "checked_at_legado": null,
+        "auditor_legado": null
+      }
+    }
+  ]
+}

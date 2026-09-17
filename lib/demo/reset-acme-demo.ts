@@ -83,6 +83,30 @@ import {
 } from '@/lib/demo/rosters/comercial';
 import type { DemoRoster } from '@/lib/demo/rosters/types';
 import { cargoSemAssessment, jornadaDoCargoConstruido } from '@/lib/demo/rosters/cargo-sem-assessment';
+import { instalarMatrizLideranca } from '@/lib/simuladores/lideranca/instalar';
+import { VARIANTES, ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
+import type { ConfigProntidaoLideranca } from '@/lib/prontidao-lideranca/config';
+import {
+  cenariosLiderancaParaReinserir,
+  congelarCenariosLideranca,
+  linhasDosCenariosLideranca,
+  simuladorLiderancaLigado,
+  sysConfigComSimuladorLideranca,
+  type CenarioLiderancaCongelado,
+} from '@/lib/demo/simulador-lideranca-demo';
+import cenariosLiderancaAcme from '@/lib/demo/cenarios-lideranca/acme-demo.json';
+import cenariosLiderancaEscolas from '@/lib/demo/cenarios-lideranca/escolas-acme.json';
+
+/**
+ * Rede de segurança dos cenários do simulador de liderança, por ambiente: só
+ * entra quando o módulo está ligado e o banco não tem nenhum cenário (a
+ * curadoria do banco vence). Congelados em 17/09/2026, depois que o dono ligou
+ * o módulo e gerou os cenários pelo painel nos dois ambientes.
+ */
+export const CENARIOS_LIDERANCA_CONGELADOS: Record<string, CenarioLiderancaCongelado[]> = {
+  'acme-demo': cenariosLiderancaAcme.cenarios as CenarioLiderancaCongelado[],
+  'escolas-acme': cenariosLiderancaEscolas.cenarios as CenarioLiderancaCongelado[],
+};
 
 // Reexportados porque o portal de vendas, os testes e o painel importam o
 // elenco DESTE módulo desde antes de ele virar roster.
@@ -309,6 +333,15 @@ export const DEMO_TENANT_PROFILES = {
     acessoAllowlist: null as readonly string[] | null,
     resetPausadoAte: null as string | null,
     convidado: null as DemoConvidado | null,
+    // Simulador de liderança LIGADO (decisão do dono, 17/09/2026). É o padrão
+    // para quando o banco não tem configuração: o que o painel gravar vence, e
+    // atravessa o reset (`lib/demo/simulador-lideranca-demo.ts`).
+    simuladorLideranca: {
+      cargo_alvo: 'Gerente Comercial',
+      escopo: { tipo: 'empresa_inteira' },
+      um_por_dia: true,
+      corte_nota: 3,
+    } as ConfigProntidaoLideranca | null,
     relatoriosOrganizacionais: {
       teamSize: ACME_DEMO_TEAM_SIZE,
       withProfile: ACME_DEMO_FUNNEL_TARGETS.withProfile,
@@ -340,6 +373,7 @@ export const DEMO_TENANT_PROFILES = {
     // o que impedia o cron das 4h de apagar o que a geração pagou.
     resetPausadoAte: null as string | null,
     convidado: null as DemoConvidado | null,
+    simuladorLideranca: null as ConfigProntidaoLideranca | null,
   },
   [GRUPO_SINAL_SLUG]: {
     slug: GRUPO_SINAL_SLUG,
@@ -375,6 +409,7 @@ export const DEMO_TENANT_PROFILES = {
       telefone: '+5511967673976',
       cargo: 'Representante Comercial',
     } as DemoConvidado,
+    simuladorLideranca: null as ConfigProntidaoLideranca | null,
   },
 } as const;
 
@@ -1177,10 +1212,12 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   }
 
   async function upsertEmpresaDemo(source: any) {
+    const existing = await must('load demo empresa', sb.from('empresas').select('id,sys_config').eq('slug', profile.slug).maybeSingle());
     const payload = {
       nome: profile.nome, slug: profile.slug, segmento: profile.segmento || source.segmento || 'corporativo',
       is_demo: true, // gate de envio (mig 160): fonte única de "tenant de demonstração"
-      sys_config: demoSysConfig(source.sys_config || {}),
+      // O simulador de liderança configurado pelo painel atravessa o reset.
+      sys_config: sysConfigComSimuladorLideranca(demoSysConfig(source.sys_config || {}), existing?.sys_config, profile.simuladorLideranca),
       ui_config: {
         ...(source.ui_config || {}),
         ...(profile.logoUrl ? { logo_url: profile.logoUrl } : {}),
@@ -1188,11 +1225,56 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       },
       default_locale: source.default_locale || 'pt-BR',
     };
-    const existing = await must('load demo empresa', sb.from('empresas').select('id').eq('slug', profile.slug).maybeSingle());
     if (existing?.id) {
-      return await must('update demo empresa', sb.from('empresas').update(payload).eq('id', existing.id).select('id,nome,slug').single());
+      return await must('update demo empresa', sb.from('empresas').update(payload).eq('id', existing.id).select('id,nome,slug,sys_config').single());
     }
-    return await must('insert demo empresa', sb.from('empresas').insert(payload).select('id,nome,slug').single());
+    return await must('insert demo empresa', sb.from('empresas').insert(payload).select('id,nome,slug,sys_config').single());
+  }
+
+  /**
+   * Os cenários da matriz de liderança que estão no banco, antes do wipe: a
+   * curadoria feita pelo painel (gerar, reauditar) não pode morrer às 04:00.
+   */
+  async function lerCenariosLideranca(empresaId: string): Promise<CenarioLiderancaCongelado[]> {
+    const cargos = Object.values(VARIANTES) as string[];
+    const competencias = await must('snapshot competências da matriz de liderança', sb.from('competencias')
+      .select('id,nome,cargo,cod_comp').eq('empresa_id', empresaId).in('cargo', cargos));
+    const cenarios = await must('snapshot cenários da matriz de liderança', sb.from('banco_cenarios')
+      .select('*').eq('empresa_id', empresaId).in('cargo', cargos));
+    return congelarCenariosLideranca(cenarios || [], competencias || []);
+  }
+
+  /**
+   * Com o módulo ligado: reinstala a matriz global (cargos-âncora e
+   * competências, apagados pelo wipe) e devolve os cenários, os do banco ou,
+   * sem nenhum, os do fixture. Cenário que não acha competência vira aviso, não
+   * aborta o reset: o resto da demo não pode cair por uma versão nova da matriz.
+   */
+  async function recomporSimuladorLideranca(
+    empresaId: string,
+    sysConfig: any,
+    doBanco: CenarioLiderancaCongelado[],
+  ): Promise<number> {
+    if (!simuladorLiderancaLigado(sysConfig)) return 0;
+    const instalacao = await instalarMatrizLideranca(sb, empresaId);
+    if (!instalacao.ok) throw new Error(`simulador de liderança: ${instalacao.erro}`);
+    const doFixture = CENARIOS_LIDERANCA_CONGELADOS[profile.slug] ?? [];
+    const cenarios = cenariosLiderancaParaReinserir(doBanco, doFixture);
+    if (!cenarios.length) {
+      console.warn(`[reset-demo] ${profile.slug}: simulador de liderança ligado e sem cenário; gere pelo painel.`);
+      return 0;
+    }
+    const competencias = await must('ler a matriz de liderança instalada', sb.from('competencias')
+      .select('id,nome,cargo,cod_desc').eq('empresa_id', empresaId).in('cargo', Object.values(VARIANTES) as string[]));
+    const { linhas, semCompetencia } = linhasDosCenariosLideranca(cenarios, competencias || [], empresaId);
+    if (semCompetencia.length) {
+      console.warn(`[reset-demo] ${profile.slug}: cenários de liderança sem competência na matriz: ${semCompetencia.join(', ')}`);
+    }
+    if (!linhas.length) return 0;
+    // Checando o `error` onde o guard E11 enxerga, como o seed de unidades.
+    const insercao = await sb.from('banco_cenarios').insert(linhas);
+    if (insercao.error) throw new Error(`insert cenários do simulador de liderança: ${insercao.error.message}`);
+    return linhas.length;
   }
 
   // Seed a partir do FIXTURE congelado (arrays), não do acme vivo. Mantém o
@@ -2421,6 +2503,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     // ao estado frio. Guardamos somente artefatos já renderizados e PDIs com
     // níveis válidos; nenhum conteúdo novo é gerado aqui.
     const warmSnapshot = await snapshotWarmArtifacts(demo.id);
+    const cenariosLiderancaDoBanco = await lerCenariosLideranca(demo.id);
 
     // Garante que o subdomínio do tenant demo está registrado no Vercel
     // (sem isso o host não é servido → demo inacessível). Best-effort e
@@ -2440,6 +2523,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     await insertDemoPPP(demo.id);
     await seedUnidades(demo.id);
     await insertDemoExtraRoles(demo.id);
+    const cenariosLideranca = await recomporSimuladorLideranca(demo.id, demo.sys_config, cenariosLiderancaDoBanco);
     const personaMap = await insertPersonas(demo.id);
     if (profile.convidado) {
       // Convidado real do tenant (ver DemoConvidado): conta zerada, fora da
@@ -2487,7 +2571,12 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         const { data: cargosDoTenant, error: cargosError } = await sb.from('cargos_empresa')
           .select('nome').eq('empresa_id', demo.id);
         if (cargosError) throw new Error(`cargos para o ranking: ${cargosError.message}`);
-        const roles = (cargosDoTenant || []).map((cargo: any) => ({ cargo: cargo.nome }));
+        // Sem os cargos-âncora da matriz de liderança: não têm perfil ideal nem
+        // pessoas, e o primeiro deles lançaria no meio do laço, levando junto os
+        // retratos de TODOS os cargos do ambiente.
+        const roles = (cargosDoTenant || [])
+          .filter((cargo: any) => !ehCargoAncoraLideranca(cargo.nome))
+          .map((cargo: any) => ({ cargo: cargo.nome }));
         if (roles.length) await seedAcmeFitRankingSnapshots(sb, demo.id, profile.marca, roles);
       } catch (e: any) {
         // Best-effort, como os demais artefatos de vitrine: sem o snapshot a
@@ -2522,6 +2611,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       counts[table] = r.count;
     }
     counts.fit_resultados = fitOk;
+    counts.cenarios_lideranca = cenariosLideranca;
     return { ok: true, empresaId: demo.id, counts };
   } catch (err: any) {
     console.error('[reset-demo] ERRO:', err?.message);

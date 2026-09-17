@@ -339,21 +339,64 @@ em coluna.
 **Voltar ao início.** Cada visão leva o código curto em `volta`. A rota
 `/auth/apresentacao` só o repassa se ele for do MESMO ambiente e da MESMA sessão
 do ticket (código de outra pessoa, de outro ambiente ou forjado é descartado e a
-sala abre sem o botão). Nas salas, "Voltar ao início" aparece no topo da barra e
-o seletor de dispositivo some para o convidado.
+sala abre sem o botão). Nas salas, "Voltar ao início" aparece no começo da barra,
+antes dos seletores de função e de dispositivo (o de dispositivo chegou a sumir
+para o convidado em 16/09 e voltou em 17/09, a pedido do dono). No celular o
+"Voltar" fica só com o ícone, para a barra caber na tela.
 
 **Menu lateral expansível** (vale para todo o dashboard). Recolhido, é a coluna de
 ícones; com o mouse ou com o teclado (`has-focus-visible`, não `focus-within`,
 senão a coluna ficava aberta depois do clique) ele abre por cima do conteúdo e
-mostra o nome de cada item. Cada destino tem um ícone próprio: o treino de
+mostra o nome de cada item. Cada destino tem um ícone próprio: o simulador de
 atendimento e o simulador de vendas usavam o mesmo balão.
-`tests/unit/dashboard-shell-menu.test.ts` cobra os dois.
+`tests/unit/dashboard-shell-menu.test.ts` cobra os dois. Aberto, o menu fica em
+`z-[44]`, abaixo da barra da sala (`z-[45]`): em `z-50` ele a cobria, e o ponto de
+"Voltar ao início" virava o botão Sair.
 
 **Gestor só lidera.** Ver "Degustação: só entra cargo que PERCORRE a jornada".
 Passaporte antigo com cargo de Gerente Comercial continua abrindo: depois do DISC
 a página mostra só o perfil (`perfil-pronto`), porque o cargo não tem situação. A
 página pergunta pelo Top 5 com a mesma chave da avaliação (o cargo do
 colaborador), para as duas nunca discordarem.
+
+### Simuladores por papel e simulador de liderança (17/09/2026)
+
+**Quem treina e quem acompanha** (decisão do dono). Atendimento e vendas são
+treino de quem atende e vende. Gestor e RH não treinam: veem os mesmos destinos
+como "Simulações de atendimento" e "Simulações de vendas", que abrem direto na
+aba da equipe, sem a aba de treino, e não dependem da liberação por cargo (que
+diz quem TREINA). A API recusa gravar treino de gestor e RH; o acompanhamento
+segue. Régua única em `lib/simuladores/papel.ts`, usada no menu, no `/api/me`, no
+gate das páginas e no contexto das duas APIs. Quem administra a plataforma segue
+treinando (preview). O nome "Treino de atendimento" virou "Simulador de
+atendimento".
+
+**Simulador de liderança do gestor.** Item "Simulador de liderança" no menu do
+gestor, que abre o trilho de liderança (variante Líder) em
+`/dashboard/assessment?trilho=lideranca`. Só aparece quando ele responde o
+trilho: módulo contratado, cargo liberado e dentro da população, pela mesma régua
+da tela de mapeamento. O RH continua com a "Prontidão para liderança" (o
+relatório da empresa) e não pratica simulador nenhum.
+
+**Ligado no ACME demo e nas Escolas.** O dono ligou o módulo pelo painel em
+17/09/2026 nos dois ambientes (cargo de referência: Gerente Comercial no ACME,
+Coordenador(a) Pedagógico(a) nas Escolas) e gerou e reauditou os dez cenários do
+trilho ali. 🔴 O reset reconstrói `sys_config` do fixture e apaga cargos,
+competências e cenários: sem cuidado, às 04:00 o módulo desligava e a curadoria
+sumia. Hoje (`lib/demo/simulador-lideranca-demo.ts`):
+- a configuração do módulo que está no banco atravessa o reset, inclusive
+  desligada; o padrão do perfil (só o ACME tem) entra quando o banco não tem nada;
+- os cenários da matriz que estão no banco são lidos ANTES do wipe e voltam
+  depois que a matriz global é reinstalada (`instalarMatrizLideranca`), apontando
+  para a linha-cabeçalho da competência nova;
+- `lib/demo/cenarios-lideranca/<ambiente>.json` é a rede de segurança: só entra
+  com o módulo ligado e nenhum cenário no banco;
+- os retratos do ranking fora do ACME ignoram os cargos-âncora ("Líder" e "Futuro
+  Líder"), que não têm perfil ideal e lançariam no meio do laço.
+
+⚠️ Com `um_por_dia` ligado (o valor gravado pelo painel), a persona de gestor da
+sala responde UM cenário de liderança por dia, e ela é compartilhada por todos os
+prospects até o reset.
 
 ### Os passaportes fora do ACME eram invisíveis (16/09/2026)
 
