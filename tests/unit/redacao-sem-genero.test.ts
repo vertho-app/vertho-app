@@ -108,6 +108,8 @@ describe('apresentação de avaliações já gravadas', () => {
     expect(normalizarResumoAvaliacao(resumo)).toEqual({
       mensagem: 'Você vem carregando por conta própria. A equipe está preparada.',
       avanco: 'Você está com mais preparo.', atencao: 'Você se sente com sobrecarga.', evidencias: resumo.evidencias_citadas,
+      // Fixture anterior ao fecho de 17/09/2026: sem `mensagem_final` nem passos.
+      mensagemFinal: null, proximosPassos: [],
     });
   });
 

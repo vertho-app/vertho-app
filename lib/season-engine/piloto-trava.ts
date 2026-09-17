@@ -62,8 +62,18 @@ export function sanitizarNarrativaPiloto(parsed: any, semanasCerto = 2): { parse
   const campos: Array<[any, string]> = [];
   if (out.resumo_avaliacao && typeof out.resumo_avaliacao === 'object') {
     out.resumo_avaliacao = { ...out.resumo_avaliacao };
-    for (const k of ['mensagem_geral', 'principal_avanco', 'principal_ponto_de_atencao']) {
+    // `mensagem_final` e cada passo entram aqui desde 17/09/2026: são narrativa
+    // nova sobre o ciclo, exatamente onde "ao final das 14 semanas" reapareceria,
+    // e o fecho é a ÚLTIMA frase que a pessoa lê. Campo de prosa que fica fora
+    // desta lista é campo que publica a duração errada sem ninguém ver.
+    for (const k of ['mensagem_geral', 'principal_avanco', 'principal_ponto_de_atencao', 'mensagem_final']) {
       campos.push([out.resumo_avaliacao, k]);
+    }
+    if (Array.isArray(out.resumo_avaliacao.proximos_passos)) {
+      out.resumo_avaliacao.proximos_passos = [...out.resumo_avaliacao.proximos_passos];
+      for (let i = 0; i < out.resumo_avaliacao.proximos_passos.length; i++) {
+        campos.push([out.resumo_avaliacao.proximos_passos, String(i)]);
+      }
     }
   }
   if (Array.isArray(out.avaliacao_por_descritor)) {

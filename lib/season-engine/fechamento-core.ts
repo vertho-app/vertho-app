@@ -225,8 +225,19 @@ export async function finalizarFechamentoCore(
 
     const parsed = resultado.parsed;
     const auditoria = resultado.auditoria;
-    if (parsed?.resumo_avaliacao?.mensagem_geral) {
-      parsed.resumo_avaliacao.mensagem_geral = unmaskPII(parsed.resumo_avaliacao.mensagem_geral, piiMap);
+    /**
+     * 🔴 TODO TEXTO AUTORAL DO RESUMO PRECISA DO UNMASK. O prompt recebe o nome
+     * MASCARADO (`nomeColab: colabMasked.nome`, um `COLAB_1A2B`), então é isso
+     * que a IA escreve. O `mensagem_final` (17/09/2026) é o campo mais exposto
+     * de todos: o prompt manda escrever PARA a pessoa, pelo nome, e o texto é a
+     * última frase do documento que ela leva para casa — sem esta linha o alias
+     * sai impresso, sem erro em lugar nenhum.
+     */
+    if (parsed?.resumo_avaliacao) {
+      const r = parsed.resumo_avaliacao;
+      if (r.mensagem_geral) r.mensagem_geral = unmaskPII(r.mensagem_geral, piiMap);
+      if (r.mensagem_final) r.mensagem_final = unmaskPII(r.mensagem_final, piiMap);
+      if (Array.isArray(r.proximos_passos)) r.proximos_passos = r.proximos_passos.map((p: any) => unmaskPII(p, piiMap));
     }
     if (Array.isArray(parsed?.avaliacao_por_descritor)) {
       parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => ({

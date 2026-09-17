@@ -29,6 +29,7 @@ import PdfReportCover, { ReportSectionTitle } from '@/components/pdf/PdfReportCo
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import type { MarcaPdf } from '@/lib/pdf-marca';
 import { avancoExibido, exibeAntesDepois, rotuloConvergencia, CONVERGENCIA } from '@/lib/season-engine/convergencia';
+import { fechoDoRelatorio } from '@/lib/season-engine/resumo-avaliacao';
 import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { montarTeia, temTeia, NOTA_MAX, NOTA_MIN } from '@/lib/season-engine/teia-evolucao';
@@ -505,6 +506,9 @@ export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: an
   // "Vertho.ai" no rodapé (revisão de 17/09/2026), a marca como a pessoa a encontra.
   const rodape = marca.mostrarVertho ? 'Vertho.ai' : 'Relatório de temporada';
   const devolutiva = sem14?.resumo_avaliacao?.mensagem_geral;
+  // Como o documento fecha: o texto escrito para a pessoa e os passos. Relatório
+  // antigo cai no `insight_geral`/`proximo_passo` de antes (ver `fechoDoRelatorio`).
+  const fecho = fechoDoRelatorio(evolutionReport);
 
   return (
     <Document title={`Temporada ${trilha?.numeroTemporada} — ${colab?.nome || ''}`}>
@@ -608,19 +612,25 @@ export function TemporadaConcluidaPDF({ dados: dadosBrutos, marca }: { dados: an
           </View>
         )}
 
-        {evolutionReport?.proximo_passo && (
-          <View style={s.section}>
-            <ReportSectionTitle>Próximos passos</ReportSectionTitle>
-            <Text style={s.text}>{evolutionReport.proximo_passo}</Text>
+        {/* Passos NUMERADOS, e não com marcador: "•" (U+2022) não aparece em
+            nenhum outro lugar deste PDF, e glifo fora do subset da fonte sai
+            BRANCO no papel sem erro nenhum. O "·" que o documento já usa é o
+            separador das linhas de semana, não um marcador de lista. */}
+        {fecho.proximosPassos.length > 0 && (
+          <View style={s.section} wrap={false}>
+            <ReportSectionTitle>{tr('sections.nextSteps')}</ReportSectionTitle>
+            {fecho.proximosPassos.map((passo: string, i: number) => (
+              <Text key={i} style={s.text}>{`${i + 1}. ${passo}`}</Text>
+            ))}
           </View>
         )}
 
-        {evolutionReport?.insight_geral && (
+        {fecho.mensagemFinal && (
           // Título e texto juntos, pelo mesmo motivo dos outros títulos: o maior
-          // `insight_geral` da base tem 556 caracteres (medido 16/09).
+          // fecho da base tem 556 caracteres (medido 16/09).
           <View style={s.section} wrap={false}>
             <ReportSectionTitle>{tr('sections.finalMessage')}</ReportSectionTitle>
-            <Text style={s.quote}>{evolutionReport.insight_geral}</Text>
+            <Text style={s.quote}>{fecho.mensagemFinal}</Text>
           </View>
         )}
 

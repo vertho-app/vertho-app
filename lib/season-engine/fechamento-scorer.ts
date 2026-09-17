@@ -74,6 +74,22 @@ export interface PontuarFechamentoArgs {
  * tokens, a ~59 tok/s, são ~170 s: 210 s dá margem sem estourar a função.
  */
 export const SCORER_TIMEOUT_MAX_MS = 210_000;
+
+/**
+ * Teto de saída do scorer. Era 10.000 e subiu em 17/09/2026, quando a devolutiva
+ * ganhou o FECHO e os PRÓXIMOS PASSOS que a pessoa lê.
+ *
+ * 📏 `Medido:` 14 execuções ok em 45 dias — saída média de 5.761 tokens e
+ * **máxima de 8.372**, a 1.628 do teto antigo. Os dois campos novos somam ~400
+ * tokens de prosa (3 a 5 frases + até 3 linhas), então o pior caso passaria a
+ * ~8.800 e a folga cairia para menos de 1.200. Truncar aqui não degrada nada: o
+ * JSON quebra, o `parseJsonIA` falha e a pessoa fica SEM NOTA.
+ *
+ * O teto de tempo continua sendo a trava real: a ~59 tok/s medidos, 11.000
+ * tokens são ~186 s, dentro dos 210 s de `SCORER_TIMEOUT_MAX_MS`. Subir mais
+ * inverteria isso, e o sintoma passaria a ser timeout em vez de truncamento.
+ */
+export const SCORER_MAX_TOKENS = 11_000;
 /** O que fica reservado, depois do scorer, para check + gravação + relatório. */
 const RESERVA_POS_SCORER_MS = 45_000;
 /** Abaixo disto uma tentativa de scorer não termina: nem começa (a 2ª inclusive). */
@@ -206,7 +222,7 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
       break;
     }
     meta.tentativas = tentativa;
-    const r = await callAI(systemScore, user, {}, 10000, {
+    const r = await callAI(systemScore, user, {}, SCORER_MAX_TOKENS, {
       taskKey: 'sem14_scorer', timeoutMs,
       empresaId: ledger?.empresaId ?? null, colaboradorId: ledger?.colaboradorId ?? null,
     });

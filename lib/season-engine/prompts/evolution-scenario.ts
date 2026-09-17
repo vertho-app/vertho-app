@@ -148,6 +148,18 @@ DEVOLUTIVA (resumo_avaliacao):
 - A duração REAL do programa é ${semanasEvidencia} semanas de jornada + fechamento — NUNCA mencione outra duração.${notaPrograma ? `
 - PROIBIDO na devolutiva: falar em "evolução", "regressão", "avanço" ou "estagnação" DA PESSOA, ou comparar antes→depois — a janela não mede evolução. Enquadre como DEMONSTRAÇÃO da avaliação e leitura do PONTO DE PARTIDA. Não trate a base curta de evidências como falha do colaborador.` : ''}
 
+FECHO (mensagem_final) — a ÚLTIMA coisa que ${nomeColab} lê no relatório:
+- Escreva PARA ${nomeColab}, em segunda pessoa. Nunca "a pessoa demonstrou", "a colaboradora apresenta" nem qualquer frase sobre ${nomeColab} dirigida a um terceiro.
+- 3 a 5 frases. Diga o que ${nomeColab} construiu e leva consigo (nomeando a prática concreta, não a competência), o que isso destrava daqui em diante, e o que continua pedindo trabalho — nessa ordem, sem adjetivo inflado e sem promessa.
+- PROIBIDO citar o INSTRUMENTO: as palavras "conversa", "microcaso", "entrevista", "evidência", "descritor", "avaliação", "nota", "relatório", "IA" e "simulador" não aparecem. A pessoa não tem que ler sobre a qualidade da própria entrevista.
+- Nada de "parabéns pela jornada" genérico: se não houver o que nomear, diga o que ${nomeColab} sustentou.${notaPrograma ? `
+- Nesta janela curta o fecho NÃO afirma evolução: fale do PONTO DE PARTIDA e do que ${nomeColab} pode levar adiante.` : ''}
+
+PRÓXIMOS PASSOS (proximos_passos):
+- 0 a 3 ações que ${nomeColab} pode começar na semana que vem, cada uma numa frase, começando por verbo.
+- Cada passo nasce de algo que ${nomeColab} DEMONSTROU aqui e continua o movimento que já começou. Sem tarefa genérica de curso ("leia sobre", "faça um treinamento").
+- Se o material não sustentar nenhum passo concreto, devolva **lista vazia**. Não complete para chegar a três.
+
 RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 
   const reguas = descritores.map(d => {
@@ -205,7 +217,9 @@ ${descritores.map(d => `    {
     "mensagem_geral": "devolutiva honesta e construtiva para ${nomeColab}",
     "evidencias_citadas": ["evidência 1", "evidência 2"],
     "principal_avanco": "texto curto",
-    "principal_ponto_de_atencao": "texto curto"
+    "principal_ponto_de_atencao": "texto curto",
+    "mensagem_final": "o fecho do relatório, escrito PARA ${nomeColab} em segunda pessoa: o que leva daqui, o que isso destrava, o que segue pedindo trabalho",
+    "proximos_passos": ["ação que ${nomeColab} começa na semana que vem"]
   },
   "alertas_metodologicos": ["alerta 1"]
 }
@@ -219,7 +233,9 @@ REGRAS:
 - trecho_cenario e evidencia_acumulada devem ser curtos e fiéis
 - limites_da_leitura: quando a triangulação tiver fragilidade
 - alertas_metodologicos: divergências, base fraca, inflação
-- Não force todos os descritores a evoluir`;
+- Não force todos os descritores a evoluir
+- mensagem_final: 3 a 5 frases em segunda pessoa, sem citar conversa, evidência, nota, descritor, avaliação ou IA
+- proximos_passos: 0 a 3, cada um começando por verbo; lista VAZIA quando o material não sustentar nenhum`;
 
   return { system, user };
 }
@@ -227,6 +243,23 @@ REGRAS:
 const CLASSIFICACOES = ['evoluiu', 'manteve', 'regrediu'];
 const NIVEIS = ['lacuna', 'em_desenvolvimento', 'meta', 'referencia'];
 const CONSISTENCIAS = ['consistente', 'divergente_cenario_superior', 'divergente_cenario_inferior', 'sem_evidencia_acumulada'];
+
+/**
+ * Os "Próximos passos" que a pessoa lê: no máximo 3, sem item vazio.
+ *
+ * 🔑 O TETO É DO VALIDADOR, e a lista pode voltar VAZIA (17/09/2026). O prompt
+ * pede "0 a 3, e vazio se não sustentar" justamente para não repetir o erro do
+ * PDI, onde a cota `"2-3 áreas de atenção"` no schema venceu a prosa que proibia
+ * inferir e o modelo passou a inventar para preencher o campo. Aqui o schema não
+ * pode desmentir o prompt: ausência de passo é resposta legítima.
+ */
+export function normalizarPassos(valor: unknown): string[] {
+  if (!Array.isArray(valor)) return [];
+  return valor
+    .map((p) => (typeof p === 'string' ? p.trim() : ''))
+    .filter((p) => p.length > 0)
+    .slice(0, 3);
+}
 
 export function validateEvolutionScenarioScore(parsed: any): any {
   if (!Array.isArray(parsed.avaliacao_por_descritor)) parsed.avaliacao_por_descritor = [];
@@ -269,6 +302,8 @@ export function validateEvolutionScenarioScore(parsed: any): any {
       evidencias_citadas: Array.isArray(parsed.resumo_avaliacao.evidencias_citadas) ? parsed.resumo_avaliacao.evidencias_citadas : [],
       principal_avanco: parsed.resumo_avaliacao.principal_avanco || '',
       principal_ponto_de_atencao: parsed.resumo_avaliacao.principal_ponto_de_atencao || '',
+      mensagem_final: parsed.resumo_avaliacao.mensagem_final || '',
+      proximos_passos: normalizarPassos(parsed.resumo_avaliacao.proximos_passos),
     };
   } else if (typeof parsed.resumo_avaliacao === 'string') {
     parsed.resumo_avaliacao = {
@@ -276,6 +311,8 @@ export function validateEvolutionScenarioScore(parsed: any): any {
       evidencias_citadas: [],
       principal_avanco: '',
       principal_ponto_de_atencao: '',
+      mensagem_final: '',
+      proximos_passos: [],
     };
   } else {
     parsed.resumo_avaliacao = {
@@ -283,6 +320,8 @@ export function validateEvolutionScenarioScore(parsed: any): any {
       evidencias_citadas: [],
       principal_avanco: '',
       principal_ponto_de_atencao: '',
+      mensagem_final: '',
+      proximos_passos: [],
     };
   }
   if (!Array.isArray(parsed.alertas_metodologicos)) parsed.alertas_metodologicos = [];

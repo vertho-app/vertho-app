@@ -10,7 +10,7 @@ import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 import { rotuloConvergencia, qualitativaSustenta, formatarAvanco, formatarValorAvanco, CONVERGENCIA } from '@/lib/season-engine/convergencia';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { COR_VEREDITO_TELA } from '@/lib/season-engine/convergencia-cores';
-import { normalizarResumoAvaliacao } from '@/lib/season-engine/resumo-avaliacao';
+import { normalizarResumoAvaliacao, fechoDoRelatorio } from '@/lib/season-engine/resumo-avaliacao';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 
 /**
@@ -301,6 +301,9 @@ function DetalheDaPessoa({ trilha, onClose }) {
   const report = trilha.evolution_report || {};
   const descritores = Array.isArray(report.descritores) ? report.descritores : [];
   const resumoAvaliacao = normalizarResumoAvaliacao(report.resumo_avaliacao);
+  // A mesma leitura do documento da pessoa, para a auditoria conferir o que
+  // ela recebeu, e não uma segunda versão do fecho.
+  const fechoDaPessoa = fechoDoRelatorio(report);
 
   // Esc fecha. Sem isto, um overlay sem borda de scroll prende quem abriu por
   // teclado, que é justamente quem não vai clicar no fundo.
@@ -372,10 +375,10 @@ function DetalheDaPessoa({ trilha, onClose }) {
             </span>
           </section>
 
-          {report.insight_geral && (
+          {fechoDaPessoa.mensagemFinal && (
             <section>
               <p className="mb-1 text-[10px] uppercase tracking-widest text-cyan-400">{t('detail.insight')}</p>
-              <p className="border-l-2 border-cyan-500/40 pl-3 text-xs italic leading-relaxed text-gray-200">{report.insight_geral}</p>
+              <p className="border-l-2 border-cyan-500/40 pl-3 text-xs italic leading-relaxed text-gray-200">{fechoDaPessoa.mensagemFinal}</p>
             </section>
           )}
 
@@ -459,10 +462,14 @@ function DetalheDaPessoa({ trilha, onClose }) {
             )}
           </section>
 
-          {report.proximo_passo && (
+          {/* Mesma régua do relatório da pessoa (`fechoDoRelatorio`): o passo
+              antigo era string, o novo é lista de até 3. */}
+          {fechoDaPessoa.proximosPassos.length > 0 && (
             <section>
               <p className="mb-1 text-[10px] uppercase tracking-widest text-emerald-400">{t('detail.nextStep')}</p>
-              <p className="text-xs leading-relaxed text-gray-200">{report.proximo_passo}</p>
+              <ol className="list-decimal pl-4 text-xs leading-relaxed text-gray-200 space-y-1">
+                {fechoDaPessoa.proximosPassos.map((passo, i) => <li key={i}>{passo}</li>)}
+              </ol>
             </section>
           )}
         </div>

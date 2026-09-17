@@ -88,8 +88,16 @@ export function resumoSemTratamentoDeGenero<T>(resumo: T): T {
   const r = resumo as Record<string, unknown>;
   return {
     ...r,
-    ...Object.fromEntries(['mensagem_geral', 'principal_avanco', 'principal_ponto_de_atencao']
+    // `mensagem_final` entrou em 17/09/2026: é o fecho escrito PARA a pessoa, o
+    // texto mais dirigido do relatório inteiro — se algum campo precisa desta
+    // revisão, é ele.
+    ...Object.fromEntries(['mensagem_geral', 'principal_avanco', 'principal_ponto_de_atencao', 'mensagem_final']
       .filter((chave) => chave in r)
       .map((chave) => [chave, semTratamentoDeGenero(r[chave])])),
+    // Os passos também falam com a pessoa ("volte a delegar sem se sobrecarregar"),
+    // e são uma LISTA: sem este ramo, a narrativa autoral escaparia por eles.
+    ...('proximos_passos' in r && Array.isArray(r.proximos_passos)
+      ? { proximos_passos: r.proximos_passos.map((p) => semTratamentoDeGenero(p)) }
+      : {}),
   } as T;
 }

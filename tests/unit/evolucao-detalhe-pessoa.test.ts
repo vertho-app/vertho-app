@@ -24,6 +24,10 @@ describe('resumo do fechamento: as duas formas que existem na base', () => {
       avanco: null,
       atencao: null,
       evidencias: [],
+      // A string crua da demo não traz o fecho de 17/09/2026: quem lê cai no
+      // `insight_geral` daquele relatório (ver `fechoDoRelatorio`).
+      mensagemFinal: null,
+      proximosPassos: [],
     });
   });
 
@@ -40,6 +44,9 @@ describe('resumo do fechamento: as duas formas que existem na base', () => {
       avanco: 'Nomear o que pesa antes de reorganizar o trabalho.',
       atencao: 'Metas ainda sem critério de conclusão.',
       evidencias: ['a prioridade será finalizar a prestação de contas do PDDE'],
+      // Relatório gravado antes de 17/09/2026: sem fecho próprio e sem passos.
+      mensagemFinal: null,
+      proximosPassos: [],
     });
   });
 

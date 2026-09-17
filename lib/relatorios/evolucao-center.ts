@@ -2,6 +2,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { TRILHA } from '@/lib/status';
 import { CONVERGENCIA, rotuloConvergencia, type Convergencia } from '@/lib/season-engine/convergencia';
 import { nivelDaNota } from '@/lib/nivel-regua';
+import { fechoDoRelatorio } from '@/lib/season-engine/resumo-avaliacao';
 
 /**
  * Painel executivo de EVOLUÇÃO do RH — a resposta para "quem evoluiu, em quê e
@@ -230,6 +231,7 @@ export function agregarEvolucao(
     const mediaPre = media(linhas.map((l) => l.notaPre));
     const mediaPos = media(linhas.map((l) => l.notaPos));
     const veredito = vereditoDaPessoa(linhas);
+    const fecho = fechoDoRelatorio(report);
 
     pessoas.push({
       colaboradorId: trilha.colaborador_id,
@@ -246,8 +248,10 @@ export function agregarEvolucao(
       veredito,
       vereditoRotulo: rotuloConvergencia(veredito),
       sustentacao: sustentacaoDe(linhas),
-      insight: report.insight_geral || null,
-      proximoPasso: report.proximo_passo || null,
+      // O fecho pela régua única: texto novo do fechamento quando existe,
+      // `insight_geral`/`proximo_passo` nos relatórios anteriores a 17/09/2026.
+      insight: fecho.mensagemFinal,
+      proximoPasso: fecho.proximosPassos.join(' ') || null,
       concluidoEm: trilha.evolution_generated_at || null,
       descritores: linhas,
     });

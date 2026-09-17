@@ -64,6 +64,24 @@ export function semAbreviacaoColab<T>(texto: T): T {
 export function textosDoRelatorio(dados: any): any {
   if (!dados) return dados;
   const t = <T,>(x: T): T => semTratamentoDeGenero(semCodigoDaMatriz(semAbreviacaoColab(x)));
+  /**
+   * O resumo do fechamento com TODOS os campos que a pessoa lê já legíveis.
+   *
+   * 🔑 `mensagem_final` e `proximos_passos` (17/09/2026) precisam do `t()` como
+   * a `mensagem_geral`, e não só da revisão de gênero: são prosa nova sobre a
+   * prática da pessoa, então é exatamente onde um `COO03_D2` do nome do
+   * descritor apareceria no papel.
+   */
+  const resumoLegivel = (r: any): any => {
+    if (!r) return r;
+    if (typeof r === 'string') return t(r);
+    return {
+      ...resumoSemTratamentoDeGenero(r),
+      mensagem_geral: t(r.mensagem_geral),
+      mensagem_final: t(r.mensagem_final),
+      proximos_passos: Array.isArray(r.proximos_passos) ? r.proximos_passos.map((p: any) => t(p)) : r.proximos_passos,
+    };
+  };
   const er = dados.evolutionReport;
   return {
     ...dados,
@@ -71,7 +89,7 @@ export function textosDoRelatorio(dados: any): any {
       ...er,
       insight_geral: t(er.insight_geral),
       proximo_passo: t(er.proximo_passo),
-      resumo_avaliacao: resumoSemTratamentoDeGenero(er.resumo_avaliacao),
+      resumo_avaliacao: resumoLegivel(er.resumo_avaliacao),
       descritores: Array.isArray(er.descritores)
         ? er.descritores.map((d: any) => ({
           ...d,
@@ -90,12 +108,7 @@ export function textosDoRelatorio(dados: any): any {
       : dados.missoes,
     sem14: dados.sem14 && {
       ...dados.sem14,
-      resumo_avaliacao: typeof dados.sem14.resumo_avaliacao === 'string'
-        ? t(dados.sem14.resumo_avaliacao)
-        : dados.sem14.resumo_avaliacao && {
-          ...resumoSemTratamentoDeGenero(dados.sem14.resumo_avaliacao),
-          mensagem_geral: t(dados.sem14.resumo_avaliacao.mensagem_geral),
-        },
+      resumo_avaliacao: resumoLegivel(dados.sem14.resumo_avaliacao),
     },
   };
 }

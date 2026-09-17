@@ -186,6 +186,44 @@ describe('finalizarFechamentoCore', () => {
     expect(h.degradacao).not.toHaveBeenCalled();
   });
 
+  /**
+   * 🔴 O prompt recebe o nome MASCARADO (`COLAB_xxxx`), então é isso que a IA
+   * escreve — e o fecho de 17/09/2026 é escrito PARA a pessoa, pelo nome. Sem o
+   * unmask desses campos o alias sai impresso na última frase do PDF que ela
+   * leva para casa, sem erro em lugar nenhum.
+   */
+  it('o fecho e os passos saem com o nome REAL, não com o alias do prompt', async () => {
+    // 1ª rodada só para capturar o alias que o mascarador deu a esta pessoa.
+    h.estado.atual = reservado();
+    h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1 } });
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN, prazoMs: AGORA + 285_000 });
+    const alias = h.pontuar.mock.calls[0][0].nomeColab;
+    expect(alias).toMatch(/^COLAB_/);
+
+    // 2ª rodada: a IA responde usando o alias, como responde de verdade.
+    h.sb.escritas.length = 0;
+    h.estado.atual = reservado();
+    h.pontuar.mockResolvedValue({
+      ok: true,
+      parsed: {
+        ...PARSED,
+        resumo_avaliacao: {
+          mensagem_geral: `${alias}, a leitura da sua avaliação.`,
+          mensagem_final: `${alias}, você sai com um jeito próprio de conduzir o Conselho.`,
+          proximos_passos: [`Retome com ${alias} o combinado da equipe`],
+        },
+      },
+      auditoria: null,
+      meta: { warnings: [], tentativas: 1 },
+    });
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN, prazoMs: AGORA + 285_000 });
+
+    const r = escritasProgresso().find((e: any) => e.payload.status === 'concluido').payload.feedback.resumo_avaliacao;
+    expect(r.mensagem_final).toBe('Helmar, você sai com um jeito próprio de conduzir o Conselho.');
+    expect(r.proximos_passos).toEqual(['Retome com Helmar o combinado da equipe']);
+    expect(r.mensagem_geral).toBe('Helmar, a leitura da sua avaliação.');
+  });
+
   it('repassa prazo, atribuição de ledger e a extração da arguição ao scorer', async () => {
     h.estado.atual = reservado();
     h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1 } });

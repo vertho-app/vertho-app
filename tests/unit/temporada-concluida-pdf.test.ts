@@ -471,3 +471,85 @@ describe('Antes/Depois só quando a conversa sustenta', () => {
     expect(html).toContain('DEPOIS-DE-FIXTURE');
   });
 });
+
+/**
+ * 🔴 COMO O DOCUMENTO FECHA (dono, 17/09/2026): "uma mensagem mais pessoal e
+ * motivadora, falando sobre como ela continua, o que ela faz com o que
+ * aprendeu". O fecho passou a nascer no prompt do FECHAMENTO, que já escreve a
+ * devolutiva de abertura em segunda pessoa; o `insight_geral` do extrator da
+ * conversa continua no relatório e na auditoria, mas não fecha mais o papel.
+ *
+ * Relatórios entregues não foram regerados, então os dois formatos convivem: a
+ * régua de leitura é `fechoDoRelatorio`, e estes testes cobrem os dois.
+ */
+describe('fecho do relatório no papel e na tela', () => {
+  const base = {
+    colab: { nome: 'Pessoa Teste', cargo: 'Coordenação Pedagógica' },
+    trilha: { competencia: 'Colaboração', numeroTemporada: 1, totalSemanas: 7 },
+    momentos: [],
+    missoes: [],
+    sem14: { resumo_avaliacao: { mensagem_geral: 'TEXTO-DA-DEVOLUTIVA' } },
+  };
+  const descritores = [{ competencia: 'Colaboração', descritor: 'Rituais formativos', nota_pre: 1.5, nota_pos: 2.4, convergencia: 'evolucao_parcial', forca_evidencia: 'moderada' }];
+  const NOVO = {
+    ...base,
+    evolutionReport: {
+      descritores,
+      insight_geral: 'LAUDO-DO-EXTRATOR',
+      resumo_avaliacao: {
+        mensagem_geral: 'TEXTO-DA-DEVOLUTIVA',
+        mensagem_final: 'FECHO-ESCRITO-PARA-A-PESSOA',
+        proximos_passos: ['PASSO-UM', 'PASSO-DOIS'],
+      },
+    },
+  };
+  const ANTIGO = {
+    ...base,
+    evolutionReport: { descritores, insight_geral: 'LAUDO-DO-EXTRATOR', proximo_passo: 'PASSO-ANTIGO' },
+  };
+  const noPdf = (dados: any) => textos(TemporadaConcluidaPDF({ dados, marca: { logoBase64: null, mostrarVertho: true } as any })).join('\n');
+
+  it('o PDF fecha com o texto escrito para a pessoa, e os passos saem numerados', () => {
+    const t = noPdf(NOVO);
+    expect(t).toContain('FECHO-ESCRITO-PARA-A-PESSOA');
+    expect(t).not.toContain('LAUDO-DO-EXTRATOR');
+    expect(t).toContain('Próximos passos');
+    // A numeração vai junto do texto, não como nó solto: "1" sozinho casaria
+    // com qualquer número do documento (nível, avanço, número da temporada).
+    expect(t).toContain('1. PASSO-UM');
+    expect(t).toContain('2. PASSO-DOIS');
+  });
+
+  it('a mensagem final é a ÚLTIMA seção, depois dos próximos passos', () => {
+    const t = noPdf(NOVO);
+    expect(t.indexOf('PASSO-UM')).toBeLessThan(t.indexOf('FECHO-ESCRITO-PARA-A-PESSOA'));
+  });
+
+  it('relatório antigo fecha com o que ele tem: nada foi regerado', () => {
+    const t = noPdf(ANTIGO);
+    expect(t).toContain('LAUDO-DO-EXTRATOR');
+    expect(t).toContain('PASSO-ANTIGO');
+  });
+
+  /**
+   * 🔴 O caso de Ibipeba: `proximo_passo` null em 10 de 10 relatórios, porque o
+   * campo só tinha escritor no fixture da demo. Sem passo, a seção não existe.
+   */
+  it('sem passo nenhum, a seção "Próximos passos" não aparece', () => {
+    const t = noPdf({ ...base, evolutionReport: { descritores, insight_geral: 'LAUDO-DO-EXTRATOR', proximo_passo: null } });
+    expect(t).not.toContain('Próximos passos');
+    expect(t).toContain('LAUDO-DO-EXTRATOR');
+  });
+
+  it('a tela da pessoa fecha igual ao papel', () => {
+    const html = htmlDaTela('pt-BR', { ...NOVO, colab: { nome: 'Pessoa Teste' } });
+    expect(html).toContain('FECHO-ESCRITO-PARA-A-PESSOA');
+    expect(html).not.toContain('LAUDO-DO-EXTRATOR');
+    expect(html).toContain('<li>PASSO-UM</li>');
+    expect(html).toContain('<li>PASSO-DOIS</li>');
+    // lista ordenada: na tela quem numera é o CSS, então a marcação tem que ser <ol>
+    expect(html).toMatch(/<ol[^>]*list-decimal/);
+    const semPassos = htmlDaTela('pt-BR', { ...ANTIGO, colab: { nome: 'Pessoa Teste' }, evolutionReport: { descritores, insight_geral: 'LAUDO-DO-EXTRATOR' } });
+    expect(semPassos).not.toContain('Próximos passos');
+  });
+});

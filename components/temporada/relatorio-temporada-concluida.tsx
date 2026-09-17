@@ -9,6 +9,7 @@ import { formatarAvanco, formatarValorAvanco, exibeAntesDepois, CONVERGENCIA } f
 import { COR_VEREDITO_TELA, corTela } from '@/lib/season-engine/convergencia-cores';
 import { agruparPorCompetencia } from '@/lib/season-engine/evolucao-por-competencia';
 import { textosDoRelatorio } from '@/lib/season-engine/relatorio-texto';
+import { fechoDoRelatorio } from '@/lib/season-engine/resumo-avaliacao';
 import TeiaEvolucao from '@/components/temporada/teia-evolucao';
 
 // Sem veredito de regressão (a régua não tem desde 01/09) e sem nota absoluta:
@@ -51,6 +52,9 @@ export default function RelatorioTemporadaConcluida({ data: dadosBrutos }: { dat
   const grupos = agruparPorCompetencia(descritores);
   const comCompetencia = grupos.filter((g) => g.competencia);
   const devolutiva = sem14?.resumo_avaliacao?.mensagem_geral;
+  // O fecho do relatório pela mesma régua do PDF (`fechoDoRelatorio`): texto novo
+  // quando existe, `insight_geral`/`proximo_passo` nos relatórios antigos.
+  const fecho = fechoDoRelatorio(evolutionReport);
 
   return (
     <>
@@ -270,25 +274,27 @@ export default function RelatorioTemporadaConcluida({ data: dadosBrutos }: { dat
         </section>
       )}
 
-      {/* Próximos passos */}
-      {evolutionReport?.proximo_passo && (
+      {/* Próximos passos: a mesma lista do papel, pela mesma régua. */}
+      {fecho.proximosPassos.length > 0 && (
         <GlassCard className="border-emerald-500/20 bg-emerald-500/[0.03] mb-8">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 size={16} className="text-emerald-400" />
             <span className="text-xs uppercase text-emerald-400 font-bold tracking-widest">{t('sections.nextSteps')}</span>
           </div>
-          <p className="text-sm text-gray-200">{evolutionReport.proximo_passo}</p>
+          <ol className="text-sm text-gray-200 space-y-1.5 list-decimal pl-5 marker:text-emerald-400/70">
+            {fecho.proximosPassos.map((passo, i) => <li key={i}>{passo}</li>)}
+          </ol>
         </GlassCard>
       )}
 
       {/* Mensagem final */}
-      {evolutionReport?.insight_geral && (
+      {fecho.mensagemFinal && (
         <section className="mb-8">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles size={14} className="text-brand-400" />
             <h2 className="text-xs uppercase tracking-widest text-gray-400">{t('sections.finalMessage')}</h2>
           </div>
-          <p className="text-sm text-gray-200 italic border-l-2 border-brand-500/50 pl-3">{evolutionReport.insight_geral}</p>
+          <p className="text-sm text-gray-200 italic border-l-2 border-brand-500/50 pl-3">{fecho.mensagemFinal}</p>
         </section>
       )}
     </>
