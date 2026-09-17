@@ -2,15 +2,19 @@
 
 import { useContext, useEffect, useRef, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { ArrowUp, BookOpen, Check, ChevronDown, Code2, Database, Loader2, RotateCcw, X } from 'lucide-react';
+import { ArrowUp, Check, Loader2, RotateCcw, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { AdminShellContext } from '@/app/admin/_shell/AdminShellContext';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
-import type { IpiReply } from '@/lib/ipi/contracts';
+import { stripIpiCitations } from '@/lib/ipi/format-answer';
 import styles from './ipi-chat.module.css';
 
-type Message = { role: 'user' | 'assistant'; content: string; sources?: IpiReply['sources'] };
+type Message = { role: 'user' | 'assistant'; content: string };
 const suggestions = ['Como preencher esta tela?', 'Onde encontro os relatórios?', 'Quais são os pré-requisitos aqui?'];
+
+function IpiAvatar() {
+  return <span className={styles.mark} aria-hidden="true"><img src="/ipi-avatar.png" alt="" width={335} height={597} className={styles.avatarImage} /></span>;
+}
 
 export default function IpiChat() {
   const pathname = usePathname() || '/admin';
@@ -73,7 +77,7 @@ export default function IpiChat() {
       const result = await response.json();
       if (!response.ok) throw new Error(response.status === 429 ? 'Muitas perguntas em sequência. Aguarde um minuto e tente novamente.' : result.error || 'Não consegui concluir a consulta. Tente novamente.');
       if (requestGeneration !== generation.current) return;
-      setMessages(current => [...current, { role: 'assistant', content: result.answer, sources: result.sources }]);
+      setMessages(current => [...current, { role: 'assistant', content: stripIpiCitations(result.answer) }]);
     } catch (cause) {
       if (requestGeneration !== generation.current) return;
       setMessages(current => current.slice(0, -1));
@@ -86,15 +90,15 @@ export default function IpiChat() {
   }
 
   return <>
-    <button ref={launcher} type="button" className={styles.launcher} onClick={() => setOpen(true)} aria-label="Abrir Ipi, assistente da plataforma" aria-haspopup="dialog" aria-expanded={open}>
-      <span className={styles.mark} aria-hidden="true">ipi</span><span>Ajuda com o Ipi</span>
+    <button ref={launcher} type="button" className={styles.launcher} onClick={() => setOpen(true)} aria-label="Abrir o Ipi, assistente da plataforma" aria-haspopup="dialog" aria-expanded={open}>
+      <IpiAvatar />
     </button>
     <dialog ref={dialog} className={styles.dialog} aria-labelledby="ipi-title" onCancel={() => setOpen(false)} onClose={() => setOpen(false)}>
       <header className={styles.header}>
-        <span className={styles.mark} aria-hidden="true">ipi</span>
-        <div className={styles.identity}><h2 id="ipi-title">Ipi</h2><p>Seu guia pela Vertho</p></div>
+        <IpiAvatar />
+        <div className={styles.identity}><h2 id="ipi-title">Ipi</h2><p>Seu assistente na Vertho</p></div>
         <button type="button" className={styles.iconButton} onClick={reset} aria-label="Nova conversa" title="Nova conversa"><RotateCcw size={17} /></button>
-        <button type="button" className={styles.iconButton} onClick={() => setOpen(false)} aria-label="Fechar Ipi"><X size={20} /></button>
+        <button type="button" className={styles.iconButton} onClick={() => setOpen(false)} aria-label="Fechar o Ipi"><X size={20} /></button>
       </header>
       <div className={styles.context}><span className={styles.contextDot} /><span title={companyName}>{companyName}</span><span className={styles.readonly}><Check size={12} /> Só consulta</span></div>
       <div className={styles.conversation} role="log" aria-label="Conversa com o Ipi" aria-live="polite" aria-busy={busy}>
@@ -103,17 +107,12 @@ export default function IpiChat() {
           <h3>Um caminho para<br />cada dúvida.</h3>
           <p>Eu ajudo você a preencher campos, encontrar relatórios e entender os próximos passos na plataforma.</p>
           <div className={styles.suggestions}>{suggestions.map(question => <button key={question} type="button" onClick={() => void send(question)}>{question}<ArrowUp size={15} className={styles.suggestionArrow} /></button>)}</div>
-          <div className={styles.sourcesHint}><BookOpen size={14} /> Manual <span>·</span><Code2 size={14} /> Plataforma <span>·</span><Database size={14} /> Dados</div>
         </div>}
         {messages.map((message, index) => <article key={index} className={message.role === 'user' ? styles.userMessage : styles.answer}>
           {message.role === 'assistant' && <span className={styles.answerLabel}>Ipi</span>}
-          <div className={styles.markdown}><ReactMarkdown skipHtml components={{ a: ({ children }) => <span>{children}</span>, img: () => null }}>{message.content}</ReactMarkdown></div>
-          {!!message.sources?.length && <details className={styles.sources}>
-            <summary><BookOpen size={13} /> Fontes consultadas <ChevronDown size={13} /></summary>
-            <ul>{message.sources.map(source => <li key={source.id}><span className={styles.sourceKind}>{source.id} · {source.kind === 'codigo' ? 'Código' : source.kind === 'dados' ? 'Dados' : 'Manual'}</span><span className={styles.sourceReference}>{source.reference}</span>{source.href && <a href={source.href} onClick={() => setOpen(false)}>Abrir {source.title} ↗</a>}</li>)}</ul>
-          </details>}
+          <div className={styles.markdown}><ReactMarkdown skipHtml components={{ a: ({ children }) => <span>{children}</span>, img: () => null }}>{message.role === 'assistant' ? stripIpiCitations(message.content) : message.content}</ReactMarkdown></div>
         </article>)}
-        {busy && <div className={styles.thinking} role="status"><Loader2 size={16} /> Consultando as referências…</div>}
+        {busy && <div className={styles.thinking} role="status"><Loader2 size={16} /> Preparando sua resposta…</div>}
         {error && <div className={styles.error} role="alert">{error}</div>}
         <div ref={end} />
       </div>

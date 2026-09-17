@@ -7,7 +7,7 @@ import type { IpiPlan } from '@/lib/ipi/contracts';
 
 const shared = vi.hoisted(() => ({ sb: null as any }));
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => shared.sb.client }));
-const auth = { email: 'analista@vertho.ai', isPlatformAdmin: true } as AuthenticatedContext;
+const auth = { email: 'rodrigo@vertho.ai', isPlatformAdmin: true } as AuthenticatedContext;
 const permissions = new Set<PermissionKey>(['admin.access', 'companies.view', 'users.view', 'reports.aggregate.view', 'reports.individual.view']);
 const companyId = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';
 const plan = (data: IpiPlan['data'], person = ''): IpiPlan => ({ searches: [], data, person });

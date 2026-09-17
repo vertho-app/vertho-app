@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     if (csrf) return csrf;
     const auth = await requireUser(req);
     if (auth instanceof Response) return auth;
-    if (!auth.isPlatformAdmin || !isIpiEmail(auth.email)) return json({ error: 'Ipi está disponível apenas para a equipe Vertho autorizada.' }, 403);
+    if (!auth.isPlatformAdmin || !isIpiEmail(auth.email)) return json({ error: 'O Ipi está disponível apenas para o usuário autorizado.' }, 403);
     const permissions = await getEffectivePermissionKeys(auth);
     if (!permissions.has('admin.access')) return json({ error: 'Seu perfil não tem acesso ao Ipi.' }, 403);
     const limited = await limiter.check(req, `ipi:${auth.email}`);

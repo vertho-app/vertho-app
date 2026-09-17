@@ -16,19 +16,19 @@ function request(body: unknown = payload, origin = 'https://app.vertho.ai') {
 describe('Ipi — gate real da rota', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.auth.mockResolvedValue({ email: 'analista@vertho.ai', isPlatformAdmin: true });
+    mocks.auth.mockResolvedValue({ email: 'rodrigo@vertho.ai', isPlatformAdmin: true });
     mocks.permissions.mockResolvedValue(new Set(['admin.access']));
     mocks.limit.mockResolvedValue(null);
-    mocks.answer.mockResolvedValue({ answer: 'Orientação', sources: [] });
+    mocks.answer.mockResolvedValue({ answer: 'Orientação' });
   });
-  it.each(['pessoa@cliente.com', 'pessoa@sub.vertho.ai', 'pessoa@vertho.ai.evil.com', 'pessoa.demo@vertho.ai', 'a@b@vertho.ai'])('nega %s antes de consultar IA ou dados', async email => {
+  it.each(['analista@vertho.ai', 'rodrigo+teste@vertho.ai', 'rodrigo@vertho.ai.evil.com', 'pessoa@cliente.com', 'pessoa@sub.vertho.ai', 'pessoa@vertho.ai.evil.com', 'pessoa.demo@vertho.ai', 'a@b@vertho.ai'])('nega %s antes de consultar IA ou dados', async email => {
     mocks.auth.mockResolvedValue({ email, isPlatformAdmin: true });
     expect((await POST(request())).status).toBe(403);
     expect(mocks.answer).not.toHaveBeenCalled();
     expect(mocks.permissions).not.toHaveBeenCalled();
   });
-  it('não concede acesso somente pelo domínio', async () => {
-    mocks.auth.mockResolvedValue({ email: 'pessoa@vertho.ai', isPlatformAdmin: false });
+  it('exige o papel de administrador mesmo para Rodrigo', async () => {
+    mocks.auth.mockResolvedValue({ email: 'rodrigo@vertho.ai', isPlatformAdmin: false });
     expect((await POST(request())).status).toBe(403);
     expect(mocks.answer).not.toHaveBeenCalled();
   });
@@ -54,15 +54,15 @@ describe('Ipi — gate real da rota', () => {
     const response = await POST(request());
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toContain('no-store');
-    expect(mocks.answer.mock.calls[0][0].email).toBe('analista@vertho.ai');
+    expect(mocks.answer.mock.calls[0][0].email).toBe('rodrigo@vertho.ai');
   });
   it('interrompe antes da IA quando a cota é atingida', async () => {
     mocks.limit.mockResolvedValue(Response.json({}, { status: 429 }));
     expect((await POST(request())).status).toBe(429);
     expect(mocks.answer).not.toHaveBeenCalled();
   });
-  it('aceita caixa e espaços normalizados; nunca uma persona de demo', () => {
-    expect(isIpiEmail(' ANALISTA@VERTHO.AI ')).toBe(true);
+  it('aceita somente o email de Rodrigo normalizado', () => {
+    expect(isIpiEmail(' RODRIGO@VERTHO.AI ')).toBe(true);
     expect(isIpiEmail(' BRUNA.DEMO@VERTHO.AI ')).toBe(false);
     expect(isIpiEmail(null)).toBe(false);
   });

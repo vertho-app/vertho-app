@@ -17,14 +17,14 @@ export type IpiRequest = z.infer<typeof ipiRequestSchema>;
 export type IpiPlan = z.infer<typeof ipiPlanSchema>;
 export type IpiSource = { id: string; kind: 'manual' | 'codigo' | 'dados'; title: string; reference: string; href?: string };
 export type IpiEvidence = IpiSource & { text: string };
-export type IpiReply = { answer: string; sources: IpiSource[]; consultedAt: string };
+export type IpiReply = { answer: string; consultedAt: string };
 export type KnowledgeChunk = { kind: 'manual' | 'codigo'; title: string; reference: string; route?: string; text: string };
 export type KnowledgeIndex = { version: 1; digest: string; chunks: KnowledgeChunk[] };
 
-/** E-mail validado pela sessão; nunca aceitar identidade enviada no body. */
+/** Liberação inicial individual. E-mail validado pela sessão, nunca pelo body. */
 export function isIpiEmail(email?: string | null): boolean {
   const value = email?.trim().toLowerCase() || '';
-  return /^[^\s@]+@vertho\.ai$/.test(value) && !value.endsWith('.demo@vertho.ai');
+  return value === 'rodrigo@vertho.ai';
 }
 
 export function safeIpiHref(route: string | undefined, empresaId: string | null): string | undefined {

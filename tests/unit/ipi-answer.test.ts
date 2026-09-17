@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { answerIpi } from '@/lib/ipi/answer';
+import { stripIpiCitations } from '@/lib/ipi/format-answer';
 
 const mocks = vi.hoisted(() => ({ ai: vi.fn(), knowledge: vi.fn(), data: vi.fn() }));
 vi.mock('@/actions/ai-client', () => ({ callAIChat: mocks.ai }));
@@ -14,13 +15,13 @@ describe('Ipi — orquestração de evidências', () => {
     mocks.ai.mockResolvedValueOnce('{"searches":["relatórios"],"data":[],"person":""}').mockResolvedValueOnce('Selecione a empresa. [F1]');
   });
   const input = { message: 'Onde encontro os relatórios?', history: [], pathname: '/admin', empresaId: null };
-  const auth = { email: 'teste@vertho.ai', isPlatformAdmin: true } as any;
-  it('envia as fontes para a IA e devolve referências sem conteúdo interno', async () => {
+  const auth = { email: 'rodrigo@vertho.ai', isPlatformAdmin: true } as any;
+  it('consulta as fontes internamente sem devolvê-las nem exibir os marcadores', async () => {
     const result = await answerIpi(auth, new Set(['admin.access']), input);
-    expect(result.answer).toContain('[F1]');
+    expect(result.answer).toBe('Selecione a empresa.');
     expect(mocks.ai.mock.calls[1][1][0].content).toContain('Use o filtro da empresa');
     expect(mocks.ai.mock.calls[1][1][0].content).toContain('blocosOffline');
-    expect(result.sources[0]).not.toHaveProperty('text');
+    expect(result).not.toHaveProperty('sources');
     expect(mocks.ai.mock.calls[1][4].taskKey).toBe('ipi');
   });
   it('não executa plano de ferramentas fora do contrato', async () => {
@@ -28,5 +29,17 @@ describe('Ipi — orquestração de evidências', () => {
     await expect(answerIpi(auth, new Set(['admin.access']), input)).rejects.toThrow();
     expect(mocks.data).not.toHaveBeenCalled();
     expect(mocks.ai).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    ['Use **Exportar XLSX** [F1] — a planilha terá a coluna **Cargo**.', 'Use **Exportar XLSX** — a planilha terá a coluna **Cargo**.'],
+    ['Selecione a empresa [F1, F2, D1].', 'Selecione a empresa.'],
+    ['Abra a tela. [F1][D2]\n\nConfira os campos [F3 e F4].', 'Abra a tela.\n\nConfira os campos.'],
+    ['Preencha [Cargo] com a função da pessoa.', 'Preencha [Cargo] com a função da pessoa.'],
+  ])('remove referências internas sem apagar o conteúdo: %s', (answer, expected) => {
+    expect(stripIpiCitations(answer)).toBe(expected);
+  });
+  it('não reintroduz marcadores vindos de respostas antigas do histórico', async () => {
+    await answerIpi(auth, new Set(['admin.access']), { ...input, history: [{ role: 'assistant', content: 'Use o filtro. [F1]' }] });
+    expect(mocks.ai.mock.calls[1][1][0].content).toBe('Use o filtro.');
   });
 });
