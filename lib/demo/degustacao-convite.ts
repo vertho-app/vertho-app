@@ -1,11 +1,10 @@
 import 'server-only';
 
-import { tenantUrl } from '@/lib/domain';
 import {
   ACME_PROSPECT_SESSION_PATTERN,
   getDemoProspectTenant,
 } from '@/lib/demo/acme-prospect-config';
-import { emitirPasseDegustacao } from '@/lib/demo/degustacao-passe';
+import { linkCurtoDaDegustacao } from '@/lib/demo/degustacao-link-curto';
 import { tenantDb } from '@/lib/tenant-db';
 import { resolveTenant } from '@/lib/tenant-resolver';
 
@@ -65,10 +64,9 @@ export async function prepararConviteGuiado(slug: string, sessionId: string): Pr
     convertido = true;
   }
 
-  const passe = emitirPasseDegustacao(slug, sessionId, Math.floor(expiraEm / 1000));
   return {
     ok: true,
-    url: tenantUrl(slug, `/degustacao?passe=${encodeURIComponent(passe)}`),
+    url: linkCurtoDaDegustacao(slug, sessionId),
     nome: sessao.prospect_name,
     convertido,
   };

@@ -32,7 +32,7 @@ vi.mock('@/lib/degradacao', () => ({
 }));
 
 import { hrefDaCasaDoConvidado } from '@/lib/demo/degustacao-casa';
-import { verificarPasseDegustacao } from '@/lib/demo/degustacao-passe';
+import { lerCodigoCurto } from '@/lib/demo/degustacao-link-curto';
 
 describe('casa do convidado da degustação B', () => {
   beforeEach(() => {
@@ -52,11 +52,10 @@ describe('casa do convidado da degustação B', () => {
     expect(sb.chamadas).toHaveLength(0);
   });
 
-  it('sessão B viva: página do roteiro, com o passe DESTE convidado', async () => {
+  it('sessão B viva: página do roteiro pelo link curto DESTE convidado', async () => {
     const href = await hrefDaCasaDoConvidado(EMAIL_B);
-    expect(href).toMatch(/^\/degustacao\?passe=/);
-    const passe = new URLSearchParams(href!.split('?')[1]).get('passe');
-    expect(verificarPasseDegustacao(passe)).toMatchObject({ tenant: 'acme-demo', sid: SID });
+    expect(href).toMatch(/^\/c\/[A-Za-z0-9_-]{24}$/);
+    expect(lerCodigoCurto(href!.slice('/c/'.length), 'acme-demo')).toBe(SID);
     expect(sb.chamadas).toContainEqual(expect.objectContaining({ metodo: 'eq', args: ['empresa_id', 'acme-demo-id'] }));
   });
 

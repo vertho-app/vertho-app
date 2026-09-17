@@ -29,7 +29,7 @@ vi.mock('@/lib/tenant-resolver', () => ({
 }));
 
 import { prepararConviteGuiado } from '@/lib/demo/degustacao-convite';
-import { verificarPasseDegustacao } from '@/lib/demo/degustacao-passe';
+import { lerCodigoCurto } from '@/lib/demo/degustacao-link-curto';
 
 describe('lembrete com o convite B', () => {
   beforeEach(() => {
@@ -50,8 +50,8 @@ describe('lembrete com o convite B', () => {
     expect(r.convertido).toBe(true);
     const link = new URL(r.url);
     expect(link.hostname).toBe('acme-demo.vertho.ai');
-    expect(link.pathname).toBe('/degustacao');
-    expect(verificarPasseDegustacao(link.searchParams.get('passe'))).toMatchObject({ tenant: 'acme-demo', sid: SID });
+    expect(link.pathname).toMatch(/^\/c\/[A-Za-z0-9_-]{24}$/);
+    expect(lerCodigoCurto(link.pathname.slice('/c/'.length), 'acme-demo')).toBe(SID);
 
     const updates = sb.escritas.filter((e) => e.op === 'update');
     expect(updates).toEqual([expect.objectContaining({ tabela: 'demo_prospect_sessions', payload: { experience_version: 'B' } })]);
@@ -70,11 +70,13 @@ describe('lembrete com o convite B', () => {
     expect((await prepararConviteGuiado('acme-demo', SID)).ok).toBe(false);
     sessao = { ...sessao, expires_at: new Date(Date.now() + 86_400_000).toISOString(), access_closed_at: '2026-09-16T00:00:00.000Z' };
     expect((await prepararConviteGuiado('acme-demo', SID)).ok).toBe(false);
-    sessao = null;
-    expect((await prepararConviteGuiado('acme-demo', SID)).ok).toBe(false);
+    // ambiente inválido com a sessão VIVA: é o ambiente que barra, não a falta da linha
+    sessao = { ...sessao, access_closed_at: null };
     expect((await prepararConviteGuiado('macae', SID)).ok).toBe(false);
     expect((await prepararConviteGuiado('constructor', SID)).ok).toBe(false);
     expect((await prepararConviteGuiado('acme-demo', 'nao-e-sessao')).ok).toBe(false);
+    sessao = null;
+    expect((await prepararConviteGuiado('acme-demo', SID)).ok).toBe(false);
     isDemo = false;
     sessao = { prospect_name: 'X', expires_at: new Date(Date.now() + 86_400_000).toISOString(), access_closed_at: null };
     expect((await prepararConviteGuiado('acme-demo', SID)).ok).toBe(false);

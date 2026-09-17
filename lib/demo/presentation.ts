@@ -16,6 +16,29 @@ export const DEMO_PRESENTATION_TICKET_STORAGE_KEY = 'vertho-demo-presentation-ti
 export const DEMO_PRESENTATION_DEVICE_PARAM = 'tela';
 export const DEMO_PRESENTATION_DEVICE_STORAGE_KEY = 'vertho-demo-presentation-device';
 
+/**
+ * Volta para a página de boas-vindas da degustação.
+ *
+ * Quem abre uma visão a partir do convite (versão B) sai do host do convidado e
+ * cai no host da sala, e ali não havia caminho de volta além do botão do
+ * navegador. O parâmetro leva o CÓDIGO do link curto (nunca uma URL): a rota
+ * `/auth/apresentacao` só o repassa quando ele é válido para o ambiente e para a
+ * MESMA sessão do ticket, e o destino é montado aqui, sempre em `*.vertho.ai`.
+ */
+export const DEMO_PRESENTATION_RETURN_PARAM = 'volta';
+export const DEMO_PRESENTATION_RETURN_STORAGE_KEY = 'vertho-demo-presentation-volta';
+/** Forma do código do link curto (`lib/demo/degustacao-link-curto.ts`): 18 bytes em base64url. */
+export const CODIGO_CURTO_PATTERN = /^[A-Za-z0-9_-]{24}$/;
+
+export function linkDaPaginaDeBoasVindas(
+  tenantSlug: string,
+  codigo: string,
+  rootDomain: string = ROOT_DOMAIN,
+): string | null {
+  if (!CODIGO_CURTO_PATTERN.test(codigo) || !/^[a-z0-9-]{2,40}$/.test(tenantSlug)) return null;
+  return `https://${tenantSlug}.${rootDomain}/c/${codigo}`;
+}
+
 export const DEMO_PRESENTATION_DEVICES = [
   { key: 'desktop', label: 'Computador', queryValue: 'computador' },
   { key: 'mobile', label: 'Celular', queryValue: 'celular' },

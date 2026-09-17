@@ -1,10 +1,11 @@
 import 'server-only';
 
 import { csrfCheck } from '@/lib/csrf';
-import { verificarPasseDegustacao } from '@/lib/demo/degustacao-passe';
+import { emitirPasseDegustacao, verificarPasseDegustacao } from '@/lib/demo/degustacao-passe';
+import { emitirCodigoCurto, lerCodigoCurto } from '@/lib/demo/degustacao-link-curto';
 import { tenantDb, type TenantDb } from '@/lib/tenant-db';
 import { resolveTenant } from '@/lib/tenant-resolver';
-import type { DemoProspectTenantSlug } from '@/lib/demo/acme-prospect-config';
+import { getDemoProspectTenant, type DemoProspectTenantSlug } from '@/lib/demo/acme-prospect-config';
 
 /**
  * A decisão de acesso da degustação, num lugar só.
@@ -36,14 +37,67 @@ export type AcessoDaDegustacao =
       slug: DemoProspectTenantSlug;
       empresaId: string;
       sessionId: string;
-      /** Segundos Unix de validade que o passe carrega. */
-      expSegundos: number;
       sessao: Record<string, any>;
       tdb: TenantDb;
+      /** O passe desta sessão (o recebido, ou reemitido a partir do código curto). */
+      passe: string;
+      /** O código do link curto desta sessão. */
+      codigo: string;
     };
 
 /** Colunas mínimas para decidir o acesso; quem chama acrescenta as suas. */
 const COLUNAS_DO_ACESSO = ['expires_at', 'access_closed_at'];
+
+function slugDoHostname(hostname: string): string {
+  return String(hostname || '').trim().toLowerCase().split(':')[0].split('.')[0];
+}
+
+/**
+ * Checagens 2 e 3, a partir de ambiente e sessão já identificados (pelo passe
+ * ou pelo código curto). Não exportada: toda entrada passa por uma das duas
+ * portas abaixo, que fazem a checagem 1 do jeito certo para cada forma.
+ */
+async function abrirPorSessao(
+  slug: string,
+  sessionId: string,
+  hostname: string,
+  colunas: readonly string[],
+  passeRecebido: string | null,
+): Promise<AcessoDaDegustacao> {
+  const hostSlug = slugDoHostname(hostname);
+  if (hostSlug !== slug || !getDemoProspectTenant(slug)) return { status: 'invalido' };
+
+  const tenant = await resolveTenant(hostSlug);
+  if (!tenant?.id || tenant.slug !== slug) return { status: 'invalido' };
+
+  // `tenantDb` e não o client admin cru: a leitura nasce escopada no ambiente
+  // que o hostname e o passe concordam ser o certo.
+  const tdb = tenantDb(tenant.id);
+  const selecao = [...new Set([...COLUNAS_DO_ACESSO, ...colunas])].join(',');
+  const { data: sessao, error } = await tdb.from('demo_prospect_sessions')
+    .select(selecao)
+    .eq('session_id', sessionId)
+    .maybeSingle();
+  // supabase-js RETORNA o erro: sem este check, uma falha de banco viraria
+  // "sessão não encontrada" e o convidado veria "convite inválido" por causa de
+  // um problema nosso.
+  if (error) return { status: 'indisponivel', motivo: error.message };
+  const linha = sessao as Record<string, any> | null;
+  if (!linha || linha.access_closed_at) return { status: 'expirado' };
+  const expiraEm = Date.parse(linha.expires_at);
+  if (!(expiraEm > Date.now())) return { status: 'expirado' };
+
+  return {
+    status: 'ok',
+    slug: slug as DemoProspectTenantSlug,
+    empresaId: tenant.id,
+    sessionId,
+    sessao: linha,
+    tdb,
+    passe: passeRecebido ?? emitirPasseDegustacao(slug, sessionId, Math.floor(expiraEm / 1000)),
+    codigo: emitirCodigoCurto(slug, sessionId),
+  };
+}
 
 export async function abrirAcessoDaDegustacao(
   passeCru: string | null | undefined,
@@ -52,38 +106,22 @@ export async function abrirAcessoDaDegustacao(
 ): Promise<AcessoDaDegustacao> {
   const passe = verificarPasseDegustacao(passeCru);
   if (!passe) return { status: 'expirado' };
+  return abrirPorSessao(passe.tenant, passe.sid, hostname, colunas, String(passeCru));
+}
 
-  const hostSlug = String(hostname || '').trim().toLowerCase().split(':')[0].split('.')[0];
-  if (hostSlug !== passe.tenant) return { status: 'invalido' };
-
-  const tenant = await resolveTenant(hostSlug);
-  if (!tenant?.id || tenant.slug !== passe.tenant) return { status: 'invalido' };
-
-  // `tenantDb` e não o client admin cru: a leitura nasce escopada no ambiente
-  // que o hostname e o passe concordam ser o certo.
-  const tdb = tenantDb(tenant.id);
-  const selecao = [...new Set([...COLUNAS_DO_ACESSO, ...colunas])].join(',');
-  const { data: sessao, error } = await tdb.from('demo_prospect_sessions')
-    .select(selecao)
-    .eq('session_id', passe.sid)
-    .maybeSingle();
-  // supabase-js RETORNA o erro: sem este check, uma falha de banco viraria
-  // "sessão não encontrada" e o convidado veria "convite inválido" por causa de
-  // um problema nosso.
-  if (error) return { status: 'indisponivel', motivo: error.message };
-  const linha = sessao as Record<string, any> | null;
-  if (!linha || linha.access_closed_at) return { status: 'expirado' };
-  if (!(Date.parse(linha.expires_at) > Date.now())) return { status: 'expirado' };
-
-  return {
-    status: 'ok',
-    slug: passe.tenant as DemoProspectTenantSlug,
-    empresaId: tenant.id,
-    sessionId: passe.sid,
-    expSegundos: passe.exp,
-    sessao: linha,
-    tdb,
-  };
+/**
+ * Mesma decisão, a partir do código do link curto (`/c/<código>`). O ambiente
+ * vem do hostname, e o código só vale se foi assinado para ele.
+ */
+export async function abrirAcessoPorCodigoCurto(
+  codigo: string | null | undefined,
+  hostname: string,
+  colunas: readonly string[],
+): Promise<AcessoDaDegustacao> {
+  const slug = slugDoHostname(hostname);
+  const sessionId = lerCodigoCurto(codigo, slug);
+  if (!sessionId) return { status: 'expirado' };
+  return abrirPorSessao(slug, sessionId, hostname, colunas, null);
 }
 
 /** Host de quem fez a requisição, sem porta. */

@@ -18,6 +18,7 @@ import type { DemoRoster } from '@/lib/demo/rosters/types';
 // na primeira vez que alguém mexesse em um dos dois lados.
 import {
   ACME_DEMO_BEHIND_KEYS,
+  ACME_DEMO_CARGOS_SO_LIDERANCA,
   ACME_DEMO_REPORT_DIRECTORY,
   ACME_DEMO_CONCLUDED_KEYS,
   ACME_DEMO_JOURNEY_KEYS,
@@ -29,6 +30,8 @@ import { REGUA_ACME } from '@/lib/demo/acme-evolucao-fixture';
 // Gerente Comercial sai do FIXTURE (o acme não tinha competências/cenários do
 // cargo — só o cargo+Top5) e é construído fresco em DEMO_EXTRA_ROLES (pacote
 // completo). Diretor Geral segue removido da demo.
+// Desde 16/09/2026 o pacote completo nasce SEM Top 5: o cargo só lidera
+// (`cargosSemAssessment`), mas mantém competências, cenários e gabarito.
 export const DEMO_EXCLUDED_ROLES = new Set(['Diretor Geral', 'Gerente Comercial']);
 
 export const REPRESENTANTE_TOP5 = [
@@ -136,7 +139,7 @@ export const PERSONAS = [
   { key: 'ana', nome_completo: 'Ana Martins', email: 'ana.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'IS', d_natural: 31, i_natural: 80, s_natural: 51, c_natural: 38, scenario: 'novo', responder: [] as string[] },
   { key: 'paulo', nome_completo: 'Paulo Demo', email: 'paulo.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'IC', d_natural: 36, i_natural: 84, s_natural: 18, c_natural: 62, scenario: 'parcial', responder: ['Negociação e Fechamento', 'Orientação a Metas e Resultados'] },
   { key: 'bruna', nome_completo: 'Bruna Costa', email: 'bruna.demo@vertho.ai', cargo: 'Representante Comercial', role: 'colaborador', area_depto: COMERCIAL_AREA, gestor_nome: DEMO_MANAGER.nome, gestor_email: DEMO_MANAGER.email, gestor_whatsapp: DEMO_MANAGER.whatsapp, perfil_dominante: 'CS', d_natural: 24, i_natural: 27, s_natural: 69, c_natural: 80, scenario: 'completo', responder: REPRESENTANTE_TOP5 },
-  { key: 'carla', nome_completo: 'Carla Menezes', email: 'carla.demo@vertho.ai', cargo: 'Gerente Comercial', role: 'gestor', area_depto: COMERCIAL_AREA, gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'DI', d_natural: 68, i_natural: 60, s_natural: 40, c_natural: 32, scenario: 'gestor-parcial', responder: [] as string[] },
+  { key: 'carla', nome_completo: 'Carla Menezes', email: 'carla.demo@vertho.ai', cargo: 'Gerente Comercial', role: 'gestor', area_depto: COMERCIAL_AREA, gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'DI', d_natural: 68, i_natural: 60, s_natural: 40, c_natural: 32, scenario: 'gestor', responder: [] as string[] },
   { key: 'mariana', nome_completo: 'Mariana Lopes', email: 'mariana.demo@vertho.ai', cargo: 'Analista Financeiro', role: 'colaborador', area_depto: 'Financeiro', gestor_nome: null as string | null, gestor_email: null as string | null, gestor_whatsapp: null as string | null, perfil_dominante: 'CS', d_natural: 22, i_natural: 34, s_natural: 65, c_natural: 79, scenario: 'completo', estiloResposta: 'forte' as const, responder: [
     'Controle, Precisão e Confiabilidade dos Dados',
     'Análise de Indicadores Financeiros',
@@ -198,6 +201,10 @@ export const ROSTER_COMERCIAL: DemoRoster = {
   personas: PERSONAS,
   administradora: DEMO_RH_PERSONA,
   salaApresentacao: SALA_COMERCIAL.map((acesso) => ({ ...acesso })),
+  // A gestão comercial SÓ LIDERA (decisão do dono em 16/09/2026): acompanha a
+  // equipe, não faz mapeamento nem jornada, como a coordenação das escolas. A
+  // lista mora no fixture do funil, que desconta essas pessoas dos mapeados.
+  cargosSemAssessment: [...ACME_DEMO_CARGOS_SO_LIDERANCA],
   respostas: {
     padrao: (competencia, persona) => respostaComercialPadrao(competencia, persona),
     forte: (competencia) => respostaComercialForte(competencia),
@@ -234,10 +241,12 @@ export const ROSTER_COMERCIAL: DemoRoster = {
     )),
     concluidos: [...ACME_DEMO_CONCLUDED_KEYS],
     /**
-     * Quem perdeu a cadência: os dois gestores e uma pessoa de operações. A
-     * escolha não é decorativa — são os únicos do cargo deles entre quem entrou
-     * em jornada, e deixá-los concluir produziria competências medidas com UMA
-     * pessoa no painel de evolução, ao lado de médias de nove.
+     * Quem perdeu a cadência: o gestor de Operações, uma pessoa de operações e
+     * o Rafael, do time da Carla. A escolha não é decorativa: os dois primeiros
+     * são os únicos do cargo deles entre quem entrou em jornada, e deixá-los
+     * concluir produziria competências medidas com UMA pessoa no painel de
+     * evolução, ao lado de médias de nove. O motivo de cada um está em
+     * `ACME_DEMO_BEHIND_KEYS`.
      */
     atrasados: [...ACME_DEMO_BEHIND_KEYS],
   },

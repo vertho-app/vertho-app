@@ -95,15 +95,23 @@ describe('destino do botão pessoal', () => {
 });
 
 describe('passo pessoal', () => {
-  const base = { discFeito: false, respondeuSituacao: false, devolutivaPronta: false };
+  const base = { discFeito: false, respondeuSituacao: false, devolutivaPronta: false, situacaoDisponivel: true };
 
   it('perfil primeiro; a situação do cargo só depois do DISC; depois a devolutiva', () => {
     expect(passoPessoalDaDegustacao(base)).toBe('descobrir-perfil');
     expect(passoPessoalDaDegustacao({ ...base, discFeito: true })).toBe('responder-situacao');
     expect(passoPessoalDaDegustacao({ ...base, discFeito: true, respondeuSituacao: true })).toBe('aguardar-devolutiva');
-    expect(passoPessoalDaDegustacao({ discFeito: true, respondeuSituacao: true, devolutivaPronta: true })).toBe('ler-devolutiva');
+    expect(passoPessoalDaDegustacao({ ...base, discFeito: true, respondeuSituacao: true, devolutivaPronta: true })).toBe('ler-devolutiva');
     // respondeu sem DISC (entrou pelo menu): a situação respondida vence
     expect(passoPessoalDaDegustacao({ ...base, respondeuSituacao: true })).toBe('aguardar-devolutiva');
+  });
+
+  it('🔴 cargo que só lidera: depois do DISC o caminho pessoal termina no perfil, sem convite a um beco', () => {
+    const soLidera = { ...base, situacaoDisponivel: false };
+    expect(passoPessoalDaDegustacao(soLidera)).toBe('descobrir-perfil');
+    expect(passoPessoalDaDegustacao({ ...soLidera, discFeito: true })).toBe('perfil-pronto');
+    // o que já foi respondido (antes de o cargo deixar de ter Top 5) continua visível
+    expect(passoPessoalDaDegustacao({ ...soLidera, discFeito: true, respondeuSituacao: true })).toBe('aguardar-devolutiva');
   });
 
   it('a seção pessoal só sobe para o topo quando a pessoa já avançou nela', () => {

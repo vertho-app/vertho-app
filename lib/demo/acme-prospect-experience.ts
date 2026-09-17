@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { tenantUrl } from '@/lib/domain';
 import { emitirPasseDegustacao } from '@/lib/demo/degustacao-passe';
+import { linkCurtoDaDegustacao } from '@/lib/demo/degustacao-link-curto';
 import { tenantDb } from '@/lib/tenant-db';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import {
@@ -230,12 +231,13 @@ export async function prepareAcmeProspectExperience(
         // O passe resolve os dois problemas de uma vez: não carrega token de
         // sessão (o robô não tem o que queimar) e é reabrível dentro do prazo.
         //
-        // Na versão B o mesmo passe abre a PÁGINA de boas-vindas, que não cria
-        // sessão nenhuma: o robô vê a página e nada acontece. `Medido
-        // 16/09/2026:` na A, o GET do robô carimbava o "acesso" de 6 dos 8
-        // prospects entre 12 s e 1 min 44 s depois da criação.
+        // Na versão B o link abre a PÁGINA de boas-vindas, que não cria sessão
+        // nenhuma: o robô vê a página e nada acontece. `Medido 16/09/2026:` na A,
+        // o GET do robô carimbava o "acesso" de 6 dos 8 prospects entre 12 s e
+        // 1 min 44 s depois da criação. E vai pelo link CURTO (`/c/<código>`,
+        // 24 caracteres), não pelo passe inteiro, que passava de 150.
         url: versao === 'B'
-          ? tenantUrl(slug, `/degustacao?passe=${encodeURIComponent(passe)}`)
+          ? linkCurtoDaDegustacao(slug, sessionId)
           : tenantUrl(slug, `/auth/degustacao?passe=${encodeURIComponent(passe)}`),
       },
     };

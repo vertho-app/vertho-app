@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
+process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'service-role-key-used-only-by-unit-test';
+
 const mocks = vi.hoisted(() => ({
-  state: { ticketValid: true, ticketTenant: 'acme-demo' },
+  state: {
+    ticketValid: true,
+    ticketTenant: 'acme-demo',
+    prospectSessionId: '1234567890abcdef1234' as string | undefined,
+  },
   gerarLogin: vi.fn(async () => ({
     ok: true as const,
     tokenHash: 'hashed-token-gestor',
@@ -14,7 +20,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/demo/presentation-ticket', () => ({
   verifyDemoPresentationTicket: () => mocks.state.ticketValid
-    ? { tenant: mocks.state.ticketTenant, prospectSessionId: '1234567890abcdef1234' }
+    ? { tenant: mocks.state.ticketTenant, prospectSessionId: mocks.state.prospectSessionId }
     : null,
 }));
 vi.mock('@/lib/demo/reset-acme-demo', () => ({
@@ -28,11 +34,13 @@ vi.mock('@/lib/demo/acme-prospect-tracking', () => ({
 }));
 
 import { GET } from '@/app/auth/apresentacao/route';
+import { emitirCodigoCurto } from '@/lib/demo/degustacao-link-curto';
 
 describe('rota de autenticação automática da apresentação', () => {
   beforeEach(() => {
     mocks.state.ticketValid = true;
     mocks.state.ticketTenant = 'acme-demo';
+    mocks.state.prospectSessionId = '1234567890abcdef1234';
     mocks.gerarLogin.mockClear();
     mocks.verifyOtp.mockClear();
     mocks.recordAccess.mockClear();
@@ -100,5 +108,50 @@ describe('rota de autenticação automática da apresentação', () => {
     const destino = new URL(res.headers.get('location')!);
     expect(destino.pathname).toBe('/login');
     expect(destino.searchParams.get('error')).toBe('apresentacao-invalida');
+  });
+});
+
+describe('"Voltar ao início": o código da página de boas-vindas atravessa a sala', () => {
+  const SID = '1234567890abcdef1234';
+  const abrir = async (volta: string) => {
+    const url = new URL('https://gestor-demo.vertho.ai/auth/apresentacao?ticket=passe.assinado');
+    url.searchParams.set('volta', volta);
+    const res = await GET(new NextRequest(url));
+    return new URL(res.headers.get('location')!);
+  };
+
+  beforeEach(() => {
+    mocks.state.ticketValid = true;
+    mocks.state.ticketTenant = 'acme-demo';
+    mocks.state.prospectSessionId = SID;
+  });
+
+  it('código deste ambiente e da MESMA sessão do ticket segue para a sala', async () => {
+    const codigo = emitirCodigoCurto('acme-demo', SID);
+    const destino = await abrir(codigo);
+    expect(destino.pathname).toBe('/dashboard/gestor');
+    expect(destino.searchParams.get('volta')).toBe(codigo);
+  });
+
+  it('🔴 código de outra sessão, de outro ambiente ou forjado é descartado, e a sala abre mesmo assim', async () => {
+    const legitimo = emitirCodigoCurto('acme-demo', SID);
+    const casos = [
+      emitirCodigoCurto('acme-demo', 'ffffffffffffffffffff'),
+      emitirCodigoCurto('gruposinal', SID),
+      `${legitimo.slice(0, -1)}${legitimo.endsWith('A') ? 'B' : 'A'}`,
+      'https://phishing.example/x',
+    ];
+    for (const volta of casos) {
+      const destino = await abrir(volta);
+      expect(destino.pathname).toBe('/dashboard/gestor');
+      expect(destino.searchParams.has('volta')).toBe(false);
+    }
+  });
+
+  it('sala preparada no painel, sem sessão de convidado no ticket, não ganha o botão', async () => {
+    mocks.state.prospectSessionId = undefined;
+    const destino = await abrir(emitirCodigoCurto('acme-demo', SID));
+    expect(destino.pathname).toBe('/dashboard/gestor');
+    expect(destino.searchParams.has('volta')).toBe(false);
   });
 });

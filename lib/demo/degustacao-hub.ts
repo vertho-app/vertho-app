@@ -7,8 +7,12 @@ import {
   type EstadoPessoalDegustacao,
   type PassoPessoalDegustacao,
 } from '@/lib/demo/acme-prospect-config';
-import { abrirAcessoDaDegustacao } from '@/lib/demo/degustacao-acesso';
-import { demoPresentationAuthUrl, isDemoPresentationTenant } from '@/lib/demo/presentation';
+import { abrirAcessoDaDegustacao, abrirAcessoPorCodigoCurto } from '@/lib/demo/degustacao-acesso';
+import {
+  DEMO_PRESENTATION_RETURN_PARAM,
+  demoPresentationAuthUrl,
+  isDemoPresentationTenant,
+} from '@/lib/demo/presentation';
 import { issueDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
 
 export type CartaoDeVisao = {
@@ -34,7 +38,14 @@ export type PaginaDaDegustacao =
       contexto: string;
       visoes: CartaoDeVisao[];
       pessoal: EstadoPessoalDegustacao & { passo: PassoPessoalDegustacao };
+      /** Vai nos formulários e no registro de abertura. */
+      passe: string;
     };
+
+/** Como a pessoa chegou: pelo passe (link longo) ou pelo código do link curto. */
+export type IdentificacaoDaPagina =
+  | { passe: string | null | undefined }
+  | { codigo: string | null | undefined };
 
 const COLUNA_DA_VISAO: Record<AcmeProspectPresentationRoleKey, string> = {
   usuario: 'colaborador_accessed_at',
@@ -43,7 +54,7 @@ const COLUNA_DA_VISAO: Record<AcmeProspectPresentationRoleKey, string> = {
 };
 
 /**
- * Carrega a página a partir do passe e do hostname.
+ * Carrega a página a partir do passe (ou do código curto) e do hostname.
  *
  * 🔴 NÃO ESCREVE E NÃO AUTENTICA. É exatamente este GET que o robô de preview do
  * WhatsApp faz, e na versão A foi o GET que criava sessão e carimbava "acesso".
@@ -51,11 +62,11 @@ const COLUNA_DA_VISAO: Record<AcmeProspectPresentationRoleKey, string> = {
  * não é chamado.
  */
 export async function carregarPaginaDaDegustacao(
-  passe: string | null | undefined,
+  identificacao: IdentificacaoDaPagina,
   hostname: string,
   agora: Date = new Date(),
 ): Promise<PaginaDaDegustacao> {
-  const acesso = await abrirAcessoDaDegustacao(passe, hostname, [
+  const colunas = [
     'colaborador_id',
     'prospect_name',
     'cargo',
@@ -63,7 +74,10 @@ export async function carregarPaginaDaDegustacao(
     'gestor_accessed_at',
     'rh_accessed_at',
     'disc_completed_at',
-  ]);
+  ];
+  const acesso = 'codigo' in identificacao
+    ? await abrirAcessoPorCodigoCurto(identificacao.codigo, hostname, colunas)
+    : await abrirAcessoDaDegustacao(identificacao.passe, hostname, colunas);
   if (acesso.status === 'indisponivel') {
     console.error('[degustacao] carregar página:', acesso.motivo);
     return { status: 'indisponivel' };
@@ -76,10 +90,11 @@ export async function carregarPaginaDaDegustacao(
   let discFeito = Boolean(sessao.disc_completed_at);
   let respondeuSituacao = false;
   let devolutivaPronta = false;
+  let cargoDoConvidado = String(sessao.cargo || '');
 
   if (sessao.colaborador_id) {
     const { data: colaborador, error: erroColaborador } = await tdb.from('colaboradores')
-      .select('id,mapeamento_em')
+      .select('id,mapeamento_em,cargo')
       .eq('id', sessao.colaborador_id)
       .maybeSingle();
     if (erroColaborador) {
@@ -87,6 +102,9 @@ export async function carregarPaginaDaDegustacao(
       return { status: 'indisponivel' };
     }
     discFeito = discFeito || Boolean((colaborador as any)?.mapeamento_em);
+    // A avaliação procura o Top 5 pelo cargo do COLABORADOR; a página pergunta
+    // pela mesma chave, para as duas nunca discordarem.
+    cargoDoConvidado = String((colaborador as any)?.cargo || cargoDoConvidado);
 
     const { data: respostas, error: erroRespostas } = await tdb.from('respostas')
       .select('id,nivel_ia4,nota_ia4')
@@ -102,6 +120,20 @@ export async function carregarPaginaDaDegustacao(
     devolutivaPronta = linhas.some((linha) => linha.nivel_ia4 != null || linha.nota_ia4 != null);
   }
 
+  // Cargo que só lidera tem o Top 5 vazio, e a avaliação dele responde "Nenhuma
+  // competência configurada". A página não oferece esse beco: para quem só
+  // lidera, o caminho pessoal termina no perfil.
+  const { data: cargo, error: erroCargo } = await tdb.from('cargos_empresa')
+    .select('top5_workshop')
+    .eq('nome', cargoDoConvidado)
+    .maybeSingle();
+  if (erroCargo) {
+    console.error('[degustacao] carregar cargo do convidado:', erroCargo.message);
+    return { status: 'indisponivel' };
+  }
+  const top5 = (cargo as any)?.top5_workshop;
+  const situacaoDisponivel = Array.isArray(top5) && top5.length > 0;
+
   const nowSeconds = Math.floor(agora.getTime() / 1000);
   // Emitido na hora, com o prazo do passaporte e a sessão para o acompanhamento.
   // O ticket da sala tem contexto de assinatura PRÓPRIO: quem o tem não forja o
@@ -112,18 +144,25 @@ export async function carregarPaginaDaDegustacao(
   }, acesso.slug);
 
   const copia = copiaDaDegustacaoGuiada(acesso.slug);
-  const visoes: CartaoDeVisao[] = copia.visoes.map((visao) => ({
-    roleKey: visao.roleKey,
-    titulo: visao.titulo,
-    descricao: visao.descricao,
-    url: demoPresentationAuthUrl(visao.roleKey, ticket, undefined, acesso.slug),
-    vistoEm: (sessao[COLUNA_DA_VISAO[visao.roleKey]] as string | null) || null,
-  }));
+  const visoes: CartaoDeVisao[] = copia.visoes.map((visao) => {
+    // O código do link curto viaja junto para a sala mostrar "Voltar ao início".
+    // A rota da sala só o repassa se ele for desta MESMA sessão do ticket.
+    const url = new URL(demoPresentationAuthUrl(visao.roleKey, ticket, undefined, acesso.slug));
+    url.searchParams.set(DEMO_PRESENTATION_RETURN_PARAM, acesso.codigo);
+    return {
+      roleKey: visao.roleKey,
+      titulo: visao.titulo,
+      descricao: visao.descricao,
+      url: url.toString(),
+      vistoEm: (sessao[COLUNA_DA_VISAO[visao.roleKey]] as string | null) || null,
+    };
+  });
 
   const estado: EstadoPessoalDegustacao = {
     discFeito,
     respondeuSituacao,
     devolutivaPronta,
+    situacaoDisponivel,
   };
 
   const nome = String(sessao.prospect_name || '').trim();
@@ -135,5 +174,6 @@ export async function carregarPaginaDaDegustacao(
     contexto: copia.contexto,
     visoes,
     pessoal: { ...estado, passo: passoPessoalDaDegustacao(estado) },
+    passe: acesso.passe,
   };
 }

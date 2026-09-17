@@ -1,14 +1,14 @@
 import 'server-only';
 
 import { lerEmailDePassaporte } from '@/lib/demo/acme-prospect-config';
-import { emitirPasseDegustacao } from '@/lib/demo/degustacao-passe';
+import { emitirCodigoCurto } from '@/lib/demo/degustacao-link-curto';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { tenantDb } from '@/lib/tenant-db';
 import { resolveTenant } from '@/lib/tenant-resolver';
 
 /**
  * Para onde vai o `/dashboard` do convidado da degustação B: a página de
- * boas-vindas, com o passe dele reemitido.
+ * boas-vindas, pelo link curto dele (`/c/<código>`).
  *
  * Na versão A o convidado caía na home genérica de colaborador da ACME, com o
  * único botão do DISC escondido atrás da barra de navegação no celular (medido
@@ -22,8 +22,8 @@ import { resolveTenant } from '@/lib/tenant-resolver';
  *   - falha de leitura cai na home genérica, e fica registrada: fallback
  *     silencioso seria a pessoa sem roteiro e ninguém sabendo por quê.
  *
- * O passe reemitido é o MESMO do convite (ambiente + sessão + prazo, sem
- * nonce), então a página tem um único jeito de identificar a pessoa.
+ * O código é o MESMO do convite (ambiente + sessão, assinados), então a casa e o
+ * convite apontam para o mesmo endereço.
  */
 export async function hrefDaCasaDoConvidado(email: string | null | undefined): Promise<string | null> {
   const passaporte = lerEmailDePassaporte(email);
@@ -47,8 +47,7 @@ export async function hrefDaCasaDoConvidado(email: string | null | undefined): P
     const expiraEm = Date.parse(sessao.expires_at);
     if (!(expiraEm > Date.now())) return null;
 
-    const passe = emitirPasseDegustacao(passaporte.slug, passaporte.sessionId, Math.floor(expiraEm / 1000));
-    return `/degustacao?passe=${encodeURIComponent(passe)}`;
+    return `/c/${emitirCodigoCurto(passaporte.slug, passaporte.sessionId)}`;
   } catch (error: any) {
     console.warn('[degustacao-casa] casa do convidado indisponível:', error?.message);
     await registrarDegradacao({

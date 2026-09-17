@@ -134,8 +134,8 @@ describe('experiência temporária de prospect no ACME', () => {
     if (!result.ok) return;
     const link = new URL(result.access.url);
     expect(link.hostname).toBe('acme-demo.vertho.ai');
-    expect(link.pathname).toBe('/degustacao');
-    expect(link.searchParams.get('passe')).toContain('.');
+    expect(link.pathname).toMatch(/^\/c\/[A-Za-z0-9_-]{24}$/);
+    expect(link.search).toBe('');
     expect(result.access.versao).toBe('B');
 
     const tracking = sb.escritas.find((write) => write.tabela === 'demo_prospect_sessions' && write.op === 'insert');

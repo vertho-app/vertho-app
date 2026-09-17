@@ -82,6 +82,7 @@ import {
   ROSTER_COMERCIAL,
 } from '@/lib/demo/rosters/comercial';
 import type { DemoRoster } from '@/lib/demo/rosters/types';
+import { cargoSemAssessment, jornadaDoCargoConstruido } from '@/lib/demo/rosters/cargo-sem-assessment';
 
 // Reexportados porque o portal de vendas, os testes e o painel importam o
 // elenco DESTE módulo desde antes de ele virar roster.
@@ -1309,7 +1310,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       // Cargo de ADEQUAÇÃO, não de jornada: entra no ranking (o fit lê as
       // colunas comportamentais) e sai do convite ao mapeamento — Top 5 vazio é
       // o que a home lê como "cargo sem competências para avaliar".
-      if (roster.cargosSemAssessment?.includes(row.nome)) top5 = [];
+      if (cargoSemAssessment(roster, row.nome)) top5 = [];
       else if (top5.length > 5) top5 = top5.slice(0, 5);
       // Tenant de demo nunca nasce com foco órfão. Se o fixture antigo não
       // tiver foco válido, o primeiro item do próprio Top 5 é o fallback.
@@ -1436,9 +1437,9 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         decisoes_recorrentes: role.decisoes_recorrentes,
         tensoes_comuns: role.tensoes_comuns,
         contexto_cultural: role.contexto_cultural,
-        top5_workshop: role.competencias.map(([nome]) => nome),
-        competencia_foco: role.competencias_foco[0],
-        competencias_foco: role.competencias_foco,
+        // Quem só lidera (`cargosSemAssessment`) nasce com Top 5 e foco vazios,
+        // mas com competências, cenários e gabarito: a régua é a de `seedCargos`.
+        ...jornadaDoCargoConstruido(roster, role),
         fit_versao: '2.0',
         eh_lideranca: role.ehLideranca,
         gabarito: brand((extraArtifacts.gabaritos as Record<string, any>)?.[role.nome] ?? null),
@@ -1629,7 +1630,11 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     const payload: any[] = [];
     for (const p of participantes) {
       const colabId = personaMap.get(p.key);
-      for (const compNome of p.responder || []) {
+      // Quem só lidera não responde situação: nem persona, nem pessoa de apoio.
+      // Sem isto o diretório do ACME dava 5 respostas avaliadas ao Marcelo, um
+      // mapeamento que o cargo dele não tem.
+      const responder = cargoSemAssessment(roster, p.cargo) ? [] : (p.responder || []);
+      for (const compNome of responder) {
         const comp = compByCargoNome.get(`${p.cargo}::${compNome}`);
         const cenario = cenarioByCargoNome.get(`${p.cargo}::${compNome}`);
         if (!comp && !cenario) continue;
@@ -2352,7 +2357,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     const rows: any[] = [];
 
     for (const pessoa of participantes) {
-      if (!keys.has(`individual:${pessoa.id}`)) {
+      // PDI individual é o plano da JORNADA; quem só lidera não tem uma.
+      if (!cargoSemAssessment(roster, pessoa.cargo) && !keys.has(`individual:${pessoa.id}`)) {
         rows.push({
           empresa_id: destId,
           colaborador_id: pessoa.id,

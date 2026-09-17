@@ -5,12 +5,10 @@ export const ACME_PROSPECT_ROLES = [
     cargo: 'Representante Comercial',
     area: 'Comercial',
   },
-  {
-    key: 'gerente-comercial',
-    label: 'Gerente Comercial',
-    cargo: 'Gerente Comercial',
-    area: 'Comercial',
-  },
+  // ⚠️ Gerente Comercial SAIU em 16/09/2026: a gestão comercial passou a só
+  // liderar (`cargosSemAssessment` do roster comercial), como a coordenação das
+  // escolas. Passaporte antigo com esse cargo continua abrindo; a página de
+  // boas-vindas oferece só o perfil comportamental a ele.
   {
     key: 'analista-financeiro',
     label: 'Analista Financeiro',
@@ -43,7 +41,7 @@ export const DEMO_PROSPECT_ROLES_POR_AMBIENTE = {
   // O Grupo Sinal aponta para a MESMA lista do ACME, e não para uma cópia: ele
   // usa o roster comercial (decisão do dono em 03/09/2026 — o que distingue os
   // dois ambientes é a identidade da empresa, não o conteúdo), então os cargos
-  // que têm matriz lá são exatamente estes quatro. Uma cópia envelheceria
+  // que percorrem a jornada lá são exatamente estes. Uma cópia envelheceria
   // sozinha no dia em que o roster comercial ganhasse ou perdesse um cargo, e a
   // divergência só apareceria na frente do prospect.
   gruposinal: ACME_PROSPECT_ROLES,
@@ -71,7 +69,8 @@ export type DemoProspectAmbienteSlug = keyof typeof DEMO_PROSPECT_ROLES_POR_AMBI
 
 /** Papéis do ambiente, ou os do ACME para quem ainda não oferece degustação. */
 export function papeisDaDegustacao(slug: string) {
-  return (DEMO_PROSPECT_ROLES_POR_AMBIENTE as Record<string, readonly any[]>)[slug] ?? ACME_PROSPECT_ROLES;
+  if (!Object.prototype.hasOwnProperty.call(DEMO_PROSPECT_ROLES_POR_AMBIENTE, slug)) return ACME_PROSPECT_ROLES;
+  return (DEMO_PROSPECT_ROLES_POR_AMBIENTE as Record<string, readonly any[]>)[slug];
 }
 
 /** O papel dentro do ambiente — `null` se ele não pertence àquele elenco. */
@@ -252,7 +251,10 @@ export const DEMO_PROSPECT_TENANTS = {
 export type DemoProspectTenantSlug = keyof typeof DEMO_PROSPECT_TENANTS;
 
 export function getDemoProspectTenant(slug: string) {
-  return (DEMO_PROSPECT_TENANTS as Record<string, { slug: string; authPrefix: string }>)[slug] ?? null;
+  // `hasOwnProperty`, não indexação: `DEMO_PROSPECT_TENANTS['constructor']` é a
+  // função `Object`, verdadeira, e passaria por ambiente registrado.
+  if (typeof slug !== 'string' || !Object.prototype.hasOwnProperty.call(DEMO_PROSPECT_TENANTS, slug)) return null;
+  return (DEMO_PROSPECT_TENANTS as Record<string, { slug: string; authPrefix: string }>)[slug];
 }
 
 /**
@@ -532,21 +534,30 @@ export type EstadoPessoalDegustacao = {
   discFeito: boolean;
   respondeuSituacao: boolean;
   devolutivaPronta: boolean;
+  /**
+   * O cargo do convidado tem situação para responder (Top 5 no tenant). Cargo
+   * que só lidera não tem: a avaliação dele responde "Nenhuma competência
+   * configurada", e oferecer o botão seria levar a pessoa a um beco.
+   */
+  situacaoDisponivel: boolean;
 };
 
 export type PassoPessoalDegustacao =
   | 'descobrir-perfil'
   | 'responder-situacao'
+  | 'perfil-pronto'
   | 'aguardar-devolutiva'
   | 'ler-devolutiva';
 
 /**
  * O próximo passo pessoal. A situação do cargo só é oferecida DEPOIS do perfil:
- * a pessoa vê o resultado do DISC antes de lhe pedirem mais trabalho.
+ * a pessoa vê o resultado do DISC antes de lhe pedirem mais trabalho. Para quem
+ * só lidera, o perfil é o fim do caminho pessoal.
  */
 export function passoPessoalDaDegustacao(estado: EstadoPessoalDegustacao): PassoPessoalDegustacao {
   if (estado.respondeuSituacao) return estado.devolutivaPronta ? 'ler-devolutiva' : 'aguardar-devolutiva';
-  return estado.discFeito ? 'responder-situacao' : 'descobrir-perfil';
+  if (!estado.discFeito) return 'descobrir-perfil';
+  return estado.situacaoDisponivel ? 'responder-situacao' : 'perfil-pronto';
 }
 
 /** A seção pessoal sobe para o topo quando a pessoa já avançou nela. */

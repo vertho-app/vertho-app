@@ -89,11 +89,12 @@ export default function DashboardHomePage() {
       let redirecionando = false;
       try {
         const r: any = await loadHomeData();
-        // Convidado da degustação B: a casa é a página do roteiro. Só aceita
-        // destino dentro de `/degustacao`, e o `loading` fica ligado até a
-        // navegação: sem isso a tela piscaria "colaborador não encontrado".
+        // Convidado da degustação B: a casa é a página do roteiro. Só aceita o
+        // link curto (`/c/<código>`) ou o longo (`/degustacao?`), e o `loading`
+        // fica ligado até a navegação: sem isso a tela piscaria "colaborador não
+        // encontrado".
         const casa = r?.degustacaoGuiada?.href;
-        if (typeof casa === 'string' && casa.startsWith('/degustacao?')) {
+        if (typeof casa === 'string' && (/^\/c\/[A-Za-z0-9_-]{24}$/.test(casa) || casa.startsWith('/degustacao?'))) {
           redirecionando = true;
           router.replace(casa);
           return;

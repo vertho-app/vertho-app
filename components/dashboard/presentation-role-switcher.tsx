@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { ChevronDown, Eye, Loader2, Monitor, Smartphone } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Eye, Loader2, Monitor, Smartphone } from 'lucide-react';
 import {
+  CODIGO_CURTO_PATTERN,
   DEMO_PRESENTATION_DEVICES,
   DEMO_PRESENTATION_DEVICE_PARAM,
   DEMO_PRESENTATION_DEVICE_STORAGE_KEY,
+  DEMO_PRESENTATION_RETURN_PARAM,
+  DEMO_PRESENTATION_RETURN_STORAGE_KEY,
   DEMO_PRESENTATION_TICKET_PARAM,
   DEMO_PRESENTATION_TICKET_STORAGE_KEY,
   demoPresentationAuthUrl,
@@ -13,6 +16,7 @@ import {
   getDemoPresentationDeviceQueryValue,
   getDemoPresentationRoleFromHostname,
   getDemoPresentationRoom,
+  linkDaPaginaDeBoasVindas,
   parseDemoPresentationDevice,
   type DemoPresentationDeviceKey,
   type DemoPresentationRoleKey,
@@ -28,6 +32,16 @@ const getPresentationRoleServerSnapshot = () => null;
 function readStoredTicket(): string | null {
   try {
     return window.sessionStorage.getItem(DEMO_PRESENTATION_TICKET_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Código do link curto da página de boas-vindas, se a sala foi aberta a partir dela. */
+function readStoredReturnCode(): string | null {
+  try {
+    const codigo = window.sessionStorage.getItem(DEMO_PRESENTATION_RETURN_STORAGE_KEY);
+    return codigo && CODIGO_CURTO_PATTERN.test(codigo) ? codigo : null;
   } catch {
     return null;
   }
@@ -57,6 +71,7 @@ function currentMobilePreviewPath(): string {
   const url = new URL(window.location.href);
   url.searchParams.delete(DEMO_PRESENTATION_TICKET_PARAM);
   url.searchParams.delete(DEMO_PRESENTATION_DEVICE_PARAM);
+  url.searchParams.delete(DEMO_PRESENTATION_RETURN_PARAM);
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
@@ -64,11 +79,13 @@ type PresentationState = {
   device: DemoPresentationDeviceKey;
   frameUrl: string | null;
   ticket: string | null;
+  /** Código do link curto da página de boas-vindas (versão B), quando houver. */
+  volta: string | null;
 };
 
 function readInitialPresentationState(): PresentationState {
   if (typeof window === 'undefined') {
-    return { device: 'desktop', frameUrl: null, ticket: null };
+    return { device: 'desktop', frameUrl: null, ticket: null, volta: null };
   }
 
   const url = new URL(window.location.href);
@@ -76,11 +93,14 @@ function readInitialPresentationState(): PresentationState {
     url.searchParams.get(DEMO_PRESENTATION_DEVICE_PARAM),
   ) || readStoredDevice() || 'desktop';
   const ticket = url.searchParams.get(DEMO_PRESENTATION_TICKET_PARAM) || readStoredTicket();
+  const voltaDaUrl = url.searchParams.get(DEMO_PRESENTATION_RETURN_PARAM);
+  const volta = voltaDaUrl && CODIGO_CURTO_PATTERN.test(voltaDaUrl) ? voltaDaUrl : readStoredReturnCode();
 
   return {
     device,
     frameUrl: device === 'mobile' ? currentMobilePreviewPath() : null,
     ticket,
+    volta,
   };
 }
 
@@ -90,6 +110,12 @@ type PresentationControlsProps = {
   switching: boolean;
   onRoleChange: (role: DemoPresentationRoleKey) => void;
   onDeviceChange: (device: DemoPresentationDeviceKey) => void;
+  /**
+   * Link da página de boas-vindas. Quando existe, quem está na sala é o
+   * PROSPECT (veio do convite), não quem apresenta: o seletor de dispositivo
+   * dá lugar ao "Voltar ao início".
+   */
+  linkDeVolta?: string | null;
 };
 
 export function PresentationControls({
@@ -98,6 +124,7 @@ export function PresentationControls({
   switching,
   onRoleChange,
   onDeviceChange,
+  linkDeVolta = null,
 }: PresentationControlsProps) {
   const DeviceIcon = device === 'mobile' ? Smartphone : Monitor;
   // As opções são as da SALA atual: cada ambiente nomeia as próprias visões.
@@ -123,6 +150,26 @@ export function PresentationControls({
     */
     <div className="fixed left-3 bottom-[calc(var(--nav-height)+0.75rem)] z-[45] max-w-[calc(100vw-1.5rem)] md:left-[calc(5rem+0.75rem)] md:bottom-4">
       <div className="flex items-stretch overflow-hidden rounded-2xl border border-white/15 bg-[#071321]/95 p-1.5 shadow-[0_16px_46px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+        {linkDeVolta && (
+          <>
+            <a
+              href={linkDeVolta}
+              data-sala="voltar-ao-inicio"
+              className="flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-400,#22d3ee)]/40"
+            >
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[var(--brand-400,#22d3ee)]/10 text-[var(--brand-300,#67e8f9)]" aria-hidden="true">
+                <ArrowLeft size={14} />
+              </span>
+              <span className="min-w-0">
+                <span className="hidden text-[8px] font-bold uppercase tracking-[0.18em] text-white/40 sm:block">
+                  Página inicial
+                </span>
+                <span className="block whitespace-nowrap">Voltar ao início</span>
+              </span>
+            </a>
+            <span className="my-1 w-px shrink-0 bg-white/10" aria-hidden="true" />
+          </>
+        )}
         <label className="group flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05] focus-within:bg-white/[0.06] focus-within:ring-2 focus-within:ring-[var(--brand-400,#22d3ee)]/25">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[var(--brand-400,#22d3ee)]/10 text-[var(--brand-300,#67e8f9)]" aria-hidden="true">
             {switching ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
@@ -155,6 +202,11 @@ export function PresentationControls({
           </span>
         </label>
 
+        {/* Quem veio do convite está no aparelho de verdade: o seletor de
+            dispositivo é ferramenta de quem APRESENTA, e no celular ele abriria
+            uma moldura de celular dentro do celular. */}
+        {!linkDeVolta && (
+        <>
         <span className="my-1 w-px shrink-0 bg-white/10" aria-hidden="true" />
 
         <label className="group flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05] focus-within:bg-white/[0.06] focus-within:ring-2 focus-within:ring-[var(--brand-400,#22d3ee)]/25">
@@ -188,6 +240,8 @@ export function PresentationControls({
             </span>
           </span>
         </label>
+        </>
+        )}
       </div>
     </div>
   );
@@ -212,7 +266,7 @@ export function PresentationEnvironment({ children }: { children: ReactNode }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [presentation, setPresentation] = useState<PresentationState>(readInitialPresentationState);
   const [switching, setSwitching] = useState(false);
-  const { device, frameUrl, ticket } = presentation;
+  const { device, frameUrl, ticket, volta } = presentation;
 
   useEffect(() => {
     if (!currentRole || embedded) return;
@@ -223,10 +277,16 @@ export function PresentationEnvironment({ children }: { children: ReactNode }) {
       url.searchParams.get(DEMO_PRESENTATION_DEVICE_PARAM),
     );
     const resolvedDevice = deviceFromUrl || readStoredDevice() || 'desktop';
+    const voltaFromUrl = url.searchParams.get(DEMO_PRESENTATION_RETURN_PARAM);
 
     if (ticketFromUrl) {
       try {
         window.sessionStorage.setItem(DEMO_PRESENTATION_TICKET_STORAGE_KEY, ticketFromUrl);
+      } catch {}
+    }
+    if (voltaFromUrl && CODIGO_CURTO_PATTERN.test(voltaFromUrl)) {
+      try {
+        window.sessionStorage.setItem(DEMO_PRESENTATION_RETURN_STORAGE_KEY, voltaFromUrl);
       } catch {}
     }
     storeDevice(resolvedDevice);
@@ -234,10 +294,12 @@ export function PresentationEnvironment({ children }: { children: ReactNode }) {
     // Passe e preferência viajam entre subdomínios, mas não ficam expostos na
     // barra, no histórico nem em uma captura feita durante a apresentação.
     const hadTransientParams = url.searchParams.has(DEMO_PRESENTATION_TICKET_PARAM)
-      || url.searchParams.has(DEMO_PRESENTATION_DEVICE_PARAM);
+      || url.searchParams.has(DEMO_PRESENTATION_DEVICE_PARAM)
+      || url.searchParams.has(DEMO_PRESENTATION_RETURN_PARAM);
     if (hadTransientParams) {
       url.searchParams.delete(DEMO_PRESENTATION_TICKET_PARAM);
       url.searchParams.delete(DEMO_PRESENTATION_DEVICE_PARAM);
+      url.searchParams.delete(DEMO_PRESENTATION_RETURN_PARAM);
       window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
     }
   }, [currentRole, embedded]);
@@ -263,6 +325,9 @@ export function PresentationEnvironment({ children }: { children: ReactNode }) {
       DEMO_PRESENTATION_DEVICE_PARAM,
       getDemoPresentationDeviceQueryValue(device),
     );
+    // O "Voltar ao início" precisa atravessar a troca de host (o sessionStorage é
+    // por origem). A rota do outro host confere o código de novo antes de usá-lo.
+    if (ticket && volta) target.searchParams.set(DEMO_PRESENTATION_RETURN_PARAM, volta);
     window.location.assign(target.toString());
   }
 
@@ -305,6 +370,7 @@ export function PresentationEnvironment({ children }: { children: ReactNode }) {
       switching={switching}
       onRoleChange={changeRole}
       onDeviceChange={changeDevice}
+      linkDeVolta={volta ? linkDaPaginaDeBoasVindas(currentRole.tenantSlug, volta) : null}
     />
   );
 

@@ -15,6 +15,20 @@ export type AcmeDemoDirectoryPerson = {
 
 export const ACME_DEMO_TEAM_SIZE = 30;
 
+/**
+ * Cargos que SÓ LIDERAM no elenco comercial: acompanham a equipe, não fazem
+ * mapeamento nem jornada (decisão do dono em 16/09/2026, a mesma da coordenação
+ * da rede de escolas). O roster comercial declara `cargosSemAssessment` a partir
+ * DESTA lista, e o funil abaixo a desconta: uma cópia em cada lado divergiria
+ * calada, e a divergência derruba o reset (o DNA Organizacional confere os
+ * mapeados contra `withMapping`).
+ */
+export const ACME_DEMO_CARGOS_SO_LIDERANCA = ['Gerente Comercial'] as const;
+
+function soLidera(cargo: string): boolean {
+  return (ACME_DEMO_CARGOS_SO_LIDERANCA as readonly string[]).includes(cargo);
+}
+
 const CARLA = { nome: 'Carla Menezes', email: 'carla.demo@vertho.ai' };
 const MARCELO = { nome: 'Marcelo Duarte', email: 'marcelo.demo@vertho.ai' };
 const JULIANA = { nome: 'Juliana Freitas', email: 'juliana.demo@vertho.ai' };
@@ -62,10 +76,16 @@ export const ACME_DEMO_REPORT_DIRECTORY: AcmeDemoDirectoryPerson[] = [
 export const ACME_DEMO_FUNNEL_TARGETS = Object.freeze({
   people: ACME_DEMO_TEAM_SIZE,
   withProfile: 28,
-  withMapping: 25,
-  inJourney: 20,
+  /**
+   * 16/09/2026: 25 → 24 e 20 → 19 (e `behind` 4 → 3). O Marcelo, Gerente
+   * Comercial do diretório, era mapeado, estava em jornada e atrasado; o cargo
+   * passou a só liderar. `onTrack` e `concluded` não mudam: as mesmas 15 pessoas
+   * concluem, na mesma ordem.
+   */
+  withMapping: 24,
+  inJourney: 19,
   onTrack: 16,
-  behind: 4,
+  behind: 3,
   /**
    * Jornadas com o fechamento feito e Evolution Report gravado. É um SUBCONJUNTO
    * de `onTrack` (quem concluiu está em dia por definição), e não um estágio
@@ -82,7 +102,7 @@ export const ACME_DEMO_FUNNEL_TARGETS = Object.freeze({
 export const ACME_DEMO_WITHOUT_PROFILE_KEYS = ['ana', 'vanessa'] as const;
 
 export const ACME_DEMO_SYNTHETIC_MAPPED_KEYS = ACME_DEMO_REPORT_DIRECTORY
-  .filter((person) => person.key !== 'vanessa')
+  .filter((person) => person.key !== 'vanessa' && !soLidera(person.cargo))
   .map((person) => person.key);
 
 export const ACME_DEMO_MAPPED_KEYS = [
@@ -99,12 +119,13 @@ export const ACME_DEMO_JOURNEY_KEYS = ACME_DEMO_MAPPED_KEYS.slice(
 /**
  * Quem está atrasado na jornada.
  *
- * Os três primeiros são os DOIS gestores e uma pessoa de operações, e a escolha
- * não é decorativa: eles são os únicos do cargo deles entre quem entrou em
- * jornada, então deixá-los concluir produziria competências medidas com UMA
- * pessoa só no painel de evolução — uma média de n=1 apresentada ao lado de
- * médias de n=9, com o mesmo peso visual. Gestor atrasado também é a versão
- * mais crível da história: quem lidera é quem mais perde a cadência.
+ * Os dois primeiros são o gestor de Operações e uma pessoa de operações, e a
+ * escolha não é decorativa: eles são os únicos do cargo deles entre quem entrou
+ * em jornada, então deixá-los concluir produziria competências medidas com UMA
+ * pessoa só no painel de evolução: uma média de n=1 apresentada ao lado de
+ * médias de n=9, com o mesmo peso visual. Até 16/09/2026 o Marcelo (Gerente
+ * Comercial) abria a lista pela mesma razão; o cargo passou a só liderar e ele
+ * saiu da jornada.
  *
  * **Rafael entrou em 04/09/2026** por um motivo diferente: o card "Ação esta
  * semana" da home do gestor mostra quem PAROU, e nenhum dos três anteriores é
@@ -116,7 +137,7 @@ export const ACME_DEMO_JOURNEY_KEYS = ACME_DEMO_MAPPED_KEYS.slice(
  * Representantes Comerciais entre os concluídos, então a média do cargo não
  * cai para n=1.
  */
-export const ACME_DEMO_BEHIND_KEYS = ['marcelo', 'eduardo', 'debora', 'rafael'];
+export const ACME_DEMO_BEHIND_KEYS = ['eduardo', 'debora', 'rafael'];
 
 /**
  * A persona navegável do participante. A jornada EM ANDAMENTO dela é o roteiro
@@ -129,7 +150,7 @@ export const ACME_DEMO_JOURNEY_SHOWCASE_KEY = 'bruna';
 
 /**
  * Quem concluiu a temporada e tem Evolution Report: todo mundo em jornada,
- * menos a persona de vitrine e as três atrasadas. Uma pessoa atrasada e
+ * menos a persona de vitrine e as atrasadas. Uma pessoa atrasada e
  * concluída ao mesmo tempo é a contradição mais fácil de produzir aqui e a que
  * mais estraga a apresentação, então a exclusão é explícita e não posicional.
  * O total precisa bater com `ACME_DEMO_FUNNEL_TARGETS.concluded` (guard no
@@ -309,7 +330,6 @@ export function criarRelatorioRhAcmeDemo() {
     },
     visao_por_cargo: [
       { cargo: 'Representante Comercial', media_nivel: 2.6, leitura: 'Boa orientação a resultado, com oportunidade de ampliar a qualidade da negociação de valor.', principais_forcas: ['Relacionamento com clientes'], principais_riscos: ['Concessões precoces sob pressão'] },
-      { cargo: 'Gerente Comercial', media_nivel: 2.9, leitura: 'Lideranças próximas do time e com espaço para tornar o coaching mais sistemático.', principais_forcas: ['Mobilização para metas'], principais_riscos: ['Baixa consistência nos registros de desenvolvimento'] },
       { cargo: 'Analista Financeiro', media_nivel: 2.8, leitura: 'Base técnica confiável e oportunidade de antecipar a comunicação de riscos.', principais_forcas: ['Precisão e responsabilidade'], principais_riscos: ['Escalada tardia de dependências'] },
       { cargo: 'Coordenador de Operações', media_nivel: 2.7, leitura: 'Boa resposta a urgências, com necessidade de preservar prioridade e aprendizagem após a resolução.', principais_forcas: ['Execução e solução de problemas'], principais_riscos: ['Recorrência de gargalos'] },
     ],
