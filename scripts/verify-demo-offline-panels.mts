@@ -5,7 +5,6 @@ import type { OfflineTenant } from '../lib/demo/offline/environment.ts';
 /** Invoked after closing the origin and restarting the browser without network. */
 export async function verifyOfflinePanels(page: Page, tenant: OfflineTenant) {
   const saved = JSON.parse(await readFile('lib/demo/offline/panels-snapshot.json', 'utf8'))[tenant];
-  const messages = JSON.parse(await readFile('messages/pt-BR.json', 'utf8'));
   await page.getByLabel('Trocar função apresentada').selectOption('gestor');
   await page.locator('[data-menu-item=\"/dashboard/gestor/engajamento\"]').click();
   await expect(page.getByRole('heading', { name: 'Engajamento do time', exact: true })).toBeVisible();
@@ -24,7 +23,7 @@ export async function verifyOfflinePanels(page: Page, tenant: OfflineTenant) {
     await page.getByText(finished.colab, { exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Detalhe do liderado' });
     await expect(dialog.getByRole('heading', { name: finished.colab, exact: true })).toBeVisible();
-    await expect(dialog.getByRole('heading', { name: messages.SeasonDone.sections.descriptor, exact: true })).toBeVisible();
+    await expect(dialog.getByText('Descritor a descritor', { exact: true })).toBeVisible();
     const download = page.waitForEvent('download');
     await dialog.getByRole('button', { name: 'PDF', exact: true }).click();
     expect((await download).suggestedFilename()).toContain('temporada');
