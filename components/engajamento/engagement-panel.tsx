@@ -137,7 +137,7 @@ function SemanaBadge({ pessoa }: { pessoa: any }) {
     const escopo = Number.isFinite(total) && total > 0 ? ` · ${total} de ${total} semanas` : '';
     return (
       <span
-        title={`Concluiu a última semana do plano. Calendário da turma: semana ${pessoa.semanaCalendario}`}
+        title={`Concluiu a última semana do plano. Calendário da turma: semana ${pessoa.semanaAberta ?? pessoa.semanaCalendario}`}
         className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-1 text-[10px] font-semibold tabular-nums ${ESTADO_JORNADA.finalizada.chip}`}
       >
         <Award size={11} aria-hidden="true" />
@@ -154,7 +154,7 @@ function SemanaBadge({ pessoa }: { pessoa: any }) {
 
   return (
     <span
-      title={`Calendário da turma: semana ${pessoa.semanaCalendario}`}
+      title={`Calendário da turma: semana ${pessoa.semanaAberta ?? pessoa.semanaCalendario}`}
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-1 text-[10px] font-semibold tabular-nums ${situacao.chip}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${situacao.dot}`} aria-hidden="true" />
@@ -278,8 +278,11 @@ function DistribuicaoJornada({
   });
   const totalFinalizadas = colaboradores.filter(finalizouJornada).length;
   const maiorTotal = Math.max(1, ...distribuicao.map((item) => item.total));
+  // A semana ABERTA, não o relógio cru: de quinta a domingo o relógio já está
+  // na semana que só abre na segunda, e o texto diria "semanas 3 e 6" para
+  // turmas que podem abrir no máximo a 2 e a 5.
   const calendarios = colaboradores
-    .map((c) => Number(c.semanaCalendario))
+    .map((c) => Number(c.semanaAberta ?? c.semanaCalendario))
     .filter((s) => Number.isFinite(s) && s > 0);
   const calendarioMin = calendarios.length ? Math.min(...calendarios) : null;
   const calendarioMax = calendarios.length ? Math.max(...calendarios) : null;

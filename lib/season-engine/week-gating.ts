@@ -142,6 +142,39 @@ export interface AcessoSemana {
   turnosNecessarios?: number;
 }
 
+/** Semana do CALENDÁRIO de um slot do plano (o plano pode remapear, ex. jornada). */
+function semanaDoCalendario(plano: any[], semana: number): number {
+  const slotPlano = plano.find((s: any) => Number(s?.semana) === semana);
+  return slotPlano?.calendario_semana ?? semana;
+}
+
+/**
+ * A maior semana, até `semana`, que já abriu POR DATA. `null` quando nenhuma
+ * abriu (trilha que ainda não começou).
+ *
+ * Existe porque o relógio da cadência (`fase4_envios.semana_atual`) anda na
+ * frente da data de quinta a domingo: o cron avança na quinta, e a semana só
+ * abre na segunda. É a mesma checagem de data de `avaliarAcessoSemana`, pelo
+ * mesmo `semanaDoCalendario`, para as duas não divergirem.
+ */
+export function ultimaSemanaAbertaPorData(input: {
+  dataInicio: string | null | undefined;
+  plano: any[] | null | undefined;
+  semana: number | string;
+  now?: Date;
+}): number | null {
+  const plano = Array.isArray(input.plano) ? input.plano : [];
+  const agora = input.now ?? new Date();
+  let semana = Math.floor(Number(input.semana));
+  if (!Number.isFinite(semana) || semana < 1) return null;
+  // Teto de iterações: `semana_atual` corrompido (ex. 9999) não pode virar laço
+  // longo dentro do cron.
+  for (let i = 0; i < 60 && semana >= 1; i++, semana--) {
+    if (semanaLiberadaPorData(input.dataInicio, semanaDoCalendario(plano, semana), agora)) return semana;
+  }
+  return null;
+}
+
 /**
  * A pessoa pode abrir esta semana? Régua ÚNICA — o servidor decide com ela
  * (`checarGatesSemana`) e a tela explica com ela.
@@ -167,8 +200,7 @@ export function avaliarAcessoSemana(input: {
 }): AcessoSemana {
   const semana = Number(input.semana);
   const plano = Array.isArray(input.plano) ? input.plano : [];
-  const slotPlano = plano.find((s: any) => Number(s?.semana) === semana);
-  const semanaCal = slotPlano?.calendario_semana ?? semana;
+  const semanaCal = semanaDoCalendario(plano, semana);
 
   if (!semanaLiberadaPorData(input.dataInicio, semanaCal, input.now ?? new Date())) {
     return { liberada: false, motivo: 'data', liberaEm: formatarLiberacao(input.dataInicio, semanaCal) };
@@ -212,6 +244,16 @@ export function avaliarAcessoSemana(input: {
  *
  * `motivo: 'data'` interrompe a descida e devolve a semana corrente — não existe
  * semana anterior a oferecer, e continuar desceria por engano.
+ *
+ * 🔴 MAS A DESCIDA PARTE DA ÚLTIMA SEMANA JÁ ABERTA POR DATA, e não do relógio
+ * cru (medido 17/09/2026, Macaé). O cron avança `semana_atual` na QUINTA, e a
+ * semana nova só abre na SEGUNDA às 03:00. De quinta a domingo o relógio aponta
+ * uma semana fechada por data; a regra acima devolvia essa semana na hora, sem
+ * olhar se as anteriores estavam concluídas. O painel "Onde as pessoas estão
+ * agora" punha os 38 diretores na semana 6, quando 19 estavam presos na 1, e os
+ * 43 professores na 3, quando 22 estavam na 1. A exceção por data continua
+ * valendo para o caso que ela descreve: nenhuma semana abriu ainda (trilha que
+ * não começou), e aí não há mesmo de onde descer.
  */
 export function primeiraSemanaAcessivel(input: {
   dataInicio: string | null | undefined;
@@ -222,6 +264,8 @@ export function primeiraSemanaAcessivel(input: {
 }): number {
   let atual = Number(input.semana);
   if (!Number.isFinite(atual) || atual < 1) return 1;
+  const aberta = ultimaSemanaAbertaPorData({ ...input, semana: atual });
+  if (aberta != null) atual = aberta;
   // Teto de iterações: o gate desce no máximo uma semana por volta, então o
   // número de semanas basta. Guarda contra plano/progresso inconsistente virar
   // laço infinito DENTRO do cron — que roda sem ninguém olhando.

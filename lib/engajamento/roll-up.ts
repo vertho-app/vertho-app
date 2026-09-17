@@ -273,6 +273,10 @@ export async function rollUpEngajamento(
       // calendário. As telas novas usam os nomes sem ambiguidade abaixo.
       semanaAtual: semanaCalendario,
       semanaCalendario,
+      // O relógio limitado ao que a data já abriu: é a semana que a TELA deve
+      // chamar de "calendário da turma". `semanaCalendario` segue cru porque os
+      // filtros por semana comparam com o relógio do servidor.
+      semanaAberta: posicao.semanaAberta,
       semanaAcessivel: posicao.semanaAcessivel,
       // Quem fechou a última semana do plano não está atrasado nem "em curso":
       // terminou. O relógio da cadência pode seguir andando, então o estado

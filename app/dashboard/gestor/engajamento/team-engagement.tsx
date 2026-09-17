@@ -94,7 +94,7 @@ function EtapaJornada({ pessoa }: { pessoa: any }) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-semibold tabular-nums ${meta.classe}`}
-      title={`Calendário da turma: semana ${pessoa.semanaCalendario}`}
+      title={`Calendário da turma: semana ${pessoa.semanaAberta ?? pessoa.semanaCalendario}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} aria-hidden="true" />
       Semana {pessoa.semanaAcessivel} · {meta.label}
@@ -123,7 +123,7 @@ function statusDaPessoa(pessoa: any): { label: string; detail: string; classe: s
   if (pessoa.jornadaAtrasada) {
     return {
       label: 'Etapa pendente',
-      detail: `O calendário da turma está na semana ${pessoa.semanaCalendario}.`,
+      detail: `O calendário da turma está na semana ${pessoa.semanaAberta ?? pessoa.semanaCalendario}.`,
       classe: 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200',
     };
   }

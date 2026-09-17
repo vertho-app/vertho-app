@@ -415,6 +415,20 @@ pessoa”. A consulta é fail-closed: sem trilha/progresso confiável, a posiç�
 02/09/2026, usar o relógio produziu “38 na semana 3”; a régua correta encontrou 21 na S1 pendente, 8
 na S2 pendente, 7 na S3 em curso e 2 com S3 concluída.
 
+🔴 **De quinta a domingo o relógio aponta uma semana FECHADA por data** (17/09/2026). O cron avança
+`semana_atual` na quinta, e a semana nova só abre na segunda às 03:00. `avaliarAcessoSemana` devolve
+`motivo: 'data'` para ela, e a régua parava ali, devolvendo o relógio sem olhar as anteriores: o
+painel "Onde as pessoas estão agora" de Macaé punha os 38 diretores na semana 6 e os 43 professores
+na 3, todos "em curso", quando 19 e 22 estavam presos na semana 1. A medição de 02/09 acima não pegou
+isso porque foi numa quarta. Hoje a descida parte de `ultimaSemanaAbertaPorData` (o relógio limitado
+ao que a data já abriu), e `atrasada` compara com essa mesma semana (`semanaAberta`), senão quem está
+em dia na 5 seria "pendente" só porque o relógio já diz 6. Trilha que ainda não começou segue
+devolvendo o relógio, como antes. Na cadência isto não muda nada com os dias em uso (segunda, terça e
+quinta nas 6 empresas com envio, medido 17/09): o cron roda às 08:00, depois da abertura de segunda e
+antes do avanço de quinta. Uma empresa configurada para mandar pílula entre sexta e domingo passaria a
+receber a semana aberta, que é o certo. Muda também o lote manual disparado de sexta a domingo, que
+passa a apontar a semana que abre.
+
 ### Medir engajamento por semana (10/09/2026)
 
 A régua canônica é `lib/engagement-evolution.ts::buildEngagementEvolutionDashboard`. População =

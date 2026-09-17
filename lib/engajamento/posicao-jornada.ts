@@ -1,11 +1,21 @@
-import { primeiraSemanaAcessivel } from '@/lib/season-engine/week-gating';
+import { primeiraSemanaAcessivel, ultimaSemanaAbertaPorData } from '@/lib/season-engine/week-gating';
 import { PROGRESSO } from '@/lib/status';
 
 export interface PosicaoJornada {
   /** Semana que a pessoa realmente consegue abrir, respeitando a progressão sequencial. */
   semanaAcessivel: number | null;
-  /** Há pelo menos uma etapa anterior ao relógio da cadência ainda pendente. */
+  /**
+   * Há pelo menos uma etapa pendente antes da última semana JÁ ABERTA por data
+   * (`semanaAberta`), e não antes do relógio cru: de quinta a domingo o relógio
+   * aponta uma semana que só abre na segunda, e contra ele quem está em dia
+   * pareceria atrasado.
+   */
   atrasada: boolean;
+  /**
+   * A semana da turma que já abriu por data (o relógio da cadência limitado ao
+   * que a data libera). `null` quando a posição não pôde ser lida.
+   */
+  semanaAberta: number | null;
   /** A própria semana acessível já foi concluída (pessoa em dia aguardando a próxima). */
   semanaConcluida: boolean;
   /** Última semana do plano DESTA pessoa (`null` quando o plano não pôde ser lido). */
@@ -33,13 +43,21 @@ export function derivarPosicaoJornada(input: {
   now?: Date;
 }): PosicaoJornada {
   if (!input.confiavel) {
-    return { semanaAcessivel: null, atrasada: false, semanaConcluida: false, totalSemanas: null, jornadaConcluida: false };
+    return { semanaAcessivel: null, atrasada: false, semanaAberta: null, semanaConcluida: false, totalSemanas: null, jornadaConcluida: false };
   }
 
   const semanaCalendarioBruta = Number(input.semanaCalendario);
   const semanaCalendario = Number.isFinite(semanaCalendarioBruta) && semanaCalendarioBruta > 0
     ? Math.floor(semanaCalendarioBruta)
     : 1;
+  // Sem nenhuma semana aberta (trilha que não começou), a referência é o
+  // próprio relógio, como a régua de acesso faz no mesmo caso.
+  const semanaAberta = ultimaSemanaAbertaPorData({
+    dataInicio: input.dataInicio,
+    plano: input.plano,
+    semana: semanaCalendario,
+    now: input.now,
+  }) ?? semanaCalendario;
   const semanaAcessivel = primeiraSemanaAcessivel({
     dataInicio: input.dataInicio,
     plano: input.plano,
@@ -74,7 +92,8 @@ export function derivarPosicaoJornada(input: {
 
   return {
     semanaAcessivel,
-    atrasada: semanaAcessivel < semanaCalendario,
+    atrasada: semanaAcessivel < semanaAberta,
+    semanaAberta,
     semanaConcluida,
     totalSemanas,
     jornadaConcluida,

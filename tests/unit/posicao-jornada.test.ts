@@ -28,6 +28,7 @@ describe('derivarPosicaoJornada', () => {
     expect(posicao).toEqual({
       semanaAcessivel: 1,
       atrasada: true,
+      semanaAberta: 3,
       semanaConcluida: false,
       totalSemanas: 14,
       jornadaConcluida: false,
@@ -45,6 +46,7 @@ describe('derivarPosicaoJornada', () => {
     })).toEqual({
       semanaAcessivel: 2,
       atrasada: true,
+      semanaAberta: 3,
       semanaConcluida: false,
       totalSemanas: 14,
       jornadaConcluida: false,
@@ -70,10 +72,10 @@ describe('derivarPosicaoJornada', () => {
     });
 
     expect(emCurso).toEqual({
-      semanaAcessivel: 3, atrasada: false, semanaConcluida: false, totalSemanas: 14, jornadaConcluida: false,
+      semanaAcessivel: 3, atrasada: false, semanaAberta: 3, semanaConcluida: false, totalSemanas: 14, jornadaConcluida: false,
     });
     expect(concluida).toEqual({
-      semanaAcessivel: 3, atrasada: false, semanaConcluida: true, totalSemanas: 14, jornadaConcluida: false,
+      semanaAcessivel: 3, atrasada: false, semanaAberta: 3, semanaConcluida: true, totalSemanas: 14, jornadaConcluida: false,
     });
   });
 
@@ -88,6 +90,7 @@ describe('derivarPosicaoJornada', () => {
     })).toEqual({
       semanaAcessivel: null,
       atrasada: false,
+      semanaAberta: null,
       semanaConcluida: false,
       totalSemanas: null,
       jornadaConcluida: false,
@@ -203,5 +206,43 @@ describe('derivarPosicaoJornada', () => {
       expect(posicao.totalSemanas).toBe(9);
       expect(posicao.jornadaConcluida).toBe(true);
     });
+  });
+});
+
+/**
+ * 🔴 Quinta a domingo o relógio está numa semana que só abre na segunda (medido
+ * 17/09/2026, Macaé: o painel punha os 38 diretores na semana 6 "em curso", com
+ * 19 presos na semana 1). Datas reais dos diretores: trilha em 17/08, relógio
+ * na 6 na quinta 17/09, semana 5 aberta.
+ */
+describe('derivarPosicaoJornada com o relógio adiantado', () => {
+  const INICIO_MACAE = '2026-08-17';
+  const QUINTA = new Date('2026-09-17T12:00:00Z');
+  const planoJornada = planoDe(7);
+
+  it('🔴 quem nunca concluiu nada aparece na semana 1, pendente', () => {
+    expect(derivarPosicaoJornada({
+      semanaCalendario: 6, dataInicio: INICIO_MACAE, plano: planoJornada, progresso: [], confiavel: true, now: QUINTA,
+    })).toMatchObject({ semanaAcessivel: 1, atrasada: true, semanaAberta: 5 });
+  });
+
+  it('🔴 quem está em dia na semana aberta NÃO é atrasado só porque o relógio já diz 6', () => {
+    expect(derivarPosicaoJornada({
+      semanaCalendario: 6, dataInicio: INICIO_MACAE, plano: planoJornada, progresso: concluidasAte(4), confiavel: true, now: QUINTA,
+    })).toMatchObject({ semanaAcessivel: 5, atrasada: false, semanaConcluida: false, semanaAberta: 5 });
+  });
+
+  it('trilha que ainda não começou usa o próprio relógio como referência, como a régua de acesso', () => {
+    // Nenhuma semana abriu por data: não há de onde descer nem contra o que
+    // medir atraso. Referência 1 inventaria uma turma na semana 1.
+    expect(derivarPosicaoJornada({
+      semanaCalendario: 3, dataInicio: '2026-12-07', plano: planoJornada, progresso: [], confiavel: true, now: QUINTA,
+    })).toMatchObject({ semanaAcessivel: 3, atrasada: false, semanaAberta: 3 });
+  });
+
+  it('quem já concluiu a semana aberta aparece nela como concluída', () => {
+    expect(derivarPosicaoJornada({
+      semanaCalendario: 6, dataInicio: INICIO_MACAE, plano: planoJornada, progresso: concluidasAte(5), confiavel: true, now: QUINTA,
+    })).toMatchObject({ semanaAcessivel: 5, atrasada: false, semanaConcluida: true, semanaAberta: 5 });
   });
 });
