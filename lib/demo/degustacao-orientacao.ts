@@ -143,6 +143,25 @@ export function linksDaOrientacao(
 }
 
 /**
+ * 🔴 O código de convidado tem DUAS fontes, e a ordem importa.
+ *
+ * Quem grava o código na sessão do navegador é a barra da sala, num efeito que
+ * roda DEPOIS dos efeitos dos filhos (React executa de baixo para cima). No
+ * primeiro carregamento da sala, portanto, a dica olharia para uma sessão ainda
+ * vazia e não apareceria justamente na visita que ela existe para orientar. Na
+ * primeira tela o código ainda está na URL (a barra o remove logo em seguida),
+ * então vale o primeiro candidato bem formado.
+ */
+export function primeiroCodigoDeConvidado(candidatos: readonly unknown[], padrao: RegExp): string | null {
+  for (const candidato of candidatos) {
+    if (typeof candidato !== 'string') continue;
+    const limpo = candidato.trim();
+    if (limpo && padrao.test(limpo)) return limpo;
+  }
+  return null;
+}
+
+/**
  * A linha só aparece na CASA do papel. Depois que a pessoa entrou numa tela, a
  * orientação de "por onde começar" virou ruído no topo do que ela escolheu ver.
  */

@@ -5,6 +5,7 @@ import {
   naCasaDoPapel,
   orientacaoDaDegustacao,
   personasDaOrientacao,
+  primeiroCodigoDeConvidado,
 } from '@/lib/demo/degustacao-orientacao';
 import { DEMO_PRESENTATION_ROOMS, listarPapeisDeApresentacao } from '@/lib/demo/presentation';
 
@@ -157,6 +158,26 @@ describe('onde a linha aparece', () => {
     expect(naCasaDoPapel('', '/dashboard')).toBe(false);
     expect(naCasaDoPapel(null, '/dashboard')).toBe(false);
     expect(naCasaDoPapel(undefined, '/dashboard')).toBe(false);
+  });
+});
+
+describe('de onde vem o código de convidado', () => {
+  const PADRAO = /^[A-Za-z0-9_-]{24}$/;
+  const codigo = 'AbCdEfGhIjKlMnOpQrStUvWx';
+
+  it('🔴 a URL vence a sessão: no primeiro carregamento a sessão ainda está vazia', () => {
+    // quem grava a sessão é a barra da sala, e o efeito dela roda DEPOIS do
+    // efeito desta dica (React executa os filhos primeiro).
+    expect(primeiroCodigoDeConvidado([codigo, null], PADRAO)).toBe(codigo);
+    expect(primeiroCodigoDeConvidado([null, codigo], PADRAO)).toBe(codigo);
+    expect(primeiroCodigoDeConvidado([`  ${codigo}  `, null], PADRAO)).toBe(codigo);
+  });
+
+  it('código mal formado ou ausente não faz de ninguém convidado', () => {
+    expect(primeiroCodigoDeConvidado([null, undefined], PADRAO)).toBeNull();
+    expect(primeiroCodigoDeConvidado(['', '   '], PADRAO)).toBeNull();
+    expect(primeiroCodigoDeConvidado(['curto', `${codigo}xx`], PADRAO)).toBeNull();
+    expect(primeiroCodigoDeConvidado([42, { toString: () => codigo }], PADRAO)).toBeNull();
   });
 });
 

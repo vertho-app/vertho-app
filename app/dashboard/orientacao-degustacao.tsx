@@ -15,8 +15,16 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowRight, X } from 'lucide-react';
-import { CODIGO_CURTO_PATTERN, DEMO_PRESENTATION_RETURN_STORAGE_KEY } from '@/lib/demo/presentation';
-import { naCasaDoPapel, type LinkDaOrientacao } from '@/lib/demo/degustacao-orientacao';
+import {
+  CODIGO_CURTO_PATTERN,
+  DEMO_PRESENTATION_RETURN_PARAM,
+  DEMO_PRESENTATION_RETURN_STORAGE_KEY,
+} from '@/lib/demo/presentation';
+import {
+  naCasaDoPapel,
+  primeiroCodigoDeConvidado,
+  type LinkDaOrientacao,
+} from '@/lib/demo/degustacao-orientacao';
 
 const CHAVE_DISPENSA = 'vertho-degustacao-orientacao-dispensada';
 
@@ -32,17 +40,21 @@ export default function OrientacaoDaDegustacao({ papel, casa, texto, links }: {
   const [visivel, setVisivel] = useState(false);
 
   useEffect(() => {
-    let convidado = false;
+    let daSessao: string | null = null;
     let dispensada = false;
     try {
-      const volta = window.sessionStorage.getItem(DEMO_PRESENTATION_RETURN_STORAGE_KEY) || '';
-      convidado = CODIGO_CURTO_PATTERN.test(volta);
+      daSessao = window.sessionStorage.getItem(DEMO_PRESENTATION_RETURN_STORAGE_KEY);
       dispensada = window.sessionStorage.getItem(`${CHAVE_DISPENSA}:${papel}`) === '1';
     } catch {
-      /* navegador sem sessionStorage: sem dica, o produto segue inteiro */
+      /* navegador sem sessionStorage: resta a URL da primeira tela */
     }
-    setVisivel(convidado && !dispensada);
-  }, [papel]);
+    const daUrl = new URLSearchParams(window.location.search).get(DEMO_PRESENTATION_RETURN_PARAM);
+    const convidado = primeiroCodigoDeConvidado([daUrl, daSessao], CODIGO_CURTO_PATTERN);
+    setVisivel(Boolean(convidado) && !dispensada);
+    // `pathname` entra de propósito: a pessoa volta para a casa depois de
+    // explorar, e a dica precisa ser reavaliada ali (inclusive porque na
+    // primeira tela o código só existia na URL).
+  }, [papel, pathname]);
 
   if (!visivel || links.length === 0 || !naCasaDoPapel(pathname, casa)) return null;
 
