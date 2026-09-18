@@ -397,7 +397,7 @@ pessoa dispensa. Não é tour: não cobre menu nem bloqueia navegação.
 
 | Papel | Para onde manda olhar |
 |---|---|
-| Gestor (Carla / coordenação) | Engajamento do time, e abrir a pessoa que está no MEIO da jornada (Bruna no ACME, Marina nas escolas) |
+| Gestor (Carla / coordenação) | Engajamento do time, e abrir a pessoa que está EM CURSO na jornada (Bruna no ACME, Marina nas escolas) |
 | RH (Helena / direção) | Evolução, Engajamento e DNA da organização |
 | Participante (Bruna / Marina) | A própria jornada: formatos do conteúdo, tira-dúvidas e evidências |
 
@@ -408,10 +408,12 @@ persona, nunca por id**: o reset das 04:00 recria os colaboradores, e o id só �
 resolvido no momento da visita (`degustacao-orientacao-servidor.ts`, escopado no
 tenant). Persona que não existe mais perde o link; o resto da linha continua.
 
-Conferido no banco antes de escrever a copy: a Bruna tem 7 semanas abertas e
-nenhuma concluída, cinco colegas do mesmo time concluíram as 7, e o
-`gestor_email` dela é o da persona de liderança nos três ambientes (é o que faz
-o link passar pelo gate de posse). A Marina é o espelho disso nas escolas.
+Conferido no banco e na tela antes de escrever a copy: a jornada da Bruna está
+na semana 1 de 7 (progresso 0/7, semana 2 libera na segunda) com as cinco
+devolutivas prontas, cinco colegas do mesmo time já concluíram as 7, e o
+`gestor_email` dela é o da persona de liderança nos três ambientes, que é o que
+faz o link passar pelo gate de posse. A Marina é o espelho disso nas escolas
+(3 semanas, 2 concluídas).
 
 ### Simuladores por papel e simulador de liderança (17/09/2026)
 
