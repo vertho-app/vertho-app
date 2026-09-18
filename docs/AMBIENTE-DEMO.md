@@ -383,6 +383,36 @@ montado: "da Boehringer" e "do Grupo Sinal" pedem artigos diferentes.
 Medir "clicou e não enviou" pede coluna nova em `demo_prospect_sessions` (DDL é
 decisão do dono) ou um evento em `diag_eventos`; nenhum dos dois foi feito.
 
+### Orientação dentro das visões (18/09/2026)
+
+**O que faltava.** O convite entrega três visões prontas e a pessoa cai numa tela
+de produto real, com o menu inteiro, sem saber o que olhar primeiro. `Medido
+18/09`: a única convidada que atravessou a experiência abriu as três visões em
+quatro minutos e não abriu nada dentro delas.
+
+**Como é.** Uma linha no topo da tela inicial de cada papel, com até três links
+que executam a ação. Aparece só para quem chegou pelo convite (a sala guarda o
+código de volta em `sessionStorage`), só na casa daquele papel, e some quando a
+pessoa dispensa. Não é tour: não cobre menu nem bloqueia navegação.
+
+| Papel | Para onde manda olhar |
+|---|---|
+| Gestor (Carla / coordenação) | Engajamento do time, e abrir a pessoa que está no MEIO da jornada (Bruna no ACME, Marina nas escolas) |
+| RH (Helena / direção) | Evolução, Engajamento e DNA da organização |
+| Participante (Bruna / Marina) | A própria jornada: formatos do conteúdo, tira-dúvidas e evidências |
+
+**Régua de conteúdo** (`lib/demo/degustacao-orientacao.ts`, puro): a casa de cada
+papel é conferida contra o `homePath` da sala por teste, porque divergir ali faz
+a dica nunca aparecer, sem erro nenhum. 🔴 **Pessoa se aponta por e-mail de
+persona, nunca por id**: o reset das 04:00 recria os colaboradores, e o id só é
+resolvido no momento da visita (`degustacao-orientacao-servidor.ts`, escopado no
+tenant). Persona que não existe mais perde o link; o resto da linha continua.
+
+Conferido no banco antes de escrever a copy: a Bruna tem 7 semanas abertas e
+nenhuma concluída, cinco colegas do mesmo time concluíram as 7, e o
+`gestor_email` dela é o da persona de liderança nos três ambientes (é o que faz
+o link passar pelo gate de posse). A Marina é o espelho disso nas escolas.
+
 ### Simuladores por papel e simulador de liderança (17/09/2026)
 
 **Quem treina e quem acompanha** (decisão do dono). Atendimento e vendas são
