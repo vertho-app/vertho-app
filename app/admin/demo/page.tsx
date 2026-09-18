@@ -86,7 +86,7 @@ const VERSOES_DO_ROTEIRO: Record<DegustacaoVersao, { rotulo: string; resumo: str
   },
   A: {
     rotulo: 'A · quatro links',
-    resumo: 'O roteiro original: a etapa 01 entra direto no app e as três visões vêm em seguida. O acesso da 01 é carimbado também pelo robô de preview.',
+    resumo: 'O convite original: a etapa 01 entra direto no app e as três visões vêm em seguida. O acesso da 01 é carimbado também pelo robô de preview.',
   },
 };
 
@@ -373,7 +373,7 @@ export default function AdminDemoPage() {
       // em outro ambiente "sumia" da lista: aqui a lista passa a ser a dele.
       if (tenantSlug !== degustacaoSlug) selecionarTenant(degustacaoSlug as TenantSlug);
       else await carregarAndamento({ silencioso: true });
-      toast.success(prospectForm.versao === 'B' ? 'Convite guiado criado.' : 'Roteiro com as quatro perspectivas criado.');
+      toast.success(prospectForm.versao === 'B' ? 'Convite guiado criado.' : 'Convite com as quatro perspectivas criado.');
     } catch (e: any) {
       toast.error(`Erro: ${e?.message || 'inesperado'}`);
     } finally {
@@ -680,7 +680,7 @@ export default function AdminDemoPage() {
                             <div className="space-y-2">
                               <p className="whitespace-pre-line rounded-lg bg-black/20 px-2.5 py-2 text-[9px] leading-relaxed text-white/60">{lembrete.texto}</p>
                               {lembrete.convertidoParaB && (
-                                <p className="text-[8px] text-cyan-200/60">Este roteiro passou para a versão B. O link antigo da etapa 01 continua abrindo.</p>
+                                <p className="text-[8px] text-cyan-200/60">Este convite passou para a versão B. O link antigo da etapa 01 continua abrindo.</p>
                               )}
                               <div className="flex flex-wrap gap-1.5">
                                 <button
@@ -827,7 +827,7 @@ export default function AdminDemoPage() {
                     <span className="text-[9px] font-bold uppercase tracking-[0.18em]">Degustação individual</span>
                   </div>
                   <h2 className="text-sm font-bold text-white">
-                    {prospectForm.versao === 'B' ? 'Crie um convite guiado' : 'Crie um roteiro em quatro perspectivas'}
+                    {prospectForm.versao === 'B' ? 'Crie um convite guiado' : 'Crie um convite em quatro perspectivas'}
                   </h2>
                   <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-gray-400">
                     {prospectForm.versao === 'B'
@@ -857,7 +857,7 @@ export default function AdminDemoPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-2 sm:grid-cols-2" role="group" aria-label="Versão do roteiro">
+              <div className="mt-4 grid gap-2 sm:grid-cols-2" role="group" aria-label="Versão do convite">
                 {(['B', 'A'] as const).map((versao) => {
                   const ativa = prospectForm.versao === versao;
                   return (
@@ -943,7 +943,7 @@ export default function AdminDemoPage() {
                   </div>
                 </label>
                 <label className="block text-[10px] font-semibold text-white/55">
-                  Cargo da primeira etapa
+                  Cargo da experiência pessoal
                   <div className="relative mt-1.5">
                     <Briefcase size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/25" aria-hidden="true" />
                     <select
@@ -961,7 +961,7 @@ export default function AdminDemoPage() {
 
               <div className="mt-3 flex items-start gap-2 text-[9px] leading-relaxed text-white/35">
                 <ShieldCheck size={13} className="mt-0.5 shrink-0 text-emerald-300/55" aria-hidden="true" />
-                <p>O WhatsApp não é enviado nem armazenado. Nome e empresa ficam no acompanhamento deste roteiro; o compartilhamento continua manual.</p>
+                <p>O WhatsApp não é enviado nem armazenado. Nome e empresa ficam no acompanhamento deste convite; o compartilhamento continua manual.</p>
               </div>
 
               <button
@@ -970,8 +970,8 @@ export default function AdminDemoPage() {
                 className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-300 py-3 text-sm font-bold text-[#071923] transition-colors hover:bg-emerald-200 disabled:opacity-50"
               >
                 {preparandoProspect
-                  ? <><Loader2 size={16} className="animate-spin" /> Preparando o roteiro…</>
-                  : <><UserPlus size={16} /> {prospectAccess ? 'Criar um novo passe' : 'Preparar experiência individual'}</>}
+                  ? <><Loader2 size={16} className="animate-spin" /> Criando o convite…</>
+                  : <><UserPlus size={16} /> {prospectAccess ? 'Criar outro convite' : 'Criar convite'}</>}
               </button>
 
               {prospectAccess && (
@@ -981,12 +981,12 @@ export default function AdminDemoPage() {
                   <div className="p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-emerald-300/65">Roteiro preparado</p>
+                        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-emerald-300/65">Convite preparado</p>
                         <p className="mt-1 text-sm font-bold text-white">{prospectAccess.nome}</p>
                         <p className="mt-0.5 text-[10px] text-white/40">{prospectAccess.empresa} · {prospectAccess.cargo}</p>
                       </div>
                       <div className="rounded-lg border border-white/10 bg-white/[0.035] px-2.5 py-2 text-right">
-                        <p className="flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider text-white/30"><Clock size={10} /> Roteiro até</p>
+                        <p className="flex items-center gap-1 font-mono text-[8px] uppercase tracking-wider text-white/30"><Clock size={10} /> Convite ativo até</p>
                         <p className="mt-1 font-mono text-[10px] text-emerald-200">{formatProspectExpiry(prospectAccess.expiresAt)}</p>
                       </div>
                     </div>
@@ -1015,7 +1015,7 @@ export default function AdminDemoPage() {
                         </p>
                       </div>
                     ) : (
-                    <div className="space-y-2" aria-label="Roteiro de experiência do prospect">
+                    <div className="space-y-2" aria-label="Convite de experiência do prospect">
                       {getAcmeProspectExperienceSteps(prospectAccess).map((step, index) => {
                         const copyKey = `prospect-step-${prospectAccess.sessionId}-${step.number}`;
                         const isPersonal = index === 0;

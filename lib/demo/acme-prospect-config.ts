@@ -397,6 +397,13 @@ export type CopiaDaDegustacaoGuiada = {
     titulo: string;
     descricao: string;
   }>;
+  /** Próximo passo, no fim da página. */
+  contato: {
+    /** Falando com a pessoa: "Quer ver isso na sua empresa?" */
+    titulo: string;
+    /** Falando POR ela, no botão e na mensagem pronta: "na minha empresa". */
+    minhaCasa: string;
+  };
 };
 
 const VISOES_EMPRESA: CopiaDaDegustacaoGuiada['visoes'] = [
@@ -422,15 +429,18 @@ export const COPIA_DEGUSTACAO_GUIADA: Record<DemoProspectTenantSlug, CopiaDaDegu
     contexto: 'numa empresa de demonstração',
     quemAcompanha: 'o gestor e o RH acompanham',
     visoes: VISOES_EMPRESA,
+    contato: { titulo: 'Quer ver isso na sua empresa?', minhaCasa: 'na minha empresa' },
   },
   gruposinal: {
     contexto: 'num ambiente de demonstração',
     quemAcompanha: 'o gestor e o RH acompanham',
     visoes: VISOES_EMPRESA,
+    contato: { titulo: 'Quer ver isso na sua empresa?', minhaCasa: 'na minha empresa' },
   },
   'escolas-acme': {
     contexto: 'numa rede de escolas de demonstração',
     quemAcompanha: 'a coordenação e a direção acompanham',
+    contato: { titulo: 'Quer ver isso na sua rede?', minhaCasa: 'na minha rede' },
     visoes: [
       {
         roleKey: 'gestor',

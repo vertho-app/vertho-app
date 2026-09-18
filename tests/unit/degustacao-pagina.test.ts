@@ -42,6 +42,7 @@ import { carregarPaginaDaDegustacao } from '@/lib/demo/degustacao-hub';
 import { emitirPasseDegustacao, verificarPasseDegustacao } from '@/lib/demo/degustacao-passe';
 import { emitirCodigoCurto, lerCodigoCurto } from '@/lib/demo/degustacao-link-curto';
 import { verifyDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
+import { WHATSAPP_DO_COMERCIAL, WHATSAPP_VERTHO } from '@/lib/demo/degustacao-contato';
 
 const passe = (slug = 'acme-demo') => emitirPasseDegustacao(slug, SID, Math.floor(Date.now() / 1000) + 86_400);
 
@@ -52,6 +53,8 @@ describe('página de boas-vindas da degustação B', () => {
     sessao = {
       colaborador_id: 'colab-1',
       prospect_name: 'Andrea de Paula',
+      prospect_company: 'Evol Pro',
+      created_by_email: 'rodrigo@vertho.ai',
       cargo: 'Gerente Comercial',
       expires_at: new Date(Date.now() + 86_400_000).toISOString(),
       access_closed_at: null,
@@ -96,6 +99,42 @@ describe('página de boas-vindas da degustação B', () => {
     const pagina: any = await carregarPaginaDaDegustacao({ passe: passe('escolas-acme') }, 'escolas-acme.vertho.ai');
     expect(pagina.visoes[0].titulo).toBe('O que a coordenação acompanha');
     expect(new URL(pagina.visoes[0].url).hostname).toBe('coordenacao-escolas.vertho.ai');
+    // e o próximo passo fala de rede, não de empresa
+    expect(pagina.contato.botao).toBe('Quero ver na minha rede');
+  });
+
+  it('próximo passo: conversa de QUEM CONVIDOU, com nome e empresa do convite no texto', async () => {
+    // número diferente do público de propósito: com os dois iguais, a asserção
+    // passaria mesmo se a página ignorasse o `created_by_email` da linha.
+    WHATSAPP_DO_COMERCIAL['rodrigo@vertho.ai'] = '5541999991234';
+    try {
+      const pagina: any = await carregarPaginaDaDegustacao({ passe: passe() }, 'acme-demo.vertho.ai');
+
+      expect(pagina.contato).toMatchObject({
+        titulo: 'Quer ver isso na sua empresa?',
+        botao: 'Quero ver na minha empresa',
+      });
+      const alvo = new URL(pagina.contato.url);
+      expect(alvo.hostname).toBe('wa.me');
+      expect(alvo.pathname).toBe('/5541999991234');
+      expect(alvo.searchParams.get('text')).toContain('Aqui é Andrea (Evol Pro).');
+      // 🔴 O mock devolve a linha inteira, então o texto acima passaria mesmo com
+      // a coluna fora do `select` — e em produção ela chegaria `undefined`, sem
+      // erro nenhum. Quem prova é a FORMA da consulta.
+      const selecao = sb.chamadas.find((c: any) => c.tabela === 'demo_prospect_sessions' && c.metodo === 'select');
+      expect(String(selecao?.args?.[0])).toContain('prospect_company');
+      expect(String(selecao?.args?.[0])).toContain('created_by_email');
+      // o link é só um endereço montado: abrir a página continua sem gravar nada
+      expect(sb.escritas).toHaveLength(0);
+    } finally {
+      WHATSAPP_DO_COMERCIAL['rodrigo@vertho.ai'] = WHATSAPP_VERTHO;
+    }
+  });
+
+  it('convite sem quem criou continua com saída: o número público da Vertho', async () => {
+    sessao = { ...sessao, created_by_email: null };
+    const pagina: any = await carregarPaginaDaDegustacao({ passe: passe() }, 'acme-demo.vertho.ai');
+    expect(new URL(pagina.contato.url).pathname).toBe(`/${WHATSAPP_VERTHO}`);
   });
 
   it('host de sala de apresentação ou de outro ambiente não abre a página', async () => {

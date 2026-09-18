@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, Check, MessageCircle } from 'lucide-react';
 import AberturaBeacon from './abertura-beacon';
 import {
   carregarPaginaDaDegustacao,
@@ -281,6 +281,38 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
     </section>
   );
 
+  /*
+    O próximo passo fica no FIM, depois de tudo o que a pessoa veio ver: ele é a
+    saída da página, não uma cobrança na entrada. Quem manda a mensagem é ela, do
+    próprio aparelho (ver `lib/demo/degustacao-contato.ts`), então isto é um link
+    comum: funciona sem JavaScript e não grava nada.
+  */
+  const secaoContato = (
+    <section className="mt-8 lg:mt-12" aria-label="Falar com a Vertho">
+      <Eyebrow>Próximo passo</Eyebrow>
+      <div
+        data-layout="cartao-contato"
+        className="rounded-2xl border p-5 lg:grid lg:grid-cols-[1fr_300px] lg:items-center lg:gap-10 lg:p-8"
+        style={{ background: COR.card, borderColor: COR.borda }}
+      >
+        <div>
+          <Titulo>{pagina.contato.titulo}</Titulo>
+          <Texto>A mensagem já vai escrita. Você só envia, e a gente marca uma conversa.</Texto>
+        </div>
+        <a
+          href={pagina.contato.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-center text-[15px] font-bold transition-transform active:scale-[0.99] lg:mt-0"
+          style={{ background: 'transparent', color: COR.texto, border: `1px solid ${COR.bordaAcento}` }}
+        >
+          <MessageCircle size={17} className="shrink-0" aria-hidden="true" />
+          {pagina.contato.botao}
+        </a>
+      </div>
+    </section>
+  );
+
   return (
     <Moldura>
       <p className="mt-9 text-[15px] lg:mt-14 lg:text-[17px]" style={{ color: COR.texto2 }}>Olá, {pagina.primeiroNome}</p>
@@ -297,6 +329,8 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
       {avisoTexto && <Aviso texto={avisoTexto} />}
 
       {pessoalVemPrimeiro(pessoal) ? <>{secaoPessoal}{secaoVisoes}</> : <>{secaoVisoes}{secaoPessoal}</>}
+
+      {secaoContato}
 
       <p className="mt-10 text-[12px] leading-relaxed lg:mt-14 lg:text-[13px]" style={{ color: COR.texto3 }}>
         Acesso individual, ativo até {formatAcmeProspectExpiry(pagina.expiraEm)} (horário de Brasília).

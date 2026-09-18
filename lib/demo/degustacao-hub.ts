@@ -8,6 +8,7 @@ import {
   type PassoPessoalDegustacao,
 } from '@/lib/demo/acme-prospect-config';
 import { abrirAcessoDaDegustacao, abrirAcessoPorCodigoCurto } from '@/lib/demo/degustacao-acesso';
+import { linkDeContatoDaDegustacao } from '@/lib/demo/degustacao-contato';
 import {
   DEMO_PRESENTATION_RETURN_PARAM,
   demoPresentationAuthUrl,
@@ -38,6 +39,8 @@ export type PaginaDaDegustacao =
       contexto: string;
       visoes: CartaoDeVisao[];
       pessoal: EstadoPessoalDegustacao & { passo: PassoPessoalDegustacao };
+      /** Próximo passo: conversa com quem convidou, com o texto pronto. */
+      contato: { titulo: string; botao: string; url: string };
       /** Vai nos formulários e no registro de abertura. */
       passe: string;
     };
@@ -69,6 +72,8 @@ export async function carregarPaginaDaDegustacao(
   const colunas = [
     'colaborador_id',
     'prospect_name',
+    'prospect_company',
+    'created_by_email',
     'cargo',
     'colaborador_accessed_at',
     'gestor_accessed_at',
@@ -166,6 +171,12 @@ export async function carregarPaginaDaDegustacao(
   };
 
   const nome = String(sessao.prospect_name || '').trim();
+  const dadosDoContato = {
+    nome,
+    empresa: String(sessao.prospect_company || ''),
+    minhaCasa: copia.contato.minhaCasa,
+    criadoPor: (sessao.created_by_email as string | null) || null,
+  };
   return {
     status: 'ok',
     primeiroNome: nome.split(/\s+/)[0] || nome,
@@ -174,6 +185,11 @@ export async function carregarPaginaDaDegustacao(
     contexto: copia.contexto,
     visoes,
     pessoal: { ...estado, passo: passoPessoalDaDegustacao(estado) },
+    contato: {
+      titulo: copia.contato.titulo,
+      botao: `Quero ver ${copia.contato.minhaCasa}`,
+      url: linkDeContatoDaDegustacao(dadosDoContato),
+    },
     passe: acesso.passe,
   };
 }

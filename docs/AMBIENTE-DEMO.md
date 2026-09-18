@@ -359,6 +359,30 @@ a página mostra só o perfil (`perfil-pronto`), porque o cargo não tem situaç
 página pergunta pelo Top 5 com a mesma chave da avaliação (o cargo do
 colaborador), para as duas nunca discordarem.
 
+### Próximo passo: a saída da página (18/09/2026)
+
+**O que faltava, medido.** `Medido 18/09/2026`: a primeira convidada a atravessar
+a experiência inteira (DISC às 09:05, colaborador 09:17, gestor 09:20, RH 09:21,
+versão A) terminou numa página sem nenhuma saída. Quem quisesse conversar teria
+que voltar ao WhatsApp e procurar a conversa.
+
+**Como é.** O último bloco da página de boas-vindas é "Próximo passo", com a
+pergunta do ambiente ("Quer ver isso na sua empresa?" / "na sua rede") e um link
+`wa.me` com o texto pronto. Quem envia a mensagem é a PESSOA, do aparelho dela:
+o tenant de demonstração não dispara nada, nada novo é guardado sobre o lead e o
+robô de preview do WhatsApp não tem o que carimbar. É um `<a>` comum, funciona
+sem JavaScript.
+
+**Para quem vai a mensagem.** `lib/demo/degustacao-contato.ts` resolve o número
+pelo `created_by_email` do passaporte, num mapa explícito; quem não estiver lá
+cai no número público da Vertho (o mesmo do site). Comercial novo = uma linha no
+mapa. A empresa do lead entra entre parênteses no texto, nunca com artigo
+montado: "da Boehringer" e "do Grupo Sinal" pedem artigos diferentes.
+
+⚠️ **O clique não é medido.** Só chega sinal quando a pessoa envia a mensagem.
+Medir "clicou e não enviou" pede coluna nova em `demo_prospect_sessions` (DDL é
+decisão do dono) ou um evento em `diag_eventos`; nenhum dos dois foi feito.
+
 ### Simuladores por papel e simulador de liderança (17/09/2026)
 
 **Quem treina e quem acompanha** (decisão do dono). Atendimento e vendas são
