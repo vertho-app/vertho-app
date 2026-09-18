@@ -86,13 +86,28 @@ describe('persistirTrilha · header da trilha é UPSERT atômico (F-C1)', () => 
   });
 
   it('data_inicio e numero_temporada existentes são preservados no payload do upsert (F-I1)', async () => {
-    const tdb = tdbMock({ existente: { id: 'trilha-9', numero_temporada: 3, data_inicio: '2026-01-05' } });
+    // Regeração legítima: trilha ativa, mesmo formato (a trava de regeração deixa passar).
+    const tdb = tdbMock({ existente: { id: 'trilha-9', numero_temporada: 3, data_inicio: '2026-01-05', status: 'ativa', programa_modo: 'regular' } });
     const r = await persistirTrilha(tdb, ARGS);
     expect(r).toEqual({ trilhaId: 'trilha-1', numeroTemporada: 3 });
 
     const upsert = tdb.ops.find((o) => o.tabela === 'trilhas' && o.tipo === 'upsert');
     expect(upsert?.payload.data_inicio).toBe('2026-01-05');
     expect(upsert?.payload.numero_temporada).toBe(3);
+  });
+
+  it('trava de regeração relida antes de gravar: trilha que concluiu durante a geração não é reaberta', async () => {
+    const tdb = tdbMock({ existente: { id: 'trilha-9', numero_temporada: 1, status: 'concluida', programa_modo: 'regular' } });
+    const r: any = await persistirTrilha(tdb, ARGS);
+    expect(r.error).toMatch(/concluída/);
+    // Nada gravado: nem o header, nem o progresso.
+    expect(tdb.ops.filter((o) => o.tipo === 'upsert')).toHaveLength(0);
+  });
+
+  it('trava não se aplica a linha nova (encadeamento): grava a próxima temporada', async () => {
+    const tdb = tdbMock({ existente: { id: 'trilha-9', numero_temporada: 1, status: 'concluida', programa_modo: 'jornada' } });
+    const r = await persistirTrilha(tdb, { ...ARGS, programaModo: 'jornada' as any, novaJornada: true });
+    expect(r).toEqual({ trilhaId: 'trilha-1', numeroTemporada: 2 });
   });
 
   it('trilha nova (SELECT vazio) calcula data_inicio da próxima segunda', async () => {

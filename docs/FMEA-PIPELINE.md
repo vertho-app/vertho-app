@@ -245,6 +245,19 @@ briefs duplicados por tupla.
 - **Correção (27/07, `ab3cf043`):** `data_inicio: existente?.data_inicio || nextMondayISO()`
   (`trilha-core.ts:713`) — só a 1ª gravação calcula; o UPDATE preserva.
 
+### F-I1b · Regerar sobrescrevia trilha concluída, snapshot e formato ✅ (fechado 18/09)
+- **Gatilho:** `persistirTrilha` grava por upsert na MESMA linha (empresa, colaborador, temporada),
+  com `status: ativa` e `programa_config: null` nos presets. "Regerar temporada inteira" e o lote
+  "Gerar Temporadas" (que lista todo o escopo) reabriam uma jornada concluída com o fechamento dela,
+  apagavam o snapshot de 9 semanas de Ibipeba (a trilha voltava ao DUO de 14) e trocavam o formato de
+  quem estava no meio.
+- **Por que agora:** a 2ª jornada dos diretores de Macaé ficou para decisão do dono, e esse botão
+  seria o caminho manual natural a partir dos primeiros fechamentos (~28/09).
+- **Correção (18/09):** `lib/season-engine/trava-regeracao.ts`, aplicada antes de qualquer IA em
+  `gerarTemporadaCoreHeadless` e relida em `persistirTrilha` logo antes de gravar (cobre a trilha que
+  concluiu enquanto a IA gerava; sobra uma janela de milissegundos até o upsert). Só vale para a
+  mesma linha: encadeamento (`novaJornada`) e troca de participação passam. Custom em custom passa.
+
 ### F-I2 · `regerarSemana` não re-seleciona conteúdo nem normaliza ✅ (fechado 27/07)
 - **Gatilho (histórico):** `regerarSemana` reescrevia só desafio/missão/cenário por IA, mantinha
   `core_id`/`formatos_disponiveis`/`descritor` do slot antigo e gravava o JSONB direto, sem

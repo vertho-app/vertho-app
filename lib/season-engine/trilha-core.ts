@@ -11,6 +11,7 @@ import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import type { AIConfig } from '@/actions/ai-client';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
+import { travaRegeracao } from '@/lib/season-engine/trava-regeracao';
 
 /**
  * Gera uma temporada pra um colaborador, focada em 1 competência.
@@ -92,6 +93,18 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     // congelando as regras. Sem turma, `cfg` é a sys_config da empresa e o
     // resultado é byte-igual ao `resolverModoColab` anterior.
     const modoResolvido = resolverModoDaTurma({ empresa: cfg, colaboradorLegado: colab }) as ProgramaModoLabel;
+
+    // Trava de regeração ANTES de qualquer IA (lib/season-engine/trava-regeracao.ts):
+    // regerar não reabre trilha concluída, não apaga snapshot de plano próprio e
+    // não troca o formato de quem está no meio. `persistirTrilha` relê e trava de
+    // novo antes de gravar (a trilha pode concluir enquanto a IA gera o plano).
+    const { data: trilhaAtual, error: errTrilhaAtual } = await tdb.from('trilhas')
+      .select('status, programa_modo, programa_config, turma_membro_id')
+      .eq('colaborador_id', colaboradorId)
+      .order('numero_temporada', { ascending: false }).limit(1).maybeSingle();
+    if (errTrilhaAtual) return { error: `Falha ao ler a trilha atual: ${errTrilhaAtual.message}` };
+    const trava = travaRegeracao(trilhaAtual, { modoNovo: modoResolvido, novaJornada, turmaMembroId: ctxTurma.turmaMembroId });
+    if (trava) return { error: trava.mensagem, codigo: trava.codigo };
 
     // ── Modo Personalizado (builder de degustação): config vem de DADO ────
     // getProgramaConfigByModo NÃO resolve 'custom' (cairia no DUO de 14
@@ -821,10 +834,17 @@ export async function persistirTrilha(tdb: any, args: {
   // "a trilha do colaborador" é a de maior temporada. Por criado_em, regerar a
   // jornada 1 depois de a 2 existir a faria virar "a atual" e o encadeamento
   // criaria uma terceira.
-  const { data: existente } = await tdb.from('trilhas')
-    .select('id, numero_temporada, data_inicio, turma_membro_id')
+  const { data: existente, error: errExistente } = await tdb.from('trilhas')
+    .select('id, numero_temporada, data_inicio, turma_membro_id, status, programa_modo, programa_config')
     .eq('colaborador_id', colaboradorId)
     .order('numero_temporada', { ascending: false }).limit(1).maybeSingle();
+  if (errExistente) return { error: `trilha atual (leitura): ${errExistente.message}` };
+
+  // A mesma trava do início da geração, relida logo antes de gravar: a pessoa
+  // pode ter concluído a trilha enquanto a IA gerava o plano (minutos). Sobra
+  // uma janela de milissegundos entre esta leitura e o upsert abaixo.
+  const trava = travaRegeracao(existente, { modoNovo: programaModo, novaJornada, turmaMembroId });
+  if (trava) return { error: trava.mensagem };
 
   // ⚠️ TROCA DE PARTICIPAÇÃO cria trilha nova, mesmo sem `novaJornada` explícito.
   //
