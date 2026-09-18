@@ -201,7 +201,10 @@ export async function finalizarFechamentoCore(
     const acumuladoPrimaria = normalizarAcumuladoPrimaria(progAcum?.feedback?.acumulado);
 
     // A nota_pos NUNCA sai só do cenário: evidências de todas as semanas até a acumulada.
-    const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(tdb, trilhaId, descritoresComRegua, config.semanaAcumulada);
+    const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(
+      tdb, trilhaId, descritoresComRegua, config.semanaAcumulada,
+      { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
+    );
 
     const resultado = await pontuarFechamento({
       competencia: competenciasLabel,

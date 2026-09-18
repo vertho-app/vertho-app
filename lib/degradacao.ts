@@ -269,6 +269,19 @@ export const DEGRADACAO = {
    * roteiro que o convite prometeu.
    */
   DEGUSTACAO_CASA_INDISPONIVEL: 'degustacao-casa-indisponivel',
+  /**
+   * trilha (fechamento): a leitura das evidências das semanas falhou, e a
+   * nota_pos foi triangulada só com o cenário e o acumulado. `critico`: a
+   * evidência acumulada é a perna que impede a nota de sair de uma conversa só,
+   * e não há segunda chance — a nota é gravada na sequência.
+   *
+   * 🔴 Esta constante nasce de um caso real: o select pedia a coluna
+   * `descritor`, que não existe em `temporada_semana_progresso`, e o 400 do
+   * PostgREST virava string vazia sem `{ error }` checado. `Medido: 17/09/2026`
+   * — 48 fechamentos, 100% dos da base, desde 03/07/2026. O typo é de um dia; o
+   * silêncio é o que custou dois meses e meio.
+   */
+  EVIDENCIAS_FECHAMENTO_NAO_LIDAS: 'evidencias-fechamento-nao-lidas',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

@@ -8,6 +8,7 @@
  * até a acumulada (conteúdo + prática + auto-percepção).
  */
 import { linhasDaReflexaoSemanal } from '@/lib/season-engine/evidencia-semana';
+import { DEGRADACAO, registrarDegradacao } from '@/lib/degradacao';
 
 
 /**
@@ -52,15 +53,71 @@ export async function agregarEvidenciasAteAcumulada(
   trilhaId: string,
   descritoresComRegua: any[],
   semAcumulada: number = 13,
+  degradacao?: { empresaId?: string | null; colaboradorId?: string | null },
 ) {
-  const { data: progressos } = await sb.from('temporada_semana_progresso')
-    .select('semana, tipo, descritor, reflexao, feedback, tira_duvidas')
+  /**
+   * 🔴 O SELECT PEDIA UMA COLUNA QUE NUNCA EXISTIU (17/09/2026).
+   *
+   * Era `'semana, tipo, descritor, reflexao, feedback, tira_duvidas'`, e
+   * `temporada_semana_progresso` não tem `descritor` — o descritor da semana vem
+   * do `temporada_plano`, logo abaixo. Coluna inexistente no select derruba a
+   * QUERY INTEIRA (400/`42703`), então `data` vinha `null`, o guard da linha
+   * seguinte lia isso como "trilha sem progresso" e devolvia string vazia.
+   *
+   * O efeito: o prompt do scorer recebia "(sem evidência registrada nas N
+   * semanas)" em todos os descritores, e a nota_pos — que existe justamente para
+   * NÃO sair só do cenário — triangulava com duas pernas em vez de três.
+   *
+   * `Medido: 17/09/2026` — o select entrou em `f42fb93d` (03/07/2026) e desde
+   * então rodaram **48 fechamentos, 100% dos que existem na base**. Nenhum deles
+   * viu as evidências das semanas. `tira_duvidas` saiu junto: existe na tabela,
+   * mas esta função nunca leu esse campo.
+   */
+  const { data: progressos, error } = await sb.from('temporada_semana_progresso')
+    .select('semana, tipo, reflexao, feedback')
     .eq('trilha_id', trilhaId).lte('semana', semAcumulada).order('semana');
+  /**
+   * E o que deixou isso passar dois meses e meio foi o SILÊNCIO, não o typo: sem
+   * ler o `{ error }`, falha de leitura e ausência de dado produzem a mesma
+   * string vazia, e o fechamento segue com uma nota pior sem nada acusar. Agora
+   * o erro fica no `degradacao_log`, que o health estrutural lê toda madrugada
+   * (R10). Continua devolvendo '' de propósito: a pessoa acabou de responder o
+   * cenário e não pode ficar sem nota por uma leitura que falhou.
+   */
+  if (error) {
+    await registrarDegradacao({
+      fluxo: 'trilha',
+      tipo: DEGRADACAO.EVIDENCIAS_FECHAMENTO_NAO_LIDAS,
+      chave: trilhaId,
+      empresaId: degradacao?.empresaId ?? null,
+      colaboradorId: degradacao?.colaboradorId ?? null,
+      severidade: 'critico',
+      // O `code` vai junto: `42703` (coluna inexistente) é a assinatura desta
+      // classe, e é por ele que se distingue schema errado de queda de rede.
+      detalhe: { erro: String(error.message || error).slice(0, 300), codigo: error.code ?? null, semana_acumulada: semAcumulada },
+    });
+    return '';
+  }
   if (!progressos?.length) return '';
 
-  // Mapa de temporada_plano pra saber qual descritor cada semana trabalhou
-  const { data: trilhaPlan } = await sb.from('trilhas')
+  // Mapa de temporada_plano pra saber qual descritor cada semana trabalhou.
+  // Mesma classe da leitura acima, e o MESMO sintoma: sem o plano, nenhuma
+  // semana casa com descritor nenhum e as evidências saem vazias por outro
+  // caminho. Corrigir só a primeira deixaria a porta ao lado aberta.
+  const { data: trilhaPlan, error: errPlano } = await sb.from('trilhas')
     .select('temporada_plano').eq('id', trilhaId).maybeSingle();
+  if (errPlano) {
+    await registrarDegradacao({
+      fluxo: 'trilha',
+      tipo: DEGRADACAO.EVIDENCIAS_FECHAMENTO_NAO_LIDAS,
+      chave: trilhaId,
+      empresaId: degradacao?.empresaId ?? null,
+      colaboradorId: degradacao?.colaboradorId ?? null,
+      severidade: 'critico',
+      detalhe: { erro: String(errPlano.message || errPlano).slice(0, 300), codigo: errPlano.code ?? null, origem: 'temporada_plano' },
+    });
+    return '';
+  }
   const plano = Array.isArray(trilhaPlan?.temporada_plano) ? trilhaPlan.temporada_plano : [];
   const descritorPorSem = Object.fromEntries(plano.map((s: any) => [s.semana, s.descritor]));
   const descritoresCobertosPorSem = Object.fromEntries(plano.map((s: any) => [s.semana, s.descritores_cobertos || []]));

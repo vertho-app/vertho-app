@@ -137,6 +137,7 @@ export async function regerarScoringComFeedback(progressoId) {
   const acumuladoPrimaria = normalizarAcumuladoPrimaria(progAcum?.feedback?.acumulado);
   const evidenciasAcumuladas = await agregarEvidenciasAteAcumulada(
     sb, trilha.id, descritoresComRegua, programaConfig.semanaAcumulada,
+    { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
   );
 
   // Feedback da auditoria anterior como instrução extra (2ª rodada)
