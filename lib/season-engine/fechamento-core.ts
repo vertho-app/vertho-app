@@ -1,7 +1,8 @@
 import { tenantDb, type TenantDb } from '@/lib/tenant-db';
 import { pontuarFechamento } from '@/lib/season-engine/fechamento-scorer';
 import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
-import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { maskColaborador, maskTextPII } from '@/lib/pii-masker';
+import { desmascararResultadoFechamento, mascararExtracaoArguicao } from '@/lib/season-engine/fechamento-pii';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { gravarProgressoSemana } from '@/lib/season-engine/progresso-semana';
 import { gateAcumuladaPiloto, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
@@ -217,7 +218,8 @@ export async function finalizarFechamentoCore(
       acumuladoPrimaria,
       config,
       // Fusão da arguição (Fase B): modula a nota quando a defesa oral concluiu.
-      evidenciasArguicao: dados.arguicao?.concluida ? dados.arguicao.extracao : null,
+      // Mascarada: a redação final e o auditor leem as citações.
+      evidenciasArguicao: dados.arguicao?.concluida ? mascararExtracaoArguicao(dados.arguicao.extracao, piiMap) : null,
       prazoMs: opts.prazoMs,
       ledger: { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
     });
@@ -234,20 +236,10 @@ export async function finalizarFechamentoCore(
      * que a IA escreve. O `mensagem_final` (17/09/2026) é o campo mais exposto
      * de todos: o prompt manda escrever PARA a pessoa, pelo nome, e o texto é a
      * última frase do documento que ela leva para casa — sem esta linha o alias
-     * sai impresso, sem erro em lugar nenhum.
+     * sai impresso, sem erro em lugar nenhum. A lista de campos vive em
+     * `fechamento-pii.ts`, a mesma da regeração do admin.
      */
-    if (parsed?.resumo_avaliacao) {
-      const r = parsed.resumo_avaliacao;
-      if (r.mensagem_geral) r.mensagem_geral = unmaskPII(r.mensagem_geral, piiMap);
-      if (r.mensagem_final) r.mensagem_final = unmaskPII(r.mensagem_final, piiMap);
-      if (Array.isArray(r.proximos_passos)) r.proximos_passos = r.proximos_passos.map((p: any) => unmaskPII(p, piiMap));
-    }
-    if (Array.isArray(parsed?.avaliacao_por_descritor)) {
-      parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => ({
-        ...d, justificativa: unmaskPII(d.justificativa, piiMap),
-      }));
-    }
-    if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
+    desmascararResultadoFechamento(parsed, auditoria, piiMap);
 
     // Relê antes de gravar: a pontuação levou minutos, e o slot é a fonte.
     const { data: atual, error: errAtual } = await tdb.from(TABELA)
@@ -268,6 +260,25 @@ export async function finalizarFechamentoCore(
       }, prog.id);
     } catch (e: any) {
       return await marcarErro(e?.message || String(e));
+    }
+
+    // A nota mudou depois do texto e a redação final não reescreveu: a nota está
+    // gravada, mas a devolutiva pode contradizê-la. Não é silencioso.
+    const redacao = resultado.meta.redacao;
+    if (redacao === 'falhou' || redacao === 'pulada-sem-tempo') {
+      await registrarDegradacao({
+        fluxo: 'trilha',
+        tipo: DEGRADACAO.FECHAMENTO_REDACAO_FALHOU,
+        chave: trilhaId,
+        empresaId: trilha.empresa_id,
+        colaboradorId: trilha.colaborador_id,
+        severidade: 'aviso',
+        detalhe: {
+          motivo: redacao,
+          semana: config.semanaCenarioB,
+          aviso: resultado.meta.warnings.find((w) => w.startsWith('redação final')) ?? null,
+        },
+      });
     }
 
     // Relatório: consolidação programática (sem IA). A semana JÁ está concluída;

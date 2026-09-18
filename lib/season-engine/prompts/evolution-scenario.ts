@@ -61,13 +61,53 @@ Retorne APENAS o markdown do cenário.`;
   return { system, user };
 }
 
-function tomDevolutivaPorPerfil(perfil: string | null | undefined): string {
+export function tomDevolutivaPorPerfil(perfil: string | null | undefined): string {
   const p = (perfil || '').toLowerCase();
   if (p.includes('d')) return 'Direto, objetivo. Nomeie resultado/ação específica. Evite floreios.';
   if (p.includes('i')) return 'Caloroso, reconheça esforço. Valide emoção sem enfeitar.';
   if (p.includes('s')) return 'Sereno, paciente. Reforce consistência e pontos sólidos antes de gaps.';
   if (p.includes('c')) return 'Estruturado, preciso. Explique critério e cite evidência literal.';
   return 'Tom neutro acolhedor.';
+}
+
+export interface RegrasDaDevolutivaParams {
+  nomeColab: string;
+  semanasEvidencia: number;
+  /** Vazio fora do piloto; no piloto, liga as proibições de falar em evolução. */
+  notaPrograma: string;
+  tomDevol: string;
+}
+
+/**
+ * Regras do texto que a pessoa LÊ (devolutiva, fecho e próximos passos).
+ *
+ * FONTE ÚNICA entre dois escritores (18/09/2026): o scorer, que escreve o
+ * rascunho junto com a nota, e a redação final (`prompts/fechamento-redacao.ts`),
+ * que reescreve o texto quando o código muda a nota DEPOIS dele (ajuste da
+ * arguição, piso do piloto). Duas cópias destas regras divergiriam na primeira
+ * edição, e a pessoa leria um fecho com regras diferentes conforme a nota mudou
+ * ou não. O texto foi movido sem alteração: o golden do scorer prova.
+ */
+export function regrasDaDevolutiva({ nomeColab, semanasEvidencia, notaPrograma, tomDevol }: RegrasDaDevolutivaParams): string {
+  return `DEVOLUTIVA (resumo_avaliacao):
+- Tom adaptado ao DISC: ${tomDevol}
+- Conteúdo NUNCA muda por perfil — o que muda é a forma.
+- Cite ao menos 1 evidência das ${semanasEvidencia} semanas além do cenário.
+- Seja honesto, construtivo e não inflado.
+- A duração REAL do programa é ${semanasEvidencia} semanas de jornada + fechamento — NUNCA mencione outra duração.${notaPrograma ? `
+- PROIBIDO na devolutiva: falar em "evolução", "regressão", "avanço" ou "estagnação" DA PESSOA, ou comparar antes→depois — a janela não mede evolução. Enquadre como DEMONSTRAÇÃO da avaliação e leitura do PONTO DE PARTIDA. Não trate a base curta de evidências como falha do colaborador.` : ''}
+
+FECHO (mensagem_final) — a ÚLTIMA coisa que ${nomeColab} lê no relatório:
+- Escreva PARA ${nomeColab}, em segunda pessoa. Nunca "a pessoa demonstrou", "a colaboradora apresenta" nem qualquer frase sobre ${nomeColab} dirigida a um terceiro.
+- 3 a 5 frases. Diga o que ${nomeColab} construiu e leva consigo (nomeando a prática concreta, não a competência), o que isso destrava daqui em diante, e o que continua pedindo trabalho — nessa ordem, sem adjetivo inflado e sem promessa.
+- PROIBIDO citar o INSTRUMENTO: as palavras "conversa", "microcaso", "entrevista", "evidência", "descritor", "avaliação", "nota", "relatório", "IA" e "simulador" não aparecem. A pessoa não tem que ler sobre a qualidade da própria entrevista.
+- Nada de "parabéns pela jornada" genérico: se não houver o que nomear, diga o que ${nomeColab} sustentou.${notaPrograma ? `
+- Nesta janela curta o fecho NÃO afirma evolução: fale do PONTO DE PARTIDA e do que ${nomeColab} pode levar adiante.` : ''}
+
+PRÓXIMOS PASSOS (proximos_passos):
+- 0 a 3 ações que ${nomeColab} pode começar na semana que vem, cada uma numa frase, começando por verbo.
+- Cada passo nasce de algo que ${nomeColab} DEMONSTROU aqui e continua o movimento que já começou. Sem tarefa genérica de curso ("leia sobre", "faça um treinamento").
+- Se o material não sustentar nenhum passo concreto, devolva **lista vazia**. Não complete para chegar a três.`;
 }
 
 interface PromptEvolutionScenarioScoreParams {
@@ -140,25 +180,7 @@ REGRAS DURAS:
 - Acumulado N1-2 consistente → nota_pos ≤ 2.5 independente do cenário.
 - Acumulado N3 consistente (3+ semanas) → nota_pos ≥ 2.5 independente do cenário fraco.
 
-DEVOLUTIVA (resumo_avaliacao):
-- Tom adaptado ao DISC: ${tomDevol}
-- Conteúdo NUNCA muda por perfil — o que muda é a forma.
-- Cite ao menos 1 evidência das ${semanasEvidencia} semanas além do cenário.
-- Seja honesto, construtivo e não inflado.
-- A duração REAL do programa é ${semanasEvidencia} semanas de jornada + fechamento — NUNCA mencione outra duração.${notaPrograma ? `
-- PROIBIDO na devolutiva: falar em "evolução", "regressão", "avanço" ou "estagnação" DA PESSOA, ou comparar antes→depois — a janela não mede evolução. Enquadre como DEMONSTRAÇÃO da avaliação e leitura do PONTO DE PARTIDA. Não trate a base curta de evidências como falha do colaborador.` : ''}
-
-FECHO (mensagem_final) — a ÚLTIMA coisa que ${nomeColab} lê no relatório:
-- Escreva PARA ${nomeColab}, em segunda pessoa. Nunca "a pessoa demonstrou", "a colaboradora apresenta" nem qualquer frase sobre ${nomeColab} dirigida a um terceiro.
-- 3 a 5 frases. Diga o que ${nomeColab} construiu e leva consigo (nomeando a prática concreta, não a competência), o que isso destrava daqui em diante, e o que continua pedindo trabalho — nessa ordem, sem adjetivo inflado e sem promessa.
-- PROIBIDO citar o INSTRUMENTO: as palavras "conversa", "microcaso", "entrevista", "evidência", "descritor", "avaliação", "nota", "relatório", "IA" e "simulador" não aparecem. A pessoa não tem que ler sobre a qualidade da própria entrevista.
-- Nada de "parabéns pela jornada" genérico: se não houver o que nomear, diga o que ${nomeColab} sustentou.${notaPrograma ? `
-- Nesta janela curta o fecho NÃO afirma evolução: fale do PONTO DE PARTIDA e do que ${nomeColab} pode levar adiante.` : ''}
-
-PRÓXIMOS PASSOS (proximos_passos):
-- 0 a 3 ações que ${nomeColab} pode começar na semana que vem, cada uma numa frase, começando por verbo.
-- Cada passo nasce de algo que ${nomeColab} DEMONSTROU aqui e continua o movimento que já começou. Sem tarefa genérica de curso ("leia sobre", "faça um treinamento").
-- Se o material não sustentar nenhum passo concreto, devolva **lista vazia**. Não complete para chegar a três.
+${regrasDaDevolutiva({ nomeColab, semanasEvidencia, notaPrograma, tomDevol })}
 
 RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
 
@@ -245,6 +267,15 @@ const NIVEIS = ['lacuna', 'em_desenvolvimento', 'meta', 'referencia'];
 const CONSISTENCIAS = ['consistente', 'divergente_cenario_superior', 'divergente_cenario_inferior', 'sem_evidencia_acumulada'];
 
 /**
+ * A régua da `classificacao` por descritor (a mesma do REGRAS do prompt).
+ * Fonte única entre o validador do scorer e a fusão da arguição, que muda o
+ * delta depois do scorer e precisa reclassificar pela mesma régua.
+ */
+export function classificacaoDoDelta(delta: number): 'evoluiu' | 'manteve' | 'regrediu' {
+  return delta > 0.3 ? 'evoluiu' : delta < -0.3 ? 'regrediu' : 'manteve';
+}
+
+/**
  * Os "Próximos passos" que a pessoa lê: no máximo 3, sem item vazio.
  *
  * 🔑 O TETO É DO VALIDADOR, e a lista pode voltar VAZIA (17/09/2026). O prompt
@@ -275,7 +306,7 @@ export function validateEvolutionScenarioScore(parsed: any): any {
       nota_cenario: clamp(d.nota_cenario),
       nota_pos,
       delta,
-      classificacao: CLASSIFICACOES.includes(d.classificacao) ? d.classificacao : (delta != null ? (delta > 0.3 ? 'evoluiu' : delta < -0.3 ? 'regrediu' : 'manteve') : 'manteve'),
+      classificacao: CLASSIFICACOES.includes(d.classificacao) ? d.classificacao : (delta != null ? classificacaoDoDelta(delta) : 'manteve'),
       nivel_rubrica: NIVEIS.includes(d.nivel_rubrica) ? d.nivel_rubrica : 'em_desenvolvimento',
       consistencia_com_acumulado: CONSISTENCIAS.includes(d.consistencia_com_acumulado) ? d.consistencia_com_acumulado : 'consistente',
       justificativa: d.justificativa || '',

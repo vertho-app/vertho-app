@@ -584,6 +584,30 @@ allowlist, que é o que a manteve invisível por dois meses e meio.
   Ao mexer num arquivo que aparece numa allowlist, leia a entrada — ela pode estar descrevendo um bug
   vivo. E saída de IA que reclama do próprio insumo é detector grátis de bug a montante.
 
+### F-I38 · O texto que a pessoa lê nascia ANTES da nota final do fechamento ✅ (fechado 18/09/2026)
+Vizinho do F-I37: aqui o insumo chega, mas o escritor não sabe o número que vai sair.
+- **Gatilho:** o scorer escreve justificativas e devolutiva para a nota DELE; depois o código muda a
+  nota: a fusão da arguição (±0,5, `fusao-arguicao.ts`) e, no piloto, o piso no ponto de partida. O
+  auditor (`sem14_check`) recebia a nota fundida sem saber da fusão.
+- **Efeito medido:** ensaio da Jornada em produção (acme-demo, 18/09): "principal avanço" = o 1º de 6
+  descritores antes do ajuste e o ÚLTIMO depois (3,3 → 2,9), único "evolução parcial" na tela.
+  Ibipeba, fechamentos reais de 10/09 a 18/09: **11 de 11 com erro grave** (nota média 48,9); das 63
+  sugestões do auditor, 55 em descritor ajustado pela arguição e 33 pedindo exatamente a nota de antes
+  do ajuste. O erro grave não bloqueia nada e a tela que o mostra só lista as semanas 13 e 14: na
+  Jornada, ninguém via.
+- **Correção:** redação final (`prompts/fechamento-redacao.ts`) entre a trava e o check, só quando
+  alguma nota mudou depois do texto; o auditor ganha a regra do ajuste e as citações da defesa, e passa
+  a sugerir a nota de antes do ajuste; a justificativa ajustada ganha uma linha determinística com o
+  ajuste; a `classificacao` é recalculada pelo delta final. O scorer segue sem ver a arguição (os dois
+  instrumentos continuam independentes); o prompt dele é byte a byte o de antes (golden).
+- **Falha segura:** redação que falha ou não cabe no prazo mantém o rascunho e registra
+  `fechamento-redacao-falhou` (aviso); a nota nunca depende dela.
+- **Prova:** entrada real do ensaio contra os modelos reais: principal avanço passou a ser o maior
+  avanço final, e o auditor foi de 55 (erro grave, "revisar") para 81 ("aprovado com ajustes"). n=1:
+  a confirmação em escala são os primeiros fechamentos de Macaé (~28/09). Guardas:
+  `tests/unit/fechamento/*` e `tests/unit/piloto/fechamento-scorer.test.ts`, com 14 mutações mortas.
+- ⚠️ **Não reprocessado:** os 11 fechamentos de Ibipeba ficam como estão (regra de só daqui para frente).
+
 ---
 
 ## 3. Escala (o que quebra a partir de N) — resumo; detalhe em ESCALA-50K.md

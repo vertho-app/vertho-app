@@ -23,9 +23,49 @@ interface PromptEvolutionScenarioCheckParams {
   semanasEvidencia?: number;
   /** Nota de contexto do programa (ex.: aviso do piloto). Vazio no regular. */
   notaPrograma?: string;
+  /**
+   * Extração da arguição (já mascarada). Presente = a nota foi ajustada pelo
+   * código depois do scorer, e o auditor precisa saber disso. Ausente = prompt
+   * byte a byte o de antes (golden em tests/unit/fechamento).
+   */
+  arguicao?: {
+    evidencias_por_descritor?: Array<{ descritor?: string; sustentou?: string; forca?: string; citacao?: string }>;
+  } | null;
 }
 
-export function promptEvolutionScenarioCheck({ competencia, descritores, cenario, resposta, avaliacaoPrimaria, evidenciasAcumuladas, semanaFinal = 14, semanasEvidencia = 13, notaPrograma = '' }: PromptEvolutionScenarioCheckParams) {
+/**
+ * 🔴 Por que o auditor precisa saber do ajuste (18/09/2026). A fusão soma até
+ * ±0,5 à nota do scorer DEPOIS que ele escreveu a justificativa. Sem saber disso,
+ * o auditor lia a diferença como contradição. `Medido:` Ibipeba, 11 de 11
+ * fechamentos com erro grave; das 63 sugestões, 55 caíam em descritor ajustado
+ * pela arguição e 33 pediam exatamente a nota de antes do ajuste.
+ */
+function blocoAjusteDaArguicao(arguicao: PromptEvolutionScenarioCheckParams['arguicao']): { system: string; user: string } {
+  const evs = Array.isArray(arguicao?.evidencias_por_descritor) ? arguicao!.evidencias_por_descritor! : [];
+  if (!evs.length) return { system: '', user: '' };
+  const system = `AJUSTE DA DEFESA ORAL (regra de código, não da avaliação):
+Depois da avaliação do cenário, a pessoa defendeu a resposta numa conversa (a arguição). O código ajustou a nota de cada descritor pelo que a defesa sustentou, com uma tabela fixa: "aprofundou" soma 0,2, 0,35 ou 0,5 (força fraca, moderada ou forte); "fragilizou" subtrai os mesmos valores; "confirmou" e "sem_sinal" não mudam a nota. O ajuste nunca passa de 0,5.
+Em cada descritor da avaliação:
+- nota_base_cenario é a nota ANTES do ajuste, e é ela que a justificativa sustenta;
+- ajuste_arguicao, sustentacao_arguicao e forca_arguicao registram o ajuste e o motivo;
+- nota_pos é a nota final (base mais o ajuste, entre 1 e 4).
+Como auditar com o ajuste:
+1. Compare a justificativa com a nota_base_cenario. A diferença até a nota_pos é o ajuste: não é contradição nem erro grave.
+2. O ajuste é regra fixa. Não sugira desfazê-lo. Se a classificação da defesa não se apoiar na citação, diga isso em alertas.
+3. Em ajustes_sugeridos, nota_pos_sugerida é a nota ANTES do ajuste; o código reaplica o ajuste da defesa sobre ela.
+4. A devolutiva (resumo_avaliacao) deve conversar com as notas FINAIS (nota_pos).
+
+`;
+  const linhas = evs.map((e) => `- ${e?.descritor || '(sem descritor)'}: ${e?.sustentou || 'sem_sinal'} (${e?.forca || 'sem força'})${e?.citacao ? `: "${e.citacao}"` : ''}`);
+  const user = `DEFESA ORAL (o que a arguição sustentou, por descritor):
+${linhas.join('\n')}
+
+`;
+  return { system, user };
+}
+
+export function promptEvolutionScenarioCheck({ competencia, descritores, cenario, resposta, avaliacaoPrimaria, evidenciasAcumuladas, semanaFinal = 14, semanasEvidencia = 13, notaPrograma = '', arguicao = null }: PromptEvolutionScenarioCheckParams) {
+  const ajuste = blocoAjusteDaArguicao(arguicao);
   const system = `Você é um auditor de qualidade da avaliação final da semana ${semanaFinal} da Vertho.
 
 Sua tarefa é auditar se a avaliação final triangulada por descritor está metodologicamente DEFENSÁVEL.
@@ -58,7 +98,7 @@ FILOSOFIA DE AUDITORIA:
 - Diferenças pequenas (±0.5) podem ser aceitáveis.
 - Mas triangulação otimista sem base, delta incoerente, supervalorização do cenário ou justificativa fraca devem ser sinalizados.
 
-AUDITE EM 6 CRITÉRIOS (total 100):
+${ajuste.system}AUDITE EM 6 CRITÉRIOS (total 100):
 
 1. ANCORAGEM NA RÉGUA (20 pts)
    - nota_pos está coerente com a régua?
@@ -121,7 +161,7 @@ ${reguas}
 EVIDÊNCIAS ACUMULADAS NAS ${semanasEvidencia} SEMANAS:
 ${evidenciasAcumuladas || '(sem evidências registradas)'}
 
-AVALIAÇÃO PRIMÁRIA (a ser auditada):
+${ajuste.user}AVALIAÇÃO PRIMÁRIA (a ser auditada):
 ${JSON.stringify(avaliacaoPrimaria, null, 2)}
 
 AUDITE e retorne:

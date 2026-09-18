@@ -14,6 +14,7 @@
  */
 
 import type { ArguicaoExtracao } from './arguicao';
+import { classificacaoDoDelta } from './prompts/evolution-scenario';
 
 /**
  * Mapa `sustentou × forca → ajuste`. Todos os valores já vivem dentro de
@@ -81,13 +82,19 @@ export function fundirArguicao(parsed: any, extracao: ArguicaoExtracao | null | 
     const notaFinal = round1(clamp(base + ajuste, 1, 4));
     if (ajuste !== 0) ajustados++;
     const nota_pre = typeof d.nota_pre === 'number' ? d.nota_pre : null;
+    const delta = nota_pre != null ? round1(notaFinal - nota_pre) : d.delta;
     return {
       ...d,
       nota_base_cenario: base,
       ajuste_arguicao: ajuste,
       sustentacao_arguicao: ev.sustentou,
+      forca_arguicao: ev.forca ?? null,
       nota_pos: notaFinal,
-      delta: nota_pre != null ? round1(notaFinal - nota_pre) : d.delta,
+      delta,
+      // A classificação do scorer foi calculada sobre a nota ANTES do ajuste.
+      // Mantê-la seria a mesma contradição que a redação final corrige no texto,
+      // só que num campo: "evoluiu" ao lado de um delta que já não evolui.
+      ...(ajuste !== 0 && typeof delta === 'number' ? { classificacao: classificacaoDoDelta(delta) } : {}),
     };
   });
 
@@ -101,4 +108,37 @@ export function fundirArguicao(parsed: any, extracao: ArguicaoExtracao | null | 
   }
 
   return { parsed, ajustados };
+}
+
+const decimal = (v: number) => v.toFixed(Math.round(v * 100) % 10 === 0 ? 1 : 2).replace('.', ',');
+const comSinal = (v: number) => `${v > 0 ? '+' : '-'}${decimal(Math.abs(v))}`;
+
+/**
+ * Anota, na justificativa de cada descritor que a arguição ajustou, o ajuste e
+ * a nota final (18/09/2026).
+ *
+ * A justificativa é escrita pelo scorer para a nota DELE e costuma citar essa
+ * nota. Depois da fusão, a tela do admin e a visão do RH mostravam essa frase ao
+ * lado de outra nota final, sem explicar a diferença. `Medido:` no ensaio da
+ * Jornada, "Nota_pos em 3.3, o mais alto do conjunto" ao lado de 2,9.
+ *
+ * Determinística, sem IA: o texto do scorer fica intacto e ganha uma linha que
+ * explica a diferença. Descritor sem ajuste não muda. Roda DEPOIS da trava do
+ * piloto, para citar a nota que de fato vai para a tela.
+ */
+export function anotarAjusteArguicao(parsed: any): any {
+  if (!parsed || !Array.isArray(parsed.avaliacao_por_descritor)) return parsed;
+  return {
+    ...parsed,
+    avaliacao_por_descritor: parsed.avaliacao_por_descritor.map((d: any) => {
+      const ajuste = typeof d.ajuste_arguicao === 'number' ? d.ajuste_arguicao : 0;
+      if (ajuste === 0 || typeof d.nota_base_cenario !== 'number' || typeof d.nota_pos !== 'number') return d;
+      const fundida = round1(clamp(d.nota_base_cenario + ajuste, 1, 4));
+      const forca = d.forca_arguicao ? ` (${d.forca_arguicao})` : '';
+      let linha = `Defesa oral: ${d.sustentacao_arguicao}${forca}. Ajuste de ${comSinal(ajuste)} sobre a nota antes da defesa (${decimal(d.nota_base_cenario)} → ${decimal(fundida)}).`;
+      if (d.piso_aplicado && d.nota_pos !== fundida) linha += ` Piso do piloto: nota exibida ${decimal(d.nota_pos)}.`;
+      const texto = typeof d.justificativa === 'string' ? d.justificativa.trim() : '';
+      return { ...d, justificativa: texto ? `${texto}\n\n${linha}` : linha };
+    }),
+  };
 }

@@ -1135,6 +1135,13 @@
 - **PII masking**: Sim (nome do colab, resposta, evidências). ⚠️ O `unmaskPII` do `fechamento-core`
   cobre `mensagem_geral`, `mensagem_final`, cada item de `proximos_passos` e as justificativas — o
   fecho é escrito PARA a pessoa, pelo nome, então é onde o alias `COLAB_xxxx` sairia impresso.
+  Desde 18/09/2026 a lista de campos é fonte única (`lib/season-engine/fechamento-pii.ts`), a mesma
+  na regeração do admin, e inclui avanço, ponto de atenção, evidências citadas, o rascunho
+  substituído e os textos da auditoria.
+- **O texto deste prompt é um RASCUNHO quando a nota muda depois dele** (18/09/2026): o ajuste da
+  arguição e o piso do piloto mexem na nota em código. Nesse caso a redação final (6.12b) reescreve a
+  devolutiva para as notas finais. As regras da devolutiva, do fecho e dos próximos passos vivem em
+  `regrasDaDevolutiva` e valem para os dois escritores (golden em `tests/unit/fechamento`).
 - **System prompt** (resumo editorial do prompt real em `evolution-scenario.ts`):
   Voce e um avaliador rigoroso e criterioso da Vertho. Calcula a AVALIACAO FINAL da semana 14 por TRIANGULACAO entre nota pre (baseline), avaliacao acumulada das 13 semanas, resposta ao cenario e evidencias acumuladas. Principios-chave:
   1. Ancore EXCLUSIVAMENTE na regua de maturidade; granularidade 0.1
@@ -1163,6 +1170,40 @@
   ordem de inventar). Leitura em fonte única: `fechoDoRelatorio`. Detalhe: `docs/PIPELINE-TRILHA.md`.
 - **Consumido por**: `temporada_semana_progresso.feedback` (semana do fechamento) + Evolution Report (`gerarEvolutionReport(trilhaId, internal?)` — variante piloto SEM delta/convergência; report automático da rota usa `internal=true`).
 
+### 6.12b Redação final da devolutiva (fechamento)
+> `ATIVO` desde 18/09/2026 · Prompt documentado como: `resumo_editorial`
+
+- **Arquivo**: `lib/season-engine/prompts/fechamento-redacao.ts::promptRedacaoFechamento` + `validarRedacao`
+- **Execução**: `lib/season-engine/fechamento-scorer.ts::pontuarFechamento`, depois da fusão da
+  arguição, da trava do piloto e da anotação do ajuste, e ANTES do check (6.13). **Só roda quando
+  alguma nota final difere da que o scorer usou para escrever** (≥ 0,05); senão `redacao_final.status
+  = 'desnecessaria'` e nenhuma chamada.
+- **Por que existe**: `Medido:` no ensaio da Jornada (18/09), o "principal avanço" era o 1º de 6
+  descritores antes do ajuste da arguição e o último depois; em Ibipeba, 11 de 11 fechamentos com erro
+  grave do auditor pela mesma diferença (55 das 63 sugestões em descritor ajustado).
+- **Modelo**: task `sem14_redacao`, sem default próprio (resolve como o `sem14_scorer`, Sonnet 4.6).
+  **Max tokens**: 3000 (`REDACAO_MAX_TOKENS`). **Timeout**: até 60 s do que sobra do prazo
+  (`timeoutDaRedacao`); sem tempo, pula (`pulada-sem-tempo`) e a redação vem antes do check.
+- **Custo medido** (entrada real do ensaio, 18/09): 4.538 in / 1.253 out, US$ 0,032, 25 s.
+- **Inputs**: notas finais por descritor, do maior para o menor avanço final, com a nota do rascunho,
+  a classificação e a citação da defesa oral; leitura geral da arguição; justificativas; o rascunho
+  (`resumo_avaliacao` do scorer). Tudo mascarado (a extração entra por `mascararExtracaoArguicao`).
+- **System prompt** (resumo): a nota já está decidida; reescreva a devolutiva para dizer o mesmo que as
+  notas FINAIS. Principal avanço sai dos primeiros da lista, ponto de atenção dos últimos ou de onde a
+  defesa fragilizou; pode dizer em linguagem simples o que a defesa mostrou; preserve do rascunho o que
+  continua verdadeiro; sem número de nota, nível, "descritor", "régua", "acumulado", "arguição" nem
+  travessão. Depois vêm as MESMAS regras do scorer (`regrasDaDevolutiva`, com o travessão delas
+  trocado por dois pontos).
+- **Output**: `{ resumo_avaliacao: { mensagem_geral, evidencias_citadas[], principal_avanco,
+  principal_ponto_de_atencao, mensagem_final, proximos_passos[] } }`. `validarRedacao` exige os quatro
+  textos; faltando um, o caller mantém o rascunho INTEIRO (completar com ele traria de volta a frase
+  que contradiz a nota). Piloto: passa pela mesma `sanitizarNarrativaPiloto`; duração incorrigível
+  descarta o texto novo.
+- **Falha nunca derruba a nota**: `redacao_final.status = 'falhou' | 'pulada-sem-tempo'`, o rascunho
+  fica e o `fechamento-core` registra a degradação `fechamento-redacao-falhou` (aviso).
+- **Consumido por**: `feedback.resumo_avaliacao` (o substituído fica em `resumo_avaliacao_rascunho`,
+  e o status em `redacao_final`).
+
 ### 6.13 Evolution Scenario Check (audit sem 14)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
@@ -1183,6 +1224,13 @@
   1. ANCORAGEM NA REGUA (20pts) | 2. COERENCIA DO DELTA (15pts) | 3. QUALIDADE DA JUSTIFICATIVA (15pts) | 4. TRIANGULACAO COM ACUMULADO (20pts) | 5. PRUDENCIA METODOLOGICA (15pts) | 6. COERENCIA INTERNA DA DEVOLUTIVA (15pts)
   ERROS GRAVES: nota maxima 60 (4.0 sem sustentacao, nota_pos igual cenario ignorando acumulado, delta incompativel, justificativa 100% generica, regressao forte sem base, devolutiva que contradiz a triangulacao)
 - **Output**: JSON `{ nota_auditoria:0-100, status:"aprovado|aprovado_com_ajustes|revisar", erro_grave:bool, criterios:{ancoragem_regua, coerencia_delta, qualidade_justificativa, triangulacao_com_acumulado, prudencia_metodologica, coerencia_devolutiva}, ajustes_sugeridos[{descritor, nota_pos_sugerida, motivo}], ponto_mais_confiavel, ponto_mais_fragil, alertas[], resumo_auditoria }`. Validacao: `validateEvolutionScenarioCheck`.
+- **Com arguição (18/09/2026)**: o auditor recebe a seção "AJUSTE DA DEFESA ORAL" (a tabela da
+  fusão, o significado de `nota_base_cenario`/`ajuste_arguicao`/`forca_arguicao` e como auditar com
+  eles) e a lista das citações da defesa. Nesse caso `nota_pos_sugerida` é a nota ANTES do ajuste, e o
+  código reaplica o ajuste. Sem arguição o prompt é byte a byte o de antes (golden). Recebe a avaliação
+  SEM o rascunho substituído. 🔴 `Medido:` antes disso, 11 de 11 fechamentos de Ibipeba com erro grave,
+  e 33 das 63 sugestões pediam exatamente a nota de antes do ajuste; no ensaio de 18/09, a mesma
+  entrada foi de 55 (erro grave, "revisar") para 81 ("aprovado com ajustes").
 - **Consumido por**: `feedback.auditoria`.
 
 ### 6.14 Arguição — defesa oral do fechamento (2º instrumento)
@@ -1204,7 +1252,8 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 
 **(c) Fusão na nota (CÓDIGO, sem IA)** — `lib/season-engine/fusao-arguicao.ts::fundirArguicao`
 - O `ajuste_arguicao` NÃO vem de IA — é DERIVADO da classificação (`sustentou×forca`) por MAPA determinístico: aprofundou +0,2/0,35/0,5; fragilizou simétrico; confirmou/sem_sinal 0 — tudo dentro de ±0,5 (clamp de salvaguarda). Por descritor: `nota_base_cenario`=nota do scorer; `nota_pos=clamp(base+ajuste,1,4)`; recalcula médias e delta. Descritor DUPLICADO na extração → mantém o ajuste de MENOR magnitude (conservador, independe da ordem).
-- **Ordem no fechamento**: scorer (6.12) → **fusão** → trava piloto. `pontuarFechamento` recebe `evidenciasArguicao` e funde ENTRE scorer e trava. Carimba `nota_base_cenario`+`ajuste_arguicao`+`sustentacao_arguicao` por descritor.
+- **Ordem no fechamento**: scorer (6.12) → **fusão** → trava piloto → anotação → redação final (6.12b) → check (6.13). `pontuarFechamento` recebe `evidenciasArguicao` (JÁ MASCARADA) e funde ENTRE scorer e trava. Carimba `nota_base_cenario`+`ajuste_arguicao`+`sustentacao_arguicao`+`forca_arguicao` por descritor e, quando o ajuste muda a nota, recalcula a `classificacao` pelo delta final (`classificacaoDoDelta`).
+- **Anotação** (18/09/2026, `anotarAjusteArguicao`): a justificativa do scorer cita a nota DELE; o descritor ajustado ganha a linha "Defesa oral: aprofundou (forte). Ajuste de +0,5 sobre a nota antes da defesa (3,2 → 3,7)." Determinística, sem IA; aparece no admin e na visão do RH.
 - **Amarração**: ao concluir a arguição, a rota dispara `finalizarComScorer()` (mesmo núcleo do `send` da 4ª resposta) — a nota sai já fundida. UI: tela `sem14` troca do formulário para modo CHAT turn-by-turn.
 
 ---

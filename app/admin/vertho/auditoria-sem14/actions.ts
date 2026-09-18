@@ -6,7 +6,8 @@ import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { enriquecerComRegua, sobreporNotaFresh } from '@/lib/season-engine/regua';
 import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
 import { pontuarFechamento } from '@/lib/season-engine/fechamento-scorer';
-import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
+import { maskColaborador, maskTextPII } from '@/lib/pii-masker';
+import { desmascararResultadoFechamento, mascararExtracaoArguicao } from '@/lib/season-engine/fechamento-pii';
 
 /**
  * Lista auditorias da semana 14 de todas as empresas.
@@ -176,20 +177,16 @@ ${ajustesTexto}`;
     config: programaConfig,
     regeracao: { feedbackAuditoria },
     // Regeneração respeita a arguição já feita (fb.arguicao) — mesma modulação.
-    evidenciasArguicao: fb.arguicao?.concluida ? fb.arguicao.extracao : null,
+    // Mascarada: a redação final e o auditor leem as citações.
+    evidenciasArguicao: fb.arguicao?.concluida ? mascararExtracaoArguicao(fb.arguicao.extracao, piiMap) : null,
+    ledger: { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
   });
   if (resultado.ok !== true) return { error: `Scorer falhou: ${resultado.erro}`, meta: resultado.meta };
 
   const { parsed, auditoria } = resultado;
 
-  // Despersonaliza os campos textuais
-  if (parsed?.resumo_avaliacao?.mensagem_geral) parsed.resumo_avaliacao.mensagem_geral = unmaskPII(parsed.resumo_avaliacao.mensagem_geral, piiMap);
-  if (Array.isArray(parsed?.avaliacao_por_descritor)) {
-    parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => ({
-      ...d, justificativa: unmaskPII(d.justificativa, piiMap),
-    }));
-  }
-  if (auditoria?.resumo_auditoria) auditoria.resumo_auditoria = unmaskPII(auditoria.resumo_auditoria, piiMap);
+  // Despersonaliza os campos textuais: a mesma lista do fechamento da pessoa.
+  desmascararResultadoFechamento(parsed, auditoria, piiMap);
 
   // Salva (regeneracao_meta = metadados operacionais pro admin/debug)
   const novoFb = {

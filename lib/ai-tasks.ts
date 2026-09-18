@@ -111,6 +111,10 @@ export const AI_TASKS = [
   { key: 'sem13_qualitativa', label: 'Semana 13 — avaliação qualitativa', fase: 'Temporadas' },
   { key: 'sem14_scorer', label: 'Semana 14 — scorer do fechamento', fase: 'Temporadas' },
   { key: 'sem14_check', label: 'Semana 14 — check (dual)', fase: 'Temporadas' },
+  // 18/09/2026: reescreve a devolutiva quando o código muda a nota depois do
+  // scorer (ajuste da arguição, piso do piloto). Sem default próprio: resolve
+  // como o `sem14_scorer`, que escreve o rascunho que ela substitui.
+  { key: 'sem14_redacao', label: 'Fechamento: redação final da devolutiva', fase: 'Temporadas' },
   { key: 'acumulada_primaria', label: 'Avaliação acumulada — primária', fase: 'Temporadas' },
   { key: 'acumulada_check', label: 'Avaliação acumulada — check (dual)', fase: 'Temporadas' },
   { key: 'kit_nucleo', label: 'Kit — núcleo conceitual do tema', fase: 'Kit' },

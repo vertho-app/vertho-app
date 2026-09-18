@@ -35,7 +35,7 @@ vi.mock('@/lib/season-engine/evidencias-fechamento', () => ({
   normalizarAcumuladoPrimaria: () => null,
 }));
 vi.mock('@/lib/degradacao', () => ({
-  DEGRADACAO: { FECHAMENTO_SCORER_FALHOU: 'fechamento-scorer-falhou' },
+  DEGRADACAO: { FECHAMENTO_SCORER_FALHOU: 'fechamento-scorer-falhou', FECHAMENTO_REDACAO_FALHOU: 'fechamento-redacao-falhou' },
   registrarDegradacao: h.degradacao,
 }));
 vi.mock('@/lib/season-engine/trilha-runtime', async () => {
@@ -293,5 +293,78 @@ describe('finalizarFechamentoCore', () => {
     const r = await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
     expect(r.ok).toBe(true);
     expect(r.warnings.some(w => w.includes('sem avaliação por descritor'))).toBe(true);
+  });
+
+  /**
+   * Redação final (18/09/2026): quando a nota muda depois do texto e a redação
+   * não reescreve, a nota fica gravada, mas o texto pode contradizê-la. Isso
+   * não pode ser silencioso.
+   */
+  it.each(['falhou', 'pulada-sem-tempo'])('redação final %s: a nota é gravada e a degradação (aviso) é registrada', async (status) => {
+    h.estado.atual = reservado();
+    h.pontuar.mockResolvedValue({
+      ok: true, parsed: { ...PARSED }, auditoria: null,
+      meta: { warnings: [`redação final falhou (x); ficou o rascunho do scorer`], tentativas: 1, redacao: status },
+    });
+    const r = await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(r.ok).toBe(true);
+    expect(escritasProgresso().some((e: any) => e.payload.status === 'concluido')).toBe(true);
+    expect(h.degradacao).toHaveBeenCalledTimes(1);
+    expect(h.degradacao.mock.calls[0][0]).toMatchObject({
+      tipo: 'fechamento-redacao-falhou', severidade: 'aviso', chave: 'tr-1',
+      empresaId: 'emp-1', colaboradorId: 'col-1', detalhe: { motivo: status },
+    });
+  });
+
+  it.each(['reescrita', 'desnecessaria'])('redação final %s: nenhuma degradação', async (status) => {
+    h.estado.atual = reservado();
+    h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1, redacao: status } });
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    expect(h.degradacao).not.toHaveBeenCalled();
+  });
+
+  it('a extração da arguição vai MASCARADA para o scorer; a gravada fica como está', async () => {
+    const extracao = {
+      resumo: { leitura_geral: 'escreveu para pessoa@exemplo.com', sustentacao_mais_forte: '', fragilidade_mais_relevante: '' },
+      evidencias_por_descritor: [{ descritor: 'D1', sustentou: 'aprofundou', forca: 'forte', citacao: 'ligue 21 99999-8888' }],
+    };
+    h.estado.atual = reservado({ arguicao: { turno: 7, concluida: true, historico: [], extracao } });
+    h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1 } });
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    const enviada = JSON.stringify(h.pontuar.mock.calls[0][0].evidenciasArguicao);
+    expect(enviada).not.toContain('pessoa@exemplo.com');
+    expect(enviada).not.toContain('99999-8888');
+    expect(enviada).toContain('"sustentou":"aprofundou"');
+    expect(extracao.evidencias_por_descritor[0].citacao).toBe('ligue 21 99999-8888');
+  });
+
+  it('nenhum campo autoral sai com o alias: avanço, atenção, evidências e o rascunho substituído', async () => {
+    h.estado.atual = reservado();
+    h.pontuar.mockResolvedValue({ ok: true, parsed: { ...PARSED }, auditoria: null, meta: { warnings: [], tentativas: 1 } });
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    const alias = h.pontuar.mock.calls[0][0].nomeColab;
+
+    h.sb.escritas.length = 0;
+    h.estado.atual = reservado();
+    h.pontuar.mockResolvedValue({
+      ok: true,
+      parsed: {
+        ...PARSED,
+        resumo_avaliacao: {
+          mensagem_geral: `${alias}, leitura.`,
+          principal_avanco: `${alias} leu o comprador`,
+          principal_ponto_de_atencao: `${alias} pode registrar`,
+          evidencias_citadas: [`"${alias} disse"`],
+          mensagem_final: 'Você leva isso.',
+          proximos_passos: [],
+        },
+        resumo_avaliacao_rascunho: { mensagem_geral: `${alias}, rascunho.` },
+      },
+      auditoria: { resumo_auditoria: `${alias} ok`, alertas: [`${alias} alerta`] },
+      meta: { warnings: [], tentativas: 1, redacao: 'reescrita' },
+    });
+    await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
+    const slot = escritasProgresso().find((e: any) => e.payload.status === 'concluido').payload.feedback;
+    expect(JSON.stringify({ r: slot.resumo_avaliacao, q: slot.resumo_avaliacao_rascunho, a: slot.auditoria })).not.toContain(alias);
   });
 });

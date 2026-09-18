@@ -251,6 +251,14 @@ export const DEGRADACAO = {
    */
   FECHAMENTO_SCORER_FALHOU: 'fechamento-scorer-falhou',
   /**
+   * fechamento-scorer: a nota mudou depois do texto (ajuste da arguição ou piso
+   * do piloto) e a redação final não reescreveu a devolutiva, por falha ou por
+   * falta de tempo no prazo do fechamento. A nota está gravada; o texto que a
+   * pessoa lê é o rascunho, escrito para a nota de antes. `aviso`: não perde
+   * nada, mas o texto pode contradizer a nota. Chave: trilha.
+   */
+  FECHAMENTO_REDACAO_FALHOU: 'fechamento-redacao-falhou',
+  /**
    * régua (lib/season-engine/regua.ts): descritor da trilha sem régua N1-N4 — sem
    * linha que case, ou linhas homônimas de cargos com réguas diferentes. A
    * avaliação segue com a "escala genérica 1-4" do prompt. `aviso`: sai nota,
