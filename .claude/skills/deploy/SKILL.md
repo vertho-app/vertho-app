@@ -32,6 +32,10 @@ Proceda **sem perguntar** — deploy é autorizado de forma durável.
 
 5. **Push** — `git -C "<repo>" push origin master`.
    Isso deploya a Vercel automaticamente. **Não** rode `vercel --prod`.
+   🔴 **Push recusado com `GH013`** ("Push cannot contain secrets") = o *push protection* do GitHub
+   (ligado em 18/09/2026) achou uma chave no commit, e o deploy não sai. Tire o segredo reescrevendo
+   o commit LOCAL (ele ainda não subiu) e troque a chave no serviço de origem se ela já esteve em algum
+   commit publicado. Nunca use o link de "allow secret" da mensagem: o repo é PÚBLICO.
 
 6. **(Opcional) Confirmar o deploy** — se quiser garantir que subiu, poll do dpl servido:
    `curl -s https://app.vertho.ai/login | grep -o 'dpl_[A-Za-z0-9]*'` até mudar do anterior.
@@ -47,3 +51,4 @@ Se algum arquivo em **`trigger/`** mudou, o `git push` **NÃO** deploya as tasks
 - `cd ... && git ...` (approval; use `git -C`).
 - Pular hooks/assinatura (`--no-verify`, `--no-gpg-sign`) sem o usuário pedir.
 - Empurrar com build/typecheck vermelho.
+- Liberar segredo pelo link do push protection (`GH013`): o repo é público.
