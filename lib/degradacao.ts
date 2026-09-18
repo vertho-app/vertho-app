@@ -282,6 +282,17 @@ export const DEGRADACAO = {
    * silêncio é o que custou dois meses e meio.
    */
   EVIDENCIAS_FECHAMENTO_NAO_LIDAS: 'evidencias-fechamento-nao-lidas',
+  /**
+   * trilha (fechamento): não existe Cenário B que cubra a competência da trilha,
+   * nem no cargo nem em `todos`, e a pessoa recebe 424 ao abrir o fechamento.
+   * `critico`: ela fez as semanas e parou na porta da avaliação.
+   *
+   * Antes de 18/09/2026 esse caso servia o B mais recente do cargo, de qualquer
+   * competência, e o scorer pontuava a trilha contra o cenário errado sem
+   * sintoma. Agora ele trava visível; a regra do health avisa antes (trilha
+   * perto da semana do B sem B elegível). Chave: empresa, cargo e competências.
+   */
+  CENARIO_B_SEM_ELEGIVEL: 'cenario-b-sem-elegivel',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

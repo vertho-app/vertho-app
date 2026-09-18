@@ -18,13 +18,13 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { severidadeGlobal, achado, type Achado, type ResultadoCheck } from './types';
-import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarRenderSemWorker, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados, checarTaxaRetakeTts, checarCanarioTts, checarCalibracaoVoz } from './regras';
+import { regrasPreflight, regrasPostflight, checarHorizonteKits, checarCenarioBHorizonte, checarDestinoDoAlerta, checarMbForaDaRegua, checarDegradacoes, checarCelulaVideoEmError, checarRenderSemWorker, checarPushDegradado, checarPushSemVapid, checarCanalEntradaWhatsapp, checarTemplatesLigados, checarModelosConfigurados, checarTaxaRetakeTts, checarCanarioTts, checarCalibracaoVoz } from './regras';
 import { ALVO_F0_POR_VOZ } from '@/lib/tts/deriva';
 import { webPushConfigurado } from '@/lib/notifications/providers/webpush';
 import { inspecionarCloudApi } from '@/lib/whatsapp/cloud-api';
 import { inspecionarTemplatesLigados } from '@/lib/whatsapp/templates-ligados';
 import { inspecionarModelosConfigurados } from './coleta-modelos';
-import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, coletarQaTts, coletarCalibracaoVozes, diaDaSemanaBRT, pilulaDoDia } from './coleta';
+import { coletarEntregasPrevistas, coletarEnviosDoDia, coletarHorizonteKits, coletarCenarioBHorizonte, coletarMbForaDaRegua, coletarDegradacoes, coletarPushDiario, coletarCelulasVideoSemDeck, coletarQaTts, coletarCalibracaoVozes, diaDaSemanaBRT, pilulaDoDia } from './coleta';
 
 /**
  * Empresas elegíveis a envio: exclui demo (não envia comunicação real).
@@ -473,6 +473,8 @@ export async function rodarHorizonte(
         { amostra: pares.map(p => `${p.cargo} · ${p.disc} · ${p.descritores.join(' + ')} · ${p.nucleos.length < 2 ? 'sem brief canônico' : 'aguardando preparação'}`),
           acao: 'O cron preparar_desafios e a conclusão dos kits produzem os pares. Corrigir os briefs ausentes antes de gerar.' });
       if (par) achados.push(par);
+      // R21: fechamento chegando sem Cenário B da competência.
+      achados.push(...checarCenarioBHorizonte(await coletarCenarioBHorizonte(sb, emp.id, semanasAdiante * 7)));
       if (!achados.length) continue;
       out.push({
         modo: 'horizonte', empresaId: emp.id, empresaSlug: emp.slug,

@@ -12,6 +12,8 @@ import { buscarContextoPPP, buscarValoresDaRede } from '@/lib/ia2-gabarito';
 import { TEMP, type Fase5Config } from './_shared';
 import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
 import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
+import { celulasSemCenarioB, ehIntegrador } from '@/lib/season-engine/cenario-b';
+import { ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
 
 // System prompt do check de cenário B — harmonizado com o check do cenário A
 const CHECK_CEN_B_SYSTEM = `Você é o auditor de qualidade do Cenário B da Vertho.
@@ -333,11 +335,15 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     const { data: empresa } = await sbRaw.from('empresas')
       .select('nome, segmento').eq('id', empresaId).single();
 
-    // Cenários A existentes — banco_cenarios é misto, mas filtramos por
+    // Cenários A existentes: banco_cenarios é misto, mas filtramos por
     // empresa explicitamente, então tdb está OK (deduz pelo tenantId).
-    const { data: cenariosA } = await tdb.from('banco_cenarios')
-      .select('id, titulo, descricao, cargo, competencia_id')
+    // `ppp_escola_id` e `created_at` escolhem o A de referência da célula;
+    // `alternativas` leva a faceta e o trade-off do A ao prompt do B (antes o
+    // select não trazia a coluna e esse bloco do prompt saía sempre vazio).
+    const { data: cenariosA, error: errA } = await tdb.from('banco_cenarios')
+      .select('id, titulo, descricao, cargo, competencia_id, ppp_escola_id, alternativas, created_at')
       .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b');
+    if (errA) return { success: false, error: `Falha ao ler os cenários A: ${errA.message}` };
 
     if (!cenariosA?.length) return { success: false, error: 'Nenhum cenário A encontrado. Rode IA3 primeiro.' };
 
@@ -355,11 +361,19 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     });
     const compIds = Object.keys(compMap);
 
-    // Já tem B?
-    const { data: cenariosB } = await tdb.from('banco_cenarios')
-      .select('competencia_id, cargo')
+    // Uma geração por CÉLULA (competência × cargo), não por cenário A: numa rede
+    // há um A por PPP, e o lote gerava N B para a mesma célula (FMEA F-C14).
+    // Célula coberta por B do cargo (âncora ou integrador) é pulada; os
+    // cargos-âncora do simulador de liderança não levam B.
+    const { data: cenariosB, error: errB } = await tdb.from('banco_cenarios')
+      .select('competencia_id, cargo, alternativas')
       .eq('tipo_cenario', 'cenario_b');
-    const jaTemB = new Set((cenariosB || []).map(c => `${c.competencia_id}::${c.cargo}`));
+    if (errB) return { success: false, error: `Falha ao ler os cenários B: ${errB.message}` };
+    const nomePorId = new Map<string, string>(Object.values(compMap).map((c: any) => [c.id, c.nome]));
+    const celulas = celulasSemCenarioB(cenariosA as any[], cenariosB || [], nomePorId, { excluirCargo: ehCargoAncoraLideranca });
+    const totalCelulas = new Set((cenariosA as any[])
+      .filter((a) => a.competencia_id && a.cargo && !ehCargoAncoraLideranca(a.cargo))
+      .map((a) => `${a.competencia_id}::${a.cargo}`)).size;
 
     // Valores institucionais da REDE (consolidados entre escolas — F-I10).
     const valoresRede = await buscarValoresDaRede(tdb);
@@ -371,10 +385,8 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     const checkModel = aiConfig?.checkModel;
     // GERAÇÃO em paralelo (limite 3 — TPM de IA); cada item devolve um
     // marcador e os contadores são derivados no fim (semântica preservada).
-    const marcadores = await mapComLimite(cenariosA as any[], 3, async (cenA: any) => {
-      const key = `${cenA.competencia_id}::${cenA.cargo}`;
-      if (jaTemB.has(key)) { return 'skip_ja_tem'; }
-
+    const marcadores = await mapComLimite(celulas, 3, async ({ referencia }) => {
+      const cenA: any = referencia;
       const comp = compMap[cenA.competencia_id];
       if (!comp) { return 'skip_sem_comp'; }
 
@@ -438,6 +450,9 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
         },
         tipo_cenario: 'cenario_b',
       }).select('id, titulo, descricao, cargo, alternativas').single();
+      // 23505: outro lote gravou o B desta célula enquanto este gerava (índice
+      // único da célula, migration 261). A célula está coberta; não é falha.
+      if (insErr?.code === '23505') return 'skip_ja_tem';
       if (insErr) { console.error('[cenarioB insert]', insErr.message); return 'falha'; }
 
       // Check inline se modelo foi informado
@@ -456,9 +471,10 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     const aprovados = marcadores.filter(m => m === 'gerado_aprovado').length;
     const revisar = marcadores.filter(m => m === 'gerado_revisar').length;
 
+    const jaCobertas = marcadores.filter(m => m === 'skip_ja_tem').length;
     let msg = `${gerados} cenários B gerados`;
     if (checkModel) msg += ` | ${aprovados} aprovados, ${revisar} para revisar`;
-    msg += ` — ${cenariosA.length} cenários A, ${compIds.length} competências`;
+    msg += ` (${celulas.length - jaCobertas} de ${totalCelulas} células sem B; ${cenariosA.length} cenários A, ${compIds.length} competências)`;
     return { success: true, message: msg };
   } catch (err) {
     return { success: false, error: err.message };
@@ -512,10 +528,19 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
   const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
   try {
     // banco_cenarios é misto → raw por id
-    const { data: cen } = await sbRaw.from('banco_cenarios')
-      .select('id, empresa_id, competencia_id, cargo, titulo, descricao, nota_check, justificativa_check, sugestao_check')
-      .eq('id', cenarioId).single();
+    const { data: cen, error: cenErr } = await sbRaw.from('banco_cenarios')
+      .select('id, empresa_id, competencia_id, cargo, titulo, descricao, alternativas, nota_check, justificativa_check, sugestao_check')
+      .eq('id', cenarioId).maybeSingle();
+    if (cenErr) return { success: false, error: `Falha ao ler o cenário: ${cenErr.message}` };
     if (!cen) return { success: false, error: 'Cenário não encontrado' };
+
+    // Integrador (cobre mais de uma competência, Ibipeba 01/09/2026): o prompt
+    // daqui gera B de UMA competência e reescreve `alternativas` inteiro, o que
+    // apagaria `competencias_integradas`. O fechamento das trilhas de duas
+    // competências passaria a não ter B elegível.
+    if (ehIntegrador((cen as any).alternativas)) {
+      return { success: false, integrador: true, error: 'Cenário B integrador (cobre mais de uma competência): regerar por aqui apagaria a integração. Mantido como está.' };
+    }
 
     if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (não pode regenerar catálogo nacional)' };
     const tdb = tenantDb(cen.empresa_id);
@@ -729,12 +754,19 @@ export async function regenerarERecheckarCenariosBLote(empresaId: string, aiConf
   const tdb = tenantDb(empresaId);
   try {
     let query = tdb.from('banco_cenarios')
-      .select('id, nota_check, titulo')
+      .select('id, nota_check, titulo, alternativas')
       .eq('tipo_cenario', 'cenario_b');
     if (!aiConfig?.incluirAprovados) query = query.lt('nota_check', 90);
-    const { data: cenarios } = await query;
+    const { data: todos, error: listErr } = await query;
+    if (listErr) return { success: false, error: `Falha ao listar os cenários B: ${listErr.message}` };
 
-    if (!cenarios?.length) return { success: true, message: 'Nenhum cenário B para regenerar' };
+    // Integradores ficam fora: `regenerarCenarioB` os recusa (apagaria a integração).
+    const integradores = (todos || []).filter((c: any) => ehIntegrador(c.alternativas)).length;
+    const cenarios = (todos || []).filter((c: any) => !ehIntegrador(c.alternativas));
+
+    if (!cenarios.length) {
+      return { success: true, message: `Nenhum cenário B para regenerar${integradores ? ` (${integradores} integradores preservados)` : ''}` };
+    }
 
     // null → checkCenarioBUm resolve pela task (cenarios_b_check, pinned).
     const checkModel = aiConfig?.checkModel || null;
@@ -754,7 +786,7 @@ export async function regenerarERecheckarCenariosBLote(empresaId: string, aiConf
     const mantidos = marcadoresRg.filter(m => m === 'regen_mantido').length;
     const erros = marcadoresRg.filter(m => m === 'erro').length;
 
-    return { success: true, message: `${regenerados} regenerados | ${aprovados} aprovados, ${revisar} ainda para revisar${mantidos ? `, ${mantidos} mantidos (trava)` : ''}${erros ? `, ${erros} erros` : ''}` };
+    return { success: true, message: `${regenerados} regenerados | ${aprovados} aprovados, ${revisar} ainda para revisar${mantidos ? `, ${mantidos} mantidos (trava)` : ''}${erros ? `, ${erros} erros` : ''}${integradores ? `, ${integradores} integradores preservados` : ''}` };
   } catch (err) {
     return { success: false, error: err.message };
   }

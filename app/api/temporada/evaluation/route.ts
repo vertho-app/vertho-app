@@ -14,7 +14,7 @@ import { gravarProgressoSemana, liberarProximaSemana } from '@/lib/season-engine
 import { checarGatesSemana, gateAcumuladaPiloto, resolverConfigDaTrilha, qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { TURNOS_IA_AVALIACAO_QUALITATIVA } from '@/lib/season-engine/week-gating';
 import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, fechamentoSeguro } from '@/lib/season-engine/fechamento-conversa';
-import { buscarCenarioBComFallback } from '@/lib/season-engine/cenario-b';
+import { escolherCenarioB } from '@/lib/season-engine/cenario-b';
 import { abrirArguicao, turnoArguicao, extrairEvidenciasArguicao, type ArguicaoContexto, type ArguicaoEstado } from '@/lib/season-engine/arguicao';
 import { PROGRESSO } from '@/lib/status';
 import { comContexto } from '@/lib/execucao-contexto';
@@ -377,11 +377,21 @@ export async function POST(request) {
 
         if (!cenario || !perguntas) {
           const cargoColab = colab?.cargo || 'todos';
-          const cenB = await buscarCenarioBComFallback(sb, trilha.empresa_id, cargoColab);
+          // O B tem que ser da competência da trilha (lib/season-engine/cenario-b.ts).
+          // Uma vez servido, fica gravado no slot abaixo: retomar usa o mesmo.
+          const competenciasDaTrilha = Array.isArray((trilha as any).competencias_foco) && (trilha as any).competencias_foco.length
+            ? (trilha as any).competencias_foco
+            : [trilha.competencia_foco];
+          const escolha = await escolherCenarioB(sb, trilha.empresa_id, cargoColab, competenciasDaTrilha, {
+            colaboradorId: trilha.colaborador_id, trilhaId,
+          });
+          const cenB = escolha.cenario;
 
           if (!cenB?.descricao) {
             return NextResponse.json({
-              error: `Cenário B não cadastrado para ${competenciasLabel} + cargo ${cargoColab}.`,
+              error: escolha.motivo === 'sem-competencia-na-trilha'
+                ? 'A trilha não tem competência definida, então não há como escolher o Cenário B.'
+                : `Cenário B não cadastrado para ${competenciasLabel} + cargo ${cargoColab}.`,
             }, { status: 424 });
           }
           cenario = `## ${cenB.titulo || 'Cenário final'}\n\n${cenB.descricao}`;

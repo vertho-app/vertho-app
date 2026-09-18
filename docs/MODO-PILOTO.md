@@ -140,7 +140,8 @@ resolvido é piloto:
   da competência) — a semana nasceria com fallback templated
 - ⛔ **Bloqueador**: sem Cenário B pro cargo **nem genérico** (`cargo='todos'`,
   `tipo_cenario='cenario_b'`) — o fechamento retornaria 424. A rota `/evaluation` prioriza o
-  cenário do cargo e **cai pro `'todos'`** quando não há do cargo (`buscarCenarioBComFallback`, B1),
+  cenário do cargo e **cai pro `'todos'`** quando não há do cargo (`escolherCenarioB`, B1; desde
+  18/09 só serve B da competência da trilha, ver F-C14 no FMEA),
   alinhando com a prontidão (que já aceitava 'todos'). Gerar na Fase 4 do pipeline ("Cenários B + Check")
 - ⚠️ Aviso: sem conteúdo próprio do descritor (reusa pool) ou formatos opcionais faltando
   (o switch degrada) — ok
@@ -155,7 +156,7 @@ lib/season-engine/build-season.ts          branch isPilotoContentWeek (conteudos
 lib/season-engine/piloto-trava.ts          aplicarTravaPiloto + PILOTO_SPEC_VERSION
 lib/season-engine/arguicao.ts              defesa oral: abrir/turno/extrair (+ PII em-voo) — LIGADA no piloto
 lib/season-engine/fusao-arguicao.ts        fundirArguicao (mapa sustentou×forca → ±0,5 no código)
-lib/season-engine/cenario-b.ts             buscarCenarioBComFallback (cargo → 'todos', B1)
+lib/season-engine/cenario-b.ts             escolherCenarioB (competência da trilha; cargo → 'todos', B1)
 lib/season-engine/trilha-runtime.ts        gateAcumuladaPiloto (helper puro do gate da acumulada, M8/N1)
 trigger/acumulada-piloto.ts                task Trigger.dev da acumulada (retry 3, status; deploy MANUAL)
 actions/temporadas.ts                      gerarTemporadaPiloto · verificarProntidaoPiloto

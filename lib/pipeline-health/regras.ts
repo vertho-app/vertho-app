@@ -22,6 +22,7 @@
  *                                   R18  checarTaxaRetakeTts
  *                                   R19  checarCanarioTts
  *                                   R20  checarCalibracaoVoz
+ *                                   R21  checarCenarioBHorizonte
  *
  * ⚠️ **O número NÃO segue a ordem do arquivo, e isso é deliberado.** Os IDs são
  * citados em docs, testes e outros módulos (`lib/degradacao.ts`, `admin-supabase.ts`,
@@ -325,6 +326,65 @@ export function checarHorizonteKits(
       somaDiscs(futuras),
       'Ainda dá tempo, mas entra na fila de produção agora para não virar urgência.',
       { amostra: futuras.map(rotulo) },
+    ),
+  ].filter(Boolean) as Achado[];
+}
+
+/**
+ * R21 · HORIZONTE DO FECHAMENTO: trilha chegando à semana do Cenário B sem B da
+ * sua competência.
+ *
+ * Desde 18/09/2026 o fechamento só serve o B que cobre as competências da trilha
+ * (`escolherCenarioB`), e sem ele a pessoa recebe 424 na porta da avaliação. O
+ * 424 é o comportamento certo (servir o B de outra competência avaliava a coisa
+ * errada), mas só presta se alguém souber ANTES: gerar o B é o lote da Fase 5, com
+ * check, e depende de haver cenário A da célula.
+ *
+ * Real (18/09/2026): Macaé tinha 38 diretores a 10 dias da semana 7 e 0 Cenários
+ * B no tenant. Nada no sistema apontava isso; a descoberta foi manual.
+ *
+ * Corte por TEMPO, como a R15: a 14 dias ou menos (inclusive já aberta) é crítico.
+ */
+export interface LacunaCenarioB {
+  cargo: string;
+  /** Competências da trilha (a célula que o B precisa cobrir). */
+  competencias: string[];
+  /** Trilhas ativas que vão precisar deste B. */
+  pessoas: number;
+  /** Dias até a semana do B abrir para a trilha mais adiantada (negativo = já aberta). */
+  diasAte: number;
+  /** Semana do Cenário B no plano dessas trilhas. */
+  semana: number;
+}
+
+export const CENARIO_B_CRITICO_DIAS = 14;
+
+export function checarCenarioBHorizonte(
+  lacunas: LacunaCenarioB[],
+  criticoAteDias: number = CENARIO_B_CRITICO_DIAS,
+): Achado[] {
+  const rotulo = (l: LacunaCenarioB) =>
+    `${l.diasAte <= 0 ? 'já aberta' : `${l.diasAte}d`} · sem${l.semana} · ${l.cargo} · ${l.competencias.join(' + ')} · ${l.pessoas}p`;
+  const ordenar = (a: LacunaCenarioB, b: LacunaCenarioB) => a.diasAte - b.diasAte || b.pessoas - a.pessoas;
+  const urgentes = lacunas.filter((l) => l.diasAte <= criticoAteDias).sort(ordenar);
+  const futuras = lacunas.filter((l) => l.diasAte > criticoAteDias).sort(ordenar);
+  const pessoas = (ls: LacunaCenarioB[]) => ls.reduce((s, l) => s + l.pessoas, 0);
+  const acao = 'Gerar o Cenário B da célula no lote da Fase 5 (com check) e ler o texto antes da semana abrir.';
+
+  return [
+    achado(
+      'cenario-b-horizonte-urgente', 'critico',
+      `Fechamento a ${criticoAteDias} dias ou menos sem Cenário B da competência`,
+      pessoas(urgentes),
+      'Quem concluir as semanas de conteúdo vai parar na porta da avaliação final (erro 424) até o B existir.',
+      { amostra: urgentes.map(rotulo), acao },
+    ),
+    achado(
+      'cenario-b-horizonte-proximo', 'aviso',
+      'Fechamento futuro sem Cenário B da competência (ainda há folga)',
+      pessoas(futuras),
+      'Ainda dá tempo, mas o B precisa entrar na fila de geração agora.',
+      { amostra: futuras.map(rotulo), acao },
     ),
   ].filter(Boolean) as Achado[];
 }

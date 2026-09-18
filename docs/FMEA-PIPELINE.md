@@ -1132,10 +1132,10 @@ aberto, seja ela a qualitativa ou o fechamento. Caso novo no mesmo describe, val
 concluída** antes de cobrar. Quem fechou a semana 7 recebe *"o desafio da semana 7 ainda não foi
 registrado"* — saiu assim para 33 pessoas em 27/08. Preexistente, não regressão.
 
-### F-C14 · Cenário B servido por CARGO ignora a competência, e o gerador em lote enche o cargo ✅ (contornado 01/09)
+### F-C14 · Cenário B servido por CARGO ignora a competência, e o gerador em lote enche o cargo ✅ (corrigido 18/09)
 
-**Gatilho:** `lib/season-engine/cenario-b.ts::buscarCenarioBComFallback` — filtra por
-`empresa_id + cargo + tipo_cenario`, **sem competência**, e serve o mais recente por `created_at`.
+**Gatilho:** `lib/season-engine/cenario-b.ts::buscarCenarioBComFallback` (até 18/09) filtrava por
+`empresa_id + cargo + tipo_cenario`, **sem competência**, e servia o mais recente por `created_at`.
 
 **O defeito:** `actions/fase5/cenarios-b.ts::gerarCenariosBLote` gera um Cenário B por **cenário A**
 — portanto por competência ÚNICA — e para **todo par (cargo × competência)** que tenha cenário A no
@@ -1150,6 +1150,21 @@ mediria outra coisa.
 
 **Contorno (não correção):** garantir **exatamente um** Cenário B por cargo, conferido por query. Os
 12 foram removidos com backup. O defeito da busca continua para qualquer tenant com mais de um.
+
+**Correção (18/09/2026).** A Jornada tornou o contorno insuficiente: uma competência por trilha, e os
+diretores de Macaé têm duas competências de foco no mesmo cargo.
+- `escolherCenarioB` (substitui a busca): elegível é só o B que cobre **todas** as competências da
+  trilha (âncora por nome + `competencias_integradas`); entre elegíveis, cargo antes de `todos`, menos
+  competências fora da trilha, mais recente. Sem elegível: **424** com degradação crítica
+  (`cenario-b-sem-elegivel`), nunca o B de outra competência. Erro de leitura lança (500).
+- `gerarCenariosBLote`: uma geração por **célula** (competência × cargo), com o A de rede como
+  referência; célula coberta por B do cargo, inclusive integrador, é pulada; cargos-âncora do
+  simulador de liderança ficam fora. Índice único parcial (mig 261) é a garantia no banco.
+- `regenerarCenarioB` recusa integrador (reescreveria `alternativas` e apagaria a integração).
+- **R21** do health (horizonte, segundas): trilha a 14 dias ou menos do B sem B elegível.
+- `Medido` antes do deploy, nas trilhas ativas: Ibipeba segue com o integrador; 2 trilhas de demo que
+  recebiam o B de outra competência passam a receber o certo; 3 de teste na acme passam de "avaliada
+  na competência errada" para 424 visível.
 
 ⚠️ Dois efeitos colaterais do mesmo lote, que valem por si:
 - `regenerarERecheckarCenariosBLote` filtra `nota_check < 90`, e **`null` não satisfaz `<` em SQL** —

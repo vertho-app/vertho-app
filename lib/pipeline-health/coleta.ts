@@ -17,9 +17,12 @@ import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido
 import { formatosEntregaveis, escolherFormatoAnunciado } from '@/lib/season-engine/formato-anunciado';
 import { normalizePhone } from '@/lib/phone';
 import { levantarPlanoKitsCoorte, SEM_TURMA } from '@/lib/season-engine/kit/plano-coorte';
-import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
+import { TURMA_ENCERRADAS, TURMA_MEMBRO, TRILHA } from '@/lib/status';
 import { diasDaSemanaComFeriado } from '@/lib/fase4/feriados';
-import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro, CelulaVideoSemDeck, PushDiario } from './regras';
+import type { EntregaPrevista, EnvioObservado, LacunaKitHorizonte, MbForaDaRegua, DegradacaoRegistro, CelulaVideoSemDeck, PushDiario, LacunaCenarioB } from './regras';
+import { escolherCenarioB } from '@/lib/season-engine/cenario-b';
+import { semanaCenarioBDoPlano } from '@/lib/season-engine/trilha-runtime';
+import { normalizarComp } from '@/lib/workshop-competencias';
 
 /** Dia da semana no fuso do envio (1=segunda … 7=domingo), como o cron calcula. */
 export function diaDaSemanaBRT(d: Date): number {
@@ -326,6 +329,80 @@ async function recortesDeHorizonte(
     recortes.push({ turmaId: SEM_TURMA, rotulo: 'sem turma', semanaCorrente: semanaDe(orfaos) });
   }
   return recortes;
+}
+
+/**
+ * R21: células (cargo × competências) com trilha ativa chegando à semana do
+ * Cenário B sem B elegível.
+ *
+ * Pergunta pelo MESMO `escolherCenarioB` que o fechamento usa (com `registrar:
+ * false`, para o check não gravar no `degradacao_log`): um alarme com régua
+ * própria concordaria consigo mesmo e divergiria do que a pessoa recebe.
+ *
+ * Fica de fora a trilha cujo fechamento já tem o B gravado no slot (retomar usa o
+ * gravado) e a que só chega ao B depois da janela. Semana já aberta pelo
+ * calendário continua dentro: quem está atrasado chega lá quando concluir a
+ * semana anterior, e é exatamente aí que o 424 aconteceria.
+ */
+export async function coletarCenarioBHorizonte(
+  sb: any,
+  empresaId: string,
+  janelaDias: number,
+  hoje: Date = new Date(),
+): Promise<LacunaCenarioB[]> {
+  const { data: trilhas, error: errT } = await sb.from('trilhas')
+    .select('id, colaborador_id, competencia_foco, competencias_foco, temporada_plano, data_inicio')
+    .eq('empresa_id', empresaId)
+    .eq('status', TRILHA.ATIVA);
+  if (errT) throw new Error(`R21: leitura de trilhas falhou (${errT.message})`);
+  if (!trilhas?.length) return [];
+
+  const { data: congeladas, error: errP } = await sb.from('temporada_semana_progresso')
+    .select('trilha_id')
+    .eq('empresa_id', empresaId)
+    .in('trilha_id', trilhas.map((t: any) => t.id))
+    .not('feedback->>cenario_b_id', 'is', null);
+  if (errP) throw new Error(`R21: leitura do progresso falhou (${errP.message})`);
+  const jaTemB = new Set((congeladas || []).map((p: any) => p.trilha_id));
+
+  const colabIds = [...new Set(trilhas.map((t: any) => t.colaborador_id).filter(Boolean))];
+  const { data: colabs, error: errC } = await sb.from('colaboradores')
+    .select('id, cargo')
+    .eq('empresa_id', empresaId)
+    .in('id', colabIds);
+  if (errC) throw new Error(`R21: leitura de colaboradores falhou (${errC.message})`);
+  const cargoDe = new Map<string, string>((colabs || []).map((c: any) => [c.id, c.cargo || 'todos']));
+
+  const porCelula = new Map<string, LacunaCenarioB>();
+  for (const t of trilhas as any[]) {
+    if (jaTemB.has(t.id)) continue;
+    const semana = semanaCenarioBDoPlano(t.temporada_plano);
+    // Sem `data_inicio` não dá para datar: 0 dias (crítico). Preferir o alarme
+    // falso ao silêncio, como a R15.
+    const inicio = t.data_inicio ? new Date(`${t.data_inicio}T00:00:00Z`) : null;
+    const diasAte = inicio
+      ? Math.round((inicio.getTime() + (semana - 1) * 7 * 86400_000 - hoje.getTime()) / 86400_000)
+      : 0;
+    if (diasAte > janelaDias) continue;
+    const competencias: string[] = Array.isArray(t.competencias_foco) && t.competencias_foco.length
+      ? t.competencias_foco
+      : [t.competencia_foco].filter(Boolean);
+    const cargo = cargoDe.get(t.colaborador_id) || 'todos';
+    const chave = `${normalizarComp(cargo)}|${competencias.map(normalizarComp).sort().join('+')}`;
+    const atual = porCelula.get(chave);
+    if (!atual) porCelula.set(chave, { cargo, competencias, pessoas: 1, diasAte, semana });
+    else {
+      atual.pessoas += 1;
+      if (diasAte < atual.diasAte) { atual.diasAte = diasAte; atual.semana = semana; }
+    }
+  }
+
+  const lacunas: LacunaCenarioB[] = [];
+  for (const celula of porCelula.values()) {
+    const { cenario } = await escolherCenarioB(sb, empresaId, celula.cargo, celula.competencias, { registrar: false });
+    if (!cenario) lacunas.push(celula);
+  }
+  return lacunas;
 }
 
 /**
