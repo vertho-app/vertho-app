@@ -1119,8 +1119,13 @@
 - **Execução**: `lib/season-engine/fechamento-scorer.ts::pontuarFechamento`; callers em `app/api/temporada/evaluation/route.ts` (sem = `semanaCenarioB` da config: 14 regular · 10 onboarding · **3 piloto**) e `app/admin/vertho/auditoria-sem14/actions.ts::regerarScoringComFeedback`.
 - **Params de régua temporal** (02/07): `semanaFinal`/`semanasEvidencia` (defaults 14/13 = regular byte-idêntico) + `notaPrograma` (piloto injeta contexto: "demonstra o método, NÃO mede evolução; janela curta não é falha do colaborador")
 - **Pós-processamento piloto-only**: após `validateEvolutionScenarioScore`, o branch piloto aplica `aplicarTravaPiloto` (lib/season-engine/piloto-trava.ts): `nota_pos = max(bruto, baseline)`, `nota_pos_bruto`+`piso_aplicado` preservados, `spec_version='piloto-v1'` no snapshot — o prompt e o output dos demais modos ficam intocados
-- **Max tokens**: 10000
-- **PII masking**: Sim (nome do colab, resposta, evidências).
+- **Max tokens**: 11000 (era 10000 até 17/09/2026; `SCORER_MAX_TOKENS`. `Medido:` 14 execuções ok em
+  45 dias, saída média 5.761 e máxima 8.372 tokens — os campos do fecho somam ~400 e a folga cairia
+  para menos de 1.200. Truncar aqui quebra o JSON e a pessoa fica SEM NOTA; o teto de tempo
+  (`SCORER_TIMEOUT_MAX_MS` = 210 s) continua sendo a trava real, ~186 s a 59 tok/s)
+- **PII masking**: Sim (nome do colab, resposta, evidências). ⚠️ O `unmaskPII` do `fechamento-core`
+  cobre `mensagem_geral`, `mensagem_final`, cada item de `proximos_passos` e as justificativas — o
+  fecho é escrito PARA a pessoa, pelo nome, então é onde o alias `COLAB_xxxx` sairia impresso.
 - **System prompt** (resumo editorial do prompt real em `evolution-scenario.ts`):
   Voce e um avaliador rigoroso e criterioso da Vertho. Calcula a AVALIACAO FINAL da semana 14 por TRIANGULACAO entre nota pre (baseline), avaliacao acumulada das 13 semanas, resposta ao cenario e evidencias acumuladas. Principios-chave:
   1. Ancore EXCLUSIVAMENTE na regua de maturidade; granularidade 0.1
@@ -1135,8 +1140,18 @@
   3. DIVERGENTE CENARIO INFERIOR: puxa pra perto do acumulado (-0.3-0.5 se cenario claramente fraco)
   4. SEM EVIDENCIA ACUMULADA: use cenario + regua com prudencia
   REGRAS DURAS: 4.0 so se acumulado E cenario sustentarem; Acumulado N1-2 -> nota_pos <=2.5; Acumulado N3 consistente (3+ semanas) -> nota_pos >=2.5
-- **Inputs user**: Competencia, cenario, resposta do colab, regua com nota_atual por descritor, avaliacao acumulada primaria (se houver), evidencias das 13 semanas.
-- **Output**: JSON `{ avaliacao_por_descritor[{descritor, nota_pre, nota_acumulada, nota_cenario, nota_pos, delta, classificacao:"evoluiu|manteve|regrediu", nivel_rubrica, consistencia_com_acumulado:"consistente|divergente_cenario_superior|divergente_cenario_inferior|sem_evidencia_acumulada", justificativa, trecho_cenario, evidencia_acumulada, limites_da_leitura[]}], nota_media_pre, nota_media_acumulada, nota_media_cenario, nota_media_pos, delta_medio, resumo_avaliacao:{mensagem_geral, evidencias_citadas[], principal_avanco, principal_ponto_de_atencao}, alertas_metodologicos[] }`. Validacao: `validateEvolutionScenarioScore`.
+- **Inputs user**: Competencia, cenario, resposta do colab, regua com nota_atual por descritor, avaliacao acumulada primaria (se houver), evidencias das semanas até a acumulada.
+  🔴 **De 03/07 a 18/09/2026 as evidências chegaram VAZIAS** em 48 de 48 fechamentos: o select de
+  `agregarEvidenciasAteAcumulada` pedia uma coluna inexistente e o 400 virava string vazia. A
+  triangulação rodou com duas pernas nesse período. Ver F-I37 em `docs/FMEA-PIPELINE.md`.
+- **Output**: JSON `{ avaliacao_por_descritor[{descritor, nota_pre, nota_acumulada, nota_cenario, nota_pos, delta, classificacao:"evoluiu|manteve|regrediu", nivel_rubrica, consistencia_com_acumulado:"consistente|divergente_cenario_superior|divergente_cenario_inferior|sem_evidencia_acumulada", justificativa, trecho_cenario, evidencia_acumulada, limites_da_leitura[]}], nota_media_pre, nota_media_acumulada, nota_media_cenario, nota_media_pos, delta_medio, resumo_avaliacao:{mensagem_geral, evidencias_citadas[], principal_avanco, principal_ponto_de_atencao, **mensagem_final**, **proximos_passos[]**}, alertas_metodologicos[] }`. Validacao: `validateEvolutionScenarioScore`.
+- 🧭 **O FECHO do relatório nasce aqui (17/09/2026)**: `mensagem_final` (3 a 5 frases, 2ª pessoa, o
+  que a pessoa leva / o que destrava / o que segue pedindo trabalho) e `proximos_passos` (0 a 3,
+  cada um começando por verbo). Antes o fecho era o `insight_geral` do EXTRATOR da conversa, que
+  audita base de evidência e escrevia como auditor — `Medido:` 7 de 10 relatórios de Ibipeba abriam
+  em 3ª pessoa e 9 citavam o instrumento. O prompt PROÍBE citar conversa/microcaso/evidência/
+  descritor/avaliação/nota/IA no fecho, e a lista de passos pode voltar VAZIA (cota no schema é
+  ordem de inventar). Leitura em fonte única: `fechoDoRelatorio`. Detalhe: `docs/PIPELINE-TRILHA.md`.
 - **Consumido por**: `temporada_semana_progresso.feedback` (semana do fechamento) + Evolution Report (`gerarEvolutionReport(trilhaId, internal?)` — variante piloto SEM delta/convergência; report automático da rota usa `internal=true`).
 
 ### 6.13 Evolution Scenario Check (audit sem 14)

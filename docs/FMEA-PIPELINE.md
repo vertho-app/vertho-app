@@ -541,6 +541,36 @@ Vizinho do F-I10: a mesma família de "leitura que reduz a uma linha sem dizer q
 - ⚠️ **Ainda não observado:** um vídeo real gerado fim-a-fim após a correção. A prova aqui é de
   contrato (typecheck + guarda), não de execução — a primeira geração real é que fecha o modo.
 
+### F-I37 · Coluna que não existe no `select` apaga a TERCEIRA PERNA da nota do fechamento ✅ (fechado 18/09/2026)
+Vizinho do F-D1 (coluna fantasma) e do E11 (`{ error }` não checado) — o que este caso acrescenta é
+que a falha foi **absorvida por um guard de "sem dados"** e ficou **declarada como dívida** na
+allowlist, que é o que a manteve invisível por dois meses e meio.
+- **Gatilho:** `lib/season-engine/evidencias-fechamento.ts:56` selecionava
+  `'semana, tipo, descritor, reflexao, feedback, tira_duvidas'` em `temporada_semana_progresso`, e a
+  coluna `descritor` **nunca existiu** nessa tabela (o descritor da semana vem do `temporada_plano`,
+  três linhas abaixo). PostgREST recusa a query inteira (400 / `42703`), `data` vem `null`, e o
+  `if (!progressos?.length) return ''` da linha seguinte lê isso como "trilha sem progresso".
+- **Efeito medido:** o prompt do scorer recebia "(sem evidência registrada nas N semanas)" em TODOS
+  os descritores. A `nota_pos`, que existe para não sair só do cenário, triangulava com duas pernas
+  (cenário + acumulado) em vez de três. `Medido: 17/09/2026` — o select entrou em `f42fb93d`
+  (03/07/2026) e desde então rodaram **48 fechamentos, 100% dos que existem na base**.
+- **Por que ninguém viu:** nenhum teste, tela ou alarme cobria isso; a entrada estava na allowlist do
+  guard E11 (`config/error-nao-checado-allowlist.json`), então o CI passava por construção. Quem
+  denunciou foi o **modelo**: os `alertas_metodologicos` da própria resposta do scorer ("evidências
+  acumuladas ausentes — triangulação metodologicamente inválida"), lidos por acaso num preview.
+- **Correção:** select reduzido às 4 colunas que a função usa; `{ error }` checado nas DUAS leituras
+  (semanas e plano), com `DEGRADACAO.EVIDENCIAS_FECHAMENTO_NAO_LIDAS` (crítica, com o `code` do
+  Postgres) antes de devolver `''`. Segue degradando de propósito: a pessoa acabou de responder o
+  cenário e não pode ficar sem nota por uma leitura que falhou. A allowlist do E11 encolheu 911 → 909.
+  Guarda: `tests/unit/evidencias-fechamento.test.ts` (trava as colunas do select + exige a
+  degradação), validado por mutação nos dois sentidos.
+- ⚠️ **Não medido:** o efeito sobre as NOTAS em escala. Numa comparação com e sem o insumo (n=1, o
+  mesmo relatório), a média deu 2,02 nos dois lados; o que mudou visivelmente foi a riqueza do texto.
+  Os 48 relatórios **não** foram reprocessados (decisão do dono).
+- 🔑 **A régua que fica:** allowlist de guard responde "isto é dívida aceita", não "isto está certo".
+  Ao mexer num arquivo que aparece numa allowlist, leia a entrada — ela pode estar descrevendo um bug
+  vivo. E saída de IA que reclama do próprio insumo é detector grátis de bug a montante.
+
 ---
 
 ## 3. Escala (o que quebra a partir de N) — resumo; detalhe em ESCALA-50K.md

@@ -1282,3 +1282,23 @@ como substituto da versão isolada. Receita: memória `reference_worktree_isolad
 **Medido: 17/09/2026**, rodada Ipi: três builds passaram com a raiz temporária em
 `C:/GAS/Vertho App`; a configuração original voltou antes dos commits. A orientação
 anterior dizia que o build era impossível e recomendava esperar apenas pela Vercel.
+
+## § Script que REPLICA um fluxo de produção (preview, amostra, reprocessamento)
+
+Casa quando o script monta o mesmo prompt/pipeline de uma rota ou core para gerar uma amostra
+fora do produto. Conferir, antes de pagar a chamada de IA:
+
+- **O `select` do objeto principal traz o que o RESOLVEDOR lê.** Config, régua e programa são
+  resolvidos a partir de campos do registro; um select mais curto não dá erro, dá um DEFAULT
+  plausível — e o default decide de qual semana o script lê o cenário.
+- **Fail-loud com o nome do que faltou** (cenário, resposta, evidências) antes do `callAI`. Insumo
+  vazio produz saída bonita e falsa, e é ela que vai para o dono.
+- **Imprimir a linha do prompt que afirma o número** (duração, semana, teto) ao lado da saída. Sem
+  isso, prompt errado parece alucinação do modelo.
+- **Ler os campos de ALERTA da resposta** (`alertas_metodologicos` e afins), não só o campo bonito.
+
+**Consequência medida (18/09/2026):** duas rodadas pagas do preview do relatório saíram com um fecho
+plausível e falso ("sem os registros do caminho, não dá para dizer o que mudou") porque o select da
+trilha não trouxe `programa_modo`/`programa_config`: o config caiu no default DUO (14/13), o cenário
+foi buscado na semana 14 quando a real era a 9, e o prompt afirmou "13 semanas" numa jornada de 8.
+Quem denunciou foram os `alertas_metodologicos` da própria IA. Memória `feedback_fixture_forma_real`.

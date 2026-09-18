@@ -345,6 +345,11 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   - 🔴 **E coluna inexistente no `select` derruba a QUERY INTEIRA (400/`42703`), não o campo** —
     então `data` vem `null` e o destructuring transforma isso em "não existe registro". Medido
     27/08: **5 referências fantasma** em código vivo, invisíveis ao `tsc` e aos 3.056 testes.
+    🔴 E medido 17/09: uma delas apagou a TERCEIRA PERNA da nota do fechamento em **48 de 48**
+    fechamentos desde 03/07, porque a linha seguinte era `if (!progressos?.length) return ''` — a
+    falha de leitura virou "sem dados". **Ela estava DECLARADA na allowlist do guard E11**, então o
+    CI passava por construção: allowlist responde "dívida aceita", nunca "está certo" — ao mexer num
+    arquivo que aparece numa, leia a entrada. F-I37 do `docs/FMEA-PIPELINE.md`.
   - 🔑 **E `catch` que implementa POLÍTICA cobre o caso errado.** `lib/demo/envio-guard.ts` tratava a
     falha de leitura de `is_demo` só no catch, com a política de fail-safe escrita no cabeçalho do
     arquivo — mas o caso provável (erro de query) não passa por lá: `data` vinha `null`, `isDemo`

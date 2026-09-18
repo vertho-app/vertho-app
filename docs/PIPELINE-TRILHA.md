@@ -92,7 +92,52 @@ são deliberadamente limitadas: não são um analisador completo de português e
 não garantem ausência de marcação em qualquer texto livre. "A equipe está
 preparada" não é erro de tratamento. PDFs já baixados precisam ser baixados novamente.
 
-Testes: `redacao-sem-genero`, `relatorio-texto`, `temporada-concluida-pdf` e
+⚠️ A revisão cobre construção com sujeito explícito e verbo de estado; o fecho
+novo é prosa mais livre e escapa com facilidade. `Medido: 18/09/2026` — "o que
+você não vai mais carregar sozinha" passa direto, porque o "mais" entre o
+auxiliar e o verbo não está na lista de modificadores. Pendente: acrescentar
+`mais` e `só` a `MODIFICADORES` em `lib/redacao-sem-genero.ts`.
+
+## O FECHO do relatório da temporada (17/09/2026)
+
+O documento abria falando com a pessoa e fechava falando dela para um terceiro:
+a "Mensagem final" era o `insight_geral` do EXTRATOR da conversa (semana da
+acumulada), cujo trabalho é auditar base de evidência. `Medido:` nos 10
+relatórios de Ibipeba, **7 abriam em terceira pessoa** ("A colaboradora
+demonstra…") e **9 comentavam o instrumento** ("a dimensão não foi acessada na
+conversa"; um dizia à pessoa que ela "não trouxe evidência concreta mesmo após
+duas tentativas da IA").
+
+Hoje o fecho nasce no prompt do FECHAMENTO, ao lado da devolutiva de abertura,
+sem chamada de IA nova: `resumo_avaliacao.mensagem_final` (3 a 5 frases, 2ª
+pessoa) e `resumo_avaliacao.proximos_passos` (0 a 3 ações, lista vazia é
+resposta válida). `fechoDoRelatorio` (`lib/season-engine/resumo-avaliacao.ts`) é
+a fonte única de leitura e resolve as DUAS gerações — relatórios anteriores
+seguem com `insight_geral`/`proximo_passo`, porque **os gravados não foram
+regerados** (decisão do dono). O `insight_geral` continua no report e na
+auditoria do admin.
+
+🔴 **"Próximos passos" era uma seção que só a DEMONSTRAÇÃO tinha**:
+`proximo_passo` vinha de `reflexao.proximo_passo`, campo que o prompt da semana
+da acumulada nunca pediu. `Medido:` 37 de 37 relatórios dos tenants de demo
+preenchidos pelo fixture, **0 de 10** em Ibipeba.
+
+**Antes/Depois some quando a base é fraca** (`exibeAntesDepois`, em
+`lib/season-engine/convergencia.ts`): o card mostrava "+0,3 · EVOLUÇÃO PARCIAL",
+que vem do cenário, e embaixo "Antes: Não abordado na conversa", que vem da
+conversa. Vale nas 4 superfícies da pessoa e do gestor; a auditoria do admin
+mantém os dois campos com o aviso de base fraca. Esconde só quando a força foi
+MEDIDA e deu `fraca` — campo ausente (relatórios pré-03/09 e os 222 descritores
+das demos) mantém o texto: ausência de medição não é medição de ausência.
+`Medido:` 53 dos 109 descritores com veredito em Ibipeba têm base fraca.
+
+⚠️ **Não há revisão gramatical no caminho** — o texto vai do modelo direto ao
+PDF. `Medido: 18/09/2026`, 2 gerações do mesmo relatório: uma trouxe "que part
+do peso" e "antes de setembro começa"; a outra, "o movimento que você já começou
+na **Sem 7**", que é o rótulo do insumo de evidências vazando para a saída.
+
+Testes: `redacao-sem-genero`, `relatorio-texto`, `temporada-concluida-pdf`,
+`fecho-relatorio` e
 `integrations/ai-redacao-sem-genero` (corpos reais das requests com transporte
 simulado; não confundem entrega da instrução com obediência do modelo).
 
