@@ -610,7 +610,16 @@
 ### 5.1 Gerar Cenário B (lote)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5/cenarios-b.ts::buildCenBPrompts` (usado em `gerarCenariosBLote` e `regenerarCenarioB`)
+> **Atualizado em 18/09/2026.** O prompt vive em `lib/cenarios-b-prompt.ts::buildCenarioBPrompts`
+> (`SYSTEM_CENARIO_B`) e recebe o **mesmo contexto do Cenário A** por `montarContextoIA3` (PPP de
+> rede): empresa, cargo com o CONTEXTO ORGANIZACIONAL (descrição, entregas, stakeholders, decisões,
+> tensões), competência, régua N1 a N4, valores (com o padrão quando não há PPP), perfil ideal do
+> cargo e PPP. Um teste prova que os blocos de contexto do B são exatamente o começo do prompt do A
+> (`tests/unit/cenarios-b-prompt.test.ts`). Ganhou a regra de anonimização do A (pilar 9) e deixou de
+> citar "semana 14". O lote gera um B por CÉLULA (competência × cargo), não por cenário A. O que está
+> abaixo descreve a versão anterior e fica como histórico.
+
+- **Arquivo**: `actions/fase5/cenarios-b.ts::buildCenBPrompts` (até 18/09; hoje `lib/cenarios-b-prompt.ts`)
 - **Modelo default**: Claude Sonnet 4.6
 - **Max tokens**: 6144
 - **Temperature**: 0.4 (fiel ao GAS)
@@ -654,7 +663,7 @@
 ### 5.2 Check Cenário B
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
 
-- **Arquivo**: `actions/fase5/cenarios-b.ts::CHECK_CEN_B_SYSTEM` + `avaliarCenB`
+- **Arquivo**: `lib/cenarios-b-prompt.ts::SYSTEM_CHECK_CENARIO_B` + `buildCheckCenarioBUser`, chamado por `avaliarCenB` (`actions/fase5/cenarios-b.ts`). Desde 18/09/2026 o auditor vê a mesma lente do gerador (contexto do A) e o mesmo Cenário A de referência nos 4 caminhos; a nota grava `alertas_check.versao_auditor` (2), e a trava da regeneração só compara notas da mesma versão.
 - **Modelo default**: `gpt-5.6-terra`, pinned pela task `cenarios_b_check`.
 - **Max tokens**: 4096
 - **Temperature**: 0.4

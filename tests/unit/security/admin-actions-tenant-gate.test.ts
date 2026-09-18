@@ -81,7 +81,12 @@ vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn() }));
 // TENANT, e a validação de modelo é ortogonal — mockar com problema faria o teste
 // falhar por um motivo que ele não está medindo.
 vi.mock('@/lib/ai-tasks', () => ({ getModelForTask: vi.fn(), DEFAULT_TASK_MODELS: {}, validarModelosDoSysConfig: vi.fn(async () => []) }));
-vi.mock('@/lib/ia3-cenarios', () => ({ travaRegeneracao: vi.fn() }));
+// Parcial: o prompt do Cenário B (lib/cenarios-b-prompt.ts) monta seus blocos com
+// os do IA3 no import; só a trava precisa ser falsa aqui.
+vi.mock('@/lib/ia3-cenarios', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/ia3-cenarios')>()),
+  travaRegeneracao: vi.fn(),
+}));
 vi.mock('@trigger.dev/sdk', () => ({ tasks: { trigger: vi.fn() }, runs: { retrieve: vi.fn() } }));
 vi.mock('@/lib/trigger-region', () => ({ regionOpts: {} }));
 

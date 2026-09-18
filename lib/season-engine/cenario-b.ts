@@ -188,6 +188,18 @@ export interface CenarioALote {
   created_at?: string | null;
 }
 
+/**
+ * O cenário A de referência de uma célula: o de REDE (`ppp_escola_id` nulo),
+ * senão o mais recente. O B não tem dimensão de escola e é servido a todas as
+ * escolas da rede, então a referência é a da rede. Mesma régua para o lote, o
+ * check avulso, o check em lote e a regeração.
+ */
+export function aReferenciaDaCelula<T extends { ppp_escola_id?: string | null; created_at?: string | null }>(lista: T[]): T | null {
+  return [...(lista || [])].sort((x, y) =>
+    (x.ppp_escola_id ? 1 : 0) - (y.ppp_escola_id ? 1 : 0)
+    || String(y.created_at || '').localeCompare(String(x.created_at || '')))[0] ?? null;
+}
+
 export interface CelulaSemCenarioB {
   /** `competencia_id::cargo`. */
   chave: string;
@@ -239,10 +251,7 @@ export function celulasSemCenarioB(
     const { competencia_id, cargo } = lista[0];
     const nome = competencia_id ? nomePorId.get(competencia_id) : undefined;
     if (nome && nomesCobertosPorCargo.get(normalizarComp(cargo))?.has(normalizarComp(nome))) continue;
-    const referencia = [...lista].sort((x, y) =>
-      (x.ppp_escola_id ? 1 : 0) - (y.ppp_escola_id ? 1 : 0)
-      || String(y.created_at || '').localeCompare(String(x.created_at || '')))[0];
-    celulas.push({ chave, referencia, totalA: lista.length });
+    celulas.push({ chave, referencia: aReferenciaDaCelula(lista) as CenarioALote, totalA: lista.length });
   }
   return celulas;
 }

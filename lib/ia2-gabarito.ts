@@ -231,9 +231,9 @@ export async function buscarValores(tdb: any, _empresaNome?: string): Promise<st
 
 /**
  * Igual a `buscarValores`, mas **devolve `[]` quando a empresa não tem valores** em vez
- * do fallback genérico. Existe porque o Cenário B injeta contexto só se houver: cair no
- * `VALORES_DEFAULT` lá mudaria o prompt de todo tenant sem PPP — mudança de insumo não
- * medida. Quem quer o fallback usa `buscarValores`; quem quer saber se há dado usa esta.
+ * do fallback genérico. Quem quer o fallback usa `buscarValores`; quem quer saber se há
+ * dado usa esta. Até 18/09/2026 o Cenário B usava esta; desde então ele recebe o mesmo
+ * contexto do A (`buscarValores`, com o fallback), por decisão do dono.
  */
 export async function buscarValoresDaRede(tdb: any): Promise<string[]> {
   try {

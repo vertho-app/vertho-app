@@ -19,6 +19,20 @@ import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
 
 // ── Prompts (movidos VERBATIM de fase1.ts) ──────────────────────────────────
 
+/**
+ * Regra de anonimização das instituições, compartilhada pelos prompts do Cenário A
+ * (pilar 9) e do Cenário B (lib/cenarios-b-prompt.ts). O texto é o do A; o golden
+ * em tests/unit/ia3/prompt-golden.test.ts garante que ele não muda em silêncio.
+ */
+export const REGRA_ANONIMIZACAO_INSTITUICOES = `ANONIMIZAÇÃO DE INSTITUIÇÕES (OBRIGATÓRIO)
+   NUNCA use o nome REAL — nem invente nome PRÓPRIO — de escola, rede,
+   secretaria ou cidade. Situe o caso de forma GENÉRICA, preservando o contexto
+   regional do PPP sem identificar (ex.: "uma escola da rede municipal no
+   sertão da Bahia", "a Secretaria Municipal de Educação", "o município", "uma
+   escola urbana da rede"). O contexto real do PPP serve APENAS para dar
+   realismo pedagógico — jamais para nomear a instituição. Personagens (pessoas)
+   seguem com nomes próprios fictícios brasileiros, como já previsto.`;
+
 export function buildIA3SystemPrompt(): string {
   return `Você é um especialista com 20 anos em avaliação de competências comportamentais em organizações brasileiras.
 Sua especialidade: criar cenários situacionais como INSTRUMENTOS DIAGNÓSTICOS.
@@ -73,14 +87,7 @@ O cenário é uma radiografia: a resposta revela o nível de maturidade.
    - Cada pergunta: máx 200 caracteres
    - Perguntas ABERTAS (não múltipla escolha)
 
-9. ANONIMIZAÇÃO DE INSTITUIÇÕES (OBRIGATÓRIO)
-   NUNCA use o nome REAL — nem invente nome PRÓPRIO — de escola, rede,
-   secretaria ou cidade. Situe o caso de forma GENÉRICA, preservando o contexto
-   regional do PPP sem identificar (ex.: "uma escola da rede municipal no
-   sertão da Bahia", "a Secretaria Municipal de Educação", "o município", "uma
-   escola urbana da rede"). O contexto real do PPP serve APENAS para dar
-   realismo pedagógico — jamais para nomear a instituição. Personagens (pessoas)
-   seguem com nomes próprios fictícios brasileiros, como já previsto.
+9. ${REGRA_ANONIMIZACAO_INSTITUICOES}
 
 ═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
 
@@ -129,63 +136,94 @@ REGRAS DO JSON:
 - stakeholders_centrais: máximo 2`;
 }
 
+// ── Blocos do contexto do cenário ────────────────────────────────────────────
+// Extraídos de `buildIA3UserPrompt` em 18/09/2026 para o Cenário B receber
+// EXATAMENTE o mesmo contexto do A (lib/cenarios-b-prompt.ts). Byte a byte: o
+// golden em tests/unit/ia3/prompt-golden.test.ts prova que o A não mudou.
+// Bloco opcional devolve `null` quando não há o que dizer.
+
+export function blocoEmpresaIA3(empresa: any): string {
+  return `═══ EMPRESA ═══
+Nome: ${empresa.nome}
+Segmento: ${empresa.segmento || 'Não informado'}`;
+}
+
+export function blocoCargoIA3(cargoNome: string): string {
+  return `═══ CARGO ═══
+Cargo: ${cargoNome}`;
+}
+
+export function blocoContextoOrganizacionalIA3(cargoDetalhe: any): string | null {
+  if (!(cargoDetalhe.descricao || cargoDetalhe.principais_entregas || cargoDetalhe.stakeholders || cargoDetalhe.decisoes_recorrentes || cargoDetalhe.tensoes_comuns)) return null;
+  let ctx = '═══ CONTEXTO ORGANIZACIONAL ═══';
+  if (cargoDetalhe.descricao) ctx += `\nDescrição do cargo: ${cargoDetalhe.descricao}`;
+  if (cargoDetalhe.principais_entregas) ctx += `\nPrincipais entregas: ${cargoDetalhe.principais_entregas}`;
+  if (cargoDetalhe.stakeholders) ctx += `\nStakeholders: ${cargoDetalhe.stakeholders}`;
+  if (cargoDetalhe.decisoes_recorrentes) ctx += `\nDecisões recorrentes: ${cargoDetalhe.decisoes_recorrentes}`;
+  if (cargoDetalhe.tensoes_comuns) ctx += `\nTensões e situações difíceis: ${cargoDetalhe.tensoes_comuns}`;
+  return ctx;
+}
+
+export function blocoCompetenciaIA3(comp: any): string {
+  return `═══ COMPETÊNCIA-ALVO ═══
+Código: ${comp.cod_comp || '—'}
+Nome: ${comp.nome}
+${comp.descricao ? `Descrição: ${comp.descricao}` : ''}`;
+}
+
+export function blocoDescritoresIA3(descritores: any[]): string | null {
+  if (!(descritores.length > 0)) return null;
+  let desc = `═══ DESCRITORES DA COMPETÊNCIA (${descritores.length}) ═══`;
+  descritores.forEach((d: any, i: number) => {
+    desc += `\nD${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo || ''}`;
+    if (d.n1_gap) desc += `\n  N1 (Gap): ${d.n1_gap}`;
+    if (d.n2_desenvolvimento) desc += `\n  N2 (Desenvolvimento): ${d.n2_desenvolvimento}`;
+    if (d.n3_meta) desc += `\n  N3 (Meta): ${d.n3_meta}`;
+    if (d.n4_referencia) desc += `\n  N4 (Referência): ${d.n4_referencia}`;
+  });
+  return desc;
+}
+
+export function blocoValoresIA3(valores: string[]): string {
+  return `═══ VALORES ORGANIZACIONAIS ═══\n${valores.join(', ')}`;
+}
+
+export function blocoPerfilIdealIA3(gabCIS: any): string | null {
+  if (!gabCIS) return null;
+  let perfil = '═══ PERFIL IDEAL DO CARGO (IA2) ═══';
+  if (gabCIS.tela4) {
+    perfil += `\nDISC ideal:`;
+    for (const f of ['D', 'I', 'S', 'C']) {
+      if (gabCIS.tela4[f]) perfil += `\n  ${f}: ${gabCIS.tela4[f].min} → ${gabCIS.tela4[f].max}`;
+    }
+  }
+  if (gabCIS.tela3) {
+    perfil += `\nEstilos de liderança: Executor ${gabCIS.tela3.executor}% | Motivador ${gabCIS.tela3.motivador}% | Metódico ${gabCIS.tela3.metodico}% | Sistemático ${gabCIS.tela3.sistematico}%`;
+  }
+  perfil += `\nUse o perfil para escolher o TIPO de gatilho que revela pontos cegos deste perfil.`;
+  return perfil;
+}
+
+export function blocoPppIA3(contextoPPP: string): string | null {
+  if (!contextoPPP) return null;
+  return `═══ CONTEXTO PPP / DOSSIÊ ═══\n${contextoPPP.slice(0, 3000)}`;
+}
+
 export function buildIA3UserPrompt(empresa: any, cargoNome: string, cargoDetalhe: any, comp: any, descritores: any[], valores: string[], contextoPPP: string, gabCIS: any): string {
   const blocks: string[] = [];
 
-  blocks.push(`═══ EMPRESA ═══
-Nome: ${empresa.nome}
-Segmento: ${empresa.segmento || 'Não informado'}`);
-
-  blocks.push(`═══ CARGO ═══
-Cargo: ${cargoNome}`);
-
-  if (cargoDetalhe.descricao || cargoDetalhe.principais_entregas || cargoDetalhe.stakeholders || cargoDetalhe.decisoes_recorrentes || cargoDetalhe.tensoes_comuns) {
-    let ctx = '═══ CONTEXTO ORGANIZACIONAL ═══';
-    if (cargoDetalhe.descricao) ctx += `\nDescrição do cargo: ${cargoDetalhe.descricao}`;
-    if (cargoDetalhe.principais_entregas) ctx += `\nPrincipais entregas: ${cargoDetalhe.principais_entregas}`;
-    if (cargoDetalhe.stakeholders) ctx += `\nStakeholders: ${cargoDetalhe.stakeholders}`;
-    if (cargoDetalhe.decisoes_recorrentes) ctx += `\nDecisões recorrentes: ${cargoDetalhe.decisoes_recorrentes}`;
-    if (cargoDetalhe.tensoes_comuns) ctx += `\nTensões e situações difíceis: ${cargoDetalhe.tensoes_comuns}`;
-    blocks.push(ctx);
-  }
-
-  blocks.push(`═══ COMPETÊNCIA-ALVO ═══
-Código: ${comp.cod_comp || '—'}
-Nome: ${comp.nome}
-${comp.descricao ? `Descrição: ${comp.descricao}` : ''}`);
-
-  if (descritores.length > 0) {
-    let desc = `═══ DESCRITORES DA COMPETÊNCIA (${descritores.length}) ═══`;
-    descritores.forEach((d: any, i: number) => {
-      desc += `\nD${i + 1}: ${d.cod_desc} — ${d.nome_curto || d.descritor_completo || ''}`;
-      if (d.n1_gap) desc += `\n  N1 (Gap): ${d.n1_gap}`;
-      if (d.n2_desenvolvimento) desc += `\n  N2 (Desenvolvimento): ${d.n2_desenvolvimento}`;
-      if (d.n3_meta) desc += `\n  N3 (Meta): ${d.n3_meta}`;
-      if (d.n4_referencia) desc += `\n  N4 (Referência): ${d.n4_referencia}`;
-    });
-    blocks.push(desc);
-  }
-
-  blocks.push(`═══ VALORES ORGANIZACIONAIS ═══\n${valores.join(', ')}`);
-
-  if (gabCIS) {
-    let perfil = '═══ PERFIL IDEAL DO CARGO (IA2) ═══';
-    if (gabCIS.tela4) {
-      perfil += `\nDISC ideal:`;
-      for (const f of ['D', 'I', 'S', 'C']) {
-        if (gabCIS.tela4[f]) perfil += `\n  ${f}: ${gabCIS.tela4[f].min} → ${gabCIS.tela4[f].max}`;
-      }
-    }
-    if (gabCIS.tela3) {
-      perfil += `\nEstilos de liderança: Executor ${gabCIS.tela3.executor}% | Motivador ${gabCIS.tela3.motivador}% | Metódico ${gabCIS.tela3.metodico}% | Sistemático ${gabCIS.tela3.sistematico}%`;
-    }
-    perfil += `\nUse o perfil para escolher o TIPO de gatilho que revela pontos cegos deste perfil.`;
-    blocks.push(perfil);
-  }
-
-  if (contextoPPP) {
-    blocks.push(`═══ CONTEXTO PPP / DOSSIÊ ═══\n${contextoPPP.slice(0, 3000)}`);
-  }
+  blocks.push(blocoEmpresaIA3(empresa));
+  blocks.push(blocoCargoIA3(cargoNome));
+  const organizacional = blocoContextoOrganizacionalIA3(cargoDetalhe);
+  if (organizacional) blocks.push(organizacional);
+  blocks.push(blocoCompetenciaIA3(comp));
+  const regua = blocoDescritoresIA3(descritores);
+  if (regua) blocks.push(regua);
+  blocks.push(blocoValoresIA3(valores));
+  const perfil = blocoPerfilIdealIA3(gabCIS);
+  if (perfil) blocks.push(perfil);
+  const ppp = blocoPppIA3(contextoPPP);
+  if (ppp) blocks.push(ppp);
 
   blocks.push(`═══ INSTRUÇÃO DE LEITURA ═══
 1. Identifique qual FACETA da competência mais importa neste cargo específico.

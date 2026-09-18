@@ -7,266 +7,53 @@ import { extractJSON } from '../utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { getModelForTask, DEFAULT_TASK_MODELS } from '@/lib/ai-tasks';
-import { travaRegeneracao } from '@/lib/ia3-cenarios';
-import { buscarContextoPPP, buscarValoresDaRede } from '@/lib/ia2-gabarito';
+import { travaRegeneracao, montarContextoIA3 } from '@/lib/ia3-cenarios';
 import { TEMP, type Fase5Config } from './_shared';
 import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
-import { buscarDescritoresDaCompetencia } from '@/lib/matriz-por-cargo';
-import { celulasSemCenarioB, ehIntegrador } from '@/lib/season-engine/cenario-b';
+import { celulasSemCenarioB, ehIntegrador, aReferenciaDaCelula } from '@/lib/season-engine/cenario-b';
 import { ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
+import { buildCenarioBPrompts, buildCheckCenarioBUser, SYSTEM_CHECK_CENARIO_B, type ContextoCenarioB } from '@/lib/cenarios-b-prompt';
 
-// System prompt do check de cenário B — harmonizado com o check do cenário A
-const CHECK_CEN_B_SYSTEM = `Você é o auditor de qualidade do Cenário B da Vertho.
+// ── Contexto e prompts do Cenário B ───────────────────────────────────────────
+// Os prompts (gerador e auditor) vivem em lib/cenarios-b-prompt.ts e usam o MESMO
+// contexto do Cenário A (montarContextoIA3): cargo com o contexto organizacional,
+// régua N1 a N4, valores, perfil ideal e PPP de rede. Até 18/09/2026 o B recebia
+// só o nome do cargo, e o bloco "CONTEXTO PPP / DOSSIÊ" levava só a lista de
+// valores; o auditor via um PPP que o gerador não via.
 
-═══ TAREFA ═══
-Auditar se o Cenário B funciona como INSTRUMENTO COMPLEMENTAR real ao Cenário A,
-útil para triangulação na semana 14.
+/**
+ * Versão do auditor gravada com a nota. Nota de outra versão não é comparável: em
+ * 18/09/2026 o auditor passou a ver o contexto do cargo e a regra de anonimização,
+ * e a trava de regeneração não pode comparar régua velha com régua nova.
+ */
+const VERSAO_AUDITOR_B = 2;
 
-Um bom Cenário B não é apenas "plausível". Ele precisa ser metodologicamente
-útil como SEGUNDO instrumento de medição da mesma competência.
-
-═══ 8 DIMENSÕES (total 100 pontos) ═══
-
-1. ADERÊNCIA À COMPETÊNCIA (15pts)
-   O cenário avalia a competência indicada? A faceta faz sentido?
-
-2. DIFERENÇA ESTRUTURAL VS CENÁRIO A (15pts)
-   A diferença é REAL e metodológica? Ou apenas cosmética (nomes/contexto trocados)?
-
-3. COMPLEMENTARIDADE (10pts)
-   Observa faceta complementar relevante? Evita repetir núcleo de dilema do A?
-
-4. REALISMO CONTEXTUAL (10pts)
-   Plausível pro cargo? Sem caricatura? Máx 2 stakeholders?
-
-5. CLAREZA DO TRADE-OFF (15pts)
-   Existe escolha difícil real? Se pode responder bem sem escolher → penalize forte.
-
-6. PODER DISCRIMINANTE (15pts)
-   Diferencia N1-N4? Resposta vaga/genérica FALHA?
-
-7. ADEQUAÇÃO DAS PERGUNTAS À SEM14 (10pts)
-   P1=situação? P2=ação? P3=raciocínio? P4=autossensibilidade?
-
-8. UTILIDADE PARA TRIANGULAÇÃO (10pts)
-   Leitura útil quando combinado com acumulada + evidências das 13 semanas?
-   Reduz risco de resposta ensaiada?
-
-═══ ERROS GRAVES (nota máxima 60) ═══
-- Cenário B repete estruturalmente o A
-- Faceta principal é a mesma do A sem justificativa
-- Trade-off inexistente ou muito fraco
-- Resposta genérica suficiente pra "ir bem"
-- Perguntas fora da lógica situação/ação/raciocínio/autossensibilidade
-- Cenário pouco utilizável pra triangulação
-- Competência avaliada não é a indicada
-- Cenário teatral / sofisticado demais
-
-═══ CLASSIFICAÇÃO ═══
-90-100 = aprovado | 80-89 = aprovado_com_ressalvas | 0-79 = revisar
-
-═══ FORMATO JSON ═══
-
-{
-  "nota": 85,
-  "status": "aprovado_com_ressalvas",
-  "erro_grave": false,
-  "dimensoes": {
-    "aderencia_competencia": 13,
-    "diferenca_estrutural_vs_a": 12,
-    "complementaridade": 8,
-    "realismo_contextual": 9,
-    "clareza_tradeoff": 13,
-    "poder_discriminante": 13,
-    "adequacao_sem14": 8,
-    "utilidade_triangulacao": 9
-  },
-  "ponto_mais_forte": "...",
-  "ponto_mais_fraco": "...",
-  "problema_principal_vs_cenario_a": "em que o B falha como complemento do A",
-  "riscos_de_triangulacao": ["risco 1"],
-  "perguntas_com_risco": [{"numero": 2, "problema": "...", "correcao_recomendada": "..."}],
-  "justificativa": "síntese objetiva (2-3 frases)",
-  "sugestao": "principal ajuste recomendado",
-  "alertas": []
+/** Contexto da célula (competência × cargo): o mesmo do A, com o PPP de REDE (o B não tem dimensão de escola). */
+async function contextoDaCelula(sbRaw: any, empresaId: string, cargo: string, competenciaId: string):
+  Promise<{ ok: true; ctx: ContextoCenarioB; comp: any } | { ok: false; error: string }> {
+  const mc = await montarContextoIA3(sbRaw, empresaId, cargo, competenciaId, null);
+  if ('error' in mc) return { ok: false, error: mc.error };
+  const { empresa, comp, descritores, contextoPPP, valores, cargoDetalhe, gabCIS } = mc.ctx;
+  return { ok: true, comp, ctx: { empresa, cargoNome: cargo, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS } };
 }
 
-REGRA: Se cenário for bem escrito mas metodologicamente fraco como
-COMPLEMENTO do A, PENALIZE. Prefira rigor a elegância.`;
-
-// Helper: descritores da competência NA MATRIZ DO CARGO dela — a mesma matriz
-// pode estar copiada em 2 cargos (lib/matriz-por-cargo). Recebe a linha da
-// competência (com `cargo`) e o tdb (tenant-scoped: empresa_id injetado).
-async function fetchDescritoresTexto(tdb, comp) {
-  const descs = await buscarDescritoresDaCompetencia(tdb, comp,
-    'cod_desc, nome_curto, descritor_completo, n1_gap, n2_desenvolvimento, n3_meta, n4_referencia');
-  if (!descs.length) return '';
-  return descs.map((d, i) => `D${i + 1}: ${d.cod_desc} — ${d.nome_curto || ''}\nN1: ${d.n1_gap || ''}\nN2: ${d.n2_desenvolvimento || ''}\nN3: ${d.n3_meta || ''}\nN4: ${d.n4_referencia || ''}`).join('\n\n');
+/** O cenário A de referência da célula (o de rede, senão o mais recente), com `alternativas`. */
+async function cenarioADaCelula(tdb: any, competenciaId: string, cargo: string) {
+  const { data, error } = await tdb.from('banco_cenarios')
+    .select('id, titulo, descricao, cargo, competencia_id, ppp_escola_id, alternativas, created_at')
+    .eq('competencia_id', competenciaId)
+    .eq('cargo', cargo)
+    .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b');
+  if (error) throw new Error(`cenário A da célula: ${error.message}`);
+  return aReferenciaDaCelula((data || []) as any[]);
 }
 
-// Helper: monta prompts de geração de cenário B
-function buildCenBPrompts(empresa: any, cenA: any, comp: any, descritoresTexto: string, pppContexto: string, feedbackExtra = ''): { system: string; user: string } {
-  const system = `Você é um especialista em avaliação de competências comportamentais e design de instrumentos diagnósticos da Vertho.
-
-═══ TAREFA ═══
-Criar um CENÁRIO B complementar ao Cenário A já existente.
-O Cenário B NÃO é "outro cenário". É um SEGUNDO INSTRUMENTO DE MEDIÇÃO
-da mesma competência, útil para triangulação na semana 14.
-
-═══ REGRAS INEGOCIÁVEIS ═══
-
-1. MESMA COMPETÊNCIA, OUTRA SITUAÇÃO-GATILHO
-   A diferença deve ser ESTRUTURAL, não cosmética (trocar nomes não conta).
-
-2. COMPLEMENTARIDADE
-   Observar uma FACETA COMPLEMENTAR da competência.
-   Se o Cenário A testava faceta X, privilegiar faceta Y.
-   Não repetir o mesmo núcleo de dilema com roupas novas.
-
-3. UTILIDADE PARA TRIANGULAÇÃO
-   Reduzir risco de resposta ensaiada. Gerar leitura comparável mas não redundante.
-
-4. REALISMO CONTEXTUAL
-   Plausível pro cargo. Linguagem real. Máx 2 stakeholders nomeados.
-   Nomes brasileiros. Sem teatralidade.
-
-5. DILEMA / TRADE-OFF
-   Se pode responder bem sem escolher nada → cenário FALHOU.
-
-6. PODER DISCRIMINANTE
-   N1 visivelmente diferente de N3. Resposta genérica deve FALHAR.
-
-7. ESTRUTURA DAS 4 PERGUNTAS
-   P1 = situação / leitura do caso
-   P2 = ação / decisão prática
-   P3 = raciocínio / critério de escolha
-   P4 = autossensibilidade / consciência de limite ou risco
-
-8. DILEMA ÉTICO EMBUTIDO
-   Tensão ética sutil e natural, não didática.
-
-═══ FORMATO JSON (APENAS JSON, sem markdown) ═══
-
-{
-  "titulo": "título curto",
-  "descricao": "texto do cenário (80-150 palavras)",
-  "faceta_avaliada": "faceta principal observada",
-  "facetas_secundarias": ["faceta 2", "faceta 3"],
-  "diferenca_estrutural_vs_cenario_a": "o que muda de verdade vs Cenário A (1 frase)",
-  "por_que_essa_variacao_importa": "por que útil para triangulação (1 frase)",
-  "tradeoff_testado": "qual escolha difícil está no centro",
-  "armadilha_de_resposta_generica": "por que resposta vaga não resolve",
-  "stakeholders_centrais": ["Nome1", "Nome2"],
-  "p1": "pergunta de situação",
-  "p2": "pergunta de ação",
-  "p3": "pergunta de raciocínio",
-  "p4": "pergunta de autossensibilidade",
-  "objetivo_diagnostico": {
-    "p1": "o que P1 quer revelar",
-    "p2": "o que P2 quer revelar",
-    "p3": "o que P3 quer revelar",
-    "p4": "o que P4 quer revelar"
-  },
-  "referencia_avaliacao": {
-    "nivel_1": "como responderia N1",
-    "nivel_2": "como responderia N2",
-    "nivel_3": "como responderia N3",
-    "nivel_4": "como responderia N4"
-  },
-  "dilema_etico_embutido": {
-    "valor_testado": "valor em tensão",
-    "caminho_facil": "solução mais fácil",
-    "caminho_etico": "solução alinhada ao valor"
-  },
-  "confianca_cenario": 0.85,
-  "riscos_do_cenario": ["risco 1", "risco 2"]
-}`;
-
-  // ── User prompt estruturado ──
-  const blocks: string[] = [];
-
-  blocks.push(`═══ EMPRESA ═══\nNome: ${empresa.nome}\nSegmento: ${empresa.segmento || 'Não informado'}`);
-  blocks.push(`═══ CARGO ═══\n${cenA.cargo}`);
-  blocks.push(`═══ COMPETÊNCIA ═══\nNome: ${comp.nome}\n${comp.descricao ? `Descrição: ${comp.descricao}` : ''}`);
-
-  if (descritoresTexto) blocks.push(`═══ DESCRITORES / RÉGUA ═══\n${descritoresTexto}`);
-  if (pppContexto) blocks.push(`═══ CONTEXTO PPP / DOSSIÊ ═══\n${pppContexto}`);
-
-  // Cenário A com metadados se disponíveis
-  const altA = typeof cenA.alternativas === 'object' && !Array.isArray(cenA.alternativas) ? cenA.alternativas : {};
-  let cenABlock = `═══ CENÁRIO A ORIGINAL (NÃO repetir — crie algo ESTRUTURALMENTE DIFERENTE) ═══\nTítulo: ${cenA.titulo}\nDescrição: ${cenA.descricao}`;
-  if (altA.faceta_testada_principal) cenABlock += `\nFaceta avaliada: ${altA.faceta_testada_principal}`;
-  if (altA.tradeoff_testado) cenABlock += `\nTrade-off: ${altA.tradeoff_testado}`;
-  blocks.push(cenABlock);
-
-  blocks.push(`═══ INSTRUÇÃO ═══
-Crie um Cenário B da mesma competência, mas com situação-gatilho ESTRUTURALMENTE diferente.
-Não repita o mesmo núcleo do Cenário A com roupas novas.
-O Cenário B deve ser útil para triangulação na semana 14.`);
-
-  if (feedbackExtra) {
-    blocks.push(`═══ FEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS) ═══\n${feedbackExtra}`);
-  }
-
-  return { system, user: blocks.join('\n\n') };
-}
-
-// Helper: busca PPP resumido (mesmo resolvedor do cenário A).
-//
-// Antes: `.limit(1)` SEM `order` — numa empresa-rede (1 PPP por escola) isso pegava uma
-// escola em ordem indefinida do Postgres, e o Cenário B do FECHAMENTO era gerado e
-// auditado na lente dela. F-I10 do docs/FMEA-PIPELINE.md. Agora consolida por empresa
-// (`buscarContextoPPP`), que também troca o JSON cru truncado por seções rotuladas.
-async function fetchPppResumo(tdb: any, empresaId: string) {
-  const contexto = await buscarContextoPPP(tdb, { empresaId });
-  return contexto.slice(0, 500);
-}
-
-// Helper: roda check em 1 cenário B e persiste resultado.
-// cenarioA é opcional — se passado, o auditor compara B vs A.
-async function avaliarCenB(sb: any, cen: any, comp: any, descritoresTexto: string, pppResumo: string, modelo: string | null, cenarioA?: any) {
-  const alt = typeof cen.alternativas === 'string' ? JSON.parse(cen.alternativas) : (cen.alternativas || {});
-  const perguntas = [alt.p1 || cen.p1, alt.p2 || cen.p2, alt.p3 || cen.p3, alt.p4 || cen.p4].filter(Boolean);
-  const perguntasTexto = perguntas.map((p: any, i: number) => {
-    const texto = typeof p === 'string' ? p : p.texto || JSON.stringify(p);
-    const obj = alt.objetivo_diagnostico?.[`p${i + 1}`] || '';
-    return `P${i + 1}: ${texto}${obj ? `\n  Objetivo: ${obj}` : ''}`;
-  }).join('\n\n');
-
-  const blocks: string[] = [];
-  blocks.push(`═══ CARGO ═══\n${cen.cargo}`);
-  blocks.push(`═══ COMPETÊNCIA ═══\n${comp?.nome || 'N/D'}`);
-  if (descritoresTexto) blocks.push(`═══ DESCRITORES / RÉGUA ═══\n${descritoresTexto}`);
-
-  // Cenário A pra comparação
-  if (cenarioA) {
-    const altA = typeof cenarioA.alternativas === 'object' && !Array.isArray(cenarioA.alternativas) ? cenarioA.alternativas : {};
-    let cenABlock = `═══ CENÁRIO A ORIGINAL (pra comparação) ═══\nTítulo: ${cenarioA.titulo}\nDescrição: ${cenarioA.descricao}`;
-    if (altA.faceta_testada_principal || altA.faceta_avaliada) cenABlock += `\nFaceta: ${altA.faceta_testada_principal || altA.faceta_avaliada}`;
-    if (altA.tradeoff_testado) cenABlock += `\nTrade-off: ${altA.tradeoff_testado}`;
-    blocks.push(cenABlock);
-  }
-
-  // Cenário B completo
-  let cenBBlock = `═══ CENÁRIO B GERADO ═══\nTítulo: ${cen.titulo}\nContexto: ${cen.descricao}`;
-  if (alt.faceta_avaliada) cenBBlock += `\nFaceta: ${alt.faceta_avaliada}`;
-  if (Array.isArray(alt.facetas_secundarias) && alt.facetas_secundarias.length) cenBBlock += `\nFacetas secundárias: ${alt.facetas_secundarias.join(', ')}`;
-  if (alt.diferenca_estrutural_vs_cenario_a) cenBBlock += `\nDiferença vs A: ${alt.diferenca_estrutural_vs_cenario_a}`;
-  if (alt.por_que_essa_variacao_importa) cenBBlock += `\nPor que importa: ${alt.por_que_essa_variacao_importa}`;
-  if (alt.tradeoff_testado) cenBBlock += `\nTrade-off: ${alt.tradeoff_testado}`;
-  if (alt.armadilha_de_resposta_generica) cenBBlock += `\nArmadilha anti-genérico: ${alt.armadilha_de_resposta_generica}`;
-  if (typeof alt.confianca_cenario === 'number') cenBBlock += `\nConfiança: ${alt.confianca_cenario}`;
-  if (Array.isArray(alt.riscos_do_cenario) && alt.riscos_do_cenario.length) cenBBlock += `\nRiscos: ${alt.riscos_do_cenario.join('; ')}`;
-  blocks.push(cenBBlock);
-
-  blocks.push(`═══ PERGUNTAS ═══\n${perguntasTexto}`);
-  if (pppResumo) blocks.push(`═══ CONTEXTO PPP ═══\n${pppResumo}`);
-  blocks.push(`═══ INSTRUÇÃO ═══\nAudite se o Cenário B funciona como instrumento COMPLEMENTAR real ao Cenário A.\nSe bem escrito mas metodologicamente fraco como complemento, PENALIZE.`);
-
-  const user = blocks.join('\n\n');
-
-  const resposta = await callAI(CHECK_CEN_B_SYSTEM, user, { model: modelo || DEFAULT_TASK_MODELS['cenarios_b_check'] }, 4096, {
-    temperature: TEMP, taskKey: 'cenarios_b_check', empresaId: comp?.empresa_id ?? null,
+// Helper: audita 1 cenário B com a mesma lente do gerador. `cenarioA` é opcional:
+// se passado, o auditor compara B com A.
+async function avaliarCenB(cen: any, ctx: ContextoCenarioB, modelo: string | null, cenarioA: any, empresaId: string | null) {
+  const user = buildCheckCenarioBUser(ctx, cen, cenarioA);
+  const resposta = await callAI(SYSTEM_CHECK_CENARIO_B, user, { model: modelo || DEFAULT_TASK_MODELS['cenarios_b_check'] }, 4096, {
+    temperature: TEMP, taskKey: 'cenarios_b_check', empresaId,
   });
   const resultado = await extractJSON(resposta);
   if (!resultado?.nota) return { success: false, error: 'Check não retornou nota' };
@@ -298,6 +85,7 @@ async function persistirCheckCenB(sb: any, cenId: string, resultado: any, status
         problema_principal_vs_cenario_a: resultado.problema_principal_vs_cenario_a || null,
         riscos_de_triangulacao: resultado.riscos_de_triangulacao || [],
         perguntas_com_risco: resultado.perguntas_com_risco || [],
+        versao_auditor: VERSAO_AUDITOR_B,
       },
       checked_at: new Date().toISOString(),
     }).eq('id', cenId),
@@ -310,9 +98,9 @@ async function persistirCheckCenB(sb: any, cenId: string, resultado: any, status
   if (errCheck) console.error('[persistirCheckCenB] check não gravado:', errCheck.message);
 }
 
-/** Avalia E persiste (contrato original — checks avulsos/lote usam este). */
-async function runCheckOnCenB(sb: any, cen: any, comp: any, descritoresTexto: string, pppResumo: string, modelo: string | null, cenarioA?: any) {
-  const av = await avaliarCenB(sb, cen, comp, descritoresTexto, pppResumo, modelo, cenarioA);
+/** Avalia E persiste (checks avulsos e em lote usam este). */
+async function runCheckOnCenB(sb: any, cen: any, ctx: ContextoCenarioB, modelo: string | null, cenarioA: any, empresaId: string | null) {
+  const av = await avaliarCenB(cen, ctx, modelo, cenarioA, empresaId);
   if (!av.success) return av as any;
   await persistirCheckCenB(sb, cen.id, av.resultado, av.statusCheck);
   return { success: true, nota: av.resultado.nota, status: av.statusCheck };
@@ -331,10 +119,6 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
-    // empresas: id é o tenant — sem empresa_id; usar raw
-    const { data: empresa } = await sbRaw.from('empresas')
-      .select('nome, segmento').eq('id', empresaId).single();
-
     // Cenários A existentes: banco_cenarios é misto, mas filtramos por
     // empresa explicitamente, então tdb está OK (deduz pelo tenantId).
     // `ppp_escola_id` e `created_at` escolhem o A de referência da célula;
@@ -349,16 +133,13 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
 
     const compIdsNeeded = [...new Set(cenariosA.map(c => c.competencia_id).filter(Boolean))];
     const compMap = {};
-    const descritoresMap = {};
 
-    // Batch (era 1 query por competência) + descritores em pool de DB (8)
+    // Nomes das competências (para a cobertura por integrador). O contexto
+    // completo de cada célula vem de `contextoDaCelula`, o mesmo do A.
     const { data: compsRows } = compIdsNeeded.length
       ? await tdb.from('competencias').select('id, nome, descricao, cod_comp, cargo').in('id', compIdsNeeded)
       : { data: [] };
     for (const comp of compsRows || []) compMap[comp.id] = comp;
-    await mapComLimite(Object.values(compMap) as any[], 8, async (comp: any) => {
-      descritoresMap[comp.id] = await fetchDescritoresTexto(tdb, comp);
-    });
     const compIds = Object.keys(compMap);
 
     // Uma geração por CÉLULA (competência × cargo), não por cenário A: numa rede
@@ -375,23 +156,16 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
       .filter((a) => a.competencia_id && a.cargo && !ehCargoAncoraLideranca(a.cargo))
       .map((a) => `${a.competencia_id}::${a.cargo}`)).size;
 
-    // Valores institucionais da REDE (consolidados entre escolas — F-I10).
-    const valoresRede = await buscarValoresDaRede(tdb);
-    const pppContexto = valoresRede.length ? JSON.stringify(valoresRede) : '';
-
-    // PPP resumo para o check (formato diferente — extração)
-    const pppResumoCheck = await fetchPppResumo(tdb, empresaId);
-
     const checkModel = aiConfig?.checkModel;
     // GERAÇÃO em paralelo (limite 3 — TPM de IA); cada item devolve um
     // marcador e os contadores são derivados no fim (semântica preservada).
     const marcadores = await mapComLimite(celulas, 3, async ({ referencia }) => {
       const cenA: any = referencia;
-      const comp = compMap[cenA.competencia_id];
-      if (!comp) { return 'skip_sem_comp'; }
+      const celula = await contextoDaCelula(sbRaw, empresaId, cenA.cargo, cenA.competencia_id);
+      if ('error' in celula) { console.warn(`[CenB] ${cenA.cargo}: ${celula.error}`); return 'skip_sem_comp'; }
+      const comp = celula.comp;
 
-      const descritoresTexto = descritoresMap[cenA.competencia_id] || '';
-      const { system, user } = buildCenBPrompts(empresa, cenA, comp, descritoresTexto, pppContexto);
+      const { system, user } = buildCenarioBPrompts(celula.ctx, cenA);
       let resultado = await callAI(system, user, aiConfig, 32768, { temperature: TEMP, taskKey: 'cenarios_b', empresaId });
       let cenarioData = await extractJSON(resultado);
 
@@ -458,7 +232,7 @@ export async function gerarCenariosBLote(empresaId: string, aiConfig: Fase5Confi
       // Check inline se modelo foi informado
       if (checkModel && inserted) {
         try {
-          const chk = await runCheckOnCenB(sbRaw, inserted, comp, descritoresTexto, pppResumoCheck, checkModel, cenA);
+          const chk = await runCheckOnCenB(sbRaw, inserted, celula.ctx, checkModel, cenA, empresaId);
           if (chk.success) {
             return chk.status === 'aprovado' ? 'gerado_aprovado' : 'gerado_revisar';
           }
@@ -497,22 +271,13 @@ export async function checkCenarioBUm(cenarioId: string, modelo: string | null =
     if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional não tem check)' };
     const tdb = tenantDb(cen.empresa_id);
 
-    const { data: comp, error: compErr } = await tdb.from('competencias')
-      .select('id, nome, cod_comp, cargo').eq('id', cen.competencia_id).maybeSingle();
-    if (compErr) return { success: false, error: `competência: ${compErr.message}` };
-
-    const descritoresTexto = comp ? await fetchDescritoresTexto(tdb, comp) : '';
-    const pppResumo = await fetchPppResumo(tdb, cen.empresa_id);
-
-    // Buscar cenário A correspondente pra comparação
-    const { data: cenA } = await tdb.from('banco_cenarios')
-      .select('titulo, descricao, alternativas')
-      .eq('competencia_id', cen.competencia_id).eq('cargo', cen.cargo)
-      .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
-      .limit(1).maybeSingle();
+    // A mesma lente do gerador (contexto do A) e o mesmo A de referência do lote.
+    const celula = await contextoDaCelula(sbRaw, cen.empresa_id, cen.cargo, cen.competencia_id);
+    if ('error' in celula) return { success: false, error: celula.error };
+    const cenA = await cenarioADaCelula(tdb, cen.competencia_id, cen.cargo);
 
     const modeloResolvido = modelo || await getModelForTask(cen.empresa_id, 'cenarios_b_check');
-    const r = await runCheckOnCenB(sbRaw, cen, comp, descritoresTexto, pppResumo, modeloResolvido, cenA || undefined);
+    const r = await runCheckOnCenB(sbRaw, cen, celula.ctx, modeloResolvido, cenA, cen.empresa_id);
     if (!r.success) return r;
     return { success: true, message: `Check: ${r.nota}pts — ${r.status}`, nota: r.nota, status: r.status };
   } catch (err) {
@@ -545,26 +310,10 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
     if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (não pode regenerar catálogo nacional)' };
     const tdb = tenantDb(cen.empresa_id);
 
-    const { data: empresa } = await sbRaw.from('empresas')
-      .select('nome, segmento').eq('id', cen.empresa_id).single();
-
-    const { data: comp, error: compErr } = await tdb.from('competencias')
-      .select('id, nome, descricao, cod_comp, cargo').eq('id', cen.competencia_id).maybeSingle();
-    if (compErr) return { success: false, error: `competência: ${compErr.message}` };
-    if (!comp) return { success: false, error: 'Competência não encontrada' };
-
-    const descritoresTexto = await fetchDescritoresTexto(tdb, comp);
-
-    // Buscar cenário A original para referência (qualquer tipo != cenario_b para mesma comp+cargo)
-    const { data: cenA } = await tdb.from('banco_cenarios')
-      .select('titulo, descricao')
-      .eq('competencia_id', cen.competencia_id)
-      .eq('cargo', cen.cargo)
-      .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
-      .limit(1).maybeSingle();
-
-    const valoresRede = await buscarValoresDaRede(tdb);
-    const pppContexto = valoresRede.length ? JSON.stringify(valoresRede) : '';
+    // O mesmo contexto do A e o mesmo A de referência do lote e do check.
+    const celula = await contextoDaCelula(sbRaw, cen.empresa_id, cen.cargo, cen.competencia_id);
+    if ('error' in celula) return { success: false, error: celula.error };
+    const cenA = await cenarioADaCelula(tdb, cen.competencia_id, cen.cargo);
 
     // Feedback enriquecido do check
     const feedbackParts = [cen.justificativa_check, cen.sugestao_check];
@@ -583,10 +332,9 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
     }
     const feedbackExtra = feedbackParts.filter(Boolean).join('\n');
     const refCenA = cenA || { cargo: cen.cargo, titulo: cen.titulo, descricao: cen.descricao };
-    refCenA.cargo = cen.cargo;
 
-    const { system, user } = buildCenBPrompts(empresa, refCenA, comp, descritoresTexto, pppContexto, feedbackExtra);
-    const resposta = await callAI(system, user, aiConfig, 32768, { temperature: TEMP, taskKey: 'cenarios_b' });
+    const { system, user } = buildCenarioBPrompts(celula.ctx, refCenA, feedbackExtra);
+    const resposta = await callAI(system, user, aiConfig, 32768, { temperature: TEMP, taskKey: 'cenarios_b', empresaId: cen.empresa_id });
     const cenarioData = await extractJSON(resposta);
     if (!cenarioData?.titulo) return { success: false, error: 'IA não retornou cenário válido' };
 
@@ -616,13 +364,20 @@ export async function regenerarCenarioB(cenarioId: string, aiConfig: AIConfig = 
       cargo: cen.cargo, titulo: cenarioData.titulo, descricao: cenarioData.descricao,
       alternativas: alternativasB,
     };
-    const pppResumoChk = await fetchPppResumo(tdb, cen.empresa_id);
     const modeloCheck = (aiConfig as any)?.checkModel || await getModelForTask(cen.empresa_id, 'cenarios_b_check');
-    const av: any = await avaliarCenB(sbRaw, candidato, comp, descritoresTexto, pppResumoChk, modeloCheck, cenA || undefined);
-    if (!av.success) return { success: false, error: `Auditoria da candidata falhou (${av.error}) — NADA foi alterado` };
+    const av: any = await avaliarCenB(candidato, celula.ctx, modeloCheck, cenA, cen.empresa_id);
+    if (!av.success) return { success: false, error: `Auditoria da candidata falhou (${av.error}). Nada foi alterado.` };
 
-    const notaAnterior: number | null = typeof (cen as any).nota_check === 'number' ? (cen as any).nota_check : null;
-    if (!travaRegeneracao((cen as any).nota_check, av.resultado.nota)) {
+    // A nota atual só é comparável se veio desta versão do auditor. Nota de outra
+    // versão (antes de 18/09/2026 o auditor não via o contexto do cargo) é refeita
+    // agora, na régua nova, antes de a trava decidir.
+    let notaAnterior: number | null = typeof (cen as any).nota_check === 'number' ? (cen as any).nota_check : null;
+    if (notaAnterior != null && alertas.versao_auditor !== VERSAO_AUDITOR_B) {
+      const atual: any = await avaliarCenB(cen, celula.ctx, modeloCheck, cenA, cen.empresa_id);
+      if (!atual.success) return { success: false, error: `Recheck da versão atual falhou (${atual.error}). Nada foi alterado.` };
+      notaAnterior = atual.resultado.nota;
+    }
+    if (!travaRegeneracao(notaAnterior, av.resultado.nota)) {
       return {
         success: true, aplicado: false, nota: av.resultado.nota, notaAnterior, status: av.statusCheck,
         message: `Regeneração DESCARTADA: candidata ${av.resultado.nota}pts < atual ${notaAnterior}pts — mantida a versão atual (trava: nunca piora).`,
@@ -712,26 +467,28 @@ export async function checkCenariosBLote(empresaId: string, aiConfig: Fase5Confi
     if (!pendentes.length) return { success: true, message: `Todos os ${cenarios.length} cenários B já foram checados` };
 
     const modelo = aiConfig?.checkModel || aiConfig?.model || await getModelForTask(empresaId, 'cenarios_b_check');
-    const pppResumo = await fetchPppResumo(tdb, empresaId);
 
-    // Pré-carga em BATCH (elimina o cache incremental) e checks IA em
-    // PARALELO com limite 4 — check é idempotente e barato de repetir,
-    // o alvo seguro pra primeira leva de paralelização (review 03/07).
-    const compIdsChk = [...new Set(pendentes.map(c => c.competencia_id).filter(Boolean))];
-    const { data: compsChk } = compIdsChk.length
-      ? await tdb.from('competencias').select('id, nome, cod_comp, cargo').in('id', compIdsChk)
-      : { data: [] };
-    const compCache = Object.fromEntries((compsChk || []).map(c => [c.id, c]));
-    const descCache = {};
-    await mapComLimite(Object.values(compCache) as any[], 8, async (comp: any) => {
-      descCache[comp.id] = await fetchDescritoresTexto(tdb, comp);
-    });
+    // Contexto e A de referência por CÉLULA, uma vez cada, e checks IA em
+    // PARALELO com limite 4 (check é idempotente e barato de repetir). Até
+    // 18/09/2026 este caminho auditava sem Cenário A nenhum: as dimensões
+    // "diferença vs A" e "complementaridade" eram julgadas às cegas.
+    const porCelula = new Map<string, Promise<{ celula: any; cenA: any }>>();
+    const daCelula = (cen: any) => {
+      const chave = `${cen.competencia_id}::${cen.cargo}`;
+      if (!porCelula.has(chave)) {
+        porCelula.set(chave, (async () => ({
+          celula: await contextoDaCelula(sbRaw, empresaId, cen.cargo, cen.competencia_id),
+          cenA: await cenarioADaCelula(tdb, cen.competencia_id, cen.cargo),
+        }))());
+      }
+      return porCelula.get(chave)!;
+    };
 
     const resultados = await mapComLimite(pendentes as any[], 4, async (cen: any) => {
       try {
-        const comp = compCache[cen.competencia_id] || null;
-        const descritoresTexto = comp ? (descCache[cen.competencia_id] ?? '') : '';
-        const r = await runCheckOnCenB(sbRaw, cen, comp, descritoresTexto, pppResumo, modelo);
+        const { celula, cenA } = await daCelula(cen);
+        if ('error' in celula) return 'erro';
+        const r = await runCheckOnCenB(sbRaw, cen, celula.ctx, modelo, cenA, empresaId);
         return r.success ? 'ok' : 'erro';
       } catch { return 'erro'; }
     });
