@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { avaliarAcessoSemana, turnosIaNecessarios, slotDaConversa } from '@/lib/season-engine/week-gating';
+import { avaliarAcessoSemana, turnosIaNecessarios, slotDaConversa, respostasDaPessoa, respostasFaltantes } from '@/lib/season-engine/week-gating';
 
 /**
  * A régua de acesso à semana — ÚNICA, usada pelo servidor (`checarGatesSemana`)
@@ -138,5 +138,46 @@ describe('turnosIaNecessarios / slotDaConversa', () => {
     expect(slotDaConversa(14, 'avaliacao')).toBe('feedback');
     expect(slotDaConversa(13, 'avaliacao')).toBe('reflexao');
     expect(slotDaConversa(2, 'conteudo')).toBe('reflexao');
+  });
+});
+
+/**
+ * 🔴 TURNO DE IA ≠ RESPOSTA DA PESSOA (18/09/2026).
+ *
+ * A conversa é `IA(abertura) → pessoa → … → pessoa → IA(fechamento)`: o
+ * primeiro turno acontece antes de ela falar e o último encerra sem pergunta.
+ * Em 6 turnos ela escreve 5 vezes — e era "6 respostas" que a porta anunciava
+ * a quem ainda não tinha clicado, que é justamente quem decide pelo número.
+ * `Medido: 18/09/2026` (Ibipeba, 94 conversas de conteúdo concluídas): mediana
+ * de 5 respostas por semana.
+ */
+describe('respostasDaPessoa / respostasFaltantes', () => {
+  it('uma conversa de 6 turnos custa 5 respostas', () => {
+    expect(respostasDaPessoa(turnosIaNecessarios(2, 'conteudo'))).toBe(5);
+    expect(respostasDaPessoa(turnosIaNecessarios(4, 'aplicacao', 'pratica'))).toBe(9);
+  });
+
+  it('antes do primeiro turno o total já é o da PESSOA', () => {
+    expect(respostasFaltantes(0, 6)).toBe(5);
+  });
+
+  it('com a conversa aberta, é a subtração direta', () => {
+    expect(respostasFaltantes(1, 6)).toBe(5);
+    expect(respostasFaltantes(2, 6)).toBe(4);
+    expect(respostasFaltantes(5, 6)).toBe(1);
+  });
+
+  it('nunca devolve negativo, nem quando a conversa passou do teto', () => {
+    expect(respostasFaltantes(6, 6)).toBe(0);
+    expect(respostasFaltantes(9, 6)).toBe(0);
+  });
+
+  it('a soma fecha: feitas + faltantes = o total prometido', () => {
+    for (const turnos of [0, 1, 2, 3, 4, 5, 6]) {
+      const total = respostasDaPessoa(6);
+      const faltam = respostasFaltantes(turnos, 6);
+      expect(total - faltam).toBeGreaterThanOrEqual(0);
+      expect(total - faltam).toBe(Math.max(turnos - 1, 0));
+    }
   });
 });

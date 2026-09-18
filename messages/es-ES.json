@@ -1408,6 +1408,8 @@
       "contentPending": "pendiente",
       "contentNone": "sin contenido esta semana",
       "evidenceProgress": "{done} de {total} respuestas",
+      "jumpToEvidence": "Evidencias · faltan {count} respuestas",
+      "jumpToEvidenceOne": "Evidencias · falta 1 respuesta",
       "closesHere": "La semana solo se completa en la conversación de evidencias — abrir el contenido no la completa.",
       "doneAll": "Completada. La siguiente ya está disponible.",
       "weekDone": "Semana {week} completada",

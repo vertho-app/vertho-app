@@ -1408,6 +1408,8 @@
       "contentPending": "to do",
       "contentNone": "no content this week",
       "evidenceProgress": "{done} of {total} replies",
+      "jumpToEvidence": "Evidence · {count} replies to go",
+      "jumpToEvidenceOne": "Evidence · 1 reply to go",
       "closesHere": "The week is only completed in the evidence conversation — opening the content does not complete it.",
       "doneAll": "Completed. The next week is now open.",
       "weekDone": "Week {week} completed",

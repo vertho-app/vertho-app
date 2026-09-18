@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { formatarLiberacao, avaliarAcessoSemana, turnosIaNecessarios, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
+import { formatarLiberacao, avaliarAcessoSemana, turnosIaNecessarios, respostasDaPessoa, respostasFaltantes, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
 import { totalSemanasDoPlano, semanaCenarioBDoPlano, ehSemanaQualitativa, qualitativaDoPlano } from '@/lib/season-engine/trilha-runtime';
 import ReactMarkdown from 'react-markdown';
 import { Loader2, Video, FileText, Headphones, BookOpen, Send, Sparkles, Target, Check, HelpCircle, Lock, Eye } from 'lucide-react';
@@ -178,6 +178,36 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   // Refs pros MicInputs: ao enviar mensagem paramos a gravação automaticamente.
   const chatMicRef = useRef(null);
   const tdMicRef = useRef(null);
+  /**
+   * A PORTA DA CONVERSA, E COMO SE CHEGA NELA (18/09/2026).
+   *
+   * 🔴 Medido na tela real, em iPhone (390x844): o card de Evidências começa a
+   * **1.523px** de rolagem numa página de 2.058px, ou seja, quase duas telas
+   * abaixo — e o único botão grande no caminho é o do Tira-Dúvidas, que não
+   * conclui a semana. A barra do topo já DIZ que é a conversa que fecha, e não
+   * oferecia nenhum jeito de ir até lá: era texto, não caminho.
+   *
+   * O dado que motivou: das 39 pessoas de Ibipeba e Macaé que abriram o
+   * conteúdo e nunca responderam, **33 nunca abriram a conversa** (zero turnos
+   * de IA), e 20 delas voltaram ao conteúdo em dois dias ou mais. Não é
+   * desinteresse, é destino que ninguém encontra (mesma família de
+   * `docs/ARQUITETURA.md` §3.1.3).
+   */
+  const evidenciasRef = useRef<HTMLDivElement>(null);
+  const [portaVisivel, setPortaVisivel] = useState(true);
+  function irParaEvidencias() {
+    evidenciasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  useEffect(() => {
+    const alvo = evidenciasRef.current;
+    // Sem IntersectionObserver (ou sem o card na tela), o atalho fixo fica
+    // escondido: ele é conveniência, e conveniência não pode virar a única
+    // porta — o botão do card continua lá.
+    if (!alvo || typeof IntersectionObserver === 'undefined') { setPortaVisivel(true); return; }
+    const obs = new IntersectionObserver(([e]) => setPortaVisivel(e.isIntersecting), { rootMargin: '-80px 0px -120px 0px' });
+    obs.observe(alvo);
+    return () => obs.disconnect();
+  }, [data, loading, chatStarted]);
 
   useEffect(() => {
     (async () => {
@@ -357,7 +387,15 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
    */
   const turnosFeitos = chatHistory.filter((m) => m?.role === 'assistant').length;
   const turnosNecessarios = turnosIaNecessarios(semanaNum, semana?.tipo, progressoSemana?.feedback?.modo, qualitativaDoPlano(data.trilha.temporada_plano));
-  const turnosFaltando = Math.max(turnosNecessarios - turnosFeitos, 0);
+  /**
+   * O que a tela promete é RESPOSTA DA PESSOA, não turno de IA — e os dois
+   * números diferem em 1 na porta (`respostasDaPessoa`/`respostasFaltantes`,
+   * fonte única em `week-gating`). Antes de clicar, a barra dizia "0 de 6" para
+   * uma conversa em que ela escreve 5 vezes.
+   */
+  const respostasNecessarias = respostasDaPessoa(turnosNecessarios);
+  const turnosFaltando = respostasFaltantes(turnosFeitos, turnosNecessarios);
+  const respostasFeitas = Math.max(respostasNecessarias - turnosFaltando, 0);
 
   async function startChat() {
     if (visaoLeitura) return;
@@ -587,7 +625,19 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
                 </span>
               </span>
               <span className="text-gray-600">→</span>
-              <span className={`flex items-center gap-1.5 ${turnosFeitos > 0 ? 'text-brand-400' : 'text-gray-400'}`}>
+              {/*
+                🔴 O PASSO 2 VIROU CAMINHO (18/09/2026). Ele era um `<span>`: a
+                barra dizia que é a conversa que fecha a semana e não levava até
+                ela, com o card a quase duas telas de rolagem. Dizer onde fica a
+                saída sem abrir a porta é o mesmo defeito do "destino que
+                ninguém encontra". `type="button"` porque isto vive dentro de
+                uma tela com formulários.
+              */}
+              <button
+                type="button"
+                onClick={irParaEvidencias}
+                className={`flex items-center gap-1.5 rounded-md px-1.5 py-0.5 -mx-1.5 text-left underline-offset-2 hover:underline hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-400 ${turnosFeitos > 0 ? 'text-brand-400' : 'text-gray-300'}`}
+              >
                 <span className="w-[13px] text-center">2</span>
                 {t('progress.stepEvidence')}
                 {/*
@@ -604,11 +654,15 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
                   `evidenceNotStarted` saiu dos 4 locales junto: manter a chave
                   seria deixar registrada a formulação que omite o número.
+
+                  ⚠️ E o número era o de TURNOS DA IA (18/09/2026): "0 de 6" numa
+                  conversa em que a pessoa escreve 5 vezes. Agora conta resposta
+                  dela, pela mesma régua do resto da tela.
                 */}
                 <span className="text-gray-500">
-                  · {t('progress.evidenceProgress', { done: turnosFeitos, total: turnosNecessarios })}
+                  · {t('progress.evidenceProgress', { done: respostasFeitas, total: respostasNecessarias })}
                 </span>
-              </span>
+              </button>
               <span className="text-gray-600">→</span>
               <span className="flex items-center gap-1.5 text-gray-500">
                 <span className="w-[13px] text-center">3</span>{t('progress.stepDone')}
@@ -950,81 +1004,12 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
         );
       })()}
 
-      {/* Tira-Dúvidas: só em semanas de conteúdo. Botão liberado após marcar
-          o conteúdo como realizado — mas renderiza o card sempre pra dar
-          visibilidade do recurso. */}
-      {!visaoLeitura && !isAplicacao && !isAvaliacao && (
-        <GlassCard className="mb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <HelpCircle size={16} className="text-brand-400" />
-            <span className="text-xs uppercase text-brand-400 font-bold">{t('qa.title')}</span>
-            <span className="text-[10px] text-gray-500">· {t('qa.scope', { descriptor: descritoresLabel })}</span>
-          </div>
-
-          {!tdOpen ? (
-            <button onClick={() => {
-                // A ROTA do tira-dúvidas exige consumo (403). Liberar o botão
-                // sem gravar a marcação trocaria um botão cinza por um erro
-                // mudo — pior. Grava e abre.
-                if (!conteudoConsumido) marcarConteudoConsumido(data.trilha.id, semanaNum).catch(() => {});
-                setTdOpen(true);
-              }}
-              disabled={!podeConversar}
-              title={!podeConversar ? t('qa.markContentFirst') : ''}
-              className="w-full px-4 py-3 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold">
-              {podeConversar ? t('qa.ask') : t('qa.unlockAfterContent')}
-            </button>
-          ) : (
-            <>
-              <div className="space-y-3 max-h-80 overflow-y-auto mb-3">
-                {tdHistory.length === 0 && (
-                  <p className="text-xs text-gray-500 italic text-center py-4">
-                    {t.rich('qa.empty', { descriptor: descritoresLabel, strong: (chunks) => <span className="text-brand-400">{chunks}</span> })}
-                  </p>
-                )}
-                {tdHistory.map((m, i) => (
-                  <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
-                      m.role === 'user' ? 'bg-brand-600 text-white' : 'bg-white/5 text-gray-200 border border-white/10'
-                    }`}>
-                      <ReactMarkdown>{m.content}</ReactMarkdown>
-                    </div>
-                  </div>
-                ))}
-                {tdBusy && (
-                  <div className="flex justify-start">
-                    <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-sm text-gray-400">
-                      <Loader2 size={14} className="animate-spin inline" /> {t('thinking')}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <div className="flex gap-2">
-                  <textarea value={tdInput}
-                    onChange={e => setTdInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTiraDuvida(); } }}
-                    placeholder={t('qa.placeholder')}
-                    rows={2}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500 resize-none"
-                    disabled={tdBusy} />
-                  <button onClick={sendTiraDuvida} disabled={tdBusy || !tdInput.trim()}
-                    className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50">
-                    <Send size={16} />
-                  </button>
-                </div>
-                <MicInput ref={tdMicRef} value={tdInput} onChange={setTdInput} disabled={tdBusy} />
-              </div>
-            </>
-          )}
-        </GlassCard>
-      )}
-
       {/* Evidências — socrático, levanta evidências do comportamento do colab.
           (Antes chamado de "Mentor IA".) Inclui semanas de avaliação (13/14).
           Em sems 4/8/12 com modo=prática, só aparece depois do colab clicar 'Sim'
           (chatStarted) pra não poluir a tela com botão duplicado / card sem sentido. */}
       {!visaoLeitura && !(isAplicacao && progressoSemana?.feedback?.modo === 'pratica' && !chatStarted) && (
+        <div ref={evidenciasRef} className="scroll-mt-[calc(var(--header-height)+12px)]">
         <GlassCard className="mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Sparkles size={16} className="text-purple-400" />
@@ -1167,6 +1152,105 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
             </>
           )}
         </GlassCard>
+        </div>
+      )}
+
+      {/* Tira-Dúvidas: só em semanas de conteúdo. Botão liberado após marcar
+          o conteúdo como realizado — mas renderiza o card sempre pra dar
+          visibilidade do recurso.
+          🔴 Ele vinha ANTES da conversa (18/09/2026): era o único botão grande
+          do caminho, e o que fecha a semana ficava depois dele. Tirar dúvida é
+          apoio, concluir é o passo. */}
+      {!visaoLeitura && !isAplicacao && !isAvaliacao && (
+        <GlassCard className="mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <HelpCircle size={16} className="text-brand-400" />
+            <span className="text-xs uppercase text-brand-400 font-bold">{t('qa.title')}</span>
+            <span className="text-[10px] text-gray-500">· {t('qa.scope', { descriptor: descritoresLabel })}</span>
+          </div>
+
+          {!tdOpen ? (
+            <button onClick={() => {
+                // A ROTA do tira-dúvidas exige consumo (403). Liberar o botão
+                // sem gravar a marcação trocaria um botão cinza por um erro
+                // mudo — pior. Grava e abre.
+                if (!conteudoConsumido) marcarConteudoConsumido(data.trilha.id, semanaNum).catch(() => {});
+                setTdOpen(true);
+              }}
+              disabled={!podeConversar}
+              title={!podeConversar ? t('qa.markContentFirst') : ''}
+              className="w-full px-4 py-3 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold">
+              {podeConversar ? t('qa.ask') : t('qa.unlockAfterContent')}
+            </button>
+          ) : (
+            <>
+              <div className="space-y-3 max-h-80 overflow-y-auto mb-3">
+                {tdHistory.length === 0 && (
+                  <p className="text-xs text-gray-500 italic text-center py-4">
+                    {t.rich('qa.empty', { descriptor: descritoresLabel, strong: (chunks) => <span className="text-brand-400">{chunks}</span> })}
+                  </p>
+                )}
+                {tdHistory.map((m, i) => (
+                  <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                      m.role === 'user' ? 'bg-brand-600 text-white' : 'bg-white/5 text-gray-200 border border-white/10'
+                    }`}>
+                      <ReactMarkdown>{m.content}</ReactMarkdown>
+                    </div>
+                  </div>
+                ))}
+                {tdBusy && (
+                  <div className="flex justify-start">
+                    <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-2 text-sm text-gray-400">
+                      <Loader2 size={14} className="animate-spin inline" /> {t('thinking')}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <textarea value={tdInput}
+                    onChange={e => setTdInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendTiraDuvida(); } }}
+                    placeholder={t('qa.placeholder')}
+                    rows={2}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-brand-500 resize-none"
+                    disabled={tdBusy} />
+                  <button onClick={sendTiraDuvida} disabled={tdBusy || !tdInput.trim()}
+                    className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 disabled:opacity-50">
+                    <Send size={16} />
+                  </button>
+                </div>
+                <MicInput ref={tdMicRef} value={tdInput} onChange={setTdInput} disabled={tdBusy} />
+              </div>
+            </>
+          )}
+        </GlassCard>
+      )}
+
+      {/*
+        ATALHO FIXO PARA A CONVERSA — some quando o card está na tela.
+
+        Ele existe porque a página é longa por natureza (conteúdo + desafio +
+        apoio), e encurtá-la seria tirar conteúdo. O atalho carrega o MESMO
+        número da barra do topo e do card (`turnosFaltando`), então não há
+        terceira régua: se divergir, é bug de um dos três.
+
+        Fica à DIREITA, na altura do botão flutuante do Beto (que esta tela
+        esconde de propósito), longe da barra da sala de apresentação, que mora
+        na esquerda em z-[45].
+      */}
+      {!visaoLeitura && !chatFinished && !portaVisivel && turnosFaltando > 0 && (
+        <button
+          type="button"
+          onClick={irParaEvidencias}
+          className="fixed right-3 bottom-[calc(var(--nav-height)+0.75rem)] md:right-6 md:bottom-4 z-[41] flex items-center gap-2 rounded-full bg-purple-600 hover:bg-purple-700 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-purple-900/40 active:scale-95 transition"
+        >
+          <Sparkles size={14} className="shrink-0" />
+          {turnosFaltando === 1
+            ? t('progress.jumpToEvidenceOne')
+            : t('progress.jumpToEvidence', { count: turnosFaltando })}
+        </button>
       )}
     </PageContainer>
   );
@@ -1368,8 +1452,11 @@ function Center({ children }) {
 function SemanaBloqueada({ acesso, semana, colabId, onIr, t }) {
   const porData = acesso.motivo === 'data';
   const pendente = acesso.semanaPendente;
+  // Mesma régua da tela aberta: o que se promete é resposta da PESSOA, e o
+  // `Math.max(…, 1)` daqui escondia que, com zero turnos, o total já vinha um
+  // a mais do que ela vai escrever.
   const faltam = typeof acesso.turnosFeitos === 'number' && acesso.turnosNecessarios
-    ? Math.max(acesso.turnosNecessarios - acesso.turnosFeitos, 1)
+    ? Math.max(respostasFaltantes(acesso.turnosFeitos, acesso.turnosNecessarios), 1)
     : null;
 
   return (

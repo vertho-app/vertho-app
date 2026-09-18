@@ -121,6 +121,35 @@ export function turnosIaNecessarios(
   return MAX_TURNS_SOCRATIC / 2;
 }
 
+/**
+ * Quantas respostas a PESSOA escreve numa conversa de N turnos de IA.
+ *
+ * 🔴 Turno de IA e resposta de pessoa não são o mesmo número, e a tela vinha
+ * dizendo "respostas" sobre a contagem de turnos. A conversa é
+ * `IA(abertura) → pessoa → … → pessoa → IA(fechamento)`: o primeiro turno
+ * acontece antes de ela falar e o último encerra sem pergunta, então numa
+ * conversa de 6 turnos ela escreve **5** vezes. Medido 18/09/2026 em produção
+ * (Ibipeba): a mediana de quem concluiu a semana é 5 respostas, e a porta
+ * anunciava 6.
+ *
+ * Isso só aparecia em quem NUNCA clicou, que é exatamente quem o número
+ * precisa convencer: com a conversa começada, `turnosNecessarios - turnosFeitos`
+ * já dava o resto certo. Mesma classe do F-I28 (custo desconhecido não é custo
+ * zero) — aqui o custo era conhecido e maior do que o real.
+ */
+export function respostasDaPessoa(turnosNecessarios: number): number {
+  return Math.max(turnosNecessarios - 1, 1);
+}
+
+/**
+ * Quantas respostas ainda faltam. Com a conversa já aberta é a subtração
+ * direta; com zero turnos, desconta a abertura que a IA ainda vai escrever.
+ */
+export function respostasFaltantes(turnosFeitos: number, turnosNecessarios: number): number {
+  const jaFalou = Math.max(Number(turnosFeitos) || 0, 1);
+  return Math.max(turnosNecessarios - jaFalou, 0);
+}
+
 /** Turnos de IA já gravados no transcript de um registro de progresso. */
 export function contarTurnosIa(progresso: any, semana: number | string, tipoSemana?: string | null): number {
   const slot = slotDaConversa(semana, tipoSemana);

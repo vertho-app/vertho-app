@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { turnosIaNecessarios } from '@/lib/season-engine/week-gating';
 import ptBR from '@/messages/pt-BR.json';
+import ptPT from '@/messages/pt-PT.json';
+import enUS from '@/messages/en-US.json';
+import esES from '@/messages/es-ES.json';
 
 /**
  * A tela da semana travava a pessoa em três gates ENCADEADOS, e os dois
@@ -236,8 +239,24 @@ describe('a porta da conversa diz quanto custa', () => {
   it('a barra do topo mostra a régua desde o turno ZERO', () => {
     // O `? :` que escolhia entre progresso e "não começou" saiu: o estado
     // inicial passa a ser `0 de N`, na mesma unidade dos outros.
-    expect(TELA).toContain("· {t('progress.evidenceProgress', { done: turnosFeitos, total: turnosNecessarios })}");
+    expect(TELA).toContain("· {t('progress.evidenceProgress', { done: respostasFeitas, total: respostasNecessarias })}");
     expect(TELA).not.toContain("t('progress.evidenceNotStarted')");
+  });
+
+  /**
+   * 🔴 O NÚMERO ERA DE TURNO DA IA, E A FRASE DIZIA "RESPOSTAS" (18/09/2026).
+   *
+   * A conversa é `IA(abertura) → pessoa → … → pessoa → IA(fechamento)`: em 6
+   * turnos a pessoa escreve 5 vezes. A barra anunciava "0 de 6 respostas" para
+   * quem nunca clicou — justamente quem decide a partir desse número. Medido
+   * em produção no mesmo dia: a mediana de quem concluiu uma semana de conteúdo
+   * em Ibipeba é de 5 respostas, com 6 turnos de IA.
+   */
+  it('a barra conta a resposta da PESSOA, não o turno da IA', () => {
+    expect(TELA).toContain('const respostasNecessarias = respostasDaPessoa(turnosNecessarios);');
+    expect(TELA).toContain('const turnosFaltando = respostasFaltantes(turnosFeitos, turnosNecessarios);');
+    // Subtrair na tela seria a segunda régua que este arquivo inteiro evita.
+    expect(TELA).not.toMatch(/turnosFaltando\s*=\s*Math\.max\(turnosNecessarios\s*-\s*turnosFeitos/);
   });
 
   it('o card FECHADO diz quantas respostas faltam, com a régua real', () => {
@@ -259,6 +278,66 @@ describe('a porta da conversa diz quanto custa', () => {
     // `chooseMissionFirst`. Anunciar "faltam 10 respostas" ali seria cobrar sem
     // dar caminho — o defeito que este arquivo inteiro documenta.
     expect(TELA).toContain('!aplicacaoSemModo && turnosFaltando > 0');
+  });
+});
+
+/**
+ * 🔴 A PORTA EXISTIA E FICAVA A DUAS TELAS DE ROLAGEM (18/09/2026).
+ *
+ * Medido na tela real (ACME demo, iPhone 390x844, sessão de colaborador): a
+ * página tem 2.058px e o card de Evidências começa em 1.523px, ou seja, 1,8
+ * viewport abaixo — com o único botão grande do caminho sendo o do
+ * Tira-Dúvidas, que não conclui a semana. A barra do topo DIZIA que é a
+ * conversa que fecha e não levava até ela: era um `<span>`.
+ *
+ * O denominador que fez isso virar trabalho (Ibipeba + Macaé, 3 turmas): das 39
+ * pessoas que abriram o conteúdo e nunca responderam, **33 nunca abriram a
+ * conversa**, e 20 voltaram ao conteúdo em 2+ dias. Onde alguém responde uma
+ * vez, 95% concluem a semana.
+ */
+describe('a porta da conversa é alcançável', () => {
+  it('o passo 2 da barra leva até o card', () => {
+    // Recorte da BARRA: o atalho fixo lá embaixo também chama `irParaEvidencias`,
+    // então uma asserção sobre o arquivo inteiro passaria com a barra inerte.
+    const barra = TELA.slice(
+      TELA.indexOf("t('progress.title')"),
+      TELA.indexOf("t('progress.stepDone')"),
+    );
+    expect(barra).toContain('onClick={irParaEvidencias}');
+    expect(barra).toContain('<button');
+    expect(TELA).toContain("evidenciasRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })");
+    expect(TELA).toContain('<div ref={evidenciasRef}');
+  });
+
+  it('o atalho fixo some quando o card está na tela, e nunca aparece no lugar errado', () => {
+    expect(TELA).toContain('{!visaoLeitura && !chatFinished && !portaVisivel && turnosFaltando > 0 && (');
+    // Sem IntersectionObserver o atalho fica escondido: o botão do card é a
+    // porta real, o atalho é conveniência.
+    expect(TELA).toContain("if (!alvo || typeof IntersectionObserver === 'undefined') { setPortaVisivel(true); return; }");
+  });
+
+  it('o atalho carrega o MESMO número da barra e do card', () => {
+    const atalho = TELA.slice(TELA.indexOf('ATALHO FIXO PARA A CONVERSA'), TELA.indexOf('</PageContainer>\n  );\n}'));
+    expect(atalho).toContain("t('progress.jumpToEvidence', { count: turnosFaltando })");
+    expect(atalho).toContain("t('progress.jumpToEvidenceOne')");
+    expect(atalho).not.toMatch(/count:\s*\d+/);
+  });
+
+  it('a conversa vem ANTES do Tira-Dúvidas na página', () => {
+    const evidencias = TELA.indexOf('{/* Evidências — socrático');
+    const tiraDuvidas = TELA.indexOf('{/* Tira-Dúvidas: só em semanas de conteúdo');
+    expect(evidencias).toBeGreaterThan(0);
+    expect(tiraDuvidas).toBeGreaterThan(0);
+    expect(evidencias).toBeLessThan(tiraDuvidas);
+  });
+
+  it('as chaves do atalho existem nos quatro locales', () => {
+    for (const [nome, msgs] of Object.entries({ 'pt-BR': ptBR, 'pt-PT': ptPT, 'en-US': enUS, 'es-ES': esES })) {
+      const progress = (msgs as any).SeasonWeek?.progress;
+      expect(progress?.jumpToEvidence, `${nome} SeasonWeek.progress.jumpToEvidence`).toBeTruthy();
+      expect(progress?.jumpToEvidenceOne, `${nome} SeasonWeek.progress.jumpToEvidenceOne`).toBeTruthy();
+      expect(progress.jumpToEvidence, `${nome} sem {count}`).toContain('{count}');
+    }
   });
 });
 
