@@ -113,6 +113,13 @@ cena-*.json
 tri-*.json
 triagem-*.json
 
+# Dumps de cenários e varreduras com conteúdo de tenant soltos na raiz do app.
+# Dois deles (cenários de Ibipeba com nomes reais de escolas) ficaram públicos
+# de 21/06 a 18/09/2026. Cópias locais vão em /backups/.
+/cenarios-*-backup-*.json
+/backup-cenarios-*.json
+/sweep-effort-*.json
+
 # Artefatos locais gerados (podem conter PII, áudio, PDFs ou renders pesados)
 /tmp/
 /output/
