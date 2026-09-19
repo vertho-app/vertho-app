@@ -1107,7 +1107,7 @@ export default function OrcamentoPage() {
           <FieldNumber locale={locale} label="Mensagens / pessoa / ciclo" sub={`${moneyBRLUnit(pricing.custoMsgUnitario, locale)} cada · UTILITY`} value={pricing.msgsPorPessoaCiclo} onChange={(v) => setPricingField('msgsPorPessoaCiclo', v)} min={0} />
           <FieldNumber locale={locale} label="Clientes ativos" sub="rateio da infra fixa" value={pricing.clientesAtivos} onChange={(v) => setPricingField('clientesAtivos', v)} min={1} />
           <FieldNumber locale={locale} label="Treinos simulador / pessoa / ciclo" sub="2 por semana nas semanas 2, 4 e 6" value={pricing.treinosSimuladorPessoaCiclo} onChange={(v) => setPricingField('treinosSimuladorPessoaCiclo', v)} min={0} />
-          <FieldNumber locale={locale} label="Custo / treino (USD)" sub="pior caso medido: vendas" value={pricing.custoTreinoSimuladorUsd} onChange={(v) => setPricingField('custoTreinoSimuladorUsd', v)} min={0} allowDecimals />
+          <FieldNumber locale={locale} label="Custo / treino (USD)" sub="pior caso medido: atendimento" value={pricing.custoTreinoSimuladorUsd} onChange={(v) => setPricingField('custoTreinoSimuladorUsd', v)} min={0} allowDecimals />
         </div>
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
           <div className="rounded-lg bg-white/[0.03] px-3 py-2">

@@ -159,7 +159,7 @@ RC continua sendo operada só pelo Portal do Representante.
 | Custo por mensagem UTILITY | R$ 0,035 |
 | Clientes ativos para rateio da infraestrutura | 2 |
 | Treinos de simulador por pessoa/ciclo | 6 (2 por semana nas semanas 2, 4 e 6) |
-| Custo por treino de simulador | US$ 0,155: pior caso medido no ledger (vendas, 4 treinos, 13-15/09/2026; atendimento mediu R$ 0,34 em 06/09). Amostra pequena: recalibrar com uso real |
+| Custo por treino de simulador | US$ 0,22: pior caso por treino em 19/09/2026, pelas chamadas medidas no ledger e 8 turnos. Atendimento US$ 0,22 (avaliador da matriz de 30 descritores até US$ 0,166 + US$ 0,0069 por turno), vendas pace-7 US$ 0,16 (criador, 3 chamadas por turno e gerente a US$ 0,070) e um encontro de liderança US$ 0,12 (avaliador até US$ 0,068). Era US$ 0,155 (vendas pace-2, 13-15/09). As réguas novas ainda não têm uso real: recalibrar quando houver |
 | Contingência sobre custo operacional | 10% |
 | Impostos sobre receita final | 20% |
 

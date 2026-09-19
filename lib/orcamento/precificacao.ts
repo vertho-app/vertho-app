@@ -71,10 +71,12 @@ export const ORCAMENTO_DEFAULTS = {
   precoSimuladorPessoaCiclo: 0,
   // 2 treinos por semana nas semanas 2, 4 e 6 da jornada (Rodrigo, 17/09/2026).
   treinosSimuladorPessoaCiclo: 6,
-  // Pior caso medido no ledger: treino de vendas a US$ 0,154 (4 treinos,
-  // 13-15/09/2026). O de atendimento mediu R$ 0,34 em 06/09. Amostra pequena:
-  // recalibrar quando houver uso real.
-  custoTreinoSimuladorUsd: 0.155,
+  // Pior caso por treino (19/09/2026), pelas chamadas medidas no ledger e 8
+  // turnos: atendimento US$ 0,22 (avaliador da matriz de 30 descritores até
+  // US$ 0,166 + US$ 0,0069 por turno), vendas pace-7 US$ 0,16 e um encontro de
+  // liderança US$ 0,12. Era 0,155 (vendas pace-2, 13-15/09). As réguas novas
+  // ainda não têm uso real: recalibrar quando houver.
+  custoTreinoSimuladorUsd: 0.22,
 };
 
 /**

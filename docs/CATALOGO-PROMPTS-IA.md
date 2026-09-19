@@ -1857,6 +1857,28 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 
 Cinco prompts migrados do simulador RNaves, sem alteração intencional do texto: `criador`, `cliente`, `moderador`, `intencao`, `gerente`, em `lib/simulador-vendas/prompts.ts`. Versão `pace-rnaves-2.1.1-vertho-1`; cada treino persiste texto, SHA-256 e modelo. Tarefas `sim_vendas_*`, chamadas por `callAI`/Responses com saída estruturada e custo no ledger. Modelos padrão: GPT-5.4 datado para criador/cliente/gerente e GPT-5.4 Mini para moderador/intenção. São agentes do treino real de vendas, não os atores sintéticos da temporada (§13.2). [Contrato e operação](SIMULADOR-VENDAS.md).
 
+**Versão atual (19/09/2026): `pace-rnaves-2.1.2-vertho-7`, régua `pace-7`.** Chamadas em `lib/simulador-vendas/ai.ts::gerador` (esquema JSON estrito): criador com 8.000 tokens e 110 s; cliente, moderador e intenção com 2.500 tokens e 60 s; gerente com 16.000 tokens e 200 s na matriz. O snapshot de cada treino guarda texto (ou id em `sim_vendas_prompt_versions`), SHA-256, versão e modelo; treino antigo é lido pela versão com que nasceu.
+- **Gerente**: recebe `thread_completa`, `planejamento` (o plano guiado das seis perguntas, com o título de cada uma), `contexto_vendedor` e `nivel_cliente`; devolve a matriz de 30 descritores com até duas evidências citadas (E5 e E6 sem nível na reunião inicial) e 3 a 5 recomendações, a primeira prioritária. Citação que não confere derruba só o descritor, dentro da tolerância (`lib/simuladores/citacao.ts`), e a regra de cobertura decide o nível (4 comportamentos por competência, 3 competências para a média; `lib/simuladores/cobertura.ts`).
+- **Cliente**: provoca conforme o grau de dificuldade e pede objetivo e agenda quando o vendedor não os alinha.
+- **Medido**: gerente a 26 s e US$ 0,070 numa conversa completa (`tests/unit/simulador-vendas-gerente-live.test.ts`).
+
+### 13.6 Simulador de atendimento (18/09/2026)
+> `ATIVO` · Prompt documentado como: `ponteiro` (o texto vive no código)
+
+- **Arquivos**: `lib/recepcao/core.ts` (`promptPaciente`, `promptAvaliador`), termos de cada segmento em `lib/recepcao/dominio.ts` e rascunho em `lib/recepcao/rascunho.ts::promptRascunho`.
+- **Segmento por empresa**: os prompts são modelos preenchidos com os termos do segmento (`recepcao_config.dominio`: recepção de clínica, atendimento ao cliente, secretaria escolar, atendimento em loja). O texto da recepção de clínica é idêntico ao anterior, provado por fixture congelada (`tests/unit/fixtures/recepcao-prompts-legado.ts`).
+- **taskKeys**: `recepcao_paciente` (pessoa atendida, por turno), `recepcao_avaliacao` (matriz de 30 descritores; as duas tentativas dividem 270 s, a primeira com até 180 s) e `recepcao_rascunho` (caso em rascunho na gestão, para segmento sem catálogo). Modelo padrão `claude-sonnet-4-6`.
+- **Avaliador**: nível por descritor com citação, a mesma tolerância e a mesma regra de cobertura dos outros dois simuladores, mais desfecho e ocorrências críticas do segmento.
+- **Medido (18 e 19/09)**: avaliador de 97 a 117 s e US$ 0,138 em média (máximo 0,166); o teto antigo de 100 s derrubaria 3 de 4. [Operação](recepcao-medica.md).
+
+### 13.7 Simulador de liderança (18/09/2026)
+> `ATIVO` · Prompt documentado como: `ponteiro` (o texto vive no código)
+
+- **Arquivo**: `lib/simulador-lideranca/prompts.ts` (`PROMPTS`: `abertura`, `personagem`, `consequencia`, `avaliador`); chamadas em `lib/simulador-lideranca/ai.ts`.
+- **taskKeys**: `sim_lideranca_abertura`, `sim_lideranca_personagem` e `sim_lideranca_consequencia` (3.500 tokens, 65 s) e `sim_lideranca_avaliador` (16.000 tokens, 115 s por tentativa). Modelo padrão `gpt-5.4-2026-03-05`.
+- **Avaliador v2**: 18 descritores por encontro (a competência em foco e duas secundárias), fonte da evidência por descritor (`planejamento`, `fala` ou `reflexao`) e os acordos dos encontros anteriores como antecedentes, só para julgar continuidade. Mesma tolerância e regra de cobertura dos outros dois.
+- **Medido (19/09)**: 17 s num encontro; US$ 0,061 em média por avaliação no ledger. [Operação](SIMULADOR-LIDERANCA.md).
+
 ## Fase 4 (PDI legado)
 
 ### 14.1 Gerar PDIs
