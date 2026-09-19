@@ -9,4 +9,13 @@ export type RevisaoPublica = {
   dimensoes: string[];
   revisor_nome: string;
   created_at: string;
+  contexto?: {
+    referencia: string;
+    encontros: Array<{
+      id: string;
+      indice: number;
+      repeticao?: boolean;
+      encerradoEm?: string | null;
+    }>;
+  } | null;
 };

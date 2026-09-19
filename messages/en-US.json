@@ -18,7 +18,14 @@
     "registered": "Recorded reviews",
     "none": "No human review yet.",
     "unavailable": "Reviews could not be loaded right now.",
-    "by": "By {nome} on {data}"
+    "by": "By {nome} on {data}",
+    "snapshotHelp": "Your review covers the feedback shown now. New encounters need a new review.",
+    "snapshotCurrent": "Current snapshot: {n} encounter(s).",
+    "snapshotPrevious": "Earlier snapshot: {n} encounter(s). The journey has progressed since this review.",
+    "snapshotLegacy": "This review predates snapshots and does not confirm the current encounters.",
+    "overview": "Feedback reviews",
+    "overviewHelp": "Latest review per training session or current journey. Pending includes journeys with encounters added after a review.",
+    "pending": "Pending"
   },
   "SimuladorAtendimento": {
     "genericError": "Something went wrong. Please try again.",
@@ -92,7 +99,7 @@
     "confirmFinish": "Finish this conversation?",
     "generateReport": "Generate report",
     "continue": "Continue",
-    "analyzing": "Analyzing your replies and preparing feedback…",
+    "analyzing": "Reviewing the conversation evidence. Feedback may take a few minutes; please wait on this screen.",
     "report": "Conversation report",
     "reportEyebrow": "Your conversation, in perspective",
     "scoreOf4": "out of 4 · coverage {coverage}%",
@@ -198,7 +205,8 @@
     "reviewRegistered": "Recorded reviews",
     "reviewNone": "No human review yet.",
     "evolutionTitle": "Your progress",
-    "evolutionHelp": "Highest level you reached in each competency across your recent sessions."
+    "evolutionHelp": "Highest level per competency across your 20 most recent sessions. Older training sessions are not included in this summary.",
+    "trainingDetails": "View case sheet and conversation"
   },
   "SimuladoresRelatorio": {
     "title": "Feedback by competency",
@@ -5417,6 +5425,8 @@
     "csvLastActivity": "Last activity",
     "synthesisTitleTeam": "Journey so far",
     "synthesisDoneTitleTeam": "Complete journey",
-    "synthesisHelpTeam": "Each competency appears in 3 of the 5 encounters. This shows the highest level demonstrated in it, replays included."
+    "synthesisHelpTeam": "Each competency appears in 3 of the 5 encounters. This shows the highest level demonstrated in it, replays included.",
+    "journeyDetails": "View journey progress",
+    "encounterDetails": "View context and previous encounters"
   }
 }

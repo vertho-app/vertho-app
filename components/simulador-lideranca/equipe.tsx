@@ -5,6 +5,7 @@
  * RESULTADOS. Entrega progresso, níveis por competência e as devolutivas;
  * as conversas, a preparação e a reflexão ficam com a pessoa.
  */
+import PainelRevisoes from '@/components/simuladores/revisao-painel';
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, Download, Loader2, Star } from 'lucide-react';
@@ -14,7 +15,10 @@ import { resumoAvaliacao } from '@/lib/simulador-lideranca/avaliacao';
 import { montarCsv } from '@/lib/simuladores/csv';
 import RelatorioCompetencias from '@/components/simuladores/relatorio-competencias';
 import RevisaoHumana from '@/components/simuladores/revisao-humana';
-import type { detalhePessoa, painelEquipe } from '@/lib/simulador-lideranca/equipe';
+import type {
+  detalhePessoa,
+  painelEquipe,
+} from '@/lib/simulador-lideranca/equipe';
 import { competenciasParaRelatorio } from './relatorio';
 import SinteseJornadaView from './sintese';
 import styles from './treino.module.css';
@@ -69,16 +73,30 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
   }
 
   const data = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' }) : '—';
+    iso
+      ? new Date(iso).toLocaleString(locale, {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        })
+      : '—';
   const trilha = (v: 'lider' | 'futuro' | null) =>
     v === 'futuro' ? t('trackFuture') : v === 'lider' ? t('trackLeader') : '—';
-  const nivel = (n: number | null | undefined) => (n != null ? t('levelN', { n }) : '—');
+  const nivel = (n: number | null | undefined) =>
+    n != null ? t('levelN', { n }) : '—';
 
   function exportar() {
     if (!painel) return;
     const nomes = EPISODIOS.map((e) => e.nome);
     const linhas: unknown[][] = [
-      [t('csvPerson'), t('csvRole'), t('csvTrack'), t('csvEncounters'), ...nomes, t('csvAverage'), t('csvLastActivity')],
+      [
+        t('csvPerson'),
+        t('csvRole'),
+        t('csvTrack'),
+        t('csvEncounters'),
+        ...nomes,
+        t('csvAverage'),
+        t('csvLastActivity'),
+      ],
       ...painel.pessoas.map((p) => [
         p.nome,
         p.cargo || '',
@@ -92,7 +110,9 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
         p.ultimaAtividade || '',
       ]),
     ];
-    const blob = new Blob(['\uFEFF' + montarCsv(linhas)], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['\uFEFF' + montarCsv(linhas)], {
+      type: 'text/csv;charset=utf-8',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -112,14 +132,24 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
   if (detalhe)
     return (
       <section className={styles.panel}>
-        <button type="button" className={styles.back} onClick={() => setDetalhe(null)}>
+        <button
+          type="button"
+          className={styles.back}
+          onClick={() => setDetalhe(null)}
+        >
           <ArrowLeft size={15} aria-hidden /> {t('teamBack')}
         </button>
         <h2>{detalhe.pessoa.nome}</h2>
-        {detalhe.pessoa.cargo && <p className={styles.muted}>{detalhe.pessoa.cargo}</p>}
+        {detalhe.pessoa.cargo && (
+          <p className={styles.muted}>{detalhe.pessoa.cargo}</p>
+        )}
         <p className={styles.visibility}>{t('teamPrivacy')}</p>
-        {detalhe.sintese && <SinteseJornadaView sintese={detalhe.sintese} publico="equipe" />}
-        {!detalhe.encontros.length && <p className={styles.muted}>{t('teamNoJourney')}</p>}
+        {detalhe.sintese && (
+          <SinteseJornadaView sintese={detalhe.sintese} publico="equipe" />
+        )}
+        {!detalhe.encontros.length && (
+          <p className={styles.muted}>{t('teamNoJourney')}</p>
+        )}
         {detalhe.encontros.map((e, posicao) => {
           if (!e.avaliacao) return null;
           const resumo = resumoAvaliacao(e.avaliacao, detalhe.matriz, e.indice);
@@ -128,9 +158,16 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
             e.avaliacao,
             detalhe.matriz,
             (fonte, turno) =>
-              t(fonte === 'fala' ? 'speechEvidenceTeam' : fonte === 'planejamento' ? 'planEvidenceTeam' : 'reflectionEvidenceTeam', {
-                n: turno,
-              }),
+              t(
+                fonte === 'fala'
+                  ? 'speechEvidenceTeam'
+                  : fonte === 'planejamento'
+                    ? 'planEvidenceTeam'
+                    : 'reflectionEvidenceTeam',
+                {
+                  n: turno,
+                },
+              ),
           );
           const foco = resumo.competencias.find((c) => c.foco);
           return (
@@ -149,18 +186,19 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
                 </b>
                 {foco && (
                   <small>
-                    {foco.nome}: {foco.nivel != null ? t('levelN', { n: foco.nivel }) : t('noLevel')}
+                    {foco.nome}:{' '}
+                    {foco.nivel != null
+                      ? t('levelN', { n: foco.nivel })
+                      : t('noLevel')}
                   </small>
                 )}
               </summary>
               <p>{e.avaliacao.sintese}</p>
               <RelatorioCompetencias
                 competencias={competencias}
-                media={resumo.media}
                 regra={regra}
                 tema="escuro"
                 abrirFoco={false}
-                rotuloMedia={t('encounterAverage')}
               />
               {e.consequencia && (
                 <div className={styles.outcome}>
@@ -186,6 +224,7 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
             endpoint="/api/simulador-lideranca/equipe"
             empresaId={empresaId}
             alvoId={detalhe.jornadaId}
+            referencia={detalhe.referencia}
             revisoes={detalhe.revisoes}
             podeRevisar={detalhe.podeRevisar}
             competencias={detalhe.competencias}
@@ -215,6 +254,7 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
       )}
       {painel && (
         <>
+          <PainelRevisoes resumo={painel.revisoes ?? null} />
           <dl className={styles.teamMetrics}>
             <div>
               <dt>{t('teamPopulation')}</dt>
@@ -250,20 +290,30 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
                     <tr key={p.colaboradorId}>
                       <td>
                         <b>{p.nome}</b>
-                        <small>{[p.cargo, trilha(p.variante)].filter((x) => x && x !== '—').join(' · ') || '—'}</small>
+                        <small>
+                          {[p.cargo, trilha(p.variante)]
+                            .filter((x) => x && x !== '—')
+                            .join(' · ') || '—'}
+                        </small>
                       </td>
                       <td>
                         {t('teamEncountersValue', { n: p.encontrosConcluidos })}
                         {p.emAndamento !== null && (
-                          <small>{t('teamInProgress', { n: p.emAndamento + 1 })}</small>
+                          <small>
+                            {t('teamInProgress', { n: p.emAndamento + 1 })}
+                          </small>
                         )}
                       </td>
                       {EPISODIOS.map((e) => {
-                        const c = p.sintese?.competencias.find((x) => x.nome === e.nome);
+                        const c = p.sintese?.competencias.find(
+                          (x) => x.nome === e.nome,
+                        );
                         return (
                           <td key={e.competencia}>
                             {nivel(c?.nivelAlcancado)}
-                            {c?.subiu && <Star size={12} aria-label={t('levelUp')} />}
+                            {c?.subiu && (
+                              <Star size={12} aria-label={t('levelUp')} />
+                            )}
                           </td>
                         );
                       })}

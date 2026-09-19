@@ -114,3 +114,12 @@ describe('comando da revisão', () => {
       expect(revisaoComandoSchema.safeParse(invalido).success).toBe(false);
   });
 });
+
+it('reenvio de revisão da liderança não troca o recorte registrado', async () => {
+ const contexto={referencia:'a'.repeat(64),encontros:[{id:'e1',indice:0}]};
+ sb=criarSupabaseMock({});await registrarRevisao(tenantDb(EMP),LIDERANCA,cmd(),revisor,contexto);
+ const gravado=sb.escritas[0].payload;
+ sb=criarSupabaseMock({resolver:()=>gravado});sb.falharEm({tabela:'sim_lideranca_revisoes',op:'insert',code:'23505',mensagem:'duplicate'});
+ expect(await registrarRevisao(tenantDb(EMP),LIDERANCA,cmd(),revisor,contexto)).toEqual({ok:true});
+ expect(await registrarRevisao(tenantDb(EMP),LIDERANCA,cmd(),revisor,{...contexto,referencia:'b'.repeat(64)})).toMatchObject({ok:false,status:409});
+});

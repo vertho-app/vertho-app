@@ -10,6 +10,7 @@ import { REGUA_VERSION, type Estado, type Comando } from './schema';
 import { periodoVigente, podeEncerrar } from './prazo';
 import { TRACOS_DIVERSIDADE } from './diversidade';
 import { podeVerEquipe } from './equipe';
+import { evolucaoPorCompetencia, treinosComNiveis } from './evolucao';
 import {
   aplicarCursor,
   COLUNAS_HISTORICO_PARTICIPANTE,
@@ -24,7 +25,10 @@ type Row = {
   lock_until: string | null;
   created_at: string;
 };
-const owned = (c: Contexto, colunas = 'id,estado,revisao,lock_until,created_at') =>
+const owned = (
+  c: Contexto,
+  colunas = 'id,estado,revisao,lock_until,created_at',
+) =>
   c.tdb.from('sim_vendas_sessoes').select(colunas).eq('owner_key', c.ownerKey);
 function banco(error: { message?: string } | null) {
   if (!error) return;
@@ -39,8 +43,14 @@ function banco(error: { message?: string } | null) {
       'O prazo de acesso ao treinamento não está vigente. Seu histórico foi preservado.',
     );
   if (error.message?.includes('SIM_CONFIG'))
-    throw new SimuladorError(403, 'A configuração comercial ainda não está disponível.');
-  throw new SimuladorError(503, 'Não foi possível salvar ou recuperar o treino. Tente novamente.');
+    throw new SimuladorError(
+      403,
+      'A configuração comercial ainda não está disponível.',
+    );
+  throw new SimuladorError(
+    503,
+    'Não foi possível salvar ou recuperar o treino. Tente novamente.',
+  );
 }
 const publico = (row: Row) => ({
   ...visaoPublica(row.estado),
@@ -49,7 +59,10 @@ const publico = (row: Row) => ({
 });
 
 export async function consultarHistorico(c: Contexto, cursor?: string | null) {
-  const list = await aplicarCursor(owned(c, COLUNAS_HISTORICO_PARTICIPANTE), cursor)
+  const list = await aplicarCursor(
+    owned(c, COLUNAS_HISTORICO_PARTICIPANTE),
+    cursor,
+  )
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(31);
@@ -66,17 +79,54 @@ export async function consultarHistorico(c: Contexto, cursor?: string | null) {
     })),
   };
 }
+/** A evolução independe da página aberta no histórico. Só lê notas de devolutivas liberadas. */
+export async function consultarEvolucao(c: Contexto) {
+  const treinos: Array<{
+    competencias?: import('./evolucao').NotasPorCompetencia | null;
+    foco?: string | null;
+  }> = [];
+  let cursor: string | null = null;
+  do {
+    const { data, error } = await aplicarCursor(
+      owned(c, COLUNAS_HISTORICO_PARTICIPANTE),
+      cursor,
+    )
+      .eq('resumo->>status', VENDAS_SESSAO.CONCLUIDA)
+      .in('resumo->>versaoRegua', ['pace-6', 'pace-7'])
+      .not('estado->feedback->>realismo', 'is', null)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(501);
+    banco(error);
+    const pagina = paginaDeHistorico((data || []) as LinhaResumo[], 500);
+    treinos.push(
+      ...pagina.historico.filter(
+        (t) => t.status === VENDAS_SESSAO.CONCLUIDA && t.competencias,
+      ),
+    );
+    cursor = pagina.proximoCursor;
+  } while (cursor);
+  return {
+    evolucao:
+      treinosComNiveis(treinos) >= 2 ? evolucaoPorCompetencia(treinos) : null,
+    focoSugerido: treinos.find((t) => t.foco)?.foco || null,
+  };
+}
+
 export async function consultar(c: Contexto, id?: string | null) {
   const pagina = await consultarHistorico(c);
   const aberta = pagina.historico.find((r) =>
-    [VENDAS_SESSAO.PREPARANDO, VENDAS_SESSAO.EM_ANDAMENTO].some((status) => status === r.status),
+    [VENDAS_SESSAO.PREPARANDO, VENDAS_SESSAO.EM_ANDAMENTO].some(
+      (status) => status === r.status,
+    ),
   );
   const alvo = id || aberta?.id || pagina.historico[0]?.id;
   let row: Row | null = null;
   if (alvo) {
     const result = await owned(c).eq('id', alvo).maybeSingle();
     banco(result.error);
-    if (id && !result.data) throw new SimuladorError(404, 'Treino não encontrado.');
+    if (id && !result.data)
+      throw new SimuladorError(404, 'Treino não encontrado.');
     row = result.data;
   }
   const vigente = c.auth.isPlatformAdmin || periodoVigente(c.config);
@@ -86,7 +136,8 @@ export async function consultar(c: Contexto, id?: string | null) {
     habilitado: c.config?.habilitado === true,
     configurado: !!c.config,
     admin: c.auth.isPlatformAdmin,
-    podeTreinar: vigente && !c.soAcompanha && (await can(c.auth, 'assessments.answer')),
+    podeTreinar:
+      vigente && !c.soAcompanha && (await can(c.auth, 'assessments.answer')),
     // Gestor e RH: a tela abre na gestão e esconde a aba de treino.
     soAcompanha: c.soAcompanha,
     prazo: {
@@ -95,10 +146,14 @@ export async function consultar(c: Contexto, id?: string | null) {
       vigente,
     },
     podeVerEquipe: await podeVerEquipe(c.auth),
-    podeConfigurar: c.auth.isPlatformAdmin && (await can(c.auth, 'settings.company.manage')),
+    podeConfigurar:
+      c.auth.isPlatformAdmin && (await can(c.auth, 'settings.company.manage')),
     ...(c.auth.isPlatformAdmin ? { config: c.config } : {}),
     sessao: row ? publico(row) : null,
     ...pagina,
+    ...(c.soAcompanha
+      ? { evolucao: null, focoSugerido: null }
+      : await consultarEvolucao(c)),
   };
 }
 
@@ -117,8 +172,13 @@ export async function executar(c: Contexto, original: Comando) {
     if (c.auth.isPlatformAdmin) return;
     // Encerrar tem 24 h de tolerância: quem estava no meio da conversa recebe a devolutiva.
     const dentro =
-      cmd.acao === 'encerrar' ? podeEncerrar(c.config) : periodoVigente(c.config);
-    if (['iniciar', 'planejar', 'responder', 'encerrar'].includes(cmd.acao) && !dentro) {
+      cmd.acao === 'encerrar'
+        ? podeEncerrar(c.config)
+        : periodoVigente(c.config);
+    if (
+      ['iniciar', 'planejar', 'responder', 'encerrar'].includes(cmd.acao) &&
+      !dentro
+    ) {
       throw new SimuladorError(
         403,
         'O prazo de acesso ao treinamento não está vigente. Seu histórico foi preservado.',
@@ -133,7 +193,10 @@ export async function executar(c: Contexto, original: Comando) {
     else {
       exigirPrazo();
       if (!c.config)
-        throw new SimuladorError(400, 'Salve o briefing comercial da empresa antes de iniciar.');
+        throw new SimuladorError(
+          400,
+          'Salve o briefing comercial da empresa antes de iniciar.',
+        );
       const { data: ultimos, error: diversidadeError } = await owned(
         c,
         'traco:estado->cenario->personagem->>traco_dominante',
@@ -155,7 +218,9 @@ export async function executar(c: Contexto, original: Comando) {
         nivel: cmd.nivel,
         versaoRegua: REGUA_VERSION,
         diversidade: {
-          seed: (opcoes.length ? opcoes : tracos)[indice % (opcoes.length || tracos.length)],
+          seed: (opcoes.length ? opcoes : tracos)[
+            indice % (opcoes.length || tracos.length)
+          ],
           anteriores,
         },
         nomeVendedor: c.nomeVendedor || 'Vendedor',
@@ -212,7 +277,10 @@ export async function executar(c: Contexto, original: Comando) {
       'Este treino já tem conversa. Conclua para receber a devolutiva.',
     );
   if (cmd.acao !== 'iniciar' && cmd.revisao !== row.revisao)
-    throw new SimuladorError(409, 'O treino mudou em outra aba. Atualize a conversa.');
+    throw new SimuladorError(
+      409,
+      'O treino mudou em outra aba. Atualize a conversa.',
+    );
   const token = randomUUID();
   const args = {
     p_id: row.id,
@@ -227,8 +295,14 @@ export async function executar(c: Contexto, original: Comando) {
     const atual = await owned(c).eq('id', row.id).maybeSingle();
     banco(atual.error);
     if (atual.data?.revisao !== row.revisao)
-      throw new SimuladorError(409, 'O treino mudou em outra aba. Atualize a conversa.');
-    throw new SimuladorError(409, 'Há um envio em processamento. Aguarde e atualize a conversa.');
+      throw new SimuladorError(
+        409,
+        'O treino mudou em outra aba. Atualize a conversa.',
+      );
+    throw new SimuladorError(
+      409,
+      'Há um envio em processamento. Aguarde e atualize a conversa.',
+    );
   }
   try {
     const base = {
@@ -242,7 +316,11 @@ export async function executar(c: Contexto, original: Comando) {
           cmd.acao === 'planejar' &&
           original.planejamento !== cmd.planejamento),
     };
-    const next = await executarCore(base, cmd, gerador(c, row.estado, cmd.requestId, deadline));
+    const next = await executarCore(
+      base,
+      cmd,
+      gerador(c, row.estado, cmd.requestId, deadline),
+    );
     const committed = await c.tdb.rpc('sim_vendas_commit', {
       ...args,
       p_estado: next,

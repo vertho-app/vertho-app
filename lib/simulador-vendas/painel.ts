@@ -12,12 +12,23 @@
  *   - a gestão lê o relatório sem depender da pesquisa (como já fazia);
  *   - comentários da pesquisa saem SEM nome: avaliam o simulador, não a pessoa.
  */
-import { evolucaoPorCompetencia, ORDEM_COMPETENCIAS, type EvolucaoCompetencia, type NotasPorCompetencia } from './evolucao';
+import {
+  evolucaoPorCompetencia,
+  ORDEM_COMPETENCIAS,
+  type EvolucaoCompetencia,
+  type NotasPorCompetencia,
+} from './evolucao';
 import type { CodigoCompetencia } from './matriz';
 import { VENDAS_SESSAO } from '@/lib/status';
 import { distribuicaoPorCompetencia } from '@/lib/simuladores/evolucao';
 
-export const ASPECTOS_PESQUISA = ['realismo', 'desafio', 'interacao', 'utilidade', 'aprendizado'] as const;
+export const ASPECTOS_PESQUISA = [
+  'realismo',
+  'desafio',
+  'interacao',
+  'utilidade',
+  'aprendizado',
+] as const;
 export type AspectoPesquisa = (typeof ASPECTOS_PESQUISA)[number];
 export const MAX_COMENTARIOS = 30;
 
@@ -32,7 +43,9 @@ export interface SessaoPainel {
   status: string;
   /** Notas 1 a 4 por competência; `null` fora da escala nativa ou sem relatório. */
   competencias: NotasPorCompetencia | null;
-  feedback: (Partial<Record<AspectoPesquisa, unknown>> & { comentario?: unknown }) | null;
+  feedback:
+    | (Partial<Record<AspectoPesquisa, unknown>> & { comentario?: unknown })
+    | null;
 }
 export interface LinhaPessoa extends PessoaPainel {
   treinos: number;
@@ -42,8 +55,18 @@ export interface LinhaPessoa extends PessoaPainel {
   competencias: EvolucaoCompetencia[];
 }
 export interface PainelVendas {
-  resumo: { pessoas: number; comecaram: number; concluiram: number; naoComecaram: number };
-  competencias: Array<{ codigo: CodigoCompetencia; niveis: [number, number, number, number]; semNivel: number }>;
+  revisoes?: import('@/lib/simuladores/revisao-painel').ResumoRevisoes | null;
+  resumo: {
+    pessoas: number;
+    comecaram: number;
+    concluiram: number;
+    naoComecaram: number;
+  };
+  competencias: Array<{
+    codigo: CodigoCompetencia;
+    niveis: [number, number, number, number];
+    semNivel: number;
+  }>;
   pessoas: LinhaPessoa[];
   naoComecaram: PessoaPainel[];
   pesquisa: {
@@ -53,11 +76,21 @@ export interface PainelVendas {
   };
 }
 
-const ABERTOS: string[] = [VENDAS_SESSAO.PREPARANDO, VENDAS_SESSAO.EM_ANDAMENTO];
+const ABERTOS: string[] = [
+  VENDAS_SESSAO.PREPARANDO,
+  VENDAS_SESSAO.EM_ANDAMENTO,
+];
 /** Descartado (abandonada) não conta como treino. */
-const CONTAM_COMO_TREINO: string[] = [...ABERTOS, VENDAS_SESSAO.CONCLUIDA, VENDAS_SESSAO.INTERROMPIDA];
+const CONTAM_COMO_TREINO: string[] = [
+  ...ABERTOS,
+  VENDAS_SESSAO.CONCLUIDA,
+  VENDAS_SESSAO.INTERROMPIDA,
+];
 
-export function agregarPainel(pessoas: PessoaPainel[], sessoes: SessaoPainel[]): PainelVendas {
+export function agregarPainel(
+  pessoas: PessoaPainel[],
+  sessoes: SessaoPainel[],
+): PainelVendas {
   const porPessoa = new Map<string, SessaoPainel[]>();
   for (const s of sessoes) {
     const lista = porPessoa.get(s.colaboradorId) || [];
@@ -69,7 +102,9 @@ export function agregarPainel(pessoas: PessoaPainel[], sessoes: SessaoPainel[]):
     const minhas = (porPessoa.get(p.id) || [])
       .filter((s) => CONTAM_COMO_TREINO.includes(s.status))
       .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
-    const concluidas = minhas.filter((s) => s.status === VENDAS_SESSAO.CONCLUIDA);
+    const concluidas = minhas.filter(
+      (s) => s.status === VENDAS_SESSAO.CONCLUIDA,
+    );
     return {
       ...p,
       treinos: minhas.length,
@@ -80,7 +115,17 @@ export function agregarPainel(pessoas: PessoaPainel[], sessoes: SessaoPainel[]):
     };
   });
   linhas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-  const competencias = distribuicaoPorCompetencia(linhas, ORDEM_COMPETENCIAS);
+  const avaliadas = new Set(
+    sessoes
+      .filter(
+        (s) => s.status === VENDAS_SESSAO.CONCLUIDA && s.competencias !== null,
+      )
+      .map((s) => s.colaboradorId),
+  );
+  const competencias = distribuicaoPorCompetencia(
+    linhas.filter((p) => avaliadas.has(p.id)),
+    ORDEM_COMPETENCIAS,
+  );
   const respostas = sessoes
     .filter((s) => s.feedback && typeof s.feedback === 'object')
     .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
@@ -89,11 +134,20 @@ export function agregarPainel(pessoas: PessoaPainel[], sessoes: SessaoPainel[]):
       const notas = respostas
         .map((s) => s.feedback![aspecto])
         .filter((n): n is number => typeof n === 'number' && n >= 1 && n <= 5);
-      return [aspecto, notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : null];
+      return [
+        aspecto,
+        notas.length ? notas.reduce((a, b) => a + b, 0) / notas.length : null,
+      ];
     }),
   ) as Record<AspectoPesquisa, number | null>;
   const comentarios = respostas
-    .map((s) => ({ texto: typeof s.feedback!.comentario === 'string' ? s.feedback!.comentario.trim() : '', em: s.criadoEm }))
+    .map((s) => ({
+      texto:
+        typeof s.feedback!.comentario === 'string'
+          ? s.feedback!.comentario.trim()
+          : '',
+      em: s.criadoEm,
+    }))
     .filter((c) => c.texto)
     .slice(0, MAX_COMENTARIOS);
   return {
@@ -105,7 +159,9 @@ export function agregarPainel(pessoas: PessoaPainel[], sessoes: SessaoPainel[]):
     },
     competencias,
     pessoas: linhas,
-    naoComecaram: linhas.filter((l) => l.treinos === 0).map(({ id, nome, cargo }) => ({ id, nome, cargo })),
+    naoComecaram: linhas
+      .filter((l) => l.treinos === 0)
+      .map(({ id, nome, cargo }) => ({ id, nome, cargo })),
     pesquisa: { respostas: respostas.length, medias, comentarios },
   };
 }

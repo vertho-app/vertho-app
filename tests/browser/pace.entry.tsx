@@ -1,17 +1,33 @@
 // Harness dos componentes reais; só navegação/API são substituídas pelo bundler.
-import { notaPacePublica, pontuacaoMatriz } from '../../lib/simulador-vendas/escala';
+import {
+  notaPacePublica,
+  pontuacaoMatriz,
+} from '../../lib/simulador-vendas/escala';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { NextIntlClientProvider } from 'next-intl';
 import { useTranslations } from 'next-intl';
 import TreinoVendas from '../../components/simulador-vendas/treino';
-import { ConfirmDialogProvider, useConfirm } from '../../components/admin/confirm-dialog';
+import {
+  ConfirmDialogProvider,
+  useConfirm,
+} from '../../components/admin/confirm-dialog';
 import { estado, relatorio } from '../fixtures/simulador-vendas';
-import { estadoDocumental, relatorioDocumental, PLANO } from '../fixtures/simulador-vendas-matriz';
+import { evolucaoPorCompetencia } from '@/lib/simulador-vendas/evolucao';
+import {
+  estadoDocumental,
+  relatorioDocumental,
+  PLANO,
+} from '../fixtures/simulador-vendas-matriz';
 import { visaoPublica } from '../../lib/simulador-vendas/core';
 import { agregarPainel } from '../../lib/simulador-vendas/painel';
 import { COMPETENCIAS_PACE } from '../../lib/simulador-vendas/matriz';
-import { comandoSchema, configSchema, REGUA_VERSION, type Estado } from '../../lib/simulador-vendas/schema';
+import {
+  comandoSchema,
+  configSchema,
+  REGUA_VERSION,
+  type Estado,
+} from '../../lib/simulador-vendas/schema';
 import pt from '../../messages/pt-BR.json';
 import ptpt from '../../messages/pt-PT.json';
 import en from '../../messages/en-US.json';
@@ -26,19 +42,28 @@ const locale = params.get('locale') || 'pt-BR',
 function ExclusaoPreview() {
   const confirmar = useConfirm();
   const t = useTranslations('SimuladorVendas');
-  return <main className="min-h-screen p-6 text-white" style={{ background: '#091D35' }}>
-    <button
-      data-testid="pace-exclusion-preview"
-      className="rounded-lg border border-red-400/30 px-4 py-2 text-red-300"
-      onClick={() => confirmar({
-        title: 'Excluir cadastro de demonstração',
-        message: t('exclusionBackup', { days: 7 }),
-        scopeNote: t('exclusionImpact', { sessions: 2, attempts: 5 }),
-        severity: 'critical',
-        typedConfirmation: 'Horizonte',
-      })}
-    >Excluir cadastro de demonstração</button>
-  </main>;
+  return (
+    <main
+      className="min-h-screen p-6 text-white"
+      style={{ background: '#091D35' }}
+    >
+      <button
+        data-testid="pace-exclusion-preview"
+        className="rounded-lg border border-red-400/30 px-4 py-2 text-red-300"
+        onClick={() =>
+          confirmar({
+            title: 'Excluir cadastro de demonstração',
+            message: t('exclusionBackup', { days: 7 }),
+            scopeNote: t('exclusionImpact', { sessions: 2, attempts: 5 }),
+            severity: 'critical',
+            typedConfirmation: 'Horizonte',
+          })
+        }
+      >
+        Excluir cadastro de demonstração
+      </button>
+    </main>
+  );
 }
 let processando = params.has('processing');
 const states: Record<string, Estado | null> = {
@@ -59,7 +84,8 @@ if (states[empresaA]) {
       id: 'c1',
       turno: 1,
       autor: 'cliente',
-      texto: 'Conferimos tudo manualmente. A falta de previsão atrasa as compras e sobrecarrega a equipe.',
+      texto:
+        'Conferimos tudo manualmente. A falta de previsão atrasa as compras e sobrecarrega a equipe.',
       fase: 'analisar',
     },
   ];
@@ -89,8 +115,22 @@ if (params.has('matrix')) {
   }
   if (params.has('completed')) {
     states[empresaA]!.status = 'concluida';
-    states[empresaA]!.relatorio = { ...relatorioDocumental(), P: 7.5, A: 7.5, C: 7.5, E: 7.5, Media: 7.5 };
-    states[empresaA]!.feedback = { realismo: 5, desafio: 5, interacao: 5, utilidade: 5, aprendizado: 5, comentario: '' };
+    states[empresaA]!.relatorio = {
+      ...relatorioDocumental(),
+      P: 7.5,
+      A: 7.5,
+      C: 7.5,
+      E: 7.5,
+      Media: 7.5,
+    };
+    states[empresaA]!.feedback = {
+      realismo: 5,
+      desafio: 5,
+      interacao: 5,
+      utilidade: 5,
+      aprendizado: 5,
+      comentario: '',
+    };
     // pace-7: a mesma matriz com a regra de cobertura; `curta` = plano, abertura e uma pergunta.
     if (params.get('regua') === 'pace-7') {
       const r = relatorioDocumental();
@@ -101,7 +141,11 @@ if (params.has('matrix')) {
             d.evidencias = [];
           }
       states[empresaA]!.versaoRegua = 'pace-7';
-      states[empresaA]!.relatorio = { ...r, ...pontuacaoMatriz(r.Matriz, 'pace-7'), Violacoes: [] };
+      states[empresaA]!.relatorio = {
+        ...r,
+        ...pontuacaoMatriz(r.Matriz, 'pace-7'),
+        Violacoes: [],
+      };
     }
   }
 }
@@ -126,7 +170,9 @@ const resumo = (s: Estado) => ({
   nome: 'Beatriz',
   nomeVendedor: s.nomeVendedor,
   // Mesma projeção do serviço (`historico.ts`): a nota pública é sempre 1 a 4.
-  nota: s.feedback ? notaPacePublica(s.relatorio?.Media ?? null, s.versaoRegua) : null,
+  nota: s.feedback
+    ? notaPacePublica(s.relatorio?.Media ?? null, s.versaoRegua)
+    : null,
   temRelatorio: !!s.relatorio && !!s.feedback,
   versaoRegua: REGUA_VERSION,
   testeAdmin: admin,
@@ -165,8 +211,13 @@ const historicoEvolucao = params.has('evolucao')
     ]
   : [];
 const dados = (id = empresaA) => ({
+  evolucao: historicoEvolucao.length
+    ? evolucaoPorCompetencia(historicoEvolucao)
+    : null,
+  focoSugerido: historicoEvolucao[0]?.foco ?? null,
   empresaId: id,
-  empresaNome: id === empresaA ? 'Horizonte · demonstração' : 'Aurora · demonstração',
+  empresaNome:
+    id === empresaA ? 'Horizonte · demonstração' : 'Aurora · demonstração',
   admin,
   habilitado: !admin || configs[id].habilitado,
   configurado: true,
@@ -174,12 +225,18 @@ const dados = (id = empresaA) => ({
   podeConfigurar: admin,
   podeVerEquipe: admin || params.has('team'),
   ...(admin ? { config: configs[id] } : {}),
-  prazo: { inicio: '2026-01-01T00:00:00Z', fim: '2026-12-31T23:59:00Z', vigente: !params.has('expired') },
+  prazo: {
+    inicio: '2026-01-01T00:00:00Z',
+    fim: '2026-12-31T23:59:00Z',
+    vigente: !params.has('expired'),
+  },
   sessao: states[id]
     ? {
         ...visaoPublica(states[id]),
         processando,
-        processandoAte: processando ? new Date(Date.now() + 320000).toISOString() : null,
+        processandoAte: processando
+          ? new Date(Date.now() + 320000).toISOString()
+          : null,
       }
     : null,
   historico: (historicoEvolucao.length
@@ -189,9 +246,7 @@ const dados = (id = empresaA) => ({
       : states[id]
         ? [resumo(states[id])]
         : []
-  ).map(
-    (item) => (admin ? item : { ...item, temRelatorio: false }),
-  ),
+  ).map((item) => (admin ? item : { ...item, temRelatorio: false })),
   proximoCursor: historicoExtra.length ? 'proxima' : null,
 });
 w.__paceWrites = [];
@@ -225,8 +280,12 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
     if (init.method === 'POST') {
       const cmd = JSON.parse(String(init.body));
       revisoesVendas.unshift({
-        id: cmd.requestId, parecer: cmd.parecer, motivo: cmd.motivo, dimensoes: cmd.dimensoes,
-        revisor_nome: 'Gil Gestor', created_at: '2026-09-19T12:00:00Z',
+        id: cmd.requestId,
+        parecer: cmd.parecer,
+        motivo: cmd.motivo,
+        dimensoes: cmd.dimensoes,
+        revisor_nome: 'Gil Gestor',
+        created_at: '2026-09-19T12:00:00Z',
       });
       return Response.json({ ok: true });
     }
@@ -246,7 +305,14 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
               criadoEm: '2026-09-10T12:00:00Z',
               status: 'concluida',
               competencias: { PL: 2.4, P: 2.8, A: 3.1, C: 2.5, E: 3.2 },
-              feedback: { realismo: 4, desafio: 4, interacao: 4, utilidade: 5, aprendizado: 4, comentario: '' },
+              feedback: {
+                realismo: 4,
+                desafio: 4,
+                interacao: 4,
+                utilidade: 5,
+                aprendizado: 4,
+                comentario: '',
+              },
             },
             {
               colaboradorId: 'p-ana',
@@ -262,15 +328,28 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
                 comentario: 'O cliente pareceu uma pessoa de verdade.',
               },
             },
-            { colaboradorId: 'p-bruno', criadoEm: '2026-09-16T12:00:00Z', status: 'em_andamento', competencias: null, feedback: null },
+            {
+              colaboradorId: 'p-bruno',
+              criadoEm: '2026-09-16T12:00:00Z',
+              status: 'em_andamento',
+              competencias: null,
+              feedback: null,
+            },
           ],
         ),
       );
     if (q.has('sessaoId'))
       return Response.json({
-        id: q.get('sessaoId'), nomeVendedor: 'Ana', versaoRegua: REGUA_VERSION, relatorio,
-        revisoes: [...revisoesVendas], podeRevisar: true,
-        competencias: COMPETENCIAS_PACE.map(({ codigo, nome }) => ({ codigo, nome })),
+        id: q.get('sessaoId'),
+        nomeVendedor: 'Ana',
+        versaoRegua: REGUA_VERSION,
+        relatorio,
+        revisoes: [...revisoesVendas],
+        podeRevisar: true,
+        competencias: COMPETENCIAS_PACE.map(({ codigo, nome }) => ({
+          codigo,
+          nome,
+        })),
       });
     if (q.has('exportar'))
       return Response.json({
@@ -290,12 +369,24 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
       });
     return Response.json({ historico: historicoExtra, proximoCursor: null });
   }
-  if (q.has('historico')) return Response.json({ historico: historicoExtra.slice(30), proximoCursor: null });
+  if (q.has('historico'))
+    return Response.json({
+      historico: historicoExtra.slice(30),
+      proximoCursor: null,
+    });
   if (!init.method) {
     const d = dados(id);
-    if (q.has('sessaoId') && historicoExtra.some((h) => h.id === q.get('sessaoId')))
+    if (
+      q.has('sessaoId') &&
+      historicoExtra.some((h) => h.id === q.get('sessaoId'))
+    )
       d.sessao = {
-        ...visaoPublica({ ...estado(), id: q.get('sessaoId')!, status: 'concluida', relatorio }),
+        ...visaoPublica({
+          ...estado(),
+          id: q.get('sessaoId')!,
+          status: 'concluida',
+          relatorio,
+        }),
         processando: false,
         processandoAte: null,
       };
@@ -304,7 +395,8 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
   const cmd = comandoSchema.parse(JSON.parse(String(init.body))),
     target = cmd.empresaId || empresaA;
   w.__paceWrites.push(cmd);
-  if (w.__paceDelay) await new Promise((resolve) => w.__pacePendentes.push(resolve));
+  if (w.__paceDelay)
+    await new Promise((resolve) => w.__pacePendentes.push(resolve));
   if (cmd.acao === 'iniciar') {
     states[target] = estado();
     states[target]!.id = cmd.requestId;
@@ -316,18 +408,27 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
   if (cmd.acao === 'responder') {
     const n = s.mensagens.filter((m) => m.autor === 'vendedor').length + 1;
     s.mensagens.push(
-      { id: cmd.requestId + ':v', turno: n, autor: 'vendedor', texto: cmd.mensagem, fase: s.fase },
+      {
+        id: cmd.requestId + ':v',
+        turno: n,
+        autor: 'vendedor',
+        texto: cmd.mensagem,
+        fase: s.fase,
+      },
       {
         id: cmd.requestId + ':c',
         turno: n,
         autor: 'cliente',
-        texto: 'Isso afeta nossas compras e o atendimento. Gostaria de organizar essas informações.',
+        texto:
+          'Isso afeta nossas compras e o atendimento. Gostaria de organizar essas informações.',
         fase: s.fase,
       },
     );
   }
   if (cmd.acao === 'encerrar') {
-    s.relatorio = params.has('matrix') ? { ...relatorioDocumental(), Media: 7.5 } : { ...relatorio, Media: 5.5 };
+    s.relatorio = params.has('matrix')
+      ? { ...relatorioDocumental(), Media: 7.5 }
+      : { ...relatorio, Media: 5.5 };
     s.status = 'concluida';
   }
   if (cmd.acao === 'abandonar') s.status = 'abandonada';
@@ -338,10 +439,18 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
 const root = createRoot(document.getElementById('root')!);
 const render = () =>
   root.render(
-    <NextIntlClientProvider locale={locale} messages={catalogo[locale]} timeZone="America/Sao_Paulo">
-      {params.has('confirmation')
-        ? <ConfirmDialogProvider><ExclusaoPreview /></ConfirmDialogProvider>
-        : <TreinoVendas admin={admin} />}
+    <NextIntlClientProvider
+      locale={locale}
+      messages={catalogo[locale]}
+      timeZone="America/Sao_Paulo"
+    >
+      {params.has('confirmation') ? (
+        <ConfirmDialogProvider>
+          <ExclusaoPreview />
+        </ConfirmDialogProvider>
+      ) : (
+        <TreinoVendas admin={admin} />
+      )}
     </NextIntlClientProvider>,
   );
 w.__paceContexto = (id: string) => {

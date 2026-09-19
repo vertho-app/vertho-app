@@ -20,7 +20,9 @@ export interface EvolucaoCompetencia<C extends string = string> {
   treinos: number;
 }
 
-export type NotasDeTreino<C extends string = string> = { competencias?: Partial<Record<C, number | null>> | null };
+export type NotasDeTreino<C extends string = string> = {
+  competencias?: Partial<Record<C, number | null>> | null;
+};
 
 export function evolucaoPorCompetencia<C extends string>(
   treinos: ReadonlyArray<NotasDeTreino<C>>,
@@ -33,28 +35,34 @@ export function evolucaoPorCompetencia<C extends string>(
       .filter((n): n is number => typeof n === 'number')
       .map((n) => nivelDaNota(n));
     const primeiroNivel = niveis[0] ?? null;
-    const nivelAlcancado = niveis.length ? (Math.max(...niveis) as Nivel) : null;
+    const nivelAlcancado = niveis.length
+      ? (Math.max(...niveis) as Nivel)
+      : null;
     return {
       codigo,
       nivelAlcancado,
       primeiroNivel,
-      subiu: primeiroNivel !== null && nivelAlcancado !== null && nivelAlcancado > primeiroNivel,
+      subiu:
+        primeiroNivel !== null &&
+        nivelAlcancado !== null &&
+        nivelAlcancado > primeiroNivel,
       treinos: niveis.length,
     };
   });
 }
 
-/** Quantas pessoas chegaram a cada nível, contando o melhor treino de cada uma. */
+/** Distribuição da população com avaliações elegíveis, inclusive quem ainda não tem nenhum nível.
+ * O chamador separa quem não concluiu e quem só tem avaliações legadas. */
 export function distribuicaoPorCompetencia<C extends string>(
   pessoas: ReadonlyArray<{ competencias: EvolucaoCompetencia<C>[] }>,
   codigos: readonly C[],
 ) {
-  const comNivel = pessoas.filter((p) => p.competencias.some((c) => c.nivelAlcancado !== null));
   return codigos.map((codigo) => {
     const niveis: [number, number, number, number] = [0, 0, 0, 0];
     let semNivel = 0;
-    for (const p of comNivel) {
-      const n = p.competencias.find((c) => c.codigo === codigo)?.nivelAlcancado ?? null;
+    for (const p of pessoas) {
+      const n =
+        p.competencias.find((c) => c.codigo === codigo)?.nivelAlcancado ?? null;
       if (n === null) semNivel++;
       else niveis[n - 1]++;
     }

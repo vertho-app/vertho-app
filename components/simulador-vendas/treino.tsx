@@ -1,4 +1,5 @@
 'use client';
+import DetalhesTreino from '@/components/simuladores/detalhes-treino';
 import { VENDAS_SESSAO } from '@/lib/status';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -24,7 +25,7 @@ import {
   respostasValidas,
   respostasVazias,
 } from '@/lib/simulador-vendas/plano-guiado';
-import { evolucaoPorCompetencia, treinosComNiveis } from '@/lib/simulador-vendas/evolucao';
+import type { EvolucaoCompetencia } from '@/lib/simulador-vendas/evolucao';
 import Relatorio from './relatorio';
 import Avaliacao from './avaliacao';
 import Gestao from './gestao';
@@ -47,6 +48,8 @@ type Dados = {
   config?: Config | null;
   sessao: SessaoPublica | null;
   prazo: { inicio: string | null; fim: string | null; vigente: boolean };
+  evolucao: EvolucaoCompetencia[] | null;
+  focoSugerido: string | null;
   historico: ResumoTreino[];
   proximoCursor: string | null;
 };
@@ -64,7 +67,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
   const t = useTranslations('SimuladorVendas'),
     locale = useLocale();
   const empresaUrl = useSearchParams().get('empresa');
-  const [empresas, setEmpresas] = useState<Array<{ id: string; nome: string; slug: string }>>([]);
+  const [empresas, setEmpresas] = useState<
+    Array<{ id: string; nome: string; slug: string }>
+  >([]);
   const [empresaId, setEmpresaId] = useState(''),
     [dados, setDados] = useState<Dados | null>(null);
   const [sessao, setSessao] = useState<SessaoPublica | null>(null),
@@ -82,6 +87,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     generation = useRef(0),
     leitura = useRef(0);
   const fim = useRef<HTMLDivElement>(null);
+  const resultado = useRef<HTMLDivElement>(null);
   const data = (iso: string) =>
     new Date(iso).toLocaleString(locale, {
       dateStyle: 'short',
@@ -99,16 +105,28 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     if (sessaoId) q.set('sessaoId', sessaoId);
     return q;
   }
-  async function carregar(id = empresaId, sessaoId?: string, ticket = generation.current) {
+  async function carregar(
+    id = empresaId,
+    sessaoId?: string,
+    ticket = generation.current,
+  ) {
     const request = ++leitura.current;
     const d: Dados = await api('/api/simulador-vendas?' + params(id, sessaoId));
     if (ticket !== generation.current || request !== leitura.current) return;
     setDados((prev) => {
-      if (!prev || prev.empresaId !== d.empresaId || prev.historico.length <= 30) return d;
+      if (
+        !prev ||
+        prev.empresaId !== d.empresaId ||
+        prev.historico.length <= 30
+      )
+        return d;
       const ids = new Set(d.historico.map((h) => h.id));
       return {
         ...d,
-        historico: [...d.historico, ...prev.historico.filter((h) => !ids.has(h.id))],
+        historico: [
+          ...d.historico,
+          ...prev.historico.filter((h) => !ids.has(h.id)),
+        ],
         proximoCursor: prev.proximoCursor,
       };
     });
@@ -121,9 +139,15 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
   useEffect(() => {
     if (!chaveRascunho || !sessao?.planejamentoPendente) return;
     try {
-      const salvo: unknown = JSON.parse(sessionStorage.getItem(chaveRascunho) || 'null');
+      const salvo: unknown = JSON.parse(
+        sessionStorage.getItem(chaveRascunho) || 'null',
+      );
       if (Array.isArray(salvo) && salvo.length === PERGUNTAS_PLANO)
-        setRespostas(salvo.map((v) => (typeof v === 'string' ? v.slice(0, MAXIMO_POR_RESPOSTA) : '')));
+        setRespostas(
+          salvo.map((v) =>
+            typeof v === 'string' ? v.slice(0, MAXIMO_POR_RESPOSTA) : '',
+          ),
+        );
     } catch {
       // Sem armazenamento da aba: o formulário funciona sem rascunho.
     }
@@ -132,14 +156,17 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     setRespostas((prev) => {
       const next = prev.map((v, j) => (j === i ? valor : v));
       try {
-        if (chaveRascunho) sessionStorage.setItem(chaveRascunho, JSON.stringify(next));
+        if (chaveRascunho)
+          sessionStorage.setItem(chaveRascunho, JSON.stringify(next));
       } catch {
         // Idem: rascunho é conveniência.
       }
       return next;
     });
   }
-  const titulosPlano = Array.from({ length: PERGUNTAS_PLANO }, (_, i) => t(`planningField${i + 1}`));
+  const titulosPlano = Array.from({ length: PERGUNTAS_PLANO }, (_, i) =>
+    t(`planningField${i + 1}`),
+  );
   useEffect(() => {
     let alive = true;
     if (admin)
@@ -159,7 +186,8 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     };
   }, [admin]);
   useEffect(() => {
-    if (admin && empresaUrl && empresas.some((e) => e.id === empresaUrl)) setEmpresaId(empresaUrl);
+    if (admin && empresaUrl && empresas.some((e) => e.id === empresaUrl))
+      setEmpresaId(empresaUrl);
   }, [admin, empresaUrl, empresas]);
   useEffect(() => {
     const ticket = ++generation.current;
@@ -207,7 +235,8 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     if (
       running.current ||
       (acao === 'responder' && !texto.trim()) ||
-      (acao === 'planejar' && respostasValidas(respostas) < MINIMO_RESPOSTAS_PLANO)
+      (acao === 'planejar' &&
+        respostasValidas(respostas) < MINIMO_RESPOSTAS_PLANO)
     )
       return;
     const ticket = generation.current;
@@ -224,10 +253,18 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
             ? { feedback }
             : acao === 'iniciar'
               ? {
-                  nivel: sessao?.status === VENDAS_SESSAO.PREPARANDO ? sessao.nivel : nivel,
+                  nivel:
+                    sessao?.status === VENDAS_SESSAO.PREPARANDO
+                      ? sessao.nivel
+                      : nivel,
                 }
               : {};
-    const key = JSON.stringify([empresaId, acao, acao === 'iniciar' ? null : sessao?.id, conteudo]);
+    const key = JSON.stringify([
+      empresaId,
+      acao,
+      acao === 'iniciar' ? null : sessao?.id,
+      conteudo,
+    ]);
     if (!pending.current || pending.current.key !== key)
       pending.current = {
         key,
@@ -241,7 +278,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       ...conteudo,
       requestId: pending.current.id,
       ...(admin ? { empresaId } : {}),
-      ...(acao !== 'iniciar' ? { sessaoId: sessao?.id, revisao: sessao?.revisao } : {}),
+      ...(acao !== 'iniciar'
+        ? { sessaoId: sessao?.id, revisao: sessao?.revisao }
+        : {}),
     };
     try {
       const d = await api('/api/simulador-vendas', {
@@ -309,9 +348,8 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       const q = params();
       q.set('historico', '1');
       q.set('cursor', dados.proximoCursor);
-      const d: { historico: ResumoTreino[]; proximoCursor: string | null } = await api(
-        '/api/simulador-vendas?' + q,
-      );
+      const d: { historico: ResumoTreino[]; proximoCursor: string | null } =
+        await api('/api/simulador-vendas?' + q);
       if (ticket === generation.current)
         setDados((prev) =>
           prev
@@ -319,7 +357,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                 ...prev,
                 historico: [
                   ...prev.historico,
-                  ...d.historico.filter((h) => !prev.historico.some((p) => p.id === h.id)),
+                  ...d.historico.filter(
+                    (h) => !prev.historico.some((p) => p.id === h.id),
+                  ),
                 ],
                 proximoCursor: d.proximoCursor,
               }
@@ -342,7 +382,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     aberto ||
     preparando ||
     dados?.historico.some((h) =>
-      [VENDAS_SESSAO.EM_ANDAMENTO, VENDAS_SESSAO.PREPARANDO].some((status) => status === h.status),
+      [VENDAS_SESSAO.EM_ANDAMENTO, VENDAS_SESSAO.PREPARANDO].some(
+        (status) => status === h.status,
+      ),
     )
   );
   const podeNovo = !temTreinoAberto;
@@ -354,16 +396,21 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     !sessao.mensagens.some((m) => m.autor === 'vendedor') &&
     !!dados?.podeTreinar;
   // No celular, com treino em curso, a conversa vem antes do histórico.
-  const chatPrimeiro = aberto || preparando;
-  const evolucao =
-    dados && treinosComNiveis(dados.historico) >= 2 ? evolucaoPorCompetencia(dados.historico) : null;
-  const focoSugerido = dados?.historico.find((h) => h.foco)?.foco || null;
+  const chatPrimeiro = !!sessao;
+  const evolucao = dados?.evolucao ?? null;
+  const focoSugerido = dados?.focoSugerido || null;
   const respondidas = respostasValidas(respostas);
   const terminou =
     sessao &&
     [VENDAS_SESSAO.CONCLUIDA, VENDAS_SESSAO.INTERROMPIDA].some(
       (status) => status === sessao.status,
     );
+  useEffect(() => {
+    if (sessao?.feedback && sessao.relatorio) {
+      resultado.current?.focus({ preventScroll: true });
+      resultado.current?.scrollIntoView({ block: 'start' });
+    }
+  }, [sessao?.id, !!sessao?.feedback, !!sessao?.relatorio]);
   return (
     <PageContainer className={styles.root}>
       <PageHero
@@ -390,7 +437,11 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
               ))}
             </select>
           </label>
-          {dados && <p className={styles.muted}>{t(dados.habilitado ? 'enabled' : 'adminOnly')}</p>}
+          {dados && (
+            <p className={styles.muted}>
+              {t(dados.habilitado ? 'enabled' : 'adminOnly')}
+            </p>
+          )}
         </div>
       )}
       {dados && (admin || dados.podeVerEquipe) && (
@@ -451,7 +502,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
           {t('loading')}
         </div>
       ) : !dados ? (
-        <div className={styles.empty}>{t(admin && !empresaId ? 'selectFirst' : 'unavailable')}</div>
+        <div className={styles.empty}>
+          {t(admin && !empresaId ? 'selectFirst' : 'unavailable')}
+        </div>
       ) : aba === 'config' ? (
         <Configuracao
           key={dados.empresaId + ':' + (dados.config?.revisao ?? 0)}
@@ -489,7 +542,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
               </p>
             </div>
           )}
-          <div className={`${styles.workspace} ${chatPrimeiro ? styles.chatPrimeiro : ''} mt-5`}>
+          <div
+            className={`${styles.workspace} ${chatPrimeiro ? styles.chatPrimeiro : ''} mt-5`}
+          >
             <aside className={styles.card}>
               <div className={styles.fichaAside}>
                 <h2 className="text-lg mb-3">
@@ -520,7 +575,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                     <select
                       value={nivel}
                       disabled={travado}
-                      onChange={(e) => setNivel(Number(e.target.value) as 1 | 2 | 3)}
+                      onChange={(e) =>
+                        setNivel(Number(e.target.value) as 1 | 2 | 3)
+                      }
                     >
                       {([1, 2, 3] as const).map((n) => (
                         <option key={n} value={n}>
@@ -532,7 +589,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                   <p className={`${styles.muted} my-3`}>{t('levelHelp')}</p>
                   <button
                     className={styles.primary}
-                    disabled={travado || !dados.configurado || !dados.podeTreinar}
+                    disabled={
+                      travado || !dados.configurado || !dados.podeTreinar
+                    }
                     onClick={() => void agir('iniciar')}
                   >
                     {t(dados.historico.length ? 'newSimulation' : 'start')}
@@ -555,7 +614,10 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                 </div>
               )}
               {evolucao && (
-                <section aria-labelledby="pace-evolucao" className={styles.evolution}>
+                <section
+                  aria-labelledby="pace-evolucao"
+                  className={styles.evolution}
+                >
                   <h3 id="pace-evolucao">{t('evolutionTitle')}</h3>
                   <p className={styles.muted}>{t('evolutionHelp')}</p>
                   <ul>
@@ -607,20 +669,45 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                     </button>
                   ))}
                   {dados.proximoCursor && (
-                    <button disabled={travado} onClick={() => void maisHistorico()}>
+                    <button
+                      disabled={travado}
+                      onClick={() => void maisHistorico()}
+                    >
                       {t('more')}
                     </button>
                   )}
                 </nav>
               )}
-              <p className={`${styles.muted} mt-5`}>{t('retention', { months: RETENCAO_MESES })}</p>
+              <p className={`${styles.muted} mt-5`}>
+                {t('retention', { months: RETENCAO_MESES })}
+              </p>
             </aside>
             <div className={styles.card}>
+              {terminou && (
+                <Avaliacao
+                  feedback={feedback}
+                  salvo={!!sessao.feedback}
+                  comDevolutiva={sessao.status === VENDAS_SESSAO.CONCLUIDA}
+                  desabilitado={travado}
+                  onChange={setFeedback}
+                  onSubmit={() => void agir('feedback')}
+                />
+              )}
+              {sessao?.feedback && sessao.relatorio && (
+                <div ref={resultado} tabIndex={-1} className="pt-3 mb-6">
+                  <Relatorio
+                    relatorio={sessao.relatorio}
+                    versao={sessao.versaoRegua}
+                  />
+                </div>
+              )}
               <ol aria-label={t('phases')} className={styles.rail}>
                 {FASES.map((f, i) => (
                   <li
                     key={f}
-                    className={sessao?.fase === f ? styles.phaseActive : undefined}
+                    className={
+                      sessao?.fase === f ? styles.phaseActive : undefined
+                    }
                     aria-current={sessao?.fase === f ? 'step' : undefined}
                   >
                     <b>{'PACE'[i]}</b>
@@ -629,7 +716,10 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                 ))}
               </ol>
               {chatPrimeiro && sessao?.cenario && (
-                <details className={styles.fichaCelular} open={!!sessao.planejamentoPendente}>
+                <details
+                  className={styles.fichaCelular}
+                  open={!!sessao.planejamentoPendente}
+                >
                   <summary>
                     {t('beforeChat')} · {sessao.cenario.nome}
                   </summary>
@@ -641,7 +731,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                   </p>
                 </details>
               )}
-              {sessao?.processando && !ocupado && <Processamento ate={sessao.processandoAte} />}
+              {sessao?.processando && !ocupado && (
+                <Processamento ate={sessao.processandoAte} />
+              )}
               {!sessao ? (
                 <div className={styles.empty}>
                   <p className="text-lg text-white mb-2">{t('emptyTitle')}</p>
@@ -681,9 +773,14 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                         void agir('planejar');
                       }}
                     >
-                      <h2 className="text-lg font-semibold">{t('planningTitle')}</h2>
+                      <h2 className="text-lg font-semibold">
+                        {t('planningTitle')}
+                      </h2>
                       <p className="text-sm text-slate-300">
-                        {t('planningHelp', { min: MINIMO_RESPOSTAS_PLANO, total: PERGUNTAS_PLANO })}
+                        {t('planningHelp', {
+                          min: MINIMO_RESPOSTAS_PLANO,
+                          total: PERGUNTAS_PLANO,
+                        })}
                       </p>
                       <fieldset className={styles.plan}>
                         <legend>{t('planningLabel')}</legend>
@@ -695,7 +792,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                               maxLength={MAXIMO_POR_RESPOSTA}
                               value={respostas[i]}
                               disabled={travado || !dados.podeTreinar}
-                              onChange={(e) => responderPergunta(i, e.target.value)}
+                              onChange={(e) =>
+                                responderPergunta(i, e.target.value)
+                              }
                               placeholder={t(`planningHint${i + 1}`)}
                             />
                           </label>
@@ -713,65 +812,84 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                         type="submit"
                         className={styles.primary}
                         disabled={
-                          travado || respondidas < MINIMO_RESPOSTAS_PLANO || !dados.podeTreinar
+                          travado ||
+                          respondidas < MINIMO_RESPOSTAS_PLANO ||
+                          !dados.podeTreinar
                         }
                       >
-                        {ocupado === 'planejar' ? t('planningSaving') : t('planningStart')}
+                        {ocupado === 'planejar'
+                          ? t('planningSaving')
+                          : t('planningStart')}
                         <ArrowRight size={16} />
                       </button>
                     </form>
                   )}
                   {sessao.planejamento && (
                     <details className="mb-5 text-sm">
-                      <summary className="cursor-pointer">{t('planningSaved')}</summary>
+                      <summary className="cursor-pointer">
+                        {t('planningSaved')}
+                      </summary>
                       <p className="mt-3 whitespace-pre-wrap text-slate-300">
                         {sessao.planejamento}
                       </p>
                     </details>
                   )}
                   {!sessao.planejamentoPendente && (
-                    <div
-                      className={styles.chat}
-                      role="log"
-                      aria-label={t('chat')}
-                      aria-live="polite"
-                    >
-                      {aberto && !sessao.planejamentoPendente && sessao.mensagens.length === 0 && (
-                        <p className={styles.muted}>
-                          {t('openChat', {
-                            name: sessao.cenario?.nome || t('client'),
-                          })}
-                        </p>
-                      )}
-                      {sessao.mensagens.map((m) => (
-                        <article
-                          className={`${styles.message} ${m.autor === 'vendedor' ? styles.seller : ''}`}
-                          key={m.id}
-                          data-author={m.autor}
-                        >
-                          <small>
-                            {m.autor === 'vendedor'
-                              ? t('you')
-                              : sessao.cenario?.nome || t('client')}{' '}
-                            · {t('turn', { n: m.turno })}
-                          </small>
-                          <p>{m.texto}</p>
-                        </article>
-                      ))}
-                      {ocupado && ['iniciar', 'responder', 'encerrar'].includes(ocupado) && (
-                        <p role="status" className="text-sm text-brand-200 flex gap-2 items-center">
-                          <Loader2 size={16} className="motion-safe:animate-spin" />
-                          {t(
-                            ocupado === 'encerrar'
-                              ? 'analyzing'
-                              : ocupado === 'iniciar'
-                                ? 'creating'
-                                : 'responding',
+                    <DetalhesTreino concluido={!!terminou} titulo={t('chat')}>
+                      <div
+                        className={styles.chat}
+                        role="log"
+                        aria-label={t('chat')}
+                        aria-live="polite"
+                      >
+                        {aberto &&
+                          !sessao.planejamentoPendente &&
+                          sessao.mensagens.length === 0 && (
+                            <p className={styles.muted}>
+                              {t('openChat', {
+                                name: sessao.cenario?.nome || t('client'),
+                              })}
+                            </p>
                           )}
-                        </p>
-                      )}
-                      <div ref={fim} />
-                    </div>
+                        {sessao.mensagens.map((m) => (
+                          <article
+                            className={`${styles.message} ${m.autor === 'vendedor' ? styles.seller : ''}`}
+                            key={m.id}
+                            data-author={m.autor}
+                          >
+                            <small>
+                              {m.autor === 'vendedor'
+                                ? t('you')
+                                : sessao.cenario?.nome || t('client')}{' '}
+                              · {t('turn', { n: m.turno })}
+                            </small>
+                            <p>{m.texto}</p>
+                          </article>
+                        ))}
+                        {ocupado &&
+                          ['iniciar', 'responder', 'encerrar'].includes(
+                            ocupado,
+                          ) && (
+                            <p
+                              role="status"
+                              className="text-sm text-brand-200 flex gap-2 items-center"
+                            >
+                              <Loader2
+                                size={16}
+                                className="motion-safe:animate-spin"
+                              />
+                              {t(
+                                ocupado === 'encerrar'
+                                  ? 'analyzing'
+                                  : ocupado === 'iniciar'
+                                    ? 'creating'
+                                    : 'responding',
+                              )}
+                            </p>
+                          )}
+                        <div ref={fim} />
+                      </div>
+                    </DetalhesTreino>
                   )}
                   {aberto && !sessao.planejamentoPendente && (
                     <form
@@ -788,12 +906,24 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                         rows={3}
                         maxLength={4000}
                         value={texto}
-                        disabled={travado || !sessao.turnosRestantes || !dados.podeTreinar}
+                        disabled={
+                          travado ||
+                          !sessao.turnosRestantes ||
+                          !dados.podeTreinar
+                        }
                         onChange={(e) => setTexto(e.target.value)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                          if (
+                            e.key === 'Enter' &&
+                            !e.shiftKey &&
+                            !e.nativeEvent.isComposing
+                          ) {
                             e.preventDefault();
-                            if (!travado && dados.podeTreinar && sessao.turnosRestantes)
+                            if (
+                              !travado &&
+                              dados.podeTreinar &&
+                              sessao.turnosRestantes
+                            )
                               void agir('responder');
                           }
                         }}
@@ -801,9 +931,15 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       />
                       <div className={styles.actions}>
                         <Ditado
-                          disabled={travado || !sessao.turnosRestantes || !dados.podeTreinar}
+                          disabled={
+                            travado ||
+                            !sessao.turnosRestantes ||
+                            !dados.podeTreinar
+                          }
                           onTexto={(valor) =>
-                            setTexto((prev) => (prev + (prev ? ' ' : '') + valor).slice(0, 4000))
+                            setTexto((prev) =>
+                              (prev + (prev ? ' ' : '') + valor).slice(0, 4000),
+                            )
                           }
                         />
                         <button
@@ -820,29 +956,42 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                           {t('send')}
                         </button>
                       </div>
-                      <p className={`${styles.muted} mt-2`}>{t('composerHelp')}</p>
+                      <p className={`${styles.muted} mt-2`}>
+                        {t('composerHelp')}
+                      </p>
                       <p className={`${styles.muted} mt-2`}>{t('piiHelp')}</p>
                     </form>
                   )}
                   {aberto && !sessao.planejamentoPendente && (
                     <div className="mt-6">
                       <button
-                        disabled={travado || !sessao.mensagens.length || !dados.podeTreinar}
+                        disabled={
+                          travado ||
+                          !sessao.mensagens.length ||
+                          !dados.podeTreinar
+                        }
                         onClick={() => setConfirmar('encerrar')}
                       >
                         {t('finish')}
                       </button>
                       {sessao.sugerirEncerramento && (
-                        <p className={`${styles.muted} mt-2`}>{t('suggestFinish')}</p>
+                        <p className={`${styles.muted} mt-2`}>
+                          {t('suggestFinish')}
+                        </p>
                       )}
                       {!sessao.turnosRestantes && (
-                        <p className={`${styles.muted} mt-2`}>{t('turnLimit')}</p>
+                        <p className={`${styles.muted} mt-2`}>
+                          {t('turnLimit')}
+                        </p>
                       )}
                     </div>
                   )}
                   {podeDescartar && (
                     <div className={styles.discard}>
-                      <button disabled={travado} onClick={() => setConfirmar('abandonar')}>
+                      <button
+                        disabled={travado}
+                        onClick={() => setConfirmar('abandonar')}
+                      >
                         {t('discard')}
                       </button>
                       <span className={styles.muted}>{t('discardHelp')}</span>
@@ -851,33 +1000,33 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                   {confirmar && (
                     <div className="rounded-2xl border border-brand-300/30 p-4 mt-4">
                       <p className="text-sm mb-3">
-                        {t(confirmar === 'abandonar' ? 'confirmDiscard' : 'confirmFinish')}
+                        {t(
+                          confirmar === 'abandonar'
+                            ? 'confirmDiscard'
+                            : 'confirmFinish',
+                        )}
                       </p>
                       <div className="flex gap-3">
-                        <button onClick={() => void agir(confirmar)} disabled={travado}>
-                          {t(confirmar === 'abandonar' ? 'discardConfirm' : 'confirm')}
+                        <button
+                          onClick={() => void agir(confirmar)}
+                          disabled={travado}
+                        >
+                          {t(
+                            confirmar === 'abandonar'
+                              ? 'discardConfirm'
+                              : 'confirm',
+                          )}
                         </button>
-                        <button onClick={() => setConfirmar(null)}>{t('continue')}</button>
+                        <button onClick={() => setConfirmar(null)}>
+                          {t('continue')}
+                        </button>
                       </div>
                     </div>
                   )}
                   {sessao.status === VENDAS_SESSAO.INTERROMPIDA && (
-                    <p className="text-sm text-amber-200 mt-4">{t('interrupted')}</p>
-                  )}
-                  {terminou && (
-                    <Avaliacao
-                      feedback={feedback}
-                      salvo={!!sessao.feedback}
-                      comDevolutiva={sessao.status === VENDAS_SESSAO.CONCLUIDA}
-                      desabilitado={travado}
-                      onChange={setFeedback}
-                      onSubmit={() => void agir('feedback')}
-                    />
-                  )}
-                  {sessao.feedback && sessao.relatorio && (
-                    <div className="border-t border-white/10 pt-6 mt-6">
-                      <Relatorio relatorio={sessao.relatorio} versao={sessao.versaoRegua} />
-                    </div>
+                    <p className="text-sm text-amber-200 mt-4">
+                      {t('interrupted')}
+                    </p>
                   )}
                 </>
               )}

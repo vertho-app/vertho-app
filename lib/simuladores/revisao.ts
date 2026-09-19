@@ -21,6 +21,10 @@ export const revisaoComandoSchema = z
     requestId: z.uuid(),
     /** Sessão (vendas) ou jornada (liderança). */
     alvoId: z.uuid(),
+    referencia: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/)
+      .optional(),
     parecer: z.enum(PARECERES),
     motivo: z.string().trim().min(1).max(4000),
     dimensoes: z.array(z.string().trim().min(1).max(30)).max(40).default([]),
@@ -28,9 +32,13 @@ export const revisaoComandoSchema = z
   .strict();
 export type ComandoRevisao = z.infer<typeof revisaoComandoSchema>;
 
-export type TabelaRevisao = { tabela: 'sim_vendas_revisoes'; alvo: 'sessao_id' } | { tabela: 'sim_lideranca_revisoes'; alvo: 'jornada_id' };
+export type TabelaRevisao =
+  | { tabela: 'sim_vendas_revisoes'; alvo: 'sessao_id' }
+  | { tabela: 'sim_lideranca_revisoes'; alvo: 'jornada_id' };
 
-export type ResultadoRevisao = { ok: true } | { ok: false; status: 400 | 409 | 503; mensagem: string };
+export type ResultadoRevisao =
+  | { ok: true }
+  | { ok: false; status: 400 | 409 | 503; mensagem: string };
 
 /** Redução de identificadores comuns, como no atendimento; não detecta todo dado pessoal. */
 export const motivoParaGravar = (motivo: string) => maskTextPII(motivo).trim();
@@ -42,11 +50,16 @@ export const motivoParaGravar = (motivo: string) => maskTextPII(motivo).trim();
 export async function registrarRevisao(
   tdb: { from: (t: string) => any },
   destino: TabelaRevisao,
-  cmd: Pick<ComandoRevisao, 'requestId' | 'alvoId' | 'parecer' | 'motivo' | 'dimensoes'>,
+  cmd: Pick<
+    ComandoRevisao,
+    'requestId' | 'alvoId' | 'parecer' | 'motivo' | 'dimensoes'
+  >,
   revisor: { key: string; nome: string },
+  contexto?: NonNullable<RevisaoPublica['contexto']>,
 ): Promise<ResultadoRevisao> {
   const motivo = motivoParaGravar(cmd.motivo);
-  if (!motivo) return { ok: false, status: 400, mensagem: 'Escreva o motivo do parecer.' };
+  if (!motivo)
+    return { ok: false, status: 400, mensagem: 'Escreva o motivo do parecer.' };
   const { error } = await tdb.from(destino.tabela).insert({
     id: cmd.requestId,
     [destino.alvo]: cmd.alvoId,
@@ -55,19 +68,41 @@ export async function registrarRevisao(
     parecer: cmd.parecer,
     motivo,
     dimensoes: cmd.dimensoes,
+    ...(contexto ? { contexto } : {}),
   });
   if (!error) return { ok: true };
-  if (error.code !== '23505') return { ok: false, status: 503, mensagem: 'Não foi possível registrar a revisão.' };
-  const { data: anterior, error: erroLeitura } = await tdb.from(destino.tabela).select('*').eq('id', cmd.requestId).maybeSingle();
-  if (erroLeitura) return { ok: false, status: 503, mensagem: 'Não foi possível recuperar a revisão.' };
+  if (error.code !== '23505')
+    return {
+      ok: false,
+      status: 503,
+      mensagem: 'Não foi possível registrar a revisão.',
+    };
+  const { data: anterior, error: erroLeitura } = await tdb
+    .from(destino.tabela)
+    .select('*')
+    .eq('id', cmd.requestId)
+    .maybeSingle();
+  if (erroLeitura)
+    return {
+      ok: false,
+      status: 503,
+      mensagem: 'Não foi possível recuperar a revisão.',
+    };
   const mesma =
     !!anterior &&
     anterior[destino.alvo] === cmd.alvoId &&
     anterior.revisor_key === revisor.key &&
     anterior.parecer === cmd.parecer &&
     anterior.motivo === motivo &&
-    JSON.stringify(anterior.dimensoes) === JSON.stringify(cmd.dimensoes);
-  return mesma ? { ok: true } : { ok: false, status: 409, mensagem: 'Este envio já foi usado em outra revisão.' };
+    JSON.stringify(anterior.dimensoes) === JSON.stringify(cmd.dimensoes) &&
+    (!contexto || anterior.contexto?.referencia === contexto.referencia);
+  return mesma
+    ? { ok: true }
+    : {
+        ok: false,
+        status: 409,
+        mensagem: 'Este envio já foi usado em outra revisão.',
+      };
 }
 
 /** Revisões do alvo, mais recentes primeiro. `null` quando a leitura falha: nunca "sem revisão". */
@@ -80,7 +115,10 @@ export async function listarRevisoes(
   for (let de = 0; de < 5000; de += 500) {
     const { data, error } = await tdb
       .from(destino.tabela)
-      .select('id,parecer,motivo,dimensoes,revisor_nome,created_at')
+      .select(
+        'id,parecer,motivo,dimensoes,revisor_nome,created_at' +
+          (destino.tabela === 'sim_lideranca_revisoes' ? ',contexto' : ''),
+      )
       .eq(destino.alvo, alvoId)
       .order('created_at', { ascending: false })
       .order('id')

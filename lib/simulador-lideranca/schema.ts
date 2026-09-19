@@ -38,6 +38,16 @@ export const avaliacaoSchema = z
       .max(30),
   })
   .strict();
+/** Contrato da geração: a quantidade e os códigos vêm da matriz do encontro.
+ * O schema geral segue aceitando avaliações históricas; a geração não omite descritores sem evidência.
+ */
+export function schemaAvaliadorDoEncontro(codigos: string[]) {
+  if (!codigos.length || codigos.length > 30 || new Set(codigos).size !== codigos.length)
+    throw new Error('Matriz inválida para avaliação');
+  return avaliacaoSchema.extend({ descritores: z.array(avaliacaoSchema.shape.descritores.element.extend({
+    codigo: z.enum(codigos as [string, ...string[]]),
+  })).length(codigos.length) });
+}
 export const aberturaSchema = z
   .object({ contexto: texto(2000), fala: texto(1600) })
   .strict();

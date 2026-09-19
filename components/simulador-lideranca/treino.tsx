@@ -1,4 +1,5 @@
 'use client';
+import DetalhesTreino from '@/components/simuladores/detalhes-treino';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
@@ -83,6 +84,7 @@ export default function TreinoLideranca({
     running = useRef(false),
     generation = useRef(0),
     reads = useRef(0);
+  const resultado = useRef<HTMLElement>(null);
   const chat = useRef<HTMLDivElement>(null),
     passos = useRef<HTMLOListElement>(null);
   const url = `/api/simulador-lideranca${empresaId ? `?empresaId=${empresaId}` : ''}`;
@@ -126,6 +128,12 @@ export default function TreinoLideranca({
   }, [admin, empresaId, carregar, podeTreinar]);
   const jornada = dados?.jornada,
     ep = dados?.selecionado;
+  useEffect(() => {
+    if (ep?.avaliacao) {
+      resultado.current?.focus({ preventScroll: true });
+      resultado.current?.scrollIntoView({ block: 'start' });
+    }
+  }, [ep?.id, !!ep?.avaliacao]);
   const processando =
     !!jornada?.processandoAte &&
     Date.parse(jornada.processandoAte) > Date.now();
@@ -341,14 +349,19 @@ export default function TreinoLideranca({
                   <p className={styles.visibility}>{t('visibilityNotice')}</p>
                 )}
                 {dados.sintese && jornada && (
-                  <SinteseJornadaView
-                    sintese={dados.sintese}
-                    bloqueado={bloqueado}
-                    onAbrirEncontro={(i) => {
-                      const alvo = jornada.concluidos[i];
-                      if (alvo) void carregar(alvo.id);
-                    }}
-                  />
+                  <DetalhesTreino
+                    concluido={!!ep?.avaliacao}
+                    titulo={t('journeyDetails')}
+                  >
+                    <SinteseJornadaView
+                      sintese={dados.sintese}
+                      bloqueado={bloqueado}
+                      onAbrirEncontro={(i) => {
+                        const alvo = jornada.concluidos[i];
+                        if (alvo) void carregar(alvo.id);
+                      }}
+                    />
+                  </DetalhesTreino>
                 )}
                 {(busy || processando) && (
                   <p className={styles.notice} role="status">
@@ -391,27 +404,224 @@ export default function TreinoLideranca({
                 {ep && info && (
                   <div className={styles.workspace}>
                     <aside className={styles.aside}>
-                      <section className={styles.brief}>
-                        <p className={styles.eyebrow}>{info.momento}</p>
-                        <h2>{info.titulo}</h2>
-                        <p>{ep.contexto}</p>
-                        <div className={styles.focus}>
-                          <small>{t('focus')}</small>
-                          <strong>{info.nome}</strong>
-                          <p>{info.objetivo}</p>
-                        </div>
-                        {ep.repeticao && (
-                          <p className={styles.notice}>{t('replayNotice')}</p>
-                        )}
-                        {vivo &&
-                          ep.repeticao &&
-                          (confirmar === 'abandonar' ? (
+                      <DetalhesTreino
+                        concluido={!!ep.avaliacao}
+                        titulo={t('encounterDetails')}
+                      >
+                        <section className={styles.brief}>
+                          <p className={styles.eyebrow}>{info.momento}</p>
+                          <h2>{info.titulo}</h2>
+                          <p>{ep.contexto}</p>
+                          <div className={styles.focus}>
+                            <small>{t('focus')}</small>
+                            <strong>{info.nome}</strong>
+                            <p>{info.objetivo}</p>
+                          </div>
+                          {ep.repeticao && (
+                            <p className={styles.notice}>{t('replayNotice')}</p>
+                          )}
+                          {vivo &&
+                            ep.repeticao &&
+                            (confirmar === 'abandonar' ? (
+                              <div
+                                className={styles.confirm}
+                                role="alertdialog"
+                                aria-labelledby="lid-abandonar"
+                              >
+                                <p id="lid-abandonar">
+                                  {t('abandonReplayHint')}
+                                </p>
+                                <div className={styles.actions}>
+                                  <button
+                                    type="button"
+                                    disabled={bloqueado}
+                                    onClick={() => setConfirmar(null)}
+                                  >
+                                    {t('cancel')}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={styles.primary}
+                                    disabled={bloqueado}
+                                    onClick={() => void enviar('abandonar')}
+                                  >
+                                    {t('confirmAbandon')}
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled={bloqueado}
+                                onClick={() => setConfirmar('abandonar')}
+                              >
+                                {t('abandonReplay')}
+                              </button>
+                            ))}
+                          {ep.plano && (
+                            <details>
+                              <summary>{t('yourPlan')}</summary>
+                              <p className={styles.pre}>{ep.plano}</p>
+                            </details>
+                          )}
+                        </section>
+                        <details className={styles.history}>
+                          <summary>{t('history')}</summary>
+                          {!dados.historico.length && (
+                            <p className={styles.muted}>{t('emptyHistory')}</p>
+                          )}
+                          {dados.historico.map((h) => (
+                            <button
+                              key={h.id}
+                              disabled={bloqueado}
+                              aria-pressed={ep.id === h.id}
+                              onClick={() => {
+                                setRefletindo(false);
+                                void carregar(h.id, dados.pagina);
+                              }}
+                            >
+                              <span>
+                                {t('encounter', { n: h.indice + 1 })} ·{' '}
+                                {t(h.repeticao ? 'replay' : 'original')}
+                              </span>
+                              <small>{data(h.created_at)}</small>
+                            </button>
+                          ))}
+                          <div className={styles.actions}>
+                            {dados.pagina > 0 && (
+                              <button
+                                disabled={bloqueado}
+                                onClick={() =>
+                                  void carregar(
+                                    ep.encerradoEm ? ep.id : undefined,
+                                    dados.pagina - 1,
+                                  )
+                                }
+                              >
+                                {t('previous')}
+                              </button>
+                            )}
+                            {dados.temMais && (
+                              <button
+                                disabled={bloqueado}
+                                onClick={() =>
+                                  void carregar(
+                                    ep.encerradoEm ? ep.id : undefined,
+                                    dados.pagina + 1,
+                                  )
+                                }
+                              >
+                                {t('nextPage')}
+                              </button>
+                            )}
+                          </div>
+                        </details>
+                      </DetalhesTreino>
+                    </aside>
+                    <section className={styles.panel}>
+                      {ep.avaliacao && jornada && (
+                        <section
+                          ref={resultado}
+                          tabIndex={-1}
+                          className={styles.report}
+                        >
+                          <p className={styles.eyebrow}>{t('feedback')}</p>
+                          <h2>{t('feedbackTitle')}</h2>
+                          <p>{ep.avaliacao.sintese}</p>
+                          <p className={styles.notice}>{t('assessmentNote')}</p>
+                          <div className={styles.practice}>
+                            <h3>{t('nextPractice')}</h3>
+                            <p>{ep.avaliacao.proximaPratica}</p>
+                          </div>
+                          {ep.consequencia && (
+                            <div className={styles.outcome}>
+                              <h3>{t('consequence')}</h3>
+                              <p>{ep.consequencia.narrativa}</p>
+                              {!!ep.consequencia.acordos.length && (
+                                <>
+                                  <h4>{t('agreements')}</h4>
+                                  <ul>
+                                    {ep.consequencia.acordos.map((a, i) => (
+                                      <li key={i}>{a.descricao}</li>
+                                    ))}
+                                  </ul>
+                                </>
+                              )}
+                              {!!ep.consequencia.pendencias.length && (
+                                <>
+                                  <h4>{t('openPoints')}</h4>
+                                  <ul>
+                                    {ep.consequencia.pendencias.map((p, i) => (
+                                      <li key={i}>{p}</li>
+                                    ))}
+                                  </ul>
+                                </>
+                              )}
+                            </div>
+                          )}
+                          {(() => {
+                            const resumo = resumoAvaliacao(
+                              ep.avaliacao,
+                              jornada.matriz,
+                              ep.indice,
+                            );
+                            const { competencias, regra } =
+                              competenciasParaRelatorio(
+                                resumo,
+                                ep.avaliacao,
+                                jornada.matriz,
+                                origemEvidencia,
+                              );
+                            const original = ep.repeticao
+                              ? jornada.concluidos[ep.indice]?.avaliacao
+                              : null;
+                            const antes = original
+                              ? resumoAvaliacao(
+                                  original,
+                                  jornada.matriz,
+                                  ep.indice,
+                                ).competencias.find((c) => c.foco)
+                              : null;
+                            const agora = resumo.competencias.find(
+                              (c) => c.foco,
+                            );
+                            return (
+                              <>
+                                {antes && agora && (
+                                  <p className={styles.muted}>
+                                    {t('comparisonFocus', {
+                                      before: antes.nivel
+                                        ? t('levelN', { n: antes.nivel })
+                                        : t('noLevel'),
+                                      after: agora.nivel
+                                        ? t('levelN', { n: agora.nivel })
+                                        : t('noLevel'),
+                                    })}
+                                  </p>
+                                )}
+                                <RelatorioCompetencias
+                                  competencias={competencias}
+                                  regra={regra}
+                                  tema="escuro"
+                                  rotuloMedia={t('encounterAverage')}
+                                />
+                              </>
+                            );
+                          })()}
+                          <details>
+                            <summary>{t('yourReflection')}</summary>
+                            <p className={styles.pre}>{ep.reflexao}</p>
+                          </details>
+                          {confirmar === 'repetir' && (
                             <div
                               className={styles.confirm}
                               role="alertdialog"
-                              aria-labelledby="lid-abandonar"
+                              aria-labelledby="lid-repetir"
                             >
-                              <p id="lid-abandonar">{t('abandonReplayHint')}</p>
+                              <h3 id="lid-repetir">
+                                {t('repeatConfirmTitle')}
+                              </h3>
+                              <p>{t('repeatConfirmHint')}</p>
                               <div className={styles.actions}>
                                 <button
                                   type="button"
@@ -423,82 +633,50 @@ export default function TreinoLideranca({
                                 <button
                                   type="button"
                                   className={styles.primary}
-                                  disabled={bloqueado}
-                                  onClick={() => void enviar('abandonar')}
+                                  disabled={bloqueado || !!jornada.ativo}
+                                  onClick={() =>
+                                    void enviar('repetir', ep.indice)
+                                  }
                                 >
-                                  {t('confirmAbandon')}
+                                  {t('confirmRepeat')}
                                 </button>
                               </div>
                             </div>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={bloqueado}
-                              onClick={() => setConfirmar('abandonar')}
-                            >
-                              {t('abandonReplay')}
-                            </button>
-                          ))}
-                        {ep.plano && (
-                          <details>
-                            <summary>{t('yourPlan')}</summary>
-                            <p className={styles.pre}>{ep.plano}</p>
-                          </details>
-                        )}
-                      </section>
-                      <details className={styles.history}>
-                        <summary>{t('history')}</summary>
-                        {!dados.historico.length && (
-                          <p className={styles.muted}>{t('emptyHistory')}</p>
-                        )}
-                        {dados.historico.map((h) => (
-                          <button
-                            key={h.id}
-                            disabled={bloqueado}
-                            aria-pressed={ep.id === h.id}
-                            onClick={() => {
-                              setRefletindo(false);
-                              void carregar(h.id, dados.pagina);
-                            }}
-                          >
-                            <span>
-                              {t('encounter', { n: h.indice + 1 })} ·{' '}
-                              {t(h.repeticao ? 'replay' : 'original')}
-                            </span>
-                            <small>{data(h.created_at)}</small>
-                          </button>
-                        ))}
-                        <div className={styles.actions}>
-                          {dados.pagina > 0 && (
-                            <button
-                              disabled={bloqueado}
-                              onClick={() =>
-                                void carregar(
-                                  ep.encerradoEm ? ep.id : undefined,
-                                  dados.pagina - 1,
-                                )
-                              }
-                            >
-                              {t('previous')}
-                            </button>
                           )}
-                          {dados.temMais && (
+                          <div className={styles.actions}>
                             <button
-                              disabled={bloqueado}
-                              onClick={() =>
-                                void carregar(
-                                  ep.encerradoEm ? ep.id : undefined,
-                                  dados.pagina + 1,
-                                )
-                              }
+                              disabled={bloqueado || !!jornada.ativo}
+                              onClick={() => setConfirmar('repetir')}
                             >
-                              {t('nextPage')}
+                              <RotateCcw size={16} />
+                              {t('repeat')}
                             </button>
-                          )}
-                        </div>
-                      </details>
-                    </aside>
-                    <section className={styles.panel}>
+                            {jornada.ativo ? (
+                              <button
+                                className={styles.primary}
+                                disabled={bloqueado}
+                                onClick={() => void carregar()}
+                              >
+                                {t('resume')}
+                              </button>
+                            ) : concluido < 5 ? (
+                              <button
+                                className={styles.primary}
+                                disabled={bloqueado}
+                                onClick={() => void enviar('avancar')}
+                              >
+                                {t('continue', { n: concluido + 1 })}
+                                <ArrowRight size={16} />
+                              </button>
+                            ) : (
+                              <span className={styles.badge}>
+                                {t('journeyCompleted')}
+                              </span>
+                            )}
+                          </div>
+                        </section>
+                      )}
+
                       {vivo && !ep.plano ? (
                         <form
                           onSubmit={(e) => {
@@ -541,42 +719,47 @@ export default function TreinoLideranca({
                         </form>
                       ) : (
                         <>
-                          <div className={styles.chatHeader}>
-                            <span className={styles.avatar}>
-                              {info.personagem[0]}
-                            </span>
-                            <div>
-                              <h2>{info.personagem}</h2>
-                              <p>{info.papel}</p>
-                            </div>
-                            {ep.encerradoEm && (
-                              <span className={styles.badge}>
-                                {t('completed')}
-                              </span>
-                            )}
-                          </div>
-                          <div
-                            ref={chat}
-                            className={styles.chat}
-                            role="log"
-                            aria-label={t('conversation')}
-                            aria-live={vivo ? 'polite' : 'off'}
+                          <DetalhesTreino
+                            concluido={!!ep.avaliacao}
+                            titulo={t('conversation')}
                           >
-                            {ep.mensagens.map((m, i) => (
-                              <div
-                                className={`${styles.message} ${m.autor === 'lider' ? styles.leader : ''}`}
-                                key={`${ep.id}-${i}`}
-                              >
-                                <small>
-                                  {m.autor === 'lider'
-                                    ? t('you')
-                                    : info.personagem}
-                                  {m.autor === 'lider' && ` · ${m.turno}`}
-                                </small>
-                                <p>{m.texto}</p>
+                            <div className={styles.chatHeader}>
+                              <span className={styles.avatar}>
+                                {info.personagem[0]}
+                              </span>
+                              <div>
+                                <h2>{info.personagem}</h2>
+                                <p>{info.papel}</p>
                               </div>
-                            ))}
-                          </div>
+                              {ep.encerradoEm && (
+                                <span className={styles.badge}>
+                                  {t('completed')}
+                                </span>
+                              )}
+                            </div>
+                            <div
+                              ref={chat}
+                              className={styles.chat}
+                              role="log"
+                              aria-label={t('conversation')}
+                              aria-live={vivo ? 'polite' : 'off'}
+                            >
+                              {ep.mensagens.map((m, i) => (
+                                <div
+                                  className={`${styles.message} ${m.autor === 'lider' ? styles.leader : ''}`}
+                                  key={`${ep.id}-${i}`}
+                                >
+                                  <small>
+                                    {m.autor === 'lider'
+                                      ? t('you')
+                                      : info.personagem}
+                                    {m.autor === 'lider' && ` · ${m.turno}`}
+                                  </small>
+                                  <p>{m.texto}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </DetalhesTreino>
                           {vivo && !refletindo && (
                             <form
                               className={styles.composer}
@@ -677,160 +860,6 @@ export default function TreinoLideranca({
                             </form>
                           )}
                         </>
-                      )}
-                      {ep.avaliacao && jornada && (
-                        <section className={styles.report}>
-                          <p className={styles.eyebrow}>{t('feedback')}</p>
-                          <h2>{t('feedbackTitle')}</h2>
-                          <p>{ep.avaliacao.sintese}</p>
-                          <p className={styles.notice}>{t('assessmentNote')}</p>
-                          {ep.consequencia && (
-                            <div className={styles.outcome}>
-                              <h3>{t('consequence')}</h3>
-                              <p>{ep.consequencia.narrativa}</p>
-                              {!!ep.consequencia.acordos.length && (
-                                <>
-                                  <h4>{t('agreements')}</h4>
-                                  <ul>
-                                    {ep.consequencia.acordos.map((a, i) => (
-                                      <li key={i}>{a.descricao}</li>
-                                    ))}
-                                  </ul>
-                                </>
-                              )}
-                              {!!ep.consequencia.pendencias.length && (
-                                <>
-                                  <h4>{t('openPoints')}</h4>
-                                  <ul>
-                                    {ep.consequencia.pendencias.map((p, i) => (
-                                      <li key={i}>{p}</li>
-                                    ))}
-                                  </ul>
-                                </>
-                              )}
-                            </div>
-                          )}
-                          {(() => {
-                            const resumo = resumoAvaliacao(
-                              ep.avaliacao,
-                              jornada.matriz,
-                              ep.indice,
-                            );
-                            const { competencias, regra } =
-                              competenciasParaRelatorio(
-                                resumo,
-                                ep.avaliacao,
-                                jornada.matriz,
-                                origemEvidencia,
-                              );
-                            const original = ep.repeticao
-                              ? jornada.concluidos[ep.indice]?.avaliacao
-                              : null;
-                            const antes = original
-                              ? resumoAvaliacao(
-                                  original,
-                                  jornada.matriz,
-                                  ep.indice,
-                                ).competencias.find((c) => c.foco)
-                              : null;
-                            const agora = resumo.competencias.find(
-                              (c) => c.foco,
-                            );
-                            return (
-                              <>
-                                {antes && agora && (
-                                  <p className={styles.muted}>
-                                    {t('comparisonFocus', {
-                                      before: antes.nivel
-                                        ? t('levelN', { n: antes.nivel })
-                                        : t('noLevel'),
-                                      after: agora.nivel
-                                        ? t('levelN', { n: agora.nivel })
-                                        : t('noLevel'),
-                                    })}
-                                  </p>
-                                )}
-                                <RelatorioCompetencias
-                                  competencias={competencias}
-                                  media={resumo.media}
-                                  regra={regra}
-                                  tema="escuro"
-                                  rotuloMedia={t('encounterAverage')}
-                                />
-                              </>
-                            );
-                          })()}
-                          <div className={styles.practice}>
-                            <h3>{t('nextPractice')}</h3>
-                            <p>{ep.avaliacao.proximaPratica}</p>
-                          </div>
-                          <details>
-                            <summary>{t('yourReflection')}</summary>
-                            <p className={styles.pre}>{ep.reflexao}</p>
-                          </details>
-                          {confirmar === 'repetir' && (
-                            <div
-                              className={styles.confirm}
-                              role="alertdialog"
-                              aria-labelledby="lid-repetir"
-                            >
-                              <h3 id="lid-repetir">
-                                {t('repeatConfirmTitle')}
-                              </h3>
-                              <p>{t('repeatConfirmHint')}</p>
-                              <div className={styles.actions}>
-                                <button
-                                  type="button"
-                                  disabled={bloqueado}
-                                  onClick={() => setConfirmar(null)}
-                                >
-                                  {t('cancel')}
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.primary}
-                                  disabled={bloqueado || !!jornada.ativo}
-                                  onClick={() =>
-                                    void enviar('repetir', ep.indice)
-                                  }
-                                >
-                                  {t('confirmRepeat')}
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                          <div className={styles.actions}>
-                            <button
-                              disabled={bloqueado || !!jornada.ativo}
-                              onClick={() => setConfirmar('repetir')}
-                            >
-                              <RotateCcw size={16} />
-                              {t('repeat')}
-                            </button>
-                            {jornada.ativo ? (
-                              <button
-                                className={styles.primary}
-                                disabled={bloqueado}
-                                onClick={() => void carregar()}
-                              >
-                                {t('resume')}
-                              </button>
-                            ) : concluido < 5 ? (
-                              <button
-                                className={styles.primary}
-                                disabled={bloqueado}
-                                onClick={() => void enviar('avancar')}
-                              >
-                                {t('continue', { n: concluido + 1 })}
-                                <ArrowRight size={16} />
-                              </button>
-                            ) : (
-                              <span className={styles.badge}>
-                                {t('journeyCompleted')}
-                              </span>
-                            )}
-                          </div>
-                        </section>
                       )}
                     </section>
                   </div>

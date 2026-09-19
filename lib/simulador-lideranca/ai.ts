@@ -4,12 +4,13 @@ import { z } from 'zod';
 import { callAI } from '@/actions/ai-client';
 import { getModelForTask } from '@/lib/ai-tasks';
 import { modeloPaceCompativel } from '@/lib/simulador-vendas/modelos';
-import { linhasDaVariante } from '@/lib/simuladores/lideranca/matriz-global';
+import { linhasDaVariante, type LinhaMatriz } from '@/lib/simuladores/lideranca/matriz-global';
 import { contexto, type Contexto } from './access';
 import { PROMPTS } from './prompts';
 import {
   LiderancaError,
   SAIDAS,
+  schemaAvaliadorDoEncontro,
   VERSAO,
   type Estado,
   type Etapa,
@@ -79,7 +80,9 @@ export function gerador(
         409,
         'Este envio já foi usado para outro conteúdo. Atualize a página.',
       );
-    const schema = SAIDAS[etapa];
+    const schema = etapa === 'avaliador'
+      ? schemaAvaliadorDoEncontro((dados as { matriz: LinhaMatriz[] }).matriz.map((l) => l.cod_desc))
+      : SAIDAS[etapa];
     const parse = (raw: unknown) => schema.parse(raw) as Saidas[E];
     if (anterior.data?.resultado) {
       const valor = parse(anterior.data.resultado);

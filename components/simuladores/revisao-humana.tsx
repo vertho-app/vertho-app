@@ -7,7 +7,11 @@
 import { useId, useState, type FormEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
-import { PARECERES, type Parecer, type RevisaoPublica } from '@/lib/simuladores/revisao-tipos';
+import {
+  PARECERES,
+  type Parecer,
+  type RevisaoPublica,
+} from '@/lib/simuladores/revisao-tipos';
 import styles from './revisao-humana.module.css';
 
 type Props = {
@@ -16,6 +20,7 @@ type Props = {
   empresaId?: string;
   /** Sessão (vendas) ou jornada (liderança). */
   alvoId: string;
+  referencia?: string | null;
   /** `null` = a leitura falhou; nunca é mostrado como "sem revisão". */
   revisoes: RevisaoPublica[] | null;
   podeRevisar: boolean;
@@ -25,7 +30,15 @@ type Props = {
 };
 
 export default function RevisaoHumana({
-  endpoint, empresaId, alvoId, revisoes, podeRevisar, competencias, onRegistrada, tema = 'escuro',
+  endpoint,
+  empresaId,
+  alvoId,
+  referencia,
+  revisoes,
+  podeRevisar,
+  competencias,
+  onRegistrada,
+  tema = 'escuro',
 }: Props) {
   const t = useTranslations('SimuladorRevisao');
   const locale = useLocale();
@@ -36,10 +49,16 @@ export default function RevisaoHumana({
   // O mesmo id no reenvio depois de uma falha: se a primeira gravou, o servidor não duplica.
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const [enviando, setEnviando] = useState(false);
-  const [aviso, setAviso] = useState<{ erro: boolean; texto: string } | null>(null);
+  const [aviso, setAviso] = useState<{ erro: boolean; texto: string } | null>(
+    null,
+  );
   const nomes = new Map(competencias.map((c) => [c.codigo, c.nome]));
   const quando = (iso: string) =>
-    new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' });
+    new Date(iso).toLocaleString(locale, {
+      dateStyle: 'short',
+      timeStyle: 'short',
+      timeZone: 'America/Sao_Paulo',
+    });
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -59,10 +78,13 @@ export default function RevisaoHumana({
           ...(empresaId ? { empresaId } : {}),
           requestId,
           alvoId,
+          ...(referencia ? { referencia } : {}),
           parecer,
           motivo: motivo.trim(),
           // Na ordem da tela: o reenvio idêntico compara a lista inteira.
-          dimensoes: competencias.filter((c) => dimensoes.includes(c.codigo)).map((c) => c.codigo),
+          dimensoes: competencias
+            .filter((c) => dimensoes.includes(c.codigo))
+            .map((c) => c.codigo),
         }),
       });
       const d = await res.json().catch(() => null);
@@ -81,9 +103,13 @@ export default function RevisaoHumana({
   }
 
   return (
-    <section className={`${styles.root} ${tema === 'claro' ? styles.claro : styles.escuro}`} aria-labelledby={titulo}>
+    <section
+      className={`${styles.root} ${tema === 'claro' ? styles.claro : styles.escuro}`}
+      aria-labelledby={titulo}
+    >
       <h3 id={titulo}>{t('title')}</h3>
       <p className={styles.muted}>{t('help')}</p>
+      {referencia && <p className={styles.muted}>{t('snapshotHelp')}</p>}
       {revisoes === null ? (
         <p className={styles.alerta}>{t('unavailable')}</p>
       ) : revisoes.length === 0 ? (
@@ -92,12 +118,32 @@ export default function RevisaoHumana({
         <ul className={styles.lista} aria-label={t('registered')}>
           {revisoes.map((r) => (
             <li key={r.id} className={styles.item}>
-              <span className={`${styles.selo} ${styles[`selo_${r.parecer}`] ?? ''}`}>{t(`verdict_${r.parecer}`)}</span>
+              <span
+                className={`${styles.selo} ${styles[`selo_${r.parecer}`] ?? ''}`}
+              >
+                {t(`verdict_${r.parecer}`)}
+              </span>
               {!!r.dimensoes?.length && (
-                <span className={styles.dimensoes}>{r.dimensoes.map((d) => nomes.get(d) || d).join(', ')}</span>
+                <span className={styles.dimensoes}>
+                  {r.dimensoes.map((d) => nomes.get(d) || d).join(', ')}
+                </span>
+              )}
+              {referencia && (
+                <p className={styles.muted}>
+                  {r.contexto
+                    ? t(
+                        r.contexto.referencia === referencia
+                          ? 'snapshotCurrent'
+                          : 'snapshotPrevious',
+                        { n: r.contexto.encontros.length },
+                      )
+                    : t('snapshotLegacy')}
+                </p>
               )}
               <p className={styles.motivo}>{r.motivo}</p>
-              <small className={styles.muted}>{t('by', { nome: r.revisor_nome, data: quando(r.created_at) })}</small>
+              <small className={styles.muted}>
+                {t('by', { nome: r.revisor_nome, data: quando(r.created_at) })}
+              </small>
             </li>
           ))}
         </ul>
@@ -129,7 +175,11 @@ export default function RevisaoHumana({
                     type="checkbox"
                     checked={dimensoes.includes(c.codigo)}
                     onChange={(e) =>
-                      setDimensoes((atual) => (e.target.checked ? [...atual, c.codigo] : atual.filter((x) => x !== c.codigo)))
+                      setDimensoes((atual) =>
+                        e.target.checked
+                          ? [...atual, c.codigo]
+                          : atual.filter((x) => x !== c.codigo),
+                      )
                     }
                     disabled={enviando}
                   />
@@ -149,7 +199,12 @@ export default function RevisaoHumana({
               disabled={enviando}
             />
           </label>
-          <button type="submit" className={styles.botao} disabled={!parecer || enviando} aria-busy={enviando}>
+          <button
+            type="submit"
+            className={styles.botao}
+            disabled={!parecer || enviando}
+            aria-busy={enviando}
+          >
             {enviando ? t('saving') : t('save')}
           </button>
         </form>
@@ -157,7 +212,10 @@ export default function RevisaoHumana({
         <p className={styles.muted}>{t('notAllowed')}</p>
       )}
       {aviso && (
-        <p role={aviso.erro ? 'alert' : 'status'} className={aviso.erro ? styles.alerta : styles.sucesso}>
+        <p
+          role={aviso.erro ? 'alert' : 'status'}
+          className={aviso.erro ? styles.alerta : styles.sucesso}
+        >
           {aviso.texto}
         </p>
       )}

@@ -189,3 +189,14 @@
     justify-self: stretch;
   }
 }
+
+.metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+.metricas dd {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 4px 0;
+}

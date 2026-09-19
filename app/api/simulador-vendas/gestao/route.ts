@@ -82,7 +82,7 @@ export async function GET(req: Request) {
         ...data,
         linhas: data.linhas.map((r: any) => ({
           ...r,
-          PL: r.Media == null ? null : (planos.get(r.id) ?? null),
+          PL: planos.get(r.id) ?? null,
           ...Object.fromEntries(
             ['P', 'A', 'C', 'E', 'Media'].map((k) => [
               k,
@@ -107,10 +107,14 @@ export async function POST(req: Request) {
     if (csrf) return csrf;
     const auth = await requireUser(req);
     if (auth instanceof Response) return auth;
-    const limited = await readLimiter.check(req, `sim-vendas-revisao:${auth.email}`);
+    const limited = await readLimiter.check(
+      req,
+      `sim-vendas-revisao:${auth.email}`,
+    );
     if (limited) return limited;
     const raw = await req.text();
-    if (raw.length > 20000) return json({ error: 'Formulário muito longo.' }, 413);
+    if (raw.length > 20000)
+      return json({ error: 'Formulário muito longo.' }, 413);
     const cmd = revisaoComandoSchema.parse(JSON.parse(raw));
     // Leitura, não escrita: gestor e RH não treinam, mas revisam.
     const c = await contexto(req, cmd.empresaId, false, auth);

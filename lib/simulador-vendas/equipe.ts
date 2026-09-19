@@ -1,4 +1,6 @@
 import 'server-only';
+import { VENDAS_SESSAO } from '@/lib/status';
+import { resumoRevisoes } from '@/lib/simuladores/revisao-painel';
 import { can } from '@/lib/permissions';
 import { canViewColabJourney } from '@/lib/authz';
 import type { AuthenticatedContext } from '@/lib/auth/request-context';
@@ -8,9 +10,23 @@ import { lerCursor, paginaDeHistorico, type LinhaResumo } from './historico';
 import { relatorioPacePublico } from './escala';
 import { escalaNativa14, usaMatrizPace } from './matriz-avaliacao';
 import { COMPETENCIAS_PACE } from './matriz';
-import { listarRevisoes, registrarRevisao, type ComandoRevisao, type TabelaRevisao } from '@/lib/simuladores/revisao';
-import { agregarPainel, type PainelVendas, type PessoaPainel, type SessaoPainel } from './painel';
-import { acessoDoCargo, idDoCargo, mapaDeCargos } from '@/lib/simuladores/acesso-cargo';
+import {
+  listarRevisoes,
+  registrarRevisao,
+  type ComandoRevisao,
+  type TabelaRevisao,
+} from '@/lib/simuladores/revisao';
+import {
+  agregarPainel,
+  type PainelVendas,
+  type PessoaPainel,
+  type SessaoPainel,
+} from './painel';
+import {
+  acessoDoCargo,
+  idDoCargo,
+  mapaDeCargos,
+} from '@/lib/simuladores/acesso-cargo';
 import { PAPEIS_QUE_SO_ACOMPANHAM } from '@/lib/simuladores/papel';
 import { isInternalEmail } from '@/lib/internal-emails';
 
@@ -85,13 +101,25 @@ export async function historicoEquipe(c: Contexto, cursor?: string | null) {
  */
 async function populacaoDoVendas(c: Contexto): Promise<PessoaPainel[]> {
   const [empresa, cargos] = await Promise.all([
-    c.tdb.raw.from('empresas').select('sys_config').eq('id', c.empresaId).maybeSingle(),
+    c.tdb.raw
+      .from('empresas')
+      .select('sys_config')
+      .eq('id', c.empresaId)
+      .maybeSingle(),
     c.tdb.from('cargos_empresa').select('id,nome'),
   ]);
   if (empresa.error || cargos.error)
-    throw new SimuladorError(503, 'Não foi possível consultar os cargos da equipe.');
-  const sysConfig = (empresa.data?.sys_config ?? null) as Record<string, unknown> | null;
-  const cargoId = mapaDeCargos((cargos.data || []) as Array<{ id: string; nome: string }>);
+    throw new SimuladorError(
+      503,
+      'Não foi possível consultar os cargos da equipe.',
+    );
+  const sysConfig = (empresa.data?.sys_config ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  const cargoId = mapaDeCargos(
+    (cargos.data || []) as Array<{ id: string; nome: string }>,
+  );
   const pessoas: PessoaPainel[] = [];
   for (let pagina = 0; ; pagina++) {
     const de = pagina * 500;
@@ -105,13 +133,24 @@ async function populacaoDoVendas(c: Contexto): Promise<PessoaPainel[]> {
       .select('id,empresa_id,nome_completo,cargo,email,role,gestor_email')
       .order('id')
       .range(de, de + 499);
-    if (error) throw new SimuladorError(503, 'Não foi possível consultar a equipe.');
+    if (error)
+      throw new SimuladorError(503, 'Não foi possível consultar a equipe.');
     for (const p of (data || []) as any[]) {
-      if ((PAPEIS_QUE_SO_ACOMPANHAM as readonly string[]).includes(String(p.role ?? ''))) continue;
+      if (
+        (PAPEIS_QUE_SO_ACOMPANHAM as readonly string[]).includes(
+          String(p.role ?? ''),
+        )
+      )
+        continue;
       if (isInternalEmail(p.email)) continue;
-      if (!acessoDoCargo(sysConfig, idDoCargo(cargoId, p.cargo)).vendas) continue;
+      if (!acessoDoCargo(sysConfig, idDoCargo(cargoId, p.cargo)).vendas)
+        continue;
       if (!c.auth.isPlatformAdmin && !canViewColabJourney(c.auth, p)) continue;
-      pessoas.push({ id: p.id, nome: p.nome_completo || 'Colaborador', cargo: p.cargo || null });
+      pessoas.push({
+        id: p.id,
+        nome: p.nome_completo || 'Colaborador',
+        cargo: p.cargo || null,
+      });
     }
     if ((data || []).length < 500) return pessoas;
   }
@@ -125,10 +164,14 @@ const notaOuNulo = (n: unknown) => (typeof n === 'number' ? n : null);
 /** Visão da equipe: quem tem acesso, quem começou, níveis por competência e a pesquisa. */
 export async function painelEquipe(c: Contexto): Promise<PainelVendas> {
   if (!(await podeVerEquipe(c.auth)))
-    throw new SimuladorError(403, 'Seu perfil não permite acompanhar esta equipe.');
+    throw new SimuladorError(
+      403,
+      'Seu perfil não permite acompanhar esta equipe.',
+    );
   const pessoas = await populacaoDoVendas(c);
   const ids = pessoas.map((p) => p.id);
   const sessoes: SessaoPainel[] = [];
+  const revisaveis: Array<{ id: string }> = [];
   for (let i = 0; i < ids.length; i += LOTE_IDS) {
     const lote = ids.slice(i, i + LOTE_IDS);
     for (let de = 0; ; de += 1000) {
@@ -138,26 +181,45 @@ export async function painelEquipe(c: Contexto): Promise<PainelVendas> {
         .in('colaborador_id', lote)
         .order('id')
         .range(de, de + 999);
-      if (error) throw new SimuladorError(503, 'Não foi possível consultar os treinos da equipe.');
+      if (error)
+        throw new SimuladorError(
+          503,
+          'Não foi possível consultar os treinos da equipe.',
+        );
       for (const r of (data || []) as any[]) {
+        if (r.resumo?.temRelatorio && r.resumo?.status === VENDAS_SESSAO.CONCLUIDA)
+          revisaveis.push({ id: r.id });
         const nativa = escalaNativa14(r.resumo?.versaoRegua);
         sessoes.push({
           colaboradorId: r.colaborador_id,
           criadoEm: r.created_at,
           status: String(r.resumo?.status ?? ''),
           competencias: nativa
-            ? { PL: notaOuNulo(r.pl), P: notaOuNulo(r.p), A: notaOuNulo(r.a), C: notaOuNulo(r.c), E: notaOuNulo(r.e) }
+            ? {
+                PL: notaOuNulo(r.pl),
+                P: notaOuNulo(r.p),
+                A: notaOuNulo(r.a),
+                C: notaOuNulo(r.c),
+                E: notaOuNulo(r.e),
+              }
             : null,
-          feedback: r.feedback && typeof r.feedback === 'object' ? r.feedback : null,
+          feedback:
+            r.feedback && typeof r.feedback === 'object' ? r.feedback : null,
         });
       }
       if ((data || []).length < 1000) break;
     }
   }
-  return agregarPainel(pessoas, sessoes);
+  return {
+    ...agregarPainel(pessoas, sessoes),
+    revisoes: await resumoRevisoes(c.tdb, REVISOES, revisaveis),
+  };
 }
 
-const REVISOES: TabelaRevisao = { tabela: 'sim_vendas_revisoes', alvo: 'sessao_id' };
+const REVISOES: TabelaRevisao = {
+  tabela: 'sim_vendas_revisoes',
+  alvo: 'sessao_id',
+};
 const PILARES_LEGADOS = [
   { codigo: 'P', nome: 'Preparar' },
   { codigo: 'A', nome: 'Analisar' },
@@ -167,7 +229,9 @@ const PILARES_LEGADOS = [
 
 /** Competências que uma revisão pode comentar: as da matriz ou, antes dela, os quatro pilares. */
 export const competenciasDoTreino = (versaoRegua?: string) =>
-  usaMatrizPace(versaoRegua) ? COMPETENCIAS_PACE.map(({ codigo, nome }) => ({ codigo, nome })) : PILARES_LEGADOS;
+  usaMatrizPace(versaoRegua)
+    ? COMPETENCIAS_PACE.map(({ codigo, nome }) => ({ codigo, nome }))
+    : PILARES_LEGADOS;
 
 /** Revisa quem enxerga o relatório, não é o dono do treino e pode registrar (régua do atendimento). */
 const podeRevisar = async (c: Contexto, ownerKey: string) =>
@@ -190,8 +254,13 @@ export async function relatorioEquipe(c: Contexto, id: string) {
 export async function revisarTreino(c: Contexto, cmd: ComandoRevisao) {
   const alvo = await sessaoDaEquipe(c, cmd.alvoId);
   if (!(await podeRevisar(c, alvo.owner_key)))
-    throw new SimuladorError(403, 'A revisão exige outra pessoa com permissão de acompanhamento e registro.');
-  const validas = new Set(competenciasDoTreino(alvo.resumo.versaoRegua).map((x) => x.codigo));
+    throw new SimuladorError(
+      403,
+      'A revisão exige outra pessoa com permissão de acompanhamento e registro.',
+    );
+  const validas = new Set(
+    competenciasDoTreino(alvo.resumo.versaoRegua).map((x) => x.codigo),
+  );
   if (cmd.dimensoes.some((d) => !validas.has(d)))
     throw new SimuladorError(400, 'Competência não pertence a este treino.');
   const r = await registrarRevisao(c.tdb, REVISOES, cmd, {

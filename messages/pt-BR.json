@@ -18,7 +18,14 @@
     "registered": "Revisões registradas",
     "none": "Ainda não há parecer humano.",
     "unavailable": "Não foi possível carregar as revisões agora.",
-    "by": "Por {nome} em {data}"
+    "by": "Por {nome} em {data}",
+    "snapshotHelp": "Seu parecer vale para as devolutivas exibidas agora. Novos encontros precisam de uma nova revisão.",
+    "snapshotCurrent": "Recorte atual: {n} encontro(s).",
+    "snapshotPrevious": "Recorte anterior: {n} encontro(s). A jornada avançou desde esta revisão.",
+    "snapshotLegacy": "Revisão anterior ao registro de recortes; não confirma os encontros atuais.",
+    "overview": "Revisão das devolutivas",
+    "overviewHelp": "Último parecer por treino ou jornada atual. Pendentes inclui jornadas com novos encontros após a revisão.",
+    "pending": "Pendentes"
   },
   "SimuladorAtendimento": {
     "genericError": "Não foi possível concluir. Tente novamente.",
@@ -92,7 +99,7 @@
     "confirmFinish": "Concluir este atendimento?",
     "generateReport": "Gerar relatório",
     "continue": "Continuar",
-    "analyzing": "Analisando suas respostas e preparando o feedback…",
+    "analyzing": "Analisando as evidências da conversa. A devolutiva pode levar alguns minutos; aguarde nesta tela.",
     "report": "Relatório de atendimento",
     "reportEyebrow": "Seu atendimento, em perspectiva",
     "scoreOf4": "de 4 · cobertura {coverage}%",
@@ -198,7 +205,8 @@
     "reviewRegistered": "Revisões registradas",
     "reviewNone": "Ainda não há parecer humano.",
     "evolutionTitle": "Sua evolução",
-    "evolutionHelp": "Maior nível que você alcançou em cada competência nos seus treinos recentes."
+    "evolutionHelp": "Maior nível alcançado por competência nas suas 20 sessões mais recentes. Treinos fora dessa janela não entram neste resumo.",
+    "trainingDetails": "Consultar ficha e conversa"
   },
   "SimuladoresRelatorio": {
     "title": "Devolutiva por competência",
@@ -5417,6 +5425,8 @@
     "csvLastActivity": "Última atividade",
     "synthesisTitleTeam": "Jornada até aqui",
     "synthesisDoneTitleTeam": "Jornada completa",
-    "synthesisHelpTeam": "Cada competência aparece em 3 dos 5 encontros. Aqui fica o maior nível demonstrado nela, contando as repetições."
+    "synthesisHelpTeam": "Cada competência aparece em 3 dos 5 encontros. Aqui fica o maior nível demonstrado nela, contando as repetições.",
+    "journeyDetails": "Consultar evolução da jornada",
+    "encounterDetails": "Consultar contexto e encontros anteriores"
   }
 }

@@ -137,12 +137,16 @@ try {
     await expect(
       page.getByRole('heading', { name: 'O que sua atuação mostrou' }),
     ).toBeVisible();
+    await expect(page.getByText('Consultar contexto e encontros anteriores', { exact: true })).toBeVisible();
+    await expect(page.getByRole('log', { name: 'Conversa do encontro' })).toBeHidden();
     if (i < 4)
       await page
         .getByRole('button', { name: `Continuar para o encontro ${i + 2}` })
         .click();
   }
   await expect(page.getByText('Cinco encontros concluídos')).toBeVisible();
+  await expect(page.getByText('Sua jornada completa')).toBeHidden();
+  await page.getByText('Consultar evolução da jornada', { exact: true }).click();
   await expect(page.getByText('Sua jornada completa')).toBeVisible();
   await page.screenshot({ path: `${dir}/sintese-desktop.png`, fullPage: true });
   await page.getByRole('button', { name: 'Repetir este encontro' }).click();
@@ -182,6 +186,7 @@ try {
     ),
     'overflow horizontal no celular',
   );
+  await page.getByText('Consultar contexto e encontros anteriores', { exact: true }).click();
   await page.getByText('Encontros anteriores', { exact: true }).click();
   await expect(
     page.getByRole('button', { name: /Encontro 5 · Repetição/ }),

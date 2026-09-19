@@ -18,7 +18,14 @@
     "registered": "Revisiones registradas",
     "none": "Todavía no hay revisión humana.",
     "unavailable": "No se han podido cargar las revisiones ahora.",
-    "by": "Por {nome} el {data}"
+    "by": "Por {nome} el {data}",
+    "snapshotHelp": "Tu revisión cubre las devoluciones que se muestran ahora. Los nuevos encuentros necesitan otra revisión.",
+    "snapshotCurrent": "Recorte actual: {n} encuentro(s).",
+    "snapshotPrevious": "Recorte anterior: {n} encuentro(s). La trayectoria avanzó desde esta revisión.",
+    "snapshotLegacy": "Esta revisión es anterior al registro de recortes; no confirma los encuentros actuales.",
+    "overview": "Revisión de las devoluciones",
+    "overviewHelp": "Último dictamen por práctica o trayectoria actual. Pendientes incluye trayectorias con nuevos encuentros después de la revisión.",
+    "pending": "Pendientes"
   },
   "SimuladorAtendimento": {
     "genericError": "No se pudo completar. Inténtalo de nuevo.",
@@ -92,7 +99,7 @@
     "confirmFinish": "¿Finalizar esta atención?",
     "generateReport": "Generar informe",
     "continue": "Continuar",
-    "analyzing": "Analizando tus respuestas y preparando los comentarios…",
+    "analyzing": "Analizando las evidencias de la conversación. La devolución puede tardar unos minutos; espera en esta pantalla.",
     "report": "Informe de atención",
     "reportEyebrow": "Tu atención, en perspectiva",
     "scoreOf4": "de 4 · cobertura {coverage}%",
@@ -198,7 +205,8 @@
     "reviewRegistered": "Revisiones registradas",
     "reviewNone": "Aún no hay revisión humana.",
     "evolutionTitle": "Tu evolución",
-    "evolutionHelp": "Nivel más alto que alcanzaste en cada competencia en tus prácticas recientes."
+    "evolutionHelp": "Mayor nivel por competencia en tus 20 sesiones más recientes. Las prácticas anteriores no se incluyen en este resumen.",
+    "trainingDetails": "Consultar ficha y conversación"
   },
   "SimuladoresRelatorio": {
     "title": "Devolución por competencia",
@@ -5417,6 +5425,8 @@
     "csvLastActivity": "Última actividad",
     "synthesisTitleTeam": "Recorrido hasta ahora",
     "synthesisDoneTitleTeam": "Recorrido completo",
-    "synthesisHelpTeam": "Cada competencia aparece en 3 de los 5 encuentros. Aquí queda el mayor nivel demostrado en ella, contando las repeticiones."
+    "synthesisHelpTeam": "Cada competencia aparece en 3 de los 5 encuentros. Aquí queda el mayor nivel demostrado en ella, contando las repeticiones.",
+    "journeyDetails": "Consultar evolución de la trayectoria",
+    "encounterDetails": "Consultar contexto y encuentros anteriores"
   }
 }

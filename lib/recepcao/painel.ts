@@ -32,29 +32,59 @@ type Linha = {
   };
 };
 
-export function visaoPorCompetencia(rows: Linha[], populacao: PessoaAtendimento[], codigos: readonly string[]) {
+export function visaoPorCompetencia(
+  rows: Linha[],
+  populacao: PessoaAtendimento[],
+  codigos: readonly string[],
+) {
   const pessoas = populacao.map((p) => {
     const minhas = rows
       .filter((r) => r.colaborador_id === p.id)
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
-    const concluidas = minhas.filter((r) => r.estado.status === RECEPCAO_SESSAO.CONCLUIDA);
+    const concluidas = minhas.filter(
+      (r) => r.estado.status === RECEPCAO_SESSAO.CONCLUIDA,
+    );
     const comMatriz = concluidas
-      .filter((r) => r.estado.relatorio?.escalaNota === '1-4' && r.estado.relatorio.competencias?.length)
+      .filter(
+        (r) =>
+          r.estado.relatorio?.escalaNota === '1-4' &&
+          r.estado.relatorio.competencias?.length,
+      )
       .map((r) => ({
-        competencias: Object.fromEntries(r.estado.relatorio!.competencias!.map((c) => [c.codigo, c.nota])),
+        competencias: Object.fromEntries(
+          r.estado.relatorio!.competencias!.map((c) => [c.codigo, c.nota]),
+        ),
       }));
     return {
       ...p,
       iniciadas: minhas.length,
       concluidas: concluidas.length,
       ultimo: minhas[0]?.created_at ?? null,
-      competencias: evolucaoPorCompetencia(comMatriz, codigos) as EvolucaoCompetencia[],
+      competencias: evolucaoPorCompetencia(
+        comMatriz,
+        codigos,
+      ) as EvolucaoCompetencia[],
     };
   });
   pessoas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  const avaliadas = new Set(
+    rows
+      .filter(
+        (r) =>
+          r.estado.status === RECEPCAO_SESSAO.CONCLUIDA &&
+          r.estado.relatorio?.escalaNota === '1-4' &&
+          r.estado.relatorio.competencias?.length,
+      )
+      .map((r) => r.colaborador_id),
+  );
   return {
     pessoas,
-    competencias: distribuicaoPorCompetencia(pessoas, codigos),
-    naoTreinaram: pessoas.filter((p) => p.iniciadas === 0).map(({ id, nome, cargo }) => ({ id, nome, cargo })),
+    competencias: distribuicaoPorCompetencia(
+      pessoas.filter((p) => avaliadas.has(p.id)),
+      codigos,
+    ),
+    naoTreinaram: pessoas
+      .filter((p) => p.iniciadas === 0)
+      .map(({ id, nome, cargo }) => ({ id, nome, cargo })),
   };
 }

@@ -60,46 +60,6 @@ export default function Relatorio({
         )}
       </div>
       <p className="text-sm text-slate-300 leading-relaxed mb-5">{r.Resumo}</p>
-      {matriz ? (
-        <>
-          <p className="text-xs text-slate-400 mb-3">{t('matrixScaleHelp')}</p>
-          <RelatorioCompetencias
-            competencias={matriz.competencias}
-            media={matriz.media}
-            regra={matriz.regra}
-            tema="escuro"
-            acento="var(--pace-accent)"
-          />
-        </>
-      ) : (
-        <>
-          <p className="text-xs text-slate-400 mb-4">{t('legacyScaleHelp')}</p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {pilares.map(([p, nome, detalhe]) => (
-              <article key={p} className="border border-white/10 rounded-xl p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">{t(nome)}</h3>
-                  <span className="tabular-nums text-brand-300">
-                    {formatarNotaPace(r[p], locale)}
-                  </span>
-                </div>
-                {r[p] !== null && (
-                  <meter
-                    className="w-full my-2"
-                    min={1}
-                    max={4}
-                    value={r[p]!}
-                    aria-label={t('scoreLabel', { name: t(nome) })}
-                  />
-                )}
-                <p className="text-sm text-slate-300 leading-relaxed">
-                  {r[detalhe]}
-                </p>
-              </article>
-            ))}
-          </div>
-        </>
-      )}
       <h3 className="font-semibold mt-6 mb-2">{t('recommendations')}</h3>
       <ol className="space-y-3 list-decimal pl-5">
         {r.Recomendacoes.map((item, i) => (
@@ -135,6 +95,49 @@ export default function Relatorio({
           <p className="mt-1">{r.Compromissos_obtidos}</p>
         )}
       </div>
+      {matriz ? (
+        <>
+          <p className="text-xs text-slate-400 mb-3">{t('matrixScaleHelp')}</p>
+          <RelatorioCompetencias
+            competencias={matriz.competencias}
+            media={matriz.media}
+            regra={matriz.regra}
+            tema="escuro"
+            acento="var(--pace-accent)"
+          />
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-slate-400 mb-4">{t('legacyScaleHelp')}</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {pilares.map(([p, nome, detalhe]) => (
+              <article
+                key={p}
+                className="border border-white/10 rounded-xl p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">{t(nome)}</h3>
+                  <span className="tabular-nums text-brand-300">
+                    {formatarNotaPace(r[p], locale)}
+                  </span>
+                </div>
+                {r[p] !== null && (
+                  <meter
+                    className="w-full my-2"
+                    min={1}
+                    max={4}
+                    value={r[p]!}
+                    aria-label={t('scoreLabel', { name: t(nome) })}
+                  />
+                )}
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  {r[detalhe]}
+                </p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
       {[
         ...r.Beneficios_ocultos_descobertos,
         ...r.Objecoes_profundas_descobertas,
