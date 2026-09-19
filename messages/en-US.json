@@ -589,7 +589,7 @@
       "profile": "Profile",
       "teamEngagement": "Engagement",
       "teamEvolution": "Team evolution",
-      "receptionTraining": "Reception simulator",
+      "receptionTraining": "Customer service simulator",
       "salesTraining": "Sales simulator",
       "receptionTeam": "Reception simulations",
       "salesTeam": "Sales simulations",
@@ -1095,7 +1095,7 @@
         "copilot": "Copilot",
         "audits": "Audits (13/14)",
         "salesChannel": "Sales Channel",
-        "receptionTraining": "Reception simulator",
+        "receptionTraining": "Customer service simulator",
         "leadershipTraining": "Leadership simulator",
         "salesTraining": "Sales simulator"
       },
@@ -3052,7 +3052,7 @@
       "ranking": "Ranking (HR preview)",
       "calibracao": "Calibration",
       "devBadge": "dev/internal",
-      "prontidao": "Leadership simulator"
+      "prontidao": "Leadership mapping"
     }
   },
   "AdminPPP": {
@@ -5039,8 +5039,8 @@
       "programTitle": "Program for the NEXT track generation — an in-flight track runs on its own stamp"
     },
     "program": {
-      "moduloProntidaoTitle": "Leadership simulator",
-      "moduloProntidaoDesc": "Sold separately. When on, HR sees the matrix reading and the leadership track opens for the population configured under Job Fit → Leadership simulator.",
+      "moduloProntidaoTitle": "Leadership mapping",
+      "moduloProntidaoDesc": "Sold separately. When on, HR sees the matrix reading, the leadership track opens for the population configured under Fit → Leadership mapping, and the leadership simulator becomes available to the job titles enabled under Role Competencies → Simulators.",
       "moduloProntidaoOn": "On",
       "moduloProntidaoOff": "Off",
       "title": "Program mode",

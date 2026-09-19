@@ -1252,7 +1252,9 @@ report), o Modo Cena (`lib/season-engine/cena/`, motor completo sem consumidor p
 decisao — ver o portao de fase 0 no cabecalho dele), o checkpoint do gestor (que
 hoje NAO grava nota) e o desempenho importado do cliente. Nada disso e perfil.
 
-### Prontidão para Liderança — módulo (13/09/2026)
+### Mapeamento de liderança (antiga Prontidão para Liderança), módulo (13/09/2026)
+
+**Nome (19/09/2026).** Decisão do dono de 18/09: a tela passa a se chamar "Mapeamento de liderança" nas telas e na proposta; rotas, chaves `prontidao_*` e o módulo `prontidao_lideranca` ficam como estão. O "Simulador de liderança" é outra coisa, a jornada de cinco encontros ([SIMULADOR-LIDERANCA.md](SIMULADOR-LIDERANCA.md)), ligada pelo mesmo módulo. Na aba Simuladores de `/admin/cargos`, a coluna Liderança libera o simulador para quem treina e, para o RH, o acesso a este mapeamento (tela, relatórios, PDFs e menu).
 
 **O que é.** Um segundo mapeamento da pessoa, separado do mapeamento do cargo, cruzado com o perfil
 comportamental numa matriz de duas camadas. Genérico e multi-tenant; nasceu do escopo comercial da

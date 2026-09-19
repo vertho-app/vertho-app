@@ -438,8 +438,8 @@ atendimento".
 gestor, que abre o trilho de liderança (variante Líder) em
 `/dashboard/assessment?trilho=lideranca`. Só aparece quando ele responde o
 trilho: módulo contratado, cargo liberado e dentro da população, pela mesma régua
-da tela de mapeamento. O RH continua com a "Prontidão para liderança" (o
-relatório da empresa) e não pratica simulador nenhum.
+da tela de mapeamento. O RH continua com o "Mapeamento de liderança" (antiga
+Prontidão, o relatório da empresa) e não pratica simulador nenhum.
 
 **Ligado no ACME demo e nas Escolas.** O dono ligou o módulo pelo painel em
 17/09/2026 nos dois ambientes (cargo de referência: Gerente Comercial no ACME,

@@ -348,17 +348,18 @@ const NIVEIS_GESTAO: Record<ProposalSegmento, string> = {
 
 /**
  * O que cada simulador é, para quem nunca o viu. Conferido no produto
- * (17/09/2026): vendas em docs/SIMULADOR-VENDAS.md, atendimento em
- * docs/recepcao-medica.md e liderança em lib/prontidao-lideranca/ (segundo
- * mapeamento, separado do cargo).
+ * (19/09/2026): vendas em docs/SIMULADOR-VENDAS.md, atendimento em
+ * docs/recepcao-medica.md e liderança em docs/SIMULADOR-LIDERANCA.md (os
+ * encontros) e lib/prontidao-lideranca/ (o Mapeamento de liderança, que o
+ * mesmo módulo liga). Até 19/09 a liderança descrevia só o mapeamento.
  */
 const DESCRICAO_SIMULADOR: Record<Simulador, string> = {
   vendas: 'Conversas de venda com um cliente simulado por IA, a partir dos produtos, do público e das condições '
     + 'da própria empresa, com devolutiva por competência na metodologia PACE.',
   atendimento: 'Atendimentos com um cliente simulado por IA, em casos que a instituição pode adaptar, avaliados '
     + 'por competência em quatro níveis e com espaço para revisão humana.',
-  lideranca: 'Um segundo mapeamento, separado do cargo, que mostra quem está pronto para liderar e em que estilo, '
-    + 'com relatório para o RH.',
+  lideranca: 'Cinco encontros com personagens simulados por IA, avaliados por competência em quatro níveis e '
+    + 'acompanhados pelo RH e pelo gestor. Inclui o Mapeamento de liderança: quem está pronto para liderar e em que estilo.',
 };
 
 /** Escola e rede de ensino leem a versão de educação; o resto, a corporativa. */

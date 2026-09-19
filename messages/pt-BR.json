@@ -3052,7 +3052,7 @@
       "ranking": "Ranking (preview RH)",
       "calibracao": "Calibração",
       "devBadge": "dev/interno",
-      "prontidao": "Simulador de liderança"
+      "prontidao": "Mapeamento de liderança"
     }
   },
   "AdminPPP": {
@@ -5039,8 +5039,8 @@
       "programTitle": "Programa da PRÓXIMA geração de trilha — trilha em andamento roda pelo carimbo dela"
     },
     "program": {
-      "moduloProntidaoTitle": "Simulador de liderança",
-      "moduloProntidaoDesc": "Contratado à parte. Ligado, o RH vê a leitura da matriz e o trilho de liderança abre para a população configurada em Adequação → Simulador de liderança.",
+      "moduloProntidaoTitle": "Mapeamento de liderança",
+      "moduloProntidaoDesc": "Contratado à parte. Ligado, o RH vê a leitura da matriz, o trilho de liderança abre para a população configurada em Adequação → Mapeamento de liderança e o simulador de liderança fica disponível para os cargos liberados em Competências do Cargo → Simuladores.",
       "moduloProntidaoOn": "Ligado",
       "moduloProntidaoOff": "Desligado",
       "title": "Modo do programa",

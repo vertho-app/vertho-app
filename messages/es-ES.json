@@ -3052,7 +3052,7 @@
       "ranking": "Ranking (vista de RR. HH.)",
       "calibracao": "Calibración",
       "devBadge": "dev/interno",
-      "prontidao": "Simulador de liderazgo"
+      "prontidao": "Mapeo de liderazgo"
     }
   },
   "AdminPPP": {
@@ -5039,8 +5039,8 @@
       "programTitle": "Programa de la PRÓXIMA generación de ruta — la ruta en curso corre por su sello"
     },
     "program": {
-      "moduloProntidaoTitle": "Simulador de liderazgo",
-      "moduloProntidaoDesc": "Contratado aparte. Encendido, RR. HH. ve la lectura de la matriz y la ruta de liderazgo se abre para la población configurada en Adecuación → Simulador de liderazgo.",
+      "moduloProntidaoTitle": "Mapeo de liderazgo",
+      "moduloProntidaoDesc": "Contratado aparte. Encendido, RR. HH. ve la lectura de la matriz, la ruta de liderazgo se abre para la población configurada en Adecuación → Mapeo de liderazgo y el simulador de liderazgo queda disponible para los cargos habilitados en Competencias del Cargo → Simuladores.",
       "moduloProntidaoOn": "Encendido",
       "moduloProntidaoOff": "Apagado",
       "title": "Modo del programa",

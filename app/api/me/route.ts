@@ -75,7 +75,7 @@ export async function GET() {
 
     const [recepcaoEmpresa, vendasEmpresa, liderancaEmpresa, acessoSimuladores] = await Promise.all([
       recepcaoHabilitada((data as any)?.empresa_id), vendasHabilitado((data as any)?.empresa_id),
-      // Módulo contratado → o menu do RH mostra "Prontidão para liderança".
+      // Módulo contratado → o menu do RH mostra "Mapeamento de liderança" (antiga Prontidão).
       prontidaoLiderancaHabilitada(sbServico, (data as any)?.empresa_id),
       acessoSimuladoresDoColaborador(data),
     ]);

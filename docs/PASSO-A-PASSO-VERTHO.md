@@ -124,13 +124,14 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 
 ---
 
-## Fluxo paralelo: Prontidão para Liderança (módulo contratado)
+## Fluxo paralelo: Mapeamento de liderança (módulo contratado)
 
-Um segundo mapeamento, separado do mapeamento do cargo — a pessoa faz os dois. Detalhe do desenho:
-`docs/ARQUITETURA.md` §"Prontidão para Liderança — módulo".
+Um segundo mapeamento, separado do mapeamento do cargo: a pessoa faz os dois. Chamava-se Prontidão para
+Liderança até 19/09/2026 (rotas e chaves `prontidao_*` ficaram). Detalhe do desenho:
+`docs/ARQUITETURA.md` §"Mapeamento de liderança (antiga Prontidão para Liderança), módulo".
 
 ### L1. Contratar o módulo
-**Admin** · `/admin/empresas/{id}/configuracoes` → aba **Programa** → "Módulo Prontidão para Liderança" → Ligado → Salvar
+**Admin** · `/admin/empresas/{id}/configuracoes` → aba **Programa** → "Mapeamento de liderança" → Ligado → Salvar
 - Grava `sys_config.modulos.prontidao_lideranca = true`. Sem isso nada aparece para o cliente nem para os participantes.
 
 ### L2. Preparar o cargo-alvo
@@ -159,7 +160,7 @@ cenário por dia (gate do servidor, dia de Brasília). Quem ocupa o cargo-alvo r
 **Admin** · IA4 — Avaliar + Check (mesma fila; nada muda).
 
 ### L6. Ler e entregar
-**RH** · menu **Prontidão para liderança** → matriz 2×2, zona de revisão, parecer por pessoa com evidências,
+**RH** · menu **Mapeamento de liderança** → matriz 2×2, zona de revisão, parecer por pessoa com evidências,
 PDF do parecer e do consolidado. **Admin** vê o mesmo em `/admin/fit?tab=prontidao` → Prévia.
 - Quem cai na banda de incerteza não é classificado por máquina: leitura humana com as evidências.
 
