@@ -306,6 +306,35 @@
 .notice > span {
   font-size: 0.73rem;
 }
+.confirm {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--lid-warm);
+  border-radius: 10px;
+  background: #f5be690d;
+  margin-top: 16px;
+}
+.confirm h3 {
+  color: var(--lid-warm);
+}
+.confirm .actions {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+.spin {
+  animation: lid-spin 1s linear infinite;
+}
+@keyframes lid-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
 .error {
   display: flex;
   align-items: center;

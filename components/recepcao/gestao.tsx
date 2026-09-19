@@ -389,7 +389,7 @@ export default function GestaoRecepcao({
                     : g.media.toLocaleString('pt-BR', {
                         maximumFractionDigits: 2,
                       })}{' '}
-                  · cobertura {g.cobertura}%
+                  · cobertura {Math.round(g.cobertura).toLocaleString('pt-BR')}%
                 </summary>
                 <p className={styles.small}>
                   Versão {g.versao} · {g.criticas} com ocorrência crítica

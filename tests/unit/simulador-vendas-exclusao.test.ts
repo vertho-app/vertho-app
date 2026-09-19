@@ -9,6 +9,8 @@ import { excluirCadastroComBackupPace, preverExclusaoPace } from '@/lib/simulado
 const empresa = '10000000-0000-4000-8000-000000000001';
 const colaborador = '20000000-0000-4000-8000-000000000002';
 const sessao = '30000000-0000-4000-8000-000000000003';
+const sessaoAtendimento = '40000000-0000-4000-8000-000000000004';
+const jornada = '50000000-0000-4000-8000-000000000005';
 const hashA = 'a'.repeat(64);
 const hashB = 'b'.repeat(64);
 
@@ -17,6 +19,9 @@ function snapshot(hash = hashA) {
     hash,
     sessoes: 1,
     tentativas: 1,
+    atendimento: 1,
+    lideranca_jornadas: 1,
+    lideranca_encontros: 1,
     documento: {
       empresa_id: empresa,
       colaborador_id: colaborador,
@@ -24,6 +29,9 @@ function snapshot(hash = hashA) {
       colaboradores: [{ id: colaborador, empresa_id: empresa }],
       sessoes: [{ id: sessao, empresa_id: empresa, estado: { mensagens: [{ texto: 'privado' }] } }],
       tentativas: [{ empresa_id: empresa, sessao_id: sessao }],
+      recepcao_sessoes: [{ id: sessaoAtendimento, empresa_id: empresa, estado: { historico: [{ content: 'privado' }] } }],
+      lideranca_jornadas: [{ id: jornada, empresa_id: empresa, estado: { plano: 'privado' } }],
+      lideranca_episodios: [{ empresa_id: empresa, jornada_id: jornada }],
     },
   };
 }
@@ -53,7 +61,10 @@ describe('PACE: exclusão administrativa com backup privado e confirmação do s
 
   it('a prévia pública só contém recibo opaco e contagens', async () => {
     const previa = await preverExclusaoPace(empresa, { tipo: 'colaborador', id: colaborador });
-    expect(previa).toEqual({ confirmacao: hashA, sessoes: 1, tentativas: 1, backupDias: 7 });
+    expect(previa).toEqual({
+      confirmacao: hashA, sessoes: 1, tentativas: 1, backupDias: 7,
+      atendimento: 1, liderancaJornadas: 1, liderancaEncontros: 1,
+    });
     expect(JSON.stringify(previa)).not.toContain('privado');
     expect(upload).not.toHaveBeenCalled();
   });
@@ -71,6 +82,25 @@ describe('PACE: exclusão administrativa com backup privado e confirmação do s
     sb.client.rpc.mockResolvedValueOnce({ data: snapshot(hashB), error: null });
     await expect(excluirCadastroComBackupPace(empresa, { tipo: 'colaborador', id: colaborador }, hashA, 'admin@example.test'))
       .rejects.toMatchObject({ status: 409 });
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it('valida também atendimento e liderança: outro tenant ou encontro órfão reprova a prévia', async () => {
+    const outroTenant = snapshot();
+    outroTenant.documento.recepcao_sessoes[0].empresa_id = '10000000-0000-4000-8000-000000000099';
+    sb.client.rpc.mockResolvedValueOnce({ data: outroTenant, error: null });
+    await expect(preverExclusaoPace(empresa, { tipo: 'colaborador', id: colaborador }))
+      .rejects.toMatchObject({ status: 503 });
+    const orfao = snapshot();
+    orfao.documento.lideranca_episodios[0].jornada_id = '50000000-0000-4000-8000-000000000099';
+    sb.client.rpc.mockResolvedValueOnce({ data: orfao, error: null });
+    await expect(preverExclusaoPace(empresa, { tipo: 'colaborador', id: colaborador }))
+      .rejects.toMatchObject({ status: 503 });
+    const semChave = snapshot() as any;
+    delete semChave.documento.recepcao_sessoes;
+    sb.client.rpc.mockResolvedValueOnce({ data: semChave, error: null });
+    await expect(preverExclusaoPace(empresa, { tipo: 'colaborador', id: colaborador }))
+      .rejects.toMatchObject({ status: 503 });
     expect(upload).not.toHaveBeenCalled();
   });
 

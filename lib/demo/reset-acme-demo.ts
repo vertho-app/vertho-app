@@ -84,6 +84,7 @@ import {
 import type { DemoRoster } from '@/lib/demo/rosters/types';
 import { cargoSemAssessment, jornadaDoCargoConstruido } from '@/lib/demo/rosters/cargo-sem-assessment';
 import { instalarMatrizLideranca } from '@/lib/simuladores/lideranca/instalar';
+import { janelaRenovada } from '@/lib/demo/janela-simulador-vendas';
 import { VARIANTES, ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
 import type { ConfigProntidaoLideranca } from '@/lib/prontidao-lideranca/config';
 import {
@@ -1275,6 +1276,28 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     const insercao = await sb.from('banco_cenarios').insert(linhas);
     if (insercao.error) throw new Error(`insert cenários do simulador de liderança: ${insercao.error.message}`);
     return linhas.length;
+  }
+
+  /**
+   * Simulador de vendas ligado na demo não pode vencer: a janela configurada à
+   * mão venceu em 14/09/2026 e o participante do ACME ficou sem o simulador.
+   * Melhor esforço, como a conta do E2E: perder a renovação de uma noite é
+   * barato; abortar o reset e deixar a demo pela metade não é.
+   */
+  async function manterJanelaSimuladorVendas(empresaId: string) {
+    const lida = await sb.from('sim_vendas_config')
+      .select('habilitado,periodo_inicio,periodo_fim,revisao').eq('empresa_id', empresaId).maybeSingle();
+    if (lida.error) {
+      console.warn(`[reset-demo] ${profile.slug}: janela do simulador de vendas não lida: ${lida.error.message}`);
+      return;
+    }
+    const nova = janelaRenovada(lida.data, new Date());
+    if (!nova || !lida.data) return;
+    const gravada = await sb.from('sim_vendas_config')
+      .update({ ...nova, revisao: (lida.data.revisao ?? 0) + 1, updated_by: 'reset-demo', updated_at: new Date().toISOString() })
+      .eq('empresa_id', empresaId)
+      .eq('revisao', lida.data.revisao ?? 0);
+    if (gravada.error) console.warn(`[reset-demo] ${profile.slug}: janela do simulador de vendas não renovada: ${gravada.error.message}`);
   }
 
   // Seed a partir do FIXTURE congelado (arrays), não do acme vivo. Mantém o
@@ -2524,6 +2547,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     await seedUnidades(demo.id);
     await insertDemoExtraRoles(demo.id);
     const cenariosLideranca = await recomporSimuladorLideranca(demo.id, demo.sys_config, cenariosLiderancaDoBanco);
+    await manterJanelaSimuladorVendas(demo.id);
     const personaMap = await insertPersonas(demo.id);
     if (profile.convidado) {
       // Convidado real do tenant (ver DemoConvidado): conta zerada, fora da

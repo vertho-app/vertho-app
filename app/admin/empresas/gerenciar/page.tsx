@@ -234,7 +234,7 @@ export default function GerenciarPage() {
       if (!previa.success || !previa.data) { notify(t('messages.error', { error: previa.error }), 'error'); return; }
       const ok = await confirmDialog({
         title: t('confirm.deleteCollaborator', { name: nome || t('fallback.collaborator') }),
-        scopeNote: tPace('exclusionImpact', { sessions: previa.data.sessoes, attempts: previa.data.tentativas }),
+        scopeNote: tPace('exclusionImpact', { sessions: previa.data.sessoes, attempts: previa.data.tentativas, service: previa.data.atendimento, leadership: previa.data.liderancaJornadas, encounters: previa.data.liderancaEncontros }),
         message: tPace('exclusionBackup', { days: previa.data.backupDias }),
         severity: 'danger',
       });

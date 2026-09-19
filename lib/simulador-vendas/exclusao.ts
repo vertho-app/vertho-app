@@ -6,13 +6,22 @@ import { BACKUP_DIAS, exigirBucketPrivado, gravarBackupConferido, removerBackupR
 import { erroExclusao } from '@/lib/erros-exclusao';
 
 type Alvo = { tipo: 'empresa' } | { tipo: 'colaborador'; id: string };
+/**
+ * Desde a mig 262 o snapshot cobre os TRÊS simuladores: o hash da prévia, o
+ * backup e a exclusão levam também atendimento (`recepcao_*`) e liderança
+ * (`sim_lideranca_*`). As chaves do vendas não mudaram de nome.
+ */
 type Snapshot = {
   hash: string; sessoes: number; tentativas: number;
+  atendimento: number; lideranca_jornadas: number; lideranca_encontros: number;
   documento: {
     empresa_id: string; colaborador_id: string | null;
     cadastro: { id: string }; colaboradores: { id: string; empresa_id: string }[];
     sessoes: { id: string; empresa_id: string }[];
     tentativas: { empresa_id: string; sessao_id: string }[];
+    recepcao_sessoes: { id: string; empresa_id: string }[];
+    lideranca_jornadas: { id: string; empresa_id: string }[];
+    lideranca_episodios: { empresa_id: string; jornada_id: string }[];
   };
 };
 const hashSchema = z.string().regex(/^[0-9a-f]{64}$/);
@@ -32,15 +41,23 @@ async function lerSnapshot(empresaId: string, alvo: Alvo): Promise<Snapshot> {
     !Array.isArray(d.sessoes) || !Array.isArray(d.tentativas) || !Array.isArray(d.colaboradores) ||
     d.sessoes.length !== s.sessoes || d.tentativas.length !== s.tentativas ||
     d.sessoes.some((r) => r.empresa_id !== empresaId) || d.colaboradores.some((r) => r.empresa_id !== empresaId) ||
-    d.tentativas.some((r) => r.empresa_id !== empresaId || !d.sessoes.some((sessao) => sessao.id === r.sessao_id)))
+    d.tentativas.some((r) => r.empresa_id !== empresaId || !d.sessoes.some((sessao) => sessao.id === r.sessao_id)) ||
+    !Array.isArray(d.recepcao_sessoes) || !Array.isArray(d.lideranca_jornadas) || !Array.isArray(d.lideranca_episodios) ||
+    d.recepcao_sessoes.length !== s.atendimento || d.lideranca_jornadas.length !== s.lideranca_jornadas ||
+    d.lideranca_episodios.length !== s.lideranca_encontros ||
+    d.recepcao_sessoes.some((r) => r.empresa_id !== empresaId) || d.lideranca_jornadas.some((r) => r.empresa_id !== empresaId) ||
+    d.lideranca_episodios.some((r) => r.empresa_id !== empresaId || !d.lideranca_jornadas.some((j) => j.id === r.jornada_id)))
     throw new SimuladorError(503, 'Não foi possível validar o escopo da exclusão. Nenhum cadastro foi excluído.');
   return s;
 }
 
 /** Única representação que pode ir ao navegador; nunca devolve o snapshot. */
 export async function preverExclusaoPace(empresaId: string, alvo: Alvo) {
-  const { hash, sessoes, tentativas } = await lerSnapshot(empresaId, alvo);
-  return { confirmacao: hash, sessoes, tentativas, backupDias: BACKUP_DIAS };
+  const { hash, sessoes, tentativas, atendimento, lideranca_jornadas, lideranca_encontros } = await lerSnapshot(empresaId, alvo);
+  return {
+    confirmacao: hash, sessoes, tentativas, backupDias: BACKUP_DIAS,
+    atendimento, liderancaJornadas: lideranca_jornadas, liderancaEncontros: lideranca_encontros,
+  };
 }
 
 /** Núcleo headless. As actions/rotas autenticam e autorizam o alvo ANTES de chamar. */

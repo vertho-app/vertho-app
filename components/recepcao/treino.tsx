@@ -69,10 +69,11 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
 
   async function api(url: string, init?: RequestInit) {
     const res = await fetchAuth(url, { ...init, cache: 'no-store' });
-    const body = await res.json();
-    if (!res.ok)
+    // 504 do gateway chega como HTML: sem o catch, a pessoa lia "Unexpected token".
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body)
       throw new Error(
-        body.error || 'Não foi possível concluir. Tente novamente.',
+        body?.error || 'Não foi possível concluir. Tente novamente.',
       );
     return body;
   }
@@ -88,14 +89,25 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     if (ticket !== generation.current) return;
     setDados(d);
     setSessao(d.sessao);
+    // Ao abrir um atendimento do histórico, o seletor passa para a versão
+    // publicada do MESMO caso: "Praticar novamente" repete o que está na tela.
+    // Até 18/09 ele iniciava o caso que estivesse no seletor, outro qualquer.
+    const doCaso =
+      sessaoId && d.sessao
+        ? d.cenarios?.find(
+            (c: any) => c.ficha.cenarioId === d.sessao.cenario?.cenarioId,
+          )
+        : null;
     // Mantém a escolha da pessoa; sem escolha, abre no degrau sugerido pelo histórico dela.
     setCenarioId((old) =>
-      d.cenarios?.some((c) => c.id === old)
-        ? old
-        : (
-            d.cenarios?.find((c) => c.ficha.nivel === d.nivelSugerido) ||
-            d.cenarios?.[0]
-          )?.id || '',
+      doCaso
+        ? doCaso.id
+        : d.cenarios?.some((c) => c.id === old)
+          ? old
+          : (
+              d.cenarios?.find((c) => c.ficha.nivel === d.nivelSugerido) ||
+              d.cenarios?.[0]
+            )?.id || '',
     );
   }
   useEffect(() => {
@@ -736,7 +748,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                           })}
                     </strong>
                     <span>
-                      de 4 · cobertura {relatorio.coberturaPercentual}%
+                      de 4 · cobertura{' '}
+                      {Math.round(relatorio.coberturaPercentual).toLocaleString('pt-BR')}%
                     </span>
                   </div>
                 </header>

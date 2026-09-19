@@ -3,13 +3,7 @@ import { useTranslations } from 'next-intl';
 import { COMPETENCIAS_PACE } from '@/lib/simulador-vendas/matriz';
 import { consolidarMatriz, type AvaliacaoMatriz } from '@/lib/simulador-vendas/matriz-avaliacao';
 
-export default function MatrizPace({
-  matriz,
-  documental = false,
-}: {
-  matriz: AvaliacaoMatriz;
-  documental?: boolean;
-}) {
+export default function MatrizPace({ matriz }: { matriz: AvaliacaoMatriz }) {
   const t = useTranslations('SimuladorVendas');
   const resultados = consolidarMatriz(matriz);
   return (
@@ -81,9 +75,10 @@ export default function MatrizPace({
           );
         })}
       </div>
-      <p className="text-xs text-slate-400 mt-4">
-        {t(documental ? 'documentScoreHelp' : 'matrixScoreHelp')}
-      </p>
+      {/* A explicação da escala fica no topo do relatório (`matrixScaleHelp`).
+          O parágrafo que morava aqui descrevia a projeção 0 a 10 ("× 2,5") e
+          contradizia a tela desde 17/09: a leitura pública converte TODA
+          versão para 1 a 4 (`relatorioPacePublico`). */}
     </section>
   );
 }

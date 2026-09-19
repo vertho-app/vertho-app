@@ -107,7 +107,8 @@ try {
   for (const nota of notasMaximas) await nota.check();
   await page.getByRole('button', { name: 'Enviar avaliação e abrir devolutiva', exact: true }).click();
   await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).waitFor();
-  assert.equal(await page.locator('meter').first().getAttribute('min'), '0');
+  // Escala comum 1 a 4 desde 17/09 (pace-6); a leitura pública converte toda versão.
+  assert.equal(await page.locator('meter').first().getAttribute('min'), '1');
   await page.screenshot({ path: `${dir}/relatorio-desktop.png`, fullPage: true });
   checks += 2;
   await page.goto(`${origin}/?active=1&completed=1&rated=1&zero=1`);
@@ -115,13 +116,8 @@ try {
     has: page.getByRole('heading', { name: 'Engajamento', exact: true }),
   });
   await engajamentoZero.getByText('—', { exact: true }).waitFor();
-  assert.equal(await engajamentoZero.locator('meter').getAttribute('min'), '0');
-  assert.equal(await engajamentoZero.locator('meter').getAttribute('value'), '0');
-  await page
-    .getByText('— indica ausência de evidência naquele pilar e equivale a zero no cálculo da média.', {
-      exact: true,
-    })
-    .waitFor();
+  // Sem evidência não há nota: o pilar mostra "—" e nenhum medidor (a escala 1 a 4 não tem zero).
+  assert.equal(await engajamentoZero.locator('meter').count(), 0);
   await page.screenshot({ path: `${dir}/relatorio-nota-zero-desktop.png`, fullPage: true });
   checks++;
   await page.goto(`${origin}/?active=1&processing=1`);
@@ -136,7 +132,7 @@ try {
   await page.goto(`${origin}/?history=1`);
   await expect(page.getByRole('button', { name: 'Nova simulação', exact: true })).toBeEnabled();
   await page.getByText('Dificuldade: Baixo', { exact: true }).first().waitFor();
-  await page.getByText('Nota PACE 6,5', { exact: true }).first().waitFor();
+  await page.getByText('Nota PACE 2,95', { exact: true }).first().waitFor();
   await page.screenshot({ path: `${dir}/historico-dificuldade-nota-desktop.png`, fullPage: true });
   await page.getByRole('button', { name: 'Carregar mais', exact: true }).click();
   await page.getByRole('button', { name: /Cliente 31/ }).click();

@@ -1278,7 +1278,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                         const ok = await confirmDialog({
                           title: t('danger.deleteCompany'),
                           message: <><p>{t('danger.confirmDeleteCompany', { name: empresa.nome })}</p><p>{tPace('exclusionBackup', { days: previa.data.backupDias })}</p></>,
-                          scopeNote: tPace('exclusionImpact', { sessions: previa.data.sessoes, attempts: previa.data.tentativas }),
+                          scopeNote: tPace('exclusionImpact', { sessions: previa.data.sessoes, attempts: previa.data.tentativas, service: previa.data.atendimento, leadership: previa.data.liderancaJornadas, encounters: previa.data.liderancaEncontros }),
                           severity: 'critical',
                           typedConfirmation: empresa.nome,
                         });

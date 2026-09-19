@@ -18,7 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { aggregateAdequacao, type PessoaAdequacao } from '@/lib/adequacao-cargo/aggregate';
 import { isInternalEmail } from '@/lib/internal-emails';
 import { resolverEscopoDeLote } from '@/lib/turmas/escopo';
-import { chaveCompetencia, type ConfigProntidaoLideranca, type CargoParaValidacao } from './config';
+import { chaveCompetencia, competenciasDoPrograma, type ConfigProntidaoLideranca, type CargoParaValidacao } from './config';
 import { calcularPosicoes, DESCRITORES_MIN_CONFIAVEL, type NotaDescritor, type PosicaoPessoa } from './posicao';
 import { lerEstilo, type EstiloPessoa, type Faixas } from './estilo';
 import { montarLinha, ordenarLinhas, contarPorQuadrante, type LinhaMatriz, type Quadrante } from './matriz';
@@ -160,9 +160,13 @@ export async function agregarProntidaoLideranca(
   const apenas = opts.apenasIds ? new Set(opts.apenasIds) : null;
   const populacao = apenas ? populacaoToda.filter((p) => apenas.has(p.id)) : populacaoToda;
   const alvo = cargos.find((c) => chaveCompetencia(c.nome) === chaveCompetencia(cfg.cargo_alvo)) || null;
-  const competencias = alvo?.top5 || [];
+  // O instrumento é a matriz GLOBAL do programa (a mesma que o trilho de
+  // liderança aplica, `trilho.ts`), não o Top 5 do cargo-alvo. Até 18/09 este
+  // ponto lia `alvo.top5`: nos dois tenants com o módulo ligado o Top 5 do
+  // cargo-alvo estava vazio, e o painel diria "não há o que medir" mesmo com
+  // todos respondendo. O cargo-alvo segue decidindo só o eixo de estilo.
+  const competencias = competenciasDoPrograma(cfg, cargos);
   if (!alvo) avisos.push(`Cargo-alvo "${cfg.cargo_alvo}" não existe mais em cargos_empresa.`);
-  else if (!competencias.length) avisos.push(`Cargo-alvo "${alvo.nome}" está sem Top 5, não há o que medir.`);
 
   const ids = populacao.map((p) => p.id);
   const [notas, auditoria] = await Promise.all([

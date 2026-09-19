@@ -29,6 +29,12 @@ const pessoaAdeq = (id: string, pct: number, extra: Partial<any> = {}) => ({
 const nota = (colaboradorId: string, competencia: string, descritor: string, nota: number) => ({ colaborador_id: colaboradorId, competencia, descritor, nota });
 
 vi.mock('@/lib/adequacao-cargo/aggregate', () => ({ aggregateAdequacao: vi.fn(async () => cenario.adequacao) }));
+// O instrumento é a matriz do PROGRAMA (global), não o Top 5 do cargo-alvo.
+// Aqui ela é reduzida a duas competências para o cenário caber no teste.
+vi.mock('@/lib/prontidao-lideranca/config', async (original) => ({
+  ...(await original<typeof import('@/lib/prontidao-lideranca/config')>()),
+  competenciasDoPrograma: vi.fn(() => [...LID]),
+}));
 
 import { agregarProntidaoLideranca, carregarParecer } from '@/lib/prontidao-lideranca/agregar';
 import { aggregateAdequacao } from '@/lib/adequacao-cargo/aggregate';
@@ -85,6 +91,16 @@ describe('agregarProntidaoLideranca', () => {
     expect(r.faixas).toEqual({ recomendadoMin: 86.5, ressalvasMin: 75.4 });
     // o pool do fit é o conjunto de cargos da população, não da empresa inteira
     expect(vi.mocked(aggregateAdequacao).mock.calls[0][3]).toEqual({ poolCargos: ['Vendedor', 'SDR'] });
+  });
+
+  it('cargo-alvo com Top 5 VAZIO continua medindo pela matriz do programa', async () => {
+    // Estado real de 18/09 nos dois tenants com o módulo: Top 5 do cargo-alvo vazio.
+    // Até então o painel lia `alvo.top5` e diria "não há o que medir".
+    cenario.cargoAlvo = { nome: 'Gerente', gabarito: { tela4: {} }, top5_workshop: [] };
+    const r = await agregarProntidaoLideranca(mock().client, 'emp', cfg);
+    expect(r.competencias).toEqual(LID);
+    expect(r.linhas.map((l) => l.nome)).toEqual(['Ana', 'Bia']);
+    expect(r.avisos.join(' ')).not.toMatch(/Top 5/);
   });
 
   it('marca auditoria pendente na linha; gaps saem ancorados', async () => {

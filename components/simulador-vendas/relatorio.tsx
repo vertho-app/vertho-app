@@ -66,7 +66,7 @@ export default function Relatorio({
           </article>
         ))}
       </div>
-      {r.Matriz && <MatrizPace matriz={r.Matriz} documental={documental} />}
+      {r.Matriz && <MatrizPace matriz={r.Matriz} />}
       <h3 className="font-semibold mt-6 mb-2">{t('recommendations')}</h3>
       <ol className="space-y-3 list-decimal pl-5">
         {r.Recomendacoes.map((item, i) => (

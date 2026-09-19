@@ -14,6 +14,7 @@ import {
   type Comando,
 } from '@/lib/simulador-lideranca/schema';
 import { DOSSIÊS } from '@/lib/simulador-lideranca/prompts';
+import { linhasDaVariante } from '@/lib/simuladores/lideranca/matriz-global';
 import {
   estado,
   episodio,
@@ -116,6 +117,33 @@ describe('jornada interativa de liderança', () => {
     );
     expect(proximo.estado.ativo?.indice).toBe(3);
   });
+  it('desistir só vale para REPETIÇÃO, sem chamada paga e sem mexer na jornada original', async () => {
+    const s = estado();
+    s.concluidos = [0, 1].map((i) => ({
+      ...episodio(i),
+      encerradoEm: '2026-09-17T12:30:00Z',
+      avaliacao: avaliacao(),
+      consequencia: { narrativa: `efeito ${i}`, acordos: [], pendencias: [] },
+    }));
+    s.ativo = { ...episodio(0), repeticao: true };
+    const gerar = vi.fn(gerarFixture);
+    const r = await executarCore(
+      s,
+      cmd('abandonar'),
+      gerar as unknown as typeof gerarFixture,
+      DOSSIÊS,
+    );
+    expect(r.estado.ativo).toBeNull();
+    expect(r.arquivo).toBeNull();
+    expect(r.estado.concluidos).toEqual(s.concluidos);
+    expect(gerar).not.toHaveBeenCalled();
+    // A jornada original não tem volta: o encontro aberto dela não pode ser descartado.
+    const original = estado();
+    original.ativo = episodio(0);
+    await expect(
+      executarCore(original, cmd('abandonar'), gerarFixture, DOSSIÊS),
+    ).rejects.toThrow('repetição');
+  });
   it('não abre encontro futuro nem sobrescreve encontro em andamento', async () => {
     const s = estado();
     await expect(
@@ -199,6 +227,25 @@ describe('avaliação ancorada na matriz', () => {
       total: 6,
     });
     expect(resumo[1]).toMatchObject({ nota: null, nivel: null, observados: 0 });
+  });
+  it('futuro líder: a devolutiva casa a competência pelo NOME (a matriz dele usa FL0x)', () => {
+    // Até 18/09 o casamento era pelo código LD0x e o futuro líder via "0 de 0" nas cinco.
+    const matriz = linhasDaVariante('futuro');
+    const a = avaliacao();
+    a.descritores = matriz.map((d, i) => ({
+      ...a.descritores[i],
+      codigo: d.cod_desc,
+    }));
+    const resumo = resumoAvaliacao(a, matriz);
+    expect(resumo.map((c) => c.codigo)).toEqual([
+      'FL01',
+      'FL02',
+      'FL03',
+      'FL04',
+      'FL05',
+    ]);
+    expect(resumo.every((c) => c.total === 6)).toBe(true);
+    expect(resumo[0]).toMatchObject({ nota: 3, nivel: 3, observados: 1 });
   });
   it.each([
     'codigo',

@@ -97,6 +97,8 @@ export const comandoSchema = z.discriminatedUnion('acao', [
       episodio: z.number().int().min(0).max(4),
     })
     .strict(),
+  // Desistir só existe para REPETIÇÃO: a jornada original não tem volta, por desenho.
+  z.object({ ...base, acao: z.literal('abandonar') }).strict(),
   z
     .object({
       ...base,

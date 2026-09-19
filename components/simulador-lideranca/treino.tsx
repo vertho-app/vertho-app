@@ -21,7 +21,11 @@ import { resumoAvaliacao } from '@/lib/simulador-lideranca/core';
 import Ditado from '@/components/simulador-vendas/ditado';
 import styles from './treino.module.css';
 
-async function api(url: string, body?: unknown): Promise<Dados> {
+async function api(
+  url: string,
+  body: unknown,
+  falhaGenerica: string,
+): Promise<Dados> {
   const res = await fetchAuth(
     url,
     body
@@ -32,12 +36,13 @@ async function api(url: string, body?: unknown): Promise<Dados> {
         }
       : { cache: 'no-store' },
   );
-  const data = await res.json();
-  if (!res.ok)
-    throw Object.assign(
-      new Error(data.error || 'Não foi possível recuperar o encontro.'),
-      { status: res.status },
-    );
+  // Um 504 do gateway chega como HTML: ler JSON antes de olhar o status punha
+  // "Unexpected token" na tela, justamente no caso para o qual a retomada existe.
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data)
+    throw Object.assign(new Error(data?.error || falhaGenerica), {
+      status: res.status,
+    });
   return data;
 }
 type Acao = Comando['acao'];
@@ -58,6 +63,9 @@ export default function TreinoLideranca({
     [texto, setTexto] = useState(''),
     [reflexao, setReflexao] = useState('');
   const [refletindo, setRefletindo] = useState(false);
+  const [confirmar, setConfirmar] = useState<'repetir' | 'abandonar' | null>(
+    null,
+  );
   const pending = useRef<{ key: string; body: unknown } | null>(null),
     running = useRef(false),
     generation = useRef(0),
@@ -72,6 +80,8 @@ export default function TreinoLideranca({
       try {
         const d = await api(
           `${url}${url.includes('?') ? '&' : '?'}pagina=${pagina}${id ? `&episodioId=${id}` : ''}`,
+          undefined,
+          t('genericError'),
         );
         if (gen === generation.current && seq === reads.current) setDados(d);
       } catch (e) {
@@ -82,7 +92,7 @@ export default function TreinoLideranca({
           setLoading(false);
       }
     },
-    [url],
+    [url, t],
   );
   useEffect(() => {
     generation.current++;
@@ -157,7 +167,7 @@ export default function TreinoLideranca({
         body: { ...payload, requestId: crypto.randomUUID() },
       };
     try {
-      const d = await api(url, pending.current.body);
+      const d = await api(url, pending.current.body, t('genericError'));
       if (gen !== generation.current) return;
       setDados(d);
       pending.current = null;
@@ -165,6 +175,7 @@ export default function TreinoLideranca({
       setReflexao('');
       setPlano('');
       setRefletindo(false);
+      setConfirmar(null);
     } catch (e) {
       if (gen === generation.current) {
         if ((e as Error & { status?: number }).status === 409)
@@ -226,7 +237,7 @@ export default function TreinoLideranca({
           )}
           {loading ? (
             <p className={styles.loading} role="status">
-              <Loader2 size={20} />
+              <Loader2 size={20} className={styles.spin} aria-hidden />
               {t('loading')}
             </p>
           ) : (
@@ -283,7 +294,7 @@ export default function TreinoLideranca({
                 </ol>
                 {(busy || processando) && (
                   <p className={styles.notice} role="status">
-                    <Loader2 size={17} />
+                    <Loader2 size={17} className={styles.spin} aria-hidden />
                     {t('processing')}
                     {processando && (
                       <span>
@@ -334,6 +345,42 @@ export default function TreinoLideranca({
                         {ep.repeticao && (
                           <p className={styles.notice}>{t('replayNotice')}</p>
                         )}
+                        {vivo &&
+                          ep.repeticao &&
+                          (confirmar === 'abandonar' ? (
+                            <div
+                              className={styles.confirm}
+                              role="alertdialog"
+                              aria-labelledby="lid-abandonar"
+                            >
+                              <p id="lid-abandonar">{t('abandonReplayHint')}</p>
+                              <div className={styles.actions}>
+                                <button
+                                  type="button"
+                                  disabled={bloqueado}
+                                  onClick={() => setConfirmar(null)}
+                                >
+                                  {t('cancel')}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.primary}
+                                  disabled={bloqueado}
+                                  onClick={() => void enviar('abandonar')}
+                                >
+                                  {t('confirmAbandon')}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={bloqueado}
+                              onClick={() => setConfirmar('abandonar')}
+                            >
+                              {t('abandonReplay')}
+                            </button>
+                          ))}
                         {ep.plano && (
                           <details>
                             <summary>{t('yourPlan')}</summary>
@@ -620,7 +667,7 @@ export default function TreinoLideranca({
                                 <details
                                   className={styles.competency}
                                   key={c.codigo}
-                                  open={c.codigo === info.competencia}
+                                  open={c.nome === info.nome}
                                 >
                                   <summary>
                                     <span>
@@ -718,10 +765,41 @@ export default function TreinoLideranca({
                             <summary>{t('yourReflection')}</summary>
                             <p className={styles.pre}>{ep.reflexao}</p>
                           </details>
+                          {confirmar === 'repetir' && (
+                            <div
+                              className={styles.confirm}
+                              role="alertdialog"
+                              aria-labelledby="lid-repetir"
+                            >
+                              <h3 id="lid-repetir">
+                                {t('repeatConfirmTitle')}
+                              </h3>
+                              <p>{t('repeatConfirmHint')}</p>
+                              <div className={styles.actions}>
+                                <button
+                                  type="button"
+                                  disabled={bloqueado}
+                                  onClick={() => setConfirmar(null)}
+                                >
+                                  {t('cancel')}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.primary}
+                                  disabled={bloqueado || !!jornada.ativo}
+                                  onClick={() =>
+                                    void enviar('repetir', ep.indice)
+                                  }
+                                >
+                                  {t('confirmRepeat')}
+                                </button>
+                              </div>
+                            </div>
+                          )}
                           <div className={styles.actions}>
                             <button
                               disabled={bloqueado || !!jornada.ativo}
-                              onClick={() => void enviar('repetir', ep.indice)}
+                              onClick={() => setConfirmar('repetir')}
                             >
                               <RotateCcw size={16} />
                               {t('repeat')}

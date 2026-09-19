@@ -1,4 +1,5 @@
 // Harness dos componentes reais; só navegação/API são substituídas pelo bundler.
+import { notaPacePublica } from '../../lib/simulador-vendas/escala';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { NextIntlClientProvider } from 'next-intl';
@@ -110,7 +111,8 @@ const resumo = (s: Estado) => ({
   nivel: s.nivel,
   nome: 'Beatriz',
   nomeVendedor: s.nomeVendedor,
-  nota: s.feedback ? (s.relatorio?.Media ?? null) : null,
+  // Mesma projeção do serviço (`historico.ts`): a nota pública é sempre 1 a 4.
+  nota: s.feedback ? notaPacePublica(s.relatorio?.Media ?? null, s.versaoRegua) : null,
   temRelatorio: !!s.relatorio && !!s.feedback,
   versaoRegua: REGUA_VERSION,
   testeAdmin: admin,
@@ -121,7 +123,7 @@ const historicoExtra = params.has('history')
       id: `30000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
       nome: `Cliente ${i + 1}`,
       status: 'concluida',
-      nota: 6.5,
+      nota: notaPacePublica(6.5, 'pace-3'),
       temRelatorio: true,
     }))
   : [];

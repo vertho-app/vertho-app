@@ -55,11 +55,19 @@ export function validarConsequencia(c: Consequencia, e: Episodio) {
       throw new Error('Acordo sem fala que o sustente');
   }
 }
+/**
+ * Código da competência NA MATRIZ DA JORNADA. As duas variantes têm os mesmos
+ * nomes e códigos diferentes (LD0x para quem lidera, FL0x para futuro líder),
+ * então o encontro se casa pelo nome. Até 18/09 o casamento era por `LD0x`, e o
+ * futuro líder (a maior parte do público) recebia "0 de 0" nas cinco.
+ */
+export function codigoCompetencia(matriz: LinhaMatriz[], nome: string) {
+  return matriz.find((d) => d.nome === nome)?.cod_comp ?? null;
+}
 export function resumoAvaliacao(a: Avaliacao, matriz: LinhaMatriz[]) {
   return EPISODIOS.map((c) => {
-    const codigos = matriz
-      .filter((d) => d.cod_comp === c.competencia)
-      .map((d) => d.cod_desc);
+    const linhas = matriz.filter((d) => d.nome === c.nome);
+    const codigos = linhas.map((d) => d.cod_desc);
     const observados = a.descritores.filter(
       (d) => codigos.includes(d.codigo) && d.nivel !== null,
     );
@@ -67,7 +75,7 @@ export function resumoAvaliacao(a: Avaliacao, matriz: LinhaMatriz[]) {
       ? observados.reduce((s, d) => s + d.nivel!, 0) / observados.length
       : null;
     return {
-      codigo: c.competencia,
+      codigo: linhas[0]?.cod_comp ?? c.competencia,
       nome: c.nome,
       nota,
       nivel: nota === null ? null : nivelDaNota(nota),
@@ -167,7 +175,15 @@ export async function executarCore(
     if (!ativo)
       throw new LiderancaError(409, 'Abra um encontro para continuar.');
     const turnos = ativo.mensagens.filter((m) => m.autor === 'lider').length;
-    if (cmd.acao === 'planejar') {
+    if (cmd.acao === 'abandonar') {
+      if (!ativo.repeticao)
+        throw new LiderancaError(
+          409,
+          'Só é possível desistir de uma repetição. O encontro da jornada original segue aberto.',
+        );
+      // Sem arquivo e sem chamada paga: a repetição some e a jornada original fica intacta.
+      s.ativo = null;
+    } else if (cmd.acao === 'planejar') {
       if (ativo.plano !== null)
         throw new LiderancaError(409, 'A preparação já foi registrada.');
       ativo.plano = cmd.texto;
@@ -212,7 +228,9 @@ export async function executarCore(
         ativo.avaliacao = await gerar(
           'avaliador',
           {
-            competenciaFoco: EPISODIOS[ativo.indice].competencia,
+            competenciaFoco:
+              codigoCompetencia(s.matriz, EPISODIOS[ativo.indice].nome) ??
+              EPISODIOS[ativo.indice].competencia,
             matriz: s.matriz,
             planejamento: ativo.plano,
             mensagens: ativo.mensagens,
