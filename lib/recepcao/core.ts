@@ -153,6 +153,8 @@ export function fichaPublica(c: Cenario) {
     nomePaciente: c.paciente.nome,
     limiteRespostas: c.limiteRespostas,
     competencias: c.rubrica.map((d) => ({ id: d.id, nome: d.nome || d.id })),
+    // Segmento do caso: a tela nomeia o segmento e monta a régua da matriz dele.
+    dominio: c.dominio,
     versao: c.versao,
     rubricaVersao: c.rubricaVersao,
     cenarioId: c.id,

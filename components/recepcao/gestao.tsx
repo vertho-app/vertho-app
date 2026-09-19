@@ -554,7 +554,13 @@ export default function GestaoRecepcao({
                 <div>
                   <h3>Avaliação da IA · notas de 1 a 4</h3>
                   {detalhe.sessao.relatorio?.competencias && (
-                    <MatrizAtendimento relatorio={detalhe.sessao.relatorio} />
+                    <MatrizAtendimento
+                      relatorio={detalhe.sessao.relatorio}
+                      historico={hist}
+                      nomePersona={nome}
+                      dominio={detalhe.sessao.cenario.dominio}
+                      publico="equipe"
+                    />
                   )}
                   {!detalhe.sessao.relatorio?.competencias && (detalhe.sessao.relatorio?.dimensoes.map((d) => (
                     <article key={d.id}>

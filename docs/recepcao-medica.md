@@ -195,3 +195,13 @@ Os 60 casos do Catálogo Vertho continuam sendo conteúdo do segmento médico, n
 | remarcacao-02 | mediana | 117 s | 2,18 | 6/6, procedimentos 5/6 | nenhum |
 
 Leituras. (1) Até 17/09 esse avaliador **nunca tinha rodado em produção** (0 linhas `recepcao-avaliador-3.0` em `recepcao_tentativas`), e o teto de 100 s por tentativa teria derrubado 3 das 4 avaliações: os 15 casos publicados com matriz falhariam no primeiro uso real. (2) Uma das quatro avaliações teria sido recusada inteira por uma citação; com a tolerância, só o descritor caiu. (3) A regra de 4 descritores não é estrita demais para o atendimento: o avaliador observou 5 ou 6 por competência. (4) Exemplar e mediana se separam (3,0 contra 2,2). O que isto NÃO prova: ruído do avaliador (uma avaliação por conversa) nem calibração com pessoas reais.
+
+### Tela de quem treina: quatro idiomas, relatório comum e celular (18/09/2026)
+
+- **Textos** no namespace `SimuladorAtendimento` (pt-BR, pt-PT, en-US, es-ES). A tela não fala mais de clínica, paciente nem secretária: o cabeçalho nomeia o segmento do caso (`ficha.dominio`, exposto por `fichaPublica`) e a pessoa simulada é chamada pelo nome ("Escreva como você falaria com Marina…"). O conteúdo dos casos segue no idioma em que foi escrito. Editor de casos e biblioteca de competências seguem em português: são ferramentas internas da Vertho.
+- **Relatório por competência** no componente comum aos três simuladores (`components/simuladores/relatorio-competencias.tsx`, tema claro), pelo adaptador `components/recepcao/relatorio-matriz.ts`: nível por extenso, regra de cobertura em palavras, descritor descartado sinalizado, citações rotuladas pela posição ("Sua 1ª resposta", "2ª fala de Marina") e régua dos 4 níveis tirada da matriz do segmento. Relatórios sem matriz mantêm os cartões por dimensão. A revisão da equipe usa o mesmo componente, em terceira pessoa.
+- **Sem versão para quem treina**: o seletor mostra só o título do caso (a versão aparece para administradores).
+- **Celular**: com conversa em curso, a conversa vem antes da ficha, e "Ver ficha" leva a ela.
+- A fala de abertura podia acumular dezenas de selos de "oportunidade" com 30 descritores: a conversa mostra cinco e o resto fica no relatório.
+
+Verificação: `node scripts/verify-recepcao-ui.mjs` (componentes, CSS e núcleo reais, API fictícia; início, conversa, devolutiva com cobertura insuficiente e descritor descartado, outro segmento, celular e quatro idiomas). O antigo `recepcao-ui.test.ts` depende de uma página de prévia local e continua opcional.

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   CalendarDays,
   ClipboardList,
@@ -15,16 +16,14 @@ import {
 } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { RECEPCAO_SESSAO } from '@/lib/status';
-import {
-  NIVEIS,
-  rotuloNivel,
-  rotuloClassificacao,
-} from '@/lib/recepcao/schema';
+import { NIVEIS, rotuloClassificacao } from '@/lib/recepcao/schema';
+import { DOMINIO_PADRAO, dominioExiste } from '@/lib/recepcao/dominio';
 import { humanizarReferencias } from '@/lib/recepcao/texto';
 import styles from './treino.module.css';
 import MatrizAtendimento from './matriz-relatorio';
 import GestaoRecepcao from './gestao';
 import VozRecepcao from './voz';
+import { posicaoNaConversa } from './relatorio-matriz';
 
 // Fallback para relatórios anteriores à versão 1.0, que não gravavam `nome` na dimensão.
 const nomes: Record<string, string> = {
@@ -35,15 +34,18 @@ const nomes: Record<string, string> = {
   procedimentos: 'Procedimentos',
   conducao_conflito: 'Condução sob pressão',
 };
-const resultados: Record<string, string> = {
-  remarcado: 'Consulta remarcada',
-  encaminhado: 'Encaminhamento combinado',
-  orientado: 'Orientação compreendida',
-  nao_resolvido: 'Demanda não resolvida',
-  inconclusivo: 'Resultado inconclusivo',
-};
+const DESFECHOS_CONHECIDOS = ['remarcado', 'encaminhado', 'orientado', 'nao_resolvido', 'inconclusivo'];
 
+/**
+ * Simulador de atendimento, visão de quem treina. Desde 18/09/2026 a tela não
+ * fala de clínica, paciente nem secretária: o segmento vem do caso
+ * (`lib/recepcao/dominio.ts`) e a pessoa simulada é chamada pelo nome. Textos
+ * nos quatro idiomas (`SimuladorAtendimento`); o conteúdo dos casos segue no
+ * idioma em que foi escrito.
+ */
 export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
+  const t = useTranslations('SimuladorAtendimento');
+  const locale = useLocale();
   const searchParams = useSearchParams();
   const empresaNaUrl = searchParams.get('empresa');
   const [empresas, setEmpresas] = useState<any[]>([]),
@@ -56,9 +58,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     [input, setInput] = useState('');
   const [podeConfigurar, setPodeConfigurar] = useState(false);
   const [confirmarFim, setConfirmarFim] = useState(false);
-  const [aba, setAba] = useState<
-    'treino' | 'equipe' | 'cenarios' | 'competencias'
-  >('treino');
+  const [aba, setAba] = useState<'treino' | 'equipe' | 'cenarios' | 'competencias'>('treino');
   const [cenarioId, setCenarioId] = useState('');
   const [vozOcupada, setVozOcupada] = useState(false);
   const pending = useRef<{ id: string; texto: string } | null>(null);
@@ -66,22 +66,16 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     running = useRef(false),
     generation = useRef(0);
   const fim = useRef<HTMLDivElement>(null);
+  const numero = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
 
   async function api(url: string, init?: RequestInit) {
     const res = await fetchAuth(url, { ...init, cache: 'no-store' });
     // 504 do gateway chega como HTML: sem o catch, a pessoa lia "Unexpected token".
     const body = await res.json().catch(() => null);
-    if (!res.ok || !body)
-      throw new Error(
-        body?.error || 'Não foi possível concluir. Tente novamente.',
-      );
+    if (!res.ok || !body) throw new Error(body?.error || t('genericError'));
     return body;
   }
-  async function carregar(
-    id = empresaId,
-    sessaoId?: string,
-    ticket = generation.current,
-  ) {
+  async function carregar(id = empresaId, sessaoId?: string, ticket = generation.current) {
     const q = new URLSearchParams();
     if (admin && id) q.set('empresaId', id);
     if (sessaoId) q.set('sessaoId', sessaoId);
@@ -91,23 +85,17 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     setSessao(d.sessao);
     // Ao abrir um atendimento do histórico, o seletor passa para a versão
     // publicada do MESMO caso: "Praticar novamente" repete o que está na tela.
-    // Até 18/09 ele iniciava o caso que estivesse no seletor, outro qualquer.
     const doCaso =
       sessaoId && d.sessao
-        ? d.cenarios?.find(
-            (c: any) => c.ficha.cenarioId === d.sessao.cenario?.cenarioId,
-          )
+        ? d.cenarios?.find((c: any) => c.ficha.cenarioId === d.sessao.cenario?.cenarioId)
         : null;
     // Mantém a escolha da pessoa; sem escolha, abre no degrau sugerido pelo histórico dela.
     setCenarioId((old) =>
       doCaso
         ? doCaso.id
-        : d.cenarios?.some((c) => c.id === old)
+        : d.cenarios?.some((c: any) => c.id === old)
           ? old
-          : (
-              d.cenarios?.find((c) => c.ficha.nivel === d.nivelSugerido) ||
-              d.cenarios?.[0]
-            )?.id || '',
+          : (d.cenarios?.find((c: any) => c.ficha.nivel === d.nivelSugerido) || d.cenarios?.[0])?.id || '',
     );
   }
   useEffect(() => {
@@ -132,8 +120,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     };
   }, [admin]);
   useEffect(() => {
-    if (admin && empresaNaUrl && empresas.some((e) => e.id === empresaNaUrl))
-      setEmpresaId(empresaNaUrl);
+    if (admin && empresaNaUrl && empresas.some((e) => e.id === empresaNaUrl)) setEmpresaId(empresaNaUrl);
   }, [admin, empresaNaUrl, empresas]);
   // Gestor e RH acompanham a equipe e não treinam (17/09/2026): a tela abre na aba da equipe.
   const soAcompanha = !admin && dados?.soAcompanha === true;
@@ -184,8 +171,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       body.revisao = sessao.revisao;
     }
     if (acao === 'responder') {
-      if (!pending.current || pending.current.texto !== texto)
-        pending.current = { id: crypto.randomUUID(), texto };
+      if (!pending.current || pending.current.texto !== texto) pending.current = { id: crypto.randomUUID(), texto };
       Object.assign(body, { requestId: pending.current.id, mensagem: texto });
     }
     try {
@@ -211,8 +197,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       if (ticket === generation.current) {
         setErro(e.message);
         // Recupera envio que pode ter sido confirmado após a conexão cair. ID pendente é preservado.
-        if (sessao?.id)
-          await carregar(empresaId, sessao.id, ticket).catch(() => {});
+        if (sessao?.id) await carregar(empresaId, sessao.id, ticket).catch(() => {});
       }
     } finally {
       running.current = false;
@@ -257,59 +242,49 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       setOcupado('');
     }
   }
-  const ficha =
-    sessao?.cenario ||
-    dados?.cenarios?.find((c) => c.id === cenarioId)?.ficha ||
-    dados?.ficha;
-  const nomePaciente = ficha?.nomePaciente || 'Paciente';
+  const ficha = sessao?.cenario || dados?.cenarios?.find((c: any) => c.id === cenarioId)?.ficha || dados?.ficha;
+  const nomePersona = ficha?.nomePaciente || t('personFallback');
+  const dominio = dominioExiste(ficha?.dominio) ? ficha.dominio : DOMINIO_PADRAO;
   const relatorio = sessao?.relatorio;
+  const nivelRotulo = (n?: string | null) => (n && (NIVEIS as readonly string[]).includes(n) ? t(`level_${n}`) : null);
   // As oportunidades vêm validadas pelo servidor (mensagem existente, trecho literal).
   // Ancorá-las na conversa mostra ONDE estava o momento, não só o que faltou.
-  const momentos = new Map<
-    string,
-    Array<{ nome: string; classificacao: string }>
-  >();
+  const momentos = new Map<string, Array<{ nome: string; classificacao: string }>>();
   for (const d of relatorio?.dimensoes || [])
     for (const o of d.oportunidades || [])
       momentos.set(o.mensagemId, [
         ...(momentos.get(o.mensagemId) || []),
         { nome: d.nome || nomes[d.id] || d.id, classificacao: d.classificacao },
       ]);
-  const autor = (mensagemId: string) =>
-    sessao?.historico?.find((m: any) => m.id === mensagemId)?.role === 'user'
-      ? 'Você'
-      : nomePaciente;
-  // Relatórios gravados antes de 08/09 podem trazer "m11" no texto: vira posição na conversa ao exibir.
-  const h = (t: string) =>
-    humanizarReferencias(t || '', sessao?.historico || [], nomePaciente);
+  const autor = (mensagemId: string) => {
+    const p = posicaoNaConversa(sessao?.historico || [], mensagemId);
+    if (!p) return nomePersona;
+    return p.papel === 'user' ? t('yourReply', { n: p.ordem }) : t('personLine', { n: p.ordem, name: nomePersona });
+  };
+  // Relatórios gravados antes de 08/09 podem trazer "m11" no texto: vira posição na conversa ao
+  // exibir. O texto do relatório é escrito pela IA em português, e a posição segue a mesma língua.
+  const h = (texto: string) => humanizarReferencias(texto || '', sessao?.historico || [], nomePersona, 'voce', dominio);
   const travado = !!ocupado || vozOcupada || sessao?.processando;
   const emConversa = sessao && !relatorio;
+  const desfecho = (tipo: string) =>
+    DESFECHOS_CONHECIDOS.includes(tipo) ? t(`outcome_${tipo}`) : tipo.replaceAll('_', ' ');
 
   return (
     <main className={styles.root}>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>
-            Prática de atendimento · recepção médica
-          </p>
-          <h1>Uma conversa. Um cuidado melhor.</h1>
-          <p>
-            Pratique com uma paciente fictícia e receba orientações sobre o seu
-            atendimento.
-          </p>
+          <p className={styles.eyebrow}>{t('eyebrow', { segment: t(`segment_${dominio}`) })}</p>
+          <h1>{t('title')}</h1>
+          <p>{t('subtitle')}</p>
         </div>
-        <span className={styles.piloto}>Piloto · atendimento simulado</span>
+        <span className={styles.piloto}>{t('pilotBadge')}</span>
       </header>
       {admin && (
-        <section className={styles.admin} aria-label="Configuração do piloto">
+        <section className={styles.admin} aria-label={t('adminArea')}>
           <label>
-            Clínica vinculada ao treino
-            <select
-              value={empresaId}
-              disabled={!!ocupado}
-              onChange={(e) => setEmpresaId(e.target.value)}
-            >
-              <option value="">Selecione uma empresa</option>
+            {t('company')}
+            <select value={empresaId} disabled={!!ocupado} onChange={(e) => setEmpresaId(e.target.value)}>
+              <option value="">{t('selectCompany')}</option>
               {empresas.map((e) => (
                 <option key={e.id} value={e.id}>
                   {e.nome}
@@ -319,20 +294,10 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
           </label>
           {dados && (
             <div>
-              <p>
-                {dados.habilitado
-                  ? 'Disponível para a equipe desta clínica.'
-                  : 'Disponível apenas para teste administrativo.'}
-              </p>
+              <p>{t(dados.habilitado ? 'enabledForTeam' : 'adminOnly')}</p>
               {podeConfigurar && (
-                <button
-                  className={styles.secondary}
-                  disabled={!!ocupado}
-                  onClick={habilitar}
-                >
-                  {dados.habilitado
-                    ? 'Desabilitar para a equipe'
-                    : 'Habilitar para a equipe'}
+                <button className={styles.secondary} disabled={!!ocupado} onClick={habilitar}>
+                  {t(dados.habilitado ? 'disableForTeam' : 'enableForTeam')}
                 </button>
               )}
             </div>
@@ -340,15 +305,26 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
         </section>
       )}
       {dados && (
-        <nav className={styles.tabs} aria-label="Áreas do treinamento">
-          {!soAcompanha&&<button aria-current={aba==='treino'?'page':undefined} disabled={!!ocupado||vozOcupada} onClick={()=>{setAba('treino');carregar(empresaId,sessao?.id).catch(e=>setErro(e.message))}}>Meu treino</button>}
+        <nav className={styles.tabs} aria-label={t('areas')}>
+          {!soAcompanha && (
+            <button
+              aria-current={aba === 'treino' ? 'page' : undefined}
+              disabled={!!ocupado || vozOcupada}
+              onClick={() => {
+                setAba('treino');
+                carregar(empresaId, sessao?.id).catch((e) => setErro(e.message));
+              }}
+            >
+              {t('tabTraining')}
+            </button>
+          )}
           {dados.podeEquipe && (
             <button
               aria-current={aba === 'equipe' ? 'page' : undefined}
               disabled={!!ocupado || vozOcupada}
               onClick={() => setAba('equipe')}
             >
-              Equipe e revisões
+              {t('tabTeam')}
             </button>
           )}
           {dados.podeCenarios && (
@@ -357,7 +333,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               disabled={!!ocupado || vozOcupada}
               onClick={() => setAba('cenarios')}
             >
-              Cenários
+              {t('tabCases')}
             </button>
           )}
           {dados.podeCenarios && (
@@ -366,23 +342,14 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               disabled={!!ocupado || vozOcupada}
               onClick={() => setAba('competencias')}
             >
-              Competências
+              {t('tabCompetencies')}
             </button>
           )}
         </nav>
       )}
-      {soAcompanha && !dados.podeEquipe && (
-        <div className={styles.empty}>
-          O acompanhamento da equipe não está disponível para o seu perfil.
-        </div>
-      )}
+      {soAcompanha && !dados.podeEquipe && <div className={styles.empty}>{t('teamUnavailable')}</div>}
       {dados && aba !== 'treino' && !(soAcompanha && !dados.podeEquipe) && (
-        <GestaoRecepcao
-          key={`${empresaId}-${aba}`}
-          empresaId={empresaId || dados.empresaId}
-          visao={aba}
-          admin={admin}
-        />
+        <GestaoRecepcao key={`${empresaId}-${aba}`} empresaId={empresaId || dados.empresaId} visao={aba} admin={admin} />
       )}
       <div hidden={aba !== 'treino'}>
         {erro && (
@@ -396,25 +363,21 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               }}
               disabled={!!ocupado}
             >
-              Atualizar
+              {t('refresh')}
             </button>
           </div>
         )}
         {carregando ? (
           <div className={styles.empty}>
-            <Loader2 className={styles.spin} /> Carregando seu espaço de treino…
+            <Loader2 className={styles.spin} /> {t('loading')}
           </div>
         ) : !dados ? (
-          <div className={styles.empty}>
-            {admin && !empresaId
-              ? 'Selecione a empresa para experimentar o atendimento.'
-              : 'O treinamento será exibido aqui quando seu acesso estiver disponível.'}
-          </div>
+          <div className={styles.empty}>{t(admin && !empresaId ? 'selectFirst' : 'unavailable')}</div>
         ) : (
           <>
             <section className={styles.casePicker}>
               <label>
-                Caso para o próximo atendimento
+                {t('casePicker')}
                 <select
                   value={cenarioId}
                   disabled={travado}
@@ -424,17 +387,13 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                   }}
                 >
                   {[...NIVEIS, undefined].map((n) => {
-                    const grupo = (dados.cenarios || []).filter(
-                      (c) => (c.ficha.nivel || undefined) === n,
-                    );
+                    const grupo = (dados.cenarios || []).filter((c: any) => (c.ficha.nivel || undefined) === n);
                     return grupo.length ? (
-                      <optgroup
-                        key={n || 'outros'}
-                        label={n ? rotuloNivel[n] : 'Outros casos'}
-                      >
-                        {grupo.map((c) => (
+                      <optgroup key={n || 'outros'} label={nivelRotulo(n) || t('otherCases')}>
+                        {grupo.map((c: any) => (
                           <option key={c.id} value={c.id}>
-                            {c.ficha.titulo} · {c.versao}
+                            {/* A versão do caso é informação de quem edita, não de quem treina. */}
+                            {admin ? `${c.ficha.titulo} · ${c.versao}` : c.ficha.titulo}
                           </option>
                         ))}
                       </optgroup>
@@ -454,51 +413,45 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     createId.current = null;
                   }}
                 >
-                  Preparar outro atendimento
+                  {t('prepareAnother')}
                 </button>
               )}
               <p className={styles.small}>
-                {dados.nivelSugerido && rotuloNivel[dados.nivelSugerido] && (
+                {nivelRotulo(dados.nivelSugerido) && (
                   <>
-                    Sugerido para você agora:{' '}
-                    <strong>{rotuloNivel[dados.nivelSugerido]}</strong>.{' '}
+                    {t('suggestedLevel')} <strong>{nivelRotulo(dados.nivelSugerido)}</strong>.{' '}
                   </>
                 )}
-                Ao trocar de caso, o atendimento anterior continua no histórico.
-                As operações são fictícias.
+                {t('caseHint')}
               </p>
             </section>
-            <div className={styles.workspace}>
-              <aside className={styles.ficha}>
+            <div className={`${styles.workspace} ${emConversa ? styles.chatPrimeiro : ''}`}>
+              <aside className={styles.ficha} id="ficha-atendimento">
                 <div className={styles.fichaTitle}>
                   <ClipboardList size={23} />
                   <div>
-                    <span>Ficha de atendimento</span>
+                    <span>{t('caseSheet')}</span>
                     <h2>{ficha.clinica || dados.empresaNome}</h2>
                   </div>
                 </div>
-                <p className={styles.small}>
-                  Cenário fictício, vinculado a {dados.empresaNome}. Use apenas
-                  dados fictícios nas mensagens.
-                </p>
+                <p className={styles.small}>{t('caseSheetNote', { company: dados.empresaNome })}</p>
                 <details open>
-                  <summary>Situação do atendimento</summary>
+                  <summary>{t('situation')}</summary>
                   <p>{ficha.contexto}</p>
                   {ficha.agora && (
                     <p>
-                      <strong>Referência:</strong> {ficha.agora}
+                      <strong>{t('reference')}</strong> {ficha.agora}
                     </p>
                   )}
                   {ficha.consultaAnterior && (
                     <p>
-                      <strong>Consulta anterior:</strong>{' '}
-                      {ficha.consultaAnterior}
+                      <strong>{t('previousBooking')}</strong> {ficha.consultaAnterior}
                     </p>
                   )}
                 </details>
                 {ficha.alternativas?.length > 0 && (
                   <details open>
-                    <summary>Alternativas autorizadas</summary>
+                    <summary>{t('authorizedOptions')}</summary>
                     <div className={styles.slots}>
                       {ficha.alternativas.map((a: any) => (
                         <div key={a.id}>
@@ -515,18 +468,18 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     </div>
                   </details>
                 )}
-                {ficha.secoes?.map((sec, i) => (
+                {ficha.secoes?.map((sec: any, i: number) => (
                   <details key={i} open>
                     <summary>{sec.titulo}</summary>
                     <ul>
-                      {sec.itens.map((t, j) => (
-                        <li key={j}>{t}</li>
+                      {sec.itens.map((texto: string, j: number) => (
+                        <li key={j}>{texto}</li>
                       ))}
                     </ul>
                   </details>
                 ))}
                 <details>
-                  <summary>Procedimentos da clínica</summary>
+                  <summary>{t('procedures')}</summary>
                   <ul>
                     {ficha.procedimentos.map((p: string) => (
                       <li key={p}>{p}</li>
@@ -534,36 +487,35 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                   </ul>
                 </details>
               </aside>
-              <section
-                className={styles.conversa}
-                aria-label="Atendimento simulado"
-              >
+              <section className={styles.conversa} aria-label={t('conversation')}>
                 <div className={styles.chatHeader}>
-                  <div className={styles.avatar}>
-                    {nomePaciente.slice(0, 1)}
-                  </div>
+                  <div className={styles.avatar}>{nomePersona.slice(0, 1)}</div>
                   <div>
-                    <h2>{sessao ? nomePaciente : ficha.titulo}</h2>
-                    <p>{`${ficha.nivel && rotuloNivel[ficha.nivel] ? `${rotuloNivel[ficha.nivel]} · ` : ''}${ficha.canal === 'telefone' ? 'Telefone' : 'Mensagens / WhatsApp'} simulado · pessoa fictícia`}</p>
+                    <h2>{sessao ? nomePersona : ficha.titulo}</h2>
+                    <p>
+                      {nivelRotulo(ficha.nivel) ? `${nivelRotulo(ficha.nivel)} · ` : ''}
+                      {t(ficha.canal === 'telefone' ? 'channelPhone' : 'channelMessages')}
+                    </p>
                   </div>
                   {sessao && (
                     <span className={styles.count}>
-                      {sessao.respostas}/{ficha.limiteRespostas || 12} respostas
+                      {t('replyCount', { n: sessao.respostas, max: ficha.limiteRespostas || 12 })}
                     </span>
+                  )}
+                  {emConversa && (
+                    <a className={styles.linkFicha} href="#ficha-atendimento">
+                      {t('seeCaseSheet')}
+                    </a>
                   )}
                 </div>
                 {!sessao ? (
                   <div className={styles.start}>
                     <MessageCircle size={38} />
-                    <h2>Como você conduziria esse atendimento?</h2>
+                    <h2>{t('startTitle')}</h2>
                     <p>{ficha.objetivo}</p>
-                    <p>{ficha.competencias?.map((d) => d.nome).join(' · ')}</p>
-                    <button
-                      className={styles.primary}
-                      onClick={() => agir('iniciar')}
-                      disabled={travado}
-                    >
-                      {ocupado ? 'Iniciando…' : 'Iniciar atendimento'}
+                    <p>{ficha.competencias?.map((d: any) => d.nome).join(' · ')}</p>
+                    <button className={styles.primary} onClick={() => agir('iniciar')} disabled={travado}>
+                      {ocupado ? t('starting') : t('start')}
                       <ArrowRight size={18} />
                     </button>
                   </div>
@@ -572,42 +524,32 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     <div
                       className={styles.messages}
                       role="log"
-                      aria-label={`Conversa com ${nomePaciente}`}
+                      aria-label={t('conversationWith', { name: nomePersona })}
                       aria-live="polite"
                     >
                       {sessao.historico.map((m: any) => (
-                        <article
-                          key={m.id}
-                          className={
-                            m.role === 'user' ? styles.sent : styles.received
-                          }
-                        >
-                          <span>
-                            {m.role === 'user' ? 'Você' : nomePaciente}
-                          </span>
+                        <article key={m.id} className={m.role === 'user' ? styles.sent : styles.received}>
+                          <span>{m.role === 'user' ? t('you') : nomePersona}</span>
                           <p>{m.content}</p>
                           {momentos.has(m.id) && (
-                            <footer
-                              className={styles.momento}
-                              aria-label="Oportunidade identificada nesta mensagem"
-                            >
-                              <span>Oportunidade</span>
-                              {momentos.get(m.id)!.map((x, i) => (
-                                <em
-                                  key={i}
-                                  className={styles[`c_${x.classificacao}`]}
-                                >
+                            <footer className={styles.momento} aria-label={t('opportunityHere')}>
+                              <span>{t('opportunity')}</span>
+                              {/* Com 30 descritores, a fala de abertura pode ancorar dezenas: a lista vai ao relatório. */}
+                              {momentos.get(m.id)!.slice(0, 5).map((x, i) => (
+                                <em key={i} className={styles[`c_${x.classificacao}`]}>
                                   {x.nome}
                                 </em>
                               ))}
+                              {momentos.get(m.id)!.length > 5 && (
+                                <em>{t('moreOpportunities', { n: momentos.get(m.id)!.length - 5 })}</em>
+                              )}
                             </footer>
                           )}
                         </article>
                       ))}
                       {ocupado === 'responder' && (
                         <p className={styles.waiting}>
-                          <Loader2 size={15} className={styles.spin} />{' '}
-                          {nomePaciente} está respondendo…
+                          <Loader2 size={15} className={styles.spin} /> {t('personTyping', { name: nomePersona })}
                         </p>
                       )}
                       <div ref={fim} />
@@ -621,11 +563,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                               agir('responder');
                             }}
                           >
-                            <label
-                              className={styles.srOnly}
-                              htmlFor="recepcao-mensagem"
-                            >
-                              Sua resposta para {nomePaciente}
+                            <label className={styles.srOnly} htmlFor="recepcao-mensagem">
+                              {t('replyLabel', { name: nomePersona })}
                             </label>
                             <textarea
                               id="recepcao-mensagem"
@@ -633,88 +572,65 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                               onChange={(e) => setInput(e.target.value)}
                               disabled={travado}
                               maxLength={4000}
-                              placeholder="Escreva como você falaria com a paciente…"
+                              placeholder={t('replyPlaceholder', { name: nomePersona })}
                               rows={3}
                             />
                             <button
                               className={styles.send}
                               type="submit"
-                              aria-label="Enviar resposta"
+                              aria-label={t('send')}
                               disabled={travado || !input.trim()}
                             >
                               <Send size={20} />
                             </button>
                           </form>
                         )}
-                        {sessao.status === 'aguardando_avaliacao' && (
-                          <p>
-                            Você chegou ao limite deste exercício. Gere o
-                            relatório para revisar o atendimento.
-                          </p>
-                        )}
+                        {sessao.status === 'aguardando_avaliacao' && <p>{t('turnLimit')}</p>}
                         {sessao.processando && (
                           <p role="status">
-                            Um envio está em processamento.{' '}
+                            {t('processing')}{' '}
                             <button
                               className={styles.link}
-                              onClick={() =>
-                                carregar(empresaId, sessao.id).catch((e) =>
-                                  setErro(e.message),
-                                )
-                              }
+                              onClick={() => carregar(empresaId, sessao.id).catch((e) => setErro(e.message))}
                             >
-                              Atualizar conversa
+                              {t('refreshConversation')}
                             </button>
                           </p>
                         )}
                         <VozRecepcao
                           key={sessao.id}
                           sessao={sessao}
+                          nomePersona={nomePersona}
                           empresaId={admin ? empresaId : undefined}
                           disabled={travado}
                           onOcupado={setVozOcupada}
-                          onTexto={(texto) =>
-                            setInput((atual) =>
-                              atual.trim() ? `${atual}\n${texto}` : texto,
-                            )
-                          }
+                          onTexto={(texto) => setInput((atual) => (atual.trim() ? `${atual}\n${texto}` : texto))}
                         />
                         <div className={styles.finish}>
-                          <small>
-                            Exercício fictício; nenhuma operação real será
-                            realizada.
-                          </small>
+                          <small>{t('fictitious')}</small>
                           {!confirmarFim ? (
                             <button
                               className={styles.secondary}
                               disabled={travado || !sessao.respostas}
                               onClick={() => setConfirmarFim(true)}
                             >
-                              Encerrar e avaliar
+                              {t('finish')}
                             </button>
                           ) : (
                             <div>
-                              <span>Concluir este atendimento?</span>
-                              <button
-                                className={styles.primary}
-                                disabled={travado}
-                                onClick={() => agir('encerrar')}
-                              >
-                                Gerar relatório
+                              <span>{t('confirmFinish')}</span>
+                              <button className={styles.primary} disabled={travado} onClick={() => agir('encerrar')}>
+                                {t('generateReport')}
                               </button>
-                              <button
-                                className={styles.link}
-                                onClick={() => setConfirmarFim(false)}
-                              >
-                                Continuar
+                              <button className={styles.link} onClick={() => setConfirmarFim(false)}>
+                                {t('continue')}
                               </button>
                             </div>
                           )}
                         </div>
                         {ocupado === 'encerrar' && (
                           <p role="status" className={styles.waiting}>
-                            <Loader2 className={styles.spin} size={16} />{' '}
-                            Analisando suas respostas e preparando o feedback…
+                            <Loader2 className={styles.spin} size={16} /> {t('analyzing')}
                           </p>
                         )}
                       </div>
@@ -724,146 +640,120 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               </section>
             </div>
             {relatorio && (
-              <section
-                className={styles.report}
-                aria-label="Relatório de atendimento"
-              >
+              <section className={styles.report} aria-label={t('report')}>
                 <header>
                   <div>
-                    <p className={styles.eyebrow}>
-                      Seu atendimento, em perspectiva
-                    </p>
-                    <h2>
-                      {resultados[relatorio.desfecho.tipo] ||
-                        relatorio.desfecho.tipo.replaceAll('_', ' ')}
-                    </h2>
+                    <p className={styles.eyebrow}>{t('reportEyebrow')}</p>
+                    <h2>{desfecho(relatorio.desfecho.tipo)}</h2>
                     <p>{h(relatorio.desfecho.justificativa)}</p>
                   </div>
-                  <div className={styles.score}>
-                    <strong>
-                      {relatorio.nota === null
-                        ? '—'
-                        : relatorio.nota.toLocaleString('pt-BR', {
-                            maximumFractionDigits: 2,
-                          })}
-                    </strong>
-                    <span>
-                      de 4 · cobertura{' '}
-                      {Math.round(relatorio.coberturaPercentual).toLocaleString('pt-BR')}%
-                    </span>
-                  </div>
+                  {/* Com a matriz, a média aparece no relatório por competência. */}
+                  {!relatorio.competencias && (
+                    <div className={styles.score}>
+                      <strong>{relatorio.nota === null ? '—' : numero(relatorio.nota)}</strong>
+                      <span>
+                        {t('scoreOf4', { coverage: Math.round(relatorio.coberturaPercentual).toLocaleString(locale) })}
+                      </span>
+                    </div>
+                  )}
                 </header>
-                <p className={styles.small}>
-                  Feedback de prática gerado por IA. Esta nota não altera sua
-                  avaliação comportamental.
-                </p>
-                {relatorio.escalaOriginal && (
-                  <p className={styles.small}>
-                    Avaliação anterior à matriz atual, com nota convertida para
-                    1–4. Os critérios originais foram preservados.
-                  </p>
-                )}
-                {relatorio.situacao === 'avaliacao_parcial' && (
-                  <p className={styles.notice}>
-                    Avaliação parcial: algumas competências não puderam ser
-                    observadas. Compare apenas treinos com cobertura
-                    equivalente.
-                  </p>
+                <p className={styles.small}>{t('reportDisclaimer')}</p>
+                {relatorio.escalaOriginal && <p className={styles.small}>{t('legacyScale')}</p>}
+                {!relatorio.competencias && relatorio.situacao === 'avaliacao_parcial' && (
+                  <p className={styles.notice}>{t('partial')}</p>
                 )}
                 {relatorio.ocorrencias.length > 0 && (
                   <div className={styles.error}>
                     <AlertCircle />
                     <div>
-                      <strong>
-                        Atenção a estas condutas, independentemente da nota
-                      </strong>
+                      <strong>{t('criticalTitle')}</strong>
                       {relatorio.ocorrencias.map((o: any, i: number) => (
                         <p key={i}>{h(o.motivo)}</p>
                       ))}
                     </div>
                   </div>
                 )}
-                <>
-                  {relatorio.competencias ? (
-                    <MatrizAtendimento relatorio={relatorio} />
-                  ) : (
-                    <div className={styles.dimensions}>
-                      {relatorio.dimensoes.map((d: any) => (
-                        <article key={d.id}>
-                          <div>
-                            <h3>{d.nome || nomes[d.id] || d.id}</h3>
-                            <span>
-                              {rotuloClassificacao[d.classificacao] ||
-                                d.classificacao}
-                            </span>
-                          </div>
-                          <p>{h(d.justificativa)}</p>
-                          {d.evidencias.length > 0 && (
-                            <section className={styles.evidencias}>
-                              <span>O que você fez</span>
-                              {d.evidencias.map((e: any, i: number) => (
-                                <blockquote key={i}>“{e.trecho}”</blockquote>
-                              ))}
-                            </section>
-                          )}
-                          {d.oportunidades?.length > 0 && (
-                            <section className={styles.momentos}>
-                              <span>Onde estava a oportunidade</span>
-                              {d.oportunidades.map((o: any, i: number) => (
-                                <blockquote
-                                  key={i}
-                                  className={styles.oportunidade}
-                                >
-                                  <small>{autor(o.mensagemId)}</small>“
-                                  {o.trecho}”
-                                </blockquote>
-                              ))}
-                            </section>
-                          )}
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </>
+                {relatorio.competencias ? (
+                  <div className={styles.matriz}>
+                    <MatrizAtendimento
+                      relatorio={relatorio}
+                      historico={sessao.historico}
+                      nomePersona={nomePersona}
+                      dominio={dominio}
+                    />
+                  </div>
+                ) : (
+                  <div className={styles.dimensions}>
+                    {relatorio.dimensoes.map((d: any) => (
+                      <article key={d.id}>
+                        <div>
+                          <h3>{d.nome || nomes[d.id] || d.id}</h3>
+                          <span>{rotuloClassificacao[d.classificacao] || d.classificacao}</span>
+                        </div>
+                        <p>{h(d.justificativa)}</p>
+                        {d.evidencias.length > 0 && (
+                          <section className={styles.evidencias}>
+                            <span>{t('whatYouDid')}</span>
+                            {d.evidencias.map((e: any, i: number) => (
+                              <blockquote key={i}>“{e.trecho}”</blockquote>
+                            ))}
+                          </section>
+                        )}
+                        {d.oportunidades?.length > 0 && (
+                          <section className={styles.momentos}>
+                            <span>{t('whereOpportunity')}</span>
+                            {d.oportunidades.map((o: any, i: number) => (
+                              <blockquote key={i} className={styles.oportunidade}>
+                                <small>{autor(o.mensagemId)}</small>“{o.trecho}”
+                              </blockquote>
+                            ))}
+                          </section>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                )}
                 <div className={styles.coaching}>
                   <div>
                     <CheckCircle2 size={21} />
-                    <h3>O que funcionou</h3>
+                    <h3>{t('whatWorked')}</h3>
                     <p>{h(relatorio.feedback.acerto)}</p>
                   </div>
                   <div>
                     <ArrowRight size={21} />
-                    <h3>Seu próximo passo</h3>
+                    <h3>{t('nextStep')}</h3>
                     <p>{h(relatorio.feedback.melhoria)}</p>
                     <p>{h(relatorio.feedback.novaTentativa)}</p>
                   </div>
                 </div>
-                <button
-                  className={styles.primary}
-                  disabled={travado}
-                  onClick={() => agir('iniciar')}
-                >
-                  <RotateCcw size={18} /> Praticar novamente
+                <button className={styles.primary} disabled={travado} onClick={() => agir('iniciar')}>
+                  <RotateCcw size={18} /> {t('practiceAgain')}
                 </button>
               </section>
             )}
             {dados.historico?.length > 0 && (
               <section className={styles.history}>
-                <h2>Seus atendimentos</h2>
+                <h2>{t('history')}</h2>
                 <div>
-                  {dados.historico.map((h: any) => (
+                  {dados.historico.map((item: any) => (
                     <button
-                      key={h.id}
+                      key={item.id}
                       disabled={travado}
-                      onClick={() => abrirHistorico(h.id)}
-                      aria-current={sessao?.id === h.id ? 'true' : undefined}
+                      onClick={() => abrirHistorico(item.id)}
+                      aria-current={sessao?.id === item.id ? 'true' : undefined}
                     >
-                      <span>{h.titulo}</span>
-                      <span>{new Date(h.data).toLocaleString('pt-BR')}</span>
+                      <span>{item.titulo}</span>
+                      <span>{new Date(item.data).toLocaleString(locale)}</span>
                       <strong>
-                        {h.status === RECEPCAO_SESSAO.CONCLUIDA
-                          ? `${h.nota?.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) ?? '—'}/4${h.escalaOriginal ? ' · legado' : ''}${h.situacao === 'atencao_critica' ? ' · atenção' : h.situacao === 'avaliacao_parcial' ? ' · parcial' : ''}`
-                          : 'Retomar treino'}
+                        {item.status === RECEPCAO_SESSAO.CONCLUIDA
+                          ? [
+                              item.nota === null ? t('noScore') : t('historyScore', { score: numero(item.nota) }),
+                              item.escalaOriginal ? t('historyLegacy') : null,
+                              item.situacao === 'atencao_critica' ? t('historyAttention') : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')
+                          : t('resume')}
                       </strong>
                     </button>
                   ))}

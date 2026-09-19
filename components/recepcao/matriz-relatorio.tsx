@@ -1,53 +1,44 @@
+'use client';
+/**
+ * Devolutiva por competência do atendimento no componente COMUM aos três
+ * simuladores (18/09/2026). Antes cada simulador tinha a sua, com "N2 · 2,5/4"
+ * aqui e "Nível 2" na liderança; agora a leitura é a mesma.
+ */
+import { useTranslations } from 'next-intl';
+import RelatorioCompetencias from '@/components/simuladores/relatorio-competencias';
 import type { Estado } from '@/lib/recepcao/model';
-import { rotuloClassificacao } from '@/lib/recepcao/schema';
-import styles from './treino.module.css';
-const nota = (n: number | null) =>
-  n === null ? '—' : n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+import { competenciasDoAtendimento, posicaoNaConversa } from './relatorio-matriz';
+
 export default function MatrizAtendimento({
-  relatorio: r,
+  relatorio,
+  historico,
+  nomePersona,
+  dominio,
+  publico = 'voce',
 }: {
   relatorio: NonNullable<Estado['relatorio']>;
+  historico: Array<{ id: string; role: 'user' | 'assistant' }>;
+  nomePersona: string;
+  dominio?: string;
+  /** `voce` fala com quem treinou; `equipe` é a revisão de quem acompanha. */
+  publico?: 'voce' | 'equipe';
 }) {
+  const t = useTranslations('SimuladorAtendimento');
+  const rotulo = ({ mensagemId }: { mensagemId: string }) => {
+    const p = posicaoNaConversa(historico, mensagemId);
+    if (!p) return null;
+    if (p.papel === 'assistant') return t('personLine', { n: p.ordem, name: nomePersona });
+    return t(publico === 'voce' ? 'yourReply' : 'teamReply', { n: p.ordem });
+  };
+  const { competencias, media, regra } = competenciasDoAtendimento(relatorio, dominio, rotulo);
   return (
-    <div className={styles.dimensions}>
-      {r.competencias?.map((c) => (
-        <article key={c.codigo}>
-          <div>
-            <h3>{c.nome}</h3>
-            <span>
-              {nota(c.nota)} / 4{c.nivel ? ` · N${c.nivel}` : ''}
-            </span>
-          </div>
-          <p>
-            {c.observados} de {c.total} descritores observados
-          </p>
-          <details>
-            <summary>Ver descritores e evidências</summary>
-            {c.descritores.map((id) => {
-              const d = r.dimensoes.find((x) => x.id === id)!;
-              return (
-                <section className={styles.evidencias} key={id}>
-                  <h4>
-                    {d.nome} · {rotuloClassificacao[d.classificacao]}
-                  </h4>
-                  <p>{d.justificativa}</p>
-                  {d.evidencias.map((e, i) => (
-                    <blockquote key={i}>“{e.trecho}”</blockquote>
-                  ))}
-                  {!!d.oportunidades.length && (
-                    <details>
-                      <summary>Onde estava a oportunidade</summary>
-                      {d.oportunidades.map((e, i) => (
-                        <blockquote key={i}>“{e.trecho}”</blockquote>
-                      ))}
-                    </details>
-                  )}
-                </section>
-              );
-            })}
-          </details>
-        </article>
-      ))}
-    </div>
+    <RelatorioCompetencias
+      competencias={competencias}
+      media={media}
+      regra={regra}
+      tema="claro"
+      acento="var(--teal)"
+      abrirFoco={false}
+    />
   );
 }

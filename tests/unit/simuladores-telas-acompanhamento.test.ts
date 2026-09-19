@@ -18,11 +18,12 @@ describe('telas dos simuladores para quem só acompanha', () => {
     const fonte = ler('components/recepcao/treino.tsx');
     expect(fonte).toContain("const soAcompanha = !admin && dados?.soAcompanha === true;");
     expect(fonte).toMatch(/if \(soAcompanha && aba === 'treino'\) setAba\('equipe'\);/);
-    // o botão "Meu treino" só existe para quem treina
-    const inicioBotao = fonte.indexOf('Meu treino</button>');
+    // o botão "Meu treino" só existe para quem treina (texto traduzido desde 18/09)
+    const inicioBotao = fonte.indexOf("{t('tabTraining')}");
     expect(inicioBotao).toBeGreaterThan(-1);
-    const trechoAntes = fonte.slice(Math.max(0, inicioBotao - 400), inicioBotao);
-    expect(trechoAntes).toContain('{!soAcompanha&&<button');
+    const trechoAntes = fonte.slice(Math.max(0, inicioBotao - 500), inicioBotao);
+    expect(trechoAntes).toContain('{!soAcompanha && (');
+    expect(trechoAntes).toContain('<button');
   });
 
   it('simulador de liderança: quem só lidera não recebe o "Voltar ao mapeamento do cargo"', () => {
