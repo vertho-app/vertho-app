@@ -32,6 +32,10 @@ import { VARIANTES, linhasDaVariante, COMPETENCIAS_LIDERANCA, type VarianteLider
  */
 export const MARCA_ANCORA = 'Âncora da matriz global de liderança.';
 
+/** Cargo criado pela plataforma para guardar a matriz; ninguém da empresa o ocupa. */
+export const ehCargoAncora = (c: { descricao?: string | null } | null | undefined): boolean =>
+  String(c?.descricao ?? '').startsWith(MARCA_ANCORA);
+
 export interface ResultadoInstalacao {
   ok: boolean;
   erro?: string;
@@ -95,7 +99,7 @@ export async function instalarMatrizLideranca(sb: any, empresaId: string): Promi
    */
   const nossas = new Set(COMPETENCIAS_LIDERANCA);
   const ehNosso = (c: any) => {
-    if (String(c?.descricao ?? '').startsWith(MARCA_ANCORA)) return true;
+    if (ehCargoAncora(c)) return true;
     const t5 = Array.isArray(c?.top5_workshop) ? c.top5_workshop.map((s: unknown) => String(s ?? '').trim()) : [];
     return t5.length === nossas.size && t5.every((n: string) => nossas.has(n));
   };
@@ -162,7 +166,7 @@ export async function instalarMatrizLideranca(sb: any, empresaId: string): Promi
   }
 
   const ancorasOrfas = (cargosExistentes || [])
-    .filter((c: any) => String(c?.descricao ?? '').startsWith(MARCA_ANCORA) && !nomes.includes(String(c?.nome || '').trim()))
+    .filter((c: any) => ehCargoAncora(c) && !nomes.includes(String(c?.nome || '').trim()))
     .map((c: any) => String(c.nome));
 
   return { ok: true, cargos, descritoresInseridos: inseridos, descritoresAtualizados: atualizados, ancorasOrfas };

@@ -38,11 +38,15 @@ const concluido = {
   },
 };
 
+let regras: Record<string, unknown> | undefined;
 function banco() {
   return criarSupabaseMock({
     resolver: (tabela, _cols, cadeia) => {
       if (tabela === 'empresas')
-        return { id: EMP, nome: 'Fictícia', sys_config: { prontidao_lideranca: { cargo_alvo: 'Gerente' } } };
+        return {
+          id: EMP, nome: 'Fictícia',
+          sys_config: { prontidao_lideranca: { cargo_alvo: 'Gerente' }, ...(regras ? { simuladores_por_cargo: regras } : {}) },
+        };
       if (tabela === 'sim_lideranca_jornadas') {
         const id = cadeia.find((c) => c.metodo === 'eq' && c.args[0] === 'colaborador_id')?.args[1];
         return id === 'ana'
@@ -107,5 +111,21 @@ describe('acompanhamento do simulador de liderança', () => {
     sb = banco();
     sb.falharEm({ tabela: 'sim_lideranca_jornadas', op: 'select', mensagem: 'timeout no pool' });
     await expect(painelEquipe(await contextoEquipe(auth('rh', 'rh@x.test')))).rejects.toMatchObject({ status: 503 });
+  });
+
+  it('cargo grafado de outro jeito segue a regra do cargo na população (19/09/2026)', async () => {
+    // Analista fora do simulador; Bia está cadastrada com o cargo em outra caixa e espaçamento.
+    regras = { c1: { vendas: true, atendimento: true, lideranca: false } };
+    const bia = colabs.find((p) => p.id === 'bia')!;
+    bia.cargo = '  ANALISTA ';
+    try {
+      sb = banco();
+      const r = await painelEquipe(await contextoEquipe(auth('rh', 'rh@x.test')));
+      expect(r.pessoas).toEqual([]);
+      expect(r.populacao).toBe(0);
+    } finally {
+      bia.cargo = 'Analista';
+      regras = undefined;
+    }
   });
 });

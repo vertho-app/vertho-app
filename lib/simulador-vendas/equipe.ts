@@ -8,7 +8,7 @@ import { lerCursor, paginaDeHistorico, type LinhaResumo } from './historico';
 import { relatorioPacePublico } from './escala';
 import { escalaNativa14 } from './matriz-avaliacao';
 import { agregarPainel, type PainelVendas, type PessoaPainel, type SessaoPainel } from './painel';
-import { acessoDoCargo } from '@/lib/simuladores/acesso-cargo';
+import { acessoDoCargo, idDoCargo, mapaDeCargos } from '@/lib/simuladores/acesso-cargo';
 import { PAPEIS_QUE_SO_ACOMPANHAM } from '@/lib/simuladores/papel';
 import { isInternalEmail } from '@/lib/internal-emails';
 
@@ -78,7 +78,7 @@ export async function historicoEquipe(c: Contexto, cursor?: string | null) {
  * Quem PODERIA treinar e a pessoa que pergunta enxerga: colaboradores da
  * empresa com o cargo liberado para o vendas, fora quem só acompanha (gestor e
  * RH, decisão de 17/09) e as contas internas. Mesma régua de cargo do gate
- * (`acessoSimuladoresDoColaborador`: nome exato do cargo); "não começou" só é
+ * (`acessoSimuladoresDoColaborador`: nome normalizado do cargo); "não começou" só é
  * justo para quem tinha acesso.
  */
 async function populacaoDoVendas(c: Contexto): Promise<PessoaPainel[]> {
@@ -89,9 +89,7 @@ async function populacaoDoVendas(c: Contexto): Promise<PessoaPainel[]> {
   if (empresa.error || cargos.error)
     throw new SimuladorError(503, 'Não foi possível consultar os cargos da equipe.');
   const sysConfig = (empresa.data?.sys_config ?? null) as Record<string, unknown> | null;
-  const cargoId = new Map<string, string>(
-    ((cargos.data || []) as Array<{ id: string; nome: string }>).map((x) => [x.nome, String(x.id)]),
-  );
+  const cargoId = mapaDeCargos((cargos.data || []) as Array<{ id: string; nome: string }>);
   const pessoas: PessoaPainel[] = [];
   for (let pagina = 0; ; pagina++) {
     const de = pagina * 500;
@@ -109,7 +107,7 @@ async function populacaoDoVendas(c: Contexto): Promise<PessoaPainel[]> {
     for (const p of (data || []) as any[]) {
       if ((PAPEIS_QUE_SO_ACOMPANHAM as readonly string[]).includes(String(p.role ?? ''))) continue;
       if (isInternalEmail(p.email)) continue;
-      if (!acessoDoCargo(sysConfig, p.cargo ? (cargoId.get(p.cargo) ?? null) : null).vendas) continue;
+      if (!acessoDoCargo(sysConfig, idDoCargo(cargoId, p.cargo)).vendas) continue;
       if (!c.auth.isPlatformAdmin && !canViewColabJourney(c.auth, p)) continue;
       pessoas.push({ id: p.id, nome: p.nome_completo || 'Colaborador', cargo: p.cargo || null });
     }

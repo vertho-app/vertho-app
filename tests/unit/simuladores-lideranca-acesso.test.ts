@@ -22,12 +22,16 @@ describe('Prontidão respeita o cargo em todas as portas do RH', () => {
     estado.cargoLiberado = false;
     estado.ctx = { role: 'rh', empresaId: 'empresa-a', isPlatformAdmin: false, colaborador: { empresa_id: 'empresa-a', cargo: 'RH' } };
     agregar.mockClear();
-    sb = criarSupabaseMock({ resolver: tabela => tabela === 'cargos_empresa' ? { id: 'cargo-rh' } : {
-      nome: 'Empresa', sys_config: {
-        simuladores_por_cargo: { 'cargo-rh': estado.cargoLiberado ? ACESSO_ATUAL : SEM_ACESSO },
-        modulos: { prontidao_lideranca: true }, prontidao_lideranca: { cargo_alvo: 'Gerente', exemplares: [] },
-      },
-    } });
+    sb = criarSupabaseMock({
+      resolver: () => ({
+        nome: 'Empresa', sys_config: {
+          simuladores_por_cargo: { 'cargo-rh': estado.cargoLiberado ? ACESSO_ATUAL : SEM_ACESSO },
+          modulos: { prontidao_lideranca: true }, prontidao_lideranca: { cargo_alvo: 'Gerente', exemplares: [] },
+        },
+      }),
+      // O gate lê a lista de cargos da empresa e casa o nome normalizado (19/09/2026).
+      lista: tabela => tabela === 'cargos_empresa' ? [{ id: 'cargo-rh', nome: 'RH' }] : [],
+    });
   });
   it.each([
     ['painel', () => getProntidaoLideranca()],

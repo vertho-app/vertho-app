@@ -123,6 +123,17 @@ describe('painelEquipe: população, escopo e leitura', () => {
     expect(painel.pessoas.map((p) => p.id)).toEqual(['ana', 'bia', 'caio', 'davi']);
   });
 
+  it('cargo grafado de outro jeito segue a regra do cargo, não a liberação padrão (19/09/2026)', async () => {
+    const caio = colaboradores.find((p) => p.id === 'caio')!;
+    caio.cargo = ' FINANCEIRO ';
+    try {
+      const painel = await painelEquipe(c('rh'));
+      expect(painel.pessoas.map((p) => p.id)).toEqual(['ana', 'bia', 'davi']);
+    } finally {
+      caio.cargo = 'Financeiro';
+    }
+  });
+
   it('perfil sem permissão de acompanhar não lê nada', async () => {
     vi.mocked(can).mockImplementation(async (_a, p) => p !== 'journey.team.view');
     await expect(painelEquipe(c('gestor'))).rejects.toMatchObject({ status: 403 });

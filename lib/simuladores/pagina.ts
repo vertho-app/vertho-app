@@ -12,12 +12,13 @@ import type { Simulador } from './acesso-cargo';
 export async function exigirAcessoPaginaSimulador(simulador: Simulador) {
   const auth = await requireUserAction().catch(() => null);
   if (!auth) redirect('/login');
-  // Prontidão expõe relatórios da empresa e continua restrita ao RH.
+  // O Mapeamento de liderança (antiga Prontidão) expõe relatórios da empresa e é só do RH.
   if (simulador === 'lideranca' && auth.role !== 'rh') redirect('/dashboard');
   if (auth.isPlatformAdmin) return;
   if (!auth.empresaId) redirect('/dashboard');
   // Atendimento e vendas: gestor e RH entram para ACOMPANHAR a equipe, e a
   // liberação por cargo (quem treina) não vale para eles (17/09/2026).
+  // No Mapeamento a coluna "Liderança" do cargo do RH vale, como nas actions e no menu.
   const soAcompanha = simulador !== 'lideranca' && soAcompanhaSimuladores(auth);
   if (!soAcompanha) {
     const acesso = await acessoSimuladoresDoColaborador(auth.colaborador);

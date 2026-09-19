@@ -10,7 +10,7 @@ import type { z } from 'zod';
 import { notaAtendimento } from './matriz-avaliacao';
 import { competenciasAtendimento } from './matriz';
 import { visaoPorCompetencia, type PessoaAtendimento } from './painel';
-import { acessoDoCargo } from '@/lib/simuladores/acesso-cargo';
+import { acessoDoCargo, idDoCargo, mapaDeCargos } from '@/lib/simuladores/acesso-cargo';
 import { PAPEIS_QUE_SO_ACOMPANHAM } from '@/lib/simuladores/papel';
 import { isInternalEmail } from '@/lib/internal-emails';
 
@@ -70,9 +70,7 @@ export async function populacaoAtendimento(c: ContextoRecepcao): Promise<PessoaA
   if (empresa.error || cargos.error)
     throw new RecepcaoError(503, 'Não foi possível consultar os cargos da equipe.');
   const sysConfig = (empresa.data?.sys_config ?? null) as Record<string, unknown> | null;
-  const cargoId = new Map<string, string>(
-    ((cargos.data || []) as Array<{ id: string; nome: string }>).map((x) => [x.nome, String(x.id)]),
-  );
+  const cargoId = mapaDeCargos((cargos.data || []) as Array<{ id: string; nome: string }>);
   const pessoas = await todas(() =>
     c.sb
       .from('colaboradores')
@@ -85,7 +83,7 @@ export async function populacaoAtendimento(c: ContextoRecepcao): Promise<PessoaA
       (p) =>
         !(PAPEIS_QUE_SO_ACOMPANHAM as readonly string[]).includes(String(p.role ?? '')) &&
         !isInternalEmail(p.email) &&
-        acessoDoCargo(sysConfig, p.cargo ? (cargoId.get(p.cargo) ?? null) : null).atendimento &&
+        acessoDoCargo(sysConfig, idDoCargo(cargoId, p.cargo)).atendimento &&
         (c.auth.isPlatformAdmin || canViewColabJourney(c.auth, p)),
     )
     .map((p) => ({ id: p.id, nome: p.nome_completo || 'Colaborador', cargo: p.cargo || null }));

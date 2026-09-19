@@ -20,10 +20,10 @@ import { can } from '@/lib/permissions';
 import { canViewColabJourney } from '@/lib/authz';
 import { tenantDb } from '@/lib/tenant-db';
 import type { AuthenticatedContext } from '@/lib/auth/request-context';
-import { chaveCompetencia, lerConfigProntidao } from '@/lib/prontidao-lideranca/config';
+import { lerConfigProntidao } from '@/lib/prontidao-lideranca/config';
 import { carregarPopulacao } from '@/lib/prontidao-lideranca/agregar';
 import { prontidaoLiderancaHabilitada } from '@/lib/prontidao-lideranca/habilitado';
-import { acessoDoCargo } from '@/lib/simuladores/acesso-cargo';
+import { acessoDoCargo, idDoCargo, mapaDeCargos } from '@/lib/simuladores/acesso-cargo';
 import { linhasDaVariante, VARIANTES, type LinhaMatriz } from '@/lib/simuladores/lideranca/matriz-global';
 import { sinteseDaJornada, type SinteseJornada } from './avaliacao';
 import { LiderancaError, type AvaliacaoGravada, type Episodio } from './schema';
@@ -80,10 +80,9 @@ async function populacaoVisivel(c: ContextoEquipe): Promise<PessoaVisivel[]> {
   if (!populacao.length) return [];
   const { data: cargos, error: erroCargos } = await c.tdb.from('cargos_empresa').select('id,nome');
   if (erroCargos) throw new LiderancaError(503, 'Não foi possível consultar os cargos.');
-  const cargoId = new Map<string, string>((cargos || []).map((x: any) => [chaveCompetencia(x.nome), String(x.id)]));
-  const liberadas = populacao.filter(
-    (p) => acessoDoCargo(c.sysConfig, p.cargo ? cargoId.get(chaveCompetencia(p.cargo)) ?? null : null).lideranca,
-  );
+  // Mesma régua de nome do gate (`chaveCargo`); até 19/09/2026 cada lado comparava de um jeito.
+  const cargoId = mapaDeCargos((cargos || []) as Array<{ id: string; nome: string }>);
+  const liberadas = populacao.filter((p) => acessoDoCargo(c.sysConfig, idDoCargo(cargoId, p.cargo)).lideranca);
   const gestores = new Map<string, string | null>();
   for (const lote of lotes(liberadas.map((p) => p.id))) {
     const { data, error } = await c.tdb.from('colaboradores').select('id,gestor_email').in('id', lote);

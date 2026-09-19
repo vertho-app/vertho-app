@@ -101,4 +101,14 @@ describe('populacaoAtendimento', () => {
     sb.falharEm({ tabela: 'cargos_empresa', op: 'select', mensagem: 'timeout' });
     await expect(populacaoAtendimento(ctx('rh'))).rejects.toMatchObject({ status: 503 });
   });
+
+  it('cargo grafado de outro jeito segue a regra do cargo, não a liberação padrão (19/09/2026)', async () => {
+    const caio = colaboradores.find((p) => p.id === 'caio')!;
+    caio.cargo = 'financeiro';
+    try {
+      expect((await populacaoAtendimento(ctx('rh'))).map((p) => p.id)).toEqual(['ana', 'bia']);
+    } finally {
+      caio.cargo = 'Financeiro';
+    }
+  });
 });
