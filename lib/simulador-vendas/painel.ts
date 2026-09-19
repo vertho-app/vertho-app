@@ -15,6 +15,7 @@
 import { evolucaoPorCompetencia, ORDEM_COMPETENCIAS, type EvolucaoCompetencia, type NotasPorCompetencia } from './evolucao';
 import type { CodigoCompetencia } from './matriz';
 import { VENDAS_SESSAO } from '@/lib/status';
+import { distribuicaoPorCompetencia } from '@/lib/simuladores/evolucao';
 
 export const ASPECTOS_PESQUISA = ['realismo', 'desafio', 'interacao', 'utilidade', 'aprendizado'] as const;
 export type AspectoPesquisa = (typeof ASPECTOS_PESQUISA)[number];
@@ -79,17 +80,7 @@ export function agregarPainel(pessoas: PessoaPainel[], sessoes: SessaoPainel[]):
     };
   });
   linhas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-  const comNivel = linhas.filter((l) => l.competencias.some((c) => c.nivelAlcancado !== null));
-  const competencias = ORDEM_COMPETENCIAS.map((codigo) => {
-    const niveis: [number, number, number, number] = [0, 0, 0, 0];
-    let semNivel = 0;
-    for (const l of comNivel) {
-      const n = l.competencias.find((c) => c.codigo === codigo)?.nivelAlcancado ?? null;
-      if (n === null) semNivel++;
-      else niveis[n - 1]++;
-    }
-    return { codigo, niveis, semNivel };
-  });
+  const competencias = distribuicaoPorCompetencia(linhas, ORDEM_COMPETENCIAS);
   const respostas = sessoes
     .filter((s) => s.feedback && typeof s.feedback === 'object')
     .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));

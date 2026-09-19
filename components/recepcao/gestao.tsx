@@ -7,7 +7,13 @@ import { rotuloClassificacao } from '@/lib/recepcao/schema';
 import { descreverMensagem, humanizarReferencias } from '@/lib/recepcao/texto';
 import styles from './treino.module.css';
 import MatrizAtendimento from './matriz-relatorio';
+import { posicaoNaConversa } from './relatorio-matriz';
 import { casoEmBranco } from '@/lib/recepcao/caso-em-branco';
+import { useLocale, useTranslations } from 'next-intl';
+import EquipeVisao from './equipe-visao';
+
+// Desfechos com rótulo traduzido; um desfecho personalizado do caso aparece como está.
+const DESFECHOS_CONHECIDOS = ['remarcado', 'encaminhado', 'orientado', 'nao_resolvido', 'inconclusivo'];
 
 // Ordem das colunas do painel: escala nova primeiro, depois a legada; só as presentes no grupo aparecem.
 const ORDEM_CLASSIFICACOES = [
@@ -35,6 +41,11 @@ export default function GestaoRecepcao({
   visao: 'equipe' | 'cenarios' | 'competencias';
   admin: boolean;
 }) {
+  // A aba da equipe e a revisão são de quem acompanha (RH, gestor): traduzidas. Cenários
+  // e editor seguem em português, como ferramenta interna da Vertho.
+  const t = useTranslations('SimuladorAtendimento');
+  const locale = useLocale();
+  const numero = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
   const [dados, setDados] = useState<any>(null),
     [erro, setErro] = useState(''),
     [busy, setBusy] = useState(false),
@@ -212,7 +223,7 @@ export default function GestaoRecepcao({
       className={styles.management}
       aria-label={
         visao === 'equipe'
-          ? 'Acompanhamento da equipe'
+          ? t('teamArea')
           : 'Biblioteca de cenários'
       }
     >
@@ -220,27 +231,29 @@ export default function GestaoRecepcao({
         <div>
           <p className={styles.eyebrow}>
             {visao === 'equipe'
-              ? 'A prática, acompanhada'
+              ? t('teamEyebrow')
               : 'Casos para praticar'}
           </p>
           <h2>
             {visao === 'equipe'
-              ? 'Equipe e revisões'
+              ? t('tabTeam')
               : 'Biblioteca de cenários'}
           </h2>
         </div>
         {visao === 'equipe' ? (
           <div className={styles.filters}>
             <label>
-              Período
+              {t('teamPeriod')}
               <select
                 value={dias}
                 disabled={busy}
                 onChange={(e) => setDias(e.target.value)}
               >
-                <option value="7">7 dias</option>
-                <option value="30">30 dias</option>
-                <option value="90">90 dias</option>
+                {['7', '30', '90'].map((n) => (
+                  <option key={n} value={n}>
+                    {t('teamDays', { n: Number(n) })}
+                  </option>
+                ))}
               </select>
             </label>
             {admin && (
@@ -251,7 +264,7 @@ export default function GestaoRecepcao({
                   disabled={busy}
                   onChange={(e) => setTestes(e.target.checked)}
                 />{' '}
-                Incluir testes administrativos
+                {t('teamIncludeTests')}
               </label>
             )}
           </div>
@@ -413,133 +426,74 @@ export default function GestaoRecepcao({
       )}
       {visao === 'equipe' && dados && (
         <>
-          <div className={styles.metrics}>
-            <div>
-              <strong>
-                {dados.pessoas.filter((p) => p.iniciadas > 0).length}/
-                {dados.pessoas.length}
-              </strong>
-              <span>Pessoas ativas que treinaram</span>
-            </div>
-            <div>
-              <strong>
-                {dados.concluidas}/{dados.iniciadas}
-              </strong>
-              <span>Treinos concluídos</span>
-            </div>
-            <div>
-              <strong>{dados.pendentes}</strong>
-              <span>Relatórios sem revisão</span>
-            </div>
-          </div>
-          <p className={styles.small}>
-            Os resultados abaixo pertencem ao período selecionado. Compare
-            apenas o mesmo caso, versão da rubrica e cobertura. Testes
-            administrativos são identificados separadamente.
-          </p>
-          {dados.grupos.map((g) => {
-            const colunas = ORDEM_CLASSIFICACOES.filter((k) =>
-              Object.values(g.dimensoes).some((d: any) => k in d),
-            );
-            return (
-              <details key={g.chave} className={styles.group}>
-                <summary>
-                  {g.titulo} · {g.sessoes} treinos · média{' '}
-                  {g.media === null
-                    ? '—'
-                    : g.media.toLocaleString('pt-BR', {
-                        maximumFractionDigits: 2,
-                      })}{' '}
-                  · cobertura {Math.round(g.cobertura).toLocaleString('pt-BR')}%
-                </summary>
-                <p className={styles.small}>
-                  Versão {g.versao} · {g.criticas} com ocorrência crítica
-                </p>
-                <div className={styles.tableWrap}>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Competência</th>
-                        {colunas.map((k) => (
-                          <th key={k}>{rotuloClassificacao[k] || k}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(g.dimensoes).map(
-                        ([id, d]: [string, any]) => (
-                          <tr key={id}>
-                            <th>{d.nome}</th>
-                            {colunas.map((k) => (
-                              <td key={k}>{d[k] || 0}</td>
-                            ))}
-                          </tr>
-                        ),
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </details>
-            );
-          })}
-          <details className={styles.group}>
-            <summary>Participação por pessoa</summary>
-            {dados.pessoas.map((p) => (
-              <p key={p.id}>
-                {p.nome} · {p.concluidas} concluídos / {p.iniciadas} iniciados
-              </p>
-            ))}
-            {!dados.pessoas.length && (
-              <p>Nenhum colaborador no seu escopo de acompanhamento.</p>
-            )}
-          </details>
-          <h3>Atendimentos para acompanhar</h3>
+          {dados.visao && <EquipeVisao visao={dados.visao} dias={Number(dias)} />}
+          <h3>{t('teamCases')}</h3>
+          <p className={styles.small}>{t('teamCasesHelp')}</p>
           <div className={styles.tableWrap}>
             <table>
               <thead>
                 <tr>
-                  <th>Pessoa / caso</th>
-                  <th>Data</th>
-                  <th>Resultado</th>
-                  <th>Revisão</th>
-                  <th>Ação</th>
+                  <th>{t('teamCase')}</th>
+                  <th>{t('teamCaseSessions')}</th>
+                  <th>{t('teamAverage')}</th>
+                  <th>{t('teamCritical')}</th>
                 </tr>
               </thead>
               <tbody>
-                {dados.sessoes.map((s) => (
+                {dados.grupos.map((g: any) => (
+                  <tr key={g.chave}>
+                    <td>
+                      {g.titulo}
+                      {admin && <small className={styles.cellNote}>{g.versao}</small>}
+                    </td>
+                    <td>{g.sessoes}</td>
+                    <td>{g.media === null ? '—' : t('scoreOf4Short', { score: numero(g.media) })}</td>
+                    <td>{g.criticas}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!dados.grupos.length && <p className={styles.small}>{t('teamCasesEmpty')}</p>}
+          </div>
+          <h3>{t('teamToFollow')}</h3>
+          <p className={styles.small}>
+            {t('teamToFollowHelp', { done: dados.concluidas, started: dados.iniciadas, pending: dados.pendentes })}
+          </p>
+          <div className={styles.tableWrap}>
+            <table>
+              <thead>
+                <tr>
+                  <th>{t('teamPersonCase')}</th>
+                  <th>{t('teamDate')}</th>
+                  <th>{t('teamResult')}</th>
+                  <th>{t('teamReview')}</th>
+                  <th>{t('teamAction')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dados.sessoes.map((s: any) => (
                   <tr key={s.id}>
                     <td>
-                      <strong>{s.nome}</strong>
+                      <strong>{s.nome === 'Teste administrativo' ? t('adminTest') : s.nome}</strong>
                       <br />
                       {s.titulo}
                     </td>
-                    <td>{new Date(s.data).toLocaleDateString('pt-BR')}</td>
+                    <td>{new Date(s.data).toLocaleDateString(locale)}</td>
                     <td>
-                      {s.nota === null
-                        ? 'Em andamento'
-                        : `${s.nota.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}/4`}
-                      {s.critica ? ' · atenção' : ''}
+                      {s.nota === null ? t('teamInProgress') : t('scoreOf4Short', { score: numero(s.nota) })}
+                      {s.critica ? ` · ${t('historyAttention')}` : ''}
                     </td>
-                    <td>{s.revisao || 'Pendente'}</td>
+                    <td>{s.revisao ? t(`verdict_${s.revisao}`) : t('teamPendingReview')}</td>
                     <td>
-                      <button
-                        className={styles.link}
-                        disabled={busy}
-                        onClick={() => abrir(s.id)}
-                      >
-                        Abrir atendimento
+                      <button className={styles.link} disabled={busy} onClick={() => abrir(s.id)}>
+                        {t('teamOpen')}
                       </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {!dados.sessoes.length && (
-              <p className={styles.empty}>
-                Nenhum treino neste período. A participação aparecerá quando a
-                equipe começar.
-              </p>
-            )}
+            {!dados.sessoes.length && <p className={styles.empty}>{t('teamNoSessions')}</p>}
           </div>
           {dados.operacao && (
             <details className={styles.group}>
@@ -584,76 +538,112 @@ export default function GestaoRecepcao({
         </>
       )}
       {detalhe && (
-        <section className={styles.review} aria-label="Revisão do atendimento">
+        <section className={styles.review} aria-label={t('reviewArea')}>
           <header className={styles.sectionHead}>
             <h2>{detalhe.sessao.cenario.titulo}</h2>
-            <button
-              className={styles.secondary}
-              onClick={() => setDetalhe(null)}
-            >
-              Fechar revisão
+            <button className={styles.secondary} onClick={() => setDetalhe(null)}>
+              {t('reviewClose')}
             </button>
           </header>
           {(() => {
             const hist = detalhe.sessao.historico,
-              nome = detalhe.sessao.cenario.nomePaciente;
-            const pos = (id: string) =>
-              descreverMensagem(hist, id, nome, 'terceira') || id;
-            const h = (t: string) =>
-              humanizarReferencias(t || '', hist, nome, 'terceira');
+              nome = detalhe.sessao.cenario.nomePaciente,
+              rel = detalhe.sessao.relatorio;
+            // Posição na conversa em terceira pessoa ("2ª resposta de quem atende"), traduzida.
+            const pos = (id: string) => {
+              const p = posicaoNaConversa(hist, id);
+              if (!p) return id;
+              return p.papel === 'user' ? t('teamReply', { n: p.ordem }) : t('personLine', { n: p.ordem, name: nome });
+            };
+            // O texto do relatório é escrito pela IA em português: a posição segue a mesma língua.
+            const h = (texto: string) =>
+              humanizarReferencias(texto || '', hist, nome, 'terceira', detalhe.sessao.cenario.dominio);
             return (
-              <div className={styles.reviewColumns}>
-                <div>
-                  <h3>Conversa preservada</h3>
-                  {hist.map((m) => (
-                    <blockquote key={m.id}>
-                      <strong>{pos(m.id)}</strong>
-                      <p>{m.content}</p>
-                    </blockquote>
-                  ))}
+              <>
+                {/* O que a pessoa recebeu (18/09/2026): quem revisa lia só a matriz. */}
+                {rel && (
+                  <div className={styles.reviewSummary}>
+                    <p>
+                      <strong>{t('reviewOutcome')}</strong>{' '}
+                      {DESFECHOS_CONHECIDOS.includes(rel.desfecho.tipo)
+                        ? t(`outcome_${rel.desfecho.tipo}`)
+                        : rel.desfecho.tipo.replaceAll('_', ' ')}
+                      . {h(rel.desfecho.justificativa)}
+                    </p>
+                    <p>
+                      <strong>{t('reviewScore')}</strong>{' '}
+                      {rel.nota === null ? t('noScore') : t('scoreOf4Short', { score: numero(rel.nota) })}
+                    </p>
+                    {rel.ocorrencias.length > 0 && (
+                      <div className={styles.error}>
+                        <div>
+                          <strong>{t('criticalTitle')}</strong>
+                          {rel.ocorrencias.map((o: any, i: number) => (
+                            <p key={i}>{h(o.motivo)}</p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className={styles.coaching}>
+                      <div>
+                        <h3>{t('reviewWorked')}</h3>
+                        <p>{h(rel.feedback.acerto)}</p>
+                      </div>
+                      <div>
+                        <h3>{t('reviewNextStep')}</h3>
+                        <p>{h(rel.feedback.melhoria)}</p>
+                        <p>{h(rel.feedback.novaTentativa)}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className={styles.reviewColumns}>
+                  <div>
+                    <h3>{t('reviewConversation')}</h3>
+                    {hist.map((m: any) => (
+                      <blockquote key={m.id}>
+                        <strong>{pos(m.id)}</strong>
+                        <p>{m.content}</p>
+                      </blockquote>
+                    ))}
+                  </div>
+                  <div>
+                    <h3>{t('reviewAi')}</h3>
+                    {rel?.competencias && (
+                      <MatrizAtendimento
+                        relatorio={rel}
+                        historico={hist}
+                        nomePersona={nome}
+                        dominio={detalhe.sessao.cenario.dominio}
+                        publico="equipe"
+                      />
+                    )}
+                    {!rel?.competencias &&
+                      (rel?.dimensoes.map((d: any) => (
+                        <article key={d.id}>
+                          <h4>
+                            {d.nome || detalhe.sessao.cenario.competencias?.find((c: any) => c.id === d.id)?.nome || d.id} ·{' '}
+                            {rotuloClassificacao[d.classificacao] || d.classificacao}
+                          </h4>
+                          <p>{h(d.justificativa)}</p>
+                          {d.evidencias.map((r: any, i: number) => (
+                            <blockquote key={i}>
+                              <small>{pos(r.mensagemId)}</small>“{r.trecho}”
+                            </blockquote>
+                          ))}
+                          {d.oportunidades?.map((r: any, i: number) => (
+                            <blockquote key={`o${i}`} className={styles.oportunidade}>
+                              <small>
+                                {t('opportunity')} · {pos(r.mensagemId)}
+                              </small>
+                              “{r.trecho}”
+                            </blockquote>
+                          ))}
+                        </article>
+                      )) || <p>{t('reviewNoReport')}</p>)}
+                  </div>
                 </div>
-                <div>
-                  <h3>Avaliação da IA · notas de 1 a 4</h3>
-                  {detalhe.sessao.relatorio?.competencias && (
-                    <MatrizAtendimento
-                      relatorio={detalhe.sessao.relatorio}
-                      historico={hist}
-                      nomePersona={nome}
-                      dominio={detalhe.sessao.cenario.dominio}
-                      publico="equipe"
-                    />
-                  )}
-                  {!detalhe.sessao.relatorio?.competencias && (detalhe.sessao.relatorio?.dimensoes.map((d) => (
-                    <article key={d.id}>
-                      <h4>
-                        {d.nome ||
-                          detalhe.sessao.cenario.competencias?.find(
-                            (c) => c.id === d.id,
-                          )?.nome ||
-                          d.id}{' '}
-                        ·{' '}
-                        {rotuloClassificacao[d.classificacao] ||
-                          d.classificacao}
-                      </h4>
-                      <p>{h(d.justificativa)}</p>
-                      {d.evidencias.map((r, i) => (
-                        <blockquote key={i}>
-                          <small>{pos(r.mensagemId)}</small>“{r.trecho}”
-                        </blockquote>
-                      ))}
-                      {d.oportunidades?.map((r, i) => (
-                        <blockquote
-                          key={`o${i}`}
-                          className={styles.oportunidade}
-                        >
-                          <small>Oportunidade · {pos(r.mensagemId)}</small>“
-                          {r.trecho}”
-                        </blockquote>
-                      ))}
-                    </article>
-                  )) || <p>Este atendimento ainda não tem relatório.</p>)}
-                </div>
-              </div>
+              </>
             );
           })()}
           {detalhe.podeRevisar && detalhe.sessao.relatorio && (
@@ -664,13 +654,10 @@ export default function GestaoRecepcao({
                 revisar();
               }}
             >
-              <h3>Registrar parecer</h3>
-              <p>
-                A revisão fica anexada ao atendimento. A nota original não é
-                sobrescrita.
-              </p>
+              <h3>{t('reviewRegister')}</h3>
+              <p>{t('reviewRegisterHelp')}</p>
               <label>
-                Parecer
+                {t('reviewVerdict')}
                 <select
                   value={parecer}
                   onChange={(e) => {
@@ -678,39 +665,34 @@ export default function GestaoRecepcao({
                     pending.current = null;
                   }}
                 >
-                  <option value="concordo">Concordo</option>
-                  <option value="parcialmente">Concordo parcialmente</option>
-                  <option value="discordo">Discordo</option>
+                  {['concordo', 'parcialmente', 'discordo'].map((v) => (
+                    <option key={v} value={v}>
+                      {t(`verdict_${v}`)}
+                    </option>
+                  ))}
                 </select>
               </label>
+              {/* Com a matriz são 30 comportamentos: a lista abre só para quem vai marcar. */}
+              <details className={styles.group}>
+              <summary>{t('reviewDimensions')}</summary>
               <fieldset>
-                <legend>
-                  Descritores ou competências comentados (opcional)
-                </legend>
-                {detalhe.sessao.relatorio.dimensoes.map((d) => (
+                {detalhe.sessao.relatorio.dimensoes.map((d: any) => (
                   <label className={styles.checkLabel} key={d.id}>
                     <input
                       type="checkbox"
                       checked={dimensoes.includes(d.id)}
                       onChange={(e) => {
                         pending.current = null;
-                        setDimensoes(
-                          e.target.checked
-                            ? [...dimensoes, d.id]
-                            : dimensoes.filter((id) => id !== d.id),
-                        );
+                        setDimensoes(e.target.checked ? [...dimensoes, d.id] : dimensoes.filter((id) => id !== d.id));
                       }}
                     />
-                    {d.nome ||
-                      detalhe.sessao.cenario.competencias?.find(
-                        (c) => c.id === d.id,
-                      )?.nome ||
-                      d.id}
+                    {d.nome || detalhe.sessao.cenario.competencias?.find((c: any) => c.id === d.id)?.nome || d.id}
                   </label>
                 ))}
               </fieldset>
+              </details>
               <label>
-                Motivo e evidências
+                {t('reviewReason')}
                 <textarea
                   value={motivo}
                   maxLength={4000}
@@ -719,34 +701,26 @@ export default function GestaoRecepcao({
                     setMotivo(e.target.value);
                     pending.current = null;
                   }}
-                  placeholder="Explique o parecer com base nas falas acima."
+                  placeholder={t('reviewReasonPlaceholder')}
                 />
               </label>
-              <button
-                className={styles.primary}
-                disabled={busy || !motivo.trim()}
-              >
-                Salvar revisão
+              <button className={styles.primary} disabled={busy || !motivo.trim()}>
+                {t('reviewSave')}
               </button>
             </form>
           )}
-          {!detalhe.podeRevisar && (
-            <p className={styles.small}>
-              A revisão exige outra pessoa com permissão de acompanhamento e
-              registro.
-            </p>
-          )}
-          <h3>Revisões registradas</h3>
-          {detalhe.revisoes.map((r) => (
+          {!detalhe.podeRevisar && <p className={styles.small}>{t('reviewNotAllowed')}</p>}
+          <h3>{t('reviewRegistered')}</h3>
+          {detalhe.revisoes.map((r: any) => (
             <article className={styles.group} key={r.id}>
               <strong>
-                {r.revisor_nome} · {r.parecer}
+                {r.revisor_nome} · {t(`verdict_${r.parecer}`)}
               </strong>
               <p>{r.motivo}</p>
-              <small>{new Date(r.created_at).toLocaleString('pt-BR')}</small>
+              <small>{new Date(r.created_at).toLocaleString(locale)}</small>
             </article>
           ))}
-          {!detalhe.revisoes.length && <p>Ainda não há parecer humano.</p>}
+          {!detalhe.revisoes.length && <p>{t('reviewNone')}</p>}
         </section>
       )}
     </section>

@@ -9,6 +9,8 @@ import { catalogoLimites } from '../../lib/recepcao/catalogo-limites';
 import { aplicarMatrizAtendimento } from '../../lib/recepcao/matriz-avaliacao';
 import { abrirSessao, consolidar, fichaPublica, visaoPublica } from '../../lib/recepcao/core';
 import { dominioAtendimento } from '../../lib/recepcao/dominio';
+import { visaoPorCompetencia } from '../../lib/recepcao/painel';
+import { competenciasAtendimento } from '../../lib/recepcao/matriz';
 import type { Estado, Insumos } from '../../lib/recepcao/model';
 import type { Cenario } from '../../lib/recepcao/schema';
 import pt from '../../messages/pt-BR.json';
@@ -23,6 +25,8 @@ const catalogo = { 'pt-BR': pt, 'pt-PT': ptpt, 'en-US': en, 'es-ES': es } as Rec
 const segmento = params.get('segmento') || 'recepcao_medica';
 const admin = params.has('admin');
 const semCasos = params.has('semCasos');
+// Visão de quem acompanha (RH): a tela abre na aba da equipe.
+const equipe = params.has('equipe');
 const EMPRESA = '10000000-0000-4000-8000-000000000009';
 let dominioEmpresa = segmento;
 
@@ -98,12 +102,12 @@ const dados = () => ({
   habilitado: true,
   admin,
   dominio: dominioEmpresa,
-  soAcompanha: false,
+  soAcompanha: equipe,
   ficha: semCasos ? null : registros[0].ficha,
   cenarios: semCasos ? [] : registros,
   nivelSugerido: 'introducao',
   sessao: sessao ? { ...visaoPublica(sessao), processando: false } : null,
-  podeEquipe: false,
+  podeEquipe: equipe,
   podeCenarios: false,
   historico: sessao
     ? [
@@ -120,6 +124,38 @@ const dados = () => ({
       ]
     : [],
 });
+// Painel da equipe: sessões de duas pessoas, uma que subiu de nível; uma pessoa sem treino.
+function sessaoDe(colaborador: string, dias: number) {
+  const s = novaSessao();
+  s.id = `40000000-0000-4000-8000-0000000000${10 + dias}`;
+  responder(s, FALA);
+  avaliar(s);
+  return { id: s.id, colaborador_id: colaborador, created_at: `2026-09-${String(dias).padStart(2, '0')}T12:00:00Z`, estado: s };
+}
+const sessoesEquipe = [sessaoDe('p-ana', 16), sessaoDe('p-bruno', 12)];
+const painel = () => {
+  const competencias = competenciasAtendimento(segmento);
+  const visao = visaoPorCompetencia(
+    sessoesEquipe,
+    [
+      { id: 'p-ana', nome: 'Ana Souza', cargo: 'Recepção' },
+      { id: 'p-bruno', nome: 'Bruno Lima', cargo: 'Recepção' },
+      { id: 'p-carla', nome: 'Carla Dias', cargo: null },
+    ],
+    competencias.map((c) => c.codigo),
+  );
+  return {
+    iniciadas: 2,
+    concluidas: 2,
+    pendentes: 2,
+    pessoas: [],
+    grupos: [{ chave: 'caso|1|r', titulo: cenario.publico.titulo, versao: cenario.versao, sessoes: 2, media: 2.83, criticas: 0, dimensoes: {} }],
+    sessoes: sessoesEquipe.map((r) => ({ id: r.id, nome: r.colaborador_id === 'p-ana' ? 'Ana Souza' : 'Bruno Lima', titulo: cenario.publico.titulo, data: r.created_at, status: 'concluida', nota: r.estado.relatorio!.nota, critica: false, revisao: null })),
+    dias: 30,
+    operacao: null,
+    visao: { ...visao, nomes: Object.fromEntries(competencias.map((c) => [c.codigo, c.nome])) },
+  };
+};
 w.__recepcaoWrites = [];
 w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
   if (url.includes('/config')) {
@@ -133,6 +169,12 @@ w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
       empresas: [{ id: EMPRESA, nome: 'Empresa de demonstração', habilitado: true, dominio: dominioEmpresa }],
       podeConfigurar: true,
     });
+  }
+  if (url.includes('/gestao')) {
+    const q = new URL(url, location.origin).searchParams;
+    if (q.has('sessaoId'))
+      return Response.json({ sessao: visaoPublica(sessoesEquipe.find((r) => r.id === q.get('sessaoId'))!.estado), revisoes: [], podeRevisar: true });
+    return Response.json(painel());
   }
   if (!init.method || init.method === 'GET') return Response.json(dados());
   const cmd = JSON.parse(String(init.body));

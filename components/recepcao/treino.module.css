@@ -19,3 +19,6 @@
 /* Celular com conversa em curso (18/09/2026): a conversa vem antes da ficha, que fica a um toque. */
 @media(max-width:850px){.chatPrimeiro .conversa{order:-1}.chatPrimeiro .linkFicha{display:inline-block;font-size:12px;color:var(--teal);text-decoration:underline;white-space:nowrap}}
 .admin .segmento{margin-top:10px;min-width:220px}
+/* Visão por competência e resumo da revisão (18/09/2026). */
+.visao{margin-bottom:26px}.visao>h3{margin-top:0}.visaoHead{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;margin-top:18px}.visaoHead h4{font-weight:700}.visao h4{margin:18px 0 8px}.visaoBusca{padding:9px;border:1px solid var(--line);border-radius:8px;background:white;max-width:100%}.cellNote{display:block;color:var(--muted);font-size:11px}.cellUp{display:block;color:#2f6b3a;font-size:10px;font-weight:700}
+.reviewSummary{border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:20px;font-size:13px;line-height:1.7}.reviewSummary>p{margin:0 0 8px}

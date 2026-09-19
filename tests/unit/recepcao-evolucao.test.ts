@@ -35,12 +35,12 @@ test('cada rejeição e recuperação é observável sem aceitar referência de 
  const registrar=vi.fn();await encerrar(s,gerar,registrar);
  expect(registrar).toHaveBeenCalledTimes(2);expect(registrar.mock.calls[0][0]).toBeInstanceOf(ErroReferenciaAvaliacao);expect(registrar.mock.calls[1]).toEqual([]);
 });
-test('indicadores não misturam casos, versões nem cobertura e usam a última revisão',async()=>{
+test('indicadores não misturam casos nem versões, a cobertura não fragmenta o caso (18/09) e usam a última revisão',async()=>{
  const s=await executarExemplo();const outro=structuredClone(s);outro.cenario.id='outro-caso';
  const parcial=structuredClone(s);parcial.relatorio.coberturaPercentual=75;
  const rows=[s,outro,parcial].map((estado,i)=>({id:String(i),estado,colaborador_id:'c',created_at:'2026-09-05'}));
  const resumo=resumirEquipe(rows,[{id:'c',nome_completo:'Pessoa',ativo:true}],[{sessao_id:'0',parecer:'discordo'},{sessao_id:'0',parecer:'concordo'}]);
- expect(resumo.grupos).toHaveLength(3);expect(resumo.pendentes).toBe(2);expect(resumo.sessoes[0].revisao).toBe('discordo');
+ expect(resumo.grupos).toHaveLength(2);expect(resumo.grupos.find(g=>g.chave.startsWith(s.cenario.id+'|')).sessoes).toBe(2);expect(resumo.pendentes).toBe(2);expect(resumo.sessoes[0].revisao).toBe('discordo');
 });
 test('rubrica do snapshot continua sendo a autoridade para a saída flexível da IA',async()=>{
  const s=await executarExemplo(),a=insumosExemplo();a.dimensoes[0].id='competencia_inventada';expect(()=>consolidar(s,a)).toThrow('ausente');

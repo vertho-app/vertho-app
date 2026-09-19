@@ -8,6 +8,11 @@ import { textoParaTreino } from './ai';
 import type { revisaoSchema } from './schema';
 import type { z } from 'zod';
 import { notaAtendimento } from './matriz-avaliacao';
+import { competenciasAtendimento } from './matriz';
+import { visaoPorCompetencia, type PessoaAtendimento } from './painel';
+import { acessoDoCargo } from '@/lib/simuladores/acesso-cargo';
+import { PAPEIS_QUE_SO_ACOMPANHAM } from '@/lib/simuladores/papel';
+import { isInternalEmail } from '@/lib/internal-emails';
 
 export async function todas(query: () => any): Promise<any[]> {
   const rows = [];
@@ -52,6 +57,39 @@ export async function pessoasDaEquipe(c: ContextoRecepcao) {
   );
   return pessoas.filter((p) => canViewColabJourney(c.auth, p));
 }
+/**
+ * Quem PODERIA treinar e a pessoa que pergunta enxerga (18/09/2026): cargo
+ * liberado para o atendimento pela régua do gate, fora gestor e RH (só
+ * acompanham) e as contas internas. "Não treinou" só é justo para quem tinha acesso.
+ */
+export async function populacaoAtendimento(c: ContextoRecepcao): Promise<PessoaAtendimento[]> {
+  const [empresa, cargos] = await Promise.all([
+    c.sb.from('empresas').select('sys_config').eq('id', c.empresaId).maybeSingle(),
+    c.sb.from('cargos_empresa').select('id,nome').eq('empresa_id', c.empresaId),
+  ]);
+  if (empresa.error || cargos.error)
+    throw new RecepcaoError(503, 'Não foi possível consultar os cargos da equipe.');
+  const sysConfig = (empresa.data?.sys_config ?? null) as Record<string, unknown> | null;
+  const cargoId = new Map<string, string>(
+    ((cargos.data || []) as Array<{ id: string; nome: string }>).map((x) => [x.nome, String(x.id)]),
+  );
+  const pessoas = await todas(() =>
+    c.sb
+      .from('colaboradores')
+      .select('id,empresa_id,nome_completo,email,gestor_email,cargo,role')
+      .eq('empresa_id', c.empresaId)
+      .order('id'),
+  );
+  return pessoas
+    .filter(
+      (p) =>
+        !(PAPEIS_QUE_SO_ACOMPANHAM as readonly string[]).includes(String(p.role ?? '')) &&
+        !isInternalEmail(p.email) &&
+        acessoDoCargo(sysConfig, p.cargo ? (cargoId.get(p.cargo) ?? null) : null).atendimento &&
+        (c.auth.isPlatformAdmin || canViewColabJourney(c.auth, p)),
+    )
+    .map((p) => ({ id: p.id, nome: p.nome_completo || 'Colaborador', cargo: p.cargo || null }));
+}
 export async function sessaoDaEquipe(c: ContextoRecepcao, id: string) {
   const pessoas = await pessoasDaEquipe(c);
   const { data, error } = await c.sb
@@ -79,13 +117,10 @@ export function resumirEquipe(rows: any[], pessoas: any[], revisoes: any[]) {
     const s = r.estado,
       rel = s.relatorio;
     if (!rel) continue;
-    // Mesma régua, versão do caso e cobertura. Notas de casos distintos nunca se misturam.
-    const key = [
-      s.cenario.id,
-      rel.versaoCenario,
-      rel.versaoRubrica,
-      rel.coberturaPercentual,
-    ].join('|');
+    // Mesma régua e versão do caso: notas de casos distintos nunca se misturam. A cobertura
+    // saiu da chave em 18/09: 83% e 87% no mesmo caso viravam grupos diferentes, e a regra de
+    // cobertura já decide, por competência, quando há nível.
+    const key = [s.cenario.id, rel.versaoCenario, rel.versaoRubrica].join('|');
     const g = grupos.get(key) || {
       chave: key,
       titulo: s.cenario.publico.titulo,
@@ -246,7 +281,19 @@ export async function painelEquipe(
         : null,
     };
   }
-  return { ...resumirEquipe(rows, pessoas, revisoes), dias, operacao };
+  // Visão por competência (18/09): população com acesso e níveis dos relatórios com matriz do período.
+  const competencias = competenciasAtendimento(c.dominio);
+  const visao = visaoPorCompetencia(
+    rows,
+    await populacaoAtendimento(c),
+    competencias.map((x) => x.codigo),
+  );
+  return {
+    ...resumirEquipe(rows, pessoas, revisoes),
+    dias,
+    operacao,
+    visao: { ...visao, nomes: Object.fromEntries(competencias.map((x) => [x.codigo, x.nome])) },
+  };
 }
 export async function detalheEquipe(c: ContextoRecepcao, id: string) {
   const row = await sessaoDaEquipe(c, id);

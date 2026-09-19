@@ -214,3 +214,12 @@ Verificação: `node scripts/verify-recepcao-ui.mjs` (componentes, CSS e núcleo
 - **Rascunho com IA** (`lib/recepcao/rascunho.ts`, tarefa `recepcao_rascunho` registrada em `lib/ai-tasks.ts`): quem cuida do conteúdo descreve a situação; a IA devolve só as partes do caso (contexto, seções, procedimentos, duas pessoas e o critério de cada competência) e o código monta o resto. O rascunho abre no editor SEM ser salvo; publicar continua exigindo revisão e `content.manage`. Ensaio real (`tests/unit/recepcao-rascunho-live.test.ts`, opt-in): loja 42 s e secretaria escolar 32 s, os dois aceitos pelo schema, com restrição escondida, limite explicável e saída autorizada.
 
 Verificação: `tests/unit/recepcao-segmento-empresa.test.ts` (5 mutações vermelhas) e `node scripts/verify-recepcao-ui.mjs` (11 checks, inclui o seletor de segmento e o aviso de segmento sem casos).
+
+### Equipe e revisões: visão por competência (18/09/2026)
+
+- **Visão por competência** no topo da aba (`lib/recepcao/painel.ts`, pura; `populacaoAtendimento` em `equipe.ts`): quem tem acesso (cargo liberado para o atendimento pela régua do gate, fora gestor, RH e contas internas, com `canViewColabJourney` por pessoa), quem treinou no período, a distribuição do maior nível por competência, a tabela por pessoa com "Subiu de nível" e CSV, e quem não treinou no período. A régua de evolução (só avanço) é a do núcleo comum `lib/simuladores/evolucao.ts`, a mesma do vendas; só relatórios na escala 1 a 4 com matriz dão nível.
+- **Por caso**: a cobertura saiu da chave de agrupamento. 83% e 87% no mesmo caso viravam grupos diferentes; agora o grupo é caso, versão do caso e versão da régua, e a regra de cobertura decide, por competência, quando há nível.
+- **Revisão** passa a mostrar o que a pessoa recebeu antes da matriz: desfecho com a justificativa, média geral, ocorrências críticas e o feedback (o que funcionou e o próximo passo). A conversa usa posições em terceira pessoa ("1ª resposta de quem atende") e a lista de 30 comportamentos para comentar fica recolhida.
+- A aba da equipe e a revisão estão nos quatro idiomas; cenários, editor e o bloco de operação e custo seguem em português (ferramentas internas).
+
+Verificação: `tests/unit/recepcao-painel-equipe.test.ts` (4 mutações vermelhas) e `node scripts/verify-recepcao-ui.mjs` (12 checks, inclui a aba da equipe com CSV e a revisão, no computador e no celular).
