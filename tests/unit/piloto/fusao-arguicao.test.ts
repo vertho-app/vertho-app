@@ -101,6 +101,22 @@ describe('fundirArguicao — modulação determinística (±0,5 no código)', ()
     expect(ajustados).toBe(0);
   });
 
+  it('x,x5 arredonda sempre para cima, qualquer que seja o caminho (sem ruído de ponto flutuante)', () => {
+    // Medido 18/09/2026: 3,3 − 0,35 saía 2,9 e 2,6 + 0,35 saía 3,0 (o mesmo 2,95).
+    const p = { avaliacao_por_descritor: [
+      { descritor: 'A', nota_pre: 2.6, nota_pos: 3.3 },
+      { descritor: 'B', nota_pre: 2.6, nota_pos: 2.6 },
+      { descritor: 'C', nota_pre: 2.6, nota_pos: 3.1 },
+    ], nota_media_pre: 2.6, nota_media_pos: 3 };
+    const { parsed } = fundirArguicao(p, extracao([
+      { descritor: 'A', sustentou: 'fragilizou', forca: 'moderada' }, // 2,95
+      { descritor: 'B', sustentou: 'aprofundou', forca: 'moderada' }, // 2,95
+      { descritor: 'C', sustentou: 'aprofundou', forca: 'moderada' }, // 3,45
+    ]));
+    expect(parsed.avaliacao_por_descritor.map((d: any) => d.nota_pos)).toEqual([3.0, 3.0, 3.5]);
+    expect(parsed.avaliacao_por_descritor.map((d: any) => d.delta)).toEqual([0.4, 0.4, 0.9]);
+  });
+
   it('todos os valores do mapa vivem dentro de [−0,5, +0,5]', () => {
     for (const forcas of Object.values(AJUSTE_POR_SUSTENTACAO)) {
       for (const v of Object.values(forcas)) {

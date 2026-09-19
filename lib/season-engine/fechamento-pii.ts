@@ -61,6 +61,11 @@ export function desmascararResultadoFechamento(parsed: any, auditoria: any, map:
       parsed.avaliacao_por_descritor = parsed.avaliacao_por_descritor.map((d: any) => {
         const out = { ...d };
         for (const k of CAMPOS_DO_DESCRITOR) if (typeof out[k] === 'string') out[k] = unmaskPII(out[k], map);
+        // `Medido:` ensaio de 18/09, "Não há evidência de como COLAB_… comunica"
+        // gravado num limite da leitura: a lista também é texto autoral.
+        if (Array.isArray(out.limites_da_leitura)) {
+          out.limites_da_leitura = out.limites_da_leitura.map((l: unknown) => (typeof l === 'string' ? unmaskPII(l, map) : l));
+        }
         return out;
       });
     }

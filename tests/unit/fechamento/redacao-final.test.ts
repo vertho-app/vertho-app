@@ -63,7 +63,7 @@ const EXTRACAO = {
     fragilidade_mais_relevante: 'Não previu dados incompletos.',
   },
   evidencias_por_descritor: [
-    { descritor: 'Foco em valor', sustentou: 'fragilizou', forca: 'moderada', citacao: 'não tinha pensado nos dados' },
+    { descritor: 'Foco em valor', sustentou: 'fragilizou', forca: 'forte', citacao: 'não tinha pensado nos dados' },
     { descritor: 'Adaptação', sustentou: 'aprofundou', forca: 'forte', citacao: 'eu mudaria a ordem dos recursos' },
     { descritor: 'Clareza', sustentou: 'confirmou', forca: 'forte', citacao: 'resumo de uma página' },
   ],
@@ -118,10 +118,9 @@ describe('redação final: a nota mudou depois do texto', () => {
     // A redação recebe o que o rascunho não sabia: nota final, nota do rascunho e a defesa.
     const [sistema, usuario] = chamadas('sem14_redacao')[0] as any[];
     expect(sistema).toContain('REGRAS DA REESCRITA');
-    // 3,3 − 0,35 = 2,95, e o arredondamento da fusão dá 2,9 (o mesmo do ensaio real).
-    expect(usuario).toContain('Foco em valor: início 2,6, final 2,9 (avanço final +0,3)');
+    expect(usuario).toContain('Foco em valor: início 2,6, final 2,8 (avanço final +0,2).');
     expect(usuario).toContain('O rascunho foi escrito com 3,3.');
-    expect(usuario).toContain('Na defesa oral, fragilizou, força moderada: "não tinha pensado nos dados".');
+    expect(usuario).toContain('Na defesa oral, fragilizou, força forte: "não tinha pensado nos dados".');
     expect(usuario).toContain('RASCUNHO foco em valor');
     // Maior avanço final primeiro: Adaptação (+1,1), Clareza (+0,6), Foco em valor (+0,3).
     expect(usuario.indexOf('1. Adaptação: início')).toBeGreaterThan(-1);
@@ -146,13 +145,35 @@ describe('redação final: a nota mudou depois do texto', () => {
     const r = await pontuarFechamento(ARGS as any);
     if (r.ok !== true) throw new Error('esperava ok');
     const porNome = (n: string) => r.parsed.avaliacao_por_descritor.find((d: any) => d.descritor === n);
-    expect(porNome('Foco em valor').justificativa).toContain('Defesa oral: fragilizou (moderada). Ajuste de -0,35 sobre a nota antes da defesa (3,3 → 2,9).');
-    expect(porNome('Adaptação').justificativa).toContain('Ajuste de +0,5 sobre a nota antes da defesa (3,2 → 3,7).');
+    expect(porNome('Foco em valor').justificativa).toContain(
+      'Defesa oral: fragilizou (forte). Ajuste de -0,5 sobre a nota antes da defesa (3,3 → 2,8); o texto acima trata da nota antes da defesa.',
+    );
+    expect(porNome('Adaptação').justificativa).toContain('Ajuste de +0,5 sobre a nota antes da defesa (3,2 → 3,7);');
     expect(porNome('Clareza').justificativa).toBe('Direto ao ponto.');
     // A classificação acompanha o delta FINAL: o scorer dizia "evoluiu" (+0,7);
-    // depois do ajuste o delta é +0,3, que pela régua é "manteve".
+    // depois do ajuste o delta é +0,2, que pela régua é "manteve".
     expect(porNome('Foco em valor').classificacao).toBe('manteve');
     expect(porNome('Adaptação').classificacao).toBe('evoluiu');
+    // O nível também, pela régua oficial (N3 vai até 3,50): 2,8 é N2 e 3,7 é N4.
+    expect(porNome('Foco em valor').nivel_rubrica).toBe('em_desenvolvimento');
+    expect(porNome('Adaptação').nivel_rubrica).toBe('referencia');
+  });
+
+  it('a redação vê as MESMAS evidências das semanas que o scorer viu', async () => {
+    responder({ sem14_scorer: [SCORE], sem14_redacao: [JSON.stringify({ resumo_avaliacao: REDIGIDO })], sem14_check: [CHECK] });
+    await pontuarFechamento({ ...ARGS, evidenciasAcumuladas: 'Sem 3: renegociou o prazo com o cliente.' } as any);
+    const usuario = String(chamadas('sem14_redacao')[0][1]);
+    expect(usuario).toContain('EVIDÊNCIAS DAS 6 SEMANAS');
+    expect(usuario).toContain('Sem 3: renegociou o prazo com o cliente.');
+  });
+
+  it('sem evidências das semanas, a redação é avisada disso (não inventa trajetória)', async () => {
+    responder({ sem14_scorer: [SCORE], sem14_redacao: [JSON.stringify({ resumo_avaliacao: REDIGIDO })], sem14_check: [CHECK] });
+    await pontuarFechamento(ARGS as any);
+    const [sistema, usuario] = chamadas('sem14_redacao')[0] as any[];
+    expect(usuario).toContain('(sem evidências registradas nas semanas)');
+    expect(sistema).toContain('Se elas vierem vazias, fale só do que apareceu no cenário e na defesa oral');
+    expect(sistema).toContain('Não compare COLAB_A1B2 com outras pessoas nem use superlativo sem base');
   });
 
   it('atribuição de ledger e taskKey próprio na chamada da redação', async () => {

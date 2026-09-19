@@ -365,6 +365,7 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
           })),
           rascunho,
           arguicao: evidenciasArguicao?.resumo ?? null,
+          evidenciasSemanas: evidenciasAcumuladas ?? null,
         });
         const rRed = await callAI(sRed, uRed, {}, REDACAO_MAX_TOKENS, {
           taskKey: 'sem14_redacao',

@@ -1184,16 +1184,25 @@
 - **Modelo**: task `sem14_redacao`, sem default próprio (resolve como o `sem14_scorer`, Sonnet 4.6).
   **Max tokens**: 3000 (`REDACAO_MAX_TOKENS`). **Timeout**: até 60 s do que sobra do prazo
   (`timeoutDaRedacao`); sem tempo, pula (`pulada-sem-tempo`) e a redação vem antes do check.
-- **Custo medido** (entrada real do ensaio, 18/09): 4.538 in / 1.253 out, US$ 0,032, 25 s.
+- **Custo medido** (entrada real do ensaio, 18/09): 4.500 a 4.800 in / 1.100 a 1.300 out, US$ 0,031 a
+  0,034, 22 a 27 s (4 execuções, uma delas em produção pela rota real).
 - **Inputs**: notas finais por descritor, do maior para o menor avanço final, com a nota do rascunho,
-  a classificação e a citação da defesa oral; leitura geral da arguição; justificativas; o rascunho
-  (`resumo_avaliacao` do scorer). Tudo mascarado (a extração entra por `mascararExtracaoArguicao`).
+  a classificação e a citação da defesa oral; leitura geral da arguição; as MESMAS evidências das
+  semanas que o scorer recebeu; justificativas; o rascunho (`resumo_avaliacao` do scorer). Tudo
+  mascarado (a extração entra por `mascararExtracaoArguicao`).
 - **System prompt** (resumo): a nota já está decidida; reescreva a devolutiva para dizer o mesmo que as
   notas FINAIS. Principal avanço sai dos primeiros da lista, ponto de atenção dos últimos ou de onde a
   defesa fragilizou; pode dizer em linguagem simples o que a defesa mostrou; preserve do rascunho o que
-  continua verdadeiro; sem número de nota, nível, "descritor", "régua", "acumulado", "arguição" nem
-  travessão. Depois vêm as MESMAS regras do scorer (`regrasDaDevolutiva`, com o travessão delas
-  trocado por dois pontos).
+  continua verdadeiro e os limites que ele reconhece; só fale do que a pessoa fez nas semanas se
+  estiver nas evidências delas (vazias: diga que a leitura se apoia no cenário e na defesa); sem
+  superlativo nem comparação com outras pessoas; sem número de nota, nível, "descritor", "régua",
+  "acumulado", "arguição" nem travessão. Depois vêm as MESMAS regras do scorer (`regrasDaDevolutiva`,
+  com o travessão delas trocado por dois pontos).
+- 🔴 **Por que a redação vê as evidências das semanas** (`Medido:` ensaio de 18/09 em produção, 1ª
+  versão): sem elas, a regra herdada "cite ao menos 1 evidência das semanas" empurrou o modelo a
+  escrever "você construiu ao longo dessas seis semanas" e "o ponto mais forte da jornada" onde o
+  rascunho dizia que não havia registros; o auditor deu 60 com erro grave. Com as evidências e as
+  regras novas, a mesma entrada foi a 72 e 82, sem erro grave e sem afirmação sem base.
 - **Output**: `{ resumo_avaliacao: { mensagem_geral, evidencias_citadas[], principal_avanco,
   principal_ponto_de_atencao, mensagem_final, proximos_passos[] } }`. `validarRedacao` exige os quatro
   textos; faltando um, o caller mantém o rascunho INTEIRO (completar com ele traria de volta a frase
@@ -1253,7 +1262,9 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 **(c) Fusão na nota (CÓDIGO, sem IA)** — `lib/season-engine/fusao-arguicao.ts::fundirArguicao`
 - O `ajuste_arguicao` NÃO vem de IA — é DERIVADO da classificação (`sustentou×forca`) por MAPA determinístico: aprofundou +0,2/0,35/0,5; fragilizou simétrico; confirmou/sem_sinal 0 — tudo dentro de ±0,5 (clamp de salvaguarda). Por descritor: `nota_base_cenario`=nota do scorer; `nota_pos=clamp(base+ajuste,1,4)`; recalcula médias e delta. Descritor DUPLICADO na extração → mantém o ajuste de MENOR magnitude (conservador, independe da ordem).
 - **Ordem no fechamento**: scorer (6.12) → **fusão** → trava piloto → anotação → redação final (6.12b) → check (6.13). `pontuarFechamento` recebe `evidenciasArguicao` (JÁ MASCARADA) e funde ENTRE scorer e trava. Carimba `nota_base_cenario`+`ajuste_arguicao`+`sustentacao_arguicao`+`forca_arguicao` por descritor e, quando o ajuste muda a nota, recalcula a `classificacao` pelo delta final (`classificacaoDoDelta`).
-- **Anotação** (18/09/2026, `anotarAjusteArguicao`): a justificativa do scorer cita a nota DELE; o descritor ajustado ganha a linha "Defesa oral: aprofundou (forte). Ajuste de +0,5 sobre a nota antes da defesa (3,2 → 3,7)." Determinística, sem IA; aparece no admin e na visão do RH.
+- **Anotação** (18/09/2026, `anotarAjusteArguicao`): a justificativa do scorer cita a nota DELE; o descritor ajustado ganha a linha "Defesa oral: aprofundou (forte). Ajuste de +0,5 sobre a nota antes da defesa (3,2 → 3,7); o texto acima trata da nota antes da defesa." Determinística, sem IA; aparece no admin e na visão do RH.
+- **Campos derivados** (18/09/2026): quando o ajuste muda a nota, `classificacao` (pelo delta final) e `nivel_rubrica` (pela régua oficial `nivelDaNota`, via `rubricaDaNota`) são recalculados.
+- **Arredondamento** (18/09/2026): uma casa, meio para cima, sem ruído de ponto flutuante. Todo ajuste de ±0,35 cai em x,x5, e antes o MESMO 2,95 saía 3,0 vindo de 2,6 + 0,35 e 2,9 vindo de 3,3 − 0,35.
 - **Amarração**: ao concluir a arguição, a rota dispara `finalizarComScorer()` (mesmo núcleo do `send` da 4ª resposta) — a nota sai já fundida. UI: tela `sem14` troca do formulário para modo CHAT turn-by-turn.
 
 ---

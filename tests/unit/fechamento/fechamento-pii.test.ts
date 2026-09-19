@@ -57,7 +57,10 @@ describe('desmascararResultadoFechamento', () => {
         proximos_passos: [`Combine com ${ALIAS}`],
       },
       resumo_avaliacao_rascunho: { mensagem_geral: `${ALIAS}, rascunho.`, proximos_passos: [`${ALIAS} faz`] },
-      avaliacao_por_descritor: [{ descritor: 'Escuta', justificativa: `${ALIAS} ouviu`, trecho_cenario: `${ALIAS}:`, evidencia_acumulada: `${ALIAS} na sem 2`, nota_pos: 3 }],
+      avaliacao_por_descritor: [{
+        descritor: 'Escuta', justificativa: `${ALIAS} ouviu`, trecho_cenario: `${ALIAS}:`, evidencia_acumulada: `${ALIAS} na sem 2`,
+        limites_da_leitura: [`Não há evidência de como ${ALIAS} comunica fora do cenário.`], nota_pos: 3,
+      }],
       alertas_metodologicos: [`${ALIAS} sem acumulado`],
     };
     const auditoria: any = {

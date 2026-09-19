@@ -50,7 +50,7 @@ Em cada descritor da avaliação:
 - ajuste_arguicao, sustentacao_arguicao e forca_arguicao registram o ajuste e o motivo;
 - nota_pos é a nota final (base mais o ajuste, entre 1 e 4).
 Como auditar com o ajuste:
-1. Compare a justificativa com a nota_base_cenario. A diferença até a nota_pos é o ajuste: não é contradição nem erro grave.
+1. Compare a justificativa com a nota_base_cenario (o texto da justificativa pode chamá-la de "nota_pos": é a nota antes do ajuste). A diferença até a nota_pos é o ajuste: não é contradição nem erro grave.
 2. O ajuste é regra fixa. Não sugira desfazê-lo. Se a classificação da defesa não se apoiar na citação, diga isso em alertas.
 3. Em ajustes_sugeridos, nota_pos_sugerida é a nota ANTES do ajuste; o código reaplica o ajuste da defesa sobre ela.
 4. A devolutiva (resumo_avaliacao) deve conversar com as notas FINAIS (nota_pos).

@@ -50,6 +50,14 @@ export interface PromptRedacaoFechamentoParams {
   /** `resumo_avaliacao` do scorer, já validado. */
   rascunho: unknown;
   arguicao?: LeituraDaArguicao | null;
+  /**
+   * As MESMAS evidências das semanas que o scorer recebeu (mascaradas). Sem
+   * elas, a regra herdada "cite evidência das semanas" empurrava o modelo a
+   * inventar. `Medido:` ensaio de 18/09 sem registros das semanas: o rascunho
+   * dizia que não havia registros; a redação escreveu "você construiu ao longo
+   * dessas seis semanas" e "o ponto mais forte da jornada".
+   */
+  evidenciasSemanas?: string | null;
 }
 
 export interface ResumoRedigido {
@@ -131,6 +139,9 @@ REGRAS DA REESCRITA:
 4. Preserve do rascunho o que continua verdadeiro: o tom, as evidências citadas e os próximos passos que ainda fazem sentido. Mude só o que as notas finais contradizem.
 5. Nenhum campo usa termo interno: "descritor", "régua", "acumulado", "triangulação", "arguição", "nota", "N1", "N2", "N3", "N4".
 6. Não use travessão. Use vírgula, dois pontos ou ponto final.
+7. Só diga o que ${p.nomeColab} fez ou construiu ao longo das semanas se estiver nas EVIDÊNCIAS DAS SEMANAS. Se elas vierem vazias, fale só do que apareceu no cenário e na defesa oral, diga em linguagem simples que a leitura se apoia nesses dois momentos, e a regra de citar evidência das semanas não se aplica.
+8. Se o rascunho reconhece um limite da leitura, mantenha o reconhecimento em linguagem simples.
+9. Não compare ${p.nomeColab} com outras pessoas nem use superlativo sem base ("raro", "excepcional", "o ponto mais forte da jornada").
 
 ${regras}
 
@@ -148,6 +159,7 @@ RETORNE APENAS JSON VÁLIDO, sem markdown, sem texto antes ou depois.`;
     .map((d) => `- ${d.descritor}: ${d.justificativa}`)
     .join('\n');
 
+  const evidenciasSemanas = (p.evidenciasSemanas || '').trim();
   const user = `COMPETÊNCIA: ${p.competencia}
 
 ASPECTOS, DO MAIOR PARA O MENOR AVANÇO FINAL:
@@ -156,6 +168,9 @@ ${leitura ? `
 O QUE A DEFESA ORAL MOSTROU:
 ${leitura}
 ` : ''}
+EVIDÊNCIAS DAS ${p.semanasEvidencia} SEMANAS (o que ${p.nomeColab} registrou na jornada):
+${evidenciasSemanas || '(sem evidências registradas nas semanas)'}
+
 JUSTIFICATIVAS DA AVALIAÇÃO (base para as evidências; não copie números):
 ${justificativas || '(sem justificativas)'}
 

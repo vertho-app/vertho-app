@@ -2,6 +2,7 @@
  * Semana 14 — cenário final que integra todos os descritores da temporada.
  * Após resposta, a IA pontua cada descritor por TRIANGULAÇÃO.
  */
+import { nivelDaNota } from '@/lib/nivel-regua';
 interface DescritorRubrica {
   descritor: string;
   nota_atual?: number;
@@ -273,6 +274,19 @@ const CONSISTENCIAS = ['consistente', 'divergente_cenario_superior', 'divergente
  */
 export function classificacaoDoDelta(delta: number): 'evoluiu' | 'manteve' | 'regrediu' {
   return delta > 0.3 ? 'evoluiu' : delta < -0.3 ? 'regrediu' : 'manteve';
+}
+
+const RUBRICA_POR_NIVEL = { 1: 'lacuna', 2: 'em_desenvolvimento', 3: 'meta', 4: 'referencia' } as const;
+
+/**
+ * O `nivel_rubrica` de uma nota pela régua OFICIAL (`nivelDaNota`: N3 vai de
+ * 3,00 a 3,50). A fusão da arguição usa isto quando muda a nota: o nível que o
+ * scorer escreveu era o da nota de antes. `Medido:` ensaio de 18/09, "Condução
+ * de reuniões" com nota final 3,0 e nível "em_desenvolvimento" (o de 2,6), que o
+ * auditor apontou como inconsistência.
+ */
+export function rubricaDaNota(nota: number): (typeof RUBRICA_POR_NIVEL)[keyof typeof RUBRICA_POR_NIVEL] {
+  return RUBRICA_POR_NIVEL[nivelDaNota(nota)];
 }
 
 /**

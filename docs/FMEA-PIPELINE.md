@@ -606,6 +606,15 @@ Vizinho do F-I37: aqui o insumo chega, mas o escritor não sabe o número que va
   avanço final, e o auditor foi de 55 (erro grave, "revisar") para 81 ("aprovado com ajustes"). n=1:
   a confirmação em escala são os primeiros fechamentos de Macaé (~28/09). Guardas:
   `tests/unit/fechamento/*` e `tests/unit/piloto/fechamento-scorer.test.ts`, com 14 mutações mortas.
+- 🔴 **2ª rodada, no mesmo dia:** o ensaio com a 1ª versão NO AR (fluxo real, novo scorer) mostrou que
+  a redação, sem as evidências das semanas, inventava trajetória ("você construiu ao longo dessas
+  seis semanas", "o ponto mais forte da jornada", "raro") onde o rascunho reconhecia não haver
+  registros: auditor 60, erro grave. Também ficavam para trás o `nivel_rubrica` e o arredondamento
+  (o mesmo 2,95 saía 3,0 ou 2,9 conforme o caminho). Corrigido: a redação recebe as mesmas evidências
+  do scorer e regras contra afirmar sem base; nível pela régua oficial; arredondamento sem ruído.
+  Com a entrada real dos dois fechamentos: 82 e 72, sem erro grave nem afirmação sem base. 20
+  mutações mortas. 🔑 Quem escreve precisa ver o mesmo insumo de quem avaliou: regra herdada que
+  pede para citar uma fonte que o escritor não recebe é ordem de inventar.
 - ⚠️ **Não reprocessado:** os 11 fechamentos de Ibipeba ficam como estão (regra de só daqui para frente).
 
 ---

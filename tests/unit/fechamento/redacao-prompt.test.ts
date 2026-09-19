@@ -61,6 +61,12 @@ describe('promptRedacaoFechamento', () => {
     expect(user).toContain('"principal_avanco": "a"');
   });
 
+  it('evidências das semanas: presentes quando há, aviso explícito quando não há', () => {
+    expect(user).toContain('EVIDÊNCIAS DAS 6 SEMANAS (o que COLAB_X registrou na jornada):\n(sem evidências registradas nas semanas)');
+    const com = promptRedacaoFechamento({ ...base, evidenciasSemanas: '  Sem 2: fechou o combinado.  ' } as any);
+    expect(com.user).toContain('EVIDÊNCIAS DAS 6 SEMANAS (o que COLAB_X registrou na jornada):\nSem 2: fechou o combinado.\n');
+  });
+
   it('piloto: carrega as proibições de falar em evolução', () => {
     const p = promptRedacaoFechamento({ ...base, notaPrograma: 'Este é um PILOTO de 2 semanas.' } as any);
     expect(p.system).toContain('Nesta janela curta o fecho NÃO afirma evolução');
@@ -108,7 +114,7 @@ describe('anotarAjusteArguicao', () => {
       }],
     });
     expect(out.avaliacao_por_descritor[0].justificativa).toBe(
-      'j\n\nDefesa oral: fragilizou (forte). Ajuste de -0,5 sobre a nota antes da defesa (1,5 → 1,0). Piso do piloto: nota exibida 2,0.',
+      'j\n\nDefesa oral: fragilizou (forte). Ajuste de -0,5 sobre a nota antes da defesa (1,5 → 1,0); o texto acima trata da nota antes da defesa. Piso do piloto: nota exibida 2,0.',
     );
   });
 
@@ -119,7 +125,7 @@ describe('anotarAjusteArguicao', () => {
         { descritor: 'B', justificativa: 'intacta', nota_base_cenario: 3, ajuste_arguicao: 0, nota_pos: 3 },
       ],
     });
-    expect(out.avaliacao_por_descritor[0].justificativa).toBe('Defesa oral: aprofundou (fraca). Ajuste de +0,2 sobre a nota antes da defesa (3,0 → 3,2).');
+    expect(out.avaliacao_por_descritor[0].justificativa).toBe('Defesa oral: aprofundou (fraca). Ajuste de +0,2 sobre a nota antes da defesa (3,0 → 3,2); o texto acima trata da nota antes da defesa.');
     expect(out.avaliacao_por_descritor[1].justificativa).toBe('intacta');
   });
 });

@@ -14,7 +14,7 @@
  */
 
 import type { ArguicaoExtracao } from './arguicao';
-import { classificacaoDoDelta } from './prompts/evolution-scenario';
+import { classificacaoDoDelta, rubricaDaNota } from './prompts/evolution-scenario';
 
 /**
  * Mapa `sustentou × forca → ajuste`. Todos os valores já vivem dentro de
@@ -34,7 +34,14 @@ export const AJUSTE_POR_SUSTENTACAO: Record<string, Record<string, number>> = {
 export const LIMITE_AJUSTE = 0.5;
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-const round1 = (v: number) => Math.round(v * 10) / 10;
+/**
+ * Uma casa decimal, meio para cima, SEM ruído de ponto flutuante (18/09/2026).
+ * Todo ajuste de ±0,35 cai exatamente em x,x5, e o `Math.round(v * 10)` direto
+ * decidia pelo ruído binário: `Medido:` 2,6 + 0,35 virava 3,0 e 3,3 − 0,35 virava
+ * 2,9, o MESMO 2,95 para lados opostos, e o auditor apontou a inconsistência.
+ * O `toFixed(10)` limpa o ruído antes de arredondar.
+ */
+const round1 = (v: number) => Math.round(Number(v.toFixed(10)) * 10) / 10;
 const norm = (s: any) => String(s || '').trim().toLowerCase();
 
 export interface FusaoResultado {
@@ -91,10 +98,12 @@ export function fundirArguicao(parsed: any, extracao: ArguicaoExtracao | null | 
       forca_arguicao: ev.forca ?? null,
       nota_pos: notaFinal,
       delta,
-      // A classificação do scorer foi calculada sobre a nota ANTES do ajuste.
-      // Mantê-la seria a mesma contradição que a redação final corrige no texto,
-      // só que num campo: "evoluiu" ao lado de um delta que já não evolui.
+      // Classificação e nível do scorer foram calculados sobre a nota ANTES do
+      // ajuste. Mantê-los seria a mesma contradição que a redação final corrige
+      // no texto, só que em campos: "evoluiu" ao lado de um delta que já não
+      // evolui, "em_desenvolvimento" ao lado de 3,0.
       ...(ajuste !== 0 && typeof delta === 'number' ? { classificacao: classificacaoDoDelta(delta) } : {}),
+      ...(ajuste !== 0 ? { nivel_rubrica: rubricaDaNota(notaFinal) } : {}),
     };
   });
 
@@ -135,7 +144,7 @@ export function anotarAjusteArguicao(parsed: any): any {
       if (ajuste === 0 || typeof d.nota_base_cenario !== 'number' || typeof d.nota_pos !== 'number') return d;
       const fundida = round1(clamp(d.nota_base_cenario + ajuste, 1, 4));
       const forca = d.forca_arguicao ? ` (${d.forca_arguicao})` : '';
-      let linha = `Defesa oral: ${d.sustentacao_arguicao}${forca}. Ajuste de ${comSinal(ajuste)} sobre a nota antes da defesa (${decimal(d.nota_base_cenario)} → ${decimal(fundida)}).`;
+      let linha = `Defesa oral: ${d.sustentacao_arguicao}${forca}. Ajuste de ${comSinal(ajuste)} sobre a nota antes da defesa (${decimal(d.nota_base_cenario)} → ${decimal(fundida)}); o texto acima trata da nota antes da defesa.`;
       if (d.piso_aplicado && d.nota_pos !== fundida) linha += ` Piso do piloto: nota exibida ${decimal(d.nota_pos)}.`;
       const texto = typeof d.justificativa === 'string' ? d.justificativa.trim() : '';
       return { ...d, justificativa: texto ? `${texto}\n\n${linha}` : linha };
