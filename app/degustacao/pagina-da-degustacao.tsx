@@ -329,7 +329,7 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
       >
         <div>
           <Titulo>{pagina.contato.titulo}</Titulo>
-          <Texto>A mensagem já vai escrita. Você só envia, e a gente marca uma conversa.</Texto>
+          <Texto>Converse com a gente sobre como aplicar a Vertho à realidade da sua equipe. A mensagem já vai escrita.</Texto>
         </div>
         <a
           href={pagina.contato.url}
