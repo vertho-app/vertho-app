@@ -1,0 +1,191 @@
+/*
+ * O componente mora dentro da tela de cada simulador, e as duas têm regras de
+ * elemento no próprio `.root` (`.root label { display: grid }` no vendas,
+ * `.root button:not(.primary):not(.historyItem)` com especificidade 0,3,1).
+ * Por isso a raiz é dobrada (`.root.root`) e o botão também: sem isso os botões
+ * de opção ficavam acima do rótulo e o botão herdava a borda do vendas.
+ */
+.root.root {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--v-borda);
+  border-radius: 14px;
+  background: var(--v-fundo);
+  color: var(--v-texto);
+  font: inherit;
+  line-height: 1.55;
+}
+.escuro {
+  --v-texto: #e7f3f6;
+  --v-muted: #9eb5ca;
+  --v-borda: #ffffff1f;
+  --v-fundo: #ffffff08;
+  --v-acento: #2dd4bf;
+  --v-aviso: #f5be69;
+  --v-erro: #f59e9e;
+  --v-campo: #0b2440;
+  --v-sobre-acento: #06212b;
+}
+.claro {
+  --v-texto: #16323f;
+  --v-muted: #5b7480;
+  --v-borda: #d5e3e8;
+  --v-fundo: #ffffff;
+  --v-acento: #0f766e;
+  --v-aviso: #92570a;
+  --v-erro: #b42318;
+  --v-campo: #ffffff;
+  --v-sobre-acento: #ffffff;
+}
+.root.root h3,
+.root.root p {
+  margin: 0;
+}
+.root.root h3 {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.root.root .muted {
+  color: var(--v-muted);
+  font-size: 0.82rem;
+}
+.root.root .lista {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.root.root .item {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--v-borda);
+  border-radius: 10px;
+}
+.root.root .selo {
+  justify-self: start;
+  padding: 1px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--v-borda);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.root.root .selo_concordo {
+  color: var(--v-acento);
+  border-color: var(--v-acento);
+}
+.root.root .selo_parcialmente {
+  color: var(--v-aviso);
+  border-color: var(--v-aviso);
+}
+.root.root .selo_discordo {
+  color: var(--v-erro);
+  border-color: var(--v-erro);
+}
+.root.root .dimensoes {
+  color: var(--v-muted);
+  font-size: 0.8rem;
+}
+.root.root .motivo {
+  font-size: 0.92rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.root.root .form {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+.root.root .grupo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.root.root .grupo legend {
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.root.root .opcao {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+.root.root .opcao input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--v-acento);
+}
+.root.root .campo {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.root.root .campo textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  border: 1px solid var(--v-borda);
+  border-radius: 10px;
+  background: var(--v-campo);
+  color: var(--v-texto);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 400;
+  line-height: 1.55;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.root.root .botao.botao {
+  display: inline-flex;
+  justify-self: start;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--v-acento);
+  color: var(--v-sobre-acento);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.root.root .botao.botao:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.root.root .alerta {
+  color: var(--v-aviso);
+  font-size: 0.85rem;
+}
+.root.root .sucesso {
+  color: var(--v-acento);
+  font-size: 0.85rem;
+}
+@media (max-width: 520px) {
+  .root.root {
+    padding: 12px;
+  }
+  .root.root .botao.botao {
+    justify-self: stretch;
+  }
+}

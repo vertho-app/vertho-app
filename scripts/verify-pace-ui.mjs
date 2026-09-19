@@ -169,6 +169,25 @@ try {
   await page.getByRole('button', { name: 'Ver relatório', exact: true }).first().click();
   await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).waitFor();
   await page.screenshot({ path: `${dir}/equipe-desktop.png`, fullPage: true });
+  // Revisão humana (18/09/2026): parecer de quem acompanha, anexado ao relatório da equipe.
+  const revisao = page.getByRole('region', { name: 'Revisão humana' });
+  await expect(revisao.getByText('Ainda não há parecer humano.', { exact: true })).toBeVisible();
+  await revisao.getByRole('radio', { name: 'Discordo', exact: true }).check();
+  await revisao.getByRole('checkbox', { name: 'Analisar', exact: true }).check();
+  await revisao.getByRole('textbox', { name: 'Motivo e evidências' }).fill('Ela perguntou o impacto do prazo duas vezes; Analisar merecia nível maior.');
+  await revisao.getByRole('button', { name: 'Registrar revisão', exact: true }).click();
+  await expect(revisao.getByRole('status')).toHaveText('Revisão registrada.');
+  const registrada = revisao.getByRole('list', { name: 'Revisões registradas' }).getByRole('listitem').first();
+  await expect(registrada).toContainText('Discordo');
+  await expect(registrada).toContainText('Analisar');
+  await expect(registrada).toContainText('Por Gil Gestor em');
+  await expect(revisao.getByRole('textbox', { name: 'Motivo e evidências' })).toHaveValue('');
+  await revisao.screenshot({ path: `${dir}/revisao-humana-desktop.png` });
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'overflow na revisão humana');
+  await revisao.screenshot({ path: `${dir}/revisao-humana-mobile.png` });
+  await page.setViewportSize({ width: 1440, height: 1080 });
+  checks++;
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Exportar CSV', exact: true }).click();
   const download = await downloadPromise;

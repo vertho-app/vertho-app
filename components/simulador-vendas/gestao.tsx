@@ -8,6 +8,8 @@ import type { Saidas } from '@/lib/simulador-vendas/schema';
 import { montarCsv } from '@/lib/simulador-vendas/csv';
 import Relatorio from './relatorio';
 import PainelEquipe from './painel-equipe';
+import RevisaoHumana from '@/components/simuladores/revisao-humana';
+import type { RevisaoPublica } from '@/lib/simuladores/revisao-tipos';
 
 type Pagina = { historico: ResumoTreino[]; proximoCursor: string | null };
 type Detalhe = {
@@ -15,6 +17,9 @@ type Detalhe = {
   nomeVendedor: string;
   versaoRegua: string;
   relatorio: Saidas['gerente'];
+  revisoes: RevisaoPublica[] | null;
+  podeRevisar: boolean;
+  competencias: Array<{ codigo: string; nome: string }>;
 };
 type LinhaExportacao = {
   id: string;
@@ -271,6 +276,15 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
           <Relatorio
             relatorio={selecionado.relatorio}
             versao={selecionado.versaoRegua}
+          />
+          <RevisaoHumana
+            endpoint="/api/simulador-vendas/gestao"
+            empresaId={empresaId}
+            alvoId={selecionado.id}
+            revisoes={selecionado.revisoes}
+            podeRevisar={selecionado.podeRevisar}
+            competencias={selecionado.competencias}
+            onRegistrada={() => void abrir(selecionado.id)}
           />
         </div>
       )}

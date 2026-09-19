@@ -27,6 +27,7 @@ import { acessoDoCargo, idDoCargo, mapaDeCargos } from '@/lib/simuladores/acesso
 import { linhasDaVariante, VARIANTES, type LinhaMatriz } from '@/lib/simuladores/lideranca/matriz-global';
 import { sinteseDaJornada, type SinteseJornada } from './avaliacao';
 import { LiderancaError, type AvaliacaoGravada, type Episodio } from './schema';
+import { listarRevisoes, registrarRevisao, type ComandoRevisao, type TabelaRevisao } from '@/lib/simuladores/revisao';
 
 export type MatrizPublica = Pick<
   LinhaMatriz,
@@ -199,6 +200,54 @@ function encontroParaEquipe(e: Episodio) {
   };
 }
 
+const REVISOES: TabelaRevisao = { tabela: 'sim_lideranca_revisoes', alvo: 'jornada_id' };
+
+/** Competências da matriz da jornada, na ordem em que aparecem: o que uma revisão pode comentar. */
+export const competenciasDaJornada = (matriz: LinhaMatriz[]) =>
+  [...new Map(matriz.map((l) => [l.cod_comp, l.nome])).entries()].map(([codigo, nome]) => ({ codigo, nome }));
+
+/** Revisa quem enxerga a pessoa, não é ela mesma e pode registrar (régua do atendimento). */
+const podeRevisarPessoa = async (c: ContextoEquipe, colaboradorId: string) =>
+  c.auth.colaborador?.id !== colaboradorId && (await can(c.auth, 'assessments.answer'));
+
+/** Mesma chave de dono dos treinos: colab:<id>, ou admin:<id> para quem administra a plataforma. */
+async function chaveDoRevisor(c: ContextoEquipe): Promise<string> {
+  if (!c.auth.isPlatformAdmin) return `colab:${c.auth.colaborador.id}`;
+  const { data, error } = await c.tdb.raw
+    .from('platform_admins')
+    .select('id')
+    .eq('email', c.auth.email.toLowerCase())
+    .maybeSingle();
+  if (error || !data) throw new LiderancaError(403, 'Não foi possível identificar o administrador.');
+  return `admin:${data.id}`;
+}
+
+export async function revisarJornada(c: ContextoEquipe, cmd: ComandoRevisao) {
+  const { data: j, error } = await c.tdb
+    .from('sim_lideranca_jornadas')
+    .select('id,colaborador_id,estado')
+    .eq('id', cmd.alvoId)
+    .maybeSingle();
+  if (error) throw new LiderancaError(503, 'Não foi possível consultar a jornada.');
+  // Só a jornada de quem aparece para quem pergunta; o resto é 404, sem dizer se existe.
+  const pessoa = j?.colaborador_id ? (await populacaoVisivel(c)).find((p) => p.id === j.colaborador_id) : null;
+  if (!j || !pessoa) throw new LiderancaError(404, 'Jornada não encontrada na sua equipe.');
+  if (!(await podeRevisarPessoa(c, pessoa.id)))
+    throw new LiderancaError(403, 'A revisão exige outra pessoa com permissão de acompanhamento e registro.');
+  const estado = j.estado as { matriz: LinhaMatriz[]; concluidos: Episodio[] };
+  if (!(estado.concluidos || []).some((e) => e.avaliacao))
+    throw new LiderancaError(409, 'Aguarde a primeira devolutiva para revisar.');
+  const validas = new Set(competenciasDaJornada(estado.matriz || []).map((x) => x.codigo));
+  if (cmd.dimensoes.some((d) => !validas.has(d)))
+    throw new LiderancaError(400, 'Competência não pertence a esta jornada.');
+  const r = await registrarRevisao(c.tdb, REVISOES, cmd, {
+    key: await chaveDoRevisor(c),
+    nome: c.auth.colaborador?.nome_completo || 'Administração Vertho',
+  });
+  if ('mensagem' in r) throw new LiderancaError(r.status, r.mensagem);
+  return { ok: true as const };
+}
+
 export async function detalhePessoa(c: ContextoEquipe, colaboradorId: string) {
   const pessoa = (await populacaoVisivel(c)).find((p) => p.id === colaboradorId);
   if (!pessoa) throw new LiderancaError(404, 'Pessoa não encontrada na sua equipe.');
@@ -208,7 +257,11 @@ export async function detalhePessoa(c: ContextoEquipe, colaboradorId: string) {
     .eq('colaborador_id', colaboradorId)
     .maybeSingle();
   if (error) throw new LiderancaError(503, 'Não foi possível consultar a jornada.');
-  if (!j) return { pessoa, matriz: [] as MatrizPublica[], encontros: [] as ReturnType<typeof encontroParaEquipe>[], sintese: null };
+  if (!j)
+    return {
+      pessoa, matriz: [] as MatrizPublica[], encontros: [] as ReturnType<typeof encontroParaEquipe>[], sintese: null,
+      jornadaId: null, revisoes: [], podeRevisar: false, competencias: [] as { codigo: string; nome: string }[],
+    };
   const estado = j.estado as { matriz: LinhaMatriz[]; concluidos: Episodio[] };
   const reps: Episodio[] = [];
   for (let de = 0; ; de += 200) {
@@ -232,5 +285,10 @@ export async function detalhePessoa(c: ContextoEquipe, colaboradorId: string) {
       .sort((a, b) => Date.parse(a.encerradoEm || '') - Date.parse(b.encerradoEm || ''))
       .map(encontroParaEquipe),
     sintese: sinteseDaJornada(todos, estado.matriz, estado.concluidos.length),
+    // Revisão humana (18/09/2026). `null` = leitura falhou, nunca "sem revisão".
+    jornadaId: j.id as string,
+    revisoes: await listarRevisoes(c.tdb, REVISOES, j.id),
+    podeRevisar: todos.length > 0 && (await podeRevisarPessoa(c, colaboradorId)),
+    competencias: competenciasDaJornada(estado.matriz),
   };
 }

@@ -1,4 +1,25 @@
 {
+  "SimuladorRevisao": {
+    "title": "Revisión humana",
+    "help": "Registra si estás de acuerdo con la evaluación de la IA. La revisión queda adjunta y la nota original no cambia.",
+    "verdict": "Dictamen",
+    "verdict_concordo": "Estoy de acuerdo",
+    "verdict_parcialmente": "Estoy de acuerdo en parte",
+    "verdict_discordo": "No estoy de acuerdo",
+    "dimensions": "Competencias comentadas (opcional)",
+    "reason": "Motivo y evidencias",
+    "reasonPlaceholder": "Explica tu dictamen a partir de la conversación y de la devolución.",
+    "reasonRequired": "Escribe el motivo de tu dictamen.",
+    "save": "Registrar revisión",
+    "saving": "Registrando…",
+    "saved": "Revisión registrada.",
+    "error": "No se ha podido registrar la revisión. Inténtalo de nuevo.",
+    "notAllowed": "La revisión requiere otra persona con permiso de seguimiento y registro.",
+    "registered": "Revisiones registradas",
+    "none": "Todavía no hay revisión humana.",
+    "unavailable": "No se han podido cargar las revisiones ahora.",
+    "by": "Por {nome} el {data}"
+  },
   "SimuladorAtendimento": {
     "genericError": "No se pudo completar. Inténtalo de nuevo.",
     "personFallback": "Persona atendida",

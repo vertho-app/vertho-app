@@ -2,13 +2,16 @@ import { z } from 'zod';
 import { notaPacePublica } from '@/lib/simulador-vendas/escala';
 import { escalaNativa14 } from '@/lib/simulador-vendas/matriz-avaliacao';
 import { requireUser } from '@/lib/auth/request-context';
+import { csrfCheck } from '@/lib/csrf';
 import { readLimiter } from '@/lib/rate-limit';
+import { revisaoComandoSchema } from '@/lib/simuladores/revisao';
 import { contexto } from '@/lib/simulador-vendas/access';
 import {
   historicoEquipe,
   relatorioEquipe,
   escopoEquipe,
   painelEquipe,
+  revisarTreino,
 } from '@/lib/simulador-vendas/equipe';
 import { falha, json } from '@/lib/simulador-vendas/http';
 export const runtime = 'nodejs';
@@ -92,6 +95,27 @@ export async function GET(req: Request) {
       });
     }
     return json(await historicoEquipe(c, q.get('cursor')));
+  } catch (e) {
+    return falha(e);
+  }
+}
+
+/** Revisão humana da devolutiva (18/09/2026): quem acompanha, nunca o dono do treino. */
+export async function POST(req: Request) {
+  try {
+    const csrf = csrfCheck(req);
+    if (csrf) return csrf;
+    const auth = await requireUser(req);
+    if (auth instanceof Response) return auth;
+    const limited = await readLimiter.check(req, `sim-vendas-revisao:${auth.email}`);
+    if (limited) return limited;
+    const raw = await req.text();
+    if (raw.length > 20000) return json({ error: 'Formulário muito longo.' }, 413);
+    const cmd = revisaoComandoSchema.parse(JSON.parse(raw));
+    // Leitura, não escrita: gestor e RH não treinam, mas revisam.
+    const c = await contexto(req, cmd.empresaId, false, auth);
+    if (c instanceof Response) return c;
+    return json(await revisarTreino(c, cmd));
   } catch (e) {
     return falha(e);
   }

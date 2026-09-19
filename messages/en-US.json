@@ -1,4 +1,25 @@
 {
+  "SimuladorRevisao": {
+    "title": "Human review",
+    "help": "Record whether you agree with the AI assessment. The review is attached and the original score does not change.",
+    "verdict": "Verdict",
+    "verdict_concordo": "I agree",
+    "verdict_parcialmente": "I partly agree",
+    "verdict_discordo": "I disagree",
+    "dimensions": "Competencies discussed (optional)",
+    "reason": "Reason and evidence",
+    "reasonPlaceholder": "Explain your verdict based on the conversation and the feedback.",
+    "reasonRequired": "Write the reason for your verdict.",
+    "save": "Save review",
+    "saving": "Saving…",
+    "saved": "Review saved.",
+    "error": "The review could not be saved. Please try again.",
+    "notAllowed": "Reviews must come from someone else with follow-up and recording permission.",
+    "registered": "Recorded reviews",
+    "none": "No human review yet.",
+    "unavailable": "Reviews could not be loaded right now.",
+    "by": "By {nome} on {data}"
+  },
   "SimuladorAtendimento": {
     "genericError": "Something went wrong. Please try again.",
     "personFallback": "Customer",

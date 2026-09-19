@@ -10,6 +10,7 @@ import { estado, relatorio } from '../fixtures/simulador-vendas';
 import { estadoDocumental, relatorioDocumental, PLANO } from '../fixtures/simulador-vendas-matriz';
 import { visaoPublica } from '../../lib/simulador-vendas/core';
 import { agregarPainel } from '../../lib/simulador-vendas/painel';
+import { COMPETENCIAS_PACE } from '../../lib/simulador-vendas/matriz';
 import { comandoSchema, configSchema, REGUA_VERSION, type Estado } from '../../lib/simulador-vendas/schema';
 import pt from '../../messages/pt-BR.json';
 import ptpt from '../../messages/pt-PT.json';
@@ -195,6 +196,8 @@ const dados = (id = empresaA) => ({
 });
 w.__paceWrites = [];
 w.__pacePendentes = [];
+// Revisão humana (18/09/2026): o que a gestão grava volta no relatório da equipe.
+const revisoesVendas: any[] = [];
 w.__paceFetch = async (url: string, init: RequestInit = {}) => {
   const q = new URL(url, location.origin).searchParams,
     id = q.get('empresaId') || empresaA;
@@ -219,6 +222,14 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
     });
   }
   if (url.includes('/gestao')) {
+    if (init.method === 'POST') {
+      const cmd = JSON.parse(String(init.body));
+      revisoesVendas.unshift({
+        id: cmd.requestId, parecer: cmd.parecer, motivo: cmd.motivo, dimensoes: cmd.dimensoes,
+        revisor_nome: 'Gil Gestor', created_at: '2026-09-19T12:00:00Z',
+      });
+      return Response.json({ ok: true });
+    }
     // Visão da equipe: a agregação real sobre pessoas e treinos fictícios.
     if (q.has('painel'))
       return Response.json(
@@ -256,7 +267,11 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
         ),
       );
     if (q.has('sessaoId'))
-      return Response.json({ id: q.get('sessaoId'), nomeVendedor: 'Ana', versaoRegua: REGUA_VERSION, relatorio });
+      return Response.json({
+        id: q.get('sessaoId'), nomeVendedor: 'Ana', versaoRegua: REGUA_VERSION, relatorio,
+        revisoes: [...revisoesVendas], podeRevisar: true,
+        competencias: COMPETENCIAS_PACE.map(({ codigo, nome }) => ({ codigo, nome })),
+      });
     if (q.has('exportar'))
       return Response.json({
         linhas: [

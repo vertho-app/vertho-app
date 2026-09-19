@@ -201,8 +201,26 @@
   font-size: 0.8rem;
 }
 @media (max-width: 640px) {
+  /* Nome em cima, resultado embaixo. Lado a lado, o nome ficava com a sobra de
+     "Sem oportunidade de observar" e a palavra longa encostava no status
+     (captura do celular, 19/09/2026). */
   .competencia > summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'nome seta' 'resultado seta';
+    row-gap: 6px;
     padding: 12px;
+  }
+  .competencia > summary .nome {
+    grid-area: nome;
+  }
+  .competencia > summary .resultado {
+    grid-area: resultado;
+    justify-items: start;
+    text-align: left;
+  }
+  .competencia > summary .seta {
+    grid-area: seta;
   }
   .competencia > .resumo {
     margin: 0 12px 12px;

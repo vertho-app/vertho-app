@@ -787,6 +787,17 @@
   color: var(--lid-accent);
   flex-shrink: 0;
 }
+@media (max-width: 640px) {
+  /* Nome em cima, nível embaixo: lado a lado, "Desenvolvimento" invadia
+     "evidência insuficiente" no celular (captura de 19/09/2026). */
+  .synthesisList > li {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .synthesisList b {
+    justify-items: start;
+  }
+}
 .up {
   display: inline-flex;
   align-items: center;

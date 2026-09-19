@@ -77,7 +77,7 @@ import { execFileSync } from 'child_process';
 import ts from 'typescript';
 import { describe, it } from 'vitest';
 
-const TABELAS = ['colaboradores', 'respostas', 'relatorios', 'sessoes_avaliacao', 'sim_vendas_config', 'sim_vendas_sessoes', 'sim_vendas_tentativas', 'sim_lideranca_jornadas', 'sim_lideranca_episodios', 'sim_lideranca_chamadas'] as const;
+const TABELAS = ['colaboradores', 'respostas', 'relatorios', 'sessoes_avaliacao', 'sim_vendas_config', 'sim_vendas_sessoes', 'sim_vendas_tentativas', 'sim_lideranca_jornadas', 'sim_lideranca_episodios', 'sim_lideranca_chamadas', 'sim_vendas_revisoes', 'sim_lideranca_revisoes'] as const;
 const FILTROS_TENANT = new Set(['eq', 'is', 'in', 'match', 'filter']);
 const MUTACOES = new Set(['insert', 'update', 'delete', 'upsert']);
 

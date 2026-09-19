@@ -13,6 +13,7 @@ import { EPISODIOS } from '@/lib/simulador-lideranca/episodios';
 import { resumoAvaliacao } from '@/lib/simulador-lideranca/avaliacao';
 import { montarCsv } from '@/lib/simuladores/csv';
 import RelatorioCompetencias from '@/components/simuladores/relatorio-competencias';
+import RevisaoHumana from '@/components/simuladores/revisao-humana';
 import type { detalhePessoa, painelEquipe } from '@/lib/simulador-lideranca/equipe';
 import { competenciasParaRelatorio } from './relatorio';
 import SinteseJornadaView from './sintese';
@@ -180,6 +181,17 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
             </details>
           );
         })}
+        {detalhe.jornadaId && (
+          <RevisaoHumana
+            endpoint="/api/simulador-lideranca/equipe"
+            empresaId={empresaId}
+            alvoId={detalhe.jornadaId}
+            revisoes={detalhe.revisoes}
+            podeRevisar={detalhe.podeRevisar}
+            competencias={detalhe.competencias}
+            onRegistrada={() => void abrir(detalhe.pessoa.id)}
+          />
+        )}
       </section>
     );
 
