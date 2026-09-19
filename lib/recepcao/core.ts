@@ -3,6 +3,7 @@ import { randomUUID, randomInt } from 'node:crypto';
 import { NIVEIS, cenarioSchema, type Cenario, type Nivel } from './schema';
 import type { Estado, Insumos, Gerar, Validacao } from './model';
 import { humanizarReferencias } from './texto';
+import { normalizarCitacao } from '@/lib/simuladores/citacao';
 import {
   rubricaAvaliavel,
   consolidarCompetenciasAtendimento,
@@ -334,23 +335,9 @@ export class ErroReferenciaAvaliacao extends Error {
   }
 }
 
-// Tipografia não é conteúdo: o avaliador copia “assim” como 'assim' (o JSON desencoraja aspas duplas
-// internas) e … como "...", e o retry repete a mesma cópia porque, para ele, foi literal. A exigência
-// de trecho literal permanece; só aspas (de qualquer tipo), reticências, travessões e espaços são
-// equiparados, e a caixa também (o avaliador capitaliza o início de um trecho tirado do meio da frase).
-// Medido 06/09: o único caso do catálogo com aspas curvas na abertura recusou 9 de 9 avaliações, sempre
-// na citação dessa fala; equiparar só curvas↔retas ainda deixou 2 de 9, e a caixa mais 1.
-const tipografia: Array<[RegExp, string]> = [
-  [/[“”«»"‘’]/g, "'"],
-  [/…/g, '...'],
-  [/[–—]/g, '-'],
-  [/\s+/g, ' '],
-];
-export const normalizarCitacao = (t: string) =>
-  tipografia
-    .reduce((acc, [re, sub]) => acc.replace(re, sub), t)
-    .trim()
-    .toLowerCase();
+// Tipografia não é conteúdo: a normalização calibrada aqui em 06/09 (9 de 9 recusas por aspas curvas)
+// passou a ser a dos três simuladores, em `lib/simuladores/citacao.ts`.
+export { normalizarCitacao };
 
 function validarReferencias(
   refs: Insumos['desfecho']['evidencias'],

@@ -1,0 +1,200 @@
+.root {
+  display: grid;
+  gap: 10px;
+  color: var(--r-texto);
+  font: inherit;
+  line-height: 1.6;
+}
+.escuro {
+  --r-texto: #e7f3f6;
+  --r-muted: #9eb5ca;
+  --r-borda: #ffffff1f;
+  --r-fundo: #ffffff08;
+  --r-acento: #2dd4bf;
+  --r-aviso: #f5be69;
+  --r-citacao: #ffffff0d;
+}
+.claro {
+  --r-texto: #16323f;
+  --r-muted: #5b7480;
+  --r-borda: #d5e3e8;
+  --r-fundo: #ffffff;
+  --r-acento: #0f766e;
+  --r-aviso: #92570a;
+  --r-citacao: #f2f7f8;
+}
+.root p,
+.root h3,
+.root ol,
+.root ul {
+  margin: 0;
+}
+.muted {
+  color: var(--r-muted);
+  font-size: 0.8rem;
+}
+.media {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--r-borda);
+  border-radius: 12px;
+  background: var(--r-fundo);
+}
+.mediaRotulo {
+  width: 100%;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r-muted);
+}
+.mediaNivel {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--r-acento);
+}
+.mediaNota {
+  font-variant-numeric: tabular-nums;
+  color: var(--r-muted);
+}
+.competencia {
+  border: 1px solid var(--r-borda);
+  border-radius: 12px;
+  background: var(--r-fundo);
+  min-width: 0;
+}
+.foco {
+  border-color: var(--r-acento);
+}
+.competencia > summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.nome {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  font-weight: 600;
+}
+.selo {
+  font-style: normal;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--r-acento);
+}
+.resultado {
+  display: grid;
+  justify-items: end;
+  flex-shrink: 0;
+  text-align: right;
+}
+.resultado b {
+  color: var(--r-acento);
+}
+.resultado small {
+  font-variant-numeric: tabular-nums;
+  color: var(--r-muted);
+}
+.semNivel {
+  color: var(--r-muted) !important;
+  font-weight: 500;
+}
+.aviso {
+  margin: 0 16px 10px !important;
+  padding: 8px 12px;
+  border-left: 2px solid var(--r-aviso);
+  color: var(--r-aviso);
+  font-size: 0.8rem;
+}
+.descritores {
+  list-style: none;
+  padding: 0 16px 14px;
+  display: grid;
+  gap: 12px;
+}
+.descritores > li {
+  border-top: 1px solid var(--r-borda);
+  padding-top: 12px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.dCabeca {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.dNivel {
+  color: var(--r-acento);
+  flex-shrink: 0;
+}
+.dSem {
+  color: var(--r-muted);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.justificativa {
+  font-size: 0.88rem;
+}
+.descritores blockquote {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--r-citacao);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.descritores blockquote small {
+  display: block;
+  margin-top: 4px;
+  color: var(--r-muted);
+  font-size: 0.72rem;
+}
+.regua > summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: var(--r-muted);
+}
+.regua ol {
+  list-style: none;
+  padding: 8px 0 0;
+  display: grid;
+  gap: 6px;
+  font-size: 0.8rem;
+}
+@media (max-width: 640px) {
+  .competencia > summary {
+    padding: 12px;
+  }
+  .descritores {
+    padding: 0 12px 12px;
+  }
+}
+.grupoSem {
+  margin: 0 16px 14px;
+  border-top: 1px dashed var(--r-borda);
+  padding-top: 10px;
+}
+.grupoSem > summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--r-muted);
+}
+.grupoSem > .descritores {
+  padding: 10px 0 0;
+}
+@media (max-width: 640px) {
+  .grupoSem {
+    margin: 0 12px 12px;
+  }
+}

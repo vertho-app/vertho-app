@@ -1,10 +1,21 @@
-/** Somente o briefing público pode ser importado pelo cliente. */
+/**
+ * Somente o briefing público pode ser importado pelo cliente.
+ *
+ * Cada encontro avalia a competência em FOCO e duas SECUNDÁRIAS, escolhidas pelo
+ * que o dossiê daquele encontro provoca (18/09/2026). Até então o avaliador recebia
+ * os 30 descritores a cada encontro e a devolutiva mostrava quatro competências
+ * "Não observado" ao redor do foco. A distribuição é equilibrada de propósito: cada
+ * competência é avaliada em exatamente 3 dos 5 encontros, o que dá à síntese da
+ * jornada evidência de mais de uma situação para todas elas.
+ * Competências por NOME: as duas variantes da matriz (LD0x e FL0x) têm os mesmos nomes.
+ */
 export const EPISODIOS = [
   {
     titulo: 'Antes de concluir',
     verbo: 'Diagnosticar',
     competencia: 'LD01',
     nome: 'Análise e Diagnóstico de Situações',
+    secundarias: ['Comunicação e Conversas de Liderança', 'Priorização e Tomada de Decisão'],
     momento: 'Primeiro encontro',
     personagem: 'Ana',
     papel: 'Integrante experiente da equipe',
@@ -16,6 +27,7 @@ export const EPISODIOS = [
     verbo: 'Desenvolver',
     competencia: 'LD02',
     nome: 'Desenvolvimento de Pessoas',
+    secundarias: ['Comunicação e Conversas de Liderança', 'Priorização e Tomada de Decisão'],
     momento: 'Dois dias depois',
     personagem: 'Bruno',
     papel: 'Integrante em desenvolvimento',
@@ -27,6 +39,7 @@ export const EPISODIOS = [
     verbo: 'Conversar',
     competencia: 'LD03',
     nome: 'Comunicação e Conversas de Liderança',
+    secundarias: ['Desenvolvimento de Pessoas', 'Autoconsciência e Aprendizagem Contínua'],
     momento: 'Uma semana depois',
     personagem: 'Camila',
     papel: 'Referência técnica da equipe',
@@ -38,6 +51,7 @@ export const EPISODIOS = [
     verbo: 'Decidir',
     competencia: 'LD04',
     nome: 'Priorização e Tomada de Decisão',
+    secundarias: ['Análise e Diagnóstico de Situações', 'Autoconsciência e Aprendizagem Contínua'],
     momento: 'No dia seguinte',
     personagem: 'Rafa',
     papel: 'Responsável pelas demandas da área',
@@ -49,6 +63,7 @@ export const EPISODIOS = [
     verbo: 'Aprender',
     competencia: 'LD05',
     nome: 'Autoconsciência e Aprendizagem Contínua',
+    secundarias: ['Análise e Diagnóstico de Situações', 'Desenvolvimento de Pessoas'],
     momento: 'Duas semanas depois',
     personagem: 'Ana',
     papel: 'Porta-voz do feedback da equipe',

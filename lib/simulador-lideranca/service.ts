@@ -1,12 +1,15 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { maskTextPII } from '@/lib/pii-masker';
-import { DOSSIÊS } from './prompts';
+import { DOSSIÊS, PROMPTS } from './prompts';
 import { gerador, hash, novoEstado } from './ai';
 import { episodioPublico, executarCore, visaoPublica } from './core';
+import { sinteseDaJornada, type SinteseJornada } from './avaliacao';
+import { podeAcompanharLideranca } from './equipe';
 import {
   LiderancaError,
   VERSAO,
+  VERSAO_ANTERIOR,
   comandoSchema,
   type Estado,
   type Episodio,
@@ -81,6 +84,35 @@ export async function consultar(
     }
   } else if (episodioId)
     throw new LiderancaError(404, 'Encontro não encontrado.');
+  // Síntese da jornada: originais (no estado) e repetições (no acervo).
+  let sintese: SinteseJornada | null = null;
+  if (row?.estado.concluidos.length) {
+    const reps: Array<Pick<Episodio, 'indice' | 'encerradoEm' | 'avaliacao' | 'repeticao'>> = [];
+    for (let de = 0; ; de += 500) {
+      const lista = await c.tdb
+        .from('sim_lideranca_episodios')
+        .select('indice,avaliacao:episodio->avaliacao,encerradoEm:episodio->>encerradoEm')
+        .eq('jornada_id', row.id)
+        .eq('repeticao', true)
+        .order('id')
+        .range(de, de + 499);
+      banco(lista.error);
+      reps.push(
+        ...(lista.data || []).map((r: any) => ({
+          indice: r.indice,
+          encerradoEm: r.encerradoEm,
+          avaliacao: r.avaliacao,
+          repeticao: true,
+        })),
+      );
+      if ((lista.data || []).length < 500) break;
+    }
+    sintese = sinteseDaJornada(
+      [...row.estado.concluidos, ...reps],
+      row.estado.matriz,
+      row.estado.concluidos.length,
+    );
+  }
   return {
     empresaId: c.empresaId,
     empresaNome: c.empresaNome,
@@ -90,6 +122,8 @@ export async function consultar(
     historico,
     pagina,
     temMais,
+    sintese,
+    acompanhaEquipe: await podeAcompanharLideranca(c.auth),
   };
 }
 export type Dados = Awaited<ReturnType<typeof consultar>>;
@@ -121,10 +155,15 @@ export async function executar(c: Contexto, entrada: Comando) {
   const row = loaded.data as Row | null;
   if (!row)
     throw new LiderancaError(503, 'Não foi possível começar sua jornada.');
+  // Jornada v1 é atualizada no próximo comando, em vez de travar com "Atualize
+  // a página" (beco sem saída: a página recarregada continuava na v1). Ela
+  // ganha os prompts da v2; o que já foi concluído segue lido como foi gerado.
+  if (row.estado.versao === VERSAO_ANTERIOR)
+    row.estado = { ...row.estado, versao: VERSAO, prompts: { ...PROMPTS } };
   if (row.estado.versao !== VERSAO)
     throw new LiderancaError(
       409,
-      'Atualize a página para retomar esta versão da jornada.',
+      'Esta jornada foi criada numa versão que não pode ser retomada. Fale com o suporte.',
     );
   const recibo = row.estado.recibos.find((r) => r.id === cmd.requestId);
   if (recibo) {

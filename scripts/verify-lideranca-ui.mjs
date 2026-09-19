@@ -143,7 +143,11 @@ try {
         .click();
   }
   await expect(page.getByText('Cinco encontros concluídos')).toBeVisible();
+  await expect(page.getByText('Sua jornada completa')).toBeVisible();
+  await page.screenshot({ path: `${dir}/sintese-desktop.png`, fullPage: true });
   await page.getByRole('button', { name: 'Repetir este encontro' }).click();
+  // Repetir pede confirmação (antes disparava na hora uma chamada paga).
+  await page.getByRole('button', { name: 'Sim, repetir' }).click();
   await expect(
     page.getByText('Repetição para praticar:', { exact: false }),
   ).toBeVisible();
@@ -161,7 +165,7 @@ try {
     .getByRole('button', { name: 'Registrar reflexão e receber devolutiva' })
     .click();
   await expect(
-    page.getByText('Média original:', { exact: false }).last(),
+    page.getByText('Competência em foco na primeira vez:', { exact: false }).last(),
   ).toBeVisible();
   await page.screenshot({
     path: `${dir}/devolutiva-desktop.png`,
@@ -188,6 +192,18 @@ try {
   await expect(
     page.getByRole('heading', { name: 'Antes de concluir' }),
   ).toBeVisible();
+  // Acompanhamento (RH e gestor): mesma tela, aba Equipe, devolutivas sem a conversa.
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${origin}?equipe=1`);
+  await page.getByRole('button', { name: 'Equipe', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Acompanhamento da equipe' })).toBeVisible();
+  await page.screenshot({ path: `${dir}/equipe-desktop.png`, fullPage: true });
+  await page.getByRole('button', { name: 'Ver devolutivas' }).first().click();
+  await expect(page.getByRole('button', { name: 'Voltar à equipe' })).toBeVisible();
+  await page.screenshot({ path: `${dir}/equipe-detalhe-desktop.png`, fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: `${dir}/equipe-detalhe-mobile.png`, fullPage: true });
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'overflow horizontal no painel da equipe');
   for (const locale of ['en-US', 'es-ES', 'pt-PT']) {
     const p = await browser.newPage();
     p.on('pageerror', (e) => errors.push(e.message));

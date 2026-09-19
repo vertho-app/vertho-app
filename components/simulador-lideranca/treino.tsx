@@ -17,7 +17,11 @@ import {
   type Comando,
 } from '@/lib/simulador-lideranca/schema';
 import type { Dados } from '@/lib/simulador-lideranca/service';
-import { resumoAvaliacao } from '@/lib/simulador-lideranca/core';
+import { resumoAvaliacao } from '@/lib/simulador-lideranca/avaliacao';
+import RelatorioCompetencias from '@/components/simuladores/relatorio-competencias';
+import { competenciasParaRelatorio } from './relatorio';
+import SinteseJornadaView from './sintese';
+import EquipeLideranca from './equipe';
 import Ditado from '@/components/simulador-vendas/ditado';
 import styles from './treino.module.css';
 
@@ -49,9 +53,15 @@ type Acao = Comando['acao'];
 export default function TreinoLideranca({
   admin = false,
   empresaId,
+  podeTreinar = true,
+  podeAcompanhar = false,
 }: {
   admin?: boolean;
   empresaId?: string;
+  /** Quem está na população do programa e pode praticar. */
+  podeTreinar?: boolean;
+  /** RH, gestor e tutor acompanham a equipe (decisão do dono, 18/09/2026). */
+  podeAcompanhar?: boolean;
 }) {
   const t = useTranslations('SimuladorLideranca'),
     locale = useLocale();
@@ -65,6 +75,9 @@ export default function TreinoLideranca({
   const [refletindo, setRefletindo] = useState(false);
   const [confirmar, setConfirmar] = useState<'repetir' | 'abandonar' | null>(
     null,
+  );
+  const [aba, setAba] = useState<'treino' | 'equipe'>(
+    podeTreinar ? 'treino' : 'equipe',
   );
   const pending = useRef<{ key: string; body: unknown } | null>(null),
     running = useRef(false),
@@ -105,12 +118,12 @@ export default function TreinoLideranca({
     setReflexao('');
     setRefletindo(false);
     setLoading(true);
-    if (!admin || empresaId) void carregar();
+    if (podeTreinar && (!admin || empresaId)) void carregar();
     else setLoading(false);
     return () => {
       generation.current++;
     };
-  }, [admin, empresaId, carregar]);
+  }, [admin, empresaId, carregar, podeTreinar]);
   const jornada = dados?.jornada,
     ep = dados?.selecionado;
   const processando =
@@ -188,6 +201,18 @@ export default function TreinoLideranca({
       if (gen === generation.current) setBusy(false);
     }
   }
+  const origemEvidencia = (
+    fonte: 'fala' | 'planejamento' | 'reflexao',
+    turno: number,
+  ) =>
+    t(
+      fonte === 'fala'
+        ? 'speechEvidence'
+        : fonte === 'planejamento'
+          ? 'planEvidence'
+          : 'reflectionEvidence',
+      { n: turno },
+    );
   const data = (iso: string) =>
     new Date(iso).toLocaleString(locale, {
       dateStyle: 'short',
@@ -213,11 +238,31 @@ export default function TreinoLideranca({
         </a>
       </header>
       {admin && <p className={styles.notice}>{t('adminNotice')}</p>}
+      {podeTreinar && podeAcompanhar && (!admin || empresaId) && (
+        <nav className={styles.tabs} aria-label={t('tabs')}>
+          <button
+            type="button"
+            aria-pressed={aba === 'treino'}
+            onClick={() => setAba('treino')}
+          >
+            {t('tabTraining')}
+          </button>
+          <button
+            type="button"
+            aria-pressed={aba === 'equipe'}
+            onClick={() => setAba('equipe')}
+          >
+            {t('tabTeam')}
+          </button>
+        </nav>
+      )}
       {admin && !empresaId ? (
         <section className={styles.panel}>
           <h2>{t('chooseCompany')}</h2>
           <p>{t('chooseCompanyHint')}</p>
         </section>
+      ) : aba === 'equipe' ? (
+        <EquipeLideranca empresaId={empresaId} />
       ) : (
         <>
           {erro && (
@@ -292,6 +337,19 @@ export default function TreinoLideranca({
                     </li>
                   ))}
                 </ol>
+                {!admin && (
+                  <p className={styles.visibility}>{t('visibilityNotice')}</p>
+                )}
+                {dados.sintese && jornada && (
+                  <SinteseJornadaView
+                    sintese={dados.sintese}
+                    bloqueado={bloqueado}
+                    onAbrirEncontro={(i) => {
+                      const alvo = jornada.concluidos[i];
+                      if (alvo) void carregar(alvo.id);
+                    }}
+                  />
+                )}
                 {(busy || processando) && (
                   <p className={styles.notice} role="status">
                     <Loader2 size={17} className={styles.spin} aria-hidden />
@@ -652,111 +710,56 @@ export default function TreinoLideranca({
                               )}
                             </div>
                           )}
-                          {resumoAvaliacao(ep.avaliacao, jornada.matriz).map(
-                            (c) => {
-                              const original =
-                                ep.repeticao &&
-                                jornada.concluidos[ep.indice]?.avaliacao;
-                              const anterior = original
-                                ? resumoAvaliacao(
-                                    original,
-                                    jornada.matriz,
-                                  ).find((x) => x.codigo === c.codigo)
-                                : null;
-                              return (
-                                <details
-                                  className={styles.competency}
-                                  key={c.codigo}
-                                  open={c.nome === info.nome}
-                                >
-                                  <summary>
-                                    <span>
-                                      {c.nome}
-                                      <small>
-                                        {t('coverage', {
-                                          n: c.observados,
-                                          total: c.total,
-                                        })}
-                                      </small>
-                                    </span>
-                                    <b>
-                                      {c.nivel === null
-                                        ? t('notObserved')
-                                        : `N${c.nivel} · ${c.nota!.toLocaleString(locale, { maximumFractionDigits: 2 })}/4`}
-                                    </b>
-                                  </summary>
-                                  {anterior && (
-                                    <p className={styles.muted}>
-                                      {t('comparison', {
-                                        before:
-                                          anterior.nota?.toLocaleString(
-                                            locale,
-                                            { maximumFractionDigits: 2 },
-                                          ) || '—',
-                                        after:
-                                          c.nota?.toLocaleString(locale, {
-                                            maximumFractionDigits: 2,
-                                          }) || '—',
-                                      })}
-                                    </p>
-                                  )}
-                                  {jornada.matriz
-                                    .filter((d) => d.cod_comp === c.codigo)
-                                    .map((d) => {
-                                      const a = ep.avaliacao!.descritores.find(
-                                        (x) => x.codigo === d.cod_desc,
-                                      )!;
-                                      return (
-                                        <div
-                                          className={styles.descriptor}
-                                          key={d.cod_desc}
-                                        >
-                                          <h4>
-                                            {d.nome_curto}{' '}
-                                            <span>
-                                              {a.nivel
-                                                ? `N${a.nivel}`
-                                                : t('notObserved')}
-                                            </span>
-                                          </h4>
-                                          <p>{a.justificativa}</p>
-                                          {a.evidencias.map((v, i) => (
-                                            <blockquote key={i}>
-                                              “{v.trecho}”
-                                              <small>
-                                                {t(
-                                                  v.fonte === 'fala'
-                                                    ? 'speechEvidence'
-                                                    : v.fonte === 'planejamento'
-                                                      ? 'planEvidence'
-                                                      : 'reflectionEvidence',
-                                                  { n: v.turno },
-                                                )}
-                                              </small>
-                                            </blockquote>
-                                          ))}
-                                          <details>
-                                            <summary>{t('rubric')}</summary>
-                                            <ol className={styles.rubric}>
-                                              {[
-                                                d.n1_gap,
-                                                d.n2_desenvolvimento,
-                                                d.n3_meta,
-                                                d.n4_referencia,
-                                              ].map((regra, i) => (
-                                                <li key={i}>
-                                                  <b>N{i + 1}</b> {regra}
-                                                </li>
-                                              ))}
-                                            </ol>
-                                          </details>
-                                        </div>
-                                      );
-                                    })}
-                                </details>
+                          {(() => {
+                            const resumo = resumoAvaliacao(
+                              ep.avaliacao,
+                              jornada.matriz,
+                              ep.indice,
+                            );
+                            const { competencias, regra } =
+                              competenciasParaRelatorio(
+                                resumo,
+                                ep.avaliacao,
+                                jornada.matriz,
+                                origemEvidencia,
                               );
-                            },
-                          )}
+                            const original = ep.repeticao
+                              ? jornada.concluidos[ep.indice]?.avaliacao
+                              : null;
+                            const antes = original
+                              ? resumoAvaliacao(
+                                  original,
+                                  jornada.matriz,
+                                  ep.indice,
+                                ).competencias.find((c) => c.foco)
+                              : null;
+                            const agora = resumo.competencias.find(
+                              (c) => c.foco,
+                            );
+                            return (
+                              <>
+                                {antes && agora && (
+                                  <p className={styles.muted}>
+                                    {t('comparisonFocus', {
+                                      before: antes.nivel
+                                        ? t('levelN', { n: antes.nivel })
+                                        : t('noLevel'),
+                                      after: agora.nivel
+                                        ? t('levelN', { n: agora.nivel })
+                                        : t('noLevel'),
+                                    })}
+                                  </p>
+                                )}
+                                <RelatorioCompetencias
+                                  competencias={competencias}
+                                  media={resumo.media}
+                                  regra={regra}
+                                  tema="escuro"
+                                  rotuloMedia={t('encounterAverage')}
+                                />
+                              </>
+                            );
+                          })()}
                           <div className={styles.practice}>
                             <h3>{t('nextPractice')}</h3>
                             <p>{ep.avaliacao.proximaPratica}</p>

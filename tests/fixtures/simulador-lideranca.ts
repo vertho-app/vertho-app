@@ -1,4 +1,5 @@
-import { linhasDaVariante } from '@/lib/simuladores/lideranca/matriz-global';
+import { linhasDaVariante, type LinhaMatriz } from '@/lib/simuladores/lideranca/matriz-global';
+import { linhasDoEncontro } from '@/lib/simulador-lideranca/avaliacao';
 import {
   VERSAO,
   type Estado,
@@ -33,21 +34,36 @@ export function estado(): Estado {
     recibos: [],
   };
 }
-export function avaliacao(): Avaliacao {
+/**
+ * Avaliação v2 de um encontro: só os descritores do encontro (foco + 2
+ * secundárias). Duas notas: a preparação sustenta o D1 de Comunicação (a única
+ * fonte de planejamento aceita) e uma fala sustenta o D1 da competência em foco.
+ */
+export function avaliacao(indice = 0, variante: 'lider' | 'futuro' = 'lider'): Avaliacao {
+  return avaliacaoDasLinhas(linhasDoEncontro(linhasDaVariante(variante), indice));
+}
+export function avaliacaoDasLinhas(linhas: LinhaMatriz[]): Avaliacao {
+  const foco = linhas[0].nome;
   return {
     sintese:
       'Você investigou antes de decidir, mas pode explorar melhor o fluxo de trabalho.',
     proximaPratica: 'Pergunte como um pedido chega e por quais etapas passa.',
-    descritores: linhasDaVariante('lider').map((d, i) => ({
-      codigo: d.cod_desc,
-      nivel: i === 0 ? 3 : null,
-      justificativa:
-        i === 0
-          ? 'Registrou a intenção de investigar antes de concluir.'
+    descritores: linhas.map((d) => {
+      const plano = d.nome === 'Comunicação e Conversas de Liderança' && /_D1$/.test(d.cod_desc);
+      const fala = d.nome === foco && /_D1$/.test(d.cod_desc) && !plano;
+      return {
+        codigo: d.cod_desc,
+        nivel: plano || fala ? 3 : null,
+        justificativa: plano || fala
+          ? 'Você registrou a intenção de investigar antes de concluir.'
           : 'Não houve oportunidade de observar este comportamento.',
-      evidencias:
-        i === 0 ? [{ fonte: 'planejamento', turno: 0, trecho: PLANO }] : [],
-    })),
+        evidencias: plano
+          ? [{ fonte: 'planejamento' as const, turno: 0, trecho: PLANO }]
+          : fala
+            ? [{ fonte: 'fala' as const, turno: 1, trecho: FALA }]
+            : [],
+      };
+    }),
   };
 }
 export function episodio(indice = 0): Episodio {
@@ -99,7 +115,7 @@ export const gerarFixture: Gerar = async (etapa, dados, validar) => {
       ],
       pendencias: ['Definir um ponto único de entrada para os pedidos.'],
     },
-    avaliador: avaliacao(),
+    avaliador: avaliacaoDasLinhas((dados as { matriz?: LinhaMatriz[] })?.matriz ?? linhasDoEncontro(linhasDaVariante('lider'), 0)),
   };
   const valor = saidas[etapa] as any;
   validar?.(valor);

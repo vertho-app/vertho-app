@@ -1,7 +1,14 @@
 import { z } from 'zod';
 import type { LinhaMatriz } from '@/lib/simuladores/lideranca/matriz-global';
 
-export const VERSAO = 'lideranca-jornada-1';
+/**
+ * v2 (18/09/2026): cada encontro avalia foco + 2 secundárias (18 descritores),
+ * com a regra de cobertura comum, citação tolerante e fonte por descritor. A
+ * jornada v1 continua aceita: ao abrir, ganha os prompts da v2 (nenhum encontro
+ * dela foi concluído em produção; os que existirem seguem lidos como gerados).
+ */
+export const VERSAO = 'lideranca-jornada-2';
+export const VERSAO_ANTERIOR = 'lideranca-jornada-1';
 export const MAX_TURNOS = 16;
 export const MIN_TURNOS = 3;
 const texto = (max: number) => z.string().trim().min(1).max(max);
@@ -27,7 +34,8 @@ export const avaliacaoSchema = z
           })
           .strict(),
       )
-      .length(30),
+      .min(1)
+      .max(30),
   })
   .strict();
 export const aberturaSchema = z
@@ -52,6 +60,11 @@ export const consequenciaSchema = z
   })
   .strict();
 export type Avaliacao = z.infer<typeof avaliacaoSchema>;
+/** A avaliação como fica no encontro: descritores com citação inválida rebaixados e a regra aplicada. */
+export type AvaliacaoGravada = Avaliacao & {
+  descartados?: string[];
+  regraCobertura?: string;
+};
 export type Consequencia = z.infer<typeof consequenciaSchema>;
 export type Mensagem = {
   turno: number;
@@ -70,11 +83,11 @@ export type Episodio = {
   reflexao: string | null;
   antecedentes: Consequencia[];
   consequencia: Consequencia | null;
-  avaliacao: Avaliacao | null;
+  avaliacao: AvaliacaoGravada | null;
 };
 export type Etapa = 'abertura' | 'personagem' | 'consequencia' | 'avaliador';
 export type Estado = {
-  versao: typeof VERSAO;
+  versao: typeof VERSAO | typeof VERSAO_ANTERIOR;
   matriz: LinhaMatriz[];
   modelos: Record<Etapa, string>;
   prompts: Record<Etapa, string>;

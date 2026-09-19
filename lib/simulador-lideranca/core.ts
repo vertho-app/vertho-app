@@ -1,4 +1,3 @@
-import { nivelDaNota } from '@/lib/nivel-regua';
 import { CONTEXTO, EPISODIOS } from './episodios';
 import {
   LiderancaError,
@@ -6,42 +5,13 @@ import {
   MIN_TURNOS,
   type Estado,
   type Episodio,
-  type Avaliacao,
   type Consequencia,
   type Comando,
   type Gerar,
 } from './schema';
 import type { LinhaMatriz } from '@/lib/simuladores/lideranca/matriz-global';
+import { diagnosticarAvaliacao, gravarAvaliacao, linhasDoEncontro } from './avaliacao';
 
-export function validarAvaliacao(
-  a: Avaliacao,
-  e: Episodio,
-  matriz: LinhaMatriz[],
-) {
-  const codigos = new Set(matriz.map((d) => d.cod_desc));
-  if (a.descritores.length !== codigos.size)
-    throw new Error('Cobertura inválida');
-  for (const d of a.descritores) {
-    if (!codigos.delete(d.codigo))
-      throw new Error('Código repetido ou desconhecido');
-    if ((d.nivel === null) !== (d.evidencias.length === 0))
-      throw new Error('Nota sem evidência ou evidência sem nota');
-    for (const prova of d.evidencias) {
-      const fonte =
-        prova.fonte === 'fala'
-          ? e.mensagens.find(
-              (m) => m.autor === 'lider' && m.turno === prova.turno,
-            )?.texto
-          : prova.turno !== 0
-            ? null
-            : prova.fonte === 'planejamento'
-              ? e.plano
-              : e.reflexao;
-      if (!fonte || !fonte.includes(prova.trecho))
-        throw new Error('Citação não encontrada na fonte');
-    }
-  }
-}
 export function validarConsequencia(c: Consequencia, e: Episodio) {
   for (const a of c.acordos) {
     if (
@@ -64,26 +34,15 @@ export function validarConsequencia(c: Consequencia, e: Episodio) {
 export function codigoCompetencia(matriz: LinhaMatriz[], nome: string) {
   return matriz.find((d) => d.nome === nome)?.cod_comp ?? null;
 }
-export function resumoAvaliacao(a: Avaliacao, matriz: LinhaMatriz[]) {
-  return EPISODIOS.map((c) => {
-    const linhas = matriz.filter((d) => d.nome === c.nome);
-    const codigos = linhas.map((d) => d.cod_desc);
-    const observados = a.descritores.filter(
-      (d) => codigos.includes(d.codigo) && d.nivel !== null,
-    );
-    const nota = observados.length
-      ? observados.reduce((s, d) => s + d.nivel!, 0) / observados.length
-      : null;
-    return {
-      codigo: linhas[0]?.cod_comp ?? c.competencia,
-      nome: c.nome,
-      nota,
-      nivel: nota === null ? null : nivelDaNota(nota),
-      observados: observados.length,
-      total: codigos.length,
-    };
-  });
-}
+// Devolutiva, validação e síntese vivem no núcleo puro de avaliação.
+export {
+  resumoAvaliacao,
+  diagnosticarAvaliacao,
+  gravarAvaliacao,
+  sinteseDaJornada,
+  linhasDoEncontro,
+  competenciasDoEncontro,
+} from './avaliacao';
 export function episodioPublico(e: Episodio) {
   return {
     id: e.id,
@@ -224,20 +183,31 @@ export async function executarCore(
             'Converse por pelo menos três rodadas antes de concluir.',
           );
         ativo.reflexao = cmd.texto;
-        // Avaliador não recebe dossiê, consequência gerada nem dados dos outros encontros.
-        ativo.avaliacao = await gerar(
+        // O avaliador recebe só os descritores DESTE encontro (foco + 2
+        // secundárias) e os acordos e pendências dos encontros anteriores, para
+        // julgar a continuidade (que é o diferencial da jornada). Não recebe o
+        // dossiê, a consequência gerada nem as avaliações anteriores.
+        const linhas = linhasDoEncontro(s.matriz, ativo.indice);
+        const encontro = EPISODIOS[ativo.indice];
+        const avaliacao = await gerar(
           'avaliador',
           {
-            competenciaFoco:
-              codigoCompetencia(s.matriz, EPISODIOS[ativo.indice].nome) ??
-              EPISODIOS[ativo.indice].competencia,
-            matriz: s.matriz,
+            competenciaFoco: encontro.nome,
+            competenciasSecundarias: encontro.secundarias,
+            matriz: linhas,
+            antecedentes: ativo.antecedentes.map((c) => ({
+              acordos: c.acordos.map((a) => a.descricao),
+              pendencias: c.pendencias,
+            })),
             planejamento: ativo.plano,
             mensagens: ativo.mensagens,
             reflexao: ativo.reflexao,
           },
-          (a) => validarAvaliacao(a, ativo, s.matriz),
+          (a) => void diagnosticarAvaliacao(a, ativo, linhas),
         );
+        // Citação inválida em poucos descritores rebaixa só esses; a regra de
+        // cobertura fica registrada na avaliação gravada.
+        ativo.avaliacao = gravarAvaliacao(avaliacao, ativo, linhas);
         ativo.consequencia = await gerar(
           'consequencia',
           {

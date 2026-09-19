@@ -86,6 +86,10 @@ export async function GET() {
     const treinoRecepcao = recepcaoEmpresa && (platformAdmin || soAcompanha || acessoSimuladores.atendimento);
     const treinoVendas = vendasEmpresa && (platformAdmin || soAcompanha || acessoSimuladores.vendas);
     const prontidaoLideranca = liderancaEmpresa && (platformAdmin || acessoSimuladores.lideranca);
+    // Acompanhamento do simulador de liderança (decisão do dono, 18/09/2026): RH,
+    // gestor e tutor veem quem faz e os resultados. A tela refaz a pergunta com as
+    // permissões (`contextoEquipe`); aqui é só exibição do item de menu.
+    const liderancaEquipe = liderancaEmpresa && (platformAdmin || ['rh', 'gestor', 'tutor'].includes(String((data as any)?.role ?? '')));
 
     // Simulador interativo no menu da população do trilho: líderes e futuros líderes. Só
     // quando ele de fato responde o trilho (módulo contratado, cargo liberado e
@@ -117,7 +121,7 @@ export async function GET() {
 
     // O id do cadastro entrou na leitura para a régua do trilho; não sai na resposta.
     const { id: _id, ...publico } = (data || {}) as any;
-    return NextResponse.json(data ? { ...publico, locale, platformAdmin, temTrilhaPossivel, treinoRecepcao, treinoVendas, prontidaoLideranca, soAcompanhaSimuladores: soAcompanha, simuladorLideranca } : {
+    return NextResponse.json(data ? { ...publico, locale, platformAdmin, temTrilhaPossivel, treinoRecepcao, treinoVendas, prontidaoLideranca, soAcompanhaSimuladores: soAcompanha, simuladorLideranca, liderancaEquipe } : {
       nome_completo: user.email,
       foto_url: null,
       avatar_preset: null,

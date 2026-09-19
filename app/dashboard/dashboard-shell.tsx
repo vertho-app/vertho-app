@@ -26,6 +26,7 @@ type NavItem = {
   acompanha?: boolean;
   /** Simulador interativo: a população autorizada do trilho de liderança (`/api/me`). */
   simuladorLideranca?: boolean;
+  liderancaEquipe?: boolean;
 };
 
 // Fallback = tema Vertho atual (usado se o layout não passar theme).
@@ -100,6 +101,9 @@ const NAV_ITEMS: NavItem[] = [
   // direto na aba da equipe e sem a parte de treinar.
   { href: '/dashboard/treino-atendimento', labelKey: 'receptionTeam', icon: Headset, recepcao: true, acompanha: true },
   { href: '/dashboard/simulador-vendas', labelKey: 'salesTeam', icon: Handshake, vendas: true, acompanha: true },
+  // Liderança: quem acompanha e NÃO pratica (o RH, e gestor fora da população do
+  // programa). Quem pratica chega à mesma tela pelo item de cima, com a aba Equipe.
+  { href: '/dashboard/simulador-lideranca', labelKey: 'leadershipTeam', icon: Crown, liderancaEquipe: true },
   // Seleção saiu daqui em 24/08/2026: era a única tela de OPERAÇÃO no menu do
   // cliente (criar vaga · gerar perfil · avaliar candidatos) e virou operação da
   // Vertho em /admin. O ranking das vagas segue visível ao RH em .../ranking, que
@@ -138,7 +142,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
   const isImmersiveContent = pathname.startsWith('/dashboard/conteudo/');
   const supabase = getSupabase();
   const [user, setUser] = useState<any>(null);
-  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean; treinoVendas?: boolean; prontidaoLideranca?: boolean; soAcompanhaSimuladores?: boolean; simuladorLideranca?: boolean } | null>(null);
+  const [colaborador, setColaborador] = useState<{ nome_completo?: string; foto_url?: string; avatar_preset?: string | null; role?: string; locale?: string; platformAdmin?: boolean; temTrilhaPossivel?: boolean; treinoRecepcao?: boolean; treinoVendas?: boolean; prontidaoLideranca?: boolean; soAcompanhaSimuladores?: boolean; simuladorLideranca?: boolean; liderancaEquipe?: boolean } | null>(null);
   const isGestorOuRH = colaborador?.role === 'gestor' || colaborador?.role === 'rh';
   const ehAdminDaEmpresa = colaborador?.role === 'rh';
   // Cargo com Top 5 vazio não faz mapeamento nem trilha: as telas de jornada
@@ -163,7 +167,8 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
     && (!it.exceptoRh || !ehAdminDaEmpresa)
     && (!it.treina || !soAcompanha)
     && (!it.acompanha || soAcompanha)
-    && (!it.simuladorLideranca || colaborador?.simuladorLideranca === true),
+    && (!it.simuladorLideranca || colaborador?.simuladorLideranca === true)
+    && (!it.liderancaEquipe || (colaborador?.liderancaEquipe === true && colaborador?.simuladorLideranca !== true)),
   );
   const ativo = hrefAtivo(pathname, navItems);
 
