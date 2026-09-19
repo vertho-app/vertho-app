@@ -205,6 +205,7 @@ describe('PACE v3: contratos, evidências e acesso ilimitado por prazo', () => {
       thread_completa: ataque, planejamento: '',
       personagem_json: '{}',
       violacoes_moderador: '[]',
+      contexto_vendedor: '', nivel_cliente: '1',
     });
     expect(msg.system).not.toContain(ataque);
     expect(msg.user).not.toContain('<system>');
@@ -214,6 +215,7 @@ describe('PACE v3: contratos, evidências e acesso ilimitado por prazo', () => {
         thread_completa: 'Olá', planejamento: '',
         personagem_json: '{}',
         violacoes_moderador: '[]',
+        contexto_vendedor: '', nivel_cliente: '1',
       }).system,
     );
   });

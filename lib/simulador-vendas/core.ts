@@ -8,9 +8,11 @@ import {
   violacoesRegistradas,
 } from './avaliacao';
 import {
+  escalaNativa14,
   notasDaMatriz,
   planejamentoPendente,
   usaMatrizPace,
+  usaRegraCobertura,
   validarMatriz,
 } from './matriz-avaliacao';
 import { usaFontesDocumentais } from './fontes';
@@ -138,8 +140,9 @@ export function validarRelatorio(r: Saidas['gerente'], s: Estado) {
       throw new Error('Devolutiva documental exige 3 a 5 recomendações');
     r.Recomendacoes.forEach((item, i) => {
       recomendacaoDocumentalSchema.parse(item);
-      if (item.prioritaria !== (i === 0))
-        throw new Error('Prioridade da recomendação inconsistente');
+      // A primeira é a prioritária por contrato; marcação trocada é forma, não
+      // conteúdo, e não justifica pagar outra geração (recusava tudo até 18/09).
+      item.prioritaria = i === 0;
     });
     if (
       r.Beneficios_ocultos_descobertos.length ||
@@ -377,13 +380,21 @@ export async function executarCore(
         ...(usaMatrizPace(s.versaoRegua)
           ? { planejamento: s.planejamento || '' }
           : {}),
+        // pace-7: o gerente vê o contexto que o vendedor tinha (público, não é
+        // gabarito) para julgar se o plano e a abertura o consideraram.
+        ...(usaRegraCobertura(s.versaoRegua)
+          ? {
+              contexto_vendedor: s.cenario?.contexto_vendedor || '',
+              nivel_cliente: String(s.nivel),
+            }
+          : {}),
       },
       (r) => validarRelatorio(r, s),
     );
     next.notasBrutas =
       usaMatrizPace(s.versaoRegua) && bruto.Matriz
-        ? s.versaoRegua === 'pace-6'
-          ? pontuacaoMatriz(bruto.Matriz)
+        ? escalaNativa14(s.versaoRegua)
+          ? pontuacaoMatriz(validarMatriz(bruto.Matriz, s), s.versaoRegua)
           : notasDaMatriz(bruto.Matriz)
         : { P: bruto.P, A: bruto.A, C: bruto.C, E: bruto.E };
     next.relatorio = pontuarRelatorio(bruto, s);

@@ -17,6 +17,7 @@ import {
   consultarHistorico,
   executar,
 } from '@/lib/simulador-vendas/service';
+import { COLUNAS_HISTORICO_PARTICIPANTE } from '@/lib/simulador-vendas/historico';
 import { estado, relatorio } from '../fixtures/simulador-vendas';
 vi.mock('@/lib/simulador-vendas/ai', () => ({
   gerador: vi.fn(),
@@ -268,7 +269,7 @@ describe('PACE: leitura individual e recuperação depois do prazo', () => {
     expect(sb.chamadas).toContainEqual({
       tabela: 'sim_vendas_sessoes',
       metodo: 'select',
-      args: ['id,created_at,colaborador_id,resumo', undefined],
+      args: [COLUNAS_HISTORICO_PARTICIPANTE, undefined],
     });
     expect(sb.chamadas).toContainEqual({
       tabela: 'sim_vendas_sessoes',

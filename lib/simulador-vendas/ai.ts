@@ -29,7 +29,7 @@ import { SimuladorError, type Gerar } from './core';
 import type { Contexto } from './access';
 import { arquivarPrompt, textoDoSnapshot } from './catalogo';
 import { modeloPaceCompativel } from './modelos';
-import { periodoVigente } from './prazo';
+import { periodoVigente, podeEncerrar } from './prazo';
 import { normalizarRelatorio } from './normalizacao';
 import { usaMatrizPace } from './matriz-avaliacao';
 import { usaFontesDocumentais } from './fontes';
@@ -89,6 +89,7 @@ export function gerador(
     const texto = await textoDoSnapshot(c.tdb, etapa, spec);
     const mensagens = [
       PROMPT_VERSION,
+      'pace-rnaves-2.1.2-vertho-6',
       'pace-rnaves-2.1.2-vertho-3',
       'pace-rnaves-2.1.2-vertho-4',
       'pace-rnaves-2.1.2-vertho-5',
@@ -173,7 +174,8 @@ export function gerador(
             503,
             'Não foi possível verificar o prazo de acesso.',
           );
-        if (!data?.habilitado || !periodoVigente(data))
+        // O gerente roda no encerramento, que tem 24 h de tolerância depois do prazo.
+        if (!data?.habilitado || !(etapa === 'gerente' ? podeEncerrar(data) : periodoVigente(data)))
           throw new SimuladorError(
             403,
             'O prazo de acesso ao treinamento não está vigente. Seu histórico foi preservado.',
@@ -224,7 +226,9 @@ export function gerador(
             locale: 'pt-BR',
             timeoutMs: Math.min(
               remaining,
-              etapa === 'criador' || etapa === 'gerente' ? 110000 : 60000,
+              // O gerente da matriz devolve 30 descritores com citações: 110 s
+              // cortava antes do teto de 16 mil tokens (revisão de 18/09).
+              etapa === 'gerente' ? 200000 : etapa === 'criador' ? 110000 : 60000,
             ),
             maxRetries: 0,
             responses: {

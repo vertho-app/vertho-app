@@ -115,7 +115,7 @@ export const CODIGOS_DESCRITORES = COMPETENCIAS_PACE.flatMap((c) =>
 ) as [string, ...string[]];
 
 export function usaFontesDocumentais(versao?: string) {
-  return versao === 'pace-5' || versao === 'pace-6';
+  return versao === 'pace-5' || versao === 'pace-6' || versao === 'pace-7';
 }
 
 export function promptFontesPace() {

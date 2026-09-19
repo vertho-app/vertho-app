@@ -1,5 +1,5 @@
 // Harness dos componentes reais; só navegação/API são substituídas pelo bundler.
-import { notaPacePublica } from '../../lib/simulador-vendas/escala';
+import { notaPacePublica, pontuacaoMatriz } from '../../lib/simulador-vendas/escala';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { NextIntlClientProvider } from 'next-intl';
@@ -89,6 +89,18 @@ if (params.has('matrix')) {
     states[empresaA]!.status = 'concluida';
     states[empresaA]!.relatorio = { ...relatorioDocumental(), P: 7.5, A: 7.5, C: 7.5, E: 7.5, Media: 7.5 };
     states[empresaA]!.feedback = { realismo: 5, desafio: 5, interacao: 5, utilidade: 5, aprendizado: 5, comentario: '' };
+    // pace-7: a mesma matriz com a regra de cobertura; `curta` = plano, abertura e uma pergunta.
+    if (params.get('regua') === 'pace-7') {
+      const r = relatorioDocumental();
+      if (params.has('curta'))
+        for (const d of r.Matriz.descritores)
+          if (!['PL1', 'PL2', 'P1', 'A1'].includes(d.codigo)) {
+            d.nivel = null;
+            d.evidencias = [];
+          }
+      states[empresaA]!.versaoRegua = 'pace-7';
+      states[empresaA]!.relatorio = { ...r, ...pontuacaoMatriz(r.Matriz, 'pace-7'), Violacoes: [] };
+    }
   }
 }
 const configs = Object.fromEntries(
@@ -127,6 +139,29 @@ const historicoExtra = params.has('history')
       temRelatorio: true,
     }))
   : [];
+// Dois treinos com devolutiva aberta: evolução por competência e foco sugerido.
+const historicoEvolucao = params.has('evolucao')
+  ? [
+      {
+        ...resumo(estado()),
+        id: '30000000-0000-4000-8000-000000000101',
+        nome: 'Carla',
+        status: 'concluida' as const,
+        nota: 3.06,
+        competencias: { PL: 3.1, P: 3.0, A: 3.2, C: 2.8, E: 3.0 },
+        foco: 'Confirme o diagnóstico antes de propor',
+      },
+      {
+        ...resumo(estado()),
+        id: '30000000-0000-4000-8000-000000000102',
+        nome: 'Beatriz',
+        status: 'concluida' as const,
+        nota: 2.5,
+        competencias: { PL: 2.2, P: 2.9, A: 2.4, C: null, E: 2.6 },
+        foco: 'Defina o avanço',
+      },
+    ]
+  : [];
 const dados = (id = empresaA) => ({
   empresaId: id,
   empresaNome: id === empresaA ? 'Horizonte · demonstração' : 'Aurora · demonstração',
@@ -145,7 +180,14 @@ const dados = (id = empresaA) => ({
         processandoAte: processando ? new Date(Date.now() + 320000).toISOString() : null,
       }
     : null,
-  historico: (historicoExtra.length ? historicoExtra.slice(0, 30) : states[id] ? [resumo(states[id])] : []).map(
+  historico: (historicoEvolucao.length
+    ? historicoEvolucao
+    : historicoExtra.length
+      ? historicoExtra.slice(0, 30)
+      : states[id]
+        ? [resumo(states[id])]
+        : []
+  ).map(
     (item) => (admin ? item : { ...item, temRelatorio: false }),
   ),
   proximoCursor: historicoExtra.length ? 'proxima' : null,

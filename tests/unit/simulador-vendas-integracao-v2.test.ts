@@ -139,10 +139,15 @@ describe('PACE v6: núcleo usando gerador real, com fronteira HTTP mockada', () 
       'Beneficios_ocultos_descobertos',
     );
     const dadosGerente = JSON.parse(vi.mocked(callAI).mock.calls[4][1]);
+    // pace-7: o contexto PÚBLICO do vendedor e o nível do cliente entram como
+    // dados; gabarito, personagem e moderação continuam fora.
     expect(Object.keys(dadosGerente).sort()).toEqual([
+      'contexto_vendedor',
+      'nivel_cliente',
       'planejamento',
       'thread_completa',
     ]);
+    expect(JSON.stringify(dadosGerente)).not.toContain('beneficios_ocultos');
     expect(vi.mocked(callAI).mock.calls[4][0]).toContain(
       'Manual da Metodologia PACE_v8.docx',
     );

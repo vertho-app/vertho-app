@@ -7,10 +7,15 @@ import { gerador, snapshotPrompts } from './ai';
 import { SimuladorError, executarCore, recebido, visaoPublica } from './core';
 import type { Contexto } from './access';
 import { REGUA_VERSION, type Estado, type Comando } from './schema';
-import { periodoVigente } from './prazo';
+import { periodoVigente, podeEncerrar } from './prazo';
 import { TRACOS_DIVERSIDADE } from './diversidade';
 import { podeVerEquipe } from './equipe';
-import { aplicarCursor, COLUNAS_HISTORICO, paginaDeHistorico, type LinhaResumo } from './historico';
+import {
+  aplicarCursor,
+  COLUNAS_HISTORICO_PARTICIPANTE,
+  paginaDeHistorico,
+  type LinhaResumo,
+} from './historico';
 
 type Row = {
   id: string;
@@ -44,7 +49,7 @@ const publico = (row: Row) => ({
 });
 
 export async function consultarHistorico(c: Contexto, cursor?: string | null) {
-  const list = await aplicarCursor(owned(c, COLUNAS_HISTORICO), cursor)
+  const list = await aplicarCursor(owned(c, COLUNAS_HISTORICO_PARTICIPANTE), cursor)
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(31);
@@ -109,11 +114,11 @@ export async function executar(c: Contexto, original: Comando) {
           }
         : original;
   const exigirPrazo = () => {
-    if (
-      ['iniciar', 'planejar', 'responder', 'encerrar'].includes(cmd.acao) &&
-      !c.auth.isPlatformAdmin &&
-      !periodoVigente(c.config)
-    ) {
+    if (c.auth.isPlatformAdmin) return;
+    // Encerrar tem 24 h de tolerância: quem estava no meio da conversa recebe a devolutiva.
+    const dentro =
+      cmd.acao === 'encerrar' ? podeEncerrar(c.config) : periodoVigente(c.config);
+    if (['iniciar', 'planejar', 'responder', 'encerrar'].includes(cmd.acao) && !dentro) {
       throw new SimuladorError(
         403,
         'O prazo de acesso ao treinamento não está vigente. Seu histórico foi preservado.',
@@ -193,6 +198,19 @@ export async function executar(c: Contexto, original: Comando) {
     return { sessao: publico(row) };
   // Um recibo já persistido continua recuperável depois do prazo, sem nova geração.
   exigirPrazo();
+  // Descartar (18/09/2026): o participante pode desistir de um treino que ainda
+  // não teve fala dele (cenário que não serviu, preparação travada). Depois da
+  // primeira fala, o caminho é concluir e receber a devolutiva; o abandono com
+  // conversa segue restrito à recuperação administrativa.
+  if (
+    cmd.acao === 'abandonar' &&
+    !c.auth.isPlatformAdmin &&
+    row.estado.mensagens.some((m) => m.autor === 'vendedor')
+  )
+    throw new SimuladorError(
+      409,
+      'Este treino já tem conversa. Conclua para receber a devolutiva.',
+    );
   if (cmd.acao !== 'iniciar' && cmd.revisao !== row.revisao)
     throw new SimuladorError(409, 'O treino mudou em outra aba. Atualize a conversa.');
   const token = randomUUID();

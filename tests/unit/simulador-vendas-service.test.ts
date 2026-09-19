@@ -35,6 +35,17 @@ describe('persistência de comandos PACE', () => {
     await expect(executar(ctx(), comando())).rejects.toMatchObject({ status: 409 });
     expect(sb.escritas.at(-1)?.payload).toEqual({ lock_token: null, lock_until: null });
   });
+  it('descartar: o participante só desiste de treino SEM fala dele; com conversa, conclui (18/09/2026)', async () => {
+    s = { ...estadoMatriz(), status: 'em_andamento' } as Estado;
+    sb.client.rpc.mockResolvedValue({ data: true, error: null });
+    await expect(executar(ctx(), comando())).rejects.toMatchObject({ status: 409 });
+    expect(sb.client.rpc).not.toHaveBeenCalled();
+    expect(sb.escritas).toHaveLength(0);
+    // Sem fala do vendedor (cenário que não serviu), o descarte vale.
+    s = { ...estadoMatriz(), status: 'em_andamento', mensagens: [] } as Estado;
+    const r = await executar(ctx(), comando());
+    expect(r.sessao.status).toBe('abandonada');
+  });
   it('erro de leitura não vira sessão ausente nem autoriza comando', async () => {
     sb.falharEm({ tabela: 'sim_vendas_sessoes', op: 'select', mensagem: 'timeout' });
     await expect(executar(ctx(), comando())).rejects.toMatchObject({ status: 503 });

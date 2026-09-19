@@ -63,7 +63,25 @@
 .ratingLabel:hover { border-color:#ffffff40; color:#e2e8f0; }
 .ratingInput:checked+.ratingLabel { border-color:var(--pace-accent); background:color-mix(in srgb,var(--pace-accent) 17%,transparent); color:#cffafe; transform:translateY(-1px); }
 .ratingInput:focus-visible+.ratingLabel { outline:2px solid var(--pace-accent); outline-offset:3px; }
+.plan { display:grid; gap:.9rem; border:0; padding:0; margin:0; min-width:0; }
+.plan legend { font-weight:600; font-size:.9rem; margin-bottom:.6rem; }
+.plan label span { color:#e2e8f0; font-weight:600; font-size:.84rem; }
+.discard { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .8rem; margin-top:1rem; }
+.focus { display:grid; gap:.2rem; margin-bottom:1rem; padding:.75rem .85rem; border:1px solid color-mix(in srgb,var(--pace-accent) 35%,transparent); border-radius:.7rem; background:color-mix(in srgb,var(--pace-accent) 7%,transparent); font-size:.84rem; line-height:1.45; overflow-wrap:anywhere; }
+.focus span { color:var(--pace-accent); font-size:.66rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
+.focus strong { color:#f8fafc; font-weight:600; }
+.evolution { margin-top:1.4rem; padding-top:1rem; border-top:1px solid #ffffff12; }
+.evolution h3 { font-size:.9rem; font-weight:600; color:#f8fafc; }
+.evolution ul { display:grid; gap:.45rem; margin-top:.6rem; }
+.evolution li { display:flex; justify-content:space-between; align-items:baseline; gap:.6rem; font-size:.8rem; }
+.evolution li>span:first-child { min-width:0; overflow-wrap:anywhere; }
+.evolutionLevel { flex:0 0 auto; display:grid; justify-items:end; color:#a5f3fc; font-weight:700; }
+.evolutionLevel em { font-style:normal; font-size:.65rem; font-weight:600; color:#86efac; }
+.fichaCelular { display:none; }
+.fichaCelular summary { cursor:pointer; font-weight:600; font-size:.9rem; overflow-wrap:anywhere; }
 @media(max-width:800px) { .workspace { grid-template-columns:minmax(0,1fr); } .chat { max-height:55dvh; } .history { max-height:230px; overflow:auto; } .feedback { grid-template-columns:1fr; } }
+/* Celular com treino em curso: a conversa primeiro e a ficha do cliente recolhível no topo dela. */
+@media(max-width:800px) { .chatPrimeiro>:last-child { order:-1; } .chatPrimeiro .fichaAside { display:none; } .chatPrimeiro .fichaCelular { display:block; margin-bottom:1rem; padding:.8rem 1rem; border:1px solid #ffffff18; border-radius:.8rem; } }
 @media(max-width:800px) { .evaluationHeader { grid-template-columns:1fr; } .deliverySteps { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:460px) { .evaluation { padding:1rem; } .deliverySteps { grid-template-columns:1fr; } }
 @media(prefers-reduced-motion:reduce) { .root * { scroll-behavior:auto; animation:none!important; } }

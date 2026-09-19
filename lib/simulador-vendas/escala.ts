@@ -1,20 +1,30 @@
 import type { Saidas } from './schema';
-import { consolidarMatriz, type AvaliacaoMatriz } from './matriz-avaliacao';
+import { mediaGeral } from '@/lib/simuladores/cobertura';
+import {
+  consolidarMatriz,
+  escalaNativa14,
+  regraDaVersao,
+  usaRegraCobertura,
+  type AvaliacaoMatriz,
+} from './matriz-avaliacao';
 
-export function pontuacaoMatriz(matriz: AvaliacaoMatriz) {
-  const comps = consolidarMatriz(matriz);
+/**
+ * Notas 1 a 4 por competência e média geral de peso igual, a partir da matriz.
+ * Da pace-7 em diante vale a regra de cobertura comum e a versão dela fica no
+ * relatório (`regraCobertura`); a pace-6 continua lida como foi gerada.
+ */
+export function pontuacaoMatriz(matriz: AvaliacaoMatriz, versao?: string) {
+  const comps = consolidarMatriz(matriz, versao);
   const nota = (codigo: string) => comps.find((c) => c.codigo === codigo)!.nota;
-  const observadas = comps.filter((c) => c.nota !== null);
   return {
     PL: nota('PL'),
     P: nota('P'),
     A: nota('A'),
     C: nota('C'),
     E: nota('E'),
-    Media: observadas.length
-      ? observadas.reduce((s, c) => s + c.nota!, 0) / observadas.length
-      : null,
+    Media: mediaGeral(comps, regraDaVersao(versao)).nota,
     escalaNota: '1-4' as const,
+    ...(usaRegraCobertura(versao) ? { regraCobertura: regraDaVersao(versao).versao } : {}),
   };
 }
 export function notaPacePublica(
@@ -22,7 +32,7 @@ export function notaPacePublica(
   versao?: string,
 ) {
   if (nota == null || nota === 0) return null;
-  return versao === 'pace-6' ? nota : 1 + (3 * nota) / 10;
+  return escalaNativa14(versao) ? nota : 1 + (3 * nota) / 10;
 }
 export function relatorioPacePublico(
   r: Saidas['gerente'] | null,
@@ -32,7 +42,7 @@ export function relatorioPacePublico(
   if (r.Matriz)
     return {
       ...structuredClone(r),
-      ...pontuacaoMatriz(r.Matriz),
+      ...pontuacaoMatriz(r.Matriz, versao),
       escalaOriginal: '0-10',
     };
   return {

@@ -21,7 +21,13 @@ export const ROTULOS = {
 };
 export const NIVEIS = { 1: 'Júnior', 2: 'Pleno', 3: 'Sênior' };
 export const MAX_TURNOS = 60; // Limite técnico de contexto e tamanho da sessão.
-export const REGUA_VERSION = 'pace-6';
+/**
+ * pace-7 (18/09/2026): regra de cobertura comum aos três simuladores (4
+ * descritores por competência, 3 competências para a média), E5/E6 fora da
+ * reunião inicial, citação tolerante, e gerente com o contexto que o vendedor
+ * tinha. Histórico concluído não é recalculado.
+ */
+export const REGUA_VERSION = 'pace-7';
 /** A pace-2 já separava notas brutas do gerente e pontuação determinística no servidor. */
 export function usaGerenteBruto(versao?: string) {
   return (
@@ -29,6 +35,7 @@ export function usaGerenteBruto(versao?: string) {
     versao === 'pace-3' ||
     versao === 'pace-4' ||
     versao === 'pace-5' ||
+    versao === 'pace-6' ||
     versao === REGUA_VERSION
   );
 }
@@ -183,7 +190,10 @@ export const relatorioSchema = relatorioLegadoSchema.extend({
   PL: z.number().min(1).max(4).nullable().optional(),
   escalaNota: z.literal('1-4').optional(),
   escalaOriginal: z.literal('0-10').optional(),
-  Matriz: matrizAvaliacaoSchema.optional(),
+  regraCobertura: z.string().optional(),
+  Matriz: matrizAvaliacaoSchema
+    .extend({ descartados: z.array(z.string()).optional() })
+    .optional(),
   Recomendacoes: z.array(
     z.union([
       recomendacaoDocumentalSchema,

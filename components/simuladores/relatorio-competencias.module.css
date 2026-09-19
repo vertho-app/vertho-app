@@ -75,10 +75,34 @@
   gap: 12px;
   padding: 14px 16px;
   cursor: pointer;
-  list-style-position: inside;
+  list-style: none;
+}
+.competencia > summary::-webkit-details-marker {
+  display: none;
+}
+/* A linha abre: sem a seta, os cartões pareciam estáticos (captura de 19/09). */
+.seta {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin: 0 2px 4px;
+  border-right: 2px solid var(--r-muted);
+  border-bottom: 2px solid var(--r-muted);
+  transform: rotate(45deg);
+  transition: transform 0.15s ease;
+}
+.aberta > summary .seta {
+  margin: 4px 2px 0;
+  transform: rotate(-135deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .seta {
+    transition: none;
+  }
 }
 .nome {
   display: grid;
+  flex: 1 1 auto;
   gap: 2px;
   min-width: 0;
   font-weight: 600;
@@ -106,6 +130,10 @@
 .semNivel {
   color: var(--r-muted) !important;
   font-weight: 500;
+}
+.competencia > .resumo {
+  margin: 0 16px 12px;
+  font-size: 0.88rem;
 }
 .aviso {
   margin: 0 16px 10px !important;
@@ -175,6 +203,9 @@
 @media (max-width: 640px) {
   .competencia > summary {
     padding: 12px;
+  }
+  .competencia > .resumo {
+    margin: 0 12px 12px;
   }
   .descritores {
     padding: 0 12px 12px;

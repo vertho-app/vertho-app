@@ -11,6 +11,7 @@
  * Tema por CLASSE (escuro/claro): seletor de atributo em CSS module quebra o
  * dev server do Turbopack (memória de 06/09).
  */
+import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import styles from './relatorio-competencias.module.css';
 
@@ -33,6 +34,8 @@ export interface CompetenciaRelatorio {
   codigo: string;
   nome: string;
   foco?: boolean;
+  /** Leitura do avaliador sobre a competência inteira (o vendas tem uma por etapa). */
+  resumo?: string | null;
   nota: number | null;
   nivel: number | null;
   observados: number;
@@ -56,6 +59,7 @@ export default function RelatorioCompetencias({
   tema = 'escuro',
   abrirFoco = true,
   rotuloMedia,
+  acento,
 }: {
   competencias: CompetenciaRelatorio[];
   media?: MediaRelatorio | null;
@@ -63,12 +67,29 @@ export default function RelatorioCompetencias({
   tema?: 'escuro' | 'claro';
   abrirFoco?: boolean;
   rotuloMedia?: string;
+  /** Cor de destaque do simulador que usa o relatório (padrão: a do tema). */
+  acento?: string;
 }) {
   const t = useTranslations('SimuladoresRelatorio');
   const locale = useLocale();
   const nota = (n: number) => n.toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 2 });
+  // Quais competências estão abertas, para a seta girar (por CLASSE: seletor
+  // `[open]` em CSS module é o que quebra o dev do Turbopack). Outra devolutiva
+  // (outro encontro, outro foco) volta ao estado inicial.
+  const assinatura = `${abrirFoco ? 1 : 0}|` + competencias.map((c) => `${c.codigo}${c.foco ? '*' : ''}`).join('|');
+  const inicial = () => Object.fromEntries(competencias.map((c) => [c.codigo, abrirFoco && !!c.foco]));
+  const [abertas, setAbertas] = useState(() => ({ assinatura, porCodigo: inicial() }));
+  if (abertas.assinatura !== assinatura) setAbertas({ assinatura, porCodigo: inicial() });
+  const alternar = (codigo: string, aberta: boolean) =>
+    setAbertas((prev) =>
+      prev.porCodigo[codigo] === aberta ? prev : { ...prev, porCodigo: { ...prev.porCodigo, [codigo]: aberta } },
+    );
   return (
-    <section className={`${styles.root} ${tema === 'claro' ? styles.claro : styles.escuro}`} aria-label={t('title')}>
+    <section
+      className={`${styles.root} ${tema === 'claro' ? styles.claro : styles.escuro}`}
+      style={acento ? ({ '--r-acento': acento } as React.CSSProperties) : undefined}
+      aria-label={t('title')}
+    >
       {media !== undefined && (
         <div className={styles.media}>
           <span className={styles.mediaRotulo}>{rotuloMedia || t('overall')}</span>
@@ -90,8 +111,9 @@ export default function RelatorioCompetencias({
       {competencias.map((c) => (
         <details
           key={c.codigo}
-          className={`${styles.competencia} ${c.foco ? styles.foco : ''}`}
-          open={abrirFoco && !!c.foco}
+          className={`${styles.competencia} ${c.foco ? styles.foco : ''} ${abertas.porCodigo[c.codigo] ? styles.aberta : ''}`}
+          open={!!abertas.porCodigo[c.codigo]}
+          onToggle={(e) => alternar(c.codigo, e.currentTarget.open)}
         >
           <summary>
             <span className={styles.nome}>
@@ -109,7 +131,9 @@ export default function RelatorioCompetencias({
                 <b className={styles.semNivel}>{c.observados ? t('insufficientShort') : t('notObserved')}</b>
               )}
             </span>
+            <span className={styles.seta} aria-hidden="true" />
           </summary>
+          {c.resumo && <p className={styles.resumo}>{c.resumo}</p>}
           {!c.suficiente && regra && c.observados > 0 && (
             <p className={styles.aviso}>{t('insufficient', { n: c.observados, min: regra.minDescritores })}</p>
           )}
@@ -127,7 +151,8 @@ export default function RelatorioCompetencias({
                   </span>
                 </div>
                 {d.descartado && <p className={styles.aviso}>{t('discarded')}</p>}
-                {d.justificativa && <p className={styles.justificativa}>{d.justificativa}</p>}
+                {/* A justificativa de um descartado explicava um nível que caiu. */}
+                {d.justificativa && !d.descartado && <p className={styles.justificativa}>{d.justificativa}</p>}
                 {d.evidencias?.map((e, i) => (
                   <blockquote key={`e${i}`}>
                     “{e.texto}”{e.origem && <small>{e.origem}</small>}

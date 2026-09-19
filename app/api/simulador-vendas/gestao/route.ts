@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { notaPacePublica } from '@/lib/simulador-vendas/escala';
+import { escalaNativa14 } from '@/lib/simulador-vendas/matriz-avaliacao';
 import { requireUser } from '@/lib/auth/request-context';
 import { readLimiter } from '@/lib/rate-limit';
 import { contexto } from '@/lib/simulador-vendas/access';
@@ -84,7 +85,7 @@ export async function GET(req: Request) {
             ]),
           ),
           escalaNota: '1-4',
-          escalaOriginal: r.versaoRegua === 'pace-6' ? null : '0-10',
+          escalaOriginal: escalaNativa14(r.versaoRegua) ? null : '0-10',
         })),
       });
     }

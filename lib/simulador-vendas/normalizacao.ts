@@ -12,6 +12,20 @@ export function normalizarRelatorio(valor: unknown): unknown {
   }
   for (const chave of ['Preparacao', 'Analise', 'Cocriacao', 'Engajamento']) cortar(r, chave, 280);
   cortar(r, 'Resumo', 500);
+  // Matriz: excesso de forma (justificativa longa, citação longa, 3 evidências)
+  // se corta aqui em vez de recusar os 30 descritores e pagar outra geração.
+  // Prefixo de trecho literal continua literal.
+  const matriz = r.Matriz as { descritores?: unknown } | undefined;
+  if (matriz && Array.isArray(matriz.descritores))
+    for (const d of matriz.descritores as Array<Record<string, unknown>>) {
+      if (!d || typeof d !== 'object') continue;
+      cortar(d, 'justificativa', 500);
+      if (Array.isArray(d.evidencias)) {
+        d.evidencias = d.evidencias.slice(0, 2);
+        for (const e of d.evidencias as Array<Record<string, unknown>>)
+          if (e && typeof e === 'object') cortar(e, 'citacao', 500);
+      }
+    }
   if (Array.isArray(r.Recomendacoes))
     for (const item of r.Recomendacoes) {
       if (item && typeof item === 'object') {

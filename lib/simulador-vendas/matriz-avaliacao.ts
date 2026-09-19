@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { nivelDaNota } from '@/lib/nivel-regua';
+import { consolidarCompetencia, REGRA_COBERTURA, type RegraCobertura } from '@/lib/simuladores/cobertura';
+import { contemCitacao, descarteTolerado } from '@/lib/simuladores/citacao';
 import { COMPETENCIAS_PACE, MATRIZ_VERSION } from './matriz';
 import type { Estado } from './schema';
 
@@ -9,7 +10,7 @@ const codigos = COMPETENCIAS_PACE.flatMap((c) =>
 const evidenciaSchema = z.object({
   origem: z.enum(['planejamento', 'conversa']),
   turno: z.number().int().positive().nullable(),
-  citacao: z.string().trim().min(1).max(350),
+  citacao: z.string().trim().min(1).max(500),
 });
 export const matrizAvaliacaoSchema = z.object({
   versao: z.literal(MATRIZ_VERSION),
@@ -20,7 +21,7 @@ export const matrizAvaliacaoSchema = z.object({
         nivel: z
           .union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)])
           .nullable(),
-        justificativa: z.string().trim().min(1).max(240),
+        justificativa: z.string().trim().min(1).max(500),
         evidencias: z.array(evidenciaSchema).max(2),
       }),
     )
@@ -30,70 +31,100 @@ export type AvaliacaoMatriz = z.infer<typeof matrizAvaliacaoSchema>;
 
 /** A versão distingue a escala do exercício dos três graus de dificuldade do cliente. */
 export function usaMatrizPace(versao?: string) {
-  return versao === 'pace-4' || versao === 'pace-5' || versao === 'pace-6';
+  return versao === 'pace-4' || versao === 'pace-5' || versao === 'pace-6' || versao === 'pace-7';
 }
+/** Notas gravadas já na escala 1 a 4 (pace-6 em diante); as anteriores são convertidas na leitura. */
+export function escalaNativa14(versao?: string) {
+  return versao === 'pace-6' || versao === 'pace-7';
+}
+/** A regra de cobertura comum (4 descritores, 3 competências) vale da pace-7 em diante. */
+export function usaRegraCobertura(versao?: string) {
+  return versao === 'pace-7';
+}
+/**
+ * E5 e E6 (acompanhamento da implementação e verificação de resultados) não
+ * cabem numa reunião inicial simulada. Da pace-7 em diante ficam FORA da
+ * avaliação: não contam no total de Engajar nem aparecem como "não observado".
+ */
+export const FORA_DA_REUNIAO_INICIAL: readonly string[] = ['E5', 'E6'];
+/** Regra das versões anteriores à pace-7: média dos observados, sem mínimo. */
+const REGRA_LEGADA: RegraCobertura = { versao: 'legado', minDescritores: 1, minCompetencias: 1 };
+export const regraDaVersao = (versao?: string): RegraCobertura =>
+  usaRegraCobertura(versao) ? REGRA_COBERTURA : REGRA_LEGADA;
+/** A matriz como fica gravada: descritores com citação inválida rebaixados e listados. */
+export type AvaliacaoMatrizGravada = AvaliacaoMatriz & { descartados?: string[] };
 export function planejamentoPendente(
   s: Pick<Estado, 'versaoRegua' | 'planejamento'>,
 ) {
   return usaMatrizPace(s.versaoRegua) && !s.planejamento?.trim();
 }
 
+/**
+ * Estrutura errada (descritor faltando, repetido, nota sem evidência) LANÇA e o
+ * gerente é reenviado. Citação que não confere com a fonte, em POUCOS
+ * descritores (até 20% dos avaliados), rebaixa só esses e os lista em
+ * `descartados`; acima disso a avaliação inteira é suspeita e LANÇA, como antes.
+ * Até 18/09 qualquer citação inexata entre cerca de 60 derrubava os 30 níveis.
+ * A comparação ignora tipografia (aspas, reticências, caixa), como no atendimento.
+ */
 export function validarMatriz(
   matriz: unknown,
   s: Pick<Estado, 'planejamento' | 'mensagens'>,
-) {
-  const m = matrizAvaliacaoSchema.parse(matriz);
+): AvaliacaoMatrizGravada {
+  const m: AvaliacaoMatrizGravada = matrizAvaliacaoSchema.parse(matriz);
   if (new Set(m.descritores.map((d) => d.codigo)).size !== codigos.length)
     throw new Error('Descritor da matriz ausente ou repetido');
+  const invalidos: string[] = [];
   for (const d of m.descritores) {
     if (d.nivel === null) {
       if (d.evidencias.length)
         throw new Error('Descritor não observado com evidências pontuadas');
       continue;
     }
-    // A conversa inicial não prova execução de pós-venda. Um compromisso é avaliado em E3/E4.
-    if (d.codigo === 'E5' || d.codigo === 'E6')
-      throw new Error('Pós-venda não observável nesta simulação');
-    if (!d.evidencias.length) throw new Error('Nível sem evidência observável');
-    for (const e of d.evidencias) {
-      if (d.codigo.startsWith('PL')) {
-        if (
-          e.origem !== 'planejamento' ||
-          e.turno !== null ||
-          !s.planejamento?.includes(e.citacao)
-        )
-          throw new Error('Evidência de planejamento inválida');
-      } else {
-        const fala = s.mensagens.find(
-          (f) => f.autor === 'vendedor' && f.turno === e.turno,
-        );
-        if (e.origem !== 'conversa' || !fala?.texto.includes(e.citacao))
-          throw new Error(
-            'Evidência de descritor sem citação literal do vendedor',
-          );
-      }
+    // A conversa inicial não prova execução de pós-venda. Um compromisso é
+    // avaliado em E3/E4; nível em E5/E6 é descartado, não aproveitado.
+    if (FORA_DA_REUNIAO_INICIAL.includes(d.codigo)) {
+      invalidos.push(d.codigo);
+      continue;
     }
+    if (!d.evidencias.length) throw new Error('Nível sem evidência observável');
+    const valida = d.evidencias.every((e) => {
+      if (d.codigo.startsWith('PL'))
+        return e.origem === 'planejamento' && e.turno === null && contemCitacao(s.planejamento, e.citacao);
+      const fala = s.mensagens.find((f) => f.autor === 'vendedor' && f.turno === e.turno);
+      return e.origem === 'conversa' && contemCitacao(fala?.texto, e.citacao);
+    });
+    if (!valida) invalidos.push(d.codigo);
   }
-  return m;
+  const avaliados = m.descritores.filter((d) => d.nivel !== null).length;
+  if (!descarteTolerado(invalidos.length, avaliados))
+    throw new Error(
+      'Evidência inválida: citação que não confere com o planejamento ou com a fala do vendedor',
+    );
+  if (!invalidos.length) return m;
+  return {
+    ...m,
+    descritores: m.descritores.map((d) =>
+      invalidos.includes(d.codigo) ? { ...d, nivel: null, evidencias: [] } : d,
+    ),
+    descartados: invalidos,
+  };
 }
 
-/** A ausência de observação fica fora da média 1–4, nunca vira N1. */
-export function consolidarMatriz(m: AvaliacaoMatriz) {
+/**
+ * A ausência de observação fica fora da média 1 a 4, nunca vira N1. Da pace-7 em
+ * diante vale a regra de cobertura comum (nível só com 4 observados) e E5/E6
+ * saem do total; as versões anteriores seguem lidas como foram geradas.
+ */
+export function consolidarMatriz(m: AvaliacaoMatriz, versao?: string) {
+  const regra = regraDaVersao(versao);
+  const fora = usaRegraCobertura(versao) ? FORA_DA_REUNIAO_INICIAL : [];
   return COMPETENCIAS_PACE.map((c) => {
-    const descritores = c.descritores.map((d) =>
-      m.descritores.find((a) => a.codigo === d.codigo),
+    const aplicaveis = c.descritores.filter((d) => !fora.includes(d.codigo));
+    const niveis = aplicaveis.map(
+      (d) => m.descritores.find((a) => a.codigo === d.codigo)?.nivel ?? null,
     );
-    const observados = descritores.filter((d) => d?.nivel != null);
-    const nota = observados.length
-      ? observados.reduce((soma, d) => soma + d!.nivel!, 0) / observados.length
-      : null;
-    return {
-      codigo: c.codigo,
-      observados: observados.length,
-      total: c.descritores.length,
-      nota,
-      nivel: nota === null ? null : nivelDaNota(nota),
-    };
+    return { codigo: c.codigo, ...consolidarCompetencia(niveis, regra) };
   });
 }
 

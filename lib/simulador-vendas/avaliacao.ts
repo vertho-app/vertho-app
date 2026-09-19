@@ -1,6 +1,7 @@
 import type { Estado, Saidas } from './schema';
 import { usaGerenteBruto } from './schema';
 import {
+  escalaNativa14,
   notasDaMatriz,
   usaMatrizPace,
   validarMatriz,
@@ -57,12 +58,17 @@ export function pontuarRelatorio(
   s: Estado,
 ): Saidas['gerente'] {
   const r = structuredClone(bruto);
-  if (s.versaoRegua === 'pace-6')
+  if (escalaNativa14(s.versaoRegua)) {
+    // A matriz validada vai para o relatório: descritores com citação que não
+    // conferiu ficam sem nível e listados em `descartados`.
+    const matriz = validarMatriz(r.Matriz, s);
     return {
       ...r,
-      ...pontuacaoMatriz(validarMatriz(r.Matriz, s)),
+      Matriz: matriz,
+      ...pontuacaoMatriz(matriz, s.versaoRegua),
       Violacoes: [],
     };
+  }
   const piso =
     s.versaoRegua === 'pace-3' || usaMatrizPace(s.versaoRegua) ? 0 : 0.5;
   if (usaMatrizPace(s.versaoRegua))

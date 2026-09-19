@@ -2,18 +2,25 @@
 import type { Saidas } from '@/lib/simulador-vendas/schema';
 import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 import { useLocale, useTranslations } from 'next-intl';
-import MatrizPace from './matriz';
+import RelatorioCompetencias from '@/components/simuladores/relatorio-competencias';
 import { relatorioPacePublico } from '@/lib/simulador-vendas/escala';
 import {
   MANUAL_PACE,
   usaFontesDocumentais,
 } from '@/lib/simulador-vendas/fontes';
+import { competenciasDaMatriz, nomeDoDescritor } from './relatorio-matriz';
 const pilares = [
   ['P', 'preparation', 'Preparacao'],
   ['A', 'analysis', 'Analise'],
   ['C', 'cocreation', 'Cocriacao'],
   ['E', 'engagement', 'Engajamento'],
 ] as const;
+/**
+ * Devolutiva do vendas. Treino com matriz (pace-4 em diante) usa o relatório
+ * por competência comum aos três simuladores (18/09/2026): nível por extenso,
+ * regra de cobertura dita em palavras e comportamentos com citação. Treino
+ * anterior à matriz mantém os cartões por pilar, lido como foi gerado.
+ */
 export default function Relatorio({
   relatorio: original,
   versao,
@@ -25,58 +32,89 @@ export default function Relatorio({
     locale = useLocale();
   const r = relatorioPacePublico(original, versao)!;
   const documental = usaFontesDocumentais(versao);
+  const matriz = r.Matriz
+    ? competenciasDaMatriz(
+        r.Matriz,
+        versao,
+        {
+          nome: (codigo) => t(`matrix_${codigo}`),
+          origem: (e) =>
+            e.origem === 'planejamento'
+              ? t('matrixEvidencePlan')
+              : t('matrixEvidenceTurn', { turn: e.turno ?? 0 }),
+        },
+        { P: r.Preparacao, A: r.Analise, C: r.Cocriacao, E: r.Engajamento },
+      )
+    : null;
+  // Só a primeira prioritária ganha o selo: versões antigas marcavam várias.
+  const prioridade = r.Recomendacoes.findIndex((item) => item.prioritaria);
   return (
     <section aria-label={t('report')}>
       <div className="flex items-baseline justify-between gap-4 mb-4">
         <h2 className="text-xl">{t('reportTitle')}</h2>
-        <span className="text-3xl tabular-nums">
-          {formatarNotaPace(r.Media, locale)}
-          <small className="text-sm text-slate-400"> / 4</small>
-        </span>
+        {!matriz && (
+          <span className="text-3xl tabular-nums">
+            {formatarNotaPace(r.Media, locale)}
+            <small className="text-sm text-slate-400"> / 4</small>
+          </span>
+        )}
       </div>
       <p className="text-sm text-slate-300 leading-relaxed mb-5">{r.Resumo}</p>
-      <p className="text-xs text-slate-400 mb-4">
-        {t(
-          r.escalaOriginal && !r.Matriz ? 'legacyScaleHelp' : 'matrixScaleHelp',
-        )}
-      </p>
-      <div className="grid sm:grid-cols-2 gap-3">
-        {pilares.map(([p, nome, detalhe]) => (
-          <article key={p} className="border border-white/10 rounded-xl p-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold">
-                {t(r.Matriz ? `matrix_${p}` : nome)}
-              </h3>
-              <span className="tabular-nums text-brand-300">
-                {formatarNotaPace(r[p], locale)}
-              </span>
-            </div>
-            {r[p] !== null && (
-              <meter
-                className="w-full my-2"
-                min={1}
-                max={4}
-                value={r[p]!}
-                aria-label={t('scoreLabel', { name: t(nome) })}
-              />
-            )}
-            <p className="text-sm text-slate-300 leading-relaxed">
-              {r[detalhe]}
-            </p>
-          </article>
-        ))}
-      </div>
-      {r.Matriz && <MatrizPace matriz={r.Matriz} />}
+      {matriz ? (
+        <>
+          <p className="text-xs text-slate-400 mb-3">{t('matrixScaleHelp')}</p>
+          <RelatorioCompetencias
+            competencias={matriz.competencias}
+            media={matriz.media}
+            regra={matriz.regra}
+            tema="escuro"
+            acento="var(--pace-accent)"
+          />
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-slate-400 mb-4">{t('legacyScaleHelp')}</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {pilares.map(([p, nome, detalhe]) => (
+              <article key={p} className="border border-white/10 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold">{t(nome)}</h3>
+                  <span className="tabular-nums text-brand-300">
+                    {formatarNotaPace(r[p], locale)}
+                  </span>
+                </div>
+                {r[p] !== null && (
+                  <meter
+                    className="w-full my-2"
+                    min={1}
+                    max={4}
+                    value={r[p]!}
+                    aria-label={t('scoreLabel', { name: t(nome) })}
+                  />
+                )}
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  {r[detalhe]}
+                </p>
+              </article>
+            ))}
+          </div>
+        </>
+      )}
       <h3 className="font-semibold mt-6 mb-2">{t('recommendations')}</h3>
       <ol className="space-y-3 list-decimal pl-5">
         {r.Recomendacoes.map((item, i) => (
           <li key={i} className="text-sm text-slate-300">
+            {i === prioridade && (
+              <span className="block text-xs font-semibold uppercase tracking-wider text-brand-200 mb-1">
+                {t('priority')}
+              </span>
+            )}
             <strong className="text-white">{item.titulo}</strong>
             <p>{item.descricao}</p>
             {documental && 'descritor' in item && (
               <p className="text-xs text-slate-400 mt-1">
                 {t('documentReference', {
-                  descriptor: item.descritor,
+                  descriptor: nomeDoDescritor(item.descritor),
                   section: MANUAL_PACE.trechos[item.referencia_manual].secao,
                 })}
               </p>
@@ -138,9 +176,6 @@ export default function Relatorio({
       {documental && (
         <p className="text-xs text-slate-400 mt-2">{t('documentSources')}</p>
       )}
-      <p className="text-xs text-slate-400 mt-2">
-        {t('version', { version: versao || 'pace-1' })}
-      </p>
     </section>
   );
 }
