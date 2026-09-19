@@ -175,7 +175,9 @@
     "reviewSave": "Guardar revisión",
     "reviewNotAllowed": "La revisión requiere otra persona con permiso de seguimiento y registro.",
     "reviewRegistered": "Revisiones registradas",
-    "reviewNone": "Aún no hay revisión humana."
+    "reviewNone": "Aún no hay revisión humana.",
+    "evolutionTitle": "Tu evolución",
+    "evolutionHelp": "Nivel más alto que alcanzaste en cada competencia en tus prácticas recientes."
   },
   "SimuladoresRelatorio": {
     "title": "Devolución por competencia",

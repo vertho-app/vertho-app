@@ -175,7 +175,9 @@
     "reviewSave": "Save review",
     "reviewNotAllowed": "Reviews require another person with follow-up and recording permission.",
     "reviewRegistered": "Recorded reviews",
-    "reviewNone": "No human review yet."
+    "reviewNone": "No human review yet.",
+    "evolutionTitle": "Your progress",
+    "evolutionHelp": "Highest level you reached in each competency across your recent sessions."
   },
   "SimuladoresRelatorio": {
     "title": "Feedback by competency",

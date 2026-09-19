@@ -175,7 +175,9 @@
     "reviewSave": "Guardar revisão",
     "reviewNotAllowed": "A revisão exige outra pessoa com permissão de acompanhamento e registo.",
     "reviewRegistered": "Revisões registadas",
-    "reviewNone": "Ainda não há parecer humano."
+    "reviewNone": "Ainda não há parecer humano.",
+    "evolutionTitle": "A sua evolução",
+    "evolutionHelp": "Nível mais alto que alcançou em cada competência nos seus treinos recentes."
   },
   "SimuladoresRelatorio": {
     "title": "Devolutiva por competência",

@@ -11,6 +11,7 @@ import { abrirSessao, consolidar, fichaPublica, visaoPublica } from '../../lib/r
 import { dominioAtendimento } from '../../lib/recepcao/dominio';
 import { visaoPorCompetencia } from '../../lib/recepcao/painel';
 import { competenciasAtendimento } from '../../lib/recepcao/matriz';
+import { evolucaoPorCompetencia } from '../../lib/simuladores/evolucao';
 import type { Estado, Insumos } from '../../lib/recepcao/model';
 import type { Cenario } from '../../lib/recepcao/schema';
 import pt from '../../messages/pt-BR.json';
@@ -109,6 +110,18 @@ const dados = () => ({
   sessao: sessao ? { ...visaoPublica(sessao), processando: false } : null,
   podeEquipe: equipe,
   podeCenarios: false,
+  evolucao: params.has('evolucao')
+    ? {
+        competencias: evolucaoPorCompetencia(
+          [
+            { competencias: { acolhimento: 3.2, compreensao: 3.0, clareza: 2.4, resolucao: null, procedimentos: 3.4 } },
+            { competencias: { acolhimento: 2.5, compreensao: 3.1, clareza: 2.2, resolucao: null, procedimentos: 2.6 } },
+          ],
+          competenciasAtendimento(segmento).map((c) => c.codigo),
+        ),
+        nomes: Object.fromEntries(competenciasAtendimento(segmento).map((c) => [c.codigo, c.nome])),
+      }
+    : null,
   historico: sessao
     ? [
         {

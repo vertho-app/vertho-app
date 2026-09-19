@@ -18,6 +18,8 @@ import { catalogo, cenarioPublicado } from './cenarios';
 import { can } from '@/lib/permissions';
 import type { Estado } from './model';
 import { notaAtendimento } from './matriz-avaliacao';
+import { competenciasAtendimento } from './matriz';
+import { evolucaoPorCompetencia } from '@/lib/simuladores/evolucao';
 
 type Ctx = Exclude<Awaited<ReturnType<typeof contextoRecepcao>>, Response>;
 const owned = (c: Ctx) =>
@@ -61,9 +63,32 @@ export async function consultar(c: Ctx, id?: string | null) {
         escalaNota: r.estado.relatorio?.escalaNota,
       })),
   );
+  // Evolução por competência de quem treina (18/09/2026): maior nível alcançado, só avanço
+  // (régua comum, lib/simuladores/evolucao.ts), nos treinos recentes com matriz. A partir de 2.
+  const competencias = competenciasAtendimento(c.dominio);
+  const comMatriz = (rows || [])
+    .filter(
+      (r) =>
+        r.estado.status === RECEPCAO_SESSAO.CONCLUIDA &&
+        r.estado.relatorio?.escalaNota === '1-4' &&
+        r.estado.relatorio.competencias?.length,
+    )
+    .map((r) => ({
+      competencias: Object.fromEntries(
+        r.estado.relatorio.competencias.map((x: { codigo: string; nota: number | null }) => [x.codigo, x.nota]),
+      ),
+    }));
+  const evolucao =
+    comMatriz.length >= 2
+      ? {
+          competencias: evolucaoPorCompetencia(comMatriz, competencias.map((x) => x.codigo)),
+          nomes: Object.fromEntries(competencias.map((x) => [x.codigo, x.nome])),
+        }
+      : null;
   return {
     empresaId: c.empresaId,
     empresaNome: c.empresaNome,
+    evolucao,
     habilitado: c.habilitado,
     dominio: c.dominio,
     admin: c.auth.isPlatformAdmin,

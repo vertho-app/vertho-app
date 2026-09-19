@@ -221,5 +221,6 @@ Verificação: `tests/unit/recepcao-segmento-empresa.test.ts` (5 mutações verm
 - **Por caso**: a cobertura saiu da chave de agrupamento. 83% e 87% no mesmo caso viravam grupos diferentes; agora o grupo é caso, versão do caso e versão da régua, e a regra de cobertura decide, por competência, quando há nível.
 - **Revisão** passa a mostrar o que a pessoa recebeu antes da matriz: desfecho com a justificativa, média geral, ocorrências críticas e o feedback (o que funcionou e o próximo passo). A conversa usa posições em terceira pessoa ("1ª resposta de quem atende") e a lista de 30 comportamentos para comentar fica recolhida.
 - A aba da equipe e a revisão estão nos quatro idiomas; cenários, editor e o bloco de operação e custo seguem em português (ferramentas internas).
+- **Evolução de quem treina**: com dois ou mais treinos recentes com matriz, a tela mostra o maior nível alcançado em cada competência e "Subiu de nível" (mesma régua do vendas); uma queda depois de um treino melhor não aparece.
 
 Verificação: `tests/unit/recepcao-painel-equipe.test.ts` (4 mutações vermelhas) e `node scripts/verify-recepcao-ui.mjs` (12 checks, inclui a aba da equipe com CSV e a revisão, no computador e no celular).

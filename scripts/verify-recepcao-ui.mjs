@@ -180,6 +180,16 @@ try {
   await page.screenshot({ path: `${dir}/equipe-mobile.png`, fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   checks++;
+  // Evolução de quem treina: maior nível por competência, só avanço.
+  await page.goto(`${origin}/?evolucao=1`);
+  const evolucao = page.getByRole('region', { name: 'Sua evolução', exact: true });
+  await evolucao.waitFor();
+  await expect(evolucao.getByText('Subiu de nível', { exact: true })).toHaveCount(2);
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(await semRolagemLateral(page), true, 'overflow evolução no celular');
+  await page.screenshot({ path: `${dir}/evolucao-mobile.png`, fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  checks++;
   await page.goto(`${origin}/?locale=en-US`);
   await page.getByText('Service simulator · Clinic reception', { exact: true }).waitFor();
   checks++;

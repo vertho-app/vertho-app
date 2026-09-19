@@ -143,3 +143,30 @@ test('gestor e RH só acompanham: a leitura avisa a tela para abrir na equipe (1
   expect(await consultar(gestor)).toMatchObject({ soAcompanha: true, podeEquipe: true });
   expect(await consultar({ ...ctx, soAcompanha: false })).toMatchObject({ soAcompanha: false });
 });
+
+test('quem treina vê a evolução por competência, só com avanço, a partir de dois treinos com matriz (18/09/2026)', async () => {
+  const concluido = (id: string, data: string, notas: Record<string, number | null>) => {
+    const estado = abrirSessao(cenario);
+    estado.id = id;
+    estado.status = 'concluida';
+    estado.relatorio = {
+      escalaNota: '1-4',
+      competencias: Object.entries(notas).map(([codigo, nota]) => ({ codigo, nota })),
+    } as any;
+    return { id, empresa_id: EMPRESA, owner_key: 'colab:colab', estado, revisao: 0, created_at: data };
+  };
+  // Um treino só: ainda sem evolução.
+  rows = [concluido('s1', '2026-09-10', { acolhimento: 2.4 })];
+  mock.sb = db();
+  expect((await consultar({ ...ctx, sb: mock.sb, dominio: 'recepcao_medica' })).evolucao).toBeNull();
+  // Dois treinos: o melhor nível vale, e uma queda depois não aparece.
+  rows = [
+    concluido('s2', '2026-09-15', { acolhimento: 3.1, clareza: 2.0 }),
+    concluido('s1', '2026-09-10', { acolhimento: 2.4, clareza: 3.2 }),
+  ];
+  mock.sb = db();
+  const { evolucao } = await consultar({ ...ctx, sb: mock.sb, dominio: 'recepcao_medica' });
+  expect(evolucao.competencias.find((c: any) => c.codigo === 'acolhimento')).toMatchObject({ nivelAlcancado: 3, subiu: true });
+  expect(evolucao.competencias.find((c: any) => c.codigo === 'clareza')).toMatchObject({ nivelAlcancado: 3, subiu: false });
+  expect(evolucao.nomes.acolhimento).toBeTruthy();
+});

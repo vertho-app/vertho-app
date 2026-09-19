@@ -758,6 +758,23 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                 </button>
               </section>
             )}
+            {dados.evolucao && (
+              <section className={styles.evolucao} aria-labelledby="atendimento-evolucao">
+                <h2 id="atendimento-evolucao">{t('evolutionTitle')}</h2>
+                <p className={styles.small}>{t('evolutionHelp')}</p>
+                <ul>
+                  {dados.evolucao.competencias.map((c: any) => (
+                    <li key={c.codigo}>
+                      <span>{dados.evolucao.nomes[c.codigo] || c.codigo}</span>
+                      <strong>
+                        {c.nivelAlcancado === null ? t('teamNoLevel') : t('levelShort', { n: c.nivelAlcancado })}
+                        {c.subiu && <small>{t('teamLevelUp')}</small>}
+                      </strong>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             {dados.historico?.length > 0 && (
               <section className={styles.history}>
                 <h2>{t('history')}</h2>
