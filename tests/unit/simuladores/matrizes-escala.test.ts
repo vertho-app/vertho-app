@@ -84,7 +84,7 @@ describe('matrizes com nota 1–4', () => {
       ),
     ).toBe(true);
   });
-  it('ausência de oportunidade não vira N1; a média é das competências, com peso igual', () => {
+  it('ausência de oportunidade não vira N1; competência com menos de 4 observados fica sem nível e fora da média', () => {
     const { s, raw } = caso();
     raw.dimensoes.forEach((d, i) => {
       if (i < 6) {
@@ -96,11 +96,14 @@ describe('matrizes com nota 1–4', () => {
       } else d.classificacao = 'n2';
     });
     const r = consolidar(s, raw)!;
-    expect(r.nota).toBeCloseTo(2.4);
+    // Regra de cobertura (18/09): 1 observado não dá nível; a média é das 4 com nível.
+    expect(r.nota).toBe(2);
+    expect(r.regraCobertura).toBe('cobertura-4de6-3comp');
     expect(r.competencias![0]).toMatchObject({
-      nota: 4,
-      nivel: 4,
+      nota: null,
+      nivel: null,
       observados: 1,
+      suficiente: false,
     });
     expect(r.coberturaPercentual).toBe(83.33);
     raw.dimensoes.forEach((d) => {
@@ -118,10 +121,22 @@ describe('matrizes com nota 1–4', () => {
     const dup = structuredClone(raw);
     dup.dimensoes[1] = dup.dimensoes[0];
     expect(() => consolidar(s, dup)).toThrow('duplicada');
-    raw.dimensoes[0].evidencias = [
+    // Citação que não confere em POUCOS descritores rebaixa só eles (18/09)...
+    const um = structuredClone(raw);
+    um.dimensoes[0].evidencias = [
       { mensagemId: 'm0', trecho: s.historico[0].content },
     ];
-    expect(() => consolidar(s, raw)).toThrow();
+    const r = consolidar(s, um)!;
+    expect(r.descartados).toEqual(['aco1']);
+    expect(r.dimensoes.find((d) => d.id === 'aco1')).toMatchObject({
+      classificacao: 'nao_observavel',
+      evidencias: [],
+    });
+    // ...acima de 20% dos avaliados a avaliação inteira é recusada, como antes.
+    const muitos = structuredClone(raw);
+    for (const d of muitos.dimensoes.slice(0, 7))
+      d.evidencias = [{ mensagemId: 'm0', trecho: s.historico[0].content }];
+    expect(() => consolidar(s, muitos)).toThrow('participante incorreto');
   });
   it('preserva a matriz antiga e identifica a conversão de seu resultado no histórico', () => {
     const before = JSON.stringify(catalogoInicial[0]);

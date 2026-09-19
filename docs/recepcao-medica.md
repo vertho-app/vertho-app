@@ -168,3 +168,30 @@ A matriz de Atendimento agora reúne cinco competências: Acolhimento e conduç�
 Novas versões de cenário congelam a matriz e os critérios de aplicação. O avaliador devolve 30 classificações com oportunidades e evidências literais; o código calcula a média 1–4 dos descritores observados por competência e depois a média das competências observadas, com peso igual. Sem oportunidade, não há nota; a cobertura fica explícita. A nota 1–4 e a versão da matriz são gravadas no relatório. A sugestão de dificuldade usa N3 (nota 3) nas novas avaliações.
 
 Os snapshots antigos permanecem intactos. Na leitura, suas notas são convertidas de 0–100 para 1–4 por `1 + 3 × nota / 100` e identificadas como avaliações legadas, sem criar descritores retroativamente. A biblioteca anterior em `competencias-base.ts` permanece exclusivamente para os catálogos e testes históricos x.2; a matriz vigente é `matriz.ts`. Publicação dos novos casos x.3 exige o código compatível já implantado, backup dos registros e novas versões, sem editar conteúdo publicado.
+
+### Segmentos: o domínio médico sai do código (18/09/2026)
+
+**Decisão do dono:** o simulador de atendimento deixa de ser só recepção médica; o domínio vira configuração de cada empresa. O motor (prompt da pessoa simulada, prompt do avaliador, matriz, texto de referência da revisão) lê os termos do **segmento do caso** em `lib/recepcao/dominio.ts`: quem atende e quem é atendido (com artigo e preposição, porque o português não deixa montar isso por regra), o local, o que a pessoa simulada não pode inventar, o escopo padrão do avaliador, os ids de participante e as ocorrências críticas com suas definições. `cenario.dominio` aceita os segmentos do registro (antes era o literal `recepcao_medica`) e a ocorrência crítica do caso tem de ser do segmento dele.
+
+- `recepcao_medica` (Recepção de clínica) reproduz **byte a byte** os prompts calibrados em 06/09 e 08/09: `tests/unit/recepcao-dominio.test.ts` compara, em todos os casos, pessoas, posturas e com e sem matriz, com a cópia congelada em `tests/fixtures/recepcao-prompts-legado.ts`. Mesmo `prompt_hash`, então a calibração continua valendo.
+- `atendimento_geral`, `secretaria_escolar` e `atendimento_loja` usam a mesma estrutura com termos neutros ("a pessoa que atende", "a pessoa atendida"; "pessoa" é feminino, por isso "desconfiada" e "contrariada" concordam). O teste garante que o texto do motor desses segmentos não fala de paciente, secretária, clínica, médico, sintoma nem consulta. A telemetria acrescenta o segmento ao `prompt_versao` (`recepcao-avaliador-3.0-atendimento_loja`): a calibração do médico não vale para eles.
+- A matriz 5 × 6 tinha um termo médico (pro2, N1: "Oferece orientação clínica..."); agora ele vem do segmento. No médico o texto é o publicado.
+
+Os 60 casos do Catálogo Vertho continuam sendo conteúdo do segmento médico, no banco e nas sementes `catalogo*.ts`. Em 18/09 só o ACME tinha o atendimento ligado e nenhuma sessão era de colaborador real.
+
+### Regra de cobertura, citação tolerante e tempo do avaliador (18/09/2026)
+
+- **Regra de cobertura comum aos três simuladores** (`lib/simuladores/cobertura.ts`, decisão do dono): nos casos com matriz, a competência só tem nível com 4 descritores observados, e a média geral só existe com 3 competências com nível. A versão da regra fica no relatório (`regraCobertura`); relatório anterior não é recalculado.
+- **Citação tolerante** nos casos com matriz: citação que não confere em até 20% dos descritores avaliados (mínimo 1) rebaixa só esses a "sem oportunidade" e os lista em `descartados`; acima disso a avaliação volta ao avaliador, como antes. Ocorrências críticas e desfecho seguem estritos, e os casos sem matriz também.
+- **Orçamento único do avaliador**: as duas tentativas dividem 270 s (a rota tem 300 s). A primeira ganha até 180 s nos casos com matriz (100 s nos demais); a correção usa o que sobrar e só roda com pelo menos 60 s.
+
+**Primeira medição real do avaliador de 30 descritores (18/09/2026, `tests/unit/recepcao-matriz-live.test.ts`, catálogo 3.x com matriz, variante 0, 1 avaliação por conversa):**
+
+| Caso | Conversa | Tempo | Nota | Cobertura por competência | Descartados |
+| --- | --- | --- | --- | --- | --- |
+| informacao-terceiro | exemplar | 97 s | 3,07 | 6/6 em todas | nenhum |
+| informacao-terceiro | mediana | 114 s | 2,20 | 6/6, procedimentos 5/6 | pro3 |
+| remarcacao-02 | exemplar | 111 s | 3,00 | 6/6, procedimentos 5/6 | nenhum |
+| remarcacao-02 | mediana | 117 s | 2,18 | 6/6, procedimentos 5/6 | nenhum |
+
+Leituras. (1) Até 17/09 esse avaliador **nunca tinha rodado em produção** (0 linhas `recepcao-avaliador-3.0` em `recepcao_tentativas`), e o teto de 100 s por tentativa teria derrubado 3 das 4 avaliações: os 15 casos publicados com matriz falhariam no primeiro uso real. (2) Uma das quatro avaliações teria sido recusada inteira por uma citação; com a tolerância, só o descritor caiu. (3) A regra de 4 descritores não é estrita demais para o atendimento: o avaliador observou 5 ou 6 por competência. (4) Exemplar e mediana se separam (3,0 contra 2,2). O que isto NÃO prova: ruído do avaliador (uma avaliação por conversa) nem calibração com pessoas reais.

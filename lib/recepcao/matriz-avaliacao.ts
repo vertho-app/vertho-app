@@ -1,16 +1,18 @@
-import { nivelDaNota } from '@/lib/nivel-regua';
-import { COMPETENCIAS_ATENDIMENTO, MATRIZ_ATENDIMENTO_VERSION } from './matriz';
+import { consolidarCompetencia, REGRA_COBERTURA } from '@/lib/simuladores/cobertura';
+import { competenciasAtendimento, MATRIZ_ATENDIMENTO_VERSION } from './matriz';
 import type { Cenario } from './schema';
 import type { Estado } from './model';
 
 /** Nova publicação; não modifica o snapshot de nenhuma sessão anterior. */
 export function aplicarMatrizAtendimento(original: Cenario): Cenario {
   const c = structuredClone(original);
+  // A matriz sai nos termos do segmento do caso (idêntica no médico).
+  const competencias = competenciasAtendimento(original.dominio);
   c.matriz = {
     versao: MATRIZ_ATENDIMENTO_VERSION,
-    competencias: structuredClone(COMPETENCIAS_ATENDIMENTO),
+    competencias: structuredClone(competencias),
   };
-  c.rubrica = COMPETENCIAS_ATENDIMENTO.map((comp) => {
+  c.rubrica = competencias.map((comp) => {
     const criterios = original.rubrica
       .filter(
         (r) =>
@@ -55,20 +57,21 @@ export function consolidarCompetenciasAtendimento(
     const descritores = comp.descritores.map(
       (d) => dimensoes.find((r) => r.id === d.codigo)!,
     );
-    const observados = descritores.filter(
-      (d) => d.classificacao !== 'nao_observavel',
+    // Regra de cobertura comum: nível só a partir de 4 descritores observados.
+    const r = consolidarCompetencia(
+      descritores.map((d) =>
+        d.classificacao === 'nao_observavel' ? null : Number(d.classificacao.slice(1)),
+      ),
+      REGRA_COBERTURA,
     );
-    const nota = observados.length
-      ? observados.reduce((s, d) => s + Number(d.classificacao.slice(1)), 0) /
-        observados.length
-      : null;
     return {
       codigo: comp.codigo,
       nome: comp.nome,
-      nota,
-      nivel: nota === null ? null : nivelDaNota(nota),
-      observados: observados.length,
-      total: 6,
+      nota: r.nota,
+      nivel: r.nivel,
+      observados: r.observados,
+      total: r.total,
+      suficiente: r.suficiente,
       descritores: descritores.map((d) => d.id),
     };
   });

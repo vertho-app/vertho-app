@@ -73,24 +73,28 @@ export function geradorRecepcao(
     messages,
     perfilPaciente,
     escala,
+    timeoutMs,
+    dominio,
   }) => {
     const taskKey =
       etapa === 'paciente' ? 'recepcao_paciente' : 'recepcao_avaliacao';
     const model = await getModelForTask(empresaId, taskKey);
     // 2.4 = avaliador na escala de quatro níveis; 2.3 = rubrica legada de três classificações.
+    // Segmento fora do médico ganha sufixo: o texto muda, e a calibração do médico não vale para ele.
+    const segmento = dominio && dominio !== 'recepcao_medica' ? `-${dominio}` : '';
     const chamada = {
       id: randomUUID(),
       etapa,
       model,
       promptHash: createHash('sha256').update(system).digest('hex'),
       promptVersion:
-        etapa === 'paciente'
+        (etapa === 'paciente'
           ? `recepcao-paciente-2.2-${perfilPaciente === 'resistencia_persistente' ? 'persistente' : 'negociavel'}`
           : escala === 'n4'
             ? system.includes('Avalie os 30 descritores')
               ? 'recepcao-avaliador-3.0'
               : 'recepcao-avaliador-2.4'
-            : 'recepcao-avaliador-2.3',
+            : 'recepcao-avaliador-2.3') + segmento,
     };
     atual = { id: chamada.id, inicio: Date.now(), finalizada: false };
     if (persistencia) {
@@ -126,9 +130,9 @@ export function geradorRecepcao(
           locale: 'pt-BR',
           correlationId: persistencia ? chamada.id : undefined,
           // Avaliador medido em prod (06/09): média 34 s, máximo 40 s; 1 de 5 morreu no teto de 45 s.
-          // O core tenta 2×, e a rota tem 300 s: 100 s por tentativa cabe com folga.
+          // Desde 18/09 o core reparte um orçamento único entre as duas tentativas (`encerrar`).
           temperature: etapa === 'paciente' ? 0.6 : 0,
-          timeoutMs: etapa === 'paciente' ? 45000 : 100000,
+          timeoutMs: timeoutMs ?? (etapa === 'paciente' ? 45000 : 100000),
           maxRetries: 0,
         },
       );

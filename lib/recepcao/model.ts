@@ -32,6 +32,10 @@ export type Estado = {
         escalaNota?: '1-4';
         escalaOriginal?: '0-100';
         matrizVersao?: string;
+        /** Versão da regra de cobertura (18/09/2026); ausente = relatório anterior a ela. */
+        regraCobertura?: string;
+        /** Descritores rebaixados porque a citação não conferiu com a conversa. */
+        descartados?: string[];
         competencias?: Array<{
           codigo: string;
           nome: string;
@@ -39,6 +43,7 @@ export type Estado = {
           nivel: number | null;
           observados: number;
           total: number;
+          suficiente?: boolean;
           descritores: string[];
         }>;
       })
@@ -48,6 +53,10 @@ export type Gerar = (args: {
   etapa: string;
   perfilPaciente?: 'negociavel' | 'resistencia_persistente';
   escala?: 'n4' | 'legado';
+  /** Teto desta chamada; o avaliador reparte um orçamento único entre as tentativas. */
+  timeoutMs?: number;
+  /** Segmento do caso, para a telemetria separar os prompts por domínio. */
+  dominio?: string;
   system: string;
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
 }) => Promise<string>;

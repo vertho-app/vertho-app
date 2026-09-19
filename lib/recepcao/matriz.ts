@@ -1,4 +1,5 @@
 /** Matriz Vertho de Atendimento. As rubricas são congeladas em cada cenário publicado. */
+import { dominioAtendimento } from './dominio';
 export const MATRIZ_ATENDIMENTO_VERSION = 'atendimento-5x6-1';
 export type DescritorAtendimento = {
   codigo: string;
@@ -27,7 +28,9 @@ const d = (
   niveis: { n1, n2, n3, n4 },
 });
 
-export const COMPETENCIAS_ATENDIMENTO: CompetenciaAtendimento[] = [
+// Marcador trocado pelo termo do segmento em `competenciasAtendimento`.
+const ORIENTACAO_INDEVIDA = '{orientacaoIndevida}';
+const COMPETENCIAS_BASE: CompetenciaAtendimento[] = [
   {
     codigo: 'acolhimento',
     nome: 'Acolhimento e condução sob pressão',
@@ -295,7 +298,7 @@ export const COMPETENCIAS_ATENDIMENTO: CompetenciaAtendimento[] = [
         'pro2',
         'Limites de atuação',
         'Distingue suas atribuições das decisões de outras instâncias.',
-        'Oferece orientação clínica ou toma decisão administrativa fora de sua autorização.',
+        `Oferece ${ORIENTACAO_INDEVIDA} ou toma decisão administrativa fora de sua autorização.`,
         'Reconhece parte do limite, mas sugere que pode garantir uma decisão de outra instância.',
         'Atua dentro da alçada prevista e encaminha decisões que dependem de outra instância.',
         'Explica a divisão de responsabilidades e oferece o caminho autorizado mesmo sob pressão para assumir uma decisão indevida.',
@@ -339,3 +342,25 @@ export const COMPETENCIAS_ATENDIMENTO: CompetenciaAtendimento[] = [
     ],
   },
 ];
+
+/**
+ * A matriz nos termos do segmento do caso (`dominio.ts`). Em `recepcao_medica`
+ * o texto é idêntico ao publicado até 18/09 ("Oferece orientação clínica...").
+ */
+export function competenciasAtendimento(dominio?: string): CompetenciaAtendimento[] {
+  const termo = dominioAtendimento(dominio).orientacaoIndevida;
+  return COMPETENCIAS_BASE.map((c) => ({
+    ...c,
+    descritores: c.descritores.map((d) => ({
+      ...d,
+      niveis: {
+        n1: d.niveis.n1.replace(ORIENTACAO_INDEVIDA, termo),
+        n2: d.niveis.n2.replace(ORIENTACAO_INDEVIDA, termo),
+        n3: d.niveis.n3.replace(ORIENTACAO_INDEVIDA, termo),
+        n4: d.niveis.n4.replace(ORIENTACAO_INDEVIDA, termo),
+      },
+    })),
+  }));
+}
+/** A forma histórica (segmento médico), para quem lia a constante. */
+export const COMPETENCIAS_ATENDIMENTO: CompetenciaAtendimento[] = competenciasAtendimento('recepcao_medica');

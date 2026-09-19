@@ -167,7 +167,7 @@ export async function executar(c: Ctx, cmd: z.infer<typeof comandoSchema>) {
     if (!s.respostas)
       throw new RecepcaoError(
         400,
-        'Converse com a paciente antes de gerar o relatório.',
+        `Converse com ${s.cenario.paciente.nome} antes de gerar o relatório.`,
       );
   }
   if (cmd.revisao !== row.revisao)

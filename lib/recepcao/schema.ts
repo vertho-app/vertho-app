@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { IDS_DOMINIO, dominioAtendimento, dominioExiste } from './dominio';
 
 const texto = z.string().trim().min(1).max(4000);
 const chave = z.string().regex(/^[a-z][a-z0-9_\-]{1,63}$/);
@@ -76,7 +77,8 @@ export const cenarioSchema = z
     id: chave,
     versao: z.string().min(1).max(40),
     rubricaVersao: z.string().min(1).max(40),
-    dominio: z.literal('recepcao_medica'),
+    // Segmento do caso (lib/recepcao/dominio.ts). Até 18/09 era só 'recepcao_medica'.
+    dominio: z.enum(IDS_DOMINIO),
     statusEditorial: z.string().max(60),
     publico: z
       .object({
@@ -209,6 +211,17 @@ export const cenarioSchema = z
         path: ['rubrica'],
         message: 'A rubrica inteira usa uma só escala.',
       });
+    // Ocorrência crítica é do segmento: o avaliador só recebe a definição das dele.
+    const permitidas = dominioExiste(c.dominio)
+      ? dominioAtendimento(c.dominio).ocorrencias.map((o) => o.id)
+      : [];
+    for (const [i, o] of c.ocorrenciasCriticas.entries())
+      if (!permitidas.includes(o))
+        ctx.addIssue({
+          code: 'custom',
+          path: ['ocorrenciasCriticas', i],
+          message: 'Ocorrência crítica fora do segmento deste caso.',
+        });
     for (const k of ['ocorrenciasCriticas', 'desfechos'] as const)
       if (new Set(c[k]).size !== c[k].length)
         ctx.addIssue({
