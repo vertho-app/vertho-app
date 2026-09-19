@@ -21,6 +21,10 @@ const params = new URLSearchParams(location.search);
 const locale = params.get('locale') || 'pt-BR';
 const catalogo = { 'pt-BR': pt, 'pt-PT': ptpt, 'en-US': en, 'es-ES': es } as Record<string, any>;
 const segmento = params.get('segmento') || 'recepcao_medica';
+const admin = params.has('admin');
+const semCasos = params.has('semCasos');
+const EMPRESA = '10000000-0000-4000-8000-000000000009';
+let dominioEmpresa = segmento;
 
 const base = structuredClone(catalogoLimites[0]);
 const cenario: Cenario = aplicarMatrizAtendimento({
@@ -89,13 +93,14 @@ if (params.has('ativo') || params.has('concluido')) {
   if (params.has('concluido')) avaliar(sessao);
 }
 const dados = () => ({
-  empresaId: '10000000-0000-4000-8000-000000000009',
+  empresaId: EMPRESA,
   empresaNome: 'Empresa de demonstração',
   habilitado: true,
-  admin: false,
+  admin,
+  dominio: dominioEmpresa,
   soAcompanha: false,
-  ficha: registros[0].ficha,
-  cenarios: registros,
+  ficha: semCasos ? null : registros[0].ficha,
+  cenarios: semCasos ? [] : registros,
   nivelSugerido: 'introducao',
   sessao: sessao ? { ...visaoPublica(sessao), processando: false } : null,
   podeEquipe: false,
@@ -117,6 +122,18 @@ const dados = () => ({
 });
 w.__recepcaoWrites = [];
 w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
+  if (url.includes('/config')) {
+    if (init.method === 'PUT') {
+      const body = JSON.parse(String(init.body));
+      w.__recepcaoWrites.push(body);
+      dominioEmpresa = body.dominio ?? dominioEmpresa;
+      return Response.json({ ok: true });
+    }
+    return Response.json({
+      empresas: [{ id: EMPRESA, nome: 'Empresa de demonstração', habilitado: true, dominio: dominioEmpresa }],
+      podeConfigurar: true,
+    });
+  }
   if (!init.method || init.method === 'GET') return Response.json(dados());
   const cmd = JSON.parse(String(init.body));
   w.__recepcaoWrites.push(cmd);
@@ -127,6 +144,6 @@ w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
 };
 createRoot(document.getElementById('root')!).render(
   <NextIntlClientProvider locale={locale} messages={catalogo[locale]} timeZone="America/Sao_Paulo">
-    <TreinoRecepcao />
+    <TreinoRecepcao admin={admin} />
   </NextIntlClientProvider>,
 );

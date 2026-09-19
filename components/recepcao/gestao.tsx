@@ -7,6 +7,7 @@ import { rotuloClassificacao } from '@/lib/recepcao/schema';
 import { descreverMensagem, humanizarReferencias } from '@/lib/recepcao/texto';
 import styles from './treino.module.css';
 import MatrizAtendimento from './matriz-relatorio';
+import { casoEmBranco } from '@/lib/recepcao/caso-em-branco';
 
 // Ordem das colunas do painel: escala nova primeiro, depois a legada; só as presentes no grupo aparecem.
 const ORDEM_CLASSIFICACOES = [
@@ -47,6 +48,23 @@ export default function GestaoRecepcao({
     [dimensoes, setDimensoes] = useState<string[]>([]);
   const pending = useRef<string | null>(null),
     generation = useRef(0);
+  // Rascunho por IA (18/09/2026): descrição da situação que a empresa quer treinar.
+  const [pedirRascunho, setPedirRascunho] = useState(false),
+    [descricao, setDescricao] = useState('');
+  async function gerarRascunho() {
+    setBusy(true);
+    setErro('');
+    try {
+      const d = await api({}, { acao: 'rascunho_ia', descricao: descricao.trim() });
+      setPedirRascunho(false);
+      setDescricao('');
+      setEditor({ conteudo: d.conteudo });
+    } catch (e: any) {
+      setErro(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function api(params: Record<string, string> = {}, body?: unknown) {
     const q = new URLSearchParams({
       ...params,
@@ -238,6 +256,22 @@ export default function GestaoRecepcao({
             )}
           </div>
         ) : (
+          <div className={styles.filters}>
+          {/* Segmento sem caso nenhum também precisa de um ponto de partida (18/09/2026). */}
+          <button
+            className={styles.secondary}
+            disabled={busy || !dados?.dominio}
+            onClick={() => setEditor({ conteudo: casoEmBranco(dados.dominio) })}
+          >
+            Caso em branco
+          </button>
+          <button
+            className={styles.secondary}
+            disabled={busy || !dados?.dominio}
+            onClick={() => setPedirRascunho((v) => !v)}
+          >
+            Rascunho com IA
+          </button>
           <button
             className={styles.primary}
             disabled={busy || !dados?.cenarios?.length}
@@ -256,8 +290,35 @@ export default function GestaoRecepcao({
           >
             Criar caso
           </button>
+          </div>
         )}
       </header>
+      {visao === 'cenarios' && pedirRascunho && (
+        <form
+          className={styles.editor}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void gerarRascunho();
+          }}
+        >
+          <label>
+            Situação que a equipe precisa treinar
+            <textarea
+              value={descricao}
+              maxLength={2000}
+              disabled={busy}
+              onChange={(e) => setDescricao(e.target.value)}
+              placeholder="Ex.: cliente quer trocar um produto fora do prazo e diz que foi mal atendido na compra."
+            />
+          </label>
+          <p className={styles.small}>
+            A IA escreve um rascunho no segmento da empresa. Ele abre no editor sem ser salvo: revise tudo antes de publicar. Use só situações fictícias.
+          </p>
+          <button className={styles.primary} disabled={busy || descricao.trim().length < 20}>
+            {busy ? 'Gerando rascunho…' : 'Gerar rascunho'}
+          </button>
+        </form>
+      )}
       {erro && (
         <p role="alert" className={styles.error}>
           {erro}

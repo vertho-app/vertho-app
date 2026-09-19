@@ -103,7 +103,9 @@
     "voiceDiscard": "Descartar",
     "voicePreparing": "Preparando audio…",
     "voiceHelp": "Graba hasta 60 segundos usando solo datos ficticios. Al transcribir, el audio se envía al servicio de reconocimiento. Revisa el texto antes de enviarlo a {name}.",
-    "moreOpportunities": "+{n} en el informe"
+    "moreOpportunities": "+{n} en el informe",
+    "segmentLabel": "Segmento del simulador",
+    "noCases": "Aún no hay casos publicados en el segmento {segment}. Quien gestiona el contenido puede crear el primero en la pestaña Casos."
   },
   "SimuladoresRelatorio": {
     "title": "Devolución por competencia",

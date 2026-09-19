@@ -103,7 +103,9 @@
     "voiceDiscard": "Descartar",
     "voicePreparing": "Preparando áudio…",
     "voiceHelp": "Grave até 60 segundos usando apenas dados fictícios. Ao transcrever, o áudio é enviado ao serviço de reconhecimento. Confira o texto antes de enviar a {name}.",
-    "moreOpportunities": "+{n} no relatório"
+    "moreOpportunities": "+{n} no relatório",
+    "segmentLabel": "Segmento do simulador",
+    "noCases": "Ainda não há casos publicados no segmento {segment}. Quem cuida do conteúdo pode criar o primeiro na aba Cenários."
   },
   "SimuladoresRelatorio": {
     "title": "Devolutiva por competência",

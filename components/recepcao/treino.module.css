@@ -18,3 +18,4 @@
 .linkFicha{display:none}.matriz{margin-top:20px}
 /* Celular com conversa em curso (18/09/2026): a conversa vem antes da ficha, que fica a um toque. */
 @media(max-width:850px){.chatPrimeiro .conversa{order:-1}.chatPrimeiro .linkFicha{display:inline-block;font-size:12px;color:var(--teal);text-decoration:underline;white-space:nowrap}}
+.admin .segmento{margin-top:10px;min-width:220px}

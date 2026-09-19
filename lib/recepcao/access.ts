@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { can } from '@/lib/permissions';
 import { acessoSimuladoresDoColaborador } from '@/lib/simuladores/acesso';
 import { soAcompanhaSimuladores } from '@/lib/simuladores/papel';
+import { DOMINIO_PADRAO, dominioExiste } from './dominio';
 
 export class RecepcaoError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -33,7 +34,7 @@ export async function contextoRecepcao(req: Request, solicitada?: string | null,
   const { data: empresa, error: errEmpresa } = await sb.from('empresas').select('id,nome').eq('id', empresaId).maybeSingle();
   if (errEmpresa) throw new RecepcaoError(503, 'Não foi possível consultar a clínica. Tente novamente.');
   if (!empresa) throw new RecepcaoError(404, 'Clínica não encontrada.');
-  const { data: config, error } = await sb.from('recepcao_config').select('habilitado').eq('empresa_id', empresaId).maybeSingle();
+  const { data: config, error } = await sb.from('recepcao_config').select('habilitado,dominio').eq('empresa_id', empresaId).maybeSingle();
   if (error) throw new RecepcaoError(503, 'O treinamento está temporariamente indisponível.');
   const habilitado = config?.habilitado === true;
   if (!habilitado && !auth.isPlatformAdmin) throw new RecepcaoError(403, 'O simulador de atendimento ainda não está habilitado para sua clínica.');
@@ -46,7 +47,10 @@ export async function contextoRecepcao(req: Request, solicitada?: string | null,
     if(error || !admin?.id) throw new RecepcaoError(403,'Não foi possível identificar seu acesso administrativo.');
     ownerKey=`admin:${admin.id}`;
   } else ownerKey=`colab:${auth.colaborador.id}`;
-  return { auth, empresaId, empresaNome: empresa.nome, habilitado, soAcompanha, sb, owner: auth.email.toLowerCase(), ownerKey };
+  // Segmento da empresa (mig 263): decide os casos que ela vê. Valor fora do registro não vira outro segmento em silêncio.
+  if (config?.dominio && !dominioExiste(config.dominio)) throw new RecepcaoError(503, 'O segmento configurado para esta empresa não é reconhecido. Fale com o suporte.');
+  const dominio: string = config?.dominio || DOMINIO_PADRAO;
+  return { auth, empresaId, empresaNome: empresa.nome, habilitado, soAcompanha, sb, owner: auth.email.toLowerCase(), ownerKey, dominio };
 }
 
 export type ContextoRecepcao = Exclude<Awaited<ReturnType<typeof contextoRecepcao>>,Response>;

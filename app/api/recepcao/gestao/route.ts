@@ -8,8 +8,12 @@ import { catalogo, editarCenario } from '@/lib/recepcao/cenarios';
 import { detalheEquipe, painelEquipe, revisar } from '@/lib/recepcao/equipe';
 import { competenciaComandoSchema, editarCenarioSchema, revisaoSchema } from '@/lib/recepcao/schema';
 import { editarCompetencia, listarCompetencias } from '@/lib/recepcao/competencias';
+import { gerarRascunho } from '@/lib/recepcao/rascunho';
+import { aiLimiter } from '@/lib/rate-limit';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
+// O rascunho por IA leva até 90 s (lib/recepcao/rascunho.ts).
+export const maxDuration=120;
 const json=(d:unknown,status=200)=>NextResponse.json(d,{status,headers:{'Cache-Control':'no-store'}});
 function falha(e:unknown) {
  if(e instanceof RecepcaoError) return json({error:e.message},e.status);
@@ -26,7 +30,7 @@ export async function GET(req:Request) {
   const c=await contextoRecepcao(req,empresa,false,auth);if(c instanceof Response) return c;
   if(q.get('visao')==='cenarios') {
    if(!(await can(auth,'content.manage'))) throw new RecepcaoError(403,'Sem permissão para editar cenários.');
-   return json({cenarios:await catalogo(c,true)});
+   return json({cenarios:await catalogo(c,true),dominio:c.dominio});
   }
   if(q.get('visao')==='competencias') return json(await listarCompetencias(c,q.get('inativas')==='1'));
   const id=q.get('sessaoId');if(id) return json(await detalheEquipe(c,z.string().uuid().parse(id)));
@@ -40,6 +44,14 @@ export async function POST(req:Request) {
   const auth=await requireUser(req);if(auth instanceof Response) return auth;
   const raw=await req.text();if(raw.length>100000) return json({error:'Formulário muito longo.'},413);
   const parsed=JSON.parse(raw);
+  // Rascunho por IA: só quem edita cenários, com o limite de chamadas de IA. Não salva nada.
+  if(parsed.acao==='rascunho_ia') {
+   const cmd=z.object({acao:z.literal('rascunho_ia'),empresaId:z.string().uuid().optional(),descricao:z.string().trim().min(20).max(2000)}).strict().parse(parsed);
+   const c=await contextoRecepcao(req,cmd.empresaId,false,auth);if(c instanceof Response) return c;
+   if(!(await can(auth,'content.manage'))) throw new RecepcaoError(403,'Sem permissão para editar cenários.');
+   const limited=await aiLimiter.check(req,auth.email);if(limited) return limited;
+   return json({conteudo:await gerarRascunho(c,cmd.descricao)});
+  }
   if(parsed.acao==='competencia') {
    const cmd=competenciaComandoSchema.parse(parsed);
    const c=await contextoRecepcao(req,cmd.empresaId,false,auth);if(c instanceof Response) return c;

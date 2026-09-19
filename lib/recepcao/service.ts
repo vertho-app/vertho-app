@@ -65,9 +65,11 @@ export async function consultar(c: Ctx, id?: string | null) {
     empresaId: c.empresaId,
     empresaNome: c.empresaNome,
     habilitado: c.habilitado,
+    dominio: c.dominio,
     admin: c.auth.isPlatformAdmin,
     soAcompanha: c.soAcompanha,
-    ficha: cenarios[0]?.ficha || cenario.publico,
+    // Sem caso publicado no segmento, não há ficha: a tela avisa em vez de mostrar um caso de outro segmento.
+    ficha: cenarios[0]?.ficha || (c.dominio === 'recepcao_medica' ? cenario.publico : null),
     cenarios,
     nivelSugerido,
     sessao: row ? publico(row) : null,

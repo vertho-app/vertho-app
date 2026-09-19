@@ -205,3 +205,12 @@ Leituras. (1) Até 17/09 esse avaliador **nunca tinha rodado em produção** (0 
 - A fala de abertura podia acumular dezenas de selos de "oportunidade" com 30 descritores: a conversa mostra cinco e o resto fica no relatório.
 
 Verificação: `node scripts/verify-recepcao-ui.mjs` (componentes, CSS e núcleo reais, API fictícia; início, conversa, devolutiva com cobertura insuficiente e descritor descartado, outro segmento, celular e quatro idiomas). O antigo `recepcao-ui.test.ts` depende de uma página de prévia local e continua opcional.
+
+### Segmento por empresa, caso em branco e rascunho por IA (18/09/2026)
+
+- **Configuração**: `recepcao_config.dominio` (migration 263, padrão `recepcao_medica`, sem CHECK: o registro no código é a régua e um segmento novo não exige migration). Quem administra escolhe o segmento na mesma área em que habilita a equipe; a rota grava e registra em `admin_audit_log` (`simulador_atendimento.configurar`, com antes e depois). Valor fora do registro não vira outro segmento em silêncio: o contexto responde 503.
+- **Catálogo por segmento**: a empresa vê, inicia e edita só casos do segmento dela (`conteudo->>dominio`); caso de outro segmento é recusado na criação (400) e não é encontrado para editar, publicar ou arquivar (404). Segmento sem caso publicado mostra um aviso, em vez de um caso de outro segmento. Sessões já feitas continuam no histórico e são lidas no segmento do próprio caso.
+- **Caso em branco** (`lib/recepcao/caso-em-branco.ts`, módulo puro): ponto de partida válido em qualquer segmento, com a matriz, as ocorrências e os desfechos do segmento.
+- **Rascunho com IA** (`lib/recepcao/rascunho.ts`, tarefa `recepcao_rascunho` registrada em `lib/ai-tasks.ts`): quem cuida do conteúdo descreve a situação; a IA devolve só as partes do caso (contexto, seções, procedimentos, duas pessoas e o critério de cada competência) e o código monta o resto. O rascunho abre no editor SEM ser salvo; publicar continua exigindo revisão e `content.manage`. Ensaio real (`tests/unit/recepcao-rascunho-live.test.ts`, opt-in): loja 42 s e secretaria escolar 32 s, os dois aceitos pelo schema, com restrição escondida, limite explicável e saída autorizada.
+
+Verificação: `tests/unit/recepcao-segmento-empresa.test.ts` (5 mutações vermelhas) e `node scripts/verify-recepcao-ui.mjs` (11 checks, inclui o seletor de segmento e o aviso de segmento sem casos).

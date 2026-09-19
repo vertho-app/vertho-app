@@ -323,7 +323,12 @@ export const comandoSchema = z.discriminatedUnion('acao', [
     .strict(),
 ]);
 export const configSchema = z
-  .object({ empresaId: z.string().uuid(), habilitado: z.boolean() })
+  .object({
+    empresaId: z.string().uuid(),
+    habilitado: z.boolean(),
+    // Segmento da empresa (mig 263). Ausente = mantém o gravado.
+    dominio: z.enum(IDS_DOMINIO).optional(),
+  })
   .strict();
 
 // catalogo=true grava no Catálogo Vertho (empresa_id nulo, todas as clínicas): só a plataforma.

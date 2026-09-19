@@ -103,7 +103,9 @@
     "voiceDiscard": "Discard",
     "voicePreparing": "Preparing audio…",
     "voiceHelp": "Record up to 60 seconds using only fictitious data. When you transcribe, the audio is sent to the speech recognition service. Check the text before sending it to {name}.",
-    "moreOpportunities": "+{n} in the report"
+    "moreOpportunities": "+{n} in the report",
+    "segmentLabel": "Simulator segment",
+    "noCases": "There are no published cases in the {segment} segment yet. Content managers can create the first one in the Cases tab."
   },
   "SimuladoresRelatorio": {
     "title": "Feedback by competency",

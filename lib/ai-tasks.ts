@@ -16,6 +16,8 @@ export const AI_TASKS = [
   { key: 'sim_vendas_gerente', label: 'Vendas PACE — avaliação', fase: 'Treinamento' },
   { key: 'recepcao_paciente', label: 'Recepção — paciente simulado', fase: 'Treinamento' },
   { key: 'recepcao_avaliacao', label: 'Recepção — avaliação do atendimento', fase: 'Treinamento' },
+  // 18/09/2026: rascunho de caso por IA para segmentos sem catálogo (lib/recepcao/rascunho.ts).
+  { key: 'recepcao_rascunho', label: 'Atendimento: rascunho de caso por IA', fase: 'Treinamento' },
   // ── Fase 1 — Diagnóstico ─────────────────────────────────
   { key: 'ia1_top10', label: 'IA1 — Top 10 competências', fase: 'Fase 1' },
   { key: 'ia2_gabarito', label: 'IA2 — Perfil Ideal', fase: 'Fase 1' },
@@ -228,6 +230,7 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   sim_vendas_gerente: 'gpt-5.4-2026-03-05',
   recepcao_paciente: 'claude-sonnet-4-6',
   recepcao_avaliacao: 'claude-sonnet-4-6',
+  recepcao_rascunho: 'claude-sonnet-4-6',
   copiloto_pesquisa_empresa: DEFAULT_COPILOTO_RESEARCH_MODEL,
   copiloto_planejamento:     'gpt-5.6-terra',
   copiloto_ao_vivo:          'gemini-3.8-flash',

@@ -12,10 +12,12 @@ import type { z } from 'zod';
 import { aplicarMatrizAtendimento } from './matriz-avaliacao';
 
 export async function catalogo(c: ContextoRecepcao, editor = false) {
+  // Só os casos do segmento da empresa (mig 263): uma loja não recebe caso de clínica.
   let q = c.sb
     .from('recepcao_cenarios')
     .select('*')
-    .or(`empresa_id.eq.${c.empresaId},empresa_id.is.null`);
+    .or(`empresa_id.eq.${c.empresaId},empresa_id.is.null`)
+    .eq('conteudo->>dominio', c.dominio);
   if (!editor) q = q.eq('estado', 'publicado');
   const { data, error } = await q
     .order('created_at', { ascending: false })
@@ -41,6 +43,7 @@ export async function cenarioPublicado(
     .from('recepcao_cenarios')
     .select('id,conteudo')
     .or(`empresa_id.eq.${c.empresaId},empresa_id.is.null`)
+    .eq('conteudo->>dominio', c.dominio)
     .eq('estado', 'publicado');
   if (id) q = q.eq('id', id);
   const { data, error } = await q
@@ -71,6 +74,12 @@ export async function editarCenario(
       .update(JSON.stringify({ rubrica: c.rubrica, matriz: c.matriz }))
       .digest('hex')
       .slice(0, 16);
+  // O caso nasce e continua no segmento da empresa: o catálogo dela só lê esse segmento.
+  if (cmd.conteudo && cmd.conteudo.dominio !== c.dominio)
+    throw new RecepcaoError(
+      400,
+      'Este caso é de outro segmento. Crie o caso no segmento configurado para a empresa.',
+    );
   if (!cmd.id) {
     if (cmd.acao !== 'salvar' || !cmd.conteudo)
       throw new RecepcaoError(400, 'Crie um rascunho antes de publicar.');
@@ -114,6 +123,8 @@ export async function editarCenario(
       404,
       'Cenário não encontrado. Para adaptar um caso do catálogo, crie uma cópia.',
     );
+  if (atual.conteudo?.dominio !== c.dominio)
+    throw new RecepcaoError(404, 'Cenário não encontrado no segmento desta empresa.');
   if (cmd.revisao !== atual.revisao)
     throw new RecepcaoError(
       409,

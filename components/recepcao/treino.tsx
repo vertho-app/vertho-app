@@ -17,7 +17,7 @@ import {
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { RECEPCAO_SESSAO } from '@/lib/status';
 import { NIVEIS, rotuloClassificacao } from '@/lib/recepcao/schema';
-import { DOMINIO_PADRAO, dominioExiste } from '@/lib/recepcao/dominio';
+import { DOMINIOS, DOMINIO_PADRAO, dominioExiste } from '@/lib/recepcao/dominio';
 import { humanizarReferencias } from '@/lib/recepcao/texto';
 import styles from './treino.module.css';
 import MatrizAtendimento from './matriz-relatorio';
@@ -204,7 +204,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       setOcupado('');
     }
   }
-  async function habilitar() {
+  async function configurar(mudanca: { habilitado?: boolean; dominio?: string }) {
     if (running.current) return;
     const ticket = generation.current;
     running.current = true;
@@ -214,7 +214,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       await api('/api/recepcao/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ empresaId, habilitado: !dados.habilitado }),
+        body: JSON.stringify({ empresaId, habilitado: dados.habilitado, ...mudanca }),
       });
       await carregar(empresaId, undefined, ticket);
     } catch (e: any) {
@@ -244,7 +244,10 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   }
   const ficha = sessao?.cenario || dados?.cenarios?.find((c: any) => c.id === cenarioId)?.ficha || dados?.ficha;
   const nomePersona = ficha?.nomePaciente || t('personFallback');
-  const dominio = dominioExiste(ficha?.dominio) ? ficha.dominio : DOMINIO_PADRAO;
+  // Segmento da EMPRESA no cabeçalho; o do CASO decide a régua do relatório (um caso antigo
+  // continua lido no segmento em que foi feito, mesmo que a empresa mude de segmento).
+  const dominioEmpresa = dominioExiste(dados?.dominio) ? dados.dominio : DOMINIO_PADRAO;
+  const dominio = dominioExiste(sessao?.cenario?.dominio) ? sessao.cenario.dominio : dominioExiste(ficha?.dominio) ? ficha.dominio : dominioEmpresa;
   const relatorio = sessao?.relatorio;
   const nivelRotulo = (n?: string | null) => (n && (NIVEIS as readonly string[]).includes(n) ? t(`level_${n}`) : null);
   // As oportunidades vêm validadas pelo servidor (mensagem existente, trecho literal).
@@ -273,7 +276,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     <main className={styles.root}>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>{t('eyebrow', { segment: t(`segment_${dominio}`) })}</p>
+          <p className={styles.eyebrow}>{t('eyebrow', { segment: t(`segment_${dominioEmpresa}`) })}</p>
           <h1>{t('title')}</h1>
           <p>{t('subtitle')}</p>
         </div>
@@ -296,9 +299,30 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
             <div>
               <p>{t(dados.habilitado ? 'enabledForTeam' : 'adminOnly')}</p>
               {podeConfigurar && (
-                <button className={styles.secondary} disabled={!!ocupado} onClick={habilitar}>
-                  {t(dados.habilitado ? 'disableForTeam' : 'enableForTeam')}
-                </button>
+                <>
+                  <button
+                    className={styles.secondary}
+                    disabled={!!ocupado}
+                    onClick={() => configurar({ habilitado: !dados.habilitado })}
+                  >
+                    {t(dados.habilitado ? 'disableForTeam' : 'enableForTeam')}
+                  </button>
+                  {/* Segmento da empresa (18/09/2026): decide os casos que a equipe vê. */}
+                  <label className={styles.segmento}>
+                    {t('segmentLabel')}
+                    <select
+                      value={dominioEmpresa}
+                      disabled={!!ocupado}
+                      onChange={(e) => configurar({ dominio: e.target.value })}
+                    >
+                      {DOMINIOS.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {t(`segment_${d.id}`)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </>
               )}
             </div>
           )}
@@ -373,6 +397,9 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
           </div>
         ) : !dados ? (
           <div className={styles.empty}>{t(admin && !empresaId ? 'selectFirst' : 'unavailable')}</div>
+        ) : !ficha ? (
+          // Segmento sem caso publicado: nada de mostrar um caso de outro segmento.
+          <div className={styles.empty}>{t('noCases', { segment: t(`segment_${dominioEmpresa}`) })}</div>
         ) : (
           <>
             <section className={styles.casePicker}>

@@ -147,7 +147,15 @@ try {
     await page.screenshot({ path: `${dir}/relatorio-mobile-${locale}.png`, fullPage: true });
     checks++;
   }
+  // Administrador: segmento da empresa e aviso de segmento sem casos (mig 263).
   await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(`${origin}/?admin=1&empresa=10000000-0000-4000-8000-000000000009&semCasos=1`);
+  await page.getByText(/Ainda não há casos publicados no segmento Recepção de clínica/).waitFor();
+  await page.getByRole('combobox', { name: /Segmento do simulador/ }).selectOption('atendimento_loja');
+  await page.getByText('Simulador de atendimento · Atendimento em loja', { exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => window.__recepcaoWrites.at(-1).dominio), 'atendimento_loja');
+  await page.screenshot({ path: `${dir}/admin-segmento-desktop.png`, fullPage: true });
+  checks++;
   await page.goto(`${origin}/?locale=en-US`);
   await page.getByText('Service simulator · Clinic reception', { exact: true }).waitFor();
   checks++;
