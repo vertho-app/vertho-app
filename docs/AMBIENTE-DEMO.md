@@ -401,6 +401,13 @@ pessoa dispensa. Não é tour: não cobre menu nem bloqueia navegação.
 | RH (Helena / direção) | Evolução, Engajamento e DNA da organização |
 | Participante (Bruna / Marina) | A própria jornada: formatos do conteúdo, tira-dúvidas e evidências |
 
+**A linha começa pela DOR, em pergunta** (refinamento do dono, 18/09: "os textos
+ainda explicam a navegação"). A pergunta de cada papel é a mesma que o vídeo
+daquele papel vai usar como título, para as duas pontas contarem uma história
+só. ⚠️ E ela não pode prometer o que a tela desmente: "quem precisa de apoio?"
+foi descartada porque o KPI logo abaixo da dica diz "PRECISAM DE APOIO: 0 ·
+ninguém parado". Guardado por teste.
+
 **Régua de conteúdo** (`lib/demo/degustacao-orientacao.ts`, puro): a casa de cada
 papel é conferida contra o `homePath` da sala por teste, porque divergir ali faz
 a dica nunca aparecer, sem erro nenhum. 🔴 **Pessoa se aponta por e-mail de

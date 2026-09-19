@@ -88,14 +88,36 @@ describe('o que cada visão manda olhar', () => {
   });
 
   it('a jornada do participante promete o que a semana tem', () => {
-    // as palavras são do dono (18/09): formatos, tira-dúvidas e evidências
+    // as palavras são do dono (18/09): formatos de conteúdo, prática e dúvidas
     for (const ambiente of [acme, escolas]) {
       expect(ambiente.usuario.texto).toMatch(/formatos/);
-      expect(ambiente.usuario.texto).toMatch(/tira-dúvidas/);
-      expect(ambiente.usuario.texto).toMatch(/evidências/);
+      expect(ambiente.usuario.texto).toMatch(/dúvidas/);
+      expect(ambiente.usuario.texto).toMatch(/prática/);
       expect(ambiente.usuario.destinos[0].path).toBe('/dashboard/temporada');
       // a jornada é a DELA: sem `colaborador=`, a tela abre a de quem está logado
       expect(ambiente.usuario.destinos[0].pessoa).toBeUndefined();
+    }
+  });
+
+  it('🔴 toda linha começa pela DOR, em pergunta, não pela navegação', () => {
+    // Régua do dono (18/09): "os textos ainda explicam a navegação". A pergunta
+    // é o que o vídeo daquele papel vai repetir no título, então as duas pontas
+    // contam a mesma história.
+    for (const ambiente of Object.values(ORIENTACAO_POR_AMBIENTE)) {
+      for (const papel of Object.values(ambiente)) {
+        const primeiraFrase = papel.texto.split(/(?<=[?.])\s/)[0];
+        expect(primeiraFrase, papel.texto).toMatch(/\?$/);
+      }
+    }
+  });
+
+  it('🔴 a linha do gestor não promete que alguém está parado', () => {
+    // Medido na tela (18/09): o KPI logo abaixo da dica diz "PRECISAM DE APOIO:
+    // 0 · ninguém parado". Perguntar "quem precisa de apoio?" ali seria
+    // respondido com "ninguém" dois centímetros adiante.
+    for (const ambiente of Object.values(ORIENTACAO_POR_AMBIENTE)) {
+      expect(ambiente.gestor.texto).not.toMatch(/precisa[m]? de apoio/i);
+      expect(ambiente.gestor.texto).not.toMatch(/\bparad[oa]s?\b/i);
     }
   });
 

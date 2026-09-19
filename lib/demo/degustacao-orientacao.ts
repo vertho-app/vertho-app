@@ -52,7 +52,7 @@ const PAINEIS_DO_RH: readonly DestinoDaOrientacao[] = [
 const EMPRESA: Record<DemoPresentationRoleKey, OrientacaoDaDegustacao> = {
   gestor: {
     casa: '/dashboard/gestor',
-    texto: 'Comece pelo engajamento do time e depois abra uma pessoa para ver o que fazer com ela.',
+    texto: 'Onde concentrar o seu apoio? Veja o engajamento do time e explore a jornada da Bruna para entender como acompanhar o desenvolvimento dela.',
     destinos: [
       { rotulo: 'Ver o engajamento', path: '/dashboard/gestor/engajamento' },
       { rotulo: 'Abrir a Bruna', path: '/dashboard/temporada', pessoa: 'bruna.demo@vertho.ai' },
@@ -60,12 +60,12 @@ const EMPRESA: Record<DemoPresentationRoleKey, OrientacaoDaDegustacao> = {
   },
   rh: {
     casa: '/dashboard',
-    texto: 'O panorama resume; os painéis mostram. São estes três que o RH acompanha.',
+    texto: 'Como acompanhar participação e desenvolvimento? Comece pela evolução da equipe e explore os indicadores de engajamento.',
     destinos: PAINEIS_DO_RH,
   },
   usuario: {
     casa: '/dashboard',
-    texto: 'Abra a sua jornada: cada semana traz o conteúdo em todos os formatos, o tira-dúvidas e as evidências para responder.',
+    texto: 'Como transformar uma avaliação em desenvolvimento no dia a dia? Explore a sua jornada: conteúdo em vários formatos, prática e espaço para tirar dúvidas.',
     destinos: [{ rotulo: 'Abrir a jornada', path: '/dashboard/temporada' }],
   },
 };
@@ -73,7 +73,7 @@ const EMPRESA: Record<DemoPresentationRoleKey, OrientacaoDaDegustacao> = {
 const ESCOLAS: Record<DemoPresentationRoleKey, OrientacaoDaDegustacao> = {
   gestor: {
     casa: '/dashboard/gestor',
-    texto: 'Comece pelo engajamento da escola e depois abra uma professora para ver o que fazer com ela.',
+    texto: 'Onde concentrar o seu apoio? Veja o engajamento da escola e explore a jornada da Marina para entender como acompanhar o desenvolvimento dela.',
     destinos: [
       { rotulo: 'Ver o engajamento', path: '/dashboard/gestor/engajamento' },
       { rotulo: 'Abrir a Marina', path: '/dashboard/temporada', pessoa: 'marina.demo@vertho.ai' },
@@ -81,12 +81,12 @@ const ESCOLAS: Record<DemoPresentationRoleKey, OrientacaoDaDegustacao> = {
   },
   rh: {
     casa: '/dashboard',
-    texto: 'O panorama resume; os painéis mostram. São estes três que a direção acompanha.',
+    texto: 'Como acompanhar participação e desenvolvimento? Comece pela evolução da rede e explore os indicadores de engajamento.',
     destinos: PAINEIS_DO_RH,
   },
   usuario: {
     casa: '/dashboard',
-    texto: 'Abra a sua jornada: cada semana traz o conteúdo em todos os formatos, o tira-dúvidas e as evidências para responder.',
+    texto: 'Como transformar uma avaliação em desenvolvimento no dia a dia? Explore a sua jornada: conteúdo em vários formatos, prática e espaço para tirar dúvidas.',
     destinos: [{ rotulo: 'Abrir a jornada', path: '/dashboard/temporada' }],
   },
 };
