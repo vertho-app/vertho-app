@@ -7,6 +7,7 @@ import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 import type { Saidas } from '@/lib/simulador-vendas/schema';
 import { montarCsv } from '@/lib/simulador-vendas/csv';
 import Relatorio from './relatorio';
+import PainelEquipe from './painel-equipe';
 
 type Pagina = { historico: ResumoTreino[]; proximoCursor: string | null };
 type Detalhe = {
@@ -164,6 +165,8 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
   }
   return (
     <section>
+      <PainelEquipe empresaId={empresaId} />
+      <h2 className="text-lg mb-1">{t('teamHistoryTitle')}</h2>
       <p className="text-sm text-slate-300 mb-4">{t('teamScope')}</p>
       <div className="flex flex-wrap gap-4 items-end mb-5">
         <label className="text-sm">

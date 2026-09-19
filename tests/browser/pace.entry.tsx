@@ -9,6 +9,7 @@ import { ConfirmDialogProvider, useConfirm } from '../../components/admin/confir
 import { estado, relatorio } from '../fixtures/simulador-vendas';
 import { estadoDocumental, relatorioDocumental, PLANO } from '../fixtures/simulador-vendas-matriz';
 import { visaoPublica } from '../../lib/simulador-vendas/core';
+import { agregarPainel } from '../../lib/simulador-vendas/painel';
 import { comandoSchema, configSchema, REGUA_VERSION, type Estado } from '../../lib/simulador-vendas/schema';
 import pt from '../../messages/pt-BR.json';
 import ptpt from '../../messages/pt-PT.json';
@@ -218,6 +219,42 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
     });
   }
   if (url.includes('/gestao')) {
+    // Visão da equipe: a agregação real sobre pessoas e treinos fictícios.
+    if (q.has('painel'))
+      return Response.json(
+        agregarPainel(
+          [
+            { id: 'p-ana', nome: 'Ana Souza', cargo: 'Vendedora' },
+            { id: 'p-bruno', nome: 'Bruno Lima', cargo: 'Vendedor' },
+            { id: 'p-carla', nome: 'Carla', cargo: null },
+            { id: 'p-diego', nome: '=Diego', cargo: 'Vendedor' },
+          ],
+          [
+            {
+              colaboradorId: 'p-ana',
+              criadoEm: '2026-09-10T12:00:00Z',
+              status: 'concluida',
+              competencias: { PL: 2.4, P: 2.8, A: 3.1, C: 2.5, E: 3.2 },
+              feedback: { realismo: 4, desafio: 4, interacao: 4, utilidade: 5, aprendizado: 4, comentario: '' },
+            },
+            {
+              colaboradorId: 'p-ana',
+              criadoEm: '2026-09-15T12:00:00Z',
+              status: 'concluida',
+              competencias: { PL: 3.2, P: 3.0, A: 2.9, C: null, E: 3.6 },
+              feedback: {
+                realismo: 5,
+                desafio: 4,
+                interacao: 5,
+                utilidade: 4,
+                aprendizado: 5,
+                comentario: 'O cliente pareceu uma pessoa de verdade.',
+              },
+            },
+            { colaboradorId: 'p-bruno', criadoEm: '2026-09-16T12:00:00Z', status: 'em_andamento', competencias: null, feedback: null },
+          ],
+        ),
+      );
     if (q.has('sessaoId'))
       return Response.json({ id: q.get('sessaoId'), nomeVendedor: 'Ana', versaoRegua: REGUA_VERSION, relatorio });
     if (q.has('exportar'))

@@ -6,8 +6,14 @@ import type { Contexto } from './access';
 import { SimuladorError } from './core';
 import { lerCursor, paginaDeHistorico, type LinhaResumo } from './historico';
 import { relatorioPacePublico } from './escala';
+import { escalaNativa14 } from './matriz-avaliacao';
+import { agregarPainel, type PainelVendas, type PessoaPainel, type SessaoPainel } from './painel';
+import { acessoDoCargo } from '@/lib/simuladores/acesso-cargo';
+import { PAPEIS_QUE_SO_ACOMPANHAM } from '@/lib/simuladores/papel';
+import { isInternalEmail } from '@/lib/internal-emails';
 
 const MAX_COLABORADORES_ESCOPO = 10_000;
+const LOTE_IDS = 100;
 
 export async function podeVerEquipe(
   auth: AuthenticatedContext,
@@ -68,6 +74,89 @@ export async function historicoEquipe(c: Contexto, cursor?: string | null) {
     );
   return paginaDeHistorico(data as LinhaResumo[], 50);
 }
+/**
+ * Quem PODERIA treinar e a pessoa que pergunta enxerga: colaboradores da
+ * empresa com o cargo liberado para o vendas, fora quem só acompanha (gestor e
+ * RH, decisão de 17/09) e as contas internas. Mesma régua de cargo do gate
+ * (`acessoSimuladoresDoColaborador`: nome exato do cargo); "não começou" só é
+ * justo para quem tinha acesso.
+ */
+async function populacaoDoVendas(c: Contexto): Promise<PessoaPainel[]> {
+  const [empresa, cargos] = await Promise.all([
+    c.tdb.raw.from('empresas').select('sys_config').eq('id', c.empresaId).maybeSingle(),
+    c.tdb.from('cargos_empresa').select('id,nome'),
+  ]);
+  if (empresa.error || cargos.error)
+    throw new SimuladorError(503, 'Não foi possível consultar os cargos da equipe.');
+  const sysConfig = (empresa.data?.sys_config ?? null) as Record<string, unknown> | null;
+  const cargoId = new Map<string, string>(
+    ((cargos.data || []) as Array<{ id: string; nome: string }>).map((x) => [x.nome, String(x.id)]),
+  );
+  const pessoas: PessoaPainel[] = [];
+  for (let pagina = 0; ; pagina++) {
+    const de = pagina * 500;
+    if (de >= MAX_COLABORADORES_ESCOPO)
+      throw new SimuladorError(
+        422,
+        'A equipe excede o tamanho desta consulta. Solicite ao suporte uma exportação assistida; relatórios individuais continuam disponíveis.',
+      );
+    const { data, error } = await c.tdb
+      .from('colaboradores')
+      .select('id,empresa_id,nome_completo,cargo,email,role,gestor_email')
+      .order('id')
+      .range(de, de + 499);
+    if (error) throw new SimuladorError(503, 'Não foi possível consultar a equipe.');
+    for (const p of (data || []) as any[]) {
+      if ((PAPEIS_QUE_SO_ACOMPANHAM as readonly string[]).includes(String(p.role ?? ''))) continue;
+      if (isInternalEmail(p.email)) continue;
+      if (!acessoDoCargo(sysConfig, p.cargo ? (cargoId.get(p.cargo) ?? null) : null).vendas) continue;
+      if (!c.auth.isPlatformAdmin && !canViewColabJourney(c.auth, p)) continue;
+      pessoas.push({ id: p.id, nome: p.nome_completo || 'Colaborador', cargo: p.cargo || null });
+    }
+    if ((data || []).length < 500) return pessoas;
+  }
+}
+
+const COLUNAS_PAINEL =
+  'id,colaborador_id,created_at,resumo,feedback:estado->feedback' +
+  ',pl:estado->relatorio->PL,p:estado->relatorio->P,a:estado->relatorio->A,c:estado->relatorio->C,e:estado->relatorio->E';
+const notaOuNulo = (n: unknown) => (typeof n === 'number' ? n : null);
+
+/** Visão da equipe: quem tem acesso, quem começou, níveis por competência e a pesquisa. */
+export async function painelEquipe(c: Contexto): Promise<PainelVendas> {
+  if (!(await podeVerEquipe(c.auth)))
+    throw new SimuladorError(403, 'Seu perfil não permite acompanhar esta equipe.');
+  const pessoas = await populacaoDoVendas(c);
+  const ids = pessoas.map((p) => p.id);
+  const sessoes: SessaoPainel[] = [];
+  for (let i = 0; i < ids.length; i += LOTE_IDS) {
+    const lote = ids.slice(i, i + LOTE_IDS);
+    for (let de = 0; ; de += 1000) {
+      const { data, error } = await c.tdb
+        .from('sim_vendas_sessoes')
+        .select(COLUNAS_PAINEL)
+        .in('colaborador_id', lote)
+        .order('id')
+        .range(de, de + 999);
+      if (error) throw new SimuladorError(503, 'Não foi possível consultar os treinos da equipe.');
+      for (const r of (data || []) as any[]) {
+        const nativa = escalaNativa14(r.resumo?.versaoRegua);
+        sessoes.push({
+          colaboradorId: r.colaborador_id,
+          criadoEm: r.created_at,
+          status: String(r.resumo?.status ?? ''),
+          competencias: nativa
+            ? { PL: notaOuNulo(r.pl), P: notaOuNulo(r.p), A: notaOuNulo(r.a), C: notaOuNulo(r.c), E: notaOuNulo(r.e) }
+            : null,
+          feedback: r.feedback && typeof r.feedback === 'object' ? r.feedback : null,
+        });
+      }
+      if ((data || []).length < 1000) break;
+    }
+  }
+  return agregarPainel(pessoas, sessoes);
+}
+
 export async function relatorioEquipe(c: Contexto, id: string) {
   if (!(await podeVerEquipe(c.auth)))
     throw new SimuladorError(

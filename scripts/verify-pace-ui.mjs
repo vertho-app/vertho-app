@@ -139,7 +139,33 @@ try {
   await page.getByRole('heading', { name: 'Conte como foi a experiência', exact: true }).waitFor();
   checks++;
   await page.goto(`${origin}/?admin=1&empresa=${empresaA}&history=1`);
-  await page.getByRole('button', { name: 'Histórico da equipe', exact: true }).click();
+  await page.getByRole('button', { name: 'Acompanhamento da equipe', exact: true }).click();
+  // Visão da equipe (18/09): quem não começou, níveis por pessoa e a pesquisa.
+  const visao = page.getByRole('region', { name: 'Visão da equipe', exact: true });
+  await visao.waitFor();
+  await visao.getByText('Ainda não começaram (2)', { exact: true }).waitFor();
+  await visao.getByText('Carla', { exact: true }).first().waitFor();
+  const linhaAna = visao.locator('tr', { hasText: 'Ana Souza' });
+  await expect(linhaAna.getByText('Subiu de nível', { exact: true })).toHaveCount(3);
+  const pesquisa = page.getByRole('region', { name: 'Pesquisa de experiência', exact: true });
+  await pesquisa.getByText('2 respostas.', { exact: true }).waitFor();
+  await pesquisa.getByText('O cliente pareceu uma pessoa de verdade.', { exact: true }).waitFor();
+  assert.equal(await pesquisa.getByText(/Ana Souza/).count(), 0, 'comentário sai sem o nome');
+  const baixarEquipe = page.waitForEvent('download');
+  await visao.getByRole('button', { name: 'Exportar por pessoa (CSV)', exact: true }).click();
+  let csvEquipe = '';
+  for await (const chunk of await (await baixarEquipe).createReadStream()) csvEquipe += chunk;
+  assert.ok(csvEquipe.includes('Ana Souza') && csvEquipe.includes("'=Diego"), 'CSV por pessoa com escape de fórmula');
+  await page.screenshot({ path: `${dir}/visao-equipe-desktop.png`, fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.equal(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    true,
+    'overflow visão da equipe',
+  );
+  await page.screenshot({ path: `${dir}/visao-equipe-mobile.png`, fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1080 });
+  checks++;
   await page.getByRole('button', { name: 'Ver relatório', exact: true }).first().click();
   await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).waitFor();
   await page.screenshot({ path: `${dir}/equipe-desktop.png`, fullPage: true });

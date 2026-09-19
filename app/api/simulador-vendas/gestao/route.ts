@@ -8,6 +8,7 @@ import {
   historicoEquipe,
   relatorioEquipe,
   escopoEquipe,
+  painelEquipe,
 } from '@/lib/simulador-vendas/equipe';
 import { falha, json } from '@/lib/simulador-vendas/http';
 export const runtime = 'nodejs';
@@ -28,6 +29,7 @@ export async function GET(req: Request) {
     if (c instanceof Response) return c;
     const id = q.get('sessaoId');
     if (id) return json(await relatorioEquipe(c, z.string().uuid().parse(id)));
+    if (q.get('painel') === '1') return json(await painelEquipe(c));
     if (q.get('exportar') === '1') {
       const ids = await escopoEquipe(c);
       const inicio = q.get('inicio'),
