@@ -118,7 +118,7 @@ function CartaoVisao({ visao }: { visao: CartaoDeVisao }) {
       href={visao.url}
       data-layout="cartao-visao"
       data-recomendada={destaque ? 'sim' : 'nao'}
-      className="flex items-center gap-4 rounded-2xl border p-4 transition-colors hover:bg-white/[0.07] lg:h-full lg:flex-col lg:items-stretch lg:justify-between lg:gap-8 lg:p-6"
+      className={`${destaque ? 'flex-col items-stretch' : 'items-center'} flex gap-4 rounded-2xl border p-4 transition-colors hover:bg-white/[0.07] lg:h-full lg:flex-col lg:items-stretch lg:justify-between lg:gap-8 lg:p-6`}
       style={{
         background: destaque ? 'rgba(52,197,204,0.07)' : COR.card,
         borderColor: destaque || visto ? COR.bordaAcento : COR.borda,
@@ -150,7 +150,7 @@ function CartaoVisao({ visao }: { visao: CartaoDeVisao }) {
       </span>
       {destaque ? (
         <span
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl px-4 py-2.5 text-[14px] font-bold lg:self-start"
+          className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-2xl px-4 py-2.5 text-[14px] font-bold lg:w-auto lg:self-start"
           style={{ background: COR.acento, color: '#04212B' }}
         >
           Explorar
