@@ -113,7 +113,7 @@ describe('redação final: a nota mudou depois do texto', () => {
     expect(r.meta.redacao).toBe('reescrita');
     expect(r.parsed.resumo_avaliacao).toEqual(REDIGIDO);
     expect(r.parsed.resumo_avaliacao_rascunho.principal_avanco).toBe('RASCUNHO foco em valor');
-    expect(r.parsed.redacao_final).toEqual({ status: 'reescrita', descritores_com_nota_alterada: 2 });
+    expect(r.parsed.redacao_final).toEqual({ status: 'reescrita', descritores_com_nota_alterada: 2, texto_publicado: 'redacao', tentativas: 1 });
 
     // A redação recebe o que o rascunho não sabia: nota final, nota do rascunho e a defesa.
     const [sistema, usuario] = chamadas('sem14_redacao')[0] as any[];
@@ -195,29 +195,64 @@ describe('redação final: quando NÃO roda ou falha', () => {
     expect(r.meta.redacao).toBe('desnecessaria');
     expect(r.parsed.resumo_avaliacao.principal_avanco).toBe('RASCUNHO foco em valor');
     expect(r.parsed.resumo_avaliacao_rascunho).toBeNull();
-    expect(r.parsed.redacao_final).toEqual({ status: 'desnecessaria', descritores_com_nota_alterada: 0 });
+    expect(r.parsed.redacao_final).toEqual({ status: 'desnecessaria', descritores_com_nota_alterada: 0, texto_publicado: 'scorer', tentativas: 0 });
   });
 
-  it('resposta sem um dos quatro textos: mantém o rascunho INTEIRO e avisa', async () => {
+  // Com as notas finais do ARGS: Adaptação +1,1, Clareza +0,6, Foco em valor +0,2.
+  const MINIMA_GERAL = 'COLAB_A1B2, este é o resultado do fechamento da sua jornada em Comunicação de valor. '
+    + 'Os pontos em que você mais avançou foram Adaptação e Clareza. O que mais pede atenção agora é Foco em valor.';
+
+  it('primeira resposta inválida, segunda válida: reescrita na 2ª tentativa', async () => {
     const semFecho = { ...REDIGIDO, mensagem_final: '' };
-    responder({ sem14_scorer: [SCORE], sem14_redacao: [JSON.stringify({ resumo_avaliacao: semFecho })], sem14_check: [CHECK] });
+    responder({
+      sem14_scorer: [SCORE],
+      sem14_redacao: [JSON.stringify({ resumo_avaliacao: semFecho }), JSON.stringify({ resumo_avaliacao: REDIGIDO })],
+      sem14_check: [CHECK],
+    });
+    const r = await pontuarFechamento(ARGS as any);
+    if (r.ok !== true) throw new Error('esperava ok');
+    expect(chamadas('sem14_redacao')).toHaveLength(2);
+    expect(r.meta.redacao).toBe('reescrita');
+    expect(r.parsed.resumo_avaliacao).toEqual(REDIGIDO);
+    expect(r.parsed.redacao_final).toEqual({ status: 'reescrita', descritores_com_nota_alterada: 2, texto_publicado: 'redacao', tentativas: 2 });
+    expect(r.meta.warnings.some((w) => w.startsWith('redação final falhou na tentativa 1'))).toBe(true);
+  });
+
+  /**
+   * 🔴 O defeito que a devolutiva mínima fecha (19/09/2026): sem ela, falhar a
+   * redação publicava o RASCUNHO, escrito para a nota de antes do ajuste. A
+   * pessoa via o problema original; só a degradação registrava.
+   */
+  it('duas respostas sem um dos quatro textos: publica a devolutiva mínima, nunca o rascunho', async () => {
+    const semFecho = JSON.stringify({ resumo_avaliacao: { ...REDIGIDO, mensagem_final: '' } });
+    responder({ sem14_scorer: [SCORE], sem14_redacao: [semFecho, semFecho], sem14_check: [CHECK] });
     const r = await pontuarFechamento(ARGS as any);
     if (r.ok !== true) throw new Error('esperava ok');
     expect(r.meta.redacao).toBe('falhou');
-    expect(r.parsed.resumo_avaliacao.principal_avanco).toBe('RASCUNHO foco em valor');
-    expect(r.parsed.resumo_avaliacao.mensagem_geral).toContain('RASCUNHO');
-    expect(r.parsed.resumo_avaliacao_rascunho).toBeNull();
-    expect(r.meta.warnings.some((w) => w.startsWith('redação final falhou'))).toBe(true);
-    expect(r.auditoria?.nota_auditoria).toBe(88); // o auditor roda mesmo assim
+    expect(r.parsed.resumo_avaliacao.mensagem_geral).toBe(MINIMA_GERAL);
+    expect(r.parsed.resumo_avaliacao.principal_avanco).toBe('Adaptação: foi onde você mais avançou.');
+    expect(r.parsed.resumo_avaliacao.principal_ponto_de_atencao).toBe('Foco em valor: é o que mais pede atenção agora.');
+    // Do rascunho ficam só as evidências citadas e os próximos passos.
+    expect(r.parsed.resumo_avaliacao.evidencias_citadas).toEqual(['preço sem contexto parece caro']);
+    expect(r.parsed.resumo_avaliacao.proximos_passos).toEqual(['Escreva o e-mail real']);
+    expect(JSON.stringify(r.parsed.resumo_avaliacao)).not.toContain('RASCUNHO');
+    // O rascunho fica guardado para a recuperação refazer a redação depois.
+    expect(r.parsed.resumo_avaliacao_rascunho.principal_avanco).toBe('RASCUNHO foco em valor');
+    expect(r.parsed.redacao_final).toEqual({ status: 'falhou', descritores_com_nota_alterada: 2, texto_publicado: 'devolutiva_minima', tentativas: 2 });
+    // O auditor roda sobre o texto publicado, não sobre o rascunho.
+    expect(String(chamadas('sem14_check')[0][1])).toContain('Os pontos em que você mais avançou foram Adaptação e Clareza.');
+    expect(r.auditoria?.nota_auditoria).toBe(88);
   });
 
-  it('IA da redação quebra: a nota sai do mesmo jeito', async () => {
-    responder({ sem14_scorer: [SCORE], sem14_redacao: ['isto não é json'], sem14_check: [CHECK] });
+  it('IA da redação quebra nas duas tentativas: a nota sai do mesmo jeito, com a devolutiva mínima', async () => {
+    responder({ sem14_scorer: [SCORE], sem14_redacao: ['isto não é json', 'nem isto'], sem14_check: [CHECK] });
     const r = await pontuarFechamento(ARGS as any);
     expect(r.ok).toBe(true);
     if (r.ok !== true) return;
     expect(r.meta.redacao).toBe('falhou');
+    expect(r.meta.redacaoTentativas).toBe(2);
     expect(r.parsed.avaliacao_por_descritor.find((d: any) => d.descritor === 'Adaptação').nota_pos).toBe(3.7);
+    expect(r.parsed.resumo_avaliacao.mensagem_geral).toBe(MINIMA_GERAL);
   });
 });
 
@@ -233,7 +268,7 @@ describe('redação final: prazo', () => {
     expect(timeoutDaRedacao(AGORA + 20_000, AGORA)).toBeNull();
   });
 
-  it('sem tempo depois do scorer: pula a redação e registra o motivo', async () => {
+  it('sem tempo depois do scorer: pula a redação, registra o motivo e publica a devolutiva mínima', async () => {
     mockAI.mockImplementation((async (_s: string, _u: string, _c: unknown, _m: unknown, opts: any) => {
       if (opts?.taskKey === 'sem14_scorer') { vi.setSystemTime(AGORA + 262_000); return SCORE; }
       throw new Error(`não deveria chamar ${opts?.taskKey}`);
@@ -242,7 +277,22 @@ describe('redação final: prazo', () => {
     if (r.ok !== true) throw new Error('esperava ok');
     expect(r.meta.redacao).toBe('pulada-sem-tempo');
     expect(chamadas('sem14_redacao')).toHaveLength(0);
-    expect(r.parsed.redacao_final.status).toBe('pulada-sem-tempo');
+    expect(r.parsed.redacao_final).toMatchObject({ status: 'pulada-sem-tempo', texto_publicado: 'devolutiva_minima', tentativas: 0 });
+    expect(r.parsed.resumo_avaliacao.principal_avanco).toBe('Adaptação: foi onde você mais avançou.');
+  });
+
+  it('1ª tentativa falha e o prazo acaba: sem 2ª tentativa, fica a devolutiva mínima', async () => {
+    mockAI.mockImplementation((async (_s: string, _u: string, _c: unknown, _m: unknown, opts: any) => {
+      if (opts?.taskKey === 'sem14_scorer') return SCORE;
+      if (opts?.taskKey === 'sem14_redacao') { vi.setSystemTime(AGORA + 270_000); return 'quebrado'; }
+      throw new Error(`não deveria chamar ${opts?.taskKey}`);
+    }) as any);
+    const r = await pontuarFechamento({ ...ARGS, prazoMs: AGORA + 285_000 } as any);
+    if (r.ok !== true) throw new Error('esperava ok');
+    expect(chamadas('sem14_redacao')).toHaveLength(1);
+    expect(r.meta.redacao).toBe('falhou');
+    expect(r.meta.warnings).toContain('redação final: sem tempo para a 2ª tentativa');
+    expect(r.parsed.redacao_final).toMatchObject({ texto_publicado: 'devolutiva_minima', tentativas: 1 });
   });
 
   it('com prazo: a redação recebe o que sobra, até 60 s', async () => {
@@ -274,11 +324,17 @@ describe('redação final no piloto: a mesma trava de duração', () => {
     expect(r.meta.sanitizacaoAplicada).toBe(true);
   });
 
-  it('duração errada incorrigível: descarta o texto novo e fica o rascunho', async () => {
-    responder({ sem14_scorer: [SCORE_PILOTO], sem14_redacao: [redigido('COLAB_A1B2, em 11 das 13 semanas não houve registro.')], sem14_check: [CHECK] });
+  it('duração errada incorrigível nas duas tentativas: descarta o texto novo e publica a mínima do piloto', async () => {
+    const ruim = redigido('COLAB_A1B2, em 11 das 13 semanas não houve registro.');
+    responder({ sem14_scorer: [SCORE_PILOTO], sem14_redacao: [ruim, ruim], sem14_check: [CHECK] });
     const r = await pontuarFechamento(argsPiloto as any);
     if (r.ok !== true) throw new Error('esperava ok');
     expect(r.meta.redacao).toBe('falhou');
-    expect(r.parsed.resumo_avaliacao.mensagem_geral).toBe('COLAB_A1B2, na degustação de 2 semanas você mostrou o método.');
+    // Piloto: um aspecto só, sem falar em avanço.
+    expect(r.parsed.resumo_avaliacao.mensagem_geral).toBe(
+      'COLAB_A1B2, este é o resultado da demonstração em Comunicação de valor. O ponto mais sólido foi D1.',
+    );
+    expect(r.parsed.resumo_avaliacao.principal_avanco).toBe('D1: é o seu ponto mais sólido.');
+    expect(r.parsed.redacao_final).toMatchObject({ texto_publicado: 'devolutiva_minima' });
   });
 });

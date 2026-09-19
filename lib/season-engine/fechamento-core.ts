@@ -1,8 +1,11 @@
 import { tenantDb, type TenantDb } from '@/lib/tenant-db';
-import { pontuarFechamento } from '@/lib/season-engine/fechamento-scorer';
+import {
+  citacoesDaArguicao, pontuarFechamento, redigirDevolutivaFinal,
+  type RedigirDevolutivaResultado,
+} from '@/lib/season-engine/fechamento-scorer';
 import { agregarEvidenciasAteAcumulada, normalizarAcumuladoPrimaria } from '@/lib/season-engine/evidencias-fechamento';
 import { maskColaborador, maskTextPII } from '@/lib/pii-masker';
-import { desmascararResultadoFechamento, mascararExtracaoArguicao } from '@/lib/season-engine/fechamento-pii';
+import { desmascararResultadoFechamento, mascararExtracaoArguicao, mascararResumo } from '@/lib/season-engine/fechamento-pii';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { gravarProgressoSemana } from '@/lib/season-engine/progresso-semana';
 import { gateAcumuladaPiloto, resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
@@ -276,6 +279,8 @@ export async function finalizarFechamentoCore(
         detalhe: {
           motivo: redacao,
           semana: config.semanaCenarioB,
+          // devolutiva_minima (o normal) ou rascunho; `scripts/refazer-redacao-fechamento.ts` refaz.
+          texto_publicado: parsed?.redacao_final?.texto_publicado ?? null,
           aviso: resultado.meta.warnings.find((w) => w.startsWith('redação final')) ?? null,
         },
       });
@@ -302,4 +307,120 @@ export async function finalizarFechamentoCore(
   } catch (e: any) {
     return await marcarErro(e?.message || String(e));
   }
+}
+
+export type ResultadoRefazerRedacao =
+  | {
+      ok: true;
+      /** false = só prévia (sem `aplicar`) ou a redação não saiu de novo. */
+      aplicado: boolean;
+      status: RedigirDevolutivaResultado['status'];
+      /** O texto que sairia (ou saiu), já com o nome real. */
+      resumo: any | null;
+      warnings: string[];
+    }
+  | { ok: false; erro: string };
+
+const nomeNormalizado = (s: unknown) => String(s || '').trim().toLowerCase();
+
+/**
+ * Refaz SÓ a redação final de um fechamento concluído em que ela falhou ou não
+ * coube no prazo (19/09/2026). A pessoa ficou com a devolutiva mínima (coerente
+ * com as notas, mas curta); aqui sai a completa, pelas MESMAS regras do
+ * fechamento (`redigirDevolutivaFinal`). Não pontua de novo: parte da nota
+ * gravada, do rascunho do scorer, da defesa oral e das evidências das semanas.
+ * Sem `aplicar`, só mostra o texto que sairia.
+ *
+ * Atualiza o slot e o `resumo_avaliacao` do relatório da trilha. NÃO chama
+ * `gerarEvolutionReportCore`: ele dispararia o encadeamento da jornada. A
+ * auditoria gravada continua sendo a da devolutiva mínima.
+ */
+export async function refazerRedacaoFechamento(
+  trilhaId: string,
+  opts: { empresaId: string; aplicar?: boolean },
+): Promise<ResultadoRefazerRedacao> {
+  const c = await carregar(trilhaId, opts.empresaId);
+  if ('erro' in c) return { ok: false, erro: c.erro };
+  const { tdb, trilha, config, prog } = c.ctx;
+  const fb = prog?.feedback || {};
+
+  if (!prog || prog.status !== PROGRESSO.CONCLUIDO) return { ok: false, erro: 'fechamento não concluído' };
+  const anterior = fb.redacao_final?.status;
+  if (anterior !== 'falhou' && anterior !== 'pulada-sem-tempo') {
+    return { ok: false, erro: `nada a refazer: redação ${anterior ?? 'ausente'}` };
+  }
+  const rascunho = fb.resumo_avaliacao_rascunho;
+  if (!rascunho || typeof rascunho !== 'object') return { ok: false, erro: 'o rascunho do scorer não está gravado' };
+  const avaliados: any[] = Array.isArray(fb.avaliacao_por_descritor) ? fb.avaliacao_por_descritor : [];
+  if (!avaliados.length) return { ok: false, erro: 'fechamento sem avaliação por descritor' };
+
+  const { data: colab, error: errColab } = await tdb.from('colaboradores')
+    .select('nome_completo, perfil_dominante').eq('id', trilha.colaborador_id).maybeSingle();
+  if (errColab) return { ok: false, erro: `falha ao ler o colaborador: ${errColab.message}` };
+  const { masked, map } = maskColaborador(colab);
+  const mascarar = (s: unknown) => (typeof s === 'string' ? maskTextPII(s, map) : null);
+
+  // A mesma leitura das semanas que o scorer teve; só o NOME de cada descritor é usado.
+  const evidencias = await agregarEvidenciasAteAcumulada(
+    tdb, trilhaId,
+    Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [],
+    config.semanaAcumulada,
+    { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
+  );
+  const extracao = fb.arguicao?.concluida ? mascararExtracaoArguicao(fb.arguicao.extracao, map) : null;
+  const citacoes = citacoesDaArguicao(extracao, avaliados);
+  const competenciasLabel = Array.isArray(trilha.competencias_foco) && trilha.competencias_foco.length > 1
+    ? trilha.competencias_foco.join(' + ')
+    : trilha.competencia_foco;
+  const num = (v: unknown) => (typeof v === 'number' ? v : null);
+
+  const red = await redigirDevolutivaFinal({
+    competencia: competenciasLabel,
+    nomeColab: masked?.nome ?? 'COLAB',
+    perfilDominante: colab?.perfil_dominante ?? null,
+    config,
+    descritores: avaliados.map((d: any) => ({
+      descritor: d.descritor,
+      nota_pre: num(d.nota_pre),
+      // A nota com que o scorer escreveu: antes da fusão (arguição) ou da trava (piloto).
+      nota_rascunho: num(d.nota_base_cenario) ?? num(d.nota_pos_bruto) ?? num(d.nota_pos),
+      nota_final: num(d.nota_pos),
+      sustentacao_arguicao: d.sustentacao_arguicao ?? null,
+      forca_arguicao: d.forca_arguicao ?? null,
+      citacao_arguicao: citacoes.get(nomeNormalizado(d.descritor)) ?? null,
+      piso_aplicado: !!d.piso_aplicado,
+      justificativa: mascarar(d.justificativa),
+    })),
+    rascunho: mascararResumo(rascunho, map),
+    evidenciasArguicao: extracao,
+    evidenciasSemanas: mascarar(evidencias),
+    ledger: { empresaId: trilha.empresa_id, colaboradorId: trilha.colaborador_id },
+  });
+  if (red.status !== 'reescrita' || !red.resumo) {
+    return { ok: true, aplicado: false, status: red.status, resumo: null, warnings: red.warnings };
+  }
+
+  const resumo = { ...red.resumo };
+  desmascararResultadoFechamento({ resumo_avaliacao: resumo }, null, map);
+  if (!opts.aplicar) return { ok: true, aplicado: false, status: 'reescrita', resumo, warnings: red.warnings };
+
+  const redacao_final = {
+    ...(fb.redacao_final || {}),
+    status: 'reescrita',
+    texto_publicado: 'redacao',
+    tentativas: red.tentativas,
+    refeita_em: new Date().toISOString(),
+    status_anterior: anterior,
+  };
+  const errSlot = await gravarFeedback(tdb, prog.id, { ...fb, resumo_avaliacao: resumo, redacao_final });
+  if (errSlot) return { ok: false, erro: `falha ao gravar o slot: ${errSlot}` };
+
+  const { data: tr, error: errRel } = await tdb.from('trilhas').select('evolution_report').eq('id', trilhaId).maybeSingle();
+  if (errRel) return { ok: false, erro: `slot gravado, mas falha ao ler o relatório: ${errRel.message}` };
+  if (tr?.evolution_report && typeof tr.evolution_report === 'object') {
+    const { error: errUp } = await tdb.from('trilhas')
+      .update({ evolution_report: { ...tr.evolution_report, resumo_avaliacao: resumo } }).eq('id', trilhaId);
+    if (errUp) return { ok: false, erro: `slot gravado, mas falha ao atualizar o relatório: ${errUp.message}` };
+  }
+  return { ok: true, aplicado: true, status: 'reescrita', resumo, warnings: red.warnings };
 }

@@ -252,10 +252,11 @@ export const DEGRADACAO = {
   FECHAMENTO_SCORER_FALHOU: 'fechamento-scorer-falhou',
   /**
    * fechamento-scorer: a nota mudou depois do texto (ajuste da arguição ou piso
-   * do piloto) e a redação final não reescreveu a devolutiva, por falha ou por
-   * falta de tempo no prazo do fechamento. A nota está gravada; o texto que a
-   * pessoa lê é o rascunho, escrito para a nota de antes. `aviso`: não perde
-   * nada, mas o texto pode contradizer a nota. Chave: trilha.
+   * do piloto) e a redação final não reescreveu a devolutiva, nas duas
+   * tentativas ou por falta de tempo no prazo do fechamento. A nota está
+   * gravada; desde 19/09/2026 a pessoa lê a DEVOLUTIVA MÍNIMA (montada das notas
+   * finais, coerente mas curta), não mais o rascunho da nota de antes. `aviso`:
+   * `scripts/refazer-redacao-fechamento.ts` produz a completa. Chave: trilha.
    */
   FECHAMENTO_REDACAO_FALHOU: 'fechamento-redacao-falhou',
   /**

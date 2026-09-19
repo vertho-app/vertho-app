@@ -41,6 +41,20 @@ const LISTAS_DO_RESUMO = ['evidencias_citadas', 'proximos_passos'] as const;
 const CAMPOS_DO_DESCRITOR = ['justificativa', 'trecho_cenario', 'evidencia_acumulada'] as const;
 const CAMPOS_DA_AUDITORIA = ['resumo_auditoria', 'ponto_mais_confiavel', 'ponto_mais_fragil'] as const;
 
+/**
+ * Cópia mascarada de um resumo GRAVADO (desmascarado). Uso: a recuperação da
+ * redação (`refazerRedacaoFechamento`) devolve o rascunho do scorer à IA.
+ */
+export function mascararResumo(r: any, map: Mapa): any {
+  if (!r || typeof r !== 'object') return r;
+  const out = { ...r };
+  for (const k of CAMPOS_DO_RESUMO) if (typeof out[k] === 'string') out[k] = maskTextPII(out[k], map);
+  for (const k of LISTAS_DO_RESUMO) {
+    if (Array.isArray(out[k])) out[k] = out[k].map((p: unknown) => (typeof p === 'string' ? maskTextPII(p, map) : p));
+  }
+  return out;
+}
+
 function desmascararResumo(r: any, map: Mapa) {
   if (!r || typeof r !== 'object') return;
   for (const k of CAMPOS_DO_RESUMO) if (typeof r[k] === 'string') r[k] = unmaskPII(r[k], map);

@@ -1208,10 +1208,19 @@
   textos; faltando um, o caller mantém o rascunho INTEIRO (completar com ele traria de volta a frase
   que contradiz a nota). Piloto: passa pela mesma `sanitizarNarrativaPiloto`; duração incorrigível
   descarta o texto novo.
-- **Falha nunca derruba a nota**: `redacao_final.status = 'falhou' | 'pulada-sem-tempo'`, o rascunho
-  fica e o `fechamento-core` registra a degradação `fechamento-redacao-falhou` (aviso).
-- **Consumido por**: `feedback.resumo_avaliacao` (o substituído fica em `resumo_avaliacao_rascunho`,
-  e o status em `redacao_final`).
+- **Tentativas** (19/09/2026): até 2 (`REDACAO_MAX_TENTATIVAS`), a 2ª só se ainda houver prazo. A
+  lógica vive em `redigirDevolutivaFinal`, fonte única entre o fechamento e a recuperação.
+- **Falha nunca derruba a nota, e nunca publica o rascunho** (19/09/2026): com `redacao_final.status
+  = 'falhou' | 'pulada-sem-tempo'`, a pessoa lê a DEVOLUTIVA MÍNIMA (`devolutiva-minima.ts`, sem IA):
+  "Os pontos em que você mais avançou foram A e B. O que mais pede atenção agora é C.", montada das
+  notas finais (no piloto, "pontos mais sólidos", sem falar em avanço), com as evidências citadas e os
+  próximos passos do rascunho. Modelo de texto aprovado pelo dono. O `fechamento-core` registra a
+  degradação `fechamento-redacao-falhou` (aviso), e `scripts/refazer-redacao-fechamento.ts` produz a
+  devolutiva completa depois, sem nova nota (`refazerRedacaoFechamento`; troca o texto no slot e no
+  relatório sem passar pelo núcleo do relatório, que dispararia o encadeamento).
+- **Consumido por**: `feedback.resumo_avaliacao` (o substituído fica em `resumo_avaliacao_rascunho`;
+  `redacao_final` guarda `status`, `texto_publicado` = `scorer | redacao | devolutiva_minima |
+  rascunho` e `tentativas`).
 
 ### 6.13 Evolution Scenario Check (audit sem 14)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`

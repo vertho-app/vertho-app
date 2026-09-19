@@ -600,8 +600,11 @@ Vizinho do F-I37: aqui o insumo chega, mas o escritor não sabe o número que va
   a sugerir a nota de antes do ajuste; a justificativa ajustada ganha uma linha determinística com o
   ajuste; a `classificacao` é recalculada pelo delta final. O scorer segue sem ver a arguição (os dois
   instrumentos continuam independentes); o prompt dele é byte a byte o de antes (golden).
-- **Falha segura:** redação que falha ou não cabe no prazo mantém o rascunho e registra
-  `fechamento-redacao-falhou` (aviso); a nota nunca depende dela.
+- **Falha segura:** a nota nunca depende da redação. 🔴 Até 19/09/2026 a falha publicava o rascunho,
+  isto é, o próprio defeito (texto da nota de antes); a revisão externa apontou. Agora: 2ª tentativa
+  se houver prazo; sem redação válida, a DEVOLUTIVA MÍNIMA montada das notas finais (coerente por
+  construção); degradação `fechamento-redacao-falhou` (aviso); e
+  `scripts/refazer-redacao-fechamento.ts` troca pela completa depois, sem nova nota.
 - **Prova:** entrada real do ensaio contra os modelos reais: principal avanço passou a ser o maior
   avanço final, e o auditor foi de 55 (erro grave, "revisar") para 81 ("aprovado com ajustes"). n=1:
   a confirmação em escala são os primeiros fechamentos de Macaé (~28/09). Guardas:

@@ -15,8 +15,9 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
 
 const h = vi.hoisted(() => ({
   sb: null as any,
-  estado: { atual: null as any },
+  estado: { atual: null as any, relatorio: null as any },
   pontuar: vi.fn(),
+  redigir: vi.fn(),
   report: vi.fn(),
   degradacao: vi.fn(),
 }));
@@ -24,7 +25,11 @@ const h = vi.hoisted(() => ({
 vi.mock('@/lib/tenant-db', () => ({
   tenantDb: () => ({ from: (t: string) => h.sb.client.from(t), raw: h.sb.client }),
 }));
-vi.mock('@/lib/season-engine/fechamento-scorer', () => ({ pontuarFechamento: h.pontuar }));
+vi.mock('@/lib/season-engine/fechamento-scorer', () => ({
+  pontuarFechamento: h.pontuar,
+  redigirDevolutivaFinal: h.redigir,
+  citacoesDaArguicao: () => new Map(),
+}));
 vi.mock('@/lib/season-engine/evolution-report-core', () => ({ gerarEvolutionReportCore: h.report }));
 vi.mock('@/lib/season-engine/regua', () => ({
   enriquecerComRegua: async ({ descritores }: any) => descritores,
@@ -49,7 +54,7 @@ vi.mock('@/lib/season-engine/trilha-runtime', async () => {
   };
 });
 
-import { reservarFinalizacao, finalizarFechamentoCore } from '@/lib/season-engine/fechamento-core';
+import { reservarFinalizacao, finalizarFechamentoCore, refazerRedacaoFechamento } from '@/lib/season-engine/fechamento-core';
 
 const AGORA = Date.parse('2026-09-16T15:00:00Z');
 const TOKEN = new Date(AGORA).toISOString();
@@ -91,12 +96,14 @@ const PARSED = {
 
 beforeEach(() => {
   h.pontuar.mockReset();
+  h.redigir.mockReset();
   h.report.mockReset().mockResolvedValue({ success: true, evolution_report: { ok: 1 } });
   h.degradacao.mockReset();
   h.estado.atual = progHelmar();
+  h.estado.relatorio = null;
   h.sb = criarSupabaseMock({
     resolver: (tabela, cols) => {
-      if (tabela === 'trilhas') return TRILHA;
+      if (tabela === 'trilhas') return cols === 'evolution_report' ? { evolution_report: h.estado.relatorio } : TRILHA;
       if (tabela === 'colaboradores') return { nome_completo: 'Helmar Miranda da Silva', cargo: 'Gestão Escolar', perfil_dominante: 'S' };
       if (tabela === 'temporada_semana_progresso') {
         if (cols === 'feedback') return { feedback: { acumulado: null } }; // semana da acumulada
@@ -366,5 +373,104 @@ describe('finalizarFechamentoCore', () => {
     await finalizarFechamentoCore('tr-1', { empresaId: 'emp-1', token: TOKEN });
     const slot = escritasProgresso().find((e: any) => e.payload.status === 'concluido').payload.feedback;
     expect(JSON.stringify({ r: slot.resumo_avaliacao, q: slot.resumo_avaliacao_rascunho, a: slot.auditoria })).not.toContain(alias);
+  });
+});
+
+/**
+ * Recuperação da redação (19/09/2026). Quando a redação final falha, a pessoa
+ * fica com a devolutiva mínima; `refazerRedacaoFechamento` produz a completa
+ * pelas mesmas regras, SEM nova nota e SEM passar pelo núcleo do relatório
+ * (que dispararia o encadeamento da jornada).
+ */
+describe('refazerRedacaoFechamento', () => {
+  const slotComFalha = (redacao: any = { status: 'falhou', descritores_com_nota_alterada: 1, texto_publicado: 'devolutiva_minima', tentativas: 2 }) => ({
+    id: 'prog-9', status: 'concluido', iniciado_em: '2026-09-08T17:46:46Z',
+    feedback: {
+      ...progHelmar().feedback,
+      avaliacao_por_descritor: [{
+        descritor: 'D1', nota_pre: 2, nota_base_cenario: 2.5, ajuste_arguicao: 0.5, nota_pos: 3,
+        justificativa: 'Combinou por escrito em pessoa@exemplo.com.',
+      }],
+      resumo_avaliacao: { mensagem_geral: 'devolutiva mínima' },
+      resumo_avaliacao_rascunho: { mensagem_geral: 'rascunho: ligue 21 99999-8888', proximos_passos: ['passo'] },
+      redacao_final: redacao,
+    },
+  });
+  const redigidoCom = (nome: string) => ({
+    mensagem_geral: `${nome}, texto novo coerente.`, principal_avanco: 'a', principal_ponto_de_atencao: 'b',
+    mensagem_final: `${nome}, você leva isto.`, evidencias_citadas: [], proximos_passos: ['passo'],
+  });
+  const redacaoOk = () => h.redigir.mockImplementation(async (args: any) => ({
+    status: 'reescrita', resumo: redigidoCom(args.nomeColab), tentativas: 1, sanitizacaoAplicada: false, warnings: [],
+  }));
+  const escritasTrilha = () => h.sb.escritas.filter((e: any) => e.tabela === 'trilhas');
+
+  it('prévia: devolve o texto com o nome real e não grava nada', async () => {
+    h.estado.atual = slotComFalha();
+    redacaoOk();
+    const r = await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1' });
+    if ('erro' in r) throw new Error(r.erro);
+    expect(r).toMatchObject({ ok: true, aplicado: false, status: 'reescrita' });
+    expect(JSON.stringify(r.resumo)).not.toContain('COLAB_');
+    expect(h.sb.escritas).toHaveLength(0);
+  });
+
+  it('aplicar: troca o texto no slot e no relatório, sem passar pelo núcleo do relatório', async () => {
+    h.estado.atual = slotComFalha();
+    h.estado.relatorio = { descritores: [{ descritor: 'D1' }], resumo_avaliacao: { mensagem_geral: 'devolutiva mínima' } };
+    redacaoOk();
+    const r = await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1', aplicar: true });
+    if ('erro' in r) throw new Error(r.erro);
+    expect(r.aplicado).toBe(true);
+
+    const slot = escritasProgresso().find((e: any) => e.op === 'update').payload.feedback;
+    expect(slot.resumo_avaliacao.mensagem_geral).toMatch(/, texto novo coerente\.$/);
+    expect(slot.resumo_avaliacao.mensagem_geral).not.toContain('COLAB_');
+    expect(slot.redacao_final).toMatchObject({ status: 'reescrita', texto_publicado: 'redacao', status_anterior: 'falhou' });
+    expect(slot.avaliacao_por_descritor[0].nota_pos).toBe(3); // a nota não muda
+
+    const rel = escritasTrilha().find((e: any) => e.op === 'update').payload.evolution_report;
+    expect(rel.resumo_avaliacao).toEqual(slot.resumo_avaliacao);
+    expect(rel.descritores).toEqual([{ descritor: 'D1' }]);
+    expect(h.report).not.toHaveBeenCalled(); // o núcleo dispararia o encadeamento
+    expect(h.pontuar).not.toHaveBeenCalled(); // e não há nota nova
+  });
+
+  it('a redação recebe a MESMA base do fechamento, mascarada: nota de antes e final, rascunho e semanas', async () => {
+    h.estado.atual = slotComFalha();
+    redacaoOk();
+    await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1' });
+    const a = h.redigir.mock.calls[0][0];
+    expect(a.nomeColab).toMatch(/^COLAB_/);
+    expect(a.descritores[0]).toMatchObject({ descritor: 'D1', nota_pre: 2, nota_rascunho: 2.5, nota_final: 3 });
+    expect(a.descritores[0].justificativa).not.toContain('pessoa@exemplo.com');
+    expect(JSON.stringify(a.rascunho)).not.toContain('99999-8888');
+    expect(a.evidenciasSemanas).toBe('evidências');
+    expect(a.ledger).toEqual({ empresaId: 'emp-1', colaboradorId: 'col-1' });
+  });
+
+  it.each([
+    [{ status: 'reescrita' }],
+    [{ status: 'desnecessaria' }],
+    [null], // fechamento anterior ao N09: sem carimbo
+  ])('redação %j: nada a refazer, sem chamar a IA', async (redacao) => {
+    h.estado.atual = slotComFalha(redacao);
+    const r = await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1', aplicar: true });
+    expect('erro' in r && r.erro).toMatch(/^nada a refazer/);
+    expect(h.redigir).not.toHaveBeenCalled();
+  });
+
+  it('fechamento não concluído: recusa', async () => {
+    h.estado.atual = { ...slotComFalha(), status: 'em_andamento' };
+    const r = await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1', aplicar: true });
+    expect('erro' in r && r.erro).toBe('fechamento não concluído');
+  });
+
+  it('a redação falha de novo: nada é gravado, a devolutiva mínima continua', async () => {
+    h.estado.atual = slotComFalha();
+    h.redigir.mockResolvedValue({ status: 'falhou', resumo: null, tentativas: 2, sanitizacaoAplicada: false, warnings: ['x'] });
+    const r = await refazerRedacaoFechamento('tr-1', { empresaId: 'emp-1', aplicar: true });
+    expect(r).toMatchObject({ ok: true, aplicado: false, status: 'falhou' });
+    expect(h.sb.escritas).toHaveLength(0);
   });
 });

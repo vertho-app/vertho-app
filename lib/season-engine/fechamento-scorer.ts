@@ -22,7 +22,8 @@
 import { callAI } from '@/actions/ai-client';
 import { promptEvolutionScenarioScore, validateEvolutionScenarioScore } from './prompts/evolution-scenario';
 import { promptEvolutionScenarioCheck, validateEvolutionScenarioCheck } from './prompts/evolution-scenario-check';
-import { promptRedacaoFechamento, validarRedacao } from './prompts/fechamento-redacao';
+import { promptRedacaoFechamento, validarRedacao, type DescritorParaRedacao, type ResumoRedigido } from './prompts/fechamento-redacao';
+import { devolutivaMinima } from './devolutiva-minima';
 import { aplicarTravaPiloto, sanitizarNarrativaPiloto } from './piloto-trava';
 import { anotarAjusteArguicao, fundirArguicao } from './fusao-arguicao';
 import { parseJsonIA } from '@/lib/ai-json';
@@ -149,6 +150,15 @@ export function timeoutDaRedacao(prazoMs: number | undefined, agoraMs: number): 
  */
 export type StatusRedacao = 'desnecessaria' | 'reescrita' | 'falhou' | 'pulada-sem-tempo';
 
+/**
+ * O texto que ficou em `resumo_avaliacao` (o que a pessoa lê):
+ *   · `scorer`: nenhuma nota mudou depois dele; o texto do scorer vale.
+ *   · `redacao`: a redação final reescreveu para as notas finais.
+ *   · `devolutiva_minima`: a redação não saiu; texto montado das notas finais (19/09).
+ *   · `rascunho`: nem a mínima foi possível (nenhum aspecto com nota final).
+ */
+export type TextoPublicado = 'scorer' | 'redacao' | 'devolutiva_minima' | 'rascunho';
+
 export interface PontuarFechamentoMeta {
   tentativas: number;
   sanitizacaoAplicada: boolean;
@@ -158,13 +168,15 @@ export interface PontuarFechamentoMeta {
   arguicaoAjustados?: number;
   /** Ausente só quando o scorer falhou (não houve texto a reescrever). */
   redacao?: StatusRedacao;
+  /** Chamadas feitas à redação final (0 quando não precisou ou não coube). */
+  redacaoTentativas?: number;
   warnings: string[];
 }
 
 const normDescritor = (s: unknown) => String(s || '').trim().toLowerCase();
 
 /** Citação da arguição por descritor, a mesma entrada que a fusão escolheu. */
-function citacoesDaArguicao(ext: ArguicaoExtracao | null | undefined, avaliados: any[]): Map<string, string> {
+export function citacoesDaArguicao(ext: ArguicaoExtracao | null | undefined, avaliados: any[]): Map<string, string> {
   const out = new Map<string, string>();
   const evs = Array.isArray(ext?.evidencias_por_descritor) ? ext!.evidencias_por_descritor : [];
   for (const d of avaliados) {
@@ -173,6 +185,89 @@ function citacoesDaArguicao(ext: ArguicaoExtracao | null | undefined, avaliados:
     const escolhida = doDescritor.find((e) => e?.sustentou === d?.sustentacao_arguicao && e?.forca === d?.forca_arguicao)
       ?? doDescritor[0];
     if (escolhida?.citacao) out.set(chave, escolhida.citacao);
+  }
+  return out;
+}
+
+/** Uma tentativa a mais quando a primeira falha e ainda há prazo (19/09/2026). */
+export const REDACAO_MAX_TENTATIVAS = 2;
+
+export interface RedigirDevolutivaArgs {
+  competencia: string;
+  /** Alias mascarado. */
+  nomeColab: string;
+  perfilDominante?: string | null;
+  config: ProgramaConfig;
+  descritores: DescritorParaRedacao[];
+  /** `resumo_avaliacao` do scorer, mascarado. */
+  rascunho: any;
+  /** Extração da arguição JÁ MASCARADA. */
+  evidenciasArguicao?: ArguicaoExtracao | null;
+  /** Evidências das semanas JÁ MASCARADAS (as mesmas do scorer). */
+  evidenciasSemanas?: string | null;
+  prazoMs?: number;
+  ledger?: { empresaId?: string | null; colaboradorId?: string | null };
+}
+
+export interface RedigirDevolutivaResultado {
+  status: Exclude<StatusRedacao, 'desnecessaria'>;
+  resumo: ResumoRedigido | null;
+  tentativas: number;
+  sanitizacaoAplicada: boolean;
+  warnings: string[];
+}
+
+/**
+ * A redação final em si: prompt, até `REDACAO_MAX_TENTATIVAS` chamadas dentro do
+ * prazo, validação e, no piloto, a mesma trava de duração do rascunho. FONTE
+ * ÚNICA entre o fechamento (`pontuarFechamento`) e a recuperação posterior
+ * (`refazerRedacaoFechamento`), para o texto refeito sair pelas mesmas regras.
+ * Nunca lança: falha vira `status` + `warnings`.
+ */
+export async function redigirDevolutivaFinal(a: RedigirDevolutivaArgs): Promise<RedigirDevolutivaResultado> {
+  const { isPiloto, semanasDegustacao, semanasEvidencia, notaPrograma } = reguaTemporalDoPrograma(a.config);
+  const out: RedigirDevolutivaResultado = { status: 'falhou', resumo: null, tentativas: 0, sanitizacaoAplicada: false, warnings: [] };
+  const { system, user } = promptRedacaoFechamento({
+    competencia: a.competencia, nomeColab: a.nomeColab, perfilDominante: a.perfilDominante,
+    semanasEvidencia, notaPrograma,
+    descritores: a.descritores,
+    rascunho: a.rascunho,
+    arguicao: a.evidenciasArguicao?.resumo ?? null,
+    evidenciasSemanas: a.evidenciasSemanas ?? null,
+  });
+
+  for (let tentativa = 1; tentativa <= REDACAO_MAX_TENTATIVAS; tentativa++) {
+    const timeoutMs = timeoutDaRedacao(a.prazoMs, Date.now());
+    if (timeoutMs === null) {
+      if (tentativa === 1) {
+        out.status = 'pulada-sem-tempo';
+        out.warnings.push('redação final pulada: sem tempo no prazo do fechamento');
+      } else {
+        out.warnings.push('redação final: sem tempo para a 2ª tentativa');
+      }
+      break;
+    }
+    out.tentativas = tentativa;
+    try {
+      const r = await callAI(system, user, {}, REDACAO_MAX_TOKENS, {
+        taskKey: 'sem14_redacao',
+        ...(timeoutMs != null ? { timeoutMs } : {}),
+        empresaId: a.ledger?.empresaId ?? null, colaboradorId: a.ledger?.colaboradorId ?? null,
+      });
+      const redigido = validarRedacao(parseJsonIA(r), a.rascunho);
+      if (!redigido) throw new Error('a resposta veio sem os quatro textos da devolutiva');
+      let resumo: ResumoRedigido = redigido;
+      if (isPiloto) {
+        // A mesma trava de duração do rascunho: texto novo não escapa dela.
+        const san = sanitizarNarrativaPiloto({ resumo_avaliacao: redigido }, semanasDegustacao);
+        if (!san.ok) throw new Error('a narrativa do piloto saiu com a duração errada');
+        resumo = san.parsed.resumo_avaliacao;
+        if (san.alterou) out.sanitizacaoAplicada = true;
+      }
+      return { ...out, status: 'reescrita', resumo };
+    } catch (e: any) {
+      out.warnings.push(`redação final falhou na tentativa ${tentativa} (${e?.message || e})`);
+    }
   }
   return out;
 }
@@ -249,7 +344,7 @@ EXPECTATIVA DESTA RODADA:
 
 export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<PontuarFechamentoResultado> {
   const { competencia, descritores, cenario, resposta, nomeColab, perfilDominante, evidenciasAcumuladas, acumuladoPrimaria, config, regeracao, evidenciasArguicao, checkModel, prazoMs, ledger } = args;
-  const { isPiloto, semanasDegustacao, semanaFinal, semanasEvidencia, notaPrograma } = reguaTemporalDoPrograma(config);
+  const { isPiloto, semanaFinal, semanasEvidencia, notaPrograma } = reguaTemporalDoPrograma(config);
 
   const meta: PontuarFechamentoMeta = {
     tentativas: 0,
@@ -333,61 +428,65 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
 
   // ── Redação final (18/09/2026): a nota já está decidida; o texto que a
   // pessoa lê é reescrito para ela quando mudou depois do scorer. Nunca derruba
-  // o fechamento: se falhar, fica o rascunho e o caller registra a degradação. ──
+  // o fechamento: sem redação válida, sai a devolutiva mínima montada das notas
+  // finais (19/09), e o caller registra a degradação. ──
   const mudaram = parsed.avaliacao_por_descritor.filter((d: any) => {
     const antes = notaDoRascunho.get(normDescritor(d.descritor));
     return typeof antes === 'number' && typeof d.nota_pos === 'number' && Math.abs(d.nota_pos - antes) >= 0.05;
   });
   let rascunhoSubstituido: unknown = null;
+  let textoPublicado: TextoPublicado = 'scorer';
   if (mudaram.length === 0) {
     meta.redacao = 'desnecessaria';
   } else {
-    const timeoutRedacao = timeoutDaRedacao(prazoMs, Date.now());
-    if (timeoutRedacao === null) {
-      meta.redacao = 'pulada-sem-tempo';
-      meta.warnings.push('redação final pulada: sem tempo no prazo do fechamento; ficou o rascunho do scorer');
+    const rascunho = parsed.resumo_avaliacao;
+    const citacoes = citacoesDaArguicao(evidenciasArguicao, parsed.avaliacao_por_descritor);
+    const red = await redigirDevolutivaFinal({
+      competencia, nomeColab, perfilDominante, config,
+      descritores: parsed.avaliacao_por_descritor.map((d: any) => ({
+        descritor: d.descritor,
+        nota_pre: typeof d.nota_pre === 'number' ? d.nota_pre : null,
+        nota_rascunho: notaDoRascunho.get(normDescritor(d.descritor)) ?? null,
+        nota_final: typeof d.nota_pos === 'number' ? d.nota_pos : null,
+        sustentacao_arguicao: d.sustentacao_arguicao ?? null,
+        forca_arguicao: d.forca_arguicao ?? null,
+        citacao_arguicao: citacoes.get(normDescritor(d.descritor)) ?? null,
+        piso_aplicado: !!d.piso_aplicado,
+        justificativa: d.justificativa ?? null,
+      })),
+      rascunho,
+      evidenciasArguicao,
+      evidenciasSemanas: evidenciasAcumuladas ?? null,
+      prazoMs,
+      ledger,
+    });
+    meta.redacao = red.status;
+    meta.redacaoTentativas = red.tentativas;
+    meta.warnings.push(...red.warnings);
+    if (red.sanitizacaoAplicada) meta.sanitizacaoAplicada = true;
+    if (red.resumo) {
+      parsed = { ...parsed, resumo_avaliacao: red.resumo };
+      rascunhoSubstituido = rascunho;
+      textoPublicado = 'redacao';
     } else {
-      const rascunho = parsed.resumo_avaliacao;
-      try {
-        const citacoes = citacoesDaArguicao(evidenciasArguicao, parsed.avaliacao_por_descritor);
-        const { system: sRed, user: uRed } = promptRedacaoFechamento({
-          competencia, nomeColab, perfilDominante, semanasEvidencia, notaPrograma,
-          descritores: parsed.avaliacao_por_descritor.map((d: any) => ({
-            descritor: d.descritor,
-            nota_pre: typeof d.nota_pre === 'number' ? d.nota_pre : null,
-            nota_rascunho: notaDoRascunho.get(normDescritor(d.descritor)) ?? null,
-            nota_final: typeof d.nota_pos === 'number' ? d.nota_pos : null,
-            sustentacao_arguicao: d.sustentacao_arguicao ?? null,
-            forca_arguicao: d.forca_arguicao ?? null,
-            citacao_arguicao: citacoes.get(normDescritor(d.descritor)) ?? null,
-            piso_aplicado: !!d.piso_aplicado,
-            justificativa: d.justificativa ?? null,
-          })),
-          rascunho,
-          arguicao: evidenciasArguicao?.resumo ?? null,
-          evidenciasSemanas: evidenciasAcumuladas ?? null,
-        });
-        const rRed = await callAI(sRed, uRed, {}, REDACAO_MAX_TOKENS, {
-          taskKey: 'sem14_redacao',
-          ...(timeoutRedacao != null ? { timeoutMs: timeoutRedacao } : {}),
-          empresaId: ledger?.empresaId ?? null, colaboradorId: ledger?.colaboradorId ?? null,
-        });
-        const redigido = validarRedacao(parseJsonIA(rRed), rascunho);
-        if (!redigido) throw new Error('a resposta veio sem os quatro textos da devolutiva');
-        let candidato = { ...parsed, resumo_avaliacao: redigido };
-        if (isPiloto) {
-          // A mesma trava de duração do rascunho: texto novo não escapa dela.
-          const san = sanitizarNarrativaPiloto(candidato, semanasDegustacao);
-          if (!san.ok) throw new Error('a narrativa do piloto saiu com a duração errada');
-          candidato = san.parsed;
-          if (san.alterou) meta.sanitizacaoAplicada = true;
-        }
-        parsed = candidato;
+      // Publicar o rascunho devolveria o defeito original (texto da nota de
+      // antes). A mínima é mais curta, mas diz o mesmo que as notas finais.
+      const minima = devolutivaMinima({
+        nomeColab, competencia, isPiloto, rascunho,
+        descritores: parsed.avaliacao_por_descritor.map((d: any) => ({
+          descritor: d.descritor,
+          nota_pre: typeof d.nota_pre === 'number' ? d.nota_pre : null,
+          nota_final: typeof d.nota_pos === 'number' ? d.nota_pos : null,
+        })),
+      });
+      if (minima) {
+        parsed = { ...parsed, resumo_avaliacao: minima };
         rascunhoSubstituido = rascunho;
-        meta.redacao = 'reescrita';
-      } catch (e: any) {
-        meta.redacao = 'falhou';
-        meta.warnings.push(`redação final falhou (${e?.message || e}); ficou o rascunho do scorer`);
+        textoPublicado = 'devolutiva_minima';
+        meta.warnings.push('redação final: publicada a devolutiva mínima montada das notas finais');
+      } else {
+        textoPublicado = 'rascunho';
+        meta.warnings.push('redação final: sem nota final para montar a devolutiva mínima; ficou o rascunho do scorer');
       }
     }
   }
@@ -396,7 +495,12 @@ export async function pontuarFechamento(args: PontuarFechamentoArgs): Promise<Po
   parsed = {
     ...parsed,
     resumo_avaliacao_rascunho: rascunhoSubstituido,
-    redacao_final: { status: meta.redacao, descritores_com_nota_alterada: mudaram.length },
+    redacao_final: {
+      status: meta.redacao,
+      descritores_com_nota_alterada: mudaram.length,
+      texto_publicado: textoPublicado,
+      tentativas: meta.redacaoTentativas ?? 0,
+    },
   };
 
   // Validação-aviso: resumo deve falar com o colaborador, não com personagens
