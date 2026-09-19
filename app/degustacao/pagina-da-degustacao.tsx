@@ -104,32 +104,61 @@ function BotaoPessoal({ passe, destino, children, secundario = false }: {
   );
 }
 
+/*
+  HIERARQUIA (pedido do dono, 18/09): três cartões com o mesmo peso obrigam quem
+  não conhece a plataforma a decidir por onde começar, e essa decisão é trabalho.
+  A visão recomendada leva selo, borda de acento e um botão sólido; as outras
+  continuam abertas, só mais discretas.
+*/
 function CartaoVisao({ visao }: { visao: CartaoDeVisao }) {
   const visto = Boolean(visao.vistoEm);
+  const destaque = visao.recomendada;
   return (
     <a
       href={visao.url}
       data-layout="cartao-visao"
+      data-recomendada={destaque ? 'sim' : 'nao'}
       className="flex items-center gap-4 rounded-2xl border p-4 transition-colors hover:bg-white/[0.07] lg:h-full lg:flex-col lg:items-stretch lg:justify-between lg:gap-8 lg:p-6"
-      style={{ background: COR.card, borderColor: visto ? COR.bordaAcento : COR.borda }}
+      style={{
+        background: destaque ? 'rgba(52,197,204,0.07)' : COR.card,
+        borderColor: destaque || visto ? COR.bordaAcento : COR.borda,
+      }}
     >
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap items-center gap-2">
-          <span className="text-[16px] font-bold lg:text-[19px]" style={{ color: COR.texto }}>{visao.titulo}</span>
+          {destaque && (
+            <span
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
+              style={{ background: COR.acento, color: '#04212B' }}
+            >
+              Comece por aqui
+            </span>
+          )}
           {visto && (
             <span
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
               style={{ background: 'rgba(52,197,204,0.12)', color: COR.acento }}
             >
-              <Check size={11} strokeWidth={3} aria-hidden="true" /> Visto
+              <Check size={11} strokeWidth={3} aria-hidden="true" /> Acessado
             </span>
           )}
         </span>
+        <span className="mt-1 block text-[16px] font-bold lg:text-[19px]" style={{ color: COR.texto }}>{visao.titulo}</span>
         <span className="mt-1 block text-[13.5px] leading-snug lg:mt-2 lg:text-[15px] lg:leading-relaxed" style={{ color: COR.texto2 }}>
           {visao.descricao}
         </span>
       </span>
-      <ArrowRight size={22} className="shrink-0 lg:self-end" style={{ color: COR.acento }} aria-hidden="true" />
+      {destaque ? (
+        <span
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-2xl px-4 py-2.5 text-[14px] font-bold lg:self-start"
+          style={{ background: COR.acento, color: '#04212B' }}
+        >
+          Explorar
+          <ArrowRight size={16} aria-hidden="true" />
+        </span>
+      ) : (
+        <ArrowRight size={22} className="shrink-0 lg:self-end" style={{ color: COR.acento }} aria-hidden="true" />
+      )}
     </a>
   );
 }
@@ -221,7 +250,10 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
                 que cada participante faz no início da jornada.
               </Texto>
             </div>
-            <BotaoPessoal passe={passe} destino="mapeamento">Descobrir meu perfil</BotaoPessoal>
+            {/* Secundário de propósito: enquanto a pessoa não fez o DISC, o
+                botão sólido da página é a visão recomendada. O perfil é opção,
+                não o caminho principal (pedido do dono, 18/09). */}
+            <BotaoPessoal passe={passe} destino="mapeamento" secundario>Descobrir meu perfil</BotaoPessoal>
           </div>
         )}
 
@@ -323,7 +355,7 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
         Conheça a Vertho <em style={{ color: COR.acento }}>por dentro</em>
       </h1>
       <p className="mt-3 text-[15px] leading-relaxed lg:mt-4 lg:max-w-[640px] lg:text-[18px]" style={{ color: COR.texto2 }}>
-        A plataforma funcionando {pagina.contexto}. Escolha por onde começar.
+        A plataforma funcionando {pagina.contexto}. Comece pela visão em destaque, ou explore outra perspectiva.
       </p>
 
       {avisoTexto && <Aviso texto={avisoTexto} />}

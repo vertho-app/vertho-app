@@ -461,6 +461,17 @@ export const COPIA_DEGUSTACAO_GUIADA: Record<DemoProspectTenantSlug, CopiaDaDegu
   },
 };
 
+/**
+ * Qual visao entra em destaque na pagina de boas-vindas.
+ *
+ * Hoje e fixa: o convite ainda nao carrega a recomendacao do comercial (decisao
+ * de coluna pendente com o dono). Quando carregar, este valor vira o PADRAO de
+ * quem nao escolheu, que e exatamente o que o dono pediu para os convites ja
+ * enviados. Tres cartoes com o mesmo peso obrigam o lead a decidir sem saber
+ * nada da plataforma, e essa decisao e trabalho.
+ */
+export const VISAO_RECOMENDADA_PADRAO: AcmeProspectPresentationRoleKey = 'gestor';
+
 export function copiaDaDegustacaoGuiada(slug: string): CopiaDaDegustacaoGuiada {
   return Object.prototype.hasOwnProperty.call(COPIA_DEGUSTACAO_GUIADA, slug)
     ? COPIA_DEGUSTACAO_GUIADA[slug as DemoProspectTenantSlug]

@@ -95,6 +95,29 @@ describe('página de boas-vindas da degustação B', () => {
     expect(pagina.primeiroNome).toBe('Andrea');
   });
 
+  it('🔴 exatamente uma visão é a recomendada, e ela vem primeiro', async () => {
+    // Três cartões com o mesmo peso devolvem a decisão para quem não conhece a
+    // plataforma. A recomendada leva o destaque e abre a lista.
+    const pagina: any = await carregarPaginaDaDegustacao({ passe: passe() }, 'acme-demo.vertho.ai');
+    const recomendadas = pagina.visoes.filter((v: any) => v.recomendada);
+    expect(recomendadas).toHaveLength(1);
+    expect(pagina.visoes[0].recomendada).toBe(true);
+    expect(pagina.visoes[0].roleKey).toBe('gestor');
+    // e as outras duas continuam abertas, só sem destaque
+    expect(pagina.visoes.slice(1).every((v: any) => v.recomendada === false)).toBe(true);
+    expect(pagina.visoes).toHaveLength(3);
+  });
+
+  it('🔴 a recomendada SOBE para o topo, mesmo não sendo a primeira da cópia', async () => {
+    // Prova a ordenação de verdade: com o padrão (gestor) ela já nasceria em
+    // primeiro pela cópia do ambiente, e a ordenação passaria despercebida.
+    const pagina: any = await carregarPaginaDaDegustacao({ passe: passe() }, 'acme-demo.vertho.ai', new Date(), 'rh');
+    expect(pagina.visoes[0].roleKey).toBe('rh');
+    expect(pagina.visoes[0].recomendada).toBe(true);
+    // as outras duas mantêm a ordem pensada da cópia
+    expect(pagina.visoes.slice(1).map((v: any) => v.roleKey)).toEqual(['gestor', 'usuario']);
+  });
+
   it('escolas usam os hosts e a cópia da rede de escolas', async () => {
     const pagina: any = await carregarPaginaDaDegustacao({ passe: passe('escolas-acme') }, 'escolas-acme.vertho.ai');
     expect(pagina.visoes[0].titulo).toBe('O que a coordenação acompanha');

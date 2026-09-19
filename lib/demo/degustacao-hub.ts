@@ -3,6 +3,7 @@ import 'server-only';
 import {
   copiaDaDegustacaoGuiada,
   passoPessoalDaDegustacao,
+  VISAO_RECOMENDADA_PADRAO,
   type AcmeProspectPresentationRoleKey,
   type EstadoPessoalDegustacao,
   type PassoPessoalDegustacao,
@@ -22,6 +23,8 @@ export type CartaoDeVisao = {
   descricao: string;
   url: string;
   vistoEm: string | null;
+  /** Vem primeiro e leva o destaque: e por ela que a pagina sugere comecar. */
+  recomendada: boolean;
 };
 
 /**
@@ -68,6 +71,10 @@ export async function carregarPaginaDaDegustacao(
   identificacao: IdentificacaoDaPagina,
   hostname: string,
   agora: Date = new Date(),
+  // Qual visao entra em destaque. Hoje sempre o padrao; quando o convite passar
+  // a carregar a recomendacao do comercial, ela entra por aqui sem mexer no
+  // resto da pagina.
+  recomendada: AcmeProspectPresentationRoleKey = VISAO_RECOMENDADA_PADRAO,
 ): Promise<PaginaDaDegustacao> {
   const colunas = [
     'colaborador_id',
@@ -160,8 +167,12 @@ export async function carregarPaginaDaDegustacao(
       descricao: visao.descricao,
       url: url.toString(),
       vistoEm: (sessao[COLUNA_DA_VISAO[visao.roleKey]] as string | null) || null,
+      recomendada: visao.roleKey === recomendada,
     };
   });
+  // A recomendada vem primeiro, sem embaralhar as outras duas: a ordem do resto
+  // e a da copia do ambiente, que ja foi pensada.
+  visoes.sort((a, b) => Number(b.recomendada) - Number(a.recomendada));
 
   const estado: EstadoPessoalDegustacao = {
     discFeito,
