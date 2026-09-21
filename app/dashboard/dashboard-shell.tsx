@@ -9,6 +9,7 @@ import { Home, Clock, Play, TrendingUp, User, LogOut, Users2, ListOrdered, Shiel
 import BetoChat from '@/components/beto-chat';
 import { UserAvatar } from '@/components/user-avatar';
 import { PresentationEnvironment } from '@/components/dashboard/presentation-role-switcher';
+import PresentationNavigation from '@/components/dashboard/presentation-navigation';
 import type { TenantTheme } from '@/lib/ui-resolver';
 
 type NavItem = {
@@ -374,6 +375,7 @@ export default function DashboardShell({ children, theme = DEFAULT_THEME }: { ch
 
       {/* Content */}
       <main className={`flex-1 overflow-y-auto md:ml-20 ${isImmersiveContent ? 'pb-0' : 'pb-[calc(var(--nav-height)+72px)] md:pb-0'}`}>
+        <PresentationNavigation />
         {children}
       </main>
 

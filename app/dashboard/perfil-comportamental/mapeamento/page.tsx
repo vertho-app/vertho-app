@@ -339,9 +339,7 @@ export default function MapeamentoPage() {
     const pularWelcome = !!userEmail;
     const irPra = pularWelcome ? PHASE.NATURAL_INTRO : PHASE.WELCOME;
     return (
-      <div className="max-w-[560px] mx-auto px-4 py-8">
-        <BackButton href="/dashboard/perfil-comportamental" className="mb-6" />
-
+      <div className="w-full" data-mapeamento="onboarding">
         <Image src="/logo-vertho.png" alt="Vertho" width={120} height={40} className="mb-5" />
 
         <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{t('onboarding.title')}</h1>
@@ -355,64 +353,71 @@ export default function MapeamentoPage() {
           ))}
         </div>
 
-        {/* Vídeo de instruções — capa clicável → modal (com tracking de view) */}
-        <button
-          onClick={() => setShowVideo(true)}
-          className="group relative block w-full aspect-video rounded-2xl overflow-hidden border border-white/10 mb-8 active:scale-[0.99] transition-transform"
-          aria-label={t('onboarding.watchVideo')}
-        >
-          <img
-            src={`/api/bunny-thumb/${INSTRUCTIONS_VIDEO_ID}?v=${INSTRUCTIONS_THUMB_V}`}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover"
-            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-            <span className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-110"
-              style={{ background: 'rgba(0,180,216,0.92)' }}>
-              <Play size={24} className="text-white translate-x-0.5" fill="currentColor" />
-            </span>
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] lg:gap-10" data-mapeamento="introducao-grid">
+          <div className="min-w-0">
+            {/* Vídeo de instruções — capa clicável → modal (com tracking de view) */}
+            <button
+              onClick={() => setShowVideo(true)}
+              className="group relative block w-full aspect-video rounded-2xl overflow-hidden border border-white/10 mb-5 active:scale-[0.99] transition-transform"
+              aria-label={t('onboarding.watchVideo')}
+            >
+              <img
+                src={`/api/bunny-thumb/${INSTRUCTIONS_VIDEO_ID}?v=${INSTRUCTIONS_THUMB_V}`}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/10" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <span className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-110"
+                  style={{ background: 'rgba(0,180,216,0.92)' }}>
+                  <Play size={24} className="text-white translate-x-0.5" fill="currentColor" />
+                </span>
+              </div>
+              <span className="absolute bottom-3 left-4 right-4 text-left text-sm font-semibold text-white drop-shadow">
+                {t('onboarding.watchVideo')}
+              </span>
+            </button>
+
+            <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4 mb-4">
+              <p className="text-[11px] font-bold uppercase tracking-widest text-brand-400 mb-2">{t('onboarding.howQuestionsWork')}</p>
+              <div className="space-y-2 text-xs text-gray-300 leading-relaxed">
+                <p>{t.rich('onboarding.rankingHelp', { strong: (chunks) => <b>{chunks}</b>, most: (chunks) => <span className="text-emerald-400 font-bold">{chunks}</span>, least: (chunks) => <span className="text-red-400 font-bold">{chunks}</span> })}</p>
+                <p>{t.rich('onboarding.pairsHelp', { strong: (chunks) => <b>{chunks}</b> })}</p>
+              </div>
+            </div>
+
           </div>
-          <span className="absolute bottom-3 left-4 right-4 text-left text-sm font-semibold text-white drop-shadow">
-            {t('onboarding.watchVideo')}
-          </span>
-        </button>
+          <div className="min-w-0">
+            <div className="space-y-4 mb-5">
+              <InstructionCard
+                numero={1}
+                titulo={<span className="text-teal-400">{t('blocks.natural.title')}</span>}
+                descricao={t.rich('onboarding.naturalDescription', { strong: (chunks) => <b>{chunks}</b> })}
+              />
+              <InstructionCard
+                numero={2}
+                titulo={t('onboarding.learningTitle')}
+                descricao={t.rich('onboarding.learningDescription', { strong: (chunks) => <b>{chunks}</b> })}
+              />
+            </div>
 
-        <div className="space-y-4 mb-8">
-          <InstructionCard
-            numero={1}
-            titulo={<span className="text-teal-400">{t('blocks.natural.title')}</span>}
-            descricao={t.rich('onboarding.naturalDescription', { strong: (chunks) => <b>{chunks}</b> })}
-          />
-          <InstructionCard
-            numero={2}
-            titulo={t('onboarding.learningTitle')}
-            descricao={t.rich('onboarding.learningDescription', { strong: (chunks) => <b>{chunks}</b> })}
-          />
-        </div>
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 mb-6">
+              <p className="text-xs text-amber-200 leading-relaxed">
+                {t.rich('onboarding.tip', { strong: (chunks) => <b>{chunks}</b> })}
+              </p>
+            </div>
 
-        <div className="rounded-xl bg-white/[0.03] border border-white/10 p-4 mb-4">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-brand-400 mb-2">{t('onboarding.howQuestionsWork')}</p>
-          <div className="space-y-2 text-xs text-gray-300 leading-relaxed">
-            <p>{t.rich('onboarding.rankingHelp', { strong: (chunks) => <b>{chunks}</b>, most: (chunks) => <span className="text-emerald-400 font-bold">{chunks}</span>, least: (chunks) => <span className="text-red-400 font-bold">{chunks}</span> })}</p>
-            <p>{t.rich('onboarding.pairsHelp', { strong: (chunks) => <b>{chunks}</b> })}</p>
+            <button
+              onClick={() => setPhase(irPra)}
+              className="w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide transition-all hover:opacity-90 active:scale-[0.99]"
+              style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)' }}
+            >
+              {t('onboarding.start')}
+            </button>
+
           </div>
         </div>
-
-        <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 mb-6">
-          <p className="text-xs text-amber-200 leading-relaxed">
-            {t.rich('onboarding.tip', { strong: (chunks) => <b>{chunks}</b> })}
-          </p>
-        </div>
-
-        <button
-          onClick={() => setPhase(irPra)}
-          className="w-full py-3 rounded-xl font-bold text-white text-sm tracking-wide transition-all hover:opacity-90 active:scale-[0.99]"
-          style={{ background: 'linear-gradient(135deg, #00B4D8, #0D9488)' }}
-        >
-          {t('onboarding.start')}
-        </button>
 
         {showVideo && (
           <VideoModal
@@ -431,7 +436,7 @@ export default function MapeamentoPage() {
   if (phase === PHASE.WELCOME) {
     const canStart = formName.trim() && formEmail.trim() && formGender;
     return (
-      <div className="max-w-[440px] mx-auto px-4 py-8">
+      <div className="mx-auto w-full max-w-3xl py-3">
         <BackButton onClick={() => setPhase(PHASE.ONBOARDING)} className="mb-6" />
         <h2 className="text-xl font-bold text-white mb-1">{t('welcome.title')}</h2>
         <p className="text-sm text-gray-400 mb-6">{t('welcome.subtitle')}</p>
@@ -486,7 +491,7 @@ export default function MapeamentoPage() {
   /* ═══════════════════ ABERTURA DO BLOCO NATURAL ═══════════════════ */
   if (phase === PHASE.NATURAL_INTRO) {
     return (
-      <div className="max-w-[520px] mx-auto px-4 py-10">
+      <div className="mx-auto w-full max-w-4xl py-3">
         <BackButton onClick={() => setPhase(PHASE.ONBOARDING)} className="mb-8" />
 
         <div className="flex items-center gap-2 mb-4">
@@ -571,79 +576,85 @@ export default function MapeamentoPage() {
     };
 
     return (
-      <div className="max-w-[560px] mx-auto px-4 py-6">
+      <div className="w-full py-3" data-mapeamento="perguntas">
         {/* Progress header */}
         <div className="flex justify-between text-[11px] text-gray-500 font-medium mb-4">
           <span>{label} — Rankings</span>
           <span>{progressPct}%</span>
         </div>
 
-        <BlockContextHeader etapa="ranking" t={t} />
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.3fr)] lg:gap-10">
+          <aside className="min-w-0">
+            <BlockContextHeader etapa="ranking" t={t} />
+          </aside>
+          <div className="min-w-0">
 
-        {/* Phase tag + title */}
-        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{label}</p>
-        <h1 className="text-[26px] font-black text-white leading-tight mb-2">{t('ranking.group', { number: String(groupIdx + 1).padStart(2, '0') })}</h1>
+            {/* Phase tag + title */}
+            <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{label}</p>
+            <h1 className="text-[26px] font-black text-white leading-tight mb-2">{t('ranking.group', { number: String(groupIdx + 1).padStart(2, '0') })}</h1>
 
-        {/* Dots */}
-        <div className="flex gap-1 mb-6">
-          {Array.from({ length: 8 }, (_, i) => (
-            <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < groupIdx ? 'bg-teal-500' : i === groupIdx ? 'bg-brand-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
-          ))}
-        </div>
-
-        {/* Top label */}
-        <p className="text-center text-[15px] font-semibold text-green-400 mb-3">{t('ranking.mostSimilar')}</p>
-
-        {/* Ranking cards */}
-        <div className="space-y-2 mb-3">
-          {group.map((item, idx) => (
-            <div
-              key={item.k + idx}
-              draggable
-              onDragStart={(e) => handleDragStart(e, idx)}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, idx)}
-              className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-white/[0.04] cursor-grab active:cursor-grabbing active:border-brand-400/40 active:scale-[1.02] transition-all"
-              style={{ background: '#182B48' }}
-            >
-              <span className="w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-extrabold flex-shrink-0"
-                style={{ background: 'rgba(45,212,191,0.12)', color: '#2DD4BF' }}>
-                {idx + 1}
-              </span>
-              <span className="flex-1 text-[16px] text-white font-semibold">{t(`ranking.words.${item.k}`)}</span>
-              <div className="flex gap-1">
-                <button
-                  disabled={idx === 0}
-                  onClick={() => moveItem(groupIdx, idx, -1)}
-                  className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-brand-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
-                  style={{ background: 'rgba(255,255,255,0.04)' }}
-                >
-                  <ChevronUp size={16} strokeWidth={3} />
-                </button>
-                <button
-                  disabled={idx === 3}
-                  onClick={() => moveItem(groupIdx, idx, 1)}
-                  className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-brand-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
-                  style={{ background: 'rgba(255,255,255,0.04)' }}
-                >
-                  <ChevronDown size={16} strokeWidth={3} />
-                </button>
-              </div>
+            {/* Dots */}
+            <div className="flex gap-1 mb-6">
+              {Array.from({ length: 8 }, (_, i) => (
+                <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < groupIdx ? 'bg-teal-500' : i === groupIdx ? 'bg-brand-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
+              ))}
             </div>
-          ))}
+
+            {/* Top label */}
+            <p className="text-center text-[15px] font-semibold text-green-400 mb-3">{t('ranking.mostSimilar')}</p>
+
+            {/* Ranking cards */}
+            <div className="space-y-2 mb-3">
+              {group.map((item, idx) => (
+                <div
+                  key={item.k + idx}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, idx)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, idx)}
+                  className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-white/[0.04] cursor-grab active:cursor-grabbing active:border-brand-400/40 active:scale-[1.02] transition-all"
+                  style={{ background: '#182B48' }}
+                >
+                  <span className="w-7 h-7 rounded-lg flex items-center justify-center text-[12px] font-extrabold flex-shrink-0"
+                    style={{ background: 'rgba(45,212,191,0.12)', color: '#2DD4BF' }}>
+                    {idx + 1}
+                  </span>
+                  <span className="flex-1 text-[16px] text-white font-semibold">{t(`ranking.words.${item.k}`)}</span>
+                  <div className="flex gap-1">
+                    <button
+                      disabled={idx === 0}
+                      onClick={() => moveItem(groupIdx, idx, -1)}
+                      className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-brand-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
+                      style={{ background: 'rgba(255,255,255,0.04)' }}
+                    >
+                      <ChevronUp size={16} strokeWidth={3} />
+                    </button>
+                    <button
+                      disabled={idx === 3}
+                      onClick={() => moveItem(groupIdx, idx, 1)}
+                      className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-brand-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
+                      style={{ background: 'rgba(255,255,255,0.04)' }}
+                    >
+                      <ChevronDown size={16} strokeWidth={3} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom label */}
+            <p className="text-center text-[15px] font-semibold text-amber-400 mb-6">{t('ranking.leastSimilar')}</p>
+
+            {/* Advance button */}
+            <button
+              onClick={nextRankGroup}
+              className="w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase"
+              style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
+            >
+              {t('next')}
+            </button>
+          </div>
         </div>
-
-        {/* Bottom label */}
-        <p className="text-center text-[15px] font-semibold text-amber-400 mb-6">{t('ranking.leastSimilar')}</p>
-
-        {/* Advance button */}
-        <button
-          onClick={nextRankGroup}
-          className="w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase"
-          style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
-        >
-          {t('next')}
-        </button>
       </div>
     );
   }
@@ -655,7 +666,7 @@ export default function MapeamentoPage() {
     const label = t('labels.natural');
 
     return (
-      <div className="max-w-[560px] mx-auto px-4 py-6">
+      <div className="w-full py-3" data-mapeamento="perguntas">
         {/* Progress header */}
         <div className="flex justify-between items-center text-[11px] text-gray-500 font-medium mb-1">
           <span>{label} — Pares</span>
@@ -665,60 +676,66 @@ export default function MapeamentoPage() {
           <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #2DD4BF, #FCD34D)' }} />
         </div>
 
-        <BlockContextHeader etapa="pares" t={t} />
+        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.3fr)] lg:gap-10">
+          <aside className="min-w-0">
+            <BlockContextHeader etapa="pares" t={t} />
+          </aside>
+          <div className="min-w-0">
 
-        {/* Phase tag + title */}
-        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{label} — {t('pairs.quickChoice')}</p>
-        <h1 className="text-[26px] font-black text-white leading-tight mb-2">{t('pairs.pair', { current: pairIdx + 1, total: 6 })}</h1>
+            {/* Phase tag + title */}
+            <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{label} — {t('pairs.quickChoice')}</p>
+            <h1 className="text-[26px] font-black text-white leading-tight mb-2">{t('pairs.pair', { current: pairIdx + 1, total: 6 })}</h1>
 
-        {/* Dots */}
-        <div className="flex gap-1 mb-6">
-          {Array.from({ length: 6 }, (_, i) => (
-            <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < pairIdx ? 'bg-teal-500' : i === pairIdx ? 'bg-brand-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
-          ))}
+            {/* Dots */}
+            <div className="flex gap-1 mb-6">
+              {Array.from({ length: 6 }, (_, i) => (
+                <div key={i} className={`w-[7px] h-[7px] rounded-full transition-all ${i < pairIdx ? 'bg-teal-500' : i === pairIdx ? 'bg-brand-400 shadow-[0_0_8px_rgba(0,180,216,0.5)]' : 'bg-white/[0.08]'}`} />
+              ))}
+            </div>
+
+            {/* Question */}
+            <p className="text-center text-[15px] font-semibold text-gray-300 mb-4">{t('pairs.question')}</p>
+
+            {/* Option A */}
+            <button
+              onClick={() => selectPair(pairIdx, pair.fa)}
+              className="w-full text-center px-5 py-5 rounded-2xl border-2 transition-all mb-2"
+              style={{
+                background: selected === pair.fa ? 'rgba(45,212,191,0.08)' : '#182B48',
+                borderColor: selected === pair.fa ? '#2DD4BF' : 'transparent',
+                boxShadow: selected === pair.fa ? '0 0 16px rgba(45,212,191,0.15)' : 'none',
+              }}
+            >
+              <span className="text-[16px] font-semibold text-white leading-relaxed">{t(`pairs.options.${pair.a}`)}</span>
+            </button>
+
+            {/* OU */}
+            <p className="text-center text-[13px] font-extrabold text-gray-500 tracking-[2px] py-1.5">{t('pairs.or')}</p>
+
+            {/* Option B */}
+            <button
+              onClick={() => selectPair(pairIdx, pair.fb)}
+              className="w-full text-center px-5 py-5 rounded-2xl border-2 transition-all"
+              style={{
+                background: selected === pair.fb ? 'rgba(45,212,191,0.08)' : '#182B48',
+                borderColor: selected === pair.fb ? '#2DD4BF' : 'transparent',
+                boxShadow: selected === pair.fb ? '0 0 16px rgba(45,212,191,0.15)' : 'none',
+              }}
+            >
+              <span className="text-[16px] font-semibold text-white leading-relaxed">{t(`pairs.options.${pair.b}`)}</span>
+            </button>
+
+            {/* Advance */}
+            <button
+              disabled={!selected}
+              onClick={nextPair}
+              className="mt-5 w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase disabled:opacity-30 transition-all"
+              style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
+            >
+              {t('next')}
+            </button>
+          </div>
         </div>
-
-        {/* Question */}
-        <p className="text-center text-[15px] font-semibold text-gray-300 mb-4">{t('pairs.question')}</p>
-
-        {/* Option A */}
-        <button
-          onClick={() => selectPair(pairIdx, pair.fa)}
-          className="w-full text-center px-5 py-5 rounded-2xl border-2 transition-all mb-2"
-          style={{
-            background: selected === pair.fa ? 'rgba(45,212,191,0.08)' : '#182B48',
-            borderColor: selected === pair.fa ? '#2DD4BF' : 'transparent',
-            boxShadow: selected === pair.fa ? '0 0 16px rgba(45,212,191,0.15)' : 'none',
-          }}
-        >
-          <span className="text-[16px] font-semibold text-white leading-relaxed">{t(`pairs.options.${pair.a}`)}</span>
-        </button>
-
-        {/* OU */}
-        <p className="text-center text-[13px] font-extrabold text-gray-500 tracking-[2px] py-1.5">{t('pairs.or')}</p>
-
-        {/* Option B */}
-        <button
-          onClick={() => selectPair(pairIdx, pair.fb)}
-          className="w-full text-center px-5 py-5 rounded-2xl border-2 transition-all"
-          style={{
-            background: selected === pair.fb ? 'rgba(45,212,191,0.08)' : '#182B48',
-            borderColor: selected === pair.fb ? '#2DD4BF' : 'transparent',
-            boxShadow: selected === pair.fb ? '0 0 16px rgba(45,212,191,0.15)' : 'none',
-          }}
-        >
-          <span className="text-[16px] font-semibold text-white leading-relaxed">{t(`pairs.options.${pair.b}`)}</span>
-        </button>
-
-        {/* Advance */}
-        <button
-          disabled={!selected}
-          onClick={nextPair}
-          className="mt-5 w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase disabled:opacity-30 transition-all"
-          style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
-        >
-          {t('next')}
-        </button>
       </div>
     );
   }
@@ -727,7 +744,7 @@ export default function MapeamentoPage() {
   if (phase === PHASE.LEARNING) {
     const allRated = Object.values(learnPrefs).every(v => v > 0);
     return (
-      <div className="max-w-[480px] mx-auto px-4 py-6">
+      <div className="mx-auto w-full max-w-5xl py-3" data-mapeamento="aprendizagem">
         {/* Progress header */}
         <div className="flex justify-between items-center text-[11px] text-gray-500 font-medium mb-1">
           <span>{t('learning.progressTitle')}</span>
@@ -742,18 +759,18 @@ export default function MapeamentoPage() {
         <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{t('learning.title')}</h1>
         <p className="text-[14px] text-gray-400 mb-5">{t('learning.subtitle')}</p>
 
-        {/* Format rows */}
-        <div className="space-y-2">
+        {/* Duas colunas no computador; cada formato mantém sua escala completa. */}
+        <div className="grid gap-3 lg:grid-cols-2">
           {FORMATS.map(fmt => (
-            <div key={fmt.id} className="flex items-center gap-3 px-3 py-3 rounded-xl" style={{ background: '#182B48' }}>
+            <div key={fmt.id} className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 p-4 rounded-xl" style={{ background: '#182B48' }}>
               <span className="text-[18px] shrink-0">{fmt.icon}</span>
               <span className="flex-1 text-[14px] font-semibold text-white leading-snug">{t(`learning.formats.${fmt.id}`)}</span>
-              <div className="flex gap-0.5">
+              <div className="col-span-2 flex gap-2">
                 {[1, 2, 3, 4, 5].map(star => (
                   <button
                     key={star}
                     onClick={() => setLearnPrefs(prev => ({ ...prev, [fmt.id]: star }))}
-                    className="w-8 h-8 rounded-md flex items-center justify-center text-base transition-all"
+                    className="h-11 flex-1 rounded-md flex items-center justify-center text-lg transition-all"
                     style={{
                       background: learnPrefs[fmt.id] >= star ? 'rgba(252,211,77,0.15)' : 'rgba(255,255,255,0.04)',
                       color: learnPrefs[fmt.id] >= star ? '#FCD34D' : '#64748B',
@@ -793,7 +810,7 @@ export default function MapeamentoPage() {
   /* ═══════════════════ CLOSING (vídeo de encerramento) ═══════════════════ */
   if (phase === PHASE.CLOSING) {
     return (
-      <div className="max-w-[480px] mx-auto px-4 py-6">
+      <div className="mx-auto w-full max-w-4xl py-3">
         <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{t('closing.tag')}</p>
         <h1 className="text-[26px] font-black text-white leading-tight mb-2" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{t('closing.title')}</h1>
         <p className="text-[14px] text-gray-400 leading-relaxed mb-6">{t('closing.subtitle')}</p>

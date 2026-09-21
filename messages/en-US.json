@@ -521,6 +521,7 @@
       "en-US": "English (US)"
     },
     "actions": {
+      "backToHome": "Back to home",
       "back": "Back",
       "enter": "Enter",
       "close": "Close",

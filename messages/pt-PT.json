@@ -521,6 +521,7 @@
       "en-US": "Inglês (EUA)"
     },
     "actions": {
+      "backToHome": "Voltar ao início",
       "back": "Voltar",
       "enter": "Entrar",
       "close": "Fechar",

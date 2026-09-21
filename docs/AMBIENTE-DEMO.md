@@ -1,5 +1,28 @@
 # Ambientes de Demonstração
 
+## Retorno aos painéis e mapeamento responsivo — 21/09/2026
+
+As telas das salas online mostram, no topo, **Voltar ao painel do RH**, **Voltar
+ao painel do gestor** ou **Voltar ao início do colaborador** quando a pessoa está
+fora da home daquele papel. Na rede escolar, os rótulos usam direção, coordenação
+e professor. O retorno não depende do histórico do navegador nem da dica de
+perguntas: continua disponível depois de dispensá-la e recarregar a página.
+
+Quem veio do convite também vê **Início da degustação**, com o mesmo código curto
+da sua sessão. Esse link sai da prévia em iframe quando o dispositivo escolhido
+é celular. Os seletores de papel e dispositivo continuam disponíveis no rodapé.
+
+O DISC tem um contêiner de até 1.200 px: vídeo e orientações lado a lado no desktop,
+instruções ao lado das respostas nos rankings/pares e preferências em duas colunas.
+No celular, os blocos ficam em uma coluna; a escala de estrelas tem área de toque
+de 44 px. Todas as etapas oferecem **Voltar ao início**, apontando para `/dashboard`.
+Para o convidado B, essa rota devolve ao roteiro do seu convite. Não apontar para
+`/dashboard/perfil-comportamental`: sem resultado, essa página redireciona para o
+mapeamento e causa um ciclo de navegação.
+
+Regressão: `tests/unit/degustacao-navegacao.test.ts` cobre os destinos nos nove papéis,
+códigos inválidos, saída do iframe e retorno do DISC sem o ciclo do perfil vazio.
+
 ## Apresentações sem internet
 
 | Demo | Endereço | Pacote inicial |
