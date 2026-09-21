@@ -45,7 +45,7 @@ const css = await postcss([tailwind({ base: process.cwd() })]).process(readFileS
 });
 writeFileSync(`${dir}/globals.css`, css.css);
 const html =
-  '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/globals.css"><link rel="stylesheet" href="/app.css"><style>@font-face{font-family:Inter;src:url(/inter.woff2)}body{font-family:Inter,sans-serif;min-height:100vh;margin:0;background:#fff}</style><div id="root"></div><script src="/app.js"></script></html>';
+  '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/globals.css"><link rel="stylesheet" href="/app.css"><style>@font-face{font-family:Inter;src:url(/inter.woff2)}@font-face{font-family:Instrument;src:url(/instrument-serif-italic.woff2);font-style:italic}body{--font-serif:Instrument;--font-inter:Inter;font-family:Inter,sans-serif;min-height:100vh;margin:0;background:#091d35}</style><div id="root"></div><script src="/app.js"></script></html>';
 const server = createServer((req, res) => {
   const name = new URL(req.url, 'http://localhost').pathname.slice(1);
   if (!name) {
@@ -58,6 +58,7 @@ const server = createServer((req, res) => {
     'app.css': `${dir}/app.css`,
     'globals.css': `${dir}/globals.css`,
     'inter.woff2': 'app/fonts/inter.woff2',
+    'instrument-serif-italic.woff2': 'app/fonts/instrument-serif-italic.woff2',
   };
   if (!files[name]) {
     res.statusCode = 404;
@@ -88,6 +89,17 @@ try {
   assert.ok(!/·\s*\d/.test(opcao || ''), `versão do caso na tela de quem treina: ${opcao}`);
   await page.getByText('Procedimentos do caso', { exact: true }).waitFor();
   assert.equal(await page.getByText('Procedimentos da clínica').count(), 0);
+  // O atendimento compartilha a largura e a tipografia do shell de vendas.
+  await page.evaluate(() => document.fonts.ready);
+  const hero = page.getByRole('heading', { level: 1 });
+  assert.equal(await hero.evaluate(el => getComputedStyle(el).fontStyle), 'italic');
+  assert.equal(await hero.evaluate(el => getComputedStyle(el.closest('header').parentElement).maxWidth), '1100px');
+  assert.equal(await page.getByRole('button', { name: 'Iniciar atendimento', exact: true }).evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(34, 211, 238)');
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    assert.equal(await semRolagemLateral(page), true, `overflow início em ${width}px`);
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.screenshot({ path: `${dir}/inicio-desktop.png`, fullPage: true });
   checks++;
 
@@ -184,6 +196,7 @@ try {
   await page.goto(`${origin}/?evolucao=1`);
   const evolucao = page.getByRole('region', { name: 'Sua evolução', exact: true });
   await evolucao.waitFor();
+  assert.notEqual(await evolucao.locator('li').first().evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)');
   await expect(evolucao.getByText('Subiu de nível', { exact: true })).toHaveCount(2);
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await semRolagemLateral(page), true, 'overflow evolução no celular');

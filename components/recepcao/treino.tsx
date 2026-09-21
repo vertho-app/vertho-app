@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { PageContainer, PageHero } from '@/components/page-shell';
 import { RECEPCAO_SESSAO } from '@/lib/status';
 import { NIVEIS, rotuloClassificacao } from '@/lib/recepcao/schema';
 import {
@@ -337,17 +338,14 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       : tipo.replaceAll('_', ' ');
 
   return (
-    <main className={styles.root}>
-      <header className={styles.header}>
-        <div>
-          <p className={styles.eyebrow}>
-            {t('eyebrow', { segment: t(`segment_${dominioEmpresa}`) })}
-          </p>
-          <h1>{t('title')}</h1>
-          <p>{t('subtitle')}</p>
-        </div>
-        <span className={styles.piloto}>{t('pilotBadge')}</span>
-      </header>
+    <PageContainer className={styles.root}>
+      <PageHero
+        showBack={false}
+        eyebrow={t('eyebrow', { segment: t(`segment_${dominioEmpresa}`) })}
+        title={t('title')}
+        subtitle={t('subtitle')}
+        actions={<span className={styles.piloto}>{t('pilotBadge')}</span>}
+      />
       {admin && (
         <section className={styles.admin} aria-label={t('adminArea')}>
           <label>
@@ -473,7 +471,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
           </div>
         )}
         {carregando ? (
-          <div className={styles.empty}>
+          <div role="status" className={styles.empty}>
             <Loader2 className={styles.spin} /> {t('loading')}
           </div>
         ) : !dados ? (
@@ -1013,6 +1011,6 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
           </>
         )}
       </div>
-    </main>
+    </PageContainer>
   );
 }
