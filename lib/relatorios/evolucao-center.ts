@@ -3,6 +3,7 @@ import { TRILHA } from '@/lib/status';
 import { CONVERGENCIA, rotuloConvergencia, type Convergencia } from '@/lib/season-engine/convergencia';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { fechoDoRelatorio } from '@/lib/season-engine/resumo-avaliacao';
+import { descritorParaHumano } from '@/lib/descritor-humano';
 
 /**
  * Painel executivo de EVOLUÇÃO do RH — a resposta para "quem evoluiu, em quê e
@@ -86,6 +87,7 @@ export type EvolucaoCentro = {
     percentual: number;
   };
   resumo: {
+    /** Leituras por pessoa e competência. Uma pessoa em duas competências conta duas vezes. */
     confirmadas: number;
     parciais: number;
     estaveis: number;
@@ -97,9 +99,9 @@ export type EvolucaoCentro = {
   porDescritor: EvolucaoAgregado[];
   pessoas: EvolucaoPessoa[];
   proximasAcoes: {
-    /** Quem terminou sem evolução confirmada em nenhum descritor. */
+    /** Leituras de pessoa + competência que terminaram sem evolução confirmada. */
     precisamApoio: EvolucaoPessoa[];
-    /** Descritores em que o grupo menos avançou — candidatos ao próximo ciclo. */
+    /** Competências em que o grupo menos avançou — candidatas ao próximo ciclo. */
     proximoCiclo: EvolucaoAgregado[];
   };
   indisponivel: boolean;
@@ -118,6 +120,17 @@ const VAZIO: EvolucaoCentro = {
 function media(valores: number[]): number {
   if (!valores.length) return 0;
   return Number((valores.reduce((total, v) => total + v, 0) / valores.length).toFixed(2));
+}
+
+/**
+ * Avanço de um conjunto com piso em zero por comportamento.
+ *
+ * A diferença entre as duas médias reintroduziria quedas que a régua não
+ * interpreta como regressão. Aplicar o piso em cada descritor antes da média
+ * mantém o agregado coerente com o número que o relatório mostra em cada linha.
+ */
+function avancoMedio(linhas: EvolucaoDescritorLinha[]): number {
+  return media(linhas.map((linha) => Math.max(0, linha.notaPos - linha.notaPre)));
 }
 
 /**
@@ -141,15 +154,18 @@ function sustentacaoDe(descritores: EvolucaoDescritorLinha[]): 'alta' | 'media' 
 function agregar(chave: string, competencia: string | null, linhas: EvolucaoDescritorLinha[]): EvolucaoAgregado {
   const mediaPre = media(linhas.map((l) => l.notaPre));
   const mediaPos = media(linhas.map((l) => l.notaPos));
+  const nivelPre = nivelDaNota(mediaPre);
   return {
     chave,
     competencia,
     n: new Set(linhas.map((l) => l.colaboradorId)).size,
     mediaPre,
     mediaPos,
-    delta: Number((mediaPos - mediaPre).toFixed(2)),
-    nivelPre: nivelDaNota(mediaPre),
-    nivelPos: nivelDaNota(mediaPos),
+    delta: avancoMedio(linhas),
+    nivelPre,
+    // A régua não afirma regressão: uma oscilação da nota final não rebaixa o
+    // nível já alcançado. É a mesma regra do relatório individual.
+    nivelPos: Math.max(nivelPre, nivelDaNota(mediaPos)),
     confirmadas: linhas.filter((l) => l.convergencia === CONVERGENCIA.CONFIRMADA).length,
     parciais: linhas.filter((l) => l.convergencia === CONVERGENCIA.PARCIAL).length,
     estaveis: linhas.filter((l) => l.convergencia === CONVERGENCIA.ESTAVEL).length,
@@ -210,13 +226,15 @@ export function agregarEvolucao(
     // `nota_pre`: entrar aqui viraria delta sobre campo ausente.
     if (report.modo === 'piloto') continue;
 
-    const linhas: EvolucaoDescritorLinha[] = report.descritores.map((d: any) => {
+    const linhasDaTrilha: EvolucaoDescritorLinha[] = report.descritores.map((d: any) => {
       const notaPre = Number(d.nota_pre ?? 0);
       const notaPos = Number(d.nota_pos ?? notaPre);
       return {
         colaboradorId: trilha.colaborador_id,
         competencia: d.competencia || trilha.competencia_foco || 'Competência',
-        descritor: d.descritor || 'Descritor',
+        // Este centro é uma projeção de leitura: o código interno segue intacto
+        // no evolution_report, mas não vaza para tela ou PDF executivo.
+        descritor: descritorParaHumano(d.descritor || 'Descritor'),
         notaPre,
         notaPos,
         convergencia: (d.convergencia as Convergencia) || null,
@@ -228,34 +246,43 @@ export function agregarEvolucao(
     });
 
     const pessoa = porId.get(trilha.colaborador_id);
-    const mediaPre = media(linhas.map((l) => l.notaPre));
-    const mediaPos = media(linhas.map((l) => l.notaPos));
-    const veredito = vereditoDaPessoa(linhas);
     const fecho = fechoDoRelatorio(report);
+    const linhasPorCompetencia = new Map<string, EvolucaoDescritorLinha[]>();
+    for (const linha of linhasDaTrilha) {
+      linhasPorCompetencia.set(linha.competencia, [...(linhasPorCompetencia.get(linha.competencia) || []), linha]);
+    }
 
-    pessoas.push({
-      colaboradorId: trilha.colaborador_id,
-      // Pessoa fora da lista de participantes (desligada, ou fora do recorte de
-      // turma) ainda tem jornada concluída: some do nome, não do número.
-      nome: pessoa?.nome_completo || 'Participante',
-      cargo: pessoa?.cargo || null,
-      area: pessoa?.area_depto || null,
-      competencia: trilha.competencia_foco || linhas[0]?.competencia || null,
-      n: linhas.length,
-      mediaPre,
-      mediaPos,
-      delta: Number((mediaPos - mediaPre).toFixed(2)),
-      veredito,
-      vereditoRotulo: rotuloConvergencia(veredito),
-      sustentacao: sustentacaoDe(linhas),
-      // O fecho pela régua única: texto novo do fechamento quando existe,
-      // `insight_geral`/`proximo_passo` nos relatórios anteriores a 17/09/2026.
-      insight: fecho.mensagemFinal,
-      proximoPasso: fecho.proximosPassos.join(' ') || null,
-      concluidoEm: trilha.evolution_generated_at || null,
-      descritores: linhas,
-    });
-    todasLinhas.push(...linhas);
+    // Uma linha nominal representa UMA competência. A trilha DUO traz duas no
+    // mesmo evolution_report; mediá-las apagava qual competência de fato mudou.
+    for (const [competencia, linhas] of linhasPorCompetencia) {
+      const mediaPre = media(linhas.map((l) => l.notaPre));
+      const mediaPos = media(linhas.map((l) => l.notaPos));
+      const veredito = vereditoDaPessoa(linhas);
+
+      pessoas.push({
+        colaboradorId: trilha.colaborador_id,
+        // Pessoa fora da lista de participantes (desligada, ou fora do recorte de
+        // turma) ainda tem jornada concluída: some do nome, não do número.
+        nome: pessoa?.nome_completo || 'Participante',
+        cargo: pessoa?.cargo || null,
+        area: pessoa?.area_depto || null,
+        competencia,
+        n: linhas.length,
+        mediaPre,
+        mediaPos,
+        delta: avancoMedio(linhas),
+        veredito,
+        vereditoRotulo: rotuloConvergencia(veredito),
+        sustentacao: sustentacaoDe(linhas),
+        // O fecho pela régua única: texto novo do fechamento quando existe,
+        // `insight_geral`/`proximo_passo` nos relatórios anteriores a 17/09/2026.
+        insight: fecho.mensagemFinal,
+        proximoPasso: fecho.proximosPassos.join(' ') || null,
+        concluidoEm: trilha.evolution_generated_at || null,
+        descritores: linhas,
+      });
+    }
+    todasLinhas.push(...linhasDaTrilha);
   }
 
   if (!pessoas.length) {
@@ -301,12 +328,14 @@ export function agregarEvolucao(
     .filter((p) => p.veredito === CONVERGENCIA.ESTAVEL || p.veredito === null)
     .sort((a, b) => a.delta - b.delta);
 
+  const pessoasMedidas = new Set(pessoas.map((p) => p.colaboradorId)).size;
+
   return {
     cobertura: {
       participantes: participantes.length,
       emJornada: totalEmJornada,
-      medidos: pessoas.length,
-      percentual: participantes.length ? Math.round((pessoas.length / participantes.length) * 100) : 0,
+      medidos: pessoasMedidas,
+      percentual: participantes.length ? Math.round((pessoasMedidas / participantes.length) * 100) : 0,
     },
     resumo: {
       confirmadas: pessoas.filter((p) => p.veredito === CONVERGENCIA.CONFIRMADA).length,
@@ -321,11 +350,10 @@ export function agregarEvolucao(
     pessoas: pessoas.sort((a, b) => b.delta - a.delta),
     proximasAcoes: {
       precisamApoio,
-      // Os três em que o grupo menos avançou. `slice` do fim da lista ordenada
-      // por delta decrescente, e não um filtro por corte fixo: com todo mundo
-      // indo bem, o corte devolveria lista vazia e a tela não teria o que
-      // recomendar para o próximo ciclo.
-      proximoCiclo: [...porDescritor].reverse().slice(0, 3),
+      // Jornada é de competência, não de descritor: o próximo ciclo escolhe
+      // entre competências. O comportamento continua como diagnóstico para
+      // orientar a abordagem dentro da competência escolhida.
+      proximoCiclo: [...porCompetencia].reverse().slice(0, 3),
     },
     indisponivel: false,
   };

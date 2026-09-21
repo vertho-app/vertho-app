@@ -34,7 +34,8 @@ import {
   CONVERGENCIA, rotuloConvergencia, CORTE_CONFIRMADA, CORTE_PARCIAL,
 } from '@/lib/season-engine/convergencia';
 import { RUIDO_MEDIDO } from '@/lib/season-engine/prompts/extrator-conversa';
-import { TETO_N3 } from '@/lib/nivel-regua';
+import { nivelDaNota, TETO_N3 } from '@/lib/nivel-regua';
+import { descritorParaHumano } from '@/lib/descritor-humano';
 import type { EvolucaoCentro, EvolucaoAgregado, EvolucaoPessoa } from '@/lib/relatorios/evolucao-center';
 
 const s = StyleSheet.create({
@@ -58,18 +59,26 @@ const s = StyleSheet.create({
   compRow: { marginBottom: 11, paddingBottom: 9, borderBottomWidth: 0.5, borderBottomColor: colors.gray200 },
   compHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   compName: { fontFamily: 'NotoSans', fontSize: 10, fontWeight: 600, color: colors.textPrimary, flex: 1, paddingRight: 8 },
-  compMeta: { fontFamily: 'NotoSans', fontSize: 8, color: colors.textMuted, marginBottom: 5 },
+  compMetaLinha: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
+  compMeta: { fontFamily: 'NotoSans', fontSize: 8, color: colors.textMuted, flex: 1 },
   compDelta: { fontFamily: 'NotoSans', fontSize: 11, fontWeight: 700, width: 52, textAlign: 'right' },
+  nivelMudou: { backgroundColor: '#DCFCE7', borderWidth: 0.5, borderColor: '#86EFAC', borderRadius: 5, paddingHorizontal: 5, paddingVertical: 2 },
+  nivelMudouTexto: { fontFamily: 'NotoSans', fontSize: 6.5, fontWeight: 700, color: '#166534' },
+  nivelManteve: { fontFamily: 'NotoSans', fontSize: 7, color: colors.textMuted, marginLeft: 8 },
 
   // Barras: escala fixa de 1 a 4 (o trilho é a régua inteira, então dois
   // relatórios diferentes são comparáveis a olho).
-  trilho: { height: 9, backgroundColor: colors.gray200, borderRadius: 5, marginBottom: 3, position: 'relative' },
+  trilho: { height: 9, backgroundColor: colors.gray200, borderRadius: 5, marginBottom: 3, position: 'relative', overflow: 'hidden' },
   barra: { height: 9, borderRadius: 5 },
   barraAntes: { backgroundColor: colors.gray400 },
   barraDepois: { backgroundColor: colors.cyan },
-  marcas: { flexDirection: 'row', marginTop: 1 },
-  marcaTexto: { fontFamily: 'NotoSans', fontSize: 6.5, color: colors.textMuted },
-  legenda: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  corteNivel: { position: 'absolute', top: 0, bottom: 0, width: 0.75, backgroundColor: colors.white, opacity: 0.95 },
+  faixas: { flexDirection: 'row', marginTop: 2 },
+  faixa: { height: 13, alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: colors.gray300, backgroundColor: colors.gray100 },
+  faixaConquistada: { backgroundColor: '#DCFCE7', borderColor: '#86EFAC' },
+  faixaTexto: { fontFamily: 'NotoSans', fontSize: 5.5, color: colors.textMuted },
+  faixaTextoConquistada: { color: '#166534', fontWeight: 700 },
+  legenda: { flexDirection: 'row', alignItems: 'center', marginTop: 1, marginBottom: 8 },
   legendaPonto: { width: 7, height: 7, borderRadius: 4, marginRight: 4 },
   legendaTexto: { fontFamily: 'NotoSans', fontSize: 7.5, color: colors.textMuted, marginRight: 12 },
 
@@ -101,7 +110,8 @@ function num(v: number, casas = 2): string {
   return (v ?? 0).toFixed(casas).replace('.', ',');
 }
 export function comSinal(v: number): string {
-  return `${v > 0 ? '+' : v < 0 ? '' : ''}${num(v)}`;
+  const avanco = Math.max(0, Number(v) || 0);
+  return `${avanco > 0 ? '+' : ''}${num(avanco)}`;
 }
 /** Posição de uma nota no trilho de 1 a 4, em porcentagem. */
 export function pct(nota: number): string {
@@ -142,6 +152,42 @@ function Pill({ veredito, rotulo }: { veredito: string | null; rotulo: string })
   );
 }
 
+function CortesDaRegua() {
+  return (
+    <>
+      <View style={{ ...s.corteNivel, left: '33.33%' }} />
+      <View style={{ ...s.corteNivel, left: '66.67%' }} />
+      <View style={{ ...s.corteNivel, left: '83.33%' }} />
+    </>
+  );
+}
+
+/**
+ * Os segmentos respeitam o tamanho real de cada faixa na escala numérica:
+ * N1 e N2 ocupam 1 ponto; N3 e N4, meio ponto cada. Verde marca somente a
+ * faixa conquistada entre o diagnóstico e o fechamento.
+ */
+function FaixasDaRegua({ item }: { item: EvolucaoAgregado }) {
+  const faixas = [
+    { nivel: 1, width: '33.33%', label: 'N1 · 1,00 a 1,99' },
+    { nivel: 2, width: '33.34%', label: 'N2 · 2,00 a 2,99' },
+    { nivel: 3, width: '16.66%', label: 'N3 · 3,00 a 3,50' },
+    { nivel: 4, width: '16.67%', label: 'N4 · acima de 3,50' },
+  ];
+  return (
+    <View style={s.faixas}>
+      {faixas.map((faixa) => {
+        const conquistada = faixa.nivel > item.nivelPre && faixa.nivel <= item.nivelPos;
+        return (
+          <View key={faixa.nivel} style={{ ...s.faixa, ...(conquistada ? s.faixaConquistada : {}), width: faixa.width }}>
+            <Text style={{ ...s.faixaTexto, ...(conquistada ? s.faixaTextoConquistada : {}) }}>{faixa.label}</Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 /**
  * A barra de uma competência. Duas barras no mesmo trilho de 1 a 4: a de partida
  * em cinza, a de chegada em cyan. O trilho é a régua inteira de propósito — barra
@@ -149,33 +195,38 @@ function Pill({ veredito, rotulo }: { veredito: string | null; rotulo: string })
  */
 function BarraEvolucao({ item }: { item: EvolucaoAgregado }) {
   const positivo = item.delta > 0;
+  const mudouNivel = item.nivelPos > item.nivelPre;
   return (
     <View style={s.compRow} wrap={false}>
       <View style={s.compHead}>
         <Text style={s.compName}>{item.chave}</Text>
         <Text style={{ ...s.compDelta, color: positivo ? colors.green : colors.textMuted }}>{comSinal(item.delta)}</Text>
       </View>
-      <Text style={s.compMeta}>
-        {item.competencia ? `${item.competencia}  ·  ` : ''}
-        {item.n === 1 ? '1 pessoa' : `${item.n} pessoas`}
-        {'  ·  '}
-        {`de ${num(item.mediaPre)} para ${num(item.mediaPos)}`}
-        {'  ·  '}
-        {`N${item.nivelPre} para N${item.nivelPos}`}
-      </Text>
+      <View style={s.compMetaLinha}>
+        <Text style={s.compMeta}>
+          {item.competencia ? `${item.competencia}  ·  ` : ''}
+          {item.n === 1 ? '1 pessoa' : `${item.n} pessoas`}
+          {'  ·  '}
+          {`de ${num(item.mediaPre)} para ${num(item.mediaPos)}`}
+        </Text>
+        {mudouNivel ? (
+          <View style={s.nivelMudou}>
+            <Text style={s.nivelMudouTexto}>{`Mudança de nível · N${item.nivelPre} para N${item.nivelPos}`}</Text>
+          </View>
+        ) : (
+          <Text style={s.nivelManteve}>{`Nível N${item.nivelPos}`}</Text>
+        )}
+      </View>
 
       <View style={s.trilho}>
         <View style={{ ...s.barra, ...s.barraAntes, width: pct(item.mediaPre) }} />
+        <CortesDaRegua />
       </View>
       <View style={s.trilho}>
         <View style={{ ...s.barra, ...s.barraDepois, width: pct(item.mediaPos) }} />
+        <CortesDaRegua />
       </View>
-      <View style={s.marcas}>
-        <Text style={{ ...s.marcaTexto, flex: 1 }}>N1</Text>
-        <Text style={{ ...s.marcaTexto, flex: 1, textAlign: 'center' }}>N2</Text>
-        <Text style={{ ...s.marcaTexto, flex: 1, textAlign: 'center' }}>N3</Text>
-        <Text style={{ ...s.marcaTexto, textAlign: 'right' }}>N4</Text>
-      </View>
+      <FaixasDaRegua item={item} />
     </View>
   );
 }
@@ -191,9 +242,59 @@ function CartaoVeredito({
       <Text style={{ ...s.cardLabel, color: t.fg }}>
         {veredito ? rotuloConvergencia(veredito) : 'Sem medição'}
       </Text>
-      <Text style={s.cardHint}>{total ? `${share}% de quem concluiu` : '—'}</Text>
+      <Text style={s.cardHint}>{total ? `${share}% das competências medidas` : '—'}</Text>
       <Text style={s.cardHint}>{hint}</Text>
     </View>
+  );
+}
+
+/**
+ * Evita que a tabela nominal deixe uma ou duas linhas órfãs numa página nova.
+ * Relatórios DUO costumam dobrar a quantidade de linhas porque cada pessoa
+ * aparece uma vez por competência; as páginas ficam equilibradas entre si.
+ */
+export function paginarPessoas(pessoas: EvolucaoPessoa[], maximoPorPagina = 18): EvolucaoPessoa[][] {
+  if (!pessoas.length) return [];
+  const paginas = Math.ceil(pessoas.length / maximoPorPagina);
+  const porPagina = Math.ceil(pessoas.length / paginas);
+  const grupos: EvolucaoPessoa[][] = [];
+  for (let i = 0; i < pessoas.length; i += porPagina) grupos.push(pessoas.slice(i, i + porPagina));
+  return grupos;
+}
+
+/** N4 é o único patamar habilitado a multiplicar a prática para o grupo. */
+export function selecionarMultiplicadores(pessoas: EvolucaoPessoa[], limite = 3): EvolucaoPessoa[] {
+  return pessoas.filter((p) => nivelDaNota(p.mediaPos) === 4).slice(0, limite);
+}
+
+function TabelaPessoas({ pessoas }: { pessoas: EvolucaoPessoa[] }) {
+  return (
+    <>
+      <View style={s.th}>
+        <Text style={{ ...s.thText, flex: 2.4, paddingRight: 7 }}>Pessoa</Text>
+        <Text style={{ ...s.thText, flex: 1.4, paddingRight: 7 }}>Cargo</Text>
+        <Text style={{ ...s.thText, flex: 2, paddingRight: 7 }}>Competência</Text>
+        <Text style={{ ...s.thText, width: 38, textAlign: 'center' }}>Antes</Text>
+        <Text style={{ ...s.thText, width: 40, textAlign: 'center' }}>Depois</Text>
+        <Text style={{ ...s.thText, width: 40, textAlign: 'center' }}>Avanço</Text>
+        <Text style={{ ...s.thText, width: 88, paddingLeft: 6 }}>Leitura</Text>
+      </View>
+      {pessoas.map((p, i) => (
+        <View key={`${p.colaboradorId}::${p.competencia}::${p.concluidoEm || i}`} style={i % 2 ? s.trAlt : s.tr} wrap={false}>
+          <Text style={{ ...s.tdStrong, flex: 2.4, paddingRight: 7 }}>{p.nome}</Text>
+          <Text style={{ ...s.td, flex: 1.4, paddingRight: 7 }}>{p.cargo || '—'}</Text>
+          <Text style={{ ...s.td, flex: 2, fontSize: 7.5, paddingRight: 7 }}>{p.competencia || '—'}</Text>
+          <Text style={{ ...s.td, width: 38, textAlign: 'center' }}>{num(p.mediaPre)}</Text>
+          <Text style={{ ...s.td, width: 40, textAlign: 'center' }}>{num(p.mediaPos)}</Text>
+          <Text style={{ ...s.tdStrong, width: 40, textAlign: 'center', color: p.delta > 0 ? colors.green : colors.textMuted }}>
+            {comSinal(p.delta)}
+          </Text>
+          <View style={{ width: 88, paddingLeft: 6 }}>
+            <Pill veredito={p.veredito} rotulo={p.vereditoRotulo} />
+          </View>
+        </View>
+      ))}
+    </>
   );
 }
 
@@ -210,8 +311,11 @@ export default function RelatorioEvolucaoPDF({
   const { cobertura, resumo, porCompetencia, porDescritor, pessoas, proximasAcoes } = data;
   const label = 'Evolução da jornada';
   const ultimaMedicao = pessoas.map((p) => p.concluidoEm).filter(Boolean).sort().reverse()[0] || null;
-  // `pessoas` já vem ordenado por delta decrescente do agregador.
-  const multiplicadores = pessoas.filter((p) => p.veredito === CONVERGENCIA.CONFIRMADA).slice(0, 3);
+  const totalClassificadas = resumo.confirmadas + resumo.parciais + resumo.estaveis;
+  const paginasPessoas = paginarPessoas(pessoas);
+  // Multiplicador é patamar, não apenas movimento: somente quem terminou a
+  // competência no N4 entra, mesmo que outra pessoa tenha avançado mais pontos.
+  const multiplicadores = selecionarMultiplicadores(pessoas);
 
   const capa = (
     <PdfReportCover
@@ -271,46 +375,36 @@ export default function RelatorioEvolucaoPDF({
           <Text style={s.p}>
             {`A leitura abaixo vem de ${resumo.descritoresMedidos} ${resumo.descritoresMedidos === 1 ? 'avaliação' : 'avaliações'} de comportamento, em ${porDescritor.length} ${porDescritor.length === 1 ? 'comportamento distinto' : 'comportamentos distintos'}`}
             {ultimaMedicao ? `, com a medição mais recente em ${dataBr(ultimaMedicao)}.` : '.'}
-            {` O avanço médio por pessoa foi de ${comSinal(resumo.deltaMedio)} ponto na régua de 1 a 4.`}
+            {` O avanço médio por competência medida foi de ${comSinal(resumo.deltaMedio)} ponto na régua de 1 a 4.`}
           </Text>
         </View>
 
         <View style={s.section}>
           <View style={s.cards}>
             <CartaoVeredito
-              n={resumo.confirmadas} total={cobertura.medidos} veredito={CONVERGENCIA.CONFIRMADA}
+              n={resumo.confirmadas} total={totalClassificadas} veredito={CONVERGENCIA.CONFIRMADA}
               hint={DICA_VEREDITO[CONVERGENCIA.CONFIRMADA]}
             />
             <CartaoVeredito
-              n={resumo.parciais} total={cobertura.medidos} veredito={CONVERGENCIA.PARCIAL}
+              n={resumo.parciais} total={totalClassificadas} veredito={CONVERGENCIA.PARCIAL}
               hint={DICA_VEREDITO[CONVERGENCIA.PARCIAL]}
             />
             <CartaoVeredito
-              n={resumo.estaveis} total={cobertura.medidos} veredito={CONVERGENCIA.ESTAVEL}
+              n={resumo.estaveis} total={totalClassificadas} veredito={CONVERGENCIA.ESTAVEL} ultimo
               hint={DICA_VEREDITO[CONVERGENCIA.ESTAVEL]}
             />
-            <CartaoVeredito
-              n={resumo.semVeredito} total={cobertura.medidos} veredito={null} ultimo
-              hint={'Fechamento sem as duas fontes exigidas pela régua.'}
-            />
           </View>
-          <Text style={s.caption}>
-            {'Ninguém aparece como "piorou": a régua não tem veredito de regressão, porque uma nota que cai entre o diagnóstico e o fechamento descreve a variação da medição, não alguém que desaprendeu. Esse caso entra como estável — ver a última página.'}
-          </Text>
         </View>
 
         <View style={s.section}>
           <ReportSectionTitle>Onde o grupo mais avançou</ReportSectionTitle>
-          {porCompetencia.slice(0, 6).map((c) => <BarraEvolucao key={c.chave} item={c} />)}
           <View style={s.legenda}>
             <View style={{ ...s.legendaPonto, backgroundColor: colors.gray400 }} />
             <Text style={s.legendaTexto}>No diagnóstico inicial</Text>
             <View style={{ ...s.legendaPonto, backgroundColor: colors.cyan }} />
             <Text style={s.legendaTexto}>No fechamento da jornada</Text>
           </View>
-          <Text style={s.caption}>
-            {'As barras estão na escala completa da régua (1 a 4), e não ajustadas ao maior valor — um avanço pequeno tem que parecer pequeno.'}
-          </Text>
+          {porCompetencia.slice(0, 6).map((c) => <BarraEvolucao key={c.chave} item={c} />)}
         </View>
 
         <PageFooter />
@@ -329,19 +423,19 @@ export default function RelatorioEvolucaoPDF({
           <View style={s.th}>
             <Text style={{ ...s.thText, flex: 3, paddingRight: 8 }}>Comportamento</Text>
             <Text style={{ ...s.thText, flex: 2.4 }}>Competência</Text>
-            <Text style={{ ...s.thText, width: 38, textAlign: 'right' }}>Pess.</Text>
-            <Text style={{ ...s.thText, width: 42, textAlign: 'right' }}>Antes</Text>
-            <Text style={{ ...s.thText, width: 42, textAlign: 'right' }}>Depois</Text>
-            <Text style={{ ...s.thText, width: 40, textAlign: 'right' }}>Avanço</Text>
+            <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Pessoas</Text>
+            <Text style={{ ...s.thText, width: 42, textAlign: 'center' }}>Antes</Text>
+            <Text style={{ ...s.thText, width: 42, textAlign: 'center' }}>Depois</Text>
+            <Text style={{ ...s.thText, width: 40, textAlign: 'center' }}>Avanço</Text>
           </View>
           {porDescritor.map((d, i) => (
             <View key={`${d.competencia} :: ${d.chave}`} style={i % 2 ? s.trAlt : s.tr} wrap={false}>
-              <Text style={{ ...s.tdStrong, flex: 3, paddingRight: 8 }}>{d.chave}</Text>
+              <Text style={{ ...s.tdStrong, flex: 3, paddingRight: 8 }}>{descritorParaHumano(d.chave)}</Text>
               <Text style={{ ...s.td, flex: 2.4, fontSize: 7.5 }}>{d.competencia || '—'}</Text>
-              <Text style={{ ...s.td, width: 38, textAlign: 'right' }}>{d.n}</Text>
-              <Text style={{ ...s.td, width: 42, textAlign: 'right' }}>{num(d.mediaPre)}</Text>
-              <Text style={{ ...s.td, width: 42, textAlign: 'right' }}>{num(d.mediaPos)}</Text>
-              <Text style={{ ...s.tdStrong, width: 40, textAlign: 'right', color: d.delta > 0 ? colors.green : colors.textMuted }}>
+              <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{d.n}</Text>
+              <Text style={{ ...s.td, width: 42, textAlign: 'center' }}>{num(d.mediaPre)}</Text>
+              <Text style={{ ...s.td, width: 42, textAlign: 'center' }}>{num(d.mediaPos)}</Text>
+              <Text style={{ ...s.tdStrong, width: 40, textAlign: 'center', color: d.delta > 0 ? colors.green : colors.textMuted }}>
                 {comSinal(d.delta)}
               </Text>
             </View>
@@ -355,36 +449,17 @@ export default function RelatorioEvolucaoPDF({
       <Page size="A4" style={pageStyles.page} wrap>
         <PageHeader logoBase64={logoBase64} label={label} />
 
-        <View style={s.section}>
-          <ReportSectionTitle>Pessoa por pessoa</ReportSectionTitle>
-          <Text style={s.p}>
-            {'Ordenado pelo avanço. A coluna de sustentação diz quantas fontes independentes apoiam a leitura: ela existe para que uma conversa curta não pese o mesmo que um fechamento completo.'}
-          </Text>
-          <View style={s.th}>
-            <Text style={{ ...s.thText, flex: 3 }}>Pessoa</Text>
-            <Text style={{ ...s.thText, flex: 2 }}>Cargo</Text>
-            <Text style={{ ...s.thText, width: 40, textAlign: 'right' }}>Antes</Text>
-            <Text style={{ ...s.thText, width: 44, textAlign: 'right' }}>Depois</Text>
-            <Text style={{ ...s.thText, width: 40, textAlign: 'right' }}>Avanço</Text>
-            <Text style={{ ...s.thText, width: 96, paddingLeft: 6 }}>Leitura</Text>
-            <Text style={{ ...s.thText, width: 34 }}>Sust.</Text>
-          </View>
-          {pessoas.map((p, i) => (
-            <View key={p.colaboradorId} style={i % 2 ? s.trAlt : s.tr} wrap={false}>
-              <Text style={{ ...s.tdStrong, flex: 3 }}>{p.nome}</Text>
-              <Text style={{ ...s.td, flex: 2 }}>{p.cargo || '—'}</Text>
-              <Text style={{ ...s.td, width: 40, textAlign: 'right' }}>{num(p.mediaPre)}</Text>
-              <Text style={{ ...s.td, width: 44, textAlign: 'right' }}>{num(p.mediaPos)}</Text>
-              <Text style={{ ...s.tdStrong, width: 40, textAlign: 'right', color: p.delta > 0 ? colors.green : colors.textMuted }}>
-                {comSinal(p.delta)}
+        {paginasPessoas.map((grupo, pagina) => (
+          <View key={`pessoas-${pagina}`} style={s.section} break={pagina > 0}>
+            <ReportSectionTitle>{pagina === 0 ? 'Pessoa por pessoa' : 'Pessoa por pessoa · continuação'}</ReportSectionTitle>
+            {pagina === 0 && (
+              <Text style={s.p}>
+                {'Cada linha mostra uma pessoa em uma competência. Resultados de competências diferentes nunca são somados ou mediados; quando a variação é negativa, o avanço exibido é zero.'}
               </Text>
-              <View style={{ width: 96, paddingLeft: 6 }}>
-                <Pill veredito={p.veredito} rotulo={p.vereditoRotulo} />
-              </View>
-              <Text style={{ ...s.td, width: 34 }}>{p.sustentacao === 'media' ? 'Média' : 'Baixa'}</Text>
-            </View>
-          ))}
-        </View>
+            )}
+            <TabelaPessoas pessoas={grupo} />
+          </View>
+        ))}
 
         <PageFooter />
       </Page>
@@ -399,12 +474,11 @@ export default function RelatorioEvolucaoPDF({
             <ReportSectionTitle>Candidatos ao próximo ciclo</ReportSectionTitle>
             <View style={s.boxAccent}>
               <Text style={s.p}>
-                {'Os comportamentos em que o grupo menos avançou. São os que mais provavelmente precisam de outra abordagem — não de mais do mesmo conteúdo.'}
+                {'As competências em que o grupo menos avançou. Elas orientam a escolha da próxima jornada; os comportamentos da página anterior ajudam a definir a abordagem dentro de cada competência.'}
               </Text>
               {proximasAcoes.proximoCiclo.map((d) => (
-                <Text key={`${d.competencia} :: ${d.chave}`} style={s.pStrong}>
+                <Text key={d.chave} style={s.pStrong}>
                   {`• ${d.chave}`}
-                  {d.competencia ? ` (${d.competencia})` : ''}
                   {` — ${d.n === 1 ? '1 pessoa' : `${d.n} pessoas`}, avanço de ${comSinal(d.delta)}`}
                 </Text>
               ))}
@@ -417,12 +491,13 @@ export default function RelatorioEvolucaoPDF({
             <ReportSectionTitle>Conversas a ter primeiro</ReportSectionTitle>
             <View style={s.box}>
               <Text style={s.p}>
-                {'Quem terminou a jornada sem evolução confirmada em nenhum comportamento. Não é uma lista de problema: é onde uma conversa de gestor muda mais o resultado do próximo ciclo.'}
+                {'Quem terminou uma competência sem evolução confirmada. Não é uma lista de problema: é onde uma conversa de gestor pode mudar mais o resultado do próximo ciclo.'}
               </Text>
-              {proximasAcoes.precisamApoio.slice(0, 10).map((p) => (
-                <Text key={p.colaboradorId} style={s.pStrong}>
+              {proximasAcoes.precisamApoio.slice(0, 10).map((p, i) => (
+                <Text key={`${p.colaboradorId}::${p.competencia}::${i}`} style={s.pStrong}>
                   {`• ${p.nome}`}
                   {p.cargo ? ` — ${p.cargo}` : ''}
+                  {p.competencia ? ` · ${p.competencia}` : ''}
                   {`: ${p.vereditoRotulo}, avanço de ${comSinal(p.delta)}`}
                   {p.proximoPasso ? `. Próximo passo sugerido: ${p.proximoPasso}` : ''}
                 </Text>
@@ -436,14 +511,14 @@ export default function RelatorioEvolucaoPDF({
             <ReportSectionTitle>Quem pode multiplicar</ReportSectionTitle>
             <View style={s.box}>
               <Text style={s.p}>
-                {'Quem sustentou a mudança sob restrição nova. São as pessoas com caso próprio para contar — e o caso de um par convence mais do que o conteúdo.'}
+                {'Pessoas que encerraram uma competência no N4, o nível de referência. São elas que podem compartilhar uma prática já consolidada com o grupo.'}
               </Text>
-              {multiplicadores.map((p) => (
-                <View key={p.colaboradorId} style={{ marginBottom: 6 }}>
+              {multiplicadores.map((p, i) => (
+                <View key={`${p.colaboradorId}::${p.competencia}::${i}`} style={{ marginBottom: 6 }}>
                   <Text style={s.pStrong}>
                     {`• ${p.nome}`}
                     {p.cargo ? ` — ${p.cargo}` : ''}
-                    {`: avanço de ${comSinal(p.delta)} em ${p.competencia || "competência do ciclo"}`}
+                    {`: N4 em ${p.competencia || "competência do ciclo"}, avanço de ${comSinal(p.delta)}`}
                   </Text>
                   {p.insight ? <Text style={{ ...s.caption, marginLeft: 10 }}>{p.insight}</Text> : null}
                 </View>

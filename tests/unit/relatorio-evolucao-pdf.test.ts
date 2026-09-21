@@ -12,7 +12,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { pct, comSinal } from '@/components/pdf/RelatorioEvolucao';
+import { pct, comSinal, paginarPessoas, selecionarMultiplicadores } from '@/components/pdf/RelatorioEvolucao';
 
 const FONTE = readFileSync(join(__dirname, '..', '..', 'components', 'pdf', 'RelatorioEvolucao.tsx'), 'utf8');
 
@@ -36,14 +36,37 @@ describe('escala da barra', () => {
 });
 
 describe('sinal do avanço', () => {
-  it('marca o positivo e não inventa sinal no zero nem duplica o negativo', () => {
+  it('marca o positivo e aplica piso zero à variação negativa', () => {
     expect(comSinal(0.85)).toBe('+0,85');
     expect(comSinal(0)).toBe('0,00');
-    expect(comSinal(-0.3)).toBe('-0,30');
+    expect(comSinal(-0.3)).toBe('0,00');
   });
 
   it('usa vírgula decimal — o documento é em português', () => {
     expect(comSinal(1.5)).not.toContain('.');
+  });
+});
+
+describe('paginação da tabela nominal', () => {
+  it('equilibra as linhas em vez de deixar uma órfã na página seguinte', () => {
+    const pessoas = Array.from({ length: 22 }, (_, i) => ({ colaboradorId: String(i) })) as any;
+    expect(paginarPessoas(pessoas).map((pagina) => pagina.length)).toEqual([11, 11]);
+  });
+
+  it('mantém uma turma de 11 pessoas em uma página', () => {
+    const pessoas = Array.from({ length: 11 }, (_, i) => ({ colaboradorId: String(i) })) as any;
+    expect(paginarPessoas(pessoas)).toHaveLength(1);
+  });
+});
+
+describe('multiplicadores', () => {
+  it('inclui somente competências encerradas no N4', () => {
+    const pessoas = [
+      { nome: 'N3', mediaPos: 3.5 },
+      { nome: 'N4', mediaPos: 3.51 },
+      { nome: 'N4 alto', mediaPos: 4 },
+    ] as any;
+    expect(selecionarMultiplicadores(pessoas).map((p) => p.nome)).toEqual(['N4', 'N4 alto']);
   });
 });
 
@@ -74,5 +97,9 @@ describe('as afirmações do papel vêm das fontes vivas', () => {
     // digitado sobreviveria a uma recalibragem da régua.
     expect(semComentarios).not.toMatch(/'[^']*0,50 ponto/);
     expect(semComentarios).not.toMatch(/'[^']*0,20 ponto/);
+  });
+
+  it('não renderiza o cartão de sem medição no fechamento', () => {
+    expect(FONTE).not.toContain('n={resumo.semVeredito}');
   });
 });

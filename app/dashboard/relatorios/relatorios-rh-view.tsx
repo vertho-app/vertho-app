@@ -598,8 +598,8 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
               </tr>
             </thead>
             <tbody>
-              {pessoas.map((pessoa) => (
-                <tr key={pessoa.colaboradorId} className="border-t border-white/[0.05] align-top">
+              {pessoas.map((pessoa, i) => (
+                <tr key={`${pessoa.colaboradorId}::${pessoa.competencia}::${pessoa.concluidoEm || i}`} className="border-t border-white/[0.05] align-top">
                   <td className="px-4 py-3">
                     <p className="text-white/90">{pessoa.nome}</p>
                     {pessoa.cargo && <p className="mt-0.5 text-[11px] text-white/35">{pessoa.cargo}</p>}
@@ -637,8 +637,8 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
               <p className="mt-3 text-sm text-white/40">—</p>
             ) : (
               <ul className="mt-3 space-y-3">
-                {proximasAcoes.precisamApoio.map((pessoa) => (
-                  <li key={pessoa.colaboradorId} className="border-b border-white/[0.05] pb-3 last:border-b-0 last:pb-0">
+                {proximasAcoes.precisamApoio.map((pessoa, i) => (
+                  <li key={`${pessoa.colaboradorId}::${pessoa.competencia}::${i}`} className="border-b border-white/[0.05] pb-3 last:border-b-0 last:pb-0">
                     <div className="flex items-baseline justify-between gap-3">
                       <span className="text-sm text-white/85">{pessoa.nome}</span>
                       <VerdictPill veredito={pessoa.veredito} t={t} />
@@ -661,7 +661,7 @@ function EvolutionPanel({ reports, t }: { reports: RhReportsCenter; t: any }) {
                 <li key={item.chave} className="flex items-baseline justify-between gap-3 border-b border-white/[0.05] pb-3 last:border-b-0 last:pb-0">
                   <span className="min-w-0">
                     <span className="block truncate text-sm text-white/85">{item.chave}</span>
-                    <span className="block text-[11px] text-white/30">{item.competencia}</span>
+                    {item.competencia && <span className="block text-[11px] text-white/30">{item.competencia}</span>}
                   </span>
                   <strong className="shrink-0 font-mono text-sm tabular-nums" style={{ color: item.delta > 0 ? '#34D399' : '#FBBF24' }}>
                     {item.delta > 0 ? '+' : ''}{item.delta.toFixed(2)}

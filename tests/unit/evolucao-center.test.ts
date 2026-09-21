@@ -82,7 +82,42 @@ describe('agregarEvolucao', () => {
     // não avançou aparece como estável — e entra em "precisa de apoio", que é
     // a informação acionável.
     expect(r.pessoas[0].veredito).toBe(CONVERGENCIA.ESTAVEL);
+    expect(r.pessoas[0].delta).toBe(0.05);
+    expect(r.porCompetencia[0].delta).toBe(0.05);
     expect(r.proximasAcoes.precisamApoio.map((p) => p.colaboradorId)).toContain('p1');
+  });
+
+  it('separa a leitura nominal por competência e mantém a cobertura por pessoa', () => {
+    const linha = (competencia: string, descritor: string, pre: number, pos: number) => ({
+      competencia, descritor, nota_pre: pre, nota_pos: pos,
+      convergencia: CONVERGENCIA.PARCIAL, depois: 'evidência',
+    });
+    const r = agregarEvolucao(
+      [trilha('p1', [
+        linha('Planejamento', 'Metas', 1.5, 2.5),
+        linha('Colaboração', 'Trabalho em rede', 2, 2.4),
+      ])],
+      participantes,
+      0,
+    );
+
+    expect(r.cobertura.medidos).toBe(1);
+    expect(r.pessoas).toHaveLength(2);
+    expect(r.pessoas.map((p) => p.competencia).sort()).toEqual(['Colaboração', 'Planejamento']);
+    expect(r.pessoas.find((p) => p.competencia === 'Planejamento')).toMatchObject({ mediaPre: 1.5, mediaPos: 2.5, delta: 1 });
+    expect(r.pessoas.find((p) => p.competencia === 'Colaboração')).toMatchObject({ mediaPre: 2, mediaPos: 2.4, delta: 0.4 });
+  });
+
+  it('exibe variação negativa como avanço zero, inclusive nos agregados', () => {
+    const r = agregarEvolucao(
+      [trilha('p1', [d('Metas', 2, 1.6, CONVERGENCIA.ESTAVEL)])],
+      participantes,
+      0,
+    );
+    expect(r.pessoas[0].delta).toBe(0);
+    expect(r.porCompetencia[0].delta).toBe(0);
+    expect(r.porDescritor[0].delta).toBe(0);
+    expect(r.porCompetencia[0].nivelPos).toBe(r.porCompetencia[0].nivelPre);
   });
 
   it('exige maioria de confirmadas para carimbar a pessoa como confirmada', () => {
@@ -166,6 +201,16 @@ describe('agregarEvolucao', () => {
     }
   });
 
+  it('remove o código interno do descritor na projeção de leitura', () => {
+    const r = agregarEvolucao(
+      [trilha('p1', [d('COO03_D4 — Sustentabilidade pessoal', 1.5, 2, CONVERGENCIA.PARCIAL)])],
+      participantes,
+      0,
+    );
+    expect(r.porDescritor[0].chave).toBe('Sustentabilidade pessoal');
+    expect(r.pessoas[0].descritores[0].descritor).toBe('Sustentabilidade pessoal');
+  });
+
   it('converte a média em nível pela régua oficial, com o corte de 3,5', () => {
     const r = agregarEvolucao([trilha('p1', [d('Metas', 1.9, 3.6, CONVERGENCIA.CONFIRMADA)])], participantes, 0);
     // 1,9 é N1 (só conta quando consolida) e 3,6 é N4 (abre em 3,5, não em 4).
@@ -181,22 +226,24 @@ describe('agregarEvolucao', () => {
     expect(r.pessoas[0].nome).toBe('Participante');
   });
 
-  it('sempre recomenda algo para o próximo ciclo, mesmo com todo mundo indo bem', () => {
-    // Um filtro por corte fixo devolveria lista vazia justamente na turma que
-    // foi bem, e a seção de ações ficaria muda.
+  it('recomenda COMPETÊNCIAS para o próximo ciclo, não descritores', () => {
+    const linha = (competencia: string, descritor: string, pos: number) => ({
+      competencia, descritor, nota_pre: 2, nota_pos: pos,
+      convergencia: CONVERGENCIA.CONFIRMADA, depois: null,
+    });
     const r = agregarEvolucao(
       [trilha('p1', [
-        d('Metas', 2, 3.2, CONVERGENCIA.CONFIRMADA),
-        d('Plano', 2, 3.0, CONVERGENCIA.CONFIRMADA),
-        d('Risco', 2, 2.9, CONVERGENCIA.CONFIRMADA),
-        d('Rede', 2, 2.8, CONVERGENCIA.CONFIRMADA),
+        linha('Planejamento', 'Metas', 3.2),
+        linha('Execução', 'Plano', 3.0),
+        linha('Riscos', 'Análise de riscos', 2.9),
+        linha('Colaboração', 'Trabalho em rede', 2.8),
       ])],
       participantes,
       0,
     );
     expect(r.proximasAcoes.proximoCiclo).toHaveLength(3);
-    // O de menor avanço vem primeiro na recomendação.
-    expect(r.proximasAcoes.proximoCiclo[0].chave).toBe('Rede');
+    expect(r.proximasAcoes.proximoCiclo[0].chave).toBe('Colaboração');
+    expect(r.proximasAcoes.proximoCiclo.map((x) => x.chave)).not.toContain('Trabalho em rede');
   });
 
   it('classifica a sustentação pela evidência presente, sem inventar nível inalcançável', () => {
