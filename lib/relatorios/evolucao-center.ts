@@ -78,6 +78,19 @@ export type EvolucaoPessoa = {
   descritores: EvolucaoDescritorLinha[];
 };
 
+export type EvolucaoRecorteCargo = {
+  cargo: string;
+  /** Pessoas distintas com fechamento neste cargo. */
+  pessoasMedidas: number;
+  porCompetencia: EvolucaoAgregado[];
+  porDescritor: EvolucaoAgregado[];
+  pessoas: EvolucaoPessoa[];
+  proximasAcoes: {
+    precisamApoio: EvolucaoPessoa[];
+    proximoCiclo: EvolucaoAgregado[];
+  };
+};
+
 export type EvolucaoCentro = {
   cobertura: {
     participantes: number;
@@ -97,6 +110,8 @@ export type EvolucaoCentro = {
   };
   porCompetencia: EvolucaoAgregado[];
   porDescritor: EvolucaoAgregado[];
+  /** Recortes completos e independentes; nenhuma média atravessa cargos. */
+  porCargo: EvolucaoRecorteCargo[];
   pessoas: EvolucaoPessoa[];
   proximasAcoes: {
     /** Leituras de pessoa + competência que terminaram sem evolução confirmada. */
@@ -112,6 +127,7 @@ const VAZIO: EvolucaoCentro = {
   resumo: { confirmadas: 0, parciais: 0, estaveis: 0, semVeredito: 0, deltaMedio: 0, descritoresMedidos: 0 },
   porCompetencia: [],
   porDescritor: [],
+  porCargo: [],
   pessoas: [],
   proximasAcoes: { precisamApoio: [], proximoCiclo: [] },
   indisponivel: false,
@@ -303,12 +319,13 @@ export function agregarEvolucao(
    * nenhum. Foi assim que a tela mostrou uma única competência expansível.
    */
   const agruparPor = (
+    fonte: EvolucaoDescritorLinha[],
     chaveDe: (l: EvolucaoDescritorLinha) => string,
     rotuloDe: (l: EvolucaoDescritorLinha) => string,
     compDe: (l: EvolucaoDescritorLinha) => string | null,
   ) => {
     const grupos = new Map<string, EvolucaoDescritorLinha[]>();
-    for (const linha of todasLinhas) {
+    for (const linha of fonte) {
       const chave = chaveDe(linha);
       grupos.set(chave, [...(grupos.get(chave) || []), linha]);
     }
@@ -317,8 +334,9 @@ export function agregarEvolucao(
       .sort((a, b) => b.delta - a.delta);
   };
 
-  const porCompetencia = agruparPor((l) => l.competencia, (l) => l.competencia, () => null);
+  const porCompetencia = agruparPor(todasLinhas, (l) => l.competencia, (l) => l.competencia, () => null);
   const porDescritor = agruparPor(
+    todasLinhas,
     (l) => [l.competencia, l.descritor].join(' :: '),
     (l) => l.descritor,
     (l) => l.competencia,
@@ -327,6 +345,40 @@ export function agregarEvolucao(
   const precisamApoio = pessoas
     .filter((p) => p.veredito === CONVERGENCIA.ESTAVEL || p.veredito === null)
     .sort((a, b) => a.delta - b.delta);
+
+  const rotuloCargo = (cargo: string | null) => cargo?.trim() || 'Cargo não informado';
+  const cargos = [...new Set(pessoas.map((p) => rotuloCargo(p.cargo)))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const porCargo: EvolucaoRecorteCargo[] = cargos.map((cargo) => {
+    const pessoasDoCargo = pessoas.filter((p) => rotuloCargo(p.cargo) === cargo);
+    const idsDoCargo = new Set(pessoasDoCargo.map((p) => p.colaboradorId));
+    const linhasDoCargo = todasLinhas.filter((linha) => idsDoCargo.has(linha.colaboradorId));
+    const competenciasDoCargo = agruparPor(
+      linhasDoCargo,
+      (l) => l.competencia,
+      (l) => l.competencia,
+      () => null,
+    );
+    const descritoresDoCargo = agruparPor(
+      linhasDoCargo,
+      (l) => [l.competencia, l.descritor].join(' :: '),
+      (l) => l.descritor,
+      (l) => l.competencia,
+    );
+    return {
+      cargo,
+      pessoasMedidas: idsDoCargo.size,
+      porCompetencia: competenciasDoCargo,
+      porDescritor: descritoresDoCargo,
+      pessoas: [...pessoasDoCargo].sort((a, b) => b.delta - a.delta),
+      proximasAcoes: {
+        precisamApoio: pessoasDoCargo
+          .filter((p) => p.veredito === CONVERGENCIA.ESTAVEL || p.veredito === null)
+          .sort((a, b) => a.delta - b.delta),
+        proximoCiclo: [...competenciasDoCargo].reverse().slice(0, 3),
+      },
+    };
+  });
 
   const pessoasMedidas = new Set(pessoas.map((p) => p.colaboradorId)).size;
 
@@ -347,6 +399,7 @@ export function agregarEvolucao(
     },
     porCompetencia,
     porDescritor,
+    porCargo,
     pessoas: pessoas.sort((a, b) => b.delta - a.delta),
     proximasAcoes: {
       precisamApoio,

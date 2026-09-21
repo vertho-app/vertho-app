@@ -165,6 +165,26 @@ describe('agregarEvolucao', () => {
     expect(metas.delta).toBe(1);
   });
 
+  it('produz agregados independentes por cargo', () => {
+    const r = agregarEvolucao(
+      [
+        trilha('p1', [d('Metas', 1, 3, CONVERGENCIA.CONFIRMADA)]),
+        trilha('p2', [d('Metas', 3, 3.2, CONVERGENCIA.PARCIAL)]),
+        trilha('p3', [d('Metas', 2, 2.5, CONVERGENCIA.PARCIAL)]),
+      ],
+      participantes,
+      0,
+    );
+
+    expect(r.porCargo.map((recorte) => recorte.cargo)).toEqual(['Coordenadora', 'Diretor']);
+    const coordenadoras = r.porCargo.find((recorte) => recorte.cargo === 'Coordenadora')!;
+    const diretores = r.porCargo.find((recorte) => recorte.cargo === 'Diretor')!;
+    expect(coordenadoras.pessoasMedidas).toBe(2);
+    expect(coordenadoras.porCompetencia[0]).toMatchObject({ n: 2, mediaPre: 1.5, mediaPos: 2.75, delta: 1.25 });
+    expect(diretores.pessoasMedidas).toBe(1);
+    expect(diretores.porCompetencia[0]).toMatchObject({ n: 1, mediaPre: 3, mediaPos: 3.2, delta: 0.2 });
+  });
+
   it('NÃO funde comportamentos de MESMO NOME em competências diferentes', () => {
     // A régua padrão repete os mesmos comportamentos em várias competências.
     // Agrupar só pelo nome fundia as linhas: a média saía de uma mistura, e o

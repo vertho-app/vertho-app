@@ -14,7 +14,8 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
   pct, comSinal, paginarPessoas, selecionarMultiplicadores,
-  montarRadaresPorCompetencia, paginarRadares, pontosRadar,
+  montarRadaresPorCompetencia, paginarRadares, pontosRadar, paginarComportamentos,
+  paginarCargosNoAvanco,
 } from '@/components/pdf/RelatorioEvolucao';
 
 const FONTE = readFileSync(join(__dirname, '..', '..', 'components', 'pdf', 'RelatorioEvolucao.tsx'), 'utf8');
@@ -104,15 +105,33 @@ describe('radares de descritores por competência', () => {
   });
 });
 
+describe('separação editorial por cargo', () => {
+  it('pagina comportamentos sem misturar a sequência de outro recorte', () => {
+    const comportamentos = Array.from({ length: 45 }, (_, i) => ({ chave: String(i) })) as any;
+    expect(paginarComportamentos(comportamentos).map((pagina) => pagina.length)).toEqual([22, 22, 1]);
+  });
+
+  it('identifica o cargo em todas as seções analíticas', () => {
+    expect(FONTE).toContain('<CabecalhoCargo recorte={cargo} />');
+    expect(FONTE).toContain('recortesCargo.flatMap');
+  });
+
+  it('aproveita a mesma página para cargos pequenos sem fundir os dados', () => {
+    const recortes = [2, 2, 5].map((quantidade, i) => ({
+      cargo: `Cargo ${i}`,
+      porCompetencia: Array.from({ length: quantidade }, () => ({})),
+    })) as any;
+    expect(paginarCargosNoAvanco(recortes).map((pagina) => pagina.map((cargo) => cargo.cargo))).toEqual([
+      ['Cargo 0', 'Cargo 1'],
+      ['Cargo 2'],
+    ]);
+  });
+});
+
 describe('as afirmações do papel vêm das fontes vivas', () => {
-  it('lê a régua de convergência, a de nível e o ruído medido por IMPORT', () => {
-    // Se um destes sair do import, o número continua no papel depois de deixar
-    // de ser verdade — e nada na tela acusa.
-    for (const simbolo of ['CORTE_CONFIRMADA', 'CORTE_PARCIAL', 'TETO_N3', 'RUIDO_MEDIDO', 'rotuloConvergencia']) {
-      expect(FONTE).toContain(simbolo);
-    }
+  it('lê o rótulo da régua de convergência por IMPORT', () => {
+    expect(FONTE).toContain('rotuloConvergencia');
     expect(FONTE).toMatch(/import \{[\s\S]*?rotuloConvergencia[\s\S]*?\} from '@\/lib\/season-engine\/convergencia'/);
-    expect(FONTE).toMatch(/import \{ RUIDO_MEDIDO \} from '@\/lib\/season-engine\/prompts\/extrator-conversa'/);
   });
 
   it('não escreve o rótulo do veredito à mão', () => {
@@ -125,12 +144,18 @@ describe('as afirmações do papel vêm das fontes vivas', () => {
     }
   });
 
-  it('não repete os cortes como número literal no texto do documento', () => {
-    const semComentarios = FONTE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    // O texto da página de método é interpolado com `num(CORTE_*)`; um "0,50"
-    // digitado sobreviveria a uma recalibragem da régua.
-    expect(semComentarios).not.toMatch(/'[^']*0,50 ponto/);
-    expect(semComentarios).not.toMatch(/'[^']*0,20 ponto/);
+  it('remove a página de método e seus detalhes técnicos', () => {
+    expect(FONTE).not.toContain('Como isto foi medido');
+    expect(FONTE).not.toContain('RUIDO_MEDIDO');
+    expect(FONTE).not.toContain('TETO_N3');
+    expect(FONTE).not.toContain('CORTE_CONFIRMADA');
+  });
+
+  it('mostra somente o nome dos níveis na faixa da régua', () => {
+    expect(FONTE).toContain("label: 'N1'");
+    expect(FONTE).toContain("label: 'N4'");
+    expect(FONTE).not.toContain("label: 'N1 ·");
+    expect(FONTE).not.toContain("label: 'N4 ·");
   });
 
   it('não renderiza o cartão de sem medição no fechamento', () => {

@@ -12,12 +12,10 @@
  * 2. **O rótulo do veredito sai de `rotuloConvergencia`.** Escrever "Estável" à
  *    mão aqui recriaria a divergência que a régua única existe para impedir.
  *
- * 3. **A última página diz como isto foi medido, inclusive o erro.** É a página
- *    que separa um relatório bonito de um relatório defensável: ela declara o
- *    ruído do instrumento (`RUIDO_MEDIDO`), e com isso o leitor sabe quais
- *    diferenças valem conversa e quais são pequenas demais para afirmar. Um
- *    painel que só mostra a seta para cima convida o cliente a perguntar "como
- *    vocês sabem?" — e essa pergunta merece uma página, não uma frase.
+ * 3. **Cargo é fronteira de análise.** Médias de funções diferentes podem
+ *    esconder tanto um avanço forte quanto uma necessidade específica. Por
+ *    isso o PDF recebe do agregador recortes independentes e nunca recompõe uma
+ *    média cruzando cargos.
  *
  * ⚠️ NENHUM GLIFO FORA DO SUBSET DA INTER (sem → ✓ ● ★ ≥). O guard
  * `tests/unit/pdf-glifos-guard.test.ts` falha se um entrar; o efeito no papel é
@@ -25,18 +23,17 @@
  */
 import React from 'react';
 import { Document, Page, Text, View, Image, StyleSheet, Svg, Polygon, Line, Circle } from '@react-pdf/renderer';
-import { colors, pageStyles, fonts } from './styles';
+import { colors, pageStyles } from './styles';
 import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
 import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
 import { DICA_VEREDITO } from '@/lib/season-engine/convergencia-dicas';
-import {
-  CONVERGENCIA, rotuloConvergencia, CORTE_CONFIRMADA, CORTE_PARCIAL,
-} from '@/lib/season-engine/convergencia';
-import { RUIDO_MEDIDO } from '@/lib/season-engine/prompts/extrator-conversa';
-import { nivelDaNota, TETO_N3 } from '@/lib/nivel-regua';
+import { CONVERGENCIA, rotuloConvergencia } from '@/lib/season-engine/convergencia';
+import { nivelDaNota } from '@/lib/nivel-regua';
 import { descritorParaHumano } from '@/lib/descritor-humano';
-import type { EvolucaoCentro, EvolucaoAgregado, EvolucaoPessoa } from '@/lib/relatorios/evolucao-center';
+import type {
+  EvolucaoCentro, EvolucaoAgregado, EvolucaoPessoa, EvolucaoRecorteCargo,
+} from '@/lib/relatorios/evolucao-center';
 
 const s = StyleSheet.create({
   section: { marginBottom: 16 },
@@ -81,6 +78,16 @@ const s = StyleSheet.create({
   legenda: { flexDirection: 'row', alignItems: 'center', marginTop: 1, marginBottom: 8 },
   legendaPonto: { width: 7, height: 7, borderRadius: 4, marginRight: 4 },
   legendaTexto: { fontFamily: 'NotoSans', fontSize: 7.5, color: colors.textMuted, marginRight: 12 },
+
+  // O cargo funciona como cabeçalho de recorte, não como filtro escondido.
+  cargoHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9, paddingBottom: 7, borderBottomWidth: 1, borderBottomColor: colors.gray200 },
+  cargoEyebrow: { fontFamily: 'NotoSans', fontSize: 6.5, fontWeight: 700, color: colors.nivelCyan, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 },
+  cargoNome: { fontFamily: 'NotoSans', fontSize: 12, fontWeight: 700, color: colors.navyLight },
+  cargoContagem: { fontFamily: 'NotoSans', fontSize: 7.5, color: colors.textMuted, textAlign: 'right' },
+  cargoResumo: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 },
+  cargoResumoItem: { width: '48%', borderWidth: 1, borderColor: colors.gray200, borderRadius: 7, padding: 9, marginRight: 8, marginBottom: 8, backgroundColor: colors.gray100 },
+  cargoResumoNome: { fontFamily: 'NotoSans', fontSize: 9, fontWeight: 700, color: colors.navyLight, marginBottom: 2 },
+  cargoResumoMeta: { fontFamily: 'NotoSans', fontSize: 7, color: colors.textMuted },
 
   // Radar por competência. Os eixos recebem números e a descrição completa
   // fica ao lado: rótulos longos não colidem com o desenho nem ficam ilegíveis.
@@ -159,6 +166,20 @@ function PageHeader({ logoBase64, label }: { logoBase64?: string; label: string 
   );
 }
 
+function CabecalhoCargo({ recorte }: { recorte: EvolucaoRecorteCargo }) {
+  return (
+    <View style={s.cargoHead} wrap={false}>
+      <View style={{ flex: 1, paddingRight: 12 }}>
+        <Text style={s.cargoEyebrow}>Recorte por cargo</Text>
+        <Text style={s.cargoNome}>{recorte.cargo}</Text>
+      </View>
+      <Text style={s.cargoContagem}>
+        {`${recorte.pessoasMedidas} ${recorte.pessoasMedidas === 1 ? 'pessoa medida' : 'pessoas medidas'}`}
+      </Text>
+    </View>
+  );
+}
+
 function Pill({ veredito, rotulo }: { veredito: string | null; rotulo: string }) {
   const t = TINTA[veredito as keyof typeof TINTA] || TINTA.semVeredito;
   return (
@@ -179,16 +200,16 @@ function CortesDaRegua() {
 }
 
 /**
- * Os segmentos respeitam o tamanho real de cada faixa na escala numérica:
- * N1 e N2 ocupam 1 ponto; N3 e N4, meio ponto cada. Verde marca somente a
- * faixa conquistada entre o diagnóstico e o fechamento.
+ * Os segmentos respeitam o tamanho real de cada faixa na escala numérica.
+ * O leitor vê só o nível; os cortes detalhados pertencem à régua do produto,
+ * não a este resumo executivo.
  */
 function FaixasDaRegua({ item }: { item: EvolucaoAgregado }) {
   const faixas = [
-    { nivel: 1, width: '33.33%', label: 'N1 · 1,00 a 1,99' },
-    { nivel: 2, width: '33.34%', label: 'N2 · 2,00 a 2,99' },
-    { nivel: 3, width: '16.66%', label: 'N3 · 3,00 a 3,50' },
-    { nivel: 4, width: '16.67%', label: 'N4 · acima de 3,50' },
+    { nivel: 1, width: '33.33%', label: 'N1' },
+    { nivel: 2, width: '33.34%', label: 'N2' },
+    { nivel: 3, width: '16.66%', label: 'N3' },
+    { nivel: 4, width: '16.67%', label: 'N4' },
   ];
   return (
     <View style={s.faixas}>
@@ -276,6 +297,42 @@ export function paginarPessoas(pessoas: EvolucaoPessoa[], maximoPorPagina = 18):
   const grupos: EvolucaoPessoa[][] = [];
   for (let i = 0; i < pessoas.length; i += porPagina) grupos.push(pessoas.slice(i, i + porPagina));
   return grupos;
+}
+
+export function paginarComportamentos(
+  comportamentos: EvolucaoAgregado[],
+  maximoPorPagina = 22,
+): EvolucaoAgregado[][] {
+  const paginas: EvolucaoAgregado[][] = [];
+  for (let i = 0; i < comportamentos.length; i += maximoPorPagina) {
+    paginas.push(comportamentos.slice(i, i + maximoPorPagina));
+  }
+  return paginas;
+}
+
+/**
+ * Agrupa recortes pequenos na mesma página de barras sem cruzar suas médias.
+ * Uma unidade representa o cabeçalho do cargo ou uma competência exibida.
+ */
+export function paginarCargosNoAvanco(
+  recortes: EvolucaoRecorteCargo[],
+  maximoDeUnidades = 7,
+): EvolucaoRecorteCargo[][] {
+  const paginas: EvolucaoRecorteCargo[][] = [];
+  let atual: EvolucaoRecorteCargo[] = [];
+  let unidades = 0;
+  for (const recorte of recortes) {
+    const peso = 1 + Math.min(6, recorte.porCompetencia.length);
+    if (atual.length && unidades + peso > maximoDeUnidades) {
+      paginas.push(atual);
+      atual = [];
+      unidades = 0;
+    }
+    atual.push(recorte);
+    unidades += peso;
+  }
+  if (atual.length) paginas.push(atual);
+  return paginas;
 }
 
 export type CompetenciaRadar = {
@@ -453,6 +510,33 @@ function TabelaPessoas({ pessoas }: { pessoas: EvolucaoPessoa[] }) {
   );
 }
 
+function TabelaComportamentos({ comportamentos }: { comportamentos: EvolucaoAgregado[] }) {
+  return (
+    <>
+      <View style={s.th}>
+        <Text style={{ ...s.thText, flex: 3, paddingRight: 8 }}>Comportamento</Text>
+        <Text style={{ ...s.thText, flex: 2.4 }}>Competência</Text>
+        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Pessoas</Text>
+        <Text style={{ ...s.thText, width: 42, textAlign: 'center' }}>Antes</Text>
+        <Text style={{ ...s.thText, width: 42, textAlign: 'center' }}>Depois</Text>
+        <Text style={{ ...s.thText, width: 40, textAlign: 'center' }}>Avanço</Text>
+      </View>
+      {comportamentos.map((d, i) => (
+        <View key={`${d.competencia} :: ${d.chave}`} style={i % 2 ? s.trAlt : s.tr} wrap={false}>
+          <Text style={{ ...s.tdStrong, flex: 3, paddingRight: 8 }}>{descritorParaHumano(d.chave)}</Text>
+          <Text style={{ ...s.td, flex: 2.4, fontSize: 7.5 }}>{d.competencia || '—'}</Text>
+          <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{d.n}</Text>
+          <Text style={{ ...s.td, width: 42, textAlign: 'center' }}>{num(d.mediaPre)}</Text>
+          <Text style={{ ...s.td, width: 42, textAlign: 'center' }}>{num(d.mediaPos)}</Text>
+          <Text style={{ ...s.tdStrong, width: 40, textAlign: 'center', color: d.delta > 0 ? colors.green : colors.textMuted }}>
+            {comSinal(d.delta)}
+          </Text>
+        </View>
+      ))}
+    </>
+  );
+}
+
 export default function RelatorioEvolucaoPDF({
   data, empresaNome, logoBase64, mostrarVertho = true, recorte,
 }: {
@@ -467,11 +551,17 @@ export default function RelatorioEvolucaoPDF({
   const label = 'Evolução da jornada';
   const ultimaMedicao = pessoas.map((p) => p.concluidoEm).filter(Boolean).sort().reverse()[0] || null;
   const totalClassificadas = resumo.confirmadas + resumo.parciais + resumo.estaveis;
-  const paginasPessoas = paginarPessoas(pessoas);
-  const paginasRadares = paginarRadares(montarRadaresPorCompetencia(porCompetencia, porDescritor));
-  // Multiplicador é patamar, não apenas movimento: somente quem terminou a
-  // competência no N4 entra, mesmo que outra pessoa tenha avançado mais pontos.
-  const multiplicadores = selecionarMultiplicadores(pessoas);
+  // Compatibilidade com payloads materializados antes da separação por cargo.
+  // A produção já recebe `porCargo` do agregador; o fallback evita que um PDF
+  // histórico deixe de abrir e o identifica como um único recorte explícito.
+  const recortesCargo: EvolucaoRecorteCargo[] = data.porCargo?.length ? data.porCargo : [{
+    cargo: recorte || 'Cargo não informado',
+    pessoasMedidas: cobertura.medidos,
+    porCompetencia,
+    porDescritor,
+    pessoas,
+    proximasAcoes,
+  }];
 
   const capa = (
     <PdfReportCover
@@ -553,210 +643,182 @@ export default function RelatorioEvolucaoPDF({
         </View>
 
         <View style={s.section}>
-          <ReportSectionTitle>Onde o grupo mais avançou</ReportSectionTitle>
-          <View style={s.legenda}>
-            <View style={{ ...s.legendaPonto, backgroundColor: colors.gray400 }} />
-            <Text style={s.legendaTexto}>No diagnóstico inicial</Text>
-            <View style={{ ...s.legendaPonto, backgroundColor: colors.cyan }} />
-            <Text style={s.legendaTexto}>No fechamento da jornada</Text>
+          <ReportSectionTitle>Recortes deste relatório</ReportSectionTitle>
+          <Text style={s.p}>
+            {`Os resultados das próximas páginas estão separados em ${recortesCargo.length} ${recortesCargo.length === 1 ? 'cargo' : 'cargos'}. Nenhuma média de competência ou comportamento mistura funções diferentes.`}
+          </Text>
+          <View style={s.cargoResumo}>
+            {recortesCargo.map((cargo) => (
+              <View key={cargo.cargo} style={s.cargoResumoItem} wrap={false}>
+                <Text style={s.cargoResumoNome}>{cargo.cargo}</Text>
+                <Text style={s.cargoResumoMeta}>
+                  {`${cargo.pessoasMedidas} ${cargo.pessoasMedidas === 1 ? 'pessoa medida' : 'pessoas medidas'} · ${cargo.porCompetencia.length} ${cargo.porCompetencia.length === 1 ? 'competência' : 'competências'}`}
+                </Text>
+              </View>
+            ))}
           </View>
-          {porCompetencia.slice(0, 6).map((c) => <BarraEvolucao key={c.chave} item={c} />)}
         </View>
 
         <PageFooter />
       </Page>
 
-      {/* ───────────────── 2. Radares por competência ───────────────── */}
-      {paginasRadares.map((grupo, pagina) => (
-        <Page key={`radares-${pagina}`} size="A4" style={pageStyles.page} wrap={false}>
+      {/* ───────────────── 2. Avanço por cargo ───────────────── */}
+      {paginarCargosNoAvanco(recortesCargo).map((grupoCargos, pagina) => (
+        <Page key={`avanco-${pagina}`} size="A4" style={pageStyles.page} wrap={false}>
           <PageHeader logoBase64={logoBase64} label={label} />
           <View style={s.section}>
-            <ReportSectionTitle>{pagina === 0 ? 'Evolução dos descritores por competência' : 'Evolução dos descritores · continuação'}</ReportSectionTitle>
-            {pagina === 0 && (
-              <Text style={s.p}>
-                {'Cada radar mostra uma competência isoladamente. Os eixos são seus descritores; quanto mais distante do centro, maior a nota na régua de 1 a 4. A área cinza é o diagnóstico e a área ciano é o fechamento.'}
-              </Text>
-            )}
-            {grupo.map((item) => <RadarCompetencia key={item.competencia.chave} item={item} />)}
+            <ReportSectionTitle>{pagina === 0 ? 'Onde o grupo mais avançou' : 'Onde o grupo mais avançou · continuação'}</ReportSectionTitle>
+            <View style={s.legenda}>
+              <View style={{ ...s.legendaPonto, backgroundColor: colors.gray400 }} />
+              <Text style={s.legendaTexto}>No diagnóstico inicial</Text>
+              <View style={{ ...s.legendaPonto, backgroundColor: colors.cyan }} />
+              <Text style={s.legendaTexto}>No fechamento da jornada</Text>
+            </View>
+            {grupoCargos.map((cargo) => (
+              <View key={cargo.cargo} style={{ marginBottom: 9 }} wrap={false}>
+                <CabecalhoCargo recorte={cargo} />
+                {cargo.porCompetencia.slice(0, 6).map((competencia) => (
+                  <BarraEvolucao key={competencia.chave} item={competencia} />
+                ))}
+              </View>
+            ))}
           </View>
           <PageFooter />
         </Page>
       ))}
 
-      {/* ───────────────── 3. Comportamentos ───────────────── */}
-      <Page size="A4" style={pageStyles.page} wrap>
-        <PageHeader logoBase64={logoBase64} label={label} />
-
-        <View style={s.section}>
-          <ReportSectionTitle>Comportamento por comportamento</ReportSectionTitle>
-          <Text style={s.p}>
-            {'A competência é o título; o que se observa é o comportamento. Esta é a lista que serve para escolher o foco do próximo ciclo.'}
-          </Text>
-
-          <View style={s.th}>
-            <Text style={{ ...s.thText, flex: 3, paddingRight: 8 }}>Comportamento</Text>
-            <Text style={{ ...s.thText, flex: 2.4 }}>Competência</Text>
-            <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Pessoas</Text>
-            <Text style={{ ...s.thText, width: 42, textAlign: 'center' }}>Antes</Text>
-            <Text style={{ ...s.thText, width: 42, textAlign: 'center' }}>Depois</Text>
-            <Text style={{ ...s.thText, width: 40, textAlign: 'center' }}>Avanço</Text>
-          </View>
-          {porDescritor.map((d, i) => (
-            <View key={`${d.competencia} :: ${d.chave}`} style={i % 2 ? s.trAlt : s.tr} wrap={false}>
-              <Text style={{ ...s.tdStrong, flex: 3, paddingRight: 8 }}>{descritorParaHumano(d.chave)}</Text>
-              <Text style={{ ...s.td, flex: 2.4, fontSize: 7.5 }}>{d.competencia || '—'}</Text>
-              <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{d.n}</Text>
-              <Text style={{ ...s.td, width: 42, textAlign: 'center' }}>{num(d.mediaPre)}</Text>
-              <Text style={{ ...s.td, width: 42, textAlign: 'center' }}>{num(d.mediaPos)}</Text>
-              <Text style={{ ...s.tdStrong, width: 40, textAlign: 'center', color: d.delta > 0 ? colors.green : colors.textMuted }}>
-                {comSinal(d.delta)}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <PageFooter />
-      </Page>
-
-      {/* ───────────────── 4. Pessoas ───────────────── */}
-      <Page size="A4" style={pageStyles.page} wrap>
-        <PageHeader logoBase64={logoBase64} label={label} />
-
-        {paginasPessoas.map((grupo, pagina) => (
-          <View key={`pessoas-${pagina}`} style={s.section} break={pagina > 0}>
-            <ReportSectionTitle>{pagina === 0 ? 'Pessoa por pessoa' : 'Pessoa por pessoa · continuação'}</ReportSectionTitle>
-            {pagina === 0 && (
-              <Text style={s.p}>
-                {'Cada linha mostra uma pessoa em uma competência. Resultados de competências diferentes nunca são somados ou mediados; quando a variação é negativa, o avanço exibido é zero.'}
-              </Text>
-            )}
-            <TabelaPessoas pessoas={grupo} />
-          </View>
-        ))}
-
-        <PageFooter />
-      </Page>
-
-
-      {/* ───────────────── 5. Próximos passos ───────────────── */}
-      <Page size="A4" style={pageStyles.page} wrap>
-        <PageHeader logoBase64={logoBase64} label={label} />
-
-        {proximasAcoes.proximoCiclo.length > 0 && (
-          <View style={s.section}>
-            <ReportSectionTitle>Candidatos ao próximo ciclo</ReportSectionTitle>
-            <View style={s.boxAccent}>
-              <Text style={s.p}>
-                {'As competências em que o grupo menos avançou. Elas orientam a escolha da próxima jornada; os comportamentos da página anterior ajudam a definir a abordagem dentro de cada competência.'}
-              </Text>
-              {proximasAcoes.proximoCiclo.map((d) => (
-                <Text key={d.chave} style={s.pStrong}>
-                  {`• ${d.chave}`}
-                  {` — ${d.n === 1 ? '1 pessoa' : `${d.n} pessoas`}, avanço de ${comSinal(d.delta)}`}
+      {/* ───────────────── 3. Radares por cargo e competência ───────────────── */}
+      {recortesCargo.flatMap((cargo) => {
+        const paginas = paginarRadares(montarRadaresPorCompetencia(cargo.porCompetencia, cargo.porDescritor));
+        return paginas.map((grupo, pagina) => (
+          <Page key={`radares-${cargo.cargo}-${pagina}`} size="A4" style={pageStyles.page} wrap={false}>
+            <PageHeader logoBase64={logoBase64} label={label} />
+            <View style={s.section}>
+              <ReportSectionTitle>{pagina === 0 ? 'Evolução dos descritores por competência' : 'Evolução dos descritores · continuação'}</ReportSectionTitle>
+              <CabecalhoCargo recorte={cargo} />
+              {pagina === 0 && (
+                <Text style={s.p}>
+                  {'Cada radar mostra uma competência isoladamente. Os eixos são seus descritores; quanto mais distante do centro, maior a nota na régua de 1 a 4. A área cinza é o diagnóstico e a área ciano é o fechamento.'}
                 </Text>
-              ))}
+              )}
+              {grupo.map((item) => <RadarCompetencia key={item.competencia.chave} item={item} />)}
             </View>
-          </View>
-        )}
+            <PageFooter />
+          </Page>
+        ));
+      })}
 
-        {proximasAcoes.precisamApoio.length > 0 && (
-          <View style={s.section}>
-            <ReportSectionTitle>Conversas a ter primeiro</ReportSectionTitle>
-            <View style={s.box}>
-              <Text style={s.p}>
-                {'Quem terminou uma competência sem evolução confirmada. Não é uma lista de problema: é onde uma conversa de gestor pode mudar mais o resultado do próximo ciclo.'}
-              </Text>
-              {proximasAcoes.precisamApoio.slice(0, 10).map((p, i) => (
-                <Text key={`${p.colaboradorId}::${p.competencia}::${i}`} style={s.pStrong}>
-                  {`• ${p.nome}`}
-                  {p.cargo ? ` — ${p.cargo}` : ''}
-                  {p.competencia ? ` · ${p.competencia}` : ''}
-                  {`: ${p.vereditoRotulo}, avanço de ${comSinal(p.delta)}`}
-                  {p.proximoPasso ? `. Próximo passo sugerido: ${p.proximoPasso}` : ''}
+      {/* ───────────────── 4. Comportamentos por cargo ───────────────── */}
+      {recortesCargo.flatMap((cargo) => {
+        const paginas = paginarComportamentos(cargo.porDescritor);
+        return paginas.map((grupo, pagina) => (
+          <Page key={`comportamentos-${cargo.cargo}-${pagina}`} size="A4" style={pageStyles.page} wrap={false}>
+            <PageHeader logoBase64={logoBase64} label={label} />
+            <View style={s.section}>
+              <ReportSectionTitle>{pagina === 0 ? 'Comportamento por comportamento' : 'Comportamentos · continuação'}</ReportSectionTitle>
+              <CabecalhoCargo recorte={cargo} />
+              {pagina === 0 && (
+                <Text style={s.p}>
+                  {'A competência é o título; o que se observa é o comportamento. Esta lista usa somente as pessoas deste cargo.'}
                 </Text>
-              ))}
+              )}
+              <TabelaComportamentos comportamentos={grupo} />
             </View>
-          </View>
-        )}
+            <PageFooter />
+          </Page>
+        ));
+      })}
 
-        {multiplicadores.length > 0 && (
-          <View style={s.section}>
-            <ReportSectionTitle>Quem pode multiplicar</ReportSectionTitle>
-            <View style={s.box}>
-              <Text style={s.p}>
-                {'Pessoas que encerraram uma competência no N4, o nível de referência. São elas que podem compartilhar uma prática já consolidada com o grupo.'}
-              </Text>
-              {multiplicadores.map((p, i) => (
-                <View key={`${p.colaboradorId}::${p.competencia}::${i}`} style={{ marginBottom: 6 }}>
-                  <Text style={s.pStrong}>
-                    {`• ${p.nome}`}
-                    {p.cargo ? ` — ${p.cargo}` : ''}
-                    {`: N4 em ${p.competencia || "competência do ciclo"}, avanço de ${comSinal(p.delta)}`}
+      {/* ───────────────── 5. Pessoas por cargo ───────────────── */}
+      {recortesCargo.flatMap((cargo) => {
+        const paginas = paginarPessoas(cargo.pessoas);
+        return paginas.map((grupo, pagina) => (
+          <Page key={`pessoas-${cargo.cargo}-${pagina}`} size="A4" style={pageStyles.page} wrap={false}>
+            <PageHeader logoBase64={logoBase64} label={label} />
+            <View style={s.section}>
+              <ReportSectionTitle>{pagina === 0 ? 'Pessoa por pessoa' : 'Pessoa por pessoa · continuação'}</ReportSectionTitle>
+              <CabecalhoCargo recorte={cargo} />
+              {pagina === 0 && (
+                <Text style={s.p}>
+                  {'Cada linha mostra uma pessoa em uma competência. Competências diferentes nunca são somadas ou mediadas; quando a variação é negativa, o avanço exibido é zero.'}
+                </Text>
+              )}
+              <TabelaPessoas pessoas={grupo} />
+            </View>
+            <PageFooter />
+          </Page>
+        ));
+      })}
+
+      {/* ───────────────── 6. Próximos passos por cargo ───────────────── */}
+      {recortesCargo.map((cargo) => {
+        const multiplicadores = selecionarMultiplicadores(cargo.pessoas);
+        return (
+          <Page key={`proximos-${cargo.cargo}`} size="A4" style={pageStyles.page} wrap>
+            <PageHeader logoBase64={logoBase64} label={label} />
+            <View style={s.section}>
+              <ReportSectionTitle>Próximos passos</ReportSectionTitle>
+              <CabecalhoCargo recorte={cargo} />
+            </View>
+
+            {cargo.proximasAcoes.proximoCiclo.length > 0 && (
+              <View style={s.section}>
+                <Text style={s.h3}>Candidatos ao próximo ciclo</Text>
+                <View style={s.boxAccent}>
+                  <Text style={s.p}>
+                    {'As competências em que este cargo menos avançou. Os comportamentos da seção anterior ajudam a definir a abordagem dentro de cada competência.'}
                   </Text>
-                  {p.insight ? <Text style={{ ...s.caption, marginLeft: 10 }}>{p.insight}</Text> : null}
+                  {cargo.proximasAcoes.proximoCiclo.map((d) => (
+                    <Text key={d.chave} style={s.pStrong}>
+                      {`• ${d.chave} — ${d.n === 1 ? '1 pessoa' : `${d.n} pessoas`}, avanço de ${comSinal(d.delta)}`}
+                    </Text>
+                  ))}
                 </View>
-              ))}
-            </View>
-          </View>
-        )}
+              </View>
+            )}
 
-        <PageFooter />
-      </Page>
-      {/* ───────────────── 6. Método ───────────────── */}
-      <Page size="A4" style={pageStyles.page} wrap>
-        <PageHeader logoBase64={logoBase64} label={label} />
+            {cargo.proximasAcoes.precisamApoio.length > 0 && (
+              <View style={s.section}>
+                <Text style={s.h3}>Conversas a ter primeiro</Text>
+                <View style={s.box}>
+                  <Text style={s.p}>
+                    {'Quem terminou uma competência sem evolução confirmada neste cargo. Não é uma lista de problema: é onde uma conversa de gestor pode mudar mais o próximo ciclo.'}
+                  </Text>
+                  {cargo.proximasAcoes.precisamApoio.slice(0, 6).map((p, i) => (
+                    <Text key={`${p.colaboradorId}::${p.competencia}::${i}`} style={s.pStrong}>
+                      {`• ${p.nome}`}
+                      {p.competencia ? ` · ${p.competencia}` : ''}
+                      {`: ${p.vereditoRotulo}, avanço de ${comSinal(p.delta)}`}
+                      {p.proximoPasso ? `. Próximo passo sugerido: ${p.proximoPasso}` : ''}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            )}
 
-        <View style={s.section}>
-          <ReportSectionTitle>Como isto foi medido</ReportSectionTitle>
-          <Text style={s.h3}>As duas pontas da comparação</Text>
-          <Text style={s.p}>
-            {'O ponto de partida de cada comportamento vem do diagnóstico feito no início da jornada. O ponto de chegada vem do fechamento, que tem duas fontes: a conversa de reflexão, em que a pessoa relata o que mudou na prática dela, e um cenário situacional novo, respondido e avaliado comportamento a comportamento. As duas notas estão na mesma régua de 1 a 4.'}
-          </Text>
+            {multiplicadores.length > 0 && (
+              <View style={s.section}>
+                <Text style={s.h3}>Quem pode multiplicar</Text>
+                <View style={s.box}>
+                  <Text style={s.p}>
+                    {'Pessoas deste cargo que encerraram uma competência no N4, o nível de referência.'}
+                  </Text>
+                  {multiplicadores.map((p, i) => (
+                    <View key={`${p.colaboradorId}::${p.competencia}::${i}`} style={{ marginBottom: 6 }}>
+                      <Text style={s.pStrong}>
+                        {`• ${p.nome}: N4 em ${p.competencia || 'competência do ciclo'}, avanço de ${comSinal(p.delta)}`}
+                      </Text>
+                      {p.insight ? <Text style={{ ...s.caption, marginLeft: 10 }}>{p.insight}</Text> : null}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
 
-          <Text style={s.h3}>Os quatro níveis</Text>
-          <Text style={s.p}>
-            {`N1 de 1,00 a 1,99 (lacuna) · N2 de 2,00 a 2,99 (em desenvolvimento) · N3 de 3,00 a ${num(TETO_N3)} (consistente) · N4 acima de ${num(TETO_N3)} (referência).`}
-          </Text>
-
-          <Text style={s.h3}>Quando a evolução é chamada de confirmada</Text>
-          <Text style={s.p}>
-            {`Confirmada é avanço de ao menos ${num(CORTE_CONFIRMADA)} ponto entre o diagnóstico e o cenário do fechamento. O veredito é decidido só pelo avanço: nem o nível de chegada nem o relato da pessoa entram na conta. O relato aparece nos comentários de cada comportamento (antes e depois).`}
-          </Text>
-          <Text style={s.p}>
-            {`Parcial cobre avanço de ao menos ${num(CORTE_PARCIAL)} ponto. Estável é o piso: o patamar de partida se manteve, e é só isso que a medição sustenta.`}
-          </Text>
-
-          <Text style={s.h3}>A precisão do instrumento</Text>
-          <Text style={s.pStrong}>
-            {`Medimos o erro da nossa própria medição em ${RUIDO_MEDIDO.medidoEm}: ${RUIDO_MEDIDO.conversas} conversas reais de fechamento foram reavaliadas ${RUIDO_MEDIDO.repeticoes} vezes cada, do zero, pelo mesmo avaliador.`}
-          </Text>
-          <Text style={s.p}>
-            {`A nota de uma pessoa variou, entre releituras da MESMA conversa, com desvio de ${num(RUIDO_MEDIDO.dpPorConversa)} ponto, e no pior caso ${num(RUIDO_MEDIDO.amplitudeMaximaPorConversa)} ponto. Três consequências práticas para ler este relatório:`}
-          </Text>
-          <Text style={s.p}>
-            {`• Um avanço de ${num(CORTE_CONFIRMADA)} ponto ou mais está acima desse erro com folga. Evolução confirmada não sai de variação da medição.`}
-          </Text>
-          <Text style={s.p}>
-            {`• Diferenças pequenas, abaixo de ${num(RUIDO_MEDIDO.amplitudeMaximaPorConversa)} ponto, não sustentam afirmação sobre uma pessoa isolada. Elas valem como tendência do grupo, não como diagnóstico individual.`}
-          </Text>
-          <Text style={s.p}>
-            {`• O número é mais confiável que o nível. Uma nota de 2,00 fica na fronteira entre N1 e N2, e um centésimo a move de lado: em ${RUIDO_MEDIDO.paresComNivelInstavel} dos ${RUIDO_MEDIDO.pares} casos medidos o nível trocou entre releituras, enquanto a nota praticamente não mudou. Por isso compare notas, e trate o nível como faixa.`}
-          </Text>
-
-          <Text style={s.h3}>O que este relatório não afirma</Text>
-          <Text style={s.p}>
-            {'Que ninguém regrediu — a régua não mede isso, por decisão: uma queda de nota entre duas conversas diferentes descreve a variação do instrumento, e chamar isso de regressão transformaria ruído numa afirmação sobre a pessoa, dentro de um documento que o gestor dela lê.'}
-          </Text>
-          <Text style={s.p}>
-            {'Que quem não aparece aqui não evoluiu. Quem ainda está em jornada não tem fechamento, e sem fechamento não há segunda medição — ausência de medição não é medição de ausência.'}
-          </Text>
-          <Text style={s.p}>
-            {`Que a média de um grupo pequeno vale como taxa. Cada número deste relatório carrega o próprio n, e aqui ele é ${cobertura.medidos}.`}
-          </Text>
-        </View>
-
-        <PageFooter />
-      </Page>
+            <PageFooter />
+          </Page>
+        );
+      })}
     </Document>
   );
 }
