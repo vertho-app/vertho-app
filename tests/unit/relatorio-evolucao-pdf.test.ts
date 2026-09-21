@@ -42,6 +42,7 @@ describe('escala da barra', () => {
 describe('sinal do avanço', () => {
   it('marca o positivo, aplica piso zero e mostra uma casa decimal', () => {
     expect(comSinal(0.85)).toBe('+0,9');
+    expect(comSinal(0.04)).toBe('0,0');
     expect(comSinal(0)).toBe('0,0');
     expect(comSinal(-0.3)).toBe('0,0');
   });

@@ -68,7 +68,7 @@ describe('agregarEvolucao', () => {
     expect(r.pessoas[0].veredito).toBeNull();
   });
 
-  it('mantém o veredito como sinal interno, sem usá-lo para priorizar conversas', () => {
+  it('mantém o veredito como sinal interno e prioriza pelo avanço exibido', () => {
     const r = agregarEvolucao(
       [trilha('p1', [
         d('Metas', 2, 2.1, CONVERGENCIA.ESTAVEL),
@@ -79,11 +79,12 @@ describe('agregarEvolucao', () => {
       0,
     );
     // A leitura processual continua disponível internamente, mas a prioridade
-    // externa considera apenas a comparação numérica entre os dois cenários.
+    // externa considera a comparação numérica que o relatório exibe. As médias
+    // 2,17 → 2,22 viram 2,2 → 2,2 e, portanto, não afirmam avanço.
     expect(r.pessoas[0].veredito).toBe(CONVERGENCIA.ESTAVEL);
-    expect(r.pessoas[0].delta).toBe(0.05);
-    expect(r.porCompetencia[0].delta).toBe(0.05);
-    expect(r.proximasAcoes.precisamApoio.map((p) => p.colaboradorId)).not.toContain('p1');
+    expect(r.pessoas[0]).toMatchObject({ mediaPre: 2.17, mediaPos: 2.22, delta: 0 });
+    expect(r.porCompetencia[0]).toMatchObject({ mediaPre: 2.17, mediaPos: 2.22, delta: 0 });
+    expect(r.proximasAcoes.precisamApoio.map((p) => p.colaboradorId)).toContain('p1');
   });
 
   it('usa a nota do cenário final e ignora a nota processual na evolução externa', () => {
@@ -150,6 +151,23 @@ describe('agregarEvolucao', () => {
     expect(r.porDescritor.find((item) => item.chave === 'Metas')).toMatchObject({ mediaPre: 1, mediaPos: 1, delta: 0 });
   });
 
+  it('trata como zero uma diferença interna que desaparece com uma casa decimal', () => {
+    const r = agregarEvolucao(
+      [trilha('p1', [
+        d('Metas', 2.3, 2.34, CONVERGENCIA.PARCIAL),
+        d('Plano', 2.4, 2.44, CONVERGENCIA.PARCIAL),
+      ])],
+      participantes,
+      0,
+    );
+
+    // As médias internas continuam com duas casas para preservar o dado. No
+    // relatório, ambas são 2,4; logo o avanço é 0,0 e a pessoa entra na pauta.
+    expect(r.pessoas[0]).toMatchObject({ mediaPre: 2.35, mediaPos: 2.39, delta: 0 });
+    expect(r.porCompetencia[0]).toMatchObject({ mediaPre: 2.35, mediaPos: 2.39, delta: 0 });
+    expect(r.proximasAcoes.precisamApoio.map((p) => p.colaboradorId)).toContain('p1');
+  });
+
   it('exige maioria de confirmadas para carimbar a pessoa como confirmada', () => {
     const uma = agregarEvolucao(
       [trilha('p1', [
@@ -210,7 +228,7 @@ describe('agregarEvolucao', () => {
     const coordenadoras = r.porCargo.find((recorte) => recorte.cargo === 'Coordenadora')!;
     const diretores = r.porCargo.find((recorte) => recorte.cargo === 'Diretor')!;
     expect(coordenadoras.pessoasMedidas).toBe(2);
-    expect(coordenadoras.porCompetencia[0]).toMatchObject({ n: 2, mediaPre: 1.5, mediaPos: 2.75, delta: 1.25 });
+    expect(coordenadoras.porCompetencia[0]).toMatchObject({ n: 2, mediaPre: 1.5, mediaPos: 2.75, delta: 1.3 });
     expect(diretores.pessoasMedidas).toBe(1);
     expect(diretores.porCompetencia[0]).toMatchObject({ n: 1, mediaPre: 3, mediaPos: 3.2, delta: 0.2 });
   });

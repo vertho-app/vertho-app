@@ -151,13 +151,23 @@ function notaFinalDoCenario(trilha: TrilhaConcluida, descritor: any, notaPre: nu
   return Math.max(notaPre, Number.isFinite(numerica) ? numerica : notaPre);
 }
 
+function arredondarParaRelatorio(valor: number): number {
+  // Limpa o ruído binário antes do Math.round para manter o arredondamento
+  // convencional também em fronteiras como 2,35 → 2,4.
+  const limpo = Number((Number(valor) || 0).toFixed(10));
+  return Math.round(limpo * 10) / 10;
+}
+
 /**
  * O avanço é sempre a diferença entre as duas médias que aparecem no
- * relatório. Calcular depois do arredondamento impede combinações como
- * "1,52 para 1,72" acompanhadas de um valor diferente de +0,20.
+ * relatório. Primeiro arredondamos cada nota para uma casa e só então
+ * subtraímos. Assim, 2,35 → 2,39 aparece e é tratado como 2,4 → 2,4:
+ * avanço zero, cor neutra e prioridade para conversa.
  */
 function avancoEntreMedias(mediaPre: number, mediaPos: number): number {
-  return Number(Math.max(0, mediaPos - mediaPre).toFixed(2));
+  const notaPreExibida = arredondarParaRelatorio(mediaPre);
+  const notaPosExibida = arredondarParaRelatorio(mediaPos);
+  return Number(Math.max(0, notaPosExibida - notaPreExibida).toFixed(1));
 }
 
 /**
