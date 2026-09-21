@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const h = vi.hoisted(() => ({
-  respostaIA: '{"intencao":"acesso","resposta":"Oi, sou o atendimento automático. Tente pedir um novo link em /entrar.","precisa_humano":false,"acao":"responder"}',
+  respostaIA: '{"intencao":"acesso","resposta":"Oi! Aqui é o Beto 👋 Tente gerar um novo link em /entrar.","precisa_humano":false,"acao":"responder"}',
   chamadasIA: [] as any[],
   envios: [] as any[],
   falharEnvio: '',
@@ -96,7 +96,7 @@ beforeEach(() => {
   h.demoBlocked = false;
   h.chamadasTdb = [];
   h.respostaIA =
-    '{"intencao":"acesso","resposta":"Oi, sou o atendimento automático. Tente pedir um novo link em /entrar.","precisa_humano":false,"acao":"responder"}';
+    '{"intencao":"acesso","resposta":"Oi! Aqui é o Beto 👋 Tente gerar um novo link em /entrar.","precisa_humano":false,"acao":"responder"}';
   delete process.env.SUPORTE_AUTO_PILOTO_EMPRESA_ID;
   resetSuporteAutoMemoria();
 });
@@ -142,9 +142,14 @@ describe('suporte-auto · piloto restrito', () => {
     expect(aiConfig).toEqual({ model: SUPORTE_AUTO_MODEL });
     expect(options.taskKey).toBe(SUPORTE_AUTO_TASK_KEY);
     expect(options.empresaId).toBe('emp-1');
-    expect(options.correlationId).toBe('wamid.P1');
-    expect(options.reasoningEffort).toBe('high');
-    expect(String(system)).toContain('atendimento automático');
+    expect(options.correlationId).toBeUndefined();
+    expect(options.reasoningEffort).toBe('low');
+    expect(options.timeoutMs).toBe(12000);
+    expect(options.geminiResponseSchema).toMatchObject({
+      type: 'object',
+      required: ['intencao', 'resposta', 'precisa_humano', 'acao'],
+    });
+    expect(String(system)).toContain('Você é o Beto');
     expect(String(user)).toContain('Rodrigo');
     const envio = h.envios[0];
     expect(envio.meta.numeroId).toBe('1256487020887128');
@@ -173,7 +178,9 @@ describe('suporte-auto · piloto restrito', () => {
     h.respostaIA = 'texto livre, sem json';
     const r = await executarSuporteAuto({ ...base, waMessageId: 'wamid.J1' });
     expect(r).toEqual({ enviou: true, motivo: 'contencao-parse' });
-    expect(h.envios[0].input.texto).toContain('atendimento automático da Vertho');
+    expect(h.envios[0].input.texto).toContain('Aqui é o Beto');
+    expect(h.envios[0].input.texto).toContain('https://app.vertho.ai/entrar');
+    expect(h.envios[0].input.texto).not.toContain('encaminhei para a equipe');
     expect(h.degradacoes.some((d) => d.detalhe?.fase === 'parse-ia')).toBe(true);
   });
 

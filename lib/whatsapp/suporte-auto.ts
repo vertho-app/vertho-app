@@ -21,8 +21,8 @@
  *  - Nenhum `createSupabaseAdmin()` aqui: contexto vai por `tenantDb`, o resto
  *    (ledger, degradação, demo-guard, envio) escreve dentro dos próprios módulos.
  *
- * Observabilidade: `taskKey: 'suporte_whatsapp'` + `correlationId = wamid` no
- * ledger; falhas viram `degradacao_log` (tipo reutilizado de propósito, ver
+ * Observabilidade: `taskKey: 'suporte_whatsapp'` no ledger; falhas levam o
+ * `wamid` na chave do `degradacao_log` (tipo reutilizado de propósito, ver
  * `degradar()`), nunca 500 do webhook.
  */
 
@@ -42,10 +42,9 @@ export const SUPORTE_AUTO_TASK_KEY = 'suporte_whatsapp';
  * catálogo: o ledger faz lookup exato e `gemini-3.8-flash-high` não existe
  * (o nível de raciocínio vai em `reasoningEffort`, não no id). */
 export const SUPORTE_AUTO_MODEL = 'gemini-3.8-flash';
-/** Teto folgado: o thinking do Gemini divide o orçamento de saída com o texto;
- * teto justo trunca a resposta ou devolve vazio. Suporte é curto, o teto cobre
- * o raciocínio `high` com folga. */
-const SUPORTE_AUTO_MAX_TOKENS = 1500;
+/** Resposta curta + thinking `low`: reduz a cauda do WhatsApp sem voltar ao
+ * teto que truncava o JSON. O schema nativo mantém o formato sob esse limite. */
+const SUPORTE_AUTO_MAX_TOKENS = 700;
 /** Teto da resposta que vai ao WhatsApp (qualidade, não limite da Meta). */
 const SUPORTE_AUTO_RESPOSTA_MAX = 1500;
 /** Anti-rajada por telefone (melhor esforço, em memória: cold start zera). */
@@ -144,21 +143,41 @@ export function resetSuporteAutoMemoria(): void {
   porTelefone.clear();
 }
 
-const SISTEMA_SUPORTE = `Você é o atendimento automático da Vertho no WhatsApp (piloto).
+const SISTEMA_SUPORTE = `Você é o Beto, assistente virtual da Vertho no WhatsApp.
 REGRAS DURAS:
-- Identifique-se como atendimento automático na primeira frase quando útil; nunca finja ser humano.
-- Responda em PT-BR, curto, estilo WhatsApp (ideal até 600 caracteres, nunca acima de 1500).
+- Fale sempre como Beto: informal, próximo, disponível e resolutivo. Nunca finja ser humano; quando se identificar, diga "Beto, assistente virtual da Vertho".
+- Responda em PT-BR, curto, estilo WhatsApp: 1 a 3 frases, ideal até 500 caracteres, nunca acima de 1500.
+- Responda ao pedido ATUAL. Não repita bordões e não use a frase burocrática "recebi sua mensagem e encaminhei para a equipe".
 - Use SÓ o CONTEXTO fornecido. Dado que não está nele, não existe: não invente nome, empresa, cargo, semana, pendência, link ou prazo.
 - CONTEXTO sem tenant (modo generico): dê orientação geral + peça o nome da empresa para consultar a situação. Não cite nenhuma empresa.
 - Nunca devolva código, token, senha ou link com token. Link de acesso, só o genérico https://app.vertho.ai/entrar
-- Acesso/link expirado: explique o passo a passo (pedir novo link em /entrar) e ofereça encaminhar à equipe.
+- Acesso/link expirado: explique de forma direta como pedir um novo link em https://app.vertho.ai/entrar e se coloque à disposição para continuar.
 - Se o pedido exige dado que você não tem, ação com conta, ou você não entendeu: precisa_humano=true.
 - Saída ESTRITAMENTE neste JSON, sem cerca de código: {"intencao":"acesso|link|pendencia|posicao|duvida|outro","resposta":"...","precisa_humano":false,"acao":"responder|escalar"}`;
 
-const CONTENCAO =
-  'Aqui é o atendimento automático da Vertho. Recebi sua mensagem e encaminhei para a equipe, que responde por aqui mesmo. Se quiser, escreva com mais detalhes o que você precisa (acesso, link ou pendência).';
+function respostaContencao(texto: string | null): string {
+  const t = String(texto ?? '').toLowerCase();
+  if (/acess|entrar|login|link|senha/.test(t)) {
+    return 'Oi! Aqui é o Beto, assistente virtual da Vertho 👋 Vamos resolver seu acesso. Tente gerar um novo link em https://app.vertho.ai/entrar. Se aparecer algum erro, me mande a mensagem exata que eu continuo com você por aqui.';
+  }
+  if (/pend[eê]ncia|progresso|posi[cç][aã]o|semana|atividade/.test(t)) {
+    return 'Oi! Aqui é o Beto, assistente virtual da Vertho 👋 Tô por aqui para ajudar. Me diga qual pendência ou etapa aparece para você que eu sigo com a orientação.';
+  }
+  return 'Oi! Aqui é o Beto, assistente virtual da Vertho 👋 Tô por aqui para ajudar. Me conte o que aconteceu e, se apareceu algum erro, mande a mensagem exata para eu te orientar.';
+}
 
 const INTENCOES = new Set(['acesso', 'link', 'pendencia', 'posicao', 'duvida', 'outro']);
+
+const SUPORTE_AUTO_SCHEMA = {
+  type: 'object',
+  properties: {
+    intencao: { type: 'string', enum: [...INTENCOES] },
+    resposta: { type: 'string' },
+    precisa_humano: { type: 'boolean' },
+    acao: { type: 'string', enum: ['responder', 'escalar'] },
+  },
+  required: ['intencao', 'resposta', 'precisa_humano', 'acao'],
+};
 
 interface SaidaIA {
   intencao: string;
@@ -283,7 +302,7 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
     if (ctx.problemaLeitura) {
       await degradar('leitura-contexto', e, ctx.problemaLeitura, empresaEfetiva);
       const r = await enviarTextoCloud(
-        { phone: e.fromPhone, texto: CONTENCAO },
+        { phone: e.fromPhone, texto: respostaContencao(e.texto) },
         {
           motivo: 'suporte-auto',
           empresaId: empresaEfetiva,
@@ -318,9 +337,9 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
         taskKey: SUPORTE_AUTO_TASK_KEY,
         empresaId: empresaEfetiva,
         colaboradorId: e.colaboradorId,
-        correlationId: e.waMessageId,
-        reasoningEffort: 'high',
-        timeoutMs: 45000,
+        reasoningEffort: 'low',
+        geminiResponseSchema: SUPORTE_AUTO_SCHEMA,
+        timeoutMs: 12000,
       },
     );
     try {
@@ -333,7 +352,9 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
   }
 
   // IA fora do contrato ou pedindo humano: contenção fixa (não o texto do modelo).
-  const texto = saida && !saida.precisa_humano && saida.acao === 'responder' ? saida.resposta : CONTENCAO;
+  const texto = saida && !saida.precisa_humano && saida.acao === 'responder'
+    ? saida.resposta
+    : respostaContencao(e.texto);
   const motivoOk = !saida ? 'contencao-parse' : saida.precisa_humano || saida.acao !== 'responder' ? 'contencao-escala' : `auto:${saida.intencao}`;
 
   const r = await enviarTextoCloud(

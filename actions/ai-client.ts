@@ -121,6 +121,10 @@ export interface AICallOptions {
   //    `none|minimal` caem em `low` porque o 3.8 não aceita esses níveis.
   //    Nos Gemini legados segue ignorado para não mudar o contrato do fallback.
   reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+  /** Contrato JSON nativo do Gemini. Quando presente, o wrapper envia
+   * `responseMimeType: application/json` + `responseSchema`; assim o caller não
+   * depende de o prompt convencer o modelo a não responder em prosa. */
+  geminiResponseSchema?: Record<string, unknown>;
   /**
    * INTERNO — preenchido por `callAI`/`callAIChat` quando falta `taskKey`.
    * Capturado na ENTRADA, onde a pilha ainda e sincrona: dentro de
@@ -909,6 +913,8 @@ async function callGemini(
       model,
       maxOutputTokens: maxTokens,
       thinkingLevel: geminiThinkingLevel(options),
+      responseMimeType: options.geminiResponseSchema ? 'application/json' : undefined,
+      responseSchema: options.geminiResponseSchema,
     }),
   };
 
@@ -1066,6 +1072,8 @@ async function callGeminiChat(
       model,
       maxOutputTokens: maxTokens,
       thinkingLevel: geminiThinkingLevel(options),
+      responseMimeType: options.geminiResponseSchema ? 'application/json' : undefined,
+      responseSchema: options.geminiResponseSchema,
     }),
   };
 

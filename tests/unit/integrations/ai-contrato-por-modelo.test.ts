@@ -280,6 +280,17 @@ describe('EIXO 3 · reasoningEffort: onde chega e onde é DESCARTADO', () => {
     }
   });
 
+  it('Gemini recebe o schema JSON nativo quando o caller exige saída estruturada', async () => {
+    const schema = {
+      type: 'object',
+      properties: { resposta: { type: 'string' } },
+      required: ['resposta'],
+    };
+    const corpo = await chamar('gemini-3.8-flash', 700, { geminiResponseSchema: schema });
+    expect(corpo?.generationConfig?.responseMimeType).toBe('application/json');
+    expect(corpo?.generationConfig?.responseSchema).toEqual(schema);
+  });
+
   it('geração 5 não recebe temperature nem top_p/top_k (a API devolve 400)', async () => {
     for (const id of TODOS.filter((m) => dialeto(m) === 'anthropic' && claudeAdaptativo(m))) {
       const corpo = await chamar(id, 1000, { temperature: 0.7 });
