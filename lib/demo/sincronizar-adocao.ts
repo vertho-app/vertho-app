@@ -1,3 +1,4 @@
+import { seedEngajamentoDemo } from './seed-engajamento';
 import { criarPdiAcmeDemo } from './acme-rh-report-fixture';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'node:crypto';
@@ -127,5 +128,6 @@ export async function sincronizarAdocaoDemo(sb: SupabaseClient, empresaId: strin
     }));
   });
   for (let offset = 0; offset < eventos.length; offset += 200) await checked(sb.from('trilha_eventos').upsert(eventos.slice(offset, offset + 200), { onConflict: 'id' }));
+  await seedEngajamentoDemo(sb, empresaId, agora);
   return { pessoas: pessoas.length, notas: rows.length, concluidas, eventos: eventos.length };
 }

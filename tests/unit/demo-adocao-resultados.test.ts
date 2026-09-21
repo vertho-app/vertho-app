@@ -1,3 +1,4 @@
+import { seedEngajamentoDemo } from '@/lib/demo/seed-engajamento';
 import { describe, it, expect } from 'vitest';
 import { lerPaginas } from '@/lib/db/ler-paginas';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
@@ -12,6 +13,11 @@ describe('adoção e resultados fictícios', () => {
       await expect(sincronizarAdocaoDemo(sb.client as any, 'empresa')).rejects.toThrow();
       expect(sb.escritas).toEqual([]);
     }
+  });
+  it('sinais de consumo recusam tenant real antes de escrever', async () => {
+    const sb = criarSupabaseMock({ resolver: () => ({ is_demo: false, slug: 'acme-demo' }) });
+    await expect(seedEngajamentoDemo(sb.client as any, 'empresa')).rejects.toThrow();
+    expect(sb.escritas).toEqual([]);
   });
   it('mantém diferenças entre pessoas e competências sem ultrapassar a régua', () => {
     const notas = ['lucas', 'camila', 'diego', 'fernanda'].flatMap(p => ['Comunicação', 'Negociação', 'Resiliência'].map(c => notaPanoramaDemo(`${p}.demo@vertho.ai`, c, 'Evidência')));

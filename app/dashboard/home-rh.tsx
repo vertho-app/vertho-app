@@ -80,7 +80,7 @@ function Degrau({
           {/* Erro de banco não vira "0" na tela — 0 é um estado real da empresa. */}
           {indisponivel ? '—' : valor}
         </span>
-        <span className="text-[12px] text-white/60 flex-1 min-w-0 truncate">{label}</span>
+        <span className="text-[12px] text-white/60 flex-1 min-w-0 whitespace-normal">{label}</span>
         {!indisponivel && total > 0 && (
           <span className="text-[10px] text-white/35 tabular-nums shrink-0" style={{ fontFamily: 'var(--font-mono, monospace)' }}>
             {pct}%
@@ -148,7 +148,7 @@ export default function HomeRH({ firstName, panorama, relatorios }: { firstName:
             <Degrau valor={p.comPerfil} total={p.pessoas} label={t('rh.withProfile')} icon={Brain} indisponivel={p.indisponivel} />
             <Degrau valor={p.comMapeamento} total={p.pessoas} label={t('rh.withMapping')} icon={ClipboardCheck} indisponivel={p.indisponivel} />
             <Degrau valor={p.jornadasIniciadas ?? (p.emJornada + p.jornadasEncerradas)} total={p.pessoas} label={t('rh.inJourney')} icon={Route} indisponivel={p.indisponivel} />
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pl-3">
               <Degrau valor={p.jornadasEncerradas} total={p.jornadasIniciadas ?? (p.emJornada + p.jornadasEncerradas)} label={t('rh.completedJourney')} icon={CalendarCheck} indisponivel={p.indisponivel} cor="#34D399" />
               <Degrau valor={p.emJornada} total={p.jornadasIniciadas ?? (p.emJornada + p.jornadasEncerradas)} label={t('rh.activeJourney')} icon={Route} indisponivel={p.indisponivel} />
               <Degrau valor={p.atrasadas} total={p.jornadasIniciadas ?? (p.emJornada + p.jornadasEncerradas)} label={t('rh.behind')} icon={CalendarClock} indisponivel={p.indisponivel} cor="#FCD34D" />
