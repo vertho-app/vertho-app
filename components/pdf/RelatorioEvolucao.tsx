@@ -9,8 +9,9 @@
  *    caminho mais curto para o cliente receber um papel que discorda da tela que
  *    ele acabou de ver — e o papel é o que circula na organização dele.
  *
- * 2. **O rótulo do veredito sai de `rotuloConvergencia`.** Escrever "Estável" à
- *    mão aqui recriaria a divergência que a régua única existe para impedir.
+ * 2. **A medida externa é cenário contra cenário.** Evidências continuam
+ *    obrigatórias na jornada e podem alimentar análises internas, mas não
+ *    classificam nem alteram as notas deste documento.
  *
  * 3. **Cargo é fronteira de análise.** Médias de funções diferentes podem
  *    esconder tanto um avanço forte quanto uma necessidade específica. Por
@@ -26,9 +27,6 @@ import { Document, Page, Text, View, Image, StyleSheet, Svg, Polygon, Line, Circ
 import { colors, pageStyles } from './styles';
 import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
-import { COR_VEREDITO_PAPEL } from '@/lib/season-engine/convergencia-cores';
-import { DICA_VEREDITO } from '@/lib/season-engine/convergencia-dicas';
-import { CONVERGENCIA, rotuloConvergencia } from '@/lib/season-engine/convergencia';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 import type {
@@ -44,7 +42,7 @@ const s = StyleSheet.create({
   box: { backgroundColor: colors.gray100, borderWidth: 1, borderColor: colors.gray200, borderRadius: 8, padding: 12, marginBottom: 10 },
   boxAccent: { backgroundColor: colors.perfilBg, borderWidth: 1, borderColor: colors.perfilBorder, borderRadius: 8, padding: 12, marginBottom: 10 },
 
-  // Cartões de veredito
+  // Cartões factuais do panorama (sem classificação por evidência)
   cards: { flexDirection: 'row', marginBottom: 10 },
   card: { flex: 1, borderWidth: 1, borderRadius: 8, padding: 10, marginRight: 6 },
   cardLast: { flex: 1, borderWidth: 1, borderRadius: 8, padding: 10 },
@@ -113,31 +111,27 @@ const s = StyleSheet.create({
   td: { fontFamily: 'NotoSans', fontSize: 8, color: colors.textSecondary },
   tdStrong: { fontFamily: 'NotoSans', fontSize: 8, color: colors.textPrimary, fontWeight: 600 },
 
-  // Pílula de veredito
-  pill: { paddingHorizontal: 5, paddingVertical: 1.5, borderRadius: 7, alignSelf: 'flex-start' },
-  pillText: { fontFamily: 'NotoSans', fontSize: 6.5, fontWeight: 600 },
-
   vazio: { backgroundColor: colors.melhorarBg, borderWidth: 1, borderColor: colors.melhorarBorder, borderRadius: 8, padding: 14 },
 });
 
-/** Paleta por veredito. Uma só, para a pílula e o cartão não divergirem. */
-const TINTA = {
-  // Paleta única do veredito (`convergencia-cores`): confirmada verde escuro, parcial verde claro.
-  [CONVERGENCIA.CONFIRMADA]: { fg: COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].fg, bg: COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].bg, border: COR_VEREDITO_PAPEL[CONVERGENCIA.CONFIRMADA].borda },
-  [CONVERGENCIA.PARCIAL]: { fg: COR_VEREDITO_PAPEL[CONVERGENCIA.PARCIAL].fg, bg: COR_VEREDITO_PAPEL[CONVERGENCIA.PARCIAL].bg, border: COR_VEREDITO_PAPEL[CONVERGENCIA.PARCIAL].borda },
-  [CONVERGENCIA.ESTAVEL]: { fg: '#78350F', bg: '#FFFBEB', border: '#FDE68A' },
-  semVeredito: { fg: colors.gray600, bg: colors.gray100, border: colors.gray200 },
+const TOM_METRICA = {
+  ciano: { fg: colors.navyLight, bg: colors.perfilBg, border: colors.perfilBorder },
+  verde: { fg: colors.greenText, bg: colors.fezBemBg, border: colors.fezBemBorder },
+  neutro: { fg: colors.textPrimary, bg: colors.gray100, border: colors.gray200 },
 };
 
-function num(v: number, casas = 2): string {
-  return (v ?? 0).toFixed(casas).replace('.', ',');
+/** Uma casa decimal, com arredondamento convencional; o dado-fonte segue em 2 casas. */
+export function formatarNumeroRelatorio(v: number, casas = 1): string {
+  const fator = 10 ** casas;
+  const limpo = Number((Number(v) || 0).toFixed(10));
+  return (Math.round(limpo * fator) / fator).toFixed(casas).replace('.', ',');
+}
+function num(v: number): string {
+  return formatarNumeroRelatorio(v);
 }
 export function comSinal(v: number): string {
-  const avanco = Math.max(0, Number(v) || 0);
+  const avanco = Number(formatarNumeroRelatorio(Math.max(0, Number(v) || 0)).replace(',', '.'));
   return `${avanco > 0 ? '+' : ''}${num(avanco)}`;
-}
-export function avancoExibidoPessoa(pessoa: Pick<EvolucaoPessoa, 'veredito' | 'delta'>): string | null {
-  return pessoa.veredito === CONVERGENCIA.ESTAVEL ? null : comSinal(pessoa.delta);
 }
 /** Posição de uma nota no trilho de 1 a 4, em porcentagem. */
 export function pct(nota: number): string {
@@ -179,15 +173,6 @@ function CabecalhoCargo({ recorte }: { recorte: EvolucaoRecorteCargo }) {
       <Text style={s.cargoContagem}>
         {`${recorte.pessoasMedidas} ${recorte.pessoasMedidas === 1 ? 'pessoa medida' : 'pessoas medidas'}`}
       </Text>
-    </View>
-  );
-}
-
-function Pill({ veredito, rotulo }: { veredito: string | null; rotulo: string }) {
-  const t = TINTA[veredito as keyof typeof TINTA] || TINTA.semVeredito;
-  return (
-    <View style={{ ...s.pill, backgroundColor: t.bg, borderWidth: 0.5, borderColor: t.border }}>
-      <Text style={{ ...s.pillText, color: t.fg }}>{rotulo}</Text>
     </View>
   );
 }
@@ -271,18 +256,20 @@ function BarraEvolucao({ item }: { item: EvolucaoAgregado }) {
   );
 }
 
-function CartaoVeredito({
-  n, total, veredito, hint, ultimo,
-}: { n: number; total: number; veredito: string | null; hint: string; ultimo?: boolean }) {
-  const t = TINTA[veredito as keyof typeof TINTA] || TINTA.semVeredito;
-  const share = total ? Math.round((n / total) * 100) : 0;
+function CartaoMetrica({
+  n, label, hint, tom, ultimo,
+}: {
+  n: number;
+  label: string;
+  hint: string;
+  tom: keyof typeof TOM_METRICA;
+  ultimo?: boolean;
+}) {
+  const t = TOM_METRICA[tom];
   return (
     <View style={{ ...(ultimo ? s.cardLast : s.card), backgroundColor: t.bg, borderColor: t.border }}>
       <Text style={{ ...s.cardNum, color: t.fg }}>{n}</Text>
-      <Text style={{ ...s.cardLabel, color: t.fg }}>
-        {veredito ? rotuloConvergencia(veredito) : 'Sem medição'}
-      </Text>
-      <Text style={s.cardHint}>{total ? `${share}% das competências medidas` : '—'}</Text>
+      <Text style={{ ...s.cardLabel, color: t.fg }}>{label}</Text>
       <Text style={s.cardHint}>{hint}</Text>
     </View>
   );
@@ -486,27 +473,23 @@ function TabelaPessoas({ pessoas }: { pessoas: EvolucaoPessoa[] }) {
   return (
     <>
       <View style={s.th}>
-        <Text style={{ ...s.thText, flex: 2.4, paddingRight: 7 }}>Pessoa</Text>
-        <Text style={{ ...s.thText, flex: 1.4, paddingRight: 7 }}>Cargo</Text>
-        <Text style={{ ...s.thText, flex: 2, paddingRight: 7 }}>Competência</Text>
-        <Text style={{ ...s.thText, width: 38, textAlign: 'center' }}>Antes</Text>
-        <Text style={{ ...s.thText, width: 40, textAlign: 'center' }}>Depois</Text>
-        <Text style={{ ...s.thText, width: 40, textAlign: 'center' }}>Avanço</Text>
-        <Text style={{ ...s.thText, width: 88, paddingLeft: 6 }}>Leitura</Text>
+        <Text style={{ ...s.thText, flex: 2.6, paddingRight: 7 }}>Pessoa</Text>
+        <Text style={{ ...s.thText, flex: 1.5, paddingRight: 7 }}>Cargo</Text>
+        <Text style={{ ...s.thText, flex: 2.3, paddingRight: 7 }}>Competência</Text>
+        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Antes</Text>
+        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Depois</Text>
+        <Text style={{ ...s.thText, width: 46, textAlign: 'center' }}>Avanço</Text>
       </View>
       {pessoas.map((p, i) => (
         <View key={`${p.colaboradorId}::${p.competencia}::${p.concluidoEm || i}`} style={i % 2 ? s.trAlt : s.tr} wrap={false}>
-          <Text style={{ ...s.tdStrong, flex: 2.4, paddingRight: 7 }}>{p.nome}</Text>
-          <Text style={{ ...s.td, flex: 1.4, paddingRight: 7 }}>{p.cargo || '—'}</Text>
-          <Text style={{ ...s.td, flex: 2, fontSize: 7.5, paddingRight: 7 }}>{p.competencia || '—'}</Text>
-          <Text style={{ ...s.td, width: 38, textAlign: 'center' }}>{num(p.mediaPre)}</Text>
-          <Text style={{ ...s.td, width: 40, textAlign: 'center' }}>{num(p.mediaPos)}</Text>
-          <Text style={{ ...s.tdStrong, width: 40, textAlign: 'center', color: p.delta > 0 ? colors.green : colors.textMuted }}>
-            {avancoExibidoPessoa(p) || '—'}
+          <Text style={{ ...s.tdStrong, flex: 2.6, paddingRight: 7 }}>{p.nome}</Text>
+          <Text style={{ ...s.td, flex: 1.5, paddingRight: 7 }}>{p.cargo || '—'}</Text>
+          <Text style={{ ...s.td, flex: 2.3, fontSize: 7.5, paddingRight: 7 }}>{p.competencia || '—'}</Text>
+          <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{num(p.mediaPre)}</Text>
+          <Text style={{ ...s.td, width: 46, textAlign: 'center' }}>{num(p.mediaPos)}</Text>
+          <Text style={{ ...s.tdStrong, width: 46, textAlign: 'center', color: p.delta > 0 ? colors.green : colors.textMuted }}>
+            {comSinal(p.delta)}
           </Text>
-          <View style={{ width: 88, paddingLeft: 6 }}>
-            <Pill veredito={p.veredito} rotulo={p.vereditoRotulo} />
-          </View>
         </View>
       ))}
     </>
@@ -553,7 +536,6 @@ export default function RelatorioEvolucaoPDF({
   const { cobertura, resumo, porCompetencia, porDescritor, pessoas, proximasAcoes } = data;
   const label = 'Evolução da jornada';
   const ultimaMedicao = pessoas.map((p) => p.concluidoEm).filter(Boolean).sort().reverse()[0] || null;
-  const totalClassificadas = resumo.confirmadas + resumo.parciais + resumo.estaveis;
   // Compatibilidade com payloads materializados antes da separação por cargo.
   // A produção já recebe `porCargo` do agregador; o fallback evita que um PDF
   // histórico deixe de abrir e o identifica como um único recorte explícito.
@@ -574,7 +556,7 @@ export default function RelatorioEvolucaoPDF({
       titulo={['Evolução', 'da Jornada']}
       nome={empresaNome}
       cargo={recorte || undefined}
-      tagline={'O que mudou, em quem, e como sabemos.'}
+      tagline={'O que mudou entre o cenário inicial e o cenário final.'}
       mostrarVertho={mostrarVertho}
     />
   );
@@ -626,21 +608,27 @@ export default function RelatorioEvolucaoPDF({
             {ultimaMedicao ? `, com a medição mais recente em ${dataBr(ultimaMedicao)}.` : '.'}
             {` O avanço médio por competência medida foi de ${comSinal(resumo.deltaMedio)} ponto na régua de 1 a 4.`}
           </Text>
+          <View style={s.boxAccent} wrap={false}>
+            <Text style={s.pStrong}>Regra de leitura</Text>
+            <Text style={s.p}>
+              {'A evolução compara exclusivamente os resultados dos cenários inicial e final. As evidências continuam fazendo parte da jornada, mas não alteram notas, avanços ou níveis deste relatório.'}
+            </Text>
+          </View>
         </View>
 
         <View style={s.section}>
           <View style={s.cards}>
-            <CartaoVeredito
-              n={resumo.confirmadas} total={totalClassificadas} veredito={CONVERGENCIA.CONFIRMADA}
-              hint={DICA_VEREDITO[CONVERGENCIA.CONFIRMADA]}
+            <CartaoMetrica
+              n={cobertura.medidos} label="Pessoas medidas" tom="ciano"
+              hint="Com cenário inicial e final concluídos."
             />
-            <CartaoVeredito
-              n={resumo.parciais} total={totalClassificadas} veredito={CONVERGENCIA.PARCIAL}
-              hint={DICA_VEREDITO[CONVERGENCIA.PARCIAL]}
+            <CartaoMetrica
+              n={recortesCargo.length} label="Cargos" tom="neutro"
+              hint="Analisados separadamente neste relatório."
             />
-            <CartaoVeredito
-              n={resumo.estaveis} total={totalClassificadas} veredito={CONVERGENCIA.ESTAVEL} ultimo
-              hint={DICA_VEREDITO[CONVERGENCIA.ESTAVEL]}
+            <CartaoMetrica
+              n={porCompetencia.length} label="Competências" tom="verde" ultimo
+              hint="Comparadas pela mesma régua de quatro níveis."
             />
           </View>
         </View>
@@ -785,14 +773,12 @@ export default function RelatorioEvolucaoPDF({
                 <Text style={s.h3}>Conversas a ter primeiro</Text>
                 <View style={s.box}>
                   <Text style={s.p}>
-                    {'Quem terminou uma competência sem evolução confirmada neste cargo. Não é uma lista de problema: é onde uma conversa de gestor pode mudar mais o próximo ciclo.'}
+                    {'Quem terminou uma competência sem avanço entre o cenário inicial e o final. Não é uma lista de problema: é onde uma conversa de gestor pode mudar mais o próximo ciclo.'}
                   </Text>
                   {cargo.proximasAcoes.precisamApoio.slice(0, 6).map((p, i) => (
                     <Text key={`${p.colaboradorId}::${p.competencia}::${i}`} style={s.pStrong}>
                       {`• ${p.nome}`}
                       {p.competencia ? ` · ${p.competencia}` : ''}
-                      {`: ${p.vereditoRotulo}`}
-                      {avancoExibidoPessoa(p) ? `, avanço de ${avancoExibidoPessoa(p)}` : ''}
                       {p.proximoPasso ? `. Próximo passo sugerido: ${p.proximoPasso}` : ''}
                     </Text>
                   ))}

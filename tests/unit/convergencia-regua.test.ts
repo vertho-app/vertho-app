@@ -148,6 +148,14 @@ describe('Régua de convergência', () => {
     expect(core).not.toMatch(/'evolucao_confirmada'/);
     expect(core).not.toMatch(/'estagnacao'/);
   });
+
+  it('separa a nota externa do cenário da nota processual com evidências', () => {
+    const core = readFileSync('lib/season-engine/evolution-report-core.ts', 'utf8');
+    expect(core).toContain("typeof n.nota_cenario === 'number'");
+    expect(core).toContain('nota_cenario_bruta: notaCenarioBruta');
+    expect(core).toContain("nota_processual: typeof n.nota_pos === 'number'");
+    expect(core).not.toContain('const nota_pos = n.nota_pos');
+  });
 });
 
 /**

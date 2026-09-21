@@ -53,7 +53,12 @@ async function encadear(sbRaw: any, tdb: any, trilhaId: string): Promise<void> {
  */
 
 /**
- * Consolida semana 13 (qualitativa) + semana 14 (quantitativa) num Evolution Report.
+ * Consolida o cenário inicial + o cenário final num Evolution Report.
+ *
+ * A nota externa de evolução vem SOMENTE de `nota_cenario`, que o scorer
+ * calcula a partir da resposta ao cenário final e da régua. A nota processual
+ * triangulada com evidências continua preservada para análise interna, mas não
+ * altera o antes/depois que a pessoa e o RH recebem.
  * Salva em trilhas.evolution_report e marca status=TRILHA.CONCLUIDA.
  */
 export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empresaId?: string | null }) {
@@ -158,7 +163,11 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
       const q = qualitativa.find((x: any) => x.descritor === d.descritor) || {};
       const n = quantitativa.find((x: any) => x.descritor === d.descritor) || {};
       const nota_pre = n.nota_pre ?? d.nota_atual ?? 1.5;
-      const nota_pos = n.nota_pos ?? q.nivel_percebido ?? nota_pre;
+      const notaCenarioBruta = typeof n.nota_cenario === 'number' ? n.nota_cenario : nota_pre;
+      // O relatório nunca rebaixa o patamar já demonstrado. A nota bruta do
+      // cenário fica preservada para auditoria; externamente, queda mantém a
+      // nota inicial e resulta em avanço zero.
+      const nota_pos = Math.max(nota_pre, notaCenarioBruta);
 
       /**
        * ⚠️ HISTÓRICO: desde 17/09/2026 a leitura qualitativa NÃO vota no
@@ -193,7 +202,13 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
       return {
         competencia: d.competencia || trilha.competencia_foco,
         descritor: d.descritor,
-        nota_pre, nota_pos,
+        nota_pre,
+        nota_pos,
+        nota_cenario: nota_pos,
+        nota_cenario_bruta: notaCenarioBruta,
+        // Indicador interno de processo: pode ser correlacionado com a qualidade
+        // das evidências, mas não participa da evolução externa.
+        nota_processual: typeof n.nota_pos === 'number' ? n.nota_pos : null,
         nivel_percebido: q.nivel_percebido ?? null,
         forca_evidencia: forcaEvidencia,
         confianca_qualitativa: q.confianca ?? null,
@@ -209,7 +224,9 @@ export async function gerarEvolutionReportCore(trilhaId: string, opts?: { empres
       insight_geral: prog13?.reflexao?.insight_geral || null,
       proximo_passo: prog13?.reflexao?.proximo_passo || null,
       resumo_avaliacao: prog14?.feedback?.resumo_avaliacao || null,
-      nota_media_pos: prog14?.feedback?.nota_media_pos || null,
+      nota_media_pos: consolidado.length
+        ? Number((consolidado.reduce((total, item) => total + item.nota_pos, 0) / consolidado.length).toFixed(2))
+        : null,
       resumo: {
         confirmadas: consolidado.filter(c => c.convergencia === CONVERGENCIA.CONFIRMADA).length,
         parciais: consolidado.filter(c => c.convergencia === CONVERGENCIA.PARCIAL).length,

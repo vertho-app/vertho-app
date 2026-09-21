@@ -68,7 +68,7 @@ describe('agregarEvolucao', () => {
     expect(r.pessoas[0].veredito).toBeNull();
   });
 
-  it('chama de estável quem não teve maioria de comportamentos avançando', () => {
+  it('mantém o veredito como sinal interno, sem usá-lo para priorizar conversas', () => {
     const r = agregarEvolucao(
       [trilha('p1', [
         d('Metas', 2, 2.1, CONVERGENCIA.ESTAVEL),
@@ -78,13 +78,28 @@ describe('agregarEvolucao', () => {
       participantes,
       0,
     );
-    // Queda não vira veredito próprio: a régua não tem regressão, então quem
-    // não avançou aparece como estável — e entra em "precisa de apoio", que é
-    // a informação acionável.
+    // A leitura processual continua disponível internamente, mas a prioridade
+    // externa considera apenas a comparação numérica entre os dois cenários.
     expect(r.pessoas[0].veredito).toBe(CONVERGENCIA.ESTAVEL);
     expect(r.pessoas[0].delta).toBe(0.05);
     expect(r.porCompetencia[0].delta).toBe(0.05);
-    expect(r.proximasAcoes.precisamApoio.map((p) => p.colaboradorId)).toContain('p1');
+    expect(r.proximasAcoes.precisamApoio.map((p) => p.colaboradorId)).not.toContain('p1');
+  });
+
+  it('usa a nota do cenário final e ignora a nota processual na evolução externa', () => {
+    const comAvanco = {
+      ...trilha('p1', [d('Metas', 2, 3.6, CONVERGENCIA.CONFIRMADA, 'evidência forte')]),
+      notasCenarioFinal: { metas: 2.4 },
+    };
+    const semAvanco = {
+      ...trilha('p2', [d('Metas', 2, 3.6, CONVERGENCIA.CONFIRMADA, 'evidência forte')]),
+      notasCenarioFinal: { metas: 2 },
+    };
+
+    const r = agregarEvolucao([comAvanco, semAvanco], participantes, 0);
+    expect(r.pessoas.find((p) => p.colaboradorId === 'p1')).toMatchObject({ mediaPre: 2, mediaPos: 2.4, delta: 0.4 });
+    expect(r.pessoas.find((p) => p.colaboradorId === 'p2')).toMatchObject({ mediaPre: 2, mediaPos: 2, delta: 0 });
+    expect(r.proximasAcoes.precisamApoio.map((p) => p.colaboradorId)).toEqual(['p2']);
   });
 
   it('separa a leitura nominal por competência e mantém a cobertura por pessoa', () => {

@@ -1,5 +1,5 @@
 /**
- * O PDF executivo de evolução afirma coisas: o veredito de cada pessoa, os
+ * O PDF executivo de evolução afirma coisas: a variação de cada pessoa, os
  * cortes da régua e a PRECISÃO do instrumento. Papel circula na organização do
  * cliente e não tem como ser corrigido depois — então as afirmações dele têm que
  * vir das fontes vivas, não de texto digitado ao lado.
@@ -13,11 +13,10 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import {
-  pct, comSinal, paginarPessoas, selecionarMultiplicadores,
+  pct, comSinal, formatarNumeroRelatorio, paginarPessoas, selecionarMultiplicadores,
   montarRadaresPorCompetencia, paginarRadares, pontosRadar, paginarComportamentos,
-  paginarCargosNoAvanco, avancoExibidoPessoa,
+  paginarCargosNoAvanco,
 } from '@/components/pdf/RelatorioEvolucao';
-import { CONVERGENCIA } from '@/lib/season-engine/convergencia';
 
 const FONTE = readFileSync(join(__dirname, '..', '..', 'components', 'pdf', 'RelatorioEvolucao.tsx'), 'utf8');
 
@@ -41,19 +40,17 @@ describe('escala da barra', () => {
 });
 
 describe('sinal do avanço', () => {
-  it('marca o positivo e aplica piso zero à variação negativa', () => {
-    expect(comSinal(0.85)).toBe('+0,85');
-    expect(comSinal(0)).toBe('0,00');
-    expect(comSinal(-0.3)).toBe('0,00');
+  it('marca o positivo, aplica piso zero e mostra uma casa decimal', () => {
+    expect(comSinal(0.85)).toBe('+0,9');
+    expect(comSinal(0)).toBe('0,0');
+    expect(comSinal(-0.3)).toBe('0,0');
   });
 
-  it('usa vírgula decimal — o documento é em português', () => {
+  it('usa arredondamento convencional e vírgula decimal', () => {
+    expect(formatarNumeroRelatorio(1.25)).toBe('1,3');
+    expect(formatarNumeroRelatorio(1.24)).toBe('1,2');
+    expect(formatarNumeroRelatorio(3.51)).toBe('3,5');
     expect(comSinal(1.5)).not.toContain('.');
-  });
-
-  it('omite o avanço quando a leitura da pessoa é estável', () => {
-    expect(avancoExibidoPessoa({ veredito: CONVERGENCIA.ESTAVEL, delta: 0.03 })).toBeNull();
-    expect(avancoExibidoPessoa({ veredito: CONVERGENCIA.PARCIAL, delta: 0.03 })).toBe('+0,03');
   });
 });
 
@@ -136,20 +133,18 @@ describe('separação editorial por cargo', () => {
   });
 });
 
-describe('as afirmações do papel vêm das fontes vivas', () => {
-  it('lê o rótulo da régua de convergência por IMPORT', () => {
-    expect(FONTE).toContain('rotuloConvergencia');
-    expect(FONTE).toMatch(/import \{[\s\S]*?rotuloConvergencia[\s\S]*?\} from '@\/lib\/season-engine\/convergencia'/);
+describe('as afirmações do papel vêm da comparação entre cenários', () => {
+  it('não renderiza classificação de convergência ou sustentação', () => {
+    expect(FONTE).not.toContain('rotuloConvergencia');
+    expect(FONTE).not.toContain('CONVERGENCIA');
+    expect(FONTE).not.toContain('vereditoRotulo');
+    expect(FONTE).not.toContain('CartaoVeredito');
+    expect(FONTE).not.toContain('<Pill');
   });
 
-  it('não escreve o rótulo do veredito à mão', () => {
-    // "Estável" e "Evolução confirmada" saem de `rotuloConvergencia`; digitá-los
-    // aqui recria a divergência que a régua única existe para impedir.
-    const semComentarios = FONTE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
-    for (const rotulo of ['Evolução confirmada', 'Evolução parcial', 'Estagnação']) {
-      expect(semComentarios).not.toContain(`'${rotulo}'`);
-      expect(semComentarios).not.toContain(`"${rotulo}"`);
-    }
+  it('explica que evidências não alteram a medida externa', () => {
+    expect(FONTE).toContain('compara exclusivamente os resultados dos cenários inicial e final');
+    expect(FONTE).toContain('não alteram notas, avanços ou níveis deste relatório');
   });
 
   it('remove a página de método e seus detalhes técnicos', () => {

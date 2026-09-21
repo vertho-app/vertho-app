@@ -1,9 +1,10 @@
 import { tenantDb } from '@/lib/tenant-db';
-import { TRILHA } from '@/lib/status';
+import { PROGRESSO, TRILHA } from '@/lib/status';
 import { CONVERGENCIA, rotuloConvergencia, type Convergencia } from '@/lib/season-engine/convergencia';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { fechoDoRelatorio } from '@/lib/season-engine/resumo-avaliacao';
 import { descritorParaHumano } from '@/lib/descritor-humano';
+import { semanaCenarioBDoPlano } from '@/lib/season-engine/trilha-runtime';
 
 /**
  * Painel executivo de EVOLUÇÃO do RH — a resposta para "quem evoluiu, em quê e
@@ -11,12 +12,11 @@ import { descritorParaHumano } from '@/lib/descritor-humano';
  *
  * TRÊS DECISÕES QUE ESTE ARQUIVO CARREGA:
  *
- * 1. **O veredito é LIDO, não recalculado.** Cada descritor já traz a
- *    `convergencia` que o motor gravou no fechamento. Reclassificar aqui criaria
- *    uma terceira régua sobre um dado já classificado, e o painel passaria a
- *    discordar do relatório que a própria pessoa recebeu. Descritor sem veredito
- *    gravado entra como `null` e é contado à parte, nunca chutado para
- *    "estável" — ausência de medição não é medição de estabilidade.
+ * 1. **A evolução externa compara somente os dois cenários.** `nota_pre` vem
+ *    do cenário inicial e `nota_pos` recebe `nota_cenario` do fechamento. A
+ *    convergência e a sustentação por evidências continuam disponíveis como
+ *    sinais internos de processo, mas não escolhem notas, prioridades ou
+ *    classificações exibidas no relatório executivo.
  *
  * 2. **Piloto fica de fora.** Duas semanas não medem evolução, e o relatório do
  *    piloto grava outra forma (`baseline`/`nota_avaliacao`). Misturá-lo aqui
@@ -138,6 +138,19 @@ function media(valores: number[]): number {
   return Number((valores.reduce((total, v) => total + v, 0) / valores.length).toFixed(2));
 }
 
+function chaveDescritorCenario(valor: unknown): string {
+  return descritorParaHumano(String(valor || '')).trim().toLocaleLowerCase('pt-BR');
+}
+
+function notaFinalDoCenario(trilha: TrilhaConcluida, descritor: any, notaPre: number): number {
+  const sobreposta = trilha.notasCenarioFinal?.[chaveDescritorCenario(descritor?.descritor)];
+  const candidata = sobreposta ?? descritor?.nota_cenario ?? descritor?.nota_pos ?? notaPre;
+  const numerica = Number(candidata);
+  // Sem nota válida, o relatório não inventa movimento. E uma resposta final
+  // menor preserva o patamar inicial, conforme a régua externa da jornada.
+  return Math.max(notaPre, Number.isFinite(numerica) ? numerica : notaPre);
+}
+
 /**
  * O avanço é sempre a diferença entre as duas médias que aparecem no
  * relatório. Calcular depois do arredondamento impede combinações como
@@ -204,10 +217,16 @@ function vereditoDaPessoa(descritores: EvolucaoDescritorLinha[]): EvolucaoVeredi
 }
 
 export type TrilhaConcluida = {
+  id?: string;
   colaborador_id: string;
+  empresa_id?: string | null;
   competencia_foco: string | null;
+  programa_modo?: string | null;
+  temporada_plano?: any;
   evolution_report: any;
   evolution_generated_at: string | null;
+  /** Overlay da semana final para relatórios gravados antes de `nota_cenario`. */
+  notasCenarioFinal?: Record<string, number>;
 };
 
 export type ParticipanteEvolucao = {
@@ -242,10 +261,7 @@ export function agregarEvolucao(
 
     const linhasDaTrilha: EvolucaoDescritorLinha[] = report.descritores.map((d: any) => {
       const notaPre = Number(d.nota_pre ?? 0);
-      const notaPosInformada = Number(d.nota_pos ?? notaPre);
-      // A régua registra o nível conquistado: uma medição posterior menor
-      // mantém a nota anterior e produz avanço zero em toda projeção do dado.
-      const notaPos = Math.max(notaPre, notaPosInformada);
+      const notaPos = notaFinalDoCenario(trilha, d, notaPre);
       return {
         colaboradorId: trilha.colaborador_id,
         competencia: d.competencia || trilha.competencia_foco || 'Competência',
@@ -344,7 +360,9 @@ export function agregarEvolucao(
   );
 
   const precisamApoio = pessoas
-    .filter((p) => p.veredito === CONVERGENCIA.ESTAVEL || p.veredito === null)
+    // Prioridade externa nasce só da comparação entre cenários. A qualidade
+    // das evidências pode ser analisada internamente, mas não muda esta lista.
+    .filter((p) => p.delta === 0)
     .sort((a, b) => a.delta - b.delta);
 
   const rotuloCargo = (cargo: string | null) => cargo?.trim() || 'Cargo não informado';
@@ -374,7 +392,7 @@ export function agregarEvolucao(
       pessoas: [...pessoasDoCargo].sort((a, b) => b.delta - a.delta),
       proximasAcoes: {
         precisamApoio: pessoasDoCargo
-          .filter((p) => p.veredito === CONVERGENCIA.ESTAVEL || p.veredito === null)
+          .filter((p) => p.delta === 0)
           .sort((a, b) => a.delta - b.delta),
         proximoCiclo: [...competenciasDoCargo].reverse().slice(0, 3),
       },
@@ -429,7 +447,7 @@ export async function carregarEvolucaoRH(
   const [trilhasRes, participantesRes, emJornadaRes] = await Promise.all([
     recortar(
       tdb.from('trilhas')
-        .select('colaborador_id, competencia_foco, evolution_report, evolution_generated_at')
+        .select('id, colaborador_id, empresa_id, competencia_foco, programa_modo, temporada_plano, evolution_report, evolution_generated_at')
         .eq('status', TRILHA.CONCLUIDA)
         .not('evolution_report', 'is', null)
         .order('evolution_generated_at', { ascending: false }),
@@ -454,9 +472,57 @@ export async function carregarEvolucaoRH(
     return { ...VAZIO, indisponivel: true };
   }
 
+  const trilhas = (trilhasRes.data || []) as TrilhaConcluida[];
+
+  // Relatórios antigos guardaram em `nota_pos` a nota processual triangulada.
+  // Para eles, relê a semana final e sobrepõe `nota_cenario`, garantindo que
+  // o PDF histórico obedeça à mesma regra dos fechamentos novos. A consulta é
+  // em lotes para não estourar a URL do PostgREST em redes maiores.
+  const legadas = trilhas.filter((trilha) =>
+    trilha.id && Array.isArray(trilha.evolution_report?.descritores)
+      && trilha.evolution_report.descritores.some((d: any) => typeof d?.nota_cenario !== 'number'),
+  );
+  if (legadas.length) {
+    const semanaPorTrilha = new Map(legadas.map((trilha) => [
+      trilha.id as string,
+      semanaCenarioBDoPlano(trilha.temporada_plano, trilha.programa_modo === 'jornada' ? 7 : 14),
+    ]));
+    const linhasFinais: any[] = [];
+    for (let inicio = 0; inicio < legadas.length; inicio += 80) {
+      const lote = legadas.slice(inicio, inicio + 80);
+      const idsLote = lote.map((trilha) => trilha.id as string);
+      const semanasLote = [...new Set(idsLote.map((id) => semanaPorTrilha.get(id) as number))];
+      const progressoRes = await tdb.from('temporada_semana_progresso')
+        .select('trilha_id, semana, feedback')
+        .in('trilha_id', idsLote)
+        .in('semana', semanasLote)
+        .eq('status', PROGRESSO.CONCLUIDO);
+      if (progressoRes.error) {
+        console.error('[evolucao-rh] leitura dos cenários finais falhou:', progressoRes.error.message);
+        return { ...VAZIO, indisponivel: true };
+      }
+      linhasFinais.push(...(progressoRes.data || []));
+    }
+
+    const progressoPorTrilha = new Map(
+      linhasFinais
+        .filter((linha) => Number(linha.semana) === semanaPorTrilha.get(linha.trilha_id))
+        .map((linha) => [linha.trilha_id, linha]),
+    );
+    for (const trilha of legadas) {
+      const avaliados = progressoPorTrilha.get(trilha.id as string)?.feedback?.avaliacao_por_descritor;
+      if (!Array.isArray(avaliados)) continue;
+      trilha.notasCenarioFinal = Object.fromEntries(
+        avaliados
+          .filter((item: any) => typeof item?.nota_cenario === 'number')
+          .map((item: any) => [chaveDescritorCenario(item.descritor), item.nota_cenario]),
+      );
+    }
+  }
+
   const emJornada = new Set((emJornadaRes.data || []).map((t: any) => t.colaborador_id)).size;
   return agregarEvolucao(
-    (trilhasRes.data || []) as TrilhaConcluida[],
+    trilhas,
     (participantesRes.data || []) as ParticipanteEvolucao[],
     emJornada,
   );
