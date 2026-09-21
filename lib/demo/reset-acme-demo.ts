@@ -89,6 +89,7 @@ import {
 } from '@/lib/demo/rosters/comercial';
 import type { DemoRoster } from '@/lib/demo/rosters/types';
 import { cargoSemAssessment, jornadaDoCargoConstruido } from '@/lib/demo/rosters/cargo-sem-assessment';
+import { ensureBrunaAcmeDemoHistory } from '@/lib/demo/bruna-history';
 import { instalarMatrizLideranca } from '@/lib/simuladores/lideranca/instalar';
 import { janelaRenovada } from '@/lib/demo/janela-simulador-vendas';
 import { VARIANTES, ehCargoAncoraLideranca } from '@/lib/simuladores/lideranca/matriz-global';
@@ -2295,12 +2296,16 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     // mesmo com 61 semanas de progresso e eventos registrados no tenant.
     {
       const { data: trilhasParaCadencia, error: errCad } = await sb.from('trilhas')
-        .select('colaborador_id, data_inicio, status').eq('empresa_id', destId);
+        .select('id, colaborador_id, data_inicio, status, numero_temporada')
+        .eq('empresa_id', destId)
+        .order('numero_temporada', { ascending: false });
       if (errCad) throw new Error(`cadência: trilhas: ${errCad.message}`);
 
       const pessoasComTrilha = new Map<string, any>();
       for (const t of (trilhasParaCadencia || []) as any[]) {
-        if (t.colaborador_id) pessoasComTrilha.set(t.colaborador_id, t);
+        if (t.colaborador_id && !pessoasComTrilha.has(t.colaborador_id)) {
+          pessoasComTrilha.set(t.colaborador_id, t);
+        }
       }
       if (pessoasComTrilha.size) {
         const { data: pessoas, error: errPessoas } = await sb.from('colaboradores')
@@ -2312,10 +2317,11 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         // A semana atual sai do PROGRESSO real, para o painel e o engajamento
         // contarem a mesma história sobre a mesma pessoa.
         const { data: progressos, error: errProg } = await sb.from('temporada_semana_progresso')
-          .select('colaborador_id, semana, status').eq('empresa_id', destId);
+          .select('trilha_id, colaborador_id, semana, status').eq('empresa_id', destId);
         if (errProg) throw new Error(`cadência: progresso: ${errProg.message}`);
         const ultimaSemana = new Map<string, number>();
         for (const pr of (progressos || []) as any[]) {
+          if (pessoasComTrilha.get(pr.colaborador_id)?.id !== pr.trilha_id) continue;
           const atual = ultimaSemana.get(pr.colaborador_id) || 0;
           if (Number(pr.semana) > atual) ultimaSemana.set(pr.colaborador_id, Number(pr.semana));
         }
@@ -2347,14 +2353,21 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     // pessoa: quem concluiu mais semanas tem mais rastro.
     {
       const { data: trilhasComPlano, error: errTr } = await sb.from('trilhas')
-        .select('id, colaborador_id').eq('empresa_id', destId);
+        .select('id, colaborador_id, numero_temporada')
+        .eq('empresa_id', destId)
+        .order('numero_temporada', { ascending: false });
       if (errTr) throw new Error(`sinais: trilhas: ${errTr.message}`);
 
       const { data: progressos, error: errPr } = await sb.from('temporada_semana_progresso')
         .select('trilha_id, colaborador_id, semana, status').eq('empresa_id', destId);
       if (errPr) throw new Error(`sinais: progresso: ${errPr.message}`);
 
-      const trilhaPorColab = new Map((trilhasComPlano || []).map((t: any) => [t.colaborador_id, t.id]));
+      const trilhaPorColab = new Map<string, string>();
+      for (const trilha of (trilhasComPlano || []) as any[]) {
+        if (trilha.colaborador_id && !trilhaPorColab.has(trilha.colaborador_id)) {
+          trilhaPorColab.set(trilha.colaborador_id, trilha.id);
+        }
+      }
       const eventos: any[] = [];
       // Formatos alternados por pessoa: um time em que todos abrem o mesmo
       // formato não mostra a variedade que a jornada oferece.
@@ -2363,7 +2376,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
       for (const pr of (progressos || []) as any[]) {
         if (pr.status !== PROGRESSO.CONCLUIDO) continue;
         const trilhaId = trilhaPorColab.get(pr.colaborador_id);
-        if (!trilhaId) continue;
+        if (!trilhaId || trilhaId !== pr.trilha_id) continue;
         const formato = FORMATOS[indice % FORMATOS.length];
         indice++;
         const base = {
@@ -2563,6 +2576,10 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     }
     await seedRespostas(demo.id, personaMap);
     await applyPersonaArtifacts(demo.id, personaMap);
+    // A persona de apresentação precisa demonstrar também a recorrência do
+    // programa: mantém a jornada atual e recebe uma temporada anterior rica,
+    // com conteúdos, relatório e certificado. Idempotente e restrito ao ACME.
+    if (slug === DEMO_SLUG) await ensureBrunaAcmeDemoHistory(sb, demo.id);
     // Depois do replay, de propósito: o panorama COMPLETA o que falta, e a
     // persona que tem artefato congelado já trouxe o dela. Rodando antes, os
     // dois disputavam a mesma chave (colaborador, competência, descritor).
