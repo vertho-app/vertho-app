@@ -1,4 +1,6 @@
 'use client';
+
+import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beacon';
 /**
  * UI compartilhada do Ranking de Adequação (gestor self-service + preview de admin).
  * VIEW pura — recebe `listar`/`carregar` (que diferem só na fonte da empresa: sessão do
@@ -124,6 +126,7 @@ export default function RankingAdequacaoView({ listar, carregar, exportar, scope
 
   return (
     <>
+      {!loading && !erro && data && data.elegiveis?.length > 0 && <DemoExplorationBeacon alvo="adequacao" />}
       <div className="mb-4">
         <h1 className="text-xl font-bold text-white">Ranking de Adequação ao Cargo</h1>
         <p className="text-xs text-slate-400 mt-1">Como os candidatos de um cargo se posicionam frente ao perfil ideal. Filtre e ordene para visualizar.</p>

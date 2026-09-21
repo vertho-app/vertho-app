@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beacon';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AlertCircle, Loader2, RotateCcw } from 'lucide-react';
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
@@ -22,10 +24,12 @@ function PdfCanvasPage({
   pdf,
   pageNumber,
   totalPages,
+  onRendered,
 }: {
   pdf: PDFDocumentProxy;
   pageNumber: number;
   totalPages: number;
+  onRendered?: () => void;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -66,7 +70,7 @@ function PdfCanvasPage({
         transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0],
       });
       await renderTask.promise;
-      if (!cancelled) setRendered(true);
+      if (!cancelled) { setRendered(true); onRendered?.(); }
     })().catch((error: any) => {
       if (!cancelled && error?.name !== 'RenderingCancelledException') {
         console.error(`[pdf-reader] página ${pageNumber}:`, error);
@@ -77,7 +81,7 @@ function PdfCanvasPage({
       cancelled = true;
       renderTask?.cancel();
     };
-  }, [availableWidth, pageNumber, pdf]);
+  }, [availableWidth, pageNumber, pdf, onRendered]);
 
   return (
     <article className="mx-auto w-full max-w-[920px]">
@@ -112,6 +116,8 @@ export default function InAppPdfDocument({
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [firstPageReady, setFirstPageReady] = useState(false);
+  const markFirstPageReady = useCallback(() => setFirstPageReady(true), []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -120,6 +126,7 @@ export default function InAppPdfDocument({
     let loadingTask: ReturnType<Awaited<ReturnType<typeof loadPdfJs>>['getDocument']> | null = null;
 
     setPdf(null);
+    setFirstPageReady(false);
     setError(false);
 
     void (async () => {
@@ -183,12 +190,14 @@ export default function InAppPdfDocument({
       className="space-y-8 rounded-[22px] border border-white/[0.08] bg-[radial-gradient(circle_at_top,rgba(34,211,238,.07),transparent_34%),#061421] p-3 sm:p-6 lg:p-8"
       aria-label={title}
     >
+      {firstPageReady && <DemoExplorationBeacon alvo="relatorio" />}
       {Array.from({ length: pdf.numPages }, (_, index) => (
         <PdfCanvasPage
           key={index + 1}
           pdf={pdf}
           pageNumber={index + 1}
           totalPages={pdf.numPages}
+          onRendered={index === 0 ? markFirstPageReady : undefined}
         />
       ))}
     </div>

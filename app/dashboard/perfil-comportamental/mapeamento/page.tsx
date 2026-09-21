@@ -607,7 +607,7 @@ export default function MapeamentoPage() {
             <div className="space-y-2 mb-3">
               {group.map((item, idx) => (
                 <div
-                  key={item.k + idx}
+                  key={item.k}
                   draggable
                   onDragStart={(e) => handleDragStart(e, idx)}
                   onDragOver={handleDragOver}
@@ -622,6 +622,7 @@ export default function MapeamentoPage() {
                   <span className="flex-1 text-[16px] text-white font-semibold">{t(`ranking.words.${item.k}`)}</span>
                   <div className="flex gap-1">
                     <button
+                      aria-label={t('ranking.moveUp', { word: t(`ranking.words.${item.k}`) })}
                       disabled={idx === 0}
                       onClick={() => moveItem(groupIdx, idx, -1)}
                       className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-brand-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
@@ -630,6 +631,7 @@ export default function MapeamentoPage() {
                       <ChevronUp size={16} strokeWidth={3} />
                     </button>
                     <button
+                      aria-label={t('ranking.moveDown', { word: t(`ranking.words.${item.k}`) })}
                       disabled={idx === 3}
                       onClick={() => moveItem(groupIdx, idx, 1)}
                       className="w-[38px] h-[38px] rounded-lg flex items-center justify-center text-gray-400 hover:bg-brand-400 hover:text-[#0C1829] disabled:opacity-[0.15] transition-all active:scale-90"
@@ -769,6 +771,8 @@ export default function MapeamentoPage() {
                 {[1, 2, 3, 4, 5].map(star => (
                   <button
                     key={star}
+                    aria-label={t('learning.ratingLabel', { value: star, format: t(`learning.formats.${fmt.id}`) })}
+                    aria-pressed={learnPrefs[fmt.id] === star}
                     onClick={() => setLearnPrefs(prev => ({ ...prev, [fmt.id]: star }))}
                     className="h-11 flex-1 rounded-md flex items-center justify-center text-lg transition-all"
                     style={{

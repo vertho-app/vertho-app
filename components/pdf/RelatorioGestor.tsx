@@ -161,7 +161,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {c.destaques_evolucao?.length > 0 && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>{'Destaques de Evolu\u00e7\u00e3o'}</ReportSectionTitle>
+            <ReportSectionTitle>{c.leitura_base ? 'Pontos fortes a reconhecer' : 'Destaques de Evolu\u00e7\u00e3o'}</ReportSectionTitle>
             <View style={s.evolBox}>
               {c.destaques_evolucao.map((d: any, i: number) => (
                 <View key={i} style={{ marginBottom: 4 }}>

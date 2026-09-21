@@ -1,5 +1,7 @@
 'use client';
 
+import DemoFunnelSummary from './demo-funnel-summary';
+
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import {
@@ -55,6 +57,7 @@ type PresentationLinkDemo = {
 };
 
 type ProspectForm = {
+  testeInterno: boolean;
   nome: string;
   empresa: string;
   whatsapp: string;
@@ -105,6 +108,7 @@ const PRESENTATION_ROOMS = [
 const VISAO_DE_ENTRADA = 'usuario' as const;
 
 const EMPTY_PROSPECT_FORM: ProspectForm = {
+  testeInterno: false,
   nome: '',
   empresa: '',
   whatsapp: '',
@@ -358,6 +362,7 @@ export default function AdminDemoPage() {
         empresa: prospectForm.empresa,
         roleKey: prospectForm.roleKey,
         versao: prospectForm.versao,
+        testeInterno: prospectForm.testeInterno,
       }, degustacaoSlug);
       if (!r.success) {
         toast.error(`Falha ao preparar experiência: ${r.error || 'erro'}`);
@@ -554,6 +559,7 @@ export default function AdminDemoPage() {
               </button>
             </div>
 
+            <DemoFunnelSummary convidados={convidados} />
             {carregandoProgress && convidados.length === 0 ? (
               <div className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-white/8 bg-black/10 py-7 text-[10px] text-white/35">
                 <Loader2 size={13} className="animate-spin" aria-hidden="true" /> Carregando experiências…
@@ -565,7 +571,7 @@ export default function AdminDemoPage() {
               </div>
             ) : (
               <div className="mt-4 space-y-3">
-                {convidados.map((experience) => {
+                {convidados.slice(0, 50).map((experience) => {
                   const comPassaporte = experience.origem === 'passaporte';
                   const expired = comPassaporte && (
                     Boolean(experience.accessClosedAt)
@@ -579,8 +585,8 @@ export default function AdminDemoPage() {
                   const milestones: ReadonlyArray<readonly [string, string | null]> = versaoB
                     ? [
                       ['Abriu', experience.conviteAbertoEm],
-                      ['Gestor', experience.gestorAccessedAt],
                       ['RH', experience.rhAccessedAt],
+                      ['Gestor', experience.gestorAccessedAt],
                       ['Colaborador', experience.colaboradorAccessedAt],
                       ['Perfil', experience.discCompletedAt],
                       ['Situação', experience.situacaoRespondidaEm],
@@ -637,6 +643,13 @@ export default function AdminDemoPage() {
                         </div>
                       </div>
 
+                      {comPassaporte && (
+                        <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-white/65">
+                          <span>{experience.exploracaoRelevanteEm ? `Explorou conteúdo: ${experience.exploracaoAlvo} · ${formatProspectExpiry(experience.exploracaoRelevanteEm)}` : 'Sem exploração de conteúdo registrada'}</span>
+                          <span>{experience.contatoClicadoEm ? `Clicou no contato · ${formatProspectExpiry(experience.contatoClicadoEm)}` : 'Sem clique no contato'}</span>
+                          {experience.testeInterno && <span>Teste interno</span>}
+                        </div>
+                      )}
                       {/* 5 colunas SEMPRE na A e no cadastro: com duas marcas esticadas
                           na largura toda, o cartão de cadastro não alinha com os de
                           passaporte e a comparação entre pessoas se perde. A B tem
@@ -964,6 +977,10 @@ export default function AdminDemoPage() {
                 <p>O WhatsApp não é enviado nem armazenado. Nome e empresa ficam no acompanhamento deste convite; o compartilhamento continua manual.</p>
               </div>
 
+              <label className="mt-4 flex items-center gap-2 text-xs text-white/65">
+                <input type="checkbox" checked={prospectForm.testeInterno} onChange={e => updateProspectForm('testeInterno', e.target.checked)} />
+                Convite para teste interno (fora das métricas)
+              </label>
               <button
                 type="submit"
                 disabled={preparandoProspect || busy}

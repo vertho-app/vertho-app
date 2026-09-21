@@ -316,8 +316,7 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
   /*
     O próximo passo fica no FIM, depois de tudo o que a pessoa veio ver: ele é a
     saída da página, não uma cobrança na entrada. Quem manda a mensagem é ela, do
-    próprio aparelho (ver `lib/demo/degustacao-contato.ts`), então isto é um link
-    comum: funciona sem JavaScript e não grava nada.
+    próprio aparelho (ver `lib/demo/degustacao-contato.ts`), então isto é um formulário: funciona sem JavaScript e registra somente o clique, nunca o envio.
   */
   const secaoContato = (
     <section className="mt-8 lg:mt-12" aria-label="Falar com a Vertho">
@@ -331,16 +330,16 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
           <Titulo>{pagina.contato.titulo}</Titulo>
           <Texto>Converse com a gente sobre como aplicar a Vertho à realidade da sua equipe. A mensagem já vai escrita.</Texto>
         </div>
-        <a
-          href={pagina.contato.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-center text-[15px] font-bold transition-transform active:scale-[0.99] lg:mt-0"
-          style={{ background: 'transparent', color: COR.texto, border: `1px solid ${COR.bordaAcento}` }}
-        >
-          <MessageCircle size={17} className="shrink-0" aria-hidden="true" />
-          {pagina.contato.botao}
-        </a>
+        <form action="/auth/degustacao/contato" method="post" target="_blank" rel="noopener noreferrer">
+          <input type="hidden" name="passe" value={passe} />
+          <button type="submit"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-center text-[15px] font-bold transition-transform active:scale-[0.99] lg:mt-0"
+            style={{ background: 'transparent', color: COR.texto, border: `1px solid ${COR.bordaAcento}` }}
+          >
+            <MessageCircle size={17} className="shrink-0" aria-hidden="true" />
+            {pagina.contato.botao}
+          </button>
+        </form>
       </div>
     </section>
   );

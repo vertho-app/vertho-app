@@ -1,5 +1,7 @@
 'use client';
 
+import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beacon';
+
 /**
  * Engajamento do time — presença na jornada, pessoa a pessoa.
  *
@@ -398,6 +400,7 @@ export default function EngajamentoDoTimePage() {
 
   return (
     <PageContainer className="max-w-[1180px]">
+      {!loading && !erro && dados && total > 0 && <DemoExplorationBeacon alvo="engajamento" />}
       <BackButton />
 
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">

@@ -1,5 +1,7 @@
 'use client';
 
+import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beacon';
+
 import { useEffect, useState, useMemo } from 'react';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, Users, TrendingUp, Minus, ChevronRight, Clock, X, FileDown, Download, PartyPopper } from 'lucide-react';
@@ -87,6 +89,7 @@ export default function EquipeEvolucaoPage() {
 
   return (
     <PageContainer>
+      {!loading && rows.length > 0 && <DemoExplorationBeacon alvo="evolucao" />}
       <BackButton href="/dashboard" />
       {/* A plenária consolida o antes × depois — sem jornada encerrada ela sai
           em branco, e um PDF vazio é pior que um botão ausente. */}

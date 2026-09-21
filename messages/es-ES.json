@@ -1388,7 +1388,9 @@
         "cautious": "Cauteloso(a)",
         "engaging": "Envolvente",
         "persevering": "Perseverante"
-      }
+      },
+      "moveUp": "Mover {word} hacia arriba",
+      "moveDown": "Mover {word} hacia abajo"
     },
     "pairs": {
       "quickChoice": "ELECCIÓN RÁPIDA",
@@ -1425,7 +1427,8 @@
         "exercise": "Ejercicio práctico / simulación",
         "mentor": "Conversación con mentor (chat IA)",
         "case": "Estudio de caso"
-      }
+      },
+      "ratingLabel": "{format}: {value} de 5 estrellas"
     },
     "calculating": {
       "title": "Calculando tu perfil...",
@@ -1919,9 +1922,10 @@
     "viewSeasonReport": "Ver informe completo de la temporada",
     "descriptorFallback": "Descriptor {number}",
     "empty": {
-      "title": "Aún no hay datos de evolución",
-      "subtitle": "Tus datos aparecerán aquí después de completar el mapeo de competencias.",
-      "card": "Completa el mapeo de competencias para seguir tu evolución."
+      "title": "La comparación llega después de la reevaluación",
+      "subtitle": "Aquí verás qué cambió entre la evaluación inicial y la reevaluación al final de tu recorrido.",
+      "card": "Mientras la comparación no esté disponible, sigue tu plan y practica los comportamientos trabajados en tu recorrido.",
+      "goToJourney": "Seguir mi recorrido"
     },
     "classification": {
       "confirmed": "Evolución confirmada",
@@ -4896,7 +4900,7 @@
       "noPrimaryAction": "Usa las señales del equipo para definir el foco de la próxima conversación.",
       "thisWeek": "Esta semana",
       "competencies": "Pulso de competencias",
-      "highlights": "Avances a reconocer",
+      "highlights": "Fortalezas para reconocer",
       "attentionPeople": "Conversaciones prioritarias",
       "pdfEyebrow": "Documento de apoyo",
       "pdfTitle": "Informe completo del equipo",

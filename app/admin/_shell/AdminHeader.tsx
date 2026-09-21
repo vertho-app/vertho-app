@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import Link from 'next/link';
+import AdminDate from './AdminDate';
 import { useRouter } from 'next/navigation';
 import { RefreshCw, Settings, LayoutGrid } from 'lucide-react';
 import { monoStyle as mono, serifStyle as serif } from './nav-items';
@@ -26,7 +27,7 @@ export default function AdminHeader() {
           {t.rich('header.title', { em: (chunks) => <em style={{ color: '#34c5cc' }}>{chunks}</em> })}
         </h1>
         <span className="hidden sm:inline shrink-0" style={{ ...mono, fontSize: 10, color: 'rgba(255,255,255,.4)', letterSpacing: '.14em', textTransform: 'uppercase' }}>
-          {new Date().toLocaleDateString(locale, { day: '2-digit', month: 'short', year: 'numeric' })}
+          <AdminDate locale={locale} />
         </span>
       </div>
       <div className="flex items-center gap-2 min-w-0">

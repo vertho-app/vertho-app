@@ -1,5 +1,7 @@
 'use client';
 
+import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beacon';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
@@ -260,6 +262,7 @@ export default function PDIPage() {
 
   return (
     <PageContainer className="space-y-4">
+      <DemoExplorationBeacon alvo="pdi" />
       <PageHero
         eyebrow={t('eyebrowFull')}
         title={data.colaborador.nome_completo}

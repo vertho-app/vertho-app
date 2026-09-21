@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { DEMO_TELEMETRY_VERSION, ehTesteInterno } from '@/lib/demo/degustacao-metricas';
 import { tenantUrl } from '@/lib/domain';
 import { emitirPasseDegustacao } from '@/lib/demo/degustacao-passe';
 import { linkCurtoDaDegustacao } from '@/lib/demo/degustacao-link-curto';
@@ -189,7 +190,8 @@ export async function prepareAcmeProspectExperience(
       expires_at: expiresAt,
       // Só a B grava a versão: o payload da A continua EXATAMENTE o de antes da
       // mig 256, e a coluna preenche 'A' pelo default.
-      ...(versao === 'B' ? { experience_version: 'B' } : {}),
+      ...(versao === 'B' ? { experience_version: 'B', telemetry_version: DEMO_TELEMETRY_VERSION } : {}),
+      is_internal_test: parsed.value.testeInterno === true || ehTesteInterno(parsed.value.nome, parsed.value.empresa),
     });
     if (trackingError) {
       throw new Error(`criar acompanhamento do prospect: ${trackingError.message}`);

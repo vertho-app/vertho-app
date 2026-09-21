@@ -1,3 +1,4 @@
+import { sincronizarLeiturasDemo } from '@/lib/demo/relatorios-coerentes';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { entrarComOtpDemo } from '@/lib/demo/auth-lock';
 import { createSupabaseAdmin } from '@/lib/supabase';
@@ -446,21 +447,12 @@ export function personalizarArtefatoDemo<T>(value: T, slug: DemoTenantSlug): T {
   if (slug === DEMO_SLUG) return value;
   if (typeof value === 'string') {
     const marca = profile.marca;
-    return value
-      .replace(/\bA ACME Demo\b/g, `O ${marca}`)
-      .replace(/\ba ACME Demo\b/g, `o ${marca}`)
-      .replace(/\bda ACME Demo\b/g, `do ${marca}`)
-      .replace(/\bna ACME Demo\b/g, `no ${marca}`)
-      .replace(/\bpela ACME Demo\b/g, `pelo ${marca}`)
-      .replace(/\bà ACME Demo\b/g, `ao ${marca}`)
-      .replace(/\bA ACME\b/g, `O ${marca}`)
-      .replace(/\ba ACME\b/g, `o ${marca}`)
-      .replace(/\bda ACME\b/g, `do ${marca}`)
-      .replace(/\bna ACME\b/g, `no ${marca}`)
-      .replace(/\bpela ACME\b/g, `pelo ${marca}`)
-      .replace(/\bà ACME\b/g, `ao ${marca}`)
-      .replace(/ACME Demo/g, marca)
-      .replace(/\bACME\b/g, marca) as T;
+    const artigos: Record<string, string> = slug === 'escolas-acme'
+      ? { 'A ': 'A ', 'a ': 'a ', 'da ': 'da ', 'na ': 'na ', 'pela ': 'pela ', 'à ': 'à ' }
+      : { 'A ': 'O ', 'a ': 'o ', 'da ': 'do ', 'na ': 'no ', 'pela ': 'pelo ', 'à ': 'ao ' };
+    // Uma passada: a marca final contém ACME e não pode ser substituída de novo.
+    return value.replace(/\b(A |a |da |na |pela |à )?((?:Rede (?:de Escolas )?)+ACME(?: Demo)?|ACME Demo|ACME)\b/g,
+      (_match, artigo: string | undefined) => `${artigo ? artigos[artigo] : ''}${marca}`) as T;
   }
   if (Array.isArray(value)) return value.map((item) => personalizarArtefatoDemo(item, slug)) as T;
   if (value && typeof value === 'object') {
@@ -2587,6 +2579,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
     await seedAcmeRhReportCenter(demo.id);
     await seedConsolidadoRh(demo.id);
+    await sincronizarLeiturasDemo(sb, demo.id, slug);
     if (slug === DEMO_SLUG) {
       await seedAcmeOrganizationReports(sb, demo.id, DEMO_NAME);
       await seedAcmeFitRankingSnapshots(sb, demo.id, DEMO_NAME);

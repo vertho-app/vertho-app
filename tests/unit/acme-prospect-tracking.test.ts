@@ -30,6 +30,7 @@ const active = {
 /** Sessões fora da janela de retenção — o teste que precisa delas as preenche. */
 let foraDaRetencao: Array<{ session_id: string; auth_email: string }> = [];
 
+let historicoExtenso: any[] | null = null;
 const sb = criarSupabaseMock({
   resolver: (table) => {
     if (table === 'empresas') return { id: 'acme-id', is_demo: true };
@@ -38,8 +39,12 @@ const sb = criarSupabaseMock({
     }
     return null;
   },
-  lista: (table, cols) => {
+  lista: (table, cols, cadeia) => {
     if (table === 'demo_prospect_sessions') {
+      if (historicoExtenso && cadeia.some(c => c.metodo === 'range')) {
+        const range = cadeia.find(c => c.metodo === 'range')!.args as number[];
+        return historicoExtenso.slice(range[0], range[1] + 1);
+      }
       // DUAS consultas batem nesta tabela e querem coisas diferentes: a faxina
       // do vencimento lê a sessão inteira, a da RETENÇÃO pede só o par
       // (session_id, auth_email). O mock não aplica filtros, então distinguir
@@ -85,10 +90,18 @@ import {
 
 describe('acompanhamento dos prospects ACME', () => {
   beforeEach(() => {
+    historicoExtenso = null;
     sb.reset();
     deleteUser.mockClear();
     listUsers.mockClear();
     foraDaRetencao = [];
+  });
+
+  it('lê a segunda página para que métricas não sejam truncadas em 50 ou 500 convites', async () => {
+    historicoExtenso = Array.from({length:501}, (_,i) => ({...active, session_id: String(i).padStart(20,'0'), disc_completed_at:'2026-09-01'}));
+    const rows = await listAcmeProspectProgress(sb.client);
+    expect(rows).toHaveLength(501);
+    expect(sb.usou('demo_prospect_sessions','range',500)).toBe(true);
   });
 
   it('fecha somente o vencido, preserva o DISC e mantém o ativo para bloquear o reset', async () => {
@@ -149,7 +162,7 @@ describe('acompanhamento dos prospects ACME', () => {
       discCompletedAt: '2026-09-01T18:30:00.000Z',
     });
     expect(sb.usou('demo_prospect_sessions', 'order', 'created_at')).toBe(true);
-    expect(sb.usou('demo_prospect_sessions', 'limit', 50)).toBe(true);
+    expect(sb.usou('demo_prospect_sessions', 'range', 0)).toBe(true);
   });
 
   it('registra o primeiro acesso somente para um Auth válido e ainda no prazo', async () => {

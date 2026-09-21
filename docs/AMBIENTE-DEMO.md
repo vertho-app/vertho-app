@@ -1,5 +1,16 @@
 # Ambientes de Demonstração
 
+## Correções do QA e medição do funil — 21/09/2026
+
+- **Entrada e PDF publicados:** quatro entradas concorrentes ACME/Sinal passaram sem retry externo; PDF RH do Sinal respondeu 200 em visualização e download. A migração 266 protege geração + consumo de OTP por identidade entre instâncias. Convite válido com indisponibilidade volta à degustação. Nome de PDF usa fallback ASCII e `filename*=UTF-8''`.
+- **Leituras coerentes:** `lib/demo/relatorios-coerentes.ts` deriva texto, cartões, níveis e distribuições de `descriptor_assessments`, do Top 5 e do elenco do roster. O RH considera somente mapeamentos completos e explicita o recorte; o gestor explicita tamanho da equipe, completos e parciais. Sinal: 8 liderados, 24 mapeamentos completos e 120 avaliações de competências no RH. Marina: Gestão da Aprendizagem N3, 3,10. A personalização da marca é idempotente. Sincronização aplicada aos três tenants, com backup local dos relatórios anteriores; o reset a executa depois dos artefatos aquecidos. PDFs anteriores são invalidados para regenerar o conteúdo corrigido.
+- **Medição v1:** migração 267 aplicada. O POST de contato funciona sem JavaScript e registra `contact_clicked_at` antes de redirecionar ao WhatsApp; não envia mensagem. As telas instrumentadas só montam o beacon quando o conteúdo carregou: perfil, PDI, jornada, engajamento, evolução e adequação; PDF exige a primeira página renderizada. Dois segundos de visibilidade registram a primeira exploração por convite. A rota confere origem, ticket, tenant, persona autenticada e validade/fechamento no banco. Escritas deduplicadas por coluna nula, sem respostas do DISC, texto de mensagens ou tokens persistidos.
+- **Taxa:** convites B com `telemetry_version=2026-09-21.v1`, abertos e retidos neste ambiente; numerador = os que tiveram uma exploração relevante. Históricos sem instrumento, versão A e testes internos ficam fora. O formulário oferece a marca de teste; prefixos QA / TESTE INTERNO também são reconhecidos. A consulta é paginada para não truncar a métrica; só os cartões visíveis são limitados aos 50 mais recentes. Clique no contato é intenção, não conversa confirmada. A retenção segue a sessão do convite (sem tabela paralela de eventos).
+- **Evolução:** o estado sem comparação explica a reavaliação ao final da jornada e oferece retorno à temporada. Não pede que a pessoa repita um mapeamento já feito.
+- **Acessibilidade e hidratação:** setas do DISC identificam palavra e direção; estrelas identificam formato, nota e seleção. Download do PDF mantém nome acessível no celular. A data do cabeçalho administrativo tem render inicial determinístico e fuso explícito, sem `suppressHydrationWarning`.
+
+Validação desta rodada: 467 testes relacionados passaram, incluindo isolamento de eventos, recusa de convite encerrado, falhas de banco, paginação acima de 500 convites, nível de Marina e idempotência da marca. Reprodução do erro de hidratação na virada UTC/Brasília; componente corrigido sem erro em Brasília e Tóquio. Os testes publicados finais estão registrados no relatório local `output/degustacao-correcoes-20260921/relatorio-qa.md` do workspace.
+
 ## Retorno aos painéis e mapeamento responsivo — 21/09/2026
 
 As telas das salas online mostram, no topo, **Voltar ao painel do RH**, **Voltar

@@ -1388,7 +1388,9 @@
         "cautious": "Cautious",
         "engaging": "Engaging",
         "persevering": "Persevering"
-      }
+      },
+      "moveUp": "Move {word} up",
+      "moveDown": "Move {word} down"
     },
     "pairs": {
       "quickChoice": "QUICK CHOICE",
@@ -1425,7 +1427,8 @@
         "exercise": "Practical exercise/simulation",
         "mentor": "Conversation with mentor (AI chat)",
         "case": "Case study"
-      }
+      },
+      "ratingLabel": "{format}: {value} out of 5 stars"
     },
     "calculating": {
       "title": "Calculating your profile...",
@@ -1919,9 +1922,10 @@
     "viewSeasonReport": "See full season report",
     "descriptorFallback": "{number} descriptor",
     "empty": {
-      "title": "No evolution data yet",
-      "subtitle": "Your details will appear here after completing the competency mapping.",
-      "card": "Complete the competency mapping to monitor your progress."
+      "title": "Compare your progress after reassessment",
+      "subtitle": "Here you will see what changed between your initial assessment and the reassessment at the end of your journey.",
+      "card": "Until the comparison is available, follow your plan and practise the behaviours covered in your journey.",
+      "goToJourney": "Follow my journey"
     },
     "classification": {
       "confirmed": "Evolution confirmed",
@@ -4896,7 +4900,7 @@
       "noPrimaryAction": "Use the team signals below to define the focus of the next conversation.",
       "thisWeek": "This week",
       "competencies": "Competency pulse",
-      "highlights": "Progress to recognize",
+      "highlights": "Strengths to recognize",
       "attentionPeople": "Priority conversations",
       "pdfEyebrow": "Supporting document",
       "pdfTitle": "Full team report",

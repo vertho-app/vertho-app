@@ -1,7 +1,10 @@
 'use client';
 
+import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beacon';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, TrendingUp, Download, Clock, Quote, Target, Award } from 'lucide-react';
@@ -74,6 +77,7 @@ export default function EvolucaoPage() {
             <p className="text-sm text-gray-400">
               {t('empty.card')}
             </p>
+            <Link href="/dashboard/temporada" className="mt-5 inline-flex rounded-xl border border-cyan-300/30 px-4 py-3 text-sm font-semibold text-cyan-200">{t('empty.goToJourney')}</Link>
           </div>
         </div>
       </div>
@@ -109,6 +113,7 @@ export default function EvolucaoPage() {
   return (
     <div>
       {/* Header */}
+      <DemoExplorationBeacon alvo="evolucao" />
       <header className="px-5 pt-6 pb-4">
         <p className="text-[#9ae2e6] text-[11px] font-bold tracking-[0.12em] uppercase mb-2">{t('eyebrow')}</p>
         <h1 className="text-[2rem] leading-[1.05] font-extrabold tracking-tight">

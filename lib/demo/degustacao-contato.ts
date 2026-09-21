@@ -6,11 +6,10 @@
  * página que não oferecia saída nenhuma. Para falar com a Vertho ela teria que
  * voltar ao WhatsApp e procurar a conversa por conta própria.
  *
- * Quem manda a mensagem é a PESSOA, não a plataforma: o link abre a conversa com
- * o texto pronto e ela decide enviar. Por isso o tenant de demonstração não
- * dispara nada (o guardrail de `lib/demo/envio-guard` nem entra em cena), nada
- * novo é guardado sobre o lead e o robô de preview do WhatsApp não tem o que
- * carimbar: o único efeito do clique acontece no aparelho dela.
+ * Quem manda a mensagem é a pessoa. O POST do botão registra o primeiro clique
+ * e redireciona para esta URL com o texto pronto; nenhum envio é automatizado.
+ * O clique mede intenção, sem afirmar que houve mensagem enviada. Um GET de
+ * preview não grava esse marco.
  */
 
 /** Contato comercial da degustação. E.164 sem "+", como exige o `wa.me`. */

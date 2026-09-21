@@ -98,6 +98,7 @@ export type AcmeProspectExperienceInput = {
   roleKey: AcmeProspectRoleKey;
   /** Ausente vale A. */
   versao?: DegustacaoVersao;
+  testeInterno?: boolean;
 };
 
 export type AcmeProspectExperienceAccess = {
@@ -162,6 +163,11 @@ export type AcmeProspectProgress = {
   versao: DegustacaoVersao;
   /** Abertura VERIFICADA do convite (só a versão B registra). */
   conviteAbertoEm: string | null;
+  contatoClicadoEm?: string | null;
+  exploracaoRelevanteEm?: string | null;
+  exploracaoAlvo?: string | null;
+  telemetryVersion?: string | null;
+  testeInterno?: boolean;
   personalAccessedAt: string | null;
   discCompletedAt: string | null;
   colaboradorAccessedAt: string | null;
@@ -205,6 +211,11 @@ export type DemoGuestProgress = {
   /** Só o passaporte tem roteiro; o cadastro vem `null`. */
   versao: DegustacaoVersao | null;
   conviteAbertoEm: string | null;
+  contatoClicadoEm?: string | null;
+  exploracaoRelevanteEm?: string | null;
+  exploracaoAlvo?: string | null;
+  telemetryVersion?: string | null;
+  testeInterno?: boolean;
   personalAccessedAt: string | null;
   discCompletedAt: string | null;
   colaboradorAccessedAt: string | null;
@@ -373,7 +384,7 @@ export function validateAcmeProspectExperienceInput(
 
   return {
     ok: true,
-    value: { nome, empresa, roleKey: role.key, versao },
+    value: { nome, empresa, roleKey: role.key, versao, ...(raw.testeInterno === true ? { testeInterno: true } : {}) },
   };
 }
 

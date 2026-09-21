@@ -1388,7 +1388,9 @@
         "cautious": "Cauteloso(a)",
         "engaging": "Envolvente",
         "persevering": "Perseverante"
-      }
+      },
+      "moveUp": "Mover {word} para cima",
+      "moveDown": "Mover {word} para baixo"
     },
     "pairs": {
       "quickChoice": "ESCOLHA RÁPIDA",
@@ -1425,7 +1427,8 @@
         "exercise": "Exercício prático / simulação",
         "mentor": "Conversa com mentor (chat IA)",
         "case": "Estudo de caso"
-      }
+      },
+      "ratingLabel": "{format}: {value} de 5 estrelas"
     },
     "calculating": {
       "title": "A calcular o seu perfil...",
@@ -1919,9 +1922,10 @@
     "viewSeasonReport": "Ver relatório completo da temporada",
     "descriptorFallback": "Descritor {number}",
     "empty": {
-      "title": "Ainda sem dados de evolução",
-      "subtitle": "Os seus dados aparecerão aqui depois de completar o mapeamento de competências.",
-      "card": "Complete o mapeamento de competências para acompanhar a sua evolução."
+      "title": "A comparação surge após a reavaliação",
+      "subtitle": "Aqui verá o que mudou entre o mapeamento inicial e a reavaliação no final do percurso.",
+      "card": "Enquanto a comparação não estiver disponível, acompanhe o seu plano e pratique os comportamentos trabalhados no percurso.",
+      "goToJourney": "Acompanhar o meu percurso"
     },
     "classification": {
       "confirmed": "Evolução confirmada",
@@ -4896,7 +4900,7 @@
       "noPrimaryAction": "Use os sinais da equipa para definir o foco da próxima conversa.",
       "thisWeek": "Esta semana",
       "competencies": "Pulso das competências",
-      "highlights": "Evoluções a reconhecer",
+      "highlights": "Pontos fortes a reconhecer",
       "attentionPeople": "Conversas prioritárias",
       "pdfEyebrow": "Documento de apoio",
       "pdfTitle": "Relatório completo da equipa",

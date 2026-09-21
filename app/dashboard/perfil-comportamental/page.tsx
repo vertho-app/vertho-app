@@ -1,4 +1,6 @@
 'use client';
+
+import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beacon';
 import { toast } from 'sonner';
 
 import { useState, useEffect } from 'react';
@@ -656,6 +658,7 @@ export default function PerfilComportamentalPage() {
 
   return (
     <PageContainer className="space-y-5">
+      <DemoExplorationBeacon alvo="perfil" />
       {voltarEquipe}
       <PageHero
         eyebrow={visaoGestor ? t('teamView.eyebrow') : t('hero.eyebrow')}

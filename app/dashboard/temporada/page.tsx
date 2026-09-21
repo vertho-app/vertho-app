@@ -1,5 +1,7 @@
 'use client';
 
+import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beacon';
+
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -100,6 +102,7 @@ export default function TemporadaPage() {
   return (
     // ✅ data-phase="4" + CSS vars — toda a página herda a cor violeta da Temporada
     <div data-phase={String(PHASE_NUM)} style={PHASE_VARS}>
+      <DemoExplorationBeacon alvo="jornada" />
       <PageContainer>
         {visaoGestor && (
           <button

@@ -52,6 +52,11 @@ type TrackedSessionRow = {
   /** Mig 256. Ausente no mock antigo e em linha anterior à migration: vale A. */
   experience_version?: string | null;
   invite_opened_at?: string | null;
+  contact_clicked_at?: string | null;
+  relevant_exploration_at?: string | null;
+  relevant_exploration_target?: string | null;
+  telemetry_version?: string | null;
+  is_internal_test?: boolean;
 };
 
 export type AcmeProspectAuthContext = {
@@ -269,13 +274,18 @@ export async function listAcmeProspectProgress(client?: any): Promise<AcmeProspe
 export async function listDemoProspectProgress(slug: string, client?: any): Promise<AcmeProspectProgress[]> {
   const sb = demoAdmin(client);
   const empresaId = await demoTenantId(sb, slug);
-  const { data, error } = await sb.from('demo_prospect_sessions')
-    .select('session_id,colaborador_id,auth_email,prospect_name,prospect_company,cargo,created_at,expires_at,personal_accessed_at,disc_completed_at,colaborador_accessed_at,gestor_accessed_at,rh_accessed_at,access_closed_at,experience_version,invite_opened_at')
-    .eq('empresa_id', empresaId)
-    .order('created_at', { ascending: false })
-    .limit(50);
-  if (error) throw new Error(`listar experiências de prospect: ${error.message}`);
-  const rows = (data || []) as TrackedSessionRow[];
+  // A taxa considera toda a coorte retida; o painel limita só os cartões exibidos.
+  const rows: TrackedSessionRow[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const { data, error } = await sb.from('demo_prospect_sessions')
+      .select('session_id,colaborador_id,auth_email,prospect_name,prospect_company,cargo,created_at,expires_at,personal_accessed_at,disc_completed_at,colaborador_accessed_at,gestor_accessed_at,rh_accessed_at,access_closed_at,experience_version,invite_opened_at,contact_clicked_at,relevant_exploration_at,relevant_exploration_target,telemetry_version,is_internal_test')
+      .eq('empresa_id', empresaId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + 499);
+    if (error) throw new Error(`listar experiências de prospect: ${error.message}`);
+    rows.push(...((data || []) as TrackedSessionRow[]));
+    if ((data || []).length < 500) break;
+  }
   const missingDiscIds = [...new Set(rows
     .filter((row) => !row.disc_completed_at && row.colaborador_id)
     .map((row) => row.colaborador_id!))];
@@ -309,6 +319,11 @@ export async function listDemoProspectProgress(slug: string, client?: any): Prom
     expiresAt: row.expires_at,
     versao: row.experience_version === 'B' ? 'B' as const : 'A' as const,
     conviteAbertoEm: row.invite_opened_at ?? null,
+    contatoClicadoEm: row.contact_clicked_at ?? null,
+    exploracaoRelevanteEm: row.relevant_exploration_at ?? null,
+    exploracaoAlvo: row.relevant_exploration_target ?? null,
+    telemetryVersion: row.telemetry_version ?? null,
+    testeInterno: row.is_internal_test === true,
     personalAccessedAt: row.personal_accessed_at,
     discCompletedAt: row.disc_completed_at,
     colaboradorAccessedAt: row.colaborador_accessed_at,
@@ -424,6 +439,11 @@ export async function listDemoGuestProgress(
     expiresAt: row.expiresAt,
     versao: row.versao,
     conviteAbertoEm: row.conviteAbertoEm,
+    contatoClicadoEm: row.contatoClicadoEm,
+    exploracaoRelevanteEm: row.exploracaoRelevanteEm,
+    exploracaoAlvo: row.exploracaoAlvo,
+    telemetryVersion: row.telemetryVersion,
+    testeInterno: row.testeInterno,
     personalAccessedAt: row.personalAccessedAt,
     discCompletedAt: row.discCompletedAt,
     colaboradorAccessedAt: row.colaboradorAccessedAt,

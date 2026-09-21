@@ -1152,7 +1152,7 @@ function ReportReader({ document: report, t, onBack }: { document: RhReportDocum
       <div className="overflow-hidden rounded-[26px] border border-white/[0.09] bg-[#071829] shadow-[0_24px_80px_rgba(0,0,0,.28)]">
         <header className="flex items-center justify-between gap-3 border-b border-white/[0.08] px-4 py-4 sm:px-6">
           <div className="min-w-0"><p className="text-[9px] font-bold uppercase tracking-[0.2em] text-[var(--brand-300,#67e8f9)]">{t('viewer.eyebrow')}</p><h2 className="mt-0.5 truncate text-lg text-white sm:text-xl" style={serifStyle}>{title}{report.recipient ? ` · ${report.recipient}` : ''}</h2></div>
-          <a href={report.url} download className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"><Download size={14} /> <span className="hidden sm:inline">{t('viewer.download')}</span></a>
+          <a href={report.url} download aria-label={t('viewer.download')} className="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-[var(--brand-400,#22d3ee)]/25 bg-[var(--brand-400,#22d3ee)]/10 px-3 text-[10px] font-bold uppercase tracking-[0.1em] text-[var(--brand-300,#67e8f9)] transition hover:bg-[var(--brand-400,#22d3ee)]/15"><Download size={14} /> <span className="hidden sm:inline">{t('viewer.download')}</span></a>
         </header>
         <div className="p-2 sm:p-4"><InAppPdfDocument src={report.url} title={`${title}${report.recipient ? ` — ${report.recipient}` : ''}`} loadingLabel={t('viewer.loading')} errorLabel={t('viewer.error')} retryLabel={t('viewer.retry')} /></div>
       </div>

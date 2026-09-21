@@ -1,5 +1,7 @@
 'use client';
 
+import DemoExplorationBeacon from '@/components/dashboard/demo-exploration-beacon';
+
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import Link from 'next/link';
 import {
@@ -721,6 +723,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
 
   return (
     <div className="mx-auto w-full max-w-[1500px] p-4 sm:p-6 lg:p-8">
+      {!loading && !erro && resumo && total > 0 && <DemoExplorationBeacon alvo="engajamento" />}
       <AdminPageHeader
         icon={BarChart3}
         iconClassName="text-cyan-300"
