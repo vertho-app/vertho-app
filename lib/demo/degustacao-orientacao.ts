@@ -8,7 +8,7 @@ import type { DemoPresentationRoleKey, DemoPresentationTenantSlug } from '@/lib/
  * `Medido 18/09/2026`: a única convidada que atravessou a experiência abriu as
  * três visões em quatro minutos e não abriu nada dentro delas.
  *
- * É UMA FRASE E ATÉ TRÊS LINKS, no topo da tela inicial daquele papel, que a
+ * É UMA FRASE E ATÉ QUATRO PERGUNTAS, no topo da tela inicial daquele papel, que a
  * pessoa dispensa quando quiser. Não é tour, não cobre menu e não bloqueia
  * navegação: quem quiser explorar sozinho não é atrapalhado.
  *
@@ -36,10 +36,10 @@ export type OrientacaoDaDegustacao = {
   destinos: readonly DestinoDaOrientacao[];
 };
 
-const PAINEIS_DO_RH: readonly DestinoDaOrientacao[] = [
-  { rotulo: 'Evolução', path: '/dashboard/gestor/equipe-evolucao' },
-  { rotulo: 'Engajamento', path: '/dashboard/gestor/engajamento' },
-  { rotulo: 'DNA da organização', path: '/dashboard/relatorios?document=organization-dna' },
+const PERGUNTAS_DO_PARTICIPANTE: readonly DestinoDaOrientacao[] = [
+  { rotulo: 'Como aplico o aprendizado no dia a dia?', path: '/dashboard/temporada' },
+  { rotulo: 'O que eu preciso desenvolver?', path: '/dashboard/pdi' },
+  { rotulo: 'Como meu jeito de agir influencia meu trabalho?', path: '/dashboard/perfil-comportamental' },
 ];
 
 /**
@@ -52,42 +52,54 @@ const PAINEIS_DO_RH: readonly DestinoDaOrientacao[] = [
 const EMPRESA: Record<DemoPresentationRoleKey, OrientacaoDaDegustacao> = {
   gestor: {
     casa: '/dashboard/gestor',
-    texto: 'Onde concentrar o seu apoio? Veja o engajamento do time e explore a jornada da Bruna para entender como acompanhar o desenvolvimento dela.',
+    texto: 'O que você quer descobrir sobre o seu time? Escolha uma pergunta para explorar.',
     destinos: [
-      { rotulo: 'Ver o engajamento', path: '/dashboard/gestor/engajamento' },
-      { rotulo: 'Abrir a Bruna', path: '/dashboard/temporada', pessoa: 'bruna.demo@vertho.ai' },
+      { rotulo: 'Como eu sei que o time está engajado?', path: '/dashboard/gestor/engajamento' },
+      { rotulo: 'Como acompanho o desenvolvimento da Bruna?', path: '/dashboard/temporada', pessoa: 'bruna.demo@vertho.ai' },
+      { rotulo: 'Como vejo a evolução de cada pessoa?', path: '/dashboard/gestor/equipe-evolucao' },
     ],
   },
   rh: {
     casa: '/dashboard',
-    texto: 'Como acompanhar participação e desenvolvimento? Comece pela evolução da equipe e explore os indicadores de engajamento.',
-    destinos: PAINEIS_DO_RH,
+    texto: 'O que você precisa entender para desenvolver as pessoas? Explore os dados por trás de cada pergunta.',
+    destinos: [
+      { rotulo: 'Como eu sei que o time está engajado?', path: '/dashboard/gestor/engajamento' },
+      { rotulo: 'O desenvolvimento está gerando evolução?', path: '/dashboard/gestor/equipe-evolucao' },
+      { rotulo: 'Quem tem mais aderência a cada cargo?', path: '/dashboard/gestor/ranking' },
+      { rotulo: 'Como a cultura da empresa influencia o time?', path: '/dashboard/relatorios?document=organization-dna' },
+    ],
   },
   usuario: {
     casa: '/dashboard',
     texto: 'Como transformar uma avaliação em desenvolvimento no dia a dia? Explore a sua jornada: conteúdo em vários formatos, prática e espaço para tirar dúvidas.',
-    destinos: [{ rotulo: 'Abrir a jornada', path: '/dashboard/temporada' }],
+    destinos: PERGUNTAS_DO_PARTICIPANTE,
   },
 };
 
 const ESCOLAS: Record<DemoPresentationRoleKey, OrientacaoDaDegustacao> = {
   gestor: {
     casa: '/dashboard/gestor',
-    texto: 'Onde concentrar o seu apoio? Veja o engajamento da escola e explore a jornada da Marina para entender como acompanhar o desenvolvimento dela.',
+    texto: 'O que você quer descobrir sobre a sua escola? Escolha uma pergunta para explorar.',
     destinos: [
-      { rotulo: 'Ver o engajamento', path: '/dashboard/gestor/engajamento' },
-      { rotulo: 'Abrir a Marina', path: '/dashboard/temporada', pessoa: 'marina.demo@vertho.ai' },
+      { rotulo: 'Como eu sei que os professores estão engajados?', path: '/dashboard/gestor/engajamento' },
+      { rotulo: 'Como acompanho o desenvolvimento da Marina?', path: '/dashboard/temporada', pessoa: 'marina.demo@vertho.ai' },
+      { rotulo: 'Como vejo a evolução de cada professor?', path: '/dashboard/gestor/equipe-evolucao' },
     ],
   },
   rh: {
     casa: '/dashboard',
-    texto: 'Como acompanhar participação e desenvolvimento? Comece pela evolução da rede e explore os indicadores de engajamento.',
-    destinos: PAINEIS_DO_RH,
+    texto: 'O que você precisa entender para desenvolver a rede? Explore os dados por trás de cada pergunta.',
+    destinos: [
+      { rotulo: 'Como eu sei que os professores estão engajados?', path: '/dashboard/gestor/engajamento' },
+      { rotulo: 'O desenvolvimento está gerando evolução?', path: '/dashboard/gestor/equipe-evolucao' },
+      { rotulo: 'Quem tem mais aderência a cada função?', path: '/dashboard/gestor/ranking' },
+      { rotulo: 'Como a cultura da rede influencia as escolas?', path: '/dashboard/relatorios?document=organization-dna' },
+    ],
   },
   usuario: {
     casa: '/dashboard',
     texto: 'Como transformar uma avaliação em desenvolvimento no dia a dia? Explore a sua jornada: conteúdo em vários formatos, prática e espaço para tirar dúvidas.',
-    destinos: [{ rotulo: 'Abrir a jornada', path: '/dashboard/temporada' }],
+    destinos: PERGUNTAS_DO_PARTICIPANTE,
   },
 };
 

@@ -293,7 +293,7 @@ barra de navegação.
 |---|---|---|
 | Mensagem | 4 etapas, 4 links | ~3 linhas, 1 link |
 | Link | `/auth/degustacao?passe=` (GET cria sessão) | `/c/<código>` curto (página, **não** cria sessão); `/degustacao?passe=` segue abrindo |
-| Ordem | você, colaborador, gestor, RH | gestor, RH, colaborador; perfil opcional |
+| Ordem | você, colaborador, gestor, RH | RH, gestor, colaborador; perfil opcional |
 | Sessão nasce | no GET (robô incluído) | no POST do botão pessoal (clique) |
 | `/dashboard` do convidado | home de colaborador | volta para a página (`lib/demo/degustacao-casa.ts`) |
 | "Abriu" no painel | `personal_accessed_at` (contaminado) | `invite_opened_at` (beacon após interação ou clique) |
@@ -375,7 +375,7 @@ sem JavaScript.
 
 **Para quem vai a mensagem.** `lib/demo/degustacao-contato.ts` resolve o número
 pelo `created_by_email` do passaporte, num mapa explícito; quem não estiver lá
-cai no número público da Vertho (o mesmo do site). Comercial novo = uma linha no
+cai no contato comercial da degustação, **5511973882303** (alterado em 21/09/2026). Comercial novo = uma linha no
 mapa. A empresa do lead entra entre parênteses no texto, nunca com artigo
 montado: "da Boehringer" e "do Grupo Sinal" pedem artigos diferentes.
 
@@ -390,16 +390,16 @@ de produto real, com o menu inteiro, sem saber o que olhar primeiro. `Medido
 18/09`: a única convidada que atravessou a experiência abriu as três visões em
 quatro minutos e não abriu nada dentro delas.
 
-**Como é.** Uma linha no topo da tela inicial de cada papel, com até três links
+**Como é.** Um bloco no topo da tela inicial de cada papel, com até quatro perguntas
 que executam a ação. Aparece só para quem chegou pelo convite (a sala guarda o
 código de volta em `sessionStorage`), só na casa daquele papel, e some quando a
 pessoa dispensa. Não é tour: não cobre menu nem bloqueia navegação.
 
 | Papel | Para onde manda olhar |
 |---|---|
-| Gestor (Carla / coordenação) | Engajamento do time, e abrir a pessoa que está EM CURSO na jornada (Bruna no ACME, Marina nas escolas) |
-| RH (Helena / direção) | Evolução, Engajamento e DNA da organização |
-| Participante (Bruna / Marina) | A própria jornada: formatos do conteúdo, tira-dúvidas e evidências |
+| Gestor (Carla / coordenação) | Engajamento, acompanhamento de Bruna/Marina e evolução de cada pessoa |
+| RH (Helena / direção) | Engajamento, evolução, aderência aos cargos e cultura da organização |
+| Participante (Bruna / Marina) | Aplicar o aprendizado na jornada, descobrir o que desenvolver no PDI e entender o próprio perfil |
 
 **A linha começa pela DOR, em pergunta** (refinamento do dono, 18/09: "os textos
 ainda explicam a navegação"). A pergunta de cada papel é a mesma que o vídeo
@@ -421,6 +421,44 @@ devolutivas prontas, cinco colegas do mesmo time já concluíram as 7, e o
 `gestor_email` dela é o da persona de liderança nos três ambientes, que é o que
 faz o link passar pelo gate de posse. A Marina é o espelho disso nas escolas
 (3 semanas, 2 concluídas).
+
+### Degustação B: RH primeiro e simuladores preenchidos (21/09/2026)
+
+O primeiro card, o selo **Comece por aqui** e a ação **Explorar** agora abrem o RH
+(direção na demo escolar). Seguem gestor/coordenação e colaborador/professor.
+Convite e faixa de etapas do painel acompanham essa ordem. As perguntas acima
+aparecem em três colunas para gestor/participante e duas para RH no computador;
+no celular, uma coluna, com alvos de pelo menos 44 px.
+
+`lib/demo/seed-simuladores.ts` popula somente o elenco fictício registrado de
+tenants da allowlist com `is_demo=true`, respeitando módulos e acesso por cargo.
+Atendimento e vendas não semeiam treinos para quem só acompanha. As sessões
+usam `owner_key=colab:<id>`: testes de admin ficam fora das métricas da equipe.
+`simuladores-fixture.ts` fornece conversas, devolutivas, pesquisa e encontros
+editoriais, com origem explícita de demonstração e sem chamadas de IA.
+
+O reset canônico executa o seed depois de personas e panorama. IDs estáveis por
+tenant/e-mail permitem religar os históricos depois da troca de UUID das personas;
+datas relativas mantêm os treinos nos filtros recentes. Uma execução incremental
+preserva registros que não pertencem ao fixture e jornadas que já receberam
+interações. Mapeamento e treino têm fontes separadas; o primeiro inclui notas por
+descritor e respostas com evidências, sem derivar avaliação formal do simulador.
+
+População inicial conferida no banco e nos painéis em 21/09:
+
+| Ambiente | Atendimento | Vendas | Liderança | Mapeamento |
+|---|---|---|---|---|
+| ACME | 25 treinos | 25 treinos | 20 jornadas / 65 encontros | 16 completos, 4 incompletos, 10 não iniciados |
+| Escolas | Módulo não habilitado | Módulo não habilitado | 9 jornadas / 30 encontros adicionados; jornada prévia preservada | 8 completos, 2 incompletos, 4 não iniciados |
+| Grupo Sinal | Módulo não habilitado | Módulo não habilitado | Módulo não habilitado | Módulo não habilitado |
+
+Os quatro quadrantes de liderança têm exemplos nos dois ambientes habilitados.
+O aviso existente de seis medidas sem discriminação no gabarito continua visível.
+Validação: 758 testes passaram (80 arquivos; 56 casos de integração não executados),
+TypeScript e build de produção aprovados. O build local usou temporariamente a raiz
+do workspace no Turbopack para aceitar a junction de dependências do worktree;
+`next.config.mjs` foi restaurado. Evidências e backup anteriores à população estão
+em `output/degustacao-ajustes-20260921`, fora do repositório público.
 
 ### Simuladores por papel e simulador de liderança (17/09/2026)
 

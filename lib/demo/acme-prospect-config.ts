@@ -389,7 +389,7 @@ export function validateAcmeProspectExperienceInput(
 export type CopiaDaDegustacaoGuiada = {
   /** Onde a pessoa está, dito para ela ("numa empresa de demonstração"). */
   contexto: string;
-  /** Quem acompanha, no convite: "o gestor e o RH acompanham". */
+  /** Quem acompanha, no convite: "o RH e o gestor acompanham". */
   quemAcompanha: string;
   /** Cartões na ORDEM em que aparecem na página. */
   visoes: ReadonlyArray<{
@@ -408,14 +408,14 @@ export type CopiaDaDegustacaoGuiada = {
 
 const VISOES_EMPRESA: CopiaDaDegustacaoGuiada['visoes'] = [
   {
-    roleKey: 'gestor',
-    titulo: 'O que o gestor acompanha',
-    descricao: 'A equipe, a adequação de cada pessoa ao cargo e onde apoiar o próximo passo.',
-  },
-  {
     roleKey: 'rh',
     titulo: 'O painel do RH',
     descricao: 'O panorama da empresa, os indicadores do programa e os relatórios prontos.',
+  },
+  {
+    roleKey: 'gestor',
+    titulo: 'O que o gestor acompanha',
+    descricao: 'A equipe, a adequação de cada pessoa ao cargo e onde apoiar o próximo passo.',
   },
   {
     roleKey: 'usuario',
@@ -427,30 +427,30 @@ const VISOES_EMPRESA: CopiaDaDegustacaoGuiada['visoes'] = [
 export const COPIA_DEGUSTACAO_GUIADA: Record<DemoProspectTenantSlug, CopiaDaDegustacaoGuiada> = {
   'acme-demo': {
     contexto: 'numa empresa de demonstração',
-    quemAcompanha: 'o gestor e o RH acompanham',
+    quemAcompanha: 'o RH e o gestor acompanham',
     visoes: VISOES_EMPRESA,
     contato: { titulo: 'Quer ver isso na sua empresa?', minhaCasa: 'na minha empresa' },
   },
   gruposinal: {
     contexto: 'num ambiente de demonstração',
-    quemAcompanha: 'o gestor e o RH acompanham',
+    quemAcompanha: 'o RH e o gestor acompanham',
     visoes: VISOES_EMPRESA,
     contato: { titulo: 'Quer ver isso na sua empresa?', minhaCasa: 'na minha empresa' },
   },
   'escolas-acme': {
     contexto: 'numa rede de escolas de demonstração',
-    quemAcompanha: 'a coordenação e a direção acompanham',
+    quemAcompanha: 'a direção e a coordenação acompanham',
     contato: { titulo: 'Quer ver isso na sua rede?', minhaCasa: 'na minha rede' },
     visoes: [
-      {
-        roleKey: 'gestor',
-        titulo: 'O que a coordenação acompanha',
-        descricao: 'Os professores, a adequação de cada um à função e onde apoiar o próximo passo.',
-      },
       {
         roleKey: 'rh',
         titulo: 'O painel da direção',
         descricao: 'O panorama da rede, os indicadores do programa e os relatórios prontos.',
+      },
+      {
+        roleKey: 'gestor',
+        titulo: 'O que a coordenação acompanha',
+        descricao: 'Os professores, a adequação de cada um à função e onde apoiar o próximo passo.',
       },
       {
         roleKey: 'usuario',
@@ -470,7 +470,7 @@ export const COPIA_DEGUSTACAO_GUIADA: Record<DemoProspectTenantSlug, CopiaDaDegu
  * enviados. Tres cartoes com o mesmo peso obrigam o lead a decidir sem saber
  * nada da plataforma, e essa decisao e trabalho.
  */
-export const VISAO_RECOMENDADA_PADRAO: AcmeProspectPresentationRoleKey = 'gestor';
+export const VISAO_RECOMENDADA_PADRAO: AcmeProspectPresentationRoleKey = 'rh';
 
 export function copiaDaDegustacaoGuiada(slug: string): CopiaDaDegustacaoGuiada {
   return Object.prototype.hasOwnProperty.call(COPIA_DEGUSTACAO_GUIADA, slug)

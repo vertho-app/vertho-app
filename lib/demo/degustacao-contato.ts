@@ -13,8 +13,8 @@
  * carimbar: o único efeito do clique acontece no aparelho dela.
  */
 
-/** Número público da Vertho, o mesmo do site. E.164 sem "+", que é o que monta o `wa.me`. */
-export const WHATSAPP_VERTHO = '5511911807809';
+/** Contato comercial da degustação. E.164 sem "+", como exige o `wa.me`. */
+export const WHATSAPP_VERTHO = '5511973882303';
 
 /**
  * Quem responde por convite criado, pelo `created_by_email` da linha do

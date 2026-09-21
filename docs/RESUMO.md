@@ -1,6 +1,6 @@
 # Resumo de Retomada — Vertho App
 
-> Atualizado em 12/09/2026. O SHA de HEAD não é fixado aqui de propósito — ficava
+> Atualizado em 21/09/2026. O SHA de HEAD não é fixado aqui de propósito — ficava
 > obsoleto no commit seguinte e dava a impressão de que o resto do documento também estava.
 
 ## Onde esta o projeto
@@ -33,6 +33,14 @@ Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (rese
 ⚠️ `npm run lint` esta QUEBRADO desde o Next 16 (`next lint` removido) — usar `tsc --noEmit`.
 
 ## Frentes recentes
+
+**21/09 — Degustação B começa pelo RH.** Cards, convite e etapas seguem RH → gestor →
+participante. A orientação de cada visão oferece perguntas ligadas às dores do papel;
+WhatsApp do próximo passo: (11) 97388-2303. Os simuladores habilitados ganharam
+históricos fictícios de atendimento, vendas e liderança, além de mapeamento com os
+quatro quadrantes. O seed é incremental, limitado ao elenco demo e integrado ao reset.
+Detalhes e validação em `docs/AMBIENTE-DEMO.md`, seção “Degustação B: RH primeiro e
+simuladores preenchidos (21/09/2026)”.
 
 **12/09 — FinOps separado da precificação comercial.** `/admin/vertho/simulador-custo`
 responde por custo real, projeções e catálogo de IA; `/admin/vertho/orcamento` virou

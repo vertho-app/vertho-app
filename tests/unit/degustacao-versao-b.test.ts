@@ -29,7 +29,7 @@ describe('texto do convite B', () => {
     expect(texto).toContain(URL_DO_CONVITE);
     expect(texto.startsWith('Olá, Andrea!')).toBe(true);
     expect(texto).toContain('26/09, 04:00 (horário de Brasília)');
-    expect(texto).toContain('o gestor e o RH acompanham');
+    expect(texto).toContain('o RH e o gestor acompanham');
     expect(texto).toContain('perfil comportamental');
   });
 
@@ -48,7 +48,7 @@ describe('texto do convite B', () => {
 
   it('escolas falam de coordenação e direção, não de gestor e RH', () => {
     const texto = buildDegustacaoConviteText(acesso, 'escolas-acme');
-    expect(texto).toContain('a coordenação e a direção acompanham');
+    expect(texto).toContain('a direção e a coordenação acompanham');
     expect(texto).not.toMatch(/\bRH\b|gestor/);
   });
 
@@ -62,11 +62,11 @@ describe('texto do convite B', () => {
 });
 
 describe('cópia da página por ambiente', () => {
-  it('todo ambiente que oferece degustação tem cópia, com as três visões na ordem gestor, RH, colaborador', () => {
+  it('todo ambiente que oferece degustação tem cópia, com as três visões na ordem RH, gestor, colaborador', () => {
     for (const slug of Object.keys(DEMO_PROSPECT_TENANTS)) {
       const copia = (COPIA_DEGUSTACAO_GUIADA as Record<string, any>)[slug];
       expect(copia, `cópia ausente para ${slug}`).toBeTruthy();
-      expect(copia.visoes.map((v: any) => v.roleKey)).toEqual(['gestor', 'rh', 'usuario']);
+      expect(copia.visoes.map((v: any) => v.roleKey)).toEqual(['rh', 'gestor', 'usuario']);
       for (const visao of copia.visoes) {
         expect(visao.titulo.length).toBeGreaterThan(5);
         expect(`${visao.titulo} ${visao.descricao}`).not.toMatch(/[—–]/);

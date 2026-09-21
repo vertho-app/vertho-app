@@ -84,19 +84,22 @@ export default function OrientacaoDaDegustacao({ papel, casa, texto, links }: {
           <X size={15} aria-hidden="true" />
         </button>
       </div>
-      <div className="mt-2.5 flex flex-wrap gap-2">
+      <nav
+        aria-label="Perguntas para explorar esta visão"
+        className={`mt-3 grid gap-2 ${links.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}
+      >
         {links.map((link) => (
           <Link
             key={link.href}
             href={link.href}
-            className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-bold transition-colors hover:bg-white/[0.06]"
-            style={{ borderColor: 'var(--brand-400, #22d3ee)', color: 'var(--brand-200, #a5f3fc)' }}
+            className="group flex min-h-11 min-w-0 items-center justify-between gap-3 rounded-xl border border-white/15 px-3 py-2.5 text-left text-[13px] font-semibold leading-snug transition-colors hover:border-white/30 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+            style={{ color: 'var(--brand-200, #a5f3fc)' }}
           >
-            {link.rotulo}
-            <ArrowRight size={13} aria-hidden="true" />
+            <span className="min-w-0">{link.rotulo}</span>
+            <ArrowRight size={15} className="shrink-0" aria-hidden="true" />
           </Link>
         ))}
-      </div>
+      </nav>
     </div>
   );
 }

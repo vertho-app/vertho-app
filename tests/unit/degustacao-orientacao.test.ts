@@ -60,12 +60,13 @@ describe('o que cada visão manda olhar', () => {
   const acme = ORIENTACAO_POR_AMBIENTE['acme-demo'];
   const escolas = ORIENTACAO_POR_AMBIENTE['escolas-acme'];
 
-  it('RH e direção abrem os três painéis: evolução, engajamento e DNA', () => {
+  it('RH e direção abrem engajamento, evolução, adequação e DNA', () => {
     for (const ambiente of [acme, escolas]) {
       const paths = ambiente.rh.destinos.map((d) => d.path);
       expect(paths).toEqual([
-        '/dashboard/gestor/equipe-evolucao',
         '/dashboard/gestor/engajamento',
+        '/dashboard/gestor/equipe-evolucao',
+        '/dashboard/gestor/ranking',
         '/dashboard/relatorios?document=organization-dna',
       ]);
       expect(ambiente.rh.destinos.some((d) => d.pessoa)).toBe(false);

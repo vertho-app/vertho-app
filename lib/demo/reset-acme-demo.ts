@@ -69,6 +69,7 @@ import { buildAcmeDemoBehavioralReport } from '@/lib/demo/acme-behavioral-report
 // novo troca o roster, não o reset. A identidade da empresa continua em
 // DEMO_TENANT_PROFILES, logo abaixo.
 import { rosterDemo, type DemoRosterKey } from '@/lib/demo/rosters';
+import { seedSimuladoresDemo } from '@/lib/demo/seed-simuladores';
 import { PPP_REDE_ESCOLAS_ACME, VALORES_REDE_ESCOLAS_ACME } from '@/lib/demo/rosters/escolar';
 import {
   COMERCIAL_AREA,
@@ -2578,6 +2579,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     // roster — percurso da persona, cadência, sinais de engajamento. Agora o
     // funil dele é declarado em `ROSTER_COMERCIAL.panorama`, como o do escolar.
     await seedPanoramaDoRoster(demo.id, personaMap);
+    await seedSimuladoresDemo(sb, demo.id);
     await ensurePresentationVideo(demo.id, personaMap);
     await recomporVideosDaJornadaDemo(sb, roster, demo.id, personaMap);
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);

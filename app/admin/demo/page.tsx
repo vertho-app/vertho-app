@@ -82,7 +82,7 @@ type LembreteView = { texto: string; url: string; convertidoParaB: boolean } | {
 const VERSOES_DO_ROTEIRO: Record<DegustacaoVersao, { rotulo: string; resumo: string }> = {
   B: {
     rotulo: 'B · convite guiado',
-    resumo: 'Um link para uma página de boas-vindas. Primeiro as visões de gestor, RH e colaborador; o perfil é opcional. O painel só marca "Abriu" com gente de verdade.',
+    resumo: 'Um link para uma página de boas-vindas. Comece pelo RH, depois explore gestor e colaborador; o perfil é opcional. O painel só marca "Abriu" com gente de verdade.',
   },
   A: {
     rotulo: 'A · quatro links',
@@ -831,7 +831,7 @@ export default function AdminDemoPage() {
                   </h2>
                   <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-gray-400">
                     {prospectForm.versao === 'B'
-                      ? 'A pessoa recebe um link só, vê primeiro as visões prontas de gestor, RH e colaborador e, se quiser, descobre o próprio perfil.'
+                      ? 'A pessoa recebe um link só, começa pelo painel do RH, explora gestor e colaborador e, se quiser, descobre o próprio perfil.'
                       : 'A pessoa começa do zero e depois conhece as visões prontas de colaborador, gestor e RH.'}
                   </p>
                 </div>
@@ -878,8 +878,8 @@ export default function AdminDemoPage() {
               <div className="mt-3 grid grid-cols-2 gap-1 sm:grid-cols-4" aria-label="Perspectivas da experiência">
                 {(prospectForm.versao === 'B'
                   ? [
-                    ['01', 'Gestor'],
-                    ['02', 'RH'],
+                    ['01', 'RH'],
+                    ['02', 'Gestor'],
                     ['03', 'Colaborador'],
                     ['+', 'Seu perfil'],
                   ]

@@ -79,19 +79,19 @@ describe('página de boas-vindas da degustação B', () => {
     expect(sb.client.auth.getUser).not.toHaveBeenCalled();
   });
 
-  it('visões na ordem gestor, RH, colaborador, com ticket válido para o ambiente e a sessão', async () => {
+  it('visões na ordem RH, gestor, colaborador, com ticket válido para o ambiente e a sessão', async () => {
     const pagina: any = await carregarPaginaDaDegustacao({ passe: passe() }, 'acme-demo.vertho.ai');
 
-    expect(pagina.visoes.map((v: any) => v.roleKey)).toEqual(['gestor', 'rh', 'usuario']);
+    expect(pagina.visoes.map((v: any) => v.roleKey)).toEqual(['rh', 'gestor', 'usuario']);
     expect(pagina.visoes.map((v: any) => new URL(v.url).hostname)).toEqual([
-      'gestor-demo.vertho.ai', 'rh-demo.vertho.ai', 'usuario-demo.vertho.ai',
+      'rh-demo.vertho.ai', 'gestor-demo.vertho.ai', 'usuario-demo.vertho.ai',
     ]);
     for (const visao of pagina.visoes) {
       const ticket = verifyDemoPresentationTicket(new URL(visao.url).searchParams.get('ticket'));
       expect(ticket).toMatchObject({ tenant: 'acme-demo', prospectSessionId: SID });
     }
-    expect(pagina.visoes[0].vistoEm).toBe('2026-09-16T18:20:00.000Z');
-    expect(pagina.visoes[1].vistoEm).toBeNull();
+    expect(pagina.visoes[0].vistoEm).toBeNull();
+    expect(pagina.visoes[1].vistoEm).toBe('2026-09-16T18:20:00.000Z');
     expect(pagina.primeiroNome).toBe('Andrea');
   });
 
@@ -102,26 +102,26 @@ describe('página de boas-vindas da degustação B', () => {
     const recomendadas = pagina.visoes.filter((v: any) => v.recomendada);
     expect(recomendadas).toHaveLength(1);
     expect(pagina.visoes[0].recomendada).toBe(true);
-    expect(pagina.visoes[0].roleKey).toBe('gestor');
+    expect(pagina.visoes[0].roleKey).toBe('rh');
     // e as outras duas continuam abertas, só sem destaque
     expect(pagina.visoes.slice(1).every((v: any) => v.recomendada === false)).toBe(true);
     expect(pagina.visoes).toHaveLength(3);
   });
 
   it('🔴 a recomendada SOBE para o topo, mesmo não sendo a primeira da cópia', async () => {
-    // Prova a ordenação de verdade: com o padrão (gestor) ela já nasceria em
+    // Prova a ordenação de verdade: com o padrão (RH) ela já nasceria em
     // primeiro pela cópia do ambiente, e a ordenação passaria despercebida.
-    const pagina: any = await carregarPaginaDaDegustacao({ passe: passe() }, 'acme-demo.vertho.ai', new Date(), 'rh');
-    expect(pagina.visoes[0].roleKey).toBe('rh');
+    const pagina: any = await carregarPaginaDaDegustacao({ passe: passe() }, 'acme-demo.vertho.ai', new Date(), 'gestor');
+    expect(pagina.visoes[0].roleKey).toBe('gestor');
     expect(pagina.visoes[0].recomendada).toBe(true);
     // as outras duas mantêm a ordem pensada da cópia
-    expect(pagina.visoes.slice(1).map((v: any) => v.roleKey)).toEqual(['gestor', 'usuario']);
+    expect(pagina.visoes.slice(1).map((v: any) => v.roleKey)).toEqual(['rh', 'usuario']);
   });
 
   it('escolas usam os hosts e a cópia da rede de escolas', async () => {
     const pagina: any = await carregarPaginaDaDegustacao({ passe: passe('escolas-acme') }, 'escolas-acme.vertho.ai');
-    expect(pagina.visoes[0].titulo).toBe('O que a coordenação acompanha');
-    expect(new URL(pagina.visoes[0].url).hostname).toBe('coordenacao-escolas.vertho.ai');
+    expect(pagina.visoes[0].titulo).toBe('O painel da direção');
+    expect(new URL(pagina.visoes[0].url).hostname).toBe('direcao-escolas.vertho.ai');
     // e o próximo passo fala de rede, não de empresa
     expect(pagina.contato.botao).toBe('Quero ver na minha rede');
   });
