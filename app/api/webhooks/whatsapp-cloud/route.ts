@@ -346,6 +346,7 @@ export async function POST(req: Request) {
             waMessageId: m.waMessageId,
             tipo: m.tipo,
             texto: m.texto,
+            mediaId: midiaIdDoRaw(m.raw),
             numeroId: m.toPhoneId,
             empresaId,
             empresaNome,

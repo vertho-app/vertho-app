@@ -125,6 +125,10 @@ export interface AICallOptions {
    * `responseMimeType: application/json` + `responseSchema`; assim o caller não
    * depende de o prompt convencer o modelo a não responder em prosa. */
   geminiResponseSchema?: Record<string, unknown>;
+  /** Mídia inline para uma chamada Gemini de turno único. Usada por fluxos
+   * server-side que já baixaram o binário com autenticação (ex.: áudio da Meta).
+   * Nunca recebe URL/token: só mime normalizado + base64. */
+  geminiInlineData?: { mimeType: string; data: string };
   /**
    * INTERNO — preenchido por `callAI`/`callAIChat` quando falta `taskKey`.
    * Capturado na ENTRADA, onde a pilha ainda e sincrona: dentro de
@@ -906,9 +910,14 @@ async function callGemini(
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
+  const parts: Array<Record<string, unknown>> = [{ text: user }];
+  if (options.geminiInlineData) {
+    parts.push({ inlineData: options.geminiInlineData });
+  }
+
   const body = {
     systemInstruction: { parts: [{ text: system }] },
-    contents: [{ role: 'user', parts: [{ text: user }] }],
+    contents: [{ role: 'user', parts }],
     generationConfig: buildGeminiGenerationConfig({
       model,
       maxOutputTokens: maxTokens,

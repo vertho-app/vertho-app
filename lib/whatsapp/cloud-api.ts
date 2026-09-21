@@ -158,7 +158,7 @@ export interface EnvioTemplateMeta {
    * vezes na thread — uma com corpo e outra sem, como se fossem envios
    * diferentes. Qualquer outro valor (default `'cadencia'`) grava aqui.
    */
-  origem?: 'inbox' | 'cadencia';
+  origem?: 'inbox' | 'cadencia' | 'suporte-auto';
   /** Quem clicou. Ausente = automático. Só usado no registro do conteúdo. */
   autorEmail?: string | null;
   /**
@@ -348,18 +348,28 @@ export interface UrlDaMidia {
   expirada?: boolean;
 }
 
-/** URL temporária de uma mídia recebida. Expira em minutos — não repassar ao browser. */
-export async function urlDaMidia(mediaId: string): Promise<UrlDaMidia> {
-  return comRetry(() => urlDaMidiaUmaVez(mediaId));
+interface OpcoesLeituraMidia {
+  /** GET é idempotente, mas o atendimento ao vivo prefere falhar rápido. */
+  tentativas?: number;
+  /** Teto por tentativa; defaults preservam o comportamento da inbox. */
+  timeoutMs?: number;
 }
 
-async function urlDaMidiaUmaVez(mediaId: string): Promise<UrlDaMidia> {
+/** URL temporária de uma mídia recebida. Expira em minutos — não repassar ao browser. */
+export async function urlDaMidia(mediaId: string, opcoes: OpcoesLeituraMidia = {}): Promise<UrlDaMidia> {
+  return comRetry(
+    () => urlDaMidiaUmaVez(mediaId, opcoes.timeoutMs ?? TIMEOUT_META_MIDIA_MS),
+    opcoes.tentativas ?? 3,
+  );
+}
+
+async function urlDaMidiaUmaVez(mediaId: string, timeoutMs: number): Promise<UrlDaMidia> {
   if (!cloudApiConfigurada()) return { ok: false, reason: 'Cloud API não configurada' };
   try {
     const res = await fetch(`${BASE}/${mediaId}`, {
       headers: { Authorization: `Bearer ${token()}` },
       cache: 'no-store',
-      signal: AbortSignal.timeout(TIMEOUT_META_MIDIA_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     const json: any = await res.json().catch(() => null);
     if (!res.ok || !json?.url) {
@@ -374,7 +384,7 @@ async function urlDaMidiaUmaVez(mediaId: string): Promise<UrlDaMidia> {
     }
     return { ok: true, url: json.url, mime: json.mime_type };
   } catch (e: any) {
-    return { ok: false, reason: `mídia rede: ${motivoDeRede(e, TIMEOUT_META_MIDIA_MS)}` };
+    return { ok: false, reason: `mídia rede: ${motivoDeRede(e, timeoutMs)}` };
   }
 }
 
@@ -386,21 +396,30 @@ async function urlDaMidiaUmaVez(mediaId: string): Promise<UrlDaMidia> {
  * vazaria o token se alguém tentasse resolver isso mandando o header junto. Por
  * isso o servidor busca e transmite: o token nunca sai daqui.
  */
-export async function baixarMidia(url: string): Promise<{ ok: boolean; body?: ArrayBuffer; mime?: string; reason?: string }> {
-  return comRetry(() => baixarMidiaUmaVez(url));
+export async function baixarMidia(
+  url: string,
+  opcoes: OpcoesLeituraMidia = {},
+): Promise<{ ok: boolean; body?: ArrayBuffer; mime?: string; reason?: string }> {
+  return comRetry(
+    () => baixarMidiaUmaVez(url, opcoes.timeoutMs ?? TIMEOUT_DOWNLOAD_MS),
+    opcoes.tentativas ?? 3,
+  );
 }
 
-async function baixarMidiaUmaVez(url: string): Promise<{ ok: boolean; body?: ArrayBuffer; mime?: string; reason?: string }> {
+async function baixarMidiaUmaVez(
+  url: string,
+  timeoutMs: number,
+): Promise<{ ok: boolean; body?: ArrayBuffer; mime?: string; reason?: string }> {
   try {
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token()}` },
       cache: 'no-store',
-      signal: AbortSignal.timeout(TIMEOUT_DOWNLOAD_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) return { ok: false, reason: `download HTTP ${res.status}` };
     return { ok: true, body: await res.arrayBuffer(), mime: res.headers.get('content-type') || undefined };
   } catch (e: any) {
-    return { ok: false, reason: `download rede: ${motivoDeRede(e, TIMEOUT_DOWNLOAD_MS)}` };
+    return { ok: false, reason: `download rede: ${motivoDeRede(e, timeoutMs)}` };
   }
 }
 

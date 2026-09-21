@@ -291,6 +291,15 @@ describe('EIXO 3 · reasoningEffort: onde chega e onde é DESCARTADO', () => {
     expect(corpo?.generationConfig?.responseSchema).toEqual(schema);
   });
 
+  it('Gemini recebe áudio inline no mesmo turno, sem URL ou token', async () => {
+    const inlineData = { mimeType: 'audio/ogg', data: 'AQID' };
+    const corpo = await chamar('gemini-3.8-flash', 700, { geminiInlineData: inlineData });
+    expect(corpo?.contents?.[0]?.parts).toEqual([
+      { text: 'USER' },
+      { inlineData },
+    ]);
+  });
+
   it('geração 5 não recebe temperature nem top_p/top_k (a API devolve 400)', async () => {
     for (const id of TODOS.filter((m) => dialeto(m) === 'anthropic' && claudeAdaptativo(m))) {
       const corpo = await chamar(id, 1000, { temperature: 0.7 });

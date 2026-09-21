@@ -13,6 +13,11 @@ const h = vi.hoisted(() => ({
   erroLeitura: null as any,
   demoBlocked: false,
   chamadasTdb: [] as any[],
+  empresaNomeBanco: 'Acme',
+  recebidas: [] as any[],
+  enviadas: [] as any[],
+  midiaUrl: { ok: true, url: 'https://meta.test/audio', mime: 'audio/ogg; codecs=opus' } as any,
+  midiaDownload: { ok: true, body: new Uint8Array([1, 2, 3]).buffer, mime: 'audio/ogg' } as any,
 }));
 
 vi.mock('@/actions/ai-client', () => ({
@@ -28,25 +33,39 @@ vi.mock('@/lib/whatsapp/cloud-api', () => ({
     if (h.falharEnvio) return { ok: false, reason: h.falharEnvio };
     return { ok: true, providerMessageId: 'wamid.AUTO1' };
   },
+  urlDaMidia: async () => h.midiaUrl,
+  baixarMidia: async () => h.midiaDownload,
 }));
 
 vi.mock('@/lib/tenant-db', () => ({
   tenantDb: (empresaId: string) => {
     h.chamadasTdb.push(empresaId);
-    const linhaPessoa = h.pessoa;
-    const linhas = h.linhasTelefone;
-    const erro = h.erroLeitura;
+    const builder = (tabela: string, raw = false) => {
+      const b: any = {};
+      b.select = () => b;
+      b.eq = () => b;
+      b.is = () => b;
+      b.in = () => b;
+      b.order = () => b;
+      b.or = async () => h.erroLeitura
+        ? { data: null, error: { message: h.erroLeitura } }
+        : { data: h.linhasTelefone ?? [], error: null };
+      b.maybeSingle = async () => {
+        if (h.erroLeitura) return { data: null, error: { message: h.erroLeitura } };
+        if (raw && tabela === 'empresas') return { data: { nome: h.empresaNomeBanco }, error: null };
+        return { data: h.pessoa, error: null };
+      };
+      b.limit = async () => {
+        if (h.erroLeitura) return { data: null, error: { message: h.erroLeitura } };
+        if (tabela === 'whatsapp_mensagens_recebidas') return { data: h.recebidas, error: null };
+        if (tabela === 'whatsapp_mensagens_enviadas') return { data: h.enviadas, error: null };
+        return { data: [], error: null };
+      };
+      return b;
+    };
     return {
-      from: () => ({
-        select: () => ({
-          eq: () => ({
-            maybeSingle: async () =>
-              erro ? { data: null, error: { message: erro } } : { data: linhaPessoa, error: null },
-          }),
-          or: async () =>
-            erro ? { data: null, error: { message: erro } } : { data: linhas ?? [], error: null },
-        }),
-      }),
+      from: (tabela: string) => builder(tabela),
+      raw: { from: (tabela: string) => builder(tabela, true) },
     };
   },
 }));
@@ -95,6 +114,11 @@ beforeEach(() => {
   h.erroLeitura = null;
   h.demoBlocked = false;
   h.chamadasTdb = [];
+  h.empresaNomeBanco = 'Acme';
+  h.recebidas = [];
+  h.enviadas = [];
+  h.midiaUrl = { ok: true, url: 'https://meta.test/audio', mime: 'audio/ogg; codecs=opus' };
+  h.midiaDownload = { ok: true, body: new Uint8Array([1, 2, 3]).buffer, mime: 'audio/ogg' };
   h.respostaIA =
     '{"intencao":"acesso","resposta":"Oi! Aqui é o Beto 👋 Tente gerar um novo link em /entrar.","precisa_humano":false,"acao":"responder"}';
   delete process.env.SUPORTE_AUTO_PILOTO_EMPRESA_ID;
@@ -117,8 +141,10 @@ describe('suporte-auto · piloto restrito', () => {
     expect(h.envios).toHaveLength(0);
   });
 
-  it('tipo sem texto e palavra do VER não disparam o auto', () => {
-    expect(elegivelParaAuto({ ...base, tipo: 'audio', texto: null }).motivo).toBe('tipo-sem-texto');
+  it('áudio com mídia entra; tipo sem texto e palavra do VER não disparam', () => {
+    expect(elegivelParaAuto({ ...base, tipo: 'audio', texto: null }).motivo).toBe('audio-sem-midia');
+    expect(elegivelParaAuto({ ...base, tipo: 'audio', texto: null, mediaId: 'media-1' }).motivo).toBe('ok');
+    expect(elegivelParaAuto({ ...base, tipo: 'image', texto: null }).motivo).toBe('tipo-sem-texto');
     expect(elegivelParaAuto({ ...base, texto: 'ver' }).motivo).toBe('fluxo-proprio');
     expect(elegivelParaAuto({ ...base, texto: 'parar' }).motivo).toBe('fluxo-proprio');
   });
@@ -134,7 +160,7 @@ describe('suporte-auto · piloto restrito', () => {
   it('tenant limpo: consulta a pessoa e responde pelo mesmo número', async () => {
     const r = await executarSuporteAuto(base);
     expect(r).toEqual({ enviou: true, motivo: 'auto:acesso' });
-    expect(h.chamadasTdb).toEqual(['emp-1']);
+    expect(h.chamadasTdb).toEqual(['emp-1', 'emp-1']);
     const [system, user, aiConfig, , options] = h.chamadasIA[0];
     // Id EXATO do catálogo (o ledger faz lookup exato; sufixo de esforço no id
     // nasceria com `cost_usd = null`). Nível de raciocínio vai em reasoningEffort.
@@ -151,11 +177,83 @@ describe('suporte-auto · piloto restrito', () => {
     });
     expect(String(system)).toContain('Você é o Beto');
     expect(String(user)).toContain('Rodrigo');
+    expect(String(user)).toContain('"empresa_conhecida":true');
     const envio = h.envios[0];
     expect(envio.meta.numeroId).toBe('1256487020887128');
     expect(envio.meta.dedupeKey).toBe('suporte-auto:wamid.P1');
     expect(envio.meta.motivo).toBe('suporte-auto');
+    expect(envio.meta.origem).toBe('suporte-auto');
     expect(envio.meta.autorEmail ?? null).toBeNull();
+  });
+
+  it('tenant pinado: consulta o banco e informa à IA que a empresa ACME já é conhecida', async () => {
+    process.env.SUPORTE_AUTO_PILOTO_EMPRESA_ID = 'emp-1';
+    h.empresaNomeBanco = 'ACME';
+    h.linhasTelefone = [{ id: 'col-1', nome_completo: 'Rodrigo', cargo: 'Dono' }];
+    const r = await executarSuporteAuto({
+      ...base,
+      empresaId: null,
+      empresaNome: null,
+      colaboradorId: null,
+      ambiguidade: 'telefone-em-multiplas-empresas',
+      waMessageId: 'wamid.PIN',
+    });
+    expect(r.enviou).toBe(true);
+    const [, user, , , options] = h.chamadasIA[0];
+    expect(String(user)).toContain('"modo":"tenant-piloto"');
+    expect(String(user)).toContain('"empresa":"ACME"');
+    expect(String(user)).toContain('"empresa_conhecida":true');
+    expect(String(user)).toContain('Rodrigo');
+    expect(options.colaboradorId).toBe('col-1');
+  });
+
+  it('leva a conversa recente para a IA e não reinicia o atendimento a cada mensagem', async () => {
+    const agora = Date.now();
+    h.recebidas = [{
+      wa_message_id: 'wamid.ANTIGA', empresa_id: 'emp-1', tipo: 'text',
+      texto: 'não estou conseguindo acessar', recebida_em: new Date(agora - 60_000).toISOString(),
+    }];
+    h.enviadas = [{
+      texto: 'Oi, Rodrigo! Sou o Beto, assistente virtual da Vertho. Qual é a sua empresa?',
+      origem: 'cadencia', enviada_em: new Date(agora - 30_000).toISOString(),
+    }];
+    await executarSuporteAuto({ ...base, texto: 'acme', waMessageId: 'wamid.CONT' });
+    const [system, user] = h.chamadasIA[0];
+    expect(String(system)).toContain('NÃO repita seu nome');
+    expect(String(user)).toContain('não estou conseguindo acessar');
+    expect(String(user)).toContain('Qual é a sua empresa?');
+    expect(String(user)).toContain('MENSAGEM_ATUAL: acme');
+    expect(String(user)).toContain('"ja_conversou":true');
+  });
+
+  it('áudio: baixa da Meta e envia o binário inline para o Gemini', async () => {
+    const r = await executarSuporteAuto({
+      ...base,
+      tipo: 'audio',
+      texto: null,
+      mediaId: 'media-1',
+      waMessageId: 'wamid.AUDIO',
+    });
+    expect(r).toEqual({ enviou: true, motivo: 'auto:acesso' });
+    const [, user, , , options] = h.chamadasIA[0];
+    expect(String(user)).toContain('áudio do colaborador anexado');
+    expect(options.geminiInlineData).toEqual({ mimeType: 'audio/ogg', data: 'AQID' });
+  });
+
+  it('áudio indisponível: responde na voz do Beto sem chamar a IA', async () => {
+    h.midiaUrl = { ok: false, reason: 'mídia expirada' };
+    const r = await executarSuporteAuto({
+      ...base,
+      tipo: 'audio',
+      texto: null,
+      mediaId: 'media-2',
+      waMessageId: 'wamid.AUDIO2',
+    });
+    expect(r).toEqual({ enviou: true, motivo: 'contencao-audio' });
+    expect(h.chamadasIA).toHaveLength(0);
+    expect(h.envios[0].input.texto).toContain('Sou o Beto');
+    expect(h.envios[0].input.texto).toContain('Não consegui ouvir');
+    expect(h.degradacoes.some((d) => d.detalhe?.fase === 'audio')).toBe(true);
   });
 
   it('sem dono e sem pin: modo genérico, sem ler tenant, sem citar empresa', async () => {
@@ -178,7 +276,7 @@ describe('suporte-auto · piloto restrito', () => {
     h.respostaIA = 'texto livre, sem json';
     const r = await executarSuporteAuto({ ...base, waMessageId: 'wamid.J1' });
     expect(r).toEqual({ enviou: true, motivo: 'contencao-parse' });
-    expect(h.envios[0].input.texto).toContain('Aqui é o Beto');
+    expect(h.envios[0].input.texto).toContain('Sou o Beto');
     expect(h.envios[0].input.texto).toContain('https://app.vertho.ai/entrar');
     expect(h.envios[0].input.texto).not.toContain('encaminhei para a equipe');
     expect(h.degradacoes.some((d) => d.detalhe?.fase === 'parse-ia')).toBe(true);

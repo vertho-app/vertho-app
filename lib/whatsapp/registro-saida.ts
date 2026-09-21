@@ -42,7 +42,7 @@ export interface SaidaWhatsApp {
   colaboradorId?: string | null;
   /** Quem clicou. Ausente = automático (cadência) — a distinção tem uso em auditoria. */
   autorEmail?: string | null;
-  /** inbox | cadencia */
+  /** inbox | cadencia | suporte-auto */
   origem?: string;
   dedupeKey?: string | null;
   /** wamid, quando a Meta devolveu um. */
