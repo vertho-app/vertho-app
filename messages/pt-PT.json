@@ -5017,6 +5017,9 @@
       "arquivada": "arquivada"
     },
     "actions": {
+      "back": "Voltar às sugestões",
+      "clearFilter": "Limpar filtro e ver toda a equipa",
+      "onlyGroup": "A lista abaixo mostra apenas as pessoas deste grupo.",
       "empty": "Nada bloqueado neste momento — toda a gente com o próximo passo em dia.",
       "sem_perfil": {
         "title": "Destravar quem ainda não começou",

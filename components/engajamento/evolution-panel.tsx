@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import WeeklyTrendChart from './weekly-trend-chart';
 import {
   Activity,
   CheckCircle2,
@@ -18,7 +19,6 @@ import type {
   EngagementAreaMetric,
   EngagementEvolutionDashboard,
   EngagementTrajectory,
-  EngagementWeekMetric,
 } from '@/lib/engagement-evolution';
 
 const TRAJECTORY_META: Record<EngagementTrajectory, {
@@ -61,143 +61,6 @@ function MetricCard({
       <p className="mt-2 font-mono text-[25px] font-semibold leading-none tabular-nums text-white">{value}</p>
       <p className="mt-2 text-[9px] leading-relaxed text-white/30">{detail}</p>
     </div>
-  );
-}
-
-const CHART = {
-  width: 760,
-  height: 270,
-  left: 46,
-  right: 625,
-  top: 22,
-  bottom: 228,
-};
-
-function xFor(index: number, count: number): number {
-  if (count <= 1) return (CHART.left + CHART.right) / 2;
-  return CHART.left + (index * (CHART.right - CHART.left)) / (count - 1);
-}
-
-function yFor(value: number): number {
-  return CHART.bottom - (value / 100) * (CHART.bottom - CHART.top);
-}
-
-function seriesPath(
-  weeks: EngagementWeekMetric[],
-  field: 'ativacaoPct' | 'consumoPct' | 'evidenciaPct',
-): string {
-  return weeks.map((week, index) => (
-    `${index === 0 ? 'M' : 'L'} ${xFor(index, weeks.length).toFixed(1)} ${yFor(week[field]).toFixed(1)}`
-  )).join(' ');
-}
-
-function WeeklyTrendChart({ weeks }: { weeks: EngagementWeekMetric[] }) {
-  const series = [
-    { field: 'ativacaoPct' as const, label: 'Ativação', stroke: '#22d3ee' },
-    { field: 'consumoPct' as const, label: 'Consumo', stroke: '#34d399' },
-    { field: 'evidenciaPct' as const, label: 'Evidência', stroke: '#fbbf24' },
-  ];
-  const last = weeks.at(-1);
-  const labels = series.map((item) => ({ field: item.field, y: yFor(last?.[item.field] ?? 0) + 4 }))
-    .sort((a, b) => a.y - b.y);
-  for (let index = 1; index < labels.length; index++) {
-    labels[index].y = Math.max(labels[index].y, labels[index - 1].y + 16);
-  }
-  const overflow = Math.max(0, labels.at(-1)!.y - CHART.bottom - 4);
-  const labelY = new Map(labels.map((item) => [item.field, item.y - overflow]));
-
-  return (
-    <section className="rounded-[24px] border border-white/[0.08] bg-white/[0.025] p-4 sm:p-5">
-      <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-white/30">Histórico</p>
-          <h3
-            className="mt-1 text-[21px] leading-tight text-white"
-            style={{ fontFamily: 'var(--font-serif, "Instrument Serif", serif)', fontStyle: 'italic' }}
-          >
-            Movimento semana a semana
-          </h3>
-          <p className="mt-1 text-[10px] text-white/30">Percentual entre as pessoas que já alcançaram cada etapa.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3 text-[9px] text-white/40">
-          {series.map((item) => (
-            <span key={item.field} className="inline-flex items-center gap-1.5">
-              <span className="h-0.5 w-4 rounded-full" style={{ background: item.stroke }} />
-              {item.label}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <svg
-          viewBox={`0 0 ${CHART.width} ${CHART.height}`}
-          className="w-full min-w-[640px]"
-          role="img"
-          aria-label="Evolução semanal de ativação, consumo e envio de evidência prática"
-        >
-          {[0, 25, 50, 75, 100].map((tick) => {
-            const y = yFor(tick);
-            return (
-              <g key={tick}>
-                <line x1={CHART.left} y1={y} x2={CHART.right} y2={y} stroke="rgba(255,255,255,0.07)" strokeWidth="1" />
-                <text x="7" y={y + 4} fill="rgba(255,255,255,.3)" fontSize="10">{tick}%</text>
-              </g>
-            );
-          })}
-
-          {weeks.map((week, index) => (
-            <text
-              key={week.semana}
-              x={xFor(index, weeks.length)}
-              y="254"
-              textAnchor="middle"
-              fill="rgba(255,255,255,.3)"
-              fontSize="10"
-            >
-              S{week.semana}
-            </text>
-          ))}
-
-          {series.map((item) => (
-            <g key={item.field}>
-              <path
-                d={seriesPath(weeks, item.field)}
-                fill="none"
-                stroke={item.stroke}
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {weeks.map((week, index) => (
-                <circle
-                  key={week.semana}
-                  cx={xFor(index, weeks.length)}
-                  cy={yFor(week[item.field])}
-                  r="4"
-                  fill={item.stroke}
-                  stroke="#081a2f"
-                  strokeWidth="2"
-                >
-                  <title>{item.label} · Semana {week.semana}: {week[item.field]}%</title>
-                </circle>
-              ))}
-              {last && (
-                <text
-                  x={CHART.right + 12}
-                  y={labelY.get(item.field)}
-                  fill={item.stroke}
-                  fontSize="10"
-                  fontWeight="600"
-                >
-                  {item.label} {last[item.field]}%
-                </text>
-              )}
-            </g>
-          ))}
-        </svg>
-      </div>
-    </section>
   );
 }
 
@@ -515,7 +378,7 @@ export default function EngagementEvolutionPanel({
           </section>
 
           <div className="grid gap-5 xl:grid-cols-[minmax(0,2.2fr)_minmax(250px,0.8fr)]">
-            <WeeklyTrendChart weeks={data.semanas} />
+            <WeeklyTrendChart weeks={data.historicoIlustrativo ?? data.semanas} illustrative={!!data.historicoIlustrativo} />
             <TrajectoriesCard trajectories={data.trajetorias} recovered={data.recuperados} />
           </div>
 

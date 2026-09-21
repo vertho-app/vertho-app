@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PROGRESSO } from '@/lib/status';
 import { useLocale, useTranslations } from 'next-intl';
+import { FILTROS_STATUS, FILTROS_ACAO, aplicarFiltro, type FiltroEquipe } from '@/lib/gestor/filtro-equipe';
 import {
   Users, AlertTriangle, ChevronRight, Loader2, ArrowRight,
   Calendar, TrendingUp, Activity, ClipboardCheck, FileText,
@@ -23,6 +25,32 @@ export default function GestorHomePage() {
   // O filtro da tabela vive AQUI porque os cards de ação o comandam: clicar em
   // "30 atrasados" tem que virar a lista dos 30, senão o número não vira nome.
   const [filtroEquipe, setFiltroEquipe] = useState<FiltroEquipe>('todos');
+  const [acaoAberta, setAcaoAberta] = useState<{ filtro: FiltroEquipe } | null>(null);
+
+  // Aguarda o React renderizar o grupo: rolar no onClick usava a posição da
+  // lista anterior e deixava o novo filtro fora do campo de visão.
+  useEffect(() => {
+    if (!acaoAberta) return;
+    const titulo = document.getElementById('equipe-titulo');
+    titulo?.focus({ preventScroll: true });
+    titulo?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' });
+  }, [acaoAberta]);
+
+  function focarAcao(filtro: FiltroEquipe) {
+    setFiltroEquipe(filtro);
+    setAcaoAberta({ filtro });
+  }
+
+  function voltarAcoes() {
+    const origem = acaoAberta?.filtro;
+    setFiltroEquipe('todos');
+    setAcaoAberta(null);
+    requestAnimationFrame(() => {
+      const card = document.getElementById(`acao-rh-${origem}`);
+      card?.focus({ preventScroll: true });
+      card?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center' });
+    });
+  }
 
   async function carregar() {
     setLoading(true);
@@ -185,7 +213,7 @@ export default function GestorHomePage() {
           liderado nas semanas 5 e 10, então para ele o card nascia vazio e
           ficava vazio. No lugar, as ações que movem engajamento. */}
       {data.scope === 'rh' ? (
-        <AcoesRH equipe={data.equipe || []} onFocar={setFiltroEquipe} />
+        <AcoesRH equipe={data.equipe || []} filtro={filtroEquipe} onFocar={focarAcao} />
       ) : (
       <section className="mb-6">
         <div className="flex items-baseline justify-between mb-2">
@@ -218,6 +246,7 @@ export default function GestorHomePage() {
         fonteExterna={data.empresaPerfilExternoFonte}
         filtro={filtroEquipe}
         setFiltro={setFiltroEquipe}
+        onVoltarAcoes={voltarAcoes}
       />
 
       {/* Seção 3 — Mapa de perfis comportamentais (DISC ou OPQ32) */}
@@ -506,13 +535,13 @@ function CheckpointCard({
  * paralela — e clicar filtra a tabela, para o número virar nomes. Ordena por
  * tamanho: o maior lote é onde uma cobrança rende mais.
  */
-function AcoesRH({ equipe, onFocar }: { equipe: any[]; onFocar: (f: FiltroEquipe) => void }) {
+function AcoesRH({ equipe, filtro, onFocar }: { equipe: any[]; filtro: FiltroEquipe; onFocar: (f: FiltroEquipe) => void }) {
   const t = useTranslations('ManagerDashboard');
   const candidatos: { chave: FiltroEquipe; count: number; icon: any }[] = [
-    { chave: 'sem_perfil', count: equipe.filter((e) => e.motivoSemTrilha === 'sem_perfil').length, icon: Brain },
-    { chave: 'sem_mapeamento', count: equipe.filter((e) => e.motivoSemTrilha === 'sem_mapeamento').length, icon: ClipboardCheck },
-    { chave: 'atrasada', count: equipe.filter((e) => e.atrasada === true).length, icon: CalendarClock },
-    { chave: 'aguardando_geracao', count: equipe.filter((e) => e.motivoSemTrilha === 'aguardando_geracao').length, icon: Rocket },
+    { chave: 'sem_perfil', count: aplicarFiltro(equipe, 'sem_perfil').length, icon: Brain },
+    { chave: 'sem_mapeamento', count: aplicarFiltro(equipe, 'sem_mapeamento').length, icon: ClipboardCheck },
+    { chave: 'atrasada', count: aplicarFiltro(equipe, 'atrasada').length, icon: CalendarClock },
+    { chave: 'aguardando_geracao', count: aplicarFiltro(equipe, 'aguardando_geracao').length, icon: Rocket },
   ];
   const acoes = candidatos.filter((a) => a.count > 0).sort((a, b) => b.count - a.count).slice(0, 3);
 
@@ -529,10 +558,11 @@ function AcoesRH({ equipe, onFocar }: { equipe: any[]; onFocar: (f: FiltroEquipe
         <div className="space-y-2">
           {acoes.map(({ chave, count, icon: Icon }) => (
             <button key={chave}
-              onClick={() => {
-                onFocar(chave);
-                document.getElementById('equipe')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
+              type="button"
+              id={`acao-rh-${chave}`}
+              aria-controls="equipe"
+              aria-pressed={filtro === chave}
+              onClick={() => onFocar(chave)}
               className="w-full text-left rounded-xl border border-white/[0.07] px-4 py-3 flex items-start gap-3 hover:bg-white/[0.03] transition-colors"
               style={{ background: '#0F2A4A' }}>
               <div className="w-9 h-9 rounded-lg bg-brand-400/10 flex items-center justify-center shrink-0">
@@ -543,6 +573,7 @@ function AcoesRH({ equipe, onFocar }: { equipe: any[]; onFocar: (f: FiltroEquipe
                 <p className="text-[11px] text-white/55 leading-relaxed mt-0.5">{t(`actions.${chave}.body`, { count })}</p>
               </div>
               <span className="text-[15px] font-bold text-brand-300 tabular-nums shrink-0">{count}</span>
+              <ArrowRight size={18} className="mt-0.5 shrink-0 text-brand-300" aria-hidden="true" />
             </button>
           ))}
         </div>
@@ -557,22 +588,10 @@ function AcoesRH({ equipe, onFocar }: { equipe: any[]; onFocar: (f: FiltroEquipe
  * literais aqui foi o que o `status-literal-guard` recusou, com razão: eram
  * quatro cópias da mesma enumeração num arquivo só.
  */
-const FILTROS_STATUS = ['todos', 'em_andamento', 'sem_trilha', 'concluida'] as const;
-const FILTROS_ACAO = ['sem_perfil', 'sem_mapeamento', 'aguardando_geracao', 'atrasada'] as const;
-export type FiltroEquipe = (typeof FILTROS_STATUS)[number] | (typeof FILTROS_ACAO)[number];
-
-function aplicarFiltro(equipe: any[], filtro: FiltroEquipe) {
-  if (filtro === 'todos') return equipe;
-  if (filtro === 'atrasada') return equipe.filter((e) => e.atrasada === true);
-  if (filtro === 'sem_perfil' || filtro === 'sem_mapeamento' || filtro === 'aguardando_geracao') {
-    return equipe.filter((e) => e.motivoSemTrilha === filtro);
-  }
-  return equipe.filter((e) => e.status === filtro);
-}
-
-function EquipeSection({ equipe, fonteExterna, filtro, setFiltro }: {
+function EquipeSection({ equipe, fonteExterna, filtro, setFiltro, onVoltarAcoes }: {
   equipe: any[]; fonteExterna?: string | null;
   filtro: FiltroEquipe; setFiltro: (f: FiltroEquipe) => void;
+  onVoltarAcoes: () => void;
 }) {
   const t = useTranslations('ManagerDashboard');
   const router = useRouter();
@@ -582,38 +601,51 @@ function EquipeSection({ equipe, fonteExterna, filtro, setFiltro }: {
   const filtroDeAcao = (FILTROS_ACAO as readonly string[]).includes(filtro);
   if (equipe.length === 0) return null;
   return (
-    <section className="mb-6" id="equipe">
+    <section className="mb-6" id="equipe" aria-labelledby="equipe-titulo">
+      {filtroDeAcao && (
+        <button type="button" onClick={onVoltarAcoes}
+          className="mb-3 min-h-10 text-sm font-semibold text-brand-300 hover:underline focus-visible:outline-2 focus-visible:outline-brand-300">
+          ← {t('actions.back')}
+        </button>
+      )}
       <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
         {/* O contador vem da MESMA lista que é renderizada abaixo. O card de KPI
             no topo conta pessoas por trilha ("14 · 4 em trilha · 10 sem"), e sem
             este número aqui as duas contagens da tela pareciam discordar: o
             título prometia "Equipe em trilha" e a lista mostrava a equipe toda,
             porque o filtro padrão é `todos`. */}
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-white text-base font-bold">{t('titles.teamTrack')}</h2>
-          <span className="text-[11px] text-white/45 tabular-nums">
+        <div className="flex flex-wrap items-baseline gap-2">
+          <h2 id="equipe-titulo" tabIndex={-1} className="scroll-mt-24 text-white text-lg font-bold focus:outline-none">
+            {filtroDeAcao ? t(`actions.${filtro}.title`) : t('titles.teamTrack')}
+          </h2>
+          <span role="status" className="text-xs text-white/65 tabular-nums">
             {filtrados.length === equipe.length
               ? t('team.total', { total: equipe.length })
               : t('team.showing', { shown: filtrados.length, total: equipe.length })}
           </span>
         </div>
-        <div className="flex gap-1 p-1 rounded-lg border border-white/[0.06]" style={{ background: '#091D35' }}>
+        <div className="flex flex-wrap gap-1 p-1 rounded-lg border border-white/[0.06]" style={{ background: '#091D35' }}>
           {filtroDeAcao && (
-            <button onClick={() => setFiltro('todos')}
+            <button onClick={() => setFiltro('todos')} aria-label={t('actions.clearFilter')}
               className="px-2.5 py-1 rounded text-[10px] font-bold bg-amber-400/15 text-amber-300">
               {t(`actions.${filtro}.chip`)} ✕
             </button>
           )}
           {FILTROS_STATUS.map((f) => (
-            <button key={f} onClick={() => setFiltro(f)}
+            <button key={f} onClick={() => setFiltro(f)} aria-pressed={filtro === f}
               className={`px-2.5 py-1 rounded text-[10px] font-bold transition-colors ${
                 filtro === f ? 'bg-brand-400/15 text-brand-300' : 'text-white/55 hover:text-white'
               }`}>
-              {f === 'todos' ? t('filters.all') : f === 'em_andamento' ? t('filters.inProgress') : f === 'sem_trilha' ? t('filters.noTrack') : t('filters.completed')}
+              {f === 'todos' ? t('filters.all') : f === PROGRESSO.EM_ANDAMENTO ? t('filters.inProgress') : f === 'sem_trilha' ? t('filters.noTrack') : t('filters.completed')}
             </button>
           ))}
         </div>
       </div>
+      {filtroDeAcao && (
+        <p className="mb-4 max-w-3xl text-sm leading-relaxed text-white/65">
+          {t(`actions.${filtro}.body`, { count: filtrados.length })} {t('actions.onlyGroup')}
+        </p>
+      )}
       <div className="rounded-xl border border-white/[0.06] overflow-hidden" style={{ background: '#0F2A4A' }}>
         {filtrados.map((e, i) => (
           <button key={e.colabId}

@@ -5017,6 +5017,9 @@
       "arquivada": "archived"
     },
     "actions": {
+      "back": "Back to suggested actions",
+      "clearFilter": "Clear filter and show the whole team",
+      "onlyGroup": "Only people in this group are listed below.",
       "empty": "Nothing stuck right now — everyone is on their next step.",
       "sem_perfil": {
         "title": "Unblock those who never started",

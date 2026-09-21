@@ -1,5 +1,11 @@
 # Ambientes de Demonstração
 
+## Navegação, histórico ilustrativo e simuladores — 21/09/2026
+
+- Os cartões de “Onde agir agora” usam o mesmo filtro da lista. Ao abrir uma ação, o título nomeia a pendência, o contador e a explicação identificam o grupo; “Voltar às sugestões” devolve o foco ao cartão de origem. A rolagem ocorre depois da renderização e respeita movimento reduzido.
+- O gráfico semanal se adapta à largura disponível, permite selecionar uma semana e consultar a tabela acessível. Mantém a escala de 0 a 100%. Na visão geral dos três tenants de demonstração, o histórico editorial varia de 73% a 97% e aparece identificado como **Histórico ilustrativo**. Não altera métricas operacionais, pendências ou registros de pessoas. Recortes por área continuam medidos. O gate exige `is_demo=true` e um slug conhecido; clientes reais nunca recebem a série fictícia.
+- Vendas e liderança não mostram mais o resumo “Revisão das devolutivas” acima dos indicadores de participação. Os formulários individuais de revisão e os registros existentes continuam disponíveis ao abrir uma devolutiva.
+
 ## Adoção e resultados do elenco online — 21/09/2026
 
 A fotografia da degustação B representa uma operação com boa adoção e desenvolvimento visível, mantendo casos que precisam de apoio. Não altera métricas comerciais de convidados reais.

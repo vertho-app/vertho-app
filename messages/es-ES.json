@@ -5017,6 +5017,9 @@
       "arquivada": "archivada"
     },
     "actions": {
+      "back": "Volver a las sugerencias",
+      "clearFilter": "Quitar filtro y ver todo el equipo",
+      "onlyGroup": "La lista muestra solo las personas de este grupo.",
       "empty": "Nada bloqueado por ahora — todos con el siguiente paso al día.",
       "sem_perfil": {
         "title": "Desbloquear a quien no empezó",

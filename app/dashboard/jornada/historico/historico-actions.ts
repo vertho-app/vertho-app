@@ -3,7 +3,7 @@
 import { requireUserAction } from '@/lib/auth/action-context';
 import { findColabByEmail } from '@/lib/authz';
 import { tenantDb } from '@/lib/tenant-db';
-import { TRILHA } from '@/lib/status';
+import { TRILHA, PROGRESSO } from '@/lib/status';
 import { descritorParaHumano } from '@/lib/descritor-humano';
 
 type SemanaResumo = {
@@ -136,7 +136,7 @@ export async function loadJornadaHistorica(trilhaId: string) {
       tipo: slot.tipo || 'conteudo',
       titulo: tituloDaSemana(slot),
       competencia: slot.competencia || trilha.competencia_foco || null,
-      concluida: porSemana.get(Number(slot.semana))?.status === 'concluido',
+      concluida: porSemana.get(Number(slot.semana))?.status === PROGRESSO.CONCLUIDO,
     }));
 
     return {

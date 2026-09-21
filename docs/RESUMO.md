@@ -3,6 +3,10 @@
 > Atualizado em 21/09/2026. O SHA de HEAD não é fixado aqui de propósito — ficava
 > obsoleto no commit seguinte e dava a impressão de que o resto do documento também estava.
 
+## Degustação B — navegação e painéis (21/09)
+
+Cartões de ação abrem grupos identificados, com retorno às sugestões. Histórico semanal responsivo e selecionável; série ilustrativa de 73–97% somente na visão geral dos três tenants demo, separada das métricas operacionais. Resumo de revisões removido dos painéis de vendas e liderança; participação e revisão individual mantidas. Critérios em [AMBIENTE-DEMO.md](AMBIENTE-DEMO.md).
+
 ## Degustação B — adoção do elenco (21/09)
 
 A home exclui visitantes do funil da empresa fictícia e inclui jornadas concluídas na adesão, com estados separados. Elenco recalibrado: média 3,26/4; 80% das competências comerciais e 76% das escolares em N3/N4; 19/22 e 9/11 jornadas concluídas. Atualização incremental e reset usam `lib/demo/sincronizar-adocao.ts`, com PDIs sintéticos e leituras coerentes. Detalhes e critérios: [AMBIENTE-DEMO.md](AMBIENTE-DEMO.md#adoção-e-resultados-do-elenco-online--21092026).

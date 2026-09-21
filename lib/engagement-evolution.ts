@@ -80,6 +80,8 @@ export interface EngagementRiskPerson {
 }
 
 export interface EngagementEvolutionDashboard {
+  /** Histórico editorial da vitrine, separado das métricas calculadas. */
+  historicoIlustrativo?: Array<Pick<EngagementWeekMetric, 'semana' | 'ativacaoPct' | 'consumoPct' | 'evidenciaPct'>>;
   areaSelecionada: string | null;
   areasDisponiveis: string[];
   inscritos: number;

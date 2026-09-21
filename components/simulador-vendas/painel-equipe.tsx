@@ -4,7 +4,6 @@
  * não começou, o maior nível de cada pessoa por competência e a pesquisa de
  * experiência. A agregação vem pronta do servidor (`lib/simulador-vendas/painel.ts`).
  */
-import PainelRevisoes from '@/components/simuladores/revisao-painel';
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
@@ -111,7 +110,6 @@ export default function PainelEquipe({ empresaId }: { empresaId: string }) {
       )}
       {dados && (
         <>
-          <PainelRevisoes resumo={dados.revisoes ?? null} />
           <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             {(
               [

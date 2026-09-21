@@ -5,7 +5,6 @@
  * RESULTADOS. Entrega progresso, níveis por competência e as devolutivas;
  * as conversas, a preparação e a reflexão ficam com a pessoa.
  */
-import PainelRevisoes from '@/components/simuladores/revisao-painel';
 import { useEffect, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { ArrowLeft, Download, Loader2, Star } from 'lucide-react';
@@ -254,7 +253,6 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
       )}
       {painel && (
         <>
-          <PainelRevisoes resumo={painel.revisoes ?? null} />
           <dl className={styles.teamMetrics}>
             <div>
               <dt>{t('teamPopulation')}</dt>

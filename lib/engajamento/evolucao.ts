@@ -2,6 +2,7 @@ import 'server-only';
 import { tenantDb } from '@/lib/tenant-db';
 import { PROGRESSO } from '@/lib/status';
 import { buildEngagementEvolutionDashboard, type EngagementEvolutionDashboard } from '@/lib/engagement-evolution';
+import { historicoIlustrativoDemo } from '@/lib/demo/engajamento-historico';
 
 /** Leitura compartilhada por tela e PDF. O chamador autentica e autoriza a empresa. */
 export async function carregarEvolucaoEngajamento(
@@ -15,12 +16,14 @@ export async function carregarEvolucaoEngajamento(
 
   const tdb = tenantDb(empresaId);
   const [
+    { data: empresa },
     { data: envios, error: enviosError },
     { data: eventos, error: eventosError },
     { data: videos, error: videosError },
     { data: progresso, error: progressoError },
     { data: tutorRows, error: tutorError },
   ] = await Promise.all([
+    tdb.raw.from('empresas').select('slug,is_demo').eq('id', empresaId).maybeSingle(),
     tdb.from('fase4_envios')
       .select('colaborador_id, semana_atual, colaboradores!inner(nome_completo, cargo, area_depto)'),
     tdb.from('trilha_eventos')
@@ -71,5 +74,10 @@ export async function carregarEvolucaoEngajamento(
     area,
   });
 
+  // A série só aparece na visão geral dos ambientes fictícios. Recortes de
+  // área continuam mostrando exclusivamente os números medidos desse grupo.
+  if (!dashboard.areaSelecionada) {
+    dashboard.historicoIlustrativo = historicoIlustrativoDemo(empresa, dashboard.semanas);
+  }
   return { ok: true, data: dashboard };
 }
