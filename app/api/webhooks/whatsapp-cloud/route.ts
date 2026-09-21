@@ -10,6 +10,7 @@ import { ehPedidoDeResumo, ehRecusa, responderPedidoDeResumo, TEXTO_RECUSA } fro
 import { enviarTextoCloud } from '@/lib/whatsapp/cloud-api';
 import { midiaIdDoRaw } from '@/lib/inbox/thread';
 import { guardarMidiaRecebida } from '@/lib/inbox/midia-recebida';
+import { executarSuporteAuto } from '@/lib/whatsapp/suporte-auto';
 
 /**
  * Webhook da WhatsApp Cloud API — mensagens recebidas e status de entrega.
@@ -202,6 +203,7 @@ export async function POST(req: Request) {
     empresaId: string | null;
     empresaNome: string | null;
     colaboradorId: string | null;
+    ambiguidade: string | null;
   }> = [];
   for (const m of mensagens) {
     try {
@@ -232,7 +234,7 @@ export async function POST(req: Request) {
           empresaNome = (emp as any)?.nome ?? null;
         } catch {}
       }
-      paraPush.push({ m, empresaId, empresaNome, colaboradorId });
+      paraPush.push({ m, empresaId, empresaNome, colaboradorId, ambiguidade });
     } catch (e: any) {
       console.error('[whatsapp-cloud] gravar mensagem falhou:', e?.message);
       await registrarDegradacao({
@@ -327,6 +329,35 @@ export async function POST(req: Request) {
           }
         } catch (e: any) {
           console.error('[whatsapp-cloud] roteamento de palavra falhou:', e?.message);
+        }
+      }
+    });
+  }
+
+  // Piloto do suporte automático — em `after()` próprio, DEPOIS do push e do VER.
+  // Só o telefone do piloto responde; o resto cai em `fora-do-piloto` sem custo.
+  // `ambiguidade` viaja junto para o núcleo não chutar tenant (ver suporte-auto).
+  if (paraPush.length) {
+    after(async () => {
+      for (const { m, empresaId, empresaNome, colaboradorId, ambiguidade } of paraPush) {
+        try {
+          const r = await executarSuporteAuto({
+            fromPhone: m.fromPhone,
+            waMessageId: m.waMessageId,
+            tipo: m.tipo,
+            texto: m.texto,
+            numeroId: m.toPhoneId,
+            empresaId,
+            empresaNome,
+            colaboradorId,
+            ambiguidade,
+          });
+          if (!r.enviou && !['fora-do-piloto', 'fluxo-proprio', 'reentrega', 'teto-piloto'].includes(r.motivo)) {
+            console.log(`[whatsapp-cloud] suporte-auto não enviou (${r.motivo}): ${m.waMessageId}`);
+          }
+        } catch (e: any) {
+          // O núcleo promete nunca lançar; isto é rede de segurança para o 200.
+          console.error('[whatsapp-cloud] suporte-auto falhou:', e?.message);
         }
       }
     });
