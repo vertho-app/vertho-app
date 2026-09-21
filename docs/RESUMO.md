@@ -34,7 +34,7 @@ Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (rese
 
 ## Frentes recentes
 
-**21/09 — Achados restantes do QA da degustação.** Migração 267 e leituras dos três tenants aplicadas. Contato registra clique sem enviar; exploração é medida após conteúdo carregado e visível, com coorte B e exclusão de testes. Leitura do Sinal usa 8 liderados/24 mapeamentos completos; Marina usa N3 (3,10) na narrativa e no cartão. Evolução explica reavaliação, DISC/PDF têm nomes acessíveis e data administrativa não depende de dois fusos na hidratação. 467 testes direcionados passaram. Detalhes e critérios em `docs/AMBIENTE-DEMO.md`.
+**21/09 — Achados restantes do QA da degustação.** Migração 267 e leituras dos três tenants aplicadas. Contato registra clique sem enviar; exploração é medida após conteúdo carregado e visível, com coorte B e exclusão de testes. Leitura do Sinal usa 8 liderados/24 mapeamentos completos; Marina usa N3 (3,10) na narrativa e no cartão. Evolução explica reavaliação, DISC/PDF têm nomes acessíveis e data administrativa não depende de dois fusos na hidratação. 468 testes direcionados passaram. O formulário de contato preserva Origin no POST; a proteção de concorrência também cobre entrada pessoal A/B. Detalhes e critérios em `docs/AMBIENTE-DEMO.md`.
 
 **21/09 — Correções críticas da degustação.** Concorrência de OTP reproduzida e protegida por lease no banco (migração 266, aplicada); falha transitória de convite válido retorna à degustação. PDF de RH passou a codificar o nome do arquivo em UTF-8. Testes direcionados (42), typecheck e build passaram; a revisão das métricas, narrativas e acessibilidade continua, sem encerrar os demais achados do QA de 20/09.
 

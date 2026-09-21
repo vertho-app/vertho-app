@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
@@ -19,6 +20,11 @@ const reqContato=(origin='https://acme-demo.vertho.ai') => new NextRequest('http
 const reqExploracao=(alvo='pdi',host='gestor-demo.vertho.ai')=>new NextRequest(`https://${host}/auth/degustacao/exploracao`, {method:'POST',headers:{origin:`https://${host}`,'content-type':'application/json'},body:JSON.stringify({alvo,ticket:issueDemoPresentationTicket(undefined,{prospectSessionId:SID,expiresAtSeconds:expiry()},'acme-demo')})});
 beforeEach(()=>{sb.reset();email='carla.demo@vertho.ai';sessao={expires_at:new Date(Date.now()+3600000).toISOString(),access_closed_at:null,prospect_name:'QA Exemplo',prospect_company:'TESTE INTERNO',created_by_email:null};});
 describe('intenção e exploração da degustação',()=>{
+ it('formulário mantém Origin/Referer para o POST: noreferrer tornaria Origin null', () => {
+  const fonte=readFileSync('app/degustacao/pagina-da-degustacao.tsx','utf8');
+  const form=fonte.match(/<form action="\/auth\/degustacao\/contato"[^>]+>/)?.[0];
+  expect(form).toContain('rel="noopener"');expect(form).not.toContain('noreferrer');
+ });
  it('POST de contato registra primeiro clique escopado e abre somente wa.me, sem envio',async()=>{
   const r=await contato(reqContato());expect(r.status).toBe(303);expect(new URL(r.headers.get('location')!).host).toBe('wa.me');
   expect(sb.escritas[0].payload).toHaveProperty('contact_clicked_at');expect(sb.usou('demo_prospect_sessions','is','contact_clicked_at')).toBe(true);

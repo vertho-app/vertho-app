@@ -7,9 +7,11 @@ import {
   escritaDeOutraOrigem,
   hostnameDaRequisicao,
 } from '@/lib/demo/degustacao-acesso';
+import { entrarComOtpDemo } from '@/lib/demo/auth-lock';
 import { destinoDaDegustacao } from '@/lib/demo/acme-prospect-config';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 function loginComErro(req: NextRequest, codigo: string) {
   const url = new URL('/login', req.url);
@@ -51,21 +53,11 @@ export async function GET(req: NextRequest) {
   }
 
   const nextPath = '/dashboard';
-  const { data: link, error: linkError } = await acesso.tdb.raw.auth.admin.generateLink({
-    type: 'magiclink',
-    email: acesso.sessao.auth_email,
-    options: { redirectTo: new URL(nextPath, req.url).toString() },
-  });
-  const tokenHash = link?.properties?.hashed_token;
-  if (linkError || !tokenHash) {
-    console.error('[auth/degustacao] gerar link do convidado:', linkError?.message || 'token ausente');
-    return loginComErro(req, 'indisponivel');
-  }
-
   const supabase = await createSupabaseServerClient();
-  const { error: otpError } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'email' });
-  if (otpError) {
-    console.error('[auth/degustacao] verifyOtp:', otpError.message);
+  try {
+    await entrarComOtpDemo(acesso.tdb.raw, supabase, acesso.sessao.auth_email, new URL(nextPath, req.url).toString());
+  } catch (error: any) {
+    console.warn('[auth/degustacao] entrada:', error?.message);
     return loginComErro(req, 'indisponivel');
   }
 
@@ -152,26 +144,11 @@ export async function POST(req: NextRequest) {
   if (!destino) return paraAPagina(req, 'destino', passe);
 
   const supabase = await createSupabaseServerClient();
-  const { data: atual, error: erroAtual } = await supabase.auth.getUser();
-  const emailAtual = String(atual?.user?.email || '').trim().toLowerCase();
-  const jaEhOConvidado = !erroAtual && emailAtual === String(acesso.sessao.auth_email).trim().toLowerCase();
-
-  if (!jaEhOConvidado) {
-    const { data: link, error: linkError } = await acesso.tdb.raw.auth.admin.generateLink({
-      type: 'magiclink',
-      email: acesso.sessao.auth_email,
-      options: { redirectTo: new URL(destino, req.url).toString() },
-    });
-    const tokenHash = link?.properties?.hashed_token;
-    if (linkError || !tokenHash) {
-      console.error('[auth/degustacao] POST gerar link:', linkError?.message || 'token ausente');
-      return paraAPagina(req, 'indisponivel', passe);
-    }
-    const { error: otpError } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'email' });
-    if (otpError) {
-      console.error('[auth/degustacao] POST verifyOtp:', otpError.message);
-      return paraAPagina(req, 'indisponivel', passe);
-    }
+  try {
+    await entrarComOtpDemo(acesso.tdb.raw, supabase, acesso.sessao.auth_email, new URL(destino, req.url).toString());
+  } catch (error: any) {
+    console.warn('[auth/degustacao] POST entrada:', error?.message);
+    return paraAPagina(req, 'indisponivel', passe);
   }
 
   const agora = new Date().toISOString();

@@ -18,6 +18,7 @@ const SID = 'aaaaaaaaaaaaaaaaaaaa';
 const AUTH_EMAIL = `convidado.acme.${SID}@vertho.ai`;
 
 let sessao: any = null;
+let autenticado = false;
 
 const sb = criarSupabaseMock({
   resolver: (tabela) => (tabela === 'demo_prospect_sessions' ? sessao : null),
@@ -27,10 +28,10 @@ const generateLink = vi.fn(async () => ({
   error: null,
 }));
 sb.client.auth = { admin: { generateLink } };
-sb.client.rpc = vi.fn();
+sb.client.rpc = vi.fn(async (name: string) => ({ data: name === 'demo_auth_lock_acquire' ? true : null, error: null }));
 
-const verifyOtp = vi.fn(async () => ({ error: null }));
-const getUser = vi.fn(async () => ({ data: { user: { email: AUTH_EMAIL } } }));
+const verifyOtp = vi.fn(async () => { autenticado = true; return { error: null }; });
+const getUser = vi.fn(async () => ({ data: { user: autenticado ? { email: AUTH_EMAIL } : null }, error: null }));
 const recordAccess = vi.fn(async () => true);
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
@@ -64,6 +65,7 @@ function destino(res: Response) {
 describe('GET /auth/degustacao (versão A, caracterização)', () => {
   beforeEach(() => {
     sb.reset();
+    autenticado = false;
     vi.clearAllMocks();
     sessao = {
       auth_email: AUTH_EMAIL,

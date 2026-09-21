@@ -330,7 +330,7 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
           <Titulo>{pagina.contato.titulo}</Titulo>
           <Texto>Converse com a gente sobre como aplicar a Vertho à realidade da sua equipe. A mensagem já vai escrita.</Texto>
         </div>
-        <form action="/auth/degustacao/contato" method="post" target="_blank" rel="noopener noreferrer">
+        <form action="/auth/degustacao/contato" method="post" target="_blank" rel="noopener">
           <input type="hidden" name="passe" value={passe} />
           <button type="submit"
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-center text-[15px] font-bold transition-transform active:scale-[0.99] lg:mt-0"

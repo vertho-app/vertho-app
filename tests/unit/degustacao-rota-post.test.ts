@@ -28,7 +28,7 @@ const generateLink = vi.fn(async () => ({
   error: null,
 }));
 sb.client.auth = { admin: { generateLink } };
-sb.client.rpc = vi.fn();
+sb.client.rpc = vi.fn(async (name: string) => ({ data: name === 'demo_auth_lock_acquire' ? true : null, error: null }));
 
 const verifyOtp = vi.fn(async () => ({ error: null }));
 const getUser = vi.fn(async () => ({
