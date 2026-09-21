@@ -108,16 +108,31 @@ describe('agregarEvolucao', () => {
     expect(r.pessoas.find((p) => p.competencia === 'Colaboração')).toMatchObject({ mediaPre: 2, mediaPos: 2.4, delta: 0.4 });
   });
 
-  it('exibe variação negativa como avanço zero, inclusive nos agregados', () => {
+  it('mantém a nota inicial quando o fechamento vem menor', () => {
     const r = agregarEvolucao(
       [trilha('p1', [d('Metas', 2, 1.6, CONVERGENCIA.ESTAVEL)])],
       participantes,
       0,
     );
-    expect(r.pessoas[0].delta).toBe(0);
-    expect(r.porCompetencia[0].delta).toBe(0);
-    expect(r.porDescritor[0].delta).toBe(0);
+    expect(r.pessoas[0]).toMatchObject({ mediaPre: 2, mediaPos: 2, delta: 0 });
+    expect(r.porCompetencia[0]).toMatchObject({ mediaPre: 2, mediaPos: 2, delta: 0 });
+    expect(r.porDescritor[0]).toMatchObject({ mediaPre: 2, mediaPos: 2, delta: 0 });
     expect(r.porCompetencia[0].nivelPos).toBe(r.porCompetencia[0].nivelPre);
+  });
+
+  it('faz o avanço bater com a diferença exata entre as médias exibidas', () => {
+    const r = agregarEvolucao(
+      [trilha('p1', [
+        d('Metas', 1, 0.5, CONVERGENCIA.ESTAVEL),
+        d('Plano', 2, 2.4, CONVERGENCIA.PARCIAL),
+      ])],
+      participantes,
+      0,
+    );
+
+    expect(r.pessoas[0]).toMatchObject({ mediaPre: 1.5, mediaPos: 1.7, delta: 0.2 });
+    expect(r.porCompetencia[0]).toMatchObject({ mediaPre: 1.5, mediaPos: 1.7, delta: 0.2 });
+    expect(r.porDescritor.find((item) => item.chave === 'Metas')).toMatchObject({ mediaPre: 1, mediaPos: 1, delta: 0 });
   });
 
   it('exige maioria de confirmadas para carimbar a pessoa como confirmada', () => {

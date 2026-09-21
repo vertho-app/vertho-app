@@ -136,6 +136,9 @@ export function comSinal(v: number): string {
   const avanco = Math.max(0, Number(v) || 0);
   return `${avanco > 0 ? '+' : ''}${num(avanco)}`;
 }
+export function avancoExibidoPessoa(pessoa: Pick<EvolucaoPessoa, 'veredito' | 'delta'>): string | null {
+  return pessoa.veredito === CONVERGENCIA.ESTAVEL ? null : comSinal(pessoa.delta);
+}
 /** Posição de uma nota no trilho de 1 a 4, em porcentagem. */
 export function pct(nota: number): string {
   const n = Math.max(1, Math.min(4, nota || 1));
@@ -170,7 +173,7 @@ function CabecalhoCargo({ recorte }: { recorte: EvolucaoRecorteCargo }) {
   return (
     <View style={s.cargoHead} wrap={false}>
       <View style={{ flex: 1, paddingRight: 12 }}>
-        <Text style={s.cargoEyebrow}>Recorte por cargo</Text>
+        <Text style={s.cargoEyebrow}>Cargo</Text>
         <Text style={s.cargoNome}>{recorte.cargo}</Text>
       </View>
       <Text style={s.cargoContagem}>
@@ -499,7 +502,7 @@ function TabelaPessoas({ pessoas }: { pessoas: EvolucaoPessoa[] }) {
           <Text style={{ ...s.td, width: 38, textAlign: 'center' }}>{num(p.mediaPre)}</Text>
           <Text style={{ ...s.td, width: 40, textAlign: 'center' }}>{num(p.mediaPos)}</Text>
           <Text style={{ ...s.tdStrong, width: 40, textAlign: 'center', color: p.delta > 0 ? colors.green : colors.textMuted }}>
-            {comSinal(p.delta)}
+            {avancoExibidoPessoa(p) || '—'}
           </Text>
           <View style={{ width: 88, paddingLeft: 6 }}>
             <Pill veredito={p.veredito} rotulo={p.vereditoRotulo} />
@@ -740,7 +743,7 @@ export default function RelatorioEvolucaoPDF({
               <CabecalhoCargo recorte={cargo} />
               {pagina === 0 && (
                 <Text style={s.p}>
-                  {'Cada linha mostra uma pessoa em uma competência. Competências diferentes nunca são somadas ou mediadas; quando a variação é negativa, o avanço exibido é zero.'}
+                  {'Cada linha mostra uma pessoa em uma competência. Competências diferentes nunca são somadas ou mediadas.'}
                 </Text>
               )}
               <TabelaPessoas pessoas={grupo} />
@@ -788,7 +791,8 @@ export default function RelatorioEvolucaoPDF({
                     <Text key={`${p.colaboradorId}::${p.competencia}::${i}`} style={s.pStrong}>
                       {`• ${p.nome}`}
                       {p.competencia ? ` · ${p.competencia}` : ''}
-                      {`: ${p.vereditoRotulo}, avanço de ${comSinal(p.delta)}`}
+                      {`: ${p.vereditoRotulo}`}
+                      {avancoExibidoPessoa(p) ? `, avanço de ${avancoExibidoPessoa(p)}` : ''}
                       {p.proximoPasso ? `. Próximo passo sugerido: ${p.proximoPasso}` : ''}
                     </Text>
                   ))}

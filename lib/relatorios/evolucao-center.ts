@@ -139,14 +139,12 @@ function media(valores: number[]): number {
 }
 
 /**
- * Avanço de um conjunto com piso em zero por comportamento.
- *
- * A diferença entre as duas médias reintroduziria quedas que a régua não
- * interpreta como regressão. Aplicar o piso em cada descritor antes da média
- * mantém o agregado coerente com o número que o relatório mostra em cada linha.
+ * O avanço é sempre a diferença entre as duas médias que aparecem no
+ * relatório. Calcular depois do arredondamento impede combinações como
+ * "1,52 para 1,72" acompanhadas de um valor diferente de +0,20.
  */
-function avancoMedio(linhas: EvolucaoDescritorLinha[]): number {
-  return media(linhas.map((linha) => Math.max(0, linha.notaPos - linha.notaPre)));
+function avancoEntreMedias(mediaPre: number, mediaPos: number): number {
+  return Number(Math.max(0, mediaPos - mediaPre).toFixed(2));
 }
 
 /**
@@ -177,7 +175,7 @@ function agregar(chave: string, competencia: string | null, linhas: EvolucaoDesc
     n: new Set(linhas.map((l) => l.colaboradorId)).size,
     mediaPre,
     mediaPos,
-    delta: avancoMedio(linhas),
+    delta: avancoEntreMedias(mediaPre, mediaPos),
     nivelPre,
     // A régua não afirma regressão: uma oscilação da nota final não rebaixa o
     // nível já alcançado. É a mesma regra do relatório individual.
@@ -244,7 +242,10 @@ export function agregarEvolucao(
 
     const linhasDaTrilha: EvolucaoDescritorLinha[] = report.descritores.map((d: any) => {
       const notaPre = Number(d.nota_pre ?? 0);
-      const notaPos = Number(d.nota_pos ?? notaPre);
+      const notaPosInformada = Number(d.nota_pos ?? notaPre);
+      // A régua registra o nível conquistado: uma medição posterior menor
+      // mantém a nota anterior e produz avanço zero em toda projeção do dado.
+      const notaPos = Math.max(notaPre, notaPosInformada);
       return {
         colaboradorId: trilha.colaborador_id,
         competencia: d.competencia || trilha.competencia_foco || 'Competência',
@@ -286,7 +287,7 @@ export function agregarEvolucao(
         n: linhas.length,
         mediaPre,
         mediaPos,
-        delta: avancoMedio(linhas),
+        delta: avancoEntreMedias(mediaPre, mediaPos),
         veredito,
         vereditoRotulo: rotuloConvergencia(veredito),
         sustentacao: sustentacaoDe(linhas),

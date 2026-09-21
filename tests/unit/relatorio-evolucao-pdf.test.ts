@@ -15,8 +15,9 @@ import { join } from 'path';
 import {
   pct, comSinal, paginarPessoas, selecionarMultiplicadores,
   montarRadaresPorCompetencia, paginarRadares, pontosRadar, paginarComportamentos,
-  paginarCargosNoAvanco,
+  paginarCargosNoAvanco, avancoExibidoPessoa,
 } from '@/components/pdf/RelatorioEvolucao';
+import { CONVERGENCIA } from '@/lib/season-engine/convergencia';
 
 const FONTE = readFileSync(join(__dirname, '..', '..', 'components', 'pdf', 'RelatorioEvolucao.tsx'), 'utf8');
 
@@ -48,6 +49,11 @@ describe('sinal do avanço', () => {
 
   it('usa vírgula decimal — o documento é em português', () => {
     expect(comSinal(1.5)).not.toContain('.');
+  });
+
+  it('omite o avanço quando a leitura da pessoa é estável', () => {
+    expect(avancoExibidoPessoa({ veredito: CONVERGENCIA.ESTAVEL, delta: 0.03 })).toBeNull();
+    expect(avancoExibidoPessoa({ veredito: CONVERGENCIA.PARCIAL, delta: 0.03 })).toBe('+0,03');
   });
 });
 
@@ -114,6 +120,8 @@ describe('separação editorial por cargo', () => {
   it('identifica o cargo em todas as seções analíticas', () => {
     expect(FONTE).toContain('<CabecalhoCargo recorte={cargo} />');
     expect(FONTE).toContain('recortesCargo.flatMap');
+    expect(FONTE).toContain('<Text style={s.cargoEyebrow}>Cargo</Text>');
+    expect(FONTE).not.toContain('Recorte por cargo');
   });
 
   it('aproveita a mesma página para cargos pequenos sem fundir os dados', () => {
@@ -160,5 +168,9 @@ describe('as afirmações do papel vêm das fontes vivas', () => {
 
   it('não renderiza o cartão de sem medição no fechamento', () => {
     expect(FONTE).not.toContain('n={resumo.semVeredito}');
+  });
+
+  it('não explica oscilação de nota no texto do relatório', () => {
+    expect(FONTE).not.toContain('quando a variação é negativa');
   });
 });
