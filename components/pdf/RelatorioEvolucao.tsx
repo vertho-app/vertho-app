@@ -24,7 +24,7 @@
  * um buraco em branco no lugar exato do sentido da frase.
  */
 import React from 'react';
-import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet, Svg, Polygon, Line, Circle } from '@react-pdf/renderer';
 import { colors, pageStyles, fonts } from './styles';
 import PdfReportCover, { ReportSectionTitle } from './PdfReportCover';
 import { getReportCoverBgBase64 } from '@/lib/pdf-assets';
@@ -81,6 +81,22 @@ const s = StyleSheet.create({
   legenda: { flexDirection: 'row', alignItems: 'center', marginTop: 1, marginBottom: 8 },
   legendaPonto: { width: 7, height: 7, borderRadius: 4, marginRight: 4 },
   legendaTexto: { fontFamily: 'NotoSans', fontSize: 7.5, color: colors.textMuted, marginRight: 12 },
+
+  // Radar por competência. Os eixos recebem números e a descrição completa
+  // fica ao lado: rótulos longos não colidem com o desenho nem ficam ilegíveis.
+  radarCard: { borderWidth: 1, borderColor: colors.gray200, borderRadius: 8, padding: 11, marginBottom: 10, backgroundColor: colors.white },
+  radarTitle: { fontFamily: 'NotoSans', fontSize: 10.5, fontWeight: 700, color: colors.navyLight, marginBottom: 3 },
+  radarSub: { fontFamily: 'NotoSans', fontSize: 7.5, color: colors.textMuted, marginBottom: 7 },
+  radarBody: { flexDirection: 'row', alignItems: 'center' },
+  radarGrafico: { width: 190, alignItems: 'center', justifyContent: 'center' },
+  radarLista: { flex: 1, paddingLeft: 10 },
+  radarLinha: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4 },
+  radarNumero: { width: 14, height: 14, borderRadius: 7, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center', marginRight: 5, marginTop: 1 },
+  radarNumeroTexto: { fontFamily: 'NotoSans', fontSize: 6.5, fontWeight: 700, color: colors.white },
+  radarDescritor: { fontFamily: 'NotoSans', fontSize: 7.5, fontWeight: 600, color: colors.textPrimary, lineHeight: 1.25 },
+  radarValores: { fontFamily: 'NotoSans', fontSize: 6.7, color: colors.textMuted, lineHeight: 1.25 },
+  radarLegenda: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  radarAviso: { fontFamily: 'NotoSans', fontSize: 8, color: colors.textMuted, lineHeight: 1.4, paddingVertical: 28, textAlign: 'center' },
 
   // Tabelas
   th: { flexDirection: 'row', backgroundColor: colors.navy, paddingVertical: 5, paddingHorizontal: 8, borderTopLeftRadius: 3, borderTopRightRadius: 3 },
@@ -262,6 +278,145 @@ export function paginarPessoas(pessoas: EvolucaoPessoa[], maximoPorPagina = 18):
   return grupos;
 }
 
+export type CompetenciaRadar = {
+  competencia: EvolucaoAgregado;
+  descritores: EvolucaoAgregado[];
+};
+
+/**
+ * Mantém a fronteira semântica do relatório: cada radar recebe somente os
+ * descritores da própria competência. A ordem alfabética torna os eixos
+ * estáveis mesmo quando o ranking de avanço muda entre relatórios.
+ */
+export function montarRadaresPorCompetencia(
+  porCompetencia: EvolucaoAgregado[],
+  porDescritor: EvolucaoAgregado[],
+): CompetenciaRadar[] {
+  return porCompetencia.map((competencia) => ({
+    competencia,
+    descritores: porDescritor
+      .filter((descritor) => descritor.competencia === competencia.chave)
+      .slice()
+      .sort((a, b) => descritorParaHumano(a.chave).localeCompare(descritorParaHumano(b.chave), 'pt-BR')),
+  })).filter((item) => item.descritores.length > 0);
+}
+
+export function paginarRadares(radares: CompetenciaRadar[], maximoPorPagina = 2): CompetenciaRadar[][] {
+  const paginas: CompetenciaRadar[][] = [];
+  for (let i = 0; i < radares.length; i += maximoPorPagina) paginas.push(radares.slice(i, i + maximoPorPagina));
+  return paginas;
+}
+
+function pontoRadar(valor: number, indice: number, total: number, centro = 90, raio = 68): [number, number] {
+  const nota = Math.max(0, Math.min(4, Number(valor) || 0));
+  const angulo = -Math.PI / 2 + (indice / total) * Math.PI * 2;
+  const distancia = (nota / 4) * raio;
+  return [centro + Math.cos(angulo) * distancia, centro + Math.sin(angulo) * distancia];
+}
+
+/** Coordenadas SVG de notas na régua 0 a 4, exportadas para o guard geométrico. */
+export function pontosRadar(valores: number[], centro = 90, raio = 68): string {
+  return valores.map((valor, indice) => pontoRadar(valor, indice, valores.length, centro, raio).join(',')).join(' ');
+}
+
+function RadarCompetencia({ item }: { item: CompetenciaRadar }) {
+  const { competencia, descritores } = item;
+  const total = descritores.length;
+  const valoresAntes = descritores.map((descritor) => descritor.mediaPre);
+  const valoresDepois = descritores.map((descritor) => descritor.mediaPos);
+  const niveis = [1, 2, 3, 4];
+
+  return (
+    <View style={s.radarCard} wrap={false}>
+      <Text style={s.radarTitle}>{competencia.chave}</Text>
+      <Text style={s.radarSub}>
+        {`${competencia.n === 1 ? '1 pessoa' : `${competencia.n} pessoas`} · de ${num(competencia.mediaPre)} para ${num(competencia.mediaPos)} · avanço ${comSinal(competencia.delta)}`}
+      </Text>
+      <View style={s.radarLegenda}>
+        <View style={{ ...s.legendaPonto, backgroundColor: colors.gray400 }} />
+        <Text style={s.legendaTexto}>Diagnóstico inicial</Text>
+        <View style={{ ...s.legendaPonto, backgroundColor: colors.cyan }} />
+        <Text style={s.legendaTexto}>Fechamento da jornada</Text>
+      </View>
+
+      {total >= 3 ? (
+        <View style={s.radarBody}>
+          <View style={s.radarGrafico}>
+            <Svg width={180} height={180} viewBox="0 0 180 180">
+              {niveis.map((nivel) => (
+                <Polygon
+                  key={`nivel-${nivel}`}
+                  points={pontosRadar(Array(total).fill(nivel))}
+                  stroke={nivel === 4 ? colors.gray300 : colors.gray200}
+                  strokeWidth={nivel === 4 ? 0.9 : 0.55}
+                  fill="none"
+                />
+              ))}
+              {descritores.map((_, indice) => {
+                const [x, y] = pontoRadar(4, indice, total);
+                return <Line key={`eixo-${indice}`} x1={90} y1={90} x2={x} y2={y} stroke={colors.gray200} strokeWidth={0.55} />;
+              })}
+              <Polygon points={pontosRadar(valoresAntes)} stroke={colors.gray500} strokeWidth={1.25} fill={colors.gray400} fillOpacity={0.12} />
+              <Polygon points={pontosRadar(valoresDepois)} stroke={colors.cyan} strokeWidth={1.7} fill={colors.cyan} fillOpacity={0.18} />
+              {valoresAntes.map((valor, indice) => {
+                const [x, y] = pontoRadar(valor, indice, total);
+                return <Circle key={`antes-${indice}`} cx={x} cy={y} r={1.8} fill={colors.gray500} />;
+              })}
+              {valoresDepois.map((valor, indice) => {
+                const [x, y] = pontoRadar(valor, indice, total);
+                return <Circle key={`depois-${indice}`} cx={x} cy={y} r={2.1} fill={colors.cyan} />;
+              })}
+              {descritores.map((_, indice) => {
+                const [x, y] = pontoRadar(4, indice, total, 90, 80);
+                return (
+                  <React.Fragment key={`rotulo-${indice}`}>
+                    <Circle cx={x} cy={y} r={6.5} fill={colors.navy} />
+                    <Text x={x} y={y + 2.2} style={{ fontFamily: 'NotoSans', fontSize: 6.5, fontWeight: 700 }} fill={colors.white} textAnchor="middle">
+                      {indice + 1}
+                    </Text>
+                  </React.Fragment>
+                );
+              })}
+              {niveis.map((nivel) => {
+                const y = 90 - (nivel / 4) * 68;
+                return <Text key={`escala-${nivel}`} x={94} y={y + 2} style={{ fontFamily: 'NotoSans', fontSize: 5.2 }} fill={colors.textMuted}>{nivel}</Text>;
+              })}
+            </Svg>
+          </View>
+          <View style={s.radarLista}>
+            {descritores.map((descritor, indice) => (
+              <View key={`${competencia.chave}::${descritor.chave}`} style={s.radarLinha}>
+                <View style={s.radarNumero}><Text style={s.radarNumeroTexto}>{indice + 1}</Text></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.radarDescritor}>{descritorParaHumano(descritor.chave)}</Text>
+                  <Text style={s.radarValores}>
+                    {`${num(descritor.mediaPre)} para ${num(descritor.mediaPos)} · avanço ${comSinal(descritor.delta)}`}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : (
+        <View>
+          <Text style={s.radarAviso}>
+            {'Esta competência tem menos de três descritores medidos; por isso a evolução aparece em linhas, sem formar um polígono artificial.'}
+          </Text>
+          {descritores.map((descritor, indice) => (
+            <View key={`${competencia.chave}::${descritor.chave}`} style={s.radarLinha}>
+              <View style={s.radarNumero}><Text style={s.radarNumeroTexto}>{indice + 1}</Text></View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.radarDescritor}>{descritorParaHumano(descritor.chave)}</Text>
+                <Text style={s.radarValores}>{`${num(descritor.mediaPre)} para ${num(descritor.mediaPos)} · avanço ${comSinal(descritor.delta)}`}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 /** N4 é o único patamar habilitado a multiplicar a prática para o grupo. */
 export function selecionarMultiplicadores(pessoas: EvolucaoPessoa[], limite = 3): EvolucaoPessoa[] {
   return pessoas.filter((p) => nivelDaNota(p.mediaPos) === 4).slice(0, limite);
@@ -313,6 +468,7 @@ export default function RelatorioEvolucaoPDF({
   const ultimaMedicao = pessoas.map((p) => p.concluidoEm).filter(Boolean).sort().reverse()[0] || null;
   const totalClassificadas = resumo.confirmadas + resumo.parciais + resumo.estaveis;
   const paginasPessoas = paginarPessoas(pessoas);
+  const paginasRadares = paginarRadares(montarRadaresPorCompetencia(porCompetencia, porDescritor));
   // Multiplicador é patamar, não apenas movimento: somente quem terminou a
   // competência no N4 entra, mesmo que outra pessoa tenha avançado mais pontos.
   const multiplicadores = selecionarMultiplicadores(pessoas);
@@ -410,7 +566,24 @@ export default function RelatorioEvolucaoPDF({
         <PageFooter />
       </Page>
 
-      {/* ───────────────── 2. Comportamentos ───────────────── */}
+      {/* ───────────────── 2. Radares por competência ───────────────── */}
+      {paginasRadares.map((grupo, pagina) => (
+        <Page key={`radares-${pagina}`} size="A4" style={pageStyles.page} wrap={false}>
+          <PageHeader logoBase64={logoBase64} label={label} />
+          <View style={s.section}>
+            <ReportSectionTitle>{pagina === 0 ? 'Evolução dos descritores por competência' : 'Evolução dos descritores · continuação'}</ReportSectionTitle>
+            {pagina === 0 && (
+              <Text style={s.p}>
+                {'Cada radar mostra uma competência isoladamente. Os eixos são seus descritores; quanto mais distante do centro, maior a nota na régua de 1 a 4. A área cinza é o diagnóstico e a área ciano é o fechamento.'}
+              </Text>
+            )}
+            {grupo.map((item) => <RadarCompetencia key={item.competencia.chave} item={item} />)}
+          </View>
+          <PageFooter />
+        </Page>
+      ))}
+
+      {/* ───────────────── 3. Comportamentos ───────────────── */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageHeader logoBase64={logoBase64} label={label} />
 
@@ -445,7 +618,7 @@ export default function RelatorioEvolucaoPDF({
         <PageFooter />
       </Page>
 
-      {/* ───────────────── 3. Pessoas ───────────────── */}
+      {/* ───────────────── 4. Pessoas ───────────────── */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageHeader logoBase64={logoBase64} label={label} />
 
@@ -465,7 +638,7 @@ export default function RelatorioEvolucaoPDF({
       </Page>
 
 
-      {/* ───────────────── 4. Próximos passos ───────────────── */}
+      {/* ───────────────── 5. Próximos passos ───────────────── */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageHeader logoBase64={logoBase64} label={label} />
 
@@ -529,7 +702,7 @@ export default function RelatorioEvolucaoPDF({
 
         <PageFooter />
       </Page>
-      {/* ───────────────── 5. Método ───────────────── */}
+      {/* ───────────────── 6. Método ───────────────── */}
       <Page size="A4" style={pageStyles.page} wrap>
         <PageHeader logoBase64={logoBase64} label={label} />
 

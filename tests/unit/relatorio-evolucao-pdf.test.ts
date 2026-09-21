@@ -12,7 +12,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { pct, comSinal, paginarPessoas, selecionarMultiplicadores } from '@/components/pdf/RelatorioEvolucao';
+import {
+  pct, comSinal, paginarPessoas, selecionarMultiplicadores,
+  montarRadaresPorCompetencia, paginarRadares, pontosRadar,
+} from '@/components/pdf/RelatorioEvolucao';
 
 const FONTE = readFileSync(join(__dirname, '..', '..', 'components', 'pdf', 'RelatorioEvolucao.tsx'), 'utf8');
 
@@ -67,6 +70,37 @@ describe('multiplicadores', () => {
       { nome: 'N4 alto', mediaPos: 4 },
     ] as any;
     expect(selecionarMultiplicadores(pessoas).map((p) => p.nome)).toEqual(['N4', 'N4 alto']);
+  });
+});
+
+describe('radares de descritores por competência', () => {
+  it('não mistura descritores de competências diferentes', () => {
+    const competencias = [
+      { chave: 'Competência A' },
+      { chave: 'Competência B' },
+    ] as any;
+    const descritores = [
+      { chave: 'Descritor A2', competencia: 'Competência A' },
+      { chave: 'Descritor B1', competencia: 'Competência B' },
+      { chave: 'Descritor A1', competencia: 'Competência A' },
+    ] as any;
+
+    const radares = montarRadaresPorCompetencia(competencias, descritores);
+    expect(radares.map((radar) => radar.descritores.map((d) => d.chave))).toEqual([
+      ['Descritor A1', 'Descritor A2'],
+      ['Descritor B1'],
+    ]);
+  });
+
+  it('mantém no máximo dois cartões por página', () => {
+    const radares = Array.from({ length: 5 }, (_, i) => ({ competencia: { chave: String(i) }, descritores: [{}] })) as any;
+    expect(paginarRadares(radares).map((pagina) => pagina.length)).toEqual([2, 2, 1]);
+  });
+
+  it('gera um vértice por descritor e grampeia valores na régua', () => {
+    expect(pontosRadar([1, 2, 3, 4]).split(' ')).toHaveLength(4);
+    expect(pontosRadar([9, 9, 9])).toBe(pontosRadar([4, 4, 4]));
+    expect(pontosRadar([-1, -1, -1])).toBe(pontosRadar([0, 0, 0]));
   });
 });
 
