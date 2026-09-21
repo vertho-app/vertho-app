@@ -41,9 +41,22 @@ Antes da primeira fala, o participante registra um plano de até 6.000 caractere
 
 O gerente retorna os 30 descritores com nível 1–4 ou `null`, justificativa e até duas evidências literais por descritor. O servidor exige códigos únicos, versão válida e citações da fonte correta: plano para PL e falas do vendedor para P/A/C/E. Ausência de oportunidade fica `null` e fora da média da competência. E5/E6 ficam obrigatoriamente não observados, pois o exercício não inclui execução de pós-venda. A devolutiva mostra cobertura, nível parcial quando faltam descritores, justificativas, citações e a rubrica completa. Participante e gestão autorizada usam o mesmo componente.
 
-A nota 1–4 da competência é a média dos descritores observados. O nível segue `nivelDaNota` em `lib/nivel-regua.ts`: N1 abaixo de 2; N2 abaixo de 3; N3 de 3 até 3,5; N4 acima de 3,5. Sem descritores observados, nota e nível ficam nulos. Para manter a escala de treino 0–10, cada etapa recebe média dos níveis × 2,5, arredondada em passos de 0,5: N1=2,5; N2=5; N3=7,5; N4=10. A nota 0–10 não é usada para inferir nível. Planejamento tem avaliação própria e não entra na média PACE. As quatro etapas mantêm peso igual de 25%; etapa sem observação entra como zero apenas nessa média do treino. A interface explica a projeção como regra de apresentação do simulador, não como escala numérica publicada no manual. Descontos legados de 0,5/1,5/2,5 são preservados apenas nas réguas anteriores à v5.
+Na `pace-5`, a nota 1–4 da competência era a média dos descritores observados. O nível seguia `nivelDaNota` em `lib/nivel-regua.ts`: N1 abaixo de 2; N2 abaixo de 3; N3 de 3 até 3,5; N4 acima de 3,5. Sem descritores observados, nota e nível ficavam nulos. Para manter a escala de treino 0–10 então vigente, cada etapa recebia média dos níveis × 2,5, arredondada em passos de 0,5: N1=2,5; N2=5; N3=7,5; N4=10. A nota 0–10 não era usada para inferir nível. Planejamento tinha avaliação própria e não entrava na média PACE. As quatro etapas mantinham peso igual de 25%; etapa sem observação entrava como zero apenas nessa média do treino. A interface explicava a projeção como regra de apresentação do simulador, não como escala numérica publicada no manual. Descontos legados de 0,5/1,5/2,5 são preservados apenas nas réguas anteriores à v5. A `pace-6` substituiu essa projeção pela escala comum 1–4 descrita abaixo.
 
-Histórico concluído não é recalculado. Sessões `pace-4` preservam a primeira matriz e os descontos de conduta; `pace-3` mantém os prompts congelados, notas brutas e piso zero; `pace-2` preserva o piso de 0,5. Schema, prompt e pontuação são escolhidos pela versão da sessão. A matriz e o planejamento usam o JSON de estado existente, sem migration ou alteração em avaliações formais, DISC, PDI ou trilhas. O gerente com matriz tem limite de saída de 16.000 tokens para comportar os 30 descritores; modelos, prazo, ledger e checkpoints continuam pelo wrapper único.
+### Compatibilidade das réguas
+
+Histórico concluído não é recalculado. Schema, prompt, pontuação e apresentação são escolhidos pela versão gravada na sessão:
+
+| Régua | Escala e média preservadas |
+|---|---|
+| `pace-2` | P/A/C/E na escala 0–10, em passos de 0,5, com piso 0,5. |
+| `pace-3` | P/A/C/E na escala 0–10, em passos de 0,5 e com pesos iguais de 25%. Ausência de evidência vale zero no cálculo e aparece como `—`, sem piso artificial de 0,5. |
+| `pace-4` | Primeira matriz e planejamento, ainda projetados na escala 0–10; preserva os descontos de conduta da regra anterior. |
+| `pace-5` | Matriz aprovada e fontes documentais, projeção 0–10 sem descontos externos; Planejamento é separado e P/A/C/E mantêm 25% cada. |
+| `pace-6` | Escala nativa 1–4; Planejamento passa a integrar a média geral, com peso igual ao de P/A/C/E. |
+| `pace-7` | Mantém a escala 1–4 e acrescenta a regra comum de cobertura: quatro comportamentos para formar uma competência e três competências para formar a média geral. |
+
+A matriz e o planejamento usam o JSON de estado existente, sem migration ou alteração em avaliações formais, DISC, PDI ou trilhas. O gerente com matriz tem limite de saída de 16.000 tokens para comportar os 30 descritores; modelos, prazo, ledger e checkpoints continuam pelo wrapper único.
 
 No v2, instruções estáticas vão em `system` e entradas vão como dados JSON em `user`, com marcadores de tag escapados. Turno/autor são atributos do histórico, não rótulos confiados ao texto da fala. O gerente recebe orientação contra manipulação de nota, e saídas do cliente contendo estruturas reservadas são rejeitadas. Isso reduz risco de prompt injection, sem prometer imunidade: preços e necessidades isolados podem fazer parte da negociação legítima e não são bloqueados por coincidência literal. O prefixo estático favorece cache; economia real só é afirmada após medição no ledger. A devolutiva não altera automaticamente DISC, PDI, avaliação formal ou trilhas.
 
