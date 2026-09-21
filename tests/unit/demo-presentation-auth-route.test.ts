@@ -24,7 +24,7 @@ vi.mock('@/lib/demo/presentation-ticket', () => ({
     : null,
 }));
 vi.mock('@/lib/demo/reset-acme-demo', () => ({
-  gerarMagicLinkPapelApresentacaoDemo: mocks.gerarLogin,
+  autenticarPapelApresentacaoDemo: mocks.gerarLogin,
 }));
 vi.mock('@/lib/auth/supabase-server', () => ({
   createSupabaseServerClient: async () => ({ auth: { verifyOtp: mocks.verifyOtp } }),
@@ -41,7 +41,7 @@ describe('rota de autenticação automática da apresentação', () => {
     mocks.state.ticketValid = true;
     mocks.state.ticketTenant = 'acme-demo';
     mocks.state.prospectSessionId = '1234567890abcdef1234';
-    mocks.gerarLogin.mockClear();
+    mocks.gerarLogin.mockReset().mockResolvedValue({ ok: true, tokenHash: 'hashed-token-gestor', nextPath: '/dashboard/gestor' });
     mocks.verifyOtp.mockClear();
     mocks.recordAccess.mockClear();
   });
@@ -50,13 +50,23 @@ describe('rota de autenticação automática da apresentação', () => {
     const req = new NextRequest('https://gestor-demo.vertho.ai/auth/apresentacao?ticket=passe.assinado&role=rh');
     const res = await GET(req);
 
-    expect(mocks.gerarLogin).toHaveBeenCalledWith('gestor', 'acme-demo');
-    expect(mocks.verifyOtp).toHaveBeenCalledWith({ token_hash: 'hashed-token-gestor', type: 'email' });
+    expect(mocks.gerarLogin).toHaveBeenCalledWith('gestor', expect.anything(), 'acme-demo');
     expect(mocks.recordAccess).toHaveBeenCalledWith('1234567890abcdef1234', 'gestor');
     const destino = new URL(res.headers.get('location')!);
     expect(destino.origin + destino.pathname).toBe('https://gestor-demo.vertho.ai/dashboard/gestor');
     expect(destino.searchParams.get('sala')).toBe('passe.assinado');
     expect(destino.searchParams.get('tela')).toBe('computador');
+  });
+
+  it('falha temporária mantém o convidado no convite e não diz que expirou', async () => {
+    mocks.gerarLogin.mockResolvedValueOnce({ ok: false, error: 'temporário' } as any);
+    const res = await GET(new NextRequest('https://gestor-demo.vertho.ai/auth/apresentacao?ticket=passe.assinado'));
+    const destino = new URL(res.headers.get('location')!);
+    expect(destino.origin).toBe('https://acme-demo.vertho.ai');
+    expect(destino.pathname).toBe(`/c/${emitirCodigoCurto('acme-demo', mocks.state.prospectSessionId!)}`);
+    expect(destino.searchParams.get('aviso')).toBe('indisponivel');
+    expect(mocks.recordAccess).not.toHaveBeenCalled();
+    expect(res.headers.get('cache-control')).toBe('no-store');
   });
 
   it('preserva a visão de celular ao preparar a sessão do próximo papel', async () => {

@@ -34,6 +34,8 @@ Outros: `npm run smoke` · `npm test` (Playwright) · `npm run reset:demo` (rese
 
 ## Frentes recentes
 
+**21/09 — Correções críticas da degustação.** Concorrência de OTP reproduzida e protegida por lease no banco (migração 266, aplicada); falha transitória de convite válido retorna à degustação. PDF de RH passou a codificar o nome do arquivo em UTF-8. Testes direcionados (42), typecheck e build passaram; a revisão das métricas, narrativas e acessibilidade continua, sem encerrar os demais achados do QA de 20/09.
+
 **21/09 — Degustação B começa pelo RH.** Cards, convite e etapas seguem RH → gestor →
 participante. A orientação de cada visão oferece perguntas ligadas às dores do papel;
 WhatsApp do próximo passo: (11) 97388-2303. Os simuladores habilitados ganharam

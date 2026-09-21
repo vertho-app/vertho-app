@@ -873,6 +873,7 @@ banco chega no reset noturno (04:00, Brasília). O pacote offline
 (`lib/demo/offline`) é uma foto congelada e ainda mostra o Marcelo avaliado.
 
 ## Pegadinhas
+- **21/09/2026 — entrada simultânea e PDF.** A geração de outro OTP para a mesma persona invalida o anterior: reproduzido com duas entradas paralelas. A migração 266 serializa geração + consumo por hash da identidade, inclusive entre ACME e Sinal; o helper reutiliza a sessão correta e repete erros transitórios com um token novo. Convite válido com indisponibilidade volta à própria degustação, sem alegar expiração. O PDF usa `filename` ASCII e `filename*=UTF-8''`, preservando nomes com travessão. Validação: 42 testes direcionados, typecheck e build; quatro autenticações simultâneas reais com sucesso. A conferência dos fluxos publicados segue no QA desta rodada.
 - `descriptor_assessments.nivel` é coluna **GENERATED ALWAYS** — capture/replay a descartam (senão o insert falha).
 - `gerarTemporada` exige competência COM `descriptor_assessments` — passar `competencia` válida.
 - O render do PDF via tsx falha (`Font family not registered: NotoSans`) — mas `report_texts` salva ANTES, e o PDF regenera on-demand no app (o que congelamos é o `report_texts`, não o binário).

@@ -75,7 +75,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
     const erro = params.get('error');
     if (erro) {
       setAvisoLink(
-        erro === 'indisponivel' ? t('linkErrors.unavailable') : t('linkErrors.expired'),
+        ['indisponivel', 'apresentacao-indisponivel'].includes(erro) ? t('linkErrors.unavailable') : t('linkErrors.expired'),
       );
       // Tira o parâmetro da URL: recarregar a página não deve repetir o aviso de
       // um link que a pessoa já desistiu de usar.

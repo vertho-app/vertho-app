@@ -24,6 +24,9 @@ const listUsers = vi.fn(async () => ({
   error: null,
 }));
 
+sb.client.rpc = vi.fn(async () => ({ data: true, error: null }));
+const sessao = { auth: { getUser: vi.fn(async () => ({ data: { user: null }, error: null })), verifyOtp: vi.fn(async () => ({ error: null })) } };
+
 sb.client.auth = { admin: { listUsers, updateUserById, createUser, generateLink } };
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
@@ -32,7 +35,7 @@ vi.mock('@/lib/vercel-domain', () => ({
 }));
 
 import {
-  gerarMagicLinkPapelApresentacaoDemo,
+  autenticarPapelApresentacaoDemo,
   gerarMagicLinksDemo,
   prepararAcessosDemo,
   prepararAcessosApresentacaoDemo,
@@ -85,7 +88,7 @@ describe('preparo dos acessos temporários do demo', () => {
   });
 
   it('gera o login de uso único somente para o papel fixo solicitado pela rota', async () => {
-    const r = await gerarMagicLinkPapelApresentacaoDemo('gestor');
+    const r = await autenticarPapelApresentacaoDemo('gestor', sessao as any);
 
     expect(r.ok).toBe(true);
     expect(generateLink).toHaveBeenCalledTimes(1);
@@ -94,6 +97,7 @@ describe('preparo dos acessos temporários do demo', () => {
       email: 'carla.demo@vertho.ai',
       options: { redirectTo: 'https://gestor-demo.vertho.ai/dashboard/gestor' },
     });
+    expect(sessao.auth.verifyOtp).toHaveBeenCalledWith({ token_hash: 'token-carla.demo', type: 'email' });
     if (r.ok) expect(r.nextPath).toBe('/dashboard/gestor');
   });
 

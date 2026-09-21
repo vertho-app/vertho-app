@@ -1,3 +1,4 @@
+import { contentDispositionHeader } from '@/lib/http/content-disposition';
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { renderToBuffer } from '@react-pdf/renderer';
@@ -86,7 +87,7 @@ export async function GET(request) {
         return new NextResponse(buffer, {
           headers: {
             'Content-Type': 'application/pdf',
-            'Content-Disposition': `${contentDisposition}; filename="${filename}"`,
+            'Content-Disposition': contentDispositionHeader(filename, contentDisposition),
             'X-Pdf-Source': 'storage',
           },
         });
@@ -136,7 +137,7 @@ export async function GET(request) {
     return new NextResponse(buffer as any, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `${contentDisposition}; filename="${filename}"`,
+        'Content-Disposition': contentDispositionHeader(filename, contentDisposition),
         'X-Pdf-Source': 'generated',
       },
     });

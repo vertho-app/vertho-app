@@ -1,3 +1,5 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { entrarComOtpDemo } from '@/lib/demo/auth-lock';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { encontrarCelulaVideoDemo } from '@/lib/demo/celula-video';
 import { recomporVideosDaJornadaDemo } from '@/lib/demo/video-jornada';
@@ -2796,37 +2798,22 @@ export async function prepararAcessosApresentacaoDemo(
   }
 }
 
-/**
- * Gera um token de login de uso único para UM papel depois que a rota pública
- * validou o passe assinado da sala. Este núcleo não aceita e-mail nem tenant do
- * client: ambos vêm da allowlist fixa acima.
- */
-export async function gerarMagicLinkPapelApresentacaoDemo(
+/** Autentica a persona fixa com emissão e consumo do OTP na mesma lease. */
+export async function autenticarPapelApresentacaoDemo(
   roleKey: DemoPresentationRoleKey,
+  sessao: SupabaseClient,
   slug: DemoPresentationTenantSlug = DEMO_SLUG,
-): Promise<
-  { ok: true; tokenHash: string; nextPath: string } | { ok: false; error: string }
-> {
+): Promise<{ ok: true; nextPath: string } | { ok: false; error: string }> {
   try {
     const acesso = salaDoTenant(slug as DemoTenantSlug)
       .find((item) => item.presentationRoleKey === roleKey);
     if (!acesso) return { ok: false, error: 'Papel de apresentação inválido.' };
-
     const sb = createSupabaseAdmin();
     await validarTenantEAcessosDemo(sb, slug as DemoTenantSlug);
-    const redirectTo = demoPresentationUrl(roleKey, acesso.nextPath, undefined, slug);
-    const { data: link, error } = await sb.auth.admin.generateLink({
-      type: 'magiclink',
-      email: acesso.email,
-      options: { redirectTo },
-    });
-    const tokenHash = link?.properties?.hashed_token;
-    if (error || !tokenHash) {
-      throw new Error(`gerar login de ${roleKey}: ${error?.message || 'token ausente'}`);
-    }
-    return { ok: true, tokenHash, nextPath: acesso.nextPath };
+    await entrarComOtpDemo(sb, sessao, acesso.email, demoPresentationUrl(roleKey, acesso.nextPath, undefined, slug));
+    return { ok: true, nextPath: acesso.nextPath };
   } catch (error: any) {
-    console.error('[demo-access] autenticar papel da apresentação:', error?.message);
+    console.error('[demo-access] autenticar apresentação:', { slug, roleKey, erro: error?.message });
     return { ok: false, error: error?.message || 'erro desconhecido' };
   }
 }

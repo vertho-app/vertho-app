@@ -7,13 +7,15 @@ import {
   getDemoPresentationDeviceQueryValue,
   getDemoPresentationRoleFromHostname,
   parseDemoPresentationDevice,
+  linkDaPaginaDeBoasVindas,
 } from '@/lib/demo/presentation';
 import { verifyDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
-import { lerCodigoCurto } from '@/lib/demo/degustacao-link-curto';
-import { gerarMagicLinkPapelApresentacaoDemo } from '@/lib/demo/reset-acme-demo';
+import { lerCodigoCurto, emitirCodigoCurto } from '@/lib/demo/degustacao-link-curto';
+import { autenticarPapelApresentacaoDemo } from '@/lib/demo/reset-acme-demo';
 import { recordAcmeProspectPresentationAccess } from '@/lib/demo/acme-prospect-tracking';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 function loginComErro(req: NextRequest, codigo: string) {
   const url = new URL('/login', req.url);
@@ -48,19 +50,17 @@ export async function GET(req: NextRequest) {
     return loginComErro(req, 'apresentacao-invalida');
   }
 
-  const login = await gerarMagicLinkPapelApresentacaoDemo(role.key, role.tenantSlug);
-  if ('error' in login) {
-    console.error('[auth/apresentacao] gerar login:', login.error);
-    return loginComErro(req, 'apresentacao-indisponivel');
-  }
-
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.auth.verifyOtp({
-    token_hash: login.tokenHash,
-    type: 'email',
-  });
-  if (error) {
-    console.error('[auth/apresentacao] verifyOtp:', error.message);
+  const login = await autenticarPapelApresentacaoDemo(role.key, supabase, role.tenantSlug);
+  if (!login.ok) {
+    // Passe válido + serviço indisponível não é convite vencido. O lead pode
+    // repetir a entrada no próprio convite, sem cair num login de conta técnica.
+    if (ticketPayload.prospectSessionId) {
+      const casa = linkDaPaginaDeBoasVindas(ticketPayload.tenant, emitirCodigoCurto(ticketPayload.tenant, ticketPayload.prospectSessionId));
+      const url = new URL(casa!);
+      url.searchParams.set('aviso', 'indisponivel');
+      return NextResponse.redirect(url, { headers: { 'Cache-Control': 'no-store' } });
+    }
     return loginComErro(req, 'apresentacao-indisponivel');
   }
 
@@ -100,5 +100,5 @@ export async function GET(req: NextRequest) {
   ) {
     destino.searchParams.set(DEMO_PRESENTATION_RETURN_PARAM, volta);
   }
-  return NextResponse.redirect(destino);
+  return NextResponse.redirect(destino, { headers: { 'Cache-Control': 'no-store' } });
 }

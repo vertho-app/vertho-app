@@ -146,6 +146,6 @@ describe('central de relatórios do RH', () => {
     expect(home).toContain('/dashboard/relatorios?document=organization-rh');
     expect(home).not.toContain('target="_blank"');
     expect(pdfRoute).toContain("searchParams.get('view') === 'inline'");
-    expect(pdfRoute).toContain('`${contentDisposition}; filename=');
+    expect(pdfRoute).toContain('contentDispositionHeader(filename, contentDisposition)');
   });
 });
