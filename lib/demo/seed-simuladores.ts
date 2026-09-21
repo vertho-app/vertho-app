@@ -56,7 +56,7 @@ export async function seedSimuladoresDemo(sb: SupabaseClient, empresaId: string,
   }
 
   // Deixa uma parcela do elenco sem treino para mostrar também onde apoiar.
-  const selecionadas = pessoas.slice(0, Math.max(1, Math.ceil(pessoas.length * 0.65)));
+  const selecionadas = pessoas.slice(0, Math.max(1, Math.ceil(pessoas.length * 0.9)));
   for (const [i, p] of selecionadas.entries()) {
     const acesso = acessoDoCargo(empresa.sys_config, idDoCargo(cargoIds, p.cargo));
     const chave = `${empresaId}:${p.email}`;
@@ -80,9 +80,10 @@ export async function seedSimuladoresDemo(sb: SupabaseClient, empresaId: string,
     const variante = ocupaCargoAlvo(p.cargo, cfg) ? 'lider' : 'futuro';
     if (acesso.lideranca) {
       const id = idDemoSimulador(`${chave}:lideranca`);
-      const existente = await checked(sb.from('sim_lideranca_jornadas').select('id').eq('empresa_id', empresaId).eq('owner_key', base.owner_key).maybeSingle());
+      const existente = await checked(sb.from('sim_lideranca_jornadas').select('id,estado').eq('empresa_id', empresaId).eq('owner_key', base.owner_key).maybeSingle());
       if (!existente || existente.id === id) {
-        const estado = jornadaLiderancaDemo(chave, variante, i, [5, 3, 1, 4][i % 4], agora, modelos, PROMPTS);
+        const encontros = Math.max([5, 5, 4, 5, 3][i % 5], [5, 3, 1, 4][i % 4], existente?.estado?.concluidos?.length || 0);
+        const estado = jornadaLiderancaDemo(chave, variante, i, encontros, agora, modelos, PROMPTS);
         if (await salvarFixture('sim_lideranca_jornadas', { ...base, id, estado, created_at: dataDemo(agora, 12), updated_at: estado.concluidos.at(-1)!.encerradoEm })) {
           totais.jornadas++;
           for (const episodio of estado.concluidos) {
@@ -100,13 +101,13 @@ export async function seedSimuladoresDemo(sb: SupabaseClient, empresaId: string,
     const existentes = await checked(sb.from('descriptor_assessments').select('competencia,descritor,origem').eq('empresa_id', empresaId).eq('colaborador_id', p.id).in('competencia', nomes));
     // Não mistura um mapeamento já realizado com dados editoriais.
     if (existentes.some((r: any) => r.origem !== DEMO_SIMULADORES_VERSION)) continue;
-    const completas = i % 5 !== 4;
+    const completas = i % 10 !== 9;
     const escolhidas = completas ? nomes : nomes.slice(0, 2);
     for (const [ci, competencia] of escolhidas.entries()) {
       const linhas = matriz.filter((d) => d.nome === competencia);
       const comp = comps.find((c: any) => c.nome === competencia && !c.cod_desc) || comps.find((c: any) => c.nome === competencia);
       if (!comp) throw new Error(`Matriz de liderança não instalada: ${competencia}`);
-      const nota = [2.2, 3.2, 3.6, 2.7][i % 4] + (ci % 2) * 0.1;
+      const nota = [3.2, 3.4, 3.6, 2.7][i % 4] + (ci % 2) * 0.1;
       const fala = CONTEUDO_MAPEAMENTO[ci];
       const respostaId = idDemoSimulador(`${chave}:mapeamento:${competencia}`);
       const respostaAnterior = await checked(sb.from('respostas').select('id').eq('empresa_id', empresaId).eq('colaborador_id', p.id).eq('competencia_nome', competencia).limit(1));

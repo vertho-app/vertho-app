@@ -46,6 +46,8 @@ import {
   type PerfilEvolucao,
   type ReguaDeEvolucao,
 } from './evolucao-nucleo';
+import { MIX_RESULTADOS_DEMO } from './adocao-resultados-fixture';
+import { ACME_DEMO_CONCLUDED_KEYS } from './acme-rh-report-fixture';
 import { competenciasAcmeDemoPorCargo } from './acme-rh-report-fixture';
 
 export {
@@ -74,27 +76,16 @@ export const ACME_DEMO_DESCRITORES = [
   'Aprendizado, ética e melhoria contínua',
 ] as const;
 
-export const ACME_DEMO_EVOLUTION_MIX: readonly PerfilEvolucao[] = [
-  'confirmada', 'confirmada', 'parcial', 'confirmada',
-  'estavel', 'confirmada', 'confirmada', 'parcial',
-  'confirmada', 'estavel', 'confirmada', 'parcial',
-  'confirmada', 'confirmada', 'estavel',
-] as const;
+export const ACME_DEMO_EVOLUTION_MIX: readonly PerfilEvolucao[] = ACME_DEMO_CONCLUDED_KEYS.map(
+  (_, index) => MIX_RESULTADOS_DEMO[index % MIX_RESULTADOS_DEMO.length],
+);
 
-/**
- * 9 confirmadas, 3 parciais, 3 estáveis. Conferido pelo teste da régua da demo.
- *
- * Era 16/9/4/3 até 04/09/2026, quando o Rafael saiu das concluídas para os
- * atrasados — o card "Ação esta semana" do gestor precisava de alguém parado no
- * time da persona navegável. Saiu uma PARCIAL de propósito: as três leituras
- * (confirmada · parcial · estável) continuam representadas no painel de
- * evolução, que é o que a apresentação mostra.
- */
+/** 19 concluídas: 15 confirmadas, 2 parciais e 2 estáveis. */
 export const ACME_DEMO_EVOLUTION_TARGETS = Object.freeze({
-  concluded: 15,
-  confirmadas: 9,
-  parciais: 3,
-  estaveis: 3,
+  concluded: 19,
+  confirmadas: 15,
+  parciais: 2,
+  estaveis: 2,
 });
 
 const ANTES: Record<string, string> = {

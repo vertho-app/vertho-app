@@ -441,8 +441,8 @@ export const ROSTER_ESCOLAR: DemoRoster = {
   panorama: {
     semPerfil: ['rafael_t'],
     mapeados: ['paula', 'tiago', 'ana_luiza', 'carlos_e', 'juliana_s', 'marcos_v', 'fernanda_c', 'bruno_a', 'patricia_m', 'leticia_b'],
-    emJornada: ['ana_luiza', 'carlos_e', 'bruno_a'],
-    concluidos: ['paula', 'tiago', 'juliana_s', 'marcos_v', 'fernanda_c', 'patricia_m', 'leticia_b'],
+    emJornada: ['bruno_a'],
+    concluidos: ['paula', 'tiago', 'juliana_s', 'marcos_v', 'fernanda_c', 'patricia_m', 'leticia_b', 'ana_luiza', 'carlos_e'],
   },
   unidades: UNIDADES_ESCOLARES.map((unidade) => ({ ...unidade })),
   /**

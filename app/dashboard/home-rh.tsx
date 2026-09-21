@@ -58,6 +58,7 @@ type Panorama = {
   emDia: number;
   atrasadas: number;
   jornadasEncerradas: number;
+  jornadasIniciadas?: number;
   indisponivel: boolean;
 };
 
@@ -140,17 +141,17 @@ export default function HomeRH({ firstName, panorama, relatorios }: { firstName:
             {t('rh.overview')}
           </h3>
           {/* Funil: cada degrau em proporção do TOPO (pessoas), porque a
-              pergunta do RH é "onde elas param?". Os dois últimos são a mesma
-              população da jornada aberta em dia × atrasada — estar numa trilha
-              não é estar andando nela. */}
+              pergunta do RH é "onde elas param?". Jornadas iniciadas incluem as concluídas. O atraso é um
+              subconjunto das em andamento e usa a mesma base de iniciadas. */}
           <div className="space-y-2">
             <Degrau valor={p.pessoas} total={p.pessoas} label={t('rh.people')} icon={Users2} indisponivel={p.indisponivel} />
             <Degrau valor={p.comPerfil} total={p.pessoas} label={t('rh.withProfile')} icon={Brain} indisponivel={p.indisponivel} />
             <Degrau valor={p.comMapeamento} total={p.pessoas} label={t('rh.withMapping')} icon={ClipboardCheck} indisponivel={p.indisponivel} />
-            <Degrau valor={p.emJornada} total={p.pessoas} label={t('rh.inJourney')} icon={Route} indisponivel={p.indisponivel} />
-            <div className="grid grid-cols-2 gap-2 pl-3">
-              <Degrau valor={p.emDia} total={p.emJornada} label={t('rh.onTrack')} icon={CalendarCheck} indisponivel={p.indisponivel} cor="#34D399" />
-              <Degrau valor={p.atrasadas} total={p.emJornada} label={t('rh.behind')} icon={CalendarClock} indisponivel={p.indisponivel} cor="#FCD34D" />
+            <Degrau valor={p.jornadasIniciadas ?? (p.emJornada + p.jornadasEncerradas)} total={p.pessoas} label={t('rh.inJourney')} icon={Route} indisponivel={p.indisponivel} />
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-3">
+              <Degrau valor={p.jornadasEncerradas} total={p.jornadasIniciadas ?? (p.emJornada + p.jornadasEncerradas)} label={t('rh.completedJourney')} icon={CalendarCheck} indisponivel={p.indisponivel} cor="#34D399" />
+              <Degrau valor={p.emJornada} total={p.jornadasIniciadas ?? (p.emJornada + p.jornadasEncerradas)} label={t('rh.activeJourney')} icon={Route} indisponivel={p.indisponivel} />
+              <Degrau valor={p.atrasadas} total={p.jornadasIniciadas ?? (p.emJornada + p.jornadasEncerradas)} label={t('rh.behind')} icon={CalendarClock} indisponivel={p.indisponivel} cor="#FCD34D" />
             </div>
           </div>
           {p.indisponivel && (

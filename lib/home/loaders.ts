@@ -1,3 +1,5 @@
+import { lerPaginas } from '@/lib/db/ler-paginas';
+import { recortarElencoDemo } from '@/lib/demo/elenco-visivel';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getDashboardView } from '@/lib/authz';
 import { tenantDb } from '@/lib/tenant-db';
@@ -726,7 +728,7 @@ export async function carregarPanoramaRH(
   // sendo `count: 'exact'` no banco, sem o teto de 1.000 linhas do PostgREST
   // que transformaria tenant grande em amostra silenciosa. `Medido em 31/08`:
   // `.in()` com 3.000 uuids responde normalmente neste projeto.
-  const ids = opts.colaboradorIds ?? null;
+  let ids = opts.colaboradorIds ?? null;
   const recortar = <T>(query: T, coluna: string): T =>
     ids ? ((query as any).in(coluna, ids) as T) : query;
 
@@ -734,8 +736,16 @@ export async function carregarPanoramaRH(
   // dela: quem usa fonte externa (OPQ32, Hogan) não faz DISC, e ali "sem perfil"
   // é "sem o PDF extraído".
   const empresaRes = await tdb.raw.from('empresas')
-    .select('nome, sys_config').eq('id', empresaId).maybeSingle();
+    .select('nome, sys_config, is_demo').eq('id', empresaId).maybeSingle();
   const fonteExterna = (empresaRes.data?.sys_config as any)?.perfil_externo_fonte ?? null;
+  let elencoErro: any = null;
+  if (empresaRes.data?.is_demo) {
+    const elenco = await lerPaginas((inicio, fim) => tdb.from('colaboradores').select('id,email').order('id').range(inicio, fim));
+    elencoErro = elenco.error;
+    const permitidos = recortarElencoDemo<{ id: string; email: string }>(elenco.data || [], true).map(p => p.id);
+    const turma = ids;
+    ids = turma ? permitidos.filter(id => turma.includes(id)) : permitidos;
+  }
 
   const [pessoasRes, participantesRes, comPerfilRes, trilhasRes, encerradasRes, assessRes, cargosRes] = await Promise.all([
     recortar(tdb.from('colaboradores')
@@ -767,17 +777,15 @@ export async function carregarPanoramaRH(
     // (confirmada · parcial · estagnação · regressão) nasce no fechamento, então
     // antes da primeira conclusão aquela tela é seis KPIs zerados — e um atalho
     // para ela é um convite para o vazio.
-    recortar(tdb.from('trilhas')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', TRILHA.CONCLUIDA), 'colaborador_id'),
-    // Uma linha por DESCRITOR avaliado — o maior tenant hoje tem 576 (macae).
-    // Traz só a coluna que identifica a pessoa e deduplica em código: é o
-    // "quantas PESSOAS" que a tela pergunta, não quantas notas existem.
-    recortar(tdb.from('descriptor_assessments').select('colaborador_id, competencia'), 'colaborador_id'),
+    lerPaginas((inicio, fim) => recortar(tdb.from('trilhas')
+      .select('colaborador_id').eq('status', TRILHA.CONCLUIDA).order('id').range(inicio, fim), 'colaborador_id')),
+    // O Top 5 exige todas as páginas: as demos com simuladores passam de
+    // mil descritores. Truncar a consulta transforma completos em pendentes.
+    lerPaginas((inicio, fim) => recortar(tdb.from('descriptor_assessments').select('colaborador_id, competencia').order('id').range(inicio, fim), 'colaborador_id')),
     tdb.from('cargos_empresa').select('nome, top5_workshop'),
   ]);
 
-  const erro = pessoasRes.error || participantesRes.error || comPerfilRes.error || trilhasRes.error
+  const erro = empresaRes.error || elencoErro || pessoasRes.error || participantesRes.error || comPerfilRes.error || trilhasRes.error
     || assessRes.error || cargosRes.error || encerradasRes.error;
   if (erro) console.error('[panorama-rh] contagens falharam:', erro.message);
 
@@ -827,7 +835,8 @@ export async function carregarPanoramaRH(
     emJornada,
     emDia,
     atrasadas,
-    jornadasEncerradas: encerradasRes.count || 0,
+    jornadasEncerradas: new Set((encerradasRes.data || []).map(t => t.colaborador_id)).size,
+    jornadasIniciadas: new Set([...trilhas, ...(encerradasRes.data || [])].map(t => t.colaborador_id)).size,
     indisponivel: !!erro,
   };
 }

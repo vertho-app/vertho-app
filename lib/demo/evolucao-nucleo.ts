@@ -74,6 +74,7 @@ export type DescritorEvolucao = {
   descritor: string;
   nota_pre: number;
   nota_pos: number;
+  nota_cenario?: number;
   nivel_percebido: number | null;
   antes: string | null;
   depois: string | null;
@@ -106,12 +107,12 @@ function arredondar(valor: number): number {
 
 /**
  * Nota de partida (T0). Determinística por (email, comportamento) e
- * deliberadamente baixa: a trilha seleciona lacuna, então um T0 alto tornaria a
+ * entre N2 e o início da meta: a trilha seleciona lacuna, então um T0 alto tornaria a
  * evolução impossível de mostrar sem estourar o teto da escala.
  */
 export function notaDePartida(email: string, descritor: string): number {
   const seed = seedOf(`${email}:${descritor}`);
-  return arredondar(1.5 + ((seed % 7) / 10));
+  return arredondar(2.2 + ((seed % 7) / 10));
 }
 
 /**
@@ -216,6 +217,7 @@ export function construirEvolucao(
         descritor,
         nota_pre,
         nota_pos,
+        nota_cenario: nota_pos,
         nivel_percebido,
         antes: perfil === 'estavel' ? null : regua.textos.antes(pessoa.cargo, competencia, descritor),
         depois: perfil === 'estavel'
@@ -346,6 +348,7 @@ export function construirFechamento(
           descritor: d.descritor,
           nota_pre: d.nota_pre,
           nota_pos: d.nota_pos,
+          nota_cenario: d.nota_cenario ?? d.nota_pos,
           justificativa: d.justificativa_cenario,
         })),
         nota_media_pos: evolucao.evolution_report.nota_media_pos,

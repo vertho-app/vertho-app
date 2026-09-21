@@ -240,14 +240,7 @@ export const ROSTER_COMERCIAL: DemoRoster = {
       && !PERSONAS.some((persona) => persona.key === key)
     )),
     concluidos: [...ACME_DEMO_CONCLUDED_KEYS],
-    /**
-     * Quem perdeu a cadência: o gestor de Operações, uma pessoa de operações e
-     * o Rafael, do time da Carla. A escolha não é decorativa: os dois primeiros
-     * são os únicos do cargo deles entre quem entrou em jornada, e deixá-los
-     * concluir produziria competências medidas com UMA pessoa no painel de
-     * evolução, ao lado de médias de nove. O motivo de cada um está em
-     * `ACME_DEMO_BEHIND_KEYS`.
-     */
+    // Dois casos de apoio preservam a conversa sobre intervenção do gestor.
     atrasados: [...ACME_DEMO_BEHIND_KEYS],
   },
 };

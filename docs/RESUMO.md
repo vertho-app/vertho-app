@@ -3,6 +3,10 @@
 > Atualizado em 21/09/2026. O SHA de HEAD não é fixado aqui de propósito — ficava
 > obsoleto no commit seguinte e dava a impressão de que o resto do documento também estava.
 
+## Degustação B — adoção do elenco (21/09)
+
+A home exclui visitantes do funil da empresa fictícia e inclui jornadas concluídas na adesão, com estados separados. Elenco recalibrado: média 3,26/4; 80% das competências comerciais e 76% das escolares em N3/N4; 19/22 e 9/11 jornadas concluídas. Atualização incremental e reset usam `lib/demo/sincronizar-adocao.ts`, com PDIs sintéticos e leituras coerentes. Detalhes e critérios: [AMBIENTE-DEMO.md](AMBIENTE-DEMO.md#adoção-e-resultados-do-elenco-online--21092026).
+
 ## Onde esta o projeto
 
 - Workspace: `C:\GAS\Vertho App\nextjs-app` (o repo Git e esta pasta, nao a pasta-pai).

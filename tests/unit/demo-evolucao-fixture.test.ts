@@ -145,10 +145,10 @@ describe('Evolução da ACME Demo', () => {
    * função. Só as duas juntas sustentam a afirmação.
    */
   it('congela a nota de partida em valores conhecidos', () => {
-    expect(notaDePartida('lucas.demo@vertho.ai', 'Leitura do contexto e identificação do problema')).toBe(1.8);
-    expect(notaDePartida('lucas.demo@vertho.ai', 'Critério de priorização e tomada de decisão')).toBe(2);
-    expect(notaDePartida('lucas.demo@vertho.ai', 'Execução com método e acompanhamento')).toBe(1.6);
-    expect(notaDePartida('lucas.demo@vertho.ai', 'Comunicação com stakeholders')).toBe(1.9);
+    expect(notaDePartida('lucas.demo@vertho.ai', 'Leitura do contexto e identificação do problema')).toBe(2.5);
+    expect(notaDePartida('lucas.demo@vertho.ai', 'Critério de priorização e tomada de decisão')).toBe(2.7);
+    expect(notaDePartida('lucas.demo@vertho.ai', 'Execução com método e acompanhamento')).toBe(2.3);
+    expect(notaDePartida('lucas.demo@vertho.ai', 'Comunicação com stakeholders')).toBe(2.6);
   });
 
   it('reflete a nota de partida no relatório sem recalcular por outro caminho', () => {
@@ -157,8 +157,8 @@ describe('Evolução da ACME Demo', () => {
       'confirmada',
     );
     const porDescritor = new Map(evolucao.descritores.map((d) => [d.descritor, d.nota_pre]));
-    expect(porDescritor.get('Leitura do contexto e identificação do problema')).toBe(1.8);
-    expect(porDescritor.get('Execução com método e acompanhamento')).toBe(1.6);
+    expect(porDescritor.get('Leitura do contexto e identificação do problema')).toBe(2.5);
+    expect(porDescritor.get('Execução com método e acompanhamento')).toBe(2.3);
   });
 
   it('o reset ALINHA o baseline do diagnóstico com o nota_pre do relatório', () => {
@@ -203,6 +203,7 @@ describe('Evolução da ACME Demo', () => {
       for (const d of evolucao.descritores) {
         expect(d.nota_pre).toBeGreaterThanOrEqual(1);
         expect(d.nota_pos).toBeLessThanOrEqual(4);
+        expect(d.nota_cenario).toBe(d.nota_pos);
         expect(d.descritor).toSatisfy((valor: string) => ACME_DEMO_DESCRITORES.includes(valor as any));
       }
       // A vitrine cobre a competência inteira: mostrar 4 de 6 comportamentos

@@ -1,5 +1,28 @@
 # Ambientes de Demonstração
 
+## Adoção e resultados do elenco online — 21/09/2026
+
+A fotografia da degustação B representa uma operação com boa adoção e desenvolvimento visível, mantendo casos que precisam de apoio. Não altera métricas comerciais de convidados reais.
+
+| Indicador do elenco | ACME / Sinal | Rede escolar |
+| --- | --- | --- |
+| Pessoas | 30 | 14 |
+| Com perfil (base do reset) | 28 (93%) | 13 (93%) |
+| Mapeamentos completos | 24 (80%) | 11 (79%) |
+| Jornadas iniciadas | 22 (73%) | 11 (79%) |
+| Jornadas concluídas | 19 de 22 (86%) | 9 de 11 (82%) |
+| Competências em N3/N4 | 80% | 76% |
+| Média do diagnóstico | 3,26 / 4 | 3,26 / 4 |
+
+- A home recorta o elenco antes de contar, inclusive quando há turma. Visitantes não entram no numerador nem no denominador. Jornadas iniciadas são pessoas distintas com temporada ativa ou concluída; a conclusão não desaparece da adesão. Os cartões distinguem concluídas, em andamento e atrasadas. Atraso é subconjunto de em andamento.
+- `adocao-resultados-fixture.ts` varia notas por pessoa, competência e descritor; o foco trabalhado usa o T0 de `evolucao-nucleo.ts` (2,2–2,8). Ganhos e classificações continuam na régua de produção. O fechamento grava `nota_cenario` explicitamente, compatível com a leitura externa dos dois cenários. O mesmo mix alimenta reset e atualização incremental: ACME/Sinal têm 15 evoluções confirmadas, 2 parciais e 2 estáveis; escola tem 7, 1 e 1. Bruna e Marina continuam navegáveis no meio da jornada, com conteúdo e evidências preservados.
+- `sincronizar-adocao.ts` valida tenant demo e elenco completo antes de escrever. Atualiza notas, fechamento, progresso, cadência, eventos editoriais e PDIs sintéticos do apoio. IDs de eventos são determinísticos; reexecutar com o mesmo relógio não duplica linhas. A data das personas ativas acompanha o progresso já existente; Rafael e Eduardo preservam os casos de atraso.
+- O reset chama a sincronização após artefatos aquecidos e antes de regenerar as leituras de gestor/RH. O script operacional usa o mesmo helper com backup externo ao repositório. Leitura, nível e PDF derivam das notas reais do fixture; PDFs afetados são invalidados. Consultas do panorama e dos documentos organizacionais paginam descritores (os simuladores levam a ACME acima de mil registros).
+- Onde os simuladores estão habilitados, 90% do elenco é selecionado, respeitando acesso por cargo. A maioria dos resultados está em N3/N4, há novas tentativas e mais encontros de liderança concluídos. Interações que alteraram um fixture são preservadas. Não são habilitados módulos desativados.
+- Os percentuais publicados podem avançar quando alguém interage com uma persona: o Sinal já tinha 29 perfis no início desta revisão, e isso foi preservado. Os pacotes offline continuam sendo retratos datados, independentes do banco online.
+
+Validação: 533 testes relacionados passaram; comparação antes/depois e repetição idempotente sobre cópias dos três tenants; testes de recorte do elenco, paginação acima de mil notas, falha parcial, régua e PDI. Backups e evidências ficam em `output/demo-adocao-20260921/` no workspace, fora do repositório público.
+
 ## Correções do QA e medição do funil — 21/09/2026
 
 - **Entrada e PDF publicados:** quatro entradas concorrentes ACME/Sinal passaram sem retry externo; PDF RH do Sinal respondeu 200 em visualização e download. A migração 266 protege geração + consumo de OTP por identidade entre instâncias, nas salas e na entrada pessoal das versões A/B. Convite válido com indisponibilidade volta à degustação. Nome de PDF usa fallback ASCII e `filename*=UTF-8''`.

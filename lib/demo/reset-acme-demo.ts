@@ -1,3 +1,5 @@
+import { sincronizarAdocaoDemo } from '@/lib/demo/sincronizar-adocao';
+import { MIX_RESULTADOS_DEMO, notaPanoramaDemo } from '@/lib/demo/adocao-resultados-fixture';
 import { sincronizarLeiturasDemo } from '@/lib/demo/relatorios-coerentes';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { entrarComOtpDemo } from '@/lib/demo/auth-lock';
@@ -673,11 +675,7 @@ export function comportamentosDoDisc(D: number, I: number, S: number, C: number)
  * ("a plataforma também diz quem NÃO evoluiu"); não há regressão porque a régua
  * não tem (ninguém desaprende uma competência).
  */
-const MIX_EVOLUCAO_PANORAMA: PerfilEvolucao[] = [
-  'confirmada', 'parcial', 'confirmada', 'estavel',
-  'confirmada', 'confirmada', 'parcial', 'confirmada',
-  'estavel', 'confirmada', 'parcial', 'confirmada',
-];
+const MIX_EVOLUCAO_PANORAMA = MIX_RESULTADOS_DEMO;
 
 const strip = (row: any, extra: string[] = []) => {
   const out = { ...row };
@@ -1988,8 +1986,8 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
   }
 
   /**
-   * Fotografia executiva da ACME: 30 → 28 → 25 → 20, com 17 jornadas em dia
-   * e 3 atrasadas. O funil é material de apresentação, mas continua usando as
+   * Fotografia executiva da ACME: 30 → 28 → 24 → 22, com 19 jornadas concluídas
+   * e dois casos de apoio. O funil é material de apresentação, mas continua usando as
    * mesmas tabelas e a mesma régua do produto — nenhum número é sobrescrito na
    * camada visual.
    */
@@ -2053,7 +2051,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
             cargo: pessoa.cargo,
             competencia,
             descritor,
-            nota: 2.6,
+            nota: notaPanoramaDemo(pessoa.email, competencia, descritor),
             origem: 'demo_panorama',
             assessment_date: agora,
             // `nivel` é GENERATED ALWAYS: inserir derruba o insert inteiro.
@@ -2198,7 +2196,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
         );
 
         // O T0 dos comportamentos trabalhados passa a ser o do RELATÓRIO. O
-        // laço acima gravou uma nota única para todos: mantê-la faria a tela de
+        // laço acima gravou o repertório de cada pessoa: mantê-lo aqui faria a tela de
         // diagnóstico e a de evolução mostrarem notas de partida diferentes
         // para a mesma pessoa, no mesmo comportamento.
         //
@@ -2579,6 +2577,7 @@ export async function resetDemoTenant(slug: DemoTenantSlug): Promise<ResetDemoRe
     await restoreWarmArtifacts(demo.id, personaMap, warmSnapshot);
     await seedAcmeRhReportCenter(demo.id);
     await seedConsolidadoRh(demo.id);
+    await sincronizarAdocaoDemo(sb, demo.id);
     await sincronizarLeiturasDemo(sb, demo.id, slug);
     if (slug === DEMO_SLUG) {
       await seedAcmeOrganizationReports(sb, demo.id, DEMO_NAME);

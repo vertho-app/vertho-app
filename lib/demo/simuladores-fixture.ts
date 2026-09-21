@@ -23,7 +23,7 @@ export function idDemoSimulador(chave: string) {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 export const dataDemo = (agora: Date, dias: number) => new Date(agora.getTime() - dias * 86400000).toISOString();
-const nivel = (pessoa: number, competencia: number, tentativa = 0) => Math.min(4, 1 + ((pessoa + competencia) % 3) + tentativa) as 1 | 2 | 3 | 4;
+const nivel = (pessoa: number, competencia: number, tentativa = 0) => Math.min(4, ([3, 3, 2, 3, 4][(pessoa + competencia) % 5]) + tentativa) as 1 | 2 | 3 | 4;
 
 export function treinoAtendimentoDemo(cenario: Cenario, id: string, pessoa: number, tentativa: number) {
   const s = abrirSessao(aplicarMatrizAtendimento(cenario), 0);

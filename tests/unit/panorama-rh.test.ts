@@ -18,9 +18,10 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
 
 /** `sys_config` da empresa — os testes trocam para exercitar a fonte externa. */
 let sysConfig: any = {};
+let isDemo = false;
 
 const sb = criarSupabaseMock({
-  resolver: (tabela) => (tabela === 'empresas' ? { nome: 'Prefeitura de Exemplo', sys_config: sysConfig } : null),
+  resolver: (tabela) => (tabela === 'empresas' ? { nome: 'Prefeitura de Exemplo', sys_config: sysConfig, is_demo: isDemo } : null),
   contagem: (tabela) => (tabela === 'colaboradores' ? 7 : null),
   lista: (tabela) =>
     tabela === 'trilhas'
@@ -35,9 +36,9 @@ const sb = criarSupabaseMock({
         ]
       : tabela === 'colaboradores'
         ? [
-            { id: 'p1', cargo: 'Vendas' },
-            { id: 'p2', cargo: 'Vendas' },
-            { id: 'p3', cargo: 'Financeiro' },
+            { id: 'p1', cargo: 'Vendas', email: 'bruna.demo@vertho.ai' },
+            { id: 'p2', cargo: 'Vendas', email: 'paulo.demo@vertho.ai' },
+            { id: 'p3', cargo: 'Financeiro', email: 'convidado.acme.123@vertho.ai' },
           ]
         : tabela === 'cargos_empresa'
           ? [
@@ -61,7 +62,21 @@ vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 import { carregarPanoramaRH } from '@/lib/home/loaders';
 
 describe('panorama do RH', () => {
-  beforeEach(() => { sb.reset(); sysConfig = {}; });
+  beforeEach(() => { sb.reset(); sysConfig = {}; isDemo = false; });
+
+  it('deduplica jornadas iniciadas e concluídas por pessoa', async () => {
+    const p = await carregarPanoramaRH('emp-1');
+    expect(p.jornadasEncerradas).toBe(3);
+    expect(p.jornadasIniciadas).toBe(3);
+  });
+
+  it('recorta o elenco em todos os contadores da demo, inclusive com turma', async () => {
+    isDemo = true;
+    await carregarPanoramaRH('emp-1', { colaboradorIds: ['p1', 'p3'] });
+    const recortes = sb.chamadas.filter(c => c.metodo === 'in' && ['id', 'colaborador_id'].includes(c.args[0]));
+    expect(recortes.length).toBeGreaterThanOrEqual(6);
+    for (const c of recortes) expect(c.args[1]).toEqual(['p1']);
+  });
 
   it('conta PESSOAS em jornada, não linhas de trilha', async () => {
     const p = await carregarPanoramaRH('emp-1');
@@ -138,7 +153,7 @@ describe('panorama do RH', () => {
  * `recortar()` quebra o teste, mesmo que as outras continuem filtrando.
  */
 describe('panorama do RH: recorte por turma', () => {
-  beforeEach(() => { sb.reset(); sysConfig = {}; });
+  beforeEach(() => { sb.reset(); sysConfig = {}; isDemo = false; });
 
   /** Quantas vezes esta tabela foi CONSULTADA vs. quantas foi RECORTADA. */
   function cobertura(tabela: string, coluna: string) {

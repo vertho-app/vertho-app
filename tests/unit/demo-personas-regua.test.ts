@@ -37,30 +37,21 @@ describe('Personas do acme-demo seguem a régua do produto', () => {
     expect(ACME_DEMO_REPORT_DIRECTORY.filter((p) => p.role === 'gestor')).toHaveLength(3);
   });
 
-  it('mantém o funil executivo em 30 / 28 / 24 / 19 / 16 / 3, com 15 concluídas', () => {
-    // 04/09/2026: `behind` foi de 3 para 4 (Rafael, do time da Carla) para o
-    // card "Ação esta semana" da home do gestor deixar de nascer vazio: ele
-    // mostra quem PAROU, e nenhum dos três atrasados anteriores era liderado da
-    // persona pela qual a demo abre a visão de gestor. `onTrack` e `concluded`
-    // são DERIVADOS e acompanham: quem parou não está em dia nem concluiu.
-    //
-    // 16/09/2026: 25 / 20 / 4 viraram 24 / 19 / 3. A gestão comercial passou a
-    // só liderar, e o Marcelo (Gerente Comercial do diretório) saiu do
-    // mapeamento, da jornada e dos atrasados. As 15 concluídas são as mesmas.
+  it('mantém o funil em 30 / 28 / 24 / 22, com 19 concluídas e dois casos de apoio', () => {
     expect(ACME_DEMO_FUNNEL_TARGETS).toEqual({
       people: 30,
       withProfile: 28,
       withMapping: 24,
-      inJourney: 19,
-      onTrack: 16,
-      behind: 3,
-      concluded: 15,
+      inJourney: 22,
+      onTrack: 20,
+      behind: 2,
+      concluded: 19,
     });
     expect(ACME_DEMO_TEAM_SIZE - ACME_DEMO_WITHOUT_PROFILE_KEYS.length).toBe(28);
     expect(new Set(ACME_DEMO_MAPPED_KEYS).size).toBe(ACME_DEMO_FUNNEL_TARGETS.withMapping);
     expect(new Set(ACME_DEMO_JOURNEY_KEYS).size).toBe(ACME_DEMO_FUNNEL_TARGETS.inJourney);
     expect(new Set(ACME_DEMO_BEHIND_KEYS).size).toBe(ACME_DEMO_FUNNEL_TARGETS.behind);
-    expect(ACME_DEMO_JOURNEY_KEYS.filter((key) => !ACME_DEMO_BEHIND_KEYS.includes(key))).toHaveLength(16);
+    expect(ACME_DEMO_JOURNEY_KEYS.filter((key) => !ACME_DEMO_BEHIND_KEYS.includes(key))).toHaveLength(20);
     expect(ACME_DEMO_JOURNEY_KEYS.every((key) => ACME_DEMO_MAPPED_KEYS.includes(key))).toBe(true);
   });
 

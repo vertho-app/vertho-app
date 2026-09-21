@@ -1,3 +1,4 @@
+import { nivelDaNota } from '@/lib/nivel-regua';
 export type AcmeDemoDirectoryPerson = {
   key: string;
   nome_completo: string;
@@ -76,27 +77,12 @@ export const ACME_DEMO_REPORT_DIRECTORY: AcmeDemoDirectoryPerson[] = [
 export const ACME_DEMO_FUNNEL_TARGETS = Object.freeze({
   people: ACME_DEMO_TEAM_SIZE,
   withProfile: 28,
-  /**
-   * 16/09/2026: 25 → 24 e 20 → 19 (e `behind` 4 → 3). O Marcelo, Gerente
-   * Comercial do diretório, era mapeado, estava em jornada e atrasado; o cargo
-   * passou a só liderar. `onTrack` e `concluded` não mudam: as mesmas 15 pessoas
-   * concluem, na mesma ordem.
-   */
   withMapping: 24,
-  inJourney: 19,
-  onTrack: 16,
-  behind: 3,
-  /**
-   * Jornadas com o fechamento feito e Evolution Report gravado. É um SUBCONJUNTO
-   * de `onTrack` (quem concluiu está em dia por definição), e não um estágio
-   * paralelo: somar `concluded` com `onTrack` conta gente duas vezes.
-   *
-   * Existe desde 01/09/2026 porque a prova de evolução só nasce no fechamento,
-   * e sem nenhuma jornada concluída a demo mostrava a mesma tela vazia que a
-   * produção. As 4 restantes ficam em andamento de propósito: um painel em que
-   * 100% concluiu não deixa ver o recorte "quem ainda está no meio".
-   */
-  concluded: 15,
+  inJourney: 22,
+  onTrack: 20,
+  behind: 2,
+  // Subconjunto das jornadas iniciadas e em dia; Bruna segue em andamento.
+  concluded: 19,
 });
 
 export const ACME_DEMO_WITHOUT_PROFILE_KEYS = ['ana', 'vanessa'] as const;
@@ -116,28 +102,8 @@ export const ACME_DEMO_JOURNEY_KEYS = ACME_DEMO_MAPPED_KEYS.slice(
   ACME_DEMO_FUNNEL_TARGETS.inJourney,
 );
 
-/**
- * Quem está atrasado na jornada.
- *
- * Os dois primeiros são o gestor de Operações e uma pessoa de operações, e a
- * escolha não é decorativa: eles são os únicos do cargo deles entre quem entrou
- * em jornada, então deixá-los concluir produziria competências medidas com UMA
- * pessoa só no painel de evolução: uma média de n=1 apresentada ao lado de
- * médias de n=9, com o mesmo peso visual. Até 16/09/2026 o Marcelo (Gerente
- * Comercial) abria a lista pela mesma razão; o cargo passou a só liderar e ele
- * saiu da jornada.
- *
- * **Rafael entrou em 04/09/2026** por um motivo diferente: o card "Ação esta
- * semana" da home do gestor mostra quem PAROU, e nenhum dos três anteriores é
- * liderado da Carla — a persona pela qual a demo abre a visão de gestor. O card
- * ficava permanentemente vazio numa tela cujo propósito é dar ao gestor o que
- * fazer nesta semana. Ele é do time dela e é quem o painel de evolução já
- * descreve como "precisa transformar intenção em ação observável", então o
- * atraso confirma o texto ao lado em vez de contradizê-lo. Há outros quatro
- * Representantes Comerciais entre os concluídos, então a média do cargo não
- * cai para n=1.
- */
-export const ACME_DEMO_BEHIND_KEYS = ['eduardo', 'debora', 'rafael'];
+/** Dois casos de apoio: Rafael, liderado da Carla, e Eduardo em Operações. */
+export const ACME_DEMO_BEHIND_KEYS = ['eduardo', 'rafael'];
 
 /**
  * A persona navegável do participante. A jornada EM ANDAMENTO dela é o roteiro
@@ -214,16 +180,22 @@ export function avaliacaoAcmeDemo(email: string, competencia: string) {
 
 export function criarPdiAcmeDemo(
   person: { nome_completo: string; email: string; cargo: string; area_depto?: string | null },
-  programa: { totalSemanas?: number; programaModo?: string | null } = {},
+  programa: { totalSemanas?: number; programaModo?: string | null; avaliacoes?: Array<{ competencia: string; nota: number }> } = {},
 ) {
   const totalSemanas = programa.totalSemanas ?? 14;
   const competenciasCargo = competenciasAcmeDemoPorCargo(person.cargo);
   const seed = seedOf(person.email);
-  const prioridades = [
+  const prioridadesBase = [
     competenciasCargo[seed % Math.max(1, competenciasCargo.length)],
     competenciasCargo[(seed + 2) % Math.max(1, competenciasCargo.length)],
   ].filter((value, index, list): value is string => Boolean(value) && list.indexOf(value) === index);
-  const resultados = competenciasCargo.map((competencia) => ({ competencia, ...avaliacaoAcmeDemo(person.email, competencia) }));
+  const resultados = competenciasCargo.map((competencia) => {
+    const medida = programa.avaliacoes?.find(a => a.competencia === competencia);
+    return { competencia, ...avaliacaoAcmeDemo(person.email, competencia), ...(medida ? { nota: medida.nota, nivel: nivelDaNota(medida.nota) } : {}) };
+  });
+  const prioridades = programa.avaliacoes?.length
+    ? [...programa.avaliacoes].sort((a, b) => a.nota - b.nota).slice(0, 2).map(a => a.competencia)
+    : prioridadesBase;
   const competencias = prioridades.map((nome) => {
     const avaliacao = resultados.find((item) => item.competencia === nome)!;
     return {

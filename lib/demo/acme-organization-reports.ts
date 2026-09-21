@@ -1,3 +1,4 @@
+import { lerPaginas } from '@/lib/db/ler-paginas';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { renderDnaPDF } from '@/lib/dna-organizacional-pdf';
 import { renderPerfilOrgPDF } from '@/lib/perfil-organizacional-pdf';
@@ -35,7 +36,7 @@ export async function buildAcmeOrganizationReportArtifacts(
 ): Promise<AcmeOrganizationReportArtifacts> {
   const [peopleResult, assessmentsResult, rolesResult] = await Promise.all([
     sb.from('colaboradores').select('*').eq('empresa_id', empresaId).neq('role', 'rh'),
-    sb.from('descriptor_assessments').select('colaborador_id,competencia').eq('empresa_id', empresaId),
+    lerPaginas((inicio, fim) => sb.from('descriptor_assessments').select('colaborador_id,competencia').eq('empresa_id', empresaId).order('id').range(inicio, fim)),
     sb.from('cargos_empresa').select('nome,top5_workshop').eq('empresa_id', empresaId),
   ]);
   if (peopleResult.error) throw new Error(`relatórios organizacionais ACME: pessoas: ${peopleResult.error.message}`);
