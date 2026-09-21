@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, Trophy, Target, Download, Award } from 'lucide-react';
@@ -15,6 +15,8 @@ import RelatorioTemporadaConcluida from '@/components/temporada/relatorio-tempor
 export default function TemporadaConcluidaPage() {
   const t = useTranslations('SeasonDone');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const trilhaHistoricaId = searchParams.get('trilha');
   const sb = getSupabase();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,12 +26,12 @@ export default function TemporadaConcluidaPage() {
     (async () => {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { router.replace('/login'); return; }
-      const r = await loadTemporadaConcluida(user.email);
+      const r = await loadTemporadaConcluida(user.email, trilhaHistoricaId || undefined);
       if (r.error) setError(r.error);
       else setData(r);
       setLoading(false);
     })();
-  }, [router, sb]);
+  }, [router, sb, trilhaHistoricaId]);
 
   if (loading) return <Center><Loader2 className="animate-spin text-brand-400" /></Center>;
   if (error) return <Center><div className="text-center"><p className="text-gray-400">{error}</p><button onClick={() => router.push('/dashboard/temporada')} className="text-brand-400 text-xs mt-3">{t('back')}</button></div></Center>;
@@ -43,11 +45,11 @@ export default function TemporadaConcluidaPage() {
   if (evolutionReport?.modo === 'piloto') {
     return (
       <PageContainer>
-        <BackButton href="/dashboard/temporada" />
+        <BackButton href={trilhaHistoricaId ? `/dashboard/jornada/historico/${encodeURIComponent(trilhaHistoricaId)}` : '/dashboard/temporada'} />
         {/* Degustação SEM fechamento: não há avaliação → PDF do piloto não se aplica */}
         {!evolutionReport?.sem_fechamento && (
           <div className="flex items-center justify-end mb-4">
-            <PdfButton sb={sb} numeroTemporada={trilha.numeroTemporada} label={t('downloadPdf')} errorLabel={t('pdfError')} />
+            <PdfButton sb={sb} numeroTemporada={trilha.numeroTemporada} trilhaId={trilhaHistoricaId} label={t('downloadPdf')} errorLabel={t('pdfError')} />
           </div>
         )}
 
@@ -150,19 +152,21 @@ export default function TemporadaConcluidaPage() {
 
   return (
     <PageContainer>
-      <BackButton href="/dashboard/temporada" />
+      <BackButton href={trilhaHistoricaId ? `/dashboard/jornada/historico/${encodeURIComponent(trilhaHistoricaId)}` : '/dashboard/temporada'} />
       <div className="flex items-center justify-end mb-4 gap-2">
         <CertificadoButton
           sb={sb}
           numeroTemporada={trilha.numeroTemporada}
           certificado={data.certificado}
+          trilhaId={trilhaHistoricaId}
           label={t('downloadCertificate')}
           errorLabel={t('certificateError')}
           notEligibleLabel={(pct) => t('certificateNotEligible', { pct })}
         />
         <button onClick={async () => {
           const { data: { session } } = await sb.auth.getSession();
-          const res = await fetch('/api/temporada/concluida/pdf', {
+          const query = trilhaHistoricaId ? `?trilha=${encodeURIComponent(trilhaHistoricaId)}` : '';
+          const res = await fetch(`/api/temporada/concluida/pdf${query}`, {
             headers: { Authorization: `Bearer ${session?.access_token}` },
           });
           if (!res.ok) { alert(t('pdfError')); return; }
@@ -183,7 +187,7 @@ export default function TemporadaConcluidaPage() {
   );
 }
 
-function CertificadoButton({ sb, numeroTemporada, certificado, label, errorLabel, notEligibleLabel }) {
+function CertificadoButton({ sb, numeroTemporada, certificado, trilhaId, label, errorLabel, notEligibleLabel }) {
   const inelegivel = certificado && !certificado.elegivel;
   return (
     <div className="flex flex-col items-end">
@@ -192,7 +196,8 @@ function CertificadoButton({ sb, numeroTemporada, certificado, label, errorLabel
         title={inelegivel ? notEligibleLabel(certificado.pct) : undefined}
         onClick={async () => {
           const { data: { session } } = await sb.auth.getSession();
-          const res = await fetch('/api/temporada/certificado/pdf', {
+          const query = trilhaId ? `?trilha=${encodeURIComponent(trilhaId)}` : '';
+          const res = await fetch(`/api/temporada/certificado/pdf${query}`, {
             headers: { Authorization: `Bearer ${session?.access_token}` },
           });
           if (!res.ok) {
@@ -225,11 +230,12 @@ function CertificadoButton({ sb, numeroTemporada, certificado, label, errorLabel
   );
 }
 
-function PdfButton({ sb, numeroTemporada, label, errorLabel }) {
+function PdfButton({ sb, numeroTemporada, trilhaId, label, errorLabel }) {
   return (
     <button onClick={async () => {
       const { data: { session } } = await sb.auth.getSession();
-      const res = await fetch('/api/temporada/concluida/pdf', {
+      const query = trilhaId ? `?trilha=${encodeURIComponent(trilhaId)}` : '';
+      const res = await fetch(`/api/temporada/concluida/pdf${query}`, {
         headers: { Authorization: `Bearer ${session?.access_token}` },
       });
       if (!res.ok) { alert(errorLabel); return; }

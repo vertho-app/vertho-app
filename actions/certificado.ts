@@ -77,7 +77,7 @@ async function carregarLogoTenant(logoUrl: unknown): Promise<string | null> {
  * Retorna `{ error, motivo }` nos bloqueios — motivo: 'piloto' |
  * 'participacao' — pra rota responder 409 e a UI explicar o critério.
  */
-export async function loadCertificadoData(email: string) {
+export async function loadCertificadoData(email: string, trilhaId?: string) {
   const ctx = await requireUserAction();
   if (!email) return { error: 'Não autenticado' };
 
@@ -90,11 +90,13 @@ export async function loadCertificadoData(email: string) {
   // de posse já passou, e o filtro garante que trilha/progresso lidos são dele.
   const tdb = tenantDb(colab.empresa_id);
 
-  const { data: trilha, error: errTrilha } = await tdb.from('trilhas')
+  let trilhaQuery = tdb.from('trilhas')
     .select('id, numero_temporada, competencia_foco, competencias_foco, data_inicio, evolution_generated_at, temporada_plano, evolution_report, programa_modo, empresa_id, status')
-    .eq('colaborador_id', colab.id)
-    .order('criado_em', { ascending: false })
-    .limit(1).maybeSingle();
+    .eq('colaborador_id', colab.id);
+  trilhaQuery = trilhaId
+    ? trilhaQuery.eq('id', trilhaId)
+    : trilhaQuery.order('criado_em', { ascending: false }).limit(1);
+  const { data: trilha, error: errTrilha } = await trilhaQuery.maybeSingle();
   // Falha de banco ≠ "não tem trilha": a segunda manda a pessoa procurar o RH.
   if (errTrilha) return { error: `Não foi possível ler a sua trilha agora: ${errTrilha.message}`, motivo: 'falha_leitura' };
   if (!trilha) return { error: 'Nenhuma trilha encontrada' };

@@ -22,6 +22,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const emailParam = searchParams.get('email');
+    const trilhaId = searchParams.get('trilha') || undefined;
 
     let emailAlvo = auth.email;
     if (emailParam && emailParam.trim() && emailParam.trim().toLowerCase() !== auth.email) {
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
       emailAlvo = emailParam.trim().toLowerCase();
     }
 
-    const dados = await loadCertificadoData(emailAlvo);
+    const dados = await loadCertificadoData(emailAlvo, trilhaId);
     if ((dados as any).error) {
       const d = dados as any;
       const status = d.motivo === 'piloto' || d.motivo === 'participacao' ? 409 : 404;

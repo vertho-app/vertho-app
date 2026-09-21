@@ -56,9 +56,10 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
   const router = useRouter();
   const searchParams = useSearchParams();
   const colaboradorAlvo = searchParams.get('colaborador');
+  const trilhaHistoricaId = searchParams.get('trilha');
   // Um ID de terceiro sempre ativa a prévia somente leitura. `origem` é apenas
   // navegação e nunca participa da autorização.
-  const visaoLeitura = !!colaboradorAlvo;
+  const visaoLeitura = !!colaboradorAlvo || !!trilhaHistoricaId;
   const sb = getSupabase();
 
   const [data, setData] = useState(null);
@@ -214,8 +215,12 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { router.replace('/login'); return; }
       const r = colaboradorAlvo
-        ? await loadTemporada(colaboradorAlvo, { semanaTranscrito: semanaNum })
-        : await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum });
+        ? trilhaHistoricaId
+          ? await loadTemporada(colaboradorAlvo, { semanaTranscrito: semanaNum, trilhaId: trilhaHistoricaId })
+          : await loadTemporada(colaboradorAlvo, { semanaTranscrito: semanaNum })
+        : trilhaHistoricaId
+          ? await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum, trilhaId: trilhaHistoricaId })
+          : await loadTemporadaPorEmail(user.email, { semanaTranscrito: semanaNum });
       if (!r.error) {
         setData(r);
         const semana = (r.trilha?.temporada_plano || []).find(s => s.semana === semanaNum);
@@ -245,7 +250,7 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
       }
       setLoading(false);
     })();
-  }, [colaboradorAlvo, router, sb, searchParams, semanaNum]);
+  }, [colaboradorAlvo, router, sb, searchParams, semanaNum, trilhaHistoricaId]);
 
   if (loading) return <Center><Loader2 className="animate-spin text-brand-400" /></Center>;
   if (!data?.trilha) return <Center><p className="text-gray-400">{t('errors.seasonNotFound')}</p></Center>;
@@ -486,9 +491,11 @@ export default function SemanaPage({ params }: { params: Promise<{ week: string 
 
   return (
     <PageContainer>
-      <BackButton href={visaoLeitura && colaboradorAlvo
-        ? `/dashboard/temporada?colaborador=${encodeURIComponent(colaboradorAlvo)}&origem=gestor`
-        : '/dashboard/temporada'} />
+      <BackButton href={trilhaHistoricaId
+        ? `/dashboard/jornada/historico/${encodeURIComponent(trilhaHistoricaId)}`
+        : visaoLeitura && colaboradorAlvo
+          ? `/dashboard/temporada?colaborador=${encodeURIComponent(colaboradorAlvo)}&origem=gestor`
+          : '/dashboard/temporada'} />
 
       {/* Header */}
       <div className="mb-6">

@@ -997,7 +997,8 @@
       "current": "Estás en la",
       "phaseTitle": "Fase {phase} — {title}",
       "done": "Itinerario concluido 🎉",
-      "progress": "{done} de {total} fases concluidas · {name}"
+      "progress": "{done} de {total} fases concluidas · {name}",
+      "history": "Ver historial"
     },
     "hero": {
       "currentPhase": "Fase actual",
@@ -1032,6 +1033,39 @@
       "default": "Finaliza esta fase para avanzar en tu itinerario de desarrollo.",
       "done": "Visualiza tu informe consolidado de evolución y próximos pasos."
     }
+  },
+  "JourneyHistory": {
+    "eyebrow": "Historial de recorridos",
+    "title": "El camino que ya recorriste, {name}",
+    "subtitle": "Vuelve a abrir temporadas concluidas para revisar tus informes, contenidos y misiones tal como quedaron registrados.",
+    "season": "Temp.",
+    "latest": "Conclusión más reciente",
+    "completed": "Recorrido concluido",
+    "developmentJourney": "Recorrido de desarrollo",
+    "contents": "{count} contenidos",
+    "reportReady": "Informe disponible",
+    "reportUnavailable": "Informe en proceso",
+    "accessNote": "Tu historial permanece disponible mientras tu empresa mantenga el acceso a la plataforma.",
+    "empty": {
+      "title": "Tu historial comienza con la primera conclusión",
+      "description": "Cuando concluyas un recorrido, su informe y sus contenidos aparecerán aquí."
+    },
+    "notFound": "No se encontró el recorrido concluido.",
+    "seasonCompleted": "Temporada {number} concluida",
+    "period": "{start} — {end}",
+    "weeks": "{count} semanas",
+    "actions": {
+      "report": "Revisar informe",
+      "reportDescription": "Resultados, avances, evidencias y próximos pasos.",
+      "preserved": "Registro preservado",
+      "preservedDescription": "Este recorrido sigue disponible en modo de solo lectura."
+    },
+    "contentsEyebrow": "Archivo del recorrido",
+    "contentsTitle": "Contenidos y misiones",
+    "items": "{count} elementos",
+    "week": "Semana {number}",
+    "practice": "Misión",
+    "content": "Contenido"
   },
   "Profile": {
     "heroEyebrow": "MI PERFIL",

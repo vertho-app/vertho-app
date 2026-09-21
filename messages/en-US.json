@@ -997,7 +997,8 @@
       "current": "You are in",
       "phaseTitle": "Phase {phase} — {title}",
       "done": "Journey completed 🎉",
-      "progress": "{done} of {total} phases completed · {name}"
+      "progress": "{done} of {total} phases completed · {name}",
+      "history": "View history"
     },
     "hero": {
       "currentPhase": "Current phase",
@@ -1032,6 +1033,39 @@
       "default": "Finish this phase to advance on your development journey.",
       "done": "View your consolidated progress report and next steps."
     }
+  },
+  "JourneyHistory": {
+    "eyebrow": "Journey history",
+    "title": "The path you have already traveled, {name}",
+    "subtitle": "Reopen completed seasons to review your reports, content, and missions exactly as they were recorded.",
+    "season": "Season",
+    "latest": "Most recent completion",
+    "completed": "Journey completed",
+    "developmentJourney": "Development journey",
+    "contents": "{count} content items",
+    "reportReady": "Report available",
+    "reportUnavailable": "Report processing",
+    "accessNote": "Your history remains available while your company keeps access to the platform.",
+    "empty": {
+      "title": "Your history starts with your first completion",
+      "description": "Once a journey is completed, its report and content will appear here."
+    },
+    "notFound": "Completed journey not found.",
+    "seasonCompleted": "Season {number} completed",
+    "period": "{start} — {end}",
+    "weeks": "{count} weeks",
+    "actions": {
+      "report": "Review report",
+      "reportDescription": "Results, progress, evidence, and next steps.",
+      "preserved": "Record preserved",
+      "preservedDescription": "This journey remains available in read-only mode."
+    },
+    "contentsEyebrow": "Journey archive",
+    "contentsTitle": "Content and missions",
+    "items": "{count} items",
+    "week": "Week {number}",
+    "practice": "Mission",
+    "content": "Content"
   },
   "Profile": {
     "heroEyebrow": "MY PROFILE",

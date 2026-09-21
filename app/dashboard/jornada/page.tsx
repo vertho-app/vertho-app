@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
-import { Loader2, Check, ArrowRight, Clock } from 'lucide-react';
+import { Loader2, Check, ArrowRight, Clock, Archive } from 'lucide-react';
 import { loadJornada } from './jornada-actions';
 
 const FASE_HREF: Record<number, string> = {
@@ -141,6 +141,12 @@ export default function JornadaPage() {
         <p className="text-sm text-white/55">
           {t('header.progress', { done: concluidas, total, name: firstName || colaborador.nome_completo })}
         </p>
+        <button
+          onClick={() => router.push('/dashboard/jornada/historico')}
+          className="mt-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-white/65 transition hover:border-brand-300/30 hover:text-brand-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300/60"
+        >
+          <Archive size={14} /> {t('header.history')}
+        </button>
       </header>
 
       <main className="flex-1 px-5 pb-28 space-y-6">

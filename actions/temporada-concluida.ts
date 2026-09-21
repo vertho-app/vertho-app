@@ -10,7 +10,7 @@ import { calcularParticipacao } from '@/lib/season-engine/participacao';
  * Consolida: evolution_report + momentos literais de TODAS as semanas +
  * cenário B (semana final de avaliação) + resposta + devolutiva.
  */
-export async function loadTemporadaConcluida(email: string) {
+export async function loadTemporadaConcluida(email: string, trilhaId?: string) {
   const ctx = await requireUserAction();
   if (!email) return { error: 'Não autenticado' };
 
@@ -27,11 +27,14 @@ export async function loadTemporadaConcluida(email: string) {
   // colab, gestor da mesma área, RH/tutor do tenant e platform admin.
   if (!canViewColabJourney(ctx, colab)) return { error: 'Sem permissão' };
 
-  const { data: trilha } = await sb.from('trilhas')
+  let trilhaQuery = sb.from('trilhas')
     .select('id, competencia_foco, competencias_foco, numero_temporada, status, evolution_report, descritores_selecionados, temporada_plano')
     .eq('colaborador_id', colab.id)
-    .order('criado_em', { ascending: false })
-    .limit(1).maybeSingle();
+    .eq('empresa_id', colab.empresa_id);
+  trilhaQuery = trilhaId
+    ? trilhaQuery.eq('id', trilhaId)
+    : trilhaQuery.order('criado_em', { ascending: false }).limit(1);
+  const { data: trilha } = await trilhaQuery.maybeSingle();
   if (!trilha) return { error: 'Nenhuma trilha encontrada' };
   if (trilha.status !== 'concluida') return { error: 'Temporada ainda não concluída' };
 

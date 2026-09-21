@@ -19,6 +19,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const emailParam = searchParams.get('email');
+    const trilhaId = searchParams.get('trilha') || undefined;
 
     let emailAlvo = auth.email;
     if (emailParam && emailParam.trim() && emailParam.trim().toLowerCase() !== auth.email) {
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
       emailAlvo = emailParam.trim().toLowerCase();
     }
 
-    const dados = await loadTemporadaConcluida(emailAlvo);
+    const dados = await loadTemporadaConcluida(emailAlvo, trilhaId);
     if (dados.error) return NextResponse.json({ error: dados.error }, { status: 404 });
 
     // A marca é do TENANT, não da rota: cliente white-label recebe o PDF com o

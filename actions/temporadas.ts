@@ -28,7 +28,7 @@ interface GerarTemporadaParams {
 /**
  * Wrapper: carrega temporada do colab logado via email.
  */
-export async function loadTemporadaPorEmail(email: string, opts: { semanaTranscrito?: number } = {}) {
+export async function loadTemporadaPorEmail(email: string, opts: { semanaTranscrito?: number; trilhaId?: string } = {}) {
   try {
     await requireUserAction();
     const colab = await findColabByEmail(email, 'id');
@@ -792,7 +792,7 @@ export async function loadProgressoDetalhado(trilhaId: string) {
 /**
  * Carrega a temporada ativa de um colaborador (com plano + progresso).
  */
-export async function loadTemporada(colaboradorId: string, opts: { semanaTranscrito?: number } = {}) {
+export async function loadTemporada(colaboradorId: string, opts: { semanaTranscrito?: number; trilhaId?: string } = {}) {
   try {
     const ctx = await requireUserAction();
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
@@ -818,9 +818,12 @@ export async function loadTemporada(colaboradorId: string, opts: { semanaTranscr
     // o wrapper garante que o filtro vai.
     const tdb = tenantDb(colaborador.empresa_id);
 
-    const { data: trilha } = await tdb.from('trilhas')
-      .select('*').eq('colaborador_id', colaboradorId)
-      .order('criado_em', { ascending: false }).limit(1).maybeSingle();
+    let trilhaQuery = tdb.from('trilhas')
+      .select('*').eq('colaborador_id', colaboradorId);
+    trilhaQuery = opts.trilhaId
+      ? trilhaQuery.eq('id', opts.trilhaId)
+      : trilhaQuery.order('criado_em', { ascending: false }).limit(1);
+    const { data: trilha } = await trilhaQuery.maybeSingle();
     if (!trilha) return { error: 'Sem temporada' };
 
     // Progresso LEVE: sem os 3 JSONB de transcript (reflexao/feedback/tira_duvidas),
