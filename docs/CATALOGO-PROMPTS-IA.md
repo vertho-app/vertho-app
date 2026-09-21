@@ -1711,7 +1711,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Modelo**: herdado do `aiConfig`/`model` do caller. **Max tokens**: 1500. Até **3 tentativas** — se o JSON não parsear, reforça "SOMENTE JSON" e repete; falha 3× lança.
 - **System prompt**: "Você é designer instrucional da Vertho. Destile o NÚCLEO CONCEITUAL de um tema… a espinha que TODOS os formatos (vídeo, podcast, texto, estudo de caso) vão expressar para 'dizer a mesma coisa'." O núcleo é **NEUTRO de perfil (não personaliza por DISC) e NEUTRO de formato**.
 - **Output**: JSON `{ideia_central, pontos_chave[3], exemplo_ancora}` — 1 frase-síntese, exatamente 3 pilares, 1 situação concreta sem nome próprio.
-- **Inputs user**: competência, descritor, faixa de nível (1-4), cargo, contexto + **matéria-prima canônica** do Módulo-Base quando existir ("preserve as bases") + `pppBrief` como *lente de aplicação, sem citar o nome da instituição*.
+- **Inputs user**: competência, descritor, faixa de nível (1-4), cargo, contexto + **matéria-prima canônica** do Módulo-Base quando existir ("preserve as bases") + `pppBrief` como *lente de aplicação, sem citar o nome da instituição* + **ficha do cargo** (12.6, desde 21/09/2026).
 - **Consumido por**: 12.2 (desafio) e 12.3 (appendix de cada formato).
 
 ### 12.2 Kit — Desafio da semana por perfil DISC
@@ -1721,6 +1721,7 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **Modelo**: mesmo do brief.
 - **System prompt**: micro-ação **prática e observável** (não conteúdo, não dica, não reflexão), 2-3 frases, viável na semana, singular. `LENTE_DISC[disc]` define **por onde a ação engaja** aquele perfil — e há regra explícita: **nunca citar DISC, siglas ou o nome do perfil no texto**.
 - **Output**: JSON `{desafio_texto, acao_observavel, criterio_de_execucao, por_que_cabe_na_semana}`.
+- **Inputs user**: o núcleo (12.1), competência, descritor, cargo, contexto, nível, `pppBrief` e a **ficha do cargo** (12.6).
 - ⚠️ **É este desafio que a pessoa vê** — o `conteudo.desafio_texto` gravado na semana é placeholder, substituído na leitura pelo overlay do kit.
 
 ### 12.3 Kit — Appendix de enriquecimento por formato
@@ -1749,6 +1750,18 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 - **System prompt**: descreve a **anatomia da tela de login** (gradiente de fundo, título, botão em gradiente com texto branco, links de destaque) e manda mapear as cores encontradas nos **7 slots** do `ui_config`. Regras: usar as cores **de marca** (cinza/preto/branco são estrutura), fundo escuro e sóbrio, `primary_color_end` = mesmo matiz mais escuro, e **"fidelidade à marca vence estética própria — não 'melhore' a cor do cliente"**.
 - **Output**: JSON com os 7 hex + `racional` de 1 frase.
 - **Salvaguarda em CÓDIGO, não no prompt**: o contraste é verificado e corrigido depois da IA — o modelo escolhe a paleta, o código garante que ela é legível.
+
+### 12.6 Ficha do cargo nos geradores semanais
+> `ATIVO` desde 2026-09-21 · Prompt documentado como: `appendix`
+
+- **Arquivo**: `lib/cargo-contexto.ts` (`carregarFichaCargo` + `formatBlocoCargoParaGeracao` + `anexarFichaCargo`). Não é prompt próprio: é um bloco no fim do **user** de cada gerador.
+- **O que entra**: os seis campos de `cargos_empresa` (descrição, principais entregas, stakeholders, decisões recorrentes, tensões comuns, contexto cultural), cada um cortado em 600 caracteres, com o fecho "use para escolher situações, interlocutores, exemplos e ações plausíveis na rotina desta função; não cite a instituição; não invente atribuições, pessoas ou sistemas".
+- **Onde entra**: núcleo (12.1) e desafio (12.2) do kit; os quatro formatos (11.1 a 11.4, pelo `gerarConteudoIA`, tanto o conteúdo-base quanto as variantes do kit); missão (6.3), cenário de aplicação (6.2) e desafio de reserva do build (6.1).
+- **Por que existe**: até 21/09/2026 a ficha só chegava aos cenários do mapeamento (IA3), ao gabarito (IA2), ao cenário B, ao Beto, ao Tira-Dúvidas e ao vídeo do kit. O que a pessoa recebe toda semana levava só o **nome** do cargo.
+- **Casamento do nome**: a régua única de cargo (`mapaDeCargos` / `idDoCargo` em `lib/simuladores/acesso-cargo.ts`): nome exato vence, normalizado cobre caixa e acento. `'todos'` é curinga e não consulta.
+- **Falha e ausência**: erro de leitura **lança** (construção). Cargo sem ficha, ou só com o nome, gera como antes e registra `ficha-cargo-ausente` no `degradacao_log` (aparece na R10 do health).
+- **Não retroage**: kit, núcleo e conteúdo são reaproveitados de cache por cargo. O que foi gerado antes de 21/09/2026 segue sem a ficha; editar a ficha depois não refaz o que já existe.
+- Guarda: `tests/unit/ficha-cargo-geracao.test.ts` (validado por mutação: tirar o anexo de qualquer gerador deixa o teste vermelho).
 
 ---
 

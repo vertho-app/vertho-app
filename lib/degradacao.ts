@@ -302,6 +302,15 @@ export const DEGRADACAO = {
    * perto da semana do B sem B elegível). Chave: empresa, cargo e competências.
    */
   CENARIO_B_SEM_ELEGIVEL: 'cenario-b-sem-elegivel',
+  /**
+   * build (geração semanal): o cargo do conteúdo não tem ficha em
+   * `cargos_empresa`, ou a ficha só tem o nome. O núcleo, o desafio, os formatos
+   * e a missão saem genéricos para a função, como eram antes de 21/09/2026.
+   * `info`: nada quebra, mas a personalização que o produto promete depende
+   * dessa ficha, e a ausência não pode ser silenciosa. Chave: empresa e cargo.
+   * Registrado por `carregarFichaCargo` (`lib/cargo-contexto.ts`).
+   */
+  FICHA_CARGO_AUSENTE: 'ficha-cargo-ausente',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

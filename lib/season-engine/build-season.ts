@@ -15,6 +15,8 @@ import { promptMissao, parseMissaoResponse, missaoToMarkdown } from '@/lib/seaso
 import type { SelectedDescriptor } from './select-descriptors';
 import { PROGRAMA_REGULAR, descritoresCobertosNaMissao, type ProgramaConfig } from './programa-config';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
+import { carregarFichaCargo } from '@/lib/cargo-contexto';
+import { tenantDb } from '@/lib/tenant-db';
 import type { BlueprintBindingSemana } from '@/lib/blueprint/to-descriptors';
 
 interface MicroConteudo {
@@ -387,11 +389,20 @@ export async function buildSeason({
     }
   }
 
+  // Ficha do cargo para os geradores de IA DESTE build: missão e cenário de
+  // aplicação, e o desafio quando a reserva por IA está ligada. Só carrega se um
+  // deles vai rodar (a Jornada de 7 semanas não tem missão). Erro de leitura
+  // lança: é construção, e a trilha não pode nascer genérica calada.
+  const usaIANoBuild = programaConfig.semanasMissao.length > 0 || process.env.BUILDSEASON_DESAFIO_IA === '1';
+  const fichaCargo = usaIANoBuild && empresaId
+    ? await carregarFichaCargo(tenantDb(empresaId) as any, empresaId, cargo)
+    : '';
+
   const idsJaUsados = new Set<string>();
   for (let semana = 1; semana <= programaConfig.semanas; semana++) {
     let plan: SemanaPlan;
     if (programaConfig.semanasMissao.includes(semana)) {
-      plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig, programaConfig, compsArray, empresaId);
+      plan = await montarSemanaAplicacao(semana, descritoresSelecionados, competencia, cargo, contexto, aiConfig, programaConfig, compsArray, empresaId, fichaCargo);
     } else if (programaConfig.semanasAvaliacao.includes(semana)) {
       const espelho = programaConfig.semanaEspelhoCalendario?.[semana];
       plan = {
@@ -431,7 +442,7 @@ export async function buildSeason({
 
         for (const [idx, d] of ordenados.entries()) {
           const compDaEntrega = d.competencia || competencia;
-          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados);
+          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo);
           if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
           entregas.push({
             dia: idx === 0 ? 'segunda' : 'terca',
@@ -469,7 +480,7 @@ export async function buildSeason({
 
         for (const [idx, d] of ordenados.entries()) {
           const compDaEntrega = d.competencia || competencia;
-          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados);
+          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo);
           if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
           entregas.push({
             dia: idx === 0 ? 'segunda' : 'terca',
@@ -506,7 +517,7 @@ export async function buildSeason({
 
         for (const [idx, d] of ordenados.entries()) {
           const compDaEntrega = d.competencia || competencia;
-          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados);
+          const entrega = await montarSemanaConteudo(semana, d, compDaEntrega, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo);
           if (entrega.conteudo?.core_id) idsJaUsados.add(entrega.conteudo.core_id);
           entregas.push({
             dia: idx === 0 ? 'segunda' : 'terca',
@@ -536,7 +547,7 @@ export async function buildSeason({
         // Em multi-competência, cada descritor pertence a uma competência específica
         const d = descritoresDaSemana[0];
         const compDaSemana = d.competencia || competencia;
-        plan = await montarSemanaConteudo(semana, d, compDaSemana, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados);
+        plan = await montarSemanaConteudo(semana, d, compDaSemana, cargo, contexto, prioridadeFormatos, empresaId, aiConfig, idsJaUsados, fichaCargo);
         if (plan.tipo === 'conteudo' && plan.conteudo?.core_id) idsJaUsados.add(plan.conteudo.core_id);
       }
     }
@@ -592,6 +603,7 @@ async function montarSemanaConteudo(
   empresaId: string | null,
   aiConfig: AIConfigOpt,
   idsJaUsados: Set<string> = new Set(),
+  fichaCargo = '',
 ): Promise<SemanaConteudo> {
   const sb = createSupabaseAdmin();
   const nivelMedio = (descritorSel.nota_atual + 3.0) / 2;
@@ -653,6 +665,7 @@ async function montarSemanaConteudo(
         cargo,
         contexto,
         semana,
+        fichaCargo,
       });
       const rawResp = await callAI(system, user, aiConfig, 400);
       const parsed = parseDesafioResponse(rawResp);
@@ -746,6 +759,7 @@ export async function montarSemanaAplicacao(
   programaConfig: ProgramaConfig,
   competenciasArray: string[] = [competencia],
   empresaId: string | null = null,
+  fichaCargo = '',
 ): Promise<SemanaAplicacao> {
   const complexidade = programaConfig.complexidadeMap[semana] || 'intermediario';
 
@@ -791,11 +805,13 @@ export async function montarSemanaAplicacao(
       competencia, descritores: cobertos, cargo, contexto,
       missaoTipo: usaIntegrador ? 'integradora' : 'unica',
       competenciasIntegradas: usaIntegrador ? competenciasIntegradas : undefined,
+      fichaCargo,
     });
     const c = promptCenario({
       competencia, descritores: cobertos, cargo, contexto, complexidade,
       cenarioTipo: usaIntegrador ? 'integrador' : 'unico',
       competenciasIntegradas: usaIntegrador ? competenciasIntegradas : undefined,
+      fichaCargo,
     });
     const [mResp, cResp] = await Promise.all([
       callAI(m.system, m.user, aiConfig, 600),

@@ -4,6 +4,8 @@
  * Onboarding: missão integradora multi-competência (sems 4/7/9 com cenarioTipo='integrador').
  * Output JSON estruturado — texto composto para renderização markdown.
  */
+import { anexarFichaCargo } from '@/lib/cargo-contexto';
+
 export type MissaoTipo = 'unica' | 'integradora';
 
 interface PromptMissaoParams {
@@ -13,6 +15,8 @@ interface PromptMissaoParams {
   contexto: string;
   missaoTipo?: MissaoTipo;
   competenciasIntegradas?: string[]; // só quando missaoTipo='integradora'
+  /** Bloco da ficha do cargo (`carregarFichaCargo`); vai no fim do `user`. */
+  fichaCargo?: string | null;
 }
 
 export interface MissaoStructured {
@@ -24,7 +28,7 @@ export interface MissaoStructured {
   por_que_cabe_na_semana: string;
 }
 
-export function promptMissao({ competencia, descritores, cargo, contexto, missaoTipo = 'unica', competenciasIntegradas }: PromptMissaoParams) {
+export function promptMissao({ competencia, descritores, cargo, contexto, missaoTipo = 'unica', competenciasIntegradas, fichaCargo }: PromptMissaoParams) {
   const integradora = missaoTipo === 'integradora' && Array.isArray(competenciasIntegradas) && competenciasIntegradas.length > 1;
 
   const system = `Você é um designer de missões práticas de desenvolvimento da Vertho.
@@ -108,7 +112,7 @@ CONTEXTO:
 - Competências a integrar simultaneamente: ${competenciasIntegradas!.join(', ')}` : ''}
 - Descritores a integrar (TODOS precisam aparecer naturalmente): ${descritores.join(', ')}`;
 
-  return { system, user };
+  return anexarFichaCargo({ system, user }, fichaCargo);
 }
 
 const REQUIRED_KEYS: (keyof Omit<MissaoStructured, 'integracao_descritores'>)[] = [

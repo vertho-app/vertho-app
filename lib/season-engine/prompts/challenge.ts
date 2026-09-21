@@ -1,6 +1,8 @@
 /**
  * Gera o desafio semanal — micro-ação prática, observável, executável em 1 semana.
  */
+import { anexarFichaCargo } from '@/lib/cargo-contexto';
+
 interface PromptDesafioParams {
   competencia: string;
   descritor: string;
@@ -8,6 +10,8 @@ interface PromptDesafioParams {
   cargo: string;
   contexto: string;
   semana: number;
+  /** Bloco da ficha do cargo (`carregarFichaCargo`); vai no fim do `user`. */
+  fichaCargo?: string | null;
 }
 
 export interface DesafioStructured {
@@ -24,7 +28,7 @@ const NIVEL_PROGRESSAO: Record<string, string> = {
   '4': 'Nível 4 — ação de influência, sustentação, exemplo ou multiplicação',
 };
 
-export function promptDesafio({ competencia, descritor, nivel, cargo, contexto, semana }: PromptDesafioParams) {
+export function promptDesafio({ competencia, descritor, nivel, cargo, contexto, semana, fichaCargo }: PromptDesafioParams) {
   const nivelInt = Math.max(1, Math.min(4, Math.round(nivel)));
   const progressao = NIVEL_PROGRESSAO[String(nivelInt)] || NIVEL_PROGRESSAO['2'];
 
@@ -92,7 +96,7 @@ CONTEXTO:
 - Nível atual: ${nivel}/4 (${progressao})
 - Semana ${semana} da temporada`;
 
-  return { system, user };
+  return anexarFichaCargo({ system, user }, fichaCargo);
 }
 
 const REQUIRED_KEYS: (keyof DesafioStructured)[] = [

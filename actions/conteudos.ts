@@ -14,6 +14,7 @@ import { derivarArquetipo } from '@/lib/disc-arquetipos';
 import { resumirPPP, extracaoParaTexto, briefPreenchido, assinaturaCurta, type EscolaBrief } from '@/lib/escola-brief';
 import { buildPersonalizacaoPrompt } from '@/lib/season-engine/prompts/personalizacao';
 import { resolverPerfilPublicoDaEmpresa } from '@/lib/season-engine/perfil-publico';
+import { anexarFichaCargo, carregarFichaCargo } from '@/lib/cargo-contexto';
 
 /** Mínimo de caracteres para conteúdo que vira PDF (texto/case): leitura de
  *  ~5-8 min. Aplicado tanto na geração do conteúdo quanto na hora do PDF.
@@ -99,6 +100,9 @@ interface GerarConteudoParams {
   // dos 4 primeiros args do callAI. Ver lib/ai-batch.ts. Só a geração PRINCIPAL
   // (linha do callAI) usa; expansões/plano de PDF seguem síncronos.
   aiRun?: import('@/lib/ai-batch').AIRun;
+  // Bloco da ficha do cargo (`carregarFichaCargo`). O kit passa pré-resolvido
+  // (1× para os 4 DISC); `undefined` = carrega aqui, pelo `cargo`.
+  fichaCargo?: string | null;
 }
 
 
@@ -107,7 +111,7 @@ export async function gerarConteudoIA({
   formato, competencia, descritor, nivelMin = 1.0, nivelMax = 2.0,
   cargo = 'todos', contexto = 'generico', duracaoSegundos = null,
   podcastFormato = 'solo',
-  empresaId = null, aiConfig = {}, kit, sb: sbIn, aiRun, forcar = false,
+  empresaId = null, aiConfig = {}, kit, sb: sbIn, aiRun, forcar = false, fichaCargo,
 }: GerarConteudoParams) {
   try {
     // A5: `empresaId` vem do cliente. `sbIn` = chamada interna (lote/task) que já
@@ -187,6 +191,14 @@ export async function gerarConteudoIA({
       const { enriquecerPromptComKit } = await import('@/lib/season-engine/kit/enrich');
       ({ system, user } = enriquecerPromptComKit({ system, user }, kit, formato));
     }
+
+    // ── Ficha do cargo (entregas, stakeholders, decisões, tensões, cultura) ──
+    // Por último e no USER: é o recorte da função sobre a matéria-prima e o kit,
+    // e fica fora do system para o do vídeo seguir cacheável. Até 21/09/2026 os
+    // quatro formatos só recebiam o NOME do cargo. Erro de leitura lança e cai no
+    // catch deste gerador (construção falha alto, não sai genérico calado).
+    const blocoFicha = fichaCargo !== undefined ? fichaCargo : await carregarFichaCargo(sb, empresaId, cargo);
+    ({ system, user } = anexarFichaCargo({ system, user }, blocoFicha));
 
     // Usa modelo configurado por tarefa (fallback: modelo padrão da empresa → default)
     const { getModelForTask } = await import('@/lib/ai-tasks');

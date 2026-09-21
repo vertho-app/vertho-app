@@ -35,6 +35,12 @@ export interface GerarBriefParams {
   pppBrief?: string | null;
   /** Registro/domínio por público (MEI/Empregabilidade/…); adapta núcleo e desafio. */
   perfilPublico?: RegistroPublico;
+  /**
+   * Bloco da ficha do cargo já formatado (`carregarFichaCargo`). Situações,
+   * interlocutores e ações do exemplo-âncora e do desafio saem da rotina real da
+   * função, não só do nome do cargo. `''`/ausente = prompt como antes.
+   */
+  fichaCargo?: string | null;
   /** Caller de IA injetado (Batch API). Só a 1ª tentativa usa; retries síncronos. */
   aiRun?: import('@/lib/ai-batch').AIRun;
 }
@@ -118,7 +124,7 @@ Fala natural, sem jargão, sem markdown. RETORNE APENAS JSON VÁLIDO:
 - Competência: ${p.competencia}
 - Descritor: ${p.descritor}
 - Nível: ${p.nivelMin ?? 1}–${p.nivelMax ?? 2} de 4
-- Cargo: ${p.cargo ?? 'todos'} · Contexto: ${p.contexto ?? 'generico'}${moduloTxt ? `\n\nMATÉRIA-PRIMA CANÔNICA (preserve as bases):\n${moduloTxt}` : ''}${p.pppBrief ? `\n\nCONTEXTO DA INSTITUIÇÃO (lente de aplicação, sem citar o nome):\n${p.pppBrief}` : ''}`;
+- Cargo: ${p.cargo ?? 'todos'} · Contexto: ${p.contexto ?? 'generico'}${moduloTxt ? `\n\nMATÉRIA-PRIMA CANÔNICA (preserve as bases):\n${moduloTxt}` : ''}${p.pppBrief ? `\n\nCONTEXTO DA INSTITUIÇÃO (lente de aplicação, sem citar o nome):\n${p.pppBrief}` : ''}${p.fichaCargo ? `\n\n${p.fichaCargo}` : ''}`;
 
   const sysJson = `${system}\n\nIMPORTANTE: responda SOMENTE com o objeto JSON, sem nenhum texto antes ou depois, sem markdown.`;
   let nucleo: KitBriefNucleo | null = null;
@@ -198,7 +204,7 @@ RETORNE APENAS JSON VÁLIDO:
 
 CONTEXTO:
 - Competência: ${p.competencia} · Descritor: ${p.descritor}
-- Cargo: ${p.cargo ?? 'todos'} · Contexto: ${p.contexto ?? 'generico'} · Nível: ${p.nivelMin ?? 1}/4${p.pppBrief ? `\n\nCONTEXTO DA INSTITUIÇÃO (ancore a ação na realidade dela, sem citar o nome):\n${p.pppBrief}` : ''}`;
+- Cargo: ${p.cargo ?? 'todos'} · Contexto: ${p.contexto ?? 'generico'} · Nível: ${p.nivelMin ?? 1}/4${p.pppBrief ? `\n\nCONTEXTO DA INSTITUIÇÃO (ancore a ação na realidade dela, sem citar o nome):\n${p.pppBrief}` : ''}${p.fichaCargo ? `\n\n${p.fichaCargo}` : ''}`;
 
   const sysJson = `${system}\n\nIMPORTANTE: responda SOMENTE com o objeto JSON, sem texto antes ou depois, sem markdown.`;
   let desafio = null;

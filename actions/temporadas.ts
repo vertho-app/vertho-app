@@ -383,6 +383,10 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
     const slot = plano[idx];
     const { callAI } = await import('@/actions/ai-client');
     const competenciaSlot = resolveCompetenciaSlot(trilha, slot);
+    // Ficha do cargo: a mesma que o build e o kit usam. Erro de leitura lança
+    // e a action devolve o erro, em vez de regerar a semana genérica calada.
+    const { carregarFichaCargo } = await import('@/lib/cargo-contexto');
+    const fichaCargo = await carregarFichaCargo(sb, trilha.empresa_id, colab?.cargo);
 
     if (slot.tipo === 'conteudo' && slot.descritor) {
       const { promptDesafio, parseDesafioResponse } = await import('@/lib/season-engine/prompts/challenge');
@@ -390,7 +394,7 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
         competencia: competenciaSlot,
         descritor: slot.descritor,
         nivel: slot.nivel_atual || 1.5,
-        cargo: colab?.cargo, contexto, semana,
+        cargo: colab?.cargo, contexto, semana, fichaCargo,
       });
       const rawResp = (await callAI(system, user, aiConfig, 400)).trim();
       const parsed = parseDesafioResponse(rawResp);
@@ -411,6 +415,7 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
         contexto,
         missaoTipo: comps.length > 1 ? 'integradora' : 'unica',
         competenciasIntegradas: comps.length > 1 ? comps : undefined,
+        fichaCargo,
       });
       const c = promptCenario({
         competencia: competenciaSlot,
@@ -420,6 +425,7 @@ const _regerarSemana = protectedAction('ai.audit.regenerate', RegerarSemanaInput
         complexidade,
         cenarioTipo: comps.length > 1 ? 'integrador' : 'unico',
         competenciasIntegradas: comps.length > 1 ? comps : undefined,
+        fichaCargo,
       });
       const [mResp, cResp] = await Promise.all([
         callAI(m.system, m.user, aiConfig, 600),

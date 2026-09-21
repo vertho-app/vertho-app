@@ -301,3 +301,23 @@ por colaborador (F-V2) — matar ali deixa aquelas pessoas no vídeo genérico p
 re-disparo automático. Use `_hetzner-encerrar-ocioso.ts --encerrar`, que só encerra com ócio
 confirmado (fila vazia + `videos_personalizados` sem crescer por 3 ciclos). Medido nesta rodada: as
 3 boxes se auto-encerraram após a personalização; conta em 0 sem intervenção.
+
+## Atualização 21/09/2026 — a ficha do cargo entra no kit
+
+Até esta data o núcleo, o desafio e os formatos do kit recebiam só o **nome** do cargo; a ficha
+(descrição, principais entregas, stakeholders, decisões recorrentes, tensões comuns, contexto
+cultural) chegava aos cenários do mapeamento e ao mentor, não ao que a pessoa recebe toda semana.
+`Medido 21/09`: 23 de 24 pares (empresa × cargo) de clientes reais casavam com a ficha, e os cargos
+com turma ativa tinham de 1.500 a 4.300 caracteres preenchidos. A lacuna era de ligação, não de dado.
+
+- `gerarKit` e `gerarKitSemanal` resolvem a ficha **uma vez** (como o `pppBrief`) e a repassam ao
+  núcleo, ao desafio de cada DISC e ao `gerarConteudoIA` dos formatos. O vídeo do kit já recebia a
+  ficha pelo `formatBlocoCargo` e não mudou.
+- O bloco vai no **fim do user**, depois da matéria-prima e do contexto da instituição: o system do
+  vídeo continua cacheável.
+- Erro de leitura da ficha derruba o kit com erro (construção); cargo sem ficha gera como antes e
+  registra `ficha-cargo-ausente` no `degradacao_log`.
+- **Não retroage.** Brief, kit e conteúdo são reaproveitados de cache por cargo: o que nasceu antes
+  desta data segue sem a ficha (a data de criação separa), e editar a ficha depois não refaz o que
+  já existe. Decisão do dono: valer só daqui para frente, sem regeneração.
+- Detalhe do bloco e da régua de casamento: `docs/CATALOGO-PROMPTS-IA.md` §12.6.

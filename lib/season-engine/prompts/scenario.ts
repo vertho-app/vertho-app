@@ -4,6 +4,8 @@
  * Onboarding = múltiplas competências integradas (sems 4/7/9 com cenarioTipo='integrador').
  * Output JSON estruturado — texto composto para renderização markdown.
  */
+import { anexarFichaCargo } from '@/lib/cargo-contexto';
+
 export type CenarioTipo = 'unico' | 'integrador';
 
 interface PromptCenarioParams {
@@ -14,6 +16,8 @@ interface PromptCenarioParams {
   complexidade: string;
   cenarioTipo?: CenarioTipo;
   competenciasIntegradas?: string[]; // só quando cenarioTipo='integrador'
+  /** Bloco da ficha do cargo (`carregarFichaCargo`); vai no fim do `user`. */
+  fichaCargo?: string | null;
 }
 
 export interface CenarioStructured {
@@ -28,7 +32,7 @@ export interface CenarioStructured {
   por_que_essa_complexidade_faz_sentido: string;
 }
 
-export function promptCenario({ competencia, descritores, cargo, contexto, complexidade, cenarioTipo = 'unico', competenciasIntegradas }: PromptCenarioParams) {
+export function promptCenario({ competencia, descritores, cargo, contexto, complexidade, cenarioTipo = 'unico', competenciasIntegradas, fichaCargo }: PromptCenarioParams) {
   const integrador = cenarioTipo === 'integrador' && Array.isArray(competenciasIntegradas) && competenciasIntegradas.length > 1;
 
   const system = `Você é um designer de casos para desenvolvimento de competências executivas na Vertho.
@@ -126,7 +130,7 @@ CONTEXTO:
 - Descritores avaliados (integrar todos no cenário): ${descritores.join(', ')}
 - Complexidade: ${complexidade}`;
 
-  return { system, user };
+  return anexarFichaCargo({ system, user }, fichaCargo);
 }
 
 const REQUIRED_KEYS: (keyof CenarioStructured)[] = [

@@ -12,6 +12,7 @@ import { requireEmpresaSupabase, requireLinhaSupabase } from '@/lib/admin-supaba
 import { resolverOuCriarBrief, gerarKitDesafio, type DiscLetter } from '@/lib/season-engine/kit/brief';
 import { resolverPerfilPublicoDaEmpresa, type RegistroPublico } from '@/lib/season-engine/perfil-publico';
 import { levantarPlanoKitsCoorte } from '@/lib/season-engine/kit/plano-coorte';
+import { carregarFichaCargo } from '@/lib/cargo-contexto';
 import { gerarConteudoIA } from '@/actions/conteudos';
 import type { AIConfig } from '@/actions/ai-client';
 import { tasks } from '@trigger.dev/sdk';
@@ -52,6 +53,8 @@ export interface GerarKitParams {
   briefPreResolvido?: { briefId: string; brief: any; moduloBaseId: string | null; reused: boolean };
   /** PPP/contexto da empresa já resolvido (evita reconsultar por DISC). */
   pppBriefPreResolvido?: string | null;
+  /** Bloco da ficha do cargo já resolvido (1× p/ todos os DISC). `undefined` = carrega aqui. */
+  fichaCargoPreResolvida?: string | null;
   /** Registro/domínio por público já resolvido (1× p/ todos os DISC). */
   perfilPublico?: RegistroPublico;
   /** Pula o disparo do vídeo renderizado (HeyGen/render) — p/ lote de coorte sem custo de GPU. */
@@ -62,7 +65,7 @@ export async function gerarKit({
   competencia, descritor, disc,
   nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos = FORMATOS_PADRAO, sb: sbIn,
-  aiRun, briefPreResolvido, pppBriefPreResolvido, perfilPublico: perfilPublicoIn, skipVideo = false,
+  aiRun, briefPreResolvido, pppBriefPreResolvido, fichaCargoPreResolvida, perfilPublico: perfilPublicoIn, skipVideo = false,
 }: GerarKitParams) {
   try {
     // A5: `empresaId` vem do cliente (kit custa IA e grava no acervo dele).
@@ -87,7 +90,15 @@ export async function gerarKit({
       pppBrief = await resolverContextoEmpresa(sb, empresaId, aiConfig).catch(() => null);
     }
 
-    const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, pppBrief, perfilPublico };
+    // Ficha do CARGO (entregas, stakeholders, decisões, tensões, cultura): entra no
+    // núcleo, no desafio e nos 4 formatos. Antes de 21/09/2026 esses geradores só
+    // recebiam o NOME do cargo. Erro de leitura LANÇA (construção: falha alto, e o
+    // catch abaixo devolve o kit com erro em vez de gerá-lo genérico calado).
+    const fichaCargo = fichaCargoPreResolvida !== undefined
+      ? fichaCargoPreResolvida
+      : await carregarFichaCargo(sb, empresaId, cargo);
+
+    const baseParams = { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, pppBrief, fichaCargo, perfilPublico };
 
     // 1) Brief (núcleo da empresa, idempotente por tema; PPP como lente).
     //    No lote (Batch), resolvido 1× ANTES de fanout — evita corrida entre os 4 DISC.
@@ -182,6 +193,9 @@ export async function gerarKitSemanal({
     const skipVideo = !incluirVideo;
     // Registro/domínio por público resolvido 1× p/ todos os DISC (núcleo+desafio coesos).
     const perfilPublico = perfilPublicoIn ?? await resolverPerfilPublicoDaEmpresa(sbk, empresaId, cargo);
+    // Ficha do cargo resolvida 1× para todos os DISC, nos dois caminhos abaixo.
+    // Erro de leitura lança e cai no catch do fim: o job termina em erro, não genérico.
+    const fichaCargo = await carregarFichaCargo(sbk, empresaId, cargo);
     let kits: Awaited<ReturnType<typeof gerarKit>>[] = [];
 
     // ── Caminho LOTE (Batch API −50%) ─────────────────────────────────────────
@@ -210,7 +224,7 @@ export async function gerarKitSemanal({
           const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
           pppBrief = await resolverContextoEmpresa(sbk, empresaId, aiConfig).catch(() => null);
         }
-        const brief = await resolverOuCriarBrief(sbk, { ...baseParams, pppBrief });
+        const brief = await resolverOuCriarBrief(sbk, { ...baseParams, pppBrief, fichaCargo });
         const { createAIBatchCollector } = await import('@/lib/ai-batch');
         const { run } = createAIBatchCollector(aiConfig?.model || 'claude-sonnet-4-6', {
           ledger: { feature: 'kit_semanal', empresaId },
@@ -221,7 +235,7 @@ export async function gerarKitSemanal({
         kits = await Promise.all(discs.map((disc) =>
           gerarKit({
             competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk,
-            aiRun: run, briefPreResolvido: brief, pppBriefPreResolvido: pppBrief, perfilPublico, skipVideo,
+            aiRun: run, briefPreResolvido: brief, pppBriefPreResolvido: pppBrief, fichaCargoPreResolvida: fichaCargo, perfilPublico, skipVideo,
           }).then(async (k) => {
             done++;
             await onProgress?.({ done, total, current: `kit ${disc} concluído`, kits: [] });
@@ -239,7 +253,7 @@ export async function gerarKitSemanal({
       for (const disc of discs) {
         await onProgress?.({ done: kits.length, total, current: `gerando kit ${disc}…`, kits: kits.map(resumoKit) });
         // sequencial: o 1º cria o brief; os demais reusam (resolverOuCriarBrief idempotente).
-        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk, perfilPublico, skipVideo }));
+        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk, fichaCargoPreResolvida: fichaCargo, perfilPublico, skipVideo }));
         await onProgress?.({ done: kits.length, total, current: `kit ${disc} concluído`, kits: kits.map(resumoKit) });
       }
     }
