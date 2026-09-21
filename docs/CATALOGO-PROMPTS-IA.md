@@ -1876,8 +1876,8 @@ Cinco prompts migrados do simulador RNaves, sem alteração intencional do texto
 
 - **Arquivo**: `lib/simulador-lideranca/prompts.ts` (`PROMPTS`: `abertura`, `personagem`, `consequencia`, `avaliador`); chamadas em `lib/simulador-lideranca/ai.ts`.
 - **taskKeys**: `sim_lideranca_abertura`, `sim_lideranca_personagem` e `sim_lideranca_consequencia` (3.500 tokens, 65 s) e `sim_lideranca_avaliador` (16.000 tokens, 115 s por tentativa). Modelo padrão `gpt-5.4-2026-03-05`.
-- **Avaliador v2**: 18 descritores por encontro (a competência em foco e duas secundárias), fonte da evidência por descritor (`planejamento`, `fala` ou `reflexao`) e os acordos dos encontros anteriores como antecedentes, só para julgar continuidade. Mesma tolerância e regra de cobertura dos outros dois.
-- **Medido (19/09)**: 17 s num encontro; US$ 0,061 em média por avaliação no ledger. [Operação](SIMULADOR-LIDERANCA.md).
+- **Avaliador v2**: 18 descritores por encontro (a competência em foco e duas secundárias), fonte da evidência por descritor (`planejamento`, `fala` ou `reflexao`) e os acordos dos encontros anteriores como antecedentes, só para julgar continuidade. Desde 19/09, o JSON Schema de geração exige a quantidade exata e os códigos da matriz específica do encontro, inclusive descritores sem oportunidade; o validador exige cada código uma vez. Mesma tolerância e regra de cobertura dos outros dois. Na interface, a média geral fica na síntese da jornada; cada encontro mostra os níveis por competência.
+- **Medido (19/09)**: 17 s num encontro; US$ 0,061 em média por avaliação no ledger. O ensaio posterior com schema específico registrou 20/20 avaliações válidas, com descartes de evidências inválidas e sem gabarito humano independente. [Operação](SIMULADOR-LIDERANCA.md) e [método e limites dos ensaios](simuladores-validacao.md).
 
 ## Fase 4 (PDI legado)
 
