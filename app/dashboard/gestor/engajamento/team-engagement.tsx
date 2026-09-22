@@ -33,6 +33,7 @@ import {
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import { SignalJourney } from '@/components/engajamento/signal-journey';
+import { QualidadeEvidenciaResumo, QualidadeEvidenciaSelo } from '@/components/engajamento/qualidade-evidencia';
 import { getEngajamentoDoTime } from '../actions';
 import { engagementBlocker, hasEngagementSignal } from '@/lib/engajamento/prioridades';
 
@@ -286,6 +287,7 @@ function PessoaRow({ pessoa }: { pessoa: any }) {
         <div>
           <p className="mb-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/28 md:text-center">Sinais da semana</p>
           <SinaisDaPessoa pessoa={pessoa} />
+          <div className="mt-2 flex justify-center empty:hidden"><QualidadeEvidenciaSelo pessoa={pessoa} /></div>
         </div>
 
         <div>
@@ -523,6 +525,8 @@ export default function EngajamentoDoTimePage() {
             ]}
           />
 
+          <QualidadeEvidenciaResumo contagem={resumo.qualidadeEvidencias} />
+
           <section aria-label="Leitura rápida" className="grid gap-3 sm:grid-cols-[minmax(0,1.5fr)_minmax(220px,0.5fr)]">
             <button
               type="button"
@@ -636,6 +640,7 @@ export default function EngajamentoDoTimePage() {
               <p><strong className="text-white/55">Acessou:</strong> abriu a página ou um dos formatos disponíveis.</p>
               <p><strong className="text-white/55">Consumiu:</strong> concluiu vídeo ou áudio, ou marcou o conteúdo como concluído.</p>
               <p><strong className="text-white/55">Entregou:</strong> enviou a evidência prática que fecha a semana.</p>
+              {resumo.qualidadeEvidencias && <p><strong className="text-white/55">Reflexão:</strong> nível da reflexão mais recente (alta, média ou baixa), classificado pela IA. O texto é privado da pessoa e não aparece aqui.</p>}
               <p><strong className="text-white/55">Sem registro:</strong> significa apenas que o sistema não recebeu aquele sinal; não é uma avaliação da pessoa.</p>
             </div>
           </details>

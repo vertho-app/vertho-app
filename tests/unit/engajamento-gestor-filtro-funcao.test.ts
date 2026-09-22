@@ -19,10 +19,10 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
 
 const CHAMADAS: any[][] = [];
 const RESPOSTA_DO_NUCLEO = {
-  resumo: { inscritos: 2 },
+  resumo: { inscritos: 2, qualidadeEvidencias: { alta: 1, media: 1, baixa: 0, semClassificacao: 0 } },
   colaboradores: [
-    { colaboradorId: 'p1', nome: 'Ana', cargo: 'Professor(a)' },
-    { colaboradorId: 'p2', nome: 'Bia', cargo: 'Professor(a)' },
+    { colaboradorId: 'p1', nome: 'Ana', cargo: 'Professor(a)', enviouEvidencia: true, qualidadeEvidencia: 'alta' },
+    { colaboradorId: 'p2', nome: 'Bia', cargo: 'Professor(a)', enviouEvidencia: true, qualidadeEvidencia: 'media' },
   ],
   semanas: [1, 2, 3],
   cargos: ['Diretor(a) Escolar', 'Professor(a)'],
@@ -118,5 +118,42 @@ describe('engajamento do time · recorte por função', () => {
     const r = await getEngajamentoDoTime(null, 'Professor(a)');
     expect(r.ok).toBe(false);
     expect(CHAMADAS).toHaveLength(0);
+  });
+});
+
+/**
+ * Qualidade da evidência (22/09/2026): o dono liberou o NÍVEL para gestor e
+ * RH. O tutor usa esta mesma action, e o corte dele é no payload: esconder só
+ * na tela deixaria o dado a um DevTools de distância.
+ */
+describe('engajamento do time · qualidade da evidência por papel', () => {
+  it('gestor recebe o nível por pessoa e a faixa do resumo', async () => {
+    const r = await getEngajamentoDoTime(null);
+    expect(r.colaboradores?.map((c: any) => c.qualidadeEvidencia)).toEqual(['alta', 'media']);
+    expect(r.resumo.qualidadeEvidencias).toBeTruthy();
+  });
+
+  it('RH recebe o nível por pessoa e a faixa do resumo', async () => {
+    ctx = COMO_RH;
+    const r = await getEngajamentoDoTime(null);
+    expect(r.colaboradores?.every((c: any) => 'qualidadeEvidencia' in c)).toBe(true);
+    expect(r.resumo.qualidadeEvidencias).toBeTruthy();
+  });
+
+  it('🔴 tutor não recebe o nível: nem por pessoa, nem no resumo', async () => {
+    ctx = {
+      colaborador: { id: 't1', email: 'tutor@x.com', empresa_id: 'emp-1', tutorados_ids: ['p1', 'p2'] },
+      role: 'tutor',
+      isPlatformAdmin: false,
+    };
+    const r = await getEngajamentoDoTime(null);
+    expect(r.ok).toBe(true);
+    expect(r.scope).toBe('tutor');
+    expect(r.colaboradores?.length).toBe(2);
+    expect(r.colaboradores?.some((c: any) => 'qualidadeEvidencia' in c)).toBe(false);
+    // o resto do sinal continua: entregou é leitura de presença, não de qualidade
+    expect(r.colaboradores?.every((c: any) => c.enviouEvidencia === true)).toBe(true);
+    expect(r.resumo).not.toHaveProperty('qualidadeEvidencias');
+    expect(r.resumo.inscritos).toBe(2);
   });
 });

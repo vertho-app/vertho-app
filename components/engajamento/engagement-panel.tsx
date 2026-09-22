@@ -30,6 +30,7 @@ import {
 import AdminPageHeader from '@/components/admin/page-header';
 import EngagementEvolutionPanel from '@/components/engajamento/evolution-panel';
 import { SignalJourney } from '@/components/engajamento/signal-journey';
+import { QualidadeEvidenciaResumo, QualidadeEvidenciaSelo } from '@/components/engajamento/qualidade-evidencia';
 import { BLOCKER_META, engagementBlocker, hasEngagementSignal, isEngagementBlocker, type EngagementBlocker } from '@/lib/engajamento/prioridades';
 import { engagementLinks, type EngagementPanelProps } from '@/lib/engajamento/surface';
 
@@ -249,6 +250,7 @@ function EntregaETutor({ pessoa }: { pessoa: any }) {
       }`}>
         <MessageCircle size={11} aria-hidden="true" /> Tutor
       </span>
+      <QualidadeEvidenciaSelo pessoa={pessoa} />
     </div>
   );
 }
@@ -887,6 +889,8 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
             )}
           />
 
+          <QualidadeEvidenciaResumo contagem={resumo.qualidadeEvidencias} />
+
           <section aria-label="Sinais complementares" className="grid gap-2 sm:grid-cols-3">
             {[
               { icon: Eye, label: 'Abriram a página', value: resumo.abriramLink || 0, detail: 'abertura direta registrada', cor: 'text-cyan-300' },
@@ -1010,7 +1014,9 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
             <div className="mt-3 grid gap-3 border-t border-white/[0.06] pt-3 text-[10px] leading-relaxed text-white/32 md:grid-cols-2">
               <p><strong className="text-white/55">Acesso:</strong> abrir a página e abrir um formato são sinais diferentes. Na semana 1, aberturas da página anteriores a 15/07 não foram registradas.</p>
               <p><strong className="text-white/55">Consumo:</strong> vídeo ou áudio concluído, ou conteúdo marcado como concluído. Um traço indica ausência de registro, não prova de que a pessoa não viu.</p>
-              <p><strong className="text-white/55">Evidência:</strong> reflexão enviada ao concluir a semana. O texto completo continua disponível em Vertho → Evidências.</p>
+              <p><strong className="text-white/55">Evidência:</strong> reflexão enviada ao concluir a semana. {surface === 'admin'
+                ? 'O texto completo continua disponível em Vertho → Evidências.'
+                : 'Aqui aparece só o nível da reflexão (alta, média ou baixa); o texto é privado da pessoa.'}</p>
               <p><strong className="text-white/55">Filtro semanal:</strong> o envio é registrado apenas pelo último carimbo; envios antigos podem aparecer sem semana. Vídeos antigos sem semana entram somente em “Todas as semanas”.</p>
             </div>
           </details>

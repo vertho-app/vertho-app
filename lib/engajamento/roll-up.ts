@@ -23,6 +23,9 @@ import { formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { PROGRESSO } from '@/lib/status';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { derivarPosicaoJornada } from '@/lib/engajamento/posicao-jornada';
+import {
+  contagemVazia, normalizarQualidade, qualidadeMaisRecente, type QualidadeEvidencia,
+} from '@/lib/engajamento/qualidade-evidencia';
 
 /**
  * Regua UNICA de consumo — `lib/season-engine/consumo-conteudo`. Era uma copia
@@ -163,7 +166,9 @@ export async function rollUpEngajamento(
   // 4) Consumo explícito + evidência (status). A posição individual precisa do
   // histórico completo; o filtro de métricas é aplicado em memória depois.
   let progQuery = tdb.from('temporada_semana_progresso')
-    .select('trilha_id, colaborador_id, semana, tipo, status, conteudo_consumido');
+    // Da reflexão sai SÓ o nível (alta/media/baixa): o texto não entra nesta
+    // leitura, que alimenta RH e gestor. Ver `lib/engajamento/qualidade-evidencia.ts`.
+    .select('trilha_id, colaborador_id, semana, tipo, status, conteudo_consumido, qualidade:reflexao->>qualidade_reflexao');
   if (recorte) progQuery = progQuery.in('colaborador_id', recorte);
   const progressoRes = await progQuery;
   const progressoConfiavel = !progressoRes.error;
@@ -190,9 +195,13 @@ export async function rollUpEngajamento(
   // da missão em semana de APLICAÇÃO — sem o `aplicacao` aqui as semanas 4/8/12
   // marcavam 0 mesmo com missões concluídas, apagão de Ibipeba em ago/2026).
   const evidenciaPorColab: Record<string, boolean> = {};
+  const qualidadesPorColab: Record<string, Array<{ semana: unknown; qualidade: QualidadeEvidencia | null }>> = {};
   for (const p of (progresso || [])) {
     if (consumiuFlag(p.conteudo_consumido)) consumoPorColab[p.colaborador_id] = true;
-    if ((p.tipo === 'conteudo' || p.tipo === 'aplicacao') && p.status === PROGRESSO.CONCLUIDO) evidenciaPorColab[p.colaborador_id] = true;
+    if ((p.tipo === 'conteudo' || p.tipo === 'aplicacao') && p.status === PROGRESSO.CONCLUIDO) {
+      evidenciaPorColab[p.colaborador_id] = true;
+      (qualidadesPorColab[p.colaborador_id] ||= []).push({ semana: p.semana, qualidade: normalizarQualidade(p.qualidade) });
+    }
   }
   const tutorPorColab: Record<string, boolean> = {};
   for (const t of (tutorRows || [])) tutorPorColab[t.colaborador_id] = true;
@@ -297,6 +306,7 @@ export async function rollUpEngajamento(
       marcouConcluido, consumiu,
       formatoPrincipal, engajouPrincipal,
       enviouEvidencia: !!evidenciaPorColab[e.colaborador_id],
+      qualidadeEvidencia: qualidadeMaisRecente(qualidadesPorColab[e.colaborador_id] || []),
       conversouTutor: !!tutorPorColab[e.colaborador_id],
     };
   }).sort((a, b) => a.nome.localeCompare(b.nome));
@@ -337,6 +347,17 @@ export async function rollUpEngajamento(
       return vids.length ? Math.round(vids.reduce((s, c) => s + c.pctVideo, 0) / vids.length) : 0;
     })(),
     enviaramEvidencia: colaboradores.filter((c) => c.enviouEvidencia).length,
+    // Por PESSOA (a reflexão mais recente de cada uma), para o total fechar com a
+    // lista: alta + média + baixa + semClassificacao = enviaramEvidencia.
+    qualidadeEvidencias: (() => {
+      const cont = { ...contagemVazia(), semClassificacao: 0 };
+      for (const c of colaboradores) {
+        if (!c.enviouEvidencia) continue;
+        if (c.qualidadeEvidencia) cont[c.qualidadeEvidencia] += 1;
+        else cont.semClassificacao += 1;
+      }
+      return cont;
+    })(),
     conversaramTutor: colaboradores.filter((c) => c.conversouTutor).length,
     // Quem fechou a ÚLTIMA semana do plano. Não é o mesmo que "chegou à última
     // semana": em Ibipeba, 14/09/2026, 7 pessoas estavam posicionadas na semana
