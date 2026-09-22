@@ -40,6 +40,13 @@ const INSTRUMENTOS = new Set([
   // 27/08: o proprio guard pegou estas duas quando eu escrevi o experimento
   // pareado Opus x Sonnet. Sao instrumento — nao vao para a tela do operador.
   'pdi_experimento', 'pdi_experimento_check',
+  // 21/09/2026, decisão do dono: piloto de suporte no WhatsApp com modelo FIXO
+  // (`SUPORTE_AUTO_MODEL` em lib/whatsapp/suporte-auto.ts). Depende de recurso
+  // que só o Gemini tem (resposta por schema e áudio inline); na tela de modelos,
+  // escolher outra família quebraria o piloto. O custo segue etiquetado no ledger.
+  // O guard enxerga o uso pelo comentário do arquivo (a chamada passa a constante
+  // `SUPORTE_AUTO_TASK_KEY`). Sai daqui quando virar produto roteável.
+  'suporte_whatsapp',
 ]);
 
 /**
