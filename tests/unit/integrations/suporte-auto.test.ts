@@ -128,6 +128,7 @@ function ia(campos: Record<string, unknown> = {}): string {
   return JSON.stringify({
     intencao: 'acesso',
     tom_usuario: 'neutro',
+    continua_escalada: false,
     solicita_link: false,
     resposta: 'Oi! Aqui é o Beto 👋 Tente gerar um novo link em https://app.vertho.ai/entrar.',
     precisa_humano: false,
@@ -271,7 +272,7 @@ describe('suporte-auto · equipe @vertho.ai na ACME (piloto, inalterado)', () =>
     expect(options.geminiSafetySettings).toEqual(SAFETY_SETTINGS_SUPORTE);
     expect(options.geminiResponseSchema).toMatchObject({
       type: 'object',
-      required: ['intencao', 'tom_usuario', 'solicita_link', 'resposta', 'precisa_humano', 'acao'],
+      required: ['intencao', 'tom_usuario', 'continua_escalada', 'solicita_link', 'resposta', 'precisa_humano', 'acao'],
     });
     expect(String(system)).toContain('Você é o Beto');
     expect(String(system)).toContain('Nunca use palavrão');
@@ -425,7 +426,7 @@ describe('suporte-auto · equipe @vertho.ai na ACME (piloto, inalterado)', () =>
 
   it('IA sem tom_usuario também é fora do contrato', async () => {
     h.respostaIA = JSON.stringify({
-      intencao: 'duvida', solicita_link: false, resposta: 'Oi', precisa_humano: false, acao: 'responder',
+      intencao: 'duvida', continua_escalada: false, solicita_link: false, resposta: 'Oi', precisa_humano: false, acao: 'responder',
     });
     const r = await executarSuporteAuto({ ...base, waMessageId: 'wamid.J2' });
     expect(r).toEqual({ enviou: true, motivo: 'contencao-parse' });
@@ -626,15 +627,15 @@ describe('suporte-auto · quando o Beto fica calado', () => {
     h.internosGlobais = [];
   });
 
-  it('uma pessoa da equipe respondeu pela inbox nas últimas 12 h', async () => {
-    h.enviadas = [{ texto: 'Oi Ana, vou olhar seu acesso.', origem: 'inbox', enviada_em: horaAtras(3) }];
+  it('uma pessoa da equipe respondeu pela inbox nos últimos 30 min', async () => {
+    h.enviadas = [{ texto: 'Oi Ana, vou olhar seu acesso.', origem: 'inbox', enviada_em: horaAtras(0.4) }];
     const r = await executarSuporteAuto(colab);
     expect(r).toEqual({ enviou: false, motivo: 'humano-na-conversa' });
     expect(h.chamadasIA).toHaveLength(0);
   });
 
-  it('resposta da equipe mais antiga que 12 h não segura o Beto, e entra no histórico', async () => {
-    h.enviadas = [{ texto: 'Oi Ana, resolvido?', origem: 'inbox', enviada_em: horaAtras(13) }];
+  it('resposta da equipe há mais de 30 min não segura o Beto, e entra no histórico', async () => {
+    h.enviadas = [{ texto: 'Oi Ana, resolvido?', origem: 'inbox', enviada_em: horaAtras(0.6) }];
     const r = await executarSuporteAuto(colab);
     expect(r.enviou).toBe(true);
     const [, user] = h.chamadasIA[0];
@@ -716,42 +717,76 @@ describe('suporte-auto · guardas de conduta', () => {
     expect(conduta()[0].severidade).toBe('critico');
   });
 
-  it('ofensa: 1ª vez recebe aviso calmo; nas 12 h seguintes a conversa é da equipe', async () => {
+  it('ofensa: 1ª vez recebe aviso calmo; ofensa de novo em 24 h fica sem resposta', async () => {
     h.respostaIA = ia({ tom_usuario: 'ofensivo', resposta: 'RASCUNHO' });
     const r1 = await executarSuporteAuto({ ...colab, texto: 'vocês são uns incompetentes', waMessageId: 'wamid.O1' });
     expect(r1).toEqual({ enviou: true, motivo: 'conduta:ofensivo' });
     expect(h.envios[0].input.texto).toBe(TEXTO_OFENSA);
     expect(conduta()[0].severidade).toBe('aviso');
 
-    h.enviadas = [{ texto: TEXTO_OFENSA, origem: 'suporte-auto', enviada_em: horaAtras(0.1) }];
-    const r2 = await executarSuporteAuto({ ...colab, texto: 'lixo de sistema', waMessageId: 'wamid.O2' });
-    expect(r2).toEqual({ enviou: false, motivo: 'aguardando-equipe' });
-    expect(h.chamadasIA).toHaveLength(1);
+    for (const [i, horas] of [0.1, 13].entries()) {
+      h.enviadas = [{ texto: TEXTO_OFENSA, origem: 'suporte-auto', enviada_em: horaAtras(horas) }];
+      const r = await executarSuporteAuto({ ...colab, texto: 'lixo de sistema', waMessageId: `wamid.O${i + 2}` });
+      expect(r).toEqual({ enviou: false, motivo: 'ofensa-repetida' });
+    }
     expect(h.envios).toHaveLength(1);
+    expect(conduta().map((d) => d.detalhe.caso)).toEqual(['ofensivo', 'ofensa-repetida', 'ofensa-repetida']);
   });
 
-  it('ofensa de novo entre 12 e 24 h depois do aviso: silêncio, e a equipe fica sabendo', async () => {
-    h.respostaIA = ia({ tom_usuario: 'ofensivo', resposta: 'RASCUNHO' });
-    h.enviadas = [{ texto: TEXTO_OFENSA, origem: 'suporte-auto', enviada_em: horaAtras(13) }];
-    const r = await executarSuporteAuto({ ...colab, texto: 'lixo de sistema', waMessageId: 'wamid.O3' });
-    expect(r).toEqual({ enviou: false, motivo: 'ofensa-repetida' });
-    expect(h.envios).toHaveLength(0);
-    expect(conduta().map((d) => d.detalhe.caso)).toEqual(['ofensa-repetida']);
+  it('depois do aviso de ofensa, pedido educado sobre outro assunto é respondido', async () => {
+    h.enviadas = [{ texto: TEXTO_OFENSA, origem: 'suporte-auto', enviada_em: horaAtras(0.2) }];
+    h.respostaIA = ia({ intencao: 'duvida', continua_escalada: false });
+    const r = await executarSuporteAuto({ ...colab, texto: 'desculpa. como vejo meu PDI?', waMessageId: 'wamid.O5' });
+    expect(r).toEqual({ enviou: true, motivo: 'auto:duvida' });
   });
 
-  it('depois de escalar, o Beto não desmente o "deixei com a equipe" por 12 h', async () => {
-    h.respostaIA = ia({ intencao: 'duvida', resposta: 'RASCUNHO', precisa_humano: true, acao: 'escalar' });
-    await executarSuporteAuto({ ...colab, texto: 'o vídeo trava em processando', waMessageId: 'wamid.E1' });
-    const escalada = h.envios[0].input.texto;
+  describe('depois de escalar', () => {
+    let escalada = '';
+    beforeEach(async () => {
+      h.respostaIA = ia({ intencao: 'duvida', resposta: 'RASCUNHO', precisa_humano: true, acao: 'escalar' });
+      await executarSuporteAuto({ ...colab, texto: 'o vídeo trava em processando', waMessageId: 'wamid.E0' });
+      escalada = h.envios[0].input.texto;
+      h.envios = [];
+      h.chamadasIA = [];
+    });
 
-    h.respostaIA = ia({ intencao: 'duvida' });
-    h.enviadas = [{ texto: escalada, origem: 'suporte-auto', enviada_em: horaAtras(2) }];
-    const r2 = await executarSuporteAuto({ ...colab, texto: 'e aí???', waMessageId: 'wamid.E2' });
-    expect(r2).toEqual({ enviou: false, motivo: 'aguardando-equipe' });
+    it('o modelo sabe que há um assunto com a equipe', async () => {
+      h.enviadas = [{ texto: escalada, origem: 'suporte-auto', enviada_em: horaAtras(2) }];
+      await executarSuporteAuto({ ...colab, texto: 'e aí???', waMessageId: 'wamid.E1' });
+      expect(String(h.chamadasIA[0][1])).toContain('"aguardando_equipe":true');
+      expect(String(h.chamadasIA[0][0])).toContain('continua_escalada');
+    });
 
-    h.enviadas = [{ texto: escalada, origem: 'suporte-auto', enviada_em: horaAtras(13) }];
-    const r3 = await executarSuporteAuto({ ...colab, texto: 'e aí???', waMessageId: 'wamid.E3' });
-    expect(r3.enviou).toBe(true);
+    it('insistir no MESMO assunto: sem resposta, a equipe segue', async () => {
+      h.enviadas = [{ texto: escalada, origem: 'suporte-auto', enviada_em: horaAtras(2) }];
+      h.respostaIA = ia({ intencao: 'duvida', continua_escalada: true, resposta: 'RASCUNHO' });
+      const r = await executarSuporteAuto({ ...colab, texto: 'e aí???', waMessageId: 'wamid.E2' });
+      expect(r).toEqual({ enviou: false, motivo: 'aguardando-equipe' });
+      expect(h.envios).toHaveLength(0);
+    });
+
+    it('assunto NOVO: o Beto responde', async () => {
+      h.enviadas = [{ texto: escalada, origem: 'suporte-auto', enviada_em: horaAtras(2) }];
+      h.respostaIA = ia({ intencao: 'duvida', continua_escalada: false, resposta: 'O PDI fica em Relatórios, dentro do app.' });
+      const r = await executarSuporteAuto({ ...colab, texto: 'outra coisa: onde vejo meu PDI?', waMessageId: 'wamid.E3' });
+      expect(r).toEqual({ enviou: true, motivo: 'auto:duvida' });
+      expect(h.envios[0].input.texto).toBe('O PDI fica em Relatórios, dentro do app.');
+    });
+
+    it('sem a leitura do modelo não dá para saber o assunto: cala, a conversa já está com a equipe', async () => {
+      h.enviadas = [{ texto: escalada, origem: 'suporte-auto', enviada_em: horaAtras(2) }];
+      h.respostaIA = 'texto livre, sem json';
+      const r = await executarSuporteAuto({ ...colab, texto: 'e aí???', waMessageId: 'wamid.E4' });
+      expect(r).toEqual({ enviou: false, motivo: 'aguardando-equipe' });
+    });
+
+    it('passadas 12 h, o assunto antigo não segura mais nada', async () => {
+      h.enviadas = [{ texto: escalada, origem: 'suporte-auto', enviada_em: horaAtras(13) }];
+      h.respostaIA = ia({ intencao: 'duvida', continua_escalada: true });
+      const r = await executarSuporteAuto({ ...colab, texto: 'e aí???', waMessageId: 'wamid.E5' });
+      expect(r.enviou).toBe(true);
+      expect(String(h.chamadasIA[0][1])).toContain('"aguardando_equipe":false');
+    });
   });
 
   it('sofrimento continua saindo mesmo com a conversa passada para a equipe', async () => {

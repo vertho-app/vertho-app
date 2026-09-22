@@ -229,10 +229,11 @@ export function respostaEscalada(jaConversou: boolean): string {
 }
 
 /**
- * O texto enviado passou a conversa para a equipe? Depois dele o Beto fica
- * calado: responder em seguida desmentiria o "deixei com a equipe" que ele
- * acabou de dizer. Sofrimento e denúncia ficam de fora de propósito: se a
- * pessoa seguir em crise, o texto com o CVV precisa sair de novo.
+ * O texto enviado passou um assunto para a equipe? Depois dele, insistir NESSE
+ * assunto não tem resposta automática (desmentiria o "deixei com a equipe");
+ * assunto novo tem, e quem decide qual é o caso é o modelo
+ * (`continua_escalada`, em suporte-auto.ts). Sofrimento e denúncia ficam de
+ * fora de propósito: se a pessoa seguir em crise, o CVV precisa sair de novo.
  */
 export function passouParaEquipe(texto: string | null | undefined): boolean {
   const t = String(texto ?? '').trim();

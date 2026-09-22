@@ -966,9 +966,10 @@ webhook resolveu para uma empresa. O que muda para quem opera esta caixa:
 
 - **Número sem empresa continua só aqui**, na fila de não identificados (medido: 2 mensagens em 30
   dias). Tenant de demonstração também não recebe resposta.
-- **Resposta da equipe pela caixa cala o Beto** naquele número por 12 h. Depois de escalar ("deixei
-  com a equipe da Vertho") ou de avisar sobre ofensa, ele também fica calado por 12 h: a conversa é
-  de quem atende.
+- **Resposta da equipe pela caixa cala o Beto** naquele número por 30 min. Depois de escalar
+  ("deixei com a equipe da Vertho") ou de avisar sobre ofensa, ele fica calado por 12 h só se a
+  pessoa insistir NESSE assunto; pedido sobre outro assunto é respondido (o modelo decide qual é o
+  caso).
 - **"ok", "obrigada" e emoji** fora de uma conversa com o Beto não recebem resposta.
 - **Sofrimento e denúncia** recebem texto fixo (CVV; RH, ouvidoria ou canal de denúncia) e geram
   `suporte-auto-conduta` com severidade `critico`. A conversa precisa de uma pessoa no mesmo dia.

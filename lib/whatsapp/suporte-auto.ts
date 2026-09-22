@@ -17,10 +17,12 @@
  *    `desligado` cala o Beto. Ausente = `todos`. Lido em runtime.
  *
  * Quando o Beto fica calado de propósito (a inbox segue com a equipe):
- *  - uma pessoa da equipe respondeu este número pela inbox nas últimas 12 h;
+ *  - uma pessoa da equipe respondeu este número pela inbox nos últimos 30 min
+ *    (decisão do dono, 22/09: a janela era 12 h e calava o Beto o dia inteiro);
  *  - a mensagem é só "ok", "obrigada" ou emoji e o Beto não estava conversando;
- *  - o próprio Beto passou a conversa para a equipe nas últimas 12 h (escalada
- *    ou aviso de ofensa): responder em seguida desmentiria o que ele disse;
+ *  - o próprio Beto passou um assunto para a equipe nas últimas 12 h (escalada
+ *    ou aviso de ofensa) e a mensagem insiste NESSE assunto (`continua_escalada`,
+ *    decidido pelo modelo). Assunto novo é respondido normalmente;
  *  - a pessoa ofendeu de novo depois do aviso de conduta;
  *  - tenant de demonstração, reentrega da Meta, teto por hora.
  *
@@ -89,8 +91,13 @@ const SUPORTE_AUTO_TETO_HORA = 10;
 const SUPORTE_AUTO_AUDIO_MAX_BYTES = 8 * 1024 * 1024;
 /** Contexto curto evita transformar conversa de WhatsApp em prompt crescente. */
 const SUPORTE_AUTO_HISTORICO_MAX = 10;
-/** Resposta da equipe pela inbox neste intervalo = conversa com uma pessoa. */
-const SUPORTE_AUTO_JANELA_HUMANO_MS = 12 * 3600 * 1000;
+/** Resposta da equipe pela inbox neste intervalo = conversa com uma pessoa.
+ * 30 min por decisão do dono (22/09/2026): com 12 h, uma resposta da equipe de
+ * manhã calava o Beto para o dia todo. */
+const SUPORTE_AUTO_JANELA_HUMANO_MS = 30 * 60 * 1000;
+/** Depois de o Beto passar um assunto para a equipe, insistir NESSE assunto
+ * dentro deste intervalo não tem resposta automática; assunto novo tem. */
+const SUPORTE_AUTO_JANELA_ESCALADA_MS = 12 * 3600 * 1000;
 /** Depois do aviso de conduta, nova ofensa neste intervalo não tem resposta.
  * O aviso é reconhecido pelo TEXTO fixo gravado nas enviadas: `dedupe_key` lá
  * só existe para o inbox (`registro-saida.ts`). */
@@ -237,7 +244,12 @@ TOM_USUARIO (classifique só a MENSAGEM_ATUAL):
 - sofrimento: sinal de crise pessoal, desesperança, vontade de se machucar ou de morrer.
 - denuncia: relato de assédio, discriminação, violência ou abuso sofrido.
 Em ofensivo, sofrimento e denuncia a aplicação responde com um texto próprio; preencha "resposta" mesmo assim, curta e acolhedora.
-- Saída ESTRITAMENTE neste JSON, sem cerca de código: {"intencao":"acesso|link|pendencia|posicao|duvida|outro","tom_usuario":"neutro","solicita_link":false,"resposta":"...","precisa_humano":false,"acao":"responder|escalar"}`;
+ASSUNTO JÁ COM A EQUIPE:
+- Se CONTEXTO.aguardando_equipe=true, você já passou um assunto para a equipe da Vertho (veja no HISTÓRICO qual foi).
+- continua_escalada=true quando a MENSAGEM_ATUAL insiste, cobra ou acrescenta detalhe sobre ESSE MESMO assunto (ex.: "e aí?", "alguém vai ver?", "continua travado", descrição do mesmo erro). A aplicação não responde e a equipe segue com a conversa.
+- continua_escalada=false quando é um pedido NOVO, sobre outro assunto: responda normalmente, sem repetir que passou nada para a equipe.
+- Com CONTEXTO.aguardando_equipe=false, continua_escalada=false sempre.
+- Saída ESTRITAMENTE neste JSON, sem cerca de código: {"intencao":"acesso|link|pendencia|posicao|duvida|outro","tom_usuario":"neutro","continua_escalada":false,"solicita_link":false,"resposta":"...","precisa_humano":false,"acao":"responder|escalar"}`;
 
 function respostaContencao(texto: string | null, jaConversou = false, tipo = 'text'): string {
   if (tipo === 'audio') {
@@ -272,17 +284,19 @@ const SUPORTE_AUTO_SCHEMA = {
   properties: {
     intencao: { type: 'string', enum: [...INTENCOES] },
     tom_usuario: { type: 'string', enum: [...TONS_USUARIO] },
+    continua_escalada: { type: 'boolean' },
     solicita_link: { type: 'boolean' },
     resposta: { type: 'string' },
     precisa_humano: { type: 'boolean' },
     acao: { type: 'string', enum: ['responder', 'escalar'] },
   },
-  required: ['intencao', 'tom_usuario', 'solicita_link', 'resposta', 'precisa_humano', 'acao'],
+  required: ['intencao', 'tom_usuario', 'continua_escalada', 'solicita_link', 'resposta', 'precisa_humano', 'acao'],
 };
 
 interface SaidaIA {
   intencao: string;
   tom_usuario: TomUsuario;
+  continua_escalada: boolean;
   solicita_link: boolean;
   resposta: string;
   precisa_humano: boolean;
@@ -296,12 +310,14 @@ export function validarSaidaIA(bruto: unknown): SaidaIA | null {
   if (!resposta || resposta.length > SUPORTE_AUTO_RESPOSTA_MAX) return null;
   if (!INTENCOES.has(String(s.intencao ?? ''))) return null;
   if (!TONS.has(String(s.tom_usuario ?? ''))) return null;
+  if (typeof s.continua_escalada !== 'boolean') return null;
   if (typeof s.solicita_link !== 'boolean') return null;
   if (typeof s.precisa_humano !== 'boolean') return null;
   if (s.acao !== 'responder' && s.acao !== 'escalar') return null;
   return {
     intencao: String(s.intencao),
     tom_usuario: s.tom_usuario as TomUsuario,
+    continua_escalada: s.continua_escalada,
     solicita_link: s.solicita_link,
     resposta,
     precisa_humano: s.precisa_humano,
@@ -467,7 +483,8 @@ interface DetalhesConversa {
   jaConversou: boolean;
   /** Uma pessoa da equipe respondeu pela inbox dentro da janela. */
   humanoRecente: boolean;
-  /** O Beto passou a conversa para a equipe dentro da mesma janela. */
+  /** O Beto passou um assunto para a equipe nas últimas 12 h. Não cala por si:
+   * o modelo decide se a mensagem continua esse assunto (`continua_escalada`). */
   aguardandoEquipe: boolean;
   /** Respostas do Beto a este telefone na última hora (teto entre instâncias). */
   respostasUltimaHora: number;
@@ -568,7 +585,7 @@ async function detalhesDaConversa(
       jaConversou: doBeto.length > 0,
       humanoRecente: enviadas.some((x) => x.origem === 'inbox' && idade(x) < SUPORTE_AUTO_JANELA_HUMANO_MS),
       aguardandoEquipe: enviadas.some((x) =>
-        x.origem === 'suporte-auto' && passouParaEquipe(x.texto) && idade(x) < SUPORTE_AUTO_JANELA_HUMANO_MS),
+        x.origem === 'suporte-auto' && passouParaEquipe(x.texto) && idade(x) < SUPORTE_AUTO_JANELA_ESCALADA_MS),
       respostasUltimaHora: doBeto.filter((x) => idade(x) < 3600 * 1000).length,
       ofensaRecente: enviadas.some((x) =>
         x.origem === 'suporte-auto' && String(x.texto ?? '').trim() === TEXTO_OFENSA
@@ -831,7 +848,8 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
     if (a.modo === 'colaborador') return { enviou: false, motivo: 'falha-historico' };
   }
   if (detalhes.humanoRecente) return { enviou: false, motivo: 'humano-na-conversa' };
-  if (detalhes.aguardandoEquipe) return { enviou: false, motivo: 'aguardando-equipe' };
+  // `aguardandoEquipe` NÃO cala aqui: só o modelo sabe se a mensagem continua o
+  // assunto que foi para a equipe ou abre outro (ver `continua_escalada`).
   if (detalhes.respostasUltimaHora >= SUPORTE_AUTO_TETO_HORA) return { enviou: false, motivo: 'teto-hora' };
   if (e.tipo !== 'audio' && !detalhes.jaConversou && ehSoConfirmacao(e.texto)) {
     return { enviou: false, motivo: 'so-confirmacao' };
@@ -866,6 +884,7 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
     empresa_conhecida: true,
     pessoa: { nome: a.pessoa.nome, cargo: a.pessoa.cargo },
     ja_conversou: jaConversou,
+    aguardando_equipe: detalhes.aguardandoEquipe,
     ambiguidade: null,
   };
   const mensagemAtual = e.tipo === 'audio'
@@ -917,6 +936,14 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
       return { enviou: false, motivo: 'ofensa-repetida' };
     }
     return responderConduta('ofensivo', e, a, 'ia');
+  }
+
+  // Assunto já com a equipe: insistir nele não tem resposta automática, quem
+  // atende segue a conversa; assunto novo segue o fluxo normal. Sem a leitura do
+  // modelo (fora do contrato, bloqueio) não dá para saber qual dos dois é, e
+  // calar é o lado seguro: a conversa já está com a equipe.
+  if (detalhes.aguardandoEquipe && (!saida || saida.continua_escalada)) {
+    return { enviou: false, motivo: 'aguardando-equipe' };
   }
 
   // A IA entende o pedido (texto ou áudio); a decisão, geração e entrega do

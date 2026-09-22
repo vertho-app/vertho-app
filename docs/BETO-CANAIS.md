@@ -128,14 +128,21 @@ A mensagem continua na caixa, com push para a equipe:
 
 | Situação | Motivo |
 |---|---|
-| Uma pessoa da equipe respondeu este número pela caixa nas últimas 12 h | `humano-na-conversa` |
-| O próprio Beto passou a conversa para a equipe nas últimas 12 h (escalada ou aviso de ofensa) | `aguardando-equipe` |
+| Uma pessoa da equipe respondeu este número pela caixa nos últimos 30 min | `humano-na-conversa` |
+| O próprio Beto passou um assunto para a equipe nas últimas 12 h (escalada ou aviso de ofensa) e a mensagem insiste NESSE assunto. Assunto novo é respondido | `aguardando-equipe` |
 | Só "ok", "obrigada" ou emoji, sem conversa com o Beto em andamento | `so-confirmacao` |
 | Ofensa de novo depois do aviso, até 24 h | `ofensa-repetida` |
 | Falha ao ler o histórico (não dá para saber se há uma pessoa na conversa) | `falha-historico` |
 | 10 respostas a este número na última hora (memória E banco) | `teto-piloto` / `teto-hora` |
 
 O sofrimento por regex passa na frente de todas essas regras.
+
+Janelas decididas pelo dono em 22/09/2026, no mesmo dia da abertura: a resposta da equipe calava o
+Beto por 12 h (uma resposta de manhã o calava o dia todo) e passou a 30 min; depois de escalar, ele
+calava qualquer mensagem e passou a calar só o mesmo assunto. Quem decide se é o mesmo assunto é o
+modelo, no campo `continua_escalada` (o CONTEXTO leva `aguardando_equipe`); sem a leitura do
+modelo (fora do contrato, bloqueio do filtro), o Beto fica calado, porque a conversa já está com a
+equipe.
 
 **Freio:** `SUPORTE_AUTO_ESCOPO` = `interno` (volta a atender só a equipe) ou `desligado`. Ausente
 vale `todos`; valor desconhecido cai em `interno`, nunca em `todos`. Lido em runtime.
@@ -152,6 +159,12 @@ que só sai quando o link NÃO foi gerado, e pedido de humano sobre acesso receb
 mensagem exata do erro" logo depois de a pessoa mandá-la. Com o prompt e a escalada corrigidos, a
 2ª rodada deu 30 de 30 casos no desfecho esperado nas 3 repetições, 0 promessa de link, 0 bloqueio
 do filtro, 87 chamadas, US$ 0,138 (cerca de US$ 0,0016 por resposta).
+
+Com as janelas novas entraram 8 casos com histórico: assunto escalado há 2 h ("e aí? alguém vai
+ver?", "continua travado", "acontece no celular também" contra "onde vejo meu PDI?" e "meu link
+expirou"), aviso de ofensa há 1 h (pedido educado contra nova ofensa) e resposta da equipe há 1 h.
+`Medido em 22/09/2026`: 38 de 38 casos no desfecho esperado nas 3 repetições; o modelo separou
+mesmo assunto de assunto novo em 24 de 24 execuções; 111 chamadas, US$ 0,20.
 
 ---
 
