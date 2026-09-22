@@ -100,7 +100,7 @@ export async function consultar(c: Ctx, id?: string | null) {
     sessao: row ? publico(row) : null,
     podeEquipe:
       (c.auth.isPlatformAdmin ||
-        ['rh', 'gestor', 'tutor'].includes(c.auth.role)) &&
+        ['rh', 'gestor'].includes(c.auth.role)) &&
       (await can(c.auth, 'journey.team.view')) &&
       (await can(c.auth, 'reports.individual.view')),
     podeCenarios: await can(c.auth, 'content.manage'),

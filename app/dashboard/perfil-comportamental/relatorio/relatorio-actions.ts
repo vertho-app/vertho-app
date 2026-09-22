@@ -27,7 +27,7 @@ function isArtifactCurrent(artifactAt: unknown, reportAt: unknown): boolean {
 
 async function resolveColaboradorGestor(email: string, colaboradorId: string): Promise<{ colab?: any; error?: string }> {
   // `colaboradorId` é controlado pelo cliente. O gate central cobre próprio,
-  // RH, gestor responsável, tutor e admin — sempre com isolamento de tenant.
+  // RH, gestor responsável e admin — sempre com isolamento de tenant.
   const ctx = await getUserContext(email);
   if (!ctx?.empresaId) return { error: 'Usuário sem empresa vinculada' };
   const tdb = tenantDb(ctx.empresaId);
@@ -214,7 +214,7 @@ export async function baixarRelatorioComportamentalPdf() {
   }
 }
 
-/** PDF completo de um liderado/RH/tutor, após gate de posse do alvo. */
+/** PDF completo de um liderado/RH, após gate de posse do alvo. */
 export async function baixarRelatorioComportamentalPdfGestor(colaboradorId: string) {
   try {
     const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
@@ -358,7 +358,7 @@ export async function ouvirDevolutivaComportamental() {
   }
 }
 
-/** Áudio do perfil de um liderado/RH/tutor, após gate de posse do alvo. */
+/** Áudio do perfil de um liderado/RH, após gate de posse do alvo. */
 export async function ouvirDevolutivaComportamentalGestor(colaboradorId: string) {
   try {
     const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');

@@ -57,7 +57,7 @@ export default function TemporadaPage() {
       const { data: { user } } = await sb.auth.getUser();
       if (!user) { router.replace('/login'); return; }
       // A action por ID aplica o mesmo gate central da jornada: próprio usuário,
-      // RH, gestor responsável ou tutor. Assim o gestor vê a temporada REAL do
+      // RH ou gestor responsável. Assim o gestor vê a temporada REAL do
       // colaborador, sem impersonar a conta nem trocar a sessão.
       const r = colaboradorAlvo
         ? await loadTemporada(colaboradorAlvo)

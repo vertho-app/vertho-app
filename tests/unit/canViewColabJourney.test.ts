@@ -73,11 +73,14 @@ describe('canViewColabJourney', () => {
     expect(avisos.join(' ')).toMatch(/gestor_email/);
   });
 
-  it('tutor vê o tutorado, e só ele', () => {
-    const t = ctx({ role: 'tutor', colaborador: { id: 't-1', tutorados_ids: ['colab-alvo'] } });
-    expect(canViewColabJourney(t, ALVO)).toBe(true);
-    const t2 = ctx({ role: 'tutor', colaborador: { id: 't-2', tutorados_ids: ['outro'] } });
-    expect(canViewColabJourney(t2, ALVO)).toBe(false);
+  /**
+   * O papel `tutor` existia aqui e foi REMOVIDO em 22/09/2026: 540 pessoas no
+   * banco, nenhuma nesse papel. O caso que resta é o inverso — quem não é RH
+   * nem gestor do alvo não vê, mesmo com o antigo `tutorados_ids` no contexto.
+   */
+  it('papel desconhecido com tutorados_ids no contexto NÃO vê', () => {
+    const t = ctx({ role: 'tutor' as any, colaborador: { id: 't-1', tutorados_ids: ['colab-alvo'] } });
+    expect(canViewColabJourney(t, ALVO)).toBe(false);
   });
 
   it('colega comum do mesmo tenant NÃO vê', () => {

@@ -62,7 +62,7 @@ export async function seedSimuladoresDemo(sb: SupabaseClient, empresaId: string,
     const acesso = acessoDoCargo(empresa.sys_config, idDoCargo(cargoIds, p.cargo));
     const chave = `${empresaId}:${p.email}`;
     const base = { colaborador_id: p.id, owner_key: `colab:${p.id}` };
-    const participante = !['gestor', 'tutor'].includes(p.role);
+    const participante = p.role !== 'gestor';
     for (let tentativa = 0; tentativa < (i % 2 ? 1 : 2); tentativa++) {
       const em = dataDemo(agora, tentativa ? 2 : 8 + i % 12);
       if (participante && atendimento?.habilitado && acesso.atendimento) {

@@ -19,7 +19,7 @@ const EDITABLE_FIELDS = [
 ] as const;
 
 // platform_admin é tabela separada (platform_admins) — nunca atribuível aqui.
-const ALLOWED_ROLES = new Set(['colaborador', 'gestor', 'rh', 'tutor']);
+const ALLOWED_ROLES = new Set(['colaborador', 'gestor', 'rh']);
 
 function pickEditable(body: Record<string, any>): { fields: Record<string, any>; error?: string } {
   const fields: Record<string, any> = {};

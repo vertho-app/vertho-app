@@ -160,7 +160,6 @@ export async function dispararPulso(
   // Colabs elegíveis (exclui internos @vertho.ai)
   let q = tdb.from('colaboradores')
     .select('id, role, cargo')
-    .neq('role', 'tutor')
     .not('email', 'ilike', '%@vertho.ai');
   const { data: colabs } = await q;
   if (!colabs?.length) return { ok: false, error: 'Nenhum colaborador elegível' };

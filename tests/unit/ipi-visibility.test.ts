@@ -7,7 +7,7 @@ vi.mock('@/components/ipi/ipi-chat', () => ({ default: () => null }));
 
 describe('Ipi — visibilidade independente do perfil', () => {
   beforeEach(() => vi.resetAllMocks());
-  it.each(['colaborador', 'gestor', 'tutor', 'rh'])('mostra para %s Vertho sem papel administrativo', async role => {
+  it.each(['colaborador', 'gestor', 'rh'])('mostra para %s Vertho sem papel administrativo', async role => {
     const empresaId = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';
     mocks.auth.mockResolvedValue({ email: 'equipe@vertho.ai', role, isPlatformAdmin: false, empresaId });
     const result = await IpiAccess();

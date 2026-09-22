@@ -48,7 +48,6 @@ export const SYSTEM_ROLES: { key: SystemRole; label: string; description: string
   { key: 'socio', label: 'Admin Sócio', description: 'Admin com visão ampla; sem ações destrutivas ou geradoras.' },
   { key: 'rh', label: 'Admin da empresa', description: 'Admin/RH do tenant, com visão ampla da empresa.' },
   { key: 'gestor', label: 'Gestor', description: 'Liderança com acesso à própria equipe/área.' },
-  { key: 'tutor', label: 'Tutor', description: 'Acompanha colaboradores explicitamente tutorados.' },
   { key: 'colaborador', label: 'Usuário', description: 'Acesso individual à própria jornada.' },
 ];
 
@@ -69,7 +68,7 @@ export const PERMISSIONS: PermissionDefinition[] = [
   { key: 'reports.aggregate.view', domain: 'Relatórios', label: 'Ver relatórios agregados', description: 'Visualizar indicadores de empresa/equipe.', risk: 'medium' },
   { key: 'reports.individual.view', domain: 'Relatórios', label: 'Ver relatórios individuais', description: 'Acessar relatórios e avaliações de colaboradores.', risk: 'high' },
   { key: 'journey.own.view', domain: 'Jornada', label: 'Ver própria jornada', description: 'Acessar dashboard, PDI e trilha próprios.', risk: 'low' },
-  { key: 'journey.team.view', domain: 'Jornada', label: 'Ver jornada da equipe', description: 'Acompanhar progresso de equipe ou tutorados.', risk: 'medium' },
+  { key: 'journey.team.view', domain: 'Jornada', label: 'Ver jornada da equipe', description: 'Acompanhar progresso da própria equipe.', risk: 'medium' },
   { key: 'content.manage', domain: 'Conteúdo', label: 'Gerenciar conteúdos', description: 'Editar competências, trilhas, vídeos e base de aprendizagem.', risk: 'high' },
   { key: 'knowledge_base.manage', domain: 'Conteúdo', label: 'Gerenciar knowledge base', description: 'Editar base RAG por tenant.', risk: 'high' },
   { key: 'ai.audit.regenerate', domain: 'IA', label: 'Regenerar auditorias IA', description: 'Reprocessar avaliações, checks e scorings com IA.', risk: 'critical' },
@@ -133,11 +132,6 @@ export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
     'assessments.answer',
     'reports.aggregate.view',
     'reports.individual.view',
-    'journey.own.view',
-    'journey.team.view',
-  ],
-  tutor: [
-    'assessments.answer',
     'journey.own.view',
     'journey.team.view',
   ],

@@ -106,7 +106,6 @@
     "lib/auth/request-context.ts": 3,
     "lib/authz.ts": 3,
     "lib/home/loaders.ts": 7,
-    "lib/notify-tutor.ts": 1,
     "lib/radar/censo-importer.ts": 1,
     "lib/radar/eventos.ts": 1,
     "lib/radar/fundeb-importer.ts": 1,

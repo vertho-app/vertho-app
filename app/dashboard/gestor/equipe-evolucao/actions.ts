@@ -23,22 +23,15 @@ export async function listarEquipeEvolucao() {
   if (!ctx?.colaborador) return { error: 'Não autenticado' };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  const isTutor = ctx.role === 'tutor';
-  if (!isGestor && !isRH && !isTutor) return { error: 'Acesso restrito a gestor/tutor/RH' };
+  if (!isGestor && !isRH) return { error: 'Acesso restrito a gestor/RH' };
 
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
 
-  // Vínculo gestor→liderado é por colaboradores.gestor_email; vínculo tutor→
-  // tutorado é por colaboradores.tutorados_ids[] (Onboarding, Fase 4).
-  // Fail-closed: se tutor sem tutorados, retorna vazio.
+  // Vínculo gestor→liderado é por colaboradores.gestor_email. Fail-closed:
+  // gestor sem e-mail na sessão não vira "empresa inteira".
   const meuId = ctx.colaborador.id;
   const meuEmail = ctx.colaborador.email?.toLowerCase().trim();
-  const tutoradosIds: string[] = (ctx.colaborador as any)?.tutorados_ids || [];
-
-  if (isTutor && tutoradosIds.length === 0) {
-    return { ok: true, rows: [], resumo: { total: 0 }, escopo: 'tutor' };
-  }
 
   let colabQ = sb.from('colaboradores')
     .select('id, nome_completo, cargo, email, area_depto, gestor_email, role')
@@ -48,8 +41,6 @@ export async function listarEquipeEvolucao() {
     // `escaparLike`: `_` e `%` são curinga no ILIKE, e e-mail com underscore
     // casava gente que não era a mesma pessoa — listagem mais larga que o gate.
     colabQ = colabQ.ilike('gestor_email', escaparLike(meuEmail));
-  } else if (isTutor) {
-    colabQ = colabQ.in('id', tutoradosIds);
   }
   let { data: colabs } = await colabQ;
   // Segunda trava, em CÓDIGO: o banco filtra por padrão, a igualdade decide.
@@ -134,7 +125,7 @@ export async function listarEquipeEvolucao() {
     semTrilha: rows.filter(r => r.status === 'sem_trilha').length,
   };
 
-  return { ok: true, rows, resumo, escopo: isRH ? 'rh' : isGestor ? 'gestor' : 'tutor' };
+  return { ok: true, rows, resumo, escopo: isRH ? 'rh' : 'gestor' };
 }
 
 /**
@@ -149,28 +140,23 @@ export async function listarCheckpointsPendentes() {
   if (!ctx?.colaborador) return { error: 'Não autenticado' };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  const isTutor = ctx.role === 'tutor';
-  if (!isGestor && !isRH && !isTutor) return { error: 'Acesso restrito' };
+  if (!isGestor && !isRH) return { error: 'Acesso restrito' };
 
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
-  const tutoradosIds: string[] = (ctx.colaborador as any)?.tutorados_ids || [];
-
-  if (isTutor && tutoradosIds.length === 0) return { ok: true, rows: [] };
 
   // ⚠️ Esta listagem usava `area_depto` — a régua ERRADA e, pior, com fail-OPEN:
   // `if (isGestor && ctx.colaborador.area_depto)` significa que campo vazio =
   // SEM FILTRO, e 155 dos 161 gestores de Macaé têm `area_depto` nulo. Cada um
   // deles abria esta tela e recebia os checkpoints de TODAS as trilhas do tenant.
-  // (F5 da auditoria. O par certo estava três linhas acima, no ramo do tutor,
-  // que já era fail-closed.) Agora é `gestor_email`, a mesma régua da listagem
+  // (F5 da auditoria.) Agora é `gestor_email`, a mesma régua da listagem
   // irmã deste arquivo e de `canViewColabJourney` — as três divergiam entre si.
   const meuEmailCp = ctx.colaborador.email?.toLowerCase().trim();
   let colabQ = sb.from('colaboradores').select('id, nome_completo, area_depto, gestor_email').eq('empresa_id', empresaId);
   if (isGestor) {
     if (!meuEmailCp) return { ok: true, rows: [] };   // fail-CLOSED
     colabQ = colabQ.ilike('gestor_email', escaparLike(meuEmailCp));
-  } else if (isTutor) colabQ = colabQ.in('id', tutoradosIds);
+  }
   let { data: colabs } = await colabQ;
   if (isGestor) colabs = (colabs || []).filter((c: any) => mesmoEmail(c.gestor_email, meuEmailCp));
   if (!colabs?.length) return { ok: true, rows: [] };
@@ -318,8 +304,7 @@ export async function loadLideradoConcluida(colabEmail) {
   if (!ctx?.colaborador) return { error: 'Não autenticado' };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  const isTutor = ctx.role === 'tutor';
-  if (!isGestor && !isRH && !isTutor) return { error: 'Acesso restrito' };
+  if (!isGestor && !isRH) return { error: 'Acesso restrito' };
 
   // ⚠️ Este pré-check era a QUARTA régua do mesmo arquivo, e a pior delas: a
   // listagem já resolvia por `gestor_email` (corrigido em 32abf31e) e AQUI o
@@ -333,7 +318,7 @@ export async function loadLideradoConcluida(colabEmail) {
   // só o gate interno, que é o que deveria estar decidindo desde o começo.
   //
   // Agora delega para `canViewColabJourney`, a régua única: dono, RH do tenant,
-  // gestor DELE (`gestor_email`), tutor do tutorado, platform admin. Corrigir
+  // gestor DELE (`gestor_email`) e platform admin. Corrigir
   // "onde a régua diverge" e deixar uma cópia da régua velha no caminho do
   // clique é o mesmo que não ter corrigido.
   const alvo = await findColabByEmail(colabEmail, 'id, empresa_id, area_depto, gestor_email') as any;

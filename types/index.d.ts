@@ -4,7 +4,7 @@
  * tipos de negócio que o Supabase não infere (UserContext, Role, etc.).
  */
 
-export type Role = 'colaborador' | 'gestor' | 'rh' | 'tutor';
+export type Role = 'colaborador' | 'gestor' | 'rh';
 export type PerfilDISC = 'D' | 'I' | 'S' | 'C' | null;
 
 export interface Colaborador {

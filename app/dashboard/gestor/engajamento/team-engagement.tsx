@@ -355,11 +355,7 @@ export default function EngajamentoDoTimePage() {
   const etapasPendentes = pessoas.filter((pessoa) => pessoa.jornadaAtrasada).length;
   const semSinal = pessoas.filter((pessoa) => !temSinal(pessoa)).length;
   const semEvidencia = pessoas.filter((pessoa) => !pessoa.enviouEvidencia).length;
-  const scopeLabel = dados?.scope === 'rh'
-    ? 'Visão da empresa'
-    : dados?.scope === 'tutor'
-      ? 'Visão do tutor'
-      : 'Visão do gestor';
+  const scopeLabel = dados?.scope === 'rh' ? 'Visão da empresa' : 'Visão do gestor';
 
   const pessoasVisiveis = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase('pt-BR');

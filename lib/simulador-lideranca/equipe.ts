@@ -84,7 +84,7 @@ export async function podeAcompanharLideranca(
   auth: AuthenticatedContext,
 ): Promise<boolean> {
   return (
-    (auth.isPlatformAdmin || ['rh', 'gestor', 'tutor'].includes(auth.role)) &&
+    (auth.isPlatformAdmin || ['rh', 'gestor'].includes(auth.role)) &&
     (await can(auth, 'journey.team.view')) &&
     (await can(auth, 'reports.individual.view'))
   );

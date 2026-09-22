@@ -303,7 +303,6 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                       }`}
                       style={{ minWidth: '120px' }}>
                       <option value="colaborador">{t('team.roles.colaborador')}</option>
-                      <option value="tutor">{t('team.roles.tutor')}</option>
                       <option value="gestor">{t('team.roles.gestor')}</option>
                       <option value="rh">{t('team.roles.rh')}</option>
                     </select>

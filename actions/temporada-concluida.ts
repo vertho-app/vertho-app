@@ -24,7 +24,7 @@ export async function loadTemporadaConcluida(email: string, trilhaId?: string) {
 
   // Gate de POSSE (auditoria 23/07, grupo C): o email vem do CLIENTE — qualquer
   // autenticado lia a temporada concluída de qualquer pessoa. Passam: o próprio
-  // colab, gestor da mesma área, RH/tutor do tenant e platform admin.
+  // colab, gestor da mesma área, RH do tenant e platform admin.
   if (!canViewColabJourney(ctx, colab)) return { error: 'Sem permissão' };
 
   let trilhaQuery = sb.from('trilhas')

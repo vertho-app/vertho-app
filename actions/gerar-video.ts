@@ -250,7 +250,7 @@ export async function resolverVideoDaSemana(competencia: string, descritor: stri
 
 /**
  * Consulta o vídeo que um colaborador específico vê, para a prévia somente
- * leitura de RH/gestor/tutor. Nunca dispara geração e mantém o gate de posse no
+ * leitura de RH/gestor. Nunca dispara geração e mantém o gate de posse no
  * servidor; o ID vindo da URL não é tratado como autorização.
  */
 export async function resolverVideoDaSemanaGestor(

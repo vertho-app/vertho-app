@@ -6,8 +6,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * logo é um ENDPOINT HTTP e o `colabId` é escolhido pelo CLIENTE.
  *
  * Sessão válida não é autorização: o gate tem que provar POSSE (gestor do
- * liderado / tutor do tutorado / RH do tenant). Estes testes exercitam
- * exatamente esse ramo — e o de tenant, que o `.eq('empresa_id')` fecha.
+ * liderado / RH do tenant). Estes testes exercitam exatamente esse ramo — e o
+ * de tenant, que o `.eq('empresa_id')` fecha.
  */
 
 let sessao: any = null;
@@ -78,8 +78,13 @@ const rh = {
   email: 'rh@x.com', role: 'rh', isPlatformAdmin: false,
   colaborador: { id: 'rh1', email: 'rh@x.com', empresa_id: 'emp-A' },
 };
-const tutor = {
-  email: 'tutor@x.com', role: 'tutor', isPlatformAdmin: false,
+/**
+ * Papel REMOVIDO em 22/09/2026 (540 pessoas no banco, nenhuma nele). Fica como
+ * sessão de um papel que o gate não conhece: a remoção tem que FECHAR a porta,
+ * não abri-la por omissão de ramo.
+ */
+const papelExtinto = {
+  email: 'tutor@x.com', role: 'tutor' as any, isPlatformAdmin: false,
   colaborador: { id: 't1', email: 'tutor@x.com', empresa_id: 'emp-A', tutorados_ids: ['c2'] },
 };
 const colab = {
@@ -125,12 +130,11 @@ describe('getPerfilExternoPdfUrl — gate de POSSE', () => {
     expect(signedUrlMock).not.toHaveBeenCalled();
   });
 
-  it('tutor abre só de quem está em tutorados_ids', async () => {
-    sessao = tutor;
-    expect((await getPerfilExternoPdfUrl('c2')).url).toBe('https://signed/emp-A/c2.pdf');
-    signedUrlMock.mockClear();
-    const r = await getPerfilExternoPdfUrl('c1');
-    expect(r.error).toMatch(/escopo/i);
+  it('🔴 papel extinto (`tutor`) não abre nada, nem com tutorados_ids na sessão', async () => {
+    sessao = papelExtinto;
+    const r = await getPerfilExternoPdfUrl('c2');
+    expect(r.url).toBeUndefined();
+    expect(r.error).toMatch(/acesso restrito/i);
     expect(signedUrlMock).not.toHaveBeenCalled();
   });
 

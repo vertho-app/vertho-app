@@ -108,7 +108,7 @@ export type PerfilColab = {
 export type GestorHomeData = {
   ok: boolean;
   error?: string;
-  scope?: 'gestor' | 'rh' | 'tutor';
+  scope?: 'gestor' | 'rh';
   kpis?: GestorKpi;
   alertas?: GestorAlerta[];
   checkpointsPendentes?: CheckpointPendenteDetalhado[];
@@ -128,8 +128,8 @@ export type GestorHomeData = {
  *
  * ⚠️ `colabId` vem do CLIENTE — este arquivo é `'use server'`, então cada export
  * é um endpoint HTTP e sessão válida NÃO é autorização. O gate de POSSE abaixo
- * repete exatamente o escopo da listagem (gestor → `gestor_email`; tutor →
- * `tutorados_ids`; RH/admin → a empresa toda) para que ver e abrir tenham a
+ * repete exatamente o escopo da listagem (gestor → `gestor_email`; RH/admin
+ * → a empresa toda) para que ver e abrir tenham a
  * mesma régua. Sem ele, qualquer gestor autenticado leria o PDF de qualquer
  * pessoa da base — PII pesada (relatório psicométrico nominal).
  */
@@ -142,8 +142,7 @@ export async function getPerfilExternoPdfUrl(colabId: string): Promise<{ url?: s
 
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  const isTutor = ctx.role === 'tutor';
-  if (!isGestor && !isRH && !isTutor) return { error: 'Acesso restrito a gestor/tutor/RH' };
+  if (!isGestor && !isRH) return { error: 'Acesso restrito a gestor/RH' };
   if (!colabId || typeof colabId !== 'string') return { error: 'Colaborador inválido' };
 
   const sb = createSupabaseAdmin();
@@ -159,12 +158,9 @@ export async function getPerfilExternoPdfUrl(colabId: string): Promise<{ url?: s
 
   // Gate de POSSE (≠ gate de sessão): o alvo tem que estar no escopo de quem pede.
   const meuEmail = ctx.colaborador.email?.toLowerCase().trim();
-  const tutoradosIds: string[] = (ctx.colaborador as any)?.tutorados_ids || [];
   const noEscopo = isRH
     ? true
-    : isGestor
-      ? !!meuEmail && (colab.gestor_email || '').toLowerCase().trim() === meuEmail
-      : tutoradosIds.includes(colabId);
+    : !!meuEmail && (colab.gestor_email || '').toLowerCase().trim() === meuEmail;
   if (!noEscopo) return { error: 'Colaborador fora do seu escopo' };
 
   if (!colab.perfil_externo_pdf_path) return { error: 'Sem PDF carregado para este colaborador' };
@@ -183,8 +179,8 @@ const COLS_LIDERADO = 'id, nome_completo, cargo, email, area_depto, perfil_domin
  * QUEM cada papel enxerga — a régua de escopo, em um lugar só.
  *
  * Gestor: liderados por `colaboradores.gestor_email` (NÃO existe gestor_id; o
- * type em types/index.d.ts está aspiracional). Tutor: `tutorados_ids`. RH/admin:
- * a empresa toda. Fail-closed em todos: sem match, lista vazia.
+ * type em types/index.d.ts está aspiracional). RH/admin: a empresa toda.
+ * Fail-closed nos dois: sem match, lista vazia.
  *
  * Existe como função porque a home do gestor e a tela de engajamento do time
  * precisam do MESMO recorte. Duas cópias desta regra divergiriam calado — e o
@@ -196,9 +192,9 @@ const COLS_LIDERADO = 'id, nome_completo, cargo, email, area_depto, perfil_domin
  */
 export async function resolverEscopoDoGestor(
   sb: any,
-  { empresaId, meuId, meuEmail, isGestor, isTutor, tutoradosIds }: {
+  { empresaId, meuId, meuEmail, isGestor }: {
     empresaId: string; meuId: string; meuEmail?: string | null;
-    isGestor: boolean; isTutor: boolean; tutoradosIds: string[];
+    isGestor: boolean;
   },
 ): Promise<{ liderados: any[]; liderIds: string[] }> {
   const emailNormalizado = meuEmail?.toLowerCase().trim();
@@ -208,10 +204,6 @@ export async function resolverEscopoDoGestor(
     .neq('id', meuId);
   if (isGestor && emailNormalizado) {
     colabQ = colabQ.ilike('gestor_email', emailNormalizado);
-  } else if (isTutor) {
-    // Fail-closed: tutor sem tutorados não vê ninguém.
-    if (tutoradosIds.length === 0) return { liderados: [], liderIds: [] };
-    colabQ = colabQ.in('id', tutoradosIds);
   }
   const { data: colabs, error } = await colabQ;
   if (error) {
@@ -237,13 +229,11 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   if (!ctx?.colaborador) return { ok: false, error: 'Não autenticado' };
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  const isTutor = ctx.role === 'tutor';
-  if (!isGestor && !isRH && !isTutor) return { ok: false, error: 'Acesso restrito a gestor/tutor/RH' };
+  if (!isGestor && !isRH) return { ok: false, error: 'Acesso restrito a gestor/RH' };
 
   const sb = createSupabaseAdmin();
   const empresaId = ctx.colaborador.empresa_id;
   const meuId = ctx.colaborador.id;
-  const tutoradosIds: string[] = (ctx.colaborador as any)?.tutorados_ids || [];
 
   // Detecta se a empresa tem fonte externa de perfil (OPQ32, Hogan, etc.)
   // Quando tem, ela NÃO usa DISC — então "sem perfil" só conta quem está
@@ -290,7 +280,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   // Gestor: filtra por gestor_email ilike self.email. RH/admin: empresa toda.
   // Fail-closed: se zero match, retorna lista vazia.
   const escopo = await resolverEscopoDoGestor(sb, {
-    empresaId, meuId, meuEmail: ctx.colaborador.email, isGestor, isTutor, tutoradosIds,
+    empresaId, meuId, meuEmail: ctx.colaborador.email, isGestor,
   });
   const liderados = escopo.liderados;
   const liderId2obj = new Map(liderados.map((c: any) => [c.id, c]));
@@ -299,7 +289,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
   if (liderIds.length === 0) {
     return {
       ok: true,
-      scope: isTutor ? 'tutor' : (isGestor ? 'gestor' : 'rh'),
+      scope: isGestor ? 'gestor' : 'rh',
       kpis: {
         liderados: { total: 0, em_trilha: 0, sem_trilha: 0 },
         em_andamento: { count: 0, distribuicao_semanas: [] },
@@ -774,7 +764,7 @@ export async function getGestorHomeData(): Promise<GestorHomeData> {
 export type EngajamentoDoTime = {
   ok: boolean;
   error?: string;
-  scope?: 'gestor' | 'rh' | 'tutor';
+  scope?: 'gestor' | 'rh';
   resumo?: any;
   colaboradores?: any[];
   semanas?: number[];
@@ -811,8 +801,7 @@ export async function getEngajamentoDoTime(
 
   const isGestor = ctx.role === 'gestor';
   const isRH = ctx.role === 'rh' || ctx.isPlatformAdmin;
-  const isTutor = ctx.role === 'tutor';
-  if (!isGestor && !isRH && !isTutor) return { ok: false, error: 'Acesso restrito a gestor/tutor/RH' };
+  if (!isGestor && !isRH) return { ok: false, error: 'Acesso restrito a gestor/RH' };
 
   const empresaId = ctx.colaborador.empresa_id;
   if (!empresaId) return { ok: false, error: 'Colaborador sem empresa' };
@@ -830,8 +819,6 @@ export async function getEngajamentoDoTime(
     meuId: ctx.colaborador.id,
     meuEmail: ctx.colaborador.email,
     isGestor,
-    isTutor,
-    tutoradosIds: (ctx.colaborador as any)?.tutorados_ids || [],
   });
 
   const { rollUpEngajamento } = await import('@/lib/engajamento/roll-up');
@@ -843,7 +830,7 @@ export async function getEngajamentoDoTime(
   // O diretor não conversa com o professor — conversa com o coordenador dele. A
   // lista "Onde apoiar o próximo passo" vinha com as pessoas soltas, e descobrir
   // o vínculo de cada uma era trabalho manual no meio da leitura. Para gestor e
-  // tutor o vínculo é constante (são todos dele), então o custo só é pago no
+  // gestor o vínculo é constante (são todos dele), então o custo só é pago no
   // escopo em que ele informa algo.
   let colaboradores = rollup.colaboradores;
   if (isRH && colaboradores?.length) {
@@ -853,7 +840,7 @@ export async function getEngajamentoDoTime(
 
   return {
     ok: true,
-    scope: isTutor ? 'tutor' : (isGestor ? 'gestor' : 'rh'),
+    scope: isGestor ? 'gestor' : 'rh',
     resumo: rollup.resumo,
     colaboradores,
     semanas: rollup.semanas,

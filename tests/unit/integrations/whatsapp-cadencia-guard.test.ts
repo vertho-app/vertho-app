@@ -169,8 +169,9 @@ function emiteWhatsapp(a: { rel: string; texto: string }): boolean {
  * O envio está DENTRO de um loop? Por AST, não por regex.
  *
  * A primeira versão desta guarda perguntava "o arquivo contém um `for`?" e
- * acusou `actions/lead-comercial.ts` e `lib/notify-tutor.ts` — os dois mandam
- * UMA mensagem, e o loop era de outra coisa (montar linhas de texto). Guarda que
+ * acusou `actions/lead-comercial.ts` (e o então `lib/notify-tutor.ts`) — os
+ * dois mandavam UMA mensagem, e o loop era de outra coisa (montar linhas de
+ * texto). Guarda que
  * acusa inocente não sobrevive: ou ganha allowlist — e allowlist é onde o bug
  * volta a morar — ou alguém a desliga. Perguntar pela POSIÇÃO da chamada na
  * árvore é o que separa "manda em rajada" de "tem um for no arquivo".

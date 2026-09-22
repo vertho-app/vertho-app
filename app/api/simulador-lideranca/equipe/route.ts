@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 const json = (dados: unknown, status = 200) =>
   NextResponse.json(dados, { status, headers: { 'Cache-Control': 'no-store' } });
 
-/** Acompanhamento do simulador de liderança: RH, gestor e tutor (régua da jornada). */
+/** Acompanhamento do simulador de liderança: RH e gestor (régua da jornada). */
 export async function GET(req: Request) {
   try {
     const auth = await requireUser(req);

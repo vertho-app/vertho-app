@@ -14,6 +14,6 @@ export default async function EngagementPage() {
     const company = await getRhEngagementCompany();
     return <RhEngagementPanel {...company} />;
   }
-  if (ctx.role !== 'gestor' && ctx.role !== 'tutor') redirect('/dashboard');
+  if (ctx.role !== 'gestor') redirect('/dashboard');
   return <TeamEngagement />;
 }

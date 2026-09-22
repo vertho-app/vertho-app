@@ -8,7 +8,7 @@ import type { Colaborador, UserContext, Role } from '@/types';
 // o mesmo email existe em múltiplas empresas (cenário legítimo em multi-tenant).
 export async function findColabByEmail(
   email: string | null | undefined,
-  selectCols: string = 'id, nome_completo, email, cargo, area_depto, empresa_id, role, perfil_dominante, tutorados_ids',
+  selectCols: string = 'id, nome_completo, email, cargo, area_depto, empresa_id, role, perfil_dominante',
 ): Promise<Colaborador | null> {
   if (!email) return null;
 
@@ -111,12 +111,6 @@ export async function isPlatformAdmin(email: string | null | undefined): Promise
 export function isColaborador(ctx: UserContext | null | undefined): boolean { return ctx?.role === 'colaborador'; }
 export function isGestor(ctx: UserContext | null | undefined): boolean      { return ctx?.role === 'gestor'; }
 export function isRH(ctx: UserContext | null | undefined): boolean          { return ctx?.role === 'rh'; }
-export function isTutor(ctx: UserContext | null | undefined): boolean       { return ctx?.role === 'tutor'; }
-
-/** Tutor escopo = ids dos colaboradores que ele acompanha. Vazio = sem escopo. */
-export function getTutorados(ctx: UserContext | null | undefined): string[] {
-  return (ctx?.colaborador as any)?.tutorados_ids || [];
-}
 
 export function canAccessAdmin(ctx: UserContext | null | undefined): boolean {
   return ctx?.isPlatformAdmin === true;
@@ -127,14 +121,7 @@ export function canViewCompanyWideKPIs(ctx: UserContext | null | undefined): boo
 }
 
 export function canViewAreaTeam(ctx: UserContext | null | undefined): boolean {
-  // Tutor não vê equipe inteira — apenas seus tutorados (escopo restrito).
   return ctx?.role === 'gestor' || ctx?.role === 'rh' || ctx?.isPlatformAdmin === true;
-}
-
-/** Tutor pode acessar dados do colaborador X se X ∈ tutorados_ids do tutor. */
-export function canTutorAccess(ctx: UserContext | null | undefined, colaboradorId: string): boolean {
-  if (!ctx || ctx.role !== 'tutor') return false;
-  return getTutorados(ctx).includes(colaboradorId);
 }
 
 export function canViewOwnJourney(ctx: UserContext | null | undefined): boolean {
@@ -150,8 +137,8 @@ export function mesmoEmail(a?: string | null, b?: string | null): boolean {
 
 /**
  * Quem pode ver a JORNADA de `colab` (temporada, progresso, transcripts): o
- * PRÓPRIO, o RH do mesmo tenant, o gestor DELE, o tutor de quem ele tutora, ou o
- * platform admin. Cross-tenant nunca — exceto platform admin.
+ * PRÓPRIO, o RH do mesmo tenant, o gestor DELE ou o platform admin.
+ * Cross-tenant nunca — exceto platform admin.
  *
  * Existe porque `'use server'` torna todo export um endpoint HTTP e o id do
  * colaborador vem do CLIENTE: um gate que só exige sessão (`requireUserAction`)
@@ -195,17 +182,15 @@ export function canViewColabJourney(
     }
     return mesmoEmail(ctx.colaborador?.email, colab.gestor_email);
   }
-  if (ctx.role === 'tutor') return canTutorAccess(ctx, colab.id);
   return false;
 }
 
-export type DashboardView = 'rh' | 'gestor' | 'tutor' | 'colaborador';
+export type DashboardView = 'rh' | 'gestor' | 'colaborador';
 
 export function getDashboardView(ctx: UserContext | null | undefined): DashboardView {
   if (!ctx) return 'colaborador';
   if (ctx.role === 'rh') return 'rh';
   if (ctx.role === 'gestor') return 'gestor';
-  if (ctx.role === 'tutor') return 'tutor';
   // admin_plataforma sem vínculo de colaborador → visão rh
   if (ctx.isPlatformAdmin && !ctx.colaborador) return 'rh';
   return (ctx.role as DashboardView) || 'colaborador';

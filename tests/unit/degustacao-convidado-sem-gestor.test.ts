@@ -91,21 +91,17 @@ async function equipeDaGerente() {
     meuId: GERENTE.id,
     meuEmail: GERENTE.email,
     isGestor: true,
-    isTutor: false,
-    tutoradosIds: [],
   });
   return vistos.map((c: any) => c.nome_completo);
 }
 
-/** A visão de RH da sala: nem gestor nem tutor, enxerga a empresa inteira. */
+/** A visão de RH da sala: não é gestor, enxerga a empresa inteira. */
 async function equipeDoRh() {
   const { liderados: vistos } = await resolverEscopoDoGestor(sb.client, {
     empresaId: 'acme-id',
     meuId: 'helena-id',
     meuEmail: 'helena.demo@vertho.ai',
     isGestor: false,
-    isTutor: false,
-    tutoradosIds: [],
   });
   return vistos.map((c: any) => c.nome_completo);
 }

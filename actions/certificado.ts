@@ -69,7 +69,7 @@ async function carregarLogoTenant(logoUrl: unknown): Promise<string | null> {
  * Carrega os dados do Certificado de Conclusão da temporada mais recente do
  * colaborador. Mesmo gate de posse de `temporada-concluida.ts` (auditoria
  * 23/07, grupo C): o email vem do CLIENTE — passam o próprio colab, gestor da
- * mesma área, RH/tutor do tenant e platform admin.
+ * mesma área, RH do tenant e platform admin.
  *
  * Regras de emissão (produto): temporada concluída + participação ≥ 75%
  * (calcularParticipacao). Piloto (degustação) NÃO emite certificado.

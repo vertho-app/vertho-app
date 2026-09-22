@@ -88,10 +88,10 @@ export async function GET() {
     // O item é só do RH (`rhOnly` no menu) e depende só do módulo: a aba de cargos diz
     // quem TREINA, não quem vê o Mapeamento (decisão do dono, 22/09/2026).
     const prontidaoLideranca = liderancaEmpresa;
-    // Acompanhamento do simulador de liderança (decisão do dono, 18/09/2026): RH,
-    // gestor e tutor veem quem faz e os resultados. A tela refaz a pergunta com as
+    // Acompanhamento do simulador de liderança (decisão do dono, 18/09/2026): RH e
+    // gestor veem quem faz e os resultados. A tela refaz a pergunta com as
     // permissões (`contextoEquipe`); aqui é só exibição do item de menu.
-    const liderancaEquipe = liderancaEmpresa && (platformAdmin || ['rh', 'gestor', 'tutor'].includes(String((data as any)?.role ?? '')));
+    const liderancaEquipe = liderancaEmpresa && (platformAdmin || ['rh', 'gestor'].includes(String((data as any)?.role ?? '')));
 
     // Simulador interativo no menu da população do trilho: líderes e futuros líderes. Só
     // quando ele de fato responde o trilho (módulo contratado, cargo liberado e

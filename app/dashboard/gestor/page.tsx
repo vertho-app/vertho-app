@@ -93,11 +93,11 @@ export default function GestorHomePage() {
       <div className="flex items-baseline justify-between gap-3 mb-5 flex-wrap">
         <div>
           <p className="text-[10px] tracking-[0.2em] uppercase font-mono text-brand-300/80 mb-1">
-            {data.scope === 'rh' ? t('scopes.rh') : data.scope === 'tutor' ? t('scopes.tutor') : t('scopes.manager')}
+            {data.scope === 'rh' ? t('scopes.rh') : t('scopes.manager')}
           </p>
           <h1 className="text-white text-2xl font-bold flex items-center gap-2">
             <Users size={22} className="text-brand-400" />{' '}
-            {data.scope === 'rh' ? t('titles.company') : data.scope === 'tutor' ? t('titles.tutor') : t('titles.team')}
+            {data.scope === 'rh' ? t('titles.company') : t('titles.team')}
           </h1>
         </div>
         {/* Para o RH este link levava, na maior parte do tempo, a uma tela

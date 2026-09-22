@@ -18,7 +18,7 @@ function toResult(r: Awaited<ReturnType<typeof sendWhatsapp>>, okMsg: string) {
 /**
  * Auth: requer admin OU sistema interno. Quando `internal=true`, pula
  * `requireAdminAction` — usado por triggers automáticos do servidor
- * (ex.: notificação do tutor ao concluir missão integradora no Onboarding).
+ * (ex.: aviso pontual de operação, fora da cadência das pílulas).
  */
 export async function enviarWhatsApp(telefone: string, mensagem: string, internal: boolean = false) {
   if (!internal) await requireAdminAction('assessments.dispatch');

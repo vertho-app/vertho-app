@@ -40,7 +40,7 @@ describe('papel Admin Sócio', () => {
    */
   it('program.configure é exclusiva do master: nem socio nem rh nem gestor', () => {
     expect(hasBasePermission('platform_admin', 'program.configure')).toBe(true);
-    for (const papel of ['socio', 'rh', 'gestor', 'colaborador', 'tutor'] as const) {
+    for (const papel of ['socio', 'rh', 'gestor', 'colaborador'] as const) {
       expect(hasBasePermission(papel, 'program.configure'), papel).toBe(false);
     }
   });

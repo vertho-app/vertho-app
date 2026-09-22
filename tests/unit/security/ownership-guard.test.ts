@@ -89,10 +89,10 @@ const SINAIS_POSSE = [
   // Acrescentados em 10/08 com os idiomas que o repo REALMENTE usa — sem eles o
   // guard acusava `getPerfilExternoPdfUrl`, que tem um dos gates de posse mais
   // completos da base (tenant + gestor_email + tutorados). Guard que acusa quem
-  // fez certo vira ruído, e ruído é como um guard morre.
+  // fez certo vira ruído, e ruído é como um guard morre. (Os sinais
+  // `canTutorAccess`/`tutorados_ids` saíram em 22/09/2026 junto com o papel.)
   /\bctx\.colaborador\??\.empresa_id\b/,   // tenant vindo da SESSÃO, não do input
   /\bmesmoEmail\s*\(/,                      // igualdade de e-mail da sessão × alvo
-  /canTutorAccess/, /tutorados_ids/,
   /assertRepresentativeOwnership/, /\bownAccount\s*\(/, /\bguardEvent\s*\(/,
 ];
 

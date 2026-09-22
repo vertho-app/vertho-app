@@ -107,7 +107,7 @@ export async function loadPerfilCIS() {
   return montarPerfilCIS(colab);
 }
 
-/** Perfil completo de um liderado/RH/tutor, com gate de posse sobre o alvo. */
+/** Perfil completo de um liderado/RH, com gate de posse sobre o alvo. */
 export async function loadPerfilCISGestor(colaboradorId: string) {
   const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
   const email = await getAuthenticatedEmailFromAction();

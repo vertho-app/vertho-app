@@ -318,7 +318,7 @@ export async function atualizarRole(colaboradorId, novoRole, empresaId) {
   // colaborador de OUTRO tenant (escalada) — empresaId precisa bater com a sessão.
   const sb = await requireEmpresaSupabase(empresaId, 'users.manage', 'atualizarRole');
   if (!colaboradorId || !novoRole || !empresaId) return { success: false, error: 'colaboradorId, novoRole e empresaId obrigatórios' };
-  const validRoles = ['colaborador', 'gestor', 'rh', 'tutor'];
+  const validRoles = ['colaborador', 'gestor', 'rh'];
   if (!validRoles.includes(novoRole)) return { success: false, error: `Role invalido. Use: ${validRoles.join(', ')}` };
 
   // Update TENANT-SCOPED (mesma regra do atualizarProgramaModo): o id sozinho

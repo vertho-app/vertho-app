@@ -34,7 +34,7 @@ export async function todas(query: () => any): Promise<any[]> {
 export async function pessoasDaEquipe(c: ContextoRecepcao) {
   if (
     !(
-      c.auth.isPlatformAdmin || ['rh', 'gestor', 'tutor'].includes(c.auth.role)
+      c.auth.isPlatformAdmin || ['rh', 'gestor'].includes(c.auth.role)
     ) ||
     !(await can(c.auth, 'journey.team.view')) ||
     !(await can(c.auth, 'reports.individual.view'))

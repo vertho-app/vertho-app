@@ -28,7 +28,7 @@ export async function loadAvatarData(emailHint?: string) {
     let email = emailSessao;
     // Gate de POSSE (auditoria 23/07, grupo C): o hint vinha do client — qualquer
     // autenticado consultava nome/foto/avatar de qualquer pessoa. Fora do self,
-    // só com posse (gestor da área, RH/tutor do tenant, platform admin).
+    // só com posse (gestor da área, RH do tenant, platform admin).
     if (emailHint && emailHint.trim().toLowerCase() !== emailSessao) {
       const { canViewColabJourney } = await import('@/lib/authz');
       const ctx = await getUserContext(emailSessao);

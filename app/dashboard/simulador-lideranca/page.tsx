@@ -5,7 +5,7 @@ import { contextoEquipe } from '@/lib/simulador-lideranca/equipe';
 import TreinoLideranca from '@/components/simulador-lideranca/treino';
 
 /**
- * Quem PRATICA (população do programa) e quem ACOMPANHA (RH, gestor e tutor,
+ * Quem PRATICA (população do programa) e quem ACOMPANHA (RH e gestor,
  * decisão do dono de 18/09/2026) entram pela mesma tela; o servidor decide as
  * duas coisas. Sem nenhuma das duas, volta ao início, como vendas e atendimento
  * fazem (até 18/09 a pessoa lia uma mensagem crua, sem menu e sem caminho).

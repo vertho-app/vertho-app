@@ -816,7 +816,7 @@ export async function loadTemporada(colaboradorId: string, opts: { semanaTranscr
     // — que é o que o CLIENTE pediu. Isso garante consistência do escopo, não
     // autorização: sem esta checagem, qualquer autenticado lê a temporada de
     // qualquer pessoa de qualquer tenant, transcripts inclusive. Dono, RH,
-    // gestor da área, tutor do tutorado e platform admin passam.
+    // gestor da área e platform admin passam.
     if (!canViewColabJourney(ctx, colaborador)) return { error: 'não autorizado' };
 
     // A partir daqui, todas queries em tabelas tenant-owned passam por tenantDb.

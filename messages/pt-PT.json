@@ -4917,11 +4917,9 @@
     },
     "scopes": {
       "rh": "RH · empresa toda",
-      "tutor": "Tutor · os seus tutorandos",
       "manager": "Gestor · a sua área"
     },
     "titles": {
-      "tutor": "Os meus tutorandos",
       "team": "A minha equipa",
       "company": "Colaboradores",
       "fullEvolution": "Ver evolução completa",
@@ -5074,7 +5072,6 @@
       "empty": "Nenhum colaborador cadastrado",
       "roles": {
         "colaborador": "Colaborador",
-        "tutor": "Tutor (Onboarding)",
         "gestor": "Gestor",
         "rh": "RH / Diretor"
       },

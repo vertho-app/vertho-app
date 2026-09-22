@@ -571,20 +571,6 @@ export async function POST(request) {
             console.error('[onboarding acumulada parcial]', e?.message);
           }
         });
-
-        // Push pro tutor — só sems 4 e 7 (brief seção 3.4; sem 9 é final).
-        after(async () => {
-          try {
-            const { notifyTutorMissaoConcluida } = await import('@/lib/notify-tutor');
-            await notifyTutorMissaoConcluida({
-              trilhaId,
-              semana: Number(semana),
-              competenciasIntegradas: compsCobertas,
-            });
-          } catch (e: any) {
-            console.error('[onboarding notify tutor]', e?.message);
-          }
-        });
       }
     }
 
