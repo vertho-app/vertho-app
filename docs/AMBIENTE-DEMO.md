@@ -473,11 +473,14 @@ pessoa dispensa. Não é tour: não cobre menu nem bloqueia navegação.
 | Participante (Bruna / Marina) | Aplicar o aprendizado na jornada, descobrir o que desenvolver no PDI e entender o próprio perfil |
 
 **A linha começa pela DOR, em pergunta** (refinamento do dono, 18/09: "os textos
-ainda explicam a navegação"). A pergunta de cada papel é a mesma que o vídeo
-daquele papel vai usar como título, para as duas pontas contarem uma história
-só. ⚠️ E ela não pode prometer o que a tela desmente: "quem precisa de apoio?"
-foi descartada porque o KPI logo abaixo da dica diz "PRECISAM DE APOIO: 0 ·
-ninguém parado". Guardado por teste.
+ainda explicam a navegação"). A pergunta de cada papel nasceu para ser o título
+do vídeo comercial daquele papel, para as duas pontas contarem uma história só.
+**Em 21/09/2026 os vídeos saíram do escopo**: as perguntas passaram a carregar
+a história sozinhas, e o plano de storytelling ficou arquivado como superado no
+workspace (`output/plano-degustacao-b-storytelling.md`). ⚠️ E ela não pode
+prometer o que a tela desmente: "quem precisa de apoio?" foi descartada porque
+o KPI logo abaixo da dica diz "PRECISAM DE APOIO: 0 · ninguém parado".
+Guardado por teste.
 
 **Régua de conteúdo** (`lib/demo/degustacao-orientacao.ts`, puro): a casa de cada
 papel é conferida contra o `homePath` da sala por teste, porque divergir ali faz
