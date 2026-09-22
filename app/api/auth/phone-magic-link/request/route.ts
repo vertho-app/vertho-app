@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
 import { validateWhatsApp } from '@/lib/phone';
-import { isProxyEmail, proxyEmailFromPhone } from '@/lib/phone-otp';
+import { emailDeAcessoPorTelefone, isProxyEmail } from '@/lib/phone-otp';
 import { resolveAppLocale } from '@/lib/i18n';
 import { sendAccessLink } from '@/lib/notifications/access-link-service';
 import { authLimiter } from '@/lib/rate-limit';
@@ -54,9 +54,7 @@ export async function POST(req: NextRequest) {
 
     // Identidade: e-mail REAL do colab quando houver (login por WhatsApp e e-mail
     // no mesmo auth.users); senão o proxy interno.
-    const authEmail = (colab.email && !isProxyEmail(colab.email))
-      ? colab.email.toLowerCase()
-      : (isProxyEmail(colab.email) ? colab.email!.toLowerCase() : proxyEmailFromPhone(empresa.id, e164));
+    const authEmail = emailDeAcessoPorTelefone(colab.email, empresa.id, e164);
 
     const { error: createErr } = await sb.auth.admin.createUser({
       email: authEmail,

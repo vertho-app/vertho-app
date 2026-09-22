@@ -300,6 +300,21 @@ describe('EIXO 3 · reasoningEffort: onde chega e onde é DESCARTADO', () => {
     ]);
   });
 
+  it('Gemini recebe safetySettings só quando o caller pede', async () => {
+    const safety = [{ category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' }];
+    const corpo = await chamar('gemini-3.8-flash', 700, { geminiSafetySettings: safety });
+    expect(corpo?.safetySettings).toEqual(safety);
+    const semOpcao = await chamar('gemini-3.8-flash', 700);
+    expect(semOpcao).not.toHaveProperty('safetySettings');
+  });
+
+  it('prompt barrado pelo filtro do Google: o erro diz blockReason, não só "ausente"', async () => {
+    mocks.claude = []; mocks.fetches = []; mocks.ledger = [];
+    prepararFetch({ promptFeedback: { blockReason: 'SAFETY' }, usageMetadata: { promptTokenCount: 10 } });
+    await expect(callAI('S', 'U', { model: 'gemini-3.8-flash' }, 100, { taskKey: 't' }))
+      .rejects.toThrow(/blockReason=SAFETY/);
+  });
+
   it('geração 5 não recebe temperature nem top_p/top_k (a API devolve 400)', async () => {
     for (const id of TODOS.filter((m) => dialeto(m) === 'anthropic' && claudeAdaptativo(m))) {
       const corpo = await chamar(id, 1000, { temperature: 0.7 });

@@ -162,6 +162,22 @@ export const DEGRADACAO = {
    */
   WHATSAPP_CONTA_ADVERTIDA: 'whatsapp-conta-advertida',
   /**
+   * envio: o Beto do WhatsApp (`lib/whatsapp/suporte-auto.ts`) não conseguiu
+   * atender e a mensagem ficou só com a equipe, ou atendeu com texto de
+   * contenção. `detalhe.fase` diz onde (identidade, histórico, IA, envio...).
+   * `aviso`: a mensagem está na inbox, e a equipe ainda pode responder.
+   */
+  SUPORTE_AUTO_FALHOU: 'suporte-auto-falhou',
+  /**
+   * envio: o Beto caiu numa guarda de conduta (`lib/whatsapp/suporte-conduta.ts`).
+   * `critico` quando a pessoa mostrou sofrimento ou relatou assédio/violência
+   * (ela recebeu um texto fixo e precisa de uma PESSOA olhando a conversa) e
+   * quando o texto do modelo foi reprovado antes do envio (palavrão ou link fora
+   * da lista: sinal de que o prompt ou o modelo cedeu). `aviso` para ofensa
+   * dirigida ao Beto. O conteúdo da mensagem NÃO vai no detalhe: está na inbox.
+   */
+  SUPORTE_AUTO_CONDUTA: 'suporte-auto-conduta',
+  /**
    * envio: a mensagem SAIU pela Cloud API e a escrita local falhou.
    *
    * `critico` na gravação do enviado: a pessoa recebeu, e a thread de quem

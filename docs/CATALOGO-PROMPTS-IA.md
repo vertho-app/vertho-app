@@ -2252,13 +2252,14 @@ Cinco prompts migrados do simulador RNaves, sem alteração intencional do texto
 - **Tarefa**: mentor acolhedor para desenvolvimento, conteúdo e uso da plataforma, com respostas curtas e práticas; não substitui avaliação formal nem aconselhamento médico/psicológico.
 - **Página atual**: `components/beto-chat.tsx` envia o pathname; `lib/beto/pagina-atual.ts` remove query/hash, redige ids dinâmicos, recusa URL externa/injeção por quebra de linha e transforma rota desconhecida em rótulo genérico. Essa pista não concede acesso nem permite afirmar que o modelo viu a interface.
 
-### 20.6a BETO — suporte no WhatsApp (piloto interno)
-> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Incluído em 22/09/2026**
+### 20.6a BETO — suporte no WhatsApp
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Incluído em 22/09/2026** · aberto a todos os colaboradores no mesmo dia
 
-- **Arquivo**: `lib/whatsapp/suporte-auto.ts::SISTEMA_SUPORTE` + `executarSuporteAuto`.
-- **Modelo**: `gemini-3.8-flash`. **Max tokens**: 700; `reasoningEffort: low`; timeout de 12 s; texto ou áudio; histórico de até 24 h.
-- **Escopo**: acesso, recuperação e triagem para telefone que resolve, sem ambiguidade, a um único e-mail interno `@vertho.ai`; o piloto usa a ACME como contexto conhecido e não pergunta a empresa.
-- **Output estruturado**: JSON com `intencao`, `solicita_link`, `resposta`, `precisa_humano` e `acao`.
+- **Arquivo**: `lib/whatsapp/suporte-auto.ts::SISTEMA_SUPORTE` + `executarSuporteAuto`; guardas em `lib/whatsapp/suporte-conduta.ts`.
+- **Modelo**: `gemini-3.8-flash`. **Max tokens**: 700; `reasoningEffort: low`; timeout de 12 s; `safetySettings` explícitos (`SAFETY_SETTINGS_SUPORTE`); texto ou áudio; histórico de até 24 h.
+- **Escopo**: acesso, recuperação e triagem para qualquer colaborador cujo telefone resolve para uma empresa (a equipe `@vertho.ai` segue fixada na ACME); a empresa vem do banco e nunca é perguntada. Número sem empresa não recebe resposta automática.
+- **Output estruturado**: JSON com `intencao`, `tom_usuario` (`neutro|irritado|ofensivo|sofrimento|denuncia`), `solicita_link`, `resposta`, `precisa_humano` e `acao`.
+- **Conduta**: bloco `CONDUTA` do prompt (sem palavrão, ironia ou opinião; sem orientação médica, jurídica ou financeira; sem promessa; recusa a trocar de papel). `sofrimento`, `denuncia` e `ofensivo` saem por texto fixo; a `resposta` do modelo passa por verificação de palavrão e de link antes do envio. Ensaio contra o modelo real: `tests/unit/suporte-auto-conduta-live.test.ts` (opt-in), resultados em `docs/BETO-CANAIS.md` §2.6.
 - **Limite entre canais**: vídeo, conteúdo, atividade, trilha, progresso e uso após o login são encaminhados ao Beto dentro do app. O WhatsApp não tenta substituir o contexto autenticado.
 - **Segurança**: pedido textual claro de acesso não chama o modelo; áudio pode usar a IA apenas para classificar. O token nunca entra no prompt e é emitido deterministicamente pela aplicação no template aprovado. Visão operacional: `docs/BETO-CANAIS.md`.
 

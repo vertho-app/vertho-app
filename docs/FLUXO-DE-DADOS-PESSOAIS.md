@@ -83,7 +83,7 @@ Provedores de IA em uso (`actions/ai-client.ts`, `lib/ai-batch.ts`):
 
 | Fluxo | Provedor | Dados enviados | Proteções relevantes |
 |---|---|---|---|
-| Beto no WhatsApp — piloto interno | **Google (Gemini)** | Texto ou áudio recebido, histórico recente de até 24 h, nome, cargo e empresa resolvidos pelo banco | Só telefone ligado sem ambiguidade a um único `@vertho.ai`; token de acesso nunca entra no prompt |
+| Beto no WhatsApp (todos os colaboradores desde 22/09/2026) | **Google (Gemini)** | Texto ou áudio recebido, histórico recente de até 24 h (inclusive mensagens automáticas da plataforma e respostas da equipe), nome, cargo e empresa resolvidos pelo banco | Só telefone resolvido para UMA empresa (a equipe `@vertho.ai`, na ACME); número sem empresa e tenant de demo não chegam à IA; links do histórico trocados por `[link]`; token de acesso nunca entra no prompt |
 | Beto dentro do app | **Anthropic (Claude)** | Mensagem, histórico, perfil/cargo/empresa, contexto de desenvolvimento disponível e descrição da página atual | Sessão resolvida no servidor; query/hash removidos; ids dinâmicos redigidos; URL externa e quebra de linha recusadas |
 
 No WhatsApp, o áudio é obtido da Meta e enviado inline ao Gemini para entendimento e classificação.
@@ -124,7 +124,7 @@ primeiro item a verificar no painel.
 | **Web Push** (navegador) | endpoint do aparelho | `lib/notifications/push-core.ts` |
 
 O recebimento do WhatsApp também pode incluir mídia. A inbox guarda a cópia recebida no bucket
-privado `inbox-midia-recebida`; no piloto do Beto, um áudio elegível pode ainda ser enviado ao
+privado `inbox-midia-recebida`; no Beto do WhatsApp, um áudio elegível pode ainda ser enviado ao
 Google para interpretação, conforme a §2.1.
 
 ---

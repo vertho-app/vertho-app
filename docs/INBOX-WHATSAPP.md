@@ -11,7 +11,8 @@
 > | Webhook (assinatura, mensagens, status, templates) | `app/api/webhooks/whatsapp-cloud/route.ts` |
 > | Decisão de dono do telefone (pura) | `lib/whatsapp/resolver-dono.ts` |
 > | Envio pela Cloud API | `lib/whatsapp/cloud-api.ts` |
-> | Suporte automático do Beto (piloto interno) | `lib/whatsapp/suporte-auto.ts` |
+> | Suporte automático do Beto (todos os colaboradores desde 22/09) | `lib/whatsapp/suporte-auto.ts` |
+> | Guardas de conduta do Beto | `lib/whatsapp/suporte-conduta.ts` |
 > | Emissor determinístico de acesso do Beto | `lib/whatsapp/beto-access-link.ts` |
 > | Caixa do cliente (uma empresa) | `app/admin-v2/cliente/InboxPanel.tsx` + `inbox-actions.ts` |
 > | **Caixa da equipe (todas as empresas + não identificados)** | `app/admin-v2/inbox/` |
@@ -957,3 +958,22 @@ intervalo de 5 minutos e teto de 3 links em 24 h. A rota `/entrar` exige clique 
 consumir o link de uso único, para que o preview do WhatsApp não o queime.
 
 A divisão completa dos canais, destinos e proteções está em `docs/BETO-CANAIS.md`.
+
+### 9.8 22/09/2026: o Beto responde a todos os colaboradores
+
+O suporte automático deixou de ser só da equipe: responde a qualquer colaborador cujo telefone o
+webhook resolveu para uma empresa. O que muda para quem opera esta caixa:
+
+- **Número sem empresa continua só aqui**, na fila de não identificados (medido: 2 mensagens em 30
+  dias). Tenant de demonstração também não recebe resposta.
+- **Resposta da equipe pela caixa cala o Beto** naquele número por 12 h. Depois de escalar ("deixei
+  com a equipe da Vertho") ou de avisar sobre ofensa, ele também fica calado por 12 h: a conversa é
+  de quem atende.
+- **"ok", "obrigada" e emoji** fora de uma conversa com o Beto não recebem resposta.
+- **Sofrimento e denúncia** recebem texto fixo (CVV; RH, ouvidoria ou canal de denúncia) e geram
+  `suporte-auto-conduta` com severidade `critico`. A conversa precisa de uma pessoa no mesmo dia.
+- Freio: `SUPORTE_AUTO_ESCOPO=interno` volta ao piloto da equipe; `desligado` cala o Beto.
+
+🔴 O "teto de 3 links em 24 h" da §9.7 não segurava nada até esta entrega: a chave procurada só
+existe em `notification_deliveries`, não nas enviadas. Corrigido; detalhes, guardas de conduta e o
+ensaio contra o modelo real em `docs/BETO-CANAIS.md` §2.3 a §2.6.

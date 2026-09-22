@@ -417,8 +417,9 @@ nextjs-app/
 │   ├── authz.ts                  # RBAC: getUserContext, isPlatformAdmin, roles
 │   ├── auth/                     # NOVO: action-context (requireAdminAction, requireUserAction, requireAdminOrCronAction), fetch-auth, request-context
 │   ├── beto/pagina-atual.ts      # Allowlist e redação da rota enviada ao BETO autenticado
-│   ├── whatsapp/                 # Cloud API, inbox, piloto automático e acesso do BETO
-│   │   ├── suporte-auto.ts       # Gemini Flash: texto/áudio, histórico e triagem interna
+│   ├── whatsapp/                 # Cloud API, inbox, Beto automático e acesso do BETO
+│   │   ├── suporte-auto.ts       # Gemini Flash: texto/áudio, histórico e triagem (todos os colaboradores)
+│   │   ├── suporte-conduta.ts    # Guardas de conduta: sofrimento, confirmação, saída, safetySettings
 │   │   └── beto-access-link.ts   # Destino determinístico + limites do magic link
 │   ├── csrf.ts                   # NOVO: Tokens anti-CSRF
 │   ├── rate-limit.ts             # NOVO: Rate limiting in-memory + dedup
@@ -1049,10 +1050,11 @@ Regras, contratos e essa ressalva: `docs/TEMPLATES-WHATSAPP.md` §1.
 
 #### Beto: WhatsApp × app (22/09/2026)
 
-O Beto do WhatsApp é a porta de entrada para acesso, recuperação e triagem; o piloto responde
-apenas a telefones internos que resolvem sem ambiguidade para um único `@vertho.ai`. Aceita texto
-e áudio com Gemini 3.8 Flash, mas a IA nunca recebe o token. Pedido claro de login usa o emissor
-determinístico e o template aprovado `acesso_vertho`, com idempotência, cooldown e limite diário.
+O Beto do WhatsApp é a porta de entrada para acesso, recuperação e triagem; desde 22/09/2026
+responde a todo colaborador cujo telefone resolve para uma empresa (a equipe `@vertho.ai`, na
+ACME), com guardas de conduta em `lib/whatsapp/suporte-conduta.ts`. Aceita texto e áudio com
+Gemini 3.8 Flash, mas a IA nunca recebe o token. Pedido de login usa o emissor determinístico e o
+template aprovado `acesso_vertho`, com idempotência, cooldown e limite diário.
 
 O Beto dentro do app continua sendo o mentor autenticado para conteúdo, trilha, progresso e uso da
 plataforma. Além de perfil, cargo, tenant, blueprint e contexto semanal, recebe uma descrição

@@ -129,6 +129,11 @@ export interface AICallOptions {
    * server-side que já baixaram o binário com autenticação (ex.: áudio da Meta).
    * Nunca recebe URL/token: só mime normalizado + base64. */
   geminiInlineData?: { mimeType: string; data: string };
+  /** `safetySettings` do Gemini, repassado como veio. Sem ele vale o padrão do
+   * provedor, que nos modelos recentes é permissivo. Bloqueio vira erro com
+   * `finishReason=SAFETY` ou `blockReason=...` na mensagem (ver
+   * `conteudoGeminiOuFalhaAlto`), para o caller distinguir de falha de rede. */
+  geminiSafetySettings?: Array<{ category: string; threshold: string }>;
   /**
    * INTERNO — preenchido por `callAI`/`callAIChat` quando falta `taskKey`.
    * Capturado na ENTRADA, onde a pilha ainda e sincrona: dentro de
@@ -890,9 +895,13 @@ function conteudoGeminiOuFalhaAlto(data: any, model: string): string {
   if (text.trim()) return text;
 
   const usage = data?.usageMetadata || {};
+  // Prompt barrado pelo filtro do Google não traz candidato nenhum: o motivo
+  // vem só em `promptFeedback.blockReason`, e sem ele o erro dizia "ausente".
+  const bloqueio = data?.promptFeedback?.blockReason;
   throw new Error(
     `Gemini ${model} devolveu conteúdo VAZIO `
     + `(finishReason=${data?.candidates?.[0]?.finishReason || 'ausente'}, `
+    + (bloqueio ? `blockReason=${bloqueio}, ` : '')
     + `output=${usage.candidatesTokenCount || 0}, thinking=${usage.thoughtsTokenCount || 0}).`,
   );
 }
@@ -925,6 +934,7 @@ async function callGemini(
       responseMimeType: options.geminiResponseSchema ? 'application/json' : undefined,
       responseSchema: options.geminiResponseSchema,
     }),
+    ...(options.geminiSafetySettings ? { safetySettings: options.geminiSafetySettings } : {}),
   };
 
   const res = await fetch(url, {
@@ -1084,6 +1094,7 @@ async function callGeminiChat(
       responseMimeType: options.geminiResponseSchema ? 'application/json' : undefined,
       responseSchema: options.geminiResponseSchema,
     }),
+    ...(options.geminiSafetySettings ? { safetySettings: options.geminiSafetySettings } : {}),
   };
 
   const res = await fetch(url, {

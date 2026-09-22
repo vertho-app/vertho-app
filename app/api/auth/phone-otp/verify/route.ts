@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getTenantSlug } from '@/lib/tenant-resolver';
 import { validateWhatsApp } from '@/lib/phone';
-import { checkOtp, proxyEmailFromPhone, isProxyEmail } from '@/lib/phone-otp';
+import { checkOtp, emailDeAcessoPorTelefone, isProxyEmail } from '@/lib/phone-otp';
 import { authLimiter } from '@/lib/rate-limit';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
 
@@ -65,9 +65,7 @@ export async function POST(req: NextRequest) {
     // Identidade de auth: o E-MAIL REAL do colaborador quando houver — assim o
     // login por WhatsApp E o login por e-mail caem no MESMO auth.users (a pessoa
     // pode entrar pelos dois). Sem e-mail real, usa o proxy interno determinístico.
-    const authEmail = (colab.email && !isProxyEmail(colab.email))
-      ? colab.email.toLowerCase()
-      : (isProxyEmail(colab.email) ? colab.email!.toLowerCase() : proxyEmailFromPhone(empresa.id, e164));
+    const authEmail = emailDeAcessoPorTelefone(colab.email, empresa.id, e164);
 
     // Garante o auth.user backing (idempotente: ignora "já registrado").
     const { error: createErr } = await sb.auth.admin.createUser({

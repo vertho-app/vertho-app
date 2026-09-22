@@ -35,6 +35,13 @@ import { executarSuporteAuto } from '@/lib/whatsapp/suporte-auto';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
+/** Motivos em que o Beto fica calado de propósito (ver `lib/whatsapp/suporte-auto.ts`). */
+const SILENCIOS_ESPERADOS = new Set([
+  'fora-do-piloto', 'fluxo-proprio', 'reentrega', 'teto-piloto', 'teto-hora', 'tipo-sem-texto',
+  'texto-vazio', 'sem-empresa', 'tenant-demo', 'so-confirmacao', 'humano-na-conversa',
+  'aguardando-equipe', 'desligado',
+]);
+
 /** Verificação do handshake (GET) — a Meta manda o desafio uma vez. */
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -334,9 +341,10 @@ export async function POST(req: Request) {
     });
   }
 
-  // Piloto do suporte automático — em `after()` próprio, DEPOIS do push e do VER.
-  // Só o telefone do piloto responde; o resto cai em `fora-do-piloto` sem custo.
-  // `ambiguidade` viaja junto para o núcleo não chutar tenant (ver suporte-auto).
+  // Beto no WhatsApp (suporte automático), em `after()` próprio, DEPOIS do push e
+  // do VER. Responde a todo colaborador cujo telefone resolveu para uma empresa
+  // (desde 22/09/2026); sem empresa, fica só com a equipe. `ambiguidade` viaja
+  // junto para o núcleo não chutar tenant (ver suporte-auto).
   if (paraPush.length) {
     after(async () => {
       for (const { m, empresaId, empresaNome, colaboradorId, ambiguidade } of paraPush) {
@@ -353,7 +361,9 @@ export async function POST(req: Request) {
             colaboradorId,
             ambiguidade,
           });
-          if (!r.enviou && !['fora-do-piloto', 'fluxo-proprio', 'reentrega', 'teto-piloto'].includes(r.motivo)) {
+          // Silêncios esperados não viram log: aberto a todos, cada foto, "ok" ou
+          // resposta da equipe geraria uma linha. Falha real tem degradação própria.
+          if (!r.enviou && !SILENCIOS_ESPERADOS.has(r.motivo)) {
             console.log(`[whatsapp-cloud] suporte-auto não enviou (${r.motivo}): ${m.waMessageId}`);
           }
         } catch (e: any) {

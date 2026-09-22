@@ -36,6 +36,20 @@ export function isProxyEmail(email: string | null | undefined): boolean {
   return !!email && email.toLowerCase().endsWith(`@${PROXY_DOMAIN}`);
 }
 
+/**
+ * Identidade de auth de quem entra pelo WhatsApp: o e-mail do cadastro quando
+ * houver (real ou proxy já gravado), assim o login por WhatsApp e o por e-mail
+ * caem no MESMO `auth.users`; sem e-mail, o proxy determinístico. Fonte única
+ * da regra para as portas de telefone (OTP, link por WhatsApp e o Beto).
+ */
+export function emailDeAcessoPorTelefone(
+  emailCadastro: string | null | undefined,
+  empresaId: string,
+  e164: string,
+): string {
+  return emailCadastro ? emailCadastro.toLowerCase() : proxyEmailFromPhone(empresaId, e164);
+}
+
 function pepper(): string {
   // OTP_PEPPER permite rotação dedicada; fallback no service role key
   // (segredo server-only já presente) pra não exigir env nova no deploy.
