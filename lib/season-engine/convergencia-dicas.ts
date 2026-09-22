@@ -9,6 +9,9 @@ import { CONVERGENCIA, type Convergencia } from '@/lib/season-engine/convergenci
  * pediu a MESMA descrição nos dois lugares; uma cópia em cada arquivo divergiria
  * na primeira revisão de texto.
  *
+ * Desde 21/09/2026 o PDF de evolução compara só o cenário inicial com o final e
+ * não classifica por veredito; quem lê estas frases hoje é a tela.
+ *
  * O rótulo continua em `rotuloConvergencia` e a cor em `convergencia-cores`.
  */
 export const DICA_VEREDITO: Record<Convergencia, string> = {

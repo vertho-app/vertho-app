@@ -51,7 +51,6 @@ const SUPERFICIES = [
   'app/dashboard/gestor/equipe-evolucao/page.tsx',
   'app/admin/evolucao/page.tsx',
   'app/dashboard/relatorios/relatorios-rh-view.tsx',
-  'components/pdf/RelatorioEvolucao.tsx',
   'app/dashboard/evolucao/page.tsx',
   'lib/plenaria-equipe-pdf.ts',
 ];
@@ -65,6 +64,22 @@ describe('toda superfície que pinta veredito lê a paleta única', () => {
     for (const velha of ["cor: 'amber'", 'valor={resumo.parciais || 0} cor="text-amber-400"', 'text-amber-400">~', 'valor={resumo.evolucaoParcial} cor="text-amber-300"', "'#D97706'", "'#67E8F9'", "'#0C4A6E'", 'colors.orange', 'bg-[#9ae2e6]']) {
       expect(fonte, `"${velha}" voltou em ${arquivo}`).not.toContain(velha);
     }
+  });
+});
+
+/**
+ * Superfícies que DEIXARAM de pintar veredito. O PDF executivo de evolução passou a
+ * comparar só o cenário inicial com o final (21/09/2026) e não classifica mais;
+ * `relatorio-evolucao-pdf.test.ts` trava essa ausência pelo lado do relatório. Se
+ * o veredito voltar a ele, o arquivo sai daqui e volta para `SUPERFICIES`, lendo a
+ * paleta única.
+ */
+const SEM_VEREDITO = ['components/pdf/RelatorioEvolucao.tsx'];
+
+describe('superfície que deixou de pintar veredito não volta a pintar por fora da paleta', () => {
+  it.each(SEM_VEREDITO)('%s', (arquivo) => {
+    const fonte = semComentarios(readFileSync(arquivo, 'utf8'));
+    expect(fonte, `${arquivo} voltou a pintar veredito: mova para SUPERFICIES`).not.toMatch(/CONVERGENCIA|rotuloConvergencia|veredito/i);
   });
 });
 

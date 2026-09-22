@@ -431,13 +431,13 @@ function RadarCompetencia({ item }: { item: CompetenciaRadar }) {
             </Svg>
           </View>
           <View style={s.radarLista}>
-            {descritores.map((descritor, indice) => (
-              <View key={`${competencia.chave}::${descritor.chave}`} style={s.radarLinha}>
+            {descritores.map((eixo, indice) => (
+              <View key={`${competencia.chave}::${eixo.chave}`} style={s.radarLinha}>
                 <View style={s.radarNumero}><Text style={s.radarNumeroTexto}>{indice + 1}</Text></View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.radarDescritor}>{descritorParaHumano(descritor.chave)}</Text>
+                  <Text style={s.radarDescritor}>{descritorParaHumano(eixo.chave)}</Text>
                   <Text style={s.radarValores}>
-                    {`${num(descritor.mediaPre)} para ${num(descritor.mediaPos)} · avanço ${comSinal(descritor.delta)}`}
+                    {`${num(eixo.mediaPre)} para ${num(eixo.mediaPos)} · avanço ${comSinal(eixo.delta)}`}
                   </Text>
                 </View>
               </View>
@@ -449,12 +449,12 @@ function RadarCompetencia({ item }: { item: CompetenciaRadar }) {
           <Text style={s.radarAviso}>
             {'Esta competência tem menos de três descritores medidos; por isso a evolução aparece em linhas, sem formar um polígono artificial.'}
           </Text>
-          {descritores.map((descritor, indice) => (
-            <View key={`${competencia.chave}::${descritor.chave}`} style={s.radarLinha}>
+          {descritores.map((eixo, indice) => (
+            <View key={`${competencia.chave}::${eixo.chave}`} style={s.radarLinha}>
               <View style={s.radarNumero}><Text style={s.radarNumeroTexto}>{indice + 1}</Text></View>
               <View style={{ flex: 1 }}>
-                <Text style={s.radarDescritor}>{descritorParaHumano(descritor.chave)}</Text>
-                <Text style={s.radarValores}>{`${num(descritor.mediaPre)} para ${num(descritor.mediaPos)} · avanço ${comSinal(descritor.delta)}`}</Text>
+                <Text style={s.radarDescritor}>{descritorParaHumano(eixo.chave)}</Text>
+                <Text style={s.radarValores}>{`${num(eixo.mediaPre)} para ${num(eixo.mediaPos)} · avanço ${comSinal(eixo.delta)}`}</Text>
               </View>
             </View>
           ))}
