@@ -366,6 +366,10 @@ Casa: qualquer lugar que decida "esta pessoa pode abrir isto agora".
 - 🔴 **O gate DIZ o que falta?** Negar sem explicar chega ao suporte como "não consigo acessar". A
   régua ("o que conclui a etapa é a conversa, não abrir o conteúdo") tem que estar na tela, com o
   número que falta e o caminho de volta.
+- 🔴 **A tela LEVA até a porta, ou só a nomeia?** Meça no celular a que altura fica o botão que
+  conclui (18/09: a 1.523px de 2.058px, 33 de 39 travados nunca abriram a conversa). F-I39.
+- **O número que a porta anuncia é da PESSOA?** Turno de IA ≠ resposta dela (6 turnos = 5
+  respostas); use `respostasDaPessoa`/`respostasFaltantes` de `week-gating`. F-I39.
 - **Para onde o envio manda a pessoa?** Link que aponta para a etapa do CALENDÁRIO enquanto o gate
   cobra PROGRESSO convida para a porta trancada, semana após semana.
 - **Telemetria:** tentativa bloqueada não pode contar como abertura. Allowlist de `tipo` com default
@@ -491,6 +495,17 @@ Casa: `npm run test:unit … && git commit … && git push`, ou qualquer variant
   correta é `git add` → suíte inteira → commit. Ver `feedback_guard_varre_tracked`.
 - ⚠️ **Smoke verde não absolve:** no MESMO SHA quebrado, `Smoke Test success` e
   `TypeScript failure`. Conferir `gh run list` pelo **nome do workflow**, não pela impressão da lista.
+
+---
+
+## Vou concluir que "o push não gerou build"
+
+Casa: `list_deployments` sem o SHA novo minutos depois do push.
+
+- 🔴 **Não liste com `since`** (devolve `count: 0` com o deployment existindo) e **espere ~15 min**:
+  em 18/09 houve fila de 10+ min em `INITIALIZING`, e duas sessões empurraram `chore: dispara build`
+  inútil. Decide o status `Vercel` do commit no GitHub. Receita e detalhe: `CLAUDE.md` §Deploy.
+- Commit vazio precisa de `-- <arquivo intocado>` (o hook de pathspec recusa sem) e push separado.
 
 ---
 

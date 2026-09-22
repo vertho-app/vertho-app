@@ -446,6 +446,10 @@ semana que destrava).
 `turnos_da_IA >= maxTurns/2` — **6** em semana de conteúdo, **10** na de aplicação, **12** na
 semana 13. Os tetos vivem no `week-gating` (eram literais dentro das rotas): a tela precisa do mesmo
 número para dizer quantas respostas faltam.
+⚠️ **Turno de IA não é resposta da pessoa:** a abertura e o fechamento são falas da IA, então 6
+turnos custam **5** respostas. Tudo que a TELA anuncia passa por `respostasDaPessoa` /
+`respostasFaltantes` (mesmo arquivo); `turnosIaNecessarios` segue sendo a régua das ROTAS. Antes de
+18/09 a porta dizia "0 de 6" a quem nunca tinha clicado (F-I39).
 
 ⚠️ **Duas portas ainda usam critério próprio, e é dívida conhecida** (ver F-I21):
 a **lista** (`app/dashboard/temporada/page.tsx:158`) libera também por `em_andamento`, e

@@ -620,6 +620,39 @@ Vizinho do F-I37: aqui o insumo chega, mas o escritor não sabe o número que va
   pede para citar uma fonte que o escritor não recebe é ordem de inventar.
 - ⚠️ **Não reprocessado:** os 11 fechamentos de Ibipeba ficam como estão (regra de só daqui para frente).
 
+### F-I39 · A tela DIZIA onde a semana fecha e não levava até lá ✅ (fechado 18/09/2026)
+Vizinho do F-I21 (régua que nega sem dizer o que falta) e do F-I28 (custo desconhecido): aqui a régua
+já era dita no topo, mas como texto, e a porta ficava a duas telas de rolagem.
+- **Gatilho:** `app/dashboard/temporada/semana/[week]/page.tsx`. O passo "2 Evidências" da barra "Sua
+  semana" era um `<span>`; o card da conversa vinha depois do conteúdo, do desafio e do Tira-Dúvidas.
+  Medido na tela real (ACME demo, iPhone 390x844, sessão de colaborador): página de 2.058px, card em
+  **1.523px** (1,8 viewport), e o único botão grande do caminho era o do Tira-Dúvidas, que não conclui.
+- **Efeito medido (17/09, Ibipeba + Macaé, 3 turmas):** das **39** pessoas que abriram o conteúdo e nunca
+  responderam, **33 nunca abriram a conversa** (zero turnos de IA) e **20** voltaram ao conteúdo em dois
+  ou mais dias. Quem responde uma vez conclui a semana em **95-96%** dos casos, e parar no meio quase
+  não existe (1, 0 e 1 pessoa). Os professores de Macaé entraram em 07/09, depois de todos os consertos
+  anteriores, e repetiram o padrão (14 de 16): não era mais defeito de gate, era destino que ninguém
+  encontra. As mesmas pessoas diziam, na reunião de Ibipeba e por WhatsApp, que "era só assistir".
+- **Segundo defeito, na mesma porta:** o contador dizia "0 de 6 respostas" contando TURNOS DA IA. A
+  conversa é `IA(abertura) → pessoa → … → pessoa → IA(fechamento)`: em 6 turnos a pessoa escreve **5**
+  vezes (mediana medida em 94 conversas concluídas de Ibipeba: 5 respostas). Só aparecia antes do 1º
+  clique, exatamente para quem decide pelo número; com a conversa aberta a subtração já dava certo.
+- **Correção (`f0135eb9`):** o passo 2 virou botão que rola até o card; atalho fixo no rodapé enquanto a
+  semana não fecha, que some com o card na tela (`IntersectionObserver`; sem ele, fica escondido: é
+  conveniência, a porta real é o botão do card); a conversa passou para antes do Tira-Dúvidas; a régua
+  de respostas da pessoa virou fonte única em `lib/season-engine/week-gating.ts`
+  (`respostasDaPessoa`/`respostasFaltantes`), usada pela barra, pelo card, pelo atalho e pela tela
+  bloqueada.
+- **Guardas:** `tests/unit/semana-gates-tela.test.ts` (describe "a porta da conversa é alcançável") e
+  `tests/unit/week-gating-acesso.test.ts`, com 4 mutações mortas (tirar o `-1` da régua, devolver a barra
+  a span inerte, reordenar os cards, remover a condição de visibilidade do atalho). ⚠️ A asserção do
+  passo 2 recorta a BARRA: o atalho também chama `irParaEvidencias`, e uma busca no arquivo inteiro
+  passaria com a barra inerte.
+- ⚠️ **Em aberto:** a prova visual pós-deploy não foi feita (os prints são de antes da correção). E
+  "case"/"texto" são PDF dentro de `<iframe>` de ~570px: no Playwright o quadro sai branco porque o
+  Chromium dele não tem visualizador de PDF, então isso não prova nada; no iPhone, `Suponho:` que
+  também não renderize. Conferir num aparelho antes de concluir.
+
 ---
 
 ## 3. Escala (o que quebra a partir de N) — resumo; detalhe em ESCALA-50K.md

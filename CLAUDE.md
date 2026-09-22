@@ -214,7 +214,13 @@ tests/unit/          vitest
   `list_deployments` continuava no commit anterior; eu depurei código que não estava em produção
   enquanto o Rodrigo testava). Antes de investigar "não funcionou", **compare o SHA do último
   deployment** (`mcp__vercel__list_deployments` → `meta.githubCommitSha`) com `git log -1`.
-  Destravar: `git commit --allow-empty -m "chore: dispara build" && git push`. As três causas de
+  Destravar: `git commit --allow-empty -m "chore: dispara build" -- package.json` e, em OUTRO
+  comando, o push. ⚠️ Sem o `-- <arquivo intocado>` o hook de pathspec RECUSA o commit vazio (medido
+  18/09), e `commit && push` numa linha faz a catraca medir o HEAD anterior. E antes de disparar,
+  descarte a FILA: em 18/09 o deploy do commit vazio ficou 10+ min em `INITIALIZING`, então "sem
+  deployment há 7 min" pode ser fila, não gatilho perdido. 🔴 Não liste com `since` (devolve
+  `count: 0` com o deployment existindo); use `until` ou sem filtro, e o status `Vercel` do
+  commit no GitHub. As três causas de
   "não mudou nada" produzem a MESMA tela — build não disparou · aba no bundle antigo (Skew
   Protection segura o cliente 12 h → Ctrl+Shift+R) · bug de verdade. Descarte as duas primeiras
   primeiro; dá para provar a 2ª buscando a string nova no bundle servido.
