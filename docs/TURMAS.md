@@ -456,6 +456,32 @@ aqui é indistinguível de "está tudo pronto".
 A tela `/admin/conteudos/kit/coorte` ganhou seletor de turma e avisa quando há
 2+ safras e nenhuma escolhida.
 
+### 8.1 O recorte é a turma — então turma com DOIS TEMPOS reintroduz o defeito
+
+A correção acima mudou a unidade do alarme, não a régua: dentro de um recorte, a
+janela continua sendo `Math.max(semana_atual)` (`lib/pipeline-health/coleta.ts:294`)
+e a âncora continua sendo o `inicioMaisCedo` daquele recorte (`:263`). Logo, **uma
+turma cuja população está em dois tempos volta a esconder a parte atrasada** — o
+mesmo bug de 13/08, agora dentro de uma turma só, e sem nenhum sintoma.
+
+`Medido: 22/09/2026` — `Professores — 2026.2` (macae) tinha **172 ativos**: 43 com
+trilha desde 07/09 (semana 3) e **129 que nem tinham começado**. Quando os 129
+entrassem na semana 1, a janela do horizonte seria `[4, 4+N]` por causa dos 43, e
+as semanas 1 a 3 deles nunca seriam varridas; a demanda ainda seria datada por
+07/09. Junto vinham dois efeitos de operação: o status (`em_jornada` com 75% da
+turma fora da jornada) e o corte da IA4, que é POR TURMA — os 43 já tinham sido
+avaliados, e os 129 precisam do próprio fim de fila.
+
+A separação foi feita no mesmo dia: os 43 ficaram (as trilhas estão carimbadas com
+o `turma_membro_id` atual, e mover reescreveria vínculo de trilha viva) e os 129
+foram para `Professores — 2026.2 · 2ª turma` (`diagnostico`, `programa_modo: jornada`),
+participação antiga fechada como `removido` + `saiu_em`, linha nova aberta.
+
+> **Regra:** turma é uma unidade de TEMPO, não uma lista de pessoas do mesmo cargo.
+> Quando parte da turma entra na jornada e parte ainda está no diagnóstico, a
+> resposta é separar, não filtrar na hora de cada lote. Filtro manual funciona no
+> disparo e não funciona no alarme, que é justamente o que ninguém está olhando.
+
 ⏳ Pendente: `pulse_mv_aggregates` com `group_type: 'turma'` — vai junto com a
 frente do Pulso.
 

@@ -1317,3 +1317,35 @@ plausível e falso ("sem os registros do caminho, não dá para dizer o que mudo
 trilha não trouxe `programa_modo`/`programa_config`: o config caiu no default DUO (14/13), o cenário
 foi buscado na semana 14 quando a real era a 9, e o prompt afirmou "13 semanas" numa jornada de 8.
 Quem denunciou foram os `alertas_metodologicos` da própria IA. Memória `feedback_fixture_forma_real`.
+
+---
+
+## § Vou afirmar que "o sistema avisa/cobra" alguém, ou vou medir engajamento de uma turma
+
+**Padrão que casa:** pergunta do cliente do tipo "fulano não recebeu nada" · relatório de
+engajamento/funil · qualquer resposta que atribua silêncio a desinteresse da pessoa ·
+`lib/fase4/trigger-diario-empresa.ts` · `lib/notifications/envio-template-lote.ts`.
+
+- [ ] **Ache o GATILHO daquele estágio antes de responder.** A cadência automática
+      (`trigger_diario`) só serve quem tem **trilha ATIVA**: `envio-template-lote.ts:96` e `:181`
+      recusam com `'trilha não está ativa'`. Tudo antes da trilha (convite, perfil, avaliação) é
+      **disparo manual** pela tela de Envios ou por script. Não existe cron que cobre quem ainda
+      não começou.
+- [ ] **Disparo manual fotografa o estado do DIA.** Quem entrou no estágio depois do último lote
+      nunca foi procurado, e nada acusa: a régua é uma execução, não uma condição contínua.
+      Conferir pelo par `notification_deliveries` × estágio atual da pessoa, não pela existência
+      do template.
+- [ ] **Não confunda "não reagiu" com "nunca foi chamado".** Antes de dizer que a turma está
+      desengajada, conte quantos receberam ALGUMA mensagem naquele canal — o canal do tenant é o
+      WhatsApp e o convite pode ter saído só por e-mail.
+- [ ] **Turma com gente em dois tempos**: separe antes de medir (ver `docs/TURMAS.md` §8.1) —
+      janela de kit e status da turma são calculados pela parte mais adiantada.
+
+**Consequência medida (22/09/2026):** a diretora da E. M. Sônia Regina relatou que "muitos
+professores não receberam nada". Eram **37 de 46** sem um único WhatsApp do programa, e **124 na
+rede de Macaé**. O convite de 11/08 saiu **só por e-mail** num tenant onde o login é por WhatsApp e
+156/156 têm número; o lembrete de 19/08 foi para os 19 que estavam mapeados naquele dia, então os 8
+que se mapearam em 24/08 ficaram fora para sempre. Um professor escreveu em 21/09: *"preenchi tudo
+certinho mas acho q deu algum problema pq n to recebendo nada ainda"*. Reengajamento disparado no
+mesmo dia (125 mensagens, 0 falhas de envio, 3 números sem WhatsApp): **2 pessoas fizeram o perfil
+na primeira hora**. Memórias `project_cargo_professor_ibipeba` e `project_funil_operacional_medido`.
