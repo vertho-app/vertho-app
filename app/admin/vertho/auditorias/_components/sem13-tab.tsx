@@ -175,7 +175,7 @@ function DetalheModal({ detalhe, loading, onClose, onRegerar, t, locale }) {
             <section>
               <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('modal.context')}</p>
               <p className="text-white">{detalhe.colaborador} ({detalhe.cargo}) · {detalhe.empresa}</p>
-              <p className="text-xs text-gray-400">Competência: <span className="text-cyan-400">{detalhe.competencia}</span> · DISC: {detalhe.perfilDominante || '—'}</p>
+              <p className="text-xs text-gray-400">Competência: <span className="text-cyan-400">{detalhe.competencia}</span> · Perfil comportamental: {detalhe.perfilDominante || '—'}</p>
               {detalhe.geradoEm && <p className="text-[10px] text-gray-500 mt-1">{t('modal.generatedAt', { date: new Date(detalhe.geradoEm).toLocaleString(locale) })}</p>}
             </section>
 

@@ -532,7 +532,7 @@
         "efeito": "define ONDE começar: o plano ataca a lacuna, não a média."
       },
       {
-        "rotulo": "Perfil comportamental (DISC)",
+        "rotulo": "Mapeamento Comportamental",
         "valor": "D — direta, orientada a resultado, sem paciência para rodeio",
         "efeito": "define COMO o plano fala com ela: missão em uma frase, ritual de 15 minutos, zero preâmbulo. O mesmo plano para um perfil S chegaria com mais contexto e menos cobrança."
       },
@@ -775,7 +775,7 @@
       {
         "src": "/conarh/media/perfil-organizacional.pdf",
         "titulo": "Perfil Organizacional",
-        "nota": "O mapeamento comportamental da organização — DISC, estilo de liderança e talentos, recortado por cargo. Cargos com menos de 3 pessoas ficam de fora, por anonimato.",
+        "nota": "O Mapeamento Comportamental da organização — perfil, estilo de liderança e talentos, recortado por cargo. Cargos com menos de 3 pessoas ficam de fora, por anonimato.",
         "capa": "/conarh/media/capa-perfil-organizacional.png",
         "paginas": 9
       },
@@ -935,7 +935,7 @@
         },
         "pdf": {
           "src": "/conarh/media/perfil-disc-geral.pdf",
-          "titulo": "DISC na prática: ler o interlocutor antes de apresentar o número"
+          "titulo": "Mapeamento Comportamental na prática: ler o interlocutor antes de apresentar o número"
         }
       }
     }

@@ -174,7 +174,9 @@ rastreavel (mig 169). ACME Demo: reset canonico unico.
 - **Pulso de Desenvolvimento** — T0/T2 + sinais + Dual-IA + PDFs (executivo e complementar NR-1).
 - **Engajamento operacional** — workspace `/admin/engajamento` com abas **Visão atual** e
   **Evolução semanal**, etapa individual separada do calendário da turma, filtros de empresa/semana/
-  área e régua transparente. A antiga rota `/admin/engajamento/evolucao` é só compatibilidade.
+  área e régua transparente. Sem filtro, os sinais pertencem à etapa atual da jornada mais recente;
+  temporadas antigas não concluem a semana presente por engano. A antiga rota
+  `/admin/engajamento/evolucao` é só compatibilidade.
 - **Radar Vertho** (`radar.vertho.ai`) — inteligencia publica: escola, municipio, rede, estado,
   comparacao. Inclui matriculas do censo (178k escolas).
 - **Portal do Representante** (`/representante`, interno) — funil de RCs, propostas, comissoes.

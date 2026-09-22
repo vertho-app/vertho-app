@@ -1,0 +1,97 @@
+[
+  {
+    "semana": 1,
+    "descritor": "Criação de senso de urgência",
+    "reflexao": {
+      "citacao_chave": "quando liguei o próximo passo ao prazo real do cliente, a conversa deixou de parecer pressão",
+      "relato_resumo": "Bruna conduziu uma oportunidade que estava parada havia duas semanas. Em vez de insistir em um fechamento genérico, retomou o impacto do atraso para o cliente, confirmou o prazo da decisão e combinou uma validação objetiva com os envolvidos.",
+      "sinais_extraidos": {
+        "autopercepcao": true,
+        "exemplo_concreto": true,
+        "conexao_com_pratica": true,
+        "compromisso_especifico": true
+      },
+      "desafio_realizado": "sim",
+      "insight_principal": "A urgência ganhou legitimidade quando foi conectada ao prazo e ao impacto declarados pelo cliente, em vez de ser criada pela vendedora.",
+      "compromisso_origem": "colaboradora",
+      "qualidade_reflexao": "alta",
+      "compromisso_proxima": "Nas próximas propostas, registrar o prazo de decisão do cliente e fechar a conversa com responsável, ação e data combinados.",
+      "limites_da_conversa": [
+        "O relato descreve uma oportunidade específica e ainda não demonstra consistência em toda a carteira."
+      ],
+      "transcript_completo": [
+        {
+          "role": "assistant",
+          "turn": 1,
+          "content": "Nesta semana, o desafio era criar movimento sem pressionar o cliente. Em qual oportunidade você tentou fazer isso?",
+          "timestamp": "2026-09-18T13:00:00.000Z"
+        },
+        {
+          "role": "user",
+          "content": "Usei em uma proposta que estava parada havia duas semanas. O cliente dizia que precisava alinhar internamente, mas não havia data nem responsável pelo retorno.",
+          "timestamp": "2026-09-18T13:01:00.000Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 2,
+          "content": "O que você fez de diferente nessa conversa?",
+          "timestamp": "2026-09-18T13:02:00.000Z"
+        },
+        {
+          "role": "user",
+          "content": "Retomei que eles queriam iniciar ainda no trimestre e perguntei o que aconteceria se a decisão passasse daquele prazo. Isso fez o cliente explicar o impacto do atraso para a operação.",
+          "timestamp": "2026-09-18T13:03:00.000Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 3,
+          "content": "Como a reação do cliente mudou depois dessa pergunta?",
+          "timestamp": "2026-09-18T13:04:00.000Z"
+        },
+        {
+          "role": "user",
+          "content": "Ele ficou mais objetivo. Disse quem precisava validar e propôs uma reunião com essa pessoa. Percebi que, quando liguei o próximo passo ao prazo real do cliente, a conversa deixou de parecer pressão.",
+          "timestamp": "2026-09-18T13:05:00.000Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 4,
+          "content": "Qual foi a evidência concreta de que a oportunidade avançou?",
+          "timestamp": "2026-09-18T13:06:00.000Z"
+        },
+        {
+          "role": "user",
+          "content": "Saímos com reunião marcada para quinta, participação do decisor financeiro e três dúvidas que eu precisava responder antes.",
+          "timestamp": "2026-09-18T13:07:00.000Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 5,
+          "content": "O que você quer repetir nas próximas oportunidades?",
+          "timestamp": "2026-09-18T13:08:00.000Z"
+        },
+        {
+          "role": "user",
+          "content": "Quero confirmar o prazo de decisão com o cliente e terminar cada conversa com responsável, ação e data, sem inventar urgência do nosso lado.",
+          "timestamp": "2026-09-18T13:09:00.000Z"
+        },
+        {
+          "role": "assistant",
+          "turn": 6,
+          "content": "✅ Desafio realizado\n📝 Insight: a urgência é legítima quando nasce do impacto e do prazo do cliente.\n🎯 Compromisso: registrar o prazo e combinar responsável, ação e data em cada próximo passo.",
+          "timestamp": "2026-09-18T13:10:00.000Z"
+        }
+      ],
+      "avaliacao_por_descritor": [
+        {
+          "limite": "Há uma oportunidade observada; a repetição do comportamento ainda será acompanhada.",
+          "apareceu": true,
+          "descritor": "Criação de senso de urgência",
+          "observacao": "Bruna conectou o avanço ao impacto e ao prazo informados pelo cliente e fechou um próximo passo verificável.",
+          "forca_evidencia": "forte",
+          "trecho_sustentador": "saímos com reunião marcada para quinta, participação do decisor financeiro e três dúvidas que eu precisava responder antes"
+        }
+      ]
+    }
+  }
+]

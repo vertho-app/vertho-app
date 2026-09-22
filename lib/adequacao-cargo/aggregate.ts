@@ -93,7 +93,7 @@ const num = (v: any) => Number(v) || 0;
 const r1 = (v: number) => Math.round(v * 10) / 10;
 const FATOR_NOME = { D: 'Dominância', I: 'Influência', S: 'Estabilidade', C: 'Conformidade' } as const;
 const LID_KEYS = Object.keys(LIDERANCA);
-const BLOCO_LABEL: Record<string, string> = { Competencia: 'Competência', Lideranca: 'Liderança', DISC: 'DISC', Mapeamento: 'Mapeamento' };
+const BLOCO_LABEL: Record<string, string> = { Competencia: 'Competência', Lideranca: 'Liderança', DISC: 'Mapeamento Comportamental', Mapeamento: 'Mapeamento' };
 
 const classeDeBanda = (b: ColorBand): Classe => (b === 'verde' ? 'alta' : b === 'amarelo' ? 'razoavel' : 'baixa');
 

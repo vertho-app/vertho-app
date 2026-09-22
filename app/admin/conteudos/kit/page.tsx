@@ -92,7 +92,7 @@ export default function GerarKitPage() {
           <Link href="/admin/conteudos" className="text-xs text-cyan-400 hover:underline">← voltar a Conteúdos</Link>
           <Link href="/admin/conteudos/kit/coorte" className="text-xs text-fuchsia-400 hover:underline">🗓️ por coorte →</Link>
         </div>
-        <p className="text-xs text-gray-400 mb-4">1 núcleo → 4 formatos coesos + desafio por DISC. Roda em background; o progresso aparece abaixo. Contexto/PPP da empresa é tecido no conteúdo.</p>
+        <p className="text-xs text-gray-400 mb-4">1 núcleo → 4 formatos coesos + desafio por perfil comportamental. Roda em background; o progresso aparece abaixo. Contexto/PPP da empresa é tecido no conteúdo.</p>
 
         {semEmpresa && (
           <div className="mb-4 rounded-lg bg-amber-500/10 border border-amber-500/30 px-4 py-2 text-sm text-amber-200">
@@ -135,13 +135,13 @@ export default function GerarKitPage() {
 
         <div className="flex flex-wrap items-center gap-3 mb-6">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">DISC:</span>
+            <span className="text-xs text-gray-400">Perfil comportamental:</span>
             <select value={disc} onChange={(e) => setDisc(e.target.value as any)} className="bg-white/5 border border-white/15 rounded-lg px-2 py-1.5 text-xs">
               {DISCS.map((d) => <option key={d} value={d} className="bg-[#0d1426]">{d} — {DISC_NOME[d]}</option>)}
             </select>
             <button onClick={() => run('um')} disabled={busy || semEmpresa}
               className="px-4 py-2 rounded-lg bg-white/10 border border-white/20 hover:bg-white/15 disabled:opacity-50 text-sm font-bold">
-              Gerar 1 DISC
+              Gerar 1 perfil
             </button>
           </div>
           <div className="h-6 w-px bg-white/10" />
@@ -150,7 +150,7 @@ export default function GerarKitPage() {
           </label>
           <button onClick={() => run('lote')} disabled={busy || semEmpresa}
             className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-sm font-bold">
-            Gerar os 4 DISC (lote)
+            Gerar os 4 perfis (lote)
           </button>
         </div>
 
@@ -162,7 +162,7 @@ export default function GerarKitPage() {
               {job.status === 'queued' ? 'na fila' : job.status === 'running' ? 'gerando' : job.status === 'done' ? 'concluído' : 'erro'}
             </span>
             <span className="text-gray-300">{prog.current || '…'}</span>
-            {typeof prog.done === 'number' && <span className="text-gray-500 text-xs">{prog.done}/{prog.total} DISC</span>}
+            {typeof prog.done === 'number' && <span className="text-gray-500 text-xs">{prog.done}/{prog.total} perfis</span>}
             {busy && <span className="text-amber-300 animate-pulse text-xs">acompanhando…</span>}
           </div>
         )}

@@ -85,7 +85,7 @@ export default function DemoPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-white truncate">{p.nome}</p>
                   <p className="text-[11px] text-gray-400">
-                    {p.papel} · {p.cenario}{p.disc ? ` · DISC ${p.disc}` : ''}
+                    {p.papel} · {p.cenario}{p.disc ? ` · Perfil comportamental ${p.disc}` : ''}
                   </p>
                 </div>
               </div>

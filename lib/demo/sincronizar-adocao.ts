@@ -7,6 +7,7 @@ import { MIX_RESULTADOS_DEMO, notaPanoramaDemo } from './adocao-resultados-fixtu
 import { construirEvolucao, construirFechamento, construirPercursoAnterior, distribuicaoPorCargo } from './evolucao-nucleo';
 import { getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
 import { PROGRESSO, TRILHA } from '@/lib/status';
+import { construirPercursoDaPersona } from './percurso-persona';
 
 const checked = async (query: PromiseLike<any>) => {
   const { data, error } = await query;
@@ -118,15 +119,47 @@ export async function sincronizarAdocaoDemo(sb: SupabaseClient, empresaId: strin
     if (error) throw new Error(`adoção demo: ${error.message}`);
   }
 
-  // Mantém a fotografia das duas personas navegáveis, inclusive mídia e evidências.
-  // Reancora apenas o calendário à semana que já consta do progresso.
-  const atuais = await listar('trilhas', 'id,colaborador_id,status', true);
+  // Mantém a fotografia das personas navegáveis, inclusive a evidência que
+  // explica a posição delas. A atualização incremental precisa garantir este
+  // percurso também fora do reset; caso contrário, uma sincronização mantém a
+  // Bruna na semana 1 apesar de a entrega da semana já existir no roteiro.
+  const atuais = await listar('trilhas', 'id,colaborador_id,status,programa_modo,temporada_plano', true);
+  const percursoPersona = roster.percursoDaPersona;
+  if (percursoPersona) {
+    const pessoa = porKey.get(percursoPersona.personaKey);
+    const trilha = atuais.find(t => t.colaborador_id === pessoa?.id && t.status === TRILHA.ATIVA);
+    if (!pessoa || !trilha) throw new Error('Persona navegável sem jornada ativa na atualização da demo.');
+    const linhas = construirPercursoDaPersona(percursoPersona, agora).map(pr => ({
+      ...pr,
+      empresa_id: empresaId,
+      colaborador_id: pessoa.id,
+      trilha_id: trilha.id,
+    }));
+    const { error } = await sb.from('temporada_semana_progresso')
+      .upsert(linhas, { onConflict: 'trilha_id,semana' });
+    if (error) throw new Error(`adoção demo: percurso da persona: ${error.message}`);
+  }
+
   const progressos = await listar('temporada_semana_progresso', 'id,trilha_id,colaborador_id,semana,status', true);
   const atrasados = new Set((roster.panorama?.atrasados || []).map(k => porKey.get(k).id));
   for (const t of atuais.filter(t => t.status === TRILHA.ATIVA)) {
     const feitas = progressos.filter(pr => pr.trilha_id === t.id && pr.status === PROGRESSO.CONCLUIDO).length;
-    const { error } = await sb.from('trilhas').update({ data_inicio: data(atrasados.has(t.colaborador_id) ? 28 : feitas * 7).slice(0, 10) }).eq('id', t.id).eq('empresa_id', empresaId);
+    const estaAtrasado = atrasados.has(t.colaborador_id);
+    const diasDesdeInicio = estaAtrasado ? 28 : feitas * 7;
+    const inicio = data(diasDesdeInicio).slice(0, 10);
+    const totalSemanas = Array.isArray(t.temporada_plano) && t.temporada_plano.length
+      ? Math.max(...t.temporada_plano.map((s: any) => Number(s?.semana) || 0))
+      : getProgramaConfigByModo(t.programa_modo).semanas;
+    const semanaAtual = Math.min(totalSemanas, estaAtrasado ? 5 : Math.max(1, feitas + 1));
+    const { error } = await sb.from('trilhas').update({ data_inicio: inicio }).eq('id', t.id).eq('empresa_id', empresaId);
     if (error) throw new Error(`adoção demo: ${error.message}`);
+    const envio = envios.find(e => e.colaborador_id === t.colaborador_id);
+    if (!envio) throw new Error('Pessoa em jornada ativa sem cadência na atualização da demo.');
+    const { error: envioError } = await sb.from('fase4_envios')
+      .update({ data_inicio: inicio, semana_atual: semanaAtual, status: 'Ativo' })
+      .eq('id', envio.id)
+      .eq('empresa_id', empresaId);
+    if (envioError) throw new Error(`adoção demo: cadência ativa: ${envioError.message}`);
   }
   const eventos = progressos.filter(pr => pr.status === PROGRESSO.CONCLUIDO).flatMap((pr, i) => {
     const formato = ['audio', 'texto', 'case', 'video'][i % 4];

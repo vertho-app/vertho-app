@@ -631,7 +631,7 @@ function PageCompetenciasCompletas({ raw }: { raw: any }) {
     <PageFrame>
       <Text style={s.h1}>16 Competências</Text>
       <Text style={{ ...s.small, marginBottom: 14 }}>
-        Panorama completo das suas competências agrupadas pelas 4 dimensões do DISC
+        Panorama completo das suas competências agrupadas pelas 4 dimensões do Mapeamento Comportamental
       </Text>
 
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>

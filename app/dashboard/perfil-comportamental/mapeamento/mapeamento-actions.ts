@@ -74,7 +74,7 @@ export async function salvarPerfilComportamental(resultados) {
   if (fonteExterna) {
     return {
       success: false,
-      error: 'Esta empresa usa mapeamento comportamental próprio. O DISC nativo não será salvo.',
+      error: 'Esta empresa usa mapeamento comportamental próprio. O Mapeamento Comportamental nativo da Vertho não será salvo.',
     };
   }
   const perfil = canAccessPerfilComportamental(cfg);

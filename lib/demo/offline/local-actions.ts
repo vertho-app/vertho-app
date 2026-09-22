@@ -19,7 +19,7 @@ export async function loadHomeData() {
 }
 export async function loadJornada() {
   return { colaborador: colab(), totalSemanas: demo.totalWeeks, fases: [
-    { fase: 1, titulo: 'Perfil comportamental', status: 'completed', descricao: 'Seu perfil DISC' },
+    { fase: 1, titulo: 'Perfil comportamental', status: 'completed', descricao: 'Seu Mapeamento Comportamental' },
     { fase: 2, titulo: 'Avaliação de competências', status: 'completed', descricao: 'Mapeamento de competências concluído' },
     { fase: 3, titulo: 'PDI', status: 'completed', descricao: 'Plano de Desenvolvimento Individual' },
     { fase: 4, titulo: 'Temporada', status: 'in_progress', descricao: demo.weeks[0].competency, totalSemanas: demo.totalWeeks },

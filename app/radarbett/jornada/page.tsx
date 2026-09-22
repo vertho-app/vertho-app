@@ -13,7 +13,7 @@ import { WhatsappIcon } from '../_components/whatsapp-icon';
 export const metadata: Metadata = {
   title: 'Metodologia Vertho — 5 fases de desenvolvimento',
   description:
-    'A metodologia Vertho.ai em cinco fases: Preparação (competências, cenários, perfil de cargo), Mapeamento (DISC + Liderança + competências), Diagnóstico (PDI, relatórios, DNA Organizacional), Capacitação (Jornada de 14 semanas, Tutor IA, prática) e Re-Avaliação (evolução, novos cenários, Mentor IA, feedback).',
+    'A metodologia Vertho.ai em cinco fases: Preparação (competências, cenários, perfil de cargo), Mapeamento (comportamento + liderança + competências), Diagnóstico (PDI, relatórios, DNA Organizacional), Capacitação (Jornada de 14 semanas, Tutor IA, prática) e Re-Avaliação (evolução, novos cenários, Mentor IA, feedback).',
   alternates: { canonical: 'https://radarbett.vertho.ai/jornada' },
 };
 
@@ -85,9 +85,9 @@ const ETAPAS: Etapa[] = [
     cor: 'purple',
     titulo: 'Mapeamento',
     resumo:
-      'Com as competências definidas, mapeamos quem é o profissional hoje: perfil comportamental (DISC + Liderança) e domínio técnico das competências esperadas para o cargo.',
+      'Com as competências definidas, mapeamos quem é o profissional hoje: Mapeamento Comportamental, estilo de liderança e domínio técnico das competências esperadas para o cargo.',
     pilares: [
-      { icon: Brain, label: 'Perfil comportamental DISC', texto: 'Mapeamento do estilo de comportamento (Dominância, Influência, Estabilidade, Cautela) aplicado ao contexto educacional.' },
+      { icon: Brain, label: 'Mapeamento Comportamental', texto: 'Mapeamento do estilo de comportamento (Dominância, Influência, Estabilidade, Cautela) aplicado ao contexto educacional.' },
       { icon: Award, label: 'Perfil de Liderança', texto: 'Estilo de liderança e seus arquétipos — conecta o "como faço" com o "como decido".' },
       { icon: GraduationCap, label: 'Mapeamento de competências', texto: 'Cenários customizados aplicados em conversa estruturada com IA. Cada resposta vira evidência de proficiência por descritor.' },
       { icon: Eye, label: 'Evidência por descritor', texto: 'Não é nota global. Cada descritor é avaliado por trecho da resposta — auditável e regravável.' },
@@ -100,7 +100,7 @@ const ETAPAS: Etapa[] = [
     resumo:
       'O diagnóstico Vertho cruza tudo que foi mapeado: comportamento × competências × contexto da rede/escola. Daí saem o PDI individual, o relatório do gestor e o DNA Organizacional agregado.',
     pilares: [
-      { icon: GitCompare, label: 'Cruzamento dos mapeamentos', texto: 'DISC + Liderança + competências por descritor, cruzados com o perfil de cargo ideal definido na preparação.' },
+      { icon: GitCompare, label: 'Cruzamento dos mapeamentos', texto: 'Mapeamento Comportamental, liderança e competências por descritor, cruzados com o perfil de cargo ideal definido na preparação.' },
       { icon: ClipboardCheck, label: 'PDI individualizado', texto: 'Plano de Desenvolvimento Individual com competência foco, ações concretas e marcos de evidência por colaborador.' },
       { icon: FileText, label: 'Relatórios para o gestor', texto: 'Dossiê estruturado para conversa de feedback: contexto, gaps, hipóteses e roteiro de devolutiva.' },
       { icon: Layers, label: 'DNA Organizacional', texto: 'Foto agregada da rede/escola: padrões de competência, distribuição de perfis, força coletiva e risco coletivo.' },

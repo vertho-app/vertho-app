@@ -247,7 +247,7 @@
         {
           "key": "disc",
           "min": 0.35,
-          "label": "Perfil DISC incompatível com o rigor analítico e processual exigido pelo cargo",
+          "label": "Perfil comportamental incompatível com o rigor analítico e processual exigido pelo cargo",
           "scope": "block"
         }
       ],
@@ -505,7 +505,7 @@
           "justificativa_fator": "Estabilidade é sinal explícito do cargo: previsibilidade, persistência, planejamento e suporte ao time sob pressão. 'Floor' pois S baixo comprometeria a consistência operacional esperada."
         },
         "confianca": 0.79,
-        "justificativa": "Perfil DISC equilibrado com leve preponderância em D e S: executa com firmeza (D moderado-alto), sustenta processos e relacionamentos com estabilidade (S alto), comunica entre áreas (I moderado) e respeita padrões sem paralisar (C moderado-alto). Nenhum fator deve ser extremamente alto ou muito baixo — o cargo é de coordenação de média liderança, não de alta dominância ou alta influência."
+        "justificativa": "Perfil comportamental equilibrado com leve preponderância em D e S: executa com firmeza (D moderado-alto), sustenta processos e relacionamentos com estabilidade (S alto), comunica entre áreas (I moderado) e respeita padrões sem paralisar (C moderado-alto). Nenhum fator deve ser extremamente alto ou muito baixo — o cargo é de coordenação de média liderança, não de alta dominância ou alta influência."
       },
       "knockouts": [
         {

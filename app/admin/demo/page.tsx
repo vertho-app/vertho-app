@@ -286,7 +286,7 @@ export default function AdminDemoPage() {
     const ok = await confirmDialog({
       title: `Resetar ${tenant.nome}`,
       message: pausadoAte
-        ? `O reset automático deste ambiente está pausado até ${formatProspectExpiry(pausadoAte)}. Recriar agora apaga o que os convidados fizeram até aqui — inclusive DISC, respostas e análises.`
+        ? `O reset automático deste ambiente está pausado até ${formatProspectExpiry(pausadoAte)}. Recriar agora apaga o que os convidados fizeram até aqui — inclusive Mapeamento Comportamental, respostas e análises.`
         : `Recriar o ambiente ${tenant.nome} a partir do estado-base? Os dados de demonstração criados neste tenant serão apagados.`,
       severity: 'danger',
       scopeNote: `Só afeta o tenant ${tenantSlug}`,
@@ -545,7 +545,7 @@ export default function AdminDemoPage() {
                 </div>
                 <p className="mt-1 text-[10px] text-white/35">
                   Quem foi convidado para o {tenant.nome} e até onde chegou. As visões 02–04 só
-                  existem no passaporte; quem entrou por cadastro tem acesso e DISC.
+                  existem no passaporte; quem entrou por cadastro tem acesso e Mapeamento Comportamental.
                 </p>
               </div>
               <button
@@ -594,14 +594,14 @@ export default function AdminDemoPage() {
                     : comPassaporte
                       ? [
                         ['Acesso pessoal', experience.personalAccessedAt],
-                        ['DISC', experience.discCompletedAt],
+                        ['Mapeamento Comportamental', experience.discCompletedAt],
                         ['Colaborador', experience.colaboradorAccessedAt],
                         ['Gestor', experience.gestorAccessedAt],
                         ['RH', experience.rhAccessedAt],
                       ]
                       : [
                         ['Acesso', experience.personalAccessedAt],
-                        ['DISC', experience.discCompletedAt],
+                        ['Mapeamento Comportamental', experience.discCompletedAt],
                       ];
                   const completed = milestones.filter(([, value]) => Boolean(value)).length;
                   // Lembrete: passaporte vivo sem abertura verificada. Na A, o

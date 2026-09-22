@@ -3604,7 +3604,7 @@
             ],
             "medio_prazo": [
               "Com o diagnóstico de Rafael completo, incluí-lo em um plano de desenvolvimento alinhado ao restante do time — identificar se ele tem lacunas similares (Planejamento, Didática) ou um perfil diferente que exige outra abordagem.",
-              "Estruturar momentos regulares (quinzenais ou mensais) de troca pedagógica entre os professores com tema específico — o perfil DISC do time sugere que a colaboração espontânea é baixa; ela precisa de estrutura para acontecer.",
+              "Estruturar momentos regulares (quinzenais ou mensais) de troca pedagógica entre os professores com tema específico — o perfil comportamental do time sugere que a colaboração espontânea é baixa; ela precisa de estrutura para acontecer.",
               "Após estabilização das lacunas em N1, criar um plano para avançar pelo menos dois professores de N2 para N3 em Planejamento até o final do ano letivo — priorizar Tiago e Letícia, que têm melhor base nas outras competências."
             ],
             "proximas_semanas": [
@@ -3681,7 +3681,7 @@
           "alertas_metodologicos": [
             "Rafael Teixeira não possui nenhuma competência avaliada — todos os rankings e análises do relatório se baseiam em 4 dos 5 professores. Qualquer conclusão sobre o perfil coletivo do time deve considerar essa lacuna.",
             "As notas avaliadas são pontuais e representam um momento específico. Mudanças de nível exigem reavaliação — as ações recomendadas devem ser validadas à medida que novos dados forem registrados na plataforma.",
-            "A leitura de DISC é usada como hipótese para contextualizar comportamentos observados, não como explicação definitiva para as lacunas identificadas. O gestor deve calibrar as interpretações com o que observa no cotidiano."
+            "O Mapeamento Comportamental é usado como hipótese para contextualizar comportamentos observados, não como explicação definitiva para as lacunas identificadas. O gestor deve calibrar as interpretações com o que observa no cotidiano."
           ],
           "analise_por_competencia": [
             {
@@ -7184,14 +7184,14 @@
             }
           ],
           "perfil_disc_equipe": {
-            "descricao": "Os sete professores apresentam perfil S dominante (100%), com subperfis SC e SCI predominantes. Isso pode indicar uma equipe que tende a valorizar estabilidade, harmonia e processos — com provável preferência por ambientes previsíveis e relações colaborativas. Perfis C secundários sugerem atenção à qualidade e ao detalhe em parte do grupo. Importante: DISC descreve tendências de comportamento em contexto, não capacidade técnica.",
+            "descricao": "Os sete professores apresentam perfil S dominante (100%), com subperfis SC e SCI predominantes. Isso pode indicar uma equipe que tende a valorizar estabilidade, harmonia e processos — com provável preferência por ambientes previsíveis e relações colaborativas. Perfis C secundários sugerem atenção à qualidade e ao detalhe em parte do grupo. Importante: o Mapeamento Comportamental descreve tendências de comportamento em contexto, não capacidade técnica.",
             "forca_coletiva": "Um time predominantemente S tende a ser coeso, leal e resiliente. Renata provavelmente já conta com uma equipe que não gera conflito entre si e que responde bem a processos consistentes — o que facilita a implementação de práticas pedagógicas padronizadas.",
             "risco_coletivo": "A ausência de perfis D pode indicar menor propensão coletiva a confrontar o status quo, tomar decisões rápidas ou assumir riscos pedagógicos novos. Mudanças de prática podem enfrentar resistência silenciosa — não por discordância, mas por desconforto com o novo. Gestor precisa criar segurança explícita para experimentação."
           },
           "alertas_metodologicos": [
             "Os dados representam um retrato de um momento específico. Notas muito próximas do limiar entre níveis (como 1,8 de Marcos em Planejamento e 2,99 de Marina em Planejamento) devem ser lidas com cautela — uma pequena variação metodológica pode alterar o nível classificado.",
             "A homogeneidade de notas (2,6 em quase todas as competências de cinco professores) pode indicar efeito de ancoragem no instrumento de avaliação — vale verificar se houve variação real nas respostas ou tendência de centralização.",
-            "Com apenas 7 profissionais avaliados e perfil DISC 100% S, qualquer leitura coletiva do DISC deve ser tratada como hipótese de tendência, não como perfil confirmado do time."
+            "Com apenas 7 profissionais avaliados e perfil comportamental 100% S, qualquer leitura coletiva do Mapeamento Comportamental deve ser tratada como hipótese de tendência, não como perfil confirmado do time."
           ],
           "analise_por_competencia": [
             {
@@ -13604,7 +13604,7 @@
             }
           },
           "alertas_metodologicos": [
-            "O perfil comportamental DISC foi tratado como hipótese de preferências e tendências, não como diagnóstico de comportamentos observados. As afirmações do campo perfil_comportamental devem ser verificadas pela própria Marina no contexto real de trabalho.",
+            "O Mapeamento Comportamental foi tratado como hipótese de preferências e tendências, não como diagnóstico de comportamentos observados. As afirmações do campo perfil_comportamental devem ser verificadas pela própria Marina no contexto real de trabalho.",
             "A competência Didática e estratégias de ensino está em N1 com nota 1.52 — este é o gap de maior impacto e deve ser o foco prioritário das próximas semanas. O acompanhamento da coordenação nas revisões quinzenais dos planos de aula é parte essencial do plano e não deve ser postergado."
           ],
           "perfil_comportamental": {
@@ -14759,7 +14759,7 @@
       "alertas_metodologicos": [
         "A concentração de 84% das avaliações no Nível 2 pode indicar efeito de tendência central nos avaliadores — recomenda-se revisar os critérios de ancoragem dos descritores de nível para garantir que avaliadores usem toda a escala com precisão",
         "Com apenas 11 professores avaliados, a média geral é sensível a variações individuais — pequenas mudanças em 2 ou 3 professores podem alterar significativamente os percentuais de distribuição no próximo ciclo",
-        "O perfil DISC foi inferido a partir de respostas contextuais e deve ser tratado como hipótese de trabalho, não como diagnóstico de personalidade — recomenda-se aplicação de instrumento específico para aprofundar essa leitura",
+        "O perfil comportamental foi inferido a partir de respostas contextuais e deve ser tratado como hipótese de trabalho, não como diagnóstico de personalidade — recomenda-se aplicação de instrumento específico para aprofundar essa leitura",
         "A ausência de registros de Nível 3 ou 4 pode refletir tanto uma limitação real do grupo quanto critérios de avaliação excessivamente rigorosos — recomenda-se calibração entre avaliadores no início do próximo ciclo"
       ],
       "competencias_criticas": [
@@ -14827,7 +14827,7 @@
         }
       ],
       "perfil_disc_organizacional": {
-        "descricao": "Com base nas respostas do ciclo, o perfil hipotético do corpo docente aponta predominância S (estabilidade), seguido por C (conformidade), com baixíssima presença de D (dominância) e ausência de I (influência). Trata-se de uma leitura contextual, não de um diagnóstico fechado — perfis DISC variam conforme contexto e método de coleta.",
+        "descricao": "Com base nas respostas do ciclo, o perfil hipotético do corpo docente aponta predominância S (estabilidade), seguido por C (conformidade), com baixíssima presença de D (dominância) e ausência de I (influência). Trata-se de uma leitura contextual, não de um diagnóstico fechado — perfis comportamentais variam conforme contexto e método de coleta.",
         "forca_coletiva": "Um time com perfil S-C tende a ser cuidadoso, empático, consistente nos processos e pouco propenso a conflitos — traços valiosos em ambientes educacionais que exigem presença relacional com alunos e famílias.",
         "risco_coletivo": "A baixa presença de D e I pode limitar a capacidade do grupo de propor inovações pedagógicas, confrontar práticas ineficazes e criar engajamento ativo nas salas de aula. Em contextos de mudança curricular ou de metodologia, esse perfil pode gerar resistência passiva e lentidão na adoção de novas abordagens."
       }

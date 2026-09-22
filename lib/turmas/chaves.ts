@@ -43,7 +43,7 @@ export const SPEC_CONFIG: Record<string, SpecChave> = {
   // ── Etapa: o coração do problema das turmas ────────────────────────────
   perfil_comportamental_liberado: {
     escopo: 'turma', estrategia: 'escalar',
-    nota: 'Uma turma abre o DISC enquanto a outra já passou dele.',
+    nota: 'Uma turma abre o Mapeamento Comportamental enquanto a outra já passou dele.',
   },
   mapeamento_cenarios_liberado: {
     escopo: 'turma', estrategia: 'escalar',

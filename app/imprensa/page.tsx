@@ -145,7 +145,7 @@ export default function ImprensaPage() {
               num="01"
               icone={<Brain size={18} strokeWidth={2.2} />}
               titulo="Avaliação de perfil"
-              texto="Mapeamento comportamental baseado em DISC para identificar estilos e pontos de desenvolvimento."
+              texto="Mapeamento Comportamental para identificar estilos e pontos de desenvolvimento."
               cor="cyan"
             />
             <PassoCard

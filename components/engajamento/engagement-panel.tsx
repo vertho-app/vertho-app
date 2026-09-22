@@ -240,8 +240,10 @@ function EntregaETutor({ pessoa }: { pessoa: any }) {
         pessoa.enviouEvidencia
           ? 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200'
           : 'border-white/[0.07] bg-white/[0.025] text-white/28'
-      }`}>
-        <ClipboardCheck size={11} aria-hidden="true" /> Evidência
+      }`} title={pessoa.enviouEvidencia
+        ? 'A entrega da etapa atual foi registrada. A qualidade aparece no selo; o relato não é exibido neste painel.'
+        : 'Ainda não há entrega registrada para a etapa atual.'}>
+        <ClipboardCheck size={11} aria-hidden="true" /> Entrega
       </span>
       <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-bold ${
         pessoa.conversouTutor
@@ -473,7 +475,7 @@ function ProximaAcao({ pessoa }: { pessoa: any }) {
       </span>
     );
   }
-  if (!blocker && !pessoa.jornadaAtrasada) return <span className="text-xs text-emerald-200">Evidência registrada</span>;
+  if (!blocker && !pessoa.jornadaAtrasada) return <span className="text-xs text-emerald-200">Etapa concluída</span>;
   return <details className="max-w-sm text-xs">
     <summary className="cursor-pointer text-cyan-200 focus-visible:outline-2 focus-visible:outline-cyan-300">{blocker ? BLOCKER_META[blocker].action : 'Verificar etapa pendente'}</summary>
     <p className="mt-2 leading-relaxed text-white/65">{blocker ? BLOCKER_META[blocker].guidance : 'A posição individual está atrás do calendário da turma. Conferir qual etapa falta concluir antes de orientar a próxima semana.'}</p>
@@ -789,7 +791,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
             disabled={!empresaId}
             className="min-h-8 rounded-[10px] border border-white/[0.09] bg-[#081a2f] px-2.5 text-[10px] font-semibold text-white/65 outline-none focus:border-cyan-300/35 disabled:opacity-40"
           >
-            <option value="">Todas as semanas</option>
+            <option value="">Etapa atual de cada pessoa</option>
             {semanas.map((s) => <option key={s} value={s}>Semana {s}</option>)}
           </select>
           {/* Função: num tenant com duas turmas no ar, a média do total não
@@ -855,7 +857,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
         <div className="space-y-5">
           <section aria-labelledby="acoes-title" className="rounded-2xl border border-cyan-300/20 bg-[#0b2137] p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div><h2 id="acoes-title" className="text-lg font-semibold text-white">Onde agir agora</h2><p className="mt-1 text-xs text-white/65">{elegiveisParaAcao.length} pessoas {semanaSel ? `que já chegaram à semana ${semanaSel}` : 'no histórico acumulado'} · escolha uma pendência para abrir a lista</p></div>
+              <div><h2 id="acoes-title" className="text-lg font-semibold text-white">Onde agir agora</h2><p className="mt-1 text-xs text-white/65">{elegiveisParaAcao.length} pessoas {semanaSel ? `que já chegaram à semana ${semanaSel}` : 'na etapa atual'} · escolha uma pendência para abrir a lista</p></div>
               {links.reviewEnvios && <Link href={links.reviewEnvios} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-white/15 px-3 text-xs text-cyan-200 hover:bg-white/5"><Send size={14} /> Revisar envios</Link>}
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -866,10 +868,10 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
             <p className="mt-3 text-xs text-white/55">Cada pessoa aparece na primeira etapa pendente. Etapa em atraso pode se sobrepor aos demais grupos. Ausência de atividade não confirma falha de entrega.</p>
           </section>
           <SignalJourney
-            title={semanaSel ? `Como o grupo avançou na semana ${semanaSel}` : 'Como o grupo avança pela jornada'}
+            title="Conheça como a Vertho.ai funciona"
             description={semanaSel
               ? 'Sinais registrados nesta semana: acessar, consumir e transformar o conteúdo em evidência.'
-              : 'Uma leitura acumulada dos marcos que indicam presença: acessar, consumir e transformar o conteúdo em evidência.'}
+              : 'A etapa atual de cada pessoa: acessar, consumir e transformar o conteúdo em evidência.'}
             total={total}
             steps={[
               { label: 'Na cadência', value: total, detail: 'pessoas incluídas neste recorte', icon: Users, tone: 'cyan' },
@@ -888,6 +890,9 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
               </button>
             )}
           />
+          <p className="-mt-2 px-1 text-[11px] leading-relaxed text-white/45">
+            RH e liderança acompanham a entrega e o nível da reflexão. O relato enviado continua privado.
+          </p>
 
           <QualidadeEvidenciaResumo contagem={resumo.qualidadeEvidencias} />
 

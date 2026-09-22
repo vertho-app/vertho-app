@@ -188,7 +188,7 @@ export default function ProntidaoCargoView({ listar, comparar, scopeKey = 'defau
         <GlassCard><p className="p-1 text-sm text-slate-300">O cargo <strong>{dados.cargoAlvo}</strong> ainda não tem perfil ideal definido — sem gabarito não há contra o que comparar.</p></GlassCard>
       )}
       {dados && dados.indisponivel === 'sem_pessoas_na_origem' && (
-        <GlassCard><p className="p-1 text-sm text-slate-300">Ninguém em <strong>{dados.cargoOrigem}</strong> tem mapeamento comportamental (DISC) — a comparação precisa dele.</p></GlassCard>
+        <GlassCard><p className="p-1 text-sm text-slate-300">Ninguém em <strong>{dados.cargoOrigem}</strong> concluiu o Mapeamento Comportamental — a comparação precisa dele.</p></GlassCard>
       )}
 
       {dados && !dados.indisponivel && (

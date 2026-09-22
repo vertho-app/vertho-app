@@ -161,7 +161,7 @@ function DetalheModal({ detalhe, loading, onClose, t }) {
               <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('modal.context')}</p>
               <p className="text-white">{detalhe.colaborador} ({detalhe.cargo}) · {detalhe.empresa}</p>
               <p className="text-xs text-gray-400">
-                {detalhe.competencia} · {t('modal.descriptor')} <span className="text-cyan-400">{detalhe.descritor}</span> · DISC {detalhe.perfilDominante || '—'}
+                {detalhe.competencia} · {t('modal.descriptor')} <span className="text-cyan-400">{detalhe.descritor}</span> · Perfil comportamental {detalhe.perfilDominante || '—'}
               </p>
             </section>
 

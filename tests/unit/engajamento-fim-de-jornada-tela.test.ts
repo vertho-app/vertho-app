@@ -118,6 +118,6 @@ describe('quem terminou não recebe pendência inventada', () => {
 
   it('a próxima ação de quem terminou não é "evidência pendente"', () => {
     const proxima = PAINEL.slice(PAINEL.indexOf('function ProximaAcao'), PAINEL.indexOf('function PessoaCard'));
-    expect(proxima.indexOf('finalizouJornada(pessoa)')).toBeLessThan(proxima.indexOf('Evidência registrada'));
+    expect(proxima.indexOf('finalizouJornada(pessoa)')).toBeLessThan(proxima.indexOf('Etapa concluída'));
   });
 });

@@ -311,7 +311,7 @@ export default function RelatorioRHPDF({ data, empresaNome, logoBase64 }: { data
 
         {c.perfil_disc_organizacional && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>Perfil DISC Organizacional</ReportSectionTitle>
+            <ReportSectionTitle>Mapeamento Comportamental Organizacional</ReportSectionTitle>
             <View style={s.box}><Text style={s.text}>{c.perfil_disc_organizacional.descricao}</Text></View>
             {c.perfil_disc_organizacional.forca_coletiva && (
               <View style={{ backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 6, padding: 10 }}>

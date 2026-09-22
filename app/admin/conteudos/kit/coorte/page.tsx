@@ -81,7 +81,7 @@ export default function CoorteKitPage() {
           <Link href="/admin/conteudos/kit" className="text-xs text-cyan-400 hover:underline">← Gerar Kit avulso</Link>
         </div>
         <p className="text-xs text-gray-400 mb-4">
-          Varre a trilha de todos os colaboradores da empresa, deduplica os (competência × descritor × DISC) demandados e gera <b>só os que faltam</b>. Analise primeiro; depois gere.
+          Varre a trilha de todos os colaboradores da empresa, deduplica os (competência × descritor × perfil comportamental) demandados e gera <b>só os que faltam</b>. Analise primeiro; depois gere.
         </p>
 
         {semEmpresa && (

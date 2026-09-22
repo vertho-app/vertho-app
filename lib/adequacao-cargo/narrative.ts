@@ -12,7 +12,7 @@ function resumoIdeal(data: AdequacaoCargo): string {
   const disc = data.perfilIdeal.disc.map((d) => `${d.nome} ${d.min}-${d.max}`).join(', ');
   const comps = data.perfilIdeal.competencias.slice(0, 8).map((c) => `${c.nome} ${c.min}-${c.max}`).join('; ');
   const lid = data.perfilIdeal.estiloPredominante;
-  return `DISC ideal: ${disc}. Competências-chave: ${comps}. Estilo de liderança predominante: ${lid}.`;
+  return `Mapeamento Comportamental ideal: ${disc}. Competências-chave: ${comps}. Estilo de liderança predominante: ${lid}.`;
 }
 
 // Severidade derivada da ADERÊNCIA (fit), não livre (B2): <40 crítico · 40-64 moderado · 65+ leve.
@@ -39,7 +39,7 @@ function linhaColab(p: PessoaAdequacao): string {
     ? 'DRIVERS(bloqueio): ' + p.knockoutEvidencias.map((e) => e.ehBloco ? `${e.traco}=${e.medidoPct}% (mín ${e.minPct}%)` : `${e.traco}=${e.valorBruto} (piso ${e.piso})`).join(', ')
     : (p.gaps.length ? 'DRIVERS(gaps): ' + p.gaps.map(fmtGap).join(', ') : 'DRIVERS: sem gaps relevantes (manter)');
   const flags = p.borderline ? ' [limítrofe]' : '';
-  return `- ${p.nome}: ${p.statusLabel} | Aderência ${p.beta.pct}% | DISC ${disc} | ${drivers}${flags}`;
+  return `- ${p.nome}: ${p.statusLabel} | Aderência ${p.beta.pct}% | Mapeamento Comportamental ${disc} | ${drivers}${flags}`;
 }
 
 function extrairJson(raw: string): Record<string, string> | null {
@@ -56,7 +56,7 @@ export async function gerarNarrativasAdequacao(data: AdequacaoCargo, model?: str
   const ideal = resumoIdeal(data);
   const system = `Você é consultor de RH especializado em adequação pessoa-cargo. Escreva uma análise CURTA, objetiva e profissional (2 a 3 frases) por pessoa.
 
-REGRA DURA DE EVIDÊNCIA (inegociável): só é permitido apontar um déficit usando os DRIVERS fornecidos para aquela pessoa. Todo construto interpretativo ("resiliência", "disciplina de CRM", "comunicação") deve aparecer SOMENTE como CONSEQUÊNCIA de um traço NOMEADO e QUANTIFICADO dos drivers — nunca como o achado em si. Não cite fatores que não estão nos drivers (ex.: não derive para Dominância/DISC se o driver é Persistência/Organização). Não invente números nem traços.
+REGRA DURA DE EVIDÊNCIA (inegociável): só é permitido apontar um déficit usando os DRIVERS fornecidos para aquela pessoa. Todo construto interpretativo ("resiliência", "disciplina de CRM", "comunicação") deve aparecer SOMENTE como CONSEQUÊNCIA de um traço NOMEADO e QUANTIFICADO dos drivers — nunca como o achado em si. Não cite fatores que não estão nos drivers (ex.: não derive para Dominância/Mapeamento Comportamental se o driver é Persistência/Organização). Não invente números nem traços.
 
 Estrutura: cite a principal FORÇA (coerente com a Aderência) e o(s) driver(s) que determinam o status. O tom deve ser COERENTE com o status (Recomendado / Recomendado com ressalvas / Abaixo do corte → desenvolvível / Bloqueado → requisito eliminatório não atendido).
 
@@ -65,7 +65,7 @@ REGRA POR STATUS:
 - Abaixo do corte / com ressalvas: enquadre como DESENVOLVIMENTO (não rejeição); pode apontar os gaps, sem prometer resultado.
 
 REGRA DE EVIDÊNCIA (inegociável):
-- SÓ os itens em DRIVERS são pontos de atenção/desenvolvimento. NUNCA nomeie um traço que NÃO está em DRIVERS — e ISTO INCLUI mencioná-lo só para NEGÁ-LO. É PROIBIDO escrever coisas como "Conformidade fora da faixa (40), mas não é driver", "Dominância abaixo da faixa não compromete", "X fora da faixa porém não conta". Se o traço não está em DRIVERS, ele simplesmente NÃO aparece no texto — nem como ressalva, nem como negação. Os números de DISC mostrados são contexto neutro: NÃO os interprete como fora/dentro da faixa nem comente valor bruto.
+- SÓ os itens em DRIVERS são pontos de atenção/desenvolvimento. NUNCA nomeie um traço que NÃO está em DRIVERS — e ISTO INCLUI mencioná-lo só para NEGÁ-LO. É PROIBIDO escrever coisas como "Conformidade fora da faixa (40), mas não é driver", "Dominância abaixo da faixa não compromete", "X fora da faixa porém não conta". Se o traço não está em DRIVERS, ele simplesmente NÃO aparece no texto — nem como ressalva, nem como negação. Os números do Mapeamento Comportamental mostrados são contexto neutro: NÃO os interprete como fora/dentro da faixa nem comente valor bruto.
 - SEVERIDADE proporcional ao rótulo do driver: [crítico] = linguagem forte; [moderado] = desenvolvimento; [leve] = ajuste fino. NÃO dramatize um gap [moderado]/[leve] (ex.: não diga que um traço "compromete" se ele é [moderado]). O mesmo traço deve contar a MESMA história na narrativa e no plano.
 
 DIREÇÃO DO DESVIO (inegociável — não inverta o sinal nem troque o tipo de régua): cada gap vem com o tipo de régua e, para faixa-alvo, o LADO do desvio.
@@ -73,13 +73,13 @@ DIREÇÃO DO DESVIO (inegociável — não inverta o sinal nem troque o tipo de 
 - "teto/manter-baixo" (ceiling): o ideal é estar baixo/moderado; descreva o gap como ACIMA do limite.
 - "faixa-alvo/penaliza-2-lados" (target): o CENTRO é o ideal e desviar para QUALQUER lado penaliza. Descreva pelo "lado=ABAIXO" (falta do traço) ou "lado=ACIMA" (excesso do traço) informado — use o VALOR bruto dado, NUNCA o fit, para saber o lado. É PROIBIDO chamar faixa-alvo de "piso", "mínimo exigido" ou "eliminatório": faixa-alvo NÃO é gate (se fosse, o status seria Bloqueado). Ex.: Dominância faixa-alvo 41-80 com valor 18 (lado=ABAIXO) = "Dominância abaixo da faixa ideal", não "abaixo do piso exigido".
 
-Não dê nota nem recomende demissão. Português do Brasil.`;
+Não dê nota nem recomende demissão. Na resposta, use sempre “Mapeamento Comportamental”; nunca escreva “DISC”. Português do Brasil.`;
 
   for (const grupo of chunk(data.pessoas, 12)) {
     const user = `CARGO: ${data.cargo}
 PERFIL IDEAL: ${ideal}
 
-COLABORADORES (Aderência = match geral ponderado; "dentro/fora" = DISC na faixa ideal):
+COLABORADORES (Aderência = match geral ponderado; "dentro/fora" = Mapeamento Comportamental na faixa ideal):
 ${grupo.map(linhaColab).join('\n')}
 
 Para CADA colaborador acima, escreva a análise (2-3 frases). Responda APENAS um objeto JSON { "Nome Exato": "análise", ... } com o nome EXATO de cada um. Sem markdown, sem texto fora do JSON.`;

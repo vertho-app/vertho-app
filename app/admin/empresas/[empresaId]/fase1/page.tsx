@@ -988,5 +988,5 @@ function DirBadge({ dir, inferida }: { dir: string; inferida?: boolean }) {
     title={inferida ? 'Direção inferida da faixa — regenere o perfil ideal p/ a IA definir explicitamente' : 'Direção definida pela IA'}>
     {m.t}{inferida ? ' ~' : ''}</span>;
 }
-const BLOCO_LABEL_UI: Record<string, string> = { competencia: 'Competência', competencias: 'Competência', lideranca: 'Liderança', disc: 'DISC', mapeamento: 'Mapeamento' };
+const BLOCO_LABEL_UI: Record<string, string> = { competencia: 'Competência', competencias: 'Competência', lideranca: 'Liderança', disc: 'Mapeamento Comportamental', mapeamento: 'Mapeamento' };
 

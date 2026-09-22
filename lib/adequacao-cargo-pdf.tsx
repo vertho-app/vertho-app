@@ -202,7 +202,7 @@ function CardPessoa({ p }: { p: PessoaAdequacao }) {
         <SubLine label="Mapeamento" sc={p.mapeamento} />
         <SubLine label="Competência" sc={p.competencia} />
         <SubLine label="Liderança" sc={p.lideranca} />
-        <SubLine label="DISC" sc={p.discScore} />
+        <SubLine label="Mapeamento Comportamental" sc={p.discScore} />
       </View>
       {p.knockoutFailed && p.knockoutEvidencias.length > 0 && (
         <View>
@@ -329,7 +329,7 @@ export function AdequacaoCargoPDF({ data, empresaNome, dataISO, narrativas, most
               ))}
             </View>
             <View style={s.col}>
-              <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Perfil DISC (min - max)</Text></View>
+              <View style={s.secBar}><View style={s.secBarV} /><Text style={s.secBarT}>Mapeamento Comportamental (mín. – máx.)</Text></View>
               {pi.disc.map((d) => (
                 <View key={d.fator} style={s.rangeRow}>
                   <View style={{ flex: 1 }}>

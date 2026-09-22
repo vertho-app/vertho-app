@@ -732,7 +732,7 @@ export default function PerfilComportamentalPage() {
 
       {/* ── Radar DISC ── */}
       <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-        <p className="text-xs font-extrabold uppercase tracking-[2px] text-gray-400 mb-4">DISC</p>
+        <p className="text-xs font-extrabold uppercase tracking-[2px] text-gray-400 mb-4">Mapeamento Comportamental</p>
         <svg viewBox="0 0 200 200" className="w-full max-w-[200px] mx-auto">
           {[25, 50, 75, 100].map(r => (
             <polygon key={r} points={radarPoints(r)} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
@@ -774,7 +774,7 @@ export default function PerfilComportamentalPage() {
 
       {/* ── DISC Natural ── */}
       <div className="rounded-2xl p-5 border border-white/[0.04]" style={{ background: 'rgba(17,31,54,0.85)' }}>
-        <p className="text-xs font-extrabold uppercase tracking-[2px] text-gray-400 mb-4">DISC Natural</p>
+        <p className="text-xs font-extrabold uppercase tracking-[2px] text-gray-400 mb-4">Perfil comportamental natural</p>
         {[['Dominância', disc.D, DISC_COLORS.D], ['Influência', disc.I, DISC_COLORS.I], ['Estabilidade', disc.S, DISC_COLORS.S], ['Conformidade', disc.C, DISC_COLORS.C]].map(([l, v, col]) => (
           <Bar key={l} label={l} value={v} max={100} color={col} />
         ))}

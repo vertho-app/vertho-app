@@ -8,36 +8,51 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
  * nunca o texto. Três invariantes:
  *   1. o roll-up pede ao banco só a chave `qualidade_reflexao`, não a coluna
  *      `reflexao` inteira: o texto nem chega ao servidor desta tela;
- *   2. por pessoa vale a reflexão MAIS RECENTE do recorte;
+ *   2. por pessoa vale a reflexão da ETAPA ATUAL (ou da semana filtrada), sem
+ *      puxar uma qualidade antiga para a etapa seguinte;
  *   3. a faixa do resumo fecha com "entregaram evidência": semana de missão
  *      (sem classificação) conta como entregue, em "sem classificação", e não
  *      some nem vira um nível inventado.
  */
 
 const PESSOAS = [
-  { colaborador_id: 'p1', semana_atual: 3, status: 'ativo', colaboradores: { nome_completo: 'Ana', cargo: 'Professor(a)' } },
-  { colaborador_id: 'p2', semana_atual: 3, status: 'ativo', colaboradores: { nome_completo: 'Bia', cargo: 'Professor(a)' } },
-  { colaborador_id: 'p3', semana_atual: 5, status: 'ativo', colaboradores: { nome_completo: 'Caio', cargo: 'Professor(a)' } },
+  { colaborador_id: 'p1', semana_atual: 2, status: 'ativo', colaboradores: { nome_completo: 'Ana', cargo: 'Professor(a)' } },
+  { colaborador_id: 'p2', semana_atual: 2, status: 'ativo', colaboradores: { nome_completo: 'Bia', cargo: 'Professor(a)' } },
+  { colaborador_id: 'p3', semana_atual: 4, status: 'ativo', colaboradores: { nome_completo: 'Caio', cargo: 'Professor(a)' } },
   { colaborador_id: 'p4', semana_atual: 1, status: 'ativo', colaboradores: { nome_completo: 'Duda', cargo: 'Professor(a)' } },
 ];
 
 const PROGRESSO = [
-  // Ana: semana 1 baixa, semana 2 alta → a mais recente manda.
-  { colaborador_id: 'p1', semana: 1, tipo: 'conteudo', status: 'concluido', qualidade: 'baixa' },
-  { colaborador_id: 'p1', semana: 2, tipo: 'conteudo', status: 'concluido', qualidade: 'alta' },
-  // Bia: média.
-  { colaborador_id: 'p2', semana: 2, tipo: 'conteudo', status: 'concluido', qualidade: 'media' },
+  // Ana: semana 1 baixa, semana 2 alta → sem filtro vale a etapa atual (2).
+  { trilha_id: 't1', colaborador_id: 'p1', semana: 1, tipo: 'conteudo', status: 'concluido', qualidade: 'baixa' },
+  { trilha_id: 't1', colaborador_id: 'p1', semana: 2, tipo: 'conteudo', status: 'concluido', qualidade: 'alta' },
+  // Bia: a semana 1 só libera a etapa atual; a qualidade exibida é a da 2.
+  { trilha_id: 't2', colaborador_id: 'p2', semana: 1, tipo: 'conteudo', status: 'concluido', qualidade: 'baixa' },
+  { trilha_id: 't2', colaborador_id: 'p2', semana: 2, tipo: 'conteudo', status: 'concluido', qualidade: 'media' },
   // Caio: só missão (aplicação) concluída → entregou, sem classificação.
-  { colaborador_id: 'p3', semana: 4, tipo: 'aplicacao', status: 'concluido', qualidade: null },
+  { trilha_id: 't3', colaborador_id: 'p3', semana: 1, tipo: 'conteudo', status: 'concluido', qualidade: 'alta' },
+  { trilha_id: 't3', colaborador_id: 'p3', semana: 2, tipo: 'conteudo', status: 'concluido', qualidade: 'alta' },
+  { trilha_id: 't3', colaborador_id: 'p3', semana: 3, tipo: 'conteudo', status: 'concluido', qualidade: 'alta' },
+  { trilha_id: 't3', colaborador_id: 'p3', semana: 4, tipo: 'aplicacao', status: 'concluido', qualidade: null },
   // Duda: reflexão em andamento não é entrega, e a qualidade dela não conta.
-  { colaborador_id: 'p4', semana: 1, tipo: 'conteudo', status: 'em_andamento', qualidade: 'alta' },
+  { trilha_id: 't4', colaborador_id: 'p4', semana: 1, tipo: 'conteudo', status: 'em_andamento', qualidade: 'alta' },
 ];
+
+const PLANO = Array.from({ length: 5 }, (_, i) => ({ semana: i + 1, tipo: i === 3 ? 'aplicacao' : 'conteudo' }));
+const TRILHAS = PESSOAS.map((p, i) => ({
+  id: `t${i + 1}`,
+  colaborador_id: p.colaborador_id,
+  numero_temporada: 1,
+  temporada_plano: PLANO,
+  data_inicio: '2026-01-05',
+}));
 
 const COLUNAS_PEDIDAS: string[] = [];
 
 const sb = criarSupabaseMock({
   lista: (tabela, cols) => {
     if (tabela === 'fase4_envios') return PESSOAS;
+    if (tabela === 'trilhas') return TRILHAS;
     if (tabela === 'temporada_semana_progresso') {
       COLUNAS_PEDIDAS.push(cols);
       return cols.includes('tipo') ? PROGRESSO : [];
@@ -67,7 +82,7 @@ describe('qualidade da evidência no roll-up', () => {
     expect(COLUNAS_PEDIDAS.some((c) => c.includes('reflexao->>qualidade_reflexao'))).toBe(true);
   });
 
-  it('por pessoa vale a reflexão mais recente do recorte', async () => {
+  it('sem filtro, a qualidade acompanha a etapa atual da pessoa', async () => {
     const r: any = await rollUpEngajamento('emp-1');
     const p = porNome(r);
     expect(p.Ana.qualidadeEvidencia).toBe('alta');

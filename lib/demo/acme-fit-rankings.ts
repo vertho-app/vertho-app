@@ -68,7 +68,7 @@ function strongestBlock(person: PessoaAdequacao): string {
   const blocks = [
     ['Competência', person.competencia],
     ['Liderança', person.lideranca],
-    ['DISC', person.discScore],
+    ['Mapeamento Comportamental', person.discScore],
     ['Mapeamento comportamental', person.mapeamento],
   ] as const;
   return blocks

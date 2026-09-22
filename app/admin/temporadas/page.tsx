@@ -532,7 +532,7 @@ function SemanaModal({ det, onClose }) {
                       const cls = 'inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border transition-opacity';
                       return href ? (
                         <a key={f} href={href} target="_blank" rel="noopener"
-                          title={f === 'video' ? 'Abrir o vídeo que a pessoa vê' : f === 'audio' ? 'Abrir o podcast COM a saudação nominal (o mesmo que a pessoa ouve)' : 'Abrir o PDF (versão genérica — a personalização por DISC resolve pela sessão do colaborador)'}
+                          title={f === 'video' ? 'Abrir o vídeo que a pessoa vê' : f === 'audio' ? 'Abrir o podcast COM a saudação nominal (o mesmo que a pessoa ouve)' : 'Abrir o PDF (versão genérica — a personalização por perfil comportamental resolve pela sessão do colaborador)'}
                           className={`${cls} hover:opacity-100 opacity-90 hover:underline`} style={style}>
                           <FIcon size={9} />{f}
                         </a>
@@ -576,7 +576,7 @@ function SemanaModal({ det, onClose }) {
                               ? 'Baixa o MP3 com a saudação nominal (cache frio leva ~2min na 1ª vez)'
                               : f === 'video'
                                 ? 'Baixa o MP4 que a pessoa vê'
-                                : 'Baixa o PDF DESTA pessoa (personalizado por DISC + PPP)'}
+                                : 'Baixa o PDF DESTA pessoa (personalizado por perfil comportamental + PPP)'}
                             className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-white/15 bg-white/[0.04] text-gray-300 hover:bg-white/10 transition-colors">
                             <Download size={9} /><FIcon size={9} />{ext}
                           </a>
@@ -585,7 +585,7 @@ function SemanaModal({ det, onClose }) {
                     })()}
                   </div>
                   <div className="text-[9px] text-gray-600 mt-1">
-                    Vídeo e podcast abrem o que a pessoa recebe, com a saudação nominal (podcast com cache frio leva ~2min na 1ª vez). O PDF <b>aberto</b> é a versão genérica — o PDF <b>baixado</b> é o desta pessoa (DISC + PPP). Downloads de material nominal ficam no log de auditoria.
+                    Vídeo e podcast abrem o que a pessoa recebe, com a saudação nominal (podcast com cache frio leva ~2min na 1ª vez). O PDF <b>aberto</b> é a versão genérica — o PDF <b>baixado</b> é o desta pessoa (perfil comportamental + PPP). Downloads de material nominal ficam no log de auditoria.
                   </div>
                   {c.desafio_texto && (
                     <div className="mt-3 rounded bg-cyan-500/5 border border-cyan-500/20 p-2.5">

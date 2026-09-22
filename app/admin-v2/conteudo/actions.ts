@@ -109,7 +109,7 @@ export async function carregarConteudo(): Promise<{ dados?: Conteudo; erro?: str
       publicado: [
         { rotulo: 'Módulos-base publicados', valor: n(mbPublicado), detalhe: `de ${n(mbTotal)} no acervo mestre`, tom: 'ok' },
         { rotulo: 'Micro-conteúdos ativos', valor: n(microAtivo), detalhe: `de ${n(microTotal)} cadastrados`, tom: 'ok' },
-        { rotulo: 'Kits publicados', valor: n(kitsPublicados), detalhe: 'na prateleira, por DISC', tom: 'ok' },
+        { rotulo: 'Kits publicados', valor: n(kitsPublicados), detalhe: 'na prateleira, por perfil comportamental', tom: 'ok' },
         { rotulo: 'Vídeos personalizados', valor: n(personalizadosOk), detalhe: 'entregas prontas com o nome da pessoa', tom: 'ok' },
       ],
       cobertura: [

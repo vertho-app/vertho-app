@@ -245,9 +245,9 @@ export type DemoRoster = {
    * parada na semana 1, e o card "Ação esta semana" do gestor mostrava uma
    * persona de apoio, cuja jornada é um esqueleto.
    *
-   * `emAndamento` deve ser uma semana de CHECKPOINT do programa
-   * (`semanasCheckpoint`): é o que faz a pessoa entrar naquele card. E a
-   * `data_inicio` da trilha é recuada para o calendário cair nessa semana —
+   * Quando `emAndamento` coincide com um CHECKPOINT do programa, a pessoa
+   * também aparece no card de ação do gestor. A `data_inicio` da trilha é
+   * recuada para o calendário cair na semana declarada —
    * `primeiraSemanaAcessivel` parte do calendário e só DESCE, então sem o recuo
    * a tela abriria na semana 1 com três semanas concluídas atrás dela.
    */

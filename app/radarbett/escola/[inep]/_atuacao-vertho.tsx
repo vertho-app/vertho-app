@@ -182,7 +182,7 @@ export function detectarFrentesEscola({
         cor: 'amber',
         titulo: 'Assessment de competências da gestão',
         evidencia: `Ideb ${idebRecente.ano} = ${v.toFixed(1)} vs meta INEP ${meta.toFixed(1)} · gap de ${gap.toFixed(1)} pts`,
-        atuacao: `Diagnóstico DISC e competências da equipe gestora, PDI individualizado por gestor e plano de 90 dias com marcos de evidência.`,
+        atuacao: `Mapeamento Comportamental e diagnóstico de competências da equipe gestora, PDI individualizado por gestor e plano de 90 dias com marcos de evidência.`,
       });
     }
   }

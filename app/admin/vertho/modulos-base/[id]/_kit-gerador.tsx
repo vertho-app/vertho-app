@@ -74,7 +74,7 @@ export default function KitGeradorCard({
       <div className="flex items-center gap-2 mb-3">
         <Gift size={16} className="text-fuchsia-300" />
         <h2 className="text-sm font-bold text-white">Kit Semanal</h2>
-        <span className="text-[10px] text-white/40">4 formatos coesos + desafio por DISC (vídeo incluso)</span>
+        <span className="text-[10px] text-white/40">4 formatos coesos + desafio por perfil comportamental (vídeo incluso)</span>
       </div>
 
       {semDados ? (
@@ -84,7 +84,7 @@ export default function KitGeradorCard({
       ) : (
         <>
           <p className="text-[11px] text-white/45 mb-3">
-            <b className="text-white/70">{competenciaNome}</b> › {descritor}. Roda em background (~5–10 min); o vídeo de cada DISC é renderizado à parte.
+            <b className="text-white/70">{competenciaNome}</b> › {descritor}. Roda em background (~5–10 min); o vídeo de cada perfil comportamental é renderizado à parte.
           </p>
 
           <div className="grid grid-cols-2 gap-2.5 mb-3">
@@ -116,11 +116,11 @@ export default function KitGeradorCard({
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white disabled:opacity-40"
               style={{ background: 'linear-gradient(135deg,#c026d3,#a21caf)' }}>
               {busy ? <Loader2 size={14} className="animate-spin" /> : <Gift size={14} />}
-              {busy ? 'Gerando…' : 'Gerar Kit (4 DISC)'}
+              {busy ? 'Gerando…' : 'Gerar Kit (4 perfis)'}
             </button>
             <button onClick={() => run('um', 'D')} disabled={busy || !empresaId}
               className="px-3 py-2 rounded-lg text-xs font-semibold text-white/80 border border-white/15 hover:bg-white/5 disabled:opacity-40">
-              só DISC D (teste)
+              só perfil D (teste)
             </button>
           </div>
 
@@ -135,7 +135,7 @@ export default function KitGeradorCard({
                   {kits.map((k: any, i: number) => (
                     <li key={i} className="flex items-center gap-1.5 text-[11px] text-white/60">
                       {k.ok ? <CheckCircle2 size={12} className="text-emerald-400" /> : <Loader2 size={12} className="animate-spin text-cyan-300" />}
-                      DISC {k.disc} — {k.ok ? 'pronto' : 'gerando'}{typeof k.kitId === 'string' ? ` (${k.kitId.slice(0, 8)})` : ''}
+                      Perfil {k.disc} — {k.ok ? 'pronto' : 'gerando'}{typeof k.kitId === 'string' ? ` (${k.kitId.slice(0, 8)})` : ''}
                     </li>
                   ))}
                 </ul>

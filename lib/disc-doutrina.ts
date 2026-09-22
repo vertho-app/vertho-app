@@ -80,7 +80,7 @@ para onde a pessoa tende, não o que é capaz de fazer.
   cuidado com o impacto nas pessoas (F).
 
 ▸ PRINCÍPIOS INEGOCIÁVEIS ao falar de perfil
-1. DISC e tipo psicológico são tendência, não sentença ("tende a", nunca "você é/sempre").
+1. O Mapeamento Comportamental e o tipo psicológico são tendência, não sentença ("tende a", nunca "você é/sempre").
 2. Nunca trate score como verdade absoluta nem como diagnóstico clínico.
 3. Nunca invente traços que os dados do colaborador não sustentam.
 4. Foque no desenvolvimento: todo ponto a desenvolver é oportunidade, não defeito.
@@ -126,7 +126,7 @@ export function buildPerfilComportamentalBlock(colab: any): string | null {
     '═══ PERFIL COMPORTAMENTAL DESTE COLABORADOR (dados reais do mapeamento) ═══',
     `Arquétipo: ${arq.nome} — ${arq.desc} (perfil dominante: ${colab.perfil_dominante})`,
     tags.length ? `Tags: ${tags.join(' · ')}` : '',
-    `DISC Natural: D=${num(D)} (${faixaTraco('D', num(D))}), I=${num(I)} (${faixaTraco('I', num(I))}), S=${num(S)} (${faixaTraco('S', num(S))}), C=${num(C)} (${faixaTraco('C', num(C))})`,
+    `Mapeamento Comportamental natural: D=${num(D)} (${faixaTraco('D', num(D))}), I=${num(I)} (${faixaTraco('I', num(I))}), S=${num(S)} (${faixaTraco('S', num(S))}), C=${num(C)} (${faixaTraco('C', num(C))})`,
     `Tipo Psicológico: ${tp.tipo} (Extroversão ${num(tp.extroversao)}%, Intuição ${num(tp.intuicao)}%, Pensamento ${num(tp.pensamento)}%)`,
     `Liderança: Executivo ${num(raw.lideranca.executivo)}%, Motivador ${num(raw.lideranca.motivador)}%, Metódico ${num(raw.lideranca.metodico)}%, Sistemático ${num(raw.lideranca.sistematico)}%`,
   ];

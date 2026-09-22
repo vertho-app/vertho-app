@@ -34,7 +34,7 @@ const VARIAVEIS = [
   { tag: '{{cargo}}', label: 'Cargo', exemplo: 'Consultor de Vendas' },
   { tag: '{{empresa}}', label: 'Empresa', exemplo: 'Boehringer Ingelheim' },
   { tag: '{{link}}', label: 'Link', exemplo: 'https://ibipeba.vertho.ai/login' },
-  { tag: '{{link_disc}}', label: 'Link DISC', exemplo: 'https://ibipeba.vertho.ai/dashboard/perfil-comportamental/mapeamento' },
+  { tag: '{{link_disc}}', label: 'Link do Mapeamento Comportamental', exemplo: 'https://ibipeba.vertho.ai/dashboard/perfil-comportamental/mapeamento' },
 ];
 
 export default function EnviosPage() {

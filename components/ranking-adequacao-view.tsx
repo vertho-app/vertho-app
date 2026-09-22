@@ -23,6 +23,9 @@ const iniciais = (n: string) => n.split(' ').filter(Boolean).slice(0, 2).map((x)
 // arbitrária ao lado do chip de Liderança. 1 casa torna a ordem auto-evidente.
 const fmtBeta = (v: number) => (Math.round(v * 10) / 10).toFixed(1).replace('.', ',');
 const fmtData = (iso: string | null) => iso ? (() => { const [y, m, d] = iso.slice(0, 10).split('-'); return `${d}/${m}/${y}`; })() : '—';
+const rotuloBloco = (valor: string) => valor.toLocaleLowerCase('pt-BR') === 'disc'
+  ? 'Mapeamento Comportamental'
+  : valor;
 
 export default function RankingAdequacaoView({ listar, carregar, exportar, scopeKey = 'default' }: {
   listar: () => Promise<{ cargos: string[]; erro?: string }>;
@@ -237,8 +240,8 @@ export default function RankingAdequacaoView({ listar, carregar, exportar, scope
                       <span className="text-sm font-medium text-white truncate">{e.nome}</span>
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: st.cor + '22', color: st.cor }}>{st.label}</span>
                       {e.borderline && <span className="text-[9px] text-amber-400" title="Sensível à margem de medida (±SEM)">limítrofe ±{e.semDelta}</span>}
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-300">{sep}: {e.blocos[sep] != null ? Math.round(e.blocos[sep]) + '%' : 'n/a'}</span>
-                      {eixoMorto && <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-slate-500" title="Bloco de maior peso do cargo, mas não diferencia este grupo">{eixoMorto}: {e.blocos[eixoMorto] != null ? Math.round(e.blocos[eixoMorto]) + '%' : 'n/a'}</span>}
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-300">{rotuloBloco(sep)}: {e.blocos[sep] != null ? Math.round(e.blocos[sep]) + '%' : 'n/a'}</span>
+                      {eixoMorto && <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-slate-500" title="Bloco de maior peso do cargo, mas não diferencia este grupo">{rotuloBloco(eixoMorto)}: {e.blocos[eixoMorto] != null ? Math.round(e.blocos[eixoMorto]) + '%' : 'n/a'}</span>}
                     </div>
                     {e.drivers.length > 0 && <div className="text-[10px] text-slate-500 mt-0.5 truncate">A desenvolver: {e.drivers.join(', ')}</div>}
                   </div>

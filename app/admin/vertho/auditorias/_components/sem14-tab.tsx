@@ -208,7 +208,7 @@ function DetalheModal({ detalhe, loading, onClose, onRevisado, t, locale }) {
             <section>
               <p className="text-[10px] uppercase tracking-widest text-gray-500 mb-1">{t('modal.context')}</p>
               <p className="text-white">{detalhe.colaborador} ({detalhe.cargo}) · {detalhe.empresa}</p>
-              <p className="text-xs text-gray-400">{t('modal.competency')}: <span className="text-cyan-400">{detalhe.competencia}</span> · Perfil DISC: {detalhe.perfilDominante || t('modal.notMapped')}</p>
+              <p className="text-xs text-gray-400">{t('modal.competency')}: <span className="text-cyan-400">{detalhe.competencia}</span> · Perfil comportamental: {detalhe.perfilDominante || t('modal.notMapped')}</p>
             </section>
 
             {detalhe.avaliacaoPrimaria && (

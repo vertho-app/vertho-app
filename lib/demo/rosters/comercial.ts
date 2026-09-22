@@ -25,6 +25,7 @@ import {
   ACME_DEMO_SYNTHETIC_MAPPED_KEYS,
   ACME_DEMO_WITHOUT_PROFILE_KEYS,
 } from '@/lib/demo/acme-rh-report-fixture';
+import evidenciasJornada from '@/lib/demo/acme-evidencias-jornada.json';
 import { REGUA_ACME } from '@/lib/demo/acme-evolucao-fixture';
 
 // Gerente Comercial sai do FIXTURE (o acme não tinha competências/cenários do
@@ -224,6 +225,12 @@ export const ROSTER_COMERCIAL: DemoRoster = {
   // apagar a ÚLTIMA ramificação por slug do motor de seed.
   diretorio: ACME_DEMO_REPORT_DIRECTORY.map((pessoa) => ({ ...pessoa })),
   reguaEvolucao: REGUA_ACME,
+  percursoDaPersona: {
+    personaKey: 'bruna',
+    concluidas: 1,
+    emAndamento: 2,
+    evidencias: evidenciasJornada as NonNullable<DemoRoster['percursoDaPersona']>['evidencias'],
+  },
   panorama: {
     semPerfil: [...ACME_DEMO_WITHOUT_PROFILE_KEYS],
     mapeados: [...ACME_DEMO_SYNTHETIC_MAPPED_KEYS],

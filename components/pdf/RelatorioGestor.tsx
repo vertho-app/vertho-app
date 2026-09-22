@@ -230,7 +230,7 @@ export default function RelatorioGestorPDF({ data, empresaNome, logoBase64 }: { 
 
         {c.perfil_disc_equipe && (
           <View style={s.section} wrap={false}>
-            <ReportSectionTitle>Perfil DISC da Equipe</ReportSectionTitle>
+            <ReportSectionTitle>Mapeamento Comportamental da Equipe</ReportSectionTitle>
             <View style={s.box}><Text style={s.text}>{c.perfil_disc_equipe.descricao}</Text></View>
             {c.perfil_disc_equipe.forca_coletiva && (
               <View style={s.discForce}>

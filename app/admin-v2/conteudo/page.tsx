@@ -21,7 +21,7 @@ const ATALHOS: Record<string, { rotulo: string; detalhe: string; href: string }[
   producao: [
     { rotulo: 'Extrair de material', detalhe: 'vídeo, documento ou transcrição', href: '/admin/vertho/modulos-base/extracao-video' },
     { rotulo: 'Importar manuscrito', detalhe: 'transformar texto em módulo', href: '/admin/vertho/modulos-base/importar-manuscrito' },
-    { rotulo: 'Gerar kit semanal', detalhe: 'produzir prateleira por DISC', href: '/admin/conteudos/kit' },
+    { rotulo: 'Gerar kit semanal', detalhe: 'produzir prateleira por perfil comportamental', href: '/admin/conteudos/kit' },
   ],
   revisao: [
     { rotulo: 'Módulos-base', detalhe: 'revisar descritor, conteúdo e status', href: '/admin/vertho/modulos-base' },

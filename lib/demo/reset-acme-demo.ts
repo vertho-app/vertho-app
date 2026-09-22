@@ -1,4 +1,5 @@
 import { sincronizarAdocaoDemo } from '@/lib/demo/sincronizar-adocao';
+import { construirPercursoDaPersona } from '@/lib/demo/percurso-persona';
 import { MIX_RESULTADOS_DEMO, notaPanoramaDemo } from '@/lib/demo/adocao-resultados-fixture';
 import { sincronizarLeiturasDemo } from '@/lib/demo/relatorios-coerentes';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -802,53 +803,6 @@ function demoAudioPersonalizadoPath(contentId: string, colaboradorId: string): s
  * As datas recuam uma semana por semana concluída, para "pendente desde" no
  * card do gestor não nascer zerado.
  */
-export function construirPercursoDaPersona(
-  percurso: NonNullable<DemoRoster['percursoDaPersona']>,
-): any[] {
-  const linhas: any[] = [];
-  const emCurso = percurso.emAndamento ?? 0;
-  const diaEm = (semanasAtras: number) =>
-    new Date(Date.now() - semanasAtras * 7 * 24 * 60 * 60 * 1000).toISOString();
-
-  for (let semana = 1; semana <= percurso.concluidas; semana++) {
-    const atras = (emCurso > 0 ? emCurso : percurso.concluidas + 1) - semana;
-    const concluidoEm = diaEm(atras);
-    // A conversa que concluiu a semana, congelada da rota real. Sem ela a
-    // semana aparece concluída na lista e "0 de 6 respostas" ao abrir.
-    const congelada = percurso.evidencias?.find((e) => e.semana === semana)?.reflexao;
-    const reflexao = congelada
-      ? {
-          ...congelada,
-          transcript_completo: (congelada.transcript_completo || [])
-            .map((m: any) => ({ ...m, timestamp: concluidoEm })),
-        }
-      : null;
-    linhas.push({
-      semana,
-      tipo: 'conteudo',
-      status: PROGRESSO.CONCLUIDO,
-      conteudo_consumido: true,
-      iniciado_em: diaEm(atras + 1),
-      concluido_em: concluidoEm,
-      reflexao,
-      feedback: null,
-    });
-  }
-  if (emCurso > percurso.concluidas) {
-    linhas.push({
-      semana: emCurso,
-      tipo: 'conteudo',
-      status: PROGRESSO.EM_ANDAMENTO,
-      conteudo_consumido: false,
-      iniciado_em: diaEm(0),
-      concluido_em: null,
-      reflexao: null,
-      feedback: null,
-    });
-  }
-  return linhas;
-}
-
 export function relatorioIndividualDemoValido(conteudoRaw: unknown): boolean {
   let conteudo: any = conteudoRaw;
   if (typeof conteudoRaw === 'string') {

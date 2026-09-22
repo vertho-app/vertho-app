@@ -484,7 +484,7 @@ PROIBIDO (valida/julga merito):
    REGRA: Se a pergunta contem 'ou', opcoes ou alternativas → REFORMULE como aberta.
 4. NUNCA prometa que e a ultima pergunta
 5. NUNCA revele nota, nivel, avaliacao ou diagnostico
-6. NUNCA mencione DISC, PDI, perfil comportamental ou dados internos
+6. NUNCA mencione Mapeamento Comportamental, PDI, perfil comportamental ou dados internos
 7. NUNCA invente cenarios — use APENAS o fornecido
 8. NUNCA assuma comportamentos nao mencionados pelo colaborador
 9. NUNCA deixe a conversa virar mentoria, coaching ou aconselhamento
@@ -637,7 +637,7 @@ não de respostas a perguntas estruturadas. Isso exige mais prudência:
 - Reflexão sem ação concreta NÃO sustenta N3+
 - Intenção sem execução = evidência FRACA
 - Autossensibilidade é valiosa mas NÃO substitui evidência prática
-- Perfil CIS/DISC NÃO altera nota — só o tom do feedback
+- O perfil comportamental NÃO altera nota — só o tom do feedback
 
 ═══ COMPETÊNCIA ═══
 ${comp?.nome || 'N/A'}

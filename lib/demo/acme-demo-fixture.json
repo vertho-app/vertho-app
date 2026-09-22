@@ -3115,7 +3115,7 @@
           {
             "key": "disc",
             "min": 0.35,
-            "label": "Perfil DISC muito distante do ideal: risco de desalinhamento estrutural com as demandas relacionais e de resultado do cargo.",
+            "label": "Perfil comportamental muito distante do ideal: risco de desalinhamento estrutural com as demandas relacionais e de resultado do cargo.",
             "scope": "block"
           }
         ],
@@ -8337,7 +8337,7 @@
                   "Comunicação e Apresentação de Valor: \"Escolher duas provas comerciais que você possa usar (caso de cliente similar, dado de resu…\" — O blueprint não traz objetivos, ações ou sprint para Comunicação e Apresentação de Valor.",
                   "Relacionamento e Pós-venda: \"Escolher um cliente da carteira por semana e mapear: último contato proativo, sinais de in…\" — O blueprint não traz objetivos, ações ou sprint para Relacionamento e Pós-venda.",
                   "Orientação a Metas e Resultados: \"Toda semana, antes de planejar as atividades, consultar onde está em relação à meta (perce…\" — O blueprint não traz objetivos, ações ou sprint para Orientação a Metas e Resultados.",
-                  "perfil_comportamental: \"Você provavelmente costuma ser percebida como alguém confiável e consistente, que não age …\" — Os dados DISC e de estilo de liderança não registram como Bruna é percebida por outras pessoas nem comprovam que ela não age por impulso.",
+                  "perfil_comportamental: \"Você provavelmente costuma ser percebida como alguém confiável e consistente, que não age …\" — Os dados do Mapeamento Comportamental e de estilo de liderança não registram como Bruna é percebida por outras pessoas nem comprovam que ela não age por impulso.",
                   "perfil_comportamental: \"O risco desse estilo, em contextos de negociação, é a tendência a esperar mais dados ou ma…\" — A avaliação aponta ausência de evidência sobre fechamento, mas não relata que Bruna espere mais dados, hesite ou seja percebida dessa forma por clientes.",
                   "Negociação e Fechamento: \"Mostrou consciência sobre os riscos de ceder cedo demais e sobre a importância de preserva…\" — A evidência disponível sustenta critério sobre sustentabilidade e relação, mas não mostra que Bruna tenha mencionado ceder cedo demais."
                 ]
@@ -8990,7 +8990,7 @@
           },
           "alertas_metodologicos": [
             "A avaliação de Resiliência e Constância resultou em N1 com nota 1.0 — o menor escore possível. Isso reflete a ausência de evidências nas respostas, e não necessariamente a ausência do comportamento na prática. Recomenda-se uma conversa direta com a liderança para verificar se há evidências observadas no dia a dia que não foram capturadas no exercício avaliativo.",
-            "O perfil comportamental DISC/CIS é uma hipótese baseada em autoavaliação — deve ser usado como ponto de partida para reflexão, não como diagnóstico fechado de comportamento ou capacidade."
+            "O Mapeamento Comportamental é uma hipótese baseada em autoavaliação — deve ser usado como ponto de partida para reflexão, não como diagnóstico fechado de comportamento ou capacidade."
           ],
           "perfil_comportamental": {
             "descricao": "Bruna, seu perfil combina duas tendências predominantes: alta consciência e alta estabilidade. Isso costuma se traduzir em um modo de trabalhar cuidadoso, metódico e orientado à qualidade — você tende a pensar antes de agir, a valorizar previsibilidade e a se sentir mais à vontade em ambientes onde as regras estão claras e há tempo para analisar antes de decidir.\n\nNa prática comercial, esse perfil tende a render bem em situações que exigem preparação, atenção ao detalhe e construção de relações de confiança ao longo do tempo. Você provavelmente costuma ser percebida como alguém confiável e consistente, que não age por impulso. O risco desse estilo, em contextos de negociação, é a tendência a esperar mais dados ou mais certeza antes de dar o próximo passo — o que pode ser interpretado pelo cliente como hesitação, ou resultar em negociações que se prolongam sem definição.\n\nSeu estilo de liderança, segundo os dados, tende ao papel de quem sustenta processos e sistemas com consistência — o perfil 'sistemático' e 'metódico' aparecem com mais força. Isso sugere que você pode render bem como referência de organização e método dentro de um time, e que ações de desenvolvimento que envolvem rotinas e checklists tendem a funcionar melhor para você do que abordagens improvisadas.",
@@ -11544,7 +11544,7 @@
             }
           },
           "alertas_metodologicos": [
-            "O perfil comportamental DISC/CIS foi tratado como hipótese de preferências e tendências, não como diagnóstico de comportamento observado. As afirmações sobre tendências devem ser verificadas pela própria Mariana no contexto real de trabalho.",
+            "O Mapeamento Comportamental foi tratado como hipótese de preferências e tendências, não como diagnóstico de comportamento observado. As afirmações sobre tendências devem ser verificadas pela própria Mariana no contexto real de trabalho.",
             "A nota decimal da competência 'Controle, Precisão e Confiabilidade dos Dados' (3.22) está acima do intervalo típico de N2, possivelmente indicando desempenho próximo à fronteira com N3 em alguns descritores. O nível consolidado foi mantido em N2 conforme o dado de input, dado que há gaps relevantes em descritores centrais da competência."
           ],
           "perfil_comportamental": {

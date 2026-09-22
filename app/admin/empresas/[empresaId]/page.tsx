@@ -112,7 +112,7 @@ const PHASE_CONFIG = [
     { key: 'ia3',         label: 'IA3 — Cenários + Check',      icon: Zap,          ai: 'dual' },
     { key: 'cenarios-cur', label: 'Curadoria de Cenários',      icon: FileText,     hrefFn: (id: string) => `/admin/empresas/${id}/fase1?tab=cenarios` },
     { key: 'fit',         label: 'Fit Cargo Ideal',             icon: BarChart3,    href: '/admin/fit' },
-    { key: 'simular-disc',label: 'Simular Mapeamento DISC',     icon: MessageSquare,ai: false },
+    { key: 'simular-disc',label: 'Simular Mapeamento Comportamental', icon: MessageSquare,ai: false },
     { key: 'perfis-disc', label: 'Perfis Comportamentais',      icon: Brain,        hrefFn: (id: string) => `/admin/empresas/${id}/perfis-comportamentais` },
     { key: 'envios',      label: 'Envios',                      icon: Send,         href: '/admin/whatsapp' },
     { key: 'pulso',       label: 'Pulso de Desenvolvimento',    icon: Activity,     hrefFn: (id: string) => `/admin/empresas/${id}/pulso` },

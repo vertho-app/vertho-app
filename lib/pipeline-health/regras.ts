@@ -105,7 +105,7 @@ export function checarCoberturaKit(entregas: EntregaPrevista[]): Achado | null {
   const semKit = entregas.filter((e) => !e.temKit);
   return achado(
     'entrega-sem-kit', 'aviso',
-    'Entrega sem kit do DISC da pessoa',
+    'Entrega sem kit do Mapeamento Comportamental da pessoa',
     semKit.length,
     'Cai no conteúdo genérico do build e no desafio placeholder — perde a personalização por perfil.',
     {
@@ -314,7 +314,7 @@ export function checarHorizonteKits(
       'kit-horizonte-urgente', 'critico',
       `Semana a menos de ${criticoAteDias} dias sem kit`,
       somaDiscs(urgentes),
-      'Sem kit, a pessoa recebe conteúdo genérico e desafio placeholder — a entrega acontece, só perde a personalização por DISC, então ninguém reclama. Produzir leva ~5min por DISC e não cabe no aviso de 25h do pré-voo.',
+      'Sem kit, a pessoa recebe conteúdo genérico e desafio placeholder — a entrega acontece, só perde a personalização comportamental, então ninguém reclama. Produzir leva ~5min por perfil e não cabe no aviso de 25h do pré-voo.',
       {
         amostra: urgentes.map(rotulo),
         acao: 'planejarKitsCoorte(empresaId, { executar: true }) — ou /admin/conteudos/kit/coorte.',

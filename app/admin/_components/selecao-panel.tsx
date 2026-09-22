@@ -44,7 +44,7 @@ export default function SelecaoPanel({ empresaId, novaVagaHref }: { empresaId: s
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs text-slate-400 max-w-[520px]">Vagas abertas para recrutamento — perfis a preencher, separados dos cargos operacionais. Fluxo: <b className="text-slate-300">1)</b> gerar o perfil ideal · <b className="text-slate-300">2)</b> avaliar os candidatos (todos com DISC) contra a vaga.</p>
+        <p className="text-xs text-slate-400 max-w-[520px]">Vagas abertas para recrutamento — perfis a preencher, separados dos cargos operacionais. Fluxo: <b className="text-slate-300">1)</b> gerar o perfil ideal · <b className="text-slate-300">2)</b> avaliar os candidatos (todos com Mapeamento Comportamental) contra a vaga.</p>
         <Link href={novaVagaHref} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-brand-400/40 bg-brand-500/10 text-brand-200 hover:bg-brand-500/20 text-sm shrink-0"><Plus size={14} /> Nova vaga</Link>
       </div>
 

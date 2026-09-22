@@ -63,7 +63,7 @@ export function formatPerfilContext(colab: ColabPerfil): string {
     const i = colab.i_natural ?? 0;
     const s = colab.s_natural ?? 0;
     const c = colab.c_natural ?? 0;
-    return `Perfil DISC: ${colab.perfil_dominante} (D=${d} I=${i} S=${s} C=${c}).`;
+    return `Mapeamento Comportamental: ${colab.perfil_dominante} (D=${d} I=${i} S=${s} C=${c}).`;
   }
 
   return 'Perfil comportamental: não mapeado.';
@@ -77,7 +77,7 @@ export function formatPerfilCurto(colab: ColabPerfil): string {
     const top = colab.perfil_externo_dados?.resumo?.altas?.[0];
     return top ? `OPQ32 · ${top.nome} ${top.sten}` : 'OPQ32 · sem destaque';
   }
-  if (colab?.perfil_dominante) return `DISC ${colab.perfil_dominante}`;
+  if (colab?.perfil_dominante) return `Mapeamento Comportamental ${colab.perfil_dominante}`;
   return '—';
 }
 

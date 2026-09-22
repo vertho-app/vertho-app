@@ -154,7 +154,7 @@ export type ProposalDocumentVM = {
 const PILARES_PADRAO = [
   {
     titulo: 'Diagnóstico por pessoa',
-    texto: 'Mapeamento comportamental (DISC) e avaliação por cenários do dia a dia do cargo. '
+    texto: 'Mapeamento Comportamental e avaliação por cenários do dia a dia do cargo. '
       + 'Cada avaliação crítica passa por uma segunda IA que confere a primeira — a decisão nunca sai de um único julgamento.',
   },
   {
@@ -393,7 +393,7 @@ const CRONOGRAMA_PADRAO: ProposalEtapa[] = [
   {
     fase: 'Diagnóstico',
     duracao: '1 a 2 semanas',
-    descricao: 'Mapeamento comportamental (DISC) e mapeamento de competências por participante, a partir de cenários do cargo.',
+    descricao: 'Mapeamento Comportamental e mapeamento de competências por participante, a partir de cenários do cargo.',
     entrega: 'Perfil e nível por competência de cada pessoa.',
   },
   {

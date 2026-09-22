@@ -56,7 +56,8 @@ const fmtsDistintos = (evs: any[], pilula: number | null) =>
 
 /**
  * Roll-up de engajamento por colaborador. `semana` filtra os eventos de abertura/
- * formato/consumo; se null, agrega todas. Retorna { resumo, colaboradores, semanas }.
+ * formato/consumo; sem filtro, lê a etapa atual de cada pessoa. Retorna
+ * { resumo, colaboradores, semanas }.
  *
  * COM filtro de semana, cada sinal é estrito àquela semana:
  * - Vídeo: só eventos com a semana exata. Legados (semana=NULL, pré-15/07) contam
@@ -148,7 +149,7 @@ export async function rollUpEngajamento(
 
   // 2) Eventos (opcionalmente escopados por semana).
   let evQuery = tdb.from('trilha_eventos')
-    .select('colaborador_id, pilula, semana, formato, tipo, criado_em');
+    .select('trilha_id, colaborador_id, pilula, semana, formato, tipo, criado_em');
   if (semFiltro) evQuery = evQuery.eq('semana', semFiltro);
   if (recorte) evQuery = evQuery.in('colaborador_id', recorte);
   const eventos = checar('eventos da trilha', await evQuery) || [];
@@ -157,7 +158,7 @@ export async function rollUpEngajamento(
   //    pré-15/07) entram apenas na visão "Todas as semanas": o `.or(is.null)`
   //    anterior fazia a semana 2 exibir os plays da semana 1.
   let vidQuery = tdb.from('videos_watched')
-    .select('colaborador_id, event_type, seconds_watched, video_length')
+    .select('colaborador_id, semana, event_type, seconds_watched, video_length, created_at')
     .in('event_type', ['play_started', 'play_progress', 'play_finished']);
   if (semFiltro) vidQuery = vidQuery.eq('semana', semFiltro);
   if (recorte) vidQuery = vidQuery.in('colaborador_id', recorte);
@@ -173,14 +174,10 @@ export async function rollUpEngajamento(
   const progressoRes = await progQuery;
   const progressoConfiavel = !progressoRes.error;
   const progressoCompleto = checar('progresso semanal', progressoRes) || [];
-  const progresso = semFiltro
-    ? progressoCompleto.filter((p) => Number(p.semana) === semFiltro)
-    : progressoCompleto;
-
   // 5) Tira-Dúvidas (tutor): só ids das linhas COM conversa — o JSONB do
   //    transcript pesa e aqui só interessa o "usou/não usou".
   let tutorQuery = tdb.from('temporada_semana_progresso')
-    .select('colaborador_id, semana')
+    .select('trilha_id, colaborador_id, semana')
     .not('tira_duvidas', 'is', null);
   if (semFiltro) tutorQuery = tutorQuery.eq('semana', semFiltro);
   if (recorte) tutorQuery = tutorQuery.in('colaborador_id', recorte);
@@ -190,22 +187,6 @@ export async function rollUpEngajamento(
   for (const a of (eventos || [])) (evPorColab[a.colaborador_id] ||= []).push(a);
   const vidPorColab: Record<string, any[]> = {};
   for (const v of (videos || [])) (vidPorColab[v.colaborador_id] ||= []).push(v);
-  const consumoPorColab: Record<string, boolean> = {};
-  // Evidência = semana concluída (reflexão socrática em semana de CONTEÚDO, relato
-  // da missão em semana de APLICAÇÃO — sem o `aplicacao` aqui as semanas 4/8/12
-  // marcavam 0 mesmo com missões concluídas, apagão de Ibipeba em ago/2026).
-  const evidenciaPorColab: Record<string, boolean> = {};
-  const qualidadesPorColab: Record<string, Array<{ semana: unknown; qualidade: QualidadeEvidencia | null }>> = {};
-  for (const p of (progresso || [])) {
-    if (consumiuFlag(p.conteudo_consumido)) consumoPorColab[p.colaborador_id] = true;
-    if ((p.tipo === 'conteudo' || p.tipo === 'aplicacao') && p.status === PROGRESSO.CONCLUIDO) {
-      evidenciaPorColab[p.colaborador_id] = true;
-      (qualidadesPorColab[p.colaborador_id] ||= []).push({ semana: p.semana, qualidade: normalizarQualidade(p.qualidade) });
-    }
-  }
-  const tutorPorColab: Record<string, boolean> = {};
-  for (const t of (tutorRows || [])) tutorPorColab[t.colaborador_id] = true;
-
   // Só o progresso da trilha MAIS RECENTE define a posição. Misturar temporadas
   // faria uma conclusão antiga liberar uma semana da jornada atual.
   const progressoJornadaPorColab = new Map<string, any[]>();
@@ -229,8 +210,6 @@ export async function rollUpEngajamento(
   };
 
   const colaboradores = (envios || []).map((e: any) => {
-    const evs = evPorColab[e.colaborador_id] || [];
-    const vids = vidPorColab[e.colaborador_id] || [];
     const semanaCalendario = Number(e.semana_atual) || 1;
     const trilhaAtual = trilhaPorColab.get(e.colaborador_id);
     const posicao = derivarPosicaoJornada({
@@ -240,6 +219,35 @@ export async function rollUpEngajamento(
       progresso: progressoJornadaPorColab.get(e.colaborador_id) || [],
       confiavel: trilhasConfiaveis && progressoConfiavel && !!trilhaAtual,
     });
+    // A visão sem filtro responde "como está a etapa atual?". Somar jornadas
+    // antigas fazia uma evidência da temporada anterior pintar a etapa atual
+    // como concluída — exatamente a contradição vista na Bruna (semana 1 em
+    // curso e evidência registrada ao mesmo tempo).
+    const semanaDosSinais = semFiltro ?? posicao.semanaAcessivel;
+    const evs = (evPorColab[e.colaborador_id] || []).filter((evento) => (
+      !!trilhaAtual
+      && evento.trilha_id === trilhaAtual.id
+      && Number(evento.semana) === semanaDosSinais
+    ));
+    const inicioTrilha = trilhaAtual?.data_inicio ? new Date(trilhaAtual.data_inicio).getTime() : null;
+    const vids = (vidPorColab[e.colaborador_id] || []).filter((video) => (
+      Number(video.semana) === semanaDosSinais
+      && (inicioTrilha == null || !video.created_at || new Date(video.created_at).getTime() >= inicioTrilha)
+    ));
+    const progressoDaEtapa = (progressoJornadaPorColab.get(e.colaborador_id) || [])
+      .filter((p) => Number(p.semana) === semanaDosSinais);
+    const usouTutor = (tutorRows || []).some((t) => (
+      t.colaborador_id === e.colaborador_id
+      && t.trilha_id === trilhaAtual?.id
+      && Number(t.semana) === semanaDosSinais
+    ));
+    const evidenciasDaEtapa = progressoDaEtapa.filter((p) => (
+      (p.tipo === 'conteudo' || p.tipo === 'aplicacao') && p.status === PROGRESSO.CONCLUIDO
+    ));
+    const qualidadeEvidencia = qualidadeMaisRecente(evidenciasDaEtapa.map((p) => ({
+      semana: p.semana,
+      qualidade: normalizarQualidade(p.qualidade) as QualidadeEvidencia | null,
+    })));
 
     // ● = engajou com a pílula: abertura COM ?p= OU qualquer evento (formato/áudio)
     // atribuído a ela. Antes exigia só 'abertura', mas a abertura raramente carrega
@@ -259,16 +267,18 @@ export async function rollUpEngajamento(
     const pctVideo = terminouVideo ? 100 : (maxLen > 0 ? Math.min(100, Math.round((maxSeg / maxLen) * 100)) : 0);
 
     // FIX paradoxo: formatosAbertos DERIVA vídeo/áudio do playback real (quem terminou
-    // o vídeo obviamente abriu o formato vídeo, mesmo sem evento 'formato').
+    // o vídeo obviamente abriu o formato vídeo, mesmo sem evento 'formato'). O
+    // consumo explícito também prova acesso; alguns ciclos antigos gravaram a
+    // conclusão sem o evento de formato e produziam "20 consumiram, 8 acessaram".
     const setFmt = new Set(fmtsDistintos(evs, null));
     if (deuPlay) setFmt.add('video');
     if (audioTerminou) setFmt.add('audio');
-    const formatosAbertos = [...setFmt];
-
-    const marcouConcluido = !!consumoPorColab[e.colaborador_id];
-    const consumiu = terminouVideo || audioTerminou || marcouConcluido;
+    const marcouConcluido = progressoDaEtapa.some((p) => consumiuFlag(p.conteudo_consumido));
     // Formato PRINCIPAL = o preferido do colab (o overlay do kit usa como core).
     const formatoPrincipal = formatoPreferido(e.colaboradores);
+    if (marcouConcluido && setFmt.size === 0) setFmt.add(formatoPrincipal);
+    const formatosAbertos = [...setFmt];
+    const consumiu = terminouVideo || audioTerminou || marcouConcluido;
     // "engajou com o principal": se vídeo, terminou; senão, abriu aquele formato.
     const engajouPrincipal = formatoPrincipal === 'video'
       ? terminouVideo
@@ -305,9 +315,12 @@ export async function rollUpEngajamento(
       deuPlay, terminouVideo, audioTerminou, pctVideo,
       marcouConcluido, consumiu,
       formatoPrincipal, engajouPrincipal,
-      enviouEvidencia: !!evidenciaPorColab[e.colaborador_id],
-      qualidadeEvidencia: qualidadeMaisRecente(qualidadesPorColab[e.colaborador_id] || []),
-      conversouTutor: !!tutorPorColab[e.colaborador_id],
+      // Evidência = etapa concluída (reflexão socrática em conteúdo; relato da
+      // missão em aplicação). O painel expõe o status e o nível da reflexão;
+      // o texto registrado nunca sai do banco nesta consulta.
+      enviouEvidencia: posicao.jornadaConcluida || evidenciasDaEtapa.length > 0,
+      qualidadeEvidencia,
+      conversouTutor: usouTutor,
     };
   }).sort((a, b) => a.nome.localeCompare(b.nome));
 

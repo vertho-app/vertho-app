@@ -11,7 +11,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { DEMO_ROSTERS } from '@/lib/demo/rosters';
-import { construirPercursoDaPersona } from '@/lib/demo/reset-acme-demo';
+import { construirPercursoDaPersona } from '@/lib/demo/percurso-persona';
 import { turnosIaNecessarios } from '@/lib/season-engine/week-gating';
 import fixtureEscolas from '@/lib/demo/escolas-demo-fixture.json';
 

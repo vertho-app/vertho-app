@@ -232,7 +232,7 @@ function CargoBlock({ cargo, n, perfil }: { cargo: string; n: number; perfil: Pe
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <View style={{ alignItems: 'center' }}>
           <MiniDisc m={perfil.natural} />
-          <Text style={{ fontSize: 7, color: C.sub, marginTop: 2 }}>DISC natural</Text>
+          <Text style={{ fontSize: 7, color: C.sub, marginTop: 2 }}>Mapeamento Comportamental natural</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 8, fontWeight: 700, color: C.navy }}>{perfil.arquetipo.nome}</Text>
@@ -290,10 +290,10 @@ const DISC_ANEXO: { fator: Fator; nome: string; tagline: string; essencia: strin
 function AnexoDisc() {
   return (
     <Page size="A4" style={s.page}>
-      <PageHeader title="Anexo — Os 4 Fatores DISC" />
+      <PageHeader title="Anexo — Os 4 Fatores Comportamentais" />
       <View style={s.body}>
         <Text style={s.axIntro}>
-          O DISC descreve tendências de comportamento observáveis — como cada pessoa tende a agir, decidir e se relacionar.
+          O Mapeamento Comportamental descreve tendências observáveis — como cada pessoa tende a agir, decidir e se relacionar.
           Todo perfil combina os quatro fatores em intensidades diferentes; os gráficos deste relatório mostram essa intensidade de 0 a 100.
         </Text>
         <View style={s.axGrid}>
@@ -335,7 +335,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
       <PdfReportCover
         bgBase64={getReportCoverBgBase64()}
         logoBase64={logo}
-        overline={'Perfil Organizacional · DISC'}
+        overline={'Perfil Organizacional · Mapeamento Comportamental'}
         titulo={['Perfil', 'Organizacional']}
         mentorLabel={null}
         nome={empresaNome}
@@ -435,7 +435,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
       <Page size="A4" style={s.page}>
         <PageHeader title="Fatores Altos e Baixos" />
         <View style={s.body}>
-          <Text style={s.p}>Para cada fator DISC, o percentual de perfis com presença Alta (acima de 50 pontos) versus Baixa, considerando todo o grupo.</Text>
+          <Text style={s.p}>Para cada fator comportamental, o percentual de perfis com presença Alta (acima de 50 pontos) versus Baixa, considerando todo o grupo.</Text>
           {p.fatoresAltoBaixo.map((f) => (
             <View key={f.fator} style={{ marginBottom: 8 }}>
               <View style={s.fbBar}>
@@ -447,7 +447,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
           ))}
 
           <View style={[s.secBar, { marginTop: 14 }]}><View style={s.secBarV} /><Text style={s.secBarT}>Distribuição de Talentos</Text></View>
-          <Text style={s.p}>O Octógono de Talentos combina os fatores DISC em 8 talentos. A distribuição mostra a predominância das tendências comportamentais no grupo (% de perfis com cada fator em evidência).</Text>
+          <Text style={s.p}>O Octógono de Talentos combina os fatores do Mapeamento Comportamental em 8 talentos. A distribuição mostra a predominância das tendências comportamentais no grupo (% de perfis com cada fator em evidência).</Text>
           {p.talentos.map((t) => (
             <View key={t.nome} style={s.talRow}>
               <Text style={s.talNome}>{t.nome}</Text>
@@ -504,7 +504,7 @@ function PerfilOrgDoc({ empresaNome, p }: Params) {
         <Page size="A4" style={s.page} wrap>
           <PageHeader title="Perfil por Cargo" />
           <View style={s.body}>
-            <Text style={s.p}>O mesmo mapeamento comportamental, agora recortado por cargo. Compara como cada função da rede se diferencia em DISC, estilo de liderança, talentos e competências. Cargos com menos de 3 pessoas não aparecem, para preservar o anonimato e a validade estatística.</Text>
+            <Text style={s.p}>O mesmo Mapeamento Comportamental, agora recortado por cargo. Compara como cada função da rede se diferencia em perfil, estilo de liderança, talentos e competências. Cargos com menos de 3 pessoas não aparecem, para preservar o anonimato e a validade estatística.</Text>
             {p.porCargo.map((pc) => (
               <CargoBlock key={pc.cargo} cargo={pc.cargo} n={pc.n} perfil={pc.perfil} />
             ))}

@@ -276,7 +276,7 @@ export default function ConteudosAdminPage() {
                 onClick={() => router.push('/admin/conteudos/kit')}
                 disabled={busy}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg border border-cyan-400/30 text-cyan-300 hover:bg-cyan-400/10 disabled:opacity-50 text-sm font-bold"
-                title="1 núcleo → 4 formatos coesos + desafio por DISC"
+                title="1 núcleo → 4 formatos coesos + desafio por perfil comportamental"
               >
                 <Wand2 size={16} />
                 Gerar Kit

@@ -142,7 +142,7 @@ function Parecer({ p, corte, exportar }: { p: any; corte: number; exportar?: (id
           {l.estilo.lacunas.length > 0 ? (
             <ul className="space-y-1">
               {l.estilo.lacunas.map((g: any) => (
-                <li key={g.traco} className="flex items-center justify-between gap-2 text-xs"><span className="text-gray-200">{g.traco} <span className="text-gray-500">({g.bloco})</span></span><span className="tabular-nums text-gray-400">fit {fmtPct(g.fitPct)}</span></li>
+                <li key={g.traco} className="flex items-center justify-between gap-2 text-xs"><span className="text-gray-200">{g.traco} <span className="text-gray-500">({String(g.bloco).toLocaleLowerCase('pt-BR') === 'disc' ? 'Mapeamento Comportamental' : g.bloco})</span></span><span className="tabular-nums text-gray-400">fit {fmtPct(g.fitPct)}</span></li>
               ))}
             </ul>
           ) : <p className="text-[11px] text-gray-500">sem lacunas relevantes</p>}

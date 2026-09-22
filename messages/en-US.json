@@ -614,7 +614,7 @@
     },
     "phaseLabels": {
       "externalProfile": "Profile",
-      "disc": "DISC",
+      "disc": "Behavioral Mapping",
       "assessment": "Assess",
       "pdi": "PDI",
       "season": "Season",
@@ -713,7 +713,7 @@
       "reportHr": "HR report",
       "reportHrDescription": "The cycle read for whoever owns the program: where the team stands and what to do next.",
       "reportProfile": "Organizational Profile",
-      "reportProfileDescription": "The organization's behavioral map — aggregated DISC and leadership styles.",
+      "reportProfileDescription": "The organization's behavioral map and aggregated leadership styles.",
       "reportDna": "Organizational DNA",
       "reportDnaDescription": "The culture read: how the organization decides, communicates and learns.",
       "operatedByVertho": "Setup, content and messaging are run by Vertho. Talk to us whenever you need a change."
@@ -945,7 +945,7 @@
       "3": "Your individual development plan based on results.",
       "4": "A {weeks}-week season with content, practice and reflection.",
       "5": "Measuring post-training evolution and consolidation of advances.",
-      "externalProfile": "Your company uses its own behavioral mapping. You don't need to answer DISC on Vertho.",
+      "externalProfile": "Your company uses its own behavioral mapping. You don't need to repeat it on Vertho.",
       "waitingProfile": "The behavioral profile will be released by HR after the skills vote is completed.",
       "fallback": "Continue your development journey."
     },
@@ -1137,7 +1137,7 @@
         "tenantsPipeline": "Tenants and pipeline",
         "phase0to5": "Phase 0 → Phase 5",
         "top5Collaborators": "Top 5 by team members",
-        "discCollaborators": "Team member DISC",
+        "discCollaborators": "Team member behavioral mapping",
         "flowTest": "Flow test",
         "socraticSessions": "Socratic sessions",
         "week13Audit": "Week 13 audit",
@@ -1232,7 +1232,7 @@
         "desc": "Results by position"
       },
       "disc": {
-        "title": "DISC Profiles",
+        "title": "Behavioral profiles",
         "desc": "Complete mappings"
       },
       "simulator": {
@@ -1328,7 +1328,7 @@
       "title": "Behavioral Mapping",
       "subtitle": "Takes ~5 minutes. You will answer about your <strong>natural profile</strong> and learning preferences.",
       "chips": {
-        "discProfile": "DISC Profile",
+        "discProfile": "Behavioral profile",
         "leadershipStyle": "Leadership style",
         "learningPreferences": "Learning Preferences"
       },
@@ -1475,12 +1475,12 @@
     "blocked": {
       "title": "Next step still blocked",
       "subtitle": "The behavioral profile will be released by HR after the skills vote is completed.",
-      "description": "Your vote may be recorded first. As soon as the company closes the vote and releases the next step, the DISC mapping will be available here."
+      "description": "Your vote may be recorded first. As soon as the company closes the vote and releases the next step, Behavioral Mapping will be available here."
     },
     "notMapped": {
       "title": "Mapping not yet carried out",
       "subtitle": "Your behavioral profile has not yet been mapped. It takes about 5 minutes.",
-      "description": "The mapping identifies your DISC profile, leadership style and learning preferences.",
+      "description": "The mapping identifies your behavioral profile, leadership style and learning preferences.",
       "start": "Start Mapping"
     },
     "hero": {
@@ -1991,7 +1991,7 @@
   },
   "AdminBehaviorProfiles": {
     "title": "Behavioral Profiles",
-    "subtitle": "DISC of employees who completed the mapping",
+    "subtitle": "Behavioral Mapping for employees who completed this step",
     "stats": {
       "total": "Total",
       "complete": "Complete",
@@ -2009,7 +2009,7 @@
       "complete": "Complete",
       "pending": "Pending"
     },
-    "discNatural": "DISC Natural",
+    "discNatural": "Natural behavioral profile",
     "downloadPdf": "Download PDF",
     "audio": {
       "listen": "Listen to debrief",
@@ -2174,10 +2174,10 @@
     "subtitle": "Uploading OPQ32 (SHL) reports per team member",
     "source": {
       "opqActive": "OPQ32 (SHL) active",
-      "discActive": "Using native DISC",
-      "opqDescription": "The AI pipeline will use OPQ32 data from employees who have PDF extracted. Collaborators without PDF fall into DISC.",
-      "discDescription": "Pipeline AI uses native DISC mapping. Activate OPQ32 below if the company uses SHL.",
-      "useDisc": "Return to using DISC",
+      "discActive": "Using native Behavioral Mapping",
+      "opqDescription": "The AI pipeline will use OPQ32 data from employees who have PDF extracted. Collaborators without PDF use Behavioral Mapping.",
+      "discDescription": "The AI pipeline uses native Behavioral Mapping. Activate OPQ32 below if the company uses SHL.",
+      "useDisc": "Return to Behavioral Mapping",
       "activateOpq": "Activate OPQ32 for this company"
     },
     "stats": {
@@ -2210,12 +2210,12 @@
       "description": "Import team members in phase 0 before uploading OPQ32 PDFs."
     },
     "confirm": {
-      "disableSource": "Disabling the external source will return the company to using DISC in the next generations of AI. Extracted PDFs and data are NOT deleted. Continue?",
+      "disableSource": "Disabling the external source will return the company to Behavioral Mapping in the next AI generations. Extracted PDFs and data are NOT deleted. Continue?",
       "removePdf": "Remove PDF and data extracted from {name}?"
     },
     "messages": {
       "opqEnabled": "OPQ32 activated for this company",
-      "discEnabled": "Returned to using native DISC",
+      "discEnabled": "Returned to native Behavioral Mapping",
       "uploadExtracting": "Upload OK · extracting...",
       "extractedSuccess": "PDF extracted successfully",
       "extracted": "Extracted",
@@ -2430,7 +2430,7 @@
       "profileCharacteristics": "Profile Characteristics",
       "cisSubcompetencies": "CIS sub-competencies",
       "leadershipStyles": "Leadership Styles",
-      "idealDiscRanges": "Ideal DISC Tracks",
+      "idealDiscRanges": "Ideal behavioral ranges",
       "aiReasoning": "AI Reasoning"
     },
     "leadership": {
@@ -3053,13 +3053,13 @@
       "mapping": "Mapping",
       "competencies": "Skills",
       "leadership": "Leadership",
-      "disc": "DISC",
+      "disc": "Behavioral Mapping",
       "classification": "Classification"
     },
     "legend": {
       "title": "What each column means",
       "fit": "final index 0-100 combining the 4 blocks. The bigger, the more adherent to the position.",
-      "mapping": "adherence of the behavioral poles (derived from DISC) to the poles chosen in the job profile.",
+      "mapping": "adherence of the behavioral poles derived from the mapping to the poles chosen in the job profile.",
       "competencies": "average of the 16 behavioral skills compared to the ideal profile (score weighted by job relevance).",
       "leadership": "adherence of the leadership style (Executive/Motivating/Methodical/Systematic) to the model expected of the position.",
       "disc": "adherence of D/I/S/C factors to the job target ranges (honoring direction: more is better / target range / keep moderate).",
@@ -3575,7 +3575,7 @@
       "ia2": "IA2 — Ideal Profile",
       "ia3": "IA3 — Scenarios + Check",
       "fit": "Ideal Cargo Fit",
-      "simular-disc": "Simulate DISC Mapping",
+      "simular-disc": "Simulate Behavioral Mapping",
       "perfis-disc": "Behavioral Profiles",
       "envios": "Submissions",
       "pulso": "Development Pulse",
@@ -3684,7 +3684,7 @@
       "reportsDone": "Reports: {ok} generated{errors}",
       "noPendingReports": "No pending reports",
       "confirms": {
-        "simular-disc": "Simulate DISC Mapping will POPULATE every collaborator that does not yet have a profile with random data.\n\nSimulated profiles can be identified later (source=\"simulado\"), but this blocks the real mapping until they are manually cleared.\n\nUse this only in test/demo environments. Confirm?",
+        "simular-disc": "Simulate Behavioral Mapping will POPULATE every collaborator that does not yet have a profile with random data.\n\nSimulated profiles can be identified later (source=\"simulado\"), but this blocks the real mapping until they are manually cleared.\n\nUse this only in test/demo environments. Confirm?",
         "simular": "Simulate Answers will GENERATE fake AI answers for every pending scenario of every collaborator.\n\nThis pollutes the real diagnosis and consumes AI credits. Use only in test/demo.\n\nConfirm?",
         "temporadas": "Generate Seasons builds the PLAN of up to 14 weeks for EVERY collaborator (selects content from the bank and generates the application scenarios via AI).\n\nContent and challenges come afterwards from \"Generate Journey Kits\". Existing seasons will be regenerated. Confirm?",
         "rel-ind": "Generate PDI will produce individual reports for EVERY pending collaborator.\n\nExpensive (AI), slow operation and overwrites previous reports. Confirm?",
@@ -4069,13 +4069,13 @@
     "subtitle": "Turn scope into price, margin, safe discount and cash exposure — all in BRL.",
     "content": {
       "title": "Content generation (per team member and cycle)",
-      "hint": "The default is 48 pieces per member/cycle: 12 videos, 12 podcasts, 12 texts and 12 case studies. Video uses the Base Module + avatar + Remotion pipeline; reuse is calculated per role and DISC profile cell.",
+      "hint": "The default is 48 pieces per member/cycle: 12 videos, 12 podcasts, 12 texts and 12 case studies. Video uses the Base Module + avatar + Remotion pipeline; reuse is calculated per role and behavioral profile cell.",
       "video": "Videos",
       "podcast": "Podcasts",
       "text": "Texts",
       "case": "Case studies",
       "reuse": "Reuse (members/piece)",
-      "reuseHint": "people ÷ roles ÷ 4 DISC profiles",
+      "reuseHint": "people ÷ roles ÷ 4 behavioral profiles",
       "perColab": "Per member/cycle",
       "total": "Per cycle",
       "contractTotal": "Contract total"
@@ -4421,7 +4421,7 @@
       "otherStage": "Other",
       "stageFilter": "Journey stage",
       "refineTitle": "Sending audience",
-      "refineHint": "The template rule is mandatory. The class defines scope; role, voting, DISC, and mapping only narrow the already eligible audience.",
+      "refineHint": "The template rule is mandatory. The class defines scope; role, voting, Behavioral Mapping, and technical mapping only narrow the already eligible audience.",
       "target": "Automatic rule",
       "additionalFilters": "Optional refinements",
       "loadingAudience": "Calculating automatic audience…",
@@ -4501,7 +4501,7 @@
       "all": "All",
       "notVoted": "Didn't vote",
       "voted": "Have already voted",
-      "disc": "DISC profile",
+      "disc": "Behavioral profile",
       "withProfile": "With profile",
       "withoutProfile": "No profile",
       "mapping": "Mapping",
@@ -5025,8 +5025,8 @@
       "behavioral": "behavioral",
       "noProfile": "No profile mapped",
       "noProfileDetail": "The profile will appear here after the mapping is completed.",
-      "discDominant": "Dominant DISC",
-      "discDimensions": "DISC dimensions",
+      "discDominant": "Dominant behavioral profile",
+      "discDimensions": "Behavioral dimensions",
       "profileTitle": "Behavioral profile",
       "openProfile": "Open behavioral profile",
       "openProfileFor": "Open the behavioral profile for {name}",
@@ -5106,7 +5106,7 @@
       "blueprintHint": "We recommend auditing the blueprint before enabling it in a pilot.",
       "pilot": "Pilot",
       "pilotDesc": "Tasting: 2 weeks, 1 competency, 4 content pieces + full closing",
-      "pilotNote": "Pilot: the full diagnostic (DISC, mapping, DNA, Fit) runs unchanged. A 2-week track with 2 content pieces/week (top-4 descriptors by gap) and a closing with scenario + AI assessment. The displayed score never drops below baseline (floor lock, raw score preserved in the snapshot). Goal: run the whole flow, not demonstrate growth.",
+      "pilotNote": "Pilot: the full diagnostic (Behavioral Mapping, technical mapping, DNA, Fit) runs unchanged. A 2-week track with 2 content pieces/week (top-4 descriptors by gap) and a closing with scenario + AI assessment. The displayed score never drops below baseline (floor lock, raw score preserved in the snapshot). Goal: run the whole flow, not demonstrate growth.",
       "regularSingle": "Regular (single)",
       "regularSingleDesc": "14 weeks, 1 competency in depth — DUO escape hatch/rollback",
       "custom": "Custom",
@@ -5116,7 +5116,7 @@
       "customFechamento": "Final assessment",
       "customFechamentoOn": "With final assessment",
       "customFechamentoOff": "Without final assessment",
-      "customMapeamentos": "Behavioral (DISC) and technical mappings: always on — the diagnostic is the entry point of the method.",
+      "customMapeamentos": "Behavioral and technical mappings: always on — the diagnostic is the entry point of the method.",
       "customPreview": "Derived calendar",
       "customPreviewConteudo": "Wk {week} · Content (2 pills)",
       "customPreviewFechamento": "Final assessment — unlocks with week {week}",

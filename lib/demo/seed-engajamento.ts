@@ -62,6 +62,47 @@ export async function seedEngajamentoDemo(sb: SupabaseClient, empresaId: string,
       conversas++;
     }
   }
+
+  // A visão atual da demo precisa mostrar uma progressão legível, não três
+  // taxas de 100%. Os estados abaixo representam a etapa aberta AGORA:
+  // a persona já acessou e consumiu; o primeiro caso de apoio apenas acessou;
+  // o segundo ainda não ativou. As jornadas concluídas seguem completas.
+  const trilhasAtivas = await checked(sb.from('trilhas')
+    .select('id,colaborador_id')
+    .eq('empresa_id', empresaId)
+    .in('colaborador_id', pessoas.map((p: any) => p.id))
+    .eq('status', 'ativa'));
+  const porEmail = new Map(pessoas.map((p: any) => [p.email, p]));
+  const pessoaDoRoster = (key: string) => elenco.find(p => p.key === key);
+  const sinaisAtuais = [
+    ...(roster.percursoDaPersona ? [{ key: roster.percursoDaPersona.personaKey, estado: 'consumo' as const }] : []),
+    ...((roster.panorama?.atrasados || []).map((key, index) => ({
+      key,
+      estado: index === 0 ? 'acesso' as const : 'sem_sinal' as const,
+    }))),
+  ];
+  for (const sinal of sinaisAtuais) {
+    const declarada = pessoaDoRoster(sinal.key);
+    const pessoa = declarada ? porEmail.get(declarada.email) as any : null;
+    const trilha = pessoa ? trilhasAtivas.find((t: any) => t.colaborador_id === pessoa.id) : null;
+    if (!pessoa || !trilha || sinal.estado === 'sem_sinal') continue;
+    const concluidas = progresso
+      .filter((pr: any) => pr.trilha_id === trilha.id)
+      .map((pr: any) => Number(pr.semana) || 0);
+    const semana = Math.max(0, ...concluidas) + 1;
+    const formato = formatoPreferido(pessoa);
+    const em = agora.toISOString();
+    const base = { empresa_id: empresaId, colaborador_id: pessoa.id, trilha_id: trilha.id, semana, pilula: 1, criado_em: em };
+    eventos.push({ ...base, id: id(`${trilha.id}:${semana}:atual:formato`), tipo: 'formato', formato });
+    if (sinal.estado === 'consumo') {
+      const { error } = await sb.from('temporada_semana_progresso')
+        .update({ conteudo_consumido: true })
+        .eq('empresa_id', empresaId)
+        .eq('trilha_id', trilha.id)
+        .eq('semana', semana);
+      if (error) throw new Error(`engajamento demo: consumo atual: ${error.message}`);
+    }
+  }
   for (const [tabela, rows] of [['videos_watched', videos], ['trilha_eventos', eventos]] as const) {
     for (let offset = 0; offset < rows.length; offset += 200) {
       const { error } = await sb.from(tabela).upsert(rows.slice(offset, offset + 200), { onConflict: 'id' });

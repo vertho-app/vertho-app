@@ -206,7 +206,7 @@ export async function gerarInsightsExecutivos(opts: any = {}) {
     const arquetipo = derivarArquetipo(colab.perfil_dominante);
     const tags = derivarTagsExecutivas(colab);
     const prompt = buildInsightsExecutivosPrompt({ colab, arquetipo, tags });
-    const system = 'Você é um consultor sênior de desenvolvimento humano da Vertho. DISC é tendência, não sentença. Nunca cite score numérico. Responda APENAS com JSON válido no formato { "insights": ["...", "...", "..."] }, sem markdown nem comentários.';
+    const system = 'Você é um consultor sênior de desenvolvimento humano da Vertho. O Mapeamento Comportamental indica tendências, não sentenças. Nunca cite score numérico. Responda APENAS com JSON válido no formato { "insights": ["...", "...", "..."] }, sem markdown nem comentários.';
 
     const { getModelForTask } = await import('@/lib/ai-tasks');
     const model = await getModelForTask(colab.empresa_id, 'insights_executivos');

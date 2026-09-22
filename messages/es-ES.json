@@ -614,7 +614,7 @@
     },
     "phaseLabels": {
       "externalProfile": "Perfil",
-      "disc": "DISC",
+      "disc": "Mapeo Conductual",
       "assessment": "Eval",
       "pdi": "PDI",
       "season": "Temp",
@@ -713,7 +713,7 @@
       "reportHr": "Informe de RR. HH.",
       "reportHrDescription": "La lectura del ciclo para quien responde por el programa: dónde está el equipo y qué hacer después.",
       "reportProfile": "Perfil Organizacional",
-      "reportProfileDescription": "El mapeo comportamental de la organización — DISC y estilos de liderazgo agregados.",
+      "reportProfileDescription": "El mapeo conductual de la organización y los estilos de liderazgo agregados.",
       "reportDna": "ADN Organizacional",
       "reportDnaDescription": "La lectura de cultura: cómo la organización decide, se comunica y aprende.",
       "operatedByVertho": "La configuración, el contenido y los envíos los opera Vertho. Habla con nosotros cuando necesites un cambio."
@@ -945,7 +945,7 @@
       "3": "Tu plan de desarrollo individual basado en los resultados.",
       "4": "Temporada de {weeks} semanas con contenido, práctica y reflexión.",
       "5": "Medición de evolución postcapacitación y consolidación de avances.",
-      "externalProfile": "Tu empresa usa un mapeo comportamental propio. No necesitas responder DISC en Vertho.",
+      "externalProfile": "Tu empresa usa un mapeo conductual propio. No necesitas repetirlo en Vertho.",
       "waitingProfile": "El perfil comportamental será liberado por RR. HH. después de finalizar la votación de competencias.",
       "fallback": "Continúa tu itinerario de desarrollo."
     },
@@ -1137,7 +1137,7 @@
         "tenantsPipeline": "Tenants y pipeline",
         "phase0to5": "Fase 0 → Fase 5",
         "top5Collaborators": "Top 5 por colaboradores",
-        "discCollaborators": "DISC de colaboradores",
+        "discCollaborators": "Mapeo conductual de colaboradores",
         "flowTest": "Prueba de flujo",
         "socraticSessions": "Sesiones socráticas",
         "week13Audit": "Auditoría sem 13",
@@ -1232,7 +1232,7 @@
         "desc": "Resultados por cargo"
       },
       "disc": {
-        "title": "Perfiles DISC",
+        "title": "Perfiles conductuales",
         "desc": "Mapeos completos"
       },
       "simulator": {
@@ -1328,7 +1328,7 @@
       "title": "Mapeo Conductual",
       "subtitle": "Toma ~5 minutos. Responderás sobre tu <strong>perfil natural</strong> y tus preferencias de aprendizaje.",
       "chips": {
-        "discProfile": "Perfil DISC",
+        "discProfile": "Perfil conductual",
         "leadershipStyle": "Estilo de liderazgo",
         "learningPreferences": "Preferencias de aprendizaje"
       },
@@ -1475,12 +1475,12 @@
     "blocked": {
       "title": "Próxima etapa aún bloqueada",
       "subtitle": "El perfil conductual será liberado por RR. HH. después de finalizar la votación de competencias.",
-      "description": "Puedes registrar tu voto primero. Cuando la empresa cierre la votación y libere el siguiente paso, el mapeo DISC estará disponible aquí."
+      "description": "Puedes registrar tu voto primero. Cuando la empresa cierre la votación y libere el siguiente paso, el Mapeo Conductual estará disponible aquí."
     },
     "notMapped": {
       "title": "Mapeo aún no realizado",
       "subtitle": "Tu perfil conductual aún no fue mapeado. Toma cerca de 5 minutos.",
-      "description": "El mapeo identifica tu perfil DISC, estilo de liderazgo y preferencias de aprendizaje.",
+      "description": "El mapeo identifica tu perfil conductual, estilo de liderazgo y preferencias de aprendizaje.",
       "start": "Iniciar Mapeo"
     },
     "hero": {
@@ -1991,7 +1991,7 @@
   },
   "AdminBehaviorProfiles": {
     "title": "Perfiles Conductuales",
-    "subtitle": "DISC de los colaboradores que concluyeron el mapeo",
+    "subtitle": "Mapeo Conductual de los colaboradores que concluyeron esta etapa",
     "stats": {
       "total": "Total",
       "complete": "Completos",
@@ -2009,7 +2009,7 @@
       "complete": "Completo",
       "pending": "Pendiente"
     },
-    "discNatural": "DISC Natural",
+    "discNatural": "Perfil conductual natural",
     "downloadPdf": "Descargar PDF",
     "audio": {
       "listen": "Escuchar devolución",
@@ -2174,10 +2174,10 @@
     "subtitle": "Carga de informes OPQ32 (SHL) por colaborador",
     "source": {
       "opqActive": "OPQ32 (SHL) activo",
-      "discActive": "Usando DISC nativo",
-      "opqDescription": "El pipeline IA usará los datos OPQ32 de los colaboradores con PDF extraído. Los colaboradores sin PDF vuelven a DISC.",
-      "discDescription": "El pipeline IA usa el mapeo DISC nativo. Activa OPQ32 abajo si la empresa usa SHL.",
-      "useDisc": "Volver a usar DISC",
+      "discActive": "Usando Mapeo Conductual nativo",
+      "opqDescription": "El pipeline IA usará los datos OPQ32 de los colaboradores con PDF extraído. Los colaboradores sin PDF usan el Mapeo Conductual.",
+      "discDescription": "El pipeline IA usa el Mapeo Conductual nativo. Activa OPQ32 abajo si la empresa usa SHL.",
+      "useDisc": "Volver al Mapeo Conductual",
       "activateOpq": "Activar OPQ32 para esta empresa"
     },
     "stats": {
@@ -2210,12 +2210,12 @@
       "description": "Importa colaboradores en la fase 0 antes de subir PDFs OPQ32."
     },
     "confirm": {
-      "disableSource": "Desactivar la fuente externa hará que la empresa vuelva a usar DISC en las próximas generaciones de IA. Los PDFs y datos extraídos NO se borran. ¿Continuar?",
+      "disableSource": "Desactivar la fuente externa hará que la empresa vuelva al Mapeo Conductual en las próximas generaciones de IA. Los PDFs y datos extraídos NO se borran. ¿Continuar?",
       "removePdf": "¿Eliminar PDF y datos extraídos de {name}?"
     },
     "messages": {
       "opqEnabled": "OPQ32 activado para esta empresa",
-      "discEnabled": "Volvió a usar DISC nativo",
+      "discEnabled": "Volvió al Mapeo Conductual nativo",
       "uploadExtracting": "Carga OK · extrayendo...",
       "extractedSuccess": "PDF extraído con éxito",
       "extracted": "Extraído",
@@ -2430,7 +2430,7 @@
       "profileCharacteristics": "Características del Perfil",
       "cisSubcompetencies": "Subcompetencias CIS",
       "leadershipStyles": "Estilos de Liderazgo",
-      "idealDiscRanges": "Rangos DISC Ideales",
+      "idealDiscRanges": "Rangos conductuales ideales",
       "aiReasoning": "Razonamiento de la IA"
     },
     "leadership": {
@@ -3053,13 +3053,13 @@
       "mapping": "Mapeo",
       "competencies": "Competencias",
       "leadership": "Liderazgo",
-      "disc": "DISC",
+      "disc": "Mapeo Conductual",
       "classification": "Clasificación"
     },
     "legend": {
       "title": "Qué significa cada columna",
       "fit": "índice final 0-100 que combina los 4 bloques. Cuanto más alto, mayor ajuste al puesto.",
-      "mapping": "ajuste de los polos conductuales (derivados del DISC) a los polos elegidos en el perfil del puesto.",
+      "mapping": "ajuste de los polos conductuales derivados del mapeo a los polos elegidos en el perfil del puesto.",
       "competencies": "media de las 16 competencias conductuales comparadas con el perfil ideal (score ponderado por relevancia del puesto).",
       "leadership": "ajuste del estilo de liderazgo (Ejecutivo/Motivador/Metódico/Sistemático) al modelo esperado del puesto.",
       "disc": "ajuste de los factores D/I/S/C a los rangos objetivo del puesto (respetando la dirección: más es mejor / rango objetivo / mantener moderado).",
@@ -3575,7 +3575,7 @@
       "ia2": "IA2 — Perfil Ideal",
       "ia3": "IA3 — Escenarios + Check",
       "fit": "Fit Puesto Ideal",
-      "simular-disc": "Simular Mapeo DISC",
+      "simular-disc": "Simular Mapeo Conductual",
       "perfis-disc": "Perfiles Conductuales",
       "envios": "Envíos",
       "pulso": "Pulso de Desarrollo",
@@ -3684,7 +3684,7 @@
       "reportsDone": "Informes: {ok} generados{errors}",
       "noPendingReports": "No hay informes pendientes",
       "confirms": {
-        "simular-disc": "Simular Mapeamiento DISC va a POBLAR todos los colaboradores que todavía no tienen perfil con datos aleatorios.\n\nLos perfiles simulados pueden identificarse después (origen=\"simulado\"), pero bloquean el mapeo real hasta limpiarlos manualmente.\n\nEsta acción solo debe usarse en entornos de prueba/demo. ¿Confirmas?",
+        "simular-disc": "Simular Mapeo Conductual va a POBLAR todos los colaboradores que todavía no tienen perfil con datos aleatorios.\n\nLos perfiles simulados pueden identificarse después (origen=\"simulado\"), pero bloquean el mapeo real hasta limpiarlos manualmente.\n\nEsta acción solo debe usarse en entornos de prueba/demo. ¿Confirmas?",
         "simular": "Simular Respuestas va a GENERAR respuestas falsas (con IA) para todos los escenarios pendientes de todos los colaboradores.\n\nEsto contamina el diagnóstico real y consume créditos de IA. Úsalo solo en prueba/demo.\n\n¿Confirmas?",
         "temporadas": "Generar Temporadas arma el PLAN de hasta 14 semanas para TODOS los colaboradores (selecciona el contenido del banco y genera los escenarios de aplicación por IA).\n\nEl contenido y los retos vienen después con \"Generar Kits de la Jornada\". Si ya hay temporadas, se regenerarán. ¿Confirmas?",
         "rel-ind": "Generar PDI producirá informes individuales para TODOS los colaboradores pendientes.\n\nOperación costosa (IA), lenta y sobrescribe informes anteriores. ¿Confirmas?",
@@ -4156,13 +4156,13 @@
     "subtitle": "Convierte el alcance en precio, margen, descuento seguro y riesgo de caja — todo en BRL.",
     "content": {
       "title": "Generación de contenido (por colaborador y ciclo)",
-      "hint": "El estándar es de 48 piezas por colaborador/ciclo: 12 vídeos, 12 podcasts, 12 textos y 12 estudios de caso. El vídeo usa el pipeline Módulo Base + avatar + Remotion; el reúso se calcula por celda de puesto y perfil DISC.",
+      "hint": "El estándar es de 48 piezas por colaborador/ciclo: 12 vídeos, 12 podcasts, 12 textos y 12 estudios de caso. El vídeo usa el pipeline Módulo Base + avatar + Remotion; el reúso se calcula por celda de puesto y perfil conductual.",
       "video": "Vídeos",
       "podcast": "Podcasts",
       "text": "Textos",
       "case": "Estudios de caso",
       "reuse": "Reúso (colabs/pieza)",
-      "reuseHint": "personas ÷ puestos ÷ 4 perfiles DISC",
+      "reuseHint": "personas ÷ puestos ÷ 4 perfiles conductuales",
       "perColab": "Por colab/ciclo",
       "total": "Por ciclo",
       "contractTotal": "Total del contrato"
@@ -4498,7 +4498,7 @@
       "otherStage": "Otros",
       "stageFilter": "Etapa del recorrido",
       "refineTitle": "Público del envío",
-      "refineHint": "La regla de la plantilla es obligatoria. El grupo define el alcance; cargo, votación, DISC y mapeo solo refinan a quienes ya son elegibles.",
+      "refineHint": "La regla de la plantilla es obligatoria. El grupo define el alcance; cargo, votación, Mapeo Conductual y mapeo técnico solo refinan a quienes ya son elegibles.",
       "target": "Regla automática",
       "additionalFilters": "Refinamientos opcionales",
       "loadingAudience": "Calculando el público automático…",
@@ -4578,7 +4578,7 @@
       "all": "Todos",
       "notVoted": "Não votaram",
       "voted": "Já votaram",
-      "disc": "Perfil DISC",
+      "disc": "Perfil conductual",
       "withProfile": "Com perfil",
       "withoutProfile": "Sem perfil",
       "mapping": "Mapeamento",
@@ -5025,8 +5025,8 @@
       "behavioral": "conductuales",
       "noProfile": "Sin perfil mapeado",
       "noProfileDetail": "El perfil aparecerá aquí cuando se complete el mapeo.",
-      "discDominant": "DISC dominante",
-      "discDimensions": "Dimensiones DISC",
+      "discDominant": "Perfil conductual dominante",
+      "discDimensions": "Dimensiones conductuales",
       "profileTitle": "Perfil conductual",
       "openProfile": "Abrir perfil conductual",
       "openProfileFor": "Abrir el perfil conductual de {name}",
@@ -5106,7 +5106,7 @@
       "blueprintHint": "Se recomienda auditar el blueprint antes de activarlo en un piloto.",
       "pilot": "Piloto",
       "pilotDesc": "Degustación: 2 semanas, 1 competencia, 4 contenidos + cierre completo",
-      "pilotNote": "Piloto: el diagnóstico completo (DISC, mapeo, ADN, Fit) corre sin cambios. Ruta de 2 semanas con 2 contenidos/semana (top-4 descriptores por brecha) y cierre con escenario + evaluación IA. La nota mostrada nunca queda por debajo del baseline (tope mínimo, bruto preservado en el snapshot). Objetivo: recorrer el flujo completo, no demostrar evolución.",
+      "pilotNote": "Piloto: el diagnóstico completo (Mapeo Conductual, mapeo técnico, ADN, Fit) corre sin cambios. Ruta de 2 semanas con 2 contenidos/semana (top-4 descriptores por brecha) y cierre con escenario + evaluación IA. La nota mostrada nunca queda por debajo del baseline (tope mínimo, bruto preservado en el snapshot). Objetivo: recorrer el flujo completo, no demostrar evolución.",
       "regularSingle": "Regular (single)",
       "regularSingleDesc": "14 semanas, 1 competencia en profundidad — escape/rollback del DUO",
       "custom": "Personalizado",
@@ -5116,7 +5116,7 @@
       "customFechamento": "Cierre",
       "customFechamentoOn": "Con cierre",
       "customFechamentoOff": "Sin cierre",
-      "customMapeamentos": "Mapeos conductual (DISC) y técnico: siempre activos — el diagnóstico es la puerta de entrada del método.",
+      "customMapeamentos": "Mapeos conductual y técnico: siempre activos — el diagnóstico es la puerta de entrada del método.",
       "customPreview": "Calendario derivado",
       "customPreviewConteudo": "Sem {week} · Contenido (2 píldoras)",
       "customPreviewFechamento": "Cierre — se libera con la semana {week}",

@@ -614,7 +614,7 @@
     },
     "phaseLabels": {
       "externalProfile": "Perfil",
-      "disc": "DISC",
+      "disc": "Mapeamento Comportamental",
       "assessment": "Aval",
       "pdi": "PDI",
       "season": "Temp",
@@ -713,7 +713,7 @@
       "reportHr": "Relatório de RH",
       "reportHrDescription": "A leitura do ciclo para quem responde pelo programa: onde o time está e o que fazer a seguir.",
       "reportProfile": "Perfil Organizacional",
-      "reportProfileDescription": "O mapeamento comportamental da organização — DISC e estilos de liderança agregados.",
+      "reportProfileDescription": "O mapeamento comportamental da organização e os estilos de liderança agregados.",
       "reportDna": "DNA Organizacional",
       "reportDnaDescription": "A leitura de cultura: como a organização decide, se comunica e aprende.",
       "operatedByVertho": "Configuração, conteúdo e envios são operados pela Vertho. Fale com a gente quando precisar de uma mudança."
@@ -945,7 +945,7 @@
       "3": "Seu plano de desenvolvimento individual baseado nos resultados.",
       "4": "Temporada de {weeks} semanas com conteúdo, prática e reflexão.",
       "5": "Medição de evolução pós-capacitação e consolidação dos avanços.",
-      "externalProfile": "Sua empresa usa mapeamento comportamental próprio. Você não precisa responder DISC na Vertho.",
+      "externalProfile": "Sua empresa usa mapeamento comportamental próprio. Você não precisa refazer o mapeamento na Vertho.",
       "waitingProfile": "O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada.",
       "fallback": "Continue sua jornada de desenvolvimento."
     },
@@ -1137,7 +1137,7 @@
         "tenantsPipeline": "Tenants e pipeline",
         "phase0to5": "Fase 0 → Fase 5",
         "top5Collaborators": "Top 5 por colaboradores",
-        "discCollaborators": "DISC dos colabs",
+        "discCollaborators": "Mapeamento comportamental dos colabs",
         "flowTest": "Teste de fluxo",
         "socraticSessions": "Sessões socráticas",
         "week13Audit": "Auditoria sem 13",
@@ -1232,7 +1232,7 @@
         "desc": "Resultados por cargo"
       },
       "disc": {
-        "title": "Perfis DISC",
+        "title": "Perfis comportamentais",
         "desc": "Mapeamentos completos"
       },
       "simulator": {
@@ -1328,7 +1328,7 @@
       "title": "Mapeamento Comportamental",
       "subtitle": "Leva ~5 minutos. Você vai responder sobre seu <strong>perfil natural</strong> e suas preferências de aprendizagem.",
       "chips": {
-        "discProfile": "Perfil DISC",
+        "discProfile": "Perfil comportamental",
         "leadershipStyle": "Estilo de liderança",
         "learningPreferences": "Preferências de aprendizagem"
       },
@@ -1475,12 +1475,12 @@
     "blocked": {
       "title": "Próxima etapa ainda bloqueada",
       "subtitle": "O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada.",
-      "description": "Seu voto pode ser registrado primeiro. Assim que a empresa fechar a votação e liberar o próximo passo, o mapeamento DISC ficará disponível aqui."
+      "description": "Seu voto pode ser registrado primeiro. Assim que a empresa fechar a votação e liberar o próximo passo, o Mapeamento Comportamental ficará disponível aqui."
     },
     "notMapped": {
       "title": "Mapeamento ainda não realizado",
       "subtitle": "Seu perfil comportamental ainda não foi mapeado. Leva cerca de 5 minutos.",
-      "description": "O mapeamento identifica seu perfil DISC, estilo de liderança e preferências de aprendizagem.",
+      "description": "O mapeamento identifica seu perfil comportamental, estilo de liderança e preferências de aprendizagem.",
       "start": "Iniciar Mapeamento"
     },
     "hero": {
@@ -1991,7 +1991,7 @@
   },
   "AdminBehaviorProfiles": {
     "title": "Perfis Comportamentais",
-    "subtitle": "DISC dos colaboradores que concluíram o mapeamento",
+    "subtitle": "Mapeamento Comportamental dos colaboradores que concluíram esta etapa",
     "stats": {
       "total": "Total",
       "complete": "Completos",
@@ -2009,7 +2009,7 @@
       "complete": "Completo",
       "pending": "Pendente"
     },
-    "discNatural": "DISC Natural",
+    "discNatural": "Perfil comportamental natural",
     "downloadPdf": "Baixar PDF",
     "audio": {
       "listen": "Ouvir devolutiva",
@@ -2174,10 +2174,10 @@
     "subtitle": "Upload de relatórios OPQ32 (SHL) por colaborador",
     "source": {
       "opqActive": "OPQ32 (SHL) ativo",
-      "discActive": "Usando DISC nativo",
-      "opqDescription": "O pipeline IA usará os dados OPQ32 dos colaboradores que tiverem PDF extraído. Colaboradores sem PDF caem no DISC.",
-      "discDescription": "Pipeline IA usa o mapeamento DISC nativo. Ative OPQ32 abaixo se a empresa usa SHL.",
-      "useDisc": "Voltar a usar DISC",
+      "discActive": "Usando Mapeamento Comportamental nativo",
+      "opqDescription": "O pipeline IA usará os dados OPQ32 dos colaboradores que tiverem PDF extraído. Colaboradores sem PDF usam o Mapeamento Comportamental.",
+      "discDescription": "O pipeline IA usa o Mapeamento Comportamental nativo. Ative OPQ32 abaixo se a empresa usa SHL.",
+      "useDisc": "Voltar ao Mapeamento Comportamental",
       "activateOpq": "Ativar OPQ32 para esta empresa"
     },
     "stats": {
@@ -2210,12 +2210,12 @@
       "description": "Importe colaboradores na fase 0 antes de subir PDFs OPQ32."
     },
     "confirm": {
-      "disableSource": "Desativar a fonte externa fará a empresa voltar a usar DISC nas próximas gerações de IA. Os PDFs e dados extraídos NÃO são apagados. Continuar?",
+      "disableSource": "Desativar a fonte externa fará a empresa voltar a usar o Mapeamento Comportamental nas próximas gerações de IA. Os PDFs e dados extraídos NÃO são apagados. Continuar?",
       "removePdf": "Remover PDF e dados extraídos de {name}?"
     },
     "messages": {
       "opqEnabled": "OPQ32 ativado para esta empresa",
-      "discEnabled": "Voltou a usar DISC nativo",
+      "discEnabled": "Voltou a usar o Mapeamento Comportamental nativo",
       "uploadExtracting": "Upload OK · extraindo...",
       "extractedSuccess": "PDF extraído com sucesso",
       "extracted": "Extraído",
@@ -2430,7 +2430,7 @@
       "profileCharacteristics": "Características do Perfil",
       "cisSubcompetencies": "Sub-competências CIS",
       "leadershipStyles": "Estilos de Liderança",
-      "idealDiscRanges": "Faixas DISC Ideais",
+      "idealDiscRanges": "Faixas comportamentais ideais",
       "aiReasoning": "Raciocínio da IA"
     },
     "leadership": {
@@ -3053,13 +3053,13 @@
       "mapping": "Mapeamento",
       "competencies": "Competências",
       "leadership": "Liderança",
-      "disc": "DISC",
+      "disc": "Mapeamento Comportamental",
       "classification": "Classificação"
     },
     "legend": {
       "title": "O que cada coluna significa",
       "fit": "índice final 0-100 combinando os 4 blocos. Quanto maior, mais aderente ao cargo.",
-      "mapping": "aderência dos polos comportamentais (derivados do DISC) aos polos escolhidos no perfil do cargo.",
+      "mapping": "aderência dos polos comportamentais derivados do mapeamento aos polos escolhidos no perfil do cargo.",
       "competencies": "média das 16 competências comportamentais comparadas ao perfil ideal (score ponderado por relevância do cargo).",
       "leadership": "aderência do estilo de liderança (Executivo/Motivador/Metódico/Sistemático) ao modelo esperado do cargo.",
       "disc": "aderência dos fatores D/I/S/C às faixas-alvo do cargo (honrando a direção: mais é melhor / faixa-alvo / manter moderado).",
@@ -3575,7 +3575,7 @@
       "ia2": "IA2 — Perfil Ideal",
       "ia3": "IA3 — Cenários + Check",
       "fit": "Fit Cargo Ideal",
-      "simular-disc": "Simular Mapeamento DISC",
+      "simular-disc": "Simular Mapeamento Comportamental",
       "perfis-disc": "Perfis Comportamentais",
       "envios": "Envios",
       "pulso": "Pulso de Desenvolvimento",
@@ -3684,7 +3684,7 @@
       "reportsDone": "Relatórios: {ok} gerados{errors}",
       "noPendingReports": "Nenhum relatório pendente",
       "confirms": {
-        "simular-disc": "Simular Mapeamento DISC vai POPULAR todos os colaboradores que ainda não têm perfil com dados aleatórios.\n\nOs perfis simulados podem ser identificados depois (origem=\"simulado\"), mas isso bloqueia o mapeamento real até serem zerados manualmente.\n\nEsta ação só deve ser usada em ambientes de teste/demo. Confirma?",
+        "simular-disc": "Simular Mapeamento Comportamental vai POPULAR todos os colaboradores que ainda não têm perfil com dados aleatórios.\n\nOs perfis simulados podem ser identificados depois (origem=\"simulado\"), mas isso bloqueia o mapeamento real até serem zerados manualmente.\n\nEsta ação só deve ser usada em ambientes de teste/demo. Confirma?",
         "simular": "Simular Respostas vai GERAR respostas fake (com IA) pra todos os cenários pendentes de todos os colaboradores.\n\nIsso polui o diagnóstico real e consome créditos de IA. Use só em ambiente de teste/demo.\n\nConfirma?",
         "temporadas": "Gerar Temporadas monta o PLANO de até 14 semanas para TODOS os colaboradores (seleciona o conteúdo do banco e gera os cenários de aplicação por IA).\n\nO conteúdo e os desafios vêm depois do \"Gerar Kits da Jornada\". Se já houver temporadas, serão regeneradas. Confirma?",
         "rel-ind": "Gerar PDI vai produzir relatórios individuais pra TODOS os colaboradores pendentes.\n\nOperação cara (IA), demorada e sobrescreve relatórios anteriores. Confirma?",
@@ -4069,13 +4069,13 @@
     "subtitle": "Transforme o escopo em preço, margem, desconto seguro e risco de caixa — tudo em BRL.",
     "content": {
       "title": "Geração de conteúdo (por colaborador e ciclo)",
-      "hint": "Padrão de 48 peças por colaborador/ciclo: 12 vídeos, 12 podcasts, 12 textos e 12 estudos de caso. O vídeo usa o pipeline Módulo-Base + avatar + Remotion; o reúso é calculado por célula de cargo e perfil DISC.",
+      "hint": "Padrão de 48 peças por colaborador/ciclo: 12 vídeos, 12 podcasts, 12 textos e 12 estudos de caso. O vídeo usa o pipeline Módulo-Base + avatar + Remotion; o reúso é calculado por célula de cargo e perfil comportamental.",
       "video": "Vídeos",
       "podcast": "Podcasts",
       "text": "Textos",
       "case": "Estudos de caso",
       "reuse": "Reúso (colabs/peça)",
-      "reuseHint": "pessoas ÷ cargos ÷ 4 perfis DISC",
+      "reuseHint": "pessoas ÷ cargos ÷ 4 perfis comportamentais",
       "perColab": "Por colab/ciclo",
       "total": "Por ciclo",
       "contractTotal": "Total do contrato"
@@ -4421,7 +4421,7 @@
       "otherStage": "Outros",
       "stageFilter": "Etapa da jornada",
       "refineTitle": "Público do envio",
-      "refineHint": "A regra do template é obrigatória. A turma define o escopo; cargo, votação, DISC e mapeamento apenas refinam quem já é elegível.",
+      "refineHint": "A regra do template é obrigatória. A turma define o escopo; cargo, votação, Mapeamento Comportamental e avaliação técnica apenas refinam quem já é elegível.",
       "target": "Regra automática",
       "additionalFilters": "Refinamentos opcionais",
       "loadingAudience": "Calculando público automático…",
@@ -4501,7 +4501,7 @@
       "all": "Todos",
       "notVoted": "Não votaram",
       "voted": "Já votaram",
-      "disc": "Perfil DISC",
+      "disc": "Perfil comportamental",
       "withProfile": "Com perfil",
       "withoutProfile": "Sem perfil",
       "mapping": "Mapeamento",
@@ -5025,8 +5025,8 @@
       "behavioral": "comportamentais",
       "noProfile": "Sem perfil mapeado",
       "noProfileDetail": "O perfil ficará disponível aqui assim que o mapeamento for concluído.",
-      "discDominant": "DISC dominante",
-      "discDimensions": "Dimensões DISC",
+      "discDominant": "Perfil comportamental dominante",
+      "discDimensions": "Dimensões comportamentais",
       "profileTitle": "Perfil comportamental",
       "openProfile": "Abrir perfil comportamental",
       "openProfileFor": "Abrir perfil comportamental de {name}",
@@ -5106,7 +5106,7 @@
       "blueprintHint": "Recomendado auditar o blueprint antes de ligar em um piloto.",
       "pilot": "Piloto",
       "pilotDesc": "Degustação: 2 semanas, 1 competência, 4 conteúdos + fechamento completo",
-      "pilotNote": "Piloto: diagnóstico completo (DISC, mapeamento, DNA, Fit) roda inalterado. Trilha de 2 semanas com 2 conteúdos/semana (top-4 descritores por gap) e fechamento com cenário + avaliação IA. A nota exibida nunca fica abaixo do baseline (trava de piso, bruto preservado no snapshot). Objetivo: rodar o fluxo inteiro, não demonstrar evolução.",
+      "pilotNote": "Piloto: diagnóstico completo (Mapeamento Comportamental, mapeamento técnico, DNA e Fit) roda inalterado. Trilha de 2 semanas com 2 conteúdos/semana (top-4 descritores por gap) e fechamento com cenário + avaliação IA. A nota exibida nunca fica abaixo do baseline (trava de piso, bruto preservado no snapshot). Objetivo: rodar o fluxo inteiro, não demonstrar evolução.",
       "regularSingle": "Regular (single)",
       "regularSingleDesc": "14 semanas, 1 competência aprofundada — escape hatch/rollback do DUO",
       "custom": "Personalizado",
@@ -5116,7 +5116,7 @@
       "customFechamento": "Fechamento",
       "customFechamentoOn": "Com fechamento",
       "customFechamentoOff": "Sem fechamento",
-      "customMapeamentos": "Mapeamentos comportamental (DISC) e técnico: sempre ativos — o diagnóstico é a porta de entrada do método.",
+      "customMapeamentos": "Mapeamentos comportamental e técnico: sempre ativos — o diagnóstico é a porta de entrada do método.",
       "customPreview": "Calendário derivado",
       "customPreviewConteudo": "Sem {week} · Conteúdo (2 pílulas)",
       "customPreviewFechamento": "Fechamento — libera com a semana {week}",

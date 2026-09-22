@@ -469,7 +469,7 @@ export async function rodarHorizonte(
       const pessoas = new Set(pares.flatMap(p => p.pessoas));
       const par = achado('desafio-par-horizonte', pares.some(p => p.distancia <= 1) ? 'critico' : 'aviso',
         'Pessoas com desafio integrado ainda não produzido', pessoas.size,
-        `${pares.length} combinação(ões) de descritores, cargo e DISC nas semanas atual e seguintes.`,
+        `${pares.length} combinação(ões) de descritores, cargo e Mapeamento Comportamental nas semanas atual e seguintes.`,
         { amostra: pares.map(p => `${p.cargo} · ${p.disc} · ${p.descritores.join(' + ')} · ${p.nucleos.length < 2 ? 'sem brief canônico' : 'aguardando preparação'}`),
           acao: 'O cron preparar_desafios e a conclusão dos kits produzem os pares. Corrigir os briefs ausentes antes de gerar.' });
       if (par) achados.push(par);
