@@ -851,19 +851,10 @@ export async function getEngajamentoDoTime(
     if (vinculo) colaboradores = vinculo;
   }
 
-  // A qualidade da evidência é leitura de gestor e RH (decisão de 22/09/2026).
-  // O tutor usa esta mesma action e acompanha a pessoa de perto; para ele o
-  // nível sai do payload, não só da tela.
-  let resumo = rollup.resumo;
-  if (isTutor) {
-    colaboradores = (colaboradores || []).map(({ qualidadeEvidencia: _q, ...pessoa }: any) => pessoa);
-    if (resumo) { const { qualidadeEvidencias: _r, ...resto } = resumo; resumo = resto; }
-  }
-
   return {
     ok: true,
     scope: isTutor ? 'tutor' : (isGestor ? 'gestor' : 'rh'),
-    resumo,
+    resumo: rollup.resumo,
     colaboradores,
     semanas: rollup.semanas,
     cargos: rollup.cargos || [],

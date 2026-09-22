@@ -122,9 +122,13 @@ describe('engajamento do time · recorte por função', () => {
 });
 
 /**
- * Qualidade da evidência (22/09/2026): o dono liberou o NÍVEL para gestor e
- * RH. O tutor usa esta mesma action, e o corte dele é no payload: esconder só
- * na tela deixaria o dado a um DevTools de distância.
+ * Qualidade da evidência (22/09/2026): o dono liberou o NÍVEL para gestor e RH.
+ *
+ * Não há corte por papel aqui — e não há teste do papel `tutor`. `Medido:
+ * 22/09/2026`, o banco tem 540 pessoas em 3 papéis (383 colaborador, 144
+ * gestor, 13 rh) e **nenhuma** `tutor`, embora a palavra apareça em 17
+ * arquivos. Escrever a régua do tutor seria travar um ramo morto: a decisão
+ * sobre o que ele vê nasce quando a primeira pessoa com esse papel existir.
  */
 describe('engajamento do time · qualidade da evidência por papel', () => {
   it('gestor recebe o nível por pessoa e a faixa do resumo', async () => {
@@ -138,22 +142,5 @@ describe('engajamento do time · qualidade da evidência por papel', () => {
     const r = await getEngajamentoDoTime(null);
     expect(r.colaboradores?.every((c: any) => 'qualidadeEvidencia' in c)).toBe(true);
     expect(r.resumo.qualidadeEvidencias).toBeTruthy();
-  });
-
-  it('🔴 tutor não recebe o nível: nem por pessoa, nem no resumo', async () => {
-    ctx = {
-      colaborador: { id: 't1', email: 'tutor@x.com', empresa_id: 'emp-1', tutorados_ids: ['p1', 'p2'] },
-      role: 'tutor',
-      isPlatformAdmin: false,
-    };
-    const r = await getEngajamentoDoTime(null);
-    expect(r.ok).toBe(true);
-    expect(r.scope).toBe('tutor');
-    expect(r.colaboradores?.length).toBe(2);
-    expect(r.colaboradores?.some((c: any) => 'qualidadeEvidencia' in c)).toBe(false);
-    // o resto do sinal continua: entregou é leitura de presença, não de qualidade
-    expect(r.colaboradores?.every((c: any) => c.enviouEvidencia === true)).toBe(true);
-    expect(r.resumo).not.toHaveProperty('qualidadeEvidencias');
-    expect(r.resumo.inscritos).toBe(2);
   });
 });
