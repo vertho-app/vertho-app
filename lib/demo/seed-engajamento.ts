@@ -32,7 +32,8 @@ export async function seedEngajamentoDemo(sb: SupabaseClient, empresaId: string,
     if (apoio.has(p.email)) {
       const campo = ['pref_video_curto', 'pref_audio', 'pref_texto', 'pref_estudo_caso'][i % 4];
       const prefs = { pref_video_curto: 2, pref_video_longo: 2, pref_audio: 2, pref_texto: 2, pref_estudo_caso: 2, [campo]: 5 };
-      await checked(sb.from('colaboradores').update(prefs).eq('id', p.id).eq('empresa_id', empresaId));
+      const { error: prefsError } = await sb.from('colaboradores').update(prefs).eq('id', p.id).eq('empresa_id', empresaId);
+      if (prefsError) throw new Error(`engajamento demo: ${prefsError.message}`);
       Object.assign(p, prefs);
     }
     const formato = formatoPreferido(p);
@@ -50,18 +51,22 @@ export async function seedEngajamentoDemo(sb: SupabaseClient, empresaId: string,
       });
     }
     if (i % 3 !== 0 && apoio.has(p.email) && !semanas[0].tira_duvidas) {
-      await checked(sb.from('temporada_semana_progresso').update({ tira_duvidas: {
+      const { error: conversaError } = await sb.from('temporada_semana_progresso').update({ tira_duvidas: {
         demo_fixture: true,
         transcript_completo: [
           { role: 'user', content: 'Como transformar o aprendizado da semana em uma ação que eu consiga acompanhar?', timestamp: em },
           { role: 'assistant', content: 'Escolha uma situação da sua rotina, defina uma ação pequena e registre o que aconteceu. Combine com sua liderança qual evidência vocês vão observar na próxima conversa.', timestamp: em },
         ],
-      } }).eq('id', semanas[0].id).eq('empresa_id', empresaId).is('tira_duvidas', null));
+      } }).eq('id', semanas[0].id).eq('empresa_id', empresaId).is('tira_duvidas', null);
+      if (conversaError) throw new Error(`engajamento demo: ${conversaError.message}`);
       conversas++;
     }
   }
   for (const [tabela, rows] of [['videos_watched', videos], ['trilha_eventos', eventos]] as const) {
-    for (let offset = 0; offset < rows.length; offset += 200) await checked(sb.from(tabela).upsert(rows.slice(offset, offset + 200), { onConflict: 'id' }));
+    for (let offset = 0; offset < rows.length; offset += 200) {
+      const { error } = await sb.from(tabela).upsert(rows.slice(offset, offset + 200), { onConflict: 'id' });
+      if (error) throw new Error(`engajamento demo: ${error.message}`);
+    }
   }
   return { videos: videos.length, eventos: eventos.length, conversas };
 }

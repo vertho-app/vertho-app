@@ -51,7 +51,8 @@ export async function seedSimuladoresDemo(sb: SupabaseClient, empresaId: string,
   async function salvarFixture(tabela: string, row: any) {
     const existente = await checked(sb.from(tabela).select('id,estado,revisao').eq('empresa_id', empresaId).eq('id', row.id).maybeSingle());
     if (existente && (existente.estado?.demoFixture !== DEMO_SIMULADORES_VERSION || existente.revisao > 0)) return false;
-    await checked(sb.from(tabela).upsert({ ...row, empresa_id: empresaId }, { onConflict: 'id' }));
+    const { error } = await sb.from(tabela).upsert({ ...row, empresa_id: empresaId }, { onConflict: 'id' });
+    if (error) throw new Error(`seed simuladores demo: ${error.message}`);
     return true;
   }
 
@@ -87,7 +88,8 @@ export async function seedSimuladoresDemo(sb: SupabaseClient, empresaId: string,
         if (await salvarFixture('sim_lideranca_jornadas', { ...base, id, estado, created_at: dataDemo(agora, 12), updated_at: estado.concluidos.at(-1)!.encerradoEm })) {
           totais.jornadas++;
           for (const episodio of estado.concluidos) {
-            await checked(sb.from('sim_lideranca_episodios').upsert({ id: episodio.id, empresa_id: empresaId, jornada_id: id, indice: episodio.indice, repeticao: false, episodio, created_at: episodio.encerradoEm }, { onConflict: 'id' }));
+            const { error: episodioError } = await sb.from('sim_lideranca_episodios').upsert({ id: episodio.id, empresa_id: empresaId, jornada_id: id, indice: episodio.indice, repeticao: false, episodio, created_at: episodio.encerradoEm }, { onConflict: 'id' });
+            if (episodioError) throw new Error(`seed simuladores demo: ${episodioError.message}`);
             totais.encontros++;
           }
         }
@@ -112,7 +114,7 @@ export async function seedSimuladoresDemo(sb: SupabaseClient, empresaId: string,
       const respostaId = idDemoSimulador(`${chave}:mapeamento:${competencia}`);
       const respostaAnterior = await checked(sb.from('respostas').select('id').eq('empresa_id', empresaId).eq('colaborador_id', p.id).eq('competencia_nome', competencia).limit(1));
       if (respostaAnterior.some((r: any) => r.id !== respostaId)) continue;
-      await checked(sb.from('respostas').upsert({
+      const { error: respostaError } = await sb.from('respostas').upsert({
         id: respostaId, empresa_id: empresaId, colaborador_id: p.id, email_colaborador: p.email, nome_colaborador: p.nome_completo,
         cargo: matriz[0].cargo, competencia_id: comp.id, competencia_nome: competencia,
         r1: fala, r2: fala, r3: 'Comparei alternativas antes de decidir e considerei o impacto sobre as pessoas.', r4: 'Vou acompanhar o resultado e ajustar o combinado com a equipe.',
@@ -120,8 +122,10 @@ export async function seedSimuladoresDemo(sb: SupabaseClient, empresaId: string,
         nota_ia4: nota, nivel_ia4: nivelDaNota(nota), status_ia4: 'aprovado',
         feedback_ia4: 'Exemplo fictício de mapeamento: há ações propostas e evidências para discutir. O próximo passo é tornar o acompanhamento mais específico.',
         avaliacao_ia: { origem: DEMO_SIMULADORES_VERSION, avaliacao_por_descritor: linhas.map((d, di) => ({ numero: di + 1, nome: d.nome_curto, nota_decimal: nota, nivel_sugerido: nivelDaNota(nota), confianca: 0.8, sustentacao: 'Exemplo editorial de demonstração.', evidencias: [{ resposta: 'r1', trecho: fala, forca_evidencia: 'moderada' }], limites_da_evidencia: ['Situação fictícia; não representa avaliação de uma pessoa real.'], racional: d.n3_meta })) },
-      }));
-      await checked(sb.from('descriptor_assessments').upsert(linhas.map((d) => ({ empresa_id: empresaId, colaborador_id: p.id, cargo: matriz[0].cargo, competencia, descritor: d.nome_curto, nota, origem: DEMO_SIMULADORES_VERSION, assessment_date: dataDemo(agora, 15) })), { onConflict: 'colaborador_id,competencia,descritor' }));
+      });
+      if (respostaError) throw new Error(`seed simuladores demo: ${respostaError.message}`);
+      const { error: notasError } = await sb.from('descriptor_assessments').upsert(linhas.map((d) => ({ empresa_id: empresaId, colaborador_id: p.id, cargo: matriz[0].cargo, competencia, descritor: d.nome_curto, nota, origem: DEMO_SIMULADORES_VERSION, assessment_date: dataDemo(agora, 15) })), { onConflict: 'colaborador_id,competencia,descritor' });
+      if (notasError) throw new Error(`seed simuladores demo: ${notasError.message}`);
     }
     totais.mapeamentos++;
   }

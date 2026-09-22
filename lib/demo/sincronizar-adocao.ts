@@ -86,14 +86,21 @@ export async function sincronizarAdocaoDemo(sb: SupabaseClient, empresaId: strin
     const trilha = old ? (await checked(sb.from('trilhas').update(row).eq('id', old.id).eq('empresa_id', empresaId).select('id').single()))
       : await checked(sb.from('trilhas').insert(row).select('id').single());
     const progresso = [...percurso.progresso, ...fechamento].map(pr => ({ ...pr, empresa_id: empresaId, colaborador_id: p.id, trilha_id: trilha.id }));
-    await checked(sb.from('temporada_semana_progresso').upsert(progresso, { onConflict: 'trilha_id,semana' }));
+    const { error: progressoError } = await sb.from('temporada_semana_progresso').upsert(progresso, { onConflict: 'trilha_id,semana' });
+    if (progressoError) throw new Error(`adoção demo: ${progressoError.message}`);
     const envio = envios.find(e => e.colaborador_id === p.id);
     const cadencia = { empresa_id: empresaId, colaborador_id: p.id, email: p.email, nome: p.nome_completo, cargo: p.cargo, gestor_email: p.gestor_email, data_inicio: row.data_inicio, semana_atual: cfg.semanas, status: 'Concluido' };
-    await checked(envio ? sb.from('fase4_envios').update(cadencia).eq('id', envio.id).eq('empresa_id', empresaId) : sb.from('fase4_envios').insert(cadencia));
+    const { error: cadenciaError } = envio
+      ? await sb.from('fase4_envios').update(cadencia).eq('id', envio.id).eq('empresa_id', empresaId)
+      : await sb.from('fase4_envios').insert(cadencia);
+    if (cadenciaError) throw new Error(`adoção demo: ${cadenciaError.message}`);
     concluidas++;
   }
   const rows = [...baseNotas.values()];
-  for (let offset = 0; offset < rows.length; offset += 200) await checked(sb.from('descriptor_assessments').upsert(rows.slice(offset, offset + 200), { onConflict: 'colaborador_id,competencia,descritor' }));
+  for (let offset = 0; offset < rows.length; offset += 200) {
+    const { error } = await sb.from('descriptor_assessments').upsert(rows.slice(offset, offset + 200), { onConflict: 'colaborador_id,competencia,descritor' });
+    if (error) throw new Error(`adoção demo: ${error.message}`);
+  }
 
   // Os PDIs editoriais do apoio também precisam refletir as notas atuais.
   // Relatórios ricos das personas e relatórios externos ficam preservados.
@@ -107,7 +114,8 @@ export async function sincronizarAdocaoDemo(sb: SupabaseClient, empresaId: strin
     }).filter(a => a.nota > 0);
     if (avaliacoes.length !== top5(p.cargo).length) throw new Error('PDI sem todas as notas do cargo.');
     const conteudo = criarPdiAcmeDemo(p, { avaliacoes, totalSemanas: report.conteudo.total_semanas, programaModo: report.conteudo.programa_modo });
-    await checked(sb.from('relatorios').update({ conteudo, pdf_path: null, gerado_em: agora.toISOString() }).eq('id', report.id).eq('empresa_id', empresaId));
+    const { error } = await sb.from('relatorios').update({ conteudo, pdf_path: null, gerado_em: agora.toISOString() }).eq('id', report.id).eq('empresa_id', empresaId);
+    if (error) throw new Error(`adoção demo: ${error.message}`);
   }
 
   // Mantém a fotografia das duas personas navegáveis, inclusive mídia e evidências.
@@ -117,7 +125,8 @@ export async function sincronizarAdocaoDemo(sb: SupabaseClient, empresaId: strin
   const atrasados = new Set((roster.panorama?.atrasados || []).map(k => porKey.get(k).id));
   for (const t of atuais.filter(t => t.status === TRILHA.ATIVA)) {
     const feitas = progressos.filter(pr => pr.trilha_id === t.id && pr.status === PROGRESSO.CONCLUIDO).length;
-    await checked(sb.from('trilhas').update({ data_inicio: data(atrasados.has(t.colaborador_id) ? 28 : feitas * 7).slice(0, 10) }).eq('id', t.id).eq('empresa_id', empresaId));
+    const { error } = await sb.from('trilhas').update({ data_inicio: data(atrasados.has(t.colaborador_id) ? 28 : feitas * 7).slice(0, 10) }).eq('id', t.id).eq('empresa_id', empresaId);
+    if (error) throw new Error(`adoção demo: ${error.message}`);
   }
   const eventos = progressos.filter(pr => pr.status === PROGRESSO.CONCLUIDO).flatMap((pr, i) => {
     const formato = ['audio', 'texto', 'case', 'video'][i % 4];
@@ -127,7 +136,10 @@ export async function sincronizarAdocaoDemo(sb: SupabaseClient, empresaId: strin
       tipo, formato: tipo === 'abertura' ? null : formato, criado_em: data(3),
     }));
   });
-  for (let offset = 0; offset < eventos.length; offset += 200) await checked(sb.from('trilha_eventos').upsert(eventos.slice(offset, offset + 200), { onConflict: 'id' }));
+  for (let offset = 0; offset < eventos.length; offset += 200) {
+    const { error } = await sb.from('trilha_eventos').upsert(eventos.slice(offset, offset + 200), { onConflict: 'id' });
+    if (error) throw new Error(`adoção demo: ${error.message}`);
+  }
   await seedEngajamentoDemo(sb, empresaId, agora);
   return { pessoas: pessoas.length, notas: rows.length, concluidas, eventos: eventos.length };
 }

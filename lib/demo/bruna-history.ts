@@ -187,6 +187,24 @@ export async function ensureBrunaAcmeDemoHistory(
     renumerouAtual = true;
   }
 
+  // Desfaz o que já foi gravado quando um passo seguinte falha. Se o desfazer
+  // também falhar, a mensagem diz: a jornada atual ficaria na temporada 2 sem o
+  // histórico que a justifica, e quem reexecuta precisa saber disso.
+  const desfazer = async (historicoCriadoId?: string): Promise<string> => {
+    const falhas: string[] = [];
+    if (historicoCriadoId) {
+      const { error } = await sb.from('trilhas').delete()
+        .eq('id', historicoCriadoId).eq('empresa_id', empresaId).eq('colaborador_id', colaborador.id);
+      if (error) falhas.push(`apagar jornada criada: ${error.message}`);
+    }
+    if (renumerouAtual) {
+      const { error } = await sb.from('trilhas').update({ numero_temporada: 1 })
+        .eq('id', trilhaAtual.id).eq('empresa_id', empresaId).eq('colaborador_id', colaborador.id);
+      if (error) falhas.push(`devolver jornada atual à temporada 1: ${error.message}`);
+    }
+    return falhas.length ? ` (desfazer falhou: ${falhas.join('; ')})` : '';
+  };
+
   const { data: historico, error: historicoError } = await sb.from('trilhas')
     .insert({
       ...snapshot.trilha,
@@ -196,11 +214,8 @@ export async function ensureBrunaAcmeDemoHistory(
     .select('id')
     .single();
   if (historicoError || !historico?.id) {
-    if (renumerouAtual) {
-      await sb.from('trilhas').update({ numero_temporada: 1 })
-        .eq('id', trilhaAtual.id).eq('empresa_id', empresaId).eq('colaborador_id', colaborador.id);
-    }
-    throw new Error(`Histórico da Bruna: criar jornada: ${historicoError?.message || 'id ausente'}`);
+    const desfeito = await desfazer();
+    throw new Error(`Histórico da Bruna: criar jornada: ${historicoError?.message || 'id ausente'}${desfeito}`);
   }
 
   const { error: progressoError } = await sb.from('temporada_semana_progresso').insert(
@@ -212,13 +227,8 @@ export async function ensureBrunaAcmeDemoHistory(
     })),
   );
   if (progressoError) {
-    await sb.from('trilhas').delete()
-      .eq('id', historico.id).eq('empresa_id', empresaId).eq('colaborador_id', colaborador.id);
-    if (renumerouAtual) {
-      await sb.from('trilhas').update({ numero_temporada: 1 })
-        .eq('id', trilhaAtual.id).eq('empresa_id', empresaId).eq('colaborador_id', colaborador.id);
-    }
-    throw new Error(`Histórico da Bruna: criar progresso: ${progressoError.message}`);
+    const desfeito = await desfazer(historico.id);
+    throw new Error(`Histórico da Bruna: criar progresso: ${progressoError.message}${desfeito}`);
   }
 
   return { ok: true, created: true, historicoId: historico.id, trilhaAtualId: trilhaAtual.id };
