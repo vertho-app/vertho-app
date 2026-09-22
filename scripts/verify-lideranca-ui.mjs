@@ -206,21 +206,9 @@ try {
   await page.getByRole('button', { name: 'Ver devolutivas' }).first().click();
   await expect(page.getByRole('button', { name: 'Voltar à equipe' })).toBeVisible();
   await page.screenshot({ path: `${dir}/equipe-detalhe-desktop.png`, fullPage: true });
-  // Revisão humana (18/09/2026): parecer de quem acompanha, anexado à jornada.
-  const revisao = page.getByRole('region', { name: 'Revisão humana' });
-  await expect(revisao.getByText('Ainda não há parecer humano.', { exact: true })).toBeVisible();
-  await revisao.getByRole('radio', { name: 'Concordo em parte', exact: true }).check();
-  const primeira = revisao.getByRole('group', { name: 'Competências comentadas (opcional)' }).getByRole('checkbox').first();
-  const nomePrimeira = (await primeira.evaluate((el) => el.closest('label')?.textContent || '')).trim();
-  await primeira.check();
-  await revisao.getByRole('textbox', { name: 'Motivo e evidências' }).fill('Retomou o acordo do encontro anterior; o nível desta competência poderia ser maior.');
-  await revisao.getByRole('button', { name: 'Registrar revisão', exact: true }).click();
-  await expect(revisao.getByRole('status')).toHaveText('Revisão registrada.');
-  const registrada = revisao.getByRole('list', { name: 'Revisões registradas' }).getByRole('listitem').first();
-  await expect(registrada).toContainText('Concordo em parte');
-  await expect(registrada).toContainText(nomePrimeira);
-  await expect(registrada).toContainText('Por Rute RH em');
-  await revisao.screenshot({ path: `${dir}/revisao-humana-desktop.png` });
+  // Sem revisão humana (decisão do dono, 22/09/2026): RH e gestor leem as devolutivas, não registram parecer.
+  assert.equal(await page.getByRole('region', { name: 'Revisão humana' }).count(), 0, 'bloco de revisão no detalhe da equipe');
+  assert.equal(await page.getByRole('button', { name: 'Registrar revisão' }).count(), 0, 'botão de revisão no detalhe da equipe');
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: `${dir}/equipe-detalhe-mobile.png`, fullPage: true });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'overflow horizontal no painel da equipe');

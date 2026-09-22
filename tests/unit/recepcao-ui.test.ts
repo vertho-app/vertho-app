@@ -4,10 +4,10 @@ import { chromium } from 'playwright';
 import { catalogoInicial } from '@/lib/recepcao/catalogo';
 import { abrirSessao, fichaPublica, visaoPublica } from '@/lib/recepcao/core';
 import { executarExemplo } from './recepcao-fixtures.mjs';
-test.runIf(process.env.RECEPCAO_UI==='1')('UI: seleção, variante, revisão, editor e celular',async()=>{
+test.runIf(process.env.RECEPCAO_UI==='1')('UI: seleção, variante, equipe, editor e celular',async()=>{
  const browser=await chromium.launch({headless:true});
  const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors:string[]=[];page.on('pageerror',e=>errors.push(e.message));
- let sessao:any=null,registros=catalogoInicial.map((conteudo,i)=>({id:`caso-${i}`,conteudo,estado:'publicado',empresa_id:null,versao:'1.0',revisao:0})),revisoes:any[]=[];
+ let sessao:any=null,registros=catalogoInicial.map((conteudo,i)=>({id:`caso-${i}`,conteudo,estado:'publicado',empresa_id:null,versao:'1.0',revisao:0}));
  let liberarAudio:(()=>void)|undefined,avisarAudio:()=>void;
  const audioSolicitado=new Promise<void>(resolve=>{avisarAudio=resolve});
  const completo=visaoPublica(await executarExemplo());
@@ -19,11 +19,10 @@ test.runIf(process.env.RECEPCAO_UI==='1')('UI: seleção, variante, revisão, ed
   if(u.pathname.endsWith('/gestao')) {
    if(req.method()==='POST') {
     const cmd=req.postDataJSON();
-    if(cmd.acao==='revisar'){revisoes.push({id:cmd.requestId,revisor_nome:'Gestora',parecer:cmd.parecer,motivo:cmd.motivo,created_at:new Date().toISOString()});d={ok:true}}
-    else{const r={id:cmd.id||'rascunho',conteudo:cmd.conteudo,estado:cmd.acao==='publicar'?'publicado':'rascunho',empresa_id:'empresa',versao:'2',revisao:(cmd.revisao||0)+1};registros=registros.filter(x=>x.id!==r.id).concat(r);d={cenario:r}}
+    {const r={id:cmd.id||'rascunho',conteudo:cmd.conteudo,estado:cmd.acao==='publicar'?'publicado':'rascunho',empresa_id:'empresa',versao:'2',revisao:(cmd.revisao||0)+1};registros=registros.filter(x=>x.id!==r.id).concat(r);d={cenario:r}}
    }else if(u.searchParams.get('visao')==='cenarios')d={cenarios:registros};
-   else if(u.searchParams.has('sessaoId'))d={sessao:completo,revisoes,podeRevisar:true};
-   else d={pessoas:[{id:'p',nome:'Pessoa da equipe',iniciadas:1,concluidas:1}],iniciadas:1,concluidas:1,pendentes:revisoes.length?0:1,grupos:[],sessoes:[{id:completo.id,nome:'Pessoa da equipe',titulo:completo.cenario.titulo,data:new Date().toISOString(),nota:100,revisao:revisoes[0]?.parecer}],operacao:null};
+   else if(u.searchParams.has('sessaoId'))d={sessao:completo};
+   else d={pessoas:[{id:'p',nome:'Pessoa da equipe',iniciadas:1,concluidas:1}],iniciadas:1,concluidas:1,grupos:[],sessoes:[{id:completo.id,nome:'Pessoa da equipe',titulo:completo.cenario.titulo,data:new Date().toISOString(),nota:100}],operacao:null};
   }else if(req.method()==='POST') {
    const cmd=req.postDataJSON();
    if(cmd.acao==='responder'){sessao.historico.push({id:'m1',role:'user',content:cmd.mensagem},{id:'m2',role:'assistant',content:'Quero saber quando terei uma resposta.'});sessao.respostas++;sessao.revisao++;}
@@ -46,12 +45,12 @@ test.runIf(process.env.RECEPCAO_UI==='1')('UI: seleção, variante, revisão, ed
   await page.getByRole('button',{name:'Enviar resposta',exact:true}).click();await page.getByText('Quero saber quando terei uma resposta.',{exact:true}).waitFor();
   liberarAudio!();await page.getByText('Preparando áudio…',{exact:true}).waitFor({state:'hidden'});
   expect(await page.getByLabel('Fala da paciente',{exact:true}).count()).toBe(0);
-  await page.getByRole('button',{name:'Equipe e revisões',exact:true}).click();
+  await page.getByRole('button',{name:'Equipe',exact:true}).click();
   await page.getByRole('button',{name:'Abrir atendimento'}).click();
-  await page.getByLabel('Motivo e evidências').fill('A conversa confirma o combinado. Revisado pela gestora.');
-  await page.getByRole('button',{name:'Salvar revisão',exact:true}).click();
-  await page.getByText('Gestora · concordo').waitFor();
-  await page.screenshot({path:'C:/Users/rdnav/recepcao-medica-piloto/evolucao-revisao.png',fullPage:true});
+  // Sem revisão humana desde 22/09/2026: quem acompanha vê o resultado, não registra parecer.
+  await page.getByRole('heading',{name:'Avaliação da IA',exact:true}).waitFor();
+  expect(await page.getByLabel('Motivo e evidências').count()).toBe(0);
+  await page.screenshot({path:'C:/Users/rdnav/recepcao-medica-piloto/evolucao-equipe.png',fullPage:true});
   await page.getByRole('button',{name:'Cenários',exact:true}).click();
   await page.getByRole('button',{name:'Criar nova versão',exact:true}).first().click();
   await page.getByLabel('Reação aos limites',{exact:true}).first().selectOption('resistencia_persistente');

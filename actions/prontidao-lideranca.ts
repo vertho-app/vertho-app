@@ -13,7 +13,6 @@
  * diferentes para quem lê.
  */
 import { getUserContext } from '@/lib/authz';
-import { acessoSimuladoresDoColaborador } from '@/lib/simuladores/acesso';
 import { tenantDb } from '@/lib/tenant-db';
 import { requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { MODULOS, canUseModulo, type Modulo } from '@/lib/access-gates/modulos';
@@ -42,8 +41,7 @@ async function ctxRh(): Promise<{ empresaId: string } | { erro: string }> {
   const ctx = await getUserContext(email);
   if (ctx?.role !== 'rh') return { erro: 'Acesso exclusivo do RH.' };
   if (!ctx.empresaId) return { erro: 'RH sem empresa vinculada.' };
-  if (!ctx.isPlatformAdmin && !(await acessoSimuladoresDoColaborador(ctx.colaborador)).lideranca)
-    return { erro: 'O simulador de liderança não está liberado para seu cargo.' };
+  // Papel e módulo decidem; a aba de cargos diz só quem treina (decisão do dono, 22/09/2026).
   return { empresaId: ctx.empresaId };
 }
 

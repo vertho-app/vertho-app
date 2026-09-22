@@ -22,8 +22,8 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | Comercial / orçamento / demo | `docs/ORCAMENTO.md` · `docs/PORTAL-REPRESENTANTE.md` · `docs/AMBIENTE-DEMO.md` |
 > | Treino de recepção médica (simulador, biblioteca N1–N4, calibração) | `docs/recepcao-medica.md` |
 > | Simulador de vendas (PACE, treino e acompanhamento) | `docs/SIMULADOR-VENDAS.md` |
-> | Simulador de liderança (cinco encontros, evolução e revisão humana) | `docs/SIMULADOR-LIDERANCA.md` |
-> | Validação dos três simuladores (interfaces, IA e revisão humana) | `docs/simuladores-validacao.md` |
+> | Simulador de liderança (cinco encontros, evolução e acompanhamento) | `docs/SIMULADOR-LIDERANCA.md` |
+> | Validação dos três simuladores (interfaces, IA e banco) | `docs/simuladores-validacao.md` |
 > | White label via agência (plano, decisões pendentes, fases) | `docs/WHITE-LABEL-AGENCIA.md` |
 > | WhatsApp: caixa de entrada e migração p/ Cloud API | `docs/INBOX-WHATSAPP.md` |
 > | WhatsApp: quais templates estão APROVADOS **e ligados**, com que contrato | `docs/TEMPLATES-WHATSAPP.md` |

@@ -186,7 +186,7 @@ w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
   if (url.includes('/gestao')) {
     const q = new URL(url, location.origin).searchParams;
     if (q.has('sessaoId'))
-      return Response.json({ sessao: visaoPublica(sessoesEquipe.find((r) => r.id === q.get('sessaoId'))!.estado), revisoes: [], podeRevisar: true });
+      return Response.json({ sessao: visaoPublica(sessoesEquipe.find((r) => r.id === q.get('sessaoId'))!.estado) });
     return Response.json(painel());
   }
   if (!init.method || init.method === 'GET') return Response.json(dados());

@@ -5,11 +5,11 @@
 Em `/admin/treino-atendimento`, escolha a empresa. Administradores podem experimentar sem habilitar a equipe. A habilitação exige a permissão de configuração da empresa. Colaboradores usam `/dashboard/treino-atendimento` e só entram quando o módulo está habilitado para a clínica.
 
 - **Meu treino:** escolha um caso, leia a ficha e converse. É possível preparar outro atendimento e retomar os anteriores pelo histórico.
-- **Equipe e revisões:** participação no período, relatórios concluídos, pendências de revisão e resultados separados por cenário, versão da rubrica e cobertura. (Até 09/09/2026 a aba respondia 503 porque `equipe.ts` pedia `colaboradores.ativo`, coluna que não existe; ninguém viu porque nenhuma clínica estava habilitada. O teste de gestão agora vigia as colunas pedidas; ver `docs/FMEA-PIPELINE.md` §F-D1.) Gestores acessam os liderados definidos por `gestor_email`; tutores, os tutorados; RH, a empresa. Testes administrativos só entram no painel quando o administrador marca a opção.
+- **Equipe:** participação no período, relatórios concluídos e resultados separados por cenário, versão da rubrica e cobertura. (Até 09/09/2026 a aba respondia 503 porque `equipe.ts` pedia `colaboradores.ativo`, coluna que não existe; ninguém viu porque nenhuma clínica estava habilitada. O teste de gestão agora vigia as colunas pedidas; ver `docs/FMEA-PIPELINE.md` §F-D1.) Gestores acessam os liderados definidos por `gestor_email`; tutores, os tutorados; RH, a empresa. Testes administrativos só entram no painel quando o administrador marca a opção.
 - **Cenários:** catálogo comum e versões da clínica. Crie uma cópia, adapte a ficha, os pacientes e as competências avaliadas (checkbox e peso; o critério do caso fica recolhido e segue a descrição da competência até você "Ajustar para este caso"); salve o rascunho e publique. Publicação exige `content.manage`. Uma versão publicada não pode ter seu conteúdo alterado. Arquivar impede novos treinos dessa versão, preservando as sessões existentes. **Catálogo Vertho (só plataforma):** "Nova versão no catálogo" abre um rascunho global com a versão sugerida (3.2 → 3.3, única por caso), editável e publicável para todas as clínicas; publicar arquiva a versão publicada anterior do mesmo caso; "Copiar para a clínica" continua criando cópia própria. Clínica não vê rascunhos do catálogo.
 - **Competências:** biblioteca global (Catálogo Vertho) com o comportamento esperado em quatro níveis (N1 gap · N2 em desenvolvimento · N3 meta · N4 referência). Quem vê Cenários lê; só a plataforma cria, edita, exclui (desativa) e restaura. O cenário copia nome, critério e níveis para a própria rubrica ao salvar: mudar a biblioteca não altera caso publicado nem relatório.
 
-A revisão humana exige permissão de acompanhamento, leitura individual e registro. O parecer é acrescentado ao atendimento com autoria, data, competências e motivo; nunca sobrescreve a avaliação da IA. Não é permitido revisar o próprio treino. Pareceres anteriores permanecem visíveis. Desde 19/09/2026 o vendas e a liderança têm o mesmo contrato, com núcleo comum (`lib/simuladores/revisao.ts`) e tabelas próprias (mig 264).
+**Sem revisão humana (decisão do dono, 22/09/2026).** Quem acompanha abre o atendimento de cada pessoa (desfecho, nota, conversa e avaliação da IA) e não registra parecer; o mesmo vale para o vendas e a liderança. A revisão existiu desde a mig 241 e saiu do app nos três simuladores; a tabela `recepcao_revisoes` ficou no banco sem escritor (ver o parágrafo dos três simuladores em `docs/ARQUITETURA.md`).
 
 ## Casos e metodologia
 
@@ -149,8 +149,8 @@ Os limites abaixo são uma **proposta operacional inicial**, não padrões cient
 | Critério | Proposta de passagem | Como apurar |
 | --- | --- | --- |
 | Amostra | Pelo menos 50 treinos concluídos, com 5 ou mais por combinação de caso/variante e ao menos 5 participantes reais | Separar versões de cenário/rubrica e excluir testes administrativos; cenário sem amostra continua no piloto |
-| Revisão | Revisar todos os primeiros 30 relatórios e ao menos 5 de cada caso/variante | Considerar o parecer mais recente de outra pessoa; divergências críticas exigem segunda revisão humana |
-| Divergência | No máximo 10% de pareceres parcialmente concordantes ou discordantes entre os relatórios revisados | Contar relatórios, não número de revisões; publicar numerador e denominador, além dos tipos de divergência |
+| Revisão | Revisar todos os primeiros 30 relatórios e ao menos 5 de cada caso/variante | Sem instrumento no app desde 22/09/2026, quando a revisão humana saiu: a amostra teria de ser revisada fora da plataforma, ou o critério sai da lista (decisão do dono) |
+| Divergência | No máximo 10% de pareceres parcialmente concordantes ou discordantes entre os relatórios revisados | Depende do critério anterior (sem parecer no app desde 22/09/2026); se voltar, contar relatórios, não número de revisões, e publicar numerador e denominador |
 | Integridade | Nenhum defeito de autoria, isolamento, falsa ocorrência crítica ou desfecho sem sustentação conhecido e ainda sem correção | Bloqueia ampliação até corrigir, rever casos afetados e repetir o ensaio pertinente; isso não comprova taxa real zero |
 | Rejeição do avaliador | No máximo 5% das tentativas de avaliação rejeitadas no lote | Incluir tentativa inicial e correção; não confundir rejeição de formato/evidência com reprovação da pessoa; investigar também falhas finais |
 | Conclusão | Pelo menos 85% das sessões iniciadas com uma resposta, após 7 dias de observação | Incluir abandono e falha técnica; discriminar motivos, sem apagar tentativas para melhorar a taxa |
@@ -158,7 +158,7 @@ Os limites abaixo são uma **proposta operacional inicial**, não padrões cient
 
 O painel atual permite acompanhar parte dessas medidas; cobertura por variante, revisão da amostra, divergência, janela de 7 dias e percentis de custo ainda precisam de apuração do lote. Não apresentar estes gates como automação já implementada. Começar com 1–2 clínicas definidas pelo responsável e registrar datas, versões, participantes e decisão de passagem em ata do piloto.
 
-Permissão específica de revisão e experiência de telefone com turnos próprios ficam como evoluções de produto. A revisão mantém os controles atuais de papel, escopo de equipe, empresa, autoria e permissão; não há afrouxamento de acesso nesta correção.
+Experiência de telefone com turnos próprios fica como evolução de produto.
 
 
 ### Matriz Vertho 5 × 6 e escala 1–4 (17/09/2026)
@@ -215,12 +215,12 @@ Verificação: `node scripts/verify-recepcao-ui.mjs` (componentes, CSS e núcleo
 
 Verificação: `tests/unit/recepcao-segmento-empresa.test.ts` (5 mutações vermelhas) e `node scripts/verify-recepcao-ui.mjs` (11 checks, inclui o seletor de segmento e o aviso de segmento sem casos).
 
-### Equipe e revisões: visão por competência (18/09/2026)
+### Equipe: visão por competência (18/09/2026)
 
 - **Visão por competência** no topo da aba (`lib/recepcao/painel.ts`, pura; `populacaoAtendimento` em `equipe.ts`): quem tem acesso (cargo liberado para o atendimento pela régua do gate, fora gestor, RH e contas internas, com `canViewColabJourney` por pessoa), quem treinou no período, a distribuição do maior nível por competência, a tabela por pessoa com "Subiu de nível" e CSV, e quem não treinou no período. A régua de evolução (só avanço) é a do núcleo comum `lib/simuladores/evolucao.ts`, a mesma do vendas; só relatórios na escala 1 a 4 com matriz dão nível.
 - **Por caso**: a cobertura saiu da chave de agrupamento. 83% e 87% no mesmo caso viravam grupos diferentes; agora o grupo é caso, versão do caso e versão da régua, e a regra de cobertura decide, por competência, quando há nível.
-- **Revisão** passa a mostrar o que a pessoa recebeu antes da matriz: desfecho com a justificativa, média geral, ocorrências críticas e o feedback (o que funcionou e o próximo passo). A conversa usa posições em terceira pessoa ("1ª resposta de quem atende") e a lista de 30 comportamentos para comentar fica recolhida.
-- A aba da equipe e a revisão estão nos quatro idiomas; cenários, editor e o bloco de operação e custo seguem em português (ferramentas internas).
+- **Detalhe do atendimento** mostra o que a pessoa recebeu antes da matriz: desfecho com a justificativa, média geral, ocorrências críticas e o feedback (o que funcionou e o próximo passo). A conversa usa posições em terceira pessoa ("1ª resposta de quem atende"). Desde 22/09/2026 é só leitura: o formulário de parecer saiu.
+- A aba da equipe está nos quatro idiomas; cenários, editor e o bloco de operação e custo seguem em português (ferramentas internas).
 - **Evolução de quem treina**: com dois ou mais treinos recentes com matriz, a tela mostra o maior nível alcançado em cada competência e "Subiu de nível" (mesma régua do vendas); uma queda depois de um treino melhor não aparece.
 
-Verificação: `tests/unit/recepcao-painel-equipe.test.ts` (4 mutações vermelhas) e `node scripts/verify-recepcao-ui.mjs` (12 checks, inclui a aba da equipe com CSV e a revisão, no computador e no celular).
+Verificação: `tests/unit/recepcao-painel-equipe.test.ts` (4 mutações vermelhas) e `node scripts/verify-recepcao-ui.mjs` (13 checks em 22/09/2026, inclui a aba da equipe com CSV e o detalhe do atendimento só leitura, no computador e no celular).

@@ -3,7 +3,7 @@ import { criarSupabaseMock, type SupabaseMock } from '../helpers/supabase-mock';
 import { ACESSO_ATUAL, SEM_ACESSO } from '@/lib/simuladores/acesso-cargo';
 
 let sb: SupabaseMock;
-const estado = { cargoLiberado: false, ctx: null as any };
+const estado = { cargoLiberado: false, moduloLigado: true, ctx: null as any };
 const agregar = vi.fn(async () => ({ linhas: [] }));
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/lib/authz', () => ({ getUserContext: async () => estado.ctx }));
@@ -17,16 +17,22 @@ vi.mock('@/lib/prontidao-lideranca/agregar', () => ({
 }));
 import { getProntidaoLideranca, getParecerLideranca, exportarParecerPDF, exportarConsolidadoPDF } from '@/actions/prontidao-lideranca';
 
-describe('Prontidão respeita o cargo em todas as portas do RH', () => {
+/**
+ * O Mapeamento de liderança é do RH, pelo papel e pelo módulo contratado. A aba de
+ * cargos diz só quem TREINA no simulador (decisão do dono, 22/09/2026); até então o
+ * cargo do RH decidia estas quatro portas, e desmarcá-lo tirava dele o Mapeamento.
+ */
+describe('Mapeamento de liderança: papel e módulo decidem, a aba de cargos não', () => {
   beforeEach(() => {
     estado.cargoLiberado = false;
+    estado.moduloLigado = true;
     estado.ctx = { role: 'rh', empresaId: 'empresa-a', isPlatformAdmin: false, colaborador: { empresa_id: 'empresa-a', cargo: 'RH' } };
     agregar.mockClear();
     sb = criarSupabaseMock({
       resolver: () => ({
         nome: 'Empresa', sys_config: {
           simuladores_por_cargo: { 'cargo-rh': estado.cargoLiberado ? ACESSO_ATUAL : SEM_ACESSO },
-          modulos: { prontidao_lideranca: true }, prontidao_lideranca: { cargo_alvo: 'Gerente', exemplares: [] },
+          modulos: { prontidao_lideranca: estado.moduloLigado }, prontidao_lideranca: { cargo_alvo: 'Gerente', exemplares: [] },
         },
       }),
       // O gate lê a lista de cargos da empresa e casa o nome normalizado (19/09/2026).
@@ -38,15 +44,20 @@ describe('Prontidão respeita o cargo em todas as portas do RH', () => {
     ['parecer', () => getParecerLideranca('10000000-0000-4000-8000-000000000001')],
     ['PDF nominal', () => exportarParecerPDF('10000000-0000-4000-8000-000000000001')],
     ['PDF consolidado', () => exportarConsolidadoPDF()],
-  ])('bloqueia %s antes de ler pessoas ou produzir PDF', async (_nome, abrir) => {
-    expect(await abrir()).toMatchObject({ success: false, error: expect.stringContaining('cargo') });
-    expect(agregar).not.toHaveBeenCalled();
-    expect(sb.escritas).toHaveLength(0);
+  ])('🔴 RH com o próprio cargo FORA do simulador passa pela porta do %s', async (_nome, abrir) => {
+    const r: any = await abrir();
+    expect(String(r?.error ?? '')).not.toContain('cargo');
+    expect(String(r?.error ?? '')).not.toContain('Acesso exclusivo do RH');
   });
-  it('permite ao RH consultar o painel quando seu cargo está liberado', async () => {
-    estado.cargoLiberado = true;
+  it('o painel abre e agrega com o cargo do RH fora do simulador', async () => {
     expect(await getProntidaoLideranca()).toMatchObject({ success: true });
     expect(agregar).toHaveBeenCalledOnce();
+  });
+  it('módulo não contratado continua fechando a porta', async () => {
+    estado.cargoLiberado = true;
+    estado.moduloLigado = false;
+    expect(await getProntidaoLideranca()).toMatchObject({ success: false });
+    expect(agregar).not.toHaveBeenCalled();
   });
   it('liberar um cargo não transforma colaborador em RH', async () => {
     estado.cargoLiberado = true; estado.ctx.role = 'colaborador';

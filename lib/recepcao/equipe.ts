@@ -4,9 +4,6 @@ import { can } from '@/lib/permissions';
 import { canViewColabJourney } from '@/lib/authz';
 import { type ContextoRecepcao, RecepcaoError } from './access';
 import { visaoPublica } from './core';
-import { textoParaTreino } from './ai';
-import type { revisaoSchema } from './schema';
-import type { z } from 'zod';
 import { notaAtendimento } from './matriz-avaliacao';
 import { competenciasAtendimento } from './matriz';
 import { visaoPorCompetencia, type PessoaAtendimento } from './painel';
@@ -47,7 +44,7 @@ export async function pessoasDaEquipe(c: ContextoRecepcao) {
       'Seu perfil não permite acompanhar esta equipe.',
     );
   // `colaboradores` não tem coluna `ativo` (medido 09/09): selecioná-la era um 400 do PostgREST que
-  // derrubava a query inteira, e a aba "Equipe e revisões" respondia 503 desde que nasceu.
+  // derrubava a query inteira, e a aba da equipe respondia 503 desde que nasceu.
   const pessoas = await todas(() =>
     c.sb
       .from('colaboradores')
@@ -106,7 +103,7 @@ export async function sessaoDaEquipe(c: ContextoRecepcao, id: string) {
     throw new RecepcaoError(404, 'Atendimento não encontrado na sua equipe.');
   return data;
 }
-export function resumirEquipe(rows: any[], pessoas: any[], revisoes: any[]) {
+export function resumirEquipe(rows: any[], pessoas: any[]) {
   const concluidas = rows.filter(
     (r) => r.estado.status === RECEPCAO_SESSAO.CONCLUIDA,
   );
@@ -140,13 +137,9 @@ export function resumirEquipe(rows: any[], pessoas: any[], revisoes: any[]) {
     }
     grupos.set(key, g);
   }
-  const ultima = new Map<string, any>();
-  for (const r of revisoes)
-    if (!ultima.has(r.sessao_id)) ultima.set(r.sessao_id, r);
   return {
     iniciadas: rows.length,
     concluidas: concluidas.length,
-    pendentes: concluidas.filter((r) => !ultima.has(r.id)).length,
     pessoas: pessoas.map((p) => ({
       id: p.id,
       nome: p.nome_completo,
@@ -170,7 +163,6 @@ export function resumirEquipe(rows: any[], pessoas: any[], revisoes: any[]) {
       status: r.estado.status,
       nota: notaAtendimento(r.estado.relatorio),
       critica: !!r.estado.relatorio?.ocorrencias?.length,
-      revisao: ultima.get(r.id)?.parecer || null,
     })),
   };
 }
@@ -203,18 +195,6 @@ export async function painelEquipe(
       ? []
       : await todas(query);
   const ids = new Set(rows.map((r) => r.id));
-  // Leituras de empresa apenas no servidor, filtradas ao conjunto autorizado antes da resposta.
-  const revisoes = (
-    await todas(() =>
-      c.sb
-        .from('recepcao_revisoes')
-        .select('*')
-        .eq('empresa_id', c.empresaId)
-        .gte('created_at', desde)
-        .order('created_at', { ascending: false })
-        .order('id'),
-    )
-  ).filter((r) => ids.has(r.sessao_id));
   const podeCustos = await can(c.auth, 'ai.costs.view');
   let operacao = null;
   if (podeCustos) {
@@ -287,7 +267,7 @@ export async function painelEquipe(
     competencias.map((x) => x.codigo),
   );
   return {
-    ...resumirEquipe(rows, pessoas, revisoes),
+    ...resumirEquipe(rows, pessoas),
     dias,
     operacao,
     visao: { ...visao, nomes: Object.fromEntries(competencias.map((x) => [x.codigo, x.nome])) },
@@ -295,77 +275,5 @@ export async function painelEquipe(
 }
 export async function detalheEquipe(c: ContextoRecepcao, id: string) {
   const row = await sessaoDaEquipe(c, id);
-  const revisoes = await todas(() =>
-    c.sb
-      .from('recepcao_revisoes')
-      .select('id,parecer,motivo,dimensoes,revisor_nome,created_at')
-      .eq('empresa_id', c.empresaId)
-      .eq('sessao_id', id)
-      .order('created_at', { ascending: false })
-      .order('id'),
-  );
-  return {
-    sessao: visaoPublica(row.estado),
-    revisoes,
-    podeRevisar:
-      row.owner_key !== c.ownerKey && (await can(c.auth, 'assessments.answer')),
-  };
-}
-export async function revisar(
-  c: ContextoRecepcao,
-  cmd: z.infer<typeof revisaoSchema>,
-) {
-  if (!(await can(c.auth, 'assessments.answer')))
-    throw new RecepcaoError(403, 'Seu perfil não permite registrar revisão.');
-  const row = await sessaoDaEquipe(c, cmd.sessaoId);
-  if (row.owner_key === c.ownerKey)
-    throw new RecepcaoError(403, 'A revisão deve ser feita por outra pessoa.');
-  if (row.estado.status !== RECEPCAO_SESSAO.CONCLUIDA)
-    throw new RecepcaoError(
-      409,
-      'Aguarde a conclusão do relatório para revisar.',
-    );
-  if (
-    cmd.dimensoes.some(
-      (id) =>
-        !row.estado.cenario.rubrica.some((d) => d.id === id) &&
-        !row.estado.cenario.matriz?.competencias.some((c) =>
-          c.descritores.some((d) => d.codigo === id),
-        ),
-    )
-  )
-    throw new RecepcaoError(400, 'Competência não pertence a este exercício.');
-  const motivo = textoParaTreino(cmd.motivo);
-  const payload = {
-    id: cmd.requestId,
-    empresa_id: c.empresaId,
-    sessao_id: cmd.sessaoId,
-    revisor_key: c.ownerKey,
-    revisor_nome: c.auth.colaborador?.nome_completo || 'Administração Vertho',
-    parecer: cmd.parecer,
-    motivo,
-    dimensoes: cmd.dimensoes,
-  };
-  const { error } = await c.sb.from('recepcao_revisoes').insert(payload);
-  if (error?.code === '23505') {
-    const { data: old, error: readError } = await c.sb
-      .from('recepcao_revisoes')
-      .select('*')
-      .eq('empresa_id', c.empresaId)
-      .eq('id', cmd.requestId)
-      .maybeSingle();
-    if (readError)
-      throw new RecepcaoError(503, 'Não foi possível recuperar a revisão.');
-    if (
-      !old ||
-      old.sessao_id !== cmd.sessaoId ||
-      old.revisor_key !== c.ownerKey ||
-      old.motivo !== motivo ||
-      old.parecer !== cmd.parecer ||
-      JSON.stringify(old.dimensoes) !== JSON.stringify(cmd.dimensoes)
-    )
-      throw new RecepcaoError(409, 'Este envio já foi usado em outra revisão.');
-  } else if (error)
-    throw new RecepcaoError(503, 'Não foi possível registrar a revisão.');
-  return { ok: true };
+  return { sessao: visaoPublica(row.estado) };
 }

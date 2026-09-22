@@ -1,6 +1,4 @@
 import 'server-only';
-import { VENDAS_SESSAO } from '@/lib/status';
-import { resumoRevisoes } from '@/lib/simuladores/revisao-painel';
 import { can } from '@/lib/permissions';
 import { canViewColabJourney } from '@/lib/authz';
 import type { AuthenticatedContext } from '@/lib/auth/request-context';
@@ -8,14 +6,7 @@ import type { Contexto } from './access';
 import { SimuladorError } from './core';
 import { lerCursor, paginaDeHistorico, type LinhaResumo } from './historico';
 import { relatorioPacePublico } from './escala';
-import { escalaNativa14, usaMatrizPace } from './matriz-avaliacao';
-import { COMPETENCIAS_PACE } from './matriz';
-import {
-  listarRevisoes,
-  registrarRevisao,
-  type ComandoRevisao,
-  type TabelaRevisao,
-} from '@/lib/simuladores/revisao';
+import { escalaNativa14 } from './matriz-avaliacao';
 import {
   agregarPainel,
   type PainelVendas,
@@ -171,7 +162,6 @@ export async function painelEquipe(c: Contexto): Promise<PainelVendas> {
   const pessoas = await populacaoDoVendas(c);
   const ids = pessoas.map((p) => p.id);
   const sessoes: SessaoPainel[] = [];
-  const revisaveis: Array<{ id: string }> = [];
   for (let i = 0; i < ids.length; i += LOTE_IDS) {
     const lote = ids.slice(i, i + LOTE_IDS);
     for (let de = 0; ; de += 1000) {
@@ -187,8 +177,6 @@ export async function painelEquipe(c: Contexto): Promise<PainelVendas> {
           'Não foi possível consultar os treinos da equipe.',
         );
       for (const r of (data || []) as any[]) {
-        if (r.resumo?.temRelatorio && r.resumo?.status === VENDAS_SESSAO.CONCLUIDA)
-          revisaveis.push({ id: r.id });
         const nativa = escalaNativa14(r.resumo?.versaoRegua);
         sessoes.push({
           colaboradorId: r.colaborador_id,
@@ -210,32 +198,8 @@ export async function painelEquipe(c: Contexto): Promise<PainelVendas> {
       if ((data || []).length < 1000) break;
     }
   }
-  return {
-    ...agregarPainel(pessoas, sessoes),
-    revisoes: await resumoRevisoes(c.tdb, REVISOES, revisaveis),
-  };
+  return agregarPainel(pessoas, sessoes);
 }
-
-const REVISOES: TabelaRevisao = {
-  tabela: 'sim_vendas_revisoes',
-  alvo: 'sessao_id',
-};
-const PILARES_LEGADOS = [
-  { codigo: 'P', nome: 'Preparar' },
-  { codigo: 'A', nome: 'Analisar' },
-  { codigo: 'C', nome: 'Co-criar' },
-  { codigo: 'E', nome: 'Engajar' },
-];
-
-/** Competências que uma revisão pode comentar: as da matriz ou, antes dela, os quatro pilares. */
-export const competenciasDoTreino = (versaoRegua?: string) =>
-  usaMatrizPace(versaoRegua)
-    ? COMPETENCIAS_PACE.map(({ codigo, nome }) => ({ codigo, nome }))
-    : PILARES_LEGADOS;
-
-/** Revisa quem enxerga o relatório, não é o dono do treino e pode registrar (régua do atendimento). */
-const podeRevisar = async (c: Contexto, ownerKey: string) =>
-  ownerKey !== c.ownerKey && (await can(c.auth, 'assessments.answer'));
 
 export async function relatorioEquipe(c: Contexto, id: string) {
   const data = await sessaoDaEquipe(c, id);
@@ -244,31 +208,7 @@ export async function relatorioEquipe(c: Contexto, id: string) {
     nomeVendedor: data.resumo.nomeVendedor,
     versaoRegua: data.resumo.versaoRegua,
     relatorio: relatorioPacePublico(data.relatorio, data.resumo.versaoRegua),
-    // Revisão humana (18/09/2026). `null` = leitura falhou, nunca "sem revisão".
-    revisoes: await listarRevisoes(c.tdb, REVISOES, data.id),
-    podeRevisar: await podeRevisar(c, data.owner_key),
-    competencias: competenciasDoTreino(data.resumo.versaoRegua),
   };
-}
-
-export async function revisarTreino(c: Contexto, cmd: ComandoRevisao) {
-  const alvo = await sessaoDaEquipe(c, cmd.alvoId);
-  if (!(await podeRevisar(c, alvo.owner_key)))
-    throw new SimuladorError(
-      403,
-      'A revisão exige outra pessoa com permissão de acompanhamento e registro.',
-    );
-  const validas = new Set(
-    competenciasDoTreino(alvo.resumo.versaoRegua).map((x) => x.codigo),
-  );
-  if (cmd.dimensoes.some((d) => !validas.has(d)))
-    throw new SimuladorError(400, 'Competência não pertence a este treino.');
-  const r = await registrarRevisao(c.tdb, REVISOES, cmd, {
-    key: c.ownerKey,
-    nome: c.auth.colaborador?.nome_completo || 'Administração Vertho',
-  });
-  if ('mensagem' in r) throw new SimuladorError(r.status, r.mensagem);
-  return { ok: true as const };
 }
 
 /** Treino com relatório que quem pergunta enxerga na equipe; o resto é 404, sem dizer se existe. */
@@ -280,7 +220,7 @@ async function sessaoDaEquipe(c: Contexto, id: string) {
     );
   const { data, error } = await c.tdb
     .from('sim_vendas_sessoes')
-    .select('id,colaborador_id,owner_key,resumo,relatorio:estado->relatorio')
+    .select('id,colaborador_id,resumo,relatorio:estado->relatorio')
     .eq('id', id)
     .maybeSingle();
   if (error)
@@ -306,7 +246,6 @@ async function sessaoDaEquipe(c: Contexto, id: string) {
   return data as {
     id: string;
     colaborador_id: string | null;
-    owner_key: string;
     resumo: { nomeVendedor: string; versaoRegua?: string };
     relatorio: Parameters<typeof relatorioPacePublico>[0];
   };

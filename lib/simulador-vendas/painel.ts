@@ -55,7 +55,6 @@ export interface LinhaPessoa extends PessoaPainel {
   competencias: EvolucaoCompetencia[];
 }
 export interface PainelVendas {
-  revisoes?: import('@/lib/simuladores/revisao-painel').ResumoRevisoes | null;
   resumo: {
     pessoas: number;
     comecaram: number;

@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /**
  * Gate das páginas dos simuladores. Gestor e RH entram em atendimento e vendas
  * para ACOMPANHAR a equipe, sem depender da liberação por cargo (que diz quem
- * treina). A página de Prontidão para liderança continua sendo do RH.
+ * treina). O Mapeamento de liderança é do RH e também não depende da aba de
+ * cargos, que diz só quem treina (decisão do dono, 22/09/2026).
  */
 const mocks = vi.hoisted(() => ({
   auth: null as any,
@@ -53,15 +54,18 @@ describe('gate das páginas dos simuladores', () => {
     await expect(exigirAcessoPaginaSimulador('atendimento')).resolves.toBeUndefined();
   });
 
-  it('a Prontidão para liderança segue do RH, com a liberação do cargo', async () => {
+  it('o Mapeamento de liderança é só do RH, mesmo com o cargo liberado para treinar', async () => {
     mocks.auth = pessoa('gestor');
     mocks.acesso = { vendas: true, atendimento: true, lideranca: true };
     await expect(exigirAcessoPaginaSimulador('lideranca')).rejects.toThrow('REDIRECT:/dashboard');
+  });
+
+  it('🔴 o RH abre o Mapeamento com o próprio cargo fora do simulador (22/09/2026)', async () => {
     mocks.auth = pessoa('rh');
     mocks.acesso = { vendas: false, atendimento: false, lideranca: false };
-    await expect(exigirAcessoPaginaSimulador('lideranca')).rejects.toThrow('REDIRECT:/dashboard');
-    mocks.acesso = { vendas: false, atendimento: false, lideranca: true };
     await expect(exigirAcessoPaginaSimulador('lideranca')).resolves.toBeUndefined();
+    mocks.habilitado.lideranca = false;
+    await expect(exigirAcessoPaginaSimulador('lideranca')).rejects.toThrow('REDIRECT:/dashboard');
   });
 
   it('sem sessão vai para o login', async () => {

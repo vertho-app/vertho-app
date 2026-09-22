@@ -4,7 +4,7 @@ vi.mock('@/lib/permissions',()=>({can:async()=>permissions.allow}));
 import { catalogoInicial } from '@/lib/recepcao/catalogo';
 import { abrirSessao } from '@/lib/recepcao/core';
 import { editarCenario, catalogo, cenarioPublicado } from '@/lib/recepcao/cenarios';
-import { pessoasDaEquipe, sessaoDaEquipe, revisar } from '@/lib/recepcao/equipe';
+import { pessoasDaEquipe, sessaoDaEquipe } from '@/lib/recepcao/equipe';
 let tables:Record<string,any[]>,c:any;
 // Colunas que existem em `colaboradores` (medido 09/09/2026). Coluna fantasma no select é 400 no
 // PostgREST e derruba a query inteira; o mock não sabe disso, então a lista vigia por ele.
@@ -31,9 +31,7 @@ test('leitura de colaboradores não pede coluna que não existe (a aba da equipe
 });
 test('gestora só lê liderados reais, mesmo dentro da mesma clínica',async()=>{expect((await pessoasDaEquipe(c)).map(p=>p.id)).toEqual(['pessoa']);await expect(sessaoDaEquipe(c,'fora')).rejects.toThrow('não encontrado');expect((await sessaoDaEquipe(c,'sessao')).id).toBe('sessao')});
 test('colaborador sem papel de acompanhamento não abre painel',async()=>{c.auth.role='colaborador';await expect(pessoasDaEquipe(c)).rejects.toThrow('não permite')});
-test('outro tenant não pode ser lido nem revisado',async()=>{c.empresaId='outra';c.auth.empresaId='outra';await expect(sessaoDaEquipe(c,'sessao')).rejects.toThrow('não encontrado')});
-test('revisão é aditiva, idempotente e nunca altera o relatório',async()=>{const antes=structuredClone(tables.recepcao_sessoes);const cmd:any={sessaoId:'sessao',requestId:'req',parecer:'discordo',motivo:'A evidência não sustenta a nota.',dimensoes:['acolhimento']};await revisar(c,cmd);await revisar(c,cmd);expect(tables.recepcao_revisoes).toHaveLength(1);expect(tables.recepcao_sessoes).toEqual(antes);await expect(revisar(c,{...cmd,motivo:'Outro parecer'})).rejects.toThrow('outra revisão');});
-test('autorrevisão e dimensão alheia ao caso são recusadas',async()=>{const cmd:any={sessaoId:'sessao',requestId:'req',parecer:'concordo',motivo:'Revisado.',dimensoes:['inventada']};await expect(revisar(c,cmd)).rejects.toThrow('Competência');c.ownerKey='colab:pessoa';await expect(revisar(c,{...cmd,dimensoes:[]})).rejects.toThrow('outra pessoa')});
+test('outro tenant não pode ser lido',async()=>{c.empresaId='outra';c.auth.empresaId='outra';await expect(sessaoDaEquipe(c,'sessao')).rejects.toThrow('não encontrado')});
 test('catálogo de treino não expõe instruções e exclui rascunhos e outra clínica',async()=>{const r=await catalogo(c);expect(r).toHaveLength(1);expect(r[0].id).toBe('global');expect(JSON.stringify(r)).not.toContain('comportamento');await expect(cenarioPublicado(c,'privado')).rejects.toThrow('não está disponível')});
 
 test('início sem cenário aceita outro caso publicado quando remarcação foi arquivada',async()=>{
@@ -60,4 +58,4 @@ test('catálogo: só a plataforma grava versão global; publicar arquiva a publi
  const copia=await editarCenario(c,{acao:'salvar',conteudo:{...structuredClone(catalogoInicial[0]),versao:'9.9'}});
  expect(copia.empresa_id).toBe('empresa');expect(copia.versao).toMatch(/^v-/);
 });
-test('bloqueio de permissão também vale para gravar cenário e revisão',async()=>{permissions.allow=false;await expect(editarCenario(c,{acao:'salvar',conteudo:catalogoInicial[0]})).rejects.toThrow('permite');await expect(revisar(c,{sessaoId:'sessao',requestId:'req',parecer:'concordo',motivo:'Revisado.',dimensoes:[]})).rejects.toThrow('permite')});
+test('bloqueio de permissão também vale para gravar cenário',async()=>{permissions.allow=false;await expect(editarCenario(c,{acao:'salvar',conteudo:catalogoInicial[0]})).rejects.toThrow('permite')});

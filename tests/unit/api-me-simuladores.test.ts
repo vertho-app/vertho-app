@@ -118,6 +118,17 @@ describe('/api/me: simuladores no menu', () => {
     expect(mocks.resolver).not.toHaveBeenCalled();
   });
 
+  // A aba de cargos diz só quem TREINA (decisão do dono, 22/09/2026): o item do
+  // Mapeamento de liderança depende do módulo, e o menu o mostra só ao RH (`rhOnly`).
+  it('🔴 o Mapeamento aparece para o RH com o próprio cargo fora do simulador', async () => {
+    mocks.colab = cadastro('rh');
+    mocks.lideranca = true;
+    mocks.acesso = { vendas: false, atendimento: false, lideranca: false };
+    expect(await me()).toMatchObject({ prontidaoLideranca: true, liderancaEquipe: true });
+    mocks.lideranca = false;
+    expect(await me()).toMatchObject({ prontidaoLideranca: false, liderancaEquipe: false });
+  });
+
   it('futuro líder dentro da população configurada também encontra o treino', async () => {
     mocks.colab = cadastro('colaborador');
     mocks.lideranca = true;

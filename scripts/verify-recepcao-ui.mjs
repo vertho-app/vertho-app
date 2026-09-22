@@ -168,7 +168,7 @@ try {
   assert.equal(await page.evaluate(() => window.__recepcaoWrites.at(-1).dominio), 'atendimento_loja');
   await page.screenshot({ path: `${dir}/admin-segmento-desktop.png`, fullPage: true });
   checks++;
-  // Quem acompanha (RH): visão por competência, quem não treinou e a revisão com o que a pessoa recebeu.
+  // Quem acompanha (RH): visão por competência, quem não treinou e o detalhe com o que a pessoa recebeu.
   await page.goto(`${origin}/?equipe=1`);
   const visao = page.getByRole('region', { name: 'Visão por competência', exact: true });
   await visao.waitFor();
@@ -181,11 +181,14 @@ try {
   for await (const chunk of await (await baixar).createReadStream()) csvEquipe += chunk;
   assert.ok(csvEquipe.includes('Ana Souza') && csvEquipe.includes('Acolhimento'), 'CSV por pessoa');
   await page.getByRole('button', { name: 'Abrir atendimento', exact: true }).first().click();
-  const revisao = page.getByRole('region', { name: 'Revisão do atendimento', exact: true });
-  await revisao.getByText('Desfecho:', { exact: true }).waitFor();
-  await revisao.getByText('Média geral:', { exact: true }).waitFor();
-  await revisao.getByText('O que funcionou', { exact: true }).waitFor();
-  await revisao.getByText(/1ª resposta de quem atende/).first().waitFor();
+  const detalhe = page.getByRole('region', { name: 'Detalhe do atendimento', exact: true });
+  await detalhe.getByText('Desfecho:', { exact: true }).waitFor();
+  await detalhe.getByText('Média geral:', { exact: true }).waitFor();
+  await detalhe.getByText('O que funcionou', { exact: true }).waitFor();
+  await detalhe.getByText(/1ª resposta de quem atende/).first().waitFor();
+  // Sem revisão humana (decisão do dono, 22/09/2026): o detalhe é só leitura.
+  assert.equal(await page.getByRole('button', { name: 'Registrar revisão' }).count(), 0, 'botão de revisão no detalhe');
+  assert.equal(await page.getByText('Motivo e evidências').count(), 0, 'campo de parecer no detalhe');
   await page.screenshot({ path: `${dir}/equipe-desktop.png`, fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(await semRolagemLateral(page), true, 'overflow equipe no celular');

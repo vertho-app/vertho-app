@@ -15,14 +15,7 @@ vi.mock('@/lib/prontidao-lideranca/habilitado', () => ({
   prontidaoLiderancaHabilitada: vi.fn(async () => modulo.ligado),
 }));
 
-import {
-  competenciasDaJornada,
-  contextoEquipe,
-  detalhePessoa,
-  painelEquipe,
-  revisarJornada,
-} from '@/lib/simulador-lideranca/equipe';
-import { referenciaEncontros } from '@/lib/simulador-lideranca/revisao-contexto';
+import { contextoEquipe, detalhePessoa, painelEquipe } from '@/lib/simulador-lideranca/equipe';
 import { can } from '@/lib/permissions';
 import {
   gravarAvaliacao,
@@ -82,17 +75,6 @@ const concluido = {
 };
 
 let regras: Record<string, unknown> | undefined;
-let semDevolutiva = false;
-const revisoesGravadas = [
-  {
-    id: 'r1',
-    parecer: 'discordo',
-    motivo: 'A análise foi melhor do que a nota.',
-    dimensoes: [],
-    revisor_nome: 'Rute',
-    created_at: '2026-09-18T15:00:00Z',
-  },
-];
 function banco() {
   return criarSupabaseMock({
     resolver: (tabela, _cols, cadeia) => {
@@ -115,16 +97,14 @@ function banco() {
               updated_at: '2026-09-18T12:00:00Z',
               estado: {
                 ...estado(),
-                concluidos: semDevolutiva ? [] : [concluido],
+                concluidos: [concluido],
               },
             }
           : null;
       }
-      if (tabela === 'platform_admins') return { id: 'adm-1' };
       return null;
     },
     lista: (tabela, cols) => {
-      if (tabela === 'sim_lideranca_revisoes') return revisoesGravadas;
       if (tabela === 'colaboradores' && cols.includes('nome_completo'))
         return colabs;
       if (tabela === 'colaboradores')
@@ -245,151 +225,4 @@ describe('acompanhamento do simulador de liderança', () => {
       regras = undefined;
     }
   });
-});
-
-describe('revisão humana da liderança (18/09/2026, mig 264)', () => {
-  const REQ = '30000000-0000-4000-8000-000000000001';
-  const comando = (extra: Record<string, unknown> = {}) =>
-    ({
-      acao: 'revisar',
-      requestId: REQ,
-      alvoId: 'j-ana',
-      referencia: referenciaEncontros([concluido]),
-      parecer: 'discordo',
-      motivo: 'A análise foi melhor do que a nota.',
-      dimensoes: [],
-      ...extra,
-    }) as any;
-  const gestor = () => {
-    const a = auth('gestor');
-    a.colaborador.nome_completo = 'Gil Gestor';
-    return a;
-  };
-
-  it('o detalhe traz a jornada, as revisões, quem pode revisar e as competências da matriz', async () => {
-    vi.mocked(can).mockResolvedValue(true);
-    sb = banco();
-    const d = await detalhePessoa(await contextoEquipe(gestor()), 'ana');
-    expect(d).toMatchObject({
-      jornadaId: 'j-ana',
-      revisoes: revisoesGravadas,
-      podeRevisar: true,
-    });
-    expect(d.competencias).toEqual(competenciasDaJornada(matriz));
-    expect(d.competencias.length).toBeGreaterThan(0);
-    expect(sb.usou('sim_lideranca_revisoes', 'eq', 'empresa_id')).toBe(true);
-  });
-
-  it('grava o parecer na jornada, com a chave e o nome de quem revisa', async () => {
-    sb = banco();
-    const foco = competenciasDaJornada(matriz)[0].codigo;
-    expect(
-      await revisarJornada(
-        await contextoEquipe(gestor()),
-        comando({ dimensoes: [foco] }),
-      ),
-    ).toEqual({ ok: true });
-    const w = sb.escritas.find((e) => e.tabela === 'sim_lideranca_revisoes')!;
-    expect(w.payload).toMatchObject({
-      id: REQ,
-      empresa_id: EMP,
-      jornada_id: 'j-ana',
-      revisor_key: 'colab:eu',
-      revisor_nome: 'Gil Gestor',
-      parecer: 'discordo',
-      dimensoes: [foco],
-    });
-  });
-
-  it('administrador da plataforma revisa com a chave do cadastro dele na plataforma', async () => {
-    sb = banco();
-    const admin = {
-      ...auth('rh', 'suporte@vertho.ai'),
-      isPlatformAdmin: true,
-      colaborador: null,
-    };
-    expect(
-      await revisarJornada(await contextoEquipe(admin, EMP), comando()),
-    ).toEqual({ ok: true });
-    expect(
-      sb.escritas.find((e) => e.tabela === 'sim_lideranca_revisoes')!.payload,
-    ).toMatchObject({
-      revisor_key: 'admin:adm-1',
-      revisor_nome: 'Administração Vertho',
-    });
-  });
-
-  it('🔴 a própria pessoa não revisa a sua jornada', async () => {
-    sb = banco();
-    const ana = {
-      ...auth('gestor', 'ana@x.test'),
-      colaborador: { id: 'ana', empresa_id: EMP, email: 'ana@x.test' },
-    };
-    expect(
-      (await detalhePessoa(await contextoEquipe(ana), 'ana')).podeRevisar,
-    ).toBe(false);
-    await expect(
-      revisarJornada(await contextoEquipe(ana), comando()),
-    ).rejects.toMatchObject({ status: 403 });
-    expect(sb.escritas).toHaveLength(0);
-  });
-
-  it('jornada sem devolutiva ainda não recebe revisão', async () => {
-    semDevolutiva = true;
-    try {
-      sb = banco();
-      expect(
-        (await detalhePessoa(await contextoEquipe(gestor()), 'ana'))
-          .podeRevisar,
-      ).toBe(false);
-      await expect(
-        revisarJornada(await contextoEquipe(gestor()), comando()),
-      ).rejects.toMatchObject({ status: 409 });
-      expect(sb.escritas).toHaveLength(0);
-    } finally {
-      semDevolutiva = false;
-    }
-  });
-
-  it('fora da equipe, sem permissão de registro ou com competência de fora: nada grava', async () => {
-    sb = banco();
-    // Bia não é liderada deste gestor: a jornada dela não existe para ele.
-    const outraEquipe = {
-      ...gestor(),
-      email: 'outro@x.test',
-      colaborador: { id: 'eu', empresa_id: EMP, email: 'outro@x.test' },
-    };
-    await expect(
-      revisarJornada(await contextoEquipe(outraEquipe), comando()),
-    ).rejects.toMatchObject({ status: 404 });
-    await expect(
-      revisarJornada(
-        await contextoEquipe(gestor()),
-        comando({ dimensoes: ['NAO_EXISTE'] }),
-      ),
-    ).rejects.toMatchObject({ status: 400 });
-    vi.mocked(can).mockImplementation(
-      async (_a, p) => p !== 'assessments.answer',
-    );
-    try {
-      await expect(
-        revisarJornada(await contextoEquipe(gestor()), comando()),
-      ).rejects.toMatchObject({ status: 403 });
-    } finally {
-      vi.mocked(can).mockImplementation(async () => true);
-    }
-    expect(sb.escritas).toHaveLength(0);
-  });
-});
-
-it('recorte desatualizado é recusado antes de gravar; recorte atual guarda somente devolutivas públicas', async () => {
- vi.mocked(can).mockResolvedValue(true);sb=banco();
- const ctx=await contextoEquipe(auth('gestor'));
- const d=await detalhePessoa(ctx,'ana');
- const cmd={acao:'revisar' as const,requestId:'30000000-0000-4000-8000-000000000009',alvoId:'j-ana',parecer:'concordo' as const,motivo:'Conferi os exemplos.',dimensoes:[],referencia:'f'.repeat(64)};
- await expect(revisarJornada(ctx,cmd)).rejects.toMatchObject({status:409});expect(sb.escritas).toHaveLength(0);
- await revisarJornada(ctx,{...cmd,referencia:d.referencia!});
- const contexto=sb.escritas[0].payload.contexto;
- expect(contexto.referencia).toBe(d.referencia);expect(contexto.encontros[0].avaliacao).toEqual(concluido.avaliacao);
- expect(JSON.stringify(contexto)).not.toContain('Minha reflexão particular');expect(contexto.encontros[0]).not.toHaveProperty('mensagens');
 });

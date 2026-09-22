@@ -5,8 +5,8 @@ import { csrfCheck } from '@/lib/csrf';
 import { can } from '@/lib/permissions';
 import { contextoRecepcao, RecepcaoError } from '@/lib/recepcao/access';
 import { catalogo, editarCenario } from '@/lib/recepcao/cenarios';
-import { detalheEquipe, painelEquipe, revisar } from '@/lib/recepcao/equipe';
-import { competenciaComandoSchema, editarCenarioSchema, revisaoSchema } from '@/lib/recepcao/schema';
+import { detalheEquipe, painelEquipe } from '@/lib/recepcao/equipe';
+import { competenciaComandoSchema, editarCenarioSchema } from '@/lib/recepcao/schema';
 import { editarCompetencia, listarCompetencias } from '@/lib/recepcao/competencias';
 import { gerarRascunho } from '@/lib/recepcao/rascunho';
 import { aiLimiter } from '@/lib/rate-limit';
@@ -57,9 +57,8 @@ export async function POST(req:Request) {
    const c=await contextoRecepcao(req,cmd.empresaId,false,auth);if(c instanceof Response) return c;
    return json({competencia:await editarCompetencia(c,cmd)});
   }
-  const review=parsed.acao==='revisar';
-  const cmd=review?revisaoSchema.parse(Object.fromEntries(Object.entries(parsed).filter(([k])=>k!=='acao'))):editarCenarioSchema.parse(parsed);
+  const cmd=editarCenarioSchema.parse(parsed);
   const c=await contextoRecepcao(req,cmd.empresaId,false,auth);if(c instanceof Response) return c;
-  return json(review?await revisar(c,cmd as z.infer<typeof revisaoSchema>):{cenario:await editarCenario(c,cmd as z.infer<typeof editarCenarioSchema>)});
+  return json({cenario:await editarCenario(c,cmd)});
  } catch(e) {return falha(e);}
 }

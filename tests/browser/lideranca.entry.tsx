@@ -41,29 +41,15 @@ const paraEquipe = (e: any) => ({
     ? { narrativa: e.consequencia.narrativa, acordos: e.consequencia.acordos.map((a: any) => a.descricao), pendencias: e.consequencia.pendencias }
     : null,
 });
-// Revisão humana (18/09/2026): o que a equipe grava volta no detalhe da pessoa.
-const revisoesLid: any[] = [];
 w.__liderancaFetch = async (url: string, options?: RequestInit) => {
   const query = new URL(url, location.origin).searchParams;
   if (url.includes('/api/simulador-lideranca/equipe')) {
-    if (options?.method === 'POST') {
-      const cmd = JSON.parse(String(options.body));
-      revisoesLid.unshift({
-        id: cmd.requestId, parecer: cmd.parecer, motivo: cmd.motivo, dimensoes: cmd.dimensoes,
-        revisor_nome: 'Rute RH', created_at: '2026-09-19T12:00:00Z',
-      });
-      return Response.json({ ok: true });
-    }
     if (query.get('pessoa'))
       return Response.json({
         pessoa: { id: 'p1', nome: 'Pessoa em treino', cargo: 'Analista' },
         matriz: s.matriz,
         encontros: [...s.concluidos, ...repeticoes()].map(paraEquipe),
         sintese: sintese(),
-        jornadaId: '40000000-0000-4000-8000-000000000001',
-        revisoes: [...revisoesLid],
-        podeRevisar: s.concluidos.length > 0,
-        competencias: [...new Map(s.matriz.map((l: any) => [l.cod_comp, l.nome])).entries()].map(([codigo, nome]) => ({ codigo, nome })),
       });
     return Response.json({
       empresaId: '10000000-0000-4000-8000-000000000001',

@@ -9,15 +9,13 @@
 - Celular: resultado e próxima prática antes dos detalhes; conversa e contexto concluídos recolhidos. Pesquisa de experiência de vendas permanece obrigatória.
 - Atendimento: a tela explicita a janela das 20 sessões recentes e que a geração pode levar alguns minutos.
 
-## Revisão humana
+## Revisão humana (removida em 22/09/2026)
 
-O painel de vendas e liderança mostra a última revisão de cada treino ou recorte atual de jornada. Jornadas que avançaram voltam a aparecer como pendentes. Falha de consulta é mostrada como indisponibilidade.
-
-A revisão da liderança recebe a referência das devolutivas exibidas. O servidor confere essa referência e guarda os encontros públicos, matriz e síntese que foram revisados; conversa integral, preparação e reflexão não entram no recorte. Revisões antigas sem recorte ficam identificadas como anteriores a essa regra. Reenvio idêntico mantém a idempotência; referência desatualizada exige atualização da tela.
+Saiu dos três simuladores por decisão do dono: não há parecer, painel de pendências nem rota de registro. RH e gestor acompanham os resultados da equipe pelo papel, e a aba Simuladores de `/admin/cargos` diz só quem treina. As tabelas de revisão ficaram no banco sem escritor; a seção seguinte explica por quê.
 
 ## Banco
 
-Aplicar a migração 265 antes do app. Ela acrescenta contexto às revisões da liderança e inclui revisões de vendas/liderança nos snapshots e hashes de exclusão. A retenção de vendas leva as revisões para o backup e aguarda seis meses da revisão mais recente.
+A migração 265 acrescenta contexto às revisões da liderança e inclui revisões de vendas/liderança nos snapshots e hashes de exclusão. A retenção de vendas leva as revisões para o backup e aguarda seis meses da revisão mais recente. Desde 22/09/2026 o app não escreve nessas tabelas nem depende da 265; elas só podem sair numa migração que reescreva essas funções.
 
 O verificador scripts/verify-simuladores-revisoes-db.mts faz backup das funções e revisões, aplica a migração duas vezes dentro de uma transação e testa isolamento, alteração do hash, retenção, restauração e permissões. A transação de teste sempre é revertida. A opção --aplicar aplica a migração somente após os testes. Exige certificado do Supabase em SUPABASE_CA_CERT.
 

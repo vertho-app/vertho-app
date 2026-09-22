@@ -11,7 +11,6 @@ import {
   podeVerEquipe,
   historicoEquipe,
   relatorioEquipe,
-  revisarTreino,
 } from '@/lib/simulador-vendas/equipe';
 import {
   consultar,
@@ -152,7 +151,7 @@ describe('PACE: gestão com régua da equipe, sem conversa no browser', () => {
     const sel = sb.chamadas.find(
       (x) => x.tabela === 'sim_vendas_sessoes' && x.metodo === 'select',
     )!.args[0];
-    expect(sel).toBe('id,colaborador_id,owner_key,resumo,relatorio:estado->relatorio');
+    expect(sel).toBe('id,colaborador_id,resumo,relatorio:estado->relatorio');
     expect(sb.chamadas).toContainEqual({
       tabela: 'colaboradores',
       metodo: 'eq',
@@ -336,91 +335,5 @@ describe('PACE: leitura individual e recuperação depois do prazo', () => {
       escalaOriginal: '0-10',
     });
     expect(sb.client.rpc).not.toHaveBeenCalled();
-  });
-});
-
-describe('revisão humana do vendas (18/09/2026, mig 264)', () => {
-  const SESSAO = '20000000-0000-4000-8000-000000000001';
-  const REQ = '30000000-0000-4000-8000-000000000001';
-  const revisoes = [{ id: 'r1', parecer: 'concordo', motivo: 'Bem avaliado.', dimensoes: ['A'], revisor_nome: 'Rute', created_at: '2026-09-18T12:00:00Z' }];
-  const banco = (sessao: Record<string, unknown> = {}) =>
-    criarSupabaseMock({
-      lista: (t) => (t === 'sim_vendas_revisoes' ? revisoes : t === 'colaboradores' ? pessoas : []),
-      resolver: (t) =>
-        t === 'colaboradores'
-          ? pessoas[1]
-          : {
-              id: SESSAO,
-              colaborador_id: 'liderado',
-              owner_key: 'colab:liderado',
-              resumo: { nomeVendedor: 'Ana', versaoRegua: 'pace-7' },
-              relatorio,
-              ...sessao,
-            },
-    });
-  const comando = (extra: Record<string, unknown> = {}) =>
-    ({ acao: 'revisar', requestId: REQ, alvoId: SESSAO, parecer: 'parcialmente', motivo: 'Co-criar merecia nível maior.', dimensoes: ['C'], ...extra }) as any;
-  const ctx = () => {
-    const x = c();
-    (x.auth.colaborador as any).nome_completo = 'Gil Gestor';
-    return x;
-  };
-  beforeEach(() => {
-    vi.mocked(can).mockReset().mockResolvedValue(true);
-  });
-
-  it('o relatório da equipe traz as revisões, quem pode revisar e as competências do treino', async () => {
-    sb = banco();
-    const r = await relatorioEquipe(ctx(), SESSAO);
-    expect(r.revisoes).toEqual(revisoes);
-    expect(r.podeRevisar).toBe(true);
-    expect(r.competencias.map((x) => x.codigo)).toEqual(['PL', 'P', 'A', 'C', 'E']);
-    expect(sb.usou('sim_vendas_revisoes', 'eq', 'empresa_id')).toBe(true);
-    // Antes da matriz, os quatro pilares.
-    sb = banco({ resumo: { nomeVendedor: 'Ana', versaoRegua: 'pace-2' } });
-    expect((await relatorioEquipe(ctx(), SESSAO)).competencias.map((x) => x.codigo)).toEqual(['P', 'A', 'C', 'E']);
-  });
-
-  it('grava o parecer de quem acompanha na sessão da equipe', async () => {
-    sb = banco();
-    expect(await revisarTreino(ctx(), comando())).toEqual({ ok: true });
-    const w = sb.escritas.find((e) => e.tabela === 'sim_vendas_revisoes')!;
-    expect(w.payload).toMatchObject({
-      id: REQ, empresa_id: empresa, sessao_id: SESSAO, revisor_key: 'colab:eu', revisor_nome: 'Gil Gestor',
-      parecer: 'parcialmente', dimensoes: ['C'],
-    });
-  });
-
-  it('🔴 o dono do treino não revisa a própria devolutiva', async () => {
-    sb = banco({ owner_key: 'colab:eu' });
-    expect((await relatorioEquipe(ctx(), SESSAO)).podeRevisar).toBe(false);
-    await expect(revisarTreino(ctx(), comando())).rejects.toMatchObject({ status: 403 });
-    expect(sb.escritas).toHaveLength(0);
-  });
-
-  it('sem permissão de registro, só lê', async () => {
-    vi.mocked(can).mockImplementation(async (_a, p) => p !== 'assessments.answer');
-    sb = banco();
-    expect((await relatorioEquipe(ctx(), SESSAO)).podeRevisar).toBe(false);
-    await expect(revisarTreino(ctx(), comando())).rejects.toMatchObject({ status: 403 });
-    expect(sb.escritas).toHaveLength(0);
-  });
-
-  it('competência de fora do treino e sessão de fora da equipe não gravam', async () => {
-    sb = banco({ resumo: { nomeVendedor: 'Ana', versaoRegua: 'pace-2' } });
-    await expect(revisarTreino(ctx(), comando({ dimensoes: ['PL'] }))).rejects.toMatchObject({ status: 400 });
-    sb = criarSupabaseMock({
-      lista: (t) => (t === 'colaboradores' ? pessoas : []),
-      resolver: (t) =>
-        t === 'colaboradores' ? pessoas[2] : { id: SESSAO, colaborador_id: 'outro', owner_key: 'colab:outro', resumo: {}, relatorio },
-    });
-    await expect(revisarTreino(ctx(), comando())).rejects.toMatchObject({ status: 404 });
-    expect(sb.escritas).toHaveLength(0);
-  });
-
-  it('leitura das revisões que falha aparece como indisponível, não como "sem revisão"', async () => {
-    sb = banco();
-    sb.falharEm({ tabela: 'sim_vendas_revisoes', op: 'select', mensagem: 'timeout' });
-    expect((await relatorioEquipe(ctx(), SESSAO)).revisoes).toBeNull();
   });
 });

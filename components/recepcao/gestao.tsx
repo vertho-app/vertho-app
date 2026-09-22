@@ -41,7 +41,7 @@ export default function GestaoRecepcao({
   visao: 'equipe' | 'cenarios' | 'competencias';
   admin: boolean;
 }) {
-  // A aba da equipe e a revisão são de quem acompanha (RH, gestor): traduzidas. Cenários
+  // A aba da equipe é de quem acompanha (RH, gestor): traduzida. Cenários
   // e editor seguem em português, como ferramenta interna da Vertho.
   const t = useTranslations('SimuladorAtendimento');
   const locale = useLocale();
@@ -54,11 +54,7 @@ export default function GestaoRecepcao({
     [testes, setTestes] = useState(false),
     [detalhe, setDetalhe] = useState<any>(null),
     [editor, setEditor] = useState<any>(null);
-  const [parecer, setParecer] = useState('concordo'),
-    [motivo, setMotivo] = useState(''),
-    [dimensoes, setDimensoes] = useState<string[]>([]);
-  const pending = useRef<string | null>(null),
-    generation = useRef(0);
+  const generation = useRef(0);
   // Rascunho por IA (18/09/2026): descrição da situação que a empresa quer treinar.
   const [pedirRascunho, setPedirRascunho] = useState(false),
     [descricao, setDescricao] = useState('');
@@ -143,36 +139,6 @@ export default function GestaoRecepcao({
     setErro('');
     try {
       setDetalhe(await api({ sessaoId: id }));
-      setMotivo('');
-      setDimensoes([]);
-      pending.current = null;
-    } catch (e) {
-      setErro(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function revisar() {
-    if (busy) return;
-    setBusy(true);
-    setErro('');
-    try {
-      pending.current ||= crypto.randomUUID();
-      await api(
-        {},
-        {
-          acao: 'revisar',
-          sessaoId: detalhe.sessao.id,
-          requestId: pending.current,
-          parecer,
-          motivo,
-          dimensoes,
-        },
-      );
-      pending.current = null;
-      setDetalhe(await api({ sessaoId: detalhe.sessao.id }));
-      setMotivo('');
-      await carregar();
     } catch (e) {
       setErro(e.message);
     } finally {
@@ -457,7 +423,7 @@ export default function GestaoRecepcao({
           </div>
           <h3>{t('teamToFollow')}</h3>
           <p className={styles.small}>
-            {t('teamToFollowHelp', { done: dados.concluidas, started: dados.iniciadas, pending: dados.pendentes })}
+            {t('teamToFollowHelp', { done: dados.concluidas, started: dados.iniciadas })}
           </p>
           <div className={styles.tableWrap}>
             <table>
@@ -466,7 +432,6 @@ export default function GestaoRecepcao({
                   <th>{t('teamPersonCase')}</th>
                   <th>{t('teamDate')}</th>
                   <th>{t('teamResult')}</th>
-                  <th>{t('teamReview')}</th>
                   <th>{t('teamAction')}</th>
                 </tr>
               </thead>
@@ -483,7 +448,6 @@ export default function GestaoRecepcao({
                       {s.nota === null ? t('teamInProgress') : t('scoreOf4Short', { score: numero(s.nota) })}
                       {s.critica ? ` · ${t('historyAttention')}` : ''}
                     </td>
-                    <td>{s.revisao ? t(`verdict_${s.revisao}`) : t('teamPendingReview')}</td>
                     <td>
                       <button className={styles.link} disabled={busy} onClick={() => abrir(s.id)}>
                         {t('teamOpen')}
@@ -560,7 +524,7 @@ export default function GestaoRecepcao({
               humanizarReferencias(texto || '', hist, nome, 'terceira', detalhe.sessao.cenario.dominio);
             return (
               <>
-                {/* O que a pessoa recebeu (18/09/2026): quem revisa lia só a matriz. */}
+                {/* O que a pessoa recebeu (18/09/2026): quem acompanhava lia só a matriz. */}
                 {rel && (
                   <div className={styles.reviewSummary}>
                     <p>
@@ -646,81 +610,6 @@ export default function GestaoRecepcao({
               </>
             );
           })()}
-          {detalhe.podeRevisar && detalhe.sessao.relatorio && (
-            <form
-              className={styles.editor}
-              onSubmit={(e) => {
-                e.preventDefault();
-                revisar();
-              }}
-            >
-              <h3>{t('reviewRegister')}</h3>
-              <p>{t('reviewRegisterHelp')}</p>
-              <label>
-                {t('reviewVerdict')}
-                <select
-                  value={parecer}
-                  onChange={(e) => {
-                    setParecer(e.target.value);
-                    pending.current = null;
-                  }}
-                >
-                  {['concordo', 'parcialmente', 'discordo'].map((v) => (
-                    <option key={v} value={v}>
-                      {t(`verdict_${v}`)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {/* Com a matriz são 30 comportamentos: a lista abre só para quem vai marcar. */}
-              <details className={styles.group}>
-              <summary>{t('reviewDimensions')}</summary>
-              <fieldset>
-                {detalhe.sessao.relatorio.dimensoes.map((d: any) => (
-                  <label className={styles.checkLabel} key={d.id}>
-                    <input
-                      type="checkbox"
-                      checked={dimensoes.includes(d.id)}
-                      onChange={(e) => {
-                        pending.current = null;
-                        setDimensoes(e.target.checked ? [...dimensoes, d.id] : dimensoes.filter((id) => id !== d.id));
-                      }}
-                    />
-                    {d.nome || detalhe.sessao.cenario.competencias?.find((c: any) => c.id === d.id)?.nome || d.id}
-                  </label>
-                ))}
-              </fieldset>
-              </details>
-              <label>
-                {t('reviewReason')}
-                <textarea
-                  value={motivo}
-                  maxLength={4000}
-                  required
-                  onChange={(e) => {
-                    setMotivo(e.target.value);
-                    pending.current = null;
-                  }}
-                  placeholder={t('reviewReasonPlaceholder')}
-                />
-              </label>
-              <button className={styles.primary} disabled={busy || !motivo.trim()}>
-                {t('reviewSave')}
-              </button>
-            </form>
-          )}
-          {!detalhe.podeRevisar && <p className={styles.small}>{t('reviewNotAllowed')}</p>}
-          <h3>{t('reviewRegistered')}</h3>
-          {detalhe.revisoes.map((r: any) => (
-            <article className={styles.group} key={r.id}>
-              <strong>
-                {r.revisor_nome} · {t(`verdict_${r.parecer}`)}
-              </strong>
-              <p>{r.motivo}</p>
-              <small>{new Date(r.created_at).toLocaleString(locale)}</small>
-            </article>
-          ))}
-          {!detalhe.revisoes.length && <p>{t('reviewNone')}</p>}
         </section>
       )}
     </section>

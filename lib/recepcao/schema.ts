@@ -361,13 +361,3 @@ export const competenciaComandoSchema = z
     conteudo: competenciaSchema.optional(),
   })
   .strict();
-export const revisaoSchema = z
-  .object({
-    ...base,
-    sessaoId: z.string().uuid(),
-    requestId: z.string().uuid(),
-    parecer: z.enum(['concordo', 'parcialmente', 'discordo']),
-    motivo: texto,
-    dimensoes: z.array(chave).max(30).default([]),
-  })
-  .strict();
