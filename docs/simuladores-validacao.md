@@ -5,7 +5,7 @@
 - Vendas: evolução calculada no servidor sobre todas as sessões elegíveis, em páginas de 500. A navegação do histórico segue em páginas de 30. Apenas devolutivas liberadas pela pesquisa e nas réguas nativas 1–4 entram na evolução.
 - Vendas e atendimento: a distribuição inclui pessoas com avaliação concluída inteiramente sem nível. Quem não treinou e quem só tem relatório legado não entra nesse denominador.
 - Exportação de vendas: Planejar (PL) independe da existência da média geral.
-- Liderança: competências do encontro com a exigência de quatro descritores; média geral concentrada na síntese da jornada. O schema enviado à IA exige a quantidade exata e os códigos da matriz do encontro, inclusive descritores sem oportunidade.
+- Liderança: competências do encontro com a exigência de quatro descritores; média geral concentrada na síntese da jornada (decisão do dono confirmada em 22/09/2026, com teste que impede a volta da média ao encontro). O schema enviado à IA exige a quantidade exata e os códigos da matriz do encontro, inclusive descritores sem oportunidade.
 - Celular: resultado e próxima prática antes dos detalhes; conversa e contexto concluídos recolhidos. Pesquisa de experiência de vendas permanece obrigatória.
 - Atendimento: a tela explicita a janela das 20 sessões recentes e que a geração pode levar alguns minutos.
 

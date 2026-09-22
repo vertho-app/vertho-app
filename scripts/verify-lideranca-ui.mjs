@@ -144,10 +144,17 @@ try {
         .getByRole('button', { name: `Continuar para o encontro ${i + 2}` })
         .click();
   }
+  // A média é da JORNADA (decisão do dono, 22/09/2026): a devolutiva do encontro
+  // mostra o nível de cada competência, com o foco marcado, e nenhuma média.
+  const devolutiva = page.getByRole('region', { name: 'Devolutiva por competência' }).last();
+  await expect(devolutiva.getByText('Em foco', { exact: true })).toBeVisible();
+  assert.equal(await devolutiva.getByText(/Média/).count(), 0, 'média dentro da devolutiva do encontro');
   await expect(page.getByText('Cinco encontros concluídos')).toBeVisible();
   await expect(page.getByText('Sua jornada completa')).toBeHidden();
   await page.getByText('Consultar evolução da jornada', { exact: true }).click();
   await expect(page.getByText('Sua jornada completa')).toBeVisible();
+  // E a jornada é onde a média vive (ou diz o que falta para ela existir).
+  await expect(page.getByText(/Média da jornada: Nível|A média aparece quando/)).toBeVisible();
   await page.screenshot({ path: `${dir}/sintese-desktop.png`, fullPage: true });
   await page.getByRole('button', { name: 'Repetir este encontro' }).click();
   // Repetir pede confirmação (antes disparava na hora uma chamada paga).

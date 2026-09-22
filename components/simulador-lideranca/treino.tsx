@@ -599,11 +599,16 @@ export default function TreinoLideranca({
                                     })}
                                   </p>
                                 )}
+                                {/* Sem média no ENCONTRO (decisão do dono, 22/09/2026): cada
+                                    encontro avalia 3 competências e a média exige 3 com nível,
+                                    então ela quase nunca existia. O encontro mostra o nível de
+                                    cada competência; a média fica na síntese da jornada. Por
+                                    isso o `media` não é passado, e é o que o teste
+                                    `simulador-lideranca-media-encontro` trava. */}
                                 <RelatorioCompetencias
                                   competencias={competencias}
                                   regra={regra}
                                   tema="escuro"
-                                  rotuloMedia={t('encounterAverage')}
                                 />
                               </>
                             );
