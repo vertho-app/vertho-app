@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
-import { tenantUrl } from '@/lib/domain';
-import { lerParametroAcesso, caminhoCallback } from '@/lib/auth/magic-link-whatsapp';
+import { APP_URL, tenantUrl } from '@/lib/domain';
+import { ACESSO_PLATAFORMA_SLUG, lerParametroAcesso, caminhoCallback } from '@/lib/auth/magic-link-whatsapp';
 import { ehNavegadorEmbutido, ehAndroid, intentNavegadorPadrao } from '@/lib/auth/navegador-embutido';
 
 /**
@@ -93,14 +93,17 @@ export async function GET(req: NextRequest) {
   // quais slugs existem.
   if (!dados) return NextResponse.redirect(new URL('/login?error=link-invalido', req.url));
 
-  // O slug PRECISA existir. A regex garante só a forma; sem esta consulta,
-  // qualquer string bem-formada viraria um subdomínio de destino.
+  const destinoPlataforma = dados.slug === ACESSO_PLATAFORMA_SLUG;
+  // Tenant real PRECISA existir. `plataforma` é um destino virtual fechado,
+  // que aponta só para APP_URL e não aceita host vindo da query.
   const sb = createSupabaseAdmin();
-  const { data: empresa, error } = await sb
-    .from('empresas')
-    .select('slug')
-    .eq('slug', dados.slug)
-    .maybeSingle();
+  const { data: empresa, error } = destinoPlataforma
+    ? { data: null, error: null }
+    : await sb
+      .from('empresas')
+      .select('slug')
+      .eq('slug', dados.slug)
+      .maybeSingle();
 
   // supabase-js RETORNA `{ error }`. Sem este check, uma falha de banco viraria
   // "empresa não encontrada" e o link do usuário morreria em erro de login — com
@@ -109,7 +112,7 @@ export async function GET(req: NextRequest) {
     console.error('[entrar] falha ao resolver tenant:', error.message);
     return NextResponse.redirect(new URL('/login?error=indisponivel', req.url));
   }
-  if (!empresa) {
+  if (!destinoPlataforma && !empresa) {
     console.warn('[entrar] slug inexistente no parâmetro de acesso');
     return NextResponse.redirect(new URL('/login?error=link-invalido', req.url));
   }
@@ -161,6 +164,8 @@ export async function GET(req: NextRequest) {
 
   // `tenantUrl` monta a partir do slug JÁ validado contra o banco — a URL nunca
   // é concatenada com texto vindo da query.
-  const destino = new URL(caminhoCallback(dados.tokenHash), tenantUrl(empresa.slug));
+  const destino = destinoPlataforma
+    ? new URL(caminhoCallback(dados.tokenHash, '/admin-v2'), APP_URL)
+    : new URL(caminhoCallback(dados.tokenHash), tenantUrl(empresa!.slug));
   return NextResponse.redirect(destino, 302);
 }

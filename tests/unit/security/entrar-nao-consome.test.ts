@@ -27,6 +27,7 @@ const { GET } = await import('@/app/entrar/route');
 const { NextRequest } = await import('next/server');
 
 const T = 'ibipeba~abcdef0123456789';
+const T_PLATAFORMA = 'plataforma~abcdef0123456789';
 const UA_WA_ANDROID =
   'Mozilla/5.0 (Linux; Android 13; SM-A536E Build/TP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36';
 const UA_IPHONE_SAFARI =
@@ -53,6 +54,13 @@ describe('🔴 o token não é consumido sem toque explícito', () => {
   it('a confirmação recebe o `t` INTEIRO — senão não há o que redimir depois', async () => {
     const loc = (await chamar(`?t=${encodeURIComponent(T)}`)).headers.get('location')!;
     expect(new URL(loc).searchParams.get('t')).toBe(T);
+  });
+
+  it('destino da plataforma também espera confirmação antes de consumir', async () => {
+    const loc = (await chamar(`?t=${encodeURIComponent(T_PLATAFORMA)}`)).headers.get('location')!;
+    expect(loc).toContain('/entrar/abrir');
+    expect(loc).not.toContain('auth/callback');
+    expect(new URL(loc).searchParams.get('t')).toBe(T_PLATAFORMA);
   });
 
   it('🔴 nenhum User-Agent leva ao callback sem `ir=1` — a heurística ERRA', async () => {
@@ -115,6 +123,17 @@ describe('com `ir=1` — o único caminho que consome', () => {
     expect(u.searchParams.get('token_hash')).toBe('abcdef0123456789');
     // Sem `type`, o callback cai em "Nenhum token fornecido" e o link parece quebrado.
     expect(u.searchParams.get('type')).toBe('email');
+  });
+
+  it('destino virtual da plataforma cria sessão no app e segue ao admin-v2', async () => {
+    empresaExiste = false;
+    const loc = (await chamar(`?t=${encodeURIComponent(T_PLATAFORMA)}&ir=1`)).headers.get('location')!;
+    const u = new URL(loc);
+    expect(u.host).toBe('app.vertho.ai');
+    expect(u.pathname).toBe('/auth/callback');
+    expect(u.searchParams.get('token_hash')).toBe('abcdef0123456789');
+    expect(u.searchParams.get('type')).toBe('email');
+    expect(u.searchParams.get('next')).toBe('/admin-v2');
   });
 
   it('🔴 slug inexistente não vira subdomínio — nem com `ir=1`', async () => {

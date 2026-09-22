@@ -69,6 +69,14 @@ export type SendAccessLinkInput = {
    * host sem tenant). Vem do banco, nunca do cliente.
    */
   tenantSlug?: string | null;
+  /** Idempotência e atribuição do envio automático no WhatsApp. */
+  whatsappDedupeKey?: string | null;
+  colaboradorId?: string | null;
+  whatsappOrigem?: 'cadencia' | 'suporte-auto';
+  /** Responde pelo mesmo número da Cloud API que recebeu a conversa. */
+  numeroId?: string | null;
+  /** Não permite cair em texto livre com token quando o botão seguro faltar. */
+  whatsappTemplateRequired?: boolean;
 };
 
 /**
@@ -202,8 +210,11 @@ async function enviarWhatsapp(p: SendAccessLinkInput, out: SendAccessLinkResult)
     const viaTemplate = await enviarPorTemplate('acesso', {
       telefone: p.telefone, nome: p.nome, semana: 1, tema: '',
       slug: '', baseUrl: '', formato: null, pilula: null,
-      empresaId: p.empresaId ?? null, colaboradorId: null,
-      dedupeKey: null,
+      empresaId: p.empresaId ?? null,
+      colaboradorId: p.colaboradorId ?? null,
+      dedupeKey: p.whatsappDedupeKey ?? null,
+      origem: p.whatsappOrigem ?? 'cadencia',
+      numeroId: p.numeroId ?? null,
       acessoParam,
     });
 
@@ -213,6 +224,11 @@ async function enviarWhatsapp(p: SendAccessLinkInput, out: SendAccessLinkResult)
       // dois links de acesso na mesma conversa é convite a usar o expirado.
       out.whatsapp = 'failed';
       out.whatsappReason = (viaTemplate.reason || 'falha no envio').slice(0, 200);
+      return;
+    }
+    if (p.whatsappTemplateRequired) {
+      out.whatsapp = 'failed';
+      out.whatsappReason = 'template seguro de acesso indisponível';
       return;
     }
   }

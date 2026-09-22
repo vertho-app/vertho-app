@@ -31,6 +31,19 @@
  */
 const SEP = '~';
 
+/**
+ * Destino virtual do painel da plataforma.
+ *
+ * Não é tenant e nunca vira subdomínio. O dispatcher `/entrar` reconhece este
+ * valor e cria a sessão no host genérico (`app.vertho.ai`), onde vivem
+ * `/admin` e `/admin-v2`. Isso permite usar o mesmo botão aprovado da Meta sem
+ * mandar o token direto ao `/auth/callback` (preview queimaria o link).
+ *
+ * O valor não concede privilégio: depois do login, o gate de `platform_admins`
+ * continua decidindo quem entra no painel.
+ */
+export const ACESSO_PLATAFORMA_SLUG = 'plataforma';
+
 /** Slug de tenant válido — a mesma forma aceita pelo `proxy.js`. */
 const SLUG_VALIDO = /^[a-z0-9][a-z0-9-]{0,62}$/;
 

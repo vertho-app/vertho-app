@@ -3,7 +3,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const h = vi.hoisted(() => ({
-  respostaIA: '{"intencao":"acesso","resposta":"Oi! Aqui é o Beto 👋 Tente gerar um novo link em /entrar.","precisa_humano":false,"acao":"responder"}',
+  respostaIA: '{"intencao":"acesso","solicita_link":false,"resposta":"Oi! Aqui é o Beto 👋 Tente gerar um novo link em /entrar.","precisa_humano":false,"acao":"responder"}',
   chamadasIA: [] as any[],
   envios: [] as any[],
   falharEnvio: '',
@@ -17,6 +17,8 @@ const h = vi.hoisted(() => ({
   enviadas: [] as any[],
   midiaUrl: { ok: true, url: 'https://meta.test/audio', mime: 'audio/ogg; codecs=opus' } as any,
   midiaDownload: { ok: true, body: new Uint8Array([1, 2, 3]).buffer, mime: 'audio/ogg' } as any,
+  linksAcesso: [] as any[],
+  resultadoLink: { enviou: false, motivo: 'destino-ambiguo' } as any,
 }));
 
 vi.mock('@/actions/ai-client', () => ({
@@ -34,6 +36,13 @@ vi.mock('@/lib/whatsapp/cloud-api', () => ({
   },
   urlDaMidia: async () => h.midiaUrl,
   baixarMidia: async () => h.midiaDownload,
+}));
+
+vi.mock('@/lib/whatsapp/beto-access-link', () => ({
+  enviarLinkAcessoBeto: async (entrada: any) => {
+    h.linksAcesso.push(entrada);
+    return h.resultadoLink;
+  },
 }));
 
 vi.mock('@/lib/tenant-db', () => ({
@@ -88,6 +97,7 @@ import {
   resetSuporteAutoMemoria,
   SUPORTE_AUTO_MODEL,
   SUPORTE_AUTO_TASK_KEY,
+  ehPedidoClaroDeLink,
   type EntradaSuporte,
 } from '@/lib/whatsapp/suporte-auto';
 
@@ -122,12 +132,52 @@ beforeEach(() => {
   h.enviadas = [];
   h.midiaUrl = { ok: true, url: 'https://meta.test/audio', mime: 'audio/ogg; codecs=opus' };
   h.midiaDownload = { ok: true, body: new Uint8Array([1, 2, 3]).buffer, mime: 'audio/ogg' };
+  h.linksAcesso = [];
+  h.resultadoLink = { enviou: false, motivo: 'destino-ambiguo' };
   h.respostaIA =
-    '{"intencao":"acesso","resposta":"Oi! Aqui é o Beto 👋 Tente gerar um novo link em /entrar.","precisa_humano":false,"acao":"responder"}';
+    '{"intencao":"acesso","solicita_link":false,"resposta":"Oi! Aqui é o Beto 👋 Tente gerar um novo link em /entrar.","precisa_humano":false,"acao":"responder"}';
   process.env.SUPORTE_AUTO_PILOTO_EMPRESA_ID = ACME;
   resetSuporteAutoMemoria();
 });
 describe('suporte-auto · piloto @vertho.ai na ACME', () => {
+  it('separa pedido de login de dúvida sobre conteúdo dentro do app', () => {
+    expect(ehPedidoClaroDeLink('meu link expirou')).toBe(true);
+    expect(ehPedidoClaroDeLink('não consigo entrar')).toBe(true);
+    expect(ehPedidoClaroDeLink('erro no meu acesso')).toBe(true);
+    expect(ehPedidoClaroDeLink('acesso')).toBe(true);
+    expect(ehPedidoClaroDeLink('não consigo acessar o vídeo')).toBe(false);
+    expect(ehPedidoClaroDeLink('erro na atividade da semana')).toBe(false);
+  });
+
+  it('pedido claro entrega link sem gastar Gemini nem mandar resposta duplicada', async () => {
+    h.resultadoLink = { enviou: true, motivo: 'link-plataforma' };
+    const r = await executarSuporteAuto(base);
+    expect(r).toEqual({ enviou: true, motivo: 'link-acesso-enviado' });
+    expect(h.chamadasIA).toHaveLength(0);
+    expect(h.envios).toHaveLength(0);
+    expect(h.linksAcesso).toEqual([expect.objectContaining({
+      empresaAcmeId: ACME,
+      email: 'rodrigo@vertho.ai',
+      telefone: base.fromPhone,
+      numeroId: base.numeroId,
+      waMessageId: base.waMessageId,
+      vinculos: [expect.objectContaining({ empresaId: 'emp-1' })],
+    })]);
+  });
+
+  it('dúvida sobre vídeo não gera link e segue para orientação do Beto', async () => {
+    h.resultadoLink = { enviou: true, motivo: 'link-plataforma' };
+    const r = await executarSuporteAuto({
+      ...base,
+      texto: 'não consigo acessar o vídeo da semana',
+      waMessageId: 'wamid.VIDEO',
+    });
+    expect(r).toEqual({ enviou: true, motivo: 'auto:acesso' });
+    expect(h.linksAcesso).toHaveLength(0);
+    expect(h.chamadasIA).toHaveLength(1);
+    expect(h.envios).toHaveLength(1);
+  });
+
   it('telefone sem vínculo @vertho.ai não gasta IA nem envia', async () => {
     h.internosGlobais = [];
     const r = await executarSuporteAuto({ ...base, fromPhone: '5511999998888', waMessageId: 'wamid.X' });
@@ -169,7 +219,7 @@ describe('suporte-auto · piloto @vertho.ai na ACME', () => {
     expect(options.timeoutMs).toBe(12000);
     expect(options.geminiResponseSchema).toMatchObject({
       type: 'object',
-      required: ['intencao', 'resposta', 'precisa_humano', 'acao'],
+      required: ['intencao', 'solicita_link', 'resposta', 'precisa_humano', 'acao'],
     });
     expect(String(system)).toContain('Você é o Beto');
     expect(String(user)).toContain('Rodrigo');
@@ -277,6 +327,23 @@ describe('suporte-auto · piloto @vertho.ai na ACME', () => {
     expect(options.geminiInlineData).toEqual({ mimeType: 'audio/ogg', data: 'AQID' });
   });
 
+  it('áudio pedindo acesso usa a IA só para entender e entrega o link determinístico', async () => {
+    h.resultadoLink = { enviou: true, motivo: 'link-plataforma' };
+    h.respostaIA =
+      '{"intencao":"acesso","solicita_link":true,"resposta":"Vou te ajudar com o acesso.","precisa_humano":false,"acao":"responder"}';
+    const r = await executarSuporteAuto({
+      ...base,
+      tipo: 'audio',
+      texto: null,
+      mediaId: 'media-link',
+      waMessageId: 'wamid.AUDIO-LINK',
+    });
+    expect(r).toEqual({ enviou: true, motivo: 'link-acesso-enviado' });
+    expect(h.chamadasIA).toHaveLength(1);
+    expect(h.linksAcesso).toHaveLength(1);
+    expect(h.envios).toHaveLength(0);
+  });
+
   it('áudio indisponível: responde na voz do Beto sem chamar a IA', async () => {
     h.midiaUrl = { ok: false, reason: 'mídia expirada' };
     const r = await executarSuporteAuto({
@@ -321,7 +388,7 @@ describe('suporte-auto · piloto @vertho.ai na ACME', () => {
 
   it('IA pedindo humano: contenção fixa, sem vazar o rascunho do modelo', async () => {
     h.respostaIA =
-      '{"intencao":"pendencia","resposta":"RASCUNHO que não deve sair","precisa_humano":true,"acao":"escalar"}';
+      '{"intencao":"pendencia","solicita_link":false,"resposta":"RASCUNHO que não deve sair","precisa_humano":true,"acao":"escalar"}';
     const r = await executarSuporteAuto({ ...base, waMessageId: 'wamid.H1' });
     expect(r).toEqual({ enviou: true, motivo: 'contencao-escala' });
     expect(h.envios[0].input.texto).not.toContain('RASCUNHO');

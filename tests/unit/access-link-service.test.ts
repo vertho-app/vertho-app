@@ -183,6 +183,21 @@ describe('🔴 o link de acesso sai pela Cloud API, não pelo legado', () => {
     expect(r.whatsapp).toBe('sent'); // legado "funciona" no teste; em produção, não
   });
 
+  it('modo seguro não cai em texto livre quando o template está indisponível', async () => {
+    delete process.env.WHATSAPP_TEMPLATE_ACESSO;
+    const r = await sendAccessLink({
+      ...base,
+      channels: ['whatsapp'],
+      whatsappLink: CALLBACK_GENERICO,
+      acessoParam: 'plataforma~pkce_abc12345',
+      whatsappTemplateRequired: true,
+    });
+    expect(r.whatsapp).toBe('failed');
+    expect(r.whatsappReason).toMatch(/template seguro/);
+    expect(foiPelaGraph()).toBe(false);
+    expect(chamadas.some((c) => c.url.endsWith('/status'))).toBe(false);
+  });
+
   it('host DE tenant já resolvia sozinho — o slug do banco não atrapalha', async () => {
     const r = await sendAccessLink({
       ...base, channels: ['whatsapp'],

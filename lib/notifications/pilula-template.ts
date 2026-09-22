@@ -33,6 +33,10 @@ export interface PilulaTemplateArgs {
   empresaId?: string | null;
   colaboradorId?: string | null;
   dedupeKey?: string | null;
+  /** Origem do conteúdo na thread; default continua `cadencia`. */
+  origem?: 'inbox' | 'cadencia' | 'suporte-auto';
+  /** Número Cloud API que recebeu a mensagem e deve responder. */
+  numeroId?: string | null;
   /** `<slug>~<token_hash>` do magic link — só para o papel `acesso`. */
   acessoParam?: string | null;
   /**
@@ -563,6 +567,8 @@ export async function enviarPorTemplate(
       empresaId: a.empresaId ?? null,
       colaboradorId: a.colaboradorId ?? null,
       dedupeKey: a.dedupeKey ?? null,
+      origem: a.origem ?? 'cadencia',
+      numeroId: a.numeroId ?? null,
     },
   );
 
