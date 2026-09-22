@@ -45,7 +45,9 @@ const INSTRUMENTOS = new Set([
   // que só o Gemini tem (resposta por schema e áudio inline); na tela de modelos,
   // escolher outra família quebraria o piloto. O custo segue etiquetado no ledger.
   // O guard enxerga o uso pelo comentário do arquivo (a chamada passa a constante
-  // `SUPORTE_AUTO_TASK_KEY`). Sai daqui quando virar produto roteável.
+  // `SUPORTE_AUTO_TASK_KEY`). 22/09/2026: aberto a todos os colaboradores, mas o
+  // modelo continua fixo pelo mesmo motivo (e `safetySettings` também é só do
+  // Gemini). Sai daqui quando o modelo puder ser escolhido na tela.
   'suporte_whatsapp',
 ]);
 
