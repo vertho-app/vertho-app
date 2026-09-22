@@ -482,6 +482,26 @@ prometer o que a tela desmente: "quem precisa de apoio?" foi descartada porque
 o KPI logo abaixo da dica diz "PRECISAM DE APOIO: 0 · ninguém parado".
 Guardado por teste.
 
+### Hierarquia da entrada e o DISC fora do destaque (18/09/2026)
+
+Os três cartões da página de boas-vindas tinham o mesmo peso, e o único botão
+sólido da página era **"Descobrir meu perfil"**: quem não conhece a plataforma
+precisava decidir por onde começar, e o destaque puxava para a avaliação em vez
+da demonstração. Hoje a visão recomendada leva selo **"Comece por aqui"**, borda
+de acento e botão sólido **Explorar**, e SOBE para o topo da lista; as outras
+duas continuam abertas, discretas. O DISC virou secundário enquanto a pessoa não
+o fez (depois, a seção pessoal já sobe sozinha e volta a ser o assunto, porque aí
+é o resultado dela). O selo de visita passou de "Visto" para **"Acessado"**, que
+é o que o carimbo mede.
+
+A recomendada é **parâmetro** de `carregarPaginaDaDegustacao`, hoje sempre no
+padrão `VISAO_RECOMENDADA_PADRAO` (gestor). Fazer variar por convite depende de
+uma coluna no passaporte, que é decisão do dono e está pendente junto com o
+evento que mediria "abriu a jornada / abriu um relatório / explorou um conteúdo".
+⚠️ O teste da ordenação usa **RH** de propósito: com o padrão gestor, a
+recomendada já nasceria em primeiro pela cópia do ambiente e a ordenação passaria
+despercebida.
+
 **Régua de conteúdo** (`lib/demo/degustacao-orientacao.ts`, puro): a casa de cada
 papel é conferida contra o `homePath` da sala por teste, porque divergir ali faz
 a dica nunca aparecer, sem erro nenhum. 🔴 **Pessoa se aponta por e-mail de

@@ -888,12 +888,22 @@ do repo.
    `): Promise<{ ok: true }> {` tem a chave do TIPO antes da do corpo.
 5. **`return` incondicional no topo de um handler mata o narrowing** com `strict: false`: use um
    predicado que devolve `boolean`.
+6. 🔴 **Conteúdo com barra invertida NÃO vai por heredoc — vai por `Write`.** `\b` escrito num
+   heredoc chega ao Python como `\b` e vira **BACKSPACE (0x08) dentro da string**: a regex nasce com
+   caractere invisível e SEM a fronteira de palavra, o teste continua verde pelo motivo errado e o
+   diff parece normal. Varredura obrigatória depois de todo script que escreve regex:
+   `grep -c $'\x08' <arquivo>` (tem que dar 0).
 
 **Consequência medida (31/08/2026):** um commit saiu com a mensagem **"feat(cadencia): v3 com link
 NO CORPO"** — texto do dono, de 30/08, que já morava em `/tmp/msg3.txt`. O heredoc não sobrescreveu
 e nada acusou: o `-F` leu um arquivo que existia, e existir bastou. Na mesma sessão, um contador de
 chaves ingênuo quebrou 4 arquivos de `actions/` e um `replace` falhou calado porque a âncora tinha
 `C:\GAS`. Memória: `reference_shell_escrita_arquivos`.
+
+**E o item 6 é reincidente: TRÊS vezes em dois dias** (17/09 num teste e num arquivo de memória;
+18/09 de novo, num teste de copy que eu acabara de escrever **com a regra já na memória**). Ler
+"use Write" não basta no meio de um script que está funcionando — por isso a varredura virou passo,
+e não conselho.
 
 ---
 
