@@ -30,7 +30,7 @@ import {
 import AdminPageHeader from '@/components/admin/page-header';
 import EngagementEvolutionPanel from '@/components/engajamento/evolution-panel';
 import { SignalJourney } from '@/components/engajamento/signal-journey';
-import { QualidadeEvidenciaResumo, QualidadeEvidenciaSelo } from '@/components/engajamento/qualidade-evidencia';
+import { EntregaDaEtapa, QualidadeEvidenciaResumo } from '@/components/engajamento/qualidade-evidencia';
 import { BLOCKER_META, engagementBlocker, hasEngagementSignal, isEngagementBlocker, type EngagementBlocker } from '@/lib/engajamento/prioridades';
 import { engagementLinks, type EngagementPanelProps } from '@/lib/engajamento/surface';
 
@@ -233,26 +233,25 @@ function Consumo({ pessoa, compacto = false }: { pessoa: any; compacto?: boolean
   );
 }
 
+/**
+ * A ENTREGA virou frase (decisão do dono, 22/09/2026): com os sinais presos à
+ * etapa da pessoa, um selo aceso/apagado só podia estar apagado para quem está
+ * pendente — e repetia a coluna "Etapa individual". O Tutor continua selo: ele
+ * acende de verdade em qualquer etapa.
+ */
 function EntregaETutor({ pessoa }: { pessoa: any }) {
   return (
-    <div className="flex flex-wrap gap-1.5">
-      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-bold ${
-        pessoa.enviouEvidencia
-          ? 'border-amber-300/20 bg-amber-300/[0.08] text-amber-200'
-          : 'border-white/[0.07] bg-white/[0.025] text-white/28'
-      }`} title={pessoa.enviouEvidencia
-        ? 'A entrega da etapa atual foi registrada. A qualidade aparece no selo; o relato não é exibido neste painel.'
-        : 'Ainda não há entrega registrada para a etapa atual.'}>
-        <ClipboardCheck size={11} aria-hidden="true" /> Entrega
-      </span>
+    <div className="min-w-0 space-y-1.5">
+      <EntregaDaEtapa pessoa={pessoa} />
       <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-bold ${
         pessoa.conversouTutor
           ? 'border-violet-300/20 bg-violet-300/[0.08] text-violet-200'
           : 'border-white/[0.07] bg-white/[0.025] text-white/28'
-      }`}>
+      }`} title={pessoa.conversouTutor
+        ? 'A pessoa conversou com o Tira-Dúvidas nesta etapa.'
+        : 'Sem conversa com o Tira-Dúvidas nesta etapa.'}>
         <MessageCircle size={11} aria-hidden="true" /> Tutor
       </span>
-      <QualidadeEvidenciaSelo pessoa={pessoa} />
     </div>
   );
 }

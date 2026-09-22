@@ -255,6 +255,15 @@ export async function rollUpEngajamento(
       semana: p.semana,
       qualidade: normalizarQualidade(p.qualidade) as QualidadeEvidencia | null,
     })));
+    // Quem FECHOU a jornada não tem etapa pendente para descrever: para esses, a
+    // leitura que resta é a da ÚLTIMA reflexão classificada da trilha. É a única
+    // exceção à régua "tudo fala da semana atual" — e existe porque, sem ela, a
+    // linha de quem terminou ficaria muda.
+    const qualidadeUltimaReflexao = posicao.jornadaConcluida
+      ? qualidadeMaisRecente((progressoJornadaPorColab.get(e.colaborador_id) || [])
+        .filter((p) => p.status === PROGRESSO.CONCLUIDO)
+        .map((p) => ({ semana: p.semana, qualidade: normalizarQualidade(p.qualidade) as QualidadeEvidencia | null })))
+      : null;
 
     // ● = engajou com a pílula: abertura COM ?p= OU qualquer evento (formato/áudio)
     // atribuído a ela. Antes exigia só 'abertura', mas a abertura raramente carrega
@@ -327,6 +336,11 @@ export async function rollUpEngajamento(
       // o texto registrado nunca sai do banco nesta consulta.
       enviouEvidencia: posicao.jornadaConcluida || evidenciasDaEtapa.length > 0,
       qualidadeEvidencia,
+      qualidadeUltimaReflexao,
+      // A semana a que TODOS os sinais desta linha se referem (a etapa da
+      // pessoa, ou a semana escolhida no filtro). A tela nomeia essa semana em
+      // vez de mostrar um selo sem data.
+      semanaDoSinal: semanaDosSinais,
       conversouTutor: usouTutor,
     };
   }).sort((a, b) => a.nome.localeCompare(b.nome));

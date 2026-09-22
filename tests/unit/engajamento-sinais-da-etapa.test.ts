@@ -39,9 +39,17 @@ const ENVIOS = [
   },
 ];
 
+const FINALIZADA = {
+  colaborador_id: 'carla', semana_atual: 10, status: 'ativo', data_inicio: INICIO,
+  ultima_evidencia_em: '2026-09-16T10:00:00.000Z',
+  ultima_pilula1_em: '2026-09-17T11:00:00.000Z', ultima_pilula2_em: null,
+  colaboradores: { nome_completo: 'Carla', cargo: 'Gestao Educacional' },
+};
+
 const TRILHAS = [
   { id: 'tr-amanda', colaborador_id: 'amanda', numero_temporada: 1, temporada_plano: PLANO, data_inicio: INICIO },
   { id: 'tr-emdia', colaborador_id: 'emdia', numero_temporada: 1, temporada_plano: PLANO, data_inicio: INICIO },
+  { id: 'tr-carla', colaborador_id: 'carla', numero_temporada: 1, temporada_plano: PLANO, data_inicio: INICIO },
 ];
 
 // Amanda: 1-3 concluídas, 4 (missão) em andamento → etapa = 4, atrás da cadência.
@@ -58,11 +66,17 @@ const PROGRESSO = [
   })),
 ];
 
+// Carla fechou as 10 semanas do plano; a última classificada saiu 'alta'.
+const PROGRESSO_FINAL = Array.from({ length: 10 }, (_, i) => ({
+  trilha_id: 'tr-carla', colaborador_id: 'carla', semana: i + 1, tipo: 'conteudo',
+  status: 'concluido', conteudo_consumido: true, qualidade: i === 9 ? 'alta' : 'baixa',
+}));
+
 const sb = criarSupabaseMock({
   lista: (tabela, cols) => {
-    if (tabela === 'fase4_envios') return ENVIOS;
+    if (tabela === 'fase4_envios') return [...ENVIOS, FINALIZADA];
     if (tabela === 'trilhas') return TRILHAS;
-    if (tabela === 'temporada_semana_progresso') return cols.includes('tipo') ? PROGRESSO : [];
+    if (tabela === 'temporada_semana_progresso') return cols.includes('tipo') ? [...PROGRESSO, ...PROGRESSO_FINAL] : [];
     return [];
   },
 });
@@ -105,5 +119,47 @@ describe('os sinais da linha são da etapa da PESSOA', () => {
     // não pode dizer "entregou" enquanto mostra "semana 4 pendente".
     expect(p.Amanda.enviouEvidencia).toBe(false);
     expect(p.Amanda.qualidadeEvidencia).toBeNull();
+  });
+
+  /**
+   * A tela deixou de usar selo aceso/apagado para a entrega: diz a FRASE
+   * ("Evidência da semana 4 pendente"). Para isso ela precisa da semana a que
+   * os sinais se referem — sem esse campo a frase volta a ser um selo sem data.
+   */
+  it('🔴 o roll-up publica a semana a que os sinais se referem', async () => {
+    const p = porNome(await rollUpEngajamento('emp-1'));
+    expect(p.Amanda.semanaDoSinal).toBe(4);
+    expect(p.Bruna.semanaDoSinal).toBe(10);
+    const comFiltro = porNome(await rollUpEngajamento('emp-1', 2));
+    expect(comFiltro.Amanda.semanaDoSinal).toBe(2);
+  });
+
+  it('com a semana filtrada, os sinais são daquela semana', async () => {
+    const p = porNome(await rollUpEngajamento('emp-1', 2));
+    // Semana 2 da Amanda está concluída com nível média.
+    expect(p.Amanda.enviouEvidencia).toBe(true);
+    expect(p.Amanda.qualidadeEvidencia).toBe('media');
+  });
+});
+
+/**
+ * Quem FECHOU a jornada não tem etapa pendente para descrever. É a única
+ * exceção à régua da etapa, e existe para a linha de quem terminou não ficar
+ * muda: vale a última reflexão classificada da trilha.
+ */
+describe('jornada concluída', () => {
+  beforeEach(() => sb.reset());
+
+  it('devolve o nível da última reflexão, e só para quem terminou', async () => {
+    const p = porNome(await rollUpEngajamento('emp-1'));
+    expect(p.Amanda.jornadaConcluida).toBe(false);
+    expect(p.Amanda.qualidadeUltimaReflexao).toBeNull();
+    // Bruna fechou 1-9 de um plano de 10: ainda NÃO terminou.
+    expect(p.Bruna.jornadaConcluida).toBe(false);
+    expect(p.Bruna.qualidadeUltimaReflexao).toBeNull();
+    // Carla fechou as 10: a linha dela fala da ÚLTIMA reflexão, não de etapa.
+    expect(p.Carla.jornadaConcluida).toBe(true);
+    expect(p.Carla.enviouEvidencia).toBe(true);
+    expect(p.Carla.qualidadeUltimaReflexao).toBe('alta');
   });
 });

@@ -15,26 +15,65 @@ const CLASSE: Record<QualidadeEvidencia, string> = {
   baixa: 'border-amber-300/25 bg-amber-300/[0.08] text-amber-200',
 };
 
-/** Selo por pessoa. Não renderiza nada se a pessoa não entregou. */
-export function QualidadeEvidenciaSelo({ pessoa }: { pessoa: any }) {
-  if (!pessoa?.enviouEvidencia || !('qualidadeEvidencia' in pessoa)) return null;
-  const nivel = normalizarQualidade(pessoa.qualidadeEvidencia);
-  if (!nivel) {
+/** Só a cor do texto, para o nível dentro de uma frase. */
+const TEXTO: Record<QualidadeEvidencia, string> = {
+  alta: 'text-emerald-200',
+  media: 'text-sky-200',
+  baixa: 'text-amber-200',
+};
+
+/**
+ * Estado da entrega na etapa, em FRASE — não em selo aceso/apagado.
+ *
+ * 🔴 `Medido: 22/09/2026` (Ibipeba e Macaé, observação do dono sobre o print):
+ * com os sinais presos à etapa da pessoa, o selo binário "Entrega" NUNCA acende
+ * para quem está pendente — se tivesse entregue, teria andado para a semana
+ * seguinte. Das 117 pessoas em jornada ativa, ele acendia para 18 (7 que
+ * fecharam a etapa e esperam a próxima semana abrir, 11 com a jornada
+ * concluída); nas outras 99 era um ícone cinza permanente, repetindo o que a
+ * coluna "Etapa individual" já dizia.
+ *
+ * A frase informa nos TRÊS estados e nomeia a semana, para nunca mais haver
+ * dúvida sobre de qual semana o sinal fala.
+ */
+export function EntregaDaEtapa({ pessoa }: { pessoa: any }) {
+  if (!pessoa || !('enviouEvidencia' in pessoa)) return null;
+  const semana = Number(pessoa.semanaDoSinal);
+  const daSemana = Number.isFinite(semana) && semana > 0 ? ` da semana ${semana}` : '';
+
+  if (pessoa.jornadaConcluida) {
+    const nivelFinal = normalizarQualidade(pessoa.qualidadeUltimaReflexao);
     return (
       <span
-        className="inline-flex items-center rounded-full border border-white/[0.07] bg-white/[0.025] px-2 py-1 text-[9px] font-bold text-white/35"
-        title="Semana de missão ou reflexão sem classificação. Só semanas de conteúdo recebem nível."
+        className="block text-[10px] font-semibold leading-relaxed text-fuchsia-200"
+        title="A pessoa fechou a última semana do plano. O nível é o da última reflexão classificada; o texto é privado."
       >
-        Reflexão: sem classificação
+        Jornada concluída{nivelFinal ? <> · última reflexão <b className={TEXTO[nivelFinal]}>{ROTULO_QUALIDADE[nivelFinal]}</b></> : null}
       </span>
     );
   }
+
+  if (pessoa.enviouEvidencia) {
+    const nivel = normalizarQualidade(pessoa.qualidadeEvidencia);
+    return (
+      <span
+        className="block text-[10px] font-semibold leading-relaxed text-emerald-200"
+        title="Etapa fechada: a evidência desta semana já foi registrada. O nível é classificado pela IA; o texto da reflexão é privado."
+      >
+        Evidência{daSemana} entregue
+        {nivel
+          ? <> · <b className={TEXTO[nivel]}>{ROTULO_QUALIDADE[nivel]}</b></>
+          : <span className="text-white/35"> · semana de missão, sem nível</span>}
+      </span>
+    );
+  }
+
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-1 text-[9px] font-bold ${CLASSE[nivel]}`}
-      title="Nível da reflexão da etapa atual da pessoa, classificado pela IA ao fechar a semana. O texto da reflexão é privado."
+      className="block text-[10px] font-semibold leading-relaxed text-white/40"
+      title="A evidência que fecha esta semana ainda não foi registrada."
     >
-      Reflexão: {ROTULO_QUALIDADE[nivel]}
+      Evidência{daSemana} pendente
     </span>
   );
 }

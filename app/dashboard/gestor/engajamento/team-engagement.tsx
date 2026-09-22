@@ -33,7 +33,7 @@ import {
 import { PageContainer, GlassCard } from '@/components/page-shell';
 import BackButton from '@/components/back-button';
 import { SignalJourney } from '@/components/engajamento/signal-journey';
-import { QualidadeEvidenciaResumo, QualidadeEvidenciaSelo } from '@/components/engajamento/qualidade-evidencia';
+import { EntregaDaEtapa, QualidadeEvidenciaResumo } from '@/components/engajamento/qualidade-evidencia';
 import { getEngajamentoDoTime } from '../actions';
 import { engagementBlocker, hasEngagementSignal } from '@/lib/engajamento/prioridades';
 
@@ -174,18 +174,21 @@ function SignalPoint({
   );
 }
 
+/**
+ * Três marcos, não quatro: o ponto "Entregou" saiu em 22/09/2026 junto com o
+ * selo do painel de RH. Preso à etapa da pessoa, ele só podia estar apagado
+ * para quem está pendente — e a entrega passou a ser dita em FRASE, logo
+ * abaixo, com a semana nomeada (`EntregaDaEtapa`).
+ */
 function SinaisDaPessoa({ pessoa }: { pessoa: any }) {
   const acessou = Boolean(pessoa.abriuLink || pessoa.formatosAbertos?.length);
   return (
-    <div className="relative grid grid-cols-4 gap-2 before:absolute before:left-[12.5%] before:right-[12.5%] before:top-4 before:h-px before:bg-white/[0.07]">
+    <div className="relative grid grid-cols-3 gap-2 before:absolute before:left-[16.6%] before:right-[16.6%] before:top-4 before:h-px before:bg-white/[0.07]">
       <div className="relative z-10">
         <SignalPoint icon={Eye} label="Acessou" ativo={acessou} classe="border-brand-300/25 bg-brand-300/10 text-brand-200" />
       </div>
       <div className="relative z-10">
         <SignalPoint icon={PlayCircle} label="Consumiu" ativo={Boolean(pessoa.consumiu)} classe="border-emerald-300/25 bg-emerald-300/10 text-emerald-200" />
-      </div>
-      <div className="relative z-10">
-        <SignalPoint icon={ClipboardCheck} label="Entregou" ativo={Boolean(pessoa.enviouEvidencia)} classe="border-amber-300/25 bg-amber-300/10 text-amber-200" />
       </div>
       <div className="relative z-10">
         <SignalPoint icon={MessageCircle} label="Tutor" ativo={Boolean(pessoa.conversouTutor)} classe="border-violet-300/25 bg-violet-300/10 text-violet-200" />
@@ -287,7 +290,7 @@ function PessoaRow({ pessoa }: { pessoa: any }) {
         <div>
           <p className="mb-2 text-[8px] font-bold uppercase tracking-[0.14em] text-white/28 md:text-center">Sinais da semana</p>
           <SinaisDaPessoa pessoa={pessoa} />
-          <div className="mt-2 flex justify-center empty:hidden"><QualidadeEvidenciaSelo pessoa={pessoa} /></div>
+          <div className="mt-2 text-center"><EntregaDaEtapa pessoa={pessoa} /></div>
         </div>
 
         <div>
@@ -637,8 +640,8 @@ export default function EngajamentoDoTimePage() {
             <div className="mt-3 grid gap-3 border-t border-white/[0.06] pt-3 text-[10px] leading-relaxed text-white/32 sm:grid-cols-2">
               <p><strong className="text-white/55">Acessou:</strong> abriu a página ou um dos formatos disponíveis.</p>
               <p><strong className="text-white/55">Consumiu:</strong> concluiu vídeo ou áudio, ou marcou o conteúdo como concluído.</p>
-              <p><strong className="text-white/55">Entregou:</strong> enviou a evidência prática que fecha a semana.</p>
-              {resumo.qualidadeEvidencias && <p><strong className="text-white/55">Reflexão:</strong> nível da reflexão mais recente (alta, média ou baixa), classificado pela IA. O texto é privado da pessoa e não aparece aqui.</p>}
+              <p><strong className="text-white/55">Evidência:</strong> a prática que fecha a semana. A frase nomeia a semana e diz se está pendente ou entregue — quem entrega avança, então a linha de quem está pendente nunca mostra entrega.</p>
+              {resumo.qualidadeEvidencias && <p><strong className="text-white/55">Nível da reflexão:</strong> alta, média ou baixa, classificado pela IA ao fechar a semana. Semana de missão não recebe nível. O texto é privado da pessoa e não aparece aqui.</p>}
               <p><strong className="text-white/55">Sem registro:</strong> significa apenas que o sistema não recebeu aquele sinal; não é uma avaliação da pessoa.</p>
             </div>
           </details>
