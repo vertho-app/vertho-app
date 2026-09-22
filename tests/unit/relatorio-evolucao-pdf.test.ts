@@ -135,6 +135,11 @@ describe('separação editorial por cargo', () => {
 });
 
 describe('as afirmações do papel vêm da comparação entre cenários', () => {
+  it('deixa explícito que a pauta de conversas pertence ao cargo da página', () => {
+    expect(FONTE).toContain('Neste cargo, quem terminou uma competência com avanço 0,0');
+    expect(FONTE).not.toContain('Quem terminou uma competência sem avanço entre o cenário inicial e o final');
+  });
+
   it('não renderiza classificação de convergência ou sustentação', () => {
     expect(FONTE).not.toContain('rotuloConvergencia');
     expect(FONTE).not.toContain('CONVERGENCIA');

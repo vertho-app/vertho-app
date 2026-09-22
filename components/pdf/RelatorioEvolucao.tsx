@@ -773,7 +773,7 @@ export default function RelatorioEvolucaoPDF({
                 <Text style={s.h3}>Conversas a ter primeiro</Text>
                 <View style={s.box}>
                   <Text style={s.p}>
-                    {'Quem terminou uma competência sem avanço entre o cenário inicial e o final. Não é uma lista de problema: é onde uma conversa de gestor pode mudar mais o próximo ciclo.'}
+                    {'Neste cargo, quem terminou uma competência com avanço 0,0 entre o cenário inicial e o final. Não é uma lista de problema: é onde uma conversa de gestor pode mudar mais o próximo ciclo.'}
                   </Text>
                   {cargo.proximasAcoes.precisamApoio.slice(0, 6).map((p, i) => (
                     <Text key={`${p.colaboradorId}::${p.competencia}::${i}`} style={s.pStrong}>
