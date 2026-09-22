@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
+import { usePathname } from 'next/navigation';
 import { X, Send, Loader2 } from 'lucide-react';
 import { chatWithBeto } from '@/app/actions/beto';
-import { getSupabase } from '@/lib/supabase-browser';
 
 // ─── Beto Design Tokens ────────────────────────────────────────────────────
 // Cor própria — violeta, separado do sistema de fase.
@@ -140,20 +140,14 @@ function renderInline(text: string) {
 // ─── Main component ────────────────────────────────────────────────────────
 export default function BetoChat() {
   const t = useTranslations('Beto');
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([
     { role: 'assistant', content: t('greeting') },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    getSupabase().auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserEmail(user.email ?? null);
-    });
-  }, []);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -167,7 +161,7 @@ export default function BetoChat() {
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setLoading(true);
     try {
-      const reply = await chatWithBeto(userMsg, messages.slice(-10), userEmail);
+      const reply = await chatWithBeto(userMsg, messages.slice(-10), pathname);
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: t('error') }]);

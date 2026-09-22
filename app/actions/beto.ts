@@ -10,6 +10,7 @@ import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
 import { carregarBlueprintResumo } from '@/lib/blueprint/resumo';
 import { resolverContextoSemanal } from '@/lib/fase4/contexto-semanal';
 import { buscarConteudosRelacionados, formatConteudosRelacionadosBloco } from '@/lib/conteudos-relacionados';
+import { formatarPaginaAtualParaBeto } from '@/lib/beto/pagina-atual';
 
 const SYSTEM_PROMPT_BASE = `Você é o BETO (Business Evolution & Talent Optimizer), um mentor de desenvolvimento profissional acolhedor e empático da plataforma Vertho Mentor IA.
 
@@ -35,16 +36,21 @@ Regras:
  *
  * @param {string} userMessage - Mensagem do usuário
  * @param {Array} history - Últimas 10 mensagens
- * @param _emailIgnorado - DEPRECATED: ignorado por segurança. O contexto usa
- *   sempre o email da sessão autenticada (evita IDOR — antes era possível ler
- *   o contexto de qualquer colaborador passando o email de outra pessoa).
+ * @param paginaAtual - pathname capturado no momento do envio. É normalizado
+ *   por allowlist e usado apenas como pista; autorização continua na sessão.
  */
-export async function chatWithBeto(userMessage: string, history: Array<{ role: string; content: string }> = [], _emailIgnorado: string | null = null) {
+export async function chatWithBeto(
+  userMessage: string,
+  history: Array<{ role: string; content: string }> = [],
+  paginaAtual: string | null = null,
+) {
   const auth = await requireUserAction();
   const email = auth.email;
   // Doutrina teórica (DISC + Jung) sempre disponível: o Beto pode explicar o
   // framework mesmo para quem ainda não tem mapeamento.
   let systemPrompt = `${SYSTEM_PROMPT_BASE}\n\n${DISC_DOUTRINA}`;
+  const contextoPagina = formatarPaginaAtualParaBeto(paginaAtual);
+  if (contextoPagina) systemPrompt += `\n\n${contextoPagina}`;
 
   // Quem paga esta conversa. Fica FORA do `try` de propósito: o contexto é
   // best-effort (o Beto responde sem ele), mas a atribuição do custo não pode
