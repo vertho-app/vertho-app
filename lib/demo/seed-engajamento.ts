@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'node:crypto';
 import { rosterDemo } from './rosters';
 import { formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
-import { PROGRESSO } from '@/lib/status';
+import { PROGRESSO, TRILHA } from '@/lib/status';
 
 const checked = async (query: PromiseLike<any>) => {
   const { data, error } = await query;
@@ -71,7 +71,7 @@ export async function seedEngajamentoDemo(sb: SupabaseClient, empresaId: string,
     .select('id,colaborador_id')
     .eq('empresa_id', empresaId)
     .in('colaborador_id', pessoas.map((p: any) => p.id))
-    .eq('status', 'ativa'));
+    .eq('status', TRILHA.ATIVA));
   const porEmail = new Map(pessoas.map((p: any) => [p.email, p]));
   const pessoaDoRoster = (key: string) => elenco.find(p => p.key === key);
   const sinaisAtuais = [

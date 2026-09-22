@@ -180,7 +180,8 @@ describe('pacote de conteúdo do CONARH', () => {
     expect(insumos.map((i) => i.rotulo)).toEqual([
       'Matriz de competências',
       'Diagnóstico',
-      'Perfil comportamental (DISC)',
+      // Rótulo visível padronizado em 22/09 (`2603ccdb`): o insumo é o mesmo.
+      'Mapeamento Comportamental',
       'Modelo de aprendizagem',
     ]);
     for (const i of insumos) {
