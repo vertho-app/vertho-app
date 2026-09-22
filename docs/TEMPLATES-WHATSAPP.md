@@ -36,7 +36,7 @@ cai no caminho legado — silenciosamente, que é o motivo da R13 existir.
 | 4 | `missao_semana_v2` | UTILITY | `missao` · `WHATSAPP_TEMPLATE_MISSAO` | Segunda da semana de **aplicação** (4/8/12) | `lib/fase4/trigger-diario-empresa.ts:409` |
 | 5 | `retomada_trilha` | UTILITY | `retomada` · `WHATSAPP_TEMPLATE_RETOMADA` | 2+ semanas sem atividade | `lib/fase4/trigger-diario-empresa.ts:490` |
 | 6 | `resultado_perfil` | UTILITY | `perfil` · `WHATSAPP_TEMPLATE_PERFIL` | Relatório individual pronto (envio deliberado, em lote) | `scripts/_avisar-perfil-pronto.ts:103` |
-| 7 | `acesso_vertho` | UTILITY | `acesso` · `WHATSAPP_TEMPLATE_ACESSO` | Magic link pedido no login | `lib/notifications/access-link-service.ts:172` |
+| 7 | `acesso_vertho` | UTILITY | `acesso` · `WHATSAPP_TEMPLATE_ACESSO` | Magic link pedido no login ou ao Beto no WhatsApp | `lib/notifications/access-link-service.ts` · `lib/whatsapp/beto-access-link.ts` |
 | 8 | `otp_acesso` | AUTHENTICATION | — (nome fixo no código) | Código de 6 dígitos do login por telefone | `app/api/auth/phone-otp/request/route.ts:83` |
 | 9 | `plano_desenvolvimento` | UTILITY | `plano` · `WHATSAPP_TEMPLATE_PLANO` | Relatório individual: pelo cron `avisar_planos` (só **depois do corte**) ou pela tela, sob demanda | `lib/notifications/avisar-plano-pronto.ts` · `/admin-v2/cliente` → "Planos (PDI)" |
 | 10 | `avaliacao_pendente` | UTILITY | — (nome fixo no script/tela) | Cobrança deliberada de quem nunca iniciou o assessment | `scripts/_convite-avaliacao.ts` · **tela de Envios** (aba WhatsApp) |
@@ -372,6 +372,14 @@ fixa não cabe em template reutilizável, e prazo é o que empurra a copy para o
 >
 > _Rodapé:_ Não compartilhe este link com ninguém.
 > _Botão:_ **Acessar Vertho** → `https://app.vertho.ai/entrar?t={{1}}`
+
+No Beto do WhatsApp, esse template é **obrigatório** (`whatsappTemplateRequired: true`): falha de
+template não cai no legado de texto livre e o token nunca passa pelo modelo de IA. O emissor
+preserva o `numeroId` que recebeu a conversa, aplica idempotência por mensagem, intervalo de 5
+minutos e teto de 3 links por telefone em 24 h. Administradores da plataforma usam o slug virtual
+`plataforma`, que termina em `/admin-v2` sem conceder permissão por si só. A rota `/entrar` só
+consome o token após confirmação explícita, protegendo-o do preview automático do WhatsApp.
+Detalhes: `docs/BETO-CANAIS.md` §2.
 
 **`otp_acesso`** · AUTHENTICATION — botão nativo de copiar código
 

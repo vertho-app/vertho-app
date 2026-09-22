@@ -11,6 +11,8 @@
 > | Webhook (assinatura, mensagens, status, templates) | `app/api/webhooks/whatsapp-cloud/route.ts` |
 > | Decisão de dono do telefone (pura) | `lib/whatsapp/resolver-dono.ts` |
 > | Envio pela Cloud API | `lib/whatsapp/cloud-api.ts` |
+> | Suporte automático do Beto (piloto interno) | `lib/whatsapp/suporte-auto.ts` |
+> | Emissor determinístico de acesso do Beto | `lib/whatsapp/beto-access-link.ts` |
 > | Caixa do cliente (uma empresa) | `app/admin-v2/cliente/InboxPanel.tsx` + `inbox-actions.ts` |
 > | **Caixa da equipe (todas as empresas + não identificados)** | `app/admin-v2/inbox/` |
 > | Thread e estado da conversa, compartilhados | `app/admin-v2/_inbox/` |
@@ -935,3 +937,23 @@ recém-chegada sempre baixava; ele só existe depois de uma semana, que é quand
 conversa.
 
 ⚠️ **Não verificado:** reprodução de `audio/ogg; codecs=opus` no Safari do iPhone.
+
+### 9.7 Piloto interno do Beto no WhatsApp (21–22/09/2026)
+
+O webhook passou a agendar, por `after()`, uma resposta automática para telefones internos que
+resolvem sem ambiguidade para um único e-mail `@vertho.ai`. O piloto fica fixado na ACME por
+`SUPORTE_AUTO_PILOTO_EMPRESA_ID`; telefone desconhecido, cliente externo ou identidade ambígua
+falha fechado e continua disponível para atendimento humano na inbox.
+
+O Beto aceita texto, botão e áudio, conserva até 24 h de contexto e não volta a se apresentar em
+toda mensagem. A empresa é resolvida no banco, portanto nunca deve ser perguntada ao colaborador.
+Seu escopo no canal é acesso, recuperação e triagem. Dúvida sobre vídeo, conteúdo, atividade,
+trilha, progresso ou uso depois do login é encaminhada ao Beto autenticado dentro do app.
+
+Pedido textual claro de acesso pula a IA. Em áudio, o Gemini 3.8 Flash apenas classifica a
+intenção. O token é sempre criado pela aplicação e sai exclusivamente no template aprovado
+`acesso_vertho`, sem fallback em texto livre. O fluxo também impõe idempotência por `wamid`,
+intervalo de 5 minutos e teto de 3 links em 24 h. A rota `/entrar` exige clique explícito antes de
+consumir o link de uso único, para que o preview do WhatsApp não o queime.
+
+A divisão completa dos canais, destinos e proteções está em `docs/BETO-CANAIS.md`.

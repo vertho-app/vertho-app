@@ -10,7 +10,7 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | Modos de falha + riscos + pegadinhas de conteúdo | `docs/FMEA-PIPELINE.md` (§6 verificação 17/07 · §7 pegadinhas) |
 > | Arquitetura | `docs/ARQUITETURA.md` · plano de evolução: `docs/plano-refatoracao-final.md` |
 > | Segurança (estado + critérios de service-role) | `docs/SECURITY-STATUS.md` |
-> | Prompts de IA (70, inclui o Kit) | `docs/CATALOGO-PROMPTS-IA.md` |
+> | Prompts de IA (71, inclui o Kit e os dois canais do Beto) | `docs/CATALOGO-PROMPTS-IA.md` |
 > | Custo/qualidade de IA | `docs/CUSTO-QUALIDADE.md` · catálogo de preço/tokens: `lib/ia-cost-catalog.ts` |
 > | Schema e migrations | `docs/SCHEMA-PROCESS.md` |
 > | Vídeo (pipeline + 13 templates de cena) | `docs/GERADOR-VIDEO-MODULO.md` · prompt literal em `docs/PROMPT-ROTEIRO-VIDEO.md` |
@@ -27,6 +27,7 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | White label via agência (plano, decisões pendentes, fases) | `docs/WHITE-LABEL-AGENCIA.md` |
 > | WhatsApp: caixa de entrada e migração p/ Cloud API | `docs/INBOX-WHATSAPP.md` |
 > | WhatsApp: quais templates estão APROVADOS **e ligados**, com que contrato | `docs/TEMPLATES-WHATSAPP.md` |
+> | Beto: divisão WhatsApp × app, acesso seguro e contexto da página | `docs/BETO-CANAIS.md` |
 > | Fluxo de dados pessoais (insumo p/ LGPD) | `docs/FLUXO-DE-DADOS-PESSOAIS.md` |
 > | Board (painel multi-modelo, interno) | `docs/BOARD-PAINEL.md` — a web enfileira, o **worker local** executa os 4 CLIs por assinatura |
 > | Histórico (não é backlog) | `docs/HISTORICO-MIGRACAO.md` · `docs/HISTORICO-AUDITORIAS.md` |

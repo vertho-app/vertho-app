@@ -1,6 +1,6 @@
 # Catálogo de Prompts da IA — Vertho Mentor IA
 
-> Revisão: 2026-08-25 | Total: **105** prompts/famílias catalogados (**70** já documentados + **35** encontrados nesta auditoria)
+> Revisão: 2026-09-22 | Total: **106** prompts/famílias catalogados (**71** já documentados + **35** encontrados nesta auditoria)
 >
 > Roteador universal: `actions/ai-client.ts` (`callAI` single-turn + `callAIChat` multi-turn). Default = `claude-sonnet-4-6`; OpenAI, Gemini e **Kimi** (`kimi*`, OpenAI-compatible) pelo mesmo wrapper.
 > Prompt caching automático: `system` > 4000 chars → `cache_control: ephemeral`. Prefixo grande e estável de lote → `options.cachedUserPrefix` (2º breakpoint).
@@ -2247,8 +2247,20 @@ Cinco prompts migrados do simulador RNaves, sem alteração intencional do texto
 > `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**
 
 - **Arquivo**: `app/actions/beto.ts::SYSTEM_PROMPT_BASE` + `chatWithBeto`.
-- **Modelo**: `claude-sonnet-4-6`. **Max tokens**: 500. Multi-turn.
-- **Tarefa**: mentor acolhedor com contexto autenticado do colaborador (perfil, cargo, empresa), respostas curtas e práticas; não substitui avaliação formal nem aconselhamento médico/psicológico.
+- **Modelo**: `claude-sonnet-4-6`. **Max tokens**: 1000. Multi-turn.
+- **Grounding**: sessão autenticada, perfil, cargo, empresa, blueprint, contexto semanal, conteúdos relacionados e página atual normalizada no servidor.
+- **Tarefa**: mentor acolhedor para desenvolvimento, conteúdo e uso da plataforma, com respostas curtas e práticas; não substitui avaliação formal nem aconselhamento médico/psicológico.
+- **Página atual**: `components/beto-chat.tsx` envia o pathname; `lib/beto/pagina-atual.ts` remove query/hash, redige ids dinâmicos, recusa URL externa/injeção por quebra de linha e transforma rota desconhecida em rótulo genérico. Essa pista não concede acesso nem permite afirmar que o modelo viu a interface.
+
+### 20.6a BETO — suporte no WhatsApp (piloto interno)
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · **Incluído em 22/09/2026**
+
+- **Arquivo**: `lib/whatsapp/suporte-auto.ts::SISTEMA_SUPORTE` + `executarSuporteAuto`.
+- **Modelo**: `gemini-3.8-flash`. **Max tokens**: 700; `reasoningEffort: low`; timeout de 12 s; texto ou áudio; histórico de até 24 h.
+- **Escopo**: acesso, recuperação e triagem para telefone que resolve, sem ambiguidade, a um único e-mail interno `@vertho.ai`; o piloto usa a ACME como contexto conhecido e não pergunta a empresa.
+- **Output estruturado**: JSON com `intencao`, `solicita_link`, `resposta`, `precisa_humano` e `acao`.
+- **Limite entre canais**: vídeo, conteúdo, atividade, trilha, progresso e uso após o login são encaminhados ao Beto dentro do app. O WhatsApp não tenta substituir o contexto autenticado.
+- **Segurança**: pedido textual claro de acesso não chama o modelo; áudio pode usar a IA apenas para classificar. O token nunca entra no prompt e é emitido deterministicamente pela aplicação no template aprovado. Visão operacional: `docs/BETO-CANAIS.md`.
 
 ### 20.7 Assistente comercial — preparação de reunião
 > `ATIVO` · Prompt documentado como: `resumo_editorial` · **Ausente até 25/08/2026**

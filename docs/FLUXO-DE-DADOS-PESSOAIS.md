@@ -10,6 +10,9 @@
 > **Por que existe:** o modelo de política que circulou em 14/08 dizia *"Compartilhamos dados
 > apenas com a Meta Platforms"*. São **onze** destinos externos, e o mais relevante não é o
 > WhatsApp — é a IA, que recebe nome e avaliação de desempenho.
+>
+> **Adendo de 22/09/2026:** incluídos os dois canais do Beto — suporte interno por WhatsApp com
+> Gemini e mentor autenticado no app com contexto normalizado da página atual.
 
 ---
 
@@ -76,6 +79,18 @@ Provedores de IA em uso (`actions/ai-client.ts`, `lib/ai-batch.ts`):
 | **Google** (Gemini) | provedor alternativo |
 | **Voyage** | embeddings do acervo de conteúdo |
 
+### 2.1 Beto no WhatsApp e dentro do app (22/09/2026)
+
+| Fluxo | Provedor | Dados enviados | Proteções relevantes |
+|---|---|---|---|
+| Beto no WhatsApp — piloto interno | **Google (Gemini)** | Texto ou áudio recebido, histórico recente de até 24 h, nome, cargo e empresa resolvidos pelo banco | Só telefone ligado sem ambiguidade a um único `@vertho.ai`; token de acesso nunca entra no prompt |
+| Beto dentro do app | **Anthropic (Claude)** | Mensagem, histórico, perfil/cargo/empresa, contexto de desenvolvimento disponível e descrição da página atual | Sessão resolvida no servidor; query/hash removidos; ids dinâmicos redigidos; URL externa e quebra de linha recusadas |
+
+No WhatsApp, o áudio é obtido da Meta e enviado inline ao Gemini para entendimento e classificação.
+O magic link é criado separadamente pela aplicação e transportado apenas no template aprovado.
+Dentro do app, “página atual” significa a rota normalizada, não HTML, screenshot, campos visíveis
+nem conteúdo do navegador. Especificação operacional: `docs/BETO-CANAIS.md`.
+
 ⚠️ **Pergunta que o jurídico vai fazer e a engenharia precisa responder:** os contratos com esses
 provedores incluem cláusula de **não-treinamento** com os dados enviados? Isso depende do plano
 contratado em cada um e não é verificável no código.
@@ -107,6 +122,10 @@ primeiro item a verificar no painel.
 | **Resend** | e-mail + conteúdo | `lib/notifications/pilula-envio.ts` |
 | **Twilio** | telefone + código de acesso (SMS) | `lib/sms/providers/twilio.ts` — configurado, sem número |
 | **Web Push** (navegador) | endpoint do aparelho | `lib/notifications/push-core.ts` |
+
+O recebimento do WhatsApp também pode incluir mídia. A inbox guarda a cópia recebida no bucket
+privado `inbox-midia-recebida`; no piloto do Beto, um áudio elegível pode ainda ser enviado ao
+Google para interpretação, conforme a §2.1.
 
 ---
 

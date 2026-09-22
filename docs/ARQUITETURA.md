@@ -2,6 +2,7 @@
 
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
 > Ultima atualizacao: 27/07/2026 (HEAD `09540329` — auditoria de seguranca multi-agente remediada + Modo Personalizado + Certificado de Conclusao; base 07/07: pos-response via Trigger.dev + tenant de demo; 25/05: RadarEmpresas + i18n + auditoria/permissoes + OTP WhatsApp + hardening RLS)
+> Adendo de 22/09/2026: divisão do Beto entre WhatsApp e app, acesso seguro e contexto da página atual; detalhes em `docs/BETO-CANAIS.md`.
 > Revisado contra o codigo-fonte local e estado atual do workspace
 > Metodo: auditoria automatizada + revisao manual
 
@@ -315,7 +316,7 @@ nextjs-app/
 │   │   ├── _lib/tracking.ts      # Eventos de funil Bett
 │   │   └── _components/          # header, busca, lead modal, sticky CTA, whatsapp icon
 │   ├── actions/
-│   │   ├── beto.ts               # BETO contextual
+│   │   ├── beto.ts               # BETO autenticado + contexto normalizado da página atual
 │   │   └── manutencao.ts
 │   └── api/
 │       ├── chat/route.ts         # Motor Conversacional
@@ -388,7 +389,7 @@ nextjs-app/
 │   ├── preferencias-aprendizagem.ts
 │   └── manutencao.ts
 ├── components/
-│   ├── beto-chat.tsx             # Chat flutuante (hidden em semana pages)
+│   ├── beto-chat.tsx             # Chat flutuante; envia pathname atual (hidden em rotas imersivas)
 │   ├── mic-input.tsx             # Web Speech API (forwardRef + stop on send)
 │   ├── page-shell.tsx            # PageContainer, PageHero, GlassCard, SectionHeader
 │   ├── preferencias-ranking.tsx
@@ -415,6 +416,10 @@ nextjs-app/
 │   ├── ui-resolver.ts            # getCustomLabel + isHidden
 │   ├── authz.ts                  # RBAC: getUserContext, isPlatformAdmin, roles
 │   ├── auth/                     # NOVO: action-context (requireAdminAction, requireUserAction, requireAdminOrCronAction), fetch-auth, request-context
+│   ├── beto/pagina-atual.ts      # Allowlist e redação da rota enviada ao BETO autenticado
+│   ├── whatsapp/                 # Cloud API, inbox, piloto automático e acesso do BETO
+│   │   ├── suporte-auto.ts       # Gemini Flash: texto/áudio, histórico e triagem interna
+│   │   └── beto-access-link.ts   # Destino determinístico + limites do magic link
 │   ├── csrf.ts                   # NOVO: Tokens anti-CSRF
 │   ├── rate-limit.ts             # NOVO: Rate limiting in-memory + dedup
 │   ├── domain.ts                 # NOVO: Helpers de dominio (vertho.ai resolution)
@@ -1041,6 +1046,21 @@ A prévia separa `totalNoEscopo`, `elegiveisPeloTemplate`, `aposRefinamentos`, `
 total que será enfileirado. `jaReceberam` usa hoje o `kind` do caminho manual; a cadência usa o
 papel (`pilula`, `plano` etc.), portanto a idempotência entre caminhos ainda não é unificada.
 Regras, contratos e essa ressalva: `docs/TEMPLATES-WHATSAPP.md` §1.
+
+#### Beto: WhatsApp × app (22/09/2026)
+
+O Beto do WhatsApp é a porta de entrada para acesso, recuperação e triagem; o piloto responde
+apenas a telefones internos que resolvem sem ambiguidade para um único `@vertho.ai`. Aceita texto
+e áudio com Gemini 3.8 Flash, mas a IA nunca recebe o token. Pedido claro de login usa o emissor
+determinístico e o template aprovado `acesso_vertho`, com idempotência, cooldown e limite diário.
+
+O Beto dentro do app continua sendo o mentor autenticado para conteúdo, trilha, progresso e uso da
+plataforma. Além de perfil, cargo, tenant, blueprint e contexto semanal, recebe uma descrição
+controlada da página atual. O cliente envia apenas o pathname; o servidor remove query/hash,
+redige identificadores dinâmicos e transforma rotas desconhecidas em rótulo genérico. Esse dado é
+uma pista de navegação, nunca autorização nem acesso ao que está renderizado na tela.
+
+Arquitetura, fronteira dos canais, proteções e arquivos: `docs/BETO-CANAIS.md`.
 
 ### 6.2 Email — Resend API
 Dispatch de formularios e relatorios. Status: 🔑 RESEND_API_KEY.
