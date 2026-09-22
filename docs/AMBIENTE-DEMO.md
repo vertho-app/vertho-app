@@ -181,7 +181,7 @@ Os dois tenants permanecem com `is_demo=true` e, portanto, sem disparos automát
   - **Helena** (Gerente de Recursos Humanos, papel `rh`) — sem DISC/trilha por desenho; vê o funil, colaboradores, ranking e relatórios e não entra nas métricas de participantes.
 - **DISC / Perfil Comportamental** das 6 (narrativas LLM `report_texts` congeladas → relatório abre instantâneo).
 - **Mapeamento de competências avaliado** (respostas com nota da IA4 + `descriptor_assessments`): Bruna 5, Mariana 5 (30 `descriptor_assessments` congelados), Paulo 2.
-- **Jornadas/trilhas de 7 semanas** no `acme-demo`: 6 semanas de conteúdo e fechamento na semana 7. A trilha rica da Bruna preserva o conteúdo congelado de Negociação e Fechamento; o Grupo Sinal continua no programa regular de 14 semanas.
+- **Jornadas/trilhas de 7 semanas** no `acme-demo`: 6 semanas de conteúdo e fechamento na semana 7. A Bruna mantém a **temporada 2 ativa** na semana 1 e também uma **temporada 1 concluída**, com 7/7 semanas, conteúdo congelado de Negociação e Fechamento, Evolution Report e certificado. Na visão Usuário, o histórico abre por **Jornada → Ver histórico** (`/dashboard/jornada/historico`); o Grupo Sinal continua no programa regular de 14 semanas.
 - **4 cargos completos** (competências + descritores + Top10 + cenários com rubrica N1-N4): Representante Comercial, Gerente Comercial, Analista Financeiro, Coordenador de Operações. O Gerente Comercial nasce com **Top 5 vazio** (só lidera): mantém competências, cenários e gabarito, entra no ranking de adequação e não é convidado a mapeamento. Funil do ACME desde 16/09/2026: 30 pessoas · 28 com perfil · **24** mapeadas · **19** em jornada · 16 em dia · **3** atrasadas · 15 concluídas (o Marcelo, Gerente Comercial do diretório, saiu do mapeamento, da jornada e dos atrasados).
 - **Adequação / Ranking real por cargo**: as personas nascem com colunas comportamentais (`comp_*`/`lid_*`) derivadas do DISC → o motor de fit as pontua. Aderências de referência (medidas em 24/08, com as personas já na régua do produto): Mariana/Financeiro **95,0** (Excelente), Renato/Operações **89,1** (Excelente), Carla/Gerente **87,8** (Excelente), Paulo/Representante **83,6** mas **"Não recomendado"** (knockout de Persistência — nota alta não passa por cima de requisito eliminatório), Ana/Representante **83,3** (Alta), Bruna/Representante **46,2** (Baixa — CS não casa com D/I do cargo). ✅ **O fit é pré-computado pelo próprio reset** (`precomputarFit`, best-effort, sem custo de IA) — a aba Fit v2 de `/admin/fit` abre populada, sem ninguém precisar clicar "Calcular Fit". Antes de 25/08 não era: `fit_resultados` tem `ON DELETE CASCADE` em `colaborador_id`, o reset recria os colaboradores e o ranking **amanhecia vazio todo dia**, dependendo de um passo manual que ninguém lembra na hora da demo. A contagem sai no `counts.fit_resultados` do resultado do reset.
 - Envios reais **desligados** (gate por tenant `empresas.is_demo` no `envio-guard` + personas com e-mail `*.demo@vertho.ai` interno e sem telefone → WhatsApp no-op).
@@ -236,6 +236,13 @@ TENANT-SAFE — todo delete/insert é filtrado pelo `empresa_id` do tenant escol
 | **Noturno** | `/api/cron?action=reset_demo` (gated CRON_SECRET) + `vercel.json` `0 7 * * *` (04h BRT). Percorre **todos** os ambientes de `DEMO_TENANT_PROFILES`, um a um; falha → 500 (log Vercel) + audit por ambiente | Automático |
 | **Manual (CLI)** | `npm run reset:demo` (= `npx tsx scripts/seed-acme-demo.ts`) — DELEGA ao reset canônico (mesmo fixture + artefatos do botão/cron) | CLI/scripts/CI |
 | **Grupo Sinal (CLI)** | `npm run reset:demo:gruposinal` | Cria ou recompõe `gruposinal.vertho.ai` |
+
+No `acme-demo`, o reset chama `ensureBrunaAcmeDemoHistory`
+(`lib/demo/bruna-history.ts`) depois de restaurar os artefatos da persona. A rotina é
+idempotente: renumera a jornada corrente para temporada 2 somente quando necessário e
+recria uma temporada 1 concluída sem IA. Cadência e sinais usam sempre a trilha de maior
+`numero_temporada`, portanto o histórico não desloca a Bruna da semana atual nem infla o
+acompanhamento operacional.
 
 ## Degustação self-service com contato real (allowlist)
 

@@ -3,6 +3,20 @@
 > Atualizado em 21/09/2026. O SHA de HEAD não é fixado aqui de propósito — ficava
 > obsoleto no commit seguinte e dava a impressão de que o resto do documento também estava.
 
+## Histórico das jornadas do colaborador (21/09)
+
+O colaborador agora acessa **Jornada → Ver histórico** para consultar as próprias
+temporadas concluídas. A lista abre conteúdos e missões em modo somente leitura e mantém
+Evolution Report, PDF e certificado ligados à temporada escolhida; as consultas continuam
+escopadas ao usuário e ao tenant autenticados. O aviso de retenção explicita que o acesso
+permanece enquanto a empresa tiver acesso à plataforma (`4714f27e`).
+
+Na ACME Demo, a Bruna Costa ganhou uma temporada 1 concluída de Negociação e
+Fechamento, com 7/7 semanas, relatório e certificado, sem alterar sua temporada 2 ativa.
+O seed é idempotente, restrito ao `acme-demo` e integrado ao reset canônico; cadência e
+sinais seguem a temporada mais recente (`00a96dd4`). Detalhes e roteiro de validação:
+`docs/AMBIENTE-DEMO.md` e `docs/CHECKLIST-VALIDACAO.md`.
+
 ## Degustação B — navegação e painéis (21/09)
 
 Cartões de ação abrem grupos identificados, com retorno às sugestões. Histórico semanal responsivo e selecionável; série ilustrativa de 73–97% somente na visão geral dos três tenants demo, separada das métricas operacionais. Resumo de revisões removido dos painéis de vendas e liderança; participação e revisão individual mantidas. Critérios em [AMBIENTE-DEMO.md](AMBIENTE-DEMO.md).

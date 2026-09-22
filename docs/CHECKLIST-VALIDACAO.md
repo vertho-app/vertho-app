@@ -194,6 +194,15 @@
 - [ ] Delta por descritor faz sentido
 - [ ] Classificações coerentes (evoluiu/manteve/regrediu)
 
+### Passo 24A — Histórico do colaborador
+- [ ] `/dashboard/jornada` exibe a ação **Ver histórico**
+- [ ] `/dashboard/jornada/historico` lista somente as temporadas concluídas da pessoa autenticada
+- [ ] O detalhe `/dashboard/jornada/historico/[trilhaId]` reabre conteúdos e missões em modo somente leitura
+- [ ] Evolution Report, PDF e certificado usam a temporada selecionada, sem cair na jornada atual
+- [ ] ID de trilha de outra pessoa ou de outro tenant é recusado
+- [ ] Estado vazio aparece corretamente para quem ainda não concluiu nenhuma jornada
+- [ ] O histórico informa que permanece disponível enquanto a empresa mantiver acesso à plataforma
+
 ---
 
 ## Fase 5 — Consolidação
@@ -281,6 +290,8 @@
 - [ ] **Versionamento**: de uma proposta enviada/aprovada, "Nova versão" cria cópia editável `-Rn`; segue de novo pela aprovação; original vira **"Substituída"** (`superseded`) — **E2E validado** (migration 168)
 - [ ] Toasts do portal do RC aparecem (ex.: "submeter para aprovação" dá feedback)
 - [ ] ACME Demo: reset via `npm run reset:demo` (ou botão em `/admin/demo`) recria o estado inicial
+- [ ] Bruna abre **Jornada → Ver histórico** e vê a temporada 1 concluída (7/7, relatório e certificado), sem perder a temporada 2 ativa
+- [ ] Repetir o reset não duplica o histórico da Bruna e mantém cadência/sinais vinculados à temporada mais recente
 - [ ] 6 personas aparecem no portal `/representante/demo` e no ranking/estatísticas (Mariana, Renato inclusas)
 - [ ] **Após reset, clicar "Calcular Fit" 1× por cargo em `/admin/fit`** (fit NÃO é pré-computado no reset) — só então o ranking aparece
 - [ ] Ranking de Adequação diferenciado: Mariana 92 "Alta"; Renato 88 e Carla 88 "Excelente"; Bruna 50 "Baixa" (visual da Mariana renderizado em `/admin/fit`)
