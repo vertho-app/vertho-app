@@ -1,23 +1,24 @@
 /**
- * Suporte automático no WhatsApp — PILOTO restrito a um telefone.
+ * Suporte automático no WhatsApp — PILOTO interno da Vertho na ACME.
  *
  * Por que existe: avaliar atendimento automático para acesso, links expirados,
  * pendências e dúvidas simples, interpretando a mensagem e consultando a
  * situação do usuário, em vez de chatbot rígido de respostas prontas.
  *
  * Limites do piloto (de propósito, não esquecimento):
- *  - Só atende telefones em `PILOTO_TELEFONES`. Qualquer outro número cai em
- *    `fora-do-piloto` sem gastar IA e sem enviar nada.
+ *  - Só atende um telefone que esteja vinculado de forma inequívoca a UM e-mail
+ *    `@vertho.ai`. Qualquer outro número cai em `fora-do-piloto` sem gastar IA
+ *    e sem enviar nada.
  *  - Roda em `after()` no webhook, nunca no caminho do 200. IA lenta não pode
  *    segurar a resposta da Meta (reentrega e desativa a inscrição).
  *  - A LLM redige e classifica; quem DECIDE acesso é consulta determinística
  *    via `tenantDb`. Prosa do modelo não libera nada.
- *  - Sem dono limpo, sem chute de tenant: com ambiguidade e sem pin, a resposta
- *    é genérica e pede a empresa, sem citar dado de nenhum tenant.
- *  - `SUPORTE_AUTO_PILOTO_EMPRESA_ID` (opcional, lido em runtime) fixa o tenant
- *    do piloto. É decisão explícita do operador, registrada em env, não palpite:
- *    sem ela o comportamento é fail-closed. Mesmo pinado, a pessoa só é
- *    individualizada quando o telefone casa com UMA linha daquela empresa.
+ *  - `SUPORTE_AUTO_PILOTO_EMPRESA_ID` (obrigatório, lido em runtime) fixa a
+ *    ACME como tenant do piloto. O tenant resolvido pelo webhook é ignorado de
+ *    propósito para este grupo interno; sem o pin, o comportamento é
+ *    fail-closed.
+ *  - Cadastros internos repetidos em tenants de demonstração são deduplicados
+ *    pelo e-mail. Dois e-mails internos no mesmo telefone bloqueiam o envio.
  *  - Nenhum `createSupabaseAdmin()` aqui: contexto vai por `tenantDb`, o resto
  *    (ledger, degradação, demo-guard, envio) escreve dentro dos próprios módulos.
  *
@@ -54,28 +55,8 @@ const SUPORTE_AUTO_AUDIO_MAX_BYTES = 8 * 1024 * 1024;
 /** Contexto curto evita transformar conversa de WhatsApp em prompt crescente. */
 const SUPORTE_AUTO_HISTORICO_MAX = 10;
 
-/**
- * Telefones do piloto, E.164 sem "+". Comparação por dígitos + variantes de
- * nono dígito: DDD 11 chega COM o nono, então `11973882303` precisa casar com
- * `5511973882303` em qualquer forma que o webhook entregar.
- */
-const PILOTO_TELEFONES = ['5511973882303'];
-
 function digitos(v: unknown): string {
   return String(v ?? '').replace(/\D/g, '');
-}
-/** Este `fromPhone` é do piloto? */
-export function telefoneNoPiloto(fromPhone: string): boolean {
-  const telefone = digitos(fromPhone);
-  const candidatos = [telefone];
-  // O webhook entrega E.164, mas testes operacionais e chamadas internas podem
-  // passar o formato nacional. Complete o DDI antes de gerar a variante do
-  // nono dígito; `formasDoTelefone` deliberadamente só alterna números E.164.
-  if (!telefone.startsWith('55') && (telefone.length === 10 || telefone.length === 11)) {
-    candidatos.push(`55${telefone}`);
-  }
-  const formas = new Set(candidatos.flatMap((candidato) => formasDoTelefone(candidato)));
-  return PILOTO_TELEFONES.some((p) => formas.has(p) || formas.has(digitos(p)));
 }
 
 /** Pin de tenant do piloto. Lido em runtime: const de topo fixaria o default
@@ -124,7 +105,6 @@ export interface Elegibilidade {
 
 /** Filtros baratos antes de gastar IA. Puro e testável sem banco. */
 export function elegivelParaAuto(e: EntradaSuporte, now = Date.now()): Elegibilidade {
-  if (!telefoneNoPiloto(e.fromPhone)) return { elegivel: false, motivo: 'fora-do-piloto' };
   if (e.tipo === 'audio') {
     if (!e.mediaId) return { elegivel: false, motivo: 'audio-sem-midia' };
   } else {
@@ -233,13 +213,14 @@ async function degradar(
   e: EntradaSuporte,
   motivo: string,
   empresaId: string | null,
+  colaboradorId: string | null = e.colaboradorId,
 ): Promise<void> {
   await registrarDegradacao({
     fluxo: 'envio',
     tipo: DEGRADACAO.WHATSAPP_STATUS_PERDIDO,
     chave: `suporte-auto:${e.waMessageId}`,
     empresaId,
-    colaboradorId: e.colaboradorId,
+    colaboradorId,
     severidade: 'aviso',
     detalhe: { fase, motivo: motivo.slice(0, 200), piloto: true },
   });
@@ -251,46 +232,69 @@ interface Pessoa {
   cargo: string | null;
 }
 
-/** Identidade via tenantDb (escopado; o guard reconhece o receiver `tdb`). */
-async function pessoaDoTenant(
-  empresaId: string,
-  colaboradorId: string | null,
+type IdentidadeInterna =
+  | { status: 'ok'; pessoa: Pessoa; email: string }
+  | { status: 'fora-do-piloto' | 'identidade-interna-ambigua'; pessoa: null; email: null }
+  | { status: 'erro'; pessoa: null; email: null; problemaLeitura: string };
+
+/**
+ * Bootstrap cross-tenant deliberado do piloto interno.
+ *
+ * A mesma pessoa `@vertho.ai` aparece em vários tenants de demonstração, então
+ * buscar só na ACME não encontra ninguém. A consulta é limitada ao telefone
+ * exato (incluindo variantes do nono dígito) e o domínio é validado novamente
+ * em JS. Um único e-mail interno pode ter várias cópias; dois e-mails internos
+ * distintos no mesmo número falham fechados.
+ */
+async function pessoaInternaVertho(
+  empresaAcmeId: string,
   fromPhone: string,
-): Promise<{ pessoa: Pessoa | null; problemaLeitura: string | null }> {
+  colaboradorIdPreferido: string | null,
+): Promise<IdentidadeInterna> {
   try {
-    const tdb = tenantDb(empresaId);
-    if (colaboradorId) {
-      const { data, error } = await tdb
-        .from('colaboradores')
-        .select('id, nome_completo, cargo')
-        .eq('id', colaboradorId)
-        .maybeSingle();
-      if (error) return { pessoa: null, problemaLeitura: error.message };
-      if (!data) return { pessoa: null, problemaLeitura: null };
-      return {
-        pessoa: {
-          id: (data as any)?.id ?? colaboradorId,
-          nome: (data as any)?.nome_completo ?? null,
-          cargo: (data as any)?.cargo ?? null,
-        },
-        problemaLeitura: null,
-      };
-    }
-    // Modo pin sem pessoa individualizada: casa pelo telefone dentro do tenant.
-    // Uma linha = pessoa; zero ou várias = sem individualização, sem chute.
+    const filtro = filtroDeTelefone(fromPhone);
+    if (!filtro) return { status: 'fora-do-piloto', pessoa: null, email: null };
+    const tdb = tenantDb(empresaAcmeId);
     const { data, error } = await tdb
-      .from('colaboradores')
-      .select('id, nome_completo, cargo')
-      .or(filtroDeTelefone(fromPhone));
-    if (error) return { pessoa: null, problemaLeitura: error.message };
-    const linhas = (data ?? []) as Array<any>;
-    if (linhas.length !== 1) return { pessoa: null, problemaLeitura: null };
+      .raw.from('colaboradores')
+      .select('id, empresa_id, email, nome_completo, cargo')
+      .ilike('email', '%@vertho.ai')
+      .or(filtro);
+    if (error) {
+      return { status: 'erro', pessoa: null, email: null, problemaLeitura: error.message };
+    }
+    const linhas = ((data ?? []) as Array<any>).filter((linha) =>
+      /^[^@\s]+@vertho\.ai$/i.test(String(linha.email ?? '').trim()),
+    );
+    if (!linhas.length) return { status: 'fora-do-piloto', pessoa: null, email: null };
+    const emails = new Set(linhas.map((linha) => String(linha.email).trim().toLowerCase()));
+    if (emails.size !== 1) {
+      return { status: 'identidade-interna-ambigua', pessoa: null, email: null };
+    }
+
+    const linhasAcme = linhas.filter((linha) => linha.empresa_id === empresaAcmeId);
+    const idsAcme = new Set(linhasAcme.map((linha) => String(linha.id ?? '')).filter(Boolean));
+    const escolhida = linhasAcme.find((linha) => linha.id === colaboradorIdPreferido)
+      ?? linhas.find((linha) => linha.id === colaboradorIdPreferido)
+      ?? linhasAcme[0]
+      ?? linhas[0];
     return {
-      pessoa: { id: linhas[0]?.id ?? null, nome: linhas[0]?.nome_completo ?? null, cargo: linhas[0]?.cargo ?? null },
-      problemaLeitura: null,
+      status: 'ok',
+      pessoa: {
+        // Nunca atribua à ACME o id de um colaborador pertencente a outro tenant.
+        id: idsAcme.size === 1 ? [...idsAcme][0]! : null,
+        nome: escolhida?.nome_completo ?? null,
+        cargo: escolhida?.cargo ?? null,
+      },
+      email: [...emails][0]!,
     };
   } catch (err: any) {
-    return { pessoa: null, problemaLeitura: String(err?.message ?? err) };
+    return {
+      status: 'erro',
+      pessoa: null,
+      email: null,
+      problemaLeitura: String(err?.message ?? err),
+    };
   }
 }
 
@@ -301,10 +305,10 @@ interface TurnoHistorico {
 }
 
 /**
- * Nome da empresa + cauda da conversa. O pin já determinou o tenant; consultar
- * `empresas` pelo id exato não é adivinhar posse. Nas recebidas, linhas NULL são
- * aceitas só para o telefone do piloto: é justamente o caso em que o resolver
- * global não escolheu tenant, mas o pin operacional escolheu.
+ * Nome da empresa + cauda da conversa. A identidade `@vertho.ai` já foi provada
+ * antes desta chamada. Por isso, as recebidas podem ser lidas pelo telefone
+ * exato mesmo quando o resolver original as carimbou em um tenant de demo ou as
+ * deixou sem tenant. As enviadas seguem escopadas na ACME.
  */
 async function detalhesDoTenant(
   empresaId: string,
@@ -320,16 +324,10 @@ async function detalhesDoTenant(
   try {
     const tdb = tenantDb(empresaId);
     const formas = formasDoTelefone(fromPhone);
-    const [empresaR, recebidasTenantR, recebidasSemTenantR, enviadasR] = await Promise.all([
+    const [empresaR, recebidasR, enviadasR] = await Promise.all([
       tdb.raw.from('empresas').select('nome').eq('id', empresaId).maybeSingle(),
-      tdb.from('whatsapp_mensagens_recebidas')
-        .select('wa_message_id, empresa_id, tipo, texto, recebida_em')
-        .in('from_phone', formas)
-        .order('recebida_em', { ascending: false })
-        .limit(20),
       tdb.raw.from('whatsapp_mensagens_recebidas')
         .select('wa_message_id, empresa_id, tipo, texto, recebida_em')
-        .is('empresa_id', null)
         .in('from_phone', formas)
         .order('recebida_em', { ascending: false })
         .limit(20),
@@ -340,18 +338,13 @@ async function detalhesDoTenant(
         .limit(20),
     ]);
 
-    const erros = [empresaR.error, recebidasTenantR.error, recebidasSemTenantR.error, enviadasR.error]
+    const erros = [empresaR.error, recebidasR.error, enviadasR.error]
       .filter(Boolean)
       .map((x: any) => x.message)
       .join(' | ');
     const desde = now - 24 * 3600 * 1000;
-    const recebidasUnicas = new Map<string, any>();
-    for (const linha of [...(recebidasTenantR.data ?? []), ...(recebidasSemTenantR.data ?? [])] as Array<any>) {
-      recebidasUnicas.set(String(linha.wa_message_id), linha);
-    }
-    const recebidas = [...recebidasUnicas.values()]
+    const recebidas = ((recebidasR.data ?? []) as Array<any>)
       .filter((x) => x.wa_message_id !== waMessageIdAtual)
-      .filter((x) => x.empresa_id == null || x.empresa_id === empresaId)
       .filter((x) => Date.parse(x.recebida_em) >= desde)
       .map((x): TurnoHistorico | null => {
         const texto = String(x.texto ?? '').trim()
@@ -435,64 +428,48 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
   const now = Date.now();
   const el = elegivelParaAuto(e, now);
   if (!el.elegivel) return { enviou: false, motivo: el.motivo };
-  marcarUso(e, now);
 
   const pin = pinPilotoEmpresaId();
-  // Tenant efetivo: resolução limpa vence; pin é fallback explícito do piloto.
-  const empresaEfetiva = e.empresaId ?? pin;
-  const modo = e.empresaId ? 'tenant' : pin ? 'tenant-piloto' : 'generico';
+  if (!pin) return { enviou: false, motivo: 'piloto-sem-empresa' };
 
-  if (empresaEfetiva) {
-    const gate = await gateEnvioDemo(empresaEfetiva);
-    if (gate.blocked) {
-      console.log(`[suporte-auto] tenant demo, sem resposta automática (${empresaEfetiva})`);
-      return { enviou: false, motivo: 'tenant-demo' };
+  const identidade = await pessoaInternaVertho(pin, e.fromPhone, e.colaboradorId);
+  if (identidade.status === 'erro') {
+    await degradar('leitura-identidade-interna', e, identidade.problemaLeitura, pin, null);
+    return { enviou: false, motivo: 'falha-identidade-interna' };
+  }
+  if (identidade.status !== 'ok') {
+    if (identidade.status === 'identidade-interna-ambigua') {
+      await degradar('identidade-interna-ambigua', e, 'telefone vinculado a mais de um e-mail @vertho.ai', pin, null);
     }
+    return { enviou: false, motivo: identidade.status };
   }
 
-  let pessoa: Pessoa | null = null;
-  let empresaNome = e.empresaNome;
-  let historico: TurnoHistorico[] = [];
-  let jaConversou = false;
-  if (empresaEfetiva) {
-    const [ctx, detalhes] = await Promise.all([
-      pessoaDoTenant(empresaEfetiva, e.empresaId ? e.colaboradorId : null, e.fromPhone),
-      detalhesDoTenant(empresaEfetiva, e.fromPhone, e.waMessageId, now),
-    ]);
-    empresaNome = empresaNome ?? detalhes.empresaNome;
-    historico = detalhes.historico;
-    jaConversou = detalhes.jaConversou;
-    if (detalhes.problemaLeitura) {
-      // Histórico/nome enriquecem a resposta, mas não são motivo para deixar a
-      // pessoa sem atendimento quando a identidade principal foi lida.
-      await degradar('leitura-historico', e, detalhes.problemaLeitura, empresaEfetiva);
-    }
-    if (ctx.problemaLeitura) {
-      await degradar('leitura-contexto', e, ctx.problemaLeitura, empresaEfetiva);
-      const r = await enviarTextoCloud(
-        { phone: e.fromPhone, texto: respostaContencao(e.texto, jaConversou, e.tipo) },
-        {
-          motivo: 'suporte-auto',
-          empresaId: empresaEfetiva,
-          colaboradorId: e.colaboradorId,
-          dedupeKey: `suporte-auto:${e.waMessageId}`,
-          numeroId: e.numeroId,
-          origem: 'suporte-auto',
-        },
-      );
-      return r.ok
-        ? { enviou: true, motivo: 'contencao-leitura' }
-        : { enviou: false, motivo: `falha-envio:${r.reason ?? '?'}` };
-    }
-    pessoa = ctx.pessoa;
+  const empresaEfetiva = pin;
+  const modo = 'tenant-piloto';
+  const pessoa = identidade.pessoa;
+  const colaboradorEfetivo = pessoa.id;
+  const gate = await gateEnvioDemo(empresaEfetiva);
+  if (gate.blocked) {
+    console.log(`[suporte-auto] tenant demo, sem resposta automática (${empresaEfetiva})`);
+    return { enviou: false, motivo: 'tenant-demo' };
+  }
+  marcarUso(e, now);
+
+  const detalhes = await detalhesDoTenant(empresaEfetiva, e.fromPhone, e.waMessageId, now);
+  const empresaNome = detalhes.empresaNome ?? 'ACME';
+  const historico = detalhes.historico;
+  const jaConversou = detalhes.jaConversou;
+  if (detalhes.problemaLeitura) {
+    // A identidade já foi provada; nome/histórico enriquecem, mas uma falha
+    // parcial neles não deve deixar o colaborador interno sem atendimento.
+    await degradar('leitura-historico', e, detalhes.problemaLeitura, empresaEfetiva, colaboradorEfetivo);
   }
 
-  const colaboradorEfetivo = e.colaboradorId ?? pessoa?.id ?? null;
   let geminiInlineData: { mimeType: string; data: string } | undefined;
   if (e.tipo === 'audio') {
     const audio = await carregarAudioDoWhatsApp(e.mediaId!);
     if (!audio.inlineData) {
-      await degradar('audio', e, audio.motivo ?? 'áudio indisponível', empresaEfetiva);
+      await degradar('audio', e, audio.motivo ?? 'áudio indisponível', empresaEfetiva, colaboradorEfetivo);
       const r = await enviarTextoCloud(
         { phone: e.fromPhone, texto: respostaContencao(null, jaConversou, 'audio') },
         {
@@ -514,10 +491,10 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
   const contexto = {
     modo,
     empresa: empresaNome,
-    empresa_conhecida: Boolean(empresaEfetiva),
-    pessoa: pessoa ? { nome: pessoa.nome, cargo: pessoa.cargo } : null,
+    empresa_conhecida: true,
+    pessoa: { nome: pessoa.nome, cargo: pessoa.cargo },
     ja_conversou: jaConversou,
-    ambiguidade: modo === 'generico' ? (e.ambiguidade ?? 'sem-dono') : null,
+    ambiguidade: null,
   };
   const mensagemAtual = e.tipo === 'audio'
     ? '[áudio do colaborador anexado nesta mensagem]'
@@ -548,10 +525,10 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
     try {
       saida = validarSaidaIA(parseJsonIA(bruto));
     } catch (err: any) {
-      await degradar('parse-ia', e, String(err?.message ?? err), empresaEfetiva);
+      await degradar('parse-ia', e, String(err?.message ?? err), empresaEfetiva, colaboradorEfetivo);
     }
   } catch (err: any) {
-    await degradar('chamada-ia', e, String(err?.message ?? err), empresaEfetiva);
+    await degradar('chamada-ia', e, String(err?.message ?? err), empresaEfetiva, colaboradorEfetivo);
   }
 
   // IA fora do contrato ou pedindo humano: contenção fixa (não o texto do modelo).
@@ -574,7 +551,7 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
   if (!r.ok) {
     // Envio falhou (ex.: janela 131047): sem segunda tentativa aqui, um POST com
     // timeout pode já ter chegado. A equipe assume pela inbox.
-    await degradar('envio', e, r.reason ?? 'falha desconhecida', empresaEfetiva);
+    await degradar('envio', e, r.reason ?? 'falha desconhecida', empresaEfetiva, colaboradorEfetivo);
     return { enviou: false, motivo: `falha-envio:${r.reason ?? '?'}` };
   }
   return { enviou: true, motivo: motivoOk };
