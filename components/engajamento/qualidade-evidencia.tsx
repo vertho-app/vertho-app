@@ -32,7 +32,7 @@ export function QualidadeEvidenciaSelo({ pessoa }: { pessoa: any }) {
   return (
     <span
       className={`inline-flex items-center rounded-full border px-2 py-1 text-[9px] font-bold ${CLASSE[nivel]}`}
-      title="Nível da reflexão mais recente no recorte, classificado pela IA ao fechar a semana. O texto da reflexão é privado."
+      title="Nível da reflexão da etapa atual da pessoa, classificado pela IA ao fechar a semana. O texto da reflexão é privado."
     >
       Reflexão: {ROTULO_QUALIDADE[nivel]}
     </span>
@@ -50,7 +50,7 @@ export function QualidadeEvidenciaResumo({ contagem }: { contagem?: Record<strin
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[10px] font-bold text-white/70">Qualidade das reflexões</p>
         <p className="text-[9px] text-white/35">
-          {total} {total === 1 ? 'pessoa entregou' : 'pessoas entregaram'} · nível da reflexão mais recente de cada uma
+          {total} {total === 1 ? 'pessoa entregou' : 'pessoas entregaram'} · nível da reflexão na etapa atual de cada uma
         </p>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">

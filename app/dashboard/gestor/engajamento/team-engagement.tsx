@@ -424,7 +424,7 @@ export default function EngajamentoDoTimePage() {
                 onChange={(event) => setSemana(event.target.value ? Number(event.target.value) : null)}
                 className="min-h-9 rounded-[10px] border border-white/[0.1] bg-[#081a2f] px-3 text-[10px] font-bold text-white/70 outline-none focus:border-brand-300/35"
               >
-                <option value="">Todas as semanas</option>
+                <option value="">Etapa atual de cada pessoa</option>
                 {semanasDisponiveis.map((item: number) => <option key={item} value={item}>Semana {item}</option>)}
               </select>
             </label>
@@ -507,9 +507,11 @@ export default function EngajamentoDoTimePage() {
               sugerido" logo abaixo, com o mesmo número. Dois gatilhos idênticos
               na mesma tela fazem o leitor procurar a diferença que não existe. */}
           <SignalJourney
-            eyebrow={semana ? `Semana ${semana}` : 'Panorama da jornada'}
+            eyebrow={semana ? `Semana ${semana}` : 'Etapa atual de cada pessoa'}
             title="Do primeiro acesso à entrega"
-            description="Os quatro marcos mostram presença na jornada. Eles não são nota nem avaliação de desempenho."
+            description={semana
+              ? `Os quatro marcos na semana ${semana}. Eles mostram presença na jornada, não nota nem avaliação de desempenho.`
+              : 'Os quatro marcos na etapa em que cada pessoa está hoje. Eles mostram presença na jornada, não nota nem avaliação de desempenho.'}
             total={total}
             steps={[
               // O detalhe nomeia a função escolhida: os quatro marcos passam a

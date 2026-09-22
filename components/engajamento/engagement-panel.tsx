@@ -1022,7 +1022,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
               <p><strong className="text-white/55">Evidência:</strong> reflexão enviada ao concluir a semana. {surface === 'admin'
                 ? 'O texto completo continua disponível em Vertho → Evidências.'
                 : 'Aqui aparece só o nível da reflexão (alta, média ou baixa); o texto é privado da pessoa.'}</p>
-              <p><strong className="text-white/55">Filtro semanal:</strong> o envio é registrado apenas pelo último carimbo; envios antigos podem aparecer sem semana. Vídeos antigos sem semana entram somente em “Todas as semanas”.</p>
+              <p><strong className="text-white/55">Pílulas:</strong> o banco guarda só o carimbo do ÚLTIMO envio. Quando a pessoa está atrás da cadência, esse carimbo é de outra semana, então o envio aparece como “sem registro” em vez de um ✓ que pertence a outro ponto da jornada.</p>
             </div>
           </details>
         </div>

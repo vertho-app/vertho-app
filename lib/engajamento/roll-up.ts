@@ -198,12 +198,19 @@ export async function rollUpEngajamento(
     progressoJornadaPorColab.set(p.colaborador_id, lista);
   }
 
-  // Atribui o carimbo de pílula à semana filtrada. true/false só quando dá pra
-  // AFIRMAR (semana atual do colab, carimbo depois do último avanço); semana
-  // passada devolve null — o carimbo é só do último envio, não há registro.
-  const recebeuNaSemana = (carimbo: string | null, e: any): boolean | null => {
-    if (!semFiltro) return !!carimbo;
-    if (semFiltro !== (Number(e.semana_atual) || 1)) return null;
+  // Atribui o carimbo de pílula à semana dos SINAIS (a etapa da pessoa, ou a
+  // semana filtrada). true/false só quando dá pra AFIRMAR; caso contrário null
+  // — o carimbo guarda só o ÚLTIMO envio, então ele não sabe responder por
+  // nenhuma outra semana.
+  //
+  // 🔴 Sem filtro isto devolvia `!!carimbo`, ou seja "recebeu alguma vez".
+  // `Medido: 22/09/2026` (Amanda Rosa, ibipeba): etapa na semana 4, mas a
+  // cadência já está na semana 10 (`semana_atual`), e a linha exibia as
+  // pílulas da 10 em cima do rótulo "Semana 4 · etapa pendente". A régua desta
+  // tela é uma só: TUDO fala da semana atual DO COLABORADOR.
+  const recebeuNaSemana = (carimbo: string | null, e: any, semanaDosSinais: number | null): boolean | null => {
+    if (semanaDosSinais == null) return null;
+    if (semanaDosSinais !== (Number(e.semana_atual) || 1)) return null;
     if (!carimbo) return false;
     const inicioSemana = e.ultima_evidencia_em || e.data_inicio;
     return inicioSemana ? String(carimbo) > String(inicioSemana) : true;
@@ -305,8 +312,8 @@ export async function rollUpEngajamento(
       jornadaConcluida: posicao.jornadaConcluida,
       totalSemanasJornada: posicao.totalSemanas,
       status: e.status,
-      recebeuP1: recebeuNaSemana(e.ultima_pilula1_em, e),
-      recebeuP2: recebeuNaSemana(e.ultima_pilula2_em, e),
+      recebeuP1: recebeuNaSemana(e.ultima_pilula1_em, e, semanaDosSinais),
+      recebeuP2: recebeuNaSemana(e.ultima_pilula2_em, e, semanaDosSinais),
       abriuP1, abriuP2, abriuDireto,
       // Tile "Abriram o link" = ESTRITAMENTE o evento de abertura (novo, ?p= a
       // partir de 15/07). O ● por pílula (abriuP1/P2) é mais largo de propósito.
