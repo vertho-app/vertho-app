@@ -67,3 +67,17 @@ export function competenciasDaDegustacao<T>(
   if (!degustacao) return [...competencias];
   return competencias.slice(0, DEGUSTACAO_MAX_COMPETENCIAS);
 }
+
+/**
+ * Quantas competências fecham o mapeamento desta pessoa: o Top 5 do cargo, com o
+ * teto da degustação para o convidado.
+ *
+ * É o mesmo corte do assessment, para home, jornada e PDI nunca discordarem do
+ * "N de N" que a tela do resultado mostra. Até 22/09/2026 só o assessment
+ * cortava: o convidado lia "1 de 1 competências com análise concluída" no
+ * resultado e, na jornada, "Fase 2 em curso" com o botão "Iniciar mapeamento de
+ * competências".
+ */
+export function totalDoMapeamento(top5: unknown, degustacao: boolean): number {
+  return competenciasDaDegustacao(Array.isArray(top5) ? top5 : [], degustacao).length;
+}

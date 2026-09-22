@@ -974,6 +974,7 @@
       "completed": "concluida",
       "current": "en curso",
       "locked": "bloqueada",
+      "outsideTasting": "fuera de la demostración",
       "revisitar": {
         "1": "Ver mi perfil conductual",
         "2": "Ver resultado del mapeo",
@@ -989,6 +990,15 @@
       "external": "Tu próxima etapa ocurre en el mapeo de competencias de Vertho.",
       "default": "Finaliza esta fase para avanzar en tu itinerario de desarrollo.",
       "done": "Visualiza tu informe consolidado de evolución y próximos pasos."
+    },
+    "degustacao": {
+      "done": "Tu mapeo está listo",
+      "progress": "{done} de {total} etapas de la demostración concluidas · {name}",
+      "heroTitle": "Resultado disponible",
+      "heroDescription": "Completaste el perfil conductual y el escenario de competencia. El análisis ya está listo para que lo leas.",
+      "viewResult": "Ver mi resultado",
+      "nextTitle": "Lo demás queda para el programa",
+      "nextBody": "PDI, temporada y reevaluación ocurren en el programa completo, a partir del mapeo de todas las competencias del cargo. En la demostración, el itinerario termina en tu resultado."
     }
   },
   "JourneyHistory": {
@@ -1885,7 +1895,10 @@
       "notStartedSubtitle": "Tu Plan de Desarrollo Individual se creará después de completar el mapeo de competencias.",
       "backDashboard": "Volver al dashboard",
       "continueAssessment": "Continuar mapeo →",
-      "goAssessment": "Ir al mapeo"
+      "goAssessment": "Ir al mapeo",
+      "tastingTitle": "El PDI queda para el programa",
+      "tastingSubtitle": "En la demostración haces el perfil conductual y un escenario de competencia. El plan de desarrollo nace del mapeo completo del cargo, en el programa.",
+      "viewResult": "Ver mi resultado"
     },
     "sections": {
       "developingDescriptors": "Descriptores en Desarrollo",

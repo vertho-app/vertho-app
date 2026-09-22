@@ -9,6 +9,14 @@
  * guard `status-literal-guard` congela o estoque de literais restantes.
  */
 
+/**
+ * Status de uma fase da jornada do participante (`carregarJornada`) que não
+ * existe para o convidado da degustação: PDI, temporada e reavaliação. Não é
+ * "bloqueada" (nada que ele faça a libera) nem "em curso". Não é persistido:
+ * nasce na leitura e é lido pela jornada e pela fase atual da home.
+ */
+export const FASE_FORA_DA_DEGUSTACAO = 'fora_da_degustacao' as const;
+
 /** temporada_semana_progresso.status */
 export const PROGRESSO = {
   PENDENTE: 'pendente',

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import { Loader2, Check, ArrowRight, Clock, Archive } from 'lucide-react';
+import { FASE_FORA_DA_DEGUSTACAO } from '@/lib/status';
 import { loadJornada } from './jornada-actions';
 
 const FASE_HREF: Record<number, string> = {
@@ -58,17 +59,27 @@ export default function JornadaPage() {
 
   const { colaborador, fases } = data;
   const total = fases.length;
-  const faseAtualIdx = fases.findIndex((f: any) => f.status !== 'completed');
-  const concluidas = faseAtualIdx < 0 ? total : faseAtualIdx;
+  // Convidado da degustação: PDI, temporada e reavaliação chegam como "fora da
+  // degustação". Continuam na linha do tempo, mas não são etapa a cumprir, e a
+  // jornada dele termina no resultado do mapeamento. Sem isto, a fase 2
+  // concluída empurrava a 3 para "em curso", apontando para um PDI que não vem.
+  const degustacao = data.degustacao === true;
+  const foraDaDegustacao = (f: any) => f?.status === FASE_FORA_DA_DEGUSTACAO;
+  const totalEmJogo = fases.filter((f: any) => !foraDaDegustacao(f)).length;
+  const faseAtualIdx = fases.findIndex((f: any) => f.status !== 'completed' && !foraDaDegustacao(f));
+  const concluidas = faseAtualIdx < 0 ? totalEmJogo : faseAtualIdx;
   const faseAtual = faseAtualIdx >= 0 ? fases[faseAtualIdx] : null;
-  const faseNum = faseAtual?.fase || total;
-  const pct = Math.round((concluidas / total) * 100);
+  // Tudo concluído: o destaque fica na última fase que existe para a pessoa.
+  const faseNum = faseAtual?.fase || fases[totalEmJogo - 1]?.fase || total;
+  const pct = totalEmJogo ? Math.round((concluidas / totalEmJogo) * 100) : 0;
+  const degustacaoConcluida = degustacao && !faseAtual;
   const firstName = (colaborador.nome_completo || '').split(' ')[0] || '';
   const phaseTokens = PHASE_TOKENS[faseNum] ?? PHASE_TOKENS[2];
   const usaPerfilExterno = !!data.empresaPerfilExternoFonte;
   const perfilComportamentalLiberado = data.perfilComportamentalLiberado !== false;
 
   function faseHref(fase: any) {
+    if (foraDaDegustacao(fase)) return null;
     // Basta ter o PDF: ele já é conteúdo para ver, mesmo sem a extração ter rodado.
     if (fase?.fase === 1 && usaPerfilExterno && !data.temPerfilExterno && !(data as any).temPdfPerfilExterno) return null;
     if (fase?.fase === 1 && !usaPerfilExterno && !colaborador.perfil_dominante && !perfilComportamentalLiberado) return null;
@@ -100,9 +111,14 @@ export default function JornadaPage() {
 
   const enriched = fases.map((f: any, i: number) => ({
     ...f,
-    displayStatus: i < concluidas ? 'completed' : i === faseAtualIdx ? 'current' : 'pending',
+    displayStatus: foraDaDegustacao(f) ? 'outside'
+      : i < concluidas ? 'completed' : i === faseAtualIdx ? 'current' : 'pending',
     tokens: PHASE_TOKENS[f.fase] ?? PHASE_TOKENS[2],
   }));
+
+  // O botão do topo: com a degustação concluída, é o resultado que ela já tem.
+  const heroHref = degustacaoConcluida ? FASE_HREF[2] : faseHref(faseAtual);
+  const heroLabel = degustacaoConcluida ? t('degustacao.viewResult') : ctaLabel(faseAtual);
 
   return (
     <div
@@ -135,11 +151,13 @@ export default function JornadaPage() {
               </em>
             </>
           ) : (
-            <em style={{ color: 'var(--phase-accent)' }}>{t('header.done')}</em>
+            <em style={{ color: 'var(--phase-accent)' }}>{degustacao ? t('degustacao.done') : t('header.done')}</em>
           )}
         </h1>
         <p className="text-sm text-white/55">
-          {t('header.progress', { done: concluidas, total, name: firstName || colaborador.nome_completo })}
+          {degustacao
+            ? t('degustacao.progress', { done: concluidas, total: totalEmJogo, name: firstName || colaborador.nome_completo })
+            : t('header.progress', { done: concluidas, total, name: firstName || colaborador.nome_completo })}
         </p>
         <button
           onClick={() => router.push('/dashboard/jornada/historico')}
@@ -171,7 +189,7 @@ export default function JornadaPage() {
                 lineHeight: 1.05,
                 letterSpacing: '-0.02em',
               }}>
-                {faseAtual?.titulo || <em style={{ color: 'var(--phase-accent)' }}>{t('hero.allDone')}</em>}
+                {faseAtual?.titulo || <em style={{ color: 'var(--phase-accent)' }}>{degustacaoConcluida ? t('degustacao.heroTitle') : t('hero.allDone')}</em>}
               </h2>
             </div>
             <span
@@ -189,7 +207,7 @@ export default function JornadaPage() {
             </span>
           </div>
           <p className="text-sm text-white/65 leading-relaxed mb-5">
-            {faseDesc(faseAtual)}
+            {degustacaoConcluida ? t('degustacao.heroDescription') : faseDesc(faseAtual)}
           </p>
           <div className="grid grid-cols-2 gap-3 mb-5">
             <div className="rounded-2xl bg-white/[0.04] border border-white/[0.08] p-4">
@@ -205,19 +223,18 @@ export default function JornadaPage() {
           </div>
           <button
             onClick={() => {
-              const href = faseHref(faseAtual);
-              if (href) router.push(href);
+              if (heroHref) router.push(heroHref);
             }}
-            disabled={!faseHref(faseAtual)}
+            disabled={!heroHref}
             className="w-full py-4 rounded-2xl font-bold text-base transition-all duration-200 flex items-center justify-center gap-2"
             style={{
               background: 'var(--phase-accent)',
               color: '#062032',
               boxShadow: '0 10px 24px var(--phase-glow)',
-              opacity: faseHref(faseAtual) ? 1 : 0.65,
+              opacity: heroHref ? 1 : 0.65,
             }}>
-            {faseHref(faseAtual) ? ctaLabel(faseAtual) : t('hero.companyHandled')}
-            {faseHref(faseAtual) && <ArrowRight size={18} />}
+            {heroHref ? heroLabel : t('hero.companyHandled')}
+            {heroHref && <ArrowRight size={18} />}
           </button>
         </section>
 
@@ -298,7 +315,10 @@ export default function JornadaPage() {
                         fontSize: 13,
                         color: isDone || isCurrent ? tk.accent : 'rgba(255,255,255,0.3)',
                       }}>
-                        {isDone ? t('timeline.completed') : isCurrent ? t('timeline.current') : t('timeline.locked')}
+                        {isDone ? t('timeline.completed')
+                          : isCurrent ? t('timeline.current')
+                          : f.displayStatus === 'outside' ? t('timeline.outsideTasting')
+                          : t('timeline.locked')}
                       </p>
                       {isCurrent && (
                         <p className="text-sm text-white/55 mt-1.5 leading-relaxed">
@@ -343,14 +363,16 @@ export default function JornadaPage() {
               {t('next.eyebrow')}
             </p>
             <h4 style={{ ...serifStyle, fontSize: 17, color: '#fff', marginBottom: 4 }}>
-              {faseAtual ? t('next.finish', { title: faseAtual.titulo.toLowerCase() }) : t('next.followEvolution')}
+              {faseAtual
+                ? t('next.finish', { title: faseAtual.titulo.toLowerCase() })
+                : degustacao ? t('degustacao.nextTitle') : t('next.followEvolution')}
             </h4>
             <p className="text-sm text-white/55 leading-relaxed">
               {faseAtual
                 ? faseAtual.fase === 1 && usaPerfilExterno
                   ? t('next.external')
                   : t('next.default')
-                : t('next.done')}
+                : degustacao ? t('degustacao.nextBody') : t('next.done')}
             </p>
           </div>
         </section>

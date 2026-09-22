@@ -974,6 +974,7 @@
       "completed": "completed",
       "current": "in progress",
       "locked": "locked",
+      "outsideTasting": "not part of the demo",
       "revisitar": {
         "1": "See my behavioral profile",
         "2": "See assessment results",
@@ -989,6 +990,15 @@
       "external": "Your next step takes place in Vertho's competency mapping.",
       "default": "Finish this phase to advance on your development journey.",
       "done": "View your consolidated progress report and next steps."
+    },
+    "degustacao": {
+      "done": "Your mapping is ready",
+      "progress": "{done} of {total} demo steps completed · {name}",
+      "heroTitle": "Result available",
+      "heroDescription": "You completed the behavioral profile and the competency scenario. The analysis is ready for you to read.",
+      "viewResult": "View my result",
+      "nextTitle": "The rest is part of the full program",
+      "nextBody": "Development plan, season and reassessment happen in the full program, based on the mapping of every competency for the role. In the demo, the journey ends at your result."
     }
   },
   "JourneyHistory": {
@@ -1885,7 +1895,10 @@
       "notStartedSubtitle": "Your Individual Development Plan will be created after you complete the competency mapping.",
       "backDashboard": "Return to dashboard",
       "continueAssessment": "Continue mapping →",
-      "goAssessment": "Go to mapping"
+      "goAssessment": "Go to mapping",
+      "tastingTitle": "The development plan is part of the full program",
+      "tastingSubtitle": "In the demo you complete the behavioral profile and one competency scenario. The development plan comes from mapping every competency for the role, in the full program.",
+      "viewResult": "View my result"
     },
     "sections": {
       "developingDescriptors": "Descriptors in Development",

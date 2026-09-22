@@ -974,6 +974,7 @@
       "completed": "concluída",
       "current": "em curso",
       "locked": "bloqueada",
+      "outsideTasting": "fora da degustação",
       "revisitar": {
         "1": "Ver o meu perfil comportamental",
         "2": "Ver resultado do mapeamento",
@@ -989,6 +990,15 @@
       "external": "A sua próxima etapa acontece no mapeamento de competências da Vertho.",
       "default": "Finalize esta fase para avançar no seu percurso de desenvolvimento.",
       "done": "Visualize o seu relatório consolidado de evolução e próximos passos."
+    },
+    "degustacao": {
+      "done": "O seu mapeamento está pronto",
+      "progress": "{done} de {total} etapas da degustação concluídas · {name}",
+      "heroTitle": "Resultado disponível",
+      "heroDescription": "Concluiu o perfil comportamental e o cenário de competência. A análise já está pronta para ler.",
+      "viewResult": "Ver o meu resultado",
+      "nextTitle": "O restante fica para o programa",
+      "nextBody": "PDI, temporada e reavaliação acontecem no programa completo, a partir do mapeamento de todas as competências da função. Na degustação, o percurso termina no seu resultado."
     }
   },
   "JourneyHistory": {
@@ -1885,7 +1895,10 @@
       "notStartedSubtitle": "O seu Plano de Desenvolvimento Individual será criado depois de completar o mapeamento de competências.",
       "backDashboard": "Voltar ao dashboard",
       "continueAssessment": "Continuar mapeamento →",
-      "goAssessment": "Ir para o mapeamento"
+      "goAssessment": "Ir para o mapeamento",
+      "tastingTitle": "O PDI fica para o programa",
+      "tastingSubtitle": "Na degustação faz o perfil comportamental e um cenário de competência. O plano de desenvolvimento nasce do mapeamento completo da função, no programa.",
+      "viewResult": "Ver o meu resultado"
     },
     "sections": {
       "developingDescriptors": "Descritores em Desenvolvimento",

@@ -66,7 +66,7 @@ export async function loadHomeData() {
       .order('criado_em', { ascending: false })
       .limit(1).maybeSingle(),
     sb.from('empresas')
-      .select('sys_config')
+      .select('sys_config, is_demo')
       .eq('id', colab.empresa_id)
       .maybeSingle(),
     sb.from('respostas')
@@ -85,6 +85,9 @@ export async function loadHomeData() {
     trilha: trilhaRes.data ?? null,
     sysConfig: ctxTurma.config,
     respostasCount: respRes.count ?? 0,
+    // Leitura que falhou fica `undefined`, e os loaders perguntam de novo (e
+    // registram se falhar outra vez) em vez de tratar o convidado como cliente.
+    empresaIsDemo: empCfgRes.data ? (empCfgRes.data as any).is_demo === true : undefined,
   };
 
   // O RH é ADMIN da empresa, não participante: a home dele é o panorama do

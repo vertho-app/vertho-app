@@ -4,6 +4,8 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { findColabByEmail } from '@/lib/authz';
 import { resolverMarcaPdf, nomeArquivoMarca } from '@/lib/pdf-marca';
 import { storageSlug } from '@/lib/storage-slug';
+import { totalDoMapeamento } from '@/lib/demo/convidado-demo';
+import { colaboradorEmDegustacao } from '@/lib/demo/degustacao-mapeamento';
 
 /**
  * Carrega o PDI ativo do colaborador.
@@ -33,9 +35,13 @@ export async function loadPDI() {
   if (!rel) {
     // Verificar se o colab já completou TODAS as competências do top5 do cargo
     // (não só "tem pelo menos uma resposta" — diferencia "em progresso" de "tudo concluído, aguardando admin gerar PDI")
+    // O convidado da degustação responde uma competência só, e o PDI não existe
+    // para ele: a tela diz isso em vez de "PDI em preparação".
+    const degustacaoP = colaboradorEmDegustacao(sb, colab);
     const { data: cargoEmp } = await sb.from('cargos_empresa')
       .select('top5_workshop').eq('empresa_id', colab.empresa_id).eq('nome', colab.cargo).maybeSingle();
-    const totalTop5 = (cargoEmp?.top5_workshop || []).length;
+    const degustacao = await degustacaoP;
+    const totalTop5 = totalDoMapeamento(cargoEmp?.top5_workshop, degustacao);
     const { count: respondidas } = await sb.from('respostas')
       .select('id', { count: 'exact', head: true })
       .eq('colaborador_id', colab.id)
@@ -47,6 +53,7 @@ export async function loadPDI() {
       concluiuAvaliacao,
       respondidas: respondidas || 0,
       totalAvaliacao: totalTop5,
+      degustacao,
     };
   }
 

@@ -4,8 +4,10 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { getDashboardView } from '@/lib/authz';
 import { tenantDb } from '@/lib/tenant-db';
 import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/lib/votacao/status';
-import { PROGRESSO, TRILHA } from '@/lib/status';
+import { FASE_FORA_DA_DEGUSTACAO, PROGRESSO, TRILHA } from '@/lib/status';
 import type { UserContext } from '@/types';
+import { totalDoMapeamento } from '@/lib/demo/convidado-demo';
+import { colaboradorEmDegustacao } from '@/lib/demo/degustacao-mapeamento';
 import { ehSemanaDeImplementacao, totalSemanasDoPlano } from '@/lib/season-engine/trilha-runtime';
 import { estaAtrasada } from '@/lib/season-engine/atraso';
 import { semanaLiberadaEm, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
@@ -32,6 +34,8 @@ export interface HomeSharedData {
   trilha?: any;
   sysConfig?: any;
   respostasCount?: number;
+  /** `empresas.is_demo`, lido junto com a config: decide se o mapeamento é o da degustação. */
+  empresaIsDemo?: boolean;
 }
 
 /** Colunas que a jornada precisa no colaborador (superset do default do authz). */
@@ -83,14 +87,21 @@ export async function carregarDashboardData(ctx: UserContext, shared?: HomeShare
   ] as const;
 
   const [
-    { data: cargoEmp, error: errComp },
-    { count: respondidas, error: errResp },
-    { count: avaliadas, error: errAval },
-  ] = await Promise.all(progressoQueries);
+    [
+      { data: cargoEmp, error: errComp },
+      { count: respondidas, error: errResp },
+      { count: avaliadas, error: errAval },
+    ],
+    degustacao,
+  ] = await Promise.all([
+    Promise.all(progressoQueries),
+    colaboradorEmDegustacao(sb, colab, shared?.empresaIsDemo),
+  ]);
 
   // A régua da Fase 2 é o Top 5 do CARGO. Contar todas as competências da
-  // empresa fazia a Bruna aparecer incompleta mesmo com 5/5 respondidas.
-  const totalComp = Array.isArray(cargoEmp?.top5_workshop) ? cargoEmp.top5_workshop.length : 0;
+  // empresa fazia a Bruna aparecer incompleta mesmo com 5/5 respondidas. O
+  // convidado da degustação responde só uma, e o total é o dele.
+  const totalComp = totalDoMapeamento(cargoEmp?.top5_workshop, degustacao);
 
   // `count` vem `null` quando a query falha, e `null || 0` = 0. Sem esta
   // checagem a home mostrava "0 de 0" e "0% de progresso" para quem respondeu
@@ -186,12 +197,23 @@ export async function carregarDashboardData(ctx: UserContext, shared?: HomeShare
 export async function carregarJornada(colab: any, shared?: HomeSharedData) {
   const sb = createSupabaseAdmin();
 
-  const cfg = shared?.sysConfig !== undefined
-    ? (shared.sysConfig || {})
-    : (((await sb.from('empresas')
-        .select('sys_config')
-        .eq('id', colab.empresa_id)
-        .maybeSingle()).data?.sys_config) as any) || {};
+  // `is_demo` vem na MESMA leitura da config: sem ela, a régua da degustação
+  // pagaria uma consulta a mais por pageview de qualquer cliente real.
+  let empresaIsDemo = shared?.empresaIsDemo;
+  let cfg: any;
+  if (shared?.sysConfig !== undefined) {
+    cfg = shared.sysConfig || {};
+  } else {
+    const { data: empresa, error: erroEmpresa } = await sb.from('empresas')
+      .select('sys_config, is_demo')
+      .eq('id', colab.empresa_id)
+      .maybeSingle();
+    // Falha aqui deixa `is_demo` em aberto: a régua da degustação pergunta de
+    // novo e, se falhar outra vez, registra a degradação.
+    if (erroEmpresa) console.warn('[jornada] config da empresa indisponível:', erroEmpresa.message);
+    cfg = ((empresa as any)?.sys_config as any) || {};
+    if (empresaIsDemo === undefined && empresa) empresaIsDemo = (empresa as any).is_demo === true;
+  }
   const empresaPerfilExternoFonte = cfg.perfil_externo_fonte ?? null;
   const usaPerfilExterno = !!empresaPerfilExternoFonte;
   const perfilComportamentalLiberado = isPerfilComportamentalLiberado(cfg);
@@ -217,10 +239,13 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
   });
 
   // Fase 2 — Avaliação (respostas de competências do fluxo do dashboard)
-  // Total = quantas competências o cargo tem no top5_workshop
+  // Total = quantas competências o cargo tem no top5_workshop, com o teto da
+  // degustação para o convidado (o mesmo corte do assessment).
+  const degustacaoP = colaboradorEmDegustacao(sb, colab, empresaIsDemo);
   const { data: cargoEmp } = await sb.from('cargos_empresa')
     .select('top5_workshop').eq('empresa_id', colab.empresa_id).eq('nome', colab.cargo).maybeSingle();
-  const totalComp = (cargoEmp?.top5_workshop || []).length;
+  const degustacao = await degustacaoP;
+  const totalComp = totalDoMapeamento(cargoEmp?.top5_workshop, degustacao);
 
   // Respondidas = contagem de respostas do colab (qualquer canal, sem filtro de IA4)
   const respondidasCount = shared?.respostasCount !== undefined
@@ -239,6 +264,29 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     status: avaliacaoCompleta ? 'completed' : avaliacaoIniciada ? 'current' : 'pending',
     data: null,
   });
+
+  const retornoBase = {
+    colaborador: colab,
+    fases,
+    empresaPerfilExternoFonte,
+    temPerfilExterno,
+    // PDF original existe mesmo antes da extração rodar — e é ele que a pessoa
+    // reconhece. Sem isto a Fase 1 fica "concluída" e sem destino clicável.
+    temPdfPerfilExterno: !!colab.perfil_externo_pdf_path,
+    perfilComportamentalLiberado,
+    degustacao,
+  };
+
+  // Na degustação a jornada acaba no resultado do mapeamento. PDI, temporada e
+  // reavaliação não existem para o convidado: "bloqueada" prometeria que algo
+  // as libera, e com a fase 2 concluída a 3 viraria "em curso" apontando para
+  // um PDI que nunca será gerado.
+  if (degustacao) {
+    for (const [fase, titulo] of [[3, 'PDI'], [4, 'Temporada'], [5, 'Reavaliação']] as const) {
+      fases.push({ fase, titulo, descricao: 'Fora da degustação', status: FASE_FORA_DA_DEGUSTACAO, data: null });
+    }
+    return retornoBase;
+  }
 
   // Trilha (necessária pra liberar Fase 3) — Motor de Temporadas
   const trilha = shared?.trilha !== undefined
@@ -329,16 +377,7 @@ export async function carregarJornada(colab: any, shared?: HomeSharedData) {
     data: null,
   });
 
-  return {
-    colaborador: colab,
-    fases,
-    empresaPerfilExternoFonte,
-    temPerfilExterno,
-    // PDF original existe mesmo antes da extração rodar — e é ele que a pessoa
-    // reconhece. Sem isto a Fase 1 fica "concluída" e sem destino clicável.
-    temPdfPerfilExterno: !!colab.perfil_externo_pdf_path,
-    perfilComportamentalLiberado,
-  };
+  return retornoBase;
 }
 
 // ── KPIs da home (ciclo semanal) ───────────────────────────────────────────
@@ -484,8 +523,10 @@ export async function carregarHomeKpis(colab: any, jornadaR: Promise<any> | any,
     let faseAtual = null;
     try {
       const jr = await jornadaR;
-      if (!jr?.error && jr?.fases?.length) {
-        const fases = jr.fases;
+      // Fase fora da degustação não é "a próxima": para o convidado, a última
+      // fase que existe é a 2, e concluí-la é concluir a jornada dele.
+      const fases = (jr?.fases || []).filter(f => f.status !== FASE_FORA_DA_DEGUSTACAO);
+      if (!jr?.error && fases.length) {
         const proxima = fases.find(f => f.status !== 'completed');
         if (proxima) {
           faseAtual = { numero: proxima.fase, titulo: proxima.titulo, status: proxima.status };

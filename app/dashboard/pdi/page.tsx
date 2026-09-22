@@ -220,22 +220,37 @@ export default function PDIPage() {
 
   // Estados sem PDI ativo
   if (!data.pdiAtivo) {
+    // O convidado da degustação nunca terá PDI: "em preparação" seria promessa
+    // falsa, então a tela diz que ele fica para o programa e leva ao resultado.
+    const degustacao = data.degustacao === true;
     return (
       <PageContainer>
         <PageHero
           eyebrow={t('eyebrowShort')}
-          title={data.concluiuAvaliacao ? t('empty.preparingTitle') : t('empty.assessmentTitle')}
-          subtitle={data.concluiuAvaliacao
-            ? t('empty.preparingSubtitle')
-            : data.totalAvaliacao > 0
-              ? t('empty.progressSubtitle', { done: data.respondidas, total: data.totalAvaliacao })
-              : t('empty.notStartedSubtitle')}
+          title={degustacao
+            ? t('empty.tastingTitle')
+            : data.concluiuAvaliacao ? t('empty.preparingTitle') : t('empty.assessmentTitle')}
+          subtitle={degustacao
+            ? t('empty.tastingSubtitle')
+            : data.concluiuAvaliacao
+              ? t('empty.preparingSubtitle')
+              : data.totalAvaliacao > 0
+                ? t('empty.progressSubtitle', { done: data.respondidas, total: data.totalAvaliacao })
+                : t('empty.notStartedSubtitle')}
         />
         <div className="flex justify-center">
           <div className="rounded-2xl border border-white/[0.06] p-8 text-center max-w-[520px] w-full"
             style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(12px)' }}>
             <AlertCircle size={40} className="text-gray-500 mx-auto mb-4" />
-            {data.concluiuAvaliacao ? (
+            {degustacao ? (
+              <button onClick={() => router.push('/dashboard/assessment')}
+                className="px-6 py-3 rounded-full text-sm font-bold text-white"
+                style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
+                {data.concluiuAvaliacao
+                  ? t('empty.viewResult')
+                  : data.respondidas > 0 ? t('empty.continueAssessment') : t('empty.goAssessment')}
+              </button>
+            ) : data.concluiuAvaliacao ? (
               <button onClick={() => router.push('/dashboard')}
                 className="px-6 py-3 rounded-full text-sm font-bold text-white"
                 style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>

@@ -279,6 +279,14 @@ export const DEGRADACAO = {
    */
   DEGUSTACAO_CASA_INDISPONIVEL: 'degustacao-casa-indisponivel',
   /**
+   * demo (lib/demo/degustacao-mapeamento.ts): a leitura de `empresas.is_demo`
+   * falhou para alguém que pode ser convidado, e home, jornada ou PDI contaram
+   * o Top 5 inteiro. `aviso`: para cliente real a contagem é a certa; para o
+   * convidado a jornada volta a dizer "Iniciar mapeamento" depois de ele ter
+   * respondido a única competência da degustação.
+   */
+  DEGUSTACAO_REGUA_INDISPONIVEL: 'degustacao-regua-indisponivel',
+  /**
    * trilha (fechamento): a leitura das evidências das semanas falhou, e a
    * nota_pos foi triangulada só com o cenário e o acumulado. `critico`: a
    * evidência acumulada é a perna que impede a nota de sair de uma conversa só,
