@@ -1735,6 +1735,48 @@ avanço real. O seletor **Métricas · semana N** recorta eventos/consumo/evidê
 de etapa recorta somente as pessoas da tabela. O envio é notificação da semana acessível e a própria
 tela ainda aplica os gates de data e progressão — envio e liberação não são sinônimos.
 
+### 13.1 A linha do painel fala da ETAPA da pessoa (22/09/2026)
+
+Régua do dono: **sem filtro de semana, todo sinal da linha — acesso, consumo, evidência, tutor e
+envio — se refere à semana em que a PESSOA está**, não ao relógio da cadência. O roll-up publica
+`semanaDoSinal` (`semFiltro ?? semanaAcessivel`), e a tela nomeia essa semana em vez de exibir selos
+sem data. O sintoma que originou a regra: uma linha dizia “Semana 4 · etapa pendente” ao lado de
+“Evidência” e das pílulas — os três eram verdade sobre semanas diferentes (etapa 4, cadência 10).
+
+| Sinal | Conta quando | Armadilha |
+|---|---|---|
+| Consumo | vídeo ou podcast **concluído**; material de leitura (texto/estudo de caso) **aberto** | PDF abre em outra aba e não tem evento de conclusão — abrir é o máximo mensurável |
+| Envio (pílula) | carimbo `ultima_pilulaN_em` posterior ao último rolo semanal, quando a semana pedida é a **acessível** | o carimbo é só o ÚLTIMO envio: perguntar por outra semana devolve `null` (“sem registro”), nunca um ✓ emprestado |
+| Evidência | etapa concluída (ou jornada concluída) | quem entrega **avança**, então a linha de quem está pendente nunca mostra entrega — por isso virou frase, não selo |
+
+🔴 **`conteudo_consumido` saiu da régua de consumo do painel.** O botão “Marcar como realizado” não
+existe mais na tela (§16); hoje a coluna é gravada sozinha ao ENTRAR na conversa ou abrir o
+Tira-Dúvidas (`app/dashboard/temporada/semana/[week]/page.tsx`), ou seja, virou “começou a
+conversar”. `Medido 22/09/2026`: “consumiram” caiu de 12 → 6 (Ibipeba) e 24 → 9 (Macaé) — o número
+era inflado. `consumiuConteudo` (fonte única) **continua** valendo para os gates que a usam.
+
+🔴 **A cadência envia a semana ACESSÍVEL** (`lib/fase4/trigger-diario-empresa.ts:429`), então o
+carimbo de pílula fala da etapa da pessoa. Amarrar essa leitura a `semana_atual` fez 92 de 117
+pessoas exibirem “Envio sem registro”, apagando um envio verdadeiro (corrigido em `70c63aef` no
+mesmo dia). Antes de decidir o que uma coluna significa, leia **quem a escreve**.
+
+**Selo binário morre quando o sinal é da etapa.** “Entrega” acendia para 18 de 117 pessoas (7 que
+fecharam a etapa e esperam a próxima abrir, 11 com a jornada concluída) e era ícone cinza nas outras
+99. Virou frase com a semana nomeada (`components/engajamento/qualidade-evidencia.tsx::EntregaDaEtapa`):
+*Evidência da semana 4 pendente* · *Evidência da semana 7 entregue · Média* · *Jornada concluída ·
+última reflexão Alta*. A última é a **única** leitura fora da etapa, porque quem terminou não tem
+etapa a descrever.
+
+**Qualidade da reflexão para RH e gestor:** as duas superfícies veem o NÍVEL (alta/média/baixa) por
+pessoa e uma faixa de resumo; o texto, o insight e a transcrição continuam só em
+`/admin/vertho/evidencias` (platform admin). O `select` pede `qualidade:reflexao->>qualidade_reflexao`
+— o texto não sai do banco nesta leitura, e há teste que falha se alguém pedir a coluna inteira.
+Semana de missão não recebe nível. O colaborador **não** é avisado dessa visibilidade (decisão do
+dono, 22/09/2026).
+
+Testes: `tests/unit/engajamento-sinais-da-etapa.test.ts` (etapa, pílula, jornada concluída) e
+`tests/unit/engajamento-consumo-regua.test.ts` (os cinco estados de consumo).
+
 ---
 
 ## 14. Operacao

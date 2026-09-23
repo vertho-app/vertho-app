@@ -425,6 +425,14 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   turma nova, rode o bloco "Acesso da turma importada" de `docs/CHECKLISTS.md` §3. O sinal de quanto
   custa: dos 126 diretores de Macaé, os **89 com conta são exatamente os 89 que se mapearam** — conta
   ausente parece desengajamento. Detalhe: `docs/ARQUITETURA.md` §3.1.2.
+- NÃO decidir o que uma coluna significa lendo só quem a LÊ — leia **quem a escreve**. Em 22/09/2026
+  amarrei o carimbo de pílula ao relógio da cadência (`semana_atual`) e 92 das 117 pessoas em jornada
+  passaram a exibir "Envio sem registro", apagando um envio verdadeiro: o remetente manda a semana
+  **acessível** (`lib/fase4/trigger-diario-empresa.ts:429`) desde 23/08. No mesmo dia,
+  `conteudo_consumido` já era outra coisa que o nome sugere (o botão saiu; hoje grava sozinho ao
+  entrar na conversa). Corolário de tela: quando o sinal passa a ser da ETAPA da pessoa, todo selo
+  aceso/apagado precisa ser reavaliado — "Entrega" nunca acendia para quem está pendente, porque quem
+  entrega avança. Detalhe: `docs/ARQUITETURA.md` §13.1.
 - NÃO abrir gate de autenticação por regra genérica — é **allowlist explícita, com o motivo ao lado**.
   O vídeo de convite precisa ser visto por quem ainda NÃO tem login (exigir sessão é pedir que a
   pessoa faça primeiro o que o vídeo explica), então `/v/{guid}` ganhou exceção em
