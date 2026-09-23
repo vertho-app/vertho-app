@@ -1359,3 +1359,28 @@ que se mapearam em 24/08 ficaram fora para sempre. Um professor escreveu em 21/0
 certinho mas acho q deu algum problema pq n to recebendo nada ainda"*. Reengajamento disparado no
 mesmo dia (125 mensagens, 0 falhas de envio, 3 números sem WhatsApp): **2 pessoas fizeram o perfil
 na primeira hora**. Memórias `project_cargo_professor_ibipeba` e `project_funil_operacional_medido`.
+
+## § Vou ler uma COLUNA/CARIMBO do banco para decidir o que a tela diz
+
+**Padrão que casa:** `ultima_*_em`, `conteudo_consumido`, qualquer flag booleana de progresso ·
+`lib/engajamento/roll-up.ts` · painel de engajamento (RH, gestor, `/admin/engajamento`) · qualquer
+sinal exibido como selo aceso/apagado.
+
+- [ ] **Leia QUEM ESCREVE a coluna**, não só quem lê — `git grep -n "<coluna>:" -- actions lib trigger`.
+      Nome de coluna envelhece; escritor não mente.
+- [ ] **Se for carimbo de "último X"**, pergunte de qual semana ele fala. Guardar só o último envio
+      significa que ele responde por UMA semana — as demais são `null`, nunca `true`/`false`.
+- [ ] **Se o sinal passou a ser da ETAPA da pessoa**, reavalie todo selo binário da linha: o que só
+      pode estar apagado vira ruído (e frase com a semana nomeada informa nos três estados).
+- [ ] **Meça o antes/depois no banco antes de subir**: quantas linhas mudam de estado com a régua
+      nova? Um número que cai pela metade é notícia para o dono, não detalhe de implementação.
+
+**Consequência medida (22/09/2026):** amarrei o carimbo de pílula a `fase4_envios.semana_atual` (o
+relógio da cadência) supondo que a pílula anunciava o calendário. O remetente manda a semana
+**acessível** desde 23/08 (`lib/fase4/trigger-diario-empresa.ts:429`): **92 das 117 pessoas** em
+jornada ativa passaram a exibir "Envio sem registro", apagando um envio verdadeiro — e o teste que
+escrevi junto TRAVOU a premissa errada, o que é pior que não ter teste. Corrigido no mesmo dia
+(`70c63aef`). Na mesma rodada, `conteudo_consumido` já significava outra coisa que o nome sugere (o
+botão "Marcar como realizado" saiu em 27/08; hoje grava sozinho ao entrar na conversa) e inflava
+"consumiram" em 2x. Memória `project_engajamento_telemetria`; travas em
+`tests/unit/engajamento-sinais-da-etapa.test.ts` e `tests/unit/engajamento-consumo-regua.test.ts`.
