@@ -57,7 +57,7 @@ import { montarContextoIA3, montarCheckIA3Prompt } from '@/lib/ia3-cenarios';
 import { carregarContextoRespostaIA4 } from '@/lib/ia4-avaliacao';
 import { reavaliarRespostaCore } from '@/lib/ia4-reavaliacao';
 import { montarCheckIA4Prompt } from '@/lib/check-ia4-core';
-import { importarCompetenciasCSV } from '@/app/admin/competencias/actions';
+import { importarCompetenciasCSV, salvarCompetencia } from '@/app/admin/competencias/actions';
 import { iniciarReavaliacaoLote } from '@/actions/fase5/reavaliacao';
 import { checkCenarioBUm } from '@/actions/fase5/cenarios-b';
 
@@ -180,6 +180,51 @@ describe('importarCompetenciasCSV', () => {
 
     sb.reset();
     expect(await importarCompetenciasCSV(EMP, csv(PROF))).toEqual({ success: true, message: '0 novas (todas já existiam)' });
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it('planilha SEM códigos: o sistema gera, todo descritor sai com cod_desc, e reimportar não duplica', async () => {
+    tabelas.competencias = [];
+    const planilha = [
+      { nome: 'Gestão de Pessoas', nome_curto: 'P1' }, { nome: 'Gestão de Pessoas', nome_curto: 'P2' },
+      { nome: 'Gestão de Projetos', nome_curto: 'Q1' },
+    ].map((l) => ({ ...l, cargo: AUX, descricao: 'D', n1_gap: '1', n2_desenvolvimento: '2', n3_meta: '3', n4_referencia: '4' }));
+
+    const r = await importarCompetenciasCSV(EMP, planilha);
+    expect(r).toEqual({ success: true, message: '3 competências importadas · 5 códigos gerados pelo sistema' });
+    const insert = sb.escritas.find((e) => e.tabela === 'competencias' && e.op === 'insert')!;
+    expect(insert.payload.map((l: any) => [l.cod_comp, l.cod_desc])).toEqual([
+      ['AUX01', 'AUX01-D01'], ['AUX01', 'AUX01-D02'], ['AUX02', 'AUX02-D01'],
+    ]);
+
+    tabelas.competencias.push(...insert.payload.map((l: any, i: number) => ({ id: `novo-${i}`, ...l })));
+    sb.reset();
+    expect(await importarCompetenciasCSV(EMP, planilha)).toEqual({ success: true, message: '0 novas (todas já existiam)' });
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it('código repetido para competências diferentes no mesmo cargo NÃO importa nada', async () => {
+    const r = await importarCompetenciasCSV(EMP, [{ nome: 'Outra', cargo: AUX, cod_comp: 'TCH12', nome_curto: 'X', n1_gap: '1' }]);
+    expect(r.success).toBe(false);
+    expect(r.error).toContain(`TCH12 (${AUX}): "Autocuidado" e "Outra"`);
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it('formulário "Nova competência" sem código: gera; na EDIÇÃO sem código, o código atual fica', async () => {
+    await salvarCompetencia(EMP, { nome: 'Gestão de Pessoas', cargo: AUX, cod_comp: '' });
+    const criada = sb.escritas.find((e) => e.tabela === 'competencias' && e.op === 'insert')!;
+    expect(criada.payload.cod_comp).toBe('AUX01');
+
+    sb.reset();
+    await salvarCompetencia(EMP, { id: 'a-comp', nome: 'Autocuidado', cargo: AUX, cod_comp: '' });
+    const editada = sb.escritas.find((e) => e.tabela === 'competencias' && e.op === 'update')!;
+    expect(editada.payload).not.toHaveProperty('cod_comp');
+  });
+
+  it('erro ao ler a matriz da empresa NÃO importa: código gerado sem enxergar o banco repetiria', async () => {
+    sb.falharEm({ tabela: 'competencias', op: 'select', mensagem: 'timeout no pool' });
+    expect(await importarCompetenciasCSV(EMP, csv(AUX)))
+      .toEqual({ success: false, error: 'Leitura da matriz da empresa: timeout no pool' });
     expect(sb.escritas).toHaveLength(0);
   });
 });

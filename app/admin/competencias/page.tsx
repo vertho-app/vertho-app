@@ -13,6 +13,7 @@ import {
   salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV, loadCargosEmpresa, salvarDescritor
 } from './actions';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
+import { preencherCelulasMescladas } from '@/lib/matriz-import';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 
@@ -218,28 +219,8 @@ export default function CompetenciasPage() {
               const file = e.target.files?.[0];
               if (!file) return;
               setImporting(true);
-              const rowsRaw = await parseSpreadsheet(file);
-
-              // Forward-fill: quando planilha tem células mescladas para a competência,
-              // as linhas dos descritores subsequentes vêm com nome/descricao/etc vazios.
-              // Copia do registro anterior para manter o agrupamento por competência.
-              const CAMPOS_COMP = ['nome', 'cod_comp', 'pilar', 'cargo', 'descricao', 'evidencias_esperadas', 'perguntas_alvo'];
-              const rows: any[] = [];
-              let anterior: any = {};
-              for (const r of rowsRaw) {
-                const filled: any = { ...r };
-                for (const k of CAMPOS_COMP) {
-                  if (!filled[k]?.trim() && anterior[k]?.trim()) filled[k] = anterior[k];
-                }
-                // Só inclui se tem pelo menos nome_curto OU descritor_completo (é uma linha de descritor)
-                // OU se tem nome (linha-cabeçalho com apenas a competência)
-                if (filled.nome?.trim()) {
-                  rows.push(filled);
-                  anterior = filled;
-                }
-              }
-
-              const parsed = rows;
+              // Células mescladas da competência: linha vazia herda da de cima.
+              const parsed: any[] = preencherCelulasMescladas(await parseSpreadsheet(file));
               if (!parsed.length) { flash(t('messages.noValidRows')); setImporting(false); e.target.value = ''; return; }
 
               // Validação de obrigatórios (após forward-fill)

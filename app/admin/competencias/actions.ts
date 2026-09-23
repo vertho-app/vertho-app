@@ -5,6 +5,7 @@ import { requirePermissionAction, assertTenantAccessAction, getAuthenticatedEmai
 import { logAdminAction } from '@/lib/audit';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { chaveDaLinhaDaMatriz } from '@/lib/matriz-por-cargo';
+import { atribuirCodigosDaMatriz, type LinhaDaMatrizGravada } from '@/lib/matriz-import';
 
 export async function loadEmpresas() {
   const sb = await requireAdminSupabase();
@@ -46,12 +47,20 @@ export async function salvarCompetencia(empresaId: string, comp: any) {
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
   const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'salvarCompetencia');
   try {
+    // Código vazio: na CRIAÇÃO o sistema gera (lib/matriz-import); na edição o
+    // código atual fica — é ele que liga a competência aos seus descritores.
+    let codComp = String(comp.cod_comp || '').trim();
+    if (!codComp && !comp.id) {
+      const lida = await lerMatrizDaEmpresa(sb, empresaId);
+      if ('error' in lida) return { success: false, error: lida.error };
+      codComp = atribuirCodigosDaMatriz([{ nome: comp.nome, cargo: comp.cargo || null }], lida.linhas).linhas[0].cod_comp;
+    }
     const registro = {
       empresa_id: empresaId,
       nome: comp.nome,
       descricao: comp.descricao || null,
       cargo: comp.cargo || null,
-      cod_comp: comp.cod_comp || comp.nome.substring(0, 10).toUpperCase(),
+      ...(codComp ? { cod_comp: codComp } : {}),
       pilar: comp.pilar || null,
     };
 
@@ -93,21 +102,52 @@ export async function excluirCompetencia(id: string) {
   }
 }
 
+/**
+ * A matriz inteira da empresa, com o que a geração de códigos precisa. Paginada:
+ * o PostgREST corta em 1000 linhas, e um corte aqui geraria código já usado.
+ */
+async function lerMatrizDaEmpresa(
+  sb: Awaited<ReturnType<typeof requireEmpresaSupabase>>, empresaId: string,
+): Promise<{ linhas: LinhaDaMatrizGravada[] } | { error: string }> {
+  const PAGINA = 1000;
+  const linhas: LinhaDaMatrizGravada[] = [];
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error } = await sb.from('competencias')
+      .select('cod_comp, cod_desc, nome_curto, descritor_completo, nome, cargo')
+      .eq('empresa_id', empresaId)
+      .order('id')
+      .range(de, de + PAGINA - 1);
+    if (error) return { error: `Leitura da matriz da empresa: ${error.message}` };
+    linhas.push(...(data || []));
+    if (!data || data.length < PAGINA) return { linhas };
+  }
+}
+
 export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
   const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'importarCompetenciasCSV');
-  const { data: existentes } = await sb.from('competencias')
-    .select('cod_comp, cod_desc, nome_curto, nome, cargo').eq('empresa_id', empresaId);
+  const lida = await lerMatrizDaEmpresa(sb, empresaId);
+  if ('error' in lida) return { success: false, error: lida.error };
+  const existentes = lida.linhas;
+
+  // Código vazio é gerado aqui (lib/matriz-import), antes do dedup: a reimportação
+  // recebe os MESMOS códigos e cai no dedup em vez de duplicar a matriz.
+  const codigos = atribuirCodigosDaMatriz((comps || []).filter(c => c?.nome?.trim()), existentes);
+  if (codigos.conflitos.length) {
+    const lista = codigos.conflitos.slice(0, 5).join('; ');
+    const resto = codigos.conflitos.length > 5 ? ` (e mais ${codigos.conflitos.length - 5})` : '';
+    return { success: false, error: `O mesmo código foi usado para competências diferentes no mesmo cargo: ${lista}${resto}. Corrija a planilha (ou deixe o código em branco para o sistema gerar) e importe de novo.` };
+  }
+
   // Dedup por cargo+cod_comp+cod_desc: a matriz é POR CARGO, e a mesma matriz em
   // outro cargo não é repetida (lib/matriz-por-cargo).
   const keyOf = chaveDaLinhaDaMatriz;
-  const existSet = new Set((existentes || []).map(keyOf));
+  const existSet = new Set(existentes.map(keyOf));
 
   // Dedup interno do lote também (evita linhas repetidas no mesmo arquivo)
   const vistasLote = new Set<string>();
-  const novos = comps
+  const novos = codigos.linhas
     .filter(c => {
-      if (!c.nome?.trim()) return false;
       const k = keyOf(c);
       if (existSet.has(k) || vistasLote.has(k)) return false;
       vistasLote.add(k);
@@ -116,11 +156,11 @@ export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
     .map(c => ({
       empresa_id: empresaId,
       nome: c.nome.trim(),
-      cod_comp: c.cod_comp?.trim() || c.nome.trim().substring(0, 10).toUpperCase(),
+      cod_comp: c.cod_comp,
       pilar: c.pilar?.trim() || null,
       cargo: c.cargo?.trim() || null,
       descricao: c.descricao?.trim() || null,
-      cod_desc: c.cod_desc?.trim() || null,
+      cod_desc: c.cod_desc,
       nome_curto: c.nome_curto?.trim() || null,
       descritor_completo: c.descritor_completo?.trim() || null,
       n1_gap: c.n1_gap?.trim() || null,
@@ -134,7 +174,8 @@ export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
   if (novos.length === 0) return { success: true, message: '0 novas (todas já existiam)' };
   const { error } = await sb.from('competencias').insert(novos);
   if (error) return { success: false, error: error.message };
-  return { success: true, message: `${novos.length} competências importadas` };
+  const gerados = codigos.gerados ? ` · ${codigos.gerados} códigos gerados pelo sistema` : '';
+  return { success: true, message: `${novos.length} competências importadas${gerados}` };
 }
 
 /**

@@ -2682,7 +2682,7 @@
     "import": {
       "title": "Importar Competências (CSV ou Excel)",
       "acceptedColumns": "Colunas aceitas (1ª linha = cabeçalho):",
-      "requiredHint": "* obrigatórios: <strong>nome, descricao, n1_gap, n2_desenvolvimento, n4_referencia</strong>. Demais são opcionais. Dedup por cod_comp+cod_desc.",
+      "requiredHint": "* obrigatórios: <strong>nome, descricao, n1_gap, n2_desenvolvimento, n4_referencia</strong>. Demais são opcionais. cod_comp e cod_desc em branco são gerados pelo sistema. Linha que já existe (cargo + cod_comp + cod_desc) é ignorada.",
       "importing": "Importando...",
       "selectFile": "Selecionar arquivo (CSV ou XLSX)"
     },

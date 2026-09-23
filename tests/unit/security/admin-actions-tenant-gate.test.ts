@@ -25,7 +25,7 @@ function makeClient() {
   const from = (table: string) => {
     const b: any = {
       select: () => b, eq: () => b, in: () => b, not: () => b, or: () => b,
-      order: () => b, limit: () => b, neq: () => b, is: () => b,
+      order: () => b, limit: () => b, range: () => b, neq: () => b, is: () => b,
       update: () => b, delete: () => b, insert: () => b, upsert: () => b,
       single: async () => ({ data: { id: 'x', nome: 'Empresa', slug: 'emp', empresa_id: tenantDoRegistro, updated_at: 't1' }, error: null }),
       // `updated_at` é a versão que a trava otimista de `sys_config` pinta no
