@@ -4,41 +4,13 @@ import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { logAdminAction } from '@/lib/audit';
-import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
+import { EMAIL_FROM_DEFAULT, ROOT_DOMAIN, tenantUrl } from '@/lib/domain';
 import { emailConfigurationError, sendEmail, type SendEmailInput } from '@/lib/email-provider';
-import { assertZapiConnected, getZapiConfig } from '@/lib/zapi';
-import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
-import { publicarTemplateCloudCis, publicarWhatsappCis } from '@/lib/qstash-publish';
+import { publicarTemplateCloudCis } from '@/lib/qstash-publish';
 import { lerParametroAcesso, montarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
-import { aplicarTetoLote, atrasosDoLote, criarRelogioCadencia, duracaoEstimada, intervaloLoteMs, maxPorDisparo } from '@/lib/whatsapp/cadencia';
+import { aplicarTetoLote, atrasosDoLote, duracaoEstimada } from '@/lib/whatsapp/cadencia';
 import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
-
-/**
- * Fila residual tolerada antes de um disparo em lote. Zero: qualquer mensagem
- * presa significa que a anterior não escoou, e empilhar lote em cima disso foi
- * o caminho do bloqueio de 11/08/2026.
- */
-const MAX_FILA_ANTES_DO_LOTE = 0;
-
-/**
- * Acima disto o envio vai pelo QStash (assíncrono), não pelo loop na request.
- *
- * Era 50, e o limiar nunca foi sobre segurança de envio: era o teto do que cabia
- * no timeout da lambda. O efeito colateral é que o caminho "pequeno" mandava a
- * 1 msg/s — o DOBRO da taxa que bloqueou o número em 11/08. Com a cadência real
- * (15s), 50 mensagens levariam 12 min e nenhuma lambda sobrevive a isso; então o
- * limiar tem que ser o que cabe na request, e todo o resto é assíncrono.
- *
- * **1, não 3** (revisão de 11/08, depois): com 3 o ramo direto passou a dormir
- * `intervaloLoteMs()` entre mensagens DENTRO da server action — 30s de request
- * num segmento sem `maxDuration` (e a page é `'use client'`, então não há onde
- * declará-lo). A request morreria depois de já ter enviado: o admin veria erro
- * sobre mensagem entregue. Com 1 não existe intervalo a cumprir (a cadência só
- * começa na 2ª mensagem), o sleep some da request e tudo que é lote é assíncrono.
- * Subir este número reintroduz o acoplamento "env de cadência × timeout de HTTP".
- */
-const LIMIAR_ENVIO_DIRETO = 1;
 
 /**
  * Colaboradores que CONCLUÍRAM o mapeamento de competências: responderam TODAS
@@ -137,26 +109,7 @@ export async function loadWhatsappStatus(empresaId) {
 
 // ── Helpers de anexo ────────────────────────────────────────────────────────
 
-// Mapa mime → extensão simples pro Z-API (endpoint /send-document/{ext})
-function extFromNameOrMime(name = '', mime = '') {
-  const m = /\.([a-z0-9]+)$/i.exec(name);
-  if (m) return m[1].toLowerCase();
-  const map = {
-    'application/pdf': 'pdf',
-    'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png',
-    'application/msword': 'doc',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-    'application/vnd.ms-excel': 'xls',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-    'application/vnd.ms-powerpoint': 'ppt',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation': 'pptx',
-    'application/zip': 'zip', 'application/x-zip-compressed': 'zip',
-  };
-  return map[mime] || 'bin';
-}
-
-// Busca o PDF do relatório individual + devolve tanto buffer (email) quanto
-// signed URL pública temporária (WhatsApp via /send-document/pdf).
+// Busca o PDF do relatório individual (buffer + nome) para anexar ao e-mail.
 async function buscarPDFColaborador(sb, empresaId, colaboradorId) {
   const { data: rel } = await sb.from('relatorios')
     .select('pdf_path')
@@ -172,61 +125,33 @@ async function buscarPDFColaborador(sb, empresaId, colaboradorId) {
   if (!fileData) return null;
 
   const buffer = Buffer.from(await fileData.arrayBuffer());
-  const { data: signed } = await sb.storage.from('relatorios-pdf')
-    .createSignedUrl(rel.pdf_path, 60 * 60); // 1h — tempo suficiente pro envio em lote
-  return { buffer, filename, url: signed?.signedUrl || null };
-}
-
-// Variante leve pro caminho QStash (>50 destinatários): só a signed URL, SEM
-// baixar o buffer. O documento vai por URL no payload (não base64), então
-// baixar o PDF de cada colab só pra descartar seria desperdício em lote.
-// Expiry maior (2h) pra cobrir o atraso escalonado do QStash + retries.
-async function buscarPDFUrlColaborador(sb, empresaId, colaboradorId) {
-  const { data: rel } = await sb.from('relatorios')
-    .select('pdf_path')
-    .eq('empresa_id', empresaId)
-    .eq('colaborador_id', colaboradorId)
-    .eq('tipo', 'individual')
-    .not('pdf_path', 'is', null)
-    .maybeSingle();
-  if (!rel?.pdf_path) return null;
-  const filename = rel.pdf_path.split('/').pop();
-  const { data: signed } = await sb.storage.from('relatorios-pdf')
-    .createSignedUrl(rel.pdf_path, 60 * 60 * 2); // 2h
-  if (!signed?.signedUrl) return null;
-  return { url: signed.signedUrl, filename };
-}
-
-// Sobe o anexo extra (que veio em base64 da UI) como arquivo temporário
-// pra obter uma signed URL. O arquivo fica no bucket; limpamos no fim.
-async function subirAnexoTemporario(sb, empresaId, anexoExtra) {
-  if (!anexoExtra?.base64) return null;
-  const ext = extFromNameOrMime(anexoExtra.name, anexoExtra.mime);
-  const path = `temp-envios/${empresaId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const buffer = Buffer.from(anexoExtra.base64, 'base64');
-  const { error } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
-    contentType: anexoExtra.mime || 'application/octet-stream',
-    upsert: false,
-  });
-  if (error) return null;
-  const { data: signed } = await sb.storage.from('relatorios-pdf')
-    .createSignedUrl(path, 60 * 60);
-  return { path, url: signed?.signedUrl || null, ext, filename: anexoExtra.name };
-}
-
-async function deletarAnexoTemporario(sb, path) {
-  if (!path) return;
-  try { await sb.storage.from('relatorios-pdf').remove([path]); } catch {}
+  return { buffer, filename };
 }
 
 /**
+ * Disparo em lote de mensagem LIVRE, só por e-mail.
+ *
+ * 🔴 WhatsApp saiu desta action em 23/09/2026. O ramo mandava texto livre (e PDF
+ * e anexo por `/send-document`) pela Z-API, desconectada desde 11/08, e a tela já
+ * fixava `canal = 'email'`: era código morto que só um POST direto na action
+ * alcançava, e que ensinava a quem lesse que o canal existia. Pela API oficial
+ * da Meta não há texto livre fora da janela de 24h, e a Meta não aprova template
+ * que seja só uma variável: WhatsApp em lote sai por TEMPLATE aprovado
+ * (`dispararTemplateWhatsApp`, aba "WhatsApp Templates") ou não sai.
+ *
  * @param {object} [anexoExtra] - anexo arbitrário enviado pelo gestor na UI
  *   { name: 'arquivo.pdf', mime: 'application/pdf', base64: '...' }
- *   É enviado adicionalmente ao PDF do relatório (se comPDF=true) para todos
- *   os destinatários, em e-mail (anexo pelo provedor) e WhatsApp (send-document).
+ *   Vai como anexo do e-mail, além do PDF do relatório (se comPDF=true).
  */
 export async function dispararMensagemCustomizada(empresaId, template, canal, filtros: any = {}, assuntoTemplate = '', comPDF = false, anexoExtra: any = null) {
   const ctx = await requireAdminAction('assessments.dispatch');
+  if (canal !== 'email') {
+    return {
+      success: false,
+      error: 'Mensagem livre sai só por e-mail. No WhatsApp, use um template aprovado (aba WhatsApp Templates).',
+      code: 'CANAL_INDISPONIVEL',
+    };
+  }
   const sb = await requireAdminSupabase('assessments.dispatch');
   // Tenant de demonstração: bloqueia disparo real antes de tocar colaboradores.
   const gate = await gateEnvioDemo(empresaId);
@@ -239,8 +164,7 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
     // ESCOPO fail-closed (mig 210): disparo em lote é COMUNICAÇÃO REAL. Com duas
     // safras no mesmo tenant, "mandar para a empresa" atinge quem está no meio
     // da jornada e quem acabou de entrar com a mesma mensagem. Sem turma
-    // escolhida, recusa — e o teto de WhatsApp torna o estrago pior: a turma
-    // grande come a cota e a outra fica sem, em silêncio (11/08).
+    // escolhida, recusa.
     let permitidos: Set<string> | null;
     try {
       permitidos = await idsDoEscopoOuFalhar(sb, empresaId, {
@@ -293,161 +217,22 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         : colabs.filter(c => !mapeouSet.has(c.id));
     }
 
-    // Filtrar por canal
-    if (canal === 'whatsapp') colabs = colabs.filter(c => c.telefone);
-    else colabs = colabs.filter(c => c.email);
-
-    if (!colabs.length) return { success: false, error: `Nenhum destinatário com ${canal === 'whatsapp' ? 'WhatsApp' : 'email'}` };
-
-    if (canal === 'whatsapp') {
-      try {
-        await assertZapiConnected();
-        // Segunda trava: conectado NÃO basta. A Z-API pode estar de pé com
-        // mensagens presas da rodada anterior, que ela descarrega em rajada.
-        await assertFilaDoProvedorLimpa(MAX_FILA_ANTES_DO_LOTE);
-      } catch (e: any) {
-        await logAdminAction({
-          adminEmail: ctx.email, acao: 'whatsapp.broadcast', empresaId, empresaSlug: empresa.slug,
-          alvo: `${colabs.length} colaboradores`,
-          detalhes: { canal, filtros, bloqueado: 'zapi_indisponivel', erro: e?.message },
-          resultado: 'erro',
-        });
-        return {
-          success: false,
-          error: `${e?.message || 'Z-API desconectada'}. Reconecte a instância antes de disparar WhatsApp em lote.`,
-        };
-      }
-    }
-
-    // Log inicial: ajuda diagnosticar qual branch (direto vs QStash) será usado
-    console.log(
-      `[dispararMensagemCustomizada] empresa=${empresa.slug} canal=${canal} ` +
-      `colabs=${colabs.length} hasQStashToken=${!!process.env.QSTASH_TOKEN} ` +
-      `webhookUrl=${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`,
-    );
-
-    // Atalho: WhatsApp em lote via QStash em PARALELO. Sem isso, publishes
-    // sequenciais com latência transatlântica estouravam o timeout serverless
-    // do Vercel (10s default Hobby, 60s Pro) — só 2 publicavam.
-    if (
-      canal === 'whatsapp' &&
-      colabs.length > LIMIAR_ENVIO_DIRETO &&
-      process.env.QSTASH_TOKEN &&
-      process.env.ZAPI_INSTANCE_ID &&
-      process.env.ZAPI_TOKEN
-    ) {
-      const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
-      if (!/^https?:\/\//i.test(webhookUrl)) {
-        return {
-          success: false,
-          error: `URL de webhook inválida (sem https://): ${webhookUrl}. Verifique env NEXT_PUBLIC_APP_WEBHOOK_URL no Vercel.`,
-        };
-      }
-      const dom = ROOT_DOMAIN;
-      // Teto de VOLUME e cadência vêm de lib/whatsapp/cadencia (política única).
-      // O excedente é devolvido na mensagem — nunca cortado em silêncio.
-      const { enviar: alvos, adiados, aviso: avisoTeto } = aplicarTetoLote(colabs as any[]);
-      const atrasos = atrasosDoLote(alvos.length);
-      const results = await Promise.all(alvos.map(async (colab: any, idx: number) => {
-        const nome = colab.nome_completo?.split(' ')[0] || '';
-        const link = `https://${empresa.slug}.${dom}/login`;
-        const linkDisc = `https://${empresa.slug}.${dom}/dashboard/perfil-comportamental/mapeamento`;
-        const msg = template
-          .replace(/\{\{nome\}\}/g, nome)
-          .replace(/\{\{cargo\}\}/g, colab.cargo || '')
-          .replace(/\{\{empresa\}\}/g, empresa.nome)
-          .replace(/\{\{link\}\}/g, link)
-          .replace(/\{\{link_disc\}\}/g, linkDisc);
-        let phone = colab.telefone.replace(/\D/g, '');
-        if (phone.length <= 11) phone = `55${phone}`;
-        // Relatório: anexa o PDF individual via signed URL (o webhook envia o
-        // documento depois do texto). URL em vez de base64 pra não inchar o
-        // payload do QStash em lote. Sem relatório gerado, NÃO envia nada
-        // (nem o texto) — pular em vez de mandar uma mensagem órfã.
-        // colaboradorId/empresaId vão no payload para a entrega ser gravada COM
-        // dono: sem eles, saber quem recebeu depende da DLQ do QStash (que
-        // expira) e um novo disparo reenviaria para quem já recebeu.
-        const body: any = {
-          telefone: phone,
-          mensagem: msg,
-          kindEnvio: comPDF ? 'relatorio' : 'broadcast',
-          ...(colab.id ? { colaboradorId: colab.id } : {}),
-          empresaId,
-        };
-        if (comPDF) {
-          const pdf = colab.id ? await buscarPDFUrlColaborador(sb, empresaId, colab.id) : null;
-          if (!pdf?.url) return { ok: false, skip: true };
-          body.documentoUrl = pdf.url;
-          body.documentoNome = pdf.filename;
-        }
-        try {
-          const rQ = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
-              'Upstash-Delay': `${atrasos[idx]}s`,
-            },
-            body: JSON.stringify(body),
-          });
-          if (!rQ.ok) {
-            const detail = await rQ.text();
-            return { ok: false, err: `QStash ${rQ.status}: ${detail.slice(0, 120)}` };
-          }
-          return { ok: true };
-        } catch (e: any) {
-          return { ok: false, err: e.message };
-        }
-      }));
-      const ok = results.filter(r => r.ok).length;
-      const pulados = results.filter(r => (r as any).skip).length;
-      const fail = results.filter(r => !r.ok && !(r as any).skip).length;
-      const firstErr = results.find(r => !r.ok && !(r as any).skip)?.err || '';
-      const puladosTxt = pulados ? `, ${pulados} sem relatório (não enviados)` : '';
-      const tetoTxt = avisoTeto ? ` ⚠️ ${avisoTeto}` : '';
-      const txt =
-        `${ok} WhatsApp agendados via QStash (entrega em ${duracaoEstimada(ok)}), ` +
-        `${fail} erros${puladosTxt}${firstErr ? ` — ${firstErr}` : ''}${tetoTxt}`;
-      console.log(`[dispararMensagemCustomizada] paralelo: ${txt}`);
-      await logAdminAction({
-        adminEmail: ctx.email, acao: 'whatsapp.broadcast', empresaId, empresaSlug: empresa.slug,
-        alvo: `${colabs.length} colaboradores`,
-        detalhes: {
-          canal, via: 'qstash_paralelo', filtros, agendados: ok, erros: fail, pulados, comPDF,
-          anexo: !!anexoExtra?.base64,
-          // Quantos ficaram para depois por causa do teto — precisa estar na
-          // auditoria, senão "155 colaboradores" no alvo sugere 155 enviados.
-          adiadosPorTeto: adiados.length,
-        },
-        resultado: ok === 0 ? 'erro' : (fail > 0 || pulados > 0 || adiados.length > 0) ? 'parcial' : 'ok',
-      });
-      return { success: ok > 0, message: txt, error: ok === 0 ? txt : undefined };
-    }
+    colabs = colabs.filter(c => c.email);
+    if (!colabs.length) return { success: false, error: 'Nenhum destinatário com email' };
 
     const domain = ROOT_DOMAIN;
     const fromEmail = EMAIL_FROM_DEFAULT;
     const emailConfigError = emailConfigurationError();
-    const hasQStash = !!process.env.QSTASH_TOKEN;
     const isRelatorio = comPDF;
     const resendThrottle = { lastSentAt: 0 };
     let enviados = 0, erros = 0, pulados = 0, erroDetalhe = '';
-    // Relógio da cadência para o loop sequencial (o ramo que roda quando o
-    // paralelo não se aplica). Um por execução, criado FORA do loop: dentro dele,
-    // cada mensagem começaria do zero e todas sairiam juntas.
-    const relogioLoop = criarRelogioCadencia();
-    let adiadosNoLoop = 0;
-
-    // Anexo extra: usamos sempre base64 no endpoint /send-document/{ext}.
-    // Essa abordagem resolve o problema de abertura (o WhatsApp usa a
-    // extensão do path pra setar o mime e abrir com o app nativo) sem
-    // depender de upload + signed URL (que já teve problemas).
 
     for (const colab of colabs) {
       const nome = colab.nome_completo?.split(' ')[0] || '';
       const link = `https://${empresa.slug}.${domain}/login`;
 
       // Envio de relatório: sem PDF gerado, PULA o colaborador inteiro (não
-      // manda texto/e-mail órfão). Busca uma vez e reusa nos branches abaixo.
+      // manda e-mail órfão).
       let pdfRel: Awaited<ReturnType<typeof buscarPDFColaborador>> = null;
       if (isRelatorio) {
         pdfRel = colab.id ? await buscarPDFColaborador(sb, empresaId, colab.id) : null;
@@ -463,186 +248,48 @@ export async function dispararMensagemCustomizada(empresaId, template, canal, fi
         .replace(/\{\{link\}\}/g, link)
         .replace(/\{\{link_disc\}\}/g, linkDisc);
 
-      if (canal === 'email' && colab.email) {
-        if (emailConfigError) { erroDetalhe = emailConfigError; erros++; continue; }
-        try {
-          const htmlMsg = msg.replace(/\n/g, '<br>').replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/_([^_]+)_/g, '<em>$1</em>');
+      if (emailConfigError) { erroDetalhe = emailConfigError; erros++; continue; }
+      try {
+        const htmlMsg = msg.replace(/\n/g, '<br>').replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/_([^_]+)_/g, '<em>$1</em>');
 
-          // PDF do relatório (já resolvido no topo do loop; colabs sem PDF
-          // nem chegam aqui).
-          const attachments = [];
-          if (pdfRel) {
-            attachments.push({ filename: pdfRel.filename, content: pdfRel.buffer.toString('base64') });
-          }
-          // Anexo adicional enviado pelo gestor na UI
-          if (anexoExtra?.base64) {
-            attachments.push({
-              filename: anexoExtra.name || 'anexo',
-              content: anexoExtra.base64,
-            });
-          }
-
-          const emailBody: any = {
-            from: fromEmail,
-            to: colab.email,
-            subject: (assuntoTemplate || `[${empresa.nome}] Avaliação`)
-              .replace(/\{\{nome\}\}/g, nome)
-              .replace(/\{\{cargo\}\}/g, colab.cargo || '')
-              .replace(/\{\{empresa\}\}/g, empresa.nome),
-            html: htmlMsg,
-          };
-          if (attachments.length > 0) emailBody.attachments = attachments;
-
-          const res = await enviarEmailComRetry(emailBody, resendThrottle);
-          if (res.ok) { enviados++; }
-          else { erroDetalhe = res.error || 'Falha ao enviar e-mail'; erros++; }
-        } catch (e) { erroDetalhe = e.message; erros++; }
-      }
-
-      if (canal === 'whatsapp' && colab.telefone) {
-        const zapi = getZapiConfig();
-        if (!zapi.configured) { erroDetalhe = 'Z-API não configurado'; erros++; continue; }
-
-        let phone = colab.telefone.replace(/\D/g, '');
-        if (phone.length <= 11) phone = `55${phone}`;
-
-        // Lote pequeno: Z-API direto na request. Acima do limiar: QStash.
-        if (colabs.length <= LIMIAR_ENVIO_DIRETO) {
-          try {
-            // Inalcançável com LIMIAR_ENVIO_DIRETO = 1, e é de propósito que
-            // fique aqui: se alguém subir o limiar, a cadência do ramo direto é a
-            // mesma dos outros — não existe "poucos, então pode rápido". O que o
-            // WhatsApp observa é o intervalo, não o tamanho do lote.
-            if (enviados > 0) await new Promise(resolve => setTimeout(resolve, intervaloLoteMs()));
-
-            // Enviar texto
-            const res = await fetch(`${zapi.baseUrl}/send-text`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
-              body: JSON.stringify({ phone, message: msg }),
-            });
-
-            // Se relatório, enviar PDF do relatório individual via base64
-            // no endpoint /send-document/pdf (mime correto). PDF já resolvido
-            // no topo do loop.
-            if (res.ok && pdfRel?.buffer) {
-              await new Promise(resolve => setTimeout(resolve, 500));
-              const rPdf = await fetch(`${zapi.baseUrl}/send-document/pdf`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
-                body: JSON.stringify({
-                  phone,
-                  document: `data:application/pdf;base64,${pdfRel.buffer.toString('base64')}`,
-                  fileName: pdfRel.filename,
-                }),
-              });
-              if (!rPdf.ok) {
-                const txt = await rPdf.text();
-                console.warn('[ZAPI send-document/pdf]', rPdf.status, txt.slice(0, 300));
-                erroDetalhe = `PDF não enviado: ${rPdf.status} ${txt.slice(0, 120)}`;
-              }
-            }
-
-            // Anexo extra — base64 no endpoint por extensão.
-            if (res.ok && anexoExtra?.base64) {
-              await new Promise(resolve => setTimeout(resolve, 500));
-              const ext = extFromNameOrMime(anexoExtra.name, anexoExtra.mime);
-              const mime = anexoExtra.mime || 'application/octet-stream';
-              const rAnx = await fetch(`${zapi.baseUrl}/send-document/${ext}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Client-Token': zapi.clientToken },
-                body: JSON.stringify({
-                  phone,
-                  document: `data:${mime};base64,${anexoExtra.base64}`,
-                  fileName: anexoExtra.name || `anexo.${ext}`,
-                }),
-              });
-              if (!rAnx.ok) {
-                const txt = await rAnx.text();
-                console.warn('[ZAPI send-document anexo]', rAnx.status, txt.slice(0, 300));
-                erroDetalhe = `Anexo não enviado: ${rAnx.status} ${txt.slice(0, 120)}`;
-              }
-            }
-
-            if (res.ok) { enviados++; }
-            else { erroDetalhe = await res.text(); erros++; }
-          } catch (e) { erroDetalhe = e.message; erros++; }
-        } else if (relogioLoop.tetoAtingido()) {
-          // Teto de VOLUME também neste ramo. Ele usava `enviados * intervalo`:
-          // a taxa certa, mas sem jitter (cadência exata é assinatura de robô) e
-          // sem limite — 500 destinatários a 15s ainda são 500 mensagens não
-          // solicitadas saindo de um número não-oficial.
-          adiadosNoLoop++;
-        } else if (process.env.QSTASH_TOKEN) {
-          // Branch QStash (acima do limiar de envio direto)
-          try {
-            // Usa APP_WEBHOOK_URL (app.{ROOT_DOMAIN}) — APP_URL pode apontar
-            // pra raiz vertho.ai que está servida pelo Gamma e retorna 405.
-            const webhookUrl = `${APP_WEBHOOK_URL}/api/webhooks/qstash/whatsapp-cis`;
-            // Validação: QStash exige URL absoluta com https://
-            if (!/^https?:\/\//i.test(webhookUrl)) {
-              const detail = `URL de webhook inválida (sem https://): ${webhookUrl}. Verifique env NEXT_PUBLIC_APP_WEBHOOK_URL no Vercel.`;
-              console.error(`[dispararMensagemCustomizada] ${detail}`);
-              erroDetalhe = detail;
-              erros++;
-              continue;
-            }
-            // Log do que está sendo enviado (útil pra diagnosticar)
-            if (enviados === 0) {
-              console.log(`[dispararMensagemCustomizada] QStash base=${QSTASH_BASE_URL} webhook=${webhookUrl}`);
-            }
-            // Relatório: anexa o PDF individual via signed URL (webhook envia o
-            // documento depois do texto). PDF já resolvido no topo do loop.
-            const bodyQ: any = {
-              telefone: phone,
-              mensagem: msg,
-              kindEnvio: isRelatorio ? 'relatorio' : 'broadcast',
-              ...(colab.id ? { colaboradorId: colab.id } : {}),
-              empresaId,
-            };
-            if (pdfRel?.url) { bodyQ.documentoUrl = pdfRel.url; bodyQ.documentoNome = pdfRel.filename; }
-            // QStash exige URL raw no path (sem encodeURIComponent) — encoded dá "invalid scheme"
-            const rQ = await fetch(`${QSTASH_BASE_URL}/v2/publish/${webhookUrl}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${process.env.QSTASH_TOKEN}`,
-                // Mesma política do ramo paralelo, e pelo MESMO relógio: acúmulo
-                // com jitter, não `enviados * intervalo` (que dá cadência exata).
-                'Upstash-Delay': `${relogioLoop.proximo()}s`,
-              },
-              body: JSON.stringify(bodyQ),
-            });
-            if (!rQ.ok) {
-              const detail = await rQ.text();
-              const fullErr = `QStash ${rQ.status} (base=${QSTASH_BASE_URL}): ${detail.slice(0, 200)}`;
-              console.error(`[dispararMensagemCustomizada] ${fullErr}`);
-              erroDetalhe = fullErr.slice(0, 200);
-              erros++;
-            } else {
-              enviados++;
-            }
-          } catch (e) {
-            console.error('[dispararMensagemCustomizada] QStash falhou:', e.message);
-            erroDetalhe = `QStash: ${e.message}`;
-            erros++;
-          }
+        // PDF do relatório (já resolvido no topo do loop; colabs sem PDF
+        // nem chegam aqui).
+        const attachments = [];
+        if (pdfRel) {
+          attachments.push({ filename: pdfRel.filename, content: pdfRel.buffer.toString('base64') });
         }
-      }
+        // Anexo adicional enviado pelo gestor na UI
+        if (anexoExtra?.base64) {
+          attachments.push({
+            filename: anexoExtra.name || 'anexo',
+            content: anexoExtra.base64,
+          });
+        }
+
+        const emailBody: any = {
+          from: fromEmail,
+          to: colab.email,
+          subject: (assuntoTemplate || `[${empresa.nome}] Avaliação`)
+            .replace(/\{\{nome\}\}/g, nome)
+            .replace(/\{\{cargo\}\}/g, colab.cargo || '')
+            .replace(/\{\{empresa\}\}/g, empresa.nome),
+          html: htmlMsg,
+        };
+        if (attachments.length > 0) emailBody.attachments = attachments;
+
+        const res = await enviarEmailComRetry(emailBody, resendThrottle);
+        if (res.ok) { enviados++; }
+        else { erroDetalhe = res.error || 'Falha ao enviar e-mail'; erros++; }
+      } catch (e) { erroDetalhe = e.message; erros++; }
     }
 
     const puladosTxt = pulados ? `, ${pulados} sem relatório (não enviados)` : '';
-    // O teto deste ramo aparece na frase e na auditoria pelo mesmo motivo do ramo
-    // paralelo: "155 colaboradores" no alvo sugere 155 enviados.
-    const adiadoTxt = adiadosNoLoop
-      ? ` ⚠️ ${adiadosNoLoop} NÃO enviados: teto de ${maxPorDisparo()} por disparo (protege o número). Dispare o restante depois.`
-      : '';
-    const msg2 = `${enviados} ${canal === 'email' ? 'emails' : 'WhatsApp'} enviados${erros ? `, ${erros} erros` : ''}${puladosTxt}${erroDetalhe ? ` — ${erroDetalhe}` : ''}${adiadoTxt}`;
+    const msg2 = `${enviados} emails enviados${erros ? `, ${erros} erros` : ''}${puladosTxt}${erroDetalhe ? `: ${erroDetalhe}` : ''}`;
     await logAdminAction({
       adminEmail: ctx.email, acao: 'whatsapp.broadcast', empresaId, empresaSlug: empresa.slug,
       alvo: `${colabs.length} colaboradores`,
-      detalhes: { canal, via: 'direto', filtros, enviados, erros, pulados, comPDF, anexo: !!anexoExtra?.base64, adiadosPorTeto: adiadosNoLoop, erroDetalhe: erroDetalhe || undefined },
-      resultado: enviados === 0 ? 'erro' : (erros > 0 || pulados > 0 || adiadosNoLoop > 0) ? 'parcial' : 'ok',
+      detalhes: { canal, via: 'direto', filtros, enviados, erros, pulados, comPDF, anexo: !!anexoExtra?.base64, erroDetalhe: erroDetalhe || undefined },
+      resultado: enviados === 0 ? 'erro' : (erros > 0 || pulados > 0) ? 'parcial' : 'ok',
     });
     return { success: enviados > 0, message: msg2, error: enviados === 0 ? msg2 : undefined };
   } catch (err) {

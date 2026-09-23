@@ -1959,7 +1959,7 @@ que o chamava em `/api/temporada/reflection`.
 ### 17.8 Testes
 
 - **Unit (Vitest)** — `tests/unit/onboarding/programa-config.test.ts`: 33 testes cobrindo estrutura dos templates (incl. `PROGRAMA_REGULAR_DUO`), `getProgramaConfig` (default global DUO + escape hatch `regular_single`), `descritoresCobertosNaMissao`, `selectDescriptorsMulti`, `selectDescriptorsDuo` (blocos paralelos, reforço por gap, `.competencia` preenchida).
-- **E2E (Playwright)** — `tests/onboarding-config-ui.spec.js`: tab Programa, toggle modo, banner ativo, dropdown fase_carreira, e o seletor de papel da Equipe com colaborador/gestor/rh e SEM tutor (invertido em 22/09/2026). Não roda no CI: o workflow E2E executa só login, navegação e fluxos críticos.
+- **E2E (Playwright)**: não há mais. `tests/onboarding-config-ui.spec.js` saiu em 23/09/2026: procurava "Painel Admin" e "Clique para ver o pipeline", textos que não existiam mais no app, então pulava tudo e ficava verde sem testar nada; também nunca rodou no CI (a conta do CI não tem `/admin`). O que ele cobria do papel tutor está garantido pelo tipo `Role` e pela lista de papéis aceita na API.
 
 ### 17.9 Pendências (fora do escopo Fases 1-4)
 

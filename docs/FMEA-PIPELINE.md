@@ -1325,6 +1325,10 @@ não na lista — o aviso fica sem rosto.
 webhook `whatsapp-cis` → `sendWhatsapp` (`lib/whatsapp/index.ts:34`, `REGISTRY` = **zapi + wasender**,
 nenhum deles Cloud API).
 
+> **23/09/2026:** esse gatilho não existe mais. O ramo de WhatsApp da action saiu (ela só envia
+> e-mail e recusa outro canal), e WhatsApp em lote sai só por template aprovado
+> (`dispararTemplateWhatsApp`). O magic link em lote foi para a Cloud API em 22/09.
+
 **Medido (20/08, contagem exata em 14 dias de `notification_deliveries`):**
 
 | caminho | resultado |
