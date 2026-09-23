@@ -521,7 +521,7 @@ export default function EngajamentoDoTimePage() {
               // contar só ela, e quem lê o número precisa ver isso no número.
               { label: 'Na cadência', value: total, detail: cargo ? `pessoas em ${cargo}` : 'pessoas do seu recorte', icon: Users, tone: 'cyan' },
               { label: 'Acessaram conteúdo', value: resumo.abriramAlgumFormato || 0, detail: 'abriram ao menos um formato', icon: LayoutGrid, tone: 'teal' },
-              { label: 'Consumiram', value: resumo.consumiram || 0, detail: 'concluíram ou marcaram conteúdo', icon: CheckCircle2, tone: 'emerald' },
+              { label: 'Consumiram', value: resumo.consumiram || 0, detail: 'vídeo ou podcast concluído, ou material aberto', icon: CheckCircle2, tone: 'emerald' },
               { label: 'Entregaram evidência', value: resumo.enviaramEvidencia || 0, detail: 'finalizaram a prática', icon: ClipboardCheck, tone: 'amber' },
             ]}
           />
@@ -639,7 +639,7 @@ export default function EngajamentoDoTimePage() {
             </summary>
             <div className="mt-3 grid gap-3 border-t border-white/[0.06] pt-3 text-[10px] leading-relaxed text-white/32 sm:grid-cols-2">
               <p><strong className="text-white/55">Acessou:</strong> abriu a página ou um dos formatos disponíveis.</p>
-              <p><strong className="text-white/55">Consumiu:</strong> concluiu vídeo ou áudio, ou marcou o conteúdo como concluído.</p>
+              <p><strong className="text-white/55">Consumiu:</strong> concluiu o vídeo ou o podcast. Material de leitura (texto e estudo de caso) conta ao ser aberto: PDF em outra aba não tem evento de conclusão.</p>
               <p><strong className="text-white/55">Evidência:</strong> a prática que fecha a semana. A frase nomeia a semana e diz se está pendente ou entregue — quem entrega avança, então a linha de quem está pendente nunca mostra entrega.</p>
               {resumo.qualidadeEvidencias && <p><strong className="text-white/55">Nível da reflexão:</strong> alta, média ou baixa, classificado pela IA ao fechar a semana. Semana de missão não recebe nível. O texto é privado da pessoa e não aparece aqui.</p>}
               <p><strong className="text-white/55">Sem registro:</strong> significa apenas que o sistema não recebeu aquele sinal; não é uma avaliação da pessoa.</p>

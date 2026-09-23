@@ -294,7 +294,35 @@ export async function rollUpEngajamento(
     const formatoPrincipal = formatoPreferido(e.colaboradores);
     if (marcouConcluido && setFmt.size === 0) setFmt.add(formatoPrincipal);
     const formatosAbertos = [...setFmt];
-    const consumiu = terminouVideo || audioTerminou || marcouConcluido;
+    // Material de LEITURA (texto/estudo de caso) abre em outra aba: não existe
+    // evento de conclusão, e abrir é o máximo que dá para medir. Por decisão do
+    // dono (22/09/2026), para esses formatos abrir CONTA como consumo.
+    const abriuMaterial = evs.some((x) => x.formato === 'texto' || x.formato === 'case');
+    /**
+     * 🔴 CONSUMO = vídeo ou podcast CONCLUÍDO, ou material de leitura aberto.
+     *
+     * `conteudo_consumido` saiu da régua (decisão do dono, 22/09/2026). O botão
+     * "Marcar como realizado" não existe mais na tela da pessoa: hoje a coluna
+     * é gravada sozinha quando alguém ENTRA na conversa ou abre o Tira-Dúvidas
+     * (`semana/[week]/page.tsx`). Ou seja, ela virou "começou a conversar", e
+     * pintava de verde quem nunca terminou o conteúdo. `Medido: 22/09/2026` nas
+     * etapas atuais — Ibipeba 12 → 6 pessoas, Macaé 24 → 9.
+     *
+     * O campo continua publicado (`marcouConcluido`) porque descreve um fato
+     * real, e `consumiuConteudo` segue valendo para os GATES que o usam.
+     */
+    const consumiu = terminouVideo || audioTerminou || abriuMaterial;
+    /**
+     * De ONDE veio o consumo — a tela diz o fato, em vez de um verde único.
+     * `video_iniciado` não é consumo: é o play sem conclusão, e existe para a
+     * linha não dizer "sem registro" a quem começou o vídeo.
+     */
+    const origemConsumo: 'video' | 'audio' | 'material' | 'video_iniciado' | null =
+      terminouVideo ? 'video'
+        : audioTerminou ? 'audio'
+          : abriuMaterial ? 'material'
+            : deuPlay ? 'video_iniciado'
+              : null;
     // "engajou com o principal": se vídeo, terminou; senão, abriu aquele formato.
     const engajouPrincipal = formatoPrincipal === 'video'
       ? terminouVideo
@@ -329,7 +357,7 @@ export async function rollUpEngajamento(
       abriuLink: evs.some((x) => x.tipo === 'abertura'),
       formatosP1, formatosP2, formatosAbertos,
       deuPlay, terminouVideo, audioTerminou, pctVideo,
-      marcouConcluido, consumiu,
+      marcouConcluido, consumiu, origemConsumo,
       formatoPrincipal, engajouPrincipal,
       // Evidência = etapa concluída (reflexão socrática em conteúdo; relato da
       // missão em aplicação). O painel expõe o status e o nível da reflexão;

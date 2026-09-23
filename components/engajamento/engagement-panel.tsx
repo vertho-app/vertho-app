@@ -207,28 +207,35 @@ function PilulaSignal({
   );
 }
 
+/**
+ * Consumo em FATO, sem barra de porcentagem (decisão do dono, 22/09/2026).
+ *
+ * A barra media só vídeo e só aparecia para quem preferia vídeo ou tinha dado
+ * play — então a coluna variava de linha para linha sem explicação, e
+ * "Conteúdo consumido · 4%" lia como contradição (o verde vinha da marcação,
+ * a barra do playback: duas perguntas diferentes no mesmo lugar).
+ *
+ * Régua nova: vídeo e podcast só contam CONCLUÍDOS; material de leitura
+ * (texto/estudo de caso) conta ao ser aberto, porque PDF em outra aba não tem
+ * evento de conclusão. A frase diz qual dos três aconteceu.
+ */
+const CONSUMO_ESTADO: Record<string, { label: string; cor: string }> = {
+  video: { label: 'Vídeo concluído', cor: 'text-emerald-300' },
+  audio: { label: 'Podcast concluído', cor: 'text-emerald-300' },
+  material: { label: 'Material aberto', cor: 'text-emerald-300' },
+  video_iniciado: { label: 'Vídeo iniciado, não concluído', cor: 'text-amber-300' },
+};
+
 function Consumo({ pessoa, compacto = false }: { pessoa: any; compacto?: boolean }) {
-  const pct = Math.min(100, Math.max(0, Number(pessoa.pctVideo) || 0));
-  const label = pessoa.consumiu ? 'Conteúdo consumido' : pct > 0 ? 'Vídeo em andamento' : 'Sem consumo registrado';
-  const cor = pessoa.consumiu ? 'text-emerald-300' : pct > 0 ? 'text-amber-300' : 'text-white/30';
+  const estado = CONSUMO_ESTADO[String(pessoa.origemConsumo)]
+    ?? { label: 'Sem consumo registrado', cor: 'text-white/30' };
 
   return (
     <div className={compacto ? 'min-w-0' : 'min-w-[130px]'}>
-      <div className={`flex items-center gap-1.5 text-[10px] font-semibold ${cor}`}>
+      <div className={`flex items-center gap-1.5 text-[10px] font-semibold ${estado.cor}`}>
         <CheckCircle2 size={12} aria-hidden="true" />
-        {label}
+        {estado.label}
       </div>
-      {(pessoa.deuPlay || pessoa.formatoPrincipal === 'video') && (
-        <div className="mt-2 flex items-center gap-2">
-          <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
-            <div
-              className={`h-full rounded-full ${pct >= 100 ? 'bg-emerald-400' : pct > 0 ? 'bg-amber-400' : 'bg-white/10'}`}
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <span className="w-8 text-right font-mono text-[9px] tabular-nums text-white/35">{pct}%</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -875,7 +882,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
             steps={[
               { label: 'Na cadência', value: total, detail: 'pessoas incluídas neste recorte', icon: Users, tone: 'cyan' },
               { label: 'Acessaram conteúdo', value: resumo.abriramAlgumFormato || 0, detail: 'abriram ao menos um formato', icon: LayoutGrid, tone: 'teal' },
-              { label: 'Consumiram', value: resumo.consumiram || 0, detail: 'concluíram ou marcaram o conteúdo', icon: CheckCircle2, tone: 'emerald' },
+              { label: 'Consumiram', value: resumo.consumiram || 0, detail: 'vídeo ou podcast concluído, ou material aberto', icon: CheckCircle2, tone: 'emerald' },
               { label: 'Entregaram evidência', value: resumo.enviaramEvidencia || 0, detail: 'concluíram a prática da semana', icon: ClipboardCheck, tone: 'amber' },
             ]}
             action={(
@@ -1017,7 +1024,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
             </summary>
             <div className="mt-3 grid gap-3 border-t border-white/[0.06] pt-3 text-[10px] leading-relaxed text-white/32 md:grid-cols-2">
               <p><strong className="text-white/55">Acesso:</strong> abrir a página e abrir um formato são sinais diferentes. Na semana 1, aberturas da página anteriores a 15/07 não foram registradas.</p>
-              <p><strong className="text-white/55">Consumo:</strong> vídeo ou áudio concluído, ou conteúdo marcado como concluído. Um traço indica ausência de registro, não prova de que a pessoa não viu.</p>
+              <p><strong className="text-white/55">Consumo:</strong> vídeo ou podcast CONCLUÍDO; material de leitura (texto e estudo de caso) conta ao ser aberto, porque PDF em outra aba não tem evento de conclusão. “Sem consumo registrado” é ausência de sinal, não prova de que a pessoa não viu.</p>
               <p><strong className="text-white/55">Evidência:</strong> reflexão enviada ao concluir a semana. {surface === 'admin'
                 ? 'O texto completo continua disponível em Vertho → Evidências.'
                 : 'Aqui aparece só o nível da reflexão (alta, média ou baixa); o texto é privado da pessoa.'}</p>
