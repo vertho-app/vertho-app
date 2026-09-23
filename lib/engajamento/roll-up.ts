@@ -64,10 +64,11 @@ const fmtsDistintos = (evs: any[], pilula: number | null) =>
  *   apenas em "Todas as semanas" — antes vazavam pra qualquer filtro e a semana 2
  *   mostrava os plays da semana 1.
  * - Recebeu: os carimbos ultima_pilulaN_em PERSISTEM entre semanas (só o ÚLTIMO
- *   envio fica registrado). O carimbo pertence à semana FILTRADA apenas quando ela
- *   é a semana ATUAL do colaborador E o carimbo é posterior ao último avanço de
- *   semana (ultima_evidencia_em — o avanço é atômico com ele, cron-jobs:436).
- *   Semana passada → null ("sem registro por semana"), nunca um ✓/✗ inventado.
+ *   envio fica registrado). Ele pertence à semana ACESSÍVEL da pessoa — que é a
+ *   que a cadência envia (`trigger-diario-empresa` escolhe conteúdo e link por
+ *   `primeiraSemanaAcessivel`) — e só vale se for posterior ao último rolo
+ *   semanal (ultima_evidencia_em). Qualquer outra semana → null ("sem registro
+ *   por semana"), nunca um ✓/✗ inventado.
  */
 export async function rollUpEngajamento(
   empresaId: string,
@@ -198,20 +199,37 @@ export async function rollUpEngajamento(
     progressoJornadaPorColab.set(p.colaborador_id, lista);
   }
 
-  // Atribui o carimbo de pílula à semana dos SINAIS (a etapa da pessoa, ou a
-  // semana filtrada). true/false só quando dá pra AFIRMAR; caso contrário null
-  // — o carimbo guarda só o ÚLTIMO envio, então ele não sabe responder por
-  // nenhuma outra semana.
-  //
-  // 🔴 Sem filtro isto devolvia `!!carimbo`, ou seja "recebeu alguma vez".
-  // `Medido: 22/09/2026` (Amanda Rosa, ibipeba): etapa na semana 4, mas a
-  // cadência já está na semana 10 (`semana_atual`), e a linha exibia as
-  // pílulas da 10 em cima do rótulo "Semana 4 · etapa pendente". A régua desta
-  // tela é uma só: TUDO fala da semana atual DO COLABORADOR.
-  const recebeuNaSemana = (carimbo: string | null, e: any, semanaDosSinais: number | null): boolean | null => {
+  /**
+   * O carimbo de pílula responde pela semana ACESSÍVEL da pessoa — que é a
+   * semana que a cadência de fato envia.
+   *
+   * 🔴 CORREÇÃO DE PREMISSA (22/09/2026, no mesmo dia). De manhã amarrei esta
+   * régua a `semana_atual` (o relógio) e devolvi `null` para quem estivesse
+   * atrás dele: 92 das 117 pessoas em jornada ativa passaram a exibir "Envio
+   * sem registro", como se o carimbo falasse de outra semana. **Não fala.**
+   * `lib/fase4/trigger-diario-empresa.ts:429` escolhe o conteúdo e o link por
+   * `primeiraSemanaAcessivel` desde 23/08/2026 — justamente porque anunciar a
+   * semana do calendário para quem está preso na 1 leva a uma porta fechada.
+   * Ou seja: a pílula que a pessoa recebeu é a da ETAPA dela, e esconder isso
+   * apagava um envio verdadeiro.
+   *
+   * O que continua valendo: `ultima_pilulaN_em` guarda só o ÚLTIMO envio.
+   * Então ele responde pela semana que a cadência está tratando (a acessível)
+   * e por nenhuma outra — pedir uma semana diferente no filtro devolve `null`,
+   * "sem registro por semana", nunca um ✓ emprestado.
+   */
+  const recebeuNaSemana = (
+    carimbo: string | null,
+    e: any,
+    semanaDosSinais: number | null,
+    semanaAcessivel: number | null,
+  ): boolean | null => {
     if (semanaDosSinais == null) return null;
-    if (semanaDosSinais !== (Number(e.semana_atual) || 1)) return null;
+    if (semanaAcessivel == null || semanaDosSinais !== semanaAcessivel) return null;
     if (!carimbo) return false;
+    // Depois do último rolo semanal? Senão o envio é de um ciclo anterior — e
+    // para quem a cadência já encerrou (calendário além do plano) a resposta
+    // honesta é "sem envio", não um ✓ de semanas atrás.
     const inicioSemana = e.ultima_evidencia_em || e.data_inicio;
     return inicioSemana ? String(carimbo) > String(inicioSemana) : true;
   };
@@ -349,8 +367,8 @@ export async function rollUpEngajamento(
       jornadaConcluida: posicao.jornadaConcluida,
       totalSemanasJornada: posicao.totalSemanas,
       status: e.status,
-      recebeuP1: recebeuNaSemana(e.ultima_pilula1_em, e, semanaDosSinais),
-      recebeuP2: recebeuNaSemana(e.ultima_pilula2_em, e, semanaDosSinais),
+      recebeuP1: recebeuNaSemana(e.ultima_pilula1_em, e, semanaDosSinais, posicao.semanaAcessivel),
+      recebeuP2: recebeuNaSemana(e.ultima_pilula2_em, e, semanaDosSinais, posicao.semanaAcessivel),
       abriuP1, abriuP2, abriuDireto,
       // Tile "Abriram o link" = ESTRITAMENTE o evento de abertura (novo, ?p= a
       // partir de 15/07). O ● por pílula (abriuP1/P2) é mais largo de propósito.

@@ -1028,7 +1028,7 @@ export default function EngagementPanel({ empresaId, empresaNome, surface, loadR
               <p><strong className="text-white/55">Evidência:</strong> reflexão enviada ao concluir a semana. {surface === 'admin'
                 ? 'O texto completo continua disponível em Vertho → Evidências.'
                 : 'Aqui aparece só o nível da reflexão (alta, média ou baixa); o texto é privado da pessoa.'}</p>
-              <p><strong className="text-white/55">Pílulas:</strong> o banco guarda só o carimbo do ÚLTIMO envio. Quando a pessoa está atrás da cadência, esse carimbo é de outra semana, então o envio aparece como “sem registro” em vez de um ✓ que pertence a outro ponto da jornada.</p>
+              <p><strong className="text-white/55">Pílulas:</strong> a cadência manda a pílula da semana em que a pessoa ESTÁ (não a do calendário), então o envio marcado é o da etapa mostrada ao lado. O banco guarda só o carimbo do último envio: ao filtrar outra semana, ele aparece como “sem registro” em vez de um ✓ emprestado. “Sem envio” significa que nada saiu neste ciclo — inclusive quando a cadência da turma já terminou.</p>
             </div>
           </details>
         </div>

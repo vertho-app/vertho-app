@@ -11,10 +11,16 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
  * semana 10 (`fase4_envios.semana_atual`), e era da semana 10 aquele "Enviada".
  *
  * A régua do dono é uma só: conteúdo, evidência e envio se referem à semana
- * atual do colaborador. O carimbo de pílula guarda só o ÚLTIMO envio, então
- * quando a pessoa está atrás da cadência ele não sabe responder pela etapa
- * dela — e a resposta honesta é `null` ("sem registro"), nunca um ✓ emprestado
- * de outra semana.
+ * atual do colaborador.
+ *
+ * 🔴 CORREÇÃO DE PREMISSA, no mesmo dia: a primeira versão deste arquivo
+ * dizia que o carimbo de pílula falava da semana do CALENDÁRIO, e devolvia
+ * `null` para quem estivesse atrás dele — 92 das 117 pessoas em jornada ativa.
+ * Não é isso: `trigger-diario-empresa.ts:429` escolhe conteúdo e link por
+ * `primeiraSemanaAcessivel` desde 23/08/2026, ou seja, **a pílula que a pessoa
+ * recebe é a da ETAPA dela**. O `null` só vale quando se pergunta por OUTRA
+ * semana, porque aí o carimbo (que é só o último envio) realmente não sabe
+ * responder.
  */
 
 const INICIO = '2026-07-14';
@@ -99,18 +105,27 @@ describe('os sinais da linha são da etapa da PESSOA', () => {
     expect(p.Bruna.semanaAcessivel).toBe(10);
   });
 
-  it('🔴 quem está atrás da cadência não exibe a pílula de outra semana', async () => {
+  it('🔴 quem está atrasado RECEBE a pílula da etapa dele, e a linha afirma isso', async () => {
     const p = porNome(await rollUpEngajamento('emp-1'));
-    // null = "sem registro por semana". NÃO é `true` (✓ de outra semana) nem
-    // `false` (afirmar que não recebeu, o que o carimbo também não prova).
+    // Amanda está na etapa 4 com a cadência na 10 — e a cadência manda a pílula
+    // da semana ACESSÍVEL (4), não a do calendário. Esconder isso apagaria um
+    // envio verdadeiro.
+    expect(p.Amanda.recebeuP1).toBe(true);
+    expect(p.Amanda.recebeuP2).toBe(true);
+  });
+
+  it('🔴 perguntar por OUTRA semana devolve "sem registro", nunca um ✓ emprestado', async () => {
+    // O carimbo guarda só o último envio: ele responde pela etapa (4) e por mais
+    // nenhuma. Com o filtro na semana 2, a resposta honesta é null.
+    const p = porNome(await rollUpEngajamento('emp-1', 2));
     expect(p.Amanda.recebeuP1).toBeNull();
     expect(p.Amanda.recebeuP2).toBeNull();
   });
 
-  it('quem está na semana da cadência mantém o envio afirmado', async () => {
+  it('sem carimbo, dá para negar; com carimbo velho, não', async () => {
     const p = porNome(await rollUpEngajamento('emp-1'));
-    expect(p.Bruna.recebeuP1).toBe(true);   // carimbo posterior ao último avanço
-    expect(p.Bruna.recebeuP2).toBe(false);  // sem carimbo: aí dá para negar
+    expect(p.Bruna.recebeuP1).toBe(true);   // carimbo posterior ao último rolo semanal
+    expect(p.Bruna.recebeuP2).toBe(false);  // sem carimbo nenhum: aí dá para negar
   });
 
   it('🔴 evidência e qualidade também são da etapa, não do histórico', async () => {
