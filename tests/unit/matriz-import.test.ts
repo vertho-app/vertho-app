@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { atribuirCodigosDaMatriz, preencherCelulasMescladas, prefixoDoCargo } from '@/lib/matriz-import';
+import { atribuirCodigosDaMatriz, preencherCelulasMescladas, prefixoDoCargo, separarLinhasDoImport } from '@/lib/matriz-import';
 
 /**
  * CÓDIGOS DA MATRIZ GERADOS NO IMPORT (23/09/2026).
@@ -150,5 +150,32 @@ describe('preencherCelulasMescladas', () => {
 
   it('linha sem nome, nem herdado, sai', () => {
     expect(preencherCelulasMescladas([{ nome: '', nome_curto: 'órfã' }])).toEqual([]);
+  });
+});
+
+describe('separarLinhasDoImport', () => {
+  const completa = { nome: 'Feedback', descricao: 'D', n1_gap: '1', n2_desenvolvimento: '2', n4_referencia: '4' };
+
+  it('linha sem cargo sai À PARTE (a IA1 descarta competência sem cargo: seria gravada e nunca usada)', () => {
+    const ok = { ...completa, cargo: COORD };
+    const semCargo = { ...completa, cargo: '' };
+    const soEspaco = { ...completa, cargo: '   ' };
+    const r = separarLinhasDoImport([ok, semCargo, soEspaco]);
+    expect(r.validas).toEqual([ok]);
+    expect(r.semCargo).toEqual([semCargo, soEspaco]);
+    expect(r.semObrigatorios).toEqual([]);
+  });
+
+  it('linha sem obrigatório conta só como sem obrigatório, mesmo sem cargo (um aviso por linha)', () => {
+    const semN1 = { ...completa, n1_gap: '', cargo: '' };
+    const r = separarLinhasDoImport([semN1]);
+    expect(r.semObrigatorios).toEqual([semN1]);
+    expect(r.semCargo).toEqual([]);
+    expect(r.validas).toEqual([]);
+  });
+
+  it('cargo herdado da linha de cima (célula mesclada) conta como preenchido', () => {
+    const linhas = preencherCelulasMescladas([{ ...completa, cargo: COORD }, { ...completa, nome: '', cargo: '' }]);
+    expect(separarLinhasDoImport(linhas).validas).toHaveLength(2);
   });
 });

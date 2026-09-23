@@ -221,6 +221,12 @@ describe('importarCompetenciasCSV', () => {
     expect(editada.payload).not.toHaveProperty('cod_comp');
   });
 
+  it('linha sem cargo recusa o import inteiro no servidor: nada é gravado', async () => {
+    const r = await importarCompetenciasCSV(EMP, [...csv(AUX), { nome: 'Sem dono', cargo: '  ', nome_curto: 'X', n1_gap: '1' }]);
+    expect(r).toEqual({ success: false, error: '1 linha(s) sem cargo. Sem cargo, a competência nunca é oferecida a ninguém: preencha o cargo e importe de novo.' });
+    expect(sb.escritas).toHaveLength(0);
+  });
+
   it('erro ao ler a matriz da empresa NÃO importa: código gerado sem enxergar o banco repetiria', async () => {
     sb.falharEm({ tabela: 'competencias', op: 'select', mensagem: 'timeout no pool' });
     expect(await importarCompetenciasCSV(EMP, csv(AUX)))

@@ -71,6 +71,25 @@ export function preencherCelulasMescladas(linhas: Record<string, string>[]): Rec
   return saida;
 }
 
+/** Obrigatórios de toda linha do import, conferidos na tela depois das células mescladas. */
+export const OBRIGATORIOS_DO_IMPORT = ['nome', 'descricao', 'n1_gap', 'n2_desenvolvimento', 'n4_referencia'] as const;
+
+/**
+ * Linha sem cargo é gravada e NUNCA usada: a IA1 agrupa a matriz pelo cargo da
+ * competência e descarta a sem cargo (actions/fase1.ts, `_sem_cargo`). Por isso
+ * o import a recusa, em vez de gravar em silêncio (decisão do dono, 23/09/2026;
+ * medido no mesmo dia: 0 de 1281 linhas no banco sem cargo).
+ */
+export const temCargo = (l: { cargo?: string | null }) => !!texto(l.cargo);
+
+/** O que a tela manda ao servidor e o que ela descarta, com o motivo de cada um. */
+export function separarLinhasDoImport<T extends Record<string, any>>(linhas: T[]) {
+  const semObrigatorios = linhas.filter((l) => OBRIGATORIOS_DO_IMPORT.some((k) => !texto(l[k])));
+  const semCargo = linhas.filter((l) => !semObrigatorios.includes(l) && !temCargo(l));
+  const validas = linhas.filter((l) => !semObrigatorios.includes(l) && !semCargo.includes(l));
+  return { validas, semObrigatorios, semCargo };
+}
+
 /** Linha com qualquer campo da régua é um DESCRITOR; sem nenhum, é a linha-cabeçalho da competência. */
 function ehDescritor(l: LinhaDaMatrizImportada): boolean {
   return [l.nome_curto, l.descritor_completo, l.n1_gap, l.n2_desenvolvimento, l.n3_meta, l.n4_referencia]

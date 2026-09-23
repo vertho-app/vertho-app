@@ -5,7 +5,7 @@ import { requirePermissionAction, assertTenantAccessAction, getAuthenticatedEmai
 import { logAdminAction } from '@/lib/audit';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { chaveDaLinhaDaMatriz } from '@/lib/matriz-por-cargo';
-import { atribuirCodigosDaMatriz, type LinhaDaMatrizGravada } from '@/lib/matriz-import';
+import { atribuirCodigosDaMatriz, temCargo, type LinhaDaMatrizGravada } from '@/lib/matriz-import';
 
 export async function loadEmpresas() {
   const sb = await requireAdminSupabase();
@@ -126,13 +126,19 @@ async function lerMatrizDaEmpresa(
 export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
   // Gate TENANT-SCOPED (auditoria 23/07): empresaId vem do client.
   const sb = await requireEmpresaSupabase(empresaId, 'content.manage', 'importarCompetenciasCSV');
+  const linhas = (comps || []).filter(c => c?.nome?.trim());
+  // A tela já tira a linha sem cargo com aviso; aqui é a porta do endpoint.
+  const semCargo = linhas.filter(c => !temCargo(c)).length;
+  if (semCargo) {
+    return { success: false, error: `${semCargo} linha(s) sem cargo. Sem cargo, a competência nunca é oferecida a ninguém: preencha o cargo e importe de novo.` };
+  }
   const lida = await lerMatrizDaEmpresa(sb, empresaId);
   if ('error' in lida) return { success: false, error: lida.error };
   const existentes = lida.linhas;
 
   // Código vazio é gerado aqui (lib/matriz-import), antes do dedup: a reimportação
   // recebe os MESMOS códigos e cai no dedup em vez de duplicar a matriz.
-  const codigos = atribuirCodigosDaMatriz((comps || []).filter(c => c?.nome?.trim()), existentes);
+  const codigos = atribuirCodigosDaMatriz(linhas, existentes);
   if (codigos.conflitos.length) {
     const lista = codigos.conflitos.slice(0, 5).join('; ');
     const resto = codigos.conflitos.length > 5 ? ` (e mais ${codigos.conflitos.length - 5})` : '';
