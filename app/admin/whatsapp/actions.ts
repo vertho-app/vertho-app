@@ -8,7 +8,8 @@ import { APP_WEBHOOK_URL, EMAIL_FROM_DEFAULT, QSTASH_BASE_URL, ROOT_DOMAIN, tena
 import { emailConfigurationError, sendEmail, type SendEmailInput } from '@/lib/email-provider';
 import { assertZapiConnected, getZapiConfig } from '@/lib/zapi';
 import { assertFilaDoProvedorLimpa } from '@/lib/whatsapp';
-import { publicarWhatsappCis } from '@/lib/qstash-publish';
+import { publicarTemplateCloudCis, publicarWhatsappCis } from '@/lib/qstash-publish';
+import { lerParametroAcesso, montarParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
 import { aplicarTetoLote, atrasosDoLote, criarRelogioCadencia, duracaoEstimada, intervaloLoteMs, maxPorDisparo } from '@/lib/whatsapp/cadencia';
 import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
@@ -702,8 +703,29 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
     }
     if (!colabs.length) return { success: false, error: 'Nenhum colaborador com telefone e email' };
 
-    const zapi = getZapiConfig();
-    if (!zapi.configured) return { success: false, error: 'Z-API não configurado' };
+    // 🔴 CLOUD API, NÃO Z-API (22/09/2026). Até esta data o lote mandava o link em
+    // TEXTO LIVRE pela Z-API, desconectada desde 11/08: o último envio com sucesso
+    // foi em 13/08 e houve 113 falhas até 18/08, com o botão ainda na tela. Pela
+    // API oficial o link de acesso só sai no BOTÃO do template aprovado (o link no
+    // corpo é recusado; ver `lib/auth/magic-link-whatsapp.ts`), e o
+    // `envio-template-lote` já dizia que o caminho do `acesso_vertho` era ESTE
+    // botão. Mesmo template e mesmo `/entrar` do login individual e do Beto.
+    const { contratoDoTemplate, templateAtivo } = await import('@/lib/notifications/pilula-template');
+    const { cloudApiConfigurada } = await import('@/lib/whatsapp/cloud-api');
+    const template = templateAtivo('acesso');
+    const montar = contratoDoTemplate(template);
+    if (!template || !montar || !cloudApiConfigurada()) {
+      await logAdminAction({
+        adminEmail: ctx.email, acao: 'whatsapp.magic_links', empresaId, empresaSlug: empresa.slug,
+        alvo: `${colabs.length} colaboradores`,
+        detalhes: { filtros, bloqueado: 'template_acesso_indisponivel', template: template || null },
+        resultado: 'erro',
+      });
+      return {
+        success: false,
+        error: 'Template de acesso da API oficial do WhatsApp indisponível (WHATSAPP_TEMPLATE_ACESSO ou Cloud API não configurados). Nenhum link foi gerado.',
+      };
+    }
     // Sem QStash este disparo não tem como respeitar a cadência: 15s × N dentro
     // de uma server action estoura o timeout muito antes do fim do lote. Falhar
     // aqui é melhor que enviar rápido demais — foi a pressa que bloqueou o
@@ -711,34 +733,24 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
     if (!process.env.QSTASH_TOKEN) {
       return { success: false, error: 'QSTASH_TOKEN não configurado — disparo em lote indisponível.' };
     }
-    try {
-      await assertZapiConnected();
-      // Segunda trava: conectado não basta (fila residual sai em rajada).
-      await assertFilaDoProvedorLimpa(MAX_FILA_ANTES_DO_LOTE);
-    } catch (e: any) {
-      await logAdminAction({
-        adminEmail: ctx.email, acao: 'whatsapp.magic_links', empresaId, empresaSlug: empresa.slug,
-        alvo: `${colabs.length} colaboradores`,
-        detalhes: { filtros, bloqueado: 'zapi_indisponivel', erro: e?.message },
-        resultado: 'erro',
-      });
-      return { success: false, error: `${e?.message || 'Z-API indisponível'}. Reconecte a instância antes de disparar WhatsApp em lote.` };
-    }
 
     const redirectUrl = tenantUrl(empresa.slug, '/dashboard');
     let enviados = 0, erros = 0, ultimoErro = '';
+    // Chave de deduplicação por LOTE e pessoa: estável nas retentativas do QStash
+    // (a mesma mensagem não duplica na conversa do inbox) e diferente num lote
+    // novo. A chave padrão (`template:colaborador`) colidiria no índice único de
+    // `whatsapp_mensagens_enviadas` e o segundo link sumiria da conversa.
+    const loteId = Date.now().toString(36);
 
-    // Teto de volume + cadência (política única). Este disparo enviava DIRETO na
-    // request com 1,2s entre mensagens — ~50/min, o DOBRO da taxa que bloqueou o
-    // número. Agora vai pelo QStash como os outros lotes.
+    // Teto de volume + cadência (política única), pelo QStash como os outros lotes.
     //
-    // ⚠️ Trade-off assumido: o magic link passa a ficar no CORPO da mensagem no
+    // ⚠️ Trade-off assumido: o `<slug>~<token_hash>` fica no corpo da mensagem no
     // QStash até o seu atraso vencer (no pior caso ~30 min com o teto default).
     // É mais um custodiante de uma credencial de login. Aceito porque (a) o mesmo
-    // link já trafega em claro pela Z-API e pelo WhatsApp, (b) é de uso único e
-    // expira em 24h, e (c) a alternativa — manter o envio síncrono — só funciona
-    // rápido demais ou não funciona. Se um dia isso incomodar, o caminho é o
-    // webhook GERAR o link (payload com colaboradorId, não com o link pronto).
+    // valor trafega na URL do botão pelo WhatsApp, (b) é de uso único e expira, e
+    // (c) a alternativa — envio síncrono — só funciona rápido demais ou não
+    // funciona. Se um dia isso incomodar, o caminho é o webhook GERAR o link
+    // (payload com colaboradorId, não com o token pronto).
     const { enviar: alvos, adiados, aviso: avisoTeto } = aplicarTetoLote(colabs as any[]);
     const atrasos = atrasosDoLote(alvos.length);
 
@@ -777,31 +789,41 @@ export async function enviarMagicLinksWhatsApp(empresaId: string, filtros: any =
           email: colab.email,
           options: { redirectTo: redirectUrl },
         });
-        if (linkErr || !linkData?.properties?.action_link) {
+        const tokenHash = linkData?.properties?.hashed_token;
+        if (linkErr || !tokenHash) {
           erros++;
           ultimoErro = linkErr?.message || 'Falha ao gerar magic link';
           return;
         }
 
-        const magicLink = linkData.properties.action_link;
+        // `<slug>~<token_hash>`: o `/entrar` desempacota e manda para o
+        // `/auth/callback` do tenant. Parâmetro que o `/entrar` não leria vira
+        // erro desta pessoa, nunca um botão que leva a lugar nenhum.
+        const acessoParam = montarParametroAcesso(empresa.slug, tokenHash);
+        if (!lerParametroAcesso(acessoParam)) {
+          erros++;
+          ultimoErro = `slug "${empresa.slug}" não forma um link de acesso válido`;
+          return;
+        }
+
         const nome = colab.nome_completo?.split(' ')[0] || '';
         let phone = colab.telefone.replace(/\D/g, '');
         if (phone.length <= 11) phone = `55${phone}`;
 
-        const msg = `Olá, ${nome}! 👋
+        // Parâmetros pelo CONTRATO do template, como no `access-link-service`:
+        // a ordem e a quantidade vêm de `CONTRATOS`, não deste call-site.
+        const { params, botaoParam } = montar({
+          telefone: phone, nome, semana: 1, tema: '',
+          slug: '', baseUrl: '', formato: null, pilula: null,
+          empresaId, colaboradorId: colab.id, acessoParam,
+        });
 
-Seu acesso à plataforma *${empresa.nome}* está pronto.
-
-Clique no link abaixo para entrar direto (sem precisar de senha):
-${magicLink}
-
-⚠️ Este link é pessoal e expira em 24h.
-
-— Equipe Vertho`;
-
-        await publicarWhatsappCis({
+        await publicarTemplateCloudCis({
           telefone: phone,
-          mensagem: msg,
+          template,
+          templateParams: params,
+          templateBotaoParam: botaoParam,
+          templateDedupeKey: `magic_link:${loteId}:${colab.id}`,
           kindEnvio: 'magic_link',
           colaboradorId: colab.id,
           empresaId,
@@ -822,7 +844,7 @@ ${magicLink}
       adminEmail: ctx.email, acao: 'whatsapp.magic_links', empresaId, empresaSlug: empresa.slug,
       alvo: `${colabs.length} colaboradores`,
       // adiadosPorTeto na auditoria: "53 colaboradores" no alvo sugere 53 links.
-      detalhes: { filtros, enviados, erros, adiadosPorTeto: adiados.length, ultimoErro: ultimoErro || undefined },
+      detalhes: { filtros, via: 'cloud-api', template, loteId, enviados, erros, adiadosPorTeto: adiados.length, ultimoErro: ultimoErro || undefined },
       resultado: enviados === 0 ? 'erro' : (erros > 0 || adiados.length > 0) ? 'parcial' : 'ok',
     });
     return { success: enviados > 0, message: msg2, error: enviados === 0 ? msg2 : undefined };

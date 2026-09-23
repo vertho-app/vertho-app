@@ -1198,7 +1198,8 @@
       "activeCompanies": "{count} active",
       "collaborators": "Team members",
       "assessments": "Reviews",
-      "activePdis": "Active IDPs"
+      "activePdis": "IDPs generated",
+      "unavailable": "unavailable"
     },
     "activity": {
       "subtitle": "Last 7 days across all companies",
@@ -1214,10 +1215,26 @@
       "filterBy": "Filter dashboard by company {name}"
     },
     "health": {
-      "title": "System health",
-      "subtitle": "Connections and tables",
-      "databaseOperational": "Database operational",
-      "connected": "Connected"
+      "title": "Operations health",
+      "subtitle": "Latest automatic check of each pipeline stage (Brasília time)",
+      "database": "Database",
+      "dbOk": "Responded",
+      "dbFail": "Did not respond",
+      "noRun": "no run recorded",
+      "findings": "{count, plural, =0 {no findings} one {# finding} other {# findings}}",
+      "modes": {
+        "estrutural": "Structure (daily)",
+        "preflight": "Before delivery (daily)",
+        "postflight": "After delivery (daily)",
+        "horizonte": "Upcoming weeks (Mondays)"
+      },
+      "status": {
+        "ok": "OK",
+        "aviso": "Warning",
+        "critico": "Critical",
+        "erro": "Failed",
+        "semRun": "No record"
+      }
     },
     "quickActions": {
       "title": "Quick actions",

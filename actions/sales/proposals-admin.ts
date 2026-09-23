@@ -307,10 +307,10 @@ export async function criarPropostaDeOrcamento(
  * Atualiza a proposta que um orçamento JÁ gerou, a partir do orçamento salvo.
  *
  * Existe porque a conversão é de mão única (um orçamento, uma proposta) e editar
- * o orçamento depois não chegava à proposta. Medido 17/09/2026: o "Futuro SA"
- * ganhou simuladores e passou a valer R$ 1.599.000, e a PROP-2026-0008 seguiu
- * em R$ 1.569.000 enquanto a faixa de métricas do documento já lia o orçamento
- * novo, ao vivo. O documento misturava as duas versões.
+ * o orçamento depois não chegava à proposta. Medido 17/09/2026: um orçamento
+ * real ganhou simuladores e passou a valer R$ 30.000 a mais, e a PROP-2026-0008
+ * seguiu no valor antigo enquanto a faixa de métricas do documento já lia o
+ * orçamento novo, ao vivo. O documento misturava as duas versões.
  *
  * Os números saem da LINHA DO BANCO pela mesma conta da conversão
  * (`numerosDoOrcamento`); do cliente vêm só o escopo revisado e as condições.

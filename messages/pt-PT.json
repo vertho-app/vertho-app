@@ -1198,7 +1198,8 @@
       "activeCompanies": "{count} ativas",
       "collaborators": "Colaboradores",
       "assessments": "Avaliações",
-      "activePdis": "PDIs ativos"
+      "activePdis": "PDIs gerados",
+      "unavailable": "indisponível"
     },
     "activity": {
       "subtitle": "Últimos 7 dias em todas as empresas",
@@ -1214,10 +1215,26 @@
       "filterBy": "Filtrar painel pela empresa {name}"
     },
     "health": {
-      "title": "Saúde do sistema",
-      "subtitle": "Conexões e tabelas",
-      "databaseOperational": "Base de dados operacional",
-      "connected": "Ligado"
+      "title": "Saúde da operação",
+      "subtitle": "Última verificação automática de cada etapa do pipeline (hora de Brasília)",
+      "database": "Base de dados",
+      "dbOk": "Respondeu",
+      "dbFail": "Não respondeu",
+      "noRun": "sem execução registada",
+      "findings": "{count, plural, =0 {sem achados} one {# achado} other {# achados}}",
+      "modes": {
+        "estrutural": "Estrutura (diária)",
+        "preflight": "Antes da entrega (diária)",
+        "postflight": "Depois da entrega (diária)",
+        "horizonte": "Próximas semanas (segundas-feiras)"
+      },
+      "status": {
+        "ok": "OK",
+        "aviso": "Aviso",
+        "critico": "Crítico",
+        "erro": "Falhou",
+        "semRun": "Sem registo"
+      }
     },
     "quickActions": {
       "title": "Ações rápidas",

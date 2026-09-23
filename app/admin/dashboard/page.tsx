@@ -47,7 +47,19 @@ export default function AdminDashboardPage() {
   }
 
   const { empresas, totalColabs, totalAvaliacoes, totalPDIs, health } = data;
-  const allHealthOk = Object.values(health).every((v) => v === 'OK');
+  // Verde só quando o banco respondeu E nenhuma rodada recente achou crítico ou
+  // falhou ao rodar. `aviso` e `semRun` não pintam de vermelho: o preflight não
+  // grava em dia sem entrega, e aviso é pendência, não incidente.
+  const allHealthOk = health.bancoRespondeu
+    && health.modos.every((m: any) => m.status !== 'critico' && m.status !== 'erro');
+  const corStatus: Record<string, string> = {
+    ok: '#2ecc71', aviso: '#f4b740', critico: '#f97354', erro: '#f97354', semRun: 'rgba(255,255,255,.3)',
+  };
+  const quando = (iso: string | null) => (iso
+    ? new Intl.DateTimeFormat(locale, {
+      day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+    }).format(new Date(iso))
+    : '');
 
   const empresaSelecionada = empresaFiltro === 'all' ? null : empresas.find((e: any) => e.id === empresaFiltro);
 
@@ -65,7 +77,7 @@ export default function AdminDashboardPage() {
           <MetricCard label={t('kpis.companies')} value={fmt(empresas.length, locale)} helper={t('kpis.activeCompanies', { count: empresas.length })} accent="#34c5cc" icon={<Building2 size={14} />} />
           <MetricCard label={t('kpis.collaborators')} value={fmt(totalColabs, locale)} accent="#2ecc71" icon={<Users size={14} />} />
           <MetricCard label={t('kpis.assessments')} value={fmt(totalAvaliacoes, locale)} accent="#f4b740" icon={<CheckCircle2 size={14} />} />
-          <MetricCard label={t('kpis.activePdis')} value={fmt(totalPDIs, locale)} accent="#9e4edd" icon={<ClipboardCheck size={14} />} />
+          <MetricCard label={t('kpis.activePdis')} value={totalPDIs == null ? t('kpis.unavailable') : fmt(totalPDIs, locale)} accent="#9e4edd" icon={<ClipboardCheck size={14} />} />
         </div>
 
         {/* Atividade Recente (span 2) + Empresas Ativas (span 1) */}
@@ -163,30 +175,35 @@ export default function AdminDashboardPage() {
 
             <div
               className="rounded-lg p-3 flex items-center justify-between mb-3"
-              style={{ background: 'rgba(52,197,204,.05)', border: '1px solid rgba(52,197,204,.18)' }}
+              style={{
+                background: health.bancoRespondeu ? 'rgba(52,197,204,.05)' : 'rgba(249,115,84,.06)',
+                border: `1px solid ${health.bancoRespondeu ? 'rgba(52,197,204,.18)' : 'rgba(249,115,84,.3)'}`,
+              }}
             >
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#34c5cc', boxShadow: '0 0 8px #34c5cc' }} />
-                <div>
-                  <p className="text-sm font-bold text-white">Supabase</p>
-                  <p className="text-[10px]" style={{ color: 'rgba(255,255,255,.4)' }}>{t('health.databaseOperational')}</p>
-                </div>
+                <span className="w-2 h-2 rounded-full" style={{ background: health.bancoRespondeu ? '#34c5cc' : '#f97354' }} />
+                <p className="text-sm font-bold text-white">{t('health.database')}</p>
               </div>
               <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-widest"
-                style={{ background: 'rgba(52,197,204,.12)', color: '#34c5cc', border: '1px solid rgba(52,197,204,.3)' }}>
-                {t('health.connected')}
+                style={{ color: health.bancoRespondeu ? '#34c5cc' : '#f97354', border: `1px solid ${health.bancoRespondeu ? 'rgba(52,197,204,.3)' : 'rgba(249,115,84,.4)'}` }}>
+                {health.bancoRespondeu ? t('health.dbOk') : t('health.dbFail')}
               </span>
             </div>
 
-            <div className="space-y-1.5 flex-1">
-              {Object.entries(health).map(([table, status]: [string, any]) => (
-                <div key={table} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: status === 'OK' ? '#2ecc71' : '#f97354' }} />
-                    <span style={{ ...mono, fontSize: 11, color: 'rgba(255,255,255,.55)' }}>{table}</span>
+            <div className="space-y-2 flex-1">
+              {health.modos.map((m: any) => (
+                <div key={m.modo} className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: corStatus[m.status] || corStatus.semRun }} />
+                    <div className="min-w-0">
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,.7)' }}>{t(`health.modes.${m.modo}`)}</p>
+                      <p style={{ ...mono, fontSize: 9, color: 'rgba(255,255,255,.4)' }}>
+                        {m.em ? `${quando(m.em)} · ${t('health.findings', { count: m.achados })}` : t('health.noRun')}
+                      </p>
+                    </div>
                   </div>
-                  <span style={{ ...mono, fontSize: 9, fontWeight: 700, color: status === 'OK' ? '#2ecc71' : '#f97354', letterSpacing: '.08em' }}>
-                    {status}
+                  <span className="shrink-0" style={{ ...mono, fontSize: 9, fontWeight: 700, color: corStatus[m.status] || corStatus.semRun, letterSpacing: '.08em' }}>
+                    {t(`health.status.${m.status}`)}
                   </span>
                 </div>
               ))}

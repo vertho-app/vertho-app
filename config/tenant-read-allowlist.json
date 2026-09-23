@@ -20,7 +20,6 @@
     "app/api/auth/check-email/route.ts": 1,
     "app/api/auth/magic-link-whatsapp/route.ts": 1,
     "app/api/auth/magic-link/route.ts": 1,
-    "app/api/gestor/plenaria/pdf/route.ts": 1,
     "app/api/internal/pregerar-podcast/route.ts": 1,
     "app/api/relatorios/pdf/route.ts": 3,
     "app/api/temporada/evaluation/route.ts": 1,

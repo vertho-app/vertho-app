@@ -13,22 +13,32 @@ export async function GET(request: NextRequest) {
     const auth = await requireRole(request, ['gestor', 'rh', 'admin']);
     if (auth instanceof Response) return auth;
 
-    const email = auth.email;
-
     const r = await listarEquipeEvolucao();
     if (r.error) return NextResponse.json({ error: r.error }, { status: 403 });
 
-    // Dados do gestor pro cabeçalho
-    const sb = createSupabaseAdmin();
-    const { data: gestor } = await sb.from('colaboradores')
-      .select('nome_completo, empresas!inner(nome)').eq('email', email).maybeSingle();
-    const g: any = gestor;
+    // Cabeçalho pela SESSÃO, não pelo e-mail (22/09/2026). O mesmo e-mail existe
+    // em várias empresas nesta base, e a leitura antiga (`colaboradores` só por
+    // e-mail, `maybeSingle`) falhava com 2+ linhas e saía sem nome e sem empresa;
+    // com 1 linha, podia ser a da empresa errada.
+    let empresaNome: string | null = null;
+    if (auth.empresaId) {
+      const sb = createSupabaseAdmin();
+      const { data: emp, error: empErr } = await sb.from('empresas')
+        .select('nome').eq('id', auth.empresaId).maybeSingle();
+      if (empErr) throw new Error(`empresa: ${empErr.message}`);
+      empresaNome = emp?.nome ?? null;
+    }
+
+    // Quem baixa decide o rótulo: o RH baixava com "Gestor: <nome do RH>".
+    // Sem acento, como os outros rótulos deste PDF ("Sumario", "Evolucao").
+    const responsavelLabel = auth.role === 'rh' ? 'RH' : auth.role === 'gestor' ? 'Gestor' : 'Responsavel';
 
     const buffer = await renderPlenariaEquipePDF({
-      gestorNome: g?.nome_completo,
-      empresa: g?.empresas?.nome,
+      gestorNome: auth.colaborador?.nome_completo ?? null,
+      empresa: empresaNome,
       resumo: r.resumo,
       rows: r.rows,
+      responsavelLabel,
     });
 
     return new NextResponse(buffer as any, {

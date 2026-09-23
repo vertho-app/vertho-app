@@ -221,8 +221,9 @@ O que a fase 2 exige, e não é pouco:
    deploy. As respostas automáticas do webhook (recusa e "VER") passaram a levar o `to_phone_id`,
    e a thread grava o número efetivo, não o pedido. Testes: `whatsapp-numero-origem.test.ts`,
    `inbox-fluxo.test.ts` e R12 em `pipeline-health-regras.test.ts`, validados por 8 mutações.
-   ⚠️ Fora do alcance: o legado Z-API (fallback da cadência, áudio do relatório,
-   magic link em lote da tela antiga) não passa por número nenhum da Cloud API.
+   ⚠️ Fora do alcance: o legado Z-API (fallback da cadência, áudio do relatório)
+   não passa por número nenhum da Cloud API. O magic link em lote da tela de envios
+   saiu desse legado em 22/09/2026: vai pelo template de acesso da Cloud API, com botão.
 
    **Ligar um número novo na WABA (receita medida em 16/09/2026):**
    1. Nome aprovado e código verificado **não** colocam o número na Cloud API. O WhatsApp Manager

@@ -51,8 +51,10 @@ const LABEL = {
 
 /**
  * Renderiza a Plenária. Aceita `eyebrow` e `responsavelLabel` opcionais pra
- * reaproveitar o template em outros contextos (Plenária Onboarding pelo
- * Tutor, Plenária RH, etc.) sem duplicar o componente.
+ * reaproveitar o template em outros contextos sem duplicar o componente. A
+ * rota `/api/gestor/plenaria/pdf` passa o `responsavelLabel` pelo papel de quem
+ * baixa (RH ou gestor). A "Plenária do Onboarding pelo Tutor" nunca teve
+ * chamador, e o papel tutor foi extinto em 22/09/2026.
  */
 export function PlenariaEquipePDF({ gestorNome, empresa, resumo, rows, eyebrow, responsavelLabel }) {
   const tituloEyebrow = eyebrow || 'Plenaria de evolucao da equipe';
