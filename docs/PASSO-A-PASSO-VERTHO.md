@@ -343,7 +343,8 @@ mesmo em `/admin/fit?tab=prontidao` → Prévia da leitura.
   5. **Avaliação Final**: 4 notas por descritor + síntese
 - **PDF individual** via `/api/temporada/concluida/pdf` (gerado por `lib/temporada-concluida-pdf.ts`)
 - **Certificado de Conclusão** (jul/2026) via `/api/temporada/certificado/pdf`: A4 no padrão de marca
-  (selo, dupla assinatura, logo do tenant vindo de `ui_config.logo_url`, carga de 48h). **Regras de
+  (selo, dupla assinatura, logo do tenant vindo de `ui_config.logo_url`, carga horária de 48h a cada 14
+  semanas do programa, `cargaHorariaDoCertificado`: Jornada de 7 semanas = 24h, desde 23/09/2026). **Regras de
   emissão**: temporada concluída **e** participação ≥ 75% (`calcularParticipacao`); **piloto/degustação
   NÃO emite**. Bloqueio devolve `motivo: 'piloto' | 'participacao'` → a UI explica o critério em vez de
   só falhar

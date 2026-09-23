@@ -3,7 +3,8 @@
 import { tenantDb } from '@/lib/tenant-db';
 import { requireUserAction } from '@/lib/auth/action-context';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
-import { calcularParticipacao, isTrilhaPiloto } from '@/lib/season-engine/participacao';
+import { calcularParticipacao, cargaHorariaDoCertificado, isTrilhaPiloto } from '@/lib/season-engine/participacao';
+import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { TRILHA } from '@/lib/status';
 import { fetchPublico } from '@/lib/net-guard';
 
@@ -91,7 +92,7 @@ export async function loadCertificadoData(email: string, trilhaId?: string) {
   const tdb = tenantDb(colab.empresa_id);
 
   let trilhaQuery = tdb.from('trilhas')
-    .select('id, numero_temporada, competencia_foco, competencias_foco, data_inicio, evolution_generated_at, temporada_plano, evolution_report, programa_modo, empresa_id, status')
+    .select('id, numero_temporada, competencia_foco, competencias_foco, data_inicio, evolution_generated_at, temporada_plano, evolution_report, programa_modo, programa_config, empresa_id, status')
     .eq('colaborador_id', colab.id);
   trilhaQuery = trilhaId
     ? trilhaQuery.eq('id', trilhaId)
@@ -123,6 +124,17 @@ export async function loadCertificadoData(email: string, trilhaId?: string) {
   const participacao = calcularParticipacao(trilha.temporada_plano, progressos || []);
   if (!participacao.elegivel) {
     return { error: 'Participação abaixo do mínimo (75%)', motivo: 'participacao', participacao };
+  }
+
+  // Carga proporcional à duração do programa DESTA temporada (23/09/2026), pela
+  // config do carimbo ou do snapshot do Personalizado. Falha aqui não imprime
+  // um número chutado num documento formal: volta como falha de leitura.
+  let cargaHoraria: number;
+  try {
+    const config = await resolverConfigDaTrilha(tdb.raw, trilha);
+    cargaHoraria = cargaHorariaDoCertificado(config.semanas);
+  } catch (e: any) {
+    return { error: `Não foi possível calcular a carga horária agora: ${e?.message || e}`, motivo: 'falha_leitura' };
   }
 
   // `empresas` é a RAIZ do tenant (id === empresa_id) → não tem coluna
@@ -157,6 +169,7 @@ export async function loadCertificadoData(email: string, trilhaId?: string) {
     },
     empresa: { nome: empresa?.nome || '', locale: empresa?.default_locale || 'pt-BR' },
     participacao,
+    cargaHoraria,
     logoEmpresaBase64,
   };
 }

@@ -33,6 +33,8 @@ const base = {
   },
   empresa: { nome: 'Colégio Acme', locale: 'pt-BR' },
   participacao,
+  // Programa de 14 semanas (a amostra tem 14 no plano): 48h pela regra proporcional.
+  cargaHoraria: 48,
 };
 
 async function main() {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { calcularParticipacao, isTrilhaPiloto, PARTICIPACAO_MINIMA } from '@/lib/season-engine/participacao';
+import { calcularParticipacao, cargaHorariaDoCertificado, isTrilhaPiloto, PARTICIPACAO_MINIMA } from '@/lib/season-engine/participacao';
+import { getProgramaConfigByModo } from '@/lib/season-engine/programa-config';
 
 /**
  * Critério do Certificado de Conclusão: ≥75% das semanas DO PLANO com entrega
@@ -81,5 +82,29 @@ describe('isTrilhaPiloto', () => {
     expect(isTrilhaPiloto({ programa_modo: 'onboarding' })).toBe(false);
     expect(isTrilhaPiloto({ programa_modo: 'custom' })).toBe(false);
     expect(isTrilhaPiloto({})).toBe(false);
+  });
+});
+
+/**
+ * Carga horária do certificado (decisão do dono, 23/09/2026): 48h a cada 14
+ * semanas DO PROGRAMA. A duração vem da config (carimbo), não do plano: o plano
+ * do regular_duo tem 9 entradas para 14 semanas, e contá-lo daria 31h.
+ */
+describe('cargaHorariaDoCertificado', () => {
+  it('é proporcional à duração do programa pela config de cada modo', () => {
+    expect(cargaHorariaDoCertificado(getProgramaConfigByModo('jornada').semanas)).toBe(24);
+    expect(cargaHorariaDoCertificado(getProgramaConfigByModo('regular_duo').semanas)).toBe(48);
+    expect(cargaHorariaDoCertificado(getProgramaConfigByModo('regular_single').semanas)).toBe(48);
+    expect(cargaHorariaDoCertificado(getProgramaConfigByModo('onboarding').semanas)).toBe(34);
+  });
+
+  it('Personalizado de 1 a 4 semanas arredonda 48N/14', () => {
+    expect([1, 2, 3, 4].map(cargaHorariaDoCertificado)).toEqual([3, 7, 10, 14]);
+  });
+
+  it('sem duração válida recusa em vez de imprimir um número inventado', () => {
+    for (const s of [0, -7, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => cargaHorariaDoCertificado(s)).toThrow(/duração do programa inválida/);
+    }
   });
 });

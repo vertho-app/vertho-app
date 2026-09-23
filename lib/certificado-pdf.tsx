@@ -56,8 +56,6 @@ Font.registerHyphenationCallback((w: string) => [w]);
 
 // Assinatura institucional (Vertho) — o certificado é co-emitido pela plataforma.
 const SIGNATARIO = { nome: 'Samuel Protetti' };
-// Carga horária certificada — total fixo por temporada (decisão de produto 23/07).
-const CARGA_HORARIA = 48;
 
 const styles = StyleSheet.create({
   page: { backgroundColor: BG, fontFamily: 'Inter', color: INK, position: 'relative' },
@@ -229,6 +227,11 @@ export interface CertificadoDados {
   };
   empresa: { nome: string; locale?: string };
   participacao: { semanasComEntrega: number; totalSemanas: number; pct: number };
+  /**
+   * Carga horária impressa, proporcional à duração do programa da temporada
+   * (`cargaHorariaDoCertificado`). Era a constante fixa de 48h até 23/09/2026.
+   */
+  cargaHoraria: number;
   /** Logo do tenant (data URI raster) — branding em ui_config.logo_url; null → nome em texto. */
   logoEmpresaBase64?: string | null;
 }
@@ -289,7 +292,7 @@ export function CertificadoPDF({ dados }: { dados: CertificadoDados }) {
           <View style={styles.metaRow}>
             <View style={styles.metaCell}>
               <Text style={styles.metaLabel}>{S.cargaLabel}</Text>
-              <Text style={styles.metaValue}>{S.cargaValue(CARGA_HORARIA)}</Text>
+              <Text style={styles.metaValue}>{S.cargaValue(dados.cargaHoraria)}</Text>
             </View>
             <View style={styles.metaDivider} />
             <View style={styles.metaCell}>

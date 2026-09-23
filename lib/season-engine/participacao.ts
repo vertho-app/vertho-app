@@ -6,13 +6,39 @@
  *   - semana de CONTEÚDO  → entrega = `reflexao` preenchida;
  *   - semana de APLICAÇÃO (missão) / AVALIAÇÃO (cenário B) → entrega = `feedback`.
  *
- * O denominador é o nº de semanas do `temporada_plano` (regular=14, onboarding=10),
- * NUNCA hardcoded. Piloto (degustação) NÃO emite certificado — ver isTrilhaPiloto.
+ * O denominador é o nº de semanas do `temporada_plano`, NUNCA hardcoded. Esse
+ * tamanho NÃO é a duração do programa (medido 22/09/2026: jornada 7, regular_duo
+ * 9 para um programa de 14 semanas), por isso a carga horária usa a config, não
+ * o plano. Piloto (degustação) NÃO emite certificado — ver isTrilhaPiloto.
  *
  * Função PURA (sem Supabase): as queries ficam no loader (actions/certificado.ts).
  */
 
 export const PARTICIPACAO_MINIMA = 0.75;
+
+/**
+ * Carga horária impressa no certificado: PROPORCIONAL à duração do programa da
+ * temporada, 48h a cada 14 semanas (decisão do dono, 23/09/2026).
+ *
+ * Até essa data eram 48h fixas por temporada, calibradas quando temporada = 14
+ * semanas. Com a Jornada de 7 semanas a mesma pessoa saía com 2 × 48h no período
+ * que antes valia 48h. Agora: Jornada 7 = 24h, programa de 14 = 48h, Onboarding
+ * 10 = 34h, Personalizado de N semanas = 48N/14 arredondado.
+ *
+ * A duração vem da CONFIG do programa (`ProgramaConfig.semanas`, pelo carimbo ou
+ * pelo snapshot do Personalizado), não do `temporada_plano`: nas trilhas
+ * `regular_duo` o plano tem 9 entradas para um programa de 14 semanas (medido em
+ * 22/09/2026), e contar o plano daria 31h em vez de 48h.
+ */
+export const CARGA_REFERENCIA = { horas: 48, semanas: 14 } as const;
+
+export function cargaHorariaDoCertificado(semanasDoPrograma: number): number {
+  if (!Number.isFinite(semanasDoPrograma) || semanasDoPrograma <= 0) {
+    // Número impresso num documento formal: sem duração válida, não se inventa um.
+    throw new Error(`duração do programa inválida para a carga do certificado: ${semanasDoPrograma}`);
+  }
+  return Math.round((CARGA_REFERENCIA.horas * semanasDoPrograma) / CARGA_REFERENCIA.semanas);
+}
 
 export interface ProgressoSemana {
   semana: number;
