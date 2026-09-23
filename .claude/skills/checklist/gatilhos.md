@@ -152,6 +152,12 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   **inalcançável** e matar um alerta em silêncio — nada no typecheck acusa (04/08).
 - Trocar o mecanismo de uma tela **obriga a renomear a métrica**: manter o nome antigo medindo outra
   coisa é como um painel passa a mentir. `docs/CONARH52-SPRINT-CONSOLIDADO.md` §0.1.
+- 🔴 **Padronizou um termo ou rótulo visível em lote? grep o texto ANTIGO em `tests/` antes do
+  push** (`git grep -n "<rótulo antigo>" -- tests`). Teste que fixa o rótulo quebra, e o vermelho
+  trava o push da próxima sessão, não o seu. `Medido: 22/09/2026` — `2603ccdb` trocou "DISC" por
+  "Mapeamento Comportamental" em 73 arquivos, e `tests/unit/conarh-conteudo.test.ts` ainda esperava
+  "Perfil comportamental (DISC)": CI vermelho em produção até o conserto `41d5a845`. Na mesma leva,
+  um `'ativa'` literal novo reprovou o `status-literal-guard`.
 
 ## 10. Régua / nota / nível / scoring
 
@@ -420,6 +426,13 @@ Casa: mexer nas personas, no `acme-demo-fixture.json` ou em qualquer coluna do t
   DISC teria removido o melhor argumento da demonstração. Recalibrar é busca com o **motor como
   oráculo** (`calcularFitUnificado` sobre uma grade de perfis), nunca dedução no papel.
 - As personas seguem a régua do produto e há guard: `tests/unit/demo-personas-regua.test.ts`.
+- 🔴 **Tela que CONTA competências do participante (N de M, progresso, fase concluída)?** O convidado
+  da degustação responde UMA; o total sai de `totalDoMapeamento` + `colaboradorEmDegustacao`, nunca do
+  `top5_workshop` cru. `Medido: 22/09/2026` — o corte vivia só no assessment, e o primeiro convidado
+  real a responder leu "1 de 1 concluída" no resultado e "Iniciar mapeamento" na jornada. Verificação
+  visual com a conta de QA interna da degustação (sessão mintada), **nunca** com a do prospect: a
+  sessão nele carimba o acompanhamento comercial. `docs/AMBIENTE-DEMO.md` §"A etapa 01 é uma
+  DEGUSTAÇÃO".
 
 Detalhe: `docs/AMBIENTE-DEMO.md` · `docs/ARQUITETURA.md` §3.7 · memória `project_acme_demo`.
 

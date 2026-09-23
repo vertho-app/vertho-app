@@ -693,11 +693,37 @@ validade de 10 dias deixaria o ambiente sem estado-base por semanas.
 O convidado responde **uma** competência, não as cinco do cargo
 (`DEGUSTACAO_MAX_COMPETENCIAS`, em `lib/demo/convidado-demo.ts`). A etapa 01
 existe para a pessoa entender o fluxo; o diagnóstico completo é o que ela vê
-pronto nas visões 02–04, com o ambiente já preenchido. O corte é aplicado num
-ponto só (`competenciasDoColaborador`, em `app/dashboard/assessment/assessment-actions.ts`)
+pronto nas visões 02–04, com o ambiente já preenchido. No assessment, o corte é
+aplicado num ponto só (`competenciasDoColaborador`, em `app/dashboard/assessment/assessment-actions.ts`)
 porque **duas** actions decidem sobre a mesma lista: a que monta a tela e a que
 calcula a próxima pendente. Divergirem significa a pessoa concluir e continuar
 sendo empurrada para o próximo cenário.
+
+🔴 **Toda tela que conta competências do participante usa a MESMA régua** (22/09/2026,
+`f0c49fab`). Até então só o assessment cortava, e home, jornada e PDI mediam contra o
+Top 5 inteiro. `Medido:` o primeiro convidado real a responder o cenário leu "1 de 1
+competências com análise concluída" no resultado e, na jornada, "Fase 2 em curso",
+"Iniciar mapeamento de competências" e "Concluir avaliação"; mandou o print
+perguntando o que faltava. Hoje:
+
+- `totalDoMapeamento` (em `lib/demo/convidado-demo.ts`) dá o total com o teto da
+  degustação, e `colaboradorEmDegustacao` (`lib/demo/degustacao-mapeamento.ts`) resolve o
+  `is_demo` para quem só tem o colaborador na mão. Persona do elenco e staff não pagam
+  consulta; a home lê `is_demo` junto com a config; falha de leitura conta o Top 5 e
+  registra `degustacao-regua-indisponivel` em `degradacao_log`.
+- Na jornada do convidado, PDI, temporada e reavaliação saem como
+  `FASE_FORA_DA_DEGUSTACAO` (`lib/status.ts`): nem "bloqueada" (nada que ele faça as
+  libera) nem "em curso" (com a fase 2 concluída, a 3 apontaria para um PDI que nunca
+  será gerado). O topo diz "Seu mapeamento está pronto" e o botão é "Ver meu resultado".
+  A fase atual da home ignora essas fases, e a tela do PDI diz que o plano fica para o
+  programa.
+- Vale para as versões A e B: o convidado B chega à jornada pelo menu; só o
+  `/dashboard` dele é redirecionado para a página do roteiro.
+
+Tela nova que mostre "N de M competências" para o participante tem que passar por
+`totalDoMapeamento`. Regressão: `tests/unit/jornada-degustacao.test.ts`, validado por
+mutação nos cinco pontos (jornada, home, fase atual, registro da falha e o atalho de
+quem não pode ser convidado).
 
 A régua de quem está em degustação exige as **duas** pontas: tenant `is_demo` E
 convidado (a mesma `isEmailDeConvidadoDemo` do acompanhamento). Só o `is_demo`
