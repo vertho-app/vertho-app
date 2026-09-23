@@ -9,7 +9,7 @@
 // A assimetria que guia os testes: falso POSITIVO só mostra uma tela a mais a
 // quem já estava no navegador certo; falso NEGATIVO queima o acesso.
 import { describe, it, expect } from 'vitest';
-import { ehNavegadorEmbutido, ehAndroid, intentNavegadorPadrao, esquemaSafari, esquemaChrome } from '@/lib/auth/navegador-embutido';
+import { deveTentarSafari, ehNavegadorEmbutido, ehAndroid, intentNavegadorPadrao, esquemaSafari, esquemaChrome } from '@/lib/auth/navegador-embutido';
 
 const UA = {
   waAndroid: 'Mozilla/5.0 (Linux; Android 13; SM-A536E Build/TP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36',
@@ -28,6 +28,15 @@ const UA = {
   chromeAndroid: 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
   desktop: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
   instagram: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 Instagram 300.0 (iPhone14,3; iOS 17_5)',
+  /**
+   * 🔴 MEDIDO em aparelho real (23/09/2026, iPhone do dono, log do consumo no
+   * `/entrar`): o navegador do WhatsApp chegou SEM `[WAiOS/…]`, idêntico ao
+   * Safari. `18_7` é o UA congelado pela Apple; `Version/27.0` é o iOS real.
+   * Dado de campo, não exemplo inventado: não editar.
+   */
+  waIosSemMarca: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1',
+  edgeIos: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 EdgiOS/126.0 Mobile/15E148 Safari/605.1.15',
+  previewMeta: 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
 };
 
 describe('navegador embutido — quem NÃO pode consumir o token', () => {
@@ -117,5 +126,38 @@ describe('saída do WebView', () => {
     const intent = intentNavegadorPadrao('https://app.vertho.ai/entrar?t=x~y');
     expect(intent).not.toContain('browser_fallback_url');
     expect(intent.endsWith(';end')).toBe(true);
+  });
+});
+
+describe('🔴 tentar o Safari não depende mais de detectar o WhatsApp (23/09/2026)', () => {
+  it('o UA REAL de hoje não é detectado como embutido: é por isso que a régua mudou', () => {
+    expect(ehNavegadorEmbutido(UA.waIosSemMarca)).toBe(false);
+  });
+
+  it('mesmo assim, todo iPhone que chega pelo link tenta o Safari', () => {
+    expect(deveTentarSafari(UA.waIosSemMarca)).toBe(true);
+    expect(deveTentarSafari(UA.waIosReal)).toBe(true);
+    expect(deveTentarSafari(UA.safariIos)).toBe(true);
+  });
+
+  it('quem colou o link copiado (`nav=1`) já está no navegador: não tenta de novo', () => {
+    expect(deveTentarSafari(UA.waIosSemMarca, { jaNoNavegador: true })).toBe(false);
+  });
+
+  it('Chrome e Edge do iPhone se anunciam: já são navegador de verdade', () => {
+    expect(deveTentarSafari(UA.chromeIos)).toBe(false);
+    expect(deveTentarSafari(UA.edgeIos)).toBe(false);
+  });
+
+  it('Android fica no `intent://` do `/entrar`, e computador entra direto', () => {
+    expect(deveTentarSafari(UA.waAndroid)).toBe(false);
+    expect(deveTentarSafari(UA.chromeAndroid)).toBe(false);
+    expect(deveTentarSafari(UA.desktop)).toBe(false);
+  });
+
+  it('robô de preview e requisição sem UA não disparam nada', () => {
+    expect(deveTentarSafari(UA.previewMeta)).toBe(false);
+    expect(deveTentarSafari('')).toBe(false);
+    expect(deveTentarSafari(null)).toBe(false);
   });
 });

@@ -790,6 +790,24 @@ API suportada**:
 O alarme continua o mesmo, e agora tem leitura direta: **`[entrar] consumido … embutido=false` é a
 saída funcionando**; voltar a `true` em massa é o sinal de que o truque morreu.
 
+> 🔴 **23/09/2026: a DETECÇÃO morreu no iPhone, e esse alarme ficou cego.** No primeiro teste real do
+> lote de magic links, o dono tocou o botão e entrou dentro do WhatsApp. O consumo registrou
+> `…Version/27.0 Mobile/15E148 Safari/604.1` com `embutido=false`: **sem `[WAiOS/…]`**, igual ao
+> Safari. A tela concluiu "navegador de verdade" e nunca tentou o `x-safari-https`. O alarme acima
+> mede a SAÍDA; o que falhou foi a DETECÇÃO, uma camada antes, e nela a linha sai com o valor
+> "saudável".
+>
+> Correção: **todo iPhone que chega ao `/entrar/abrir` tenta o Safari** (`deveTentarSafari`), sem
+> depender de marca. É seguro porque o `/entrar` só é gerado para botões de WhatsApp (template de
+> acesso, Beto e o lote do admin). Exceções: o link copiado desta tela leva `nav=1`, e Chrome,
+> Firefox, Edge e Opera do iOS se anunciam. Android não muda: lá o WebView carrega `wv` por padrão
+> e a saída é o `intent://`.
+>
+> **O alarme agora é o `via=`**, que cada link da tela carrega e o consumo registra:
+> `safari-auto`/`safari-botao`/`chrome-botao` = saiu do WhatsApp; `aqui` = entrou nele por escolha;
+> `direto` = entrou onde estava (navegador de verdade, ou Android depois do `intent://`); `botao` =
+> "Entrar agora". **`aqui` ou `direto` com UA de iPhone em massa = o pulo para o Safari morreu.**
+
 ⚠️ **O que se perde, explicitamente:** a tela não fica mais parada esperando, então "copiar o link e
 abrir noutro aparelho" deixa de estar no caminho. Quem usa a Vertho no computador pede o link **de
 lá**, que é onde a sessão precisa nascer de qualquer jeito. Reverter é trocar uma condição: parar de

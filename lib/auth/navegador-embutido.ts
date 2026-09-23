@@ -152,6 +152,41 @@ export function ehRoboDePreview(userAgent: string | null | undefined): boolean {
  * (`/entrar/abrir` e o login): conhecimento frágil duplicado envelhece em
  * metades.
  */
+/**
+ * A tela do link de acesso deve TENTAR o Safari sozinha? (23/09/2026)
+ *
+ * 🔴 Até aqui a resposta dependia de detectar o WebView (`ehNavegadorEmbutido`),
+ * e a detecção morreu no iPhone: em 23/09/2026 o navegador do WhatsApp chegou com
+ * `…Version/27.0 Mobile/15E148 Safari/604.1`, sem `[WAiOS/…]`, idêntico ao
+ * Safari. A tela concluiu "navegador de verdade", entrou ali mesmo e o dono ficou
+ * logado DENTRO do WhatsApp.
+ *
+ * A saída não é outra heurística de UA, é um fato do produto: o `/entrar` só é
+ * gerado para botões de WhatsApp (template de acesso, Beto e o lote do admin).
+ * Então todo iPhone que chega aqui veio do WhatsApp, com ou sem marca, e tenta
+ * o Safari. As exceções:
+ *  - `jaNoNavegador`: o link foi COPIADO desta tela e colado num navegador
+ *    (`nav=1`), tentar de novo seria ruído;
+ *  - Chrome, Firefox, Edge e Opera do iOS se anunciam (`CriOS`, `FxiOS`,
+ *    `EdgiOS`, `OPiOS`): já são navegador de verdade;
+ *  - robô de preview não executa nada, e não deve.
+ *
+ * Android fica de fora de propósito: lá o WebView carrega `wv` por padrão e a
+ * saída é o `intent://` do `/entrar`, uma API do sistema, não um truque.
+ */
+const NAVEGADOR_IOS_DE_TERCEIRO = /CriOS|FxiOS|EdgiOS|OPiOS/i;
+
+export function deveTentarSafari(
+  userAgent: string | null | undefined,
+  opts: { jaNoNavegador?: boolean } = {},
+): boolean {
+  const ua = String(userAgent || '');
+  if (opts.jaNoNavegador) return false;
+  if (ehRoboDePreview(ua)) return false;
+  if (!ehIos(ua)) return false;
+  return !NAVEGADOR_IOS_DE_TERCEIRO.test(ua);
+}
+
 export function esquemaSafari(url: string): string {
   return `x-safari-https://${url.replace(/^https?:\/\//, '')}`;
 }

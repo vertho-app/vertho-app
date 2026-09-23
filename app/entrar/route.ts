@@ -160,7 +160,17 @@ export async function GET(req: NextRequest) {
   //
   // Com esta linha, `embutido=true` no CONSUMO é o alarme: significa que o
   // truque não funcionou e a pessoa entrou no WebView.
-  console.log(`[entrar] consumido ua=${JSON.stringify(ua)} embutido=${ehNavegadorEmbutido(ua)}`);
+  //
+  // 🔴 23/09/2026: no iPhone esse alarme ficou cego. O WhatsApp parou de se
+  // anunciar no User-Agent, então quem entra DENTRO dele sai `embutido=false`,
+  // igual a quem entra no Safari. O sinal agora é o `via=` que a tela de
+  // despacho põe em cada link: `safari-auto`/`safari-botao` = saiu para o
+  // navegador; `aqui` ou `direto` vindos de iPhone = entrou no WhatsApp. Só
+  // letras e hífen, até 20: é um rótulo nosso, não texto livre da query.
+  const via = /^[a-z-]{1,20}$/.test(req.nextUrl.searchParams.get('via') || '')
+    ? req.nextUrl.searchParams.get('via')
+    : '-';
+  console.log(`[entrar] consumido via=${via} ua=${JSON.stringify(ua)} embutido=${ehNavegadorEmbutido(ua)}`);
 
   // `tenantUrl` monta a partir do slug JÁ validado contra o banco — a URL nunca
   // é concatenada com texto vindo da query.

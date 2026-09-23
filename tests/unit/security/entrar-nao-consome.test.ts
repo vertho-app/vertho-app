@@ -150,3 +150,31 @@ describe('com `ir=1` — o único caminho que consome', () => {
     expect(loc).toContain('/login?error=indisponivel');
   });
 });
+
+describe('🔴 o log do consumo diz POR ONDE a pessoa entrou (23/09/2026)', () => {
+  // No iPhone o User-Agent do WhatsApp ficou igual ao do Safari; o `via=` que a
+  // tela de despacho põe em cada link é o único sinal de que a saída funcionou.
+  function linhaDoConsumo(qs: string) {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    return chamar(qs).then(() => {
+      const linha = log.mock.calls.map((c) => String(c[0])).find((l) => l.startsWith('[entrar] consumido'));
+      log.mockRestore();
+      return linha || '';
+    });
+  }
+
+  it('registra o rótulo do caminho', async () => {
+    expect(await linhaDoConsumo(`?t=${encodeURIComponent(T)}&ir=1&via=safari-auto`)).toContain('via=safari-auto');
+  });
+
+  it('texto livre na query NÃO entra no log: vira "-"', async () => {
+    const linha = await linhaDoConsumo(`?t=${encodeURIComponent(T)}&ir=1&via=${encodeURIComponent('x\n[entrar] forjado')}`);
+    expect(linha).toContain('via=- ');
+    expect(linha).not.toContain('forjado');
+  });
+
+  it('link antigo, sem `via`, continua entrando', async () => {
+    const r = await chamar(`?t=${encodeURIComponent(T)}&ir=1`);
+    expect(new URL(r.headers.get('location')!).pathname).toBe('/auth/callback');
+  });
+});

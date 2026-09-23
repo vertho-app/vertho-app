@@ -1,7 +1,7 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
 import { lerParametroAcesso } from '@/lib/auth/magic-link-whatsapp';
-import { ehNavegadorEmbutido, ehRoboDePreview, ehIos, esquemaSafari } from '@/lib/auth/navegador-embutido';
+import { deveTentarSafari, ehNavegadorEmbutido, ehRoboDePreview, esquemaSafari } from '@/lib/auth/navegador-embutido';
 import AutoEntrar from './AutoEntrar';
 import CopiarLink from './CopiarLink';
 import SairDoWebView from './SairDoWebView';
@@ -70,9 +70,9 @@ export const dynamic = 'force-dynamic';
 export default async function ConfirmarAcesso({
   searchParams,
 }: {
-  searchParams: Promise<{ t?: string }>;
+  searchParams: Promise<{ t?: string; nav?: string }>;
 }) {
-  const { t } = await searchParams;
+  const { t, nav } = await searchParams;
   // Mesma régua do `/entrar`: o que não tem forma de parâmetro de acesso não
   // vira link nem aparece na tela.
   const dados = lerParametroAcesso(t);
@@ -82,11 +82,14 @@ export default async function ConfirmarAcesso({
   const embutido = ehNavegadorEmbutido(ua);
   // Robô de preview leva a tela parada (e não consome nada). Gente entra sozinha.
   const auto = !ehRoboDePreview(ua);
-  // iPhone dentro do WhatsApp: em vez de entrar AQUI, tenta entregar a navegação
-  // ao Safari, para a sessão nascer no navegador do aparelho. No Android essa
-  // saída já aconteceu antes, no `/entrar` (`intent://` para o Chrome), então
-  // quem chega aqui vindo de lá é o fallback — e para esse o certo é entrar.
-  const sairParaSafari = auto && embutido && ehIos(ua);
+  // iPhone que chegou pelo WhatsApp: em vez de entrar AQUI, tenta entregar a
+  // navegação ao Safari, para a sessão nascer no navegador do aparelho. Desde
+  // 23/09/2026 isso NÃO depende de detectar o WebView (o WhatsApp do iPhone parou
+  // de se anunciar): todo iPhone tenta, salvo quem colou o link copiado desta
+  // tela (`nav=1`) ou já está no Chrome/Firefox/Edge. Ver `deveTentarSafari`.
+  // No Android a saída já aconteceu antes, no `/entrar` (`intent://`), então
+  // quem chega aqui vindo de lá é o fallback, e para esse o certo é entrar.
+  const sairParaSafari = deveTentarSafari(ua, { jaNoNavegador: nav === '1' });
 
   if (!dados || !t) {
     return (
@@ -107,11 +110,15 @@ export default async function ConfirmarAcesso({
     );
   }
 
-  // `ir=1` é o único caminho que consome o token.
-  const entrar = `/entrar?t=${encodeURIComponent(t)}&ir=1`;
-  const link = `https://${host}/entrar/abrir?t=${encodeURIComponent(t)}`;
-
-  const urlEntrarAbsoluta = `https://${host}${entrar}`;
+  // `ir=1` é o único caminho que consome o token. O `via=` diz ao log do consumo
+  // POR ONDE a pessoa entrou: como o navegador do WhatsApp e o Safari chegam com
+  // o mesmo User-Agent, é o único jeito de saber se a saída para o Safari
+  // funcionou (`safari-auto`) ou se ela entrou dentro do app (`aqui`, `direto`).
+  const entrarVia = (via: string) => `/entrar?t=${encodeURIComponent(t)}&ir=1&via=${via}`;
+  const entrar = entrarVia('botao');
+  // `nav=1`: quem cola este link num navegador já está fora do WhatsApp.
+  const link = `https://${host}/entrar/abrir?t=${encodeURIComponent(t)}&nav=1`;
+  const urlEntrarAbsoluta = `https://${host}/entrar?t=${encodeURIComponent(t)}&ir=1`;
 
   // ── iPhone dentro do WhatsApp: a tela TENTA o Safari sozinha ──────────────
   //
@@ -124,7 +131,7 @@ export default async function ConfirmarAcesso({
     return (
       <main className="flex min-h-dvh flex-col justify-center bg-[#061526] px-6 py-10 text-white">
         <div className="mx-auto w-full max-w-md">
-          <AutoEntrar url={esquemaSafari(urlEntrarAbsoluta)} modo="navegador" />
+          <AutoEntrar url={esquemaSafari(`https://${host}${entrarVia('safari-auto')}`)} modo="navegador" />
 
           <h1 className="text-[22px] font-semibold leading-tight">Abrindo no Safari…</h1>
           <p className="mt-3 text-[14px] leading-relaxed text-slate-300">
@@ -138,7 +145,7 @@ export default async function ConfirmarAcesso({
           </div>
 
           <a
-            href={entrar}
+            href={entrarVia('aqui')}
             className="mt-4 block rounded-lg border border-white/15 bg-white/[0.04] px-4 py-3 text-center text-[14px] font-medium text-slate-200"
           >
             Entrar aqui mesmo, no WhatsApp
@@ -152,7 +159,7 @@ export default async function ConfirmarAcesso({
     <main className="flex min-h-dvh flex-col justify-center bg-[#061526] px-6 py-10 text-white">
       <div className="mx-auto w-full max-w-md">
         {/* Antes de qualquer coisa na tela: quem tem navegador já está indo. */}
-        {auto ? <AutoEntrar url={entrar} /> : null}
+        {auto ? <AutoEntrar url={entrarVia('direto')} /> : null}
 
         <h1 className="text-[22px] font-semibold leading-tight">
           {auto ? 'Entrando na Vertho…' : 'Entrar na Vertho'}

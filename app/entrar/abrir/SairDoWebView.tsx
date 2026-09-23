@@ -41,7 +41,8 @@ export default function SairDoWebView({
     setTentou(true);
     // Se o esquema não for repassado, o WKWebView simplesmente cancela a
     // navegação e a pessoa continua aqui — daí o fallback aparecer sozinho.
-    window.location.href = esquema + semEsquema;
+    // `via=` identifica no log do consumo qual botão levou a pessoa para fora.
+    window.location.href = esquema + semEsquema + (esquema.startsWith('x-safari') ? '&via=safari-botao' : '&via=chrome-botao');
   }
 
   async function copiar() {
