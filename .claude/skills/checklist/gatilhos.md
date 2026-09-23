@@ -259,6 +259,11 @@ Casa: `app/login/**`, `app/entrar/**`, qualquer tela que fica **entre a mensagem
 - Medido 15-16/08/2026: três versões seguidas da tela de acesso estavam **certas no mecanismo e
   erradas na hierarquia** — uma virou "burocrático… muitos passos", outra caiu inteira com *"não
   considere a versão PWA"*, levando junto ~2h de trabalho já desenhado.
+- 🔴 **Detecção de navegador por User-Agent morre sem aviso.** Em 23/09/2026 o WhatsApp do iPhone
+  parou de mandar `WAiOS`: o link entrava dentro do app com `embutido=false`, o valor "saudável" do
+  alarme. Mexeu em `app/entrar/**` ou `lib/auth/navegador-embutido.ts`: teste em aparelho real e leia
+  o `via=` do `[entrar] consumido` no log (com `deploymentId`, senão a busca estoura). Doc:
+  `docs/INBOX-WHATSAPP.md` §9.2d.
 
 ## 24. Variável de ambiente que decide comportamento (Vercel)
 
@@ -344,6 +349,11 @@ Casa: script, action, cron ou tela que mande mais de uma mensagem.
   por uma premissa escrita num comentário (F-I19).
 - Operação que **só** o cron alcança precisa de caminho por sessão: `CRON_SECRET` é *Sensitive* e
   ninguém consegue lê-lo; regravar derruba os crons agendados.
+- 🔴 **Teste de disparo REAL pela tela `/admin/whatsapp`:** recorte que sobra 1 pessoa, conferido no
+  banco; tenant não-demo; `?empresa=<id>` na URL (o filtro salvo abriu a Secretaria de Macaé, cliente
+  com 3 turmas). O cargo é estado COMPARTILHADO entre as abas: em 23/09/2026 o clique por ref na aba
+  "Magic Link" não trocou de aba e o filtro mudado foi o do e-mail (11 destinatários). Screenshot da
+  aba ativa e do "N colaborador(es)" antes de Confirmar.
 
 ## 29. Fila com retentativa / teto de tentativas (`t0_tentativas`, `MAX_TENTATIVAS_*`, backoff)
 
