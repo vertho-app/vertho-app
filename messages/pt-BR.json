@@ -5091,7 +5091,7 @@
       "regularDesc": "Até 2 competências · nível-meta 3",
       "onboarding": "Onboarding (10 semanas)",
       "onboardingDesc": "5 competências · nível-meta 2",
-      "onboardingNote": "Modo Onboarding ativo. Configure <code>sys_config.competencias_onboarding</code> (array de 5 nomes) ou rode IA1 pro cargo — engine usa o top 5 do <code>top10_cargos</code> como fallback. Tutor recebe push automático ao final das missões 4 e 7.",
+      "onboardingNote": "Modo Onboarding ativo. Configure <code>sys_config.competencias_onboarding</code> (array de 5 nomes) ou rode IA1 pro cargo; a engine usa o top 5 do <code>top10_cargos</code> como fallback.",
       "careerTitle": "Fase de carreira (viés do IA1)",
       "careerDesc": "Quando setada, o IA1 vieza o ranking Top 10: <b>junior</b> prioriza competências operacionais/básicas; <b>senior</b> prioriza estratégicas/relacionais; <b>pleno</b> = sem viés.",
       "noBias": "— Sem viés (default) —",

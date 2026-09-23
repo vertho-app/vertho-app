@@ -17,7 +17,7 @@ Estimativa: 7 a 10 semanas de engenharia mais conteúdo, sem WhatsApp white labe
 | Branding por tenant | `ui_config`: logo_url, primary_color, primary_color_end, accent_color, bg_gradient_start/end, font_color, font_color_secondary, login_subtitle, hidden_elements, labels (`lib/ui-resolver.ts`, `docs/ARQUITETURA.md` §3.4) | `hidden_elements` está vazio em todas as 12 empresas |
 | PDF sem marca | `sys_config.pdf_sem_marca` (`lib/pdf-marca.ts`) | 1 empresa usa |
 | Remetente de e-mail | `lib/domain.ts`: `noreply@{slug}.vertho.ai` por tenant | Sempre no domínio vertho.ai |
-| Papéis | `lib/permissions.ts`: platform_admin e socio (plataforma); rh, gestor, tutor, colaborador (por empresa, em `colaboradores.role`) | Não há papel entre plataforma e empresa |
+| Papéis | `lib/permissions.ts`: platform_admin e socio (plataforma); rh, gestor, colaborador (por empresa, em `colaboradores.role`; o tutor foi extinto em 22/09/2026) | Não há papel entre plataforma e empresa |
 | Criar empresa e importar pessoas | `actions/onboarding.ts::criarNovaEmpresa` (`companies.manage`), `importarColaboradoresLote`; `app/admin/empresas/gerenciar/actions.ts` | Só platform admin |
 | Habilitar o simulador | `/api/recepcao/config` (`requireAdmin` + `settings.company.manage`) | Só platform admin |
 | Modo de 7 semanas | `lib/season-engine/programa-config.ts`: `programa_modo='jornada'` = `PROGRAMA_JORNADA` (6 semanas de conteúdo + avaliação) | Pronto no motor |

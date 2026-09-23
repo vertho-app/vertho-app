@@ -134,39 +134,39 @@ Liderança até 19/09/2026 (rotas e chaves `prontidao_*` ficaram). Detalhe do de
 **Admin** · `/admin/empresas/{id}/configuracoes` → aba **Programa** → "Mapeamento de liderança" → Ligado → Salvar
 - Grava `sys_config.modulos.prontidao_lideranca = true`. Sem isso nada aparece para o cliente nem para os participantes.
 
-### L2. Preparar o cargo-alvo
+### L2. Preparar o cargo-alvo e a matriz
 **Admin** · `/admin/cargos` (cargo de liderança, ex.: "Gerente Comercial")
-- Gabarito (perfil ideal, tela 4) → é o eixo de ESTILO.
-- Top 5 do cargo = as 5 competências de liderança → é o eixo de POSIÇÃO e o que gera cenário.
-- Matriz de descritores importada por planilha em `/admin/competencias` (uma linha por descritor,
-  `cargo` = cargo-alvo, N1–N4 preenchidos — N3 não fica vazio). ⚠️ Nome de competência do cargo-alvo
-  não pode repetir nome do Top 5 dos cargos da população (a validação recusa).
-- IA2 (gabarito) + IA3 (cenários + check) rodam normalmente para o cargo-alvo.
+- Gabarito (perfil ideal, tela 4) → é o eixo de ESTILO. O cargo-alvo NÃO define as competências medidas.
+- As competências são a **matriz global de liderança** (5 competências × 6 descritores, igual em todas
+  as empresas desde 14/09/2026), instalada na empresa ao ligar o módulo (L1). Duas variantes com a
+  mesma régua: quem ocupa o cargo-alvo responde a de gestor em exercício; quem não ocupa, a de
+  potencial sucessor. Não há planilha de descritores por cliente.
 
 ### L3. Configurar o programa
 **Admin** · `/admin/fit?tab=prontidao` → **Configuração**
-- Cargo-alvo, população (empresa inteira ou uma turma), líderes de referência (3–5), um cenário por dia,
-  corte (3,00) e banda (0,33 até a aferição). Salvar valida e recusa configuração inválida com o motivo.
+- Cargo-alvo, população (empresa inteira ou uma turma) e um cenário por dia. O corte é 3,00 (N3) para
+  todos e não tem campo. Salvar valida e recusa configuração inválida com o motivo (cargo-alvo sem
+  gabarito, competência da matriz com o mesmo nome de uma do Top 5 de um cargo da população).
+- No mesmo painel: estado da matriz ("instalada" ou "NÃO instalada", com botão Instalar/Reinstalar) e
+  dos **cenários do trilho**. Faltando cenário, o botão gera os que faltam (uma chamada de IA cada);
+  sem cenário a competência não abre para quem responde.
 
-### L4. Calibrar com os líderes de referência (antes da turma)
-- Os exemplares respondem o trilho de liderança (`/dashboard/assessment?trilho=lideranca`); IA4 + check.
-- **Admin** · aba **Calibragem** → Calcular: descritor em que um exemplar ficou abaixo do corte é suspeita
-  de rubrica → editar N3/N4 pelo lápis do descritor em `/admin/competencias` → reavaliar as respostas.
-- Nunca colocar as respostas dos exemplares no prompt.
-
-### L5. Aplicar na turma
+### L4. Aplicar na turma
 **Colaborador** · a tela de assessment mostra o card "Você também tem o mapeamento de liderança"; um
-cenário por dia (gate do servidor, dia de Brasília). Quem ocupa o cargo-alvo responde pelo trilho do cargo.
+cenário por dia (gate do servidor, dia de Brasília). Quem ocupa o cargo-alvo também responde (variante
+de gestor em exercício); RH e e-mails internos ficam fora.
 **Admin** · IA4 — Avaliar + Check (mesma fila; nada muda).
 
-### L6. Ler e entregar
-**RH** · menu **Mapeamento de liderança** → matriz 2×2, zona de revisão, parecer por pessoa com evidências,
-PDF do parecer e do consolidado. **Admin** vê o mesmo em `/admin/fit?tab=prontidao` → Prévia.
-- Quem cai na banda de incerteza não é classificado por máquina: leitura humana com as evidências.
+### L5. Ler e entregar
+**RH** · menu **Mapeamento de liderança** → matriz 2×2 (demonstra ou não demonstra, pelo corte binário
+de 3,00, × estilo), parecer por pessoa com evidências, PDF do parecer e do consolidado. **Admin** vê o
+mesmo em `/admin/fit?tab=prontidao` → Prévia da leitura.
+- Quando a auditoria da 2ª IA pediu revisão em alguma avaliação da pessoa, a tela e o PDF avisam para
+  ler as evidências antes de decidir; a pessoa continua classificada.
 
-### L7. Aferir o instrumento (quando o dono mandar; custa IA)
-`npx tsx --env-file=.env.local scripts/_aferir-ia4-prontidao.ts --empresa <uuid> --n 10 --k 5`
-— test-retest sem persistir; imprime a banda sugerida para substituir o 0,33 emprestado.
+> Saíram em 14/09/2026, por decisão do dono (`728e3c94`), e não voltam sem ele pedir: a **banda de
+> revisão** (±0,33 em torno do corte, onde ninguém era classificado), os **líderes de referência** e a
+> **calibragem**, com o script de aferição que existia só para sugerir a banda.
 
 ---
 
@@ -468,7 +468,7 @@ Todos com back button context-aware.
 
 ### P2. Disparar assignments T0
 **Admin** · mesma página → card do ciclo → **"Disparar assignments"** no card T0
-- Cria 1 `pulse_assignment` por colaborador ativo (exceto tutores)
+- Cria 1 `pulse_assignment` por colaborador ativo
 - Idempotente — UK em (ciclo, colab, momento), reexecutar não duplica
 - Status do ciclo passa pra `t0_aberto`
 - O disparo cria assignments **mas não envia o link** — isso fica no passo P3

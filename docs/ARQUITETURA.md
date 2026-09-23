@@ -788,7 +788,7 @@ aparece como bug do usuário, não como configuração.
 coluna `colaboradores.perfil_externo_pdf_path`, URL assinada de 10 min):
 - gestor/RH: `app/dashboard/gestor/actions.ts::getPerfilExternoPdfUrl(colabId)` —
   recebe id do CLIENTE, então tem **gate de posse** (gestor→`gestor_email`,
-  tutor→`tutorados_ids`, RH→a empresa) + `.eq('empresa_id')`;
+  RH→a empresa) + `.eq('empresa_id')`; o ramo do tutor saiu com o papel em 22/09/2026;
 - o próprio colaborador: `perfil-comportamental-actions.ts::getMeuPerfilExternoPdfUrl()`
   — **sem parâmetro**: a identidade vem da sessão, então a posse é trivial.
 - O PDF pode existir **sem** extração (`perfil_externo_dados` null). Quem decide se há
@@ -847,10 +847,10 @@ régua). Detalhe do demo: `docs/AMBIENTE-DEMO.md`.
 ## 4. RBAC (Controle de Acesso Baseado em Papeis)
 
 ### 4.1 Papeis por Tenant
-Coluna `role` em `colaboradores`: `colaborador` | `gestor` | `rh` | `tutor` (ver 17.5).
+Coluna `role` em `colaboradores`: `colaborador` | `gestor` | `rh`. O papel `tutor` foi extinto em 22/09/2026 (ver 17.5).
 
 ### 4.1.1 Matriz de Papeis × Permissoes (NOVO — seção 21)
-A partir de `e1a1638`, RBAC deixou de ser binário (admin/não-admin) e passou a ter uma **matriz declarativa** em `lib/permissions.ts`: 5 papéis de sistema (`platform_admin`, `rh`, `gestor`, `tutor`, `colaborador`) × 31 permissões nomeadas (`companies.*`, `users.*`, `assessments.*`, `reports.*`, `radar_empresas.access`, `audit.view`, ...). Overrides auditáveis por papel ou por usuário vivem em `permission_overrides` (migration 117). Console em `/admin/permissoes`. Detalhes na seção 21.
+A partir de `e1a1638`, RBAC deixou de ser binário (admin/não-admin) e passou a ter uma **matriz declarativa** em `lib/permissions.ts`: 5 papéis de sistema (`platform_admin`, `socio`, `rh`, `gestor`, `colaborador`) × 28 permissões nomeadas (contagem de 22/09/2026 em `PERMISSIONS`) (`companies.*`, `users.*`, `assessments.*`, `reports.*`, `radar_empresas.access`, `audit.view`, ...). Overrides auditáveis por papel ou por usuário vivem em `permission_overrides` (migration 117). Console em `/admin/permissoes`. Detalhes na seção 21.
 
 ### 4.2 Admin da Plataforma
 Tabela `platform_admins` — admins globais. RLS habilitado.
@@ -1292,27 +1292,44 @@ fail-closed em `lib/access-gates/modulos.ts`).
 
 As camadas **não se somam**: os quatro blocos do fit são o mesmo DISC (§"O que o fit NÃO
 sustenta"), então somar seria contar a mesma medida duas vezes. Quadrantes: `pronta`,
-`pronta_com_custo`, `potencial`, `nao_agora` — e `revisar` fora da matriz: média dentro de
-`corte ± banda` não é classificada por máquina (34% das notas caem sobre 2,00/3,00 e a releitura
-sozinha move a média até 0,33).
+`pronta_com_custo`, `potencial`, `nao_agora`. O corte da posição é BINÁRIO (`media >= corte`,
+fronteira inclusiva): a faixa `revisar` de ±0,33 em torno do corte, os líderes de referência
+(`exemplares`) e a calibragem saíram em 14/09/2026 por decisão do dono (`728e3c94`, 924 linhas
+removidas, `aferir.ts` e `calibragem.ts` inclusive). O `revisar` que sobrou é outro: o veredito da
+auditoria da 2ª IA sobre uma avaliação; a pessoa segue na matriz e a tela e o parecer avisam.
 
 **Configuração** (`empresas.sys_config.prontidao_lideranca`, chave de EMPRESA em
-`lib/turmas/chaves.ts`): `cargo_alvo` (cargo com `gabarito.tela4` e `top5_workshop` — as competências
-do programa são o Top 5 dele, a mesma fonte da IA3), `exemplares[]` (colaborador_id dos 3–5 líderes
-de referência), `escopo` (empresa inteira ou turma), `um_por_dia` (default true, só no trilho de
-liderança), `corte_nota` (default 3,00 = N3 meta), `banda` (default 0,33 — emprestado de
-`RUIDO_MEDIDO`; a aferição substitui). Validação fail-closed em
-`lib/prontidao-lideranca/config.ts`: recusa colisão de NOME entre o Top 5 do cargo-alvo e o de um
-cargo da população — `descriptor_assessments` tem UNIQUE `(colaborador_id, competencia, descritor)`
-por nome, e uma avaliação sobrescreveria a outra sem erro.
+`lib/turmas/chaves.ts`): `cargo_alvo` (cargo com `gabarito.tela4`), `escopo` (empresa inteira ou
+turma), `um_por_dia` (default true, só no trilho de liderança) e `corte_nota` (3,00 = N3 para todo
+mundo; a tela não tem campo, e um valor gravado à mão no JSONB é preservado ao salvar, com aviso).
+O cargo-alvo **não decide o que se mede**: decide de quem é o gabarito do eixo de estilo, quem é
+candidato e qual VARIANTE cada pessoa responde. Chaves de versões anteriores (`exemplares`, `banda`)
+são ignoradas por `lerConfigProntidao`. Validação fail-closed em `lib/prontidao-lideranca/config.ts`:
+cargo-alvo existente e com gabarito, e recusa colisão de NOME entre uma competência da matriz e o
+Top 5 de um cargo da população, porque `descriptor_assessments` tem UNIQUE
+`(colaborador_id, competencia, descritor)` por nome e uma avaliação sobrescreveria a outra sem erro.
+
+**Matriz global (14/09/2026, `91c98ca2`).** As competências medidas são as mesmas em todo tenant,
+para as notas serem comparáveis entre clientes: `lib/simuladores/lideranca/matriz-global.json`, 5
+competências × 6 descritores em duas variantes (gestor em exercício `LD0x`, potencial sucessor
+`FL0x`), com a régua N1 a N4 idêntica nas duas (muda o enquadramento de 7 das 30 perguntas). Até
+então o módulo media o `top5_workshop` do cargo-alvo de cada empresa. A matriz é materializada no
+tenant por `instalar.ts` quando o módulo é ligado, porque três motores leem por empresa (a IA4 lê
+`competencias`, a fila da IA3 sai de `top5_workshop`, o cenário é chaveado por
+`(empresa_id, cargo, competencia_id)`); é idempotente e recusa a instalação inteira se existir cargo
+REAL com o nome de uma variante. A aba mostra se a matriz está instalada e quantos cenários faltam,
+com botão que gera os que faltam (uma chamada de IA por cenário): sem cenário a competência não abre
+para quem responde. É a mesma matriz do Simulador de liderança.
 
 **Aplicação — o trilho `lideranca`** (`app/dashboard/assessment/?trilho=lideranca`). A mesma tela e
-as mesmas actions do assessment, com o parâmetro `trilho`: as competências e os cenários são os do
-CARGO-ALVO (`resolverTop5ComCenario(sb, empresaId, cargoAlvo, …)`), o `compId` do browser precisa
-pertencer ao trilho, "um por dia" é gate do servidor pelo dia de Brasília (reenviar a mesma
-competência é edição). Quem responde: módulo contratado → programa configurado → **não** ocupa o
-cargo-alvo (para quem ocupa, o trilho é o do cargo) → na população → cargo-alvo com Top 5
-(`lib/prontidao-lideranca/trilho.ts`). O trilho do cargo ficou idêntico e devolve
+as mesmas actions do assessment, com o parâmetro `trilho`: as competências são as da matriz global e
+os cenários são buscados pelo cargo da VARIANTE (`VARIANTES[variante]`, não o cargo-alvo: passar o
+cargo-alvo devolveria lista vazia sem erro), o `compId` do browser precisa pertencer ao trilho,
+"um por dia" é gate do servidor pelo dia de Brasília (reenviar a mesma competência é edição). Quem
+responde: módulo contratado → programa configurado → na população → cargo-alvo existente; quem OCUPA
+o cargo-alvo responde a variante de gestor em exercício, quem não ocupa a de potencial. A recusa
+`OCUPA_CARGO_ALVO` saiu em 14/09/2026: com matriz própria ela excluía metade do público
+(`lib/prontidao-lideranca/trilho.ts`). RH e e-mails internos ficam fora, como na leitura. O trilho do cargo ficou idêntico e devolve
 `trilhoLideranca {disponivel, respondidas, total}` para a tela oferecer o segundo mapeamento sem link
 novo. IA4 e o check não mudaram: a régua de descritores é resolvida por `cod_comp` sem filtro de
 cargo, e a fila é `avaliacao_ia is null`.
@@ -1322,14 +1339,9 @@ exclui `role='rh'` e internos; erro de leitura LANÇA; quem não tem as duas pon
 própria com o motivo). `actions/prontidao-lideranca.ts`: par RH (papel `rh`, `tenantDb` da sessão)
 × admin (`admin.access`, empresa da rota), gate de módulo antes de ler; guard estático
 `tests/unit/prontidao-lideranca-gate-guard.test.ts`. Telas: `/dashboard/gestor/prontidao-lideranca`
-(RH; item de menu só com módulo contratado via `/api/me.prontidaoLideranca`) e a aba **Prontidão**
-em `/admin/fit` (configuração, prévia, calibragem). Toggle do módulo em Configurações → Programa.
-
-**Calibragem** — os exemplares AFEREM a rubrica, nunca entram no prompt (o exemplo do prompt vence a
-prosa: um literal virou 65,8% da base). Descritor em que um líder de referência ficou abaixo do
-corte → suspeita de rubrica → edição em `/admin/competencias` (`salvarDescritor`, só colunas de
-rubrica, N3 obrigatório) → reavaliar. O importador de planilha só INSERE; sem essa edição o laço não
-fecha.
+(RH; item de menu só com módulo contratado via `/api/me.prontidaoLideranca`) e a aba **Mapeamento de
+liderança** em `/admin/fit?tab=prontidao` (Configuração e Prévia da leitura; a subaba Calibragem saiu
+em 14/09/2026). Toggle do módulo em Configurações → Programa.
 
 **PDF** (`lib/prontidao-lideranca/parecer-pdf.tsx`): parecer individual (capa, duas camadas com
 gaps ancorados, evidências literais de `respostas.avaliacao_ia`, auditoria da 2ª IA) e consolidado
@@ -1407,7 +1419,7 @@ Multi-tenant + Fit v2 + Temporadas + Tira-Duvidas + RAG (knowledge_base, pgvecto
 ### Migrations 090-092 (Modo Onboarding)
 - **090** — `empresas.sys_config` COMMENT documentando chaves novas (programa_modo, fase_carreira, nivel_meta_alvo, etc.)
 - **091** — `trilhas.competencias_foco TEXT[]` + backfill (multi-competencia)
-- **092** — `colaboradores.tutorados_ids UUID[]` + GIN index
+- **092** — `colaboradores.tutorados_ids UUID[]` + GIN index (coluna e índice derrubados na **268**, 22/09/2026, com o papel tutor)
 
 ### Migrations 093-095 (Mercado Potencial)
 - **093** — MVs `diag_mv_mercado_escola/municipio/rede` (cross Censo+Saeb+VAAR)
@@ -1734,17 +1746,21 @@ git push origin master → integracao Git da Vercel → build automatico → pro
 A integracao GitHub da Vercel deploya **automaticamente** a cada push no `master` (deploy com autor `vertho-app`). **NAO rodar `vercel --prod` por cima** — gera um segundo deploy de producao do mesmo commit (autor da CLI), duplicando. CLI so como fallback se a integracao cair.
 
 ### Backup automatico
-```
-Task Scheduler Windows → scripts/auto-backup-diario.ps1 (todo dia 20h)
-```
+Dois mecanismos que fazem coisas diferentes (conferido em 22/09/2026):
+- **Dados:** cron diário da Vercel (`/api/cron?action=backup_diario`, `vercel.json`) →
+  `actions/backup.ts::executarBackupDiario`, que exporta 20 tabelas críticas paginando por `range()`,
+  grava `storage/backups/<YYYY-MM-DD>.json.gz` com o esperado × exportado por tabela e rotaciona após
+  7 dias (`RETENCAO_DIAS`).
+- **Código:** Task Scheduler do Windows → `scripts/auto-backup-diario.ps1` gera ZIP do projeto e faz
+  push; não copia dado nenhum do banco.
 
 ### Scripts utilitarios
 | Script | Uso |
 |---|---|
-| `scripts/smoke-test.js` | Testa 29 rotas via HTTP |
+| `scripts/smoke-test.js` | 36 checagens HTTP em produção depois do deploy: 29 páginas (inclusive que página protegida redireciona para o login) e 7 APIs |
 | `scripts/backup-project.ps1` | Snapshot ZIP manual |
 | `scripts/checkpoint.ps1` | Commit + push rapido |
-| `scripts/auto-backup-diario.ps1` | Backup diario automatico |
+| `scripts/auto-backup-diario.ps1` | ZIP diário do código + push (não é backup de dados) |
 
 ### Restauracao do Schema
 - Rodar migrations em ordem: `migrations/022*.sql` ate `089*.sql`
@@ -1820,8 +1836,8 @@ Z-API: WhatsApp gateway
 | Avaliação Acumulada | **Sem 6**, ao fechar a última de conteúdo | Sem 13 (auto-trigger, **por competência**) | Sem 13 (auto-trigger) | **Embutida nas missões 4/7/9 (parcial cumulativa)** | Auto ao concluir a sem 2 (persiste na sem 2) | Como o piloto, quando há fechamento |
 | Cenário B (wizard final) | **Sem 7** | Sem 14 | Sem 14 | **Sem 10** | **Slot 3, calendário espelhado na sem 2** + trava de piso (`piloto-v1`) | **Opcional** — sem ele, conclui na última semana de conteúdo |
 | Slots de conteúdo | `[1,2,3,4,5,6]` (2 conteúdos/semana) | `[1,2,3,5,6,7,9,10,11]` (3 blocos de 3) | `[1,2,3,5,6,7,9,10,11]` | `[2,3,5,6,8]` — sem 1 = calibragem | `[1,2]` (2 entregas cada) | 1 por semana configurada |
-| Acompanhamento | Gestor | Gestor (por `gestor_email`) | Gestor | **Tutor** (por `tutorados_ids[]`) | Gestor | Gestor |
-| Push automatizado | cadência diária (pílula · pílula · evidência) | — | — | **WhatsApp pro tutor nas sems 4 e 7** (sugestão de pauta) | — | cadência **pára no fim do plano** |
+| Acompanhamento | Gestor | Gestor (por `gestor_email`) | Gestor | Gestor (por `gestor_email`) e RH; o papel tutor foi extinto em 22/09/2026 | Gestor | Gestor |
+| Push automatizado | cadência diária (pílula · pílula · evidência) | — | — | nenhum (o aviso ao tutor nas sems 4 e 7 saiu em 22/09/2026) | — | cadência **pára no fim do plano** |
 
 > Trilhas já persistidas (single-comp) **não são regeradas** — o plano salvo é servido como está; só nova geração usa DUO. Detalhe do DUO em **17.11**.
 
@@ -1834,13 +1850,12 @@ lib/season-engine/select-descriptors.ts # selectDescriptors (single) + selectDes
 lib/season-engine/prompts/scenario.ts  # aceita cenarioTipo='integrador' + competenciasIntegradas[]
 lib/season-engine/prompts/missao.ts    # aceita missaoTipo='integradora' + competenciasIntegradas[]
 lib/season-engine/prompts/acumulado.ts # aceita nivelMetaAlvo: 2|3 (régua condicional)
-lib/notify-tutor.ts                    # notifyTutorMissaoConcluida (Z-API push)
 actions/temporadas.ts                  # gerarTemporada (single) + gerarTemporadaRegularDuo + gerarTemporadaOnboarding + gerarTemporadaPiloto + verificarProntidaoPiloto
 lib/season-engine/piloto-trava.ts      # trava de piso do fechamento do piloto (aplicarTravaPiloto, spec 'piloto-v1')
 actions/avaliacao-acumulada.ts         # wrappers SEMPRE gatados (admin) → núcleo headless em lib/season-engine/avaliacao-acumulada-core.ts (gerarAvaliacaoAcumuladaCore single + multi-comp DUO via avaliarCompAcumulada + gerarAvaliacaoAcumuladaParcialCore Onboarding, B5 via opts.empresaId)
-app/api/temporada/reflection/route.ts  # auto-trigger acumulada parcial + notify tutor ao concluir missão
+app/api/temporada/reflection/route.ts  # auto-trigger acumulada parcial ao concluir missão
 app/admin/empresas/[id]/configuracoes  # tab "Programa" (toggle modo + fase_carreira)
-lib/authz.ts                           # isTutor, getTutorados, canTutorAccess
+lib/authz.ts                           # canViewColabJourney (gestor por gestor_email, RH pela empresa)
 ```
 
 ### 17.3 Chaves novas em `sys_config` (JSONB)
@@ -1864,18 +1879,20 @@ Documentação enforced via migration 090 (`COMMENT ON COLUMN`).
 
 - **090** — `empresas.sys_config` COMMENT documentando chaves novas. Sem DDL.
 - **091** — `trilhas.competencias_foco TEXT[]` + backfill `ARRAY[competencia_foco]`.
-- **092** — `colaboradores.tutorados_ids UUID[]` + GIN index.
+- **092** — `colaboradores.tutorados_ids UUID[]` + GIN index (derrubados na **268**, 22/09/2026).
 - **153** — COMMENT sys_config: valor `'piloto'`. Sem DDL.
 - **154** — `colaboradores.programa_modo` (override de geração, NULL herda) + `trilhas.programa_modo` (carimbo do runtime).
 
-### 17.5 RBAC do papel Tutor
+### 17.5 Papel Tutor (extinto em 22/09/2026)
 
-- Adicionado em `types/index.d.ts`: `Role = 'colaborador' | 'gestor' | 'rh' | 'tutor'`.
-- `lib/authz.ts`: `isTutor`, `getTutorados(ctx)`, `canTutorAccess(ctx, colabId)`.
-- `getDashboardView` retorna `'tutor'` quando aplicável.
-- `findColabByEmail` puxa `tutorados_ids` no select padrão.
-- Tutor reusa `/dashboard/gestor` e `/dashboard/gestor/equipe-evolucao`; filtros checam `tutorados_ids` (fail-closed: vazio = lista vazia).
-- Header da página: "Tutor · seus tutorados" + "Meus tutorados" quando `scope='tutor'`.
+Entrou em `2caa933` como subconjunto do gestor, com escopo por `colaboradores.tutorados_ids`, e
+**nunca teve uma pessoa**: medido em 22/09/2026, 540 colaboradores em 3 papéis (383 colaborador,
+144 gestor, 13 rh), nenhum `tutor`, e `tutorados_ids` vazio nas 540 linhas. Mesmo assim moldava a
+autorização em 17 arquivos. Saiu em `672db4ae` (`Role` sem `'tutor'`, `isTutor`/`getTutorados`/
+`canTutorAccess`, o ramo de escopo do gestor, o papel em `lib/permissions.ts`, a opção do seletor no
+admin, `lib/notify-tutor.ts` e as chaves i18n do papel), e a migration **268** (`17439c2d`) derrubou
+a coluna e o índice GIN. O acompanhamento do Onboarding passa a ser o do gestor (`gestor_email`) e o
+do RH (empresa). As chaves do Tira-Dúvidas (o "tutor" de IA) ficaram: é outra coisa.
 
 ### 17.6 Auto-trigger acumulada parcial
 
@@ -1890,21 +1907,20 @@ Janela cumulativa vem de `programaConfig.competenciasNaMissao`:
 - Sem 7 → Comps 0-3
 - Sem 9 → todas (`[-1]`)
 
-### 17.7 Push WhatsApp pro Tutor (sems 4 e 7)
+### 17.7 Push WhatsApp pro Tutor (removido em 22/09/2026)
 
-`lib/notify-tutor.ts` → `notifyTutorMissaoConcluida({trilhaId, semana, competenciasIntegradas})`. Disparado em paralelo ao trigger da acumulada parcial. Mensagem inclui nome do tutorado, semana, competências cobertas e 3 perguntas de pauta sugerida. Hard-coded em `SEMANAS_NOTIFY = [4, 7]` — sem 9 é final, sem check-in.
-
-Comportamento defensivo: sem tutor vinculado → skip silencioso; tutor sem telefone → log; Z-API falha → log (não bloqueia conclusão da missão).
+Existiu de `777a726` a `672db4ae`: `lib/notify-tutor.ts` mandava pelo Z-API, ao concluir as missões
+integradoras 4 e 7, o nome do tutorado, as competências cobertas e 3 perguntas de pauta. Como nenhuma
+pessoa teve o papel, o aviso nunca chegou a ninguém. Saiu com o papel (17.5), junto com o `after()`
+que o chamava em `/api/temporada/reflection`.
 
 ### 17.8 Testes
 
 - **Unit (Vitest)** — `tests/unit/onboarding/programa-config.test.ts`: 33 testes cobrindo estrutura dos templates (incl. `PROGRAMA_REGULAR_DUO`), `getProgramaConfig` (default global DUO + escape hatch `regular_single`), `descritoresCobertosNaMissao`, `selectDescriptorsMulti`, `selectDescriptorsDuo` (blocos paralelos, reforço por gap, `.competencia` preenchida).
-- **E2E (Playwright)** — `tests/onboarding-config-ui.spec.js`: tab Programa, toggle modo, banner ativo, dropdown fase_carreira, role Tutor no dropdown da Equipe.
+- **E2E (Playwright)** — `tests/onboarding-config-ui.spec.js`: tab Programa, toggle modo, banner ativo, dropdown fase_carreira, e o seletor de papel da Equipe com colaborador/gestor/rh e SEM tutor (invertido em 22/09/2026). Não roda no CI: o workflow E2E executa só login, navegação e fluxos críticos.
 
 ### 17.9 Pendências (fora do escopo Fases 1-4)
 
-- Push pro tutor além das sems 4 e 7 (ex.: alertas de inatividade).
-- UI dedicada pra atribuir `tutorados_ids` em massa (hoje só via SQL ou edição individual).
 - Testes específicos de IA1 com `fase_carreira` e acumulada com nível-meta 2 — pulados intencionalmente porque dependem de chamadas reais de IA e geram falsos negativos quando prompts evoluem.
 
 ### 17.10 Commits do roll-out
@@ -1918,6 +1934,7 @@ Comportamento defensivo: sem tutor vinculado → skip silencioso; tutor sem tele
 | `777a726` | Push WhatsApp pro tutor ao concluir missões 4 e 7 |
 | `cca9c33` | Testes Vitest + Playwright + cleanup UI |
 | `f148e9b` | **Regular DUO — 2 competências em blocos paralelos vira o default global** |
+| `672db4ae` · `17439c2d` | Papel tutor e aviso ao tutor removidos (22/09/2026, nenhuma pessoa com o papel); migration 268 derruba `tutorados_ids` |
 
 ### 17.11 Regular DUO (default global)
 
@@ -2282,8 +2299,8 @@ next.config.mjs            # wrapped com createNextIntlPlugin()
 - Tela `/admin/auditoria` (`page.tsx` + `actions.ts::loadAuditLog`): tabela filtrável (ação, empresa, admin), resultado colorido, detalhes JSON, últimas 2000 linhas pras facetas.
 
 ### 21.2 Matriz de Permissões (`lib/permissions.ts` + `permission_overrides` — migration 117)
-- **5 papéis de sistema**: `platform_admin` (tudo), `rh` (admin do tenant, ~15 permissões), `gestor` (~5), `tutor` (~3), `colaborador` (~3).
-- **31 permissões** nomeadas por domínio (Admin, Governança, Empresas, Usuários, Configurações, Avaliações, Relatórios, Jornada, Conteúdo, IA, Radar, Radar Empresas, Dados) — cada uma com `label` PT-BR, `description` e `risk` (low/medium/high/critical).
+- **5 papéis de sistema** (contagem de 22/09/2026 em `BASE_ROLE_PERMISSIONS`): `platform_admin` (tudo), `socio` (14, só leitura e exportação), `rh` (admin do tenant, 13), `gestor` (5), `colaborador` (3). O `tutor` saiu em 22/09/2026 (17.5).
+- **28 permissões** nomeadas por domínio (Admin, Governança, Empresas, Usuários, Configurações, Avaliações, Relatórios, Jornada, Conteúdo, IA, Radar, Radar Empresas, Dados) — cada uma com `label` PT-BR, `description` e `risk` (low/medium/high/critical).
 - **Matriz base** fixa em código (`BASE_ROLE_PERMISSIONS`). **Overrides** em `permission_overrides` (scope `role`|`user`, `effect` allow|deny, `reason` obrigatório ≥5 chars, auditável; UNIQUE por scope+permission).
 - Funções: `getSystemRole(ctx)`, `hasBasePermission(role, perm)`, `loadPermissionOverrides()`, `getEffectivePermissionKeys(ctx)` (= base + allow − deny), `can(ctx, perm)` (async). Guard de action: `requirePermissionAction(perm)`.
 - Console `/admin/permissoes`: matriz clicável (permissões × papéis), diagnóstico por usuário (papel efetivo + allowed/denied), lista de overrides ativos, modal de save com motivo.

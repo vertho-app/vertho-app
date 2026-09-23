@@ -294,8 +294,8 @@ Rodrigo, travadas em `tests/unit/orcamento-conversao.test.ts`:
 ### Orçamento editado depois de virar proposta (17/09/2026)
 
 A conversão é de mão única e o server recusa converter de novo. Até esta data,
-editar o orçamento depois não chegava à proposta: o "Futuro SA" ganhou simuladores
-e passou a valer R$ 1.599.000 enquanto a PROP-2026-0008 seguia em R$ 1.569.000, e
+editar o orçamento depois não chegava à proposta: um orçamento real ganhou simuladores
+e passou a valer R$ 30.000 a mais, enquanto a proposta derivada seguia no valor antigo, e
 o documento misturava as duas versões (métricas lidas do orçamento ao vivo, valor
 da proposta).
 
@@ -331,9 +331,9 @@ os simuladores do valor derruba o teste).
 ### Duração do programa = parcelas (17/09/2026)
 
 `mesesDoPrograma(ciclos)` = ciclos × 2 = `parcelasPorCiclos(ciclos)`. Antes a
-calculadora estimava por semanas (7 × ciclos ÷ 4,345), e a PROP-2026-0008 dizia
+calculadora estimava por semanas (7 × ciclos ÷ 4,345), e uma proposta real dizia
 "8 meses de programa" ao lado de "10 parcelas". A infra é rateada por essa
 duração (5 ciclos: +R$ 996 a +R$ 1.992 de custo, menos de 0,13 ponto de margem
-num projeto de R$ 1,569 mi). O documento da proposta deriva a duração dos
+num projeto de sete dígitos). O documento da proposta deriva a duração dos
 `ciclos`, não do `resultado.mesesPrograma` gravado, porque cenário salvo antes
 desta data congelou a conta antiga.

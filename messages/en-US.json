@@ -5091,7 +5091,7 @@
       "regularDesc": "Up to 2 competencies · target level 3",
       "onboarding": "Onboarding (10 weeks)",
       "onboardingDesc": "5 competencies · target level 2",
-      "onboardingNote": "Onboarding mode is active. Configure <code>sys_config.competencias_onboarding</code> (array of 5 names) or run IA1 for the role; the engine uses the top 5 from <code>top10_cargos</code> as fallback. The tutor receives an automatic push at the end of missions 4 and 7.",
+      "onboardingNote": "Onboarding mode is active. Configure <code>sys_config.competencias_onboarding</code> (array of 5 names) or run IA1 for the role; the engine uses the top 5 from <code>top10_cargos</code> as fallback.",
       "careerTitle": "Career stage (IA1 bias)",
       "careerDesc": "When set, IA1 biases the Top 10 ranking: <b>junior</b> prioritizes operational/basic competencies; <b>senior</b> prioritizes strategic/relational ones; <b>pleno</b> = no bias.",
       "noBias": "— No bias (default) —",

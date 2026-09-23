@@ -1,6 +1,6 @@
 # Resumo de Retomada — Vertho App
 
-> Atualizado em 21/09/2026. O SHA de HEAD não é fixado aqui de propósito — ficava
+> Atualizado em 22/09/2026. O SHA de HEAD não é fixado aqui de propósito — ficava
 > obsoleto no commit seguinte e dava a impressão de que o resto do documento também estava.
 
 ## Histórico das jornadas do colaborador (21/09)
@@ -169,20 +169,30 @@ rastreavel (mig 169). ACME Demo: reset canonico unico.
 
 - **Mentor IA** multi-tenant em `{empresa}.vertho.ai` — diagnostico (DISC + conversacional), PDI,
   trilha por temporadas, conteudo multi-formato, fechamento com dupla IA + arguicao, certificado.
-  Modos: **Regular DUO** (14 sem, default) · **Onboarding** (10 sem) · **Piloto** (2 sem) ·
+  Modos: **Jornada de 7 semanas** (o formato em uso e o que o orçamento precifica: 1 competência,
+  6 semanas de conteúdo e fechamento na 7ª; DUO = 2 jornadas em sequência, a 2ª montada sozinha) ·
+  **Regular DUO** (14 sem; ainda é o default do código quando a empresa não escolhe modo) ·
+  **Onboarding** (10 sem; configurado, sem turma em produção) · **Piloto** (2 sem) ·
   **Personalizado** (1-4 sem, configuravel). Modo por empresa E por colaborador, com carimbo na trilha.
-- **Pulso de Desenvolvimento** — T0/T2 + sinais + Dual-IA + PDFs (executivo e complementar NR-1).
+- **Simuladores (módulos contratados)**: de vendas (método PACE), de atendimento (4 segmentos) e de
+  liderança (5 encontros), com devolutiva por competência e evidência literal; e o **Mapeamento de
+  liderança** (matriz global de liderança × estilo, leitura do RH). Docs: `SIMULADOR-VENDAS.md`,
+  `recepcao-medica.md` (atendimento), `SIMULADOR-LIDERANCA.md`, `simuladores-validacao.md`.
+- ⛔ **Off-line desde 31/08/2026** (`lib/blocos-offline.ts`, código preservado, não é capacidade do
+  produto): Pulso de Desenvolvimento, Seleção de pessoas, RadarEmpresas, RadarBett e CONARH 52.
 - **Engajamento operacional** — workspace `/admin/engajamento` com abas **Visão atual** e
   **Evolução semanal**, etapa individual separada do calendário da turma, filtros de empresa/semana/
   área e régua transparente. Sem filtro, os sinais pertencem à etapa atual da jornada mais recente;
   temporadas antigas não concluem a semana presente por engano. A antiga rota
   `/admin/engajamento/evolucao` é só compatibilidade.
-- **Radar Vertho** (`radar.vertho.ai`) — inteligencia publica: escola, municipio, rede, estado,
-  comparacao. Inclui matriculas do censo (178k escolas).
-- **Portal do Representante** (`/representante`, interno) — funil de RCs, propostas, comissoes.
-- **RadarEmpresas** (interno) — inteligencia comercial B2B, DuckDB local.
-- **Tenants de demo**: `acme-demo` (vendedores, reset por cron/botao) e `cbtd-demo`.
-- i18n pt-BR/pt-PT/es-ES (next-intl) + login por WhatsApp (OTP) alem do magic link.
+- **Radar Vertho**: ferramenta INTERNA em `app.vertho.ai/radar` (só admins da plataforma) desde
+  10/08/2026; `radar.vertho.ai` responde 301 para vertho.ai. Escola, municipio, rede, estado,
+  comparacao; inclui matriculas do censo (178k escolas).
+- **Portal do Representante** (`/representante`, interno): funil de RCs, propostas, comissoes;
+  parado desde 10/07 (não off-line). Propostas também saem do deal desk, sem RC.
+- **Ambiente de demo**: três tenants fictícios (`acme-demo`, `gruposinal` e `escolas-acme`), com
+  reset canônico; a degustação guiada (versão B) é o padrão do painel (`docs/AMBIENTE-DEMO.md`).
+- i18n em 4 idiomas (pt-BR/pt-PT/es-ES/en-US, next-intl) + login por WhatsApp (OTP) alem do magic link.
 - **Descontinuado:** `radarbett.vertho.ai` (redirect 301 desde 25/05).
 
 ## Banco e migrations

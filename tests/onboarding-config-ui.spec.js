@@ -8,7 +8,8 @@ const { login } = require('./helpers/auth');
  *   1. Tab "Programa" existe em /admin/empresas/[id]/configuracoes
  *   2. Toggle regular vs onboarding funciona
  *   3. Dropdown fase_carreira tem as 4 opções (sem viés / junior / pleno / senior)
- *   4. Role "Tutor (Onboarding)" aparece no dropdown da tab Equipe
+ *   4. Dropdown de papel da tab Equipe tem colaborador, gestor e rh, e NÃO tem
+ *      tutor (papel extinto em 22/09/2026, commit 672db4ae)
  *
  * NÃO valida geração de trilha (custa IA e demora) — isso fica pra teste
  * de integração futuro com fixture controlado.
@@ -81,7 +82,7 @@ test.describe('Onboarding — UI admin', () => {
     expect(options.some(o => o.includes('Senior'))).toBeTruthy();
   });
 
-  test('role "Tutor (Onboarding)" aparece no dropdown da tab Equipe', async ({ page }) => {
+  test('dropdown de papel da tab Equipe tem os 3 papéis do tenant, sem tutor', async ({ page }) => {
     // Equipe é a tab default — só checa o dropdown
     await expect(page.locator('text=Colaboradores').first()).toBeVisible({ timeout: 10000 });
 
@@ -91,7 +92,10 @@ test.describe('Onboarding — UI admin', () => {
 
     const roleSelect = page.locator('select').filter({ has: page.locator('option:has-text("Colaborador")') }).first();
     await expect(roleSelect).toBeVisible({ timeout: 5000 });
-    const options = await roleSelect.locator('option').allTextContents();
-    expect(options.some(o => o.includes('Tutor'))).toBeTruthy();
+    // Pelo value, não pelo rótulo: o texto vem do i18n. Os 3 positivos provam que o
+    // seletor certo foi lido, então a ausência do tutor não passa por lista vazia.
+    const valores = await roleSelect.locator('option').evaluateAll(os => os.map(o => o.value));
+    expect(valores).toEqual(expect.arrayContaining(['colaborador', 'gestor', 'rh']));
+    expect(valores).not.toContain('tutor');
   });
 });

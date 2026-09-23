@@ -221,7 +221,7 @@ O que a fase 2 exige, e não é pouco:
    deploy. As respostas automáticas do webhook (recusa e "VER") passaram a levar o `to_phone_id`,
    e a thread grava o número efetivo, não o pedido. Testes: `whatsapp-numero-origem.test.ts`,
    `inbox-fluxo.test.ts` e R12 em `pipeline-health-regras.test.ts`, validados por 8 mutações.
-   ⚠️ Fora do alcance: o legado Z-API (fallback da cadência, aviso ao tutor, áudio do relatório,
+   ⚠️ Fora do alcance: o legado Z-API (fallback da cadência, áudio do relatório,
    magic link em lote da tela antiga) não passa por número nenhum da Cloud API.
 
    **Ligar um número novo na WABA (receita medida em 16/09/2026):**

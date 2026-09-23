@@ -5091,7 +5091,7 @@
       "regularDesc": "Hasta 2 competencias · nivel objetivo 3",
       "onboarding": "Onboarding (10 semanas)",
       "onboardingDesc": "5 competencias · nivel objetivo 2",
-      "onboardingNote": "Modo Onboarding activo. Configura <code>sys_config.competencias_onboarding</code> (array de 5 nombres) o ejecuta IA1 para el cargo; la engine usa el top 5 de <code>top10_cargos</code> como fallback. El tutor recibe push automático al final de las misiones 4 y 7.",
+      "onboardingNote": "Modo Onboarding activo. Configura <code>sys_config.competencias_onboarding</code> (array de 5 nombres) o ejecuta IA1 para el cargo; la engine usa el top 5 de <code>top10_cargos</code> como fallback.",
       "careerTitle": "Etapa profesional (sesgo de IA1)",
       "careerDesc": "Cuando se define, IA1 ajusta el ranking Top 10: <b>junior</b> prioriza competencias operativas/básicas; <b>senior</b> prioriza estratégicas/relacionales; <b>pleno</b> = sin sesgo.",
       "noBias": "— Sin sesgo (default) —",

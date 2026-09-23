@@ -1,11 +1,19 @@
 # Treino de atendimento — recepção médica
 
+> **Nome para o cliente: "Simulador de atendimento"** (decisão do dono de 17/09/2026). Deixou de ser só
+> recepção de clínica em 18/09/2026: o segmento é configuração da empresa (recepção médica, atendimento
+> geral, secretaria escolar ou loja; ver "Segmentos" e "Segmento por empresa" abaixo). O nome deste
+> arquivo e das rotas internas (`treino-atendimento`, `recepcao_*`) ficou do primeiro segmento. Os 60 casos
+> prontos do Catálogo Vertho são de recepção médica; nos outros segmentos a empresa parte do caso em
+> branco ou do rascunho por IA. Matriz vigente: 5 competências × 6 descritores, N1 a N4 (seção "Matriz
+> Vertho 5 × 6").
+
 ## Uso
 
 Em `/admin/treino-atendimento`, escolha a empresa. Administradores podem experimentar sem habilitar a equipe. A habilitação exige a permissão de configuração da empresa. Colaboradores usam `/dashboard/treino-atendimento` e só entram quando o módulo está habilitado para a clínica.
 
 - **Meu treino:** escolha um caso, leia a ficha e converse. É possível preparar outro atendimento e retomar os anteriores pelo histórico.
-- **Equipe:** participação no período, relatórios concluídos e resultados separados por cenário, versão da rubrica e cobertura. (Até 09/09/2026 a aba respondia 503 porque `equipe.ts` pedia `colaboradores.ativo`, coluna que não existe; ninguém viu porque nenhuma clínica estava habilitada. O teste de gestão agora vigia as colunas pedidas; ver `docs/FMEA-PIPELINE.md` §F-D1.) Gestores acessam os liderados definidos por `gestor_email`; tutores, os tutorados; RH, a empresa. Testes administrativos só entram no painel quando o administrador marca a opção.
+- **Equipe:** participação no período, relatórios concluídos e resultados separados por cenário, versão da rubrica e cobertura. (Até 09/09/2026 a aba respondia 503 porque `equipe.ts` pedia `colaboradores.ativo`, coluna que não existe; ninguém viu porque nenhuma clínica estava habilitada. O teste de gestão agora vigia as colunas pedidas; ver `docs/FMEA-PIPELINE.md` §F-D1.) Gestores acessam os liderados definidos por `gestor_email`; RH, a empresa (o papel tutor foi extinto em 22/09/2026). Testes administrativos só entram no painel quando o administrador marca a opção.
 - **Cenários:** catálogo comum e versões da clínica. Crie uma cópia, adapte a ficha, os pacientes e as competências avaliadas (checkbox e peso; o critério do caso fica recolhido e segue a descrição da competência até você "Ajustar para este caso"); salve o rascunho e publique. Publicação exige `content.manage`. Uma versão publicada não pode ter seu conteúdo alterado. Arquivar impede novos treinos dessa versão, preservando as sessões existentes. **Catálogo Vertho (só plataforma):** "Nova versão no catálogo" abre um rascunho global com a versão sugerida (3.2 → 3.3, única por caso), editável e publicável para todas as clínicas; publicar arquiva a versão publicada anterior do mesmo caso; "Copiar para a clínica" continua criando cópia própria. Clínica não vê rascunhos do catálogo.
 - **Competências:** biblioteca global (Catálogo Vertho) com o comportamento esperado em quatro níveis (N1 gap · N2 em desenvolvimento · N3 meta · N4 referência). Quem vê Cenários lê; só a plataforma cria, edita, exclui (desativa) e restaura. O cenário copia nome, critério e níveis para a própria rubrica ao salvar: mudar a biblioteca não altera caso publicado nem relatório.
 
@@ -118,7 +126,7 @@ Aplicar a migration antes do deploy. A API e a UI anteriores continuam funcionan
 
 ## Passagem do piloto para uso ampliado
 
-Instrumentação, conteúdo, painel, editor, revisão e voz opcional estão disponíveis. O piloto de 1–2 clínicas depende da seleção das participantes e do uso humano; 30 sessões são um marco de aprendizado, não comprovação de calibração. Examinar divergências da revisão, taxa de rejeição, conclusão e custo antes de ampliar.
+Instrumentação, conteúdo, painel, editor e voz opcional estão disponíveis (a revisão humana saiu em 22/09/2026, ver "Uso"). O piloto de 1–2 clínicas depende da seleção das participantes e do uso humano; 30 sessões são um marco de aprendizado, não comprovação de calibração. Examinar taxa de rejeição, conclusão e custo antes de ampliar; a comparação com classificação independente de profissionais segue pendente (`docs/simuladores-validacao.md`).
 
 ### Calibração do avaliador (medida em 06/09/2026)
 

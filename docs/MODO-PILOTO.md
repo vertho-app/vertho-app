@@ -184,7 +184,8 @@ O E2E do piloto expôs e corrigiu **4 bugs latentes do regular**:
    `use-server-internal-allowlist` ficou só nas 2 entradas do `actions/whatsapp.ts`.
 2. **Fire-and-forget morre no freeze da Vercel**: `(async () => {...})()` solto é morto quando a
    lambda congela após o response. **Todo trabalho pós-response em rota DEVE usar `after()`**
-   (next/server). Aplicado nos 4 triggers (piloto, sem 13, onboarding parcial, notify tutor).
+   (next/server). Aplicado nos 4 triggers (piloto, sem 13, onboarding parcial, notify tutor; este saiu em
+   22/09/2026 com o papel tutor).
    **Atualização M8 (06/07)**: o trigger da acumulada do PILOTO migrou de `after()` para uma
    task **Trigger.dev** (`acumulada-piloto`, retry+status) + gate/self-heal no fechamento, com
    `after()` só como fallback. Sem 13 / onboarding / notify seguem em `after()`.

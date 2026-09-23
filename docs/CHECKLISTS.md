@@ -7,7 +7,10 @@
 >
 > O checklist de **validação funcional passo a passo** (validar cada etapa do pipeline num tenant
 > novo) não foi duplicado aqui: ele espelha o `PASSO-A-PASSO-VERTHO.md`, que é a fonte. O que vale
-> como checklist está na seção 4.
+> como checklist está na seção 4. O `CHECKLIST-VALIDACAO.md` voltou ao repositório em 29/08/2026
+> (`dc2e4895`) e segue mantido como esse roteiro funcional por etapa; os outros quatro continuam
+> absorvidos aqui (voltaram no mesmo commit, idênticos ao que foi apagado, e saíram de novo em
+> 22/09/2026).
 >
 > **Aqui está o que é igual em toda mudança.** O que só vale para a área que a mudança toca sai da
 > skill **`/checklist`**, que roteia pelos arquivos tocados — a tabela
