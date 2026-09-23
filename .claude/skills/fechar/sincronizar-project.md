@@ -1,4 +1,9 @@
-# Sincronizar as 16 fontes do Project (claude.ai)
+# Sincronizar as 20 fontes do Project (claude.ai)
+
+> Eram 16 até 22/09/2026. Naquele dia entraram os docs dos simuladores (`SIMULADOR-VENDAS.md`,
+> `SIMULADOR-LIDERANCA.md`, `simuladores-validacao.md`, `recepcao-medica.md`), `ORCAMENTO.md` e
+> `FLUXO-DE-DADOS-PESSOAIS.md`, e saíram `LEVANTAMENTO-2026-07.md` e `plano-refatoracao-final.md`.
+> `BETO-CANAIS.md` fica de fora por decisão do dono. Os "16" citados nas medições abaixo são daquela época.
 
 Chamado pelo passo 3.1 do `SKILL.md`. **Não é aviso — é execução.** O único ponto que pede
 confirmação está marcado.
@@ -22,7 +27,12 @@ contra 511. (Números em LINHAS porque era a unidade que a UI mostrava então �
 `Medido: 31/08/2026` — **15 das 16 defasadas** numa rodada em que eu tinha tocado em 2 arquivos.
 Nunca confie no tamanho da rodada para estimar o tamanho da defasagem.
 
-**A comparação é sempre das 16 contra o Project, toda vez.**
+**A comparação é sempre das 20 contra o Project, toda vez.**
+
+`Medido: 22/09/2026` — o lado inverso também vale: **o doc do repo pode estar atrás do código**, e o
+Project herda. O `FEATURES-E-BENEFICIOS.md` batia com o repo e mesmo assim vendia Pulso e Radar
+público (fora do ar), o papel tutor (extinto) e o programa de 14 semanas como o formato em uso.
+Espelho em dia não é doc em dia: quando a rodada mexe em produto, confira o FEATURES contra o código.
 
 ## Como a contagem casa — é **kB**, não linhas (mudou em algum ponto até 31/08/2026)
 
@@ -46,7 +56,9 @@ for f in CLAUDE.md docs/ARQUITETURA.md docs/PIPELINE-TRILHA.md docs/FMEA-PIPELIN
          docs/PASSO-A-PASSO-VERTHO.md docs/CUSTO-QUALIDADE.md docs/SECURITY-STATUS.md \
          docs/CATALOGO-PROMPTS-IA.md docs/MODULOS-BASE-CONTEUDO.md docs/PORTAL-REPRESENTANTE.md \
          docs/GERADOR-VIDEO-MODULO.md docs/DESIGN-SYSTEM.md docs/RESUMO.md \
-         docs/FEATURES-E-BENEFICIOS.md docs/LEVANTAMENTO-2026-07.md docs/plano-refatoracao-final.md; do
+         docs/FEATURES-E-BENEFICIOS.md docs/SIMULADOR-VENDAS.md docs/SIMULADOR-LIDERANCA.md \
+         docs/simuladores-validacao.md docs/recepcao-medica.md docs/ORCAMENTO.md \
+         docs/FLUXO-DE-DADOS-PESSOAIS.md; do
   awk -v n="$(basename $f)" -v c="$(git show HEAD:$f | wc -m)" 'BEGIN{printf "%-30s %.1f kB\n", n, c/1000}'
 done
 ```
@@ -69,7 +81,7 @@ print(len(texto)/1000)          # = o número do card
 io.open(destino,'w',encoding='utf-8',newline='').write(texto)   # newline='' = não reconverte
 ```
 
-Use `wc -m` só para a varredura rápida das 16; confirme com Python o que for subir. E escreva o
+Use `wc -m` só para a varredura rápida das 20; confirme com Python o que for subir. E escreva o
 arquivo pelo Python: o `>` do shell devolveu 724 linhas com CR num blob que não tinha nenhuma.
 
 🔴 **`git show HEAD:` não é frescura — é o que torna a comparação estável, por dois motivos.**
@@ -88,9 +100,15 @@ disco, a comparação é aproximada; depois de uma rodada inteira subida via `gi
 
 1. **Ler o Project.** Abrir `https://claude.ai/projects` → **Vertho.ai** → seção **Contexto**
    (a URL do projeto é estável: `/project/019c7614-e003-719c-89ba-681693339e87`).
-   `find` com *"markdown file button with size in Context"* devolve os 16 com os tamanhos; para a
-   lista que DECIDE, use `get_page_text` (a seção Contexto sai em lista, nome + kB).
-2. **Comparar** com a tabela do comando acima. Defasado = tamanho diferente por ≥ 0,2 kB.
+   `find` com *"markdown file button with size in Context"* devolve os cards com os tamanhos, mas o
+   `find` para em 20 resultados e o Project agora tem exatamente 20: para a lista que DECIDE, use
+   `get_page_text` (a seção Contexto sai em lista, nome + kB).
+2. **Comparar** com a tabela do comando acima. Defasado = tamanho diferente por ≥ 0,2 kB na régua
+   do `wc -m`. 🔴 Com a régua do Python (exata), compare o valor ARREDONDADO a 1 casa: qualquer
+   diferença conta. `Medido: 22/09/2026` — `CLAUDE.md` com card 77,8 e repo 77,88 (0,1 kB, "dentro
+   da tolerância") era uma mudança real de 4 linhas, que apontava para docs novos.
+   ⚠️ Outra sessão pode sincronizar em paralelo: em 22/09 os 4 cards defasados de manhã já estavam
+   atualizados à noite, sem ser por mim. Releia o Project imediatamente antes de subir.
 3. **Copiar** os defasados para uma pasta da sessão (`file_upload` só aceita arquivos que a sessão
    compartilha — caminho do repo é recusado). Copie **do git, não do disco**, para o card bater com
    a régua e para não subir a edição pela metade de outra sessão:
@@ -147,7 +165,7 @@ disco, a comparação é aproximada; depois de uma rodada inteira subida via `gi
    o `.click()` acima dispensa isso.
    🔑 Clicar no `ref` do botão "Remove" **não funciona** — testado em 27/08, o clique não surte
    efeito e a lista continua intacta. E clicar no card **abre a visualização**, não o menu.
-8. **Fechar contando.** Ao final tem que haver **exatamente 16**, um por nome, todos com o tamanho
+8. **Fechar contando.** Ao final tem que haver **exatamente 20**, um por nome, todos com o tamanho
    do repo. Duplicata sobrando é pior que arquivo velho: o Project passa a responder com as duas
    versões. 🔴 **Conte na página RECARREGADA**, com uns 5 s entre o último clique e a navegação: a
    lista sem recarregar some com o card na hora, mesmo quando a exclusão não persistiu (ver
@@ -160,6 +178,15 @@ disco, a comparação é aproximada; depois de uma rodada inteira subida via `gi
    ```
 
 ## Armadilhas registradas
+
+- **Depois do upload, os cards novos ficam como "Carregando" até recarregar a página.** `Medido:
+  22/09/2026` — 12 arquivos subidos, e 30 s depois a lista ainda tinha 12 itens "Carregando" (que,
+  por terem o mesmo "nome", inflam a contagem de duplicados). Recarregada, trouxe os 12 com o kB
+  certo. Não conclua nada, nem remova, antes do reload.
+- **Achar o input do Contexto por marcação, não por descrição.** Em 22/09 o `find` devolveu só 1 dos
+  2 inputs, e a descrição dele não prova qual é. O que deu certeza: por JS, subir a árvore de cada `input[type=file]` e ver
+  qual chega à seção "Contexto" sem passar pelo "Como posso ajudar"; marcar esse com um
+  `aria-label` próprio e então pedir o `ref` ao `find` por esse rótulo.
 
 - 🔴 **A lista sem recarregar mostra remoção que não persistiu.** `Medido: 17/09/2026`: 4 remoções,
   e a lista marcava 16 cards e 0 duplicados. Recarregada, tinha 17: o `DESIGN-SYSTEM.md` ANTIGO

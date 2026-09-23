@@ -70,19 +70,27 @@ Regras de escrita: o `CLAUDE.md` é resumo operacional — entrada nova ali é *
 
 ### 3.1 As FONTES DO PROJECT (claude.ai) — **sincronizar, não avisar**
 
-**São 16** e elas ficam congeladas na versão subida. Toda rodada termina com o Project batendo com o
-repo — a receita completa (comandos, refs, armadilhas) está em **`sincronizar-project.md`**, ao lado.
+**São 20** (desde 22/09/2026) e elas ficam congeladas na versão subida. Toda rodada termina com o
+Project batendo com o repo; a receita completa (comandos, refs, armadilhas) está em
+**`sincronizar-project.md`**, ao lado.
 
 ```
 CLAUDE.md · docs/ARQUITETURA.md · docs/PIPELINE-TRILHA.md · docs/FMEA-PIPELINE.md
 docs/PASSO-A-PASSO-VERTHO.md · docs/CUSTO-QUALIDADE.md · docs/SECURITY-STATUS.md
 docs/CATALOGO-PROMPTS-IA.md · docs/MODULOS-BASE-CONTEUDO.md · docs/PORTAL-REPRESENTANTE.md
 docs/GERADOR-VIDEO-MODULO.md · docs/DESIGN-SYSTEM.md · docs/RESUMO.md
-docs/FEATURES-E-BENEFICIOS.md · docs/LEVANTAMENTO-2026-07.md · docs/plano-refatoracao-final.md
+docs/FEATURES-E-BENEFICIOS.md · docs/SIMULADOR-VENDAS.md · docs/SIMULADOR-LIDERANCA.md
+docs/simuladores-validacao.md · docs/recepcao-medica.md · docs/ORCAMENTO.md
+docs/FLUXO-DE-DADOS-PESSOAIS.md
 ```
 
+Decisões do dono em 22/09/2026: os simuladores entram (`recepcao-medica.md` é o doc do Simulador de
+atendimento); `BETO-CANAIS.md` NÃO entra; `LEVANTAMENTO-2026-07.md` e `plano-refatoracao-final.md`
+saíram (retratos de julho). O Project é usado para pitch, proposta e material comercial: quando um
+doc de produto muda, o `FEATURES-E-BENEFICIOS.md` é o primeiro a conferir.
+
 🔴 **NÃO use `git diff` da rodada como filtro.** Ele só enxerga o que EU mudei, e a defasagem se
-acumula de outras sessões e do trabalho do dono. Compare **as 16 contra o Project**, sempre — o card
+acumula de outras sessões e do trabalho do dono. Compare **as 20 contra o Project**, sempre — o card
 mostra **kB de CARACTERES** (`git show HEAD:<arq> | wc -m`, ÷ 1000; `wc -c` erra para mais em 3-4%
 por causa dos acentos), e a unidade já mudou uma vez: confirme num card antes de comparar.
 
@@ -116,7 +124,7 @@ Termine dizendo, em uma linha cada:
 
 1. o que foi gravado na memória;
 2. quais `.md` mudaram;
-3. **o resultado da sincronização do Project** — quantas das 16 estavam defasadas, quais subi e a contagem antiga → nova de cada uma. Fechar contando: tem que sobrar **exatamente 16**, um por nome. Se parei antes de remover as velhas esperando o ok, dizer isso explicitamente;
+3. **o resultado da sincronização do Project** — quantas das 20 estavam defasadas, quais subi e a contagem antiga → nova de cada uma. Fechar contando: tem que sobrar **exatamente 20**, um por nome. Se parei antes de remover as velhas esperando o ok, dizer isso explicitamente;
 4. o que **ficou aberto** — o que você não conseguiu verificar.
 
 O que não foi medido tem que sair rotulado como não medido.
