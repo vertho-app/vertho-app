@@ -335,6 +335,20 @@ export const DEGRADACAO = {
    * Registrado por `carregarFichaCargo` (`lib/cargo-contexto.ts`).
    */
   FICHA_CARGO_AUSENTE: 'ficha-cargo-ausente',
+  /**
+   * build (PDF de texto/case): a imagem editorial (capa ou seção) não saiu pelo
+   * caminho principal. `detalhe.fase` diz qual caso:
+   *  · `fallback` — o principal (OpenAI) falhou e o Gemini gerou. O PDF sai com
+   *    imagem; muda o fornecedor e o custo.
+   *  · `sem-imagem` — os dois falharam. O PDF sai com o fundo vetorial.
+   *  · `cache` — a imagem foi gerada e PAGA, mas não gravou no cache: o próximo
+   *    PDF do mesmo tema paga de novo.
+   * `aviso`: o PDF sempre sai. Existe porque a falha era invisível (24/09/2026):
+   * o projeto da OpenAI perdeu acesso ao `gpt-image-2` e, de 24/06 em diante,
+   * nenhum PDF ganhou imagem, com o erro só num `console.warn`.
+   * Registrado por `lib/imagem-editorial.ts`.
+   */
+  IMAGEM_PDF_DEGRADADA: 'imagem-pdf-degradada',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

@@ -772,72 +772,30 @@ export async function atualizarConteudo(id: string, patch: any) {
 }
 
 /**
- * Chave de cache das imagens (capa/seção): COMPETÊNCIA + DESCRITOR — não o id do
- * conteúdo. Assim, todos os conteúdos da mesma competência/descritor REUSAM a
- * mesma imagem (sem regenerar no GPT a cada conteúdo). Sem comp/descritor, cai
- * no id (isolado). O tema da imagem usa só comp/descritor (não o título), já que
- * a imagem é compartilhada entre títulos diferentes da mesma comp/descritor.
+ * Capa do PDF (fundo ilustrado por IA). NÃO é personalizada: cacheada por
+ * COMPETÊNCIA/DESCRITOR e reusada por todos os conteúdos do par (genérico e
+ * personalizados). Provedores, cache e registro de falha vivem no núcleo
+ * `lib/imagem-editorial.ts`. Falha nunca quebra o PDF (null → fundo vetorial).
+ *
+ * `empresaId` é só de quem é o custo no ledger: no PDF personalizado, o tenant de
+ * quem abriu, que pode não ser o dono do conteúdo (conteúdo global).
  */
-function imagemCacheSlug(c: any): string {
-  const base = [c?.competencia, c?.descritor].map((x: any) => String(x || '').trim()).filter(Boolean).join('__');
-  const slug = base.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 120).toLowerCase();
-  return slug || `id_${c?.id}`;
-}
-
-function imagemTema(c: any): string | null {
-  return [c?.competencia, c?.descritor].filter(Boolean).join(' — ') || null;
-}
-
-/**
- * Resolve a capa (fundo GPT Image), cache em `final/covers/cd/<comp__descritor>.png`.
- * NÃO é personalizada — cacheada por COMPETÊNCIA/DESCRITOR e reusada por todos os
- * conteúdos dessa comp/descritor (genérica e personalizadas). Falha nunca quebra
- * o PDF (base64 null → fundo vetorial).
- */
-async function resolveCoverBase64(sb: any, c: any): Promise<{ base64: string | null; erro: string | null }> {
-  const coverPath = `final/covers/cd/${imagemCacheSlug(c)}.png`;
-  try {
-    const { data: existente } = await sb.storage.from('conteudos').download(coverPath);
-    const buf = existente ? Buffer.from(await existente.arrayBuffer()) : null;
-    if (buf && buf.length > 1024) return { base64: `data:image/png;base64,${buf.toString('base64')}`, erro: null };
-    throw new Error('cover ausente ou vazio');
-  } catch {
-    try {
-      const { generateCoverImage } = await import('@/lib/openai-image');
-      const imgBuf = await generateCoverImage(imagemTema(c));
-      await sb.storage.from('conteudos').upload(coverPath, imgBuf, { contentType: 'image/png', upsert: true });
-      return { base64: `data:image/png;base64,${imgBuf.toString('base64')}`, erro: null };
-    } catch (e: any) {
-      const erro = e?.message || 'erro desconhecido';
-      console.warn('[resolveCoverBase64] capa GPT Image falhou (usando fallback vetorial):', erro);
-      return { base64: null, erro };
-    }
-  }
+async function resolveCoverBase64(sb: any, c: any, empresaId: string | null = c?.empresa_id ?? null): Promise<{ base64: string | null; erro: string | null }> {
+  const { resolverImagemPdf } = await import('@/lib/imagem-editorial');
+  const r = await resolverImagemPdf(sb, 'capa', { id: c?.id, competencia: c?.competencia, descritor: c?.descritor, empresaId });
+  if (!r.dataUri) console.warn('[resolveCoverBase64] capa sem imagem (usando fundo vetorial):', r.erro);
+  return { base64: r.dataUri, erro: r.erro };
 }
 
 /**
- * Resolve a imagem de seção (hero), cache em `final/sections/cd/<comp__descritor>.png`.
- * Mesma chave de comp/descritor da capa. Chame só quando o plano tiver uma página
- * heroImage. Falha nunca quebra o PDF.
+ * Imagem de seção (hero), mesma chave de comp/descritor da capa. Chame só quando o
+ * plano tiver uma página heroImage. Falha nunca quebra o PDF.
  */
-async function resolveSectionBase64(sb: any, c: any): Promise<string | null> {
-  const sectionPath = `final/sections/cd/${imagemCacheSlug(c)}.png`;
-  try {
-    const { data: existente } = await sb.storage.from('conteudos').download(sectionPath);
-    const buf = existente ? Buffer.from(await existente.arrayBuffer()) : null;
-    if (buf && buf.length > 1024) return `data:image/png;base64,${buf.toString('base64')}`;
-    throw new Error('section ausente ou vazio');
-  } catch {
-    try {
-      const { generateSectionImage } = await import('@/lib/openai-image');
-      const imgBuf = await generateSectionImage(imagemTema(c));
-      await sb.storage.from('conteudos').upload(sectionPath, imgBuf, { contentType: 'image/png', upsert: true });
-      return `data:image/png;base64,${imgBuf.toString('base64')}`;
-    } catch (e: any) {
-      console.warn('[resolveSectionBase64] imagem de seção falhou:', e?.message);
-      return null;
-    }
-  }
+async function resolveSectionBase64(sb: any, c: any, empresaId: string | null = c?.empresa_id ?? null): Promise<string | null> {
+  const { resolverImagemPdf } = await import('@/lib/imagem-editorial');
+  const r = await resolverImagemPdf(sb, 'secao', { id: c?.id, competencia: c?.competencia, descritor: c?.descritor, empresaId });
+  if (!r.dataUri) console.warn('[resolveSectionBase64] seção sem imagem:', r.erro);
+  return r.dataUri;
 }
 
 /**
@@ -877,7 +835,7 @@ export async function gerarConteudoFinal(id: string) {
       }
     }
 
-    // Capa (fundo GPT Image), cacheada por-conteúdo. Falha cai no fundo vetorial.
+    // Capa (fundo por IA), cacheada por competência/descritor. Falha cai no fundo vetorial.
     const { base64: coverBase64, erro: coverErro } = await resolveCoverBase64(sb, c);
 
     // Plano editorial (IA): diagrama o conteúdo em páginas com função distinta e
@@ -898,7 +856,7 @@ export async function gerarConteudoFinal(id: string) {
       console.warn('[gerarConteudoFinal] plano editorial falhou (usando flat):', e?.message);
     }
 
-    // Imagem de seção: só se o plano marcou uma página heroImage. Cacheada por-conteúdo.
+    // Imagem de seção: só se o plano marcou uma página heroImage. Cacheada por competência/descritor.
     if (plan && plan.pages.some((p: any) => p.heroImage)) {
       sectionBase64 = await resolveSectionBase64(sb, c);
     }
@@ -1144,8 +1102,9 @@ export async function gerarConteudoFinalPersonalizado({ contentId, colab: colabI
     } catch (e: any) {
       console.warn('[gerarConteudoFinalPersonalizado] plano falhou (flat):', e?.message);
     }
-    const { base64: coverBase64 } = await resolveCoverBase64(sb, c);
-    const sectionBase64 = plan && plan.pages.some((p: any) => p.heroImage) ? await resolveSectionBase64(sb, c) : null;
+    const donoDoCusto = empresaId ?? c.empresa_id ?? null;
+    const { base64: coverBase64 } = await resolveCoverBase64(sb, c, donoDoCusto);
+    const sectionBase64 = plan && plan.pages.some((p: any) => p.heroImage) ? await resolveSectionBase64(sb, c, donoDoCusto) : null;
 
     const buffer = await renderConteudoFinalPDF({
       titulo: c.titulo, conteudoMd: full, competencia: c.competencia, descritor: c.descritor,

@@ -119,6 +119,17 @@ export const MODELS = {
   'gemini-2.5-flash-tts':         { label: 'Gemini 2.5 Flash TTS (áudio)', inUsd: 0.5, outUsd: 10 },
   'gemini-2.5-flash-preview-tts': { label: 'Gemini 2.5 Flash TTS (áudio)', inUsd: 0.5, outUsd: 10 },
   'gemini-2.5-pro-tts':           { label: 'Gemini 2.5 Pro TTS (áudio)', inUsd: 1, outUsd: 20 },
+  // Imagem editorial do PDF (`lib/imagem-editorial.ts`). Preço oficial lido em
+  // 24/09/2026. Na OpenAI, `inUsd` é o texto do prompt e `outUsd` a imagem gerada;
+  // as variantes 2.5 e o 2 têm a mesma tarifa. A OpenAI não publica tokens por
+  // imagem: o custo real sai do `usage` da resposta.
+  'gpt-image-2.5-flare':          { label: 'GPT Image 2.5 Flare', inUsd: 5, outUsd: 30 },
+  'gpt-image-2.5-sunburst':       { label: 'GPT Image 2.5 Sunburst', inUsd: 5, outUsd: 30 },
+  'gpt-image-2':                  { label: 'GPT Image 2', inUsd: 5, outUsd: 30 },
+  // No Gemini a saída tem DUAS tarifas: imagem a US$ 60/1M (1.120 tokens por imagem
+  // 1K = US$ 0,067) e texto/raciocínio a US$ 3/1M. Medido 24/09: 423 dos 1.543
+  // tokens de saída eram texto.
+  'gemini-3.1-flash-image':       { label: 'Gemini 3.1 Flash Image', inUsd: 0.5, outUsd: 60, outTextUsd: 3 },
 };
 
 export const MODEL_IDS = Object.keys(MODELS);
@@ -145,6 +156,8 @@ type ModelPrice = {
   outUsd: number;
   cacheReadUsd?: number;
   cacheWriteUsd?: number;
+  /** Saída que NÃO é a modalidade principal (texto/raciocínio de um modelo de imagem). */
+  outTextUsd?: number;
   longContextThresholdTokens?: number;
   longContextInUsd?: number;
   longContextCacheReadUsd?: number;
@@ -174,7 +187,7 @@ export function openAIWebSearchToolCost(output: unknown): number {
  */
 export function costFromTokens(
   modelId: string,
-  t: { inTokens: number; outTokens: number; cacheRead?: number; cacheWrite?: number },
+  t: { inTokens: number; outTokens: number; cacheRead?: number; cacheWrite?: number; outTextTokens?: number },
   opts: { batch?: boolean } = {},
 ): number | null {
   const m = (MODELS as Record<string, ModelPrice>)[modelId];
@@ -191,6 +204,7 @@ export function costFromTokens(
   const usd =
     (t.inTokens * inputRate +
       t.outTokens * outputRate +
+      (t.outTextTokens || 0) * (m.outTextUsd ?? outputRate) +
       (t.cacheRead || 0) * cacheReadRate +
       (t.cacheWrite || 0) * cacheWriteRate) / 1_000_000;
   return opts.batch ? usd * 0.5 : usd;
