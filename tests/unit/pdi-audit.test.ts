@@ -16,8 +16,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DUAL_IA_PARES, DEFAULT_TASK_MODELS, familiaDoModelo } from '@/lib/ai-tasks';
 import {
-  aplicarSprintDoBlueprint, auditarPdiEstrutural, consolidarAuditoriaPdi, PDI_AUDIT_SYSTEM,
-  type ObjetivoBlueprint,
+  aplicarSprintDoBlueprint, auditarPdiEstrutural, combinarRodadasSemanticas, consolidarAuditoriaPdi,
+  PDI_AUDIT_SYSTEM, RODADAS_SEMANTICAS, type ObjetivoBlueprint, type PdiAuditCheck,
 } from '@/lib/relatorios/pdi-audit';
 
 const OBJETIVOS: ObjetivoBlueprint[] = [{
@@ -113,6 +113,25 @@ describe('auditoria estrutural do PDI', () => {
     const pdi = pdiBom();
     pdi.competencias[0].feedback = 'Em casos assim, a casa toda percebe o insighter.';
     expect(id(auditarPdiEstrutural(pdi, OBJETIVOS), 'jargao-ingles').status).toBe('pass');
+  });
+
+  // 25/09/2026: o cenário de Macaé entrega à personagem um "feedback escrito", e
+  // o PDI que fala DESSE feedback usa a palavra que a pessoa leu (8 de 9
+  // ocorrências nos 10 PDIs regerados). Jargão que a fonte já usa não é do gerador.
+  it('NÃO acusa o termo que o cenário ou a resposta da pessoa já usam', () => {
+    const pdi = pdiBom();
+    pdi.competencias[0].feedback = 'Na resposta sobre o feedback escrito da coordenação, você propôs rever o registro.';
+    const fonte = 'CENÁRIO: Renata entrega um feedback escrito apontando registros incompletos.';
+    expect(id(auditarPdiEstrutural(pdi, OBJETIVOS, fonte), 'jargao-ingles').status).toBe('pass');
+  });
+
+  it('continua acusando o jargão que o gerador trouxe por conta própria', () => {
+    const pdi = pdiBom();
+    pdi.competencias[0].feedback = 'Sobre o feedback escrito: o insight é priorizar.';
+    const c = id(auditarPdiEstrutural(pdi, OBJETIVOS, 'CENÁRIO: um feedback escrito.'), 'jargao-ingles');
+    expect(c.status).toBe('warn');
+    // A ocorrência é "<campo>: <termos>", e o campo se chama `feedback`: olha só os termos.
+    expect(c.ocorrencias[0].split(': ')[1]).toBe('insight');
   });
 
   // O modo de falha que este projeto já catalogou: check que passa por não ter
@@ -272,6 +291,57 @@ describe('consolidação', () => {
 });
 
 /**
+ * Fail só quando as rodadas concordam (25/09/2026). Com o gerador que vê as
+ * respostas, todo fail que sobrou nos 10 PDIs regerados era de UMA rodada só, e
+ * nenhum tinha conteúdo falso: o veredito estava sendo decidido pelo ruído.
+ */
+describe('rodadas do auditor semântico', () => {
+  const sem = (status: 'pass' | 'warn' | 'fail', ocorrencias: string[] = [], id = 'sem-sem_lastro'): PdiAuditCheck =>
+    ({ id, categoria: 'semantica', titulo: 'Afirmação sem lastro na evidência', status, detalhe: `d-${status}`, ocorrencias });
+  const fora: PdiAuditCheck = { id: 'semantica-indisponivel', categoria: 'semantica', titulo: 'x', status: 'fail', detalhe: 'erro', ocorrencias: [] };
+
+  it('o core roda 2', () => expect(RODADAS_SEMANTICAS).toBe(2));
+
+  it('reprovado nas duas rodadas continua fail, com as ocorrências das duas sem repetir trecho', () => {
+    const r = combinarRodadasSemanticas([
+      [sem('fail', ['geral: "trecho A…" — porque 1'])],
+      [sem('fail', ['geral: "trecho A…" — porque 2', 'geral: "trecho B…" — porque 3'])],
+    ]);
+    expect(r).toHaveLength(1);
+    expect(r[0].status).toBe('fail');
+    expect(r[0].ocorrencias).toEqual(['geral: "trecho A…" — porque 1', 'geral: "trecho B…" — porque 3']);
+  });
+
+  it('reprovado em uma rodada só vira alerta, dizendo por quê', () => {
+    const r = combinarRodadasSemanticas([[sem('fail', ['geral: "t…" — p'])], [sem('warn', ['geral: "u…" — q'])]]);
+    expect(r[0].status).toBe('warn');
+    expect(r[0].detalhe).toMatch(/Reprovado em 1 de 2 rodadas/);
+    expect(consolidarAuditoriaPdi(r, 1).status).toBe('warn');
+  });
+
+  it('uma rodada reprova, a outra não acha nada: alerta, não aprovado nem reprovado', () => {
+    const r = combinarRodadasSemanticas([[sem('fail', ['geral: "t…" — p'])], []]);
+    expect(consolidarAuditoriaPdi(r, 1).status).toBe('warn');
+  });
+
+  it('as duas limpas: aprovado', () => {
+    expect(consolidarAuditoriaPdi(combinarRodadasSemanticas([[], []]), 1).status).toBe('pass');
+  });
+
+  it('rodada que não rodou não vota: vale a outra, com aviso de rodada única', () => {
+    const r = combinarRodadasSemanticas([[fora], [sem('fail', ['geral: "t…" — p'])]]);
+    expect(r.find((c) => c.id === 'sem-sem_lastro')!.status).toBe('fail');
+    expect(r.find((c) => c.id === 'semantica-rodada-unica')!.status).toBe('warn');
+  });
+
+  it('nenhuma rodada rodou: fail de auditoria indisponível (ausência não é aprovação)', () => {
+    const r = combinarRodadasSemanticas([[fora], [fora]]);
+    expect(r).toEqual([fora]);
+    expect(consolidarAuditoriaPdi(r, 1).status).toBe('fail');
+  });
+});
+
+/**
  * Guard de CONSUMIDOR. O módulo puro acima pode estar impecável e não valer
  * nada: a lição que este projeto já pagou é que **config declarada ≠ config
  * aplicada** — a régua só existe se alguém a lê no caminho que roda.
@@ -283,6 +353,12 @@ describe('o gerador do PDI CONSOME a auditoria', () => {
     expect(core, 'camada estrutural não é chamada').toMatch(/auditarPdiEstrutural\(/);
     expect(core, 'camada semântica não é chamada').toMatch(/promptAuditoriaPdi\(/);
     expect(core).toMatch(/taskKey: 'pdi_check'/);
+  });
+
+  it('roda as rodadas do auditor e as combina; o estrutural recebe o cenário e as respostas', () => {
+    expect(core).toMatch(/Array\.from\(\{ length: RODADAS_SEMANTICAS \}, rodada\)/);
+    expect(core).toMatch(/checks\.push\(\.\.\.combinarRodadasSemanticas\(rodadas\)\)/);
+    expect(core).toMatch(/auditarPdiEstrutural\(relatorio, objetivosBlueprint, cenarioERespostas\)/);
   });
 
   it('PERSISTE o veredito — auditoria sem rastro é a que ninguém lê', () => {
@@ -310,10 +386,14 @@ describe('o gerador do PDI CONSOME a auditoria', () => {
   });
 
   it('falha do auditor NÃO vira aprovação silenciosa', () => {
-    // O catch tem de EMPURRAR um achado, não só logar.
+    // O catch tem de EMPURRAR um achado, não só logar: tanto a rodada que falha
+    // quanto o erro fora das rodadas viram o achado `fail` de "indisponível".
     const trecho = core.slice(core.indexOf('taskKey: \'pdi_check\''), core.indexOf('relatorio.auditoria ='));
-    expect(trecho).toMatch(/status: 'fail'/);
-    expect(trecho).toMatch(/NÃO é aprovação/i);
+    expect(trecho).toMatch(/return \[indisponivel\(e\)\]/);
+    expect(trecho).toMatch(/checks\.push\(indisponivel\(e\)\)/);
+    const achado = core.slice(core.indexOf('const indisponivel ='), core.indexOf('taskKey: \'pdi_check\''));
+    expect(achado).toMatch(/status: 'fail'/);
+    expect(achado).toMatch(/NÃO é aprovação/i);
   });
 
   it('o par está declarado e é cross-família', () => {

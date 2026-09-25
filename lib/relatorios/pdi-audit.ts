@@ -120,15 +120,20 @@ export function aplicarSprintDoBlueprint(relatorio: any, objetivos: ObjetivoBlue
  *
  * ⚠️ Só casa palavra INTEIRA. `case` como substring pega "casos", "casa",
  * "casamento" — e um auditor que acusa "casos" ensina a ignorá-lo.
+ *
+ * 🔑 Termo que a FONTE usa não é jargão do gerador (25/09/2026). O cenário de
+ * Macaé entrega à personagem um "feedback escrito", as perguntas falam em
+ * feedback, e o PDI que fala DESSE feedback está usando a palavra que a pessoa
+ * leu. Medido nos 10 PDIs regerados: 8 de 9 ocorrências eram isso, e o alerta
+ * aparecia em 6 de 10 PDIs, sozinho em 2. O que o gerador introduz por conta
+ * própria continua acusado.
  */
 const JARGAO_PROIBIDO = ['feedback', 'case', 'skill', 'skills', 'insight', 'insights', 'mindset'];
 
-function acharJargao(texto: string): string[] {
-  const achados = new Set<string>();
-  for (const j of JARGAO_PROIBIDO) {
-    if (new RegExp(`\\b${j}\\b`, 'i').test(texto)) achados.add(j);
-  }
-  return [...achados];
+const temPalavra = (texto: string, termo: string) => new RegExp(`\\b${termo}\\b`, 'i').test(texto);
+
+function acharJargao(texto: string, fonte: string): string[] {
+  return JARGAO_PROIBIDO.filter((j) => temPalavra(texto, j) && !temPalavra(fonte, j));
 }
 
 function checar(
@@ -157,10 +162,14 @@ function checar(
  * (PDI sem blueprint), os checks de sprint são PULADOS explicitamente em vez de
  * passarem por vacuidade — check que passa por não ter o que olhar é o modo de
  * falha que este projeto já catalogou.
+ *
+ * `fonte` é o texto do cenário e das respostas que a pessoa viu e escreveu
+ * (`cenarioERespostas` do montador): o jargão que já está nela não é acusado.
  */
 export function auditarPdiEstrutural(
   relatorio: any,
   objetivos: ObjetivoBlueprint[] | null,
+  fonte = '',
 ): PdiAuditCheck[] {
   const checks: PdiAuditCheck[] = [];
   const comps: any[] = Array.isArray(relatorio?.competencias) ? relatorio.competencias : [];
@@ -280,14 +289,14 @@ export function auditarPdiEstrutural(
     ]),
   ];
   const comJargao = camposDeProsa
-    .map(([onde, txt]) => [onde, acharJargao(txt)] as const)
+    .map(([onde, txt]) => [onde, acharJargao(txt, fonte)] as const)
     .filter(([, js]) => js.length)
     .map(([onde, js]) => `${onde}: ${js.join(', ')}`);
   checks.push(checar(
     'jargao-ingles', 'estrutura', 'Sem jargão em inglês no texto que sai',
     comJargao,
-    'Nenhum termo em inglês proibido no texto voltado à pessoa.',
-    'Termo em inglês que o prompt proíbe apareceu no documento entregue.',
+    'Nenhum termo em inglês proibido no texto voltado à pessoa (fora os que o próprio cenário ou a resposta usam).',
+    'Termo em inglês que o prompt proíbe apareceu no documento entregue, sem estar no cenário nem na resposta da pessoa.',
     'warn',
   ));
 
@@ -305,6 +314,64 @@ export function consolidarAuditoriaPdi(checks: PdiAuditCheck[], competenciasAudi
       ? `${avisos.length} aviso(s): ${avisos.map((a) => a.titulo).join('; ')}`
       : 'Nenhum problema estrutural ou semântico encontrado.';
   return { status, checks, resumo, competenciasAuditadas };
+}
+
+/**
+ * Quantas vezes o auditor semântico roda por PDI. Ver `combinarRodadasSemanticas`.
+ */
+export const RODADAS_SEMANTICAS = 2;
+
+const PESO: Record<PdiAuditStatus, number> = { pass: 0, warn: 1, fail: 2 };
+/** Chave de uma ocorrência semântica: competência + trecho, sem o "porquê" (que muda de rodada para rodada). */
+const chaveOcorrencia = (o: string) => o.split('" — ')[0];
+
+/**
+ * Junta as rodadas do auditor semântico: `fail` só quando TODAS as rodadas
+ * válidas reprovam. Reprovação que não se repete vira `warn`, visível e com o
+ * motivo escrito, em vez de derrubar o PDI.
+ *
+ * 🔴 POR QUE (25/09/2026): com o gerador que passou a ver as respostas, o fail
+ * caiu de 100% para 20% (10 PDIs, 2 rodadas por auditor), e TODOS os fail que
+ * sobraram eram de UMA rodada só, sobre enquadramento, nenhum com conteúdo falso.
+ * O veredito passou a ser decidido pelo ruído do auditor. Exigindo as 2 rodadas:
+ * 0 de 10 PDIs novos e 6 de 6 antigos (os antigos, com conteúdo falso de fato,
+ * reprovam nas duas, com 3 a 9 achados graves cada).
+ *
+ * Rodada que não rodou não conta como voto: com uma só válida, vale ela (como
+ * antes), e fica um aviso dizendo que o veredito é de rodada única. Nenhuma
+ * válida: o `fail` de "auditoria indisponível" segue, porque ausência de
+ * auditoria não é aprovação.
+ */
+export function combinarRodadasSemanticas(rodadas: PdiAuditCheck[][]): PdiAuditCheck[] {
+  const indisponivel = (r: PdiAuditCheck[]) => r.some((c) => c.id === 'semantica-indisponivel');
+  const validas = rodadas.filter((r) => !indisponivel(r));
+  if (!validas.length) return rodadas[0] ?? [];
+  if (validas.length === 1) {
+    return rodadas.length === 1 ? validas[0] : [...validas[0], {
+      id: 'semantica-rodada-unica',
+      categoria: 'semantica',
+      titulo: 'O auditor rodou uma vez só',
+      status: 'warn',
+      detalhe: `Só 1 de ${rodadas.length} rodadas do auditor devolveu resultado: o veredito não foi confirmado.`,
+      ocorrencias: [],
+    }];
+  }
+
+  const comFail = validas.filter((r) => r.some((c) => c.status === 'fail')).length;
+  const confirmado = comFail === validas.length;
+  const porId = new Map<string, PdiAuditCheck>();
+  for (const r of validas) {
+    for (const c of r) {
+      const atual = porId.get(c.id);
+      if (!atual) { porId.set(c.id, { ...c, ocorrencias: [...c.ocorrencias] }); continue; }
+      const vistas = new Set(atual.ocorrencias.map(chaveOcorrencia));
+      atual.ocorrencias.push(...c.ocorrencias.filter((o) => !vistas.has(chaveOcorrencia(o))));
+      if (PESO[c.status] > PESO[atual.status]) { atual.status = c.status; atual.detalhe = c.detalhe; }
+    }
+  }
+  return [...porId.values()].map((c) => (c.status === 'fail' && !confirmado
+    ? { ...c, status: 'warn' as const, detalhe: `Reprovado em ${comFail} de ${validas.length} rodadas do auditor: fica como alerta. ${c.detalhe}`.slice(0, 400) }
+    : c));
 }
 
 // ── Camada 2: semântica (2ª IA, cross-família) ─────────────────────────────

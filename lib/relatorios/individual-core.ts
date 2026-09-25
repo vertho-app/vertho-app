@@ -10,7 +10,8 @@ import { storageSlug } from '@/lib/storage-slug';
 import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  aplicarSprintDoBlueprint, auditarPdiEstrutural, consolidarAuditoriaPdi, promptAuditoriaPdi, parseAuditoriaPdi,
+  aplicarSprintDoBlueprint, auditarPdiEstrutural, combinarRodadasSemanticas, consolidarAuditoriaPdi,
+  promptAuditoriaPdi, parseAuditoriaPdi, RODADAS_SEMANTICAS, type PdiAuditCheck,
 } from './pdi-audit';
 import { getModelForTask } from '@/lib/ai-tasks';
 
@@ -134,7 +135,7 @@ export async function persistRelatorioIndividualFromText(
   try {
     const built = args.built ?? await buildRelatorioIndividualPrompt(sbRaw, { empresaId, colaboradorId });
     if ('error' in built) return { success: false, error: built.error };
-    const { user, dadosComps, blueprint, colab, empresa } = built;
+    const { user, dadosComps, blueprint, colab, empresa, cenarioERespostas } = built;
 
     const relatorio: any = await extractJSON(texto);
 
@@ -225,7 +226,15 @@ export async function persistRelatorioIndividualFromText(
     // ⚠️ Falha da auditoria NÃO derruba a geração: o PDI já foi pago e o
     // veredito é informação sobre ele, não pré-condição. Mas o resultado é
     // PERSISTIDO junto — auditoria que não deixa rastro é a que ninguém lê.
-    const checks = auditarPdiEstrutural(relatorio, objetivosBlueprint);
+    const checks = auditarPdiEstrutural(relatorio, objetivosBlueprint, cenarioERespostas);
+    const indisponivel = (e: any): PdiAuditCheck => ({
+      id: 'semantica-indisponivel',
+      categoria: 'semantica',
+      titulo: 'A auditoria semântica não rodou',
+      status: 'fail',
+      detalhe: `Erro ao chamar o auditor: ${String(e?.message ?? e).slice(0, 200)}. Isto NÃO é aprovação.`,
+      ocorrencias: [],
+    });
     try {
       // 🔑 A evidência do auditor é O PROMPT QUE O GERADOR RECEBEU — não uma
       // reconstrução. Duas tentativas de reconstruir falharam por motivos
@@ -253,21 +262,27 @@ export async function persistRelatorioIndividualFromText(
       const evidencia = user.slice(0, 90000);
       const modeloCheck = await getModelForTask(empresaId, 'pdi_check');
       const { system: sysA, user: userA } = promptAuditoriaPdi(relatorio, evidencia);
-      const bruto = await callAI(sysA, userA, { model: modeloCheck }, 6000, {
-        taskKey: 'pdi_check', empresaId, colaboradorId,
-      });
-      checks.push(...parseAuditoriaPdi(await extractJSON(bruto)));
+      // Duas rodadas em paralelo, e `fail` só quando as duas reprovam: com o
+      // gerador que vê as respostas, o fail que sobrava era ruído de UMA rodada
+      // (medido 25/09/2026, ver `combinarRodadasSemanticas`). Rodada que falha
+      // vira "indisponível" e não vota.
+      const rodada = async (): Promise<PdiAuditCheck[]> => {
+        try {
+          const bruto = await callAI(sysA, userA, { model: modeloCheck }, 6000, {
+            taskKey: 'pdi_check', empresaId, colaboradorId,
+          });
+          return parseAuditoriaPdi(await extractJSON(bruto));
+        } catch (e: any) {
+          console.warn('[pdi_check] rodada do auditor falhou:', e?.message);
+          return [indisponivel(e)];
+        }
+      };
+      const rodadas = await Promise.all(Array.from({ length: RODADAS_SEMANTICAS }, rodada));
+      checks.push(...combinarRodadasSemanticas(rodadas));
     } catch (e: any) {
       // Sem `pass` silencioso: a ausência da 2ª IA entra como achado.
       console.warn('[pdi_check] auditoria semântica falhou:', e?.message);
-      checks.push({
-        id: 'semantica-indisponivel',
-        categoria: 'semantica',
-        titulo: 'A auditoria semântica não rodou',
-        status: 'fail',
-        detalhe: `Erro ao chamar o auditor: ${String(e?.message ?? e).slice(0, 200)}. Isto NÃO é aprovação.`,
-        ocorrencias: [],
-      });
+      checks.push(indisponivel(e));
     }
     relatorio.auditoria = consolidarAuditoriaPdi(checks, dadosComps.length);
     if (relatorio.auditoria.status === 'fail') {

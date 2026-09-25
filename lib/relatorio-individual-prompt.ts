@@ -149,6 +149,8 @@ export interface PdiPromptBuilt {
   blueprint: DevelopmentBlueprint | null;
   colab: any;
   empresa: any;
+  /** O bloco "CENÁRIO E RESPOSTAS" do `user`, sozinho: o que a pessoa leu e escreveu. */
+  cenarioERespostas: string;
 }
 
 export async function buildRelatorioIndividualPrompt(
@@ -459,5 +461,7 @@ export async function buildRelatorioIndividualPrompt(
   const totalComps = dadosComps.length;
   const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) avaliadas. Todos os níveis são inteiros válidos entre N1 e N4. O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}${respostasTexto}${trilhaTexto}${blueprintBlock}`;
 
-  return { system: RELATORIO_IND_SYSTEM, user, dadosComps, blueprint, colab, empresa };
+  // `cenarioERespostas` sai à parte para a auditoria estrutural: jargão que a
+  // fonte já usa (o "feedback escrito" do cenário) não é jargão do gerador.
+  return { system: RELATORIO_IND_SYSTEM, user, dadosComps, blueprint, colab, empresa, cenarioERespostas: respostasTexto };
 }
