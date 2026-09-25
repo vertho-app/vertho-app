@@ -1495,6 +1495,22 @@ decidir o veredito; exigir fail nas 2 rodadas teria dado 0/10 nos novos e 6/6 no
 amostra (n pequeno, não implementado). O warn "feedback é jargão em inglês" aparece em 6 dos 10,
 e o próprio cenário usa a palavra.
 
+**Implementados no mesmo dia (`8525833e`, dono pediu os dois):**
+1. **fail só quando as 2 rodadas concordam** (`combinarRodadasSemanticas`, `RODADAS_SEMANTICAS = 2`,
+   em paralelo). Reprovação de uma rodada vira warn com "Reprovado em 1 de 2 rodadas" no detalhe;
+   rodada que falha não vota (vale a outra, com aviso de rodada única); nenhuma válida segue fail
+   de indisponível. Custo: +US$ 0,04 por PDI.
+2. **Jargão que a fonte já usa não é acusado.** Em vez de tirar "feedback" da lista (o prompt manda
+   "devolutiva" de propósito), o check recebe `cenarioERespostas` do montador e só acusa o termo
+   que o gerador trouxe por conta própria: 8 de 9 "feedback" eram o gerador falando do "feedback
+   escrito" do cenário.
+
+Reauditados os 10 regerados com as duas regras: **4 pass, 6 warn, 0 fail** (antes 2 pass, 6 warn,
+2 fail). ⚠️ O custo conhecido da regra: a contradição REAL da Dalete ("sem plano de ação" contra a
+agenda que ela propôs) foi reprovada em 1 de 2 rodadas e virou alerta. Ela continua visível, com o
+trecho e o motivo, mas não derruba o PDI. Os 47 antigos não foram reauditados: medido 6 de 6
+reprovados nas 2 rodadas, com 3 a 9 achados graves cada.
+
 ### 27/08 — IA4 sem censura: o número que faltava desde 25/08
 
 `scripts/_medir-ia4-sem-censura.ts`, 15 avaliações reais em Ibipeba, teto já em
