@@ -349,6 +349,20 @@ export const DEGRADACAO = {
    * Registrado por `lib/imagem-editorial.ts`.
    */
   IMAGEM_PDF_DEGRADADA: 'imagem-pdf-degradada',
+  /**
+   * vídeo (Kit, com `VIDEO_AVATAR_GRUPO=on`): as células DISC de um mesmo módulo e
+   * cargo deviam dividir UM avatar (o da 1ª célula, a "mãe") e não dividiram.
+   * `detalhe.fase` diz onde caiu:
+   *  · `leitura`, `reabrir`, `insercao`, `releitura`, `textos`: o grupo nem nasceu: as
+   *    células seguem o fluxo de hoje, cada uma com a sua HeyGen;
+   *  · `mae`: a mãe falhou ou saiu sem narração única: grupo `erro`, irmãs no fluxo
+   *    de hoje;
+   *  · `irma`: a irmã recusou o avatar da mãe (assinatura, texto ou portão de voz) e
+   *    refez o dela.
+   * `aviso`: o vídeo sempre sai, só sai pelo preço cheio (~US$ 0,59 a mais por célula).
+   * Registrado por `lib/video/avatar-grupo-core.ts` e `trigger/gerar-video-grupo.ts`.
+   */
+  VIDEO_AVATAR_GRUPO_FALLBACK: 'video-avatar-grupo-fallback',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

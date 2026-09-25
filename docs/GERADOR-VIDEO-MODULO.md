@@ -86,6 +86,54 @@ centavo, então use clipes de 7s ou mais. Rodar a v2 como controle confirmou o m
 
 ---
 
+## Avatar compartilhado por grupo (desde 25/09/2026, atrás de `VIDEO_AVATAR_GRUPO`)
+
+**Por quê.** A célula de vídeo é (empresa × módulo × cargo × 1ª letra do DISC), e cada uma pagava
+o seu avatar: ~US$ 0,59 de um vídeo de ~US$ 0,90. As 2-4 células DISC de um mesmo módulo e cargo
+tinham abertura e fecho quase iguais. Com a flag ligada, elas dividem UM avatar. Economia derivada
+do acervo de 24/09: −40 a −51% por módulo.
+
+**Fluxo** (só no caminho do Kit, `gerarKitSemanal`, com cargo definido):
+
+1. **Textos, 1× por grupo** (`lib/video/avatar-grupo-core.ts` `prepararGrupoAvatar`), ANTES do
+   fan-out dos DISC, junto com o brief e o PPP. Uma chamada curta ao modelo da tarefa
+   `video_avatar_grupo` (Opus 5, o mesmo do roteiro) escreve a abertura e o fecho em tom NEUTRO,
+   sem DISC. A régua (`problemasDosTextosAvatar`): abertura 28-36 palavras e sem cumprimento (a
+   saudação com o nome entra antes), fecho 24-32 palavras terminando em pergunta, tela curta. Duas
+   tentativas; recusado, segue sem grupo.
+2. **Roteiro de cada DISC com o avatar fixo** (`roteiro-prompt.ts` `avatarFixo`): o modelo copia a
+   abertura e o fecho, conta as palavras deles no orçamento de 440-540, e o tom DISC vale só no miolo.
+   O desafio do Kit, que o fecho conduzia, passa para a última cena do miolo. Depois do parse,
+   `aplicarAvatarFixo` IMPÕE o texto. Sem `avatarFixo` o prompt é byte a byte o de antes (snapshot).
+3. **Células inseridas sem disparo** (`etapa = aguardando_avatar`, `avatar_grupo_id`).
+4. **Orquestrador** (`trigger/gerar-video-grupo.ts`): gera a 1ª célula pela ordem D, I, S, C (a
+   mãe) com `triggerAndWait`, grava o avatar dela no grupo e dispara as irmãs com ele. A mãe só serve
+   de referência com narração única aprovada, as duas cenas de avatar prontas e F0 medida.
+5. **Irmã** (`gerar-video-modulo`, payload `avatarGrupo`): as cenas de avatar chegam prontas (mp4 da
+   mãe, mp3, timing); a narração única cobre só o miolo, com o portão julgando a altura contra a F0 do
+   take da mãe (`alvo`, tolerância do elenco). O passo da HeyGen pula sozinho.
+
+**Tabela** `video_avatar_grupo` (mig 270): `chave` única = hash de empresa, módulo, cargo, contexto
+do cargo e do PPP e `VERSAO_AVATAR_GRUPO`. Status `pendente` → `pronto` | `erro` (fonte:
+`AVATAR_GRUPO` em `lib/status.ts`). Grupo `pronto` não muda; uma nova rodada reabre só grupo em `erro`.
+
+**Quando a irmã NÃO usa o avatar da mãe** (e paga o próprio, com `video-avatar-grupo-fallback`
+registrado): assinatura diferente (voz, modelo TTS, versão do elenco, direção, foto, motor, fps);
+texto de avatar diferente do grupo; portão recusando o miolo contra a altura da mãe em todas as
+tentativas. Falha de Whisper ou de corte NÃO tira a irmã do grupo (aconteceria sem ele também): o
+miolo cai no caminho por cena.
+
+**Ledger:** o take do miolo da irmã grava `tts_video_cena` com `artifactKey` `…:take-grupo:…`
+(julgado contra a mãe, não contra o alvo do elenco). Ao calibrar o portão, separe as duas populações.
+
+**⚠️ Não apague `video-assets/{maeId}/`**: as irmãs apontam para os arquivos da mãe.
+
+**Para ligar:** aplicar a mig 270, deploy do Trigger, `VIDEO_AVATAR_GRUPO=on` no env do Trigger.
+Piloto recomendado: tenant de demo, 1 módulo × 3 DISC, conferindo no saldo da HeyGen UM par de
+clipes, o salto de F0 no corte e a leitura cega dos 3 vídeos.
+
+---
+
 ## Templates de cena (13)
 
 > Fonte canônica dos campos:

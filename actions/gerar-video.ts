@@ -6,7 +6,8 @@ import { createSupabaseAdmin } from '@/lib/supabase';
 import { canViewColabJourney, findColabByEmail } from '@/lib/authz';
 import { tenantDb } from '@/lib/tenant-db';
 import { gerarRoteiroDeModulo } from '@/lib/video/gerar-roteiro';
-import type { ModuloParaRoteiro } from '@/lib/video/roteiro-prompt';
+import { normalizarRoteiro, type AvatarFixo, type ModuloParaRoteiro } from '@/lib/video/roteiro-prompt';
+import { aplicarAvatarFixo, ETAPA_AGUARDANDO_AVATAR } from '@/lib/video/avatar-grupo';
 import { carregarCargoInfo, formatBlocoCargo } from '@/lib/cargo-contexto';
 import { extracaoParaTexto } from '@/lib/escola-brief';
 import { resolverModuloBaseParaConteudo } from '@/lib/season-engine/modulo-base-integration';
@@ -59,23 +60,38 @@ async function contextoPersonalizacao(sb: any, empresaId: string | null, cargo: 
   return out;
 }
 
+/** Célula que entra num grupo de avatar compartilhado (ver `lib/video/avatar-grupo-core.ts`). */
+interface AvatarDoGrupo {
+  grupoId: string;
+  /** Abertura e fecho do avatar, iguais para as células DISC do grupo. */
+  textos: AvatarFixo;
+}
+
 /**
  * Gera o roteiro (personalizado se houver célula), cria o rastreador e dispara o
  * job. Internamente usado pelo disparo admin e pela resolução lazy do colaborador.
+ *
+ * Com `avatarGrupo`, o roteiro copia a abertura e o fecho do grupo e a célula NÃO é
+ * disparada: fica em `aguardando_avatar` até o orquestrador do grupo tirá-la de lá.
  */
 async function criarEDispararVideo(sb: any, args: {
   moduloBaseId: string; empresaId: string | null; cargo: string | null; disc: Disc | null; createdBy: string | null;
   desafioTexto?: string | null; kitId?: string | null; pppBrief?: string | null; forceSync?: boolean;
+  avatarGrupo?: AvatarDoGrupo | null;
 }) {
   const base = await carregarModulo(sb, args.moduloBaseId);
   if (!base) return { error: 'Módulo-base não encontrado' };
 
+  const grupo = args.avatarGrupo || null;
   const perso = await contextoPersonalizacao(sb, args.empresaId, args.cargo, args.disc, args.kitId ? (args.pppBrief ?? null) : undefined);
-  const { roteiro, error: rotErr } = await gerarRoteiroDeModulo(
-    { ...base, ...perso, desafioTexto: args.desafioTexto ?? null },
+  const { roteiro: gerado, error: rotErr } = await gerarRoteiroDeModulo(
+    { ...base, ...perso, desafioTexto: args.desafioTexto ?? null, ...(grupo ? { avatarFixo: grupo.textos } : {}) },
     { forceSync: !!args.forceSync, empresaId: args.empresaId ?? null },
   );
-  if (rotErr || !roteiro) return { error: rotErr || 'A IA não retornou um roteiro válido' };
+  if (rotErr || !gerado) return { error: rotErr || 'A IA não retornou um roteiro válido' };
+  // O prompt manda copiar o texto do grupo; o código garante, porque o clipe da
+  // HeyGen só serve para o MESMO texto. Renormaliza: a cena criada ganha id de cena.
+  const roteiro = grupo ? normalizarRoteiro(aplicarAvatarFixo(gerado, grupo.textos)) : gerado;
 
   const { data: novo, error: insErr } = await sb.from('videos_gerados').insert({
     modulo_base_id: args.moduloBaseId,
@@ -83,12 +99,14 @@ async function criarEDispararVideo(sb: any, args: {
     cargo: args.cargo,
     disc_dominante: args.disc,
     status: 'processing',
-    etapa: 'roteiro',
+    etapa: grupo ? ETAPA_AGUARDANDO_AVATAR : 'roteiro',
     roteiro,
     created_by: args.createdBy,
     kit_id: args.kitId ?? null,
+    ...(grupo ? { avatar_grupo_id: grupo.grupoId } : {}),
   }).select('id').maybeSingle();
   if (insErr || !novo?.id) return { error: insErr?.message || 'Falha ao criar registro do vídeo' };
+  if (grupo) return { success: true, id: novo.id, roteiro, adiado: true };
 
   try {
     await tasks.trigger<typeof gerarVideoModuloTask>('gerar-video-modulo', { videoId: novo.id, roteiro }, regionOpts());
@@ -130,7 +148,9 @@ export async function dispararVideoDeModulo(moduloBaseId: string, opts: { escopo
 export async function dispararVideoDoKit(sb: any, args: {
   moduloBaseId: string; empresaId: string | null; cargo: string | null; disc: Disc;
   desafioTexto: string; kitId: string; pppBrief?: string | null; createdBy?: string | null;
-}): Promise<{ id?: string; reused?: boolean; status?: string; error?: string }> {
+  /** Avatar compartilhado com as outras células DISC (o Kit decide, com a flag ligada). */
+  avatarGrupo?: AvatarDoGrupo | null;
+}): Promise<{ id?: string; reused?: boolean; status?: string; error?: string; adiado?: boolean }> {
   if (!args.moduloBaseId) return { error: 'sem módulo-base p/ o vídeo' };
   const { data: existente } = await sb.from('videos_gerados')
     .select('id, status').eq('kit_id', args.kitId).neq('status', 'error')
@@ -139,9 +159,10 @@ export async function dispararVideoDoKit(sb: any, args: {
   const r = await criarEDispararVideo(sb, {
     moduloBaseId: args.moduloBaseId, empresaId: args.empresaId, cargo: args.cargo, disc: args.disc,
     createdBy: args.createdBy || 'kit', desafioTexto: args.desafioTexto, kitId: args.kitId,
-    pppBrief: args.pppBrief ?? null, forceSync: true,
+    pppBrief: args.pppBrief ?? null, forceSync: true, avatarGrupo: args.avatarGrupo ?? null,
   });
   if ((r as any).error) return { error: (r as any).error };
+  if ((r as any).adiado) return { id: (r as any).id, status: 'processing', adiado: true };
   return { id: (r as any).id, status: 'processing' };
 }
 

@@ -1574,6 +1574,39 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   `.limit()` na query**, e quando a ausência de linha é uma AFIRMAÇÃO no domínio, ele não degrada o
   resultado — ele o **inverte**.
 
+### F-V6 · Avatar compartilhado por grupo: a irmã recebe boca de um texto com som de outro 🟡 (atrás de flag, 25/09/2026)
+- **Contexto:** com `VIDEO_AVATAR_GRUPO=on` (env do Trigger), as células DISC de um mesmo módulo e
+  cargo dividem UM avatar (abertura + fecho na HeyGen, ~US$ 0,59 dos ~US$ 0,90 do vídeo). O Kit
+  escreve os textos 1× por grupo (`lib/video/avatar-grupo-core.ts`), a 1ª célula (a mãe) gera o
+  avatar e `trigger/gerar-video-grupo.ts` dispara as irmãs com ele. Detalhe em
+  `docs/GERADOR-VIDEO-MODULO.md`, seção "Avatar compartilhado por grupo".
+- **Modos de falha e a trava de cada um:**
+  - *Texto diferente do grupo* (o modelo não copiou): o lip-sync seria de outra frase, sem erro
+    nenhum. Trava: `aplicarAvatarFixo` impõe o texto depois do parse, e a irmã só aceita o avatar se o
+    texto da cena bater (`avatarDoGrupoParaCenas`).
+  - *Outra voz, modelo, foto, motor ou fps* entre a mãe e a irmã (deploy no meio do lote): trava pela
+    `assinatura`; a irmã recusa e gera o próprio avatar.
+  - *Salto de altura no corte avatar → miolo*: o miolo da irmã sai num take só com o alvo de F0 MEDIDO
+    no take da mãe (±`ELENCO.mentora.tolSt`). Se o portão recusar em todas as tentativas, a irmã sai
+    do grupo e refaz tudo como hoje. A mãe só vira referência com narração única aprovada.
+  - *Célula esquecida em `aguardando_avatar`* (orquestrador não sobe ou cai no meio): o despacho do
+    Kit e o `catch` do orquestrador disparam o que sobrou pelo fluxo de hoje. Cada célula sai da
+    espera por UPDATE condicionado à etapa, então nunca é disparada duas vezes. O `video-stale` (2h)
+    do health pega o que escapar.
+  - *Célula de outro tenant apontando para o grupo*: a busca das irmãs repete empresa, módulo e cargo
+    do grupo; e `gerarKit` chamado pela tela ignora um `avatarGrupo` vindo do cliente.
+- **Toda queda é `video-avatar-grupo-fallback`** no `degradacao_log` (`detalhe.fase`: leitura,
+  textos, insercao, despacho, mae, irma, orquestrador). O vídeo sempre sai; o que se perde é a
+  economia.
+- **Invariante que ninguém testa por código:** os assets da mãe em `video-assets/{maeId}/` são lidos
+  pelas irmãs. Apagar essa pasta quebra o avatar de TODAS as irmãs do grupo.
+- **Guarda:** `tests/unit/video/avatar-grupo.test.ts`, `avatar-grupo-core.test.ts`,
+  `celula-avatar-grupo.test.ts`, `gerar-video-grupo.test.ts`, `gerar-video-modulo-grupo.test.ts`,
+  `roteiro-prompt-avatar-fixo.test.ts` e `tests/unit/kit-avatar-grupo.test.ts`. Validados por mutação:
+  35 de 36 mutações derrubam algum teste; a restante é equivalente (dispara as irmãs com um payload
+  que, naquele ramo, já é `null`). ⚠️ No caminho de LOTE do Kit, o vitest entrega o mock do
+  `import()` dinâmico só à 1ª célula concorrente (medido); o teste confere as 4 no caminho sequencial.
+
 ## 5. Parse de IA / robustez
 
 ### F-P1 · JSON truncado (maxTokens) → falha limpa (blueprint) ou score inflado (auditoria) ✅ (fechado 27/07)

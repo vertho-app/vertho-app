@@ -35,7 +35,7 @@ const BASE = 'https://api.heygen.com';
 const chave = () => process.env.HEYGEN_API_KEY || '';
 // Avatar da marca "Mentora Vertho" (foto aberta, navy), validado em 17/06. A env só
 // sobrescreve para testar outra foto. Não é segredo (id de asset).
-const fotoPadrao = () => process.env.HEYGEN_TALKING_PHOTO_ID || 'd160ea51f4124514b94aa1cf8e56eb42';
+export const fotoPadraoHeyGen = () => process.env.HEYGEN_TALKING_PHOTO_ID || 'd160ea51f4124514b94aa1cf8e56eb42';
 export const motorHeyGen = () => process.env.HEYGEN_ENGINE || 'avatar_iii';
 
 interface GerarOpts {
@@ -67,7 +67,7 @@ export async function gerarClipHeyGen(audioUrl: string, opts: GerarOpts = {}): P
   const altura = opts.height ?? 1080;
   const body = {
     type: 'avatar',
-    avatar_id: opts.avatarId || fotoPadrao(),
+    avatar_id: opts.avatarId || fotoPadraoHeyGen(),
     engine: { type: motorHeyGen() },
     audio_url: audioUrl,
     resolution: altura >= 1080 ? '1080p' : '720p',

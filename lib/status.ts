@@ -236,3 +236,16 @@ export const VENDAS_SESSAO = {
 export type VendasSessaoStatus = (typeof VENDAS_SESSAO)[keyof typeof VENDAS_SESSAO];
 /** Checkpoint de geração, não estado da conversa. */
 export const VENDAS_TENTATIVA = { PENDENTE: 'pendente', ACEITA: 'aceita', REJEITADA: 'rejeitada' } as const;
+
+/**
+ * video_avatar_grupo.status (mig 270): o avatar compartilhado pelas células DISC de
+ * um mesmo módulo e cargo. `pendente` = a 1ª célula (a mãe) ainda não deixou o
+ * avatar pronto; `pronto` = as irmãs podem reaproveitar; `erro` = a mãe falhou e as
+ * irmãs seguiram o fluxo de sempre. Uma nova rodada reabre um grupo em `erro`.
+ */
+export const AVATAR_GRUPO = {
+  PENDENTE: 'pendente',
+  PRONTO: 'pronto',
+  ERRO: 'erro',
+} as const;
+export type AvatarGrupoStatus = (typeof AVATAR_GRUPO)[keyof typeof AVATAR_GRUPO];

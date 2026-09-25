@@ -68,6 +68,7 @@ export const AI_TASKS = [
 
   // ── Banco de Conteúdos ───────────────────────────────────
   { key: 'conteudo_video', label: 'Gerar roteiro de vídeo', fase: 'Conteúdos' },
+  { key: 'video_avatar_grupo', label: 'Vídeo do Kit: abertura e fecho do avatar (iguais para os 4 DISC)', fase: 'Conteúdos' },
   { key: 'conteudo_podcast', label: 'Gerar roteiro de podcast', fase: 'Conteúdos' },
   { key: 'conteudo_texto', label: 'Gerar artigo (markdown)', fase: 'Conteúdos' },
   { key: 'conteudo_case', label: 'Gerar estudo de caso', fase: 'Conteúdos' },
@@ -300,6 +301,10 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // aderência a muitas regras + fidelidade pedagógica. Thinking é ativado no
   // callClaudeBatch (lib/video/gerar-roteiro.ts).
   conteudo_video:      'claude-opus-5',
+  // Abertura e fecho do avatar, escritos 1× por grupo (empresa × módulo × cargo) e
+  // copiados pelos roteiros dos 4 DISC: a mesma peça do roteiro, no mesmo modelo
+  // (o Opus 5 venceu o bake-off de roteiro de 24/09/2026).
+  video_avatar_grupo:  'claude-opus-5',
   // ── Tarefas de SAÍDA LONGA em Claude Sonnet 5 (12/08/2026) ──
   // `Medido:` no ledger, 90d, mesmo `source` dos dois lados. O sinal do Sonnet 5
   // INVERTE com o tamanho da saída, porque o thinking cobra um pedágio quase fixo

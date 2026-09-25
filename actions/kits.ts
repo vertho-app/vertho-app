@@ -13,11 +13,13 @@ import { resolverOuCriarBrief, gerarKitDesafio, type DiscLetter } from '@/lib/se
 import { resolverPerfilPublicoDaEmpresa, type RegistroPublico } from '@/lib/season-engine/perfil-publico';
 import { levantarPlanoKitsCoorte } from '@/lib/season-engine/kit/plano-coorte';
 import { carregarFichaCargo } from '@/lib/cargo-contexto';
+import { avatarGrupoLigado, prepararGrupoAvatar, despacharGrupoAvatar, type GrupoAvatar } from '@/lib/video/avatar-grupo-core';
 import { gerarConteudoIA } from '@/actions/conteudos';
 import type { AIConfig } from '@/actions/ai-client';
 import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
 import type { gerarKitTask } from '@/trigger/gerar-kit';
+import type { AvatarFixo } from '@/lib/video/roteiro-prompt';
 
 // Conteúdos textuais/áudio do kit (micro_conteudos). O VÍDEO não é um roteiro
 // aqui — é o vídeo RENDERIZADO (videos_gerados) disparado à parte, com o desafio
@@ -59,6 +61,11 @@ export interface GerarKitParams {
   perfilPublico?: RegistroPublico;
   /** Pula o disparo do vídeo renderizado (HeyGen/render) — p/ lote de coorte sem custo de GPU. */
   skipVideo?: boolean;
+  /**
+   * Avatar compartilhado pelas células DISC do mesmo módulo e cargo (`VIDEO_AVATAR_GRUPO`).
+   * Só vale na chamada interna (`sb` presente): quem monta o grupo é `gerarKitSemanal`.
+   */
+  avatarGrupo?: { grupoId: string; textos: AvatarFixo } | null;
 }
 
 export async function gerarKit({
@@ -66,11 +73,15 @@ export async function gerarKit({
   nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos = FORMATOS_PADRAO, sb: sbIn,
   aiRun, briefPreResolvido, pppBriefPreResolvido, fichaCargoPreResolvida, perfilPublico: perfilPublicoIn, skipVideo = false,
+  avatarGrupo: avatarGrupoIn = null,
 }: GerarKitParams) {
   try {
     // A5: `empresaId` vem do cliente (kit custa IA e grava no acervo dele).
     // `sbIn` = chamada interna (lote/task) que já passou pelo gate.
     const sb = sbIn || await requireEmpresaSupabase(empresaId, 'content.manage', 'kit.gerar');
+    // Chamada da tela não entra em grupo: a célula ficaria esperando um orquestrador
+    // que só `gerarKitSemanal` dispara.
+    const avatarGrupo = sbIn ? avatarGrupoIn : null;
     if (!competencia || !descritor || !disc) {
       return { success: false, error: 'competencia, descritor e disc obrigatórios' };
     }
@@ -135,8 +146,9 @@ export async function gerarKit({
       conteudos.push({ formato: 'video', ok: true, titulo: 'vídeo pulado (skipVideo)' });
     } else if (moduloBaseId) {
       const { dispararVideoDoKit } = await import('@/actions/gerar-video');
-      const v: any = await dispararVideoDoKit(sb, { moduloBaseId, empresaId, cargo, disc, desafioTexto: desafio.desafio_texto, kitId, pppBrief, createdBy: 'kit' }).catch((e: any) => ({ error: e?.message }));
-      conteudos.push({ formato: 'video', conteudoId: v.id, titulo: v.reused ? 'vídeo (reusado)' : 'vídeo (renderizando)', ok: !v.error, error: v.error });
+      const v: any = await dispararVideoDoKit(sb, { moduloBaseId, empresaId, cargo, disc, desafioTexto: desafio.desafio_texto, kitId, pppBrief, createdBy: 'kit', avatarGrupo }).catch((e: any) => ({ error: e?.message }));
+      const titulo = v.reused ? 'vídeo (reusado)' : v.adiado ? 'vídeo (aguardando o avatar do grupo)' : 'vídeo (renderizando)';
+      conteudos.push({ formato: 'video', conteudoId: v.id, titulo, ok: !v.error, error: v.error });
     } else {
       conteudos.push({ formato: 'video', ok: false, error: 'sem módulo-base — vídeo não gerado' });
     }
@@ -198,6 +210,19 @@ export async function gerarKitSemanal({
     const fichaCargo = await carregarFichaCargo(sbk, empresaId, cargo);
     let kits: Awaited<ReturnType<typeof gerarKit>>[] = [];
 
+    // AVATAR COMPARTILHADO (`VIDEO_AVATAR_GRUPO=on`, env do Trigger): as células DISC
+    // do mesmo módulo e cargo dividem UM avatar (~US$ 0,59 cada um que não se paga).
+    // O grupo precisa do módulo-base, então brief e PPP saem ANTES do fan-out nos dois
+    // caminhos, pelo mesmo motivo do lote: os DISC não podem correr um com o outro.
+    // Sem cargo não há grupo: o texto do avatar fala da rotina do cargo.
+    const querGrupo = !skipVideo && !!empresaId && cargo !== 'todos' && avatarGrupoLigado();
+    let grupoAvatar: GrupoAvatar | null = null;
+    const prepararGrupo = async (moduloBaseId: string | null, pppBrief: string | null) => {
+      if (!querGrupo || grupoAvatar || !moduloBaseId || !empresaId) return;
+      grupoAvatar = await prepararGrupoAvatar(sbk, { empresaId, moduloBaseId, cargo, pppBrief });
+    };
+    const avatarDoGrupo = () => (grupoAvatar ? { grupoId: grupoAvatar.id, textos: grupoAvatar.textos } : null);
+
     // ── Caminho LOTE (Batch API −50%) ─────────────────────────────────────────
     // Resolve brief+PPP 1× (evita corrida), roda os DISC CONCORRENTES e o collector
     // agrupa as chamadas num batch async. Qualquer falha do batch → o próprio
@@ -225,6 +250,7 @@ export async function gerarKitSemanal({
           pppBrief = await resolverContextoEmpresa(sbk, empresaId, aiConfig).catch(() => null);
         }
         const brief = await resolverOuCriarBrief(sbk, { ...baseParams, pppBrief, fichaCargo });
+        await prepararGrupo(brief.moduloBaseId, pppBrief);
         const { createAIBatchCollector } = await import('@/lib/ai-batch');
         const { run } = createAIBatchCollector(aiConfig?.model || 'claude-sonnet-4-6', {
           ledger: { feature: 'kit_semanal', empresaId },
@@ -236,6 +262,7 @@ export async function gerarKitSemanal({
           gerarKit({
             competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk,
             aiRun: run, briefPreResolvido: brief, pppBriefPreResolvido: pppBrief, fichaCargoPreResolvida: fichaCargo, perfilPublico, skipVideo,
+            avatarGrupo: avatarDoGrupo(),
           }).then(async (k) => {
             done++;
             await onProgress?.({ done, total, current: `kit ${disc} concluído`, kits: [] });
@@ -250,12 +277,36 @@ export async function gerarKitSemanal({
 
     // ── Caminho SEQUENCIAL (default / fallback) ───────────────────────────────
     if (!batchOk) {
+      // Com o grupo, brief e PPP saem aqui, 1× (sem ele, cada DISC resolve os seus,
+      // como sempre). Se falhar, segue sem grupo: o avatar é economia, não requisito.
+      let preSeq: Pick<GerarKitParams, 'briefPreResolvido' | 'pppBriefPreResolvido'> = {};
+      if (querGrupo && empresaId) {
+        try {
+          const { resolverContextoEmpresa } = await import('@/lib/season-engine/kit/contexto-empresa');
+          const pppBrief = await resolverContextoEmpresa(sbk, empresaId, aiConfig).catch(() => null);
+          const brief = await resolverOuCriarBrief(sbk, { competencia, descritor, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, perfilPublico, pppBrief, fichaCargo });
+          preSeq = { briefPreResolvido: brief, pppBriefPreResolvido: pppBrief };
+          await prepararGrupo(brief.moduloBaseId, pppBrief);
+        } catch (e: any) {
+          console.warn(`[gerarKitSemanal] núcleo antes do fan-out falhou (${e?.message}); segue sem avatar de grupo`);
+        }
+      }
       for (const disc of discs) {
         await onProgress?.({ done: kits.length, total, current: `gerando kit ${disc}…`, kits: kits.map(resumoKit) });
         // sequencial: o 1º cria o brief; os demais reusam (resolverOuCriarBrief idempotente).
-        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk, fichaCargoPreResolvida: fichaCargo, perfilPublico, skipVideo }));
+        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk, fichaCargoPreResolvida: fichaCargo, perfilPublico, skipVideo, ...preSeq, avatarGrupo: avatarDoGrupo() }));
         await onProgress?.({ done: kits.length, total, current: `kit ${disc} concluído`, kits: kits.map(resumoKit) });
       }
+    }
+
+    // As células do grupo foram inseridas sem disparar: o orquestrador gera a 1ª (a
+    // mãe) e só então as irmãs. Despacha mesmo sem célula nova nesta rodada, porque
+    // uma que ficou esperando numa rodada anterior também é pega (vem do banco).
+    let videoGrupo: { grupoId: string; via: 'grupo' | 'celula'; erros: string[] } | null = null;
+    const g = grupoAvatar as GrupoAvatar | null;
+    if (g && empresaId) {
+      videoGrupo = { grupoId: g.id, ...await despacharGrupoAvatar(sbk, { grupoId: g.id, empresaId }) };
+      if (videoGrupo.erros.length) console.error(`[gerarKitSemanal] grupo ${g.id}: ${videoGrupo.erros.join(' | ')}`);
     }
 
     let audioRendered = 0;
@@ -299,6 +350,7 @@ export async function gerarKitSemanal({
       kits: kits.map((k) => ({ disc: (k as any).disc, kitId: (k as any).kitId, ok: k.success, error: (k as any).error, desafio: (k as any).desafio, conteudos: (k as any).conteudos })),
       audioRendered,
       audioErrors,
+      ...(videoGrupo ? { videoGrupo } : {}),
       message: `Kit semanal ${competencia} › ${descritor}: ${okKits}/${discs.length} DISC` + (renderAudio ? ` · ${audioRendered} podcast(s) renderizado(s)` : ''),
     };
   } catch (err: any) {

@@ -69,7 +69,21 @@ export interface ModuloParaRoteiro {
   discDominante?: 'D' | 'I' | 'S' | 'C' | null;
   /** Kit Semanal: desafio da semana (por DISC) que o avatar_outro deve fechar. */
   desafioTexto?: string | null;
+  /**
+   * Abertura e fecho do avatar JÁ escritos, compartilhados pelas células DISC do mesmo
+   * grupo (empresa × módulo × cargo) para a HeyGen ser paga uma vez só. Com isto, o
+   * modelo escreve só o miolo, o tom DISC vale só no miolo e o desafio do Kit vai para
+   * a última cena do miolo. Sem isto, o prompt é o de sempre (byte a byte).
+   */
+  avatarFixo?: AvatarFixo | null;
 }
+
+/** Texto de uma cena de avatar fixa. */
+export interface CenaAvatarFixa { title: string; subtitle: string; narration: string }
+export interface AvatarFixo { intro: CenaAvatarFixa; outro: CenaAvatarFixa }
+
+const contarPalavras = (s: string) => String(s || '').trim().split(/\s+/).filter(Boolean).length;
+const aspas = (s: string) => JSON.stringify(String(s || ''));
 
 const IDIOMA: Record<string, string> = {
   'pt-BR': 'português do Brasil', 'pt-PT': 'português de Portugal', 'es-ES': 'espanhol', 'en-US': 'inglês',
@@ -233,13 +247,26 @@ export function buildRoteiroPrompt(m: ModuloParaRoteiro): { system: string; user
   const disc = m.discDominante ? DISC_GUIA[m.discDominante] : null;
   // NOTA: `adaptacao_por_formato.video_roteiro` NÃO é injetado (formato legado).
 
+  const fixo = m.avatarFixo || null;
   const persoSystem = (disc || m.cargoBloco || m.pppBrief || m.desafioTexto) ? `
 
-PERSONALIZAÇÃO (adapte exemplos e tom SEM mudar o conteúdo pedagógico nem a fidelidade):${m.desafioTexto ? `
-- DESAFIO DA SEMANA: o avatar_outro deve FECHAR conduzindo a pessoa a ESTE desafio prático (não reescreva, não invente outro): "${m.desafioTexto}". A pergunta/chamada final deve levar naturalmente a essa ação.` : ''}${m.cargoBloco ? `
+PERSONALIZAÇÃO (adapte exemplos e tom SEM mudar o conteúdo pedagógico nem a fidelidade):${m.desafioTexto ? (fixo ? `
+- DESAFIO DA SEMANA: a ÚLTIMA cena do MIOLO (a que vem logo antes do avatar_outro) deve conduzir a pessoa a ESTE desafio prático, na NARRAÇÃO (não reescreva, não invente outro): "${m.desafioTexto}". O texto de tela dessa cena continua o mesmo para todos os perfis; o avatar_outro fixo fecha em seguida.` : `
+- DESAFIO DA SEMANA: o avatar_outro deve FECHAR conduzindo a pessoa a ESTE desafio prático (não reescreva, não invente outro): "${m.desafioTexto}". A pergunta/chamada final deve levar naturalmente a essa ação.`) : ''}${m.cargoBloco ? `
 - CARGO: ancore os exemplos práticos no dia a dia real do cargo (contexto abaixo), sem repetir a mesma situação em todas as cenas. Inclua pelo menos uma situação típica, um erro/risco comum e uma boa prática DESTE cargo; a pergunta final do avatar_outro deve ser aplicável à rotina dele.` : ''}${m.pppBrief ? `
 - INSTITUIÇÃO (PPP): a instituição tem identidade própria — REFLITA ATIVAMENTE seus valores, missão, metodologia e prioridades, tanto na NARRAÇÃO quanto no TEXTO DE TELA (títulos/bullets/items podem ecoar as prioridades da escola). PELO MENOS UMA cena deve conectar o conteúdo a um valor ou prioridade CONCRETO do PPP (marque-a com source_anchor "PPP"), e o vocabulário deve soar DAQUELA instituição, não de uma escola genérica. Priorize os traços DISTINTIVOS — o que torna a instituição única (público atendido, território, cultura local, comunidades, projetos próprios) — em vez de generalidades; mas só se encaixar com naturalidade no conteúdo (não force). SALVAGUARDAS: não cite o NOME da instituição, não faça propaganda nem exponha pessoas reais; as situações são sintéticas e plausíveis, mas reconhecivelmente alinhadas ao PPP.` : ''}${disc ? `
-- TOM POR PERFIL ${disc.rotulo}: ${disc.tom} O perfil ajusta APENAS o tom da narração — NUNCA template, ordem ou texto de tela. Nunca diga "pessoas D são...", não rotule nem estereotipe o colaborador.` : ''}` : '';
+- TOM POR PERFIL ${disc.rotulo}: ${disc.tom} O perfil ajusta APENAS o tom da narração — NUNCA template, ordem ou texto de tela. Nunca diga "pessoas D são...", não rotule nem estereotipe o colaborador.${fixo ? ' O tom do perfil vale SÓ para as cenas do MIOLO: as cenas de avatar são fixas e neutras.' : ''}` : ''}` : '';
+
+  const palavrasFixas = fixo ? contarPalavras(fixo.intro.narration) + contarPalavras(fixo.outro.narration) : 0;
+  const avatarSystem = fixo ? `
+
+ABERTURA E FECHO FIXOS (o avatar é gravado UMA vez e reaproveitado por todos os perfis deste módulo):
+- As cenas avatar_intro e avatar_outro JÁ ESTÃO ESCRITAS. Copie EXATAMENTE, sem mudar uma palavra nem a pontuação:
+  avatar_intro → title ${aspas(fixo.intro.title)} · subtitle ${aspas(fixo.intro.subtitle)} · narration ${aspas(fixo.intro.narration)}
+  avatar_outro → title ${aspas(fixo.outro.title)} · subtitle ${aspas(fixo.outro.subtitle)} · narration ${aspas(fixo.outro.narration)}
+- Você escreve SÓ o MIOLO. Ele precisa fazer a ponte com essa abertura (sem repetir o gancho dela) e levar naturalmente a esse fecho.
+- ORÇAMENTO DE PALAVRAS: as duas cenas fixas já somam ${palavrasFixas} palavras. O TOTAL do vídeo (com elas) continua 440–540, então o MIOLO deve somar entre ${440 - palavrasFixas} e ${540 - palavrasFixas} palavras.
+- Na validação final, as regras do avatar_intro e do avatar_outro valem pelo texto fixo: NÃO o reescreva para cumpri-las.` : '';
 
   const system = `Você é roteirista de micro-aprendizagem, designer instrucional e diretor audiovisual da Vertho. Transforma um MÓDULO-BASE pedagógico num ROTEIRO TÉCNICO DE VÍDEO pronto para o pipeline: roteiro → TTS → HeyGen (cenas de avatar) → Remotion (cenas animadas) → legendas.
 
@@ -308,7 +335,7 @@ COBERTURA MÍNIMA (quando disponível no módulo; priorize o mais relevante, NÃ
 TRANSIÇÃO DE MATURIDADE — calibre a profundidade: ${maturidadeGuia(m.nivel_entrada, m.nivel_destino)}
 
 SEGURANÇA E LGPD:
-- Não mencione pessoas reais (colaboradores, alunos, gestores) nem dados individuais. Não exponha informação sensível. Não faça diagnóstico psicológico. Não estereotipe perfis comportamentais. Use situações sintéticas e plausíveis.${persoSystem}
+- Não mencione pessoas reais (colaboradores, alunos, gestores) nem dados individuais. Não exponha informação sensível. Não faça diagnóstico psicológico. Não estereotipe perfis comportamentais. Use situações sintéticas e plausíveis.${persoSystem}${avatarSystem}
 
 SOURCE_ANCHOR (use exatamente um destes formatos): IDEIA_PRINCIPAL · EXPLICACAO_EXPANDIDA:<tópico> · PRINCIPIOS:<nome> · EXEMPLOS:adequada · EXEMPLOS:inadequada · ERROS_COMUNS · BOAS_PRATICAS · SITUACOES_TIPICAS · CARGO · PPP
 

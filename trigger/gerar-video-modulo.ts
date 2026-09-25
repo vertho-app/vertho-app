@@ -6,8 +6,9 @@ import os from 'node:os';
 import nodePath from 'node:path';
 import { renderVideoTask } from './render-video';
 import { generateNarrationAudio, modeloTtsEfetivo } from '../lib/gemini-tts';
-import { gerarClipHeyGen, aguardarClipHeyGen } from '../lib/video/heygen';
-import { planoDeNarracao } from '../lib/video/avatar-grupo';
+import { gerarClipHeyGen, aguardarClipHeyGen, motorHeyGen, fotoPadraoHeyGen } from '../lib/video/heygen';
+import { planoDeNarracao, avatarDoGrupoParaCenas, recusaDoPortao, type AvatarGrupoPayload, type AssetAvatar } from '../lib/video/avatar-grupo';
+import { medirDeriva } from '../lib/tts/deriva';
 import { montarInputProps, exportCaptionsToSrt, exportCaptionsToVtt, type AssetMap } from '../lib/video/montar-inputprops';
 import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
 import { storagePut, storageGet, SUPA, KEY } from '../lib/video/render-helpers';
@@ -205,6 +206,26 @@ function assinaturaTake(voz: string, estilo: string, texto: string): string {
   return createHash('sha1').update(`${voz}|${modeloTtsEfetivo()}|${ELENCO.mentora.versao}|${estilo}|${texto}`).digest('hex').slice(0, 12);
 }
 
+/**
+ * Com o que o avatar foi feito: voz, modelo, versão do elenco, direção do take, foto,
+ * motor da HeyGen e fps. A irmã só reaproveita o avatar da mãe se bater, porque
+ * qualquer um desses muda a voz ou a imagem da abertura e do fecho.
+ */
+function assinaturaAvatar(): string {
+  const estilo = createHash('sha1').update(NARRATION_STYLE_UNICO).digest('hex').slice(0, 8);
+  return [VOICE, modeloTtsEfetivo(), ELENCO.mentora.versao, estilo, fotoPadraoHeyGen(), motorHeyGen(), VIDEO_FPS].join('|');
+}
+
+/** O que a MÃE de um grupo devolve ao orquestrador (`trigger/gerar-video-grupo.ts`). */
+export interface AvatarDaMae {
+  /** A narração saiu num take só e aprovado. Sem isso o avatar não vira referência. */
+  takeUnico: boolean;
+  /** F0 mediana do take inteiro da mãe: o alvo do portão para o miolo das irmãs. */
+  f0Hz: number | null;
+  assinatura: string;
+  avatar: { intro: AssetAvatar | null; outro: AssetAvatar | null };
+}
+
 /** Take mais recente desta geração no Storage (`{videoId}/take-{assinatura}-{tag}.mp3`),
  *  ou null. Um retry que chega sem cenas persistidas continua do MESMO take em vez de
  *  pagar outra síntese e trocar de sorteio. */
@@ -285,6 +306,10 @@ export async function executarGeracaoVideoModulo(p: {
     fps?: number; width?: number; height?: number; chunks?: number;
     /** Retake cirúrgico: os demais assets e os vídeos publicados ficam intactos. */
     regerarCenas?: string[];
+    /** 1ª célula de um grupo de avatar: devolve o avatar pronto em `grupo`. */
+    papelGrupo?: 'mae';
+    /** Irmã de um grupo: as cenas de avatar chegam prontas, feitas pela mãe. */
+    avatarGrupo?: AvatarGrupoPayload;
   }) {
     const { videoId, roteiro } = p;
     try {
@@ -300,96 +325,156 @@ export async function executarGeracaoVideoModulo(p: {
       // o que o Storage serve antes de compor (invariante do passo 3).
       const duracaoLocal: Record<string, number> = {};
 
+      // 0) AVATAR DO GRUPO (irmã). As cenas de avatar chegam prontas da mãe: mesmo
+      // texto, mesma voz, mesmo clipe da HeyGen. O que falta é o miolo, que sai num
+      // take só com o alvo de altura MEDIDO no take da mãe, para a voz não pular no
+      // corte avatar → miolo. Recusa (outra voz/foto/motor, texto diferente) = fluxo de
+      // hoje inteiro, com a degradação registrada.
+      let fixas = new Set<string>();
+      let alvoDoGrupo: { f0Hz: number; tolSt: number } | undefined;
+      const desligarDoGrupo = (motivo: string) => {
+        console.warn(`[avatar-grupo] ${videoId} segue sem o avatar do grupo: ${motivo}`);
+        void registrarDegradacao({
+          fluxo: 'video', tipo: DEGRADACAO.VIDEO_AVATAR_GRUPO_FALLBACK, chave: 'grupo:irma',
+          empresaId: empresaIdDoVideo, severidade: 'aviso',
+          detalhe: { videoId, grupoId: p.avatarGrupo?.grupoId ?? null, motivo: motivo.slice(0, 300) },
+        });
+        for (const id of fixas) { delete assets[id]; delete duracaoLocal[id]; }
+        fixas = new Set();
+        alvoDoGrupo = undefined;
+      };
+      if (p.avatarGrupo) {
+        const doGrupo = avatarDoGrupoParaCenas(roteiro, p.avatarGrupo, { assinaturaAtual: assinaturaAvatar(), regerarCenas: p.regerarCenas });
+        if (doGrupo.recusa) desligarDoGrupo(doGrupo.recusa);
+        for (const [id, a] of Object.entries(doGrupo.assets)) {
+          // Cena que já tem avatar PRÓPRIO (retake anterior) não volta para o grupo.
+          if (assets[id]?.audioSrc && assets[id].src !== a.src) continue;
+          assets[id] = { src: a.src, audioSrc: a.audioSrc, words: a.words, durationSec: 0, heygenVideoId: a.heygenVideoId };
+          // A duração que a mãe mediu entra no invariante do passo 3 (servido = feito).
+          if (a.durationSec) duracaoLocal[id] = a.durationSec;
+          fixas.add(id);
+        }
+        if (fixas.size) alvoDoGrupo = { f0Hz: p.avatarGrupo.f0Hz, tolSt: ELENCO.mentora.tolSt };
+      }
+      // Da mãe: o take único saiu e aprovado, e a altura dele (o alvo das irmãs).
+      let takeUnicoOk = false;
+      let f0DoTake: number | null = null;
+
       // 1) NARRAÇÃO — uma voz (Callirrhoe, ritmo ágil) em todo o vídeo. Paralela
       // (pool) — antes era sequencial (~3s × N cenas). Saída idêntica (assets por id).
       // Pula cenas cujo áudio já existe (resume).
       await patchVideo(videoId, { etapa: 'narracao' });
-      const planoNarracao = planoDeNarracao(roteiro.scenes, (id) => !!assets[id]?.src);
+      let planoNarracao = planoDeNarracao(roteiro.scenes, (id) => !!assets[id]?.src, { fixas });
       const { cenasComTexto } = planoNarracao;
 
       // 1a) NARRAÇÃO ÚNICA: só no 1º processamento (resume parcial mistura takes, e
-      // aí o caminho por cena abaixo completa o que falta com a voz de sempre).
+      // aí o caminho por cena abaixo completa o que falta com a voz de sempre). Na
+      // irmã de um grupo, o take cobre só o miolo (as cenas `fixas` já têm áudio).
+      const narrarTakeUnico = async (pendentes: typeof cenasComTexto, alvo: { f0Hz: number; tolSt: number } | undefined) => {
+        const cenas = pendentes.map((s) => ({ id: s.id, narration: aplicarPronuncia(s.narration as string) }));
+        const textoUnico = montarTextoUnico(cenas);
+        const assinatura = assinaturaTake(VOICE, NARRATION_STYLE_UNICO, textoUnico);
+        const t0 = Date.now();
+        // O TAKE fica no Storage ANTES de fatiar: um retry que chega aqui sem cenas
+        // persistidas continua do mesmo take (mesma assinatura) em vez de sintetizar
+        // outro. Chamada única + portão de deriva (volume, timbre, registro, fala).
+        let takeMp3: Buffer;
+        let origem: string;
+        const reaproveitado = await ultimoTake(videoId, assinatura);
+        if (reaproveitado) {
+          takeMp3 = await storageGet('video-assets', reaproveitado);
+          origem = `take reaproveitado (${reaproveitado.split('/').pop()})`;
+        } else {
+          // `take-grupo`: o miolo de uma irmã, julgado contra a altura da mãe e não
+          // contra o alvo do elenco. Separa as duas populações na hora de calibrar.
+          const audio = await generateNarrationAudio(textoUnico, {
+            voice: VOICE,
+            style: NARRATION_STYLE_UNICO,
+            segmentar: false,
+            ...(alvo ? { alvo } : {}),
+            ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo, artifactKey: `videos_gerados:${videoId}:${alvo ? 'take-grupo' : 'take'}:${assinatura}` },
+          });
+          takeMp3 = audio.buffer;
+          await storagePut('video-assets', `${videoId}/take-${assinatura}-${GERACAO_TAG()}.mp3`, takeMp3, 'audio/mpeg');
+          origem = audio.qa ? `qa ${audio.qa.ok ? 'ok' : 'ressalva'} (${audio.qa.tentativas} tent.)` : 'sem qa';
+        }
+        const words = await transcribeWords(takeMp3);
+        if (!words) throw new Error('Whisper indisponível (sem timing por palavra, não há como cortar)');
+        const pcm = await mp3ParaPcm24k(takeMp3);
+        const duracaoS = pcm.length / 2 / 24000;
+        // Alinha E valida (vazamento de palavra de borda, silêncio no corte): recusa
+        // = cai no caminho por cena, com o motivo no log.
+        const plano = planejarNarracaoUnica(words, cenas, duracaoS, pcm, 24000);
+        if (!plano.ok || !plano.fatias) throw new Error(plano.motivo || 'narração única recusada');
+        const fatias = plano.fatias;
+        const tag = GERACAO_TAG();
+        // As fatias sobem em paralelo e só entram em `assets` quando TODAS
+        // terminaram: um upload atrasado não pode reescrever o mapa depois de uma
+        // falha (o mapPool rejeita no 1º erro e os outros workers seguem rodando).
+        const prontas: { id: string; asset: AssetMap[string]; dur: number }[] = [];
+        const falhas: string[] = [];
+        await mapPool(fatias, 3, async (f, i) => {
+          try {
+            let pcmFatia = fatiarPcm16(pcm, 24000, f.inicio, f.fim);
+            let words = f.words;
+            if (i === 0) {
+              // Só a 1ª fatia pode começar com fala no instante zero (o take pode
+              // abrir sem respiro); as outras começam no ponto mais silencioso da
+              // pausa. A composição pula 33 ms do áudio (trimBefore) — garante a cabeça.
+              const g = garantirCabecaSilenciosa(pcmFatia, 24000);
+              if (g.deslocamentoS) { pcmFatia = g.pcm; words = words.map((w) => ({ ...w, start: w.start + g.deslocamentoS, end: w.end + g.deslocamentoS })); }
+            }
+            const mp3 = pcmToMp3SemMaster(pcmFatia, 24000);
+            const src = await storagePut('video-assets', `${videoId}/${f.id}-${tag}.mp3`, mp3, 'audio/mpeg');
+            prontas.push({ id: f.id, asset: { src, durationSec: 0, words }, dur: await duracaoDoBuffer(mp3, 'mp3') });
+          } catch (e) {
+            falhas.push(`${f.id}: ${(e as Error)?.message}`);
+          }
+        });
+        if (falhas.length) throw new Error(`upload de fatia falhou (${falhas.length}/${fatias.length}): ${falhas.join(' · ')}`);
+        for (const p of prontas) { assets[p.id] = p.asset; duracaoLocal[p.id] = p.dur; }
+        takeUnicoOk = true;
+        if (p.papelGrupo === 'mae') f0DoTake = medirDeriva(pcm, 24000).f0MedHz || null;
+        console.log(`[narracao-unica] ${fatias.length} cenas de um take de ${duracaoS.toFixed(0)}s em ${Math.round((Date.now() - t0) / 1000)}s · casamento ${fatias.map((f) => `${f.id}:${f.casadas}/${f.total}`).join(' ')} · ${origem}${alvo ? ` · alvo do grupo ${alvo.f0Hz.toFixed(0)} Hz` : ''}`);
+      };
+      const registrarRecusaDoTake = (e: unknown) => {
+        // Fallback DECLARADO: volta ao caminho por cena, que sempre funcionou. O
+        // preço é a costura entre cenas — por isso o aviso, não o silêncio. Nada do
+        // take entra em `assets` a menos que TODAS as fatias tenham subido (acima):
+        // misturar metade de um take com sínteses por cena seria pior do que tudo por cena.
+        const motivo = (e as Error)?.message || String(e);
+        console.warn('[narracao-unica] caiu para narração POR CENA:', motivo);
+        // Aviso ≠ silêncio: até 10/09/2026 este `console.warn` era o ÚNICO rastro, e
+        // por isso 8 de 13 vídeos de 07/09 saíram costurados sem ninguém saber. A
+        // CLASSE do motivo vai na chave (dedup por dia agrega o volume); o vídeo e o
+        // texto completo vão no detalhe, porque é por eles que se reproduz o caso.
+        void registrarDegradacao({
+          fluxo: 'build',
+          tipo: DEGRADACAO.NARRACAO_UNICA_RECUSADA,
+          chave: `narracao-unica:${classeDaRecusa(motivo)}`,
+          empresaId: empresaIdDoVideo,
+          severidade: 'aviso',
+          detalhe: { videoId, motivo: motivo.slice(0, 400), cenas: cenasComTexto.length },
+        });
+      };
       if (NARRACAO_UNICA && planoNarracao.usarTakeUnico) {
         try {
-          const cenas = planoNarracao.pendentes.map((s) => ({ id: s.id, narration: aplicarPronuncia(s.narration as string) }));
-          const textoUnico = montarTextoUnico(cenas);
-          const assinatura = assinaturaTake(VOICE, NARRATION_STYLE_UNICO, textoUnico);
-          const t0 = Date.now();
-          // O TAKE fica no Storage ANTES de fatiar: um retry que chega aqui sem cenas
-          // persistidas continua do mesmo take (mesma assinatura) em vez de sintetizar
-          // outro. Chamada única + portão de deriva (volume, timbre, registro, fala).
-          let takeMp3: Buffer;
-          let origem: string;
-          const reaproveitado = await ultimoTake(videoId, assinatura);
-          if (reaproveitado) {
-            takeMp3 = await storageGet('video-assets', reaproveitado);
-            origem = `take reaproveitado (${reaproveitado.split('/').pop()})`;
-          } else {
-            const audio = await generateNarrationAudio(textoUnico, {
-              voice: VOICE,
-              style: NARRATION_STYLE_UNICO,
-              segmentar: false,
-              ledger: { feature: 'tts_video_cena', empresaId: empresaIdDoVideo, artifactKey: `videos_gerados:${videoId}:take:${assinatura}` },
-            });
-            takeMp3 = audio.buffer;
-            await storagePut('video-assets', `${videoId}/take-${assinatura}-${GERACAO_TAG()}.mp3`, takeMp3, 'audio/mpeg');
-            origem = audio.qa ? `qa ${audio.qa.ok ? 'ok' : 'ressalva'} (${audio.qa.tentativas} tent.)` : 'sem qa';
-          }
-          const words = await transcribeWords(takeMp3);
-          if (!words) throw new Error('Whisper indisponível (sem timing por palavra, não há como cortar)');
-          const pcm = await mp3ParaPcm24k(takeMp3);
-          const duracaoS = pcm.length / 2 / 24000;
-          // Alinha E valida (vazamento de palavra de borda, silêncio no corte): recusa
-          // = cai no caminho por cena, com o motivo no log.
-          const plano = planejarNarracaoUnica(words, cenas, duracaoS, pcm, 24000);
-          if (!plano.ok || !plano.fatias) throw new Error(plano.motivo || 'narração única recusada');
-          const fatias = plano.fatias;
-          const tag = GERACAO_TAG();
-          // As fatias sobem em paralelo e só entram em `assets` quando TODAS
-          // terminaram: um upload atrasado não pode reescrever o mapa depois de uma
-          // falha (o mapPool rejeita no 1º erro e os outros workers seguem rodando).
-          const prontas: { id: string; asset: AssetMap[string]; dur: number }[] = [];
-          const falhas: string[] = [];
-          await mapPool(fatias, 3, async (f, i) => {
-            try {
-              let pcmFatia = fatiarPcm16(pcm, 24000, f.inicio, f.fim);
-              let words = f.words;
-              if (i === 0) {
-                // Só a 1ª fatia pode começar com fala no instante zero (o take pode
-                // abrir sem respiro); as outras começam no ponto mais silencioso da
-                // pausa. A composição pula 33 ms do áudio (trimBefore) — garante a cabeça.
-                const g = garantirCabecaSilenciosa(pcmFatia, 24000);
-                if (g.deslocamentoS) { pcmFatia = g.pcm; words = words.map((w) => ({ ...w, start: w.start + g.deslocamentoS, end: w.end + g.deslocamentoS })); }
-              }
-              const mp3 = pcmToMp3SemMaster(pcmFatia, 24000);
-              const src = await storagePut('video-assets', `${videoId}/${f.id}-${tag}.mp3`, mp3, 'audio/mpeg');
-              prontas.push({ id: f.id, asset: { src, durationSec: 0, words }, dur: await duracaoDoBuffer(mp3, 'mp3') });
-            } catch (e) {
-              falhas.push(`${f.id}: ${(e as Error)?.message}`);
-            }
-          });
-          if (falhas.length) throw new Error(`upload de fatia falhou (${falhas.length}/${fatias.length}): ${falhas.join(' · ')}`);
-          for (const p of prontas) { assets[p.id] = p.asset; duracaoLocal[p.id] = p.dur; }
-          console.log(`[narracao-unica] ${fatias.length} cenas de um take de ${duracaoS.toFixed(0)}s em ${Math.round((Date.now() - t0) / 1000)}s · casamento ${fatias.map((f) => `${f.id}:${f.casadas}/${f.total}`).join(' ')} · ${origem}`);
+          await narrarTakeUnico(planoNarracao.pendentes, alvoDoGrupo);
         } catch (e) {
-          // Fallback DECLARADO: volta ao caminho por cena, que sempre funcionou. O
-          // preço é a costura entre cenas — por isso o aviso, não o silêncio. Nada do
-          // take entra em `assets` a menos que TODAS as fatias tenham subido (acima):
-          // misturar metade de um take com sínteses por cena seria pior do que tudo por cena.
           const motivo = (e as Error)?.message || String(e);
-          console.warn('[narracao-unica] caiu para narração POR CENA:', motivo);
-          // Aviso ≠ silêncio: até 10/09/2026 este `console.warn` era o ÚNICO rastro, e
-          // por isso 8 de 13 vídeos de 07/09 saíram costurados sem ninguém saber. A
-          // CLASSE do motivo vai na chave (dedup por dia agrega o volume); o vídeo e o
-          // texto completo vão no detalhe, porque é por eles que se reproduz o caso.
-          void registrarDegradacao({
-            fluxo: 'build',
-            tipo: DEGRADACAO.NARRACAO_UNICA_RECUSADA,
-            chave: `narracao-unica:${classeDaRecusa(motivo)}`,
-            empresaId: empresaIdDoVideo,
-            severidade: 'aviso',
-            detalhe: { videoId, motivo: motivo.slice(0, 400), cenas: cenasComTexto.length },
-          });
+          if (fixas.size && recusaDoPortao(motivo)) {
+            // O miolo não casou com a altura da mãe em nenhuma tentativa: juntar os dois
+            // seria o "pulo" de voz que o grupo não pode causar. Sai do grupo e refaz
+            // tudo como hoje (paga a própria HeyGen). Outras falhas (Whisper, corte)
+            // aconteceriam sem o grupo também: ficam no grupo e caem no caminho por cena.
+            desligarDoGrupo(`portão recusou o miolo contra a altura da mãe: ${motivo}`);
+            planoNarracao = planoDeNarracao(roteiro.scenes, (id) => !!assets[id]?.src);
+            if (planoNarracao.usarTakeUnico) {
+              try { await narrarTakeUnico(planoNarracao.pendentes, undefined); } catch (e2) { registrarRecusaDoTake(e2); }
+            }
+          } else {
+            registrarRecusaDoTake(e);
+          }
         }
       }
 
@@ -499,6 +584,18 @@ export async function executarGeracaoVideoModulo(p: {
       const srt = exportCaptionsToSrt(props.captions);
       const vtt = exportCaptionsToVtt(props.captions);
 
+      // A mãe devolve o avatar ao orquestrador, que o grava no grupo para as irmãs.
+      const grupoDaMae = (): AvatarDaMae | undefined => {
+        if (p.papelGrupo !== 'mae') return undefined;
+        const intro = roteiro.scenes.find((s) => s.type === 'avatar_intro');
+        const outro = [...roteiro.scenes].reverse().find((s) => s.type === 'avatar_outro');
+        const doAvatar = (s?: { id: string }): AssetAvatar | null => {
+          const a = s ? assets[s.id] : undefined;
+          return a?.audioSrc ? { src: a.src, audioSrc: a.audioSrc, words: a.words, durationSec: a.durationSec, heygenVideoId: a.heygenVideoId } : null;
+        };
+        return { takeUnico: takeUnicoOk, f0Hz: f0DoTake, assinatura: assinaturaAvatar(), avatar: { intro: doAvatar(intro), outro: doAvatar(outro) } };
+      };
+
       if ((process.env.RENDER_BACKEND || 'hetzner') === 'hetzner') {
         await patchVideo(videoId, { status: 'render_queued', etapa: 'render', assets, render_inputprops: props, render_scale: scale, srt, vtt, error: null });
         // Geração por clique: garante UMA box efêmera de render (idempotente — não
@@ -506,7 +603,7 @@ export async function executarGeracaoVideoModulo(p: {
         // Best-effort: se o provision falhar, o job fica na fila p/ a próxima box.
         const prov = await ensureRenderWorker().catch((e) => ({ provisioned: false, reason: String(e?.message || e) }));
         console.log(`${videoId}: ensureRenderWorker → ${prov.provisioned ? 'boxes ' + ((prov as any).created || []).join(',') : 'no-op'} (${prov.reason})`);
-        return { ok: true, videoId, queued: 'hetzner', frames: props.totalFrames, worker: prov };
+        return { ok: true, videoId, queued: 'hetzner', frames: props.totalFrames, worker: prov, grupo: grupoDaMae() };
       }
 
       const chunks = p.chunks ?? Math.min(10, Math.max(2, Math.ceil(props.totalFrames / (props.fps * 12))));
@@ -539,7 +636,7 @@ export async function executarGeracaoVideoModulo(p: {
         error: null,
       });
 
-      return { ok: true, videoId, bunnyVideoId: out.bunnyVideoId, frames: out.frames, bytes: out.bytes };
+      return { ok: true, videoId, bunnyVideoId: out.bunnyVideoId, frames: out.frames, bytes: out.bytes, grupo: grupoDaMae() };
     } catch (e: any) {
       console.error(`gerar-video-modulo ${videoId} FALHOU:`, e?.message || e);
       // Se gravar o status=error falhar, o job fica preso em 'processing' sem

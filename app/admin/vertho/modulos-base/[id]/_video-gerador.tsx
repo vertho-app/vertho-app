@@ -18,6 +18,7 @@ type VideoRow = {
 
 const ETAPA_LABEL: Record<string, string> = {
   roteiro: 'Gerando roteiro (IA)',
+  aguardando_avatar: 'Aguardando o avatar do grupo (1ª célula do módulo)',
   narracao: 'Narrando as cenas (TTS)',
   avatar: 'Gerando o avatar (HeyGen) — pode levar ~4 min/clipe',
   render: 'Renderizando as cenas (Remotion)',
