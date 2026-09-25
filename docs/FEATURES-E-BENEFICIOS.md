@@ -80,7 +80,8 @@ A plataforma está em **4 idiomas** (português do Brasil, português de Portuga
 | **Filtro por empresa persistente** | Header com seletor de empresa, salvo no navegador | RH multiempresa não perde contexto ao navegar. |
 | **Importação de colaboradores** | CSV/Excel com papel, área/departamento e ordenação por coluna | Onboarding em massa em minutos, sem cadastro manual. |
 | **Turmas** *(ago/2026)* | Coortes dentro da mesma empresa, cada uma com configuração e etapas próprias | Ondas diferentes rodam em paralelo sem se misturar. |
-| **CRUD de Competências** | Por empresa, importável de uma base padrão (educação/corporativo) e por CSV | Não começa do zero: base pronta, customizável. |
+| **Importação de cargos** | Planilha com a ficha de cada cargo: descrição, principais entregas, stakeholders, decisões recorrentes, tensões comuns, contexto e se é de liderança | A IA usa a ficha para escolher as competências do cargo e para montar cenários, conteúdos e kits com a cara do dia a dia de quem o ocupa. |
+| **CRUD de Competências** | Por empresa, importável de uma base padrão (educação/corporativo) e por planilha (CSV/Excel) com títulos em português; os códigos de competência e descritor são gerados pelo sistema, e a mesma matriz pode ser usada em vários cargos | Não começa do zero: base pronta, customizável, e a matriz do cliente entra sem retrabalho de codificação. |
 | **Top 10 + Top 5 + Gabarito** | A IA sugere o top 10 por cargo (com aderência cargo/mercado e motivo), o RH escolhe o top 5 e gera o gabarito | Curadoria assistida: a IA prepara, o RH valida. |
 | **Votação define o cenário** | A competência aprovada na votação dos colaboradores entra direto na geração de cenário, mesmo que não estivesse no Top 10 da IA | A voz da equipe vira avaliação de verdade, sem ficar presa a um pré-filtro. |
 | **Banco de Cenários** | A IA gera cenários situacionais e uma 2ª IA checa | Cenários realistas, validados, sem o RH inventar caso a caso. |

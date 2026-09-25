@@ -28,9 +28,35 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 - Gera link público para preenchimento direto pelo colaborador (autosvc piloto, migration 079)
 
 ### 3. Cadastrar cargos e competências
-**Admin** · `/admin/competencias?empresa={id}`
-- Importar CSV com cabeçalho: `nome,cod_comp,pilar,cargo,descricao,cod_desc,nome_curto,descritor_completo,n1_gap,n2_desenvolvimento,n3_meta,n4_referencia`
-- **Cada linha = 1 descritor**. Uma competência com 6 descritores → 6 linhas com mesmo `nome` e `nome_curto` diferentes
+*(Seção atualizada em 25/09/2026.)* Os dois imports leem só a 1ª aba da planilha (.xlsx, .xls ou
+.csv), com os títulos na linha 1. Os títulos antigos continuam valendo.
+
+**Cargos** · `/admin/empresas/gerenciar` → **Importar Cargos** (ou um a um, na mesma tela)
+- Títulos: `cargo` · `área` · `descrição` · `principais entregas` · `stakeholders` ·
+  `decisões recorrentes` · `tensões comuns` · `contexto cultural` · `cargo de liderança?`
+  (tradução em `lib/cargos-import.ts`). Só `cargo` é obrigatório.
+- O nome do cargo tem que ser igual ao do cadastro dos colaboradores e ao da matriz: é por ele que
+  os três se ligam.
+- A ficha (descrição, entregas, stakeholders, decisões, tensões, contexto) entra na IA1, nos
+  cenários, nos conteúdos e no kit (`lib/cargo-contexto.ts`).
+- `cargo de liderança?`: só é líder o marcado como sim (qualquer caixa); **em branco = não-líder**
+  (decisão do dono, 25/09). O formulário da tela abre marcado como líder. Cargo não-líder fica sem
+  o bloco de liderança no Fit (`actions/fit-v2.ts`).
+- Cargo com o mesmo nome de um que já existe é ignorado: reimportar não atualiza.
+
+**Competências** · `/admin/competencias?empresa={id}` → botão **CSV**
+- Títulos: `competência` · `pilar` · `cargo` · `descrição da competência` · `descritor` ·
+  `descrição do descritor` · `n1_gap` · `n2_desenvolvimento` · `n3_meta` · `n4_referencia` ·
+  `evidencias_esperadas` · `perguntas_alvo` (tradução em `lib/matriz-import.ts`).
+- **Cada linha = 1 descritor**. Uma competência com 6 descritores → 6 linhas com a mesma
+  competência e cargo, e descritores diferentes. Célula vazia nas colunas da competência herda da
+  linha de cima (células mescladas), exceto código e descrição quando a competência muda.
+- **Cargo obrigatório**: linha sem cargo sai com aviso (a IA1 descarta competência sem cargo).
+- **Códigos gerados pelo sistema** quando em branco: competência = 3 letras do cargo + número
+  (`COO01`), descritor = `COO01-D01`, continuando a numeração da empresa. A mesma matriz em 2
+  cargos recebe os mesmos códigos. `cod_comp`/`cod_desc` digitados são respeitados; o mesmo código
+  para 2 competências no mesmo cargo recusa o import inteiro.
+- Reimportar a mesma planilha não duplica nem atualiza (a linha que já existe é ignorada).
 - A régua n1-n4 é usada na avaliação final (sem 14) para ancorar a pontuação
 
 ### 3.5 (Opcional) Popular Base de Conhecimento (RAG)
