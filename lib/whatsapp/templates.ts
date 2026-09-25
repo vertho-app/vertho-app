@@ -857,6 +857,37 @@ export const TEMPLATES = {
     body: 'Olá, {{1}}. O acompanhamento da sua equipe na semana {{2}} está fechado: {{3}} das {{4}} pessoas avançaram na trilha, e {{5}} estão a um passo de concluir.\n\nResponda VER para receber os nomes e o que falta para cada uma.',
     example: ['Carla', '5', '8', '11', '3'],
   },
+
+  /**
+   * Magic link por WhatsApp: login pelo app e pedido ao Beto. APPROVED/UTILITY
+   * desde 15/08/2026; corpo conferido na Meta em 25/09/2026 (não copiado do doc).
+   *
+   * 🔴 ESTÁ AQUI PARA A CAIXA DE ENTRADA, não para ser disparado. Até 25/09 o
+   * template vivia só na Meta, então `corpoDoTemplatePorNome` devolvia `null` e
+   * a thread mostrava "enviado: acesso_vertho" no lugar da mensagem. Medido
+   * naquele dia: 495 envios sem texto, 491 do login e 4 do Beto. O mesmo buraco
+   * cegava o Beto, que descarta do histórico a enviada sem texto e não sabia que
+   * já tinha mandado o link quando a pessoa respondia "não consigo acessar".
+   *
+   * Continua fora da tela de lote: quem libera template para lote é o
+   * `RESOLVEDORES` de `envio-template-lote.ts`, e credencial não entra lá.
+   *
+   * O corpo não tem variável; a credencial (`<slug>~<token_hash>`) vai no `{{1}}`
+   * do BOTÃO, e a caixa grava só o corpo. O rodapé ("Não compartilhe este link
+   * com ninguém.") existe só na Meta, porque `TemplateDef` não modela rodapé.
+   */
+  acesso_vertho: {
+    name: 'acesso_vertho',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Seu link de acesso à Vertho foi gerado. Toque no botão abaixo para entrar.\n\nO link expira em 15 minutos e só pode ser usado uma vez.',
+    example: [],
+    botao: {
+      texto: 'Acessar Vertho',
+      url: 'https://app.vertho.ai/entrar?t={{1}}',
+      exemplo: 'https://app.vertho.ai/entrar?t=ibipeba~pkce_a1b2c3d4e5f6a7b8',
+    },
+  },
 } as const satisfies Record<string, TemplateDef>;
 
 export type TemplateNome = keyof typeof TEMPLATES;

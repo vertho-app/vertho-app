@@ -183,6 +183,28 @@ describe('🔴 o que a cadência manda vira linha na conversa', () => {
     // A caixa é lida pela equipe: um código ali é credencial de outra pessoa.
     expect(JSON.stringify(linha.payload)).not.toContain('314159');
   });
+
+  it('🔴 o link de acesso grava o CORPO e nunca a credencial do botão', async () => {
+    // Forma real do envio (`enviarPorTemplate('acesso')`): corpo sem variável e
+    // `<slug>~<token_hash>` no botão. Até 25/09/2026 o corpo não estava no
+    // catálogo e a thread mostrava só "enviado: acesso_vertho" (495 envios).
+    const sb = novoMock();
+    const credencial = 'ibipeba~pkce_segredo_de_teste';
+    await enviarTemplateCloud(
+      { phone: '5574999225966', template: 'acesso_vertho', params: [], botaoParam: credencial },
+      { motivo: 'acesso', empresaId: 'e1', colaboradorId: 'c1', origem: 'suporte-auto' },
+    );
+
+    const [linha] = enviadas(sb);
+    expect(linha.payload.template_nome).toBe('acesso_vertho');
+    expect(linha.payload.texto).toBe(
+      'Seu link de acesso à Vertho foi gerado. Toque no botão abaixo para entrar.\n\nO link expira em 15 minutos e só pode ser usado uma vez.',
+    );
+    expect(linha.payload.origem).toBe('suporte-auto');
+    // A credencial seguiu para a Meta, no botão, e não pode estar na caixa.
+    expect(JSON.stringify(corpos[0])).toContain(credencial);
+    expect(JSON.stringify(linha.payload)).not.toContain('pkce_segredo_de_teste');
+  });
 });
 
 describe('🔴 quem grava é UM só — a mesma mensagem não pode aparecer duas vezes', () => {
