@@ -144,6 +144,7 @@ function ia(campos: Record<string, unknown> = {}): string {
     solicita_link: false,
     resposta: 'Oi! Aqui é o Beto 👋 Tente gerar um novo link em https://app.vertho.ai/entrar.',
     precisa_humano: false,
+    motivo_humano: 'outro',
     acao: 'responder',
     ...campos,
   });
@@ -290,7 +291,7 @@ describe('suporte-auto · equipe @vertho.ai na ACME (piloto, inalterado)', () =>
     expect(options.geminiSafetySettings).toEqual(SAFETY_SETTINGS_SUPORTE);
     expect(options.geminiResponseSchema).toMatchObject({
       type: 'object',
-      required: ['intencao', 'tom_usuario', 'continua_escalada', 'solicita_link', 'resposta', 'precisa_humano', 'acao'],
+      required: ['intencao', 'tom_usuario', 'continua_escalada', 'solicita_link', 'resposta', 'precisa_humano', 'motivo_humano', 'acao'],
     });
     expect(String(system)).toContain('Você é o Beto');
     expect(String(system)).toContain('Nunca use palavrão');
@@ -872,6 +873,17 @@ describe('suporte-auto · guardas de conduta', () => {
       expect(h.envios[0].input.texto).toBe('O PDI fica em Relatórios, dentro do app.');
     });
 
+    it('🔴 escalada de ETAPA também deixa a conversa com a equipe (o reconhecimento é pelo texto)', async () => {
+      h.enviadas = [{
+        texto: 'A liberação das próximas etapas do programa é com a equipe da Vertho. Deixei seu caso com eles, que continuam com você nesta conversa.',
+        origem: 'suporte-auto',
+        enviada_em: horaAtras(2),
+      }];
+      h.respostaIA = ia({ intencao: 'pendencia', continua_escalada: true, resposta: 'RASCUNHO' });
+      const r = await executarSuporteAuto({ ...colab, texto: 'e aí, vai chegar?', waMessageId: 'wamid.E5' });
+      expect(r).toEqual({ enviou: false, motivo: 'aguardando-equipe' });
+    });
+
     it('sem a leitura do modelo não dá para saber o assunto: cala, a conversa já está com a equipe', async () => {
       h.enviadas = [{ texto: escalada, origem: 'suporte-auto', enviada_em: horaAtras(2) }];
       h.respostaIA = 'texto livre, sem json';
@@ -929,10 +941,42 @@ describe('suporte-auto · guardas de conduta', () => {
   });
 
   it('defeito relatado: escala com pedido de print, sem o rascunho do modelo', async () => {
-    h.respostaIA = ia({ intencao: 'duvida', resposta: 'RASCUNHO', precisa_humano: true, acao: 'escalar' });
+    h.respostaIA = ia({ intencao: 'duvida', resposta: 'RASCUNHO', precisa_humano: true, motivo_humano: 'defeito', acao: 'escalar' });
     const r = await executarSuporteAuto({ ...colab, texto: 'Assisto o vídeo e não consigo marcar que concluí', waMessageId: 'wamid.BUG' });
     expect(r).toEqual({ enviou: true, motivo: 'contencao-escala' });
     expect(h.envios[0].input.texto).toContain('print');
     expect(h.envios[0].input.texto).not.toContain('RASCUNHO');
+  });
+
+  it('🔴 próxima etapa que não chegou: escala SEM pedir print (caso real de 25/09)', async () => {
+    h.respostaIA = ia({ intencao: 'pendencia', resposta: 'RASCUNHO', precisa_humano: true, motivo_humano: 'etapa', acao: 'escalar' });
+    const r = await executarSuporteAuto({
+      ...colab,
+      texto: 'Comecei a fazer o treinamento porém só me foi enviado um link inicial no dia 4 de setembro . Depois não recebi mais nenhum',
+      waMessageId: 'wamid.ETAPA',
+    });
+    expect(r).toEqual({ enviou: true, motivo: 'contencao-escala' });
+    expect(h.envios[0].input.texto).toContain('próximas etapas');
+    expect(h.envios[0].input.texto).not.toMatch(/print|mensagem de erro/i);
+  });
+
+  it('motivo ausente ou fora da lista: escala com o genérico, sem jogar fora a leitura do modelo', async () => {
+    for (const [motivo, wamid] of [[undefined, 'wamid.M1'], ['inventado', 'wamid.M2']] as const) {
+      h.envios = [];
+      const saida = JSON.parse(ia({ precisa_humano: true, acao: 'escalar', motivo_humano: motivo }));
+      h.respostaIA = JSON.stringify(saida);
+      const r = await executarSuporteAuto({ ...colab, texto: 'preciso de ajuda com uma coisa', waMessageId: wamid });
+      // `contencao-escala`, e não `contencao-parse`: a saída continua valendo.
+      expect(r, String(motivo)).toEqual({ enviou: true, motivo: 'contencao-escala' });
+      expect(h.envios[0].input.texto).not.toMatch(/print/i);
+      resetSuporteAutoMemoria();
+    }
+  });
+
+  it('o schema pede o motivo ao Gemini', async () => {
+    await executarSuporteAuto(colab);
+    const [, , , , options] = h.chamadasIA[0];
+    expect(options.geminiResponseSchema.required).toContain('motivo_humano');
+    expect(options.geminiResponseSchema.properties.motivo_humano.enum).toEqual(['defeito', 'conta', 'etapa', 'outro']);
   });
 });

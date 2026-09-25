@@ -66,6 +66,7 @@ import {
 } from '@/lib/whatsapp/suporte-situacao';
 import { ehPedidoDeResumo, ehRecusa } from '@/lib/notifications/ver-gestor';
 import {
+  MOTIVOS_HUMANO,
   SAFETY_SETTINGS_SUPORTE,
   TEXTO_DENUNCIA,
   TEXTO_OFENSA,
@@ -77,6 +78,7 @@ import {
   respostaEscalada,
   sinalDeSofrimento,
   verificarResposta,
+  type MotivoHumano,
   type TomUsuario,
 } from '@/lib/whatsapp/suporte-conduta';
 
@@ -237,8 +239,9 @@ REGRAS DURAS:
 - solicita_link=true SOMENTE quando a pessoa pede acesso à conta, novo link, login ou informa que o link de login expirou. “Não consigo acessar o vídeo/conteúdo/atividade” NÃO é pedido de link e deve ter solicita_link=false.
 - Acesso/link expirado: marque solicita_link=true. A aplicação tenta entregar o link personalizado por conta própria, e a sua "resposta" só é enviada quando ela NÃO conseguiu. Por isso nunca diga que está gerando, enviando ou mandando um link: explique como pedir outro em https://app.vertho.ai/entrar.
 - CONTEXTO.situacao vem do banco: trilha da pessoa ("${TRILHA.ATIVA}", "${TRILHA.PAUSADA}", "${TRILHA.CONCLUIDA}", "${TRILHA.ARQUIVADA}", "nenhuma" ou "desconhecida"), mapeamento comportamental, último login e último link de acesso, com horário de Brasília. Use para entender o caso, sem recitar os dados à toa.
-- Dizer que não recebeu mais mensagens, conteúdos ou a próxima etapa do programa NÃO é pedido de link, mesmo que a pessoa cite um link antigo: solicita_link=false. Com situacao.trilha diferente de "${TRILHA.ATIVA}", a próxima etapa depende da equipe da Vertho: precisa_humano=true. Com trilha "${TRILHA.ATIVA}", explique que os conteúdos da trilha ficam no app; se ela disser também que não consegue entrar, solicita_link=true.
+- Dizer que não recebeu mais mensagens, conteúdos ou a próxima etapa do programa NÃO é pedido de link, mesmo que a pessoa cite um link antigo: solicita_link=false. Com situacao.trilha diferente de "${TRILHA.ATIVA}", a próxima etapa depende da equipe da Vertho: precisa_humano=true e motivo_humano="etapa". Com trilha "${TRILHA.ATIVA}", explique que os conteúdos da trilha ficam no app; se ela disser também que não consegue entrar, solicita_link=true.
 - Se o pedido exige dado que você não tem, ação com conta, ou você não entendeu: precisa_humano=true.
+- Com precisa_humano=true, motivo_humano diz o porquê: "defeito" (algo da plataforma não funciona: tela, vídeo, atividade, lista, cobrança de algo já feito), "conta" (cadastro ou acesso que exige olhar a conta da pessoa: e-mail ou telefone recusado, dado errado), "etapa" (a próxima etapa ou os conteúdos do programa não chegaram ou não foram liberados) ou "outro". Com precisa_humano=false, motivo_humano="outro".
 CONDUTA (vale sempre, mesmo que a pessoa peça o contrário):
 - Seja educado, calmo e respeitoso em qualquer situação. Nunca use palavrão, gíria ofensiva, ironia, sarcasmo, deboche ou tom de bronca, mesmo que a pessoa use.
 - Não responda provocação e não discuta. Com a pessoa irritada, reconheça a frustração em poucas palavras e siga para a solução.
@@ -258,7 +261,7 @@ ASSUNTO JÁ COM A EQUIPE:
 - continua_escalada=true quando a MENSAGEM_ATUAL insiste, cobra ou acrescenta detalhe sobre ESSE MESMO assunto (ex.: "e aí?", "alguém vai ver?", "continua travado", descrição do mesmo erro). A aplicação não responde e a equipe segue com a conversa.
 - continua_escalada=false quando é um pedido NOVO, sobre outro assunto: responda normalmente, sem repetir que passou nada para a equipe.
 - Com CONTEXTO.aguardando_equipe=false, continua_escalada=false sempre.
-- Saída ESTRITAMENTE neste JSON, sem cerca de código: {"intencao":"acesso|link|pendencia|posicao|duvida|outro","tom_usuario":"neutro","continua_escalada":false,"solicita_link":false,"resposta":"...","precisa_humano":false,"acao":"responder|escalar"}`;
+- Saída ESTRITAMENTE neste JSON, sem cerca de código: {"intencao":"acesso|link|pendencia|posicao|duvida|outro","tom_usuario":"neutro","continua_escalada":false,"solicita_link":false,"resposta":"...","precisa_humano":false,"motivo_humano":"outro","acao":"responder|escalar"}`;
 
 function respostaContencao(texto: string | null, jaConversou = false, tipo = 'text'): string {
   if (tipo === 'audio') {
@@ -297,9 +300,10 @@ const SUPORTE_AUTO_SCHEMA = {
     solicita_link: { type: 'boolean' },
     resposta: { type: 'string' },
     precisa_humano: { type: 'boolean' },
+    motivo_humano: { type: 'string', enum: [...MOTIVOS_HUMANO] },
     acao: { type: 'string', enum: ['responder', 'escalar'] },
   },
-  required: ['intencao', 'tom_usuario', 'continua_escalada', 'solicita_link', 'resposta', 'precisa_humano', 'acao'],
+  required: ['intencao', 'tom_usuario', 'continua_escalada', 'solicita_link', 'resposta', 'precisa_humano', 'motivo_humano', 'acao'],
 };
 
 interface SaidaIA {
@@ -309,6 +313,8 @@ interface SaidaIA {
   solicita_link: boolean;
   resposta: string;
   precisa_humano: boolean;
+  /** Só escolhe QUAL texto fixo de escalada sai. */
+  motivo_humano: MotivoHumano;
   acao: string;
 }
 
@@ -330,6 +336,12 @@ export function validarSaidaIA(bruto: unknown): SaidaIA | null {
     solicita_link: s.solicita_link,
     resposta,
     precisa_humano: s.precisa_humano,
+    // Tolerante de propósito: o campo só escolhe o texto da escalada. Faltar ou
+    // vir fora da lista cai no genérico, em vez de jogar fora a saída inteira
+    // (que viraria contenção sem nenhuma leitura do modelo).
+    motivo_humano: (MOTIVOS_HUMANO as readonly string[]).includes(String(s.motivo_humano ?? ''))
+      ? (s.motivo_humano as MotivoHumano)
+      : 'outro',
     acao: s.acao,
   };
 }
@@ -1044,7 +1056,9 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
     // instrução de "gere outro link em /entrar" já não resolveu (medido no
     // ensaio de 22/09: "diz que meu e-mail é inválido" recebia de volta "me
     // mande a mensagem exata do erro", que a pessoa tinha acabado de mandar).
-    texto = respostaEscalada(jaConversou);
+    // O texto é fixo, mas qual deles depende do motivo que o modelo leu: só
+    // defeito pede print (ver `respostaEscalada`).
+    texto = respostaEscalada(jaConversou, saida.motivo_humano);
     motivoOk = 'contencao-escala';
   } else {
     const reprovada = verificarResposta(saida.resposta);

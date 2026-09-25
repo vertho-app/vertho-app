@@ -8,6 +8,7 @@ import {
   ehSoConfirmacao,
   linguagemImpropria,
   linkNaoPermitido,
+  MOTIVOS_HUMANO,
   normalizar,
   passouParaEquipe,
   respostaEscalada,
@@ -121,10 +122,30 @@ describe('verificarResposta', () => {
 
 describe('textos fixos', () => {
   it('passam pela própria verificação de palavrão e não têm travessão', () => {
-    for (const t of [TEXTO_SOFRIMENTO, TEXTO_DENUNCIA, TEXTO_OFENSA, respostaEscalada(false), respostaEscalada(true)]) {
+    const escaladas = MOTIVOS_HUMANO.flatMap((m) => [respostaEscalada(false, m), respostaEscalada(true, m)]);
+    for (const t of [TEXTO_SOFRIMENTO, TEXTO_DENUNCIA, TEXTO_OFENSA, ...escaladas]) {
       expect(linguagemImpropria(t)).toBeNull();
       expect(t).not.toMatch(/[—–]/);
     }
+    // O de sofrimento cita `cvv.org.br` de propósito; as escaladas não têm link nenhum.
+    for (const t of escaladas) expect(linkNaoPermitido(t)).toBeNull();
+  });
+
+  it('🔴 só a escalada de DEFEITO pede print; as outras não pedem nada à pessoa (25/09/2026)', () => {
+    // "Não recebi mais nenhum conteúdo" recebia "manda um print ou a mensagem de erro".
+    expect(respostaEscalada(true, 'defeito')).toContain('print da tela');
+    for (const m of ['conta', 'etapa', 'outro'] as const) {
+      expect(respostaEscalada(true, m), m).not.toMatch(/print|mensagem de erro/i);
+    }
+    // Sem motivo (bloqueio do filtro, saída fora do contrato) vai o genérico.
+    expect(respostaEscalada(true)).toBe(respostaEscalada(true, 'outro'));
+    expect(respostaEscalada(true, 'etapa')).toContain('próximas etapas');
+    expect(respostaEscalada(true, 'conta')).toContain('cadastro');
+  });
+
+  it('as quatro variantes são textos DIFERENTES (senão o motivo não muda nada)', () => {
+    const corpos = MOTIVOS_HUMANO.map((m) => respostaEscalada(true, m));
+    expect(new Set(corpos).size).toBe(MOTIVOS_HUMANO.length);
   });
 
   it('sofrimento leva o CVV e o SAMU; denúncia leva o 190', () => {
@@ -145,6 +166,22 @@ describe('textos fixos', () => {
     expect(passouParaEquipe(TEXTO_SOFRIMENTO)).toBe(false);
     expect(passouParaEquipe(TEXTO_DENUNCIA)).toBe(false);
     expect(passouParaEquipe('Oi! Tente em https://app.vertho.ai/entrar')).toBe(false);
+  });
+
+  it('🔴 TODA variante passa a conversa para a equipe: esquecer uma faria o Beto voltar a responder', () => {
+    for (const m of MOTIVOS_HUMANO) {
+      expect(passouParaEquipe(respostaEscalada(false, m)), `${m} com apresentação`).toBe(true);
+      expect(passouParaEquipe(respostaEscalada(true, m)), m).toBe(true);
+    }
+  });
+
+  it('🔴 a escalada gravada ANTES de 25/09 (texto único) continua reconhecida', () => {
+    // Literal, como está no banco: se a variante de defeito mudar uma vírgula, as
+    // escaladas das últimas 12 h deixam de calar o Beto.
+    const antiga = 'Isso eu não consigo resolver por aqui, então deixei com a equipe da Vertho, que '
+      + 'continua com você nesta conversa. Se tiver um print da tela ou a mensagem de erro, pode mandar aqui mesmo.';
+    expect(passouParaEquipe(antiga)).toBe(true);
+    expect(passouParaEquipe(`Oi! Sou o Beto, assistente virtual da Vertho 👋 ${antiga}`)).toBe(true);
   });
 });
 

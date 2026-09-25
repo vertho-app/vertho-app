@@ -221,10 +221,38 @@ export const TEXTO_OFENSA =
 
 const APRESENTACAO = 'Oi! Sou o Beto, assistente virtual da Vertho 👋';
 
-/** Pedido que o Beto não resolve (defeito, ação na conta, bloqueio do filtro). */
-export function respostaEscalada(jaConversou: boolean): string {
-  const corpo = 'Isso eu não consigo resolver por aqui, então deixei com a equipe da Vertho, que '
-    + 'continua com você nesta conversa. Se tiver um print da tela ou a mensagem de erro, pode mandar aqui mesmo.';
+/**
+ * Por que o assunto foi para a equipe. Quem classifica é o modelo
+ * (`motivo_humano`); o TEXTO continua fixo, escolhido aqui.
+ *
+ * 🔴 ATÉ 25/09/2026 ERA UM TEXTO SÓ, e ele pedia "print da tela ou a mensagem de
+ * erro" a todo mundo. Encaixa num vídeo que trava; não encaixa em "não recebi
+ * mais nenhum conteúdo" (professora sem trilha, caso real de 25/09) nem em "diz
+ * que meu e-mail é inválido", que acabou de mandar o erro. Pedir de novo o que a
+ * pessoa já disse soa como não ter lido.
+ */
+export const MOTIVOS_HUMANO = ['defeito', 'conta', 'etapa', 'outro'] as const;
+export type MotivoHumano = (typeof MOTIVOS_HUMANO)[number];
+
+const CORPO_ESCALADA: Record<MotivoHumano, string> = {
+  // Byte-igual ao texto único de antes de 25/09: as escaladas já gravadas nas
+  // últimas 12 h continuam reconhecidas por `passouParaEquipe`.
+  defeito: 'Isso eu não consigo resolver por aqui, então deixei com a equipe da Vertho, que '
+    + 'continua com você nesta conversa. Se tiver um print da tela ou a mensagem de erro, pode mandar aqui mesmo.',
+  conta: 'Para isso alguém precisa conferir o seu cadastro, então deixei com a equipe da Vertho, que '
+    + 'continua com você nesta conversa.',
+  etapa: 'A liberação das próximas etapas do programa é com a equipe da Vertho. Deixei seu caso com '
+    + 'eles, que continuam com você nesta conversa.',
+  outro: 'Isso eu não consigo resolver por aqui, então deixei com a equipe da Vertho, que '
+    + 'continua com você nesta conversa.',
+};
+
+/**
+ * Pedido que o Beto não resolve. Sem motivo (bloqueio do filtro, saída fora do
+ * contrato) vai o genérico, que não pede nada à pessoa.
+ */
+export function respostaEscalada(jaConversou: boolean, motivo: MotivoHumano = 'outro'): string {
+  const corpo = CORPO_ESCALADA[motivo] ?? CORPO_ESCALADA.outro;
   return jaConversou ? corpo : `${APRESENTACAO} ${corpo}`;
 }
 
@@ -234,8 +262,16 @@ export function respostaEscalada(jaConversou: boolean): string {
  * assunto novo tem, e quem decide qual é o caso é o modelo
  * (`continua_escalada`, em suporte-auto.ts). Sofrimento e denúncia ficam de
  * fora de propósito: se a pessoa seguir em crise, o CVV precisa sair de novo.
+ *
+ * ⚠️ O reconhecimento é pelo texto EXATO, então cada variante de escalada tem de
+ * estar aqui. Uma variante esquecida faria o Beto responder de novo a quem já
+ * foi passado para a equipe, desmentindo o "deixei com a equipe".
  */
+const TEXTOS_QUE_PASSAM = new Set<string>([
+  TEXTO_OFENSA,
+  ...MOTIVOS_HUMANO.flatMap((m) => [respostaEscalada(true, m), respostaEscalada(false, m)]),
+]);
+
 export function passouParaEquipe(texto: string | null | undefined): boolean {
-  const t = String(texto ?? '').trim();
-  return t === TEXTO_OFENSA || t === respostaEscalada(true) || t === respostaEscalada(false);
+  return TEXTOS_QUE_PASSAM.has(String(texto ?? '').trim());
 }

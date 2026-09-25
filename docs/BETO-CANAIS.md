@@ -151,6 +151,17 @@ Textos fixos, rascunho do modelo nunca enviado: sofrimento, denúncia, ofensa, e
 do filtro, IA fora do contrato. Degradações: `suporte-auto-falhou` (não atendeu) e
 `suporte-auto-conduta` (caso de conduta; o conteúdo da mensagem não vai no detalhe, está na caixa).
 
+A escalada tem quatro textos fixos desde 25/09/2026, e quem escolhe qual sai é o `motivo_humano`
+do modelo (`respostaEscalada` em `suporte-conduta.ts`): `defeito` pede print da tela ou a mensagem
+de erro; `conta` diz que alguém precisa conferir o cadastro; `etapa` diz que a liberação das
+próximas etapas é com a equipe; `outro` (e o bloqueio do filtro) só avisa que ficou com a equipe.
+Até então era um texto só, que pedia print a todo mundo, inclusive a quem dizia "não recebi mais
+nenhum conteúdo". O de `defeito` é byte-igual ao antigo, e `passouParaEquipe` reconhece as quatro
+variantes pelo texto exato: uma variante fora dessa lista faria o Beto voltar a responder a quem já
+foi passado para a equipe. `Medido em 25/09/2026` no ensaio (§2.6): e-mail recusado saiu `conta`,
+vídeo que não marca e nome que sumiu da lista `defeito`, "não recebi mais nenhum" sem trilha
+`etapa`, 3 de 3 em cada caso.
+
 ### 2.5 Quando o Beto fica calado, e o freio
 
 A mensagem continua na caixa, com push para a equipe:
