@@ -218,12 +218,34 @@ function assinaturaAvatar(): string {
 
 /** O que a MÃE de um grupo devolve ao orquestrador (`trigger/gerar-video-grupo.ts`). */
 export interface AvatarDaMae {
-  /** A narração saiu num take só e aprovado. Sem isso o avatar não vira referência. */
+  /** A narração saiu num take só e aprovado (diagnóstico; não é mais condição, 25/09/2026). */
   takeUnico: boolean;
-  /** F0 mediana do take inteiro da mãe: o alvo do portão para o miolo das irmãs. */
+  /** F0 mediana da fala do AVATAR da mãe (abertura + fecho): o alvo do portão para o miolo
+   *  das irmãs, que é emendado justamente nessas duas cenas. */
   f0Hz: number | null;
   assinatura: string;
   avatar: { intro: AssetAvatar | null; outro: AssetAvatar | null };
+}
+
+/**
+ * F0 mediana da fala do avatar (abertura + fecho juntos). É contra essa altura que o
+ * miolo da irmã é julgado, então ela é medida no áudio que a irmã de fato recebe, e não
+ * no take inteiro (que nem existe quando a mãe saiu pelo caminho por cena). `null` se
+ * não deu para baixar ou medir: aí a mãe não serve de referência.
+ */
+async function f0DoAvatar(urls: string[]): Promise<number | null> {
+  try {
+    const pcms = await Promise.all(urls.map(async (u) => {
+      const r = await fetch(u);
+      if (!r.ok) throw new Error(`download ${r.status} de ${u.split('/').slice(-2).join('/')}`);
+      return mp3ParaPcm24k(Buffer.from(await r.arrayBuffer()));
+    }));
+    const f0 = medirDeriva(Buffer.concat(pcms), 24000).f0MedHz;
+    return f0 > 0 ? f0 : null;
+  } catch (e) {
+    console.warn('[avatar-grupo] não mediu a F0 do avatar da mãe:', (e as Error)?.message);
+    return null;
+  }
 }
 
 /** Take mais recente desta geração no Storage (`{videoId}/take-{assinatura}-{tag}.mp3`),
@@ -383,9 +405,8 @@ export async function executarGeracaoVideoModulo(p: {
         }
         if (fixas.size) alvoDoGrupo = { f0Hz: p.avatarGrupo.f0Hz, tolSt: ELENCO.mentora.tolSt };
       }
-      // Da mãe: o take único saiu e aprovado, e a altura dele (o alvo das irmãs).
+      // Da mãe: se o take único saiu e aprovado (só diagnóstico).
       let takeUnicoOk = false;
-      let f0DoTake: number | null = null;
 
       // 1) NARRAÇÃO — uma voz (Callirrhoe, ritmo ágil) em todo o vídeo. Paralela
       // (pool) — antes era sequencial (~3s × N cenas). Saída idêntica (assets por id).
@@ -461,7 +482,6 @@ export async function executarGeracaoVideoModulo(p: {
         if (falhas.length) throw new Error(`upload de fatia falhou (${falhas.length}/${fatias.length}): ${falhas.join(' · ')}`);
         for (const p of prontas) { assets[p.id] = p.asset; duracaoLocal[p.id] = p.dur; }
         takeUnicoOk = true;
-        if (p.papelGrupo === 'mae') f0DoTake = medirDeriva(pcm, 24000).f0MedHz || null;
         console.log(`[narracao-unica] ${fatias.length} cenas de um take de ${duracaoS.toFixed(0)}s em ${Math.round((Date.now() - t0) / 1000)}s · casamento ${fatias.map((f) => `${f.id}:${f.casadas}/${f.total}`).join(' ')} · ${origem}${alvo ? ` · alvo do grupo ${alvo.f0Hz.toFixed(0)} Hz` : ''}`);
       };
       const registrarRecusaDoTake = (e: unknown) => {
@@ -614,7 +634,10 @@ export async function executarGeracaoVideoModulo(p: {
       const vtt = exportCaptionsToVtt(props.captions);
 
       // A mãe devolve o avatar ao orquestrador, que o grava no grupo para as irmãs.
-      const grupoDaMae = (): AvatarDaMae | undefined => {
+      // Com ou sem narração única (25/09/2026: no piloto ela foi recusada nas 3 células,
+      // e exigi-la fazia o grupo quase nunca pegar). O alvo das irmãs é a altura do
+      // próprio avatar, medida no áudio que elas recebem.
+      const grupoDaMae = async (): Promise<AvatarDaMae | undefined> => {
         if (p.papelGrupo !== 'mae') return undefined;
         const intro = roteiro.scenes.find((s) => s.type === 'avatar_intro');
         const outro = [...roteiro.scenes].reverse().find((s) => s.type === 'avatar_outro');
@@ -622,7 +645,9 @@ export async function executarGeracaoVideoModulo(p: {
           const a = s ? assets[s.id] : undefined;
           return a?.audioSrc ? { src: a.src, audioSrc: a.audioSrc, words: a.words, durationSec: a.durationSec, heygenVideoId: a.heygenVideoId } : null;
         };
-        return { takeUnico: takeUnicoOk, f0Hz: f0DoTake, assinatura: assinaturaAvatar(), avatar: { intro: doAvatar(intro), outro: doAvatar(outro) } };
+        const avatar = { intro: doAvatar(intro), outro: doAvatar(outro) };
+        const f0Hz = avatar.intro && avatar.outro ? await f0DoAvatar([avatar.intro.audioSrc, avatar.outro.audioSrc]) : null;
+        return { takeUnico: takeUnicoOk, f0Hz, assinatura: assinaturaAvatar(), avatar };
       };
 
       if ((process.env.RENDER_BACKEND || 'hetzner') === 'hetzner') {
@@ -632,7 +657,7 @@ export async function executarGeracaoVideoModulo(p: {
         // Best-effort: se o provision falhar, o job fica na fila p/ a próxima box.
         const prov = await ensureRenderWorker().catch((e) => ({ provisioned: false, reason: String(e?.message || e) }));
         console.log(`${videoId}: ensureRenderWorker → ${prov.provisioned ? 'boxes ' + ((prov as any).created || []).join(',') : 'no-op'} (${prov.reason})`);
-        return { ok: true, videoId, queued: 'hetzner', frames: props.totalFrames, worker: prov, grupo: grupoDaMae() };
+        return { ok: true, videoId, queued: 'hetzner', frames: props.totalFrames, worker: prov, grupo: await grupoDaMae() };
       }
 
       const chunks = p.chunks ?? Math.min(10, Math.max(2, Math.ceil(props.totalFrames / (props.fps * 12))));
@@ -665,7 +690,7 @@ export async function executarGeracaoVideoModulo(p: {
         error: null,
       });
 
-      return { ok: true, videoId, bunnyVideoId: out.bunnyVideoId, frames: out.frames, bytes: out.bytes, grupo: grupoDaMae() };
+      return { ok: true, videoId, bunnyVideoId: out.bunnyVideoId, frames: out.frames, bytes: out.bytes, grupo: await grupoDaMae() };
     } catch (e: any) {
       console.error(`gerar-video-modulo ${videoId} FALHOU:`, e?.message || e);
       // Se gravar o status=error falhar, o job fica preso em 'processing' sem

@@ -1587,8 +1587,8 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   - *Outra voz, modelo, foto, motor ou fps* entre a mãe e a irmã (deploy no meio do lote): trava pela
     `assinatura`; a irmã recusa e gera o próprio avatar.
   - *Salto de altura no corte avatar → miolo*: o miolo da irmã sai num take só com o alvo de F0 MEDIDO
-    no take da mãe (±`ELENCO.mentora.tolSt`). Se o portão recusar em todas as tentativas, a irmã sai
-    do grupo e refaz tudo como hoje. A mãe só vira referência com narração única aprovada.
+    no áudio do avatar da mãe, abertura e fecho juntos (±`ELENCO.mentora.tolSt`). Se o portão recusar
+    em todas as tentativas, a irmã sai do grupo e refaz tudo como hoje.
   - *Célula esquecida em `aguardando_avatar`* (orquestrador não sobe ou cai no meio): o despacho do
     Kit e o `catch` do orquestrador disparam o que sobrou pelo fluxo de hoje. Cada célula sai da
     espera por UPDATE condicionado à etapa, então nunca é disparada duas vezes. O `video-stale` (2h)
@@ -1610,9 +1610,10 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   A trava funcionou (grupo `erro`, irmãs pelo fluxo de hoje, degradação `grupo:mae` registrada), mas
   por dois motivos que não são do grupo: (1) um clipe da mãe ficou pronto em 22,4 min na fila da
   HeyGen e a espera era de 20 (subiu para ~40, ver `lib/video/heygen.ts`); (2) a narração única
-  foi recusada nas TRÊS células (2× corte sem pausa, 1× portão +1,6 st), e a mãe só vira referência
-  com narração única aprovada. Com essa taxa de recusa, o grupo quase nunca pega. Custo do piloto
-  na HeyGen: US$ 1,69 (três pares, não um).
+  foi recusada nas TRÊS células (2× corte sem pausa, 1× portão +1,6 st), e a mãe só virava
+  referência com narração única aprovada. Com essa taxa de recusa, o grupo quase nunca pegaria.
+  Custo do piloto na HeyGen: US$ 1,69 (três pares, não um). **Decisão do dono no mesmo dia:** a mãe
+  vira referência também pelo caminho por cena, com o alvo medido no áudio do avatar dela.
 
 ### F-V7 · O TTS repete a frase final da cena narrada sozinha, e a HeyGen dubla a repetição 🔴 (corrigido 25/09/2026 no código; vídeos antigos NÃO)
 - **Gatilho:** no caminho por cena (narração única recusada, ou retake de uma cena), cada cena é

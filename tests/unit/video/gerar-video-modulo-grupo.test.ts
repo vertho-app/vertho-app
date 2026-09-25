@@ -35,7 +35,9 @@ vi.mock('@/lib/video/narracao-unica', async (orig) => ({
 // O "mp3" re-encodado carrega o tamanho do PCM que entrou: é assim que o teste vê se o
 // áudio que subiu (e foi para a HeyGen) é o CORTADO ou o que o TTS devolveu.
 vi.mock('@/lib/tts/audio-dsp', () => ({ pcmToMp3SemMaster: (pcm: Buffer) => Buffer.from(`MP3-PCM:${pcm.length}`) }));
-vi.mock('@/lib/tts/deriva', () => ({ medirDeriva: () => ({ f0MedHz: 201.3 }) }));
+// A F0 depende do tamanho do áudio medido: 201,3 Hz só para abertura + fecho JUNTOS
+// (dois arquivos concatenados). É assim que o teste prova ONDE a mãe mediu a altura.
+vi.mock('@/lib/tts/deriva', () => ({ medirDeriva: (pcm: Buffer) => ({ f0MedHz: pcm.length === 2 * pcmBytes ? 201.3 : 150 }) }));
 vi.mock('@/lib/video/montar-inputprops', () => ({
   montarInputProps: () => ({ totalFrames: 100, fps: 30, height: 1080, captions: [] }),
   exportCaptionsToSrt: () => '', exportCaptionsToVtt: () => '',
@@ -81,6 +83,7 @@ const payload = (extra: any = {}) => ({
 });
 
 let patches: any[];
+const baixados: string[] = [];
 let assetsIniciais: Record<string, any> = {};
 function stubFetch() {
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: any = {}) => {
@@ -88,6 +91,7 @@ function stubFetch() {
     const ok = (b: unknown) => new Response(JSON.stringify(b), { status: 200 });
     if (u.includes('/storage/v1/object/list/')) return ok([]);
     if (u.includes('heygen.test')) return new Response(Buffer.alloc(5000), { status: 200 });
+    if (u.startsWith('https://st.test/')) { baixados.push(u); return new Response(Buffer.alloc(3000), { status: 200 }); }
     if (u.includes('/rest/v1/videos_gerados')) {
       if (init.method === 'PATCH') { patches.push(JSON.parse(init.body)); return new Response(null, { status: 204 }); }
       if (u.includes('select=assets')) return ok([{ assets: assetsIniciais }]);
@@ -103,6 +107,7 @@ const textoDe = (chamada: any[]) => String(chamada[0]);
 
 beforeEach(() => {
   for (const k of Object.keys(subidos)) delete subidos[k];
+  baixados.length = 0;
   patches = [];
   assetsIniciais = {};
   pcmBytes = 48000;
@@ -145,10 +150,24 @@ describe('mãe', () => {
     expect(r.grupo.avatar.outro.src).toMatch(/v-mae\/scene-4-.*\.mp4$/);
   });
 
-  it('take recusado (caminho por cena): a mãe avisa que NÃO serve de referência', async () => {
+  it('a F0 é medida no áudio do AVATAR (abertura + fecho que as irmãs recebem)', async () => {
+    const r: any = await executarGeracaoVideoModulo({ videoId: 'v-mae', roteiro: roteiro(), papelGrupo: 'mae' });
+    expect(r.grupo.f0Hz).toBe(201.3);
+    expect(baixados).toEqual(expect.arrayContaining([r.grupo.avatar.intro.audioSrc, r.grupo.avatar.outro.audioSrc]));
+  });
+
+  it('take recusado (caminho por cena): a mãe SERVE de referência, com a F0 do avatar', async () => {
     planejar.mockReturnValue({ ok: false, motivo: 'corte sem pausa' });
     const r: any = await executarGeracaoVideoModulo({ videoId: 'v-mae', roteiro: roteiro(), papelGrupo: 'mae' });
     expect(r.grupo.takeUnico).toBe(false);
+    expect(r.grupo.f0Hz).toBe(201.3);
+    expect(r.grupo.avatar.intro?.audioSrc).toBeTruthy();
+  });
+
+  it('não conseguiu baixar o áudio do avatar: f0Hz nulo (o orquestrador não usa essa mãe)', async () => {
+    const f = globalThis.fetch as any;
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init: any) => (String(url).startsWith('https://st.test/') ? new Response('x', { status: 503 }) : f(url, init))));
+    const r: any = await executarGeracaoVideoModulo({ videoId: 'v-mae', roteiro: roteiro(), papelGrupo: 'mae' });
     expect(r.grupo.f0Hz).toBeNull();
   });
 });

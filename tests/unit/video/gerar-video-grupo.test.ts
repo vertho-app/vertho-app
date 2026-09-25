@@ -138,9 +138,8 @@ describe('executarGrupoAvatar · caminho feliz', () => {
 
 describe('executarGrupoAvatar · a mãe não serve de referência', () => {
   it.each([
-    ['saiu pelo caminho por cena', { ok: true, output: { grupo: { ...MAE_OK.output.grupo, takeUnico: false } } }, /narração única/],
     ['falhou', { ok: false, error: { message: 'HeyGen timeout aguardando video_id x' } }, /mãe falhou: HeyGen timeout/],
-    ['sem F0', { ok: true, output: { grupo: { ...MAE_OK.output.grupo, f0Hz: null } } }, /F0/],
+    ['sem F0 do avatar', { ok: true, output: { grupo: { ...MAE_OK.output.grupo, f0Hz: null } } }, /F0 medida no áudio do avatar/],
     ['sem o fecho', { ok: true, output: { grupo: { ...MAE_OK.output.grupo, avatar: { intro: AVATAR.intro, outro: null } } } }, /duas cenas/],
   ])('mãe %s: grupo em erro, degradação, irmãs no fluxo de hoje (sem o avatar)', async (_nome, res, motivo) => {
     triggerAndWait.mockResolvedValue(res);
@@ -152,6 +151,15 @@ describe('executarGrupoAvatar · a mãe não serve de referência', () => {
     expect(disparadas().map((p: any) => p.videoId)).toEqual(['v-I', 'v-S']);
     expect(disparadas().every((p: any) => !('avatarGrupo' in p))).toBe(true);
     expect(r.ok).toBe(false);
+  });
+
+  it('mãe que saiu pelo caminho por cena SERVE de referência (regra de 25/09/2026)', async () => {
+    triggerAndWait.mockResolvedValue({ ok: true, output: { grupo: { ...MAE_OK.output.grupo, takeUnico: false } } });
+    const r: any = await executarGrupoAvatar({ grupoId: 'g-1' });
+    expect(patchesGrupo.at(-1)).toMatchObject({ status: 'pronto', f0_hz: 204.5 });
+    expect(disparadas().every((p: any) => p.avatarGrupo?.f0Hz === 204.5)).toBe(true);
+    expect(r.ok).toBe(true);
+    expect(degradacoes).toEqual([]);
   });
 
   it('a mãe já foi tirada da espera por outra rodada: não dispara nada', async () => {

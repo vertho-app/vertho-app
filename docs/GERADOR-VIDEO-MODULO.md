@@ -109,11 +109,15 @@ do acervo de 24/09: −40 a −51% por módulo.
    `aplicarAvatarFixo` IMPÕE o texto. Sem `avatarFixo` o prompt é byte a byte o de antes (snapshot).
 3. **Células inseridas sem disparo** (`etapa = aguardando_avatar`, `avatar_grupo_id`).
 4. **Orquestrador** (`trigger/gerar-video-grupo.ts`): gera a 1ª célula pela ordem D, I, S, C (a
-   mãe) com `triggerAndWait`, grava o avatar dela no grupo e dispara as irmãs com ele. A mãe só serve
-   de referência com narração única aprovada, as duas cenas de avatar prontas e F0 medida.
+   mãe) com `triggerAndWait`, grava o avatar dela no grupo e dispara as irmãs com ele. A mãe serve
+   de referência com as duas cenas de avatar prontas e a F0 medida no áudio delas. Narração única
+   NÃO é condição desde 25/09/2026: no piloto ela foi recusada nas 3 células, e exigi-la fazia o
+   grupo quase nunca pegar. A mãe que saiu pelo caminho por cena tem a costura de sempre; as irmãs
+   herdam a mesma.
 5. **Irmã** (`gerar-video-modulo`, payload `avatarGrupo`): as cenas de avatar chegam prontas (mp4 da
    mãe, mp3, timing); a narração única cobre só o miolo, com o portão julgando a altura contra a F0 do
-   take da mãe (`alvo`, tolerância do elenco). O passo da HeyGen pula sozinho.
+   AVATAR da mãe, abertura e fecho juntos (`alvo`, tolerância do elenco). O passo da HeyGen pula
+   sozinho.
 
 **Tabela** `video_avatar_grupo` (mig 270): `chave` única = hash de empresa, módulo, cargo, contexto
 do cargo e do PPP e `VERSAO_AVATAR_GRUPO`. Status `pendente` → `pronto` | `erro` (fonte:

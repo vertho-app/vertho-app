@@ -9,8 +9,10 @@
  *   2. grupo já `pronto` → todas saem como irmãs, com o avatar gravado;
  *   3. senão, gera a mãe (`triggerAndWait`: a espera é checkpointada, sem cobrança
  *      ociosa), grava o avatar dela no grupo e dispara as irmãs;
- *   4. mãe que falhou, ou que saiu sem narração única, NÃO vira referência: grupo
- *      `erro`, irmãs no fluxo de hoje (cada uma com a sua HeyGen) e degradação.
+ *   4. mãe que falhou, ou sem as duas cenas de avatar, ou sem F0 medida, NÃO vira
+ *      referência: grupo `erro`, irmãs no fluxo de hoje (cada uma com a sua HeyGen) e
+ *      degradação. Narração única NÃO é condição (25/09/2026): no piloto ela foi recusada
+ *      nas 3 células, e exigi-la fazia o grupo quase nunca pegar.
  *
  * Invariantes: o grupo não muda depois de `pronto` (uma nova rodada reabre só um grupo
  * em `erro`); cada célula sai da espera por um UPDATE condicionado à etapa, então nunca
@@ -105,9 +107,8 @@ export function problemaDaMae(res: { ok: boolean; output?: any; error?: unknown 
   if (!res.ok) return `mãe falhou: ${String((res.error as any)?.message || JSON.stringify(res.error) || 'erro').slice(0, 200)}`;
   const g = res.output?.grupo as AvatarDaMae | undefined;
   if (!g) return 'mãe não devolveu o avatar';
-  if (!g.takeUnico) return 'mãe saiu sem narração única (caminho por cena): a voz do avatar não é referência';
   if (!g.avatar?.intro?.audioSrc || !g.avatar?.outro?.audioSrc) return 'mãe sem as duas cenas de avatar prontas';
-  if (!(Number(g.f0Hz) > 0)) return 'mãe sem F0 medida no take';
+  if (!(Number(g.f0Hz) > 0)) return 'mãe sem F0 medida no áudio do avatar';
   return null;
 }
 
