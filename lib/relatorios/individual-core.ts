@@ -247,7 +247,10 @@ export async function persistRelatorioIndividualFromText(
       //
       // Usando o `user` do gerador, auditor e gerador olham a MESMA coisa por
       // definição, e o único jeito de divergirem é alguém mudar o prompt.
-      const evidencia = user.slice(0, 40000);
+      // 90 mil e não 40 mil desde 25/09/2026: o `user` passou a levar o cenário e
+      // as respostas da pessoa, e com 10 competências (demos) passa de 40 mil. Corte
+      // na evidência do auditor é "sem lastro" fabricado pelo instrumento.
+      const evidencia = user.slice(0, 90000);
       const modeloCheck = await getModelForTask(empresaId, 'pdi_check');
       const { system: sysA, user: userA } = promptAuditoriaPdi(relatorio, evidencia);
       const bruto = await callAI(sysA, userA, { model: modeloCheck }, 6000, {

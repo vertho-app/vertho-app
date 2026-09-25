@@ -1402,6 +1402,40 @@ prompt do PDI. É a mesma conclusão de 27/08, agora medida em 18 PDIs reais.
 🔑 A régua nova foi medida ANTES de subir, e isso mudou a conclusão: sem a medição, eu teria
 entregue "auditoria calibrada" com o mesmo `fail` de antes, atribuindo-o ao auditor.
 
+### 25/09: o gerador do PDI passou a ver o que a pessoa escreveu
+
+Consequência da seção anterior: o `fail` alto era o gerador inventando. Causa encontrada no
+montador (`buildRelatorioIndividualPrompt`): o PDI recebia só material de SEGUNDA MÃO (nível,
+destaques e o parecer da IA4), **sem o cenário e sem as respostas**. Sem o cenário, completava a
+situação ("dividir aula, correção, conselho de classe"); sem as respostas, não tinha o que citar
+e descrevia padrão onde havia uma resposta. O formato ainda cobrava cota ("2-3 comportamentos
+positivos observados"), que obriga a inventar quando a evidência é um cenário só.
+
+Mudanças: o `user` leva, por competência, o cenário (título e descrição) e cada pergunta COLADA
+à sua resposta (listas separadas faziam o modelo trocar os pares); o princípio 11 diz que a
+evidência é UMA situação hipotética, proíbe hábito/padrão/prática real, detalhe acrescentado ao
+cenário e confundir a personagem com a pessoa; as cotas viraram "0 a N, vazio se não houver". O
+auditor recebe o MESMO `user` (teto da evidência subiu de 40 mil para 90 mil caracteres).
+
+`Medido` (A/B nos mesmos 10 PDIs reais de Macaé, auditor novo, 2 auditorias por PDI):
+
+| | A (antes) | B | B2 (+ pares) | B3 (+ personagem) |
+|---|---|---|---|---|
+| auditorias com `fail` | 19/20 | 13/20 | 6/20 | 12/20 |
+| auditorias com `pass` | 0 | 7 | 13 | 6 |
+| achados graves "sem lastro" | 75 | 28 | 10 | 17 |
+| "fez bem" vazio | 0/10 | 0/10 | 0/10 | 0/10 |
+
+⚠️ B2 → B3 NÃO é regressão, e a razão está nos achados, não no número: os 2 PDIs com o erro da
+personagem em B2 passaram em B3 (pass, pass), e os `fail` novos caíram em PDIs que passavam em
+B2, por motivos alheios à regra. Cada rodada GERA PDIs novos, então a variação entre rodadas
+inclui a da geração, que o "veredito mudou entre repetições" (2-3/10, só auditor) não mede. Com
+10 PDIs, diferenças de ±6 em 20 são ruído. O sinal robusto é A contra a série B: 19/20 contra
+6-13/20, e 75 contra 10-28 achados graves. O texto não empobreceu: o parecer passou de 733 para
+~870 caracteres, citando as respostas entre aspas.
+Resíduo: contagem de perguntas errada, "situação real de sala de aula", motivação inferida. A
+demo `escolas-acme` estourou o teto de 120 s do `callAI` nas duas versões (não é desta mudança).
+
 ### 27/08 — IA4 sem censura: o número que faltava desde 25/08
 
 `scripts/_medir-ia4-sem-censura.ts`, 15 avaliações reais em Ibipeba, teto já em

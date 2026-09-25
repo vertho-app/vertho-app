@@ -45,7 +45,7 @@ DIRETRIZES DE TOM:
 1. Respeitoso, direto, humano e OPERACIONAL — o foco é o PRÓXIMO MOVIMENTO, não motivação.
 2. Acolher = contextualizar antes de diagnosticar, de forma PROFISSIONAL (não afetiva nem paternalista).
 3. Linguagem acessível, sem jargão excessivo.
-4. Firme mas nunca punitivo. Use "tende a...", "há sinais de...", "um risco é...".
+4. Firme mas nunca punitivo. Ancore no que a pessoa escreveu: "na sua resposta, você...", "o que não apareceu nas suas respostas foi...", "um risco é...".
 5. Menos "você é capaz", mais "este é o próximo movimento". NÃO repetir frases do tipo "você chegou até aqui porque se importa".
 6. Ser honesto sem desmotivar; reconhecer contexto antes de apontar gaps.
 7. Evitar frases genéricas que serviriam para qualquer pessoa.
@@ -63,6 +63,13 @@ PRINCÍPIOS INEGOCIÁVEIS:
 8. Metas em primeira pessoa e com horizonte claro.
 9. Não invente comportamento, resultado ou contexto que não esteja sustentado.
 10. O perfil comportamental é HIPÓTESE, não observação. Afirmação sobre dificuldade, desconforto ou limitação da pessoa só entra se houver evidência NAS RESPOSTAS — score DISC não é evidência de comportamento. Na dúvida, escreva a tendência e o que ela sugere TESTAR, não o que a pessoa "é".
+11. A evidência sobre o COMPORTAMENTO da pessoa é o bloco CENÁRIO E RESPOSTAS (e a avaliação dele). É UMA situação respondida por escrito, não o dia a dia dela:
+   - Descreva o que ela ESCREVEU ou deixou de escrever. Certo: "Na sua resposta, você propôs uma conversa com a coordenação; o que não apareceu foi um critério para decidir o que adiar."
+   - NUNCA transforme uma resposta em hábito, rotina, frequência ou padrão. Proibido: "você costuma...", "o padrão observado é...", "você sempre...", "em semanas de pico...", "a organização já existe, mas oscila".
+   - NUNCA acrescente ao cenário tarefas, reuniões, eventos, pessoas ou detalhes que não estejam no texto do cenário ou das respostas.
+   - Quando o cenário tem uma PERSONAGEM, a resposta diz o que a pessoa PROPÔS para a personagem. Certo: "na sua resposta, você propôs que Alessandra levasse dados de carga à coordenação". Proibido: "você levou dados à coordenação", "o critério que você já usa".
+   - O cenário é HIPOTÉTICO: fale da RESPOSTA, nunca da prática real dela. Proibido: "na sua prática...", "no seu dia a dia...", "já está consolidado", "a base já está construída". E não dê à resposta qualidades que o texto não mostra ("decisão rápida", "com método"): diga o que ela escreveu.
+   - Se as respostas não tratam de um comportamento, diga que ele NÃO APARECEU nas respostas, sem concluir que a pessoa não o tem.
 
 REGRAS PARA O SPRINT DE 30 DIAS:
 - O sprint é ENXUTO e executável: no máximo 4 ações prioritárias (1 principal + 1 de apoio + 1 evidência + 1 ritual). NUNCA 8 ações, nem 4 semanas de tarefas.
@@ -89,8 +96,8 @@ FORMATO OBRIGATÓRIO:
 {
   "acolhimento": "2-3 frases de abertura reconhecendo a jornada",
   "resumo_geral": {
-    "leitura": "3-5 linhas de visão geral com tom empático",
-    "principais_forcas": ["força 1", "força 2"],
+    "leitura": "3-5 linhas de visão geral com tom empático, ancorada no que as respostas mostram",
+    "principais_forcas": ["0 a 2 forças que as RESPOSTAS mostram; VAZIO se não houver"],
     "principal_ponto_de_atencao": "texto curto"
   },
   "perfil_comportamental": {
@@ -108,9 +115,9 @@ FORMATO OBRIGATÓRIO:
       "nota_decimal": 1.0,
       "flag": false,
       "descritores_desenvolvimento": ["comportamentos que precisam de atenção (linguagem de comportamento, não jargão)"],
-      "fez_bem": ["2-3 comportamentos positivos observados"],
-      "melhorar": ["2-3 pontos concretos para melhorar"],
-      "feedback": "Parágrafo com análise construtiva",
+      "fez_bem": ["0 a 3 comportamentos que APARECEM nas respostas, dizendo o que ela fez; VAZIO se não houver. NÃO preencha por cota."],
+      "melhorar": ["1 a 3 pontos, cada um ligado a algo que FALTOU nas respostas"],
+      "feedback": "Parágrafo que parte do que a pessoa respondeu (cite 1 ou 2 trechos curtos entre aspas) e diz o que faltou para o próximo nível. Descreve a RESPOSTA, não o dia a dia dela.",
       "sprint": {
         "foco_30_dias": "1 frase — o movimento central dos 30 dias",
         "acao_principal": "1 ação concreta e realista",
@@ -163,9 +170,12 @@ export async function buildRelatorioIndividualPrompt(
   // por colaborador_id OU por email_colaborador (alguns rows antigos
   // têm colaborador_id NULL).
   const emailFilter = (colab.email || '').trim().toLowerCase();
-  const { data: respostas } = await tdb.from('respostas')
-    .select('competencia_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, colaborador_id, email_colaborador')
+  const { data: respostas, error: erroRespostas } = await tdb.from('respostas')
+    .select('competencia_id, competencia_nome, avaliacao_ia, nivel_ia4, nota_ia4, pontos_fortes, pontos_atencao, feedback_ia4, colaborador_id, email_colaborador, cenario_id, r1, r2, r3, r4, r1_situacao, r2_acao, r3_raciocinio, r4_cis')
     .or(`colaborador_id.eq.${colaboradorId}${emailFilter ? `,email_colaborador.eq.${emailFilter}` : ''}`);
+  // Leitura que falha não pode virar "não respondeu": seria um PDI construído
+  // sem a avaliação, ou o erro enganoso de "nenhuma resposta".
+  if (erroRespostas) return { error: `Falha ao ler as respostas: ${erroRespostas.message}` };
 
   // Top 5 esperado do cargo (fonte de verdade)
   const { data: cargoEmp } = await tdb.from('cargos_empresa')
@@ -319,9 +329,13 @@ export async function buildRelatorioIndividualPrompt(
     if (c.nome && n >= 1 && n <= 4) nivelBlueprint.set(normKey(c.nome), n);
   }
 
+  // A resposta que alimenta cada competência, guardada para a evidência primária
+  // (cenário + o que a pessoa escreveu) montada mais abaixo. MESMA escolha dos dados.
+  const respostasUsadas: Array<{ competencia: string; r: any }> = [];
   const dadosComps: DadoComp[] = competenciasAlvo.map((nomeComp): DadoComp => {
     const k = normKey(nomeComp);
     const r = respPorNome[k] || respPorCompId[nomeToId[k]] || fuzzyFindResp(nomeComp);
+    if (r) respostasUsadas.push({ competencia: nomeComp, r });
     const fromAssess = nivelFromAssess(nomeComp);
     if (!r && !fromAssess) {
       // Top5 mas o colab não respondeu (ou IA4 falhou totalmente)
@@ -399,8 +413,51 @@ export async function buildRelatorioIndividualPrompt(
     blueprintBlock = `\n\n=== BLUEPRINT (fonte única do plano — NÃO invente ações novas) ===\n${compBlocos}\n\nINSTRUÇÕES DE USO DO BLUEPRINT (obrigatórias):\n- O array 'competencias' do output DEVE conter EXATAMENTE as competências acima, com os MESMOS nomes e na MESMA ordem. NÃO crie competências fora do blueprint.\n- O 'sprint' de cada competência DEVE ser DERIVADO do PRIMEIRO objetivo listado da MESMA competência no blueprint (o do 1º ciclo), e TODOS os campos do sprint saem desse MESMO objetivo, sem misturar com os seguintes: sprint.foco_30_dias ← objetivo; sprint.acao_principal ← acao_principal (igual); sprint.acao_apoio ← acao_apoio (igual); sprint.ritual ← ritual (igual); sprint.evidencia_esperada ← evidencia_de_execucao; sprint.checklist = EXATAMENTE 3 itens curtos e verificáveis derivados do criterio_de_sucesso/evidência. NÃO invente ações fora do blueprint.\n- Você AINDA escreve, com a sua voz humana: o acolhimento, o resumo_geral, o perfil_comportamental, e por competência a análise (feedback, fez_bem, melhorar), as dicas e o tom. Apenas as AÇÕES (sprint) são fixadas pelo blueprint.`;
   }
 
+  // EVIDÊNCIA PRIMÁRIA: o cenário que a pessoa respondeu e o que ela escreveu.
+  //
+  // 🔴 Até 25/09/2026 o gerador só via material de SEGUNDA MÃO (nível, destaques
+  // e o parecer da IA4). Sem o cenário, ele completava a situação por conta
+  // própria ("dividir aula, correção, conselho de classe"); sem as respostas, não
+  // tinha o que citar e descrevia "padrão" onde havia uma resposta. Medido: a
+  // auditoria (que recebe este MESMO `user`) acusou esse tipo de afirmação em 31
+  // de 36 execuções sobre 18 PDIs reais. Mesma leitura de cenário da IA4
+  // (`carregarContextoRespostaIA4`), sem a régua de diferenciação de níveis.
+  const cenarios = new Map<string, any>();
+  const perguntasDe = new Map<string, any[]>();
+  const blocosResposta: string[] = [];
+  for (const { competencia, r } of respostasUsadas) {
+    let cenarioTxt = 'CENÁRIO: (não localizado)';
+    if (r.cenario_id) {
+      if (!cenarios.has(r.cenario_id)) {
+        const { data: cen, error: eCen } = await sbRaw.from('banco_cenarios')
+          .select('titulo, descricao, alternativas').eq('id', r.cenario_id).maybeSingle();
+        cenarios.set(r.cenario_id, eCen ? null : cen);
+      }
+      const cen = cenarios.get(r.cenario_id);
+      if (cen) {
+        cenarioTxt = `CENÁRIO (hipotético, apresentado à pessoa): ${cen.titulo || ''}\n${String(cen.descricao || '').slice(0, 2000)}`;
+        const alt = typeof cen.alternativas === 'object' && !Array.isArray(cen.alternativas) ? cen.alternativas : {};
+        perguntasDe.set(r.cenario_id, (alt as any).perguntas || (Array.isArray(cen.alternativas) ? cen.alternativas : []));
+      }
+    }
+    // Cada pergunta COLADA à sua resposta. A 1ª versão listava as perguntas e
+    // depois as respostas, e o gerador atribuía resposta à pergunta errada ou
+    // dizia "sem resposta" onde havia uma (medido no A/B de 25/09/2026).
+    const pergs: any[] = (r.cenario_id && perguntasDe.get(r.cenario_id)) || [];
+    const textos = [r.r1 ?? r.r1_situacao, r.r2 ?? r.r2_acao, r.r3 ?? r.r3_raciocinio, r.r4 ?? r.r4_cis];
+    const pares = textos.map((t, i) => {
+      const p = pergs[i];
+      const pergunta = p?.texto ? `P${p?.numero || i + 1}: ${String(p.texto).slice(0, 500)}\n` : '';
+      return `${pergunta}R${i + 1} (resposta da pessoa): ${t ? String(t).slice(0, 1500) : '(sem resposta)'}`;
+    }).join('\n\n');
+    blocosResposta.push(`COMPETÊNCIA: ${competencia}\n${cenarioTxt}\n\nPERGUNTAS E RESPOSTAS:\n${pares}`);
+  }
+  const respostasTexto = blocosResposta.length
+    ? `\n\n=== CENÁRIO E RESPOSTAS (evidência PRIMÁRIA: o que a pessoa de fato escreveu) ===\n${blocosResposta.join('\n\n')}`
+    : '';
+
   const totalComps = dadosComps.length;
-  const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) avaliadas. Todos os níveis são inteiros válidos entre N1 e N4. O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}${trilhaTexto}${blueprintBlock}`;
+  const user = `COLABORADOR: ${colab.nome_completo}\nCARGO: ${colab.cargo}\nEMPRESA: ${empresa.nome} (${empresa.segmento})\n\nPERFIL COMPORTAMENTAL:\n${perfilCIS}\n\n=== ATENCAO ===\nO array DADOS POR COMPETENCIA contem ${totalComps} competencia(s) avaliadas. Todos os níveis são inteiros válidos entre N1 e N4. O array 'competencias' do output DEVE ter EXATAMENTE ${totalComps} itens, na MESMA ordem.\n\nDADOS POR COMPETENCIA:\n${JSON.stringify(dadosComps, null, 2)}${respostasTexto}${trilhaTexto}${blueprintBlock}`;
 
   return { system: RELATORIO_IND_SYSTEM, user, dadosComps, blueprint, colab, empresa };
 }
