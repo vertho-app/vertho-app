@@ -220,6 +220,39 @@ def registrar_dlls_cuda() -> None:
                 os.environ["PATH"] = pasta + os.pathsep + os.environ.get("PATH", "")
 
 
+def elevar_prioridade() -> None:
+    """
+    Poe o processo em prioridade ACIMA DO NORMAL.
+
+    A GPU faz a conta, mas o mel, o VAD e o laco que alimenta a GPU rodam na CPU.
+    Medido em 25/09/2026, com uma suite de testes rodando na mesma maquina durante
+    a reuniao: fim da fala -> texto foi de 0,9 s para 1,95-2,72 s em prioridade
+    normal, e voltou a 0,85 s acima do normal. A classe "alta" nao: ela disputaria
+    com o proprio audio do navegador.
+
+    Fica aqui, e nao no iniciador, porque o processo que trabalha e o Python real,
+    filho do atalho da .venv, e o Windows nao repassa essa classe de pai para filho.
+    """
+    if sys.platform != "win32":
+        return
+    import ctypes
+    from ctypes import wintypes
+
+    acima_do_normal = 0x00008000
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    # Os tipos declarados nao sao enfeite: sem eles o ctypes trata o HANDLE como
+    # int de 32 bits, o pseudo-handle do processo chega truncado e o Windows
+    # responde "handle invalido" (erro 6), medido na primeira versao disto.
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    kernel32.SetPriorityClass.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    kernel32.SetPriorityClass.restype = wintypes.BOOL
+    if kernel32.SetPriorityClass(kernel32.GetCurrentProcess(), acima_do_normal):
+        print("[asr] prioridade: acima do normal", flush=True)
+    else:
+        # Sem a prioridade o servidor funciona igual, so fica sensivel a carga.
+        print(f"[asr] prioridade nao elevada (erro {ctypes.get_last_error()})", flush=True)
+
+
 class MotorDeTranscricao:
     def __init__(self) -> None:
         self.modelo = None
@@ -407,6 +440,7 @@ async def aguardar_inatividade() -> None:
 
 
 async def principal() -> None:
+    elevar_prioridade()
     motor.carregar()
     async with websockets.serve(
         atender,

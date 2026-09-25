@@ -46,6 +46,21 @@ carregado na porta `8765`.
 O Whisper encerra sozinho após cinco minutos sem nenhum cliente conectado,
 liberando a GPU. Durante uma conversa, a conexão WebSocket impede o desligamento.
 
+### Prioridade do processo
+
+`Medido: 25/09/2026`, com fala de 13,4 s nos dois canais e uma suíte `vitest`
+inteira rodando na mesma máquina: fim da fala → texto foi de ~0,9 s (máquina
+livre) para **1,95 a 2,72 s** em prioridade normal, e voltou a **0,85 s** acima do
+normal. Carga sintética de CPU pura só acrescentou 20%, então ela não serve para
+reproduzir o problema.
+
+Por isso o próprio `server.py` pede a classe **acima do normal** ao iniciar
+(`elevar_prioridade`). Não pode ser no `iniciar.cmd` nem no `launcher.ps1`:
+o processo que trabalha é o Python do `uv`, filho do atalho da `.venv`, e o
+Windows não repassa essa classe de pai para filho (medido: atalho em
+AboveNormal, filho em Normal). A classe **alta** foi descartada de propósito,
+porque disputaria com o áudio do próprio navegador.
+
 ## Interface durante a reunião (meia tela)
 
 Ao começar a captura, `/copiloto` entra automaticamente no modo de foco. Não há
@@ -79,6 +94,7 @@ salvar o resultado quando uma empresa estiver selecionada.
 | “O iniciador local não respondeu” | O host foi chamado, mas o sidecar não ficou disponível na porta `8765` dentro do prazo. | Consulte `native-host.err.log`, `launcher.err.log` e `whisper.err.log`. |
 | “Estou ouvindo apenas você” | O microfone chegou, mas o áudio da reunião não. | Depende da superfície escolhida, e a tela agora diz qual é: **janela nunca carrega áudio** no Chrome; **tela inteira** exige marcar *Compartilhar áudio do sistema*; **aba** precisa ser a aba da reunião. |
 | “O Whisper local iniciou e parou antes de ficar pronto” | O servidor subiu e morreu ao carregar o modelo. A tela mostra a linha que ele registrou. | Se falar em permissão negada, é antivírus: libere `%LOCALAPPDATA%\Vertho\Whisper` nas exceções. |
+| “Transcrição atrasada em relação à fala” | Três ou mais falas esperam na fila do Whisper. A causa medida é outro programa ocupando o processador: a GPU faz a conta, mas mel, VAD e o laço que alimenta a GPU rodam na CPU. | O servidor sobe em prioridade **acima do normal** desde 25/09/2026: confira a linha `[asr] prioridade: acima do normal` no `whisper.out.log` (se faltar, reinstale). Evite build ou suíte de testes durante a reunião. |
 
 ## Onde compartilhar o áudio, e o que o cliente vê
 
