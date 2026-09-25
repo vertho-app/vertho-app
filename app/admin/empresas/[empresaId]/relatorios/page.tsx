@@ -12,6 +12,7 @@ import { loadRelatoriosEmpresa } from '@/actions/relatorios-load';
 import { gerarDnaOrganizacional } from '@/actions/dna-organizacional';
 import { gerarPerfilOrganizacional } from '@/actions/perfil-organizacional';
 import { gerarRelatorioAdequacao, listarCargosComGabarito } from '@/actions/adequacao-cargo';
+import AuditoriaPlanos, { CHIP_AUDITORIA } from './AuditoriaPlanos';
 
 const NIVEL_COLORS = { 1: 'text-red-400', 2: 'text-amber-400', 3: 'text-cyan-400', 4: 'text-green-400' };
 
@@ -290,6 +291,11 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
       {/* ═══ INDIVIDUAL ═══ */}
       {tab === 'individual' && (
         <div>
+          <AuditoriaPlanos
+            empresaId={empresaId}
+            individuais={data.individuais}
+            onRegerado={async () => setData(await loadRelatoriosEmpresa(empresaId))}
+          />
           {data.individuais.length === 0 ? (
             <Empty text={t('emptyStates.individual')} />
           ) : data.individuais.map(rel => {
@@ -303,6 +309,10 @@ export default function RelatoriosPage({ params }: { params: Promise<{ empresaId
                     <User size={14} className="text-cyan-400" />
                     <span className="text-sm font-bold text-white">{rel.colaborador_nome}</span>
                     <span className="text-[10px] text-gray-500">{rel.colaborador_cargo}</span>
+                    {(() => {
+                      const chip = CHIP_AUDITORIA[c?.auditoria?.status] || CHIP_AUDITORIA.nulo;
+                      return <span className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${chip.classe}`}>{chip.rotulo}</span>;
+                    })()}
                   </div>
                   <div className="flex items-center gap-2">
                     <a href={`/api/relatorios/pdf?id=${rel.id}`} target="_blank" onClick={e => e.stopPropagation()}
