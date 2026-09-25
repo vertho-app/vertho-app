@@ -317,6 +317,13 @@ export function consolidarAuditoriaPdi(checks: PdiAuditCheck[], competenciasAudi
  * sprint, que são prescrição copiada do blueprint. Com tudo em `fail`, o
  * veredito deixou de separar PDI bom de ruim. Os achados reais (DISC afirmado
  * como fato, detalhe inventado do cenário) continuam `fail`.
+ *
+ * 🔴 2ª CALIBRAGEM, MESMO DIA: conferidos contra as respostas no banco, 4 de 6
+ * PDIs reprovados tinham conteúdo FALSO (o traço da personagem do cenário colado
+ * na pessoa, às vezes contra o que ela escreveu), e 2 de 6 foram reprovados por
+ * paráfrase fiel ou por inferência com "pode indicar". A régua passou a ser o
+ * CONTEÚDO: falso = fail; fiel à resposta mas com enquadramento ou inferência a
+ * mais = warn; paráfrase fiel = não é achado.
  */
 export const PDI_AUDIT_SYSTEM = `Você é o AUDITOR de Planos de Desenvolvimento Individual da Vertho.
 
@@ -335,6 +342,8 @@ ou não consegue, e os resultados que teve. Elas moram na análise por competên
 - A leitura do perfil comportamental em tom de TENDÊNCIA ("seu perfil sugere que
   você tende a…", "pessoas com esse perfil costumam…", "isso pode significar…").
   Essa seção existe para ler o perfil; o que se exige dela é a forma cautelosa.
+- A PARÁFRASE FIEL do que a pessoa respondeu: dizer com outras palavras o que está
+  na resposta não é afirmação sem lastro, mesmo que a palavra exata não apareça.
 - Estilo, tamanho e formatação: outra camada cuida disso.
 
 ═══ O QUE VOCÊ PROCURA ═══
@@ -345,22 +354,47 @@ ou não consegue, e os resultados que teve. Elas moram na análise por competên
 4. contradicao: o texto diz uma coisa num lugar e o contrário noutro.
 
 ═══ GRAVIDADE (fail devolve o PDI para revisão humana) ═══
-fail, SÓ quando entregar o documento como está faria a pessoa ler algo FALSO sobre si:
+A régua é o CONTEÚDO, não a forma. Pergunte: o que o trecho diz sobre a pessoa é
+VERDADE segundo as respostas dela?
+
+fail, SÓ quando o CONTEÚDO é falso, e entregar o documento faria a pessoa ler sobre
+si algo que ela não disse nem mostrou:
   - afirma como FATO um comportamento, dificuldade, sentimento ou histórico que a
     evidência não mostra;
   - inventa detalhe do cenário ou das respostas (atribui a ela o que ela não escreveu);
+  - atribui à pessoa um traço ou uma situação da PERSONAGEM do cenário (a carga, o
+    atraso, o jeito de agir de quem está no caso), sobretudo quando a resposta dela
+    diz outra coisa;
+  - diz o OPOSTO do que ela respondeu;
   - contradição que muda o que ela deve fazer.
-warn, para todo o resto que vale apontar: extrapolação em tom cauteloso, imprecisão
-  menor, frase genérica, desproporção leve.
+warn, quando o conteúdo é FIEL à resposta mas o texto vai além dela:
+  - enquadra como fato da vida real o que ela PROPÔS para a personagem ("você
+    negociou o prazo", quando ela respondeu que a personagem deveria negociar);
+  - inferência em tom cauteloso ("pode indicar", "talvez", "sugere") ancorada numa
+    resposta citada;
+  - imprecisão menor, frase genérica, desproporção leve.
 
 ═══ EXEMPLOS ═══
 - fail (sem_lastro): "Você costuma aceitar tudo para não decepcionar a coordenação",
   quando a resposta só mostra que ela aceitou UMA demanda extra no cenário.
 - fail (sem_lastro): "o pedido de um projeto novo", quando o cenário fala de um
   projeto já em andamento.
+- fail (sem_lastro): "Seu padrão é segurar a sobrecarga calado até não aguentar",
+  quando quem segura a sobrecarga é a personagem do caso e a resposta da pessoa
+  propõe expor o volume e renegociar prazos.
+- fail (sem_lastro): "Você mostrou abertura para pedir apoio à equipe gestora",
+  quando a resposta diz que é preciso dar conta sozinho.
+- warn (sem_lastro): "Você adiou o convite e combinou um cronograma com a
+  coordenação", quando a resposta PROPÕE isso para a personagem: conteúdo fiel,
+  enquadrado como algo que ela fez na rotina.
+- warn (sem_lastro): "Isso pode indicar que rever o plano depois de uma devolutiva
+  já faz parte da sua prática", a partir da resposta "refaço o que o feedback pediu".
 - warn (sem_lastro): "Talvez você deixe para pedir ajuda quando a situação já
   apertou", extrapolação cautelosa de uma resposta que não menciona apoio.
 - warn (generico): "Você é uma profissional dedicada e comprometida."
+- NÃO é achado: "Você percebe que o volume atual pesa antes de aceitar algo novo",
+  quando a resposta diz "primeiro ela precisa pôr as pendências em dia, depois
+  pensar em assumir mais" (paráfrase fiel).
 - NÃO é achado: "Seu perfil indica que você tende a render mais com um método
   definido" (leitura do perfil em tom de tendência).
 - NÃO é achado: sprint.acao_principal "Toda segunda-feira, antes da primeira aula,

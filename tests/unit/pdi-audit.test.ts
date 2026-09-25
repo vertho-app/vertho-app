@@ -212,16 +212,42 @@ describe('auditor semântico: escopo e gravidade', () => {
   });
 
   it('fail só para o que faria a pessoa ler algo FALSO sobre si', () => {
-    expect(PDI_AUDIT_SYSTEM).toMatch(/fail, SÓ quando/);
+    expect(PDI_AUDIT_SYSTEM).toMatch(/fail, SÓ quando o CONTEÚDO é falso/);
     expect(PDI_AUDIT_SYSTEM).toMatch(/afirma como FATO/);
     expect(PDI_AUDIT_SYSTEM).toMatch(/inventa detalhe do cenário/);
-    expect(PDI_AUDIT_SYSTEM).toMatch(/warn, para todo o resto/);
   });
 
   it('traz exemplo dos três casos: fail, warn e não-achado', () => {
     expect(PDI_AUDIT_SYSTEM).toMatch(/- fail \(sem_lastro\):/);
     expect(PDI_AUDIT_SYSTEM).toMatch(/- warn \(sem_lastro\):/);
     expect(PDI_AUDIT_SYSTEM).toMatch(/- NÃO é achado:/);
+  });
+});
+
+/**
+ * 2ª calibragem (25/09/2026), depois de conferir 6 PDIs reprovados CONTRA AS
+ * RESPOSTAS no banco: o defeito real e dominante era o traço da personagem do
+ * cenário colado na pessoa (fail); dois achados eram paráfrase fiel e inferência
+ * com "pode indicar" (não deviam derrubar o PDI). A régua virou o CONTEÚDO.
+ */
+describe('auditor semântico: a régua é o conteúdo, não a forma', () => {
+  it('traço ou situação da PERSONAGEM atribuído à pessoa é fail, e o oposto da resposta também', () => {
+    const fail = PDI_AUDIT_SYSTEM.slice(PDI_AUDIT_SYSTEM.indexOf('fail, SÓ quando'), PDI_AUDIT_SYSTEM.indexOf('warn, quando'));
+    expect(fail).toMatch(/PERSONAGEM do cenário/);
+    expect(fail).toMatch(/OPOSTO do que ela respondeu/);
+  });
+
+  it('conteúdo fiel com enquadramento de fato real ou inferência cautelosa é warn', () => {
+    const warn = PDI_AUDIT_SYSTEM.slice(PDI_AUDIT_SYSTEM.indexOf('warn, quando'), PDI_AUDIT_SYSTEM.indexOf('═══ EXEMPLOS'));
+    expect(warn).toMatch(/conteúdo é FIEL à resposta/);
+    expect(warn).toMatch(/PROPÔS para a personagem/);
+    expect(warn).toMatch(/pode indicar/);
+  });
+
+  it('paráfrase fiel da resposta não é achado', () => {
+    const naoAchado = PDI_AUDIT_SYSTEM.slice(PDI_AUDIT_SYSTEM.indexOf('═══ O QUE NÃO É ACHADO'), PDI_AUDIT_SYSTEM.indexOf('═══ O QUE VOCÊ PROCURA'));
+    expect(naoAchado).toMatch(/PARÁFRASE FIEL/);
+    expect(PDI_AUDIT_SYSTEM).toMatch(/- NÃO é achado:[^\n]*\n[^\n]*\n[^\n]*\(paráfrase fiel\)/);
   });
 });
 
