@@ -385,6 +385,27 @@ export const TEMPLATES = {
   },
 
   /**
+   * Votação de competências aberta — lembrete para quem ainda não votou.
+   *
+   * Nasceu em 25/09/2026, na primeira votação da 4Life: não havia template para
+   * isso, e fora da janela de 24h a Meta só entrega template aprovado. O
+   * primeiro contato continua sendo o `boas_vindas_v2`; este vem depois.
+   *
+   * O prazo (`{{3}}`) é o dia seguinte ao envio, decisão do dono ("até as 23h59
+   * de amanhã"), e fica NO MEIO do corpo de propósito: corpo que termina em
+   * variável é motivo conhecido de reprovação. Mesmo desenho dos `avaliacao_*`
+   * aprovados como UTILITY: diz o que falta fazer, quanto custa e até quando,
+   * sem voz de campanha.
+   */
+  votacao_competencias: {
+    name: 'votacao_competencias',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. A votação de competências do seu cargo está aberta no programa da {{2}}.\n\nVocê escolhe, em ordem, as 5 competências mais importantes para o seu trabalho. Leva cerca de 5 minutos, e a votação fica aberta até as 23h59 de {{3}}.\n\nPara votar, acesse:\n{{4}}\n\nSeu voto ajuda a definir as competências que o programa vai desenvolver.',
+    example: ['Maria', '4Life Educação', 'sábado, 26/09', 'https://4life-educacao.vertho.ai/dashboard/votacao'],
+  },
+
+  /**
    * Missão da semana de aplicação, v2 — tentativa de sair de MARKETING.
    *
    * O `missao_semana` (abaixo) JÁ era factual — sem emoji, sem exclamação, sem

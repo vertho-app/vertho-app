@@ -87,6 +87,13 @@ export interface PilulaTemplateArgs {
    * diferentes para a mesma decisão (F-I21).
    */
   semanaPendente?: number | null;
+  /**
+   * Prazo da votação já escrito para a pessoa ("sábado, 26/09") — só para
+   * `votacao_competencias`. Vem de `prazoDaVotacao`, que calcula o dia seguinte
+   * ao ENVIO no horário de Brasília: é o prazo que a mensagem promete, e quem
+   * fecha a votação no sistema continua sendo o admin, na aba Votação.
+   */
+  prazoVotacao?: string | null;
 }
 
 export interface ResultadoPilulaTemplate {
@@ -512,6 +519,19 @@ const CONTRATOS: Record<string, MontarParams> = {
    */
   boas_vindas_v2: (a) => ({
     params: [a.nome, a.instituicao || '', `${a.baseUrl}/entrar`],
+    botaoParam: null,
+  }),
+
+  /**
+   * Votação de competências aberta. Submetido em 25/09/2026 como UTILITY — ⚠️
+   * enquanto não estiver APPROVED, a categoria é provisória e a Meta recusa o
+   * envio. `{{1}}`=nome, `{{2}}`=instituição, `{{3}}`=prazo, `{{4}}`=link. Sem botão.
+   *
+   * O link vai direto para `/dashboard/votacao`: quem não tem sessão cai no login
+   * com `?redirect=` e volta para a cédula depois de entrar (`dashboard-shell`).
+   */
+  votacao_competencias: (a) => ({
+    params: [a.nome, a.instituicao || '', a.prazoVotacao || '', `${a.baseUrl}/dashboard/votacao`],
     botaoParam: null,
   }),
 

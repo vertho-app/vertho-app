@@ -37,6 +37,33 @@ import { ehSemanaDeImplementacao, semanaCenarioBDoPlano } from '@/lib/season-eng
 import { estadoDoFechamento, type EstadoFechamento } from '@/lib/season-engine/estado-fechamento';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
 import { ENVIO, PROGRESSO, TRILHA } from '@/lib/status';
+import { montarCedula, normalizarCargoDaCedula } from '@/lib/votacao/cedula';
+
+const FUSO_BRASILIA = 'America/Sao_Paulo';
+
+/** Dia civil em Brasília (`AAAA-MM-DD`) — a régua do prazo e do slot diário. */
+export function diaEmBrasilia(agora: Date): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: FUSO_BRASILIA, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(agora);
+}
+
+/**
+ * Prazo que o `votacao_competencias` promete: o DIA SEGUINTE ao envio, em
+ * Brasília ("sábado, 26/09"). Decisão do dono (25/09/2026): "fica aberta até as
+ * 23h59 de amanhã".
+ *
+ * 🔴 O dia vem de Brasília, nunca do relógio do servidor (UTC): um envio às
+ * 22h30 de sexta em Brasília já é sábado em UTC, e o "amanhã" viraria domingo.
+ */
+export function prazoDaVotacao(agora: Date = new Date()): string {
+  const [ano, mes, dia] = diaEmBrasilia(agora).split('-').map(Number);
+  // Meio-dia UTC do dia seguinte: longe das duas bordas, qualquer fuso lê o mesmo dia.
+  const amanha = new Date(Date.UTC(ano, mes - 1, dia + 1, 12));
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'UTC', weekday: 'long', day: '2-digit', month: '2-digit',
+  }).format(amanha);
+}
 
 /** Primeiro nome apresentável — "JANAINA" vira "Janaina", "McDonald" fica. */
 export function primeiroNome(completo: string | null | undefined): string {
@@ -60,6 +87,20 @@ export interface ContextoEnvio {
   trilhaPorColab: Map<string, { status: string; competencia: string; totalSemanas: number; iniciada: boolean }>;
   /** Semana real por pessoa — calendário, gate sequencial, plano e atividade. */
   cadenciaPorColab: Map<string, ContextoCadenciaEnvio>;
+  /** Estado da votação — só carregado para `votacao_competencias`. */
+  votacao?: ContextoVotacao | null;
+}
+
+interface ContextoVotacao {
+  aberta: boolean;
+  /** Quem já tem voto registrado. */
+  votaram: Set<string>;
+  /** Tamanho da cédula por cargo normalizado (`lib/votacao/cedula.ts`). */
+  cedulaPorCargo: Map<string, number>;
+  /** "sábado, 26/09" — o `{{3}}`. */
+  prazo: string;
+  /** Dia do envio em Brasília: o slot da idempotência. */
+  dia: string;
 }
 
 interface ContextoCadenciaEnvio {
@@ -139,6 +180,19 @@ function resolverConteudoSemanal(
  */
 const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => Resolucao> = {
   boas_vindas_v2: (c, ctx) => ({ args: base(c, ctx) }),
+  /**
+   * Lembrete da votação. Três portas, na ordem em que a pessoa as encontraria:
+   * a votação precisa estar ABERTA (senão o link cai em "não está aberta"), ela
+   * não pode já ter votado, e o cargo dela precisa ter cédula (senão ela abriria
+   * uma lista vazia). A mensagem promete as três coisas.
+   */
+  votacao_competencias: (c, ctx) => {
+    const v = ctx.votacao;
+    if (!v?.aberta) return { excluir: 'votação não está aberta' };
+    if (v.votaram.has(c.id)) return { excluir: 'já votou' };
+    if (!v.cedulaPorCargo.get(normalizarCargoDaCedula(c.cargo))) return { excluir: 'cargo sem competências na cédula' };
+    return { args: base(c, ctx, { prazoVotacao: v.prazo }) };
+  },
   avaliacao_pendente: (c, ctx) => {
     const progresso = ctx.avaliacaoPorColab.get(c.id);
     if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
@@ -370,6 +424,7 @@ export interface TemplateDisparavel {
 
 const VARIAVEIS_DE: Record<string, string[]> = {
   boas_vindas_v2: ['primeiro nome', 'nome da instituição', 'link de /entrar'],
+  votacao_competencias: ['primeiro nome', 'nome da instituição', 'prazo: dia seguinte ao envio (Brasília)', 'link da votação'],
   avaliacao_pendente: ['primeiro nome', 'nome da instituição', 'link do assessment'],
   avaliacao_competencias: ['primeiro nome', 'competência do cargo (top5_workshop)', 'link do assessment'],
   avaliacao_parcial: ['primeiro nome', 'cenários respondidos', 'total de cenários', 'link do assessment'],
@@ -395,6 +450,7 @@ const BOTAO_DE: Record<string, string> = {
 
 const ALVO_DE: Record<string, string> = {
   boas_vindas_v2: 'está no escopo e tem WhatsApp cadastrado',
+  votacao_competencias: 'votação aberta, ainda não votou e o cargo tem competências na cédula',
   avaliacao_pendente: 'tem avaliação configurada e ainda não registrou nenhuma resposta',
   avaliacao_competencias: 'concluiu o perfil comportamental e ainda não iniciou a avaliação de competências',
   avaliacao_parcial: 'iniciou a avaliação, mas ainda tem cenários pendentes',
@@ -415,6 +471,7 @@ const ALVO_DE: Record<string, string> = {
 
 const ROTULO_DE: Record<string, string> = {
   boas_vindas_v2: 'Boas-vindas ao programa',
+  votacao_competencias: 'Votação de competências aberta',
   avaliacao_pendente: 'Avaliação não iniciada',
   avaliacao_competencias: 'Avaliação de competências pendente',
   avaliacao_parcial: 'Avaliação em andamento',
@@ -435,6 +492,7 @@ const ROTULO_DE: Record<string, string> = {
 
 const ETAPA_DE: Record<string, string> = {
   boas_vindas_v2: 'Entrada',
+  votacao_competencias: 'Entrada',
   avaliacao_pendente: 'Avaliação',
   avaliacao_competencias: 'Avaliação',
   avaliacao_parcial: 'Avaliação',
@@ -474,6 +532,11 @@ const TEMPLATES_AVALIACAO_MANUAL = new Set([
 const TEMPLATES_TRILHA_MANUAL = new Set([
   'trilha_liberada_v2',
   'trilha_concluida',
+]);
+
+/** Idempotência pelo DIA do envio, não pela pessoa: o lembrete pode voltar amanhã. */
+const TEMPLATES_POR_DIA = new Set([
+  'votacao_competencias',
 ]);
 
 /** Templates que a tela pode disparar: têm resolvedor E contrato de parâmetros. */
@@ -602,6 +665,53 @@ async function carregarTrilhasManuais(
     });
   }
   return porColab;
+}
+
+/**
+ * Estado da votação para o `votacao_competencias`: aberta?, quem votou, e o
+ * tamanho da cédula de cada cargo pela MESMA régua da tela da pessoa
+ * (`montarCedula`). Toda falha de leitura LANÇA: aqui é construção, com humano
+ * olhando a prévia, e "não consegui ler os votos" virando "ninguém votou"
+ * mandaria lembrete para quem já votou.
+ */
+async function carregarVotacao(sb: any, empresaId: string, agora: Date): Promise<ContextoVotacao> {
+  const [
+    { data: empresa, error: eE },
+    { data: votos, error: eV },
+    { data: top10, error: eT },
+    { data: matriz, error: eM, count: totalMatriz },
+  ] = await Promise.all([
+    sb.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle(),
+    sb.from('votacao_competencias').select('colaborador_id').eq('empresa_id', empresaId),
+    sb.from('top10_cargos').select('cargo, competencia:competencias(nome, cod_comp, descricao, pilar)').eq('empresa_id', empresaId),
+    sb.from('competencias').select('nome, cod_comp, descricao, pilar, cargo', { count: 'exact' })
+      .eq('empresa_id', empresaId).not('cargo', 'is', null),
+  ]);
+  if (eE) throw new Error(`empresas: ${eE.message}`);
+  if (eV) throw new Error(`votacao_competencias: ${eV.message}`);
+  if (eT) throw new Error(`top10_cargos: ${eT.message}`);
+  if (eM) throw new Error(`competencias: ${eM.message}`);
+  if ((matriz?.length ?? 0) < (totalMatriz ?? 0)) {
+    throw new Error(`competencias: leitura cortada (${matriz?.length} de ${totalMatriz} linhas)`);
+  }
+
+  const cargos = new Set<string>([
+    ...(top10 || []).map((t: any) => normalizarCargoDaCedula(t.cargo)),
+    ...(matriz || []).map((c: any) => normalizarCargoDaCedula(c.cargo)),
+  ]);
+  const cedulaPorCargo = new Map<string, number>();
+  for (const cargo of cargos) {
+    if (!cargo) continue;
+    cedulaPorCargo.set(cargo, montarCedula({ cargo, top10: top10 || [], matriz: matriz || [] }).competencias.length);
+  }
+
+  return {
+    aberta: empresa?.sys_config?.votacao_ativa === true,
+    votaram: new Set((votos || []).map((v: any) => String(v.colaborador_id || '')).filter(Boolean)),
+    cedulaPorCargo,
+    prazo: prazoDaVotacao(agora),
+    dia: diaEmBrasilia(agora),
+  };
 }
 
 /**
@@ -735,6 +845,11 @@ function chaveDoDisparo(
   if (TEMPLATES_CADENCIA_MANUAL.has(template)) {
     return `${template}:${colaboradorId}:semana:${args.semana}`;
   }
+  // Um lembrete de votação por pessoa POR DIA (Brasília): repetir o clique no
+  // mesmo dia não reenvia, e o do dia seguinte continua possível.
+  if (TEMPLATES_POR_DIA.has(template)) {
+    return `${template}:${colaboradorId}:dia:${ctx.votacao?.dia ?? ''}`;
+  }
   return `${template}:${colaboradorId}`;
 }
 
@@ -786,9 +901,11 @@ export async function prepararLoteTemplate(
     colabs: ColaboradorAlvo[];
     idsRefinados?: ReadonlySet<string>;
     incluirJaEnviados?: boolean;
+    /** Relógio do envio (prazo e slot diário da votação). Default: agora. */
+    agora?: Date;
   },
 ): Promise<LotePreparado> {
-  const { empresaId, template, colabs, idsRefinados, incluirJaEnviados = false } = opts;
+  const { empresaId, template, colabs, idsRefinados, incluirJaEnviados = false, agora = new Date() } = opts;
 
   const montar = contratoDoTemplate(template);
   const resolver = RESOLVEDORES[template];
@@ -820,6 +937,9 @@ export async function prepararLoteTemplate(
     cadenciaPorColab: TEMPLATES_CADENCIA_MANUAL.has(template)
       ? await carregarCadenciaManual(sb, empresaId, colabs)
       : new Map(),
+    votacao: template === 'votacao_competencias'
+      ? await carregarVotacao(sb, empresaId, agora)
+      : null,
   };
 
   // Idempotência por TEMPLATE e, nos recorrentes, pelo slot da semana. Usar só
@@ -866,7 +986,7 @@ export async function prepararLoteTemplate(
     aposRefinamentos++;
 
     const dedupeKey = chaveDoDisparo(template, c.id, r.args, ctx);
-    const recebeuEsteSlot = TEMPLATES_CADENCIA_MANUAL.has(template)
+    const recebeuEsteSlot = TEMPLATES_CADENCIA_MANUAL.has(template) || TEMPLATES_POR_DIA.has(template)
       ? chavesRecebidas.has(dedupeKey)
       : recebidos.has(c.id);
     if (recebeuEsteSlot) {

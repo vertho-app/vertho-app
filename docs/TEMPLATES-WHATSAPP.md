@@ -60,7 +60,7 @@ Sobravam e-mail e push. E os dois templates que existiam para esse momento (`mis
 'evidencia'`. Eles têm a mesma forma e textos diferentes: trocar um pelo outro entrega a cobrança
 errada para a pessoa certa, e nada no typecheck acusaria.
 
-### Tela de Envios: 17 templates com público automático
+### Tela de Envios: 18 templates com público automático
 
 Selecionar um template em `/admin/whatsapp` **não depende de o operador reconstruir a regra de
 negócio nos selects**. A turma (ou empresa inteira com justificativa) define o universo; o servidor
@@ -74,6 +74,7 @@ semana/slot, portanto uma semana não bloqueia a seguinte.
 | Template manual | Meta em 01/09 | Regra automática obrigatória |
 |---|---|---|
 | `boas_vindas_v2` | APPROVED/UTILITY | Está no escopo e tem WhatsApp cadastrado |
+| `votacao_competencias` | **SUBMETIDO 25/09** (UTILITY provisório) | Votação aberta, ainda não votou e o cargo tem competências na cédula; um por pessoa **por dia** (Brasília) |
 | `avaliacao_pendente` | APPROVED/UTILITY | Cargo tem cenários e a pessoa registrou zero respostas |
 | `avaliacao_competencias` | APPROVED/UTILITY | Tem perfil comportamental, cargo/cenários/top5 configurados e zero respostas |
 | `avaliacao_parcial` | APPROVED/UTILITY | Respondeu pelo menos um cenário, mas ainda não todos |
@@ -136,6 +137,7 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `avaliacao_pendente` | nome | **instituição** | link de `/dashboard/assessment` | — | — |
 | `avaliacao_competencias` | nome | **competência** (`top5_workshop`) | link de `/dashboard/assessment` | — | — |
 | `boas_vindas_v2` | nome | **instituição** | link de `/entrar` | — | — |
+| `votacao_competencias` | nome | **instituição** | prazo: dia seguinte ao envio, em Brasília ("sábado, 26/09") | link de `/dashboard/votacao` | — |
 | `acesso_vertho` | *(corpo sem variável)* | | | | URL: `app.vertho.ai/entrar?t={{1}}` |
 | `otp_acesso` | código | — | — | — | COPY_CODE nativo |
 
@@ -190,6 +192,7 @@ exemplo, continua saindo apenas quando um humano escolhe e confirma o lote.
 | `avaliacao_pendente` | Script + tela de Envios | Cenários configurados e zero respostas |
 | `avaliacao_parcial` | Tela de Envios | Progresso estritamente entre zero e o total |
 | `boas_vindas_v2` | Script + tela de Envios | Escopo explícito, WhatsApp e idempotência por template |
+| `votacao_competencias` | Tela de Envios | Votação aberta, sem voto registrado, cédula do cargo não vazia (`lib/votacao/cedula.ts`) |
 
 🔑 **Aprovar não é ligar, e ligar não é disparar.** Foram esses dois degraus que deixaram
 `resultado_perfil` aprovado e sem consumidor por semanas, com ~120 pessoas sem saber que o
@@ -439,6 +442,20 @@ cron próprio para esse momento. A regra automática descrita no §1 é aplicada
 > **{{3}}**
 >
 > Se não reconhece este convite, é só responder a esta mensagem.
+
+**`votacao_competencias`** — lembrete da votação, DEPOIS das boas-vindas (criado em 25/09/2026)
+
+> Olá, **{{1}}**. A votação de competências do seu cargo está aberta no programa da **{{2}}**.
+>
+> Você escolhe, em ordem, as 5 competências mais importantes para o seu trabalho. Leva cerca de 5 minutos, e a votação fica aberta até as 23h59 de **{{3}}**.
+>
+> Para votar, acesse:
+> **{{4}}**
+>
+> Seu voto ajuda a definir as competências que o programa vai desenvolver.
+
+O prazo é "amanhã" em Brasília no momento do envio (decisão do dono). ⚠️ A mensagem PROMETE o
+prazo, mas quem fecha a votação é o admin, na aba Votação: o sistema não fecha sozinho às 23h59.
 
 ---
 
