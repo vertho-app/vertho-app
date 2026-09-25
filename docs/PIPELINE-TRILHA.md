@@ -455,7 +455,8 @@ turnos custam **5** respostas. Tudo que a TELA anuncia passa por `respostasDaPes
 a **lista** (`app/dashboard/temporada/page.tsx:158`) libera também por `em_andamento`, e
 `marcarConteudoConsumido` (`actions/temporadas.ts:709`) grava progresso `em_andamento` em **qualquer**
 semana sem passar por gate — é assim que aparece gente com as semanas 2, 3 e 5 abertas sem nenhuma
-concluída.
+concluída. Ela NÃO rebaixa mais semana `concluido` (`statusAoTocarSemana`, 25/09, F-I40): antes,
+clicar no conteúdo depois de concluir a conversa reabria a semana e trancava a seguinte.
 
 #### `primeiraSemanaAcessivel` — a régua até o ponto fixo (23/08/2026, F-I22)
 

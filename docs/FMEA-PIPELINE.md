@@ -653,6 +653,31 @@ já era dita no topo, mas como texto, e a porta ficava a duas telas de rolagem.
   Chromium dele não tem visualizador de PDF, então isso não prova nada; no iPhone, `Suponho:` que
   também não renderize. Conferir num aparelho antes de concluir.
 
+### F-I40 · Abrir o conteúdo de semana CONCLUÍDA a reabria, e a seguinte trancava ✅ (fechado 25/09/2026, `ea327e35`)
+Vizinho do F-I21 (a `marcarConteudoConsumido` sem gate já estava no "Aberto" de lá) e do F-I23 (o
+consumo gravado ao entrar na conversa, que é o que deixa o flag da tela velho).
+- **Gatilho:** `actions/temporadas.ts::marcarConteudoConsumido` gravava `status: EM_ANDAMENTO` fixo,
+  sem ler o status atual. A tela só a chama com `!conteudoConsumido`, mas o `startChat`
+  (`app/dashboard/temporada/semana/[week]/page.tsx`) grava o consumo sem recarregar `data`: o flag
+  segue `false` a sessão inteira, e qualquer clique num formato DEPOIS da conversa chama a action de
+  novo, que rebaixa a semana recém-concluída.
+- **Sem saída pela tela:** a rota `reflection` devolve cedo quando `turnsIA >= maxTurns/2`. Refazer a
+  conversa não regrava `concluido`; o gate sequencial tranca a semana seguinte até alguém corrigir o dado.
+- **Efeito medido (25/09, a partir da queixa "fiz a semana 5 e não aparece"):** assinatura
+  `status <> 'concluido' AND concluido_em IS NOT NULL`, censo na tabela inteira: **3 linhas, 3
+  diretoras de Macaé** (semanas 5, 2 e 1; a mais antiga havia **21 dias**). Nas 3: 6 turnos, extração
+  feita, semana seguinte já liberada, e em `trilha_eventos` um clique no conteúdo da MESMA semana 40 a
+  80 s depois de concluir, seguido de `bloqueio` na próxima.
+- **Correção:** `statusAoTocarSemana` (`lib/season-engine/progresso-semana.ts`) nunca rebaixa
+  `concluido`, aplicada na action e em `api/temporada/missao/route.ts`, o outro escritor que gravava
+  `em_andamento` fixo. Dados das 3 restaurados mantendo o `concluido_em` original.
+- **Guarda:** `tests/unit/tocar-semana-nao-rebaixa.test.ts`, 4 mutações mortas (action com status
+  fixo, `status` fora do select, régua sempre `em_andamento`, missão com status fixo). A âncora do
+  "status fixo" é regex sobre `status:`, porque o comentário da action cita o valor antigo.
+- ⚠️ **Em aberto:** o `startChat` segue sem recarregar `data` (inócuo com a régua; o flag velho só
+  repete uma escrita idempotente). A qualitativa da `evaluation` não tem retorno antecipado depois de
+  concluída: não medido se algum caminho regrava `em_andamento` ali.
+
 ---
 
 ## 3. Escala (o que quebra a partir de N) — resumo; detalhe em ESCALA-50K.md
@@ -892,7 +917,8 @@ de abertura inflava justamente com quem não viu nada). Guarda:
 
 🚧 **Aberto:** a lista ainda libera por `em_andamento` e `marcarConteudoConsumido`
 (`actions/temporadas.ts:709`) continua criando progresso `em_andamento` em qualquer semana sem gate —
-a raiz dos registros órfãos que destravam o botão da lista.
+a raiz dos registros órfãos que destravam o botão da lista. Até 25/09 ela também REBAIXAVA semana
+concluída (F-I40); isso fechou, o resto segue aberto.
 
 ⚠️ **O buraco estava documentado desde 17/07** na errata 2 de `docs/PIPELINE-TRILHA.md` e ficou 34
 dias sem virar trabalho. Achado sem consequência visível não é priorizado; o que o tornou urgente foi
