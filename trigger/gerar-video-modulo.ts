@@ -422,18 +422,37 @@ export async function executarGeracaoVideoModulo(p: {
       // Pula avatares já renderizados: `audioSrc` só é setado APÓS o HeyGen (resume →
       // não re-chama o HeyGen, que é a etapa cara/lenta).
       const avatares = roteiro.scenes.filter((s) => s.type.startsWith('avatar') && assets[s.id]?.src && !assets[s.id]?.audioSrc);
+      const ledgerAvatar = { feature: 'heygen_avatar', empresaId: empresaIdDoVideo };
       await mapPool(avatares, 2, async (s) => {
         const audioUrl = assets[s.id].src;
-        const heygenId = await gerarClipHeyGen(audioUrl, { width: 1920, height: 1080 });
-        const heygenUrl = await aguardarClipHeyGen(heygenId);
-        const mp4 = Buffer.from(await (await fetch(heygenUrl)).arrayBuffer());
+        // RESUME do clipe PAGO: o id da HeyGen é persistido antes do polling, então um
+        // re-run depois de queda no meio da espera retoma o MESMO clipe em vez de pagar
+        // outro. Clipe que falhou ou sumiu na HeyGen → gera um novo.
+        let heygenUrl: string | null = null;
+        const idAnterior = assets[s.id]?.heygenVideoId;
+        if (idAnterior) {
+          try {
+            heygenUrl = await aguardarClipHeyGen(idAnterior, { ledger: ledgerAvatar });
+          } catch (e: any) {
+            console.warn(`[heygen] clipe ${idAnterior} (${s.id}) não retomou, gerando outro:`, e?.message);
+          }
+        }
+        if (!heygenUrl) {
+          const heygenId = await gerarClipHeyGen(audioUrl, { width: 1920, height: 1080 });
+          assets[s.id] = { ...assets[s.id], heygenVideoId: heygenId };
+          await patchVideo(videoId, { assets });
+          heygenUrl = await aguardarClipHeyGen(heygenId, { ledger: ledgerAvatar });
+        }
+        const resp = await fetch(heygenUrl);
+        if (!resp.ok) throw new Error(`HeyGen: download do mp4 falhou (${resp.status}) em ${s.id}`);
+        const mp4 = Buffer.from(await resp.arrayBuffer());
         const norm = await normalizarFps(mp4, VIDEO_FPS); // 25fps→30fps CFR (lip-sync)
         const src = await storagePut('video-assets', `${videoId}/${s.id}-${GERACAO_TAG()}.mp4`, norm, 'video/mp4');
         duracaoLocal[s.id] = await duracaoDoBuffer(norm, 'mp4'); // o `src` da cena passa a ser o mp4
         // Mantém o mp3 da narração como áudio SEPARADO: o vídeo (mp4) entra mutado e
         // o áudio é tocado alinhado pelo Remotion → lip-sync sem o offset do OffthreadVideo.
         // Preserva `words` (timing Whisper) capturado no passo da narração.
-        assets[s.id] = { src, durationSec: 0, audioSrc: audioUrl, words: assets[s.id]?.words };
+        assets[s.id] = { src, durationSec: 0, audioSrc: audioUrl, words: assets[s.id]?.words, heygenVideoId: assets[s.id]?.heygenVideoId };
       });
 
       // 3) DURAÇÕES reais (ffprobe) → timeline correta. Paralelo.

@@ -319,6 +319,32 @@ describe('aviso de mudança de instrumento (TTS no ledger desde 30/08/2026)', ()
   });
 });
 
+describe('aviso de mudança de instrumento (HeyGen: a data vem do PRÓPRIO ledger)', () => {
+  // A HeyGen entra no ledger no dia do deploy da v3, que o código não conhece: a
+  // entrada é a 1ª linha `heygen:` do ledger, e o aviso vale enquanto a comparação
+  // semana-a-semana alcançar essa data.
+  const heygen = (iso: string) => [{ rotulo: 'O avatar do vídeo (HeyGen)', desde: new Date(iso) }];
+
+  it('avisa na semana em que a HeyGen entrou (a anterior não tinha a camada)', () => {
+    const aviso = avisoInstrumento({ ini: new Date('2026-09-28T03:00:00Z'), instrumentosDesde: heygen('2026-09-29T15:00:00Z') });
+    expect(aviso).toContain('HeyGen');
+    expect(aviso).toContain('29/09/2026');
+    expect(aviso).not.toContain('TTS');
+  });
+
+  it('avisa também na semana seguinte, cuja comparação ainda alcança a entrada', () => {
+    expect(avisoInstrumento({ ini: new Date('2026-10-05T03:00:00Z'), instrumentosDesde: heygen('2026-09-29T15:00:00Z') })).toContain('HeyGen');
+  });
+
+  it('cala quando as duas semanas comparadas já medem a HeyGen', () => {
+    expect(avisoInstrumento({ ini: new Date('2026-10-12T03:00:00Z'), instrumentosDesde: heygen('2026-09-29T15:00:00Z') })).toBeNull();
+  });
+
+  it('sem nenhuma linha HeyGen no ledger, não há aviso de HeyGen', () => {
+    expect(avisoInstrumento({ ini: new Date('2026-10-12T03:00:00Z'), instrumentosDesde: [] })).toBeNull();
+  });
+});
+
 describe('destinatários', () => {
   it('🔴 ADMIN_EMAILS não é fallback: aquela env concede admin de plataforma', () => {
     const admin = process.env.ADMIN_EMAILS;

@@ -171,6 +171,20 @@ type ModelPrice = {
  */
 export const OPENAI_WEB_SEARCH_USD_PER_CALL = 10 / 1000;
 
+/**
+ * HeyGen v3, US$ por segundo de avatar gerado, por motor (`engine`). Quem grava o
+ * custo no ledger é `lib/video/heygen.ts`, a cada clipe concluído.
+ *   · `avatar_iii` foto: US$ 0,99/min da tabela oficial (16/09/2026), conferido por
+ *     delta da carteira em 24/09 (US$ 0,0171/s num clipe de 7,58s).
+ *   · `avatar_iv` foto: US$ 0,0382/s MEDIDO pelo mesmo método no mesmo dia; a tabela
+ *     oficial dessa linha não foi conferida.
+ * Motor fora desta tabela grava a linha com `cost_usd` nulo, que é o sinal de lacuna.
+ */
+export const HEYGEN_USD_POR_SEGUNDO: Record<string, number> = {
+  avatar_iii: 0.99 / 60,
+  avatar_iv: 0.0382,
+};
+
 export function openAIWebSearchToolCost(output: unknown): number {
   if (!Array.isArray(output)) return 0;
   const calls = output.filter((item) => item && typeof item === 'object' && (item as any).type === 'web_search_call').length;
@@ -862,7 +876,7 @@ export const CALLS = [
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Narração do vídeo (TTS, take único)',
-    descricao: 'Desde 06/09/2026 o roteiro inteiro é UMA chamada (2.5 Flash, Aoede) cortada nas cenas pelo alinhamento (antes: 14-21 chamadas por cena no 3.1, US$ 0,10-0,13 por vídeo). Medido em 5 gerações de 06/09: US$ 0,046-0,050 quando o portão aprova o 1º take (3 de 5), US$ 0,094 quando refaz (2 de 5) → ~US$ 0,07 por vídeo. Fora do TTS o custo do vídeo não mudou: o HeyGen (US$ 0,47) domina.',
+    descricao: 'Desde 06/09/2026 o roteiro inteiro é UMA chamada (2.5 Flash, Aoede) cortada nas cenas pelo alinhamento (antes: 14-21 chamadas por cena no 3.1, US$ 0,10-0,13 por vídeo). Medido em 5 gerações de 06/09: US$ 0,046-0,050 quando o portão aprova o 1º take (3 de 5), US$ 0,094 quando refaz (2 de 5) → ~US$ 0,07 por vídeo. Fora do TTS o custo do vídeo não mudou: o HeyGen (~US$ 0,59) domina.',
     inTokens: 0,
     outTokens: 0,
     flatUsd: 0.07,
@@ -885,13 +899,14 @@ export const CALLS = [
   },
   {
     id: 'video-modulo-avatar',
+    taskKey: 'heygen_avatar',
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Avatar falante (HeyGen)',
-    descricao: 'Clipes de avatar (intro + outro, ~28s) com lip-sync da nossa narração. MEDIDO no billing HeyGen: $0,0167/s = $1,00/min exato (linear, sem taxa fixa) → ~$0,47 por vídeo. É a MAIOR linha (~64% do deck). Escala com a duração da fala do avatar. OPCIONAL: sem avatar o custo cai todo este valor.',
+    descricao: 'Clipes de avatar (intro + outro) com lip-sync da nossa narração, HeyGen v3 `avatar_iii` (foto). Preço: US$ 0,99/min (tabela oficial 16/09/2026), conferido por delta da carteira em 24/09 (US$ 0,0171/s, igual à v2). Duração MEDIDA: 34-37s de avatar por vídeo (155 decks de Ibipeba e Macaé, 24/09), não os ~28s que o prompt mira → ~US$ 0,59 por vídeo. É a MAIOR linha (~65% do deck). Escala com a fala do avatar. OPCIONAL: sem avatar o custo cai todo este valor.',
     inTokens: 0,
     outTokens: 0,
-    flatUsd: 0.47,
+    flatUsd: 0.59,
     exec: 1,
     defaultModel: 'gemini-3.1-flash-lite',
     critical: false,

@@ -1,9 +1,11 @@
-// Valida a HEYGEN_API_KEY: cota, avatar usado (Abigail) e vozes PT (informativo).
-// Rodar: node --env-file=.env.local scripts/heygen-probe.mjs
+// Valida a HEYGEN_API_KEY na API v3: saldo da carteira e o look da foto usada no vídeo.
+// Não gera nada (grátis). Rodar: node --env-file=.env.local scripts/heygen-probe.mjs
+// Para medir o CUSTO de um motor, leia o saldo antes e depois de UM clipe
+// (método em docs/GERADOR-VIDEO-MODULO.md, "Integração HeyGen v3").
 const key = process.env.HEYGEN_API_KEY;
 if (!key) { console.log('HEYGEN_API_KEY ausente no env'); process.exit(1); }
 const H = { 'X-Api-Key': key, Accept: 'application/json' };
-const AVATAR = 'Abigail_expressive_2024112501';
+const FOTO = process.env.HEYGEN_TALKING_PHOTO_ID || 'd160ea51f4124514b94aa1cf8e56eb42';
 
 async function get(url) {
   const r = await fetch(url, { headers: H });
@@ -12,31 +14,14 @@ async function get(url) {
   return { status: r.status, j };
 }
 
-// 1) cota
-for (const u of ['https://api.heygen.com/v2/user/remaining_quota', 'https://api.heygen.com/v1/user/remaining_quota']) {
-  const { status, j } = await get(u);
-  console.log('quota', u.includes('v2') ? 'v2' : 'v1', '→', status, JSON.stringify(j).slice(0, 160));
-  if (status === 200) break;
-}
+// 1) saldo (a v3 cobra em US$; é o mesmo saldo que a v2 mostrava em créditos)
+const me = await get('https://api.heygen.com/v3/users/me');
+const w = me.j?.data?.wallet;
+console.log('carteira →', me.status, w ? `US$ ${w.remaining_balance} (recarga automática: ${w.auto_reload?.enabled ? `US$ ${w.auto_reload.amount_usd} abaixo de US$ ${w.auto_reload.threshold_usd}` : 'desligada'})` : JSON.stringify(me.j).slice(0, 200));
 
-// 2) avatares — confirma o Abigail
-const av = await get('https://api.heygen.com/v2/avatars');
-console.log('\navatars →', av.status);
-if (av.status === 200) {
-  const list = av.j?.data?.avatars || [];
-  console.log('  total avatars:', list.length);
-  const found = list.find((a) => a.avatar_id === AVATAR);
-  console.log('  Abigail (' + AVATAR + '):', found ? `OK — ${found.avatar_name} (${found.gender})` : 'NÃO encontrado na conta');
-} else {
-  console.log('  ', JSON.stringify(av.j).slice(0, 200));
-}
-
-// 3) vozes PT (informativo — não usamos voz HeyGen, mas útil ter)
-const vo = await get('https://api.heygen.com/v2/voices');
-if (vo.status === 200) {
-  const pt = (vo.j?.data?.voices || []).filter((v) => /portug/i.test(v.language || ''));
-  console.log('\nvozes PT:', pt.length);
-  pt.slice(0, 8).forEach((v) => console.log('  ', v.voice_id, '|', v.name, '|', v.gender, '|', v.language));
-} else {
-  console.log('\nvoices →', vo.status, JSON.stringify(vo.j).slice(0, 160));
-}
+// 2) o look da foto usada no vídeo
+const look = await get(`https://api.heygen.com/v3/avatars/looks/${FOTO}`);
+console.log(`\nlook ${FOTO} →`, look.status, look.status === 200
+  ? `${look.j?.data?.avatar_type} · ${look.j?.data?.image_width}x${look.j?.data?.image_height} · ${look.j?.data?.preferred_orientation}`
+  : JSON.stringify(look.j).slice(0, 200));
+console.log('motor configurado:', process.env.HEYGEN_ENGINE || 'avatar_iii (default do código)');

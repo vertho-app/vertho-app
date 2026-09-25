@@ -9,9 +9,10 @@
  * ── O que este relatório mede, e o que ele NÃO mede ───────────────────────────
  *
  * A fonte é `ia_usage_log`, e o ledger só registra quem escreve nele. Hoje há
- * três escritores: o wrapper (`actions/ai-client.ts`), o TTS (`lib/gemini-tts.ts`,
- * desde 30/08/2026) e o Batch (`lib/ai-batch.ts`). Tudo que não passa por um
- * deles — render de vídeo, HeyGen, Bunny, embeddings — não aparece aqui, e a
+ * quatro escritores: o wrapper (`actions/ai-client.ts`), o TTS (`lib/gemini-tts.ts`,
+ * desde 30/08/2026), o Batch (`lib/ai-batch.ts`) e o avatar HeyGen
+ * (`lib/video/heygen.ts`, desde a migração para a v3). Tudo que não passa por um
+ * deles — render de vídeo, Bunny, embeddings — não aparece aqui, e a
  * ausência tem exatamente a mesma cara de um zero. Por isso o e-mail carrega uma
  * nota de cobertura fixa: um número sem a fronteira dele convida a ler "não
  * gastamos" onde o certo é "não medimos".
@@ -169,6 +170,8 @@ export interface RelatorioSemanal {
   pd: BlocoPD[];
   /** Nenhuma linha na janela — relatório vazio é resultado, não falha. */
   semDados: boolean;
+  /** Quando cada camada posterior ao TTS passou a gravar no ledger (ver `avisoInstrumento`). */
+  instrumentosDesde?: InstrumentoDesde[];
 }
 
 /** Número que veio do PostgREST (numeric/int8 podem chegar como string). */
@@ -444,11 +447,52 @@ export function rotuloPeriodo(r: { ini: Date; fim: Date }): string {
  */
 export const LEDGER_TTS_DESDE = new Date('2026-08-30T00:00:00Z');
 
-export function avisoInstrumento(r: { ini: Date }): string | null {
+/**
+ * Camadas que passaram a gravar no ledger DEPOIS do TTS, reconhecidas pelo `source`.
+ * A data de entrada de cada uma é a do DEPLOY que a ligou, que o código não conhece:
+ * por isso ela sai do próprio ledger (a primeira linha daquele `source`), e não de
+ * uma constante que seria um palpite. O aviso vale pelo mesmo motivo do TTS.
+ */
+export const INSTRUMENTOS_LEDGER = [
+  { rotulo: 'O avatar do vídeo (HeyGen)', prefixoSource: 'heygen:' },
+] as const;
+
+export interface InstrumentoDesde { rotulo: string; desde: Date }
+
+/** Primeira linha de cada instrumento no ledger. Falha de leitura só perde o aviso. */
+export async function coletarInstrumentosDesde(): Promise<InstrumentoDesde[]> {
+  const out: InstrumentoDesde[] = [];
+  for (const inst of INSTRUMENTOS_LEDGER) {
+    const { data, error } = await sbInfra().from('ia_usage_log')
+      .select('created_at')
+      .like('source', `${inst.prefixoSource}%`)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      console.warn(`[custo-ia] não li a entrada de "${inst.rotulo}" no ledger: ${error.message}`);
+      continue;
+    }
+    if (data?.created_at) out.push({ rotulo: inst.rotulo, desde: new Date(data.created_at as string) });
+  }
+  return out;
+}
+
+export function avisoInstrumento(r: { ini: Date; instrumentosDesde?: InstrumentoDesde[] }): string | null {
   const inicioDaComparacao = new Date(r.ini.getTime() - 7 * 86_400_000);
-  if (inicioDaComparacao >= LEDGER_TTS_DESDE) return null;
-  return 'O áudio (TTS) só passou a ser registrado no ledger em 30/08/2026. '
-    + 'Na comparação com a semana anterior, parte da variação é o instrumento que mudou, não o gasto.';
+  const partes: string[] = [];
+  if (inicioDaComparacao < LEDGER_TTS_DESDE) {
+    partes.push('O áudio (TTS) só passou a ser registrado no ledger em 30/08/2026.');
+  }
+  for (const i of r.instrumentosDesde || []) {
+    if (i.desde > inicioDaComparacao) {
+      const d = new Date(i.desde.getTime() - 3 * 3_600_000); // BRT (UTC−3 fixo)
+      const dia = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
+      partes.push(`${i.rotulo} só passou a ser registrado no ledger em ${dia}.`);
+    }
+  }
+  if (!partes.length) return null;
+  return `${partes.join(' ')} Na comparação com a semana anterior, parte da variação é o instrumento que mudou, não o gasto.`;
 }
 
 /**
@@ -470,11 +514,12 @@ export async function executarRelatorioCustoIA(opts: {
     fim: janela.ini,
   };
 
-  const [linhas, linhasAnteriores] = await Promise.all([
+  const [linhas, linhasAnteriores, instrumentosDesde] = await Promise.all([
     coletarJanela(janela),
     coletarJanela(anterior),
+    coletarInstrumentosDesde(),
   ]);
-  const relatorio = montarRelatorio(janela, linhas, linhasAnteriores);
+  const relatorio = { ...montarRelatorio(janela, linhas, linhasAnteriores), instrumentosDesde };
 
   const { montarEmailCustoIA } = await import('./email');
   const { assunto, html } = montarEmailCustoIA(relatorio);

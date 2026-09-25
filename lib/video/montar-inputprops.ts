@@ -107,8 +107,10 @@ export type SpikePropsV3 = {
 
 /** Asset (URL + duração real) de cada cena, indexado por sceneId. `audioSrc` =
  *  áudio separado (avatar: mp3 da narração, p/ lip-sync preciso). `words` = timing
- *  por palavra (Whisper/M4) p/ legendas e animações sincronizadas. */
-export type AssetMap = Record<string, { src: string; durationSec: number; audioSrc?: string; words?: WordTime[] }>;
+ *  por palavra (Whisper/M4) p/ legendas e animações sincronizadas. `heygenVideoId` =
+ *  id do clipe na HeyGen, persistido antes do polling para um re-run retomar o clipe
+ *  já pago (ver `trigger/gerar-video-modulo.ts`). */
+export type AssetMap = Record<string, { src: string; durationSec: number; audioSrc?: string; words?: WordTime[]; heygenVideoId?: string }>;
 
 export const BRAND_PADRAO: Brand = {
   primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: 'Inter, system-ui, sans-serif',

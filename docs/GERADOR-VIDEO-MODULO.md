@@ -19,7 +19,7 @@
      **5 dias gerando zero vídeo** sem deixar rastro. Na geração 5 o raciocínio já vem ligado e
      divide `max_tokens` (16k aqui) com o texto. Modo de falha completo: `docs/FMEA-PIPELINE.md` §F-I14.
 2. **Narração** — Gemini TTS, voz **`Aoede`** (`VIDEO_TTS_VOICE`; até 05/09/2026 era Vindemiatrix no modelo 3.1), 1 mp3/cena, com **direção de estilo por tipo de cena** (intro calorosa/engajante, miolo conversa, outro pausado) + correção de pronúncia de siglas. Whisper alinha palavra-a-palavra (legendas).
-3. **Avatar (HeyGen)** — só nas pontas; lip-sync do NOSSO mp3 (`voice.type=audio`), 1920×1080; mp4 normalizado p/ CFR (25→30fps).
+3. **Avatar (HeyGen)** — só nas pontas; lip-sync do NOSSO mp3 (`audio_url`), 1920×1080; mp4 normalizado p/ CFR (25→30fps). **API v3 desde 25/09/2026**, motor `avatar_iii` explícito: contrato, preços e método de medição na seção "Integração HeyGen v3" abaixo.
 4. **Render (Remotion, comp `VerthoVideo`)** — recebe tudo via `inputProps` (timeline de `montar-inputprops.ts`). **Dois backends** (`RENDER_BACKEND`):
    - **`hetzner`** (default/produção): enfileira `render_queued`; a box **CCX33 efêmera** (`worker-hetzner/worker.mjs`, modelo PULL) renderiza. **~$0,18/vídeo**, sobe/deleta por lote.
    - **`trigger`** (override de teste): render em chunks paralelos no trigger.dev. **~$5-6/vídeo em 1080p** (~42min). Snap de scale p/ dims inteiras (`Math.round(h*scale)/h`) corrige o bug do 0.6667.
@@ -33,6 +33,50 @@
 **Entrega ao colaborador:** `resolverVideoDaSemana`/`resolverCelulaVideo` entregam o personalizado do colaborador se houver (`done`), senão o genérico da célula (fallback transparente).
 
 Detalhes vivos em [[project_current_work]] (memória) e nos arquivos `lib/video/*`, `worker-hetzner/*`, `trigger/gerar-video-modulo.ts`, `trigger/render-video.ts`.
+
+---
+
+## Integração HeyGen v3 (desde 25/09/2026)
+
+A HeyGen retira `/v2/video/generate` e `/v1/video_status.get` em **31/10/2026**. O cliente único
+é `lib/video/heygen.ts`; o único chamador de produção é o passo 2 de `trigger/gerar-video-modulo.ts`
+(os scripts `_conarh-video-espelho.ts` e `_render-local-completo.ts` usam as mesmas funções).
+
+**Contrato** (medido com chamada real em 24/09/2026):
+
+| | |
+|---|---|
+| Criar | `POST /v3/videos` `{type:'avatar', avatar_id, engine:{type:'avatar_iii'}, audio_url, resolution:'1080p', aspect_ratio:'16:9'}` → `data.video_id` |
+| Consultar | `GET /v3/videos/{id}` → `data.status` (`completed` com `video_url` e `duration`; `failed`) |
+| Saldo | `GET /v3/users/me` → `data.wallet.remaining_balance` (US$). É o MESMO saldo que a v2 mostrava em créditos (884 créditos ≈ US$ 14,73) |
+| Foto | a foto de sempre (`d160ea51…`, `HEYGEN_TALKING_PHOTO_ID`) já é um look `photo_avatar` na v3, com o mesmo id |
+
+- **`engine` é objeto.** Como string, a API devolve 400.
+- **Sem `engine`, o v3 usa Avatar IV.** O motor vem de `HEYGEN_ENGINE` (default `avatar_iii`) e é
+  lido na hora da chamada.
+- **Erros HTTP no polling:** 5xx e 429 seguem esperando; os outros 4xx são fatais na hora (antes, um
+  401 virava 20 minutos até o timeout). A mensagem `HeyGen timeout aguardando video_id` é lida como
+  texto pelo health e pela FMEA: não mudar.
+- **Retomada:** o `video_id` da HeyGen fica em `assets[cena].heygenVideoId`, persistido ANTES do
+  polling. Um re-run depois de queda retoma o clipe já pago em vez de gerar outro.
+
+**Preço** (conferido por delta da carteira, mesmo áudio de 7,58s, clipes em série, 24/09/2026):
+
+| Motor | Medido | Tabela oficial (16/09/2026) |
+|---|---|---|
+| v2 `talking_photo` (o que rodava) | US$ 0,0172/s | — |
+| v3 `avatar_iii` foto | **US$ 0,0171/s** | Photo/Studio US$ 0,99/min = 0,0165/s |
+| v3 `avatar_iv` foto (default da v3) | US$ 0,0382/s (2,2×) | não conferida |
+| v3 `avatar_iii` Digital Twin | — | US$ 0,60/min = 0,0100/s (exige filmar pessoa real + consentimento) |
+
+Com os **34-37s de avatar medidos por vídeo** (não os ~28s que o prompt mira), o avatar custa
+**~US$ 0,56-0,61 por vídeo**. Desde a v3, **cada clipe concluído grava o custo no ledger**
+(`ia_usage_log`, feature `heygen_avatar`, source `heygen:v3`, segundos arredondados para cima ×
+`HEYGEN_USD_POR_SEGUNDO` do catálogo), e o relatório semanal avisa a semana em que essa camada entra.
+
+**Método de medição** (use o mesmo ao testar outro motor ou foto): ler o saldo em `/v3/users/me`,
+gerar UM clipe, esperar o saldo mudar, ler de novo. Um clipe por vez; o saldo tem precisão de
+centavo, então use clipes de 7s ou mais. Rodar a v2 como controle confirmou o método.
 
 ---
 
@@ -110,7 +154,7 @@ throughput e de taxa de falha do pipeline em lote.
 | Boxes | escalaram sozinhas até **15** (`MAX_RENDER_BOXES`), ladder cx43 → cx33 → cpx32 conforme estoque; **todas morreram** no idle shutdown (conferido por API: 0 ativas) |
 | Personalizados | **187** `videos_personalizados` nominais saíram atrás dos decks, sem intervenção |
 | Custo | **47 renders pagos para 42 células** (~12% de desperdício) ≈ $33 |
-| Custo por vídeo (medido 06/09/2026) | HeyGen ≈ US$ 0,47 (2 clipes, ~28 s) + TTS take único 0,05-0,09 (2.5 Flash) + Whisper e box ≈ 0,04 → **≈ US$ 0,56-0,60**; detalhe em `docs/CUSTO-QUALIDADE.md` §07/09 |
+| Custo por vídeo (medido 06/09/2026) | HeyGen ≈ US$ 0,47 (2 clipes, ~28 s) + TTS take único 0,05-0,09 (2.5 Flash) + Whisper e box ≈ 0,04 → **≈ US$ 0,56-0,60**; detalhe em `docs/CUSTO-QUALIDADE.md` §07/09. ⚠️ Corrigido em 24/09: o avatar real tem 34-37s, não 28s → HeyGen ≈ US$ 0,59 e vídeo ≈ US$ 0,90 (ver "Integração HeyGen v3") |
 
 **🔴 A taxa de falha do lote é de SATURAÇÃO de fornecedor, não de bug — 6 de 41 (~15%):**
 3× `TTS: resposta sem áudio após 4 tentativas` e 3× `HeyGen timeout aguardando video_id`.
