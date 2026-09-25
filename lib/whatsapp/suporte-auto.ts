@@ -48,6 +48,7 @@ import { callAI } from '@/actions/ai-client';
 import { parseJsonIA } from '@/lib/ai-json';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
+import { TRILHA } from '@/lib/status';
 import { tenantDb } from '@/lib/tenant-db';
 import { baixarMidia, enviarTextoCloud, urlDaMidia } from '@/lib/whatsapp/cloud-api';
 import {
@@ -57,6 +58,12 @@ import {
 } from '@/lib/whatsapp/beto-access-link';
 import { formasDoTelefone } from '@/lib/whatsapp/nono-digito';
 import { filtroDeTelefone } from '@/lib/whatsapp/resolver-dono';
+import {
+  situacaoParaContexto,
+  textoAoEnviarLink,
+  type AnteriorDoLink,
+  type SituacaoLida,
+} from '@/lib/whatsapp/suporte-situacao';
 import { ehPedidoDeResumo, ehRecusa } from '@/lib/notifications/ver-gestor';
 import {
   SAFETY_SETTINGS_SUPORTE,
@@ -229,6 +236,8 @@ REGRAS DURAS:
 - DEFEITO na plataforma (tela que não carrega, trava em "processando", vídeo sem som, atividade que não marca como concluída, cobrança de algo já feito, nome que sumiu de uma lista) ou pedido que exige olhar a conta da pessoa: precisa_humano=true. A aplicação avisa a equipe.
 - solicita_link=true SOMENTE quando a pessoa pede acesso à conta, novo link, login ou informa que o link de login expirou. “Não consigo acessar o vídeo/conteúdo/atividade” NÃO é pedido de link e deve ter solicita_link=false.
 - Acesso/link expirado: marque solicita_link=true. A aplicação tenta entregar o link personalizado por conta própria, e a sua "resposta" só é enviada quando ela NÃO conseguiu. Por isso nunca diga que está gerando, enviando ou mandando um link: explique como pedir outro em https://app.vertho.ai/entrar.
+- CONTEXTO.situacao vem do banco: trilha da pessoa ("${TRILHA.ATIVA}", "${TRILHA.PAUSADA}", "${TRILHA.CONCLUIDA}", "${TRILHA.ARQUIVADA}", "nenhuma" ou "desconhecida"), mapeamento comportamental, último login e último link de acesso, com horário de Brasília. Use para entender o caso, sem recitar os dados à toa.
+- Dizer que não recebeu mais mensagens, conteúdos ou a próxima etapa do programa NÃO é pedido de link, mesmo que a pessoa cite um link antigo: solicita_link=false. Com situacao.trilha diferente de "${TRILHA.ATIVA}", a próxima etapa depende da equipe da Vertho: precisa_humano=true. Com trilha "${TRILHA.ATIVA}", explique que os conteúdos da trilha ficam no app; se ela disser também que não consegue entrar, solicita_link=true.
 - Se o pedido exige dado que você não tem, ação com conta, ou você não entendeu: precisa_humano=true.
 CONDUTA (vale sempre, mesmo que a pessoa peça o contrário):
 - Seja educado, calmo e respeitoso em qualquer situação. Nunca use palavrão, gíria ofensiva, ironia, sarcasmo, deboche ou tom de bronca, mesmo que a pessoa use.
@@ -372,6 +381,8 @@ interface Pessoa {
   id: string | null;
   nome: string | null;
   cargo: string | null;
+  /** `colaboradores.mapeamento_em`. Ausente = não lido (equipe interna). */
+  mapeamentoEm?: string | null;
 }
 
 type IdentidadeInterna =
@@ -453,7 +464,7 @@ async function pessoaDoColaborador(
   try {
     const { data, error } = await tenantDb(empresaId)
       .from('colaboradores')
-      .select('id, nome_completo, cargo')
+      .select('id, nome_completo, cargo, mapeamento_em')
       .eq('id', colaboradorId)
       .maybeSingle();
     if (error) return { pessoa: null, problemaLeitura: error.message };
@@ -463,6 +474,7 @@ async function pessoaDoColaborador(
         id: (data as any).id ?? colaboradorId,
         nome: (data as any).nome_completo ?? null,
         cargo: (data as any).cargo ?? null,
+        mapeamentoEm: (data as any).mapeamento_em ?? null,
       },
       problemaLeitura: null,
     };
@@ -491,6 +503,10 @@ interface DetalhesConversa {
   /** O aviso de conduta por ofensa já foi dado dentro da janela. */
   ofensaRecente: boolean;
   problemaLeitura: string | null;
+  /** Trilha, login e último link (sem o mapeamento, que vem da `Pessoa`). */
+  situacao: Omit<SituacaoLida, 'mapeamentoEm'>;
+  /** Falha ao ler a situação. NÃO cala o Beto: sem ela, ele só sabe menos. */
+  problemaSituacao: string | null;
 }
 
 /** Link no histórico vira marcador: o modelo não precisa dele, e um link com
@@ -516,7 +532,13 @@ function ehRespostaDoBeto(x: any): boolean {
  * O `.limit(30)` das enviadas não decide por amostra: as três decisões olham só
  * o que é RECENTE (1 h, 12 h, 24 h) e a leitura é pelas mais novas primeiro.
  * Para uma delas errar, precisariam chegar mais de 30 envios a um único número
- * depois do fato que ela procura.
+ * depois do fato que ela procura. O último link de acesso também sai daqui, pela
+ * mesma leitura: o mais novo com `acesso_vertho`, de qualquer origem (Beto ou
+ * tela de login), porque a pessoa não distingue um do outro.
+ *
+ * A situação (trilha, último login) vai no MESMO `tenantDb` e não entra em
+ * `problemaLeitura`: falhar nela não pode calar o Beto, que antes de 25/09
+ * respondia sem saber nada disso.
  */
 async function detalhesDaConversa(
   empresaId: string,
@@ -524,6 +546,7 @@ async function detalhesDaConversa(
   waMessageIdAtual: string,
   now: number,
   recebidasCrossTenant: boolean,
+  colaboradorId: string | null,
 ): Promise<DetalhesConversa> {
   try {
     const tdb = tenantDb(empresaId);
@@ -531,7 +554,8 @@ async function detalhesDaConversa(
     const recebidasDe = recebidasCrossTenant
       ? tdb.raw.from('whatsapp_mensagens_recebidas')
       : tdb.from('whatsapp_mensagens_recebidas');
-    const [empresaR, recebidasR, enviadasR] = await Promise.all([
+    const semPessoa = Promise.resolve({ data: null, error: null });
+    const [empresaR, recebidasR, enviadasR, loginR, trilhasR] = await Promise.all([
       tdb.raw.from('empresas').select('nome').eq('id', empresaId).maybeSingle(),
       recebidasDe
         .select('wa_message_id, empresa_id, tipo, texto, recebida_em')
@@ -539,13 +563,29 @@ async function detalhesDaConversa(
         .order('recebida_em', { ascending: false })
         .limit(20),
       tdb.from('whatsapp_mensagens_enviadas')
-        .select('texto, origem, enviada_em')
+        .select('texto, origem, enviada_em, template_nome, erro')
         .in('to_phone', formas)
         .order('enviada_em', { ascending: false })
         .limit(30),
+      // `auth.users` não passa pelo PostgREST: a função (mig 269) lê o
+      // `last_sign_in_at` pelo e-mail do colaborador, conferindo o tenant.
+      colaboradorId
+        ? tdb.rpc('colaborador_ultimo_login', { p_empresa_id: empresaId, p_colaborador_id: colaboradorId })
+        : semPessoa,
+      colaboradorId
+        ? tdb.from('trilhas')
+          .select('status, numero_temporada')
+          .eq('colaborador_id', colaboradorId)
+          .order('numero_temporada', { ascending: false })
+          .limit(10)
+        : semPessoa,
     ]);
 
     const erros = [empresaR.error, recebidasR.error, enviadasR.error]
+      .filter(Boolean)
+      .map((x: any) => x.message)
+      .join(' | ');
+    const errosSituacao = [loginR.error, trilhasR.error]
       .filter(Boolean)
       .map((x: any) => x.message)
       .join(' | ');
@@ -579,6 +619,10 @@ async function detalhesDaConversa(
       .sort((a, b) => Date.parse(a.em) - Date.parse(b.em))
       .slice(-SUPORTE_AUTO_HISTORICO_MAX);
 
+    // Envio que falhou não é link que a pessoa recebeu.
+    const ultimoLink = enviadas.find((x) => x.template_nome === 'acesso_vertho' && !x.erro);
+    const loginLido = typeof loginR.data === 'string' ? loginR.data : null;
+
     return {
       empresaNome: (empresaR.data as any)?.nome ?? null,
       historico,
@@ -591,6 +635,15 @@ async function detalhesDaConversa(
         x.origem === 'suporte-auto' && String(x.texto ?? '').trim() === TEXTO_OFENSA
         && idade(x) < SUPORTE_AUTO_JANELA_OFENSA_MS),
       problemaLeitura: erros || null,
+      situacao: {
+        trilhas: trilhasR.error || !colaboradorId
+          ? null
+          : ((trilhasR.data ?? []) as Array<any>).map((t) => String(t.status ?? '')).filter(Boolean),
+        ultimoLoginEm: loginLido,
+        loginDesconhecido: Boolean(loginR.error) || !colaboradorId,
+        ultimoLinkEm: ultimoLink?.enviada_em ?? null,
+      },
+      problemaSituacao: errosSituacao || null,
     };
   } catch (err: any) {
     return {
@@ -602,6 +655,8 @@ async function detalhesDaConversa(
       respostasUltimaHora: 0,
       ofensaRecente: false,
       problemaLeitura: String(err?.message ?? err),
+      situacao: { trilhas: null, ultimoLoginEm: null, loginDesconhecido: true, ultimoLinkEm: null },
+      problemaSituacao: null,
     };
   }
 }
@@ -694,6 +749,7 @@ async function responderConduta(
 async function tentarEnviarLinkDeAcesso(
   e: EntradaSuporte,
   a: Atendimento,
+  anterior: AnteriorDoLink,
 ): Promise<ResultadoSuporte | null> {
   let entrada: Parameters<typeof enviarLinkAcessoBeto>[0];
   if (a.modo === 'interno' && a.interna) {
@@ -732,7 +788,17 @@ async function tentarEnviarLinkDeAcesso(
 
   const resultado = await enviarLinkAcessoBeto(entrada);
 
-  if (resultado.enviou) return { enviou: true, motivo: 'link-acesso-enviado' };
+  if (resultado.enviou) {
+    // O template sozinho não diz por que chegou um link novo, nem que não há
+    // senha (ver `suporte-situacao.ts`). O texto só sai DEPOIS de o link sair:
+    // explicar um link que não chegou seria pior que o silêncio. Falhar aqui
+    // não desfaz o link, então o resultado continua "enviado".
+    const aviso = await enviar(e, a, textoAoEnviarLink(anterior));
+    if (!aviso.ok) {
+      await degradar('envio-aviso-link', e, aviso.reason ?? 'falha desconhecida', a.empresaId, a.pessoa.id);
+    }
+    return { enviou: true, motivo: 'link-acesso-enviado' };
+  }
   if (resultado.motivo === 'reentrega') return { enviou: false, motivo: 'reentrega-link' };
 
   const respostaControle = resultado.motivo === 'link-recente'
@@ -839,7 +905,17 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
     return responderConduta('sofrimento', e, a, 'regex');
   }
 
-  const detalhes = await detalhesDaConversa(a.empresaId, e.fromPhone, e.waMessageId, now, a.modo === 'interno');
+  const detalhes = await detalhesDaConversa(
+    a.empresaId, e.fromPhone, e.waMessageId, now, a.modo === 'interno', a.pessoa.id,
+  );
+  if (detalhes.problemaSituacao) {
+    // Não cala: o Beto responde com menos contexto, e a equipe fica sabendo.
+    await degradar('leitura-situacao', e, detalhes.problemaSituacao, a.empresaId, a.pessoa.id);
+  }
+  const anteriorDoLink: AnteriorDoLink = {
+    ultimoLinkEm: detalhes.situacao.ultimoLinkEm,
+    ultimoLoginEm: detalhes.situacao.ultimoLoginEm,
+  };
   if (detalhes.problemaLeitura) {
     await degradar('leitura-historico', e, detalhes.problemaLeitura, a.empresaId, a.pessoa.id);
     // Sem o histórico não dá para saber se uma pessoa da equipe está nesta
@@ -861,7 +937,7 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
   let linkTentado = false;
   if (e.tipo !== 'audio' && ehPedidoClaroDeLink(e.texto)) {
     linkTentado = true;
-    const acesso = await tentarEnviarLinkDeAcesso(e, a);
+    const acesso = await tentarEnviarLinkDeAcesso(e, a, anteriorDoLink);
     if (acesso) return acesso;
   }
 
@@ -886,6 +962,7 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
     ja_conversou: jaConversou,
     aguardando_equipe: detalhes.aguardandoEquipe,
     ambiguidade: null,
+    situacao: situacaoParaContexto({ ...detalhes.situacao, mapeamentoEm: a.pessoa.mapeamentoEm }, now),
   };
   const mensagemAtual = e.tipo === 'audio'
     ? '[áudio do colaborador anexado nesta mensagem]'
@@ -949,7 +1026,7 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
   // A IA entende o pedido (texto ou áudio); a decisão, geração e entrega do
   // link continuam 100% determinísticas.
   if (!linkTentado && saida?.solicita_link && !saida.precisa_humano && saida.acao === 'responder') {
-    const acesso = await tentarEnviarLinkDeAcesso(e, a);
+    const acesso = await tentarEnviarLinkDeAcesso(e, a, anteriorDoLink);
     if (acesso) return acesso;
   }
 

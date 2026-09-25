@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { APP_URL, tenantUrl } from '@/lib/domain';
 import { ACESSO_PLATAFORMA_SLUG, lerParametroAcesso, caminhoCallback } from '@/lib/auth/magic-link-whatsapp';
-import { ehNavegadorEmbutido, ehAndroid, intentNavegadorPadrao } from '@/lib/auth/navegador-embutido';
+import {
+  desviarWhatsappAndroid,
+  ehAndroid,
+  ehNavegadorEmbutido,
+  ehWhatsappAndroid,
+  intentNavegadorPadrao,
+} from '@/lib/auth/navegador-embutido';
 
 /**
  * Despacho do magic link recebido por WhatsApp.
@@ -122,7 +128,11 @@ export async function GET(req: NextRequest) {
     // e ela erra: em 15/08 um iPhone real passou pela heurística sem ser
     // detectado. Registrar o UA aqui é o que permite corrigir a régua com dado
     // em vez de palpite — e o volume é baixo (um por clique em link de acesso).
-    console.log(`[entrar] ua=${JSON.stringify(ua)} embutido=${ehNavegadorEmbutido(ua)} android=${ehAndroid(ua)}`);
+    // `wa4a` é o WhatsApp do Android, que a régua de embutido não pega (ver
+    // `ehWhatsappAndroid`). Sai no log mesmo com o desvio desligado: é o que conta
+    // quantas pessoas entram por ele.
+    const whatsappAndroid = ehWhatsappAndroid(ua);
+    console.log(`[entrar] ua=${JSON.stringify(ua)} embutido=${ehNavegadorEmbutido(ua)} android=${ehAndroid(ua)} wa4a=${whatsappAndroid}`);
 
     const meuLink = new URL('/entrar', req.url);
     meuLink.searchParams.set('t', t);
@@ -132,8 +142,10 @@ export async function GET(req: NextRequest) {
     // `package=` fixo — ver `intentNavegadorPadrao`), que reabre este mesmo
     // endereço com o token INTACTO, porque nada foi consumido até aqui. O
     // fallback vai para a tela de despacho, nunca de volta para cá (viraria
-    // laço).
-    if (ehNavegadorEmbutido(ua) && ehAndroid(ua)) {
+    // laço). O WhatsApp do Android só entra aqui com a chave ligada para o
+    // tenant (`desviarWhatsappAndroid`): o caminho não foi testado nele.
+    const sairDoWebView = ehNavegadorEmbutido(ua) || (whatsappAndroid && desviarWhatsappAndroid(dados.slug));
+    if (sairDoWebView && ehAndroid(ua)) {
       const abrir = new URL('/entrar/abrir', req.url);
       abrir.searchParams.set('t', t);
       return NextResponse.redirect(intentNavegadorPadrao(meuLink.toString(), abrir.toString()), 302);
@@ -170,7 +182,7 @@ export async function GET(req: NextRequest) {
   const via = /^[a-z-]{1,20}$/.test(req.nextUrl.searchParams.get('via') || '')
     ? req.nextUrl.searchParams.get('via')
     : '-';
-  console.log(`[entrar] consumido via=${via} ua=${JSON.stringify(ua)} embutido=${ehNavegadorEmbutido(ua)}`);
+  console.log(`[entrar] consumido via=${via} ua=${JSON.stringify(ua)} embutido=${ehNavegadorEmbutido(ua)} wa4a=${ehWhatsappAndroid(ua)}`);
 
   // `tenantUrl` monta a partir do slug JÁ validado contra o banco — a URL nunca
   // é concatenada com texto vindo da query.

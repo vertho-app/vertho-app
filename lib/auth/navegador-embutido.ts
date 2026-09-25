@@ -58,6 +58,56 @@ export function ehAndroid(userAgent: string | null | undefined): boolean {
   return /Android/i.test(String(userAgent || ''));
 }
 
+/**
+ * Navegador do WhatsApp no ANDROID: marcador `WA4A/`.
+ *
+ * 🔴 MEDIDO EM 25/09/2026, primeiro Android real nos logs (moto g15, WhatsApp
+ * 2.26.37.73):
+ *
+ *   …Build/VVTA35.51-158; ) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0
+ *   Chrome/153.0.8010.36 Mobile Safari/537.36 **WA4A/2.26.37.73**
+ *
+ * SEM o `wv` que a régua do Android esperava (o lugar dele ficou vazio, `; )`),
+ * e sem a palavra `WhatsApp`. Os seis toques da pessoa saíram `embutido=false`:
+ * ela entrou DENTRO do WhatsApp, a sessão não sobreviveu ao fechar a tela, e
+ * cada toque seguinte no mesmo botão caiu em "link inválido ou expirado".
+ *
+ * Fica FORA do `APP_EMBUTIDO` de propósito: acusar embutido no Android dispara
+ * o `intent://` do `/entrar`, e esse caminho nunca rodou dentro do WhatsApp
+ * Android. Se o WhatsApp não repassar o `intent://` ao sistema, a pessoa cai numa
+ * página de erro sem saída, pior do que entrar dentro do WhatsApp. Quem liga é
+ * `desviarWhatsappAndroid`, depois de um teste em aparelho.
+ */
+const WHATSAPP_ANDROID = /\bWA4A\//;
+
+export function ehWhatsappAndroid(userAgent: string | null | undefined): boolean {
+  return WHATSAPP_ANDROID.test(String(userAgent || ''));
+}
+
+/**
+ * O `/entrar` manda o WhatsApp do Android para o navegador (`intent://`)?
+ *
+ * `ENTRAR_WHATSAPP_ANDROID_NAVEGADOR`:
+ *  - ausente, vazio ou `desligado`: não (padrão; entra dentro do WhatsApp, como
+ *    até 25/09);
+ *  - `todos`: sim, para todo tenant;
+ *  - lista de slugs separada por vírgula (`plataforma,macae`): só neles. É o
+ *    modo de TESTE: liga para um tenant, alguém com Android pede o link e toca.
+ *    Deu certo se o `[entrar] consumido` seguinte vier com UA SEM `WA4A` (o
+ *    Chrome, ou o navegador padrão). `plataforma` é o destino da equipe interna.
+ *
+ * Env na Vercel só vale depois de um novo deploy.
+ */
+export function desviarWhatsappAndroid(
+  slug: string,
+  valor: string | undefined = process.env.ENTRAR_WHATSAPP_ANDROID_NAVEGADOR,
+): boolean {
+  const v = String(valor ?? '').trim().toLowerCase();
+  if (!v || v === 'desligado') return false;
+  if (v === 'todos') return true;
+  return v.split(',').map((s) => s.trim()).filter(Boolean).includes(slug.trim().toLowerCase());
+}
+
 export function ehNavegadorEmbutido(userAgent: string | null | undefined): boolean {
   const ua = String(userAgent || '');
   if (!ua) return false; // sem UA não dá para afirmar; o fluxo normal segue

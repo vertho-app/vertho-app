@@ -9,7 +9,16 @@
 // A assimetria que guia os testes: falso POSITIVO só mostra uma tela a mais a
 // quem já estava no navegador certo; falso NEGATIVO queima o acesso.
 import { describe, it, expect } from 'vitest';
-import { deveTentarSafari, ehNavegadorEmbutido, ehAndroid, intentNavegadorPadrao, esquemaSafari, esquemaChrome } from '@/lib/auth/navegador-embutido';
+import {
+  deveTentarSafari,
+  desviarWhatsappAndroid,
+  ehNavegadorEmbutido,
+  ehAndroid,
+  ehWhatsappAndroid,
+  intentNavegadorPadrao,
+  esquemaSafari,
+  esquemaChrome,
+} from '@/lib/auth/navegador-embutido';
 
 const UA = {
   waAndroid: 'Mozilla/5.0 (Linux; Android 13; SM-A536E Build/TP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0.0.0 Mobile Safari/537.36',
@@ -36,6 +45,13 @@ const UA = {
    */
   waIosSemMarca: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1',
   edgeIos: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 EdgiOS/126.0 Mobile/15E148 Safari/605.1.15',
+  /**
+   * 🔴 MEDIDO em aparelho real (25/09/2026, log `[entrar]` de uma professora de
+   * Macaé, moto g15): o WhatsApp do ANDROID, sem `wv` e sem a palavra
+   * `WhatsApp`. Só o `WA4A/` no fim. Dado de campo, não exemplo inventado: não
+   * editar.
+   */
+  waAndroidReal: 'Mozilla/5.0 (Linux; Android 15; moto g15 Build/VVTA35.51-158; ) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/153.0.8010.36 Mobile Safari/537.36 WA4A/2.26.37.73',
   previewMeta: 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
 };
 
@@ -159,5 +175,41 @@ describe('🔴 tentar o Safari não depende mais de detectar o WhatsApp (23/09/2
     expect(deveTentarSafari(UA.previewMeta)).toBe(false);
     expect(deveTentarSafari('')).toBe(false);
     expect(deveTentarSafari(null)).toBe(false);
+  });
+});
+
+describe('🔴 WhatsApp do Android sem `wv` (25/09/2026)', () => {
+  it('o UA real é reconhecido pelo `WA4A/`', () => {
+    expect(ehWhatsappAndroid(UA.waAndroidReal)).toBe(true);
+    expect(ehAndroid(UA.waAndroidReal)).toBe(true);
+  });
+
+  it('a régua de embutido NÃO o pega, e isso é o registro do buraco, não o conserto', () => {
+    // Pegar aqui dispararia o `intent://` para todo Android, caminho nunca
+    // testado dentro do WhatsApp. Quem decide é `desviarWhatsappAndroid`.
+    expect(ehNavegadorEmbutido(UA.waAndroidReal)).toBe(false);
+  });
+
+  it('navegador de verdade e WhatsApp de iPhone não são o WA4A', () => {
+    expect(ehWhatsappAndroid(UA.chromeAndroid)).toBe(false);
+    expect(ehWhatsappAndroid(UA.waAndroid)).toBe(false);
+    expect(ehWhatsappAndroid(UA.waIosReal)).toBe(false);
+    expect(ehWhatsappAndroid('')).toBe(false);
+    expect(ehWhatsappAndroid(null)).toBe(false);
+  });
+
+  it('o desvio nasce DESLIGADO', () => {
+    expect(desviarWhatsappAndroid('macae', undefined)).toBe(false);
+    expect(desviarWhatsappAndroid('macae', '')).toBe(false);
+    expect(desviarWhatsappAndroid('macae', 'desligado')).toBe(false);
+  });
+
+  it('`todos` liga para qualquer tenant; lista liga só para os tenants dela', () => {
+    expect(desviarWhatsappAndroid('macae', 'todos')).toBe(true);
+    expect(desviarWhatsappAndroid('macae', ' plataforma , Macae ')).toBe(true);
+    expect(desviarWhatsappAndroid('plataforma', 'plataforma,macae')).toBe(true);
+    expect(desviarWhatsappAndroid('ibipeba', 'plataforma,macae')).toBe(false);
+    // Prefixo não é o tenant.
+    expect(desviarWhatsappAndroid('mac', 'macae')).toBe(false);
   });
 });

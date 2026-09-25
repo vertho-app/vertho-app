@@ -13,7 +13,7 @@
 // Note o que isso implica e o que o teste protege: detectar o navegador embutido
 // NÃO resolveria. Redirecionar automaticamente destrói a única URL que valia a
 // pena transferir. O consumo precisa esperar um toque explícito.
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { criarSupabaseMock } from '../../helpers/supabase-mock';
 
 /** O tenant do `t` existe no banco? Vira `false` no teste de slug inexistente. */
@@ -176,5 +176,51 @@ describe('🔴 o log do consumo diz POR ONDE a pessoa entrou (23/09/2026)', () =
   it('link antigo, sem `via`, continua entrando', async () => {
     const r = await chamar(`?t=${encodeURIComponent(T)}&ir=1`);
     expect(new URL(r.headers.get('location')!).pathname).toBe('/auth/callback');
+  });
+});
+
+describe('🔴 WhatsApp do Android (`WA4A`), atrás da chave (25/09/2026)', () => {
+  // UA real do log de 25/09 (moto g15): sem `wv`, então a régua de embutido não
+  // o pega. O `intent://` nunca rodou dentro dele; por isso o desvio é por chave.
+  const UA_WA4A =
+    'Mozilla/5.0 (Linux; Android 15; moto g15 Build/VVTA35.51-158; ) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/153.0.8010.36 Mobile Safari/537.36 WA4A/2.26.37.73';
+  const CHAVE = 'ENTRAR_WHATSAPP_ANDROID_NAVEGADOR';
+
+  afterEach(() => { delete process.env[CHAVE]; });
+
+  it('chave desligada: segue para a tela de despacho, como até hoje', async () => {
+    const loc = (await chamar(`?t=${encodeURIComponent(T)}`, UA_WA4A)).headers.get('location')!;
+    expect(loc).toContain('/entrar/abrir');
+    expect(loc.startsWith('intent://')).toBe(false);
+  });
+
+  it('chave com o tenant do link: sai pelo `intent://`, sem consumir', async () => {
+    process.env[CHAVE] = 'plataforma,ibipeba';
+    const loc = (await chamar(`?t=${encodeURIComponent(T)}`, UA_WA4A)).headers.get('location')!;
+    expect(loc.startsWith('intent://')).toBe(true);
+    expect(loc).not.toContain('auth/callback');
+    expect(loc).not.toContain('ir=1');
+  });
+
+  it('chave com OUTRO tenant: este link não muda', async () => {
+    process.env[CHAVE] = 'macae';
+    const loc = (await chamar(`?t=${encodeURIComponent(T)}`, UA_WA4A)).headers.get('location')!;
+    expect(loc).toContain('/entrar/abrir');
+  });
+
+  it('`todos`: vale também para a plataforma', async () => {
+    process.env[CHAVE] = 'todos';
+    const loc = (await chamar(`?t=${encodeURIComponent(T_PLATAFORMA)}`, UA_WA4A)).headers.get('location')!;
+    expect(loc.startsWith('intent://')).toBe(true);
+  });
+
+  it('o log marca `wa4a` na chegada e no consumo, mesmo com a chave desligada', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    await chamar(`?t=${encodeURIComponent(T)}`, UA_WA4A);
+    await chamar(`?t=${encodeURIComponent(T)}&ir=1&via=direto`, UA_WA4A);
+    const linhas = log.mock.calls.map((c) => String(c[0])).filter((l) => l.startsWith('[entrar]'));
+    log.mockRestore();
+    expect(linhas).toHaveLength(2);
+    for (const l of linhas) expect(l).toContain('wa4a=true');
   });
 });

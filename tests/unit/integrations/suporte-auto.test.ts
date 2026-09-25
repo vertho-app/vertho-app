@@ -25,6 +25,10 @@ const h = vi.hoisted(() => ({
   resultadoLink: { enviou: false, motivo: 'destino-ambiguo' } as any,
   identidadesPedidas: [] as any[],
   identidadeColab: null as any,
+  trilhas: [] as any[],
+  ultimoLogin: null as string | null,
+  erroLogin: '',
+  rpcs: [] as any[],
 }));
 
 vi.mock('@/actions/ai-client', () => ({
@@ -80,6 +84,7 @@ vi.mock('@/lib/tenant-db', () => ({
         if (h.erroLeitura || h.erroHistorico) return { data: null, error: { message: h.erroLeitura || h.erroHistorico } };
         if (tabela === 'whatsapp_mensagens_recebidas') return { data: h.recebidas, error: null };
         if (tabela === 'whatsapp_mensagens_enviadas') return { data: h.enviadas, error: null };
+        if (tabela === 'trilhas') return { data: h.trilhas, error: null };
         return { data: [], error: null };
       };
       return b;
@@ -87,6 +92,13 @@ vi.mock('@/lib/tenant-db', () => ({
     return {
       from: (tabela: string) => builder(tabela),
       raw: { from: (tabela: string) => builder(tabela, true) },
+      // Só a função do último login (mig 269) passa por aqui.
+      rpc: async (fn: string, args: any) => {
+        h.rpcs.push([fn, args]);
+        return h.erroLogin
+          ? { data: null, error: { message: h.erroLogin } }
+          : { data: fn === 'colaborador_ultimo_login' ? h.ultimoLogin : null, error: null };
+      },
     };
   },
 }));
@@ -185,6 +197,10 @@ beforeEach(() => {
   h.linksAcesso = [];
   h.resultadoLink = { enviou: false, motivo: 'destino-ambiguo' };
   h.identidadesPedidas = [];
+  h.trilhas = [];
+  h.ultimoLogin = null;
+  h.erroLogin = '';
+  h.rpcs = [];
   h.identidadeColab = {
     ok: true,
     email: 'ana@escola.gov.br',
@@ -208,12 +224,14 @@ describe('suporte-auto · equipe @vertho.ai na ACME (piloto, inalterado)', () =>
     expect(ehPedidoClaroDeLink('erro na atividade da semana')).toBe(false);
   });
 
-  it('pedido claro entrega link sem gastar Gemini nem mandar resposta duplicada', async () => {
+  it('pedido claro entrega link sem gastar Gemini, e o link sai com o texto fixo que o explica', async () => {
     h.resultadoLink = { enviou: true, motivo: 'link-plataforma' };
     const r = await executarSuporteAuto(base);
     expect(r).toEqual({ enviou: true, motivo: 'link-acesso-enviado' });
     expect(h.chamadasIA).toHaveLength(0);
-    expect(h.envios).toHaveLength(0);
+    // Até 25/09 o link saía mudo. Agora sai UM texto, e ele é o fixo, não prosa de modelo.
+    expect(h.envios).toHaveLength(1);
+    expect(h.envios[0].input.texto).toContain('não precisa de senha');
     expect(h.linksAcesso).toEqual([expect.objectContaining({
       empresaBaseId: ACME,
       email: 'rodrigo@vertho.ai',
@@ -395,7 +413,10 @@ describe('suporte-auto · equipe @vertho.ai na ACME (piloto, inalterado)', () =>
     expect(r).toEqual({ enviou: true, motivo: 'link-acesso-enviado' });
     expect(h.chamadasIA).toHaveLength(1);
     expect(h.linksAcesso).toHaveLength(1);
-    expect(h.envios).toHaveLength(0);
+    // A prosa do modelo continua descartada quando o link sai; o texto é o fixo.
+    expect(h.envios).toHaveLength(1);
+    expect(h.envios[0].input.texto).not.toContain('Vou te ajudar');
+    expect(h.envios[0].input.texto).toContain('não precisa de senha');
   });
 
   it('áudio indisponível: responde na voz do Beto sem chamar a IA', async () => {
@@ -569,6 +590,84 @@ describe('suporte-auto · qualquer colaborador (aberto em 22/09/2026)', () => {
     // Tentou uma vez só (atalho), e não de novo depois da IA.
     expect(h.identidadesPedidas).toHaveLength(1);
     expect(h.degradacoes.some((d) => d.detalhe?.fase === 'identidade-acesso')).toBe(true);
+  });
+
+  describe('🔴 o link sai explicado, com o que o banco sabe (25/09/2026)', () => {
+    const minAtras = (m: number) => new Date(Date.now() - m * 60 * 1000).toISOString();
+    // Forma real da linha de `whatsapp_mensagens_enviadas` do link do Beto.
+    const linkAnterior = (m: number, erro: string | null = null) => ({
+      texto: 'Seu link de acesso à Vertho foi gerado. Toque no botão abaixo para entrar.\n\nO link expira em 15 minutos e só pode ser usado uma vez.',
+      origem: 'suporte-auto',
+      enviada_em: minAtras(m),
+      template_nome: 'acesso_vertho',
+      erro,
+    });
+
+    it('caso real: entrou com o link anterior e tocou de novo; o texto diz que ele já foi usado', async () => {
+      h.resultadoLink = { enviou: true, motivo: 'link-tenant' };
+      h.respostaIA = ia({ solicita_link: true });
+      h.enviadas = [linkAnterior(38)];
+      h.ultimoLogin = minAtras(37);
+      const r = await executarSuporteAuto({
+        ...colab, texto: 'Não estou conseguindo acessar o link que vc me mandou ?', waMessageId: 'wamid.REAL',
+      });
+      expect(r).toEqual({ enviou: true, motivo: 'link-acesso-enviado' });
+      expect(h.envios).toHaveLength(1);
+      expect(h.envios[0].input.texto).toContain('já foi usado: você entrou');
+      expect(h.envios[0].meta).toEqual(expect.objectContaining({ origem: 'suporte-auto', colaboradorId: 'col-ana' }));
+      // O login vem da função da mig 269, com o tenant conferido lá dentro.
+      expect(h.rpcs).toEqual([['colaborador_ultimo_login', { p_empresa_id: 'emp-ibipeba', p_colaborador_id: 'col-ana' }]]);
+    });
+
+    it('envio de link que FALHOU não conta como link anterior', async () => {
+      h.resultadoLink = { enviou: true, motivo: 'link-tenant' };
+      h.enviadas = [linkAnterior(38, 'Cloud API HTTP 400')];
+      await executarSuporteAuto({ ...colab, texto: 'meu link expirou', waMessageId: 'wamid.FALHOU' });
+      expect(h.envios[0].input.texto).toContain('Te mandei seu link de acesso');
+    });
+
+    it('o texto que falha não desfaz o link: o resultado segue enviado, e a equipe é avisada', async () => {
+      h.resultadoLink = { enviou: true, motivo: 'link-tenant' };
+      h.falharEnvio = 'Cloud API HTTP 500';
+      const r = await executarSuporteAuto({ ...colab, texto: 'meu link expirou', waMessageId: 'wamid.AVISO' });
+      expect(r).toEqual({ enviou: true, motivo: 'link-acesso-enviado' });
+      expect(h.degradacoes.some((d) => d.detalhe?.fase === 'envio-aviso-link')).toBe(true);
+    });
+
+    it('link que não saiu não ganha texto de "te mandei"', async () => {
+      h.resultadoLink = { enviou: false, motivo: 'falha-envio-link', detalhe: 'timeout' };
+      await executarSuporteAuto({ ...colab, texto: 'meu link expirou', waMessageId: 'wamid.SEMLINK' });
+      expect(h.envios.some((x) => String(x.input.texto).includes('Te mandei'))).toBe(false);
+    });
+
+    it('o modelo recebe a situação: trilha, mapeamento, login e link, em Brasília', async () => {
+      h.colaborador = { ...h.colaborador, mapeamento_em: '2026-09-04T19:03:54Z' };
+      h.trilhas = [];
+      h.ultimoLogin = null;
+      await executarSuporteAuto({
+        ...colab,
+        texto: 'Comecei a fazer o treinamento porém só me foi enviado um link inicial no dia 4 de setembro . Depois não recebi mais nenhum',
+        waMessageId: 'wamid.SEMTRILHA',
+      });
+      const [sistema, user] = h.chamadasIA[0];
+      expect(String(user)).toContain('"situacao":{"trilha":"nenhuma","mapeamento_comportamental":"feito","ultimo_login":"sem registro","ultimo_link_de_acesso_24h":"nenhum"}');
+      // A regra que manda a pessoa sem trilha para a equipe em vez de mandar link.
+      expect(String(sistema)).toContain('NÃO é pedido de link');
+    });
+
+    it('trilha ativa chega ao modelo como "ativa"', async () => {
+      h.trilhas = [{ status: 'concluida', numero_temporada: 2 }, { status: 'ativa', numero_temporada: 1 }];
+      await executarSuporteAuto(colab);
+      expect(String(h.chamadasIA[0][1])).toContain('"trilha":"ativa"');
+    });
+
+    it('falha ao ler a situação NÃO cala o Beto: responde e avisa a equipe', async () => {
+      h.erroLogin = 'function public.colaborador_ultimo_login does not exist';
+      const r = await executarSuporteAuto(colab);
+      expect(r.enviou).toBe(true);
+      expect(h.degradacoes.some((d) => d.detalhe?.fase === 'leitura-situacao')).toBe(true);
+      expect(String(h.chamadasIA[0][1])).toContain('"ultimo_login":"desconhecido"');
+    });
   });
 
   it('tenant de demonstração não recebe resposta', async () => {
