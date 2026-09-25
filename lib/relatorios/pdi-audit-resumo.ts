@@ -42,7 +42,14 @@ export interface ResumoAuditoriaPlanos {
 const STATUS = new Set<PdiAuditStatus>(['pass', 'warn', 'fail']);
 const ORDEM: Record<string, number> = { fail: 0, warn: 1, pass: 2, nulo: 3 };
 const MAX_OCORRENCIAS = 6;
-const MAX_CHARS = 220;
+/**
+ * Teto por ocorrência. `Medido` (25/09, 347 ocorrências da reauditoria de Macaé): p50 249,
+ * p95 308, máx. 334. O primeiro teto (220) cortava 66% delas no meio da justificativa, que é
+ * justamente a parte que diz POR QUE reprovou. Com 400 nenhuma é cortada; o teto fica para o
+ * caso anômalo, e o corte é marcado com "…".
+ */
+const MAX_CHARS = 400;
+const cortar = (s: string) => (s.length > MAX_CHARS ? `${s.slice(0, MAX_CHARS - 1)}…` : s);
 
 export function resumirAuditoriaPlanos(
   linhas: Array<{ colaborador_id: string; gerado_em?: string | null; auditoria?: any }>,
@@ -65,7 +72,7 @@ export function resumirAuditoriaPlanos(
           status: c.status as PdiAuditStatus,
           ocorrencias: (Array.isArray(c.ocorrencias) ? c.ocorrencias : [])
             .slice(0, MAX_OCORRENCIAS)
-            .map((o: unknown) => String(o).slice(0, MAX_CHARS)),
+            .map((o: unknown) => cortar(String(o))),
         })),
     };
   });

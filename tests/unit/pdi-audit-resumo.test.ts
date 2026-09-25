@@ -54,7 +54,14 @@ describe('resumirAuditoriaPlanos', () => {
     const r = resumirAuditoriaPlanos([{ colaborador_id: 'a', auditoria: auditoria('fail', [check('fail', 'X', muitas)]) }], nomes);
     const oc = r.itens[0].pendencias[0].ocorrencias;
     expect(oc).toHaveLength(6);
-    expect(Math.max(...oc.map((o) => o.length))).toBe(220);
+    expect(Math.max(...oc.map((o) => o.length))).toBe(400);
+    expect(oc[0].endsWith('…')).toBe(true);
+  });
+
+  it('não corta a justificativa de tamanho real (máx. medido 334 caracteres)', () => {
+    const real = 'Autocuidado e bem-estar profissional: "a rotina ainda não tem pontos fixos…" — '.padEnd(334, 'y');
+    const r = resumirAuditoriaPlanos([{ colaborador_id: 'a', auditoria: auditoria('fail', [check('fail', 'X', [real])]) }], nomes);
+    expect(r.itens[0].pendencias[0].ocorrencias[0]).toBe(real);
   });
 
   it('pessoa sem nome no mapa não some da lista', () => {
