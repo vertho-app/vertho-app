@@ -1458,6 +1458,43 @@ isso visível sem regerar ninguém (decisão do dono: os entregues ficam como es
 Sem auditoria: 111 PDIs, todos anteriores a 27/08 nos tenants reais; nas demos, escritos pelo
 reset a partir do fixture.
 
+### 25/09: "56 de 91 é muita coisa". Conferido contra a FONTE, e 10 regerados
+
+O dono duvidou do número, com razão: até aqui eu tinha lido as ACUSAÇÕES do auditor, não o que a
+pessoa escreveu. Conferidos 6 reprovados contra `respostas.r1..r4`:
+- **O gerador antigo colava a personagem na pessoa.** Os 57 responderam o MESMO cenário (Alessandra,
+  que absorve tudo sozinha até o limite), e o PDI, sem as respostas, preenchia com a descrição dela.
+  Dayane escreveu "sem ... assumir toda a responsabilidade sozinha" e o PDI diz "o padrão observado é
+  o de resolver pendências sozinha até o limite"; Rosenilda escreveu "é preciso dar conta" e o PDI a
+  elogia por "abertura para buscar apoio da coordenação". Cenário único + erro sistemático = taxa
+  uniforme.
+- **O auditor exagerava em 2 de 6** (paráfrase fiel; inferência com "pode indicar"), mas cada PDI
+  reprovado tinha mediana de 5 trechos acusados: tirar os pedantes não mudava o veredito.
+
+2ª calibragem (`fac56bf5`): a régua é o CONTEÚDO. fail = falso (inventado, oposto da resposta, traço
+da personagem); warn = fiel mas enquadrado como fato real ou inferido; paráfrase fiel não é achado.
+Regerados 10 desses PDIs com o gerador novo (6 conferidos + 4 sorteados), auditados com os dois
+auditores, 2× cada, e gravados com o texto que foi lido:
+
+| | auditor antigo | auditor novo |
+|---|---|---|
+| 6 PDIs antigos: fail | 12/12 | 12/12 |
+| 6 PDIs antigos: achados graves | 56 | 38 |
+| 10 PDIs novos: fail | 4/20 | 4/20 |
+| 10 PDIs novos: pass / warn | 12 / 4 | 9 / 7 |
+| veredito mudou entre rodadas (novos) | 4/10 | 5/10 |
+
+Leitura: **o gerador é o efeito** (100% → 20% de fail, nos dois auditores); o auditor novo mantém os
+3 defeitos graves conhecidos nas 2 rodadas e passa o enquadramento para warn (Laise, Cintia), mas não
+muda a taxa. Os 4 fail nos PDIs novos são todos de UMA rodada e sobre enquadramento: nenhum com
+conteúdo falso. Na gravação: 2 fail (Dalete REAL, o PDI diz "sem plano de ação" e a resposta traz
+agenda com tempo por dia; Vanessa ruído, conteúdo fiel julgado fail), 6 warn, 2 pass.
+Falha conhecida: a paráfrase do Herbert segue fail no PDI ANTIGO (2/2) mesmo com o exemplo; no PDI
+regerado ela sumiu. ⚠️ Com o gerador novo, o ruído do auditor (fail que não se repete) passa a
+decidir o veredito; exigir fail nas 2 rodadas teria dado 0/10 nos novos e 6/6 nos antigos nesta
+amostra (n pequeno, não implementado). O warn "feedback é jargão em inglês" aparece em 6 dos 10,
+e o próprio cenário usa a palavra.
+
 ### 27/08 — IA4 sem censura: o número que faltava desde 25/08
 
 `scripts/_medir-ia4-sem-censura.ts`, 15 avaliações reais em Ibipeba, teto já em
