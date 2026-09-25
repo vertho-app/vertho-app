@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DUAL_IA_PARES, DEFAULT_TASK_MODELS, familiaDoModelo } from '@/lib/ai-tasks';
 import {
-  auditarPdiEstrutural, consolidarAuditoriaPdi,
+  aplicarSprintDoBlueprint, auditarPdiEstrutural, consolidarAuditoriaPdi, PDI_AUDIT_SYSTEM,
   type ObjetivoBlueprint,
 } from '@/lib/relatorios/pdi-audit';
 
@@ -130,6 +130,101 @@ describe('auditoria estrutural do PDI', () => {
   });
 });
 
+/**
+ * 🔴 A JORNADA (25/09/2026): uma competência com 2-3 objetivos, um por ciclo, e
+ * UM sprint. O check antigo indexava os objetivos num Map por competência, ficava
+ * com o ÚLTIMO e reprovava 58 de 60 PDIs reais comparando o sprint (tirado do 1º)
+ * com o objetivo errado. Formato do blueprint real de uma professora de Macaé.
+ */
+describe('jornada: vários objetivos na mesma competência', () => {
+  const COMP = 'Autocuidado e bem-estar profissional';
+  const JORNADA: ObjetivoBlueprint[] = [
+    { competencia: COMP, id: 'obj-1', acao_principal: 'Toda segunda-feira, antes da primeira aula, preencho uma lista com as tarefas da semana', acao_apoio: 'Ao final de cada semana, registro em uma linha o que foi reorganizado', ritual: 'Cinco minutos na segunda-feira de manhã, antes do início das aulas' },
+    { competencia: COMP, id: 'obj-2', acao_principal: 'Quando identificar conflito entre a agenda e uma nova demanda, aviso a coordenação no mesmo dia', acao_apoio: 'Registro a ocorrência no diário de bordo', ritual: 'Ao final de cada semana, verificar na lista se houve conflito' },
+    { competencia: COMP, id: 'obj-3', acao_principal: 'Após cada reunião pedagógica em que recebo devolutiva, anoto em ficha o que vou ajustar', acao_apoio: 'Guardo as fichas junto ao caderno de planejamento', ritual: 'Reservar os cinco primeiros minutos após cada reunião pedagógica' },
+  ];
+  const pdiJornada = (sprint: Record<string, string>): any => ({
+    ...pdiBom(),
+    competencias: [{ ...pdiBom().competencias[0], nome: COMP, sprint: { ...sprint, checklist: ['a', 'b', 'c'] } }],
+  });
+  const doObj = (i: number) => ({ acao_principal: JORNADA[i].acao_principal!, acao_apoio: JORNADA[i].acao_apoio!, ritual: JORNADA[i].ritual! });
+
+  it('🔴 sprint copiado do objetivo do 1º ciclo PASSA (o check antigo reprovava)', () => {
+    const c = id(auditarPdiEstrutural(pdiJornada(doObj(0)), JORNADA), 'sprint-do-blueprint');
+    expect(c.status, c.ocorrencias.join(' | ')).toBe('pass');
+  });
+
+  it('sprint de outro ciclo reprova, nomeando campo e objetivo', () => {
+    const c = id(auditarPdiEstrutural(pdiJornada(doObj(2)), JORNADA), 'sprint-do-blueprint');
+    expect(c.status).toBe('fail');
+    expect(c.ocorrencias.join(' | ')).toContain('acao_principal');
+    expect(c.ocorrencias.join(' | ')).toContain('obj-1');
+  });
+
+  it('🔴 misturar ciclos reprova: "apoio" = ação principal do objetivo 2 (16 de 58 PDIs reais)', () => {
+    const c = id(auditarPdiEstrutural(pdiJornada({ ...doObj(0), acao_apoio: JORNADA[1].acao_principal! }), JORNADA), 'sprint-do-blueprint');
+    expect(c.status).toBe('fail');
+    expect(c.ocorrencias).toHaveLength(1);
+    expect(c.ocorrencias[0]).toContain('acao_apoio');
+  });
+
+  it('ponto final a mais não é outra ação', () => {
+    const s = doObj(0);
+    const c = id(auditarPdiEstrutural(pdiJornada({ ...s, ritual: `${s.ritual}.` }), JORNADA), 'sprint-do-blueprint');
+    expect(c.status).toBe('pass');
+  });
+
+  it('sprint numa competência que o blueprint não cobre reprova (antes passava por vacuidade)', () => {
+    const outra: ObjetivoBlueprint[] = [{ ...JORNADA[0], competencia: 'Outra competência' }];
+    const c = id(auditarPdiEstrutural(pdiJornada(doObj(0)), outra), 'sprint-do-blueprint');
+    expect(c.status).toBe('fail');
+    expect(c.ocorrencias[0]).toMatch(/sem objetivo correspondente/);
+  });
+
+  it('o overlay copia o objetivo do 1º ciclo, e o check passa por construção', () => {
+    const pdi = pdiJornada({ acao_principal: 'reescrita pelo modelo', acao_apoio: JORNADA[1].acao_principal!, ritual: 'outro ritual' });
+    const tocadas = aplicarSprintDoBlueprint(pdi, JORNADA);
+    expect(tocadas).toEqual([COMP]);
+    expect(pdi.competencias[0].sprint).toMatchObject(doObj(0));
+    // O que o overlay NÃO copia fica: o checklist é do modelo.
+    expect(pdi.competencias[0].sprint.checklist).toEqual(['a', 'b', 'c']);
+    expect(id(auditarPdiEstrutural(pdi, JORNADA), 'sprint-do-blueprint').status).toBe('pass');
+  });
+
+  it('competência sem objetivo no blueprint fica intocada pelo overlay', () => {
+    const pdi = pdiJornada({ acao_principal: 'do modelo', acao_apoio: 'x', ritual: 'y' });
+    expect(aplicarSprintDoBlueprint(pdi, [{ ...JORNADA[0], competencia: 'Outra' }])).toEqual([]);
+    expect(pdi.competencias[0].sprint.acao_principal).toBe('do modelo');
+    expect(aplicarSprintDoBlueprint(pdi, null)).toEqual([]);
+  });
+});
+
+/**
+ * O auditor semântico reprovava 46 de 55 PDIs sozinho (25/09/2026): sem dizer o
+ * que é afirmação SOBRE A PESSOA nem o que é grave, tudo virava `fail`. As
+ * âncoras abaixo são de CONTEÚDO da régua, não de formatação.
+ */
+describe('auditor semântico: escopo e gravidade', () => {
+  it('tira do escopo a leitura do perfil em tom de tendência e as ações do plano', () => {
+    expect(PDI_AUDIT_SYSTEM).toMatch(/NÃO É ACHADO/);
+    expect(PDI_AUDIT_SYSTEM).toMatch(/tom de TENDÊNCIA/);
+    expect(PDI_AUDIT_SYSTEM).toMatch(/AÇÕES do plano/);
+  });
+
+  it('fail só para o que faria a pessoa ler algo FALSO sobre si', () => {
+    expect(PDI_AUDIT_SYSTEM).toMatch(/fail, SÓ quando/);
+    expect(PDI_AUDIT_SYSTEM).toMatch(/afirma como FATO/);
+    expect(PDI_AUDIT_SYSTEM).toMatch(/inventa detalhe do cenário/);
+    expect(PDI_AUDIT_SYSTEM).toMatch(/warn, para todo o resto/);
+  });
+
+  it('traz exemplo dos três casos: fail, warn e não-achado', () => {
+    expect(PDI_AUDIT_SYSTEM).toMatch(/- fail \(sem_lastro\):/);
+    expect(PDI_AUDIT_SYSTEM).toMatch(/- warn \(sem_lastro\):/);
+    expect(PDI_AUDIT_SYSTEM).toMatch(/- NÃO é achado:/);
+  });
+});
+
 describe('consolidação', () => {
   it('um fail derruba; warn não', () => {
     const base = auditarPdiEstrutural(pdiBom(), OBJETIVOS);
@@ -179,6 +274,13 @@ describe('o gerador do PDI CONSOME a auditoria', () => {
     expect(iPdf).toBeGreaterThan(-1);
     expect(iAudit, 'a auditoria roda depois do PDF — seria auditar coisa já entregue')
       .toBeLessThan(iPdf);
+  });
+
+  it('🔴 copia o sprint do blueprint ANTES de auditar (senão o check mede o modelo, não o documento)', () => {
+    const iOverlay = core.indexOf('aplicarSprintDoBlueprint(relatorio');
+    const iAudit = core.indexOf('auditarPdiEstrutural(relatorio');
+    expect(iOverlay, 'o overlay do sprint não é chamado').toBeGreaterThan(-1);
+    expect(iOverlay, 'o overlay roda depois da auditoria').toBeLessThan(iAudit);
   });
 
   it('falha do auditor NÃO vira aprovação silenciosa', () => {

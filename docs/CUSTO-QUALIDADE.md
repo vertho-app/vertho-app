@@ -1363,6 +1363,45 @@ ele não estava alterando a nota: estava virando **afirmação sobre a pessoa**.
 ⚠️ Isto é um achado sobre o PROMPT do PDI, e o conserto é dele — não do auditor.
 Fica registrado; a decisão é de quem escreve o prompt.
 
+### 25/09: a auditoria reprovava 59 de 60 PDIs, uma parte era bug dela e o resto era real
+
+`Medido:` de 60 PDIs com auditoria (57 Macaé, 3 demos), 59 `fail`. Dois itens explicavam
+quase tudo, e a leitura de cada um deu uma resposta diferente.
+
+**1. "O sprint veio do blueprint" (estrutural): 58/60, BUG DA AUDITORIA.** Os objetivos iam
+para um `Map` indexado por competência, e na jornada a competência é uma só com 2-3
+objetivos (um por ciclo): o Map guardava o ÚLTIMO e comparava o sprint, tirado do 1º, com o
+objetivo errado. Na régua certa, 22 de 58 PDIs copiavam fielmente um objetivo; os outros
+misturavam ciclos (16 punham como "apoio" a ação principal do objetivo 2), porque o prompt
+dizia "derivado dos objetivos da competência" sem dizer de QUAL. Correção: o sprint copia o
+objetivo do 1º ciclo **em código** (`aplicarSprintDoBlueprint`, antes da auditoria, como o
+overlay de nível e nota), o prompt passou a nomear o 1º objetivo, e o check compara com ele.
+Na medição: sprint `fail` em 8/18 PDIs gravados e **1/18 com o overlay** (demo com competência
+sem objetivo no blueprint, defeito real).
+
+**2. "Afirmação sem lastro" (semântica): o auditor estava CERTO.** Recalibrei o
+`PDI_AUDIT_SYSTEM` (escopo: fora a leitura do perfil em tom de tendência e as ações do plano;
+gravidade explícita; exemplos) esperando derrubar o `fail`. Medido com 18 PDIs reais, auditor
+antigo × novo, 2× cada, mesma evidência (`buildRelatorioIndividualPrompt`):
+
+| | antigo | novo |
+|---|---|---|
+| execuções com `fail` | 30/36 | 31/36 |
+| veredito mudou entre repetições | 2/18 | 3/18 |
+| achados graves / total | 88/174 | 155/163 |
+| achados sobre ação do plano | 20 | **0** |
+| achados sobre leitura de perfil | 33 | 16 |
+
+O escopo novo tirou o ruído (ação do plano zerou), e o que sobrou, lido à mão, é **defeito do
+gerador**: detalhe de cenário inventado ("dividir aula, correção, conselho de classe") e
+PADRÃO generalizado de UMA resposta ("o padrão observado é o de resolver pendências sozinha
+até o limite", "a organização semanal já existe, mas ainda oscila"). A evidência não estava
+cortada (8,6-25 mil caracteres contra o teto de 40 mil). O auditor novo sobe (escopo e
+gravidade coerentes); **o `fail` alto que continua é o retrato do gerador**, e o conserto é do
+prompt do PDI. É a mesma conclusão de 27/08, agora medida em 18 PDIs reais.
+🔑 A régua nova foi medida ANTES de subir, e isso mudou a conclusão: sem a medição, eu teria
+entregue "auditoria calibrada" com o mesmo `fail` de antes, atribuindo-o ao auditor.
+
 ### 27/08 — IA4 sem censura: o número que faltava desde 25/08
 
 `scripts/_medir-ia4-sem-censura.ts`, 15 avaliações reais em Ibipeba, teto já em

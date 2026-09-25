@@ -10,7 +10,7 @@ import { storageSlug } from '@/lib/storage-slug';
 import React from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
-  auditarPdiEstrutural, consolidarAuditoriaPdi, promptAuditoriaPdi, parseAuditoriaPdi,
+  aplicarSprintDoBlueprint, auditarPdiEstrutural, consolidarAuditoriaPdi, promptAuditoriaPdi, parseAuditoriaPdi,
 } from './pdi-audit';
 import { getModelForTask } from '@/lib/ai-tasks';
 
@@ -162,6 +162,22 @@ export async function persistRelatorioIndividualFromText(
     relatorio.competencias = alinhar(Array.isArray(relatorio.competencias) ? relatorio.competencias : [], 'nome');
     relatorio.resumo_desempenho = alinhar(Array.isArray(relatorio.resumo_desempenho) ? relatorio.resumo_desempenho : [], 'competencia');
 
+    // Objetivos do blueprint achatados NA ORDEM (a ordem é o ciclo). A mesma lista
+    // serve ao overlay abaixo e à auditoria: régua única entre quem copia e quem confere.
+    const objetivosBlueprint = blueprint
+      ? (blueprint.competencias || []).flatMap((comp: any) => (comp.objetivos_30_dias || []).map((o: any) => ({
+        competencia: comp.nome,
+        id: o?.id,
+        acao_principal: o?.acao_principal,
+        acao_apoio: o?.acao_apoio,
+        ritual: o?.ritual,
+      })))
+      : null;
+    // As ações do sprint vêm do objetivo do 1º ciclo EM CÓDIGO, como nível e nota
+    // acima: o prompt as declara fixadas pelo blueprint, e pedir a cópia ao modelo
+    // dava 22 de 58 PDIs fiéis (medido 25/09/2026). Ver `aplicarSprintDoBlueprint`.
+    aplicarSprintDoBlueprint(relatorio, objetivosBlueprint);
+
     // Binding real "vira trilha" (Estágio 2): LIDO DO BLUEPRINT, não da IA. Persiste
     // no `conteudo` pra a página "Como este PDI vira trilha" mostrar o vínculo real
     // (cada semana → ação do PDI). Sem blueprint, ambos ficam ausentes (fallback).
@@ -209,14 +225,6 @@ export async function persistRelatorioIndividualFromText(
     // ⚠️ Falha da auditoria NÃO derruba a geração: o PDI já foi pago e o
     // veredito é informação sobre ele, não pré-condição. Mas o resultado é
     // PERSISTIDO junto — auditoria que não deixa rastro é a que ninguém lê.
-    const objetivosBlueprint = blueprint
-      ? (blueprint.competencias || []).flatMap((comp: any) => (comp.objetivos_30_dias || []).map((o: any) => ({
-        competencia: comp.nome,
-        acao_principal: o?.acao_principal,
-        acao_apoio: o?.acao_apoio,
-        ritual: o?.ritual,
-      })))
-      : null;
     const checks = auditarPdiEstrutural(relatorio, objetivosBlueprint);
     try {
       // 🔑 A evidência do auditor é O PROMPT QUE O GERADOR RECEBEU — não uma
