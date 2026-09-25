@@ -54,6 +54,12 @@ O webhook agenda o atendimento fora da resposta imediata, por `after()`, para n�
 700 tokens, `safetySettings` explícitos e saída JSON estruturada (`intencao`, `tom_usuario`,
 `solicita_link`, `resposta`, `precisa_humano` e `acao`).
 
+Desde 25/09/2026 o CONTEXTO leva também `situacao`, lida do banco: estado da trilha, mapeamento
+comportamental, último login e último link de acesso das 24 h, com horário de Brasília por
+extenso (o modelo não converte fuso). O último login vem de `colaborador_ultimo_login` (mig 269):
+`auth.users` não passa pelo PostgREST, a função confere o tenant e só `service_role` executa.
+Falha nessa leitura vira degradação e **não** cala o Beto; ele responde sabendo menos, como antes.
+
 ### 2.2 Pedido de acesso
 
 Pedidos textuais claros como “não consigo entrar” ou “me manda um novo link” usam o emissor
@@ -61,6 +67,15 @@ determinístico, sem esperar a IA. Nos outros (texto ou áudio), o Gemini apenas
 intenção (`solicita_link`); a aplicação continua sendo a única responsável por criar e enviar o
 acesso. A `resposta` do modelo só é enviada quando o link NÃO saiu, e por isso o prompt proíbe
 dizer que está gerando ou enviando um link (medido no ensaio, §2.6).
+
+Quando o link sai, vai logo depois um **texto fixo**, montado com fatos do banco e não pelo modelo
+(`lib/whatsapp/suporte-situacao.ts`): não há senha, o link vale 15 minutos e abre uma vez; e, se
+houve outro link nas 24 h anteriores, o que houve com ele. "Usado" é login dentro da validade
+daquele link; fora disso, "expirou". Até 25/09 o link saía mudo, e dois casos reais mostraram o
+custo: "Qual é a senha pra entrar?" recebeu só o botão; e uma professora que tinha entrado às 08:55
+tocou no mesmo botão mais quatro vezes (cada toque, "link inválido ou expirado"), reclamou, e
+recebeu outro link sem saber por que o primeiro parou. O texto só sai depois do link; se ele
+falhar, o link continua enviado e a equipe é avisada.
 
 O destino é calculado pelo banco:
 
@@ -80,6 +95,12 @@ a porta pública já não daria.
 “Não consigo acessar o vídeo/conteúdo/atividade” **não** é interpretado como pedido de login.
 Esses termos excluem o atalho de acesso e provocam orientação para o Beto interno.
 
+“Não recebi mais mensagens, conteúdo ou a próxima etapa” também **não** é pedido de link, mesmo
+citando um link antigo. Sem trilha ativa (`situacao.trilha`), a próxima etapa depende da equipe:
+`precisa_humano`. Com trilha ativa, o Beto explica que os conteúdos ficam no app. Caso real de
+25/09: a professora acima tinha se mapeado em 04/09, depois do lote de trilhas de 05/09, e a
+primeira resposta do Beto à queixa dela foi um link de acesso.
+
 ### 2.3 Proteções do link
 
 - O modelo de IA nunca recebe nem produz o token.
@@ -96,6 +117,14 @@ Esses termos excluem o atalho de acesso e provocam orientação para o Beto inte
   telefone mandou nas últimas 24 h (a tabela não tem coluna de telefone).
 - O slug virtual `plataforma` permite direcionar um administrador para `/admin-v2`; ele não
   concede privilégio. A autorização de administrador continua sendo verificada após o login.
+- 🔴 **WhatsApp do Android** (`WA4A/` no User-Agent, sem `wv`; primeiro caso real em 25/09/2026)
+  não é pego pela régua de navegador embutido: a pessoa entra DENTRO do WhatsApp e, pelo que os
+  logs indicam, perde a sessão ao fechar a tela. O desvio para o navegador (`intent://`) já existe,
+  mas fica atrás de `ENTRAR_WHATSAPP_ANDROID_NAVEGADOR` (`desligado` por padrão, `todos` ou lista
+  de slugs, como `plataforma,macae`) até ser testado num aparelho: se o WhatsApp não repassar o
+  `intent://`, a pessoa ficaria numa página de erro. Teste: ligar para um tenant, pedir o link num
+  Android e tocar; deu certo se o `[entrar] consumido` seguinte vier sem `wa4a=true`. Env na
+  Vercel só vale depois de um novo deploy.
 
 ### 2.4 Conduta
 
@@ -166,6 +195,12 @@ expirou"), aviso de ofensa há 1 h (pedido educado contra nova ofensa) e respost
 `Medido em 22/09/2026`: 38 de 38 casos no desfecho esperado nas 3 repetições; o modelo separou
 mesmo assunto de assunto novo em 24 de 24 execuções; 111 chamadas, US$ 0,20.
 
+Com a `situacao` entraram as 4 mensagens reais de 24-25/09 (grupo `acesso-real`), conferindo
+também o `solicita_link` do modelo: "não recebi mais nenhum" sem trilha foi para a equipe e com
+trilha ativa foi respondido, os dois sem pedir link; "não estou conseguindo acessar o link que vc
+me mandou" e "qual é a senha pra entrar?" pediram o link. `Medido em 25/09/2026`: 45 de 45 casos
+no desfecho esperado nas 3 repetições, 123 chamadas, US$ 0,24.
+
 ---
 
 ## 3. Beto dentro do app — página atual
@@ -213,6 +248,9 @@ O mapa de tratamento e destinos externos está em `docs/FLUXO-DE-DADOS-PESSOAIS.
 |---|---|
 | Orquestração do WhatsApp, persona, áudio e triagem | `lib/whatsapp/suporte-auto.ts` |
 | Guardas de conduta e textos fixos | `lib/whatsapp/suporte-conduta.ts` |
+| Situação da pessoa no CONTEXTO e texto que acompanha o link | `lib/whatsapp/suporte-situacao.ts` |
+| Último login de um colaborador (só `service_role`) | `migrations/269-colaborador-ultimo-login.sql` |
+| Navegador embutido e desvio do WhatsApp Android | `lib/auth/navegador-embutido.ts` |
 | Resolução de destino, identidade do colaborador e controles do link | `lib/whatsapp/beto-access-link.ts` |
 | E-mail da conta de quem entra pelo telefone (régua única) | `lib/phone-otp.ts::emailDeAcessoPorTelefone` |
 | Emissão do template de acesso | `lib/notifications/access-link-service.ts` |
@@ -223,7 +261,7 @@ O mapa de tratamento e destinos externos está em `docs/FLUXO-DE-DADOS-PESSOAIS.
 | Entrada do webhook da Meta | `app/api/webhooks/whatsapp-cloud/route.ts` |
 
 Testes de referência: `tests/unit/integrations/suporte-auto.test.ts`,
-`tests/unit/whatsapp-suporte-conduta.test.ts`,
+`tests/unit/whatsapp-suporte-conduta.test.ts`, `tests/unit/whatsapp-suporte-situacao.test.ts`,
 `tests/unit/suporte-auto-conduta-live.test.ts` (opt-in, modelo real),
 `tests/unit/integrations/beto-access-link.test.ts`,
 `tests/unit/security/entrar-nao-consome.test.ts`,
