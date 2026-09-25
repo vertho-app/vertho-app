@@ -1606,6 +1606,34 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   35 de 36 mutações derrubam algum teste; a restante é equivalente (dispara as irmãs com um payload
   que, naquele ramo, já é `null`). ⚠️ No caminho de LOTE do Kit, o vitest entrega o mock do
   `import()` dinâmico só à 1ª célula concorrente (medido); o teste confere as 4 no caminho sequencial.
+- **Piloto de 25/09/2026 (ACME Demo, Representante Comercial, D/I/S): o grupo NÃO dividiu nada.**
+  A trava funcionou (grupo `erro`, irmãs pelo fluxo de hoje, degradação `grupo:mae` registrada), mas
+  por dois motivos que não são do grupo: (1) um clipe da mãe ficou pronto em 22,4 min na fila da
+  HeyGen e a espera era de 20 (subiu para ~40, ver `lib/video/heygen.ts`); (2) a narração única
+  foi recusada nas TRÊS células (2× corte sem pausa, 1× portão +1,6 st), e a mãe só vira referência
+  com narração única aprovada. Com essa taxa de recusa, o grupo quase nunca pega. Custo do piloto
+  na HeyGen: US$ 1,69 (três pares, não um).
+
+### F-V7 · O TTS repete a frase final da cena narrada sozinha, e a HeyGen dubla a repetição 🔴 (corrigido 25/09/2026 no código; vídeos antigos NÃO)
+- **Gatilho:** no caminho por cena (narração única recusada, ou retake de uma cena), cada cena é
+  uma síntese avulsa, e o TTS às vezes repete a pergunta final, inteira ou pela metade, ou inventa
+  uma frase ("E aí, como você consegue ver esse resultado"). O `trimTrailingSilence` só corta
+  SILÊNCIO; fala a mais passava. No fecho do avatar, a mentora repete a pergunta na tela, e a
+  HeyGen cobra os segundos a mais (26 s num fecho de 11 s).
+- **Medido 25/09/2026** transcrevendo os fechos: 2 de 3 no piloto do avatar por grupo e **3 de 18**
+  vídeos de produção desde 06/09 (Macaé Professor(a) C `afaf7e40` e S `7978a385`; Rede ACME
+  Professor(a) S `bd343079`). O take único não tem o defeito: `alinharCenas` casa a 1ª ocorrência e
+  a última fatia termina na última palavra casada.
+- **Correção:** `fimDoTextoNaFala` (`lib/video/narracao-unica.ts`) aplica a mesma régua à cena
+  avulsa; o trigger corta o mp3 no fim do texto + 0,4 s ANTES do upload e da HeyGen, e grava
+  `assets[cena].sobraCortadaS` (dá para contar as ocorrências no banco).
+- **Pendente (decisão do dono):** os 3 vídeos de produção e o I do piloto seguem com a repetição.
+  Dá para consertar sem pagar HeyGen de novo: cortar o mp3 e o mp4 do avatar no mesmo instante (o
+  mp4 é mudo e dubla o mp3) e re-renderizar.
+- **Guarda:** `tests/unit/video/fala-a-mais.test.ts`, com as transcrições REAIS dos 6 fechos
+  medidos (`tests/fixtures/video/fala-a-mais-reais.json`), e o caso no trigger em
+  `gerar-video-modulo-grupo.test.ts` (o mp3 que sobe e vai para a HeyGen é o cortado). Validado por
+  mutação: 7 de 7.
 
 ## 5. Parse de IA / robustez
 

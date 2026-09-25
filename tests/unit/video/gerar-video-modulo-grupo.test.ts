@@ -14,14 +14,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const tts = vi.fn();
 vi.mock('@/lib/gemini-tts', () => ({ generateNarrationAudio: (...a: any[]) => tts(...a), modeloTtsEfetivo: () => 'gemini-2.5-flash-tts' }));
-const gerarClip = vi.fn(async () => 'hg-novo');
+const gerarClip = vi.fn(async (..._a: any[]) => 'hg-novo');
 vi.mock('@/lib/video/heygen', () => ({
   gerarClipHeyGen: (...a: any[]) => (gerarClip as any)(...a),
   aguardarClipHeyGen: vi.fn(async () => 'https://heygen.test/clip.mp4'),
   motorHeyGen: () => 'avatar_iii', fotoPadraoHeyGen: () => 'foto-1',
 }));
+const subidos: Record<string, Buffer> = {};
 vi.mock('@/lib/video/render-helpers', () => ({
-  storagePut: vi.fn(async (_b: string, p: string) => `https://st.test/${p}`),
+  storagePut: vi.fn(async (_b: string, p: string, buf: Buffer) => { subidos[p] = buf; return `https://st.test/${p}`; }),
   storageGet: vi.fn(async () => Buffer.alloc(4000)), SUPA: 'https://supa.test', KEY: 'k',
 }));
 const transcribe = vi.fn();
@@ -31,7 +32,9 @@ vi.mock('@/lib/video/narracao-unica', async (orig) => ({
   ...(await orig<typeof import('@/lib/video/narracao-unica')>()),
   planejarNarracaoUnica: (...a: any[]) => planejar(...a),
 }));
-vi.mock('@/lib/tts/audio-dsp', () => ({ pcmToMp3SemMaster: () => Buffer.alloc(4000) }));
+// O "mp3" re-encodado carrega o tamanho do PCM que entrou: é assim que o teste vê se o
+// áudio que subiu (e foi para a HeyGen) é o CORTADO ou o que o TTS devolveu.
+vi.mock('@/lib/tts/audio-dsp', () => ({ pcmToMp3SemMaster: (pcm: Buffer) => Buffer.from(`MP3-PCM:${pcm.length}`) }));
 vi.mock('@/lib/tts/deriva', () => ({ medirDeriva: () => ({ f0MedHz: 201.3 }) }));
 vi.mock('@/lib/video/montar-inputprops', () => ({
   montarInputProps: () => ({ totalFrames: 100, fps: 30, height: 1080, captions: [] }),
@@ -46,11 +49,12 @@ vi.mock('@/lib/degradacao', async (orig) => ({
   ...(await orig<typeof import('@/lib/degradacao')>()),
   registrarDegradacao: vi.fn(async (d: any) => { degradacoes.push(d); }),
 }));
-// ffmpeg/ffprobe: toda duração medida é 10 s; todo arquivo lido tem 1 s de PCM mudo.
+// ffmpeg/ffprobe: toda duração medida é 10 s; todo arquivo lido tem `pcmBytes` de PCM mudo (1 s).
+let pcmBytes = 48000;
 vi.mock('node:util', async (orig) => ({ ...(await orig<typeof import('node:util')>()), promisify: () => async (cmd: string) => ({ stdout: /ffprobe/.test(cmd) ? '10.0' : '' }) }));
 vi.mock('node:fs/promises', async (orig) => ({
   ...(await orig<typeof import('node:fs/promises')>()),
-  mkdtemp: async () => '/tmp/teste', writeFile: async () => {}, rm: async () => {}, readFile: async () => Buffer.alloc(48000),
+  mkdtemp: async () => '/tmp/teste', writeFile: async () => {}, rm: async () => {}, readFile: async () => Buffer.alloc(pcmBytes),
 }));
 
 import { executarGeracaoVideoModulo } from '@/trigger/gerar-video-modulo';
@@ -77,6 +81,7 @@ const payload = (extra: any = {}) => ({
 });
 
 let patches: any[];
+let assetsIniciais: Record<string, any> = {};
 function stubFetch() {
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: any = {}) => {
     const u = String(url);
@@ -85,7 +90,7 @@ function stubFetch() {
     if (u.includes('heygen.test')) return new Response(Buffer.alloc(5000), { status: 200 });
     if (u.includes('/rest/v1/videos_gerados')) {
       if (init.method === 'PATCH') { patches.push(JSON.parse(init.body)); return new Response(null, { status: 204 }); }
-      if (u.includes('select=assets')) return ok([{ assets: {} }]);
+      if (u.includes('select=assets')) return ok([{ assets: assetsIniciais }]);
       if (u.includes('select=empresa_id')) return ok([{ empresa_id: 'emp-1' }]);
     }
     return new Response('{}', { status: 404 });
@@ -97,7 +102,10 @@ const RECUSA = 'TTS: nenhuma das 3 tentativa(s) passou no controle de qualidade;
 const textoDe = (chamada: any[]) => String(chamada[0]);
 
 beforeEach(() => {
+  for (const k of Object.keys(subidos)) delete subidos[k];
   patches = [];
+  assetsIniciais = {};
+  pcmBytes = 48000;
   degradacoes.length = 0;
   gerarClip.mockClear();
   tts.mockReset().mockImplementation(async () => ({ buffer: Buffer.alloc(4000), qa: { ok: true, tentativas: 1 } }));
@@ -197,5 +205,46 @@ describe('irmã', () => {
     expect(tts.mock.calls[0][1]).not.toHaveProperty('alvo');
     expect(gerarClip).toHaveBeenCalledTimes(2);
     expect(degradacoes.find((d) => d.chave === 'grupo:irma')?.detalhe?.motivo).toMatch(/assinatura/);
+  });
+});
+
+describe('caminho por cena: fala A MAIS no fim (25/09/2026)', () => {
+  // Retake só do fecho: as outras cenas já têm áudio (e a abertura, avatar).
+  const prontas = () => ({
+    'scene-1': { src: MAE.intro.src, audioSrc: MAE.intro.audioSrc, durationSec: 10 },
+    'scene-2': { src: 'https://st.test/v-1/scene-2.mp3', durationSec: 10 },
+    'scene-3': { src: 'https://st.test/v-1/scene-3.mp3', durationSec: 10 },
+  });
+  const palavras = (texto: string, t0: number) => texto.split(' ').map((w, i) => ({ word: w, start: t0 + i * 0.4, end: t0 + i * 0.4 + 0.3 }));
+
+  it('o TTS repete a pergunta: o fecho é cortado no fim do texto ANTES de ir para a HeyGen', async () => {
+    assetsIniciais = prontas();
+    pcmBytes = 24000 * 2 * 20; // 20 s de áudio
+    transcribe.mockResolvedValue([...palavras(OUTRO, 0), ...palavras(OUTRO, 6)]);
+    await executarGeracaoVideoModulo({ videoId: 'v-1', roteiro: roteiro() });
+
+    expect(tts).toHaveBeenCalledTimes(1);
+    const outro = patches.at(-1).assets['scene-4'];
+    // O corte fica 0,4 s depois do fim da última palavra do texto.
+    const n = OUTRO.split(' ').length;
+    const corte = (n - 1) * 0.4 + 0.3 + 0.4;
+    expect(outro.sobraCortadaS).toBeCloseTo(20 - corte, 1);
+    expect(outro.words).toHaveLength(n);
+    expect(outro.words.every((w: any) => w.start < corte)).toBe(true);
+    // Um upload só, o CORTADO, e é ele que vai para a HeyGen.
+    const mp3s = Object.keys(subidos).filter((k) => /^v-1\/scene-4-.*\.mp3$/.test(k));
+    expect(mp3s).toHaveLength(1);
+    expect(subidos[mp3s[0]].toString()).toBe(`MP3-PCM:${Math.ceil(corte * 24000) * 2}`);
+    expect(gerarClip).toHaveBeenCalledTimes(1);
+    expect(gerarClip.mock.calls[0][0]).toBe(`https://st.test/${mp3s[0]}`);
+  });
+
+  it('fecho sem sobra: o áudio segue como veio, sem `sobraCortadaS`', async () => {
+    assetsIniciais = prontas();
+    pcmBytes = 24000 * 2 * 6;
+    transcribe.mockResolvedValue(palavras(OUTRO, 0));
+    await executarGeracaoVideoModulo({ videoId: 'v-1', roteiro: roteiro() });
+    expect(patches.at(-1).assets['scene-4']).not.toHaveProperty('sobraCortadaS');
+    expect(patches.at(-1).assets['scene-4'].words).toHaveLength(OUTRO.split(' ').length);
   });
 });

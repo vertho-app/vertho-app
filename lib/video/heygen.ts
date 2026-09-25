@@ -105,7 +105,9 @@ export async function aguardarClipHeyGen(videoId: string, opts: AguardarOpts = {
 export async function aguardarClipeHeyGen(videoId: string, opts: AguardarOpts = {}): Promise<ClipePronto> {
   if (!chave()) throw new Error('HEYGEN_API_KEY ausente');
   const intervalo = opts.intervaloMs ?? 8000;
-  const max = opts.tentativas ?? 150; // ~20 min
+  // ~40 min. Eram ~20, e em 25/09/2026 um clipe de 26 s ficou pronto em 22,4 min (fila
+  // da HeyGen): o timeout derrubou o vídeo com o clipe já pago. A task tem 60 min.
+  const max = opts.tentativas ?? 300;
   const t0 = Date.now();
   for (let i = 0; i < max; i++) {
     await new Promise((res) => setTimeout(res, intervalo));

@@ -110,7 +110,11 @@ export type SpikePropsV3 = {
  *  por palavra (Whisper/M4) p/ legendas e animações sincronizadas. `heygenVideoId` =
  *  id do clipe na HeyGen, persistido antes do polling para um re-run retomar o clipe
  *  já pago (ver `trigger/gerar-video-modulo.ts`). */
-export type AssetMap = Record<string, { src: string; durationSec: number; audioSrc?: string; words?: WordTime[]; heygenVideoId?: string }>;
+export type AssetMap = Record<string, {
+  src: string; durationSec: number; audioSrc?: string; words?: WordTime[]; heygenVideoId?: string;
+  /** Segundos de fala A MAIS cortados do fim da cena narrada sozinha (repetição do TTS). */
+  sobraCortadaS?: number;
+}>;
 
 export const BRAND_PADRAO: Brand = {
   primary: '#6D28D9', secondary: '#0EA5E9', background: '#0B1020', font: 'Inter, system-ui, sans-serif',

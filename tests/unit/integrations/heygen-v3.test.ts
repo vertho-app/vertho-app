@@ -115,6 +115,22 @@ describe('HeyGen v3 · polling', () => {
     await expect(aguardarClipHeyGen(ID, { intervaloMs: 0 })).rejects.toThrow(/sem video_url/);
   });
 
+  it('fila lenta da HeyGen: clipe pronto em 22,4 min (medido 25/09) NÃO estoura a espera padrão', async () => {
+    // 25/09/2026: com a espera de ~20 min, esse clipe derrubou o vídeo já pago. 168
+    // consultas de 8 s = 22,4 min; o 169º status é `completed`.
+    vi.useFakeTimers();
+    try {
+      stubFetch([...Array(168).fill(() => json(200, { data: { id: ID, status: 'processing' } })), () => concluido()]);
+      const p = aguardarClipHeyGen(ID);
+      const pego = p.catch((e) => e);
+      await vi.advanceTimersByTimeAsync(8000 * 169);
+      expect(await pego).toBe('https://files2.heygen.ai/x.mp4');
+      expect(chamadas).toHaveLength(169);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('esgotou as tentativas: a mensagem de timeout é a MESMA que o health e a FMEA leem', async () => {
     stubFetch([() => json(200, { data: { id: ID, status: 'processing' } })]);
     await expect(aguardarClipHeyGen(ID, { intervaloMs: 0, tentativas: 2 }))

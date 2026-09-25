@@ -1,0 +1,1225 @@
+{
+ "medido_em": "2026-09-25",
+ "origem": "Whisper (lib/video/whisper-align) sobre o mp3 servido de cada fecho",
+ "casos": [
+  {
+   "rotulo": "piloto D (repete a pergunta inteira)",
+   "cena": "scene-9",
+   "texto": "Na sua próxima negociação parada, o que você pode dizer ou mostrar para ajudar o cliente a entender por que decidir agora faz sentido para ele?",
+   "duracaoS": 26.096,
+   "sobra": true,
+   "words": [
+    {
+     "word": "Na",
+     "start": 0,
+     "end": 0.48
+    },
+    {
+     "word": "sua",
+     "start": 0.48,
+     "end": 0.84
+    },
+    {
+     "word": "próxima",
+     "start": 0.84,
+     "end": 1.32
+    },
+    {
+     "word": "negociação",
+     "start": 1.32,
+     "end": 2.18
+    },
+    {
+     "word": "parada",
+     "start": 2.18,
+     "end": 2.8
+    },
+    {
+     "word": "o",
+     "start": 3.44,
+     "end": 3.48
+    },
+    {
+     "word": "que",
+     "start": 3.48,
+     "end": 3.6
+    },
+    {
+     "word": "você",
+     "start": 3.6,
+     "end": 3.96
+    },
+    {
+     "word": "pode",
+     "start": 3.96,
+     "end": 4.26
+    },
+    {
+     "word": "dizer",
+     "start": 4.26,
+     "end": 4.9
+    },
+    {
+     "word": "ou",
+     "start": 4.9,
+     "end": 6.02
+    },
+    {
+     "word": "mostrar",
+     "start": 6.02,
+     "end": 6.02
+    },
+    {
+     "word": "para",
+     "start": 6.02,
+     "end": 6.48
+    },
+    {
+     "word": "ajudar",
+     "start": 6.48,
+     "end": 7
+    },
+    {
+     "word": "o",
+     "start": 7,
+     "end": 7.64
+    },
+    {
+     "word": "cliente",
+     "start": 7.64,
+     "end": 7.72
+    },
+    {
+     "word": "a",
+     "start": 7.72,
+     "end": 8.68
+    },
+    {
+     "word": "entender",
+     "start": 8.68,
+     "end": 8.68
+    },
+    {
+     "word": "por",
+     "start": 8.68,
+     "end": 9.12
+    },
+    {
+     "word": "que",
+     "start": 9.12,
+     "end": 9.24
+    },
+    {
+     "word": "decidir",
+     "start": 9.24,
+     "end": 9.86
+    },
+    {
+     "word": "agora",
+     "start": 9.86,
+     "end": 10.26
+    },
+    {
+     "word": "faz",
+     "start": 10.26,
+     "end": 10.84
+    },
+    {
+     "word": "sentido",
+     "start": 10.84,
+     "end": 11.38
+    },
+    {
+     "word": "para",
+     "start": 11.38,
+     "end": 11.68
+    },
+    {
+     "word": "ele",
+     "start": 11.68,
+     "end": 11.92
+    },
+    {
+     "word": "Na",
+     "start": 13.4,
+     "end": 13.56
+    },
+    {
+     "word": "sua",
+     "start": 13.56,
+     "end": 13.94
+    },
+    {
+     "word": "próxima",
+     "start": 13.94,
+     "end": 14.66
+    },
+    {
+     "word": "negociação",
+     "start": 14.66,
+     "end": 15.5
+    },
+    {
+     "word": "parada",
+     "start": 15.5,
+     "end": 16.16
+    },
+    {
+     "word": "o",
+     "start": 16.78,
+     "end": 17.06
+    },
+    {
+     "word": "que",
+     "start": 17.06,
+     "end": 17.14
+    },
+    {
+     "word": "você",
+     "start": 17.14,
+     "end": 17.54
+    },
+    {
+     "word": "pode",
+     "start": 17.54,
+     "end": 17.88
+    },
+    {
+     "word": "dizer",
+     "start": 17.88,
+     "end": 18.58
+    },
+    {
+     "word": "ou",
+     "start": 18.58,
+     "end": 19.28
+    },
+    {
+     "word": "mostrar",
+     "start": 19.28,
+     "end": 19.78
+    },
+    {
+     "word": "para",
+     "start": 19.78,
+     "end": 20.36
+    },
+    {
+     "word": "ajudar",
+     "start": 20.36,
+     "end": 20.92
+    },
+    {
+     "word": "o",
+     "start": 20.92,
+     "end": 21.58
+    },
+    {
+     "word": "cliente",
+     "start": 21.58,
+     "end": 21.78
+    },
+    {
+     "word": "a",
+     "start": 21.78,
+     "end": 22.82
+    },
+    {
+     "word": "entender",
+     "start": 22.82,
+     "end": 22.82
+    },
+    {
+     "word": "por",
+     "start": 22.82,
+     "end": 23.4
+    },
+    {
+     "word": "que",
+     "start": 23.4,
+     "end": 23.5
+    },
+    {
+     "word": "decidir",
+     "start": 23.5,
+     "end": 24.16
+    },
+    {
+     "word": "agora",
+     "start": 24.16,
+     "end": 24.56
+    },
+    {
+     "word": "faz",
+     "start": 24.56,
+     "end": 25.04
+    },
+    {
+     "word": "sentido",
+     "start": 25.04,
+     "end": 25.5
+    },
+    {
+     "word": "para",
+     "start": 25.5,
+     "end": 25.8
+    },
+    {
+     "word": "ele",
+     "start": 25.8,
+     "end": 26.06
+    }
+   ]
+  },
+  {
+   "rotulo": "piloto I (repete metade e inventa uma frase)",
+   "cena": "scene-9",
+   "texto": "Na sua próxima negociação parada, o que você pode dizer ou mostrar para ajudar o cliente a entender por que decidir agora faz sentido para ele?",
+   "duracaoS": 20.611,
+   "sobra": true,
+   "words": [
+    {
+     "word": "Na",
+     "start": 0,
+     "end": 0.4
+    },
+    {
+     "word": "sua",
+     "start": 0.4,
+     "end": 0.8
+    },
+    {
+     "word": "próxima",
+     "start": 0.8,
+     "end": 1.28
+    },
+    {
+     "word": "negociação",
+     "start": 1.28,
+     "end": 2.12
+    },
+    {
+     "word": "parada",
+     "start": 2.12,
+     "end": 2.8
+    },
+    {
+     "word": "o",
+     "start": 3.36,
+     "end": 3.4
+    },
+    {
+     "word": "que",
+     "start": 3.4,
+     "end": 3.52
+    },
+    {
+     "word": "você",
+     "start": 3.52,
+     "end": 3.9
+    },
+    {
+     "word": "pode",
+     "start": 3.9,
+     "end": 4.2
+    },
+    {
+     "word": "dizer",
+     "start": 4.2,
+     "end": 4.86
+    },
+    {
+     "word": "ou",
+     "start": 4.86,
+     "end": 5.48
+    },
+    {
+     "word": "mostrar",
+     "start": 5.48,
+     "end": 6.1
+    },
+    {
+     "word": "para",
+     "start": 6.1,
+     "end": 6.6
+    },
+    {
+     "word": "ajudar",
+     "start": 6.6,
+     "end": 7.02
+    },
+    {
+     "word": "o",
+     "start": 7.02,
+     "end": 7.68
+    },
+    {
+     "word": "cliente",
+     "start": 7.68,
+     "end": 7.72
+    },
+    {
+     "word": "a",
+     "start": 7.72,
+     "end": 8.24
+    },
+    {
+     "word": "entender",
+     "start": 8.24,
+     "end": 8.24
+    },
+    {
+     "word": "por",
+     "start": 8.24,
+     "end": 8.78
+    },
+    {
+     "word": "que",
+     "start": 8.78,
+     "end": 8.92
+    },
+    {
+     "word": "decidir",
+     "start": 8.92,
+     "end": 9.76
+    },
+    {
+     "word": "agora",
+     "start": 9.76,
+     "end": 10.2
+    },
+    {
+     "word": "faz",
+     "start": 10.2,
+     "end": 10.68
+    },
+    {
+     "word": "sentido",
+     "start": 10.68,
+     "end": 11.1
+    },
+    {
+     "word": "para",
+     "start": 11.1,
+     "end": 11.44
+    },
+    {
+     "word": "ele",
+     "start": 11.44,
+     "end": 11.64
+    },
+    {
+     "word": "O",
+     "start": 12.88,
+     "end": 13
+    },
+    {
+     "word": "que",
+     "start": 13,
+     "end": 13.12
+    },
+    {
+     "word": "você",
+     "start": 13.12,
+     "end": 13.46
+    },
+    {
+     "word": "pode",
+     "start": 13.46,
+     "end": 13.8
+    },
+    {
+     "word": "dizer",
+     "start": 13.8,
+     "end": 14.4
+    },
+    {
+     "word": "ou",
+     "start": 14.4,
+     "end": 15.52
+    },
+    {
+     "word": "mostrar",
+     "start": 15.52,
+     "end": 15.52
+    },
+    {
+     "word": "para",
+     "start": 15.52,
+     "end": 16.22
+    },
+    {
+     "word": "ajudar",
+     "start": 16.22,
+     "end": 16.72
+    },
+    {
+     "word": "o",
+     "start": 16.72,
+     "end": 17.5
+    },
+    {
+     "word": "cliente",
+     "start": 17.5,
+     "end": 17.62
+    },
+    {
+     "word": "a",
+     "start": 17.62,
+     "end": 18.26
+    },
+    {
+     "word": "Você",
+     "start": 19.16,
+     "end": 19.48
+    },
+    {
+     "word": "tem",
+     "start": 19.48,
+     "end": 19.68
+    },
+    {
+     "word": "a",
+     "start": 19.68,
+     "end": 20.02
+    },
+    {
+     "word": "resposta",
+     "start": 20.02,
+     "end": 20.34
+    }
+   ]
+  },
+  {
+   "rotulo": "piloto S (limpo)",
+   "cena": "scene-9",
+   "texto": "Na sua próxima negociação parada, o que você pode dizer ou mostrar para ajudar o cliente a entender por que decidir agora faz sentido para ele?",
+   "duracaoS": 11.285,
+   "sobra": false,
+   "words": [
+    {
+     "word": "Na",
+     "start": 0,
+     "end": 0.46
+    },
+    {
+     "word": "sua",
+     "start": 0.46,
+     "end": 0.82
+    },
+    {
+     "word": "próxima",
+     "start": 0.82,
+     "end": 1.36
+    },
+    {
+     "word": "negociação",
+     "start": 1.36,
+     "end": 2.06
+    },
+    {
+     "word": "parada",
+     "start": 2.06,
+     "end": 2.56
+    },
+    {
+     "word": "o",
+     "start": 3.14,
+     "end": 3.18
+    },
+    {
+     "word": "que",
+     "start": 3.18,
+     "end": 3.32
+    },
+    {
+     "word": "você",
+     "start": 3.32,
+     "end": 3.68
+    },
+    {
+     "word": "pode",
+     "start": 3.68,
+     "end": 3.98
+    },
+    {
+     "word": "dizer",
+     "start": 3.98,
+     "end": 4.58
+    },
+    {
+     "word": "ou",
+     "start": 4.58,
+     "end": 5.04
+    },
+    {
+     "word": "mostrar",
+     "start": 5.04,
+     "end": 5.6
+    },
+    {
+     "word": "para",
+     "start": 5.6,
+     "end": 6.12
+    },
+    {
+     "word": "ajudar",
+     "start": 6.12,
+     "end": 6.42
+    },
+    {
+     "word": "o",
+     "start": 6.42,
+     "end": 7.06
+    },
+    {
+     "word": "cliente",
+     "start": 7.06,
+     "end": 7.16
+    },
+    {
+     "word": "a",
+     "start": 7.16,
+     "end": 7.78
+    },
+    {
+     "word": "entender",
+     "start": 7.78,
+     "end": 7.78
+    },
+    {
+     "word": "por",
+     "start": 7.78,
+     "end": 8.42
+    },
+    {
+     "word": "que",
+     "start": 8.42,
+     "end": 8.58
+    },
+    {
+     "word": "decidir",
+     "start": 8.58,
+     "end": 9.26
+    },
+    {
+     "word": "agora",
+     "start": 9.26,
+     "end": 9.7
+    },
+    {
+     "word": "faz",
+     "start": 9.7,
+     "end": 10
+    },
+    {
+     "word": "sentido",
+     "start": 10,
+     "end": 10.56
+    },
+    {
+     "word": "para",
+     "start": 10.56,
+     "end": 10.9
+    },
+    {
+     "word": "ele",
+     "start": 10.9,
+     "end": 11.1
+    }
+   ]
+  },
+  {
+   "rotulo": "Macaé Professor(a) C 07/09 (inventa uma frase)",
+   "cena": "scene-9",
+   "texto": "Escolha uma devolutiva que você recebeu neste mês. Que ação pequena, aplicável em uma aula por semana, você consegue definir hoje, com data e forma de verificar?",
+   "duracaoS": 18.6,
+   "sobra": true,
+   "words": [
+    {
+     "word": "Escolhe",
+     "start": 0,
+     "end": 0.86
+    },
+    {
+     "word": "uma",
+     "start": 0.86,
+     "end": 1.12
+    },
+    {
+     "word": "devolutiva",
+     "start": 1.12,
+     "end": 1.88
+    },
+    {
+     "word": "que",
+     "start": 1.88,
+     "end": 2.06
+    },
+    {
+     "word": "você",
+     "start": 2.06,
+     "end": 2.62
+    },
+    {
+     "word": "recebeu",
+     "start": 2.62,
+     "end": 3.28
+    },
+    {
+     "word": "nesse",
+     "start": 3.28,
+     "end": 3.54
+    },
+    {
+     "word": "mês",
+     "start": 3.54,
+     "end": 3.9
+    },
+    {
+     "word": "Que",
+     "start": 4.5,
+     "end": 4.6
+    },
+    {
+     "word": "ação",
+     "start": 4.6,
+     "end": 4.98
+    },
+    {
+     "word": "pequena",
+     "start": 4.98,
+     "end": 5.74
+    },
+    {
+     "word": "aplicável",
+     "start": 6.5,
+     "end": 7.02
+    },
+    {
+     "word": "em",
+     "start": 7.26,
+     "end": 7.42
+    },
+    {
+     "word": "uma",
+     "start": 7.42,
+     "end": 7.74
+    },
+    {
+     "word": "aula",
+     "start": 7.74,
+     "end": 7.88
+    },
+    {
+     "word": "por",
+     "start": 7.88,
+     "end": 8.32
+    },
+    {
+     "word": "semana",
+     "start": 8.32,
+     "end": 8.58
+    },
+    {
+     "word": "você",
+     "start": 9.08,
+     "end": 9.26
+    },
+    {
+     "word": "consegue",
+     "start": 9.26,
+     "end": 9.66
+    },
+    {
+     "word": "definir",
+     "start": 9.66,
+     "end": 10.26
+    },
+    {
+     "word": "hoje",
+     "start": 10.26,
+     "end": 10.86
+    },
+    {
+     "word": "com",
+     "start": 11.32,
+     "end": 11.52
+    },
+    {
+     "word": "data",
+     "start": 11.52,
+     "end": 11.92
+    },
+    {
+     "word": "e",
+     "start": 11.92,
+     "end": 12.46
+    },
+    {
+     "word": "forma",
+     "start": 12.46,
+     "end": 12.7
+    },
+    {
+     "word": "de",
+     "start": 12.7,
+     "end": 12.98
+    },
+    {
+     "word": "verificar",
+     "start": 12.98,
+     "end": 13.52
+    },
+    {
+     "word": "E",
+     "start": 14.94,
+     "end": 15.16
+    },
+    {
+     "word": "aí",
+     "start": 15.16,
+     "end": 15.4
+    },
+    {
+     "word": "como",
+     "start": 15.8,
+     "end": 16.22
+    },
+    {
+     "word": "você",
+     "start": 16.22,
+     "end": 16.6
+    },
+    {
+     "word": "consegue",
+     "start": 16.6,
+     "end": 17.06
+    },
+    {
+     "word": "ver",
+     "start": 17.06,
+     "end": 17.54
+    },
+    {
+     "word": "esse",
+     "start": 17.54,
+     "end": 17.82
+    },
+    {
+     "word": "resultado",
+     "start": 17.82,
+     "end": 18.4
+    }
+   ]
+  },
+  {
+   "rotulo": "Macaé Professor(a) S 07/09 (repete a pergunta)",
+   "cena": "scene-10",
+   "texto": "Organizar não reduz o volume de trabalho. Só garante que o que for sacrificado seja sua escolha. Nesta semana, quais duas tarefas você vai proteger com horário marcado?",
+   "duracaoS": 24.451,
+   "sobra": true,
+   "words": [
+    {
+     "word": "Organizar",
+     "start": 0,
+     "end": 1.06
+    },
+    {
+     "word": "não",
+     "start": 1.06,
+     "end": 1.66
+    },
+    {
+     "word": "reduz",
+     "start": 1.66,
+     "end": 2.2
+    },
+    {
+     "word": "o",
+     "start": 2.2,
+     "end": 2.66
+    },
+    {
+     "word": "volume",
+     "start": 2.66,
+     "end": 2.66
+    },
+    {
+     "word": "de",
+     "start": 2.66,
+     "end": 3.36
+    },
+    {
+     "word": "trabalho",
+     "start": 3.36,
+     "end": 3.36
+    },
+    {
+     "word": "só",
+     "start": 4.04,
+     "end": 4.16
+    },
+    {
+     "word": "garante",
+     "start": 4.16,
+     "end": 4.66
+    },
+    {
+     "word": "que",
+     "start": 4.66,
+     "end": 5.02
+    },
+    {
+     "word": "o",
+     "start": 5.02,
+     "end": 5.34
+    },
+    {
+     "word": "que",
+     "start": 5.34,
+     "end": 5.62
+    },
+    {
+     "word": "for",
+     "start": 5.62,
+     "end": 5.9
+    },
+    {
+     "word": "sacrificado",
+     "start": 5.9,
+     "end": 6.8
+    },
+    {
+     "word": "seja",
+     "start": 6.8,
+     "end": 7.38
+    },
+    {
+     "word": "a",
+     "start": 7.38,
+     "end": 7.94
+    },
+    {
+     "word": "sua",
+     "start": 7.94,
+     "end": 8.08
+    },
+    {
+     "word": "escolha",
+     "start": 8.08,
+     "end": 8.58
+    },
+    {
+     "word": "Nesta",
+     "start": 9.68,
+     "end": 9.74
+    },
+    {
+     "word": "semana",
+     "start": 9.74,
+     "end": 10.34
+    },
+    {
+     "word": "quais",
+     "start": 10.94,
+     "end": 11.12
+    },
+    {
+     "word": "duas",
+     "start": 11.12,
+     "end": 11.66
+    },
+    {
+     "word": "tarefas",
+     "start": 11.66,
+     "end": 12.32
+    },
+    {
+     "word": "você",
+     "start": 12.32,
+     "end": 12.86
+    },
+    {
+     "word": "vai",
+     "start": 12.86,
+     "end": 13.2
+    },
+    {
+     "word": "proteger",
+     "start": 13.2,
+     "end": 13.76
+    },
+    {
+     "word": "com",
+     "start": 13.76,
+     "end": 14.22
+    },
+    {
+     "word": "o",
+     "start": 14.22,
+     "end": 14.74
+    },
+    {
+     "word": "horário",
+     "start": 14.74,
+     "end": 14.74
+    },
+    {
+     "word": "marcado",
+     "start": 14.74,
+     "end": 15.34
+    },
+    {
+     "word": "Nesta",
+     "start": 16.98,
+     "end": 17.74
+    },
+    {
+     "word": "semana",
+     "start": 17.74,
+     "end": 18.28
+    },
+    {
+     "word": "quais",
+     "start": 19.82,
+     "end": 19.82
+    },
+    {
+     "word": "duas",
+     "start": 19.82,
+     "end": 20.4
+    },
+    {
+     "word": "tarefas",
+     "start": 20.4,
+     "end": 21.1
+    },
+    {
+     "word": "você",
+     "start": 21.1,
+     "end": 21.68
+    },
+    {
+     "word": "vai",
+     "start": 21.68,
+     "end": 22.02
+    },
+    {
+     "word": "proteger",
+     "start": 22.02,
+     "end": 22.58
+    },
+    {
+     "word": "com",
+     "start": 22.58,
+     "end": 23.06
+    },
+    {
+     "word": "o",
+     "start": 23.06,
+     "end": 23.6
+    },
+    {
+     "word": "horário",
+     "start": 23.6,
+     "end": 23.6
+    },
+    {
+     "word": "marcado",
+     "start": 23.6,
+     "end": 24.1
+    }
+   ]
+  },
+  {
+   "rotulo": "Rede ACME Professor(a) S 15/09 (repete metade)",
+   "cena": "scene-9",
+   "texto": "Nesta semana, escolha uma aula e combine o tempo de cada momento antes de entrar. Depois anote: onde o ritmo escapou, e que ajuste você leva para a próxima?",
+   "duracaoS": 19.174,
+   "sobra": true,
+   "words": [
+    {
+     "word": "Nesta",
+     "start": 0,
+     "end": 0.62
+    },
+    {
+     "word": "semana",
+     "start": 0.62,
+     "end": 1.18
+    },
+    {
+     "word": "escolha",
+     "start": 1.78,
+     "end": 2.06
+    },
+    {
+     "word": "uma",
+     "start": 2.06,
+     "end": 2.66
+    },
+    {
+     "word": "aula",
+     "start": 2.66,
+     "end": 2.98
+    },
+    {
+     "word": "e",
+     "start": 2.98,
+     "end": 3.4
+    },
+    {
+     "word": "combine",
+     "start": 3.4,
+     "end": 3.82
+    },
+    {
+     "word": "o",
+     "start": 3.82,
+     "end": 4.36
+    },
+    {
+     "word": "tempo",
+     "start": 4.36,
+     "end": 4.36
+    },
+    {
+     "word": "de",
+     "start": 4.36,
+     "end": 4.7
+    },
+    {
+     "word": "cada",
+     "start": 4.7,
+     "end": 4.8
+    },
+    {
+     "word": "momento",
+     "start": 4.8,
+     "end": 5.34
+    },
+    {
+     "word": "antes",
+     "start": 5.34,
+     "end": 6.02
+    },
+    {
+     "word": "de",
+     "start": 6.02,
+     "end": 6.66
+    },
+    {
+     "word": "entrar",
+     "start": 6.66,
+     "end": 6.66
+    },
+    {
+     "word": "Depois",
+     "start": 7.5,
+     "end": 8
+    },
+    {
+     "word": "anote",
+     "start": 8.32,
+     "end": 8.68
+    },
+    {
+     "word": "onde",
+     "start": 8.68,
+     "end": 9.62
+    },
+    {
+     "word": "o",
+     "start": 9.62,
+     "end": 10.38
+    },
+    {
+     "word": "ritmo",
+     "start": 10.38,
+     "end": 10.42
+    },
+    {
+     "word": "escapou",
+     "start": 10.42,
+     "end": 11.08
+    },
+    {
+     "word": "e",
+     "start": 11.08,
+     "end": 11.94
+    },
+    {
+     "word": "que",
+     "start": 11.94,
+     "end": 12.16
+    },
+    {
+     "word": "ajuste",
+     "start": 12.16,
+     "end": 12.98
+    },
+    {
+     "word": "você",
+     "start": 12.98,
+     "end": 13.74
+    },
+    {
+     "word": "leva",
+     "start": 13.74,
+     "end": 14.06
+    },
+    {
+     "word": "para",
+     "start": 14.06,
+     "end": 14.34
+    },
+    {
+     "word": "a",
+     "start": 14.34,
+     "end": 14.94
+    },
+    {
+     "word": "próxima",
+     "start": 14.94,
+     "end": 14.94
+    },
+    {
+     "word": "E",
+     "start": 16.02,
+     "end": 16.28
+    },
+    {
+     "word": "aí",
+     "start": 16.28,
+     "end": 16.52
+    },
+    {
+     "word": "você",
+     "start": 16.8,
+     "end": 17.4
+    },
+    {
+     "word": "leva",
+     "start": 17.4,
+     "end": 17.74
+    },
+    {
+     "word": "para",
+     "start": 17.74,
+     "end": 18.32
+    },
+    {
+     "word": "a",
+     "start": 18.32,
+     "end": 18.98
+    },
+    {
+     "word": "próxima",
+     "start": 18.98,
+     "end": 18.98
+    }
+   ]
+  }
+ ]
+}

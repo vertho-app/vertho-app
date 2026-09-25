@@ -292,6 +292,33 @@ export function garantirCabecaSilenciosa(pcm: Buffer, sampleRate: number, minS =
   return { pcm: Buffer.concat([pad, pcm]), deslocamentoS: padS };
 }
 
+/** A partir de quantas palavras DEPOIS do texto a sobra é fala, e não um ruído que o ASR leu. */
+export const SOBRA_MIN_PALAVRAS = 2;
+
+/**
+ * FALA A MAIS no fim de uma cena narrada sozinha (o caminho por cena).
+ *
+ * `Medido 25/09/2026`: o TTS às vezes repete a frase final, inteira ou pela metade, ou
+ * acrescenta uma frase que não está no roteiro ("E aí, como você consegue ver esse
+ * resultado"). Transcrevendo os fechos: 2 de 3 no piloto do avatar por grupo e 3 de 18
+ * vídeos de produção desde 06/09, todos no caminho por cena. No fecho do avatar isso
+ * vira a mentora REPETINDO a pergunta, e a HeyGen cobra os segundos a mais (26 s num
+ * fecho de 11 s). O take único não tem o defeito: `alinharCenas` casa a 1ª ocorrência
+ * e a última fatia termina na última palavra casada.
+ *
+ * Esta função aplica a mesma régua à cena avulsa: devolve onde o texto termina na fala
+ * (última palavra casada + respiro) quando sobram `SOBRA_MIN_PALAVRAS` ou mais depois
+ * dele. `null` = nada a cortar, ou o texto nem casou (aí não se mexe no áudio).
+ */
+export function fimDoTextoNaFala(words: WordTime[], texto: string, duracaoS: number): { fimS: number; palavrasDepois: number } | null {
+  if (!words?.length || !String(texto || '').trim()) return null;
+  const fatias = alinharCenas(words, [{ id: 'cena', narration: texto }], duracaoS);
+  if (!fatias?.length) return null;
+  const fimS = fatias[0].fim;
+  const palavrasDepois = expandirHifens(words).filter((w) => w.start >= fimS - 1e-6).length;
+  return palavrasDepois >= SOBRA_MIN_PALAVRAS ? { fimS, palavrasDepois } : null;
+}
+
 /** Recorta PCM 16-bit mono entre dois instantes (segundos). */
 export function fatiarPcm16(pcm: Buffer, sampleRate: number, inicioS: number, fimS: number): Buffer {
   const a = Math.max(0, Math.floor(inicioS * sampleRate)) * 2;

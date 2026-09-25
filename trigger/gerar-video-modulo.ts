@@ -13,8 +13,8 @@ import { montarInputProps, exportCaptionsToSrt, exportCaptionsToVtt, type AssetM
 import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
 import { storagePut, storageGet, SUPA, KEY } from '../lib/video/render-helpers';
 import { createHash } from 'node:crypto';
-import { transcribeWords } from '../lib/video/whisper-align';
-import { montarTextoUnico, planejarNarracaoUnica, classeDaRecusa, fatiarPcm16, garantirCabecaSilenciosa } from '../lib/video/narracao-unica';
+import { transcribeWords, type WordTime } from '../lib/video/whisper-align';
+import { montarTextoUnico, planejarNarracaoUnica, classeDaRecusa, fatiarPcm16, garantirCabecaSilenciosa, fimDoTextoNaFala } from '../lib/video/narracao-unica';
 import { pcmToMp3SemMaster } from '../lib/tts/audio-dsp';
 import { ELENCO } from '../lib/tts/elenco';
 import { regionOpts } from '../lib/trigger-region';
@@ -242,6 +242,33 @@ async function ultimoTake(videoId: string, assinatura: string): Promise<string |
     return take ? `${videoId}/${take.name}` : null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Corta a fala A MAIS no fim de uma cena narrada sozinha: o TTS às vezes repete a
+ * frase final ou inventa uma (medido 25/09/2026, ver `fimDoTextoNaFala`). Corta na
+ * última palavra do texto + respiro, pelo mesmo alinhamento do take único. Sem timing
+ * do Whisper, ou sem casar o texto, devolve o áudio como veio. `sobraS` fica gravado no
+ * asset (`sobraCortadaS`) para dar para contar quantas vezes isso acontece.
+ */
+async function cortarFalaAMais(mp3: Buffer, words: WordTime[] | null, texto: string, rotulo: string): Promise<{ mp3: Buffer; words: WordTime[] | null; sobraS: number }> {
+  if (!words?.length) return { mp3, words, sobraS: 0 };
+  try {
+    const pcm = await mp3ParaPcm24k(mp3);
+    const durS = pcm.length / 2 / 24000;
+    const corte = fimDoTextoNaFala(words, texto, durS);
+    if (!corte) return { mp3, words, sobraS: 0 };
+    const sobraS = Math.round((durS - corte.fimS) * 100) / 100;
+    console.warn(`[fala-a-mais] ${rotulo}: ${corte.palavrasDepois} palavra(s) depois do texto; corta ${sobraS}s (fica ${corte.fimS.toFixed(2)}s de ${durS.toFixed(2)}s)`);
+    return {
+      mp3: pcmToMp3SemMaster(fatiarPcm16(pcm, 24000, 0, corte.fimS), 24000),
+      words: words.filter((w) => w.start < corte.fimS),
+      sobraS,
+    };
+  } catch (e) {
+    console.warn(`[fala-a-mais] ${rotulo}: não conseguiu conferir o fim, segue o áudio como veio:`, (e as Error)?.message);
+    return { mp3, words, sobraS: 0 };
   }
 }
 
@@ -494,12 +521,14 @@ export async function executarGeracaoVideoModulo(p: {
         // E garante a CABEÇA: a composição pula 33 ms do áudio (trimBefore), então a fala
         // não pode começar no instante zero (o TTS por cena costuma abrir com respiro, mas
         // não é garantido).
-        const buf = await comCabecaSilenciosa(await trimTrailingSilence(audio.buffer));
+        const bruto = await comCabecaSilenciosa(await trimTrailingSilence(audio.buffer));
+        // M4: timing por palavra (Whisper) p/ legendas + animações. null = fallback heurístico.
+        // É ele também que acha fala A MAIS no fim (repetição do TTS), cortada ANTES do
+        // upload: a cena de avatar vai para a HeyGen com este mesmo mp3.
+        const { mp3: buf, words, sobraS } = await cortarFalaAMais(bruto, await transcribeWords(bruto), aplicarPronuncia(s.narration as string), `${videoId}/${s.id}`);
         const src = await storagePut('video-assets', `${videoId}/${s.id}-${GERACAO_TAG()}.mp3`, buf, 'audio/mpeg');
         duracaoLocal[s.id] = await duracaoDoBuffer(buf, 'mp3');
-        // M4: timing por palavra (Whisper) p/ legendas + animações. null = fallback heurístico.
-        const words = await transcribeWords(buf);
-        assets[s.id] = { src, durationSec: 0, words: words || undefined };
+        assets[s.id] = { src, durationSec: 0, words: words || undefined, ...(sobraS ? { sobraCortadaS: sobraS } : {}) };
       });
 
       // 2) AVATAR — HeyGen faz lip-sync do NOSSO mp3; re-hospedamos o mp4 (URL HeyGen
@@ -538,7 +567,7 @@ export async function executarGeracaoVideoModulo(p: {
         // Mantém o mp3 da narração como áudio SEPARADO: o vídeo (mp4) entra mutado e
         // o áudio é tocado alinhado pelo Remotion → lip-sync sem o offset do OffthreadVideo.
         // Preserva `words` (timing Whisper) capturado no passo da narração.
-        assets[s.id] = { src, durationSec: 0, audioSrc: audioUrl, words: assets[s.id]?.words, heygenVideoId: assets[s.id]?.heygenVideoId };
+        assets[s.id] = { src, durationSec: 0, audioSrc: audioUrl, words: assets[s.id]?.words, heygenVideoId: assets[s.id]?.heygenVideoId, ...(assets[s.id]?.sobraCortadaS ? { sobraCortadaS: assets[s.id].sobraCortadaS } : {}) };
       });
 
       // 3) DURAÇÕES reais (ffprobe) → timeline correta. Paralelo.

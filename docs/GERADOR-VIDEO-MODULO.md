@@ -59,6 +59,8 @@ A HeyGen retira `/v2/video/generate` e `/v1/video_status.get` em **31/10/2026**.
   texto pelo health e pela FMEA: não mudar.
 - **Retomada:** o `video_id` da HeyGen fica em `assets[cena].heygenVideoId`, persistido ANTES do
   polling. Um re-run depois de queda retoma o clipe já pago em vez de gerar outro.
+- **Espera de ~40 min** (300 consultas de 8 s). Eram ~20, e em 25/09/2026 um clipe de 26 s ficou
+  pronto em 22,4 min na fila da HeyGen: o timeout derrubou o vídeo com os dois clipes já pagos.
 
 **Preço** (conferido por delta da carteira, mesmo áudio de 7,58s, clipes em série, 24/09/2026):
 
