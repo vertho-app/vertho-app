@@ -18,6 +18,7 @@ import { findTrilhaComTenant, updateTrilhaInTenant, updateSemanaProgressoInTenan
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import { marcarSemanaConsumida } from '@/lib/season-engine/consumo-conteudo';
+import { statusAoTocarSemana } from '@/lib/season-engine/progresso-semana';
 
 interface GerarTemporadaParams {
   colaboradorId?: string;
@@ -728,7 +729,7 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
       return { error: 'não autorizado' };
     }
     const { data: existente, error: errLeitura } = await sb.from('temporada_semana_progresso')
-      .select('id, iniciado_em, conteudo_consumido').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
+      .select('id, status, iniciado_em, conteudo_consumido').eq('trilha_id', trilhaId).eq('semana', semana).maybeSingle();
     // O supabase-js RETORNA `{ error }`. Aqui a leitura NÃO é opcional: o valor
     // atual decide o formato que será gravado (`marcarSemanaConsumida`). Falha
     // silenciosa devolveria `existente = undefined`, o payload viraria `true`
@@ -743,7 +744,10 @@ export async function marcarConteudoConsumido(trilhaId: string, semana: number) 
       // preserva o formato que já estiver na linha. Hoje é inócuo (0 de 941
       // linhas em array), e é exatamente por isso que dá para arrumar agora.
       conteudo_consumido: marcarSemanaConsumida(existente?.conteudo_consumido, semana),
-      status: PROGRESSO.EM_ANDAMENTO,
+      // Abrir o conteúdo de uma semana JÁ concluída não a reabre: era
+      // `PROGRESSO.EM_ANDAMENTO` fixo, e o gate sequencial trancava a seguinte
+      // (3 diretoras de Macaé, set/2026). Ver `statusAoTocarSemana`.
+      status: statusAoTocarSemana(existente?.status),
       iniciado_em: existente?.iniciado_em || new Date().toISOString(),
     };
     if (existente) {

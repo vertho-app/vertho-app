@@ -4,8 +4,7 @@ import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { checarGatesSemana } from '@/lib/season-engine/trilha-runtime';
-import { PROGRESSO } from '@/lib/status';
-import { gravarProgressoSemana } from '@/lib/season-engine/progresso-semana';
+import { gravarProgressoSemana, statusAoTocarSemana } from '@/lib/season-engine/progresso-semana';
 
 /**
  * POST /api/temporada/missao
@@ -100,7 +99,8 @@ export async function POST(request) {
       colaborador_id: trilha.colaborador_id,
       semana: Number(semana),
       tipo: 'aplicacao',
-      status: PROGRESSO.EM_ANDAMENTO,
+      // Mesmo modo reenviado depois do relato concluído não reabre a semana.
+      status: statusAoTocarSemana(prog?.status),
       feedback: novoFeedback,
       iniciado_em: prog?.iniciado_em || new Date().toISOString(),
     };

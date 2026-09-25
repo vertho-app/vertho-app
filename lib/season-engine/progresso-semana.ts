@@ -66,3 +66,24 @@ export async function liberarProximaSemana(
     throw new Error(`não foi possível liberar a semana ${proxima}: ${error.message}`);
   }
 }
+
+/**
+ * O status a gravar quando a pessoa TOCA uma semana sem concluí-la: abrir o
+ * conteúdo (`marcarConteudoConsumido`) ou escolher o modo da missão
+ * (`/api/temporada/missao`). Tocar nunca rebaixa uma semana `concluido`.
+ *
+ * 🔴 Medido em 25/09/2026, Macaé: os dois escritores gravavam `em_andamento`
+ * sem ler o status atual. Três diretoras concluíram a conversa (6 turnos,
+ * `concluido_em` gravado, semana seguinte liberada) e, 1 a 2 minutos depois,
+ * clicaram num formato do conteúdo da MESMA semana. A tela ainda achava o
+ * conteúdo não consumido (o `startChat` grava sem recarregar os dados), chamou
+ * a action de novo e a semana voltou para `em_andamento`. O gate sequencial
+ * passou a trancar a seguinte, e a conversa, já encerrada, não regrava o status:
+ * sem saída pela tela. Uma delas ficou 21 dias assim (Carla, semana 1).
+ *
+ * Quem conclui é só a conversa (`reflection`/`evaluation`), e ela não passa
+ * por aqui.
+ */
+export function statusAoTocarSemana(atual: string | null | undefined): string {
+  return atual === PROGRESSO.CONCLUIDO ? PROGRESSO.CONCLUIDO : PROGRESSO.EM_ANDAMENTO;
+}
