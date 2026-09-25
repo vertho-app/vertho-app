@@ -35,16 +35,17 @@ export function colunasDoCargo(linhas: Record<string, string>[]): Record<string,
   return traduzirTitulos(linhas, COLUNA_DO_TITULO);
 }
 
-const NAO = new Set(['nao', 'n', 'no', 'false', '0']);
+const SIM = new Set(['sim', 's', 'x', 'yes', 'y', 'si', 'true', '1']);
 
 /**
- * "Cargo de liderança?" da planilha. Em branco é SIM, como no formulário do
- * cargo e em /admin/cargos (`eh_lideranca !== false`), e como a tela do import
- * sempre anunciou ("default: sim"). Até 25/09/2026 o import gravava em branco,
- * e "Sim" com maiúscula, como NÃO; e o fit tira o bloco de liderança do cargo
- * não-líder (actions/fit-v2.ts).
+ * "Cargo de liderança?" da planilha: só é líder o que a planilha marca como
+ * sim, em qualquer caixa e com ou sem acento. Em branco, "não" ou qualquer
+ * outra coisa é NÃO-líder (decisão do dono, 25/09/2026). O formulário do cargo
+ * continua abrindo marcado como líder: lá a pessoa vê a caixa, aqui não.
+ * Até 25/09/2026 "Sim" com maiúscula também virava não-líder; e o fit tira o
+ * bloco de liderança do cargo não-líder (actions/fit-v2.ts).
  */
 export function liderancaDaPlanilha(valor: unknown): boolean {
   if (typeof valor === 'boolean') return valor;
-  return !NAO.has(chaveSemAcento(valor));
+  return SIM.has(chaveSemAcento(valor));
 }

@@ -5,11 +5,11 @@ import { colunasDoCargo, liderancaDaPlanilha } from '@/lib/cargos-import';
 /**
  * IMPORT DE CARGOS (25/09/2026).
  *
- * A tela do import sempre anunciou "eh_lideranca: sim / não (default: sim)", e o
- * formulário do cargo e /admin/cargos tratam o vazio como líder
- * (`eh_lideranca !== false`). O import gravava vazio, e "Sim" com maiúscula, como
- * NÃO; e o fit tira o bloco de liderança do cargo não-líder (actions/fit-v2.ts).
- * Junto, o modelo novo passa a usar títulos em português claro.
+ * O import fazia `=== 'sim'`: "Sim" com maiúscula virava não-líder, e o fit tira
+ * o bloco de liderança do cargo não-líder (actions/fit-v2.ts). Agora só é líder
+ * o que a planilha marca como sim, em qualquer caixa; em branco é não-líder
+ * (decisão do dono, 25/09/2026). Junto, o modelo novo passa a usar títulos em
+ * português claro.
  */
 
 const EMPRESA = 'emp-1';
@@ -41,16 +41,16 @@ beforeEach(() => {
 });
 
 describe('liderancaDaPlanilha', () => {
-  it('em branco é SIM (o que a tela anuncia e o formulário faz)', () => {
-    for (const v of ['', '   ', undefined, null]) expect(liderancaDaPlanilha(v)).toBe(true);
+  it('em branco é NÃO-líder (decisão do dono)', () => {
+    for (const v of ['', '   ', undefined, null]) expect(liderancaDaPlanilha(v)).toBe(false);
   });
 
-  it('sim em qualquer caixa é SIM ("Sim" virava NÃO)', () => {
-    for (const v of ['sim', 'Sim', 'SIM', 's', 'x', true]) expect(liderancaDaPlanilha(v)).toBe(true);
+  it('sim em qualquer caixa, com ou sem acento, é líder ("Sim" virava não-líder)', () => {
+    for (const v of ['sim', 'Sim', 'SIM', ' sim ', 's', 'x', 'yes', 'Sí', true]) expect(liderancaDaPlanilha(v)).toBe(true);
   });
 
-  it('não em qualquer caixa, com ou sem acento, é NÃO', () => {
-    for (const v of ['não', 'Não', 'NÃO', 'nao', 'n', 'N', 'false', '0', false]) expect(liderancaDaPlanilha(v)).toBe(false);
+  it('não, e qualquer coisa que não seja sim, é NÃO-líder', () => {
+    for (const v of ['não', 'Não', 'NÃO', 'nao', 'n', 'false', '0', 'talvez', false]) expect(liderancaDaPlanilha(v)).toBe(false);
   });
 });
 
@@ -84,7 +84,7 @@ describe('colunasDoCargo', () => {
 });
 
 describe('importarCargosLote', () => {
-  it('grava a liderança como a planilha diz: vazio e "Sim" são SIM, "Não" é NÃO', async () => {
+  it('grava a liderança como a planilha diz: "Sim" é líder; vazio e "Não" são não-líder', async () => {
     const r = await importarCargosLote(EMPRESA, [
       { nome: 'Vazio', eh_lideranca: '' },
       { nome: 'Maiúscula', eh_lideranca: 'Sim' },
@@ -93,7 +93,7 @@ describe('importarCargosLote', () => {
     expect(r.success).toBe(true);
     const insert = sb.escritas.find((e) => e.tabela === 'cargos_empresa' && e.op === 'insert')!;
     expect(insert.payload.map((c: any) => [c.nome, c.eh_lideranca])).toEqual([
-      ['Vazio', true], ['Maiúscula', true], ['Não líder', false],
+      ['Vazio', false], ['Maiúscula', true], ['Não líder', false],
     ]);
   });
 });

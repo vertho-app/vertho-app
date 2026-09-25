@@ -3823,7 +3823,7 @@
       "yes": "Sí",
       "yesStar": "Sí*",
       "no": "No",
-      "leadershipExample": "sí / no (default: sí)",
+      "leadershipExample": "sí / no (en blanco: no)",
       "defaultRoleHint": "Si <role>role</role> viene vacío, el valor por defecto es <collaborator>colaborador</collaborator>. Los duplicados por email se ignoran.",
       "contactRequiredHint": "* <strong>e-mail O WhatsApp</strong> es obligatorio: sin e-mail válido, el colaborador entra por <strong>WhatsApp</strong> (debe ser móvil con código de área + 9 + 8 dígitos, ej.: 11999998888). Con e-mail válido, WhatsApp es opcional. La línea sin ninguno de los dos se bloquea."
     },

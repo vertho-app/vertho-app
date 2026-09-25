@@ -3823,7 +3823,7 @@
       "yes": "Yes",
       "yesStar": "Yes*",
       "no": "No",
-      "leadershipExample": "yes / no (default: yes)",
+      "leadershipExample": "yes / no (blank: no)",
       "defaultRoleHint": "If <role>role</role> is empty, the default is <collaborator>team member</collaborator>. Email duplicates are ignored.",
       "contactRequiredHint": "* <strong>e-mail OR WhatsApp</strong> is mandatory: without a valid email, the team member enters via <strong>WhatsApp</strong> (must be a cell phone with area code + 9 + 8 digits, e.g.: 11999998888). With a valid email, WhatsApp is optional. Line without either is blocked."
     },

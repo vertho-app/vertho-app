@@ -561,7 +561,7 @@ const _importarCargosLote = protectedLoader<[any, any[]], { success: boolean; me
       decisoes_recorrentes: c.decisoes_recorrentes?.trim() || null,
       tensoes_comuns: c.tensoes_comuns?.trim() || null,
       contexto_cultural: c.contexto_cultural?.trim() || null,
-      // Em branco = sim, como o formulário do cargo; "Sim", "SIM" e "Não" valem (lib/cargos-import).
+      // Só é líder o marcado como sim ("sim", "Sim", "SIM"...); em branco é não-líder (lib/cargos-import).
       eh_lideranca: liderancaDaPlanilha(c.eh_lideranca),
     }));
 
