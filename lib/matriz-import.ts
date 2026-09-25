@@ -17,6 +17,7 @@
  * (`COO01`) e `<competência>-D<2 dígitos>` (`COO01-D01`).
  */
 import { chaveDescritor } from '@/lib/descritores';
+import { traduzirTitulos } from '@/lib/planilha-titulos';
 
 export interface LinhaDaMatrizImportada {
   nome?: string | null;
@@ -47,7 +48,7 @@ const doisDigitos = (n: number) => String(n).padStart(2, '0');
  * Títulos do modelo para quem preenche (pedido do dono, 25/09/2026) → coluna do
  * banco. Os nomes antigos (`nome`, `descricao`, `nome_curto`, `descritor_completo`)
  * continuam valendo: planilha já feita não quebra. O título casa sem acento, sem
- * caixa e com espaço, `_` e `-` equivalentes.
+ * caixa e sem pontuação (lib/planilha-titulos).
  */
 const COLUNA_DO_TITULO: Record<string, string> = {
   'competencia': 'nome',
@@ -64,18 +65,9 @@ export const TITULO_DA_COLUNA: Record<string, string> = {
   descritor_completo: 'descrição do descritor',
 };
 
-const chaveDoTitulo = (s: string) => semAcento(s).toLowerCase().replace(/[\s_-]+/g, ' ').trim();
-
 /** Troca os títulos do modelo pelas colunas do banco. Com as duas formas na planilha, vale a preenchida. */
 export function colunasDaMatriz(linhas: Record<string, string>[]): Record<string, string>[] {
-  return linhas.map((linha) => {
-    const saida: Record<string, string> = {};
-    for (const [titulo, valor] of Object.entries(linha)) {
-      const coluna = COLUNA_DO_TITULO[chaveDoTitulo(titulo)] ?? titulo;
-      if (!texto(saida[coluna])) saida[coluna] = valor;
-    }
-    return saida;
-  });
+  return traduzirTitulos(linhas, COLUNA_DO_TITULO);
 }
 
 /** Colunas da COMPETÊNCIA: célula vazia herda da linha de cima (células mescladas). */

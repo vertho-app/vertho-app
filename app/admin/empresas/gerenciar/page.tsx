@@ -8,6 +8,7 @@ import { Upload, Loader2, Users, Pencil, Trash2, X, Check, Briefcase, RefreshCw,
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
+import { colunasDoCargo } from '@/lib/cargos-import';
 import {
   loadEmpresas, loadResumoEmpresa, importarColaboradoresLote, loadColaboradores, atualizarColaborador, excluirColaborador, preverExclusaoColaborador,
   criarColaborador, exportarColaboradoresXLSX,
@@ -154,18 +155,19 @@ export default function GerenciarPage() {
     if (!file || !tenantId) return;
     setImporting(true); setMsg('');
 
-    const rows = await parseSpreadsheet(file);
+    // Títulos do modelo ("área", "principais entregas"...) e os antigos viram as colunas do banco.
+    const rows = colunasDoCargo(await parseSpreadsheet(file));
     const parsed = rows.map(obj => ({
-      nome: obj.nome || obj.cargo,
-      area_depto: obj.area_depto || obj.area || obj.departamento,
+      nome: obj.nome,
+      area_depto: obj.area_depto,
       descricao: obj.descricao,
-      principais_entregas: obj.principais_entregas || obj.entregas,
+      principais_entregas: obj.principais_entregas,
       stakeholders: obj.stakeholders,
-      decisoes_recorrentes: obj.decisoes_recorrentes || obj.decisoes,
-      tensoes_comuns: obj.tensoes_comuns || obj.tensoes,
-      contexto_cultural: obj.contexto_cultural || obj.contexto,
-      eh_lideranca: obj.eh_lideranca || obj.lideranca,
-    })).filter(c => c.nome);
+      decisoes_recorrentes: obj.decisoes_recorrentes,
+      tensoes_comuns: obj.tensoes_comuns,
+      contexto_cultural: obj.contexto_cultural,
+      eh_lideranca: obj.eh_lideranca,
+    })).filter(c => c.nome?.trim());
 
     if (parsed.length === 0) {
       notify(t('messages.noValidRoles'), 'error');
@@ -730,12 +732,15 @@ export default function GerenciarPage() {
                       <th className="py-1 text-left font-bold text-white">{t('import.example')}</th>
                     </tr></thead>
                     <tbody>
-                      <tr><td className="pr-4 py-0.5 text-purple-400 font-semibold">nome / cargo</td><td className="pr-4">{t('import.yes')}</td><td>Gerente Comercial</td></tr>
-                      <tr><td className="pr-4 py-0.5">area_depto / area</td><td className="pr-4">{t('import.no')}</td><td>Comercial</td></tr>
-                      <tr><td className="pr-4 py-0.5">descricao</td><td className="pr-4">{t('import.no')}</td><td>Responsável por...</td></tr>
-                      <tr><td className="pr-4 py-0.5">principais_entregas</td><td className="pr-4">{t('import.no')}</td><td>Meta de vendas, pipeline...</td></tr>
+                      <tr><td className="pr-4 py-0.5 text-purple-400 font-semibold">cargo</td><td className="pr-4">{t('import.yes')}</td><td>Gerente Comercial</td></tr>
+                      <tr><td className="pr-4 py-0.5">área</td><td className="pr-4">{t('import.no')}</td><td>Comercial</td></tr>
+                      <tr><td className="pr-4 py-0.5">descrição</td><td className="pr-4">{t('import.no')}</td><td>Responsável por...</td></tr>
+                      <tr><td className="pr-4 py-0.5">principais entregas</td><td className="pr-4">{t('import.no')}</td><td>Meta de vendas, pipeline...</td></tr>
                       <tr><td className="pr-4 py-0.5">stakeholders</td><td className="pr-4">{t('import.no')}</td><td>Diretoria, clientes...</td></tr>
-                      <tr><td className="pr-4 py-0.5">eh_lideranca</td><td className="pr-4">{t('import.no')}</td><td>{t('import.leadershipExample')}</td></tr>
+                      <tr><td className="pr-4 py-0.5">decisões recorrentes</td><td className="pr-4">{t('import.no')}</td><td>Onde concentrar esforço...</td></tr>
+                      <tr><td className="pr-4 py-0.5">tensões comuns</td><td className="pr-4">{t('import.no')}</td><td>Meta versus desenvolvimento...</td></tr>
+                      <tr><td className="pr-4 py-0.5">contexto cultural</td><td className="pr-4">{t('import.no')}</td><td>Ritmo acelerado...</td></tr>
+                      <tr><td className="pr-4 py-0.5">cargo de liderança?</td><td className="pr-4">{t('import.no')}</td><td>{t('import.leadershipExample')}</td></tr>
                     </tbody>
                   </table>
                 </div>

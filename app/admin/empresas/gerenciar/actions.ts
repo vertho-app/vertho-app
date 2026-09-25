@@ -7,6 +7,7 @@ import { protectedAction, protectedLoader } from '@/lib/auth/protected-action';
 import { updateColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant, listEmailsInTenant, createColaboradoresLoteInTenant } from '@/lib/repositories/colaboradores-repo';
 import { preverExclusaoPace, excluirCadastroComBackupPace } from '@/lib/simulador-vendas/exclusao';
 import { upsertCargoInTenant, deleteCargoInTenant } from '@/lib/repositories/cargos-empresa-repo';
+import { liderancaDaPlanilha } from '@/lib/cargos-import';
 import { logAdminAction } from '@/lib/audit';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { validateWhatsApp, normalizePhone } from '@/lib/phone';
@@ -560,7 +561,8 @@ const _importarCargosLote = protectedLoader<[any, any[]], { success: boolean; me
       decisoes_recorrentes: c.decisoes_recorrentes?.trim() || null,
       tensoes_comuns: c.tensoes_comuns?.trim() || null,
       contexto_cultural: c.contexto_cultural?.trim() || null,
-      eh_lideranca: c.eh_lideranca === 'sim' || c.eh_lideranca === true,
+      // Em branco = sim, como o formulário do cargo; "Sim", "SIM" e "Não" valem (lib/cargos-import).
+      eh_lideranca: liderancaDaPlanilha(c.eh_lideranca),
     }));
 
   if (novos.length === 0) return { success: true, message: 'Todos os cargos já estavam cadastrados (duplicatas ignoradas)' };
