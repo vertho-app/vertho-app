@@ -71,8 +71,14 @@ A HeyGen retira `/v2/video/generate` e `/v1/video_status.get` em **31/10/2026**.
 
 Com os **34-37s de avatar medidos por vídeo** (não os ~28s que o prompt mira), o avatar custa
 **~US$ 0,56-0,61 por vídeo**. Desde a v3, **cada clipe concluído grava o custo no ledger**
-(`ia_usage_log`, feature `heygen_avatar`, source `heygen:v3`, segundos arredondados para cima ×
+(`ia_usage_log`, feature `heygen_avatar`, source `heygen:v3`, duração reportada pela HeyGen ×
 `HEYGEN_USD_POR_SEGUNDO` do catálogo), e o relatório semanal avisa a semana em que essa camada entra.
+
+**Conferência do ledger contra o saldo** (25/09/2026, 1ª célula real na v3: Macaé, Professor(a), C):
+2 clipes, 13,17s + 11,10s. O saldo caiu US$ 0,41. A HeyGen cobra o **segundo exato**: arredondar
+cada clipe para cima dava US$ 0,429 (+4,6%); o segundo exato a US$ 1,00/min dá US$ 0,405 (−1,3%).
+Somando os dois testes (31,85s → US$ 0,54 ± 0,01), o preço real fica em 0,0166-0,0173/s, e o
+catálogo usa US$ 1,00/min, o valor da fatura de junho. A tabela de 0,99/min fica logo abaixo.
 
 **Método de medição** (use o mesmo ao testar outro motor ou foto): ler o saldo em `/v3/users/me`,
 gerar UM clipe, esperar o saldo mudar, ler de novo. Um clipe por vez; o saldo tem precisão de

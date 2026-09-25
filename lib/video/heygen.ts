@@ -23,7 +23,8 @@
  * Até aqui o avatar, a MAIOR linha de custo do vídeo, não aparecia em conta nenhuma:
  * HTTP direto, fora do wrapper de IA. Agora cada clipe concluído grava uma linha em
  * `ia_usage_log` (feature `heygen_avatar`, source `heygen:v3`), com o custo =
- * segundos (arredondados para cima, como a v2 cobrava em créditos) × preço do motor.
+ * duração que a HeyGen reporta (segundo exato) × preço do motor. Conferido contra o
+ * saldo da carteira em 25/09: 1,3% abaixo.
  */
 import { createHash } from 'node:crypto';
 import { gravarLinhaLedger } from '../ia-ledger';
@@ -133,7 +134,8 @@ export async function aguardarClipeHeyGen(videoId: string, opts: AguardarOpts = 
 async function registrarCustoClipe(videoId: string, duracaoS: number | null, latencyMs: number, ledger: { feature: string; empresaId: string | null }) {
   const motor = motorHeyGen();
   const preco = HEYGEN_USD_POR_SEGUNDO[motor];
-  const custo = duracaoS !== null && preco !== undefined ? Math.ceil(duracaoS) * preco : null;
+  // Segundo EXATO: medido em 25/09, arredondar para cima ficava 4,6% acima do saldo.
+  const custo = duracaoS !== null && preco !== undefined ? duracaoS * preco : null;
   await gravarLinhaLedger({
     correlation_id: correlacaoDoClipe(videoId),
     feature: ledger.feature,

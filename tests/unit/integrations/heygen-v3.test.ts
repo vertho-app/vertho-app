@@ -123,7 +123,7 @@ describe('HeyGen v3 · polling', () => {
 });
 
 describe('HeyGen v3 · custo no ledger', () => {
-  it('clipe concluído grava uma linha com o custo = segundos (para cima) × preço do motor', async () => {
+  it('clipe concluído grava uma linha com o custo = segundo EXATO × preço do motor', async () => {
     stubFetch([() => concluido()]);
     const r = await aguardarClipeHeyGen(ID, { intervaloMs: 0, ledger: { feature: 'heygen_avatar', empresaId: 'emp-1' } });
 
@@ -133,8 +133,9 @@ describe('HeyGen v3 · custo no ledger', () => {
       feature: 'heygen_avatar', empresa_id: 'emp-1', provider: 'heygen', model: 'heygen-avatar_iii',
       input_tokens: 0, output_tokens: 0, status: 'ok', source: 'heygen:v3',
     });
-    // 7,58s → 8s × US$ 0,99/min (tabela oficial 16/09; bate com o delta de US$ 0,13 medido).
-    expect(gravadas[0].cost_usd).toBeCloseTo(8 * (0.99 / 60), 10);
+    // 7,57658s × US$ 1,00/min: o saldo medido em 25/09 cobra o segundo exato
+    // (arredondar para cima ficava 4,6% acima do que a carteira descontou).
+    expect(gravadas[0].cost_usd).toBeCloseTo(7.57658 * (1 / 60), 10);
     expect(gravadas[0].correlation_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/);
   });
 

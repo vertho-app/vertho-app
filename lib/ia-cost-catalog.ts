@@ -174,14 +174,17 @@ export const OPENAI_WEB_SEARCH_USD_PER_CALL = 10 / 1000;
 /**
  * HeyGen v3, US$ por segundo de avatar gerado, por motor (`engine`). Quem grava o
  * custo no ledger é `lib/video/heygen.ts`, a cada clipe concluído.
- *   · `avatar_iii` foto: US$ 0,99/min da tabela oficial (16/09/2026), conferido por
- *     delta da carteira em 24/09 (US$ 0,0171/s num clipe de 7,58s).
- *   · `avatar_iv` foto: US$ 0,0382/s MEDIDO pelo mesmo método no mesmo dia; a tabela
+ *   · `avatar_iii` foto: **US$ 1,00/min pelo segundo EXATO**. A tabela oficial de
+ *     16/09/2026 diz 0,99/min, mas o saldo da carteira, medido em dois clipes (31,85s no
+ *     total, 24-25/09), caiu US$ 0,54 ± 0,01 → 0,0166-0,0173/s, e a fatura de 19/06 (v2)
+ *     deu "US$ 1,00/min exato". Arredondar os segundos para cima ficava 4,6% acima do
+ *     saldo; o segundo exato a 1,00/min fica 1,3% abaixo.
+ *   · `avatar_iv` foto: US$ 0,0382/s MEDIDO pelo mesmo método em 24/09; a tabela
  *     oficial dessa linha não foi conferida.
  * Motor fora desta tabela grava a linha com `cost_usd` nulo, que é o sinal de lacuna.
  */
 export const HEYGEN_USD_POR_SEGUNDO: Record<string, number> = {
-  avatar_iii: 0.99 / 60,
+  avatar_iii: 1.0 / 60,
   avatar_iv: 0.0382,
 };
 
@@ -903,7 +906,7 @@ export const CALLS = [
     fase: 'Vídeo do Módulo-Base',
     scaleType: 'video_gerado',
     nome: 'Avatar falante (HeyGen)',
-    descricao: 'Clipes de avatar (intro + outro) com lip-sync da nossa narração, HeyGen v3 `avatar_iii` (foto). Preço: US$ 0,99/min (tabela oficial 16/09/2026), conferido por delta da carteira em 24/09 (US$ 0,0171/s, igual à v2). Duração MEDIDA: 34-37s de avatar por vídeo (155 decks de Ibipeba e Macaé, 24/09), não os ~28s que o prompt mira → ~US$ 0,59 por vídeo. É a MAIOR linha (~65% do deck). Escala com a fala do avatar. OPCIONAL: sem avatar o custo cai todo este valor.',
+    descricao: 'Clipes de avatar (intro + outro) com lip-sync da nossa narração, HeyGen v3 `avatar_iii` (foto). Preço: US$ 1,00/min pelo segundo exato (saldo da carteira medido em 24-25/09: 0,0166-0,0173/s, igual à v2; a tabela oficial de 16/09 diz 0,99/min). Duração MEDIDA: 34-37s de avatar por vídeo (155 decks de Ibipeba e Macaé, 24/09), não os ~28s que o prompt mira → ~US$ 0,59 por vídeo. É a MAIOR linha (~65% do deck). Escala com a fala do avatar. OPCIONAL: sem avatar o custo cai todo este valor.',
     inTokens: 0,
     outTokens: 0,
     flatUsd: 0.59,
