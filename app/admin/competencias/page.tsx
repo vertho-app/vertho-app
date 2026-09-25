@@ -13,7 +13,9 @@ import {
   salvarCompetencia, excluirCompetencia, copiarBaseParaEmpresa, importarCompetenciasCSV, loadCargosEmpresa, salvarDescritor
 } from './actions';
 import { parseSpreadsheet } from '@/lib/parse-spreadsheet';
-import { preencherCelulasMescladas, separarLinhasDoImport, OBRIGATORIOS_DO_IMPORT } from '@/lib/matriz-import';
+import {
+  colunasDaMatriz, preencherCelulasMescladas, separarLinhasDoImport, OBRIGATORIOS_DO_IMPORT, TITULO_DA_COLUNA,
+} from '@/lib/matriz-import';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
 
@@ -209,7 +211,7 @@ export default function CompetenciasPage() {
         <div className="rounded-xl p-4 border border-white/[0.06] mb-4" style={{ background: '#0F2A4A' }}>
           <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest mb-2">{t('import.title')}</p>
           <p className="text-xs text-gray-400 mb-1">{t('import.acceptedColumns')}</p>
-          <p className="text-[10px] text-cyan-400 font-mono mb-1">cod_comp, <strong>nome</strong>*, pilar, <strong>cargo</strong>*, <strong>descricao</strong>*, cod_desc, nome_curto, descritor_completo, <strong>n1_gap</strong>*, <strong>n2_desenvolvimento</strong>*, n3_meta, <strong>n4_referencia</strong>*, evidencias_esperadas, perguntas_alvo</p>
+          <p className="text-[10px] text-cyan-400 font-mono mb-1"><strong>competência</strong>*, pilar, <strong>cargo</strong>*, <strong>descrição da competência</strong>*, descritor, descrição do descritor, <strong>n1_gap</strong>*, <strong>n2_desenvolvimento</strong>*, n3_meta, <strong>n4_referencia</strong>*, evidencias_esperadas, perguntas_alvo, cod_comp, cod_desc</p>
           <p className="text-[10px] text-gray-600">{t.rich('import.requiredHint', { strong: chunks => <strong>{chunks}</strong> })}</p>
           <label className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white cursor-pointer"
             style={{ background: 'linear-gradient(135deg, #0D9488, #0F766E)' }}>
@@ -220,13 +222,14 @@ export default function CompetenciasPage() {
               if (!file) return;
               setImporting(true);
               // Células mescladas da competência: linha vazia herda da de cima.
-              const parsed: any[] = preencherCelulasMescladas(await parseSpreadsheet(file));
+              const parsed: any[] = preencherCelulasMescladas(colunasDaMatriz(await parseSpreadsheet(file)));
               if (!parsed.length) { flash(t('messages.noValidRows')); setImporting(false); e.target.value = ''; return; }
 
               // Obrigatórios e cargo (depois das células mescladas): o que falta sai, com aviso.
               const { validas, semObrigatorios, semCargo } = separarLinhasDoImport(parsed);
               if (semObrigatorios.length) {
-                flash(t('messages.invalidRows', { count: semObrigatorios.length, fields: OBRIGATORIOS_DO_IMPORT.join(', ') }));
+                const campos = OBRIGATORIOS_DO_IMPORT.map(k => TITULO_DA_COLUNA[k] || k).join(', ');
+                flash(t('messages.invalidRows', { count: semObrigatorios.length, fields: campos }));
               }
               if (semCargo.length) flash(t('messages.rowsWithoutRole', { count: semCargo.length }));
               if (!validas.length) { setImporting(false); e.target.value = ''; return; }

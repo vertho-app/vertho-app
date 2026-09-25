@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { atribuirCodigosDaMatriz, preencherCelulasMescladas, prefixoDoCargo, separarLinhasDoImport } from '@/lib/matriz-import';
+import {
+  atribuirCodigosDaMatriz, colunasDaMatriz, preencherCelulasMescladas, prefixoDoCargo, separarLinhasDoImport,
+} from '@/lib/matriz-import';
 
 /**
  * CÓDIGOS DA MATRIZ GERADOS NO IMPORT (23/09/2026).
@@ -177,5 +179,38 @@ describe('separarLinhasDoImport', () => {
   it('cargo herdado da linha de cima (célula mesclada) conta como preenchido', () => {
     const linhas = preencherCelulasMescladas([{ ...completa, cargo: COORD }, { ...completa, nome: '', cargo: '' }]);
     expect(separarLinhasDoImport(linhas).validas).toHaveLength(2);
+  });
+});
+
+describe('colunasDaMatriz', () => {
+  it('títulos do modelo viram as colunas do banco (o parser entrega o título em minúsculas, com acento)', () => {
+    const [l] = colunasDaMatriz([{
+      'competência': 'Feedback', 'descrição da competência': 'D', 'descritor': 'A', 'descrição do descritor': 'Faz X', pilar: 'P',
+    }]);
+    expect(l).toEqual({ nome: 'Feedback', descricao: 'D', nome_curto: 'A', descritor_completo: 'Faz X', pilar: 'P' });
+  });
+
+  it('casa sem acento, sem caixa e com _ ou - no lugar do espaço', () => {
+    const [l] = colunasDaMatriz([{ 'competencia': 'F', 'Descricao_da_Competencia': 'D', 'DESCRITOR': 'A', 'descricao-do-descritor': 'X' }]);
+    expect(l).toEqual({ nome: 'F', descricao: 'D', nome_curto: 'A', descritor_completo: 'X' });
+  });
+
+  it('os títulos antigos continuam valendo (planilha já feita não quebra)', () => {
+    const antiga = { nome: 'F', descricao: 'D', nome_curto: 'A', descritor_completo: 'X', cod_comp: 'LID01', n1_gap: '1' };
+    expect(colunasDaMatriz([antiga])).toEqual([antiga]);
+  });
+
+  it('com o título antigo e o novo na mesma planilha, vale o preenchido', () => {
+    expect(colunasDaMatriz([{ nome: '', 'competência': 'F' }])[0].nome).toBe('F');
+    expect(colunasDaMatriz([{ nome: 'F', 'competência': '' }])[0].nome).toBe('F');
+  });
+
+  it('planilha com os títulos novos passa pela tela inteira (mescladas + obrigatórios + cargo)', () => {
+    const linhas = colunasDaMatriz([
+      { 'competência': 'Feedback', cargo: COORD, 'descrição da competência': 'D', 'descritor': 'A', n1_gap: '1', n2_desenvolvimento: '2', n4_referencia: '4' },
+      { 'competência': '', cargo: '', 'descrição da competência': '', 'descritor': 'B', n1_gap: '1', n2_desenvolvimento: '2', n4_referencia: '4' },
+    ]);
+    const { validas } = separarLinhasDoImport(preencherCelulasMescladas(linhas));
+    expect(codigos(atribuirCodigosDaMatriz(validas, []).linhas)).toEqual([['COO01', 'COO01-D01'], ['COO01', 'COO01-D02']]);
   });
 });

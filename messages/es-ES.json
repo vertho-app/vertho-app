@@ -2682,7 +2682,7 @@
     "import": {
       "title": "Importar Competencias (CSV o Excel)",
       "acceptedColumns": "Columnas aceptadas (1ª línea = encabezado):",
-      "requiredHint": "* obligatorios: <strong>nome, cargo, descricao, n1_gap, n2_desenvolvimento, n4_referencia</strong>. Los demás son opcionales. cod_comp y cod_desc en blanco los genera el sistema. La fila que ya existe (cargo + cod_comp + cod_desc) se ignora.",
+      "requiredHint": "* obligatorios (títulos en portugués): <strong>competência, cargo, descrição da competência, n1_gap, n2_desenvolvimento, n4_referencia</strong>. Los demás son opcionales. cod_comp y cod_desc en blanco los genera el sistema. Los títulos antiguos (nome, descricao, nome_curto, descritor_completo) también valen. La fila que ya existe se ignora.",
       "importing": "Importando...",
       "selectFile": "Seleccionar archivo (CSV o XLSX)"
     },
@@ -2737,7 +2737,7 @@
     "messages": {
       "deleted": "Eliminada",
       "competencyDeleted": "Competencia eliminada",
-      "noValidRows": "No hay ninguna línea válida. Verifica la columna \"nome\".",
+      "noValidRows": "No hay ninguna línea válida. Verifica la columna \"competência\".",
       "invalidRows": "{count} línea(s) sin obligatorios ({fields}). Líneas ignoradas.",
       "rowsWithoutRole": "{count} línea(s) sin cargo, ignoradas: sin cargo, la competencia nunca se ofrece a nadie.",
       "error": "Error: {error}"

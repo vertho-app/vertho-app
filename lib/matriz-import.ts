@@ -43,6 +43,41 @@ const chaveCargo = (s?: string | null) => texto(s).toLowerCase();
 const chaveCodigo = (s?: string | null) => texto(s).toUpperCase();
 const doisDigitos = (n: number) => String(n).padStart(2, '0');
 
+/**
+ * Títulos do modelo para quem preenche (pedido do dono, 25/09/2026) → coluna do
+ * banco. Os nomes antigos (`nome`, `descricao`, `nome_curto`, `descritor_completo`)
+ * continuam valendo: planilha já feita não quebra. O título casa sem acento, sem
+ * caixa e com espaço, `_` e `-` equivalentes.
+ */
+const COLUNA_DO_TITULO: Record<string, string> = {
+  'competencia': 'nome',
+  'descricao da competencia': 'descricao',
+  'descritor': 'nome_curto',
+  'descricao do descritor': 'descritor_completo',
+};
+
+/** Como a coluna aparece para quem preenche, nas mensagens da tela. */
+export const TITULO_DA_COLUNA: Record<string, string> = {
+  nome: 'competência',
+  descricao: 'descrição da competência',
+  nome_curto: 'descritor',
+  descritor_completo: 'descrição do descritor',
+};
+
+const chaveDoTitulo = (s: string) => semAcento(s).toLowerCase().replace(/[\s_-]+/g, ' ').trim();
+
+/** Troca os títulos do modelo pelas colunas do banco. Com as duas formas na planilha, vale a preenchida. */
+export function colunasDaMatriz(linhas: Record<string, string>[]): Record<string, string>[] {
+  return linhas.map((linha) => {
+    const saida: Record<string, string> = {};
+    for (const [titulo, valor] of Object.entries(linha)) {
+      const coluna = COLUNA_DO_TITULO[chaveDoTitulo(titulo)] ?? titulo;
+      if (!texto(saida[coluna])) saida[coluna] = valor;
+    }
+    return saida;
+  });
+}
+
 /** Colunas da COMPETÊNCIA: célula vazia herda da linha de cima (células mescladas). */
 const CAMPOS_COMP = ['nome', 'cod_comp', 'pilar', 'cargo', 'descricao', 'evidencias_esperadas', 'perguntas_alvo'];
 /** ...mas estas só herdam dentro da MESMA competência: uma competência nova sem
