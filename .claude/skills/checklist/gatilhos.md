@@ -1407,3 +1407,25 @@ escrevi junto TRAVOU a premissa errada, o que é pior que não ter teste. Corrig
 botão "Marcar como realizado" saiu em 27/08; hoje grava sozinho ao entrar na conversa) e inflava
 "consumiram" em 2x. Memória `project_engajamento_telemetria`; travas em
 `tests/unit/engajamento-sinais-da-etapa.test.ts` e `tests/unit/engajamento-consumo-regua.test.ts`.
+
+## § Mexeu no Whisper local (`tools/copiloto-whisper/**`) ou vai medir a latência dele
+
+**Padrão que casa:** `tools/copiloto-whisper/server.py` · `launcher.ps1` · aviso "Transcrição
+atrasada em relação à fala" · o dono dizendo que está numa reunião ao vivo com o copiloto.
+
+- [ ] **Reinstale e confira no PROCESSO, não no arquivo.** O que roda é a cópia em
+      `%LOCALAPPDATA%\Vertho\Whisper`, que só muda pelo `scripts/instalar-whisper-local.ps1`.
+      Leia a 1ª linha do `.runtime/whisper.out.log` e a classe do cpython do uv (o FILHO do
+      atalho da `.venv`, que é quem trabalha).
+- [ ] **Latência se mede com a carga REAL e alternando** (normal → mudança → normal). Queimador de
+      CPU sintético subestima, e uma rodada isolada absorve a carga de outra sessão.
+- [ ] **Com o dono ao vivo, nada pesado na máquina**: suíte, build, push com hook. Cada um vira
+      atraso na transcrição da reunião dele.
+
+**Consequência medida (25/09/2026):** a primeira versão da prioridade passou no `py_compile` e
+falhava com erro 6 (`ctypes` sem tipos truncava o handle), deixando o processo em Normal; só a
+classe lida no processo pegou. Carga sintética a 100% acrescentou 20%; a suíte real, 2-3× (0,9 →
+1,95-2,72 s). Uma rodada "dois canais = 2,4 s" era carga externa (lado a lado: 0,9 s). E foi a
+minha própria suíte, rodada no meio da reunião do dono, que acendeu o aviso de atraso. Régua:
+`docs/COPILOTO-WHISPER-LOCAL.md` (Prioridade do processo); memória
+`project_copiloto_whisper_latencia_carga`.
