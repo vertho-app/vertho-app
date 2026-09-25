@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'fs';
 import { divergenciaDeSaida, explicarDivergencia } from '@/lib/copiloto/saida-de-audio';
 
 /** A forma que `enumerateDevices()` devolve no Chrome, com os rótulos traduzidos. */
@@ -79,5 +80,22 @@ describe('divergência entre as duas saídas padrão do Windows', () => {
     const frase = explicarDivergencia({ padrao: 'Alto-falantes', comunicacao: 'Fones de ouvido' });
     expect(frase).toContain('Alto-falantes');
     expect(frase).toContain('Fones de ouvido');
+  });
+
+  it('cada captura nova esquece o aviso da anterior', () => {
+    // A captura só chama onOutputMismatch quando HÁ divergência. Em 25/09/2026 o
+    // Windows já estava certo (as três funções nos fones, lidas pelo Core Audio) e
+    // a tela seguia dizendo "o som comum toca em Alto-falantes", porque o estado
+    // sobrevivia ao recompartilhamento. O zerar tem que vir antes de a captura nova
+    // nascer: depois dela, apagaria o aviso fresco.
+    const tela = readFileSync('app/copiloto/copilot-client.tsx', 'utf-8');
+    const inicio = tela.indexOf('async function startCapture(');
+    const nascimento = tela.indexOf('new LocalMeetingCapture(', inicio);
+    expect(inicio).toBeGreaterThan(-1);
+    expect(nascimento).toBeGreaterThan(inicio);
+    const preparo = tela.slice(inicio, nascimento);
+    // Âncora: o trecho é o bloco que zera o estado da captura, não outra função.
+    expect(preparo).toContain("setCaptureSurface('unknown')");
+    expect(preparo).toContain('setSaidaDivergente(null)');
   });
 });

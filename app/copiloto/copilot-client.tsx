@@ -1501,6 +1501,10 @@ export default function CopilotClient({
     captureStartedAtRef.current = Date.now();
     setAudioHealth('checking');
     setCaptureSurface('unknown');
+    // A captura só avisa quando HÁ divergência, nunca quando ela sumiu. Sem
+    // zerar aqui, quem acertava o som do Windows e recompartilhava seguia vendo
+    // o aviso da captura anterior, com o nome do aparelho que já tinha trocado.
+    setSaidaDivergente(null);
     const capture = new LocalMeetingCapture({
       url: ASR_URL,
       onSegment,
