@@ -1436,6 +1436,28 @@ inclui a da geração, que o "veredito mudou entre repetições" (2-3/10, só au
 Resíduo: contagem de perguntas errada, "situação real de sala de aula", motivação inferida. A
 demo `escolas-acme` estourou o teto de 120 s do `callAI` nas duas versões (não é desta mudança).
 
+### 25/09: o veredito do `pdi_check` ganhou leitor
+
+De 27/08 a 25/09 a auditoria gravou em `relatorios.conteudo.auditoria` e **nenhuma tela, PDF
+ou regra de saúde lia** (grep em app/lib/components). Agora a aba PDI de
+`/admin/empresas/[id]/relatorios` mostra a contagem com denominador (reprovados, com alerta,
+aprovados, sem auditoria), a lista filtrável com o resumo e os trechos citados, o selo em cada
+PDI e "regerar PDI" por pessoa, com confirmação (b99a4cf7). É a página para onde aponta a etapa
+"Consolidar os PDIs" da turma. A primeira candidata, a aba Planos de `/admin-v2/cliente`, está
+sem rota desde 10/09 (6a937d0f fez da página um redirect); o aviso de plano pronto que morava
+nela também ficou sem tela.
+
+Antes de mostrar, os 57 PDIs auditados de Macaé foram **reauditados** com a régua de hoje
+(estrutural corrigida + semântica com cenário e respostas; só `conteudo.auditoria`, texto e PDF
+intactos, backup do veredito antigo). `Medido:` **56 reprovados, 1 aprovado**, praticamente o
+mesmo número de antes, agora pelos motivos certos: "afirmação sem lastro" em 53/57 e sprint fora
+do 1º objetivo do blueprint em 39/57. Lidos 9 à mão: os PDIs antigos tratam as respostas dadas à
+personagem do cenário como fatos da rotina da pessoa ("recusou um projeto extra", "o padrão
+observado é resolver tudo sozinha"). É o defeito que o gerador de 25/09 corrige, e a tela deixa
+isso visível sem regerar ninguém (decisão do dono: os entregues ficam como estão).
+Sem auditoria: 111 PDIs, todos anteriores a 27/08 nos tenants reais; nas demos, escritos pelo
+reset a partir do fixture.
+
 ### 27/08 — IA4 sem censura: o número que faltava desde 25/08
 
 `scripts/_medir-ia4-sem-censura.ts`, 15 avaliações reais em Ibipeba, teto já em
