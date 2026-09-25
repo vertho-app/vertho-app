@@ -2401,6 +2401,7 @@
     }
   },
   "AdminPhase1": {
+    "top10BallotHint": "A Top 10 de cada cargo é a cédula da votação: é esta lista que as pessoas vão ver para escolher as 5. Revise antes de abrir a votação.",
     "title": "Fase 1 — Parametrização",
     "subtitle": "Top 10, Top 5, Perfil de Cargo Ideal e Cenários",
     "tabs": {
@@ -3384,6 +3385,12 @@
     }
   },
   "AdminVoting": {
+    "ballot": {
+      "top10": "Cédula: Top 10 do cargo ({count} competências)",
+      "fullMatrix": "Cédula: matriz inteira ({count} competências). Este cargo não tem Top 10.",
+      "unavailable": "Não foi possível ler a cédula deste cargo.",
+      "liveHint": "A cédula acompanha a Top 10: mudar a Top 10 agora muda a cédula de quem ainda não votou."
+    },
     "title": "Votação de Competências",
     "subtitle": "Consolidação dos votos dos colaboradores",
     "actions": {

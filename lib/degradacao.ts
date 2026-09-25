@@ -363,10 +363,17 @@ export const DEGRADACAO = {
    * Registrado por `lib/video/avatar-grupo-core.ts` e `trigger/gerar-video-grupo.ts`.
    */
   VIDEO_AVATAR_GRUPO_FALLBACK: 'video-avatar-grupo-fallback',
+  /**
+   * votação: a cédula de um cargo devia ser a Top 10 dele (decisão de 25/09/2026)
+   * e, sem Top 10, mostra a matriz inteira. `aviso`: a pessoa vota normalmente,
+   * só que numa lista maior que a combinada. Registrado por `loadResultadosVotacao`
+   * (actions/votacao.ts) enquanto a votação está aberta; chave = empresa:cargo.
+   */
+  CEDULA_SEM_TOP10: 'cedula-sem-top10',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
-export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat' | 'demo';
+export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat' | 'demo' | 'votacao';
 export type DegradacaoSeveridade = 'info' | 'aviso' | 'critico';
 
 export interface DegradacaoInput {

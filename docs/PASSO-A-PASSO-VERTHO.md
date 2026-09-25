@@ -85,9 +85,13 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 ### 5b. Votação dos colaboradores nas Top 10
 **Colaborador** · `/dashboard/votacao`
 - Card "Votação aberta" aparece **antes** de "Foco da semana" no dashboard
-- Cada colab vota nas top 10 do próprio cargo, gerando ranking de relevância percebida
+- A cédula é a **Top 10 do próprio cargo** (desde 25/09/2026; antes era a matriz inteira): cada colab escolhe 5 e ordena (1ª = 5 pontos … 5ª = 1), gerando ranking de relevância percebida. Regra em `lib/votacao/cedula.ts`
+- A cédula aparece em **ordem alfabética**, não na ordem da IA, para não puxar o voto
+- **A Top 10 é lida ao vivo**: revisar e editar na aba Top 10 ANTES de abrir; mudar com a votação aberta muda a cédula de quem ainda não votou
+- Cargo **sem Top 10** vota na matriz inteira (cédula vazia travaria a pessoa); a aba Votação mostra a fonte da cédula de cada cargo, e votação aberta nessa situação registra `cedula-sem-top10` em `degradacao_log`
 - Persiste em `votacao_competencias` (migration 053)
 - **Admin** vê resultados em `/admin/empresas/{id}/votacao`
+- Fora da Top 10 ainda há duas saídas: a sugestão livre na cédula e a aprovação da Top 5, que aceita qualquer competência da matriz (e o cenário sai para ela, `ec1c3548`)
 
 ### 6. Validar Top 5
 **Admin** · `/admin/cargos` → revisar/editar o Top 5 de cada cargo

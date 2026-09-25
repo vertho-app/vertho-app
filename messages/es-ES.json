@@ -2401,6 +2401,7 @@
     }
   },
   "AdminPhase1": {
+    "top10BallotHint": "El Top 10 de cada puesto es la papeleta de la votación: es esta lista la que las personas verán para elegir sus 5. Revísala antes de abrir la votación.",
     "title": "Fase 1 — Parametrización",
     "subtitle": "Top 10, Top 5, Perfil de Puesto Ideal y Escenarios",
     "tabs": {
@@ -3384,6 +3385,12 @@
     }
   },
   "AdminVoting": {
+    "ballot": {
+      "top10": "Papeleta: Top 10 del puesto ({count} competencias)",
+      "fullMatrix": "Papeleta: matriz completa ({count} competencias). Este puesto no tiene Top 10.",
+      "unavailable": "No se pudo leer la papeleta de este puesto.",
+      "liveHint": "La papeleta sigue al Top 10: cambiar el Top 10 ahora cambia la papeleta de quienes aún no votaron."
+    },
     "title": "Votación de Competencias",
     "subtitle": "Consolidación de los votos de los colaboradores",
     "actions": {

@@ -149,6 +149,9 @@ export default function VotacaoTab({ empresaId }: { empresaId: string }) {
               {data?.votacaoAtiva ? t('status.votingOpen') : t('status.votingClosed')}
             </span>
           </div>
+          {data?.votacaoAtiva && (
+            <span className="text-[11px] text-green-200/70 basis-full order-last">{t('ballot.liveHint')}</span>
+          )}
           {totalColabs > 0 && (
             <div className="text-xs text-gray-400 flex items-center gap-2">
               <Users size={12} className="text-cyan-400" />
@@ -257,6 +260,16 @@ export default function VotacaoTab({ empresaId }: { empresaId: string }) {
                     {dados.faltam.length > 0 && (
                       <span className="text-gray-600"> · {t('role.missing', { names: dados.faltam.join(', ') })}</span>
                     )}
+                  </p>
+                  {/* De onde vem a cédula deste cargo (lib/votacao/cedula.ts) */}
+                  <p className={`text-[10px] mt-0.5 ${
+                    dados.cedula?.fonte === 'top10' ? 'text-cyan-300/80' : 'text-amber-300'
+                  }`}>
+                    {dados.cedula == null
+                      ? t('ballot.unavailable')
+                      : dados.cedula.fonte === 'top10'
+                        ? t('ballot.top10', { count: dados.cedula.total })
+                        : t('ballot.fullMatrix', { count: dados.cedula.total })}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

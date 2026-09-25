@@ -2401,6 +2401,7 @@
     }
   },
   "AdminPhase1": {
+    "top10BallotHint": "O Top 10 de cada cargo é o boletim da votação: é esta lista que as pessoas vão ver para escolher as 5. Reveja antes de abrir a votação.",
     "title": "Fase 1 — Parametrização",
     "subtitle": "Top 10, Top 5, Perfil de Cargo Ideal e Cenários",
     "tabs": {
@@ -3384,6 +3385,12 @@
     }
   },
   "AdminVoting": {
+    "ballot": {
+      "top10": "Boletim: Top 10 do cargo ({count} competências)",
+      "fullMatrix": "Boletim: matriz completa ({count} competências). Este cargo não tem Top 10.",
+      "unavailable": "Não foi possível ler o boletim deste cargo.",
+      "liveHint": "O boletim acompanha o Top 10: alterar o Top 10 agora altera o boletim de quem ainda não votou."
+    },
     "title": "Votação de Competências",
     "subtitle": "Consolidação dos votos dos colaboradores",
     "actions": {

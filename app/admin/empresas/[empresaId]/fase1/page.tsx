@@ -188,6 +188,11 @@ export default function Fase1Page({ params }: { params: Promise<{ empresaId: str
       {/* ══════════════ TAB: TOP 10 ══════════════ */}
       {tab === 'top10' && (
         <div>
+          {top10.length > 0 && (
+            <div className="rounded-xl p-3 mb-4 border border-cyan-400/15 bg-cyan-400/[0.04] text-[11px] text-cyan-100/85 leading-relaxed">
+              {tr('top10BallotHint')}
+            </div>
+          )}
           {top10.length === 0 ? (
             <Empty icon={Trophy} text={tr('empty.top10')} />
           ) : cargosTop10.map(cargo => {

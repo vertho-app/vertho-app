@@ -2401,6 +2401,7 @@
     }
   },
   "AdminPhase1": {
+    "top10BallotHint": "Each position's Top 10 is the voting ballot: this is the list people will see to choose their 5. Review it before opening the vote.",
     "title": "Phase 1 — Parameterization",
     "subtitle": "Top 10, Top 5, Ideal Job Profile and Scenarios",
     "tabs": {
@@ -3384,6 +3385,12 @@
     }
   },
   "AdminVoting": {
+    "ballot": {
+      "top10": "Ballot: the position's Top 10 ({count} skills)",
+      "fullMatrix": "Ballot: the full matrix ({count} skills). This position has no Top 10.",
+      "unavailable": "Could not read the ballot for this position.",
+      "liveHint": "The ballot follows the Top 10: changing the Top 10 now changes the ballot for those who have not voted yet."
+    },
     "title": "Skills Vote",
     "subtitle": "Consolidation of team member votes",
     "actions": {

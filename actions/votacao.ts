@@ -9,6 +9,8 @@ import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { carregarVotacaoStatus } from '@/lib/home/loaders';
 import { gravarSysConfig } from '@/lib/sys-config-escrita';
+import { montarCedula, normalizarCargoDaCedula, type Cedula } from '@/lib/votacao/cedula';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
 // Heurística leve pra classificar device a partir do user-agent.
 // Não tenta cobrir 100% dos casos — só os principais. Bots vão pra 'bot'.
@@ -82,26 +84,26 @@ export async function loadCompetenciasParaVotar() {
   const votacaoAtiva = empresa?.sys_config?.votacao_ativa === true;
   if (!votacaoAtiva) return { error: 'Votação não está aberta no momento' };
 
-  // Buscar TODAS as competências da empresa e filtrar por cargo com normalização
-  // (case-insensitive + sem acentos). Match exato falha quando a IA cadastra
-  // "Coordenação Pedagógica" e o colab tem "coordenacao pedagogica".
-  const norm = (s: string | null | undefined) =>
-    (s || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
-  const cargoColabN = norm(colab.cargo);
+  // Cédula = Top 10 do cargo; sem Top 10, a matriz inteira (lib/votacao/cedula.ts).
+  // Falha de leitura NÃO pode virar "cargo sem Top 10": a pessoa receberia a
+  // matriz inteira sem ninguém saber por quê.
+  const { data: top10, error: errTop10 } = await tdb.from('top10_cargos')
+    .select('cargo, competencia:competencias(nome, cod_comp, descricao, pilar)');
+  if (errTop10) return { error: 'Não foi possível carregar as competências. Tente de novo em instantes.' };
 
-  const { data: compsRaw } = await tdb.from('competencias')
-    .select('id, nome, cod_comp, descricao, pilar, cargo')
-    .not('cargo', 'is', null);
-
-  const comps = (compsRaw || []).filter((c: any) => norm(c.cargo) === cargoColabN);
-
-  // Deduplicar por cod_comp (descritores geram múltiplas linhas)
-  const uniqueMap: Record<string, any> = {};
-  comps.forEach((c: any) => {
-    const key = c.cod_comp || c.nome;
-    if (!uniqueMap[key]) uniqueMap[key] = { nome: c.nome, cod_comp: c.cod_comp, descricao: c.descricao, pilar: c.pilar };
-  });
-  const competencias = Object.values(uniqueMap).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+  let cedula = montarCedula({ cargo: colab.cargo, top10: (top10 || []) as any[], matriz: [] });
+  if (cedula.fonte === 'matriz') {
+    const { data: matriz, error: errMatriz, count: totalMatriz } = await tdb.from('competencias')
+      .select('nome, cod_comp, descricao, pilar, cargo', { count: 'exact' })
+      .not('cargo', 'is', null);
+    // O PostgREST corta em 1.000 linhas calado: a matriz cortada tiraria
+    // competências da cédula sem aviso.
+    if (errMatriz || (matriz?.length ?? 0) < (totalMatriz ?? 0)) {
+      return { error: 'Não foi possível carregar as competências. Tente de novo em instantes.' };
+    }
+    cedula = montarCedula({ cargo: colab.cargo, top10: [], matriz: matriz || [] });
+  }
+  const competencias = cedula.competencias;
 
   // Buscar voto existente
   const { data: votoExist } = await (tdb.from('votacao_competencias') as any)
@@ -271,6 +273,21 @@ export async function loadResultadosVotacao(empresaId: string) {
     }
   }
 
+  // Fonte da cédula por cargo (lib/votacao/cedula.ts): o admin vê, ANTES de
+  // abrir, se cada cargo vota na Top 10 ou na matriz inteira. Leitura que falha
+  // vira `null` ("não deu para ler"), nunca "cargo sem Top 10".
+  const { data: top10All, error: errTop10 } = await tdb.from('top10_cargos')
+    .select('cargo, competencia:competencias(nome, cod_comp, descricao, pilar)');
+  const { data: matrizAll, error: errMatriz, count: totalMatriz } = await tdb.from('competencias')
+    .select('nome, cod_comp, descricao, pilar, cargo', { count: 'exact' })
+    .not('cargo', 'is', null);
+  const cedulaLegivel = !errTop10 && !errMatriz && (matrizAll?.length ?? 0) >= (totalMatriz ?? 0);
+  const cedulaDoCargo = (cargo: string): { fonte: Cedula['fonte']; total: number } | null => {
+    if (!cedulaLegivel) return null;
+    const c = montarCedula({ cargo, top10: (top10All || []) as any[], matriz: matrizAll || [] });
+    return { fonte: c.fonte, total: c.competencias.length };
+  };
+
   // Ordenar rankings por pontos (desc) com desempate por votos (desc).
   // Lógica: pontos pesam por intensidade (1ª > 2ª > 3ª escolha), mas em
   // caso de empate, quanto mais votantes escolheram a competência, maior
@@ -282,13 +299,30 @@ export async function loadResultadosVotacao(empresaId: string) {
       .map(([nome, stats]: [string, any]) => ({ nome, votos: stats.votos, pontos: stats.pontos }))
       .sort((a, b) => b.pontos - a.pontos || b.votos - a.votos);
 
+    const cedula = cedulaDoCargo(cargo);
     resultado[cargo] = {
       total: d.total,
       votaram: d.votaram,
       faltam: d.faltam,
       ranking: rankingArr,
       sugestoes: d.sugestoes,
+      cedula,
     };
+
+    // Votação aberta com cargo votando na matriz inteira: o fallback existe de
+    // propósito (cédula vazia travaria a pessoa), mas não pode ficar invisível.
+    // Registrado AQUI, na leitura do admin, e não a cada cédula aberta: por
+    // pessoa, um cargo grande estouraria o volume da R10 com um só motivo.
+    if (votacaoAtiva && cedula?.fonte === 'matriz') {
+      await registrarDegradacao({
+        fluxo: 'votacao',
+        tipo: DEGRADACAO.CEDULA_SEM_TOP10,
+        chave: `${empresaId}:${normalizarCargoDaCedula(cargo)}`,
+        empresaId,
+        severidade: 'aviso',
+        detalhe: { cargo, competencias: cedula.total, pessoas: d.total },
+      });
+    }
   }
 
   return { votacaoAtiva, perfilComportamentalLiberado, mapeamentoCenariosLiberado, perfilExternoFonte, resultado };
