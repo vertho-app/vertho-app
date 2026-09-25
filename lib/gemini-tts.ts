@@ -337,6 +337,17 @@ const QA_MAX_TENTATIVAS = Math.max(1, Number(process.env.TTS_QA_TENTATIVAS) || 2
 export interface OpcoesPortao {
   /** Exclusivo de medição (canário/bake-off). Produção não publica reprovados. */
   permitirReprovado?: boolean;
+  /**
+   * Alvo de registro (F0) DESTA síntese, no lugar do alvo do elenco para a voz.
+   * `undefined` = o do elenco (`ALVO_F0_POR_VOZ`); `null` = sem checagem de F0.
+   *
+   * Existe para o vídeo que reaproveita o avatar de outra célula do mesmo grupo: o
+   * miolo novo tem de soar na MESMA altura do take que gerou aquele avatar, senão a
+   * voz "pula" no corte avatar → miolo. O alvo é a F0 medida naquele take, com a
+   * tolerância do elenco (a faixa mais estreita recusava demais — ver
+   * `lib/tts/elenco.ts`: ±1 st segura 73 % dos takes, ±1,25 st segura 82 %).
+   */
+  alvo?: AlvoVoz | null;
   /** `true` = as K tentativas saem juntas e a primeira que passa é publicada. Custa K×
    *  SEMPRE, inclusive quando a primeira já passaria.
    *
@@ -422,7 +433,7 @@ async function sintetizarComPortao(
 ): Promise<Sintese & { qa?: QaDeriva }> {
   if (!QA_GATE_ATIVO) return sintetizar();
   ledger = { ...ledger, feature: ledger?.feature ?? rotulo, synthesisId: randomUUID() };
-  const alvo = ALVO_F0_POR_VOZ[voz] || null;
+  const alvo = opts.alvo !== undefined ? opts.alvo : (ALVO_F0_POR_VOZ[voz] || null);
   // Tentativas: o que a chamada pediu > o que o PERFIL DA VOZ exige > o default global.
   // Voz dispersa entre takes (Algieba: 4,67 st) precisa de mais tentativas para a mesma
   // garantia de registro que a Aoede tem com 2.
@@ -604,7 +615,8 @@ export async function generateNarrationAudio(
       () => ttsToPcm(`${styleDirective}:\n\n${texto}`, voice, ledger, timeoutMs),
       voice,
       ledger.feature,
-      { retakeParalelo: opts.retakeParalelo, tentativas: opts.tentativas, prazoAteMs: opts.prazoAteMs, permitirReprovado: opts.permitirReprovado },
+      // Objeto EXPLÍCITO: opção do portão que não for listada aqui some calada.
+      { retakeParalelo: opts.retakeParalelo, tentativas: opts.tentativas, prazoAteMs: opts.prazoAteMs, permitirReprovado: opts.permitirReprovado, alvo: opts.alvo },
       ledger,
     );
     return {

@@ -7,6 +7,7 @@ import nodePath from 'node:path';
 import { renderVideoTask } from './render-video';
 import { generateNarrationAudio, modeloTtsEfetivo } from '../lib/gemini-tts';
 import { gerarClipHeyGen, aguardarClipHeyGen } from '../lib/video/heygen';
+import { planoDeNarracao } from '../lib/video/avatar-grupo';
 import { montarInputProps, exportCaptionsToSrt, exportCaptionsToVtt, type AssetMap } from '../lib/video/montar-inputprops';
 import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
 import { storagePut, storageGet, SUPA, KEY } from '../lib/video/render-helpers';
@@ -303,14 +304,14 @@ export async function executarGeracaoVideoModulo(p: {
       // (pool) — antes era sequencial (~3s × N cenas). Saída idêntica (assets por id).
       // Pula cenas cujo áudio já existe (resume).
       await patchVideo(videoId, { etapa: 'narracao' });
-      const cenasComTexto = roteiro.scenes.filter((s) => s.narration?.trim());
-      const nadaGerado = cenasComTexto.every((s) => !assets[s.id]?.src);
+      const planoNarracao = planoDeNarracao(roteiro.scenes, (id) => !!assets[id]?.src);
+      const { cenasComTexto } = planoNarracao;
 
       // 1a) NARRAÇÃO ÚNICA: só no 1º processamento (resume parcial mistura takes, e
       // aí o caminho por cena abaixo completa o que falta com a voz de sempre).
-      if (NARRACAO_UNICA && nadaGerado && cenasComTexto.length > 1) {
+      if (NARRACAO_UNICA && planoNarracao.usarTakeUnico) {
         try {
-          const cenas = cenasComTexto.map((s) => ({ id: s.id, narration: aplicarPronuncia(s.narration as string) }));
+          const cenas = planoNarracao.pendentes.map((s) => ({ id: s.id, narration: aplicarPronuncia(s.narration as string) }));
           const textoUnico = montarTextoUnico(cenas);
           const assinatura = assinaturaTake(VOICE, NARRATION_STYLE_UNICO, textoUnico);
           const t0 = Date.now();
