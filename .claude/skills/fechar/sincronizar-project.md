@@ -5,8 +5,8 @@
 > `FLUXO-DE-DADOS-PESSOAIS.md`, e saíram `LEVANTAMENTO-2026-07.md` e `plano-refatoracao-final.md`.
 > `BETO-CANAIS.md` fica de fora por decisão do dono. Os "16" citados nas medições abaixo são daquela época.
 
-Chamado pelo passo 3.1 do `SKILL.md`. **Não é aviso — é execução.** O único ponto que pede
-confirmação está marcado.
+Chamado pelo passo 3.1 do `SKILL.md`. **Não é aviso — é execução.** Desde 26/09/2026 nada
+pede confirmação, salvo remover arquivo SEM par novo (passo 6).
 
 Fonte de Project não se atualiza sozinha: fica congelada na versão subida, e **fonte defasada é pior
 que fonte ausente** — ela responde com autoridade sobre um sistema que já mudou, e fora do Claude
@@ -98,11 +98,28 @@ disco, a comparação é aproximada; depois de uma rodada inteira subida via `gi
 
 ## O passo a passo
 
-1. **Ler o Project.** Abrir `https://claude.ai/projects` → **Vertho.ai** → seção **Contexto**
-   (a URL do projeto é estável: `/project/019c7614-e003-719c-89ba-681693339e87`).
-   `find` com *"markdown file button with size in Context"* devolve os cards com os tamanhos, mas o
-   `find` para em 20 resultados e o Project agora tem exatamente 20: para a lista que DECIDE, use
-   `get_page_text` (a seção Contexto sai em lista, nome + kB).
+🔴 **A UI mudou em 26/09/2026.** Até 25/09 os arquivos ficavam numa lista aberta na seção "Contexto"
+(`<ul>`, um `<li>` por arquivo, botão `aria-label="Excluir"`). Agora ficam num **modal "Arquivos"**,
+e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 subidas, 6 remoções).
+
+1. **Ler o Project.** Abrir `https://claude.ai/project/019c7614-e003-719c-89ba-681693339e87`. No
+   painel da direita, o item **"Arquivos"** mostra só o total ("20 arquivos · 22% da capacidade");
+   a lista abre no **botão `aria-label="Mostrar arquivos"`** (clique nele, não em "Adicionar").
+   O modal é o `[role="dialog"]` que contém "Arquivos". Cada arquivo tem **dois botões**: um com
+   `aria-label="<NOME>.md"` (abre a visualização) e outro **`aria-label="Mais opções para <NOME>.md"`**
+   (o menu). O card MOSTRA o nome sem `.md` e com espaço no lugar do hífen ("CATALOGO PROMPTS IA
+   MD · 201,1 kB · agora"), mas o `aria-label` traz o nome real: leia por ele. A lista é em ordem
+   ALFABÉTICA (não "mais recentes no topo"), e cada card mostra a idade ("agora", "há 15 horas").
+   Lista que DECIDE, por JS (o kB sai da linha de cada botão):
+
+   ```js
+   const dlg = [...document.querySelectorAll('[role="dialog"]')].find(d => /Arquivos/.test(d.innerText||''));
+   const linhaDe = b => { let e = b; while (e && e !== dlg && !/kB/.test(e.innerText||'')) e = e.parentElement; return e; };
+   const ops = [...dlg.querySelectorAll('button')].filter(b => /^Mais opções para /.test(b.getAttribute('aria-label')||''));
+   const itens = ops.map(b => b.getAttribute('aria-label').replace('Mais opções para ','') + '=' + (linhaDe(b).innerText.match(/([\d,]+)\s*kB/)||[])[1]);
+   const nomes = itens.map(t => t.split('=')[0]);
+   'TOTAL=' + itens.length + ' | duplicados=' + (nomes.length - new Set(nomes).size) + ' || ' + itens.join(' ');
+   ```
 2. **Comparar** com a tabela do comando acima. Defasado = tamanho diferente por ≥ 0,2 kB na régua
    do `wc -m`. 🔴 Com a régua do Python (exata), compare o valor ARREDONDADO a 1 casa: qualquer
    diferença conta. `Medido: 22/09/2026` — `CLAUDE.md` com card 77,8 e repo 77,88 (0,1 kB, "dentro
@@ -110,72 +127,56 @@ disco, a comparação é aproximada; depois de uma rodada inteira subida via `gi
    ⚠️ Outra sessão pode sincronizar em paralelo: em 22/09 os 4 cards defasados de manhã já estavam
    atualizados à noite, sem ser por mim. Releia o Project imediatamente antes de subir.
 3. **Copiar** os defasados para uma pasta da sessão (`file_upload` só aceita arquivos que a sessão
-   compartilha — caminho do repo é recusado). Copie **do git, não do disco**, para o card bater com
-   a régua e para não subir a edição pela metade de outra sessão:
+   compartilha — caminho do repo é recusado). Copie **do git, não do disco**, pelo Python (régua e
+   quebra de linha, ver acima), para o card bater e para não subir edição pela metade de outra sessão.
+4. **Subir.** Com o modal aberto há **três** `input[type=file]` na página; o certo é o que está
+   DENTRO do `[role="dialog"]`. Marque-o por JS com um `aria-label` próprio
+   (`i.setAttribute('aria-label','upload-arquivos-do-projeto')`), peça o `ref` ao `find` por esse
+   rótulo e suba vários numa chamada só (10 MB por chamada).
+5. **Conferir antes de apagar.** Recarregue a página, reabra o modal e rode a lista do passo 1: as
+   novas têm que aparecer com o kB do repo e idade "agora", ao lado das velhas. Se o tamanho não
+   bateu, **pare**: não remova nada.
+6. **Remover sem pedir ok: autorização durável do dono (26/09/2026)**, só para a versão ANTIGA de
+   uma fonte que acabou de ganhar a nova, e só com as travas: nome duplicado no momento do clique,
+   card com o kB antigo esperado, versão nova já conferida no passo 5. Arquivo sem par novo não
+   entra: esse pede ok.
+7. **Remover as velhas, UMA POR VEZ, sem script entre abrir o menu e clicar.** O ciclo que funcionou
+   (6 de 6 em 26/09):
+   1. por JS, marque o botão "Mais opções" da linha ANTIGA com um rótulo único, conferindo o par:
 
-   ```bash
-   D="<scratchpad>/project-sync"; mkdir -p "$D"; rm -f "$D"/*.md
-   for f in <os defasados>; do git show HEAD:$f > "$D/$(basename $f)"; done
-   ```
-4. **Subir.** `find` *"file input element for uploading files to project context"* devolve **dois**
-   inputs: o do chat e o do Context. **Use o do Context** — o outro anexa a mensagem, não ao projeto.
-   Dá para subir vários numa chamada só (10 MB por chamada).
-5. **Conferir antes de apagar.** As novas têm que aparecer com o tamanho esperado, convivendo com
-   as velhas. Se o tamanho não bateu, **pare** — não remova nada.
-6. **⚠️ Remoção é irreversível: peça o ok do Rodrigo aqui**, listando o que vai sair (nome +
-   tamanho antigo → novo). Só então remova.
-7. **Remover as velhas.** O botão só existe no **hover**, e clicar nele por COORDENADA é o caminho
-   que falha. Use o `aria-label="Excluir"`, achando o card pela **posição na lista** — os cards
-   ficam num `<ul>`, um `<li>` por arquivo, **os mais recentes no topo**:
-
-   ```js
-   const getUl = () => [...document.querySelectorAll('ul')]
-     .find(u => /\.md/.test(u.innerText) && /kB/.test(u.innerText));
-   const nome = li => (li.innerText || '').trim().split('\n')[0].trim();
-
-   const itens = [...getUl().children];
-   const contagem = {};
-   itens.forEach(li => { const n = nome(li); contagem[n] = (contagem[n] || 0) + 1; });
-   // último índice de um nome DUPLICADO = a versão velha (as novas estão no topo)
-   let alvo = -1;
-   for (let i = itens.length - 1; i >= 0; i--) if (contagem[nome(itens[i])] > 1) { alvo = i; break; }
-   if (alvo === -1) 'nada duplicado — fim';
-   else {
-     [...itens[alvo].querySelectorAll('button')]
-       .find(b => b.getAttribute('aria-label') === 'Excluir').click();
-   }
-   ```
-
-   🔑 **A régua é a POSIÇÃO, não o tamanho** — e isso não é preferência: em 31/08 **6 dos 15 pares
-   tinham kB idêntico** (a versão nova em LF pesando o mesmo que a velha em CRLF de um conteúdo um
-   pouco menor), então filtrar pelo texto do card não distingue as duas e removeria no escuro.
-   Só remova quando o nome aparecer **2+ vezes**: assim nunca sobra zero.
-
-   O botão nasce com `opacity-0` e só aparece no hover, mas `.click()` funciona sem hover nenhum, e
-   a remoção é imediata — **não abre diálogo de confirmação**. Remova **um por vez** com ~1,1 s
-   entre cliques e re-liste entre eles; um laço que recalcula a lista a cada passo faz os 15 sem
-   intervenção.
-
-   🔴 **Por que coordenada falha: a screenshot NÃO está na escala da página.** Medido 29/08/2026 —
-   `window.innerWidth = 1700` com screenshot de 1568 e `devicePixelRatio = 1,13` (zoom do
-   navegador). Quatro cliques erraram o alvo, e **três deles abriram uma conversa da coluna do
-   meio** em vez de remover, porque x≈992 cai na coluna central da página. Pior: `hover` com `ref`
-   faz `scroll_to` implícito, então a coordenada lida na screenshot anterior já está velha quando o
-   clique sai. Se insistir em coordenada, leia o rect por JS **no mesmo instante** do clique — mas
-   o `.click()` acima dispensa isso.
-   🔑 Clicar no `ref` do botão "Remove" **não funciona** — testado em 27/08, o clique não surte
-   efeito e a lista continua intacta. E clicar no card **abre a visualização**, não o menu.
+      ```js
+      window.__marcar = (nome, velho) => {
+        const dlg = [...document.querySelectorAll('[role="dialog"]')].find(d => /Arquivos/.test(d.innerText||''));
+        document.querySelectorAll('[aria-label="ALVO-REMOVER"]').forEach(b => b.setAttribute('aria-label', 'x'));
+        const linhaDe = b => { let e = b; while (e && e !== dlg && !/kB/.test(e.innerText||'')) e = e.parentElement; return e; };
+        const bts = [...dlg.querySelectorAll('button')].filter(b => b.getAttribute('aria-label') === 'Mais opções para ' + nome);
+        const kbs = bts.map(b => (linhaDe(b).innerText.match(/([\d,]+)\s*kB/)||[])[1]);
+        if (bts.length < 2) return 'PULAR: só ' + kbs.join(',');
+        const i = kbs.indexOf(velho); if (i < 0) return 'PULAR: sem ' + velho + ' em ' + kbs.join(',');
+        bts[i].setAttribute('aria-label', 'ALVO-REMOVER'); bts[i].scrollIntoView({ block: 'center' });
+        return 'marcado ' + nome + ' ' + velho + ' (par: ' + kbs.join('/') + ')';
+      };
+      window.__marcar('FMEA-PIPELINE.md', '186,4');
+      ```
+   2. `find` *"button with aria-label ALVO-REMOVER"* → clique no `ref` (clique REAL; o menu abre);
+   3. **screenshot** para conferir que o menu abriu na linha certa (nome + kB antigo);
+   4. clique em **"Remover do projeto"**: pelo `ref` do `find` quando ele o enxerga, ou pela posição
+      da screenshot (com `scrollIntoView` centralizando a linha, o item ficou sempre no mesmo lugar);
+   5. só então JS de novo, para conferir o total e marcar o próximo.
+   A remoção é imediata, **sem diálogo de confirmação**.
+   🔴 **Qualquer `javascript_tool` com o menu aberto FECHA o menu** (rouba o foco): medido em 26/09,
+   o laço "abre por script, acha o item, clica" deu 5 de 5 "SEM MENU". Por isso o passo 5 vem depois.
+   🔴 **Abrir o menu disparando eventos por JS não é confiável** (abriu 1 vez em 3), e o `find` às
+   vezes NÃO enxerga o menu aberto: confie na screenshot.
+   🔴 **Não dispare `Escape` por JS**: ele fecha o MODAL inteiro, e o `ref` pego logo depois aponta
+   para um modal que está sumindo (26/09: 2 ciclos perdidos assim, nenhum clique errado).
 8. **Fechar contando.** Ao final tem que haver **exatamente 20**, um por nome, todos com o tamanho
    do repo. Duplicata sobrando é pior que arquivo velho: o Project passa a responder com as duas
    versões. 🔴 **Conte na página RECARREGADA**, com uns 5 s entre o último clique e a navegação: a
    lista sem recarregar some com o card na hora, mesmo quando a exclusão não persistiu (ver
-   Armadilhas, 17/09). O fecho barato, num comando:
-
-   ```js
-   const itens = [...getUl().children].map(li => li.innerText.replace(/\s+/g, ' ').trim());
-   const nomes = itens.map(t => t.split('.md')[0]);
-   'TOTAL=' + itens.length + ' | duplicados=' + (nomes.length - new Set(nomes).size);
-   ```
+   Armadilhas, 17/09). Use a lista do passo 1 (sai `TOTAL=` e `duplicados=`); o rodapé do modal
+   ("20 arquivos") confirma. Depois do reload, espere a página carregar antes de clicar em
+   "Mostrar arquivos": o clique cedo não abre o modal.
 
 ## Armadilhas registradas
 

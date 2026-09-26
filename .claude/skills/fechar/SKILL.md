@@ -99,9 +99,13 @@ defasadas que o diff não pegava** (`CATALOGO-PROMPTS-IA.md` com **301 linhas** 
 4 estavam muito piores que a rodada explicava: `CUSTO-QUALIDADE.md` com **545 linhas no Project
 contra 1.436** no repo. `Medido: 31/08/2026` — **15 das 16 defasadas**, numa rodada que tocou em 2.
 
-Subir é ação minha, pela extensão do Chrome. **A remoção das versões antigas é irreversível: peça o
-ok antes dela** — e só dela; o upload não precisa de confirmação, porque conviver com a duplicata
-por um minuto não quebra nada.
+Subir e remover são ações minhas, pela extensão do Chrome, **sem pedir ok**. 🔑 **Autorização
+durável do dono (26/09/2026): "sempre autorizar a remoção de arquivos antigos"** nesta
+sincronização. Ela cobre SÓ a versão antiga de uma fonte que acabei de subir de novo, e vale com
+as travas da receita: a versão nova já aparece com o kB do repo (página recarregada); o nome está
+DUPLICADO no momento do clique; o card clicado tem o kB ANTIGO esperado; e o fecho recarregado
+conta exatamente 20, um por nome. Arquivo que não tem par novo (inclusive um que pareça sobrar)
+NÃO entra na autorização: esse continua pedindo ok.
 
 Por que importa: uma fonte defasada é pior que fonte ausente — ela responde com autoridade sobre um
 sistema que já mudou, e fora do Claude Code não há repositório para conferir.
@@ -124,7 +128,7 @@ Termine dizendo, em uma linha cada:
 
 1. o que foi gravado na memória;
 2. quais `.md` mudaram;
-3. **o resultado da sincronização do Project** — quantas das 20 estavam defasadas, quais subi e a contagem antiga → nova de cada uma. Fechar contando: tem que sobrar **exatamente 20**, um por nome. Se parei antes de remover as velhas esperando o ok, dizer isso explicitamente;
+3. **o resultado da sincronização do Project** — quantas das 20 estavam defasadas, quais subi e a contagem antiga → nova de cada uma. Fechar contando: tem que sobrar **exatamente 20**, um por nome. Se parei antes de remover as velhas (trava que não bateu), dizer isso explicitamente e por quê;
 4. o que **ficou aberto** — o que você não conseguiu verificar.
 
 O que não foi medido tem que sair rotulado como não medido.
