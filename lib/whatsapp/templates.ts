@@ -397,12 +397,41 @@ export const TEMPLATES = {
    * aprovados como UTILITY: diz o que falta fazer, quanto custa e até quando,
    * sem voz de campanha.
    */
+  // ⚠️ Submetido como UTILITY e APROVADO COMO MARKETING (25/09/2026, em 2 min).
+  // Fora da tela de Envios; a v2 é `votacao_pendente`, logo abaixo.
   votacao_competencias: {
     name: 'votacao_competencias',
-    category: 'UTILITY',
+    category: 'MARKETING',
     language: 'pt_BR',
     body: 'Olá, {{1}}. A votação de competências do seu cargo está aberta no programa da {{2}}.\n\nVocê escolhe, em ordem, as 5 competências mais importantes para o seu trabalho. Leva cerca de 5 minutos, e a votação fica aberta até as 23h59 de {{3}}.\n\nPara votar, acesse:\n{{4}}\n\nSeu voto ajuda a definir as competências que o programa vai desenvolver.',
     example: ['Maria', '4Life Educação', 'sábado, 26/09', 'https://4life-educacao.vertho.ai/dashboard/votacao'],
+  },
+
+  /**
+   * v2 do lembrete de votação — a v1 acima foi APROVADA COMO MARKETING em 2
+   * minutos (25/09/2026, evento `category_update` sem motivo: classificador
+   * automático). Lado a lado com os 21 UTILITY aprovados, a v1 fugia do molde em
+   * quatro pontos, e esta corrige os quatro:
+   *   1. abria ANUNCIANDO UM EVENTO ("A votação … está aberta"); os UTILITY abrem
+   *      com um FATO sobre a pessoa ("… ainda não foi registrado");
+   *   2. chamava para a ação no imperativo ("Para votar, acesse:"); os UTILITY
+   *      dizem "Você pode … em:";
+   *   3. fechava vendendo ("Seu voto ajuda a definir…"); os UTILITY fecham com
+   *      uma frase neutra sobre o sistema;
+   *   4. dava o prazo como JANELA QUE FECHA ("fica aberta até…", linguagem de
+   *      promoção); aqui ele é uma data de vencimento ("O prazo para registro …").
+   * O prazo continua (decisão do dono) e continua no meio do corpo.
+   *
+   * ✅ APPROVED/UTILITY em 3 minutos (26/09/2026 02:04 UTC), sem
+   * `correct_category` agendado. É a evidência de que os quatro pontos eram a
+   * causa, e não a votação em si nem o prazo como fato.
+   */
+  votacao_pendente: {
+    name: 'votacao_pendente',
+    category: 'UTILITY',
+    language: 'pt_BR',
+    body: 'Olá, {{1}}. Seu voto na escolha das competências do seu cargo, no programa da {{2}}, ainda não foi registrado.\n\nVocê pode votar em:\n{{3}}\n\nO prazo para registro do voto é {{4}}, às 23h59. A votação leva cerca de 5 minutos, e o resultado define as competências trabalhadas no programa.',
+    example: ['Maria', '4Life Educação', 'https://4life-educacao.vertho.ai/dashboard/votacao', 'sábado, 26/09'],
   },
 
   /**

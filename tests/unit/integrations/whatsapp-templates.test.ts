@@ -87,6 +87,11 @@ describe('guard de categoria — sinais que derrubaram templates em MARKETING', 
     { rotulo: 'urgência', re: /acesse\s+agora|ainda\s+d[áa]\s+tempo|d[áa]\s+tempo\s+at[ée]|hoje!/i },
     { rotulo: 'pergunta engajadora', re: /voc[êe]\s+j[áa]\s+(fez|viu|conferiu)/i },
     { rotulo: 'convite promocional', re: /que\s+tal\s+|n[ãa]o\s+perca|aproveite/i },
+    // Medidos em 25/09/2026: `votacao_competencias` caiu em MARKETING em 2 min, e
+    // lado a lado com os 21 UTILITY aprovados estes eram os traços só dela.
+    { rotulo: 'chamada no imperativo antes do link', re: /para\s+\w+,?\s+acesse/i },
+    { rotulo: 'prazo como janela que fecha', re: /fica(m)?\s+abert[ao]s?\s+at[ée]/i },
+    { rotulo: 'benefício vendido', re: /\b(seu|sua)\s+\w+\s+ajuda\s+a\b/i },
   ];
 
   it.each(
@@ -101,6 +106,15 @@ describe('guard de categoria — sinais que derrubaram templates em MARKETING', 
     // Valida o guard por mutação, com o texto real que a Meta reclassificou.
     const antiga = 'Acesse a plataforma Vertho e registre sua evidência hoje!';
     expect(SINAIS.some((s) => s.re.test(antiga))).toBe(true);
+  });
+
+  it('o guard PODE falhar — a v1 da votação, que a Meta aprovou como MARKETING, bate nos 3 sinais novos', () => {
+    const v1 = TEMPLATES.votacao_competencias.body;
+    for (const rotulo of ['chamada no imperativo antes do link', 'prazo como janela que fecha', 'benefício vendido']) {
+      expect(SINAIS.find((s) => s.rotulo === rotulo)!.re.test(v1)).toBe(true);
+    }
+    // E a v2 não bate em nenhum.
+    expect(SINAIS.some((s) => s.re.test(TEMPLATES.votacao_pendente.body))).toBe(false);
   });
 });
 

@@ -49,7 +49,7 @@ export function diaEmBrasilia(agora: Date): string {
 }
 
 /**
- * Prazo que o `votacao_competencias` promete: o DIA SEGUINTE ao envio, em
+ * Prazo que o lembrete de votação promete: o DIA SEGUINTE ao envio, em
  * Brasília ("sábado, 26/09"). Decisão do dono (25/09/2026): "fica aberta até as
  * 23h59 de amanhã".
  *
@@ -87,7 +87,7 @@ export interface ContextoEnvio {
   trilhaPorColab: Map<string, { status: string; competencia: string; totalSemanas: number; iniciada: boolean }>;
   /** Semana real por pessoa — calendário, gate sequencial, plano e atividade. */
   cadenciaPorColab: Map<string, ContextoCadenciaEnvio>;
-  /** Estado da votação — só carregado para `votacao_competencias`. */
+  /** Estado da votação — só carregado para os `TEMPLATES_VOTACAO`. */
   votacao?: ContextoVotacao | null;
 }
 
@@ -97,7 +97,7 @@ interface ContextoVotacao {
   votaram: Set<string>;
   /** Tamanho da cédula por cargo normalizado (`lib/votacao/cedula.ts`). */
   cedulaPorCargo: Map<string, number>;
-  /** "sábado, 26/09" — o `{{3}}`. */
+  /** "sábado, 26/09" — a POSIÇÃO no corpo é do contrato de cada template. */
   prazo: string;
   /** Dia do envio em Brasília: o slot da idempotência. */
   dia: string;
@@ -137,6 +137,20 @@ function exigirCadencia(c: ColaboradorAlvo, ctx: ContextoEnvio): ContextoCadenci
   if (cadencia.statusTrilha !== TRILHA.ATIVA) return { excluir: 'trilha não está ativa' };
   if (!cadencia.planoDaSemana) return { excluir: 'sem plano para a semana acessível' };
   return cadencia;
+}
+
+/**
+ * Público do lembrete de votação. Três portas, na ordem em que a pessoa as
+ * encontraria: a votação precisa estar ABERTA (senão o link cai em "não está
+ * aberta"), ela não pode já ter votado, e o cargo dela precisa ter cédula (senão
+ * abriria uma lista vazia). A mensagem afirma as três coisas.
+ */
+function resolverVotacao(c: ColaboradorAlvo, ctx: ContextoEnvio): Resolucao {
+  const v = ctx.votacao;
+  if (!v?.aberta) return { excluir: 'votação não está aberta' };
+  if (v.votaram.has(c.id)) return { excluir: 'já votou' };
+  if (!v.cedulaPorCargo.get(normalizarCargoDaCedula(c.cargo))) return { excluir: 'cargo sem competências na cédula' };
+  return { args: base(c, ctx, { prazoVotacao: v.prazo }) };
 }
 
 function resolverConteudoSemanal(
@@ -181,18 +195,10 @@ function resolverConteudoSemanal(
 const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => Resolucao> = {
   boas_vindas_v2: (c, ctx) => ({ args: base(c, ctx) }),
   /**
-   * Lembrete da votação. Três portas, na ordem em que a pessoa as encontraria:
-   * a votação precisa estar ABERTA (senão o link cai em "não está aberta"), ela
-   * não pode já ter votado, e o cargo dela precisa ter cédula (senão ela abriria
-   * uma lista vazia). A mensagem promete as três coisas.
+   * Lembrete da votação: só a v2. A v1 (`votacao_competencias`) foi aprovada
+   * como MARKETING (6× o custo) e saiu da tela e dos `CONTRATOS` em 26/09/2026.
    */
-  votacao_competencias: (c, ctx) => {
-    const v = ctx.votacao;
-    if (!v?.aberta) return { excluir: 'votação não está aberta' };
-    if (v.votaram.has(c.id)) return { excluir: 'já votou' };
-    if (!v.cedulaPorCargo.get(normalizarCargoDaCedula(c.cargo))) return { excluir: 'cargo sem competências na cédula' };
-    return { args: base(c, ctx, { prazoVotacao: v.prazo }) };
-  },
+  votacao_pendente: (c, ctx) => resolverVotacao(c, ctx),
   avaliacao_pendente: (c, ctx) => {
     const progresso = ctx.avaliacaoPorColab.get(c.id);
     if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
@@ -424,7 +430,7 @@ export interface TemplateDisparavel {
 
 const VARIAVEIS_DE: Record<string, string[]> = {
   boas_vindas_v2: ['primeiro nome', 'nome da instituição', 'link de /entrar'],
-  votacao_competencias: ['primeiro nome', 'nome da instituição', 'prazo: dia seguinte ao envio (Brasília)', 'link da votação'],
+  votacao_pendente: ['primeiro nome', 'nome da instituição', 'link da votação', 'prazo: dia seguinte ao envio (Brasília)'],
   avaliacao_pendente: ['primeiro nome', 'nome da instituição', 'link do assessment'],
   avaliacao_competencias: ['primeiro nome', 'competência do cargo (top5_workshop)', 'link do assessment'],
   avaliacao_parcial: ['primeiro nome', 'cenários respondidos', 'total de cenários', 'link do assessment'],
@@ -450,7 +456,7 @@ const BOTAO_DE: Record<string, string> = {
 
 const ALVO_DE: Record<string, string> = {
   boas_vindas_v2: 'está no escopo e tem WhatsApp cadastrado',
-  votacao_competencias: 'votação aberta, ainda não votou e o cargo tem competências na cédula',
+  votacao_pendente: 'votação aberta, ainda não votou e o cargo tem competências na cédula',
   avaliacao_pendente: 'tem avaliação configurada e ainda não registrou nenhuma resposta',
   avaliacao_competencias: 'concluiu o perfil comportamental e ainda não iniciou a avaliação de competências',
   avaliacao_parcial: 'iniciou a avaliação, mas ainda tem cenários pendentes',
@@ -471,7 +477,7 @@ const ALVO_DE: Record<string, string> = {
 
 const ROTULO_DE: Record<string, string> = {
   boas_vindas_v2: 'Boas-vindas ao programa',
-  votacao_competencias: 'Votação de competências aberta',
+  votacao_pendente: 'Voto de competências pendente',
   avaliacao_pendente: 'Avaliação não iniciada',
   avaliacao_competencias: 'Avaliação de competências pendente',
   avaliacao_parcial: 'Avaliação em andamento',
@@ -492,7 +498,7 @@ const ROTULO_DE: Record<string, string> = {
 
 const ETAPA_DE: Record<string, string> = {
   boas_vindas_v2: 'Entrada',
-  votacao_competencias: 'Entrada',
+  votacao_pendente: 'Entrada',
   avaliacao_pendente: 'Avaliação',
   avaliacao_competencias: 'Avaliação',
   avaliacao_parcial: 'Avaliação',
@@ -536,7 +542,12 @@ const TEMPLATES_TRILHA_MANUAL = new Set([
 
 /** Idempotência pelo DIA do envio, não pela pessoa: o lembrete pode voltar amanhã. */
 const TEMPLATES_POR_DIA = new Set([
-  'votacao_competencias',
+  'votacao_pendente',
+]);
+
+/** Templates que precisam do estado da votação (`carregarVotacao`). */
+const TEMPLATES_VOTACAO = new Set([
+  'votacao_pendente',
 ]);
 
 /** Templates que a tela pode disparar: têm resolvedor E contrato de parâmetros. */
@@ -668,7 +679,7 @@ async function carregarTrilhasManuais(
 }
 
 /**
- * Estado da votação para o `votacao_competencias`: aberta?, quem votou, e o
+ * Estado da votação para o lembrete (`TEMPLATES_VOTACAO`): aberta?, quem votou, e o
  * tamanho da cédula de cada cargo pela MESMA régua da tela da pessoa
  * (`montarCedula`). Toda falha de leitura LANÇA: aqui é construção, com humano
  * olhando a prévia, e "não consegui ler os votos" virando "ninguém votou"
@@ -937,7 +948,7 @@ export async function prepararLoteTemplate(
     cadenciaPorColab: TEMPLATES_CADENCIA_MANUAL.has(template)
       ? await carregarCadenciaManual(sb, empresaId, colabs)
       : new Map(),
-    votacao: template === 'votacao_competencias'
+    votacao: TEMPLATES_VOTACAO.has(template)
       ? await carregarVotacao(sb, empresaId, agora)
       : null,
   };

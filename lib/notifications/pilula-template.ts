@@ -89,7 +89,8 @@ export interface PilulaTemplateArgs {
   semanaPendente?: number | null;
   /**
    * Prazo da votação já escrito para a pessoa ("sábado, 26/09") — só para
-   * `votacao_competencias`. Vem de `prazoDaVotacao`, que calcula o dia seguinte
+   * o lembrete de votação (`votacao_pendente`; a v1 `votacao_competencias` saiu
+   * da tela por ter virado MARKETING). Vem de `prazoDaVotacao`, que calcula o dia seguinte
    * ao ENVIO no horário de Brasília: é o prazo que a mensagem promete, e quem
    * fecha a votação no sistema continua sendo o admin, na aba Votação.
    */
@@ -523,15 +524,19 @@ const CONTRATOS: Record<string, MontarParams> = {
   }),
 
   /**
-   * Votação de competências aberta. Submetido em 25/09/2026 como UTILITY — ⚠️
-   * enquanto não estiver APPROVED, a categoria é provisória e a Meta recusa o
-   * envio. `{{1}}`=nome, `{{2}}`=instituição, `{{3}}`=prazo, `{{4}}`=link. Sem botão.
+   * Lembrete da votação. APPROVED/UTILITY em 26/09/2026. `{{1}}`=nome,
+   * `{{2}}`=instituição, `{{3}}`=LINK, `{{4}}`=PRAZO. Sem botão.
+   *
+   * A v1 (`votacao_competencias`, prazo em `{{3}}` e link em `{{4}}`) foi
+   * aprovada como MARKETING e ficou SEM contrato de propósito: sem contrato,
+   * nenhum caminho a envia (o webhook valida por aqui), e ninguém paga 6× por
+   * engano. Nenhuma mensagem saiu com ela.
    *
    * O link vai direto para `/dashboard/votacao`: quem não tem sessão cai no login
    * com `?redirect=` e volta para a cédula depois de entrar (`dashboard-shell`).
    */
-  votacao_competencias: (a) => ({
-    params: [a.nome, a.instituicao || '', a.prazoVotacao || '', `${a.baseUrl}/dashboard/votacao`],
+  votacao_pendente: (a) => ({
+    params: [a.nome, a.instituicao || '', `${a.baseUrl}/dashboard/votacao`, a.prazoVotacao || ''],
     botaoParam: null,
   }),
 

@@ -7,12 +7,15 @@ import {
   prepararLoteTemplate,
 } from '@/lib/notifications/envio-template-lote';
 import { TEMPLATES } from '@/lib/whatsapp/templates';
+import { contratoDoTemplate } from '@/lib/notifications/pilula-template';
 
 /**
- * `votacao_competencias` (25/09/2026): o lembrete da votação, criado na
- * primeira votação da 4Life. O prazo prometido é "até as 23h59 de amanhã", e
- * "amanhã" é em BRASÍLIA — o servidor roda em UTC.
+ * Lembrete da votação (25/09/2026), criado na primeira votação da 4Life. A v1
+ * (`votacao_competencias`) foi aprovada como MARKETING e saiu da tela; quem
+ * dispara é a v2, `votacao_pendente`. O prazo prometido é "às 23h59 de amanhã",
+ * e "amanhã" é em BRASÍLIA — o servidor roda em UTC.
  */
+const TEMPLATE = 'votacao_pendente';
 
 const EMPRESA = { id: 'emp-4life', nome: '4Life Educação', slug: '4life-educacao', is_demo: false };
 const PROF = 'Professor(a) de Educação Infantil';
@@ -51,7 +54,7 @@ const pessoa = (over: any = {}) => ({
 });
 
 const preparar = (sb: any, colabs: any[], agora = SEXTA_15H) =>
-  prepararLoteTemplate(sb.client, { empresaId: 'emp-4life', template: 'votacao_competencias', colabs, agora });
+  prepararLoteTemplate(sb.client, { empresaId: 'emp-4life', template: TEMPLATE, colabs, agora });
 
 describe('prazoDaVotacao — "amanhã" em Brasília', () => {
   it('sexta à tarde promete sábado', () => {
@@ -73,36 +76,47 @@ describe('prazoDaVotacao — "amanhã" em Brasília', () => {
   });
 });
 
-describe('votacao_competencias na tela de Envios', () => {
-  it('aparece no grupo Entrada, com o corpo literal e 4 variáveis', () => {
-    const t = listarTemplatesDisparaveis().find((x) => x.template === 'votacao_competencias')!;
+describe('lembrete de votação na tela de Envios', () => {
+  it('a v2 aparece no grupo Entrada, com o corpo literal e 4 variáveis', () => {
+    const t = listarTemplatesDisparaveis().find((x) => x.template === TEMPLATE)!;
     expect(t).toBeDefined();
     expect(t.etapa).toBe('Entrada');
-    expect(t.corpo).toBe(TEMPLATES.votacao_competencias.body);
+    expect(t.corpo).toBe(TEMPLATES.votacao_pendente.body);
     expect(t.variaveis).toHaveLength(4);
   });
 
-  it('o corpo não começa nem termina em variável (regra da Meta) e tem 4 exemplos', () => {
-    const def = TEMPLATES.votacao_competencias;
+  it('a v1, aprovada como MARKETING, NÃO aparece, não tem contrato e não pode ser disparada', async () => {
+    expect(listarTemplatesDisparaveis().map((x) => x.template)).not.toContain('votacao_competencias');
+    expect(TEMPLATES.votacao_competencias.category).toBe('MARKETING');
+    // Sem contrato, o webhook de envio (`whatsapp-cis`) também recusa a v1.
+    expect(contratoDoTemplate('votacao_competencias')).toBeNull();
+    await expect(prepararLoteTemplate(mock().client, {
+      empresaId: 'emp-4life', template: 'votacao_competencias', colabs: [pessoa()], agora: SEXTA_15H,
+    })).rejects.toThrow(/não é disparável/);
+  });
+
+  it('o prazo da v2 é data de vencimento no meio do corpo, e a v2 foi submetida como UTILITY', () => {
+    const def = TEMPLATES.votacao_pendente;
     expect(def.body.trim()).not.toMatch(/^\{\{\d+\}\}/);
     expect(def.body.trim()).not.toMatch(/\{\{\d+\}\}\.?$/);
-    expect(def.body).toContain('23h59 de {{3}}');
+    expect(def.body).toContain('O prazo para registro do voto é {{4}}, às 23h59.');
+    expect(def.body).toContain('Você pode votar em:\n{{3}}');
     expect(def.example).toHaveLength(4);
     expect(def.category).toBe('UTILITY');
   });
 });
 
-describe('prepararLoteTemplate(votacao_competencias)', () => {
-  it('monta nome, instituição, prazo de amanhã e o link direto da votação', async () => {
+describe('prepararLoteTemplate(votacao_pendente)', () => {
+  it('monta nome, instituição, link direto da votação e prazo de amanhã — nessa ordem', async () => {
     const lote = await preparar(mock(), [pessoa()]);
     expect(lote.alvos).toHaveLength(1);
     expect(lote.alvos[0].params).toEqual([
       'Ana',
       '4Life Educação',
-      'sábado, 26/09',
       'https://4life-educacao.vertho.ai/dashboard/votacao',
+      'sábado, 26/09',
     ]);
-    expect(lote.alvos[0].dedupeKey).toBe('votacao_competencias:c1:dia:2026-09-25');
+    expect(lote.alvos[0].dedupeKey).toBe('votacao_pendente:c1:dia:2026-09-25');
   });
 
   it('votação fechada: ninguém recebe, e o motivo aparece', async () => {
@@ -133,14 +147,14 @@ describe('prepararLoteTemplate(votacao_competencias)', () => {
   });
 
   it('um lembrete por pessoa POR DIA: hoje não repete, amanhã pode voltar', async () => {
-    const jaReceberam = [{ colaborador_id: 'c1', dedupe_key: 'votacao_competencias:c1:dia:2026-09-25' }];
+    const jaReceberam = [{ colaborador_id: 'c1', dedupe_key: 'votacao_pendente:c1:dia:2026-09-25' }];
     const hoje = await preparar(mock({ jaReceberam }), [pessoa()]);
     expect(hoje.alvos).toHaveLength(0);
     expect(hoje.jaReceberam).toBe(1);
 
     const sabado = await preparar(mock({ jaReceberam }), [pessoa()], new Date('2026-09-26T15:00:00Z'));
     expect(sabado.alvos).toHaveLength(1);
-    expect(sabado.alvos[0].params[2]).toBe('domingo, 27/09');
+    expect(sabado.alvos[0].params[3]).toBe('domingo, 27/09');
   });
 
   it('falha ao ler os votos LANÇA, nunca vira "ninguém votou"', async () => {
