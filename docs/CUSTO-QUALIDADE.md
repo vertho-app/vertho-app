@@ -1511,6 +1511,37 @@ agenda que ela propôs) foi reprovada em 1 de 2 rodadas e virou alerta. Ela cont
 trecho e o motivo, mas não derruba o PDI. Os 47 antigos não foram reauditados: medido 6 de 6
 reprovados nas 2 rodadas, com 3 a 9 achados graves cada.
 
+### 25/09: "alerta tem que ser minoria e reprovação a exceção" (`0be162f1`)
+
+Com as 2 rodadas, 6 de 10 regerados saíam com alerta. Lidos: 1 defeito real (Dalete), 3 escorregões
+do gerador e 2 miudezas. Os escorregões nasciam nos campos de RESUMO: `resumo_desempenho.leitura`
+pedia só "síntese curta" e saía como traço sem sujeito ("Organiza e prioriza com critério..."), e
+`resumo_geral`/`fez_bem` escreviam "você levou a Renata..." como ação feita. Três ajustes:
+- **Gerador:** o exemplo de cada um desses campos virou uma frase sobre a RESPOSTA ("Nas respostas,
+  você propôs...") e proíbe a ação feita. O exemplo vence a prosa: a regra 11 já proibia isso.
+- **Auditor:** warn só para o que um revisor MUDARIA (enquadramento de fato real, extrapolação da
+  ausência, análise inteira genérica, desproporção); inferência cautelosa ancorada e frase de
+  abertura/fechamento deixam de ser achado; "na dúvida, não liste".
+- **Rodadas:** alerta de UMA rodada com a outra limpa não vale (fica no JSON como pass, com o
+  motivo). Reprovação isolada continua virando alerta.
+
+`Medido` (10 PDIs de Macaé NÃO regerados, 2×2 gerador × auditor, 2 rodadas, veredito como em
+produção, US$ 4):
+
+| | pass | warn | fail |
+|---|---|---|---|
+| produção até aqui | 4 | 3 | 3 |
+| só auditor novo | 4 | 3 | 3 |
+| só gerador novo | 5 | 3 | 2 |
+| **os dois** | **7** | **2** | **1** |
+
+O fail que ficou é real (Júlia: o PDI diz que faltou um indicador que a resposta traz, e os dois
+geradores erram igual, porque vem do parecer da avaliação). O gerador novo tirou 2 reprovações
+reais (Lilian e Cristiane: fail,fail → pass,pass; o PDI antigo da Cristiane falava em "prazos
+nomeados" que não existem). `resumo_desempenho.leitura` começando por "Nas respostas": 0/10 → 10/10.
+Os 10 gravados, reauditados com as regras finais: 5 pass, 4 warn, 1 fail (Dalete). Os 4 alertas são
+reais e 3 são o escorregão do resumo, porque esses PDIs saíram do prompt anterior.
+
 ### 27/08 — IA4 sem censura: o número que faltava desde 25/08
 
 `scripts/_medir-ia4-sem-censura.ts`, 15 avaliações reais em Ibipeba, teto já em
