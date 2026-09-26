@@ -96,7 +96,7 @@ FORMATO OBRIGATÓRIO:
 {
   "acolhimento": "2-3 frases de abertura reconhecendo a jornada",
   "resumo_geral": {
-    "leitura": "3-5 linhas de visão geral com tom empático, ancorada no que as respostas mostram",
+    "leitura": "3-5 linhas de visão geral com tom empático, falando das RESPOSTAS e não da rotina — ex.: 'Nas suas respostas, você propôs que a personagem priorizasse os registros e levasse dados à coordenação; o que não apareceu foi um pedido com prazo.' NUNCA 'você levou...', 'você organiza...'",
     "principais_forcas": ["0 a 2 forças que as RESPOSTAS mostram; VAZIO se não houver"],
     "principal_ponto_de_atencao": "texto curto"
   },
@@ -106,7 +106,7 @@ FORMATO OBRIGATÓRIO:
     "pontos_atencao": ["tendências que podem pedir atenção, em linguagem de PREFERÊNCIA e não de déficit — 0 a 3 itens, e VAZIO se o perfil não sustentar. NÃO preencha por cota."]
   },
   "resumo_desempenho": [
-    {"competencia": "nome", "nivel": 1, "nota_decimal": 1.0, "leitura": "síntese curta"}
+    {"competencia": "nome", "nivel": 1, "nota_decimal": 1.0, "leitura": "1 frase sobre a RESPOSTA, começando por 'Nas respostas' — ex.: 'Nas respostas, você priorizou os registros e propôs um prazo; não apareceu o pedido de apoio.' NUNCA um traço sem sujeito ('Organiza e prioriza...', 'Reconhece...')"}
   ],
   "competencias": [
     {
@@ -115,7 +115,7 @@ FORMATO OBRIGATÓRIO:
       "nota_decimal": 1.0,
       "flag": false,
       "descritores_desenvolvimento": ["comportamentos que precisam de atenção (linguagem de comportamento, não jargão)"],
-      "fez_bem": ["0 a 3 comportamentos que APARECEM nas respostas, dizendo o que ela fez; VAZIO se não houver. NÃO preencha por cota."],
+      "fez_bem": ["0 a 3 itens sobre o que APARECE nas respostas, cada um começando por 'Na sua resposta, você propôs/listou/apontou...'; VAZIO se não houver. NÃO preencha por cota. NUNCA 'você levou/fez/negociou' como se tivesse acontecido."],
       "melhorar": ["1 a 3 pontos, cada um ligado a algo que FALTOU nas respostas"],
       "feedback": "Parágrafo que parte do que a pessoa respondeu (cite 1 ou 2 trechos curtos entre aspas) e diz o que faltou para o próximo nível. Descreve a RESPOSTA, não o dia a dia dela.",
       "sprint": {

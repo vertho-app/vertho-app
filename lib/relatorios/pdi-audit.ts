@@ -337,6 +337,12 @@ const chaveOcorrencia = (o: string) => o.split('" — ')[0];
  * 0 de 10 PDIs novos e 6 de 6 antigos (os antigos, com conteúdo falso de fato,
  * reprovam nas duas, com 3 a 9 achados graves cada).
  *
+ * O ALERTA segue a mesma lógica (3ª calibragem, mesmo dia): alerta de UMA rodada,
+ * com a outra limpa, não vale. Medido em 10 PDIs regerados: o alerta isolado
+ * acusava até a forma certa ("Nas respostas, você priorizou..."). Com os dois
+ * prompts ajustados e esta regra: 7 pass, 2 warn, 1 fail (contra 4/3/3 antes),
+ * e o fail que ficou é real (o PDI diz que faltou um indicador que a resposta traz).
+ *
  * Rodada que não rodou não conta como voto: com uma só válida, vale ela (como
  * antes), e fica um aviso dizendo que o veredito é de rodada única. Nenhuma
  * válida: o `fail` de "auditoria indisponível" segue, porque ausência de
@@ -358,7 +364,11 @@ export function combinarRodadasSemanticas(rodadas: PdiAuditCheck[][]): PdiAuditC
   }
 
   const comFail = validas.filter((r) => r.some((c) => c.status === 'fail')).length;
+  const comAchado = validas.filter((r) => r.some((c) => c.status !== 'pass')).length;
   const confirmado = comFail === validas.length;
+  // Alerta também precisa se repetir: rodada limpa ao lado de um alerta isolado
+  // derruba o alerta. Reprovação isolada NÃO some: vira alerta (rede de segurança).
+  const alertaConfirmado = comFail > 0 || comAchado === validas.length;
   const porId = new Map<string, PdiAuditCheck>();
   for (const r of validas) {
     for (const c of r) {
@@ -369,9 +379,15 @@ export function combinarRodadasSemanticas(rodadas: PdiAuditCheck[][]): PdiAuditC
       if (PESO[c.status] > PESO[atual.status]) { atual.status = c.status; atual.detalhe = c.detalhe; }
     }
   }
-  return [...porId.values()].map((c) => (c.status === 'fail' && !confirmado
-    ? { ...c, status: 'warn' as const, detalhe: `Reprovado em ${comFail} de ${validas.length} rodadas do auditor: fica como alerta. ${c.detalhe}`.slice(0, 400) }
-    : c));
+  return [...porId.values()].map((c) => {
+    if (c.status === 'fail' && !confirmado) {
+      return { ...c, status: 'warn' as const, detalhe: `Reprovado em ${comFail} de ${validas.length} rodadas do auditor: fica como alerta. ${c.detalhe}`.slice(0, 400) };
+    }
+    if (c.status === 'warn' && !alertaConfirmado) {
+      return { ...c, status: 'pass' as const, detalhe: `Alerta em ${comAchado} de ${validas.length} rodadas do auditor: não confirmado. ${c.detalhe}`.slice(0, 400) };
+    }
+    return c;
+  });
 }
 
 // ── Camada 2: semântica (2ª IA, cross-família) ─────────────────────────────
@@ -411,6 +427,11 @@ ou não consegue, e os resultados que teve. Elas moram na análise por competên
   Essa seção existe para ler o perfil; o que se exige dela é a forma cautelosa.
 - A PARÁFRASE FIEL do que a pessoa respondeu: dizer com outras palavras o que está
   na resposta não é afirmação sem lastro, mesmo que a palavra exata não apareça.
+- A INFERÊNCIA CAUTELOSA ancorada numa resposta citada ou descrita ("isso pode
+  indicar...", "sugere...", "tende a..."): o tom já diz que é hipótese.
+- Frase de abertura ou fechamento (acolhimento, mensagem final) que é cordial ou
+  genérica, e ênfases pequenas ("já", "com consistência") que não mudam o que a
+  resposta disse.
 - Estilo, tamanho e formatação: outra camada cuida disso.
 
 ═══ O QUE VOCÊ PROCURA ═══
@@ -434,12 +455,16 @@ si algo que ela não disse nem mostrou:
     diz outra coisa;
   - diz o OPOSTO do que ela respondeu;
   - contradição que muda o que ela deve fazer.
-warn, quando o conteúdo é FIEL à resposta mas o texto vai além dela:
+warn, SÓ quando o conteúdo é fiel mas um revisor MUDARIA o texto antes de entregar:
   - enquadra como fato da vida real o que ela PROPÔS para a personagem ("você
     negociou o prazo", quando ela respondeu que a personagem deveria negociar);
-  - inferência em tom cauteloso ("pode indicar", "talvez", "sugere") ancorada numa
-    resposta citada;
-  - imprecisão menor, frase genérica, desproporção leve.
+  - extrapola da AUSÊNCIA para a vida real ("talvez você deixe para pedir ajuda
+    tarde", quando a resposta só não fala de apoio);
+  - a análise INTEIRA de uma competência caberia em qualquer pessoa (nenhuma
+    resposta citada ou descrita);
+  - recomendação desproporcional ao nível.
+Na dúvida entre warn e não-achado, NÃO liste: alerta que ninguém mudaria ensina a
+ignorar o alerta.
 
 ═══ EXEMPLOS ═══
 - fail (sem_lastro): "Você costuma aceitar tudo para não decepcionar a coordenação",
@@ -454,11 +479,15 @@ warn, quando o conteúdo é FIEL à resposta mas o texto vai além dela:
 - warn (sem_lastro): "Você adiou o convite e combinou um cronograma com a
   coordenação", quando a resposta PROPÕE isso para a personagem: conteúdo fiel,
   enquadrado como algo que ela fez na rotina.
-- warn (sem_lastro): "Isso pode indicar que rever o plano depois de uma devolutiva
-  já faz parte da sua prática", a partir da resposta "refaço o que o feedback pediu".
 - warn (sem_lastro): "Talvez você deixe para pedir ajuda quando a situação já
-  apertou", extrapolação cautelosa de uma resposta que não menciona apoio.
-- warn (generico): "Você é uma profissional dedicada e comprometida."
+  apertou", extrapolação da AUSÊNCIA: a resposta só não menciona apoio.
+- warn (generico): a análise da competência diz "boa comunicação, precisa se
+  organizar melhor" e não cita nem descreve nenhuma resposta.
+- NÃO é achado: "Isso pode indicar que rever o plano depois de uma devolutiva
+  é um caminho que você já considera", a partir da resposta "refaço o que o
+  feedback pediu" (inferência cautelosa ancorada na resposta).
+- NÃO é achado: "O que falta aqui não é disposição" ou "Você é uma profissional
+  dedicada" no acolhimento ou na mensagem final (frase de abertura/fechamento).
 - NÃO é achado: "Você percebe que o volume atual pesa antes de aceitar algo novo",
   quando a resposta diz "primeiro ela precisa pôr as pendências em dia, depois
   pensar em assumir mais" (paráfrase fiel).

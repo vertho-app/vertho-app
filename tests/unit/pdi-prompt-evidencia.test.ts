@@ -79,3 +79,29 @@ describe('o system do PDI proíbe transformar UMA resposta em padrão', () => {
     expect(RELATORIO_IND_SYSTEM).toMatch(/"principais_forcas": \["0 a 2 /);
   });
 });
+
+/**
+ * Os escorregões que sobraram (25/09/2026) nasciam nos campos de RESUMO: a
+ * `leitura` de `resumo_desempenho` pedia só "síntese curta" e saía como traço
+ * sem sujeito ("Organiza e prioriza com critério..."), e `resumo_geral`/`fez_bem`
+ * escreviam "você levou a Renata..." como ação feita. O exemplo do formato vence
+ * a regra em prosa, então o exemplo de cada campo agora é uma frase sobre a RESPOSTA.
+ */
+describe('os campos de resumo falam da RESPOSTA, não de traço nem de ação feita', () => {
+  it('resumo_desempenho.leitura começa por "Nas respostas" e proíbe o traço sem sujeito', () => {
+    expect(RELATORIO_IND_SYSTEM).not.toMatch(/"leitura": "síntese curta"/);
+    expect(RELATORIO_IND_SYSTEM).toMatch(/"leitura": "1 frase sobre a RESPOSTA, começando por 'Nas respostas'/);
+    expect(RELATORIO_IND_SYSTEM).toMatch(/NUNCA um traço sem sujeito/);
+  });
+
+  it('resumo_geral.leitura e fez_bem trazem exemplo ancorado na resposta e proíbem a ação feita', () => {
+    expect(RELATORIO_IND_SYSTEM).toMatch(/"leitura": "3-5 linhas[^"]*Nas suas respostas, você propôs/);
+    expect(RELATORIO_IND_SYSTEM).toMatch(/"fez_bem": \["0 a 3 itens[^"]*Na sua resposta, você propôs/);
+    expect(RELATORIO_IND_SYSTEM).toMatch(/NUNCA 'você levou\/fez\/negociou'/);
+  });
+
+  it('o exemplo não carrega o nome de uma personagem específica (o prompt vale para todo cenário)', () => {
+    const formato = RELATORIO_IND_SYSTEM.slice(RELATORIO_IND_SYSTEM.indexOf('FORMATO OBRIGATÓRIO'));
+    expect(formato).not.toMatch(/Alessandra/);
+  });
+});

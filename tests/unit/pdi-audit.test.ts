@@ -251,22 +251,45 @@ describe('auditor semântico: escopo e gravidade', () => {
  */
 describe('auditor semântico: a régua é o conteúdo, não a forma', () => {
   it('traço ou situação da PERSONAGEM atribuído à pessoa é fail, e o oposto da resposta também', () => {
-    const fail = PDI_AUDIT_SYSTEM.slice(PDI_AUDIT_SYSTEM.indexOf('fail, SÓ quando'), PDI_AUDIT_SYSTEM.indexOf('warn, quando'));
+    const fail = PDI_AUDIT_SYSTEM.slice(PDI_AUDIT_SYSTEM.indexOf('fail, SÓ quando'), PDI_AUDIT_SYSTEM.indexOf('warn, SÓ quando'));
     expect(fail).toMatch(/PERSONAGEM do cenário/);
     expect(fail).toMatch(/OPOSTO do que ela respondeu/);
-  });
-
-  it('conteúdo fiel com enquadramento de fato real ou inferência cautelosa é warn', () => {
-    const warn = PDI_AUDIT_SYSTEM.slice(PDI_AUDIT_SYSTEM.indexOf('warn, quando'), PDI_AUDIT_SYSTEM.indexOf('═══ EXEMPLOS'));
-    expect(warn).toMatch(/conteúdo é FIEL à resposta/);
-    expect(warn).toMatch(/PROPÔS para a personagem/);
-    expect(warn).toMatch(/pode indicar/);
   });
 
   it('paráfrase fiel da resposta não é achado', () => {
     const naoAchado = PDI_AUDIT_SYSTEM.slice(PDI_AUDIT_SYSTEM.indexOf('═══ O QUE NÃO É ACHADO'), PDI_AUDIT_SYSTEM.indexOf('═══ O QUE VOCÊ PROCURA'));
     expect(naoAchado).toMatch(/PARÁFRASE FIEL/);
     expect(PDI_AUDIT_SYSTEM).toMatch(/- NÃO é achado:[^\n]*\n[^\n]*\n[^\n]*\(paráfrase fiel\)/);
+  });
+});
+
+/**
+ * 3ª calibragem (25/09/2026), dono: "alerta tem que ser minoria e reprovação a
+ * exceção". Com 2 rodadas, 6 de 10 PDIs regerados saíam com alerta, e lidos à
+ * mão: 1 defeito real, 3 escorregões do gerador (a proposta para a personagem
+ * escrita como ação feita) e 2 miudezas que ninguém mudaria. Alerta passou a
+ * ser só o que um revisor MUDARIA no texto.
+ */
+describe('auditor semântico: alerta é o que um revisor mudaria', () => {
+  const warn = PDI_AUDIT_SYSTEM.slice(PDI_AUDIT_SYSTEM.indexOf('warn, SÓ quando'), PDI_AUDIT_SYSTEM.indexOf('═══ EXEMPLOS'));
+  const naoAchado = PDI_AUDIT_SYSTEM.slice(PDI_AUDIT_SYSTEM.indexOf('═══ O QUE NÃO É ACHADO'), PDI_AUDIT_SYSTEM.indexOf('═══ O QUE VOCÊ PROCURA'));
+
+  it('warn é enquadramento de fato real, extrapolação da ausência, análise inteira genérica ou desproporção', () => {
+    expect(warn).toMatch(/revisor MUDARIA/);
+    expect(warn).toMatch(/PROPÔS para a personagem/);
+    expect(warn).toMatch(/AUSÊNCIA/);
+    expect(warn).toMatch(/análise INTEIRA/);
+  });
+
+  it('na dúvida, não lista', () => {
+    expect(warn).toMatch(/Na dúvida entre warn e não-achado, NÃO liste/);
+  });
+
+  it('inferência cautelosa ancorada e frase de abertura/fechamento saíram do warn', () => {
+    expect(warn).not.toMatch(/pode indicar/);
+    expect(warn).not.toMatch(/frase genérica/);
+    expect(naoAchado).toMatch(/INFERÊNCIA CAUTELOSA/);
+    expect(naoAchado).toMatch(/abertura ou fechamento/);
   });
 });
 
@@ -322,6 +345,29 @@ describe('rodadas do auditor semântico', () => {
   it('uma rodada reprova, a outra não acha nada: alerta, não aprovado nem reprovado', () => {
     const r = combinarRodadasSemanticas([[sem('fail', ['geral: "t…" — p'])], []]);
     expect(consolidarAuditoriaPdi(r, 1).status).toBe('warn');
+  });
+
+  it('alerta de uma rodada só, com a outra limpa, não vale (mas fica registrado)', () => {
+    const r = combinarRodadasSemanticas([[sem('warn', ['geral: "t…" — p'])], []]);
+    expect(consolidarAuditoriaPdi(r, 1).status).toBe('pass');
+    expect(r[0].detalhe).toMatch(/Alerta em 1 de 2 rodadas do auditor: não confirmado/);
+    expect(r[0].ocorrencias).toHaveLength(1);
+  });
+
+  it('alerta nas duas rodadas continua alerta', () => {
+    const r = combinarRodadasSemanticas([[sem('warn', ['geral: "t…" — p'])], [sem('warn', ['geral: "u…" — q'], 'sem-generico')]]);
+    expect(consolidarAuditoriaPdi(r, 1).status).toBe('warn');
+  });
+
+  it('reprovação numa rodada e alerta na outra: alerta (a reprovação isolada não some)', () => {
+    const r = combinarRodadasSemanticas([[sem('fail', ['geral: "t…" — p'])], [sem('warn', ['geral: "u…" — q'], 'sem-generico')]]);
+    expect(consolidarAuditoriaPdi(r, 1).status).toBe('warn');
+    expect(r.every((c) => c.status === 'warn')).toBe(true);
+  });
+
+  it('rodada com reprovação ao lado de uma limpa: a reprovação e os alertas dela ficam como alerta', () => {
+    const r = combinarRodadasSemanticas([[sem('fail', ['geral: "t…" — p']), sem('warn', ['geral: "u…" — q'], 'sem-generico')], []]);
+    expect(r.map((c) => c.status)).toEqual(['warn', 'warn']);
   });
 
   it('as duas limpas: aprovado', () => {
