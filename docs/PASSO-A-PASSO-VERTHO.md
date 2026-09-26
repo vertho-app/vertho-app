@@ -81,6 +81,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 - Salva as 10 competências prioritárias por cargo em `top10_cargos`
 - A partir de 2026 (migration 052), cada item carrega `aderencia_cargo` (0-1), `aderencia_mercado` (0-1) e `motivo` (frase curta)
 - **Match cargo-colab é case+accent insensitive** (ex: "Coordenação Pedagógica" = "coordenacao pedagogica")
+- 🔴 **A IA1 gera uma Top 10 para cada cargo que aparece na MATRIZ** (`competencias.cargo`), não para cada cargo do cadastro (`actions/fase1.ts`, `cargoCompsMap`). O casamento com `cargos_empresa` é por nome igual ou contido (`reconciliarCargo`): cargo da planilha sem par vira **Top 10 órfã** (a tela de Cargos oferece "vincular") e cargo do cadastro sem matriz fica sem Top 10. E nome diferente do cadastro não para aí: a **cédula da votação** e leituras de régua por cargo (`.eq('cargo')`) casam pelo nome e saem vazias. **Antes da IA1, confira que os cargos da matriz têm o nome do cadastro.** Medido na 4Life (25/09/2026): a planilha trazia "Professor(a)", "Coordenador(a)" e "Diretor(a)"; nasceu uma Top 10 órfã de Diretor(a), e a cédula dos 24 professores e da coordenadora teria saído vazia até o cargo da matriz ser renomeado
 
 ### 5b. Votação dos colaboradores nas Top 10
 **Colaborador** · `/dashboard/votacao`

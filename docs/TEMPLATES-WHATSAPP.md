@@ -588,6 +588,14 @@ para a pílula.
 ⚠️ Ao gravar uma env var de template: `printf '%s' 'nome' | vercel env add …`, **nunca `echo`** (o
 `\n` colado vira `132001` no cron, e a mensagem não sai).
 
+🔴 **O NÚMERO também não vem do local.** `WHATSAPP_NUMEROS_EXTRA` (o vínculo empresa → número, ex.:
+4Life no +55 11 5199-1865) só existe em produção. Script que chama `dispararLoteTemplate` ou
+`enviarTemplateCloud` na máquina do dev resolve o número ali e sai pelo INICIAL (Pilotos), calado.
+Para lote manual por script, monte com `prepararLoteTemplate` e **enfileire com
+`enfileirarLoteTemplate`**: o QStash entrega em `app.vertho.ai/api/webhooks/qstash/whatsapp-cis` e a
+produção resolve o número pelo `empresaId`, igual à tela. `Medido: 26/09/2026` — boas-vindas e
+`votacao_pendente` para as 3 pessoas de teste da 4Life, 6/6 com `from_phone_id=1250415214830990`.
+
 ---
 
 ## 5. Estado da Meta (01/09) e histórico da fila de 30/08

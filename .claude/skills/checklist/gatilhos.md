@@ -348,6 +348,9 @@ Casa: script, action, cron ou tela que mande mais de uma mensagem.
   enquanto o produto migrava.
 - 🔴 **Envio real não sai da máquina do dev**: `.env.local` não tem `WHATSAPP_TEMPLATE_*` nem
   `CRON_SECRET`. Descobrir isso antes de preparar o disparo.
+  Nem `WHATSAPP_NUMEROS_EXTRA`: enviado do local, o lote sai pelo número INICIAL, não pelo da
+  empresa. Por script, **enfileire** (`enfileirarLoteTemplate`) e a produção resolve o número
+  (26/09/2026, 4Life: 6/6 pelo número certo por fila). `docs/TEMPLATES-WHATSAPP.md` §4.1.
 - Antes de disparar, conferir o que JÁ saiu (`notification_deliveries` por `kind`): "vamos avisar" e
   "já avisamos" são indistinguíveis sem essa consulta — foi assim que 34 pessoas ficaram sem aviso
   por uma premissa escrita num comentário (F-I19).
@@ -1433,3 +1436,21 @@ classe lida no processo pegou. Carga sintética a 100% acrescentou 20%; a suíte
 minha própria suíte, rodada no meio da reunião do dono, que acendeu o aviso de atraso. Régua:
 `docs/COPILOTO-WHISPER-LOCAL.md` (Prioridade do processo); memória
 `project_copiloto_whisper_latencia_carga`.
+
+---
+
+## § Vou importar uma MATRIZ de competências ou rodar a IA1
+
+**Padrão que casa:** import de matriz (planilha/CSV em `/admin/competencias`) · `rodarIA1` · "Top 10"
+com cargo que ninguém cadastrou · cargo da planilha com nome curto ("Professor(a)") e cadastro com
+nome longo ("Professor(a) de Educação Infantil").
+
+- [ ] **Os cargos da matriz têm o nome EXATO do cadastro?** `select distinct cargo from competencias`
+      contra `cargos_empresa.nome`, na empresa. A IA1 gera Top 10 por cargo DA MATRIZ; a cédula da
+      votação e as leituras de régua casam pelo nome. Régua: `docs/PASSO-A-PASSO-VERTHO.md` §5.
+- [ ] **Cargo da matriz sem ninguém no cadastro** é decisão do dono (manter ou apagar), não faxina.
+
+**Consequência medida (25/09/2026, 4Life):** a planilha trazia "Professor(a)", "Coordenador(a)" e
+"Diretor(a)". Nasceu uma Top 10 órfã de Diretor(a), e a cédula dos 24 professores e da coordenadora
+teria saído VAZIA (ela casa o cargo da pessoa pelo nome). Resolvido renomeando o cargo na matriz,
+sem tocar em dado de pessoa. Memória `project_4life_matrizes`.
