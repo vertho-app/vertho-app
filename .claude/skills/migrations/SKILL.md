@@ -5,7 +5,7 @@ description: Aplicar mudanças de schema no Supabase da Vertho App. Use quando o
 
 # Migrations Supabase (Vertho App)
 
-Migrations são arquivos `.sql` em **`migrations/NNN-nome.sql`** (numeração sequencial; a última em produção é por volta da `171` — confira o maior N em `migrations/` antes de criar). O schema canônico é o **banco em produção** — não existe `supabase/migrations/` nem baseline gerenciado por CLI.
+Migrations são arquivos `.sql` em **`migrations/NNN-nome.sql`** (numeração sequencial — confira o maior N em `migrations/` no instante de criar o arquivo; ver Pegadinhas). O schema canônico é o **banco em produção** — não existe `supabase/migrations/` nem baseline gerenciado por CLI.
 
 ## Como aplicar (método autoritativo)
 
@@ -27,6 +27,11 @@ node --env-file=.env.local scripts/apply-migration.mjs migrations/NNN-nome.sql
 - **Índice** em FKs e em colunas de filtro frequente.
 - **Sem `CASCADE` sem pensar** — dado apagado não volta.
 - Nome do arquivo segue `NNN-` sequencial; confira o maior N antes de criar.
+
+## Pegadinhas (vieram do `CLAUDE.md` §Comandos em 26/09/2026)
+
+- ⚠️ `CREATE INDEX CONCURRENTLY` (e qualquer DDL proibido em transaction) **não vai pelo `apply-migration.mjs`** — ele manda o arquivo inteiro numa query só (multi-statement = transaction implícita). Usar script statement-a-statement; template: `scripts/_criar-indices-escala.mjs`.
+- ⚠️ **Conferir o maior N no INSTANTE de criar o arquivo, não no início da rodada** — o dono cria migration em paralelo e a colisão nasce nessa janela (aconteceu 2× em 06/08: 199 e 204). Renumerar SEMPRE a sua. Guarda: `tests/unit/security/migrations-numeracao-guard.test.ts` (varre o diretório, não `git ls-files`, porque a colisão nasce untracked).
 
 ## Rollback
 

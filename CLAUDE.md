@@ -80,16 +80,12 @@ no repo** — o repositório é público.
 
 ## Stack (real)
 
-- **Runtime**: Next.js 16 (App Router) + React — **TypeScript em todo o projeto** (**984** arquivos `.ts/.tsx` de produção — `app`+`actions`+`lib`+`components`+`trigger`, versionados; 1.372 com `tests/`. Medido 31/08/2026; o "~670" anterior era de outra época e sem critério declarado). NÃO escrever JavaScript.
+- **Runtime**: Next.js 16 (App Router) + React — **TypeScript em todo o projeto**. NÃO escrever JavaScript.
 - **Banco**: Supabase (PostgreSQL). O app acessa via **supabase-js/PostgREST** (não `pg` direto, exceto scripts).
-- **Estilo**: Tailwind CSS.
 - **LLM**: **Claude API** via `@anthropic-ai/sdk` — sempre por `callAI`/`callAIChat` (`actions/ai-client.ts`). Gemini, OpenAI e **Kimi/Moonshot (`kimi*`, OpenAI-compatible)** também suportados; modelos reasoning usam `options.reasoningEffort` (kimi-k3, gpt-5.x).
   - **Que modelo roda o quê se lê em `lib/ai-tasks.ts`** — `MODELOS_DISPONIVEIS` (o catálogo oferecido na tela) e `DEFAULT_TASK_MODELS` (o pino por task). O default de quem não passa modelo é o `DEFAULT_MODEL` de `actions/ai-client.ts`; o fallback de provedor é `AI_FALLBACK_MODEL` (env vence o código).
   - ⚠️ **Este resumo não repete os ids de propósito** (D8 da auditoria de 22/08): ele listava `claude-opus-4-6` para roteiro de vídeo — id que não existe em nenhuma das duas constantes, só na tabela de preços legada — e um fallback de duas gerações atrás. As **4 afirmações de modelo estavam erradas**, e é justamente daqui que sai decisão de custo e script novo: foi assim que `scripts/spike-batch-roteiros.ts` nasceu com um id de outra geração e o comentário "alinhado ao prod". Catálogo se lê no arquivo, não aqui — a mesma regra que esta base já aplica à cobertura de guard.
   - 🔑 E lembre que `callAI` faz `aiConfig?.model || DEFAULT_MODEL` e **não** consulta `getModelForTask`: estar em `DEFAULT_TASK_MODELS` não prova em que modelo a task rodou (ver §"NÃO fazer").
-- **Jobs de fundo**: Trigger.dev v4 (`trigger/`).
-- **Deploy**: Vercel (via `git push`).
-- **Vídeo**: Bunny Stream (hosting) + HeyGen (avatar) + Remotion (render, `RENDER_BACKEND=hetzner`).
 - **WhatsApp**: **Cloud API oficial** (`lib/whatsapp/cloud-api.ts`, no ar 14/08 — número, webhook e status real de entrega) + legado `lib/whatsapp` (Z-API/WaSender), que ainda leva a CADÊNCIA enquanto os templates não aprovam. Detalhe: `docs/INBOX-WHATSAPP.md`.
 - **Multi-tenant**: por subdomínio `*.vertho.ai` (`acme.vertho.ai`); o tenant é resolvido pelo header `x-tenant-slug`.
 
@@ -103,29 +99,7 @@ npm run test:unit      # testes (vitest, tests/unit/)
 npm run reset:demo     # reseta o tenant de demonstração acme-demo
 ```
 
-**Migrations**: arquivos em `migrations/NNN-nome.sql` (sequencial). Aplicadas por **script node + driver `pg`** lendo `DATABASE_URL` do `.env.local` + `NOTIFY pgrst, 'reload schema'` — o MCP Supabase é read-only. NÃO existe `supabase/migrations/` nem se usa `supabase db push`. Ver `docs/SCHEMA-PROCESS.md`. ⚠️ `CREATE INDEX CONCURRENTLY` (e qualquer DDL proibido em transaction) **não vai pelo `apply-migration.mjs`** — ele manda o arquivo inteiro numa query só (multi-statement = transaction implícita). Usar script statement-a-statement; template: `scripts/_criar-indices-escala.mjs`.
-⚠️ **Conferir o maior N no INSTANTE de criar o arquivo, não no início da rodada** — o dono cria migration em paralelo e a colisão nasce nessa janela (aconteceu 2× em 06/08: 199 e 204). Renumerar SEMPRE a sua. Guarda: `tests/unit/security/migrations-numeracao-guard.test.ts` (varre o diretório, não `git ls-files`, porque a colisão nasce untracked).
-
-## Diretórios-chave
-
-```
-app/                 App Router (admin/, api/, dashboard/, representante/, proposta/)
-actions/             Server Actions
-  ai-client.ts       ★ wrapper único de IA (callAI, callAIChat) — NÃO criar outros
-  fase1..fase4.ts    pipeline de IA (IA1 top10, IA2 gabarito, IA3 cenários, IA4 mapeamento)
-lib/
-  supabase.ts        ★ createSupabaseAdmin() (service-role)
-  tenant-db.ts       ★ tenantDb(empresaId) — isolamento multi-tenant (ver abaixo)
-  scoring/           ★ motor de fit/adequação (calcularFitUnificado)
-  season-engine/     motor de trilha (temporadas, piloto, arguição, fechamento)
-  ai-batch.ts        Batch API da Anthropic (−50%) p/ geração em lote
-  demo/              reset do tenant de demo (reset-acme-demo.ts)
-  sales/, whatsapp/, internal-emails.ts
-components/          page-shell.tsx (PageContainer/PageHero/GlassCard/SectionHeader), pdf/, sales/
-migrations/          NNN-nome.sql
-trigger/             tasks Trigger.dev (deploy MANUAL — ver abaixo)
-tests/unit/          vitest
-```
+**Migrations**: arquivos em `migrations/NNN-nome.sql` (sequencial), aplicados por **script node + driver `pg`** (`scripts/apply-migration.mjs`). NÃO existe `supabase/migrations/` nem se usa `supabase db push`; o MCP Supabase é read-only. Pegadinhas (CONCURRENTLY, colisão de numeração): skill `migrations`. Processo: `docs/SCHEMA-PROCESS.md`.
 
 ## Padrões OBRIGATÓRIOS
 
@@ -264,6 +238,7 @@ tests/unit/          vitest
   - 🔑 **Concluir no modo `jornada` ENCADEIA a próxima** (`encadearProximaJornada`, 05/08/2026):
     a trilha seguinte é montada sozinha na competência seguinte. Fim de jornada não é fim de ciclo.
 - Scoring: `lib/scoring::calcularFitUnificado` (Adequação + Fit v2), knockouts como gate, `spec_version` versiona a régua (congela histórico).
+- Pipeline de IA: IA1 top10 · IA2 gabarito · IA3 cenários · IA4 mapeamento (`actions/fase1..fase4.ts`).
 
 ## ⚠️ A forma GRAVADA ≠ o que é ENTREGUE — leia o CONSUMIDOR
 
@@ -325,8 +300,6 @@ exercitada porque ele consultava o cache com a chave do brief, não com a do pla
 - **Vercel** (`mcp__vercel__*`) — *configurado no MCP global (`~/.claude.json`), não no `.mcp.json` do projeto* — deploys, `get_runtime_logs`, `get_runtime_errors`, duração de função, envs. Project `vertho-app` (`prj_fnvJs6mD7G8q7D5t6VSCDki6VELE`, team `team_u3hDlmBbi5IVqg5OcL4P394u`).
 - **Sentry** (`mcp__sentry__*`) — erros de produção (stack trace, frequência, versão/deploy). OAuth (login no browser na 1ª chamada).
 
-**Skills** (`.claude/skills/`, versionadas): a listagem da sessão já traz nome e descrição de cada uma. Invocar por `/nome` quando o contexto casar.
-
 **Subagents** (`.claude/agents/`, versionados pela mesma razão das skills): **`guard-auditor`** — audita se um guard prova o que diz, em vez de só estar verde (execução observada, alvo vivo, mutação, pré-condição fechada fora do teste). Rode em worktree isolado: a prova de mutação escreve no código de produção. Agents só carregam no START da sessão. Primeira rodada (30/08) achou o `tenant-mutation-guard` fail-open; ver `docs/SECURITY-STATUS.md` §Manutenção 30/08.
 
 ## Zonas de autonomia (quem decide o quê)
@@ -386,28 +359,18 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   e 06:00 UTC a asserção de fronteira inverte sozinha (verde às 19:29 local, vermelho às 22:21, sem
   commit no meio). Congele o tempo (`vi.setSystemTime`) longe das duas bordas; congelar às 02:00 UTC
   reproduz a falha, às 12:00 UTC não. Vale para qualquer teste sobre regra com janela horária.
-- NÃO deixar **ramo raro** sem alguém percorrer antes do usuário — e, ao chamar CLI externo, NÃO
-  assumir que o binário do seu terminal é o que vai rodar. Em 28/07 um `log()` inexistente dentro de
-  um `if` que só dispara em caso raro matou um painel de 5 min já pago, e um `codex` **0.130 vs
-  0.145** (três instalados, PATH diferente sob tarefa agendada) fez o CLI velho falhar de um jeito
-  que **parecia erro do modelo**. Receita nos dois casos: teste que exercita o caminho raro por
-  padrão + logar a versão no contexto real + capturar a saída COMPLETA (os últimos N chars cortam o
-  cabeçalho, que é onde está a causa). Detalhe: `docs/BOARD-PAINEL.md`.
-- NÃO tirar campo de formulário sem perguntar **que regra do servidor lê aquele campo**. Campo de
-  UI e régua de decisão/medição são um par: em 04/08 remover dois toggles do tablet do CONARH
-  tornaria a classe **A inalcançável** (o predicado exigia `decide_ou_recomenda`), e o alerta de
-  < 30 s do fechador morreria calado — nada no typecheck acusa. Mesma rodada, mesma classe: trocar
-  o mecanismo de uma tela **obriga a renomear a métrica**; manter `nota_instintiva`/`divergencias`
-  medindo outra coisa é como um painel passa a mentir sem ninguém perceber (os campos foram
-  REMOVIDOS, e leads velhos ficam fora da conta em vez de convertidos). Detalhe:
-  `docs/CONARH52-SPRINT-CONSOLIDADO.md` §0.1.
-- NÃO tornar A pré-requisito de B sem perguntar **se existe tenant em que A nunca será satisfeito**.
-  Empresa com `sys_config.perfil_externo_fonte` (OPQ32/Hogan) não faz o DISC nativo, então
-  `perfil_comportamental_liberado = false` é o estado **correto e permanente** dela — e o gate de
-  cenários, que exigia o perfil, tornava o mapeamento **inalcançável** no Boehringer (06/08). O
-  sintoma chega como bug do usuário ("ou libera os 2 ou bloqueia os 2"), não como configuração.
-  O acoplamento estava em 3 camadas e **só o gate barrava de verdade** — corrigir os botões sem
-  corrigir `lib/access-gates/` não resolveria nada. Detalhe: `docs/ARQUITETURA.md` §3.6.
+- NÃO deixar **ramo raro** sem alguém percorrer antes do usuário, e NÃO assumir que o binário do
+  seu terminal é o que vai rodar (28/07: um `log()` inexistente num `if` raro matou um painel pago;
+  `codex` 0.130 vs 0.145 sob tarefa agendada). Teste que exercita o caminho raro por padrão + logar
+  a versão no contexto real + capturar a saída COMPLETA. Detalhe: `docs/BOARD-PAINEL.md`.
+- NÃO tirar campo de formulário sem perguntar **que regra do servidor lê aquele campo** — campo de
+  UI e régua de decisão/medição são um par (04/08: remover dois toggles do CONARH tornaria a classe
+  A inalcançável, e nada no typecheck acusa). Trocar o mecanismo de uma tela **obriga a renomear a
+  métrica**. Detalhe: `docs/CONARH52-SPRINT-CONSOLIDADO.md` §0.1.
+- NÃO tornar A pré-requisito de B sem perguntar **se existe tenant em que A nunca será satisfeito**
+  (06/08: empresa com perfil externo OPQ32/Hogan nunca libera o DISC nativo, e o gate de cenários
+  tornava o mapeamento inalcançável no Boehringer). Corrija no gate (`lib/access-gates/`), não só
+  nos botões. Detalhe: `docs/ARQUITETURA.md` §3.6.
 - NÃO prometer confidencialidade que depende do **tamanho da turma** sem um piso de N. A tela do
   assessment diz "Confidencial · RH vê apenas dados agregados" — verdade com 200 pessoas, falsa com
   2: agregado de 2 não anonimiza ninguém. E **não existe limiar no código** que segure isso
@@ -457,20 +420,13 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   inclui **resposta 200 vazia/não-parseável**, não só exceção); **na
   ENTREGA, degrade registrando** (leitura ao vivo — falhar duro quebra a pessoa sem recuperação).
 - NÃO `.limit(1)` em `ppp_escolas` p/ representar a empresa — empresa-rede tem **1 PPP por escola**
-  (Ibipeba: 11) e isso aplica uma escola sorteada à rede inteira, em silêncio. Consolidar:
-  `buscarContextoPPP(tdb, {empresaId})` (texto), `buscarValoresDaRede`/`buscarValores` (valores) ou
-  `resolverContextoEmpresa` (contexto cru do Kit). **9 sites** dessa classe foram fechados em 26-27/07
-  (**F-I10** do `docs/FMEA-PIPELINE.md`); **guard de CI**: `tests/unit/security/ppp-rede-guard.test.ts`
-  falha em cadeia que reduz a 1 linha sem `.eq('id')`. Uma escola específica é legítima — só precisa
-  ser dita explicitamente.
-- NÃO varrer tabela com `.in()`/`.select()` **sem paginar** e concluir pela AUSÊNCIA de uma linha. O
-  cap de `db-max-rows` do PostgREST (1.000) morde **sem `.limit()` na query**, calado: medido 31/08,
-  `videos_personalizados` tinha 1.034 linhas nas células servidas e a leitura devolveu **1.000**. As
-  34 que faltaram não chegaram como erro, chegaram como ausência — e ali ausência SIGNIFICA "esta
-  pessoa não tem vídeo nominal", então o corte não degradou o resultado, **inverteu**: o cron
-  derrubou 3 células com cobertura 100% e 102 pessoas ficaram 3 dias vendo "estamos preparando seu
-  vídeo". Paginar com `.range(de, de+999)` até vir página curta, e comparar `data.length` com o
-  `count` exato antes de decidir por ausência. Detalhe: `docs/FMEA-PIPELINE.md` §F-V5.
+  (Ibipeba: 11). Consolidar com `buscarContextoPPP(tdb, {empresaId})`, `buscarValoresDaRede`/
+  `buscarValores` ou `resolverContextoEmpresa`; uma escola específica é legítima se dita
+  explicitamente. Guard: `tests/unit/security/ppp-rede-guard.test.ts`. `docs/FMEA-PIPELINE.md` F-I10.
+- NÃO varrer tabela com `.in()`/`.select()` **sem paginar** e concluir pela AUSÊNCIA de uma linha:
+  o cap de 1.000 linhas do PostgREST corta calado (31/08: 1.034 → 1.000, e o cron derrubou 3
+  células com cobertura 100%). Paginar com `.range(de, de+999)` até vir página curta e comparar
+  `data.length` com o `count` exato antes de decidir por ausência. `docs/FMEA-PIPELINE.md` §F-V5.
 - NÃO chamar função de PROVISIONAMENTO (ou qualquer coisa que habilita o passo seguinte) descartando
   o retorno — e, se o retorno tem dois sentidos opostos, o discriminante é um CAMPO, não texto livre.
   `await ensureRenderWorker()` era chamado sem ler nada sob um comentário que prometia o contrário;
@@ -479,26 +435,20 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   também envelhece: F-I4 pedia coluna `origem_disc` nova e a `micro_conteudos.disc` (mig 142) já fazia
   o papel (sobrevive ao SET NULL). E antes de deletar conteúdo, varrer **referências JSONB**
   (`temporada_plano`: `core_id`, `formatos_disponiveis[].id`) — não há FK que avise.
-- NÃO escrever exclusão de entidade raiz sem LER as FKs dela (`pg_constraint.confdeltype`): elas não
-  são uniformes, e as que não cascateiam ditam a ORDEM do delete. Em `sales_accounts` (31/08) são 7
-  referências — 3 `CASCADE`, 4 que **bloqueiam** —, e o segundo nível força
-  comissão → proposta → nota → oportunidade → conta; errar isso é `23503` na cara do usuário.
-  Duas regras que vêm junto: (a) contagem que DECIDE a exclusão vai com o `{ error }` checado, senão
-  falha de leitura vira "não tem nada ligado" e apaga o histórico em silêncio (E11); (b) exclusão que
-  leva registro financeiro (`sales_commission_events`) grava em `admin_audit_log` **antes** de o
-  inventário deixar de existir. Detalhe: `docs/PORTAL-REPRESENTANTE.md` §Apagar uma empresa.
+- NÃO escrever exclusão de entidade raiz sem LER as FKs dela (`pg_constraint.confdeltype`): as que
+  não cascateiam ditam a ORDEM do delete (em `sales_accounts`: comissão → proposta → nota →
+  oportunidade → conta; errar é `23503` na cara do usuário). Contagem que DECIDE a exclusão vai com
+  o `{ error }` checado, e exclusão que leva registro financeiro grava em `admin_audit_log` **antes**.
+  Detalhe: `docs/PORTAL-REPRESENTANTE.md` §Apagar uma empresa.
 - NÃO transformar em RECUSA o que era para ser AVISO, quando quem age é o dono do próprio dado. Guard
   fail-closed só se sustenta se existir caminho na UI para satisfazer a condição exigida — senão é
   beco, e o operador vai para o SQL. Medido 31/08: apagar empresa recusava por ter oportunidade e
   proposta, e a tela do Copiloto não oferece como removê-las; o serviço real que a recusa prestava era
   **informar o que se perde**, e isso cabe na confirmação ("Vai junto: 1 proposta, 1 oportunidade…").
   Vale para o dono agindo sobre o dado dele — não afrouxa gate de tenant, de envio real ou de terceiro.
-- NÃO rodar na mesma janela dois lotes que compartilham **fornecedor** — o TTS do Vertex serve a
-  narração do vídeo E o podcast, então prewarm de áudio + disparo de vídeo é auto-saturação (medido
-  12/08: a única célula que ainda não tinha passado da narração morreu em `TTS: resposta sem áudio`, e
-  sozinha passou de primeira). E NÃO julgar lote pelo **status HTTP**: `504` do gateway não prova
-  trabalho perdido — 8 de 10 "falhas" do prewarm estavam gravadas no Storage, porque a função termina
-  depois de o gateway desistir. Medir pelo efeito PERSISTIDO. `docs/FMEA-PIPELINE.md` F-V4.
+- NÃO rodar na mesma janela dois lotes que compartilham **fornecedor** (o TTS do Vertex serve vídeo
+  E podcast: auto-saturação, 12/08), e NÃO julgar lote pelo **status HTTP** — `504` do gateway não
+  prova trabalho perdido. Medir pelo efeito PERSISTIDO. `docs/FMEA-PIPELINE.md` F-V4.
 - NÃO "padronizar" o DISC dos kits/vídeos para 2 letras — a geração de conteúdo ancora na **1ª letra
   de propósito** (4 células de custo, decisão 27/07 — F-I8). Só camadas derivadas em código
   (relatório/PDF) usam o combo completo.
@@ -512,63 +462,39 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   (4Life). Use `lib/matriz-por-cargo.ts`; "mesma matriz" é pela assinatura, nunca pelo nome. Medido
   16/09: a coordenadora recebia a régua de Gestão Escolar em 5 de 6 descritores, e 4 notas saíram
   com escala genérica (**F-I36**). Guarda: `descritor-sem-cargo-guard`.
-- NÃO contar a categoria de um template da Meta antes de `APPROVED` — o veredito da CRIAÇÃO é
-  PROVISÓRIO e muda na revisão. Medido 14/08: **4 de 8** submetidos como UTILITY voltaram MARKETING,
-  e MARKETING custa **6×** (R$ 0,40-0,55 contra R$ 0,06-0,09). Eu escrevi no código que a assinatura
-  "— Equipe Vertho" era tolerada, baseado numa leitura de 20 min antes — e o template caiu depois.
-  E NÃO apague template para recriar: o nome fica QUEIMADO enquanto a exclusão processa (muito mais
-  que o "menos de 1 minuto" do erro). Crie com nome NOVO e só então apague. Detalhe:
+- NÃO contar a categoria de um template da Meta antes de `APPROVED` — o veredito da criação é
+  provisório (14/08: 4 de 8 UTILITY voltaram MARKETING, que custa 6×). E NÃO apague template para
+  recriar: o nome fica QUEIMADO; crie com nome NOVO e só então apague. Detalhe:
   `docs/INBOX-WHATSAPP.md` + memória `project_meta_template_categoria`.
-- NÃO trocar o mecanismo de uma tela sem varrer os **controles VIZINHOS** — cada um alimentava o
-  mecanismo antigo, e o que sobra aceita entrada que ninguém lê. Medido 20/08: a aba WhatsApp virou
-  disparo por TEMPLATE, o editor saiu e o **seletor de anexo logo acima ficou** — a pessoa escolhia
-  o arquivo e a mensagem saía sem ele, calada (`enviarTemplateCloud` monta só `body`/`button`;
-  anexo exigiria template com cabeçalho de documento e nenhum dos nossos tem). Junto vieram dicas
-  ensinando `*negrito*` para um corpo FIXO e "1s entre envios" com a política em 6s. **Nenhum teste
-  pega isso**; quem achou foi o dono olhando a tela. Mesma família de "campo de UI ↔ régua do
-  servidor". E antes de reusar um **gate de disponibilidade**, veja de qual canal ele fala:
-  `assertWhatsappAvailable` só conhece Z-API/WaSender e barraria o template pela saúde do provedor
-  MORTO. Detalhe: `docs/FMEA-PIPELINE.md` §F-C13 + `docs/INBOX-WHATSAPP.md` §2.1.
+- NÃO trocar o mecanismo de uma tela sem varrer os **controles VIZINHOS** — o que sobra aceita
+  entrada que ninguém lê (20/08: o seletor de anexo ficou na aba WhatsApp e a mensagem saía sem ele,
+  calada; nenhum teste pega). E antes de reusar um **gate de disponibilidade**, veja de qual canal
+  ele fala (`assertWhatsappAvailable` só conhece Z-API/WaSender). Detalhe:
+  `docs/FMEA-PIPELINE.md` §F-C13 + `docs/INBOX-WHATSAPP.md` §2.1.
 - NÃO adicionar coluna de carimbo de WhatsApp sem tocar no ENUM de `carimboCampo` do webhook
   `whatsapp-cis`. O schema é `.strict()`: campo fora do enum não degrada o carimbo — o Zod recusa o
   payload INTEIRO e **a mensagem não sai**. Falha total, não parcial (14/08). Mesma classe: o
   `motivo` da telemetria era o literal `'pilula'` sob um comentário que prometia exaustividade do
   TypeScript; promessa em comentário não é garantia — hoje é `satisfies Record<...>`.
 - NÃO deixar a mesma decisão de acesso escrita em mais de um lugar — e gate que NEGA tem que **dizer
-  o que falta**. Medido 20/08: a régua de liberação da semana vivia em três portas com critérios
-  diferentes (rotas exigiam a anterior `concluido`, a lista liberava por `em_andamento`, a página da
-  semana não tinha gate nenhum) enquanto a cadência mandava o link da semana do CALENDÁRIO — o
-  produto convidava para a porta que ele mesmo trancava, e 19 de 36 pessoas de Ibipeba estavam sem
-  nenhuma semana concluída, uma delas a **um turno** de destravar, parada 36 dias. A porta mais
-  permissiva vira a promessa; a mais restritiva vira a experiência. Régua única +
-  `docs/FMEA-PIPELINE.md` §F-I21.
-- NÃO chamar `fase4_envios.semana_atual` de “semana da pessoa”, “etapa individual” ou “progresso”.
-  Esse campo é o **relógio da cadência**: avança no dia da evidência mesmo quando a pessoa não
-  concluiu a anterior. Medido 02/09: uma visualização nova mostrou **38 na semana 3**; pela régua
-  individual real eram **21 na S1 pendente, 8 na S2 pendente, 7 na S3 em curso e 2 com S3
-  concluída**. Para UI/relatório use `derivarPosicaoJornada` → `primeiraSemanaAcessivel`, sempre com
-  a trilha mais recente e o progresso completo dela; se a leitura falhar, mostre indisponível —
-  calendário como fallback transforma erro em avanço inventado. E não acople os filtros: “Métricas
-  da semana” recorta sinais históricos; “Etapa individual” recorta pessoas. Detalhe:
+  o que falta**. A porta mais permissiva vira a promessa; a mais restritiva vira a experiência
+  (20/08: três portas com critérios diferentes, 19 de 36 pessoas de Ibipeba sem semana concluída).
+  Régua única + `docs/FMEA-PIPELINE.md` §F-I21.
+- NÃO chamar `fase4_envios.semana_atual` de “semana da pessoa”, “etapa individual” ou “progresso”:
+  é o **relógio da cadência** e avança mesmo sem a anterior concluída (02/09: "38 na semana 3" eram,
+  pela régua individual, 21 na S1 pendente). Para UI/relatório use `derivarPosicaoJornada` →
+  `primeiraSemanaAcessivel`, com a trilha mais recente; se a leitura falhar, mostre indisponível.
+  Não acople "Métricas da semana" (sinais) com "Etapa individual" (pessoas). Detalhe:
   `docs/PIPELINE-TRILHA.md` (duas semanas) + `docs/ARQUITETURA.md` §13.
-- NÃO debitar tentativa de retentativa quando quem falhou foi o **CANAL**. O teto existe para o
-  automático não martelar sozinho; se o fornecedor caiu ou o template não aprovou, a cota é do
-  destinatário e quem a gastou foi avaria nossa — aí, quando o canal volta, o teto já expulsou
-  exatamente quem nunca recebeu nada. Medido 18-19/08: o único lead da feira esgotou as 10
-  tentativas contra a Z-API caída **1h30 antes** de o template aprovar, e ficou fora do cron **e do
-  botão** (a tela dizia "1 recorte não chegou" e a ação não fazia nada para ele). Corolário: em
-  disparo MANUAL quem decide insistir é o **servidor**, não o corpo do pedido — herdar o teto do
-  automático transforma a tela em enfeite. `docs/FMEA-PIPELINE.md` §F-C12.
-- NÃO somar `ia_usage_log` e chamar aquilo de custo de IA sem listar **quem ESCREVE** no ledger. A
-  cobertura é por construção para quem passa pelo wrapper, e só. Medido 29/08: **0 linha** com
-  `model ilike '%tts%'` em 90 dias, contra 210 vídeos, 227 podcasts e 1.136 personalizações
-  efetivamente geradas e PAGAS — o TTS fala HTTP direto com o Gemini e nunca esteve coberto. O
-  sintoma engana porque **a ausência se parece com um zero**: soma-se o ledger e conclui-se que a
-  camada não custa nada, em vez de que ela não é medida (mesma família do "não achei nada exige o
-  denominador"). Hoje o INSERT é fonte única em `lib/ia-ledger.ts` e o TTS grava em `ttsGenerate`.
-  ⚠️ Ao instrumentar custo novo, confira que `costFromTokens` conhece o id **EXATO** (lookup exato;
-  o do TTS tem sufixo `-preview`) — senão nasce 100% de linha com `cost_usd = null`, que é
-  instrumentar e não conseguir somar. Detalhe: `docs/CUSTO-QUALIDADE.md` §29/08.
+- NÃO debitar tentativa de retentativa quando quem falhou foi o **CANAL** (fornecedor caído,
+  template não aprovado): quando o canal volta, o teto já expulsou quem nunca recebeu nada
+  (18-19/08). Em disparo MANUAL quem decide insistir é o **servidor**, não o corpo do pedido.
+  `docs/FMEA-PIPELINE.md` §F-C12.
+- NÃO somar `ia_usage_log` e chamar aquilo de custo de IA sem listar **quem ESCREVE** no ledger — a
+  ausência se parece com um zero (29/08: 0 linha de TTS em 90 dias contra centenas de áudios pagos).
+  Hoje o INSERT é fonte única em `lib/ia-ledger.ts`. ⚠️ Ao instrumentar custo novo, confira que
+  `costFromTokens` conhece o id **EXATO** (o do TTS tem sufixo `-preview`), senão nasce
+  `cost_usd = null`. Detalhe: `docs/CUSTO-QUALIDADE.md` §29/08.
 - NÃO afirmar que uma task de IA roda no modelo X só porque está em `DEFAULT_TASK_MODELS`. `callAI`
   faz `aiConfig?.model || DEFAULT_MODEL` (`claude-sonnet-4-6`) e **não** consulta `getModelForTask` —
   o `taskKey` só marca o custo no ledger. Nos fluxos de assessment/relatório quem passa o modelo é a
@@ -577,15 +503,12 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   `getModelForTask(empresaId, '<task>')` e **imprimir o modelo**. Caso geral: config declarada não é
   config aplicada — antes de afirmar que uma chave vale, ache quem a LÊ (o mesmo mordeu em
   `conteudosPorSemana`, F-I16 do `docs/FMEA-PIPELINE.md`).
-- NÃO gravar env var que decide comportamento **sem um observável do valor aplicado**. Na Vercel, var
-  marcada *Sensitive* volta como `[SENSITIVE]` no `vercel env pull`: você grava e **não tem como
-  provar o que gravou**. Medido 16/08: `WHATSAPP_TEMPLATE_PILULA` apontava para um template que a
-  Meta reclassificou como MARKETING — 6× o custo (~R$ 180 contra ~R$ 25 por semana em 400 pessoas),
-  aprovado, enviado, entregue, **sem nenhum sintoma**: o único consumidor de `templateAtivo()` era o
-  próprio envio, então não havia tela nem check onde o erro aparecesse. O observável tem que existir
-  ANTES de considerar feito — health (`checarTemplatesLigados`, R13), script que imprime o valor
-  resolvido (`scripts/_testar-template.ts`) ou log. E gravar com `printf '%s' … | vercel env add`,
-  **nunca `echo`** (injeta `\n`, e o sintoma é 132001 no cron). Gatilhos §23-24 da skill `checklist`.
+- NÃO gravar env var que decide comportamento **sem um observável do valor aplicado**: var
+  *Sensitive* na Vercel volta `[SENSITIVE]` e você não prova o que gravou (16/08:
+  `WHATSAPP_TEMPLATE_PILULA` num template reclassificado MARKETING, 6× o custo, sem sintoma). O
+  observável existe ANTES de considerar feito: health (R13), script que imprime o valor resolvido
+  (`scripts/_testar-template.ts`) ou log. Gravar com `printf '%s' … | vercel env add`, **nunca
+  `echo`** (injeta `\n`). Gatilhos §23-24 da skill `checklist`.
 - NÃO escrever filtro de retomada sobre uma propriedade qualquer do alvo — ele tem que descrever **o
   que a rodada corrige**. Três vezes em 14-15/08: o de blueprint via semanas quando o que mudara eram
   os descritores; a reancoragem sem filtro repagava 24 pessoas após queda de rede; e o `--forcar` dos
@@ -594,20 +517,13 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   ⚠️ Quando o INSUMO muda por baixo (reancorar descritores), o artefato antigo **não se anuncia** — o
   PDF abre normal descrevendo uma régua que não existe mais.
 - NÃO ler `process.env` numa **`const` de topo de módulo** quando a env decide COM QUEM se fala
-  (backend, endpoint, modelo, chave). Em ESM os `import` são avaliados ANTES dos statements do
-  arquivo que importa, então um script que carrega o `.env` na primeira linha (`process.loadEnvFile`)
-  já perdeu: o módulo importado leu vazio e fixou o default. Medido 07/09/2026: `lib/gemini-tts.ts`
-  lia `TTS_BACKEND` assim, caiu no `aistudio`, e os 19 podcasts dos professores de Macaé saíram por
-  outro motor — que **não serve a mesma voz**: mesmo texto e mesmo nome de voz deram F0 165 Hz e
-  0,30-0,71σ da assinatura da Aoede no AI Studio contra 198 Hz e 0,08σ no Vertex (duas vozes de
-  gêneros diferentes distam 0,52-0,69σ). Leia em runtime (`TTS_BACKEND()`), e nos scripts use
-  `import './_env'` como PRIMEIRO import. Detalhe: `docs/FMEA-PIPELINE.md` §F-I30.
-- NÃO deixar **fail-open sem linha em `degradacao_log`**. Fallback pode existir; invisível não. O
-  portão de TTS reprovou 19 de 19 áudios e publicou todos, com o aviso só no `console.warn`: a R10
-  do health e o alarme diário diziam que estava tudo bem (07/09/2026). E o limiar que decide o
-  fail-open se calibra com o **log de produção**, não com bake-off — a projeção de ~7 % de retake da
-  Aoede virou **29 %** na primeira semana real, e 8,1 % das sínteses saíam pelo fail-open;
-  `scripts/_calibrar-voz.ts` recalibra e RECUSA concluir com menos de 30 tentativas. §F-I31.
+  (backend, endpoint, modelo, chave): em ESM os `import` são avaliados antes do `loadEnvFile` do
+  script (07/09: `TTS_BACKEND` caiu no default e 19 podcasts saíram por outro motor, com outra voz).
+  Leia em runtime (`TTS_BACKEND()`) e, nos scripts, `import './_env'` como PRIMEIRO import.
+  Detalhe: `docs/FMEA-PIPELINE.md` §F-I30.
+- NÃO deixar **fail-open sem linha em `degradacao_log`** (07/09: o portão de TTS reprovou 19 de 19
+  e publicou todos, com o aviso só no `console.warn`). O limiar se calibra com o log de produção,
+  não com bake-off; `scripts/_calibrar-voz.ts` recusa concluir com menos de 30 tentativas. §F-I31.
 - NÃO escrever no estado compartilhado de dentro de um `mapPool`/`Promise.all` cujo erro dispara
   limpeza: `Promise.all` rejeita no 1º erro e **os outros workers continuam**, então um upload
   atrasado repõe o que a limpeza tirou (07/09/2026: fatia de um take antigo voltou ao vídeo depois
@@ -617,57 +533,36 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   **3 módulos com `conteudo_central` vazio** (`{}`) marcados `ok: true`, carregando os avisos do
   `validarCorpo` na mesma linha. Contar por `auditoria_ia->>'veredito'` no banco antes de declarar a
   rodada boa. Mesma classe do "200 vazia fura fail-loud". Detalhe: `docs/FMEA-PIPELINE.md` §F-I17.
-- NÃO usar **`await import('@react-pdf/renderer')` dentro de uma função de render**. Sob `tsx` (todo
-  lote headless) isso resolve uma CÓPIA do módulo, e a fonte que `components/pdf/styles` registrou
-  fica na outra instância — medido: 13 famílias na estática contra 12 na dinâmica. O sintoma é
-  `Font family not registered: NotoSans` **com a fonte registrada**, engolido por um `catch` que só
-  faz `warn`: **40 micro-conteúdos nasceram sem PDF** e ainda pagaram a expansão de IA dele. E
-  quando o diagnóstico estiver certo, **conserte a FUNÇÃO, não o chamador** — em 05/08 o contorno
-  entrou num script e a função ficou quebrada mais 11 dias. `docs/FMEA-PIPELINE.md` §F-I18.
+- NÃO usar **`await import('@react-pdf/renderer')` dentro de uma função de render**: sob `tsx` ele
+  resolve uma CÓPIA do módulo e a fonte registrada fica na outra (sintoma: `Font family not
+  registered: NotoSans` com a fonte registrada; 40 micro-conteúdos nasceram sem PDF). E conserte a
+  FUNÇÃO, não o chamador. `docs/FMEA-PIPELINE.md` §F-I18.
 - NÃO montar a lista de destinos de uma tela a partir de **UMA tabela** quando a pessoa pode ter mais
-  de um papel. A tela "em qual organizacao voce quer entrar?" enumerava só `colaboradores`, e quem
-  administra a plataforma **não é colaborador de uma empresa "Vertho"** — esse papel vive em
-  `platform_admins`. Medido 24/08: os 3 platform admins têm cadastro em 4, 4 e 2 empresas, então os
-  três caíam nessa tela e **nenhuma opção levava ao painel**. E o custo não é "faltou um botão": o
-  destino escolhido decide **em que host a sessão nasce** (cookie host-only), então escolher uma
-  empresa prendia a sessão no subdomínio dela, longe do painel. Dois corolários da mesma rodada:
-  caminho de **mão única** não é par de portas (o `ShellV2` tinha dois links de volta para `/admin` e
-  nenhuma tela do `/admin` apontava para o v2), e **destino que ninguém encontra não é caminho** — o
-  atalho novo nasceu como ícone cinza de 14px entre outros dois iguais, e o dono não o achou na tela
-  que ele mesmo pediu. Detalhe: `docs/ARQUITETURA.md` §3.1.3.
+  de um papel (24/08: platform admins vivem em `platform_admins`, não em `colaboradores`, e nenhuma
+  opção levava ao painel). O destino escolhido decide **em que host a sessão nasce** (cookie
+  host-only). Caminho de mão única não é par de portas, e destino que ninguém encontra não é
+  caminho. Detalhe: `docs/ARQUITETURA.md` §3.1.3.
 - NÃO rodar **`npm audit fix --omit=dev`**. A flag filtra o que ele AUDITA e ele reescreve o
   `package-lock.json` INTEIRO — sem as devDependencies. Medido 24/08: 797 inserções/1.351
   deleções no lock, `tsc` sumindo e build com exit 1; e restaurar o lock não basta, porque o
   `node_modules` passa a falhar em cadeia com `ENOTEMPTY` (o conserto é renomear a pasta e
   `npm ci`). Para triar sem tocar em nada: `npm audit --omit=dev --json` e `--dry-run`.
   Gatilho §`npm audit` da skill `checklist`.
-- NÃO derivar as colunas comportamentais do DISC por conta própria. A régua tem QUATRO partes
-  (soma **200** · `lid_X = DISC_X/2` · perfil = **combo** de todas ≥ 50 · `comp_*` pela regressão
+- NÃO derivar as colunas comportamentais do DISC por conta própria. A régua tem QUATRO partes (soma
+  **200** · `lid_X = DISC_X/2` · perfil = **combo** de todas ≥ 50 · `comp_*` pela regressão
   `computeDiscCompetenciesNatural`) e é fonte única em `lib/disc-mapeamento.ts` +
-  `lib/disc-competencias.ts`. Elas viviam DENTRO da tela do mapeamento, e por isso o
-  `simulador-disc` e o reset do demo nasceram com réguas próprias — o simulador divergia nas
-  quatro e **nunca gerava um perfil de duas letras**, sendo que 137 de 201 pessoas reais têm.
-  Não é cosmético: o motor de fit lê `comp_*` nos knockouts, e a demo exibia uma reprovação que a
-  plataforma não consegue produzir. Ao mexer nisso, lembre que `liderancaFit` normaliza os dois
-  lados → **imune à ESCALA, sensível à FÓRMULA**. Detalhe: `docs/ARQUITETURA.md` §3.7.
-- NÃO responder "tem perfil comportamental?" por **`disc_resultados`** — a coluna que TODO gate do
-  app usa é **`perfil_dominante`** (e `perfil_externo_dados` em empresa com fonte externa). Medido
-  25/08 em `macae`: **144 contra 105**, porque importação carimba a letra e não grava o JSON. Contei
-  pelo JSON num card novo e ele passou a mostrar um número que nenhuma outra tela reconhecia. A
-  régua completa está em `getGestorHomeData::temPerfil` — uma função, três consumidores.
-  Detalhe: `docs/ARQUITETURA.md` §26.2.
+  `lib/disc-competencias.ts` (as réguas próprias do `simulador-disc` e do reset do demo divergiam
+  nas quatro). `liderancaFit` é imune à ESCALA e sensível à FÓRMULA. Detalhe: `docs/ARQUITETURA.md` §3.7.
+- NÃO responder "tem perfil comportamental?" por **`disc_resultados`** — todo gate do app usa
+  **`perfil_dominante`** (e `perfil_externo_dados` em empresa com fonte externa); 25/08 em `macae`:
+  144 contra 105. Régua completa: `getGestorHomeData::temPerfil`. Detalhe: `docs/ARQUITETURA.md` §26.2.
 - NÃO tratar o papel **`rh` como participante**: ele é o *Admin da empresa* e, pela decisão de
   24/08/2026, **a Vertho opera e o cliente consome** — configuração, conteúdo, disparo e geração
   são da plataforma. Tela nova do cliente nasce só de leitura. `docs/ARQUITETURA.md` §26.
-- NÃO guardar em `useState` um estado que decide ACESSO. Ele morre no F5, e o que sobra é uma porta
-  que fecha sozinha quando a pessoa volta. Medido 25/08: `abriuConteudo` era `useState(false)` e
-  liberava a cadeia "Marcar como realizado" → Evidências; das 61 pessoas travadas em Ibipeba e Macaé,
-  **24 tinham evento de abertura registrado** na semana em que estavam paradas — abriram o conteúdo,
-  voltaram no dia seguinte e encontraram "abra o conteúdo antes de concluir". O dado estava em
-  `trilha_eventos` desde sempre e ninguém o lia de volta. Conveniência (aba, filtro) pode viver em
-  estado local; gate, não. E ao trocar um gate, **varra quem ALIMENTA o gate**: a 1ª correção deixou
-  só texto/case liberando, e quem preferia áudio seguia com os botões cinza. `docs/FMEA-PIPELINE.md`
-  §F-I23.
+- NÃO guardar em `useState` um estado que decide ACESSO — ele morre no F5 (25/08: `abriuConteudo`
+  travou 24 pessoas que tinham aberto o conteúdo; o dado estava em `trilha_eventos`). Conveniência
+  pode viver em estado local; gate, não. Ao trocar um gate, **varra quem ALIMENTA o gate**.
+  `docs/FMEA-PIPELINE.md` §F-I23.
 - NÃO remover um controle sem **grepar a palavra dele nos locales** — a copy que o NOMEIA sobrevive
   e vira instrução para apertar o que não existe. O botão "Marcar como realizado" saiu em 27/08 e o
   Tira-Dúvidas seguiu dizendo "Libera após marcar conteúdo como realizado" nos 4 idiomas; a
@@ -692,38 +587,29 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   composição, e composição não tem asserção. Extraia o screenshot da tela no estado real e um frame
   de cada beat do vídeo ANTES de entregar. Corolário: log que imprime `bbox=—` e segue com `✓` é o
   pior formato possível — alvo não encontrado tem que LANÇAR.
-- NÃO deixar **cota no schema** de um prompt competir com regra em prosa — a cota vence. O prompt do
-  PDI dizia "DISC é leitura contextual, NÃO diagnóstico fechado" e "não invente comportamento", e 40
-  linhas abaixo exigia `"pontos_atencao": ["2-3 áreas de atenção do perfil"]` a partir de
-  `D=.. I=.. S=.. C=..`. O modelo pode desobedecer a prosa; não pode deixar de entregar o campo —
-  então inferia, e saía *"tem dificuldade genuína com pressão"* afirmado como fato sobre a pessoa,
-  num PDF que vai para ela. Toda cota (`2-3 itens`, `exatamente N`) é ordem de inventar quando o
-  insumo não sustenta N: escreva `0 a N, e VAZIO se não sustentar`. E **nomeie o padrão proibido**
-  ("nunca escreva 'tem dificuldade com…'"), não só o desejado — abstrato não é verificável.
-  `Medido: 27/08` — a correção derrubou os achados do auditor de **39 → 22** (−44%, 6 de 6 sujeitos,
-  p=0,016); trocar Sonnet 5 por Opus 5 no mesmo teste moveu 39 → 38 (ruído) por +US$ 24,85/mês.
-  **Modelo melhor não conserta prompt que pede a coisa errada.** Detalhe: `docs/CUSTO-QUALIDADE.md`.
+- NÃO deixar **cota no schema** de um prompt competir com regra em prosa — a cota vence: toda cota
+  (`2-3 itens`, `exatamente N`) é ordem de inventar quando o insumo não sustenta N. Escreva `0 a N,
+  e VAZIO se não sustentar`, e **nomeie o padrão proibido**, não só o desejado. `Medido: 27/08` — a
+  correção no PDI derrubou os achados do auditor de 39 → 22; trocar Sonnet 5 por Opus 5 moveu 39 →
+  38. **Modelo melhor não conserta prompt que pede a coisa errada.** Detalhe: `docs/CUSTO-QUALIDADE.md`.
 - NÃO ler diferença entre dois modelos sem medir a **variância do instrumento** antes: repita a MESMA
   medição e veja o ruído. O piloto de 3 sujeitos deu 2×0 a favor do Opus e a rodada de 6 **inverteu
   um par** (mesma pessoa, mesmos modelos). Ruído de ±1 achado, efeito procurado de 1 a 3 = sorteio.
   E fixe `timeoutMs` folgado nos DOIS braços: chamada que morre no relógio cria viés de
   sobrevivência, sumindo justo a execução mais longa.
 - NÃO criar automação para algo com **data de fim** (feira, campanha, piloto) sem escrever, no
-  MESMO commit, o que a desliga. Medido 31/08: o CONARH acabou em 17/08 e duas semanas depois os
-  dois crons da régua seguiam armados — `conarh_reenvio_t0` **a cada 15 min das 11h às 23h**, 48
-  execuções/dia disparando WhatsApp para 7 leads de um evento encerrado. O comentário justificava
-  o intervalo curto e estava certo *durante* a feira: é isso que faz ninguém questionar depois, e
-  o sintoma é a AUSÊNCIA de sintoma (rodada sem pendente = query que devolve 0 linhas). Ao
-  encerrar evento, varra o **`vercel.json`**, não os logs. Gatilho § da skill `checklist`.
+  MESMO commit, o que a desliga (31/08: dois crons do CONARH seguiam armados duas semanas depois do
+  evento, disparando WhatsApp a cada 15 min). Ao encerrar evento, varra o **`vercel.json`**, não os
+  logs. Gatilho § da skill `checklist`.
 - NÃO passar mensagem de commit por `/tmp/msg*.txt`: `/tmp` é compartilhado entre sessões e com o
   dono, e o heredoc **não sobrescreve sem avisar** — medido 31/08, um commit meu saiu com a
   mensagem de outro trabalho, do dia anterior. Arquivo com nome próprio no scratchpad + `head -1`
   antes do `-F`.
-- NÃO validar texto em PORTUGUÊS com `` no regex — em JavaScript o word boundary é definido sobre
-  `[A-Za-z0-9_]`, e **letra acentuada não é word char**: `/voc[êe]/` NUNCA casa com "você".
+- NÃO validar texto em PORTUGUÊS com `\b` no regex — em JavaScript o word boundary é definido sobre
+  `[A-Za-z0-9_]`, e **letra acentuada não é word char**: `/\bvoc[êe]\b/` NUNCA casa com "você".
   Medido 02/09: uma validação assim reprovou duas gerações corretas seguidas, ambas abrindo com
   *"Você é coordenadora…"*, e o cargo ficou sem cenário porque o script apagava o anterior antes de
-  ter o substituto. Normalize antes: `txt.normalize('NFD').replace(/[̀-ͯ]/g,'')`. E
+  ter o substituto. Normalize antes: `txt.normalize('NFD').replace(/[\u0300-\u036f]/g,'')`. E
   **imprima o texto REPROVADO** — sem isso não se distingue erro do modelo de erro da régua.
   Detalhe: memória `reference_regex_word_boundary_acento`.
 - NÃO escrever régua sobre `semanaAcessivel` comparando com o FIM do plano. `primeiraSemanaAcessivel`
@@ -732,31 +618,16 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   Medido 02/09: as 8 pessoas que já tinham concluído tudo entraram num lote de WhatsApp que afirmava
   "ainda há semanas em aberto". O sinal é `statusDaSemana === CONCLUIDO`. `docs/FMEA-PIPELINE.md`
   §F-I29.
-- NÃO disparar lote de mensagem sem rodar a PRÉVIA e **ler os nomes**. `prepararLoteTemplate` é o
-  mesmo núcleo da tela e devolve quem recebe, com os parâmetros resolvidos, e quem NÃO recebe com o
-  motivo. Foi ele — não a suíte — que pegou o F-I29 e o F-C14 antes de a mensagem sair.
-  ⚠️ E em lote MANUAL (script rodando o motor fora do cron) o **template não vem do papel**: o
-  `.env.local` não tem as `WHATSAPP_TEMPLATE_*`, então o nome se resolve pelo `CONTRATOS` de
-  `lib/notifications/pilula-template.ts` e se IMPRIME com a categoria antes do `--aplicar`. `APPROVED`
-  responde "posso enviar?", nunca "devo enviar por este?" — resolvi por papel e mandei 23 mensagens
-  em MARKETING, 6× o custo (09/09). `docs/TEMPLATES-WHATSAPP.md` §4.1; recuperar dia perdido do cron:
-  `docs/FMEA-PIPELINE.md` §F-C15.
-- NÃO deixar um caminho que DESVIA do trabalho sair com código de SUCESSO, e NÃO
-  comparar uma contagem com um tamanho declarado sem dizer sobre QUEM ela conta.
-  Medido 09/09: o convidado de degustação passou a atravessar o reset (decisão
-  certa), virou população do tenant, e duas asserções de elenco
-  (`=== ACME_DEMO_TEAM_SIZE`) lançaram **depois** do delete — o reset abortou no
-  meio e deixou **3 relatórios de 35**, com a central do RH em "Leitura analítica
-  ainda não disponível". Ninguém viu por uma semana porque o CLI imprimia
-  `RESET ACME DEMO ADIADO` e saía com `exit 0`: quem roda lê SUCESSO. Ator novo
-  na base (convidado, conta de teste, usuário de integração) entra na POPULAÇÃO,
-  não no ELENCO; e asserção de sanidade que roda depois do delete transforma dado
-  inesperado em tenant pela metade.
-  🔑 **A contagem se faz por PERTENCIMENTO, nunca por exclusão** (10/09):
-  excluir "os convidados" resolveu o caso e deixou a classe de pé — lista de
-  exceção cresce a cada ator novo, e sempre depois do incidente. `ehDoElencoAcme`
-  (`lib/demo/acme-elenco.ts`) pergunta quem ESTÁ declarado; ator novo não
-  pertence sem precisar ser previsto. Detalhe: `docs/FMEA-PIPELINE.md` §F-I33.
+- NÃO disparar lote de mensagem sem rodar a PRÉVIA (`prepararLoteTemplate`) e **ler os nomes** — foi
+  ela, não a suíte, que pegou o F-I29 e o F-C14. ⚠️ Em lote MANUAL o template não vem do papel:
+  resolva pelo `CONTRATOS` de `lib/notifications/pilula-template.ts` e IMPRIMA a categoria antes do
+  `--aplicar` (09/09: 23 mensagens em MARKETING, 6× o custo). `docs/TEMPLATES-WHATSAPP.md` §4.1;
+  dia perdido do cron: `docs/FMEA-PIPELINE.md` §F-C15.
+- NÃO deixar um caminho que DESVIA do trabalho sair com código de SUCESSO, e NÃO comparar contagem
+  com tamanho declarado sem dizer sobre QUEM ela conta (09/09: o reset do ACME abortou no meio,
+  deixou 3 relatórios de 35 e o CLI saiu com `exit 0`). Ator novo entra na POPULAÇÃO, não no
+  ELENCO. 🔑 **Contagem por PERTENCIMENTO, nunca por exclusão**: `ehDoElencoAcme`
+  (`lib/demo/acme-elenco.ts`). Detalhe: `docs/FMEA-PIPELINE.md` §F-I33.
 - NÃO preencher campo de CONFIGURAÇÃO DE PRODUTO (ritual, cadência, prazo, teto)
   por ANALOGIA com o modelo vizinho. Em 02/09 criei `semanasCheckpoint` e dei
   `[3, 5]` à jornada de 7 semanas copiando a proporção do modelo de 14; o dono
@@ -765,17 +636,9 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   plausível e o comentário ao lado a disfarça de decisão tomada. Sem fonte (dono,
   doc, valor em uso), deixe vazio e diga que está vazio.
 - NÃO entregar mídia (vídeo, áudio, tela) sem MEDIR o artefato produzido, e não construir a trava
-  sobre o RELATO de um instrumento sem antes confirmar o defeito no sinal bruto. Medido 11/09/2026
-  no pipeline de tutorial: quatro defeitos numa rodada, **todos achados pelo dono assistindo** — o
-  1º e o último beat de TODO tutorial saindo sem legenda, um modal cobrindo as 4 capturas do PDI
-  (o guard perguntava se o alvo EXISTE, e existia atrás dele), a narração prometendo um formato que
-  a tela não mostrava, e a voz dizendo "do jeito certo" onde a legenda dizia "do seu jeito" — esta
-  última porque **nada no pipeline comparava roteiro com fala**, tendo os dois na mão. E no conserto,
-  dois modos silenciosos: `-ss` DEPOIS do `-i` faz o `-af` ver o arquivo INTEIRO (11 de 12 fatias a
-  −180 dB, sem erro em lugar nenhum) e a captura resolvia colaborador por e-mail SEM tenant, semeando
-  uma trilha enquanto a tela lia outra. ⚠️ A 1ª versão da trava de fidelidade contava tokens da
-  transcrição e reprovaria take BOM: o Whisper alucina repetição no fim do arquivo — quatro palavras
-  em 60 ms que a onda mostra não existirem. Detalhe: `docs/FMEA-PIPELINE.md` §F-I34.
+  sobre o RELATO de um instrumento sem confirmar o defeito no sinal bruto (11/09: quatro defeitos
+  num tutorial, todos achados pelo dono assistindo; o Whisper alucina repetição no fim do arquivo).
+  `-ss` DEPOIS do `-i` faz o `-af` ver o arquivo inteiro. Detalhe: `docs/FMEA-PIPELINE.md` §F-I34.
 - NÃO escrever régua de ORDENAÇÃO que mede só a FORMA do item (tem o campo escrito? tem link? é
   recente? é longo?) quando o que decide é o ASSUNTO. Sem um termo que meça conteúdo, itens
   incomparáveis empatam e o desempate cai numa proxy fraca — e o 1º item é o que a UI mostra e o
@@ -789,12 +652,10 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   por citar valor); e a fronteira entre dois termos do score vira `it()` próprio, em vez de emergir
   dos pesos. ⚠️ Régua nova faz teste antigo passar pelo motivo errado — grepe os fixtures vizinhos
   (um `it` que provava "a implicação decide" citava "Gestor novo…", e "gestor" virou termo de tema).
-- NÃO estimar custo de tarefa que usa FERRAMENTA (busca web) somando só tokens: a Responses API cobra
-  **US$ 0,01 por `web_search_call`** à parte, e quem decide quantas buscas fazer é o MODELO. Medido
-  12/09: metade da conta das 5 pesquisas do Copiloto era ferramenta, e trocar o modelo de pesquisa
-  (o par em `lib/ai-tasks.ts`) derrubou a trilha de notícias **68%** — não pelo preço do token, mas
-  porque o modelo novo faz **4-5 buscas onde o anterior fazia 24,2**. `max_tool_calls` foi medido e **REPROVADO** (desrespeitado,
-  economia dentro do ruído, −2 fatos). `docs/CUSTO-QUALIDADE.md` §12/09 "o custo do Copiloto é BUSCA".
+- NÃO estimar custo de tarefa que usa FERRAMENTA (busca web) somando só tokens: `web_search_call`
+  custa US$ 0,01 à parte e quem decide quantas buscas fazer é o MODELO (12/09: trocar o modelo de
+  pesquisa derrubou a trilha 68% por fazer 4-5 buscas em vez de 24,2; `max_tool_calls` foi
+  REPROVADO). `docs/CUSTO-QUALIDADE.md` §12/09.
 - NÃO concluir "env sobrescreveu o modelo" a partir do ledger sem ler o CÓDIGO NA DATA daquelas
   chamadas (`git show <ref>^:<arquivo>`). Medido 12/09: 75 de 75 chamadas do Copiloto num modelo que
   **não** era o default declarado em `lib/ai-tasks.ts` pareciam env fantasma, e eram só o id

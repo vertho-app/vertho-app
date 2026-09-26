@@ -1,6 +1,6 @@
 ---
 name: vertho-design
-description: Sistema de design da marca Vertho (cor, tipografia, logo, voz e regras visuais). Use ao criar/ajustar qualquer artefato de marca — PDFs, telas de admin/dashboard, e-mails, one-pagers, slides, protótipos ou o site institucional — ou quando o usuário falar em design, branding, identidade, cores, tipografia, logo ou "look and feel". Encodes os tokens canônicos, a voz (arquétipo Sábio, PT-BR) e a regra de ouro: tokens/regras = verdade; os componentes deste bundle = referência ilustrativa (produção usa os componentes REAIS do app).
+description: 'Sistema de design da marca Vertho (cor, tipografia, logo, voz e regras visuais). Use ao criar/ajustar qualquer artefato de marca — PDFs, telas de admin/dashboard, e-mails, one-pagers, slides, protótipos ou o site institucional — ou quando o usuário falar em design, branding, identidade, cores, tipografia, logo ou "look and feel". Encodes os tokens canônicos, a voz (arquétipo Sábio, PT-BR) e a regra de ouro: tokens/regras = verdade; os componentes deste bundle = referência ilustrativa (produção usa os componentes REAIS do app).'
 user-invocable: true
 ---
 

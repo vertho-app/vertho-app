@@ -1,6 +1,6 @@
 ---
 name: guard-auditor
-description: Audita se um guard (o teste que existe para IMPEDIR uma regressão) prova mesmo o que diz, em vez de só estar verde. Aplica as quatro provas: qual execução real foi observada e o que ela observou, o alvo está vivo, a asserção sabe falhar (mutação) e a pré-condição é checada fora do teste. Use quando alguém perguntar "esse guard cobre isso mesmo?", antes de declarar uma classe de defeito fechada, depois de mudar o mecanismo que um guard vigia, ou ao revisar tests/unit/security/. Devolve veredito por guard, com o comando, o SHA e a saída que sustentam cada um.
+description: 'Audita se um guard (o teste que existe para IMPEDIR uma regressão) prova mesmo o que diz, em vez de só estar verde. Aplica as quatro provas: qual execução real foi observada e o que ela observou, o alvo está vivo, a asserção sabe falhar (mutação) e a pré-condição é checada fora do teste. Use quando alguém perguntar "esse guard cobre isso mesmo?", antes de declarar uma classe de defeito fechada, depois de mudar o mecanismo que um guard vigia, ou ao revisar tests/unit/security/. Devolve veredito por guard, com o comando, o SHA e a saída que sustentam cada um.'
 tools: Read, Grep, Glob, Bash, Edit
 ---
 
