@@ -53,10 +53,16 @@ vi.mock('@/lib/degradacao', async (orig) => ({
 }));
 // ffmpeg/ffprobe: toda duração medida é 10 s; todo arquivo lido tem `pcmBytes` de PCM mudo (1 s).
 let pcmBytes = 48000;
+/** Seno de 220 Hz, pico 0,1: a fala "medida" sai a −23 dBFS em qualquer arquivo lido. */
+function tomPcm(bytes: number): Buffer {
+  const b = Buffer.alloc(bytes);
+  for (let i = 0; i < bytes / 2; i++) b.writeInt16LE(Math.round(0.1 * 32767 * Math.sin((2 * Math.PI * 220 * i) / 24000)), i * 2);
+  return b;
+}
 vi.mock('node:util', async (orig) => ({ ...(await orig<typeof import('node:util')>()), promisify: () => async (cmd: string) => ({ stdout: /ffprobe/.test(cmd) ? '10.0' : '' }) }));
 vi.mock('node:fs/promises', async (orig) => ({
   ...(await orig<typeof import('node:fs/promises')>()),
-  mkdtemp: async () => '/tmp/teste', writeFile: async () => {}, rm: async () => {}, readFile: async () => Buffer.alloc(pcmBytes),
+  mkdtemp: async () => '/tmp/teste', writeFile: async () => {}, rm: async () => {}, readFile: async () => tomPcm(pcmBytes),
 }));
 
 import { executarGeracaoVideoModulo } from '@/trigger/gerar-video-modulo';
@@ -78,6 +84,7 @@ const MAE = {
 };
 const payload = (extra: any = {}) => ({
   grupoId: 'g-1', assinatura: '', f0Hz: 204.5,
+  referencia: { takeUnico: true, nivelDb: -23, pps: 2 },
   textos: { intro: { title: 't', subtitle: 's', narration: INTRO }, outro: { title: 't', subtitle: 's', narration: OUTRO } },
   avatar: MAE, ...extra,
 });
@@ -101,7 +108,9 @@ function stubFetch() {
   }));
 }
 
-const fatiasDe = (cenas: { id: string }[]) => ({ ok: true, fatias: cenas.map((c, i) => ({ id: c.id, inicio: i * 0.2, fim: i * 0.2 + 0.2, words: [], casadas: 1, total: 1 })) });
+/** 10 palavras a EXATAMENTE 2 por segundo. */
+const dezA2pps = () => Array.from({ length: 10 }, (_, i) => ({ word: `p${i}`, start: i * 0.5, end: (i + 1) * 0.5 }));
+const fatiasDe = (cenas: { id: string }[]) => ({ ok: true, fatias: cenas.map((c, i) => ({ id: c.id, inicio: i * 0.2, fim: i * 0.2 + 0.2, words: dezA2pps(), casadas: 1, total: 1 })) });
 const RECUSA = 'TTS: nenhuma das 3 tentativa(s) passou no controle de qualidade; áudio não publicado (registro 1,6 st acima do alvo)';
 const textoDe = (chamada: any[]) => String(chamada[0]);
 
@@ -114,7 +123,7 @@ beforeEach(() => {
   degradacoes.length = 0;
   gerarClip.mockClear();
   tts.mockReset().mockImplementation(async () => ({ buffer: Buffer.alloc(4000), qa: { ok: true, tentativas: 1 } }));
-  transcribe.mockReset().mockResolvedValue([{ word: 'x', start: 0, end: 0.1 }]);
+  transcribe.mockReset().mockImplementation(async () => dezA2pps());
   planejar.mockReset().mockImplementation((_w: any, cenas: any[]) => fatiasDe(cenas));
   stubFetch();
 });
@@ -122,7 +131,8 @@ beforeEach(() => {
 /** Descobre a assinatura real rodando uma mãe (é o que o orquestrador gravaria). */
 async function assinaturaDaMae(): Promise<string> {
   const r: any = await executarGeracaoVideoModulo({ videoId: 'v-mae', roteiro: roteiro(), papelGrupo: 'mae' });
-  tts.mockClear(); gerarClip.mockClear(); patches = []; degradacoes.length = 0;
+  tts.mockClear(); gerarClip.mockClear(); planejar.mockClear(); patches = []; degradacoes.length = 0;
+  for (const k of Object.keys(subidos)) delete subidos[k];
   return r.grupo.assinatura;
 }
 
@@ -224,6 +234,64 @@ describe('irmã', () => {
     expect(tts.mock.calls[0][1]).not.toHaveProperty('alvo');
     expect(gerarClip).toHaveBeenCalledTimes(2);
     expect(degradacoes.find((d) => d.chave === 'grupo:irma')?.detalhe?.motivo).toMatch(/assinatura/);
+  });
+});
+
+describe('emenda da irmã: caminho, ritmo e nível (escuta cega de 26/09/2026)', () => {
+  it('a mãe devolve a régua: caminho, nível (−23 dBFS do tom) e ritmo da ABERTURA + FECHO', async () => {
+    // Fecho a 4 pal/s, o resto a 2: o ritmo do avatar junta os dois (20 palavras em 7,5 s).
+    planejar.mockImplementation((_w: any, cenas: any[]) => {
+      const f = fatiasDe(cenas);
+      f.fatias[f.fatias.length - 1].words = Array.from({ length: 10 }, (_, i) => ({ word: `q${i}`, start: i * 0.25, end: (i + 1) * 0.25 }));
+      return f;
+    });
+    const r: any = await executarGeracaoVideoModulo({ videoId: 'v-mae', roteiro: roteiro(), papelGrupo: 'mae' });
+    expect(r.grupo.referencia.takeUnico).toBe(true);
+    expect(r.grupo.referencia.nivelDb).toBeCloseTo(-23, 0);
+    expect(r.grupo.referencia.pps).toBeCloseTo(20 / 7.5, 3);
+  });
+
+  it('mãe que narrou CENA A CENA: a irmã narra o miolo cena a cena também (sem take único)', async () => {
+    const ass = await assinaturaDaMae();
+    await executarGeracaoVideoModulo({ videoId: 'v-irma', roteiro: roteiro(), avatarGrupo: payload({ assinatura: ass, referencia: { takeUnico: false, nivelDb: -23, pps: 2 } }) });
+    expect(planejar).not.toHaveBeenCalled();
+    expect(tts.mock.calls.map(textoDe)).toEqual(expect.arrayContaining(['Miolo um no tom do perfil.', 'Miolo dois no tom do perfil.']));
+    expect(tts).toHaveBeenCalledTimes(2);
+    expect(gerarClip).not.toHaveBeenCalled();
+    expect(degradacoes.some((d) => d.chave === 'grupo:irma')).toBe(false);
+  });
+
+  it('ritmo do miolo fora da faixa do avatar: sai do grupo e refaz TUDO como hoje', async () => {
+    const ass = await assinaturaDaMae();
+    // Miolo a 2 pal/s contra um avatar a 1,5: 1,33×, fora dos ±15%.
+    await executarGeracaoVideoModulo({ videoId: 'v-irma', roteiro: roteiro(), avatarGrupo: payload({ assinatura: ass, referencia: { takeUnico: true, nivelDb: -23, pps: 1.5 } }) });
+    expect(degradacoes.find((d) => d.chave === 'grupo:irma')?.detalhe?.motivo).toMatch(/emenda .*ritmo do miolo 1\.33×/);
+    // 1º take: só o miolo, com o alvo; 2º take: o vídeo inteiro, sem o alvo.
+    expect(tts).toHaveBeenCalledTimes(2);
+    expect(tts.mock.calls[0][1].alvo).toBeDefined();
+    expect(textoDe(tts.mock.calls[1])).toContain('Quando tudo chega');
+    expect(tts.mock.calls[1][1]).not.toHaveProperty('alvo');
+    expect(gerarClip).toHaveBeenCalledTimes(2);
+    expect(patches.at(-1).assets['scene-1'].src).not.toBe(MAE.intro.src);
+  });
+
+  it('nível do miolo diferente do avatar: o miolo é regravado no nível dele (−23 → −30 dBFS)', async () => {
+    const ass = await assinaturaDaMae();
+    await executarGeracaoVideoModulo({ videoId: 'v-irma', roteiro: roteiro(), avatarGrupo: payload({ assinatura: ass, referencia: { takeUnico: true, nivelDb: -30, pps: 2 } }) });
+    const final = patches.at(-1).assets;
+    for (const id of ['scene-2', 'scene-3']) {
+      expect(final[id].src).toMatch(new RegExp(`v-irma/${id}-nivel-.*\\.mp3$`));
+      // O mp3 regravado carrega o PCM com o ganho: mesmo tamanho, −7 dB.
+      expect(subidos[final[id].src.replace('https://st.test/', '')].toString()).toMatch(/^MP3-PCM:\d+$/);
+    }
+    expect(final['scene-1'].src).toBe(MAE.intro.src);
+    expect(gerarClip).not.toHaveBeenCalled();
+  });
+
+  it('nível já igual ao do avatar: o miolo não é regravado', async () => {
+    const ass = await assinaturaDaMae();
+    await executarGeracaoVideoModulo({ videoId: 'v-irma', roteiro: roteiro(), avatarGrupo: payload({ assinatura: ass }) });
+    expect(Object.keys(subidos).some((k) => k.includes('-nivel-'))).toBe(false);
   });
 });
 

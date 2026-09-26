@@ -1614,6 +1614,13 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   referência com narração única aprovada. Com essa taxa de recusa, o grupo quase nunca pegaria.
   Custo do piloto na HeyGen: US$ 1,69 (três pares, não um). **Decisão do dono no mesmo dia:** a mãe
   vira referência também pelo caminho por cena, com o alvo medido no áudio do avatar dela.
+- **Piloto de 25-26/09/2026, 2ª rodada (grupo Gerente Comercial): o grupo DIVIDIU o avatar** (irmãs com
+  os mp4 e os ids de clipe da mãe; HeyGen só da mãe). **Escuta cega do dono:** irmã I (miolo cena a
+  cena, como a mãe) a MELHOR, a mãe 2ª, irmã S (miolo em take único) "não ficou boa". A régua de altura
+  previa o contrário; o que separou foi ritmo (miolo ÷ avatar: 1,04×, 0,90×, 1,23×) e nível (2, 4 e
+  5 dB). **Correção:** a irmã narra pelo caminho da mãe, e a emenda confere ritmo (±15%) e nivela o
+  miolo ao avatar (`avaliarEmenda`, `nivelarMiolo` em `lib/video/avatar-grupo.ts`). Grupo gravado
+  antes disso (sem `referencia`) não é reaproveitável.
 
 ### F-V7 · O TTS repete a frase final da cena narrada sozinha, e a HeyGen dubla a repetição 🔴 (corrigido 25/09/2026 no código; vídeos antigos NÃO)
 - **Gatilho:** no caminho por cena (narração única recusada, ou retake de uma cena), cada cena é

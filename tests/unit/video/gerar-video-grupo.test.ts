@@ -35,7 +35,10 @@ const AVATAR = {
   intro: { src: 'https://x/mae/scene-1.mp4', audioSrc: 'https://x/mae/scene-1.mp3', durationSec: 15, heygenVideoId: 'h1' },
   outro: { src: 'https://x/mae/scene-9.mp4', audioSrc: 'https://x/mae/scene-9.mp3', durationSec: 13, heygenVideoId: 'h2' },
 };
-const MAE_OK = { ok: true, output: { ok: true, grupo: { takeUnico: true, f0Hz: 204.5, assinatura: 'ass-1', avatar: AVATAR } } };
+const REF = { takeUnico: false, nivelDb: -21.5, pps: 2.01 };
+const MAE_OK = { ok: true, output: { ok: true, grupo: { takeUnico: false, f0Hz: 204.5, referencia: REF, assinatura: 'ass-1', avatar: AVATAR } } };
+/** Como o grupo guarda o avatar: com a régua da emenda junto (26/09/2026). */
+const AVATAR_GRAVADO = { ...AVATAR, referencia: REF };
 
 let grupo: any;
 let celulas: Array<{ id: string; disc_dominante: string; roteiro: any; etapa: string }>;
@@ -90,10 +93,10 @@ describe('executarGrupoAvatar · caminho feliz', () => {
 
     expect(triggerAndWait).toHaveBeenCalledTimes(1);
     expect(triggerAndWait.mock.calls[0][0]).toMatchObject({ videoId: 'v-D', papelGrupo: 'mae' });
-    expect(patchesGrupo.at(-1)).toMatchObject({ status: 'pronto', avatar: AVATAR, f0_hz: 204.5, assinatura: 'ass-1' });
+    expect(patchesGrupo.at(-1)).toMatchObject({ status: 'pronto', avatar: AVATAR_GRAVADO, f0_hz: 204.5, assinatura: 'ass-1' });
     expect(disparadas().map((p: any) => p.videoId)).toEqual(['v-I', 'v-S']);
     for (const p of disparadas()) {
-      expect(p.avatarGrupo).toEqual({ grupoId: 'g-1', assinatura: 'ass-1', f0Hz: 204.5, textos: TEXTOS, avatar: AVATAR });
+      expect(p.avatarGrupo).toEqual({ grupoId: 'g-1', assinatura: 'ass-1', f0Hz: 204.5, referencia: REF, textos: TEXTOS, avatar: AVATAR });
     }
     expect(r).toMatchObject({ ok: true, mae: 'v-D', irmas: ['v-I', 'v-S'] });
     expect(degradacoes).toEqual([]);
@@ -108,7 +111,7 @@ describe('executarGrupoAvatar · caminho feliz', () => {
   });
 
   it('grupo já pronto: ninguém vira mãe, todas saem como irmãs', async () => {
-    Object.assign(grupo, { status: 'pronto', avatar: AVATAR, f0_hz: 199, assinatura: 'ass-0' });
+    Object.assign(grupo, { status: 'pronto', avatar: AVATAR_GRAVADO, f0_hz: 199, assinatura: 'ass-0' });
     await executarGrupoAvatar({ grupoId: 'g-1' });
     expect(triggerAndWait).not.toHaveBeenCalled();
     expect(disparadas().map((p: any) => p.videoId)).toEqual(['v-D', 'v-I', 'v-S']);
@@ -116,7 +119,7 @@ describe('executarGrupoAvatar · caminho feliz', () => {
   });
 
   it('grupo "pronto" sem avatar utilizável é tratado como pendente (gera mãe)', async () => {
-    Object.assign(grupo, { status: 'pronto', avatar: { intro: AVATAR.intro, outro: null }, f0_hz: 199, assinatura: 'ass-0' });
+    Object.assign(grupo, { status: 'pronto', avatar: { intro: AVATAR.intro, outro: null, referencia: REF }, f0_hz: 199, assinatura: 'ass-0' });
     await executarGrupoAvatar({ grupoId: 'g-1' });
     expect(triggerAndWait).toHaveBeenCalledTimes(1);
   });
@@ -141,6 +144,8 @@ describe('executarGrupoAvatar · a mãe não serve de referência', () => {
     ['falhou', { ok: false, error: { message: 'HeyGen timeout aguardando video_id x' } }, /mãe falhou: HeyGen timeout/],
     ['sem F0 do avatar', { ok: true, output: { grupo: { ...MAE_OK.output.grupo, f0Hz: null } } }, /F0 medida no áudio do avatar/],
     ['sem o fecho', { ok: true, output: { grupo: { ...MAE_OK.output.grupo, avatar: { intro: AVATAR.intro, outro: null } } } }, /duas cenas/],
+    ['sem ritmo do avatar', { ok: true, output: { grupo: { ...MAE_OK.output.grupo, referencia: { ...REF, pps: null } } } }, /ritmo ou nível/],
+    ['sem nível do avatar', { ok: true, output: { grupo: { ...MAE_OK.output.grupo, referencia: { ...REF, nivelDb: null } } } }, /ritmo ou nível/],
   ])('mãe %s: grupo em erro, degradação, irmãs no fluxo de hoje (sem o avatar)', async (_nome, res, motivo) => {
     triggerAndWait.mockResolvedValue(res);
     const r: any = await executarGrupoAvatar({ grupoId: 'g-1' });
@@ -181,11 +186,14 @@ describe('executarGrupoAvatar · a mãe não serve de referência', () => {
 
 describe('payloadDoGrupo e problemaDaMae', () => {
   it('payload só existe com as duas cenas, F0, assinatura e textos', () => {
-    const g = { id: 'g-1', avatar: AVATAR, f0_hz: 200, assinatura: 'a', intro: TEXTOS.intro, outro: TEXTOS.outro };
-    expect(payloadDoGrupo(g)).not.toBeNull();
+    const g = { id: 'g-1', avatar: AVATAR_GRAVADO, f0_hz: 200, assinatura: 'a', intro: TEXTOS.intro, outro: TEXTOS.outro };
+    expect(payloadDoGrupo(g)?.referencia).toEqual(REF);
+    // Grupo gravado antes da régua da emenda (26/09/2026): não é reaproveitável.
+    expect(payloadDoGrupo({ ...g, avatar: AVATAR })).toBeNull();
+    expect(payloadDoGrupo({ ...g, avatar: { ...AVATAR, referencia: { ...REF, pps: 0 } } })).toBeNull();
     expect(payloadDoGrupo({ ...g, f0_hz: 0 })).toBeNull();
     expect(payloadDoGrupo({ ...g, assinatura: null })).toBeNull();
-    expect(payloadDoGrupo({ ...g, avatar: { ...AVATAR, intro: { ...AVATAR.intro, audioSrc: '' } } })).toBeNull();
+    expect(payloadDoGrupo({ ...g, avatar: { ...AVATAR_GRAVADO, intro: { ...AVATAR.intro, audioSrc: '' } } })).toBeNull();
     expect(payloadDoGrupo({ ...g, outro: { ...TEXTOS.outro, narration: '' } })).toBeNull();
   });
 

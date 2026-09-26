@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
   chaveGrupoAvatar, problemasDosTextosAvatar, aplicarAvatarFixo, avatarDoGrupoParaCenas, recusaDoPortao,
+  nivelDeFalaDb, ritmoPalavrasPorSeg, avaliarEmenda, aplicarGanhoPcm16, nivelarMiolo, FAIXA_RITMO, GANHO_MAX_DB,
   type AvatarGrupoPayload,
 } from '@/lib/video/avatar-grupo';
 import { normalizarRoteiro } from '@/lib/video/roteiro-prompt';
@@ -109,6 +110,7 @@ describe('aplicarAvatarFixo', () => {
 const ASSINATURA = 'Aoede|gemini-2.5-flash-tts|2026-09-05|abcd1234|foto|avatar_iii|30';
 const payload = (extra: Partial<AvatarGrupoPayload> = {}): AvatarGrupoPayload => ({
   grupoId: 'g-1', assinatura: ASSINATURA, f0Hz: 205, textos: FIXO,
+  referencia: { takeUnico: false, nivelDb: -22, pps: 2.01 },
   avatar: {
     intro: { src: 'https://x/mae/scene-1.mp4', audioSrc: 'https://x/mae/scene-1.mp3', durationSec: 15.2, heygenVideoId: 'h1' },
     outro: { src: 'https://x/mae/scene-9.mp4', audioSrc: 'https://x/mae/scene-9.mp3', durationSec: 13.1, heygenVideoId: 'h2' },
@@ -172,3 +174,93 @@ describe('recusaDoPortao', () => {
     ]) expect(recusaDoPortao(m), m).toBe(false);
   });
 });
+
+/** PCM 16-bit mono: seno de 220 Hz com amplitude de pico `amp` (0..1), `segundos` de duração. */
+function tom(amp: number, segundos: number, sr = 24000): Buffer {
+  const n = Math.round(segundos * sr), b = Buffer.alloc(n * 2);
+  for (let i = 0; i < n; i++) b.writeInt16LE(Math.round(amp * 32767 * Math.sin((2 * Math.PI * 220 * i) / sr)), i * 2);
+  return b;
+}
+/** `n` palavras a EXATAMENTE `pps` palavras por segundo (a última termina em n/pps). */
+const falaA = (pps: number, n = 20, t0 = 0) => Array.from({ length: n }, (_, i) => ({ word: `p${i}`, start: t0 + i / pps, end: t0 + (i + 1) / pps }));
+
+describe('nivelDeFalaDb e ritmoPalavrasPorSeg', () => {
+  it('nível = RMS da fala em dBFS; o silêncio entre as falas não puxa para baixo', () => {
+    // Seno de pico 0,1 → RMS 0,0707 → −23,0 dBFS.
+    expect(nivelDeFalaDb(tom(0.1, 3), 24000)).toBeCloseTo(-23, 0);
+    const comPausa = Buffer.concat([tom(0.1, 2), Buffer.alloc(24000 * 2 * 3), tom(0.1, 2)]);
+    expect(nivelDeFalaDb(comPausa, 24000)).toBeCloseTo(-23, 0);
+    expect(nivelDeFalaDb(Buffer.alloc(24000 * 2 * 3), 24000)).toBeNull();
+  });
+
+  it('ritmo soma os trechos (cada um da 1ª à última palavra) e exige 10 palavras', () => {
+    expect(ritmoPalavrasPorSeg([falaA(2, 10), falaA(2, 10, 50)])).toBeCloseTo(2, 5);
+    expect(ritmoPalavrasPorSeg([falaA(2, 5)])).toBeNull();
+    expect(ritmoPalavrasPorSeg([undefined, null, []])).toBeNull();
+  });
+});
+
+describe('avaliarEmenda · os números da escuta cega de 26/09/2026', () => {
+  const REF = { takeUnico: false, nivelDb: -20, pps: 2.01 };
+
+  it('miolo 1,23× mais rápido que o avatar (o A, que o dono reprovou): recusa', () => {
+    const r = avaliarEmenda(REF, [{ id: 'scene-2', nivelDb: -25, words: falaA(2.47) }]);
+    expect(r.ok).toBe(false);
+    expect(r.motivo).toMatch(/ritmo do miolo 1\.23× o do avatar/);
+  });
+
+  it('miolo 1,04× (o B, o melhor): aceita e calcula o ganho para o nível do avatar', () => {
+    const r = avaliarEmenda(REF, [
+      { id: 'scene-2', nivelDb: -25, words: falaA(2.10) },
+      { id: 'scene-3', nivelDb: -20.3, words: falaA(2.10) },
+    ]);
+    expect(r.ok).toBe(true);
+    expect(r.razaoRitmo).toBeGreaterThan(1 - FAIXA_RITMO);
+    expect(r.razaoRitmo).toBeLessThan(1 + FAIXA_RITMO);
+    // −25 → −20: +5 dB. A −20,3 a diferença não se ouve: fica como está.
+    expect(r.ganhos).toEqual({ 'scene-2': 5 });
+  });
+
+  it(`ganho limitado a ±${GANHO_MAX_DB} dB; sem nível de referência, nenhum ganho (mas a emenda vale)`, () => {
+    const r = avaliarEmenda(REF, [{ id: 'scene-2', nivelDb: -40, words: falaA(2.01) }]);
+    expect(r.ganhos['scene-2']).toBe(GANHO_MAX_DB);
+    const s = avaliarEmenda({ ...REF, nivelDb: null }, [{ id: 'scene-2', nivelDb: -40, words: falaA(2.01) }]);
+    expect(s.ok).toBe(true);
+    expect(s.ganhos).toEqual({});
+  });
+
+  it('sem ritmo medido (ASR sem timing) RECUSA: sem medida não há como afirmar a costura', () => {
+    expect(avaliarEmenda(REF, [{ id: 'scene-2', nivelDb: -20, words: undefined }]).ok).toBe(false);
+    expect(avaliarEmenda({ ...REF, pps: null }, [{ id: 'scene-2', nivelDb: -20, words: falaA(2) }]).ok).toBe(false);
+  });
+});
+
+describe('aplicarGanhoPcm16 e nivelarMiolo', () => {
+  it('+6 dB dobra a amplitude', () => {
+    const r = aplicarGanhoPcm16(tom(0.1, 1), 6.0206);
+    expect(nivelDeFalaDb(r.pcm, 24000)).toBeCloseTo(-17, 0);
+    expect(r.ganhoDb).toBeCloseTo(6.02, 1);
+  });
+
+  it('nunca clipa: se o pico passaria do teto, o ganho encolhe e o valor aplicado volta', () => {
+    const r = aplicarGanhoPcm16(tom(0.5, 1), 9);
+    let pico = 0;
+    for (let i = 0; i < r.pcm.length / 2; i++) pico = Math.max(pico, Math.abs(r.pcm.readInt16LE(i * 2)));
+    expect(pico).toBeLessThanOrEqual(Math.ceil(0.977 * 32767));
+    expect(r.ganhoDb).toBeLessThan(9);
+    expect(r.ganhoDb).toBeCloseTo(20 * Math.log10(0.977 / 0.5), 1);
+  });
+
+  it('só reescreve as cenas com ganho, e sobe o PCM já com o ganho', async () => {
+    const baixadas: string[] = [];
+    const subidas: Record<string, number | null> = {};
+    const r = await nivelarMiolo({ 'scene-2': 5 }, {
+      baixarPcm: async (id) => { baixadas.push(id); return tom(0.1, 2); },
+      subir: async (id, pcm) => { subidas[id] = nivelDeFalaDb(pcm, 24000); return `https://x/${id}-nivel.mp3`; },
+    });
+    expect(baixadas).toEqual(['scene-2']);
+    expect(subidas['scene-2']).toBeCloseTo(-18, 0);
+    expect(r).toEqual({ 'scene-2': { src: 'https://x/scene-2-nivel.mp3', ganhoDb: 5 } });
+  });
+});
+

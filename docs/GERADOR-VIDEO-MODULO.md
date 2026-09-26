@@ -115,9 +115,19 @@ do acervo de 24/09: −40 a −51% por módulo.
    grupo quase nunca pegar. A mãe que saiu pelo caminho por cena tem a costura de sempre; as irmãs
    herdam a mesma.
 5. **Irmã** (`gerar-video-modulo`, payload `avatarGrupo`): as cenas de avatar chegam prontas (mp4 da
-   mãe, mp3, timing); a narração única cobre só o miolo, com o portão julgando a altura contra a F0 do
-   AVATAR da mãe, abertura e fecho juntos (`alvo`, tolerância do elenco). O passo da HeyGen pula
-   sozinho.
+   mãe, mp3, timing). O miolo é narrado pelo MESMO caminho da mãe: take único (com o portão julgando
+   a altura contra a F0 do avatar da mãe, `alvo`) se a mãe saiu em take único; cena a cena se ela saiu
+   cena a cena. O passo da HeyGen pula sozinho.
+6. **Emenda** (desde 26/09/2026): depois de narrar, a irmã confere o miolo contra a régua do avatar
+   que a mãe mediu (`referencia`: caminho, nível da fala em dBFS, ritmo em palavras por segundo).
+   Ritmo fora de ±15% = sai do grupo e refaz tudo como hoje. Dentro, cada cena do miolo é levada ao
+   nível do avatar (até ±9 dB, sem clipar).
+
+**Por que a emenda mede ritmo e nível, e não só altura** (`Medido 26/09/2026`, escuta cega do dono,
+grupo Gerente Comercial do ACME Demo): a irmã com o MENOR salto de altura foi a pior, porque o miolo
+dela saiu num take único 23% mais rápido e 5 dB mais baixo que o avatar, que a mãe narrou cena a cena.
+A irmã que narrou o miolo pelo mesmo caminho da mãe (ritmo 1,04×, 2 dB) foi a melhor, acima da própria
+mãe. O take único sai ~20-25% mais rápido que as sínteses por cena com direção de abertura e fecho.
 
 **Tabela** `video_avatar_grupo` (mig 270): `chave` única = hash de empresa, módulo, cargo, contexto
 do cargo e do PPP e `VERSAO_AVATAR_GRUPO`. Status `pendente` → `pronto` | `erro` (fonte:

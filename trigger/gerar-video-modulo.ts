@@ -7,7 +7,7 @@ import nodePath from 'node:path';
 import { renderVideoTask } from './render-video';
 import { generateNarrationAudio, modeloTtsEfetivo } from '../lib/gemini-tts';
 import { gerarClipHeyGen, aguardarClipHeyGen, motorHeyGen, fotoPadraoHeyGen } from '../lib/video/heygen';
-import { planoDeNarracao, avatarDoGrupoParaCenas, recusaDoPortao, type AvatarGrupoPayload, type AssetAvatar } from '../lib/video/avatar-grupo';
+import { planoDeNarracao, avatarDoGrupoParaCenas, recusaDoPortao, nivelDeFalaDb, ritmoPalavrasPorSeg, avaliarEmenda, nivelarMiolo, type AvatarGrupoPayload, type AssetAvatar, type ReferenciaAvatar } from '../lib/video/avatar-grupo';
 import { medirDeriva } from '../lib/tts/deriva';
 import { montarInputProps, exportCaptionsToSrt, exportCaptionsToVtt, type AssetMap } from '../lib/video/montar-inputprops';
 import type { VideoRoteiro } from '../lib/video/roteiro-prompt';
@@ -223,28 +223,33 @@ export interface AvatarDaMae {
   /** F0 mediana da fala do AVATAR da mãe (abertura + fecho): o alvo do portão para o miolo
    *  das irmãs, que é emendado justamente nessas duas cenas. */
   f0Hz: number | null;
+  /** Caminho, nível e ritmo do avatar: a régua da emenda das irmãs (26/09/2026). */
+  referencia: ReferenciaAvatar;
   assinatura: string;
   avatar: { intro: AssetAvatar | null; outro: AssetAvatar | null };
 }
 
+/** Baixa um mp3 do Storage e devolve o PCM 24 kHz (download não-ok é erro). */
+async function pcmDaUrl(u: string): Promise<Buffer> {
+  const r = await fetch(u);
+  if (!r.ok) throw new Error(`download ${r.status} de ${u.split('/').slice(-2).join('/')}`);
+  return mp3ParaPcm24k(Buffer.from(await r.arrayBuffer()));
+}
+
 /**
- * F0 mediana da fala do avatar (abertura + fecho juntos). É contra essa altura que o
- * miolo da irmã é julgado, então ela é medida no áudio que a irmã de fato recebe, e não
+ * F0 mediana e nível da fala do avatar (abertura + fecho juntos). É contra eles que o
+ * miolo da irmã é julgado, então são medidos no áudio que a irmã de fato recebe, e não
  * no take inteiro (que nem existe quando a mãe saiu pelo caminho por cena). `null` se
  * não deu para baixar ou medir: aí a mãe não serve de referência.
  */
-async function f0DoAvatar(urls: string[]): Promise<number | null> {
+async function medirAvatar(urls: string[]): Promise<{ f0Hz: number | null; nivelDb: number | null }> {
   try {
-    const pcms = await Promise.all(urls.map(async (u) => {
-      const r = await fetch(u);
-      if (!r.ok) throw new Error(`download ${r.status} de ${u.split('/').slice(-2).join('/')}`);
-      return mp3ParaPcm24k(Buffer.from(await r.arrayBuffer()));
-    }));
-    const f0 = medirDeriva(Buffer.concat(pcms), 24000).f0MedHz;
-    return f0 > 0 ? f0 : null;
+    const pcm = Buffer.concat(await Promise.all(urls.map(pcmDaUrl)));
+    const f0 = medirDeriva(pcm, 24000).f0MedHz;
+    return { f0Hz: f0 > 0 ? f0 : null, nivelDb: nivelDeFalaDb(pcm, 24000) };
   } catch (e) {
-    console.warn('[avatar-grupo] não mediu a F0 do avatar da mãe:', (e as Error)?.message);
-    return null;
+    console.warn('[avatar-grupo] não mediu o avatar da mãe:', (e as Error)?.message);
+    return { f0Hz: null, nivelDb: null };
   }
 }
 
@@ -504,7 +509,12 @@ export async function executarGeracaoVideoModulo(p: {
           detalhe: { videoId, motivo: motivo.slice(0, 400), cenas: cenasComTexto.length },
         });
       };
-      if (NARRACAO_UNICA && planoNarracao.usarTakeUnico) {
+      // Irmã de mãe que narrou CENA A CENA narra o miolo cena a cena também: o take único
+      // sai ~20-25 % mais rápido que as sínteses por cena, e foi essa costura de ritmo que
+      // o dono ouviu na escuta cega de 26/09/2026 (a irmã em take único foi a pior).
+      const mioloPorCena = fixas.size > 0 && p.avatarGrupo?.referencia?.takeUnico === false;
+      if (mioloPorCena) console.log(`[avatar-grupo] ${videoId}: a mãe narrou cena a cena; o miolo da irmã também`);
+      if (NARRACAO_UNICA && planoNarracao.usarTakeUnico && !mioloPorCena) {
         try {
           await narrarTakeUnico(planoNarracao.pendentes, alvoDoGrupo);
         } catch (e) {
@@ -525,6 +535,7 @@ export async function executarGeracaoVideoModulo(p: {
         }
       }
 
+      const narrarPorCena = async () => {
       const comNarracao = cenasComTexto.filter((s) => !assets[s.id]?.src);
       await mapPool(comNarracao, NARRACAO_CONCURRENCY, async (s) => {
         // Dono e artefato explícitos: a auditoria consegue localizar a cena servida.
@@ -550,6 +561,48 @@ export async function executarGeracaoVideoModulo(p: {
         duracaoLocal[s.id] = await duracaoDoBuffer(buf, 'mp3');
         assets[s.id] = { src, durationSec: 0, words: words || undefined, ...(sobraS ? { sobraCortadaS: sobraS } : {}) };
       });
+      };
+      await narrarPorCena();
+
+      // 1c) EMENDA da irmã com o avatar da mãe: RITMO e NÍVEL (26/09/2026). Só a altura
+      // não bastava: na escuta cega do dono, a irmã com o menor salto de F0 foi a pior
+      // (miolo 1,23× mais rápido e 5 dB mais baixo que o avatar). Ritmo fora da faixa =
+      // sai do grupo e refaz TUDO como hoje; dentro, o miolo é levado ao nível do avatar.
+      if (fixas.size && p.avatarGrupo?.referencia) {
+        const ref = p.avatarGrupo.referencia;
+        const miolo = cenasComTexto.filter((s) => !fixas.has(s.id));
+        const pcmDaCena = (id: string) => pcmDaUrl(assets[id].src);
+        let emenda: ReturnType<typeof avaliarEmenda>;
+        try {
+          const medidas = await Promise.all(miolo.map(async (s) => ({ id: s.id, nivelDb: nivelDeFalaDb(await pcmDaCena(s.id), 24000), words: assets[s.id]?.words })));
+          emenda = avaliarEmenda(ref, medidas);
+        } catch (e) {
+          emenda = { ok: false, motivo: `não mediu o miolo: ${(e as Error)?.message}`, razaoRitmo: null, ganhos: {} };
+        }
+        if (emenda.ok) {
+          const novos = await nivelarMiolo(emenda.ganhos, {
+            baixarPcm: pcmDaCena,
+            subir: async (id, pcm) => {
+              const mp3 = pcmToMp3SemMaster(pcm, 24000);
+              const src = await storagePut('video-assets', `${videoId}/${id}-nivel-${GERACAO_TAG()}.mp3`, mp3, 'audio/mpeg');
+              duracaoLocal[id] = await duracaoDoBuffer(mp3, 'mp3');
+              return src;
+            },
+          });
+          for (const [id, n] of Object.entries(novos)) assets[id] = { ...assets[id], src: n.src };
+          console.log(`[avatar-grupo] ${videoId}: emenda ok · ritmo ${emenda.razaoRitmo?.toFixed(2)}× · ganho ${Object.entries(novos).map(([id, n]) => `${id} ${n.ganhoDb > 0 ? '+' : ''}${n.ganhoDb} dB`).join(' ') || 'nenhum'}`);
+        } else {
+          desligarDoGrupo(`emenda com o avatar da mãe: ${emenda.motivo}`);
+          // O miolo foi narrado para casar com o avatar da mãe. Sem ele, refaz TUDO como
+          // hoje: take único sobre o vídeo inteiro (ou por cena, se o take for recusado).
+          for (const s of cenasComTexto) { delete assets[s.id]; delete duracaoLocal[s.id]; }
+          planoNarracao = planoDeNarracao(roteiro.scenes, (id) => !!assets[id]?.src);
+          if (NARRACAO_UNICA && planoNarracao.usarTakeUnico) {
+            try { await narrarTakeUnico(planoNarracao.pendentes, undefined); } catch (e) { registrarRecusaDoTake(e); }
+          }
+          await narrarPorCena();
+        }
+      }
 
       // 2) AVATAR — HeyGen faz lip-sync do NOSSO mp3; re-hospedamos o mp4 (URL HeyGen
       // expira). Cenas de avatar em paralelo (intro + outro).
@@ -646,8 +699,9 @@ export async function executarGeracaoVideoModulo(p: {
           return a?.audioSrc ? { src: a.src, audioSrc: a.audioSrc, words: a.words, durationSec: a.durationSec, heygenVideoId: a.heygenVideoId } : null;
         };
         const avatar = { intro: doAvatar(intro), outro: doAvatar(outro) };
-        const f0Hz = avatar.intro && avatar.outro ? await f0DoAvatar([avatar.intro.audioSrc, avatar.outro.audioSrc]) : null;
-        return { takeUnico: takeUnicoOk, f0Hz, assinatura: assinaturaAvatar(), avatar };
+        const med = avatar.intro && avatar.outro ? await medirAvatar([avatar.intro.audioSrc, avatar.outro.audioSrc]) : { f0Hz: null, nivelDb: null };
+        const referencia: ReferenciaAvatar = { takeUnico: takeUnicoOk, nivelDb: med.nivelDb, pps: ritmoPalavrasPorSeg([avatar.intro?.words, avatar.outro?.words]) };
+        return { takeUnico: takeUnicoOk, f0Hz: med.f0Hz, referencia, assinatura: assinaturaAvatar(), avatar };
       };
 
       if ((process.env.RENDER_BACKEND || 'hetzner') === 'hetzner') {

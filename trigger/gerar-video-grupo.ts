@@ -37,7 +37,7 @@ interface Grupo {
   status: string;
   intro: any;
   outro: any;
-  avatar: AvatarDaMae['avatar'] | null;
+  avatar: (AvatarDaMae['avatar'] & { referencia?: AvatarDaMae['referencia'] }) | null;
   f0_hz: number | null;
   assinatura: string | null;
 }
@@ -90,13 +90,21 @@ async function reivindicar(g: Grupo, videoId: string): Promise<boolean> {
   return Array.isArray(rows) && rows.length > 0;
 }
 
+/** Número de verdade: `Number(null)` é 0 e passaria por "medido". */
+const ehNumero = (x: unknown): x is number => typeof x === 'number' && Number.isFinite(x);
+
 /** Payload da irmã a partir do grupo gravado. `null` = o grupo não tem o que reaproveitar. */
 export function payloadDoGrupo(g: Pick<Grupo, 'id' | 'avatar' | 'f0_hz' | 'assinatura' | 'intro' | 'outro'>): AvatarGrupoPayload | null {
   const a = g.avatar;
   const ok = (x: any) => !!(x?.src && x?.audioSrc);
+  // Sem a régua da emenda (grupo gravado antes de 26/09/2026), a irmã não teria como
+  // conferir ritmo e nível: o grupo não é reaproveitável.
+  const ref = a?.referencia;
+  if (!ref || !(Number(ref.pps) > 0) || !ehNumero(ref.nivelDb)) return null;
   if (!a || !ok(a.intro) || !ok(a.outro) || !(Number(g.f0_hz) > 0) || !g.assinatura || !g.intro?.narration || !g.outro?.narration) return null;
   return {
     grupoId: g.id, assinatura: g.assinatura, f0Hz: Number(g.f0_hz),
+    referencia: { takeUnico: !!ref.takeUnico, nivelDb: ref.nivelDb as number, pps: Number(ref.pps) },
     textos: { intro: g.intro, outro: g.outro },
     avatar: { intro: a.intro!, outro: a.outro! },
   };
@@ -109,6 +117,7 @@ export function problemaDaMae(res: { ok: boolean; output?: any; error?: unknown 
   if (!g) return 'mãe não devolveu o avatar';
   if (!g.avatar?.intro?.audioSrc || !g.avatar?.outro?.audioSrc) return 'mãe sem as duas cenas de avatar prontas';
   if (!(Number(g.f0Hz) > 0)) return 'mãe sem F0 medida no áudio do avatar';
+  if (!(Number(g.referencia?.pps) > 0) || !ehNumero(g.referencia?.nivelDb)) return 'mãe sem ritmo ou nível medidos no avatar';
   return null;
 }
 
@@ -154,8 +163,9 @@ export async function executarGrupoAvatar({ grupoId }: { grupoId: string }) {
     }
 
     const doMae = (res as any).output.grupo as AvatarDaMae;
-    await atualizarGrupo(g, { status: AVATAR_GRUPO.PRONTO, avatar: doMae.avatar, f0_hz: doMae.f0Hz, assinatura: doMae.assinatura });
-    const payload = payloadDoGrupo({ ...g, avatar: doMae.avatar, f0_hz: doMae.f0Hz, assinatura: doMae.assinatura });
+    const avatar = { ...doMae.avatar, referencia: doMae.referencia };
+    await atualizarGrupo(g, { status: AVATAR_GRUPO.PRONTO, avatar, f0_hz: doMae.f0Hz, assinatura: doMae.assinatura });
+    const payload = payloadDoGrupo({ ...g, avatar, f0_hz: doMae.f0Hz, assinatura: doMae.assinatura });
     // Relê: uma célula inserida enquanto a mãe rodava também entra como irmã.
     const irmas = await dispararCelulas(g, await membrosEsperando(g), payload);
     return { ok: true, grupoId, mae: mae.id, irmas };
