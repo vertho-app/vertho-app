@@ -10,6 +10,7 @@ import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supaba
 import { carregarVotacaoStatus } from '@/lib/home/loaders';
 import { gravarSysConfig } from '@/lib/sys-config-escrita';
 import { montarCedula, normalizarCargoDaCedula, type Cedula } from '@/lib/votacao/cedula';
+import { ordenarRanking, somarVoto } from '@/lib/votacao/ranking';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 
 // Heurística leve pra classificar device a partir do user-agent.
@@ -261,12 +262,7 @@ export async function loadResultadosVotacao(empresaId: string) {
     const voto: any = votosMap.get(c.id);
     if (voto) {
       grupo.votaram++;
-      const escolhidas = Array.isArray(voto.competencias_escolhidas) ? voto.competencias_escolhidas : [];
-      escolhidas.forEach((comp: string, idx: number) => {
-        if (!grupo.ranking[comp]) grupo.ranking[comp] = { votos: 0, pontos: 0 };
-        grupo.ranking[comp].votos++;
-        grupo.ranking[comp].pontos += (5 - idx); // 1o lugar = 5 pts, 5o = 1 pt
-      });
+      somarVoto(grupo.ranking, voto.competencias_escolhidas); // 1º = 5 pts … 5º = 1 (lib/votacao/ranking.ts)
       if (voto.sugestao_nova) grupo.sugestoes.push({ nome: c.nome_completo, sugestao: voto.sugestao_nova });
     } else {
       grupo.faltam.push(c.nome_completo);
@@ -288,16 +284,13 @@ export async function loadResultadosVotacao(empresaId: string) {
     return { fonte: c.fonte, total: c.competencias.length };
   };
 
-  // Ordenar rankings por pontos (desc) com desempate por votos (desc).
-  // Lógica: pontos pesam por intensidade (1ª > 2ª > 3ª escolha), mas em
-  // caso de empate, quanto mais votantes escolheram a competência, maior
-  // o consenso — então mais votos = melhor posição no desempate.
+  // Ordem: pontos, votos, e depois mais vezes em 1º lugar (2º, 3º…). Empate que
+  // sobra sai marcado, não escondido numa ordem arbitrária. Régua em
+  // `lib/votacao/ranking.ts`.
   const resultado: Record<string, any> = {};
   for (const [cargo, dados] of Object.entries(porCargo)) {
     const d = dados as any;
-    const rankingArr = Object.entries(d.ranking)
-      .map(([nome, stats]: [string, any]) => ({ nome, votos: stats.votos, pontos: stats.pontos }))
-      .sort((a, b) => b.pontos - a.pontos || b.votos - a.votos);
+    const rankingArr = ordenarRanking(d.ranking);
 
     const cedula = cedulaDoCargo(cargo);
     resultado[cargo] = {

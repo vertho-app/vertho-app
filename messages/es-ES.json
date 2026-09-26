@@ -3438,6 +3438,10 @@
       "missing": "Faltan: {names}"
     },
     "ranking": {
+      "tie": "empate",
+      "tieHint": "Empate en puntos, votos y posiciones: la elección es tuya.",
+      "tiebreak": "{count, plural, =0 {ninguna vez en {pos}.º} one {1 vez en {pos}.º} other {# veces en {pos}.º}}",
+      "tiebreakHint": "Empató en puntos y votos; el orden viene de cuántas veces quedó en cada posición, empezando por el 1.º lugar.",
       "points": "{count} pts",
       "votes": "{count, plural, one {# voto} other {# votos}}"
     },

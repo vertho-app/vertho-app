@@ -96,6 +96,7 @@ describe('montarCedula (regra pura)', () => {
 let cargoDaPessoa = PROF;
 let votacaoAtiva = true;
 let totalMatriz: number | null = MATRIZ.length;
+let votos: any[] = [];
 
 const sb = criarSupabaseMock({
   resolver: (tabela) => (tabela === 'empresas' ? { sys_config: { votacao_ativa: votacaoAtiva } } : null),
@@ -105,9 +106,11 @@ const sb = criarSupabaseMock({
     if (tabela === 'colaboradores') {
       return [
         { id: 'p1', nome_completo: 'Ana Souza', cargo: PROF },
+        { id: 'p2', nome_completo: 'Carla Dias', cargo: PROF },
         { id: 'a1', nome_completo: 'Bia Lima', cargo: AUX },
       ];
     }
+    if (tabela === 'votacao_competencias') return votos;
     return [];
   },
   contagem: (tabela) => (tabela === 'competencias' ? totalMatriz : null),
@@ -141,6 +144,7 @@ beforeEach(() => {
   cargoDaPessoa = PROF;
   votacaoAtiva = true;
   totalMatriz = MATRIZ.length;
+  votos = [];
 });
 
 describe('loadCompetenciasParaVotar', () => {
@@ -175,6 +179,22 @@ describe('loadCompetenciasParaVotar', () => {
 });
 
 describe('loadResultadosVotacao (aba Votação do admin)', () => {
+  it('ranking: empate em pontos e votos cai no 1º lugar; empate total sai marcado', async () => {
+    // Q: 1º + 5º = 6 pts, 2 votos, 1× em 1º.  P: 2º + 4º = 6 pts, 2 votos, 0× em 1º.
+    // Q vence P apesar do alfabeto. R e W: 3º uma vez cada — empate em tudo.
+    votos = [
+      { colaborador_id: 'p1', cargo: PROF, competencias_escolhidas: ['Q', 'P', 'R', 'S', 'T'] },
+      { colaborador_id: 'p2', cargo: PROF, competencias_escolhidas: ['U', 'V', 'W', 'P', 'Q'] },
+    ];
+    const r: any = await loadResultadosVotacao('emp-4life');
+    const ranking = r.resultado[PROF].ranking;
+    expect(ranking.map((x: any) => x.nome)).toEqual(['Q', 'P', 'U', 'V', 'R', 'W', 'S', 'T']);
+    expect(ranking[0]).toMatchObject({ nome: 'Q', pontos: 6, votos: 2, desempate: { posicao: 0, vezes: 1 }, empate: false });
+    expect(ranking[1]).toMatchObject({ nome: 'P', desempate: { posicao: 0, vezes: 0 } });
+    expect(ranking.filter((x: any) => x.empate).map((x: any) => x.nome)).toEqual(['R', 'W']);
+    expect(r.resultado[PROF].votaram).toBe(2);
+  });
+
   it('mostra a fonte da cédula de cada cargo', async () => {
     const r: any = await loadResultadosVotacao('emp-4life');
     expect(r.resultado[PROF].cedula).toEqual({ fonte: 'top10', total: 10 });

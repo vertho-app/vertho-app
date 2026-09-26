@@ -316,6 +316,16 @@ export default function VotacaoTab({ empresaId }: { empresaId: string }) {
                         </span>
                         <span className={`flex-1 text-sm ${marcado ? 'font-bold text-white' : 'text-gray-400'}`}>{r.nome}</span>
                         <div className="flex items-center gap-3 shrink-0 text-[10px]">
+                          {/* Empate em pontos e votos: diz o que decidiu a ordem, ou que nada decidiu (lib/votacao/ranking.ts). */}
+                          {r.empate && (
+                            <span title={t('ranking.tieHint')}
+                              className="px-1.5 py-0.5 rounded bg-amber-400/15 text-amber-300 font-bold">{t('ranking.tie')}</span>
+                          )}
+                          {r.desempate && (
+                            <span title={t('ranking.tiebreakHint')} className="text-gray-400">
+                              {t('ranking.tiebreak', { count: r.desempate.vezes, pos: r.desempate.posicao + 1 })}
+                            </span>
+                          )}
                           <span className="text-cyan-400 font-bold">{t('ranking.points', { count: r.pontos })}</span>
                           <span className="text-gray-500">{t('ranking.votes', { count: r.votos })}</span>
                         </div>

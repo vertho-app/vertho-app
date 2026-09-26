@@ -3438,6 +3438,10 @@
       "missing": "Missing: {names}"
     },
     "ranking": {
+      "tie": "tie",
+      "tieHint": "Tied on points, votes and positions: the choice is yours.",
+      "tiebreak": "{count, plural, =0 {never in position {pos}} one {once in position {pos}} other {# times in position {pos}}}",
+      "tiebreakHint": "Tied on points and votes; the order comes from how often it was ranked in each position, starting with 1st.",
       "points": "{count} pts",
       "votes": "{count, plural, one {# voto} other {# votos}}"
     },
