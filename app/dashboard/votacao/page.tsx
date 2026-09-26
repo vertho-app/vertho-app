@@ -197,17 +197,20 @@ export default function VotacaoPage() {
         </p>
         <div className="space-y-1">
           {available.map((c: any) => (
+            // A descrição sai INTEIRA: é ela que diferencia competências de nome
+            // parecido, e cortada em uma linha (170-237 caracteres na 4Life, 26/09)
+            // a pessoa votava pelo título. O código (CO001, DIR05) saiu da cédula:
+            // não diz nada a quem vota, e "DIR" lido por uma professora sugere "Diretor".
             <button key={c.nome} onClick={() => toggleComp(c.nome)}
-              className="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl border border-white/[0.06] hover:border-brand-400/30 hover:bg-white/[0.02] transition-all"
+              className="w-full text-left flex items-start gap-3 px-3 py-3 rounded-xl border border-white/[0.06] hover:border-brand-400/30 hover:bg-white/[0.02] transition-all"
               style={{ background: '#091D35' }}>
-              <div className="w-5 h-5 rounded border border-white/15 flex items-center justify-center shrink-0">
+              <div className="w-5 h-5 mt-0.5 rounded border border-white/15 flex items-center justify-center shrink-0">
                 {selected.includes(c.nome) && <Check size={12} className="text-brand-400" />}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white">{c.nome}</p>
-                {c.descricao && <p className="text-[11px] text-gray-500 line-clamp-1">{c.descricao}</p>}
+                {c.descricao && <p className="mt-1 text-xs leading-relaxed text-gray-400">{c.descricao}</p>}
               </div>
-              {c.cod_comp && <span className="text-[9px] font-mono text-gray-600 shrink-0">{c.cod_comp}</span>}
             </button>
           ))}
         </div>
