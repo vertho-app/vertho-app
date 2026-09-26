@@ -1622,15 +1622,21 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   SILÊNCIO; fala a mais passava. No fecho do avatar, a mentora repete a pergunta na tela, e a
   HeyGen cobra os segundos a mais (26 s num fecho de 11 s).
 - **Medido 25/09/2026** transcrevendo os fechos: 2 de 3 no piloto do avatar por grupo e **3 de 18**
-  vídeos de produção desde 06/09 (Macaé Professor(a) C `afaf7e40` e S `7978a385`; Rede ACME
-  Professor(a) S `bd343079`). O take único não tem o defeito: `alinharCenas` casa a 1ª ocorrência e
+  vídeos desde 06/09. Dois são de PRODUÇÃO (Macaé Professor(a) C `afaf7e40` e S `7978a385`, servidos
+  a professores); o terceiro é do tenant de DEMO Rede de Escolas ACME (`escolas-acme`, Professor(a) S
+  `bd343079`). O take único não tem o defeito: `alinharCenas` casa a 1ª ocorrência e
   a última fatia termina na última palavra casada.
 - **Correção:** `fimDoTextoNaFala` (`lib/video/narracao-unica.ts`) aplica a mesma régua à cena
   avulsa; o trigger corta o mp3 no fim do texto + 0,4 s ANTES do upload e da HeyGen, e grava
   `assets[cena].sobraCortadaS` (dá para contar as ocorrências no banco).
-- **Pendente (decisão do dono):** os 3 vídeos de produção e o I do piloto seguem com a repetição.
-  Dá para consertar sem pagar HeyGen de novo: cortar o mp3 e o mp4 do avatar no mesmo instante (o
-  mp4 é mudo e dubla o mp3) e re-renderizar.
+- **Vídeos antigos consertados (25-26/09/2026, com o dono aprovando):** sem pagar HeyGen de novo,
+  cortando o mp3 e o mp4 do avatar no mesmo instante (o mp4 é mudo e dubla o mp3) e re-renderizando;
+  o worker refaz os nominais (o `render_fingerprint` muda) e mantém os antigos no ar até os novos
+  saírem. Primeiro um canário no demo (I do ACME Demo), conferido no vídeo final; depois os dois de
+  Macaé (16/16 e 26/26 nominais refeitos) e o da Rede ACME.
+- **Armadilha do demo:** o reset noturno (04:01) tira snapshot dos nominais `done` e os restaura
+  SEM `deck_fingerprint`. Um nominal que ainda não foi refeito quando o reset roda volta como estava
+  (o da Rede ACME voltou assim na 1ª tentativa e foi refeito de novo).
 - **Guarda:** `tests/unit/video/fala-a-mais.test.ts`, com as transcrições REAIS dos 6 fechos
   medidos (`tests/fixtures/video/fala-a-mais-reais.json`), e o caso no trigger em
   `gerar-video-modulo-grupo.test.ts` (o mp3 que sobe e vai para a HeyGen é o cortado). Validado por

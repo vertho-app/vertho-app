@@ -6,8 +6,8 @@ import { fimDoTextoNaFala, normalizarToken, SOBRA_MIN_PALAVRAS } from '@/lib/vid
  * Fala A MAIS no fim de uma cena narrada sozinha (25/09/2026).
  *
  * A fixture são as transcrições REAIS (Whisper) dos 6 fechos medidos nesse dia: 5 com
- * o TTS repetindo a pergunta final ou inventando uma frase (3 deles em vídeos de
- * produção servidos a professores), 1 limpo. Não é texto montado à mão: a forma que o
+ * o TTS repetindo a pergunta final ou inventando uma frase (2 deles em vídeos de
+ * produção servidos a professores de Macaé, 1 no tenant de demo Rede de Escolas ACME), 1 limpo. Não é texto montado à mão: a forma que o
  * ASR devolve (pontuação, palavra partida, tempo) é o que a régua precisa aguentar.
  */
 const { casos } = JSON.parse(readFileSync('tests/fixtures/video/fala-a-mais-reais.json', 'utf-8')) as {

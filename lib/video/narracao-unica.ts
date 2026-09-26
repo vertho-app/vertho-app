@@ -301,7 +301,7 @@ export const SOBRA_MIN_PALAVRAS = 2;
  * `Medido 25/09/2026`: o TTS às vezes repete a frase final, inteira ou pela metade, ou
  * acrescenta uma frase que não está no roteiro ("E aí, como você consegue ver esse
  * resultado"). Transcrevendo os fechos: 2 de 3 no piloto do avatar por grupo e 3 de 18
- * vídeos de produção desde 06/09, todos no caminho por cena. No fecho do avatar isso
+ * vídeos desde 06/09 (2 de produção, 1 de demo), todos no caminho por cena. No fecho do avatar isso
  * vira a mentora REPETINDO a pergunta, e a HeyGen cobra os segundos a mais (26 s num
  * fecho de 11 s). O take único não tem o defeito: `alinharCenas` casa a 1ª ocorrência
  * e a última fatia termina na última palavra casada.
