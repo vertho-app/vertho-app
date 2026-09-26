@@ -94,6 +94,10 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   **5.584 → 11.567** tokens, US$ 0,0917 → **0,1160**). `reasoningEffort` é do CALL-SITE.
 - `504` do gateway **não** prova trabalho perdido: medir pelo efeito **persistido** (8 de 10
   "falhas" estavam no Storage). `docs/FMEA-PIPELINE.md` F-V4.
+- 🔴 **Mexeu no prompt de um par gerador × auditor (ex.: `RELATORIO_IND_SYSTEM` × `PDI_AUDIT_SYSTEM`)
+  para mudar a TAXA de reprovação/alerta:** confira 3-6 achados CONTRA A FONTE no banco (não contra
+  a acusação) e meça 2×2 gerador × auditor, 2 rodadas, antes de subir. 25/09: o auditor sozinho não
+  mexeu a taxa (4/20 × 4/20); o gerador, sim (100% → 20%). `docs/CUSTO-QUALIDADE.md`, seções de 25/09.
 
 ## 5. `trigger/**`
 

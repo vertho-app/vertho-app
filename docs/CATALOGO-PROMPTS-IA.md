@@ -8,7 +8,7 @@
 > Streaming: automático quando `maxTokens > 8192`.
 > Geração em lote: `lib/ai-batch.ts` — Batch API da Anthropic **e** da OpenAI (−50%).
 >
-> **Modelos por tarefa (estado em 25/08):** o fallback global continua `claude-sonnet-4-6`; `ia4_avaliacao`, `pdi_individual`, `relatorio_gestor` e `relatorio_rh` estão pinned em **Claude Sonnet 5**; `conteudo_video` usa **Claude Opus 5**; e os auditores `ia3_check`, `ia4_check`, `cenarios_b_check`, `acumulada_check`, `sem14_check`, `pulse_audit` e `modulo_base_auditor` estão pinned em **GPT 5.6 Terra**. Override explícito por task continua prevalecendo.
+> **Modelos por tarefa (estado em 25/08):** o fallback global continua `claude-sonnet-4-6`; `ia4_avaliacao`, `pdi_individual`, `relatorio_gestor` e `relatorio_rh` estão pinned em **Claude Sonnet 5**; `conteudo_video` usa **Claude Opus 5**; e os auditores `ia3_check`, `ia4_check`, `cenarios_b_check`, `acumulada_check`, `sem14_check`, `pulse_audit`, `modulo_base_auditor` e `pdi_check` estão pinned em **GPT 5.6 Terra**. Override explícito por task continua prevalecendo.
 >
 > **Regeneração nunca destrói a campeã (23/07):** nos cenários A e B, "regenerar com feedback" gera a candidata em memória, audita e **só aplica se a nota for ≥ a atual** (`travaRegeneracao`). O prompt de regeneração tem regras anti-inflação — o gerador tende a responder crítica **adicionando** conteúdo.
 
@@ -1281,39 +1281,50 @@ Depois das 4 perguntas fixas do Cenário B (a "tese escrita"), a IA conduz uma *
 ## Relatórios (Individual / Gestor / RH)
 
 ### 7.1 Relatório Individual — PDI (RELATORIO_IND_SYSTEM)
-> `ATIVO` · Prompt documentado como: `resumo_editorial`
+> `ATIVO` · Prompt documentado como: `resumo_editorial` · reescrito em 25-26/09/2026 (estado do código em `0be162f1`)
 
-- **Arquivo**: `lib/relatorio-individual-prompt.ts::RELATORIO_IND_SYSTEM` + `buildRelatorioIndividualPrompt`; execução headless em `lib/relatorios/individual-core.ts` e wrapper em `actions/relatorios.ts`.
-- **Modelo default**: `claude-sonnet-5`, pinned pela task `pdi_individual`.
-- **Max tokens**: 64000 (streaming)
-- **Trigger**: Admin gera relatórios individuais (único ou lote).
-- **Grounding RAG**: Não direto.
-- **System prompt** (resumo editorial do prompt real em `actions/relatorios.ts`):
-  "Você é um especialista em desenvolvimento de profissionais da plataforma Vertho." Gera PDI completo entregue ao COLABORADOR como devolutiva pessoal + plano de ação. Princípios-chave:
-  1. SANDWICH: acolher antes de diagnosticar
-  2. Linguagem acessível, humana, sem jargão excessivo
-  3. Firme mas nunca punitivo ("tende a...", "há sinais de...", "um risco é...")
-  4. Reconhecer contexto antes de apontar gaps; ser honesto sem desmotivar
-  5. Evitar frases genéricas que serviriam para qualquer pessoa; fazer a pessoa se sentir compreendida e orientada
-  6. Níveis SEMPRE numéricos (1-4). Nível 3 = META
-  7. Nunca mencione scores DISC numéricos — descreva em linguagem acessível; DISC/CIS como leitura contextual, não diagnóstico fechado
-  8. SEMPRE inclua TODAS as competências do input, inclusive pendentes (flag=true)
-  9. Competências com nível < 3: plano de 30 dias detalhado por semana (1a pessoa, concreto, com scripts prontos, progressão de prática)
-  10. Competências nível 3-4: foco em manutenção/refinamento/multiplicação, não plano pesado
-  11. Competências pendentes (flag=true): "Aguardando avaliação — ações a definir", evitar falsa precisão
-  12. Se CONTEÚDOS RECOMENDADOS fornecidos: distribuir ao longo das semanas do plano e conectar ao gap
-  13. Metas em primeira pessoa com horizonte claro
-  14. Não invente comportamento, resultado ou contexto não sustentado pelos dados
+- **Arquivo**: `lib/relatorio-individual-prompt.ts::RELATORIO_IND_SYSTEM` + `buildRelatorioIndividualPrompt`; núcleo em `lib/relatorios/individual-core.ts` (`gerarRelatorioIndividualCore` síncrono; `buildRelatorioIndividualReq` + `persistRelatorioIndividualFromText` para o lote); wrapper `actions/relatorios.ts::gerarRelatorioIndividual`; regerar por pessoa na aba PDI de `/admin/empresas/[id]/relatorios` (`auditoria-actions.ts::regerarPdi`).
+- **Modelo default**: `claude-sonnet-5`, pela task `pdi_individual`. ⚠️ O `callAI` não consulta a task: quem chama passa `{ model }` (o `regerarPdi` resolve por `getModelForTask`).
+- **Max tokens**: 64000 (`PDI_MAX_TOKENS`), `timeoutMs: 300000`.
+- **Trigger**: Admin gera o PDI (um, lote, ou "regerar PDI" a partir da auditoria).
+- **Grounding RAG**: Não.
+- **System prompt** (resumo editorial; o texto real está no arquivo):
+  "Você é um especialista em desenvolvimento de profissionais da plataforma Vertho." PDI entregue ao COLABORADOR como devolutiva pessoal + plano de ação. Princípios-chave:
+  1. Tom respeitoso, direto e operacional; ancorar no que a pessoa escreveu ("na sua resposta, você...", "o que não apareceu nas suas respostas foi...")
+  2. Português sem termos em inglês ('devolutiva', não 'feedback')
+  3. Níveis SEMPRE numéricos (1-4), N3 = meta; todas as competências do input
+  4. DISC/CIS é HIPÓTESE, não observação: dificuldade ou limitação só com evidência nas respostas
+  5. 🔑 Regra 11: a evidência de comportamento é o bloco CENÁRIO E RESPOSTAS, UMA situação hipotética respondida por escrito. Descrever a RESPOSTA; nunca virar hábito ou padrão ("você costuma", "o padrão observado é"); nunca acrescentar detalhe ao cenário; quando há PERSONAGEM, a resposta é o que a pessoa PROPÔS para ela ("você propôs que Alessandra...", nunca "você levou..."); o que não apareceu é dito como ausência nas respostas
+  6. Sem cota que obrigue a inventar: `fez_bem` e `principais_forcas` aceitam 0 itens
+  7. Campos de resumo com exemplo ancorado (26/09): `resumo_desempenho.leitura` começa por "Nas respostas"; `resumo_geral.leitura` e `fez_bem` proíbem a ação feita ("você levou/fez/negociou")
+  8. Sprint de 30 dias enxuto (1 ação principal + 1 de apoio + 1 evidência + 1 ritual + checklist de 3), DERIVADO do PRIMEIRO objetivo (1º ciclo) da competência no blueprint
+  9. Sobrecarga sem linguagem clínica; N3-N4 com manutenção, não plano pesado
 
-- **Output**: JSON `{ acolhimento, resumo_geral:{leitura, principais_forcas, principal_ponto_de_atencao}, perfil_comportamental:{descricao, pontos_forca, pontos_atencao}, resumo_desempenho[{competencia, nivel, nota_decimal, leitura}], competencias[{nome, nivel, nota_decimal, flag, descritores_desenvolvimento, fez_bem, melhorar, feedback, plano_30_dias:{semana_1..4:{foco, acoes}}, dicas_desenvolvimento, estudo_recomendado[{titulo, formato, por_que_ajuda, url}], checklist_tatico}], mensagem_final, alertas_metodologicos }`. Pós-processo: `overlay` força nivel/nota_decimal dos dados reais sobre output da IA.
+- **Output**: JSON `{ acolhimento, resumo_geral:{leitura, principais_forcas, principal_ponto_de_atencao}, perfil_comportamental:{descricao, pontos_forca, pontos_atencao}, resumo_desempenho[{competencia, nivel, nota_decimal, leitura}], competencias[{nome, nivel, nota_decimal, flag, descritores_desenvolvimento, fez_bem, melhorar, feedback, sprint:{foco_30_dias, acao_principal, acao_apoio, evidencia_esperada, ritual, checklist[3]}, dicas_desenvolvimento, estudo_recomendado[{titulo, formato, por_que_ajuda, url}]}], mensagem_final, alertas_metodologicos }`.
+- **Pós-processo em código** (`persistRelatorioIndividualFromText`): nível e nota vêm dos dados reais (overlay); `acao_principal`, `acao_apoio` e `ritual` do sprint são COPIADOS do objetivo do 1º ciclo do blueprint (`aplicarSprintDoBlueprint`: pedir a cópia ao modelo dava 22 de 58 fiéis); `trilha_mapa`, `blueprint_objetivos`, `blueprint_conteudos` vêm do blueprint; auditoria (7.1b); PDF; upsert.
 - **Inputs no user prompt**:
-  - Colaborador (nome, cargo)
-  - Empresa (nome, segmento)
+  - Colaborador, cargo, empresa e segmento
   - Perfil CIS formatado (DISC, dominante, liderança)
-  - Atenção: N competências esperadas, M pendentes (flag=true)
-  - Dados por competência: {competencia, nivel, nota_decimal, pontos_fortes, gaps, feedback}
-  - Conteúdos recomendados (trilha): nome, competência, formato, nível, URL
-- **Consumido por**: `relatorios` tipo='individual' + renderização PDF via `RelatorioIndividual.tsx` em `/storage/relatorios-pdf/{empresa}/individual-*.pdf`.
+  - Dados por competência (JSON): nível, nota, pontos fortes, gaps e o parecer da IA4
+  - `=== CENÁRIO E RESPOSTAS`: por competência, o cenário (título e descrição) e cada pergunta COLADA à resposta da pessoa (listas separadas faziam o modelo trocar os pares). Sai à parte como `cenarioERespostas` para a auditoria.
+  - Conteúdos recomendados (trilha) e o BLUEPRINT (fonte única do plano)
+- **Consumido por**: `relatorios` tipo='individual' (`conteudo`, com `conteudo.auditoria`); PDF via `RelatorioIndividual.tsx`; página `/dashboard/pdi` da pessoa.
+
+### 7.1b Auditoria do PDI (`pdi_check`, 2ª IA + código)
+> `ATIVO` desde 27/08/2026 · veredito com leitor desde 25/09/2026 · régua atual em `0be162f1`
+
+- **Arquivo**: `lib/relatorios/pdi-audit.ts` (`auditarPdiEstrutural`, `PDI_AUDIT_SYSTEM`, `promptAuditoriaPdi`, `parseAuditoriaPdi`, `combinarRodadasSemanticas`, `consolidarAuditoriaPdi`); orquestrado em `persistRelatorioIndividualFromText`, antes do PDF.
+- **Modelo default**: `gpt-5.6-terra`, pela task `pdi_check` (par cross-família com `pdi_individual` em `DUAL_IA_PARES`).
+- **Max tokens**: 6000 por rodada · **2 rodadas em paralelo** (`RODADAS_SEMANTICAS`).
+- **Camada estrutural (código, sem custo)**: gap sem caminho (fail); checklist de 3 (warn); sprint = objetivo do 1º ciclo do blueprint (fail); perfil em 2ª pessoa (warn); jargão em inglês (warn), exceto o termo que o cenário ou a resposta já usam.
+- **Camada semântica**: a evidência é o MESMO `user` do gerador (até 90 mil caracteres; reconstruir a evidência gerou falso positivo duas vezes). A régua é o CONTEÚDO:
+  - **fail**: conteúdo falso (fato sem evidência, detalhe inventado, traço da PERSONAGEM atribuído à pessoa, o OPOSTO da resposta, contradição que muda a ação);
+  - **warn**: só o que um revisor MUDARIA (proposta para a personagem escrita como ação feita, extrapolação da ausência, análise inteira genérica, desproporção);
+  - **não é achado**: ações do plano, leitura do perfil em tom de tendência, paráfrase fiel, inferência cautelosa ancorada numa resposta, frase de abertura/fechamento. "Na dúvida, não liste."
+- **Rodadas**: fail só quando as 2 reprovam; reprovação isolada vira warn; warn de uma rodada com a outra limpa não vale; rodada que falha não vota; nenhuma válida = fail de "auditoria indisponível" (ausência não é aprovação).
+- **Output da IA**: `{ achados:[{tipo: sem_lastro|generico|desproporcao|contradicao, competencia, trecho, porque, gravidade}], veredito, resumo }` → checks → `relatorios.conteudo.auditoria = { status, checks, resumo, competenciasAuditadas }`.
+- **Consumido por**: aba PDI de `/admin/empresas/[id]/relatorios` (contagem com denominador, lista filtrável com os trechos, selo por PDI, "regerar PDI"); helper `lib/relatorios/pdi-audit-resumo.ts`.
+- **Medições**: `docs/CUSTO-QUALIDADE.md`, seções de 25/09/2026 (de 59/60 reprovados, com bug do instrumento e gerador sem as respostas, a 7 pass / 2 warn / 1 fail em 10 PDIs).
 
 ### 7.2 Relatório Gestor (RELATORIO_GESTOR_SYSTEM)
 > `ATIVO` · Prompt documentado como: `resumo_editorial`
