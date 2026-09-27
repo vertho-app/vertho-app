@@ -32,6 +32,8 @@
 
 **Entrega ao colaborador:** `resolverVideoDaSemana`/`resolverCelulaVideo` entregam o personalizado do colaborador se houver (`done`), senão o genérico da célula (fallback transparente).
 
+**Fila da box (27/09/2026, `worker-hetzner/fila.mjs`):** claim por ordem de ENTRADA na fila (não de criação); sinal de vida a cada minuto, e o reaper só devolve job de worker morto, o que permite `MAX_RENDER_BOXES` > 1 sem render em dobro; a reconciliação noturna pede só os nominais (`etapa='personalizar'`) e o worker os faz sobre o original do deck publicado quando a publicação base prova a revisão; falha em célula com deck publicado devolve `done` em vez de `error`. Detalhe em `worker-hetzner/README.md` e FMEA F-V8.
+
 Detalhes vivos em [[project_current_work]] (memória) e nos arquivos `lib/video/*`, `worker-hetzner/*`, `trigger/gerar-video-modulo.ts`, `trigger/render-video.ts`.
 
 ---

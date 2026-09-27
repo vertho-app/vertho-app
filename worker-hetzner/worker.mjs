@@ -8,8 +8,8 @@
  * do trigger.dev — só muda o "onde renderiza".
  *
  * Concorrência: claim atômico via `FOR UPDATE SKIP LOCKED` (seguro com N workers).
- * Resiliência: reaper devolve jobs presos em `rendering` à fila; o processo é
- * idempotente e reinicia limpo (docker --restart=always / systemd).
+ * Resiliência: sinal de vida + reaper devolvem à fila só o job de worker MORTO
+ * (fila.mjs); o processo é idempotente e reinicia limpo.
  */
 import pg from 'pg';
 import os from 'node:os';
@@ -19,13 +19,18 @@ import { ensureBrowser, selectComposition, renderMedia } from '@remotion/rendere
 import { personalizar, primeiroNome } from './personalizar.mjs';
 import { masterizarAudio } from './masterizar-audio.mjs';
 import { registrarPublicacao, confirmarPublicacoes } from './publicacao-bunny.mjs';
+import {
+  claim as claimFila, reap as reapFila, reapSemSinalMin, REAP_COM_SINAL_MIN, iniciarSinalDeVida,
+  processarJob, preservarDeckNaFalha,
+} from './fila.mjs';
 
 const {
   DATABASE_URL,
   BUNNY_LIBRARY_ID: BUNNY_LIB,
   BUNNY_STREAM_API_KEY: BUNNY_KEY,
+  BUNNY_PULL_ZONE,               // CDN da biblioteca: baixa o deck publicado no caminho "só personalizar"
+  BUNNY_REFERER,                 // a pull zone tem proteção de hotlink por domínio
   POLL_INTERVAL_MS = '15000',
-  REAP_AFTER_MIN = '40',
   RENDER_CONCURRENCY,
   VIDEO_RENDER_SCALE = '0.6667', // 0.6667 = 720p · 1.0 = 1080p (fallback)
   COMPOSITION_ID = 'VerthoVideo',
@@ -35,6 +40,7 @@ const {
 
 const POLL = parseInt(POLL_INTERVAL_MS, 10);
 const IDLE_MS = parseInt(IDLE_SHUTDOWN_MS, 10);
+const REAP_SEM_SINAL_MIN = reapSemSinalMin(process.env);
 const EPHEMERAL_MODE = String(EPHEMERAL || '').toLowerCase() === 'true';
 const CONCURRENCY = parseInt(RENDER_CONCURRENCY || String(Math.max(1, os.cpus().length)), 10);
 // 🚧 TLS sem verificação — ÚLTIMO site desta classe no repo (24/08). Os 13
@@ -118,26 +124,10 @@ async function uploadToBunny(buf, title) {
   return guid;
 }
 
-/** Claim atômico de um job da fila (nunca 2 workers no mesmo job). */
-async function claim() {
-  const { rows } = await pool.query(`
-    UPDATE videos_gerados SET status='rendering', etapa='render', claimed_at=now(), updated_at=now()
-    WHERE id = (
-      SELECT id FROM videos_gerados WHERE status='render_queued'
-      ORDER BY created_at LIMIT 1 FOR UPDATE SKIP LOCKED
-    )
-    RETURNING id, render_inputprops, render_fingerprint, render_scale, roteiro, empresa_id, cargo, disc_dominante`);
-  return rows[0] || null;
-}
-
-/** Devolve jobs presos em `rendering` (worker morreu no meio) à fila. */
+/** Devolve à fila os jobs de worker morto (regras em fila.mjs). */
 async function reap() {
-  const { rowCount } = await pool.query(
-    `UPDATE videos_gerados SET status='render_queued', claimed_at=null, updated_at=now()
-     WHERE status='rendering' AND claimed_at < now() - ($1 || ' minutes')::interval`,
-    [REAP_AFTER_MIN],
-  );
-  if (rowCount) log(`reaper: ${rowCount} job(s) preso(s) devolvido(s) à fila`);
+  const n = await reapFila(pool, { comSinalMin: REAP_COM_SINAL_MIN, semSinalMin: REAP_SEM_SINAL_MIN });
+  if (n) log(`reaper: ${n} job(s) de worker morto devolvido(s) à fila`);
 }
 
 /** Pré-aquece a célula: gera o vídeo PERSONALIZADO (saudação "Olá, {nome}") de
@@ -284,6 +274,12 @@ async function renderOne(job) {
   await personalizeCell(job, final).catch((e) => log(`personalização falhou (deck OK) ${job.id}:`, e?.message || e));
 }
 
+/** Reconciliação pede só os nominais sobre o deck publicado; o resto renderiza (fila.mjs). */
+const processar = (job) => processarJob(job, {
+  pool, log, biblioteca: BUNNY_LIB, pullZone: BUNNY_PULL_ZONE, referer: BUNNY_REFERER,
+  personalizeCell, renderizar: renderOne,
+});
+
 /** Modo efêmero (box on-demand): apaga a PRÓPRIA box Hetzner quando a fila seca,
  *  pra não deixar máquina ligada. Descobre o id pelo metadata server da Hetzner. */
 async function selfDestruct() {
@@ -309,12 +305,13 @@ async function main() {
     process.exit(1);
   }
   log(`worker iniciado · poll ${POLL}ms · concurrency ${CONCURRENCY} · scale fallback ${VIDEO_RENDER_SCALE}` +
+    ` · reaper ${REAP_COM_SINAL_MIN}min com sinal / ${REAP_SEM_SINAL_MIN}min sem sinal` +
     (EPHEMERAL_MODE ? ` · EFÊMERO (self-destruct após ${Math.round(IDLE_MS / 1000)}s de fila vazia)` : ''));
   let lastActivity = Date.now();
   while (!parando) {
     try {
       await reap();
-      const job = await claim();
+      const job = await claimFila(pool);
       if (!job) {
         // Modo efêmero: fila vazia por IDLE_MS → apaga a própria box e encerra.
         if (EPHEMERAL_MODE && Date.now() - lastActivity > IDLE_MS) {
@@ -325,13 +322,19 @@ async function main() {
         await sleep(POLL); continue;
       }
       lastActivity = Date.now(); // claim resetou o ócio
+      const pararSinal = iniciarSinalDeVida(pool, job, { log });
       try {
-        await renderOne(job);
+        await processar(job);
       } catch (e) {
         log(`ERRO no job ${job.id}:`, e?.message || e);
-        await pool.query(`UPDATE videos_gerados SET status='error', error=$2, updated_at=now() WHERE id=$1`,
-          [job.id, String(e?.message || e).slice(0, 500)]).catch((pe) => log(`falha ao gravar status=error ${job.id}:`, pe?.message || pe));
-      }
+        // Célula que já tinha deck publicado volta a `done` (fila.mjs, FMEA F-V8).
+        const preservada = await preservarDeckNaFalha(pool, job, e, log).catch((pe) => { log(`falha ao preservar deck ${job.id}:`, pe?.message || pe); return false; });
+        if (!preservada) {
+          // Guarda do claim: um worker que perdeu o job para o reaper não sobrescreve quem o pegou depois.
+          await pool.query(`UPDATE videos_gerados SET status='error', error=$2, updated_at=now() WHERE id=$1 AND claimed_at=$3::timestamptz`,
+            [job.id, String(e?.message || e).slice(0, 500), job.claim_token]).catch((pe) => log(`falha ao gravar status=error ${job.id}:`, pe?.message || pe));
+        }
+      } finally { pararSinal(); }
       lastActivity = Date.now(); // terminou o job; reinicia a janela de ócio
     } catch (e) {
       log('erro no loop (segue):', e?.message || e);

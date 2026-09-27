@@ -15,7 +15,14 @@ trigger.dev (gerar-video-modulo)            Hetzner CX33 (este worker, always-on
 ```
 
 - **Claim atômico** (`FOR UPDATE SKIP LOCKED`): seguro com N workers; nunca processam o mesmo job.
-- **Reaper**: jobs presos em `rendering` há > `REAP_AFTER_MIN` voltam pra fila (auto-cura se o worker cair).
+- **Fila por entrada**: o claim ordena por `updated_at` do enfileiramento, não pela criação do vídeo (`fila.mjs`).
+- **Sinal de vida + reaper**: o worker renova `updated_at` a cada minuto enquanto o job é dele. O reaper devolve à
+  fila o job que parou de bater há 10 min, ou o que nunca bateu (box de snapshot antigo) há mais de `REAP_AFTER_MIN`
+  (= watchdog `MAX_RENDER_MS` + 15 min, mandado pelo `ensureRenderWorker`). Render saudável e longo nunca é devolvido.
+- **Só personalizar**: a reconciliação enfileira com `etapa='personalizar'`. Se a publicação base prova que o deck no
+  Bunny é a revisão atual, o worker baixa o original pela pull zone (`BUNNY_PULL_ZONE`) e faz só os nominais.
+- **Falha não esconde deck**: job que falha numa célula que já tem deck publicado devolve a célula a `done` e grava
+  `deck-preservado-apos-falha` no `degradacao_log`, em vez de `status='error'`.
 - **Mesma composição** do app (`spike-bundle/`) — só muda *onde* renderiza.
 
 ## Pré-requisitos

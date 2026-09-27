@@ -27,12 +27,30 @@
  *   — só falha se NENHUM (tipo × location) tiver capacidade.
  *   RENDER_CONCURRENCY (senão auto por RAM do tipo: 4GB→1, 8GB→2, 16GB+→4), RENDER_SSH_KEY_ID,
  *   RENDER_IDLE_SHUTDOWN_MS (300000), VIDEO_RENDER_SCALE (0.6667), MAX_RENDER_BOXES (default 4),
- *   RENDER_JOBS_PER_BOX (default 3), MAX_RENDER_MS (watchdog, default 40min).
+ *   RENDER_JOBS_PER_BOX (default 3), MAX_RENDER_MS (watchdog, default 40min),
+ *   BUNNY_PULL_ZONE (sem ela a reconciliação cai no render completo; ver worker-hetzner/fila.mjs).
+ *
+ * Os DOIS provisionadores leem a PRÓPRIA env: o Trigger (`gerar-video-modulo`) e a
+ * Vercel (cron `reconciliar_videos`). Paridade por nome, nos dois lados.
  */
 import { SUPA, KEY } from './render-helpers';
 import { ELENCO } from '@/lib/tts/elenco';
+import { ROOT_DOMAIN } from '@/lib/domain';
 
 const HCLOUD = 'https://api.hetzner.cloud/v1';
+
+/**
+ * Minutos que o reaper do worker espera por um job SEM sinal de vida desde o
+ * claim: o watchdog do render + 15 min de masterização e upload. É o valor que
+ * protege a box de snapshot antigo (que não manda sinal) de ter o render
+ * saudável devolvido à fila por uma box vizinha. Antes era 40 fixo contra um
+ * watchdog de 90: com várias boxes, os 12 renders de 26/09 na cx33 (43 a 63 min)
+ * seriam TODOS feitos em dobro. Espelho de `reapSemSinalMin` em
+ * worker-hetzner/fila.mjs (teste em tests/unit/ensure-render-worker.test.ts).
+ */
+export function reapSemSinalMin(maxRenderMs: number): number {
+  return Math.max(40, Math.ceil(maxRenderMs / 60_000) + 15);
+}
 
 /**
  * `provisioned: false` tem DOIS significados opostos, e quem chama precisa
@@ -107,6 +125,7 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     cx43: '4', cx53: '4', ccx23: '4', cpx41: '4',               // 16GB+
   };
   const concFor = (t: string) => process.env.RENDER_CONCURRENCY || CONC_BY_TYPE[t] || '2';
+  const maxRenderMs = parseInt(process.env.MAX_RENDER_MS || '2400000', 10) || 2_400_000;
 
   const buildEnv = (conc: string) => [
     `DATABASE_URL=${process.env.DATABASE_URL}`,
@@ -126,7 +145,11 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
     // 720p por padrão: 1080p em cx33/8GB com vídeos longos estourava RAM e travava.
     `VIDEO_RENDER_SCALE=${process.env.VIDEO_RENDER_SCALE || '0.6667'}`,
     `RENDER_CONCURRENCY=${conc}`,
-    `MAX_RENDER_MS=${process.env.MAX_RENDER_MS || '2400000'}`,
+    `MAX_RENDER_MS=${maxRenderMs}`,
+    `REAP_AFTER_MIN=${reapSemSinalMin(maxRenderMs)}`,
+    // Reconciliação baixa o deck já publicado em vez de re-renderizar (fila.mjs).
+    `BUNNY_PULL_ZONE=${process.env.BUNNY_PULL_ZONE || ''}`,
+    `BUNNY_REFERER=https://www.${ROOT_DOMAIN}/`,
     `HCLOUD_TOKEN=${token}`,
     `EPHEMERAL=true`,
     `IDLE_SHUTDOWN_MS=${process.env.RENDER_IDLE_SHUTDOWN_MS || '300000'}`,
@@ -174,12 +197,24 @@ export async function ensureRenderWorker(): Promise<EnsureResult> {
         const j = await cr.json();
         if (j?.server?.id) { created.push(j.server.id); preferred = attempt; boxOk = true; break; }
       } else {
-        errors.push(`${attempt.type}@${attempt.loc}: ${cr.status} ${(await cr.text().catch(() => '')).slice(0, 90)}`);
+        errors.push(`${attempt.type}@${attempt.loc}: ${await motivoFalhaHetzner(cr)}`);
         // resource_unavailable (ou qualquer falha) → tenta o próximo (tipo × location).
       }
     }
     if (!boxOk) break; // ladder inteira sem capacidade → para (a fila fica p/ próxima tentativa)
   }
-  if (!created.length) return { provisioned: false, alive: alive.length, reason: `ladder esgotada: ${errors.slice(-4).join(' | ')}` };
-  return { provisioned: true, created, alive: alive.length + created.length, reason: `+${created.length} box(es) via ${preferred?.type}@${preferred?.loc} (fila ${depth}, alvo ${desired})${errors.length ? ' · tentativas: ' + errors.length : ''}` };
+  if (!created.length) return { provisioned: false, alive: alive.length, reason: `ladder esgotada: ${errors.join(' | ')}` };
+  // Os códigos vão no log do sucesso também: em 26/09 a box saiu cx33 depois de 6
+  // falhas e só a CONTAGEM ficou registrada, sem dizer se era estoque ou cota.
+  return { provisioned: true, created, alive: alive.length + created.length, reason: `+${created.length} box(es) via ${preferred?.type}@${preferred?.loc} (fila ${depth}, alvo ${desired})${errors.length ? ` · tentativas: ${errors.length} (${errors.join(', ')})` : ''}` };
+}
+
+/** "412 resource_unavailable" em vez de 90 caracteres de JSON cortado. */
+async function motivoFalhaHetzner(r: Response): Promise<string> {
+  const corpo = await r.text().catch(() => '');
+  try {
+    const codigo = JSON.parse(corpo)?.error?.code;
+    if (codigo) return `${r.status} ${codigo}`;
+  } catch { /* corpo não-JSON: cai no texto cru */ }
+  return `${r.status} ${corpo.slice(0, 60)}`.trim();
 }

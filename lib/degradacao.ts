@@ -230,6 +230,18 @@ export const DEGRADACAO = {
    */
   RECONCILIACAO_SEM_WORKER: 'reconciliacao-sem-worker',
   /**
+   * video: a box de render falhou num job cuja célula JÁ TINHA deck publicado
+   * (re-render da reconciliação noturna, download do deck para os nominais, ou
+   * redisparo manual da mesma linha). A célula volta para `done` com o deck e os
+   * nominais que já tocavam; quem estava sem o nome continua sem ele, e a próxima
+   * reconciliação tenta de novo. Gravar `error` ali escondia tudo da entrega
+   * (FMEA F-V8: 22-26/09/2026, 30 professores de macae sem vídeo). `aviso`:
+   * ninguém piora, só deixa de melhorar. Escrito pelo worker Hetzner
+   * (`preservarDeckNaFalha` em worker-hetzner/fila.mjs), que não importa
+   * TypeScript: o literal é repetido lá e um teste confere os dois.
+   */
+  DECK_PRESERVADO_APOS_FALHA: 'deck-preservado-apos-falha',
+  /**
    * envio: o gate de tenant-demo não conseguiu LER `empresas.is_demo`.
    *
    * A política do `envio-guard` é fail-open declarada (não derrubar envio real

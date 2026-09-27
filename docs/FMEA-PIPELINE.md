@@ -1649,7 +1649,7 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   `gerar-video-modulo-grupo.test.ts` (o mp3 que sobe e vai para a HeyGen é o cortado). Validado por
   mutação: 7 de 7.
 
-### F-V8 · Re-render noturno que estoura o watchdog ESCONDE o deck publicado 🟠 (env corrigida 26/09/2026; código aberto)
+### F-V8 · Re-render noturno que estoura o watchdog ESCONDE o deck publicado 🟡 (env corrigida 26/09/2026; worker corrigido 27/09/2026)
 - **Gatilho:** o cron `reconciliar_videos` (00:00 BRT, na Vercel) devolve à fila a célula `done`
   que tem gente sem nominal. Se o re-render falha, o worker grava `status='error'`
   (`worker-hetzner/worker.mjs`, catch do loop) por cima de uma célula que tinha deck publicado, e o
@@ -1672,10 +1672,19 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
 - **Correção (26/09/2026):** as 3 envs criadas na Vercel com os valores do Trigger + redeploy do
   mesmo SHA; as 3 células devolvidas a `done`. Na noite seguinte o cron re-renderizou 2 delas com
   sucesso, porém numa box subida pelo Trigger, então a env nova da Vercel ainda não foi exercida.
-- **Aberto:** (1) o worker não rebaixar célula que já tem `bunny_video_id` publicado (exige rebuild do
-  snapshot); (2) o reconciliador ignorar quem não tem trilha ativa; (3) a R16 separar "rebaixada com
-  deck" (ação: restaurar) de "sem deck" (ação: re-disparar). Sem guarda de código: a env vive fora do
-  repo. Gatilho em `.claude/skills/checklist/gatilhos.md` §13.
+- **Correção no worker (27/09/2026, snapshot novo):** (a) job que falha numa célula com
+  `bunny_video_id` publicado devolve a célula a `done` e grava `deck-preservado-apos-falha` no
+  `degradacao_log` (`preservarDeckNaFalha`, `worker-hetzner/fila.mjs`); só célula SEM deck vai para
+  `error`. (b) A reconciliação enfileira com `etapa='personalizar'` e, quando a publicação base prova
+  que o deck do Bunny é a revisão atual, o worker baixa o original e faz só os nominais: o re-render que
+  estourava o watchdog deixa de existir nesse caminho. `Medido 27/09`: 33 das 189 células `done` têm a
+  prova; as 156 anteriores ao outbox de 10/09 ainda passam uma vez pelo render completo, agora sem
+  risco de rebaixamento. Guarda: `tests/unit/video/fila-render.test.ts` (mutação: 7 de 7).
+- **Aberto:** (2) o reconciliador ignorar quem não tem trilha ativa; (3) a R16 separar "rebaixada com
+  deck" (ação: restaurar) de "sem deck" (ação: re-disparar), agora só relevante para rebaixamento
+  anterior a 27/09 e para `gerar-video-modulo`, que ainda grava `error` por conta própria. Sem guarda
+  de código para a paridade de env: ela vive fora do repo. Gatilho em
+  `.claude/skills/checklist/gatilhos.md` §13.
 
 ## 5. Parse de IA / robustez
 

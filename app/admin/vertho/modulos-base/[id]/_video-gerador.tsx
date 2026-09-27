@@ -22,6 +22,7 @@ const ETAPA_LABEL: Record<string, string> = {
   narracao: 'Narrando as cenas (TTS)',
   avatar: 'Gerando o avatar (HeyGen) — pode levar ~4 min/clipe',
   render: 'Renderizando as cenas (Remotion)',
+  personalizar: 'Gerando as versões com o nome',
   upload: 'Finalizando e publicando',
 };
 

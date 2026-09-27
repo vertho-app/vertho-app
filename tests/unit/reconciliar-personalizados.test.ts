@@ -334,6 +334,8 @@ describe('reconciliarPersonalizados · não enfileirar o que ninguém vai drenar
     const updates = updatesDaCelula();
     expect(updates).toHaveLength(1);
     expect(updates[0].payload.status).toBe('render_queued');
+    // Pede ao worker só os nominais, sobre o deck publicado (worker-hetzner/fila.mjs).
+    expect(updates[0].payload.etapa).toBe('personalizar');
     expect(r.celulasReenfileiradas).toEqual(['cel-1']);
     expect(sb.escritas.some((e) => e.tabela === 'degradacao_log')).toBe(false);
   });

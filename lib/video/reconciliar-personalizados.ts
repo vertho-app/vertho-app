@@ -13,10 +13,12 @@
  * na tela denuncia, e nenhuma contagem acusa.
  *
  * O MECANISMO
- * A personalização só existe acoplada ao render: ela precisa do deck em /tmp
- * (`personalizeCell(job, deckPath)`), então não há caminho "personalizar avulso".
- * Reconciliar = devolver a célula à fila (`render_queued`); o worker re-renderiza o
- * deck e personaliza os faltantes — `personalizeCell` já pula quem está 'done'.
+ * Reconciliar = devolver a célula à fila (`render_queued`) com `etapa='personalizar'`.
+ * O worker (worker-hetzner/fila.mjs) prova que o deck publicado no Bunny é a revisão
+ * ATUAL (publicação base com o mesmo fingerprint), baixa o original e personaliza
+ * os faltantes sobre ele — `personalizeCell` já pula quem está 'done'. Sem essa
+ * prova (deck anterior ao outbox de 10/09, ou inputprops mudados depois do render),
+ * ele cai no render completo, que era o único caminho até 27/09/2026.
  *
  * POR QUE ISSO NÃO PREJUDICA QUEM JÁ TEM VÍDEO — *enquanto o re-render não falha*
  * `resolverCelulaVideo` busca a célula com `.neq('status','error')` — ou seja, ela
@@ -31,14 +33,16 @@
  * entrega inteira, não só do nominal. Ou seja, o pior caso desta rodada não é
  * "continua sem o nome" — é trocar o vídeo que existia por nenhum vídeo. No
  * `escolas-acme` foi exatamente isso, com o deck tocando no Bunny o tempo todo.
- * Por isso o ambiente de demonstração saiu da varredura (ver passo 0); para
- * cliente real, a correção da classe — não rebaixar célula que tem deck
- * publicado — segue em aberto.
+ * Por isso o ambiente de demonstração saiu da varredura (ver passo 0). Para
+ * cliente real a classe fechou em 27/09/2026: o worker não rebaixa mais célula
+ * que tem deck publicado; ela volta a `done` e a falha vai para o degradacao_log
+ * (`deck-preservado-apos-falha`, `preservarDeckNaFalha` em worker-hetzner/fila.mjs).
  *
  * CUSTO
- * Um render de deck por célula reconciliada. Por isso há `limite` (default baixo):
- * um cron que enfileirasse 50 células de uma vez viraria conta de GPU sem que
- * ninguém tivesse pedido.
+ * Com a prova do deck: download do original + os nominais que faltam, sem render.
+ * Sem ela: um render de deck por célula. O `limite` (default baixo) segue valendo
+ * para o segundo caso: um cron que enfileirasse 50 células de uma vez viraria
+ * conta de box sem que ninguém tivesse pedido.
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
@@ -292,8 +296,9 @@ export async function reconciliarPersonalizados(opts: {
   for (const l of alvos) {
     // O worker sobrescreve error/processing; preservar evita perder os registros
     // quando não há box e o enfileiramento precisa ser desfeito.
+    // `etapa: 'personalizar'` pede ao worker só os nominais, sobre o deck publicado.
     const { data: alteradas, error } = await sb.from('videos_gerados')
-      .update({ status: 'render_queued', etapa: 'render', claimed_at: null, error: null, updated_at: new Date().toISOString() })
+      .update({ status: 'render_queued', etapa: 'personalizar', claimed_at: null, error: null, updated_at: new Date().toISOString() })
       .eq('id', l.cellVideoId)
       .eq('status', 'done')   // guarda: só sai de 'done' (não atropela render em curso)
       .select('id');
