@@ -173,6 +173,9 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
    3. **screenshot** para conferir que o menu abriu na linha certa (nome + kB antigo);
    4. clique em **"Remover do projeto"**: pelo `ref` do `find` quando ele o enxerga, ou pela posição
       da screenshot (com `scrollIntoView` centralizando a linha, o item ficou sempre no mesmo lugar);
+      `Medido: 27/09/2026`: `find` *"menu item Remover do projeto"* enxergou o item com o menu aberto
+      nas 2 vezes, e o clique pelo `ref` removeu **2 de 2**; pela posição da screenshot, **0 de 1**
+      (menu fechou, a velha seguiu na lista). Tente o `ref` primeiro;
    5. só então JS de novo, para conferir o total e marcar o próximo.
    A remoção é imediata, **sem diálogo de confirmação**.
    🔴 **O clique pela posição da screenshot pode cair FORA do item, e o menu fecha sem remover.**
