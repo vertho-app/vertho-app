@@ -189,6 +189,16 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - 🔴 Env de render (`MAX_RENDER_MS`, `RENDER_*`) ou `lib/video/ensure-render-worker.ts`: a box sobe
   pelo Trigger E pelo cron da Vercel, cada um com a SUA env; confira os dois lados. 22-26/09: a
   Vercel sem `MAX_RENDER_MS` matou 3 re-renders em 40 min e escondeu deck de 30 professores (F-V8).
+- 🔴 Mudou `worker-hetzner/*`: rebuild do snapshot (`scripts/_render-snapshot-build.mjs`) com o
+  `worker-hetzner` do COMMIT mais o `spike-bundle/` do disco, que NÃO está no git (o bundle mudar
+  muda o vídeo). Troque `RENDER_SNAPSHOT_ID` nos DOIS lados e confira a Vercel por `vercel env pull`
+  (o MCP dá 403 em env). CX seca nas 3 localidades (27/09) → `SNAPSHOT_BUILD_TYPE=cpx22`, mesmo
+  disco de 80 GB, cabe em toda a escada.
+- 🔴 Subir `MAX_RENDER_BOXES` ou mexer em claim/reaper (`worker-hetzner/fila.mjs`): a duração
+  claim → upload no PIOR tipo que a escada entrega tem que caber no limite do reaper, e o limite
+  conta do último sinal de vida. 27/09: os 12 renders de 26/09 na cx33 levaram 43-63 min contra um
+  reaper de 40, fixo desde o claim; com 1 box ele nunca rodou. Semântica do SQL: prove em Postgres
+  real com tabela temporária + ROLLBACK (`tests/unit/video/fila-render.test.ts` só vê a string).
 
 ## 14. Env var / secret
 
