@@ -156,12 +156,14 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
       ```js
       window.__marcar = (nome, velho) => {
         const dlg = [...document.querySelectorAll('[role="dialog"]')].find(d => /Arquivos/.test(d.innerText||''));
-        document.querySelectorAll('[aria-label="ALVO-REMOVER"]').forEach(b => b.setAttribute('aria-label', 'x'));
+        // Devolve o rótulo ORIGINAL (não 'x'): senão o botão marcado some do filtro por nome abaixo.
+        document.querySelectorAll('[aria-label="ALVO-REMOVER"]').forEach(b => b.setAttribute('aria-label', b.dataset.rotuloOriginal || 'x'));
         const linhaDe = b => { let e = b; while (e && e !== dlg && !/kB/.test(e.innerText||'')) e = e.parentElement; return e; };
         const bts = [...dlg.querySelectorAll('button')].filter(b => b.getAttribute('aria-label') === 'Mais opções para ' + nome);
         const kbs = bts.map(b => (linhaDe(b).innerText.match(/([\d,]+)\s*kB/)||[])[1]);
         if (bts.length < 2) return 'PULAR: só ' + kbs.join(',');
         const i = kbs.indexOf(velho); if (i < 0) return 'PULAR: sem ' + velho + ' em ' + kbs.join(',');
+        bts[i].dataset.rotuloOriginal = bts[i].getAttribute('aria-label');
         bts[i].setAttribute('aria-label', 'ALVO-REMOVER'); bts[i].scrollIntoView({ block: 'center' });
         return 'marcado ' + nome + ' ' + velho + ' (par: ' + kbs.join('/') + ')';
       };
@@ -186,6 +188,14 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
    vezes NÃO enxerga o menu aberto: confie na screenshot.
    🔴 **Não dispare `Escape` por JS**: ele fecha o MODAL inteiro, e o `ref` pego logo depois aponta
    para um modal que está sumindo (26/09: 2 ciclos perdidos assim, nenhum clique errado).
+   🔴 **"PULAR: só <kB novo>" logo depois de uma tentativa que falhou NÃO prova que a velha saiu.**
+   `Medido: 27/09/2026`: o 1º clique pelo `ref` não abriu o menu; re-rodar o `__marcar` antigo
+   renomeava o botão marcado para `x`, o filtro por nome deixava de vê-lo, e o retorno "PULAR: só
+   192,6" parecia "a velha já foi removida" com as DUAS linhas ainda na tela. O helper acima agora
+   devolve o rótulo original. E o clique por coordenada no ⋮ abriu a PRÉ-VISUALIZAÇÃO da versão
+   NOVA: com um arquivo aberto o modal vira duas colunas e tudo muda de lugar. O 2º clique pelo `ref`
+   abriu o menu; `ArrowDown` + screenshot + `Enter` removeu. O `zoom` travou (timeout de 30 s) e a
+   screenshot normal bastou para ver o item destacado.
 8. **Fechar contando.** Ao final tem que haver **exatamente 20**, um por nome, todos com o tamanho
    do repo. Duplicata sobrando é pior que arquivo velho: o Project passa a responder com as duas
    versões. 🔴 **Conte na página RECARREGADA**, com uns 5 s entre o último clique e a navegação: a
