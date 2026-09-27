@@ -186,6 +186,9 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - Pipeline e templates: `docs/GERADOR-VIDEO-MODULO.md`. `RENDER_BACKEND=hetzner`.
 - Vídeo de kit ancora no módulo do **conteúdo**; lote de ~42 satura (~15% falham).
 - Provisionar box tem custo por hora — **encerrar ao fim do spike** e conferir pela API.
+- 🔴 Env de render (`MAX_RENDER_MS`, `RENDER_*`) ou `lib/video/ensure-render-worker.ts`: a box sobe
+  pelo Trigger E pelo cron da Vercel, cada um com a SUA env; confira os dois lados. 22-26/09: a
+  Vercel sem `MAX_RENDER_MS` matou 3 re-renders em 40 min e escondeu deck de 30 professores (F-V8).
 
 ## 14. Env var / secret
 

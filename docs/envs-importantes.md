@@ -66,6 +66,12 @@
   no runtime da Vercel (`/api/conteudo/{id}/podcast`); com `TTS_BACKEND=vertex` e sem a SA →
   500 "GOOGLE_SERVICE_ACCOUNT_JSON não definido". A SA estava só no Trigger.dev — precisou ir
   pro Vercel. AI Studio tem teto 100/dia (preview) → Vertex é o de volume.
+- **Env de render vive em DOIS lugares (26/09/2026).** A box Hetzner é provisionada pelo Trigger
+  (`gerar-video-modulo`) E pela Vercel (cron `reconciliar_videos`), e cada um lê a própria env.
+  A Vercel não tinha `MAX_RENDER_MS`, `RENDER_SERVER_TYPES` nem `RENDER_JOBS_PER_BOX`: a box do
+  cron subia com watchdog de 40 min, cx33 e 3 jobs em série, e 3 re-renders morreram no teto
+  (FMEA F-V8). Mexeu numa env de render? Confira os dois lados pelo nome:
+  `node scripts/_render-envs.mjs` (Trigger) e `npx vercel env pull` (Vercel; apagar o arquivo depois).
 - **WaSender tem DOIS níveis de chave (21/07).** O token de CONTA (formato `NNNN|...`, do
   painel) só serve pra API de gerência (`/api/whatsapp-sessions`); a chave que o adapter
   (`lib/whatsapp/providers/wasender.ts`) usa é a **`api_key` da SESSÃO**, que só existe

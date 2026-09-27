@@ -1649,6 +1649,34 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   `gerar-video-modulo-grupo.test.ts` (o mp3 que sobe e vai para a HeyGen é o cortado). Validado por
   mutação: 7 de 7.
 
+### F-V8 · Re-render noturno que estoura o watchdog ESCONDE o deck publicado 🟠 (env corrigida 26/09/2026; código aberto)
+- **Gatilho:** o cron `reconciliar_videos` (00:00 BRT, na Vercel) devolve à fila a célula `done`
+  que tem gente sem nominal. Se o re-render falha, o worker grava `status='error'`
+  (`worker-hetzner/worker.mjs`, catch do loop) por cima de uma célula que tinha deck publicado, e o
+  `.neq('status','error')` de `resolverCelulaVideo` (`actions/gerar-video.ts`) passa a esconder o
+  deck E os nominais. O cabeçalho de `lib/video/reconciliar-personalizados.ts` já descrevia o risco
+  (ACME, 15/09) como "segue em aberto para cliente real".
+- **Medido 22-26/09/2026 (Macaé, cliente real):** 3 células de Professor(a) (C e S do módulo
+  `639b9ac6`, D do `ccae96ce`) morreram em **exatamente 40,0 min** de claim, com os decks tocando no
+  Bunny (HTTP 200, status 4) e 50 nominais `done`. 30 professores ativos já tinham liberado a semana
+  desses módulos; zero plays desses vídeos depois de 21/09. Denominador: 11 re-renders noturnos em
+  Macaé desde 17/09, 3 no teto e 2 passando com 39,5 e 39,7 min.
+- **Causa:** a box do cron é provisionada com a env da **Vercel**, que só tinha `MAX_RENDER_BOXES`,
+  `RENDER_SNAPSHOT_ID` e `HCLOUD_TOKEN`. Sem `MAX_RENDER_MS`, `RENDER_SERVER_TYPES` e
+  `RENDER_JOBS_PER_BOX`, `lib/video/ensure-render-worker.ts` usa os defaults: watchdog de 40 min,
+  cx33 primeiro e 3 jobs em série por box. O Trigger tinha os três (90 min, cx43 primeiro, 1 por box).
+- **Agravante:** das 9 pessoas que motivaram os re-renders, 6 não tinham trilha (o reconciliador conta
+  como lacuna quem nunca vai consumir). E a R16 do health acusou as células como "sem deck" e mandou
+  `resolverCelulaVideo` com `gerar:true`, que pagaria vídeo novo (roteiro e avatar) e descartaria os
+  nominais; o conserto foi voltar o `status` para `done`, sem custo.
+- **Correção (26/09/2026):** as 3 envs criadas na Vercel com os valores do Trigger + redeploy do
+  mesmo SHA; as 3 células devolvidas a `done`. Na noite seguinte o cron re-renderizou 2 delas com
+  sucesso, porém numa box subida pelo Trigger, então a env nova da Vercel ainda não foi exercida.
+- **Aberto:** (1) o worker não rebaixar célula que já tem `bunny_video_id` publicado (exige rebuild do
+  snapshot); (2) o reconciliador ignorar quem não tem trilha ativa; (3) a R16 separar "rebaixada com
+  deck" (ação: restaurar) de "sem deck" (ação: re-disparar). Sem guarda de código: a env vive fora do
+  repo. Gatilho em `.claude/skills/checklist/gatilhos.md` §13.
+
 ## 5. Parse de IA / robustez
 
 ### F-P1 · JSON truncado (maxTokens) → falha limpa (blueprint) ou score inflado (auditoria) ✅ (fechado 27/07)
