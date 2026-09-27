@@ -91,6 +91,10 @@ comparado com um número calculado do blob dá "defasado" para arquivo idêntico
 "igual" pode ser o conteúdo novo compensando exatamente os `\r` do velho.
 (2) **O disco pode estar no meio de uma edição de outra sessão** — o commit não
 ([[feedback_guard_varre_tracked]], quarta variante). Suba o que está no `HEAD`, sempre.
+🔴 **Com o `master` local DIVERGIDO, `HEAD` é a versão errada: use `origin/master` logo depois de um
+`git fetch`.** `Medido: 26/09/2026` — o `HEAD` local estava 184 commits atrás do que estava no ar, e o
+`CLAUDE.md` do `HEAD` media 78,6 kB contra 65,8 no remoto. Medir pelo `HEAD` teria subido um
+`CLAUDE.md` mais velho que o card. O Project espelha o que está no AR, não o disco de ninguém.
 
 ⚠️ Tolerância: 0,1 kB é arredondamento, não defasagem. Diferença ≥ 0,2 kB é conteúdo diferente —
 **desde que os dois lados tenham a mesma quebra de linha.** Enquanto houver card antigo subido do
@@ -105,6 +109,11 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
 1. **Ler o Project.** Abrir `https://claude.ai/project/019c7614-e003-719c-89ba-681693339e87`. No
    painel da direita, o item **"Arquivos"** mostra só o total ("20 arquivos · 22% da capacidade");
    a lista abre no **botão `aria-label="Mostrar arquivos"`** (clique nele, não em "Adicionar").
+   ⚠️ `Medido: 26/09/2026` (2ª rodada): depois de uma remoção e do reload, nem o clique no `ref`, nem
+   o clique na posição, nem foco + `Enter` abriram o modal (3 tentativas de cada). O que abriu na 1ª
+   foi disparar por JS, no botão, `pointerdown`, `mousedown`, `pointerup`, `mouseup` e `click` (com
+   `clientX/clientY` do centro do `getBoundingClientRect`). Abrir o modal não remove nada, então JS
+   aqui é seguro; a REMOÇÃO continua pelo caminho do passo 7.
    O modal é o `[role="dialog"]` que contém "Arquivos". Cada arquivo tem **dois botões**: um com
    `aria-label="<NOME>.md"` (abre a visualização) e outro **`aria-label="Mais opções para <NOME>.md"`**
    (o menu). O card MOSTRA o nome sem `.md` e com espaço no lugar do hífen ("CATALOGO PROMPTS IA
@@ -164,6 +173,13 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
       da screenshot (com `scrollIntoView` centralizando a linha, o item ficou sempre no mesmo lugar);
    5. só então JS de novo, para conferir o total e marcar o próximo.
    A remoção é imediata, **sem diálogo de confirmação**.
+   🔴 **O clique pela posição da screenshot pode cair FORA do item, e o menu fecha sem remover.**
+   `Medido: 26/09/2026` (2ª rodada): a imagem tinha 1568×669, mas a página ocupava só cerca de
+   1410×600 dela, e a viewport real era 1497×638 (`read_page` mostra). Com essa escala a coordenada
+   lida na imagem caiu à esquerda e acima de "Remover do projeto": 2 cliques, menu fechado, nada
+   removido, e o reload mostrou a velha ainda lá. **O que funcionou:** com o menu aberto pelo `ref`,
+   `ArrowDown` pelo teclado real (ação `key`), `zoom` para conferir que o item destacado é "Remover
+   do projeto" no menu da linha com o kB ANTIGO, e `Enter`. Sem coordenada nenhuma.
    🔴 **Qualquer `javascript_tool` com o menu aberto FECHA o menu** (rouba o foco): medido em 26/09,
    o laço "abre por script, acha o item, clica" deu 5 de 5 "SEM MENU". Por isso o passo 5 vem depois.
    🔴 **Abrir o menu disparando eventos por JS não é confiável** (abriu 1 vez em 3), e o `find` às
