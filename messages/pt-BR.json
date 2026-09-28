@@ -468,7 +468,17 @@
     "teamReportOf": "Treino de {name}",
     "teamStalled": "Treino parado desde {date}",
     "surveyChallenge": "Nível de desafio percebido: {value} de 5 (1 = muito baixo, 5 = muito alto). Aqui não há valor melhor: mostra se o cliente pareceu fácil ou difícil demais.",
-    "sending": "enviando…"
+    "sending": "enviando…",
+    "suggestedFocusPlan": "Vem da prioridade da sua última devolutiva. Leve-o em conta no plano.",
+    "planningGroup1": "O cliente e o objetivo",
+    "planningGroup2": "Diagnóstico e condução",
+    "planningGroup3": "Proposta e objeções",
+    "planningGroupProgress": "{n} de {total}",
+    "howItWorks": "Como funciona · cerca de 20 a 30 minutos",
+    "howItWorksPlan": "Plano: {total} perguntas curtas antes da conversa (responda pelo menos {min}).",
+    "howItWorksChat": "Conversa com o cliente, do primeiro contato ao próximo passo.",
+    "howItWorksSurvey": "Pesquisa de experiência, de um minuto.",
+    "howItWorksReport": "Devolutiva por competência, com a prioridade do próximo treino."
   },
   "Beto": {
     "greeting": "Oi! Sou o Beto, seu mentor de desenvolvimento. Como posso ajudar?",

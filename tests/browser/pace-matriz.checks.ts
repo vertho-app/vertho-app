@@ -31,6 +31,10 @@ export async function verificarMatrizUI(page: Page, origin: string, dir: string)
   await expect(registrar).toBeEnabled();
   await page.getByText('4 de 6 respondidas · mínimo 4', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'Descartar este treino', exact: true }).waitFor();
+  // V-13 (27/09/2026): as seis perguntas em três grupos de duas.
+  for (const grupo of ['O cliente e o objetivo', 'Diagnóstico e condução', 'Proposta e objeções'])
+    await expect(plano.getByRole('group', { name: new RegExp(`^${grupo}`) }).locator('textarea')).toHaveCount(2);
+  await plano.getByRole('group', { name: /^O cliente e o objetivo/ }).getByText('2 de 2', { exact: true }).waitFor();
   await page.screenshot({ path: `${dir}/matriz-planejamento-desktop.png`, fullPage: true });
   await registrar.click();
   await page.getByLabel('Sua mensagem', { exact: true }).waitFor();
@@ -43,6 +47,14 @@ export async function verificarMatrizUI(page: Page, origin: string, dir: string)
   );
   await page.getByText('Ver planejamento registrado', { exact: true }).click();
   await page.getByText(/Resposta 4 do plano de teste\./).waitFor();
+  checks++;
+
+  // V-13: o foco sugerido pela última devolutiva entra no plano do treino seguinte.
+  await page.goto(`${origin}/?matrix=1&planning=1&evolucao=1`);
+  const planoComFoco = page.locator('form', { has: page.getByRole('group', { name: 'Seu plano para a reunião', exact: true }) });
+  await planoComFoco.getByText('Foco sugerido para este treino', { exact: true }).waitFor();
+  await planoComFoco.getByText('Confirme o diagnóstico antes de propor', { exact: true }).waitFor();
+  await page.screenshot({ path: `${dir}/matriz-planejamento-foco-desktop.png`, fullPage: false });
   checks++;
 
   // Descartar: só antes da primeira fala, com confirmação.

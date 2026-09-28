@@ -19,6 +19,7 @@ import type { ResumoTreino } from '@/lib/simulador-vendas/historico';
 import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 import {
   comporPlano,
+  GRUPOS_PLANO,
   MAXIMO_POR_RESPOSTA,
   MINIMO_RESPOSTAS_PLANO,
   PERGUNTAS_PLANO,
@@ -627,6 +628,25 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       <strong>{focoSugerido}</strong>
                     </p>
                   )}
+                  {/* V-13 (27/09/2026): as etapas e o tempo antes de começar;
+                      o plano só aparecia depois do cenário já criado. */}
+                  <details
+                    className={styles.howItWorks}
+                    open={!dados.historico.length}
+                  >
+                    <summary>{t('howItWorks')}</summary>
+                    <ol>
+                      <li>
+                        {t('howItWorksPlan', {
+                          total: PERGUNTAS_PLANO,
+                          min: MINIMO_RESPOSTAS_PLANO,
+                        })}
+                      </li>
+                      <li>{t('howItWorksChat')}</li>
+                      <li>{t('howItWorksSurvey')}</li>
+                      <li>{t('howItWorksReport')}</li>
+                    </ol>
+                  </details>
                   <label>
                     {t('level')}
                     <select
@@ -876,22 +896,49 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                           total: PERGUNTAS_PLANO,
                         })}
                       </p>
+                      {/* V-13 (27/09/2026): o foco da última devolutiva entra
+                          no plano; antes aparecia só perto de "Nova simulação". */}
+                      {focoSugerido && (
+                        <p className={styles.focus}>
+                          <span>{t('suggestedFocus')}</span>
+                          <strong>{focoSugerido}</strong>
+                          <small>{t('suggestedFocusPlan')}</small>
+                        </p>
+                      )}
                       <fieldset className={styles.plan}>
                         <legend>{t('planningLabel')}</legend>
-                        {titulosPlano.map((titulo, i) => (
-                          <label key={i}>
-                            <span>{titulo}</span>
-                            <textarea
-                              rows={3}
-                              maxLength={MAXIMO_POR_RESPOSTA}
-                              value={respostas[i]}
-                              disabled={travado || !dados.podeTreinar}
-                              onChange={(e) =>
-                                responderPergunta(i, e.target.value)
-                              }
-                              placeholder={t(`planningHint${i + 1}`)}
-                            />
-                          </label>
+                        {/* Três grupos de duas perguntas: os mesmos seis
+                            campos e o mesmo mínimo, mais fáceis de percorrer
+                            no celular (V-13). */}
+                        {GRUPOS_PLANO.map((grupo, g) => (
+                          <fieldset key={g} className={styles.planGroup}>
+                            <legend>
+                              {t(`planningGroup${g + 1}`)}
+                              <small>
+                                {t('planningGroupProgress', {
+                                  n: respostasValidas(
+                                    grupo.map((i) => respostas[i] ?? ''),
+                                  ),
+                                  total: grupo.length,
+                                })}
+                              </small>
+                            </legend>
+                            {grupo.map((i) => (
+                              <label key={i}>
+                                <span>{titulosPlano[i]}</span>
+                                <textarea
+                                  rows={3}
+                                  maxLength={MAXIMO_POR_RESPOSTA}
+                                  value={respostas[i]}
+                                  disabled={travado || !dados.podeTreinar}
+                                  onChange={(e) =>
+                                    responderPergunta(i, e.target.value)
+                                  }
+                                  placeholder={t(`planningHint${i + 1}`)}
+                                />
+                              </label>
+                            ))}
+                          </fieldset>
                         ))}
                       </fieldset>
                       <p className={styles.muted} role="status">

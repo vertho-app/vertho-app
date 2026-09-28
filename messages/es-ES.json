@@ -468,7 +468,17 @@
     "teamReportOf": "Práctica de {name}",
     "teamStalled": "Práctica detenida desde {date}",
     "surveyChallenge": "Nivel de desafío percibido: {value} de 5 (1 = muy bajo, 5 = muy alto). Aquí más alto no es mejor: muestra si el cliente pareció demasiado fácil o difícil.",
-    "sending": "enviando…"
+    "sending": "enviando…",
+    "suggestedFocusPlan": "Viene de la prioridad de tu última devolución. Tenlo en cuenta en el plan.",
+    "planningGroup1": "El cliente y el objetivo",
+    "planningGroup2": "Diagnóstico y conducción",
+    "planningGroup3": "Propuesta y objeciones",
+    "planningGroupProgress": "{n} de {total}",
+    "howItWorks": "Cómo funciona · entre 20 y 30 minutos",
+    "howItWorksPlan": "Plan: {total} preguntas breves antes de la conversación (responde al menos {min}).",
+    "howItWorksChat": "Conversación con el cliente, del primer contacto al siguiente paso.",
+    "howItWorksSurvey": "Encuesta de experiencia, de un minuto.",
+    "howItWorksReport": "Devolución por competencia, con la prioridad de la próxima práctica."
   },
   "Beto": {
     "greeting": "¡Hola! Soy Beto, tu mentor de desarrollo. ¿Cómo puedo ayudarte?",

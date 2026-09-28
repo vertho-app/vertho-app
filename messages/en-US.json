@@ -468,7 +468,17 @@
     "teamReportOf": "Session by {name}",
     "teamStalled": "Session stalled since {date}",
     "surveyChallenge": "Perceived challenge level: {value} of 5 (1 = very low, 5 = very high). Higher is not better here: it shows whether the client felt too easy or too hard.",
-    "sending": "sending…"
+    "sending": "sending…",
+    "suggestedFocusPlan": "It comes from the priority in your last feedback. Keep it in mind in your plan.",
+    "planningGroup1": "The client and the goal",
+    "planningGroup2": "Diagnosis and flow",
+    "planningGroup3": "Proposal and objections",
+    "planningGroupProgress": "{n} of {total}",
+    "howItWorks": "How it works · about 20 to 30 minutes",
+    "howItWorksPlan": "Plan: {total} short questions before the conversation (answer at least {min}).",
+    "howItWorksChat": "Conversation with the client, from first contact to next step.",
+    "howItWorksSurvey": "One-minute experience survey.",
+    "howItWorksReport": "Feedback by competency, with the priority for your next session."
   },
   "Beto": {
     "greeting": "Hi! I'm Beto, your development mentor. How can I help?",
