@@ -111,6 +111,10 @@ try {
   for (const nota of notasMaximas) await nota.check();
   await page.getByRole('button', { name: 'Enviar avaliação e abrir devolutiva', exact: true }).click();
   await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).waitFor();
+  // V-11 (27/09/2026): depois do envio, uma linha só; o trilho P A C E sai depois do fim.
+  await page.getByRole('heading', { name: 'Avaliação registrada.', exact: true }).waitFor();
+  assert.equal(await page.getByRole('list', { name: 'Etapas para receber a devolutiva' }).count(), 0, 'cartão grande depois do envio');
+  assert.equal(await page.getByRole('list', { name: 'Etapas PACE', exact: true }).count(), 0, 'trilho P A C E depois do fim');
   // Escala comum 1 a 4 desde 17/09 (pace-6); a leitura pública converte toda versão.
   assert.equal(await page.locator('meter').first().getAttribute('min'), '1');
   await page.screenshot({ path: `${dir}/relatorio-desktop.png`, fullPage: true });
@@ -167,8 +171,19 @@ try {
   assert.notEqual(await fundo('Nova simulação'), fundoPrimario, '"Nova simulação" primário com pesquisa pendente');
   await page.screenshot({ path: `${dir}/pesquisa-pendente-desktop.png`, fullPage: false });
   for (const nota of await page.getByRole('radio', { name: '5 de 5', exact: true }).all()) await nota.check();
-  await page.getByRole('button', { name: 'Enviar avaliação e abrir devolutiva', exact: true }).click();
+  // Enviado pelo teclado: é quando o navegador desenha o anel de foco
+  // (`:focus-visible`) no relatório que recebe o foco (V-11).
+  await page.getByRole('button', { name: 'Enviar avaliação e abrir devolutiva', exact: true }).press('Enter');
   await meusTreinos.getByText('Nota PACE 3', { exact: true }).waitFor();
+  await page.getByRole('region', { name: 'Devolutiva por competência', exact: true }).waitFor();
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.querySelector('[aria-label="Relatório PACE"]') !== null))
+    .toBe(true);
+  assert.equal(
+    await page.evaluate(() => getComputedStyle(document.activeElement).outlineStyle),
+    'none',
+    'contorno de foco em volta do relatório',
+  );
   assert.equal(await fundo('Nova simulação'), fundoPrimario, '"Nova simulação" volta a ser primário');
   checks++;
   // V-3 (27/09/2026): 504 do gateway em HTML vira mensagem traduzida, o texto

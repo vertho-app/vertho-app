@@ -759,27 +759,36 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                 />
               )}
               {sessao?.feedback && sessao.relatorio && (
-                <div ref={resultado} tabIndex={-1} className="pt-3 mb-6">
+                // Foco programático para leitores de tela, sem o contorno
+                // branco do navegador em volta do relatório inteiro (V-11).
+                <div
+                  ref={resultado}
+                  tabIndex={-1}
+                  className={`${styles.resultado} pt-3 mb-6`}
+                >
                   <Relatorio
                     relatorio={sessao.relatorio}
                     versao={sessao.versaoRegua}
                   />
                 </div>
               )}
-              <ol aria-label={t('phases')} className={styles.rail}>
-                {FASES.map((f, i) => (
-                  <li
-                    key={f}
-                    className={
-                      sessao?.fase === f ? styles.phaseActive : undefined
-                    }
-                    aria-current={sessao?.fase === f ? 'step' : undefined}
-                  >
-                    <b>{'PACE'[i]}</b>
-                    <span>{t(`phase_${f}`)}</span>
-                  </li>
-                ))}
-              </ol>
+              {/* O trilho das etapas acompanha a conversa; depois do fim, sai. */}
+              {!terminou && (
+                <ol aria-label={t('phases')} className={styles.rail}>
+                  {FASES.map((f, i) => (
+                    <li
+                      key={f}
+                      className={
+                        sessao?.fase === f ? styles.phaseActive : undefined
+                      }
+                      aria-current={sessao?.fase === f ? 'step' : undefined}
+                    >
+                      <b>{'PACE'[i]}</b>
+                      <span>{t(`phase_${f}`)}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
               {chatPrimeiro && sessao?.cenario && (
                 <details
                   className={styles.fichaCelular}

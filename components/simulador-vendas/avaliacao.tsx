@@ -29,6 +29,19 @@ export default function Avaliacao({
   const t = useTranslations('SimuladorVendas');
   const completa = CAMPOS.every((campo) => feedback[campo] >= 1 && feedback[campo] <= 5);
 
+  // Depois do envio, uma linha só (V-11, 27/09/2026): o cartão grande com as
+  // duas etapas ficava entre a pessoa e a devolutiva que ela acabou de liberar.
+  if (salvo)
+    return (
+      <section className={styles.evaluationDone} aria-labelledby="pace-avaliacao-titulo" role="status">
+        <Check size={16} aria-hidden="true" />
+        <div>
+          <h2 id="pace-avaliacao-titulo">{t('feedbackSavedTitle')}.</h2>{' '}
+          <span>{t(comDevolutiva ? 'feedbackSavedDescription' : 'feedbackSavedNoReport')}</span>
+        </div>
+      </section>
+    );
+
   return (
     <section className={styles.evaluation} aria-labelledby="pace-avaliacao-titulo">
       <div className={styles.evaluationHeader}>

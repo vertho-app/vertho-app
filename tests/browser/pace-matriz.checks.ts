@@ -87,7 +87,23 @@ export async function verificarMatrizUI(page: Page, origin: string, dir: string)
   await devolutiva.getByText('4 de 4 comportamentos observados', { exact: true }).waitFor();
   await expect(page.getByText('A simulação não inclui execução de pós-venda.', { exact: true })).toHaveCount(0);
   await expect(devolutiva.getByText('Nível 3', { exact: true }).first()).toBeVisible();
+  // V-11 (27/09/2026): o desfecho é rotulado e a média geral vem antes das
+  // recomendações e do desfecho (no celular ela ficava a ~1.260 px).
+  const y = (l: import('@playwright/test').Locator) => l.boundingBox().then((b) => b!.y);
+  const mediaGeral = devolutiva.getByText('Média geral', { exact: true });
+  const recomendacoes = page.getByRole('heading', { name: 'Para a próxima conversa', exact: true });
+  const desfecho = page.getByText('Resultado da negociação', { exact: true });
+  await desfecho.waitFor();
+  await page.getByText('Inconclusivo', { exact: true }).waitFor();
+  assert.ok((await y(mediaGeral)) < (await y(recomendacoes)), 'média geral antes das recomendações');
+  assert.ok((await y(mediaGeral)) < (await y(desfecho)), 'média geral antes do desfecho da negociação');
+  await expect(page.getByRole('list', { name: 'Etapas PACE', exact: true })).toHaveCount(0);
   await page.screenshot({ path: `${dir}/matriz-relatorio-pace7-desktop.png`, fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const topoMedia = await mediaGeral.evaluate((el) => el.getBoundingClientRect().top + scrollY);
+  assert.ok(topoMedia < 1000, `média geral no celular a ${Math.round(topoMedia)} px`);
+  await page.screenshot({ path: `${dir}/matriz-relatorio-pace7-mobile.png`, fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1080 });
   checks++;
 
   // pace-7, conversa curta: a regra aparece em palavras e não há média.

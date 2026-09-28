@@ -350,7 +350,7 @@
     "result_fechou_ideal": "Closed on ideal terms",
     "result_fechou_aceitavel": "Closed on acceptable terms",
     "result_nao_fechou": "Did not close",
-    "result_inconclusivo": "Inconclusive result",
+    "result_inconclusivo": "Inconclusive",
     "discoveries": "Conversation discoveries",
     "conduct": "Conduct records",
     "deduction": "Pillar {pillar}: {value} point(s) deducted.",
@@ -459,7 +459,8 @@
     "surveyPending": "Survey pending",
     "surveyPendingHint": "Your feedback is ready and opens after the one-minute experience survey. The training score appears with it.",
     "surveyPendingOpen": "Answer the survey",
-    "evaluationOptional": "Optional"
+    "evaluationOptional": "Optional",
+    "negotiationResult": "Negotiation outcome"
   },
   "Beto": {
     "greeting": "Hi! I'm Beto, your development mentor. How can I help?",

@@ -350,7 +350,7 @@
     "result_fechou_ideal": "Fechou no ideal",
     "result_fechou_aceitavel": "Fechou no aceitável",
     "result_nao_fechou": "Não fechou",
-    "result_inconclusivo": "Resultado inconclusivo",
+    "result_inconclusivo": "Inconclusivo",
     "discoveries": "Descobertas na conversa",
     "conduct": "Registros de conduta",
     "deduction": "Pilar {pillar}: redução de {value} ponto(s).",
@@ -459,7 +459,8 @@
     "surveyPending": "Pesquisa pendente",
     "surveyPendingHint": "Sua devolutiva está pronta e abre depois da pesquisa de experiência, que leva um minuto. A nota do treino aparece junto com ela.",
     "surveyPendingOpen": "Responder à pesquisa",
-    "evaluationOptional": "Opcional"
+    "evaluationOptional": "Opcional",
+    "negotiationResult": "Resultado da negociação"
   },
   "Beto": {
     "greeting": "Oi! Sou o Beto, seu mentor de desenvolvimento. Como posso ajudar?",
