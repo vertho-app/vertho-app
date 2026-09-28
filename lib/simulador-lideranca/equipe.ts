@@ -35,6 +35,7 @@ import {
 } from '@/lib/simuladores/lideranca/matriz-global';
 import { sinteseDaJornada, type SinteseJornada } from './avaliacao';
 import { LiderancaError, type AvaliacaoGravada, type Episodio } from './schema';
+import { encontroParaEquipe } from './visao-equipe';
 
 export type MatrizPublica = Pick<
   LinhaMatriz,
@@ -310,25 +311,6 @@ export async function painelEquipe(c: ContextoEquipe) {
     iniciaram: linhas.filter((l) => l.variante !== null).length,
     concluiram: linhas.filter((l) => l.encontrosConcluidos >= 5).length,
     pessoas: linhas,
-  };
-}
-
-/** O que o acompanhamento enxerga de um encontro: devolutiva, sem conversa, preparação ou reflexão. */
-function encontroParaEquipe(e: Episodio) {
-  return {
-    id: e.id,
-    indice: e.indice,
-    repeticao: e.repeticao,
-    encerradoEm: e.encerradoEm,
-    avaliacao: e.avaliacao,
-    // Acordos pela descrição: o trecho literal é fala da pessoa, e a conversa não sai daqui.
-    consequencia: e.consequencia
-      ? {
-          narrativa: e.consequencia.narrativa,
-          acordos: e.consequencia.acordos.map((a) => a.descricao),
-          pendencias: e.consequencia.pendencias,
-        }
-      : null,
   };
 }
 

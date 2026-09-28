@@ -26,6 +26,7 @@ import {
   episodio,
   avaliacao,
   FALA,
+  PLANO,
 } from '../fixtures/simulador-lideranca';
 
 const EMP = '10000000-0000-4000-8000-000000000001';
@@ -75,6 +76,8 @@ const concluido = {
 };
 
 let regras: Record<string, unknown> | undefined;
+/** Encontros concluídos a mais na jornada da Ana (só o teste da D1 usa). */
+let extras: typeof concluido[] = [];
 function banco() {
   return criarSupabaseMock({
     resolver: (tabela, _cols, cadeia) => {
@@ -97,7 +100,7 @@ function banco() {
               updated_at: '2026-09-18T12:00:00Z',
               estado: {
                 ...estado(),
-                concluidos: [concluido],
+                concluidos: [concluido, ...extras],
               },
             }
           : null;
@@ -187,6 +190,51 @@ describe('acompanhamento do simulador de liderança', () => {
       'Revisar os pedidos amanhã.',
     ]);
     expect(d.matriz[0]).not.toHaveProperty('perguntas_alvo');
+  });
+
+  it('🔴 D1 (27/09/2026): evidência da preparação e da reflexão chega à equipe SEM o texto; a da conversa segue citada', async () => {
+    // Encontro 3: Autoconsciência é secundária, e a reflexão pode sustentá-la.
+    const REFLEXAO_PRIVADA = 'Percebi que me irritei com a Camila e interrompi cedo demais.';
+    const JUSTIFICATIVA_PRIVADA = 'Você reconheceu que se irritou com a Camila.';
+    const linhas2 = linhasDoEncontro(matriz, 2);
+    const a2 = avaliacao(2);
+    const auto = a2.descritores.find((d) =>
+      linhas2.find((l) => l.cod_desc === d.codigo)?.nome === 'Autoconsciência e Aprendizagem Contínua',
+    )!;
+    auto.nivel = 3;
+    auto.justificativa = JUSTIFICATIVA_PRIVADA;
+    auto.evidencias = [{ fonte: 'reflexao', turno: 0, trecho: REFLEXAO_PRIVADA }];
+    const ep2 = { ...episodio(2), reflexao: REFLEXAO_PRIVADA };
+    extras = [
+      {
+        ...ep2,
+        id: '10000000-0000-4000-8000-000000000012',
+        encerradoEm: '2026-09-19T12:00:00Z',
+        avaliacao: gravarAvaliacao(a2, ep2, linhas2),
+        consequencia: null as any,
+      },
+    ];
+    try {
+      sb = banco();
+      const d = await detalhePessoa(await contextoEquipe(auth('gestor')), 'ana');
+      expect(d.encontros).toHaveLength(2);
+      const json = JSON.stringify(d);
+      // Nem o texto literal nem a justificativa escrita a partir dele.
+      for (const privado of [PLANO, REFLEXAO_PRIVADA, JUSTIFICATIVA_PRIVADA]) expect(json).not.toContain(privado);
+      const evidencias = d.encontros.flatMap((e) => e.avaliacao!.descritores.flatMap((x) => x.evidencias));
+      const reservadas = evidencias.filter((e) => e.fonte !== 'fala');
+      // Fonte e nível continuam visíveis: a evidência existe, só o texto fica com a pessoa.
+      expect(reservadas.map((e) => e.fonte).sort()).toEqual(['planejamento', 'planejamento', 'reflexao']);
+      for (const e of reservadas) expect(e).not.toHaveProperty('trecho');
+      const descritorReflexao = d.encontros[1].avaliacao!.descritores.find((x) => x.codigo === auto.codigo)!;
+      expect(descritorReflexao).toMatchObject({ nivel: 3, justificativa: null });
+      // A conversa segue citada, como antes.
+      expect(evidencias.filter((e) => e.fonte === 'fala').map((e) => e.trecho)).toContain(FALA);
+      // E a própria pessoa segue com tudo: a projeção não mexeu no estado gravado.
+      expect(extras[0].avaliacao.descritores.find((x) => x.codigo === auto.codigo)!.evidencias[0].trecho).toBe(REFLEXAO_PRIVADA);
+    } finally {
+      extras = [];
+    }
   });
 
   it('gestor não abre quem está fora da equipe dele', async () => {

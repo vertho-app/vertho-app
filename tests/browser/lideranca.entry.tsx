@@ -9,6 +9,7 @@ import {
 } from '../../lib/simulador-lideranca/core';
 import { comandoSchema } from '../../lib/simulador-lideranca/schema';
 import { sinteseDaJornada } from '../../lib/simulador-lideranca/avaliacao';
+import { encontroParaEquipe } from '../../lib/simulador-lideranca/visao-equipe';
 import { estado, gerarFixture } from '../fixtures/simulador-lideranca';
 import pt from '../../messages/pt-BR.json';
 import ptpt from '../../messages/pt-PT.json';
@@ -30,17 +31,9 @@ const sintese = () =>
   s.concluidos.length
     ? sinteseDaJornada([...s.concluidos, ...repeticoes()], s.matriz, s.concluidos.length)
     : null;
-// Mesma projeção do servidor (`lib/simulador-lideranca/equipe.ts`): devolutiva sem conversa.
-const paraEquipe = (e: any) => ({
-  id: e.id,
-  indice: e.indice,
-  repeticao: e.repeticao,
-  encerradoEm: e.encerradoEm,
-  avaliacao: e.avaliacao,
-  consequencia: e.consequencia
-    ? { narrativa: e.consequencia.narrativa, acordos: e.consequencia.acordos.map((a: any) => a.descricao), pendencias: e.consequencia.pendencias }
-    : null,
-});
+// A MESMA projeção do servidor (`lib/simulador-lideranca/equipe.ts` importa
+// daqui): devolutiva sem conversa, e preparação e reflexão sem o texto (D1, 27/09/2026).
+const paraEquipe = encontroParaEquipe;
 w.__liderancaFetch = async (url: string, options?: RequestInit) => {
   const query = new URL(url, location.origin).searchParams;
   if (url.includes('/api/simulador-lideranca/equipe')) {

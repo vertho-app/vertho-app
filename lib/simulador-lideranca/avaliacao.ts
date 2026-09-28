@@ -138,7 +138,11 @@ export interface ResumoEncontro {
  * competências avaliadas, foco primeiro, com a regra de 4 descritores; a legada
  * (30 descritores, sem mínimo) é lida como foi gerada.
  */
-export function resumoAvaliacao(a: AvaliacaoGravada, matriz: LinhaMinima[], indice?: number): ResumoEncontro {
+export function resumoAvaliacao(
+  a: Pick<AvaliacaoGravada, 'regraCobertura'> & { descritores: Array<{ codigo: string; nivel?: number | null }> },
+  matriz: LinhaMinima[],
+  indice?: number,
+): ResumoEncontro {
   const nova = !!a.regraCobertura && a.regraCobertura !== 'legado';
   const regra = nova ? REGRA_COBERTURA : REGRA_LEGADA;
   const codigosAvaliados = new Set(a.descritores.map((d) => d.codigo));

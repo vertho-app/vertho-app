@@ -3,7 +3,6 @@ import type {
   RegraRelatorio,
 } from '@/components/simuladores/relatorio-competencias';
 import type { ResumoEncontro } from '@/lib/simulador-lideranca/avaliacao';
-import type { AvaliacaoGravada } from '@/lib/simulador-lideranca/schema';
 
 /** O mínimo da matriz que a devolutiva precisa (a da jornada e o recorte do painel servem). */
 export type LinhaParaRelatorio = {
@@ -15,12 +14,33 @@ export type LinhaParaRelatorio = {
   n4_referencia: string;
 };
 
-/** Converte a devolutiva de um encontro no formato comum aos três simuladores. */
+type Fonte = 'fala' | 'planejamento' | 'reflexao';
+
+/**
+ * A devolutiva como chega à tela: a da pessoa (com todos os trechos) ou a da
+ * equipe (`lib/simulador-lideranca/visao-equipe.ts`), em que a evidência da
+ * preparação e da reflexão vem SEM `trecho` (decisão do dono, 27/09/2026).
+ */
+export type AvaliacaoParaRelatorio = {
+  descartados?: string[];
+  descritores: Array<{
+    codigo: string;
+    nivel?: number | null;
+    justificativa?: string | null;
+    evidencias: Array<{ fonte: Fonte; turno: number; trecho?: string }>;
+  }>;
+};
+
+/**
+ * Converte a devolutiva de um encontro no formato comum aos três simuladores.
+ * Evidência sem `trecho` não vira citação: o rótulo da fonte (ex.: "Evidência
+ * da preparação") entra no lugar da justificativa, e o nível continua visível.
+ */
 export function competenciasParaRelatorio(
   resumo: ResumoEncontro,
-  avaliacao: AvaliacaoGravada,
+  avaliacao: AvaliacaoParaRelatorio,
   matriz: LinhaParaRelatorio[],
-  origem: (fonte: 'fala' | 'planejamento' | 'reflexao', turno: number) => string,
+  origem: (fonte: Fonte, turno: number) => string,
 ): { competencias: CompetenciaRelatorio[]; regra: RegraRelatorio } {
   const descartados = new Set(avaliacao.descartados || []);
   const competencias = resumo.competencias.map((c) => ({
@@ -35,13 +55,15 @@ export function competenciasParaRelatorio(
     descritores: c.descritores.map((codigo) => {
       const linha = matriz.find((l) => l.cod_desc === codigo);
       const a = avaliacao.descritores.find((d) => d.codigo === codigo);
+      const citadas = (a?.evidencias || []).filter((e) => !!e.trecho);
+      const reservadas = [...new Set((a?.evidencias || []).filter((e) => !e.trecho).map((e) => origem(e.fonte, e.turno)))];
       return {
         codigo,
         nome: linha?.nome_curto || codigo,
         nivel: a?.nivel ?? null,
-        justificativa: a?.justificativa ?? null,
-        evidencias: (a?.evidencias || []).map((e) => ({
-          texto: e.trecho,
+        justificativa: reservadas.length ? reservadas.join(' · ') : (a?.justificativa ?? null),
+        evidencias: citadas.map((e) => ({
+          texto: e.trecho!,
           origem: origem(e.fonte, e.turno),
         })),
         regua: linha

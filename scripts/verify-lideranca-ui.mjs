@@ -213,6 +213,19 @@ try {
   await page.getByRole('button', { name: 'Ver devolutivas' }).first().click();
   await expect(page.getByRole('button', { name: 'Voltar à equipe' })).toBeVisible();
   await page.screenshot({ path: `${dir}/equipe-detalhe-desktop.png`, fullPage: true });
+  // D1 (27/09/2026): a evidência da preparação aparece pela fonte e pelo nível,
+  // sem o texto; a conversa segue citada. Até então o gestor lia a preparação entre aspas.
+  const e1 = page.locator('details').filter({ hasText: 'Encontro 1 · Jornada original' }).first();
+  await e1.locator('summary').first().click();
+  const comunicacao = e1.locator('details').filter({ hasText: 'Comunicação e Conversas de Liderança' }).first();
+  await comunicacao.locator('summary').first().click();
+  await expect(comunicacao.getByText('Evidência da preparação (o texto fica com a pessoa)').first()).toBeVisible();
+  assert.equal(await page.getByText(plano.slice(0, 40), { exact: false }).count(), 0, 'texto da preparação na visão da equipe');
+  assert.equal(await page.getByText(reflexao.slice(0, 40), { exact: false }).count(), 0, 'texto da reflexão na visão da equipe');
+  const analise = e1.locator('details').filter({ hasText: 'Análise e Diagnóstico de Situações' }).first();
+  await analise.locator('summary').first().click();
+  await expect(analise.getByText(fala, { exact: false }).first()).toBeVisible();
+  await comunicacao.screenshot({ path: `${dir}/equipe-evidencia-preparacao.png` });
   // Sem revisão humana (decisão do dono, 22/09/2026): RH e gestor leem as devolutivas, não registram parecer.
   assert.equal(await page.getByRole('region', { name: 'Revisão humana' }).count(), 0, 'bloco de revisão no detalhe da equipe');
   assert.equal(await page.getByRole('button', { name: 'Registrar revisão' }).count(), 0, 'botão de revisão no detalhe da equipe');
