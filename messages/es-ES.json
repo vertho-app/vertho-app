@@ -59,6 +59,8 @@
     "replyCount": "{n}/{max} respuestas",
     "seeCaseSheet": "Ver ficha",
     "startTitle": "¿Cómo conducirías esta atención?",
+    "objective": "Objetivo del ejercicio",
+    "startMoreInSheet": "Las alternativas autorizadas y las demás orientaciones están en la ficha de atención.",
     "starting": "Iniciando…",
     "start": "Iniciar atención",
     "conversationWith": "Conversación con {name}",

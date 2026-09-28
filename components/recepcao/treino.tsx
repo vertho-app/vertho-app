@@ -700,6 +700,12 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                   })}
                 </select>
               </label>
+              {/* O título inteiro fora do seletor: no celular o <select> cortava o nome do caso. */}
+              <p className={styles.casoEscolhido}>
+                {[nivelRotulo(ficha.nivel), tituloDoCaso(ficha.titulo, ficha.nivel)]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
               {sessao && !confirmarOutro && (
                 <button
                   className={styles.secondary}
@@ -904,8 +910,11 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               concluido={!!relatorio}
               titulo={t('trainingDetails')}
             >
+              {/* Celular: o cartão de início (antes de iniciar) e a conversa vêm antes da ficha.
+                  Antes de iniciar, o cartão já traz situação, objetivo, degrau e procedimentos;
+                  o resto da ficha fica recolhido ("Iniciar" estava a 2.337 px de 2.430, 27/09/2026). */}
               <div
-                className={`${styles.workspace} ${emConversa ? styles.chatPrimeiro : ''}`}
+                className={`${styles.workspace} ${!relatorio ? styles.chatPrimeiro : ''}`}
               >
                 <aside className={styles.ficha} id="ficha-atendimento">
                   <div className={styles.fichaTitle}>
@@ -918,7 +927,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                   <p className={styles.small}>
                     {t('caseSheetNote', { company: dados.empresaNome })}
                   </p>
-                  <details open>
+                  <details open={!!sessao}>
                     <summary>{t('situation')}</summary>
                     <p>{ficha.contexto}</p>
                     {ficha.agora && (
@@ -934,7 +943,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     )}
                   </details>
                   {ficha.alternativas?.length > 0 && (
-                    <details open>
+                    <details open={!!sessao}>
                       <summary>{t('authorizedOptions')}</summary>
                       <div className={styles.slots}>
                         {ficha.alternativas.map((a: any) => (
@@ -953,7 +962,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     </details>
                   )}
                   {ficha.secoes?.map((sec: any, i: number) => (
-                    <details key={i} open>
+                    <details key={i} open={!!sessao}>
                       <summary>{sec.titulo}</summary>
                       <ul>
                         {sec.itens.map((texto: string, j: number) => (
@@ -962,7 +971,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                       </ul>
                     </details>
                   ))}
-                  <details>
+                  {/* A avaliação se apoia nos procedimentos: abertos durante a conversa. */}
+                  <details open={!!sessao}>
                     <summary>{t('procedures')}</summary>
                     <ul>
                       {ficha.procedimentos.map((p: string) => (
@@ -1010,12 +1020,30 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     <div className={styles.start}>
                       <MessageCircle size={38} />
                       <h2>{t('startTitle')}</h2>
-                      <p>{ficha.objetivo}</p>
-                      <p>
-                        {ficha.competencias
-                          ?.map((d: any) => d.nome)
-                          .join(' · ')}
-                      </p>
+                      {/* O essencial para começar, no próprio cartão (o degrau está no cabeçalho acima). */}
+                      <div className={styles.startFicha}>
+                        <section>
+                          <h3>{t('situation')}</h3>
+                          <p>{ficha.contexto}</p>
+                          {ficha.agora && (
+                            <p>
+                              <strong>{t('reference')}</strong> {ficha.agora}
+                            </p>
+                          )}
+                        </section>
+                        <section>
+                          <h3>{t('objective')}</h3>
+                          <p>{ficha.objetivo}</p>
+                        </section>
+                        <details open>
+                          <summary>{t('procedures')}</summary>
+                          <ul>
+                            {ficha.procedimentos.map((p: string) => (
+                              <li key={p}>{p}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      </div>
                       <button
                         className={styles.primary}
                         onClick={() => agir('iniciar')}
@@ -1024,6 +1052,17 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                         {ocupado ? t('starting') : t('start')}
                         <ArrowRight size={18} />
                       </button>
+                      <p className={styles.small}>
+                        {ficha.competencias
+                          ?.map((d: any) => d.nome)
+                          .join(' · ')}
+                      </p>
+                      <p className={styles.small}>
+                        {t('startMoreInSheet')}{' '}
+                        <a className={styles.linkInline} href="#ficha-atendimento">
+                          {t('seeCaseSheet')}
+                        </a>
+                      </p>
                     </div>
                   ) : (
                     <>

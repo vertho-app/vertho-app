@@ -59,6 +59,8 @@
     "replyCount": "{n}/{max} replies",
     "seeCaseSheet": "See case sheet",
     "startTitle": "How would you handle this conversation?",
+    "objective": "Exercise goal",
+    "startMoreInSheet": "Authorized options and other guidance are in the case sheet.",
     "starting": "Starting…",
     "start": "Start conversation",
     "conversationWith": "Conversation with {name}",

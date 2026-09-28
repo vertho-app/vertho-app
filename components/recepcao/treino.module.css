@@ -250,6 +250,20 @@
 .desfecho { max-width: 680px; padding: .75rem .95rem; border-left: 3px solid color-mix(in srgb, var(--atendimento-accent) 45%, transparent); border-radius: 0 .6rem .6rem 0; background: #ffffff05; }
 .desfecho p { margin: 0; }
 .desfecho p + p { margin-top: .45rem; }
+/* Início (27/09/2026): título do caso fora do seletor e o essencial no cartão de início. */
+.casePicker .casoEscolhido { color: #f8fafc; font-size: .95rem; font-weight: 650; line-height: 1.45; }
+.startFicha { display: grid; gap: .85rem; width: 100%; max-width: 580px; font-size: .85rem; line-height: 1.65; }
+.startFicha h3, .startFicha summary { margin-bottom: .2rem; color: #f8fafc; font-size: .78rem; font-weight: 700; }
+.startFicha summary { cursor: pointer; }
+.start .startFicha p, .startFicha li { color: #cbd5e1; }
+.startFicha ul { list-style: disc; padding-left: 1.1rem; }
+.startFicha li { margin: .3rem 0; }
+.linkInline { color: var(--atendimento-accent); text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 460px) {
+  .start { gap: .9rem; min-height: 0; }
+  .start > svg { display: none; }
+  .start h2 { font-size: 1.2rem; }
+}
 /* Aviso de segmento na área do administrador (27/09/2026): `.admin p` apagava a cor do aviso. */
 .admin { flex-wrap: wrap; }
 .admin > .notice { flex-basis: 100%; margin: 0; color: #fde68a; }

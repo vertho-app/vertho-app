@@ -87,7 +87,7 @@ try {
   await page.getByText(/^Caso para o próximo atendimento/).first().waitFor();
   const opcao = await page.getByRole('combobox').first().locator('option').first().textContent();
   assert.ok(!/·\s*\d/.test(opcao || ''), `versão do caso na tela de quem treina: ${opcao}`);
-  await page.getByText('Procedimentos do caso', { exact: true }).waitFor();
+  await page.getByText('Procedimentos do caso', { exact: true }).first().waitFor();
   assert.equal(await page.getByText('Procedimentos da clínica').count(), 0);
   // O atendimento compartilha a largura e a tipografia do shell de vendas.
   await page.evaluate(() => document.fonts.ready);
@@ -177,6 +177,31 @@ try {
   await page.getByRole('button', { name: 'Iniciar atendimento', exact: true }).waitFor();
   assert.equal(await page.evaluate(() => window.__recepcaoWrites.filter((w) => w.acao === 'iniciar').length), 0, 'nenhum início com caso retirado');
   checks++;
+
+  // A-11 (27/09/2026): início no celular. O cartão de início vem antes da ficha, com
+  // situação, objetivo e procedimentos abertos; o resto da ficha fica recolhido; o título
+  // inteiro do caso aparece fora do seletor. "Iniciar" estava a 2.337 px de 2.430.
+  {
+    const cel = await browser.newPage({ viewport: { width: 390, height: 844 }, timezoneId: 'America/Sao_Paulo' });
+    cel.setDefaultTimeout(15000);
+    cel.on('pageerror', (e) => errors.push(e.message));
+    await cel.goto(`${origin}/?escada=1`);
+    const iniciarCel = cel.getByRole('button', { name: 'Iniciar atendimento', exact: true });
+    await iniciarCel.waitFor();
+    const topo = (loc) => loc.evaluate((el) => Math.round(el.getBoundingClientRect().top + scrollY));
+    const [yIniciar, yFichaInicio] = [await topo(iniciarCel), await topo(cel.locator('#ficha-atendimento'))];
+    assert.ok(yIniciar < yFichaInicio, `cartão de início depois da ficha (${yIniciar} x ${yFichaInicio})`);
+    assert.ok(yIniciar < 2 * 844, `"Iniciar atendimento" a ${yIniciar}px no celular`);
+    const cartao = cel.getByRole('region', { name: 'Atendimento simulado', exact: true });
+    await expect(cartao.locator('details[open]')).toHaveCount(1);
+    await cartao.getByText('Objetivo do exercício', { exact: true }).waitFor();
+    await expect(cel.locator('#ficha-atendimento details[open]')).toHaveCount(0);
+    await cel.locator('p', { hasText: /^Limite contestado · A primeira consulta$/ }).first().waitFor();
+    assert.equal(await semRolagemLateral(cel), true, 'overflow no início (celular)');
+    await cel.screenshot({ path: `${dir}/inicio-mobile.png` });
+    await cel.close();
+    checks++;
+  }
 
   // A-3 (27/09/2026): a rede cai durante a avaliação (celular). Mensagem traduzida com
   // "Tentar de novo", aviso de que é o relatório e reconsulta automática até ele chegar.
