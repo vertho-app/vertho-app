@@ -140,7 +140,7 @@ export function EditorCenario({
         Edite, confira a ficha e salve. Publique quando o procedimento e os
         critérios estiverem revisados. Versões publicadas ficam preservadas.
         {noCatalogo &&
-          ' No catálogo, publicar arquiva a versão publicada anterior deste caso para todas as clínicas; as sessões já feitas mantêm o próprio snapshot.'}
+          ' No catálogo, publicar arquiva a versão publicada anterior deste degrau (mesmo caso e mesmo nível de dificuldade) para todas as clínicas; os outros degraus do caso continuam publicados, e as sessões já feitas mantêm o próprio snapshot.'}
       </p>
       {erros && (
         <p role="alert" className={styles.error}>
@@ -543,7 +543,7 @@ export function EditorCenario({
               if (
                 window.confirm(
                   noCatalogo
-                    ? 'Publicar no Catálogo Vertho? A versão publicada anterior deste caso será arquivada para todas as clínicas.'
+                    ? 'Publicar no Catálogo Vertho? A versão publicada anterior deste degrau será arquivada para todas as clínicas. Os outros degraus do caso continuam publicados.'
                     : 'Publicar esta versão para os treinos da clínica?',
                 )
               )
