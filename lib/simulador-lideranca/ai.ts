@@ -26,20 +26,44 @@ export const TAREFAS = {
 } as const;
 export const hash = (v: unknown) =>
   createHash('sha256').update(JSON.stringify(v)).digest('hex');
-export async function novoEstado(c: Contexto): Promise<Estado> {
+
+/**
+ * O modelo de cada etapa é resolvido NA CHAMADA (27/09/2026), pela mesma
+ * régua do resto do produto (`getModelForTask`: sys_config da empresa, depois
+ * `DEFAULT_TASK_MODELS`). Até então a jornada congelava o modelo em
+ * `estado.modelos` no primeiro comando: trocar o modelo por empresa ou o
+ * padrão não alcançava nenhuma jornada já iniciada, e um snapshot aposentado
+ * pelo provedor deixaria todas respondendo 502 sem saída. `estado.modelos`
+ * segue gravado, só como registro de com que modelo a jornada começou.
+ */
+export async function resolverModelo(empresaId: string, etapa: Etapa): Promise<string> {
+  const modelo = await getModelForTask(empresaId, TAREFAS[etapa]);
+  if (!modeloPaceCompativel(modelo))
+    throw new LiderancaError(
+      400,
+      `Configure um modelo compatível com o formato estruturado para ${TAREFAS[etapa]}.`,
+    );
+  return modelo;
+}
+export async function modelosAtuais(empresaId: string): Promise<Estado['modelos']> {
   const modelos = {} as Estado['modelos'];
-  for (const etapa of Object.keys(TAREFAS) as Etapa[]) {
-    modelos[etapa] = await getModelForTask(c.empresaId, TAREFAS[etapa]);
-    if (!modeloPaceCompativel(modelos[etapa]))
-      throw new LiderancaError(
-        400,
-        `Configure um modelo compatível com o formato estruturado para ${TAREFAS[etapa]}.`,
-      );
-  }
+  for (const etapa of Object.keys(TAREFAS) as Etapa[])
+    modelos[etapa] = await resolverModelo(empresaId, etapa);
+  return modelos;
+}
+/**
+ * Jornada de versão anterior passa para a atual no próximo comando: ganha os
+ * prompts da versão atual e o registro de modelos de hoje. O que já foi
+ * concluído segue lido como foi gerado.
+ */
+export function atualizarVersao(s: Estado, modelos: Estado['modelos']): Estado {
+  return { ...s, versao: VERSAO, prompts: { ...PROMPTS }, modelos };
+}
+export async function novoEstado(c: Contexto): Promise<Estado> {
   return {
     versao: VERSAO,
     matriz: linhasDaVariante(c.variante),
-    modelos,
+    modelos: await modelosAtuais(c.empresaId),
     prompts: { ...PROMPTS },
     ativo: null,
     concluidos: [],
@@ -58,6 +82,9 @@ export function gerador(
     dados: unknown,
     validar?: (valor: Saidas[E]) => void,
   ): Promise<Saidas[E]> => {
+    // O hash usa o REGISTRO de modelos da jornada, não o modelo resolvido: ele
+    // identifica o conteúdo do pedido (reenvio com o mesmo requestId), e trocar
+    // o modelo configurado não pode transformar um reenvio legítimo em 409.
     const promptHash = hash({
       system: s.prompts[etapa],
       dados,
@@ -91,6 +118,7 @@ export function gerador(
     }
     // Revalida a liberação antes de cada chamada paga, inclusive a segunda do encerramento.
     await contexto(c.auth, c.empresaId);
+    const modelo = await resolverModelo(c.empresaId, etapa);
     const id = anterior.data?.id || randomUUID();
     if (!anterior.data) {
       const registro = await c.tdb.from('sim_lideranca_chamadas').insert({
@@ -116,7 +144,7 @@ export function gerador(
         const raw = await callAI(
           s.prompts[etapa],
           JSON.stringify(dados),
-          { model: s.modelos[etapa] },
+          { model: modelo },
           etapa === 'avaliador' ? 16000 : 3500,
           {
             taskKey: TAREFAS[etapa],

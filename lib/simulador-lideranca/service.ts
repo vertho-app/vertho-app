@@ -1,15 +1,15 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { maskTextPII } from '@/lib/pii-masker';
-import { DOSSIÊS, PROMPTS } from './prompts';
-import { gerador, hash, novoEstado } from './ai';
+import { DOSSIÊS } from './prompts';
+import { atualizarVersao, gerador, hash, modelosAtuais, novoEstado } from './ai';
 import { episodioPublico, executarCore, visaoPublica } from './core';
 import { sinteseDaJornada, type SinteseJornada } from './avaliacao';
 import { podeAcompanharLideranca } from './equipe';
 import {
   LiderancaError,
   VERSAO,
-  VERSAO_ANTERIOR,
+  versaoAnterior,
   comandoSchema,
   type Estado,
   type Episodio,
@@ -155,11 +155,13 @@ export async function executar(c: Contexto, entrada: Comando) {
   const row = loaded.data as Row | null;
   if (!row)
     throw new LiderancaError(503, 'Não foi possível começar sua jornada.');
-  // Jornada v1 é atualizada no próximo comando, em vez de travar com "Atualize
-  // a página" (beco sem saída: a página recarregada continuava na v1). Ela
-  // ganha os prompts da v2; o que já foi concluído segue lido como foi gerado.
-  if (row.estado.versao === VERSAO_ANTERIOR)
-    row.estado = { ...row.estado, versao: VERSAO, prompts: { ...PROMPTS } };
+  // Jornada de versão anterior é atualizada no próximo comando, em vez de travar
+  // com "Atualize a página" (beco sem saída: a página recarregada continuava na
+  // versão velha). Ela ganha os prompts da versão atual e o registro de modelos
+  // de hoje (27/09/2026: antes só os prompts); o que já foi concluído segue lido
+  // como foi gerado.
+  if (versaoAnterior(row.estado.versao))
+    row.estado = atualizarVersao(row.estado, await modelosAtuais(c.empresaId));
   if (row.estado.versao !== VERSAO)
     throw new LiderancaError(
       409,

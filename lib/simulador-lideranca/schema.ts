@@ -8,7 +8,17 @@ import type { LinhaMatriz } from '@/lib/simuladores/lideranca/matriz-global';
  * dela foi concluído em produção; os que existirem seguem lidos como gerados).
  */
 export const VERSAO = 'lideranca-jornada-2';
-export const VERSAO_ANTERIOR = 'lideranca-jornada-1';
+/**
+ * Versões que o próximo comando atualiza para a atual (prompts de hoje e
+ * registro de modelos de hoje). Subir `VERSAO` exige pôr a versão que sai
+ * AQUI, senão toda jornada dela passa a recusar "não pode ser retomada"; e
+ * mudar `PROMPTS` exige subir `VERSAO` (guard em
+ * `tests/unit/simulador-lideranca-versao.test.ts`).
+ */
+export const VERSOES_ANTERIORES = ['lideranca-jornada-1'] as const;
+export type VersaoJornada = typeof VERSAO | (typeof VERSOES_ANTERIORES)[number];
+export const versaoAnterior = (v: string): v is (typeof VERSOES_ANTERIORES)[number] =>
+  (VERSOES_ANTERIORES as readonly string[]).includes(v);
 export const MAX_TURNOS = 16;
 export const MIN_TURNOS = 3;
 const texto = (max: number) => z.string().trim().min(1).max(max);
@@ -97,7 +107,7 @@ export type Episodio = {
 };
 export type Etapa = 'abertura' | 'personagem' | 'consequencia' | 'avaliador';
 export type Estado = {
-  versao: typeof VERSAO | typeof VERSAO_ANTERIOR;
+  versao: VersaoJornada;
   matriz: LinhaMatriz[];
   modelos: Record<Etapa, string>;
   prompts: Record<Etapa, string>;
