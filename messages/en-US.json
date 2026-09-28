@@ -177,6 +177,7 @@
     "coverage": "{n} of {total} behaviors observed",
     "insufficientShort": "Not enough evidence",
     "notObserved": "No chance to observe",
+    "discardedShort": "Evidence discarded",
     "notObservedShort": "Not observed",
     "insufficient": "{n, plural, one {Only # behavior observed.} other {Only # behaviors observed.}} A level appears from {min}: this conversation did not offer the chance to show the others.",
     "discarded": "The quote for this behavior did not match what was said, so it has no level.",

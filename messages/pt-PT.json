@@ -177,6 +177,7 @@
     "coverage": "{n} de {total} comportamentos observados",
     "insufficientShort": "Evidência insuficiente",
     "notObserved": "Sem oportunidade de observar",
+    "discardedShort": "Evidência descartada",
     "notObservedShort": "Não observado",
     "insufficient": "{n, plural, one {Só # comportamento observado.} other {Só # comportamentos observados.}} O nível aparece a partir de {min}: nesta conversa faltou oportunidade de demonstrar os restantes.",
     "discarded": "A citação deste comportamento não confere com o que foi dito, por isso ficou sem nível.",

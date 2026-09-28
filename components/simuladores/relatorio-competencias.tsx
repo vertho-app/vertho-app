@@ -128,7 +128,15 @@ export default function RelatorioCompetencias({
                   <small>{t('score', { score: nota(c.nota) })}</small>
                 </>
               ) : (
-                <b className={styles.semNivel}>{c.observados ? t('insufficientShort') : t('notObserved')}</b>
+                <b className={styles.semNivel}>
+                  {c.observados
+                    ? t('insufficientShort')
+                    : // Sem observado porque a citação caiu não é "sem oportunidade": houve
+                      // conduta avaliada, e a evidência dela foi descartada (27/09/2026).
+                      c.descritores.some((d) => d.descartado)
+                      ? t('discardedShort')
+                      : t('notObserved')}
+                </b>
               )}
             </span>
             <span className={styles.seta} aria-hidden="true" />
