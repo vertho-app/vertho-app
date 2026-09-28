@@ -571,10 +571,15 @@ export function consolidar(s: Estado, insumos: Insumos): Estado['relatorio'] {
  * Orçamento ÚNICO do avaliador (18/09/2026): as duas tentativas dividem o teto
  * da rota (300 s, com folga para gravar) em vez de 100 s fixos cada. Com a
  * matriz de 30 descritores a saída é maior e a primeira tentativa ganha até
- * 180 s; a correção usa o que sobrar, e só roda com pelo menos 60 s.
+ * 180 s; a correção usa o que sobrar, e só roda com pelo menos 120 s.
+ *
+ * O mínimo era 60 s até 27/09/2026: se a primeira morria no teto de 180 s, a
+ * segunda recebia 90 s, menos que qualquer avaliação aceita já medida (104 a
+ * 117 s em produção), e a pessoa esperava 270 s para receber erro, pagando a
+ * segunda chamada. Com 120 s, só há segunda tentativa quando ela cabe.
  */
 export const ORCAMENTO_AVALIADOR_MS = 270_000;
-export const MINIMO_TENTATIVA_MS = 60_000;
+export const MINIMO_TENTATIVA_MS = 120_000;
 export const primeiraTentativaMs = (c: Cenario) => (c.matriz ? 180_000 : 100_000);
 
 export async function encerrar(

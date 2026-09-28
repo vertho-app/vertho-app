@@ -65,6 +65,17 @@ export interface AICallOptions {
   // default sem disparar o retry do SDK (que dobra o tempo e estoura a rota).
   timeoutMs?: number;
   maxRetries?: number;
+  /**
+   * `true` = o CHAMADOR tem orçamento próprio de tentativas: o wrapper não repete
+   * erro transitório (429/503/529) nem troca de provedor ou de modelo depois dele.
+   * A falha sai na hora, do jeito que veio. Default: comportamento de sempre.
+   *
+   * Existe por causa do avaliador do atendimento (27/09/2026): o núcleo reparte 270 s
+   * entre duas tentativas e a rota morre em 300 s, mas o `withAIRetry` repetia um
+   * 529 até 4 vezes com o teto cheio e depois ia para outro provedor. Um 529 tardio
+   * passava dos 300 s, a função morria sem o `finally` e a tentativa ficava aberta.
+   */
+  semRetentativa?: boolean;
   // Prefixo GRANDE e ESTÁVEL do user message (ex.: régua + cenário + rubrica,
   // idênticos entre os colaboradores do MESMO lote) — vira um bloco com
   // `cache_control` próprio no Claude (2º breakpoint, além do system). Em lote
@@ -207,11 +218,12 @@ async function withGeminiRolloutFallback<T>(
   model: string,
   dispatch: (modelId: string) => Promise<T>,
   caller: 'callAI' | 'callAIChat',
+  semRetentativa = false,
 ): Promise<T> {
   try {
-    return await withAIRetry(() => dispatch(model), model);
+    return await withAIRetry(() => dispatch(model), model, semRetentativa ? 0 : undefined);
   } catch (err: any) {
-    if (model !== 'gemini-3.8-flash' || isCapDeContaAIError(err)) throw err;
+    if (model !== 'gemini-3.8-flash' || isCapDeContaAIError(err) || semRetentativa) throw err;
     console.warn(`[${caller}] ${model} falhou — fallback de rollout p/ ${GEMINI_FLASH_FALLBACK_MODEL}`);
     return withAIRetry(() => dispatch(GEMINI_FLASH_FALLBACK_MODEL), GEMINI_FLASH_FALLBACK_MODEL, 2);
   }
@@ -248,7 +260,7 @@ export async function callAI(
   };
 
   try {
-    return await withGeminiRolloutFallback(model, dispatch, 'callAI');
+    return await withGeminiRolloutFallback(model, dispatch, 'callAI', options.semRetentativa === true);
   } catch (err: any) {
     // CAP DE CONTA: falha limpa e etiquetada, sem fallback (F-E5). Cair para outro
     // provedor aqui gastaria em outra conta sem ninguém pedir e esconderia a causa.
@@ -266,7 +278,9 @@ export async function callAI(
     // Dual-IA. Num outage da Anthropic, todo gerador Claude cairia justamente na
     // família do próprio auditor — e o resultado não seria falhar, seria APROVAR
     // com o mesmo modelo dos dois lados, sem erro e sem log. (26/08/2026)
-    if (isTransientAIError(err) && !model.startsWith('gemini')) {
+    // `semRetentativa`: quem chama reparte o próprio orçamento; trocar de provedor aqui
+    // gastaria outro teto cheio fora dele.
+    if (isTransientAIError(err) && !model.startsWith('gemini') && !options.semRetentativa) {
       const alvo = fallbackRespeitandoDual(model, options.taskKey, AI_FALLBACK_MODEL, AI_FALLBACK_ESCADA);
       if (alvo && alvo !== model) {
         if (alvo !== AI_FALLBACK_MODEL) {
@@ -321,12 +335,13 @@ export async function callAIChat(
   };
 
   try {
-    return await withGeminiRolloutFallback(model, dispatch, 'callAIChat');
+    return await withGeminiRolloutFallback(model, dispatch, 'callAIChat', options.semRetentativa === true);
   } catch (err: any) {
     // Mesmo tratamento do gêmeo `callAI`: o knob global aterrissaria na família
     // do parceiro Dual-IA. Este ramo ficou para trás na primeira correção e o
-    // guard `ai-fallback-dual` pegou — os dois caminhos, sempre.
-    if (isTransientAIError(err) && !model.startsWith('gemini')) {
+    // guard `ai-fallback-dual` pegou — os dois caminhos, sempre. `semRetentativa`
+    // vale aqui pelo mesmo motivo que no gêmeo.
+    if (isTransientAIError(err) && !model.startsWith('gemini') && !options.semRetentativa) {
       const alvo = fallbackRespeitandoDual(model, options.taskKey, AI_FALLBACK_MODEL, AI_FALLBACK_ESCADA);
       if (alvo && alvo !== model) {
         if (alvo !== AI_FALLBACK_MODEL) {

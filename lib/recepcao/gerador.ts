@@ -134,6 +134,10 @@ export function geradorRecepcao(
           temperature: etapa === 'paciente' ? 0.6 : 0,
           timeoutMs: timeoutMs ?? (etapa === 'paciente' ? 45000 : 100000),
           maxRetries: 0,
+          // O avaliador tem o orçamento próprio de duas tentativas no núcleo (`encerrar`):
+          // o wrapper não repete 429/503/529 com o teto cheio nem troca de provedor, senão
+          // um erro tardio passa dos 300 s da rota (27/09/2026).
+          ...(etapa === 'paciente' ? {} : { semRetentativa: true }),
         },
       );
       return JSON.stringify(
