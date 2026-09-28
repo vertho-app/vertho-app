@@ -201,6 +201,7 @@
     "score": "{score} of 4",
     "overallHelp": "{n, plural, one {Average of # competency with a level.} other {Average of # competencies with a level.}}",
     "overallUnavailable": "The overall average appears when at least {min} competencies have a level. Each competency gets a level from {desc} observed behaviors.",
+    "overallUnavailableProportional": "The overall average appears when at least {min} competencies have a level. Each competency gets a level when at least two thirds of its behaviors are observed.",
     "overallNone": "No overall average in this evaluation.",
     "focus": "In focus",
     "coverage": "{n} of {total} behaviors observed",

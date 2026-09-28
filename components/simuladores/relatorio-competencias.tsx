@@ -41,6 +41,12 @@ export interface CompetenciaRelatorio {
   observados: number;
   total: number;
   suficiente: boolean;
+  /**
+   * Mínimo de comportamentos observados DESTA competência, quando a regra não é
+   * um número fixo (vendas, `cobertura-2tercos-3comp`: dois terços dos
+   * avaliáveis, 3 de 4 em Engajar). Sem ele vale `regra.minDescritores`.
+   */
+  minDescritores?: number;
   descritores: DescritorRelatorio[];
 }
 export interface MediaRelatorio {
@@ -102,7 +108,9 @@ export default function RelatorioCompetencias({
           ) : (
             <small className={styles.muted}>
               {regra
-                ? t('overallUnavailable', { min: regra.minCompetencias, desc: regra.minDescritores })
+                ? competencias.some((c) => c.minDescritores != null && c.minDescritores !== regra.minDescritores)
+                  ? t('overallUnavailableProportional', { min: regra.minCompetencias })
+                  : t('overallUnavailable', { min: regra.minCompetencias, desc: regra.minDescritores })
                 : t('overallNone')}
             </small>
           )}
@@ -143,7 +151,7 @@ export default function RelatorioCompetencias({
           </summary>
           {c.resumo && <p className={styles.resumo}>{c.resumo}</p>}
           {!c.suficiente && regra && c.observados > 0 && (
-            <p className={styles.aviso}>{t('insufficient', { n: c.observados, min: regra.minDescritores })}</p>
+            <p className={styles.aviso}>{t('insufficient', { n: c.observados, min: c.minDescritores ?? regra.minDescritores })}</p>
           )}
           {(() => {
             // O que foi observado vem aberto; o que não teve oportunidade fica

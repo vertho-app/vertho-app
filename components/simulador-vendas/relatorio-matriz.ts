@@ -8,6 +8,7 @@ import { COMPETENCIAS_PACE, type CodigoCompetencia } from '@/lib/simulador-venda
 import {
   consolidarMatriz,
   FORA_DA_REUNIAO_INICIAL,
+  minimoDescritores,
   regraDaVersao,
   usaRegraCobertura,
   type AvaliacaoMatrizGravada,
@@ -36,8 +37,10 @@ export function competenciasDaMatriz(
   const consolidadas = consolidarMatriz(matriz, versao, regraGravada);
   const fora = usaRegraCobertura(versao) ? FORA_DA_REUNIAO_INICIAL : [];
   const descartados = new Set(matriz.descartados || []);
+  const regra = regraDaVersao(versao, regraGravada);
   const competencias = COMPETENCIAS_PACE.map((c) => {
     const r = consolidadas.find((x) => x.codigo === c.codigo)!;
+    const aplicaveis = c.descritores.filter((d) => !fora.includes(d.codigo)).length;
     return {
       codigo: c.codigo,
       nome: rotulos.nome(c.codigo),
@@ -47,6 +50,9 @@ export function competenciasDaMatriz(
       observados: r.observados,
       total: r.total,
       suficiente: r.suficiente,
+      // O mesmo mínimo com que `consolidarMatriz` decidiu `suficiente`: a frase
+      // "o nível aparece a partir de N" não pode citar outra régua.
+      minDescritores: minimoDescritores(regra, aplicaveis),
       descritores: c.descritores
         .filter((d) => !fora.includes(d.codigo))
         .map((d) => {
@@ -63,7 +69,6 @@ export function competenciasDaMatriz(
         }),
     };
   });
-  const regra = regraDaVersao(versao, regraGravada);
   return {
     competencias,
     media: mediaGeral(consolidadas, regra),

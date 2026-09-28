@@ -201,6 +201,7 @@
     "score": "{score} de 4",
     "overallHelp": "{n, plural, one {Média de # competência com nível.} other {Média de # competências com nível.}}",
     "overallUnavailable": "A média geral aparece quando pelo menos {min} competências têm nível. Cada competência tem nível a partir de {desc} comportamentos observados.",
+    "overallUnavailableProportional": "A média geral aparece quando pelo menos {min} competências têm nível. Cada competência tem nível quando pelo menos dois terços dos seus comportamentos são observados.",
     "overallNone": "Sem média geral nesta avaliação.",
     "focus": "Em foco",
     "coverage": "{n} de {total} comportamentos observados",

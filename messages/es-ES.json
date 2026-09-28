@@ -201,6 +201,7 @@
     "score": "{score} de 4",
     "overallHelp": "{n, plural, one {Media de # competencia con nivel.} other {Media de # competencias con nivel.}}",
     "overallUnavailable": "La media general aparece cuando al menos {min} competencias tienen nivel. Cada competencia tiene nivel a partir de {desc} comportamientos observados.",
+    "overallUnavailableProportional": "La media general aparece cuando al menos {min} competencias tienen nivel. Cada competencia tiene nivel cuando se observan al menos dos tercios de sus comportamientos.",
     "overallNone": "Sin media general en esta evaluación.",
     "focus": "En foco",
     "coverage": "{n} de {total} comportamientos observados",
