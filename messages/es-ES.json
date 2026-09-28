@@ -5365,6 +5365,7 @@
     "introHint": "Prepárate, conversa y reflexiona. Los acuerdos de cada encuentro te acompañan al siguiente. Usa solo información ficticia.",
     "start": "Comenzar primer encuentro",
     "focus": "Competencia principal",
+    "briefLine": "Encuentro {n} · {personagem} · Foco: {foco}",
     "replayNotice": "Repetición para practicar: parte del contexto original de este encuentro y conserva el recorrido completado.",
     "yourPlan": "Tu preparación",
     "history": "Encuentros anteriores",

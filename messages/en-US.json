@@ -5365,6 +5365,7 @@
     "introHint": "Prepare, talk and reflect. Agreements from each encounter follow you into the next. Use fictional information only.",
     "start": "Start first encounter",
     "focus": "Focus competency",
+    "briefLine": "Encounter {n} · {personagem} · Focus: {foco}",
     "replayNotice": "Practice replay: starts from this encounter’s original context and preserves the completed journey.",
     "yourPlan": "Your preparation",
     "history": "Previous encounters",

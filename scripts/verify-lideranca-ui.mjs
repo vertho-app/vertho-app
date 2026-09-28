@@ -156,6 +156,28 @@ try {
         fullPage: true,
       });
       assert.equal(await rascunhos(), 0, 'rascunho da preparação depois do envio confirmado');
+      // Celular (27/09/2026): com a preparação registrada, o briefing vira uma
+      // linha, a tela para no campo de fala e a conversa não tem rolagem própria.
+      // Antes o campo ficava a ~1.400 px do topo, dentro de uma página que também rolava.
+      const linhaBriefing = page.getByRole('button', { name: /^Encontro 1 · Ana · Foco:/ });
+      await expect(linhaBriefing).toBeHidden();
+      await page.setViewportSize({ width: 390, height: 844 });
+      // Navegação nova (não reload): o reload restaura a rolagem anterior da aba.
+      await page.goto(origin);
+      await expect(page.getByText('3 de 16 rodadas', { exact: false })).toBeVisible();
+      await expect(linhaBriefing).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Antes de concluir' })).toBeHidden();
+      await expect(page.locator('#lideranca-fala')).toBeInViewport();
+      assert.equal(
+        await page.getByRole('log').evaluate((el) => el.scrollHeight > el.clientHeight + 1),
+        false,
+        'rolagem aninhada no chat do celular',
+      );
+      await page.screenshot({ path: `${dir}/conversa-celular.png` });
+      await page.screenshot({ path: `${dir}/conversa-celular-inteira.png`, fullPage: true });
+      await linhaBriefing.click();
+      await expect(page.getByRole('heading', { name: 'Antes de concluir' })).toBeVisible();
+      await page.setViewportSize({ width: 1440, height: 1000 });
     }
     await page
       .getByRole('button', { name: 'Concluir conversa', exact: true })
@@ -277,6 +299,20 @@ try {
   await page.getByRole('button', { name: 'Equipe', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Acompanhamento da equipe' })).toBeVisible();
   await page.screenshot({ path: `${dir}/equipe-desktop.png`, fullPage: true });
+  // Celular (27/09/2026): um cartão por pessoa, com "Ver devolutivas" dentro da tela.
+  // A tabela tinha 919 px numa caixa de 318, e o botão ficava fora dela.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const verNoCelular = page.getByRole('button', { name: 'Ver devolutivas' }).first();
+  await expect(verNoCelular).toBeVisible();
+  // Posição sem rolar nada na horizontal (scrollIntoView rolaria a caixa da tabela e esconderia o defeito).
+  const caixaVer = await verNoCelular.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return { esquerda: r.left, direita: r.right };
+  });
+  assert(caixaVer.esquerda >= 0 && caixaVer.direita <= 390, '"Ver devolutivas" fora da tela no celular');
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'overflow horizontal no painel da equipe');
+  await page.screenshot({ path: `${dir}/equipe-celular.png`, fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole('button', { name: 'Ver devolutivas' }).first().click();
   await expect(page.getByRole('button', { name: 'Voltar à equipe' })).toBeVisible();
   await page.screenshot({ path: `${dir}/equipe-detalhe-desktop.png`, fullPage: true });

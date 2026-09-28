@@ -81,6 +81,28 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
     v === 'futuro' ? t('trackFuture') : v === 'lider' ? t('trackLeader') : '—';
   const nivel = (n: number | null | undefined) =>
     n != null ? t('levelN', { n }) : '—';
+  type Pessoa = Painel['pessoas'][number];
+  const descricao = (p: Pessoa) =>
+    [p.cargo, trilha(p.variante)].filter((x) => x && x !== '—').join(' · ') || '—';
+  /** Nível alcançado numa competência, com a estrela de quem subiu (tabela e cartão). */
+  const celula = (p: Pessoa, competencia: string) => {
+    const c = p.sintese?.competencias.find((x) => x.nome === competencia);
+    return (
+      <>
+        {nivel(c?.nivelAlcancado)}
+        {c?.subiu && <Star size={12} aria-label={t('levelUp')} />}
+      </>
+    );
+  };
+  const botaoVer = (p: Pessoa) => (
+    <button
+      type="button"
+      disabled={!p.variante || abrindo === p.colaboradorId}
+      onClick={() => void abrir(p.colaboradorId)}
+    >
+      {t('teamView')}
+    </button>
+  );
 
   function exportar() {
     if (!painel) return;
@@ -265,6 +287,37 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
           {!painel.pessoas.length ? (
             <p className={styles.muted}>{t('teamEmpty')}</p>
           ) : (
+            <>
+            {/* Celular: um cartão por pessoa, com "Ver devolutivas" à vista. A tabela
+                tinha 919 px numa caixa de 318, e o botão ficava fora da tela (27/09/2026).
+                As duas marcações convivem; o CSS mostra uma por largura. */}
+            <ul className={styles.teamCards} aria-label={t('teamTitle')}>
+              {painel.pessoas.map((p) => (
+                <li key={p.colaboradorId}>
+                  <div className={styles.teamCardHead}>
+                    <b>{p.nome}</b>
+                    <small>{descricao(p)}</small>
+                  </div>
+                  <p className={styles.muted}>
+                    {t('teamEncountersValue', { n: p.encontrosConcluidos })}
+                    {p.emAndamento !== null &&
+                      ` · ${t('teamInProgress', { n: p.emAndamento + 1 })}`}
+                  </p>
+                  <dl className={styles.teamCardLevels}>
+                    {EPISODIOS.map((e) => (
+                      <div key={e.competencia}>
+                        <dt>{e.nome}</dt>
+                        <dd>{celula(p, e.nome)}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <p className={styles.muted}>
+                    {t('teamLastActivity')}: {data(p.ultimaAtividade)}
+                  </p>
+                  {botaoVer(p)}
+                </li>
+              ))}
+            </ul>
             <div className={styles.teamWrap}>
               <table className={styles.teamTable}>
                 <thead>
@@ -283,11 +336,7 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
                     <tr key={p.colaboradorId}>
                       <td>
                         <b>{p.nome}</b>
-                        <small>
-                          {[p.cargo, trilha(p.variante)]
-                            .filter((x) => x && x !== '—')
-                            .join(' · ') || '—'}
-                        </small>
+                        <small>{descricao(p)}</small>
                       </td>
                       <td>
                         {t('teamEncountersValue', { n: p.encontrosConcluidos })}
@@ -297,34 +346,17 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
                           </small>
                         )}
                       </td>
-                      {EPISODIOS.map((e) => {
-                        const c = p.sintese?.competencias.find(
-                          (x) => x.nome === e.nome,
-                        );
-                        return (
-                          <td key={e.competencia}>
-                            {nivel(c?.nivelAlcancado)}
-                            {c?.subiu && (
-                              <Star size={12} aria-label={t('levelUp')} />
-                            )}
-                          </td>
-                        );
-                      })}
+                      {EPISODIOS.map((e) => (
+                        <td key={e.competencia}>{celula(p, e.nome)}</td>
+                      ))}
                       <td>{data(p.ultimaAtividade)}</td>
-                      <td>
-                        <button
-                          type="button"
-                          disabled={!p.variante || abrindo === p.colaboradorId}
-                          onClick={() => void abrir(p.colaboradorId)}
-                        >
-                          {t('teamView')}
-                        </button>
-                      </td>
+                      <td>{botaoVer(p)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </>
       )}

@@ -5365,6 +5365,7 @@
     "introHint": "Prepare-se, converse e reflita. Os acordos de cada encontro acompanham você no seguinte. Use apenas informações fictícias.",
     "start": "Começar primeiro encontro",
     "focus": "Competência em foco",
+    "briefLine": "Encontro {n} · {personagem} · Foco: {foco}",
     "replayNotice": "Repetição para praticar: parte do contexto original deste encontro e preserva a sequência já vivida.",
     "yourPlan": "Sua preparação",
     "history": "Encontros anteriores",

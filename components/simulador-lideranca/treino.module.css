@@ -291,6 +291,13 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* Linha do briefing recolhido: só existe no celular (regra no bloco de 720px). */
+.root .briefLinha {
+  display: none;
+}
+.girado {
+  transform: rotate(180deg);
+}
 .notice {
   display: flex;
   align-items: center;
@@ -674,9 +681,23 @@
   .intro h2 {
     font-size: 2rem;
   }
+  /* Sem rolagem aninhada no celular (27/09/2026): a conversa rola com a
+     página, e a tela desce até o campo de fala a cada rodada. */
   .chat {
-    max-height: 450px;
-    min-height: 180px;
+    max-height: none;
+    min-height: 0;
+    overflow: visible;
+  }
+  .root .briefLinha {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    text-align: left;
+    padding: 12px 14px;
+    font-size: 0.82rem;
+  }
+  .briefRecolhido {
+    display: none;
   }
   .message {
     max-width: 95%;
@@ -885,9 +906,69 @@
   display: grid;
   gap: 12px;
 }
+/* Cartões da equipe: só no celular (a tabela some abaixo de 720px). */
+.teamCards {
+  display: none;
+}
+.teamCards > li {
+  border: 1px solid #ffffff18;
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 10px;
+}
+.teamCardHead {
+  display: grid;
+  gap: 2px;
+}
+.teamCardHead small {
+  font-size: 0.72rem;
+  color: var(--lid-muted);
+}
+.teamCardLevels {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+.teamCardLevels > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.8rem;
+  border-top: 1px solid #ffffff10;
+  padding-top: 6px;
+}
+.teamCardLevels dt {
+  color: var(--lid-muted);
+  min-width: 0;
+}
+.teamCardLevels dd {
+  margin: 0;
+  text-align: right;
+  flex-shrink: 0;
+  color: var(--lid-accent);
+}
+.teamCardLevels dd svg {
+  margin-left: 4px;
+  color: var(--lid-warm);
+  vertical-align: -1px;
+}
+.teamCards > li > button {
+  width: 100%;
+}
 @media (max-width: 720px) {
   .teamMetrics {
     grid-template-columns: 1fr;
+  }
+  .teamWrap {
+    display: none;
+  }
+  .teamCards {
+    display: grid;
+    gap: 12px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
   }
 }
 .teamEncounter > summary {

@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import {
   ArrowRight,
   Check,
+  ChevronDown,
   LockKeyhole,
   RotateCcw,
   Send,
@@ -101,7 +102,8 @@ export default function TreinoLideranca({
   const resultado = useRef<HTMLElement>(null),
     sinteseFinal = useRef<HTMLDivElement>(null);
   const chat = useRef<HTMLDivElement>(null),
-    passos = useRef<HTMLOListElement>(null);
+    passos = useRef<HTMLOListElement>(null),
+    composer = useRef<HTMLFormElement>(null);
   const url = `/api/simulador-lideranca${empresaId ? `?empresaId=${empresaId}` : ''}`;
   const carregar = useCallback(
     async (id?: string, pagina = 0) => {
@@ -189,6 +191,14 @@ export default function TreinoLideranca({
   const turno = ep?.mensagens.filter((m) => m.autor === 'lider').length || 0;
   const concluido = jornada?.concluidos.length || 0;
   const info = ep ? EPISODIOS[ep.indice] : null;
+  // Conversa em andamento (preparação registrada): no celular o briefing recolhe
+  // numa linha e a tela vai até o campo de fala (27/09/2026).
+  const conversando = vivo && !!ep?.plano;
+  const [briefAberto, setBriefAberto] = useState(false);
+  useEffect(() => setBriefAberto(false), [ep?.id]);
+  useEffect(() => {
+    if (conversando) composer.current?.scrollIntoView({ block: 'nearest' });
+  }, [conversando, ep?.id, ep?.mensagens.length, refletindo]);
   // Rascunho da preparação e da reflexão no aparelho (27/09/2026): F5 apagava o texto.
   const empresaDoRascunho = empresaId || dados?.empresaId || '';
   const chavePlano = ep ? chaveRascunho(empresaDoRascunho, ep.id, 'plano') : null;
@@ -552,6 +562,39 @@ export default function TreinoLideranca({
                         concluido={!!ep.avaliacao}
                         titulo={t('encounterDetails')}
                       >
+                        {/* No celular, com a preparação registrada, o briefing vira uma
+                            linha (encontro, personagem, foco) e a conversa sobe: antes o
+                            campo de fala ficava a ~1.400 px do topo (27/09/2026). */}
+                        {conversando && (
+                          <button
+                            type="button"
+                            className={styles.briefLinha}
+                            aria-expanded={briefAberto}
+                            aria-controls="lid-briefing"
+                            onClick={() => setBriefAberto((v) => !v)}
+                          >
+                            <span>
+                              {t('briefLine', {
+                                n: ep.indice + 1,
+                                personagem: info.personagem,
+                                foco: info.nome,
+                              })}
+                            </span>
+                            <ChevronDown
+                              size={16}
+                              aria-hidden
+                              className={briefAberto ? styles.girado : undefined}
+                            />
+                          </button>
+                        )}
+                        <div
+                          id="lid-briefing"
+                          className={
+                            conversando && !briefAberto
+                              ? styles.briefRecolhido
+                              : undefined
+                          }
+                        >
                         <section className={styles.brief}>
                           <p className={styles.eyebrow}>{info.momento}</p>
                           <h2>{info.titulo}</h2>
@@ -660,6 +703,7 @@ export default function TreinoLideranca({
                             )}
                           </div>
                         </details>
+                        </div>
                       </DetalhesTreino>
                     </aside>
                     <section className={styles.panel}>
@@ -893,6 +937,7 @@ export default function TreinoLideranca({
                           </DetalhesTreino>
                           {vivo && !refletindo && (
                             <form
+                              ref={composer}
                               className={styles.composer}
                               onSubmit={(e) => {
                                 e.preventDefault();
@@ -950,6 +995,7 @@ export default function TreinoLideranca({
                           )}
                           {vivo && refletindo && (
                             <form
+                              ref={composer}
                               className={styles.composer}
                               onSubmit={(e) => {
                                 e.preventDefault();
