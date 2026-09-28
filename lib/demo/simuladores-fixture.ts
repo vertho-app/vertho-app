@@ -108,6 +108,20 @@ const CONVERSAS_LIDERANCA = [
   ['Quero entender a urgência e o impacto de adiar esta entrega. A equipe já tem dois compromissos para amanhã.', 'Podemos reduzir o escopo de amanhã ou negociar o prazo da outra entrega. Vou explicitar os riscos para decidirmos com os responsáveis.', 'Vamos validar o escopo mínimo hoje e comunicar a mudança às pessoas afetadas. Eu assumo esse alinhamento e confirmo a prioridade por escrito.'],
   ['Quero ouvir um exemplo concreto do impacto da minha orientação. O que ajudou e o que dificultou o trabalho?', 'Percebo que combinei autonomia, mas voltei a decidir sem ouvir sua proposta. Minha hipótese sobre o risco não considerou o que você já sabia.', 'Vou reformular: você apresenta as alternativas e recomenda um caminho; eu ajudo a avaliar os riscos. Vamos observar essa mudança na próxima revisão.'],
 ];
+/** Primeira fala do personagem de cada encontro (o fluxo real abre com ela no turno 0). */
+const ABERTURAS_LIDERANCA = [
+  'As entregas voltaram a atrasar e a equipe está cansada. Podemos conversar sobre o que está acontecendo?',
+  'Soube que você quer falar comigo sobre uma responsabilidade nova. Fiquei curioso, e um pouco apreensivo.',
+  'Imagino que seja sobre a reunião de ontem. Eu só queria garantir que a entrega saísse certa.',
+  'Preciso dessa entrega para amanhã. Sei que a equipe está cheia, mas é prioridade da área.',
+  'A equipe pediu que eu trouxesse um retorno sobre as últimas semanas. Tem pontos bons e alguns difíceis.',
+];
+/**
+ * Turnos como no fluxo real (`lib/simulador-lideranca/core.ts`, 27/09/2026): o
+ * personagem abre no turno 0, e a fala do líder e a resposta do personagem
+ * dividem o número do turno. Até então a demo numerava 1 a 6 alternando autor,
+ * e o prospect lia "Você · 1", "Você · 3", "Você · 5".
+ */
 export function jornadaLiderancaDemo(chave: string, variante: VarianteLideranca, pessoa: number, quantidade: number, agora: Date, modelos: EstadoLideranca['modelos'], prompts: EstadoLideranca['prompts']) {
   const matriz = linhasDaVariante(variante);
   const concluidos: Episodio[] = Array.from({ length: quantidade }, (_, indice) => {
@@ -116,15 +130,18 @@ export function jornadaLiderancaDemo(chave: string, variante: VarianteLideranca,
       id: idDemoSimulador(`${chave}:encontro:${indice}`), indice, repeticao: false,
       iniciadoEm: dataDemo(agora, 12 - indice * 2), encerradoEm: dataDemo(agora, 12 - indice * 2 - 0.01),
       contexto: `Situação fictícia de demonstração. ${EPISODIOS[indice].objetivo}`, plano: 'Ouvir a perspectiva da pessoa, separar fatos de hipóteses e combinar um próximo passo verificável.',
-      mensagens: falas.flatMap((texto, i) => [
-        { turno: i * 2 + 1, autor: 'lider' as const, texto },
-        { turno: i * 2 + 2, autor: 'personagem' as const, texto: ['Posso explicar o que aconteceu e o que ainda está difícil.', 'Esse caminho ajuda; preciso de clareza sobre a prioridade e o apoio disponível.', 'Combinado. Vou registrar o próximo passo para revisarmos juntos.'][i] },
-      ]),
+      mensagens: [
+        { turno: 0, autor: 'personagem' as const, texto: ABERTURAS_LIDERANCA[indice] },
+        ...falas.flatMap((texto, i) => [
+          { turno: i + 1, autor: 'lider' as const, texto },
+          { turno: i + 1, autor: 'personagem' as const, texto: ['Posso explicar o que aconteceu e o que ainda está difícil.', 'Esse caminho ajuda; preciso de clareza sobre a prioridade e o apoio disponível.', 'Combinado. Vou registrar o próximo passo para revisarmos juntos.'][i] },
+        ]),
+      ],
       reflexao: 'Percebi que ouvir antes de propor ajudou a entender o problema. Na próxima conversa vou confirmar prazo e critério de sucesso com mais precisão.',
-      antecedentes: [], consequencia: { narrativa: 'A conversa terminou com um próximo passo combinado e espaço para acompanhamento.', acordos: [{ descricao: falas[2], turno: 5, trecho: falas[2] }], pendencias: ['Verificar na próxima conversa se o combinado foi realizado.'] }, avaliacao: null,
+      antecedentes: [], consequencia: { narrativa: 'A conversa terminou com um próximo passo combinado e espaço para acompanhamento.', acordos: [{ descricao: falas[2], turno: 3, trecho: falas[2] }], pendencias: ['Verificar na próxima conversa se o combinado foi realizado.'] }, avaliacao: null,
     };
     const linhas = linhasDoEncontro(matriz, indice);
-    e.avaliacao = gravarAvaliacao({ sintese: 'Você abriu espaço para ouvir, discutiu alternativas e encaminhou um acordo. O próximo passo é acompanhar o efeito do combinado.', proximaPratica: 'Retome um fato específico e confirme responsável, prazo e critério de sucesso com a pessoa.', descritores: linhas.map((d, i) => ({ codigo: d.cod_desc, nivel: nivel(pessoa, Math.floor(i / 6), indice > 2 ? 1 : 0), justificativa: `Exemplo demonstrativo de ${d.nome_curto}: ${d.n3_meta}`, evidencias: [{ fonte: 'fala', turno: 1 + (i % 3) * 2, trecho: falas[i % 3] }] })) }, e, linhas);
+    e.avaliacao = gravarAvaliacao({ sintese: 'Você abriu espaço para ouvir, discutiu alternativas e encaminhou um acordo. O próximo passo é acompanhar o efeito do combinado.', proximaPratica: 'Retome um fato específico e confirme responsável, prazo e critério de sucesso com a pessoa.', descritores: linhas.map((d, i) => ({ codigo: d.cod_desc, nivel: nivel(pessoa, Math.floor(i / 6), indice > 2 ? 1 : 0), justificativa: `Exemplo demonstrativo de ${d.nome_curto}: ${d.n3_meta}`, evidencias: [{ fonte: 'fala', turno: 1 + (i % 3), trecho: falas[i % 3] }] })) }, e, linhas);
     return e;
   });
   const estado: EstadoLideranca & { demoFixture: string } = { versao: VERSAO, matriz, modelos, prompts, ativo: null, concluidos, recibos: [], demoFixture: DEMO_SIMULADORES_VERSION };

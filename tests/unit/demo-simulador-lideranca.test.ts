@@ -13,6 +13,7 @@ import { COMPETENCIAS_LIDERANCA, VARIANTES } from '@/lib/simuladores/lideranca/m
 import { lerConfigProntidao } from '@/lib/prontidao-lideranca/config';
 import { CENARIOS_LIDERANCA_CONGELADOS, DEMO_TENANT_PROFILES } from '@/lib/demo/reset-acme-demo';
 import extraArtifacts from '@/lib/demo/acme-demo-extra-artifacts.json';
+import { jornadaLiderancaDemo } from '@/lib/demo/simuladores-fixture';
 
 /**
  * Simulador de liderança nos ambientes de demonstração (17/09/2026).
@@ -136,6 +137,39 @@ describe('perfil dos ambientes', () => {
   it('o cargo de referência existe no elenco com gabarito (é dele o eixo de estilo)', () => {
     const cfg = DEMO_TENANT_PROFILES['acme-demo'].simuladorLideranca!;
     expect((extraArtifacts.gabaritos as Record<string, unknown>)[cfg.cargo_alvo]).toBeTruthy();
+  });
+});
+
+/**
+ * A jornada de demonstração numera as rodadas como o fluxo real (revisão de
+ * 27/09/2026, L-14). Até então ia de 1 a 6 alternando autor, sem a abertura do
+ * personagem, e na tela da demo o prospect lia "Você · 1", "Você · 3", "Você · 5"
+ * e "Sua fala · rodada 5" para a terceira fala. A sonda da revisão provava o
+ * defeito; aqui ela está invertida, contra a regra do núcleo (`core.ts`).
+ */
+describe('demo de liderança × numeração de rodadas do fluxo real', () => {
+  const s = jornadaLiderancaDemo('e:x@demo', 'lider', 0, 5, new Date('2026-09-27T12:00:00Z'), {} as any, {} as any);
+
+  it.each([0, 1, 2, 3, 4])('encontro %i: personagem abre no turno 0 e cada fala do líder divide o turno com a resposta', (i) => {
+    const ep = s.concluidos[i];
+    expect(ep.mensagens[0]).toMatchObject({ turno: 0, autor: 'personagem' });
+    expect(ep.mensagens.filter((m) => m.autor === 'lider').map((m) => m.turno)).toEqual([1, 2, 3]);
+    expect(ep.mensagens.filter((m) => m.autor === 'personagem').map((m) => m.turno)).toEqual([0, 1, 2, 3]);
+    for (let k = 1; k < ep.mensagens.length; k += 2) {
+      expect(ep.mensagens[k].autor).toBe('lider');
+      expect(ep.mensagens[k + 1]).toMatchObject({ autor: 'personagem', turno: ep.mensagens[k].turno });
+    }
+  });
+
+  it('acordos e evidências apontam para o turno certo do líder (nada descartado)', () => {
+    for (const ep of s.concluidos) {
+      for (const a of ep.consequencia!.acordos)
+        expect(ep.mensagens.some((m) => m.autor === 'lider' && m.turno === a.turno && m.texto.includes(a.trecho))).toBe(true);
+      expect(ep.avaliacao!.descartados).toEqual([]);
+      for (const d of ep.avaliacao!.descritores)
+        for (const ev of d.evidencias)
+          expect(ep.mensagens.find((m) => m.autor === 'lider' && m.turno === ev.turno)?.texto).toContain(ev.trecho);
+    }
   });
 });
 
