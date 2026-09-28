@@ -1,4 +1,4 @@
--- 271 — "Teste administrativo" do simulador de vendas pelo DONO do treino
+-- 271: "Teste administrativo" do simulador de vendas pelo DONO do treino
 --
 -- V-6 da revisão dos simuladores de 27/09/2026. O rótulo era derivado de
 -- `colaborador_id IS NULL` (TS em `lib/simulador-vendas/historico.ts` e SQL em
