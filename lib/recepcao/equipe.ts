@@ -11,6 +11,9 @@ import { acessoDoCargo, idDoCargo, mapaDeCargos } from '@/lib/simuladores/acesso
 import { PAPEIS_QUE_SO_ACOMPANHAM } from '@/lib/simuladores/papel';
 import { isInternalEmail } from '@/lib/internal-emails';
 
+/** Pessoas por `.in(...)` numa leitura: a lista vai na URL do GET (mesmo teto do vendas). */
+export const LOTE_IDS = 100;
+
 export async function todas(query: () => any): Promise<any[]> {
   const rows = [];
   for (let n = 0; n < 10000; n += 500) {
@@ -173,27 +176,37 @@ export async function painelEquipe(
 ) {
   const pessoas = await pessoasDaEquipe(c);
   const desde = new Date(Date.now() - dias * 86400000).toISOString();
-  let query = () => {
-    let q = c.sb
+  const base = () =>
+    c.sb
       .from('recepcao_sessoes')
       .select('*')
       .eq('empresa_id', c.empresaId)
       .gte('created_at', desde)
       .order('created_at', { ascending: false })
       .order('id');
-    if (!c.auth.isPlatformAdmin || !incluirTestes)
-      q = q
-        .in(
-          'colaborador_id',
-          pessoas.map((p) => p.id),
-        )
-        .not('owner_key', 'like', 'admin:%');
-    return q;
-  };
-  const rows =
-    !pessoas.length && (!c.auth.isPlatformAdmin || !incluirTestes)
-      ? []
-      : await todas(query);
+  let rows: any[];
+  if (c.auth.isPlatformAdmin && incluirTestes) rows = await todas(base);
+  else {
+    // `.in(colaborador_id)` em lotes de 100, como o vendas: a lista inteira ia na query
+    // string de um GET (300 pessoas = 11,9 mil caracteres, medido 27/09/2026), acima do
+    // que o gateway aceita (recusa perto de 11 KB, `lib/prontidao-lideranca/agregar.ts`).
+    const ids = pessoas.map((p) => p.id);
+    rows = [];
+    for (let i = 0; i < ids.length; i += LOTE_IDS) {
+      const lote = ids.slice(i, i + LOTE_IDS);
+      rows.push(
+        ...(await todas(() =>
+          base().in('colaborador_id', lote).not('owner_key', 'like', 'admin:%'),
+        )),
+      );
+    }
+    // Lotes juntados perdem a ordem da consulta única: mais recente primeiro, depois id.
+    rows.sort(
+      (a, b) =>
+        String(b.created_at).localeCompare(String(a.created_at)) ||
+        String(a.id).localeCompare(String(b.id)),
+    );
+  }
   const ids = new Set(rows.map((r) => r.id));
   const podeCustos = await can(c.auth, 'ai.costs.view');
   let operacao = null;
