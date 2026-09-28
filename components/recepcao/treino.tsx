@@ -25,6 +25,7 @@ import {
   dominioExiste,
 } from '@/lib/recepcao/dominio';
 import { humanizarReferencias } from '@/lib/recepcao/texto';
+import { registroDaSessao } from '@/lib/recepcao/caso-da-sessao';
 import styles from './treino.module.css';
 import MatrizAtendimento from './matriz-relatorio';
 import GestaoRecepcao from './gestao';
@@ -70,6 +71,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     [input, setInput] = useState('');
   const [podeConfigurar, setPodeConfigurar] = useState(false);
   const [confirmarFim, setConfirmarFim] = useState(false);
+  // Trocar de atendimento no meio de uma conversa com respostas pede confirmação.
+  const [confirmarOutro, setConfirmarOutro] = useState(false);
   const [aba, setAba] = useState<
     'treino' | 'equipe' | 'cenarios' | 'competencias'
   >('treino');
@@ -77,6 +80,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   const [vozOcupada, setVozOcupada] = useState(false);
   const pending = useRef<{ id: string; texto: string } | null>(null);
   const createId = useRef<string | null>(null),
+    createPara = useRef<string | undefined>(undefined),
+    seletor = useRef<HTMLSelectElement>(null),
     running = useRef(false),
     generation = useRef(0);
   const fim = useRef<HTMLDivElement>(null);
@@ -102,14 +107,11 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     if (ticket !== generation.current) return;
     setDados(d);
     setSessao(d.sessao);
-    // Ao abrir um atendimento do histórico, o seletor passa para a versão
-    // publicada do MESMO caso: "Praticar novamente" repete o que está na tela.
-    const doCaso =
-      sessaoId && d.sessao
-        ? d.cenarios?.find(
-            (c: any) => c.ficha.cenarioId === d.sessao.cenario?.cenarioId,
-          )
-        : null;
+    // Com um atendimento na tela, o seletor mostra a versão publicada DELE: o
+    // registro exato ou, se ele saiu, o mesmo caso no mesmo degrau. Casar só pelo
+    // caso levava ao primeiro degrau da lista (27/09/2026, `caso-da-sessao.ts`).
+    // Caso que saiu do catálogo não troca a escolha em silêncio: a tela avisa.
+    const doCaso = d.sessao ? registroDaSessao(d.cenarios, d.sessao) : null;
     // Mantém a escolha da pessoa; sem escolha, abre no degrau sugerido pelo histórico dela.
     setCenarioId((old) =>
       doCaso
@@ -160,6 +162,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     pending.current = null;
     createId.current = null;
     setConfirmarFim(false);
+    setConfirmarOutro(false);
     setAba('treino');
     setCenarioId('');
     if (admin && !empresaId) return;
@@ -177,7 +180,9 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     fim.current?.scrollIntoView({ behavior: 'auto', block: 'nearest' });
   }, [sessao?.historico?.length, ocupado]);
 
-  async function agir(acao: 'iniciar' | 'responder' | 'encerrar') {
+  // `registroId` = a versão exata a iniciar ("Praticar novamente" repete a da tela);
+  // sem ele, vale o que está no seletor.
+  async function agir(acao: 'iniciar' | 'responder' | 'encerrar', registroId?: string) {
     if (running.current) return;
     const texto = input.trim();
     if (acao === 'responder' && !texto) return;
@@ -186,11 +191,16 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     setOcupado(acao);
     setErro('');
     setConfirmarFim(false);
+    setConfirmarOutro(false);
     const body: any = { acao, ...(admin ? { empresaId } : {}) };
     if (acao === 'iniciar') {
+      body.cenarioId = registroId || cenarioId || undefined;
+      // A chave de criação é por caso: repetir o MESMO início reaproveita a sessão
+      // (retry de rede), e outro caso nunca reusa a chave (o servidor recusaria).
+      if (createPara.current !== body.cenarioId) createId.current = null;
+      createPara.current = body.cenarioId;
       createId.current ||= crypto.randomUUID();
       body.requestId = createId.current;
-      body.cenarioId = cenarioId || undefined;
     } else {
       body.sessaoId = sessao.id;
       body.revisao = sessao.revisao;
@@ -266,6 +276,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     setInput('');
     pending.current = null;
     setConfirmarFim(false);
+    setConfirmarOutro(false);
     const ticket = ++generation.current;
     try {
       await carregar(empresaId, id, ticket);
@@ -332,6 +343,17 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     );
   const travado = !!ocupado || vozOcupada || sessao?.processando;
   const emConversa = sessao && !relatorio;
+  // A versão publicada do atendimento na tela; `null` com sessão = o caso saiu do catálogo.
+  const registroNaTela = registroDaSessao(dados?.cenarios, sessao);
+  const casoRetirado = !!sessao && !registroNaTela;
+  function prepararOutro() {
+    setSessao(null);
+    setInput('');
+    setConfirmarFim(false);
+    setConfirmarOutro(false);
+    pending.current = null;
+    createId.current = null;
+  }
   const desfecho = (tipo: string) =>
     DESFECHOS_CONHECIDOS.includes(tipo)
       ? t(`outcome_${tipo}`)
@@ -489,8 +511,11 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               <label>
                 {t('casePicker')}
                 <select
+                  ref={seletor}
                   value={cenarioId}
-                  disabled={travado}
+                  // Durante a conversa o caso é o da conversa: trocar o seletor não
+                  // mudava nada e deixava a tela dizendo um caso e conversando outro.
+                  disabled={travado || !!emConversa}
                   onChange={(e) => {
                     setCenarioId(e.target.value);
                     createId.current = null;
@@ -518,21 +543,33 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                   })}
                 </select>
               </label>
-              {sessao && (
+              {sessao && !confirmarOutro && (
                 <button
                   className={styles.secondary}
                   disabled={travado}
-                  onClick={() => {
-                    setSessao(null);
-                    setInput('');
-                    setConfirmarFim(false);
-                    pending.current = null;
-                    createId.current = null;
-                  }}
+                  onClick={() =>
+                    // Conversa com respostas fica no histórico para retomar: confirma antes.
+                    // Sem resposta, o servidor descarta a sessão vazia ao iniciar outra.
+                    emConversa && sessao.respostas > 0
+                      ? setConfirmarOutro(true)
+                      : prepararOutro()
+                  }
                 >
                   {t('prepareAnother')}
                 </button>
               )}
+              {confirmarOutro && (
+                <div className={styles.confirmar} role="group" aria-label={t('prepareAnother')}>
+                  <p>{t('confirmPrepareAnother')}</p>
+                  <button className={styles.primary} disabled={travado} onClick={prepararOutro}>
+                    {t('prepareAnother')}
+                  </button>
+                  <button className={styles.link} onClick={() => setConfirmarOutro(false)}>
+                    {t('backToConversation')}
+                  </button>
+                </div>
+              )}
+              {emConversa && <p className={styles.small}>{t('caseLocked')}</p>}
               <p className={styles.small}>
                 {nivelRotulo(dados.nivelSugerido) && (
                   <>
@@ -604,13 +641,32 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     <p>{h(relatorio.feedback.novaTentativa)}</p>
                   </div>
                 </div>
-                <button
-                  className={styles.primary}
-                  disabled={travado}
-                  onClick={() => agir('iniciar')}
-                >
-                  <RotateCcw size={18} /> {t('practiceAgain')}
-                </button>
+                {registroNaTela ? (
+                  // Repete a versão do relatório na tela, não a que estiver no seletor.
+                  <button
+                    className={styles.primary}
+                    disabled={travado}
+                    onClick={() => agir('iniciar', registroNaTela.id)}
+                  >
+                    <RotateCcw size={18} /> {t('practiceAgain')}
+                  </button>
+                ) : casoRetirado ? (
+                  // Caso retirado do catálogo: nada de trocar por outro em silêncio,
+                  // nem de reativar o conteúdo retirado.
+                  <div className={styles.notice} role="status">
+                    <p>{t('caseRetired')}</p>
+                    <button
+                      className={styles.secondary}
+                      disabled={travado}
+                      onClick={() => {
+                        prepararOutro();
+                        requestAnimationFrame(() => seletor.current?.focus());
+                      }}
+                    >
+                      {t('chooseAnotherCase')}
+                    </button>
+                  </div>
+                ) : null}
                 {relatorio.competencias ? (
                   <div className={styles.matriz}>
                     <MatrizAtendimento

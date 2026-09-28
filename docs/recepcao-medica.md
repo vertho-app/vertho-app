@@ -232,3 +232,9 @@ Verificação: `tests/unit/recepcao-segmento-empresa.test.ts` (5 mutações verm
 - **Evolução de quem treina**: com dois ou mais treinos recentes com matriz, a tela mostra o maior nível alcançado em cada competência e "Subiu de nível" (mesma régua do vendas); uma queda depois de um treino melhor não aparece.
 
 Verificação: `tests/unit/recepcao-painel-equipe.test.ts` (4 mutações vermelhas) e `node scripts/verify-recepcao-ui.mjs` (13 checks em 22/09/2026, inclui a aba da equipe com CSV e o detalhe do atendimento só leitura, no computador e no celular).
+
+### Revisão de fluxo, UX e código (27/09/2026)
+
+Correções da revisão `audit/simuladores-revisao-2026-09-27-claude` (itens A-1 a A-16 do plano), cada uma com teste que falha no código anterior.
+
+- **O atendimento na tela decide o caso (A-2).** A visão pública da sessão expõe `cenarioRegistroId` (a versão do catálogo em que ela nasceu) e a tela casa por ele (`lib/recepcao/caso-da-sessao.ts`); sem o registro exato, vale a versão publicada do mesmo caso e do mesmo degrau. Casar só pelo caso levava ao primeiro degrau da lista: depois de um relatório do Limite, o seletor voltava para a Introdução e "Praticar novamente" abria o degrau errado (10 dos 15 casos publicados). "Praticar novamente" inicia a versão do relatório, não a do seletor. Caso que saiu do catálogo: aviso "Este caso saiu do catálogo" e "Escolher outro caso", sem trocar em silêncio e sem reativar o conteúdo retirado. O seletor fica travado durante a conversa, e "Preparar outro atendimento" com respostas pede confirmação. Testes: `tests/unit/recepcao-caso-da-sessao.test.ts` e o bloco A-2 de `scripts/verify-recepcao-ui.mjs` (três degraus do mesmo caso; mutação pelo casamento antigo falha em "depois do relatório o seletor segue no Limite").

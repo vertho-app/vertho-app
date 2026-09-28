@@ -137,6 +137,9 @@ export function abrirSessao(cenario: Cenario, variante?: number): Estado {
 export function visaoPublica(s: Estado) {
   return clone({
     id: s.id,
+    // A versão do catálogo em que a sessão nasceu: "Praticar novamente" repete ESTE
+    // registro, não o primeiro degrau do mesmo caso (27/09/2026, `caso-da-sessao.ts`).
+    cenarioRegistroId: s.cenarioRegistroId ?? null,
     cenario: fichaPublica(s.cenario),
     status: s.status,
     motivoFim: s.motivoFim,

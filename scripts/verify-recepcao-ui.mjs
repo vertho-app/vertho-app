@@ -131,6 +131,45 @@ try {
   await page.screenshot({ path: `${dir}/relatorio-desktop.png`, fullPage: true });
   checks++;
 
+  // A-2 (27/09/2026): o mesmo caso tem três degraus publicados. O seletor fica
+  // travado na conversa, e o relatório do Limite repete o LIMITE (antes voltava à Introdução).
+  await page.goto(`${origin}/?escada=1`);
+  const seletorCaso = page.getByRole('combobox').first();
+  await page.getByRole('button', { name: 'Iniciar atendimento', exact: true }).waitFor();
+  assert.equal(await seletorCaso.inputValue(), 'reg-limite', 'o seletor abre no degrau sugerido');
+  await page.getByRole('button', { name: 'Iniciar atendimento', exact: true }).click();
+  const campoEscada = page.getByPlaceholder(/^Escreva como você falaria com /);
+  await campoEscada.waitFor();
+  assert.equal(await seletorCaso.isDisabled(), true, 'o seletor fica travado durante a conversa');
+  await campoEscada.fill('Entendo o impacto das duas alterações. Qual horário funciona para você?');
+  await page.getByRole('button', { name: 'Enviar resposta', exact: true }).click();
+  await page.getByText('Só consigo depois das 17h30, e quero manter a mesma profissional.').first().waitFor();
+  // Trocar de atendimento com a conversa em curso pede confirmação.
+  await page.getByRole('button', { name: 'Preparar outro atendimento', exact: true }).click();
+  await page.getByText(/A conversa em andamento fica em “Seus atendimentos”/).waitFor();
+  await page.getByRole('button', { name: 'Voltar à conversa', exact: true }).click();
+  await campoEscada.waitFor();
+  await page.getByRole('button', { name: 'Encerrar e avaliar', exact: true }).click();
+  await page.getByRole('button', { name: 'Gerar relatório', exact: true }).click();
+  await page.getByRole('region', { name: 'Devolutiva por competência', exact: true }).waitFor();
+  assert.equal(await seletorCaso.inputValue(), 'reg-limite', 'depois do relatório o seletor segue no Limite');
+  await page.getByRole('button', { name: 'Praticar novamente' }).click();
+  await campoEscada.waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.__recepcaoWrites.filter((w) => w.acao === 'iniciar').map((w) => w.cenarioId)),
+    ['reg-limite', 'reg-limite'],
+    '"Praticar novamente" repete o registro do relatório na tela',
+  );
+  checks++;
+  // Caso que saiu do catálogo: aviso e "Escolher outro caso", sem iniciar nada em silêncio.
+  await page.goto(`${origin}/?escada=1&concluido=1&retirado=1`);
+  await page.getByText(/Este caso saiu do catálogo/).waitFor();
+  assert.equal(await page.getByRole('button', { name: 'Praticar novamente' }).count(), 0, 'caso retirado sem "Praticar novamente"');
+  await page.getByRole('button', { name: 'Escolher outro caso', exact: true }).click();
+  await page.getByRole('button', { name: 'Iniciar atendimento', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => window.__recepcaoWrites.filter((w) => w.acao === 'iniciar').length), 0, 'nenhum início com caso retirado');
+  checks++;
+
   // Outro segmento: o cabeçalho acompanha o caso.
   await page.goto(`${origin}/?segmento=atendimento_loja`);
   await page.getByText('Simulador de atendimento · Atendimento em loja', { exact: true }).waitFor();

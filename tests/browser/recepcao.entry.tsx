@@ -5,9 +5,11 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { NextIntlClientProvider } from 'next-intl';
 import TreinoRecepcao from '../../components/recepcao/treino';
+import { catalogoInicial } from '../../lib/recepcao/catalogo';
+import { catalogoDesafiador } from '../../lib/recepcao/catalogo-desafiador';
 import { catalogoLimites } from '../../lib/recepcao/catalogo-limites';
 import { aplicarMatrizAtendimento } from '../../lib/recepcao/matriz-avaliacao';
-import { abrirSessao, consolidar, fichaPublica, visaoPublica } from '../../lib/recepcao/core';
+import { abrirSessao, consolidar, fichaPublica, ordenarPorNivel, visaoPublica } from '../../lib/recepcao/core';
 import { dominioAtendimento } from '../../lib/recepcao/dominio';
 import { visaoPorCompetencia } from '../../lib/recepcao/painel';
 import { competenciasAtendimento } from '../../lib/recepcao/matriz';
@@ -37,12 +39,29 @@ const cenario: Cenario = aplicarMatrizAtendimento({
   dominio: segmento as Cenario['dominio'],
   ocorrenciasCriticas: dominioAtendimento(segmento).ocorrencias.map((o) => o.id),
 });
-const registros = [{ id: 'caso-1', versao: cenario.versao, ficha: fichaPublica(cenario) }];
+const registroUnico = [{ id: 'caso-1', versao: cenario.versao, ficha: fichaPublica(cenario) }];
+// `?escada=1`: os três degraus publicados do MESMO caso (mesmo `cenarioId`), como no
+// Catálogo de produção (27/09/2026). `?retirado=1` tira o Limite da lista publicada.
+const escada = params.has('escada');
+const porRegistro: Record<string, Cenario> = escada
+  ? {
+      'reg-intro': aplicarMatrizAtendimento(structuredClone(catalogoInicial.find((c) => c.id === 'primeira-consulta')!)),
+      'reg-pressao': aplicarMatrizAtendimento(structuredClone(catalogoDesafiador.find((c) => c.id === 'primeira-consulta')!)),
+      'reg-limite': aplicarMatrizAtendimento(structuredClone(catalogoLimites.find((c) => c.id === 'primeira-consulta')!)),
+    }
+  : { 'caso-1': cenario };
+const registros = escada
+  ? ordenarPorNivel(Object.entries(porRegistro).map(([id, c]) => ({ id, versao: c.versao, ficha: fichaPublica(c) }))).filter(
+      (r) => !(params.has('retirado') && r.id === 'reg-limite'),
+    )
+  : registroUnico;
+const REGISTRO_PADRAO = escada ? 'reg-limite' : 'caso-1';
 const FALA = 'Entendo o impacto das duas alterações. Qual horário funciona para você?';
 
-function novaSessao(): Estado {
-  const s = abrirSessao(cenario, 0);
+function novaSessao(registroId = REGISTRO_PADRAO): Estado {
+  const s = abrirSessao(porRegistro[registroId], 0);
   s.id = '40000000-0000-4000-8000-000000000001';
+  s.cenarioRegistroId = registroId;
   return s;
 }
 function responder(s: Estado, mensagem: string) {
@@ -63,7 +82,7 @@ function responder(s: Estado, mensagem: string) {
 function avaliar(s: Estado) {
   const oportunidade = [{ mensagemId: 'm0', trecho: s.historico[0].content }];
   const insumos: Insumos = {
-    dimensoes: cenario.matriz!.competencias.flatMap((comp, ci) =>
+    dimensoes: s.cenario.matriz!.competencias.flatMap((comp, ci) =>
       comp.descritores.map((d, di) => {
         const observado = ci !== 3 || di < 3;
         if (!observado)
@@ -106,7 +125,7 @@ const dados = () => ({
   soAcompanha: equipe,
   ficha: semCasos ? null : registros[0].ficha,
   cenarios: semCasos ? [] : registros,
-  nivelSugerido: 'introducao',
+  nivelSugerido: escada ? 'limite' : 'introducao',
   sessao: sessao ? { ...visaoPublica(sessao), processando: false } : null,
   podeEquipe: equipe,
   podeCenarios: false,
@@ -128,8 +147,8 @@ const dados = () => ({
           id: sessao.id,
           data: '2026-09-18T15:00:00.000Z',
           status: sessao.status,
-          titulo: cenario.publico.titulo,
-          nivel: cenario.publico.nivel ?? null,
+          titulo: sessao.cenario.publico.titulo,
+          nivel: sessao.cenario.publico.nivel ?? null,
           nota: sessao.relatorio?.nota ?? null,
           escalaOriginal: null,
           situacao: sessao.relatorio?.situacao ?? null,
@@ -192,7 +211,7 @@ w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
   if (!init.method || init.method === 'GET') return Response.json(dados());
   const cmd = JSON.parse(String(init.body));
   w.__recepcaoWrites.push(cmd);
-  if (cmd.acao === 'iniciar') sessao = novaSessao();
+  if (cmd.acao === 'iniciar') sessao = novaSessao(cmd.cenarioId);
   else if (cmd.acao === 'responder') responder(sessao!, cmd.mensagem);
   else if (cmd.acao === 'encerrar') avaliar(sessao!);
   return Response.json({ sessao: { ...visaoPublica(sessao!), processando: false } });
