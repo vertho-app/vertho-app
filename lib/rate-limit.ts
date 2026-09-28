@@ -28,6 +28,11 @@ import { Redis } from '@upstash/redis';
 interface RateLimiterConfig {
   maxRequests: number;
   windowMs: number;
+  /**
+   * Texto do 429 para quem lê a tela. Sem ele, a mensagem genérica. Existe para
+   * limites de janela longa (hora), em que "tente em alguns segundos" é falso.
+   */
+  mensagem?: (retryAfterSec: number) => string;
 }
 
 interface BucketEntry {
@@ -92,7 +97,7 @@ function inMemoryCheck(config: RateLimiterConfig, key: string): Response | null 
 
   if (entry.timestamps.length >= config.maxRequests) {
     const retryAfter = Math.ceil((entry.timestamps[0] + config.windowMs - now) / 1000);
-    return build429(config.maxRequests, retryAfter);
+    return build429(config.maxRequests, retryAfter, config.mensagem);
   }
 
   entry.timestamps.push(now);
@@ -101,13 +106,18 @@ function inMemoryCheck(config: RateLimiterConfig, key: string): Response | null 
 
 // ── Resposta 429 padronizada ────────────────────────────────────────────────
 
-function build429(limit: number, retryAfterSec: number): Response {
+function build429(
+  limit: number,
+  retryAfterSec: number,
+  mensagem?: RateLimiterConfig['mensagem'],
+): Response {
+  const espera = Math.max(1, retryAfterSec);
   return NextResponse.json(
-    { error: 'Rate limit excedido. Tente novamente em alguns segundos.' },
+    { error: mensagem ? mensagem(espera) : 'Rate limit excedido. Tente novamente em alguns segundos.' },
     {
       status: 429,
       headers: {
-        'Retry-After': String(Math.max(1, retryAfterSec)),
+        'Retry-After': String(espera),
         'X-RateLimit-Limit': String(limit),
         'X-RateLimit-Remaining': '0',
       },
@@ -135,7 +145,7 @@ export function createRateLimiter(config: RateLimiterConfig) {
         try {
           const { success, reset } = await upstash.limit(key);
           if (success) return null;
-          return build429(config.maxRequests, Math.ceil((reset - Date.now()) / 1000));
+          return build429(config.maxRequests, Math.ceil((reset - Date.now()) / 1000), config.mensagem);
         } catch (err) {
           // Fail-open pro in-memory: Redis fora não pode derrubar o app,
           // mas ainda assim fica alguma proteção por instância.
@@ -162,6 +172,25 @@ export const aiLimiter = createRateLimiter({ maxRequests: 10, windowMs: 60_000 }
  * sem entender por quê. Menos requisições por minuto porque cada uma é longa.
  */
 export const copilotoLimiter = createRateLimiter({ maxRequests: 6, windowMs: 60_000 });
+
+/**
+ * Cota própria para INICIAR treino no simulador de vendas (V-8, 27/09/2026).
+ *
+ * Cada início paga o criador de cenário, e descartar é permitido antes da
+ * primeira fala: o laço iniciar-descartar só tinha como freio os 10 POST/min
+ * do `aiLimiter` (cerca de 5 cenários por minuto por pessoa). Seis por hora
+ * cobrem quem descarta um cenário que não serviu e retoma uma preparação que
+ * falhou, e cortam o laço. A decisão comercial de uso ilimitado (13/09) fala
+ * de treinos no prazo, não de cenários descartados sem conversa. A chave é
+ * por pessoa e empresa; a mensagem diz quanto falta.
+ */
+export const INICIOS_POR_HORA_VENDAS = 6;
+export const simVendasInicioLimiter = createRateLimiter({
+  maxRequests: INICIOS_POR_HORA_VENDAS,
+  windowMs: 60 * 60_000,
+  mensagem: (segundos) =>
+    `Você começou ${INICIOS_POR_HORA_VENDAS} treinos na última hora. Para começar outro, aguarde cerca de ${Math.max(1, Math.ceil(segundos / 60))} min. Seus treinos e o histórico continuam disponíveis.`,
+});
 
 /** Rotas de upload/PDF (pesado): 5 req/min por user */
 export const heavyLimiter = createRateLimiter({ maxRequests: 5, windowMs: 60_000 });

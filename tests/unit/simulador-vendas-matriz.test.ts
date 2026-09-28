@@ -77,7 +77,9 @@ describe('matriz PACE aprovada, avaliação por descritor e planejamento', () =>
     e5.nivel = 4;
     e5.evidencias = [{ origem: 'conversa', turno: 1, citacao: 'qualquer coisa' }];
     const r = validarMatriz(m, estadoMatriz());
-    expect(r.descartados).toEqual(['E5']);
+    // Desde 27/09/2026 (V-4) numa lista própria, fora da cota de citação inválida.
+    expect(r.foraDaReuniao).toEqual(['E5']);
+    expect(r.descartados).toBeUndefined();
     expect(r.descritores.find((x) => x.codigo === 'E5')?.nivel).toBeNull();
   });
   it('ausência de oportunidade é nula e não derruba a média como N1', () => {

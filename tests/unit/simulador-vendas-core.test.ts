@@ -131,6 +131,30 @@ describe('simulador PACE — invariantes de conversa', () => {
       'cliente',
       'intencao',
     ]);
+    // V-14 (27/09/2026): o aviso vale só para o turno em que saiu. No turno
+    // seguinte, sem nova advertência, ele some da tela (antes ficava para sempre).
+    const semMudarFase = vi.fn(async (etapa: string, _v?: unknown, validar?: (v: any) => void) => {
+      const v = structuredClone(
+        {
+          moderador: semViolacao,
+          cliente: { fala: 'Podemos, sim.', fase: s.fase, fase_mudou: false },
+          intencao: { intencao_encerrar: false, confianca: 'alta' },
+        }[etapa as 'moderador' | 'cliente' | 'intencao'],
+      );
+      validar?.(v);
+      return v;
+    });
+    const seguinte = await executarCore(
+      s,
+      cmd('responder', {
+        mensagem: 'Vamos falar do prazo?',
+        requestId: '30000000-0000-4000-8000-000000000009',
+        revisao: s.revisao,
+      }),
+      semMudarFase as Gerar,
+    );
+    expect(seguinte.moderacoes).toHaveLength(1);
+    expect(visaoPublica(seguinte).aviso).toBeNull();
   });
   it('encerra de fato uma violação grave e não gera cliente, relatório nem aceita outro turno', async () => {
     const gerar = geracao({

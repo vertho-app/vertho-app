@@ -1,6 +1,4 @@
 import { z } from 'zod';
-import { notaPacePublica } from '@/lib/simulador-vendas/escala';
-import { escalaNativa14 } from '@/lib/simulador-vendas/matriz-avaliacao';
 import { requireUser } from '@/lib/auth/request-context';
 import { readLimiter } from '@/lib/rate-limit';
 import { contexto } from '@/lib/simulador-vendas/access';
@@ -9,6 +7,7 @@ import {
   relatorioEquipe,
   escopoEquipe,
   painelEquipe,
+  linhasDeExportacao,
 } from '@/lib/simulador-vendas/equipe';
 import { falha, json } from '@/lib/simulador-vendas/http';
 export const runtime = 'nodejs';
@@ -58,37 +57,10 @@ export async function GET(req: Request) {
           },
           422,
         );
-      const planos = new Map<string, number | null>();
-      for (let i = 0; i < data.linhas.length; i += 200) {
-        const idsExportados = data.linhas
-          .slice(i, i + 200)
-          .map((r: any) => r.id);
-        const { data: rows, error: readError } = await c.tdb
-          .from('sim_vendas_sessoes')
-          .select('id,PL:estado->relatorio->PL')
-          .in('id', idsExportados);
-        if (readError)
-          return json(
-            { error: 'Não foi possível exportar o planejamento.' },
-            503,
-          );
-        for (const row of rows || [])
-          planos.set(row.id, row.PL as number | null);
-      }
+      // Mesma régua da devolutiva e da lista (V-5, 27/09/2026).
       return json({
         ...data,
-        linhas: data.linhas.map((r: any) => ({
-          ...r,
-          PL: planos.get(r.id) ?? null,
-          ...Object.fromEntries(
-            ['P', 'A', 'C', 'E', 'Media'].map((k) => [
-              k,
-              notaPacePublica(r[k], r.versaoRegua),
-            ]),
-          ),
-          escalaNota: '1-4',
-          escalaOriginal: escalaNativa14(r.versaoRegua) ? null : '0-10',
-        })),
+        linhas: await linhasDeExportacao(c, data.linhas),
       });
     }
     return json(await historicoEquipe(c, q.get('cursor')));

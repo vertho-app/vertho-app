@@ -33,6 +33,13 @@
 .historyTitle { display:flex; justify-content:space-between; align-items:flex-start; gap:.7rem; color:#f8fafc; font-size:.9rem; line-height:1.35; }
 .historyTitle>span:first-child { min-width:0; overflow-wrap:anywhere; }
 .historyScore { flex:0 0 auto; padding:.18rem .4rem; border:1px solid color-mix(in srgb,var(--pace-accent) 30%,transparent); border-radius:.45rem; background:color-mix(in srgb,var(--pace-accent) 8%,transparent); color:#a5f3fc; font-size:.65rem; font-weight:700; white-space:nowrap; }
+.resultado:focus { outline:none; }
+.evaluationDone { display:flex; align-items:flex-start; gap:.6rem; margin-top:1rem; margin-bottom:1rem; padding:.7rem .9rem; border:1px solid #86efac40; border-radius:.75rem; background:#86efac0d; color:#cbd5e1; font-size:.84rem; line-height:1.5; }
+.evaluationDone svg { flex:0 0 auto; margin-top:.15rem; color:#86efac; }
+.evaluationDone h2 { display:inline; color:#f8fafc; font-size:.84rem; font-weight:600; }
+.interrupted { margin-bottom:1rem; padding:.9rem 1rem; border:1px solid #fbbf2466; border-radius:.8rem; background:#fbbf240d; color:#fde68a; font-size:.88rem; line-height:1.55; }
+.historyPending { border-color:#fbbf2466; background:#fbbf2414; color:#fde68a; }
+.pendingSurvey { display:grid; gap:.6rem; margin-bottom:1rem; padding:.75rem .85rem; border:1px solid #fbbf2455; border-radius:.7rem; background:#fbbf240d; font-size:.8rem; line-height:1.5; color:#fde68a; }
 .historyMeta { display:flex; flex-wrap:wrap; gap:.15rem .32rem; color:#94a3b8; font-size:.7rem; line-height:1.45; }
 .newSimulationLocked { display:grid; gap:.55rem; margin-top:1rem; padding-top:1rem; border-top:1px solid #ffffff12; }
 .newSimulationButton { width:100%; justify-content:center; }
@@ -66,10 +73,17 @@
 .plan { display:grid; gap:.9rem; border:0; padding:0; margin:0; min-width:0; }
 .plan legend { font-weight:600; font-size:.9rem; margin-bottom:.6rem; }
 .plan label span { color:#e2e8f0; font-weight:600; font-size:.84rem; }
+.planGroup { display:grid; gap:.8rem; min-width:0; margin:0; padding:.9rem; border:1px solid #ffffff14; border-radius:.8rem; }
+.planGroup legend { display:flex; flex-wrap:wrap; align-items:baseline; gap:.2rem .5rem; margin:0; padding:0 .35rem; color:var(--pace-accent); font-size:.8rem; font-weight:700; }
+.planGroup legend small { color:#94a3b8; font-size:.72rem; font-weight:500; }
+.howItWorks { margin-bottom:1rem; font-size:.8rem; line-height:1.5; color:#cbd5e1; }
+.howItWorks summary { cursor:pointer; color:#f8fafc; font-weight:600; }
+.howItWorks ol { display:grid; gap:.3rem; margin-top:.5rem; padding-left:1.1rem; list-style:decimal; }
 .discard { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem .8rem; margin-top:1rem; }
 .focus { display:grid; gap:.2rem; margin-bottom:1rem; padding:.75rem .85rem; border:1px solid color-mix(in srgb,var(--pace-accent) 35%,transparent); border-radius:.7rem; background:color-mix(in srgb,var(--pace-accent) 7%,transparent); font-size:.84rem; line-height:1.45; overflow-wrap:anywhere; }
 .focus span { color:var(--pace-accent); font-size:.66rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
 .focus strong { color:#f8fafc; font-weight:600; }
+.focus small { color:#94a3b8; font-size:.74rem; }
 .evolution { margin-top:1.4rem; padding-top:1rem; border-top:1px solid #ffffff12; }
 .evolution h3 { font-size:.9rem; font-weight:600; color:#f8fafc; }
 .evolution ul { display:grid; gap:.45rem; margin-top:.6rem; }
@@ -79,7 +93,19 @@
 .evolutionLevel em { font-style:normal; font-size:.65rem; font-weight:600; color:#86efac; }
 .fichaCelular { display:none; }
 .fichaCelular summary { cursor:pointer; font-weight:600; font-size:.9rem; overflow-wrap:anywhere; }
-@media(max-width:800px) { .workspace { grid-template-columns:minmax(0,1fr); } .chat { max-height:55dvh; } .history { max-height:230px; overflow:auto; } .feedback { grid-template-columns:1fr; } }
+@media(max-width:800px) { .workspace { grid-template-columns:minmax(0,1fr); } .history { max-height:230px; overflow:auto; } .feedback { grid-template-columns:1fr; } }
+/* V-9 (27/09/2026): no celular a conversa rola com a página (sem caixa de
+   55dvh dentro dela) e o campo com os botões fica preso ao rodapé da tela;
+   o fim da conversa para acima dele ao rolar. */
+.pendingMessage { opacity:.72; }
+@media(max-width:800px) {
+  .chat { max-height:none; overflow:visible; }
+  .composer { position:sticky; bottom:0; z-index:5; margin:0 -1.3rem; padding:.7rem 1.3rem calc(.7rem + env(safe-area-inset-bottom)); background:#0a1e38; box-shadow:0 -10px 18px #0a1e38d9; }
+  .composer textarea { height:4.4rem; }
+  .fimConversa { scroll-margin-bottom:11rem; }
+  .planGroup { padding:.75rem; }
+  .plan textarea { height:4.6rem; }
+}
 /* Celular com treino em curso: a conversa primeiro e a ficha do cliente recolhível no topo dela. */
 @media(max-width:800px) { .chatPrimeiro>:last-child { order:-1; } .chatPrimeiro .fichaAside { display:none; } .chatPrimeiro .fichaCelular { display:block; margin-bottom:1rem; padding:.8rem 1rem; border:1px solid #ffffff18; border-radius:.8rem; } }
 @media(max-width:800px) { .evaluationHeader { grid-template-columns:1fr; } .deliverySteps { grid-template-columns:repeat(2,minmax(0,1fr)); } }

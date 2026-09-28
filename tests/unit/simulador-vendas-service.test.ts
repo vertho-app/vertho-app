@@ -114,6 +114,24 @@ describe('persistência de comandos PACE', () => {
     expect(sb.client.rpc).not.toHaveBeenCalled();
     expect(gerador).not.toHaveBeenCalled();
   });
+  it('V-2 (D3): o comentário da pesquisa é gravado com dados pessoais mascarados', async () => {
+    s = { ...estado(), status: 'concluida', relatorio: null };
+    sb.client.rpc.mockResolvedValue({ data: true, error: null });
+    const feedback = {
+      realismo: 4,
+      desafio: 3,
+      interacao: 4,
+      utilidade: 5,
+      aprendizado: 4,
+      comentario: 'Me chama no 11 91234-5678 ou em pessoa@example.com.',
+    };
+    const result = await executar(ctx(), { ...comando(), acao: 'feedback' as const, feedback });
+    const gravado = sb.client.rpc.mock.calls.find(([nome]) => nome === 'sim_vendas_commit')![1];
+    expect(gravado.p_estado.feedback.comentario).not.toMatch(/91234|pessoa@example/);
+    expect(gravado.p_estado.feedback.comentario).toContain('[telefone]');
+    expect(gravado.p_estado.feedback).toMatchObject({ realismo: 4, utilidade: 5 });
+    expect(result.sessao.feedback?.comentario).toBe(gravado.p_estado.feedback.comentario);
+  });
   it('planejamento usa a mesma lease e o mesmo tenant, mascara dados pessoais e não chama IA', async () => {
     s = { ...estadoMatriz(), planejamento: undefined, mensagens: [] };
     sb.client.rpc.mockResolvedValue({ data: true, error: null });
@@ -177,6 +195,55 @@ describe('quem só acompanha não treina (17/09/2026)', () => {
       podeTreinar: true,
       soAcompanha: false,
     });
+  });
+});
+
+/**
+ * D2 do dono (27/09/2026), que reverte a decisão de 14/09: a nota do treino só
+ * aparece no histórico do participante depois da pesquisa de experiência.
+ */
+describe('D2: nota no histórico do participante só depois da pesquisa', () => {
+  const base = {
+    created_at: '2026-09-20T12:00:00Z',
+    colaborador_id: 'colab-a',
+    owner_key: 'colab:colab-a',
+    resumo: {
+      status: 'concluida',
+      nivel: 1,
+      nome: 'Beatriz',
+      nomeVendedor: 'Ana',
+      nota: 3,
+      temRelatorio: true,
+      versaoRegua: 'pace-7',
+    },
+  };
+  it('o treino que espera a pesquisa sai sem nota e marcado como pendente', async () => {
+    const { consultarHistorico } = await import('@/lib/simulador-vendas/service');
+    sb = criarSupabaseMock({
+      lista: () => [
+        { ...base, id: '20000000-0000-4000-8000-00000000000a', liberado: null },
+        { ...base, id: '20000000-0000-4000-8000-00000000000b', liberado: 4 },
+      ],
+    });
+    const { historico } = await consultarHistorico(ctx());
+    expect(historico[0]).toMatchObject({ nota: null, pesquisaPendente: true, temRelatorio: false });
+    expect(historico[1]).toMatchObject({ nota: 3, pesquisaPendente: false });
+    // A pergunta inclui a pesquisa: sem ela a lista não saberia o que esconder.
+    expect(sb.usou('sim_vendas_sessoes', 'select')).toBe(true);
+    expect(
+      sb.chamadas.some((c) => c.metodo === 'select' && String(c.args[0]).includes('liberado:estado->feedback->realismo')),
+    ).toBe(true);
+  });
+  it('treino em andamento ou interrompido não é "pesquisa pendente"', async () => {
+    const { consultarHistorico } = await import('@/lib/simulador-vendas/service');
+    sb = criarSupabaseMock({
+      lista: () => [
+        { ...base, id: '20000000-0000-4000-8000-00000000000c', liberado: null, resumo: { ...base.resumo, status: 'em_andamento', temRelatorio: false, nota: null } },
+        { ...base, id: '20000000-0000-4000-8000-00000000000d', liberado: null, resumo: { ...base.resumo, status: 'interrompida', temRelatorio: false, nota: null } },
+      ],
+    });
+    const { historico } = await consultarHistorico(ctx());
+    expect(historico.map((h) => h.pesquisaPendente)).toEqual([false, false]);
   });
 });
 

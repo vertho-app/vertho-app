@@ -18,9 +18,10 @@ type Evidencia = AvaliacaoMatrizGravada['descritores'][number]['evidencias'][num
 /**
  * Converte a matriz PACE gravada no formato da devolutiva comum aos três
  * simuladores. As notas saem de `consolidarMatriz` com a regra da VERSÃO do
- * treino: da pace-7 em diante, 4 comportamentos por competência e E5/E6 fora da
- * avaliação (não aparecem nem como "sem oportunidade"); antes disso, o relatório
- * é lido como foi gerado.
+ * treino e, na pace-7, a regra GRAVADA no relatório (`regraGravada`): dois
+ * terços dos comportamentos avaliáveis (D5, 27/09/2026) ou 4 fixos nos
+ * relatórios anteriores, e E5/E6 fora da avaliação (não aparecem nem como "sem
+ * oportunidade"); antes da pace-7, o relatório é lido como foi gerado.
  */
 export function competenciasDaMatriz(
   matriz: AvaliacaoMatrizGravada,
@@ -30,8 +31,9 @@ export function competenciasDaMatriz(
     origem: (e: Evidencia) => string;
   },
   narrativas: Partial<Record<CodigoCompetencia, string | null | undefined>> = {},
+  regraGravada?: string | null,
 ): { competencias: CompetenciaRelatorio[]; media: MediaRelatorio; regra: RegraRelatorio } {
-  const consolidadas = consolidarMatriz(matriz, versao);
+  const consolidadas = consolidarMatriz(matriz, versao, regraGravada);
   const fora = usaRegraCobertura(versao) ? FORA_DA_REUNIAO_INICIAL : [];
   const descartados = new Set(matriz.descartados || []);
   const competencias = COMPETENCIAS_PACE.map((c) => {
@@ -61,7 +63,7 @@ export function competenciasDaMatriz(
         }),
     };
   });
-  const regra = regraDaVersao(versao);
+  const regra = regraDaVersao(versao, regraGravada);
   return {
     competencias,
     media: mediaGeral(consolidadas, regra),

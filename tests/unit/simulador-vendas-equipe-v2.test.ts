@@ -256,6 +256,8 @@ describe('PACE: leitura individual e recuperação depois do prazo', () => {
                   temRelatorio: true,
                   versaoRegua: 'pace-2',
                 },
+                // Pesquisa respondida: desde a D2 (27/09/2026) a nota só sai depois dela.
+                liberado: 4,
               },
             ]
           : [],

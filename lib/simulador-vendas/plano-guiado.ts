@@ -11,6 +11,16 @@ export const PERGUNTAS_PLANO = 6;
 export const MINIMO_RESPOSTAS_PLANO = 4;
 /** 6 x 900 + títulos cabe no limite de 6.000 caracteres do plano. */
 export const MAXIMO_POR_RESPOSTA = 900;
+/**
+ * Agrupamento das seis perguntas na tela (27/09/2026, V-13): o cliente e o
+ * objetivo (PL1, PL2), o diagnóstico e a condução (PL3, PL4), a proposta e as
+ * objeções (PL5, PL6). Só apresentação: o texto enviado e o mínimo não mudam.
+ */
+export const GRUPOS_PLANO: ReadonlyArray<readonly number[]> = [
+  [0, 1],
+  [2, 3],
+  [4, 5],
+];
 
 const respondida = (texto: string) => texto.trim().length >= 3;
 

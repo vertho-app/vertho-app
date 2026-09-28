@@ -24,12 +24,20 @@ const pilares = [
 export default function Relatorio({
   relatorio: original,
   versao,
+  modo = 'participante',
 }: {
   relatorio: Saidas['gerente'];
   versao?: string;
+  /**
+   * `equipe`: quem lê é o gestor ou o RH, não a pessoa que treinou. Até
+   * 27/09/2026 a gestão lia "Sua devolutiva PACE", "seu PDI", "seu plano"
+   * sobre o treino de outra pessoa (V-10).
+   */
+  modo?: 'participante' | 'equipe';
 }) {
   const t = useTranslations('SimuladorVendas'),
     locale = useLocale();
+  const equipe = modo === 'equipe';
   const r = relatorioPacePublico(original, versao)!;
   const documental = usaFontesDocumentais(versao);
   const matriz = r.Matriz
@@ -44,6 +52,7 @@ export default function Relatorio({
               : t('matrixEvidenceTurn', { turn: e.turno ?? 0 }),
         },
         { P: r.Preparacao, A: r.Analise, C: r.Cocriacao, E: r.Engajamento },
+        r.regraCobertura,
       )
     : null;
   // Só a primeira prioritária ganha o selo: versões antigas marcavam várias.
@@ -51,7 +60,7 @@ export default function Relatorio({
   return (
     <section aria-label={t('report')}>
       <div className="flex items-baseline justify-between gap-4 mb-4">
-        <h2 className="text-xl">{t('reportTitle')}</h2>
+        <h2 className="text-xl">{t(equipe ? 'reportTitleTeam' : 'reportTitle')}</h2>
         {!matriz && (
           <span className="text-3xl tabular-nums">
             {formatarNotaPace(r.Media, locale)}
@@ -60,44 +69,12 @@ export default function Relatorio({
         )}
       </div>
       <p className="text-sm text-slate-300 leading-relaxed mb-5">{r.Resumo}</p>
-      <h3 className="font-semibold mt-6 mb-2">{t('recommendations')}</h3>
-      <ol className="space-y-3 list-decimal pl-5">
-        {r.Recomendacoes.map((item, i) => (
-          <li key={i} className="text-sm text-slate-300">
-            {i === prioridade && (
-              <span className="block text-xs font-semibold uppercase tracking-wider text-brand-200 mb-1">
-                {t('priority')}
-              </span>
-            )}
-            <strong className="text-white">{item.titulo}</strong>
-            <p>{item.descricao}</p>
-            {documental && 'descritor' in item && (
-              <p className="text-xs text-slate-400 mt-1">
-                {t('documentReference', {
-                  descriptor: nomeDoDescritor(item.descritor),
-                  section: MANUAL_PACE.trechos[item.referencia_manual].secao,
-                })}
-              </p>
-            )}
-          </li>
-        ))}
-      </ol>
-      <div className="mt-6 border-t border-white/10 pt-4 text-sm text-slate-300">
-        <p className="font-semibold text-white">
-          {t(
-            documental && r.Resultado === 'fechou_aceitavel'
-              ? 'documentAgreement'
-              : `result_${r.Resultado}`,
-          )}
-        </p>
-        {r.Preco_final && <p>{r.Preco_final}</p>}
-        {r.Compromissos_obtidos && (
-          <p className="mt-1">{r.Compromissos_obtidos}</p>
-        )}
-      </div>
+      {/* V-11 (27/09/2026): a média e os níveis vêm logo depois do resumo. No
+          celular a média geral só aparecia a cerca de 1.260 px, depois das
+          recomendações e do resultado da negociação. */}
       {matriz ? (
         <>
-          <p className="text-xs text-slate-400 mb-3">{t('matrixScaleHelp')}</p>
+          <p className="text-xs text-slate-400 mb-3">{t(equipe ? 'matrixScaleHelpTeam' : 'matrixScaleHelp')}</p>
           <RelatorioCompetencias
             competencias={matriz.competencias}
             media={matriz.media}
@@ -138,6 +115,46 @@ export default function Relatorio({
           </div>
         </>
       )}
+      <h3 className="font-semibold mt-6 mb-2">{t('recommendations')}</h3>
+      <ol className="space-y-3 list-decimal pl-5">
+        {r.Recomendacoes.map((item, i) => (
+          <li key={i} className="text-sm text-slate-300">
+            {i === prioridade && (
+              <span className="block text-xs font-semibold uppercase tracking-wider text-brand-200 mb-1">
+                {t('priority')}
+              </span>
+            )}
+            <strong className="text-white">{item.titulo}</strong>
+            <p>{item.descricao}</p>
+            {documental && 'descritor' in item && (
+              <p className="text-xs text-slate-400 mt-1">
+                {t('documentReference', {
+                  descriptor: nomeDoDescritor(item.descritor),
+                  section: MANUAL_PACE.trechos[item.referencia_manual].secao,
+                })}
+              </p>
+            )}
+          </li>
+        ))}
+      </ol>
+      {/* Rotulado: "Resultado inconclusivo" solto, em negrito, acima da média
+          geral, parecia o veredito do treino (V-11). */}
+      <div className="mt-6 border-t border-white/10 pt-4 text-sm text-slate-300">
+        <p className="text-xs uppercase tracking-wider text-slate-400">
+          {t('negotiationResult')}
+        </p>
+        <p className="font-semibold text-white mt-1">
+          {t(
+            documental && r.Resultado === 'fechou_aceitavel'
+              ? 'documentAgreement'
+              : `result_${r.Resultado}`,
+          )}
+        </p>
+        {r.Preco_final && <p>{r.Preco_final}</p>}
+        {r.Compromissos_obtidos && (
+          <p className="mt-1">{r.Compromissos_obtidos}</p>
+        )}
+      </div>
       {[
         ...r.Beneficios_ocultos_descobertos,
         ...r.Objecoes_profundas_descobertas,
@@ -175,9 +192,9 @@ export default function Relatorio({
           ))}
         </details>
       )}
-      <p className="text-xs text-slate-400 mt-6">{t('disclaimer')}</p>
+      <p className="text-xs text-slate-400 mt-6">{t(equipe ? 'disclaimerTeam' : 'disclaimer')}</p>
       {documental && (
-        <p className="text-xs text-slate-400 mt-2">{t('documentSources')}</p>
+        <p className="text-xs text-slate-400 mt-2">{t(equipe ? 'documentSourcesTeam' : 'documentSources')}</p>
       )}
     </section>
   );

@@ -7,7 +7,7 @@ import { gerador, snapshotPrompts } from './ai';
 import { SimuladorError, executarCore, recebido, visaoPublica } from './core';
 import type { Contexto } from './access';
 import { REGUA_VERSION, type Estado, type Comando } from './schema';
-import { periodoVigente, podeEncerrar } from './prazo';
+import { acessoPeloPrazo, periodoVigente, podeEncerrar } from './prazo';
 import { TRACOS_DIVERSIDADE } from './diversidade';
 import { podeVerEquipe } from './equipe';
 import { evolucaoPorCompetencia, treinosComNiveis } from './evolucao';
@@ -15,6 +15,7 @@ import {
   aplicarCursor,
   COLUNAS_HISTORICO_PARTICIPANTE,
   paginaDeHistorico,
+  pontuacoesDaMatriz,
   type LinhaResumo,
 } from './historico';
 
@@ -67,10 +68,24 @@ export async function consultarHistorico(c: Contexto, cursor?: string | null) {
     .order('id', { ascending: false })
     .limit(31);
   banco(list.error);
-  const pagina = paginaDeHistorico(list.data as LinhaResumo[], 30);
-  // A nota final faz parte do resumo do treino no histórico do participante.
-  // O relatório detalhado continua protegido pela avaliação da experiência;
-  // por isso seu indicador não é exposto nesta lista de navegação.
+  const linhas = (list.data || []) as LinhaResumo[];
+  // pace-4/pace-5: a nota da lista sai da matriz, como na devolutiva (V-5).
+  // Só de devolutiva liberada: antes da pesquisa a nota não sai (D2).
+  const notasMatriz = await pontuacoesDaMatriz(
+    (colunas) => owned(c, colunas),
+    linhas.slice(0, 30).map((r) => ({
+      id: r.id,
+      versaoRegua: r.resumo?.versaoRegua,
+      comRelatorio: r.resumo?.temRelatorio === true && r.liberado != null,
+    })),
+  );
+  // Decisão D2 do dono (27/09/2026), que reverte a de 14/09 (`84fed6cb`): a
+  // nota do treino só aparece no histórico do participante DEPOIS da pesquisa
+  // de experiência, como a devolutiva. Com a nota à vista a pesquisa deixava de
+  // medir a experiência (a nota contaminava a resposta) e "Nova simulação"
+  // convidava a pular a pesquisa; o item diz "pesquisa pendente". O indicador
+  // de relatório também não é exposto nesta lista de navegação.
+  const pagina = paginaDeHistorico(linhas, 30, { notasMatriz, participante: true });
   return {
     ...pagina,
     historico: pagina.historico.map((item) => ({
@@ -129,21 +144,27 @@ export async function consultar(c: Contexto, id?: string | null) {
       throw new SimuladorError(404, 'Treino não encontrado.');
     row = result.data;
   }
-  const vigente = c.auth.isPlatformAdmin || periodoVigente(c.config);
+  const acesso = acessoPeloPrazo(c.config, {
+    admin: c.auth.isPlatformAdmin,
+    treina: !c.soAcompanha && (await can(c.auth, 'assessments.answer')),
+  });
   return {
     empresaId: c.empresaId,
     empresaNome: c.empresaNome,
     habilitado: c.config?.habilitado === true,
     configurado: !!c.config,
     admin: c.auth.isPlatformAdmin,
-    podeTreinar:
-      vigente && !c.soAcompanha && (await can(c.auth, 'assessments.answer')),
+    podeTreinar: acesso.podeTreinar,
+    // Pedir a devolutiva tem 24 h de tolerância depois do fim (27/09/2026: a
+    // tela usava `podeTreinar` e o botão ficava desabilitado nessa janela).
+    podeEncerrar: acesso.podeEncerrar,
     // Gestor e RH: a tela abre na gestão e esconde a aba de treino.
     soAcompanha: c.soAcompanha,
     prazo: {
       inicio: c.config?.periodo_inicio || null,
       fim: c.config?.periodo_fim || null,
-      vigente,
+      vigente: acesso.vigente,
+      encerrarAte: acesso.encerrarAte,
     },
     podeVerEquipe: await podeVerEquipe(c.auth),
     podeConfigurar:
@@ -167,7 +188,16 @@ export async function executar(c: Contexto, original: Comando) {
             ...original,
             planejamento: maskTextPII(original.planejamento).trim(),
           }
-        : original;
+        : original.acao === 'feedback'
+          ? // O comentário da pesquisa é lido por RH e liderança (D3, 27/09/2026).
+            {
+              ...original,
+              feedback: {
+                ...original.feedback,
+                comentario: maskTextPII(original.feedback.comentario).trim(),
+              },
+            }
+          : original;
   const exigirPrazo = () => {
     if (c.auth.isPlatformAdmin) return;
     // Encerrar tem 24 h de tolerância: quem estava no meio da conversa recebe a devolutiva.

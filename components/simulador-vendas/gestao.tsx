@@ -8,6 +8,8 @@ import type { Saidas } from '@/lib/simulador-vendas/schema';
 import { montarCsv } from '@/lib/simulador-vendas/csv';
 import Relatorio from './relatorio';
 import PainelEquipe from './painel-equipe';
+import { lerResposta } from './ler-resposta';
+import styles from './treino.module.css';
 
 type Pagina = { historico: ResumoTreino[]; proximoCursor: string | null };
 type Detalhe = {
@@ -44,6 +46,13 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
     [fim, setFim] = useState('');
   const vivo = useRef(true),
     operacao = useRef(0);
+  const detalhe = useRef<HTMLElement>(null),
+    origem = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (!selecionado) return;
+    detalhe.current?.scrollIntoView({ block: 'start' });
+    detalhe.current?.focus({ preventScroll: true });
+  }, [selecionado?.id]);
   const pagina = cursores.length - 1,
     cursor = cursores[pagina];
   useEffect(() => {
@@ -56,11 +65,12 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
   async function consultar(extras: Record<string, string> = {}) {
     const q = new URLSearchParams({ empresaId, ...extras });
     const r = await fetchAuth('/api/simulador-vendas/gestao?' + q, {
-        cache: 'no-store',
-      }),
-      d = await r.json();
-    if (!r.ok) throw new Error(d.error || t('genericError'));
-    return d;
+      cache: 'no-store',
+    });
+    return lerResposta(r, {
+      semCorpo: t('unreadableResponse'),
+      generica: t('genericError'),
+    });
   }
   useEffect(() => {
     let alive = true;
@@ -232,7 +242,10 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
                 <td>
                   <button
                     disabled={ocupado || !r.temRelatorio}
-                    onClick={() => void abrir(r.id)}
+                    onClick={(e) => {
+                      origem.current = e.currentTarget;
+                      void abrir(r.id);
+                    }}
                   >
                     {t('viewReport')}
                   </button>
@@ -261,18 +274,35 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
         </button>
       </div>
       {selecionado && (
-        <div className="border border-white/15 rounded-2xl p-5 mt-6">
-          <div className="flex justify-between items-center mb-5">
-            <p>{selecionado.nomeVendedor}</p>
-            <button onClick={() => setSelecionado(null)}>
+        // V-10 (27/09/2026): o relatório abre abaixo da tabela e da paginação;
+        // sem rolar, o clique em "Ver relatório" parecia não fazer nada (o topo
+        // ficava 2.507 px abaixo da tela). Agora a tela rola até ele e o foca.
+        <section
+          ref={detalhe}
+          tabIndex={-1}
+          aria-labelledby="pace-relatorio-equipe"
+          className={`${styles.resultado} border border-white/15 rounded-2xl p-5 mt-6 scroll-mt-4`}
+        >
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-5">
+            <p id="pace-relatorio-equipe" className="font-semibold">
+              {t('teamReportOf', { name: selecionado.nomeVendedor })}
+            </p>
+            <button
+              onClick={() => {
+                const voltar = origem.current;
+                setSelecionado(null);
+                voltar?.focus();
+              }}
+            >
               {t('closeReport')}
             </button>
           </div>
           <Relatorio
             relatorio={selecionado.relatorio}
             versao={selecionado.versaoRegua}
+            modo="equipe"
           />
-        </div>
+        </section>
       )}
     </section>
   );

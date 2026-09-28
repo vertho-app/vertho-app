@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { csrfCheck } from '@/lib/csrf';
-import { aiLimiter, readLimiter } from '@/lib/rate-limit';
+import { aiLimiter, readLimiter, simVendasInicioLimiter } from '@/lib/rate-limit';
 import { requireUser } from '@/lib/auth/request-context';
 import { comContexto } from '@/lib/execucao-contexto';
 import { contexto } from '@/lib/simulador-vendas/access';
@@ -32,6 +32,10 @@ export async function POST(req: Request) {
       const cmd = comandoSchema.parse(JSON.parse(raw));
       const c = await contexto(req, cmd.empresaId, true, auth); if (c instanceof Response) return c;
       const limited = await aiLimiter.check(req, `sim-vendas:${c.empresaId}:${c.ownerKey}`); if (limited) return limited;
+      // Cada início paga o criador; descartar antes da 1ª fala é livre. Teto por hora (V-8, 27/09/2026).
+      if (cmd.acao === 'iniciar') {
+        const inicios = await simVendasInicioLimiter.check(req, `sim-vendas-iniciar:${c.empresaId}:${c.ownerKey}`); if (inicios) return inicios;
+      }
       return json(await executar(c, cmd));
     } catch (e) { return falha(e); }
   });

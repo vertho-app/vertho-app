@@ -3,6 +3,7 @@
 import { Check, LockKeyhole } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { Estado } from '@/lib/simulador-vendas/schema';
+import { MIN_RESPONDENTES_COMENTARIOS } from '@/lib/simulador-vendas/painel';
 import styles from './treino.module.css';
 
 type Feedback = NonNullable<Estado['feedback']>;
@@ -28,11 +29,27 @@ export default function Avaliacao({
   const t = useTranslations('SimuladorVendas');
   const completa = CAMPOS.every((campo) => feedback[campo] >= 1 && feedback[campo] <= 5);
 
+  // Depois do envio, uma linha só (V-11, 27/09/2026): o cartão grande com as
+  // duas etapas ficava entre a pessoa e a devolutiva que ela acabou de liberar.
+  if (salvo)
+    return (
+      <section className={styles.evaluationDone} aria-labelledby="pace-avaliacao-titulo" role="status">
+        <Check size={16} aria-hidden="true" />
+        <div>
+          <h2 id="pace-avaliacao-titulo">{t('feedbackSavedTitle')}.</h2>{' '}
+          <span>{t(comDevolutiva ? 'feedbackSavedDescription' : 'feedbackSavedNoReport')}</span>
+        </div>
+      </section>
+    );
+
   return (
     <section className={styles.evaluation} aria-labelledby="pace-avaliacao-titulo">
       <div className={styles.evaluationHeader}>
         <div>
-          <p className={styles.evaluationEyebrow}>{t(salvo ? 'evaluationComplete' : 'evaluationRequired')}</p>
+          {/* Sem devolutiva a liberar (treino interrompido), a pesquisa não é "obrigatória" (V-14). */}
+          <p className={styles.evaluationEyebrow}>
+            {t(salvo ? 'evaluationComplete' : comDevolutiva ? 'evaluationRequired' : 'evaluationOptional')}
+          </p>
           <h2 id="pace-avaliacao-titulo" className={styles.evaluationTitle}>
             {t(salvo ? 'feedbackSavedTitle' : 'feedbackTitle')}
           </h2>
@@ -118,7 +135,12 @@ export default function Avaliacao({
             onChange={(event) => onChange({ ...feedback, comentario: event.target.value })}
             rows={3}
             maxLength={2000}
+            aria-describedby="pace-comentario-quem-le"
           />
+          {/* D3 (27/09/2026): quem escreve sabe quem lê. */}
+          <p id="pace-comentario-quem-le" className={`${styles.muted} mt-2`}>
+            {t('commentVisibility', { min: MIN_RESPONDENTES_COMENTARIOS })}
+          </p>
           <p className={`${styles.muted} mt-2`}>{t('feedbackDoesNotChangeScore')}</p>
           <button type="submit" disabled={desabilitado || !completa} className={`${styles.primary} mt-4`}>
             {t(comDevolutiva ? 'saveAndOpenReport' : 'saveFeedback')}

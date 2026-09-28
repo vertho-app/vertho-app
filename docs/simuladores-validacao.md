@@ -53,3 +53,12 @@ Itens L-1 a L-14 da revisão de 27/09 (resumo em [SIMULADOR-LIDERANCA.md](SIMULA
 - TypeScript sem erros; suíte completa com 6.701 testes aprovados (624 arquivos, 68 opcionais ignorados); recorte `simulador-lideranca simuladores prontidao-lideranca turmas demo tests/unit/security` com 1.430 aprovados.
 - `node scripts/verify-lideranca-ui.mjs` com "UI OK", incluindo celular (390x844) e os quatro idiomas. As capturas foram conferidas uma a uma; o `toBeHidden` da síntese no fim da jornada virou o contrário, de propósito (L-9).
 - Build de produção não rodado nesta etapa (fica para a integração).
+
+## Vendas: correções da revisão de 27/09/2026
+
+Itens V-1 a V-14 do plano da revisão (V-15, idioma da conversa, fica para ensaio real pago). O que mudou está em `docs/SIMULADOR-VENDAS.md`; aqui fica só a medição.
+
+- Cada defeito ganhou teste que falha no código anterior (conferido por mutação, com o arquivo restaurado depois): tolerância de 24 h na consulta e na tela, comentários da pesquisa sem data e só a partir de 5 respondentes, resposta sem JSON, E5/E6 fora da cota de citação, uma nota por treino pace-4/pace-5 nas quatro saídas, rótulo de teste administrativo pelo dono, teto de 6 inícios por hora, Engajar em 3 de 4 (lendo os relatórios antigos com a regra que gravaram), aviso do moderador só no turno.
+- Interfaces: `verify-pace-ui` com 43 verificações (eram 37), quatro idiomas, sem erros de navegador. O harness passou a usar as mesmas funções do serviço para histórico (`resumoPublico`), prazo (`acessoPeloPrazo`) e relatório da gestão; antes ele fotografava estados que a produção não produz.
+- Suíte: filtro `simulador-vendas simuladores demo tests/unit/security` com 1.439 testes aprovados e 12 opcionais ignorados; suíte completa sem os ensaios `*-live*`, 6.669 aprovados e 16 ignorados. TypeScript sem erros. Build de produção não rodado nesta rodada.
+- Migração 271 (rótulo de teste administrativo em `sim_vendas_exportar` e `owner_key` em `sim_vendas_historico_equipe`): só o arquivo; aplicação no deploy. O teste confere o texto SQL da definição vigente, não o banco.

@@ -19,6 +19,7 @@ import type { ResumoTreino } from '@/lib/simulador-vendas/historico';
 import { formatarNotaPace } from '@/lib/simulador-vendas/nota';
 import {
   comporPlano,
+  GRUPOS_PLANO,
   MAXIMO_POR_RESPOSTA,
   MINIMO_RESPOSTAS_PLANO,
   PERGUNTAS_PLANO,
@@ -32,6 +33,7 @@ import Gestao from './gestao';
 import Configuracao from './configuracao';
 import Processamento from './processamento';
 import Ditado from './ditado';
+import { lerResposta } from './ler-resposta';
 import styles from './treino.module.css';
 
 type Dados = {
@@ -41,13 +43,21 @@ type Dados = {
   configurado: boolean;
   admin: boolean;
   podeTreinar: boolean;
+  /** Pedir a devolutiva: vale também nas 24 h de tolerância depois do fim do prazo. */
+  podeEncerrar: boolean;
   podeConfigurar: boolean;
   podeVerEquipe: boolean;
   /** Gestor e RH: acompanham a equipe e não treinam (17/09/2026). */
   soAcompanha: boolean;
   config?: Config | null;
   sessao: SessaoPublica | null;
-  prazo: { inicio: string | null; fim: string | null; vigente: boolean };
+  prazo: {
+    inicio: string | null;
+    fim: string | null;
+    vigente: boolean;
+    /** Só dentro da tolerância: até quando dá para pedir a devolutiva. */
+    encerrarAte: string | null;
+  };
   evolucao: EvolucaoCompetencia[] | null;
   focoSugerido: string | null;
   historico: ResumoTreino[];
@@ -82,6 +92,8 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
   const [texto, setTexto] = useState(''),
     [confirmar, setConfirmar] = useState<'encerrar' | 'abandonar' | null>(null),
     [feedback, setFeedback] = useState(feedbackVazio);
+  /** A fala já enviada, mostrada na conversa enquanto o cliente responde. */
+  const [enviando, setEnviando] = useState<string | null>(null);
   const pending = useRef<{ key: string; id: string } | null>(null),
     running = useRef(false),
     generation = useRef(0),
@@ -94,10 +106,14 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       timeStyle: 'short',
     });
   async function api(url: string, init?: RequestInit) {
-    const response = await fetchAuth(url, { ...init, cache: 'no-store' }),
-      body = await response.json();
-    if (!response.ok) throw new Error(body.error || t('genericError'));
-    return body;
+    const response = await fetchAuth(url, { ...init, cache: 'no-store' });
+    // Resposta sem JSON (504 do gateway em HTML) vira mensagem traduzida. A
+    // chave idempotente do envio (`pending`) só é limpa no sucesso: tentar de
+    // novo reaproveita o mesmo requestId, e o servidor não duplica o envio.
+    return lerResposta(response, {
+      semCorpo: t('unreadableResponse'),
+      generica: t('genericError'),
+    });
   }
   function params(id = empresaId, sessaoId?: string) {
     const q = new URLSearchParams();
@@ -197,6 +213,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     setDados(null);
     setSessao(null);
     setTexto('');
+    setEnviando(null);
     setRespostas(respostasVazias());
     pending.current = null;
     setConfirmar(null);
@@ -216,8 +233,15 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       });
   }, [admin, empresaId]);
   useEffect(() => {
-    if (!admin && dados?.podeVerEquipe && !dados.podeTreinar) setAba('gestao');
-  }, [dados?.podeVerEquipe, dados?.podeTreinar, admin]);
+    // Quem ainda pode pedir a devolutiva (tolerância de 24 h) fica no treino.
+    if (
+      !admin &&
+      dados?.podeVerEquipe &&
+      !dados.podeTreinar &&
+      !dados.podeEncerrar
+    )
+      setAba('gestao');
+  }, [dados?.podeVerEquipe, dados?.podeTreinar, dados?.podeEncerrar, admin]);
   useEffect(() => {
     fim.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   }, [sessao?.mensagens.length, ocupado]);
@@ -265,6 +289,14 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       acao === 'iniciar' ? null : sessao?.id,
       conteudo,
     ]);
+    // V-9 (27/09/2026): a fala aparece na hora e o campo esvazia, sem esperar
+    // moderador, cliente e intenção; se o envio falhar, o texto volta ao campo
+    // (e a mesma chave idempotente é reaproveitada ao tentar de novo).
+    const enviado = acao === 'responder' ? texto.trim() : '';
+    if (enviado) {
+      setEnviando(enviado);
+      setTexto('');
+    }
     if (!pending.current || pending.current.key !== key)
       pending.current = {
         key,
@@ -290,9 +322,16 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       });
       if (ticket !== generation.current) return;
       setSessao(d.sessao);
+      // A fala gravada chegou: a bolha provisória sai no mesmo render, senão
+      // as duas apareceriam juntas enquanto o histórico recarrega.
+      setEnviando(null);
       pending.current = null;
-      if (acao === 'responder' || acao === 'iniciar') setTexto('');
-      if (acao === 'iniciar') setRespostas(respostasVazias());
+      // A resposta: o campo já foi esvaziado no envio, e o que a pessoa
+      // digitou enquanto esperava fica.
+      if (acao === 'iniciar') {
+        setTexto('');
+        setRespostas(respostasVazias());
+      }
       if (acao === 'planejar' && chaveRascunho)
         try {
           sessionStorage.removeItem(chaveRascunho);
@@ -304,6 +343,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       });
     } catch (e) {
       if (ticket === generation.current) {
+        if (enviado) setTexto((atual) => (atual.trim() ? atual : enviado));
         setErro(e instanceof Error ? e.message : t('genericError'));
         await carregar(empresaId, sessao?.id, ticket).catch(() => {});
       }
@@ -311,6 +351,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       if (ticket === generation.current) {
         running.current = false;
         setOcupado('');
+        setEnviando(null);
       }
     }
   }
@@ -388,6 +429,19 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     )
   );
   const podeNovo = !temTreinoAberto;
+  // D2 (27/09/2026): devolutiva pronta esperando a pesquisa. Enquanto houver,
+  // "Nova simulação" deixa de ser o botão primário, e o caminho para a
+  // pesquisa (se ela for de outro treino que não o aberto) vem antes dele.
+  const treinoComPesquisa =
+    dados?.historico.find((h) => h.pesquisaPendente && h.id !== sessao?.id) ||
+    null;
+  const pesquisaPendente = !!sessao?.avaliacaoPendente || !!treinoComPesquisa;
+  // Prazo vencido, mas a conversa aberta ainda pode virar devolutiva (24 h).
+  const emTolerancia =
+    !!dados?.prazo.encerrarAte &&
+    !!dados.podeEncerrar &&
+    !!aberto &&
+    !!sessao?.mensagens.some((m) => m.autor === 'vendedor');
   // Descartar (18/09/2026): só antes da primeira fala do vendedor (cenário que
   // não serviu, preparação travada). Depois dela, conclui-se e recebe a devolutiva.
   const podeDescartar =
@@ -538,7 +592,11 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       start: data(dados.prazo.inicio),
                       end: data(dados.prazo.fim),
                     })
-                  : t('periodClosed')}
+                  : emTolerancia
+                    ? t('periodGrace', {
+                        deadline: data(dados.prazo.encerrarAte!),
+                      })
+                    : t('periodClosed')}
               </p>
             </div>
           )}
@@ -570,6 +628,25 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       <strong>{focoSugerido}</strong>
                     </p>
                   )}
+                  {/* V-13 (27/09/2026): as etapas e o tempo antes de começar;
+                      o plano só aparecia depois do cenário já criado. */}
+                  <details
+                    className={styles.howItWorks}
+                    open={!dados.historico.length}
+                  >
+                    <summary>{t('howItWorks')}</summary>
+                    <ol>
+                      <li>
+                        {t('howItWorksPlan', {
+                          total: PERGUNTAS_PLANO,
+                          min: MINIMO_RESPOSTAS_PLANO,
+                        })}
+                      </li>
+                      <li>{t('howItWorksChat')}</li>
+                      <li>{t('howItWorksSurvey')}</li>
+                      <li>{t('howItWorksReport')}</li>
+                    </ol>
+                  </details>
                   <label>
                     {t('level')}
                     <select
@@ -587,8 +664,22 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                     </select>
                   </label>
                   <p className={`${styles.muted} my-3`}>{t('levelHelp')}</p>
+                  {pesquisaPendente && (
+                    <div className={styles.pendingSurvey} role="note">
+                      <p>{t('surveyPendingHint')}</p>
+                      {treinoComPesquisa && (
+                        <button
+                          className={styles.primary}
+                          disabled={travado}
+                          onClick={() => void abrir(treinoComPesquisa.id)}
+                        >
+                          {t('surveyPendingOpen')}
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <button
-                    className={styles.primary}
+                    className={pesquisaPendente ? undefined : styles.primary}
                     disabled={
                       travado || !dados.configurado || !dados.podeTreinar
                     }
@@ -650,9 +741,17 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                     >
                       <span className={styles.historyTitle}>
                         <span>{h.nome || t('preparing')}</span>
-                        <span className={styles.historyScore}>
-                          {t('score')} {formatarNotaPace(h.nota, locale)}
-                        </span>
+                        {h.pesquisaPendente ? (
+                          <span
+                            className={`${styles.historyScore} ${styles.historyPending}`}
+                          >
+                            {t('surveyPending')}
+                          </span>
+                        ) : (
+                          <span className={styles.historyScore}>
+                            {t('score')} {formatarNotaPace(h.nota, locale)}
+                          </span>
+                        )}
                       </span>
                       <small className={styles.historyMeta}>
                         <span>
@@ -683,6 +782,12 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
               </p>
             </aside>
             <div className={styles.card}>
+              {/* V-14: a explicação vem antes da pesquisa, não no pé da página. */}
+              {sessao?.status === VENDAS_SESSAO.INTERROMPIDA && (
+                <p role="status" className={styles.interrupted}>
+                  {t('interrupted')}
+                </p>
+              )}
               {terminou && (
                 <Avaliacao
                   feedback={feedback}
@@ -694,27 +799,36 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                 />
               )}
               {sessao?.feedback && sessao.relatorio && (
-                <div ref={resultado} tabIndex={-1} className="pt-3 mb-6">
+                // Foco programático para leitores de tela, sem o contorno
+                // branco do navegador em volta do relatório inteiro (V-11).
+                <div
+                  ref={resultado}
+                  tabIndex={-1}
+                  className={`${styles.resultado} pt-3 mb-6`}
+                >
                   <Relatorio
                     relatorio={sessao.relatorio}
                     versao={sessao.versaoRegua}
                   />
                 </div>
               )}
-              <ol aria-label={t('phases')} className={styles.rail}>
-                {FASES.map((f, i) => (
-                  <li
-                    key={f}
-                    className={
-                      sessao?.fase === f ? styles.phaseActive : undefined
-                    }
-                    aria-current={sessao?.fase === f ? 'step' : undefined}
-                  >
-                    <b>{'PACE'[i]}</b>
-                    <span>{t(`phase_${f}`)}</span>
-                  </li>
-                ))}
-              </ol>
+              {/* O trilho das etapas acompanha a conversa; depois do fim, sai. */}
+              {!terminou && (
+                <ol aria-label={t('phases')} className={styles.rail}>
+                  {FASES.map((f, i) => (
+                    <li
+                      key={f}
+                      className={
+                        sessao?.fase === f ? styles.phaseActive : undefined
+                      }
+                      aria-current={sessao?.fase === f ? 'step' : undefined}
+                    >
+                      <b>{'PACE'[i]}</b>
+                      <span>{t(`phase_${f}`)}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
               {chatPrimeiro && sessao?.cenario && (
                 <details
                   className={styles.fichaCelular}
@@ -782,22 +896,49 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                           total: PERGUNTAS_PLANO,
                         })}
                       </p>
+                      {/* V-13 (27/09/2026): o foco da última devolutiva entra
+                          no plano; antes aparecia só perto de "Nova simulação". */}
+                      {focoSugerido && (
+                        <p className={styles.focus}>
+                          <span>{t('suggestedFocus')}</span>
+                          <strong>{focoSugerido}</strong>
+                          <small>{t('suggestedFocusPlan')}</small>
+                        </p>
+                      )}
                       <fieldset className={styles.plan}>
                         <legend>{t('planningLabel')}</legend>
-                        {titulosPlano.map((titulo, i) => (
-                          <label key={i}>
-                            <span>{titulo}</span>
-                            <textarea
-                              rows={3}
-                              maxLength={MAXIMO_POR_RESPOSTA}
-                              value={respostas[i]}
-                              disabled={travado || !dados.podeTreinar}
-                              onChange={(e) =>
-                                responderPergunta(i, e.target.value)
-                              }
-                              placeholder={t(`planningHint${i + 1}`)}
-                            />
-                          </label>
+                        {/* Três grupos de duas perguntas: os mesmos seis
+                            campos e o mesmo mínimo, mais fáceis de percorrer
+                            no celular (V-13). */}
+                        {GRUPOS_PLANO.map((grupo, g) => (
+                          <fieldset key={g} className={styles.planGroup}>
+                            <legend>
+                              {t(`planningGroup${g + 1}`)}
+                              <small>
+                                {t('planningGroupProgress', {
+                                  n: respostasValidas(
+                                    grupo.map((i) => respostas[i] ?? ''),
+                                  ),
+                                  total: grupo.length,
+                                })}
+                              </small>
+                            </legend>
+                            {grupo.map((i) => (
+                              <label key={i}>
+                                <span>{titulosPlano[i]}</span>
+                                <textarea
+                                  rows={3}
+                                  maxLength={MAXIMO_POR_RESPOSTA}
+                                  value={respostas[i]}
+                                  disabled={travado || !dados.podeTreinar}
+                                  onChange={(e) =>
+                                    responderPergunta(i, e.target.value)
+                                  }
+                                  placeholder={t(`planningHint${i + 1}`)}
+                                />
+                              </label>
+                            ))}
+                          </fieldset>
                         ))}
                       </fieldset>
                       <p className={styles.muted} role="status">
@@ -866,6 +1007,18 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                             <p>{m.texto}</p>
                           </article>
                         ))}
+                        {enviando && ocupado === 'responder' && (
+                          <article
+                            className={`${styles.message} ${styles.seller} ${styles.pendingMessage}`}
+                            data-author="vendedor"
+                            aria-busy="true"
+                          >
+                            <small>
+                              {t('you')} · {t('sending')}
+                            </small>
+                            <p>{enviando}</p>
+                          </article>
+                        )}
                         {ocupado &&
                           ['iniciar', 'responder', 'encerrar'].includes(
                             ocupado,
@@ -887,11 +1040,15 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                               )}
                             </p>
                           )}
-                        <div ref={fim} />
+                        <div ref={fim} className={styles.fimConversa} />
                       </div>
                     </DetalhesTreino>
                   )}
                   {aberto && !sessao.planejamentoPendente && (
+                    <>
+                    {/* No celular, campo e botões ficam presos ao rodapé da
+                        tela enquanto a conversa está à vista (V-9); as ajudas
+                        ficam fora, para o rodapé não ocupar meia tela. */}
                     <form
                       className={styles.composer}
                       onSubmit={(e) => {
@@ -906,11 +1063,10 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                         rows={3}
                         maxLength={4000}
                         value={texto}
-                        disabled={
-                          travado ||
-                          !sessao.turnosRestantes ||
-                          !dados.podeTreinar
-                        }
+                        // Só o ENVIO fica bloqueado enquanto o cliente responde:
+                        // desabilitar o campo tirava o foco e fechava o teclado
+                        // do celular a cada turno (V-9, 27/09/2026).
+                        disabled={!sessao.turnosRestantes || !dados.podeTreinar}
                         onChange={(e) => setTexto(e.target.value)}
                         onKeyDown={(e) => {
                           if (
@@ -956,11 +1112,12 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                           {t('send')}
                         </button>
                       </div>
-                      <p className={`${styles.muted} mt-2`}>
-                        {t('composerHelp')}
-                      </p>
-                      <p className={`${styles.muted} mt-2`}>{t('piiHelp')}</p>
                     </form>
+                    <p className={`${styles.muted} mt-2`}>
+                      {t('composerHelp')}
+                    </p>
+                    <p className={`${styles.muted} mt-2`}>{t('piiHelp')}</p>
+                    </>
                   )}
                   {aberto && !sessao.planejamentoPendente && (
                     <div className="mt-6">
@@ -968,12 +1125,19 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                         disabled={
                           travado ||
                           !sessao.mensagens.length ||
-                          !dados.podeTreinar
+                          !dados.podeEncerrar
                         }
                         onClick={() => setConfirmar('encerrar')}
                       >
                         {t('finish')}
                       </button>
+                      {emTolerancia && (
+                        <p className={`${styles.muted} mt-2`}>
+                          {t('finishUntil', {
+                            deadline: data(dados.prazo.encerrarAte!),
+                          })}
+                        </p>
+                      )}
                       {sessao.sugerirEncerramento && (
                         <p className={`${styles.muted} mt-2`}>
                           {t('suggestFinish')}
@@ -1022,11 +1186,6 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                         </button>
                       </div>
                     </div>
-                  )}
-                  {sessao.status === VENDAS_SESSAO.INTERROMPIDA && (
-                    <p className="text-sm text-amber-200 mt-4">
-                      {t('interrupted')}
-                    </p>
                   )}
                 </>
               )}
