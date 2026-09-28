@@ -193,9 +193,13 @@ export async function executar(c: Contexto, entrada: Comando) {
     .select('id')
     .maybeSingle();
   banco(claimed.error);
+  // 423, não 409 (27/09/2026): o 409 diz "este pedido não vale mais" e o cliente
+  // descarta o requestId; aqui o pedido pode ser o MESMO que ainda está
+  // concluindo (a rede caiu e a pessoa reenviou). Com o 409, o próximo "Enviar"
+  // gerava requestId novo e a fala entrava duas vezes.
   if (!claimed.data)
     throw new LiderancaError(
-      409,
+      423,
       'Há um envio em processamento. Aguarde e atualize o encontro.',
     );
   try {

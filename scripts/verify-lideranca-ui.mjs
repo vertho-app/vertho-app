@@ -113,16 +113,38 @@ try {
         });
       await page.getByRole('button', { name: 'Enviar', exact: true }).click();
       if (i === 0 && j === 0) {
-        await expect(page.getByRole('alert')).toContainText('Resposta salva');
+        // Resposta perdida com a fala salva: a leitura seguinte mostra a fala, e
+        // a caixa e o aviso somem sozinhos, sem convidar a mandar de novo (27/09/2026).
         await expect(
           page.getByText('1 de 16 rodadas', { exact: false }),
         ).toBeVisible();
-        await page.getByRole('button', { name: 'Enviar', exact: true }).click();
+        await expect(page.locator('#lideranca-fala')).toHaveValue('');
         await expect(page.getByRole('alert')).toHaveCount(0);
       }
       await expect(
         page.getByText(`${j + 1} de 16 rodadas`, { exact: false }),
       ).toBeVisible();
+    }
+    if (i === 1) {
+      // Corrida (27/09/2026): a rede cai, o reenvio com o mesmo pedido bate no
+      // lock (423) e o original conclui. A fala entra UMA vez e a caixa esvazia.
+      const corrida = 'Mensagem que saiu quando a rede caiu.';
+      await page.locator('#lideranca-fala').fill(corrida);
+      await page.evaluate(() => {
+        window.__redeCaiNext = true;
+      });
+      await page.getByRole('button', { name: 'Enviar', exact: true }).click();
+      await expect(page.getByRole('alert')).toContainText('Falha de conexão');
+      await page.getByRole('button', { name: 'Enviar', exact: true }).click();
+      await expect(page.getByText('4 de 16 rodadas', { exact: false })).toBeVisible();
+      await expect(page.locator('#lideranca-fala')).toHaveValue('');
+      await expect(page.getByRole('alert')).toHaveCount(0);
+      assert.equal(await page.getByRole('log').getByText(corrida, { exact: true }).count(), 1, 'fala duplicada depois do 423');
+      const pedidos = await page.evaluate(
+        (texto) => [...new Set(window.__posts.filter((p) => p.texto === texto).map((p) => p.requestId))].length,
+        corrida,
+      );
+      assert.equal(pedidos, 1, 'o reenvio depois da queda usou outro pedido');
     }
     if (i === 0) {
       await page.reload();

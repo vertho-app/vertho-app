@@ -106,6 +106,13 @@ export interface OpcoesMock {
    * `error: null`" — que é falha silenciosa, não sucesso.
    */
   escrita?: (tabela: string, op: Operacao, payload: any) => any[] | null;
+  /**
+   * `data` de uma ESCRITA terminada em `.maybeSingle()` / `.single()`. Default:
+   * o próprio payload (o comportamento histórico). Existe para o update
+   * condicional que não casa nenhuma linha (um CAS de lock perdido volta
+   * `data: null`, `error: null`), que sem isto não dava para exercitar.
+   */
+  escritaUnica?: (tabela: string, op: Operacao, payload: any, cadeia: Chamada[]) => any;
   falhas?: FalhaSpec[];
 }
 
@@ -118,6 +125,7 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
   const lista = opts.lista || (() => []);
   const contagem = opts.contagem || (() => null);
   const escrita = opts.escrita || (() => null);
+  const escritaUnica = opts.escritaUnica || ((_t: string, _o: Operacao, payload: any) => payload);
 
   const acharFalha = (tabela: string, op: Operacao, payload?: any): FalhaSpec | null =>
     falhas.find(
@@ -170,13 +178,13 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
       maybeSingle: async () => {
         const f = acharFalha(tabela, op, payload);
         if (f) return { data: null, error: erroDe(f) };
-        if (op !== 'select') { escritas.push({ tabela, op, payload }); return { data: payload, error: null }; }
+        if (op !== 'select') { escritas.push({ tabela, op, payload }); return { data: escritaUnica(tabela, op, payload, cadeia), error: null }; }
         return { data: resolver(tabela, cols, cadeia), error: null };
       },
       single: async () => {
         const f = acharFalha(tabela, op, payload);
         if (f) return { data: null, error: erroDe(f) };
-        if (op !== 'select') { escritas.push({ tabela, op, payload }); return { data: payload, error: null }; }
+        if (op !== 'select') { escritas.push({ tabela, op, payload }); return { data: escritaUnica(tabela, op, payload, cadeia), error: null }; }
         return { data: resolver(tabela, cols, cadeia), error: null };
       },
       // `await sb.from(x).select()` sem terminador: a cadeia é thenable.

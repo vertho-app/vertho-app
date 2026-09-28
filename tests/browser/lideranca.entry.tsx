@@ -34,6 +34,17 @@ const sintese = () =>
 // A MESMA projeção do servidor (`lib/simulador-lideranca/equipe.ts` importa
 // daqui): devolutiva sem conversa, e preparação e reflexão sem o texto (D1, 27/09/2026).
 const paraEquipe = encontroParaEquipe;
+async function aplicar(cmd: any) {
+  const result = await executarCore(s, cmd, gerarFixture, ['', '', '', '', '']);
+  s = result.estado;
+  revisao++;
+  recibos.add(cmd.requestId);
+  if (result.arquivo) historico.unshift(result.arquivo);
+  sessionStorage.setItem('lideranca-state', JSON.stringify(s));
+  sessionStorage.setItem('lideranca-rev', String(revisao));
+  sessionStorage.setItem('lideranca-history', JSON.stringify(historico));
+  return result.arquivo;
+}
 w.__liderancaFetch = async (url: string, options?: RequestInit) => {
   const query = new URL(url, location.origin).searchParams;
   if (url.includes('/api/simulador-lideranca/equipe')) {
@@ -59,6 +70,7 @@ w.__liderancaFetch = async (url: string, options?: RequestInit) => {
   let id = query.get('episodioId');
   if (options?.method === 'POST') {
     const cmd = comandoSchema.parse(JSON.parse(options.body as string));
+    w.__posts = [...(w.__posts || []), { requestId: cmd.requestId, acao: cmd.acao, texto: (cmd as any).texto }];
     if (w.__failNext) {
       w.__failNext = false;
       return Response.json(
@@ -66,26 +78,28 @@ w.__liderancaFetch = async (url: string, options?: RequestInit) => {
         { status: 503 },
       );
     }
+    // Corrida (27/09/2026): a rede cai ANTES da resposta e o servidor segue
+    // processando; o reenvio com o MESMO requestId bate no lock e recebe 423
+    // (como `service.ts`), e logo depois o comando original conclui.
+    if (w.__redeCaiNext) {
+      w.__redeCaiNext = false;
+      w.__emVoo = cmd;
+      return Response.json({ error: 'Falha de conexão simulada.' }, { status: 503 });
+    }
+    if (w.__emVoo) {
+      const emVoo = w.__emVoo;
+      w.__emVoo = null;
+      await aplicar(emVoo);
+      return Response.json(
+        { error: 'Há um envio em processamento. Aguarde e atualize o encontro.' },
+        { status: 423 },
+      );
+    }
     if (!recibos.has(cmd.requestId)) {
       if (cmd.revisao !== revisao)
         return Response.json({ error: 'Revisão alterada' }, { status: 409 });
-      const result = await executarCore(s, cmd, gerarFixture, [
-        '',
-        '',
-        '',
-        '',
-        '',
-      ]);
-      s = result.estado;
-      revisao++;
-      recibos.add(cmd.requestId);
-      if (result.arquivo) {
-        historico.unshift(result.arquivo);
-        id = result.arquivo.id;
-      }
-      sessionStorage.setItem('lideranca-state', JSON.stringify(s));
-      sessionStorage.setItem('lideranca-rev', String(revisao));
-      sessionStorage.setItem('lideranca-history', JSON.stringify(historico));
+      const arquivo = await aplicar(cmd);
+      if (arquivo) id = arquivo.id;
       if (w.__loseNext) {
         w.__loseNext = false;
         return Response.json(

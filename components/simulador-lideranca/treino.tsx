@@ -81,7 +81,17 @@ export default function TreinoLideranca({
   const [aba, setAba] = useState<'treino' | 'equipe'>(
     podeTreinar ? 'treino' : 'equipe',
   );
-  const pending = useRef<{ key: string; body: unknown } | null>(null),
+  /**
+   * Pedido ainda sem resposta confirmada. `fala` e `falasAntes` servem para
+   * reconhecer, numa leitura posterior, que a fala pendente JÁ entrou.
+   */
+  const pending = useRef<{
+    key: string;
+    body: unknown;
+    encontro?: string;
+    fala?: string;
+    falasAntes?: number;
+  } | null>(null),
     running = useRef(false),
     generation = useRef(0),
     reads = useRef(0);
@@ -203,6 +213,19 @@ export default function TreinoLideranca({
       if (planoRegistrado) setRefletindo(true);
     }
   }, [chaveReflexao, encontroEncerrado, planoRegistrado]);
+  // A fala pendente apareceu na conversa (o envio concluiu no servidor depois de
+  // um erro de rede ou de um 423): o pedido está resolvido, e a caixa não pode
+  // continuar com o texto, convidando a mandar de novo.
+  useEffect(() => {
+    const p = pending.current;
+    if (!p?.fala || !ep || ep.id !== p.encontro) return;
+    const falas = ep.mensagens.filter((m) => m.autor === 'lider');
+    if (falas.length > (p.falasAntes ?? 0) && falas[falas.length - 1].texto.trim() === p.fala) {
+      pending.current = null;
+      setTexto((atual) => (atual.trim() === p.fala ? '' : atual));
+      setErro('');
+    }
+  }, [ep]);
   function escreverPlano(v: string) {
     setPlano(v);
     if (chavePlano) {
@@ -241,6 +264,9 @@ export default function TreinoLideranca({
       pending.current = {
         key,
         body: { ...payload, requestId: crypto.randomUUID() },
+        ...(acao === 'responder' && typeof valor === 'string' && ep
+          ? { encontro: ep.id, fala: valor.trim(), falasAntes: turno }
+          : {}),
       };
     try {
       const d = await api(url, pending.current.body, t('genericError'));
@@ -258,6 +284,10 @@ export default function TreinoLideranca({
       setConfirmar(null);
     } catch (e) {
       if (gen === generation.current) {
+        // 409: o pedido não vale mais (revisão mudou, conteúdo trocado) e sai.
+        // 423: outro envio segura o encontro, e pode ser ESTE mesmo concluindo
+        // depois de a rede cair: o requestId fica, e o reenvio recupera o recibo
+        // em vez de duplicar a fala (27/09/2026).
         if ((e as Error & { status?: number }).status === 409)
           pending.current = null;
         setErro((e as Error).message);
