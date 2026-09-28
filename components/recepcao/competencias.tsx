@@ -1,13 +1,23 @@
-import { COMPETENCIAS_ATENDIMENTO } from '@/lib/recepcao/matriz';
+import { competenciasAtendimento } from '@/lib/recepcao/matriz';
+import { DOMINIO_PADRAO, dominioExiste } from '@/lib/recepcao/dominio';
 import {
   NIVEIS_COMPORTAMENTO,
   rotuloClassificacao,
 } from '@/lib/recepcao/schema';
 import styles from './treino.module.css';
-export default function CompetenciasRecepcao(_props: {
+/**
+ * Matriz de competências do atendimento, no SEGMENTO da empresa (27/09/2026). Até
+ * então a aba mostrava sempre a matriz médica (a constante do segmento padrão), com
+ * "orientação clínica" até para loja e escola.
+ */
+export default function CompetenciasRecepcao({
+  dominio,
+}: {
   empresaId: string;
   admin: boolean;
+  dominio?: string;
 }) {
+  const competencias = competenciasAtendimento(dominioExiste(dominio) ? dominio : DOMINIO_PADRAO);
   return (
     <section
       className={styles.management}
@@ -25,7 +35,7 @@ export default function CompetenciasRecepcao(_props: {
         observação, o descritor fica sem nota.
       </p>
       <div className={styles.caseGrid}>
-        {COMPETENCIAS_ATENDIMENTO.map((c) => (
+        {competencias.map((c) => (
           <article key={c.codigo}>
             <h3>{c.nome}</h3>
             <p>{c.descricao}</p>

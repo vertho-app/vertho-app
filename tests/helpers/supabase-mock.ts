@@ -105,7 +105,7 @@ export interface OpcoesMock {
    * distinguir "o update casou linhas" de "o update não casou nada e voltou
    * `error: null`" — que é falha silenciosa, não sucesso.
    */
-  escrita?: (tabela: string, op: Operacao, payload: any) => any[] | null;
+  escrita?: (tabela: string, op: Operacao, payload: any, cadeia: Chamada[]) => any[] | null;
   /**
    * `data` de uma ESCRITA terminada em `.maybeSingle()` / `.single()`. Default:
    * o próprio payload (o comportamento histórico). Existe para o update
@@ -155,7 +155,8 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
       if (f) return { data: null, error: erroDe(f), count: null };
       if (op !== 'select') {
         escritas.push({ tabela, op, payload });
-        return { data: escrita(tabela, op, payload), error: null, count: null };
+        // `cadeia` = os filtros DESTA escrita (quais linhas um update/delete atinge).
+        return { data: escrita(tabela, op, payload, cadeia), error: null, count: null };
       }
       return { data: lista(tabela, cols, cadeia), error: null, count: querCount ? contagem(tabela) : null };
     };

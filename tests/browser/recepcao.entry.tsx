@@ -5,9 +5,11 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { NextIntlClientProvider } from 'next-intl';
 import TreinoRecepcao from '../../components/recepcao/treino';
+import { catalogoInicial } from '../../lib/recepcao/catalogo';
+import { catalogoDesafiador } from '../../lib/recepcao/catalogo-desafiador';
 import { catalogoLimites } from '../../lib/recepcao/catalogo-limites';
 import { aplicarMatrizAtendimento } from '../../lib/recepcao/matriz-avaliacao';
-import { abrirSessao, consolidar, fichaPublica, visaoPublica } from '../../lib/recepcao/core';
+import { abrirSessao, consolidar, fichaPublica, ordenarPorNivel, visaoPublica } from '../../lib/recepcao/core';
 import { dominioAtendimento } from '../../lib/recepcao/dominio';
 import { visaoPorCompetencia } from '../../lib/recepcao/painel';
 import { competenciasAtendimento } from '../../lib/recepcao/matriz';
@@ -30,6 +32,9 @@ const semCasos = params.has('semCasos');
 const equipe = params.has('equipe');
 const EMPRESA = '10000000-0000-4000-8000-000000000009';
 let dominioEmpresa = segmento;
+// `?semSegmento=1`: empresa sem `recepcao_config` (como a 4Life em 27/09): nada habilitado nem escolhido.
+let segmentoDefinido = !params.has('semSegmento');
+let habilitado = !params.has('semSegmento');
 
 const base = structuredClone(catalogoLimites[0]);
 const cenario: Cenario = aplicarMatrizAtendimento({
@@ -37,12 +42,29 @@ const cenario: Cenario = aplicarMatrizAtendimento({
   dominio: segmento as Cenario['dominio'],
   ocorrenciasCriticas: dominioAtendimento(segmento).ocorrencias.map((o) => o.id),
 });
-const registros = [{ id: 'caso-1', versao: cenario.versao, ficha: fichaPublica(cenario) }];
+const registroUnico = [{ id: 'caso-1', versao: cenario.versao, ficha: fichaPublica(cenario) }];
+// `?escada=1`: os três degraus publicados do MESMO caso (mesmo `cenarioId`), como no
+// Catálogo de produção (27/09/2026). `?retirado=1` tira o Limite da lista publicada.
+const escada = params.has('escada');
+const porRegistro: Record<string, Cenario> = escada
+  ? {
+      'reg-intro': aplicarMatrizAtendimento(structuredClone(catalogoInicial.find((c) => c.id === 'primeira-consulta')!)),
+      'reg-pressao': aplicarMatrizAtendimento(structuredClone(catalogoDesafiador.find((c) => c.id === 'primeira-consulta')!)),
+      'reg-limite': aplicarMatrizAtendimento(structuredClone(catalogoLimites.find((c) => c.id === 'primeira-consulta')!)),
+    }
+  : { 'caso-1': cenario };
+const registros = escada
+  ? ordenarPorNivel(Object.entries(porRegistro).map(([id, c]) => ({ id, versao: c.versao, ficha: fichaPublica(c) }))).filter(
+      (r) => !(params.has('retirado') && r.id === 'reg-limite'),
+    )
+  : registroUnico;
+const REGISTRO_PADRAO = escada ? 'reg-limite' : 'caso-1';
 const FALA = 'Entendo o impacto das duas alterações. Qual horário funciona para você?';
 
-function novaSessao(): Estado {
-  const s = abrirSessao(cenario, 0);
+function novaSessao(registroId = REGISTRO_PADRAO): Estado {
+  const s = abrirSessao(porRegistro[registroId], 0);
   s.id = '40000000-0000-4000-8000-000000000001';
+  s.cenarioRegistroId = registroId;
   return s;
 }
 function responder(s: Estado, mensagem: string) {
@@ -63,7 +85,7 @@ function responder(s: Estado, mensagem: string) {
 function avaliar(s: Estado) {
   const oportunidade = [{ mensagemId: 'm0', trecho: s.historico[0].content }];
   const insumos: Insumos = {
-    dimensoes: cenario.matriz!.competencias.flatMap((comp, ci) =>
+    dimensoes: s.cenario.matriz!.competencias.flatMap((comp, ci) =>
       comp.descritores.map((d, di) => {
         const observado = ci !== 3 || di < 3;
         if (!observado)
@@ -92,24 +114,53 @@ function avaliar(s: Estado) {
 }
 
 let sessao: Estado | null = null;
-if (params.has('ativo') || params.has('concluido')) {
+// `?falhaRede=1`: a rede cai no encerramento (o fetch lança TypeError) e o servidor segue
+// avaliando com a lease; as duas leituras seguintes ainda veem "processando".
+let processando = false;
+let leiturasAteRelatorio = 0;
+w.__gets = 0;
+if (params.has('ativo') || params.has('concluido') || params.has('limiteTurnos')) {
   sessao = novaSessao();
   responder(sessao, FALA);
   if (params.has('concluido')) avaliar(sessao);
+  // `?limiteTurnos=1`: chegou ao limite de respostas; falta só gerar o relatório.
+  if (params.has('limiteTurnos')) {
+    sessao.respostas = sessao.cenario.limiteRespostas;
+    sessao.status = 'aguardando_avaliacao';
+    sessao.motivoFim = 'limite_respostas';
+  }
 }
+// `?historicoLongo=1`: 22 atendimentos; o mais antigo está aberto com resposta (fora da 1ª página).
+const historicoLongo = Array.from({ length: 22 }, (_, i) => ({
+  id: `50000000-0000-4000-8000-0000000000${String(10 + i)}`,
+  data: new Date(Date.UTC(2026, 8, 25, 12) - i * 86400000).toISOString(),
+  status: i === 21 ? 'em_andamento' : 'concluida',
+  titulo: i === 21 ? 'Caso antigo em aberto' : `Caso concluído ${i + 1}`,
+  nivel: 'introducao',
+  nota: i === 21 ? null : 2.5,
+  escalaOriginal: null,
+  situacao: i === 21 ? null : 'avaliado',
+}));
 const dados = () => ({
   empresaId: EMPRESA,
   empresaNome: 'Empresa de demonstração',
-  habilitado: true,
+  habilitado,
   admin,
   dominio: dominioEmpresa,
+  segmentoDefinido,
   soAcompanha: equipe,
   ficha: semCasos ? null : registros[0].ficha,
   cenarios: semCasos ? [] : registros,
-  nivelSugerido: 'introducao',
-  sessao: sessao ? { ...visaoPublica(sessao), processando: false } : null,
+  nivelSugerido: escada ? 'limite' : 'introducao',
+  // Mesma forma de `sugerirNivelComMotivo` (lib/recepcao/core.ts). Sem a escada, só há o
+  // caso do Limite publicado: a Introdução sugerida não tem caso (A-12).
+  sugestao: escada
+    ? { nivel: 'limite', motivo: 'proximo', base: 'pressao' }
+    : { nivel: 'introducao', motivo: 'abaixo_da_meta', base: null },
+  sessao: sessao ? { ...visaoPublica(sessao), processando } : null,
   podeEquipe: equipe,
-  podeCenarios: false,
+  // `?cenarios=1`: quem cuida do conteúdo (abas Cenários e Competências).
+  podeCenarios: params.has('cenarios'),
   evolucao: params.has('evolucao')
     ? {
         competencias: evolucaoPorCompetencia(
@@ -122,14 +173,18 @@ const dados = () => ({
         nomes: Object.fromEntries(competenciasAtendimento(segmento).map((c) => [c.codigo, c.nome])),
       }
     : null,
-  historico: sessao
+  historicoTemMais: params.has('historicoLongo'),
+  abertos: params.has('historicoLongo') ? historicoLongo.filter((h) => h.status !== 'concluida') : [],
+  historico: params.has('historicoLongo')
+    ? historicoLongo.slice(0, 20)
+    : sessao
     ? [
         {
           id: sessao.id,
           data: '2026-09-18T15:00:00.000Z',
           status: sessao.status,
-          titulo: cenario.publico.titulo,
-          nivel: cenario.publico.nivel ?? null,
+          titulo: sessao.cenario.publico.titulo,
+          nivel: sessao.cenario.publico.nivel ?? null,
           nota: sessao.relatorio?.nota ?? null,
           escalaOriginal: null,
           situacao: sessao.relatorio?.situacao ?? null,
@@ -145,7 +200,30 @@ function sessaoDe(colaborador: string, dias: number) {
   avaliar(s);
   return { id: s.id, colaborador_id: colaborador, created_at: `2026-09-${String(dias).padStart(2, '0')}T12:00:00Z`, estado: s };
 }
-const sessoesEquipe = [sessaoDe('p-ana', 16), sessaoDe('p-bruno', 12)];
+/**
+ * Treino CONCLUÍDO sem média geral: só duas competências com nível (a regra de cobertura
+ * pede três). A tela da equipe dizia "Em andamento" porque decidia por `nota === null`.
+ */
+function sessaoSemMedia() {
+  const s = novaSessao();
+  s.id = '40000000-0000-4000-8000-000000000031';
+  responder(s, FALA);
+  s.relatorio = consolidar(s, {
+    dimensoes: s.cenario.matriz!.competencias.flatMap((comp, ci) =>
+      comp.descritores.map((d, di) =>
+        ci < 2 || di < 2
+          ? { id: d.codigo, classificacao: 'n2' as const, justificativa: 'Você perguntou pelo horário.', evidencias: [{ mensagemId: 'm1', trecho: 'Qual horário funciona para você?' }], oportunidades: [{ mensagemId: 'm0', trecho: s.historico[0].content.slice(0, 20) }] }
+          : { id: d.codigo, classificacao: 'nao_observavel' as const, justificativa: 'Sem oportunidade.', evidencias: [], oportunidades: [] },
+      ),
+    ),
+    ocorrencias: [],
+    desfecho: { tipo: 'inconclusivo', justificativa: 'Conversa curta.', evidencias: [] },
+    feedback: { acerto: 'Você perguntou pelo horário.', melhoria: 'Conduza até um combinado.', novaTentativa: 'Repita o caso.' },
+  });
+  s.status = 'concluida';
+  return { id: s.id, colaborador_id: 'p-bruno', created_at: '2026-09-10T12:00:00Z', estado: s };
+}
+const sessoesEquipe = [sessaoDe('p-ana', 16), sessaoDe('p-bruno', 12), sessaoSemMedia()];
 const painel = () => {
   const competencias = competenciasAtendimento(segmento);
   const visao = visaoPorCompetencia(
@@ -163,38 +241,69 @@ const painel = () => {
     pendentes: 2,
     pessoas: [],
     grupos: [{ chave: 'caso|1|r', titulo: cenario.publico.titulo, versao: cenario.versao, sessoes: 2, media: 2.83, criticas: 0, dimensoes: {} }],
-    sessoes: sessoesEquipe.map((r) => ({ id: r.id, nome: r.colaborador_id === 'p-ana' ? 'Ana Souza' : 'Bruno Lima', titulo: cenario.publico.titulo, data: r.created_at, status: 'concluida', nota: r.estado.relatorio!.nota, critica: false, revisao: null })),
+    // Mesma forma de `resumirEquipe` (lib/recepcao/equipe.ts): status e nota do relatório gravado.
+    sessoes: sessoesEquipe.map((r) => ({ id: r.id, nome: r.colaborador_id === 'p-ana' ? 'Ana Souza' : 'Bruno Lima', titulo: r.estado.cenario.publico.titulo, data: r.created_at, status: r.estado.status, nota: r.estado.relatorio?.nota ?? null, critica: false })),
     dias: 30,
     operacao: null,
     visao: { ...visao, nomes: Object.fromEntries(competencias.map((c) => [c.codigo, c.nome])) },
   };
 };
 w.__recepcaoWrites = [];
+w.__gestaoGets = [];
 w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
   if (url.includes('/config')) {
     if (init.method === 'PUT') {
       const body = JSON.parse(String(init.body));
       w.__recepcaoWrites.push(body);
+      // Mesma regra da rota: sem segmento escolhido, não habilita.
+      if (!segmentoDefinido && !body.dominio) return Response.json({ error: 'Escolha o segmento do simulador antes de habilitar a empresa.' }, { status: 400 });
       dominioEmpresa = body.dominio ?? dominioEmpresa;
+      segmentoDefinido = true;
+      habilitado = body.habilitado;
       return Response.json({ ok: true });
     }
     return Response.json({
-      empresas: [{ id: EMPRESA, nome: 'Empresa de demonstração', habilitado: true, dominio: dominioEmpresa }],
+      empresas: [{ id: EMPRESA, nome: 'Empresa de demonstração', habilitado, dominio: segmentoDefinido ? dominioEmpresa : null }],
       podeConfigurar: true,
     });
   }
   if (url.includes('/gestao')) {
     const q = new URL(url, location.origin).searchParams;
+    w.__gestaoGets.push(url);
+    if (q.get('visao') === 'cenarios')
+      return Response.json({
+        dominio: dominioEmpresa,
+        cenarios: [{ id: 'reg-catalogo', empresa_id: null, estado: 'publicado', versao: cenario.versao, revisao: 0, conteudo: cenario }],
+      });
+    if (q.get('visao') === 'competencias') return Response.json({ competencias: [] });
     if (q.has('sessaoId'))
       return Response.json({ sessao: visaoPublica(sessoesEquipe.find((r) => r.id === q.get('sessaoId'))!.estado) });
     return Response.json(painel());
   }
-  if (!init.method || init.method === 'GET') return Response.json(dados());
+  if ((!init.method || init.method === 'GET') && url.includes('pagina=')) {
+    const pagina = Number(new URL(url, location.origin).searchParams.get('pagina'));
+    return Response.json({ historico: historicoLongo.slice(pagina * 20, pagina * 20 + 20), temMais: historicoLongo.length > (pagina + 1) * 20 });
+  }
+  if (!init.method || init.method === 'GET') {
+    w.__gets++;
+    if (processando && --leiturasAteRelatorio <= 0) {
+      avaliar(sessao!);
+      processando = false;
+    }
+    return Response.json(dados());
+  }
   const cmd = JSON.parse(String(init.body));
   w.__recepcaoWrites.push(cmd);
-  if (cmd.acao === 'iniciar') sessao = novaSessao();
+  if (cmd.acao === 'iniciar') sessao = novaSessao(cmd.cenarioId);
   else if (cmd.acao === 'responder') responder(sessao!, cmd.mensagem);
-  else if (cmd.acao === 'encerrar') avaliar(sessao!);
+  else if (cmd.acao === 'encerrar') {
+    if (params.has('falhaRede')) {
+      processando = true;
+      leiturasAteRelatorio = 2;
+      throw new TypeError('Failed to fetch');
+    }
+    avaliar(sessao!);
+  }
   return Response.json({ sessao: { ...visaoPublica(sessao!), processando: false } });
 };
 createRoot(document.getElementById('root')!).render(

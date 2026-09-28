@@ -9,7 +9,7 @@ import { MODULOS, canUseModulo } from '@/lib/access-gates/modulos';
 import { acessoDoCargo, CHAVE_ACESSO_SIMULADORES, type AcessoSimuladores, type Simulador } from '@/lib/simuladores/acesso-cargo';
 import { ehCargoAncora } from '@/lib/simuladores/lideranca/instalar';
 import { periodoVigente } from '@/lib/simulador-vendas/prazo';
-import { DOMINIO_PADRAO, dominioExiste } from '@/lib/recepcao/dominio';
+import { dominioExiste } from '@/lib/recepcao/dominio';
 import { chaveCompetencia, lerConfigProntidao } from '@/lib/prontidao-lideranca/config';
 
 const cargoSchema = z.object({
@@ -58,7 +58,9 @@ export async function carregarAcessosSimuladores(empresaId: string) {
     const prazo: PrazoVendas = !cfgVendas?.periodo_inicio || !cfgVendas?.periodo_fim ? 'sem_prazo'
       : periodoVigente(cfgVendas, agora) ? 'vigente'
         : agora < Date.parse(cfgVendas.periodo_inicio) ? 'futuro' : 'encerrado';
-    const segmento: string = atendimento.data?.dominio || DOMINIO_PADRAO;
+    // Sem configuração não há segmento escolhido (27/09/2026): `null`, e a aba diz "não definido"
+    // em vez de mostrar o padrão do motor como se alguém o tivesse escolhido.
+    const segmento: string | null = atendimento.data?.dominio ?? null;
     // Os mesmos dois motivos pelos quais o trilho da liderança recusa TODO mundo.
     const cfgLideranca = lerConfigProntidao(sysConfig);
     const programa: ProgramaLideranca = !cfgLideranca ? 'sem_config'

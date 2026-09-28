@@ -4,6 +4,7 @@ import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { EditorCenario } from './editor';
 import CompetenciasRecepcao from './competencias';
 import { rotuloClassificacao } from '@/lib/recepcao/schema';
+import { RECEPCAO_SESSAO } from '@/lib/status';
 import { descreverMensagem, humanizarReferencias } from '@/lib/recepcao/texto';
 import styles from './treino.module.css';
 import MatrizAtendimento from './matriz-relatorio';
@@ -15,17 +16,6 @@ import EquipeVisao from './equipe-visao';
 // Desfechos com rótulo traduzido; um desfecho personalizado do caso aparece como está.
 const DESFECHOS_CONHECIDOS = ['remarcado', 'encaminhado', 'orientado', 'nao_resolvido', 'inconclusivo'];
 
-// Ordem das colunas do painel: escala nova primeiro, depois a legada; só as presentes no grupo aparecem.
-const ORDEM_CLASSIFICACOES = [
-  'n1',
-  'n2',
-  'n3',
-  'n4',
-  'adequado',
-  'parcial',
-  'insuficiente',
-  'nao_observavel',
-];
 // Próxima versão sugerida para o catálogo: 3.2 → 3.3; outro formato ganha sufixo .1.
 const proximaVersao = (v: string) => {
   const m = /^(\d+)\.(\d+)$/.exec(v);
@@ -36,10 +26,13 @@ export default function GestaoRecepcao({
   empresaId,
   visao,
   admin,
+  dominio,
 }: {
   empresaId: string;
   visao: 'equipe' | 'cenarios' | 'competencias';
   admin: boolean;
+  /** Segmento da empresa: a aba Competências mostra a matriz DELE (27/09/2026). */
+  dominio?: string;
 }) {
   // A aba da equipe é de quem acompanha (RH, gestor): traduzida. Cenários
   // e editor seguem em português, como ferramenta interna da Vertho.
@@ -48,13 +41,21 @@ export default function GestaoRecepcao({
   const numero = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
   const [dados, setDados] = useState<any>(null),
     [erro, setErro] = useState(''),
-    [busy, setBusy] = useState(false),
-    [biblioteca, setBiblioteca] = useState<any[]>([]);
+    [busy, setBusy] = useState(false);
   const [dias, setDias] = useState('30'),
     [testes, setTestes] = useState(false),
     [detalhe, setDetalhe] = useState<any>(null),
     [editor, setEditor] = useState<any>(null);
   const generation = useRef(0);
+  // Ao abrir um atendimento, o detalhe entra na tela e recebe o foco, como o relatório de
+  // quem treina: no celular ele começava a 834 px numa tela de 844 e parecia que nada
+  // tinha acontecido (27/09/2026).
+  const detalheRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!detalhe) return;
+    detalheRef.current?.focus({ preventScroll: true });
+    detalheRef.current?.scrollIntoView({ block: 'start' });
+  }, [detalhe]);
   // Rascunho por IA (18/09/2026): descrição da situação que a empresa quer treinar.
   const [pedirRascunho, setPedirRascunho] = useState(false),
     [descricao, setDescricao] = useState('');
@@ -102,19 +103,9 @@ export default function GestaoRecepcao({
   async function carregar(ticket = generation.current) {
     if (visao === 'competencias') return; // a aba tem o próprio componente
     const d = await api({ visao, dias, testes: testes ? '1' : '0' });
-    // O editor de cenário monta a rubrica a partir da biblioteca (inativas incluídas, para rotular snapshots antigos).
-    const b =
-      visao === 'cenarios'
-        ? (
-            await api({ visao: 'competencias', inativas: '1' }).catch(() => ({
-              competencias: [],
-            }))
-          ).competencias
-        : [];
-    if (ticket === generation.current) {
-      setDados(d);
-      setBiblioteca(b);
-    }
+    // A biblioteca `recepcao_competencias` não é mais lida aqui (27/09/2026): o editor monta a
+    // rubrica pela matriz do segmento, e a leitura a cada abertura não alterava nada.
+    if (ticket === generation.current) setDados(d);
   }
   useEffect(() => {
     const ticket = ++generation.current;
@@ -161,7 +152,7 @@ export default function GestaoRecepcao({
     }
   }
   if (visao === 'competencias')
-    return <CompetenciasRecepcao empresaId={empresaId} admin={admin} />;
+    return <CompetenciasRecepcao empresaId={empresaId} admin={admin} dominio={dominio} />;
   if (editor)
     return (
       <section className={styles.management}>
@@ -173,7 +164,6 @@ export default function GestaoRecepcao({
         <EditorCenario
           key={editor.id || 'novo'}
           registro={editor}
-          biblioteca={biblioteca}
           admin={admin}
           busy={busy}
           salvar={salvar}
@@ -315,13 +305,15 @@ export default function GestaoRecepcao({
               return (
                 <article key={r.id}>
                   <p className={styles.eyebrow}>
-                    {global ? 'Catálogo Vertho' : 'Da clínica'} · {r.estado}
+                    {global ? 'Catálogo Vertho' : 'Da empresa'} · {r.estado}
                   </p>
                   <h3>{r.conteudo.publico.titulo}</h3>
                   <p>{r.conteudo.publico.objetivo}</p>
                   <small>
                     {r.versao} · {r.conteudo.rubrica.length} competências ·{' '}
-                    {1 + (r.conteudo.variantes?.length || 0)} pacientes
+                    {r.conteudo.variantes?.length
+                      ? `${1 + r.conteudo.variantes.length} pessoas simuladas`
+                      : '1 pessoa simulada'}
                   </small>
                   <div className={styles.filters}>
                     {r.estado === 'rascunho' && (!global || admin) && (
@@ -341,7 +333,7 @@ export default function GestaoRecepcao({
                           setEditor({ conteudo: structuredClone(r.conteudo) })
                         }
                       >
-                        {global ? 'Copiar para a clínica' : 'Criar nova versão'}
+                        {global ? 'Copiar para a empresa' : 'Criar nova versão'}
                       </button>
                     )}
                     {global && admin && r.estado !== 'rascunho' && (
@@ -369,7 +361,7 @@ export default function GestaoRecepcao({
                           if (
                             window.confirm(
                               global
-                                ? 'Arquivar esta versão do catálogo para todas as clínicas? Treinos anteriores continuam disponíveis.'
+                                ? 'Arquivar esta versão do catálogo para todas as empresas? Treinos anteriores continuam disponíveis.'
                                 : 'Arquivar esta versão? Treinos anteriores continuam disponíveis.',
                             )
                           )
@@ -425,7 +417,8 @@ export default function GestaoRecepcao({
           <p className={styles.small}>
             {t('teamToFollowHelp', { done: dados.concluidas, started: dados.iniciadas })}
           </p>
-          <div className={styles.tableWrap}>
+          {/* No celular a tabela vira cartões (27/09/2026): a coluna "Ação" ficava fora da tela. */}
+          <div className={`${styles.tableWrap} ${styles.cartoesNoCelular}`}>
             <table>
               <thead>
                 <tr>
@@ -443,9 +436,15 @@ export default function GestaoRecepcao({
                       <br />
                       {s.titulo}
                     </td>
-                    <td>{new Date(s.data).toLocaleDateString(locale)}</td>
-                    <td>
-                      {s.nota === null ? t('teamInProgress') : t('scoreOf4Short', { score: numero(s.nota) })}
+                    <td data-rotulo={t('teamDate')}>{new Date(s.data).toLocaleDateString(locale)}</td>
+                    <td data-rotulo={t('teamResult')}>
+                      {/* Pelo status, como o histórico de quem treina: concluído sem média
+                          geral (regra de cobertura) não é "Em andamento" (27/09/2026). */}
+                      {s.status !== RECEPCAO_SESSAO.CONCLUIDA
+                        ? t('teamInProgress')
+                        : s.nota === null
+                          ? t('noScore')
+                          : t('scoreOf4Short', { score: numero(s.nota) })}
                       {s.critica ? ` · ${t('historyAttention')}` : ''}
                     </td>
                     <td>
@@ -502,7 +501,7 @@ export default function GestaoRecepcao({
         </>
       )}
       {detalhe && (
-        <section className={styles.review} aria-label={t('reviewArea')}>
+        <section ref={detalheRef} tabIndex={-1} className={styles.review} aria-label={t('reviewArea')}>
           <header className={styles.sectionHead}>
             <h2>{detalhe.sessao.cenario.titulo}</h2>
             <button className={styles.secondary} onClick={() => setDetalhe(null)}>

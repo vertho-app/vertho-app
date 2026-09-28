@@ -63,6 +63,8 @@ export default function SimuladoresTab({ empresaId }: { empresaId: string }) {
     if (!resumo) return null;
     if (sim === 'atendimento') {
       const { segmento, segmentoReconhecido } = resumo.atendimento;
+      // Sem configuração, nenhum segmento foi escolhido: dizer isso, e não o padrão do motor.
+      if (!segmento) return { texto: t('segmentUndefined'), alerta: true };
       return segmentoReconhecido
         ? { texto: t('segment', { segmento: tAtendimento(`segment_${segmento}`) }), alerta: false }
         : { texto: t('unknownSegment'), alerta: true };

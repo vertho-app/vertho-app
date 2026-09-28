@@ -13,10 +13,18 @@ import { aplicarMatrizAtendimento } from './matriz-avaliacao';
 
 export async function catalogo(c: ContextoRecepcao, editor = false) {
   // Só os casos do segmento da empresa (mig 263): uma loja não recebe caso de clínica.
+  // Na biblioteca de edição, a empresa vê todos os estados das PRÓPRIAS versões, mas do
+  // Catálogo Vertho só as publicadas (27/09/2026): rascunhos e arquivados do catálogo, que
+  // incluem a persona reservada, chegavam a qualquer RH com `content.manage` e só a tela os
+  // escondia. A plataforma, que edita o catálogo, continua vendo tudo.
+  const escopo =
+    editor && !c.auth.isPlatformAdmin
+      ? `empresa_id.eq.${c.empresaId},and(empresa_id.is.null,estado.eq.publicado)`
+      : `empresa_id.eq.${c.empresaId},empresa_id.is.null`;
   let q = c.sb
     .from('recepcao_cenarios')
     .select('*')
-    .or(`empresa_id.eq.${c.empresaId},empresa_id.is.null`)
+    .or(escopo)
     .eq('conteudo->>dominio', c.dominio);
   if (!editor) q = q.eq('estado', 'publicado');
   const { data, error } = await q
@@ -184,15 +192,24 @@ export async function editarCenario(
       409,
       'O cenário mudou durante a gravação. Recarregue.',
     );
-  // No catálogo, publicar substitui: a versão publicada anterior do mesmo caso é arquivada (snapshots de sessões seguem intactos).
+  // No catálogo, publicar substitui: a versão publicada anterior do MESMO DEGRAU do caso é
+  // arquivada (snapshots de sessões seguem intactos). O mesmo `codigo` tem três degraus
+  // publicados lado a lado (introdução, sob pressão, limite; medido 27/09/2026: 5 códigos ×
+  // 3 degraus): sem o filtro do nível, publicar o 3.4 do Limite arquivava 1.3 e 2.3, e
+  // arquivado é imutável (mig 241). Versão sem nível (legado) só substitui outra sem nível:
+  // na dúvida, deixar publicado é reversível pela tela; arquivar não é.
   if (global && cmd.acao === 'publicar') {
-    const { error: arquivar } = await c.sb
+    let anterior = c.sb
       .from('recepcao_cenarios')
       .update({ estado: 'arquivado', updated_at: new Date().toISOString() })
       .is('empresa_id', null)
       .eq('codigo', conteudo.id)
       .eq('estado', 'publicado')
       .neq('id', cmd.id);
+    anterior = conteudo.publico.nivel
+      ? anterior.eq('conteudo->publico->>nivel', conteudo.publico.nivel)
+      : anterior.is('conteudo->publico->>nivel', null);
+    const { error: arquivar } = await anterior;
     if (arquivar)
       throw new RecepcaoError(
         503,

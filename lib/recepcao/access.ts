@@ -12,8 +12,8 @@ export class RecepcaoError extends Error {
 
 export function empresaDaSessao(auth: AuthenticatedContext, solicitada?: string | null) {
   const empresaId = auth.isPlatformAdmin ? (solicitada || auth.empresaId) : auth.empresaId;
-  if (!empresaId) throw new RecepcaoError(400, 'Selecione uma clínica para começar.');
-  if (!auth.isPlatformAdmin && solicitada && solicitada !== empresaId) throw new RecepcaoError(403, 'Clínica não autorizada.');
+  if (!empresaId) throw new RecepcaoError(400, 'Selecione uma empresa para começar.');
+  if (!auth.isPlatformAdmin && solicitada && solicitada !== empresaId) throw new RecepcaoError(403, 'Empresa não autorizada.');
   // `colaboradores` não tem coluna `ativo`: a checagem antiga `ativo === false` nunca disparava (medido 09/09).
   if (!auth.isPlatformAdmin && (!auth.colaborador || auth.colaborador.empresa_id !== empresaId)) {
     throw new RecepcaoError(403, 'Seu cadastro não tem acesso a este treino.');
@@ -32,12 +32,12 @@ export async function contextoRecepcao(req: Request, solicitada?: string | null,
   if (escrita && !(await can(auth, 'assessments.answer'))) throw new RecepcaoError(403, 'Seu perfil não permite realizar treinos.');
   const sb = createSupabaseAdmin();
   const { data: empresa, error: errEmpresa } = await sb.from('empresas').select('id,nome').eq('id', empresaId).maybeSingle();
-  if (errEmpresa) throw new RecepcaoError(503, 'Não foi possível consultar a clínica. Tente novamente.');
-  if (!empresa) throw new RecepcaoError(404, 'Clínica não encontrada.');
+  if (errEmpresa) throw new RecepcaoError(503, 'Não foi possível consultar a empresa. Tente novamente.');
+  if (!empresa) throw new RecepcaoError(404, 'Empresa não encontrada.');
   const { data: config, error } = await sb.from('recepcao_config').select('habilitado,dominio').eq('empresa_id', empresaId).maybeSingle();
   if (error) throw new RecepcaoError(503, 'O treinamento está temporariamente indisponível.');
   const habilitado = config?.habilitado === true;
-  if (!habilitado && !auth.isPlatformAdmin) throw new RecepcaoError(403, 'O simulador de atendimento ainda não está habilitado para sua clínica.');
+  if (!habilitado && !auth.isPlatformAdmin) throw new RecepcaoError(403, 'O simulador de atendimento ainda não está habilitado para a sua empresa.');
   // A liberação por cargo diz quem TREINA; quem só acompanha não depende dela.
   if (!auth.isPlatformAdmin && !soAcompanha && !(await acessoSimuladoresDoColaborador(auth.colaborador)).atendimento)
     throw new RecepcaoError(403, 'O simulador de atendimento não está liberado para seu cargo.');
@@ -49,8 +49,13 @@ export async function contextoRecepcao(req: Request, solicitada?: string | null,
   } else ownerKey=`colab:${auth.colaborador.id}`;
   // Segmento da empresa (mig 263): decide os casos que ela vê. Valor fora do registro não vira outro segmento em silêncio.
   if (config?.dominio && !dominioExiste(config.dominio)) throw new RecepcaoError(503, 'O segmento configurado para esta empresa não é reconhecido. Fale com o suporte.');
+  // Sem configuração, o segmento NÃO está definido (27/09/2026): o motor segue no padrão para o
+  // teste administrativo, mas a tela diz "segmento não definido" em vez de fingir que alguém
+  // escolheu "Recepção de clínica" (foi assim que um admin, no contexto de uma escola, caiu
+  // nos casos médicos). Habilitar a equipe exige escolher o segmento (rota de configuração).
+  const segmentoDefinido = !!config?.dominio;
   const dominio: string = config?.dominio || DOMINIO_PADRAO;
-  return { auth, empresaId, empresaNome: empresa.nome, habilitado, soAcompanha, sb, owner: auth.email.toLowerCase(), ownerKey, dominio };
+  return { auth, empresaId, empresaNome: empresa.nome, habilitado, soAcompanha, sb, owner: auth.email.toLowerCase(), ownerKey, dominio, segmentoDefinido };
 }
 
 export type ContextoRecepcao = Exclude<Awaited<ReturnType<typeof contextoRecepcao>>,Response>;

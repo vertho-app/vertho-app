@@ -38,7 +38,7 @@ const PAGINAS_CONHECIDAS: Record<string, string> = {
   '/dashboard/temporada': 'Temporada atual',
   '/dashboard/temporada/concluida': 'Temporada concluída',
   '/dashboard/temporada/sem14': 'Fechamento da temporada',
-  '/dashboard/treino-atendimento': 'Treino de atendimento',
+  '/dashboard/treino-atendimento': 'Simulador de atendimento',
   '/dashboard/votacao': 'Votação',
 };
 

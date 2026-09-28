@@ -5,7 +5,9 @@ let sb: SupabaseMock;
 const mock = vi.hoisted(() => ({ auth: null as any, permitido: true, callAI: vi.fn() }));
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/lib/permissions', () => ({ can: async () => mock.permitido }));
-vi.mock('@/lib/auth/request-context', () => ({ requireUser: async () => mock.auth }));
+vi.mock('@/lib/auth/request-context', () => ({ requireUser: async () => mock.auth, requireAdmin: async () => mock.auth }));
+vi.mock('@/lib/csrf', () => ({ csrfCheck: () => null }));
+vi.mock('@/lib/audit', () => ({ logAdminAction: async () => {} }));
 vi.mock('@/lib/simuladores/acesso', () => ({
   acessoSimuladoresDoColaborador: async () => ({ vendas: true, atendimento: true, lideranca: true }),
 }));
@@ -17,6 +19,7 @@ import { casoEmBranco, LIMITES_PADRAO } from '@/lib/recepcao/caso-em-branco';
 import { gerarRascunho, promptRascunho } from '@/lib/recepcao/rascunho';
 import { cenarioSchema } from '@/lib/recepcao/schema';
 import { DOMINIOS, dominioAtendimento } from '@/lib/recepcao/dominio';
+import { PUT as configurar } from '@/app/api/recepcao/config/route';
 
 /**
  * Segmento por empresa (mig 263, decisão do dono de 18/09/2026): a empresa vê
@@ -60,16 +63,51 @@ describe('contexto: o segmento vem da configuração da empresa', () => {
     expect(c.dominio).toBe('atendimento_loja');
   });
 
-  it('sem configuração, o segmento é o médico (o único com catálogo)', async () => {
+  it('sem configuração, o motor usa o médico (o único com catálogo), mas o segmento NÃO está definido', async () => {
     banco(null);
     mock.auth = { ...colaborador, isPlatformAdmin: true };
     const c = (await contextoRecepcao(req, EMPRESA)) as any;
     expect(c.dominio).toBe('recepcao_medica');
+    // 27/09/2026: a tela diz "segmento não definido" em vez de "Recepção de clínica".
+    expect(c.segmentoDefinido).toBe(false);
+    banco({ habilitado: false, dominio: 'secretaria_escolar' });
+    expect(((await contextoRecepcao(req, EMPRESA)) as any).segmentoDefinido).toBe(true);
   });
 
   it('segmento desconhecido não vira outro em silêncio', async () => {
     banco({ habilitado: true, dominio: 'oficina' });
     await expect(contextoRecepcao(req, null)).rejects.toMatchObject({ status: 503 });
+  });
+});
+
+describe('habilitar exige o segmento escolhido (27/09/2026)', () => {
+  const put = (body: Record<string, unknown>) =>
+    configurar(new Request('http://localhost/api/recepcao/config', { method: 'PUT', body: JSON.stringify({ empresaId: EMPRESA, ...body }) }));
+  const gravacoes = () => sb.escritas.filter((e) => e.tabela === 'recepcao_config');
+  beforeEach(() => {
+    mock.auth = { ...colaborador, isPlatformAdmin: true, email: 'adm@vertho.test' };
+  });
+
+  it('empresa sem configuração: "Habilitar" sem segmento é recusado e nada é gravado', async () => {
+    // Antes, o upsert sem `dominio` criava a linha com o DEFAULT da coluna (recepcao_medica).
+    banco(null);
+    const r = await put({ habilitado: true });
+    expect(r.status).toBe(400);
+    expect((await r.json()).error).toMatch(/segmento/);
+    expect(gravacoes()).toEqual([]);
+  });
+
+  it('com o segmento escolhido, grava o segmento junto', async () => {
+    banco(null);
+    expect((await put({ habilitado: false, dominio: 'secretaria_escolar' })).status).toBe(200);
+    expect(gravacoes()[0].payload).toMatchObject({ empresa_id: EMPRESA, habilitado: false, dominio: 'secretaria_escolar' });
+  });
+
+  it('empresa que já tem segmento habilita sem repetir o segmento', async () => {
+    banco({ habilitado: false, dominio: 'atendimento_loja' });
+    expect((await put({ habilitado: true })).status).toBe(200);
+    expect(gravacoes()[0].payload).toMatchObject({ habilitado: true });
+    expect(gravacoes()[0].payload.dominio).toBeUndefined();
   });
 });
 

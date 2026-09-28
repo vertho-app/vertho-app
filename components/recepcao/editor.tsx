@@ -10,16 +10,15 @@ import {
 } from '@/lib/recepcao/schema';
 import styles from './treino.module.css';
 import { aplicarMatrizAtendimento } from '@/lib/recepcao/matriz-avaliacao';
+import { dominioAtendimento, dominioExiste } from '@/lib/recepcao/dominio';
 
-type Biblioteca = Array<{
-  codigo: string;
-  nome: string;
-  descricao: string;
-  niveis: Record<string, string>;
-  ativo: boolean;
-}>;
+/** "da clínica", "da empresa", "da escola", "da loja": o estabelecimento do segmento do caso. */
+function daEstabelecimento(dominio: string) {
+  const o = dominioExiste(dominio) ? dominioAtendimento(dominio).oEstabelecimento : 'a empresa';
+  return o.replace(/^a /, 'da ').replace(/^o /, 'do ');
+}
 
-function preparar(c: Cenario, biblioteca: Biblioteca): Cenario {
+function preparar(c: Cenario): Cenario {
   const n = aplicarMatrizAtendimento(c);
   n.publico.secoes ||= [];
   if (n.publico.consultaAnterior)
@@ -38,42 +37,27 @@ function preparar(c: Cenario, biblioteca: Biblioteca): Cenario {
   delete n.publico.consultaAnterior;
   delete n.publico.alternativas;
   n.variantes ||= [];
-  // Cópia de uma versão legada (3 classificações): a dimensão que existe na biblioteca ganha os quatro
-  // níveis dela, mantendo peso e critério do caso. A que não existe fica marcada e precisa ser desmarcada.
-  n.rubrica = n.rubrica.map((d) => {
-    const b = biblioteca.find((x) => x.codigo === d.id && x.ativo);
-    if (d.niveis || !b) return d;
-    const { adequado, parcial, insuficiente, ...resto } = d;
-    return {
-      ...resto,
-      nome: d.nome || b.nome,
-      niveis: {
-        n1: b.niveis.n1,
-        n2: b.niveis.n2,
-        n3: b.niveis.n3,
-        n4: b.niveis.n4,
-      },
-    };
-  });
+  // A rubrica vem inteira da matriz do segmento (`aplicarMatrizAtendimento`, com os quatro
+  // níveis em toda dimensão). O mapeamento pela biblioteca `recepcao_competencias` que
+  // existia aqui nunca mais rodava (toda dimensão já tinha `niveis`), e a tela buscava a
+  // biblioteca a cada abertura do editor só para isso: saiu em 27/09/2026.
   return n;
 }
 export function EditorCenario({
   registro,
-  biblioteca = [],
   admin = false,
   busy,
   salvar,
   fechar,
 }: {
   registro: any;
-  biblioteca?: Biblioteca;
   admin?: boolean;
   busy: boolean;
   salvar: (cmd: any) => Promise<any>;
   fechar: () => void;
 }) {
   const [c, setC] = useState<Cenario>(() =>
-      preparar(registro.conteudo, biblioteca),
+      preparar(registro.conteudo),
     ),
     [erros, setErros] = useState(''),
     [preview, setPreview] = useState(false);
@@ -121,7 +105,7 @@ export function EditorCenario({
         <div>
           <p className={styles.eyebrow}>
             {noCatalogo
-              ? 'Catálogo Vertho · todas as clínicas'
+              ? 'Catálogo Vertho · todas as empresas'
               : 'Preparar um exercício'}
           </p>
           <h2>
@@ -140,7 +124,7 @@ export function EditorCenario({
         Edite, confira a ficha e salve. Publique quando o procedimento e os
         critérios estiverem revisados. Versões publicadas ficam preservadas.
         {noCatalogo &&
-          ' No catálogo, publicar arquiva a versão publicada anterior deste caso para todas as clínicas; as sessões já feitas mantêm o próprio snapshot.'}
+          ' No catálogo, publicar arquiva a versão publicada anterior deste degrau (mesmo caso e mesmo nível de dificuldade) para todas as empresas; os outros degraus do caso continuam publicados, e as sessões já feitas mantêm o próprio snapshot.'}
       </p>
       {erros && (
         <p role="alert" className={styles.error}>
@@ -155,8 +139,8 @@ export function EditorCenario({
             disabled={busy}
             onChange={(e) => setCatalogo(e.target.checked)}
           />{' '}
-          Gravar no Catálogo Vertho (todas as clínicas), não como cópia desta
-          clínica
+          Gravar no Catálogo Vertho (todas as empresas), não como cópia desta
+          empresa
         </label>
       )}
       <fieldset disabled={busy || registro.estado === 'publicado'}>
@@ -199,7 +183,8 @@ export function EditorCenario({
             </label>
           )}
           <label>
-            Clínica fictícia
+            {/* Pelo segmento do caso (27/09/2026): "Clínica fictícia" também numa loja ou escola. */}
+            Nome fictício {daEstabelecimento(c.dominio)}
             <input
               value={c.publico.clinica || ''}
               onChange={(e) =>
@@ -364,7 +349,7 @@ export function EditorCenario({
             }
           />
         </label>
-        <h3>Pacientes e variantes</h3>
+        <h3>Pessoas simuladas e variantes</h3>
         <p>
           Estas instruções ficam reservadas. As variantes precisam continuar
           compatíveis com a ficha e os critérios.
@@ -377,7 +362,7 @@ export function EditorCenario({
           return (
             <details className={styles.group} key={i} open={i === 0}>
               <summary>
-                {i === 0 ? 'Paciente principal' : `Variante ${i}`} · {p.nome}
+                {i === 0 ? 'Pessoa principal' : `Variante ${i}`} · {p.nome}
               </summary>
               <label>
                 Nome fictício
@@ -452,7 +437,7 @@ export function EditorCenario({
             editar((n) => {
               n.variantes.push({
                 ...structuredClone(n.paciente),
-                nome: 'Nova paciente',
+                nome: 'Nova pessoa',
               });
             })
           }
@@ -543,8 +528,8 @@ export function EditorCenario({
               if (
                 window.confirm(
                   noCatalogo
-                    ? 'Publicar no Catálogo Vertho? A versão publicada anterior deste caso será arquivada para todas as clínicas.'
-                    : 'Publicar esta versão para os treinos da clínica?',
+                    ? 'Publicar no Catálogo Vertho? A versão publicada anterior deste degrau será arquivada para todas as empresas. Os outros degraus do caso continuam publicados.'
+                    : 'Publicar esta versão para os treinos da empresa?',
                 )
               )
                 enviar('publicar');

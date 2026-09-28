@@ -140,6 +140,32 @@ export const ELENCO = {
 
 export type Personagem = keyof typeof ELENCO;
 
+/**
+ * Pessoa SIMULADA do simulador de atendimento (27/09/2026): a fala curta de uma pessoa
+ * fictícia ("Ouvir Marina"), não uma voz da marca. Fica FORA do `ELENCO` de propósito:
+ * não tem alvo de F0, calibração nem portão de registro (quem chama passa `semPortao`),
+ * então não entra em `alvosF0DoElenco` nem na cobrança de calibração da R20.
+ *
+ * Até esta data a rota usava a voz da MENTORA (Aoede, feminina, com o portão da narração
+ * de 3 tentativas): medido nos 4 "Ouvir" de 22/09, 7 sínteses para 4 falas, 3 reprovadas,
+ * e personas masculinas (Rafael, Bruno) saíam com voz feminina.
+ *
+ * ⚠️ As duas vozes foram escolhidas pelo catálogo do Gemini TTS (Kore: firme; Charon:
+ * informativa), SEM kit de escuta nem aprovação do Rodrigo: é a primeira proposta, e
+ * trocar é editar só aqui.
+ */
+export const PESSOA_SIMULADA = {
+  feminina: {
+    voz: 'Kore',
+    direcao: 'Leia somente o texto a seguir em português do Brasil, com voz feminina, como uma pessoa conversando com o atendimento, em tom natural e direto. Não acrescente palavras.',
+  },
+  masculina: {
+    voz: 'Charon',
+    direcao: 'Leia somente o texto a seguir em português do Brasil, com voz masculina, como uma pessoa conversando com o atendimento, em tom natural e direto. Não acrescente palavras.',
+  },
+  versao: '2026-09-27',
+} as const;
+
 /** Os perfis como `PerfilVoz` (o `as const` deixa cada um com tipo literal próprio). */
 const perfis = (): PerfilVoz[] => Object.values(ELENCO) as unknown as PerfilVoz[];
 

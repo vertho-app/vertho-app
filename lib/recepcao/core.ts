@@ -16,16 +16,28 @@ import {
 // O corte fica entre a mediana medida em 06/09 (~40) e o exemplar (100); é proposta inicial, não calibração.
 // Sessões sem nível no snapshot (anteriores à escada) não contam.
 export const NOTA_PARA_SUBIR = 70;
-export function sugerirNivel(
-  concluidas: Array<{
-    nivel?: string | null;
-    nota: number | null;
-    escalaNota?: string;
-  }>,
-): Nivel {
+type Concluida = { nivel?: string | null; nota: number | null; escalaNota?: string };
+export function sugerirNivel(concluidas: Concluida[]): Nivel {
+  return sugerirNivelComMotivo(concluidas).nivel;
+}
+/**
+ * A sugestão com o PORQUÊ (27/09/2026, A-12): "Sugerido: Introdução" para quem
+ * treinava no Limite, sem explicação, parecia erro. Motivos:
+ *  - `sem_historico`: nenhum treino concluído com degrau; começa pelo primeiro;
+ *  - `abaixo_da_meta`: há treinos, mas nenhum degrau chegou ao Nível 3 (a meta);
+ *  - `proximo`: chegou ao Nível 3 em `base`; sugere o degrau seguinte;
+ *  - `topo`: chegou ao Nível 3 no degrau mais alto; segue nele.
+ */
+export function sugerirNivelComMotivo(concluidas: Concluida[]): {
+  nivel: Nivel;
+  motivo: 'sem_historico' | 'abaixo_da_meta' | 'proximo' | 'topo';
+  base: Nivel | null;
+} {
   let alcancado = -1;
+  let comDegrau = 0;
   for (const c of concluidas) {
     const i = NIVEIS.indexOf(c.nivel as Nivel);
+    if (i >= 0) comDegrau++;
     if (
       i >= 0 &&
       c.nota !== null &&
@@ -33,7 +45,9 @@ export function sugerirNivel(
     )
       alcancado = Math.max(alcancado, i);
   }
-  return NIVEIS[Math.min(alcancado + 1, NIVEIS.length - 1)];
+  const nivel = NIVEIS[Math.min(alcancado + 1, NIVEIS.length - 1)];
+  if (alcancado < 0) return { nivel, motivo: comDegrau ? 'abaixo_da_meta' : 'sem_historico', base: null };
+  return { nivel, motivo: alcancado === NIVEIS.length - 1 ? 'topo' : 'proximo', base: NIVEIS[alcancado] };
 }
 // O degrau é rótulo de navegação, não instrução: fica fora dos prompts para que a paciente e o
 // avaliador recebam exatamente o texto calibrado em 06/09 (mesmo prompt_hash entre x.0 e x.1).
@@ -137,6 +151,9 @@ export function abrirSessao(cenario: Cenario, variante?: number): Estado {
 export function visaoPublica(s: Estado) {
   return clone({
     id: s.id,
+    // A versão do catálogo em que a sessão nasceu: "Praticar novamente" repete ESTE
+    // registro, não o primeiro degrau do mesmo caso (27/09/2026, `caso-da-sessao.ts`).
+    cenarioRegistroId: s.cenarioRegistroId ?? null,
     cenario: fichaPublica(s.cenario),
     status: s.status,
     motivoFim: s.motivoFim,
@@ -568,10 +585,15 @@ export function consolidar(s: Estado, insumos: Insumos): Estado['relatorio'] {
  * Orçamento ÚNICO do avaliador (18/09/2026): as duas tentativas dividem o teto
  * da rota (300 s, com folga para gravar) em vez de 100 s fixos cada. Com a
  * matriz de 30 descritores a saída é maior e a primeira tentativa ganha até
- * 180 s; a correção usa o que sobrar, e só roda com pelo menos 60 s.
+ * 180 s; a correção usa o que sobrar, e só roda com pelo menos 120 s.
+ *
+ * O mínimo era 60 s até 27/09/2026: se a primeira morria no teto de 180 s, a
+ * segunda recebia 90 s, menos que qualquer avaliação aceita já medida (104 a
+ * 117 s em produção), e a pessoa esperava 270 s para receber erro, pagando a
+ * segunda chamada. Com 120 s, só há segunda tentativa quando ela cabe.
  */
 export const ORCAMENTO_AVALIADOR_MS = 270_000;
-export const MINIMO_TENTATIVA_MS = 60_000;
+export const MINIMO_TENTATIVA_MS = 120_000;
 export const primeiraTentativaMs = (c: Cenario) => (c.matriz ? 180_000 : 100_000);
 
 export async function encerrar(

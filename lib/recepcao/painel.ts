@@ -25,6 +25,7 @@ type Linha = {
   created_at: string;
   estado: {
     status: string;
+    respostas?: number;
     relatorio?: {
       escalaNota?: string;
       competencias?: Array<{ codigo: string; nota: number | null }>;
@@ -32,13 +33,25 @@ type Linha = {
   };
 };
 
+/**
+ * "Treinou" = respondeu ao menos uma vez (27/09/2026). A sessão nasce no clique de
+ * "Iniciar": contar sessões abertas sem resposta tirava da lista "Sem treino" quem
+ * só abriu um caso e desistiu (medido: 2 das 4 sessões humanas desde 19/09). Relatório
+ * concluído sempre teve resposta (o núcleo recusa encerrar sem).
+ */
+export function respondeu(r: { estado: { status: string; respostas?: number } }) {
+  if (r.estado.status === RECEPCAO_SESSAO.DESCARTADA) return false;
+  return r.estado.status === RECEPCAO_SESSAO.CONCLUIDA || (r.estado.respostas ?? 0) > 0;
+}
+
 export function visaoPorCompetencia(
   rows: Linha[],
   populacao: PessoaAtendimento[],
   codigos: readonly string[],
 ) {
+  const treinos = rows.filter(respondeu);
   const pessoas = populacao.map((p) => {
-    const minhas = rows
+    const minhas = treinos
       .filter((r) => r.colaborador_id === p.id)
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
     const concluidas = minhas.filter(
@@ -68,7 +81,7 @@ export function visaoPorCompetencia(
   });
   pessoas.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   const avaliadas = new Set(
-    rows
+    treinos
       .filter(
         (r) =>
           r.estado.status === RECEPCAO_SESSAO.CONCLUIDA &&

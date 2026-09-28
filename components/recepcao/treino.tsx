@@ -25,6 +25,8 @@ import {
   dominioExiste,
 } from '@/lib/recepcao/dominio';
 import { humanizarReferencias } from '@/lib/recepcao/texto';
+import { registroDaSessao, tituloDoCaso } from '@/lib/recepcao/caso-da-sessao';
+import { nivelDaNota } from '@/lib/nivel-regua';
 import styles from './treino.module.css';
 import MatrizAtendimento from './matriz-relatorio';
 import GestaoRecepcao from './gestao';
@@ -49,6 +51,18 @@ const DESFECHOS_CONHECIDOS = [
 ];
 
 /**
+ * Reconsulta automática enquanto o servidor processa (27/09/2026, A-3). A
+ * avaliação leva de 2 a 4 minutos e a lease do servidor vence em 330 s: a tela
+ * confere a cada 12 s e desiste depois de 6 minutos. Antes, se a rede caísse no
+ * meio da avaliação (celular bloqueado, troca de antena), a pessoa lia "Failed to
+ * fetch" e a tela não tentava de novo sozinha.
+ */
+const CONSULTA_MS = 12_000;
+const TETO_ESPERA_MS = 360_000;
+/** Falha de rede (o `fetch` não chegou a ter resposta), distinta de erro do servidor. */
+class ErroDeRede extends Error {}
+
+/**
  * Simulador de atendimento, visão de quem treina. Desde 18/09/2026 a tela não
  * fala de clínica, paciente nem secretária: o segmento vem do caso
  * (`lib/recepcao/dominio.ts`) e a pessoa simulada é chamada pelo nome. Textos
@@ -70,6 +84,17 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     [input, setInput] = useState('');
   const [podeConfigurar, setPodeConfigurar] = useState(false);
   const [confirmarFim, setConfirmarFim] = useState(false);
+  // Trocar de atendimento no meio de uma conversa com respostas pede confirmação.
+  const [confirmarOutro, setConfirmarOutro] = useState(false);
+  // Páginas seguintes do histórico, carregadas sob demanda (A-5).
+  const [maisHistorico, setMaisHistorico] = useState<any[]>([]),
+    [paginaHistorico, setPaginaHistorico] = useState(0),
+    [temMaisHistorico, setTemMaisHistorico] = useState<boolean | null>(null),
+    [carregandoHistorico, setCarregandoHistorico] = useState(false);
+  // Espera automática do servidor (A-3): desde quando, se é o relatório, e se o erro é de rede.
+  const [esperaDesde, setEsperaDesde] = useState<number | null>(null),
+    [esperaRelatorio, setEsperaRelatorio] = useState(false),
+    [erroRede, setErroRede] = useState(false);
   const [aba, setAba] = useState<
     'treino' | 'equipe' | 'cenarios' | 'competencias'
   >('treino');
@@ -77,6 +102,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   const [vozOcupada, setVozOcupada] = useState(false);
   const pending = useRef<{ id: string; texto: string } | null>(null);
   const createId = useRef<string | null>(null),
+    createPara = useRef<string | undefined>(undefined),
+    seletor = useRef<HTMLSelectElement>(null),
     running = useRef(false),
     generation = useRef(0);
   const fim = useRef<HTMLDivElement>(null);
@@ -84,7 +111,14 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     n.toLocaleString(locale, { maximumFractionDigits: 2 });
 
   async function api(url: string, init?: RequestInit) {
-    const res = await fetchAuth(url, { ...init, cache: 'no-store' });
+    let res: Response;
+    try {
+      res = await fetchAuth(url, { ...init, cache: 'no-store' });
+    } catch (e) {
+      // "Failed to fetch" / "Load failed" são TypeError do navegador, em inglês e sem ação.
+      if (e instanceof TypeError) throw new ErroDeRede(t('networkError'));
+      throw e;
+    }
     // 504 do gateway chega como HTML: sem o catch, a pessoa lia "Unexpected token".
     const body = await res.json().catch(() => null);
     if (!res.ok || !body) throw new Error(body?.error || t('genericError'));
@@ -99,17 +133,17 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     if (admin && id) q.set('empresaId', id);
     if (sessaoId) q.set('sessaoId', sessaoId);
     const d = await api(`/api/recepcao?${q}`);
-    if (ticket !== generation.current) return;
+    if (ticket !== generation.current) return null;
     setDados(d);
     setSessao(d.sessao);
-    // Ao abrir um atendimento do histórico, o seletor passa para a versão
-    // publicada do MESMO caso: "Praticar novamente" repete o que está na tela.
-    const doCaso =
-      sessaoId && d.sessao
-        ? d.cenarios?.find(
-            (c: any) => c.ficha.cenarioId === d.sessao.cenario?.cenarioId,
-          )
-        : null;
+    // Servidor processando (lease ativa): a tela passa a conferir sozinha.
+    if (d.sessao?.processando && !d.sessao.relatorio)
+      setEsperaDesde((desde) => desde ?? Date.now());
+    // Com um atendimento na tela, o seletor mostra a versão publicada DELE: o
+    // registro exato ou, se ele saiu, o mesmo caso no mesmo degrau. Casar só pelo
+    // caso levava ao primeiro degrau da lista (27/09/2026, `caso-da-sessao.ts`).
+    // Caso que saiu do catálogo não troca a escolha em silêncio: a tela avisa.
+    const doCaso = d.sessao ? registroDaSessao(d.cenarios, d.sessao) : null;
     // Mantém a escolha da pessoa; sem escolha, abre no degrau sugerido pelo histórico dela.
     setCenarioId((old) =>
       doCaso
@@ -121,7 +155,54 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               d.cenarios?.[0]
             )?.id || '',
     );
+    return d;
   }
+  // Reconsulta enquanto a sessão está em processamento, com teto; para ao chegar o
+  // relatório, ao trocar de sessão e ao desmontar (o `clearInterval` da limpeza).
+  useEffect(() => {
+    if (!esperaDesde || !sessao?.id || sessao?.relatorio) return;
+    const id = sessao.id;
+    let vivo = true;
+    const timer = setInterval(async () => {
+      if (!vivo || running.current) return;
+      if (Date.now() - esperaDesde > TETO_ESPERA_MS) {
+        setEsperaDesde(null);
+        setErroRede(false);
+        setErro(t('reportTimeout'));
+        return;
+      }
+      let d: any;
+      try {
+        d = await carregar(empresaId, id);
+      } catch {
+        return; // rede ainda fora: tenta no próximo ciclo
+      }
+      if (!vivo || !d?.sessao || d.sessao.id !== id) return;
+      if (d.sessao.relatorio) return; // o efeito seguinte limpa a espera
+      if (!d.sessao.processando) {
+        // O servidor terminou sem relatório (falhou ou o pedido nem chegou).
+        setEsperaDesde(null);
+        if (esperaRelatorio) {
+          setErroRede(false);
+          setErro(t('reportNotFinished'));
+        }
+      }
+    }, CONSULTA_MS);
+    return () => {
+      vivo = false;
+      clearInterval(timer);
+    };
+  }, [esperaDesde, esperaRelatorio, sessao?.id, !!sessao?.relatorio]);
+  useEffect(() => {
+    if (!sessao?.relatorio) return;
+    setEsperaDesde(null);
+    setEsperaRelatorio(false);
+    // O relatório chegou: o aviso de queda de rede deixou de valer.
+    if (erroRede) {
+      setErro('');
+      setErroRede(false);
+    }
+  }, [!!sessao?.relatorio]);
   useEffect(() => {
     let alive = true;
     if (admin) {
@@ -160,6 +241,11 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     pending.current = null;
     createId.current = null;
     setConfirmarFim(false);
+    setConfirmarOutro(false);
+    setEsperaDesde(null);
+    setEsperaRelatorio(false);
+    setErroRede(false);
+    zerarHistorico();
     setAba('treino');
     setCenarioId('');
     if (admin && !empresaId) return;
@@ -177,7 +263,9 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     fim.current?.scrollIntoView({ behavior: 'auto', block: 'nearest' });
   }, [sessao?.historico?.length, ocupado]);
 
-  async function agir(acao: 'iniciar' | 'responder' | 'encerrar') {
+  // `registroId` = a versão exata a iniciar ("Praticar novamente" repete a da tela);
+  // sem ele, vale o que está no seletor.
+  async function agir(acao: 'iniciar' | 'responder' | 'encerrar', registroId?: string) {
     if (running.current) return;
     const texto = input.trim();
     if (acao === 'responder' && !texto) return;
@@ -185,12 +273,18 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     running.current = true;
     setOcupado(acao);
     setErro('');
+    setErroRede(false);
     setConfirmarFim(false);
+    setConfirmarOutro(false);
     const body: any = { acao, ...(admin ? { empresaId } : {}) };
     if (acao === 'iniciar') {
+      body.cenarioId = registroId || cenarioId || undefined;
+      // A chave de criação é por caso: repetir o MESMO início reaproveita a sessão
+      // (retry de rede), e outro caso nunca reusa a chave (o servidor recusaria).
+      if (createPara.current !== body.cenarioId) createId.current = null;
+      createPara.current = body.cenarioId;
       createId.current ||= crypto.randomUUID();
       body.requestId = createId.current;
-      body.cenarioId = cenarioId || undefined;
     } else {
       body.sessaoId = sessao.id;
       body.revisao = sessao.revisao;
@@ -216,12 +310,21 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
         createId.current = null;
         setInput('');
         pending.current = null;
+        // A primeira página ganhou um item: as páginas seguintes já lidas ficaram deslocadas.
+        zerarHistorico();
       }
       // Atualiza também a lista; falha nesta leitura não transforma um envio salvo em falha.
       await carregar(empresaId, d.sessao.id, ticket).catch(() => {});
     } catch (e: any) {
       if (ticket === generation.current) {
-        setErro(e.message);
+        const rede = e instanceof ErroDeRede;
+        setErroRede(rede);
+        if (rede && acao === 'encerrar') {
+          // A avaliação pode seguir no servidor (lease de 330 s): a tela confere sozinha.
+          setErro(t('networkErrorReport'));
+          setEsperaRelatorio(true);
+          setEsperaDesde(Date.now());
+        } else setErro(e.message);
         // Recupera envio que pode ter sido confirmado após a conexão cair. ID pendente é preservado.
         if (sessao?.id)
           await carregar(empresaId, sessao.id, ticket).catch(() => {});
@@ -258,14 +361,46 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       setOcupado('');
     }
   }
+  function zerarHistorico() {
+    setMaisHistorico([]);
+    setPaginaHistorico(0);
+    setTemMaisHistorico(null);
+  }
+  async function verMaisHistorico() {
+    if (carregandoHistorico) return;
+    const ticket = generation.current;
+    const pagina = paginaHistorico + 1;
+    setCarregandoHistorico(true);
+    try {
+      const q = new URLSearchParams({ pagina: String(pagina) });
+      if (admin && empresaId) q.set('empresaId', empresaId);
+      const d = await api(`/api/recepcao?${q}`);
+      if (ticket !== generation.current) return;
+      setMaisHistorico((atual) => [...atual, ...(d.historico || [])]);
+      setPaginaHistorico(pagina);
+      setTemMaisHistorico(!!d.temMais);
+    } catch (e: any) {
+      if (ticket === generation.current) {
+        setErroRede(e instanceof ErroDeRede);
+        setErro(e.message);
+      }
+    } finally {
+      setCarregandoHistorico(false);
+    }
+  }
   async function abrirHistorico(id: string) {
     if (running.current) return;
     running.current = true;
     setOcupado('historico');
     setErro('');
+    setErroRede(false);
     setInput('');
     pending.current = null;
     setConfirmarFim(false);
+    setConfirmarOutro(false);
+    // A espera era da sessão anterior; a nova volta a esperar se o servidor a estiver processando.
+    setEsperaDesde(null);
+    setEsperaRelatorio(false);
     const ticket = ++generation.current;
     try {
       await carregar(empresaId, id, ticket);
@@ -286,6 +421,12 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   const dominioEmpresa = dominioExiste(dados?.dominio)
     ? dados.dominio
     : DOMINIO_PADRAO;
+  // Empresa sem configuração: nenhum segmento foi escolhido (27/09/2026). O motor segue no
+  // padrão para o teste administrativo, mas a tela não finge que o padrão foi escolha.
+  const segmentoDefinido = dados?.segmentoDefinido !== false;
+  const rotuloSegmento = segmentoDefinido
+    ? t(`segment_${dominioEmpresa}`)
+    : t('segmentUndefined');
   const dominio = dominioExiste(sessao?.cenario?.dominio)
     ? sessao.cenario.dominio
     : dominioExiste(ficha?.dominio)
@@ -332,6 +473,19 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     );
   const travado = !!ocupado || vozOcupada || sessao?.processando;
   const emConversa = sessao && !relatorio;
+  // A versão publicada do atendimento na tela; `null` com sessão = o caso saiu do catálogo.
+  const registroNaTela = registroDaSessao(dados?.cenarios, sessao);
+  const casoRetirado = !!sessao && !registroNaTela;
+  function prepararOutro() {
+    setSessao(null);
+    setInput('');
+    setConfirmarFim(false);
+    setConfirmarOutro(false);
+    setEsperaDesde(null);
+    setEsperaRelatorio(false);
+    pending.current = null;
+    createId.current = null;
+  }
   const desfecho = (tipo: string) =>
     DESFECHOS_CONHECIDOS.includes(tipo)
       ? t(`outcome_${tipo}`)
@@ -341,7 +495,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     <PageContainer className={styles.root}>
       <PageHero
         showBack={false}
-        eyebrow={t('eyebrow', { segment: t(`segment_${dominioEmpresa}`) })}
+        eyebrow={t('eyebrow', { segment: rotuloSegmento })}
         title={t('title')}
         subtitle={t('subtitle')}
         actions={<span className={styles.piloto}>{t('pilotBadge')}</span>}
@@ -370,7 +524,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                 <>
                   <button
                     className={styles.secondary}
-                    disabled={!!ocupado}
+                    // Habilitar exige o segmento escolhido (a rota também recusa sem ele).
+                    disabled={!!ocupado || (!dados.habilitado && !segmentoDefinido)}
                     onClick={() =>
                       configurar({ habilitado: !dados.habilitado })
                     }
@@ -381,10 +536,15 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                   <label className={styles.segmento}>
                     {t('segmentLabel')}
                     <select
-                      value={dominioEmpresa}
+                      value={segmentoDefinido ? dominioEmpresa : ''}
                       disabled={!!ocupado}
                       onChange={(e) => configurar({ dominio: e.target.value })}
                     >
+                      {!segmentoDefinido && (
+                        <option value="" disabled>
+                          {t('segmentUndefined')}
+                        </option>
+                      )}
                       {DOMINIOS.map((d) => (
                         <option key={d.id} value={d.id}>
                           {t(`segment_${d.id}`)}
@@ -396,6 +556,19 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               )}
             </div>
           )}
+          {/* Avisos em linha própria, abaixo dos controles (a linha dos controles não estica). */}
+          {dados &&
+            (!segmentoDefinido ? (
+              <p className={styles.notice} role="status">
+                {t('segmentUndefinedNotice', { segment: t(`segment_${dominioEmpresa}`) })}
+              </p>
+            ) : (
+              !dados.cenarios?.length && (
+                <p className={styles.notice} role="status">
+                  {t('segmentNoCasesNotice', { segment: rotuloSegmento })}
+                </p>
+              )
+            ))}
         </section>
       )}
       {dados && (
@@ -452,6 +625,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
           empresaId={empresaId || dados.empresaId}
           visao={aba}
           admin={admin}
+          dominio={dominioEmpresa}
         />
       )}
       <div hidden={aba !== 'treino'}>
@@ -461,12 +635,18 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
             <span>{erro}</span>
             <button
               onClick={() => {
+                // Queda de rede: confere de novo o MESMO atendimento (o envio pode ter sido salvo).
+                const mesmo = erroRede ? sessao?.id : undefined;
                 setErro('');
-                carregar().catch((e) => setErro(e.message));
+                setErroRede(false);
+                carregar(empresaId, mesmo).catch((e) => {
+                  setErroRede(e instanceof ErroDeRede);
+                  setErro(e.message);
+                });
               }}
               disabled={!!ocupado}
             >
-              {t('refresh')}
+              {t(erroRede ? 'tryAgain' : 'refresh')}
             </button>
           </div>
         )}
@@ -481,7 +661,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
         ) : !ficha ? (
           // Segmento sem caso publicado: nada de mostrar um caso de outro segmento.
           <div className={styles.empty}>
-            {t('noCases', { segment: t(`segment_${dominioEmpresa}`) })}
+            {t('noCases', { segment: rotuloSegmento })}
           </div>
         ) : (
           <>
@@ -489,8 +669,11 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               <label>
                 {t('casePicker')}
                 <select
+                  ref={seletor}
                   value={cenarioId}
-                  disabled={travado}
+                  // Durante a conversa o caso é o da conversa: trocar o seletor não
+                  // mudava nada e deixava a tela dizendo um caso e conversando outro.
+                  disabled={travado || !!emConversa}
                   onChange={(e) => {
                     setCenarioId(e.target.value);
                     createId.current = null;
@@ -518,26 +701,65 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                   })}
                 </select>
               </label>
-              {sessao && (
+              {/* O título inteiro fora do seletor: no celular o <select> cortava o nome do caso. */}
+              <p className={styles.casoEscolhido}>
+                {[nivelRotulo(ficha.nivel), tituloDoCaso(ficha.titulo, ficha.nivel)]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+              {sessao && !confirmarOutro && (
                 <button
                   className={styles.secondary}
                   disabled={travado}
-                  onClick={() => {
-                    setSessao(null);
-                    setInput('');
-                    setConfirmarFim(false);
-                    pending.current = null;
-                    createId.current = null;
-                  }}
+                  onClick={() =>
+                    // Conversa com respostas fica no histórico para retomar: confirma antes.
+                    // Sem resposta, o servidor descarta a sessão vazia ao iniciar outra.
+                    emConversa && sessao.respostas > 0
+                      ? setConfirmarOutro(true)
+                      : prepararOutro()
+                  }
                 >
                   {t('prepareAnother')}
                 </button>
               )}
+              {confirmarOutro && (
+                <div className={styles.confirmar} role="group" aria-label={t('prepareAnother')}>
+                  <p>{t('confirmPrepareAnother')}</p>
+                  <button className={styles.primary} disabled={travado} onClick={prepararOutro}>
+                    {t('prepareAnother')}
+                  </button>
+                  <button className={styles.link} onClick={() => setConfirmarOutro(false)}>
+                    {t('backToConversation')}
+                  </button>
+                </div>
+              )}
+              {emConversa && <p className={styles.small}>{t('caseLocked')}</p>}
               <p className={styles.small}>
                 {nivelRotulo(dados.nivelSugerido) && (
                   <>
                     {t('suggestedLevel')}{' '}
                     <strong>{nivelRotulo(dados.nivelSugerido)}</strong>.{' '}
+                    {/* O porquê da sugestão e se dá para segui-la (27/09/2026): sem isso, quem
+                        treinava no Limite lia "Introdução" sem explicação, e a sugestão podia
+                        apontar um degrau sem caso publicado. */}
+                    {dados.sugestao?.motivo && (
+                      <>
+                        {t(`suggestionWhy_${dados.sugestao.motivo}`, {
+                          base: nivelRotulo(dados.sugestao.base) || '',
+                        })}{' '}
+                      </>
+                    )}
+                    {!(dados.cenarios || []).some((c: any) => c.ficha.nivel === dados.nivelSugerido) &&
+                      (() => {
+                        const disponiveis = NIVEIS.filter((n) =>
+                          (dados.cenarios || []).some((c: any) => c.ficha.nivel === n),
+                        ).map((n) => nivelRotulo(n));
+                        return disponiveis.length ? (
+                          <>
+                            {t('suggestionUnavailable', { available: disponiveis.join(', ') })}{' '}
+                          </>
+                        ) : null;
+                      })()}
                   </>
                 )}
                 {t('caseHint')}
@@ -551,10 +773,38 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                 aria-label={t('report')}
               >
                 <header>
+                  {/* O relatório começa pelo caso e pelo nível (27/09/2026). Abria pelo
+                      desfecho: "Demanda não resolvida" em destaque mesmo com Nível 3, e no
+                      Limite sustentar a recusa é o comportamento certo. */}
                   <div>
                     <p className={styles.eyebrow}>{t('reportEyebrow')}</p>
-                    <h2>{desfecho(relatorio.desfecho.tipo)}</h2>
-                    <p>{h(relatorio.desfecho.justificativa)}</p>
+                    <h2>
+                      {[nivelRotulo(ficha.nivel), tituloDoCaso(ficha.titulo, ficha.nivel)]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </h2>
+                    {relatorio.competencias && (
+                      <p className={styles.nivelGeral}>
+                        <span>{t('reportOverall')}</span>
+                        {relatorio.nota === null ? (
+                          <strong>{t('reportOverallNone')}</strong>
+                        ) : (
+                          <>
+                            <strong>{t('levelShort', { n: nivelDaNota(relatorio.nota) })}</strong>
+                            <small>{t('scoreOf4Short', { score: numero(relatorio.nota) })}</small>
+                          </>
+                        )}
+                      </p>
+                    )}
+                    <div className={styles.desfecho}>
+                      <p>
+                        <strong>{t('reviewOutcome')}</strong> {desfecho(relatorio.desfecho.tipo)}.{' '}
+                        {h(relatorio.desfecho.justificativa)}
+                      </p>
+                      {nivelRotulo(ficha.nivel) && (
+                        <p className={styles.small}>{t(`outcomeReading_${ficha.nivel}`)}</p>
+                      )}
+                    </div>
                   </div>
                   {/* Com a matriz, a média aparece no relatório por competência. */}
                   {!relatorio.competencias && (
@@ -604,13 +854,32 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     <p>{h(relatorio.feedback.novaTentativa)}</p>
                   </div>
                 </div>
-                <button
-                  className={styles.primary}
-                  disabled={travado}
-                  onClick={() => agir('iniciar')}
-                >
-                  <RotateCcw size={18} /> {t('practiceAgain')}
-                </button>
+                {registroNaTela ? (
+                  // Repete a versão do relatório na tela, não a que estiver no seletor.
+                  <button
+                    className={styles.primary}
+                    disabled={travado}
+                    onClick={() => agir('iniciar', registroNaTela.id)}
+                  >
+                    <RotateCcw size={18} /> {t('practiceAgain')}
+                  </button>
+                ) : casoRetirado ? (
+                  // Caso retirado do catálogo: nada de trocar por outro em silêncio,
+                  // nem de reativar o conteúdo retirado.
+                  <div className={styles.notice} role="status">
+                    <p>{t('caseRetired')}</p>
+                    <button
+                      className={styles.secondary}
+                      disabled={travado}
+                      onClick={() => {
+                        prepararOutro();
+                        requestAnimationFrame(() => seletor.current?.focus());
+                      }}
+                    >
+                      {t('chooseAnotherCase')}
+                    </button>
+                  </div>
+                ) : null}
                 {relatorio.competencias ? (
                   <div className={styles.matriz}>
                     <MatrizAtendimento
@@ -663,8 +932,11 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               concluido={!!relatorio}
               titulo={t('trainingDetails')}
             >
+              {/* Celular: o cartão de início (antes de iniciar) e a conversa vêm antes da ficha.
+                  Antes de iniciar, o cartão já traz situação, objetivo, degrau e procedimentos;
+                  o resto da ficha fica recolhido ("Iniciar" estava a 2.337 px de 2.430, 27/09/2026). */}
               <div
-                className={`${styles.workspace} ${emConversa ? styles.chatPrimeiro : ''}`}
+                className={`${styles.workspace} ${!relatorio ? styles.chatPrimeiro : ''}`}
               >
                 <aside className={styles.ficha} id="ficha-atendimento">
                   <div className={styles.fichaTitle}>
@@ -677,7 +949,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                   <p className={styles.small}>
                     {t('caseSheetNote', { company: dados.empresaNome })}
                   </p>
-                  <details open>
+                  <details open={!!sessao}>
                     <summary>{t('situation')}</summary>
                     <p>{ficha.contexto}</p>
                     {ficha.agora && (
@@ -693,7 +965,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     )}
                   </details>
                   {ficha.alternativas?.length > 0 && (
-                    <details open>
+                    <details open={!!sessao}>
                       <summary>{t('authorizedOptions')}</summary>
                       <div className={styles.slots}>
                         {ficha.alternativas.map((a: any) => (
@@ -712,7 +984,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     </details>
                   )}
                   {ficha.secoes?.map((sec: any, i: number) => (
-                    <details key={i} open>
+                    <details key={i} open={!!sessao}>
                       <summary>{sec.titulo}</summary>
                       <ul>
                         {sec.itens.map((texto: string, j: number) => (
@@ -721,7 +993,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                       </ul>
                     </details>
                   ))}
-                  <details>
+                  {/* A avaliação se apoia nos procedimentos: abertos durante a conversa. */}
+                  <details open={!!sessao}>
                     <summary>{t('procedures')}</summary>
                     <ul>
                       {ficha.procedimentos.map((p: string) => (
@@ -769,12 +1042,30 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                     <div className={styles.start}>
                       <MessageCircle size={38} />
                       <h2>{t('startTitle')}</h2>
-                      <p>{ficha.objetivo}</p>
-                      <p>
-                        {ficha.competencias
-                          ?.map((d: any) => d.nome)
-                          .join(' · ')}
-                      </p>
+                      {/* O essencial para começar, no próprio cartão (o degrau está no cabeçalho acima). */}
+                      <div className={styles.startFicha}>
+                        <section>
+                          <h3>{t('situation')}</h3>
+                          <p>{ficha.contexto}</p>
+                          {ficha.agora && (
+                            <p>
+                              <strong>{t('reference')}</strong> {ficha.agora}
+                            </p>
+                          )}
+                        </section>
+                        <section>
+                          <h3>{t('objective')}</h3>
+                          <p>{ficha.objetivo}</p>
+                        </section>
+                        <details open>
+                          <summary>{t('procedures')}</summary>
+                          <ul>
+                            {ficha.procedimentos.map((p: string) => (
+                              <li key={p}>{p}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      </div>
                       <button
                         className={styles.primary}
                         onClick={() => agir('iniciar')}
@@ -783,6 +1074,17 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                         {ocupado ? t('starting') : t('start')}
                         <ArrowRight size={18} />
                       </button>
+                      <p className={styles.small}>
+                        {ficha.competencias
+                          ?.map((d: any) => d.nome)
+                          .join(' · ')}
+                      </p>
+                      <p className={styles.small}>
+                        {t('startMoreInSheet')}{' '}
+                        <a className={styles.linkInline} href="#ficha-atendimento">
+                          {t('seeCaseSheet')}
+                        </a>
+                      </p>
                     </div>
                   ) : (
                     <>
@@ -883,7 +1185,13 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                           )}
                           {sessao.processando && (
                             <p role="status">
-                              {t('processing')}{' '}
+                              {/* Diz o que está em processamento: com o relatório, a espera é de minutos. */}
+                              {t(
+                                esperaRelatorio ||
+                                  sessao.status === RECEPCAO_SESSAO.AGUARDANDO_AVALIACAO
+                                  ? 'processingReport'
+                                  : 'processing',
+                              )}{' '}
                               <button
                                 className={styles.link}
                                 onClick={() =>
@@ -973,41 +1281,74 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                 </ul>
               </section>
             )}
-            {dados.historico?.length > 0 && (
-              <section className={styles.history}>
-                <h2>{t('history')}</h2>
-                <div>
-                  {dados.historico.map((item: any) => (
-                    <button
-                      key={item.id}
-                      disabled={travado}
-                      onClick={() => abrirHistorico(item.id)}
-                      aria-current={sessao?.id === item.id ? 'true' : undefined}
-                    >
-                      <span>{item.titulo}</span>
-                      <span>{new Date(item.data).toLocaleString(locale)}</span>
-                      <strong>
-                        {item.status === RECEPCAO_SESSAO.CONCLUIDA
-                          ? [
-                              item.nota === null
-                                ? t('noScore')
-                                : t('historyScore', {
-                                    score: numero(item.nota),
-                                  }),
-                              item.escalaOriginal ? t('historyLegacy') : null,
-                              item.situacao === 'atencao_critica'
-                                ? t('historyAttention')
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')
-                          : t('resume')}
-                      </strong>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
+            {(() => {
+              // Histórico em páginas de 20 (27/09/2026): a primeira vem com a tela, as
+              // outras em "Ver atendimentos anteriores". Os atendimentos abertos COM
+              // resposta que não estão nas páginas lidas ficam num bloco próprio, para
+              // retomar: antes sumiam da tela depois de 20 inícios.
+              const vistos: any[] = [];
+              for (const item of [...(dados.historico || []), ...maisHistorico])
+                if (!vistos.some((v) => v.id === item.id)) vistos.push(item);
+              const abertosFora = (dados.abertos || []).filter(
+                (a: any) => !vistos.some((v) => v.id === a.id),
+              );
+              const temMais = temMaisHistorico ?? !!dados.historicoTemMais;
+              const botao = (item: any) => (
+                <button
+                  key={item.id}
+                  disabled={travado}
+                  onClick={() => abrirHistorico(item.id)}
+                  aria-current={sessao?.id === item.id ? 'true' : undefined}
+                >
+                  <span>{item.titulo}</span>
+                  <span>{new Date(item.data).toLocaleString(locale)}</span>
+                  <strong>
+                    {item.status === RECEPCAO_SESSAO.CONCLUIDA
+                      ? [
+                          item.nota === null
+                            ? t('noScore')
+                            : t('historyScore', {
+                                score: numero(item.nota),
+                              }),
+                          item.escalaOriginal ? t('historyLegacy') : null,
+                          item.situacao === 'atencao_critica'
+                            ? t('historyAttention')
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')
+                      : t('resume')}
+                  </strong>
+                </button>
+              );
+              return (
+                <>
+                  {abertosFora.length > 0 && (
+                    <section className={styles.history} aria-labelledby="atendimento-abertos">
+                      <h2 id="atendimento-abertos">{t('openSessions')}</h2>
+                      <div>{abertosFora.map(botao)}</div>
+                    </section>
+                  )}
+                  {vistos.length > 0 && (
+                    <section className={styles.history} aria-labelledby="atendimento-historico">
+                      <h2 id="atendimento-historico">{t('history')}</h2>
+                      <div>{vistos.map(botao)}</div>
+                    </section>
+                  )}
+                  {temMais && (
+                    <div className={styles.historyMore}>
+                      <button
+                        className={styles.secondary}
+                        disabled={travado || carregandoHistorico}
+                        onClick={verMaisHistorico}
+                      >
+                        {carregandoHistorico ? t('loadingMore') : t('historyMore')}
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </>
         )}
       </div>

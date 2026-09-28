@@ -237,6 +237,50 @@
 .evolucao li > span { min-width: 0; overflow-wrap: anywhere; }
 .evolucao strong { flex-shrink: 0; display: grid; justify-items: end; color: var(--atendimento-accent); }
 .evolucao strong small { font-size: .65rem; color: #86efac; }
+/* Confirmação de trocar de atendimento no meio da conversa e aviso de caso retirado (27/09/2026). */
+.confirmar { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; flex-basis: 100%; padding: .9rem; border: 1px solid #fbbf2440; border-radius: .65rem; background: #fbbf240a; font-size: .85rem; line-height: 1.6; }
+.confirmar p { color: #fde68a; }
+.notice > p { margin: 0 0 .6rem; }
+.historyMore { margin-top: .75rem; }
+/* Cabeçalho do relatório (27/09/2026): caso e nível geral primeiro, desfecho com a leitura do degrau. */
+.nivelGeral { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem .7rem; margin: .2rem 0 .9rem; }
+.nivelGeral span { flex-basis: 100%; color: var(--atendimento-muted); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.nivelGeral strong { color: var(--atendimento-accent); font-size: 1.9rem; font-weight: 650; line-height: 1.15; }
+.nivelGeral small { color: var(--atendimento-muted); font-size: .85rem; }
+.desfecho { max-width: 680px; padding: .75rem .95rem; border-left: 3px solid color-mix(in srgb, var(--atendimento-accent) 45%, transparent); border-radius: 0 .6rem .6rem 0; background: #ffffff05; }
+.desfecho p { margin: 0; }
+.desfecho p + p { margin-top: .45rem; }
+/* Início (27/09/2026): título do caso fora do seletor e o essencial no cartão de início. */
+.casePicker .casoEscolhido { color: #f8fafc; font-size: .95rem; font-weight: 650; line-height: 1.45; }
+.startFicha { display: grid; gap: .85rem; width: 100%; max-width: 580px; font-size: .85rem; line-height: 1.65; }
+.startFicha h3, .startFicha summary { margin-bottom: .2rem; color: #f8fafc; font-size: .78rem; font-weight: 700; }
+.startFicha summary { cursor: pointer; }
+.start .startFicha p, .startFicha li { color: #cbd5e1; }
+.startFicha ul { list-style: disc; padding-left: 1.1rem; }
+.startFicha li { margin: .3rem 0; }
+.linkInline { color: var(--atendimento-accent); text-decoration: underline; text-underline-offset: 3px; }
+/* Equipe no celular (27/09/2026): "Atendimentos para acompanhar" em cartões, com o botão à vista. */
+@media (max-width: 640px) {
+  .cartoesNoCelular table, .cartoesNoCelular tbody, .cartoesNoCelular tr, .cartoesNoCelular td { display: block; width: 100%; }
+  .cartoesNoCelular thead { display: none; }
+  .cartoesNoCelular tr { padding: .8rem 0; border-bottom: 1px solid var(--atendimento-line); }
+  .cartoesNoCelular td { padding: .15rem 0; border: 0; }
+  .cartoesNoCelular td[data-rotulo]::before { content: attr(data-rotulo) ": "; color: var(--atendimento-muted); }
+  .cartoesNoCelular td .link { padding-left: 0; }
+}
+.review:focus { outline: none; }
+/* Voz mais compacta (27/09/2026): a área ocupava quase uma tela do celular abaixo do campo. */
+.composer .voice { gap: .15rem .6rem; margin-top: .55rem; padding-top: .55rem; }
+.composer .voice .link { min-height: 40px; padding: .3rem .35rem; }
+.composer .voice p { margin: 0; font-size: .68rem; line-height: 1.5; }
+@media (max-width: 460px) {
+  .start { gap: .9rem; min-height: 0; }
+  .start > svg { display: none; }
+  .start h2 { font-size: 1.2rem; }
+}
+/* Aviso de segmento na área do administrador (27/09/2026): `.admin p` apagava a cor do aviso. */
+.admin { flex-wrap: wrap; }
+.admin > .notice { flex-basis: 100%; margin: 0; color: #fde68a; }
 /* Mantém a conversa em primeiro lugar no celular e a ficha a um toque. */
 @media (max-width: 800px) {
   .chatPrimeiro .conversa { order: -1; }

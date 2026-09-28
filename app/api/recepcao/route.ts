@@ -4,7 +4,7 @@ import { csrfCheck } from '@/lib/csrf';
 import { aiLimiter } from '@/lib/rate-limit';
 import { contextoRecepcao, RecepcaoError } from '@/lib/recepcao/access';
 import { comandoSchema } from '@/lib/recepcao/schema';
-import { consultar, executar } from '@/lib/recepcao/service';
+import { consultar, consultarHistorico, executar } from '@/lib/recepcao/service';
 import { comContexto } from '@/lib/execucao-contexto';
 import { requireUser } from '@/lib/auth/request-context';
 
@@ -22,11 +22,13 @@ export async function GET(req: Request) {
   try {
     const auth = await requireUser(req); if (auth instanceof Response) return auth;
     const q = new URL(req.url).searchParams;
-    const empresa = q.get('empresaId'), id = q.get('sessaoId');
+    const empresa = q.get('empresaId'), id = q.get('sessaoId'), pagina = q.get('pagina');
     if (empresa) z.string().uuid().parse(empresa);
     if (id) z.string().uuid().parse(id);
     const ctx = await contextoRecepcao(req, empresa, false, auth);
     if (ctx instanceof Response) return ctx;
+    // Páginas seguintes do histórico ("Ver atendimentos anteriores"): só a lista.
+    if (pagina !== null) return json(await consultarHistorico(ctx, z.coerce.number().int().min(1).max(500).parse(pagina)));
     return json(await consultar(ctx, id));
   } catch (e) { return falha(e); }
 }

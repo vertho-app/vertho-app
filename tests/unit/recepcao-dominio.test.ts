@@ -110,7 +110,7 @@ describe('avaliador: participantes do segmento e orçamento único de tempo', ()
     expect(new Set(vistos)).toEqual(new Set(['pessoa_atendida', 'atendente']));
   });
 
-  it('a correção usa o que sobrou do orçamento; sem 60 s, não há segunda tentativa', async () => {
+  it('a correção usa o que sobrou do orçamento; sem 120 s, não há segunda tentativa', async () => {
     let relogio = 0;
     const tetos: number[] = [];
     const gerarLento = (gasto: number) => async (a: { timeoutMs?: number }) => {
@@ -118,8 +118,13 @@ describe('avaliador: participantes do segmento e orçamento único de tempo', ()
       relogio += gasto;
       throw new Error('demorou');
     };
+    // Mínimo subiu de 60 s para 120 s em 27/09/2026 (`recepcao-orcamento-avaliador.test.ts`).
+    await expect(encerrar(sessao('recepcao_medica'), gerarLento(100_000), async () => {}, () => relogio)).rejects.toThrow();
+    expect(tetos).toEqual([180_000, 170_000]);
+    relogio = 0;
+    tetos.length = 0;
     await expect(encerrar(sessao('recepcao_medica'), gerarLento(200_000), async () => {}, () => relogio)).rejects.toThrow();
-    expect(tetos).toEqual([180_000, 70_000]);
+    expect(tetos).toEqual([180_000]);
     relogio = 0;
     tetos.length = 0;
     await expect(encerrar(sessao('recepcao_medica'), gerarLento(230_000), async () => {}, () => relogio)).rejects.toThrow();
