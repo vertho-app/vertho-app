@@ -738,6 +738,27 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                   <>
                     {t('suggestedLevel')}{' '}
                     <strong>{nivelRotulo(dados.nivelSugerido)}</strong>.{' '}
+                    {/* O porquê da sugestão e se dá para segui-la (27/09/2026): sem isso, quem
+                        treinava no Limite lia "Introdução" sem explicação, e a sugestão podia
+                        apontar um degrau sem caso publicado. */}
+                    {dados.sugestao?.motivo && (
+                      <>
+                        {t(`suggestionWhy_${dados.sugestao.motivo}`, {
+                          base: nivelRotulo(dados.sugestao.base) || '',
+                        })}{' '}
+                      </>
+                    )}
+                    {!(dados.cenarios || []).some((c: any) => c.ficha.nivel === dados.nivelSugerido) &&
+                      (() => {
+                        const disponiveis = NIVEIS.filter((n) =>
+                          (dados.cenarios || []).some((c: any) => c.ficha.nivel === n),
+                        ).map((n) => nivelRotulo(n));
+                        return disponiveis.length ? (
+                          <>
+                            {t('suggestionUnavailable', { available: disponiveis.join(', ') })}{' '}
+                          </>
+                        ) : null;
+                      })()}
                   </>
                 )}
                 {t('caseHint')}

@@ -6,7 +6,7 @@ import {
   responder,
   encerrar,
   ErroReferenciaAvaliacao,
-  sugerirNivel,
+  sugerirNivelComMotivo,
 } from './core';
 import { cenario } from './cenario.mjs';
 import { RecepcaoError, contextoRecepcao } from './access';
@@ -146,7 +146,8 @@ export async function consultar(c: Ctx, id?: string | null) {
   }
   const cenarios = await catalogo(c);
   // A sugestão lê os 20 treinos mais recentes (mesma janela do histórico exibido).
-  const nivelSugerido = sugerirNivel(
+  // Com o porquê (27/09/2026): a tela explica a sugestão e diz se há caso daquele degrau.
+  const sugestao = sugerirNivelComMotivo(
     rows
       .filter((r) => r.status === RECEPCAO_SESSAO.CONCLUIDA)
       .map((r) => ({
@@ -155,6 +156,7 @@ export async function consultar(c: Ctx, id?: string | null) {
         escalaNota: r.escala ?? undefined,
       })),
   );
+  const nivelSugerido = sugestao.nivel;
   // Evolução por competência de quem treina (18/09/2026): maior nível alcançado, só avanço
   // (régua comum, lib/simuladores/evolucao.ts), nos treinos recentes com matriz. A partir de 2.
   const competencias = competenciasAtendimento(c.dominio);
@@ -200,6 +202,7 @@ export async function consultar(c: Ctx, id?: string | null) {
     ficha: cenarios[0]?.ficha || (c.dominio === 'recepcao_medica' ? cenario.publico : null),
     cenarios,
     nivelSugerido,
+    sugestao,
     sessao: row ? publico(row) : null,
     podeEquipe:
       (c.auth.isPlatformAdmin ||

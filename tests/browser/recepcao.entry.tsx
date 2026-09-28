@@ -146,6 +146,11 @@ const dados = () => ({
   ficha: semCasos ? null : registros[0].ficha,
   cenarios: semCasos ? [] : registros,
   nivelSugerido: escada ? 'limite' : 'introducao',
+  // Mesma forma de `sugerirNivelComMotivo` (lib/recepcao/core.ts). Sem a escada, só há o
+  // caso do Limite publicado: a Introdução sugerida não tem caso (A-12).
+  sugestao: escada
+    ? { nivel: 'limite', motivo: 'proximo', base: 'pressao' }
+    : { nivel: 'introducao', motivo: 'abaixo_da_meta', base: null },
   sessao: sessao ? { ...visaoPublica(sessao), processando } : null,
   podeEquipe: equipe,
   podeCenarios: false,

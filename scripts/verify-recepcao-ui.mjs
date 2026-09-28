@@ -88,6 +88,9 @@ try {
   const opcao = await page.getByRole('combobox').first().locator('option').first().textContent();
   assert.ok(!/·\s*\d/.test(opcao || ''), `versão do caso na tela de quem treina: ${opcao}`);
   await page.getByText('Procedimentos do caso', { exact: true }).first().waitFor();
+  // A-12 (27/09/2026): a sugestão diz o porquê e, sem caso do degrau sugerido, o que há.
+  await page.getByText(/nenhum degrau chegou ainda ao Nível 3/).waitFor();
+  await page.getByText(/Ainda não há caso publicado desse degrau; disponível agora: Limite contestado\./).waitFor();
   assert.equal(await page.getByText('Procedimentos da clínica').count(), 0);
   // O atendimento compartilha a largura e a tipografia do shell de vendas.
   await page.evaluate(() => document.fonts.ready);
@@ -137,6 +140,8 @@ try {
   const seletorCaso = page.getByRole('combobox').first();
   await page.getByRole('button', { name: 'Iniciar atendimento', exact: true }).waitFor();
   assert.equal(await seletorCaso.inputValue(), 'reg-limite', 'o seletor abre no degrau sugerido');
+  await page.getByText(/Você chegou ao Nível 3 em Sob pressão: este é o próximo degrau\./).waitFor();
+  assert.equal(await page.getByText(/Ainda não há caso publicado desse degrau/).count(), 0, 'degrau sugerido tem caso');
   await page.getByRole('button', { name: 'Iniciar atendimento', exact: true }).click();
   const campoEscada = page.getByPlaceholder(/^Escreva como você falaria com /);
   await campoEscada.waitFor();
