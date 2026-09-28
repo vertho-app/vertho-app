@@ -52,6 +52,18 @@ export function recebido(s: Estado, cmd: Comando): boolean {
     );
   return true;
 }
+/**
+ * O aviso do moderador vale para o turno em que saiu. Até 27/09/2026 a tela
+ * mostrava o último aviso da conversa INTEIRA: uma advertência do turno 1
+ * continuava no topo em todos os turnos seguintes (V-14 da revisão).
+ */
+function avisoDoUltimoTurno(s: Estado): string | null {
+  const ultimoTurno = s.mensagens.filter((m) => m.autor === 'vendedor').at(-1)?.turno;
+  const aviso = s.moderacoes
+    .filter((m) => m.violacao && m.acao_sugerida !== 'registrar_e_seguir')
+    .at(-1);
+  return aviso && aviso.turno === ultimoTurno ? aviso.motivo || null : null;
+}
 export function visaoPublica(s: Estado) {
   // Allowlist: briefing, gabarito, prompts e classificações reservadas nunca vão ao navegador.
   return {
@@ -82,10 +94,7 @@ export function visaoPublica(s: Estado) {
       : null,
     avaliacaoPendente: !!s.relatorio && !s.feedback,
     feedback: s.feedback,
-    aviso:
-      s.moderacoes
-        .filter((m) => m.violacao && m.acao_sugerida !== 'registrar_e_seguir')
-        .at(-1)?.motivo || null,
+    aviso: avisoDoUltimoTurno(s),
     sugerirEncerramento:
       s.intencao?.intencao_encerrar === true &&
       s.intencao.confianca !== 'baixa',

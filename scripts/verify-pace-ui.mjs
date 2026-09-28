@@ -133,6 +133,26 @@ try {
   await page.evaluate(() => window.__paceLiberar());
   await expect(page.getByLabel('Sua mensagem', { exact: true })).toBeEnabled({ timeout: 12000 });
   checks++;
+  // V-14 (27/09/2026): o aviso do moderador vale só para o turno em que saiu.
+  await page.goto(`${origin}/?active=1&aviso=1`);
+  await page.getByText('O vendedor usou um termo desrespeitoso ao se referir ao concorrente.', { exact: true }).waitFor();
+  await page.goto(`${origin}/?active=1&aviso=depois`);
+  await page.getByText('Qual é o impacto no fechamento do mês?', { exact: true }).waitFor();
+  assert.equal(await page.getByText(/termo desrespeitoso/).count(), 0, 'aviso do turno 1 persistiu no turno 2');
+  // Treino interrompido: a explicação vem antes da pesquisa, que não é "obrigatória".
+  await page.goto(`${origin}/?active=1&interrompida=1`);
+  const explicacao = page.getByText(/^Este treino foi interrompido por conduta/);
+  const tituloPesquisa = page.getByRole('heading', { name: 'Conte como foi a experiência', exact: true });
+  await tituloPesquisa.waitFor();
+  const [yExplicacao, yPesquisa] = await Promise.all([
+    explicacao.boundingBox().then((b) => b.y),
+    tituloPesquisa.boundingBox().then((b) => b.y),
+  ]);
+  assert.ok(yExplicacao < yPesquisa, 'explicação do interrompido antes da pesquisa');
+  assert.equal(await page.getByText('Etapa obrigatória', { exact: true }).count(), 0, 'pesquisa "obrigatória" sem nada a liberar');
+  await page.getByText('Opcional', { exact: true }).waitFor();
+  await page.screenshot({ path: `${dir}/interrompido-desktop.png`, fullPage: true });
+  checks++;
   // D2 (27/09/2026): com a devolutiva esperando a pesquisa, o histórico não
   // mostra a nota e "Nova simulação" deixa de ser o botão primário.
   await page.goto(`${origin}/?matrix=1&completed=1&regua=pace-7&pendente=1`);

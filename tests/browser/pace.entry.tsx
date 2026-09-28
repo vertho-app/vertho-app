@@ -95,6 +95,45 @@ if (states[empresaA]) {
     },
   ];
   states[empresaA]!.fase = 'analisar';
+  // V-14: advertência do moderador no turno 1; `aviso=depois` acrescenta um turno 2 sem advertência.
+  if (params.has('aviso')) {
+    const s = states[empresaA]!;
+    s.moderacoes = [
+      {
+        violacao: true,
+        categoria: 'linguagem_agressiva',
+        severidade: 'leve',
+        acao_sugerida: 'avisar_vendedor',
+        confianca: 'alta',
+        motivo: 'O vendedor usou um termo desrespeitoso ao se referir ao concorrente.',
+        turno: 1,
+        fase: 'preparar',
+      } as Estado['moderacoes'][number],
+    ];
+    if (params.get('aviso') === 'depois')
+      s.mensagens.push(
+        { id: 'v2', turno: 2, autor: 'vendedor', texto: 'Qual é o impacto no fechamento do mês?', fase: 'analisar' },
+        { id: 'c2', turno: 2, autor: 'cliente', texto: 'Atrasa as compras da semana seguinte.', fase: 'analisar' },
+      );
+  }
+  // V-14: treino interrompido por conduta, sem devolutiva a liberar.
+  if (params.has('interrompida')) {
+    const s = states[empresaA]!;
+    s.status = 'interrompida';
+    s.encerradoEm = new Date().toISOString();
+    s.moderacoes = [
+      {
+        violacao: true,
+        categoria: 'assedio',
+        severidade: 'grave',
+        acao_sugerida: 'encerrar_sessao',
+        confianca: 'alta',
+        motivo: 'Conduta incompatível com uma negociação profissional.',
+        turno: 1,
+        fase: 'preparar',
+      } as Estado['moderacoes'][number],
+    ];
+  }
   if (params.has('completed')) {
     states[empresaA]!.status = 'concluida';
     states[empresaA]!.relatorio = params.has('zero')

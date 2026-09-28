@@ -742,6 +742,12 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
               </p>
             </aside>
             <div className={styles.card}>
+              {/* V-14: a explicação vem antes da pesquisa, não no pé da página. */}
+              {sessao?.status === VENDAS_SESSAO.INTERROMPIDA && (
+                <p role="status" className={styles.interrupted}>
+                  {t('interrupted')}
+                </p>
+              )}
               {terminou && (
                 <Avaliacao
                   feedback={feedback}
@@ -1088,11 +1094,6 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                         </button>
                       </div>
                     </div>
-                  )}
-                  {sessao.status === VENDAS_SESSAO.INTERROMPIDA && (
-                    <p className="text-sm text-amber-200 mt-4">
-                      {t('interrupted')}
-                    </p>
                   )}
                 </>
               )}

@@ -33,7 +33,10 @@ export default function Avaliacao({
     <section className={styles.evaluation} aria-labelledby="pace-avaliacao-titulo">
       <div className={styles.evaluationHeader}>
         <div>
-          <p className={styles.evaluationEyebrow}>{t(salvo ? 'evaluationComplete' : 'evaluationRequired')}</p>
+          {/* Sem devolutiva a liberar (treino interrompido), a pesquisa não é "obrigatória" (V-14). */}
+          <p className={styles.evaluationEyebrow}>
+            {t(salvo ? 'evaluationComplete' : comDevolutiva ? 'evaluationRequired' : 'evaluationOptional')}
+          </p>
           <h2 id="pace-avaliacao-titulo" className={styles.evaluationTitle}>
             {t(salvo ? 'feedbackSavedTitle' : 'feedbackTitle')}
           </h2>

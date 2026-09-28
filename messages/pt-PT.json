@@ -458,7 +458,8 @@
     "unreadableResponse": "O servidor não respondeu como esperado. Tente novamente: se o envio já tiver chegado, não será repetido.",
     "surveyPending": "Inquérito pendente",
     "surveyPendingHint": "A sua devolutiva está pronta e abre depois do inquérito de experiência, que demora um minuto. A nota do treino aparece com ela.",
-    "surveyPendingOpen": "Responder ao inquérito"
+    "surveyPendingOpen": "Responder ao inquérito",
+    "evaluationOptional": "Opcional"
   },
   "Beto": {
     "greeting": "Olá! Sou o Beto, o seu mentor de desenvolvimento. Como posso ajudar?",
