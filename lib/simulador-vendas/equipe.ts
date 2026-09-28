@@ -4,8 +4,13 @@ import { canViewColabJourney } from '@/lib/authz';
 import type { AuthenticatedContext } from '@/lib/auth/request-context';
 import type { Contexto } from './access';
 import { SimuladorError } from './core';
-import { lerCursor, paginaDeHistorico, type LinhaResumo } from './historico';
-import { relatorioPacePublico } from './escala';
+import {
+  lerCursor,
+  paginaDeHistorico,
+  pontuacoesDaMatriz,
+  type LinhaResumo,
+} from './historico';
+import { notaPacePublica, relatorioPacePublico } from './escala';
 import { escalaNativa14 } from './matriz-avaliacao';
 import {
   agregarPainel,
@@ -81,7 +86,77 @@ export async function historicoEquipe(c: Contexto, cursor?: string | null) {
       503,
       'Não foi possível consultar o histórico da equipe.',
     );
-  return paginaDeHistorico(data as LinhaResumo[], 50);
+  const linhas = (data || []) as LinhaResumo[];
+  // pace-4/pace-5: a nota da lista sai da matriz, como na devolutiva (V-5).
+  const notasMatriz = await pontuacoesDaMatriz(
+    (colunas) => c.tdb.from('sim_vendas_sessoes').select(colunas),
+    linhas.slice(0, 50).map((r) => ({
+      id: r.id,
+      versaoRegua: r.resumo?.versaoRegua,
+      comRelatorio: r.resumo?.temRelatorio === true,
+    })),
+  );
+  return paginaDeHistorico(linhas, 50, { notasMatriz });
+}
+
+/** Linha do snapshot SQL de exportação (`sim_vendas_exportar`), notas como gravadas. */
+export type LinhaExportada = {
+  id: string;
+  versaoRegua: string;
+  P: number | null;
+  A: number | null;
+  C: number | null;
+  E: number | null;
+  Media: number | null;
+  [campo: string]: unknown;
+};
+/**
+ * Notas do CSV na escala 1 a 4, com a MESMA régua da devolutiva e da lista:
+ * pace-4/pace-5 pela matriz (com Planejamento), pace-6 em diante como gravadas,
+ * sem matriz pela conversão linear. Planejamento das versões nativas vem do
+ * relatório, em lotes de 200 (o snapshot SQL não o traz).
+ */
+export async function linhasDeExportacao(c: Contexto, linhas: LinhaExportada[]) {
+  const planos = new Map<string, number | null>();
+  for (let i = 0; i < linhas.length; i += 200) {
+    const { data: rows, error } = await c.tdb
+      .from('sim_vendas_sessoes')
+      .select('id,PL:estado->relatorio->PL')
+      .in(
+        'id',
+        linhas.slice(i, i + 200).map((r) => r.id),
+      );
+    if (error)
+      throw new SimuladorError(503, 'Não foi possível exportar o planejamento.');
+    for (const row of (rows || []) as Array<{ id: string; PL: unknown }>)
+      planos.set(row.id, typeof row.PL === 'number' ? row.PL : null);
+  }
+  const matrizes = await pontuacoesDaMatriz(
+    (colunas) => c.tdb.from('sim_vendas_sessoes').select(colunas),
+    linhas.map((r) => ({
+      id: r.id,
+      versaoRegua: r.versaoRegua,
+      comRelatorio: r.Media != null,
+    })),
+  );
+  return linhas.map((r) => {
+    const m = matrizes.get(r.id);
+    return {
+      ...r,
+      ...(m
+        ? { PL: m.PL, P: m.P, A: m.A, C: m.C, E: m.E, Media: m.Media }
+        : {
+            PL: planos.get(r.id) ?? null,
+            P: notaPacePublica(r.P, r.versaoRegua),
+            A: notaPacePublica(r.A, r.versaoRegua),
+            C: notaPacePublica(r.C, r.versaoRegua),
+            E: notaPacePublica(r.E, r.versaoRegua),
+            Media: notaPacePublica(r.Media, r.versaoRegua),
+          }),
+      escalaNota: '1-4' as const,
+      escalaOriginal: escalaNativa14(r.versaoRegua) ? null : ('0-10' as const),
+    };
+  });
 }
 /**
  * Quem PODERIA treinar e a pessoa que pergunta enxerga: colaboradores da

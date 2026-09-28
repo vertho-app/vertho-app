@@ -15,6 +15,7 @@ import {
   aplicarCursor,
   COLUNAS_HISTORICO_PARTICIPANTE,
   paginaDeHistorico,
+  pontuacoesDaMatriz,
   type LinhaResumo,
 } from './historico';
 
@@ -67,7 +68,17 @@ export async function consultarHistorico(c: Contexto, cursor?: string | null) {
     .order('id', { ascending: false })
     .limit(31);
   banco(list.error);
-  const pagina = paginaDeHistorico(list.data as LinhaResumo[], 30);
+  const linhas = (list.data || []) as LinhaResumo[];
+  // pace-4/pace-5: a nota da lista sai da matriz, como na devolutiva (V-5).
+  const notasMatriz = await pontuacoesDaMatriz(
+    (colunas) => owned(c, colunas),
+    linhas.slice(0, 30).map((r) => ({
+      id: r.id,
+      versaoRegua: r.resumo?.versaoRegua,
+      comRelatorio: r.resumo?.temRelatorio === true,
+    })),
+  );
+  const pagina = paginaDeHistorico(linhas, 30, { notasMatriz });
   // A nota final faz parte do resumo do treino no histórico do participante.
   // O relatório detalhado continua protegido pela avaliação da experiência;
   // por isso seu indicador não é exposto nesta lista de navegação.
