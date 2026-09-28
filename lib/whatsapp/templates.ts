@@ -265,7 +265,8 @@ export const TEMPLATES = {
   },
 
   /**
-   * Avaliação NUNCA INICIADA — o maior grupo parado do produto.
+   * Convite ao mapeamento comportamental para quem ainda não tem perfil.
+   * O público e o link independem dos cenários de avaliação de competências.
    *
    * Medido em 15/08/2026: **187 pessoas** cadastradas sem nenhum passo dado
    * (sem DISC e sem cenário), 159 delas em Macaé. Não existia comunicação

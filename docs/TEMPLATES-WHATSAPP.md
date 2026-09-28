@@ -39,7 +39,7 @@ cai no caminho legado — silenciosamente, que é o motivo da R13 existir.
 | 7 | `acesso_vertho` | UTILITY | `acesso` · `WHATSAPP_TEMPLATE_ACESSO` | Magic link pedido no login ou ao Beto no WhatsApp | `lib/notifications/access-link-service.ts` · `lib/whatsapp/beto-access-link.ts` |
 | 8 | `otp_acesso` | AUTHENTICATION | — (nome fixo no código) | Código de 6 dígitos do login por telefone | `app/api/auth/phone-otp/request/route.ts:83` |
 | 9 | `plano_desenvolvimento` | UTILITY | `plano` · `WHATSAPP_TEMPLATE_PLANO` | Relatório individual: pelo cron `avisar_planos` (só **depois do corte**) ou pela tela, sob demanda | `lib/notifications/avisar-plano-pronto.ts` · `/admin-v2/cliente` → "Planos (PDI)" |
-| 10 | `avaliacao_pendente` | UTILITY | — (nome fixo no script/tela) | Cobrança deliberada de quem nunca iniciou o assessment | `scripts/_convite-avaliacao.ts` · **tela de Envios** (aba WhatsApp) |
+| 10 | `avaliacao_pendente` | UTILITY | — (nome fixo na tela) | Convite ao mapeamento comportamental pendente, independente de cenários | **tela de Envios** (aba WhatsApp) |
 
 🔑 **Dois gatilhos, réguas diferentes — 17/08.** O CRON usa o `CORTE_ISO` fixo e roda sem ninguém
 olhando. A TELA ignora o corte de propósito: há prévia com números e um humano confirmando, então a
@@ -75,7 +75,7 @@ semana/slot, portanto uma semana não bloqueia a seguinte.
 |---|---|---|
 | `boas_vindas_v2` | APPROVED/UTILITY | Está no escopo e tem WhatsApp cadastrado |
 | `votacao_pendente` | APPROVED/UTILITY (v2, 25/09, em 3 min) | Votação aberta, ainda não votou e o cargo tem competências na cédula; um por pessoa **por dia** (Brasília) |
-| `avaliacao_pendente` | APPROVED/UTILITY | Cargo tem cenários e a pessoa registrou zero respostas |
+| `avaliacao_pendente` | APPROVED/UTILITY | Ainda não tem perfil comportamental (`perfil_dominante`); independe de cenários e respostas da avaliação técnica |
 | `avaliacao_competencias` | APPROVED/UTILITY | Tem perfil comportamental, cargo/cenários/top5 configurados e zero respostas |
 | `avaliacao_parcial` | APPROVED/UTILITY | Respondeu pelo menos um cenário, mas ainda não todos |
 | `resultado_perfil` | APPROVED/UTILITY | Tem `perfil_dominante` disponível |
@@ -134,7 +134,7 @@ envia. Isso existe porque cada aprovado tem o seu contrato e **ele não se deduz
 | `conteudo_semana_pendente_v3` | nome | semana acessível | tema | link da semana | — |
 | `semana_pendente_v2` | nome | semana do calendário | semana pendente | — | `<slug>/<semana pendente>` |
 | `recorte_demonstracao` | nome | link do Mapa (`linkDireto`) | — | — | — |
-| `avaliacao_pendente` | nome | **instituição** | link de `/dashboard/assessment` | — | — |
+| `avaliacao_pendente` | nome | **instituição** | link de `/dashboard/perfil-comportamental/mapeamento` | — | — |
 | `avaliacao_competencias` | nome | **competência** (`top5_workshop`) | link de `/dashboard/assessment` | — | — |
 | `boas_vindas_v2` | nome | **instituição** | link de `/entrar` | — | — |
 | `votacao_pendente` | nome | **instituição** | link de `/dashboard/votacao` | prazo: dia seguinte ao envio, em Brasília ("sábado, 26/09") | — |
@@ -190,7 +190,7 @@ exemplo, continua saindo apenas quando um humano escolhe e confirma o lote.
 | `avaliacao_final_pendente` | Tela de Envios | Semana acessível = Cenário B, não concluída, `feedback.finalizacao` fora de `processando` |
 | `trilha_concluida` | Tela de Envios | Trilha mais recente concluída |
 | `plano_desenvolvimento` | Cron + tela de Envios | Relatório individual/PDI existente |
-| `avaliacao_pendente` | Script + tela de Envios | Cenários configurados e zero respostas |
+| `avaliacao_pendente` | Tela de Envios | Mapeamento comportamental pendente, sem exigir cenários |
 | `avaliacao_parcial` | Tela de Envios | Progresso estritamente entre zero e o total |
 | `boas_vindas_v2` | Script + tela de Envios | Escopo explícito, WhatsApp e idempotência por template |
 | `votacao_pendente` | Tela de Envios | Votação aberta, sem voto registrado, cédula do cargo não vazia (`lib/votacao/cedula.ts`) |

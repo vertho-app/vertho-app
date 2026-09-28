@@ -435,7 +435,7 @@ const CONTRATOS: Record<string, MontarParams> = {
   }),
 
   /**
-   * Assessment de competências NUNCA iniciado. APPROVED/UTILITY — corpo
+   * Convite ao mapeamento comportamental pendente. APPROVED/UTILITY — corpo
    * conferido na Meta em 19/08/2026 (não deduzido do nome):
    * `{{1}}`=nome, `{{2}}`=instituição, `{{3}}`=link. Sem botão.
    *
@@ -443,14 +443,12 @@ const CONTRATOS: Record<string, MontarParams> = {
    * e aqui o corpo a coloca em "no programa da {{2}}": trocar pela fornecedora
    * descreveria um programa que a pessoa não reconhece.
    *
-   * O link é `/dashboard/assessment`, a tela onde a avaliação começa — não a
-   * porta do tenant. Quem chega sem sessão viva cai no login e pede o magic link
-   * (`acesso_vertho`); mandar todo mundo para `/entrar` custaria um passo a quem
-   * está logado, que é a maioria do alvo (o convite é para quem JÁ fez o
-   * mapeamento comportamental dentro do app).
+   * O link abre o mapeamento comportamental. Essa etapa independe de cenários
+   * ou respostas da avaliação de competências. Quem chega sem sessão passa
+   * pelo login antes de acessar o mapeamento.
    */
   avaliacao_pendente: (a) => ({
-    params: [a.nome, a.instituicao || '', `${a.baseUrl}/dashboard/assessment`],
+    params: [a.nome, a.instituicao || '', `${a.baseUrl}/dashboard/perfil-comportamental/mapeamento`],
     botaoParam: null,
   }),
 

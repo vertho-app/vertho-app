@@ -178,10 +178,10 @@ describe('prepararLoteTemplate', () => {
     ]);
   });
 
-  it('o MESMO destinatário recebe {{2}} diferente conforme o template', async () => {
+  it('o convite de perfil usa instituição e o de competências usa a competência', async () => {
     const sb = mock();
     const comp = await prepararLoteTemplate(sb.client, { empresaId: 'emp-1', template: 'avaliacao_competencias', colabs: [professor()] });
-    const pend = await prepararLoteTemplate(sb.client, { empresaId: 'emp-1', template: 'avaliacao_pendente', colabs: [professor()] });
+    const pend = await prepararLoteTemplate(sb.client, { empresaId: 'emp-1', template: 'avaliacao_pendente', colabs: [professor({ perfil_dominante: null })] });
     expect(comp.alvos[0].params[1]).toBe('Autocuidado e bem-estar profissional');
     expect(pend.alvos[0].params[1]).toBe('Secretaria Municipal de Macaé/RJ');
   });
@@ -208,17 +208,49 @@ describe('prepararLoteTemplate', () => {
     }));
   });
 
-  it('avaliação pendente inclui só quem tem cenários e ainda não respondeu', async () => {
-    const sb = mock({ respostas: [{ colaborador_id: 'c2', competencia_id: 'comp-1' }] });
+  it('inclui as 28 pessoas sem perfil mesmo sem cargos ou cenários configurados', async () => {
+    const sb = mock({ cargos: [], cenarios: [] });
     const lote = await prepararLoteTemplate(sb.client, {
       empresaId: 'emp-1',
       template: 'avaliacao_pendente',
-      colabs: [professor(), professor({ id: 'c2', nome_completo: 'João' })],
+      colabs: Array.from({ length: 28 }, (_, i) => professor({ id: `c${i}`, cargo: null, perfil_dominante: null })),
+    });
+
+    expect(lote.elegiveisPeloTemplate).toBe(28);
+    expect(lote.alvos).toHaveLength(28);
+    expect(lote.excluidos).toEqual([]);
+    expect(lote.alvos[0].params).toEqual([
+      'Maria', 'Secretaria Municipal de Macaé/RJ',
+      'https://macae.vertho.ai/dashboard/perfil-comportamental/mapeamento',
+    ]);
+  });
+
+  it('o convite de perfil independe das consultas e respostas da avaliação técnica', async () => {
+    const sb = mock({ respostas: [{ colaborador_id: 'c1', competencia_id: 'comp-1' }] });
+    for (const tabela of ['banco_cenarios', 'respostas']) {
+      sb.falharEm({ tabela, op: 'select', mensagem: 'avaliação técnica indisponível' });
+    }
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1',
+      template: 'avaliacao_pendente',
+      colabs: [professor({ perfil_dominante: null }), professor({ id: 'c2', nome_completo: 'João' })],
     });
 
     expect(lote.alvos.map((a) => a.colaboradorId)).toEqual(['c1']);
     expect(lote.excluidos).toContainEqual(expect.objectContaining({
-      motivo: 'avaliação já iniciada', quantidade: 1,
+      motivo: 'perfil comportamental já concluído', quantidade: 1,
+    }));
+  });
+
+  it.each(['avaliacao_competencias', 'avaliacao_parcial'])('%s continua exigindo cenários de avaliação', async (template) => {
+    const sb = mock({ cenarios: [] });
+    const lote = await prepararLoteTemplate(sb.client, {
+      empresaId: 'emp-1', template, colabs: [professor()],
+    });
+
+    expect(lote.alvos).toHaveLength(0);
+    expect(lote.excluidos).toContainEqual(expect.objectContaining({
+      motivo: 'cargo sem cenários de avaliação', quantidade: 1,
     }));
   });
 

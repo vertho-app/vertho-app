@@ -200,9 +200,8 @@ const RESOLVEDORES: Record<string, (c: ColaboradorAlvo, ctx: ContextoEnvio) => R
    */
   votacao_pendente: (c, ctx) => resolverVotacao(c, ctx),
   avaliacao_pendente: (c, ctx) => {
-    const progresso = ctx.avaliacaoPorColab.get(c.id);
-    if (!progresso?.total) return { excluir: 'cargo sem cenários de avaliação' };
-    if (progresso.respondidas > 0) return { excluir: 'avaliação já iniciada' };
+    // O convite é para o mapeamento comportamental, disponível antes dos cenários.
+    if (c.perfil_dominante) return { excluir: 'perfil comportamental já concluído' };
     return { args: base(c, ctx) };
   },
   avaliacao_competencias: (c, ctx) => {
@@ -431,7 +430,7 @@ export interface TemplateDisparavel {
 const VARIAVEIS_DE: Record<string, string[]> = {
   boas_vindas_v2: ['primeiro nome', 'nome da instituição', 'link de /entrar'],
   votacao_pendente: ['primeiro nome', 'nome da instituição', 'link da votação', 'prazo: dia seguinte ao envio (Brasília)'],
-  avaliacao_pendente: ['primeiro nome', 'nome da instituição', 'link do assessment'],
+  avaliacao_pendente: ['primeiro nome', 'nome da instituição', 'link do mapeamento comportamental'],
   avaliacao_competencias: ['primeiro nome', 'competência do cargo (top5_workshop)', 'link do assessment'],
   avaliacao_parcial: ['primeiro nome', 'cenários respondidos', 'total de cenários', 'link do assessment'],
   resultado_perfil: ['primeiro nome', 'link do perfil comportamental'],
@@ -457,7 +456,7 @@ const BOTAO_DE: Record<string, string> = {
 const ALVO_DE: Record<string, string> = {
   boas_vindas_v2: 'está no escopo e tem WhatsApp cadastrado',
   votacao_pendente: 'votação aberta, ainda não votou e o cargo tem competências na cédula',
-  avaliacao_pendente: 'tem avaliação configurada e ainda não registrou nenhuma resposta',
+  avaliacao_pendente: 'ainda não concluiu o mapeamento comportamental; não depende de cenários de avaliação',
   avaliacao_competencias: 'concluiu o perfil comportamental e ainda não iniciou a avaliação de competências',
   avaliacao_parcial: 'iniciou a avaliação, mas ainda tem cenários pendentes',
   resultado_perfil: 'tem perfil comportamental disponível',
@@ -478,7 +477,7 @@ const ALVO_DE: Record<string, string> = {
 const ROTULO_DE: Record<string, string> = {
   boas_vindas_v2: 'Boas-vindas ao programa',
   votacao_pendente: 'Voto de competências pendente',
-  avaliacao_pendente: 'Avaliação não iniciada',
+  avaliacao_pendente: 'Mapeamento comportamental pendente',
   avaliacao_competencias: 'Avaliação de competências pendente',
   avaliacao_parcial: 'Avaliação em andamento',
   resultado_perfil: 'Perfil comportamental disponível',
@@ -530,7 +529,6 @@ const TEMPLATES_CADENCIA_MANUAL = new Set([
 ]);
 
 const TEMPLATES_AVALIACAO_MANUAL = new Set([
-  'avaliacao_pendente',
   'avaliacao_competencias',
   'avaliacao_parcial',
 ]);

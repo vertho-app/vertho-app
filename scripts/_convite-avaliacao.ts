@@ -1,8 +1,7 @@
 /* eslint-disable */
 /**
  * Convite ao ASSESSMENT DE COMPETÊNCIAS por WhatsApp (`avaliacao_competencias`,
- * UTILITY) — ou `avaliacao_pendente` por `--template=`, para quem não deu passo
- * nenhum.
+ * UTILITY). Convites ao mapeamento comportamental usam a tela de Envios.
  *
  * ALVO: quem já fez o mapeamento comportamental e **nunca iniciou** a avaliação
  * — o degrau exato onde a jornada para. Medido em 19/08/2026 nos professores de
@@ -41,10 +40,8 @@ const SLUG = arg('empresa');
 const CARGO = arg('cargo');
 /**
  * Default = `avaliacao_competencias`, o template escrito para quem JÁ fez o
- * mapeamento comportamental — que é o alvo deste script. O `avaliacao_pendente`
- * segue disponível por `--template=` e serve ao outro estado: quem não deu passo
- * nenhum (nem DISC, nem cenário), para quem "avaliação de perfil" é a descrição
- * correta.
+ * mapeamento comportamental — que é o alvo deste script. `avaliacao_pendente`
+ * tem outro público e aponta para o mapeamento; o envio dele fica na tela de Envios.
  */
 const TEMPLATE = arg('template') || 'avaliacao_competencias';
 const LIMITE = Number(arg('limite')) || maxPorDisparo();
@@ -60,6 +57,9 @@ function primeiroNome(completo: string | null): string {
 }
 
 async function main() {
+  if (TEMPLATE !== 'avaliacao_competencias') {
+    throw new Error('Este script envia apenas avaliacao_competencias. Para convidar ao mapeamento comportamental, use a tela de Envios.');
+  }
   if (!SLUG) throw new Error('--empresa=<slug> é obrigatório (disparo em massa não roda sem alvo explícito)');
   if (!cloudApiConfigurada()) throw new Error('Cloud API não configurada no .env.local');
 
