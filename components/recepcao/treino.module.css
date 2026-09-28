@@ -241,6 +241,7 @@
 .confirmar { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; flex-basis: 100%; padding: .9rem; border: 1px solid #fbbf2440; border-radius: .65rem; background: #fbbf240a; font-size: .85rem; line-height: 1.6; }
 .confirmar p { color: #fde68a; }
 .notice > p { margin: 0 0 .6rem; }
+.historyMore { margin-top: .75rem; }
 /* Mantém a conversa em primeiro lugar no celular e a ficha a um toque. */
 @media (max-width: 800px) {
   .chatPrimeiro .conversa { order: -1; }

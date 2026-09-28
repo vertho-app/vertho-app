@@ -40,12 +40,83 @@ const publico = (row: any) => ({
   processando: !!row.lock_until && Date.parse(row.lock_until) > Date.now(),
 });
 
-export async function consultar(c: Ctx, id?: string | null) {
-  const { data: rows, error } = await owned(c)
+/** Página do histórico de quem treina; a sugestão de degrau e a evolução leem a primeira. */
+export const PAGINA_HISTORICO = 20;
+// Sessão aberta e abandonada sem resposta, marcada ao iniciar outra (27/09/2026): fora da tela.
+const semDescartadas = (c: Ctx) => owned(c).neq('estado->>status', RECEPCAO_SESSAO.DESCARTADA);
+const itemDoHistorico = (r: any) => ({
+  id: r.id,
+  data: r.created_at,
+  status: r.estado.status,
+  titulo: r.estado.cenario.publico.titulo,
+  nivel: r.estado.cenario.publico.nivel ?? null,
+  nota: notaAtendimento(r.estado.relatorio),
+  escalaOriginal: r.estado.relatorio && !r.estado.relatorio.escalaNota ? '0-100' : null,
+  situacao: r.estado.relatorio?.situacao ?? null,
+});
+
+/** Página `pagina` (a partir de 0) do histórico, mais recente primeiro. */
+export async function consultarHistorico(c: Ctx, pagina: number) {
+  const de = pagina * PAGINA_HISTORICO;
+  // Uma linha a mais só para saber se há outra página.
+  const { data, error } = await semDescartadas(c)
     .order('created_at', { ascending: false })
-    .limit(20);
+    .order('id')
+    .range(de, de + PAGINA_HISTORICO);
   banco(error);
-  let row = rows?.[0] ?? null;
+  return {
+    historico: (data || []).slice(0, PAGINA_HISTORICO).map(itemDoHistorico),
+    temMais: (data || []).length > PAGINA_HISTORICO,
+  };
+}
+
+/**
+ * Ao iniciar outro atendimento, a sessão aberta do mesmo dono que ficou SEM
+ * resposta é marcada como descartada (27/09/2026). Marcar, e não apagar: o
+ * serviço não tem DELETE em `recepcao_sessoes` (mig 240) e `recepcao_tentativas`
+ * aponta para a sessão sem cascata (a voz da fala de abertura gera tentativa com
+ * custo). A escrita confere de novo, no banco, que continua sem resposta e sem
+ * lease: uma resposta que chegou no meio vence o descarte. Falha aqui não
+ * impede o início; a sessão vazia só fica aberta (e já não conta como treino).
+ */
+async function descartarVazias(c: Ctx, manter: string) {
+  const { data, error } = await owned(c)
+    .eq('estado->>status', RECEPCAO_SESSAO.EM_ANDAMENTO)
+    .eq('estado->>respostas', '0')
+    .neq('id', manter)
+    .limit(20);
+  if (error) {
+    console.error('[recepcao] sessões vazias não foram consultadas para descarte');
+    return;
+  }
+  for (const r of data || []) {
+    const revisao = r.revisao + 1;
+    const { error: falha } = await c.sb
+      .from('recepcao_sessoes')
+      .update({
+        estado: { ...r.estado, status: RECEPCAO_SESSAO.DESCARTADA, motivoFim: 'descartada_sem_resposta', revisao },
+        revisao,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('empresa_id', c.empresaId)
+      .eq('owner_key', c.ownerKey)
+      .eq('id', r.id)
+      .eq('revisao', r.revisao)
+      .eq('estado->>respostas', '0')
+      .is('lock_token', null);
+    if (falha) console.error('[recepcao] sessão vazia não foi descartada', { sessaoId: r.id });
+  }
+}
+
+export async function consultar(c: Ctx, id?: string | null) {
+  // A página 0 do histórico (+1 para saber se há mais); a sugestão e a evolução leem as 20.
+  const { data: lidas, error } = await semDescartadas(c)
+    .order('created_at', { ascending: false })
+    .order('id')
+    .limit(PAGINA_HISTORICO + 1);
+  banco(error);
+  const rows = (lidas || []).slice(0, PAGINA_HISTORICO);
+  let row = rows[0] ?? null;
   if (id) {
     const result = await owned(c).eq('id', id).maybeSingle();
     banco(result.error);
@@ -85,6 +156,15 @@ export async function consultar(c: Ctx, id?: string | null) {
           nomes: Object.fromEntries(competencias.map((x) => [x.codigo, x.nome])),
         }
       : null;
+  // Atendimentos abertos COM resposta ficam sempre localizáveis para retomar, mesmo
+  // fora da primeira página (antes sumiam depois de 20 inícios).
+  const abertas = await semDescartadas(c)
+    .in('estado->>status', [RECEPCAO_SESSAO.EM_ANDAMENTO, RECEPCAO_SESSAO.AGUARDANDO_AVALIACAO])
+    .neq('estado->>respostas', '0')
+    .order('created_at', { ascending: false })
+    .order('id')
+    .limit(50);
+  banco(abertas.error);
   return {
     empresaId: c.empresaId,
     empresaNome: c.empresaNome,
@@ -104,17 +184,9 @@ export async function consultar(c: Ctx, id?: string | null) {
       (await can(c.auth, 'journey.team.view')) &&
       (await can(c.auth, 'reports.individual.view')),
     podeCenarios: await can(c.auth, 'content.manage'),
-    historico: (rows || []).map((r) => ({
-      id: r.id,
-      data: r.created_at,
-      status: r.estado.status,
-      titulo: r.estado.cenario.publico.titulo,
-      nivel: r.estado.cenario.publico.nivel ?? null,
-      nota: notaAtendimento(r.estado.relatorio),
-      escalaOriginal:
-        r.estado.relatorio && !r.estado.relatorio.escalaNota ? '0-100' : null,
-      situacao: r.estado.relatorio?.situacao ?? null,
-    })),
+    historico: rows.map(itemDoHistorico),
+    historicoTemMais: (lidas || []).length > PAGINA_HISTORICO,
+    abertos: (abertas.data || []).map(itemDoHistorico),
   };
 }
 
@@ -167,6 +239,7 @@ export async function executar(c: Ctx, cmd: z.infer<typeof comandoSchema>) {
         409,
         'Não foi possível iniciar. Tente novamente com um novo treino.',
       );
+    await descartarVazias(c, estado.id);
     return { sessao: publico(r.data) };
   }
   const { data: row, error } = await owned(c)

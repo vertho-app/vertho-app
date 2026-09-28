@@ -6,7 +6,7 @@ import { type ContextoRecepcao, RecepcaoError } from './access';
 import { visaoPublica } from './core';
 import { notaAtendimento } from './matriz-avaliacao';
 import { competenciasAtendimento } from './matriz';
-import { visaoPorCompetencia, type PessoaAtendimento } from './painel';
+import { respondeu, visaoPorCompetencia, type PessoaAtendimento } from './painel';
 import { acessoDoCargo, idDoCargo, mapaDeCargos } from '@/lib/simuladores/acesso-cargo';
 import { PAPEIS_QUE_SO_ACOMPANHAM } from '@/lib/simuladores/papel';
 import { isInternalEmail } from '@/lib/internal-emails';
@@ -106,7 +106,10 @@ export async function sessaoDaEquipe(c: ContextoRecepcao, id: string) {
     throw new RecepcaoError(404, 'Atendimento não encontrado na sua equipe.');
   return data;
 }
-export function resumirEquipe(rows: any[], pessoas: any[]) {
+export function resumirEquipe(todasAsSessoes: any[], pessoas: any[]) {
+  // Só conta como treino quem respondeu ao menos uma vez (27/09/2026, `respondeu`):
+  // sessão aberta e abandonada sem resposta não é treino iniciado nem atendimento a acompanhar.
+  const rows = todasAsSessoes.filter(respondeu);
   const concluidas = rows.filter(
     (r) => r.estado.status === RECEPCAO_SESSAO.CONCLUIDA,
   );

@@ -121,6 +121,17 @@ if (params.has('ativo') || params.has('concluido')) {
   responder(sessao, FALA);
   if (params.has('concluido')) avaliar(sessao);
 }
+// `?historicoLongo=1`: 22 atendimentos; o mais antigo está aberto com resposta (fora da 1ª página).
+const historicoLongo = Array.from({ length: 22 }, (_, i) => ({
+  id: `50000000-0000-4000-8000-0000000000${String(10 + i)}`,
+  data: new Date(Date.UTC(2026, 8, 25, 12) - i * 86400000).toISOString(),
+  status: i === 21 ? 'em_andamento' : 'concluida',
+  titulo: i === 21 ? 'Caso antigo em aberto' : `Caso concluído ${i + 1}`,
+  nivel: 'introducao',
+  nota: i === 21 ? null : 2.5,
+  escalaOriginal: null,
+  situacao: i === 21 ? null : 'avaliado',
+}));
 const dados = () => ({
   empresaId: EMPRESA,
   empresaNome: 'Empresa de demonstração',
@@ -146,7 +157,11 @@ const dados = () => ({
         nomes: Object.fromEntries(competenciasAtendimento(segmento).map((c) => [c.codigo, c.nome])),
       }
     : null,
-  historico: sessao
+  historicoTemMais: params.has('historicoLongo'),
+  abertos: params.has('historicoLongo') ? historicoLongo.filter((h) => h.status !== 'concluida') : [],
+  historico: params.has('historicoLongo')
+    ? historicoLongo.slice(0, 20)
+    : sessao
     ? [
         {
           id: sessao.id,
@@ -236,6 +251,10 @@ w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
     if (q.has('sessaoId'))
       return Response.json({ sessao: visaoPublica(sessoesEquipe.find((r) => r.id === q.get('sessaoId'))!.estado) });
     return Response.json(painel());
+  }
+  if ((!init.method || init.method === 'GET') && url.includes('pagina=')) {
+    const pagina = Number(new URL(url, location.origin).searchParams.get('pagina'));
+    return Response.json({ historico: historicoLongo.slice(pagina * 20, pagina * 20 + 20), temMais: historicoLongo.length > (pagina + 1) * 20 });
   }
   if (!init.method || init.method === 'GET') {
     w.__gets++;

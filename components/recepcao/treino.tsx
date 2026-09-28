@@ -85,6 +85,11 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   const [confirmarFim, setConfirmarFim] = useState(false);
   // Trocar de atendimento no meio de uma conversa com respostas pede confirmação.
   const [confirmarOutro, setConfirmarOutro] = useState(false);
+  // Páginas seguintes do histórico, carregadas sob demanda (A-5).
+  const [maisHistorico, setMaisHistorico] = useState<any[]>([]),
+    [paginaHistorico, setPaginaHistorico] = useState(0),
+    [temMaisHistorico, setTemMaisHistorico] = useState<boolean | null>(null),
+    [carregandoHistorico, setCarregandoHistorico] = useState(false);
   // Espera automática do servidor (A-3): desde quando, se é o relatório, e se o erro é de rede.
   const [esperaDesde, setEsperaDesde] = useState<number | null>(null),
     [esperaRelatorio, setEsperaRelatorio] = useState(false),
@@ -239,6 +244,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     setEsperaDesde(null);
     setEsperaRelatorio(false);
     setErroRede(false);
+    zerarHistorico();
     setAba('treino');
     setCenarioId('');
     if (admin && !empresaId) return;
@@ -303,6 +309,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
         createId.current = null;
         setInput('');
         pending.current = null;
+        // A primeira página ganhou um item: as páginas seguintes já lidas ficaram deslocadas.
+        zerarHistorico();
       }
       // Atualiza também a lista; falha nesta leitura não transforma um envio salvo em falha.
       await carregar(empresaId, d.sessao.id, ticket).catch(() => {});
@@ -350,6 +358,33 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     } finally {
       running.current = false;
       setOcupado('');
+    }
+  }
+  function zerarHistorico() {
+    setMaisHistorico([]);
+    setPaginaHistorico(0);
+    setTemMaisHistorico(null);
+  }
+  async function verMaisHistorico() {
+    if (carregandoHistorico) return;
+    const ticket = generation.current;
+    const pagina = paginaHistorico + 1;
+    setCarregandoHistorico(true);
+    try {
+      const q = new URLSearchParams({ pagina: String(pagina) });
+      if (admin && empresaId) q.set('empresaId', empresaId);
+      const d = await api(`/api/recepcao?${q}`);
+      if (ticket !== generation.current) return;
+      setMaisHistorico((atual) => [...atual, ...(d.historico || [])]);
+      setPaginaHistorico(pagina);
+      setTemMaisHistorico(!!d.temMais);
+    } catch (e: any) {
+      if (ticket === generation.current) {
+        setErroRede(e instanceof ErroDeRede);
+        setErro(e.message);
+      }
+    } finally {
+      setCarregandoHistorico(false);
     }
   }
   async function abrirHistorico(id: string) {
@@ -1131,41 +1166,74 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                 </ul>
               </section>
             )}
-            {dados.historico?.length > 0 && (
-              <section className={styles.history}>
-                <h2>{t('history')}</h2>
-                <div>
-                  {dados.historico.map((item: any) => (
-                    <button
-                      key={item.id}
-                      disabled={travado}
-                      onClick={() => abrirHistorico(item.id)}
-                      aria-current={sessao?.id === item.id ? 'true' : undefined}
-                    >
-                      <span>{item.titulo}</span>
-                      <span>{new Date(item.data).toLocaleString(locale)}</span>
-                      <strong>
-                        {item.status === RECEPCAO_SESSAO.CONCLUIDA
-                          ? [
-                              item.nota === null
-                                ? t('noScore')
-                                : t('historyScore', {
-                                    score: numero(item.nota),
-                                  }),
-                              item.escalaOriginal ? t('historyLegacy') : null,
-                              item.situacao === 'atencao_critica'
-                                ? t('historyAttention')
-                                : null,
-                            ]
-                              .filter(Boolean)
-                              .join(' · ')
-                          : t('resume')}
-                      </strong>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
+            {(() => {
+              // Histórico em páginas de 20 (27/09/2026): a primeira vem com a tela, as
+              // outras em "Ver atendimentos anteriores". Os atendimentos abertos COM
+              // resposta que não estão nas páginas lidas ficam num bloco próprio, para
+              // retomar: antes sumiam da tela depois de 20 inícios.
+              const vistos: any[] = [];
+              for (const item of [...(dados.historico || []), ...maisHistorico])
+                if (!vistos.some((v) => v.id === item.id)) vistos.push(item);
+              const abertosFora = (dados.abertos || []).filter(
+                (a: any) => !vistos.some((v) => v.id === a.id),
+              );
+              const temMais = temMaisHistorico ?? !!dados.historicoTemMais;
+              const botao = (item: any) => (
+                <button
+                  key={item.id}
+                  disabled={travado}
+                  onClick={() => abrirHistorico(item.id)}
+                  aria-current={sessao?.id === item.id ? 'true' : undefined}
+                >
+                  <span>{item.titulo}</span>
+                  <span>{new Date(item.data).toLocaleString(locale)}</span>
+                  <strong>
+                    {item.status === RECEPCAO_SESSAO.CONCLUIDA
+                      ? [
+                          item.nota === null
+                            ? t('noScore')
+                            : t('historyScore', {
+                                score: numero(item.nota),
+                              }),
+                          item.escalaOriginal ? t('historyLegacy') : null,
+                          item.situacao === 'atencao_critica'
+                            ? t('historyAttention')
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')
+                      : t('resume')}
+                  </strong>
+                </button>
+              );
+              return (
+                <>
+                  {abertosFora.length > 0 && (
+                    <section className={styles.history} aria-labelledby="atendimento-abertos">
+                      <h2 id="atendimento-abertos">{t('openSessions')}</h2>
+                      <div>{abertosFora.map(botao)}</div>
+                    </section>
+                  )}
+                  {vistos.length > 0 && (
+                    <section className={styles.history} aria-labelledby="atendimento-historico">
+                      <h2 id="atendimento-historico">{t('history')}</h2>
+                      <div>{vistos.map(botao)}</div>
+                    </section>
+                  )}
+                  {temMais && (
+                    <div className={styles.historyMore}>
+                      <button
+                        className={styles.secondary}
+                        disabled={travado || carregandoHistorico}
+                        onClick={verMaisHistorico}
+                      >
+                        {carregandoHistorico ? t('loadingMore') : t('historyMore')}
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </>
         )}
       </div>

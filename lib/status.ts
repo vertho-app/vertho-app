@@ -222,6 +222,13 @@ export const RECEPCAO_SESSAO = {
   AGUARDANDO_AVALIACAO: 'aguardando_avaliacao',
   EM_ANDAMENTO: 'em_andamento',
   CONCLUIDA: 'concluida',
+  /**
+   * Aberta e abandonada SEM nenhuma resposta, marcada quando a mesma pessoa
+   * inicia outro atendimento (27/09/2026). Marcar, e não apagar: o serviço não
+   * tem DELETE na tabela, e `recepcao_tentativas` (a voz da fala de abertura,
+   * com custo) aponta para a sessão sem cascata.
+   */
+  DESCARTADA: 'descartada',
 } as const;
 export type RecepcaoSessaoStatus = (typeof RECEPCAO_SESSAO)[keyof typeof RECEPCAO_SESSAO];
 

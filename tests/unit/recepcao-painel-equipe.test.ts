@@ -8,7 +8,7 @@ import {
 let sb: SupabaseMock;
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/lib/permissions', () => ({ can: async () => true }));
-import { populacaoAtendimento } from '@/lib/recepcao/equipe';
+import { populacaoAtendimento, resumirEquipe } from '@/lib/recepcao/equipe';
 import { visaoPorCompetencia } from '@/lib/recepcao/painel';
 
 /**
@@ -28,11 +28,13 @@ const sessao = (
   data: string,
   notas: Record<string, number | null> | null,
   status = 'concluida',
+  respostas = 2,
 ) => ({
   colaborador_id: colaborador,
   created_at: data,
   estado: {
     status,
+    respostas,
     relatorio: notas
       ? {
           escalaNota: '1-4',
@@ -78,6 +80,35 @@ describe('visaoPorCompetencia', () => {
     expect(
       v.competencias.find((c) => c.codigo === 'acolhimento')!.niveis,
     ).toEqual([0, 0, 1, 0]);
+  });
+
+  it('sessão aberta sem nenhuma resposta, ou descartada, não é treino (27/09/2026)', () => {
+    // Medido 27/09: 2 das 4 sessões humanas desde 19/09 tinham 0 mensagens e seguiam
+    // abertas, e quem só abriu um caso saía da lista "Sem treino no período".
+    const v = visaoPorCompetencia(
+      [
+        sessao('bia', '2026-09-12', null, 'em_andamento', 0),
+        sessao('caio', '2026-09-13', null, 'descartada', 0),
+        sessao('ana', '2026-09-14', null, 'em_andamento', 1),
+      ],
+      pessoas,
+      CODIGOS,
+    );
+    expect(v.naoTreinaram.map((p) => p.id)).toEqual(['bia', 'caio']);
+    expect(v.pessoas.find((p) => p.id === 'bia')).toMatchObject({ iniciadas: 0, ultimo: null });
+    expect(v.pessoas.find((p) => p.id === 'ana')).toMatchObject({ iniciadas: 1, concluidas: 0 });
+  });
+
+  it('resumo da equipe: "N de M treinos" e a lista a acompanhar sem as sessões vazias', () => {
+    const vazia = { id: 'v', ...sessao('bia', '2026-09-12', null, 'em_andamento', 0) };
+    const aberta = { id: 'a', ...sessao('ana', '2026-09-14', null, 'em_andamento', 1) };
+    const r = resumirEquipe(
+      [vazia, aberta].map((x) => ({ ...x, estado: { ...x.estado, cenario: { id: 'c', publico: { titulo: 'Caso' } } } })),
+      [{ id: 'ana', nome_completo: 'Ana' }, { id: 'bia', nome_completo: 'Bia' }],
+    );
+    expect(r.iniciadas).toBe(1);
+    expect(r.sessoes.map((s: any) => s.id)).toEqual(['a']);
+    expect(r.pessoas.find((p: any) => p.id === 'bia')).toMatchObject({ iniciadas: 0 });
   });
 
   it('relatório sem matriz (escala antiga) conta como treino, mas não dá nível', () => {

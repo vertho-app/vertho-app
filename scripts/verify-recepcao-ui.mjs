@@ -196,6 +196,20 @@ try {
     checks++;
   }
 
+  // A-5 (27/09/2026): histórico em páginas de 20; o atendimento aberto com resposta que
+  // ficou fora da primeira página aparece em "Atendimentos em aberto para retomar".
+  await page.goto(`${origin}/?historicoLongo=1`);
+  const abertos = page.getByRole('region', { name: 'Atendimentos em aberto para retomar', exact: true });
+  await abertos.getByText('Caso antigo em aberto').waitFor();
+  const historico = page.getByRole('region', { name: 'Seus atendimentos', exact: true });
+  await expect(historico.getByRole('button')).toHaveCount(20);
+  await page.getByRole('button', { name: 'Ver atendimentos anteriores', exact: true }).click();
+  await expect(historico.getByRole('button')).toHaveCount(22);
+  await historico.getByText('Caso antigo em aberto').waitFor();
+  assert.equal(await abertos.count(), 0, 'o bloco de abertos some quando o atendimento entra na lista');
+  assert.equal(await page.getByRole('button', { name: 'Ver atendimentos anteriores', exact: true }).count(), 0, 'sem mais páginas');
+  checks++;
+
   // Outro segmento: o cabeçalho acompanha o caso.
   await page.goto(`${origin}/?segmento=atendimento_loja`);
   await page.getByText('Simulador de atendimento · Atendimento em loja', { exact: true }).waitFor();
