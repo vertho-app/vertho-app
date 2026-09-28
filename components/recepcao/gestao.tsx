@@ -16,17 +16,6 @@ import EquipeVisao from './equipe-visao';
 // Desfechos com rótulo traduzido; um desfecho personalizado do caso aparece como está.
 const DESFECHOS_CONHECIDOS = ['remarcado', 'encaminhado', 'orientado', 'nao_resolvido', 'inconclusivo'];
 
-// Ordem das colunas do painel: escala nova primeiro, depois a legada; só as presentes no grupo aparecem.
-const ORDEM_CLASSIFICACOES = [
-  'n1',
-  'n2',
-  'n3',
-  'n4',
-  'adequado',
-  'parcial',
-  'insuficiente',
-  'nao_observavel',
-];
 // Próxima versão sugerida para o catálogo: 3.2 → 3.3; outro formato ganha sufixo .1.
 const proximaVersao = (v: string) => {
   const m = /^(\d+)\.(\d+)$/.exec(v);

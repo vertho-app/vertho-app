@@ -22,10 +22,26 @@ import { competenciasAtendimento } from './matriz';
 import { evolucaoPorCompetencia } from '@/lib/simuladores/evolucao';
 
 type Ctx = Exclude<Awaited<ReturnType<typeof contextoRecepcao>>, Response>;
-const owned = (c: Ctx) =>
+/**
+ * Projeções (27/09/2026, A-8). `select('*')` trazia o `estado` inteiro (46,6 KB em
+ * média, máx. 57,8 KB, medido nas sessões desde 18/09) de 20 sessões a cada GET, e a
+ * tela faz um GET depois de cada envio: cerca de 1 MB por turno. E `chamadas`, que
+ * cresce a cada chamada de IA, nunca é lida aqui.
+ *  - SESSAO: a sessão que vai para a tela ou que o serviço altera (uma linha).
+ *  - RESUMO: o que a lista usa (histórico, sugestão de degrau e evolução).
+ */
+export const COLUNAS_SESSAO = 'id,created_at,revisao,lock_until,estado';
+export const COLUNAS_RESUMO =
+  'id,created_at,status:estado->>status,titulo:estado->cenario->publico->>titulo' +
+  ',nivel:estado->cenario->publico->>nivel,rel_versao:estado->relatorio->>versaoCenario' +
+  ',nota:estado->relatorio->nota,escala:estado->relatorio->>escalaNota' +
+  ',situacao:estado->relatorio->>situacao,competencias:estado->relatorio->competencias';
+const owned = (c: Ctx, colunas: string = COLUNAS_SESSAO) =>
   c.sb
     .from('recepcao_sessoes')
-    .select('*')
+    // A projeção é montada em runtime: o parser de tipos do supabase-js só lê literal e
+    // devolveria `GenericStringError`; a linha segue sem tipo, como com `*`.
+    .select(colunas as '*')
     .eq('empresa_id', c.empresaId)
     .eq('owner_key', c.ownerKey);
 function banco(error: any) {
@@ -43,16 +59,19 @@ const publico = (row: any) => ({
 /** Página do histórico de quem treina; a sugestão de degrau e a evolução leem a primeira. */
 export const PAGINA_HISTORICO = 20;
 // Sessão aberta e abandonada sem resposta, marcada ao iniciar outra (27/09/2026): fora da tela.
-const semDescartadas = (c: Ctx) => owned(c).neq('estado->>status', RECEPCAO_SESSAO.DESCARTADA);
+const semDescartadas = (c: Ctx) =>
+  owned(c, COLUNAS_RESUMO).neq('estado->>status', RECEPCAO_SESSAO.DESCARTADA);
+/** Relatório presente no resumo: `versaoCenario` é gravado em todo relatório. */
+const temRelatorio = (r: any) => r.rel_versao != null;
 const itemDoHistorico = (r: any) => ({
   id: r.id,
   data: r.created_at,
-  status: r.estado.status,
-  titulo: r.estado.cenario.publico.titulo,
-  nivel: r.estado.cenario.publico.nivel ?? null,
-  nota: notaAtendimento(r.estado.relatorio),
-  escalaOriginal: r.estado.relatorio && !r.estado.relatorio.escalaNota ? '0-100' : null,
-  situacao: r.estado.relatorio?.situacao ?? null,
+  status: r.status,
+  titulo: r.titulo,
+  nivel: r.nivel ?? null,
+  nota: notaAtendimento(temRelatorio(r) ? { nota: r.nota ?? null, escalaNota: r.escala ?? undefined } : null),
+  escalaOriginal: temRelatorio(r) && !r.escala ? '0-100' : null,
+  situacao: r.situacao ?? null,
 });
 
 /** Página `pagina` (a partir de 0) do histórico, mais recente primeiro. */
@@ -115,38 +134,40 @@ export async function consultar(c: Ctx, id?: string | null) {
     .order('id')
     .limit(PAGINA_HISTORICO + 1);
   banco(error);
-  const rows = (lidas || []).slice(0, PAGINA_HISTORICO);
-  let row = rows[0] ?? null;
-  if (id) {
-    const result = await owned(c).eq('id', id).maybeSingle();
+  const rows: any[] = (lidas || []).slice(0, PAGINA_HISTORICO);
+  // A sessão na tela vem inteira, numa leitura de UMA linha: a do pedido ou a mais recente.
+  const alvo = id || rows[0]?.id;
+  let row = null;
+  if (alvo) {
+    const result = await owned(c).eq('id', alvo).maybeSingle();
     banco(result.error);
-    if (!result.data) throw new RecepcaoError(404, 'Treino não encontrado.');
+    if (id && !result.data) throw new RecepcaoError(404, 'Treino não encontrado.');
     row = result.data;
   }
   const cenarios = await catalogo(c);
   // A sugestão lê os 20 treinos mais recentes (mesma janela do histórico exibido).
   const nivelSugerido = sugerirNivel(
-    (rows || [])
-      .filter((r) => r.estado.status === RECEPCAO_SESSAO.CONCLUIDA)
+    rows
+      .filter((r) => r.status === RECEPCAO_SESSAO.CONCLUIDA)
       .map((r) => ({
-        nivel: r.estado.cenario.publico.nivel ?? null,
-        nota: r.estado.relatorio?.nota ?? null,
-        escalaNota: r.estado.relatorio?.escalaNota,
+        nivel: r.nivel ?? null,
+        nota: r.nota ?? null,
+        escalaNota: r.escala ?? undefined,
       })),
   );
   // Evolução por competência de quem treina (18/09/2026): maior nível alcançado, só avanço
   // (régua comum, lib/simuladores/evolucao.ts), nos treinos recentes com matriz. A partir de 2.
   const competencias = competenciasAtendimento(c.dominio);
-  const comMatriz = (rows || [])
+  const comMatriz = rows
     .filter(
       (r) =>
-        r.estado.status === RECEPCAO_SESSAO.CONCLUIDA &&
-        r.estado.relatorio?.escalaNota === '1-4' &&
-        r.estado.relatorio.competencias?.length,
+        r.status === RECEPCAO_SESSAO.CONCLUIDA &&
+        r.escala === '1-4' &&
+        r.competencias?.length,
     )
     .map((r) => ({
       competencias: Object.fromEntries(
-        r.estado.relatorio.competencias.map((x: { codigo: string; nota: number | null }) => [x.codigo, x.nota]),
+        r.competencias.map((x: { codigo: string; nota: number | null }) => [x.codigo, x.nota]),
       ),
     }));
   const evolucao =
@@ -207,15 +228,16 @@ export async function executar(c: Ctx, cmd: z.infer<typeof comandoSchema>) {
       return { sessao: publico(existente.data) };
     }
     const escolhido = await cenarioPublicado(c, cmd.cenarioId);
-    const anterior = await owned(c)
+    // Só o caso e a variante do treino anterior (a repetição imediata alterna a variante).
+    const anterior = await owned(c, 'id,caso:estado->cenario->>id,variante:estado->variante')
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
     banco(anterior.error);
     const nVariantes = 1 + (escolhido.conteudo.variantes?.length || 0);
     const variante =
-      anterior.data?.estado?.cenario?.id === escolhido.conteudo.id
-        ? ((anterior.data.estado.variante || 0) + 1) % nVariantes
+      anterior.data?.caso === escolhido.conteudo.id
+        ? ((Number(anterior.data.variante) || 0) + 1) % nVariantes
         : undefined;
     const estado = abrirSessao(escolhido.conteudo, variante);
     estado.id = cmd.requestId;

@@ -31,15 +31,26 @@ const PESSOAS = Array.from({ length: 300 }, (_, i) => ({
   cargo: 'Recepção',
   role: 'colaborador',
 }));
-/** Uma sessão da pessoa 250: só aparece se o ÚLTIMO lote também for consultado. */
+/**
+ * Uma sessão da pessoa 250: só aparece se o ÚLTIMO lote também for consultado. Na forma
+ * que o PostgREST devolve para a projeção do painel (`COLUNAS_PAINEL`).
+ */
 function sessaoDa(pessoa: (typeof PESSOAS)[number]) {
   const estado = abrirSessao(aplicarMatrizAtendimento(structuredClone(catalogoLimites[0])), 0);
-  estado.respostas = 1;
-  return { id: estado.id, empresa_id: EMPRESA, colaborador_id: pessoa.id, owner_key: `colab:${pessoa.id}`, created_at: '2026-09-26T12:00:00Z', estado };
+  return {
+    id: estado.id,
+    colaborador_id: pessoa.id,
+    created_at: '2026-09-26T12:00:00Z',
+    status: estado.status,
+    respostas: 1,
+    caso: estado.cenario.id,
+    titulo: estado.cenario.publico.titulo,
+    rel_vc: null,
+  };
 }
 
 describe('A-4: painel da equipe com 300 pessoas', () => {
-  it('consulta as sessões em lotes de 100, sem URL acima de ~4,5 mil caracteres, e junta todos os lotes', async () => {
+  it('consulta as sessões em lotes de 100, sem URL acima de 6 mil caracteres, e junta todos os lotes', async () => {
     const urls: URL[] = [];
     const alvo = sessaoDa(PESSOAS[250]);
     const sb = createClient('https://abcdefghijklmnopqrst.supabase.co', 'chave-ficticia', {
@@ -70,7 +81,9 @@ describe('A-4: painel da equipe com 300 pessoas', () => {
     const maior = Math.max(...urls.map((u) => u.search.length));
     console.log('[A-4] leituras de sessões:', sessoes.length, '· maior query string:', maior);
     expect(sessoes).toHaveLength(3);
-    expect(maior).toBeLessThan(4_500);
+    // 100 ids dão ~4,1 mil caracteres; a projeção das colunas do painel (A-8) soma ~550.
+    // O teto fica na metade da recusa do gateway (~11 KB).
+    expect(maior).toBeLessThan(6_000);
     // Todos os 300 ids foram consultados, cada um uma vez.
     const consultados = sessoes.flatMap((u) => (u.searchParams.get('colaborador_id') || '').replace(/^in\.\(|\)$/g, '').split(','));
     expect(new Set(consultados).size).toBe(300);

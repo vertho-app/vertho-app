@@ -92,7 +92,7 @@ export async function sessaoDaEquipe(c: ContextoRecepcao, id: string) {
   const pessoas = await pessoasDaEquipe(c);
   const { data, error } = await c.sb
     .from('recepcao_sessoes')
-    .select('*')
+    .select('id,colaborador_id,estado')
     .eq('empresa_id', c.empresaId)
     .eq('id', id)
     .maybeSingle();
@@ -105,6 +105,44 @@ export async function sessaoDaEquipe(c: ContextoRecepcao, id: string) {
   )
     throw new RecepcaoError(404, 'Atendimento não encontrado na sua equipe.');
   return data;
+}
+/**
+ * Colunas do painel da equipe (27/09/2026, A-8): só os caminhos que o resumo e a visão
+ * por competência leem. `select('*')` trazia o `estado` inteiro (46,6 KB em média) em
+ * páginas de 500 linhas, cerca de 23 MB por página.
+ */
+export const COLUNAS_PAINEL =
+  'id,colaborador_id,created_at,status:estado->>status,respostas:estado->respostas' +
+  ',caso:estado->cenario->>id,titulo:estado->cenario->publico->>titulo' +
+  ',rel_vc:estado->relatorio->>versaoCenario,rel_vr:estado->relatorio->>versaoRubrica' +
+  ',rel_cobertura:estado->relatorio->coberturaPercentual,rel_nota:estado->relatorio->nota' +
+  ',rel_escala:estado->relatorio->>escalaNota,rel_ocorrencias:estado->relatorio->ocorrencias' +
+  ',rel_competencias:estado->relatorio->competencias';
+/** A linha projetada na forma que `resumirEquipe` e `visaoPorCompetencia` leem. */
+export function sessaoDoPainel(r: any) {
+  return {
+    id: r.id,
+    colaborador_id: r.colaborador_id,
+    created_at: r.created_at,
+    estado: {
+      status: r.status,
+      respostas: r.respostas ?? 0,
+      cenario: { id: r.caso, publico: { titulo: r.titulo } },
+      // `versaoCenario` é gravado em todo relatório: sem ele, não há relatório.
+      relatorio:
+        r.rel_vc == null
+          ? null
+          : {
+              versaoCenario: r.rel_vc,
+              versaoRubrica: r.rel_vr,
+              coberturaPercentual: r.rel_cobertura,
+              nota: r.rel_nota ?? null,
+              ...(r.rel_escala ? { escalaNota: r.rel_escala } : {}),
+              ocorrencias: r.rel_ocorrencias || [],
+              ...(r.rel_competencias ? { competencias: r.rel_competencias } : {}),
+            },
+    },
+  };
 }
 export function resumirEquipe(todasAsSessoes: any[], pessoas: any[]) {
   // Só conta como treino quem respondeu ao menos uma vez (27/09/2026, `respondeu`):
@@ -129,18 +167,13 @@ export function resumirEquipe(todasAsSessoes: any[], pessoas: any[]) {
       cobertura: rel.coberturaPercentual,
       sessoes: 0,
       notas: [],
-      dimensoes: {},
       criticas: 0,
     };
     g.sessoes++;
     if (rel.nota !== null) g.notas.push(notaAtendimento(rel));
-    g.criticas += rel.ocorrencias.length ? 1 : 0;
-    for (const d of rel.dimensoes) {
-      // Contadores pela classificação gravada: um grupo (mesma rubricaVersao) é todo n1–n4 ou todo legado.
-      const eixo = g.dimensoes[d.id] || { nome: d.nome || d.id };
-      eixo[d.classificacao] = (eixo[d.classificacao] || 0) + 1;
-      g.dimensoes[d.id] = eixo;
-    }
+    g.criticas += rel.ocorrencias?.length ? 1 : 0;
+    // Os contadores por classificação de cada dimensão (`g.dimensoes`) saíram em 27/09/2026:
+    // nenhuma tela os lia, e eram eles que obrigavam a ler as 30 justificativas de cada relatório.
     grupos.set(key, g);
   }
   return {
@@ -182,7 +215,7 @@ export async function painelEquipe(
   const base = () =>
     c.sb
       .from('recepcao_sessoes')
-      .select('*')
+      .select(COLUNAS_PAINEL)
       .eq('empresa_id', c.empresaId)
       .gte('created_at', desde)
       .order('created_at', { ascending: false })
@@ -210,6 +243,7 @@ export async function painelEquipe(
         String(a.id).localeCompare(String(b.id)),
     );
   }
+  rows = rows.map(sessaoDoPainel);
   const ids = new Set(rows.map((r) => r.id));
   const podeCustos = await can(c.auth, 'ai.costs.view');
   let operacao = null;
