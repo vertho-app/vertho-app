@@ -321,6 +321,9 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       });
       if (ticket !== generation.current) return;
       setSessao(d.sessao);
+      // A fala gravada chegou: a bolha provisória sai no mesmo render, senão
+      // as duas apareceriam juntas enquanto o histórico recarrega.
+      setEnviando(null);
       pending.current = null;
       // A resposta: o campo já foi esvaziado no envio, e o que a pessoa
       // digitou enquanto esperava fica.

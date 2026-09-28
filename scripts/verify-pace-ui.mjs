@@ -166,9 +166,17 @@ try {
   await expect(campoCelular).toBeFocused();
   await expect(page.getByRole('button', { name: 'Enviar', exact: true })).toBeDisabled();
   await page.screenshot({ path: `${dir}/conversa-enviando-mobile.png`, fullPage: false });
+  // A fala gravada chega antes da releitura: nesse intervalo ela aparece UMA vez.
   await page.evaluate(() => {
+    window.__paceSegurarLeitura = true;
     window.__paceDelay = false;
     window.__pacePendentes.shift()();
+  });
+  await conversaLog.getByText('Turno 9', { exact: false }).first().waitFor();
+  await expect(conversaLog.getByText('Qual é o impacto disso nas vendas de sexta-feira?', { exact: true })).toHaveCount(1);
+  await page.evaluate(() => {
+    window.__paceSegurarLeitura = false;
+    window.__paceLeituras.splice(0).forEach((liberar) => liberar());
   });
   await expect(conversaLog.getByText(/enviando…/)).toHaveCount(0);
   await expect(conversaLog.locator('article[data-author="vendedor"]')).toHaveCount(9);

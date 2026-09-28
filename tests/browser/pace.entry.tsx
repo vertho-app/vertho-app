@@ -419,6 +419,7 @@ const dados = (id = empresaA) => ({
 });
 w.__paceWrites = [];
 w.__pacePendentes = [];
+w.__paceLeituras = [];
 w.__paceFetch = async (url: string, init: RequestInit = {}) => {
   const q = new URL(url, location.origin).searchParams,
     id = q.get('empresaId') || empresaA;
@@ -551,6 +552,10 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
       proximoCursor: null,
     });
   if (!init.method) {
+    // Segura a releitura que a tela faz depois de um envio (janela entre a
+    // resposta do POST e o fim do `carregar`).
+    if (w.__paceSegurarLeitura)
+      await new Promise((resolve) => w.__paceLeituras.push(resolve));
     const d = dados(id);
     const aberto = treinosExtra.find((t) => t.id === q.get('sessaoId'));
     if (aberto)
