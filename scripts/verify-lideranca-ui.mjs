@@ -365,6 +365,16 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({ path: `${dir}/equipe-detalhe-mobile.png`, fullPage: true });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'overflow horizontal no painel da equipe');
+  // Quem só acompanha não recebe link para uma recusa; o RH vai ao Mapeamento dele
+  // (27/09/2026: o link fixo levava os dois ao trilho do participante).
+  await page.goto(`${origin}?soEquipe=1`);
+  await expect(page.getByRole('heading', { name: 'Acompanhamento da equipe' })).toBeVisible();
+  assert.equal(await page.getByRole('link', { name: /Mapeamento de liderança/ }).count(), 0, 'link do Mapeamento para quem só acompanha');
+  await page.goto(`${origin}?soEquipe=1&rh=1`);
+  await expect(page.getByRole('link', { name: /Mapeamento de liderança/ })).toHaveAttribute(
+    'href',
+    '/dashboard/gestor/prontidao-lideranca',
+  );
   for (const locale of ['en-US', 'es-ES', 'pt-PT']) {
     const p = await browser.newPage();
     p.on('pageerror', (e) => errors.push(e.message));

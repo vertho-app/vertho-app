@@ -134,6 +134,11 @@ w.__liderancaFetch = async (url: string, options?: RequestInit) => {
 };
 createRoot(document.getElementById('root')!).render(
   <NextIntlClientProvider locale={locale} messages={catalogo[locale]}>
-    <Treino podeTreinar={!params.has('soEquipe')} podeAcompanhar={params.has('equipe') || params.has('soEquipe')} />
+    <Treino
+      podeTreinar={!params.has('soEquipe')}
+      podeAcompanhar={params.has('equipe') || params.has('soEquipe')}
+      // Como a página faz para o RH (app/dashboard/simulador-lideranca/page.tsx).
+      mapeamento={params.has('rh') ? '/dashboard/gestor/prontidao-lideranca' : undefined}
+    />
   </NextIntlClientProvider>,
 );

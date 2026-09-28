@@ -58,6 +58,7 @@ export default function TreinoLideranca({
   empresaId,
   podeTreinar = true,
   podeAcompanhar = false,
+  mapeamento,
 }: {
   admin?: boolean;
   empresaId?: string;
@@ -65,6 +66,13 @@ export default function TreinoLideranca({
   podeTreinar?: boolean;
   /** RH, gestor e tutor acompanham a equipe (decisão do dono, 18/09/2026). */
   podeAcompanhar?: boolean;
+  /**
+   * Destino do link "Mapeamento de liderança" do cabeçalho, decidido no servidor
+   * (o RH tem o Mapeamento dele). Sem valor: o trilho do participante para quem
+   * treina, e nenhum link para quem só acompanha (27/09/2026: o link fixo levava
+   * o RH e o gestor a uma recusa).
+   */
+  mapeamento?: string | null;
 }) {
   const t = useTranslations('SimuladorLideranca'),
     locale = useLocale();
@@ -341,6 +349,13 @@ export default function TreinoLideranca({
       dateStyle: 'short',
       timeStyle: 'short',
     });
+  const linkCabecalho = admin
+    ? `/admin/fit${empresaId ? `?empresa=${empresaId}&tab=prontidao` : ''}`
+    : mapeamento !== undefined
+      ? mapeamento
+      : podeTreinar
+        ? '/dashboard/assessment?trilho=lideranca'
+        : null;
   /** "X e Y" no idioma da tela. */
   const lista = (itens: readonly string[]) =>
     new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(itens);
@@ -393,16 +408,11 @@ export default function TreinoLideranca({
           <h1>{t('title')}</h1>
           <p className={styles.subtitle}>{t('subtitle')}</p>
         </div>
-        <a
-          className={styles.link}
-          href={
-            admin
-              ? `/admin/fit${empresaId ? `?empresa=${empresaId}&tab=prontidao` : ''}`
-              : '/dashboard/assessment?trilho=lideranca'
-          }
-        >
-          {t(admin ? 'config' : 'assessment')} <ArrowRight size={15} />
-        </a>
+        {linkCabecalho && (
+          <a className={styles.link} href={linkCabecalho}>
+            {t(admin ? 'config' : 'assessment')} <ArrowRight size={15} />
+          </a>
+        )}
       </header>
       {admin && <p className={styles.notice}>{t('adminNotice')}</p>}
       {podeTreinar && podeAcompanhar && (!admin || empresaId) && (

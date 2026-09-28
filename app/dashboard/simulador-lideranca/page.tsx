@@ -28,5 +28,15 @@ export default async function Page() {
   const podeTreinar = await contexto(auth).then(() => true, recusou);
   const podeAcompanhar = await contextoEquipe(auth).then(() => true, recusou);
   if (!podeTreinar && !podeAcompanhar) redirect('/dashboard');
-  return <TreinoLideranca podeTreinar={podeTreinar} podeAcompanhar={podeAcompanhar} />;
+  // O RH não treina (o trilho o recusa por regra): o Mapeamento dele é a leitura
+  // da empresa. Para os demais, o componente decide (trilho de quem treina, ou nada).
+  const mapeamento =
+    auth.role === 'rh' && podeAcompanhar ? '/dashboard/gestor/prontidao-lideranca' : undefined;
+  return (
+    <TreinoLideranca
+      podeTreinar={podeTreinar}
+      podeAcompanhar={podeAcompanhar}
+      mapeamento={mapeamento}
+    />
+  );
 }
