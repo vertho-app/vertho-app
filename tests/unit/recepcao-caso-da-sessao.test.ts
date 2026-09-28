@@ -8,7 +8,7 @@
  * tela está em `scripts/verify-recepcao-ui.mjs` (bloco A-2).
  */
 import { describe, expect, it } from 'vitest';
-import { registroDaSessao } from '@/lib/recepcao/caso-da-sessao';
+import { registroDaSessao, tituloDoCaso } from '@/lib/recepcao/caso-da-sessao';
 import { abrirSessao, fichaPublica, ordenarPorNivel, visaoPublica } from '@/lib/recepcao/core';
 import { catalogoInicial } from '@/lib/recepcao/catalogo';
 import { catalogoDesafiador } from '@/lib/recepcao/catalogo-desafiador';
@@ -46,6 +46,16 @@ describe('A-2: a versão publicada do atendimento na tela', () => {
     const nova = { id: 'reg-limite-34', versao: '3.4', ficha: fichaPublica(DEGRAUS['reg-limite']) };
     const lista = publicados(['reg-intro', 'reg-pressao'], [nova]);
     expect(registroDaSessao(lista, sessaoNoLimite())?.id).toBe('reg-limite-34');
+  });
+
+  it('A-10: o título do caso no cabeçalho do relatório sai sem o degrau repetido', () => {
+    const [intro, pressao, limite] = ['reg-intro', 'reg-pressao', 'reg-limite'].map((id) => DEGRAUS[id].publico);
+    expect(tituloDoCaso(limite.titulo, limite.nivel)).toBe('A primeira consulta');
+    expect(tituloDoCaso(pressao.titulo, pressao.nivel)).toBe('A primeira consulta');
+    expect(tituloDoCaso(intro.titulo, intro.nivel)).toBe(intro.titulo);
+    // Sem degrau, ou com outro prefixo, o título fica como está.
+    expect(tituloDoCaso('Limite contestado: X', null)).toBe('Limite contestado: X');
+    expect(tituloDoCaso('Caso próprio', 'limite')).toBe('Caso próprio');
   });
 
   it('caso que saiu do catálogo devolve null: nada de trocar pelo degrau vizinho', () => {

@@ -153,6 +153,14 @@ try {
   await page.getByRole('button', { name: 'Gerar relatório', exact: true }).click();
   await page.getByRole('region', { name: 'Devolutiva por competência', exact: true }).waitFor();
   assert.equal(await seletorCaso.inputValue(), 'reg-limite', 'depois do relatório o seletor segue no Limite');
+  // A-10: o relatório começa por "degrau · caso" e pelo nível geral; o desfecho vem abaixo,
+  // com a leitura do degrau (no Limite, sustentar a recusa é o certo).
+  const cabecalho = page.getByRole('region', { name: 'Relatório de atendimento', exact: true }).locator('header').first();
+  assert.equal((await cabecalho.locator('h2').textContent()).trim(), 'Limite contestado · A primeira consulta');
+  await cabecalho.getByText('Nível geral do atendimento', { exact: true }).waitFor();
+  await cabecalho.getByText(/^Nível \d$/).waitFor();
+  await cabecalho.getByText(/sustentar a recusa com respeito/).waitFor();
+  await page.screenshot({ path: `${dir}/relatorio-cabecalho-desktop.png` });
   await page.getByRole('button', { name: 'Praticar novamente' }).click();
   await campoEscada.waitFor();
   assert.deepEqual(

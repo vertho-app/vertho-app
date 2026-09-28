@@ -25,7 +25,8 @@ import {
   dominioExiste,
 } from '@/lib/recepcao/dominio';
 import { humanizarReferencias } from '@/lib/recepcao/texto';
-import { registroDaSessao } from '@/lib/recepcao/caso-da-sessao';
+import { registroDaSessao, tituloDoCaso } from '@/lib/recepcao/caso-da-sessao';
+import { nivelDaNota } from '@/lib/nivel-regua';
 import styles from './treino.module.css';
 import MatrizAtendimento from './matriz-relatorio';
 import GestaoRecepcao from './gestao';
@@ -744,10 +745,38 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                 aria-label={t('report')}
               >
                 <header>
+                  {/* O relatório começa pelo caso e pelo nível (27/09/2026). Abria pelo
+                      desfecho: "Demanda não resolvida" em destaque mesmo com Nível 3, e no
+                      Limite sustentar a recusa é o comportamento certo. */}
                   <div>
                     <p className={styles.eyebrow}>{t('reportEyebrow')}</p>
-                    <h2>{desfecho(relatorio.desfecho.tipo)}</h2>
-                    <p>{h(relatorio.desfecho.justificativa)}</p>
+                    <h2>
+                      {[nivelRotulo(ficha.nivel), tituloDoCaso(ficha.titulo, ficha.nivel)]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </h2>
+                    {relatorio.competencias && (
+                      <p className={styles.nivelGeral}>
+                        <span>{t('reportOverall')}</span>
+                        {relatorio.nota === null ? (
+                          <strong>{t('reportOverallNone')}</strong>
+                        ) : (
+                          <>
+                            <strong>{t('levelShort', { n: nivelDaNota(relatorio.nota) })}</strong>
+                            <small>{t('scoreOf4Short', { score: numero(relatorio.nota) })}</small>
+                          </>
+                        )}
+                      </p>
+                    )}
+                    <div className={styles.desfecho}>
+                      <p>
+                        <strong>{t('reviewOutcome')}</strong> {desfecho(relatorio.desfecho.tipo)}.{' '}
+                        {h(relatorio.desfecho.justificativa)}
+                      </p>
+                      {nivelRotulo(ficha.nivel) && (
+                        <p className={styles.small}>{t(`outcomeReading_${ficha.nivel}`)}</p>
+                      )}
+                    </div>
                   </div>
                   {/* Com a matriz, a média aparece no relatório por competência. */}
                   {!relatorio.competencias && (

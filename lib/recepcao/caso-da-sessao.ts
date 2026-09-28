@@ -14,6 +14,23 @@
  * nenhuma das duas, `null`: o caso saiu do catálogo, e a tela avisa em vez de
  * trocar de caso em silêncio.
  */
+import { rotuloNivel, type Nivel } from './schema';
+
+/**
+ * Título do caso sem o prefixo do degrau (27/09/2026, A-10): no catálogo os títulos
+ * de Sob pressão e Limite já começam pelo degrau ("Limite contestado: a primeira
+ * consulta"), e o cabeçalho do relatório mostra "degrau · caso". O prefixo é o
+ * rótulo em português porque o conteúdo do caso é escrito em português.
+ */
+export function tituloDoCaso(titulo: string, nivel?: string | null): string {
+  const rotulo = rotuloNivel[nivel as Nivel];
+  if (!rotulo) return titulo;
+  const prefixo = `${rotulo}:`;
+  if (!titulo.toLocaleLowerCase('pt-BR').startsWith(prefixo.toLocaleLowerCase('pt-BR'))) return titulo;
+  const resto = titulo.slice(prefixo.length).trim();
+  return resto ? resto.charAt(0).toLocaleUpperCase('pt-BR') + resto.slice(1) : titulo;
+}
+
 export interface RegistroPublicado {
   id: string;
   ficha: { cenarioId?: string; nivel?: string | null };

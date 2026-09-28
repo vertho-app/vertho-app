@@ -242,6 +242,14 @@
 .confirmar p { color: #fde68a; }
 .notice > p { margin: 0 0 .6rem; }
 .historyMore { margin-top: .75rem; }
+/* Cabeçalho do relatório (27/09/2026): caso e nível geral primeiro, desfecho com a leitura do degrau. */
+.nivelGeral { display: flex; align-items: baseline; flex-wrap: wrap; gap: .25rem .7rem; margin: .2rem 0 .9rem; }
+.nivelGeral span { flex-basis: 100%; color: var(--atendimento-muted); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.nivelGeral strong { color: var(--atendimento-accent); font-size: 1.9rem; font-weight: 650; line-height: 1.15; }
+.nivelGeral small { color: var(--atendimento-muted); font-size: .85rem; }
+.desfecho { max-width: 680px; padding: .75rem .95rem; border-left: 3px solid color-mix(in srgb, var(--atendimento-accent) 45%, transparent); border-radius: 0 .6rem .6rem 0; background: #ffffff05; }
+.desfecho p { margin: 0; }
+.desfecho p + p { margin-top: .45rem; }
 /* Aviso de segmento na área do administrador (27/09/2026): `.admin p` apagava a cor do aviso. */
 .admin { flex-wrap: wrap; }
 .admin > .notice { flex-basis: 100%; margin: 0; color: #fde68a; }
