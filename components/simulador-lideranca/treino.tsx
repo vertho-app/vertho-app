@@ -75,9 +75,12 @@ export default function TreinoLideranca({
     [texto, setTexto] = useState(''),
     [reflexao, setReflexao] = useState('');
   const [refletindo, setRefletindo] = useState(false);
-  const [confirmar, setConfirmar] = useState<'repetir' | 'abandonar' | null>(
-    null,
-  );
+  /** Confirmação aberta: repetir um encontro (a partir da síntese ou da devolutiva) ou desistir da repetição. */
+  const [confirmar, setConfirmar] = useState<
+    | { acao: 'repetir'; indice: number; origem: 'sintese' | 'devolutiva' }
+    | { acao: 'abandonar' }
+    | null
+  >(null);
   const [aba, setAba] = useState<'treino' | 'equipe'>(
     podeTreinar ? 'treino' : 'equipe',
   );
@@ -95,7 +98,8 @@ export default function TreinoLideranca({
     running = useRef(false),
     generation = useRef(0),
     reads = useRef(0);
-  const resultado = useRef<HTMLElement>(null);
+  const resultado = useRef<HTMLElement>(null),
+    sinteseFinal = useRef<HTMLDivElement>(null);
   const chat = useRef<HTMLDivElement>(null),
     passos = useRef<HTMLOListElement>(null);
   const url = `/api/simulador-lideranca${empresaId ? `?empresaId=${empresaId}` : ''}`;
@@ -139,12 +143,24 @@ export default function TreinoLideranca({
   }, [admin, empresaId, carregar, podeTreinar]);
   const jornada = dados?.jornada,
     ep = dados?.selecionado;
+  /**
+   * Fim da jornada (27/09/2026): a devolutiva do 5º encontro ORIGINAL abre com a
+   * síntese aberta em cima, com a sugestão de repetição. Até então a síntese
+   * ficava recolhida e o único botão à vista era "Repetir este encontro", que
+   * repete o 5º, não o sugerido.
+   */
+  const fimDaJornada =
+    !!jornada?.concluida &&
+    !!ep?.avaliacao &&
+    !ep.repeticao &&
+    ep.indice === EPISODIOS.length - 1;
   useEffect(() => {
     if (ep?.avaliacao) {
-      resultado.current?.focus({ preventScroll: true });
-      resultado.current?.scrollIntoView({ block: 'start' });
+      const alvo = fimDaJornada ? sinteseFinal.current : resultado.current;
+      alvo?.focus({ preventScroll: true });
+      alvo?.scrollIntoView({ block: 'start' });
     }
-  }, [ep?.id, !!ep?.avaliacao]);
+  }, [ep?.id, !!ep?.avaliacao, fimDaJornada]);
   const processando =
     !!jornada?.processandoAte &&
     Date.parse(jornada.processandoAte) > Date.now();
@@ -315,6 +331,47 @@ export default function TreinoLideranca({
       dateStyle: 'short',
       timeStyle: 'short',
     });
+  /** Confirmação de repetir o encontro `indice`, aberta a partir de `origem`. */
+  const confirmacaoRepetir = (origem: 'sintese' | 'devolutiva') =>
+    confirmar?.acao === 'repetir' && confirmar.origem === origem ? (
+      <div
+        className={styles.confirm}
+        role="alertdialog"
+        aria-labelledby="lid-repetir"
+      >
+        <h3 id="lid-repetir">
+          {t('repeatConfirmTitle', { n: confirmar.indice + 1 })}
+        </h3>
+        <p>{t('repeatConfirmHint')}</p>
+        <div className={styles.actions}>
+          <button
+            type="button"
+            disabled={bloqueado}
+            onClick={() => setConfirmar(null)}
+          >
+            {t('cancel')}
+          </button>
+          <button
+            type="button"
+            className={styles.primary}
+            disabled={bloqueado || !!jornada?.ativo}
+            onClick={() => void enviar('repetir', confirmar.indice)}
+          >
+            {t('confirmRepeat')}
+          </button>
+        </div>
+      </div>
+    ) : null;
+  const sinteseDaJornadaView = dados?.sintese && jornada && (
+    <SinteseJornadaView
+      sintese={dados.sintese}
+      bloqueado={bloqueado || !!jornada.ativo}
+      onRepetir={(indice) =>
+        setConfirmar({ acao: 'repetir', indice, origem: 'sintese' })
+      }
+      confirmacao={confirmacaoRepetir('sintese')}
+    />
+  );
   return (
     <main className={styles.root}>
       <header className={styles.header}>
@@ -437,21 +494,19 @@ export default function TreinoLideranca({
                 {!admin && (
                   <p className={styles.visibility}>{t('visibilityNotice')}</p>
                 )}
-                {dados.sintese && jornada && (
-                  <DetalhesTreino
-                    concluido={!!ep?.avaliacao}
-                    titulo={t('journeyDetails')}
-                  >
-                    <SinteseJornadaView
-                      sintese={dados.sintese}
-                      bloqueado={bloqueado}
-                      onAbrirEncontro={(i) => {
-                        const alvo = jornada.concluidos[i];
-                        if (alvo) void carregar(alvo.id);
-                      }}
-                    />
-                  </DetalhesTreino>
-                )}
+                {sinteseDaJornadaView &&
+                  (fimDaJornada ? (
+                    <div ref={sinteseFinal} tabIndex={-1}>
+                      {sinteseDaJornadaView}
+                    </div>
+                  ) : (
+                    <DetalhesTreino
+                      concluido={!!ep?.avaliacao}
+                      titulo={t('journeyDetails')}
+                    >
+                      {sinteseDaJornadaView}
+                    </DetalhesTreino>
+                  ))}
                 {(busy || processando) && (
                   <p className={styles.notice} role="status">
                     <Loader2 size={17} className={styles.spin} aria-hidden />
@@ -511,7 +566,7 @@ export default function TreinoLideranca({
                           )}
                           {vivo &&
                             ep.repeticao &&
-                            (confirmar === 'abandonar' ? (
+                            (confirmar?.acao === 'abandonar' ? (
                               <div
                                 className={styles.confirm}
                                 role="alertdialog"
@@ -542,7 +597,7 @@ export default function TreinoLideranca({
                               <button
                                 type="button"
                                 disabled={bloqueado}
-                                onClick={() => setConfirmar('abandonar')}
+                                onClick={() => setConfirmar({ acao: 'abandonar' })}
                               >
                                 {t('abandonReplay')}
                               </button>
@@ -706,41 +761,17 @@ export default function TreinoLideranca({
                             <summary>{t('yourReflection')}</summary>
                             <p className={styles.pre}>{ep.reflexao}</p>
                           </details>
-                          {confirmar === 'repetir' && (
-                            <div
-                              className={styles.confirm}
-                              role="alertdialog"
-                              aria-labelledby="lid-repetir"
-                            >
-                              <h3 id="lid-repetir">
-                                {t('repeatConfirmTitle')}
-                              </h3>
-                              <p>{t('repeatConfirmHint')}</p>
-                              <div className={styles.actions}>
-                                <button
-                                  type="button"
-                                  disabled={bloqueado}
-                                  onClick={() => setConfirmar(null)}
-                                >
-                                  {t('cancel')}
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.primary}
-                                  disabled={bloqueado || !!jornada.ativo}
-                                  onClick={() =>
-                                    void enviar('repetir', ep.indice)
-                                  }
-                                >
-                                  {t('confirmRepeat')}
-                                </button>
-                              </div>
-                            </div>
-                          )}
+                          {confirmacaoRepetir('devolutiva')}
                           <div className={styles.actions}>
                             <button
                               disabled={bloqueado || !!jornada.ativo}
-                              onClick={() => setConfirmar('repetir')}
+                              onClick={() =>
+                                setConfirmar({
+                                  acao: 'repetir',
+                                  indice: ep.indice,
+                                  origem: 'devolutiva',
+                                })
+                              }
                             >
                               <RotateCcw size={16} />
                               {t('repeat')}

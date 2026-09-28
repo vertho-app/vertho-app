@@ -169,6 +169,8 @@ try {
       await expect(page.getByLabel('O que você percebeu', { exact: false })).toHaveValue(reflexao);
       await expect(page.getByText('Rascunho salvo neste aparelho', { exact: false })).toBeVisible();
     }
+    // O fim da jornada é conferido no celular (a primeira tela que a pessoa vê).
+    if (i === 4) await page.setViewportSize({ width: 390, height: 844 });
     await page
       .getByRole('button', { name: 'Registrar reflexão e receber devolutiva' })
       .click();
@@ -176,6 +178,13 @@ try {
       page.getByRole('heading', { name: 'O que sua atuação mostrou' }),
     ).toBeVisible();
     if (i === 0) assert.equal(await rascunhos(), 0, 'rascunho da reflexão depois do envio confirmado');
+    if (i === 4) {
+      // Fim da jornada (27/09/2026): a tela para na síntese, aberta, com a sugestão à vista.
+      await expect(page.getByText('Sua jornada completa')).toBeInViewport();
+      await page.waitForTimeout(200);
+      await page.screenshot({ path: `${dir}/fim-jornada-celular.png` });
+      await page.setViewportSize({ width: 1440, height: 1000 });
+    }
     await expect(page.getByText('Consultar contexto e encontros anteriores', { exact: true })).toBeVisible();
     await expect(page.getByRole('log', { name: 'Conversa do encontro' })).toBeHidden();
     if (i < 4)
@@ -189,18 +198,29 @@ try {
   await expect(devolutiva.getByText('Em foco', { exact: true })).toBeVisible();
   assert.equal(await devolutiva.getByText(/Média/).count(), 0, 'média dentro da devolutiva do encontro');
   await expect(page.getByText('Cinco encontros concluídos')).toBeVisible();
-  await expect(page.getByText('Sua jornada completa')).toBeHidden();
-  await page.getByText('Consultar evolução da jornada', { exact: true }).click();
+  // Fim da jornada (27/09/2026): a síntese vem ABERTA e ACIMA da devolutiva, com a
+  // sugestão de repetição e o botão dela. Até então ficava recolhida, e o único
+  // botão à vista repetia o 5º encontro, não o sugerido.
   await expect(page.getByText('Sua jornada completa')).toBeVisible();
+  await expect(page.getByText('Próximo treino sugerido')).toBeVisible();
   // E a jornada é onde a média vive (ou diz o que falta para ela existir).
   await expect(page.getByText(/Média da jornada: Nível|A média aparece quando/)).toBeVisible();
+  const ySintese = (await page.getByText('Sua jornada completa').boundingBox()).y;
+  const yDevolutiva = (await page.getByRole('heading', { name: 'O que sua atuação mostrou' }).boundingBox()).y;
+  assert(ySintese < yDevolutiva, 'a síntese do fim da jornada fica acima da devolutiva');
   await page.screenshot({ path: `${dir}/sintese-desktop.png`, fullPage: true });
-  await page.getByRole('button', { name: 'Repetir este encontro' }).click();
-  // Repetir pede confirmação (antes disparava na hora uma chamada paga).
+  const sugerido = page.getByRole('button', { name: /^Repetir o encontro \d$/ });
+  const nSugerido = Number((await sugerido.innerText()).match(/\d/)[0]);
+  await sugerido.click();
+  // Repetir pede confirmação (antes disparava na hora uma chamada paga), e a do
+  // botão da sugestão já é a do encontro sugerido.
+  await expect(page.getByRole('alertdialog')).toContainText(`Repetir o encontro ${nSugerido}?`);
   await page.getByRole('button', { name: 'Sim, repetir' }).click();
   await expect(
     page.getByText('Repetição para praticar:', { exact: false }),
   ).toBeVisible();
+  const TITULOS = ['Antes de concluir', 'Espaço para crescer', 'A conversa necessária', 'Nem tudo cabe', 'O que você muda'];
+  await expect(page.getByRole('heading', { name: TITULOS[nSugerido - 1] })).toBeVisible();
   await page.getByLabel('Sua preparação para o encontro').fill(plano);
   await page.getByRole('button', { name: 'Registrar e conversar' }).click();
   for (let j = 0; j < 3; j++) {
@@ -235,7 +255,7 @@ try {
   await page.getByText('Consultar contexto e encontros anteriores', { exact: true }).click();
   await page.getByText('Encontros anteriores', { exact: true }).click();
   await expect(
-    page.getByRole('button', { name: /Encontro 5 · Repetição/ }),
+    page.getByRole('button', { name: new RegExp(`Encontro ${nSugerido} · Repetição`) }),
   ).toBeVisible();
   await page
     .getByRole('button', { name: /Encontro 1 · Jornada original/ })

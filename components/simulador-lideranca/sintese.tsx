@@ -3,10 +3,13 @@
  * "Sua jornada": a síntese dos encontros concluídos, por competência. Mostra o
  * MAIOR nível demonstrado e "subiu de nível" quando houve avanço; queda não é
  * mostrada, como no resto do produto. Depois do quinto encontro, sugere qual
- * repetir (onde a competência com menos evidência ou menor nível é o foco).
+ * repetir (onde a competência com o menor nível alcançado, ou sem nível, é o
+ * foco), com o botão que já abre a confirmação da repetição (27/09/2026: antes
+ * eram três passos, abrir o encontro, achar "Repetir" e confirmar).
  */
+import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
-import { Star } from 'lucide-react';
+import { RotateCcw, Star } from 'lucide-react';
 import { EPISODIOS } from '@/lib/simulador-lideranca/episodios';
 import type { SinteseJornada } from '@/lib/simulador-lideranca/avaliacao';
 import styles from './treino.module.css';
@@ -14,12 +17,16 @@ import styles from './treino.module.css';
 export default function SinteseJornadaView({
   sintese,
   bloqueado = false,
-  onAbrirEncontro,
+  onRepetir,
+  confirmacao,
   publico = 'pessoa',
 }: {
   sintese: SinteseJornada;
   bloqueado?: boolean;
-  onAbrirEncontro?: (indice: number) => void;
+  /** Pede a repetição do encontro sugerido (quem chama abre a confirmação). */
+  onRepetir?: (indice: number) => void;
+  /** A confirmação da repetição, mostrada logo abaixo do botão. */
+  confirmacao?: ReactNode;
   /** Segunda pessoa para quem pratica; terceira para quem acompanha. */
   publico?: 'pessoa' | 'equipe';
 }) {
@@ -59,7 +66,7 @@ export default function SinteseJornadaView({
           </li>
         ))}
       </ul>
-      {sugestao !== null && onAbrirEncontro && (
+      {sugestao !== null && onRepetir && (
         <div className={styles.practice}>
           <h3>{t('suggestionTitle')}</h3>
           <p>
@@ -68,9 +75,13 @@ export default function SinteseJornadaView({
               competencia: EPISODIOS[sugestao].nome,
             })}
           </p>
-          <button type="button" disabled={bloqueado} onClick={() => onAbrirEncontro(sugestao)}>
-            {t('openEncounter', { n: sugestao + 1 })}
-          </button>
+          <div className={styles.actions}>
+            <button type="button" className={styles.primary} disabled={bloqueado} onClick={() => onRepetir(sugestao)}>
+              <RotateCcw size={16} aria-hidden />
+              {t('repeatEncounter', { n: sugestao + 1 })}
+            </button>
+          </div>
+          {confirmacao}
         </div>
       )}
     </details>
