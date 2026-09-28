@@ -101,7 +101,7 @@ import { toggleVotacao, togglePerfilComportamental, toggleMapeamentoCenarios } f
 import { setEmpresaFonteExterna, uploadPerfilPdf } from '@/actions/perfil-externo';
 import { logAdminAction } from '@/lib/audit';
 // H0 — um dos 15 call-sites que passam permissão que `rh` NÃO tem.
-import { enqueueIA2Batch } from '@/actions/ia-pipeline-batch';
+import { enqueueIA2Batch, enqueueCenariosBBatch } from '@/actions/ia-pipeline-batch';
 
 const OUTRO_TENANT = 'emp-B';
 const rhEmpA = { role: 'rh', empresaId: 'emp-A', email: 'rh@a.com', colaborador: { id: 'rh-1' }, isPlatformAdmin: false };
@@ -131,6 +131,12 @@ describe('RH cross-tenant é barrado (Grupo A)', () => {
 
   it('gerarCenariosBLote — não lê PPP nem escreve cenários de outro tenant', async () => {
     await expect(gerarCenariosBLote(OUTRO_TENANT)).rejects.toThrow(FORBIDDEN);
+  });
+
+  it('enqueueCenariosBBatch — não enfileira cenários de outro tenant', async () => {
+    const r = await enqueueCenariosBBatch(OUTRO_TENANT);
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(FORBIDDEN);
   });
 
   it('salvarCompetencia — não adultera conteúdo de outro tenant', async () => {

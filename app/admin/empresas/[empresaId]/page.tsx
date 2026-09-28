@@ -19,7 +19,7 @@ import { useConfirm } from '@/components/admin/confirm-dialog';
 
 import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
-import { enqueueIA2Batch, enqueueIA3Batch, enqueueIA4Batch, enqueueBlueprintBatch, enqueueRelatoriosBatch, statusIAJob, cancelIAJob, listarJobsAtivosIA } from '@/actions/ia-pipeline-batch';
+import { enqueueIA2Batch, enqueueIA3Batch, enqueueIA4Batch, enqueueCenariosBBatch, enqueueBlueprintBatch, enqueueRelatoriosBatch, statusIAJob, cancelIAJob, listarJobsAtivosIA } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
 import { resolveTaskModel } from '@/lib/ai-tasks';
@@ -61,7 +61,7 @@ const AI_MODELS = [
  * ganhar task de lote, o nome entra aqui — e o dia em que o ramo `modo === 'lote'`
  * for escrito sem acrescentar o nome, o botão fica sem efeito visível.
  */
-const FASES_COM_LOTE = new Set(['blueprint', 'ia2', 'ia3', 'ia4']);
+const FASES_COM_LOTE = new Set(['blueprint', 'ia2', 'ia3', 'ia4', 'cenarios-b']);
 
 const DUAL_TASK_KEYS: Record<string, [string, string]> = {
   'ia3': ['ia3_cenarios', 'ia3_check'],
@@ -400,6 +400,15 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         addLog(r.success ? `✅ ${r.message}` : `❌ ${r.message}`, r.success ? 'success' : 'error');
         setPendingAction(null); return;
       }
+      if (actionKey === 'cenarios-b' && aiConfig?.modo === 'lote') {
+        addLog('📦 Cenários B + Check em lote (Batch API −50%, assíncrono).', 'info');
+        const r = await enqueueCenariosBBatch(empresaId, aiConfig);
+        if (!r.success) { addLog(`❌ ${r.error}`, 'error'); setPendingAction(null); return; }
+        if (!r.jobId) { addLog(r.message || 'Nada na fila', 'info'); setPendingAction(null); return; }
+        addLog(`📦 ${r.total} cenário(s) B no lote — pode fechar a aba e acompanhar ao voltar.`, 'info');
+        watchJob(r.jobId, 'Cenários B + Check');
+        setPendingAction(null); return;
+      }
       if (actionKey === 'blueprint') {
         // 🔴 C1b (auditoria 22/08): o blueprint NÃO tem mais caminho síncrono.
         //
@@ -717,8 +726,11 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       // (override por task → default por task) — a config deixa de ser morta.
       if (isAI === 'dual' && DUAL_TASK_KEYS[actionKey]) {
         const [genKey, checkKey] = DUAL_TASK_KEYS[actionKey];
-        setDualModel1(resolveTaskModel(data?.empresa?.sys_config, genKey));
-        setDualModel2(resolveTaskModel(data?.empresa?.sys_config, checkKey));
+        const gen = resolveTaskModel(data?.empresa?.sys_config, genKey);
+        const chk = resolveTaskModel(data?.empresa?.sys_config, checkKey);
+        const lote = FASES_COM_LOTE.has(actionKey);
+        setDualModel1(lote && !AI_MODELS.some(m => m.id === gen && m.provider === 'claude') ? AI_MODELS[0].id : gen);
+        setDualModel2(lote && !AI_MODELS.some(m => m.id === chk && m.provider === 'openai') ? 'gpt-5.6-terra' : chk);
       }
       setModelPicker({ actionKey, label, dual: isAI === 'dual' });
     }
@@ -1310,11 +1322,17 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
             <h3 className="text-sm font-bold text-white mb-1">{modelPicker.label}</h3>
             {modelPicker.dual ? (
               <>
-                {/* Em lote (Batch API −50%): geração Claude + check OpenAI. IA3 e IA4. */}
-                {['ia3', 'ia4'].includes(modelPicker.actionKey) && (
+                {/* Em lote (Batch API −50%): geração Claude + check OpenAI. */}
+                {FASES_COM_LOTE.has(modelPicker.actionKey) && (
                   <div className="flex gap-2 mb-3">
                     {(['agora', 'lote'] as const).map((mo) => (
-                      <button key={mo} onClick={() => setModo(mo)}
+                      <button key={mo} onClick={() => {
+                        setModo(mo);
+                        if (mo === 'lote') {
+                          if (!dualModel1.startsWith('claude')) setDualModel1(AI_MODELS[0].id);
+                          if (!dualModel2.startsWith('gpt')) setDualModel2('gpt-5.6-terra');
+                        }
+                      }}
                         className="flex-1 py-1.5 rounded-lg text-[11px] font-bold border transition-colors"
                         style={modo === mo
                           ? { background: 'rgba(52,197,204,.15)', color: '#34c5cc', borderColor: 'rgba(52,197,204,.4)' }
@@ -1324,7 +1342,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                     ))}
                   </div>
                 )}
-                {['ia3', 'ia4'].includes(modelPicker.actionKey) && modo === 'lote' && (
+                {FASES_COM_LOTE.has(modelPicker.actionKey) && modo === 'lote' && (
                   <p className="text-[9px] leading-snug mb-3" style={{ color: 'rgba(245,158,11,.85)' }}>Batch API: mais barato, porém assíncrono — pode demorar. Geração: modelos Claude · Validação: modelos OpenAI (GPT). Roda em segundo plano: pode fechar a aba.</p>
                 )}
                 <p className="text-[10px] text-gray-500 mb-3">{t('modelPicker.selectEachStep')}</p>
@@ -1346,7 +1364,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                   const { actionKey, label } = modelPicker; setModelPicker(null);
                   // No lote, garante modelos batcháveis mesmo se o select não foi tocado
                   // (value fora das options filtradas fica no estado anterior).
-                  const gen = modo === 'lote' && !dualModel1.startsWith('claude') ? 'claude-sonnet-4-6' : dualModel1;
+                  const gen = modo === 'lote' && !dualModel1.startsWith('claude') ? AI_MODELS[0].id : dualModel1;
                   const chk = modo === 'lote' && !dualModel2.startsWith('gpt') ? 'gpt-5.6-terra' : dualModel2;
                   handleAction(actionKey, label, { model: gen, checkModel: chk, modo });
                 }}
