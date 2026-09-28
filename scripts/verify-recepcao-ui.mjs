@@ -245,6 +245,10 @@ try {
   let csvEquipe = '';
   for await (const chunk of await (await baixar).createReadStream()) csvEquipe += chunk;
   assert.ok(csvEquipe.includes('Ana Souza') && csvEquipe.includes('Acolhimento'), 'CSV por pessoa');
+  // A-6 (27/09/2026): treino concluído sem média geral não é "Em andamento".
+  const semMedia = page.locator('tr', { hasText: '10/09/2026' });
+  await expect(semMedia.getByText(/Sem nota/)).toBeVisible();
+  assert.equal(await page.getByText('Em andamento', { exact: true }).count(), 0, 'concluído sem média aparece como "Em andamento"');
   await page.getByRole('button', { name: 'Abrir atendimento', exact: true }).first().click();
   const detalhe = page.getByRole('region', { name: 'Detalhe do atendimento', exact: true });
   await detalhe.getByText('Desfecho:', { exact: true }).waitFor();

@@ -169,7 +169,30 @@ function sessaoDe(colaborador: string, dias: number) {
   avaliar(s);
   return { id: s.id, colaborador_id: colaborador, created_at: `2026-09-${String(dias).padStart(2, '0')}T12:00:00Z`, estado: s };
 }
-const sessoesEquipe = [sessaoDe('p-ana', 16), sessaoDe('p-bruno', 12)];
+/**
+ * Treino CONCLUÍDO sem média geral: só duas competências com nível (a regra de cobertura
+ * pede três). A tela da equipe dizia "Em andamento" porque decidia por `nota === null`.
+ */
+function sessaoSemMedia() {
+  const s = novaSessao();
+  s.id = '40000000-0000-4000-8000-000000000031';
+  responder(s, FALA);
+  s.relatorio = consolidar(s, {
+    dimensoes: s.cenario.matriz!.competencias.flatMap((comp, ci) =>
+      comp.descritores.map((d, di) =>
+        ci < 2 || di < 2
+          ? { id: d.codigo, classificacao: 'n2' as const, justificativa: 'Você perguntou pelo horário.', evidencias: [{ mensagemId: 'm1', trecho: 'Qual horário funciona para você?' }], oportunidades: [{ mensagemId: 'm0', trecho: s.historico[0].content.slice(0, 20) }] }
+          : { id: d.codigo, classificacao: 'nao_observavel' as const, justificativa: 'Sem oportunidade.', evidencias: [], oportunidades: [] },
+      ),
+    ),
+    ocorrencias: [],
+    desfecho: { tipo: 'inconclusivo', justificativa: 'Conversa curta.', evidencias: [] },
+    feedback: { acerto: 'Você perguntou pelo horário.', melhoria: 'Conduza até um combinado.', novaTentativa: 'Repita o caso.' },
+  });
+  s.status = 'concluida';
+  return { id: s.id, colaborador_id: 'p-bruno', created_at: '2026-09-10T12:00:00Z', estado: s };
+}
+const sessoesEquipe = [sessaoDe('p-ana', 16), sessaoDe('p-bruno', 12), sessaoSemMedia()];
 const painel = () => {
   const competencias = competenciasAtendimento(segmento);
   const visao = visaoPorCompetencia(
@@ -187,7 +210,8 @@ const painel = () => {
     pendentes: 2,
     pessoas: [],
     grupos: [{ chave: 'caso|1|r', titulo: cenario.publico.titulo, versao: cenario.versao, sessoes: 2, media: 2.83, criticas: 0, dimensoes: {} }],
-    sessoes: sessoesEquipe.map((r) => ({ id: r.id, nome: r.colaborador_id === 'p-ana' ? 'Ana Souza' : 'Bruno Lima', titulo: cenario.publico.titulo, data: r.created_at, status: 'concluida', nota: r.estado.relatorio!.nota, critica: false, revisao: null })),
+    // Mesma forma de `resumirEquipe` (lib/recepcao/equipe.ts): status e nota do relatório gravado.
+    sessoes: sessoesEquipe.map((r) => ({ id: r.id, nome: r.colaborador_id === 'p-ana' ? 'Ana Souza' : 'Bruno Lima', titulo: r.estado.cenario.publico.titulo, data: r.created_at, status: r.estado.status, nota: r.estado.relatorio?.nota ?? null, critica: false })),
     dias: 30,
     operacao: null,
     visao: { ...visao, nomes: Object.fromEntries(competencias.map((c) => [c.codigo, c.nome])) },

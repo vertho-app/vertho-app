@@ -4,6 +4,7 @@ import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { EditorCenario } from './editor';
 import CompetenciasRecepcao from './competencias';
 import { rotuloClassificacao } from '@/lib/recepcao/schema';
+import { RECEPCAO_SESSAO } from '@/lib/status';
 import { descreverMensagem, humanizarReferencias } from '@/lib/recepcao/texto';
 import styles from './treino.module.css';
 import MatrizAtendimento from './matriz-relatorio';
@@ -445,7 +446,13 @@ export default function GestaoRecepcao({
                     </td>
                     <td>{new Date(s.data).toLocaleDateString(locale)}</td>
                     <td>
-                      {s.nota === null ? t('teamInProgress') : t('scoreOf4Short', { score: numero(s.nota) })}
+                      {/* Pelo status, como o histórico de quem treina: concluído sem média
+                          geral (regra de cobertura) não é "Em andamento" (27/09/2026). */}
+                      {s.status !== RECEPCAO_SESSAO.CONCLUIDA
+                        ? t('teamInProgress')
+                        : s.nota === null
+                          ? t('noScore')
+                          : t('scoreOf4Short', { score: numero(s.nota) })}
                       {s.critica ? ` · ${t('historyAttention')}` : ''}
                     </td>
                     <td>
