@@ -86,7 +86,17 @@
 .evolutionLevel em { font-style:normal; font-size:.65rem; font-weight:600; color:#86efac; }
 .fichaCelular { display:none; }
 .fichaCelular summary { cursor:pointer; font-weight:600; font-size:.9rem; overflow-wrap:anywhere; }
-@media(max-width:800px) { .workspace { grid-template-columns:minmax(0,1fr); } .chat { max-height:55dvh; } .history { max-height:230px; overflow:auto; } .feedback { grid-template-columns:1fr; } }
+@media(max-width:800px) { .workspace { grid-template-columns:minmax(0,1fr); } .history { max-height:230px; overflow:auto; } .feedback { grid-template-columns:1fr; } }
+/* V-9 (27/09/2026): no celular a conversa rola com a página (sem caixa de
+   55dvh dentro dela) e o campo com os botões fica preso ao rodapé da tela;
+   o fim da conversa para acima dele ao rolar. */
+.pendingMessage { opacity:.72; }
+@media(max-width:800px) {
+  .chat { max-height:none; overflow:visible; }
+  .composer { position:sticky; bottom:0; z-index:5; margin:0 -1.3rem; padding:.7rem 1.3rem calc(.7rem + env(safe-area-inset-bottom)); background:#0a1e38; box-shadow:0 -10px 18px #0a1e38d9; }
+  .composer textarea { height:4.4rem; }
+  .fimConversa { scroll-margin-bottom:11rem; }
+}
 /* Celular com treino em curso: a conversa primeiro e a ficha do cliente recolhível no topo dela. */
 @media(max-width:800px) { .chatPrimeiro>:last-child { order:-1; } .chatPrimeiro .fichaAside { display:none; } .chatPrimeiro .fichaCelular { display:block; margin-bottom:1rem; padding:.8rem 1rem; border:1px solid #ffffff18; border-radius:.8rem; } }
 @media(max-width:800px) { .evaluationHeader { grid-template-columns:1fr; } .deliverySteps { grid-template-columns:repeat(2,minmax(0,1fr)); } }

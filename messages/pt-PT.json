@@ -467,7 +467,8 @@
     "documentSourcesTeam": "Referências: Manual da Metodologia PACE v8 e Matriz de competências PACE. As evidências são o plano e a conversa da pessoa.",
     "teamReportOf": "Treino de {name}",
     "teamStalled": "Treino parado desde {date}",
-    "surveyChallenge": "Nível de desafio percebido: {value} de 5 (1 = muito baixo, 5 = muito alto). Aqui não há valor melhor: mostra se o cliente pareceu fácil ou difícil demais."
+    "surveyChallenge": "Nível de desafio percebido: {value} de 5 (1 = muito baixo, 5 = muito alto). Aqui não há valor melhor: mostra se o cliente pareceu fácil ou difícil demais.",
+    "sending": "a enviar…"
   },
   "Beto": {
     "greeting": "Olá! Sou o Beto, o seu mentor de desenvolvimento. Como posso ajudar?",

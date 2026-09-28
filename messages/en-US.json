@@ -467,7 +467,8 @@
     "documentSourcesTeam": "References: PACE Methodology Manual v8 and the PACE competency matrix. The evidence is the person's plan and conversation.",
     "teamReportOf": "Session by {name}",
     "teamStalled": "Session stalled since {date}",
-    "surveyChallenge": "Perceived challenge level: {value} of 5 (1 = very low, 5 = very high). Higher is not better here: it shows whether the client felt too easy or too hard."
+    "surveyChallenge": "Perceived challenge level: {value} of 5 (1 = very low, 5 = very high). Higher is not better here: it shows whether the client felt too easy or too hard.",
+    "sending": "sending…"
   },
   "Beto": {
     "greeting": "Hi! I'm Beto, your development mentor. How can I help?",

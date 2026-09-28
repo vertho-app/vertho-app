@@ -95,6 +95,26 @@ if (states[empresaA]) {
     },
   ];
   states[empresaA]!.fase = 'analisar';
+  // V-9: conversa longa (8 turnos), para o campo no celular.
+  if (params.has('longa')) {
+    const s = states[empresaA]!;
+    s.mensagens = Array.from({ length: 8 }, (_, i) => [
+      {
+        id: `v${i + 1}`,
+        turno: i + 1,
+        autor: 'vendedor' as const,
+        texto: `Pergunta ${i + 1} do vendedor sobre o processo de compras, o estoque e o impacto na equipe de loja.`,
+        fase: 'analisar' as const,
+      },
+      {
+        id: `c${i + 1}`,
+        turno: i + 1,
+        autor: 'cliente' as const,
+        texto: `Resposta ${i + 1} da cliente: hoje conferimos tudo manualmente, e isso atrasa as compras e sobrecarrega a equipe nas sextas-feiras.`,
+        fase: 'analisar' as const,
+      },
+    ]).flat();
+  }
   // V-14: advertência do moderador no turno 1; `aviso=depois` acrescenta um turno 2 sem advertência.
   if (params.has('aviso')) {
     const s = states[empresaA]!;

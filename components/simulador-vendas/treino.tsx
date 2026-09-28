@@ -91,6 +91,8 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
   const [texto, setTexto] = useState(''),
     [confirmar, setConfirmar] = useState<'encerrar' | 'abandonar' | null>(null),
     [feedback, setFeedback] = useState(feedbackVazio);
+  /** A fala já enviada, mostrada na conversa enquanto o cliente responde. */
+  const [enviando, setEnviando] = useState<string | null>(null);
   const pending = useRef<{ key: string; id: string } | null>(null),
     running = useRef(false),
     generation = useRef(0),
@@ -210,6 +212,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     setDados(null);
     setSessao(null);
     setTexto('');
+    setEnviando(null);
     setRespostas(respostasVazias());
     pending.current = null;
     setConfirmar(null);
@@ -285,6 +288,14 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       acao === 'iniciar' ? null : sessao?.id,
       conteudo,
     ]);
+    // V-9 (27/09/2026): a fala aparece na hora e o campo esvazia, sem esperar
+    // moderador, cliente e intenção; se o envio falhar, o texto volta ao campo
+    // (e a mesma chave idempotente é reaproveitada ao tentar de novo).
+    const enviado = acao === 'responder' ? texto.trim() : '';
+    if (enviado) {
+      setEnviando(enviado);
+      setTexto('');
+    }
     if (!pending.current || pending.current.key !== key)
       pending.current = {
         key,
@@ -311,8 +322,12 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       if (ticket !== generation.current) return;
       setSessao(d.sessao);
       pending.current = null;
-      if (acao === 'responder' || acao === 'iniciar') setTexto('');
-      if (acao === 'iniciar') setRespostas(respostasVazias());
+      // A resposta: o campo já foi esvaziado no envio, e o que a pessoa
+      // digitou enquanto esperava fica.
+      if (acao === 'iniciar') {
+        setTexto('');
+        setRespostas(respostasVazias());
+      }
       if (acao === 'planejar' && chaveRascunho)
         try {
           sessionStorage.removeItem(chaveRascunho);
@@ -324,6 +339,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       });
     } catch (e) {
       if (ticket === generation.current) {
+        if (enviado) setTexto((atual) => (atual.trim() ? atual : enviado));
         setErro(e instanceof Error ? e.message : t('genericError'));
         await carregar(empresaId, sessao?.id, ticket).catch(() => {});
       }
@@ -331,6 +347,7 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       if (ticket === generation.current) {
         running.current = false;
         setOcupado('');
+        setEnviando(null);
       }
     }
   }
@@ -940,6 +957,18 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                             <p>{m.texto}</p>
                           </article>
                         ))}
+                        {enviando && ocupado === 'responder' && (
+                          <article
+                            className={`${styles.message} ${styles.seller} ${styles.pendingMessage}`}
+                            data-author="vendedor"
+                            aria-busy="true"
+                          >
+                            <small>
+                              {t('you')} · {t('sending')}
+                            </small>
+                            <p>{enviando}</p>
+                          </article>
+                        )}
                         {ocupado &&
                           ['iniciar', 'responder', 'encerrar'].includes(
                             ocupado,
@@ -961,11 +990,15 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                               )}
                             </p>
                           )}
-                        <div ref={fim} />
+                        <div ref={fim} className={styles.fimConversa} />
                       </div>
                     </DetalhesTreino>
                   )}
                   {aberto && !sessao.planejamentoPendente && (
+                    <>
+                    {/* No celular, campo e botões ficam presos ao rodapé da
+                        tela enquanto a conversa está à vista (V-9); as ajudas
+                        ficam fora, para o rodapé não ocupar meia tela. */}
                     <form
                       className={styles.composer}
                       onSubmit={(e) => {
@@ -980,11 +1013,10 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                         rows={3}
                         maxLength={4000}
                         value={texto}
-                        disabled={
-                          travado ||
-                          !sessao.turnosRestantes ||
-                          !dados.podeTreinar
-                        }
+                        // Só o ENVIO fica bloqueado enquanto o cliente responde:
+                        // desabilitar o campo tirava o foco e fechava o teclado
+                        // do celular a cada turno (V-9, 27/09/2026).
+                        disabled={!sessao.turnosRestantes || !dados.podeTreinar}
                         onChange={(e) => setTexto(e.target.value)}
                         onKeyDown={(e) => {
                           if (
@@ -1030,11 +1062,12 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                           {t('send')}
                         </button>
                       </div>
-                      <p className={`${styles.muted} mt-2`}>
-                        {t('composerHelp')}
-                      </p>
-                      <p className={`${styles.muted} mt-2`}>{t('piiHelp')}</p>
                     </form>
+                    <p className={`${styles.muted} mt-2`}>
+                      {t('composerHelp')}
+                    </p>
+                    <p className={`${styles.muted} mt-2`}>{t('piiHelp')}</p>
+                    </>
                   )}
                   {aberto && !sessao.planejamentoPendente && (
                     <div className="mt-6">

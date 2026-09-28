@@ -130,12 +130,54 @@ try {
   checks++;
   await page.goto(`${origin}/?active=1&processing=1`);
   await page.getByText('Há uma resposta em processamento.', { exact: false }).waitFor();
-  await expect(page.getByLabel('Sua mensagem', { exact: true })).toBeDisabled();
+  // V-9 (27/09/2026): em processamento só o ENVIO fica bloqueado; o campo
+  // continua editável (antes era desabilitado e o teclado do celular fechava).
+  await page.getByLabel('Sua mensagem', { exact: true }).fill('Rascunho durante o processamento');
+  await expect(page.getByRole('button', { name: 'Enviar', exact: true })).toBeDisabled();
   await page.reload();
   await page.getByText('Há uma resposta em processamento.', { exact: false }).waitFor();
   await page.screenshot({ path: `${dir}/processando-desktop.png`, fullPage: true });
   await page.evaluate(() => window.__paceLiberar());
-  await expect(page.getByLabel('Sua mensagem', { exact: true })).toBeEnabled({ timeout: 12000 });
+  await page.getByLabel('Sua mensagem', { exact: true }).fill('Rascunho depois do processamento');
+  await expect(page.getByRole('button', { name: 'Enviar', exact: true })).toBeEnabled({ timeout: 12000 });
+  checks++;
+  // V-9: no celular o campo aparece ao abrir, a fala enviada aparece na hora e
+  // o campo continua ativo e focado (o teclado não fecha a cada turno).
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${origin}/?active=1&longa=1`);
+  const campoCelular = page.getByLabel('Sua mensagem', { exact: true });
+  await campoCelular.waitFor();
+  // Campo e botão de enviar inteiros na tela ao abrir (antes o campo abria a 892 px).
+  for (const alvo of [campoCelular, page.getByRole('button', { name: 'Enviar', exact: true })]) {
+    const caixa = await alvo.boundingBox();
+    assert.ok(caixa.y >= 0 && caixa.y + caixa.height <= 844, `compositor fora da tela ao abrir (${Math.round(caixa.y)} px)`);
+  }
+  const conversaLog = page.getByRole('log', { name: 'Conversa com o cliente', exact: true });
+  assert.equal(await conversaLog.evaluate((el) => el.scrollHeight <= el.clientHeight + 1), true, 'rolagem aninhada na conversa');
+  await page.screenshot({ path: `${dir}/conversa-longa-mobile.png`, fullPage: false });
+  await page.evaluate(() => (window.__paceDelay = true));
+  await campoCelular.click();
+  await campoCelular.fill('Qual é o impacto disso nas vendas de sexta-feira?');
+  await campoCelular.press('Enter');
+  await conversaLog.getByText('Qual é o impacto disso nas vendas de sexta-feira?', { exact: true }).waitFor();
+  await conversaLog.getByText(/enviando…/).waitFor();
+  await expect(campoCelular).toHaveValue('');
+  await expect(campoCelular).toBeEnabled();
+  await expect(campoCelular).toBeFocused();
+  await expect(page.getByRole('button', { name: 'Enviar', exact: true })).toBeDisabled();
+  await page.screenshot({ path: `${dir}/conversa-enviando-mobile.png`, fullPage: false });
+  await page.evaluate(() => {
+    window.__paceDelay = false;
+    window.__pacePendentes.shift()();
+  });
+  await expect(conversaLog.getByText(/enviando…/)).toHaveCount(0);
+  await expect(conversaLog.locator('article[data-author="vendedor"]')).toHaveCount(9);
+  await expect(campoCelular).toBeFocused();
+  const ultimaFala = await conversaLog.locator('article[data-author="cliente"]').last().boundingBox();
+  const topoCampo = (await campoCelular.boundingBox()).y;
+  assert.ok(ultimaFala.y + ultimaFala.height <= topoCampo, 'a resposta do cliente ficou atrás do campo fixo');
+  await page.screenshot({ path: `${dir}/conversa-depois-mobile.png`, fullPage: false });
+  await page.setViewportSize({ width: 1440, height: 1080 });
   checks++;
   // V-14 (27/09/2026): o aviso do moderador vale só para o turno em que saiu.
   await page.goto(`${origin}/?active=1&aviso=1`);
