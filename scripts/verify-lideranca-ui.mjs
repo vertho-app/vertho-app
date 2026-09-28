@@ -325,6 +325,12 @@ try {
   await page.getByRole('button', { name: 'Equipe', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Acompanhamento da equipe' })).toBeVisible();
   await page.screenshot({ path: `${dir}/equipe-desktop.png`, fullPage: true });
+  // Rótulos distintos na tabela (27/09/2026): o mesmo traço servia para "ainda não
+  // avaliada" e "evidência insuficiente".
+  const tabelaEquipe = page.getByRole('table');
+  await expect(tabelaEquipe.getByRole('cell', { name: 'ainda não avaliada' }).first()).toBeVisible();
+  await expect(tabelaEquipe.getByRole('cell', { name: 'evidência insuficiente' }).first()).toBeVisible();
+  assert(!(await tabelaEquipe.innerText()).includes('—'), 'traço na tabela da equipe');
   // Celular (27/09/2026): um cartão por pessoa, com "Ver devolutivas" dentro da tela.
   // A tabela tinha 919 px numa caixa de 318, e o botão ficava fora dela.
   await page.setViewportSize({ width: 390, height: 844 });
@@ -345,6 +351,8 @@ try {
   // A equipe vê a próxima prática que a pessoa recebeu (o dado já chegava e não era mostrado).
   // (o último encontro vem aberto)
   await expect(page.getByText('Orientação sugerida à pessoa').last()).toBeVisible();
+  // O texto foi escrito para a pessoa ("Você investigou…"): na equipe, rotulado e citado.
+  await expect(page.getByRole('heading', { name: 'Devolutiva que a pessoa recebeu' }).last()).toBeVisible();
   await expect(page.getByText('Pergunte como um pedido chega e por quais etapas passa.').last()).toBeVisible();
   // D1 (27/09/2026): a evidência da preparação aparece pela fonte e pelo nível,
   // sem o texto; a conversa segue citada. Até então o gestor lia a preparação entre aspas.

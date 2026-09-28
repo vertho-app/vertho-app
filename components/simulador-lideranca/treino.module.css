@@ -910,6 +910,19 @@
   display: grid;
   gap: 12px;
 }
+.teamFeedbackLabel {
+  color: var(--lid-muted);
+  font-size: 0.78rem !important;
+  font-weight: 600;
+}
+.teamFeedback {
+  margin: 0;
+  padding: 10px 15px;
+  border-left: 2px solid #ffffff30;
+  background: #ffffff04;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
 /* Cartões da equipe: só no celular (a tabela some abaixo de 720px). */
 .teamCards {
   display: none;

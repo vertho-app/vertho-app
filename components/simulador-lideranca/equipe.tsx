@@ -18,6 +18,7 @@ import type {
   painelEquipe,
 } from '@/lib/simulador-lideranca/equipe';
 import { competenciasParaRelatorio } from './relatorio';
+import { diaBrasilia, linhasCsvEquipe, situacaoCompetencia } from './csv-equipe';
 import SinteseJornadaView from './sintese';
 import styles from './treino.module.css';
 
@@ -76,20 +77,24 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
           dateStyle: 'short',
           timeStyle: 'short',
         })
-      : '—';
+      : t('teamNoActivity');
   const trilha = (v: 'lider' | 'futuro' | null) =>
-    v === 'futuro' ? t('trackFuture') : v === 'lider' ? t('trackLeader') : '—';
-  const nivel = (n: number | null | undefined) =>
-    n != null ? t('levelN', { n }) : '—';
+    v === 'futuro' ? t('trackFuture') : v === 'lider' ? t('trackLeader') : '';
   type Pessoa = Painel['pessoas'][number];
-  const descricao = (p: Pessoa) =>
-    [p.cargo, trilha(p.variante)].filter((x) => x && x !== '—').join(' · ') || '—';
+  const descricao = (p: Pessoa) => [p.cargo, trilha(p.variante)].filter(Boolean).join(' · ');
+  // "Ainda não avaliada" e "evidência insuficiente" com rótulos próprios (27/09/2026:
+  // o mesmo traço servia para as duas, e no CSV as duas ficavam vazias).
+  const situacao = {
+    nivel: (n: number) => t('levelN', { n }),
+    semNivel: t('noLevel'),
+    naoAvaliada: t('notYet'),
+  };
   /** Nível alcançado numa competência, com a estrela de quem subiu (tabela e cartão). */
   const celula = (p: Pessoa, competencia: string) => {
     const c = p.sintese?.competencias.find((x) => x.nome === competencia);
     return (
       <>
-        {nivel(c?.nivelAlcancado)}
+        {situacaoCompetencia(c, situacao)}
         {c?.subiu && <Star size={12} aria-label={t('levelUp')} />}
       </>
     );
@@ -106,37 +111,29 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
 
   function exportar() {
     if (!painel) return;
-    const nomes = EPISODIOS.map((e) => e.nome);
-    const linhas: unknown[][] = [
-      [
-        t('csvPerson'),
-        t('csvRole'),
-        t('csvTrack'),
-        t('csvEncounters'),
-        ...nomes,
-        t('csvAverage'),
-        t('csvLastActivity'),
-      ],
-      ...painel.pessoas.map((p) => [
-        p.nome,
-        p.cargo || '',
-        trilha(p.variante),
-        p.encontrosConcluidos,
-        ...nomes.map((n) => {
-          const c = p.sintese?.competencias.find((x) => x.nome === n);
-          return c?.nivelAlcancado ?? '';
-        }),
-        p.sintese?.media.nivel ?? '',
-        p.ultimaAtividade || '',
-      ]),
-    ];
+    const linhas = linhasCsvEquipe(painel.pessoas, {
+      cabecalho: {
+        pessoa: t('csvPerson'),
+        cargo: t('csvRole'),
+        trilha: t('csvTrack'),
+        encontros: t('csvEncounters'),
+        media: t('csvAverage'),
+        ultimaAtividade: t('csvLastActivity'),
+      },
+      trilha,
+      // No CSV o n\u00EDvel sai como n\u00FAmero: a coluna segue som\u00E1vel na planilha.
+      nivel: (n) => n,
+      semNivel: t('noLevel'),
+      naoAvaliada: t('notYet'),
+      semMedia: t('csvNoAverage'),
+    });
     const blob = new Blob(['\uFEFF' + montarCsv(linhas)], {
       type: 'text/csv;charset=utf-8',
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `simulador-lideranca-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `simulador-lideranca-${diaBrasilia(new Date())}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -213,7 +210,11 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
                   </small>
                 )}
               </summary>
-              <p>{e.avaliacao.sintese}</p>
+              {/* O texto foi escrito PARA a pessoa, em segunda pessoa ("Você
+                  investigou…"): na visão da equipe ele aparece rotulado e como
+                  citação (27/09/2026). */}
+              <h4 className={styles.teamFeedbackLabel}>{t('teamFeedbackReceived')}</h4>
+              <blockquote className={styles.teamFeedback}>{e.avaliacao.sintese}</blockquote>
               {/* A próxima prática já chegava do servidor e não era mostrada (27/09/2026):
                   é a orientação que a pessoa recebeu, e o que o gestor pode acompanhar. */}
               {e.avaliacao.proximaPratica && (
