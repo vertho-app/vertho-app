@@ -32,6 +32,9 @@ const semCasos = params.has('semCasos');
 const equipe = params.has('equipe');
 const EMPRESA = '10000000-0000-4000-8000-000000000009';
 let dominioEmpresa = segmento;
+// `?semSegmento=1`: empresa sem `recepcao_config` (como a 4Life em 27/09): nada habilitado nem escolhido.
+let segmentoDefinido = !params.has('semSegmento');
+let habilitado = !params.has('semSegmento');
 
 const base = structuredClone(catalogoLimites[0]);
 const cenario: Cenario = aplicarMatrizAtendimento({
@@ -135,9 +138,10 @@ const historicoLongo = Array.from({ length: 22 }, (_, i) => ({
 const dados = () => ({
   empresaId: EMPRESA,
   empresaNome: 'Empresa de demonstração',
-  habilitado: true,
+  habilitado,
   admin,
   dominio: dominioEmpresa,
+  segmentoDefinido,
   soAcompanha: equipe,
   ficha: semCasos ? null : registros[0].ficha,
   cenarios: semCasos ? [] : registros,
@@ -238,11 +242,15 @@ w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
     if (init.method === 'PUT') {
       const body = JSON.parse(String(init.body));
       w.__recepcaoWrites.push(body);
+      // Mesma regra da rota: sem segmento escolhido, não habilita.
+      if (!segmentoDefinido && !body.dominio) return Response.json({ error: 'Escolha o segmento do simulador antes de habilitar a empresa.' }, { status: 400 });
       dominioEmpresa = body.dominio ?? dominioEmpresa;
+      segmentoDefinido = true;
+      habilitado = body.habilitado;
       return Response.json({ ok: true });
     }
     return Response.json({
-      empresas: [{ id: EMPRESA, nome: 'Empresa de demonstração', habilitado: true, dominio: dominioEmpresa }],
+      empresas: [{ id: EMPRESA, nome: 'Empresa de demonstração', habilitado, dominio: segmentoDefinido ? dominioEmpresa : null }],
       podeConfigurar: true,
     });
   }

@@ -89,9 +89,11 @@ describe('configuração dos acessos por cargo', () => {
       expect((await resumo()).vendas.prazo).toBe(prazo);
     });
 
-    it('sem configuração do atendimento vale o segmento padrão; id desconhecido é sinalizado', async () => {
+    it('sem configuração do atendimento o segmento NÃO está definido; id desconhecido é sinalizado', async () => {
+      // Até 27/09/2026 a aba mostrava o padrão do motor ("Recepção de clínica") como se
+      // alguém o tivesse escolhido, inclusive numa escola sem configuração.
       configAtendimento = null;
-      expect((await resumo()).atendimento).toEqual({ segmento: 'recepcao_medica', segmentoReconhecido: true });
+      expect((await resumo()).atendimento).toEqual({ segmento: null, segmentoReconhecido: false });
       configAtendimento = { habilitado: true, dominio: 'segmento_apagado' };
       expect((await resumo()).atendimento).toEqual({ segmento: 'segmento_apagado', segmentoReconhecido: false });
     });

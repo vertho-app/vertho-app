@@ -192,6 +192,8 @@ export async function consultar(c: Ctx, id?: string | null) {
     evolucao,
     habilitado: c.habilitado,
     dominio: c.dominio,
+    // `false` = a empresa não tem segmento escolhido; `dominio` acima é só o padrão do motor.
+    segmentoDefinido: c.segmentoDefinido !== false,
     admin: c.auth.isPlatformAdmin,
     soAcompanha: c.soAcompanha,
     // Sem caso publicado no segmento, não há ficha: a tela avisa em vez de mostrar um caso de outro segmento.

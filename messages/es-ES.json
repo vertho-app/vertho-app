@@ -119,6 +119,9 @@
     "voiceHelp": "Graba hasta 60 segundos usando solo datos ficticios. Al transcribir, el audio se envía al servicio de reconocimiento. Revisa el texto antes de enviarlo a {name}.",
     "moreOpportunities": "+{n} en el informe",
     "segmentLabel": "Segmento del simulador",
+    "segmentUndefined": "Segmento no definido",
+    "segmentUndefinedNotice": "Esta empresa aún no tiene segmento definido. Elige el segmento antes de habilitar al equipo. Hasta entonces, los casos de abajo son del segmento predeterminado ({segment}), solo para prueba administrativa.",
+    "segmentNoCasesNotice": "El segmento {segment} aún no tiene casos publicados. Si lo habilitas ahora, el equipo no encontrará ningún caso para practicar.",
     "noCases": "Aún no hay casos publicados en el segmento {segment}. Quien gestiona el contenido puede crear el primero en la pestaña Casos.",
     "teamOverview": "Visión por competencia",
     "teamOverviewHelp": "Personas con el simulador habilitado para su cargo y a las que puedes acompañar, en los últimos {days} días. El nivel es el más alto que la persona alcanzó en la competencia.",
@@ -233,6 +236,7 @@
     "salesNoPeriod": "Sin plazo de acceso. Nadie puede practicar.",
     "segment": "Segmento: {segmento}",
     "unknownSegment": "Segmento no reconocido. Nadie puede practicar.",
+    "segmentUndefined": "Segmento no definido. Elige el segmento antes de habilitar.",
     "programOk": "Programa configurado en Mapeo de liderazgo",
     "programMissing": "Programa no configurado en Mapeo de liderazgo. Nadie puede practicar.",
     "programTargetMissing": "El cargo objetivo del programa ya no existe. Nadie puede practicar."

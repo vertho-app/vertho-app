@@ -242,6 +242,9 @@
 .confirmar p { color: #fde68a; }
 .notice > p { margin: 0 0 .6rem; }
 .historyMore { margin-top: .75rem; }
+/* Aviso de segmento na área do administrador (27/09/2026): `.admin p` apagava a cor do aviso. */
+.admin { flex-wrap: wrap; }
+.admin > .notice { flex-basis: 100%; margin: 0; color: #fde68a; }
 /* Mantém a conversa em primeiro lugar no celular e a ficha a um toque. */
 @media (max-width: 800px) {
   .chatPrimeiro .conversa { order: -1; }

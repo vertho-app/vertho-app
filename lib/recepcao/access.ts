@@ -49,8 +49,13 @@ export async function contextoRecepcao(req: Request, solicitada?: string | null,
   } else ownerKey=`colab:${auth.colaborador.id}`;
   // Segmento da empresa (mig 263): decide os casos que ela vê. Valor fora do registro não vira outro segmento em silêncio.
   if (config?.dominio && !dominioExiste(config.dominio)) throw new RecepcaoError(503, 'O segmento configurado para esta empresa não é reconhecido. Fale com o suporte.');
+  // Sem configuração, o segmento NÃO está definido (27/09/2026): o motor segue no padrão para o
+  // teste administrativo, mas a tela diz "segmento não definido" em vez de fingir que alguém
+  // escolheu "Recepção de clínica" (foi assim que um admin, no contexto de uma escola, caiu
+  // nos casos médicos). Habilitar a equipe exige escolher o segmento (rota de configuração).
+  const segmentoDefinido = !!config?.dominio;
   const dominio: string = config?.dominio || DOMINIO_PADRAO;
-  return { auth, empresaId, empresaNome: empresa.nome, habilitado, soAcompanha, sb, owner: auth.email.toLowerCase(), ownerKey, dominio };
+  return { auth, empresaId, empresaNome: empresa.nome, habilitado, soAcompanha, sb, owner: auth.email.toLowerCase(), ownerKey, dominio, segmentoDefinido };
 }
 
 export type ContextoRecepcao = Exclude<Awaited<ReturnType<typeof contextoRecepcao>>,Response>;

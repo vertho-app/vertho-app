@@ -242,10 +242,32 @@ try {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(`${origin}/?admin=1&empresa=10000000-0000-4000-8000-000000000009&semCasos=1`);
   await page.getByText(/Ainda não há casos publicados no segmento Recepção de clínica/).waitFor();
+  // A-9: aviso ao administrador de que habilitar agora deixa a equipe sem caso.
+  await page.getByText(/O segmento Recepção de clínica ainda não tem casos publicados/).waitFor();
   await page.getByRole('combobox', { name: /Segmento do simulador/ }).selectOption('atendimento_loja');
   await page.getByText('Simulador de atendimento · Atendimento em loja', { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => window.__recepcaoWrites.at(-1).dominio), 'atendimento_loja');
   await page.screenshot({ path: `${dir}/admin-segmento-desktop.png`, fullPage: true });
+  checks++;
+  // A-9 (27/09/2026): empresa sem configuração (como a 4Life). Nada de "Recepção de clínica"
+  // como se fosse escolha: "segmento não definido", aviso e "Habilitar" travado até escolher.
+  await page.goto(`${origin}/?admin=1&empresa=10000000-0000-4000-8000-000000000009&semSegmento=1`);
+  await page.getByText('Simulador de atendimento · Segmento não definido', { exact: true }).waitFor();
+  const segmentoSelect = page.getByRole('combobox', { name: /Segmento do simulador/ });
+  assert.equal(await segmentoSelect.inputValue(), '', 'o seletor não finge um segmento escolhido');
+  await page.getByText(/Esta empresa ainda não tem segmento definido/).waitFor();
+  const habilitar = page.getByRole('button', { name: 'Habilitar para a equipe', exact: true });
+  assert.equal(await habilitar.isDisabled(), true, '"Habilitar" sem segmento');
+  await page.screenshot({ path: `${dir}/admin-sem-segmento-desktop.png`, fullPage: true });
+  await segmentoSelect.selectOption('secretaria_escolar');
+  await page.getByText('Simulador de atendimento · Secretaria escolar', { exact: true }).waitFor();
+  assert.equal(await habilitar.isDisabled(), false, '"Habilitar" liberado depois de escolher');
+  await habilitar.click();
+  await page.getByText('Disponível para a equipe desta empresa.', { exact: true }).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.__recepcaoWrites.filter((w) => 'habilitado' in w).map((w) => [w.habilitado, w.dominio ?? null])),
+    [[false, 'secretaria_escolar'], [true, null]],
+  );
   checks++;
   // Quem acompanha (RH): visão por competência, quem não treinou e o detalhe com o que a pessoa recebeu.
   await page.goto(`${origin}/?equipe=1`);

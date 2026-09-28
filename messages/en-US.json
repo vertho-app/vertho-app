@@ -119,6 +119,9 @@
     "voiceHelp": "Record up to 60 seconds using only fictitious data. When you transcribe, the audio is sent to the speech recognition service. Check the text before sending it to {name}.",
     "moreOpportunities": "+{n} in the report",
     "segmentLabel": "Simulator segment",
+    "segmentUndefined": "Segment not set",
+    "segmentUndefinedNotice": "This company has no segment set yet. Choose the segment before enabling the team. Until then, the cases below come from the default segment ({segment}), for admin testing only.",
+    "segmentNoCasesNotice": "The {segment} segment has no published cases yet. If you enable it now, the team will find no case to practice.",
     "noCases": "There are no published cases in the {segment} segment yet. Content managers can create the first one in the Cases tab.",
     "teamOverview": "Competency overview",
     "teamOverviewHelp": "People whose role has access to the simulator and whom you can follow, over the last {days} days. The level is the highest the person reached in the competency.",
@@ -233,6 +236,7 @@
     "salesNoPeriod": "No access period. Nobody can train.",
     "segment": "Segment: {segmento}",
     "unknownSegment": "Unrecognized segment. Nobody can train.",
+    "segmentUndefined": "Segment not set. Choose the segment before enabling.",
     "programOk": "Program set up in Leadership mapping",
     "programMissing": "Program not set up in Leadership mapping. Nobody can train.",
     "programTargetMissing": "The program's target job title no longer exists. Nobody can train."

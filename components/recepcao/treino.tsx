@@ -420,6 +420,12 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   const dominioEmpresa = dominioExiste(dados?.dominio)
     ? dados.dominio
     : DOMINIO_PADRAO;
+  // Empresa sem configuração: nenhum segmento foi escolhido (27/09/2026). O motor segue no
+  // padrão para o teste administrativo, mas a tela não finge que o padrão foi escolha.
+  const segmentoDefinido = dados?.segmentoDefinido !== false;
+  const rotuloSegmento = segmentoDefinido
+    ? t(`segment_${dominioEmpresa}`)
+    : t('segmentUndefined');
   const dominio = dominioExiste(sessao?.cenario?.dominio)
     ? sessao.cenario.dominio
     : dominioExiste(ficha?.dominio)
@@ -488,7 +494,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     <PageContainer className={styles.root}>
       <PageHero
         showBack={false}
-        eyebrow={t('eyebrow', { segment: t(`segment_${dominioEmpresa}`) })}
+        eyebrow={t('eyebrow', { segment: rotuloSegmento })}
         title={t('title')}
         subtitle={t('subtitle')}
         actions={<span className={styles.piloto}>{t('pilotBadge')}</span>}
@@ -517,7 +523,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                 <>
                   <button
                     className={styles.secondary}
-                    disabled={!!ocupado}
+                    // Habilitar exige o segmento escolhido (a rota também recusa sem ele).
+                    disabled={!!ocupado || (!dados.habilitado && !segmentoDefinido)}
                     onClick={() =>
                       configurar({ habilitado: !dados.habilitado })
                     }
@@ -528,10 +535,15 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                   <label className={styles.segmento}>
                     {t('segmentLabel')}
                     <select
-                      value={dominioEmpresa}
+                      value={segmentoDefinido ? dominioEmpresa : ''}
                       disabled={!!ocupado}
                       onChange={(e) => configurar({ dominio: e.target.value })}
                     >
+                      {!segmentoDefinido && (
+                        <option value="" disabled>
+                          {t('segmentUndefined')}
+                        </option>
+                      )}
                       {DOMINIOS.map((d) => (
                         <option key={d.id} value={d.id}>
                           {t(`segment_${d.id}`)}
@@ -543,6 +555,19 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               )}
             </div>
           )}
+          {/* Avisos em linha própria, abaixo dos controles (a linha dos controles não estica). */}
+          {dados &&
+            (!segmentoDefinido ? (
+              <p className={styles.notice} role="status">
+                {t('segmentUndefinedNotice', { segment: t(`segment_${dominioEmpresa}`) })}
+              </p>
+            ) : (
+              !dados.cenarios?.length && (
+                <p className={styles.notice} role="status">
+                  {t('segmentNoCasesNotice', { segment: rotuloSegmento })}
+                </p>
+              )
+            ))}
         </section>
       )}
       {dados && (
@@ -634,7 +659,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
         ) : !ficha ? (
           // Segmento sem caso publicado: nada de mostrar um caso de outro segmento.
           <div className={styles.empty}>
-            {t('noCases', { segment: t(`segment_${dominioEmpresa}`) })}
+            {t('noCases', { segment: rotuloSegmento })}
           </div>
         ) : (
           <>

@@ -27,6 +27,9 @@ export async function PUT(req: Request) {
   const sb = createSupabaseAdmin();
   const { data: anterior, error: erroLeitura } = await sb.from('recepcao_config').select('habilitado,dominio').eq('empresa_id', body.empresaId).maybeSingle();
   if (erroLeitura) return NextResponse.json({ error: 'Não foi possível consultar a configuração.' }, { status: 503 });
+  // A primeira configuração escolhe o segmento (27/09/2026). Sem isso, "Habilitar" criava a linha
+  // com o DEFAULT da coluna (recepcao_medica) e uma escola passava a ver casos de clínica.
+  if (!anterior?.dominio && !body.dominio) return NextResponse.json({ error: 'Escolha o segmento do simulador antes de habilitar a empresa.' }, { status: 400 });
   const { error } = await sb.from('recepcao_config').upsert({ empresa_id: body.empresaId, habilitado: body.habilitado, ...(body.dominio ? { dominio: body.dominio } : {}), updated_by: auth.email, updated_at: new Date().toISOString() });
   if (error) return NextResponse.json({ error: 'Não foi possível salvar a configuração.' }, { status: 503 });
   // Liberar o simulador para uma equipe é decisão de produção: fica na trilha de auditoria (revisão de 18/09).
