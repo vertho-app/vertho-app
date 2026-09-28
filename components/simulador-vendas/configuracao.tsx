@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { RETENCAO_MESES, type Config } from '@/lib/simulador-vendas/schema';
 import styles from './treino.module.css';
+import { lerResposta } from './ler-resposta';
 
 export function dataLocal(iso?: string | null): string {
   if (!iso) return '';
@@ -52,8 +53,10 @@ export default function Configuracao({
           periodoFim: fim ? new Date(fim).toISOString() : null,
         }),
       });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || t('genericError'));
+      await lerResposta(r, {
+        semCorpo: t('unreadableResponse'),
+        generica: t('genericError'),
+      });
       if (vivo.current) await onSalvou();
     } catch (e) {
       if (vivo.current) setErro(e instanceof Error ? e.message : t('genericError'));

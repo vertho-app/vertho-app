@@ -8,6 +8,7 @@ import type { Saidas } from '@/lib/simulador-vendas/schema';
 import { montarCsv } from '@/lib/simulador-vendas/csv';
 import Relatorio from './relatorio';
 import PainelEquipe from './painel-equipe';
+import { lerResposta } from './ler-resposta';
 
 type Pagina = { historico: ResumoTreino[]; proximoCursor: string | null };
 type Detalhe = {
@@ -56,11 +57,12 @@ export default function Gestao({ empresaId }: { empresaId: string }) {
   async function consultar(extras: Record<string, string> = {}) {
     const q = new URLSearchParams({ empresaId, ...extras });
     const r = await fetchAuth('/api/simulador-vendas/gestao?' + q, {
-        cache: 'no-store',
-      }),
-      d = await r.json();
-    if (!r.ok) throw new Error(d.error || t('genericError'));
-    return d;
+      cache: 'no-store',
+    });
+    return lerResposta(r, {
+      semCorpo: t('unreadableResponse'),
+      generica: t('genericError'),
+    });
   }
   useEffect(() => {
     let alive = true;

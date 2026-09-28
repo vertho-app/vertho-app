@@ -454,7 +454,8 @@
     "periodGrace": "El plazo de entrenamiento terminó. Todavía puedes pedir la devolución de esta conversación hasta {deadline}.",
     "finishUntil": "Puedes pedir tu devolución hasta {deadline}.",
     "surveyCommentsWithheld": "Los comentarios aparecen cuando al menos {min} personas han respondido a la encuesta, para que nadie sea identificado por lo que escribió.",
-    "commentVisibility": "RR. HH. y los responsables leen los comentarios sin tu nombre ni fecha, y solo cuando al menos {min} personas han respondido. Los teléfonos y correos se ocultan."
+    "commentVisibility": "RR. HH. y los responsables leen los comentarios sin tu nombre ni fecha, y solo cuando al menos {min} personas han respondido. Los teléfonos y correos se ocultan.",
+    "unreadableResponse": "El servidor no respondió como se esperaba. Inténtalo de nuevo: si el envío ya llegó, no se repetirá."
   },
   "Beto": {
     "greeting": "¡Hola! Soy Beto, tu mentor de desarrollo. ¿Cómo puedo ayudarte?",

@@ -133,6 +133,26 @@ try {
   await page.evaluate(() => window.__paceLiberar());
   await expect(page.getByLabel('Sua mensagem', { exact: true })).toBeEnabled({ timeout: 12000 });
   checks++;
+  // V-3 (27/09/2026): 504 do gateway em HTML vira mensagem traduzida, o texto
+  // fica no campo e tentar de novo reaproveita o mesmo requestId.
+  await page.goto(`${origin}/?active=1`);
+  await page.evaluate(() => (window.__pace504 = 1));
+  const campo504 = page.getByLabel('Sua mensagem', { exact: true });
+  await campo504.fill('Qual é o prazo que vocês têm hoje?');
+  await page.getByRole('button', { name: 'Enviar', exact: true }).click();
+  await page
+    .getByRole('alert')
+    .getByText(/^O servidor não respondeu como esperado\. Tente de novo: se o envio já tiver chegado/)
+    .waitFor();
+  assert.equal(await page.getByText(/Unexpected token|is not valid JSON/).count(), 0, 'erro cru do navegador na tela');
+  await expect(campo504).toHaveValue('Qual é o prazo que vocês têm hoje?');
+  await page.screenshot({ path: `${dir}/erro-504-desktop.png`, fullPage: false });
+  await page.getByRole('button', { name: 'Enviar', exact: true }).click();
+  await page.getByText('Qual é o prazo que vocês têm hoje?', { exact: true }).waitFor();
+  const [primeira, segunda] = await page.evaluate(() => window.__paceWrites.slice(-2));
+  assert.equal(primeira.acao, 'responder');
+  assert.equal(segunda.requestId, primeira.requestId, 'a nova tentativa reaproveita a chave idempotente');
+  checks++;
   // V-1 (27/09/2026): prazo vencido há 1 h com conversa aberta. Não se conversa
   // mais, mas a devolutiva ainda sai por 24 h, e a tela diz até quando.
   await page.goto(`${origin}/?active=1&expired=grace`);

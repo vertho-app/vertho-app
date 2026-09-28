@@ -410,6 +410,14 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
   const cmd = comandoSchema.parse(JSON.parse(String(init.body))),
     target = cmd.empresaId || empresaA;
   w.__paceWrites.push(cmd);
+  // V-3: o gateway devolve 504 em HTML (sem JSON) antes de o envio chegar.
+  if (w.__pace504 > 0) {
+    w.__pace504--;
+    return new Response('<html><body>504 Gateway Timeout</body></html>', {
+      status: 504,
+      headers: { 'Content-Type': 'text/html' },
+    });
+  }
   if (w.__paceDelay)
     await new Promise((resolve) => w.__pacePendentes.push(resolve));
   if (cmd.acao === 'iniciar') {

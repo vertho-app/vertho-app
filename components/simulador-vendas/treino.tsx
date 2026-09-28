@@ -32,6 +32,7 @@ import Gestao from './gestao';
 import Configuracao from './configuracao';
 import Processamento from './processamento';
 import Ditado from './ditado';
+import { lerResposta } from './ler-resposta';
 import styles from './treino.module.css';
 
 type Dados = {
@@ -102,10 +103,14 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       timeStyle: 'short',
     });
   async function api(url: string, init?: RequestInit) {
-    const response = await fetchAuth(url, { ...init, cache: 'no-store' }),
-      body = await response.json();
-    if (!response.ok) throw new Error(body.error || t('genericError'));
-    return body;
+    const response = await fetchAuth(url, { ...init, cache: 'no-store' });
+    // Resposta sem JSON (504 do gateway em HTML) vira mensagem traduzida. A
+    // chave idempotente do envio (`pending`) só é limpa no sucesso: tentar de
+    // novo reaproveita o mesmo requestId, e o servidor não duplica o envio.
+    return lerResposta(response, {
+      semCorpo: t('unreadableResponse'),
+      generica: t('genericError'),
+    });
   }
   function params(id = empresaId, sessaoId?: string) {
     const q = new URLSearchParams();
