@@ -133,10 +133,16 @@ describe('nome dos simuladores (decisão do Rodrigo, 17/09/2026)', () => {
   it('nenhum idioma chama o módulo pelos nomes antigos', async () => {
     const { readFileSync } = await import('node:fs');
     const { join } = await import('node:path');
-    const antigos = /prontid[ãa]o (para|de) (a )?lideran[çc]a|treino de atendimento|leadership readiness|reception training|preparaci[óo]n para el liderazgo|pr[áa]ctica de atenci[óo]n/i;
+    // "reception simulations" (menu do RH em inglês) entrou na lista em 27/09/2026.
+    const antigos = /prontid[ãa]o (para|de) (a )?lideran[çc]a|treino de atendimento|leadership readiness|reception training|reception simulations?|preparaci[óo]n para el liderazgo|pr[áa]ctica de atenci[óo]n/i;
     for (const loc of ['pt-BR', 'pt-PT', 'en-US', 'es-ES']) {
       const texto = readFileSync(join(__dirname, '..', '..', 'messages', `${loc}.json`), 'utf8');
       expect(texto.match(antigos)?.[0], loc).toBeUndefined();
     }
+  });
+
+  it('o Beto chama a tela do atendimento pelo nome atual (27/09/2026)', async () => {
+    const { resolverPaginaAtualBeto } = await import('@/lib/beto/pagina-atual');
+    expect(resolverPaginaAtualBeto('/dashboard/treino-atendimento')?.tela).toBe('Simulador de atendimento');
   });
 });

@@ -14,14 +14,14 @@ export async function GET(req: Request) {
     sb.from('empresas').select('id,nome').order('nome'),
     sb.from('recepcao_config').select('empresa_id,habilitado,dominio'),
   ]);
-  if (empresas.error || configs.error) return NextResponse.json({ error: 'Não foi possível consultar as clínicas.' }, { status: 503 });
+  if (empresas.error || configs.error) return NextResponse.json({ error: 'Não foi possível consultar as empresas.' }, { status: 503 });
   return NextResponse.json({ empresas: empresas.data.map(e => ({ ...e, habilitado: configs.data.some(c => c.empresa_id === e.id && c.habilitado), dominio: configs.data.find(c => c.empresa_id === e.id)?.dominio ?? null })),
     podeConfigurar: await can(auth, 'settings.company.manage') }, { headers: { 'Cache-Control': 'no-store' } });
 }
 export async function PUT(req: Request) {
   const csrf = csrfCheck(req); if (csrf) return csrf;
   const auth = await requireAdmin(req); if (auth instanceof Response) return auth;
-  if (!(await can(auth, 'settings.company.manage'))) return NextResponse.json({ error: 'Sem permissão para habilitar clínicas.' }, { status: 403 });
+  if (!(await can(auth, 'settings.company.manage'))) return NextResponse.json({ error: 'Sem permissão para habilitar o simulador nas empresas.' }, { status: 403 });
   let body;
   try { body = configSchema.parse(await req.json()); } catch { return NextResponse.json({ error: 'Configuração inválida.' }, { status: 400 }); }
   const sb = createSupabaseAdmin();

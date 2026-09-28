@@ -625,6 +625,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
           empresaId={empresaId || dados.empresaId}
           visao={aba}
           admin={admin}
+          dominio={dominioEmpresa}
         />
       )}
       <div hidden={aba !== 'treino'}>

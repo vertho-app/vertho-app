@@ -26,10 +26,13 @@ export default function GestaoRecepcao({
   empresaId,
   visao,
   admin,
+  dominio,
 }: {
   empresaId: string;
   visao: 'equipe' | 'cenarios' | 'competencias';
   admin: boolean;
+  /** Segmento da empresa: a aba Competências mostra a matriz DELE (27/09/2026). */
+  dominio?: string;
 }) {
   // A aba da equipe é de quem acompanha (RH, gestor): traduzida. Cenários
   // e editor seguem em português, como ferramenta interna da Vertho.
@@ -160,7 +163,7 @@ export default function GestaoRecepcao({
     }
   }
   if (visao === 'competencias')
-    return <CompetenciasRecepcao empresaId={empresaId} admin={admin} />;
+    return <CompetenciasRecepcao empresaId={empresaId} admin={admin} dominio={dominio} />;
   if (editor)
     return (
       <section className={styles.management}>
@@ -314,13 +317,15 @@ export default function GestaoRecepcao({
               return (
                 <article key={r.id}>
                   <p className={styles.eyebrow}>
-                    {global ? 'Catálogo Vertho' : 'Da clínica'} · {r.estado}
+                    {global ? 'Catálogo Vertho' : 'Da empresa'} · {r.estado}
                   </p>
                   <h3>{r.conteudo.publico.titulo}</h3>
                   <p>{r.conteudo.publico.objetivo}</p>
                   <small>
                     {r.versao} · {r.conteudo.rubrica.length} competências ·{' '}
-                    {1 + (r.conteudo.variantes?.length || 0)} pacientes
+                    {r.conteudo.variantes?.length
+                      ? `${1 + r.conteudo.variantes.length} pessoas simuladas`
+                      : '1 pessoa simulada'}
                   </small>
                   <div className={styles.filters}>
                     {r.estado === 'rascunho' && (!global || admin) && (
@@ -340,7 +345,7 @@ export default function GestaoRecepcao({
                           setEditor({ conteudo: structuredClone(r.conteudo) })
                         }
                       >
-                        {global ? 'Copiar para a clínica' : 'Criar nova versão'}
+                        {global ? 'Copiar para a empresa' : 'Criar nova versão'}
                       </button>
                     )}
                     {global && admin && r.estado !== 'rascunho' && (
@@ -368,7 +373,7 @@ export default function GestaoRecepcao({
                           if (
                             window.confirm(
                               global
-                                ? 'Arquivar esta versão do catálogo para todas as clínicas? Treinos anteriores continuam disponíveis.'
+                                ? 'Arquivar esta versão do catálogo para todas as empresas? Treinos anteriores continuam disponíveis.'
                                 : 'Arquivar esta versão? Treinos anteriores continuam disponíveis.',
                             )
                           )

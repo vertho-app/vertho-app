@@ -30,7 +30,7 @@ export async function POST(req:Request) {
    if(!row) throw new RecepcaoError(404,'Treino não encontrado.');
    const acao=z.enum(['ouvir','transcrever']).parse(q.get('acao'));
    const mensagem=acao==='ouvir'?row.estado.historico.find(m=>m.id===q.get('mensagemId')&&m.role==='assistant'):null;
-   if(acao==='ouvir'&&!mensagem) throw new RecepcaoError(400,'Selecione uma fala da paciente.');
+   if(acao==='ouvir'&&!mensagem) throw new RecepcaoError(400,'Selecione uma fala da pessoa simulada.');
    if(acao==='transcrever'&&row.estado.status!==RECEPCAO_SESSAO.EM_ANDAMENTO) throw new RecepcaoError(409,'O atendimento já foi encerrado.');
    let arquivo:File|null=null;
    if(acao==='transcrever') {
