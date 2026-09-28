@@ -1,6 +1,8 @@
 {
   "SimuladorAtendimento": {
     "genericError": "Não foi possível concluir. Tente novamente.",
+    "networkError": "Sem conexão com o servidor. Confira a internet e tente de novo.",
+    "networkErrorReport": "A conexão caiu durante a avaliação. Se o relatório já estava sendo gerado, ele continua no servidor, e esta tela confere sozinha a cada poucos segundos.",
     "personFallback": "Pessoa atendida",
     "level_introducao": "Introdução",
     "level_pressao": "Sob pressão",
@@ -32,6 +34,7 @@
     "tabCompetencies": "Competências",
     "teamUnavailable": "O acompanhamento da equipe não está disponível para o seu perfil.",
     "refresh": "Atualizar",
+    "tryAgain": "Tentar de novo",
     "loading": "Carregando seu espaço de treino…",
     "selectFirst": "Selecione a empresa para experimentar o atendimento.",
     "unavailable": "O treinamento será exibido aqui quando seu acesso estiver disponível.",
@@ -67,7 +70,10 @@
     "replyPlaceholder": "Escreva como você falaria com {name}…",
     "send": "Enviar resposta",
     "turnLimit": "Você chegou ao limite deste exercício. Gere o relatório para revisar o atendimento.",
-    "processing": "Um envio está em processamento.",
+    "processing": "Um envio está em processamento. Esta tela confere sozinha a cada poucos segundos.",
+    "processingReport": "A avaliação da conversa está em andamento: o relatório leva de 2 a 4 minutos. Esta tela confere sozinha a cada poucos segundos; você pode aguardar aqui.",
+    "reportNotFinished": "A avaliação não terminou, e a conversa foi preservada. Use “Encerrar e avaliar” para gerar o relatório de novo.",
+    "reportTimeout": "A avaliação está demorando mais que o esperado. Atualize a conversa em alguns instantes.",
     "refreshConversation": "Atualizar conversa",
     "fictitious": "Exercício fictício; nenhuma operação real será realizada.",
     "finish": "Encerrar e avaliar",

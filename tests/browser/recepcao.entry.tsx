@@ -111,6 +111,11 @@ function avaliar(s: Estado) {
 }
 
 let sessao: Estado | null = null;
+// `?falhaRede=1`: a rede cai no encerramento (o fetch lança TypeError) e o servidor segue
+// avaliando com a lease; as duas leituras seguintes ainda veem "processando".
+let processando = false;
+let leiturasAteRelatorio = 0;
+w.__gets = 0;
 if (params.has('ativo') || params.has('concluido')) {
   sessao = novaSessao();
   responder(sessao, FALA);
@@ -126,7 +131,7 @@ const dados = () => ({
   ficha: semCasos ? null : registros[0].ficha,
   cenarios: semCasos ? [] : registros,
   nivelSugerido: escada ? 'limite' : 'introducao',
-  sessao: sessao ? { ...visaoPublica(sessao), processando: false } : null,
+  sessao: sessao ? { ...visaoPublica(sessao), processando } : null,
   podeEquipe: equipe,
   podeCenarios: false,
   evolucao: params.has('evolucao')
@@ -208,12 +213,26 @@ w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
       return Response.json({ sessao: visaoPublica(sessoesEquipe.find((r) => r.id === q.get('sessaoId'))!.estado) });
     return Response.json(painel());
   }
-  if (!init.method || init.method === 'GET') return Response.json(dados());
+  if (!init.method || init.method === 'GET') {
+    w.__gets++;
+    if (processando && --leiturasAteRelatorio <= 0) {
+      avaliar(sessao!);
+      processando = false;
+    }
+    return Response.json(dados());
+  }
   const cmd = JSON.parse(String(init.body));
   w.__recepcaoWrites.push(cmd);
   if (cmd.acao === 'iniciar') sessao = novaSessao(cmd.cenarioId);
   else if (cmd.acao === 'responder') responder(sessao!, cmd.mensagem);
-  else if (cmd.acao === 'encerrar') avaliar(sessao!);
+  else if (cmd.acao === 'encerrar') {
+    if (params.has('falhaRede')) {
+      processando = true;
+      leiturasAteRelatorio = 2;
+      throw new TypeError('Failed to fetch');
+    }
+    avaliar(sessao!);
+  }
   return Response.json({ sessao: { ...visaoPublica(sessao!), processando: false } });
 };
 createRoot(document.getElementById('root')!).render(

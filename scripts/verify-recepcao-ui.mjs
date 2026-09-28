@@ -170,6 +170,32 @@ try {
   assert.equal(await page.evaluate(() => window.__recepcaoWrites.filter((w) => w.acao === 'iniciar').length), 0, 'nenhum início com caso retirado');
   checks++;
 
+  // A-3 (27/09/2026): a rede cai durante a avaliação (celular). Mensagem traduzida com
+  // "Tentar de novo", aviso de que é o relatório e reconsulta automática até ele chegar.
+  {
+    const rede = await browser.newPage({ viewport: { width: 390, height: 844 }, timezoneId: 'America/Sao_Paulo' });
+    rede.setDefaultTimeout(15000);
+    rede.on('pageerror', (e) => errors.push(e.message));
+    await rede.clock.install();
+    await rede.goto(`${origin}/?ativo=1&falhaRede=1`);
+    await rede.getByRole('button', { name: 'Encerrar e avaliar', exact: true }).click();
+    await rede.getByRole('button', { name: 'Gerar relatório', exact: true }).click();
+    const alerta = rede.getByRole('alert').first();
+    await alerta.getByText(/A conexão caiu durante a avaliação/).waitFor();
+    assert.equal(await rede.getByText(/Failed to fetch/).count(), 0, 'erro de rede cru na tela');
+    await alerta.getByRole('button', { name: 'Tentar de novo', exact: true }).waitFor();
+    await rede.getByText(/A avaliação da conversa está em andamento/).waitFor();
+    await rede.screenshot({ path: `${dir}/queda-de-rede-mobile.png` });
+    const leiturasAntes = await rede.evaluate(() => window.__gets);
+    await rede.clock.fastForward(13_000);
+    await rede.getByRole('region', { name: 'Devolutiva por competência', exact: true }).waitFor();
+    assert.ok((await rede.evaluate(() => window.__gets)) > leiturasAntes, 'a tela reconsultou sozinha');
+    assert.equal(await rede.getByRole('alert').count(), 0, 'o aviso de rede sai quando o relatório chega');
+    assert.equal(await semRolagemLateral(rede), true, 'overflow na queda de rede');
+    await rede.close();
+    checks++;
+  }
+
   // Outro segmento: o cabeçalho acompanha o caso.
   await page.goto(`${origin}/?segmento=atendimento_loja`);
   await page.getByText('Simulador de atendimento · Atendimento em loja', { exact: true }).waitFor();

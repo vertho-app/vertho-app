@@ -1,6 +1,8 @@
 {
   "SimuladorAtendimento": {
     "genericError": "No se pudo completar. Inténtalo de nuevo.",
+    "networkError": "Sin conexión con el servidor. Revisa tu conexión e inténtalo de nuevo.",
+    "networkErrorReport": "La conexión se cayó durante la evaluación. Si el informe ya se estaba generando, sigue en el servidor, y esta pantalla vuelve a comprobar cada pocos segundos.",
     "personFallback": "Persona atendida",
     "level_introducao": "Introducción",
     "level_pressao": "Bajo presión",
@@ -32,6 +34,7 @@
     "tabCompetencies": "Competencias",
     "teamUnavailable": "El seguimiento del equipo no está disponible para tu perfil.",
     "refresh": "Actualizar",
+    "tryAgain": "Intentar de nuevo",
     "loading": "Cargando tu espacio de práctica…",
     "selectFirst": "Selecciona la empresa para probar el simulador.",
     "unavailable": "La práctica aparecerá aquí cuando tu acceso esté disponible.",
@@ -67,7 +70,10 @@
     "replyPlaceholder": "Escribe como le hablarías a {name}…",
     "send": "Enviar respuesta",
     "turnLimit": "Llegaste al límite de este ejercicio. Genera el informe para revisar la atención.",
-    "processing": "Hay un envío en proceso.",
+    "processing": "Hay un envío en proceso. Esta pantalla vuelve a comprobar cada pocos segundos.",
+    "processingReport": "La evaluación de la conversación está en curso: el informe tarda de 2 a 4 minutos. Esta pantalla vuelve a comprobar cada pocos segundos; puedes esperar aquí.",
+    "reportNotFinished": "La evaluación no terminó, y la conversación se conservó. Usa “Finalizar y evaluar” para generar el informe de nuevo.",
+    "reportTimeout": "La evaluación está tardando más de lo esperado. Actualiza la conversación en unos instantes.",
     "refreshConversation": "Actualizar conversación",
     "fictitious": "Ejercicio ficticio; no se realizará ninguna operación real.",
     "finish": "Finalizar y evaluar",

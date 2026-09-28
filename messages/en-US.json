@@ -1,6 +1,8 @@
 {
   "SimuladorAtendimento": {
     "genericError": "Something went wrong. Please try again.",
+    "networkError": "Can't reach the server. Check your connection and try again.",
+    "networkErrorReport": "The connection dropped during the assessment. If the report was already being generated, it continues on the server, and this screen checks again every few seconds.",
     "personFallback": "Customer",
     "level_introducao": "Introduction",
     "level_pressao": "Under pressure",
@@ -32,6 +34,7 @@
     "tabCompetencies": "Competencies",
     "teamUnavailable": "Team follow-up is not available for your profile.",
     "refresh": "Refresh",
+    "tryAgain": "Try again",
     "loading": "Loading your practice space…",
     "selectFirst": "Select the company to try the simulator.",
     "unavailable": "Your practice will appear here once your access is available.",
@@ -67,7 +70,10 @@
     "replyPlaceholder": "Write as you would speak to {name}…",
     "send": "Send reply",
     "turnLimit": "You have reached the limit for this exercise. Generate the report to review the conversation.",
-    "processing": "A message is being processed.",
+    "processing": "A message is being processed. This screen checks again every few seconds.",
+    "processingReport": "The conversation is being assessed: the report takes 2 to 4 minutes. This screen checks again every few seconds; you can wait here.",
+    "reportNotFinished": "The assessment did not finish, and the conversation was kept. Use “Finish and assess” to generate the report again.",
+    "reportTimeout": "The assessment is taking longer than expected. Refresh the conversation in a moment.",
     "refreshConversation": "Refresh conversation",
     "fictitious": "Fictitious exercise; no real operation will be carried out.",
     "finish": "Finish and assess",

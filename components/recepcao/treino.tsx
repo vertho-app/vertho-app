@@ -50,6 +50,18 @@ const DESFECHOS_CONHECIDOS = [
 ];
 
 /**
+ * Reconsulta automática enquanto o servidor processa (27/09/2026, A-3). A
+ * avaliação leva de 2 a 4 minutos e a lease do servidor vence em 330 s: a tela
+ * confere a cada 12 s e desiste depois de 6 minutos. Antes, se a rede caísse no
+ * meio da avaliação (celular bloqueado, troca de antena), a pessoa lia "Failed to
+ * fetch" e a tela não tentava de novo sozinha.
+ */
+const CONSULTA_MS = 12_000;
+const TETO_ESPERA_MS = 360_000;
+/** Falha de rede (o `fetch` não chegou a ter resposta), distinta de erro do servidor. */
+class ErroDeRede extends Error {}
+
+/**
  * Simulador de atendimento, visão de quem treina. Desde 18/09/2026 a tela não
  * fala de clínica, paciente nem secretária: o segmento vem do caso
  * (`lib/recepcao/dominio.ts`) e a pessoa simulada é chamada pelo nome. Textos
@@ -73,6 +85,10 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
   const [confirmarFim, setConfirmarFim] = useState(false);
   // Trocar de atendimento no meio de uma conversa com respostas pede confirmação.
   const [confirmarOutro, setConfirmarOutro] = useState(false);
+  // Espera automática do servidor (A-3): desde quando, se é o relatório, e se o erro é de rede.
+  const [esperaDesde, setEsperaDesde] = useState<number | null>(null),
+    [esperaRelatorio, setEsperaRelatorio] = useState(false),
+    [erroRede, setErroRede] = useState(false);
   const [aba, setAba] = useState<
     'treino' | 'equipe' | 'cenarios' | 'competencias'
   >('treino');
@@ -89,7 +105,14 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     n.toLocaleString(locale, { maximumFractionDigits: 2 });
 
   async function api(url: string, init?: RequestInit) {
-    const res = await fetchAuth(url, { ...init, cache: 'no-store' });
+    let res: Response;
+    try {
+      res = await fetchAuth(url, { ...init, cache: 'no-store' });
+    } catch (e) {
+      // "Failed to fetch" / "Load failed" são TypeError do navegador, em inglês e sem ação.
+      if (e instanceof TypeError) throw new ErroDeRede(t('networkError'));
+      throw e;
+    }
     // 504 do gateway chega como HTML: sem o catch, a pessoa lia "Unexpected token".
     const body = await res.json().catch(() => null);
     if (!res.ok || !body) throw new Error(body?.error || t('genericError'));
@@ -104,9 +127,12 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     if (admin && id) q.set('empresaId', id);
     if (sessaoId) q.set('sessaoId', sessaoId);
     const d = await api(`/api/recepcao?${q}`);
-    if (ticket !== generation.current) return;
+    if (ticket !== generation.current) return null;
     setDados(d);
     setSessao(d.sessao);
+    // Servidor processando (lease ativa): a tela passa a conferir sozinha.
+    if (d.sessao?.processando && !d.sessao.relatorio)
+      setEsperaDesde((desde) => desde ?? Date.now());
     // Com um atendimento na tela, o seletor mostra a versão publicada DELE: o
     // registro exato ou, se ele saiu, o mesmo caso no mesmo degrau. Casar só pelo
     // caso levava ao primeiro degrau da lista (27/09/2026, `caso-da-sessao.ts`).
@@ -123,7 +149,54 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
               d.cenarios?.[0]
             )?.id || '',
     );
+    return d;
   }
+  // Reconsulta enquanto a sessão está em processamento, com teto; para ao chegar o
+  // relatório, ao trocar de sessão e ao desmontar (o `clearInterval` da limpeza).
+  useEffect(() => {
+    if (!esperaDesde || !sessao?.id || sessao?.relatorio) return;
+    const id = sessao.id;
+    let vivo = true;
+    const timer = setInterval(async () => {
+      if (!vivo || running.current) return;
+      if (Date.now() - esperaDesde > TETO_ESPERA_MS) {
+        setEsperaDesde(null);
+        setErroRede(false);
+        setErro(t('reportTimeout'));
+        return;
+      }
+      let d: any;
+      try {
+        d = await carregar(empresaId, id);
+      } catch {
+        return; // rede ainda fora: tenta no próximo ciclo
+      }
+      if (!vivo || !d?.sessao || d.sessao.id !== id) return;
+      if (d.sessao.relatorio) return; // o efeito seguinte limpa a espera
+      if (!d.sessao.processando) {
+        // O servidor terminou sem relatório (falhou ou o pedido nem chegou).
+        setEsperaDesde(null);
+        if (esperaRelatorio) {
+          setErroRede(false);
+          setErro(t('reportNotFinished'));
+        }
+      }
+    }, CONSULTA_MS);
+    return () => {
+      vivo = false;
+      clearInterval(timer);
+    };
+  }, [esperaDesde, esperaRelatorio, sessao?.id, !!sessao?.relatorio]);
+  useEffect(() => {
+    if (!sessao?.relatorio) return;
+    setEsperaDesde(null);
+    setEsperaRelatorio(false);
+    // O relatório chegou: o aviso de queda de rede deixou de valer.
+    if (erroRede) {
+      setErro('');
+      setErroRede(false);
+    }
+  }, [!!sessao?.relatorio]);
   useEffect(() => {
     let alive = true;
     if (admin) {
@@ -163,6 +236,9 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     createId.current = null;
     setConfirmarFim(false);
     setConfirmarOutro(false);
+    setEsperaDesde(null);
+    setEsperaRelatorio(false);
+    setErroRede(false);
     setAba('treino');
     setCenarioId('');
     if (admin && !empresaId) return;
@@ -190,6 +266,7 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     running.current = true;
     setOcupado(acao);
     setErro('');
+    setErroRede(false);
     setConfirmarFim(false);
     setConfirmarOutro(false);
     const body: any = { acao, ...(admin ? { empresaId } : {}) };
@@ -231,7 +308,14 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
       await carregar(empresaId, d.sessao.id, ticket).catch(() => {});
     } catch (e: any) {
       if (ticket === generation.current) {
-        setErro(e.message);
+        const rede = e instanceof ErroDeRede;
+        setErroRede(rede);
+        if (rede && acao === 'encerrar') {
+          // A avaliação pode seguir no servidor (lease de 330 s): a tela confere sozinha.
+          setErro(t('networkErrorReport'));
+          setEsperaRelatorio(true);
+          setEsperaDesde(Date.now());
+        } else setErro(e.message);
         // Recupera envio que pode ter sido confirmado após a conexão cair. ID pendente é preservado.
         if (sessao?.id)
           await carregar(empresaId, sessao.id, ticket).catch(() => {});
@@ -273,10 +357,14 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     running.current = true;
     setOcupado('historico');
     setErro('');
+    setErroRede(false);
     setInput('');
     pending.current = null;
     setConfirmarFim(false);
     setConfirmarOutro(false);
+    // A espera era da sessão anterior; a nova volta a esperar se o servidor a estiver processando.
+    setEsperaDesde(null);
+    setEsperaRelatorio(false);
     const ticket = ++generation.current;
     try {
       await carregar(empresaId, id, ticket);
@@ -351,6 +439,8 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
     setInput('');
     setConfirmarFim(false);
     setConfirmarOutro(false);
+    setEsperaDesde(null);
+    setEsperaRelatorio(false);
     pending.current = null;
     createId.current = null;
   }
@@ -483,12 +573,18 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
             <span>{erro}</span>
             <button
               onClick={() => {
+                // Queda de rede: confere de novo o MESMO atendimento (o envio pode ter sido salvo).
+                const mesmo = erroRede ? sessao?.id : undefined;
                 setErro('');
-                carregar().catch((e) => setErro(e.message));
+                setErroRede(false);
+                carregar(empresaId, mesmo).catch((e) => {
+                  setErroRede(e instanceof ErroDeRede);
+                  setErro(e.message);
+                });
               }}
               disabled={!!ocupado}
             >
-              {t('refresh')}
+              {t(erroRede ? 'tryAgain' : 'refresh')}
             </button>
           </div>
         )}
@@ -939,7 +1035,13 @@ export default function TreinoRecepcao({ admin = false }: { admin?: boolean }) {
                           )}
                           {sessao.processando && (
                             <p role="status">
-                              {t('processing')}{' '}
+                              {/* Diz o que está em processamento: com o relatório, a espera é de minutos. */}
+                              {t(
+                                esperaRelatorio ||
+                                  sessao.status === RECEPCAO_SESSAO.AGUARDANDO_AVALIACAO
+                                  ? 'processingReport'
+                                  : 'processing',
+                              )}{' '}
                               <button
                                 className={styles.link}
                                 onClick={() =>
