@@ -2,6 +2,7 @@ import { beforeEach, expect, test, vi } from 'vitest';
 const permissions=vi.hoisted(()=>({allow:true}));
 vi.mock('@/lib/permissions',()=>({can:async()=>permissions.allow}));
 import { catalogoInicial } from '@/lib/recepcao/catalogo';
+import { catalogoDesafiador } from '@/lib/recepcao/catalogo-desafiador';
 import { abrirSessao } from '@/lib/recepcao/core';
 import { editarCenario, catalogo, cenarioPublicado } from '@/lib/recepcao/cenarios';
 import { pessoasDaEquipe, sessaoDaEquipe } from '@/lib/recepcao/equipe';
@@ -16,7 +17,9 @@ function banco(){return {from(table:string){const filters:any[]=[];let payload:a
  if(op==='insert') {if(lista.some(r=>r.id===payload.id))duplicate=true;else{lista.push({...structuredClone(payload),revisao:0,estado:payload.estado||'rascunho'});result=[lista.at(-1)]}}
  if(op==='update') result.forEach(r=>Object.assign(r,structuredClone(payload)));
  return {data:structuredClone(first?result[0]||null:result),error:duplicate?{code:'23505'}:null};};
- const q:any={select:(cols?:string)=>{selects.push(`${table}:${cols??'*'}`);return q},eq:(k,v)=>{filters.push(r=>(k==='conteudo->>dominio'?r.conteudo?.dominio:r[k])===v);return q},or:s=>{const empresa=s.match(/empresa_id.eq.([^,]+)/)[1];filters.push(r=>r.empresa_id===empresa||r.empresa_id===null);return q},is:(k,v)=>{filters.push(r=>r[k]===v);return q},neq:(k,v)=>{filters.push(r=>r[k]!==v);return q},in:(k,vs)=>{filters.push(r=>vs.includes(r[k]));return q},order:()=>q,limit:()=>q,range:()=>Promise.resolve(execute()),insert:v=>{op='insert';payload=v;return q},update:v=>{op='update';payload=v;return q},single:()=>{first=true;return Promise.resolve(execute())},maybeSingle:()=>{first=true;return Promise.resolve(execute())},then:resolve=>resolve(execute())};return q;}}}
+ // Caminhos JSON que o código filtra: segmento do caso e degrau (27/09/2026: publicar arquiva só o mesmo degrau).
+ const col=(r:any,k:string)=>k==='conteudo->>dominio'?r.conteudo?.dominio:k==='conteudo->publico->>nivel'?(r.conteudo?.publico?.nivel??null):r[k];
+ const q:any={select:(cols?:string)=>{selects.push(`${table}:${cols??'*'}`);return q},eq:(k,v)=>{filters.push(r=>col(r,k)===v);return q},or:s=>{const empresa=s.match(/empresa_id.eq.([^,]+)/)[1];filters.push(r=>r.empresa_id===empresa||r.empresa_id===null);return q},is:(k,v)=>{filters.push(r=>col(r,k)===v);return q},neq:(k,v)=>{filters.push(r=>r[k]!==v);return q},in:(k,vs)=>{filters.push(r=>vs.includes(r[k]));return q},order:()=>q,limit:()=>q,range:()=>Promise.resolve(execute()),insert:v=>{op='insert';payload=v;return q},update:v=>{op='update';payload=v;return q},single:()=>{first=true;return Promise.resolve(execute())},maybeSingle:()=>{first=true;return Promise.resolve(execute())},then:resolve=>resolve(execute())};return q;}}}
 beforeEach(()=>{
  permissions.allow=true;
  const estado=abrirSessao(catalogoInicial[0]);estado.status='concluida';
@@ -40,7 +43,10 @@ test('início sem cenário aceita outro caso publicado quando remarcação foi a
  tables.recepcao_cenarios.at(-1).estado='arquivado';await expect(cenarioPublicado(c)).rejects.toThrow('não está disponível');
 });
 test('publicação exige versão própria e revisão atual; caso global só pode ser copiado',async()=>{await expect(editarCenario(c,{acao:'publicar',id:'global',revisao:0})).rejects.toThrow('cópia');await expect(editarCenario(c,{acao:'publicar',id:'draft',revisao:9})).rejects.toThrow('mudou');const r=await editarCenario(c,{acao:'publicar',id:'draft',revisao:0});expect(r.estado).toBe('publicado');await expect(editarCenario(c,{acao:'salvar',id:'draft',revisao:1,conteudo:catalogoInicial[0]})).rejects.toThrow('nova versão')});
-test('catálogo: só a plataforma grava versão global; publicar arquiva a publicada anterior do mesmo caso',async()=>{
+test('catálogo: só a plataforma grava versão global; publicar arquiva a publicada anterior do mesmo caso e degrau',async()=>{
+ // Outro degrau do MESMO caso, publicado ao mesmo tempo (como no Catálogo de produção): não pode ser arquivado.
+ tables.recepcao_cenarios.push({id:'global-pressao',empresa_id:null,codigo:'remarcacao-02',estado:'publicado',conteudo:structuredClone(catalogoDesafiador[0]),revisao:0,versao:'2.3'});
+ expect(catalogoDesafiador[0].id).toBe(catalogoInicial[0].id);
  const conteudo={...structuredClone(catalogoInicial[0]),versao:'9.1'};
  await expect(editarCenario(c,{acao:'salvar',catalogo:true,conteudo})).rejects.toThrow('plataforma');
  c.auth.isPlatformAdmin=true;
@@ -53,6 +59,7 @@ test('catálogo: só a plataforma grava versão global; publicar arquiva a publi
  const publicado=await editarCenario(c,{acao:'publicar',id:rascunho.id,revisao:0});
  expect(publicado.estado).toBe('publicado');expect(publicado.empresa_id).toBeNull();
  expect(tables.recepcao_cenarios.find(r=>r.id==='global').estado).toBe('arquivado');
+ expect(tables.recepcao_cenarios.find(r=>r.id==='global-pressao').estado).toBe('publicado');
  expect(tables.recepcao_cenarios.find(r=>r.id==='privado').estado).toBe('publicado');
  // Cópia da clínica continua com versão automática, mesmo para a plataforma.
  const copia=await editarCenario(c,{acao:'salvar',conteudo:{...structuredClone(catalogoInicial[0]),versao:'9.9'}});
