@@ -208,6 +208,27 @@ try {
     checks++;
   }
 
+  // A-14 (27/09/2026): voz sem "teste" no rótulo; depois do limite de respostas não há
+  // "Gravar" (a transcrição seria recusada com 409), mas "Ouvir" continua.
+  {
+    const lim = await browser.newPage({ viewport: { width: 390, height: 844 }, timezoneId: 'America/Sao_Paulo' });
+    lim.setDefaultTimeout(15000);
+    lim.on('pageerror', (e) => errors.push(e.message));
+    await lim.goto(`${origin}/?ativo=1`);
+    await lim.getByRole('button', { name: 'Gravar resposta', exact: true }).waitFor();
+    await lim.getByText('Voz opcional', { exact: true }).waitFor();
+    assert.equal(await lim.getByText(/Voz opcional · teste/).count(), 0, 'rótulo "teste" na voz');
+    await lim.goto(`${origin}/?limiteTurnos=1`);
+    const aviso = lim.getByText(/Você chegou ao limite deste exercício/);
+    await aviso.waitFor();
+    await lim.getByRole('button', { name: /^Ouvir / }).waitFor();
+    assert.equal(await lim.getByRole('button', { name: 'Gravar resposta', exact: true }).count(), 0, '"Gravar" depois do limite');
+    await aviso.scrollIntoViewIfNeeded();
+    await lim.screenshot({ path: `${dir}/limite-respostas-mobile.png` });
+    await lim.close();
+    checks++;
+  }
+
   // A-3 (27/09/2026): a rede cai durante a avaliação (celular). Mensagem traduzida com
   // "Tentar de novo", aviso de que é o relatório e reconsulta automática até ele chegar.
   {

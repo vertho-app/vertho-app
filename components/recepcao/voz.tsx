@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
+import { RECEPCAO_SESSAO } from '@/lib/status';
 import styles from './treino.module.css';
 
 export default function VozRecepcao({
@@ -145,6 +146,8 @@ export default function VozRecepcao({
       if (alive.current) setBusy(false);
     }
   }
+  // Depois do limite de respostas a transcrição é recusada (409): gravar não aparece (27/09/2026).
+  const podeGravar = sessao.status === RECEPCAO_SESSAO.EM_ANDAMENTO;
   return (
     <div className={styles.voice}>
       <span>{t('voiceLabel')}</span>
@@ -160,11 +163,13 @@ export default function VozRecepcao({
           {t('voiceStop')}
         </button>
       ) : (
-        <button type="button" className={styles.link} disabled={disabled || !!busy} onClick={gravar}>
-          {t('voiceRecord')}
-        </button>
+        podeGravar && (
+          <button type="button" className={styles.link} disabled={disabled || !!busy} onClick={gravar}>
+            {t('voiceRecord')}
+          </button>
+        )
       )}
-      {gravacao && (
+      {gravacao && podeGravar && (
         <>
           <button type="button" className={styles.secondary} disabled={disabled || !!busy} onClick={transcrever}>
             {t('voiceTranscribe')}
@@ -175,7 +180,7 @@ export default function VozRecepcao({
         </>
       )}
       {busy && <span role="status">{t('voicePreparing')}</span>}
-      <p>{t('voiceHelp', { name: nomePersona })}</p>
+      {podeGravar && <p>{t('voiceHelp', { name: nomePersona })}</p>}
       {erro && <p role="alert">{erro}</p>}
     </div>
   );

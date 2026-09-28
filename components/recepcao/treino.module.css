@@ -269,6 +269,10 @@
   .cartoesNoCelular td .link { padding-left: 0; }
 }
 .review:focus { outline: none; }
+/* Voz mais compacta (27/09/2026): a área ocupava quase uma tela do celular abaixo do campo. */
+.composer .voice { gap: .15rem .6rem; margin-top: .55rem; padding-top: .55rem; }
+.composer .voice .link { min-height: 40px; padding: .3rem .35rem; }
+.composer .voice p { margin: 0; font-size: .68rem; line-height: 1.5; }
 @media (max-width: 460px) {
   .start { gap: .9rem; min-height: 0; }
   .start > svg { display: none; }

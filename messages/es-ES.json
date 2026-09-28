@@ -120,7 +120,7 @@
     "personLine": "Mensaje n.º {n} de {name}",
     "teamReply": "Respuesta n.º {n} de quien atiende",
     "voiceUnsupported": "Este navegador no permite grabar. Usa el campo de texto.",
-    "voiceLabel": "Voz opcional · prueba",
+    "voiceLabel": "Voz opcional",
     "voicePersonLine": "Mensaje de {name}",
     "voiceListen": "Escuchar a {name}",
     "voiceStop": "Detener grabación",

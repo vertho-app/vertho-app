@@ -590,7 +590,20 @@ function coalesceCurtos(parts: { text: string; q: boolean }[]): { text: string; 
  */
 export async function generateNarrationAudio(
   texto: string,
-  opts: { voice?: string; style?: string; ledger?: TtsLedger; segmentar?: boolean } & OpcoesPortao = {},
+  opts: {
+    voice?: string;
+    style?: string;
+    ledger?: TtsLedger;
+    segmentar?: boolean;
+    /**
+     * `true` (só com `segmentar: false`) = UMA síntese, sem o portão de qualidade da
+     * NARRAÇÃO (alvo de F0 do elenco, deriva, retakes, `tts_qa_log`, fail-open). É para fala
+     * curta de personagem fictício que não é voz da marca: a pessoa simulada do simulador
+     * de atendimento (27/09/2026), onde o portão pagava até 3 sínteses por fala de 7 s e
+     * devolvia erro depois de pagar as três. Default: portão ligado, como sempre.
+     */
+    semPortao?: boolean;
+  } & OpcoesPortao = {},
 ): Promise<PodcastAudioFile> {
   if (!texto?.trim()) throw new Error('texto de narração vazio');
   const voice = opts.voice || VOICE();
@@ -611,6 +624,10 @@ export async function generateNarrationAudio(
   // estouraria o orçamento da função.
   if (opts.segmentar === false) {
     const timeoutMs = timeoutAdaptativo(texto.length);
+    if (opts.semPortao) {
+      const s = await ttsToPcm(`${styleDirective}:\n\n${texto}`, voice, ledger, timeoutMs);
+      return { buffer: exportPodcastMp3FromPcm(s.pcm, s.sampleRate), contentType: 'audio/mpeg', extension: 'mp3' };
+    }
     const r = await sintetizarComPortao(
       () => ttsToPcm(`${styleDirective}:\n\n${texto}`, voice, ledger, timeoutMs),
       voice,

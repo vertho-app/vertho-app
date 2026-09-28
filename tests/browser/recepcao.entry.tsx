@@ -119,10 +119,16 @@ let sessao: Estado | null = null;
 let processando = false;
 let leiturasAteRelatorio = 0;
 w.__gets = 0;
-if (params.has('ativo') || params.has('concluido')) {
+if (params.has('ativo') || params.has('concluido') || params.has('limiteTurnos')) {
   sessao = novaSessao();
   responder(sessao, FALA);
   if (params.has('concluido')) avaliar(sessao);
+  // `?limiteTurnos=1`: chegou ao limite de respostas; falta só gerar o relatório.
+  if (params.has('limiteTurnos')) {
+    sessao.respostas = sessao.cenario.limiteRespostas;
+    sessao.status = 'aguardando_avaliacao';
+    sessao.motivoFim = 'limite_respostas';
+  }
 }
 // `?historicoLongo=1`: 22 atendimentos; o mais antigo está aberto com resposta (fora da 1ª página).
 const historicoLongo = Array.from({ length: 22 }, (_, i) => ({

@@ -120,7 +120,7 @@
     "personLine": "{n}ª fala de {name}",
     "teamReply": "{n}ª resposta de quem atende",
     "voiceUnsupported": "Este navegador não oferece gravação. Use o campo de texto.",
-    "voiceLabel": "Voz opcional · teste",
+    "voiceLabel": "Voz opcional",
     "voicePersonLine": "Fala de {name}",
     "voiceListen": "Ouvir {name}",
     "voiceStop": "Parar gravação",

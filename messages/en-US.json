@@ -120,7 +120,7 @@
     "personLine": "{name}, message #{n}",
     "teamReply": "Agent reply #{n}",
     "voiceUnsupported": "This browser does not support recording. Use the text field.",
-    "voiceLabel": "Optional voice · beta",
+    "voiceLabel": "Optional voice",
     "voicePersonLine": "{name}'s message",
     "voiceListen": "Listen to {name}",
     "voiceStop": "Stop recording",
