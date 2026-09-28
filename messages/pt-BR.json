@@ -5378,6 +5378,7 @@
     "planHint": "Registre o que precisa entender, seu objetivo e como pretende começar. Sua preparação fica com você; o personagem reage à conversa.",
     "planLabel": "Sua preparação para o encontro",
     "minChars": "Escreva pelo menos 20 caracteres.",
+    "draftSaved": "Rascunho salvo neste aparelho.",
     "savePlan": "Registrar e conversar",
     "completed": "Concluído",
     "conversation": "Conversa do encontro",

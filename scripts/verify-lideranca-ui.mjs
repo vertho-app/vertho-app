@@ -81,8 +81,17 @@ try {
   ).toBeVisible();
   await page.screenshot({ path: `${dir}/inicio-desktop.png`, fullPage: true });
   await page.getByRole('button', { name: 'Começar primeiro encontro' }).click();
+  const rascunhos = () =>
+    page.evaluate(() => Object.keys(localStorage).filter((k) => k.includes(':rascunho:')).length);
   for (let i = 0; i < 5; i++) {
     await page.getByLabel('Sua preparação para o encontro').fill(plano);
+    if (i === 0) {
+      // Rascunho no aparelho (27/09/2026): o F5 apagava a preparação.
+      await page.reload();
+      await expect(page.getByLabel('Sua preparação para o encontro')).toHaveValue(plano);
+      await expect(page.getByText('Rascunho salvo neste aparelho', { exact: false })).toBeVisible();
+      await page.locator('form').first().screenshot({ path: `${dir}/preparacao-rascunho.png` });
+    }
     await page.getByRole('button', { name: 'Registrar e conversar' }).click();
     await expect(
       page.getByRole('button', { name: 'Concluir conversa', exact: true }),
@@ -124,6 +133,7 @@ try {
         path: `${dir}/conversa-desktop.png`,
         fullPage: true,
       });
+      assert.equal(await rascunhos(), 0, 'rascunho da preparação depois do envio confirmado');
     }
     await page
       .getByRole('button', { name: 'Concluir conversa', exact: true })
@@ -131,12 +141,19 @@ try {
     await page
       .getByLabel('O que você percebeu', { exact: false })
       .fill(reflexao);
+    if (i === 0) {
+      // Quem recarrega no meio da reflexão volta para ela, com o texto.
+      await page.reload();
+      await expect(page.getByLabel('O que você percebeu', { exact: false })).toHaveValue(reflexao);
+      await expect(page.getByText('Rascunho salvo neste aparelho', { exact: false })).toBeVisible();
+    }
     await page
       .getByRole('button', { name: 'Registrar reflexão e receber devolutiva' })
       .click();
     await expect(
       page.getByRole('heading', { name: 'O que sua atuação mostrou' }),
     ).toBeVisible();
+    if (i === 0) assert.equal(await rascunhos(), 0, 'rascunho da reflexão depois do envio confirmado');
     await expect(page.getByText('Consultar contexto e encontros anteriores', { exact: true })).toBeVisible();
     await expect(page.getByRole('log', { name: 'Conversa do encontro' })).toBeHidden();
     if (i < 4)

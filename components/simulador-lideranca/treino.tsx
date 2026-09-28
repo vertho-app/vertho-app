@@ -24,6 +24,7 @@ import { competenciasParaRelatorio } from './relatorio';
 import SinteseJornadaView from './sintese';
 import EquipeLideranca from './equipe';
 import Ditado from '@/components/simulador-vendas/ditado';
+import { apagarRascunho, chaveRascunho, lerRascunho, salvarRascunho } from './rascunho';
 import styles from './treino.module.css';
 
 async function api(
@@ -162,6 +163,60 @@ export default function TreinoLideranca({
   const turno = ep?.mensagens.filter((m) => m.autor === 'lider').length || 0;
   const concluido = jornada?.concluidos.length || 0;
   const info = ep ? EPISODIOS[ep.indice] : null;
+  // Rascunho da preparação e da reflexão no aparelho (27/09/2026): F5 apagava o texto.
+  const empresaDoRascunho = empresaId || dados?.empresaId || '';
+  const chavePlano = ep ? chaveRascunho(empresaDoRascunho, ep.id, 'plano') : null;
+  const chaveReflexao = ep ? chaveRascunho(empresaDoRascunho, ep.id, 'reflexao') : null;
+  const [rascunhoSalvo, setRascunhoSalvo] = useState({ plano: false, reflexao: false });
+  // O ditado devolve o texto depois; lê o valor do último render, não o da closure.
+  const planoAtual = useRef(plano);
+  planoAtual.current = plano;
+  const planoRegistrado = ep ? ep.plano !== null : false;
+  const encontroEncerrado = !!ep?.encerradoEm;
+  useEffect(() => {
+    if (!chavePlano) return;
+    // O que o servidor confirmou vence o rascunho (inclusive quando a resposta
+    // do envio se perdeu e a leitura seguinte já trouxe a preparação).
+    if (planoRegistrado || encontroEncerrado) {
+      apagarRascunho(chavePlano);
+      setRascunhoSalvo((r) => ({ ...r, plano: false }));
+      return;
+    }
+    const salvo = lerRascunho(chavePlano);
+    if (salvo) {
+      setPlano((atual) => atual || salvo);
+      setRascunhoSalvo((r) => ({ ...r, plano: true }));
+    }
+  }, [chavePlano, planoRegistrado, encontroEncerrado]);
+  useEffect(() => {
+    if (!chaveReflexao) return;
+    if (encontroEncerrado) {
+      apagarRascunho(chaveReflexao);
+      setRascunhoSalvo((r) => ({ ...r, reflexao: false }));
+      return;
+    }
+    const salvo = lerRascunho(chaveReflexao);
+    if (salvo) {
+      setReflexao((atual) => atual || salvo);
+      setRascunhoSalvo((r) => ({ ...r, reflexao: true }));
+      // Quem recarrega no meio da reflexão volta para ela, não para a conversa.
+      if (planoRegistrado) setRefletindo(true);
+    }
+  }, [chaveReflexao, encontroEncerrado, planoRegistrado]);
+  function escreverPlano(v: string) {
+    setPlano(v);
+    if (chavePlano) {
+      const salvo = salvarRascunho(chavePlano, v);
+      setRascunhoSalvo((r) => ({ ...r, plano: salvo }));
+    }
+  }
+  function escreverReflexao(v: string) {
+    setReflexao(v);
+    if (chaveReflexao) {
+      const salvo = salvarRascunho(chaveReflexao, v);
+      setRascunhoSalvo((r) => ({ ...r, reflexao: salvo }));
+    }
+  }
   async function enviar(acao: Acao, valor?: string | number) {
     if (running.current || bloqueado) return;
     running.current = true;
@@ -192,6 +247,10 @@ export default function TreinoLideranca({
       if (gen !== generation.current) return;
       setDados(d);
       pending.current = null;
+      // Envio confirmado: o rascunho daquela etapa já não serve.
+      if (acao === 'planejar' && chavePlano) apagarRascunho(chavePlano);
+      if (acao === 'encerrar' && chaveReflexao) apagarRascunho(chaveReflexao);
+      setRascunhoSalvo({ plano: false, reflexao: false });
       setTexto('');
       setReflexao('');
       setPlano('');
@@ -699,19 +758,22 @@ export default function TreinoLideranca({
                           <textarea
                             id="lideranca-plano"
                             value={plano}
-                            onChange={(e) => setPlano(e.target.value)}
+                            onChange={(e) => escreverPlano(e.target.value)}
                             minLength={20}
                             maxLength={6000}
                             rows={7}
                             required
                             disabled={bloqueado}
                           />
-                          <p className={styles.muted}>{t('minChars')}</p>
+                          <p className={styles.muted}>
+                            {t('minChars')}
+                            {rascunhoSalvo.plano && <> · {t('draftSaved')}</>}
+                          </p>
                           <div className={styles.actions}>
                             <Ditado
                               disabled={bloqueado}
                               onTexto={(s) =>
-                                setPlano((v) => `${v} ${s}`.trim())
+                                escreverPlano(`${planoAtual.current} ${s}`.trim())
                               }
                             />
                             <button
@@ -840,11 +902,14 @@ export default function TreinoLideranca({
                                 minLength={20}
                                 maxLength={4000}
                                 value={reflexao}
-                                onChange={(e) => setReflexao(e.target.value)}
+                                onChange={(e) => escreverReflexao(e.target.value)}
                                 disabled={bloqueado}
                                 required
                               />
-                              <p className={styles.muted}>{t('minChars')}</p>
+                              <p className={styles.muted}>
+                                {t('minChars')}
+                                {rascunhoSalvo.reflexao && <> · {t('draftSaved')}</>}
+                              </p>
                               <div className={styles.actions}>
                                 <button
                                   type="button"

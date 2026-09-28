@@ -5378,6 +5378,7 @@
     "planHint": "Record what you need to understand, your objective and how you plan to start. Your preparation stays with you; the character responds to the conversation.",
     "planLabel": "Your preparation for the encounter",
     "minChars": "Write at least 20 characters.",
+    "draftSaved": "Draft saved on this device.",
     "savePlan": "Save and talk",
     "completed": "Completed",
     "conversation": "Encounter conversation",
