@@ -455,7 +455,10 @@
     "finishUntil": "Você pode pedir sua devolutiva até {deadline}.",
     "surveyCommentsWithheld": "Os comentários aparecem quando pelo menos {min} pessoas tiverem respondido à pesquisa, para que ninguém seja identificado pelo que escreveu.",
     "commentVisibility": "RH e liderança leem os comentários sem o seu nome e sem data, e só quando pelo menos {min} pessoas tiverem respondido. Telefones e e-mails são ocultados.",
-    "unreadableResponse": "O servidor não respondeu como esperado. Tente de novo: se o envio já tiver chegado, ele não será repetido."
+    "unreadableResponse": "O servidor não respondeu como esperado. Tente de novo: se o envio já tiver chegado, ele não será repetido.",
+    "surveyPending": "Pesquisa pendente",
+    "surveyPendingHint": "Sua devolutiva está pronta e abre depois da pesquisa de experiência, que leva um minuto. A nota do treino aparece junto com ela.",
+    "surveyPendingOpen": "Responder à pesquisa"
   },
   "Beto": {
     "greeting": "Oi! Sou o Beto, seu mentor de desenvolvimento. Como posso ajudar?",

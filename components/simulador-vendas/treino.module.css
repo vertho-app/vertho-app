@@ -33,6 +33,8 @@
 .historyTitle { display:flex; justify-content:space-between; align-items:flex-start; gap:.7rem; color:#f8fafc; font-size:.9rem; line-height:1.35; }
 .historyTitle>span:first-child { min-width:0; overflow-wrap:anywhere; }
 .historyScore { flex:0 0 auto; padding:.18rem .4rem; border:1px solid color-mix(in srgb,var(--pace-accent) 30%,transparent); border-radius:.45rem; background:color-mix(in srgb,var(--pace-accent) 8%,transparent); color:#a5f3fc; font-size:.65rem; font-weight:700; white-space:nowrap; }
+.historyPending { border-color:#fbbf2466; background:#fbbf2414; color:#fde68a; }
+.pendingSurvey { display:grid; gap:.6rem; margin-bottom:1rem; padding:.75rem .85rem; border:1px solid #fbbf2455; border-radius:.7rem; background:#fbbf240d; font-size:.8rem; line-height:1.5; color:#fde68a; }
 .historyMeta { display:flex; flex-wrap:wrap; gap:.15rem .32rem; color:#94a3b8; font-size:.7rem; line-height:1.45; }
 .newSimulationLocked { display:grid; gap:.55rem; margin-top:1rem; padding-top:1rem; border-top:1px solid #ffffff12; }
 .newSimulationButton { width:100%; justify-content:center; }

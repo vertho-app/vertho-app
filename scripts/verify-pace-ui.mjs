@@ -133,6 +133,24 @@ try {
   await page.evaluate(() => window.__paceLiberar());
   await expect(page.getByLabel('Sua mensagem', { exact: true })).toBeEnabled({ timeout: 12000 });
   checks++;
+  // D2 (27/09/2026): com a devolutiva esperando a pesquisa, o histórico não
+  // mostra a nota e "Nova simulação" deixa de ser o botão primário.
+  await page.goto(`${origin}/?matrix=1&completed=1&regua=pace-7&pendente=1`);
+  await page.getByRole('heading', { name: 'Conte como foi a experiência', exact: true }).waitFor();
+  const meusTreinos = page.getByRole('navigation', { name: 'Seus treinos', exact: true });
+  await meusTreinos.getByText('Pesquisa pendente', { exact: true }).waitFor();
+  assert.equal(await meusTreinos.getByText(/Nota PACE/).count(), 0, 'nota antes da pesquisa');
+  await page.getByText(/^Sua devolutiva está pronta e abre depois da pesquisa de experiência/).waitFor();
+  const fundo = (nome) =>
+    page.getByRole('button', { name: nome, exact: true }).evaluate((b) => getComputedStyle(b).backgroundColor);
+  const fundoPrimario = await fundo('Enviar avaliação e abrir devolutiva');
+  assert.notEqual(await fundo('Nova simulação'), fundoPrimario, '"Nova simulação" primário com pesquisa pendente');
+  await page.screenshot({ path: `${dir}/pesquisa-pendente-desktop.png`, fullPage: false });
+  for (const nota of await page.getByRole('radio', { name: '5 de 5', exact: true }).all()) await nota.check();
+  await page.getByRole('button', { name: 'Enviar avaliação e abrir devolutiva', exact: true }).click();
+  await meusTreinos.getByText('Nota PACE 3', { exact: true }).waitFor();
+  assert.equal(await fundo('Nova simulação'), fundoPrimario, '"Nova simulação" volta a ser primário');
+  checks++;
   // V-3 (27/09/2026): 504 do gateway em HTML vira mensagem traduzida, o texto
   // fica no campo e tentar de novo reaproveita o mesmo requestId.
   await page.goto(`${origin}/?active=1`);
@@ -214,8 +232,17 @@ try {
   await page.screenshot({ path: `${dir}/visao-equipe-mobile.png`, fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1080 });
   checks++;
-  await page.getByRole('button', { name: 'Ver relatório', exact: true }).first().click();
+  // V-7 (27/09/2026): a gestão recebe o relatório como a produção gera (pace-7,
+  // matriz) e a nota da lista é a nota da devolutiva. O harness antigo mandava
+  // um relatório 0 a 10 marcado como pace-7 e a tela mostrava "10 / 4".
+  const linhaTreino = page.locator('tr', { has: page.getByRole('button', { name: 'Ver relatório', exact: true }) }).first();
+  assert.equal((await linhaTreino.locator('td').nth(3).innerText()).trim(), '2,8', 'nota da lista');
+  await linhaTreino.getByRole('button', { name: 'Ver relatório', exact: true }).click();
   await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).waitFor();
+  const devolutivaEquipe = page.getByRole('region', { name: 'Devolutiva por competência', exact: true });
+  await devolutivaEquipe.getByText('2,8 de 4', { exact: true }).waitFor();
+  await expect(devolutivaEquipe.getByText('Nível 2', { exact: true }).first()).toBeVisible();
+  assert.equal(await page.getByText(/\d+ \/ 4$/).count(), 0, 'nota 0 a 10 exibida como se fosse 1 a 4');
   await page.screenshot({ path: `${dir}/equipe-desktop.png`, fullPage: true });
   // Sem revisão humana (decisão do dono, 22/09/2026): a gestão lê o relatório, não registra parecer.
   assert.equal(await page.getByRole('region', { name: 'Revisão humana' }).count(), 0, 'bloco de revisão na gestão');

@@ -198,6 +198,55 @@ describe('quem só acompanha não treina (17/09/2026)', () => {
   });
 });
 
+/**
+ * D2 do dono (27/09/2026), que reverte a decisão de 14/09: a nota do treino só
+ * aparece no histórico do participante depois da pesquisa de experiência.
+ */
+describe('D2: nota no histórico do participante só depois da pesquisa', () => {
+  const base = {
+    created_at: '2026-09-20T12:00:00Z',
+    colaborador_id: 'colab-a',
+    owner_key: 'colab:colab-a',
+    resumo: {
+      status: 'concluida',
+      nivel: 1,
+      nome: 'Beatriz',
+      nomeVendedor: 'Ana',
+      nota: 3,
+      temRelatorio: true,
+      versaoRegua: 'pace-7',
+    },
+  };
+  it('o treino que espera a pesquisa sai sem nota e marcado como pendente', async () => {
+    const { consultarHistorico } = await import('@/lib/simulador-vendas/service');
+    sb = criarSupabaseMock({
+      lista: () => [
+        { ...base, id: '20000000-0000-4000-8000-00000000000a', liberado: null },
+        { ...base, id: '20000000-0000-4000-8000-00000000000b', liberado: 4 },
+      ],
+    });
+    const { historico } = await consultarHistorico(ctx());
+    expect(historico[0]).toMatchObject({ nota: null, pesquisaPendente: true, temRelatorio: false });
+    expect(historico[1]).toMatchObject({ nota: 3, pesquisaPendente: false });
+    // A pergunta inclui a pesquisa: sem ela a lista não saberia o que esconder.
+    expect(sb.usou('sim_vendas_sessoes', 'select')).toBe(true);
+    expect(
+      sb.chamadas.some((c) => c.metodo === 'select' && String(c.args[0]).includes('liberado:estado->feedback->realismo')),
+    ).toBe(true);
+  });
+  it('treino em andamento ou interrompido não é "pesquisa pendente"', async () => {
+    const { consultarHistorico } = await import('@/lib/simulador-vendas/service');
+    sb = criarSupabaseMock({
+      lista: () => [
+        { ...base, id: '20000000-0000-4000-8000-00000000000c', liberado: null, resumo: { ...base.resumo, status: 'em_andamento', temRelatorio: false, nota: null } },
+        { ...base, id: '20000000-0000-4000-8000-00000000000d', liberado: null, resumo: { ...base.resumo, status: 'interrompida', temRelatorio: false, nota: null } },
+      ],
+    });
+    const { historico } = await consultarHistorico(ctx());
+    expect(historico.map((h) => h.pesquisaPendente)).toEqual([false, false]);
+  });
+});
+
 describe('evolução independente da paginação do histórico', () => {
   it('inclui o melhor resultado antigo e percorre mais de 500 sessões com cursor', async () => {
     const { consultarEvolucao } =

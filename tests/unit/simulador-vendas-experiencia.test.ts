@@ -120,6 +120,16 @@ describe('histórico do participante', () => {
     expect(fechada.foco).toBeUndefined();
   });
 
+  it('D2: no histórico do participante a nota só aparece depois da pesquisa; na gestão, sempre', () => {
+    const linhas = [linha({ liberado: 5 }), linha({ liberado: null })];
+    const [liberada, pendente] = paginaDeHistorico(linhas, 30, { participante: true }).historico;
+    expect(liberada).toMatchObject({ nota: 3, pesquisaPendente: false });
+    expect(pendente).toMatchObject({ nota: null, pesquisaPendente: true });
+    const equipe = paginaDeHistorico(linhas, 30).historico;
+    expect(equipe.map((h) => h.nota)).toEqual([3, 3]);
+    expect(equipe[1]).not.toHaveProperty('pesquisaPendente');
+  });
+
   it('versão na escala 0 a 10 fica fora da evolução', () => {
     const [antiga] = paginaDeHistorico([linha({ liberado: 5 }, 'pace-5')], 30).historico;
     expect(antiga.competencias).toBeUndefined();

@@ -455,7 +455,10 @@
     "finishUntil": "You can request your feedback until {deadline}.",
     "surveyCommentsWithheld": "Comments appear once at least {min} people have answered the survey, so no one can be identified by what they wrote.",
     "commentVisibility": "HR and managers read comments without your name or date, and only once at least {min} people have responded. Phone numbers and emails are hidden.",
-    "unreadableResponse": "The server did not respond as expected. Please try again: if your request already went through, it will not be repeated."
+    "unreadableResponse": "The server did not respond as expected. Please try again: if your request already went through, it will not be repeated.",
+    "surveyPending": "Survey pending",
+    "surveyPendingHint": "Your feedback is ready and opens after the one-minute experience survey. The training score appears with it.",
+    "surveyPendingOpen": "Answer the survey"
   },
   "Beto": {
     "greeting": "Hi! I'm Beto, your development mentor. How can I help?",

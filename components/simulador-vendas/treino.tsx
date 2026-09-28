@@ -408,6 +408,13 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     )
   );
   const podeNovo = !temTreinoAberto;
+  // D2 (27/09/2026): devolutiva pronta esperando a pesquisa. Enquanto houver,
+  // "Nova simulação" deixa de ser o botão primário, e o caminho para a
+  // pesquisa (se ela for de outro treino que não o aberto) vem antes dele.
+  const treinoComPesquisa =
+    dados?.historico.find((h) => h.pesquisaPendente && h.id !== sessao?.id) ||
+    null;
+  const pesquisaPendente = !!sessao?.avaliacaoPendente || !!treinoComPesquisa;
   // Prazo vencido, mas a conversa aberta ainda pode virar devolutiva (24 h).
   const emTolerancia =
     !!dados?.prazo.encerrarAte &&
@@ -617,8 +624,22 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                     </select>
                   </label>
                   <p className={`${styles.muted} my-3`}>{t('levelHelp')}</p>
+                  {pesquisaPendente && (
+                    <div className={styles.pendingSurvey} role="note">
+                      <p>{t('surveyPendingHint')}</p>
+                      {treinoComPesquisa && (
+                        <button
+                          className={styles.primary}
+                          disabled={travado}
+                          onClick={() => void abrir(treinoComPesquisa.id)}
+                        >
+                          {t('surveyPendingOpen')}
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <button
-                    className={styles.primary}
+                    className={pesquisaPendente ? undefined : styles.primary}
                     disabled={
                       travado || !dados.configurado || !dados.podeTreinar
                     }
@@ -680,9 +701,17 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                     >
                       <span className={styles.historyTitle}>
                         <span>{h.nome || t('preparing')}</span>
-                        <span className={styles.historyScore}>
-                          {t('score')} {formatarNotaPace(h.nota, locale)}
-                        </span>
+                        {h.pesquisaPendente ? (
+                          <span
+                            className={`${styles.historyScore} ${styles.historyPending}`}
+                          >
+                            {t('surveyPending')}
+                          </span>
+                        ) : (
+                          <span className={styles.historyScore}>
+                            {t('score')} {formatarNotaPace(h.nota, locale)}
+                          </span>
+                        )}
                       </span>
                       <small className={styles.historyMeta}>
                         <span>

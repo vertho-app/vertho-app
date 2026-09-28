@@ -70,18 +70,22 @@ export async function consultarHistorico(c: Contexto, cursor?: string | null) {
   banco(list.error);
   const linhas = (list.data || []) as LinhaResumo[];
   // pace-4/pace-5: a nota da lista sai da matriz, como na devolutiva (V-5).
+  // Só de devolutiva liberada: antes da pesquisa a nota não sai (D2).
   const notasMatriz = await pontuacoesDaMatriz(
     (colunas) => owned(c, colunas),
     linhas.slice(0, 30).map((r) => ({
       id: r.id,
       versaoRegua: r.resumo?.versaoRegua,
-      comRelatorio: r.resumo?.temRelatorio === true,
+      comRelatorio: r.resumo?.temRelatorio === true && r.liberado != null,
     })),
   );
-  const pagina = paginaDeHistorico(linhas, 30, { notasMatriz });
-  // A nota final faz parte do resumo do treino no histórico do participante.
-  // O relatório detalhado continua protegido pela avaliação da experiência;
-  // por isso seu indicador não é exposto nesta lista de navegação.
+  // Decisão D2 do dono (27/09/2026), que reverte a de 14/09 (`84fed6cb`): a
+  // nota do treino só aparece no histórico do participante DEPOIS da pesquisa
+  // de experiência, como a devolutiva. Com a nota à vista a pesquisa deixava de
+  // medir a experiência (a nota contaminava a resposta) e "Nova simulação"
+  // convidava a pular a pesquisa; o item diz "pesquisa pendente". O indicador
+  // de relatório também não é exposto nesta lista de navegação.
+  const pagina = paginaDeHistorico(linhas, 30, { notasMatriz, participante: true });
   return {
     ...pagina,
     historico: pagina.historico.map((item) => ({
