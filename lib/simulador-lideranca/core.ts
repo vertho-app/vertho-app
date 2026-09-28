@@ -10,16 +10,31 @@ import {
   type Gerar,
 } from './schema';
 import type { LinhaMatriz } from '@/lib/simuladores/lideranca/matriz-global';
+import { contemCitacao } from '@/lib/simuladores/citacao';
 import { diagnosticarAvaliacao, gravarAvaliacao, linhasDoEncontro } from './avaliacao';
 
-export function validarConsequencia(c: Consequencia, e: Episodio) {
+/**
+ * Todo acordo precisa de uma fala do LÍDER, no turno indicado, que contenha o
+ * trecho citado. A comparação é a mesma do avaliador (`contemCitacao`): aspas,
+ * reticências, travessões, espaços e caixa não contam como conteúdo. Até
+ * 27/09/2026 aqui era `includes` cru, e a mesma cópia tipográfica que o
+ * avaliador aceitava derrubava o encerramento do encontro com 502.
+ *
+ * Escolha registrada (27/09/2026): um acordo sem fala que o sustente continua
+ * RECUSANDO a consequência inteira (o gerador reenvia uma vez), em vez de só
+ * descartar o acordo. A narrativa é gerada junto com os acordos e seguiria
+ * contando o acordo inventado ao personagem do encontro seguinte; e descartar
+ * em silêncio seria um fallback invisível. Com a tipografia equiparada, o que
+ * sobra para a recusa é paráfrase ou invenção, que é o caso do reenvio.
+ */
+export function validarConsequencia(c: Consequencia, e: Pick<Episodio, 'mensagens'>) {
   for (const a of c.acordos) {
     if (
       !e.mensagens.some(
         (m) =>
           m.autor === 'lider' &&
           m.turno === a.turno &&
-          m.texto.includes(a.trecho),
+          contemCitacao(m.texto, a.trecho),
       )
     )
       throw new Error('Acordo sem fala que o sustente');
