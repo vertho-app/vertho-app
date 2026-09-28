@@ -673,9 +673,50 @@ export default function TreinoLideranca({
                           <h2>{t('feedbackTitle')}</h2>
                           <p>{ep.avaliacao.sintese}</p>
                           <p className={styles.notice}>{t('assessmentNote')}</p>
+                          {/* A próxima prática e o que fazer com ela ficam juntas, no topo
+                              (27/09/2026): antes os botões de repetir e avançar moravam no
+                              fim da devolutiva, depois das competências e da reflexão. */}
                           <div className={styles.practice}>
                             <h3>{t('nextPractice')}</h3>
                             <p>{ep.avaliacao.proximaPratica}</p>
+                            <div className={styles.actions}>
+                              <button
+                                disabled={bloqueado || !!jornada.ativo}
+                                onClick={() =>
+                                  setConfirmar({
+                                    acao: 'repetir',
+                                    indice: ep.indice,
+                                    origem: 'devolutiva',
+                                  })
+                                }
+                              >
+                                <RotateCcw size={16} />
+                                {t('repeat')}
+                              </button>
+                              {jornada.ativo ? (
+                                <button
+                                  className={styles.primary}
+                                  disabled={bloqueado}
+                                  onClick={() => void carregar()}
+                                >
+                                  {t('resume')}
+                                </button>
+                              ) : concluido < 5 ? (
+                                <button
+                                  className={styles.primary}
+                                  disabled={bloqueado}
+                                  onClick={() => void enviar('avancar')}
+                                >
+                                  {t('continue', { n: concluido + 1 })}
+                                  <ArrowRight size={16} />
+                                </button>
+                              ) : (
+                                <span className={styles.badge}>
+                                  {t('journeyCompleted')}
+                                </span>
+                              )}
+                            </div>
+                            {confirmacaoRepetir('devolutiva')}
                           </div>
                           {ep.consequencia && (
                             <div className={styles.outcome}>
@@ -761,44 +802,6 @@ export default function TreinoLideranca({
                             <summary>{t('yourReflection')}</summary>
                             <p className={styles.pre}>{ep.reflexao}</p>
                           </details>
-                          {confirmacaoRepetir('devolutiva')}
-                          <div className={styles.actions}>
-                            <button
-                              disabled={bloqueado || !!jornada.ativo}
-                              onClick={() =>
-                                setConfirmar({
-                                  acao: 'repetir',
-                                  indice: ep.indice,
-                                  origem: 'devolutiva',
-                                })
-                              }
-                            >
-                              <RotateCcw size={16} />
-                              {t('repeat')}
-                            </button>
-                            {jornada.ativo ? (
-                              <button
-                                className={styles.primary}
-                                disabled={bloqueado}
-                                onClick={() => void carregar()}
-                              >
-                                {t('resume')}
-                              </button>
-                            ) : concluido < 5 ? (
-                              <button
-                                className={styles.primary}
-                                disabled={bloqueado}
-                                onClick={() => void enviar('avancar')}
-                              >
-                                {t('continue', { n: concluido + 1 })}
-                                <ArrowRight size={16} />
-                              </button>
-                            ) : (
-                              <span className={styles.badge}>
-                                {t('journeyCompleted')}
-                              </span>
-                            )}
-                          </div>
                         </section>
                       )}
 

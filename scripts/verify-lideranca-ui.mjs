@@ -177,7 +177,15 @@ try {
     await expect(
       page.getByRole('heading', { name: 'O que sua atuação mostrou' }),
     ).toBeVisible();
-    if (i === 0) assert.equal(await rascunhos(), 0, 'rascunho da reflexão depois do envio confirmado');
+    if (i === 0) {
+      assert.equal(await rascunhos(), 0, 'rascunho da reflexão depois do envio confirmado');
+      // A próxima prática e o que fazer com ela ficam juntas, no topo da devolutiva (27/09/2026).
+      const y = async (loc) => (await loc.boundingBox()).y;
+      const yPratica = await y(page.getByRole('heading', { name: 'Próxima prática' }));
+      const yAcao = await y(page.getByRole('button', { name: 'Continuar para o encontro 2' }));
+      const yCompetencias = await y(page.getByRole('region', { name: 'Devolutiva por competência' }).last());
+      assert(yPratica < yAcao && yAcao < yCompetencias, 'ações da devolutiva junto da próxima prática, antes das competências');
+    }
     if (i === 4) {
       // Fim da jornada (27/09/2026): a tela para na síntese, aberta, com a sugestão à vista.
       await expect(page.getByText('Sua jornada completa')).toBeInViewport();
@@ -272,6 +280,10 @@ try {
   await page.getByRole('button', { name: 'Ver devolutivas' }).first().click();
   await expect(page.getByRole('button', { name: 'Voltar à equipe' })).toBeVisible();
   await page.screenshot({ path: `${dir}/equipe-detalhe-desktop.png`, fullPage: true });
+  // A equipe vê a próxima prática que a pessoa recebeu (o dado já chegava e não era mostrado).
+  // (o último encontro vem aberto)
+  await expect(page.getByText('Orientação sugerida à pessoa').last()).toBeVisible();
+  await expect(page.getByText('Pergunte como um pedido chega e por quais etapas passa.').last()).toBeVisible();
   // D1 (27/09/2026): a evidência da preparação aparece pela fonte e pelo nível,
   // sem o texto; a conversa segue citada. Até então o gestor lia a preparação entre aspas.
   const e1 = page.locator('details').filter({ hasText: 'Encontro 1 · Jornada original' }).first();

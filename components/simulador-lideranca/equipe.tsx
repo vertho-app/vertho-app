@@ -192,6 +192,14 @@ export default function EquipeLideranca({ empresaId }: { empresaId?: string }) {
                 )}
               </summary>
               <p>{e.avaliacao.sintese}</p>
+              {/* A próxima prática já chegava do servidor e não era mostrada (27/09/2026):
+                  é a orientação que a pessoa recebeu, e o que o gestor pode acompanhar. */}
+              {e.avaliacao.proximaPratica && (
+                <div className={styles.practice}>
+                  <h4>{t('teamNextPractice')}</h4>
+                  <p>{e.avaliacao.proximaPratica}</p>
+                </div>
+              )}
               <RelatorioCompetencias
                 competencias={competencias}
                 regra={regra}
