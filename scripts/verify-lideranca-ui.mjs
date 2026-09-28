@@ -388,6 +388,12 @@ try {
     p.on('pageerror', (e) => errors.push(e.message));
     await p.goto(`${origin}?locale=${locale}`);
     await expect(p.getByRole('heading', { level: 1 })).toBeVisible();
+    if (locale === 'pt-PT') {
+      // pt-PT de verdade (27/09/2026): era cópia do pt-BR ("Carregando", "tela", "Você").
+      await expect(p.getByRole('button', { name: 'Começar o primeiro encontro' })).toBeVisible();
+      await expect(p.getByText('Equipa Horizonte')).toBeVisible();
+      await p.screenshot({ path: `${dir}/inicio-pt-PT.png` });
+    }
     await p.close();
   }
   assert.deepEqual(errors, []);
