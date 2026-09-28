@@ -61,11 +61,15 @@ export async function contexto(
         403,
         'O simulador de liderança não está liberado para seu cargo.',
       );
+    // Falha de leitura (turma, cargos) é indisponibilidade, não "fora do programa".
     const trilho = await resolverTrilhoLideranca(
       tdb.raw,
       { ...auth.colaborador, email: auth.email },
       empresa.sys_config,
-    );
+    ).catch((e) => {
+      console.error('[sim-lideranca] falha ao ler o programa', e instanceof Error ? e.message : 'erro');
+      throw new LiderancaError(503, 'Não foi possível consultar o acesso ao simulador.');
+    });
     if (trilho.ok === false) throw new LiderancaError(403, trilho.message);
     variante = trilho.variante;
     ownerKey = `colab:${auth.colaborador.id}`;

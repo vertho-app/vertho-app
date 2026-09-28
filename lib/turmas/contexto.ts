@@ -46,19 +46,24 @@ export async function carregarParticipacaoAtiva(
 }> {
   if (!empresaId || !colaboradorId) return { membroId: null, configOverride: {}, turma: null };
 
-  const { data: membro } = await sb.from('turma_membros')
+  // Falha de leitura LANÇA (27/09/2026). Até então virava "sem turma": quem
+  // estava na turma do programa de liderança lia "não está aberto para você
+  // nesta rodada", e os gates de config caíam na config da EMPRESA em silêncio.
+  const { data: membro, error: erroMembro } = await sb.from('turma_membros')
     .select('id, turma_id, config_override')
     .eq('empresa_id', empresaId)
     .eq('colaborador_id', colaboradorId)
     .eq('status', TURMA_MEMBRO.ATIVO)
     .maybeSingle();
+  if (erroMembro) throw new Error(`não foi possível ler a participação na turma: ${erroMembro.message}`);
   if (!membro) return { membroId: null, configOverride: {}, turma: null };
 
-  const { data: turma } = await sb.from('turmas')
+  const { data: turma, error: erroTurma } = await sb.from('turmas')
     .select('id, nome, sys_config, data_inicio, status')
     .eq('id', membro.turma_id)
     .eq('empresa_id', empresaId)   // defense-in-depth: a FK composta já garante
     .maybeSingle();
+  if (erroTurma) throw new Error(`não foi possível ler a turma: ${erroTurma.message}`);
 
   return { membroId: membro.id, configOverride: membro.config_override || {}, turma: turma || null };
 }

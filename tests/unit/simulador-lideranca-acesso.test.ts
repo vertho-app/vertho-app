@@ -3,6 +3,7 @@ const m = vi.hoisted(() => ({
   can: true,
   liberado: true,
   trilho: { ok: true, variante: 'lider' },
+  trilhoFalha: false,
   dbError: null as unknown,
   empresa: true,
 }));
@@ -13,7 +14,10 @@ vi.mock('@/lib/simuladores/acesso', () => ({
   })),
 }));
 vi.mock('@/lib/prontidao-lideranca/trilho', () => ({
-  resolverTrilhoLideranca: vi.fn(async () => m.trilho),
+  resolverTrilhoLideranca: vi.fn(async () => {
+    if (m.trilhoFalha) throw new Error('não foi possível ler os membros da turma: timeout');
+    return m.trilho;
+  }),
 }));
 vi.mock('@/lib/tenant-db', () => ({
   tenantDb: () => ({
@@ -50,6 +54,7 @@ beforeEach(() => {
   m.can = true;
   m.liberado = true;
   m.trilho = { ok: true, variante: 'lider' };
+  m.trilhoFalha = false;
   m.dbError = null;
   m.empresa = true;
 });
@@ -85,6 +90,13 @@ describe('acesso ao treino de liderança', () => {
   it('falha fechada em erro de banco', async () => {
     m.dbError = {};
     await expect(contexto(auth())).rejects.toMatchObject({ status: 503 });
+  });
+  it('falha de leitura do programa (turma) é 503, não "fora da população" (27/09/2026)', async () => {
+    m.trilhoFalha = true;
+    await expect(contexto(auth())).rejects.toMatchObject({
+      status: 503,
+      message: 'Não foi possível consultar o acesso ao simulador.',
+    });
   });
   it('teste do administrador usa acervo próprio e não o participante', async () => {
     const a = { ...auth(), isPlatformAdmin: true };

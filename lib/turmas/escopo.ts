@@ -90,18 +90,22 @@ export async function resolverEscopoDeLote(
   }
 
   if (escopo.tipo === 'turma') {
-    const { data: turma } = await sb.from('turmas')
+    const { data: turma, error: erroTurma } = await sb.from('turmas')
       .select('id, nome')
       .eq('id', escopo.turmaId)
       .eq('empresa_id', empresaId)     // a turma tem que ser DESTE tenant
       .maybeSingle();
+    if (erroTurma) throw new Error(`não foi possível ler a turma: ${erroTurma.message}`);
     if (!turma) throw new Error('Turma não encontrada nesta empresa');
 
-    const { data: membros } = await sb.from('turma_membros')
+    // Falha de leitura LANÇA (27/09/2026): até então virava turma sem ninguém, e
+    // o Mapeamento e o Simulador de liderança mostravam "ninguém na população".
+    const { data: membros, error: erroMembros } = await sb.from('turma_membros')
       .select('colaborador_id')
       .eq('empresa_id', empresaId)
       .eq('turma_id', escopo.turmaId)
       .eq('status', TURMA_MEMBRO.ATIVO);
+    if (erroMembros) throw new Error(`não foi possível ler os membros da turma: ${erroMembros.message}`);
     const ids = (membros || []).map((m: any) => m.colaborador_id);
     return { colaboradorIds: ids, turmaId: turma.id, rotulo: `turma ${turma.nome} (${ids.length})`, total: ids.length };
   }

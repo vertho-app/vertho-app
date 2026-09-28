@@ -143,7 +143,11 @@ type PessoaVisivel = { id: string; nome: string; cargo: string | null };
 async function populacaoVisivel(c: ContextoEquipe): Promise<PessoaVisivel[]> {
   const cfg = lerConfigProntidao(c.sysConfig);
   if (!cfg) return [];
-  const populacao = await carregarPopulacao(c.tdb.raw, c.empresaId, cfg);
+  // Falha de leitura (turma, colaboradores) é indisponibilidade, não "equipe vazia".
+  const populacao = await carregarPopulacao(c.tdb.raw, c.empresaId, cfg).catch((e) => {
+    console.error('[sim-lideranca/equipe] falha ao ler a população', e instanceof Error ? e.message : 'erro');
+    throw new LiderancaError(503, 'Não foi possível consultar a população do programa.');
+  });
   if (!populacao.length) return [];
   const { data: cargos, error: erroCargos } = await c.tdb
     .from('cargos_empresa')

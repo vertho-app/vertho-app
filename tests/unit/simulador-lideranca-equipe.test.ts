@@ -256,6 +256,16 @@ describe('acompanhamento do simulador de liderança', () => {
     ).rejects.toMatchObject({ status: 503 });
   });
 
+  it('falha ao ler a POPULAÇÃO (turma, colaboradores) é 503, nunca "ninguém na população" (27/09/2026)', async () => {
+    sb = banco();
+    const c = await contextoEquipe(auth('rh', 'rh@x.test'));
+    sb.falharEm({ tabela: 'colaboradores', op: 'select', mensagem: 'timeout no pool' });
+    await expect(painelEquipe(c)).rejects.toMatchObject({
+      status: 503,
+      message: 'Não foi possível consultar a população do programa.',
+    });
+  });
+
   it('cargo grafado de outro jeito segue a regra do cargo na população (19/09/2026)', async () => {
     // Analista fora do simulador; Bia está cadastrada com o cargo em outra caixa e espaçamento.
     regras = { c1: { vendas: true, atendimento: true, lideranca: false } };
