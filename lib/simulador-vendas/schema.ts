@@ -192,7 +192,10 @@ export const relatorioSchema = relatorioLegadoSchema.extend({
   escalaOriginal: z.literal('0-10').optional(),
   regraCobertura: z.string().optional(),
   Matriz: matrizAvaliacaoSchema
-    .extend({ descartados: z.array(z.string()).optional() })
+    .extend({
+      descartados: z.array(z.string()).optional(),
+      foraDaReuniao: z.array(z.string()).optional(),
+    })
     .optional(),
   Recomendacoes: z.array(
     z.union([

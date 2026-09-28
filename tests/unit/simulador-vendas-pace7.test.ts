@@ -5,7 +5,7 @@ import { pontuarRelatorio } from '@/lib/simulador-vendas/avaliacao';
 import { podeEncerrar, periodoVigente, TOLERANCIA_ENCERRAR_MS } from '@/lib/simulador-vendas/prazo';
 import { REGUA_VERSION } from '@/lib/simulador-vendas/schema';
 import { REGRA_COBERTURA } from '@/lib/simuladores/cobertura';
-import { avaliacaoMatriz, estadoMatriz } from '../fixtures/simulador-vendas-matriz';
+import { avaliacaoMatriz, estadoMatriz, FALA, PLANO } from '../fixtures/simulador-vendas-matriz';
 import { relatorio } from '../fixtures/simulador-vendas';
 
 /**
@@ -63,12 +63,67 @@ describe('pace-7: régua de cobertura no vendas', () => {
     expect(r.regraCobertura).toBe(REGRA_COBERTURA.versao);
   });
 
-  it('nível em E5/E6 é descartado, não aproveitado', () => {
+  it('nível em E5/E6 é zerado numa lista própria, não aproveitado nem tratado como citação errada', () => {
     const m = avaliacaoMatriz(3);
     const e5 = m.descritores.find((d) => d.codigo === 'E5')!;
     e5.nivel = 4;
     e5.evidencias = [{ origem: 'conversa', turno: 1, citacao: 'Como vocês administram o estoque hoje?' }];
-    expect(validarMatriz(m, estadoMatriz()).descartados).toEqual(['E5']);
+    const gravada = validarMatriz(m, estadoMatriz());
+    expect(gravada.foraDaReuniao).toEqual(['E5']);
+    expect(gravada.descartados).toBeUndefined();
+    expect(gravada.descritores.find((d) => d.codigo === 'E5')).toMatchObject({ nivel: null, evidencias: [] });
+  });
+});
+
+/**
+ * V-4 da revisão de 27/09/2026 (sonda E5/E6 invertida). Nível em E5/E6 entrava
+ * em `invalidos` e em `avaliados`: numa conversa curta (6 avaliados, cota de
+ * citação inválida = 1), E5 + E6 = 2 recusavam a avaliação inteira com a
+ * mensagem falsa "citação que não confere", o gerente era pago de novo e, na
+ * segunda recusa, a pessoa recebia 502.
+ */
+describe('V-4: E5/E6 fora da cota de citação inválida', () => {
+  function matrizCurta(comE5E6: boolean) {
+    const m = avaliacaoMatriz(3);
+    const observados = new Set(['PL1', 'PL2', 'PL3', 'PL4', 'P1', 'A1', ...(comE5E6 ? ['E5', 'E6'] : [])]);
+    for (const d of m.descritores) {
+      if (!observados.has(d.codigo)) {
+        d.nivel = null;
+        d.evidencias = [];
+        continue;
+      }
+      d.nivel = 2;
+      d.evidencias = [
+        d.codigo.startsWith('PL')
+          ? { origem: 'planejamento' as const, turno: null, citacao: PLANO }
+          : { origem: 'conversa' as const, turno: 1, citacao: FALA },
+      ];
+    }
+    return m;
+  }
+  const s = { ...estadoMatriz(), versaoRegua: 'pace-7' };
+
+  it('conversa curta com nível em E5/E6 e citações corretas é aceita, com E5/E6 nulos', () => {
+    const r = validarMatriz(matrizCurta(true), s);
+    expect(r.descartados).toBeUndefined();
+    expect(r.foraDaReuniao).toEqual(['E5', 'E6']);
+    for (const codigo of ['E5', 'E6'])
+      expect(r.descritores.find((d) => d.codigo === codigo)).toMatchObject({ nivel: null, evidencias: [] });
+    expect(r.descritores.filter((d) => d.nivel !== null)).toHaveLength(6);
+  });
+
+  it('a cota continua valendo para as citações dos avaliáveis', () => {
+    const m = matrizCurta(true);
+    // Duas citações erradas entre 6 avaliáveis passam da cota (1): recusa, como antes.
+    for (const codigo of ['P1', 'A1'])
+      m.descritores.find((d) => d.codigo === codigo)!.evidencias[0].citacao = 'Frase que o vendedor nunca disse.';
+    expect(() => validarMatriz(m, s)).toThrow(/Evidência inválida/);
+  });
+
+  it('o relatório gravado sai com as notas sem E5/E6', () => {
+    const r = pontuarRelatorio({ ...structuredClone(relatorio), Matriz: matrizCurta(true) } as any, s as any);
+    expect(r.Matriz?.foraDaReuniao).toEqual(['E5', 'E6']);
+    expect(r.E).toBeNull();
   });
 
   it('nota pública da pace-7 já é 1 a 4 (sem conversão)', () => {
