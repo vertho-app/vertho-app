@@ -45,3 +45,11 @@ As comparações incluem a passagem entre nível e ausência de nível. Entradas
 Na primeira rodada de liderança, 5 de 20 primeiras respostas foram rejeitadas: três por cobertura estrutural e duas por citação. A rodada posterior usou o schema com códigos e quantidade exatos, e completou as 20. Também ajustou os roteiros fraco/intermediário ao mínimo de três turnos; portanto não constitui experimento controlado para atribuir toda a melhoria ao schema. Mesmo sem falha final, a validação descartou nove descritores em cinco relatórios por evidência inválida; eles não receberam crédito. Não se afrouxaram as regras de evidência.
 
 A prioridade pedagógica restante é revisar as transições entre ausência de oportunidade e nível baixo, sobretudo Clareza no atendimento e Priorização na liderança. Os arquivos CSV de revisão humana permanecem sem gabarito: dependem de classificação independente por profissionais. As conversas chamadas boas são intenções do roteiro, não referência validada de nível 4.
+
+## Liderança: correções de 27/09/2026
+
+Itens L-1 a L-14 da revisão de 27/09 (resumo em [SIMULADOR-LIDERANCA.md](SIMULADOR-LIDERANCA.md#correções-de-27092026)), sem migration e sem IA real. Cada defeito ganhou teste de regressão a partir da sonda da revisão, invertida, e cada teste foi conferido por mutação (a correção revertida localmente, o teste falhando, a correção restaurada). Medido no worktree `fix/sim-lideranca-20260927`, antes da integração:
+
+- TypeScript sem erros; suíte completa com 6.701 testes aprovados (624 arquivos, 68 opcionais ignorados); recorte `simulador-lideranca simuladores prontidao-lideranca turmas demo tests/unit/security` com 1.430 aprovados.
+- `node scripts/verify-lideranca-ui.mjs` com "UI OK", incluindo celular (390x844) e os quatro idiomas. As capturas foram conferidas uma a uma; o `toBeHidden` da síntese no fim da jornada virou o contrário, de propósito (L-9).
+- Build de produção não rodado nesta etapa (fica para a integração).
