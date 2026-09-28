@@ -117,7 +117,7 @@ w.__liderancaFetch = async (url: string, options?: RequestInit) => {
     empresaNome: 'Empresa de demonstração',
     admin: false,
     jornada: revisao
-      ? { ...visaoPublica(s), revisao, processandoAte: null }
+      ? { ...visaoPublica(s), revisao, processandoAte: w.__processandoAte || null }
       : null,
     selecionado: selecionado ? episodioPublico(selecionado) : null,
     historico: historico.map((e) => ({

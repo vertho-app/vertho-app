@@ -5435,7 +5435,7 @@
     "synthesisEvaluated": "{n, plural, =0 {Not evaluated yet} one {Evaluated in # encounter} other {Evaluated in # encounters}}{comNivel, plural, =0 {} one {, with a level in #} other {, with a level in #}}",
     "levelUp": "Leveled up",
     "suggestionTitle": "Suggested next practice",
-    "suggestionText": "Replay encounter {n}, where {competencia} is the focus: that is where your journey had the least evidence.",
+    "suggestionText": "Replay encounter {n}, where {competencia} is the focus: it is the competency with the lowest level reached, or no level, in your journey.",
     "suggestionGapNoLevel": "Still to show: {competencia}. It gets a level when at least {min} behaviours appear in the same encounter.",
     "suggestionGapLevel": "Still to reach: Level 3 in {competencia}. The highest level so far is {nivel}.",
     "repeatEncounter": "Replay encounter {n}",

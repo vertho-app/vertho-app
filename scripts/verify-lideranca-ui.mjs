@@ -156,6 +156,19 @@ try {
         corrida,
       );
       assert.equal(pedidos, 1, 'o reenvio depois da queda usou outro pedido');
+      // Envio em processamento (outra aba): a copy diz a partir de quando um novo
+      // envio vale, sem segundos. Dizia "Retomada disponível até 17:59:51" (27/09/2026).
+      await page.evaluate(() => {
+        window.__processandoAte = new Date(Date.now() + 300000).toISOString();
+      });
+      await page.getByRole('button', { name: /Desenvolver/ }).click();
+      const processando = page.getByRole('status').filter({ hasText: 'Preparando a resposta' });
+      await expect(processando).toContainText(/Se não terminar, você poderá enviar de novo a partir das \d{2}:\d{2}\.$/);
+      await processando.screenshot({ path: `${dir}/processando.png` });
+      await page.evaluate(() => {
+        window.__processandoAte = null;
+      });
+      await expect(processando).toBeHidden({ timeout: 10000 });
     }
     if (i === 0) {
       await page.reload();

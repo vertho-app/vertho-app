@@ -526,10 +526,15 @@ export default function TreinoLideranca({
                     {t('processing')}
                     {processando && (
                       <span>
+                        {/* `processandoAte` é o fim do lock: a partir dali um novo envio
+                            é aceito (27/09/2026: a copy dizia "disponível ATÉ", o contrário). */}
                         {t('resumeBy', {
                           time: new Date(
                             jornada!.processandoAte!,
-                          ).toLocaleTimeString(locale),
+                          ).toLocaleTimeString(locale, {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          }),
                         })}
                       </span>
                     )}

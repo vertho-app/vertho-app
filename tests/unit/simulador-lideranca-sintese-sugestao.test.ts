@@ -63,6 +63,20 @@ describe('síntese do fim da jornada: o que falta demonstrar', () => {
     expect(saida).toContain(`Repetir o encontro ${s.sugestaoRepetir! + 1}`);
   });
 
+  it('🔴 a copy diz o critério real: menor nível alcançado, ou sem nível (não "menos evidência")', () => {
+    // Sonda da revisão invertida: todas as competências com nível nos 3 encontros
+    // (evidência igual), e a sugestão sai pelo MENOR nível.
+    const s = jornada((nome) => (nome === PRIORIZACAO ? 2 : 3));
+    expect(s.competencias.every((c) => c.comNivel === 3)).toBe(true);
+    const saida = html(s);
+    expect(saida).toContain('é a competência com o menor nível alcançado, ou sem nível, na sua jornada.');
+    expect(saida).not.toContain('menos evidência');
+    for (const locale of ['pt-BR', 'pt-PT', 'en-US', 'es-ES']) {
+      const texto = JSON.parse(readFileSync(`messages/${locale}.json`, 'utf8')).SimuladorLideranca.suggestionText;
+      expect(texto, locale).not.toMatch(/menos evid[êe]ncia|least evidence/i);
+    }
+  });
+
   it('competência sem nível: diz quantos comportamentos no mesmo encontro dão nível', () => {
     const s = jornada((nome) => (nome === PRIORIZACAO ? null : 3));
     expect(s.sugestaoRepetir).toBe(EPISODIOS.findIndex((e) => e.nome === PRIORIZACAO));

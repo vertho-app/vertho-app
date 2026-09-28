@@ -230,7 +230,9 @@ export function sinteseDaJornada(
     };
   });
   const media = mediaGeral(competencias.map((c) => ({ nota: c.notaAlcancada })));
-  // Repetir onde o foco é a competência com menos evidência (sem nível) ou com o menor nível.
+  // Repetir onde o foco é a competência com o MENOR nível alcançado (sem nível conta
+  // como o menor); no empate, a que teve nível em menos encontros. A copy dizia
+  // "menos evidência", e o critério é o nível (revisão de 27/09/2026).
   const fraca = [...competencias]
     .filter((c) => c.avaliada > 0)
     .sort((x, y) => (x.nivelAlcancado ?? 0) - (y.nivelAlcancado ?? 0) || x.comNivel - y.comNivel)[0];
