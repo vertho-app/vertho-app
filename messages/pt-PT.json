@@ -446,13 +446,15 @@
     "teamNotStartedEmpty": "Todas as pessoas com acesso já começaram.",
     "teamHistoryTitle": "Treinos da equipa",
     "surveyTitle": "Inquérito de experiência",
-    "surveyHelp": "O que os participantes acharam do simulador, de 1 (muito baixo) a 5 (muito alto). Os comentários aparecem sem o nome de quem os escreveu.",
+    "surveyHelp": "O que os participantes acharam do simulador, de 1 (muito baixo) a 5 (muito alto). Os comentários aparecem sem nome, sem data e por ordem aleatória.",
     "surveyResponses": "{n, plural, =0 {Ainda sem respostas.} one {# resposta.} other {# respostas.}}",
     "surveyAverage": "{value} de 5",
     "surveyComments": "Comentários",
     "surveyNoComments": "Nenhum comentário escrito.",
     "periodGrace": "O prazo de treino terminou. Ainda pode pedir a devolutiva desta conversa até {deadline}.",
-    "finishUntil": "Pode pedir a sua devolutiva até {deadline}."
+    "finishUntil": "Pode pedir a sua devolutiva até {deadline}.",
+    "surveyCommentsWithheld": "Os comentários aparecem quando pelo menos {min} pessoas tiverem respondido ao inquérito, para que ninguém seja identificado pelo que escreveu.",
+    "commentVisibility": "Os RH e as chefias leem os comentários sem o seu nome e sem data, e só quando pelo menos {min} pessoas tiverem respondido. Telefones e e-mails são ocultados."
   },
   "Beto": {
     "greeting": "Olá! Sou o Beto, o seu mentor de desenvolvimento. Como posso ajudar?",

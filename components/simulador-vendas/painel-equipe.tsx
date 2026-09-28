@@ -9,6 +9,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { fetchAuth } from '@/lib/auth/fetch-auth';
 import {
   ASPECTOS_PESQUISA,
+  MIN_RESPONDENTES_COMENTARIOS,
   type PainelVendas,
 } from '@/lib/simulador-vendas/painel';
 import { montarCsv } from '@/lib/simuladores/csv';
@@ -327,14 +328,21 @@ export default function PainelEquipe({ empresaId }: { empresaId: string }) {
             <h4 className="text-sm font-semibold mb-2">
               {t('surveyComments')}
             </h4>
-            {dados.pesquisa.comentarios.length ? (
+            {/* Sem data e em ordem sorteada: a data do comentário era o
+                "Último treino" de quem escreveu (D3, 27/09/2026). */}
+            {dados.pesquisa.comentariosRetidos ? (
+              <p className="text-sm text-slate-400">
+                {t('surveyCommentsWithheld', {
+                  min: MIN_RESPONDENTES_COMENTARIOS,
+                })}
+              </p>
+            ) : dados.pesquisa.comentarios.length ? (
               <ul className="space-y-3">
                 {dados.pesquisa.comentarios.map((c, i) => (
                   <li key={i} className="text-sm">
                     <blockquote className="border-l-2 border-brand-400 pl-3 text-slate-300 whitespace-pre-wrap break-words">
                       {c.texto}
                     </blockquote>
-                    <small className="text-slate-400">{data(c.em)}</small>
                   </li>
                 ))}
               </ul>

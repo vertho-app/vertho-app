@@ -11,7 +11,16 @@
  *     evolução do participante), só de treinos concluídos na escala 1 a 4 nativa;
  *   - a gestão lê o relatório sem depender da pesquisa (como já fazia);
  *   - comentários da pesquisa saem SEM nome: avaliam o simulador, não a pessoa.
+ *
+ * 🔑 Comentários anônimos de verdade (decisão do dono D3, 27/09/2026). Até aqui
+ * cada comentário saía com a data do treino, que é o mesmo valor da coluna
+ * "Último treino" da pessoa na mesma tela: em equipe pequena, "sem nome" não
+ * anonimizava ninguém. Agora: sem data, em ordem aleatória, com dados pessoais
+ * mascarados e só a partir de `MIN_RESPONDENTES_COMENTARIOS` pessoas que
+ * responderam à pesquisa no que o painel lê (a janela de retenção). Abaixo
+ * disso a tela diz que os comentários existem só a partir desse número.
  */
+import { maskTextPII } from '@/lib/pii-masker';
 import {
   evolucaoPorCompetencia,
   ORDEM_COMPETENCIAS,
@@ -31,6 +40,8 @@ export const ASPECTOS_PESQUISA = [
 ] as const;
 export type AspectoPesquisa = (typeof ASPECTOS_PESQUISA)[number];
 export const MAX_COMENTARIOS = 30;
+/** Com menos pessoas que isso respondendo, um comentário aponta quem o escreveu. */
+export const MIN_RESPONDENTES_COMENTARIOS = 5;
 
 export interface PessoaPainel {
   id: string;
@@ -70,8 +81,13 @@ export interface PainelVendas {
   naoComecaram: PessoaPainel[];
   pesquisa: {
     respostas: number;
+    /** Pessoas distintas que responderam à pesquisa. */
+    respondentes: number;
     medias: Record<AspectoPesquisa, number | null>;
-    comentarios: Array<{ texto: string; em: string }>;
+    /** Sem data e sem autor, em ordem aleatória; vazio abaixo do mínimo de respondentes. */
+    comentarios: Array<{ texto: string }>;
+    /** Os comentários ficaram de fora por haver menos respondentes que o mínimo. */
+    comentariosRetidos: boolean;
   };
 }
 
@@ -86,9 +102,20 @@ const CONTAM_COMO_TREINO: string[] = [
   VENDAS_SESSAO.INTERROMPIDA,
 ];
 
+/** Embaralha sem viés (Fisher-Yates); `aleatorio` é injetável para teste. */
+function embaralhar<T>(itens: T[], aleatorio: () => number): T[] {
+  const r = [...itens];
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.floor(aleatorio() * (i + 1));
+    [r[i], r[j]] = [r[j], r[i]];
+  }
+  return r;
+}
+
 export function agregarPainel(
   pessoas: PessoaPainel[],
   sessoes: SessaoPainel[],
+  aleatorio: () => number = Math.random,
 ): PainelVendas {
   const porPessoa = new Map<string, SessaoPainel[]>();
   for (const s of sessoes) {
@@ -139,16 +166,24 @@ export function agregarPainel(
       ];
     }),
   ) as Record<AspectoPesquisa, number | null>;
-  const comentarios = respostas
-    .map((s) => ({
-      texto:
-        typeof s.feedback!.comentario === 'string'
-          ? s.feedback!.comentario.trim()
-          : '',
-      em: s.criadoEm,
-    }))
-    .filter((c) => c.texto)
-    .slice(0, MAX_COMENTARIOS);
+  const respondentes = new Set(respostas.map((s) => s.colaboradorId)).size;
+  const comentariosRetidos = respondentes < MIN_RESPONDENTES_COMENTARIOS;
+  // Os mais recentes entram no teto; a ordem exibida é sorteada, para não
+  // denunciar quem respondeu por último. Nada de data nem de autor.
+  const comentarios = comentariosRetidos
+    ? []
+    : embaralhar(
+        respostas
+          .map((s) =>
+            typeof s.feedback!.comentario === 'string'
+              ? maskTextPII(s.feedback!.comentario).trim()
+              : '',
+          )
+          .filter(Boolean)
+          .slice(0, MAX_COMENTARIOS)
+          .map((texto) => ({ texto })),
+        aleatorio,
+      );
   return {
     resumo: {
       pessoas: linhas.length,
@@ -161,6 +196,12 @@ export function agregarPainel(
     naoComecaram: linhas
       .filter((l) => l.treinos === 0)
       .map(({ id, nome, cargo }) => ({ id, nome, cargo })),
-    pesquisa: { respostas: respostas.length, medias, comentarios },
+    pesquisa: {
+      respostas: respostas.length,
+      respondentes,
+      medias,
+      comentarios,
+      comentariosRetidos,
+    },
   };
 }

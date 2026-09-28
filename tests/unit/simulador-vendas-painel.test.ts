@@ -9,6 +9,7 @@ let sb: SupabaseMock;
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
 vi.mock('@/lib/permissions', () => ({ can: vi.fn(async () => true) }));
 import { can } from '@/lib/permissions';
+import { maskTextPII } from '@/lib/pii-masker';
 import { tenantDb } from '@/lib/tenant-db';
 import { painelEquipe } from '@/lib/simulador-vendas/equipe';
 import {
@@ -328,10 +329,11 @@ describe('agregarPainel', () => {
     ).toBe(true);
   });
 
-  it('pesquisa: médias ignoram nota inválida; comentários sem nome, mais recentes primeiro e com teto', () => {
+  it('pesquisa: médias ignoram nota inválida; comentários só de texto, com teto', () => {
+    const autores = ['a', 'b', 'c', 'd', 'e'];
     const muitas = Array.from({ length: MAX_COMENTARIOS + 5 }, (_, i) =>
       s(
-        'a',
+        autores[i % autores.length],
         `2026-09-${String((i % 28) + 1).padStart(2, '0')}T${String(i % 24).padStart(2, '0')}:00:00Z`,
         'concluida',
         {
@@ -344,14 +346,82 @@ describe('agregarPainel', () => {
     );
     const p = agregarPainel(pessoas, muitas);
     expect(p.pesquisa.respostas).toBe(MAX_COMENTARIOS + 5);
+    expect(p.pesquisa.respondentes).toBe(5);
     expect(p.pesquisa.medias.realismo).toBe(4);
     expect(p.pesquisa.comentarios).toHaveLength(MAX_COMENTARIOS);
-    expect(Object.keys(p.pesquisa.comentarios[0]).sort()).toEqual([
-      'em',
-      'texto',
-    ]);
-    const datas = p.pesquisa.comentarios.map((x) => x.em);
-    expect([...datas].sort().reverse()).toEqual(datas);
+    expect(Object.keys(p.pesquisa.comentarios[0])).toEqual(['texto']);
+  });
+});
+
+/**
+ * V-2 da revisão de 27/09/2026 (decisão D3 do dono). O comentário "sem nome"
+ * saía com a data do treino, igual à coluna "Último treino" de quem escreveu:
+ * o cenário abaixo é a sonda da revisão, em que o comentário apontava a Ana.
+ */
+describe('V-2: comentário da pesquisa sem identificação', () => {
+  const equipe = ['ana', 'bruno', 'carla', 'davi', 'eva', 'fabio'].map((id) => ({
+    id,
+    nome: id[0].toUpperCase() + id.slice(1),
+    cargo: 'Vendedor',
+  }));
+  const resposta = (
+    colaboradorId: string,
+    criadoEm: string,
+    comentario: string,
+  ): SessaoPainel => ({
+    colaboradorId,
+    criadoEm,
+    status: 'concluida',
+    competencias: null,
+    feedback: { realismo: 3, desafio: 3, interacao: 3, utilidade: 3, aprendizado: 3, comentario },
+  });
+  const sonda = [
+    resposta('ana', '2026-09-20T13:00:00Z', 'Achei inútil e o gestor me obrigou.'),
+    resposta('bruno', '2026-09-22T13:00:00Z', ''),
+  ];
+  const cinco = [
+    ...sonda,
+    resposta('carla', '2026-09-23T13:00:00Z', 'Me liga no (11) 91234-5678 ou escreve para ana@cliente.test hoje'),
+    resposta('davi', '2026-09-24T13:00:00Z', 'Gostei do cliente difícil.'),
+    resposta('eva', '2026-09-25T13:00:00Z', 'Queria mais tempo.'),
+  ];
+
+  it('com menos de 5 respondentes os comentários ficam retidos', () => {
+    const p = agregarPainel(equipe, sonda);
+    expect(p.pesquisa).toMatchObject({ respostas: 2, respondentes: 2, comentarios: [], comentariosRetidos: true });
+    // Duas respostas da mesma pessoa não viram dois respondentes.
+    const repetida = agregarPainel(equipe, [...sonda, resposta('ana', '2026-09-26T13:00:00Z', 'De novo.'), ...cinco.slice(2, 4)]);
+    expect(repetida.pesquisa).toMatchObject({ respondentes: 4, comentariosRetidos: true, comentarios: [] });
+  });
+
+  it('a partir de 5, nenhum campo do comentário casa com uma pessoa da tabela', () => {
+    const p = agregarPainel(equipe, cinco);
+    expect(p.pesquisa.comentariosRetidos).toBe(false);
+    expect(p.pesquisa.comentarios.length).toBe(4);
+    const valoresDasPessoas = new Set(
+      p.pessoas.flatMap((x) => [x.id, x.nome, x.ultimo].filter(Boolean) as string[]),
+    );
+    for (const c of p.pesquisa.comentarios) {
+      expect(Object.keys(c)).toEqual(['texto']);
+      for (const v of Object.values(c)) expect(valoresDasPessoas.has(v)).toBe(false);
+    }
+  });
+
+  it('dados pessoais saem mascarados', () => {
+    const textos = agregarPainel(equipe, cinco).pesquisa.comentarios.map((c) => c.texto);
+    expect(textos).toContain('Me liga no [telefone] ou escreve para [email] hoje');
+    expect(textos.join(' ')).not.toMatch(/91234|ana@cliente/);
+  });
+
+  it('a ordem é sorteada, não a de chegada', () => {
+    const recentes = [...cinco]
+      .sort((a, b) => b.criadoEm.localeCompare(a.criadoEm))
+      .map((r) => maskTextPII(r.feedback!.comentario as string))
+      .filter(Boolean);
+    // Sorteio que sempre cai no primeiro: a ordem de chegada vira uma rotação.
+    const exibidos = agregarPainel(equipe, cinco, () => 0).pesquisa.comentarios.map((c) => c.texto);
+    expect(exibidos).toEqual([...recentes.slice(1), recentes[0]]);
+    expect(exibidos).not.toEqual(recentes);
   });
 });
 

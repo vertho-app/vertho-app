@@ -114,6 +114,24 @@ describe('persistência de comandos PACE', () => {
     expect(sb.client.rpc).not.toHaveBeenCalled();
     expect(gerador).not.toHaveBeenCalled();
   });
+  it('V-2 (D3): o comentário da pesquisa é gravado com dados pessoais mascarados', async () => {
+    s = { ...estado(), status: 'concluida', relatorio: null };
+    sb.client.rpc.mockResolvedValue({ data: true, error: null });
+    const feedback = {
+      realismo: 4,
+      desafio: 3,
+      interacao: 4,
+      utilidade: 5,
+      aprendizado: 4,
+      comentario: 'Me chama no 11 91234-5678 ou em pessoa@example.com.',
+    };
+    const result = await executar(ctx(), { ...comando(), acao: 'feedback' as const, feedback });
+    const gravado = sb.client.rpc.mock.calls.find(([nome]) => nome === 'sim_vendas_commit')![1];
+    expect(gravado.p_estado.feedback.comentario).not.toMatch(/91234|pessoa@example/);
+    expect(gravado.p_estado.feedback.comentario).toContain('[telefone]');
+    expect(gravado.p_estado.feedback).toMatchObject({ realismo: 4, utilidade: 5 });
+    expect(result.sessao.feedback?.comentario).toBe(gravado.p_estado.feedback.comentario);
+  });
   it('planejamento usa a mesma lease e o mesmo tenant, mascara dados pessoais e não chama IA', async () => {
     s = { ...estadoMatriz(), planejamento: undefined, mensagens: [] };
     sb.client.rpc.mockResolvedValue({ data: true, error: null });

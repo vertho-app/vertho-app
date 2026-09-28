@@ -101,6 +101,10 @@ try {
   await page.getByRole('button', { name: 'Confirmar encerramento', exact: true }).click();
   await page.getByRole('heading', { name: 'Conte como foi a experiência', exact: true }).waitFor();
   assert.equal(await page.getByText('Avance no diagnóstico antes de propor.', { exact: true }).count(), 0);
+  // D3: quem escreve o comentário sabe quem lê.
+  await expect(page.getByLabel('Comentário (opcional)', { exact: true })).toHaveAccessibleDescription(
+    /^RH e liderança leem os comentários sem o seu nome e sem data, e só quando pelo menos 5 pessoas/,
+  );
   await page.screenshot({ path: `${dir}/avaliacao-antes-relatorio-desktop.png`, fullPage: true });
   const notasMaximas = await page.getByRole('radio', { name: '5 de 5', exact: true }).all();
   assert.equal(notasMaximas.length, 5);
@@ -169,9 +173,12 @@ try {
   const linhaAna = visao.locator('tr', { hasText: 'Ana Souza' });
   await expect(linhaAna.getByText('Subiu de nível', { exact: true })).toHaveCount(3);
   const pesquisa = page.getByRole('region', { name: 'Pesquisa de experiência', exact: true });
-  await pesquisa.getByText('2 respostas.', { exact: true }).waitFor();
+  await pesquisa.getByText('6 respostas.', { exact: true }).waitFor();
   await pesquisa.getByText('O cliente pareceu uma pessoa de verdade.', { exact: true }).waitFor();
+  await pesquisa.getByText('Queria um cliente mais difícil.', { exact: true }).waitFor();
   assert.equal(await pesquisa.getByText(/Ana Souza/).count(), 0, 'comentário sai sem o nome');
+  // D3 (27/09/2026): sem data. A data do comentário era o "Último treino" de quem escreveu.
+  assert.equal(await pesquisa.getByText(/\d{2}\/\d{2}\/\d{4}/).count(), 0, 'comentário sai sem data');
   const baixarEquipe = page.waitForEvent('download');
   await visao.getByRole('button', { name: 'Exportar por pessoa (CSV)', exact: true }).click();
   let csvEquipe = '';

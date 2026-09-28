@@ -299,8 +299,28 @@ w.__paceFetch = async (url: string, init: RequestInit = {}) => {
             { id: 'p-bruno', nome: 'Bruno Lima', cargo: 'Vendedor' },
             { id: 'p-carla', nome: 'Carla', cargo: null },
             { id: 'p-diego', nome: '=Diego', cargo: 'Vendedor' },
+            ...['Eva', 'Fábio', 'Gabi', 'Hugo'].map((nome) => ({
+              id: `p-${nome}`,
+              nome: `${nome} Ramos`,
+              cargo: 'Vendedor',
+            })),
           ],
           [
+            // Cinco pessoas responderam à pesquisa: os comentários aparecem (D3).
+            ...['Eva', 'Fábio', 'Gabi', 'Hugo'].map((nome, i) => ({
+              colaboradorId: `p-${nome}`,
+              criadoEm: `2026-09-2${i}T12:00:00Z`,
+              status: 'concluida',
+              competencias: null,
+              feedback: {
+                realismo: 4,
+                desafio: 3,
+                interacao: 4,
+                utilidade: 4,
+                aprendizado: 4,
+                comentario: i === 0 ? 'Queria um cliente mais difícil.' : '',
+              },
+            })),
             {
               colaboradorId: 'p-ana',
               criadoEm: '2026-09-10T12:00:00Z',

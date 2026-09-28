@@ -173,7 +173,16 @@ export async function executar(c: Contexto, original: Comando) {
             ...original,
             planejamento: maskTextPII(original.planejamento).trim(),
           }
-        : original;
+        : original.acao === 'feedback'
+          ? // O comentário da pesquisa é lido por RH e liderança (D3, 27/09/2026).
+            {
+              ...original,
+              feedback: {
+                ...original.feedback,
+                comentario: maskTextPII(original.feedback.comentario).trim(),
+              },
+            }
+          : original;
   const exigirPrazo = () => {
     if (c.auth.isPlatformAdmin) return;
     // Encerrar tem 24 h de tolerância: quem estava no meio da conversa recebe a devolutiva.

@@ -3,6 +3,7 @@
 import { Check, LockKeyhole } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { Estado } from '@/lib/simulador-vendas/schema';
+import { MIN_RESPONDENTES_COMENTARIOS } from '@/lib/simulador-vendas/painel';
 import styles from './treino.module.css';
 
 type Feedback = NonNullable<Estado['feedback']>;
@@ -118,7 +119,12 @@ export default function Avaliacao({
             onChange={(event) => onChange({ ...feedback, comentario: event.target.value })}
             rows={3}
             maxLength={2000}
+            aria-describedby="pace-comentario-quem-le"
           />
+          {/* D3 (27/09/2026): quem escreve sabe quem lê. */}
+          <p id="pace-comentario-quem-le" className={`${styles.muted} mt-2`}>
+            {t('commentVisibility', { min: MIN_RESPONDENTES_COMENTARIOS })}
+          </p>
           <p className={`${styles.muted} mt-2`}>{t('feedbackDoesNotChangeScore')}</p>
           <button type="submit" disabled={desabilitado || !completa} className={`${styles.primary} mt-4`}>
             {t(comDevolutiva ? 'saveAndOpenReport' : 'saveFeedback')}
