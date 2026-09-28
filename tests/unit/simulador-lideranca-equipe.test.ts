@@ -78,6 +78,26 @@ const concluido = {
 let regras: Record<string, unknown> | undefined;
 /** Encontros concluídos a mais na jornada da Ana (só o teste da D1 usa). */
 let extras: typeof concluido[] = [];
+/** O que o banco devolveu para a consulta do painel. */
+let lidoDoPainel: Record<string, unknown>[] = [];
+
+/**
+ * Avalia o `select` do PostgREST sobre uma linha: `alias:coluna->a->0->>b`.
+ * `->>` devolve texto, `->` o JSON. Assim o mock entrega exatamente o que a
+ * consulta pediria ao banco, e um `estado->concluidos` inteiro traz a conversa.
+ */
+function projetar(cols: string, linha: Record<string, any>) {
+  const out: Record<string, unknown> = {};
+  for (const campo of cols.split(',').map((c) => c.trim())) {
+    const [alias, caminho] = campo.includes(':') ? campo.split(':') : [campo, campo];
+    const partes = caminho.split(/->>?/);
+    let v: any = linha[partes[0]];
+    for (const p of partes.slice(1)) v = v == null ? undefined : v[/^\d+$/.test(p) ? Number(p) : p];
+    const texto = /->>[^>]+$/.test(caminho);
+    out[alias] = v === undefined ? null : texto && typeof v !== 'string' ? String(v) : v;
+  }
+  return out;
+}
 function banco() {
   return criarSupabaseMock({
     resolver: (tabela, _cols, cadeia) => {
@@ -117,17 +137,17 @@ function banco() {
           { id: 'c1', nome: 'Analista' },
           { id: 'c2', nome: 'Gerente' },
         ];
-      if (tabela === 'sim_lideranca_jornadas')
-        return [
-          {
-            id: 'j-ana',
-            colaborador_id: 'ana',
-            updated_at: '2026-09-18T12:00:00Z',
-            concluidos: [concluido],
-            ativoIndice: '1',
-            cargoMatriz: 'Líder',
-          },
-        ];
+      if (tabela === 'sim_lideranca_jornadas') {
+        // Responde à PERGUNTA feita: os caminhos JSON pedidos, e só eles.
+        const linha = projetar(cols, {
+          id: 'j-ana',
+          colaborador_id: 'ana',
+          updated_at: '2026-09-18T12:00:00Z',
+          estado: { ...estado(), concluidos: [concluido], ativo: { ...episodio(1), plano: 'Plano particular do encontro em andamento.' } },
+        });
+        lidoDoPainel.push(linha);
+        return [linha];
+      }
       return [];
     },
   });
@@ -158,6 +178,30 @@ describe('acompanhamento do simulador de liderança', () => {
     // Todas as leituras de tenant vão escopadas pela empresa.
     expect(sb.usou('colaboradores', 'eq', 'empresa_id')).toBe(true);
     expect(sb.usou('sim_lideranca_jornadas', 'eq', 'empresa_id')).toBe(true);
+  });
+
+  it('🔴 o painel não lê conversa, preparação nem reflexão do banco, só o que a síntese usa (27/09/2026)', async () => {
+    sb = banco();
+    lidoDoPainel = [];
+    const r = await painelEquipe(await contextoEquipe(auth('rh', 'rh@x.test')));
+    // A síntese continua saindo do mesmo encontro.
+    expect(r.pessoas.find((p) => p.nome === 'Ana')).toMatchObject({ encontrosConcluidos: 1, emAndamento: 1 });
+    expect(r.pessoas.find((p) => p.nome === 'Ana')?.sintese?.competencias.find((c) => c.avaliada)).toBeTruthy();
+    const selects = sb.chamadas
+      .filter((c) => c.tabela === 'sim_lideranca_jornadas' && c.metodo === 'select')
+      .map((c) => String(c.args[0]));
+    expect(selects.length).toBeGreaterThan(0);
+    for (const s of selects) expect(s).not.toMatch(/mensagens|plano|reflexao|contexto/);
+    // O que o banco devolveu: nada da conversa, da preparação ou da reflexão.
+    const lido = JSON.stringify(lidoDoPainel);
+    expect(lidoDoPainel.length).toBeGreaterThan(0);
+    for (const privado of [
+      'Minha reflexão particular',
+      'Estou preocupada com os atrasos',
+      'Posso trazer os pedidos para revisarmos juntos',
+      'Plano particular do encontro em andamento',
+    ])
+      expect(lido).not.toContain(privado);
   });
 
   it('quem não acompanha é recusado, e o módulo desligado também', async () => {

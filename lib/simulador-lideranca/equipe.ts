@@ -34,6 +34,7 @@ import {
   type LinhaMatriz,
 } from '@/lib/simuladores/lideranca/matriz-global';
 import { sinteseDaJornada, type SinteseJornada } from './avaliacao';
+import { EPISODIOS } from './episodios';
 import { LiderancaError, type AvaliacaoGravada, type Episodio } from './schema';
 import { encontroParaEquipe } from './visao-equipe';
 
@@ -185,14 +186,49 @@ async function populacaoVisivel(c: ContextoEquipe): Promise<PessoaVisivel[]> {
     .map((p) => ({ id: p.id, nome: p.nome, cargo: p.cargo }));
 }
 
+type EncontroDoPainel = Pick<Episodio, 'indice' | 'encerradoEm' | 'avaliacao' | 'repeticao'>;
 type LinhaJornada = {
   id: string;
   colaborador_id: string;
   updated_at: string;
-  concluidos: Episodio[] | null;
+  concluidos: EncontroDoPainel[];
   ativoIndice: string | null;
   cargoMatriz: string | null;
 };
+
+/**
+ * O painel lê de cada encontro original SÓ o que a síntese usa (índice, fim e
+ * avaliação), por caminho JSON (27/09/2026). Até então lia
+ * `estado->concluidos` inteiro: conversa, preparação e reflexão de toda a
+ * população, para descartar no servidor. A jornada tem no máximo 5 originais
+ * (as repetições moram em `sim_lideranca_episodios`), então os caminhos são
+ * fixos, sem migration.
+ */
+export const COLUNAS_PAINEL = [
+  'id',
+  'colaborador_id',
+  'updated_at',
+  ...EPISODIOS.flatMap((_, i) => [
+    `e${i}i:estado->concluidos->${i}->>indice`,
+    `e${i}f:estado->concluidos->${i}->>encerradoEm`,
+    `e${i}a:estado->concluidos->${i}->avaliacao`,
+  ]),
+  'ativoIndice:estado->ativo->>indice',
+  'cargoMatriz:estado->matriz->0->>cargo',
+].join(',');
+
+/** Os encontros originais a partir das colunas do painel (a lista é contígua). */
+export function encontrosDaLinha(r: Record<string, unknown>): EncontroDoPainel[] {
+  const encontros: EncontroDoPainel[] = [];
+  for (let i = 0; i < EPISODIOS.length && r[`e${i}i`] != null; i++)
+    encontros.push({
+      indice: Number(r[`e${i}i`]),
+      encerradoEm: (r[`e${i}f`] as string | null) ?? null,
+      avaliacao: (r[`e${i}a`] as AvaliacaoGravada | null) ?? null,
+      repeticao: false,
+    });
+  return encontros;
+}
 
 const varianteDoCargo = (cargoMatriz: string | null) =>
   cargoMatriz === VARIANTES.futuro ? 'futuro' : 'lider';
@@ -257,9 +293,7 @@ export async function painelEquipe(c: ContextoEquipe) {
   for (const lote of lotes(pessoas.map((p) => p.id))) {
     const { data, error } = await c.tdb
       .from('sim_lideranca_jornadas')
-      .select(
-        'id,colaborador_id,updated_at,concluidos:estado->concluidos,ativoIndice:estado->ativo->>indice,cargoMatriz:estado->matriz->0->>cargo',
-      )
+      .select(COLUNAS_PAINEL)
       .in('colaborador_id', lote);
     if (error)
       throw new LiderancaError(
@@ -267,7 +301,14 @@ export async function painelEquipe(c: ContextoEquipe) {
         'Não foi possível consultar as jornadas da equipe.',
       );
     for (const r of (data || []) as any[])
-      jornadas.set(r.colaborador_id, r as LinhaJornada);
+      jornadas.set(r.colaborador_id, {
+        id: r.id,
+        colaborador_id: r.colaborador_id,
+        updated_at: r.updated_at,
+        concluidos: encontrosDaLinha(r),
+        ativoIndice: r.ativoIndice ?? null,
+        cargoMatriz: r.cargoMatriz ?? null,
+      });
   }
   const reps = await repeticoes(
     c,
@@ -287,7 +328,7 @@ export async function painelEquipe(c: ContextoEquipe) {
         sintese: null,
       };
     const variante = varianteDoCargo(j.cargoMatriz);
-    const concluidos = j.concluidos || [];
+    const concluidos = j.concluidos;
     return {
       colaboradorId: p.id,
       nome: p.nome,
