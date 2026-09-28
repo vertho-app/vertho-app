@@ -84,6 +84,17 @@ try {
   const rascunhos = () =>
     page.evaluate(() => Object.keys(localStorage).filter((k) => k.includes(':rascunho:')).length);
   for (let i = 0; i < 5; i++) {
+    if (i === 0) {
+      // As secundárias aparecem antes da conversa, no briefing e na preparação (27/09/2026).
+      await expect(
+        page.getByText('Também observadas: Comunicação e Conversas de Liderança e Priorização e Tomada de Decisão.'),
+      ).toBeVisible();
+      await expect(
+        page.getByText(
+          'Neste encontro o foco é Análise e Diagnóstico de Situações; também são observadas Comunicação e Conversas de Liderança e Priorização e Tomada de Decisão.',
+        ),
+      ).toBeVisible();
+    }
     await page.getByLabel('Sua preparação para o encontro').fill(plano);
     if (i === 0) {
       // Rascunho no aparelho (27/09/2026): o F5 apagava a preparação.
@@ -233,6 +244,8 @@ try {
   // botão à vista repetia o 5º encontro, não o sugerido.
   await expect(page.getByText('Sua jornada completa')).toBeVisible();
   await expect(page.getByText('Próximo treino sugerido')).toBeVisible();
+  // ... e diz, numa frase, o que falta demonstrar.
+  await expect(page.getByText(/^Falta (demonstrar|chegar ao Nível 3 em) /)).toBeVisible();
   // E a jornada é onde a média vive (ou diz o que falta para ela existir).
   await expect(page.getByText(/Média da jornada: Nível|A média aparece quando/)).toBeVisible();
   const ySintese = (await page.getByText('Sua jornada completa').boundingBox()).y;

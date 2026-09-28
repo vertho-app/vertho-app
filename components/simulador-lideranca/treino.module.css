@@ -287,6 +287,10 @@
   font-size: 0.8rem;
   color: var(--lid-muted);
 }
+.focus .alsoObserved {
+  margin-top: 8px;
+  color: var(--lid-text);
+}
 .pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

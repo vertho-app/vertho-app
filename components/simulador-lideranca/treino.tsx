@@ -341,6 +341,9 @@ export default function TreinoLideranca({
       dateStyle: 'short',
       timeStyle: 'short',
     });
+  /** "X e Y" no idioma da tela. */
+  const lista = (itens: readonly string[]) =>
+    new Intl.ListFormat(locale, { style: 'long', type: 'conjunction' }).format(itens);
   /** Confirmação de repetir o encontro `indice`, aberta a partir de `origem`. */
   const confirmacaoRepetir = (origem: 'sintese' | 'devolutiva') =>
     confirmar?.acao === 'repetir' && confirmar.origem === origem ? (
@@ -603,6 +606,12 @@ export default function TreinoLideranca({
                             <small>{t('focus')}</small>
                             <strong>{info.nome}</strong>
                             <p>{info.objetivo}</p>
+                            {/* As secundárias também valem nível (27/09/2026): sem isto a
+                                devolutiva mostrava "Sem oportunidade de observar" numa
+                                competência que a pessoa nem sabia que contava. */}
+                            <p className={styles.alsoObserved}>
+                              {t('alsoObserved', { lista: lista(info.secundarias) })}
+                            </p>
                           </div>
                           {ep.repeticao && (
                             <p className={styles.notice}>{t('replayNotice')}</p>
@@ -860,6 +869,12 @@ export default function TreinoLideranca({
                           <p className={styles.eyebrow}>{t('preparation')}</p>
                           <h2>{t('planTitle')}</h2>
                           <p>{t('planHint')}</p>
+                          <p>
+                            {t('prepCompetencies', {
+                              foco: info.nome,
+                              lista: lista(info.secundarias),
+                            })}
+                          </p>
                           <label htmlFor="lideranca-plano">
                             {t('planLabel')}
                           </label>

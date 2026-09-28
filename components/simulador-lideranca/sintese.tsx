@@ -12,6 +12,7 @@ import { useTranslations } from 'next-intl';
 import { RotateCcw, Star } from 'lucide-react';
 import { EPISODIOS } from '@/lib/simulador-lideranca/episodios';
 import type { SinteseJornada } from '@/lib/simulador-lideranca/avaliacao';
+import { REGRA_COBERTURA } from '@/lib/simuladores/cobertura';
 import styles from './treino.module.css';
 
 export default function SinteseJornadaView({
@@ -75,6 +76,18 @@ export default function SinteseJornadaView({
               competencia: EPISODIOS[sugestao].nome,
             })}
           </p>
+          {/* O que falta demonstrar, numa frase (27/09/2026). */}
+          {(() => {
+            const nome = EPISODIOS[sugestao].nome;
+            const c = sintese.competencias.find((x) => x.nome === nome);
+            return (
+              <p>
+                {c?.nivelAlcancado != null
+                  ? t('suggestionGapLevel', { competencia: nome, nivel: c.nivelAlcancado })
+                  : t('suggestionGapNoLevel', { competencia: nome, min: REGRA_COBERTURA.minDescritores })}
+              </p>
+            );
+          })()}
           <div className={styles.actions}>
             <button type="button" className={styles.primary} disabled={bloqueado} onClick={() => onRepetir(sugestao)}>
               <RotateCcw size={16} aria-hidden />
