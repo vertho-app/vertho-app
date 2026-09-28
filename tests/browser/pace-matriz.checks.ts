@@ -118,12 +118,14 @@ export async function verificarMatrizUI(page: Page, origin: string, dir: string)
   await page.setViewportSize({ width: 1440, height: 1080 });
   checks++;
 
-  // pace-7, conversa curta: a regra aparece em palavras e não há média.
+  // pace-7, conversa curta: a regra aparece em palavras e não há média. Com a
+  // régua proporcional (V-12), o mínimo varia por competência (3 de 4 em
+  // Engajar), então a média não cita um número único.
   await page.goto(`${origin}/?matrix=1&completed=1&regua=pace-7&curta=1`);
   await devolutiva.waitFor();
   await page
     .getByText(
-      'A média geral aparece quando pelo menos 3 competências têm nível. Cada competência tem nível a partir de 4 comportamentos observados.',
+      'A média geral aparece quando pelo menos 3 competências têm nível. Cada competência tem nível quando pelo menos dois terços dos seus comportamentos são observados.',
       { exact: true },
     )
     .waitFor();
