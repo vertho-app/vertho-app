@@ -312,6 +312,28 @@ describe('agregarPainel', () => {
     });
   });
 
+  it('V-10: treino aberto sem atividade há mais de 3 dias é "parado", com a data da última atividade', () => {
+    const agora = Date.parse('2026-09-27T12:00:00Z');
+    const p = agregarPainel(
+      pessoas,
+      [
+        s('a', '2026-09-16T12:00:00Z', 'em_andamento', { atualizadoEm: '2026-09-20T12:00:00Z' }),
+        s('b', '2026-09-16T12:00:00Z', 'em_andamento', { atualizadoEm: '2026-09-27T09:00:00Z' }),
+        // Sem `atualizadoEm`, vale a criação.
+        s('c', '2026-09-23T11:00:00Z', 'preparando'),
+      ],
+      Math.random,
+      agora,
+    );
+    const linha = (id: string) => p.pessoas.find((x) => x.id === id)!;
+    expect(linha('a')).toMatchObject({ emAndamento: true, paradoDesde: '2026-09-20T12:00:00Z' });
+    expect(linha('b')).toMatchObject({ emAndamento: true, paradoDesde: null });
+    expect(linha('c')).toMatchObject({ emAndamento: true, paradoDesde: '2026-09-23T11:00:00Z' });
+    // Concluído não é parado, por mais antigo que seja.
+    const concluido = agregarPainel(pessoas, [s('a', '2026-01-01T00:00:00Z', 'concluida')], Math.random, agora);
+    expect(concluido.pessoas.find((x) => x.id === 'a')!.paradoDesde).toBeNull();
+  });
+
   it('distribuição por competência usa o maior nível de cada pessoa', () => {
     const p = agregarPainel(pessoas, [
       s('a', '2026-09-01', 'concluida', { competencias: { P: 2.2, A: 3.6 } }),

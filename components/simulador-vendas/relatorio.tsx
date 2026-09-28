@@ -24,12 +24,20 @@ const pilares = [
 export default function Relatorio({
   relatorio: original,
   versao,
+  modo = 'participante',
 }: {
   relatorio: Saidas['gerente'];
   versao?: string;
+  /**
+   * `equipe`: quem lê é o gestor ou o RH, não a pessoa que treinou. Até
+   * 27/09/2026 a gestão lia "Sua devolutiva PACE", "seu PDI", "seu plano"
+   * sobre o treino de outra pessoa (V-10).
+   */
+  modo?: 'participante' | 'equipe';
 }) {
   const t = useTranslations('SimuladorVendas'),
     locale = useLocale();
+  const equipe = modo === 'equipe';
   const r = relatorioPacePublico(original, versao)!;
   const documental = usaFontesDocumentais(versao);
   const matriz = r.Matriz
@@ -52,7 +60,7 @@ export default function Relatorio({
   return (
     <section aria-label={t('report')}>
       <div className="flex items-baseline justify-between gap-4 mb-4">
-        <h2 className="text-xl">{t('reportTitle')}</h2>
+        <h2 className="text-xl">{t(equipe ? 'reportTitleTeam' : 'reportTitle')}</h2>
         {!matriz && (
           <span className="text-3xl tabular-nums">
             {formatarNotaPace(r.Media, locale)}
@@ -66,7 +74,7 @@ export default function Relatorio({
           recomendações e do resultado da negociação. */}
       {matriz ? (
         <>
-          <p className="text-xs text-slate-400 mb-3">{t('matrixScaleHelp')}</p>
+          <p className="text-xs text-slate-400 mb-3">{t(equipe ? 'matrixScaleHelpTeam' : 'matrixScaleHelp')}</p>
           <RelatorioCompetencias
             competencias={matriz.competencias}
             media={matriz.media}
@@ -184,9 +192,9 @@ export default function Relatorio({
           ))}
         </details>
       )}
-      <p className="text-xs text-slate-400 mt-6">{t('disclaimer')}</p>
+      <p className="text-xs text-slate-400 mt-6">{t(equipe ? 'disclaimerTeam' : 'disclaimer')}</p>
       {documental && (
-        <p className="text-xs text-slate-400 mt-2">{t('documentSources')}</p>
+        <p className="text-xs text-slate-400 mt-2">{t(equipe ? 'documentSourcesTeam' : 'documentSources')}</p>
       )}
     </section>
   );

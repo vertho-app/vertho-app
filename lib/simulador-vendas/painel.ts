@@ -51,6 +51,8 @@ export interface PessoaPainel {
 export interface SessaoPainel {
   colaboradorId: string;
   criadoEm: string;
+  /** Última gravação do treino (`updated_at`); sem ela, vale a criação. */
+  atualizadoEm?: string | null;
   status: string;
   /** Notas 1 a 4 por competência; `null` fora da escala nativa ou sem relatório. */
   competencias: NotasPorCompetencia | null;
@@ -62,9 +64,21 @@ export interface LinhaPessoa extends PessoaPainel {
   treinos: number;
   concluidos: number;
   emAndamento: boolean;
+  /**
+   * Treino aberto sem atividade há mais de `PARADO_APOS_MS`: a última
+   * atividade. Até 27/09/2026 ele aparecia como "Tem treino em andamento"
+   * para sempre (V-10). `null` quando não há treino parado.
+   */
+  paradoDesde: string | null;
   ultimo: string | null;
   competencias: EvolucaoCompetencia[];
 }
+/**
+ * A partir de quanto tempo sem atividade um treino aberto é "parado". Uma
+ * conversa leva de 15 a 30 minutos; três dias sem gravação é abandono de fato,
+ * não pausa para o almoço. Escolha da rodada de 27/09/2026, sem medição.
+ */
+export const PARADO_APOS_MS = 3 * 24 * 60 * 60 * 1000;
 export interface PainelVendas {
   resumo: {
     pessoas: number;
@@ -116,6 +130,7 @@ export function agregarPainel(
   pessoas: PessoaPainel[],
   sessoes: SessaoPainel[],
   aleatorio: () => number = Math.random,
+  agora: number = Date.now(),
 ): PainelVendas {
   const porPessoa = new Map<string, SessaoPainel[]>();
   for (const s of sessoes) {
@@ -131,11 +146,17 @@ export function agregarPainel(
     const concluidas = minhas.filter(
       (s) => s.status === VENDAS_SESSAO.CONCLUIDA,
     );
+    const abertas = minhas.filter((s) => ABERTOS.includes(s.status));
+    const atividade = (s: SessaoPainel) => s.atualizadoEm || s.criadoEm;
+    const parada = abertas.find(
+      (s) => agora - Date.parse(atividade(s)) > PARADO_APOS_MS,
+    );
     return {
       ...p,
       treinos: minhas.length,
       concluidos: concluidas.length,
-      emAndamento: minhas.some((s) => ABERTOS.includes(s.status)),
+      emAndamento: abertas.length > 0,
+      paradoDesde: parada ? atividade(parada) : null,
       ultimo: minhas[0]?.criadoEm ?? null,
       competencias: evolucaoPorCompetencia(concluidas),
     };

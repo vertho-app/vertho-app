@@ -460,7 +460,14 @@
     "surveyPendingHint": "Tu devolución está lista y se abre después de la encuesta de experiencia, que lleva un minuto. La nota del entrenamiento aparece con ella.",
     "surveyPendingOpen": "Responder la encuesta",
     "evaluationOptional": "Opcional",
-    "negotiationResult": "Resultado de la negociación"
+    "negotiationResult": "Resultado de la negociación",
+    "reportTitleTeam": "Devolución que recibió la persona",
+    "matrixScaleHelpTeam": "El Nivel 3 es la meta. Los niveles salen de lo que la persona hizo en el plan y en la conversación.",
+    "disclaimerTeam": "Evaluación de una situación simulada. Las notas PACE no modifican automáticamente el plan de desarrollo de la persona ni las evaluaciones de competencias de Vertho.",
+    "documentSourcesTeam": "Referencias: Manual de la Metodología PACE v8 y matriz de competencias PACE. Las evidencias son el plan y la conversación de la persona.",
+    "teamReportOf": "Práctica de {name}",
+    "teamStalled": "Práctica detenida desde {date}",
+    "surveyChallenge": "Nivel de desafío percibido: {value} de 5 (1 = muy bajo, 5 = muy alto). Aquí más alto no es mejor: muestra si el cliente pareció demasiado fácil o difícil."
   },
   "Beto": {
     "greeting": "¡Hola! Soy Beto, tu mentor de desarrollo. ¿Cómo puedo ayudarte?",

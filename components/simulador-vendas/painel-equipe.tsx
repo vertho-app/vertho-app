@@ -231,10 +231,16 @@ export default function PainelEquipe({ empresaId }: { empresaId: string }) {
                           done: p.concluidos,
                         })
                       )}
-                      {p.emAndamento && (
-                        <small className="block text-slate-400">
-                          {t('teamInProgress')}
+                      {p.paradoDesde ? (
+                        <small className="block text-amber-200">
+                          {t('teamStalled', { date: data(p.paradoDesde) })}
                         </small>
+                      ) : (
+                        p.emAndamento && (
+                          <small className="block text-slate-400">
+                            {t('teamInProgress')}
+                          </small>
+                        )
                       )}
                     </td>
                     <td className="py-2 pr-4 whitespace-nowrap">
@@ -302,7 +308,9 @@ export default function PainelEquipe({ empresaId }: { empresaId: string }) {
             </p>
             {dados.pesquisa.respostas > 0 && (
               <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-3 mb-4">
-                {ASPECTOS_PESQUISA.map((aspecto) => (
+                {/* "Nível de desafio" não é qualidade: mais alto não é melhor.
+                    Fica fora das barras e ganha leitura própria (V-10). */}
+                {ASPECTOS_PESQUISA.filter((a) => a !== 'desafio').map((aspecto) => (
                   <div key={aspecto} className="min-w-0">
                     <dt className="flex justify-between gap-3 text-sm">
                       <span>{t(aspecto)}</span>
@@ -324,6 +332,15 @@ export default function PainelEquipe({ empresaId }: { empresaId: string }) {
                   </div>
                 ))}
               </dl>
+            )}
+            {dados.pesquisa.medias.desafio !== null && (
+              <p className="text-sm text-slate-300 mb-4">
+                {t('surveyChallenge', {
+                  value: dados.pesquisa.medias.desafio.toLocaleString(locale, {
+                    maximumFractionDigits: 1,
+                  }),
+                })}
+              </p>
             )}
             <h4 className="text-sm font-semibold mb-2">
               {t('surveyComments')}

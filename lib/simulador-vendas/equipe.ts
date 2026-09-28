@@ -223,7 +223,7 @@ async function populacaoDoVendas(c: Contexto): Promise<PessoaPainel[]> {
 }
 
 const COLUNAS_PAINEL =
-  'id,colaborador_id,created_at,resumo,feedback:estado->feedback' +
+  'id,colaborador_id,created_at,updated_at,resumo,feedback:estado->feedback' +
   ',pl:estado->relatorio->PL,p:estado->relatorio->P,a:estado->relatorio->A,c:estado->relatorio->C,e:estado->relatorio->E';
 const notaOuNulo = (n: unknown) => (typeof n === 'number' ? n : null);
 
@@ -256,6 +256,7 @@ export async function painelEquipe(c: Contexto): Promise<PainelVendas> {
         sessoes.push({
           colaboradorId: r.colaborador_id,
           criadoEm: r.created_at,
+          atualizadoEm: r.updated_at ?? null,
           status: String(r.resumo?.status ?? ''),
           competencias: nativa
             ? {

@@ -460,7 +460,14 @@
     "surveyPendingHint": "Sua devolutiva está pronta e abre depois da pesquisa de experiência, que leva um minuto. A nota do treino aparece junto com ela.",
     "surveyPendingOpen": "Responder à pesquisa",
     "evaluationOptional": "Opcional",
-    "negotiationResult": "Resultado da negociação"
+    "negotiationResult": "Resultado da negociação",
+    "reportTitleTeam": "Devolutiva que a pessoa recebeu",
+    "matrixScaleHelpTeam": "O Nível 3 é a meta. Os níveis vêm do que a pessoa fez no plano e na conversa.",
+    "disclaimerTeam": "Avaliação de uma situação simulada. As notas PACE não alteram automaticamente o PDI da pessoa nem as avaliações de competências da Vertho.",
+    "documentSourcesTeam": "Referências: Manual da Metodologia PACE v8 e Matriz de competências PACE. As evidências são o plano e a conversa da pessoa.",
+    "teamReportOf": "Treino de {name}",
+    "teamStalled": "Treino parado desde {date}",
+    "surveyChallenge": "Nível de desafio percebido: {value} de 5 (1 = muito baixo, 5 = muito alto). Aqui não há valor melhor: mostra se o cliente pareceu fácil ou difícil demais."
   },
   "Beto": {
     "greeting": "Oi! Sou o Beto, seu mentor de desenvolvimento. Como posso ajudar?",

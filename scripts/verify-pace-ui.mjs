@@ -252,6 +252,11 @@ try {
   assert.equal(await pesquisa.getByText(/Ana Souza/).count(), 0, 'comentário sai sem o nome');
   // D3 (27/09/2026): sem data. A data do comentário era o "Último treino" de quem escreveu.
   assert.equal(await pesquisa.getByText(/\d{2}\/\d{2}\/\d{4}/).count(), 0, 'comentário sai sem data');
+  // V-10: "Nível de desafio" fora das barras de qualidade, com leitura própria;
+  // treino aberto sem atividade há dias tem rótulo próprio.
+  assert.equal(await pesquisa.getByRole('meter', { name: 'Nível de desafio' }).count(), 0, 'barra de "mais é melhor" no desafio');
+  await pesquisa.getByText(/^Nível de desafio percebido: 3,3 de 5 \(1 = muito baixo, 5 = muito alto\)\. Aqui não há valor melhor/).waitFor();
+  await visao.locator('tr', { hasText: 'Bruno Lima' }).getByText('Treino parado desde 16/09/2026', { exact: true }).waitFor();
   const baixarEquipe = page.waitForEvent('download');
   await visao.getByRole('button', { name: 'Exportar por pessoa (CSV)', exact: true }).click();
   let csvEquipe = '';
@@ -278,6 +283,19 @@ try {
   await devolutivaEquipe.getByText('2,8 de 4', { exact: true }).waitFor();
   await expect(devolutivaEquipe.getByText('Nível 2', { exact: true }).first()).toBeVisible();
   assert.equal(await page.getByText(/\d+ \/ 4$/).count(), 0, 'nota 0 a 10 exibida como se fosse 1 a 4');
+  // V-10 (27/09/2026): o relatório abre à vista (a tela rola e o foca) e fala
+  // da pessoa, não com ela. Antes o topo ficava 2.507 px abaixo da tela.
+  const relatorioAberto = page.getByRole('region', { name: /^Treino de Ana$/ });
+  await expect(relatorioAberto).toBeFocused();
+  const caixa = await relatorioAberto.boundingBox();
+  assert.ok(caixa.y >= 0 && caixa.y < 200, `relatório aberto a ${Math.round(caixa.y)} px do topo da tela`);
+  await relatorioAberto.getByRole('heading', { name: 'Devolutiva que a pessoa recebeu', exact: true }).waitFor();
+  assert.equal(await relatorioAberto.getByText(/Sua devolutiva|seu PDI|seu plano|você fez/i).count(), 0, 'segunda pessoa no relatório da equipe');
+  await page.screenshot({ path: `${dir}/equipe-relatorio-aberto-desktop.png`, fullPage: false });
+  await relatorioAberto.getByRole('button', { name: 'Fechar relatório', exact: true }).click();
+  await expect(linhaTreino.getByRole('button', { name: 'Ver relatório', exact: true })).toBeFocused();
+  await linhaTreino.getByRole('button', { name: 'Ver relatório', exact: true }).click();
+  await relatorioAberto.waitFor();
   await page.screenshot({ path: `${dir}/equipe-desktop.png`, fullPage: true });
   // Sem revisão humana (decisão do dono, 22/09/2026): a gestão lê o relatório, não registra parecer.
   assert.equal(await page.getByRole('region', { name: 'Revisão humana' }).count(), 0, 'bloco de revisão na gestão');
