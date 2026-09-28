@@ -7,7 +7,7 @@ import { gerador, snapshotPrompts } from './ai';
 import { SimuladorError, executarCore, recebido, visaoPublica } from './core';
 import type { Contexto } from './access';
 import { REGUA_VERSION, type Estado, type Comando } from './schema';
-import { periodoVigente, podeEncerrar } from './prazo';
+import { acessoPeloPrazo, periodoVigente, podeEncerrar } from './prazo';
 import { TRACOS_DIVERSIDADE } from './diversidade';
 import { podeVerEquipe } from './equipe';
 import { evolucaoPorCompetencia, treinosComNiveis } from './evolucao';
@@ -129,21 +129,27 @@ export async function consultar(c: Contexto, id?: string | null) {
       throw new SimuladorError(404, 'Treino não encontrado.');
     row = result.data;
   }
-  const vigente = c.auth.isPlatformAdmin || periodoVigente(c.config);
+  const acesso = acessoPeloPrazo(c.config, {
+    admin: c.auth.isPlatformAdmin,
+    treina: !c.soAcompanha && (await can(c.auth, 'assessments.answer')),
+  });
   return {
     empresaId: c.empresaId,
     empresaNome: c.empresaNome,
     habilitado: c.config?.habilitado === true,
     configurado: !!c.config,
     admin: c.auth.isPlatformAdmin,
-    podeTreinar:
-      vigente && !c.soAcompanha && (await can(c.auth, 'assessments.answer')),
+    podeTreinar: acesso.podeTreinar,
+    // Pedir a devolutiva tem 24 h de tolerância depois do fim (27/09/2026: a
+    // tela usava `podeTreinar` e o botão ficava desabilitado nessa janela).
+    podeEncerrar: acesso.podeEncerrar,
     // Gestor e RH: a tela abre na gestão e esconde a aba de treino.
     soAcompanha: c.soAcompanha,
     prazo: {
       inicio: c.config?.periodo_inicio || null,
       fim: c.config?.periodo_fim || null,
-      vigente,
+      vigente: acesso.vigente,
+      encerrarAte: acesso.encerrarAte,
     },
     podeVerEquipe: await podeVerEquipe(c.auth),
     podeConfigurar:

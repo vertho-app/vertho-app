@@ -450,7 +450,9 @@
     "surveyResponses": "{n, plural, =0 {Nenhuma resposta ainda.} one {# resposta.} other {# respostas.}}",
     "surveyAverage": "{value} de 5",
     "surveyComments": "Comentários",
-    "surveyNoComments": "Nenhum comentário escrito."
+    "surveyNoComments": "Nenhum comentário escrito.",
+    "periodGrace": "O prazo de treino terminou. Você ainda pode pedir a devolutiva desta conversa até {deadline}.",
+    "finishUntil": "Você pode pedir sua devolutiva até {deadline}."
   },
   "Beto": {
     "greeting": "Oi! Sou o Beto, seu mentor de desenvolvimento. Como posso ajudar?",

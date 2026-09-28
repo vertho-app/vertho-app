@@ -129,6 +129,27 @@ try {
   await page.evaluate(() => window.__paceLiberar());
   await expect(page.getByLabel('Sua mensagem', { exact: true })).toBeEnabled({ timeout: 12000 });
   checks++;
+  // V-1 (27/09/2026): prazo vencido há 1 h com conversa aberta. Não se conversa
+  // mais, mas a devolutiva ainda sai por 24 h, e a tela diz até quando.
+  await page.goto(`${origin}/?active=1&expired=grace`);
+  const encerrarTolerancia = page.getByRole('button', { name: 'Encerrar e receber devolutiva', exact: true });
+  await expect(encerrarTolerancia).toBeEnabled();
+  await expect(page.getByLabel('Sua mensagem', { exact: true })).toBeDisabled();
+  const ateHora = /\d{2}\/\d{2}\/\d{4}, \d{2}:\d{2}\.$/;
+  await page.getByText(/^O prazo de treino terminou\. Você ainda pode pedir a devolutiva desta conversa até /).waitFor();
+  assert.match(await page.getByText(/^Você pode pedir sua devolutiva até /).innerText(), ateHora, 'hora local sem segundos');
+  await page.reload();
+  await expect(encerrarTolerancia).toBeEnabled();
+  await page.screenshot({ path: `${dir}/prazo-tolerancia-desktop.png`, fullPage: true });
+  await encerrarTolerancia.click();
+  await page.getByRole('button', { name: 'Confirmar encerramento', exact: true }).click();
+  await page.getByRole('heading', { name: 'Conte como foi a experiência', exact: true }).waitFor();
+  assert.equal(await page.evaluate(() => window.__paceWrites.at(-1).acao), 'encerrar');
+  await page.goto(`${origin}/?active=1&expired=1`);
+  await expect(page.getByRole('button', { name: 'Encerrar e receber devolutiva', exact: true })).toBeDisabled();
+  await page.getByText(/^O prazo de acesso não está vigente/).waitFor();
+  assert.equal(await page.getByText(/pedir sua devolutiva até/).count(), 0, 'sem aviso fora da tolerância');
+  checks++;
   await page.goto(`${origin}/?history=1`);
   await expect(page.getByRole('button', { name: 'Nova simulação', exact: true })).toBeEnabled();
   await page.getByText('Dificuldade: Baixo', { exact: true }).first().waitFor();

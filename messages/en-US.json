@@ -450,7 +450,9 @@
     "surveyResponses": "{n, plural, =0 {No responses yet.} one {# response.} other {# responses.}}",
     "surveyAverage": "{value} of 5",
     "surveyComments": "Comments",
-    "surveyNoComments": "No written comments."
+    "surveyNoComments": "No written comments.",
+    "periodGrace": "The training period has ended. You can still request feedback on this conversation until {deadline}.",
+    "finishUntil": "You can request your feedback until {deadline}."
   },
   "Beto": {
     "greeting": "Hi! I'm Beto, your development mentor. How can I help?",

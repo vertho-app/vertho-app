@@ -23,3 +23,29 @@ export function periodoVigente(c: Prazo | null | undefined, agora = Date.now()):
     agora < Date.parse(c.periodo_fim)
   );
 }
+
+/**
+ * O que o prazo permite AGORA, como a tela precisa saber. Até 27/09/2026 a
+ * consulta devolvia só `podeTreinar`, e a tela desabilitava "Encerrar e receber
+ * devolutiva" com ele: a tolerância de 24 h existia no servidor e ninguém
+ * conseguia usá-la. `treina` = a pessoa treina (não só acompanha e tem a
+ * permissão de responder); administrador da plataforma independe da janela.
+ * `encerrarAte` só existe DENTRO da tolerância: é o que a tela avisa.
+ */
+export function acessoPeloPrazo(
+  c: Prazo | null | undefined,
+  o: { admin: boolean; treina: boolean },
+  agora = Date.now(),
+) {
+  const vigente = o.admin || periodoVigente(c, agora);
+  const encerra = o.admin || podeEncerrar(c, agora);
+  return {
+    vigente,
+    podeTreinar: vigente && o.treina,
+    podeEncerrar: encerra && o.treina,
+    encerrarAte:
+      !vigente && encerra && c?.periodo_fim
+        ? new Date(Date.parse(c.periodo_fim) + TOLERANCIA_ENCERRAR_MS).toISOString()
+        : null,
+  };
+}

@@ -41,13 +41,21 @@ type Dados = {
   configurado: boolean;
   admin: boolean;
   podeTreinar: boolean;
+  /** Pedir a devolutiva: vale também nas 24 h de tolerância depois do fim do prazo. */
+  podeEncerrar: boolean;
   podeConfigurar: boolean;
   podeVerEquipe: boolean;
   /** Gestor e RH: acompanham a equipe e não treinam (17/09/2026). */
   soAcompanha: boolean;
   config?: Config | null;
   sessao: SessaoPublica | null;
-  prazo: { inicio: string | null; fim: string | null; vigente: boolean };
+  prazo: {
+    inicio: string | null;
+    fim: string | null;
+    vigente: boolean;
+    /** Só dentro da tolerância: até quando dá para pedir a devolutiva. */
+    encerrarAte: string | null;
+  };
   evolucao: EvolucaoCompetencia[] | null;
   focoSugerido: string | null;
   historico: ResumoTreino[];
@@ -216,8 +224,15 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
       });
   }, [admin, empresaId]);
   useEffect(() => {
-    if (!admin && dados?.podeVerEquipe && !dados.podeTreinar) setAba('gestao');
-  }, [dados?.podeVerEquipe, dados?.podeTreinar, admin]);
+    // Quem ainda pode pedir a devolutiva (tolerância de 24 h) fica no treino.
+    if (
+      !admin &&
+      dados?.podeVerEquipe &&
+      !dados.podeTreinar &&
+      !dados.podeEncerrar
+    )
+      setAba('gestao');
+  }, [dados?.podeVerEquipe, dados?.podeTreinar, dados?.podeEncerrar, admin]);
   useEffect(() => {
     fim.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   }, [sessao?.mensagens.length, ocupado]);
@@ -388,6 +403,12 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
     )
   );
   const podeNovo = !temTreinoAberto;
+  // Prazo vencido, mas a conversa aberta ainda pode virar devolutiva (24 h).
+  const emTolerancia =
+    !!dados?.prazo.encerrarAte &&
+    !!dados.podeEncerrar &&
+    !!aberto &&
+    !!sessao?.mensagens.some((m) => m.autor === 'vendedor');
   // Descartar (18/09/2026): só antes da primeira fala do vendedor (cenário que
   // não serviu, preparação travada). Depois dela, conclui-se e recebe a devolutiva.
   const podeDescartar =
@@ -538,7 +559,11 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                       start: data(dados.prazo.inicio),
                       end: data(dados.prazo.fim),
                     })
-                  : t('periodClosed')}
+                  : emTolerancia
+                    ? t('periodGrace', {
+                        deadline: data(dados.prazo.encerrarAte!),
+                      })
+                    : t('periodClosed')}
               </p>
             </div>
           )}
@@ -968,12 +993,19 @@ export default function TreinoVendas({ admin = false }: { admin?: boolean }) {
                         disabled={
                           travado ||
                           !sessao.mensagens.length ||
-                          !dados.podeTreinar
+                          !dados.podeEncerrar
                         }
                         onClick={() => setConfirmar('encerrar')}
                       >
                         {t('finish')}
                       </button>
+                      {emTolerancia && (
+                        <p className={`${styles.muted} mt-2`}>
+                          {t('finishUntil', {
+                            deadline: data(dados.prazo.encerrarAte!),
+                          })}
+                        </p>
+                      )}
                       {sessao.sugerirEncerramento && (
                         <p className={`${styles.muted} mt-2`}>
                           {t('suggestFinish')}

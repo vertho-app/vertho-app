@@ -21,6 +21,7 @@ import {
 } from '../fixtures/simulador-vendas-matriz';
 import { visaoPublica } from '../../lib/simulador-vendas/core';
 import { agregarPainel } from '../../lib/simulador-vendas/painel';
+import { acessoPeloPrazo } from '../../lib/simulador-vendas/prazo';
 import {
   comandoSchema,
   configSchema,
@@ -209,6 +210,19 @@ const historicoEvolucao = params.has('evolucao')
       },
     ]
   : [];
+// Prazo pela MESMA função do serviço (`acessoPeloPrazo`): `expired=grace` venceu
+// há 1 h (dentro da tolerância de 24 h para pedir a devolutiva); `expired`
+// venceu há 25 h.
+const HORA = 3_600_000;
+const isoRel = (ms: number) => new Date(Date.now() + ms).toISOString();
+const prazoHarness =
+  params.get('expired') === 'grace'
+    ? { periodo_inicio: isoRel(-30 * 24 * HORA), periodo_fim: isoRel(-HORA) }
+    : params.has('expired')
+      ? { periodo_inicio: isoRel(-30 * 24 * HORA), periodo_fim: isoRel(-25 * HORA) }
+      : { periodo_inicio: isoRel(-30 * 24 * HORA), periodo_fim: isoRel(90 * 24 * HORA) };
+const acessoHarness = () =>
+  acessoPeloPrazo(prazoHarness, { admin, treina: true });
 const dados = (id = empresaA) => ({
   evolucao: historicoEvolucao.length
     ? evolucaoPorCompetencia(historicoEvolucao)
@@ -220,14 +234,16 @@ const dados = (id = empresaA) => ({
   admin,
   habilitado: !admin || configs[id].habilitado,
   configurado: true,
-  podeTreinar: !params.has('expired'),
+  podeTreinar: acessoHarness().podeTreinar,
+  podeEncerrar: acessoHarness().podeEncerrar,
   podeConfigurar: admin,
   podeVerEquipe: admin || params.has('team'),
   ...(admin ? { config: configs[id] } : {}),
   prazo: {
-    inicio: '2026-01-01T00:00:00Z',
-    fim: '2026-12-31T23:59:00Z',
-    vigente: !params.has('expired'),
+    inicio: prazoHarness.periodo_inicio,
+    fim: prazoHarness.periodo_fim,
+    vigente: acessoHarness().vigente,
+    encerrarAte: acessoHarness().encerrarAte,
   },
   sessao: states[id]
     ? {
