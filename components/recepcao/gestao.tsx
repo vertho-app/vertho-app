@@ -45,6 +45,15 @@ export default function GestaoRecepcao({
     [detalhe, setDetalhe] = useState<any>(null),
     [editor, setEditor] = useState<any>(null);
   const generation = useRef(0);
+  // Ao abrir um atendimento, o detalhe entra na tela e recebe o foco, como o relatório de
+  // quem treina: no celular ele começava a 834 px numa tela de 844 e parecia que nada
+  // tinha acontecido (27/09/2026).
+  const detalheRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!detalhe) return;
+    detalheRef.current?.focus({ preventScroll: true });
+    detalheRef.current?.scrollIntoView({ block: 'start' });
+  }, [detalhe]);
   // Rascunho por IA (18/09/2026): descrição da situação que a empresa quer treinar.
   const [pedirRascunho, setPedirRascunho] = useState(false),
     [descricao, setDescricao] = useState('');
@@ -415,7 +424,8 @@ export default function GestaoRecepcao({
           <p className={styles.small}>
             {t('teamToFollowHelp', { done: dados.concluidas, started: dados.iniciadas })}
           </p>
-          <div className={styles.tableWrap}>
+          {/* No celular a tabela vira cartões (27/09/2026): a coluna "Ação" ficava fora da tela. */}
+          <div className={`${styles.tableWrap} ${styles.cartoesNoCelular}`}>
             <table>
               <thead>
                 <tr>
@@ -433,8 +443,8 @@ export default function GestaoRecepcao({
                       <br />
                       {s.titulo}
                     </td>
-                    <td>{new Date(s.data).toLocaleDateString(locale)}</td>
-                    <td>
+                    <td data-rotulo={t('teamDate')}>{new Date(s.data).toLocaleDateString(locale)}</td>
+                    <td data-rotulo={t('teamResult')}>
                       {/* Pelo status, como o histórico de quem treina: concluído sem média
                           geral (regra de cobertura) não é "Em andamento" (27/09/2026). */}
                       {s.status !== RECEPCAO_SESSAO.CONCLUIDA
@@ -498,7 +508,7 @@ export default function GestaoRecepcao({
         </>
       )}
       {detalhe && (
-        <section className={styles.review} aria-label={t('reviewArea')}>
+        <section ref={detalheRef} tabIndex={-1} className={styles.review} aria-label={t('reviewArea')}>
           <header className={styles.sectionHead}>
             <h2>{detalhe.sessao.cenario.titulo}</h2>
             <button className={styles.secondary} onClick={() => setDetalhe(null)}>

@@ -259,6 +259,16 @@
 .startFicha ul { list-style: disc; padding-left: 1.1rem; }
 .startFicha li { margin: .3rem 0; }
 .linkInline { color: var(--atendimento-accent); text-decoration: underline; text-underline-offset: 3px; }
+/* Equipe no celular (27/09/2026): "Atendimentos para acompanhar" em cartões, com o botão à vista. */
+@media (max-width: 640px) {
+  .cartoesNoCelular table, .cartoesNoCelular tbody, .cartoesNoCelular tr, .cartoesNoCelular td { display: block; width: 100%; }
+  .cartoesNoCelular thead { display: none; }
+  .cartoesNoCelular tr { padding: .8rem 0; border-bottom: 1px solid var(--atendimento-line); }
+  .cartoesNoCelular td { padding: .15rem 0; border: 0; }
+  .cartoesNoCelular td[data-rotulo]::before { content: attr(data-rotulo) ": "; color: var(--atendimento-muted); }
+  .cartoesNoCelular td .link { padding-left: 0; }
+}
+.review:focus { outline: none; }
 @media (max-width: 460px) {
   .start { gap: .9rem; min-height: 0; }
   .start > svg { display: none; }

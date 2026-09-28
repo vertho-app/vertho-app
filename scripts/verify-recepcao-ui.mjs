@@ -338,6 +338,36 @@ try {
   await page.screenshot({ path: `${dir}/equipe-mobile.png`, fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   checks++;
+  // A-13 (27/09/2026): equipe no celular. "Abrir atendimento" à vista (a coluna "Ação" ficava
+  // cortada) e, ao abrir, o detalhe entra na tela com foco (começava a 834 px de 844).
+  {
+    const eq = await browser.newPage({ viewport: { width: 390, height: 844 }, timezoneId: 'America/Sao_Paulo' });
+    eq.setDefaultTimeout(15000);
+    eq.on('pageerror', (e) => errors.push(e.message));
+    await eq.goto(`${origin}/?equipe=1`);
+    const abrirCel = eq.getByRole('button', { name: 'Abrir atendimento', exact: true }).first();
+    await abrirCel.waitFor({ state: 'attached' });
+    // Só rolagem VERTICAL da página: `scrollIntoViewIfNeeded` rolaria a tabela na horizontal
+    // e esconderia justamente o corte que a pessoa vê.
+    const inteiro = await abrirCel.evaluate((el) => {
+      window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 200);
+      const r = el.getBoundingClientRect();
+      return r.left >= 0 && r.right <= innerWidth;
+    });
+    assert.equal(inteiro, true, '"Abrir atendimento" cortado no celular');
+    await eq.screenshot({ path: `${dir}/equipe-lista-mobile.png` });
+    await abrirCel.click();
+    const detCel = eq.getByRole('region', { name: 'Detalhe do atendimento', exact: true });
+    await detCel.waitFor();
+    await eq.waitForTimeout(300);
+    const topoDet = await detCel.evaluate((el) => Math.round(el.getBoundingClientRect().top));
+    assert.ok(topoDet >= -2 && topoDet < 120, `detalhe fora da tela no celular (topo a ${topoDet}px)`);
+    assert.equal(await detCel.evaluate((el) => el === document.activeElement), true, 'o detalhe recebe o foco');
+    assert.equal(await semRolagemLateral(eq), true, 'overflow na equipe (celular)');
+    await eq.screenshot({ path: `${dir}/equipe-detalhe-mobile.png` });
+    await eq.close();
+    checks++;
+  }
   // Evolução de quem treina: maior nível por competência, só avanço.
   await page.goto(`${origin}/?evolucao=1`);
   const evolucao = page.getByRole('region', { name: 'Sua evolução', exact: true });
