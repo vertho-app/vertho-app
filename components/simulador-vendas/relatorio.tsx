@@ -44,6 +44,7 @@ export default function Relatorio({
               : t('matrixEvidenceTurn', { turn: e.turno ?? 0 }),
         },
         { P: r.Preparacao, A: r.Analise, C: r.Cocriacao, E: r.Engajamento },
+        r.regraCobertura,
       )
     : null;
   // Só a primeira prioritária ganha o selo: versões antigas marcavam várias.

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { consolidarMatriz, validarMatriz } from '@/lib/simulador-vendas/matriz-avaliacao';
+import {
+  consolidarMatriz,
+  REGRA_COBERTURA_VENDAS,
+  validarMatriz,
+} from '@/lib/simulador-vendas/matriz-avaliacao';
+import { competenciasDaMatriz } from '@/components/simulador-vendas/relatorio-matriz';
 import { pontuacaoMatriz, notaPacePublica } from '@/lib/simulador-vendas/escala';
 import { pontuarRelatorio } from '@/lib/simulador-vendas/avaliacao';
 import { podeEncerrar, periodoVigente, TOLERANCIA_ENCERRAR_MS } from '@/lib/simulador-vendas/prazo';
@@ -39,7 +44,7 @@ describe('pace-7: régua de cobertura no vendas', () => {
     const r = pontuacaoMatriz(m, 'pace-7');
     expect(r).toMatchObject({ P: null, A: null, C: null, PL: 3, E: 3 });
     expect(r.Media).toBeNull();
-    expect(r.regraCobertura).toBe(REGRA_COBERTURA.versao);
+    expect(r.regraCobertura).toBe(REGRA_COBERTURA_VENDAS.versao);
     // A mesma matriz na pace-6 média os observados, sem mínimo.
     expect(pontuacaoMatriz(m, 'pace-6').Media).toBe(3);
   });
@@ -60,7 +65,7 @@ describe('pace-7: régua de cobertura no vendas', () => {
     expect(r.Matriz?.descartados).toEqual(['A1']);
     expect(r.Matriz?.descritores.find((d) => d.codigo === 'A1')?.nivel).toBeNull();
     expect(r.A).toBe(3); // 5 de 6 observados: continua com nível
-    expect(r.regraCobertura).toBe(REGRA_COBERTURA.versao);
+    expect(r.regraCobertura).toBe(REGRA_COBERTURA_VENDAS.versao);
   });
 
   it('nível em E5/E6 é zerado numa lista própria, não aproveitado nem tratado como citação errada', () => {
@@ -129,6 +134,57 @@ describe('V-4: E5/E6 fora da cota de citação inválida', () => {
   it('nota pública da pace-7 já é 1 a 4 (sem conversão)', () => {
     expect(notaPacePublica(3.25, 'pace-7')).toBe(3.25);
     expect(notaPacePublica(7.5, 'pace-5')).toBe(3.25);
+  });
+});
+
+/**
+ * V-12 da revisão de 27/09/2026 (decisão D5 do dono). Com E5/E6 fora da reunião
+ * inicial, Engajar exigia 4 de 4 comportamentos (100%) e as outras 4 de 6, sob
+ * uma regra chamada `cobertura-4de6-3comp`. Agora é proporcional (dois terços
+ * dos avaliáveis) e a regra tem outro nome; relatório gravado com a regra
+ * anterior continua lido com ela.
+ */
+describe('V-12 (D5): Engajar exige 3 de 4, proporcional aos 4 de 6', () => {
+  const semP5P6E4 = () => semNivel(avaliacaoMatriz(3), ['P5', 'P6', 'E4']);
+
+  it('treino novo: 4 de 6 dá nível em Preparar e 3 de 4 dá nível em Engajar', () => {
+    const comp = consolidarMatriz(semP5P6E4(), 'pace-7');
+    expect(comp.find((c) => c.codigo === 'P')).toMatchObject({ observados: 4, total: 6, nivel: 3 });
+    expect(comp.find((c) => c.codigo === 'E')).toMatchObject({ observados: 3, total: 4, nivel: 3, suficiente: true });
+    // Abaixo de dois terços continua sem nível: 3 de 6 e 2 de 4.
+    const pouco = consolidarMatriz(semNivel(avaliacaoMatriz(3), ['P4', 'P5', 'P6', 'E3', 'E4']), 'pace-7');
+    expect(pouco.find((c) => c.codigo === 'P')).toMatchObject({ observados: 3, nivel: null });
+    expect(pouco.find((c) => c.codigo === 'E')).toMatchObject({ observados: 2, nivel: null });
+  });
+
+  it('a regra nova tem nome que descreve a verdade e é a gravada nos relatórios novos', () => {
+    expect(REGRA_COBERTURA_VENDAS.versao).toBe('cobertura-2tercos-3comp');
+    expect(REGRA_COBERTURA_VENDAS.versao).not.toBe(REGRA_COBERTURA.versao);
+    const r = pontuacaoMatriz(semP5P6E4(), 'pace-7');
+    expect(r.regraCobertura).toBe('cobertura-2tercos-3comp');
+    expect(r.E).toBe(3);
+    // Atendimento e liderança seguem a regra comum.
+    expect(REGRA_COBERTURA.versao).toBe('cobertura-4de6-3comp');
+  });
+
+  it('relatório gravado com a regra anterior é lido como foi gerado (Engajar 4 de 4)', () => {
+    const m = semP5P6E4();
+    const antigo = consolidarMatriz(m, 'pace-7', 'cobertura-4de6-3comp');
+    expect(antigo.find((c) => c.codigo === 'E')).toMatchObject({ observados: 3, nivel: null });
+    expect(pontuacaoMatriz(m, 'pace-7', 'cobertura-4de6-3comp')).toMatchObject({
+      E: null,
+      regraCobertura: 'cobertura-4de6-3comp',
+    });
+    // A devolutiva usa a regra gravada no relatório.
+    const rotulos = { nome: (c: string) => c, origem: () => '' };
+    const tela = (regra?: string) =>
+      competenciasDaMatriz(m, 'pace-7', rotulos, {}, regra).competencias.find((c) => c.codigo === 'E')!;
+    expect(tela('cobertura-4de6-3comp').nivel).toBeNull();
+    expect(tela('cobertura-2tercos-3comp').nivel).toBe(3);
+  });
+
+  it('pace-6 e anteriores seguem sem mínimo', () => {
+    expect(consolidarMatriz(semP5P6E4(), 'pace-6').find((c) => c.codigo === 'E')).toMatchObject({ total: 6, nivel: 3 });
   });
 });
 

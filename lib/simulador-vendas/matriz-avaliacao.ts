@@ -37,7 +37,7 @@ export function usaMatrizPace(versao?: string) {
 export function escalaNativa14(versao?: string) {
   return versao === 'pace-6' || versao === 'pace-7';
 }
-/** A regra de cobertura comum (4 descritores, 3 competências) vale da pace-7 em diante. */
+/** A regra de cobertura (mínimo de comportamentos e 3 competências) vale da pace-7 em diante. */
 export function usaRegraCobertura(versao?: string) {
   return versao === 'pace-7';
 }
@@ -49,8 +49,43 @@ export function usaRegraCobertura(versao?: string) {
 export const FORA_DA_REUNIAO_INICIAL: readonly string[] = ['E5', 'E6'];
 /** Regra das versões anteriores à pace-7: média dos observados, sem mínimo. */
 const REGRA_LEGADA: RegraCobertura = { versao: 'legado', minDescritores: 1, minCompetencias: 1 };
-export const regraDaVersao = (versao?: string): RegraCobertura =>
-  usaRegraCobertura(versao) ? REGRA_COBERTURA : REGRA_LEGADA;
+/**
+ * 🔑 Regra de cobertura do VENDAS (decisão D5 do dono, 27/09/2026): uma
+ * competência tem nível com pelo menos DOIS TERÇOS dos seus comportamentos
+ * avaliáveis observados, e a média geral com 3 competências com nível. Com E5 e
+ * E6 fora da reunião inicial, Engajar tem 4 comportamentos avaliáveis e passa a
+ * exigir 3 (as outras seguem 4 de 6). Até aqui valia a regra comum
+ * `cobertura-4de6-3comp` (4 fixos): em Engajar isso era 4 de 4, 100%, e o nome
+ * da regra deixava de descrever a verdade. Atendimento e liderança seguem a
+ * regra comum.
+ *
+ * Nada gravado é reescrito: o relatório carrega a regra com que foi gerado
+ * (`regraCobertura`) e é LIDO com ela. Relatórios pace-7 gerados até 27/09/2026
+ * gravaram `cobertura-4de6-3comp` e continuam exigindo 4 em Engajar; os gerados
+ * depois gravam `cobertura-2tercos-3comp`.
+ */
+export const REGRA_COBERTURA_VENDAS: RegraCobertura = Object.freeze({
+  versao: 'cobertura-2tercos-3comp',
+  minDescritores: 4,
+  minCompetencias: 3,
+});
+/** Mínimo de observados de uma competência com `aplicaveis` comportamentos avaliáveis. */
+export function minimoDescritores(regra: RegraCobertura, aplicaveis: number) {
+  return regra.versao === REGRA_COBERTURA_VENDAS.versao
+    ? Math.ceil((aplicaveis * 2) / 3)
+    : regra.minDescritores;
+}
+/**
+ * A regra com que um relatório é lido: a da versão do treino e, na pace-7, a
+ * gravada no relatório (`regraCobertura`). Sem regra gravada vale a atual, que
+ * é a que o avaliador grava nos treinos novos.
+ */
+export const regraDaVersao = (versao?: string, gravada?: string | null): RegraCobertura =>
+  !usaRegraCobertura(versao)
+    ? REGRA_LEGADA
+    : gravada === REGRA_COBERTURA.versao
+      ? REGRA_COBERTURA
+      : REGRA_COBERTURA_VENDAS;
 /**
  * A matriz como fica gravada: descritores com citação inválida rebaixados e
  * listados em `descartados`; nível que o gerente deu a E5/E6 zerado e listado
@@ -133,18 +168,29 @@ export function validarMatriz(
 
 /**
  * A ausência de observação fica fora da média 1 a 4, nunca vira N1. Da pace-7 em
- * diante vale a regra de cobertura comum (nível só com 4 observados) e E5/E6
- * saem do total; as versões anteriores seguem lidas como foram geradas.
+ * diante vale a regra de cobertura (dois terços dos avaliáveis, D5; ou 4 fixos
+ * nos relatórios que gravaram a regra anterior) e E5/E6 saem do total; as
+ * versões anteriores seguem lidas como foram geradas.
  */
-export function consolidarMatriz(m: AvaliacaoMatriz, versao?: string) {
-  const regra = regraDaVersao(versao);
+export function consolidarMatriz(
+  m: AvaliacaoMatriz,
+  versao?: string,
+  regraGravada?: string | null,
+) {
+  const regra = regraDaVersao(versao, regraGravada);
   const fora = usaRegraCobertura(versao) ? FORA_DA_REUNIAO_INICIAL : [];
   return COMPETENCIAS_PACE.map((c) => {
     const aplicaveis = c.descritores.filter((d) => !fora.includes(d.codigo));
     const niveis = aplicaveis.map(
       (d) => m.descritores.find((a) => a.codigo === d.codigo)?.nivel ?? null,
     );
-    return { codigo: c.codigo, ...consolidarCompetencia(niveis, regra) };
+    return {
+      codigo: c.codigo,
+      ...consolidarCompetencia(niveis, {
+        ...regra,
+        minDescritores: minimoDescritores(regra, aplicaveis.length),
+      }),
+    };
   });
 }
 

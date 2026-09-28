@@ -10,11 +10,17 @@ import {
 
 /**
  * Notas 1 a 4 por competência e média geral de peso igual, a partir da matriz.
- * Da pace-7 em diante vale a regra de cobertura comum e a versão dela fica no
- * relatório (`regraCobertura`); a pace-6 continua lida como foi gerada.
+ * Da pace-7 em diante vale a regra de cobertura e a versão dela fica no
+ * relatório (`regraCobertura`); `regraGravada` relê um relatório com a regra
+ * com que ele foi gerado. A pace-6 continua lida como foi gerada.
  */
-export function pontuacaoMatriz(matriz: AvaliacaoMatriz, versao?: string) {
-  const comps = consolidarMatriz(matriz, versao);
+export function pontuacaoMatriz(
+  matriz: AvaliacaoMatriz,
+  versao?: string,
+  regraGravada?: string | null,
+) {
+  const regra = regraDaVersao(versao, regraGravada);
+  const comps = consolidarMatriz(matriz, versao, regraGravada);
   const nota = (codigo: string) => comps.find((c) => c.codigo === codigo)!.nota;
   return {
     PL: nota('PL'),
@@ -22,9 +28,9 @@ export function pontuacaoMatriz(matriz: AvaliacaoMatriz, versao?: string) {
     A: nota('A'),
     C: nota('C'),
     E: nota('E'),
-    Media: mediaGeral(comps, regraDaVersao(versao)).nota,
+    Media: mediaGeral(comps, regra).nota,
     escalaNota: '1-4' as const,
-    ...(usaRegraCobertura(versao) ? { regraCobertura: regraDaVersao(versao).versao } : {}),
+    ...(usaRegraCobertura(versao) ? { regraCobertura: regra.versao } : {}),
   };
 }
 export function notaPacePublica(
