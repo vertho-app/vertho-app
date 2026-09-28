@@ -35,6 +35,34 @@ function comoLike(padrao: string) {
   return new RegExp(`^${padrao.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.')}$`);
 }
 
+/** Divide `a,b,and(c,d)` nas vírgulas de nível zero. */
+function dividir(s: string): string[] {
+  const partes: string[] = [];
+  let nivel = 0, atual = '';
+  for (const ch of s) {
+    if (ch === '(') nivel++;
+    if (ch === ')') nivel--;
+    if (ch === ',' && nivel === 0) { partes.push(atual); atual = ''; } else atual += ch;
+  }
+  if (atual) partes.push(atual);
+  return partes.map((p) => p.trim());
+}
+/** Um termo do `.or()` do PostgREST: `col.eq.v`, `col.neq.v`, `col.is.null`, `and(...)`, `or(...)`. */
+function termoCasa(linha: any, termo: string): boolean {
+  const grupo = /^(and|or)\((.*)\)$/.exec(termo);
+  if (grupo) {
+    const partes = dividir(grupo[2]);
+    return grupo[1] === 'and' ? partes.every((p) => termoCasa(linha, p)) : partes.some((p) => termoCasa(linha, p));
+  }
+  const [col, op, ...resto] = termo.split('.');
+  const valor = resto.join('.');
+  const atual = valorDaColuna(linha, col);
+  if (op === 'eq') return atual !== null && String(atual) === valor;
+  if (op === 'neq') return atual !== null && String(atual) !== valor;
+  if (op === 'is') return valor === 'null' ? atual === null : String(atual) === valor;
+  throw new Error(`or(): operador ${op} sem suporte em tabelas-em-memoria`);
+}
+
 /** As linhas que a cadeia casa (sem ordem, limite nem projeção). */
 export function filtrar(linhas: any[], cadeia: Chamada[]) {
   return linhas.filter((l) =>
@@ -60,7 +88,7 @@ export function filtrar(linhas: any[], cadeia: Chamada[]) {
           if (v === 'is') return atual() !== extra;
           throw new Error(`not.${v} sem suporte em tabelas-em-memoria`);
         case 'or':
-          throw new Error('or() sem suporte em tabelas-em-memoria');
+          return dividir(String(col)).some((t) => termoCasa(l, t));
         default:
           return true;
       }

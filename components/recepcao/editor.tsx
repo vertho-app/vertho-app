@@ -18,15 +18,7 @@ function daEstabelecimento(dominio: string) {
   return o.replace(/^a /, 'da ').replace(/^o /, 'do ');
 }
 
-type Biblioteca = Array<{
-  codigo: string;
-  nome: string;
-  descricao: string;
-  niveis: Record<string, string>;
-  ativo: boolean;
-}>;
-
-function preparar(c: Cenario, biblioteca: Biblioteca): Cenario {
+function preparar(c: Cenario): Cenario {
   const n = aplicarMatrizAtendimento(c);
   n.publico.secoes ||= [];
   if (n.publico.consultaAnterior)
@@ -45,42 +37,27 @@ function preparar(c: Cenario, biblioteca: Biblioteca): Cenario {
   delete n.publico.consultaAnterior;
   delete n.publico.alternativas;
   n.variantes ||= [];
-  // Cópia de uma versão legada (3 classificações): a dimensão que existe na biblioteca ganha os quatro
-  // níveis dela, mantendo peso e critério do caso. A que não existe fica marcada e precisa ser desmarcada.
-  n.rubrica = n.rubrica.map((d) => {
-    const b = biblioteca.find((x) => x.codigo === d.id && x.ativo);
-    if (d.niveis || !b) return d;
-    const { adequado, parcial, insuficiente, ...resto } = d;
-    return {
-      ...resto,
-      nome: d.nome || b.nome,
-      niveis: {
-        n1: b.niveis.n1,
-        n2: b.niveis.n2,
-        n3: b.niveis.n3,
-        n4: b.niveis.n4,
-      },
-    };
-  });
+  // A rubrica vem inteira da matriz do segmento (`aplicarMatrizAtendimento`, com os quatro
+  // níveis em toda dimensão). O mapeamento pela biblioteca `recepcao_competencias` que
+  // existia aqui nunca mais rodava (toda dimensão já tinha `niveis`), e a tela buscava a
+  // biblioteca a cada abertura do editor só para isso: saiu em 27/09/2026.
   return n;
 }
 export function EditorCenario({
   registro,
-  biblioteca = [],
   admin = false,
   busy,
   salvar,
   fechar,
 }: {
   registro: any;
-  biblioteca?: Biblioteca;
   admin?: boolean;
   busy: boolean;
   salvar: (cmd: any) => Promise<any>;
   fechar: () => void;
 }) {
   const [c, setC] = useState<Cenario>(() =>
-      preparar(registro.conteudo, biblioteca),
+      preparar(registro.conteudo),
     ),
     [erros, setErros] = useState(''),
     [preview, setPreview] = useState(false);

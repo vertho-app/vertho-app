@@ -13,10 +13,18 @@ import { aplicarMatrizAtendimento } from './matriz-avaliacao';
 
 export async function catalogo(c: ContextoRecepcao, editor = false) {
   // Só os casos do segmento da empresa (mig 263): uma loja não recebe caso de clínica.
+  // Na biblioteca de edição, a empresa vê todos os estados das PRÓPRIAS versões, mas do
+  // Catálogo Vertho só as publicadas (27/09/2026): rascunhos e arquivados do catálogo, que
+  // incluem a persona reservada, chegavam a qualquer RH com `content.manage` e só a tela os
+  // escondia. A plataforma, que edita o catálogo, continua vendo tudo.
+  const escopo =
+    editor && !c.auth.isPlatformAdmin
+      ? `empresa_id.eq.${c.empresaId},and(empresa_id.is.null,estado.eq.publicado)`
+      : `empresa_id.eq.${c.empresaId},empresa_id.is.null`;
   let q = c.sb
     .from('recepcao_cenarios')
     .select('*')
-    .or(`empresa_id.eq.${c.empresaId},empresa_id.is.null`)
+    .or(escopo)
     .eq('conteudo->>dominio', c.dominio);
   if (!editor) q = q.eq('estado', 'publicado');
   const { data, error } = await q

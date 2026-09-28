@@ -41,8 +41,7 @@ export default function GestaoRecepcao({
   const numero = (n: number) => n.toLocaleString(locale, { maximumFractionDigits: 2 });
   const [dados, setDados] = useState<any>(null),
     [erro, setErro] = useState(''),
-    [busy, setBusy] = useState(false),
-    [biblioteca, setBiblioteca] = useState<any[]>([]);
+    [busy, setBusy] = useState(false);
   const [dias, setDias] = useState('30'),
     [testes, setTestes] = useState(false),
     [detalhe, setDetalhe] = useState<any>(null),
@@ -104,19 +103,9 @@ export default function GestaoRecepcao({
   async function carregar(ticket = generation.current) {
     if (visao === 'competencias') return; // a aba tem o próprio componente
     const d = await api({ visao, dias, testes: testes ? '1' : '0' });
-    // O editor de cenário monta a rubrica a partir da biblioteca (inativas incluídas, para rotular snapshots antigos).
-    const b =
-      visao === 'cenarios'
-        ? (
-            await api({ visao: 'competencias', inativas: '1' }).catch(() => ({
-              competencias: [],
-            }))
-          ).competencias
-        : [];
-    if (ticket === generation.current) {
-      setDados(d);
-      setBiblioteca(b);
-    }
+    // A biblioteca `recepcao_competencias` não é mais lida aqui (27/09/2026): o editor monta a
+    // rubrica pela matriz do segmento, e a leitura a cada abertura não alterava nada.
+    if (ticket === generation.current) setDados(d);
   }
   useEffect(() => {
     const ticket = ++generation.current;
@@ -175,7 +164,6 @@ export default function GestaoRecepcao({
         <EditorCenario
           key={editor.id || 'novo'}
           registro={editor}
-          biblioteca={biblioteca}
           admin={admin}
           busy={busy}
           salvar={salvar}

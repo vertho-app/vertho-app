@@ -159,7 +159,8 @@ const dados = () => ({
     : { nivel: 'introducao', motivo: 'abaixo_da_meta', base: null },
   sessao: sessao ? { ...visaoPublica(sessao), processando } : null,
   podeEquipe: equipe,
-  podeCenarios: false,
+  // `?cenarios=1`: quem cuida do conteúdo (abas Cenários e Competências).
+  podeCenarios: params.has('cenarios'),
   evolucao: params.has('evolucao')
     ? {
         competencias: evolucaoPorCompetencia(
@@ -248,6 +249,7 @@ const painel = () => {
   };
 };
 w.__recepcaoWrites = [];
+w.__gestaoGets = [];
 w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
   if (url.includes('/config')) {
     if (init.method === 'PUT') {
@@ -267,6 +269,13 @@ w.__recepcaoFetch = async (url: string, init: RequestInit = {}) => {
   }
   if (url.includes('/gestao')) {
     const q = new URL(url, location.origin).searchParams;
+    w.__gestaoGets.push(url);
+    if (q.get('visao') === 'cenarios')
+      return Response.json({
+        dominio: dominioEmpresa,
+        cenarios: [{ id: 'reg-catalogo', empresa_id: null, estado: 'publicado', versao: cenario.versao, revisao: 0, conteudo: cenario }],
+      });
+    if (q.get('visao') === 'competencias') return Response.json({ competencias: [] });
     if (q.has('sessaoId'))
       return Response.json({ sessao: visaoPublica(sessoesEquipe.find((r) => r.id === q.get('sessaoId'))!.estado) });
     return Response.json(painel());

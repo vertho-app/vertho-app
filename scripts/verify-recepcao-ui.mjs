@@ -389,6 +389,22 @@ try {
     await eq.close();
     checks++;
   }
+  // A-16 (27/09/2026): abrir a biblioteca e o editor de cenários não busca mais a biblioteca
+  // de competências (não alterava nada). A-15: o editor pede o nome do estabelecimento do segmento.
+  await page.goto(`${origin}/?cenarios=1`);
+  await page.getByRole('button', { name: 'Cenários', exact: true }).click();
+  await page.getByRole('heading', { name: 'Biblioteca de cenários', exact: true }).waitFor();
+  await page.getByText('Catálogo Vertho · publicado', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'Criar caso', exact: true }).click();
+  await page.getByRole('heading', { name: 'Nova versão do caso', exact: true }).waitFor();
+  await page.getByText('Nome fictício da clínica', { exact: true }).waitFor();
+  await page.getByText('Pessoas simuladas e variantes', { exact: true }).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => window.__gestaoGets.filter((u) => u.includes('visao=competencias'))),
+    [],
+    'a biblioteca de competências ainda é buscada ao abrir cenários',
+  );
+  checks++;
   // Evolução de quem treina: maior nível por competência, só avanço.
   await page.goto(`${origin}/?evolucao=1`);
   const evolucao = page.getByRole('region', { name: 'Sua evolução', exact: true });
