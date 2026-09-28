@@ -34,7 +34,8 @@ export type Modulo = (typeof MODULOS)[keyof typeof MODULOS];
 
 const ROTULO: Record<string, string> = {
   [MODULOS.PULSO]: 'Pulso de Desenvolvimento',
-  [MODULOS.PRONTIDAO_LIDERANCA]: 'Simulador de liderança',
+  // A mensagem de "não contratado" aparece dentro do Mapeamento (actions/prontidao-lideranca.ts).
+  [MODULOS.PRONTIDAO_LIDERANCA]: 'Mapeamento de liderança',
 };
 
 /**

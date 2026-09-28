@@ -111,7 +111,7 @@ async function _get(sb: any, empresaId: string) {
     const data = await agregarProntidaoLideranca(sb, empresaId, p.cfg);
     return { success: true as const, data };
   } catch (e: any) {
-    return { success: false as const, error: e?.message || 'Erro ao carregar o simulador de liderança.' };
+    return { success: false as const, error: e?.message || 'Erro ao carregar o mapeamento de liderança.' };
   }
 }
 

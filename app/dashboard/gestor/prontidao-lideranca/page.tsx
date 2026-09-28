@@ -1,13 +1,13 @@
 /** Prontidão para Liderança — RH self-service (escopo = empresa da sessão). Molde: ../ranking/page.tsx */
 import { PageContainer } from '@/components/page-shell';
 import ProntidaoLiderancaView from '@/components/prontidao-lideranca-view';
-import { exigirAcessoPaginaSimulador } from '@/lib/simuladores/pagina';
+import { exigirAcessoMapeamentoLideranca } from '@/lib/prontidao-lideranca/pagina';
 import { getProntidaoLideranca, getParecerLideranca, exportarParecerPDF, exportarConsolidadoPDF } from '@/actions/prontidao-lideranca';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProntidaoLiderancaPage() {
-  await exigirAcessoPaginaSimulador('lideranca');
+  await exigirAcessoMapeamentoLideranca();
 
   return (
     <PageContainer>
