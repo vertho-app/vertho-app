@@ -62,7 +62,7 @@ No v2, instruções estáticas vão em `system` e entradas vão como dados JSON 
 
 ## Persistência e recuperação
 
-Migrations **249**, **250** e **251**:
+Migrations **249**, **250** e **251** (a **271**, de 27/09/2026, só redefine `sim_vendas_exportar` e `sim_vendas_historico_equipe` para o rótulo de teste administrativo; ver "Retenção e exclusão"):
 
 - `sim_vendas_config`: contexto comercial, liberação, prazo por empresa e revisão contra sobrescrita concorrente.
 - `sim_vendas_sessoes`: snapshot privado do treino, estado, revisão e trava temporária.
@@ -86,7 +86,7 @@ Antes de expurgar, gera JSON compactado no bucket **privado** `backups/pace-rete
 
 Excluir colaborador ou empresa pela interface agora exige uma prévia gerada no servidor, com contagem de treinos/tentativas e um hash do estado completo. Depois da confirmação, a aplicação cria e confere um backup privado em `backups/pace-exclusao`; o banco trava os registros, compara novamente o hash, exige que o arquivo exista, grava a auditoria e só então remove o acervo PACE e o cadastro na mesma transação. Se qualquer dependência de outro módulo bloquear a raiz, o PACE e a auditoria da tentativa também sofrem rollback. O backup cobre o cadastro raiz, vínculos necessários e dados PACE — não é cópia integral dos outros módulos da plataforma — e permanece recuperável por sete dias.
 
-Exclusões legadas que ainda removam um colaborador diretamente apenas tornam `colaborador_id` nulo na sessão PACE; não apagam o treino por efeito colateral. DELETE direto de empresa fica bloqueado quando há dados PACE, obrigando o fluxo confirmado. A aplicação não apaga registros ao simplesmente vencer o prazo comercial. A interface avisa o mascaramento de telefone, e-mail e CPF; CNPJ de 14 dígitos não é confundido com telefone. Um identificador comercial nu com formato de telefone continua sendo mascarado por segurança — identifique-o no texto como número de proposta ou use separadores não telefônicos. Use dados fictícios nos treinos.
+Exclusões legadas que ainda removam um colaborador diretamente apenas tornam `colaborador_id` nulo na sessão PACE; não apagam o treino por efeito colateral. O rótulo "Teste administrativo" vem do DONO do treino (`owner_key` 'admin:…', `ehTesteAdmin` em `historico.ts` e `sim_vendas_exportar` na **migration 271**, que também faz `sim_vendas_historico_equipe` devolver `owner_key`): até 27/09/2026 ele saía de `colaborador_id IS NULL`, e o treino real de uma pessoa desvinculada virava teste do admin na lista e no CSV. Esses treinos continuam fora do painel de RH e gestão, que filtra por pessoa; o admin da plataforma os vê com o nome gravado no treino. Até a 271 ser aplicada, as linhas da RPC da equipe sem `owner_key` seguem a regra antiga. DELETE direto de empresa fica bloqueado quando há dados PACE, obrigando o fluxo confirmado. A aplicação não apaga registros ao simplesmente vencer o prazo comercial. A interface avisa o mascaramento de telefone, e-mail e CPF; CNPJ de 14 dígitos não é confundido com telefone. Um identificador comercial nu com formato de telefone continua sendo mascarado por segurança — identifique-o no texto como número de proposta ou use separadores não telefônicos. Use dados fictícios nos treinos.
 
 ## Origem e dados anteriores
 

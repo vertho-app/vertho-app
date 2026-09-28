@@ -31,6 +31,8 @@ export type LinhaResumo = {
   id: string;
   created_at: string;
   colaborador_id?: string | null;
+  /** Dono do treino: 'admin:<id>' ou 'colab:<id>'. Decide o "Teste administrativo". */
+  owner_key?: string | null;
   resumo: Omit<ResumoTreino, 'id' | 'criadoEm' | 'testeAdmin' | 'competencias' | 'foco'>;
   // Projeções do histórico do participante (COLUNAS_HISTORICO_PARTICIPANTE).
   pl?: NotaJson;
@@ -41,7 +43,19 @@ export type LinhaResumo = {
   liberado?: unknown;
   foco?: unknown;
 };
-export const COLUNAS_HISTORICO = 'id,created_at,colaborador_id,resumo';
+export const COLUNAS_HISTORICO = 'id,created_at,colaborador_id,owner_key,resumo';
+/**
+ * "Teste administrativo" é o treino criado por administrador da plataforma
+ * (`owner_key` 'admin:…', a forma que `sim_vendas_criar` exige). Até 27/09/2026
+ * saía de `!colaborador_id`, e a exclusão legada de um colaborador (que só zera
+ * `colaborador_id`) fazia o treino REAL da pessoa desvinculada virar teste do
+ * admin (V-6). Linha sem `owner_key` só vem da RPC da equipe antes da mig 271:
+ * ali vale a regra antiga, que é o comportamento de antes da correção.
+ */
+export function ehTesteAdmin(r: Pick<LinhaResumo, 'owner_key' | 'colaborador_id'>) {
+  if (typeof r.owner_key === 'string') return r.owner_key.startsWith('admin:');
+  return !r.colaborador_id;
+}
 /**
  * O participante vê a própria evolução por competência e o foco sugerido. São
  * caminhos JSON pequenos, não o relatório: a lista não carrega conversa nem
@@ -141,7 +155,7 @@ export function paginaDeHistorico(
       escalaOriginal: escalaNativa14(r.resumo.versaoRegua) ? null : '0-10',
       id: r.id,
       criadoEm: r.created_at,
-      testeAdmin: !r.colaborador_id,
+      testeAdmin: ehTesteAdmin(r),
       ...evolucaoDaLinha(r),
     })),
     proximoCursor:
