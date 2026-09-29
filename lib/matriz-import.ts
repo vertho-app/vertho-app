@@ -117,6 +117,52 @@ export function separarLinhasDoImport<T extends Record<string, any>>(linhas: T[]
   return { validas, semObrigatorios, semCargo };
 }
 
+/**
+ * O cargo da planilha → o NOME que a empresa cadastrou em `cargos_empresa`.
+ *
+ * Por que existe (29/09/2026): a Amazon Bowling importou a matriz com "Sociogestor 1"
+ * e o cadastro e os colaboradores têm "SOCIOGESTOR 1". O banco compara `cargo` por
+ * igualdade exata: o filtro da tela e as leituras do motor (`.eq('cargo', colab.cargo)`,
+ * na trilha, no assessment e nos cenários). As 72 linhas ficaram gravadas e invisíveis,
+ * para a tela e para as duas pessoas do cargo, sem erro em lugar nenhum.
+ *
+ * Casa por caixa, acento e espaços (`chaveNome`) e devolve o nome CADASTRADO. Não adivinha:
+ * se dois cadastros têm a mesma chave, o cargo fica como veio (a menos que seja idêntico a
+ * um deles). Cargo fora do cadastro também segue como veio (há tenant com matriz de cargo
+ * sem cadastro) e é devolvido em `foraDoCadastro`; o que foi trocado sai em `ajustados`.
+ * Os dois alimentam a mensagem ao operador: reescrever o que ele digitou não pode ser calado.
+ */
+export function alinharCargosAoCadastro<T extends { cargo?: string | null }>(
+  linhas: T[],
+  cadastrados: string[],
+): { linhas: T[]; foraDoCadastro: string[]; ajustados: { de: string; para: string }[] } {
+  const nomes = new Set(cadastrados.map(texto).filter(Boolean));
+  const nomesDaChave = new Map<string, string[]>();
+  for (const nome of nomes) {
+    const chave = chaveNome(nome);
+    nomesDaChave.set(chave, [...(nomesDaChave.get(chave) || []), nome]);
+  }
+  const fora = new Set<string>();
+  const ajustados = new Map<string, string>();
+  const alinhadas = linhas.map((l) => {
+    const cargo = texto(l.cargo);
+    if (!cargo) return l;
+    if (nomes.has(cargo)) return cargo === l.cargo ? l : { ...l, cargo };
+    const candidatos = nomesDaChave.get(chaveNome(cargo)) || [];
+    if (candidatos.length === 1) {
+      ajustados.set(cargo, candidatos[0]);
+      return { ...l, cargo: candidatos[0] };
+    }
+    fora.add(cargo);
+    return l;
+  });
+  return {
+    linhas: alinhadas,
+    foraDoCadastro: [...fora],
+    ajustados: [...ajustados].map(([de, para]) => ({ de, para })),
+  };
+}
+
 /** Linha com qualquer campo da régua é um DESCRITOR; sem nenhum, é a linha-cabeçalho da competência. */
 function ehDescritor(l: LinhaDaMatrizImportada): boolean {
   return [l.nome_curto, l.descritor_completo, l.n1_gap, l.n2_desenvolvimento, l.n3_meta, l.n4_referencia]

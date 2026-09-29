@@ -5,7 +5,7 @@ import { requirePermissionAction, assertTenantAccessAction, getAuthenticatedEmai
 import { logAdminAction } from '@/lib/audit';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { chaveDaLinhaDaMatriz } from '@/lib/matriz-por-cargo';
-import { atribuirCodigosDaMatriz, temCargo, type LinhaDaMatrizGravada } from '@/lib/matriz-import';
+import { alinharCargosAoCadastro, atribuirCodigosDaMatriz, temCargo, type LinhaDaMatrizGravada } from '@/lib/matriz-import';
 
 export async function loadEmpresas() {
   const sb = await requireAdminSupabase();
@@ -132,13 +132,23 @@ export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
   if (semCargo) {
     return { success: false, error: `${semCargo} linha(s) sem cargo. Sem cargo, a competência nunca é oferecida a ninguém: preencha o cargo e importe de novo.` };
   }
+  // O cargo da planilha vira o NOME cadastrado (29/09/2026): "Sociogestor 1" gravado onde o
+  // cadastro e os colaboradores têm "SOCIOGESTOR 1" some do filtro da tela e do motor, que
+  // comparam o cargo por igualdade exata. Mesma fonte do seletor da tela (`loadCargosEmpresa`).
+  // Sem paginar de propósito: um cadastro acima de 1000 cargos por empresa não existe, e um
+  // corte degrada para o comportamento antigo (cargo como veio, com o aviso abaixo).
+  const { data: cadastro, error: erroCadastro } = await sb.from('cargos_empresa')
+    .select('nome').eq('empresa_id', empresaId);
+  if (erroCadastro) return { success: false, error: `Leitura dos cargos da empresa: ${erroCadastro.message}` };
+  const alinhadas = alinharCargosAoCadastro(linhas, (cadastro || []).map((c: any) => c.nome));
+
   const lida = await lerMatrizDaEmpresa(sb, empresaId);
   if ('error' in lida) return { success: false, error: lida.error };
   const existentes = lida.linhas;
 
   // Código vazio é gerado aqui (lib/matriz-import), antes do dedup: a reimportação
   // recebe os MESMOS códigos e cai no dedup em vez de duplicar a matriz.
-  const codigos = atribuirCodigosDaMatriz(linhas, existentes);
+  const codigos = atribuirCodigosDaMatriz(alinhadas.linhas, existentes);
   if (codigos.conflitos.length) {
     const lista = codigos.conflitos.slice(0, 5).join('; ');
     const resto = codigos.conflitos.length > 5 ? ` (e mais ${codigos.conflitos.length - 5})` : '';
@@ -177,11 +187,23 @@ export async function importarCompetenciasCSV(empresaId: string, comps: any[]) {
       perguntas_alvo: c.perguntas_alvo?.trim() || null,
     }));
 
-  if (novos.length === 0) return { success: true, message: '0 novas (todas já existiam)' };
+  // O que o operador precisa saber sobre o cargo: o que foi trocado pelo nome cadastrado e o que
+  // não está no cadastro (não aparece no filtro por cargo da tela). Aviso, não recusa: há tenant
+  // com matriz de cargo sem cadastro, e quem age é o dono do próprio dado.
+  const trocados = alinhadas.ajustados.slice(0, 5).map((a) => `${a.de} → ${a.para}`).join('; ');
+  const ajustes = alinhadas.ajustados.length
+    ? ` · cargo ajustado ao cadastro: ${trocados}${alinhadas.ajustados.length > 5 ? ` (e mais ${alinhadas.ajustados.length - 5})` : ''}`
+    : '';
+  const fora = alinhadas.foraDoCadastro.slice(0, 5).join('; ');
+  const avisoCargo = alinhadas.foraDoCadastro.length
+    ? ` · atenção, cargo fora do cadastro de cargos da empresa (não aparece no filtro por cargo): ${fora}${alinhadas.foraDoCadastro.length > 5 ? ` (e mais ${alinhadas.foraDoCadastro.length - 5})` : ''}`
+    : '';
+
+  if (novos.length === 0) return { success: true, message: `0 novas (todas já existiam)${ajustes}${avisoCargo}` };
   const { error } = await sb.from('competencias').insert(novos);
   if (error) return { success: false, error: error.message };
   const gerados = codigos.gerados ? ` · ${codigos.gerados} códigos gerados pelo sistema` : '';
-  return { success: true, message: `${novos.length} competências importadas${gerados}` };
+  return { success: true, message: `${novos.length} competências importadas${gerados}${ajustes}${avisoCargo}` };
 }
 
 /**

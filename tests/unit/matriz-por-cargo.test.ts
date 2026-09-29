@@ -168,6 +168,10 @@ describe('casarSelecaoIA1', () => {
 
 describe('importarCompetenciasCSV', () => {
   const csv = (cargo: string) => matriz(EMP, cargo, 'csv').map(({ id: _id, empresa_id: _e, ...l }) => l);
+  // Tenant com matriz tem os cargos cadastrados (`cargos_empresa`); sem isso todo cargo seria "fora do cadastro".
+  beforeEach(() => {
+    tabelas.cargos_empresa = [{ empresa_id: EMP, nome: PROF }, { empresa_id: EMP, nome: AUX }];
+  });
 
   it('a mesma matriz para o 2º cargo ENTRA; reimportar o 1º continua deduplicando', async () => {
     tabelas.competencias = matriz(EMP, PROF, 'p');
@@ -231,6 +235,47 @@ describe('importarCompetenciasCSV', () => {
     sb.falharEm({ tabela: 'competencias', op: 'select', mensagem: 'timeout no pool' });
     expect(await importarCompetenciasCSV(EMP, csv(AUX)))
       .toEqual({ success: false, error: 'Leitura da matriz da empresa: timeout no pool' });
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  // Amazon Bowling, 29/09/2026: a planilha trouxe "Sociogestor 1" e o cadastro/colaboradores têm
+  // "SOCIOGESTOR 1". O filtro da tela e o `.eq('cargo', colab.cargo)` do motor comparam por igualdade
+  // exata: 72 linhas gravadas e invisíveis, sem erro em lugar nenhum.
+  it('cargo da planilha em outra caixa é GRAVADO com o nome do cadastro, e a mensagem conta a troca', async () => {
+    tabelas.competencias = matriz(EMP, PROF, 'p');
+    tabelas.cargos_empresa.push({ empresa_id: EMP, nome: 'SOCIOGESTOR 1' });
+
+    const r = await importarCompetenciasCSV(EMP, csv('Sociogestor 1'));
+    expect(r).toEqual({ success: true, message: '7 competências importadas · cargo ajustado ao cadastro: Sociogestor 1 → SOCIOGESTOR 1' });
+    const insert = sb.escritas.find((e) => e.tabela === 'competencias' && e.op === 'insert')!;
+    expect(insert.payload).toHaveLength(7);
+    expect(insert.payload.every((l: any) => l.cargo === 'SOCIOGESTOR 1')).toBe(true);
+  });
+
+  it('reimportar a planilha em outra caixa, com a matriz já gravada no nome do cadastro, NÃO duplica', async () => {
+    tabelas.cargos_empresa.push({ empresa_id: EMP, nome: 'SOCIOGESTOR 1' });
+    tabelas.competencias = matriz(EMP, 'SOCIOGESTOR 1', 's');
+
+    const r = await importarCompetenciasCSV(EMP, csv('Sociogestor 1'));
+    expect(r).toEqual({ success: true, message: '0 novas (todas já existiam) · cargo ajustado ao cadastro: Sociogestor 1 → SOCIOGESTOR 1' });
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it('cargo FORA do cadastro é importado como veio, e a mensagem avisa (aviso, não recusa)', async () => {
+    tabelas.competencias = matriz(EMP, PROF, 'p');
+    const r = await importarCompetenciasCSV(EMP, csv('Diretor(a)'));
+    expect(r).toEqual({
+      success: true,
+      message: '7 competências importadas · atenção, cargo fora do cadastro de cargos da empresa (não aparece no filtro por cargo): Diretor(a)',
+    });
+    const insert = sb.escritas.find((e) => e.tabela === 'competencias' && e.op === 'insert')!;
+    expect(insert.payload.every((l: any) => l.cargo === 'Diretor(a)')).toBe(true);
+  });
+
+  it('erro ao ler os cargos da empresa NÃO importa: sem o cadastro a troca de grafia não acontece', async () => {
+    sb.falharEm({ tabela: 'cargos_empresa', op: 'select', mensagem: 'timeout no pool' });
+    expect(await importarCompetenciasCSV(EMP, csv(AUX)))
+      .toEqual({ success: false, error: 'Leitura dos cargos da empresa: timeout no pool' });
     expect(sb.escritas).toHaveLength(0);
   });
 });

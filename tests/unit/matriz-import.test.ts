@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  atribuirCodigosDaMatriz, colunasDaMatriz, preencherCelulasMescladas, prefixoDoCargo, separarLinhasDoImport,
+  alinharCargosAoCadastro, atribuirCodigosDaMatriz, colunasDaMatriz, preencherCelulasMescladas, prefixoDoCargo,
+  separarLinhasDoImport,
 } from '@/lib/matriz-import';
 
 /**
@@ -179,6 +180,74 @@ describe('separarLinhasDoImport', () => {
   it('cargo herdado da linha de cima (célula mesclada) conta como preenchido', () => {
     const linhas = preencherCelulasMescladas([{ ...completa, cargo: COORD }, { ...completa, nome: '', cargo: '' }]);
     expect(separarLinhasDoImport(linhas).validas).toHaveLength(2);
+  });
+});
+
+/**
+ * CARGO DA PLANILHA × CADASTRO (29/09/2026). Amazon Bowling: a matriz entrou como
+ * "Sociogestor 1" e o cadastro/colaboradores têm "SOCIOGESTOR 1". O banco compara o cargo
+ * por igualdade exata, então 72 linhas ficaram fora do filtro da tela e do motor.
+ */
+describe('alinharCargosAoCadastro', () => {
+  const CAD = ['SOCIOGESTOR 1', 'SOCIOGESTOR 2', 'SUPERVISÃO DE LOJA E OPERAÇÃO'];
+  const l = (cargo: string | null, nome = 'Feedback') => ({ nome, cargo, nome_curto: 'A' });
+
+  it('outra caixa vira o NOME CADASTRADO ("Sociogestor 1" → "SOCIOGESTOR 1"), sem tocar nas outras colunas', () => {
+    const r = alinharCargosAoCadastro([l('Sociogestor 1'), l('sociogestor 2', 'Delegação')], CAD);
+    expect(r.linhas).toEqual([l('SOCIOGESTOR 1'), l('SOCIOGESTOR 2', 'Delegação')]);
+    expect(r.foraDoCadastro).toEqual([]);
+    expect(r.ajustados).toEqual([{ de: 'Sociogestor 1', para: 'SOCIOGESTOR 1' }, { de: 'sociogestor 2', para: 'SOCIOGESTOR 2' }]);
+  });
+
+  it('a troca é contada UMA vez por grafia, e só o espaço nas pontas não conta como ajuste', () => {
+    const r = alinharCargosAoCadastro([l('Sociogestor 1'), l('Sociogestor 1', 'Outra'), l(' SOCIOGESTOR 2 ')], CAD);
+    expect(r.ajustados).toEqual([{ de: 'Sociogestor 1', para: 'SOCIOGESTOR 1' }]);
+  });
+
+  it('acento e espaço repetido ou nas pontas também não distinguem', () => {
+    const r = alinharCargosAoCadastro([l('  Supervisao  de LOJA e operacao ')], CAD);
+    expect(r.linhas[0].cargo).toBe('SUPERVISÃO DE LOJA E OPERAÇÃO');
+  });
+
+  it('cargo igual ao cadastrado não muda (mesmo objeto); com espaço nas pontas só perde o espaço', () => {
+    const igual = l('SOCIOGESTOR 1');
+    const r = alinharCargosAoCadastro([igual, l(' SOCIOGESTOR 2 ')], CAD);
+    expect(r.linhas[0]).toBe(igual);
+    expect(r.linhas[1].cargo).toBe('SOCIOGESTOR 2');
+  });
+
+  it('cargo fora do cadastro segue como veio e é listado UMA vez em foraDoCadastro', () => {
+    const r = alinharCargosAoCadastro([l('Diretor(a)'), l('Diretor(a)', 'Outra'), l('Sociogestor 1')], CAD);
+    expect(r.linhas.map((x) => x.cargo)).toEqual(['Diretor(a)', 'Diretor(a)', 'SOCIOGESTOR 1']);
+    expect(r.foraDoCadastro).toEqual(['Diretor(a)']);
+  });
+
+  it('pontuação conta: "Diretor" não vira "Diretor(a)" (só caixa, acento e espaço são ignorados)', () => {
+    const r = alinharCargosAoCadastro([l('Diretor')], ['Diretor(a)']);
+    expect(r.linhas[0].cargo).toBe('Diretor');
+    expect(r.foraDoCadastro).toEqual(['Diretor']);
+  });
+
+  it('dois cadastros com a mesma chave: não adivinha (fica como veio); o idêntico a um deles vale', () => {
+    const cad = ['Professor', 'PROFESSOR'];
+    const r = alinharCargosAoCadastro([l('professor'), l('PROFESSOR'), l('Professor')], cad);
+    expect(r.linhas.map((x) => x.cargo)).toEqual(['professor', 'PROFESSOR', 'Professor']);
+    expect(r.foraDoCadastro).toEqual(['professor']);
+  });
+
+  it('sem cargo passa direto e não conta como fora do cadastro; cadastro vazio deixa tudo como veio', () => {
+    const r = alinharCargosAoCadastro([l(null), l('  ')], CAD);
+    expect(r.linhas).toEqual([l(null), l('  ')]);
+    expect(r.foraDoCadastro).toEqual([]);
+    const vazio = alinharCargosAoCadastro([l('Sociogestor 1')], []);
+    expect(vazio.linhas[0].cargo).toBe('Sociogestor 1');
+    expect(vazio.foraDoCadastro).toEqual(['Sociogestor 1']);
+  });
+
+  it('não altera a entrada', () => {
+    const entrada = [l('Sociogestor 1')];
+    alinharCargosAoCadastro(entrada, CAD);
+    expect(entrada[0].cargo).toBe('Sociogestor 1');
   });
 });
 
