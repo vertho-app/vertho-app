@@ -16,12 +16,14 @@ const mocks = vi.hoisted(() => ({
   })),
   verifyOtp: vi.fn(async () => ({ error: null })),
   recordAccess: vi.fn(async () => true),
+  emitirPasse: vi.fn(() => 'passe.renovado'),
 }));
 
 vi.mock('@/lib/demo/presentation-ticket', () => ({
   verifyDemoPresentationTicket: () => mocks.state.ticketValid
     ? { tenant: mocks.state.ticketTenant, prospectSessionId: mocks.state.prospectSessionId }
     : null,
+  issueDemoPresentationTicket: mocks.emitirPasse,
 }));
 vi.mock('@/lib/demo/reset-acme-demo', () => ({
   autenticarPapelApresentacaoDemo: mocks.gerarLogin,
@@ -163,5 +165,29 @@ describe('"Voltar ao início": o código da página de boas-vindas atravessa a s
     const destino = await abrir(emitirCodigoCurto('acme-demo', SID));
     expect(destino.pathname).toBe('/dashboard/gestor');
     expect(destino.searchParams.has('volta')).toBe(false);
+  });
+});
+
+describe('renovação do passe na troca de papel', () => {
+  beforeEach(() => {
+    mocks.state.ticketValid = true;
+    mocks.state.ticketTenant = 'acme-demo';
+    mocks.emitirPasse.mockClear();
+  });
+
+  it('🔴 passe do apresentador é REEMITIDO para a sala do passe e segue no redirect (senão expira em 4 h e o login pisca)', async () => {
+    mocks.state.prospectSessionId = undefined;
+    const res = await GET(new NextRequest('https://gestor-demo.vertho.ai/auth/apresentacao?ticket=passe.velho'));
+    const destino = new URL(res.headers.get('location')!);
+    expect(mocks.emitirPasse).toHaveBeenCalledWith(undefined, undefined, 'acme-demo');
+    expect(destino.searchParams.get('sala')).toBe('passe.renovado');
+  });
+
+  it('🔴 passe de convidado NÃO é renovado: a validade é a do passaporte', async () => {
+    mocks.state.prospectSessionId = '1234567890abcdef1234';
+    const res = await GET(new NextRequest('https://gestor-demo.vertho.ai/auth/apresentacao?ticket=passe.do.convidado'));
+    const destino = new URL(res.headers.get('location')!);
+    expect(mocks.emitirPasse).not.toHaveBeenCalled();
+    expect(destino.searchParams.get('sala')).toBe('passe.do.convidado');
   });
 });

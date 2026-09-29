@@ -9,7 +9,7 @@ import {
   parseDemoPresentationDevice,
   linkDaPaginaDeBoasVindas,
 } from '@/lib/demo/presentation';
-import { verifyDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
+import { issueDemoPresentationTicket, verifyDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
 import { lerCodigoCurto, emitirCodigoCurto } from '@/lib/demo/degustacao-link-curto';
 import { autenticarPapelApresentacaoDemo } from '@/lib/demo/reset-acme-demo';
 import { recordAcmeProspectPresentationAccess } from '@/lib/demo/acme-prospect-tracking';
@@ -77,7 +77,20 @@ export async function GET(req: NextRequest) {
   // O shell guarda o passe em sessionStorage e remove este parâmetro da barra
   // de endereço. Ele precisa chegar uma vez a cada origem para que o próximo
   // salto do dropdown também seja automático.
-  destino.searchParams.set(DEMO_PRESENTATION_TICKET_PARAM, ticket!);
+  //
+  // 🔴 RENOVA o passe do apresentador a cada troca de papel. Ele vale 4 h fixas
+  // e o mesmo texto viajava de host em host sem nunca ser reemitido: numa sala
+  // aberta há mais de 4 h TODA troca caía em `apresentacao-expirada`, e o
+  // `/login` (que só se recupera porque o host já tinha sessão) piscava o aviso
+  // "link expirou" antes de entrar na tela — a tela de antes, não a nova.
+  // Medido 29/09/2026 pelo `login?error=apresentacao-expirada` no Network. A
+  // janela passa a ser de INATIVIDADE (4 h sem trocar de papel). O passe de
+  // convidado (`prospectSessionId`) NÃO renova: a validade dele é a do
+  // passaporte, decidida no servidor, e não pode se estender por uso.
+  const ticketDaViagem = ticketPayload.prospectSessionId
+    ? ticket!
+    : issueDemoPresentationTicket(undefined, undefined, ticketPayload.tenant);
+  destino.searchParams.set(DEMO_PRESENTATION_TICKET_PARAM, ticketDaViagem);
   // A preferência também precisa atravessar os hostnames. Quando o link vem da
   // preparação inicial, o padrão explícito é Computador; valores arbitrários
   // são descartados e nunca reaproveitados no redirect.
