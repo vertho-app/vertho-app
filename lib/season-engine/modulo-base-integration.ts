@@ -29,6 +29,22 @@ export function niveisDoNivelMin(nivelMin: number): { entrada: Nivel; destino: N
   return { entrada: 'N3', destino: 'N4' };
 }
 
+/**
+ * Nome do descritor sem o CÓDIGO da matriz na frente.
+ *
+ * Medido em 29/09/2026: o plano da Coordenação Pedagógica de Ibipeba grava o descritor da semana como
+ * código + travessão + nome ("COO03_D5", travessão, "Protagonismo do bem-estar"; 27 semanas), e o
+ * módulo-base se chama só "PROTAGONISMO DO BEM-ESTAR". O código derrubava a regra do nome idêntico e a
+ * escolha caía no cosseno: acertou nos 6 casos, mas com 0,53 num deles, perto de trocar de assunto.
+ * Formatos de código vistos em `competencias.cod_desc`: COO03_D4, COO01-D04, EMPREG06-D02, G06.6, LD01_D3.
+ * Só sai o código seguido de travessão, meia-risca, hífen ou dois-pontos; um nome comum fica intacto.
+ */
+export function descritorSemCodigo(descritor: string | null | undefined): string {
+  return String(descritor || '')
+    .replace(/^\s*[A-Za-z]{1,10}\d{1,3}[._-][A-Za-z]?\d{1,3}\s*[\u2014\u2013:-]\s*/, '')
+    .trim();
+}
+
 /** Map do formato do engine pra chave de `adaptacao_por_formato` no módulo. */
 export function formatoAdaptacao(formatoEngine: string): 'texto' | 'podcast_roteiro' | 'video_roteiro' | null {
   if (formatoEngine === 'texto') return 'texto';
@@ -123,21 +139,41 @@ export async function resolverModuloBaseParaConteudo(
     const { data } = await q;
     return data || [];
   }
-  // Tenta cada transição (alvo → mais próximas) no locale; depois fallback pt-BR.
-  let candidatos: any[] = [];
-  let usouFallbackLocale = false;
-  let usouFallbackNivel = false;
-  for (let i = 0; i < transicoesOrdenadas.length && candidatos.length === 0; i++) {
-    candidatos = await buscar(locale, transicoesOrdenadas[i]);
-    if (candidatos.length && i > 0) usouFallbackNivel = true;
-  }
-  if (candidatos.length === 0 && locale !== 'pt-BR') {
-    for (let i = 0; i < transicoesOrdenadas.length && candidatos.length === 0; i++) {
-      candidatos = await buscar('pt-BR', transicoesOrdenadas[i]);
-      if (candidatos.length) { usouFallbackLocale = true; if (i > 0) usouFallbackNivel = true; }
+  // Nome do descritor da semana sem o código da matriz (ver descritorSemCodigo). Vale para a regra do
+  // nome idêntico, para os tokens e para o embedding da consulta.
+  const descritorBusca = descritorSemCodigo(opts.descritor);
+  const STOP = new Set(['para', 'como', 'sobre', 'mais', 'pela', 'pelo', 'entre', 'isso', 'esta', 'este', 'essa', 'esse', 'dos', 'das', 'com', 'sem', 'que']);
+  const norm = (s: string) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+  const toks = (s: string) => new Set(norm(s).split(/[^a-z0-9]+/g).filter((t) => t.length >= 4 && !STOP.has(t)));
+  const wantTok = toks(descritorBusca);
+  const wantNorm = norm(descritorBusca);
+  const nomeIdentico = (m: any): boolean => !!wantNorm && norm(descritorSemCodigo(m.descritor)) === wantNorm;
+
+  // Assunto antes do nível (29/09/2026). Antes, o laço parava na PRIMEIRA transição com qualquer
+  // candidato: um módulo de OUTRO descritor no nível exato vencia o do descritor certo no nível vizinho.
+  // Medido no demo escolar: a semana de "Ritmo e transições" (alvo N1→N2) ancorava no módulo de
+  // "Recursos didáticos", porque o de "Ritmo e transições" está em N2→N3. Agora, se a transição mais
+  // próxima não tem módulo com o nome idêntico, as vizinhas são consultadas, e a primeira que tiver
+  // um vence. Sem nome idêntico em lugar nenhum, fica a mais próxima, exatamente como antes.
+  async function porTransicao(loc: string): Promise<{ lista: any[]; idx: number }> {
+    let maisProxima: { lista: any[]; idx: number } | null = null;
+    for (let i = 0; i < transicoesOrdenadas.length; i++) {
+      const lista = await buscar(loc, transicoesOrdenadas[i]);
+      if (!lista.length) continue;
+      if (!maisProxima) maisProxima = { lista, idx: i };
+      if (!wantNorm || lista.some(nomeIdentico)) return { lista, idx: i };
     }
+    return maisProxima || { lista: [], idx: -1 };
+  }
+  // Tenta cada transição no locale; sem nada lá, fallback pt-BR.
+  let { lista: candidatos, idx: transicaoUsada } = await porTransicao(locale);
+  let usouFallbackLocale = false;
+  if (candidatos.length === 0 && locale !== 'pt-BR') {
+    ({ lista: candidatos, idx: transicaoUsada } = await porTransicao('pt-BR'));
+    if (candidatos.length) usouFallbackLocale = true;
   }
   if (candidatos.length === 0) return null;
+  const usouFallbackNivel = transicaoUsada > 0;
 
   // 3) Escolha INTELIGENTE por SCORE ponderado. Sinais (do mais forte ao mais fraco):
   //    - RELEVÂNCIA ao descritor da semana: SEMÂNTICA (embedding/cosseno — pega
@@ -145,15 +181,10 @@ export async function resolverModuloBaseParaConteudo(
   //    - EXCLUSIVO do tenant · QUALIDADE (nota da auditoria) · PREFERIDO (empurrão).
   //    - FIT POR CARGO (via contexto pedagógico) · ANTI-REPETIÇÃO (não reusar sempre
   //      o mesmo módulo nesta competência) · contexto/tags/recência.
-  const STOP = new Set(['para', 'como', 'sobre', 'mais', 'pela', 'pelo', 'entre', 'isso', 'esta', 'este', 'essa', 'esse', 'dos', 'das', 'com', 'sem', 'que']);
-  const norm = (s: string) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-  const toks = (s: string) => new Set(norm(s).split(/[^a-z0-9]+/g).filter((t) => t.length >= 4 && !STOP.has(t)));
-  const wantTok = toks(opts.descritor || '');
-  const wantNorm = norm(opts.descritor || '');
 
   // Embedding da semana (semântico). Sem provider/descritor → cai p/ tokens.
   let queryVec: number[] | null = null;
-  if (opts.descritor) { try { queryVec = (await embedQuery(opts.descritor))?.vector || null; } catch { queryVec = null; } }
+  if (descritorBusca) { try { queryVec = (await embedQuery(descritorBusca))?.vector || null; } catch { queryVec = null; } }
   const parseEmb = (v: any): number[] | null => {
     if (!v) return null;
     if (Array.isArray(v)) return v;
@@ -192,7 +223,7 @@ export async function resolverModuloBaseParaConteudo(
     // era imbatível; a semântica não pode custar essa garantia. Ela serve para PARÁFRASE,
     // não para desempatar o que já é igual.
     let exato = false;
-    if (wantNorm && norm(m.descritor) === wantNorm) {
+    if (nomeIdentico(m)) {
       r = 1; exato = true;
     } else if (queryVec && emb) {
       r = Math.max(0, cosine(queryVec, emb)); semantico = true;
