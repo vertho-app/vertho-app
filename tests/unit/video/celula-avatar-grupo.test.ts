@@ -123,3 +123,54 @@ describe('dispararVideoDoKit', () => {
     expect(gerarRoteiro).not.toHaveBeenCalled();
   });
 });
+
+describe('dispararVideoDoKit em lote: coletor e agenda (30/09/2026)', () => {
+  const agenda = (atrasoS: number) => ({ proximoAtrasoS: vi.fn(() => atrasoS) });
+
+  it('o coletor compartilhado chega ao gerador de roteiro', async () => {
+    const coletor = vi.fn();
+    const { sb } = sbCelula();
+    await dispararVideoDoKit(sb.client, { ...ARGS, aiRunRoteiro: coletor as any });
+    expect(gerarRoteiro.mock.calls[0][1].aiRunRoteiro).toBe(coletor);
+  });
+
+  it('o atraso da agenda vira `delay` do Trigger; atraso zero dispara na hora', async () => {
+    const { sb } = sbCelula();
+    const a = agenda(210);
+    await dispararVideoDoKit(sb.client, { ...ARGS, agendaDisparo: a });
+    expect(a.proximoAtrasoS).toHaveBeenCalledTimes(1);
+    expect(trigger.mock.calls[0][2]).toEqual({ delay: '210s' });
+
+    trigger.mockClear();
+    await dispararVideoDoKit(sbCelula().sb.client, { ...ARGS, agendaDisparo: agenda(0) });
+    expect(trigger.mock.calls[0][2]).toEqual({});
+  });
+
+  it('célula de grupo não dispara, então não gasta vaga na agenda', async () => {
+    const { sb } = sbCelula();
+    const a = agenda(210);
+    await dispararVideoDoKit(sb.client, { ...ARGS, avatarGrupo: { grupoId: 'g-1', textos: FIXO }, agendaDisparo: a });
+    expect(a.proximoAtrasoS).not.toHaveBeenCalled();
+    expect(trigger).not.toHaveBeenCalled();
+  });
+
+  it('reuso por kit_id não gasta vaga na agenda', async () => {
+    const { sb } = sbCelula();
+    const resolverOriginal = sb.client.from;
+    sb.client.from = (t: string) => {
+      const b = resolverOriginal(t);
+      if (t === 'videos_gerados') b.maybeSingle = async () => ({ data: { id: 'v-antigo', status: 'processing' }, error: null });
+      return b;
+    };
+    const a = agenda(210);
+    await dispararVideoDoKit(sb.client, { ...ARGS, agendaDisparo: a });
+    expect(a.proximoAtrasoS).not.toHaveBeenCalled();
+  });
+
+  it('atraso acima do teto: a célula cai em erro, sem disparo', async () => {
+    const { sb } = sbCelula();
+    const r = await dispararVideoDoKit(sb.client, { ...ARGS, agendaDisparo: { proximoAtrasoS: () => { throw new Error('passa do teto'); } } });
+    expect(r.error).toMatch(/passa do teto/);
+    expect(trigger).not.toHaveBeenCalled();
+  });
+});

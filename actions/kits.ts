@@ -66,6 +66,25 @@ export interface GerarKitParams {
    * Só vale na chamada interna (`sb` presente): quem monta o grupo é `gerarKitSemanal`.
    */
   avatarGrupo?: { grupoId: string; textos: AvatarFixo } | null;
+  /**
+   * Não dispara o vídeo aqui: devolve `videoPendente` para quem chamou disparar os
+   * vídeos de TODOS os DISC juntos, com os roteiros num lote só (`gerarKitSemanal`).
+   * Só vale na chamada interna (`sb` presente), como o `avatarGrupo`.
+   */
+  adiarVideo?: boolean;
+}
+
+/** Argumentos do disparo de vídeo que `gerarKit` devolve quando `adiarVideo`. */
+interface VideoPendente {
+  moduloBaseId: string; empresaId: string | null; cargo: string; disc: DiscLetter;
+  desafioTexto: string; kitId: string; pppBrief: string | null; createdBy: string;
+  avatarGrupo: { grupoId: string; textos: AvatarFixo } | null;
+}
+
+/** A entrada `video` de `conteudos`, a partir do retorno de `dispararVideoDoKit`. */
+function entradaDoVideo(v: any) {
+  const titulo = v.reused ? 'vídeo (reusado)' : v.adiado ? 'vídeo (aguardando o avatar do grupo)' : 'vídeo (renderizando)';
+  return { formato: 'video', conteudoId: v.id, titulo, ok: !v.error, error: v.error };
 }
 
 export async function gerarKit({
@@ -73,7 +92,7 @@ export async function gerarKit({
   nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos = FORMATOS_PADRAO, sb: sbIn,
   aiRun, briefPreResolvido, pppBriefPreResolvido, fichaCargoPreResolvida, perfilPublico: perfilPublicoIn, skipVideo = false,
-  avatarGrupo: avatarGrupoIn = null,
+  avatarGrupo: avatarGrupoIn = null, adiarVideo: adiarVideoIn = false,
 }: GerarKitParams) {
   try {
     // A5: `empresaId` vem do cliente (kit custa IA e grava no acervo dele).
@@ -82,6 +101,9 @@ export async function gerarKit({
     // Chamada da tela não entra em grupo: a célula ficaria esperando um orquestrador
     // que só `gerarKitSemanal` dispara.
     const avatarGrupo = sbIn ? avatarGrupoIn : null;
+    // Pelo mesmo motivo, só a chamada interna adia o vídeo: quem dispara o adiado é
+    // `gerarKitSemanal`; vindo da tela, o vídeo nunca sairia.
+    const adiarVideo = sbIn ? adiarVideoIn : false;
     if (!competencia || !descritor || !disc) {
       return { success: false, error: 'competencia, descritor e disc obrigatórios' };
     }
@@ -142,13 +164,20 @@ export async function gerarKit({
     // VÍDEO renderizado (Fase 2b): célula (modulo × empresa × cargo × DISC) com o
     // desafio do DISC no roteiro + PPP municipal, ligada ao kit. Render é async
     // (cx33); aqui só dispara/reusa. Não conta no okAll (é best-effort/assíncrono).
+    // Com `adiarVideo`, devolve os argumentos em vez de disparar: `gerarKitSemanal`
+    // dispara os DISC juntos, com os roteiros num lote só.
+    let videoPendente: VideoPendente | null = null;
     if (skipVideo) {
       conteudos.push({ formato: 'video', ok: true, titulo: 'vídeo pulado (skipVideo)' });
     } else if (moduloBaseId) {
-      const { dispararVideoDoKit } = await import('@/actions/gerar-video');
-      const v: any = await dispararVideoDoKit(sb, { moduloBaseId, empresaId, cargo, disc, desafioTexto: desafio.desafio_texto, kitId, pppBrief, createdBy: 'kit', avatarGrupo }).catch((e: any) => ({ error: e?.message }));
-      const titulo = v.reused ? 'vídeo (reusado)' : v.adiado ? 'vídeo (aguardando o avatar do grupo)' : 'vídeo (renderizando)';
-      conteudos.push({ formato: 'video', conteudoId: v.id, titulo, ok: !v.error, error: v.error });
+      const argsVideo: VideoPendente = { moduloBaseId, empresaId, cargo, disc, desafioTexto: desafio.desafio_texto, kitId, pppBrief, createdBy: 'kit', avatarGrupo };
+      if (adiarVideo) {
+        videoPendente = argsVideo;
+      } else {
+        const { dispararVideoDoKit } = await import('@/actions/gerar-video');
+        const v: any = await dispararVideoDoKit(sb, argsVideo).catch((e: any) => ({ error: e?.message }));
+        conteudos.push(entradaDoVideo(v));
+      }
     } else {
       conteudos.push({ formato: 'video', ok: false, error: 'sem módulo-base — vídeo não gerado' });
     }
@@ -166,6 +195,7 @@ export async function gerarKit({
       kitId, briefId, briefReused: reused, disc,
       desafio,
       conteudos,
+      ...(videoPendente ? { videoPendente } : {}),
       message: `Kit ${disc} (${competencia} › ${descritor}): ${conteudos.filter((c) => c.ok).length}/${conteudos.length} formatos`,
     };
   } catch (err: any) {
@@ -262,7 +292,7 @@ export async function gerarKitSemanal({
           gerarKit({
             competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk,
             aiRun: run, briefPreResolvido: brief, pppBriefPreResolvido: pppBrief, fichaCargoPreResolvida: fichaCargo, perfilPublico, skipVideo,
-            avatarGrupo: avatarDoGrupo(),
+            avatarGrupo: avatarDoGrupo(), adiarVideo: true,
           }).then(async (k) => {
             done++;
             await onProgress?.({ done, total, current: `kit ${disc} concluído`, kits: [] });
@@ -294,9 +324,27 @@ export async function gerarKitSemanal({
       for (const disc of discs) {
         await onProgress?.({ done: kits.length, total, current: `gerando kit ${disc}…`, kits: kits.map(resumoKit) });
         // sequencial: o 1º cria o brief; os demais reusam (resolverOuCriarBrief idempotente).
-        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk, fichaCargoPreResolvida: fichaCargo, perfilPublico, skipVideo, ...preSeq, avatarGrupo: avatarDoGrupo() }));
+        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk, fichaCargoPreResolvida: fichaCargo, perfilPublico, skipVideo, ...preSeq, avatarGrupo: avatarDoGrupo(), adiarVideo: true }));
         await onProgress?.({ done: kits.length, total, current: `kit ${disc} concluído`, kits: kits.map(resumoKit) });
       }
+    }
+
+    // VÍDEOS dos DISC, juntos (30/09/2026): os roteiros saem num lote só (−50%) e os
+    // disparos seguem espaçados pela agenda, para as narrações não disputarem o TTS.
+    // Antes, cada DISC gerava o seu roteiro síncrono (~US$ 0,22 contra ~0,13 no lote).
+    // Vem ANTES do despacho do grupo, que lê do banco as células já inseridas.
+    // Um import só: os DISC compartilham o mesmo coletor e a mesma agenda.
+    const pendentes = kits.filter((k: any) => k?.videoPendente);
+    if (pendentes.length) {
+      await onProgress?.({ done: kits.length, total, current: `vídeos: roteiros em lote (${pendentes.length})…`, kits: kits.map(resumoKit) });
+      const { dispararVideoDoKit } = await import('@/actions/gerar-video');
+      const { coletorDeRoteiros, criarAgendaDeDisparo } = await import('@/lib/video/roteiro-lote');
+      const aiRunRoteiro = await coletorDeRoteiros(empresaId);
+      const agendaDisparo = criarAgendaDeDisparo();
+      await Promise.all(pendentes.map(async (k: any) => {
+        const v: any = await dispararVideoDoKit(sbk, { ...k.videoPendente, aiRunRoteiro, agendaDisparo }).catch((e: any) => ({ error: e?.message }));
+        k.conteudos = [...(k.conteudos || []), entradaDoVideo(v)];
+      }));
     }
 
     // As células do grupo foram inseridas sem disparar: o orquestrador gera a 1ª (a

@@ -13,7 +13,7 @@
  * Guarda: `tests/unit/integrations/ia-request-cru-guard.test.ts`.
  */
 import { callAI } from '@/actions/ai-client';
-import { submitClaudeBatch } from '@/lib/ai-batch';
+import { submitClaudeBatch, type AIRun } from '@/lib/ai-batch';
 import { getModelForTask } from '@/lib/ai-tasks';
 import { buildRoteiroPrompt, parseRoteiro, normalizarRoteiro, type ModuloParaRoteiro, type VideoRoteiro } from '@/lib/video/roteiro-prompt';
 
@@ -33,15 +33,41 @@ export async function gerarRoteiroDeModulo(
   // precisam dele, e nenhum tinha: 42 de 42 chamadas de `conteudo_video` sem
   // dono em 30 dias, US$ 7,10 (medido 07/09/2026). O chamador já conhece a
   // empresa; ela só não descia até aqui.
-  opts: { forceSync?: boolean; empresaId?: string | null } = {},
+  opts: {
+    forceSync?: boolean;
+    empresaId?: string | null;
+    /**
+     * Coletor de lote compartilhado (`coletorDeRoteiros`, `lib/video/roteiro-lote.ts`):
+     * quem dispara VÁRIAS células passa o mesmo coletor a todas, e os roteiros saem
+     * num lote só, a −50%, sem somar espera por célula. Vence o `forceSync`.
+     */
+    aiRunRoteiro?: AIRun | null;
+  } = {},
 ): Promise<{ roteiro?: VideoRoteiro; error?: string }> {
   const { system, user } = buildRoteiroPrompt(m);
   const model = await getModelForTask(null as any, 'conteudo_video').catch(() => 'claude-sonnet-4-6');
   let roteiro: VideoRoteiro | null = null;
+  // Chave de desligar: `VIDEO_ROTEIRO_MODE=sync` manda TUDO pelo síncrono, inclusive o coletor.
+  const modoSync = process.env.VIDEO_ROTEIRO_MODE === 'sync';
 
-  // forceSync (Kit): pula o batch (lento, ~minutos) e gera na hora — o kit já é
-  // um job em background e não pode esperar 30 min de polling do batch por DISC.
-  if (model.startsWith('claude') && process.env.VIDEO_ROTEIRO_MODE !== 'sync' && !opts.forceSync) {
+  // Coletor (Kit e scripts de lote, desde 30/09/2026). A 2ª tentativa, se o texto do
+  // lote não parsear, vai pelo síncrono: repetir pelo coletor abriria OUTRA rodada
+  // de lote em série, e é justamente a espera somada que o coletor evita.
+  if (opts.aiRunRoteiro && !modoSync) {
+    const bruto = await opts.aiRunRoteiro(system, user, { model }, ROTEIRO_MAX_TOKENS, { taskKey: 'conteudo_video', empresaId: opts.empresaId ?? null }).catch(() => '');
+    roteiro = parseRoteiro(bruto);
+    if (!roteiro) {
+      const raw = await callAI(system, user, { model }, ROTEIRO_MAX_TOKENS, { taskKey: 'conteudo_video', source: 'batch-sync', empresaId: opts.empresaId ?? null }).catch(() => '');
+      roteiro = parseRoteiro(raw);
+    }
+    if (!roteiro) return { error: 'A IA não retornou um roteiro válido.' };
+    return { roteiro: normalizarRoteiro(roteiro) };
+  }
+
+  // Lote avulso (disparo admin e resolução lazy): um item, polling aqui mesmo.
+  // `forceSync` pula para o síncrono: quem chama uma célula por vez não pode esperar
+  // o lote dela antes da próxima (para várias células, use o coletor acima).
+  if (model.startsWith('claude') && !modoSync && !opts.forceSync) {
     try {
       const resultados = await submitClaudeBatch(
         [{ customId: BATCH_CUSTOM_ID, system, user, model, maxTokens: ROTEIRO_MAX_TOKENS }],
@@ -73,13 +99,15 @@ export async function gerarRoteiroDeModulo(
 
   // Mesmo teto do ramo batch, e pelo mesmo motivo: 8.000 aqui contrariava o
   // ROTEIRO_MAX_TOKENS logo acima, que existe porque na geração 5 o raciocínio
-  // divide `max_tokens` com o texto. Este ramo roda em Opus 5 (task conteudo_video)
-  // e é o caminho do Kit (`forceSync`) — o degradado ficava com metade do teto que
-  // o arquivo declara necessário. `taskKey` porque sem ele o custo caía em
-  // `untagged`: 5 chamadas / $0,71 em 3 dias eram exatamente esta linha.
+  // divide `max_tokens` com o texto. Este ramo roda em Opus 5 (task conteudo_video).
+  // `taskKey` porque sem ele o custo caía em `untagged`: 5 chamadas / $0,71 em 3
+  // dias eram exatamente esta linha.
+  // Sem `source`: este ramo é síncrono POR ESCOLHA (`forceSync`, `VIDEO_ROTEIRO_MODE`),
+  // e o ledger o grava como `wrapper`. Até 30/09/2026 ele se rotulava `batch-sync`,
+  // que em `lib/ai-batch.ts` significa lote DEGRADADO: o síncrono do Kit parecia falha.
   for (let tentativa = 1; tentativa <= 2 && !roteiro; tentativa++) {
     const raw = await callAI(system, user, { model }, ROTEIRO_MAX_TOKENS, {
-      taskKey: 'conteudo_video', source: 'batch-sync', empresaId: opts.empresaId ?? null,
+      taskKey: 'conteudo_video', empresaId: opts.empresaId ?? null,
     }).catch(() => '');
     roteiro = parseRoteiro(raw);
   }

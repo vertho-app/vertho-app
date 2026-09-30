@@ -14,6 +14,8 @@ import { resolverModuloBaseParaConteudo } from '@/lib/season-engine/modulo-base-
 import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
 import type { gerarVideoModuloTask } from '@/trigger/gerar-video-modulo';
+import type { AIRun } from '@/lib/ai-batch';
+import type { AgendaDeDisparo } from '@/lib/video/roteiro-lote';
 
 type Disc = 'D' | 'I' | 'S' | 'C';
 const COLS_MODULO = 'id, locale, competencia_base_id, nivel_entrada, nivel_destino, titulo, descritor, conteudo_central, conteudo_aplicavel, adaptacao_por_formato';
@@ -78,6 +80,10 @@ async function criarEDispararVideo(sb: any, args: {
   moduloBaseId: string; empresaId: string | null; cargo: string | null; disc: Disc | null; createdBy: string | null;
   desafioTexto?: string | null; kitId?: string | null; pppBrief?: string | null; forceSync?: boolean;
   avatarGrupo?: AvatarDoGrupo | null;
+  /** Coletor de lote compartilhado entre as células (ver `lib/video/roteiro-lote.ts`). */
+  aiRunRoteiro?: AIRun | null;
+  /** Agenda que espaça os disparos (o atraso vira `delay` do Trigger). */
+  agendaDisparo?: AgendaDeDisparo | null;
 }) {
   const base = await carregarModulo(sb, args.moduloBaseId);
   if (!base) return { error: 'Módulo-base não encontrado' };
@@ -86,7 +92,7 @@ async function criarEDispararVideo(sb: any, args: {
   const perso = await contextoPersonalizacao(sb, args.empresaId, args.cargo, args.disc, args.kitId ? (args.pppBrief ?? null) : undefined);
   const { roteiro: gerado, error: rotErr } = await gerarRoteiroDeModulo(
     { ...base, ...perso, desafioTexto: args.desafioTexto ?? null, ...(grupo ? { avatarFixo: grupo.textos } : {}) },
-    { forceSync: !!args.forceSync, empresaId: args.empresaId ?? null },
+    { forceSync: !!args.forceSync, empresaId: args.empresaId ?? null, aiRunRoteiro: args.aiRunRoteiro ?? null },
   );
   if (rotErr || !gerado) return { error: rotErr || 'A IA não retornou um roteiro válido' };
   // O prompt manda copiar o texto do grupo; o código garante, porque o clipe da
@@ -109,7 +115,10 @@ async function criarEDispararVideo(sb: any, args: {
   if (grupo) return { success: true, id: novo.id, roteiro, adiado: true };
 
   try {
-    await tasks.trigger<typeof gerarVideoModuloTask>('gerar-video-modulo', { videoId: novo.id, roteiro }, regionOpts());
+    // A vaga na agenda é pedida só AQUI, no disparo de fato: célula de grupo (acima)
+    // e reuso por kit_id (em `dispararVideoDoKit`) não disparam, então não gastam vaga.
+    const atrasoS = args.agendaDisparo ? args.agendaDisparo.proximoAtrasoS() : 0;
+    await tasks.trigger<typeof gerarVideoModuloTask>('gerar-video-modulo', { videoId: novo.id, roteiro }, { ...regionOpts(), ...(atrasoS > 0 ? { delay: `${atrasoS}s` } : {}) });
   } catch (e: any) {
     await sb.from('videos_gerados').update({ status: 'error', error: e?.message?.slice(0, 500) }).eq('id', novo.id);
     return { error: `Não foi possível iniciar o processamento: ${e?.message || 'erro'}` };
@@ -142,14 +151,22 @@ export async function dispararVideoDeModulo(moduloBaseId: string, opts: { escopo
 /**
  * Disparo do vídeo do KIT (background, service-role — SEM auth de request). Gera o
  * vídeo da célula (modulo × empresa × cargo × DISC) com o DESAFIO do DISC no
- * roteiro + PPP municipal + kit_id, em modo SYNC (não espera o batch). Idempotente
- * por kit (reusa se já gerou o vídeo deste kit). Ver docs/KIT-SEMANAL.md (Fase 2b).
+ * roteiro + PPP municipal + kit_id. Idempotente por kit (reusa se já gerou o vídeo
+ * deste kit). Ver docs/KIT-SEMANAL.md (Fase 2b).
+ *
+ * Roteiro: com `aiRunRoteiro` (várias células disparadas juntas, desde 30/09/2026)
+ * sai no lote compartilhado; sem ele, síncrono, porque quem chama uma célula por vez
+ * não pode esperar o lote dela antes da próxima.
  */
 export async function dispararVideoDoKit(sb: any, args: {
   moduloBaseId: string; empresaId: string | null; cargo: string | null; disc: Disc;
   desafioTexto: string; kitId: string; pppBrief?: string | null; createdBy?: string | null;
   /** Avatar compartilhado com as outras células DISC (o Kit decide, com a flag ligada). */
   avatarGrupo?: AvatarDoGrupo | null;
+  /** Coletor de lote dos roteiros, o MESMO para todas as células do lote (`coletorDeRoteiros`). */
+  aiRunRoteiro?: AIRun | null;
+  /** Agenda dos disparos, a MESMA para todas as células do lote (`criarAgendaDeDisparo`). */
+  agendaDisparo?: AgendaDeDisparo | null;
 }): Promise<{ id?: string; reused?: boolean; status?: string; error?: string; adiado?: boolean }> {
   if (!args.moduloBaseId) return { error: 'sem módulo-base p/ o vídeo' };
   const { data: existente } = await sb.from('videos_gerados')
@@ -160,6 +177,7 @@ export async function dispararVideoDoKit(sb: any, args: {
     moduloBaseId: args.moduloBaseId, empresaId: args.empresaId, cargo: args.cargo, disc: args.disc,
     createdBy: args.createdBy || 'kit', desafioTexto: args.desafioTexto, kitId: args.kitId,
     pppBrief: args.pppBrief ?? null, forceSync: true, avatarGrupo: args.avatarGrupo ?? null,
+    aiRunRoteiro: args.aiRunRoteiro ?? null, agendaDisparo: args.agendaDisparo ?? null,
   });
   if ((r as any).error) return { error: (r as any).error };
   if ((r as any).adiado) return { id: (r as any).id, status: 'processing', adiado: true };
