@@ -625,6 +625,22 @@ Duas consequencias que nao aparecem em log nenhum:
 **O sinal de quanto isso custa:** dos 126 diretores de Macae, os **89 com `auth.users` sao exatamente
 os 89 com `mapeamento_em`**. Conta ausente e indistinguivel de desengajamento no painel.
 
+**O import de LOTE nao ligava a flag para quem tem e-mail (Amazon Bowling, 30/09/2026).**
+`importarColaboradoresLote` (`app/admin/empresas/gerenciar/actions.ts`) so marcava
+`login_por_whatsapp` no ramo SEM e-mail; o gemeo individual (`criarColaborador`) ja ligava com
+e-mail + telefone. `Medido:` 14 de 14 colaboradores entraram com e-mail e telefone e flag `false`;
+quem digitou so o WhatsApp no login recebeu "ok" e nada chegou, e quem digitou o e-mail recebeu os
+dois canais (7 envios, `delivered`/`read`). Era a 3a vez (Macae 06/08, os 16 de Macae em 15/09) e as
+duas primeiras tinham sido consertadas so nos dados.
+Corrigido no escritor (`e6d3e696`, `882f4f33`): o lote liga a flag quando ha telefone valido. Como
+`uq_colab_wa_telefone (empresa_id, telefone) WHERE login_por_whatsapp` e unico, telefone repetido —
+no arquivo ou ja no banco com a flag — **nao** liga a flag e vira aviso, em vez de derrubar o INSERT
+do lote inteiro; a reserva do telefone e so de quem entra (linha descartada por e-mail duplicado nao
+segura). Guarda: `tests/unit/security/import-lote-login-whatsapp.test.ts` (validado por mutacao).
+Nao ha coluna de "ativo" em `colaboradores`: quem entra na jornada e a **trilha**, e o import nao
+cria trilha. O homonimo `actions/onboarding.ts::importarColaboradoresLote` (sem chamador na UI)
+segue sem ligar a flag.
+
 Provisionamento em massa: `POST {SUPABASE_URL}/auth/v1/admin/users` com `email_confirm:true`
 (concorrencia 4; 156 em ~2 min) + `UPDATE colaboradores SET login_por_whatsapp=true` para quem tem
 telefone. ⚠️ O indice parcial **`uq_colab_wa_telefone (empresa_id, telefone) WHERE login_por_whatsapp`**

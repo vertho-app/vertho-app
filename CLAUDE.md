@@ -388,6 +388,10 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   turma nova, rode o bloco "Acesso da turma importada" de `docs/CHECKLISTS.md` §3. O sinal de quanto
   custa: dos 126 diretores de Macaé, os **89 com conta são exatamente os 89 que se mapearam** — conta
   ausente parece desengajamento. Detalhe: `docs/ARQUITETURA.md` §3.1.2.
+  - 🔑 **A flag também não nascia no import de LOTE para quem tem e-mail** (Amazon Bowling, 30/09:
+    14 de 14 com `false`, e quem digitou só o WhatsApp recebeu "ok" e nada). Reincidiu 3× porque
+    as duas primeiras foram consertadas só nos dados. Corrigido no escritor (`e6d3e696`); o que
+    segue valendo: **meça a flag por contagem** em empresa importada antes de 30/09.
 - NÃO decidir o que uma coluna significa lendo só quem a LÊ — leia **quem a escreve**. Em 22/09/2026
   amarrei o carimbo de pílula ao relógio da cadência (`semana_atual`) e 92 das 117 pessoas em jornada
   passaram a exibir "Envio sem registro", apagando um envio verdadeiro: o remetente manda a semana
