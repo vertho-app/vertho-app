@@ -93,6 +93,7 @@ export async function listTelefonesLoginWhatsappInTenant(sb: Sb, empresaId: stri
       .eq('empresa_id', empresaId)
       .eq('login_por_whatsapp', true)
       .not('telefone', 'is', null)
+      .order('id')
       .range(de, de + 999);
     if (error) throw new Error(error.message);
     const page = data || [];
