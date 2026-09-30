@@ -150,6 +150,14 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
     setConfig(prev => ({ ...prev, video_escola: { ...(prev as any).video_escola, [field]: value } }));
   }
 
+  // Só as cores voltam ao padrão: logo, subtítulo e vocabulário são da empresa.
+  function handleUsarPadraoVertho() {
+    const { font_color, font_color_secondary, primary_color, primary_color_end, accent_color, bg_gradient_start, bg_gradient_end } = DEFAULT_BRANDING;
+    setBranding(prev => ({ ...prev, font_color, font_color_secondary, primary_color, primary_color_end, accent_color, bg_gradient_start, bg_gradient_end }));
+    setPaletaCandidatos([]);
+    setPaletaMsg({ ok: true, text: t('branding.palette.defaultApplied') });
+  }
+
   async function handlePuxarPaleta() {
     setPuxandoPaleta(true); setPaletaMsg(null); setPaletaCandidatos([]);
     const r = await extrairPaletaDoSite(empresaId, siteUrl);
@@ -659,6 +667,15 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                 >
                   {puxandoPaleta ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
                   {puxandoPaleta ? t('branding.palette.pulling') : t('branding.palette.pull')}
+                </button>
+                <button
+                  type="button"
+                  disabled={puxandoPaleta}
+                  onClick={handleUsarPadraoVertho}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold border border-white/15 text-gray-300 hover:bg-white/5 disabled:opacity-50 transition-colors whitespace-nowrap"
+                >
+                  <Palette size={12} />
+                  {t('branding.palette.useDefault')}
                 </button>
               </div>
               {paletaMsg && (

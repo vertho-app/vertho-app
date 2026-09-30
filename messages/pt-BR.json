@@ -5259,7 +5259,9 @@
         "pulling": "Analisando site…",
         "applied": "Paleta aplicada aos campos — revise e salve.",
         "failed": "Falha ao extrair a paleta",
-        "found": "Cores encontradas:"
+        "found": "Cores encontradas:",
+        "useDefault": "Usar padrão Vertho",
+        "defaultApplied": "Padrão Vertho aplicado às cores — revise e salve."
       },
       "vocabularyTitle": "Vocabulário da operação",
       "vocabularyDesc": "As mesmas telas, com as palavras que esta organização usa. Uma rede de escolas não tem \"liderados\": tem professores.",

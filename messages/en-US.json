@@ -5259,7 +5259,9 @@
         "pulling": "Analyzing site…",
         "applied": "Palette applied to the fields — review and save.",
         "failed": "Failed to extract the palette",
-        "found": "Colors found:"
+        "found": "Colors found:",
+        "useDefault": "Use Vertho default",
+        "defaultApplied": "Vertho default applied to the colors — review and save."
       },
       "vocabularyTitle": "Operation vocabulary",
       "vocabularyDesc": "The same screens, in the words this organization uses. A school network has no \"reports\": it has teachers.",

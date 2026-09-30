@@ -5259,7 +5259,9 @@
         "pulling": "Analizando el sitio…",
         "applied": "Paleta aplicada a los campos — revisa y guarda.",
         "failed": "Error al extraer la paleta",
-        "found": "Colores encontrados:"
+        "found": "Colores encontrados:",
+        "useDefault": "Usar estándar Vertho",
+        "defaultApplied": "Estándar Vertho aplicado a los colores — revisa y guarda."
       },
       "vocabularyTitle": "Vocabulario de la operación",
       "vocabularyDesc": "Las mismas pantallas, con las palabras que usa esta organización. Una red de escuelas no tiene \"colaboradores a cargo\": tiene profesores.",
