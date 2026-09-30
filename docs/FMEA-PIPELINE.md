@@ -2421,3 +2421,66 @@ silêncio real (≤ −69 dB). A que resistiu não tinha vale nenhum — a voz e
 duas frases sem respirar — e o conserto foi **editorial**: mover a frase-ponte
 para o beat de cima, o que põe o corte num silêncio de 340 ms. Resultado medido
 no vídeo final: **−75,4 dB**.
+
+### F-I35 · A dedupe do lote é por SLOT, e o slot anda durante a janela: o aviso de encerramento saiu duas vezes para uma pessoa 🟡 (medido 13/09/2026; ainda aberto em 30/09)
+
+**Gatilho:** `lib/notifications/envio-template-lote.ts`: `chaveDoDisparo` (:841) devolve
+`${template}:${colaboradorId}:semana:${args.semana}` (:855) para todo template em
+`TEMPLATES_CADENCIA_MANUAL` (:519), e `encerramento_conteudo` está nesse conjunto (:527).
+O `args.semana` que o resolvedor de encerramento (:308) entrega é a **semana acessível**.
+`Conferido 30/09/2026` no `origin/master`: continua assim, sem correção. (Linhas de 30/09; em
+13/09, quando o caso foi medido, eram :684, :422, :430 e :243.)
+
+**O que estava escrito.** O cabeçalho do cron garantia: *"Idempotência:
+`prepararLoteTemplate` já exclui quem recebeu este template antes, então rodar nos cinco
+dias da janela não manda cinco mensagens."* A exclusão existe; a garantia, não. Para um
+aviso de disparo ÚNICO, ela só vale enquanto o relógio fica parado, e a janela era de
+cinco dias exatamente para sobreviver a um calendário que anda.
+
+**Medido 13/09/2026 no banco vivo** (`notification_deliveries`, tenant `ibipeba`):
+29 linhas com `kind='encerramento_conteudo'`, **todas** `status='sucesso'` (zero falha),
+28 em 04/09 às 12:14 UTC (o cron era 12:12) e 1 em 05/09; **28 pessoas distintas**;
+`provider_status` 13 `read` / 13 `delivered` / 3 `sent`. A linha a mais é uma Coordenação
+Pedagógica:
+
+```
+2026-09-04T12:14Z | encerramento_conteudo:06de8798…:semana:6 | read
+2026-09-05T12:12Z | encerramento_conteudo:06de8798…:semana:7 | read
+```
+
+A semana acessível dela avançou de 6 para 7 entre as duas corridas, a chave mudou, e ela
+voltou ao lote de uma mensagem que diz *"a etapa de conteúdo foi encerrada"*, que continuava
+verdadeira, mas ela já tinha lido.
+
+🔑 **A raiz:** o conjunto `TEMPLATES_CADENCIA_MANUAL` responde *"esta mensagem pode se
+repetir na semana seguinte?"*, e `encerramento_conteudo` foi inscrito nele porque o
+resolvedor também carrega a semana no link. As duas perguntas são diferentes: a chave por
+slot é certa para `conteudo_semana` (cada semana é um envio legítimo) e errada para um
+aviso de fim de etapa.
+
+**Dano real, sem inflar:** baixo, 1 de 28, mesmo texto, as duas lidas. O modo de falha é
+que não é baixo: vale para **qualquer** template de aviso único inscrito nesse conjunto, em
+qualquer janela multi-dia, e o sintoma é o silêncio saudável: a segunda rodada loga
+`lote vazio` para todo mundo, exceto para quem andou de semana.
+
+⚠️ **Sem guarda.** `tests/unit/envio-template-lote.test.ts`, describe
+`encerramento_conteudo` (:554), tem quatro casos, todos sobre a régua de **exclusão** (quem
+NÃO recebe); nenhum pergunta o que acontece quando o calendário anda entre duas corridas do
+mesmo lote. Reproduzir o caso em teste é fixar o comportamento atual, e a decisão de qual é
+o comportamento certo (chave por template, ou chave por slot com o texto dizendo "de novo")
+não foi tomada: fica aberta de propósito, não esquecida.
+
+**A regra que fica:** "quantas vezes esta pessoa pode receber?" é pergunta do **TEMPLATE**,
+não do mecanismo de dedupe. Aviso de disparo único não entra em `TEMPLATES_CADENCIA_MANUAL`;
+se entrar por carregar a semana nos parâmetros, o cabeçalho do job tem que dizer por escrito
+que a repetição é possível quando o calendário anda.
+
+**Desfecho do job (13/09/2026).** `encerramento_ibipeba` removido por inteiro: entrada do
+`vercel.json`, `case` em `app/api/cron/route.ts`, função e as três constantes em
+`actions/cron-jobs.ts`, `config/service-role-allowlist.json` 5→4 e `CRONS_SAZONAIS`
+esvaziado em `tests/unit/security/cron-sazonal-expira.test.ts` (a 3ª asserção deixou de
+hardcodear a constante e passou a ler o `<arquivo> · <CONSTANTE>` do `travaEm`). O
+resolvedor, o contrato de parâmetros e o caminho manual continuam vivos:
+`scripts/_disparar-encerramento-ibipeba.ts` (local, não versionado) e `/admin/whatsapp` →
+"Etapa de conteúdo encerrada". Estado da coorte no dia da remoção: 36 envios ativos, todos na semana 9.
+
