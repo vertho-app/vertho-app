@@ -146,9 +146,18 @@ miolo cai no caminho por cena.
 
 **⚠️ Não apague `video-assets/{maeId}/`**: as irmãs apontam para os arquivos da mãe.
 
-**Para ligar:** aplicar a mig 270, deploy do Trigger, `VIDEO_AVATAR_GRUPO=on` no env do Trigger.
-Piloto recomendado: tenant de demo, 1 módulo × 3 DISC, conferindo no saldo da HeyGen UM par de
-clipes, o salto de F0 no corte e a leitura cega dos 3 vídeos.
+**Estado: LIGADO desde 30/09/2026** (`VIDEO_AVATAR_GRUPO=on` no env de produção do Trigger). O
+caminho foi mig 270, deploy do Trigger, três pilotos no ACME Demo (1 módulo × 3 DISC cada) e a escuta
+cega do piloto 3, em que o dono não distinguiu as duas irmãs da mãe.
+- Vale para os runs NOVOS da task `gerar-kit`: o Trigger injeta a env no início de cada run, sem
+  redeploy. Um run que já estava rodando segue com o valor antigo.
+- ⚠️ Script local que chama `gerarKitSemanal` direto (`scripts/_gerar-kits-faltantes.ts --com-video`,
+  `scripts/_kits-macae-semana1.ts`) lê a env da MÁQUINA, não a do Trigger: sem a flag no `.env.local`,
+  gera sem o grupo (paga um avatar por célula, como antes).
+- **Observável do 1º grupo real:** linha nova em `video_avatar_grupo` com `status = 'pronto'`, as
+  irmãs com `avatar_grupo_id` e `heygen_avatar` no ledger só para a mãe; nenhuma
+  `video-avatar-grupo-fallback` no `degradacao_log`.
+- **Desligar:** `VIDEO_AVATAR_GRUPO=off` no Trigger. Os vídeos prontos não mudam.
 
 ---
 

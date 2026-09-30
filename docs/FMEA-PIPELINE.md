@@ -1574,7 +1574,7 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   `.limit()` na query**, e quando a ausência de linha é uma AFIRMAÇÃO no domínio, ele não degrada o
   resultado — ele o **inverte**.
 
-### F-V6 · Avatar compartilhado por grupo: a irmã recebe boca de um texto com som de outro 🟡 (atrás de flag, 25/09/2026)
+### F-V6 · Avatar compartilhado por grupo: a irmã recebe boca de um texto com som de outro 🟡 (atrás de flag desde 25/09/2026; flag LIGADA em produção em 30/09/2026)
 - **Contexto:** com `VIDEO_AVATAR_GRUPO=on` (env do Trigger), as células DISC de um mesmo módulo e
   cargo dividem UM avatar (abertura + fecho na HeyGen, ~US$ 0,59 dos ~US$ 0,90 do vídeo). O Kit
   escreve os textos 1× por grupo (`lib/video/avatar-grupo-core.ts`), a 1ª célula (a mãe) gera o

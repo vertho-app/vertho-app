@@ -2637,12 +2637,14 @@ contra o `avatar_iv` (2,2× o preço) e a v2. Detalhe em `docs/GERADOR-VIDEO-MOD
 e US$ 4,70 de 18 clipes de Macaé gerados no mesmo intervalo por outra rodada. Para custo de UMA
 ação, use o ledger filtrado por empresa e janela; o delta de carteira só vale com nada mais rodando.
 
-**Avatar compartilhado por grupo** (`VIDEO_AVATAR_GRUPO`, **desligado**): as células DISC do mesmo
-módulo e cargo dividem um par de clipes. `Medido` nos pilotos de 25-26/09 (ACME Demo): a rodada com o
-grupo funcionando pagou só o avatar da mãe (US$ 0,41-0,49), e as irmãs pagaram US$ 0 de HeyGen. A
-economia projetada no acervo de 24/09 é de −40 a −51% por módulo (Ibipeba ~US$ 50, Macaé ~US$ 13).
-Liga depois da escuta cega do dono (pendente em 30/09). Detalhe: `docs/GERADOR-VIDEO-MODULO.md`,
-"Avatar compartilhado por grupo", e FMEA F-V6.
+**Avatar compartilhado por grupo** (`VIDEO_AVATAR_GRUPO`, **ligado em 30/09/2026** no Trigger): as
+células DISC do mesmo módulo e cargo dividem um par de clipes. `Medido` nos pilotos de 25-26/09 (ACME
+Demo): a rodada com o grupo funcionando pagou só o avatar da mãe (US$ 0,41-0,49), e as irmãs pagaram
+US$ 0 de HeyGen. A economia projetada no acervo de 24/09 é de −40 a −51% por módulo (Ibipeba ~US$ 50,
+Macaé ~US$ 13). Ligado depois da escuta cega do piloto 3, em que o dono não distinguiu as duas irmãs
+da mãe. ⚠️ Em 30/09 nenhum grupo REAL tinha rodado: a economia ainda é projetada, não observada; a
+medida é o `heygen_avatar` do ledger por grupo (a carteira é compartilhada). Detalhe:
+`docs/GERADOR-VIDEO-MODULO.md`, "Avatar compartilhado por grupo", e FMEA F-V6.
 
 **A fala a mais do TTS também era custo** (FMEA F-V7): um fecho de 11 s dublado com 26 s. Desde
 25/09 o trigger corta antes de mandar para a HeyGen; o 1º caso em produção (fecho da mãe do piloto 2)
