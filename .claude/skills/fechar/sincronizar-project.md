@@ -181,11 +181,14 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
       ```
    2. `find` *"button with aria-label ALVO-REMOVER"* → clique no `ref` (clique REAL; o menu abre);
    3. **screenshot** para conferir que o menu abriu na linha certa (nome + kB antigo);
-   4. clique em **"Remover do projeto"**: pelo `ref` do `find` quando ele o enxerga, ou pela posição
-      da screenshot (com `scrollIntoView` centralizando a linha, o item ficou sempre no mesmo lugar);
-      `Medido: 27/09/2026`: `find` *"menu item Remover do projeto"* enxergou o item com o menu aberto
-      nas 2 vezes, e o clique pelo `ref` removeu **2 de 2**; pela posição da screenshot, **0 de 1**
-      (menu fechou, a velha seguiu na lista). Tente o `ref` primeiro;
+   4. clique em **"Remover do projeto"** SÓ pelo `ref` do menuitem (`find` *"menu item Remover do
+      projeto"*) ou por `ArrowDown` + `Enter` (abaixo). **Nunca pela coordenada da screenshot.**
+      `Medido: 27/09/2026`: pelo `ref`, **2 de 2**; pela posição, **0 de 1** (menu fechou, a velha
+      seguiu na lista).
+      🔴 `Medido: 30/09/2026` (sessão "heygen"): pela coordenada, **a linha SUMIU da lista nas 2 vezes
+      e as duas voltaram depois do reload**. É falha disfarçada de sucesso, pior que o menu fechar à
+      vista. Pelo `ref` do menuitem, o `DELETE /api/organizations/<org>/projects/<proj>/docs/<uuid>`
+      voltou **204** e persistiu;
    5. só então JS de novo, para conferir o total e marcar o próximo.
    A remoção é imediata, **sem diálogo de confirmação**.
    🔴 **O clique pela posição da screenshot pode cair FORA do item, e o menu fecha sem remover.**
@@ -215,7 +218,17 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
    lista sem recarregar some com o card na hora, mesmo quando a exclusão não persistiu (ver
    Armadilhas, 17/09). Use a lista do passo 1 (sai `TOTAL=` e `duplicados=`); o rodapé do modal
    ("20 arquivos") confirma. Depois do reload, espere a página carregar antes de clicar em
-   "Mostrar arquivos": o clique cedo não abre o modal.
+   "Mostrar contexto" (antes "Mostrar arquivos"): o clique cedo não abre o modal.
+   🔑 **A prova mais forte é a API, não o modal.** `Medido: 30/09/2026`: depois do reload, um `GET`
+   em `/api/organizations/<org>/projects/<proj>/docs` (mesma sessão do navegador, por
+   `javascript_tool`, devolvendo só contagem e nomes duplicados) deu n=20 e nenhum nome repetido.
+   Somado ao `204` de cada `DELETE`, é o que prova a remoção. A lista do modal já mostrou exclusão que
+   não persistiu (17/09 e 30/09).
+   ⚠️ Pela API, o tamanho sai em unidades UTF-16: emoji fora do BMP contam 2. Por isso deu
+   194,6 / 201,4 / 185,1 onde o card mostra 194,5 / 201,3 / 185. Para kB, compare pelo card; pela API,
+   confie na contagem e nos nomes.
+   Se o modal não abre pelo `ref` depois de 2 ou 3 tentativas, a sequência de eventos de ponteiro por
+   JS (passo 1) abriu de primeira em 30/09.
 
 ## Armadilhas registradas
 
