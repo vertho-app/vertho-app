@@ -79,6 +79,28 @@ export async function listEmailsInTenant(sb: Sb, empresaId: string): Promise<str
   return (data || []).map((c: any) => c.email?.toLowerCase()).filter(Boolean);
 }
 
+/**
+ * Telefones do tenant que JÁ têm `login_por_whatsapp = true`. Só esses colidem com o índice
+ * único parcial `uq_colab_wa_telefone (empresa_id, telefone) WHERE login_por_whatsapp`.
+ * Pagina: o PostgREST corta em 1.000 linhas e a ausência de um telefone decide a flag.
+ */
+export async function listTelefonesLoginWhatsappInTenant(sb: Sb, empresaId: string): Promise<string[]> {
+  const out: string[] = [];
+  for (let de = 0; ; de += 1000) {
+    const { data, error } = await sb
+      .from('colaboradores')
+      .select('telefone')
+      .eq('empresa_id', empresaId)
+      .eq('login_por_whatsapp', true)
+      .not('telefone', 'is', null)
+      .range(de, de + 999);
+    if (error) throw new Error(error.message);
+    const page = data || [];
+    out.push(...page.map((c: any) => c.telefone as string));
+    if (page.length < 1000) return out;
+  }
+}
+
 /** Insere um LOTE sempre no tenant `empresaId` — embute empresa_id em CADA linha. */
 export async function createColaboradoresLoteInTenant(sb: Sb, empresaId: string, linhas: Record<string, any>[]): Promise<void> {
   if (!linhas.length) return;

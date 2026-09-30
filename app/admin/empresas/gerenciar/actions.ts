@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { assertTenantAccessAction, requireAdminAction } from '@/lib/auth/action-context';
 import { protectedAction, protectedLoader } from '@/lib/auth/protected-action';
-import { updateColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant, listEmailsInTenant, createColaboradoresLoteInTenant } from '@/lib/repositories/colaboradores-repo';
+import { updateColaboradorInTenant, emailExistsInTenant, createColaboradorInTenant, listEmailsInTenant, listTelefonesLoginWhatsappInTenant, createColaboradoresLoteInTenant } from '@/lib/repositories/colaboradores-repo';
 import { preverExclusaoPace, excluirCadastroComBackupPace } from '@/lib/simulador-vendas/exclusao';
 import { upsertCargoInTenant, deleteCargoInTenant } from '@/lib/repositories/cargos-empresa-repo';
 import { liderancaDaPlanilha } from '@/lib/cargos-import';
@@ -89,6 +89,9 @@ const _importarColaboradoresLote = protectedAction('users.manage', ImportarLoteS
   const sb = await requireAdminSupabase();
   const emailsExistentes = new Set(await listEmailsInTenant(sb, empresaId));
   const emailsArquivo = new Set<string>();
+  // Telefones que já logam por WhatsApp (banco + linhas deste arquivo): o índice único parcial
+  // `(empresa_id, telefone) WHERE login_por_whatsapp` derrubaria o INSERT do lote inteiro.
+  const telefonesComLogin = new Set(await listTelefonesLoginWhatsappInTenant(sb, empresaId));
   const erros: any[] = [];
   const avisos: any[] = [];
   let duplicados = 0;
@@ -106,6 +109,15 @@ const _importarColaboradoresLote = protectedAction('users.manage', ImportarLoteS
       if (hasValue(c.telefone) && !telefone) {
         avisos.push({ linha, nome, campo: 'telefone/celular', valor: c.telefone, motivo: 'formato inválido; campo não salvo' });
       }
+      // E-mail REAL + telefone → loga pelos DOIS, como em `criarColaborador`. Sem a flag a rota
+      // de telefone é anti-enumeração: responde sucesso e não envia nada (Amazon Bowling, 30/09).
+      if (telefone) {
+        if (telefonesComLogin.has(telefone)) {
+          avisos.push({ linha, nome, campo: 'telefone/celular', valor: c.telefone, motivo: 'telefone já usado por outra pessoa da empresa; login por WhatsApp não habilitado (entra por e-mail)' });
+        } else {
+          loginPorWhatsapp = true;
+        }
+      }
     } else if (wa.valid === true) {
       // Sem e-mail → login por WhatsApp (email-proxy interno determinístico).
       email = proxyEmailFromPhone(empresaId, wa.e164);
@@ -122,6 +134,8 @@ const _importarColaboradoresLote = protectedAction('users.manage', ImportarLoteS
       return acc;
     }
     emailsArquivo.add(email!);
+    // Só reserva o telefone de quem entra de fato (linha descartada por duplicidade não segura).
+    if (loginPorWhatsapp && telefone) telefonesComLogin.add(telefone);
 
     const gestorEmail = normalizeEmail(c.gestor_email);
     if (hasValue(c.gestor_email) && !isValidEmail(gestorEmail)) {
