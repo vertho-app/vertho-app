@@ -3215,6 +3215,7 @@
     },
     "upload": {
       "click": "Haz clic para subir archivos",
+      "reading": "Leyendo archivos…",
       "formats": "PDF, TXT, DOC, DOCX, PPT, PPTX — múltiples archivos",
       "pages": "✓ {count} pág.",
       "docx": "✓ docx",
@@ -3302,6 +3303,7 @@
     "messages": {
       "requireInput": "Indica al menos una URL, texto o archivo.",
       "extractionDone": "Extracción concluida",
+      "extractionFailed": "No se pudo completar la extracción. Comprueba tu conexión y permiso de acceso e inténtalo de nuevo.",
       "deleted": "PPP eliminado",
       "error": "Error: {error}"
     },

@@ -3215,6 +3215,7 @@
     },
     "upload": {
       "click": "Click to upload files",
+      "reading": "Reading files…",
       "formats": "PDF, TXT, DOC, DOCX, PPT, PPTX — multiple files",
       "pages": "✓ {count} pg.",
       "docx": "✓ docx",
@@ -3302,6 +3303,7 @@
     "messages": {
       "requireInput": "Enter at least one URL, text or file.",
       "extractionDone": "Extraction completed",
+      "extractionFailed": "Could not complete the extraction. Check your connection and access permission, then try again.",
       "deleted": "PPP excluded",
       "error": "Error: {error}"
     },

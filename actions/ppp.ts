@@ -3,6 +3,7 @@
 import { callAI } from './ai-client';
 import { extractJSON } from './utils';
 import { requireEmpresaSupabase } from '@/lib/admin-supabase';
+import { DEFAULT_PPP_MODEL } from '@/lib/ppp-config';
 
 // ── Extrair contexto organizacional (PPP educacional / Dossiê corporativo) ──
 
@@ -57,7 +58,7 @@ export async function extrairPPP(empresaId: string, { urls = [], textos = [], mo
       (empresa.segmento || '').toLowerCase().includes('empresa');
 
     const todosTextos = conteudosExtraidos.map(c => `[Fonte: ${c.fonte}]\n${c.texto}`).join('\n\n---\n\n');
-    const aiModel = model || 'claude-sonnet-4-6';
+    const aiModel = model || DEFAULT_PPP_MODEL;
 
     const { system, user } = isCorporativo
       ? buildPromptCorporativo(empresa, todosTextos)
@@ -89,7 +90,7 @@ export async function extrairPPP(empresaId: string, { urls = [], textos = [], mo
 
     // Step 4: Salvar — usa nomeEscola como chave (permite múltiplos PPPs por empresa)
     const escolaIdent = (nomeEscola?.trim() || empresa.nome).slice(0, 200);
-    const { error } = await sb.from('ppp_escolas')
+    const { data: linhasSalvas, error } = await sb.from('ppp_escolas')
       .upsert({
         empresa_id: empresaId,
         escola: escolaIdent,
@@ -99,9 +100,12 @@ export async function extrairPPP(empresaId: string, { urls = [], textos = [], mo
         extracao: JSON.stringify(dados),
         valores: Array.isArray(valoresInst) ? valoresInst : (dados.identidade_cultura?.valores || dados.identidade_cultura?.conteudo?.valores || []),
         extracted_at: new Date().toISOString(),
-      }, { onConflict: 'empresa_id,escola' });
+      }, { onConflict: 'empresa_id,escola' })
+      .select('*');
 
     if (error) return { success: false, error: error.message };
+    const ppp = linhasSalvas?.[0];
+    if (!ppp) return { success: false, error: 'Não foi possível confirmar o salvamento do PPP. Tente novamente.' };
 
     const pppTexto = conteudosExtraidos.filter(c => !c.erro).map(c => c.texto).join('\n\n');
     try {
@@ -115,6 +119,7 @@ export async function extrairPPP(empresaId: string, { urls = [], textos = [], mo
       success: true,
       message: `${compCount} competências extraídas (${urlsOk.length} URLs ok${urlsFail.length ? `, ${urlsFail.length} falharam` : ''})${webLog}`,
       data: dados,
+      ppp,
     };
   } catch (err) {
     return { success: false, error: err.message };

@@ -8,6 +8,7 @@ import { Loader2, FileText, Link2, Plus, Sparkles, Upload, Eye, Trash2, RefreshC
 import { loadEmpresa, loadPPPs, excluirPPP } from './actions';
 import { extrairPPP } from '@/actions/ppp';
 import { decodificarTexto } from '@/lib/parse-spreadsheet';
+import { DEFAULT_PPP_MODEL, PPP_AI_MODELS } from '@/lib/ppp-config';
 import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
@@ -114,8 +115,10 @@ function PPPPageInner() {
   const [textos, setTextos] = useState('');
   const [files, setFiles] = useState([]); // { name, size, content }
   const [extracting, setExtracting] = useState(false);
+  const [readingFiles, setReadingFiles] = useState(false);
+  const [extractionError, setExtractionError] = useState('');
   const [result, setResult] = useState(null);
-  const [model, setModel] = useState('claude-sonnet-4-6');
+  const [model, setModel] = useState(DEFAULT_PPP_MODEL);
   const [viewPPP, setViewPPP] = useState(null);
   const [enriquecerWeb, setEnriquecerWeb] = useState(false);
   const [nomeEscola, setNomeEscola] = useState('');
@@ -147,27 +150,36 @@ function PPPPageInner() {
     const urlList = urls.filter(u => u.trim());
     const textoList = textos.trim() ? [textos.trim()] : [];
     // Adicionar conteúdo dos arquivos carregados
-    files.forEach(f => { if (f.content) textoList.push(`[Arquivo: ${f.name}]\n${f.content}`); });
+    files.forEach(f => { if (!f.error && f.content) textoList.push(`[Arquivo: ${f.name}]\n${f.content}`); });
     if (!urlList.length && !textoList.length) { flash(t('messages.requireInput')); return; }
 
     setExtracting(true);
+    setExtractionError('');
     setResult(null);
-    const r = await extrairPPP(empresaIdParam, {
-      urls: urlList, textos: textoList, model, enriquecerWeb,
-      nomeEscola: nomeEscola.trim() || undefined,
-    });
-    setExtracting(false);
-    if (r.success) {
+    try {
+      const r = await extrairPPP(empresaIdParam, {
+        urls: urlList, textos: textoList, model, enriquecerWeb,
+        nomeEscola: nomeEscola.trim() || undefined,
+      });
+      if (!r.success) throw new Error(r.error || t('messages.extractionFailed'));
       setResult(r.data || r);
+      // A action devolve a linha confirmada pelo banco. Atualiza a lista sem
+      // depender de uma segunda request que poderia falhar após o salvamento.
+      setPpps(prev => [r.ppp, ...prev.filter(p => p.id !== r.ppp.id)]);
       flash(r.message || t('messages.extractionDone'));
       // Limpa tudo pra próxima extração ficar pronta de cara
       setNomeEscola('');
       setUrls(['']);
       setTextos('');
       setFiles([]);
-      refresh();
-    } else {
-      flash(t('messages.error', { error: r.error }));
+    } catch (err) {
+      // Falhas HTTP e de autorização podem lançar antes de a action retornar.
+      // Mantém os arquivos e o nome para permitir uma nova tentativa.
+      const error = err?.digest ? t('messages.extractionFailed') : (err?.message || t('messages.extractionFailed'));
+      setExtractionError(error);
+      toast.error(t('messages.error', { error }));
+    } finally {
+      setExtracting(false);
     }
   }
 
@@ -178,6 +190,7 @@ function PPPPageInner() {
     setTextos('');
     setFiles([]);
     setResult(null);
+    setExtractionError('');
     setTab('arquivos');
     setShowForm(true);
   }
@@ -319,48 +332,54 @@ function PPPPageInner() {
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">{t('fields.files')}</p>
                 <label className="flex flex-col items-center justify-center py-6 rounded-xl border-2 border-dashed border-white/10 hover:border-cyan-400/30 transition-colors cursor-pointer"
                   style={{ background: 'rgba(0,0,0,0.1)' }}>
-                  <Upload size={24} className="text-gray-500 mb-2" />
-                  <p className="text-sm font-semibold text-gray-400">{t('upload.click')}</p>
+                  {readingFiles ? <Loader2 size={24} className="text-cyan-400 mb-2 animate-spin" /> : <Upload size={24} className="text-gray-500 mb-2" />}
+                  <p className="text-sm font-semibold text-gray-400">{t(readingFiles ? 'upload.reading' : 'upload.click')}</p>
                   <p className="text-[10px] text-gray-600 mt-1">{t('upload.formats')}</p>
-                  <input type="file" multiple accept=".pdf,.txt,.doc,.docx,.ppt,.pptx" className="hidden"
+                  <input type="file" multiple accept=".pdf,.txt,.doc,.docx,.ppt,.pptx" className="hidden" disabled={readingFiles || extracting}
                     onChange={async e => {
                       const selected = Array.from(e.target.files || []);
-                      for (const file of selected) {
-                        try {
-                          let text, info;
-                          const lower = file.name.toLowerCase();
-                          if (lower.endsWith('.pdf')) {
-                            const result = await extractPdfText(file);
-                            text = result.text;
-                            info = t('upload.pages', { count: result.numPages });
-                          } else if (lower.endsWith('.docx')) {
-                            const arrayBuffer = await file.arrayBuffer();
-                            const mammoth = await import('mammoth');
-                            const result = await mammoth.extractRawText({ arrayBuffer });
-                            text = result.value || '';
-                            info = t('upload.docx');
-                          } else if (lower.endsWith('.txt')) {
-                            // .txt "ANSI" do Bloco de Notas é Windows-1252: file.text() gravaria U+FFFD
-                            text = decodificarTexto(await file.arrayBuffer());
-                            info = t('upload.txt');
-                          } else {
-                            // .doc/.ppt/.pptx — sem parser dedicado; fallback bruto e aviso
-                            text = await file.text();
-                            info = t('upload.limitedParser');
-                          }
-                          if (!text || text.trim().length < 10) throw new Error(t('upload.emptyContent'));
-                          setFiles(prev => [...prev, {
-                            name: file.name, size: file.size,
-                            content: text.slice(0, 30000), pages: info,
-                          }]);
-                        } catch (err) {
-                          setFiles(prev => [...prev, {
-                            name: file.name, size: file.size,
-                            content: t('upload.readError', { file: file.name, error: err.message }), error: true,
-                          }]);
-                        }
-                      }
                       e.target.value = '';
+                      setReadingFiles(true);
+                      try {
+                        for (const file of selected) {
+                          try {
+                            let text, info;
+                            const lower = file.name.toLowerCase();
+                            if (lower.endsWith('.pdf')) {
+                              const result = await extractPdfText(file);
+                              text = result.text;
+                              info = t('upload.pages', { count: result.numPages });
+                            } else if (lower.endsWith('.docx')) {
+                              const arrayBuffer = await file.arrayBuffer();
+                              const mammoth = await import('mammoth');
+                              const result = await mammoth.extractRawText({ arrayBuffer });
+                              text = result.value || '';
+                              info = t('upload.docx');
+                            } else if (lower.endsWith('.txt')) {
+                              // .txt "ANSI" do Bloco de Notas é Windows-1252: file.text() gravaria U+FFFD
+                              text = decodificarTexto(await file.arrayBuffer());
+                              info = t('upload.txt');
+                            } else {
+                              // .doc/.ppt/.pptx — sem parser dedicado; fallback bruto e aviso
+                              text = await file.text();
+                              info = t('upload.limitedParser');
+                            }
+                            if (!text || text.trim().length < 10) throw new Error(t('upload.emptyContent'));
+                            setFiles(prev => [...prev, {
+                              name: file.name, size: file.size,
+                              content: text.slice(0, 30000), pages: info,
+                            }]);
+                          } catch (err) {
+                            setFiles(prev => [...prev, {
+                              name: file.name, size: file.size,
+                              content: '', error: true,
+                              errorMessage: t('upload.readError', { file: file.name, error: err.message }),
+                            }]);
+                          }
+                        }
+                      } finally {
+                        setReadingFiles(false);
+                      }
                     }} />
                 </label>
 
@@ -368,7 +387,7 @@ function PPPPageInner() {
                 {files.length > 0 && (
                   <div className="mt-2 space-y-1">
                     {files.map((f, i) => (
-                      <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#091D35' }}>
+                      <div key={i} className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg" style={{ background: '#091D35' }}>
                         <FileText size={12} className={f.error ? 'text-red-400 shrink-0' : 'text-cyan-400 shrink-0'} />
                         <span className="text-xs text-white flex-1 truncate">{f.name}</span>
                         {f.pages && <span className="text-[9px] text-green-400 font-semibold">{f.pages}</span>}
@@ -378,6 +397,7 @@ function PPPPageInner() {
                           className="text-gray-600 hover:text-red-400 transition-colors">
                           <Trash2 size={12} />
                         </button>
+                        {f.errorMessage && <p role="alert" className="w-full text-xs text-red-400">{f.errorMessage}</p>}
                       </div>
                     ))}
                   </div>
@@ -420,13 +440,7 @@ function PPPPageInner() {
             <select value={model} onChange={e => setModel(e.target.value)}
               className="w-full max-w-xs px-3 py-2 rounded-lg text-xs text-white border border-white/10 outline-none"
               style={{ background: '#091D35' }}>
-              <option value="claude-sonnet-5">Claude Sonnet 5</option>
-              <option value="claude-opus-5">Claude Opus 5</option>
-              <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
-              <option value="gemini-3.6-flash">Gemini 3.6 Flash</option>
-              <option value="gpt-5.6-sol">GPT 5.6 Sol</option>
-              <option value="gpt-5.6-terra">GPT 5.6 Terra</option>
-              <option value="gpt-5.6-luna">GPT 5.6 Luna</option>
+              {PPP_AI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
           </div>
 
@@ -439,12 +453,13 @@ function PPPPageInner() {
           </label>
 
           {/* Extrair button */}
-          <button onClick={handleExtrair} disabled={extracting}
+          <button onClick={handleExtrair} disabled={extracting || readingFiles}
             className="mt-4 w-full py-3.5 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider flex items-center justify-center gap-2 disabled:opacity-40"
             style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}>
             {extracting ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
             {extracting ? t('actions.extracting') : t('actions.extractAi')}
           </button>
+          {extractionError && <p role="alert" className="mt-3 text-sm text-red-400">{extractionError}</p>}
         </div>
       )}
 
