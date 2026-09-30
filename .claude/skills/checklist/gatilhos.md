@@ -200,6 +200,16 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
   reaper de 40, fixo desde o claim; com 1 box ele nunca rodou. Semântica do SQL: prove em Postgres
   real com tabela temporária + ROLLBACK (`tests/unit/video/fila-render.test.ts` só vê a string).
 
+- 🔴 Subir box de render ou montar env de box POR FORA do Trigger: o `envvars.list` do Trigger
+  devolve `<redacted>` nas envs secretas (Bunny, Gemini, Supabase). 25/09: a box recebeu
+  `BUNNY_LIBRARY_ID=<redacted>`, o upload falhou, e viva ela impedia o Trigger de subir outra.
+  Para subir box sem gerar vídeo, redispare `gerar-video-modulo` de uma célula que já tem os assets.
+- 🔴 Custo da HeyGen por delta de carteira: a carteira é COMPARTILHADA. 26/09: saldo −5,32, piloto
+  0,49 pelo ledger (o resto era Macaé). Meça pelo ledger `heygen_avatar` (`docs/CUSTO-QUALIDADE.md`).
+- Mexeu na narração do vídeo (take único, por cena, alvo do portão, avatar por grupo): a costura se
+  OUVE por ritmo e volume, não só altura. 26/09, escuta cega: a menor distância de F0 foi a pior
+  (ritmo 1,23×, 5 dB). Régua: `avaliarEmenda` (`docs/GERADOR-VIDEO-MODULO.md`, avatar por grupo).
+
 ## 14. Env var / secret
 
 - `vercel env add` com **pipe injeta `\n`** → usar `printf '%s'`. Env da Vercel **vence o código**.

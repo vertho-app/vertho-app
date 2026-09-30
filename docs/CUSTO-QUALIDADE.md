@@ -2621,3 +2621,30 @@ unitário inclui IA, horas, mensagens, infra, contingência, comissão e imposto
 Premissas, fórmulas e a distinção entre preço e custo de matriz vivem no documento
 canônico `docs/ORCAMENTO.md`; não repetir a tabela comercial neste log.
 
+## 25-26/09/2026: HeyGen v3 no ledger, e o avatar dividido entre as células DISC
+
+**A HeyGen passou a ter linha no ledger** (`ia_usage_log`, feature `heygen_avatar`, source
+`heygen:v3`) desde a migração para a v3 (`95a1af38`, 25/09/2026). Até então o avatar, que é a maior
+linha do vídeo, só aparecia na carteira. Preço: `avatar_iii` com a foto da marca a **US$ 1,00/min,
+pelo segundo exato** (`HEYGEN_USD_POR_SEGUNDO` em `lib/ia-cost-catalog.ts`). `Medido 25/09`: um clipe
+arredondado para cima dava +4,6% contra a carteira; o segundo exato, −1,3%. Com 34-37 s de avatar
+por vídeo, **US$ 0,56-0,61 por vídeo**. O dono escolheu o `avatar_iii` também na visão (26/09),
+contra o `avatar_iv` (2,2× o preço) e a v2. Detalhe em `docs/GERADOR-VIDEO-MODULO.md`, seção
+"Integração HeyGen v3".
+
+🔴 **A carteira da HeyGen é compartilhada: delta de saldo mede TUDO que rodou no intervalo.**
+`Medido 26/09`: no piloto 3, o saldo caiu US$ 5,32; o ledger mostrou US$ 0,49 do piloto (2 clipes)
+e US$ 4,70 de 18 clipes de Macaé gerados no mesmo intervalo por outra rodada. Para custo de UMA
+ação, use o ledger filtrado por empresa e janela; o delta de carteira só vale com nada mais rodando.
+
+**Avatar compartilhado por grupo** (`VIDEO_AVATAR_GRUPO`, **desligado**): as células DISC do mesmo
+módulo e cargo dividem um par de clipes. `Medido` nos pilotos de 25-26/09 (ACME Demo): a rodada com o
+grupo funcionando pagou só o avatar da mãe (US$ 0,41-0,49), e as irmãs pagaram US$ 0 de HeyGen. A
+economia projetada no acervo de 24/09 é de −40 a −51% por módulo (Ibipeba ~US$ 50, Macaé ~US$ 13).
+Liga depois da escuta cega do dono (pendente em 30/09). Detalhe: `docs/GERADOR-VIDEO-MODULO.md`,
+"Avatar compartilhado por grupo", e FMEA F-V6.
+
+**A fala a mais do TTS também era custo** (FMEA F-V7): um fecho de 11 s dublado com 26 s. Desde
+25/09 o trigger corta antes de mandar para a HeyGen; o 1º caso em produção (fecho da mãe do piloto 2)
+cortou 14 s, uns US$ 0,24.
+

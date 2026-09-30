@@ -1622,7 +1622,7 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   miolo ao avatar (`avaliarEmenda`, `nivelarMiolo` em `lib/video/avatar-grupo.ts`). Grupo gravado
   antes disso (sem `referencia`) não é reaproveitável.
 
-### F-V7 · O TTS repete a frase final da cena narrada sozinha, e a HeyGen dubla a repetição 🔴 (corrigido 25/09/2026 no código; vídeos antigos NÃO)
+### F-V7 · O TTS repete a frase final da cena narrada sozinha, e a HeyGen dubla a repetição 🟡 (código corrigido 25/09/2026; os 4 vídeos achados até 06/09 consertados; acervo de junho-julho de Ibipeba NÃO)
 - **Gatilho:** no caminho por cena (narração única recusada, ou retake de uma cena), cada cena é
   uma síntese avulsa, e o TTS às vezes repete a pergunta final, inteira ou pela metade, ou inventa
   uma frase ("E aí, como você consegue ver esse resultado"). O `trimTrailingSilence` só corta
@@ -1648,6 +1648,17 @@ incidente segue travando o valor (máx. 10 msg/min; 6s dá exatamente 10). Detal
   medidos (`tests/fixtures/video/fala-a-mais-reais.json`), e o caso no trigger em
   `gerar-video-modulo-grupo.test.ts` (o mp3 que sobe e vai para a HeyGen é o cortado). Validado por
   mutação: 7 de 7.
+- **Em produção, a correção já age sozinha:** em 30/09, 3 vídeos de produção feitos depois de 25/09
+  tinham `sobraCortadaS` (1 deles gerado pelo lote de Macaé de 26/09, sem ninguém mexer), e nenhum
+  vídeo desde 06/09 segue suspeito.
+- **Acervo ANTERIOR a 06/09 (todo narrado por cena), `Medido 30/09/2026`:** dos 151 vídeos de produção
+  prontos, a varredura barata (duração do fecho ÷ palavras do texto > 0,62 s) apontou 14; transcritos,
+  **8 têm fala a mais**, todos de **Ibipeba, junho-julho** (frases inventadas: "e pra você, qual delas
+  parece mais acessível", "prepara o coração porque cada parágrafo…"). Os 3 de Macaé (diretores,
+  agosto) estavam limpos. A varredura acertou 8 de 14 (57%). ⚠️ Os outros 137 NÃO foram transcritos:
+  sobra curta (2-5 palavras) pode passar abaixo do corte de duração. Consertar os 8 é decisão do dono
+  (mesma receita: mp3 + mp4 no mesmo instante e re-render). Receita da varredura:
+  `scripts/_varrer-fala-a-mais.ts` (local, não versionado).
 
 ### F-V8 · Re-render noturno que estoura o watchdog ESCONDE o deck publicado 🟡 (env corrigida 26/09/2026; worker corrigido 27/09/2026)
 - **Gatilho:** o cron `reconciliar_videos` (00:00 BRT, na Vercel) devolve à fila a célula `done`
