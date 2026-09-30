@@ -227,6 +227,12 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
    ⚠️ Pela API, o tamanho sai em unidades UTF-16: emoji fora do BMP contam 2. Por isso deu
    194,6 / 201,4 / 185,1 onde o card mostra 194,5 / 201,3 / 185. Para kB, compare pelo card; pela API,
    confie na contagem e nos nomes.
+   🔑 **Melhor que kB: o SHA-1 do conteúdo.** `Medido: 30/09/2026` (2ª rodada, 3 fontes): o `content`
+   de cada doc vem inteiro no `GET`; `crypto.subtle.digest('SHA-1', new TextEncoder().encode(d.content))`
+   no navegador bate com `hashlib.sha1(texto.encode('utf-8'))` do Python sobre o blob com LF (o mesmo
+   arquivo que foi subido). Deu **20 de 20 idênticos** ao `origin/master`. Isso prova conteúdo, não só
+   tamanho, e dispensa a régua de kB (UTF-16, emoji, arredondamento). Serve também ANTES de remover:
+   a cópia nova com o hash do repo é a que fica, e o `uuid` da outra é o que o `DELETE` tem que mostrar.
    Se o modal não abre pelo `ref` depois de 2 ou 3 tentativas, a sequência de eventos de ponteiro por
    JS (passo 1) abriu de primeira em 30/09.
 
