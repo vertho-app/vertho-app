@@ -730,9 +730,9 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                 <p className="text-sm font-semibold mb-1" style={{ color: branding.font_color || '#FFFFFF' }}>{branding.login_subtitle || t('branding.subtitlePlaceholder')}</p>
                 <p className="text-[10px] mb-4" style={{ color: branding.font_color_secondary || '#FFFFFF99' }}>{t('branding.previewSubtitle')}</p>
                 <div className="w-full max-w-[240px]">
-                  <div className="w-full py-2.5 px-3 rounded-lg border border-white/15 bg-white/[0.08] text-white/40 text-xs text-center">{t('branding.previewEmail')}</div>
-                  <div className="w-full mt-2 py-2.5 rounded-lg text-white text-xs font-bold text-center"
-                    style={{ background: `linear-gradient(135deg, ${branding.primary_color}, ${branding.primary_color_end})` }}>{t('branding.previewButton')}</div>
+                  <div className="w-full py-2.5 px-3 rounded-lg border border-white/15 bg-white/[0.08] text-xs text-center" style={{ color: branding.font_color_secondary || '#FFFFFF99' }}>{t('branding.previewEmail')}</div>
+                  <div className="w-full mt-2 py-2.5 rounded-lg text-xs font-bold text-center"
+                    style={{ background: `linear-gradient(135deg, ${branding.primary_color}, ${branding.primary_color_end})`, color: branding.font_color || '#FFFFFF' }}>{t('branding.previewButton')}</div>
                 </div>
               </div>
             </div>

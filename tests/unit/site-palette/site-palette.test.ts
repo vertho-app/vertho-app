@@ -135,7 +135,39 @@ describe('contraste — imposto em código', () => {
   it('botão claro demais escurece até o texto branco ler (≥ 3.0)', () => {
     const { paleta, ajustes } = garantirContraste({ ...base, primary_color: '#FFD700', primary_color_end: '#FFEE55' });
     expect(contrasteWCAG(paleta.primary_color, '#FFFFFF')).toBeGreaterThanOrEqual(3.0);
+    expect(contrasteWCAG(paleta.primary_color_end, '#FFFFFF')).toBeGreaterThanOrEqual(3.0);
     expect(ajustes.some(a => a.includes('botão'))).toBe(true);
+  });
+
+  it('preserva botão laranja com fonte azul sobre fundo claro', () => {
+    const marca: PaletaLogin = {
+      ...base,
+      font_color: '#011950', font_color_secondary: '#011950',
+      primary_color: '#D95700', primary_color_end: '#C97E19',
+      bg_gradient_start: '#FEFEFE', bg_gradient_end: '#E1A701',
+    };
+    const { paleta, ajustes } = garantirContraste(marca);
+    expect(paleta).toEqual(marca);
+    expect(ajustes).toEqual([]);
+  });
+
+  it('clareia as duas pontas do botão quando a fonte configurada é escura', () => {
+    const { paleta, ajustes } = garantirContraste({
+      ...base,
+      font_color: '#011950', font_color_secondary: '#01195099',
+      primary_color: '#011950', primary_color_end: '#001030',
+      bg_gradient_start: '#FEFEFE', bg_gradient_end: '#E1A701',
+    });
+    expect(paleta.font_color).toBe('#011950');
+    expect(contrasteWCAG(paleta.primary_color, paleta.font_color)).toBeGreaterThanOrEqual(3.0);
+    expect(contrasteWCAG(paleta.primary_color_end, paleta.font_color)).toBeGreaterThanOrEqual(3.0);
+    expect(ajustes.some(a => a.includes('botão'))).toBe(true);
+  });
+
+  it('corrige o fim do gradiente mesmo quando o início já tem contraste', () => {
+    const { paleta } = garantirContraste({ ...base, primary_color_end: '#FFEE55' });
+    expect(paleta.primary_color).toBe(base.primary_color);
+    expect(contrasteWCAG(paleta.primary_color_end, paleta.font_color)).toBeGreaterThanOrEqual(3.0);
   });
 });
 

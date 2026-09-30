@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
@@ -375,18 +375,22 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
   return (
     <div
       className="min-h-dvh flex items-center justify-center px-6"
-      style={{ background: `linear-gradient(180deg, ${bgGradientStart} 0%, ${bgGradientEnd} 100%)` }}
+      style={{
+        background: `linear-gradient(180deg, ${bgGradientStart} 0%, ${bgGradientEnd} 100%)`,
+        color: fontColor || '#FFFFFF',
+        '--login-font-secondary': fontColorSecondary || '#FFFFFF99',
+      } as CSSProperties}
     >
       <div className="absolute right-4 top-4">
         <select
           value={locale}
           onChange={(e) => handleLocaleChange(e.target.value)}
           aria-label="Idioma"
-          className="rounded-lg border border-white/10 bg-white/[0.08] px-2 py-1 text-xs text-white outline-none"
+          className="rounded-lg border border-white/10 bg-white/[0.08] px-2 py-1 text-xs text-inherit outline-none"
           style={{ colorScheme: 'dark' }}
         >
           {locales.map((item) => (
-            <option key={item} value={item} style={{ background: '#091D35' }}>
+            <option key={item} value={item} style={{ background: bgGradientStart, color: fontColor || '#FFFFFF' }}>
               {common(`locales.${item}`)}
             </option>
           ))}
@@ -440,14 +444,14 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
               onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
               placeholder={t('codePlaceholder')}
               autoComplete="one-time-code"
-              className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-2xl text-center tracking-[0.5em] outline-none placeholder:text-white/30 transition-colors"
+              className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-inherit text-2xl text-center tracking-[0.5em] outline-none placeholder:text-[var(--login-font-secondary)] placeholder:opacity-100 transition-colors"
               onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
               onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
             />
             <button
               type="submit"
               disabled={status === 'loading'}
-              className="w-full mt-4 py-3.5 rounded-xl border-none text-white text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
+              className="w-full mt-4 py-3.5 rounded-xl border-none text-inherit text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
               style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
             >
               {status === 'loading' ? t('entering') : common('actions.enter')}
@@ -475,7 +479,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
                   setPainelAdmin(false);
                   enviarMagicLink(email.trim().toLowerCase(), undefined, DESTINO_PAINEL);
                 }}
-                className="w-full py-3.5 px-4 rounded-xl border-2 bg-white/[0.08] text-white text-base font-semibold cursor-pointer transition-colors hover:bg-white/[0.14] disabled:opacity-60"
+                className="w-full py-3.5 px-4 rounded-xl border-2 bg-white/[0.08] text-inherit text-base font-semibold cursor-pointer transition-colors hover:bg-white/[0.14] disabled:opacity-60"
                 style={{ borderColor: accentColor }}
               >
                 {t('platformPanelOption')}
@@ -487,7 +491,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
                 type="button"
                 disabled={status === 'loading'}
                 onClick={() => { setOrgs([]); enviarMagicLink(email.trim().toLowerCase(), org.slug); }}
-                className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base cursor-pointer transition-colors hover:bg-white/[0.14] disabled:opacity-60"
+                className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-inherit text-base cursor-pointer transition-colors hover:bg-white/[0.14] disabled:opacity-60"
                 onFocus={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = accentColor)}
                 onBlur={e => ((e.currentTarget as HTMLButtonElement).style.borderColor = '')}
               >
@@ -534,7 +538,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
               onChange={e => setEmail(e.target.value)}
               placeholder={t('emailPlaceholder')}
               autoComplete="email"
-              className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base text-center outline-none placeholder:text-white/40 transition-colors"
+              className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-inherit text-base text-center outline-none placeholder:text-[var(--login-font-secondary)] placeholder:opacity-100 transition-colors"
               style={{ ['--tw-ring-color' as any]: accentColor }}
               onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
               onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
@@ -547,7 +551,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
                 onChange={e => setPassword(e.target.value)}
                 placeholder={t('passwordPlaceholder')}
                 autoComplete="current-password"
-                className="w-full mt-3 py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base text-center outline-none placeholder:text-white/40 transition-colors"
+                className="w-full mt-3 py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-inherit text-base text-center outline-none placeholder:text-[var(--login-font-secondary)] placeholder:opacity-100 transition-colors"
                 onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
                 onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
               />
@@ -568,7 +572,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
                   onChange={e => setPhone(e.target.value)}
                   placeholder={t('phonePlaceholder')}
                   autoComplete="tel"
-                  className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-white text-base text-center outline-none placeholder:text-white/40 transition-colors"
+                  className="w-full py-3.5 px-4 rounded-xl border-2 border-white/15 bg-white/[0.08] text-inherit text-base text-center outline-none placeholder:text-[var(--login-font-secondary)] placeholder:opacity-100 transition-colors"
                   onFocus={e => ((e.target as HTMLInputElement).style.borderColor = accentColor)}
                   onBlur={e => ((e.target as HTMLInputElement).style.borderColor = '')}
                 />
@@ -578,7 +582,7 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
             <button
               type="submit"
               disabled={status === 'loading'}
-              className="w-full mt-4 py-3.5 rounded-xl border-none text-white text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
+              className="w-full mt-4 py-3.5 rounded-xl border-none text-inherit text-base font-bold tracking-wide cursor-pointer transition-opacity disabled:opacity-60"
               style={{ background: `linear-gradient(135deg, ${primaryColor}, ${primaryColorEnd})` }}
             >
               {status === 'loading' ? t('checking') : mode === 'password' ? t('enterWithPassword') : common('actions.enter')}

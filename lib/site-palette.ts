@@ -187,8 +187,8 @@ export function validarPaletaIA(raw: any): PaletaLogin | null {
  * Legibilidade imposta EM CÓDIGO (a IA propõe, o guard decide):
  *  - fonte × fundo (topo E base) ≥ 4.5 → senão vira branco ou grafite, o que
  *    contrastar mais com os DOIS fundos; secundária = mesma cor com alpha 99.
- *  - texto do botão é sempre branco no login → botão precisa ≥ 3.0 contra
- *    branco; senão escurece pro tom mais próximo que passa.
+ *  - texto do botão usa font_color → as DUAS pontas do gradiente precisam
+ *    ≥ 3.0 contra essa fonte; senão clareia/escurece no mesmo matiz.
  */
 export function garantirContraste(paleta: PaletaLogin): { paleta: PaletaLogin; ajustes: string[] } {
   const out = { ...paleta };
@@ -206,20 +206,26 @@ export function garantirContraste(paleta: PaletaLogin): { paleta: PaletaLogin; a
     ajustes.push(`fonte ajustada pra ${out.font_color} (contraste com o fundo era < 4.5)`);
   }
 
-  const escurecer = (hex: string, fator: number) => {
-    const [r, g, b] = rgbDe(hex);
-    return '#' + [r, g, b].map((n) => Math.round(n * fator).toString(16).padStart(2, '0').toUpperCase()).join('');
-  };
-  if (contrasteWCAG(solid(out.primary_color), '#FFFFFF') < 3.0) {
-    let ajustado = solid(out.primary_color);
-    for (let f = 0.85; f >= 0.35; f -= 0.1) {
-      ajustado = escurecer(solid(out.primary_color), f);
-      if (contrasteWCAG(ajustado, '#FFFFFF') >= 3.0) break;
+  const fonteBotao = solid(out.font_color);
+  const misturar = (hex: string, alvo: number, proporcao: number) =>
+    '#' + rgbDe(hex).map((n) => Math.round(n + (alvo - n) * proporcao).toString(16).padStart(2, '0').toUpperCase()).join('');
+  let botaoAjustado = false;
+  for (const campo of ['primary_color', 'primary_color_end'] as const) {
+    const original = solid(out[campo]);
+    if (contrasteWCAG(original, fonteBotao) >= 3.0) continue;
+
+    // Procura o ajuste mais próximo, tanto para fonte clara quanto escura.
+    for (let passo = 1; passo <= 20; passo++) {
+      const candidatos = [misturar(original, 0, passo / 20), misturar(original, 255, passo / 20)]
+        .sort((a, b) => contrasteWCAG(b, fonteBotao) - contrasteWCAG(a, fonteBotao));
+      if (contrasteWCAG(candidatos[0], fonteBotao) >= 3.0) {
+        out[campo] = candidatos[0];
+        botaoAjustado = true;
+        break;
+      }
     }
-    out.primary_color = ajustado;
-    if (contrasteWCAG(solid(out.primary_color_end), '#FFFFFF') < 3.0) out.primary_color_end = escurecer(ajustado, 0.85);
-    ajustes.push('botão escurecido (texto branco precisa de contraste ≥ 3.0)');
   }
+  if (botaoAjustado) ajustes.push(`botão ajustado (fonte ${out.font_color} precisa de contraste ≥ 3.0)`);
   return { paleta: out, ajustes };
 }
 
@@ -227,12 +233,12 @@ export function garantirContraste(paleta: PaletaLogin): { paleta: PaletaLogin; a
 
 const SYSTEM_PALETA = `Você é um designer de marca da Vertho. Recebe as cores encontradas no site de um cliente e monta a paleta da TELA DE LOGIN do tenant dele na plataforma.
 
-Anatomia da tela: fundo em gradiente vertical (bg_gradient_start no topo → bg_gradient_end na base), título/textos (font_color; font_color_secondary é a mesma com transparência), botão principal em gradiente (primary_color → primary_color_end) com TEXTO BRANCO, e detalhes/links (accent_color).
+Anatomia da tela: fundo em gradiente vertical (bg_gradient_start no topo → bg_gradient_end na base), título/textos/campos (font_color; font_color_secondary é a mesma com transparência, usada também nos placeholders), botão principal em gradiente (primary_color → primary_color_end) com texto em font_color, e detalhes/links (accent_color).
 
 REGRAS:
 1. Use as cores DE MARCA do site (as saturadas/reconhecíveis) — cinzas, pretos e brancos puros são estrutura, não marca.
 2. O fundo deve ser ESCURO e sóbrio: se a marca tem um tom escuro próprio, use-o; senão derive um tom bem escuro da cor primária (não invente matiz alheio à marca).
-3. primary_color = a cor mais forte da marca; primary_color_end = versão levemente mais escura do MESMO matiz.
+3. primary_color = a cor mais forte da marca; primary_color_end = versão levemente mais escura do MESMO matiz. As duas precisam contrastar com font_color, que também é a fonte do botão.
 4. accent_color = cor secundária vibrante da marca; sem segunda cor, use uma variação clara da primária.
 5. font_color deve ler bem sobre os dois fundos (quase sempre #FFFFFF); font_color_secondary = font_color + "99".
 6. Fidelidade à marca vence estética própria: não "melhore" a cor do cliente.
