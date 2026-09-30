@@ -1477,3 +1477,14 @@ nome longo ("Professor(a) de Educação Infantil").
 "Diretor(a)". Nasceu uma Top 10 órfã de Diretor(a), e a cédula dos 24 professores e da coordenadora
 teria saído VAZIA (ela casa o cargo da pessoa pelo nome). Resolvido renomeando o cargo na matriz,
 sem tocar em dado de pessoa. Memória `project_4life_matrizes`.
+
+## § Mexeu em `lib/site-palette.ts`, `lib/ui-resolver.ts` ou em qualquer cor de `ui_config`
+
+Padrão que casa: paleta extraída do site do cliente · `resolveTheme` · `bg_gradient_*` / `font_color` · tela do dashboard com fundo de tenant.
+
+- [ ] **O dashboard aceita esse fundo?** Ele é só escuro: texto branco/cinza fixo. Fundo claro em `ui_config` vale para o LOGIN; o dashboard passa por `fundoEscuroDoDashboard`. Se mexeu nesse caminho, abra a tela do tenant e olhe a imagem, porque nenhum teste enxerga texto branco sobre amarelo.
+- [ ] **O contraste foi medido nos DOIS fundos** (topo e base) para fonte, secundária (com a opacidade real) e accent? Botão usa 3,0; texto corrido 4,5.
+- [ ] **A cor de marca que a IA devolveu existe na lista de candidatas?** Rode `npx tsx scripts/_test-paleta.ts <url>` duas vezes: a saída tem que ser estável e sem cor inventada.
+- [ ] **`tsc --noEmit | grep` não prova nada se o `tsc` morrer.** Sem memória ele sai com `exit 134` e o grep devolve vazio, que parece "limpo". Use `NODE_OPTIONS=--max-old-space-size=8192` e leia o exit code.
+
+**Consequência medida (30/09/2026, Amazon Bowling):** a extração trazia cor de framework WordPress como marca, a IA inventou `#F26100` e forçou fundo escuro; depois o fundo claro configurado chegou ao dashboard e o título ficou branco sobre amarelo. Memória `project_branding_paleta_site`.

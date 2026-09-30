@@ -770,6 +770,10 @@ lib/tenant-resolver.js:
 ### 3.4 Branding por Tenant
 Coluna `ui_config JSONB`: logo_url, 7 cores, font_color, login_subtitle, hidden_elements, labels.
 
+**Quem consome o quê (30/09/2026):** o **login** lê as 7 cores inteiras (`app/login/page.tsx`). O **dashboard** só lê fundo, accent e logo via `resolveTheme` (`lib/ui-resolver.ts`) e é desenhado **só para fundo escuro** (texto `text-white`/gray fixo em centenas de telas). Por isso `fundoEscuroDoDashboard` troca um fundo claro por um tom escuro derivado da cor de marca: sem isso, o tenant `ab` (Amazon Bowling, fundo `#FEFEFE`→`#E1A701`) mostrava título branco sobre amarelo. Tema claro de verdade no dashboard não existe. Rótulos, botões e ícones com cor fixa da Vertho (ciano/verde-água) ainda NÃO seguem o tenant. Contrato: `tests/unit/ui-resolver-tema-escuro.test.ts`.
+
+**Puxar cores do site (`lib/site-palette.ts`):** a IA propõe, o código decide em três pontos: `limparRuidoCss` (presets do WordPress, `.has-*` e CSS de plugin não são marca), `ancorarNasCandidatas` (primária e accent têm que ser cor que o site usa; a IA devolveu `#F26100` quando o site tinha `#C97E19`) e `garantirContraste` (fonte, secundária e accent ≥ 4,5 sobre os dois fundos; texto do botão ≥ 3,0). O prompt segue o fundo do site (claro ou escuro) e não força escuro. Caso e medições: memória `project_branding_paleta_site`.
+
 ### 3.5 Config por Tenant
 Coluna `sys_config JSONB`: ai_model, cadencia, envios.
 
