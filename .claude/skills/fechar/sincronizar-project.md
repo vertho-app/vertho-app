@@ -109,6 +109,11 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
 1. **Ler o Project.** Abrir `https://claude.ai/project/019c7614-e003-719c-89ba-681693339e87`. No
    painel da direita, o item **"Arquivos"** mostra só o total ("20 arquivos · 22% da capacidade");
    a lista abre no **botão `aria-label="Mostrar arquivos"`** (clique nele, não em "Adicionar").
+   🔴 `Medido: 30/09/2026`: **mudou de novo.** O item do painel virou **"Contexto · N arquivos"**, o
+   botão agora é **`aria-label="Mostrar contexto"`** e o modal se chama **"Contexto"** (o rodapé diz
+   "N arquivos", em minúscula). Com isso o `/Arquivos/` do JS abaixo NÃO acha o modal: use
+   `/Arquivos|Contexto/`. Depois do reload o modal abriu só no 3º a 5º clique no `ref`, com ~10 s de
+   espera antes de ler; clique, espere (`computer wait`), tire screenshot, e só então rode o JS.
    ⚠️ `Medido: 26/09/2026` (2ª rodada): depois de uma remoção e do reload, nem o clique no `ref`, nem
    o clique na posição, nem foco + `Enter` abriram o modal (3 tentativas de cada). O que abriu na 1ª
    foi disparar por JS, no botão, `pointerdown`, `mousedown`, `pointerup`, `mouseup` e `click` (com
@@ -122,7 +127,7 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
    Lista que DECIDE, por JS (o kB sai da linha de cada botão):
 
    ```js
-   const dlg = [...document.querySelectorAll('[role="dialog"]')].find(d => /Arquivos/.test(d.innerText||''));
+   const dlg = [...document.querySelectorAll('[role="dialog"]')].find(d => /Arquivos|Contexto/.test(d.innerText||''));
    const linhaDe = b => { let e = b; while (e && e !== dlg && !/kB/.test(e.innerText||'')) e = e.parentElement; return e; };
    const ops = [...dlg.querySelectorAll('button')].filter(b => /^Mais opções para /.test(b.getAttribute('aria-label')||''));
    const itens = ops.map(b => b.getAttribute('aria-label').replace('Mais opções para ','') + '=' + (linhaDe(b).innerText.match(/([\d,]+)\s*kB/)||[])[1]);
@@ -135,6 +140,11 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
    da tolerância") era uma mudança real de 4 linhas, que apontava para docs novos.
    ⚠️ Outra sessão pode sincronizar em paralelo: em 22/09 os 4 cards defasados de manhã já estavam
    atualizados à noite, sem ser por mim. Releia o Project imediatamente antes de subir.
+   🔴 `Medido: 30/09/2026`: **duas sessões subiram as MESMAS 5 fontes com minutos de diferença**, e o
+   Project foi a 31 (20 + 11). Cópia nova DUPLICADA com kB IGUAL é upload paralelo, não defeito. Quem
+   limpa é UMA sessão só: combinamos por `SendMessage` (a outra avisou e parou), porque duas sessões
+   removendo ao mesmo tempo podem deixar uma fonte sem versão nova. E par (novo + antigo) que OUTRA
+   sessão subiu depois do seu reload não é seu para remover: avise-a e feche contando o que é seu.
 3. **Copiar** os defasados para uma pasta da sessão (`file_upload` só aceita arquivos que a sessão
    compartilha — caminho do repo é recusado). Copie **do git, não do disco**, pelo Python (régua e
    quebra de linha, ver acima), para o card bater e para não subir edição pela metade de outra sessão.
@@ -155,7 +165,7 @@ e os passos abaixo são os da UI nova, medidos na sincronização de 26/09 (6 su
 
       ```js
       window.__marcar = (nome, velho) => {
-        const dlg = [...document.querySelectorAll('[role="dialog"]')].find(d => /Arquivos/.test(d.innerText||''));
+        const dlg = [...document.querySelectorAll('[role="dialog"]')].find(d => /Arquivos|Contexto/.test(d.innerText||''));
         // Devolve o rótulo ORIGINAL (não 'x'): senão o botão marcado some do filtro por nome abaixo.
         document.querySelectorAll('[aria-label="ALVO-REMOVER"]').forEach(b => b.setAttribute('aria-label', b.dataset.rotuloOriginal || 'x'));
         const linhaDe = b => { let e = b; while (e && e !== dlg && !/kB/.test(e.innerText||'')) e = e.parentElement; return e; };
