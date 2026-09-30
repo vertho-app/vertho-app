@@ -258,8 +258,70 @@ export async function fetchClaudeBatchResults(
 }
 
 /**
+ * Por quanto tempo consultas SEGUIDAS podem falhar antes de desistir do lote.
+ *
+ * `Medido em 30/09/2026`: uma única consulta que falhou (o computador acordou da
+ * suspensão e o DNS ainda não resolvia o host da API) fazia o collector
+ * abandonar o lote e mandar tudo ao síncrono, com o lote seguindo na Anthropic
+ * para ser cobrado também: o mesmo item pago duas vezes. Falha de consulta é quase
+ * sempre de rede, e o lote não se perde por ela.
+ */
+export const TOLERANCIA_FALHA_CONSULTA_MS = 2 * 60_000;
+
+/** `pollClaudeBatch` que aguenta falhas seguidas por até `toleranciaMs`, com espera crescente. */
+async function consultarComTolerancia(batchId: string, pollMs: number, toleranciaMs: number): Promise<BatchStatus> {
+  let primeiraFalha: number | null = null;
+  let espera = Math.max(pollMs, 1);
+  for (;;) {
+    try {
+      return await pollClaudeBatch(batchId);
+    } catch (e: any) {
+      const agora = Date.now();
+      if (primeiraFalha === null) primeiraFalha = agora;
+      if (agora - primeiraFalha >= toleranciaMs) throw e;
+      console.warn(`[ai-batch] consulta ao batch ${batchId} falhou (${e?.message}); nova tentativa em ${Math.round(espera / 1000)}s`);
+      await sleep(espera);
+      espera = Math.min(espera * 2, 30_000);
+    }
+  }
+}
+
+/**
+ * Cancela um batch que estourou o orçamento e colhe o que JÁ saiu.
+ *
+ * Existe para quem tem fallback síncrono por item (o collector): sem ele, o batch
+ * seguia na Anthropic, era cobrado ao terminar, e o síncrono pagava de novo os
+ * mesmos itens. `Medido em 30/09/2026`: a fila de lotes chegou a 78-128 min, contra
+ * o máximo de 12 min da amostra de setembro. Cancelar corta o que ainda não rodou
+ * (não é cobrado); o que já saiu (pago) é aproveitado, e só o resto vai ao síncrono.
+ */
+async function cancelarEColher(
+  batchId: string,
+  budgetMs: number,
+  pollMs: number,
+  toleranciaMs: number,
+  ledger?: { feature?: string; empresaId?: string | null },
+): Promise<Map<string, string>> {
+  await anthropicClient().messages.batches.cancel(batchId);
+  // O cancelamento leva o batch a `canceling` e depois a `ended`; normalmente em segundos.
+  const limite = Date.now() + 3 * 60_000;
+  for (;;) {
+    const { ended } = await consultarComTolerancia(batchId, pollMs, toleranciaMs);
+    if (ended) break;
+    if (Date.now() > limite) throw new Error(`batch ${batchId} cancelado, mas não encerrou em 3 min`);
+    await sleep(Math.max(pollMs, 1));
+  }
+  const out = await fetchClaudeBatchResults(batchId, ledger);
+  await encerrarBatch(batchId, IA_BATCH.ERRO,
+    `cancelado ao estourar o orçamento de ${Math.round(budgetMs / 60000)} min; ${out.size} item(ns) aproveitado(s)`);
+  return out;
+}
+
+/**
  * Submete N requests como UM batch Claude, faz polling INLINE até terminar e
- * devolve o texto por customId. Lança se estourar o orçamento de tempo.
+ * devolve o texto por customId. Lança se estourar o orçamento de tempo, salvo com
+ * `cancelarNoTimeout`: aí cancela o batch e devolve só o que já saiu (o chamador
+ * manda o resto ao síncrono).
  *
  * ⚠️ Segura a run aberta durante o polling — logo CONSOME o `maxDuration` da task.
  * Bom para batches pequenos/rápidos (IA2, kit). Para lotes que podem demorar (e
@@ -272,17 +334,27 @@ export async function submitClaudeBatch(
     pollMs?: number; budgetMs?: number; locale?: AppLocale;
     /** Etiqueta do ledger (feature/empresa). Sem isto o custo cai como 'batch' genérico. */
     ledger?: { feature?: string; empresaId?: string | null; jobId?: string | null };
+    /**
+     * Ao estourar o orçamento, cancela o batch e devolve o que já saiu, em vez de
+     * lançar. Só para quem tem fallback síncrono por item: sem ele, o batch
+     * deixado em 'submetido' é o que permite recuperá-lo depois.
+     */
+    cancelarNoTimeout?: boolean;
+    /** Falhas seguidas de consulta toleradas antes de desistir (default `TOLERANCIA_FALHA_CONSULTA_MS`). */
+    toleranciaFalhaMs?: number;
   } = {},
 ): Promise<Map<string, string>> {
   const batchId = await createClaudeBatch(reqs, { locale: opts.locale, ledger: opts.ledger });
   const budgetMs = opts.budgetMs ?? 40 * 60_000;
   const pollMs = opts.pollMs ?? 5000;
+  const toleranciaMs = opts.toleranciaFalhaMs ?? TOLERANCIA_FALHA_CONSULTA_MS;
   const deadline = Date.now() + budgetMs;
 
   for (;;) {
-    const { ended } = await pollClaudeBatch(batchId);
+    const { ended } = await consultarComTolerancia(batchId, pollMs, toleranciaMs);
     if (ended) break;
     if (Date.now() > deadline) {
+      if (opts.cancelarNoTimeout) return cancelarEColher(batchId, budgetMs, pollMs, toleranciaMs, opts.ledger);
       // O batch NÃO é cancelado: ele continua e vai terminar. Deixar o rastro em
       // 'submetido' é o que permite buscá-lo depois — `scripts/_batches-orfaos.mjs`.
       throw new Error(`batch ${batchId} excedeu ${Math.round(budgetMs / 60000)}min (rastro em ia_batches, recuperável)`);
@@ -322,6 +394,8 @@ export function createAIBatchCollector(
   defaultModel: string,
   opts: {
     windowMs?: number; budgetMs?: number; locale?: AppLocale;
+    /** Intervalo entre consultas ao batch (default do `submitClaudeBatch`). */
+    pollMs?: number;
     /**
      * Etiqueta do ledger (C7, auditoria 22/08).
      *
@@ -351,7 +425,10 @@ export function createAIBatchCollector(
 
   async function doFlush(batch: Pending[]) {
     try {
-      const results = await submitClaudeBatch(batch, { budgetMs: opts.budgetMs, locale: opts.locale, ledger: opts.ledger });
+      // `cancelarNoTimeout`: aqui todo item tem fallback síncrono, então um batch
+      // que estoura o orçamento é cancelado e só o que faltou vai ao síncrono (sem
+      // pagar duas vezes o mesmo item). Ver `cancelarEColher`.
+      const results = await submitClaudeBatch(batch, { budgetMs: opts.budgetMs, pollMs: opts.pollMs, locale: opts.locale, ledger: opts.ledger, cancelarNoTimeout: true });
       for (const p of batch) {
         const text = results.get(p.customId);
         if (text != null && text.trim()) p.resolve(text);
