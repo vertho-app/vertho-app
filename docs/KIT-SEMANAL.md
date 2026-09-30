@@ -19,6 +19,10 @@ como a parte prática da semana.
    (`FORMATOS_PADRAO = ['audio','texto','case']` em `actions/kits.ts`) **+ 4 vídeos de
    célula** (um por DISC, via `dispararVideoDoKit` → `videos_gerados` — o vídeo NÃO é
    micro_conteudo nem passa por `gerarConteudoIA`).
+   Desde 30/09/2026 os 4 vídeos saem JUNTOS, numa fase do `gerarKitSemanal` depois do
+   último DISC: os roteiros vão num lote só (−50%) e os disparos saem espaçados por uma
+   agenda, para as narrações não disputarem o TTS (`lib/video/roteiro-lote.ts`; detalhe
+   em `docs/GERADOR-VIDEO-MODULO.md`, item 1).
 4. **Desafio POR DISC** — cada kit DISC tem seu próprio desafio (mesma espinha
    conceitual, ação prática sob medida ao perfil). Cobrado na quinta.
 5. **Desafio é o foco prático da semana** (substitui o "desafio solto" atual).

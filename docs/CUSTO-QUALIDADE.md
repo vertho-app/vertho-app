@@ -2650,3 +2650,33 @@ medida é o `heygen_avatar` do ledger por grupo (a carteira é compartilhada). D
 25/09 o trigger corta antes de mandar para a HeyGen; o 1º caso em produção (fecho da mãe do piloto 2)
 cortou 14 s, uns US$ 0,24.
 
+## 30/09/2026: roteiro do vídeo do Kit em lote, e o lote lento que pagava dobrado
+
+**Custo do vídeo hoje** (`Medido` no ledger de 25-26/09, 10 vídeos de Macaé sem grupo): roteiro US$ 0,25,
+narração 0,10, avatar HeyGen 0,51, e ~0,04 fora do ledger (transcrição, render, Bunny; valor de 19/06, não
+refeito). Total ~US$ 0,90. Com o avatar por grupo, a célula que não paga o avatar sai por ~US$ 0,39, e a média
+num módulo de 3 perfis DISC fica em ~US$ 0,56.
+
+**O roteiro do Kit era síncrono por desenho** (`forceSync`) e pagava preço cheio: US$ 0,224 em média, contra
+US$ 0,133 dos roteiros que saíram em lote (setembro, Opus 5). Desde `fcaa5ffd` (30/09) as células de um Kit
+ou de um script de lote dividem UM coletor: os roteiros vão num lote só, e uma agenda espaça os disparos
+(`lib/video/roteiro-lote.ts`). Economia esperada: ~US$ 0,09 por vídeo, −40% no roteiro. ⚠️ Ainda não medida
+num lote real: o teste de ponta a ponta caiu no síncrono (ver abaixo).
+
+🔴 **Leitura do ledger, `source` de `conteudo_video`:** até 30/09, `batch-sync` nessa feature era o síncrono
+POR ESCOLHA do Kit (27 chamadas e US$ 6,05 em setembro), e não lote degradado. Desde então o síncrono por
+escolha grava `wrapper`, e `batch-sync` voltou a significar só lote que degradou.
+
+**O lote lento pagava o mesmo item duas vezes** (`d9ae394e`). `Medido no teste de 30/09` (2 roteiros): o
+computador suspendeu durante a espera, a 1ª consulta depois de acordar falhou por DNS, e o coletor abandonou
+o lote. Os 2 roteiros saíram pelo síncrono (US$ 0,23 + 0,29) e o lote continuava na Anthropic. Cancelado à
+mão, ele terminou com 1 item pronto, cobrado a US$ 0,136 (o preço de lote esperado) e descartado: o teste
+custou US$ 0,66 em vez de ~0,27. E a fila estava lenta naquele dia: o lote do teste passou 78 min sem nenhum
+item pronto, e um lote de cenários de 66 itens levou 128 min de manhã, contra o máximo de 12 min em 21 lotes
+de roteiro de setembro. A própria Anthropic promete a maioria em até 1 h, e até 24 h no limite.
+- Agora a consulta que falha é repetida por até 2 min, e o coletor, ao estourar o orçamento, cancela o lote
+  (o que não rodou não é cobrado), aproveita o que saiu e só manda o resto ao síncrono. Pior caso = o custo
+  de antes; nunca os dois.
+- Orçamento: 20 min no Kit (teto de 1 h da task no Trigger) e 2 h no script semanal (decisão do dono). Num
+  dia lento como o de 30/09, o Kit cai no síncrono e custa o mesmo que antes.
+
