@@ -13,7 +13,11 @@ import {
   contrasteWCAG,
   garantirContraste,
   validarPaletaIA,
+  limparRuidoCss,
+  extrairCoresDeMarca,
+  ancorarNasCandidatas,
   type PaletaLogin,
+  type CandidatoCor,
 } from '@/lib/site-palette';
 
 describe('normalizarHex', () => {
@@ -127,9 +131,11 @@ describe('contraste — imposto em código', () => {
   it('fonte clara sobre fundo claro é corrigida (nunca publica ilegível)', () => {
     const { paleta, ajustes } = garantirContraste({ ...base, bg_gradient_start: '#F5F5F5', bg_gradient_end: '#EAEAEA' });
     expect(paleta.font_color).toBe('#111827');
-    expect(paleta.font_color_secondary).toBe('#11182799');
+    expect(paleta.font_color_secondary).toBe('#111827B3'); // 60% não dava 4.5 sobre o fundo claro
     expect(contrasteWCAG(paleta.font_color, '#F5F5F5')).toBeGreaterThanOrEqual(4.5);
-    expect(ajustes.length).toBe(1);
+    expect(ajustes.length).toBe(3); // fonte, secundária e accent (ciano sobre claro não lia)
+    expect(contrasteWCAG(paleta.accent_color, '#F5F5F5')).toBeGreaterThanOrEqual(4.5);
+    expect(contrasteWCAG(paleta.accent_color, '#EAEAEA')).toBeGreaterThanOrEqual(4.5);
   });
 
   it('botão claro demais escurece até o texto branco ler (≥ 3.0)', () => {
@@ -146,9 +152,10 @@ describe('contraste — imposto em código', () => {
       primary_color: '#D95700', primary_color_end: '#C97E19',
       bg_gradient_start: '#FEFEFE', bg_gradient_end: '#E1A701',
     };
-    const { paleta, ajustes } = garantirContraste(marca);
-    expect(paleta).toEqual(marca);
-    expect(ajustes).toEqual([]);
+    const { paleta } = garantirContraste(marca);
+    expect({ ...paleta, accent_color: marca.accent_color }).toEqual(marca); // só o accent (ciano sobre claro) muda
+    expect(contrasteWCAG(paleta.accent_color, '#FEFEFE')).toBeGreaterThanOrEqual(4.5);
+    expect(contrasteWCAG(paleta.accent_color, '#E1A701')).toBeGreaterThanOrEqual(4.5);
   });
 
   it('clareia as duas pontas do botão quando a fonte configurada é escura', () => {
@@ -187,5 +194,78 @@ describe('validarPaletaIA', () => {
     expect(validarPaletaIA({ ...ok, accent_color: undefined })).toBeNull();
     expect(validarPaletaIA({ ...ok, primary_color: 'teal' })).toBeNull();
     expect(validarPaletaIA(null)).toBeNull();
+  });
+});
+
+// Amazon Bowling (30/09/2026): presets do WordPress e plugin entravam como "marca",
+// e a IA devolvia #F26100 — cor que o site não tem (tinha #C97E19 e #FF6600).
+describe('limparRuidoCss / extrairCoresDeMarca', () => {
+  const css = `:root{--wp--preset--color--vivid-red:#cf2e2e;--wp--preset--color--awb-color-6:rgba(201,126,25,1);--wp-admin-theme-color:#007cba}
+.has-vivid-cyan-blue-color{color:#0693e3!important}
+.btn{background:#C97E19}`;
+  it('some com presets do core do WP, .has-* e vars do admin; mantém awb-color e regras do site', () => {
+    const limpo = limparRuidoCss(css);
+    expect(limpo).not.toMatch(/cf2e2e|0693e3|007cba/i);
+    expect(limpo).toMatch(/201,126,25/);
+    expect(limpo).toMatch(/#C97E19/);
+  });
+  it('variável de marca (awb-color-N, primary, accent) é lida; var qualquer não', () => {
+    const m = extrairCoresDeMarca('--awb-color-6:rgba(201,126,25,1);--primary_color:#65bc7b;--sombra:#123456');
+    expect([...m.keys()].sort()).toEqual(['#65BC7B', '#C97E19']);
+  });
+});
+
+describe('ancorarNasCandidatas — a IA propõe, o código ancora', () => {
+  const c = (hex: string, count = 10): CandidatoCor => ({ hex, count, neutra: ehNeutra(hex), luminancia: 0.3 });
+  const candidatos = [c('#FFFFFF'), c('#C97E19'), c('#65BC7B')];
+  const base: PaletaLogin = {
+    font_color: '#333333', font_color_secondary: '#33333399', primary_color: '#C97E19',
+    primary_color_end: '#B16D11', accent_color: '#65BC7B', bg_gradient_start: '#FFFFFF', bg_gradient_end: '#EBEAEA',
+  };
+  it('cor inventada vira a candidata mais próxima', () => {
+    const { paleta, ajustes } = ancorarNasCandidatas({ ...base, primary_color: '#F26100' }, candidatos);
+    expect(paleta.primary_color).toBe('#C97E19');
+    expect(ajustes.join()).toMatch(/F26100/);
+  });
+  it('cor do site passa intocada, sem ajuste', () => {
+    const { paleta, ajustes } = ancorarNasCandidatas(base, candidatos);
+    expect(paleta).toEqual(base);
+    expect(ajustes).toEqual([]);
+  });
+  it('neutras nunca são destino do snap', () => {
+    const { paleta } = ancorarNasCandidatas({ ...base, accent_color: '#999999' }, candidatos);
+    expect(['#C97E19', '#65BC7B']).toContain(paleta.accent_color);
+  });
+  it('fim do gradiente de outro matiz é refeito a partir da primária', () => {
+    const { paleta } = ancorarNasCandidatas({ ...base, primary_color_end: '#0051A0' }, candidatos);
+    expect(paleta.primary_color_end).toBe('#AB6B15');
+  });
+});
+
+describe('contraste — secundária e accent (texto corrido ≥ 4.5)', () => {
+  const b: PaletaLogin = {
+    font_color: '#333333', font_color_secondary: '#33333399',
+    primary_color: '#C97E19', primary_color_end: '#B16D11',
+    accent_color: '#A0CE4E', bg_gradient_start: '#FFFFFF', bg_gradient_end: '#EBEAEA',
+  };
+  it('secundária a 60% que não lê sobe de opacidade até ≥ 4.5 efetivo', () => {
+    const { paleta } = garantirContraste(b);
+    const a = parseInt(paleta.font_color_secondary.slice(7) || 'FF', 16) / 255;
+    expect(a).toBeGreaterThan(0.6);
+  });
+  it('secundária que já lê é preservada (não sobrescreve escolha boa)', () => {
+    const { paleta } = garantirContraste({ ...b, font_color: '#011950', font_color_secondary: '#011950' });
+    expect(paleta.font_color_secondary).toBe('#011950');
+  });
+  it('accent verde-limão sobre fundo claro escurece no mesmo matiz', () => {
+    const { paleta } = garantirContraste(b);
+    expect(contrasteWCAG(paleta.accent_color, '#FFFFFF')).toBeGreaterThanOrEqual(4.5);
+    expect(contrasteWCAG(paleta.accent_color, '#EBEAEA')).toBeGreaterThanOrEqual(4.5);
+  });
+  it('fonte só é trocada se a alternativa lê no fundo E no botão; senão o botão é que se ajusta', () => {
+    const { paleta } = garantirContraste({ ...b, font_color: '#333333', primary_color: '#2B2B2B', primary_color_end: '#1A1A1A', bg_gradient_start: '#FFFFFF', bg_gradient_end: '#F0F0F0' });
+    // branco não lê no fundo claro, então a fonte fica e o botão é que clareia (≥ 3.0)
+    expect(paleta.font_color).toBe('#333333');
+    expect(contrasteWCAG(paleta.primary_color, '#333333')).toBeGreaterThanOrEqual(3.0);
   });
 });

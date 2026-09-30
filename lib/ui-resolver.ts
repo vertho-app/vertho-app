@@ -24,15 +24,56 @@ export function isHidden(elementId, uiConfig) {
  */
 export function resolveTheme(uiConfig) {
   const c = uiConfig || {};
+  const { bgStart, bgEnd } = fundoEscuroDoDashboard(c);
   return {
-    bgStart: c.bg_gradient_start || '#091D35',
-    bgEnd: c.bg_gradient_end || '#0F2A4A',
+    bgStart,
+    bgEnd,
     accent: c.accent_color || '#22d3ee', // cyan-400 (cor atual do nav ativo)
     // Accent cru (null se o tenant NÃO configurou) — usado para só sobrescrever
     // o token --brand-accent quando há branding real, mantendo Vertho idêntico.
     accentRaw: c.accent_color || null,
     logoUrl: c.logo_url || '/logo-vertho.png',
   };
+}
+
+function rgbHex(hex: unknown): [number, number, number] | null {
+  const m = /^#([0-9a-f]{6})([0-9a-f]{2})?$/i.exec(String(hex || '').trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function luminanciaHex(hex: unknown): number | null {
+  const rgb = rgbHex(hex);
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function escurecerHex(hex: string, fatorPreto: number): string {
+  const rgb = rgbHex(hex)!;
+  return '#' + rgb.map((v) => Math.round(v * (1 - fatorPreto)).toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * O dashboard é desenhado SÓ para fundo escuro (texto text-white/gray em todas as
+ * telas). Fundo claro configurado pro login (ex.: Amazon Bowling #FEFEFE→#E1A701)
+ * deixava título branco sobre amarelo. Se o fundo do tenant é claro, o dashboard
+ * usa um tom escuro derivado da cor de marca (primary → accent), no mesmo matiz.
+ * Fundo escuro configurado passa intocado; sem branding = Vertho exato.
+ */
+export function fundoEscuroDoDashboard(c: any): { bgStart: string; bgEnd: string } {
+  const start = c.bg_gradient_start || '#091D35';
+  const end = c.bg_gradient_end || '#0F2A4A';
+  const ls = luminanciaHex(start), le = luminanciaHex(end);
+  const claro = (ls !== null && ls > 0.18) || (le !== null && le > 0.18);
+  if (!claro) return { bgStart: start, bgEnd: end };
+  const marca = [c.primary_color, c.accent_color].find((h) => rgbHex(h));
+  if (!marca) return { bgStart: '#091D35', bgEnd: '#0F2A4A' };
+  return { bgStart: escurecerHex(String(marca).slice(0, 7), 0.88), bgEnd: escurecerHex(String(marca).slice(0, 7), 0.8) };
 }
 
 export type TenantTheme = ReturnType<typeof resolveTheme>;

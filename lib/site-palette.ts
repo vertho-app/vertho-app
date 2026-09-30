@@ -110,6 +110,34 @@ export function normalizarHex(raw: string): string | null {
   return null;
 }
 
+/**
+ * Tira do CSS o que é cor do FRAMEWORK, não da marca: presets do core do
+ * WordPress (vivid-red, cyan-bluish-gray…, que vêm em TODO site WP e entravam
+ * no ranking como se fossem marca), classes `.has-*`/`.wp-block-*` e variáveis
+ * do admin/editor. Os presets do construtor (`awb-color-N`, Avada) ficam: são
+ * a paleta que o dono do site escolheu.
+ */
+export function limparRuidoCss(css: string): string {
+  return css
+    .replace(/--wp--preset--(?:color--(?!awb)|gradient--|duotone--)[\w-]*\s*:[^;}]*;?/gi, '')
+    .replace(/--wp-(?:admin|block|editor)[\w-]*\s*:[^;}]*;?/gi, '')
+    .replace(/--dominant-color\s*:[^;}]*;?/gi, '')
+    .replace(/\.(?:has-|wp-block-|wp-element-|wp-duotone)[^{}]*\{[^}]*\}/gi, '');
+}
+
+/**
+ * Cores declaradas em variáveis CSS com nome de MARCA (primary, brand, accent,
+ * awb-color-N, title/button-color): é onde o construtor do site guarda a
+ * paleta de verdade, e pesa mais que a contagem bruta de ocorrências.
+ */
+export function extrairCoresDeMarca(css: string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const m of css.matchAll(/--([\w-]*(?:primary|brand|accent|awb-color-?\d|title-color|button)[\w-]*)\s*:\s*([^;}]+)/gi)) {
+    for (const [hex] of extrairCoresDeCss(m[2])) out.set(hex, (out.get(hex) || 0) + 1);
+  }
+  return out;
+}
+
 /** Todas as cores literais de um texto CSS-like, contadas (hex + rgb/rgba). */
 export function extrairCoresDeCss(css: string): Map<string, number> {
   const contagem = new Map<string, number>();
@@ -183,6 +211,51 @@ export function validarPaletaIA(raw: any): PaletaLogin | null {
   return out as PaletaLogin;
 }
 
+function distanciaRgb(a: string, b: string): number {
+  const [ra, rb] = [rgbDe(a), rgbDe(b)];
+  return Math.hypot(ra[0] - rb[0], ra[1] - rb[1], ra[2] - rb[2]);
+}
+
+function matiz(hex: string): number {
+  const [r, g, b] = rgbDe(hex).map((n) => n / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (d === 0) return 0;
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+
+/**
+ * A IA propõe, o código ancora: cor de MARCA (primary/accent) tem que ser uma
+ * das que o site realmente usa. Medido em amazonbowling.com.br: o site tinha
+ * #C97E19 e #FF6600 e a IA devolveu #F26100 — cor que não existe lá. Se a
+ * proposta está a mais de 40 (distância RGB) de qualquer candidata de marca,
+ * troca pela candidata mais próxima. O fim do gradiente do botão herda o
+ * matiz da primária (±20°) ou vira a primária escurecida.
+ */
+export function ancorarNasCandidatas(paleta: PaletaLogin, candidatos: CandidatoCor[]): { paleta: PaletaLogin; ajustes: string[] } {
+  const marca = candidatos.filter((c) => !c.neutra);
+  const out = { ...paleta };
+  const ajustes: string[] = [];
+  if (!marca.length) return { paleta: out, ajustes };
+
+  for (const campo of ['primary_color', 'accent_color'] as const) {
+    const atual = out[campo].slice(0, 7);
+    const maisProxima = marca.reduce((a, b) => (distanciaRgb(atual, a.hex) <= distanciaRgb(atual, b.hex) ? a : b));
+    if (distanciaRgb(atual, maisProxima.hex) > 40) {
+      ajustes.push(`${campo} ${atual} não existe no site → ${maisProxima.hex}`);
+      out[campo] = maisProxima.hex;
+    }
+  }
+
+  const dif = Math.abs(matiz(out.primary_color) - matiz(out.primary_color_end.slice(0, 7)));
+  if (Math.min(dif, 360 - dif) > 20) {
+    const p = out.primary_color;
+    out.primary_color_end = '#' + rgbDe(p).map((n) => Math.round(n * 0.85).toString(16).padStart(2, '0').toUpperCase()).join('');
+    ajustes.push('fim do gradiente do botão refeito (matiz diferente da primária)');
+  }
+  return { paleta: out, ajustes };
+}
+
 /**
  * Legibilidade imposta EM CÓDIGO (a IA propõe, o guard decide):
  *  - fonte × fundo (topo E base) ≥ 4.5 → senão vira branco ou grafite, o que
@@ -198,34 +271,65 @@ export function garantirContraste(paleta: PaletaLogin): { paleta: PaletaLogin; a
   const contraFundos = (hex: string) =>
     Math.min(contrasteWCAG(hex, solid(out.bg_gradient_start)), contrasteWCAG(hex, solid(out.bg_gradient_end)));
 
-  if (contraFundos(solid(out.font_color)) < 4.5) {
-    const branco = contraFundos('#FFFFFF');
-    const grafite = contraFundos('#111827');
-    out.font_color = branco >= grafite ? '#FFFFFF' : '#111827';
-    out.font_color_secondary = out.font_color + '99';
-    ajustes.push(`fonte ajustada pra ${out.font_color} (contraste com o fundo era < 4.5)`);
-  }
-
-  const fonteBotao = solid(out.font_color);
+  const MIN = 4.5; // texto corrido
+  const MIN_BOTAO = 3.0; // texto grande/negrito do botão (WCAG 1.4.3, texto grande)
   const misturar = (hex: string, alvo: number, proporcao: number) =>
     '#' + rgbDe(hex).map((n) => Math.round(n + (alvo - n) * proporcao).toString(16).padStart(2, '0').toUpperCase()).join('');
+  /** Cor do texto sobre o fundo com opacidade `a` (o que o olho realmente vê). */
+  const sobreFundo = (hex: string, a: number, fundo: string) => '#' + rgbDe(hex).map((n, i) => Math.round(n * a + rgbDe(fundo)[i] * (1 - a)).toString(16).padStart(2, '0')).join('');
+  const contraFundosA = (hex: string, a: number) =>
+    Math.min(...[out.bg_gradient_start, out.bg_gradient_end].map((f) => contrasteWCAG(sobreFundo(hex, a, solid(f)), solid(f))));
+  const botaoOk = (fonte: string) =>
+    ['primary_color', 'primary_color_end'].every((c) => contrasteWCAG(solid((out as any)[c]), fonte) >= MIN_BOTAO);
+
+  // 1) fonte × fundos (topo E base) ≥ 4.5. Se falhar, tenta branco/grafite e prefere o que
+  //    também serve ao texto do botão (preserva a cor da marca no botão).
+  if (contraFundos(solid(out.font_color)) < MIN) {
+    const opcoes = ['#FFFFFF', '#111827'].filter((f) => contraFundos(f) >= MIN);
+    const escolhida = opcoes.find(botaoOk) || opcoes[0]
+      || (contraFundos('#FFFFFF') >= contraFundos('#111827') ? '#FFFFFF' : '#111827');
+    out.font_color = escolhida;
+    ajustes.push(`fonte ajustada pra ${out.font_color} (contraste com o fundo era < ${MIN})`);
+  } else if (!botaoOk(solid(out.font_color))) {
+    // fonte legível no fundo, mas ruim no botão: troca só se a alternativa também lê no fundo
+    const alt = ['#FFFFFF', '#111827'].find((f) => contraFundos(f) >= MIN && botaoOk(f));
+    if (alt) { out.font_color = alt; ajustes.push(`fonte ajustada pra ${alt} (lê no fundo ≥ ${MIN} e no botão ≥ ${MIN_BOTAO})`); }
+  }
+
+  // 2) secundária (placeholders/legendas): mesma cor com a MENOR opacidade que ainda dá ≥ 4.5 EFETIVO
+  const fonteSolida = solid(out.font_color);
+  const secAtual = out.font_color_secondary;
+  const alfaAtual = secAtual.length === 9 ? parseInt(secAtual.slice(7), 16) / 255 : 1;
+  const secLe = solid(secAtual).toUpperCase() === fonteSolida.toUpperCase() && contraFundosA(fonteSolida, alfaAtual) >= MIN;
+  if (!secLe) {
+    const alfa = ['99', 'B3', 'CC', 'E6'].find((h) => contraFundosA(fonteSolida, parseInt(h, 16) / 255) >= MIN);
+    out.font_color_secondary = fonteSolida + (alfa || '');
+    ajustes.push(`fonte secundária refeita (${alfa ? 'opacidade ' + alfa : 'sólida'}): a original não lia ≥ ${MIN} sobre o fundo`);
+  }
+
+  // 3) texto do botão: as DUAS pontas do gradiente ≥ 3.0 contra a fonte; senão clareia/escurece o MESMO matiz
+  const fonteBotao = solid(out.font_color);
   let botaoAjustado = false;
   for (const campo of ['primary_color', 'primary_color_end'] as const) {
     const original = solid(out[campo]);
-    if (contrasteWCAG(original, fonteBotao) >= 3.0) continue;
-
-    // Procura o ajuste mais próximo, tanto para fonte clara quanto escura.
+    if (contrasteWCAG(original, fonteBotao) >= MIN_BOTAO) continue;
     for (let passo = 1; passo <= 20; passo++) {
       const candidatos = [misturar(original, 0, passo / 20), misturar(original, 255, passo / 20)]
         .sort((a, b) => contrasteWCAG(b, fonteBotao) - contrasteWCAG(a, fonteBotao));
-      if (contrasteWCAG(candidatos[0], fonteBotao) >= 3.0) {
-        out[campo] = candidatos[0];
-        botaoAjustado = true;
-        break;
-      }
+      if (contrasteWCAG(candidatos[0], fonteBotao) >= MIN_BOTAO) { out[campo] = candidatos[0]; botaoAjustado = true; break; }
     }
   }
-  if (botaoAjustado) ajustes.push(`botão ajustado (fonte ${out.font_color} precisa de contraste ≥ 3.0)`);
+  if (botaoAjustado) ajustes.push(`botão ajustado (fonte ${out.font_color} precisa de contraste ≥ ${MIN_BOTAO})`);
+
+  // 4) accent (links/detalhes são TEXTO): ≥ 4.5 contra os dois fundos, mesmo matiz
+  const original = solid(out.accent_color);
+  if (contraFundos(original) < MIN) {
+    for (let passo = 1; passo <= 20; passo++) {
+      const c = [misturar(original, 0, passo / 20), misturar(original, 255, passo / 20)]
+        .sort((a, b) => contraFundos(b) - contraFundos(a))[0];
+      if (contraFundos(c) >= MIN) { out.accent_color = c; ajustes.push(`accent ajustado pra ${c} (contraste com o fundo era < ${MIN})`); break; }
+    }
+  }
   return { paleta: out, ajustes };
 }
 
@@ -237,11 +341,12 @@ Anatomia da tela: fundo em gradiente vertical (bg_gradient_start no topo → bg_
 
 REGRAS:
 1. Use as cores DE MARCA do site (as saturadas/reconhecíveis) — cinzas, pretos e brancos puros são estrutura, não marca.
-2. O fundo deve ser ESCURO e sóbrio: se a marca tem um tom escuro próprio, use-o; senão derive um tom bem escuro da cor primária (não invente matiz alheio à marca).
-3. primary_color = a cor mais forte da marca; primary_color_end = versão levemente mais escura do MESMO matiz. As duas precisam contrastar com font_color, que também é a fonte do botão.
-4. accent_color = cor secundária vibrante da marca; sem segunda cor, use uma variação clara da primária.
-5. font_color deve ler bem sobre os dois fundos (quase sempre #FFFFFF); font_color_secondary = font_color + "99".
-6. Fidelidade à marca vence estética própria: não "melhore" a cor do cliente.
+2. O fundo segue a identidade do site, sem estética própria: se a linha "FUNDO DO SITE" diz CLARO, use fundo claro (branco/off-white, podendo terminar numa cor de marca suave) com font_color ESCURA (um azul-marinho/grafite da própria marca, se houver); se diz ESCURO, use um tom escuro da marca, ou derive um bem escuro da primária (sem inventar matiz alheio).
+3. primary_color = a cor mais forte da marca; primary_color_end = versão levemente mais escura do MESMO matiz. As duas precisam contrastar com a cor do texto do botão (font_color).
+4. accent_color = segunda cor de marca do site (a de maior frequência depois da primária, com matiz diferente); sem segunda cor, use uma variação da primária.
+5. font_color deve ler bem sobre os dois fundos; font_color_secondary = font_color + "99".
+6. primary_color e accent_color DEVEM ser hex copiados da lista de CORES ENCONTRADAS, sem alterar um dígito. Só os fundos, primary_color_end e a fonte podem ser derivados. Fidelidade à marca vence estética própria: não "melhore" nem "aproxime" a cor do cliente.
+7. As cores vêm de CSS de site inteiro: ignore as que são claramente de componente genérico (vermelho de erro, azul de link padrão, cores de redes sociais) quando houver outras de marca com frequência parecida.
 
 Responda APENAS JSON válido:
 {"font_color":"#RRGGBB","font_color_secondary":"#RRGGBB99","primary_color":"#RRGGBB","primary_color_end":"#RRGGBB","accent_color":"#RRGGBB","bg_gradient_start":"#RRGGBB","bg_gradient_end":"#RRGGBB","racional":"1 frase"}`;
@@ -252,7 +357,11 @@ async function mapearComIA(args: {
 }): Promise<{ paleta: PaletaLogin; racional: string | null }> {
   const linhas = args.candidatos.map((c) =>
     `${c.hex} ×${c.count}${c.neutra ? ' (neutra)' : ''} lum=${c.luminancia.toFixed(2)}`).join('\n');
+  const peso = (claras: boolean) => args.candidatos
+    .filter((c) => c.neutra && (c.luminancia > 0.5) === claras).reduce((s, c) => s + c.count, 0);
+  const fundoClaro = peso(true) >= peso(false);
   const user = `SITE: ${args.site}${args.titulo ? `\nTÍTULO: ${args.titulo}` : ''}
+FUNDO DO SITE: ${fundoClaro ? 'CLARO' : 'ESCURO'} (neutras claras ${peso(true)} × escuras ${peso(false)})
 ${args.themeColor ? `META theme-color: ${args.themeColor}` : ''}${args.manifestTheme ? `\nMANIFEST theme_color: ${args.manifestTheme}` : ''}
 
 CORES ENCONTRADAS (hex ×frequência):
@@ -291,6 +400,7 @@ export async function extrairPaletaDoSiteCore(rawUrl: string, aiConfig?: any): P
   let cssTotal = sinais.inlineCss;
   let cssArquivos = 0;
   for (const link of sinais.cssLinks) {
+    if (/\/wp-content\/plugins\//i.test(link)) continue; // CSS de plugin (slider, compartilhar) não é a marca
     const css = await fetchTexto(link, MAX_CSS_BYTES, 'text/css,*/*;q=0.1');
     if (css) { cssTotal += '\n' + css.texto; cssArquivos++; }
   }
@@ -307,7 +417,10 @@ export async function extrairPaletaDoSiteCore(rawUrl: string, aiConfig?: any): P
     }
   }
 
+  cssTotal = limparRuidoCss(cssTotal);
   const contagem = extrairCoresDeCss(cssTotal);
+  // paleta declarada pelo construtor do site: peso ×5 por declaração
+  for (const [hex, n] of extrairCoresDeMarca(cssTotal)) contagem.set(hex, (contagem.get(hex) || 0) + n * 5);
   if (sinais.themeColor) {
     const t = normalizarHex(sinais.themeColor);
     if (t) contagem.set(t, (contagem.get(t) || 0) + 50); // sinal forte e intencional
@@ -321,7 +434,9 @@ export async function extrairPaletaDoSiteCore(rawUrl: string, aiConfig?: any): P
     site: pagina.urlFinal, titulo: sinais.titulo, themeColor: sinais.themeColor,
     manifestTheme, candidatos, aiConfig,
   });
-  const { paleta, ajustes } = garantirContraste(bruta);
+  const ancorada = ancorarNasCandidatas(bruta, candidatos);
+  const { paleta, ajustes: ajustesContraste } = garantirContraste(ancorada.paleta);
+  const ajustes = [...ancorada.ajustes, ...ajustesContraste];
 
   return {
     paleta, racional, ajustes, candidatos,
