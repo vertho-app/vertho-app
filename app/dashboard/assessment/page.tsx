@@ -110,6 +110,15 @@ function AssessmentInner() {
 
   function flash(msg) { toast.error(msg); }
 
+  // Fim do primeiro mapeamento + preferências de aprendizagem ainda não dadas
+  // (tenant sem DISC nativo): a etapa vem antes do resultado. O servidor decide
+  // (`precisaPreferencias`); a tela só obedece.
+  function irParaPreferencias(r: any): boolean {
+    if (!r?.concluiuTudo || !r?.precisaPreferencias) return false;
+    router.replace('/dashboard/preferencias-aprendizagem');
+    return true;
+  }
+
   useEffect(() => {
     let ativo = true;
     // Troca de trilho na mesma rota: zera o que era do trilho anterior antes de
@@ -125,6 +134,7 @@ function AssessmentInner() {
         if (!r) { setError(t('emptyServer')); setPhase(PHASE.ERROR); return; }
         if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
         setData(r);
+        if (irParaPreferencias(r)) return;
         if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
         else if (r.respondeuHoje) setPhase(PHASE.HOJE);
         else setPhase(PHASE.EXPLICACAO);
@@ -170,7 +180,10 @@ function AssessmentInner() {
     setSaveResult(r);
     if (r.concluiuTudo) {
       const refreshed: any = await getDiagnosticoDoDia(trilho);
-      if (refreshed && !refreshed.error) setData(refreshed);
+      if (refreshed && !refreshed.error) {
+        setData(refreshed);
+        if (irParaPreferencias(refreshed)) return;
+      }
       setPhase(PHASE.CONCLUIDO);
     } else setPhase(PHASE.CONFIRM);
   }
@@ -393,6 +406,7 @@ function AssessmentInner() {
                 const r: any = await getDiagnosticoDoDia(trilho);
                 if (r.error) { setError(r.error); setPhase(PHASE.ERROR); return; }
                 setData(r);
+                if (irParaPreferencias(r)) return;
                 if (r.concluiuTudo) setPhase(PHASE.CONCLUIDO);
                 else setPhase(PHASE.INTRO);
               }}

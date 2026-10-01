@@ -27,6 +27,7 @@ const PAGINAS_CONHECIDAS: Record<string, string> = {
   '/dashboard/jornada/historico': 'Histórico da jornada',
   '/dashboard/pdi': 'Plano de desenvolvimento individual',
   '/dashboard/perfil': 'Meu perfil',
+  '/dashboard/preferencias-aprendizagem': 'Preferências de aprendizagem',
   '/dashboard/perfil-comportamental': 'Perfil comportamental',
   '/dashboard/perfil-comportamental/mapeamento': 'Mapeamento do perfil comportamental',
   '/dashboard/perfil-comportamental/relatorio': 'Relatório do perfil comportamental',

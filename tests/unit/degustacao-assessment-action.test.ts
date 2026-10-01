@@ -80,7 +80,10 @@ vi.mock('@/lib/auth/action-context', () => ({
   getAuthenticatedEmailFromAction: vi.fn(async () => cenario.email),
 }));
 vi.mock('@/lib/turmas', () => ({ configEfetivaDoColaborador: vi.fn(async () => ({})) }));
-vi.mock('@/lib/access-gates', () => ({
+// Parcial: só o gate de cenários é fixado; as regras de preferências (usadas na tela de
+// conclusão) seguem as reais.
+vi.mock('@/lib/access-gates', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/access-gates')>()),
   canAccessMapeamentoCenarios: () => ({ allowed: true }),
 }));
 vi.mock('@/lib/demo/degustacao-avaliacao', () => ({

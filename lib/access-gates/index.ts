@@ -7,4 +7,11 @@
 export type { GateResult, EmpresaConfig } from './types';
 export { canAccessPerfilComportamental } from './perfil-comportamental';
 export { canAccessMapeamentoCenarios } from './mapeamento-cenarios';
+export {
+  usaMapeamentoComportamentalNativo,
+  precisaPreferenciasAprendizagem,
+  colunasDePreferencias,
+  FORMATOS_PREFERENCIA,
+  type FormatoPreferenciaId,
+} from './preferencias-aprendizagem';
 export { canUseModulo, moduloContratado, MODULOS, type Modulo } from './modulos';

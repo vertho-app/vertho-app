@@ -69,7 +69,10 @@ vi.mock('@/lib/authz', () => ({
 }));
 vi.mock('@/lib/auth/action-context', () => ({ getAuthenticatedEmailFromAction: vi.fn(async () => 'ana@cliente.com') }));
 vi.mock('@/lib/turmas', () => ({ configEfetivaDoColaborador: vi.fn(async () => ({})) }));
-vi.mock('@/lib/access-gates', () => ({ canAccessMapeamentoCenarios: () => ({ allowed: true }) }));
+vi.mock('@/lib/access-gates', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/access-gates')>()),
+  canAccessMapeamentoCenarios: () => ({ allowed: true }),
+}));
 
 import { getDiagnosticoDoDia, salvarRespostaDiagnostico } from '@/app/dashboard/assessment/assessment-actions';
 

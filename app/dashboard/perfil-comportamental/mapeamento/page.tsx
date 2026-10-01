@@ -10,6 +10,7 @@ import { ChevronUp, ChevronDown, Loader2, Check, Star, Play } from 'lucide-react
 import Image from 'next/image';
 import VideoModal from '@/components/video-modal';
 import BackButton from '@/components/back-button';
+import PreferenciasAprendizagemForm, { prefsVazias } from '@/components/preferencias-aprendizagem-form';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { normalizarDisc, computeLeadership, deriveProfile } from '@/lib/disc-mapeamento';
 import { TUTORIAIS_PLATAFORMA } from '@/lib/tutorial-videos';
@@ -34,17 +35,6 @@ const FORCED_PAIRS = [
   { a: 'meetPeople', fa: 'I', b: 'deepenRelations', fb: 'S' },
   { a: 'improvise', fa: 'I', b: 'routine', fb: 'C' },
   { a: 'teamWellbeing', fa: 'S', b: 'deliveryQuality', fb: 'C' },
-];
-
-const FORMATS = [
-  { id: 'video_short', icon: '🎬' },
-  { id: 'video_long', icon: '🎥' },
-  { id: 'text', icon: '📄' },
-  { id: 'audio', icon: '🎧' },
-  { id: 'infographic', icon: '📊' },
-  { id: 'exercise', icon: '🎯' },
-  { id: 'mentor', icon: '🤖' },
-  { id: 'case', icon: '📋' },
 ];
 
 const RANK_WEIGHTS = [10, 6, 3, 1];
@@ -203,7 +193,7 @@ export default function MapeamentoPage() {
   const [pairs1, setPairs1] = useState(() => Array(6).fill(null));
 
   // Learning preferences
-  const [learnPrefs, setLearnPrefs] = useState(() => Object.fromEntries(FORMATS.map(f => [f.id, 0])));
+  const [learnPrefs, setLearnPrefs] = useState(() => prefsVazias());
 
   // Results
   const [saving, setSaving] = useState(false);
@@ -761,32 +751,10 @@ export default function MapeamentoPage() {
         <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{t('learning.title')}</h1>
         <p className="text-[14px] text-gray-400 mb-5">{t('learning.subtitle')}</p>
 
-        {/* Duas colunas no computador; cada formato mantém sua escala completa. */}
-        <div className="grid gap-3 lg:grid-cols-2">
-          {FORMATS.map(fmt => (
-            <div key={fmt.id} className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 p-4 rounded-xl" style={{ background: '#182B48' }}>
-              <span className="text-[18px] shrink-0">{fmt.icon}</span>
-              <span className="flex-1 text-[14px] font-semibold text-white leading-snug">{t(`learning.formats.${fmt.id}`)}</span>
-              <div className="col-span-2 flex gap-2">
-                {[1, 2, 3, 4, 5].map(star => (
-                  <button
-                    key={star}
-                    aria-label={t('learning.ratingLabel', { value: star, format: t(`learning.formats.${fmt.id}`) })}
-                    aria-pressed={learnPrefs[fmt.id] === star}
-                    onClick={() => setLearnPrefs(prev => ({ ...prev, [fmt.id]: star }))}
-                    className="h-11 flex-1 rounded-md flex items-center justify-center text-lg transition-all"
-                    style={{
-                      background: learnPrefs[fmt.id] >= star ? 'rgba(252,211,77,0.15)' : 'rgba(255,255,255,0.04)',
-                      color: learnPrefs[fmt.id] >= star ? '#FCD34D' : '#64748B',
-                    }}
-                  >
-                    ★
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <PreferenciasAprendizagemForm
+          value={learnPrefs}
+          onChange={(id, star) => setLearnPrefs(prev => ({ ...prev, [id]: star }))}
+        />
 
         <button
           disabled={!allRated}

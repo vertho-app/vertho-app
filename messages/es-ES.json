@@ -3368,6 +3368,14 @@
       "remove": "¿Eliminar {email} como admin de la plataforma?"
     }
   },
+  "LearningPreferencesPage": {
+    "tag": "Última etapa",
+    "title": "¿Cómo aprendes mejor?",
+    "subtitle": "Da de 1 a 5 estrellas a cada formato. Lo usamos para elegir cómo entregarte los contenidos.",
+    "continue": "Continuar",
+    "loadError": "No se pudieron cargar tus preferencias.",
+    "saveError": "No se pudo guardar. Inténtalo de nuevo."
+  },
   "AdminLearningPreferences": {
     "title": "Preferencias de Aprendizaje",
     "subtitle": "Consolidado de las respuestas del mapeo conductual — todas las empresas",

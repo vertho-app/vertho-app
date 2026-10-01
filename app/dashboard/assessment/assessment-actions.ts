@@ -4,7 +4,11 @@ import { after } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
-import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
+import {
+  canAccessMapeamentoCenarios,
+  precisaPreferenciasAprendizagem,
+  usaMapeamentoComportamentalNativo,
+} from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { assessmentCompetencyWasAnswered, findAssessmentAnswer } from '@/lib/assessment/completion';
 import { competenciasDaDegustacao, isAssessmentDeDegustacao } from '@/lib/demo/convidado-demo';
@@ -334,11 +338,33 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
       .eq('colaborador_id', colab.id)
       .eq('tipo', 'individual');
     if (pdiError) return { error: pdiError.message };
+
+    // Preferências de aprendizagem: quem não faz o DISC nativo nunca passaria pela
+    // etapa que as coleta, então a tela as pede aqui, ao fim do PRIMEIRO
+    // mapeamento (o do cargo; quem só lidera fecha no de liderança). Só lê a
+    // coluna quando a regra pode dar sim — o resto dos tenants não paga a query.
+    const primeiroMapeamento = trilho === 'cargo' || trilhoCargo?.disponivel === false;
+    let precisaPreferencias = false;
+    if (primeiroMapeamento && !usaMapeamentoComportamentalNativo(cfg)) {
+      const { data: prefRow, error: prefError } = await sb.from('colaboradores')
+        .select('pref_video_curto')
+        .eq('id', colab.id)
+        .eq('empresa_id', colab.empresa_id)
+        .maybeSingle();
+      if (prefError) return { error: prefError.message };
+      precisaPreferencias = precisaPreferenciasAprendizagem({
+        config: cfg,
+        jaPreencheu: Number((prefRow as any)?.pref_video_curto) > 0,
+        assessmentConcluido: true,
+      });
+    }
+
     return {
       colaborador: colaboradorPayload,
       progresso,
       degustacao,
       concluiuTudo: true,
+      precisaPreferencias,
       resultados,
       // O PDI é do mapeamento do CARGO; no trilho de liderança o botão não faz sentido.
       temPdi: trilho === 'cargo' && (pdiCount || 0) > 0,

@@ -805,6 +805,16 @@ toggles não cascateiam nesses tenants. Contrato em
 que A **nunca** será satisfeito. Se existir, B fica inalcançável lá — e o sintoma
 aparece como bug do usuário, não como configuração.
 
+**Preferências de aprendizagem (01/10/2026):** o formulário (8 formatos, 1 a 5 estrelas) é a última etapa do
+mapeamento DISC e só era gravado junto dele (`salvarPerfilComportamental`). Quem tem fonte externa nunca passava
+por essa etapa e ficava com `pref_* = 0`. Agora `getDiagnosticoDoDia` devolve `precisaPreferencias` ao fim do
+**primeiro** mapeamento de competências (trilho do cargo; quem só lidera fecha no de liderança), e a tela
+`/dashboard/preferencias-aprendizagem` grava só as colunas `pref_*` (`salvarPreferenciasAprendizagem`) e volta ao
+assessment. A regra é uma função pura em `lib/access-gates/preferencias-aprendizagem.ts`: pede quando
+`perfil_externo_fonte` está preenchido, o mapeamento acabou e a pessoa ainda não preencheu. `perfil_comportamental_liberado
+= false` sozinho NÃO conta (é estado da turma). Tenant com DISC nativo segue como antes. Testes:
+`preferencias-aprendizagem.test.ts` e `assessment-preferencias-aprendizagem.test.ts`.
+
 **PDF do relatório externo** (bucket `perfis-externos/<empresa_id>/<colab_id>.pdf`,
 coluna `colaboradores.perfil_externo_pdf_path`, URL assinada de 10 min):
 - gestor/RH: `app/dashboard/gestor/actions.ts::getPerfilExternoPdfUrl(colabId)` —

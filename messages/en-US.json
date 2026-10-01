@@ -3368,6 +3368,14 @@
       "remove": "Remove {email} as platform admin?"
     }
   },
+  "LearningPreferencesPage": {
+    "tag": "Last step",
+    "title": "How do you learn best?",
+    "subtitle": "Rate each format from 1 to 5 stars. We use this to choose how to deliver your content.",
+    "continue": "Continue",
+    "loadError": "We couldn't load your preferences.",
+    "saveError": "We couldn't save. Please try again."
+  },
   "AdminLearningPreferences": {
     "title": "Learning Preferences",
     "subtitle": "Consolidated behavioral mapping responses — all companies",
