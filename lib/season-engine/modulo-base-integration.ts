@@ -12,7 +12,7 @@
  * Spec: docs/MODULOS-BASE-CONTEUDO.md.
  */
 
-import { embedQuery } from '@/lib/embeddings';
+import { embedQuery, moduloEmbeddingCompativel } from '@/lib/embeddings';
 import { idsDasCopiasEquivalentes } from '@/lib/matriz-por-cargo';
 
 type Nivel = 'N1' | 'N2' | 'N3' | 'N4';
@@ -122,7 +122,7 @@ export async function resolverModuloBaseParaConteudo(
   //    só globais (mantém o comportamento anterior).
   async function buscar(loc: string, tr: { entrada: Nivel; destino: Nivel }) {
     let q = sb.from('modulos_base_conteudo')
-      .select('id, grupo_id, locale, preferido, contexto_pedagogico, tags, published_at, empresa_id, descritor, titulo, auditoria_ia, descritor_embedding, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato')
+      .select('id, grupo_id, locale, preferido, contexto_pedagogico, tags, published_at, empresa_id, descritor, titulo, auditoria_ia, descritor_embedding, descritor_embedding_v4, descritor_embedding_v4_model, conteudo_central, conteudo_aplicavel, guarda_corpos, adaptacao_por_formato')
       .eq('nivel_entrada', tr.entrada)
       .eq('nivel_destino', tr.destino)
       .eq('locale', loc)
@@ -184,7 +184,13 @@ export async function resolverModuloBaseParaConteudo(
 
   // Embedding da semana (semântico). Sem provider/descritor → cai p/ tokens.
   let queryVec: number[] | null = null;
-  if (descritorBusca) { try { queryVec = (await embedQuery(descritorBusca))?.vector || null; } catch { queryVec = null; } }
+  let queryModel: string | null = null;
+  if (descritorBusca) {
+    try {
+      const emb = await embedQuery(descritorBusca);
+      queryVec = emb?.vector || null; queryModel = emb?.model || null;
+    } catch { queryVec = null; }
+  }
   const parseEmb = (v: any): number[] | null => {
     if (!v) return null;
     if (Array.isArray(v)) return v;
@@ -211,7 +217,7 @@ export async function resolverModuloBaseParaConteudo(
   const relevancia = (m: any): number => {
     if (relCache.has(m.id)) return relCache.get(m.id)!;
     let r = 0; let semantico = false;
-    const emb = parseEmb(m.descritor_embedding);
+    const emb = parseEmb(moduloEmbeddingCompativel(m, queryModel));
 
     // NOME IDÊNTICO manda, sempre — antes de qualquer cosseno.
     //
@@ -225,7 +231,7 @@ export async function resolverModuloBaseParaConteudo(
     let exato = false;
     if (nomeIdentico(m)) {
       r = 1; exato = true;
-    } else if (queryVec && emb) {
+    } else if (queryVec && emb && queryVec.length === emb.length) {
       r = Math.max(0, cosine(queryVec, emb)); semantico = true;
     } else if (wantTok.size) {
       const have = toks(`${m.descritor || ''} ${m.titulo || ''}`);

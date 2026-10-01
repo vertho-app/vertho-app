@@ -15,6 +15,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
   vi.stubEnv('EMBEDDING_PROVIDER', 'voyage');
   vi.stubEnv('VOYAGE_API_KEY', 'k');
+  vi.stubEnv('VOYAGE_EMBEDDING_MODEL', 'voyage-4-large');
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
@@ -24,6 +25,21 @@ const rate = () => ({ ok: false, status: 429, text: async () => 'rate limit' });
 const morto = () => ({ ok: false, status: 401, text: async () => 'unauthorized' });
 
 describe('embedText — cache e retry', () => {
+  it('modelo faz parte do cache; query e documento usam a mesma geração e tipos diferentes', async () => {
+    const { embedText, embedQuery } = await import('@/lib/embeddings');
+    fetchMock.mockResolvedValue(okResp());
+    expect((await embedText('Escuta ativa'))?.model).toBe('voyage/voyage-4-large');
+    expect((await embedQuery('Escuta ativa'))?.model).toBe('voyage/voyage-4-large');
+    vi.stubEnv('VOYAGE_EMBEDDING_MODEL', 'voyage-3-large');
+    expect((await embedText('Escuta ativa'))?.model).toBe('voyage/voyage-3-large');
+    expect((await embedQuery('Escuta ativa'))?.model).toBe('voyage/voyage-3-large');
+    const requests = fetchMock.mock.calls.map(([, options]) => JSON.parse(options.body));
+    expect(requests.map(r => [r.model, r.input_type])).toEqual([
+      ['voyage-4-large', 'document'], ['voyage-4-large', 'query'],
+      ['voyage-3-large', 'document'], ['voyage-3-large', 'query'],
+    ]);
+    expect(requests.every(r => r.output_dimension === 1024)).toBe(true);
+  });
   it('mesmo texto NÃO chama a API duas vezes (o lote repete o descritor)', async () => {
     const { embedText } = await import('@/lib/embeddings');
     fetchMock.mockResolvedValue(okResp());

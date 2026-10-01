@@ -14,7 +14,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "backfill:embeddings": "node scripts/backfill-embeddings.js",
+    "backfill:embeddings": "npx --yes tsx --tsconfig tsconfig.scripts.json scripts/backfill-embeddings.ts",
     "radar:import-censo-catalog": "node scripts/import-censo-catalog.mjs",
     "radar:import-enem": "node scripts/import-enem-escola.mjs",
     "radar:import-ideb": "node scripts/import-ideb.mjs",

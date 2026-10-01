@@ -1,156 +1,67 @@
 # RAG / Grounding — arquitetura
 
-## Por que
+O grounding busca trechos da `knowledge_base` da empresa antes de chamar a IA. O modelo recebe o material no bloco `Contexto da empresa`, com instrução de usá-lo apenas quando relevante.
 
-Até aqui, toda IA respondia só com conhecimento do modelo base. Problemas:
+## Consumidores
 
-- **Hallucinação**: modelo inventa política da empresa que não existe
-- **Sem contexto tenant**: respostas genéricas, sem valores ou glossário do cliente
-- **Drift**: mudou regulamento? IA não sabe até retrain
+- `app/api/temporada/tira-duvidas/route.ts`: consulta com a pergunta do colaborador, até cinco trechos.
+- `app/api/temporada/reflection/route.ts`: Evidências socráticas e feedback da Missão Prática; consulta estável com competência e descritor, até quatro trechos.
+- O painel `/admin/vertho/knowledge-base` permite CRUD, upload, seed e preview da busca.
 
-Grounding resolve: antes de responder, IA recebe trechos curados da **base de conhecimento daquela empresa**. Respostas viram **citáveis** e **auditáveis**.
+O embedding também serve à seleção de módulos-base em `lib/season-engine/modulo-base-integration.ts`. Esse caminho calcula cosseno sobre descritor e título, preservando a prioridade do nome idêntico, escopo de empresa/cargo e demais critérios pedagógicos. Não passa pela `knowledge_base` nem pelas RPCs de RAG.
 
-## Estado atual
+## Busca e isolamento
 
-### Backend
-- `migrations/041-knowledge-base.sql` — tabela `knowledge_base` per-tenant (RLS)
-  - Coluna `tsv` auto-gerada (tsvector PT-BR, peso A título + B conteúdo)
-  - `kb_search(empresa_id, query, limit)` — FTS por `ts_rank`
-- `migrations/042-pgvector.sql` — habilita pgvector
-  - `embedding VECTOR(1024)` (migration 043; era 1536 em 042) + `embedding_model` + `embedding_at`
-  - Índice IVFFLAT cosine
-  - `kb_search_semantic(empresa_id, query_emb, limit)` — busca semântica
-  - `kb_search_hybrid(empresa_id, query, query_emb, limit, k=60)` — RRF (FTS+vector)
+`lib/rag.ts::retrieveContext(empresaId, query, k)` exige empresa, limita a consulta a 500 caracteres e tenta combinar FTS em português com similaridade vetorial por Reciprocal Rank Fusion (RRF). Falhas de embeddings ou da RPC caem para `kb_search` (FTS), com log. Sem resultados, o bloco de contexto fica vazio.
 
-### Retrieval
-- `lib/rag.ts`
-  - `retrieveContext(empresaId, query, k=5)` — tenta híbrido se embedding ativo, senão FTS
-  - `formatGroundingBlock(chunks)` — formata como bloco injetável no prompt
-  - `ingestDoc(...)` — best-effort gera embedding em background após insert
-  - `listDocs(empresaId)`, `deactivateDoc(empresaId, id)` — admin
-- `lib/embeddings.ts`
-  - `embedText(t)` / `embedQuery(t)` — provider via `EMBEDDING_PROVIDER` env
-  - Suporta `openai` (text-embedding-3-small, 1536d) e `voyage` (voyage-3-large, 1536 output)
-  - `none` (default) — desabilita embeddings, retrieval fica em FTS puro
+O backend usa service-role: a autenticação nas rotas e o filtro explícito `p_empresa_id` em **ambas** as buscas SQL são necessários. As funções são `SECURITY INVOKER`. A RPC nova só concede execução a `service_role`; RLS e permissões das funções anteriores permanecem.
 
-### Ingestão
-- `lib/rag-ingest.ts`
-  - `parsePdf(buffer)` (pdf-parse), `parseDocx(buffer)` (mammoth), `parseDocument(buffer, hint)`
-  - `chunkBySection(text)` — detecta headings + split por max chars com overlap
-- `lib/rag-seed.ts`
-  - `SEED_TEMPLATE` — 6 docs base (temporada, evidências, tira-dúvidas, régua, modos, privacidade)
-  - `seedKnowledgeBase(empresaId)` — idempotente
+São recuperados até três vezes os candidatos necessários, limitados a 30, e depois retornados até `k` trechos. Fragmentos de índice contendo apenas título, nível e código de módulo, ou capa de manuscrito, são descartados. Não há regra geral de tamanho mínimo: uma instrução curta pode oferecer contexto útil.
 
-### Aplicação (grounding ativo)
-- `/api/temporada/tira-duvidas` — query = pergunta do colab
-- `/api/temporada/reflection` (Evidências socrático e Missão Prática feedback)
-  query = competência + descritor + últimas mensagens
-- `actions/relatorios.js::gerarRelatorioGestor` + `gerarRelatorioRH` (Plenária)
-  query = "valores cultura organizacional políticas..."
+## Modelos e migração Voyage 4
 
-### Painel
-- `/admin/vertho/knowledge-base` — CRUD + Upload PDF/DOCX/TXT/MD + preview de busca + seed botão
+`lib/embeddings.ts` usa `EMBEDDING_PROVIDER=voyage|openai|none`; o padrão sem configuração é `none`. Voyage usa `voyage-4-large` e OpenAI usa `text-embedding-3-small`, ambos com saída de 1024 dimensões. Voyage diferencia `input_type=document` e `query`. O cache de documentos inclui modelo e texto, para não reutilizar um vetor de outra geração.
 
-## Fluxo de uma pergunta (tira-dúvidas)
+Voyage 3 e Voyage 4 têm espaços vetoriais incompatíveis, apesar da mesma dimensão. A migration `272-voyage-4-hybrid.sql` mantém dois acervos:
 
-```
-colab manda pergunta
-   │
-   ▼
-route descobre empresa_id do colab
-   │
-   ▼
-retrieveContext(empresaId, pergunta, 5)
-   │
-   ▼ SQL: kb_search
-   │
-   ▼ top-5 chunks ranqueados por FTS
-   │
-   ▼
-formatGroundingBlock → "## Contexto da empresa\n### Regulamento\n..."
-   │
-   ▼
-promptTiraDuvidas injeta no system
-   │
-   ▼
-Claude responde usando DESCRITOR + CONTEXTO da empresa
+| Acervo | Colunas de vetor e metadados | Consulta |
+|---|---|---|
+| KB legado | `embedding`, `embedding_model`, `embedding_at` | `kb_search_hybrid` |
+| KB Voyage 4 | `embedding_v4`, `embedding_v4_model`, `embedding_v4_at` | `kb_search_hybrid_v4` |
+| Módulos legado Voyage 3 | `descritor_embedding` | query Voyage 3 |
+| Módulos Voyage 4 | `descritor_embedding_v4`, `descritor_embedding_v4_model`, `descritor_embedding_v4_at` | query Voyage 4 |
+
+A RPC nova filtra o modelo `voyage/voyage-4-large`. O resolver de módulos só usa vetores da geração da query, com dimensões iguais; caso faltem, mantém match exato e tokens. A migration também corrige a ambiguidade de `id`/`score` que fazia a RPC legada falhar e cair para FTS.
+
+O índice novo é HNSW com cosine. O pgvector 0.8 permite busca iterativa para preencher os candidatos após filtrar a empresa. A função habilita `hnsw.iterative_scan=strict_order`. Os dados atuais são pequenos; medir plano e recall antes de ajustar parâmetros para bases maiores.
+
+Ao editar título/conteúdo da KB ou título/descritor do módulo, triggers invalidam o vetor Voyage 4, inclusive quando o escritor é uma release antiga. Ingestão e publicação geram os novos vetores sem bloquear a criação/publicação. A gravação compara a fonte/versão para evitar aplicar um embedding a conteúdo que mudou durante a chamada à API.
+
+### Operação e rollback
+
+1. Aplicar a migration via `scripts/apply-migration.mjs`, depois de salvar backup.
+2. Preparar e preencher os vetores novos sem sobrescrever os antigos.
+3. Validar recuperação e isolamento no banco; publicar web e workers que empacotam a biblioteca.
+
+Rollback: publicar a release anterior ou configurar `VOYAGE_EMBEDDING_MODEL=voyage-3-large` e redeployar os consumidores. Os vetores antigos continuam disponíveis; manter as colunas novas e a correção da RPC legada. Conteúdo criado só com Voyage 4 pode exigir backfill legado se o rollback precisar de cobertura semântica completa.
+
+Backfill de pendências da KB:
+
+```sh
+npm run backfill:embeddings -- --dry
+npm run backfill:embeddings -- --empresa <uuid> --limit 50
 ```
 
-## Isolamento per-tenant
+O script em TypeScript faz paginação, salva backup local em `backups/` antes de escrever e atualiza somente fontes ainda iguais e sem vetor. `--dry` não chama a API. Para módulos, a publicação em `lib/modulos-base/publicar.ts` gera o embedding.
 
-**Invariante crítico**: `retrieveContext` exige `empresaId`. Sem default, sem fallback global. Se alguém chamar sem passar → throw.
+## Ingestão
 
-RLS + function `kb_search` (SECURITY DEFINER, mas filtra por `p_empresa_id` explícito) garantem que nenhum conteúdo de tenant A vaza pra tenant B.
+`lib/rag-ingest.ts` extrai PDF/DOCX/texto e separa por seção com tamanho máximo e overlap. `lib/rag-seed.ts` popula documentos iniciais de forma idempotente. `ingestDoc` insere o documento e tenta gerar o embedding em background; falhas mantêm o documento elegível ao FTS.
 
-## Como popular a base (hoje — manual)
+## Avaliação e reranker
 
-```sql
-INSERT INTO knowledge_base (empresa_id, titulo, conteudo, categoria)
-VALUES (
-  '<uuid-empresa>',
-  'Banco de horas',
-  'Saldo máximo 40h. Compensação em até 6 meses. Horas noturnas contam 20% a mais.',
-  'regulamento'
-);
-```
+O experimento de 01/10/2026 comparou 516 trechos e 48 consultas autoradas. No rótulo amplo de capítulo/conteúdo, a precisão nos cinco primeiros foi 81,7% com Voyage 3 e 86,7% com Voyage 4. Após remover trechos curtos no experimento, Voyage 4 chegou a 88,8%; adicionar `rerank-3-lite` resultou em 89,2%, com cerca de 400 ms adicionais. A amostra não demonstrou ganho estatístico conclusivo e não avalia as respostas finais da IA. Dados dos tenants e resultados detalhados ficam fora do repositório público.
 
-## TODO curto prazo
+O reranker permanece desativado. Não há chamada adicional de reranking no fluxo de produção. Reavaliar com perguntas reais e rótulos de resposta antes de adicioná-lo.
 
-- [x] Painel admin `/admin/vertho/knowledge-base` pra RH alimentar
-- [x] Seed automático (botão "Popular base inicial")
-- [x] Parser de PDF/docx → chunks
-- [x] Chunk size calibrado (~3200 chars ≈ 800 tokens com overlap 200)
-- [x] Backfill embeddings em rows pré-existentes (`scripts/backfill-embeddings.js`)
-- [ ] Pré-warmup do índice IVFFLAT após backfill (REINDEX + ANALYZE) — manual no SQL editor, sugerido ao fim do script
-- [ ] Upgrade `lists` no índice IVFFLAT quando passar de 10k rows
-
-## Como ativar embeddings (semântico + híbrido)
-
-A infra está **pronta**. Pra ativar:
-
-### 1. Configurar provider via env
-```bash
-# .env.local ou Vercel env
-EMBEDDING_PROVIDER=voyage   # ou 'openai'
-VOYAGE_API_KEY=...          # ou OPENAI_API_KEY se openai
-```
-
-| Provider | Modelo | Dim | Custo /1M tokens | Nota |
-|---|---|---|---|---|
-| OpenAI | `text-embedding-3-small` | 1024 (via `dimensions` param) | $0.02 | Mais barato |
-| Voyage | `voyage-3-large` | 1024 nativo | ~$0.18 | Anthropic recomenda |
-
-### 2. Backfill (rows existentes)
-```bash
-node scripts/backfill-embeddings.js --dry              # checa quantos faltam
-node scripts/backfill-embeddings.js                    # roda em todas as empresas
-node scripts/backfill-embeddings.js --empresa <uuid>   # só uma empresa
-node scripts/backfill-embeddings.js --limit 50         # só 50 rows (teste)
-```
-Após o backfill, rodar no SQL editor:
-```sql
-REINDEX INDEX idx_kb_embedding;
-ANALYZE knowledge_base;
-```
-Novos docs criados após ativação ganham embedding automático via `ingestDoc` (background, best-effort).
-
-### 3. Sem mudança em callers
-`retrieveContext()` detecta automaticamente se embedding está disponível e usa híbrido (RRF). Se quebrar, cai pra FTS silenciosamente.
-
-## Pitfalls conhecidos
-
-- **Chunking ruim**: se o doc inteiro vira 1 row, FTS perde precisão. Quebrar por seção/parágrafo (TODO)
-- **Query curta**: "banco de horas?" → FTS PT-BR tem stemmer mas perde stopwords. Normal.
-- **Sem results**: prompt diz "IGNORE contexto se não relevante" — modelo lida bem
-- **Cache**: Claude prompt caching do system NÃO ajuda aqui porque o grounding muda a cada request. Caching só atinge parte fixa do system (as 7 seções de regras). ~80% hit.
-
-## Aplicações futuras (mesma API)
-
-Plug-and-play em qualquer prompt que beneficie de contexto da empresa:
-
-- Evidências (prompt socrático) — citar valores da empresa ao comparar comportamento
-- Missão Prática (cenário escrito) — gerar cenários que usem linguagem/cultura interna
-- Plenária do gestor — sugerir falas alinhadas com comunicação interna
-- Tira-Dúvidas (atual) ✅
-
-Padrão: sempre `retrieveContext(empresaId, <query contextual>, k)` + `formatGroundingBlock(chunks)` injetado no system.
+Preços publicados na avaliação: Voyage 4 large US$ 0,12/1 milhão de tokens; Voyage 3 large US$ 0,18. Fontes: [embeddings Voyage](https://docs.voyageai.com/docs/embeddings), [preços](https://docs.voyageai.com/docs/pricing), [pgvector](https://github.com/pgvector/pgvector).

@@ -48,9 +48,14 @@ export async function publicarModuloCore(
 
   // Embedding do descritor p/ a seleção semântica na trilha (best-effort, não bloqueia).
   try {
-    const { embedText } = await import('@/lib/embeddings');
+    const { embedText, moduloEmbeddingUpdate } = await import('@/lib/embeddings');
     const emb = await embedText(`${data.descritor || ''} ${data.titulo || ''}`.trim());
-    if (emb?.vector) await sb.from('modulos_base_conteudo').update({ descritor_embedding: emb.vector }).eq('id', id);
+    if (emb?.vector) {
+      const { error: embError } = await sb.from('modulos_base_conteudo')
+        .update(moduloEmbeddingUpdate(emb)).eq('id', id)
+        .eq('versao', data.versao);
+      if (embError) throw embError;
+    }
   } catch (e: any) { console.warn('[publicarModuloCore] embedding falhou:', e?.message); }
 
   return { ok: true };

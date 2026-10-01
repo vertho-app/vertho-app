@@ -21,7 +21,10 @@ let sb: SupabaseMock;
 let tabelas: Record<string, any[]> = {};
 
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => sb.client }));
-vi.mock('@/lib/embeddings', () => ({ embedQuery: vi.fn(async () => null) }));
+vi.mock('@/lib/embeddings', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/lib/embeddings')>(),
+  embedQuery: vi.fn(async () => null),
+}));
 vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn(async () => ''), callAIChat: vi.fn(async () => '') }));
 vi.mock('@/lib/ai-tasks', () => ({ getModelForTask: vi.fn(async () => 'claude-sonnet-5'), DEFAULT_TASK_MODELS: {} }));
 vi.mock('@/lib/degradacao', async (importOriginal) => {

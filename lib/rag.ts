@@ -1,5 +1,5 @@
 import { createSupabaseAdmin } from './supabase';
-import { embedQuery, embedText } from './embeddings';
+import { embedQuery, embedText, kbEmbeddingUpdate, VOYAGE_4_MODEL } from './embeddings';
 
 /**
  * RAG / grounding per-tenant via knowledge_base.
@@ -38,6 +38,26 @@ export interface IngestDocInput {
   criadoPor?: string | null;
 }
 
+/** Fragmentos de índice de manuscrito não oferecem grounding. Textos curtos úteis permanecem. */
+export function isMetadataOnlyChunk(conteudo: string): boolean {
+  const text = conteudo.trim();
+  if (!text) return true;
+  if (text.length >= 400 || /[.!?;:]/.test(text)) return false;
+  const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  if (lines.length > 4) return false;
+  const code = /^[A-Z][A-Z0-9]*_MB\d+$/;
+  const level = /^(?:N[1-4]|Nível|síntese|consolidação)$/i;
+  if (lines.some(l => code.test(l)) && lines.some(l => level.test(l))) {
+    return lines.filter(l => !code.test(l) && !level.test(l)).length <= 1;
+  }
+  return lines.some(l => /^Manuscrito-base\s*·/i.test(l));
+}
+
+function usableChunks(data: unknown, k: number): KbChunk[] {
+  if (!Array.isArray(data)) return [];
+  return (data as KbChunk[]).filter(c => !isMetadataOnlyChunk(c.conteudo)).slice(0, k);
+}
+
 /**
  * Busca top-k trechos mais relevantes na base do tenant.
  * Tenta híbrido (FTS + vector) se embeddings disponíveis; senão cai pra FTS puro.
@@ -49,20 +69,25 @@ export async function retrieveContext(
 ): Promise<KbChunk[]> {
   if (!empresaId) throw new Error('retrieveContext: empresaId obrigatório');
   if (!query || typeof query !== 'string') return [];
+  if (!Number.isInteger(k) || k <= 0) return [];
+  k = Math.min(k, 30);
 
   const sb = createSupabaseAdmin();
   const queryTrunc = query.slice(0, 500);
+  // Há fragmentos de índice no acervo; buscar candidatos extras evita gastar o top-k com eles.
+  const candidateLimit = Math.min(30, k * 3);
 
   // Tentativa 1: híbrido (se provider de embeddings ativo)
   const queryEmb = await embedQuery(queryTrunc);
   if (queryEmb?.vector) {
-    const { data, error } = await sb.rpc('kb_search_hybrid', {
+    const rpc = queryEmb.model === VOYAGE_4_MODEL ? 'kb_search_hybrid_v4' : 'kb_search_hybrid';
+    const { data, error } = await sb.rpc(rpc, {
       p_empresa_id: empresaId,
       p_query: queryTrunc,
       p_query_embedding: queryEmb.vector,
-      p_limit: k,
+      p_limit: candidateLimit,
     });
-    if (!error && data) return data as KbChunk[];
+    if (!error && data) return usableChunks(data, k);
     console.warn('[rag] híbrido falhou, cai pra FTS:', error?.message);
   }
 
@@ -70,14 +95,14 @@ export async function retrieveContext(
   const { data, error } = await sb.rpc('kb_search', {
     p_empresa_id: empresaId,
     p_query: queryTrunc,
-    p_limit: k,
+    p_limit: candidateLimit,
   });
 
   if (error) {
     console.error('[rag.retrieveContext]', error);
     return [];
   }
-  return (data as KbChunk[]) || [];
+  return usableChunks(data, k);
 }
 
 /**
@@ -128,13 +153,12 @@ export async function ingestDoc({
     embedText(`${titulo}\n${conteudo}`)
       .then(async (emb) => {
         if (!emb) return;
-        await sb.from('knowledge_base')
-          .update({
-            embedding: emb.vector,
-            embedding_model: emb.model,
-            embedding_at: new Date().toISOString(),
-          })
-          .eq('id', docId);
+        const { error: embeddingError } = await sb.from('knowledge_base')
+          .update(kbEmbeddingUpdate(emb))
+          .eq('empresa_id', empresaId)
+          .eq('id', docId)
+          .eq('titulo', titulo).eq('conteudo', conteudo);
+        if (embeddingError) throw embeddingError;
       })
       .catch((err) => console.warn('[ingestDoc embedding bg]', err?.message));
   }

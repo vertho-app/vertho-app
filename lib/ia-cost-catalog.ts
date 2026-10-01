@@ -107,6 +107,7 @@ export const MODELS = {
   // standard (sem treinamento nos dados), cujo cache custa $0,15/MTok.
   // Embeddings (sem custo de output)
   'voyage-3-large':             { label: 'Voyage-3-large (embed)', inUsd: 0.18, outUsd: 0 },
+  'voyage-4-large':             { label: 'Voyage-4-large (embed)', inUsd: 0.12, outUsd: 0 },
   // TTS — por token. Input = texto; Output = tokens de áudio (custo dominante).
   'gemini-3.1-flash-tts':       { label: 'Gemini 3.1 Flash TTS (áudio)', inUsd: 1, outUsd: 20 },
   // ⚠️ O id que a API cobra tem o sufixo `-preview` (é o default de
@@ -428,7 +429,7 @@ export const CALLS = [
     inTokens: 100,
     outTokens: 0,
     exec: 10 * 9 + 10 * 3 + 3,
-    defaultModel: 'voyage-3-large',
+    defaultModel: 'voyage-4-large',
     critical: false,
   },
 

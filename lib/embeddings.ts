@@ -8,7 +8,7 @@
  *
  * Modelos default:
  *   openai → text-embedding-3-small (output 1024 via param)
- *   voyage → voyage-3-large (1024 nativo)
+ *   voyage → voyage-4-large (1024; VOYAGE_EMBEDDING_MODEL=voyage-3-large para rollback)
  *
  * Quando provider=none, embedTexts() retorna [] silenciosamente — callers
  * devem fazer fallback pra FTS (kb_search) sem quebrar.
@@ -22,6 +22,39 @@ export interface EmbedResult {
 }
 
 const EMBEDDING_DIM = 1024;
+
+export const VOYAGE_4_MODEL = 'voyage/voyage-4-large';
+
+function voyageModel(): string {
+  const model = process.env.VOYAGE_EMBEDDING_MODEL || 'voyage-4-large';
+  if (model !== 'voyage-4-large' && model !== 'voyage-3-large') {
+    throw new Error('VOYAGE_EMBEDDING_MODEL deve ser voyage-4-large ou voyage-3-large');
+  }
+  return model;
+}
+
+/** As gerações 3 e 4 têm a mesma dimensão, mas espaços vetoriais incompatíveis. */
+export function kbEmbeddingUpdate(emb: EmbedResult) {
+  const at = new Date().toISOString();
+  return emb.model === VOYAGE_4_MODEL
+    ? { embedding_v4: emb.vector, embedding_v4_model: emb.model, embedding_v4_at: at }
+    : { embedding: emb.vector, embedding_model: emb.model, embedding_at: at };
+}
+
+export function moduloEmbeddingUpdate(emb: EmbedResult) {
+  return emb.model === VOYAGE_4_MODEL
+    ? { descritor_embedding_v4: emb.vector, descritor_embedding_v4_model: emb.model,
+        descritor_embedding_v4_at: new Date().toISOString() }
+    : { descritor_embedding: emb.vector };
+}
+
+export function moduloEmbeddingCompativel(modulo: any, queryModel: string | null) {
+  if (queryModel === VOYAGE_4_MODEL) {
+    return modulo.descritor_embedding_v4_model === queryModel ? modulo.descritor_embedding_v4 : null;
+  }
+  // O acervo legado de módulos foi indexado com Voyage 3; não tem coluna de modelo.
+  return queryModel === 'voyage/voyage-3-large' ? modulo.descritor_embedding : null;
+}
 
 function getProvider(): EmbeddingProvider {
   const p = (process.env.EMBEDDING_PROVIDER || 'none').toLowerCase();
@@ -64,14 +97,15 @@ export async function embedText(text: string): Promise<EmbedResult | null> {
   if (provider === 'none') return null;
   if (!text || !text.trim()) return null;
 
-  const chave = `${provider}:${text.slice(0, 8000)}`;
+  const model = provider === 'voyage' ? voyageModel() : 'text-embedding-3-small';
+  const chave = `${provider}:${model}:document:${text.slice(0, 8000)}`;
   const emCache = cacheVetor.get(chave);
   if (emCache) return emCache;
 
   const TENTATIVAS = 3;
   for (let i = 0; i < TENTATIVAS; i++) {
     try {
-      const r = provider === 'openai' ? await embedOpenAI(text) : await embedVoyage(text);
+      const r = provider === 'openai' ? await embedOpenAI(text) : await embedVoyage(text, model);
       if (r) {
         // Descarte simples: mapa grande em processo longo não compensa complexidade.
         if (cacheVetor.size >= CACHE_MAX) cacheVetor.clear();
@@ -138,10 +172,9 @@ async function embedOpenAI(text: string): Promise<EmbedResult> {
   return { vector, model: `openai/${model}` };
 }
 
-async function embedVoyage(text: string): Promise<EmbedResult> {
+async function embedVoyage(text: string, model: string): Promise<EmbedResult> {
   const apiKey = process.env.VOYAGE_API_KEY;
   if (!apiKey) throw new Error('VOYAGE_API_KEY não configurado (provider=voyage)');
-  const model = 'voyage-3-large';
 
   const res = await fetch('https://api.voyageai.com/v1/embeddings', {
     method: 'POST',
@@ -153,7 +186,7 @@ async function embedVoyage(text: string): Promise<EmbedResult> {
       model,
       input: [text.slice(0, 8000)],
       input_type: 'document',
-      // output_dimension omitido — usa default nativo (1024)
+      output_dimension: EMBEDDING_DIM,
     }),
   });
 
@@ -181,6 +214,7 @@ export async function embedQuery(text: string): Promise<EmbedResult | null> {
   const apiKey = process.env.VOYAGE_API_KEY;
   if (!apiKey || !text?.trim()) return null;
   try {
+    const model = voyageModel();
     const res = await fetch('https://api.voyageai.com/v1/embeddings', {
       method: 'POST',
       headers: {
@@ -188,16 +222,17 @@ export async function embedQuery(text: string): Promise<EmbedResult | null> {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'voyage-3-large',
+        model,
         input: [text.slice(0, 8000)],
         input_type: 'query',
+        output_dimension: EMBEDDING_DIM,
       }),
     });
     if (!res.ok) return null;
     const data: any = await res.json();
     const vector = data?.data?.[0]?.embedding as number[];
     if (!Array.isArray(vector)) return null;
-    return { vector, model: 'voyage/voyage-3-large' };
+    return { vector, model: `voyage/${model}` };
   } catch {
     return null;
   }

@@ -29,6 +29,7 @@ describe('catálogo de preços de IA', () => {
     expect(MODELS['kimi-k3']).toMatchObject({ inUsd: 3, cacheReadUsd: 0.30, outUsd: 15 });
     expect(MODELS['grok-4.6']).toMatchObject({ inUsd: 2, cacheReadUsd: 0.50, outUsd: 6 });
     expect(MODELS['voyage-3-large']).toMatchObject({ inUsd: 0.18, outUsd: 0 });
+    expect(MODELS['voyage-4-large']).toMatchObject({ inUsd: 0.12, outUsd: 0 });
   });
 
   it('expõe no simulador somente os oito modelos homologados', () => {

@@ -35,6 +35,7 @@ beforeEach(() => {
   vi.resetModules();
   vi.stubGlobal('fetch', fetchMock);
   vi.stubEnv('EMBEDDING_PROVIDER', 'voyage');
+  vi.stubEnv('VOYAGE_EMBEDDING_MODEL', 'voyage-3-large');
   vi.stubEnv('VOYAGE_API_KEY', 'k');
   fetchMock.mockResolvedValue({ ok: true, json: async () => ({ data: [{ embedding: Array.from({ length: 8 }, (_, i) => (i === 0 ? 1 : 0)) }] }) });
   vi.spyOn(console, 'log').mockImplementation(() => {});
