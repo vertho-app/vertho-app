@@ -6,6 +6,7 @@ import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { findColabByEmail } from '@/lib/authz';
 import { assessmentCompetencyWasAnswered } from '@/lib/assessment/completion';
+import { selecionarCenariosElegiveis, notaMinimaDaEmpresa } from '@/lib/assessment/cenario-elegivel';
 
 // PPP-alvo do colaborador: a escola dele define o PPP (escolas que compartilham
 // o PPP usam o mesmo cenário). Sem escola/PPP → null = rede.
@@ -14,15 +15,6 @@ async function pppDaEscola(sb: any, escolaId: string | null): Promise<string | n
   const { data, error } = await sb.from('escolas').select('ppp_escola_id').eq('id', escolaId).maybeSingle();
   if (error) throw new Error(`Falha ao resolver o PPP da pessoa: ${error.message}`);
   return data?.ppp_escola_id || null;
-}
-
-function selecionarCenariosElegiveis(cenariosRaw: any[] | null | undefined, pppEscolaId: string | null) {
-  const porComp: Record<string, any[]> = {};
-  (cenariosRaw || []).forEach((c: any) => {
-    (porComp[c.competencia_id] = porComp[c.competencia_id] || []).push(c);
-  });
-  return Object.values(porComp).map((rows: any[]) =>
-    (pppEscolaId && rows.find((r) => r.ppp_escola_id === pppEscolaId)) || rows.find((r) => !r.ppp_escola_id) || rows[0]);
 }
 
 function validarResposta(valor: any): string | null {
@@ -54,8 +46,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: gateGet.message, code: gateGet.code, remediation: gateGet.remediation }, { status: 403 });
     }
 
+    // Nota mínima do cenário (opt-in por empresa, `lib/assessment/cenario-elegivel.ts`). Falha de leitura NÃO
+    // desliga o corte em silêncio: sem saber o corte, não se serve cenário.
+    const nm = await notaMinimaDaEmpresa(sb, colab.empresa_id);
+    if (nm.error) return NextResponse.json({ error: nm.error }, { status: 500 });
+
     const { data: cenariosRaw, error: cenariosError } = await sb.from('banco_cenarios')
-      .select('id, competencia_id, ppp_escola_id, titulo, descricao, alternativas, p1, p2, p3, p4')
+      .select('id, competencia_id, ppp_escola_id, titulo, descricao, alternativas, p1, p2, p3, p4, nota_check')
       .eq('empresa_id', colab.empresa_id)
       .eq('cargo', colab.cargo)
       .order('created_at');
@@ -64,7 +61,9 @@ export async function GET(req: Request) {
     // Roteia pelo PPP do colaborador (via escola): 1 cenário por competência —
     // PPP do colab > rede (ppp_escola_id null) > mais recente.
     const pppEscolaId = await pppDaEscola(sb, (colab as any).escola_id || null);
-    const cenarios = selecionarCenariosElegiveis(cenariosRaw, pppEscolaId);
+    // A nota é métrica interna: serve para o corte e NÃO vai para o navegador da pessoa.
+    const cenarios = selecionarCenariosElegiveis(cenariosRaw, pppEscolaId, nm.notaMinima)
+      .map(({ nota_check: _nota, ...resto }: any) => resto);
 
     const competenciaIds = [...new Set(cenarios.map((cenario: any) => cenario.competencia_id).filter(Boolean))];
     const { data: competencias, error: competenciasError } = competenciaIds.length
@@ -120,15 +119,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: gatePost.message, code: gatePost.code, remediation: gatePost.remediation }, { status: 403 });
     }
 
+    const nm = await notaMinimaDaEmpresa(sb, colab.empresa_id);
+    if (nm.error) return NextResponse.json({ error: nm.error }, { status: 500 });
+
     const { data: cenariosRaw, error: cenariosError } = await sb.from('banco_cenarios')
-      .select('id, competencia_id, ppp_escola_id')
+      .select('id, competencia_id, ppp_escola_id, nota_check')
       .eq('empresa_id', colab.empresa_id)
       .eq('cargo', colab.cargo)
       .order('created_at');
     if (cenariosError) return NextResponse.json({ error: cenariosError.message }, { status: 500 });
 
     const pppEscolaId = await pppDaEscola(sb, (colab as any).escola_id || null);
-    const elegiveis = selecionarCenariosElegiveis(cenariosRaw, pppEscolaId);
+    const elegiveis = selecionarCenariosElegiveis(cenariosRaw, pppEscolaId, nm.notaMinima);
     const cenario = elegiveis.find((c: any) => c.id === cenario_id);
     if (!cenario || cenario.competencia_id !== competencia_id) {
       return NextResponse.json({ error: 'Cenário não elegível para este colaborador' }, { status: 403 });

@@ -14,6 +14,7 @@ import { nivelDaNota } from '@/lib/nivel-regua';
 import { consolidarNotasIA4, blocoConsolidacao, normalizarNiveisDaAvaliacao } from '@/lib/ia4-avaliacao';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { comContexto } from '@/lib/execucao-contexto';
+import { escolherCenarioDaCompetencia, notaMinimaDaEmpresa } from '@/lib/assessment/cenario-elegivel';
 
 // Turno do chat + encerramento (avaliação + auditoria, 2× 8192 tokens) podem
 // levar minutos com retry/backoff — sem isso a rota cai no default da Vercel
@@ -172,14 +173,26 @@ export async function POST(req) {
           const { data: esc } = await sb.from('escolas').select('ppp_escola_id').eq('id', colabEsc.escola_id).maybeSingle();
           pppEscolaId = esc?.ppp_escola_id || null;
         }
-        const { data: cands } = await sb.from('banco_cenarios')
-          .select('id, ppp_escola_id')
+        // Nota mínima do cenário (opt-in por empresa; `lib/assessment/cenario-elegivel.ts`): mesma régua da lista
+        // de pendentes, senão a pessoa veria uma competência e o chat abriria outro cenário.
+        const nm = await notaMinimaDaEmpresa(sb, empresaId);
+        if (nm.error) return NextResponse.json({ ok: false, error: nm.error }, { status: 500 });
+        const { data: cands, error: errCands } = await sb.from('banco_cenarios')
+          .select('id, ppp_escola_id, nota_check')
           .eq('empresa_id', empresaId)
           .eq('competencia_id', competenciaId)
           .order('created_at', { ascending: false });
-        const cenario = (pppEscolaId && (cands || []).find((c: any) => c.ppp_escola_id === pppEscolaId))
-          || (cands || []).find((c: any) => !c.ppp_escola_id)
-          || (cands || [])[0] || null;
+        if (errCands) {
+          // Corte ligado: sem saber quais cenários existem não se serve nenhum (fail-closed). Sem corte, a
+          // entrega degrada como sempre degradou (sessão sem cenário), mas deixa o rastro.
+          if (nm.notaMinima != null) return NextResponse.json({ ok: false, error: `Falha ao ler os cenários: ${errCands.message}` }, { status: 500 });
+          console.warn(`[chat] leitura de cenários falhou, sessão segue sem cenário: ${errCands.message}`);
+        }
+        const cenario = escolherCenarioDaCompetencia(cands as any[], pppEscolaId, nm.notaMinima);
+        // Com o corte ligado, sem cenário apto NÃO se abre sessão (antes abria sem cenário e seguia genérico).
+        if (nm.notaMinima != null && !cenario) {
+          return NextResponse.json({ ok: false, error: 'Esta competência ainda não tem um cenário aprovado.', code: 'cenario_sem_nota_minima' }, { status: 409 });
+        }
 
         const { data: nova, error: errCriacao } = await sb.from('sessoes_avaliacao')
           .insert({
