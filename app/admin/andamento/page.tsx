@@ -96,7 +96,7 @@ export default async function AndamentoPage({ searchParams }: { searchParams: Pr
             <tr className="border-b border-white/10">
               <th className="px-4 py-3 font-bold">{por === 'cargo' ? 'Empresa / cargo' : por === 'turma' ? 'Empresa / turma' : 'Empresa'}</th>
               <th className="px-4 py-3 text-right font-bold">Pessoas</th>
-              <th className="px-4 py-3 text-right font-bold">DISC</th>
+              <th className="px-4 py-3 text-right font-bold">Perfil comportamental</th>
               <th className="px-4 py-3 text-right font-bold">Mapeamento</th>
               <th className="px-4 py-3 text-right font-bold">Em jornada</th>
             </tr>
