@@ -209,6 +209,13 @@ inflada com hipótese deixa de ser lida. Ordem: as três primeiras áreas são a
 - Mexeu na narração do vídeo (take único, por cena, alvo do portão, avatar por grupo): a costura se
   OUVE por ritmo e volume, não só altura. 26/09, escuta cega: a menor distância de F0 foi a pior
   (ritmo 1,23×, 5 dB). Régua: `avaliarEmenda` (`docs/GERADOR-VIDEO-MODULO.md`, avatar por grupo).
+- 🔴 Flag ou mudança que promete ECONOMIA (avatar por grupo, roteiro em lote, modelo mais barato):
+  antes de projetar o ganho, agrupe o artefato real por origem nos últimos 30-60 dias
+  (`videos_gerados.created_by`, `kit_jobs.params`, `ia_usage_log.source`) e confirme que o caminho
+  mudado é o que produz. 30/09: o avatar por grupo foi ligado dentro do `gerarKitSemanal`, mas o
+  vídeo semanal saía de `scripts/_video-semana-preferentes.ts` (`created_by='kit:coorte'`), e a tela
+  do Kit teve 9 jobs em 60 dias, todos sem vídeo. Com a flag ligada e a suíte verde, a economia no
+  caminho real era zero até `fd8d2e5a` + `c4be4bdd` (`lib/video/celulas-lote.ts`).
 
 ## 14. Env var / secret
 
