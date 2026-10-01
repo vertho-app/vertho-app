@@ -382,6 +382,15 @@ export const DEGRADACAO = {
    * (actions/votacao.ts) enquanto a votação está aberta; chave = empresa:cargo.
    */
   CEDULA_SEM_TOP10: 'cedula-sem-top10',
+  /**
+   * lote de IA (IA3): mais de 20% dos itens caíram no fallback SÍNCRONO porque a
+   * resposta do lote veio vazia/cortada/inválida. O conteúdo sai, mas pago duas vezes
+   * e sem o desconto do lote, e o tempo de run estoura (30/09/2026: teto de saída do
+   * lote em 6144 contra ~7.900 necessários; 58 de 66 truncados e o job ficou `running`
+   * para sempre). `aviso`: nada se perde, mas a causa tem que ser achada. Registrado
+   * por `trigger/gerar-ia3-batch.ts`; chave = jobId.
+   */
+  LOTE_IA_FALLBACK_EXCESSIVO: 'lote-ia-fallback-excessivo',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 

@@ -6,7 +6,9 @@ import {
   validarRespostaIA3, montarAlternativasIA3, persistirCenarioIA3,
   montarCheckIA3Prompt, normalizarResultadoCheckIA3, persistirCheckIA3,
   gerarCenarioIA3Core, checkCenarioIA3Core,
+  IA3_MAX_TOKENS_GERACAO, fallbackDoLoteExcessivo,
 } from '@/lib/ia3-cenarios';
+import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import {
   createClaudeBatch, pollClaudeBatch, fetchClaudeBatchResults,
   createOpenAIBatch, pollOpenAIBatch, fetchOpenAIBatchResults,
@@ -151,7 +153,7 @@ export const gerarIA3BatchTask = task({
         let batchIdGen: string | null = pp.batchIdGen ?? (await batchPendenteDoJob(payload.jobId, 'ia3_cenarios'));
         try {
           if (!batchIdGen) {
-            const reqs: BatchReq[] = batcaveis.map((p) => ({ customId: p.customId, system: p.system, user: p.user, model: genModel, maxTokens: 6144 }));
+            const reqs: BatchReq[] = batcaveis.map((p) => ({ customId: p.customId, system: p.system, user: p.user, model: genModel, maxTokens: IA3_MAX_TOKENS_GERACAO }));
             batchIdGen = await createClaudeBatch(reqs, { ledger: { feature: 'ia3_cenarios', empresaId, jobId: payload.jobId } });
             // Persistência ≠ fornecedor: o lote está pago; seguir com o id em
             // memória é melhor que descartá-lo pelo caminho caro.
@@ -178,6 +180,9 @@ export const gerarIA3BatchTask = task({
       const { extractJSON } = await import('@/actions/utils');
       const { callAI } = await import('@/actions/ai-client');
       const gerados: Array<{ item: (typeof items)[number]; cenarioId: string | null }> = [];
+      // Itens que FORAM ao lote e voltaram pelo fallback síncrono (vazio/cortado/inválido).
+      const foramAoLote = new Set(batcaveis.map((p) => p.customId));
+      let caidosNoFallback = 0;
 
       for (const p of preparados) {
         if (!('ctx' in p)) {
@@ -217,12 +222,14 @@ export const gerarIA3BatchTask = task({
             }
           } else {
             // Batch respondeu mas inválido/incompleto → core síncrono (com retry).
+            if (foramAoLote.has(p.customId)) caidosNoFallback++;
             const r = await gerarCenarioIA3Core(sb, { empresaId, cargoNome: p.item.cargo, competenciaId: p.item.competencia_id, pppEscolaId: p.item.ppp_escola_id ?? null, aiConfig });
             cenarioId = r.cenarioId ?? null;
             resultados.push({ cargo: rotulo, ok: !!r.success, error: r.error, message: r.success ? 'cenário gerado (retry síncrono)' : undefined });
           }
         } else {
           // Sem resposta no batch (falha total, modelo não-Claude, request perdido).
+          if (foramAoLote.has(p.customId)) caidosNoFallback++;
           const r = await gerarCenarioIA3Core(sb, { empresaId, cargoNome: p.item.cargo, competenciaId: p.item.competencia_id, pppEscolaId: p.item.ppp_escola_id ?? null, aiConfig });
           cenarioId = r.cenarioId ?? null;
           resultados.push({ cargo: rotulo, ok: !!r.success, error: r.error, message: r.success ? 'cenário gerado (síncrono)' : undefined });
@@ -235,6 +242,18 @@ export const gerarIA3BatchTask = task({
           await salvarParams({ geradosPorItem, checados: [...checados] });
         }
         done++; await pushProgress(`gerado ${rotulo}`);
+      }
+
+      // Fallback deixa de ser exceção quando passa do limiar: vira sintoma (teto
+      // de saída baixo, prompt, modelo) e tem que deixar rastro — foi o que faltou
+      // em 30/09/2026, quando 58 de 66 respostas do lote vieram cortadas em silêncio.
+      if (fallbackDoLoteExcessivo(foramAoLote.size, caidosNoFallback)) {
+        console.warn(`[gerar-ia3-batch] ${caidosNoFallback}/${foramAoLote.size} itens do lote caíram no fallback síncrono`);
+        await registrarDegradacao({
+          fluxo: 'build', tipo: DEGRADACAO.LOTE_IA_FALLBACK_EXCESSIVO, chave: payload.jobId,
+          empresaId, severidade: 'aviso',
+          detalhe: { job: payload.jobId, noLote: foramAoLote.size, caidosNoFallback, maxTokens: IA3_MAX_TOKENS_GERACAO },
+        }, sb);
       }
 
       // ── Onda 2: CHECK dual ─────────────────────────────────────────────

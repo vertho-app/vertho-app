@@ -382,6 +382,40 @@ export interface RespostaIA3Normalizada {
   errors: string[];
 }
 
+/**
+ * Teto de saída da GERAÇÃO do cenário — fonte única do caminho síncrono E do lote.
+ *
+ * `Medido: 30/09/2026` (Amazon Bowling, `claude-sonnet-5`): o cenário sai com
+ * ~7.900 tokens em média e uma cauda que passa de 10.000. O lote tinha `6144`
+ * fixo em `trigger/gerar-ia3-batch.ts`: 58 de 66 respostas pararam no teto, JSON
+ * cortado, e caíram no fallback síncrono (76 s cada) — pago duas vezes, e a run
+ * estourou o `maxDuration` de 1 h sem fechar o job. Dois números em dois arquivos
+ * divergiram quando o modelo mudou; por isso UM só. Depois de subir para 10000, o
+ * re-lote ainda truncou 3 de 32 chamadas síncronas exatamente em 10000 (`status =
+ * 'truncado'` no ledger) e 2 cenários não saíram; 16000 dá folga à cauda.
+ */
+export const IA3_MAX_TOKENS_GERACAO = 16000;
+
+/**
+ * Relógio do `callAI` síncrono na geração. O default (120 s) não comporta o teto
+ * acima: o modelo emite ~100 tokens/s (medido: 10.000 tokens em 93-107 s), então
+ * 16.000 levam ~160 s e seriam abortados ANTES de fechar o JSON — trocaria o
+ * truncamento por timeout. O lote não tem relógio de request; só o síncrono precisa.
+ */
+export const IA3_TIMEOUT_GERACAO_MS = 240_000;
+
+/**
+ * Fração de itens do lote que caíram no fallback síncrono acima da qual o
+ * fallback deixa de ser exceção e vira SINTOMA (teto baixo, prompt, modelo).
+ */
+export const IA3_LIMIAR_FALLBACK_LOTE = 0.2;
+
+/** Pura: o fallback síncrono do lote passou do limiar? `total` = itens que foram ao lote. */
+export function fallbackDoLoteExcessivo(total: number, caidos: number, limiar = IA3_LIMIAR_FALLBACK_LOTE): boolean {
+  if (!(total > 0)) return false;
+  return caidos / total > limiar;
+}
+
 export function validarRespostaIA3(resultado: any, numDescritores: number): RespostaIA3Normalizada | null {
   if (!resultado) return null;
   const cen = resultado.cenario || resultado.scenario || resultado;
@@ -509,7 +543,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
   const system = buildIA3SystemPrompt();
   const user = buildIA3UserPrompt(empresa, cargoNome, cargoDetalhe, comp, descritores, valores, contextoPPP, gabCIS);
 
-  let resposta = await callAI(system, user, aiConfig, 10000, { taskKey: 'ia3_cenarios', empresaId });
+  let resposta = await callAI(system, user, aiConfig, IA3_MAX_TOKENS_GERACAO, { taskKey: 'ia3_cenarios', timeoutMs: IA3_TIMEOUT_GERACAO_MS, empresaId });
   let resultado = await extractJSON(resposta);
   if (!resultado) return { success: false, error: 'IA não retornou JSON válido' };
 
@@ -520,7 +554,7 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
   if (norm.errors.length > 0) {
     console.warn(`[IA3] ${comp.nome}: validação (${norm.errors.join('; ')}). Retry.`);
     const retryUser = user + `\n\n═══ ATENÇÃO: CORREÇÃO NECESSÁRIA ═══\n${norm.errors.join('\n')}\nCorrija e retorne JSON válido.`;
-    resposta = await callAI(system, retryUser, aiConfig, 10000, { taskKey: 'ia3_cenarios', empresaId });
+    resposta = await callAI(system, retryUser, aiConfig, IA3_MAX_TOKENS_GERACAO, { taskKey: 'ia3_cenarios', timeoutMs: IA3_TIMEOUT_GERACAO_MS, empresaId });
     const retryResult = await extractJSON(resposta);
     if (retryResult) {
       resultado = retryResult;
@@ -748,7 +782,7 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
 2. Os limites de sobriedade são inegociáveis: contexto ≤900 caracteres (conte antes de finalizar), máx 2 tensões, máx 2 stakeholders.
 3. Se o feedback pedir mais cobertura, obtenha-a REFORMULANDO perguntas — nunca inflando o contexto.`;
 
-  const resposta = await callAI(system, user, aiConfig, 10000, { taskKey: 'ia3_cenarios', empresaId: cen.empresa_id });
+  const resposta = await callAI(system, user, aiConfig, IA3_MAX_TOKENS_GERACAO, { taskKey: 'ia3_cenarios', timeoutMs: IA3_TIMEOUT_GERACAO_MS, empresaId: cen.empresa_id });
   const resultado = await extractJSON(resposta);
   const norm = resultado ? validarRespostaIA3(resultado, descritores.length) : null;
   if (!norm) return { success: false, error: 'IA não retornou cenário válido — NADA foi alterado (a versão atual continua valendo)' };

@@ -119,7 +119,14 @@ vi.mock('@/lib/ia3-cenarios', () => ({
   persistirCheckIA3: async (_sb: any, cen: any) => { mocks.checksPersistidos.push(cen.id); return {}; },
   gerarCenarioIA3Core: async () => { mocks.sincronasGen++; return { success: true, cenarioId: 'cen_sync' }; },
   checkCenarioIA3Core: async () => { mocks.sincronasChk++; return { success: true, nota: 70 }; },
+  IA3_MAX_TOKENS_GERACAO: 10000,
+  // O alarme em si é coberto por tests/unit/ia3/teto-lote-geracao.test.ts; aqui só a idempotência.
+  fallbackDoLoteExcessivo: () => false,
 }));
+vi.mock('@/lib/degradacao', async (importOriginal) => {
+  const mod = await importOriginal<typeof import('@/lib/degradacao')>();
+  return { ...mod, registrarDegradacao: async () => {} };
+});
 
 const JOB = 'job-x';
 
