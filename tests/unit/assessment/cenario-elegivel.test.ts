@@ -105,6 +105,20 @@ describe('os pontos que servem cenário usam a MESMA régua (guard de fonte)', (
     expect(f).toMatch(/nota_check: _nota/); // GET remove a métrica interna da resposta
     expect(f).toMatch(/if \(nm\.error\) return NextResponse\.json/);
   });
+  it('o dashboard usa a mesma função nos DOIS pontos: o resolvedor das competências e a busca do cenário do dia', () => {
+    const f = lerFonte('app/dashboard/assessment/assessment-actions.ts');
+    expect(f).toMatch(/from '@\/lib\/assessment\/cenario-elegivel'/);
+    // Ponto A: o resolvedor escolhe pela régua única (sem a cópia "PPP > rede > primeiro" local)
+    expect(f).toMatch(/escolherCenarioDaCompetencia\(rows, pppEscolaId, nm\.notaMinima\)/);
+    expect(f).not.toMatch(/rows\.find\(\(r: any\) => !r\.ppp_escola_id\)/);
+    expect(f).toMatch(/if \(nm\.error\) throw new Error\(nm\.error\)/);
+    // Ponto B: sem cenário apto no resolvedor a busca cai POR COMPETÊNCIA — o corte vale de novo ali
+    expect(f).toMatch(/cenarioAtendeNotaMinima\(cen, nmDoDia\.notaMinima\)/);
+    expect(f).toMatch(/if \(nmDoDia\.error\) return \{ error: nmDoDia\.error \}/);
+    // a nota é métrica interna: o payload do cenário do dia continua sem ela
+    const payload = f.slice(f.indexOf('cenarioDoDia: {'), f.indexOf('cenarioDoDia: {') + 600);
+    expect(payload).not.toMatch(/nota_check/);
+  });
   it('a rota do chat escolhe o cenário pela mesma função e NÃO abre sessão sem cenário apto quando o corte está ligado', () => {
     const f = lerFonte('app/api/chat/route.ts');
     expect(f).toMatch(/escolherCenarioDaCompetencia\(cands as any\[\], pppEscolaId, nm\.notaMinima\)/);

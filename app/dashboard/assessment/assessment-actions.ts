@@ -13,6 +13,7 @@ import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { assessmentCompetencyWasAnswered, findAssessmentAnswer } from '@/lib/assessment/completion';
 import { competenciasDaDegustacao, isAssessmentDeDegustacao } from '@/lib/demo/convidado-demo';
 import { resolverTrilhoLideranca, respondeuHojeNoTrilho, trilhoDe, type Trilho } from '@/lib/prontidao-lideranca/trilho';
+import { escolherCenarioDaCompetencia, cenarioAtendeNotaMinima, notaMinimaDaEmpresa } from '@/lib/assessment/cenario-elegivel';
 
 /**
  * Lista de competências que ESTA pessoa responde — fonte única.
@@ -97,14 +98,20 @@ async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string,
   const compIds = (compsDoCargo || []).map((c: any) => c.id).filter(Boolean);
   const compPorId: Record<string, any> = Object.fromEntries((compsDoCargo || []).map((c: any) => [c.id, c]));
   const cenarioPorNome: Record<string, any> = {};
+  // Nota mínima do cenário (opt-in por empresa; `lib/assessment/cenario-elegivel.ts`). Falha de leitura NÃO
+  // desliga o corte em silêncio: lança, e o wrapper da action devolve o erro.
+  const nm = await notaMinimaDaEmpresa(sb, empresaId);
+  if (nm.error) throw new Error(nm.error);
   if (compIds.length > 0) {
-    const { data: cenarios } = await sb.from('banco_cenarios')
-      .select('id, competencia_id, ppp_escola_id, created_at')
+    const { data: cenarios, error: errCenarios } = await sb.from('banco_cenarios')
+      .select('id, competencia_id, ppp_escola_id, created_at, nota_check')
       .eq('empresa_id', empresaId)
       .eq('cargo', cargo)
       .in('competencia_id', compIds)
       .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
       .order('created_at', { ascending: false });
+    // Falha de leitura NÃO vira "competência sem cenário" (mensagem enganosa) nem desliga o corte: lança.
+    if (errCenarios) throw new Error(`Falha ao ler os cenários: ${errCenarios.message}`);
     // Agrupa por competência: PPP do colaborador > cenário de rede > mais recente.
     const porComp: Record<string, any[]> = {};
     (cenarios || []).forEach((c: any) => { (porComp[c.competencia_id] = porComp[c.competencia_id] || []).push(c); });
@@ -112,9 +119,9 @@ async function resolverTop5ComCenario(sb: any, empresaId: string, cargo: string,
       const comp = compPorId[cid];
       const key = (comp?.nome || '').toLowerCase();
       if (!key || cenarioPorNome[key]) continue;
-      const escolhido = (pppEscolaId && rows.find((r: any) => r.ppp_escola_id === pppEscolaId))
-        || rows.find((r: any) => !r.ppp_escola_id)
-        || rows[0];
+      // Mesma régua da rota /api/assessment e do chat: PPP > rede > mais recente, SÓ entre os aptos.
+      const escolhido = escolherCenarioDaCompetencia(rows, pppEscolaId, nm.notaMinima);
+      if (!escolhido) continue; // corte ligado e nenhum cenário apto: a competência fica sem cenário
       cenarioPorNome[key] = { ...escolhido, compId: comp.id };
     }
   }
@@ -377,8 +384,10 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
   const proxima = pendentes[0];
 
   // Busca o cenário A daquela competência/cargo.
+  const nmDoDia = await notaMinimaDaEmpresa(sb, colab.empresa_id);
+  if (nmDoDia.error) return { error: nmDoDia.error };
   let query = sb.from('banco_cenarios')
-    .select('id, titulo, descricao, alternativas')
+    .select('id, titulo, descricao, alternativas, nota_check')
     .eq('empresa_id', colab.empresa_id)
     .eq('cargo', cargoCenario)
     .or('tipo_cenario.is.null,tipo_cenario.neq.cenario_b')
@@ -387,6 +396,11 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
   query = proxima.cenarioId ? query.eq('id', proxima.cenarioId) : query.eq('competencia_id', proxima.id);
   const { data: cen } = await query.maybeSingle();
   if (!cen) return { error: `Cenário para "${proxima.nome}" ainda não foi gerado` };
+  // Corte ligado: este caminho também serve por competência quando o resolvedor não achou cenário apto, então
+  // o corte vale aqui de novo (senão o "mais recente" reprovado entraria pela porta dos fundos).
+  if (!cenarioAtendeNotaMinima(cen, nmDoDia.notaMinima)) {
+    return { error: `Cenário para "${proxima.nome}" ainda não foi aprovado pela revisão automática` };
+  }
 
   // `alternativas` pode vir como array legado [{numero,texto}] OU como objeto
   // do formato atual { perguntas: [{numero, texto, ...}], ... }. Sem este
