@@ -63,7 +63,7 @@ Processo completo do zero até o Evolution Report, intercalando as atividades do
 **Admin Vertho** · `/admin/vertho/knowledge-base?empresa={id}`
 - Botão **"Popular base inicial"** cria 6 docs seed (régua, modos de missão, privacidade, etc.)
 - Upload de PDFs/DOCX com políticas internas, valores, manuais (até 4MB por arquivo)
-- Cada doc é fragmentado por seção, indexado em FTS PT-BR + embedding Voyage (voyage-3-large, 1024d)
+- Cada doc é fragmentado por seção, indexado em FTS PT-BR + embedding Voyage (`voyage-4-large`, 1024d, publicado em 01/10/2026).
 - Enriquece respostas da IA com contexto da empresa (Tira-Dúvidas, Evidências socrático, Missão feedback, Relatórios Gestor/RH)
 
 ### 4. (Opcional) Preferências de aprendizagem
@@ -607,8 +607,10 @@ repo; **não usar em material novo**.
 - `build-season` ordena conteúdos candidatos por `taxa_conclusao DESC`
 - Conteúdos com alta taxa são servidos preferencialmente
 
-### Backfill de embeddings (quando trocar provider)
-`npm run backfill:embeddings` — re-gera embeddings dos docs existentes em `knowledge_base` (útil ao trocar `EMBEDDING_PROVIDER` entre Voyage e OpenAI).
+### Backfill de embeddings pendentes
+`npm run backfill:embeddings -- --dry` lista documentos ativos sem vetor da geração configurada; não chama a API nem escreve. Sem `--dry`, preenche as pendências de `knowledge_base`, com backup e conferência da fonte. Aceita `--empresa <uuid>` e `--limit 50`.
+
+O script não sobrescreve vetores já preenchidos; não basta trocar provider para reindexar um acervo. Voyage 4 usa colunas próprias e preserva Voyage 3 para reversão. Configuração da web e dos workers, avaliação e rollback: [rag-architecture.md](rag-architecture.md).
 
 ---
 

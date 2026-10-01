@@ -2686,3 +2686,27 @@ o próprio avatar. `Medido`: desde 01/08 esse script fez 32 células DISC em só
 cargo; com o grupo, ~19 avatares a menos (~US$ 10 no período). O disparo em lote agora agrupa
 (`lib/video/celulas-lote.ts`). Economia ainda não observada num lote real.
 
+## 01/10/2026: Voyage 4 large publicado; reranker permanece desligado
+
+**Decisão:** corrigir a busca híbrida e migrar embeddings para Voyage 4 large. No experimento com
+516 trechos e 48 consultas autoradas, a precisão nos cinco primeiros pelo rótulo amplo de
+capítulo/conteúdo passou de 81,7% (Voyage 3) para 86,7% (Voyage 4). A RPC legada também tinha um
+defeito independente do modelo: falhou em 48/48 consultas por ambiguidade de `id`; o fallback FTS
+ficou sem contexto em 34 das 36 perguntas situacionais. A migration 272 corrigiu a RPC e separou
+os novos vetores, preservando os antigos para rollback.
+
+**Reranker:** no ensaio que removia todos os trechos curtos, Voyage 4 marcou 88,8% e
+`rerank-3-lite` 89,2%, com cerca de 400 ms adicionais. Sem ganho estatístico conclusivo nessa
+amostra, não foi incluído no fluxo. Reavaliar com perguntas reais e avaliação das respostas finais.
+
+**Publicado e verificado:** web no commit `75d5a715`; Trigger.dev `20261001.2`; 530 trechos e
+325 módulos com vetores Voyage 4. O canary com a filtragem de cabeçalhos realmente implementada
+retornou contexto em 48/48 consultas e marcou 87,9% de precisão nos cinco primeiros pelo rótulo
+amplo. Esse número avalia recuperação, não qualidade da resposta final da IA.
+
+O catálogo `lib/ia-cost-catalog.ts` usa Voyage 4 large a US$ 0,12/milhão de tokens e mantém Voyage
+3 large a US$ 0,18 para histórico. A migração do acervo reaproveitou os vetores do experimento
+que ainda correspondiam à fonte; os 339 documentos/módulos restantes consumiram 8.100 tokens,
+aproximadamente US$ 0,001. Não confundir esse custo incremental com o custo completo do experimento.
+Arquitetura, consumidores, validação, backup e rollback: [rag-architecture.md](rag-architecture.md).
+

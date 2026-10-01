@@ -3,6 +3,7 @@
 > Documento oficial de arquitetura — SaaS B2B de desenvolvimento de competencias por IA.
 > Ultima atualizacao: 27/07/2026 (HEAD `09540329` — auditoria de seguranca multi-agente remediada + Modo Personalizado + Certificado de Conclusao; base 07/07: pos-response via Trigger.dev + tenant de demo; 25/05: RadarEmpresas + i18n + auditoria/permissoes + OTP WhatsApp + hardening RLS)
 > Adendo de 22/09/2026: divisão do Beto entre WhatsApp e app, acesso seguro e contexto da página atual; detalhes em `docs/BETO-CANAIS.md`.
+> Adendo de 01/10/2026: busca híbrida corrigida e Voyage 4 large publicado na web e no Trigger.dev; operação e avaliação em `docs/rag-architecture.md`.
 > Revisado contra o codigo-fonte local e estado atual do workspace
 > Metodo: auditoria automatizada + revisao manual
 
@@ -44,7 +45,7 @@
 | **Video** | HeyGen (avatar) + Remotion (render, backend Hetzner) + Bunny Stream (hosting) | Remotion 4.0 | ✅ |
 | **PDF** | @react-pdf/renderer (geracao) | 4.4.0 | ✅ |
 | **PDF Reader** | pdfjs-dist (leitura) | 5.6 | ✅ |
-| **Embeddings** | Voyage AI (voyage-3-large) | — | ✅ |
+| **Embeddings** | Voyage AI (voyage-4-large, 1024d) | — | ✅ |
 | **Spreadsheet parse** | read-excel-file | 8.0 | ✅ |
 | **Filas** | Upstash QStash | 2.10.1 | ✅ |
 | **WhatsApp** | Z-API (REST) | — | 🔑 |
@@ -449,7 +450,7 @@ nextjs-app/
 │   ├── ai-tasks.ts               # Tasks IA auxiliares
 │   ├── ia-cost-catalog.ts        # Catalogo chamadas IA x modelos x presets (inclui RAG)
 │   ├── embeddings.ts             # Wrapper Voyage / OpenAI embedding provider
-│   ├── rag.ts                    # kb_search_hybrid + formatacao grounding
+│   ├── rag.ts                    # RPC híbrida por geração + formatacao grounding
 │   ├── rag-ingest.ts             # Parser PDF/DOCX -> chunks -> embedding
 │   ├── rag-seed.ts               # 6 docs seed (regua, modos missao, privacidade...)
 │   ├── temporada-concluida-pdf.ts  # PDF Evolution Report individual
@@ -502,7 +503,7 @@ nextjs-app/
 │       └── mapCISProfile.ts
 ├── scripts/
 │   ├── smoke-test.js
-│   ├── backfill-embeddings.js    # NOVO: re-gera embeddings ao trocar provider
+│   ├── backfill-embeddings.ts    # Preenche vetores pendentes por geração, com backup
 │   ├── backup-project.ps1
 │   ├── checkpoint.ps1
 │   ├── auto-backup-diario.ps1
@@ -991,18 +992,20 @@ Sistema de Retrieval-Augmented Generation que enriquece respostas da IA com cont
 - **Migration 041** — Tabela `knowledge_base` (empresa_id, titulo, chunk_index, content, metadata JSONB) + funcao `kb_search` (FTS PT-BR via tsvector com unaccent).
 - **Migration 042** — Extensao `pgvector` + coluna `embedding VECTOR(1536)` + funcoes `kb_search_semantic` e `kb_search_hybrid` (RRF). Nota: migration 043 reduziu a dimensão para 1024.
 - **Migration 043** — Dimensao reduzida de 1536 para **1024** (requisito nativo do Voyage-3-large). Sem perda de dados (base vazia no momento da migration).
+- **Migration 272** (01/10/2026) — Colunas Voyage 4 separadas na KB e nos módulos-base, índice HNSW cosine e RPC `kb_search_hybrid_v4`; corrige a ambiguidade de `id`/`score` na RPC legada. Triggers invalidam os vetores novos quando a fonte muda. Vetores legados preservados para rollback.
 
 ### Provider de Embeddings
-- **Atual: Voyage** (`voyage-3-large`, 1024d nativo) — configurado via `EMBEDDING_PROVIDER=voyage` + `VOYAGE_API_KEY` em Vercel prod e `.env.local`.
-- **Fallback: OpenAI** — suportado via `EMBEDDING_PROVIDER=openai` (usa `text-embedding-3-small` com parametro `dimensions: 1024`).
+- **Atual: Voyage** (`voyage-4-large`, saída explícita de 1024d) — `EMBEDDING_PROVIDER=voyage` + `VOYAGE_API_KEY` na Vercel, no Trigger.dev e em `.env.local`. A migração foi publicada nos dois runtimes em 01/10/2026.
+- **Rollback Voyage 3** — `VOYAGE_EMBEDDING_MODEL=voyage-3-large`, seguido de redeploy dos consumidores; lê os vetores legados. Não misturar query e documentos de gerações diferentes.
+- **Provider alternativo: OpenAI** — suportado via `EMBEDDING_PROVIDER=openai` (`text-embedding-3-small`, `dimensions: 1024`); não é fallback automático de Voyage. Trocar provider exige planejar a reindexação, pois o backfill não sobrescreve vetores preenchidos.
 - Wrapper: `lib/embeddings.ts`.
 
 ### Superficies com Grounding Ativo (commit 8dc80df)
 | Superficie | Query | Arquivo |
 |---|---|---|
 | Tira-Duvidas | Pergunta do colaborador | `/api/temporada/tira-duvidas` |
-| Evidencias socratico | Competencia + descritor + ultimas msgs | `/api/temporada/reflection` |
-| Missao Feedback | Competencia + descritor + ultimas msgs | `/api/temporada/reflection` |
+| Evidencias socratico | Competencia + descritor | `/api/temporada/reflection` |
+| Missao Feedback | Competencia + descritor | `/api/temporada/reflection` |
 | Relatorio Gestor | Valores + cultura da empresa | `actions/relatorios.ts::gerarRelatorioGestor` |
 | Relatorio RH | Valores + cultura da empresa | `actions/relatorios.ts::gerarRelatorioRH` |
 
@@ -1014,10 +1017,10 @@ Sistema de Retrieval-Augmented Generation que enriquece respostas da IA com cont
 - **`/admin/vertho/knowledge-base`** — CRUD + Upload (PDF/DOCX/TXT/MD ate 4MB) + botao "Popular base inicial" (seed) + preview de busca (FTS/vector/hybrid).
 
 ### Backfill
-- Script `scripts/backfill-embeddings.js` + npm `backfill:embeddings` — re-gera embeddings de docs existentes ao trocar provider.
+- Script `scripts/backfill-embeddings.ts` + npm `backfill:embeddings` — pagina e preenche apenas vetores pendentes da geração configurada, com backup e comparação da fonte. `npm run backfill:embeddings -- --dry` lista pendências sem API nem escrita. Operação e rollback em `docs/rag-architecture.md`.
 
 ### Custo
-- `lib/ia-cost-catalog.ts` contem chamada `rag-query-embed` (voyage-3-large, 138 calls/colab x 100 tokens) + 3 chamadas com grounding que tiveram +800 tokens input (`evidencias-socratic`, `tira-duvidas`, `missao-feedback`).
+- `lib/ia-cost-catalog.ts` contém `rag-query-embed`, com default `voyage-4-large`; volume e tokens estimados se leem no catálogo. Grounding também acrescenta contexto às chamadas de chat. Reranker permanece desligado: a avaliação não demonstrou ganho conclusivo que justificasse a latência adicional.
 
 Documentacao detalhada: **`docs/rag-architecture.md`**.
 
@@ -1838,7 +1841,7 @@ Dois mecanismos que fazem coisas diferentes (conferido em 22/09/2026):
 - Processo de alteracao de schema: `docs/SCHEMA-PROCESS.md`
 
 ### Backfill de embeddings
-- `npm run backfill:embeddings` — re-gera embeddings em `knowledge_base` (util ao trocar `EMBEDDING_PROVIDER`)
+- `npm run backfill:embeddings -- --dry` — lista pendências da geração configurada em `knowledge_base`; sem `--dry`, preenche após salvar backup. Não sobrescreve vetores existentes. Ver `docs/rag-architecture.md`.
 
 ### TypeScript
 - `npm run typecheck` — roda `tsc --noEmit` (config: `strict:false`, `jsx:"preserve"`, `allowJs:true`, `checkJs:false`)
@@ -1863,7 +1866,7 @@ Upstash: QStash (filas async WhatsApp + Radar PDF worker)
 Resend: Email transacional
 Sentry: Error tracking (com lib/sentry-scrub-pii.ts)
 Bunny Stream: Video host
-Voyage AI: Embeddings (voyage-3-large)
+Voyage AI: Embeddings (voyage-4-large, 1024d; legado Voyage 3 preservado)
 Z-API: WhatsApp gateway
 ```
 

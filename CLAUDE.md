@@ -12,6 +12,7 @@ Plataforma multi-tenant de desenvolvimento de competências por IA (escolas e em
 > | Segurança (estado + critérios de service-role) | `docs/SECURITY-STATUS.md` |
 > | Prompts de IA (71, inclui o Kit e os dois canais do Beto) | `docs/CATALOGO-PROMPTS-IA.md` |
 > | Custo/qualidade de IA | `docs/CUSTO-QUALIDADE.md` · catálogo de preço/tokens: `lib/ia-cost-catalog.ts` |
+> | Embeddings e busca de contexto por empresa | `docs/rag-architecture.md` — consumidores, geração dos vetores, avaliação e rollback |
 > | Schema e migrations | `docs/SCHEMA-PROCESS.md` |
 > | Vídeo (pipeline + 13 templates de cena) | `docs/GERADOR-VIDEO-MODULO.md` · prompt literal em `docs/PROMPT-ROTEIRO-VIDEO.md` |
 > | Conteúdo canônico | `docs/MODULOS-BASE-CONTEUDO.md` · `docs/EXTRACAO-MANUSCRITO.md` · `docs/KIT-SEMANAL.md` |
@@ -458,8 +459,10 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
   (relatório/PDF) usam o combo completo.
 - NÃO gravar TÍTULO no campo `descritor` do Módulo-Base — é por ele que o resolver casa o conteúdo.
   Título editorial vive em `titulo`; `descritor` recebe o **`nome_curto` da régua**. Ao corrigir,
-  **recalcular `descritor_embedding`** (o vetor tem precedência sobre tokens, então o antigo continua
-  mandando). Medido 28/07: 18 MBs assim fizeram 14 conteúdos ancorarem no assunto vizinho, em
+  **recalcular o embedding da geração em uso** ao publicar. Desde a migração 272 (01/10/2026),
+  Voyage 4 usa `descritor_embedding_v4`; os vetores Voyage 3 ficam separados para rollback.
+  Não comparar gerações diferentes nem deixar vetor associado à fonte antiga. Operação:
+  `docs/rag-architecture.md`. Medido 28/07: 18 MBs assim fizeram 14 conteúdos ancorarem no assunto vizinho, em
   silêncio — **F-I12** do `docs/FMEA-PIPELINE.md`. Guarda: R9 do health estrutural.
 - NÃO ler competência, descritor ou régua por NOME ou `cod_comp` sem o CARGO. A matriz é gravada
   **por cargo**, e o mesmo nome existe em matrizes diferentes (Ibipeba) e a mesma matriz em N cargos

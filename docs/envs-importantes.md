@@ -12,8 +12,9 @@
 | `OPENAI_API_KEY` | GPT (opcional) | Não | Produção |
 | `AI_FALLBACK_MODEL` | Fallback central de IA (Claude down → OpenAI; default gpt-5.4) | Não | Produção |
 | `OPENAI_FALLBACK_MODEL` | ⚠️ Fallback do RADAR só (`lib/radar/*`) — NÃO o central | Não | Produção |
-| `EMBEDDING_PROVIDER` | Provider de embeddings/RAG: `openai`\|`voyage`\|`none` (prod=voyage; none→FTS) | Não | Produção |
-| `VOYAGE_API_KEY` | Embeddings Voyage (quando `EMBEDDING_PROVIDER=voyage`) | Não | Produção |
+| `EMBEDDING_PROVIDER` | Provider de embeddings/RAG: `openai`\|`voyage`\|`none` (prod=voyage; none→FTS) | Não | Vercel/Trigger/Local |
+| `VOYAGE_API_KEY` | Segredo de embeddings Voyage (quando `EMBEDDING_PROVIDER=voyage`) | Não | Vercel/Trigger/Local |
+| `VOYAGE_EMBEDDING_MODEL` | Modelo Voyage: default `voyage-4-large`; `voyage-3-large` para rollback sobre vetores legados | Não | Vercel/Trigger/Local |
 | `TTS_BACKEND` | TTS do podcast: `aistudio` (GEMINI_API_KEY, teto 100/dia) ou `vertex` (cota alta) | Não | Produção |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | SA (base64) do Vertex — ⚠️ OBRIGATÓRIA no Vercel se `TTS_BACKEND=vertex` | Não | Produção/Trigger |
 | `NEXT_PUBLIC_SENTRY_DSN` | Error tracking (chave pública, inlined no build) | Não | Produção |
@@ -46,8 +47,10 @@
 ## Onde configurar
 - **Vercel**: https://vercel.com/rodrigo-2456s-projects/vertho-app/settings/environment-variables
 - **Local**: `.env.local` (nunca committar)
+- **Trigger.dev**: variáveis do ambiente `prod` do projeto, separadas das variáveis da Vercel.
 
 ## Notas / pegadinhas (auditoria 14/07/2026)
+- **Embeddings na web e nos workers (01/10/2026).** Voyage 4 large foi publicado nos dois runtimes. O Trigger usa `EMBEDDING_PROVIDER=voyage`, `VOYAGE_EMBEDDING_MODEL=voyage-4-large` e `VOYAGE_API_KEY` como segredo. Na Vercel, a ausência do override de modelo usa o default Voyage 4 do código. Ao reverter, aplicar o override e redeployar ambos; push sozinho não publica as tasks. Colunas por geração e validação: `docs/rag-architecture.md`.
 - **`CRON_SECRET` não pode ter whitespace.** O Vercel usa como HTTP header do cron e
   **rejeita a build inteira** se houver espaço/newline no valor. Ao setar via CLI use
   `printf '%s' "$(gerador)"` — **nunca** `echo`/`console.log` piped (injetam `\n`).

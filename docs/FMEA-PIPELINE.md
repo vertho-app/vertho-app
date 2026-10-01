@@ -467,6 +467,7 @@ Vizinho do F-I10: a mesma família de "leitura que reduz a uma linha sem dizer q
 - **Guarda:** **R9** (`checarMbForaDaRegua`) no run ESTRUTURAL do health-check — é check de DADOS,
   não de código, então não cabe num guard de CI que só vê o repositório. Teste:
   `pipeline-health-regras.test.ts` (R9), validado por mutação.
+- **Atualização 01/10/2026:** em produção, recalcular `descritor_embedding_v4` com Voyage 4; a migration 272 invalida esse vetor quando título/descritor mudam. A publicação confere a versão antes de gravar e o resolver exige a mesma geração da query. O vetor legado fica separado para rollback. Ver `docs/rag-architecture.md`.
 - **Depois de corrigir o MB, o conteúdo já gerado continua errado** — regerar usando o próprio
   resolver como juiz (comparar `modulo_base_id` gravado com o que ele escolheria agora) para mexer
   só no que está mal ancorado. Medido: 14 refeitos, 4 preservados.

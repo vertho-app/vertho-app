@@ -294,12 +294,12 @@ Porta única em `/admin/vertho/modulos-base/extracao-video` (o botão "Importar 
    - O que é por cargo é o que se gera EM CIMA do módulo (texto, podcast, kit, vídeo), com o cargo no prompt.
 2. **Candidatos**: módulos `publicado` em `(competência [base OU empresa], nivel_entrada, nivel_destino, locale)` + escopo (global + exclusivos do tenant). Sem hit no locale → fallback `pt-BR`. Sem nenhum → **fallback completo** pro prompt do engine (backward compatible).
 3. **Escolha por SCORE ponderado** (não mais cascata):
-   - **RELEVÂNCIA ao descritor da semana** (peso 100): **semântica via embedding** (`descritor_embedding vector(1024)` × `embedQuery(descritor)`, cosseno — pega paráfrase/sinônimo); cai p/ overlap de tokens sem embedding.
+   - **RELEVÂNCIA ao descritor da semana** (peso 100): nome idêntico normalizado recebe relevância 1 antes do cosseno. Para paráfrases, usa embedding de 1024d da mesma geração da query: `descritor_embedding_v4` identificado como Voyage 4, ou `descritor_embedding` no rollback Voyage 3. Sem vetor compatível, mantém overlap de tokens.
    - **EXCLUSIVO do tenant** (30) · **NOTA da IA-auditora** 0–10 (22) · **PREFERIDO** (10, empurrão não trunfo).
    - **FIT POR CARGO** (5, via `contexto_pedagogico`) · **ANTI-REPETIÇÃO** (−25 se o módulo já gerou conteúdo desta competência — `micro_conteudos.modulo_base_id`) · contexto/tags/recência (desempates).
 4. Injeta no prompt (system: ideia+princípios+guarda-corpos+adaptação; user: exemplos+repertório+situações+boas práticas). `criterio` logado (ex.: `descritor-semântico(0.63) · exclusivo-do-tenant · nota(8.4) · reuso(penalizado)`).
 
-> DISC e preferências de aprendizagem **continuam vindo do colab** — o módulo-base é DISC-neutro. Embedding gerado na PUBLICAÇÃO (`aprovarPublicar`, `lib/embeddings`, OpenAI text-embedding-3-small, `EMBEDDING_PROVIDER`).
+> DISC e preferências de aprendizagem **continuam vindo do colab** — o módulo-base é DISC-neutro. Embedding gerado na PUBLICAÇÃO (`aprovarPublicar`, `lib/modulos-base/publicar.ts`, `lib/embeddings.ts`), com Voyage 4 large em produção desde 01/10/2026. A gravação confere a versão da fonte; mudanças no título/descritor invalidam o vetor Voyage 4. Colunas legadas preservadas para rollback. Operação e avaliação: [rag-architecture.md](rag-architecture.md).
 
 ### Cobertura
 `/admin/vertho/modulos-base/cobertura` (`coberturaPorDescritor`): matriz competência × descritor do modelo da empresa, mostra quantos módulos por célula (publicados/rascunhos + melhor nota) — pra ver o que falta produzir.
