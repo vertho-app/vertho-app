@@ -15,50 +15,7 @@ import {
   avaliarUmaRespostaCore, carregarContextoLoteIA4, IA4_MAX_SINCRONO,
 } from '@/lib/ia4-avaliacao';
 import { reavaliarRespostaCore } from '@/lib/ia4-reavaliacao';
-
-/**
- * Fila da IA4 = pendentes clássicas (avaliacao_ia IS NULL) + PRESAS: respostas
- * com avaliacao_ia gravado mas ZERO linhas em descriptor_assessments para o
- * mesmo (colaborador, competencia) — legado do bug em que a avaliação era
- * gravada antes do upsert de notas (achado 1.4 do FMEA-PIPELINE). Incluir as
- * presas na fila é o reparo self-service: o admin roda a IA4 normal e elas são
- * reprocessadas (rodarIA4Uma também deixou de recusá-las).
- *
- * Custo: 2 queries extras por chamada (avaliadas da empresa + assessments dos
- * colaboradores envolvidos, ambas com poucas colunas) — aceitável para a tela
- * admin e evita um NOT EXISTS por resposta via RPC/PostgREST.
- */
-async function _buscarFilaIA4(tdb: any): Promise<{ data?: any[]; error?: string }> {
-  const { data: pendentes, error } = await tdb.from('respostas')
-    .select('id, colaborador_id, competencia_id, competencia_nome')
-    .is('avaliacao_ia', null)
-    .not('r1', 'is', null);
-  if (error) return { error: error.message };
-
-  const { data: avaliadas, error: errAv } = await tdb.from('respostas')
-    .select('id, colaborador_id, competencia_id, competencia_nome')
-    .not('avaliacao_ia', 'is', null)
-    .not('r1', 'is', null);
-  if (errAv) return { error: errAv.message };
-
-  let presas: any[] = [];
-  const colabIds = [...new Set((avaliadas || []).map((r: any) => r.colaborador_id).filter(Boolean))] as string[];
-  if (colabIds.length) {
-    // Só nota com origem 'ia4' "desprende" a resposta: uma nota MANUAL na mesma
-    // competência não significa que a IA4 persistiu — sem o filtro, a presa saía
-    // da fila e o reparo self-service não a alcançava mais.
-    const { data: assessments, error: errAss } = await tdb.from('descriptor_assessments')
-      .select('colaborador_id, competencia')
-      .eq('origem', 'ia4')
-      .in('colaborador_id', colabIds);
-    if (errAss) return { error: errAss.message };
-    const comNotas = new Set((assessments || []).map((a: any) => `${a.colaborador_id}|${a.competencia}`));
-    presas = (avaliadas || [])
-      .filter((r: any) => r.colaborador_id && r.competencia_nome && !comNotas.has(`${r.colaborador_id}|${r.competencia_nome}`))
-      .map((r: any) => ({ ...r, presa_sem_notas: true }));
-  }
-  return { data: [...(pendentes || []), ...presas] };
-}
+import { buscarFilaIA4 } from '@/lib/ia4-fila';
 
 export async function listarPendentesIA4(empresaId: string, opts?: { turmaId?: string | null; empresaInteiraJustificativa?: string }) {
   await requireAdminAction();
@@ -78,7 +35,7 @@ export async function listarPendentesIA4(empresaId: string, opts?: { turmaId?: s
     throw e;
   }
 
-  const fila = await _buscarFilaIA4(tdb);
+  const fila = await buscarFilaIA4(tdb);
   if (fila.error) return { success: false, error: fila.error, data: [] };
   const linhas = permitidos
     ? (fila.data || []).filter((r: any) => r.colaborador_id && permitidos!.has(r.colaborador_id))
@@ -137,8 +94,8 @@ export async function rodarIA4(empresaId: string, aiConfig: AIConfig = {}) {
   const tdb = tenantDb(empresaId);
   try {
     // Buscar respostas pendentes — inclui as "presas" (avaliacao_ia gravado sem
-    // notas de descritor, legado do achado 1.4) via _buscarFilaIA4.
-    const fila = await _buscarFilaIA4(tdb);
+    // notas de descritor, legado do achado 1.4) via buscarFilaIA4.
+    const fila = await buscarFilaIA4(tdb);
     if (fila.error) return { success: false, error: fila.error };
     if (!fila.data?.length) return { success: true, message: 'Nenhuma resposta pendente de avaliação' };
     const { data: respostas, error: respErr } = await tdb.from('respostas')

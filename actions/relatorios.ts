@@ -18,6 +18,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { RELATORIO_GESTOR_SYSTEM, RELATORIO_RH_SYSTEM } from '@/lib/relatorios/prompts';
 import { gerarRelatorioIndividualCore } from '@/lib/relatorios/individual-core';
+import { buscarFilaPdi } from '@/lib/relatorios/fila-pdi';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tipos públicos
@@ -389,43 +390,12 @@ export async function gerarRelatoriosIndividuaisLote(
   if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
   const tdb = tenantDb(empresaId);
   try {
-    // Buscar colaboradores com avaliações
-    const { data: respostas } = await tdb.from('respostas')
-      .select('colaborador_id')
-      .not('avaliacao_ia', 'is', null);
+    // A regra da fila vive em `lib/relatorios/fila-pdi.ts` (mesma para a prévia/orquestração do fluxo completo).
+    const fila = await buscarFilaPdi(tdb);
+    if ('error' in fila) return { success: false, error: fila.error };
+    if (fila.semAvaliacao) return { success: false, error: 'Nenhuma avaliação encontrada' };
 
-    const colabIds = [...new Set((respostas || []).map((r: any) => r.colaborador_id).filter(Boolean))] as string[];
-    if (!colabIds.length) return { success: false, error: 'Nenhuma avaliação encontrada' };
-
-    // Verificar quais já têm relatório
-    const { data: existentes } = await tdb.from('relatorios')
-      .select('colaborador_id')
-      .eq('tipo', 'individual');
-    const jaGerados = new Set((existentes || []).map((r: any) => r.colaborador_id));
-
-    // PDI COMPLETO: a fila só inclui quem concluiu TODAS as competências do top5
-    // do cargo com avaliação da IA (antes bastava 1 resposta avaliada → PDI
-    // parcial). Cargo sem top5 configurado não tem como medir "completo" →
-    // mantém a regra antiga. Mesmo critério do gate em gerarRelatorioIndividual.
-    const avaliadasPorColab = new Map<string, number>();
-    for (const r of respostas || []) {
-      if (!r.colaborador_id) continue;
-      avaliadasPorColab.set(r.colaborador_id, (avaliadasPorColab.get(r.colaborador_id) || 0) + 1);
-    }
-    const { data: colabs } = await tdb.from('colaboradores').select('id, cargo').in('id', colabIds);
-    const { data: cargosEmp } = await tdb.from('cargos_empresa').select('nome, top5_workshop');
-    const top5PorCargo = new Map<string, number>((cargosEmp || []).map((c: any) => [c.nome, (c.top5_workshop || []).length]));
-    const completos = new Set(
-      (colabs || [])
-        .filter((c: any) => {
-          const esperado = top5PorCargo.get(c.cargo) || 0;
-          return esperado === 0 || (avaliadasPorColab.get(c.id) || 0) >= esperado;
-        })
-        .map((c: any) => c.id),
-    );
-
-    const pendentes = colabIds.filter(id => !jaGerados.has(id) && completos.has(id));
-    const incompletos = colabIds.filter(id => !jaGerados.has(id) && !completos.has(id)).length;
+    const { pendentes, incompletos } = fila;
     if (!pendentes.length) {
       return {
         success: true,

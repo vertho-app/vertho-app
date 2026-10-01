@@ -132,6 +132,9 @@ const PHASE_CONFIG = [
       { key: 'rel-gestor', label: 'Gestor',    icon: FileBarChart, ai: true },
       { key: 'rel-rh',     label: 'RH',        icon: FileBarChart, ai: true },
     ]},
+    { label: 'Fluxo', actions: [
+      { key: 'fluxo-previa', label: 'Fluxo completo (prévia)', icon: Activity, hrefFn: (id: string) => `/admin/empresas/${id}/fluxo` },
+    ]},
     { label: 'Enviar', actions: [
       { key: 'envios-rel', label: 'Enviar Relatórios', icon: Send, href: '/admin/whatsapp' },
       { key: 'iniciar-envios', label: 'Iniciar Envios', icon: Play },
