@@ -487,7 +487,7 @@ export function montarAlternativasIA3(resultado: any, cen: any, perguntas: any[]
 export async function persistirCenarioIA3(tdb: any, args: {
   compId: string; cargoNome: string; pppEscolaId: string | null;
   titulo: string; contexto: string; alternativas: Record<string, any>;
-}): Promise<{ ok: true; cenarioId: string | null } | { ok: false; error: string }> {
+}): Promise<{ ok: true; cenarioId: string | null; aviso?: string } | { ok: false; error: string }> {
   /**
    * O `delete` só alcança cenário SEM resposta ligada.
    *
@@ -506,7 +506,8 @@ export async function persistirCenarioIA3(tdb: any, args: {
    * A migration 226 põe a mesma regra no banco (FK `ON DELETE RESTRICT`), para
    * que um caminho futuro que esqueça esta checagem falhe alto em vez de apagar.
    */
-  const baseSel = tdb.from('banco_cenarios').select('id')
+  const baseSel = tdb.from('banco_cenarios')
+    .select('id, titulo, descricao, alternativas, nota_check, status_check, alertas_check, checked_at, created_at')
     .eq('competencia_id', args.compId)
     .eq('cargo', args.cargoNome);
   const { data: existentes, error: errSel } = await (args.pppEscolaId
@@ -514,20 +515,32 @@ export async function persistirCenarioIA3(tdb: any, args: {
     : baseSel.is('ppp_escola_id', null));
   if (errSel) return { ok: false, error: `Erro ao ler cenários existentes: ${errSel.message}` };
 
-  const ids = (existentes || []).map((c: any) => c.id);
+  const linhas: any[] = existentes || [];
+  const ids = linhas.map((c: any) => c.id);
+  let apagaveis: string[] = [];
   if (ids.length) {
     const { data: comResposta, error: errResp } = await tdb.from('respostas')
       .select('cenario_id').in('cenario_id', ids);
     if (errResp) return { ok: false, error: `Erro ao checar respostas: ${errResp.message}` };
 
     const protegidos = new Set((comResposta || []).map((r: any) => r.cenario_id));
-    const apagaveis = ids.filter((id: string) => !protegidos.has(id));
-    if (apagaveis.length) {
-      const { error: errDel } = await tdb.from('banco_cenarios').delete().in('id', apagaveis);
-      if (errDel) return { ok: false, error: `Erro ao limpar cenário anterior: ${errDel.message}` };
-    }
+    apagaveis = ids.filter((id: string) => !protegidos.has(id));
   }
 
+  // SNAPSHOT (01/10/2026): o texto que vai ser apagado passa a viver no cenário NOVO, em
+  // `alertas_check.versoes_anteriores` (ver `versoesComAnteriorIA3`). Do mais antigo ao mais novo, para o
+  // mais recente ficar na frente; o histórico que cada um já carregava segue junto.
+  const aSubstituir = linhas
+    .filter((c: any) => apagaveis.includes(c.id))
+    .sort((a: any, b: any) => String(a.checked_at ?? a.created_at ?? '').localeCompare(String(b.checked_at ?? b.created_at ?? '')));
+  const versoes = aSubstituir.reduce((hist: any[], c: any) => {
+    // [conteúdo desta linha, ...o histórico que ELA já carregava] na frente; as linhas mais antigas atrás.
+    const proprias = versoesComAnteriorIA3(c);
+    return [...proprias, ...hist].slice(0, IA3_MAX_VERSOES_ANTERIORES);
+  }, [] as any[]);
+
+  // INSERE ANTES de apagar: se o insert falhar, nada foi perdido; e o snapshot já está gravado no novo
+  // quando o antigo sai. (Antes era delete→insert: uma falha no meio perdia o texto sem rastro.)
   const { data: inserted, error: insertErr } = await tdb.from('banco_cenarios').insert({
     competencia_id: args.compId,
     cargo: args.cargoNome,
@@ -535,10 +548,21 @@ export async function persistirCenarioIA3(tdb: any, args: {
     titulo: args.titulo,
     descricao: args.contexto,
     alternativas: args.alternativas,
+    ...(versoes.length ? { alertas_check: { versoes_anteriores: versoes } } : {}),
   }).select('id').maybeSingle();
 
   if (insertErr) return { ok: false, error: `Erro ao salvar: ${insertErr.message}` };
-  return { ok: true, cenarioId: inserted?.id || null };
+
+  let aviso: string | undefined;
+  if (apagaveis.length) {
+    const { error: errDel } = await tdb.from('banco_cenarios').delete().in('id', apagaveis);
+    if (errDel) {
+      // O novo cenário e o snapshot JÁ existem; o antigo só ficou para trás. Não é perda: avisa e segue.
+      aviso = `Cenário novo salvo, mas o anterior não foi removido: ${errDel.message}`;
+      console.warn(`[persistirCenarioIA3] ${aviso}`);
+    }
+  }
+  return { ok: true, cenarioId: inserted?.id || null, ...(aviso ? { aviso } : {}) };
 }
 
 // ── Core síncrono da geração (a action delega aqui) ─────────────────────────
@@ -680,7 +704,13 @@ export function normalizarResultadoCheckIA3(resultado: any): { resultado: any; s
 
 export async function persistirCheckIA3(sbRaw: any, cen: any, resultado: any, statusCheck: string):
   Promise<{ ok: true } | { ok: false; error: string }> {
-  const { data: cenLinhaChk } = await sbRaw.from('banco_cenarios').select('empresa_id').eq('id', cen.id).maybeSingle();
+  // Lê também `alertas_check`: o check REESCREVE esse campo, e o histórico de versões (snapshot do conteúdo
+  // substituído) não pode morrer no primeiro check que vier depois da regeneração.
+  const { data: cenLinhaChk, error: errLinhaChk } = await sbRaw.from('banco_cenarios').select('empresa_id, alertas_check').eq('id', cen.id).maybeSingle();
+  // Sem a linha não há como escopar o UPDATE por tenant (cairia em `empresa_id IS NULL` e daria "0 linhas"):
+  // falha aqui, com a causa, em vez de depois, sem ela.
+  if (errLinhaChk) return { ok: false, error: `Check: leitura da linha falhou: ${errLinhaChk.message} (cen.id: ${cen.id})` };
+  const versoesGuardadas = Array.isArray(cenLinhaChk?.alertas_check?.versoes_anteriores) ? cenLinhaChk.alertas_check.versoes_anteriores : null;
   const { data: updated, error: updErr } = await escopoTenantDaLinha(
     sbRaw.from('banco_cenarios').update({
     nota_check: resultado.nota,
@@ -694,6 +724,7 @@ export async function persistirCheckIA3(sbRaw: any, cen: any, resultado: any, st
       ponto_mais_fraco: resultado.ponto_mais_fraco || null,
       descritores_sem_cobertura: resultado.descritores_sem_cobertura || [],
       perguntas_com_risco: resultado.perguntas_com_risco || [],
+      ...(versoesGuardadas ? { versoes_anteriores: versoesGuardadas } : {}),
     },
     checked_at: new Date().toISOString(),
   }).eq('id', cen.id),
