@@ -1195,7 +1195,7 @@
       },
       "subs": {
         "overview": "Visão geral",
-        "baseProgressSub": "DISC e mapeamento",
+        "baseProgressSub": "Perfil comportamental e mapeamento",
         "tenantsPipeline": "Tenants e pipeline",
         "phase0to5": "Fase 0 → Fase 5",
         "top5Collaborators": "Top 5 por colaboradores",

@@ -54,7 +54,7 @@ export default async function AndamentoPage({ searchParams }: { searchParams: Pr
       <section className="border-b border-white/10 pb-6">
         <p className="text-[10px] font-bold uppercase tracking-widest text-cyan-400">Andamento</p>
         <h1 className="mt-2 text-2xl font-bold text-white">
-          Quem já fez o <span className="text-cyan-300">DISC e o mapeamento</span>
+          Quem já fez o <span className="text-cyan-300">perfil comportamental e o mapeamento</span>
         </h1>
         <p className="mt-4 max-w-[72ch] text-sm leading-relaxed text-gray-400">
           Mesma régua da home do RH. Mapeamento completo é ter o Top 5 do cargo inteiro avaliado; abaixo de cada linha,
@@ -64,7 +64,7 @@ export default async function AndamentoPage({ searchParams }: { searchParams: Pr
         </p>
         <div className="mt-6 flex flex-wrap gap-8">
           <Resumo valor={total} rotulo="pessoas" />
-          <Resumo valor={disc} rotulo={`fizeram o DISC · ${pct(disc, total)}%`} />
+          <Resumo valor={disc} rotulo={`fizeram o perfil comportamental · ${pct(disc, total)}%`} />
           <Resumo valor={mapeamento} rotulo={`fizeram o mapeamento · ${pct(mapeamento, total)}%`} />
         </div>
         {algumIndisponivel && (

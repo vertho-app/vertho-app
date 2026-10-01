@@ -1195,7 +1195,7 @@
       },
       "subs": {
         "overview": "Overview",
-        "baseProgressSub": "DISC & mapping",
+        "baseProgressSub": "Behavioral profile & mapping",
         "tenantsPipeline": "Tenants and pipeline",
         "phase0to5": "Phase 0 → Phase 5",
         "top5Collaborators": "Top 5 by team members",
