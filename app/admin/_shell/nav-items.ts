@@ -48,6 +48,7 @@ export const GROUP_ORDER = [
 export const NAV_ITEMS: NavItem[] = [
   // ── Visão geral ───────────────────────────────────────────────────────────
   { key: 'dashboard',  labelKey: 'dashboard', subKey: 'overview',       group: 'overview', icon: LayoutDashboard, hrefFn: () => '/admin/dashboard' },
+  { key: 'andamento',  labelKey: 'baseProgress', subKey: 'baseProgressSub', group: 'overview', icon: BarChart2,       hrefFn: () => '/admin/andamento',        showWhenEmpresa: false },
   { key: 'empresas',   labelKey: 'companies', subKey: 'tenantsPipeline', group: 'overview', icon: Building2,       hrefFn: () => '/admin/empresas/gerenciar', showWhenEmpresa: false },
   { key: 'demo',       labelKey: 'demoEnv',   subKey: 'demoEnvSub',     group: 'overview', icon: FlaskConical,     hrefFn: () => '/admin/demo',              showWhenEmpresa: false, permission: 'companies.manage' },
   { key: 'copiloto',   labelKey: 'copilot',   subKey: 'copilotSub',     group: 'overview', icon: Bot,              hrefFn: () => '/copiloto',                showWhenEmpresa: false },

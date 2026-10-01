@@ -1146,6 +1146,7 @@
     "nav": {
       "labels": {
         "dashboard": "Dashboard",
+        "baseProgress": "Andamento da base",
         "companies": "Empresas",
         "companyPipeline": "Pipeline da empresa",
         "voting": "Votação",
@@ -1194,6 +1195,7 @@
       },
       "subs": {
         "overview": "Visão geral",
+        "baseProgressSub": "DISC e mapeamento",
         "tenantsPipeline": "Tenants e pipeline",
         "phase0to5": "Fase 0 → Fase 5",
         "top5Collaborators": "Top 5 por colaboradores",
