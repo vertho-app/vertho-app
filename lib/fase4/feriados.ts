@@ -52,20 +52,35 @@ export const FERIADOS_NACIONAIS: readonly string[] = [
   '2026-11-15', // Proclamação da República
   '2026-11-20', // Consciência Negra
   '2026-12-25', // Natal
-  // 2027 — só os FIXOS. As móveis entram quando alguém conferir a Páscoa (28/03/2027).
-  '2027-01-01',
-  '2027-04-21',
-  '2027-05-01',
-  '2027-09-07',
-  '2027-10-12',
-  '2027-11-02',
-  '2027-11-15',
-  '2027-11-20',
-  '2027-12-25',
+  // 2027: Páscoa em 28/03, conferido em 30/09/2026 (algoritmo gregoriano, que
+  // reproduz as datas de 2026 acima; móveis = Páscoa −48, −47, −2 e +60 dias).
+  '2027-01-01', // Confraternização Universal
+  '2027-02-08', // Carnaval (segunda)
+  '2027-02-09', // Carnaval (terça)
+  '2027-03-26', // Sexta-feira Santa
+  '2027-04-21', // Tiradentes
+  '2027-05-01', // Dia do Trabalho
+  '2027-05-27', // Corpus Christi
+  '2027-09-07', // Independência
+  '2027-10-12', // Nossa Senhora Aparecida
+  '2027-11-02', // Finados
+  '2027-11-15', // Proclamação da República
+  '2027-11-20', // Consciência Negra
+  '2027-12-25', // Natal
+  // 2028: só os FIXOS. As móveis entram quando alguém conferir a Páscoa (16/04/2028).
+  '2028-01-01',
+  '2028-04-21',
+  '2028-05-01',
+  '2028-09-07',
+  '2028-10-12',
+  '2028-11-02',
+  '2028-11-15',
+  '2028-11-20',
+  '2028-12-25',
 ] as const;
 
 /** Até quando a lista foi conferida, inclusive as datas móveis. */
-export const ULTIMO_ANO_CONFERIDO = 2026;
+export const ULTIMO_ANO_CONFERIDO = 2027;
 
 /** `YYYY-MM-DD` do dia da semana `dow` (0=dom..6=sáb) na semana de `hojeUTC`. */
 function dataDoDiaNaSemana(hojeUTC: string, dowHoje: number, dow: number): string {
