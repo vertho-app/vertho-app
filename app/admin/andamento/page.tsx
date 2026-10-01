@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { carregarAndamentoEmpresas, type AndamentoEmpresa } from '@/lib/admin/andamento-empresas';
 
 export const metadata = { title: 'Andamento da base · Admin' };
@@ -40,7 +41,7 @@ export default async function AndamentoPage() {
           Quem já fez o <span className="text-cyan-300">DISC e o mapeamento</span>
         </h1>
         <p className="mt-4 max-w-[72ch] text-sm leading-relaxed text-gray-400">
-          Mesma régua da home do RH. Mapeamento conta só quem teve o Top 5 do cargo inteiro avaliado.
+          Mesma régua da home do RH. Mapeamento completo é ter o Top 5 do cargo inteiro avaliado; abaixo de cada empresa, quantas pessoas estão em cada degrau (0 de 5, 1 de 5, ...).
           Fora: empresas de demonstração e o papel Admin da empresa. Medido em {medidoEm} (Brasília).
         </p>
         <div className="mt-6 flex flex-wrap gap-8">
@@ -68,7 +69,8 @@ export default async function AndamentoPage() {
           </thead>
           <tbody>
             {linhas.map((l) => (
-              <tr key={l.id} className="border-b border-white/5 last:border-0">
+              <Fragment key={l.id}>
+              <tr className="border-t border-white/10">
                 <td className="px-4 py-3 font-semibold text-white">
                   {l.nome}{l.indisponivel && <span title="consulta falhou"> ⚠</span>}
                 </td>
@@ -77,6 +79,19 @@ export default async function AndamentoPage() {
                 <Celula parte={l.comMapeamento} total={l.pessoas} />
                 <td className="px-4 py-3 text-right tabular-nums">{l.emJornada}</td>
               </tr>
+              <tr>
+                <td colSpan={5} className="px-4 pb-3 text-[11px] text-gray-400">
+                  <span className="mr-2 text-gray-500">Mapeamento:</span>
+                  {l.progressoMapeamento.map((g) => (
+                    <span key={`${g.feitas}/${g.total}`} className="mr-3 inline-block">
+                      {g.total === 0
+                        ? <>sem Top 5 do cargo <b className="text-gray-200">{g.pessoas}</b></>
+                        : <>{g.feitas} de {g.total}: <b className="text-gray-200">{g.pessoas}</b></>}
+                    </span>
+                  ))}
+                </td>
+              </tr>
+              </Fragment>
             ))}
             {linhas.length === 0 && (
               <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Nenhuma empresa com pessoas cadastradas.</td></tr>

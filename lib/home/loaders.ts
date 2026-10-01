@@ -12,7 +12,7 @@ import { ehSemanaDeImplementacao, totalSemanasDoPlano } from '@/lib/season-engin
 import { estaAtrasada } from '@/lib/season-engine/atraso';
 import { semanaLiberadaEm, semanaLiberadaPorData } from '@/lib/season-engine/week-gating';
 import { consumiuConteudo } from '@/lib/season-engine/consumo-conteudo';
-import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
+import { colaboradoresComMapeamentoCompleto, distribuicaoMapeamento, progressoMapeamentoPorPessoa } from '@/lib/mapeamento-competencias';
 import { blocoEstaOffline } from '@/lib/blocos-offline';
 
 /**
@@ -837,6 +837,11 @@ export async function carregarPanoramaRH(
     cargosRes.data || [],
     assessRes.data || [],
   ).size;
+  const progressoMapeamento = distribuicaoMapeamento(progressoMapeamentoPorPessoa(
+    participantesRes.data || [],
+    cargosRes.data || [],
+    assessRes.data || [],
+  ));
 
   // Progresso das trilhas ativas — uma linha por semana de cada trilha (~530 no
   // maior tenant). É o que separa "em jornada" de "andando": sem isto, 38 ativas
@@ -873,6 +878,7 @@ export async function carregarPanoramaRH(
     pessoas: pessoasRes.count || 0,
     comPerfil: comPerfilRes.count || 0,
     comMapeamento,
+    progressoMapeamento,
     emJornada,
     emDia,
     atrasadas,

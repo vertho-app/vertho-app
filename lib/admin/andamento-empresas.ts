@@ -7,6 +7,8 @@ export type AndamentoEmpresa = {
   pessoas: number;
   comPerfil: number;
   comMapeamento: number;
+  /** Degraus do mapeamento: N pessoas com `feitas` de `total` competências. */
+  progressoMapeamento: Array<{ feitas: number; total: number; pessoas: number }>;
   emJornada: number;
   indisponivel: boolean;
 };
@@ -36,6 +38,7 @@ export async function carregarAndamentoEmpresas(): Promise<AndamentoEmpresa[]> {
       pessoas: p.pessoas,
       comPerfil: p.comPerfil,
       comMapeamento: p.comMapeamento,
+      progressoMapeamento: p.progressoMapeamento,
       emJornada: p.emJornada,
       indisponivel: p.indisponivel,
     };
