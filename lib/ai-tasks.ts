@@ -342,6 +342,12 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   // resolvia (14/14 contra 8/14 em 4 rodadas). Claude gerando, Terra (OpenAI) auditando:
   // par cross-família preservado. O Opus 5.5 não superou o Sonnet 5.5 e custa ~2,3x.
   ia3_cenarios:        'claude-sonnet-5-5',
+  // Fluxo completo (01/10/2026): blueprint e trilha são o que gerou a base em produção, e NUNCA foram medidos contra
+  // outro modelo (`docs/CUSTO-QUALIDADE.md`: `blueprint_gerar` "não foi medido"). Incumbente tornado EXPLÍCITO: antes
+  // rodava no `modelo_padrao` do tenant (4.6 nas empresas) ou no default do `callAI`, e uma troca dali mudaria o fluxo
+  // sem ninguém decidir. Trocar é decisão de bake-off, não de default.
+  blueprint_gerar:     'claude-sonnet-4-6',
+  temporada_desafio:   'claude-sonnet-4-6',
 };
 
 const FALLBACK_GLOBAL = 'claude-sonnet-4-6';
@@ -378,6 +384,9 @@ export const PINNED_TASKS = new Set([
   'ia4_avaliacao',
   // IA3: sem o pino o `modelo_padrao` do tenant (4.6 nas 10 empresas) venceria o default acima.
   'ia3_cenarios',
+  // Incumbentes do fluxo completo: o modelo é decisão, não herança do `modelo_padrao` do tenant.
+  'blueprint_gerar',
+  'temporada_desafio',
   'pdi_individual',
   'pdi_check',
   'relatorio_gestor',

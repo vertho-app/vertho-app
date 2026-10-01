@@ -31,6 +31,14 @@ describe('resolveTaskModel — tasks pinned', () => {
     expect(resolveTaskModel(sysConfig, 'modulo_base_auditor')).toBe('gpt-5.4');
   });
 
+  it('blueprint e trilha do fluxo completo: incumbente 4.6 EXPLÍCITO, imune ao modelo_padrao, com override por task valendo', () => {
+    const barato = { ai: { modelo_padrao: 'gemini-3.1-flash-lite' } };
+    for (const task of ['blueprint_gerar', 'temporada_desafio']) {
+      expect(resolveTaskModel(barato, task), task).toBe('claude-sonnet-4-6');
+      expect(resolveTaskModel({ ai: { modelos: { [task]: 'claude-sonnet-5-5' } } }, task), task).toBe('claude-sonnet-5-5');
+    }
+  });
+
   it('task NÃO-pinned continua herdando o modelo_padrao do tenant', () => {
     const sysConfig = { ai: { modelo_padrao: 'gemini-3.1-flash-lite' } };
     expect(resolveTaskModel(sysConfig, 'tarefa_qualquer_nao_pinned')).toBe('gemini-3.1-flash-lite');
