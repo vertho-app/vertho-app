@@ -35,21 +35,21 @@ describe('usaMapeamentoComportamentalNativo', () => {
 describe('precisaPreferenciasAprendizagem', () => {
   const externo = { perfil_externo_fonte: 'opq32' };
 
-  it('só pede com as três condições juntas: sem DISC nativo, assessment concluído, ainda não preencheu', () => {
-    expect(precisaPreferenciasAprendizagem({ config: externo, jaPreencheu: false, assessmentConcluido: true })).toBe(true);
+  it('só pede com as três condições juntas: sem DISC nativo, primeira competência respondida, ainda não preencheu', () => {
+    expect(precisaPreferenciasAprendizagem({ config: externo, jaPreencheu: false, primeiraCompetenciaRespondida: true })).toBe(true);
   });
 
-  it('não pede antes de concluir o primeiro mapeamento', () => {
-    expect(precisaPreferenciasAprendizagem({ config: externo, jaPreencheu: false, assessmentConcluido: false })).toBe(false);
+  it('não pede antes de a primeira competência ser respondida', () => {
+    expect(precisaPreferenciasAprendizagem({ config: externo, jaPreencheu: false, primeiraCompetenciaRespondida: false })).toBe(false);
   });
 
   it('não pede de novo a quem já preencheu', () => {
-    expect(precisaPreferenciasAprendizagem({ config: externo, jaPreencheu: true, assessmentConcluido: true })).toBe(false);
+    expect(precisaPreferenciasAprendizagem({ config: externo, jaPreencheu: true, primeiraCompetenciaRespondida: true })).toBe(false);
   });
 
   it('🔴 tenant com DISC nativo NÃO é puxado: lá a etapa já vive no mapeamento comportamental', () => {
-    expect(precisaPreferenciasAprendizagem({ config: {}, jaPreencheu: false, assessmentConcluido: true })).toBe(false);
-    expect(precisaPreferenciasAprendizagem({ config: null, jaPreencheu: false, assessmentConcluido: true })).toBe(false);
+    expect(precisaPreferenciasAprendizagem({ config: {}, jaPreencheu: false, primeiraCompetenciaRespondida: true })).toBe(false);
+    expect(precisaPreferenciasAprendizagem({ config: null, jaPreencheu: false, primeiraCompetenciaRespondida: true })).toBe(false);
   });
 });
 

@@ -16,8 +16,12 @@ export function usaMapeamentoComportamentalNativo(config: EmpresaConfig | null |
 /**
  * Preferências de aprendizagem (8 formatos, 1 a 5 estrelas) moram, para quem usa
  * o DISC nativo, na última etapa do mapeamento comportamental. Quem NÃO usa essa
- * etapa nunca as preencheria — então o formulário é pedido depois do primeiro
- * mapeamento de competências (o assessment).
+ * etapa nunca as preencheria — então o formulário é pedido logo depois da
+ * PRIMEIRA competência respondida do primeiro mapeamento (o assessment).
+ *
+ * ⚠️ "Primeira competência", não "mapeamento concluído": o assessment tem 5-6
+ * competências, respondidas ao longo de dias. Pedir só no fim (como saiu em
+ * 01/10) fazia a pessoa terminar a primeira e não ver a tela.
  *
  * Só pede quando a pessoa ainda não preencheu: a tela é uma etapa, não um
  * recadastro a cada visita.
@@ -25,9 +29,9 @@ export function usaMapeamentoComportamentalNativo(config: EmpresaConfig | null |
 export function precisaPreferenciasAprendizagem(args: {
   config: EmpresaConfig | null | undefined;
   jaPreencheu: boolean;
-  assessmentConcluido: boolean;
+  primeiraCompetenciaRespondida: boolean;
 }): boolean {
-  if (!args.assessmentConcluido) return false;
+  if (!args.primeiraCompetenciaRespondida) return false;
   if (args.jaPreencheu) return false;
   return !usaMapeamentoComportamentalNativo(args.config);
 }

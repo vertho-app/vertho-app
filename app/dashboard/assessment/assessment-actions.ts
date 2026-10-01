@@ -194,6 +194,36 @@ export async function getNomeCompetencia(competenciaId: string) {
  * Regra: 1 competência por dia, seguindo a ordem do Top 5 do cargo.
  * Dedupe diário: se já respondeu hoje, bloqueia até amanhã.
  */
+/**
+ * A tela de preferências de aprendizagem entra agora? (tenant sem DISC nativo, ao
+ * fim da PRIMEIRA competência respondida do primeiro mapeamento, e a pessoa ainda
+ * não preencheu). Fonte única para `getDiagnosticoDoDia` e `salvarRespostaDiagnostico`
+ * — duas cópias da regra divergiriam. Só lê a coluna quando a regra pode dar sim:
+ * os demais tenants não pagam a query.
+ */
+async function avaliarPrecisaPreferencias(
+  sb: any,
+  colab: { id: string; empresa_id: string },
+  cfg: any,
+  args: { primeiroMapeamento: boolean; respondidas: number },
+): Promise<{ precisa: boolean; erro?: string }> {
+  if (!args.primeiroMapeamento || args.respondidas < 1) return { precisa: false };
+  if (usaMapeamentoComportamentalNativo(cfg)) return { precisa: false };
+  const { data, error } = await sb.from('colaboradores')
+    .select('pref_video_curto')
+    .eq('id', colab.id)
+    .eq('empresa_id', colab.empresa_id)
+    .maybeSingle();
+  if (error) return { precisa: false, erro: error.message };
+  return {
+    precisa: precisaPreferenciasAprendizagem({
+      config: cfg,
+      jaPreencheu: Number((data as any)?.pref_video_curto) > 0,
+      primeiraCompetenciaRespondida: true,
+    }),
+  };
+}
+
 export async function getDiagnosticoDoDia(trilho: Trilho = 'cargo') {
   try {
     return await _getDiagnosticoDoDia(trilhoDe(trilho));
@@ -283,7 +313,15 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
   const pct = top5.length > 0 ? Math.round((respondidas / top5.length) * 100) : 0;
 
   const progresso = { pct, total: top5.length, respondidas };
-  const extrasTrilho = { trilho, cargoAlvo, trilhoLideranca, trilhoCargo };
+  // Preferências de aprendizagem (tenant sem DISC nativo): pedidas ao fim da
+  // primeira competência do PRIMEIRO mapeamento — o do cargo; quem só lidera
+  // (cargo sem Top 5) tem o de liderança como primeiro.
+  const pref = await avaliarPrecisaPreferencias(sb, colab as any, cfg, {
+    primeiroMapeamento: trilho === 'cargo' || trilhoCargo?.disponivel === false,
+    respondidas,
+  });
+  if (pref.erro) return { error: pref.erro };
+  const extrasTrilho = { trilho, cargoAlvo, trilhoLideranca, trilhoCargo, precisaPreferencias: pref.precisa };
 
   // Um cenário por dia SÓ no trilho de liderança (decisão do programa). O
   // trilho do cargo segue sem limite, como sempre foi. A tela já tem o estado
@@ -346,32 +384,11 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
       .eq('tipo', 'individual');
     if (pdiError) return { error: pdiError.message };
 
-    // Preferências de aprendizagem: quem não faz o DISC nativo nunca passaria pela
-    // etapa que as coleta, então a tela as pede aqui, ao fim do PRIMEIRO
-    // mapeamento (o do cargo; quem só lidera fecha no de liderança). Só lê a
-    // coluna quando a regra pode dar sim — o resto dos tenants não paga a query.
-    const primeiroMapeamento = trilho === 'cargo' || trilhoCargo?.disponivel === false;
-    let precisaPreferencias = false;
-    if (primeiroMapeamento && !usaMapeamentoComportamentalNativo(cfg)) {
-      const { data: prefRow, error: prefError } = await sb.from('colaboradores')
-        .select('pref_video_curto')
-        .eq('id', colab.id)
-        .eq('empresa_id', colab.empresa_id)
-        .maybeSingle();
-      if (prefError) return { error: prefError.message };
-      precisaPreferencias = precisaPreferenciasAprendizagem({
-        config: cfg,
-        jaPreencheu: Number((prefRow as any)?.pref_video_curto) > 0,
-        assessmentConcluido: true,
-      });
-    }
-
     return {
       colaborador: colaboradorPayload,
       progresso,
       degustacao,
       concluiuTudo: true,
-      precisaPreferencias,
       resultados,
       // O PDI é do mapeamento do CARGO; no trilho de liderança o botão não faz sentido.
       temPdi: trilho === 'cargo' && (pdiCount || 0) > 0,
@@ -545,10 +562,28 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
     });
   }
 
+  // Preferências de aprendizagem logo após a primeira resposta — a pessoa vê a tela
+  // em seguida à pergunta de aderência, e não só quando fecha o mapeamento. Só no
+  // trilho do cargo: o de liderança fecha por `getDiagnosticoDoDia` (que sabe se a
+  // pessoa tem cargo próprio), na próxima carga da tela.
+  let precisaPreferencias = false;
+  if (trilho === 'cargo') {
+    const cfg = await configEfetivaDoColaborador(sb, colab.empresa_id, (colab as any).id);
+    const pref = await avaliarPrecisaPreferencias(sb, colab as any, cfg, {
+      primeiroMapeamento: true,
+      respondidas: top5ComCenario.length - pendentes.length,
+    });
+    // A resposta JÁ foi gravada: falha de leitura aqui não pode virar erro de
+    // salvamento. Cai em "não pede agora" e a próxima carga da tela decide.
+    if (pref.erro) console.warn('[salvarRespostaDiagnostico] preferências:', pref.erro);
+    precisaPreferencias = pref.precisa;
+  }
+
   return {
     success: true,
     concluiuTudo,
     degustacao,
+    precisaPreferencias,
     proximaCompetencia: pendentes[0] || null,
   };
 }

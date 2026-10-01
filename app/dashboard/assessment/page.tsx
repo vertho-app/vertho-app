@@ -110,11 +110,11 @@ function AssessmentInner() {
 
   function flash(msg) { toast.error(msg); }
 
-  // Fim do primeiro mapeamento + preferências de aprendizagem ainda não dadas
-  // (tenant sem DISC nativo): a etapa vem antes do resultado. O servidor decide
+  // Primeira competência respondida + preferências de aprendizagem ainda não dadas
+  // (tenant sem DISC nativo): a etapa vem antes de seguir. O servidor decide
   // (`precisaPreferencias`); a tela só obedece.
   function irParaPreferencias(r: any): boolean {
-    if (!r?.concluiuTudo || !r?.precisaPreferencias) return false;
+    if (!r?.precisaPreferencias) return false;
     router.replace('/dashboard/preferencias-aprendizagem');
     return true;
   }
@@ -178,6 +178,7 @@ function AssessmentInner() {
     setSaving(false);
     if (r.error) { flash(r.error); return; }
     setSaveResult(r);
+    if (irParaPreferencias(r)) return;
     if (r.concluiuTudo) {
       const refreshed: any = await getDiagnosticoDoDia(trilho);
       if (refreshed && !refreshed.error) {

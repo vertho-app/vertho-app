@@ -807,11 +807,13 @@ aparece como bug do usuário, não como configuração.
 
 **Preferências de aprendizagem (01/10/2026):** o formulário (8 formatos, 1 a 5 estrelas) é a última etapa do
 mapeamento DISC e só era gravado junto dele (`salvarPerfilComportamental`). Quem tem fonte externa nunca passava
-por essa etapa e ficava com `pref_* = 0`. Agora `getDiagnosticoDoDia` devolve `precisaPreferencias` ao fim do
-**primeiro** mapeamento de competências (trilho do cargo; quem só lidera fecha no de liderança), e a tela
+por essa etapa e ficava com `pref_* = 0`. Agora `getDiagnosticoDoDia` e `salvarRespostaDiagnostico` devolvem `precisaPreferencias` logo depois da
+**primeira competência respondida** do primeiro mapeamento (trilho do cargo; quem só lidera usa o de liderança) —
+⚠️ não ao fim do mapeamento: ele tem 5-6 competências ao longo de dias e a 1ª versão (01/10) nunca aparecia para quem
+terminava só a primeira. A tela
 `/dashboard/preferencias-aprendizagem` grava só as colunas `pref_*` (`salvarPreferenciasAprendizagem`) e volta ao
 assessment. A regra é uma função pura em `lib/access-gates/preferencias-aprendizagem.ts`: pede quando
-`perfil_externo_fonte` está preenchido, o mapeamento acabou e a pessoa ainda não preencheu. `perfil_comportamental_liberado
+`perfil_externo_fonte` está preenchido, a primeira competência foi respondida e a pessoa ainda não preencheu. `perfil_comportamental_liberado
 = false` sozinho NÃO conta (é estado da turma). Tenant com DISC nativo segue como antes. Testes:
 `preferencias-aprendizagem.test.ts` e `assessment-preferencias-aprendizagem.test.ts`.
 
