@@ -35,8 +35,25 @@ import { coletarEntregasPrevistas } from '@/lib/pipeline-health/coleta';
 import { precarregarKits, overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { getProgramaConfigDaTrilha } from '@/lib/season-engine/programa-config';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
-import { dispararVideoDoKit } from '@/actions/gerar-video';
 import { resolverContextoEmpresa } from '@/lib/season-engine/kit/contexto-empresa';
+import { dispararCelulasDoKitEmLote, despacharGruposOrfaos, podeAgrupar, chaveCombinacao, passaDoTeto } from '@/lib/video/celulas-lote';
+import { avatarGrupoLigado } from '@/lib/video/avatar-grupo-core';
+import { TETO_ATRASO_DISPARO_S } from '@/lib/video/roteiro-lote';
+
+/**
+ * `--sem-grupo`: não divide o avatar entre as células DISC do mesmo módulo × cargo,
+ * mesmo com `VIDEO_AVATAR_GRUPO=on` no `.env.local`. Com o grupo (30/09/2026), só a
+ * 1ª célula de cada combinação paga a HeyGen (~US$ 0,51); medido desde 01/08: 32
+ * células em 13 combinações. Detalhe em `lib/video/celulas-lote.ts`.
+ */
+const SEM_GRUPO = process.argv.includes('--sem-grupo');
+
+/**
+ * Espera máxima pelo lote dos roteiros antes de cair no síncrono (decisão do dono,
+ * 30/09/2026: 2 h). Se estourar, o coletor cancela o lote, aproveita o que saiu e
+ * só o resto vai ao síncrono, então o pior caso custa o mesmo que antes.
+ */
+const ORCAMENTO_ROTEIRO_MS = 2 * 3600_000;
 
 const arg = (n: string) => process.argv.find((a) => a.startsWith(`--${n}=`))?.split('=')[1];
 const SLUG = arg('empresa');
@@ -69,8 +86,13 @@ const TODOS = process.argv.includes('--todos');
  * 17/08/2026: 4 células disparadas em 4 minutos, 1 morreu em "TTS: resposta sem
  * áudio após 4 tentativas"; a mesma célula sozinha passou de primeira. O lote de
  * 42 (28/07) perdeu ~15% pelo mesmo motivo.
+ *
+ * Desde 30/09/2026 o espaçamento é feito pelo `delay` do Trigger (agenda de
+ * `lib/video/roteiro-lote.ts`), e não mais dormindo aqui entre um disparo e outro.
+ * O padrão subiu de 150 para 210 s porque o espaçamento REAL era 150 s de espera
+ * mais ~65 s do roteiro síncrono de cada célula, que agora sai em lote.
  */
-const INTERVALO_S = Number(arg('intervalo')) || 150;
+const INTERVALO_S = Number(arg('intervalo')) || 210;
 /**
  * Teto de disparos por execução (`--limite`).
  *
@@ -198,22 +220,45 @@ async function main() {
     console.log(`   módulo-base ${c.moduloBaseId} · kit ${c.kitId}`);
   }
 
+  // A flag vale a da MÁQUINA (`.env.local`): o grupo é decidido aqui, não no Trigger.
+  const GRUPO = !SEM_GRUPO && avatarGrupoLigado();
+  console.log(`avatar por grupo: ${GRUPO ? 'LIGADO' : 'desligado'} (VIDEO_AVATAR_GRUPO=${process.env.VIDEO_AVATAR_GRUPO || '(não definida)'}${SEM_GRUPO ? ', --sem-grupo' : ''})`);
+
+  // Grupo com célula esperando sem despacho (uma rodada anterior morreu entre a inserção
+  // e o despacho): sai ANTES, senão a checagem de "já tem deck" acima o esconde para sempre.
+  if (EXECUTAR) {
+    const orfas = await despacharGruposOrfaos(sb, { empresaId, intervaloS: INTERVALO_S });
+    if (orfas.grupos.length) console.log(`♻️ ${orfas.grupos.length} grupo(s) com célula esperando despachado(s)${orfas.erros.length ? ` · erros: ${orfas.erros.join(' | ')}` : ''}`);
+  }
+
   if (!pendentes.length) { console.log('\nnada a gerar — todas as células já têm deck.'); return; }
-  const minutos = Math.round((pendentes.length * INTERVALO_S) / 60);
+  const agrupaveis = GRUPO ? pendentes.filter((c) => podeAgrupar(c.cargo)) : [];
+  const combinacoes = new Set(agrupaveis.map((c) => chaveCombinacao(c))).size;
+  // Avatares pagos, no máximo: 1 por combinação (a mãe; grupo já pronto de semana anterior
+  // não paga nenhum) + 1 por célula que não agrupa.
+  const avatares = (pendentes.length - agrupaveis.length) + combinacoes;
+  const vagasMinimas = avatares;
+  if (passaDoTeto(vagasMinimas, INTERVALO_S)) {
+    throw new Error(`${vagasMinimas} disparo(s) × ${INTERVALO_S}s passa do teto de ${TETO_ATRASO_DISPARO_S}s de atraso: use --limite`);
+  }
   if (!EXECUTAR) {
+    // ~US$ 0,28 por célula sem o avatar (roteiro em lote, narração, render) + ~0,51 por avatar.
     console.log(`\ndry-run — rode com --executar.`);
-    console.log(`  ${pendentes.length} render(s) · ~US$ ${(pendentes.length * 0.64).toFixed(2)} · disparo espaçado em ${INTERVALO_S}s (~${minutos} min só para disparar)`);
+    console.log(`  ${pendentes.length} render(s) em ${GRUPO ? `${combinacoes} combinação(ões) de módulo × cargo` : 'células sem grupo'} · até ${avatares} avatar(es) · ~US$ ${(pendentes.length * 0.28 + avatares * 0.51).toFixed(2)} (sem grupo seria ~US$ ${(pendentes.length * 0.79).toFixed(2)}) · roteiros num lote só (espera de até ${ORCAMENTO_ROTEIRO_MS / 60000} min) · disparos espaçados em ${INTERVALO_S}s pelo Trigger`);
     return;
   }
 
   const pppBrief = await resolverContextoEmpresa(sb, empresaId).catch(() => null);
-  let i = 0;
-  for (const c of pendentes) {
-    const r = await dispararVideoDoKit(sb, {
-      moduloBaseId: c.moduloBaseId, empresaId, cargo: c.cargo, disc: c.disc as any,
-      desafioTexto: c.desafio, kitId: c.kitId, pppBrief,
-      createdBy: TODOS ? 'kit:coorte' : 'kit:preferencia-video',
-    });
+  console.log(`roteiros: ${pendentes.length} num lote só; esperando o lote (até ${ORCAMENTO_ROTEIRO_MS / 60000} min)…`);
+  const lote = await dispararCelulasDoKitEmLote(sb, {
+    empresaId, pppBrief,
+    createdBy: TODOS ? 'kit:coorte' : 'kit:preferencia-video',
+    celulas: pendentes.map((c) => ({ moduloBaseId: c.moduloBaseId, cargo: c.cargo, disc: c.disc as any, desafioTexto: c.desafio, kitId: c.kitId })),
+    grupo: GRUPO, intervaloS: INTERVALO_S, budgetMs: ORCAMENTO_ROTEIRO_MS,
+  });
+  console.log(`vagas na agenda: ${lote.vagas}`);
+  for (const [i, c] of pendentes.entries()) {
+    const r = lote.celulas[i];
     /*
      * 🔑 `23505` AQUI É REUSO, NÃO FALHA — e a distinção não é cosmética.
      *
@@ -230,11 +275,11 @@ async function main() {
     const jaExistia = /duplicate key|23505|uq_videos_gerados_celula/i.test(String(r.error || ''));
     const desfecho = r.error
       ? (jaExistia ? '♻️ já existia (outra execução criou)' : `❌ ${r.error}`)
-      : `${r.reused ? '♻️ reusado' : '✅ disparado'} ${r.id} status=${r.status}`;
-    console.log(`▶ ${++i}/${pendentes.length} DISC ${c.disc} (${c.pessoas.length}p): ${desfecho}`);
-    // Espaça o PRÓXIMO disparo: é a narração de um que não pode disputar TTS com
-    // a do seguinte.
-    if (i < pendentes.length) await dormir(INTERVALO_S * 1000);
+      : `${r.reused ? '♻️ reusado' : r.adiado ? '⏳ no grupo (espera a mãe)' : '✅ disparado'} ${r.id} status=${r.status}`;
+    console.log(`▶ ${i + 1}/${pendentes.length} DISC ${c.disc} (${c.pessoas.length}p): ${desfecho}`);
+  }
+  for (const g of lote.grupos) {
+    console.log(`◆ grupo ${g.grupoId} (${g.combinacao}): ${g.celulas} célula(s) · despacho ${g.via ?? 'nenhum'} em +${g.atrasoS}s${g.erros.length ? ` · erros: ${g.erros.join(' | ')}` : ''}`);
   }
 
   console.log('\nAcompanhe: select status, etapa, error from videos_gerados where empresa_id = ... order by created_at desc;');
