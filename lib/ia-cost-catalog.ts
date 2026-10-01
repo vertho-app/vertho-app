@@ -61,6 +61,8 @@ export const MODELS = {
   'gpt-5.6-luna':               { label: 'GPT 5.6 Luna',        inUsd: 0.2,  outUsd: 1.2 },
   // Sol está no desconto oficial até 21/11/2026; revisar quando a promoção acabar.
   'gpt-5.6-sol':                { label: 'GPT 5.6 Sol',         inUsd: 4,    outUsd: 20 },
+  // Tabela oficial da OpenAI (developers.openai.com/api/docs/pricing, conferida em 01/10/2026): US$ 2 / US$ 10, cache US$ 0,10.
+  'gpt-6.1-sol':                { label: 'GPT 6.1 Sol',         inUsd: 2,    outUsd: 10, cacheReadUsd: 0.10 },
   'gpt-5.6-terra':              { label: 'GPT 5.6 Terra',       inUsd: 2,    outUsd: 12 },
   'gpt-5.5':                    { label: 'GPT 5.5',             inUsd: 5,    outUsd: 30 },
   'gpt-5.4':                    { label: 'GPT 5.4',             inUsd: 2.5,  outUsd: 15 },
