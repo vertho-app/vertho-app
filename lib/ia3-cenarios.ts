@@ -906,6 +906,8 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
     descricao: candidato.descricao,
     alternativas,
     ...auditoria,
+    // Guarda o conteúdo que está sendo substituído (ver `versoesComAnteriorIA3`).
+    alertas_check: { ...auditoria.alertas_check, versoes_anteriores: versoesComAnteriorIA3(cen) },
     checked_at: new Date().toISOString(),
   }).eq('id', cen.id).eq('empresa_id', cen.empresa_id);
   if (updErr) return { success: false, error: `Regeneração: UPDATE falhou (${updErr.message}) — versão anterior preservada` };
@@ -929,6 +931,34 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
 // listar e uma pessoa decidir. Sem coluna nova: o registro vive em `alertas_check`.
 
 export const IA3_LIMIAR_APROVACAO = 80;
+/**
+ * SNAPSHOT do conteúdo anterior antes de qualquer regeneração que SOBRESCREVE o cenário.
+ * Em 01/10/2026 regenerei 52 cenários da Amazon Bowling sem guardar o texto: `banco_cenarios` não tem
+ * histórico (nem PITR), e quando o dono quis comparar "antes e depois" o "antes" já não existia. A trava
+ * "nunca piora" protege a NOTA; não protege o texto que alguém queria rever. As versões vão em
+ * `alertas_check.versoes_anteriores` (mais recente primeiro, no máximo `IA3_MAX_VERSOES_ANTERIORES`), na
+ * própria linha — sem migration e sem depender de arquivo, que a Vercel e o Trigger não têm.
+ * Fica de fora o `alertas_check` do snapshot, para o histórico não aninhar a si mesmo.
+ */
+export const IA3_MAX_VERSOES_ANTERIORES = 3;
+
+export function versoesComAnteriorIA3(cen: any): any[] {
+  const ac: any = (cen?.alertas_check && typeof cen.alertas_check === 'object') ? cen.alertas_check : {};
+  const historico: any[] = Array.isArray(ac.versoes_anteriores) ? ac.versoes_anteriores : [];
+  const atual = {
+    versao_de: cen?.checked_at ?? cen?.updated_at ?? cen?.created_at ?? null,
+    guardada_em: new Date().toISOString(),
+    titulo: cen?.titulo ?? null,
+    descricao: cen?.descricao ?? null,
+    alternativas: cen?.alternativas ?? null,
+    nota_check: typeof cen?.nota_check === 'number' ? cen.nota_check : null,
+    status_check: cen?.status_check ?? null,
+    auditor: ac.auditor ?? null,
+    gerador: ac.gerador ?? null,
+  };
+  return [atual, ...historico].slice(0, IA3_MAX_VERSOES_ANTERIORES);
+}
+
 /**
  * Auditor dos degraus em que o GERADOR é da família OpenAI (a do Terra): Claude, outra família. Decisão do
  * dono (01/10/2026): "sol com sonnet >= 80" — a aprovação desses degraus é Sonnet >= 80, SEM o Terra. A régua do
@@ -1084,7 +1114,8 @@ export async function regenerarAteLimiarIA3(sbRaw: any, args: {
     const { error } = await sbRaw.from('banco_cenarios').update({
       titulo: candidato.titulo, descricao: candidato.descricao, alternativas,
       ...auditoria,
-      alertas_check: { ...auditoria.alertas_check, regeneracao_auto: meta },
+      // Guarda o conteúdo que está sendo substituído (ver `versoesComAnteriorIA3`).
+      alertas_check: { ...auditoria.alertas_check, regeneracao_auto: meta, versoes_anteriores: versoesComAnteriorIA3(cen) },
       checked_at: new Date().toISOString(),
     }).eq('id', cen.id).eq('empresa_id', cen.empresa_id);
     if (error) return { success: false, error: `Regeneração automática: UPDATE falhou (${error.message}) — versão anterior preservada` };

@@ -8,6 +8,7 @@ vi.mock('@/actions/utils', () => ({ extractJSON: vi.fn() }));
 import {
   rodarRetentativasIA3, rodarEscadaIA3, regenerarAteLimiarIA3, montarFeedbackRegeneracaoIA3,
   ESCADA_IA3, IA3_LIMIAR_APROVACAO, IA3_MAX_RODADAS_AUTO, IA3_AUDITOR_PARA_GPT,
+  versoesComAnteriorIA3, IA3_MAX_VERSOES_ANTERIORES,
   type DegrauIA3,
 } from '@/lib/ia3-cenarios';
 import { usaMaxCompletionTokens } from '@/lib/ai-provedores';
@@ -295,5 +296,54 @@ describe('usaMaxCompletionTokens — gpt-5 em diante (o prefixo fixo deixou o gp
   });
   it.each(['gpt-4o', 'gpt-4.1', 'gpt-image-2', 'claude-sonnet-5-5'])('%s não usa', (m) => {
     expect(usaMaxCompletionTokens(m)).toBe(false);
+  });
+});
+
+describe('versoesComAnteriorIA3 — snapshot antes de sobrescrever (01/10/2026: 52 textos perdidos)', () => {
+  const cen = (n: number, extra: any = {}) => ({
+    titulo: `T${n}`, descricao: `D${n}`, alternativas: { perguntas: [{ texto: `P${n}` }] },
+    nota_check: n, status_check: 'revisar', checked_at: `2026-10-0${n}T10:00:00Z`,
+    alertas_check: { auditor: 'gpt-5.6-terra', gerador: 'claude-sonnet-5', ...extra }, ...{},
+  });
+
+  it('guarda o CONTEÚDO atual (título, descrição, alternativas, nota, status, quem mediu e gerou) em primeiro', () => {
+    const v = versoesComAnteriorIA3(cen(5));
+    expect(v).toHaveLength(1);
+    expect(v[0]).toMatchObject({ titulo: 'T5', descricao: 'D5', nota_check: 5, status_check: 'revisar', auditor: 'gpt-5.6-terra', gerador: 'claude-sonnet-5', versao_de: '2026-10-05T10:00:00Z' });
+    expect(v[0].alternativas.perguntas[0].texto).toBe('P5');
+    expect(typeof v[0].guardada_em).toBe('string');
+  });
+
+  it('empilha: a mais recente na frente, e o histórico anterior segue atrás', () => {
+    const v1 = versoesComAnteriorIA3(cen(1));
+    const v2 = versoesComAnteriorIA3(cen(2, { versoes_anteriores: v1 }));
+    expect(v2.map((x) => x.titulo)).toEqual(['T2', 'T1']);
+  });
+
+  it(`limita a ${IA3_MAX_VERSOES_ANTERIORES} versões (o mais antigo sai)`, () => {
+    let hist: any[] = [];
+    for (let n = 1; n <= 6; n++) hist = versoesComAnteriorIA3(cen(n, { versoes_anteriores: hist }));
+    expect(hist).toHaveLength(IA3_MAX_VERSOES_ANTERIORES);
+    expect(hist.map((x) => x.titulo)).toEqual(['T6', 'T5', 'T4']);
+  });
+
+  it('NÃO aninha: o snapshot não carrega o alertas_check (nem o histórico dentro do histórico)', () => {
+    const v = versoesComAnteriorIA3(cen(3, { versoes_anteriores: versoesComAnteriorIA3(cen(2)), ponto_mais_fraco: 'x' }));
+    for (const x of v) expect(x).not.toHaveProperty('alertas_check');
+    expect(JSON.stringify(v[0])).not.toMatch(/versoes_anteriores/);
+  });
+
+  it('cenário sem histórico, sem alertas_check ou com nota nula não quebra', () => {
+    expect(versoesComAnteriorIA3({ titulo: 'a', alertas_check: null })[0]).toMatchObject({ titulo: 'a', nota_check: null, auditor: null });
+    expect(versoesComAnteriorIA3({})).toHaveLength(1);
+    expect(versoesComAnteriorIA3(cen(1, { versoes_anteriores: 'lixo' }))).toHaveLength(1);
+  });
+
+  it('os DOIS caminhos que sobrescrevem guardam a versão (escada e regeneração manual da tela)', () => {
+    const f = lerFonte('lib/ia3-cenarios.ts');
+    const usos = f.match(/versoes_anteriores: versoesComAnteriorIA3\(cen\)/g) || [];
+    expect(usos.length).toBe(2);
+    // O caminho "só registra tentativas" (nenhuma candidata promovida) mantém o conteúdo e preserva o histórico existente.
+    expect(f).toMatch(/\.\.\.\(\(cen\.alertas_check && typeof cen\.alertas_check === 'object'\) \? cen\.alertas_check : \{\}\), regeneracao_auto: meta/);
   });
 });
