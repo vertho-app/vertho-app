@@ -61,7 +61,7 @@ const INSTRUMENTOS = new Set([
  * decidir. Entrada NOVA nesta lista é exatamente o bug que o guard pega.
  */
 const ORFAS_CONHECIDAS = new Set([
-  'temporada_desafio', 'temporada_cenario', 'temporada_reflexao',
+  'temporada_cenario', 'temporada_reflexao',
   'temporada_feedback', 'temporada_qualitativa', 'temporada_rubrica',
 ]);
 

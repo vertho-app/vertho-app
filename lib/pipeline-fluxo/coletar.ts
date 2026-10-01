@@ -83,6 +83,7 @@ export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Prom
       blueprints: dosEscopo(bpQ.data as any[]).map((b: any) => ({ colaborador_id: b.colaborador_id, auditado: b.auditado_em != null })),
       pdis: dosEscopo(pdiQ.data as any[]).map((r: any) => r.colaborador_id),
       trilhas: dosEscopo(trilhaQ.data as any[]).map((r: any) => r.colaborador_id),
+      empresaInteira: !escopo.permitidos && filtroCargo.size === 0,
     },
   };
 }

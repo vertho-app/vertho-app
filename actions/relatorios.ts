@@ -1,24 +1,12 @@
 'use server';
 
 import { tenantDb } from '@/lib/tenant-db';
-import { mapComLimite } from '@/lib/concurrency';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { focoDoCargo } from '@/lib/foco-cargo';
-import type { DevelopmentBlueprint } from '@/lib/blueprint/types';
-import { callAI, type AIConfig } from './ai-client';
-import { extractJSON } from './utils';
-import { buildRelatorioIndividualPrompt, normKey } from '@/lib/relatorio-individual-prompt';
-import { retrieveContext, formatGroundingBlock } from '@/lib/rag';
-import { renderToBuffer } from '@react-pdf/renderer';
-import { getLogoCoverBase64 } from '@/lib/pdf-assets';
-import { storageSlug } from '@/lib/storage-slug';
-import React from 'react';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { excludeInternalEmails } from '@/lib/internal-emails';
-import { RELATORIO_GESTOR_SYSTEM, RELATORIO_RH_SYSTEM } from '@/lib/relatorios/prompts';
+import type { AIConfig } from './ai-client';
 import { gerarRelatorioIndividualCore } from '@/lib/relatorios/individual-core';
 import { buscarFilaPdi } from '@/lib/relatorios/fila-pdi';
+import { gerarRelatorioGestorCore, gerarRelatorioRHCore, type GestorDetalhe } from '@/lib/relatorios/gestor-rh-core';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Tipos públicos
@@ -32,59 +20,8 @@ export interface ServerResult<T = unknown> {
   detalhes?: GestorDetalhe[];
 }
 
-interface GestorDetalhe {
-  gestor: string;
-  equipe?: number;
-  ok?: boolean;
-  erro?: string;
-}
-
-type RelatorioTipo = 'individual' | 'gestor' | 'rh';
-
-// Shape interno de dadosComps (overlay do output da IA usa esses campos)
 // DadoComp/NivelFromAssess moveram p/ lib/relatorio-individual-prompt (núcleo headless).
-
-// ──────────────────────────────────────────────────────────────────────────────
-// PDF helpers
-// ──────────────────────────────────────────────────────────────────────────────
-
-async function gerarPDFBuffer(
-  tipo: RelatorioTipo,
-  data: unknown,
-  empresaNome: string,
-): Promise<Buffer | null> {
-  let Component: React.ComponentType<any> | undefined;
-  if (tipo === 'individual') {
-    const mod = await import('@/components/pdf/RelatorioIndividual');
-    Component = mod.default;
-  } else if (tipo === 'gestor') {
-    const mod = await import('@/components/pdf/RelatorioGestor');
-    Component = mod.default;
-  } else if (tipo === 'rh') {
-    const mod = await import('@/components/pdf/RelatorioRH');
-    Component = mod.default;
-  }
-  if (!Component) return null;
-  const logoBase64 = getLogoCoverBase64();
-  return renderToBuffer(React.createElement(Component, { data, empresaNome, logoBase64 }));
-}
-
-async function salvarPDFStorage(
-  sb: SupabaseClient,
-  empresaId: string,
-  tipo: RelatorioTipo,
-  colaboradorNome: string,
-  buffer: Buffer,
-): Promise<string | null> {
-  const slug = storageSlug(colaboradorNome, tipo);
-  const path = `${empresaId}/${tipo}-${slug}-${Date.now()}.pdf`;
-  const { error } = await sb.storage.from('relatorios-pdf').upload(path, buffer, {
-    contentType: 'application/pdf',
-    upsert: true,
-  });
-  if (error) { console.error('[PDF Storage]', error.message); return null; }
-  return path;
-}
+// Os relatórios de Gestor e RH (com os helpers de PDF/Storage) moveram p/ lib/relatorios/gestor-rh-core.
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PDI INDIVIDUAL (Plano de Desenvolvimento Individual — fiel ao GAS)
@@ -118,129 +55,7 @@ export async function gerarRelatorioGestor(
   aiConfig: AIConfig = {},
 ): Promise<ServerResult> {
   const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
-  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const tdb = tenantDb(empresaId);
-  try {
-    const { data: empresa } = await sbRaw.from('empresas')
-      .select('nome, segmento').eq('id', empresaId).single();
-    if (!empresa) return { success: false, error: 'Empresa não encontrada' };
-
-    // Busca TODOS os colabs e agrupa por gestor_email (exclui internos @vertho.ai)
-    // Exclui STAFF, mantém as personas de demo (`*.demo@vertho.ai`): elas são
-    // o CONTEÚDO do tenant de demonstração. Com o filtro cru `%@vertho.ai`, o
-    // relatório do gestor saía VAZIO em qualquer tenant de demo — inclusive no
-    // que a feira usa. Ver lib/internal-emails.ts.
-    const { data: todosColabs } = await excludeInternalEmails(
-      tdb.from('colaboradores')
-        .select('id, nome_completo, email, cargo, gestor_email, gestor_nome, perfil_dominante, d_natural, i_natural, s_natural, c_natural, role'),
-    );
-
-    const equipesPorGestor: Record<string, any[]> = {};
-    for (const c of (todosColabs || [])) {
-      const ge = (c.gestor_email || '').toLowerCase().trim();
-      if (!ge) continue; // colab sem gestor cadastrado é ignorado
-      if (!equipesPorGestor[ge]) equipesPorGestor[ge] = [];
-      equipesPorGestor[ge].push(c);
-    }
-
-    if (Object.keys(equipesPorGestor).length === 0) {
-      return { success: false, error: 'Nenhum colaborador tem gestor_email preenchido. Configure em /admin/empresas/gerenciar.' };
-    }
-
-    // RAG/grounding: traz valores + cultura da empresa pra contextualizar recomendações
-    let groundingBlock = '';
-    try {
-      const chunks = await retrieveContext(empresaId, 'valores cultura organizacional políticas desenvolvimento pessoas', 4);
-      groundingBlock = formatGroundingBlock(chunks);
-    } catch (err: any) { console.warn('[gestor grounding]', err?.message); }
-
-    // Avaliações IA4 (uma vez só, indexa por colab)
-    const { data: respostas } = await tdb.from('respostas')
-      .select('colaborador_id, competencia_id, competencia_nome, avaliacao_ia, nivel_ia4')
-      .not('avaliacao_ia', 'is', null);
-    const respPorColab: Record<string, any[]> = {};
-    for (const r of (respostas || [])) {
-      if (!respPorColab[r.colaborador_id]) respPorColab[r.colaborador_id] = [];
-      respPorColab[r.colaborador_id].push(r);
-    }
-
-    // Relatórios por gestor em paralelo (limite 2 — callAI de 64k tokens);
-    // detalhes preservam a ORDEM dos gestores (mapComLimite garante).
-    const resultadosGestor = await mapComLimite(Object.entries(equipesPorGestor), 2, async ([gestorEmail, equipe]): Promise<GestorDetalhe> => {
-      try {
-        // Identifica o gestor (pode estar em colaboradores ou só ser um email externo)
-        const gestorColab = (todosColabs || []).find((c: any) => (c.email || '').toLowerCase() === gestorEmail);
-        const gestorNome = gestorColab?.nome_completo || equipe[0].gestor_nome || gestorEmail;
-
-        // Membros: cada colab da equipe + suas competências avaliadas
-        const membros = equipe.map((c: any) => {
-          const respsColab = respPorColab[c.id] || [];
-          return {
-            nome: c.nome_completo || '—',
-            cargo: c.cargo || '—',
-            disc_dominante: c.perfil_dominante || '—',
-            competencias: respsColab.map((r: any) => {
-              const av = typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia;
-              return {
-                competencia: r.competencia_nome || '—',
-                nivel: av?.consolidacao?.nivel_geral || r.nivel_ia4 || 0,
-              };
-            }),
-          };
-        });
-
-        // DISC dist da equipe
-        const discDist: Record<'D' | 'I' | 'S' | 'C', number> = { D: 0, I: 0, S: 0, C: 0 };
-        equipe.forEach((c: any) => {
-          if (c.perfil_dominante) {
-            const d = c.perfil_dominante.replace('Alto ', '') as 'D' | 'I' | 'S' | 'C';
-            if (discDist[d] !== undefined) discDist[d]++;
-          }
-        });
-
-        const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})\nGESTOR: ${gestorNome} (${gestorEmail})\nTOTAL EQUIPE: ${membros.length}\nDISC: D=${discDist.D} I=${discDist.I} S=${discDist.S} C=${discDist.C}\n${groundingBlock ? `\n${groundingBlock}\n` : ''}\nDADOS DA EQUIPE:\n${JSON.stringify(membros, null, 2)}`;
-
-        const resultado = await callAI(RELATORIO_GESTOR_SYSTEM, user, aiConfig, 64000, {
-          taskKey: 'relatorio_gestor', empresaId,
-        });
-        const relatorio: any = await extractJSON(resultado);
-
-        if (!relatorio) { return { gestor: gestorNome, erro: 'IA não retornou JSON' }; }
-
-        // PDF
-        let pdfPath: string | null = null;
-        try {
-          const pdfData = { conteudo: relatorio, gestor_nome: gestorNome, gerado_em: new Date().toISOString() };
-          const buffer = await gerarPDFBuffer('gestor', pdfData, empresa.nome);
-          if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'gestor', `${empresa.nome}-${gestorNome}`, buffer);
-        } catch (e: any) { console.error('[PDF Gestor]', e.message); }
-
-        // empresa_id é injetado pelo tdb.upsert
-        await tdb.from('relatorios').upsert({
-          colaborador_id: gestorColab?.id || null,
-          tipo: 'gestor',
-          conteudo: { ...relatorio, gestor_email: gestorEmail, gestor_nome: gestorNome },
-          pdf_path: pdfPath,
-          gerado_em: new Date().toISOString(),
-        }, { onConflict: 'empresa_id,colaborador_id,tipo' }).select('id');
-
-        return { gestor: gestorNome, equipe: equipe.length, ok: true };
-      } catch (e: any) {
-        return { gestor: gestorEmail, erro: e.message };
-      }
-    });
-    const detalhes: GestorDetalhe[] = resultadosGestor;
-    const gerados = detalhes.filter(d => (d as any).ok).length;
-    const erros = detalhes.filter(d => (d as any).erro).length;
-
-    return {
-      success: true,
-      message: `${gerados} relatório${gerados !== 1 ? 's' : ''} de gestor gerado${gerados !== 1 ? 's' : ''}${erros ? ` · ${erros} erros` : ''}`,
-      detalhes,
-    };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+  return gerarRelatorioGestorCore(sbRaw, empresaId, aiConfig);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -253,129 +68,7 @@ export async function gerarRelatorioRH(
   aiConfig: AIConfig = {},
 ): Promise<ServerResult> {
   const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
-  if (!empresaId) return { success: false, error: 'empresaId obrigatório' };
-  const tdb = tenantDb(empresaId);
-  try {
-    const { data: empresa } = await sbRaw.from('empresas')
-      .select('nome, segmento').eq('id', empresaId).single();
-    if (!empresa) return { success: false, error: 'Empresa não encontrada' };
-
-    const { data: respostasRaw } = await tdb.from('respostas')
-      .select('colaborador_id, competencia_id, avaliacao_ia, nivel_ia4, nota_ia4')
-      .not('avaliacao_ia', 'is', null);
-    // exclui respostas de colaboradores internos @vertho.ai das estatísticas RH
-    const { data: internosRH } = await tdb.from('colaboradores').select('id').ilike('email', '%@vertho.ai');
-    const internosRHSet = new Set((internosRH || []).map((c: any) => c.id));
-    const respostas = (respostasRaw || []).filter((r: any) => !internosRHSet.has(r.colaborador_id));
-
-    if (!respostas.length) return { success: false, error: 'Nenhuma avaliação encontrada' };
-
-    // Colaboradores
-    const colabIds = [...new Set(respostas.map((r: any) => r.colaborador_id).filter(Boolean))];
-    const { data: colabs } = await tdb.from('colaboradores')
-      .select('id, nome_completo, cargo, perfil_dominante')
-      .in('id', colabIds)
-      .not('email', 'ilike', '%@vertho.ai'); // exclui internos da agregação RH
-    const colabMap: Record<string, any> = {};
-    (colabs || []).forEach((c: any) => { colabMap[c.id] = c; });
-
-    // Competências
-    const compIds = [...new Set(respostas.map((r: any) => r.competencia_id).filter(Boolean))];
-    const compMap: Record<string, any> = {};
-    if (compIds.length) {
-      const { data: comps } = await tdb.from('competencias').select('id, nome').in('id', compIds);
-      (comps || []).forEach((c: any) => { compMap[c.id] = c; });
-    }
-
-    // Indicadores
-    const niveis: number[] = respostas.map((r: any) => {
-      const av = typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia;
-      return av?.consolidacao?.nivel_geral || r.nivel_ia4 || 0;
-    }).filter((n: number) => n > 0);
-
-    const media = niveis.length ? Math.round((niveis.reduce((a, b) => a + b, 0) / niveis.length) * 100) / 100 : 0;
-    const dist: Record<string, number> = { n1: 0, n2: 0, n3: 0, n4: 0 };
-    niveis.forEach(n => { if (dist[`n${n}`] !== undefined) dist[`n${n}`]++; });
-
-    // Dados por cargo
-    const porCargo: Record<string, { nivel: number }[]> = {};
-    respostas.forEach((r: any) => {
-      const c = colabMap[r.colaborador_id];
-      if (!c) return;
-      const cargo = c.cargo || '—';
-      if (!porCargo[cargo]) porCargo[cargo] = [];
-      const av = typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia;
-      porCargo[cargo].push({ nivel: av?.consolidacao?.nivel_geral || r.nivel_ia4 || 0 });
-    });
-
-    const cargosData = Object.entries(porCargo).map(([cargo, items]) => {
-      const ns = items.map(i => i.nivel).filter(n => n > 0);
-      return { cargo, total: items.length, media: ns.length ? Math.round((ns.reduce((a, b) => a + b, 0) / ns.length) * 100) / 100 : 0 };
-    });
-
-    // Todos os registros
-    const registros = respostas.map((r: any) => {
-      const c = colabMap[r.colaborador_id] || {};
-      const comp = compMap[r.competencia_id] || {};
-      const av = typeof r.avaliacao_ia === 'string' ? JSON.parse(r.avaliacao_ia) : r.avaliacao_ia;
-      return {
-        nome: c.nome_completo || '—', cargo: c.cargo || '—',
-        competencia: comp.nome || '—', nivel: av?.consolidacao?.nivel_geral || r.nivel_ia4 || 0,
-      };
-    });
-
-    // DISC organizacional
-    const discOrg: Record<'D' | 'I' | 'S' | 'C', number> = { D: 0, I: 0, S: 0, C: 0 };
-    (colabs || []).forEach((c: any) => { if (c.perfil_dominante) { const d = c.perfil_dominante.replace('Alto ', '') as 'D' | 'I' | 'S' | 'C'; if (discOrg[d] !== undefined) discOrg[d]++; } });
-
-    // RAG/grounding: contexto institucional pra decisões de RH terem identidade
-    let groundingBlock = '';
-    try {
-      const chunks = await retrieveContext(empresaId, 'valores cultura organizacional políticas treinamento desenvolvimento estrategia', 5);
-      groundingBlock = formatGroundingBlock(chunks);
-    } catch (err: any) { console.warn('[rh grounding]', err?.message); }
-
-    const user = `EMPRESA: ${empresa.nome} (${empresa.segmento})
-TOTAL AVALIADOS: ${colabIds.length}
-TOTAL AVALIACOES: ${respostas.length}
-MEDIA GERAL: ${media}
-DISTRIBUICAO: N1=${dist.n1} N2=${dist.n2} N3=${dist.n3} N4=${dist.n4}
-DISC ORGANIZACIONAL: D=${discOrg.D} I=${discOrg.I} S=${discOrg.S} C=${discOrg.C}
-${groundingBlock ? `\n${groundingBlock}\n` : ''}
-POR CARGO:
-${JSON.stringify(cargosData, null, 2)}
-
-REGISTROS INDIVIDUAIS:
-${JSON.stringify(registros, null, 2)}`;
-
-    const resultado = await callAI(RELATORIO_RH_SYSTEM, user, aiConfig, 64000, {
-      taskKey: 'relatorio_rh', empresaId,
-    });
-    const relatorio: any = await extractJSON(resultado);
-
-    if (!relatorio) return { success: false, error: 'IA não retornou relatório válido' };
-
-    let pdfPath: string | null = null;
-    try {
-      const pdfData = { conteudo: relatorio, gerado_em: new Date().toISOString() };
-      const buffer = await gerarPDFBuffer('rh', pdfData, empresa.nome);
-      if (buffer) pdfPath = await salvarPDFStorage(sbRaw, empresaId, 'rh', empresa.nome, buffer);
-    } catch (e: any) { console.error('[PDF Gen RH]', e.message); }
-
-    // Relatório RH é agregado (colaborador_id = NULL).
-    // PostgreSQL UNIQUE não detecta conflito em NULL — select+update/insert explícito.
-    const { data: existingRh } = await tdb.from('relatorios')
-      .select('id').eq('tipo', 'rh').is('colaborador_id', null).maybeSingle();
-    if (existingRh) {
-      await tdb.from('relatorios').update({ conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString() }).eq('id', existingRh.id);
-    } else {
-      await tdb.from('relatorios').insert({ colaborador_id: null, tipo: 'rh', conteudo: relatorio, pdf_path: pdfPath, gerado_em: new Date().toISOString() });
-    }
-
-    return { success: true, message: `Relatório RH gerado${pdfPath ? ' (PDF salvo)' : ''}` };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
+  return gerarRelatorioRHCore(sbRaw, empresaId, aiConfig);
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

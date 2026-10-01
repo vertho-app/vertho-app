@@ -396,19 +396,6 @@
     "actions/relatorios-load.ts": {
       "d9a8903a": 1
     },
-    "actions/relatorios.ts": {
-      "16d45e67": 1,
-      "16d6c03f": 1,
-      "22a0fe95": 1,
-      "3d50bbe9": 1,
-      "6e527704": 1,
-      "970d6a46": 1,
-      "a93bef11": 2,
-      "a9bb4b27": 1,
-      "bc80118d": 1,
-      "e50c215c": 1,
-      "f95f7067": 1
-    },
     "actions/sales/accounts.ts": {
       "0c789f36": 1,
       "34ccc2da": 1,
@@ -1100,6 +1087,19 @@
       "b601d527": 1,
       "f061f945": 1,
       "fa4a8ec1": 1
+    },
+    "lib/relatorios/gestor-rh-core.ts": {
+      "16d45e67": 1,
+      "16d6c03f": 1,
+      "22a0fe95": 1,
+      "3d50bbe9": 1,
+      "6e527704": 1,
+      "970d6a46": 1,
+      "a93bef11": 2,
+      "a9bb4b27": 1,
+      "bc80118d": 1,
+      "e50c215c": 1,
+      "f95f7067": 1
     },
     "lib/repositories/cargos-empresa-repo.ts": {
       "58225ca2": 1,

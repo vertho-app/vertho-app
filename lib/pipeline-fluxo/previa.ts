@@ -31,6 +31,11 @@ export type EntradaPrevia = {
   pdis: string[];
   /** colaborador_id de quem já tem trilha. */
   trilhas: string[];
+  /**
+   * `false` quando o escopo é turma ou cargo: Gestor e RH não filtram por turma/cargo, então o fluxo NÃO os gera
+   * (o executor faz o mesmo). Ausente = `true` (empresa inteira).
+   */
+  empresaInteira?: boolean;
 };
 
 export type EtapaId = 'ia4' | 'blueprint' | 'auditoria' | 'pdi' | 'trilha' | 'gestor' | 'rh';
@@ -105,6 +110,31 @@ const faixa = (unidades: number, por: FaixaUsd): FaixaUsd => ({
 });
 
 const somar = (a: FaixaUsd, b: FaixaUsd): FaixaUsd => ({ min: Number((a.min + b.min).toFixed(2)), max: Number((a.max + b.max).toFixed(2)) });
+
+/**
+ * Quem a TRILHA toma agora: foco definido, TODAS as competências foco já mapeadas e nenhuma trilha ainda. É o mesmo
+ * critério que `montarPreviaFluxo` conta como "trilha: prontos agora" (um teste trava a igualdade), exportado para o
+ * executor usar como fila — uma regra só para a prévia e para o que realmente roda.
+ */
+export function idsTrilhaProntos(entrada: EntradaPrevia): string[] {
+  const cargoPorNome = new Map(entrada.cargos.map((c) => [c.nome, c]));
+  const assessPorPessoa = new Map<string, Set<string>>();
+  for (const a of entrada.assessments) {
+    const set = assessPorPessoa.get(a.colaborador_id) || new Set<string>();
+    set.add(norm(a.competencia));
+    assessPorPessoa.set(a.colaborador_id, set);
+  }
+  const temTrilha = new Set(entrada.trilhas);
+  return entrada.pessoas
+    .filter((p) => {
+      if (temTrilha.has(p.id)) return false;
+      const foco = (p.cargo ? cargoPorNome.get(p.cargo)?.foco : undefined) || [];
+      if (foco.length === 0) return false;
+      const assessed = assessPorPessoa.get(p.id) || new Set<string>();
+      return foco.every((f) => assessed.has(norm(f)));
+    })
+    .map((p) => p.id);
+}
 
 export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
   const cargoPorNome = new Map(entrada.cargos.map((c) => [c.nome, c]));
@@ -198,7 +228,7 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
 
   // Gestor e RH: ao FINAL, uma vez por gestor e uma por empresa, SÓ se esta rodada gerar PDI NOVO (agora ou
   // projetado). PDI que já existia não reabre o relatório: o fluxo não reavalia o passado.
-  if (algumPdi) {
+  if (algumPdi && entrada.empresaInteira !== false) {
     acc.gestor.apos = gestores.size; acc.gestor.unidades = gestores.size;
     acc.rh.apos = 1; acc.rh.unidades = 1;
   }
@@ -207,8 +237,8 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     ia4: 'Conta as respostas da fila da IA4 (pendentes + presas), não as pessoas.',
     auditoria: 'Só dos blueprints gerados nesta rodada; blueprint antigo não é reauditado.',
     trilha: 'Faixa de custo fraca: só a extração aparece por pessoa no ledger.',
-    gestor: 'Gera ao final; um por gestor (agrupado por e-mail do gestor).',
-    rh: 'Gera ao final; um por empresa.',
+    gestor: entrada.empresaInteira === false ? 'Não incluído: o relatório não filtra por turma/cargo (gere manualmente se quiser).' : 'Gera ao final; um por gestor (agrupado por e-mail do gestor).',
+    rh: entrada.empresaInteira === false ? 'Não incluído: o relatório não filtra por turma/cargo (gere manualmente se quiser).' : 'Gera ao final; um por empresa.',
   };
 
   const etapas: EtapaPrevia[] = (Object.keys(TITULOS) as EtapaId[]).map((id) => ({

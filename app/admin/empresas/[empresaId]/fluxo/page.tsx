@@ -2,16 +2,22 @@
 
 import { use, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AlertTriangle, CheckCircle, Loader2, RefreshCw } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Loader2, Play, RefreshCw, Square } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { previaFluxoCompleto, type PreviaFluxoResult } from '@/actions/pipeline-fluxo';
+import { previaFluxoCompleto, iniciarFluxoCompleto, statusFluxoCompleto, cancelarFluxoCompleto, type PreviaFluxoResult, type EstadoFluxo } from '@/actions/pipeline-fluxo';
 import { TURMA_ENCERRADAS } from '@/lib/status';
 
 /**
  * Fluxo completo — PRÉVIA (somente leitura). Mostra, por etapa, quem está pronto agora, quem fica pronto depois da
  * etapa anterior, quem já tem o artefato e quem está bloqueado (e por quê), com a faixa de custo medida no ledger.
- * O botão que dispara o fluxo é a etapa seguinte desta entrega; esta tela existe para decidir ANTES de gastar.
+ * Abaixo da prévia fica o painel de EXECUÇÃO: "Simular" (lê as filas e grava o que faria, sem gastar) e "Rodar fluxo
+ * completo" (roda no servidor; pode fechar a aba). Enviar PDI e iniciar a cadência continuam sendo decisão do dono.
  */
+const ATIVO = ['queued', 'running'];
+const ESTADO_COR: Record<string, string> = { ok: '#2ECC71', parcial: '#f4b740', erro: '#e5484d', rodando: '#34c5cc', pulado: 'rgba(255,255,255,.4)', aguardando: 'rgba(255,255,255,.4)' };
+const ESTADO_TXT: Record<string, string> = { ok: 'concluída', parcial: 'parcial', erro: 'com erro', rodando: 'rodando', pulado: 'pulada', aguardando: 'aguardando' };
+const STATUS_TXT: Record<string, string> = { queued: 'na fila', running: 'em andamento', done: 'concluído', error: 'falhou', cancelled: 'cancelado' };
+
 const usd = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaId: string }> }) {
@@ -22,6 +28,45 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
   const [carregando, setCarregando] = useState(true);
   const [resultado, setResultado] = useState<PreviaFluxoResult | null>(null);
   const [turmas, setTurmas] = useState<any[]>([]);
+  const [fluxo, setFluxo] = useState<EstadoFluxo | null>(null);
+  const [confirmando, setConfirmando] = useState(false);
+  const [disparando, setDisparando] = useState(false);
+  const [erroExec, setErroExec] = useState<string | null>(null);
+
+  const lerFluxo = useCallback(async () => {
+    try {
+      const r = await statusFluxoCompleto({ empresaId });
+      if ('fluxo' in r) setFluxo(r.fluxo);
+    } catch { /* polling: a próxima volta tenta de novo */ }
+  }, [empresaId]);
+
+  useEffect(() => { lerFluxo(); }, [lerFluxo]);
+  const ativo = !!fluxo && ATIVO.includes(fluxo.status);
+  useEffect(() => {
+    if (!ativo) return;
+    const t = setInterval(lerFluxo, 5000);
+    return () => clearInterval(t);
+  }, [ativo, lerFluxo]);
+
+  const disparar = async (dryRun: boolean) => {
+    setDisparando(true); setErroExec(null);
+    try {
+      const r = await iniciarFluxoCompleto({ empresaId, turmaId, dryRun });
+      if ('error' in r) setErroExec(r.error);
+      else { setConfirmando(false); await lerFluxo(); }
+    } catch (e: any) { setErroExec(e?.message || 'Falha ao iniciar'); }
+    finally { setDisparando(false); }
+  };
+  const cancelar = async () => {
+    if (!fluxo) return;
+    setDisparando(true); setErroExec(null);
+    try {
+      const r = await cancelarFluxoCompleto({ empresaId, jobId: fluxo.jobId });
+      if ('error' in r) setErroExec(r.error);
+      await lerFluxo();
+    } catch (e: any) { setErroExec(e?.message || 'Falha ao cancelar'); }
+    finally { setDisparando(false); }
+  };
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -60,9 +105,9 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
 
         <div className="flex items-start justify-between gap-4 mt-2 mb-5">
           <div>
-            <h1 className="text-xl font-bold text-white">Fluxo completo · prévia</h1>
+            <h1 className="text-xl font-bold text-white">Fluxo completo</h1>
             <p className="text-[12.5px] mt-1" style={{ color: 'rgba(255,255,255,.55)' }}>
-              IA4 → blueprint → auditoria → PDI → trilha → Gestor e RH. Somente leitura: nada é gerado nem gasto aqui.
+              IA4 → blueprint → auditoria → PDI → trilha → Gestor e RH. A prévia é somente leitura: nada é gerado nem gasto até você executar.
             </p>
           </div>
           <button
@@ -194,12 +239,94 @@ export default function FluxoPreviaPage({ params }: { params: Promise<{ empresaI
               {!p.nadaAFazer && (
                 <div className="flex items-center gap-2 text-[12px]" style={{ color: 'rgba(255,255,255,.5)' }}>
                   <CheckCircle size={14} style={{ color: '#2ECC71' }} />
-                  Há pessoas prontas. O botão que dispara o fluxo completo é a próxima etapa desta entrega.
+                  Há pessoas prontas para o fluxo.
                 </div>
               )}
+
+              <div className="mt-5 rounded-[14px] px-4 py-4" style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.06)' }}>
+                <div className="text-[12px] font-bold text-white mb-1">Executar</div>
+                <p className="text-[11.5px] mb-3" style={{ color: 'rgba(255,255,255,.5)' }}>
+                  Roda no servidor, etapa por etapa, e você pode fechar a aba. Não envia nada às pessoas: enviar o PDI e iniciar a cadência continuam com você.
+                  Gestor e RH só entram com a empresa inteira e PDI novo na rodada.
+                </p>
+                {!confirmando ? (
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => disparar(true)} disabled={disparando || ativo || p.nadaAFazer}
+                      className="rounded-lg px-3 py-2 text-[12px] font-bold disabled:opacity-40"
+                      style={{ background: 'rgba(255,255,255,.06)', border: '1px solid rgba(255,255,255,.18)', color: '#e8eef6' }}>
+                      Simular (não gasta)
+                    </button>
+                    <button onClick={() => setConfirmando(true)} disabled={disparando || ativo || p.nadaAFazer}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-bold disabled:opacity-40"
+                      style={{ background: 'rgba(52,197,204,.14)', border: '1px solid rgba(52,197,204,.4)', color: '#34c5cc' }}>
+                      <Play size={13} /> Rodar fluxo completo
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rounded-lg px-3 py-3 text-[12.5px]" style={{ background: 'rgba(244,183,64,.08)', border: '1px solid rgba(244,183,64,.3)', color: '#f4b740' }}>
+                    Vai gastar de <b>US$ {usd(p.custoTotalUsd.min)}</b> a <b>US$ {usd(p.custoTotalUsd.max)}</b> em IA para {p.totalPessoas} pessoa(s) no escopo. Confirmar?
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={() => disparar(false)} disabled={disparando}
+                        className="rounded-lg px-3 py-1.5 text-[12px] font-bold disabled:opacity-50" style={{ background: '#f4b740', color: '#091D35' }}>
+                        {disparando ? 'Enviando…' : 'Sim, rodar'}
+                      </button>
+                      <button onClick={() => setConfirmando(false)} disabled={disparando}
+                        className="rounded-lg px-3 py-1.5 text-[12px]" style={{ border: '1px solid rgba(255,255,255,.2)', color: '#e8eef6' }}>Voltar</button>
+                    </div>
+                  </div>
+                )}
+                {erroExec && <div className="mt-2 text-[12px]" style={{ color: '#e5484d' }}>{erroExec}</div>}
+              </div>
             </>
           );
         })()}
+
+        {fluxo && (
+          <div className="mt-5 rounded-[14px] overflow-hidden" style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.06)' }}>
+            <div className="px-4 py-3 flex items-center justify-between gap-3 text-[12px]" style={{ borderBottom: '1px solid rgba(255,255,255,.06)' }}>
+              <span className="text-white font-bold">
+                Último fluxo{fluxo.dryRun ? ' (simulação)' : ''} · {new Date(fluxo.criadoEm).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+              </span>
+              <span className="flex items-center gap-2">
+                <span style={{ color: fluxo.status === 'done' ? '#2ECC71' : fluxo.status === 'error' ? '#e5484d' : fluxo.status === 'cancelled' ? '#f4b740' : '#34c5cc' }}>
+                  {ativo && <Loader2 size={12} className="animate-spin inline mr-1" />}
+                  {STATUS_TXT[fluxo.status]}
+                </span>
+                {ativo && (
+                  <button onClick={cancelar} disabled={disparando}
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11.5px] font-bold disabled:opacity-50"
+                    style={{ border: '1px solid rgba(229,72,77,.5)', color: '#e5484d' }}>
+                    <Square size={11} /> Cancelar
+                  </button>
+                )}
+              </span>
+            </div>
+            {fluxo.progresso && (
+              <>
+                <div className="px-4 py-2 text-[12px]" style={{ color: 'rgba(255,255,255,.6)' }}>{fluxo.progresso.atual}</div>
+                <ul>
+                  {fluxo.progresso.etapas.map((e) => (
+                    <li key={e.id} className="px-4 py-2 text-[12.5px] flex items-baseline justify-between gap-3" style={{ borderTop: '1px solid rgba(255,255,255,.05)' }}>
+                      <span className="text-white">{e.titulo}{e.detalhe && <span className="ml-2 text-[11px]" style={{ color: 'rgba(255,255,255,.45)' }}>{e.detalhe}</span>}</span>
+                      <span className="font-mono shrink-0" style={{ color: ESTADO_COR[e.estado] }}>
+                        {ESTADO_TXT[e.estado]}{e.total > 0 && e.estado !== 'pulado' ? ` · ${e.feitos}/${e.total}${e.falhas ? ` · ${e.falhas} falha(s)` : ''}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {fluxo.progresso.modelos && (
+                  <div className="px-4 py-2 text-[11px]" style={{ borderTop: '1px solid rgba(255,255,255,.06)', color: 'rgba(255,255,255,.4)' }}>
+                    Modelos: {Object.entries(fluxo.progresso.modelos).map(([k, v]) => `${k} ${v}`).join(' · ')}
+                  </div>
+                )}
+                {fluxo.progresso.resumo && (
+                  <div className="px-4 py-2.5 text-[11.5px]" style={{ borderTop: '1px solid rgba(255,255,255,.06)', color: 'rgba(255,255,255,.6)' }}>{fluxo.progresso.resumo}</div>
+                )}
+              </>
+            )}
+            {fluxo.erro && <div className="px-4 py-2.5 text-[12px]" style={{ borderTop: '1px solid rgba(255,255,255,.06)', color: '#e5484d' }}>{fluxo.erro}</div>}
+          </div>
+        )}
       </div>
     </div>
   );

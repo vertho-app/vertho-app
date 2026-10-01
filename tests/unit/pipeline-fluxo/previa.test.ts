@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { montarPreviaFluxo, CUSTO_POR_UNIDADE, type EntradaPrevia, type EtapaId } from '@/lib/pipeline-fluxo/previa';
+import { montarPreviaFluxo, idsTrilhaProntos, CUSTO_POR_UNIDADE, type EntradaPrevia, type EtapaId } from '@/lib/pipeline-fluxo/previa';
 
 /**
  * A prévia do fluxo completo (IA4 → blueprint → auditoria → PDI → trilha → Gestor/RH) é uma ESTIMATIVA que
@@ -153,6 +153,33 @@ describe('Gestor e RH: ao final, só se houver PDI', () => {
     const p = montarPreviaFluxo(entrada({ pessoas: [pessoa('a', 'CAIXA', 'g@x.com')], cargos: [cargo('CAIXA', [], 5)] }));
     expect(etapa(p, 'gestor').aposEtapaAnterior).toBe(0);
     expect(etapa(p, 'rh').aposEtapaAnterior).toBe(0);
+  });
+  it('escopo PARCIAL (turma ou cargo): Gestor e RH ficam de fora, como no executor, e a nota diz por quê', () => {
+    const base = { pessoas: [pessoa('a', 'CAIXA', 'g@x.com')], cargos: [cargo('CAIXA', ['S'], 1)], respostas: [resp('a', 'S', true)] };
+    const inteira = montarPreviaFluxo(entrada({ ...base, empresaInteira: true }));
+    const parcial = montarPreviaFluxo(entrada({ ...base, empresaInteira: false }));
+    expect(etapa(inteira, 'gestor').aposEtapaAnterior).toBe(1);
+    expect(etapa(parcial, 'gestor').aposEtapaAnterior).toBe(0);
+    expect(etapa(parcial, 'rh').aposEtapaAnterior).toBe(0);
+    expect(etapa(parcial, 'gestor').nota).toMatch(/Não incluído/);
+    expect(parcial.custoTotalUsd.max).toBeLessThan(inteira.custoTotalUsd.max);
+  });
+});
+
+describe('idsTrilhaProntos: a fila REAL da trilha é a mesma conta de "prontos agora" da prévia', () => {
+  it('foco completo e sem trilha entra; sem foco, foco incompleto ou já com trilha ficam fora', () => {
+    const e = entrada({
+      pessoas: [pessoa('ok'), pessoa('incompleto'), pessoa('semfoco', 'VAZIO'), pessoa('jatem')],
+      cargos: [cargo('CAIXA', ['Rotina', 'Simplicidade']), cargo('VAZIO', [])],
+      assessments: [
+        { colaborador_id: 'ok', competencia: ' ROTINA ' }, { colaborador_id: 'ok', competencia: 'simplicidade' },
+        { colaborador_id: 'incompleto', competencia: 'rotina' },
+        { colaborador_id: 'jatem', competencia: 'rotina' }, { colaborador_id: 'jatem', competencia: 'simplicidade' },
+      ],
+      trilhas: ['jatem'],
+    });
+    expect(idsTrilhaProntos(e)).toEqual(['ok']);
+    expect(etapa(montarPreviaFluxo(e), 'trilha').prontosAgora).toBe(idsTrilhaProntos(e).length);
   });
 });
 
