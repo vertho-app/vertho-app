@@ -1,16 +1,32 @@
 import { Fragment } from 'react';
-import { carregarAndamentoEmpresas, type AndamentoEmpresa } from '@/lib/admin/andamento-empresas';
+import Link from 'next/link';
+import {
+  carregarAndamentoEmpresas,
+  type AndamentoEmpresa,
+  type AndamentoLinha,
+  type RecorteAndamento,
+} from '@/lib/admin/andamento-empresas';
 
 export const metadata = { title: 'Andamento da base · Admin' };
 export const dynamic = 'force-dynamic';
 
 const pct = (parte: number, total: number) => (total > 0 ? Math.round((parte / total) * 100) : 0);
 
-export default async function AndamentoPage() {
+const RECORTES: Array<{ valor: RecorteAndamento; rotulo: string }> = [
+  { valor: 'empresa', rotulo: 'Só empresa' },
+  { valor: 'cargo', rotulo: 'Por cargo' },
+  { valor: 'turma', rotulo: 'Por turma' },
+];
+
+export default async function AndamentoPage({ searchParams }: { searchParams: Promise<{ por?: string }> }) {
+  const { por: porParam } = await searchParams;
+  // Valor vindo da URL: só os três conhecidos valem, o resto cai em "empresa".
+  const por: RecorteAndamento = porParam === 'cargo' || porParam === 'turma' ? porParam : 'empresa';
+
   let linhas: AndamentoEmpresa[] = [];
   let erro: string | null = null;
   try {
-    linhas = await carregarAndamentoEmpresas();
+    linhas = await carregarAndamentoEmpresas(por);
   } catch (e) {
     erro = e instanceof Error ? e.message : 'falha ao carregar';
   }
@@ -26,7 +42,7 @@ export default async function AndamentoPage() {
   const total = linhas.reduce((s, l) => s + l.pessoas, 0);
   const disc = linhas.reduce((s, l) => s + l.comPerfil, 0);
   const mapeamento = linhas.reduce((s, l) => s + l.comMapeamento, 0);
-  const algumIndisponivel = linhas.some((l) => l.indisponivel);
+  const algumIndisponivel = linhas.some((l) => l.indisponivel || l.grupos.some((g) => g.indisponivel));
 
   // BRT, nunca UTC: o número muda quando alguém roda um lote, então vai datado.
   const medidoEm = new Intl.DateTimeFormat('pt-BR', {
@@ -41,7 +57,9 @@ export default async function AndamentoPage() {
           Quem já fez o <span className="text-cyan-300">DISC e o mapeamento</span>
         </h1>
         <p className="mt-4 max-w-[72ch] text-sm leading-relaxed text-gray-400">
-          Mesma régua da home do RH. Mapeamento completo é ter o Top 5 do cargo inteiro avaliado; abaixo de cada empresa, quantas pessoas estão em cada degrau (0 de 5, 1 de 5, ...).
+          Mesma régua da home do RH. Mapeamento completo é ter o Top 5 do cargo inteiro avaliado; abaixo de cada linha,
+          quantas pessoas estão em cada faixa (0 de 2, 1 de 2, ...) e o % sobre as pessoas daquela linha.
+          O tamanho do Top 5 varia por cargo, então &ldquo;x de N&rdquo; só compara dentro do mesmo cargo.
           Fora: empresas de demonstração e o papel Admin da empresa. Medido em {medidoEm} (Brasília).
         </p>
         <div className="mt-6 flex flex-wrap gap-8">
@@ -51,16 +69,32 @@ export default async function AndamentoPage() {
         </div>
         {algumIndisponivel && (
           <p className="mt-4 text-xs text-amber-300">
-            Uma consulta falhou para alguma empresa (marcada com ⚠). O número dela pode estar abaixo do real.
+            Uma consulta falhou para alguma linha (marcada com ⚠). O número dela pode estar abaixo do real.
           </p>
         )}
+        <nav aria-label="Recorte" className="mt-6 flex gap-2">
+          {RECORTES.map((r) => (
+            <Link
+              key={r.valor}
+              href={r.valor === 'empresa' ? '/admin/andamento' : `/admin/andamento?por=${r.valor}`}
+              aria-current={por === r.valor ? 'page' : undefined}
+              className={`rounded-full border px-3 py-1.5 text-xs font-bold ${
+                por === r.valor
+                  ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200'
+                  : 'border-white/10 text-gray-400 hover:text-white'
+              }`}
+            >
+              {r.rotulo}
+            </Link>
+          ))}
+        </nav>
       </section>
 
       <div className="overflow-x-auto rounded-xl border border-white/10">
         <table className="w-full min-w-[640px] text-left text-[13px]">
           <thead className="text-[10px] uppercase tracking-widest text-gray-500">
             <tr className="border-b border-white/10">
-              <th className="px-4 py-3 font-bold">Empresa</th>
+              <th className="px-4 py-3 font-bold">{por === 'cargo' ? 'Empresa / cargo' : por === 'turma' ? 'Empresa / turma' : 'Empresa'}</th>
               <th className="px-4 py-3 text-right font-bold">Pessoas</th>
               <th className="px-4 py-3 text-right font-bold">DISC</th>
               <th className="px-4 py-3 text-right font-bold">Mapeamento</th>
@@ -70,27 +104,10 @@ export default async function AndamentoPage() {
           <tbody>
             {linhas.map((l) => (
               <Fragment key={l.id}>
-              <tr className="border-t border-white/10">
-                <td className="px-4 py-3 font-semibold text-white">
-                  {l.nome}{l.indisponivel && <span title="consulta falhou"> ⚠</span>}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">{l.pessoas}</td>
-                <Celula parte={l.comPerfil} total={l.pessoas} />
-                <Celula parte={l.comMapeamento} total={l.pessoas} />
-                <td className="px-4 py-3 text-right tabular-nums">{l.emJornada}</td>
-              </tr>
-              <tr>
-                <td colSpan={5} className="px-4 pb-3 text-[11px] text-gray-400">
-                  <span className="mr-2 text-gray-500">Mapeamento:</span>
-                  {l.progressoMapeamento.map((g) => (
-                    <span key={`${g.feitas}/${g.total}`} className="mr-3 inline-block">
-                      {g.total === 0
-                        ? <>sem Top 5 do cargo <b className="text-gray-200">{g.pessoas}</b></>
-                        : <>{g.feitas} de {g.total}: <b className="text-gray-200">{g.pessoas}</b></>}
-                    </span>
-                  ))}
-                </td>
-              </tr>
+                <Linha rotulo={l.nome} dados={l} />
+                {l.grupos.map((g) => (
+                  <Linha key={g.rotulo} rotulo={g.rotulo} dados={g} sub />
+                ))}
               </Fragment>
             ))}
             {linhas.length === 0 && (
@@ -103,9 +120,37 @@ export default async function AndamentoPage() {
   );
 }
 
+function Linha({ rotulo, dados, sub }: { rotulo: string; dados: AndamentoLinha; sub?: boolean }) {
+  return (
+    <>
+      <tr className={sub ? 'border-t border-white/5' : 'border-t border-white/10'}>
+        <td className={sub ? 'py-2 pl-9 pr-4 text-gray-200' : 'px-4 py-3 font-semibold text-white'}>
+          {rotulo}{dados.indisponivel && <span title="consulta falhou"> ⚠</span>}
+        </td>
+        <td className="px-4 py-2 text-right tabular-nums">{dados.pessoas}</td>
+        <Celula parte={dados.comPerfil} total={dados.pessoas} />
+        <Celula parte={dados.comMapeamento} total={dados.pessoas} />
+        <td className="px-4 py-2 text-right tabular-nums">{dados.emJornada}</td>
+      </tr>
+      <tr>
+        <td colSpan={5} className={`pb-3 pr-4 text-[11px] text-gray-400 ${sub ? 'pl-9' : 'px-4'}`}>
+          <span className="mr-2 text-gray-500">Mapeamento:</span>
+          {dados.progressoMapeamento.map((f) => (
+            <span key={`${f.feitas}/${f.total}`} className="mr-3 inline-block">
+              {f.total === 0 ? 'sem Top 5 do cargo' : `${f.feitas} de ${f.total}`}:{' '}
+              <b className="text-gray-200">{f.pessoas}</b>{' '}
+              <span className="text-gray-500">({pct(f.pessoas, dados.pessoas)}%)</span>
+            </span>
+          ))}
+        </td>
+      </tr>
+    </>
+  );
+}
+
 function Celula({ parte, total }: { parte: number; total: number }) {
   return (
-    <td className="px-4 py-3 text-right tabular-nums">
+    <td className="px-4 py-2 text-right tabular-nums">
       {parte} <span className="text-[11px] text-gray-500">({pct(parte, total)}%)</span>
     </td>
   );
