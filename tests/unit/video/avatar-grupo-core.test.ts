@@ -196,6 +196,23 @@ describe('despacharGrupoAvatar', () => {
     expect(sb.escritas.find((e) => e.op === 'update' && e.payload?.status === 'error')?.payload.error).toBe('rate limit');
   });
 
+  it('atraso da agenda vira `delay` do orquestrador, e o intervalo vai no payload (30/09/2026)', async () => {
+    trigger.mockResolvedValue({ id: 'run_1' });
+    await despacharGrupoAvatar(criarSupabaseMock().client, { grupoId: 'g-1', empresaId: 'emp-1', atrasoS: 420, intervaloS: 300 });
+    expect(trigger.mock.calls[0]).toEqual(['gerar-video-grupo', { grupoId: 'g-1', intervaloS: 300 }, { delay: '420s' }]);
+  });
+
+  it('fallback espaçado: cada célula que sai sozinha pega atraso + j × intervalo', async () => {
+    trigger.mockImplementation(async (id: string) => { if (id === 'gerar-video-grupo') throw new Error('trigger fora do ar'); return { id: 'r' }; });
+    const sb = criarSupabaseMock({
+      lista: (t) => (t === 'videos_gerados' ? [{ id: 'v-D', roteiro: {} }, { id: 'v-I', roteiro: {} }, { id: 'v-S', roteiro: {} }] : []),
+      escrita: (_t, op, payload) => (op === 'update' && payload?.etapa === 'roteiro' ? [{ id: 'x' }] : null),
+    });
+    await despacharGrupoAvatar(sb.client, { grupoId: 'g-1', empresaId: 'emp-1', atrasoS: 100, intervaloS: 200 });
+    const opcoes = trigger.mock.calls.filter((c) => c[0] === 'gerar-video-modulo').map((c) => c[2]);
+    expect(opcoes).toEqual([{ delay: '100s' }, { delay: '300s' }, { delay: '500s' }]);
+  });
+
   it('fallback: leitura das células falha → devolve o erro (não finge que despachou)', async () => {
     trigger.mockRejectedValue(new Error('fora do ar'));
     const sb = criarSupabaseMock();

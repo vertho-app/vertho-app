@@ -27,7 +27,7 @@ import { SUPA, KEY } from '../lib/video/render-helpers';
 import { regionOpts } from '../lib/trigger-region';
 import { registrarDegradacao, DEGRADACAO } from '../lib/degradacao';
 import { AVATAR_GRUPO } from '../lib/status';
-import { ETAPA_AGUARDANDO_AVATAR, type AvatarGrupoPayload } from '../lib/video/avatar-grupo';
+import { ETAPA_AGUARDANDO_AVATAR, INTERVALO_DISPARO_PADRAO_S, type AvatarGrupoPayload } from '../lib/video/avatar-grupo';
 
 interface Grupo {
   id: string;
@@ -81,6 +81,22 @@ async function membrosEsperando(g: Grupo): Promise<Membro[]> {
   return [...(rows || [])].sort((a, b) => ordem(a) - ordem(b));
 }
 
+/**
+ * Renova o relógio das células que esperam, quando o grupo começa de fato.
+ *
+ * A irmã nasce `processing` e só é tocada quando sai da espera. Sem isto, a regra
+ * `video-stale` (2 h sem `updated_at`, `lib/pipeline-health/core.ts`) contaria o
+ * atraso do despacho (a agenda do lote) mais a mãe inteira, e acusaria vídeo
+ * travado que só está na fila. O corpo não leva `etapa`: renovar não tira ninguém da
+ * espera. Best-effort: sem a renovação o pior caso é um alarme falso.
+ */
+async function renovarEspera(g: Grupo): Promise<void> {
+  await rest(`videos_gerados?avatar_grupo_id=eq.${g.id}&empresa_id=eq.${g.empresa_id}&etapa=eq.${ETAPA_AGUARDANDO_AVATAR}`, {
+    method: 'PATCH', headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ updated_at: new Date().toISOString() }),
+  }).catch((e) => console.warn(`[gerar-video-grupo] ${g.id}: relógio da espera não renovado: ${e?.message || e}`));
+}
+
 /** Tira a célula da espera. `false` = outra rodada já a tirou (não dispara de novo). */
 async function reivindicar(g: Grupo, videoId: string): Promise<boolean> {
   const rows = await rest<{ id: string }[]>(
@@ -121,14 +137,32 @@ export function problemaDaMae(res: { ok: boolean; output?: any; error?: unknown 
   return null;
 }
 
-async function dispararCelulas(g: Grupo, membros: Membro[], avatarGrupo: AvatarGrupoPayload | null): Promise<string[]> {
+/**
+ * Dispara as células livres, espaçadas por `intervaloS` (a 1ª na hora): cada uma abre
+ * uma narração, e `gerar-video-modulo` não tem limite de concorrência. Vale nos quatro
+ * caminhos (grupo pronto, depois da mãe, mãe que falhou, queda do orquestrador).
+ */
+async function dispararCelulas(g: Grupo, membros: Membro[], avatarGrupo: AvatarGrupoPayload | null, intervaloS: number): Promise<string[]> {
   const livres: Membro[] = [];
   for (const m of membros) if (await reivindicar(g, m.id)) livres.push(m);
   if (!livres.length) return [];
-  await gerarVideoModuloTask.batchTrigger(livres.map((m) => ({
-    payload: { videoId: m.id, roteiro: m.roteiro, ...(avatarGrupo ? { avatarGrupo } : {}) },
-    options: regionOpts(),
-  })));
+  try {
+    await gerarVideoModuloTask.batchTrigger(livres.map((m, i) => ({
+      payload: { videoId: m.id, roteiro: m.roteiro, ...(avatarGrupo ? { avatarGrupo } : {}) },
+      options: { ...regionOpts(), ...(i > 0 && intervaloS > 0 ? { delay: `${i * intervaloS}s` } : {}) },
+    })));
+  } catch (e: any) {
+    // As células já saíram da espera: sem este registro ficariam em `roteiro` para
+    // sempre, sem ninguém que as dispare nem alarme que as distinga de uma em curso.
+    const msg = `disparo das células falhou: ${String(e?.message || e)}`.slice(0, 500);
+    for (const m of livres) {
+      await rest(`videos_gerados?id=eq.${m.id}&empresa_id=eq.${g.empresa_id}`, {
+        method: 'PATCH', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ status: 'error', error: msg, updated_at: new Date().toISOString() }),
+      }).catch((e2) => console.error(`[gerar-video-grupo] ${m.id}: falha ao gravar status=error: ${e2?.message || e2}`));
+    }
+    throw e;
+  }
   return livres.map((m) => m.id);
 }
 
@@ -137,15 +171,19 @@ const degradar = (g: Grupo, fase: string, erro: string, detalhe: Record<string, 
   empresaId: g.empresa_id, severidade: 'aviso', detalhe: { fase, grupoId: g.id, erro: erro.slice(0, 300), ...detalhe },
 });
 
-export async function executarGrupoAvatar({ grupoId }: { grupoId: string }) {
+export async function executarGrupoAvatar({ grupoId, intervaloS }: { grupoId: string; intervaloS?: number }) {
+  // Espaçamento das células que este grupo dispara (irmãs, ou todas no fallback). Vem
+  // de quem despachou, para usar a mesma régua da agenda do lote.
+  const intervalo = Number.isFinite(intervaloS) && (intervaloS as number) >= 0 ? (intervaloS as number) : INTERVALO_DISPARO_PADRAO_S;
   const g = await lerGrupo(grupoId);
   try {
     const esperando = await membrosEsperando(g);
     if (!esperando.length) return { ok: true, grupoId, motivo: 'nenhuma célula esperando' };
+    await renovarEspera(g);
 
     const pronto = g.status === AVATAR_GRUPO.PRONTO ? payloadDoGrupo(g) : null;
     if (pronto) {
-      const irmas = await dispararCelulas(g, esperando, pronto);
+      const irmas = await dispararCelulas(g, esperando, pronto, intervalo);
       return { ok: true, grupoId, mae: null, irmas };
     }
 
@@ -158,7 +196,7 @@ export async function executarGrupoAvatar({ grupoId }: { grupoId: string }) {
     if (problema) {
       await atualizarGrupo(g, { status: AVATAR_GRUPO.ERRO, erro: problema });
       await degradar(g, 'mae', problema, { maeVideoId: mae.id });
-      const irmas = await dispararCelulas(g, resto, null);
+      const irmas = await dispararCelulas(g, resto, null, intervalo);
       return { ok: false, grupoId, mae: mae.id, problema, irmas };
     }
 
@@ -167,7 +205,7 @@ export async function executarGrupoAvatar({ grupoId }: { grupoId: string }) {
     await atualizarGrupo(g, { status: AVATAR_GRUPO.PRONTO, avatar, f0_hz: doMae.f0Hz, assinatura: doMae.assinatura });
     const payload = payloadDoGrupo({ ...g, avatar, f0_hz: doMae.f0Hz, assinatura: doMae.assinatura });
     // Relê: uma célula inserida enquanto a mãe rodava também entra como irmã.
-    const irmas = await dispararCelulas(g, await membrosEsperando(g), payload);
+    const irmas = await dispararCelulas(g, await membrosEsperando(g), payload, intervalo);
     return { ok: true, grupoId, mae: mae.id, irmas };
   } catch (e: any) {
     // Nada pode ficar em `aguardando_avatar` sem dono: o que sobrou sai pelo fluxo de hoje.
@@ -176,7 +214,7 @@ export async function executarGrupoAvatar({ grupoId }: { grupoId: string }) {
     await atualizarGrupo(g, { status: AVATAR_GRUPO.ERRO, erro: msg.slice(0, 500) }).catch(() => {});
     await degradar(g, 'orquestrador', msg);
     const sobra = await membrosEsperando(g).catch(() => [] as Membro[]);
-    await dispararCelulas(g, sobra, null).catch((e2) => console.error(`[gerar-video-grupo] ${grupoId}: fallback falhou:`, e2?.message || e2));
+    await dispararCelulas(g, sobra, null, intervalo).catch((e2) => console.error(`[gerar-video-grupo] ${grupoId}: fallback falhou:`, e2?.message || e2));
     throw e;
   }
 }

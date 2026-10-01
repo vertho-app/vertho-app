@@ -23,6 +23,16 @@ export const VERSAO_AVATAR_GRUPO = '2026-09-25';
 export const ETAPA_AGUARDANDO_AVATAR = 'aguardando_avatar';
 
 /**
+ * Espaçamento padrão (s) entre disparos que abrem uma narração: células soltas, a mãe
+ * e as irmãs de um grupo. `gerar-video-modulo` não tem limite de concorrência, e
+ * narrações simultâneas disputam o TTS (17/08/2026: 4 células em 4 min, 1 morreu sem
+ * áudio). 210 s = os 150 s de espera que o script fazia + ~65 s do roteiro síncrono
+ * que cada célula gastava antes do roteiro em lote. Aqui, e não em `roteiro-lote`,
+ * porque o orquestrador (`trigger/gerar-video-grupo.ts`) importa este módulo puro.
+ */
+export const INTERVALO_DISPARO_PADRAO_S = 210;
+
+/**
  * Chave do grupo: quem pode compartilhar o MESMO avatar. Entra tudo que muda o texto
  * da abertura e do fecho (empresa, módulo, cargo, contexto do cargo e do PPP, versão)
  * e fica de fora o que só muda o miolo (o DISC).

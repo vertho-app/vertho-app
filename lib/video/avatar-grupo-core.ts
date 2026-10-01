@@ -27,7 +27,7 @@ import { regionOpts } from '@/lib/trigger-region';
 import type { gerarVideoModuloTask } from '@/trigger/gerar-video-modulo';
 import type { gerarVideoGrupoTask } from '@/trigger/gerar-video-grupo';
 import type { AvatarFixo, ModuloParaRoteiro } from './roteiro-prompt';
-import { chaveGrupoAvatar, problemasDosTextosAvatar, ETAPA_AGUARDANDO_AVATAR } from './avatar-grupo';
+import { chaveGrupoAvatar, problemasDosTextosAvatar, ETAPA_AGUARDANDO_AVATAR, INTERVALO_DISPARO_PADRAO_S } from './avatar-grupo';
 
 /** Lida em runtime. O Kit roda no Trigger: a flag vale no env de LÁ. */
 export const avatarGrupoLigado = () => (process.env.VIDEO_AVATAR_GRUPO || 'off').trim().toLowerCase() === 'on';
@@ -213,10 +213,19 @@ async function reivindicarCelula(sb: any, videoId: string, empresaId: string): P
  * sai pelo fluxo de hoje (a sua própria HeyGen), para nenhuma ficar parada em
  * `aguardando_avatar`. As células vêm do BANCO, não de quem chamou: uma célula que
  * ficou esperando numa rodada anterior também é pega aqui.
+ *
+ * `atrasoS` (a vaga do grupo na agenda do lote, `lib/video/roteiro-lote.ts`) vira
+ * `delay` do orquestrador; `intervaloS` vai para ele espaçar as irmãs. No fallback,
+ * as células saem com o mesmo atraso, uma a cada `intervaloS`.
  */
-export async function despacharGrupoAvatar(sb: any, p: { grupoId: string; empresaId: string }): Promise<{ via: 'grupo' | 'celula'; erros: string[] }> {
+export async function despacharGrupoAvatar(sb: any, p: {
+  grupoId: string; empresaId: string; atrasoS?: number; intervaloS?: number;
+}): Promise<{ via: 'grupo' | 'celula'; erros: string[] }> {
+  const atraso = Math.max(0, Math.round(p.atrasoS ?? 0));
+  const intervalo = p.intervaloS ?? INTERVALO_DISPARO_PADRAO_S;
+  const opcoes = (s: number) => ({ ...regionOpts(), ...(s > 0 ? { delay: `${s}s` } : {}) });
   try {
-    await tasks.trigger<typeof gerarVideoGrupoTask>('gerar-video-grupo', { grupoId: p.grupoId }, regionOpts());
+    await tasks.trigger<typeof gerarVideoGrupoTask>('gerar-video-grupo', { grupoId: p.grupoId, ...(p.intervaloS !== undefined ? { intervaloS: p.intervaloS } : {}) }, opcoes(atraso));
     return { via: 'grupo', erros: [] };
   } catch (e: any) {
     await cair('despacho', e?.message || String(e), { empresaId: p.empresaId, detalhe: { grupoId: p.grupoId } });
@@ -225,10 +234,12 @@ export async function despacharGrupoAvatar(sb: any, p: { grupoId: string; empres
   const { data: celulas, error: eCel } = await sb.from('videos_gerados').select('id, roteiro')
     .eq('avatar_grupo_id', p.grupoId).eq('empresa_id', p.empresaId).eq('etapa', ETAPA_AGUARDANDO_AVATAR);
   if (eCel) return { via: 'celula', erros: [`células do grupo: ${eCel.message}`] };
+  let j = 0;
   for (const c of celulas || []) {
     try {
       if (!(await reivindicarCelula(sb, c.id, p.empresaId))) continue;
-      await tasks.trigger<typeof gerarVideoModuloTask>('gerar-video-modulo', { videoId: c.id, roteiro: c.roteiro }, regionOpts());
+      await tasks.trigger<typeof gerarVideoModuloTask>('gerar-video-modulo', { videoId: c.id, roteiro: c.roteiro }, opcoes(atraso + j * intervalo));
+      j++;
     } catch (e: any) {
       const msg = String(e?.message || e).slice(0, 500);
       erros.push(`${c.id}: ${msg}`);

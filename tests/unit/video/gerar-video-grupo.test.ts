@@ -44,6 +44,8 @@ let grupo: any;
 let celulas: Array<{ id: string; disc_dominante: string; roteiro: any; etapa: string }>;
 let patchesGrupo: any[];
 let consultasCelulas: string[];
+/** PATCHes em `videos_gerados`: a query (filtros) e o corpo. */
+let patchesCelulas: Array<{ q: string; body: any }>;
 
 function stubRest() {
   vi.stubGlobal('fetch', vi.fn(async (url: string, init: any = {}) => {
@@ -62,8 +64,10 @@ function stubRest() {
         consultasCelulas.push(q);
         return json(200, celulas.filter((c) => c.etapa === 'aguardando_avatar'));
       }
+      patchesCelulas.push({ q, body: JSON.parse(init.body) });
       // Reivindicação: só casa se a célula ainda espera (o UPDATE condicional do PostgREST).
-      const id = q.match(/id=eq\.([^&]+)/)![1];
+      const id = q.match(/(?:^|[?&])id=eq\.([^&]+)/)?.[1];
+      if (!id) return json(200, []);
       const c = celulas.find((x) => x.id === id && x.etapa === 'aguardando_avatar' && q.includes('etapa=eq.aguardando_avatar'));
       if (c) c.etapa = JSON.parse(init.body).etapa;
       return json(200, c ? [{ id }] : []);
@@ -81,6 +85,7 @@ beforeEach(() => {
   celulas = [celula('v-S', 'S'), celula('v-D', 'D'), celula('v-I', 'I')];
   patchesGrupo = [];
   consultasCelulas = [];
+  patchesCelulas = [];
   degradacoes.length = 0;
   triggerAndWait.mockReset().mockResolvedValue(MAE_OK);
   batchTrigger.mockClear();
@@ -181,6 +186,50 @@ describe('executarGrupoAvatar · a mãe não serve de referência', () => {
     expect(degradacoes.at(-1)?.chave).toBe('grupo:orquestrador');
     expect(disparadas().map((p: any) => p.videoId)).toEqual(['v-I', 'v-S']);
     expect(disparadas().every((p: any) => !('avatarGrupo' in p))).toBe(true);
+  });
+});
+
+describe('executarGrupoAvatar · espaçamento e relógio (30/09/2026)', () => {
+  /** `delay` de cada célula disparada, na ordem (undefined = na hora). */
+  const atrasos = () => (batchTrigger.mock.calls as any[]).flatMap((c) => c[0]).map((i: any) => i.options?.delay);
+
+  it('depois da mãe, as irmãs saem espaçadas: a 1ª na hora, a 2ª 210 s depois', async () => {
+    await executarGrupoAvatar({ grupoId: 'g-1' });
+    expect(disparadas().map((p: any) => p.videoId)).toEqual(['v-I', 'v-S']);
+    expect(atrasos()).toEqual([undefined, '210s']);
+  });
+
+  it('grupo pronto: todas saem como irmãs, uma a cada 210 s', async () => {
+    Object.assign(grupo, { status: 'pronto', avatar: AVATAR_GRAVADO, f0_hz: 199, assinatura: 'ass-0' });
+    await executarGrupoAvatar({ grupoId: 'g-1' });
+    expect(atrasos()).toEqual([undefined, '210s', '420s']);
+  });
+
+  it('mãe que falhou: as irmãs também saem espaçadas (cada uma paga a sua HeyGen)', async () => {
+    triggerAndWait.mockResolvedValue({ ok: false, error: { message: 'x' } });
+    await executarGrupoAvatar({ grupoId: 'g-1' });
+    expect(atrasos()).toEqual([undefined, '210s']);
+  });
+
+  it.each([[300, [undefined, '300s', '600s']], [0, [undefined, undefined, undefined]]])('intervaloS=%s do despacho é respeitado', async (intervaloS, esperado) => {
+    Object.assign(grupo, { status: 'pronto', avatar: AVATAR_GRAVADO, f0_hz: 199, assinatura: 'ass-0' });
+    await executarGrupoAvatar({ grupoId: 'g-1', intervaloS });
+    expect(atrasos()).toEqual(esperado);
+  });
+
+  it('ao começar, renova o relógio das que esperam: três filtros, e sem tirar ninguém da espera', async () => {
+    await executarGrupoAvatar({ grupoId: 'g-1' });
+    const renovacao = patchesCelulas[0];
+    for (const f of ['avatar_grupo_id=eq.g-1', 'empresa_id=eq.emp-1', 'etapa=eq.aguardando_avatar']) expect(renovacao.q, f).toContain(f);
+    expect(Object.keys(renovacao.body)).toEqual(['updated_at']);
+  });
+
+  it('o disparo das irmãs falha: as já reivindicadas viram erro (não ficam paradas em `roteiro`)', async () => {
+    batchTrigger.mockRejectedValueOnce(new Error('batch fora do ar'));
+    await expect(executarGrupoAvatar({ grupoId: 'g-1' })).rejects.toThrow('batch fora do ar');
+    const erros = patchesCelulas.filter((p) => p.body.status === 'error');
+    expect(erros.map((p) => p.q.match(/(?:^|[?&])id=eq\.([^&]+)/)?.[1]).sort()).toEqual(['v-I', 'v-S']);
+    expect(erros.every((p) => /disparo das células falhou: batch fora do ar/.test(p.body.error))).toBe(true);
   });
 });
 

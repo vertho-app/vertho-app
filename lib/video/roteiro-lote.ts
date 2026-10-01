@@ -15,6 +15,7 @@
  */
 import { createAIBatchCollector, type AIRun } from '@/lib/ai-batch';
 import { getModelForTask } from '@/lib/ai-tasks';
+import { INTERVALO_DISPARO_PADRAO_S } from './avatar-grupo';
 
 /**
  * Janela de silêncio do coletor. Os roteiros de um lote chegam depois de leituras
@@ -27,11 +28,8 @@ export const JANELA_COLETOR_ROTEIRO_MS = 3000;
 /** Orçamento de espera do lote antes do fallback síncrono (o Kit roda com teto de 1 h no Trigger). */
 export const ORCAMENTO_LOTE_ROTEIRO_MS = 20 * 60_000;
 
-/**
- * Espaçamento padrão entre disparos de vídeo. Antes do lote, o script dormia 150 s
- * entre disparos e cada roteiro síncrono somava ~65 s: o espaçamento REAL era ~215 s.
- */
-export const INTERVALO_DISPARO_PADRAO_S = 210;
+/** Espaçamento padrão entre disparos de vídeo; fonte única em `./avatar-grupo`. */
+export { INTERVALO_DISPARO_PADRAO_S };
 
 /**
  * Teto do atraso de um disparo. A célula nasce `processing` e só é tocada quando a
