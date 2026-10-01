@@ -7,7 +7,7 @@ vi.mock('@/actions/utils', () => ({ extractJSON: vi.fn() }));
 
 import {
   rodarRetentativasIA3, rodarEscadaIA3, regenerarAteLimiarIA3, montarFeedbackRegeneracaoIA3,
-  ESCADA_IA3, IA3_LIMIAR_APROVACAO, IA3_MAX_RODADAS_AUTO, IA3_VETO_CORTE, IA3_VETO_MODELO,
+  ESCADA_IA3, IA3_LIMIAR_APROVACAO, IA3_MAX_RODADAS_AUTO, IA3_AUDITOR_PARA_GPT,
   type DegrauIA3,
 } from '@/lib/ia3-cenarios';
 import { usaMaxCompletionTokens } from '@/lib/ai-provedores';
@@ -161,22 +161,24 @@ describe('ligações (guard de fonte)', () => {
 });
 
 describe('ESCADA_IA3 — "todo cenário >= 80 sem criação humana"', () => {
-  it('3 degraus na ordem: Sonnet com feedback → GPT 6.1 Sol do zero com veto → Opus com feedback', () => {
+  it('3 degraus na ordem: Sonnet com feedback → GPT 6.1 Sol do zero (auditor Sonnet) → Opus com feedback', () => {
     expect(ESCADA_IA3.map((d) => d.id)).toEqual(['sonnet-feedback', 'gpt-do-zero', 'opus-feedback']);
     expect(ESCADA_IA3[0]).toMatchObject({ modelo: 'task', comFeedback: true });
-    expect(ESCADA_IA3[1]).toMatchObject({ modelo: 'gpt-6.1-sol', comFeedback: false, vetoClaude: true });
+    expect(ESCADA_IA3[1]).toMatchObject({ modelo: 'gpt-6.1-sol', comFeedback: false, auditor: 'claude-sonnet-5-5' });
     expect(ESCADA_IA3[2]).toMatchObject({ modelo: 'claude-opus-5-5', comFeedback: true });
   });
 
-  it('TODO degrau de gerador OpenAI exige o veto Claude (o auditor canônico é da mesma família)', () => {
+  it('TODO degrau de gerador OpenAI tem auditor de OUTRA família (Claude): "sol com sonnet >= 80", nunca sol com Terra', () => {
     for (const d of ESCADA_IA3) {
-      if (/^(gpt|o\d)/.test(d.modelo)) expect(d.vetoClaude, d.id).toBe(true);
+      if (/^(gpt|o\d)/.test(d.modelo)) {
+        expect(d.auditor, d.id).toMatch(/^claude/);
+      }
     }
+    expect(IA3_AUDITOR_PARA_GPT).toBe('claude-sonnet-5-5');
   });
 
-  it('o veto é Claude e calibrado em 72 (capta 13 de 14 aprovados pelo Terra) — nunca a régua do 80', () => {
-    expect(IA3_VETO_MODELO).toMatch(/^claude/);
-    expect(IA3_VETO_CORTE).toBe(72);
+  it('o corte dos degraus com auditor próprio é o MESMO 80 (decisão do dono), sem corte reduzido', () => {
+    expect(IA3_LIMIAR_APROVACAO).toBe(80);
   });
 });
 
@@ -248,13 +250,40 @@ describe('rodarEscadaIA3 — orquestração entre degraus', () => {
   });
 });
 
-describe('veto Claude — ligação no código', () => {
-  it('a candidata de degrau com veto só é aceita com Terra >= limiar E Claude >= corte (nunca o Claude no lugar do Terra)', () => {
+describe('nota de auditor próprio (outra régua) — promoção absoluta', () => {
+  const abs = (nota: number, cand = `s${nota}`): any => ({ ...(ok(nota, cand) as any), absoluta: true });
+
+  it('candidata em régua própria só é promovida se atingir o limiar NESSA régua (não compara com o campeão do Terra)', async () => {
+    const s = seq(abs(79), abs(80));
+    const r = await rodarRetentativasIA3({ notaInicial: 78, feedbackInicial: 'fb0', limiar: 80, maxRodadas: 3, gerar: s.gerar });
+    // 79 > 78 na escala do Terra NÃO conta: é outra régua e não chegou a 80 nela
+    expect(r.rodadas.map((x) => x.promovida)).toEqual([false, true]);
+    expect(r.atingiuLimiar).toBe(true);
+    expect(r.campeao).toBe('s80');
+  });
+
+  it('uma nota baixa em régua própria NUNCA derruba o campeão do Terra (nem a título de "melhor")', async () => {
+    const s = seq(abs(65), abs(70), abs(60));
+    const r = await rodarRetentativasIA3({ notaInicial: 72, feedbackInicial: 'fb0', limiar: 80, maxRodadas: 3, gerar: s.gerar });
+    expect(r.campeao).toBeNull();
+    expect(r.notaFinal).toBe(72);
+    expect(r.atingiuLimiar).toBe(false);
+  });
+
+  it('a mesma nota SEM régua própria seguiria a trava normal (79 > 78 promove)', async () => {
+    const s = seq(ok(79));
+    const r = await rodarRetentativasIA3({ notaInicial: 78, feedbackInicial: 'fb0', limiar: 80, maxRodadas: 1, gerar: s.gerar });
+    expect(r.rodadas[0].promovida).toBe(true);
+  });
+});
+
+describe('auditor próprio — ligação no código', () => {
+  it('o núcleo passa o auditor do degrau e marca a nota como régua própria; sem veto/Terra no degrau do GPT', () => {
     const f = lerFonte('lib/ia3-cenarios.ts');
-    expect(f).toMatch(/if \(veto\.nota < IA3_VETO_CORTE\)/);
-    expect(f).toMatch(/vetoClaude: !!degrau\.vetoClaude/);
-    // falha do veto NÃO aprova: devolve ok:false (candidata não promovida)
-    expect(f).toMatch(/Veto \(\$\{IA3_VETO_MODELO\}\) falhou/);
+    expect(f).toMatch(/auditor: degrau\.auditor/);
+    expect(f).toMatch(/absoluta: boa\.escalaPropria/);
+    expect(f).toMatch(/const checkModelo = args\.auditor \|\| await getModelForTask/);
+    expect(f).not.toMatch(/vetoClaude|IA3_VETO/);
     // o rastro de QUEM mediu vai junto da nota
     expect(f).toMatch(/auditor: checkModelo/);
   });

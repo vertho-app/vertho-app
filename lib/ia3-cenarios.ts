@@ -782,6 +782,8 @@ export type CandidataIA3 =
     candidato: { empresa_id: string; competencia_id: string; cargo: string; titulo: string; descricao: string; alternativas: Record<string, any> };
     alternativas: Record<string, any>;
     normed: { resultado: any; statusCheck: string };
+    /** true = a nota veio de um auditor diferente do da task: NÃO comparável com a do campeão (Terra). */
+    escalaPropria: boolean;
     /** O que a auditoria persiste em `banco_cenarios` — e o que alimenta a PRÓXIMA rodada de feedback. */
     auditoria: {
       nota_check: number; status_check: string; dimensoes_check: any; justificativa_check: any; sugestao_check: any;
@@ -800,8 +802,12 @@ export async function gerarEAuditarCandidataIA3(sbRaw: any, args: {
   cen: any; feedbackDe?: FeedbackCheckIA3; aiConfig?: AIConfig;
   /** true = prompt da geração ORIGINAL (sem o bloco REGRAS DA REGENERAÇÃO). Default false: é regeneração. */
   inicial?: boolean;
-  /** true = a candidata só vale se TAMBÉM passar no veto do auditor Claude (gerador da família do Terra). */
-  vetoClaude?: boolean;
+  /**
+   * Auditor ESPECÍFICO desta candidata (modelo). Default: o da task `ia3_check` (Terra, OpenAI). Obrigatório
+   * quando o gerador é da família do Terra: gerador e auditor de famílias diferentes. A nota resultante está
+   * na régua DESSE auditor, que não é a do Terra — ver `escalaPropria`.
+   */
+  auditor?: string;
 }): Promise<CandidataIA3> {
   const { cen } = args;
   const aiConfig = await resolverAiConfigGeracaoIA3(cen.empresa_id, args.aiConfig ?? {});
@@ -839,34 +845,14 @@ export async function gerarEAuditarCandidataIA3(sbRaw: any, args: {
   // Audita a CANDIDATA em memória (2ª IA, modelo da task ia3_check)
   const { system: sysChk, user: userChk } = await montarCheckIA3Prompt(sbRaw, candidato);
   const { getModelForTask } = await import('@/lib/ai-tasks');
-  const checkModelo = await getModelForTask(cen.empresa_id, 'ia3_check');
+  const checkModelo = args.auditor || await getModelForTask(cen.empresa_id, 'ia3_check');
   const respChk = await callAI(sysChk, userChk, { model: checkModelo }, 7000, { taskKey: 'ia3_check', empresaId: cen.empresa_id });
   const normed = normalizarResultadoCheckIA3(await extractJSON(respChk));
   if (!normed) return { ok: false, error: 'Auditoria da candidata falhou — NADA foi alterado (a versão atual continua valendo)' };
 
-  // VETO independente (gerador da MESMA família do auditor canônico): o Terra é OpenAI e, medido em
-  // 01/10/2026, dá ~5,6 pontos a mais ao texto de um gerador OpenAI do que um auditor Claude dá (n=10,
-  // sem significância, mas na direção do favorecimento). Não há "80 do Sonnet" equivalente ao do Terra
-  // (correlação 0,54; ele comprime o topo), então o Claude NÃO substitui o Terra: só VETA abaixo de um
-  // corte calibrado (72 capta 13 de 14 aprovados pelo Terra). Aceita = Terra >= limiar E Claude >= corte.
-  let veto: { modelo: string; nota: number } | null = null;
-  if (args.vetoClaude) {
-    try {
-      const respVeto = await callAI(sysChk, userChk, { model: IA3_VETO_MODELO }, 7000, { taskKey: 'ia3_check', empresaId: cen.empresa_id });
-      const nv = normalizarResultadoCheckIA3(await extractJSON(respVeto));
-      if (!nv) return { ok: false, error: `Veto (${IA3_VETO_MODELO}) não normalizou — candidata não promovida` };
-      veto = { modelo: IA3_VETO_MODELO, nota: nv.resultado.nota };
-    } catch (e: any) {
-      return { ok: false, error: `Veto (${IA3_VETO_MODELO}) falhou (${String(e?.message || e).slice(0, 80)}) — candidata não promovida` };
-    }
-    if (veto.nota < IA3_VETO_CORTE) {
-      return { ok: false, error: `Vetada pelo auditor independente: ${veto.modelo} ${veto.nota} < ${IA3_VETO_CORTE} (Terra ${normed.resultado.nota})` };
-    }
-  }
-
   const r = normed.resultado;
   return {
-    ok: true, candidato, alternativas, normed,
+    ok: true, candidato, alternativas, normed, escalaPropria: !!args.auditor,
     auditoria: {
       nota_check: r.nota,
       status_check: normed.statusCheck,
@@ -881,7 +867,6 @@ export async function gerarEAuditarCandidataIA3(sbRaw: any, args: {
         perguntas_com_risco: r.perguntas_com_risco || [],
         // Rastro de QUEM mediu: duas réguas diferentes não se comparam sem saber de quem é cada nota.
         auditor: checkModelo,
-        ...(veto ? { veto_modelo: veto.modelo, veto_nota: veto.nota } : {}),
         gerador: (aiConfig as any)?.model ?? null,
       },
     },
@@ -944,9 +929,14 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
 // listar e uma pessoa decidir. Sem coluna nova: o registro vive em `alertas_check`.
 
 export const IA3_LIMIAR_APROVACAO = 80;
-/** Veto independente para geradores da família OpenAI (a do auditor canônico). Calibrado em 01/10/2026. */
-export const IA3_VETO_MODELO = 'claude-sonnet-5-5';
-export const IA3_VETO_CORTE = 72;
+/**
+ * Auditor dos degraus em que o GERADOR é da família OpenAI (a do Terra): Claude, outra família. Decisão do
+ * dono (01/10/2026): "sol com sonnet >= 80" — a aprovação desses degraus é Sonnet >= 80, SEM o Terra. A régua do
+ * Sonnet é mais dura no topo que a do Terra (só 3 de 66 cenários originais passam de 80 nela), então é um
+ * critério mais exigente, não mais frouxo; mas por não ser a mesma régua, a nota dele não se compara com a do
+ * campeão (ver `escalaPropria`).
+ */
+export const IA3_AUDITOR_PARA_GPT = 'claude-sonnet-5-5';
 export const IA3_MAX_RODADAS_AUTO = 3;
 
 export type RodadaAutoIA3 = { rodada: number; ok: boolean; nota?: number; promovida?: boolean; erro?: string };
@@ -961,7 +951,7 @@ export async function rodarRetentativasIA3<C>(args: {
   feedbackInicial: any;
   limiar: number;
   maxRodadas: number;
-  gerar: (feedbackDoCampeao: any) => Promise<{ ok: true; nota: number; cand: C; feedback: any } | { ok: false; erro: string }>;
+  gerar: (feedbackDoCampeao: any) => Promise<{ ok: true; nota: number; cand: C; feedback: any; absoluta?: boolean } | { ok: false; erro: string }>;
 }): Promise<{ campeao: C | null; notaFinal: number | null; rodadas: RodadaAutoIA3[]; atingiuLimiar: boolean; feedbackFinal: any }> {
   let nota: number | null = typeof args.notaInicial === 'number' ? args.notaInicial : null;
   let feedback = args.feedbackInicial;
@@ -974,8 +964,10 @@ export async function rodarRetentativasIA3<C>(args: {
     try { r = await args.gerar(feedback); }
     catch (e: any) { r = { ok: false, erro: String(e?.message || e).slice(0, 160) }; }
     if (!r.ok) { rodadas.push({ rodada: k, ok: false, erro: (r as { ok: false; erro: string }).erro }); continue; }
-    const boa = r as { ok: true; nota: number; cand: C; feedback: any };
-    const promovida = travaRegeneracao(nota, boa.nota);
+    const boa = r as { ok: true; nota: number; cand: C; feedback: any; absoluta?: boolean };
+    // `absoluta` = nota de OUTRO auditor (outra régua): não se compara com a do campeão. Só vale se
+    // atingir o limiar NA RÉGUA DELE; senão a candidata é descartada e o campeão (na régua do Terra) fica.
+    const promovida = boa.absoluta ? boa.nota >= args.limiar : travaRegeneracao(nota, boa.nota);
     rodadas.push({ rodada: k, ok: true, nota: boa.nota, promovida });
     if (promovida) { campeao = boa.cand; nota = boa.nota; feedback = boa.feedback; }
   }
@@ -989,16 +981,16 @@ export async function rodarRetentativasIA3<C>(args: {
  * rodadas; GPT 6.1 Sol DO ZERO 14/14 já na 1ª rodada; Opus 5.5 13/14; Gemini 3.8 Flash 14/16; Kimi K3
  * lento (224 s) e com erros — fora.
  *  1. Sonnet 5.5 (a task `ia3_cenarios`) com feedback, 3 rodadas — o barato e o que já resolve a maioria.
- *  2. GPT 6.1 Sol DO ZERO, 3 rodadas, com VETO Claude (outra família, outro provedor, sem herdar o texto
- *     que falhou). Gerador da família do Terra => a candidata só vale com Terra >= 80 E Claude >= 72.
+ *  2. GPT 6.1 Sol DO ZERO, 3 rodadas (outra família, outro provedor, sem herdar o texto que falhou),
+ *     AUDITADO PELO SONNET 5.5: aprovado = Sonnet >= 80, sem Terra (gerador e auditor de famílias diferentes).
  *  3. Opus 5.5 com feedback, 2 rodadas — último degrau Claude.
  * Timeout/erro de um degrau gasta a rodada e segue (o GPT 6.1 Sol deu timeout em 2 de 27 gerações).
  */
-export type DegrauIA3 = { id: string; modelo: 'task' | string; rodadas: number; comFeedback: boolean; vetoClaude?: boolean };
+export type DegrauIA3 = { id: string; modelo: 'task' | string; rodadas: number; comFeedback: boolean; auditor?: string };
 
 export const ESCADA_IA3: DegrauIA3[] = [
   { id: 'sonnet-feedback', modelo: 'task', rodadas: 3, comFeedback: true },
-  { id: 'gpt-do-zero', modelo: 'gpt-6.1-sol', rodadas: 3, comFeedback: false, vetoClaude: true },
+  { id: 'gpt-do-zero', modelo: 'gpt-6.1-sol', rodadas: 3, comFeedback: false, auditor: IA3_AUDITOR_PARA_GPT },
   { id: 'opus-feedback', modelo: 'claude-opus-5-5', rodadas: 2, comFeedback: true },
 ];
 
@@ -1010,7 +1002,7 @@ export async function rodarEscadaIA3<C>(args: {
   feedbackInicial: any;
   limiar: number;
   degraus: DegrauIA3[];
-  gerar: (degrau: DegrauIA3, feedbackDoCampeao: any) => Promise<{ ok: true; nota: number; cand: C; feedback: any } | { ok: false; erro: string }>;
+  gerar: (degrau: DegrauIA3, feedbackDoCampeao: any) => Promise<{ ok: true; nota: number; cand: C; feedback: any; absoluta?: boolean } | { ok: false; erro: string }>;
 }): Promise<{ campeao: C | null; notaFinal: number | null; rodadas: RodadaEscadaIA3[]; atingiuLimiar: boolean; degrauFinal: string | null }> {
   let nota: number | null = typeof args.notaInicial === 'number' ? args.notaInicial : null;
   let feedback = args.feedbackInicial;
@@ -1069,10 +1061,10 @@ export async function regenerarAteLimiarIA3(sbRaw: any, args: {
     notaInicial: cen.nota_check, feedbackInicial: cen, limiar, degraus,
     gerar: async (degrau, feedback) => {
       const cfg = degrau.modelo === 'task' ? aiConfig : { ...aiConfig, model: degrau.modelo };
-      const c = await gerarEAuditarCandidataIA3(sbRaw, { cen, feedbackDe: feedback, aiConfig: cfg, vetoClaude: !!degrau.vetoClaude });
+      const c = await gerarEAuditarCandidataIA3(sbRaw, { cen, feedbackDe: feedback, aiConfig: cfg, auditor: degrau.auditor });
       if (!c.ok) return { ok: false, erro: (c as { ok: false; error: string }).error };
       const boa = c as Extract<CandidataIA3, { ok: true }>;
-      return { ok: true, nota: boa.normed.resultado.nota, cand: boa, feedback: boa.auditoria };
+      return { ok: true, nota: boa.normed.resultado.nota, cand: boa, feedback: boa.auditoria, absoluta: boa.escalaPropria };
     },
   });
 
