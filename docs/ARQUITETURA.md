@@ -1731,6 +1731,15 @@ Fora do `/vertho` mas de mesma natureza operacional:
 - **`/admin/engajamento/evolucao`** — rota legada; preserva favoritos e redireciona para
   `/admin/engajamento?view=evolucao`. Ao montar, o workspace seleciona a aba e remove `view` da URL;
   alternar as abas depois disso não navega nem altera o endereço.
+- **`/admin/andamento`** *(01/10/2026)* — quantas pessoas de cada empresa já fizeram o **perfil
+  comportamental** e o **mapeamento de competências**, com o recorte `?por=empresa|cargo|turma`.
+  É a única tela do admin que compara empresas lado a lado (item de menu nos dois contextos, com ou
+  sem empresa selecionada). Não tem régua própria: cada linha e cada grupo chamam `carregarPanoramaRH`
+  (a mesma da home do RH, com `colaboradorIds` no recorte), e o "mapeamento completo" deriva de
+  `progressoMapeamentoPorPessoa` (`lib/mapeamento-competencias.ts`, `feitas === total`), então a faixa
+  parcial e o completo não divergem. As faixas "x de N" dependem do Top 5 do **cargo** (pode ter 1 ou
+  2 competências), então só comparam dentro do mesmo cargo; cargo sem Top 5 vira grupo à parte, e não
+  "0 de N". Exclui demos e `role='rh'`; só conta, não lista nomes.
 
 As duas abas usam `?empresa=` e `tenantDb(empresaId)`. O roll-up compartilhado
 (`lib/engajamento/roll-up.ts`) também alimenta `/dashboard/gestor/engajamento`, recortado aos
