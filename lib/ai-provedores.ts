@@ -115,7 +115,10 @@ export async function listarModelosDoProvedor(
  */
 export function usaMaxCompletionTokens(modelId: string): boolean {
   const m = String(modelId || '');
-  if (m.startsWith('gpt-5') || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return true;
+  // `gpt-5` em diante (gpt-5.6-sol, gpt-6.1-sol…): a família que exige `max_completion_tokens`. O prefixo
+  // fixo `gpt-5` deixou o `gpt-6.1-sol` de fora em 01/10/2026 — a OpenAI respondeu 400 "Unsupported
+  // parameter: 'max_tokens'", ou seja, o id existia e quem não o conhecia era o `callAI`.
+  if (/^gpt-(?:[5-9]|\d{2,})/.test(m) || m.startsWith('o1') || m.startsWith('o3') || m.startsWith('o4')) return true;
   // Todo provedor OpenAI-compatible com entrada própria: verificado acima.
   return PROVEDORES_OPENAI_COMPAT.some((p) => m.startsWith(p.prefixo));
 }

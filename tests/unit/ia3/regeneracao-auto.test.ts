@@ -6,9 +6,11 @@ vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn() }));
 vi.mock('@/actions/utils', () => ({ extractJSON: vi.fn() }));
 
 import {
-  rodarRetentativasIA3, regenerarAteLimiarIA3, montarFeedbackRegeneracaoIA3,
-  IA3_LIMIAR_APROVACAO, IA3_MAX_RODADAS_AUTO,
+  rodarRetentativasIA3, rodarEscadaIA3, regenerarAteLimiarIA3, montarFeedbackRegeneracaoIA3,
+  ESCADA_IA3, IA3_LIMIAR_APROVACAO, IA3_MAX_RODADAS_AUTO, IA3_VETO_CORTE, IA3_VETO_MODELO,
+  type DegrauIA3,
 } from '@/lib/ia3-cenarios';
+import { usaMaxCompletionTokens } from '@/lib/ai-provedores';
 
 /**
  * Regeneração automática (01/10/2026): gatilho < 80, até 3 rodadas, feedback do CAMPEÃO,
@@ -155,5 +157,114 @@ describe('ligações (guard de fonte)', () => {
     const bloco = f.match(/PINNED_TASKS = new Set\(\[([\s\S]*?)\]\);/);
     expect(bloco).not.toBeNull();
     expect(bloco![1]).toMatch(/^\s*'ia3_cenarios',\s*$/m);
+  });
+});
+
+describe('ESCADA_IA3 — "todo cenário >= 80 sem criação humana"', () => {
+  it('3 degraus na ordem: Sonnet com feedback → GPT 6.1 Sol do zero com veto → Opus com feedback', () => {
+    expect(ESCADA_IA3.map((d) => d.id)).toEqual(['sonnet-feedback', 'gpt-do-zero', 'opus-feedback']);
+    expect(ESCADA_IA3[0]).toMatchObject({ modelo: 'task', comFeedback: true });
+    expect(ESCADA_IA3[1]).toMatchObject({ modelo: 'gpt-6.1-sol', comFeedback: false, vetoClaude: true });
+    expect(ESCADA_IA3[2]).toMatchObject({ modelo: 'claude-opus-5-5', comFeedback: true });
+  });
+
+  it('TODO degrau de gerador OpenAI exige o veto Claude (o auditor canônico é da mesma família)', () => {
+    for (const d of ESCADA_IA3) {
+      if (/^(gpt|o\d)/.test(d.modelo)) expect(d.vetoClaude, d.id).toBe(true);
+    }
+  });
+
+  it('o veto é Claude e calibrado em 72 (capta 13 de 14 aprovados pelo Terra) — nunca a régua do 80', () => {
+    expect(IA3_VETO_MODELO).toMatch(/^claude/);
+    expect(IA3_VETO_CORTE).toBe(72);
+  });
+});
+
+describe('rodarEscadaIA3 — orquestração entre degraus', () => {
+  const D: DegrauIA3[] = [
+    { id: 'a', modelo: 'task', rodadas: 2, comFeedback: true },
+    { id: 'b', modelo: 'outro', rodadas: 2, comFeedback: false },
+    { id: 'c', modelo: 'ultimo', rodadas: 1, comFeedback: true },
+  ];
+  const mk = (resp: Record<string, R[]>) => {
+    const chamadas: Array<{ degrau: string; fb: any }> = [];
+    return {
+      chamadas,
+      gerar: async (d: DegrauIA3, fb: any): Promise<R> => { chamadas.push({ degrau: d.id, fb }); const r = resp[d.id]?.shift(); if (!r) throw new Error('sem resposta ' + d.id); return r; },
+    };
+  };
+
+  it('só sobe de degrau quando o anterior esgota sem atingir o limiar', async () => {
+    const m = mk({ a: [ok(60), ok(65)], b: [ok(88)], c: [] });
+    const r = await rodarEscadaIA3({ notaInicial: 58, feedbackInicial: 'fb0', limiar: 80, degraus: D, gerar: m.gerar });
+    expect(m.chamadas.map((c) => c.degrau)).toEqual(['a', 'a', 'b']);
+    expect(r.atingiuLimiar).toBe(true);
+    expect(r.degrauFinal).toBe('b');
+    expect(r.notaFinal).toBe(88);
+    expect(r.rodadas.map((x) => x.degrau)).toEqual(['a', 'a', 'b']);
+  });
+
+  it('o 1º degrau que atinge o limiar encerra: os seguintes não gastam nada', async () => {
+    const m = mk({ a: [ok(85)], b: [ok(99)], c: [ok(99)] });
+    const r = await rodarEscadaIA3({ notaInicial: 60, feedbackInicial: 'fb0', limiar: 80, degraus: D, gerar: m.gerar });
+    expect(m.chamadas).toHaveLength(1);
+    expect(r.degrauFinal).toBe('a');
+  });
+
+  it('degrau "do zero" NÃO recebe o feedback; os "com feedback" recebem o do campeão que atravessou os degraus', async () => {
+    const m = mk({ a: [ok(70), ok(55)], b: [ok(50), ok(40)], c: [ok(82)] });
+    const r = await rodarEscadaIA3({ notaInicial: 60, feedbackInicial: 'fb0', limiar: 80, degraus: D, gerar: m.gerar });
+    const porDegrau = (id: string) => m.chamadas.filter((c) => c.degrau === id).map((c) => c.fb);
+    expect(porDegrau('a')).toEqual(['fb0', 'fb70']);           // 2ª rodada: feedback do campeão (70)
+    expect(porDegrau('b')).toEqual([{}, {}]);                  // do zero: sem feedback algum
+    expect(porDegrau('c')).toEqual(['fb70']);                  // o campeão (70) atravessou o degrau "do zero" (que não o superou)
+    expect(r.notaFinal).toBe(82);
+    expect(r.atingiuLimiar).toBe(true);
+  });
+
+  it('o campeão atravessa: um degrau posterior que piora NÃO tira a melhor versão', async () => {
+    const m = mk({ a: [ok(72), ok(60)], b: [ok(30), ok(20)], c: [ok(10)] });
+    const r = await rodarEscadaIA3({ notaInicial: 60, feedbackInicial: 'fb0', limiar: 80, degraus: D, gerar: m.gerar });
+    expect(r.atingiuLimiar).toBe(false);
+    expect(r.notaFinal).toBe(72);
+    expect(r.campeao).toBe('c72');
+    expect(r.degrauFinal).toBe('a');
+  });
+
+  it('timeout/erro num degrau gasta a rodada e a escada segue (o GPT 6.1 Sol deu timeout em 2 de 27)', async () => {
+    const m = mk({ a: [ok(61), ok(62)], b: [{ ok: false, erro: 'The operation was aborted due to timeout' }, ok(90)], c: [] });
+    const r = await rodarEscadaIA3({ notaInicial: 60, feedbackInicial: 'fb0', limiar: 80, degraus: D, gerar: m.gerar });
+    expect(r.rodadas.find((x) => x.degrau === 'b' && !x.ok)?.erro).toMatch(/timeout/);
+    expect(r.atingiuLimiar).toBe(true);
+    expect(r.degrauFinal).toBe('b');
+  });
+
+  it('esgota TODOS os degraus abaixo do limiar: atingiuLimiar=false (vira revisão humana, nunca "resolvido")', async () => {
+    const m = mk({ a: [ok(61), ok(62)], b: [ok(63), ok(64)], c: [ok(65)] });
+    const r = await rodarEscadaIA3({ notaInicial: 60, feedbackInicial: 'fb0', limiar: 80, degraus: D, gerar: m.gerar });
+    expect(r.rodadas).toHaveLength(5);
+    expect(r.atingiuLimiar).toBe(false);
+    expect(r.notaFinal).toBe(65);
+  });
+});
+
+describe('veto Claude — ligação no código', () => {
+  it('a candidata de degrau com veto só é aceita com Terra >= limiar E Claude >= corte (nunca o Claude no lugar do Terra)', () => {
+    const f = lerFonte('lib/ia3-cenarios.ts');
+    expect(f).toMatch(/if \(veto\.nota < IA3_VETO_CORTE\)/);
+    expect(f).toMatch(/vetoClaude: !!degrau\.vetoClaude/);
+    // falha do veto NÃO aprova: devolve ok:false (candidata não promovida)
+    expect(f).toMatch(/Veto \(\$\{IA3_VETO_MODELO\}\) falhou/);
+    // o rastro de QUEM mediu vai junto da nota
+    expect(f).toMatch(/auditor: checkModelo/);
+  });
+});
+
+describe('usaMaxCompletionTokens — gpt-5 em diante (o prefixo fixo deixou o gpt-6.1-sol de fora)', () => {
+  it.each(['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-6.1-sol', 'gpt-7', 'gpt-10', 'o3', 'o4-mini'])('%s usa max_completion_tokens', (m) => {
+    expect(usaMaxCompletionTokens(m)).toBe(true);
+  });
+  it.each(['gpt-4o', 'gpt-4.1', 'gpt-image-2', 'claude-sonnet-5-5'])('%s não usa', (m) => {
+    expect(usaMaxCompletionTokens(m)).toBe(false);
   });
 });
