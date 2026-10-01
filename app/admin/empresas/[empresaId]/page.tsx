@@ -988,7 +988,11 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                       {fase.num === 1 && (() => {
                         if (!top10Loaded) refreshTop10();
                         const cargosTop10 = [...new Set(top10.map((t: any) => t.cargo))].sort();
-                        return (cargosTop10.length > 0 || gabaritos.length > 0) ? (
+                        // O botão de detalhes NÃO depende de haver Top 10/gabarito: a tela de
+                        // detalhes da Fase 1 é justamente onde se vê o que falta (tenant novo
+                        // gera cenários antes do Top 10 e ficava sem como abri-la). Só os
+                        // resumos em texto dependem do dado.
+                        return (
                           <div className="mb-3 mt-2 flex items-center gap-3 flex-wrap">
                             {cargosTop10.map(cargo => {
                               const count = top10.filter((t: any) => t.cargo === cargo).length;
@@ -1002,7 +1006,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                               {t('phaseExtras.viewDetails')}
                             </button>
                           </div>
-                        ) : null;
+                        );
                       })()}
                       {fase.num === 1 && (() => {
                         if (!envioStatus && !envioStatusTentou.current) {
