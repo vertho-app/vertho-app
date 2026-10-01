@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseAdmin } from '@/lib/supabase';
+import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { colunasDePreferencias, FORMATOS_PREFERENCIA } from '@/lib/access-gates';
 
@@ -17,11 +17,11 @@ export async function getMinhasPreferenciasAprendizagem() {
     const colab = await findColabByEmail(email, 'id, empresa_id');
     if (!colab) return { error: 'Colaborador não encontrado' };
 
-    const sb = createSupabaseAdmin();
-    const { data, error } = await sb.from('colaboradores')
+    // tenantDb injeta o filtro de empresa: a leitura nunca sai do tenant da sessão.
+    const tdb = tenantDb((colab as any).empresa_id);
+    const { data, error } = await tdb.from('colaboradores')
       .select(FORMATOS_PREFERENCIA.map(f => f.coluna).join(', '))
       .eq('id', (colab as any).id)
-      .eq('empresa_id', (colab as any).empresa_id)
       .maybeSingle();
     if (error) return { error: error.message };
 
@@ -57,11 +57,10 @@ export async function salvarPreferenciasAprendizagem(prefs: Record<string, numbe
     const colab = await findColabByEmail(email, 'id, empresa_id');
     if (!colab) return { success: false, error: 'Colaborador não encontrado' };
 
-    const sb = createSupabaseAdmin();
-    const { error } = await sb.from('colaboradores')
+    const tdb = tenantDb((colab as any).empresa_id);
+    const { error } = await tdb.from('colaboradores')
       .update(colunas)
-      .eq('id', (colab as any).id)
-      .eq('empresa_id', (colab as any).empresa_id);
+      .eq('id', (colab as any).id);
     if (error) return { success: false, error: error.message };
 
     return { success: true };
