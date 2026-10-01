@@ -2680,3 +2680,9 @@ de roteiro de setembro. A própria Anthropic promete a maioria em até 1 h, e at
 - Orçamento: 20 min no Kit (teto de 1 h da task no Trigger) e 2 h no script semanal (decisão do dono). Num
   dia lento como o de 30/09, o Kit cai no síncrono e custa o mesmo que antes.
 
+**O avatar por grupo não chegava ao vídeo semanal** (corrigido em `fd8d2e5a`, 30/09). O grupo só existia no
+`gerarKitSemanal`, e o vídeo semanal sai de um script de lote que disparava célula a célula: cada uma pagava
+o próprio avatar. `Medido`: desde 01/08 esse script fez 32 células DISC em só 13 combinações de módulo ×
+cargo; com o grupo, ~19 avatares a menos (~US$ 10 no período). O disparo em lote agora agrupa
+(`lib/video/celulas-lote.ts`). Economia ainda não observada num lote real.
+
