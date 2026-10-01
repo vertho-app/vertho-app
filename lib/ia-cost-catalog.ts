@@ -28,7 +28,10 @@
 // projeta o preço futuro dentro da conta atual.
 export const MODELS = {
   // Anthropic
+  // 5.5: preços da tabela oficial (conferido em 01/10/2026). Sem a linha o ledger gravava cost_usd = null.
+  'claude-opus-5-5':            { label: 'Claude Opus 5.5',     inUsd: 4,    outUsd: 20 },
   'claude-opus-5':              { label: 'Claude Opus 5',       inUsd: 5,    outUsd: 25 },
+  'claude-sonnet-5-5':          { label: 'Claude Sonnet 5.5',   inUsd: 2,    outUsd: 10 },
   // Sonnet 5 a $2/$10 — preço PADRÃO, não introdutório. Conferido na doc oficial
   // de pricing em 12/08/2026, que declara textualmente: o intro anunciado até
   // 31/08/2026 "is now the standard price" e o aumento p/ $3/$15 em 01/09/2026
@@ -655,13 +658,13 @@ export const CALLS = [
     fase: 'Setup Empresa',
     scaleType: 'empresa',
     nome: 'IA3 — Cenários A (gerador)',
-    descricao: '5 cenários A por cargo × competência. Média real de 90 dias no Sonnet 4.6 (10/09/2026).',
-    inTokens: 3230,
-    outTokens: 2910,
-    cacheReadTokens: 1400,
+    descricao: '5 cenários A por cargo × competência. Tokens medidos em 01/10/2026 no Sonnet 5.5 (107 gerações, Amazon Bowling); o 4.6 fazia ~2.400 de saída mas só chegava a 80+ em 21% das gerações contra 50% do 5.5.',
+    inTokens: 6100,
+    outTokens: 5100,
+    cacheReadTokens: 2700,
     cacheWriteTokens: 290,
     exec: 4 * 5,
-    defaultModel: 'claude-sonnet-4-6',
+    defaultModel: 'claude-sonnet-5-5',
     critical: false,
   },
   {
@@ -1096,8 +1099,10 @@ const CHECK_PRIMARIES = {
  */
 function crossLlmCheck(primaryModel) {
   const map = {
+    'claude-opus-5-5':   'gpt-5.6-sol',
     'claude-opus-5':     'gpt-5.6-sol',
     'claude-sonnet-4-6': 'gpt-5.6-terra',
+    'claude-sonnet-5-5': 'gpt-5.6-terra',
     'claude-sonnet-5':   'gpt-5.6-terra',
     'gemini-3.8-flash':  'gpt-5.6-luna',
     'gemini-3.7-flash':  'gpt-5.6-luna',

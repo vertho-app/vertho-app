@@ -172,7 +172,9 @@ export const AI_TASKS = [
  */
 export const MODELOS_DISPONIVEIS = [
   // ── Anthropic ──
+  { id: 'claude-opus-5-5', label: 'Claude Opus 5.5' },
   { id: 'claude-opus-5', label: 'Claude Opus 5' },
+  { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5' },
   { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
   // O 4.6 estava FORA do dropdown, e isso deixava sem porta a saída que o
   // comentário de PINNED_TASKS promete: "o override EXPLÍCITO por task segue
@@ -333,6 +335,13 @@ export const DEFAULT_TASK_MODELS: Record<string, string> = {
   pdi_check:           'gpt-5.6-terra',
   relatorio_gestor:    'claude-sonnet-5',
   relatorio_rh:        'claude-sonnet-5',
+  // IA3 — geração de cenários. `Medido: 01/10/2026` (Amazon Bowling, 66 cenários pareados,
+  // 1 tentativa, auditor gpt-5.6-terra): Sonnet 5.5 média 75,7 contra 67,7 do Sonnet 5 no
+  // mesmo dia (+8,1, IC95 ±3,8); 50% já ≥80 contra 21%; 24 erros graves contra 40; 33% menos
+  // tokens de saída e metade da latência. Com feedback, resolve em ≤2 rodadas o que o 4.6 não
+  // resolvia (14/14 contra 8/14 em 4 rodadas). Claude gerando, Terra (OpenAI) auditando:
+  // par cross-família preservado. O Opus 5.5 não superou o Sonnet 5.5 e custa ~2,3x.
+  ia3_cenarios:        'claude-sonnet-5-5',
 };
 
 const FALLBACK_GLOBAL = 'claude-sonnet-4-6';
@@ -367,6 +376,8 @@ export const PINNED_TASKS = new Set([
   // O override EXPLÍCITO por task segue valendo — é a saída para voltar ao 4.6 numa
   // empresa específica sem tocar no código.
   'ia4_avaliacao',
+  // IA3: sem o pino o `modelo_padrao` do tenant (4.6 nas 10 empresas) venceria o default acima.
+  'ia3_cenarios',
   'pdi_individual',
   'pdi_check',
   'relatorio_gestor',

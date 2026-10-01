@@ -6,7 +6,8 @@ import {
   validarRespostaIA3, montarAlternativasIA3, persistirCenarioIA3,
   montarCheckIA3Prompt, normalizarResultadoCheckIA3, persistirCheckIA3,
   gerarCenarioIA3Core, checkCenarioIA3Core,
-  IA3_MAX_TOKENS_GERACAO, fallbackDoLoteExcessivo,
+  IA3_MAX_TOKENS_GERACAO, fallbackDoLoteExcessivo, resolverAiConfigGeracaoIA3,
+  regenerarAteLimiarIA3, IA3_LIMIAR_APROVACAO,
 } from '@/lib/ia3-cenarios';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import {
@@ -89,7 +90,9 @@ export const gerarIA3BatchTask = task({
       const aiConfig = pp.aiConfig || {};
       const items: Array<{ cargo: string; competencia_id: string; ppp_escola_id: string | null; nome: string }> =
         Array.isArray(pp.items) ? pp.items : [];
-      const genModel = String(aiConfig?.model || 'claude-sonnet-4-6');
+      // Sem escolha explícita no job, a task `ia3_cenarios` (pinada, hoje Sonnet 5.5) — e não o
+      // 'claude-sonnet-4-6' fixo que rodava aqui sem ninguém ter decidido.
+      const genModel = String((await resolverAiConfigGeracaoIA3(empresaId, aiConfig)).model);
       const checkModel: string | null = aiConfig?.checkModel || null;
 
       /**
@@ -361,6 +364,41 @@ export const gerarIA3BatchTask = task({
         }
         // Itens sem cenário persistido não têm check — completa a contagem.
         done += (items.length - gerados.length);
+
+        // ── Onda 3: REGENERAÇÃO AUTOMÁTICA dos cenários abaixo do limiar ───────
+        // Gerar + check já aconteceram; o que ficou < 80 ganha até IA3_MAX_RODADAS_AUTO
+        // rodadas com o feedback do campeão (trava: nunca piora). Quem sair abaixo do
+        // limiar fica marcado `regeneracao_auto.esgotado` para revisão humana.
+        // Orçamento de TEMPO: a run tem `maxDuration` de 1 h e cada rodada leva ≈ 40-90 s;
+        // estourar mataria o job `running` (30/09/2026). Ao passar do orçamento, para de
+        // iniciar novas regenerações e registra quantas ficaram — o que sobrou é idempotente
+        // (`regenerarAteLimiarIA3` pula quem já está no limiar ou já esgotado) e a retomada,
+        // ou `scripts/_regenerar-abaixo-limiar-ia3.ts`, continua dali.
+        const inicioOnda3 = Date.now();
+        const ORCAMENTO_ONDA3_MS = 30 * 60 * 1000;
+        const PARALELO_ONDA3 = 3;
+        const fila3 = gerados.filter((g) => g.cenarioId);
+        let proximo3 = 0, tocados3 = 0, atingiram3 = 0, esgotaram3 = 0, erros3 = 0, adiados3 = 0;
+        const trabalhador3 = async () => {
+          while (proximo3 < fila3.length) {
+            const g = fila3[proximo3++];
+            if (Date.now() - inicioOnda3 > ORCAMENTO_ONDA3_MS) { adiados3++; continue; }
+            try {
+              const r = await regenerarAteLimiarIA3(sb, { cenarioId: g.cenarioId as string, aiConfig });
+              if (!r.success) { erros3++; continue; }
+              if (r.pulado) continue;
+              tocados3++;
+              if (r.atingiuLimiar) atingiram3++; else esgotaram3++;
+              await pushProgress(`regeneração automática: ${r.message}`);
+            } catch (e: any) { erros3++; console.warn(`[gerar-ia3-batch] regeneração automática falhou (${e?.message})`); }
+          }
+        };
+        await Promise.all(Array.from({ length: PARALELO_ONDA3 }, trabalhador3));
+        resultados.push({
+          cargo: 'regeneração automática', ok: erros3 === 0,
+          message: `${tocados3} regenerado(s): ${atingiram3} chegaram a ${IA3_LIMIAR_APROVACAO}+, ${esgotaram3} para revisão humana${adiados3 ? `, ${adiados3} adiado(s) por tempo` : ''}${erros3 ? `, ${erros3} erro(s)` : ''}`,
+          ...(erros3 ? { error: `${erros3} regeneração(ões) com erro` } : {}),
+        });
       }
 
       const okCount = resultados.filter((r) => r.ok).length;

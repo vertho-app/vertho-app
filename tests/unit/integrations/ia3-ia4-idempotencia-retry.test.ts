@@ -120,6 +120,10 @@ vi.mock('@/lib/ia3-cenarios', () => ({
   gerarCenarioIA3Core: async () => { mocks.sincronasGen++; return { success: true, cenarioId: 'cen_sync' }; },
   checkCenarioIA3Core: async () => { mocks.sincronasChk++; return { success: true, nota: 70 }; },
   IA3_MAX_TOKENS_GERACAO: 10000,
+  // A onda 3 (regeneração automática) tem teste próprio; aqui o item já está no limiar e nada roda.
+  regenerarAteLimiarIA3: async () => ({ success: true, pulado: 'já no limiar' }),
+  IA3_LIMIAR_APROVACAO: 80,
+  resolverAiConfigGeracaoIA3: async (_e: any, c: any) => ({ model: 'claude-sonnet-5-5', ...(c || {}) }),
   // O alarme em si é coberto por tests/unit/ia3/teto-lote-geracao.test.ts; aqui só a idempotência.
   fallbackDoLoteExcessivo: () => false,
 }));

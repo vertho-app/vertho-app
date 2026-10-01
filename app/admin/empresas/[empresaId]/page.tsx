@@ -17,7 +17,7 @@ import BackButton from '@/components/back-button';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 
-import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm } from '@/actions/fase1';
+import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm, regenerarCenario } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
 import { enqueueIA2Batch, enqueueIA3Batch, enqueueIA4Batch, enqueueCenariosBBatch, enqueueBlueprintBatch, enqueueRelatoriosBatch, statusIAJob, cancelIAJob, listarJobsAtivosIA } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
@@ -609,7 +609,22 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
           if (checkModel) {
             addLog(`🔍 [${i + 1}/${items.length}] Validando: ${item.nome}${escolaLbl} [${checkModel}]`, 'info');
             const cr = await tentar(() => checkCenarioUm(r.cenarioId || null, empresaId, item.cargo, item.competencia_id, checkModel));
-            if (cr.success) { if (cr.nota >= 90) { aprovados++; addLog(`✅ ${item.nome}: ${cr.nota}pts`, 'success'); } else { revisar++; addLog(`⚠ ${item.nome}: ${cr.nota}pts`, 'info'); } }
+            if (cr.success) {
+              // Regeneração AUTOMÁTICA (decisão 01/10/2026): abaixo de 80, até 3 rodadas com o feedback do
+              // check. Uma rodada por request (teto da Vercel); a trava do servidor nunca deixa piorar.
+              // Quem seguir abaixo de 80 fica "para revisão" — a tela não o dá como resolvido.
+              let notaFinal: number = cr.nota;
+              for (let rodada = 1; rodada <= 3 && notaFinal < 80 && r.cenarioId; rodada++) {
+                if (cancelRef.current) break;
+                addLog(`🔁 [${i + 1}/${items.length}] ${item.nome}: ${notaFinal}pts — regenerando com o feedback (${rodada}/3)`, 'info');
+                const rg = await tentar(() => regenerarCenario(r.cenarioId));
+                if (!rg.success) { addLog(`⚠ Regeneração ${item.nome}: ${rg.error}`, 'error'); break; }
+                if (rg.aplicado && typeof rg.nota === 'number') notaFinal = rg.nota;
+              }
+              if (notaFinal >= 90) { aprovados++; addLog(`✅ ${item.nome}: ${notaFinal}pts`, 'success'); }
+              else if (notaFinal >= 80) { revisar++; addLog(`✔ ${item.nome}: ${notaFinal}pts (aprovado com ressalvas)`, 'info'); }
+              else { revisar++; addLog(`⚠ ${item.nome}: ${notaFinal}pts — abaixo de 80 depois das tentativas automáticas: revisão humana`, 'error'); }
+            }
             else addLog(`⚠ Check ${item.nome}: ${cr.error}`, 'error');
           }
         }

@@ -383,6 +383,19 @@ export interface RespostaIA3Normalizada {
 }
 
 /**
+ * Modelo da GERAÇÃO do IA3 quando quem chama não escolheu um. `callAI` NÃO consulta
+ * `getModelForTask` (cai no DEFAULT_MODEL, o Sonnet 4.6) — foi assim que a regeneração
+ * manual rodou no 4.6 sem ninguém decidir. Aqui a task `ia3_cenarios` é resolvida
+ * (override do tenant > default por task, hoje o Sonnet 5.5; a task é PINADA, então o
+ * `modelo_padrao` genérico do tenant não a rebaixa). Escolha explícita do chamador vence.
+ */
+export async function resolverAiConfigGeracaoIA3(empresaId: string | null | undefined, aiConfig: AIConfig = {}): Promise<AIConfig> {
+  if (aiConfig?.model) return aiConfig;
+  const { getModelForTask } = await import('@/lib/ai-tasks');
+  return { ...aiConfig, model: await getModelForTask(empresaId, 'ia3_cenarios') };
+}
+
+/**
  * Teto de saída da GERAÇÃO do cenário — fonte única do caminho síncrono E do lote.
  *
  * `Medido: 30/09/2026` (Amazon Bowling, `claude-sonnet-5`): o cenário sai com
@@ -534,7 +547,8 @@ export async function gerarCenarioIA3Core(sbRaw: any, args: {
   empresaId: string; cargoNome: string; competenciaId: string;
   pppEscolaId?: string | null; aiConfig?: AIConfig;
 }): Promise<{ success: boolean; error?: string; message?: string; cenarioId?: string | null }> {
-  const { empresaId, cargoNome, competenciaId, pppEscolaId = null, aiConfig = {} } = args;
+  const { empresaId, cargoNome, competenciaId, pppEscolaId = null } = args;
+  const aiConfig = await resolverAiConfigGeracaoIA3(empresaId, args.aiConfig ?? {});
 
   const mc = await montarContextoIA3(sbRaw, empresaId, cargoNome, competenciaId, pppEscolaId);
   if (!('ctx' in mc)) return { success: false, error: mc.error };
@@ -742,21 +756,13 @@ export function travaRegeneracao(notaAtual: unknown, notaCandidata: number): boo
   return notaCandidata >= notaAtual;
 }
 
-export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
-  cenarioId: string; aiConfig?: AIConfig;
-}): Promise<{
-  success: boolean; error?: string; message?: string;
-  aplicado?: boolean; nota?: number; notaAnterior?: number | null; status?: string;
-}> {
-  const { cenarioId, aiConfig = {} } = args;
+/** Campos do check que o gerador lê como feedback (e que a auditoria persiste). */
+export type FeedbackCheckIA3 = { justificativa_check?: any; sugestao_check?: any; alertas_check?: any };
 
-  const { data: cen } = await sbRaw.from('banco_cenarios').select('*').eq('id', cenarioId).single();
-  if (!cen) return { success: false, error: 'Cenário não encontrado' };
-  if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional)' };
-
-  // Feedback enriquecido do check atual (mesma montagem histórica)
-  const alertas = typeof cen.alertas_check === 'object' ? (cen.alertas_check || {}) : {};
-  const feedbackParts = [cen.justificativa_check, cen.sugestao_check];
+/** Pura: o check vira o texto que o gerador recebe na regeneração (montagem histórica, sem mudança). */
+export function montarFeedbackRegeneracaoIA3(chk: FeedbackCheckIA3): string {
+  const alertas: any = (typeof chk.alertas_check === 'object' && chk.alertas_check) ? chk.alertas_check : {};
+  const feedbackParts = [chk.justificativa_check, chk.sugestao_check];
   if (alertas.ponto_mais_fraco) feedbackParts.push(`Ponto mais fraco: ${alertas.ponto_mais_fraco}`);
   if (Array.isArray(alertas.descritores_sem_cobertura) && alertas.descritores_sem_cobertura.length) {
     feedbackParts.push(`Descritores sem cobertura: ${alertas.descritores_sem_cobertura.join(', ')}`);
@@ -766,10 +772,41 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
       feedbackParts.push(`P${p.numero}: ${p.problema}. Sugestão: ${p.correcao_recomendada}`);
     });
   }
-  const feedbackExtra = feedbackParts.filter(Boolean).join('\n');
+  return feedbackParts.filter(Boolean).join('\n');
+}
+
+export type CandidataIA3 =
+  | { ok: false; error: string }
+  | {
+    ok: true;
+    candidato: { empresa_id: string; competencia_id: string; cargo: string; titulo: string; descricao: string; alternativas: Record<string, any> };
+    alternativas: Record<string, any>;
+    normed: { resultado: any; statusCheck: string };
+    /** O que a auditoria persiste em `banco_cenarios` — e o que alimenta a PRÓXIMA rodada de feedback. */
+    auditoria: {
+      nota_check: number; status_check: string; dimensoes_check: any; justificativa_check: any; sugestao_check: any;
+      alertas_check: Record<string, any>;
+    };
+  };
+
+/**
+ * Gera a CANDIDATA a partir do feedback e a audita (2ª IA) EM MEMÓRIA — não escreve nada.
+ * `cen` dá a identidade (empresa/cargo/competência/PPP); `feedbackDe` dá o feedback e
+ * por padrão é o próprio check de `cen`. Separar os dois é o que permite encadear
+ * rodadas: a 2ª rodada recebe o feedback da auditoria da candidata da 1ª, sem passar
+ * pelo banco. Fonte única de `regenerarCenarioIA3ComTrava` e do experimento de retentativa.
+ */
+export async function gerarEAuditarCandidataIA3(sbRaw: any, args: {
+  cen: any; feedbackDe?: FeedbackCheckIA3; aiConfig?: AIConfig;
+  /** true = prompt da geração ORIGINAL (sem o bloco REGRAS DA REGENERAÇÃO). Default false: é regeneração. */
+  inicial?: boolean;
+}): Promise<CandidataIA3> {
+  const { cen } = args;
+  const aiConfig = await resolverAiConfigGeracaoIA3(cen.empresa_id, args.aiConfig ?? {});
+  const feedbackExtra = montarFeedbackRegeneracaoIA3(args.feedbackDe ?? cen);
 
   const mc = await montarContextoIA3(sbRaw, cen.empresa_id, cen.cargo, cen.competencia_id, cen.ppp_escola_id ?? null);
-  if (!('ctx' in mc)) return { success: false, error: mc.error };
+  if (!('ctx' in mc)) return { ok: false, error: mc.error };
   const { empresa, comp, descritores, contextoPPP, valores, cargoDetalhe, gabCIS } = mc.ctx;
 
   const system = buildIA3SystemPrompt();
@@ -777,7 +814,7 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
   if (feedbackExtra) user += `\n\nFEEDBACK DA REVISÃO ANTERIOR (CORRIJA ESTES PONTOS):\n${feedbackExtra}`;
   // Anti-inflação (medido 23/07: a 2ª rodada estourou contenção ao "corrigir
   // adicionando"): os limites de sobriedade valem MESMO cobrindo críticas.
-  user += `\n\n═══ REGRAS DA REGENERAÇÃO ═══
+  if (!args.inicial) user += `\n\n═══ REGRAS DA REGENERAÇÃO ═══
 1. Corrigir NÃO é adicionar: prefira REMOVER/enxugar a acrescentar.
 2. Os limites de sobriedade são inegociáveis: contexto ≤900 caracteres (conte antes de finalizar), máx 2 tensões, máx 2 stakeholders.
 3. Se o feedback pedir mais cobertura, obtenha-a REFORMULANDO perguntas — nunca inflando o contexto.`;
@@ -785,7 +822,7 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
   const resposta = await callAI(system, user, aiConfig, IA3_MAX_TOKENS_GERACAO, { taskKey: 'ia3_cenarios', timeoutMs: IA3_TIMEOUT_GERACAO_MS, empresaId: cen.empresa_id });
   const resultado = await extractJSON(resposta);
   const norm = resultado ? validarRespostaIA3(resultado, descritores.length) : null;
-  if (!norm) return { success: false, error: 'IA não retornou cenário válido — NADA foi alterado (a versão atual continua valendo)' };
+  if (!norm) return { ok: false, error: 'IA não retornou cenário válido — NADA foi alterado (a versão atual continua valendo)' };
 
   const alternativas = montarAlternativasIA3(resultado, norm.cen, norm.perguntas, descritores);
   const candidato = {
@@ -803,7 +840,44 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
   const checkModelo = await getModelForTask(cen.empresa_id, 'ia3_check');
   const respChk = await callAI(sysChk, userChk, { model: checkModelo }, 7000, { taskKey: 'ia3_check', empresaId: cen.empresa_id });
   const normed = normalizarResultadoCheckIA3(await extractJSON(respChk));
-  if (!normed) return { success: false, error: 'Auditoria da candidata falhou — NADA foi alterado (a versão atual continua valendo)' };
+  if (!normed) return { ok: false, error: 'Auditoria da candidata falhou — NADA foi alterado (a versão atual continua valendo)' };
+
+  const r = normed.resultado;
+  return {
+    ok: true, candidato, alternativas, normed,
+    auditoria: {
+      nota_check: r.nota,
+      status_check: normed.statusCheck,
+      dimensoes_check: r.dimensoes || null,
+      justificativa_check: r.justificativa || null,
+      sugestao_check: r.sugestao || null,
+      alertas_check: {
+        alertas: r.alertas || [],
+        ponto_mais_forte: r.ponto_mais_forte || null,
+        ponto_mais_fraco: r.ponto_mais_fraco || null,
+        descritores_sem_cobertura: r.descritores_sem_cobertura || [],
+        perguntas_com_risco: r.perguntas_com_risco || [],
+      },
+    },
+  };
+}
+
+export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
+  cenarioId: string; aiConfig?: AIConfig;
+}): Promise<{
+  success: boolean; error?: string; message?: string;
+  aplicado?: boolean; nota?: number; notaAnterior?: number | null; status?: string;
+}> {
+  const { cenarioId, aiConfig = {} } = args;
+
+  const { data: cen } = await sbRaw.from('banco_cenarios').select('*').eq('id', cenarioId).single();
+  if (!cen) return { success: false, error: 'Cenário não encontrado' };
+  if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional)' };
+
+  const cand = await gerarEAuditarCandidataIA3(sbRaw, { cen, aiConfig });
+  // `strict: false` não estreita união discriminada por `ok`: o cast é o estreitamento.
+  if (!cand.ok) return { success: false, error: (cand as { ok: false; error: string }).error };
+  const { candidato, alternativas, normed, auditoria } = cand;
 
   const notaAnterior: number | null = typeof cen.nota_check === 'number' ? cen.nota_check : null;
   const notaCandidata = normed.resultado.nota;
@@ -816,23 +890,11 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
   }
 
   // Aplica: conteúdo + auditoria da candidata numa escrita só (tenant-scoped)
-  const r = normed.resultado;
   const { error: updErr } = await sbRaw.from('banco_cenarios').update({
     titulo: candidato.titulo,
     descricao: candidato.descricao,
     alternativas,
-    nota_check: r.nota,
-    status_check: normed.statusCheck,
-    dimensoes_check: r.dimensoes || null,
-    justificativa_check: r.justificativa || null,
-    sugestao_check: r.sugestao || null,
-    alertas_check: {
-      alertas: r.alertas || [],
-      ponto_mais_forte: r.ponto_mais_forte || null,
-      ponto_mais_fraco: r.ponto_mais_fraco || null,
-      descritores_sem_cobertura: r.descritores_sem_cobertura || [],
-      perguntas_com_risco: r.perguntas_com_risco || [],
-    },
+    ...auditoria,
     checked_at: new Date().toISOString(),
   }).eq('id', cen.id).eq('empresa_id', cen.empresa_id);
   if (updErr) return { success: false, error: `Regeneração: UPDATE falhou (${updErr.message}) — versão anterior preservada` };
@@ -840,5 +902,121 @@ export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
   return {
     success: true, aplicado: true, nota: notaCandidata, notaAnterior, status: normed.statusCheck,
     message: `Regenerado: ${notaCandidata}pts (${normed.statusCheck})${notaAnterior != null ? ` — antes ${notaAnterior}pts` : ''}.`,
+  };
+}
+
+// ── Regeneração AUTOMÁTICA até o limiar ─────────────────────────────────────
+// Decisão de 01/10/2026 (dono) sobre medição na Amazon Bowling (66 cenários):
+//   · gatilho nota < 80 (e não < 90: só 7,6% chegavam a 90 mesmo com 2 tentativas, e em
+//     80-89 o ganho é indistinguível do ruído de ±2 do check);
+//   · feedback do CAMPEÃO a cada rodada, com a trava (nunca piora) — "do zero" sem
+//     feedback foi pior nos três modelos testados;
+//   · gerador = a task `ia3_cenarios` (hoje Sonnet 5.5), sem escada para modelo maior:
+//     o Opus 5.5 não superou o Sonnet 5.5 e custa ~2,3x.
+// Quem sai abaixo do limiar depois das rodadas NÃO é entregue por este código como
+// "resolvido": fica com `alertas_check.regeneracao_auto.esgotado = true`, para a tela
+// listar e uma pessoa decidir. Sem coluna nova: o registro vive em `alertas_check`.
+
+export const IA3_LIMIAR_APROVACAO = 80;
+export const IA3_MAX_RODADAS_AUTO = 3;
+
+export type RodadaAutoIA3 = { rodada: number; ok: boolean; nota?: number; promovida?: boolean; erro?: string };
+
+/**
+ * Pura: orquestra as rodadas. `gerar` produz UMA candidata auditada a partir do feedback
+ * do campeão atual. Para ao atingir o limiar ou ao esgotar `maxRodadas`; falha de uma
+ * rodada gasta a rodada e segue. A trava só promove candidata que não piora.
+ */
+export async function rodarRetentativasIA3<C>(args: {
+  notaInicial: number | null | undefined;
+  feedbackInicial: any;
+  limiar: number;
+  maxRodadas: number;
+  gerar: (feedbackDoCampeao: any) => Promise<{ ok: true; nota: number; cand: C; feedback: any } | { ok: false; erro: string }>;
+}): Promise<{ campeao: C | null; notaFinal: number | null; rodadas: RodadaAutoIA3[]; atingiuLimiar: boolean }> {
+  let nota: number | null = typeof args.notaInicial === 'number' ? args.notaInicial : null;
+  let feedback = args.feedbackInicial;
+  let campeao: C | null = null;
+  const rodadas: RodadaAutoIA3[] = [];
+  const noLimiar = () => typeof nota === 'number' && nota >= args.limiar;
+
+  for (let k = 1; k <= args.maxRodadas && !noLimiar(); k++) {
+    let r: Awaited<ReturnType<typeof args.gerar>>;
+    try { r = await args.gerar(feedback); }
+    catch (e: any) { r = { ok: false, erro: String(e?.message || e).slice(0, 160) }; }
+    if (!r.ok) { rodadas.push({ rodada: k, ok: false, erro: (r as { ok: false; erro: string }).erro }); continue; }
+    const boa = r as { ok: true; nota: number; cand: C; feedback: any };
+    const promovida = travaRegeneracao(nota, boa.nota);
+    rodadas.push({ rodada: k, ok: true, nota: boa.nota, promovida });
+    if (promovida) { campeao = boa.cand; nota = boa.nota; feedback = boa.feedback; }
+  }
+  return { campeao, notaFinal: nota, rodadas, atingiuLimiar: noLimiar() };
+}
+
+/**
+ * Núcleo headless (lib, fora de 'use server'): regenera UM cenário até a nota atingir o
+ * limiar, com no máximo `maxRodadas`. Demorado (cada rodada ≈ 40-90 s) — serve a task
+ * Trigger e a scripts; a tela, com o teto de request da Vercel, chama `regenerarCenario`
+ * (1 rodada) várias vezes. Idempotente: nota já no limiar, ou cenário já marcado
+ * `esgotado`, não gasta nada (a menos que `forcar`).
+ */
+export async function regenerarAteLimiarIA3(sbRaw: any, args: {
+  cenarioId: string; aiConfig?: AIConfig; limiar?: number; maxRodadas?: number; forcar?: boolean;
+}): Promise<{
+  success: boolean; error?: string; message?: string; pulado?: string;
+  notaInicial?: number | null; notaFinal?: number | null; atingiuLimiar?: boolean; rodadas?: RodadaAutoIA3[];
+}> {
+  const limiar = args.limiar ?? IA3_LIMIAR_APROVACAO;
+  const maxRodadas = args.maxRodadas ?? IA3_MAX_RODADAS_AUTO;
+
+  const { data: cen, error: errLeitura } = await sbRaw.from('banco_cenarios').select('*').eq('id', args.cenarioId).single();
+  if (errLeitura && !cen) return { success: false, error: `Cenário não encontrado (${errLeitura.message})` };
+  if (!cen) return { success: false, error: 'Cenário não encontrado' };
+  if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional)' };
+  if (typeof cen.nota_check !== 'number') return { success: true, pulado: 'sem nota: rode o check antes', notaInicial: null };
+  if (cen.nota_check >= limiar) return { success: true, pulado: 'já no limiar', notaInicial: cen.nota_check, notaFinal: cen.nota_check, atingiuLimiar: true };
+  const jaTentado = (cen.alertas_check as any)?.regeneracao_auto?.esgotado === true;
+  if (jaTentado && !args.forcar) return { success: true, pulado: 'tentativas automáticas já esgotadas', notaInicial: cen.nota_check, notaFinal: cen.nota_check, atingiuLimiar: false };
+
+  const aiConfig = await resolverAiConfigGeracaoIA3(cen.empresa_id, args.aiConfig ?? {});
+  const r = await rodarRetentativasIA3<Extract<CandidataIA3, { ok: true }>>({
+    notaInicial: cen.nota_check, feedbackInicial: cen, limiar, maxRodadas,
+    gerar: async (feedback) => {
+      const c = await gerarEAuditarCandidataIA3(sbRaw, { cen, feedbackDe: feedback, aiConfig });
+      if (!c.ok) return { ok: false, erro: (c as { ok: false; error: string }).error };
+      const boa = c as Extract<CandidataIA3, { ok: true }>;
+      return { ok: true, nota: boa.normed.resultado.nota, cand: boa, feedback: boa.auditoria };
+    },
+  });
+
+  const meta = {
+    tentativas: r.rodadas.length,
+    notas: r.rodadas.map((x) => x.nota ?? null),
+    promovidas: r.rodadas.filter((x) => x.promovida).length,
+    modelo: aiConfig.model, limiar, maxRodadas,
+    atingiuLimiar: r.atingiuLimiar, esgotado: !r.atingiuLimiar,
+    em: new Date().toISOString(),
+  };
+
+  if (r.campeao) {
+    const { candidato, alternativas, auditoria } = r.campeao;
+    const { error } = await sbRaw.from('banco_cenarios').update({
+      titulo: candidato.titulo, descricao: candidato.descricao, alternativas,
+      ...auditoria,
+      alertas_check: { ...auditoria.alertas_check, regeneracao_auto: meta },
+      checked_at: new Date().toISOString(),
+    }).eq('id', cen.id).eq('empresa_id', cen.empresa_id);
+    if (error) return { success: false, error: `Regeneração automática: UPDATE falhou (${error.message}) — versão anterior preservada` };
+  } else {
+    // Nenhuma candidata promovida: o conteúdo fica; só registra que as tentativas foram gastas.
+    const { error } = await sbRaw.from('banco_cenarios').update({
+      alertas_check: { ...((cen.alertas_check && typeof cen.alertas_check === 'object') ? cen.alertas_check : {}), regeneracao_auto: meta },
+    }).eq('id', cen.id).eq('empresa_id', cen.empresa_id);
+    if (error) return { success: false, error: `Regeneração automática: registro das tentativas falhou (${error.message})` };
+  }
+
+  return {
+    success: true, notaInicial: cen.nota_check, notaFinal: r.notaFinal, atingiuLimiar: r.atingiuLimiar, rodadas: r.rodadas,
+    message: `${cen.nota_check} → ${r.notaFinal}pts em ${r.rodadas.length} rodada(s)${r.atingiuLimiar ? '' : ` — abaixo de ${limiar}: revisão humana`}.`,
   };
 }
