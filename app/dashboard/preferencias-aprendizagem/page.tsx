@@ -57,25 +57,31 @@ export default function PreferenciasAprendizagemPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl py-3" data-preferencias="aprendizagem">
-      <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{t('tag')}</p>
-      <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{t('title')}</h1>
-      <p className="text-[14px] text-gray-400 mb-5">{t('subtitle')}</p>
+    // Mesma moldura do mapeamento (`mapeamento/layout.tsx`): sem ela o conteúdo
+    // vai até a borda e o card da direita encosta nela. Sem o link "voltar ao
+    // início": a etapa é pedida pelo assessment, e voltar pelo dashboard só levaria
+    // de novo até aqui.
+    <div className="mx-auto w-full max-w-[1200px] px-4 pb-10 pt-5 sm:px-6 lg:px-10" data-preferencias="container">
+      <div className="mx-auto w-full max-w-5xl py-3" data-preferencias="aprendizagem">
+        <p className="text-[10px] font-extrabold uppercase tracking-[2.5px] text-brand-400 mb-1">{t('tag')}</p>
+        <h1 className="text-[26px] font-black text-white leading-tight mb-1" style={{ fontFamily: "'Fraunces', Georgia, serif" }}>{t('title')}</h1>
+        <p className="text-[14px] text-gray-400 mb-5">{t('subtitle')}</p>
 
-      <PreferenciasAprendizagemForm
-        value={prefs}
-        onChange={(id, star) => setPrefs(prev => ({ ...prev, [id]: star }))}
-      />
+        <PreferenciasAprendizagemForm
+          value={prefs}
+          onChange={(id, star) => setPrefs(prev => ({ ...prev, [id]: star }))}
+        />
 
-      <button
-        disabled={!allRated || saving}
-        onClick={salvar}
-        className="mt-5 w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase disabled:opacity-30 transition-all flex items-center justify-center gap-2"
-        style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
-      >
-        {saving && <Loader2 size={16} className="animate-spin" />}
-        {t('continue')}
-      </button>
+        <button
+          disabled={!allRated || saving}
+          onClick={salvar}
+          className="mt-5 w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase disabled:opacity-30 transition-all flex items-center justify-center gap-2"
+          style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
+        >
+          {saving && <Loader2 size={16} className="animate-spin" />}
+          {t('continue')}
+        </button>
+      </div>
     </div>
   );
 }

@@ -3369,7 +3369,7 @@
     }
   },
   "LearningPreferencesPage": {
-    "tag": "Última etapa",
+    "tag": "Preferencias de aprendizaje",
     "title": "¿Cómo aprendes mejor?",
     "subtitle": "Da de 1 a 5 estrellas a cada formato. Lo usamos para elegir cómo entregarte los contenidos.",
     "continue": "Continuar",

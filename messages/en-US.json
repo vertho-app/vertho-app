@@ -3369,7 +3369,7 @@
     }
   },
   "LearningPreferencesPage": {
-    "tag": "Last step",
+    "tag": "Learning preferences",
     "title": "How do you learn best?",
     "subtitle": "Rate each format from 1 to 5 stars. We use this to choose how to deliver your content.",
     "continue": "Continue",
