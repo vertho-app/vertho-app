@@ -15,10 +15,28 @@ import { BLOCO_EVIDENCIA_E_RELATO } from './regra-evidencia';
 
 export type DiscLetter = 'D' | 'I' | 'S' | 'C';
 
+/**
+ * ÂNCORA do desafio: o que NÃO pode variar entre os quatro perfis de um mesmo tema. Os quatro desafios saem de
+ * gerações independentes (em lote, em paralelo), e sem uma âncora comum cada uma inventava a própria exigência: medido
+ * em 02/10/2026 num mesmo tema, o critério de conclusão ia de "3 de 3 dias" a "7 de 7" e a ação mudava de uma pausa
+ * protegida para um diário de observação. A cobrança de quinta usa a mesma régua para todos, então a exigência tem que
+ * ser a mesma; o que se personaliza por DISC é a FORMA de executar e registrar.
+ */
+export interface DesafioBase {
+  /** A ação única e observável, neutra de perfil. */
+  acao: string;
+  /** Em quantos dias a ação é praticada (1 a 5). */
+  dias: number;
+  /** O que conta como cumprido, em termos dos dias (ex.: "pelo menos 3 dos 5 dias"). */
+  limiar: string;
+}
+
 export interface KitBriefNucleo {
   ideia_central: string;
   pontos_chave: string[];
   exemplo_ancora: string;
+  /** Opcional: briefs anteriores a 02/10/2026 não têm; `garantirDesafioBase` preenche sob demanda. */
+  desafio_base?: DesafioBase;
 }
 
 export interface GerarBriefParams {
@@ -142,6 +160,59 @@ Fala natural, sem jargão, sem markdown. RETORNE APENAS JSON VÁLIDO:
   return { nucleo, moduloBaseId };
 }
 
+export function parseDesafioBase(raw: string): DesafioBase | null {
+  const p = extrairJson(raw);
+  if (!p) return null;
+  const acao = typeof p.acao === 'string' ? p.acao.trim() : '';
+  const limiar = typeof p.limiar === 'string' ? p.limiar.trim() : '';
+  const dias = Number(p.dias);
+  if (acao.length < 8 || limiar.length < 8 || !Number.isInteger(dias) || dias < 1 || dias > 5) return null;
+  return { acao, dias, limiar };
+}
+
+/** Gera a âncora do desafio (neutra de perfil) a partir do núcleo. Uma chamada curta por TEMA, não por DISC. */
+export async function gerarDesafioBase(p: GerarBriefParams, nucleo: KitBriefNucleo): Promise<DesafioBase> {
+  const system = `Você é designer instrucional da Vertho. Defina a ÂNCORA do desafio semanal de um tema: o que será IGUAL para todas as pessoas, de qualquer perfil, que fizerem este tema.
+
+Defina:
+- acao: UMA ação única, observável, que cabe na rotina real do cargo e aterra o núcleo do tema. Neutra de perfil: descreva o que se faz, não como cada pessoa prefere registrar.
+- dias: quantos dias da semana a ação é praticada, número inteiro de 1 a 5. Prefira 3 a 5, e menos só se a ação for naturalmente pontual.
+- limiar: o que conta como cumprido, em termos dos dias (por exemplo "em pelo menos 3 dos 5 dias"). Sem perfeccionismo: uma semana real tem imprevistos.
+
+Sem jargão, sem tom professoral. RETORNE APENAS JSON VÁLIDO:
+{"acao":"...","dias":3,"limiar":"..."}${p.perfilPublico ? blocoCalibracaoPublico(p.perfilPublico) : ''}`;
+  const user = `NÚCLEO DO TEMA:
+- Ideia central: ${nucleo.ideia_central}
+- Pontos-chave: ${nucleo.pontos_chave.join(' · ')}
+- Exemplo-âncora: ${nucleo.exemplo_ancora}
+
+CONTEXTO: Competência ${p.competencia} · Descritor ${p.descritor} · Cargo ${p.cargo ?? 'todos'} · Nível ${p.nivelMin ?? 1}/4${p.pppBrief ? `\n\nCONTEXTO DA INSTITUIÇÃO (sem citar o nome):\n${p.pppBrief}` : ''}${p.fichaCargo ? `\n\n${p.fichaCargo}` : ''}`;
+  const sysJson = `${system}\n\nIMPORTANTE: responda SOMENTE com o objeto JSON, sem texto antes ou depois, sem markdown.`;
+  for (let i = 0; i < 3; i++) {
+    const raw = (await callAI(i === 0 ? system : sysJson, user, { ...(p.aiConfig || {}), model: p.model || p.aiConfig?.model }, 600, {
+      taskKey: 'kit_desafio', empresaId: p.empresaId ?? null,
+    })).trim();
+    const base = parseDesafioBase(raw);
+    if (base) return base;
+    console.warn(`[kit/desafio-base] inválida (tentativa ${i + 1}/3): ${raw.slice(0, 120)}`);
+  }
+  throw new Error('brief: âncora do desafio inválida retornada pela IA');
+}
+
+/**
+ * Garante a âncora no brief e a PERSISTE (o brief é do tema e é reusado por todos os DISC e rodadas). Brief que já tem
+ * não gasta nada. Falha ao gravar LANÇA: devolver a âncora sem gravar faria o próximo DISC gerar outra e voltar à
+ * divergência que a âncora existe para impedir.
+ */
+export async function garantirDesafioBase(sb: any, briefId: string, p: GerarBriefParams, nucleo: KitBriefNucleo): Promise<KitBriefNucleo> {
+  if (nucleo.desafio_base) return nucleo;
+  const desafio_base = await gerarDesafioBase(p, nucleo);
+  const completo = { ...nucleo, desafio_base };
+  const { error } = await sb.from('kit_briefs').update({ brief: completo }).eq('id', briefId);
+  if (error) throw new Error(`brief ${briefId}: não foi possível gravar a âncora do desafio (${error.message})`);
+  return completo;
+}
+
 /** Resolve um brief existente para o tema (idempotência) ou cria um novo. */
 export async function resolverOuCriarBrief(sb: any, p: GerarBriefParams): Promise<{ briefId: string; brief: KitBriefNucleo; moduloBaseId: string | null; reused: boolean }> {
   let q = sb.from('kit_briefs').select('id, brief, modulo_base_id, archived_at')
@@ -154,7 +225,8 @@ export async function resolverOuCriarBrief(sb: any, p: GerarBriefParams): Promis
   if (existing) {
     if (existing.archived_at) throw new Error(`brief ${existing.id}: arquivado; revisar o módulo-base antes de reativar`);
     if (!existing.modulo_base_id) throw new Error(`brief ${existing.id}: sem módulo-base; revisar antes de reutilizar`);
-    return { briefId: existing.id, brief: existing.brief, moduloBaseId: existing.modulo_base_id, reused: true };
+    const brief = await garantirDesafioBase(sb, existing.id, p, existing.brief);
+    return { briefId: existing.id, brief, moduloBaseId: existing.modulo_base_id, reused: true };
   }
 
   const { nucleo, moduloBaseId } = await gerarKitBriefNucleo(sb, p);
@@ -165,7 +237,8 @@ export async function resolverOuCriarBrief(sb: any, p: GerarBriefParams): Promis
     modulo_base_id: moduloBaseId, brief: nucleo, status: 'published', published_at: new Date().toISOString(),
   }).select('id, brief').single();
   if (error) throw new Error('brief insert: ' + error.message);
-  return { briefId: novo.id, brief: novo.brief, moduloBaseId: moduloBaseId ?? null, reused: false };
+  const brief = await garantirDesafioBase(sb, novo.id, p, novo.brief);
+  return { briefId: novo.id, brief, moduloBaseId: moduloBaseId ?? null, reused: false };
 }
 
 /** Parser tolerante do desafio (prosa/markdown em volta) — complementa parseDesafioResponse. */
@@ -192,7 +265,13 @@ PRINCÍPIOS INEGOCIÁVEIS:
 
 ${BLOCO_EVIDENCIA_E_RELATO}
 
-LENTE DE PERFIL (${disc} · ${lente.perfil}): a AÇÃO deve ENGAJAR este perfil por: ${lente.engaja}. NUNCA cite DISC, siglas (D/I/S/C) nem o nome do perfil no texto.
+${nucleo.desafio_base ? `ÂNCORA FIXA DO TEMA (idêntica para os quatro perfis; NÃO altere nada disto):
+- Ação: ${nucleo.desafio_base.acao}
+- Dias de prática: ${nucleo.desafio_base.dias}
+- Limiar de cumprimento: ${nucleo.desafio_base.limiar}
+O desafio_texto descreve ESSA ação, nesses dias. O criterio_de_execucao usa exatamente esse limiar, sem apertar nem afrouxar. Não troque a ação por outra, não mude o número de dias.
+
+LENTE DE PERFIL (${disc} · ${lente.perfil}): como a âncora acima é fixa, a lente muda só a FORMA: como a pessoa executa e registra a ação, e o enquadramento que a engaja, por: ${lente.engaja}. A exigência é a mesma para todos os perfis.` : `LENTE DE PERFIL (${disc} · ${lente.perfil}): a AÇÃO deve ENGAJAR este perfil por: ${lente.engaja}.`} NUNCA cite DISC, siglas (D/I/S/C) nem o nome do perfil no texto.
 
 RETORNE APENAS JSON VÁLIDO:
 {"desafio_texto":"2-3 frases","acao_observavel":"a ação principal observável","criterio_de_execucao":"o que a pessoa vai conseguir CONTAR que prova que fez","por_que_cabe_na_semana":"viabilidade curta"}${p.perfilPublico ? blocoCalibracaoPublico(p.perfilPublico) : ''}`;

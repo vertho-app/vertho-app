@@ -207,7 +207,7 @@ describe('o bloco CHEGA ao prompt de cada gerador semanal', () => {
     const sb = criarSupabaseMock({
       lista: (tabela) => (tabela === 'cargos_empresa' ? [FICHA] : []),
       resolver: (tabela) => (tabela === 'kit_briefs'
-        ? { id: 'brief-1', brief: { ideia_central: 'Pedir apoio antes de esgotar', pontos_chave: ['a', 'b', 'c'], exemplo_ancora: 'Reunião que estoura' }, modulo_base_id: 'mb-1', archived_at: null }
+        ? { id: 'brief-1', brief: { ideia_central: 'Pedir apoio antes de esgotar', pontos_chave: ['a', 'b', 'c'], exemplo_ancora: 'Reunião que estoura', desafio_base: { acao: 'Pedir apoio a alguém antes de esgotar', dias: 3, limiar: 'em pelo menos 2 dos 3 dias' } }, modulo_base_id: 'mb-1', archived_at: null }
         : null),
     });
     respostaIA = JSON.stringify({ desafio_texto: 'faça algo concreto', acao_observavel: 'uma ação visível', criterio_de_execucao: 'conta o que fez', por_que_cabe_na_semana: 'cabe sim' });
