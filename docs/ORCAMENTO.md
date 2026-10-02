@@ -352,6 +352,12 @@ atendida; liderança: o personagem). Os números são o pior caso medido no ledg
 entre 13 e 24/09/2026, **só com ensaios da equipe**: nenhum colaborador real tinha
 usado os simuladores. Recalibrar quando houver uso.
 
+O card é uma **tabela**: parâmetros nas linhas, um simulador por coluna, resultados
+embaixo na mesma grade. A primeira versão (um painel com seis caixas por simulador)
+quebrava os rótulos em 3 ou 4 linhas e desalinhava os campos numa tela um pouco
+mais estreita (print do Rodrigo, 02/10). O campo de pessoas tem teto no próprio
+input: antes o texto podia mostrar 250 com a conta usando 100.
+
 O card mostra, por simulador, o custo por treino, o custo por pessoa/ciclo, o
 **preço mínimo** para a margem-alvo (`precoMinimoSimuladorBrl`: custo ×
 (1 + contingência) ÷ (1 − impostos − comissão − margem), antes de desconto) e a

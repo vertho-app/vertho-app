@@ -122,27 +122,25 @@ function moneyUSD(v: number, locale: string) {
   }).format(v);
 }
 
-/** O que entra em cada parcela do custo, para quem ajusta os números do card. */
-const AJUDA_SIMULADOR: Record<Simulador, { treinos: string; turnos: string; fixo: string; turno: string }> = {
-  vendas: {
-    treinos: '2 por semana nas semanas 2, 4 e 6',
-    turnos: 'custo medido com 8',
-    fixo: 'cenário + avaliação do gerente',
-    turno: 'cliente, moderador e intenção',
-  },
-  atendimento: {
-    treinos: '2 por semana nas semanas 2, 4 e 6',
-    turnos: 'custo medido com 8',
-    fixo: 'avaliação pela matriz',
-    turno: 'pessoa atendida (simulada)',
-  },
-  lideranca: {
-    treinos: 'jornada de 5 encontros',
-    turnos: 'de 3 a 16 por encontro',
-    fixo: 'abertura, consequências e avaliação',
-    turno: 'personagem',
-  },
+/** Cabeçalho da coluna: o card já se chama "Simuladores". */
+const COLUNA_SIMULADOR: Record<Simulador, string> = {
+  vendas: 'Vendas',
+  atendimento: 'Atendimento',
+  lideranca: 'Liderança',
 };
+
+/** As linhas editáveis da tabela de simuladores, na ordem em que aparecem. */
+const LINHAS_SIMULADOR: { campo: keyof ConfigSimulador; rotulo: string; detalhe: string; casas?: number }[] = [
+  { campo: 'precoPessoaCiclo', rotulo: 'Preço / pessoa / ciclo', detalhe: 'R$ por acesso', casas: 2 },
+  { campo: 'treinosPessoaCiclo', rotulo: 'Treinos / pessoa / ciclo', detalhe: 'por acesso' },
+  { campo: 'turnosPorTreino', rotulo: 'Turnos / treino', detalhe: 'custo medido com 8' },
+  // US$ 0,0069 por turno: com duas casas, sair do campo gravava 0,01.
+  { campo: 'custoFixoTreinoUsd', rotulo: 'Custo fixo / treino', detalhe: 'US$ · uma vez por treino', casas: 4 },
+  { campo: 'custoTurnoUsd', rotulo: 'Custo / turno', detalhe: 'US$ · a cada turno', casas: 4 },
+];
+
+const CLASSE_INPUT_TABELA =
+  'w-full min-w-0 rounded border border-white/10 bg-white/5 px-1.5 py-1 text-right text-xs tabular-nums text-white outline-none focus:border-cyan-500 sm:px-2 sm:text-sm';
 
 function moneyBRLUnit(v: number, locale: string) {
   return new Intl.NumberFormat(locale, {
@@ -1077,57 +1075,72 @@ export default function OrcamentoPage() {
           Cada simulador com o seu preço, uso e custo. Zero pessoas com acesso deixa o simulador fora do escopo.
           O custo de IA é o pior caso medido nos ensaios de setembro, ainda sem uso real: recalibrar quando houver.
         </p>
-        <div className="grid gap-3 lg:grid-cols-3">
-          {calc.simuladoresItens.map((item) => {
-            const s = item.simulador;
-            const cfg = configSimuladores[s];
-            const ajuda = AJUDA_SIMULADOR[s];
-            const noEscopo = item.acessos > 0;
-            return (
-              <div key={s} className={`rounded-xl border p-3 ${noEscopo ? 'border-cyan-300/25 bg-cyan-300/[0.03]' : 'border-white/10 bg-white/[0.015]'}`}>
-                <div className="mb-2 flex items-baseline justify-between gap-2">
-                  <p className="text-sm font-bold text-white">{ROTULO_SIMULADOR[s]}</p>
-                  <p className={`text-[10px] font-semibold ${noEscopo ? 'text-cyan-300' : 'text-gray-500'}`}>
-                    {noEscopo ? `${item.acessos.toLocaleString(locale)} ${item.acessos === 1 ? 'acesso' : 'acessos'}` : 'fora do escopo'}
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <FieldNumber locale={locale} icon={<Users size={14} />} label="Pessoas" sub={`com acesso · até ${nColabs.toLocaleString(locale)}`}
-                    value={simuladores[s]}
-                    onChange={(v) => setSimuladores((atual) => ({ ...atual, [s]: Math.min(nColabs, v) }))}
-                    min={0} />
-                  <FieldNumber locale={locale} label="Preço / pessoa / ciclo" sub={cfg.precoPessoaCiclo === 0 ? 'sem preço: defina antes da proposta' : 'R$ por acesso'}
-                    value={cfg.precoPessoaCiclo} onChange={(v) => setConfigSimulador(s, 'precoPessoaCiclo', v)} min={0} allowDecimals />
-                  <FieldNumber locale={locale} label="Treinos / pessoa / ciclo" sub={ajuda.treinos}
-                    value={cfg.treinosPessoaCiclo} onChange={(v) => setConfigSimulador(s, 'treinosPessoaCiclo', v)} min={0} />
-                  <FieldNumber locale={locale} label="Turnos / treino" sub={ajuda.turnos}
-                    value={cfg.turnosPorTreino} onChange={(v) => setConfigSimulador(s, 'turnosPorTreino', v)} min={0} />
-                  <FieldNumber locale={locale} label="Custo fixo / treino (USD)" sub={ajuda.fixo}
-                    value={cfg.custoFixoTreinoUsd} onChange={(v) => setConfigSimulador(s, 'custoFixoTreinoUsd', v)} min={0} allowDecimals casasDecimais={4} />
-                  <FieldNumber locale={locale} label="Custo / turno (USD)" sub={ajuda.turno}
-                    value={cfg.custoTurnoUsd} onChange={(v) => setConfigSimulador(s, 'custoTurnoUsd', v)} min={0} allowDecimals casasDecimais={4} />
-                </div>
-                <div className="mt-3 space-y-1 border-t border-white/[0.07] pt-2">
-                  <Row label="Custo / treino" value={moneyUSD(item.custoTreinoUsd, locale)} />
-                  <Row label="Custo / pessoa / ciclo" value={money(item.custoPessoaCicloBrl)} />
-                  <Row label={`Preço mínimo · margem ${pricing.margemAlvoPct.toLocaleString(locale)}%`}
-                    value={Number.isFinite(item.precoMinimoBrl) ? money(item.precoMinimoBrl) : 'nenhum preço fecha'} tone="amber" />
-                  {item.margemPct != null && (
-                    <Row label="Margem no preço informado" value={`${item.margemPct.toLocaleString(locale, { maximumFractionDigits: 1 })}%`}
-                      tone={item.margemPct + 1e-9 < pricing.margemAlvoPct ? 'amber' : 'emerald'} />
-                  )}
-                  {noEscopo && (
-                    <>
-                      <Row label={`Valor no contrato · ${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'}`} value={money(item.valorBrl)} />
-                      <Row label="Custo de IA no contrato" value={money(item.custoBrl)} muted />
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        {/* Uma tabela: parâmetros nas linhas, um simulador por coluna. Em caixas
+            separadas por simulador os rótulos quebravam em 3 ou 4 linhas e os
+            campos desalinhavam entre os painéis (print do Rodrigo, 02/10/2026). */}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[288px] table-fixed border-collapse">
+            <colgroup>
+              <col className="w-[30%] sm:w-[34%]" />
+              {calc.simuladoresItens.map((i) => <col key={i.simulador} />)}
+            </colgroup>
+            <thead>
+              <tr>
+                <td aria-hidden />
+                {calc.simuladoresItens.map((i) => (
+                  <th key={i.simulador} scope="col"
+                    className={`px-1.5 pb-2 pt-2 text-right align-bottom sm:px-2 ${i.acessos > 0 ? 'bg-cyan-300/[0.04]' : ''}`}>
+                    <span className="block text-[10px] font-bold text-white sm:text-sm">{COLUNA_SIMULADOR[i.simulador]}</span>
+                    <span className={`block whitespace-nowrap text-[9px] font-semibold sm:text-[10px] ${i.acessos > 0 ? 'text-cyan-300' : 'text-gray-500'}`}>
+                      {i.acessos > 0 ? `${i.acessos.toLocaleString(locale)} ${i.acessos === 1 ? 'acesso' : 'acessos'}` : 'fora do escopo'}
+                    </span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <LinhaSimulador rotulo="Pessoas com acesso" detalhe={`até ${nColabs.toLocaleString(locale)}`} itens={calc.simuladoresItens}
+                celula={(i) => (
+                  <InputNumero locale={locale} rotulo={`Pessoas com acesso (${COLUNA_SIMULADOR[i.simulador]})`} className={CLASSE_INPUT_TABELA}
+                    value={simuladores[i.simulador]} min={0} max={nColabs}
+                    onChange={(v) => setSimuladores((atual) => ({ ...atual, [i.simulador]: v }))} />
+                )} />
+              {LINHAS_SIMULADOR.map((l) => (
+                <LinhaSimulador key={l.campo} rotulo={l.rotulo} detalhe={l.detalhe} itens={calc.simuladoresItens}
+                  celula={(i) => (
+                    <InputNumero locale={locale} rotulo={`${l.rotulo} (${COLUNA_SIMULADOR[i.simulador]})`} className={CLASSE_INPUT_TABELA}
+                      value={configSimuladores[i.simulador][l.campo]} min={0}
+                      allowDecimals={l.casas != null} casasDecimais={l.casas}
+                      onChange={(v) => setConfigSimulador(i.simulador, l.campo, v)} />
+                  )} />
+              ))}
+            </tbody>
+            <tbody className="border-t border-white/20">
+              <LinhaSimulador rotulo="Custo / treino" itens={calc.simuladoresItens}
+                celula={(i) => moneyUSD(i.custoTreinoUsd, locale)} />
+              <LinhaSimulador rotulo="Custo / pessoa / ciclo" itens={calc.simuladoresItens}
+                celula={(i) => money(i.custoPessoaCicloBrl)} />
+              <LinhaSimulador rotulo="Preço mínimo" detalhe={`para margem de ${pricing.margemAlvoPct.toLocaleString(locale)}%`} itens={calc.simuladoresItens}
+                celula={(i) => (Number.isFinite(i.precoMinimoBrl) ? money(i.precoMinimoBrl) : 'não fecha')}
+                tom={() => 'font-semibold text-amber-300'} />
+              <LinhaSimulador rotulo="Margem no preço" itens={calc.simuladoresItens}
+                celula={(i) => (i.margemPct == null ? '—' : `${i.margemPct.toLocaleString(locale, { maximumFractionDigits: 1 })}%`)}
+                tom={(i) => (i.margemPct == null ? 'text-gray-600' : i.margemPct + 1e-9 < pricing.margemAlvoPct ? 'font-semibold text-amber-300' : 'font-semibold text-emerald-300')} />
+              <LinhaSimulador rotulo="Valor no contrato" detalhe={`${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'}`} itens={calc.simuladoresItens}
+                celula={(i) => (i.acessos > 0 ? money(i.valorBrl) : '—')}
+                tom={(i) => (i.acessos > 0 ? 'text-white' : 'text-gray-600')} />
+              <LinhaSimulador rotulo="Custo de IA no contrato" itens={calc.simuladoresItens}
+                celula={(i) => (i.acessos > 0 ? money(i.custoBrl) : '—')}
+                tom={(i) => (i.acessos > 0 ? 'text-gray-400' : 'text-gray-600')} />
+            </tbody>
+          </table>
         </div>
-        <p className="mt-2 text-[10px] text-gray-500">
+        <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
+          Custo fixo: no vendas, o cenário e a avaliação do gerente; no atendimento, a avaliação pela matriz; na liderança,
+          abertura, consequências e avaliação. Custo por turno é a conversa. Treinos: 2 por semana nas semanas 2, 4 e 6; a
+          liderança é uma jornada de 5 encontros, de 3 a 16 turnos cada.
+        </p>
+        <p className="mt-1 text-[10px] text-gray-500">
           Preço mínimo e margem usam o canal {calc.comissaoLabel} ({calc.comissaoPct.toFixed(0)}%), impostos de {pricing.impostosPct.toLocaleString(locale)}% e
           contingência de {pricing.contingenciaPct.toLocaleString(locale)}% deste cenário, antes de desconto.
         </p>
@@ -1825,20 +1838,24 @@ function CalculatedField({
   );
 }
 
-function FieldNumber({
-  icon, label, sub, value, onChange, min = 0, allowDecimals = false, casasDecimais = 2,
-  locale,
+/**
+ * O campo numérico em si (pt-BR: ponto de milhar, vírgula decimal). Fica fora do
+ * `FieldNumber` porque a tabela de simuladores usa o mesmo campo sem a caixa.
+ */
+function InputNumero({
+  value, onChange, min = 0, max = Number.POSITIVE_INFINITY, allowDecimals = false, casasDecimais = 2, locale, className, rotulo,
 }: {
-  icon?: React.ReactNode;
-  label: string;
-  sub?: string;
   value: number;
   onChange: (v: number) => void;
   min?: number;
+  /** Teto aplicado no campo, para o texto não mostrar um número que a conta não usa. */
+  max?: number;
   allowDecimals?: boolean;
-  /** Custo por turno é US$ 0,0069: com duas casas, sair do campo gravava 0,01. */
   casasDecimais?: number;
   locale: string;
+  className: string;
+  /** Nome acessível quando não há `<label>` em volta (célula de tabela). */
+  rotulo?: string;
 }) {
   const fmt = (n: number) =>
     n.toLocaleString(locale, {
@@ -1863,27 +1880,74 @@ function FieldNumber({
   }, [value]);
 
   return (
+    <input
+      type="text"
+      aria-label={rotulo}
+      inputMode={allowDecimals ? 'decimal' : 'numeric'}
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        const n = parseBR(e.target.value);
+        if (n >= min) onChange(Math.min(max, n));
+      }}
+      onBlur={() => {
+        const n = Math.min(max, Math.max(min, parseBR(text)));
+        onChange(n);
+        setText(fmt(n));
+      }}
+      className={className}
+    />
+  );
+}
+
+type ColunaSimulador = { simulador: Simulador; acessos: number };
+
+/** Uma linha da tabela de simuladores: rótulo à esquerda, uma célula por simulador. */
+function LinhaSimulador<T extends ColunaSimulador>({ rotulo, detalhe, itens, celula, tom }: {
+  rotulo: string;
+  detalhe?: string;
+  itens: T[];
+  celula: (item: T) => React.ReactNode;
+  /** Classe de cor da célula; padrão, texto branco. */
+  tom?: (item: T) => string;
+}) {
+  return (
+    <tr className="border-t border-white/[0.06]">
+      <th scope="row" className="py-1.5 pr-2 text-left align-middle text-[11px] font-medium leading-tight text-gray-400">
+        {rotulo}
+        {detalhe && <span className="mt-0.5 block text-[9px] font-normal text-gray-600">{detalhe}</span>}
+      </th>
+      {itens.map((item) => (
+        <td key={item.simulador}
+          className={`whitespace-nowrap px-1.5 py-1.5 text-right text-xs tabular-nums sm:px-2 sm:text-sm ${item.acessos > 0 ? 'bg-cyan-300/[0.04]' : ''} ${tom ? tom(item) : 'text-white'}`}>
+          {celula(item)}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+function FieldNumber({
+  icon, label, sub, value, onChange, min = 0, allowDecimals = false,
+  locale,
+}: {
+  icon?: React.ReactNode;
+  label: string;
+  sub?: string;
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  allowDecimals?: boolean;
+  locale: string;
+}) {
+  return (
     <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 flex flex-col">
       <label className="flex items-start gap-1.5 text-[10px] leading-tight uppercase tracking-widest text-gray-500 mb-1 min-h-[28px]">
         {icon && <span className="shrink-0 mt-0.5">{icon}</span>}
         <span>{label}</span>
       </label>
-      <input
-        type="text"
-        inputMode={allowDecimals ? 'decimal' : 'numeric'}
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          const n = parseBR(e.target.value);
-          if (n >= min) onChange(n);
-        }}
-        onBlur={() => {
-          const n = Math.max(min, parseBR(text));
-          onChange(n);
-          setText(fmt(n));
-        }}
-        className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-cyan-500"
-      />
+      <InputNumero value={value} onChange={onChange} min={min} allowDecimals={allowDecimals} locale={locale}
+        className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-sm text-white outline-none focus:border-cyan-500" />
       {sub && <p className="text-[9px] text-gray-600 mt-0.5 min-h-[12px]">{sub}</p>}
     </div>
   );
