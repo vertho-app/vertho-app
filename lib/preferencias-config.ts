@@ -4,11 +4,11 @@
 
 export const PREFS = [
   { key: 'pref_video_curto', label: 'Vídeos curtos', icon: 'Video' },
-  { key: 'pref_video_longo', label: 'Vídeos longos / aulas', icon: 'Film' },
+  { key: 'pref_video_longo', label: 'Vídeos longos / aulas (descontinuado)', icon: 'Film' },
   { key: 'pref_texto', label: 'Texto / artigos', icon: 'FileText' },
   { key: 'pref_audio', label: 'Áudios / podcasts', icon: 'Headphones' },
   { key: 'pref_infografico', label: 'Infográficos', icon: 'BarChart3' },
-  { key: 'pref_exercicio', label: 'Exercícios práticos', icon: 'Dumbbell' },
+  { key: 'pref_exercicio', label: 'Simulador', icon: 'Dumbbell' },
   { key: 'pref_mentor', label: 'Mentoria 1:1', icon: 'Users' },
   { key: 'pref_estudo_caso', label: 'Estudo de caso', icon: 'BookOpen' },
 ];

@@ -13,7 +13,6 @@ import { useTranslations } from 'next-intl';
  */
 export const FORMATOS_APRENDIZAGEM = [
   { id: 'video_short', icon: '🎬' },
-  { id: 'video_long', icon: '🎥' },
   { id: 'text', icon: '📄' },
   { id: 'audio', icon: '🎧' },
   { id: 'infographic', icon: '📊' },

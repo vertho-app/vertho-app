@@ -36,10 +36,17 @@ export function precisaPreferenciasAprendizagem(args: {
   return !usaMapeamentoComportamentalNativo(args.config);
 }
 
-/** Os 8 formatos, na ordem da tela, com a coluna de `colaboradores` de cada um. */
+/**
+ * Os formatos da tela, na ordem, com a coluna de `colaboradores` de cada um.
+ *
+ * "Vídeo longo" saiu da tela em 02/10/2026, mas a coluna `pref_video_longo` segue
+ * no banco e o motor lê `max(pref_video_curto, pref_video_longo)` como o score do
+ * vídeo (`formato-preferido.ts`, `entrega-semana.ts`). Por isso ao salvar ela é
+ * ZERADA: quem preenche de novo e tinha 5 estrelas antigas em vídeo longo teria
+ * esse valor vencendo o que acabou de dizer sobre vídeo curto.
+ */
 export const FORMATOS_PREFERENCIA = [
   { id: 'video_short', coluna: 'pref_video_curto' },
-  { id: 'video_long', coluna: 'pref_video_longo' },
   { id: 'text', coluna: 'pref_texto' },
   { id: 'audio', coluna: 'pref_audio' },
   { id: 'infographic', coluna: 'pref_infografico' },
@@ -51,7 +58,7 @@ export const FORMATOS_PREFERENCIA = [
 export type FormatoPreferenciaId = (typeof FORMATOS_PREFERENCIA)[number]['id'];
 
 /**
- * Valida o que veio do cliente: as 8 chaves, cada uma inteiro de 1 a 5. Devolve
+ * Valida o que veio do cliente: todas as chaves da tela, cada uma inteiro de 1 a 5. Devolve
  * as colunas prontas para o update, ou `null` se qualquer chave faltar/for inválida
  * (parcial não grava — meio formulário não é preferência).
  */
@@ -63,5 +70,6 @@ export function colunasDePreferencias(prefs: unknown): Record<string, number> | 
     if (typeof v !== 'number' || !Number.isInteger(v) || v < 1 || v > 5) return null;
     out[f.coluna] = v;
   }
+  out.pref_video_longo = 0; // formato aposentado da tela: ver FORMATOS_PREFERENCIA
   return out;
 }

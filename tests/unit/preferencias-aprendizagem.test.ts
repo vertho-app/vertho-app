@@ -54,11 +54,19 @@ describe('precisaPreferenciasAprendizagem', () => {
 });
 
 describe('colunasDePreferencias', () => {
-  it('traduz os 8 formatos para as colunas pref_* de colaboradores', () => {
-    expect(colunasDePreferencias(TODAS)).toEqual({
-      pref_video_curto: 4, pref_video_longo: 4, pref_texto: 4, pref_audio: 4,
+  it('traduz os 7 formatos da tela para as colunas pref_* de colaboradores', () => {
+    expect(colunasDePreferencias(TODAS)).toMatchObject({
+      pref_video_curto: 4, pref_texto: 4, pref_audio: 4,
       pref_infografico: 4, pref_exercicio: 4, pref_mentor: 4, pref_estudo_caso: 4,
     });
+    expect(FORMATOS_PREFERENCIA).toHaveLength(7);
+  });
+
+  it('🔴 vídeo longo saiu da tela e a coluna é ZERADA ao salvar (o motor lê max(curto, longo): um 5 antigo venceria o que a pessoa acabou de dizer)', () => {
+    expect(FORMATOS_PREFERENCIA.some((f) => f.id === ('video_long' as string))).toBe(false);
+    expect(colunasDePreferencias(TODAS)!.pref_video_longo).toBe(0);
+    // a chave antiga, se o cliente ainda mandar, é ignorada — não vira valor gravado
+    expect(colunasDePreferencias({ ...TODAS, video_long: 5 })!.pref_video_longo).toBe(0);
   });
 
   it('recusa formulário parcial, fora de 1..5 ou não inteiro — meio formulário não é preferência', () => {
@@ -103,7 +111,9 @@ describe('actions da tela de preferências', () => {
     const escritas = sb.escritas.filter((e) => e.tabela === 'colaboradores');
     expect(escritas).toHaveLength(1);
     expect(escritas[0].op).toBe('update');
-    expect(Object.keys(escritas[0].payload).sort()).toEqual(FORMATOS_PREFERENCIA.map((f) => f.coluna).sort());
+    // as colunas dos formatos da tela + a do vídeo longo, zerada
+    expect(Object.keys(escritas[0].payload).sort()).toEqual([...FORMATOS_PREFERENCIA.map((f) => f.coluna), 'pref_video_longo'].sort());
+    expect(escritas[0].payload.pref_video_longo).toBe(0);
     expect(sb.usou('colaboradores', 'eq', 'id')).toBe(true);
     expect(sb.usou('colaboradores', 'eq', 'empresa_id')).toBe(true);
   });
@@ -131,7 +141,7 @@ describe('actions da tela de preferências', () => {
   it('a leitura devolve o que está gravado e zera o que é inválido (null, 0, 9)', async () => {
     const r: any = await acoes.getMinhasPreferenciasAprendizagem();
     expect(r.prefs).toEqual({
-      video_short: 5, video_long: 0, text: 0, audio: 3, infographic: 1, exercise: 2, mentor: 4, case: 0,
+      video_short: 5, text: 0, audio: 3, infographic: 1, exercise: 2, mentor: 4, case: 0,
     });
   });
 

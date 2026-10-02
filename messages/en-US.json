@@ -1502,11 +1502,10 @@
       "viewProfile": "SEE MY PROFILE →",
       "formats": {
         "video_short": "Short video (≤5 min)",
-        "video_long": "Long video (class/lecture)",
         "text": "Text/article",
         "audio": "Audio/podcast",
-        "infographic": "Infographic/visual",
-        "exercise": "Practical exercise/simulation",
+        "infographic": "Infographic",
+        "exercise": "Simulator",
         "mentor": "Conversation with mentor (AI chat)",
         "case": "Case study"
       },
