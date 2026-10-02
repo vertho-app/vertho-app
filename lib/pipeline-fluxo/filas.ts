@@ -10,6 +10,7 @@ import { buscarFilaPdi } from '@/lib/relatorios/fila-pdi';
 import { resolverFilaBlueprint100, separarPorBlueprintExistente } from '@/lib/blueprint/core';
 import { coletarEntradaPrevia, lerTudoPaginado } from './coletar';
 import { idsTrilhaProntos } from './previa';
+export { filaKitEscopo } from './kit';
 
 export type Permitidos = Set<string> | null;
 const dentro = (permitidos: Permitidos, id: string | null | undefined) => !!id && (!permitidos || permitidos.has(id));

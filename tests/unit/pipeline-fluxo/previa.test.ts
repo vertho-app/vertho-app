@@ -210,3 +210,15 @@ describe('avisos', () => {
     expect(etapa(p, 'blueprint').bloqueados).toBe(2);
   });
 });
+
+describe('Kit semanal na prévia', () => {
+  it('conta kits (tema × DISC) faltantes como unidade, com faixa de custo própria; sem medir, avisa', () => {
+    const medido = montarPreviaFluxo(entrada({ kitsFaltantes: 10 }));
+    expect(etapa(medido, 'kit')).toMatchObject({ unidade: 'kit', prontosAgora: 10 });
+    expect(etapa(medido, 'kit').custoUsd).toEqual({ min: 2, max: 4.5 });
+    expect(medido.nadaAFazer).toBe(false);
+    const semMedir = montarPreviaFluxo(entrada());
+    expect(etapa(semMedir, 'kit').prontosAgora).toBe(0);
+    expect(etapa(semMedir, 'kit').nota).toMatch(/Não medido/);
+  });
+});

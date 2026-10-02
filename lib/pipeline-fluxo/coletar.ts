@@ -5,6 +5,7 @@
  * que as filas reais leem. PAGINA tudo: o PostgREST corta em 1.000 linhas e um corte silencioso aqui viraria
  * "ninguém respondeu" (a base já tem o aviso: não concluir ausência sem paginar). Todo `{ error }` volta ao chamador.
  */
+import { filaKitEscopo } from './kit';
 import { buscarFilaIA4 } from '@/lib/ia4-fila';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import { excludeInternalEmails } from '@/lib/internal-emails';
@@ -29,6 +30,8 @@ export type EscopoColeta = {
   permitidos: Set<string> | null;
   /** Restringe a estes cargos (nomes exatos); vazio/ausente = todos. */
   cargos?: string[];
+  /** Com isto a prévia também mede os kits faltantes (precisa do client RAW: enxerga kits globais). */
+  kit?: { sb: any; empresaId: string; turmaId?: string | null };
 };
 
 export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Promise<{ entrada?: EntradaPrevia; error?: string }> {
@@ -73,6 +76,14 @@ export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Prom
 
   const dosEscopo = <T extends { colaborador_id?: string | null }>(rows: T[]) => rows.filter((r) => r.colaborador_id && ids.has(r.colaborador_id));
 
+  let kitsFaltantes = 0;
+  if (escopo.kit) {
+    try {
+      const itens = await filaKitEscopo(escopo.kit.sb, escopo.kit.empresaId, { turmaId: escopo.kit.turmaId, cargos: escopo.cargos });
+      kitsFaltantes = itens.reduce((n, i) => n + i.faltantes.length, 0);
+    } catch (e: any) { return { error: String(e?.message || e) }; }
+  }
+
   return {
     entrada: {
       pessoas: pessoasBrutas.map((p: any) => ({ id: p.id, nome: p.nome_completo || p.email || p.id, cargo: p.cargo ?? null, gestorEmail: p.gestor_email ?? null })),
@@ -84,6 +95,7 @@ export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Prom
       pdis: dosEscopo(pdiQ.data as any[]).map((r: any) => r.colaborador_id),
       trilhas: dosEscopo(trilhaQ.data as any[]).map((r: any) => r.colaborador_id),
       empresaInteira: !escopo.permitidos && filtroCargo.size === 0,
+      ...(escopo.kit ? { kitsFaltantes: kitsFaltantes } : {}),
     },
   };
 }

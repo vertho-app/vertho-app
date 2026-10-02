@@ -16,6 +16,13 @@
 import { ORDEM_ETAPAS, progressoInicial, type EtapaId, type ParamsFluxo, type ProgressoEtapa, type ProgressoFluxo } from './tipos';
 
 export type ResultadoLote = { jobId: string; adotado: boolean } | { erro: string };
+/** Um tema do kit com DISC faltando (um `kit_jobs` por item, como o botão da coorte). */
+export interface KitItem {
+  competencia: string; descritor: string; cargo: string;
+  faltantes: string[]; contexto: string; nivelMin: number; nivelMax: number;
+}
+export type ResultadoKit = { jobId: string; adotado: boolean } | { erro: string };
+export type EsperaKit = { jobId: string; status: 'done' | 'error' | 'cancelled'; erro?: string; kits?: number };
 export type EsperaJob = { status: 'done' | 'error' | 'cancelled'; erro?: string; ok?: number; falhas?: number };
 
 export interface DepsFluxo {
@@ -26,10 +33,15 @@ export interface DepsFluxo {
     auditoria(alvo: string[]): Promise<string[]>;
     pdi(): Promise<string[]>;
     trilha(): Promise<string[]>;
+    kit(): Promise<KitItem[]>;
   };
   modelos(): Promise<Record<string, string>>;
   lote(etapa: 'ia4' | 'blueprint' | 'relatorios', args: { itens?: string[]; checkOnly?: string[]; colabIds?: string[]; aiConfig: Record<string, unknown> }): Promise<ResultadoLote>;
   aguardarJob(jobId: string): Promise<EsperaJob>;
+  /** Enfileira UM tema do kit (sem vídeo), adotando o job ativo do mesmo tema. */
+  kitEnfileirar(item: KitItem): Promise<ResultadoKit>;
+  /** Espera todos os jobs juntos, num único laço de sondagem (um `wait.for` por volta, nunca em paralelo). */
+  aguardarKits(jobIds: string[]): Promise<EsperaKit[]>;
   auditar(colaboradorId: string): Promise<{ ok: boolean; erro?: string }>;
   gerarTrilha(colaboradorId: string, aiConfig: Record<string, unknown>): Promise<{ ok: boolean; erro?: string }>;
   relatorioGestor(aiConfig: Record<string, unknown>): Promise<{ ok: boolean; gerados?: number; erros?: number; erro?: string }>;
@@ -152,6 +164,42 @@ export async function executarFluxo(
         return { resultado: 'continuar', progresso: prog };
       }
       e.estado = e.falhas === 0 ? 'ok' : e.feitos === 0 ? 'erro' : 'parcial';
+      await salvar();
+      continue;
+    }
+
+    // ─── Kit semanal: lê o plano das trilhas (por isso vem DEPOIS da trilha), um job por tema, sem vídeo ──────
+    if (id === 'kit') {
+      const itens = await deps.ler.kit();
+      const totalKits = itens.reduce((n, i) => n + i.faltantes.length, 0);
+      if (totalKits === 0) { e.estado = 'pulado'; e.detalhe = 'nenhum kit faltando'; await salvar(); continue; }
+      e.total += totalKits;
+      if (dryRun) { e.estado = 'pulado'; e.detalhe = `simulação: ${totalKits} kit(s) (tema × DISC) em ${itens.length} tema(s)`; await salvar(); continue; }
+
+      const jobs = new Map<string, number>();
+      let falhasEnfileirar = 0;
+      for (const item of itens) {
+        const enf = await deps.kitEnfileirar(item);
+        if ('erro' in enf) { falhasEnfileirar += item.faltantes.length; e.detalhe = enf.erro; continue; }
+        jobs.set(enf.jobId, item.faltantes.length);
+        if (!e.jobIds.includes(enf.jobId)) e.jobIds.push(enf.jobId);
+      }
+      await salvar(`${e.titulo}: ${jobs.size} tema(s) enviados, aguardando`);
+      if (jobs.size === 0) { e.falhas += falhasEnfileirar; e.estado = 'erro'; await salvar(); continue; }
+
+      const fins = await deps.aguardarKits([...jobs.keys()]);
+      if (fins.some((f) => f.status === 'cancelled')) { e.estado = 'erro'; e.detalhe = 'job de kit cancelado'; await salvar(); return { resultado: 'cancelado', progresso: prog }; }
+      let ok = 0; let falhas = falhasEnfileirar;
+      for (const f of fins) {
+        const esperados = jobs.get(f.jobId) ?? 0;
+        // `done` sem contagem de kits publicados não vale `ok`: o job fechar não prova que o kit existe.
+        const feitos = f.status === 'done' ? Math.min(esperados, f.kits ?? 0) : 0;
+        ok += feitos; falhas += esperados - feitos;
+        if (f.status === 'error' && f.erro) e.detalhe = f.erro;
+      }
+      e.feitos += ok; e.falhas += falhas;
+      e.estado = falhas === 0 ? 'ok' : ok === 0 ? 'erro' : 'parcial';
+      if (falhas && !e.detalhe) e.detalhe = `${falhas} kit(s) não gerados`;
       await salvar();
       continue;
     }

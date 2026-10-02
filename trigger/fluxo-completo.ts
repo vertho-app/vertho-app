@@ -9,12 +9,12 @@ import { auditarBlueprintCore } from '@/lib/blueprint/core';
 import { gerarTemporadaCoreHeadless } from '@/lib/season-engine/trilha-core';
 import { gerarRelatorioGestorCore, gerarRelatorioRHCore } from '@/lib/relatorios/gestor-rh-core';
 import { executarFluxo, type DepsFluxo } from '@/lib/pipeline-fluxo/executor';
-import { enfileirarLote, lerDesfechoDoJob } from '@/lib/pipeline-fluxo/enfileirar';
-import { filaIA4Escopo, filaBlueprintEscopo, filaPdiEscopo, filaTrilhaEscopo, filaAuditoriaEscopo } from '@/lib/pipeline-fluxo/filas';
+import { enfileirarLote, enfileirarKit, lerDesfechoDoJob, lerDesfechoKits } from '@/lib/pipeline-fluxo/enfileirar';
+import { filaIA4Escopo, filaBlueprintEscopo, filaPdiEscopo, filaTrilhaEscopo, filaAuditoriaEscopo, filaKitEscopo } from '@/lib/pipeline-fluxo/filas';
 import { TASK_FLUXO, type ParamsFluxo, type ProgressoFluxo } from '@/lib/pipeline-fluxo/tipos';
 
 /**
- * FLUXO COMPLETO em background: IA4+check → blueprint → auditoria → PDI → trilha → Gestor → RH, depois que o admin
+ * FLUXO COMPLETO em background: IA4+check → blueprint → auditoria → PDI → trilha → kit (sem vídeo) → Gestor → RH, depois que o admin
  * definiu as competências foco (esse passo continua humano). Só a FIAÇÃO mora aqui; o controle de fluxo (ordem, pulos,
  * cancelamento, continuação, simulação) está em `lib/pipeline-fluxo/executor.ts`, testado sem rede.
  *
@@ -70,6 +70,8 @@ export const fluxoCompletoTask = task({
             auditoria: (alvo) => filaAuditoriaEscopo(tdb, alvo),
             pdi: () => filaPdiEscopo(tdb, permitidos),
             trilha: () => filaTrilhaEscopo(tdb, permitidos),
+            // RAW de propósito: a varredura do plano precisa enxergar também os kits GLOBAIS (empresa_id nulo).
+            kit: () => filaKitEscopo(sb, empresaId, { turmaId: params.escopo?.turmaId, cargos: params.escopo?.cargos }),
           },
           // Modelo IMPRESSO por etapa: `callAI` não consulta `getModelForTask`, então quem decide é este mapa, e ele
           // vai para o `progress` (config declarada não é config aplicada).
@@ -86,6 +88,17 @@ export const fluxoCompletoTask = task({
               if (d.terminal) return { status: d.status as 'done' | 'error' | 'cancelled', erro: d.erro, ok: d.ok, falhas: d.falhas };
               if (await cancelado()) return { status: 'cancelled' };
               if (Date.now() - inicio > ESPERA_MAX_MS) return { status: 'error', erro: 'o lote passou de 24 h sem terminar' };
+              await wait.for({ seconds: SONDAGEM_S });
+            }
+          },
+          kitEnfileirar: (item) => enfileirarKit(sb, { empresaId, item }),
+          aguardarKits: async (jobIds) => {
+            const inicio = Date.now();
+            for (;;) {
+              const estados = await lerDesfechoKits(sb, jobIds);
+              if (estados.every((x) => x.terminal)) return estados.map(({ terminal, ...x }) => x);
+              if (await cancelado()) return estados.map(({ terminal, ...x }) => (terminal ? x : { ...x, status: 'cancelled' as const }));
+              if (Date.now() - inicio > ESPERA_MAX_MS) return estados.map(({ terminal, ...x }) => (terminal ? x : { ...x, status: 'error' as const, erro: 'o kit passou de 24 h sem terminar' }));
               await wait.for({ seconds: SONDAGEM_S });
             }
           },

@@ -5,7 +5,7 @@ const trigger = vi.fn();
 vi.mock('@trigger.dev/sdk', () => ({ tasks: { trigger: (...a: any[]) => trigger(...a) } }));
 vi.mock('@/lib/trigger-region', () => ({ regionOpts: () => ({}) }));
 
-import { enfileirarLote, lerDesfechoDoJob } from '@/lib/pipeline-fluxo/enfileirar';
+import { enfileirarLote, enfileirarKit, lerDesfechoDoJob, lerDesfechoKits } from '@/lib/pipeline-fluxo/enfileirar';
 
 /**
  * `enfileirarLote` faz o que os botões manuais fazem (insert em `ia_jobs` + disparo da MESMA task), sem sessão.
@@ -77,5 +77,61 @@ describe('lerDesfechoDoJob', () => {
     const sb = criarSupabaseMock({ resolver: () => null });
     sb.falharEm({ tabela: 'ia_jobs', op: 'select', mensagem: 'rede' });
     await expect(lerDesfechoDoJob(sb.client, 'j')).rejects.toThrow(/rede/);
+  });
+});
+
+const item = { competencia: 'c1', descritor: 'd1', cargo: 'CAIXA', faltantes: ['D', 'I'], contexto: 'generico', nivelMin: 1, nivelMax: 2 };
+
+describe('enfileirarKit', () => {
+  beforeEach(() => { trigger.mockReset(); trigger.mockResolvedValue({ id: 'run_k' }); });
+
+  it('adota o job ativo do MESMO tema: não insere nem dispara (a varredura do plano não vê jobs em voo)', async () => {
+    const sb = criarSupabaseMock({ resolver: (t) => (t === 'kit_jobs' ? { id: 'kit_ativo' } : null) });
+    expect(await enfileirarKit(sb.client, { empresaId: 'e1', item })).toEqual({ jobId: 'kit_ativo', adotado: true });
+    expect(sb.escritas).toHaveLength(0);
+    expect(trigger).not.toHaveBeenCalled();
+  });
+
+  it('o job nasce SEM vídeo, sem render de áudio, com os DISC faltantes e lote só com 2+ DISC', async () => {
+    const sb = criarSupabaseMock({ escritaUnica: (_t, op) => (op === 'insert' ? { id: 'novo' } : null) });
+    await enfileirarKit(sb.client, { empresaId: 'e1', item });
+    const ins = sb.escritas.find((e) => e.op === 'insert')!;
+    expect(ins.payload.params).toMatchObject({ incluirVideo: false, renderAudio: false, discs: ['D', 'I'], useBatch: true, cargo: 'CAIXA' });
+    expect(trigger).toHaveBeenCalledWith('gerar-kit', { jobId: 'novo' }, {});
+    const sb2 = criarSupabaseMock({ escritaUnica: (_t, op) => (op === 'insert' ? { id: 'n2' } : null) });
+    await enfileirarKit(sb2.client, { empresaId: 'e1', item: { ...item, faltantes: ['S'] } });
+    expect(sb2.escritas.find((e) => e.op === 'insert')!.payload.params.useBatch).toBe(false);
+  });
+
+  it('erro ao verificar jobs ativos devolve erro (não abre um segundo job)', async () => {
+    const sb = criarSupabaseMock({ resolver: () => null });
+    sb.falharEm({ tabela: 'kit_jobs', op: 'select', mensagem: 'timeout' });
+    const r = await enfileirarKit(sb.client, { empresaId: 'e1', item });
+    expect('erro' in r && r.erro).toMatch(/timeout/);
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it('falha ao disparar marca o job como erro e devolve erro', async () => {
+    const sb = criarSupabaseMock({ escritaUnica: (_t, op) => (op === 'insert' ? { id: 'novo' } : null) });
+    trigger.mockRejectedValue(new Error('trigger fora'));
+    const r = await enfileirarKit(sb.client, { empresaId: 'e1', item });
+    expect('erro' in r && r.erro).toMatch(/trigger fora/);
+    expect(sb.escritas.find((e) => e.op === 'update')?.payload.status).toBe('error');
+  });
+});
+
+describe('lerDesfechoKits', () => {
+  it('conta kits publicados (kit_ids) e separa terminal de em andamento', async () => {
+    const sb = criarSupabaseMock({ lista: () => [{ id: 'a', status: 'done', error: null, kit_ids: ['k1', 'k2'] }, { id: 'b', status: 'running', error: null, kit_ids: null }] });
+    const r = await lerDesfechoKits(sb.client, ['a', 'b']);
+    expect(r[0]).toMatchObject({ jobId: 'a', status: 'done', kits: 2, terminal: true });
+    expect(r[1].terminal).toBe(false);
+  });
+  it('job sumido vira erro terminal e erro de leitura LANÇA', async () => {
+    const sb = criarSupabaseMock({ lista: () => [] });
+    expect((await lerDesfechoKits(sb.client, ['x']))[0]).toMatchObject({ status: 'error', terminal: true });
+    const sb2 = criarSupabaseMock({});
+    sb2.falharEm({ tabela: 'kit_jobs', op: 'select', mensagem: 'rede' });
+    await expect(lerDesfechoKits(sb2.client, ['x'])).rejects.toThrow(/rede/);
   });
 });

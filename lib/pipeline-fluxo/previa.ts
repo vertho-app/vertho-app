@@ -36,9 +36,15 @@ export type EntradaPrevia = {
    * (o executor faz o mesmo). Ausente = `true` (empresa inteira).
    */
   empresaInteira?: boolean;
+  /**
+   * Kits (tema × DISC) que FALTAM para as trilhas que já existem no escopo (`levantarPlanoKitsCoorte`). Só enxerga
+   * trilha JÁ montada: o tema das trilhas que esta mesma rodada vai criar só aparece depois da etapa da trilha.
+   * Ausente = não medido (a etapa aparece com 0 e a nota avisa).
+   */
+  kitsFaltantes?: number;
 };
 
-export type EtapaId = 'ia4' | 'blueprint' | 'auditoria' | 'pdi' | 'trilha' | 'gestor' | 'rh';
+export type EtapaId = 'ia4' | 'blueprint' | 'auditoria' | 'pdi' | 'trilha' | 'kit' | 'gestor' | 'rh';
 
 export type FaixaUsd = { min: number; max: number };
 
@@ -46,7 +52,7 @@ export type EtapaPrevia = {
   id: EtapaId;
   titulo: string;
   /** Unidades que o custo cobra (respostas na IA4, pessoas nas demais, relatórios em Gestor/RH). */
-  unidade: 'resposta' | 'pessoa' | 'relatorio';
+  unidade: 'resposta' | 'pessoa' | 'relatorio' | 'kit';
   prontosAgora: number;
   /** Ficam prontos DEPOIS que a etapa anterior rodar (projeção). */
   aposEtapaAnterior: number;
@@ -76,6 +82,9 @@ export type PreviaFluxo = {
  *  - auditoria do blueprint: US$ 0,036 por chamada, ~2 por blueprint;
  *  - PDI: US$ 0,065 por geração + ~2,3 checks de US$ 0,024; por pessoa observado 0,38 (com reexecuções);
  *  - trilha: US$ 0,14 por pessoa em `temporada_extracao` (o resto do build não aparece por pessoa — faixa FRACA);
+ *  - Kit (unidade = tema × DISC, não pessoa): três formatos ≈ US$ 0,18 (texto 0,065 + case 0,059 + podcast 0,054),
+ *    desafio 0,011, núcleo 0,011 dividido por 4 DISC, e o teto soma expansão de PDF e plano de layout; faixa FRACA
+ *    (o lote não aparece inteiro por kit no ledger). Vídeo de célula fora (opção separada, ~US$ 0,90 cada);
  *  - Gestor: US$ 0,06; RH: US$ 0,07 por relatório.
  */
 export const CUSTO_POR_UNIDADE: Record<EtapaId, FaixaUsd> = {
@@ -84,6 +93,7 @@ export const CUSTO_POR_UNIDADE: Record<EtapaId, FaixaUsd> = {
   auditoria: { min: 0.04, max: 0.08 },
   pdi: { min: 0.12, max: 0.38 },
   trilha: { min: 0.14, max: 0.30 },
+  kit: { min: 0.20, max: 0.45 },
   gestor: { min: 0.06, max: 0.08 },
   rh: { min: 0.07, max: 0.10 },
 };
@@ -96,12 +106,13 @@ const TITULOS: Record<EtapaId, string> = {
   auditoria: 'Auditoria do blueprint',
   pdi: 'PDI',
   trilha: 'Trilha (temporada)',
+  kit: 'Kit semanal (conteúdos por DISC)',
   gestor: 'Relatório do Gestor',
   rh: 'Relatório do RH',
 };
 
 const UNIDADES: Record<EtapaId, EtapaPrevia['unidade']> = {
-  ia4: 'resposta', blueprint: 'pessoa', auditoria: 'pessoa', pdi: 'pessoa', trilha: 'pessoa', gestor: 'relatorio', rh: 'relatorio',
+  ia4: 'resposta', blueprint: 'pessoa', auditoria: 'pessoa', pdi: 'pessoa', trilha: 'pessoa', kit: 'kit', gestor: 'relatorio', rh: 'relatorio',
 };
 
 const faixa = (unidades: number, por: FaixaUsd): FaixaUsd => ({
@@ -226,6 +237,9 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     else bloquear('trilha', `Falta responder: ${faltam.join(', ')}`, p.nome);
   }
 
+  // Kit: o que falta para as trilhas JÁ existentes (a medição é da varredura da coorte, não por pessoa).
+  acc.kit.agora = entrada.kitsFaltantes ?? 0; acc.kit.unidades = entrada.kitsFaltantes ?? 0;
+
   // Gestor e RH: ao FINAL, uma vez por gestor e uma por empresa, SÓ se esta rodada gerar PDI NOVO (agora ou
   // projetado). PDI que já existia não reabre o relatório: o fluxo não reavalia o passado.
   if (algumPdi && entrada.empresaInteira !== false) {
@@ -237,6 +251,7 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     ia4: 'Conta as respostas da fila da IA4 (pendentes + presas), não as pessoas.',
     auditoria: 'Só dos blueprints gerados nesta rodada; blueprint antigo não é reauditado.',
     trilha: 'Faixa de custo fraca: só a extração aparece por pessoa no ledger.',
+    kit: entrada.kitsFaltantes === undefined ? 'Não medido nesta prévia.' : 'Conta kits (tema × DISC) que faltam para as trilhas já montadas; os das trilhas novas aparecem depois da etapa da trilha. Sem vídeo.',
     gestor: entrada.empresaInteira === false ? 'Não incluído: o relatório não filtra por turma/cargo (gere manualmente se quiser).' : 'Gera ao final; um por gestor (agrupado por e-mail do gestor).',
     rh: entrada.empresaInteira === false ? 'Não incluído: o relatório não filtra por turma/cargo (gere manualmente se quiser).' : 'Gera ao final; um por empresa.',
   };

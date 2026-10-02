@@ -50,7 +50,7 @@ export async function previaFluxoCompleto(input: z.infer<typeof EntradaSchema>):
       throw e;
     }
 
-    const coleta = await coletarEntradaPrevia(tenantDb(empresaId), { permitidos, cargos: cargos || undefined });
+    const coleta = await coletarEntradaPrevia(tenantDb(empresaId), { permitidos, cargos: cargos || undefined, kit: { sb, empresaId, turmaId: turmaId || null } });
     if (coleta.error || !coleta.entrada) return { success: false, error: coleta.error || 'Falha ao coletar o estado da empresa' };
     return { success: true, previa: montarPreviaFluxo(coleta.entrada), cargosFiltrados: cargos || [] };
   } catch (err: any) {

@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { executarFluxo, type DepsFluxo } from '@/lib/pipeline-fluxo/executor';
+import { executarFluxo, type DepsFluxo, type KitItem } from '@/lib/pipeline-fluxo/executor';
 import { progressoInicial, ORDEM_ETAPAS, type ParamsFluxo, type EtapaId } from '@/lib/pipeline-fluxo/tipos';
 
 /**
  * O executor é o controle de fluxo do botão "fluxo completo". Estes testes usam dependências falsas que REGISTRAM
  * cada chamada, então provam o que o fluxo FAZ (e, principalmente, o que NÃO faz) sem Trigger, banco ou IA.
  */
-type Filas = { ia4?: { itens: string[]; checkOnly?: string[] }; blueprint?: string[]; auditoria?: string[]; pdi?: string[]; trilha?: string[] };
+type Filas = { ia4?: { itens: string[]; checkOnly?: string[] }; blueprint?: string[]; auditoria?: string[]; pdi?: string[]; trilha?: string[]; kit?: KitItem[] };
 
 function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
   const chamadas: string[] = [];
@@ -16,6 +16,7 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
   const auditados: string[] = [];
   const trilhas: string[] = [];
   const gravados: any[] = [];
+  const kitsEnfileirados: KitItem[] = [];
   const deps: DepsFluxo = {
     ler: {
       ia4: async () => { chamadas.push('ler.ia4'); return { itens: filas.ia4?.itens ?? [], checkOnly: filas.ia4?.checkOnly ?? [] }; },
@@ -23,10 +24,13 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
       auditoria: async (alvo) => { chamadas.push('ler.auditoria'); return (filas.auditoria ?? alvo).filter((x) => !auditados.includes(x)); },
       pdi: async () => { chamadas.push('ler.pdi'); return filas.pdi ?? []; },
       trilha: async () => { chamadas.push('ler.trilha'); return (filas.trilha ?? []).filter((x) => !trilhas.includes(x)); },
+      kit: async () => { chamadas.push('ler.kit'); return filas.kit ?? []; },
     },
     modelos: async () => ({ ia4_avaliacao: 'claude-sonnet-5-5', ia4_check: 'gpt-5.6-terra', blueprint_gerar: 'claude-sonnet-5', pdi_individual: 'claude-sonnet-5', temporada_desafio: 'claude-sonnet-4-6', relatorio_gestor: 'claude-sonnet-5', relatorio_rh: 'claude-sonnet-5' }),
     lote: async (etapa, args) => { chamadas.push(`lote.${etapa}`); lotes.push({ etapa, args }); return { jobId: `job-${etapa}`, adotado: false }; },
     aguardarJob: async (id) => { chamadas.push(`aguardar.${id}`); return { status: 'done' }; },
+    kitEnfileirar: async (item) => { chamadas.push(`kit.enfileirar.${item.competencia}`); kitsEnfileirados.push(item); return { jobId: `kit-${item.competencia}`, adotado: false }; },
+    aguardarKits: async (ids) => { chamadas.push('kit.aguardar'); return ids.map((jobId) => ({ jobId, status: 'done' as const, kits: kitsEnfileirados.find((k) => `kit-${k.competencia}` === jobId)?.faltantes.length ?? 0 })); },
     auditar: async (id) => { chamadas.push(`auditar.${id}`); auditados.push(id); relogio += 10; return { ok: true }; },
     gerarTrilha: async (id) => { chamadas.push(`trilha.${id}`); trilhas.push(id); relogio += 10; return { ok: true }; },
     relatorioGestor: async () => { chamadas.push('gestor'); return { ok: true, gerados: 2 }; },
@@ -36,17 +40,18 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
     agora: () => relogio,
     ...extra,
   };
-  return { deps, chamadas, lotes, auditados, trilhas, gravados, cancelar: () => { cancelar = true; } };
+  return { deps, chamadas, lotes, auditados, trilhas, gravados, kitsEnfileirados, cancelar: () => { cancelar = true; } };
 }
 const params = (p: Partial<ParamsFluxo> = {}): ParamsFluxo => ({ empresaId: 'e1', escopo: {}, permitidos: null, ...p });
+const kitItem = (competencia: string, faltantes = ['D', 'I']): KitItem => ({ competencia, descritor: 'd1', cargo: 'CAIXA', faltantes, contexto: 'generico', nivelMin: 1, nivelMax: 2 });
 const etapa = (r: any, id: EtapaId) => r.progresso.etapas.find((e: any) => e.id === id);
 
 describe('ordem e execução completa', () => {
-  it('roda as 7 etapas NA ORDEM, cada uma recalculando a própria fila', async () => {
-    const m = montar({ ia4: { itens: ['r1', 'r2'] }, blueprint: ['a'], pdi: ['a'], trilha: ['a'] });
+  it('roda as 8 etapas NA ORDEM, cada uma recalculando a própria fila', async () => {
+    const m = montar({ ia4: { itens: ['r1', 'r2'] }, blueprint: ['a'], pdi: ['a'], trilha: ['a'], kit: [kitItem('c1')] });
     const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
     expect(r.resultado).toBe('terminou');
-    const marcas = ['ler.ia4', 'lote.ia4', 'ler.blueprint', 'lote.blueprint', 'ler.auditoria', 'auditar.a', 'ler.pdi', 'lote.relatorios', 'ler.trilha', 'trilha.a', 'gestor', 'rh'];
+    const marcas = ['ler.ia4', 'lote.ia4', 'ler.blueprint', 'lote.blueprint', 'ler.auditoria', 'auditar.a', 'ler.pdi', 'lote.relatorios', 'ler.trilha', 'trilha.a', 'ler.kit', 'kit.enfileirar.c1', 'kit.aguardar', 'gestor', 'rh'];
     const posicoes = marcas.map((c) => m.chamadas.indexOf(c));
     expect(posicoes.every((p) => p >= 0)).toBe(true);
     expect(posicoes).toEqual([...posicoes].sort((a, b) => a - b)); // estritamente na ordem
@@ -259,5 +264,82 @@ describe('persistência do progresso', () => {
     const p = progressoInicial();
     expect(p.etapas.map((e) => e.id)).toEqual(ORDEM_ETAPAS);
     expect(p.etapas.every((e) => e.estado === 'aguardando')).toBe(true);
+  });
+});
+
+describe('kit semanal (depois da trilha, sem vídeo)', () => {
+  it('enfileira UM job por tema, espera todos juntos e conta kits (tema × DISC) como unidade', async () => {
+    const m = montar({ kit: [kitItem('c1', ['D', 'I']), kitItem('c2', ['S'])] });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(m.kitsEnfileirados.map((k) => k.competencia)).toEqual(['c1', 'c2']);
+    expect(m.chamadas.filter((c) => c === 'kit.aguardar')).toHaveLength(1);
+    expect(etapa(r, 'kit')).toMatchObject({ estado: 'ok', total: 3, feitos: 3, falhas: 0 });
+    expect(etapa(r, 'kit').jobIds).toEqual(['kit-c1', 'kit-c2']);
+  });
+
+  it('o kit vem DEPOIS da trilha: lê a fila só quando a trilha terminou (o plano nasce da trilha)', async () => {
+    const m = montar({ trilha: ['a'], kit: [kitItem('c1')] });
+    await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(m.chamadas.indexOf('trilha.a')).toBeLessThan(m.chamadas.indexOf('ler.kit'));
+  });
+
+  it('simulação: conta e NÃO enfileira nem espera', async () => {
+    const m = montar({ kit: [kitItem('c1', ['D', 'I', 'S'])] });
+    const r = await executarFluxo(params({ dryRun: true }), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'kit')).toMatchObject({ estado: 'pulado', total: 3 });
+    expect(etapa(r, 'kit').detalhe).toMatch(/simulação: 3 kit/);
+    expect(m.kitsEnfileirados).toHaveLength(0);
+    expect(m.chamadas).not.toContain('kit.aguardar');
+  });
+
+  it('sem kit faltando: pulada, sem enfileirar', async () => {
+    const m = montar({ kit: [] });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'kit').estado).toBe('pulado');
+    expect(m.kitsEnfileirados).toHaveLength(0);
+  });
+
+  it('job `done` que publicou MENOS kits que o esperado é parcial (fechar o job não prova que o kit existe)', async () => {
+    const m = montar({ kit: [kitItem('c1', ['D', 'I', 'S', 'C'])] }, {
+      aguardarKits: async (ids) => ids.map((jobId) => ({ jobId, status: 'done' as const, kits: 3 })),
+    });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'kit')).toMatchObject({ estado: 'parcial', feitos: 3, falhas: 1 });
+  });
+
+  it('job `done` SEM contagem de kits não vale ok', async () => {
+    const m = montar({ kit: [kitItem('c1')] }, { aguardarKits: async (ids) => ids.map((jobId) => ({ jobId, status: 'done' as const })) });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'kit')).toMatchObject({ estado: 'erro', feitos: 0, falhas: 2 });
+  });
+
+  it('falha ao enfileirar UM tema não derruba os outros; o resumo mostra o parcial', async () => {
+    const m = montar({ kit: [kitItem('c1'), kitItem('c2')] }, {
+      kitEnfileirar: async (item) => (item.competencia === 'c1' ? { erro: 'trigger fora' } : { jobId: 'kit-c2', adotado: false }),
+      aguardarKits: async (ids) => ids.map((jobId) => ({ jobId, status: 'done' as const, kits: 2 })),
+    });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'kit')).toMatchObject({ estado: 'parcial', feitos: 2, falhas: 2 });
+  });
+
+  it('todos os enfileiramentos falham: etapa com erro, cadeia segue (Gestor/RH recalculam a própria fila)', async () => {
+    const m = montar({ kit: [kitItem('c1')], pdi: ['a'] }, { kitEnfileirar: async () => ({ erro: 'trigger fora' }) });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'kit')).toMatchObject({ estado: 'erro', falhas: 2 });
+    expect(r.resultado).toBe('terminou');
+  });
+
+  it('job de kit cancelado encerra o fluxo como cancelado', async () => {
+    const m = montar({ kit: [kitItem('c1')] }, { aguardarKits: async (ids) => ids.map((jobId) => ({ jobId, status: 'cancelled' as const })) });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(r.resultado).toBe('cancelado');
+  });
+
+  it('continuação: kit já terminado numa execução anterior NÃO repete (não paga duas vezes)', async () => {
+    const m1 = montar({ kit: [kitItem('c1')] });
+    const r1 = await executarFluxo(params(), null, m1.deps, { orcamentoMs: 10_000 });
+    const m2 = montar({ kit: [kitItem('c1')] });
+    await executarFluxo(params(), r1.progresso, m2.deps, { orcamentoMs: 10_000 });
+    expect(m2.kitsEnfileirados).toHaveLength(0);
   });
 });

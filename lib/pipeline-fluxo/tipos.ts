@@ -7,8 +7,8 @@ import type { EtapaId } from './previa';
 
 export type { EtapaId };
 
-/** Ordem de execução. A auditoria depende do blueprint; Gestor e RH vêm depois do PDI; a trilha depois do blueprint. */
-export const ORDEM_ETAPAS: EtapaId[] = ['ia4', 'blueprint', 'auditoria', 'pdi', 'trilha', 'gestor', 'rh'];
+/** Ordem de execução. A auditoria depende do blueprint; Gestor e RH vêm depois do PDI; a trilha depois do blueprint; o kit lê o plano da trilha, então vem depois dela. */
+export const ORDEM_ETAPAS: EtapaId[] = ['ia4', 'blueprint', 'auditoria', 'pdi', 'trilha', 'kit', 'gestor', 'rh'];
 
 export const FASE_FLUXO = 'fluxo';
 export const TASK_FLUXO = 'fluxo-completo';
@@ -66,6 +66,7 @@ export const TITULOS_ETAPA: Record<EtapaId, string> = {
   auditoria: 'Auditoria do blueprint',
   pdi: 'PDI',
   trilha: 'Trilha (temporada)',
+  kit: 'Kit semanal (conteúdos por DISC)',
   gestor: 'Relatório do Gestor',
   rh: 'Relatório do RH',
 };
