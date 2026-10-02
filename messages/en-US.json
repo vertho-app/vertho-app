@@ -1513,6 +1513,7 @@
       },
       "rankTop": "Helps me most",
       "rankBottom": "Helps me least",
+      "drag": "Drag to reorder",
       "moveUp": "Move {format} up",
       "moveDown": "Move {format} down",
       "position": "Position {value}",
