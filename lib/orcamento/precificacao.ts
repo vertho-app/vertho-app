@@ -121,11 +121,22 @@ export interface ConfigSimulador {
   turnosPorTreino: number;
   /** US$ das chamadas que rodam uma vez por treino (avaliação, preparo). */
   custoFixoTreinoUsd: number;
-  /** US$ das chamadas que rodam a cada turno (personagem, moderação). */
-  custoTurnoUsd: number;
 }
 
 export type ConfigSimuladores = Record<Simulador, ConfigSimulador>;
+
+/**
+ * US$ das chamadas que rodam a cada turno (personagem, moderação). É custo da
+ * PLATAFORMA, não do orçamento: decisão do Rodrigo (02/10/2026), não é campo
+ * editável. Por isso mora aqui e não em `ConfigSimulador`: um valor gravado no
+ * cenário (houve cenário salvo com ele entre 02/10, de manhã, e esta mudança) é
+ * descartado na leitura, e a conta usa sempre este. Medição na nota abaixo.
+ */
+export const CUSTO_TURNO_USD: Record<Simulador, number> = {
+  vendas: 0.0075,
+  atendimento: 0.0069,
+  lideranca: 0.005,
+};
 
 /**
  * Pior caso medido no ledger (`ia_usage_log`, 13 a 24/09/2026, só ensaios da
@@ -141,9 +152,9 @@ export type ConfigSimuladores = Record<Simulador, ConfigSimulador>;
  * não é cortesia: a tela avisa quando um simulador entra no escopo sem preço.
  */
 export const SIMULADORES_DEFAULT: ConfigSimuladores = {
-  vendas: { precoPessoaCiclo: 0, treinosPessoaCiclo: 6, turnosPorTreino: 8, custoFixoTreinoUsd: 0.1, custoTurnoUsd: 0.0075 },
-  atendimento: { precoPessoaCiclo: 0, treinosPessoaCiclo: 6, turnosPorTreino: 8, custoFixoTreinoUsd: 0.166, custoTurnoUsd: 0.0069 },
-  lideranca: { precoPessoaCiclo: 0, treinosPessoaCiclo: 5, turnosPorTreino: 8, custoFixoTreinoUsd: 0.09, custoTurnoUsd: 0.005 },
+  vendas: { precoPessoaCiclo: 0, treinosPessoaCiclo: 6, turnosPorTreino: 8, custoFixoTreinoUsd: 0.1 },
+  atendimento: { precoPessoaCiclo: 0, treinosPessoaCiclo: 6, turnosPorTreino: 8, custoFixoTreinoUsd: 0.166 },
+  lideranca: { precoPessoaCiclo: 0, treinosPessoaCiclo: 5, turnosPorTreino: 8, custoFixoTreinoUsd: 0.09 },
 };
 
 /** Cópia da régua dos simuladores: editar o cenário não edita o default. */
@@ -156,16 +167,19 @@ export function configSimuladoresPadrao(): ConfigSimuladores {
 
 const naoNegativo = (v: number) => Math.max(0, Number(v) || 0);
 
-/** US$ de um treino: o que roda uma vez mais o que roda a cada turno. */
+/** US$ de um treino: o que roda uma vez mais o custo do turno × turnos. */
 export function custoTreinoUsd(
-  c: Pick<ConfigSimulador, 'custoFixoTreinoUsd' | 'custoTurnoUsd' | 'turnosPorTreino'>,
+  c: Pick<ConfigSimulador, 'custoFixoTreinoUsd' | 'turnosPorTreino'>,
+  custoTurnoUsd: number,
 ): number {
-  return naoNegativo(c.custoFixoTreinoUsd) + naoNegativo(c.custoTurnoUsd) * naoNegativo(c.turnosPorTreino);
+  return naoNegativo(c.custoFixoTreinoUsd) + naoNegativo(custoTurnoUsd) * naoNegativo(c.turnosPorTreino);
 }
 
 export interface SimuladorNoOrcamento {
   simulador: Simulador;
   acessos: number;
+  /** O da plataforma (`CUSTO_TURNO_USD`), exibido sem edição. */
+  custoTurnoUsd: number;
   custoTreinoUsd: number;
   /** R$ de IA de uma pessoa com acesso, num ciclo. */
   custoPessoaCicloBrl: number;
@@ -191,10 +205,11 @@ export function simuladoresDoOrcamento(p: {
   const itens = SIMULADORES.map((s): SimuladorNoOrcamento => {
     const c = p.config[s];
     const acessos = Math.min(teto, Math.max(0, Math.floor(Number(p.pessoas[s]) || 0)));
-    const treino = custoTreinoUsd(c);
+    const treino = custoTreinoUsd(c, CUSTO_TURNO_USD[s]);
     return {
       simulador: s,
       acessos,
+      custoTurnoUsd: CUSTO_TURNO_USD[s],
       custoTreinoUsd: treino,
       custoPessoaCicloBrl: naoNegativo(c.treinosPessoaCiclo) * treino * naoNegativo(p.cotacao),
       valorBrl: valorSimuladorBrl({ acessos, precoPessoaCiclo: c.precoPessoaCiclo }, ciclos),

@@ -113,12 +113,12 @@ function moneyBRL(v: number, locale: string) {
   return new Intl.NumberFormat(locale, { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 }).format(v);
 }
 
-function moneyUSD(v: number, locale: string) {
+function moneyUSD(v: number, locale: string, casas = 3) {
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
+    minimumFractionDigits: casas,
+    maximumFractionDigits: casas,
   }).format(v);
 }
 
@@ -134,10 +134,10 @@ const LINHAS_SIMULADOR: { campo: keyof ConfigSimulador; rotulo: string; detalhe:
   { campo: 'precoPessoaCiclo', rotulo: 'Preço / pessoa / ciclo', detalhe: 'R$ por acesso', casas: 2 },
   { campo: 'treinosPessoaCiclo', rotulo: 'Treinos / pessoa / ciclo', detalhe: 'por acesso' },
   { campo: 'turnosPorTreino', rotulo: 'Turnos / treino', detalhe: 'custo medido com 8' },
-  // US$ 0,0069 por turno: com duas casas, sair do campo gravava 0,01.
+  // US$ 0,166 no atendimento: com duas casas, sair do campo gravava 0,17.
   { campo: 'custoFixoTreinoUsd', rotulo: 'Custo fixo / treino', detalhe: 'US$ · uma vez por treino', casas: 4 },
-  { campo: 'custoTurnoUsd', rotulo: 'Custo / turno', detalhe: 'US$ · a cada turno', casas: 4 },
 ];
+// O custo por turno NÃO está aqui: é da plataforma (`CUSTO_TURNO_USD`), só exibido.
 
 const CLASSE_INPUT_TABELA =
   'w-full min-w-0 rounded border border-white/10 bg-white/5 px-1.5 py-1 text-right text-xs tabular-nums text-white outline-none focus:border-cyan-500 sm:px-2 sm:text-sm';
@@ -1116,7 +1116,10 @@ export default function OrcamentoPage() {
               ))}
             </tbody>
             <tbody className="border-t border-white/20">
-              <LinhaSimulador rotulo="Custo / treino" itens={calc.simuladoresItens}
+              <LinhaSimulador rotulo="Custo / turno" detalhe="fixo da plataforma" itens={calc.simuladoresItens}
+                celula={(i) => moneyUSD(i.custoTurnoUsd, locale, 4)}
+                tom={() => 'text-gray-300'} />
+              <LinhaSimulador rotulo="Custo / treino" detalhe="fixo + turno × turnos" itens={calc.simuladoresItens}
                 celula={(i) => moneyUSD(i.custoTreinoUsd, locale)} />
               <LinhaSimulador rotulo="Custo / pessoa / ciclo" itens={calc.simuladoresItens}
                 celula={(i) => money(i.custoPessoaCicloBrl)} />
@@ -1137,7 +1140,8 @@ export default function OrcamentoPage() {
         </div>
         <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
           Custo fixo: no vendas, o cenário e a avaliação do gerente; no atendimento, a avaliação pela matriz; na liderança,
-          abertura, consequências e avaliação. Custo por turno é a conversa. Treinos: 2 por semana nas semanas 2, 4 e 6; a
+          abertura, consequências e avaliação. Custo por turno é a conversa, um valor fixo da plataforma que o orçamento não
+          altera. Treinos: 2 por semana nas semanas 2, 4 e 6; a
           liderança é uma jornada de 5 encontros, de 3 a 16 turnos cada.
         </p>
         <p className="mt-1 text-[10px] text-gray-500">

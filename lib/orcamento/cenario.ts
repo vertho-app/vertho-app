@@ -160,6 +160,10 @@ export function entradasPadrao(listas: ListasValidas): EntradasOrcamento {
  * pode mudá-lo. O custo por treino antigo (um valor só, o do atendimento) NÃO é
  * herdado: cada simulador abre com o seu custo medido, como o custo de IA do
  * resto da tela, que também vem da régua vigente.
+ *
+ * Só os campos de `SIMULADORES_DEFAULT` são lidos: o custo por turno gravado por
+ * cenário salvo em 02/10 (quando ainda era editável) é descartado, e a conta usa
+ * `CUSTO_TURNO_USD`, que é da plataforma.
  */
 function normalizarConfigSimuladores(
   bruto: unknown,

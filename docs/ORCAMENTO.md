@@ -341,8 +341,14 @@ Cada simulador tem `ConfigSimulador` (`configSimuladores` nas entradas do cenár
 | Treinos por pessoa/ciclo | 6 | 6 | 5 (jornada de 5 encontros) |
 | Turnos por treino | 8 | 8 | 8 |
 | Custo fixo por treino (US$) | 0,10 | 0,166 | 0,09 |
-| Custo por turno (US$) | 0,0075 | 0,0069 | 0,005 |
+| Custo por turno (US$), **da plataforma** | 0,0075 | 0,0069 | 0,005 |
 | **Custo por treino com 8 turnos** | **0,16** | **0,22** | **0,13** |
+
+🔒 **O custo por turno não é campo do orçamento** (decisão do Rodrigo, 02/10/2026):
+mora em `CUSTO_TURNO_USD`, fora de `ConfigSimulador`, e a tabela só o exibe ("fixo
+da plataforma"). Cenário salvo enquanto ele era editável (02/10, de `0288ab0b` até
+esta mudança) tem a chave no jsonb: ela é descartada na leitura e a conta usa
+sempre a constante (teste com mutação: honrar o valor gravado derruba o caso).
 
 `custoTreinoUsd` = fixo + turno × turnos. O fixo é o que roda uma vez por treino
 (vendas: criador do cenário e avaliação do gerente; atendimento: avaliação pela
