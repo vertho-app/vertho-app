@@ -73,7 +73,7 @@ vi.mock('@/lib/auth/action-context', () => ({
 vi.mock('@/lib/permissions', () => ({ can: async () => temPermissao }));
 vi.mock('@/lib/audit', () => ({ logAdminAction: vi.fn() }));
 vi.mock('@/actions/ai-client', () => ({ callAI: vi.fn(async () => ({ texto: '{}' })), callAIChat: vi.fn() }));
-vi.mock('@/lib/ai-tasks', () => ({ getModelForTask: vi.fn(), DEFAULT_TASK_MODELS: {} }));
+vi.mock('@/lib/ai-tasks', () => ({ getModelForTask: vi.fn(), DEFAULT_TASK_MODELS: {}, MODELOS_DISPONIVEIS: [] }));
 vi.mock('@/lib/gemini-tts', () => ({ extractNarration: () => 'n'.repeat(50), generatePodcastAudio: vi.fn(async () => ({ buffer: Buffer.from(''), extension: 'wav', contentType: 'audio/wav' })) }));
 vi.mock('@trigger.dev/sdk', () => ({ tasks: { trigger: vi.fn() }, runs: { retrieve: vi.fn() } }));
 vi.mock('@/lib/trigger-region', () => ({ regionOpts: () => ({}) }));

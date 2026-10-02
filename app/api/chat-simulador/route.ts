@@ -4,16 +4,13 @@ import { requireAdmin } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { comContexto } from '@/lib/execucao-contexto';
+import { MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
 
 // Modelos permitidos no simulador (ferramenta admin). Evita repassar um `model`
 // arbitrário do client ao provedor (escolha do modelo mais caro = abuso de custo).
-const ALLOWED_MODELS = new Set([
-  'claude-sonnet-5', 'claude-opus-5',
-  'gemini-3.8-flash',
-  'gemini-3.6-flash',
-  'gemini-3.7-flash',
-  'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
-]);
+// = o catálogo central, o MESMO que a tela oferece (antes eram duas listas: modelo novo na tela
+// era recusado aqui). Continua sendo allowlist: um `model` fora do catálogo cai no padrão.
+const ALLOWED_MODELS = new Set<string>(MODELOS_DISPONIVEIS.map((m) => m.id));
 const MAX_SYSTEM_CHARS = 16000;
 
 // Orçamento de tempo DECLARADO (27/08). A rota não tinha `maxDuration`, então

@@ -183,6 +183,9 @@ export const MODELOS_DISPONIVEIS = [
   // selecioná-lo tornava a reversão um deploy em vez de uma configuração.
   { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
   // ── OpenAI ──
+  // 6.1 Sol: já tinha preço (`ia-cost-catalog`), rota e uso na escada do IA3, mas ficou
+  // fora do dropdown até 02/10/2026 — dava para pagar por ele e não dava para escolhê-lo.
+  { id: 'gpt-6.1-sol', label: 'GPT 6.1 Sol' },
   { id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol' },
   { id: 'gpt-5.6-terra', label: 'GPT 5.6 Terra' },
   { id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna' },

@@ -12,6 +12,7 @@ import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { loadCenariosB } from '@/actions/fase5';
 import { checkCenarioBUm, regenerarCenarioB, regenerarERecheckarCenariosBLote } from '../actions';
+import { MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
 
 const CHECK_DIM_MAX: Record<string, number> = {
   // Check B 8 dimensões
@@ -42,15 +43,8 @@ const CHECK_DIM_LABEL_KEYS: Record<string, string> = {
   discriminante: 'discriminatingPower',
 };
 
-const AI_MODELS = [
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
-  { id: 'claude-opus-5', label: 'Claude Opus 5' },
-  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
-  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
-  { id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol' },
-  { id: 'gpt-5.6-terra', label: 'GPT 5.6 Terra' },
-  { id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna' },
-];
+// Derivada do catálogo central (ver `seletor-modelos-catalogo-guard`).
+const AI_MODELS = MODELOS_DISPONIVEIS;
 
 export default function Fase4Page({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);

@@ -4,23 +4,19 @@ import { useState, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { Loader2, Zap, Send, Trash2, ChevronDown, Settings } from 'lucide-react';
 import BackButton from '@/components/back-button';
+import { MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
 
-const MODELS = [
-  { id: 'claude-sonnet-5', label: 'Claude Sonnet 5' },
-  { id: 'claude-opus-5', label: 'Claude Opus 5' },
-  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
-  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
-  { id: 'gpt-5.6-sol', label: 'GPT 5.6 Sol' },
-  { id: 'gpt-5.6-terra', label: 'GPT 5.6 Terra' },
-  { id: 'gpt-5.6-luna', label: 'GPT 5.6 Luna' },
-];
+// Derivada do catálogo central (ver `seletor-modelos-catalogo-guard`). A rota
+// `/api/chat-simulador` valida contra a mesma lista.
+const MODELS = MODELOS_DISPONIVEIS;
+const MODELO_PADRAO = 'claude-sonnet-5';
 
 const DEFAULT_SYSTEM = 'Voce e um assistente util e responde em portugues brasileiro.';
 
 export default function SimuladorPage() {
   const t = useTranslations('AdminSimulator');
   const [system, setSystem] = useState(DEFAULT_SYSTEM);
-  const [model, setModel] = useState(MODELS[0].id);
+  const [model, setModel] = useState(MODELO_PADRAO);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);

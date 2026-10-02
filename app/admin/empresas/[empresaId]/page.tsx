@@ -22,7 +22,7 @@ import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulado
 import { enqueueIA2Batch, enqueueIA3Batch, enqueueIA4Batch, enqueueCenariosBBatch, enqueueBlueprintBatch, enqueueRelatoriosBatch, statusIAJob, cancelIAJob, listarJobsAtivosIA } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
-import { resolveTaskModel } from '@/lib/ai-tasks';
+import { resolveTaskModel, MODELOS_DISPONIVEIS, familiaDoModelo } from '@/lib/ai-tasks';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { iniciarEnviosTemporada, pausarEnviosTemporada } from '@/actions/envios-temporada';
 import { auditarBlueprint, filaAuditBlueprint } from '@/actions/blueprint';
@@ -39,15 +39,17 @@ import {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ── AI Models ──────────────────────────────────────────────────────────────
-const AI_MODELS = [
-  { id: 'claude-sonnet-5',       label: 'Claude Sonnet 5',  provider: 'claude' },
-  { id: 'claude-opus-5',         label: 'Claude Opus 5',    provider: 'claude' },
-  { id: 'gemini-3.8-flash',      label: 'Gemini 3.8 Flash', provider: 'gemini' },
-  { id: 'gemini-3.6-flash',      label: 'Gemini 3.6 Flash', provider: 'gemini' },
-  { id: 'gpt-5.6-sol',           label: 'GPT 5.6 Sol',      provider: 'openai' },
-  { id: 'gpt-5.6-terra',         label: 'GPT 5.6 Terra',    provider: 'openai' },
-  { id: 'gpt-5.6-luna',          label: 'GPT 5.6 Luna',     provider: 'openai' },
-];
+// Lista DERIVADA do catálogo central (`MODELOS_DISPONIVEIS`): a cópia local ficou para
+// trás quando entraram o Sonnet 5.5, o Opus 5.5 e o GPT 6.1 Sol (02/10/2026). O guard
+// `seletor-modelos-catalogo-guard` impede que volte a existir lista fixa em tela.
+const PROVEDOR_DA_FAMILIA: Record<string, string> = { anthropic: 'claude', openai: 'openai', google: 'gemini' };
+const AI_MODELS = MODELOS_DISPONIVEIS.map((m) => ({
+  ...m,
+  provider: PROVEDOR_DA_FAMILIA[familiaDoModelo(m.id)] || familiaDoModelo(m.id),
+}));
+// Gerador-padrão do modo lote (só Claude batcha). Explícito de propósito: `AI_MODELS[0]`
+// virou o Opus 5.5 quando a lista passou a vir do catálogo, e o padrão não pode mudar de custo em silêncio.
+const GERADOR_PADRAO_LOTE = 'claude-sonnet-5';
 
 // Ações duais → (task de geração, task de checagem) no registro central. O
 // picker abre com os modelos RESOLVIDOS da config (override da empresa →
@@ -747,7 +749,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         const gen = resolveTaskModel(data?.empresa?.sys_config, genKey);
         const chk = resolveTaskModel(data?.empresa?.sys_config, checkKey);
         const lote = FASES_COM_LOTE.has(actionKey);
-        setDualModel1(lote && !AI_MODELS.some(m => m.id === gen && m.provider === 'claude') ? AI_MODELS[0].id : gen);
+        setDualModel1(lote && !AI_MODELS.some(m => m.id === gen && m.provider === 'claude') ? GERADOR_PADRAO_LOTE : gen);
         setDualModel2(lote && !AI_MODELS.some(m => m.id === chk && m.provider === 'openai') ? 'gpt-5.6-terra' : chk);
       }
       setModelPicker({ actionKey, label, dual: isAI === 'dual' });
@@ -1351,7 +1353,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                       <button key={mo} onClick={() => {
                         setModo(mo);
                         if (mo === 'lote') {
-                          if (!dualModel1.startsWith('claude')) setDualModel1(AI_MODELS[0].id);
+                          if (!dualModel1.startsWith('claude')) setDualModel1(GERADOR_PADRAO_LOTE);
                           if (!dualModel2.startsWith('gpt')) setDualModel2('gpt-5.6-terra');
                         }
                       }}
@@ -1386,7 +1388,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                   const { actionKey, label } = modelPicker; setModelPicker(null);
                   // No lote, garante modelos batcháveis mesmo se o select não foi tocado
                   // (value fora das options filtradas fica no estado anterior).
-                  const gen = modo === 'lote' && !dualModel1.startsWith('claude') ? AI_MODELS[0].id : dualModel1;
+                  const gen = modo === 'lote' && !dualModel1.startsWith('claude') ? GERADOR_PADRAO_LOTE : dualModel1;
                   const chk = modo === 'lote' && !dualModel2.startsWith('gpt') ? 'gpt-5.6-terra' : dualModel2;
                   handleAction(actionKey, label, { model: gen, checkModel: chk, modo });
                 }}
