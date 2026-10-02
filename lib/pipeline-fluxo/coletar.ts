@@ -76,11 +76,12 @@ export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Prom
 
   const dosEscopo = <T extends { colaborador_id?: string | null }>(rows: T[]) => rows.filter((r) => r.colaborador_id && ids.has(r.colaborador_id));
 
-  let kitsFaltantes = 0;
+  let kitPlano: { kits: number; podcasts: number; videos: number } | undefined;
   if (escopo.kit) {
     try {
       const itens = await filaKitEscopo(escopo.kit.sb, escopo.kit.empresaId, { turmaId: escopo.kit.turmaId, cargos: escopo.cargos });
-      kitsFaltantes = itens.reduce((n, i) => n + i.faltantes.length, 0);
+      const soma = (f: (i: (typeof itens)[number]) => boolean) => itens.filter(f).reduce((n, i) => n + i.faltantes.length, 0);
+      kitPlano = { kits: soma(() => true), podcasts: soma((i) => i.formatos.includes('audio')), videos: soma((i) => i.video) };
     } catch (e: any) { return { error: String(e?.message || e) }; }
   }
 
@@ -95,7 +96,7 @@ export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Prom
       pdis: dosEscopo(pdiQ.data as any[]).map((r: any) => r.colaborador_id),
       trilhas: dosEscopo(trilhaQ.data as any[]).map((r: any) => r.colaborador_id),
       empresaInteira: !escopo.permitidos && filtroCargo.size === 0,
-      ...(escopo.kit ? { kitsFaltantes: kitsFaltantes } : {}),
+      ...(kitPlano ? { kitPlano } : {}),
     },
   };
 }

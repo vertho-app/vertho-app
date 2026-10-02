@@ -14,6 +14,7 @@
  */
 
 import { TURMA_ENCERRADAS, TURMA_MEMBRO } from '@/lib/status';
+import { COLUNAS_PREFERENCIA_KIT, formatosDaCelula, type FormatosDaCelula } from './formatos-por-preferencia';
 
 export const DISC_OK = ['D', 'I', 'S', 'C'];
 
@@ -27,6 +28,11 @@ export interface PlanoCoorteItem {
   pessoas: number; jobId?: string | null; jobErro?: string | null;
   /** Parâmetros do brief — herdados do brief já existente do tema. */
   contexto: string; nivelMin: number; nivelMax: number; briefExistente: boolean;
+  /**
+   * Formatos que o kit de CADA DISC da célula leva (união dos 2 primeiros da tela de preferências de quem está nela;
+   * `formatos-por-preferencia.ts`). Aditivo: quem só quer saber o que falta ignora.
+   */
+  formatosPorDisc: Record<string, FormatosDaCelula>;
   /** Semanas da trilha em que este tema é demandado (ordenadas). Base do horizonte. */
   semanas: number[];
   /**
@@ -85,8 +91,10 @@ export async function levantarPlanoKitsCoorte(
 
   // 1) Colaboradores + DISC dominante + cargo (cargo define o público: MEI vs
   //    Empregabilidade caem em registros diferentes — ver perfil-publico).
-  const { data: colabsTodos } = await sb.from('colaboradores')
-    .select('id, perfil_dominante, cargo').eq('empresa_id', empresaId);
+  const { data: colabsTodos, error: colabsErr } = await sb.from('colaboradores')
+    .select(`id, perfil_dominante, cargo, ${COLUNAS_PREFERENCIA_KIT}`).eq('empresa_id', empresaId);
+  // Falha de leitura NÃO é "empresa sem colaboradores": o plano sairia vazio e o fluxo concluiria que não há kit a gerar.
+  if (colabsErr) return { error: `Falha ao ler os colaboradores: ${colabsErr.message}` };
   if (!colabsTodos?.length) return { error: 'Empresa sem colaboradores' };
 
   // Recorte por TURMA (mig 210). Sem `turmaId`, a empresa inteira — que é o
@@ -119,6 +127,7 @@ export async function levantarPlanoKitsCoorte(
     }
     if (!colabs.length) return { error: 'Turma sem colaboradores' };
   }
+  const colabPorId = new Map<string, any>(colabs.map((c: any) => [c.id, c]));
   const discDe = new Map<string, string>();
   const cargoDe = new Map<string, string>();
   for (const c of colabs) {
@@ -145,17 +154,19 @@ export async function levantarPlanoKitsCoorte(
   // 3) Demanda: (comp × descritor × CARGO) → { discs, pessoas, semanas }.
   const demanda = new Map<string, {
     competencia: string; descritor: string; cargo: string;
-    discs: Set<string>; pessoas: Set<string>; porSemana: Map<number, Set<string>>;
+    discs: Set<string>; pessoas: Set<string>; porSemana: Map<number, Set<string>>; porDisc: Map<string, Set<string>>;
   }>();
   const add = (colabId: string, comp: any, desc: any, disc: string, semana: number) => {
     if (!comp || !desc || !DISC_OK.includes(disc)) return;
     const cargo = cargoDe.get(colabId) || 'todos';
     const key = ckey(comp, desc, cargo);
     if (!demanda.has(key)) {
-      demanda.set(key, { competencia: comp, descritor: desc, cargo, discs: new Set(), pessoas: new Set(), porSemana: new Map() });
+      demanda.set(key, { competencia: comp, descritor: desc, cargo, discs: new Set(), pessoas: new Set(), porSemana: new Map(), porDisc: new Map() });
     }
     const e = demanda.get(key)!;
     e.discs.add(disc); e.pessoas.add(colabId);
+    if (!e.porDisc.has(disc)) e.porDisc.set(disc, new Set());
+    e.porDisc.get(disc)!.add(colabId);
     if (Number.isFinite(semana) && semana > 0) {
       if (!e.porSemana.has(semana)) e.porSemana.set(semana, new Set());
       e.porSemana.get(semana)!.add(disc);
@@ -228,6 +239,7 @@ export async function levantarPlanoKitsCoorte(
       nivelMin: Number(briefTema?.nivel_min ?? opts.nivelMin ?? 1),
       nivelMax: Number(briefTema?.nivel_max ?? opts.nivelMax ?? 2),
       briefExistente: !!briefTema,
+      formatosPorDisc: Object.fromEntries(demandadas.map((d) => [d, formatosDaCelula([...(e.porDisc.get(d) || [])].map((id) => colabPorId.get(id)))])),
     });
   }
   plano.sort((a, b) => b.faltantes.length - a.faltantes.length || b.pessoas - a.pessoas);

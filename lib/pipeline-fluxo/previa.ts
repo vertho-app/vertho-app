@@ -37,11 +37,12 @@ export type EntradaPrevia = {
    */
   empresaInteira?: boolean;
   /**
-   * Kits (tema × DISC) que FALTAM para as trilhas que já existem no escopo (`levantarPlanoKitsCoorte`). Só enxerga
-   * trilha JÁ montada: o tema das trilhas que esta mesma rodada vai criar só aparece depois da etapa da trilha.
-   * Ausente = não medido (a etapa aparece com 0 e a nota avisa).
+   * Kits (tema × DISC) que FALTAM para as trilhas que já existem no escopo (`levantarPlanoKitsCoorte`), e o que cada
+   * um leva por causa das preferências de aprendizagem: quantos podcasts serão PRÉ-RENDERIZADOS (TTS) e quantos
+   * vídeos de célula serão gerados. Só enxerga trilha JÁ montada: o tema das trilhas que esta mesma rodada vai criar
+   * só aparece depois da etapa da trilha. Ausente = não medido (a etapa aparece com 0 e a nota avisa).
    */
-  kitsFaltantes?: number;
+  kitPlano?: { kits: number; podcasts: number; videos: number };
 };
 
 export type EtapaId = 'ia4' | 'blueprint' | 'auditoria' | 'pdi' | 'trilha' | 'kit' | 'gestor' | 'rh';
@@ -87,6 +88,16 @@ export type PreviaFluxo = {
  *    (o lote não aparece inteiro por kit no ledger). Vídeo de célula fora (opção separada, ~US$ 0,90 cada);
  *  - Gestor: US$ 0,06; RH: US$ 0,07 por relatório.
  */
+/**
+ * Custo ADICIONAL do kit, por unidade, além dos textos (`CUSTO_POR_UNIDADE.kit`):
+ *  - podcast pré-renderizado: US$ 0,053 a 0,12 por áudio (`tts_podcast`, ledger de 90 dias: 2.5 Flash 0,055; 3.1 preview 0,097);
+ *  - vídeo de célula: US$ 0,60 a 0,90 (0,90 medido por célula; o avatar compartilhado do grupo corta ~0,30).
+ */
+export const CUSTO_EXTRA_KIT = {
+  podcast: { min: 0.05, max: 0.12 },
+  video: { min: 0.6, max: 0.9 },
+};
+
 export const CUSTO_POR_UNIDADE: Record<EtapaId, FaixaUsd> = {
   ia4: { min: 0.14, max: 0.20 },
   blueprint: { min: 0.13, max: 0.57 },
@@ -238,7 +249,7 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
   }
 
   // Kit: o que falta para as trilhas JÁ existentes (a medição é da varredura da coorte, não por pessoa).
-  acc.kit.agora = entrada.kitsFaltantes ?? 0; acc.kit.unidades = entrada.kitsFaltantes ?? 0;
+  acc.kit.agora = entrada.kitPlano?.kits ?? 0; acc.kit.unidades = entrada.kitPlano?.kits ?? 0;
 
   // Gestor e RH: ao FINAL, uma vez por gestor e uma por empresa, SÓ se esta rodada gerar PDI NOVO (agora ou
   // projetado). PDI que já existia não reabre o relatório: o fluxo não reavalia o passado.
@@ -251,7 +262,7 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     ia4: 'Conta as respostas da fila da IA4 (pendentes + presas), não as pessoas.',
     auditoria: 'Só dos blueprints gerados nesta rodada; blueprint antigo não é reauditado.',
     trilha: 'Faixa de custo fraca: só a extração aparece por pessoa no ledger.',
-    kit: entrada.kitsFaltantes === undefined ? 'Não medido nesta prévia.' : 'Conta kits (tema × DISC) que faltam para as trilhas já montadas; os das trilhas novas aparecem depois da etapa da trilha. Sem vídeo.',
+    kit: entrada.kitPlano === undefined ? 'Não medido nesta prévia.' : `Kits (tema × DISC) que faltam para as trilhas já montadas, com os 2 primeiros formatos das preferências: ${entrada.kitPlano.podcasts} podcast(s) pré-renderizado(s) e ${entrada.kitPlano.videos} vídeo(s). Os das trilhas novas aparecem depois da etapa da trilha.`,
     gestor: entrada.empresaInteira === false ? 'Não incluído: o relatório não filtra por turma/cargo (gere manualmente se quiser).' : 'Gera ao final; um por gestor (agrupado por e-mail do gestor).',
     rh: entrada.empresaInteira === false ? 'Não incluído: o relatório não filtra por turma/cargo (gere manualmente se quiser).' : 'Gera ao final; um por empresa.',
   };
@@ -263,6 +274,11 @@ export function montarPreviaFluxo(entrada: EntradaPrevia): PreviaFluxo {
     ...(notas[id] ? { nota: notas[id] } : {}),
   }));
 
+  // Podcast pré-renderizado e vídeo entram no custo do kit (a faixa base cobre núcleo, desafio e textos).
+  const kitEtapa = etapas.find((e) => e.id === 'kit')!;
+  if (entrada.kitPlano) {
+    kitEtapa.custoUsd = somar(somar(kitEtapa.custoUsd, faixa(entrada.kitPlano.podcasts, CUSTO_EXTRA_KIT.podcast)), faixa(entrada.kitPlano.videos, CUSTO_EXTRA_KIT.video));
+  }
   const custoTotalUsd = etapas.reduce((t, e) => somar(t, e.custoUsd), { min: 0, max: 0 });
   const nadaAFazer = etapas.every((e) => e.prontosAgora === 0 && e.aposEtapaAnterior === 0);
 

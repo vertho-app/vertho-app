@@ -43,7 +43,7 @@ function montar(filas: Filas = {}, extra: Partial<DepsFluxo> = {}) {
   return { deps, chamadas, lotes, auditados, trilhas, gravados, kitsEnfileirados, cancelar: () => { cancelar = true; } };
 }
 const params = (p: Partial<ParamsFluxo> = {}): ParamsFluxo => ({ empresaId: 'e1', escopo: {}, permitidos: null, ...p });
-const kitItem = (competencia: string, faltantes = ['D', 'I']): KitItem => ({ competencia, descritor: 'd1', cargo: 'CAIXA', faltantes, contexto: 'generico', nivelMin: 1, nivelMax: 2 });
+const kitItem = (competencia: string, faltantes = ['D', 'I']): KitItem => ({ competencia, descritor: 'd1', cargo: 'CAIXA', faltantes, formatos: ['texto', 'case'], video: false, contexto: 'generico', nivelMin: 1, nivelMax: 2 });
 const etapa = (r: any, id: EtapaId) => r.progresso.etapas.find((e: any) => e.id === id);
 
 describe('ordem e execução completa', () => {
@@ -359,5 +359,33 @@ describe('IA4: total na MESMA unidade do lote (avaliação e check contam como i
     const m = montar({ ia4: { itens: ['r1', 'r2'], checkOnly: ['r3'] } });
     const r = await executarFluxo(params({ dryRun: true }), null, m.deps, { orcamentoMs: 10_000 });
     expect(etapa(r, 'ia4').total).toBe(3);
+  });
+});
+
+describe('kit em ONDAS (TTS compartilhado entre podcast e vídeo)', () => {
+  const muitos = (n: number) => Array.from({ length: n }, (_, i) => kitItem(`c${i + 1}`, ['D']));
+
+  it('no máximo 3 jobs por vez: espera a onda terminar antes de enfileirar a seguinte', async () => {
+    const ordem: string[] = [];
+    const m = montar({ kit: muitos(7) }, {
+      kitEnfileirar: async (item) => { ordem.push(`enf.${item.competencia}`); return { jobId: `kit-${item.competencia}`, adotado: false }; },
+      aguardarKits: async (ids) => { ordem.push(`esp[${ids.length}]`); return ids.map((jobId) => ({ jobId, status: 'done' as const, kits: 1 })); },
+    });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(ordem.filter((o) => o.startsWith('esp'))).toEqual(['esp[3]', 'esp[3]', 'esp[1]']);
+    expect(ordem.indexOf('enf.c4')).toBeGreaterThan(ordem.indexOf('esp[3]'));
+    expect(etapa(r, 'kit')).toMatchObject({ estado: 'ok', total: 7, feitos: 7 });
+  });
+
+  it('cancelamento ENTRE as ondas encerra sem enfileirar as seguintes e guarda o que já saiu', async () => {
+    let esperas = 0;
+    const m = montar({ kit: muitos(7) }, {
+      aguardarKits: async (ids) => { esperas++; return ids.map((jobId) => ({ jobId, status: 'done' as const, kits: 1 })); },
+    });
+    const dep = { ...m.deps, cancelado: async () => esperas >= 1 };
+    const r = await executarFluxo(params(), null, dep, { orcamentoMs: 10_000 });
+    expect(r.resultado).toBe('cancelado');
+    expect(m.kitsEnfileirados).toHaveLength(3);
+    expect(etapa(r, 'kit').feitos).toBe(3);
   });
 });

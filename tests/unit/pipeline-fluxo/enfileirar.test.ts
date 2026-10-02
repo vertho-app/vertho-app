@@ -80,7 +80,7 @@ describe('lerDesfechoDoJob', () => {
   });
 });
 
-const item = { competencia: 'c1', descritor: 'd1', cargo: 'CAIXA', faltantes: ['D', 'I'], contexto: 'generico', nivelMin: 1, nivelMax: 2 };
+const item = { competencia: 'c1', descritor: 'd1', cargo: 'CAIXA', faltantes: ['D', 'I'], formatos: ['texto', 'case'], video: false, contexto: 'generico', nivelMin: 1, nivelMax: 2 };
 
 describe('enfileirarKit', () => {
   beforeEach(() => { trigger.mockReset(); trigger.mockResolvedValue({ id: 'run_k' }); });
@@ -92,15 +92,31 @@ describe('enfileirarKit', () => {
     expect(trigger).not.toHaveBeenCalled();
   });
 
-  it('o job nasce SEM vídeo, sem render de áudio, com os DISC faltantes e lote só com 2+ DISC', async () => {
+  it('o job leva os formatos da célula: sem áudio nem vídeo quando o conjunto é texto + caso', async () => {
     const sb = criarSupabaseMock({ escritaUnica: (_t, op) => (op === 'insert' ? { id: 'novo' } : null) });
     await enfileirarKit(sb.client, { empresaId: 'e1', item });
     const ins = sb.escritas.find((e) => e.op === 'insert')!;
-    expect(ins.payload.params).toMatchObject({ incluirVideo: false, renderAudio: false, discs: ['D', 'I'], useBatch: true, cargo: 'CAIXA' });
+    expect(ins.payload.params).toMatchObject({ incluirVideo: false, renderAudio: false, formatos: ['texto', 'case'], discs: ['D', 'I'], useBatch: true, cargo: 'CAIXA' });
     expect(trigger).toHaveBeenCalledWith('gerar-kit', { jobId: 'novo' }, {});
     const sb2 = criarSupabaseMock({ escritaUnica: (_t, op) => (op === 'insert' ? { id: 'n2' } : null) });
     await enfileirarKit(sb2.client, { empresaId: 'e1', item: { ...item, faltantes: ['S'] } });
     expect(sb2.escritas.find((e) => e.op === 'insert')!.payload.params.useBatch).toBe(false);
+  });
+
+  it('podcast no kit liga o PRÉ-RENDER do áudio; vídeo na célula liga o vídeo; cada um por si', async () => {
+    const sb = criarSupabaseMock({ escritaUnica: (_t, op) => (op === 'insert' ? { id: 'novo' } : null) });
+    await enfileirarKit(sb.client, { empresaId: 'e1', item: { ...item, formatos: ['audio', 'texto'], video: true } });
+    expect(sb.escritas.find((e) => e.op === 'insert')!.payload.params).toMatchObject({ renderAudio: true, incluirVideo: true, formatos: ['audio', 'texto'] });
+    const sb2 = criarSupabaseMock({ escritaUnica: (_t, op) => (op === 'insert' ? { id: 'n2' } : null) });
+    await enfileirarKit(sb2.client, { empresaId: 'e1', item: { ...item, formatos: ['audio', 'case'], video: false } });
+    expect(sb2.escritas.find((e) => e.op === 'insert')!.payload.params).toMatchObject({ renderAudio: true, incluirVideo: false });
+  });
+
+  it('a adoção só vale para job do MESMO cargo que cobre os DISC pedidos (grupos do mesmo tema não adotam um ao outro)', async () => {
+    const sb = criarSupabaseMock({ resolver: (t) => (t === 'kit_jobs' ? { id: 'kit_ativo' } : null) });
+    await enfileirarKit(sb.client, { empresaId: 'e1', item: { ...item, faltantes: ['S'] } });
+    const c = sb.chamadas.find((x) => x.tabela === 'kit_jobs' && x.metodo === 'contains')!;
+    expect(c.args).toEqual(['params', { cargo: 'CAIXA', discs: ['S'] }]);
   });
 
   it('erro ao verificar jobs ativos devolve erro (não abre um segundo job)', async () => {

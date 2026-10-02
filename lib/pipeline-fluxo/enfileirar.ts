@@ -76,22 +76,27 @@ export async function lerDesfechoDoJob(sb: any, jobId: string): Promise<{ termin
 }
 
 /**
- * Enfileira UM tema do kit — o que `enqueueKit` faz (insert em `kit_jobs` + task `gerar-kit`), sem sessão e SEM vídeo
- * (`incluirVideo: false`; vídeo de célula é opção separada). Adota o job ativo do mesmo tema na empresa em vez de
+ * Enfileira UM tema do kit — o que `enqueueKit` faz (insert em `kit_jobs` + task `gerar-kit`), sem sessão, com os
+ * formatos e o vídeo decididos pelas preferências de aprendizagem da célula (2 primeiros de cada pessoa, em união). Adota o job ativo do mesmo tema na empresa em vez de
  * duplicar: a varredura do plano não enxerga jobs em voo, então sem adoção um botão manual anterior geraria o mesmo kit
  * duas vezes (e pagaria duas).
  */
 export async function enfileirarKit(sb: any, args: { empresaId: string; item: KitItem }): Promise<ResultadoKit> {
   const { empresaId, item } = args;
+  // Adota o job ativo do MESMO tema e cargo que já cobre estes DISC (`contains`: o job pode cobrir mais). Só tema não basta:
+  // dois grupos do mesmo tema (formatos diferentes) têm DISC disjuntos e não podem adotar o job um do outro.
   const { data: ativo, error: errAtivo } = await sb.from('kit_jobs').select('id')
     .eq('empresa_id', empresaId).eq('competencia', item.competencia).eq('descritor', item.descritor)
+    .contains('params', { cargo: item.cargo, discs: item.faltantes })
     .in('status', ['queued', 'running']).limit(1).maybeSingle();
   if (errAtivo) return { erro: `Não foi possível verificar jobs de kit ativos: ${errAtivo.message}` };
   if (ativo?.id) return { jobId: ativo.id, adotado: true };
 
   const params = {
     nivelMin: item.nivelMin, nivelMax: item.nivelMax, cargo: item.cargo, contexto: item.contexto,
-    discs: item.faltantes, renderAudio: false, useBatch: item.faltantes.length >= 2, incluirVideo: false,
+    discs: item.faltantes, formatos: item.formatos,
+    // Áudio PRÉ-RENDERIZADO (TTS) quando o podcast está no kit; vídeo só quando está entre os 2 primeiros de alguém da célula.
+    renderAudio: item.formatos.includes('audio'), useBatch: item.faltantes.length >= 2, incluirVideo: item.video,
   };
   const { data: job, error } = await sb.from('kit_jobs').insert({
     empresa_id: empresaId, competencia: item.competencia, descritor: item.descritor, params, status: 'queued',

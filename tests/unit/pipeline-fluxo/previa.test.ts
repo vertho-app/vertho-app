@@ -212,11 +212,15 @@ describe('avisos', () => {
 });
 
 describe('Kit semanal na prévia', () => {
-  it('conta kits (tema × DISC) faltantes como unidade, com faixa de custo própria; sem medir, avisa', () => {
-    const medido = montarPreviaFluxo(entrada({ kitsFaltantes: 10 }));
-    expect(etapa(medido, 'kit')).toMatchObject({ unidade: 'kit', prontosAgora: 10 });
-    expect(etapa(medido, 'kit').custoUsd).toEqual({ min: 2, max: 4.5 });
-    expect(medido.nadaAFazer).toBe(false);
+  it('conta kits (tema × DISC) faltantes; podcast pré-renderizado e vídeo SOMAM ao custo; sem medir, avisa', () => {
+    const so = montarPreviaFluxo(entrada({ kitPlano: { kits: 10, podcasts: 0, videos: 0 } }));
+    expect(etapa(so, 'kit')).toMatchObject({ unidade: 'kit', prontosAgora: 10 });
+    expect(etapa(so, 'kit').custoUsd).toEqual({ min: 2, max: 4.5 });
+    expect(so.nadaAFazer).toBe(false);
+    const com = montarPreviaFluxo(entrada({ kitPlano: { kits: 10, podcasts: 4, videos: 2 } }));
+    // 10 kits (2,00 a 4,50) + 4 podcasts (0,20 a 0,48) + 2 vídeos (1,20 a 1,80)
+    expect(etapa(com, 'kit').custoUsd).toEqual({ min: 3.4, max: 6.78 });
+    expect(etapa(com, 'kit').nota).toMatch(/4 podcast\(s\).*2 vídeo\(s\)/);
     const semMedir = montarPreviaFluxo(entrada());
     expect(etapa(semMedir, 'kit').prontosAgora).toBe(0);
     expect(etapa(semMedir, 'kit').nota).toMatch(/Não medido/);

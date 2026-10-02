@@ -20,6 +20,10 @@ export type ResultadoLote = { jobId: string; adotado: boolean } | { erro: string
 export interface KitItem {
   competencia: string; descritor: string; cargo: string;
   faltantes: string[]; contexto: string; nivelMin: number; nivelMax: number;
+  /** Formatos de conteúdo do kit (texto, case, áudio); o áudio é PRÉ-RENDERIZADO (TTS) quando presente. */
+  formatos: string[];
+  /** Gera também o vídeo da célula (o vídeo está entre os 2 primeiros de alguém da célula). */
+  video: boolean;
 }
 export type ResultadoKit = { jobId: string; adotado: boolean } | { erro: string };
 export type EsperaKit = { jobId: string; status: 'done' | 'error' | 'cancelled'; erro?: string; kits?: number };
@@ -52,6 +56,9 @@ export interface DepsFluxo {
 }
 
 export type ResultadoExecucao = { resultado: 'terminou' | 'continuar' | 'cancelado'; progresso: ProgressoFluxo };
+
+/** Quantos jobs de kit rodam ao mesmo tempo (TTS compartilhado entre podcast e vídeo). */
+const KIT_ONDA = 3;
 
 const aiConfigDe = (modelos: Record<string, string>, chave: string, extra: Record<string, unknown> = {}) =>
   (modelos[chave] ? { model: modelos[chave], ...extra } : { ...extra });
@@ -180,26 +187,30 @@ export async function executarFluxo(
       e.total += totalKits;
       if (dryRun) { e.estado = 'pulado'; e.detalhe = `simulação: ${totalKits} kit(s) (tema × DISC) em ${itens.length} tema(s)`; await salvar(); continue; }
 
-      const jobs = new Map<string, number>();
-      let falhasEnfileirar = 0;
-      for (const item of itens) {
-        const enf = await deps.kitEnfileirar(item);
-        if ('erro' in enf) { falhasEnfileirar += item.faltantes.length; e.detalhe = enf.erro; continue; }
-        jobs.set(enf.jobId, item.faltantes.length);
-        if (!e.jobIds.includes(enf.jobId)) e.jobIds.push(enf.jobId);
-      }
-      await salvar(`${e.titulo}: ${jobs.size} tema(s) enviados, aguardando`);
-      if (jobs.size === 0) { e.falhas += falhasEnfileirar; e.estado = 'erro'; await salvar(); continue; }
-
-      const fins = await deps.aguardarKits([...jobs.keys()]);
-      if (fins.some((f) => f.status === 'cancelled')) { e.estado = 'erro'; e.detalhe = 'job de kit cancelado'; await salvar(); return { resultado: 'cancelado', progresso: prog }; }
-      let ok = 0; let falhas = falhasEnfileirar;
-      for (const f of fins) {
-        const esperados = jobs.get(f.jobId) ?? 0;
-        // `done` sem contagem de kits publicados não vale `ok`: o job fechar não prova que o kit existe.
-        const feitos = f.status === 'done' ? Math.min(esperados, f.kits ?? 0) : 0;
-        ok += feitos; falhas += esperados - feitos;
-        if (f.status === 'error' && f.erro) e.detalhe = f.erro;
+      // Em ONDAS: com áudio e vídeo no kit, todos os jobs de uma vez disputariam o mesmo TTS (o do podcast e o das
+      // narrações de vídeo são o mesmo fornecedor: auto-saturação medida em 12/08, F-V4 do FMEA).
+      let ok = 0; let falhas = 0;
+      for (let ini = 0; ini < itens.length; ini += KIT_ONDA) {
+        if (ini > 0 && await deps.cancelado()) { e.feitos += ok; e.falhas += falhas; await salvar(); return { resultado: 'cancelado', progresso: prog }; }
+        const onda = itens.slice(ini, ini + KIT_ONDA);
+        const jobs = new Map<string, number>();
+        for (const item of onda) {
+          const enf = await deps.kitEnfileirar(item);
+          if ('erro' in enf) { falhas += item.faltantes.length; e.detalhe = enf.erro; continue; }
+          jobs.set(enf.jobId, item.faltantes.length);
+          if (!e.jobIds.includes(enf.jobId)) e.jobIds.push(enf.jobId);
+        }
+        await salvar(`${e.titulo}: ${Math.min(ini + KIT_ONDA, itens.length)}/${itens.length} tema(s) enviados, aguardando`);
+        if (jobs.size === 0) continue;
+        const fins = await deps.aguardarKits([...jobs.keys()]);
+        if (fins.some((f) => f.status === 'cancelled')) { e.estado = 'erro'; e.detalhe = 'job de kit cancelado'; e.feitos += ok; e.falhas += falhas; await salvar(); return { resultado: 'cancelado', progresso: prog }; }
+        for (const f of fins) {
+          const esperados = jobs.get(f.jobId) ?? 0;
+          // `done` sem contagem de kits publicados não vale `ok`: o job fechar não prova que o kit existe.
+          const feitos = f.status === 'done' ? Math.min(esperados, f.kits ?? 0) : 0;
+          ok += feitos; falhas += esperados - feitos;
+          if (f.status === 'error' && f.erro) e.detalhe = f.erro;
+        }
       }
       e.feitos += ok; e.falhas += falhas;
       e.estado = falhas === 0 ? 'ok' : ok === 0 ? 'erro' : 'parcial';
