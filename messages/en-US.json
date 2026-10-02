@@ -997,6 +997,7 @@
       "5": "See my evolution",
       "externalProfile": "View behavioral profile",
       "waiting": "Awaiting release",
+      "profileFirst": "Do my profile first",
       "fallback": "See my evolution"
     },
     "phaseDescriptions": {
@@ -1007,6 +1008,7 @@
       "5": "Measuring post-training evolution and consolidation of advances.",
       "externalProfile": "Your company uses its own behavioral mapping. You don't need to repeat it on Vertho.",
       "waitingProfile": "The behavioral profile will be released by HR after the skills vote is completed.",
+      "profileFirst": "Complete your behavioral profile first: the competency mapping comes after it.",
       "fallback": "Continue your development journey."
     },
     "header": {

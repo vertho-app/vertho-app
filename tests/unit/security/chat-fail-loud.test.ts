@@ -51,7 +51,12 @@ vi.mock('@/lib/tenant-db', () => ({ tenantDb: () => sb.client }));
 vi.mock('@/lib/rate-limit', () => ({ aiLimiter: { check: async () => null }, heavyLimiter: { check: async () => null } }));
 vi.mock('@/lib/csrf', () => ({ csrfCheck: () => null }));
 vi.mock('@/lib/turmas', () => ({ configEfetivaDoColaborador: async () => ({}) }));
-vi.mock('@/lib/access-gates', () => ({ canAccessMapeamentoCenarios: () => ({ allowed: true }) }));
+// Os dois gates de acesso ficam liberados: este arquivo mede o fail-loud do chat, não a
+// regra de acesso (a ordem Perfil → Diagnóstico tem teste próprio em access-gates-diagnostico-ordem).
+vi.mock('@/lib/access-gates', () => ({
+  canAccessMapeamentoCenarios: () => ({ allowed: true }),
+  gateDiagnosticoDaPessoa: async () => ({ allowed: true }),
+}));
 vi.mock('@/lib/versioning', () => ({ getOrCreatePromptVersion: async () => 'pv-1' }));
 vi.mock('@/lib/auth/request-context', () => ({
   requireUser: async () => ({ email: 'c@a.com', empresaId: EMPRESA, colaborador: { id: COLAB }, role: 'colaborador' }),

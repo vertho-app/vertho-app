@@ -85,6 +85,8 @@ vi.mock('@/lib/turmas', () => ({ configEfetivaDoColaborador: vi.fn(async () => (
 vi.mock('@/lib/access-gates', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/access-gates')>()),
   canAccessMapeamentoCenarios: () => ({ allowed: true }),
+  // A ordem Perfil → Diagnóstico tem teste próprio (access-gates-diagnostico-ordem).
+  gateDiagnosticoDaPessoa: async () => ({ allowed: true }),
 }));
 vi.mock('@/lib/demo/degustacao-avaliacao', () => ({
   avaliarRespostaDaDegustacao: (...args: any[]) => avaliar(...(args as [])),

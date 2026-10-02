@@ -997,6 +997,7 @@
       "5": "Ver minha evolução",
       "externalProfile": "Ver perfil comportamental",
       "waiting": "Aguardando liberação",
+      "profileFirst": "Fazer meu perfil primeiro",
       "fallback": "Ver minha evolução"
     },
     "phaseDescriptions": {
@@ -1007,6 +1008,7 @@
       "5": "Medição de evolução pós-capacitação e consolidação dos avanços.",
       "externalProfile": "Sua empresa usa mapeamento comportamental próprio. Você não precisa refazer o mapeamento na Vertho.",
       "waitingProfile": "O perfil comportamental será liberado pelo RH depois que a votação de competências for finalizada.",
+      "profileFirst": "Faça o seu perfil comportamental antes: o mapeamento de competências vem depois dele.",
       "fallback": "Continue sua jornada de desenvolvimento."
     },
     "header": {

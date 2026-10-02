@@ -78,11 +78,17 @@ export default function JornadaPage() {
   const usaPerfilExterno = !!data.empresaPerfilExternoFonte;
   const perfilComportamentalLiberado = data.perfilComportamentalLiberado !== false;
 
+  // Ordem da jornada: o Diagnóstico por cenários vem depois do Perfil DESTA pessoa.
+  // Quem já respondeu algum cenário não é trancado (fase 2 deixa de ser 'pending').
+  const perfilAntes = (fase: any) =>
+    fase?.fase === 2 && !usaPerfilExterno && !colaborador.perfil_dominante && fase.status === 'pending';
+
   function faseHref(fase: any) {
     if (foraDaDegustacao(fase)) return null;
     // Basta ter o PDF: ele já é conteúdo para ver, mesmo sem a extração ter rodado.
     if (fase?.fase === 1 && usaPerfilExterno && !data.temPerfilExterno && !(data as any).temPdfPerfilExterno) return null;
     if (fase?.fase === 1 && !usaPerfilExterno && !colaborador.perfil_dominante && !perfilComportamentalLiberado) return null;
+    if (perfilAntes(fase)) return null;
     return FASE_HREF[fase?.fase];
   }
 
@@ -100,12 +106,14 @@ export default function JornadaPage() {
     if (fase?.fase === 4 && fase?.totalSemanas) {
       return t('phaseDescriptions.4', { weeks: fase.totalSemanas });
     }
+    if (perfilAntes(fase)) return t('phaseDescriptions.profileFirst');
     return t(`phaseDescriptions.${fase?.fase}`) || t('phaseDescriptions.fallback');
   }
 
   function ctaLabel(fase: any) {
     if (fase?.fase === 1 && usaPerfilExterno) return t('cta.externalProfile');
     if (fase?.fase === 1 && !perfilComportamentalLiberado && !colaborador.perfil_dominante) return t('cta.waiting');
+    if (perfilAntes(fase)) return t('cta.profileFirst');
     return t(`cta.${fase?.fase}`) || t('cta.fallback');
   }
 

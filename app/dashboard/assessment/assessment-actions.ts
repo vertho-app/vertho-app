@@ -6,6 +6,7 @@ import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import {
   canAccessMapeamentoCenarios,
+  gateDiagnosticoDaPessoa,
   precisaPreferenciasAprendizagem,
   usaMapeamentoComportamentalNativo,
 } from '@/lib/access-gates';
@@ -249,6 +250,10 @@ async function _getDiagnosticoDoDia(trilho: Trilho) {
   if (!gate.allowed) {
     return { error: gate.message, code: gate.code, remediation: gate.remediation };
   }
+  const ordem = await gateDiagnosticoDaPessoa(sb, colab.empresa_id, (colab as any).id, cfg);
+  if (!ordem.allowed) {
+    return { error: ordem.message, code: ordem.code, remediation: ordem.remediation };
+  }
 
   const { data: empresaRow, error: empresaErr } = await sb.from('empresas')
     .select('is_demo, sys_config')
@@ -482,6 +487,14 @@ async function _salvarRespostaDiagnostico(cenarioId, compId, compNome, payload, 
   if (!colab) return { error: 'Colaborador não encontrado' };
 
   const sb = createSupabaseAdmin();
+
+  // Server action é endpoint: a ordem Perfil → Diagnóstico vale aqui também, não
+  // só na tela que carrega os cenários.
+  const cfgOrdem = await configEfetivaDoColaborador(sb, colab.empresa_id, (colab as any).id);
+  const ordem = await gateDiagnosticoDaPessoa(sb, colab.empresa_id, (colab as any).id, cfgOrdem);
+  if (!ordem.allowed) {
+    return { error: ordem.message, code: ordem.code, remediation: ordem.remediation };
+  }
 
   const { data: empresaRow, error: empresaErr } = await sb.from('empresas')
     .select('is_demo, sys_config')

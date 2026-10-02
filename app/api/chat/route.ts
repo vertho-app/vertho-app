@@ -8,7 +8,7 @@ import { requireUser, assertTenantAccess, assertColabAccess } from '@/lib/auth/r
 import { aiLimiter } from '@/lib/rate-limit';
 import { auditorCrossFamilia } from '@/lib/ai-tasks';
 import { csrfCheck } from '@/lib/csrf';
-import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
+import { canAccessMapeamentoCenarios, gateDiagnosticoDaPessoa } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { consolidarNotasIA4, blocoConsolidacao, normalizarNiveisDaAvaliacao } from '@/lib/ia4-avaliacao';
@@ -114,6 +114,10 @@ export async function POST(req) {
     const gate = canAccessMapeamentoCenarios(cfgGate);
     if (!gate.allowed) {
       return NextResponse.json({ ok: false, error: gate.message, code: gate.code, remediation: gate.remediation }, { status: 403 });
+    }
+    const ordem = await gateDiagnosticoDaPessoa(sb, empresaId, colaboradorId, cfgGate);
+    if (!ordem.allowed) {
+      return NextResponse.json({ ok: false, error: ordem.message, code: ordem.code, remediation: ordem.remediation }, { status: 403 });
     }
 
     // ── 1. Carregar ou criar sessão ─────────────────────────────────────────

@@ -72,6 +72,8 @@ vi.mock('@/lib/turmas', () => ({ configEfetivaDoColaborador: vi.fn(async () => (
 vi.mock('@/lib/access-gates', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/access-gates')>()),
   canAccessMapeamentoCenarios: () => ({ allowed: true }),
+  // A ordem Perfil → Diagnóstico tem teste próprio (access-gates-diagnostico-ordem).
+  gateDiagnosticoDaPessoa: async () => ({ allowed: true }),
 }));
 
 import { getDiagnosticoDoDia, salvarRespostaDiagnostico } from '@/app/dashboard/assessment/assessment-actions';

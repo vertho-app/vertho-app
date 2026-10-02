@@ -75,6 +75,12 @@ vi.mock('@/lib/authz', () => ({
 }));
 vi.mock('@/lib/auth/action-context', () => ({ getAuthenticatedEmailFromAction: vi.fn(async () => 'ana@cliente.com') }));
 vi.mock('@/lib/turmas', () => ({ configEfetivaDoColaborador: vi.fn(async () => cenario.cfg) }));
+// Os gates de config seguem REAIS; só a ordem por pessoa (lê perfil/respostas no banco) é
+// fixada, e tem teste próprio em access-gates-diagnostico-ordem.
+vi.mock('@/lib/access-gates', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/access-gates')>()),
+  gateDiagnosticoDaPessoa: async () => ({ allowed: true }),
+}));
 
 import { getDiagnosticoDoDia, salvarRespostaDiagnostico } from '@/app/dashboard/assessment/assessment-actions';
 

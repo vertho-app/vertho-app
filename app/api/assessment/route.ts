@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser } from '@/lib/auth/request-context';
 import { csrfCheck } from '@/lib/csrf';
-import { canAccessMapeamentoCenarios } from '@/lib/access-gates';
+import { canAccessMapeamentoCenarios, gateDiagnosticoDaPessoa } from '@/lib/access-gates';
 import { configEfetivaDoColaborador } from '@/lib/turmas';
 import { findColabByEmail } from '@/lib/authz';
 import { assessmentCompetencyWasAnswered } from '@/lib/assessment/completion';
@@ -44,6 +44,10 @@ export async function GET(req: Request) {
     const gateGet = canAccessMapeamentoCenarios(cfgGet);
     if (!gateGet.allowed) {
       return NextResponse.json({ error: gateGet.message, code: gateGet.code, remediation: gateGet.remediation }, { status: 403 });
+    }
+    const ordemGet = await gateDiagnosticoDaPessoa(sb, colab.empresa_id, colab.id, cfgGet);
+    if (!ordemGet.allowed) {
+      return NextResponse.json({ error: ordemGet.message, code: ordemGet.code, remediation: ordemGet.remediation }, { status: 403 });
     }
 
     // Nota mínima do cenário (opt-in por empresa, `lib/assessment/cenario-elegivel.ts`). Falha de leitura NÃO
@@ -117,6 +121,10 @@ export async function POST(req: Request) {
     const gatePost = canAccessMapeamentoCenarios(cfgPost);
     if (!gatePost.allowed) {
       return NextResponse.json({ error: gatePost.message, code: gatePost.code, remediation: gatePost.remediation }, { status: 403 });
+    }
+    const ordemPost = await gateDiagnosticoDaPessoa(sb, colab.empresa_id, colab.id, cfgPost);
+    if (!ordemPost.allowed) {
+      return NextResponse.json({ error: ordemPost.message, code: ordemPost.code, remediation: ordemPost.remediation }, { status: 403 });
     }
 
     const nm = await notaMinimaDaEmpresa(sb, colab.empresa_id);
