@@ -10,7 +10,7 @@
  */
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import os from 'node:os';
 
 const exec = promisify(execFile);
@@ -61,6 +61,15 @@ async function main() {
     await scp(ip, 'worker-hetzner/.', '/root/worker/', 600000);
     await ssh(ip, 'cd /root/worker && docker build -t vw . 2>&1 | tail -3', 1200000);
     log('imagem vw pronta. verificando…');
+    // A imagem tem que conter TODO .mjs do worker (o Dockerfile copia arquivo a arquivo): módulo importado e esquecido no
+    // COPY sai num snapshot cujo worker morre no import, e todo render falha. Aborta ANTES de criar o snapshot.
+    const locais = readdirSync('worker-hetzner').filter((f) => f.endsWith('.mjs'));
+    const dentro = (await ssh(ip, 'docker run --rm --entrypoint ls vw /app', 30000)).stdout.split(/\s+/);
+    const faltam = locais.filter((f) => !dentro.includes(f));
+    if (faltam.length) throw new Error('imagem vw sem: ' + faltam.join(', '));
+    const prova = (await ssh(ip, `docker run --rm --entrypoint node vw -e "import('./saudacao.mjs').then(m=>console.log('saudacao ok', typeof m.videoNoTopDois))"`, 60000)).stdout.trim();
+    if (!/saudacao ok function/.test(prova)) throw new Error('saudacao.mjs não importa dentro da imagem: ' + prova);
+    log('imagem confere: ' + locais.length + ' módulos .mjs presentes, ' + prova);
     log((await ssh(ip, 'docker images vw --format "{{.Repository}}:{{.Tag}} {{.Size}}"', 15000)).stdout.trim());
 
     // cloud-init clean → garante que o user_data do PROVISION rode em boxes novas
