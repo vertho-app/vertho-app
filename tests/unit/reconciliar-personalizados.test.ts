@@ -416,3 +416,46 @@ describe('reconciliarPersonalizados · ambiente de demonstração fica fora', ()
     expect(ensureMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Célula de vídeo de KIT nascido da regra das preferências: a saudação só vai para quem tem o vídeo no top 2. A
+ * reconciliação tem que usar a MESMA régua, senão devolveria a célula à fila para sempre por causa de gente que nunca
+ * deve receber saudação (e pagaria o render/saudação disso).
+ */
+describe('reconciliarPersonalizados · célula de kit por preferência', () => {
+  const CEL = { id: 'cel-k', empresa_id: 'emp-1', cargo: 'Diretor(a) Escolar', disc_dominante: 'S', modulo_base_id: 'mb-1', created_at: '2026-10-01T00:00:00Z', render_fingerprint: null, kit_id: 'kit-1' };
+  const p = (i: number, prefs: Record<string, number>) => ({ id: `colab-${i}`, nome_completo: `Pessoa ${i}`, cargo: 'Diretor(a) Escolar', perfil_dominante: 'S', empresa_id: 'emp-1', pref_video_curto: 0, pref_video_longo: 0, pref_texto: 0, pref_audio: 0, pref_estudo_caso: 0, ...prefs });
+  const querVideo = p(1, { pref_video_curto: 7, pref_texto: 6 });
+  const naoQuer = p(2, { pref_texto: 7, pref_estudo_caso: 6 });
+  const semResposta = p(3, {});
+
+  beforeEach(() => { sb.reset(); escritaCasa = true; ensureMock.mockReset(); ensureMock.mockResolvedValue({ provisioned: true, alive: 1, reason: 'ok' }); });
+
+  it('kit por preferência: só quem tem vídeo no top 2 é lacuna; as outras pessoas da célula NÃO contam', async () => {
+    dados = { videos_gerados: [CEL], kits: [{ id: 'kit-1', desafio: { por_preferencia: true } }], colaboradores: [querVideo, naoQuer, semResposta], videos_personalizados: [] };
+    const r = await reconciliarPersonalizados({ executar: false });
+    expect(r.lacunas).toHaveLength(1);
+    expect(r.lacunas[0].faltantes.map((f) => f.colaboradorId)).toEqual(['colab-1']);
+    expect(r.pessoasSemVideoNominal).toBe(1);
+  });
+
+  it('kit anterior à regra (sem a marca) ou vídeo fora de kit: TODOS da célula, como sempre', async () => {
+    dados = { videos_gerados: [CEL], kits: [{ id: 'kit-1', desafio: { desafio_texto: 'x' } }], colaboradores: [querVideo, naoQuer, semResposta], videos_personalizados: [] };
+    expect((await reconciliarPersonalizados({ executar: false })).pessoasSemVideoNominal).toBe(3);
+    dados = { videos_gerados: [{ ...CEL, kit_id: null }], kits: [], colaboradores: [querVideo, naoQuer, semResposta], videos_personalizados: [] };
+    expect((await reconciliarPersonalizados({ executar: false })).pessoasSemVideoNominal).toBe(3);
+  });
+
+  it('célula por preferência em que ninguém quer vídeo: sem lacuna e nenhum render', async () => {
+    dados = { videos_gerados: [CEL], kits: [{ id: 'kit-1', desafio: { por_preferencia: true } }], colaboradores: [naoQuer, semResposta], videos_personalizados: [] };
+    const r = await reconciliarPersonalizados({ executar: true });
+    expect(r.lacunas).toHaveLength(0);
+    expect(r.celulasReenfileiradas).toEqual([]);
+  });
+
+  it('falha ao ler os kits LANÇA (não vira "kit antigo", que mandaria saudação a quem não deve)', async () => {
+    dados = { videos_gerados: [CEL], colaboradores: [querVideo], videos_personalizados: [] };
+    sb.falharEm({ tabela: 'kits', op: 'select', mensagem: 'kits fora' });
+    await expect(reconciliarPersonalizados({ executar: false })).rejects.toThrow(/kits fora/);
+  });
+});

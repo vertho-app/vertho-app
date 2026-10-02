@@ -10,6 +10,7 @@ import { uploadToBunny, storageGet, storageDelete, resolveBundle, SUPA, KEY, BUN
 import { masterizarAudio } from '../lib/video/masterizar-audio.mjs';
 // @ts-ignore — reusa o MESMO renderizador de saudação do worker (ESM puro, sem cópia nova).
 import { personalizar, primeiroNome } from '../worker-hetzner/personalizar.mjs';
+import { COLUNAS_PREFERENCIA, destinatariosDaSaudacao } from '../worker-hetzner/saudacao.mjs';
 
 const exec = promisify(execFile);
 const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
@@ -82,7 +83,7 @@ async function upsertPerso(videoId: string, colabId: string, fields: Record<stri
  */
 async function personalizarCelula(deckPath: string, videoId: string, inputProps: any): Promise<void> {
   if (!process.env.GEMINI_API_KEY) { console.warn(`[${videoId}] personalização pulada (sem GEMINI_API_KEY)`); return; }
-  const rows = await pgGet(`videos_gerados?id=eq.${videoId}&select=empresa_id,cargo,disc_dominante`).catch(() => []);
+  const rows = await pgGet(`videos_gerados?id=eq.${videoId}&select=empresa_id,cargo,disc_dominante,kit_id`).catch(() => []);
   const job = rows[0];
   if (!job) return; // jobId não é um vídeo de célula (render genérico/spike) → pula
   const disc = String(job.disc_dominante || '').trim().charAt(0).toUpperCase();
@@ -90,11 +91,20 @@ async function personalizarCelula(deckPath: string, videoId: string, inputProps:
     console.warn(`[${videoId}] personalização pulada (célula incompleta)`); return;
   }
   const colabs = await pgGet(
-    `colaboradores?empresa_id=eq.${job.empresa_id}&cargo=eq.${encodeURIComponent(job.cargo)}&select=id,nome_completo,perfil_dominante`,
+    `colaboradores?empresa_id=eq.${job.empresa_id}&cargo=eq.${encodeURIComponent(job.cargo)}&select=id,nome_completo,perfil_dominante,${COLUNAS_PREFERENCIA.join(',')}`,
   );
-  const inCell = colabs.filter(
+  const daCelula = colabs.filter(
     (c) => String(c.perfil_dominante || '').trim().charAt(0).toUpperCase() === disc && String(c.nome_completo || '').trim(),
   );
+  // Kit nascido da regra das preferências: a saudação só vai para quem tem o vídeo entre os 2 primeiros formatos.
+  // Falha ao ler a marca NÃO vira "kit antigo" calado: aborta a personalização (o deck já está publicado).
+  let porPreferencia = false;
+  if (job.kit_id) {
+    const kr = await pgGet(`kits?id=eq.${job.kit_id}&select=desafio`);
+    porPreferencia = kr[0]?.desafio?.por_preferencia === true;
+  }
+  const inCell = destinatariosDaSaudacao(daCelula, porPreferencia);
+  if (porPreferencia) console.log(`[${videoId}] saudação só para quem tem vídeo no top 2: ${inCell.length}/${daCelula.length}`);
   if (!inCell.length) { console.warn(`[${videoId}] célula ${job.cargo}/${disc} sem colaboradores`); return; }
   // PERSONALIZE_LIMIT (>0) limita quantos colaboradores personalizar — usado em
   // spikes/testes p/ não gerar a célula inteira. 0/ausente = todos (produção).

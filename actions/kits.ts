@@ -46,6 +46,12 @@ export interface GerarKitParams {
   empresaId?: string | null;
   aiConfig?: AIConfig;
   formatos?: readonly string[];
+  /**
+   * Kit nascido da regra "2 primeiros formatos das preferências" (fluxo completo, 02/10/2026): a ENTREGA passa a mostrar a
+   * cada pessoa só os 2 primeiros formatos dela. Vai marcado em `kits.desafio.por_preferencia` (a tabela não tem coluna livre)
+   * e SÓ nos kits novos: os anteriores seguem entregando todos os formatos, como as pessoas já recebem.
+   */
+  porPreferencia?: boolean;
   /** Cliente service-role já pronto (job em background pula a auth de request). */
   sb?: any;
   // ── Batch API (lote) ──────────────────────────────────────────────────────
@@ -92,7 +98,7 @@ export async function gerarKit({
   nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos = FORMATOS_PADRAO, sb: sbIn,
   aiRun, briefPreResolvido, pppBriefPreResolvido, fichaCargoPreResolvida, perfilPublico: perfilPublicoIn, skipVideo = false,
-  avatarGrupo: avatarGrupoIn = null, adiarVideo: adiarVideoIn = false,
+  avatarGrupo: avatarGrupoIn = null, adiarVideo: adiarVideoIn = false, porPreferencia = false,
 }: GerarKitParams) {
   try {
     // A5: `empresaId` vem do cliente (kit custa IA e grava no acervo dele).
@@ -143,7 +149,7 @@ export async function gerarKit({
 
     // 3) Kit (1 por brief×DISC). Marca 'generating' enquanto os formatos saem.
     const { data: kitRow, error: kErr } = await sb.from('kits')
-      .upsert({ brief_id: briefId, disc, desafio, status: 'generating', error: null }, { onConflict: 'brief_id,disc' })
+      .upsert({ brief_id: briefId, disc, desafio: porPreferencia ? { ...desafio, por_preferencia: true } : desafio, status: 'generating', error: null }, { onConflict: 'brief_id,disc' })
       .select('id').single();
     if (kErr) return { success: false, error: `kit upsert: ${kErr.message}` };
     const kitId = kitRow.id;
@@ -227,7 +233,7 @@ export interface GerarKitSemanalParams extends Omit<GerarKitParams, 'disc'> {
 export async function gerarKitSemanal({
   competencia, descritor, nivelMin = 1.0, nivelMax = 2.0, cargo = 'todos', contexto = 'generico',
   empresaId = null, aiConfig = {}, formatos, discs = ['D', 'I', 'S', 'C'], renderAudio = false,
-  sb, onProgress, useBatch = false, incluirVideo = true, perfilPublico: perfilPublicoIn,
+  sb, onProgress, useBatch = false, incluirVideo = true, perfilPublico: perfilPublicoIn, porPreferencia = false,
 }: GerarKitSemanalParams) {
   try {
     const total = discs.length;
@@ -290,7 +296,7 @@ export async function gerarKitSemanal({
         let done = 0;
         kits = await Promise.all(discs.map((disc) =>
           gerarKit({
-            competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk,
+            competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, porPreferencia, sb: sbk,
             aiRun: run, briefPreResolvido: brief, pppBriefPreResolvido: pppBrief, fichaCargoPreResolvida: fichaCargo, perfilPublico, skipVideo,
             avatarGrupo: avatarDoGrupo(), adiarVideo: true,
           }).then(async (k) => {
@@ -324,7 +330,7 @@ export async function gerarKitSemanal({
       for (const disc of discs) {
         await onProgress?.({ done: kits.length, total, current: `gerando kit ${disc}…`, kits: kits.map(resumoKit) });
         // sequencial: o 1º cria o brief; os demais reusam (resolverOuCriarBrief idempotente).
-        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, sb: sbk, fichaCargoPreResolvida: fichaCargo, perfilPublico, skipVideo, ...preSeq, avatarGrupo: avatarDoGrupo(), adiarVideo: true }));
+        kits.push(await gerarKit({ competencia, descritor, disc, nivelMin, nivelMax, cargo, contexto, empresaId, aiConfig, formatos, porPreferencia, sb: sbk, fichaCargoPreResolvida: fichaCargo, perfilPublico, skipVideo, ...preSeq, avatarGrupo: avatarDoGrupo(), adiarVideo: true }));
         await onProgress?.({ done: kits.length, total, current: `kit ${disc} concluído`, kits: kits.map(resumoKit) });
       }
     }

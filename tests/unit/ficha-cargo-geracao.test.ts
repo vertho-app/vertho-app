@@ -218,4 +218,21 @@ describe('o bloco CHEGA ao prompt de cada gerador semanal', () => {
     expect(capturas.length).toBe(1);
     expect(capturas[0].user).toContain(MARCA);
   });
+
+  it('gerarKit com porPreferencia MARCA o kit (desafio.por_preferencia); sem o parâmetro, não marca (kit antigo/botão manual)', async () => {
+    const { gerarKit } = await import('@/actions/kits');
+    const montar = () => criarSupabaseMock({
+      lista: (tabela) => (tabela === 'cargos_empresa' ? [FICHA] : []),
+      resolver: (tabela) => (tabela === 'kit_briefs'
+        ? { id: 'brief-1', brief: { ideia_central: 'Pedir apoio antes de esgotar', pontos_chave: ['a', 'b', 'c'], exemplo_ancora: 'Reunião que estoura', desafio_base: { acao: 'Pedir apoio a alguém antes de esgotar', dias: 3, limiar: 'em pelo menos 2 dos 3 dias' } }, modulo_base_id: 'mb-1', archived_at: null }
+        : null),
+    });
+    respostaIA = JSON.stringify({ desafio_texto: 'faça algo concreto', acao_observavel: 'uma ação visível', criterio_de_execucao: 'conta o que fez', por_que_cabe_na_semana: 'cabe sim' });
+    const marcado = montar();
+    await gerarKit({ competencia: 'C', descritor: 'D', disc: 'S', cargo: 'Coordenação Pedagógica', empresaId: EMPRESA, sb: marcado.client, formatos: [], skipVideo: true, pppBriefPreResolvido: null, porPreferencia: true });
+    expect(marcado.escritas.find((e) => e.tabela === 'kits' && e.op === 'upsert')!.payload.desafio.por_preferencia).toBe(true);
+    const comum = montar();
+    await gerarKit({ competencia: 'C', descritor: 'D', disc: 'S', cargo: 'Coordenação Pedagógica', empresaId: EMPRESA, sb: comum.client, formatos: [], skipVideo: true, pppBriefPreResolvido: null });
+    expect(comum.escritas.find((e) => e.tabela === 'kits' && e.op === 'upsert')!.payload.desafio).not.toHaveProperty('por_preferencia');
+  });
 });

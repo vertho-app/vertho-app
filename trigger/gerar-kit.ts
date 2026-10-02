@@ -29,6 +29,7 @@ export const gerarKitTask = task({
         useBatch: pp.useBatch, incluirVideo: pp.incluirVideo,
         // Subconjunto de formatos decidido por quem enfileirou (fluxo completo: 2 primeiros das preferências). Ausente = padrão.
         formatos: Array.isArray(pp.formatos) && pp.formatos.length ? pp.formatos : undefined,
+        porPreferencia: pp.porPreferencia === true,
         sb,
         onProgress: async (prog) => { await patch({ progress: prog }); },
       });

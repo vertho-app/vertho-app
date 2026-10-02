@@ -26,6 +26,7 @@ describe('fila: quem entra primeiro é atendido primeiro', () => {
   it('claim ordena pela entrada na fila, não pela criação do vídeo', () => {
     expect(SQL_CLAIM).toMatch(/ORDER BY updated_at, created_at\s+LIMIT 1 FOR UPDATE SKIP LOCKED/);
     expect(SQL_CLAIM).not.toMatch(/ORDER BY created_at/);
+    expect(SQL_CLAIM, 'o worker precisa do kit_id para saber quem recebe a saudação').toMatch(/v.kit_id/);
   });
   it('claim devolve a intenção de quem enfileirou e o token do claim', () => {
     expect(SQL_CLAIM).toContain('alvo.etapa AS etapa_pedida');

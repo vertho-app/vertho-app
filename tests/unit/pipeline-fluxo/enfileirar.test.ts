@@ -96,7 +96,7 @@ describe('enfileirarKit', () => {
     const sb = criarSupabaseMock({ escritaUnica: (_t, op) => (op === 'insert' ? { id: 'novo' } : null) });
     await enfileirarKit(sb.client, { empresaId: 'e1', item });
     const ins = sb.escritas.find((e) => e.op === 'insert')!;
-    expect(ins.payload.params).toMatchObject({ incluirVideo: false, renderAudio: false, formatos: ['texto', 'case'], discs: ['D', 'I'], useBatch: true, cargo: 'CAIXA' });
+    expect(ins.payload.params).toMatchObject({ incluirVideo: false, renderAudio: false, formatos: ['texto', 'case'], discs: ['D', 'I'], useBatch: true, cargo: 'CAIXA', porPreferencia: true });
     expect(trigger).toHaveBeenCalledWith('gerar-kit', { jobId: 'novo' }, {});
     const sb2 = criarSupabaseMock({ escritaUnica: (_t, op) => (op === 'insert' ? { id: 'n2' } : null) });
     await enfileirarKit(sb2.client, { empresaId: 'e1', item: { ...item, faltantes: ['S'] } });

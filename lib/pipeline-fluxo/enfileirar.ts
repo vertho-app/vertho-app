@@ -94,7 +94,7 @@ export async function enfileirarKit(sb: any, args: { empresaId: string; item: Ki
 
   const params = {
     nivelMin: item.nivelMin, nivelMax: item.nivelMax, cargo: item.cargo, contexto: item.contexto,
-    discs: item.faltantes, formatos: item.formatos,
+    discs: item.faltantes, formatos: item.formatos, porPreferencia: true,
     // Áudio PRÉ-RENDERIZADO (TTS) quando o podcast está no kit; vídeo só quando está entre os 2 primeiros de alguém da célula.
     renderAudio: item.formatos.includes('audio'), useBatch: item.faltantes.length >= 2, incluirVideo: item.video,
   };

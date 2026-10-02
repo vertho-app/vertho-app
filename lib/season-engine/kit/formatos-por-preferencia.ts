@@ -32,6 +32,14 @@ export function topDoisFormatos(colab: any): Array<'video' | FormatoKit> | null 
   return derivarPrioridadeFormatos(colab).slice(0, 2) as Array<'video' | FormatoKit>;
 }
 
+/**
+ * A pessoa tem o VÍDEO entre os 2 primeiros formatos? Decide quem recebe a saudação nominal numa célula de kit nascido da
+ * regra das preferências. A versão do worker da Hetzner (`worker-hetzner/saudacao.mjs`) é idêntica e travada por teste.
+ */
+export function videoNoTopDois(colab: any): boolean {
+  return !!topDoisFormatos(colab)?.includes('video');
+}
+
 export interface FormatosDaCelula {
   /** Formatos de conteúdo (texto, caso, roteiro de podcast) que o kit gera. */
   formatos: FormatoKit[];

@@ -62,7 +62,7 @@ export async function resolverKitDaSemana(
     // divergir fazia a mesma pessoa ver 3 formatos ou 1 dependendo de uma query.
     formatos[c.formato] = { id: c.id, url: c.url ?? null, titulo: c.titulo };
   }
-  return { kitId: d.kitId, desafio: { desafio_texto: d.desafio_texto, acao_observavel: d.acao_observavel, criterio_de_execucao: d.criterio_de_execucao }, formatos };
+  return { kitId: d.kitId, desafio: { desafio_texto: d.desafio_texto, acao_observavel: d.acao_observavel, criterio_de_execucao: d.criterio_de_execucao, ...(d.por_preferencia ? { por_preferencia: true } : {}) }, formatos };
 }
 
 /** Tipo do resolvedor em memória (pré-carregado): (competência:::descritor) → kit. */
@@ -385,7 +385,7 @@ async function aplicarDesafioDoPar(
 }
 
 /** Aplica o kit num objeto `conteudo` (mutação): formatos + core preferido + desafio. */
-async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; kitsCache?: KitsCache; colaboradorId?: string; semana?: number }) {
+async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null; formatoPref: Formato; formatosTop2?: Formato[] | null; kitsCache?: KitsCache; colaboradorId?: string; semana?: number }) {
   if (!conteudo) return;
   // Com cache pré-carregado: consulta em memória (sem query). Sem cache: resolve 1×.
   let kit: { kitId: string; desafio: any; formatos: Record<string, { id: string; url: string | null; titulo: string }> } | null;
@@ -430,6 +430,14 @@ async function overlayConteudo(sb: any, conteudo: any, args: { empresaId: string
   }
   conteudo.kit_id = kit.kitId;
   conteudo.formatos_disponiveis = { ...(conteudo.formatos_disponiveis || {}), ...kit.formatos }; // mantém vídeo existente
+  // Kit NOVO (marcado `por_preferencia`): a pessoa vê só os 2 primeiros formatos dela, e o vídeo só se for um deles. Kit
+  // anterior segue entregando tudo. Se nenhum dos 2 formatos existir no kit, mostra o que houver (nunca tela vazia).
+  const permitidos = kit.desafio?.por_preferencia ? args.formatosTop2 : null;
+  if (permitidos?.length) {
+    const filtrados = Object.fromEntries(Object.entries(conteudo.formatos_disponiveis).filter(([f]) => (permitidos as string[]).includes(f)));
+    if (Object.keys(filtrados).length) conteudo.formatos_disponiveis = filtrados;
+    conteudo.video_permitido = (permitidos as string[]).includes('video');
+  }
   // formato_core = preferido se disponível; senão o 1º disponível.
   const disp = Object.keys(conteudo.formatos_disponiveis || {});
   conteudo.formato_core = disp.includes(args.formatoPref) ? args.formatoPref : (disp[0] || conteudo.formato_core);
@@ -452,6 +460,8 @@ export async function overlayKitNaSemana(
     disc: string | null;
     cargo?: string | null;
     formatoPref: Formato;
+    /** Os 2 primeiros formatos da pessoa (`topDoisFormatos`, com texto + caso quando sem preferência). Só age em kit novo. */
+    formatosTop2?: Formato[] | null;
     competenciaFoco: string | null;
     kitsCache?: KitsCache;
     colaboradorId?: string;
@@ -467,10 +477,10 @@ export async function overlayKitNaSemana(
   if (!semanaPlan || semanaPlan.tipo !== 'conteudo') return;
   if (Array.isArray(semanaPlan.conteudos_dia) && semanaPlan.conteudos_dia.length) {
     for (const e of semanaPlan.conteudos_dia) {
-      await overlayConteudo(sb, e.conteudo, { empresaId: args.empresaId, competencia: e.competencia || args.competenciaFoco, descritor: e.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache, colaboradorId: args.colaboradorId, semana: semanaPlan.semana });
+      await overlayConteudo(sb, e.conteudo, { empresaId: args.empresaId, competencia: e.competencia || args.competenciaFoco, descritor: e.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, formatosTop2: args.formatosTop2, kitsCache: args.kitsCache, colaboradorId: args.colaboradorId, semana: semanaPlan.semana });
     }
     if (args.desafioUnicoPorCompetencia) manterUmDesafio(semanaPlan.conteudos_dia);
   } else {
-    await overlayConteudo(sb, semanaPlan.conteudo, { empresaId: args.empresaId, competencia: args.competenciaFoco, descritor: semanaPlan.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, kitsCache: args.kitsCache, colaboradorId: args.colaboradorId, semana: semanaPlan.semana });
+    await overlayConteudo(sb, semanaPlan.conteudo, { empresaId: args.empresaId, competencia: args.competenciaFoco, descritor: semanaPlan.descritor, disc: args.disc, cargo: args.cargo, formatoPref: args.formatoPref, formatosTop2: args.formatosTop2, kitsCache: args.kitsCache, colaboradorId: args.colaboradorId, semana: semanaPlan.semana });
   }
 }

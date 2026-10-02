@@ -34,7 +34,7 @@ export function cargoServe(cargoBrief: string | null | undefined, cargoColab: st
 export async function resolverDesafioDoKit(
   sb: any,
   args: { empresaId: string | null; competencia: string | null; descritor: string | null; disc: string | null; cargo?: string | null },
-): Promise<{ desafio_texto: string; acao_observavel?: string; criterio_de_execucao?: string; kitId: string } | null> {
+): Promise<{ desafio_texto: string; acao_observavel?: string; criterio_de_execucao?: string; kitId: string; por_preferencia?: boolean } | null> {
   if (!args.competencia || !args.descritor || !args.disc) return null;
   const disc = String(args.disc).trim().charAt(0).toUpperCase();
   if (!['D', 'I', 'S', 'C'].includes(disc)) return null;
@@ -69,7 +69,7 @@ export async function resolverDesafioDoKit(
       .select('id, desafio').eq('brief_id', b.id).eq('disc', disc).eq('status', 'published').maybeSingle();
     const d = kit?.desafio;
     if (d?.desafio_texto) {
-      return { desafio_texto: d.desafio_texto, acao_observavel: d.acao_observavel, criterio_de_execucao: d.criterio_de_execucao, kitId: kit.id };
+      return { desafio_texto: d.desafio_texto, acao_observavel: d.acao_observavel, criterio_de_execucao: d.criterio_de_execucao, kitId: kit.id, ...(d.por_preferencia ? { por_preferencia: true } : {}) };
     }
   }
   return null;

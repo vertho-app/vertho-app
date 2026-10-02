@@ -1283,7 +1283,8 @@ function ConteudoViewer({ conteudo, competencia, descritor, pilula, formatoAtivo
   }, [colaboradorAlvo, competencia, descritor, conteudo?.core_id, somenteLeitura]);
   const videoPronto = !!(vid?.available && vid?.status === 'done' && vid?.bunny_video_id && vid?.bunny_library);
   const videoPreparando = !!(vid?.available && ['processing', 'render_queued', 'rendering'].includes(vid?.status));
-  const temVideo = videoPronto || videoPreparando;
+  // Kit novo: o vídeo só aparece para quem o tem entre os 2 primeiros formatos (`video_permitido`, vindo do overlay).
+  const temVideo = (videoPronto || videoPreparando) && conteudo?.video_permitido !== false;
 
   // Formatos: conteúdo do kit (case/texto/audio) + vídeo da célula (quando há).
   const formatos = [...Object.keys(conteudo.formatos_disponiveis || {}).filter((f) => f !== 'video'), ...(temVideo ? ['video'] : [])];

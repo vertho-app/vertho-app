@@ -46,6 +46,7 @@
  */
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
+import { COLUNAS_PREFERENCIA_KIT, videoNoTopDois } from '@/lib/season-engine/kit/formatos-por-preferencia';
 
 export interface LacunaPersonalizacao {
   cellVideoId: string;
@@ -193,7 +194,7 @@ export async function reconciliarPersonalizados(opts: {
   //    ao terminar, e re-enfileirar o que está na fila seria trabalho em dobro.
   const celulasRaw = await lerPaginado<any>('células', (de, ate) => {
     let q = sb.from('videos_gerados')
-      .select('id, empresa_id, cargo, disc_dominante, modulo_base_id, created_at, render_fingerprint')
+      .select('id, empresa_id, cargo, disc_dominante, modulo_base_id, created_at, render_fingerprint, kit_id')
       .eq('status', 'done')
       .not('bunny_video_id', 'is', null)
       .order('id')
@@ -239,10 +240,21 @@ export async function reconciliarPersonalizados(opts: {
   const empresas = [...new Set(celulas.map((c: any) => c.empresa_id).filter(Boolean))];
   const colabs = await lerPaginado<any>('colaboradores', (de, ate) => sb
     .from('colaboradores')
-    .select('id, nome_completo, cargo, perfil_dominante, empresa_id')
+    .select(`id, nome_completo, cargo, perfil_dominante, empresa_id, ${COLUNAS_PREFERENCIA_KIT}`)
     .in('empresa_id', empresas)
     .order('id')
     .range(de, ate));
+
+  // Células de kit nascido da regra das preferências: só quem tem o vídeo no top 2 conta como "sem saudação". Sem isto
+  // a reconciliação devolveria à fila, para sempre, células cujas outras pessoas NUNCA devem receber a saudação.
+  const kitIds = [...new Set(celulas.map((c: any) => c.kit_id).filter(Boolean))] as string[];
+  const kitsPorPreferencia = new Set<string>();
+  for (let i = 0; i < kitIds.length; i += 150) {
+    const { data: ks, error: errKits } = await sb.from('kits').select('id, desafio').in('id', kitIds.slice(i, i + 150));
+    // Falha de leitura LANÇA: tratar como "kit antigo" mandaria saudação a quem não deve receber (e pagaria por ela).
+    if (errKits) throw new Error(`reconciliar: leitura de kits falhou (${errKits.message})`);
+    for (const k of (ks as any[]) || []) if (k.desafio?.por_preferencia === true) kitsPorPreferencia.add(k.id);
+  }
 
   const agora = Date.now();
   const lacunas: LacunaPersonalizacao[] = [];
@@ -251,11 +263,13 @@ export async function reconciliarPersonalizados(opts: {
     const disc = String(cel.disc_dominante || '').trim().toUpperCase();
     if (!cel.empresa_id || !cel.cargo || !['D', 'I', 'S', 'C'].includes(disc)) continue;
 
+    const porPreferencia = !!cel.kit_id && kitsPorPreferencia.has(cel.kit_id);
     const daCelula = (colabs as any[] || []).filter((c) =>
       c.empresa_id === cel.empresa_id &&
       c.cargo === cel.cargo &&
       String(c.perfil_dominante || '').trim().charAt(0).toUpperCase() === disc &&
-      String(c.nome_completo || '').trim());
+      String(c.nome_completo || '').trim() &&
+      (!porPreferencia || videoNoTopDois(c)));
     if (!daCelula.length) continue;
 
     const perso = persoPorCelula.get(cel.id) || new Map();

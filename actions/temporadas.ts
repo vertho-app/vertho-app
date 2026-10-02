@@ -7,6 +7,7 @@ import { selectDescriptorsPiloto } from '@/lib/season-engine/select-descriptors'
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { entregaEhReal } from '@/lib/season-engine/week-gating';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
+import { topDoisFormatos } from '@/lib/season-engine/kit/formatos-por-preferencia';
 import { getProgramaConfigByModo, getProgramaConfigDaTrilha, resolverModoColab } from '@/lib/season-engine/programa-config';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
 import { gerarTemporadaCoreHeadless, normalizarSemanas } from '@/lib/season-engine/trilha-core';
@@ -516,6 +517,8 @@ async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { co
   if (!colab?.empresa_id || !Array.isArray(plano)) return;
   try {
     const formatoPref = formatoPreferido(colab);
+    // Só age em kit marcado `por_preferencia`; sem preferência declarada, a pessoa é tratada como texto + estudo de caso.
+    const formatosTop2 = (topDoisFormatos(colab) ?? ['texto', 'case']) as Array<'video' | 'audio' | 'texto' | 'case'>;
     const disc = (colab.perfil_dominante || '').charAt(0).toUpperCase() || null;
     const competenciaFoco = trilha.competencia_foco || (Array.isArray(trilha.competencias_foco) ? trilha.competencias_foco[0] : null);
     // Pré-carrega TODOS os kits da trilha em 3 queries (antes: 2-3 queries POR
@@ -533,7 +536,7 @@ async function aplicarOverlayKit(sb: any, plano: any[], colab: any, trilha: { co
     await Promise.all(
       plano.filter((s: any) => s?.tipo === 'conteudo').map((s: any) =>
         overlayKitNaSemana(sb, s, {
-          empresaId: colab.empresa_id, disc, cargo: colab.cargo, formatoPref, competenciaFoco, kitsCache,
+          empresaId: colab.empresa_id, disc, cargo: colab.cargo, formatoPref, formatosTop2, competenciaFoco, kitsCache,
           // Jornada: 1 tarefa por semana. Vem do CARIMBO da trilha (não do
           // sys_config atual da empresa) — trocar o modo da empresa não pode
           // mudar a entrega de quem já está no meio de uma trilha.

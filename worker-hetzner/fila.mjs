@@ -67,7 +67,7 @@ export const SQL_CLAIM = `
    WHERE v.id = alvo.id
   RETURNING v.id, alvo.etapa AS etapa_pedida, v.claimed_at::text AS claim_token,
             v.render_inputprops, v.render_fingerprint, v.render_scale, v.roteiro,
-            v.empresa_id, v.cargo, v.disc_dominante, v.bunny_video_id, v.bunny_library`;
+            v.empresa_id, v.cargo, v.disc_dominante, v.bunny_video_id, v.bunny_library, v.kit_id`;
 
 export async function claim(pool) {
   const { rows } = await pool.query(SQL_CLAIM);

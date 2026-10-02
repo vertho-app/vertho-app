@@ -17,6 +17,7 @@ import path from 'node:path';
 import { readFile, access, rm } from 'node:fs/promises';
 import { ensureBrowser, selectComposition, renderMedia } from '@remotion/renderer';
 import { personalizar, primeiroNome } from './personalizar.mjs';
+import { COLUNAS_PREFERENCIA, destinatariosDaSaudacao } from './saudacao.mjs';
 import { masterizarAudio } from './masterizar-audio.mjs';
 import { registrarPublicacao, confirmarPublicacoes } from './publicacao-bunny.mjs';
 import {
@@ -139,11 +140,19 @@ async function personalizeCell(job, deckPath) {
   if (!job.empresa_id || !job.cargo || !['D', 'I', 'S', 'C'].includes(disc)) {
     log(`personalização pulada (célula incompleta) ${job.id}`); return;
   }
-  const { rows: colabs } = await pool.query(
-    `SELECT id, nome_completo FROM colaboradores
+  const { rows: daCelula } = await pool.query(
+    `SELECT id, nome_completo, ${COLUNAS_PREFERENCIA.join(', ')} FROM colaboradores
      WHERE empresa_id=$1 AND cargo=$2 AND upper(left(coalesce(perfil_dominante,''),1))=$3
        AND coalesce(trim(nome_completo),'') <> ''`,
     [job.empresa_id, job.cargo, disc]);
+  // Kit nascido da regra das preferências: a saudação só vai para quem tem o vídeo entre os 2 primeiros formatos.
+  let porPreferencia = false;
+  if (job.kit_id) {
+    const { rows: kr } = await pool.query("SELECT (desafio->>'por_preferencia') = 'true' AS por_pref FROM kits WHERE id=$1", [job.kit_id]);
+    porPreferencia = !!kr[0]?.por_pref;
+  }
+  const colabs = destinatariosDaSaudacao(daCelula, porPreferencia);
+  if (porPreferencia) log(`saudação só para quem tem vídeo no top 2: ${colabs.length}/${daCelula.length} da célula ${job.cargo}/${disc}`);
   if (!colabs.length) { log(`célula ${job.cargo}/${disc} sem colaboradores p/ personalizar`); return; }
   // PERSONALIZE_LIMIT (>0) limita quantos personalizar (spikes/testes). 0/ausente = todos.
   const limit = parseInt(process.env.PERSONALIZE_LIMIT || '0', 10) || 0;
