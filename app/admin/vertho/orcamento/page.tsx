@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ArrowRight, BookOpen, Calculator, School, Users, Briefcase, Vote, Building2, Film, FileText, Headphones, Clapperboard, Route, ShieldCheck, Save, FolderOpen, Trash2, Copy, Send } from 'lucide-react';
 import BackButton from '@/components/back-button';
 import { CALLS, PRESETS, calcCost, custoColabNaJornada, infraFixaTotal } from '@/lib/ia-cost-catalog';
-import { SIMULADORES } from '@/lib/simuladores/acesso-cargo';
+import type { Simulador } from '@/lib/simuladores/acesso-cargo';
 import {
   entradasPadrao,
   escopoPropostaDoCenario,
@@ -31,10 +31,14 @@ import {
   ORCAMENTO_DEFAULTS,
   CONTEUDO_POR_FORMATO_DEFAULT,
   ROTULO_SIMULADOR,
-  acessosSimuladores,
   calcularProjeto,
-  custoSimuladoresBrl,
+  configSimuladoresPadrao,
+  margemSimuladorPct,
+  precoMinimoSimuladorBrl,
   semSimuladores,
+  simuladoresDoOrcamento,
+  type ConfigSimulador,
+  type ConfigSimuladores,
   type PessoasPorSimulador,
   custoConteudoComReuso,
   distribuirMatrizes,
@@ -108,6 +112,37 @@ const PRECOS_DEFAULT = ORCAMENTO_DEFAULTS;
 function moneyBRL(v: number, locale: string) {
   return new Intl.NumberFormat(locale, { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 }).format(v);
 }
+
+function moneyUSD(v: number, locale: string) {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  }).format(v);
+}
+
+/** O que entra em cada parcela do custo, para quem ajusta os números do card. */
+const AJUDA_SIMULADOR: Record<Simulador, { treinos: string; turnos: string; fixo: string; turno: string }> = {
+  vendas: {
+    treinos: '2 por semana nas semanas 2, 4 e 6',
+    turnos: 'custo medido com 8',
+    fixo: 'cenário + avaliação do gerente',
+    turno: 'cliente, moderador e intenção',
+  },
+  atendimento: {
+    treinos: '2 por semana nas semanas 2, 4 e 6',
+    turnos: 'custo medido com 8',
+    fixo: 'avaliação pela matriz',
+    turno: 'pessoa atendida (simulada)',
+  },
+  lideranca: {
+    treinos: 'jornada de 5 encontros',
+    turnos: 'de 3 a 16 por encontro',
+    fixo: 'abertura, consequências e avaliação',
+    turno: 'personagem',
+  },
+};
 
 function moneyBRLUnit(v: number, locale: string) {
   return new Intl.NumberFormat(locale, {
@@ -297,6 +332,11 @@ export default function OrcamentoPage() {
   const [comAvatar, setComAvatar] = useState(true);
   // Pessoas com acesso a cada simulador (zero = fora do escopo).
   const [simuladores, setSimuladores] = useState<PessoasPorSimulador>(semSimuladores());
+  // Preço, treinos, turnos e custo de cada simulador (02/10/2026).
+  const [configSimuladores, setConfigSimuladores] = useState<ConfigSimuladores>(configSimuladoresPadrao());
+  function setConfigSimulador(s: Simulador, k: keyof ConfigSimulador, v: number) {
+    setConfigSimuladores((atual) => ({ ...atual, [s]: { ...atual[s], [k]: v } }));
+  }
   const reusoConteudo = reusoConteudoPorCelula(nColabs, nPerfis);
 
   // Inputs de pricing
@@ -347,14 +387,15 @@ export default function OrcamentoPage() {
     const infra = infraFixaTotal();
     const infraMesUsd = ((infra.min + infra.max) / 2) / Math.max(1, pricing.clientesAtivos);
     const custoInfraBrl = infraMesUsd * mesesPrograma * pricing.cotacao;
-    const acessosSimulador = acessosSimuladores(simuladores, nColabs);
-    const custoSimuladorBrl = custoSimuladoresBrl({
-      acessos: acessosSimulador,
-      treinosPessoaCiclo: pricing.treinosSimuladorPessoaCiclo,
-      custoTreinoUsd: pricing.custoTreinoSimuladorUsd,
+    const sims = simuladoresDoOrcamento({
+      pessoas: simuladores,
+      pessoasDoPrograma: nColabs,
+      config: configSimuladores,
       ciclos,
       cotacao: pricing.cotacao,
     });
+    const acessosSimulador = sims.acessos;
+    const custoSimuladorBrl = sims.custoBrl;
     const custoOperacionalBrl = custoIABrl + custoHorasBrl + custoMsgBrl + custoInfraBrl + custoSimuladorBrl;
     const contingenciaRate = Math.max(0, pricing.contingenciaPct) / 100;
     const custoContingenciaBrl = custoOperacionalBrl * contingenciaRate;
@@ -381,7 +422,10 @@ export default function OrcamentoPage() {
         matrizesNovas,
         matrizesAdaptadas,
         workshop: metodo === 'workshop',
-        simuladorAcessos: acessosSimulador,
+        simuladores: sims.itens.map((i) => ({
+          acessos: i.acessos,
+          precoPessoaCiclo: configSimuladores[i.simulador].precoPessoaCiclo,
+        })),
         parcelas,
       },
       {
@@ -391,7 +435,6 @@ export default function OrcamentoPage() {
         matrizNova: pricing.precoMatrizNova,
         matrizAdaptada: pricing.precoMatrizAdaptada,
         workshop: pricing.adicionalWorkshop,
-        simuladorPessoaCiclo: pricing.precoSimuladorPessoaCiclo,
         descontoPct: pricing.descontoPct,
         margemAlvoPct: pricing.margemAlvoPct,
       },
@@ -415,9 +458,26 @@ export default function OrcamentoPage() {
     const tabelaWorkshop = metodo === 'workshop' ? nClusters * pricing.adicionalWorkshop : 0;
     const tabelaPessoasCiclo = nColabs * pricing.precoPessoaCiclo;
 
+    // Cada simulador sozinho: preço mínimo para a margem-alvo e margem no preço
+    // informado, com o canal e os impostos deste cenário.
+    const simuladoresItens = sims.itens.map((i) => {
+      const regua = {
+        custoPessoaCicloBrl: i.custoPessoaCicloBrl,
+        contingenciaPct: pricing.contingenciaPct,
+        impostosPct: pricing.impostosPct,
+        comissaoPct: comissao.percentual,
+      };
+      return {
+        ...i,
+        precoMinimoBrl: precoMinimoSimuladorBrl({ ...regua, margemAlvoPct: pricing.margemAlvoPct }),
+        margemPct: margemSimuladorPct({ ...regua, precoPessoaCiclo: configSimuladores[i.simulador].precoPessoaCiclo }),
+      };
+    });
+
     return {
       tabelaPrograma: projeto.programa,
       tabelaSimuladores: projeto.simuladores,
+      simuladoresItens,
       acessosSimulador,
       custoSimuladorBrl,
       oneTimeTabela: projeto.oneTime,
@@ -471,7 +531,7 @@ export default function OrcamentoPage() {
       tabelaPerfis,
       tabelaWorkshop,
     };
-  }, [nClusters, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, tipoComissao, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, comAvatar, reusoConteudo, simuladores]);
+  }, [nClusters, nPerfis, metodo, nColabs, ciclosPorAno, matrizNovas, tipoComissao, preset, cfgJornada, pricing, conteudoColab, nVideosExtraidos, auditarExtracao, comAvatar, reusoConteudo, simuladores, configSimuladores]);
 
   // ── Orçamento salvo (mig 253) ──────────────────────────────────────────────
   // `id` nulo = cenário novo; preenchido = este cenário já existe no banco e
@@ -525,6 +585,7 @@ export default function OrcamentoPage() {
       auditarExtracao,
       comAvatar,
       simuladores,
+      configSimuladores,
       pricing,
     };
   }
@@ -547,6 +608,7 @@ export default function OrcamentoPage() {
     setAuditarExtracao(e.auditarExtracao);
     setComAvatar(e.comAvatar);
     setSimuladores(e.simuladores);
+    setConfigSimuladores(e.configSimuladores);
     setPricing(e.pricing);
   }
 
@@ -1006,30 +1068,79 @@ export default function OrcamentoPage() {
           </div>
         </div>
 
-        {/* Simuladores: pessoas com acesso a cada um. Zero = fora do escopo. */}
-        <div className="mt-3">
-          <p className="mb-1 text-[10px] uppercase tracking-widest text-gray-500">Simuladores · pessoas com acesso</p>
-          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
-            {SIMULADORES.map((s) => (
-              <FieldNumber key={s} locale={locale} icon={<Users size={14} />} label={ROTULO_SIMULADOR[s]}
-                sub={`até ${nColabs.toLocaleString(locale)} · ${money(pricing.precoSimuladorPessoaCiclo)}/pessoa/ciclo`}
-                value={simuladores[s]}
-                onChange={(v) => setSimuladores((atual) => ({ ...atual, [s]: Math.min(nColabs, v) }))}
-                min={0} />
-            ))}
-          </div>
-          {calc.acessosSimulador > 0 && pricing.precoSimuladorPessoaCiclo === 0 && (
-            <p className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-amber-300">
-              <ShieldCheck size={12} /> Simulador no escopo com preço R$ 0: ele entra na proposta e no custo, mas não no valor. Defina o preço por pessoa/ciclo na régua abaixo.
-            </p>
-          )}
-        </div>
+      </div>
 
+      {/* Simuladores: escopo, preço, uso e custo de cada um no mesmo card (02/10/2026) */}
+      <div className="rounded-sm border border-white/10 bg-white/[0.02] p-4 mb-5">
+        <p className="text-xs uppercase tracking-widest text-amber-300 mb-1">02 · Simuladores</p>
+        <p className="mb-3 text-[10px] text-gray-500">
+          Cada simulador com o seu preço, uso e custo. Zero pessoas com acesso deixa o simulador fora do escopo.
+          O custo de IA é o pior caso medido nos ensaios de setembro, ainda sem uso real: recalibrar quando houver.
+        </p>
+        <div className="grid gap-3 lg:grid-cols-3">
+          {calc.simuladoresItens.map((item) => {
+            const s = item.simulador;
+            const cfg = configSimuladores[s];
+            const ajuda = AJUDA_SIMULADOR[s];
+            const noEscopo = item.acessos > 0;
+            return (
+              <div key={s} className={`rounded-xl border p-3 ${noEscopo ? 'border-cyan-300/25 bg-cyan-300/[0.03]' : 'border-white/10 bg-white/[0.015]'}`}>
+                <div className="mb-2 flex items-baseline justify-between gap-2">
+                  <p className="text-sm font-bold text-white">{ROTULO_SIMULADOR[s]}</p>
+                  <p className={`text-[10px] font-semibold ${noEscopo ? 'text-cyan-300' : 'text-gray-500'}`}>
+                    {noEscopo ? `${item.acessos.toLocaleString(locale)} ${item.acessos === 1 ? 'acesso' : 'acessos'}` : 'fora do escopo'}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <FieldNumber locale={locale} icon={<Users size={14} />} label="Pessoas" sub={`com acesso · até ${nColabs.toLocaleString(locale)}`}
+                    value={simuladores[s]}
+                    onChange={(v) => setSimuladores((atual) => ({ ...atual, [s]: Math.min(nColabs, v) }))}
+                    min={0} />
+                  <FieldNumber locale={locale} label="Preço / pessoa / ciclo" sub={cfg.precoPessoaCiclo === 0 ? 'sem preço: defina antes da proposta' : 'R$ por acesso'}
+                    value={cfg.precoPessoaCiclo} onChange={(v) => setConfigSimulador(s, 'precoPessoaCiclo', v)} min={0} allowDecimals />
+                  <FieldNumber locale={locale} label="Treinos / pessoa / ciclo" sub={ajuda.treinos}
+                    value={cfg.treinosPessoaCiclo} onChange={(v) => setConfigSimulador(s, 'treinosPessoaCiclo', v)} min={0} />
+                  <FieldNumber locale={locale} label="Turnos / treino" sub={ajuda.turnos}
+                    value={cfg.turnosPorTreino} onChange={(v) => setConfigSimulador(s, 'turnosPorTreino', v)} min={0} />
+                  <FieldNumber locale={locale} label="Custo fixo / treino (USD)" sub={ajuda.fixo}
+                    value={cfg.custoFixoTreinoUsd} onChange={(v) => setConfigSimulador(s, 'custoFixoTreinoUsd', v)} min={0} allowDecimals casasDecimais={4} />
+                  <FieldNumber locale={locale} label="Custo / turno (USD)" sub={ajuda.turno}
+                    value={cfg.custoTurnoUsd} onChange={(v) => setConfigSimulador(s, 'custoTurnoUsd', v)} min={0} allowDecimals casasDecimais={4} />
+                </div>
+                <div className="mt-3 space-y-1 border-t border-white/[0.07] pt-2">
+                  <Row label="Custo / treino" value={moneyUSD(item.custoTreinoUsd, locale)} />
+                  <Row label="Custo / pessoa / ciclo" value={money(item.custoPessoaCicloBrl)} />
+                  <Row label={`Preço mínimo · margem ${pricing.margemAlvoPct.toLocaleString(locale)}%`}
+                    value={Number.isFinite(item.precoMinimoBrl) ? money(item.precoMinimoBrl) : 'nenhum preço fecha'} tone="amber" />
+                  {item.margemPct != null && (
+                    <Row label="Margem no preço informado" value={`${item.margemPct.toLocaleString(locale, { maximumFractionDigits: 1 })}%`}
+                      tone={item.margemPct + 1e-9 < pricing.margemAlvoPct ? 'amber' : 'emerald'} />
+                  )}
+                  {noEscopo && (
+                    <>
+                      <Row label={`Valor no contrato · ${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'}`} value={money(item.valorBrl)} />
+                      <Row label="Custo de IA no contrato" value={money(item.custoBrl)} muted />
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-[10px] text-gray-500">
+          Preço mínimo e margem usam o canal {calc.comissaoLabel} ({calc.comissaoPct.toFixed(0)}%), impostos de {pricing.impostosPct.toLocaleString(locale)}% e
+          contingência de {pricing.contingenciaPct.toLocaleString(locale)}% deste cenário, antes de desconto.
+        </p>
+        {calc.simuladoresItens.some((i) => i.acessos > 0 && configSimuladores[i.simulador].precoPessoaCiclo === 0) && (
+          <p className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-amber-300">
+            <ShieldCheck size={12} /> Simulador no escopo com preço R$ 0: ele entra na proposta e no custo, mas não no valor.
+          </p>
+        )}
       </div>
 
       {/* Tabela de preços */}
       <div className="rounded-sm border border-white/10 bg-white/[0.02] p-4 mb-5">
-        <p className="text-xs uppercase tracking-widest text-amber-300 mb-1">02 · Régua de preço</p>
+        <p className="text-xs uppercase tracking-widest text-amber-300 mb-1">03 · Régua de preço</p>
         <p className="mb-3 text-[10px] text-gray-500">A mesma tabela alimenta a sugestão automática do formulário de propostas.</p>
         <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4">
           <FieldNumber locale={locale} label={t('pricing.exchange')} sub={t('pricing.perUsd', { value: money(pricing.cotacao) })} value={pricing.cotacao} onChange={(v) => setPricingField('cotacao', v)} allowDecimals min={0} />
@@ -1039,7 +1150,6 @@ export default function OrcamentoPage() {
           <FieldNumber locale={locale} label="Preço / matriz nova" sub={`${money(pricing.precoMatrizNova)} cobrado por matriz`} value={pricing.precoMatrizNova} onChange={(v) => setPricingField('precoMatrizNova', v)} min={0} />
           <FieldNumber locale={locale} label="Preço / matriz adaptada" sub={`${money(pricing.precoMatrizAdaptada)} cobrado por matriz`} value={pricing.precoMatrizAdaptada} onChange={(v) => setPricingField('precoMatrizAdaptada', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.workshopPerCluster')} sub={t('pricing.ifWorkshop', { value: money(pricing.adicionalWorkshop) })} value={pricing.adicionalWorkshop} onChange={(v) => setPricingField('adicionalWorkshop', v)} min={0} />
-          <FieldNumber locale={locale} label="Simulador / pessoa / ciclo" sub={pricing.precoSimuladorPessoaCiclo === 0 ? 'sem régua ainda: defina antes da proposta' : `${money(pricing.precoSimuladorPessoaCiclo)} por acesso`} value={pricing.precoSimuladorPessoaCiclo} onChange={(v) => setPricingField('precoSimuladorPessoaCiclo', v)} min={0} />
           <FieldNumber locale={locale} label={t('pricing.discount')} sub={`piso: ${calc.descontoMaxPct.toFixed(1)}%`} value={pricing.descontoPct} onChange={(v) => setPricingField('descontoPct', v)} min={0} allowDecimals />
           <FieldNumber locale={locale} label="Margem-alvo (%)" sub="define o desconto máximo" value={pricing.margemAlvoPct} onChange={(v) => setPricingField('margemAlvoPct', v)} min={0} allowDecimals />
           <FieldNumber locale={locale} label="Impostos (%)" sub={pricing.impostosPct === 0 ? 'confirmar antes da proposta' : 'sobre a receita final'} value={pricing.impostosPct} onChange={(v) => setPricingField('impostosPct', v)} min={0} allowDecimals />
@@ -1049,7 +1159,7 @@ export default function OrcamentoPage() {
 
       {/* Custo de entrega — as linhas que faltavam para a margem significar algo */}
       <div className="rounded-sm border border-white/10 bg-white/[0.02] p-4 mb-5">
-        <p className="text-xs uppercase tracking-widest text-amber-300 mb-1">03 · Custo de entrega</p>
+        <p className="text-xs uppercase tracking-widest text-amber-300 mb-1">04 · Custo de entrega</p>
         <p className="text-[10px] text-gray-500 mb-3">
           As horas são custo interno: entram no custo all-in e reduzem a margem, mas não são somadas
           novamente ao preço das matrizes. O valor cobrado ao cliente fica na régua acima.
@@ -1108,8 +1218,6 @@ export default function OrcamentoPage() {
           <FieldNumber locale={locale} label="Horas / workshop" sub="por unidade" value={pricing.horasWorkshop} onChange={(v) => setPricingField('horasWorkshop', v)} min={0} />
           <FieldNumber locale={locale} label="Mensagens / pessoa / ciclo" sub={`${moneyBRLUnit(pricing.custoMsgUnitario, locale)} cada · UTILITY`} value={pricing.msgsPorPessoaCiclo} onChange={(v) => setPricingField('msgsPorPessoaCiclo', v)} min={0} />
           <FieldNumber locale={locale} label="Clientes ativos" sub="rateio da infra fixa" value={pricing.clientesAtivos} onChange={(v) => setPricingField('clientesAtivos', v)} min={1} />
-          <FieldNumber locale={locale} label="Treinos simulador / pessoa / ciclo" sub="2 por semana nas semanas 2, 4 e 6" value={pricing.treinosSimuladorPessoaCiclo} onChange={(v) => setPricingField('treinosSimuladorPessoaCiclo', v)} min={0} />
-          <FieldNumber locale={locale} label="Custo / treino (USD)" sub="pior caso medido: atendimento" value={pricing.custoTreinoSimuladorUsd} onChange={(v) => setPricingField('custoTreinoSimuladorUsd', v)} min={0} allowDecimals />
         </div>
         <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
           <div className="rounded-lg bg-white/[0.03] px-3 py-2">
@@ -1235,6 +1343,9 @@ export default function OrcamentoPage() {
             <div className="mt-2 space-y-0.5 text-[11px] text-gray-400">
               <div className="flex justify-between"><span>{t('financial.oneTime')}</span><span>{money(calc.oneTimeTabela)}</span></div>
               <div className="flex justify-between"><span>Programa · {calc.ciclos} {calc.ciclos === 1 ? 'ciclo' : 'ciclos'}</span><span>{money(calc.tabelaPrograma)}</span></div>
+              {calc.tabelaSimuladores > 0 && (
+                <div className="flex justify-between"><span>Simuladores</span><span>{money(calc.tabelaSimuladores)}</span></div>
+              )}
               {calc.descontoTotal > 0 && (
                 <div className="flex justify-between text-amber-300"><span>{t('financial.discountPct', { value: pricing.descontoPct.toLocaleString(locale) })}</span><span>- {money(calc.descontoTotal)}</span></div>
               )}
@@ -1629,9 +1740,11 @@ export default function OrcamentoPage() {
             <p className="text-[10px] uppercase text-gray-500 mb-1 mt-3">Programa</p>
             <Row label={`${nColabs.toLocaleString(locale)} pessoas × ${money(pricing.precoPessoaCiclo)} / ciclo`} value={money(calc.tabelaPessoasCiclo)} />
             <Row label={`× ${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'} de ${cfgJornada.semanas} semanas`} value={money(calc.tabelaPrograma)} />
-            {calc.acessosSimulador > 0 && (
-              <Row label={`Simuladores: ${calc.acessosSimulador.toLocaleString(locale)} acessos × ${money(pricing.precoSimuladorPessoaCiclo)} × ${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'}`} value={money(calc.tabelaSimuladores)} />
-            )}
+            {calc.simuladoresItens.filter((i) => i.acessos > 0).map((i) => (
+              <Row key={i.simulador}
+                label={`${ROTULO_SIMULADOR[i.simulador]}: ${i.acessos.toLocaleString(locale)} × ${money(configSimuladores[i.simulador].precoPessoaCiclo)} × ${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'}`}
+                value={money(i.valorBrl)} />
+            ))}
 
             <div className="pt-1.5 border-t border-white/5 mt-2">
               <Row label="Valor do projeto (tabela)" value={money(calc.valorTotalTabela)} bold />
@@ -1713,7 +1826,7 @@ function CalculatedField({
 }
 
 function FieldNumber({
-  icon, label, sub, value, onChange, min = 0, allowDecimals = false,
+  icon, label, sub, value, onChange, min = 0, allowDecimals = false, casasDecimais = 2,
   locale,
 }: {
   icon?: React.ReactNode;
@@ -1723,12 +1836,14 @@ function FieldNumber({
   onChange: (v: number) => void;
   min?: number;
   allowDecimals?: boolean;
+  /** Custo por turno é US$ 0,0069: com duas casas, sair do campo gravava 0,01. */
+  casasDecimais?: number;
   locale: string;
 }) {
   const fmt = (n: number) =>
     n.toLocaleString(locale, {
       minimumFractionDigits: 0,
-      maximumFractionDigits: allowDecimals ? 2 : 0,
+      maximumFractionDigits: allowDecimals ? casasDecimais : 0,
     });
 
   function parseBR(s: string): number {

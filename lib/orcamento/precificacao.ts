@@ -30,8 +30,6 @@ export interface TabelaPreco {
   matrizAdaptada: number;
   /** R$ por unidade quando o mapeamento é por workshop presencial. */
   workshop: number;
-  /** R$ por pessoa com acesso a UM simulador, por ciclo. Ausente = zero. */
-  simuladorPessoaCiclo?: number;
   descontoPct: number;
   /** Piso de margem que decide o desconto máximo. */
   margemAlvoPct: number;
@@ -64,19 +62,7 @@ export const ORCAMENTO_DEFAULTS = {
   msgsPorPessoaCiclo: 25,
   custoMsgUnitario: 0.035,
   clientesAtivos: 2,
-  // Simuladores (vendas, atendimento, liderança), decisão do Rodrigo em
-  // 17/09/2026: cobrados por pessoa com acesso e por ciclo, mas SEM régua de
-  // preço ainda. Zero aqui não é cortesia: a tela avisa quando um simulador
-  // entra no escopo com preço zero.
-  precoSimuladorPessoaCiclo: 0,
-  // 2 treinos por semana nas semanas 2, 4 e 6 da jornada (Rodrigo, 17/09/2026).
-  treinosSimuladorPessoaCiclo: 6,
-  // Pior caso por treino (19/09/2026), pelas chamadas medidas no ledger e 8
-  // turnos: atendimento US$ 0,22 (avaliador da matriz de 30 descritores até
-  // US$ 0,166 + US$ 0,0069 por turno), vendas pace-7 US$ 0,16 e um encontro de
-  // liderança US$ 0,12. Era 0,155 (vendas pace-2, 13-15/09). As réguas novas
-  // ainda não têm uso real: recalibrar quando houver.
-  custoTreinoSimuladorUsd: 0.22,
+  // Simuladores: cada um tem a sua régua em `SIMULADORES_DEFAULT` (02/10/2026).
 };
 
 /**
@@ -120,6 +106,146 @@ export function custoSimuladoresBrl(p: {
   const pos = (v: number) => Math.max(0, Number(v) || 0);
   return pos(p.acessos) * pos(p.treinosPessoaCiclo) * pos(p.custoTreinoUsd)
     * Math.max(1, Math.floor(Number(p.ciclos) || 1)) * pos(p.cotacao);
+}
+
+/**
+ * Preço, uso e custo de UM simulador. Cada um tem o seu desde 02/10/2026 (pedido
+ * do Rodrigo): até ali a tela usava um preço só e, para os três, o custo de
+ * treino do atendimento, que é o mais caro.
+ */
+export interface ConfigSimulador {
+  /** R$ por pessoa com acesso, por ciclo. Zero = sem preço (a tela avisa). */
+  precoPessoaCiclo: number;
+  treinosPessoaCiclo: number;
+  /** Turnos de conversa por treino. O custo da conversa cresce com eles. */
+  turnosPorTreino: number;
+  /** US$ das chamadas que rodam uma vez por treino (avaliação, preparo). */
+  custoFixoTreinoUsd: number;
+  /** US$ das chamadas que rodam a cada turno (personagem, moderação). */
+  custoTurnoUsd: number;
+}
+
+export type ConfigSimuladores = Record<Simulador, ConfigSimulador>;
+
+/**
+ * Pior caso medido no ledger (`ia_usage_log`, 13 a 24/09/2026, só ensaios da
+ * equipe: nenhum colaborador real tinha usado os simuladores), com 8 turnos:
+ *   · vendas: criador US$ 0,027 + avaliação do gerente até US$ 0,073; cliente,
+ *     moderador e intenção ~US$ 0,0075 por turno → US$ 0,16 por treino
+ *   · atendimento: avaliação pela matriz de 30 descritores até US$ 0,166;
+ *     paciente US$ 0,0069 por turno → US$ 0,22 por treino
+ *   · liderança: abertura, consequências e avaliador até US$ 0,09; personagem
+ *     US$ 0,005 por turno → US$ 0,13 por encontro
+ * Treinos: 2 por semana nas semanas 2, 4 e 6 (17/09/2026); a liderança é uma
+ * jornada de 5 encontros. Preço zero: ainda não há régua (17/09/2026), e zero
+ * não é cortesia: a tela avisa quando um simulador entra no escopo sem preço.
+ */
+export const SIMULADORES_DEFAULT: ConfigSimuladores = {
+  vendas: { precoPessoaCiclo: 0, treinosPessoaCiclo: 6, turnosPorTreino: 8, custoFixoTreinoUsd: 0.1, custoTurnoUsd: 0.0075 },
+  atendimento: { precoPessoaCiclo: 0, treinosPessoaCiclo: 6, turnosPorTreino: 8, custoFixoTreinoUsd: 0.166, custoTurnoUsd: 0.0069 },
+  lideranca: { precoPessoaCiclo: 0, treinosPessoaCiclo: 5, turnosPorTreino: 8, custoFixoTreinoUsd: 0.09, custoTurnoUsd: 0.005 },
+};
+
+/** Cópia da régua dos simuladores: editar o cenário não edita o default. */
+export function configSimuladoresPadrao(): ConfigSimuladores {
+  return SIMULADORES.reduce(
+    (acc, s) => ({ ...acc, [s]: { ...SIMULADORES_DEFAULT[s] } }),
+    {} as ConfigSimuladores,
+  );
+}
+
+const naoNegativo = (v: number) => Math.max(0, Number(v) || 0);
+
+/** US$ de um treino: o que roda uma vez mais o que roda a cada turno. */
+export function custoTreinoUsd(
+  c: Pick<ConfigSimulador, 'custoFixoTreinoUsd' | 'custoTurnoUsd' | 'turnosPorTreino'>,
+): number {
+  return naoNegativo(c.custoFixoTreinoUsd) + naoNegativo(c.custoTurnoUsd) * naoNegativo(c.turnosPorTreino);
+}
+
+export interface SimuladorNoOrcamento {
+  simulador: Simulador;
+  acessos: number;
+  custoTreinoUsd: number;
+  /** R$ de IA de uma pessoa com acesso, num ciclo. */
+  custoPessoaCicloBrl: number;
+  /** Preço de tabela no contrato: acessos × preço × ciclos, antes de desconto. */
+  valorBrl: number;
+  /** Custo de IA no contrato. */
+  custoBrl: number;
+}
+
+/**
+ * Cada simulador no orçamento, com os totais. Acesso nunca passa das pessoas
+ * do programa; uma pessoa em dois simuladores conta nos dois.
+ */
+export function simuladoresDoOrcamento(p: {
+  pessoas: PessoasPorSimulador;
+  pessoasDoPrograma: number;
+  config: ConfigSimuladores;
+  ciclos: number;
+  cotacao: number;
+}): { itens: SimuladorNoOrcamento[]; acessos: number; valorBrl: number; custoBrl: number } {
+  const teto = Math.max(0, Math.floor(Number(p.pessoasDoPrograma) || 0));
+  const ciclos = Math.max(1, Math.floor(Number(p.ciclos) || 1));
+  const itens = SIMULADORES.map((s): SimuladorNoOrcamento => {
+    const c = p.config[s];
+    const acessos = Math.min(teto, Math.max(0, Math.floor(Number(p.pessoas[s]) || 0)));
+    const treino = custoTreinoUsd(c);
+    return {
+      simulador: s,
+      acessos,
+      custoTreinoUsd: treino,
+      custoPessoaCicloBrl: naoNegativo(c.treinosPessoaCiclo) * treino * naoNegativo(p.cotacao),
+      valorBrl: valorSimuladorBrl({ acessos, precoPessoaCiclo: c.precoPessoaCiclo }, ciclos),
+      custoBrl: custoSimuladoresBrl({
+        acessos, treinosPessoaCiclo: c.treinosPessoaCiclo, custoTreinoUsd: treino, ciclos, cotacao: p.cotacao,
+      }),
+    };
+  });
+  const soma = (k: 'acessos' | 'valorBrl' | 'custoBrl') => itens.reduce((t, i) => t + i[k], 0);
+  return { itens, acessos: soma('acessos'), valorBrl: soma('valorBrl'), custoBrl: soma('custoBrl') };
+}
+
+/** Preço de tabela de um simulador no contrato: acessos × preço × ciclos. */
+export function valorSimuladorBrl(s: { acessos: number; precoPessoaCiclo: number }, ciclos: number): number {
+  return naoNegativo(s.acessos) * naoNegativo(s.precoPessoaCiclo) * Math.max(1, Math.floor(Number(ciclos) || 1));
+}
+
+/**
+ * Menor preço por pessoa/ciclo em que o simulador paga o próprio custo e ainda
+ * deixa a margem-alvo, na mesma conta de `calcularProjeto` (contingência sobre o
+ * custo; impostos e comissão sobre a receita), antes de desconto. `Infinity`
+ * quando impostos, comissão e margem já somam 100% ou mais: nenhum preço fecha.
+ */
+export function precoMinimoSimuladorBrl(p: {
+  custoPessoaCicloBrl: number;
+  contingenciaPct: number;
+  impostosPct: number;
+  comissaoPct: number;
+  margemAlvoPct: number;
+}): number {
+  const sobra = 1 - (naoNegativo(p.impostosPct) + naoNegativo(p.comissaoPct) + naoNegativo(p.margemAlvoPct)) / 100;
+  if (sobra <= 0) return Number.POSITIVE_INFINITY;
+  return naoNegativo(p.custoPessoaCicloBrl) * (1 + naoNegativo(p.contingenciaPct) / 100) / sobra;
+}
+
+/**
+ * Margem do simulador sozinho, em %, na conta de `precoMinimoSimuladorBrl` (é a
+ * inversa dela). `null` sem preço: margem de receita zero não é um número.
+ */
+export function margemSimuladorPct(p: {
+  precoPessoaCiclo: number;
+  custoPessoaCicloBrl: number;
+  contingenciaPct: number;
+  impostosPct: number;
+  comissaoPct: number;
+}): number | null {
+  const preco = naoNegativo(p.precoPessoaCiclo);
+  if (preco <= 0) return null;
+  const sobreReceita = (naoNegativo(p.impostosPct) + naoNegativo(p.comissaoPct)) / 100;
+  const custo = naoNegativo(p.custoPessoaCicloBrl) * (1 + naoNegativo(p.contingenciaPct) / 100);
+  return ((preco * (1 - sobreReceita) - custo) / preco) * 100;
 }
 
 export const MESES_POR_CICLO = 2;
@@ -226,8 +352,8 @@ export interface EscopoProjeto {
   matrizesNovas: number;
   matrizesAdaptadas: number;
   workshop: boolean;
-  /** Acessos a simuladores (`acessosSimuladores`). Ausente = nenhum. */
-  simuladorAcessos?: number;
+  /** Acessos e preço de cada simulador no escopo. Ausente = nenhum. */
+  simuladores?: { acessos: number; precoPessoaCiclo: number }[];
   /** Em quantas parcelas o cliente paga. NÃO entra no preço. */
   parcelas: number;
 }
@@ -280,8 +406,8 @@ export function calcularProjeto(
 
   // O programa escala por pessoa e por ciclo — as duas dimensões da entrega.
   const programa = escopo.pessoas * preco.pessoaCiclo * ciclos;
-  const simuladores = Math.max(0, escopo.simuladorAcessos || 0)
-    * Math.max(0, preco.simuladorPessoaCiclo || 0) * ciclos;
+  const simuladores = (escopo.simuladores ?? [])
+    .reduce((total, s) => total + valorSimuladorBrl(s, ciclos), 0);
 
   const valorTabela = oneTime + programa + simuladores;
   const fator = 1 - (preco.descontoPct || 0) / 100;

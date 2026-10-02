@@ -24,8 +24,12 @@ import {
   OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
   ROTULO_SIMULADOR,
+  SIMULADORES_DEFAULT,
+  configSimuladoresPadrao,
   obterComissaoOrcamento,
   semSimuladores,
+  type ConfigSimulador,
+  type ConfigSimuladores,
   type PessoasPorSimulador,
   type ConteudoPorFormato,
   type TipoComissaoOrcamento,
@@ -55,6 +59,8 @@ export type EntradasOrcamento = {
   comAvatar: boolean;
   /** Pessoas com acesso a cada simulador; zero = fora do escopo. */
   simuladores: PessoasPorSimulador;
+  /** Preço, treinos, turnos e custo de cada simulador (02/10/2026). */
+  configSimuladores: ConfigSimuladores;
   pricing: PricingOrcamento;
 };
 
@@ -142,8 +148,39 @@ export function entradasPadrao(listas: ListasValidas): EntradasOrcamento {
     auditarExtracao: true,
     comAvatar: true,
     simuladores: semSimuladores(),
+    configSimuladores: configSimuladoresPadrao(),
     pricing: { ...ORCAMENTO_DEFAULTS },
   };
+}
+
+/**
+ * Régua de cada simulador gravada no cenário. Cenário salvo antes de 02/10/2026
+ * tinha um preço e um número de treinos para os três, dentro de `pricing`: eles
+ * passam para cada simulador, porque o preço é decisão comercial e reabrir não
+ * pode mudá-lo. O custo por treino antigo (um valor só, o do atendimento) NÃO é
+ * herdado: cada simulador abre com o seu custo medido, como o custo de IA do
+ * resto da tela, que também vem da régua vigente.
+ */
+function normalizarConfigSimuladores(
+  bruto: unknown,
+  pricingLegado: Record<string, unknown>,
+): ConfigSimuladores {
+  const gravado = objeto(bruto);
+  const padrao = configSimuladoresPadrao();
+  const campos = Object.keys(SIMULADORES_DEFAULT.vendas) as (keyof ConfigSimulador)[];
+  return (Object.keys(padrao) as (keyof ConfigSimuladores)[]).reduce((acc, s) => {
+    const c = objeto(gravado[s]);
+    const base: ConfigSimulador = {
+      ...padrao[s],
+      precoPessoaCiclo: real(pricingLegado.precoSimuladorPessoaCiclo, padrao[s].precoPessoaCiclo),
+      treinosPessoaCiclo: real(pricingLegado.treinosSimuladorPessoaCiclo, padrao[s].treinosPessoaCiclo),
+    };
+    const lido = campos.reduce(
+      (cfg, k) => ({ ...cfg, [k]: real(c[k], base[k]) }),
+      {} as ConfigSimulador,
+    );
+    return { ...acc, [s]: lido };
+  }, {} as ConfigSimuladores);
 }
 
 /**
@@ -208,6 +245,7 @@ export function normalizarEntradas(bruto: unknown, listas: ListasValidas): Entra
     auditarExtracao: booleano(b.auditarExtracao, padrao.auditarExtracao),
     comAvatar: booleano(b.comAvatar, padrao.comAvatar),
     simuladores,
+    configSimuladores: normalizarConfigSimuladores(b.configSimuladores, pricingBruto),
     pricing,
   };
 }

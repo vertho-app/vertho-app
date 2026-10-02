@@ -143,7 +143,7 @@ RC continua sendo operada só pelo Portal do Representante.
 | Matriz nova | R$ 1.000,00 |
 | Matriz adaptada | R$ 500,00 |
 | Workshop por unidade | R$ 15.000,00 |
-| Simulador por pessoa com acesso, por ciclo | **R$ 0,00: sem régua ainda** (decisão do Rodrigo, 17/09/2026). A tela avisa quando um simulador entra no escopo com preço zero |
+| Simuladores | No card próprio, um preço por simulador (seção Simuladores abaixo) |
 | Desconto inicial | 0% |
 | Margem-alvo | 50% |
 
@@ -159,8 +159,7 @@ RC continua sendo operada só pelo Portal do Representante.
 | Mensagens por pessoa/ciclo | 25 |
 | Custo por mensagem UTILITY | R$ 0,035 |
 | Clientes ativos para rateio da infraestrutura | 2 |
-| Treinos de simulador por pessoa/ciclo | 6 (2 por semana nas semanas 2, 4 e 6) |
-| Custo por treino de simulador | US$ 0,22: pior caso por treino em 19/09/2026, pelas chamadas medidas no ledger e 8 turnos. Atendimento US$ 0,22 (avaliador da matriz de 30 descritores até US$ 0,166 + US$ 0,0069 por turno), vendas pace-7 US$ 0,16 (criador, 3 chamadas por turno e gerente a US$ 0,070) e um encontro de liderança US$ 0,12 (avaliador até US$ 0,068). Era US$ 0,155 (vendas pace-2, 13-15/09). As réguas novas ainda não têm uso real: recalibrar quando houver |
+| Simuladores | Treinos, turnos e custo por simulador no card próprio (seção Simuladores abaixo) |
 | Contingência sobre custo operacional | 10% |
 | Impostos sobre receita final | 20% |
 
@@ -326,8 +325,51 @@ vezes, porque preço e custo são por pessoa POR simulador (`acessosSimuladores`
 - ⚠️ As chamadas dos simuladores no ledger não gravam `colaborador_id`: dá
   para medir custo por treino, não por pessoa.
 
-Testes: `tests/unit/orcamento-simuladores.test.ts` (validado por mutação: tirar
-os simuladores do valor derruba o teste).
+#### Card próprio, uma régua por simulador (02/10/2026)
+
+Pedido do Rodrigo: tudo de simulador num card só (seção 02 da tela), com preço,
+treinos, turnos e custo separados por simulador. Até aqui eram um preço e um
+custo de treino para os três, espalhados pelo escopo, pela régua e pelo custo de
+entrega, e o custo era o do atendimento, o mais caro: a margem de vendas e de
+liderança saía pior do que é.
+
+Cada simulador tem `ConfigSimulador` (`configSimuladores` nas entradas do cenário):
+
+| Campo | Vendas | Atendimento | Liderança |
+|---|---:|---:|---:|
+| Preço por pessoa/ciclo | R$ 0 | R$ 0 | R$ 0 |
+| Treinos por pessoa/ciclo | 6 | 6 | 5 (jornada de 5 encontros) |
+| Turnos por treino | 8 | 8 | 8 |
+| Custo fixo por treino (US$) | 0,10 | 0,166 | 0,09 |
+| Custo por turno (US$) | 0,0075 | 0,0069 | 0,005 |
+| **Custo por treino com 8 turnos** | **0,16** | **0,22** | **0,13** |
+
+`custoTreinoUsd` = fixo + turno × turnos. O fixo é o que roda uma vez por treino
+(vendas: criador do cenário e avaliação do gerente; atendimento: avaliação pela
+matriz de 30 descritores; liderança: abertura, consequências e avaliador); o turno
+é a conversa (vendas: cliente, moderador e intenção; atendimento: a pessoa
+atendida; liderança: o personagem). Os números são o pior caso medido no ledger
+entre 13 e 24/09/2026, **só com ensaios da equipe**: nenhum colaborador real tinha
+usado os simuladores. Recalibrar quando houver uso.
+
+O card mostra, por simulador, o custo por treino, o custo por pessoa/ciclo, o
+**preço mínimo** para a margem-alvo (`precoMinimoSimuladorBrl`: custo ×
+(1 + contingência) ÷ (1 − impostos − comissão − margem), antes de desconto) e a
+margem no preço informado (`margemSimuladorPct`, a inversa). Com impostos de 20%,
+RC de 20% e margem de 50% sobram 10% da receita: o mínimo é 11× o custo. A folha
+de decisão ganhou a linha "Simuladores" na composição do valor, que antes somava
+no total sem aparecer.
+
+Cenário salvo antes de 02/10 (as 3 linhas de `orcamento_cenarios` naquele dia
+tinham preço de R$ 30 ou R$ 50): o preço e os treinos únicos de `pricing` passam
+para cada simulador, porque preço é decisão comercial. O custo por treino antigo
+não é herdado: cada simulador abre com o seu, como o resto do custo de IA.
+
+Testes: `tests/unit/orcamento-simuladores.test.ts` (validado por mutação em
+02/10: os três simuladores com a régua do atendimento derruba 2 testes; o projeto
+ignorando os simuladores derruba 3; o cenário antigo perdendo o preço derruba 1).
+O documento da proposta não recebe preço nem custo de simulador
+(`sales-proposta-documento.test.ts`).
 
 ### Duração do programa (17/09/2026)
 

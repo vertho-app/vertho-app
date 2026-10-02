@@ -416,7 +416,14 @@ describe('simuladores incluídos (17/09/2026)', () => {
     entradas: {
       ...(ORC_REAL as any).entradas,
       simuladores,
+      // As duas formas que o jsonb tem: a de antes de 02/10 (um preço só, em
+      // `pricing`) e a régua por simulador. Nenhuma das duas pode chegar ao documento.
       pricing: { ...(ORC_REAL as any).entradas.pricing, precoSimuladorPessoaCiclo: preco },
+      configSimuladores: {
+        vendas: { precoPessoaCiclo: preco, treinosPessoaCiclo: 6, turnosPorTreino: 8, custoFixoTreinoUsd: 0.1, custoTurnoUsd: 0.0075 },
+        atendimento: { precoPessoaCiclo: preco, treinosPessoaCiclo: 6, turnosPorTreino: 8, custoFixoTreinoUsd: 0.166, custoTurnoUsd: 0.0069 },
+        lideranca: { precoPessoaCiclo: preco, treinosPessoaCiclo: 5, turnosPorTreino: 8, custoFixoTreinoUsd: 0.09, custoTurnoUsd: 0.005 },
+      },
     },
   });
 
@@ -450,5 +457,7 @@ describe('simuladores incluídos (17/09/2026)', () => {
     const serializado = JSON.stringify(doc);
     expect(serializado).not.toContain('37.5');
     expect(serializado).not.toContain('precoSimulador');
+    expect(serializado).not.toContain('precoPessoaCiclo');
+    expect(serializado).not.toContain('custoFixoTreinoUsd');
   });
 });

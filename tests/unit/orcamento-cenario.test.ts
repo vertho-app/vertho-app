@@ -20,6 +20,7 @@ import {
   CONTEUDO_POR_FORMATO_DEFAULT,
   OPCOES_COMISSAO_ORCAMENTO,
   ORCAMENTO_DEFAULTS,
+  SIMULADORES_DEFAULT,
 } from '@/lib/orcamento/precificacao';
 import {
   entradasPadrao,
@@ -60,8 +61,19 @@ describe('entradasPadrao — os defaults com que a tela abre', () => {
       comAvatar: true,
       // A tela abre sem simulador no escopo.
       simuladores: { vendas: 0, atendimento: 0, lideranca: 0 },
+      configSimuladores: {
+        vendas: { ...SIMULADORES_DEFAULT.vendas },
+        atendimento: { ...SIMULADORES_DEFAULT.atendimento },
+        lideranca: { ...SIMULADORES_DEFAULT.lideranca },
+      },
       pricing: { ...ORCAMENTO_DEFAULTS },
     });
+  });
+
+  it('não compartilha a régua dos simuladores (editar o cenário não editaria o default)', () => {
+    const base = entradasPadrao(LISTAS);
+    base.configSimuladores.vendas.precoPessoaCiclo = 999;
+    expect(SIMULADORES_DEFAULT.vendas.precoPessoaCiclo).toBe(0);
   });
 
   it('não compartilha o objeto da régua (editar o cenário não editaria ORCAMENTO_DEFAULTS)', () => {

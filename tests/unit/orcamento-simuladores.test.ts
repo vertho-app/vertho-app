@@ -1,17 +1,26 @@
 /**
- * Simuladores no orçamento (17/09/2026): vendas, atendimento e liderança entram
- * por pessoa com acesso e por ciclo, no PREÇO, no CUSTO e no escopo que o
- * cliente lê. A régua de preço ainda não existe (default zero, com aviso na
- * tela), então o que estes testes travam é a MECÂNICA: um preço informado soma
- * no valor, o custo entra sempre, e cenário salvo antes da mudança abre igual.
+ * Simuladores no orçamento: vendas, atendimento e liderança entram por pessoa
+ * com acesso e por ciclo, no PREÇO, no CUSTO e no escopo que o cliente lê.
+ *
+ * Desde 02/10/2026 cada simulador tem a sua régua (preço, treinos, turnos e
+ * custo). Antes eram um preço e um custo de treino para os três, e o custo era o
+ * do atendimento, o mais caro: a margem dos outros dois saía errada. O que estes
+ * testes travam é que cada simulador usa os SEUS números, que a conta do card
+ * bate com a do projeto, e que o cenário salvo antes da mudança mantém o preço.
  */
 import { describe, expect, it } from 'vitest';
 import {
   ORCAMENTO_DEFAULTS,
+  SIMULADORES_DEFAULT,
   acessosSimuladores,
   calcularProjeto,
+  configSimuladoresPadrao,
   custoSimuladoresBrl,
+  custoTreinoUsd,
+  margemSimuladorPct,
+  precoMinimoSimuladorBrl,
   semSimuladores,
+  simuladoresDoOrcamento,
   type EscopoProjeto,
   type TabelaPreco,
 } from '@/lib/orcamento/precificacao';
@@ -35,24 +44,35 @@ const ESCOPO: EscopoProjeto = {
 const CUSTO = { totalBrl: 10_000, oneTimeBrl: 5_000, mesesPrograma: 4 };
 
 describe('preço dos simuladores', () => {
-  it('soma acessos × preço × ciclos ao valor de tabela', () => {
+  it('soma acessos × preço × ciclos de CADA simulador ao valor de tabela', () => {
     const sem = calcularProjeto(ESCOPO, PRECO, CUSTO);
-    const com = calcularProjeto({ ...ESCOPO, simuladorAcessos: 150 }, { ...PRECO, simuladorPessoaCiclo: 40 }, CUSTO);
-    expect(com.simuladores).toBe(150 * 40 * 2);
-    expect(com.valorTabela - sem.valorTabela).toBe(12_000);
+    const com = calcularProjeto(
+      { ...ESCOPO, simuladores: [{ acessos: 150, precoPessoaCiclo: 40 }, { acessos: 30, precoPessoaCiclo: 75 }] },
+      PRECO,
+      CUSTO,
+    );
+    expect(com.simuladores).toBe(150 * 40 * 2 + 30 * 75 * 2);
+    expect(com.valorTabela - sem.valorTabela).toBe(16_500);
     expect(com.parcela).toBeCloseTo(com.valorFinal / 4);
   });
 
-  it('sem preço (a régua de hoje) o valor não muda, e o campo ausente vale zero', () => {
+  it('sem preço o valor não muda, e o campo ausente vale zero', () => {
     const sem = calcularProjeto(ESCOPO, PRECO, CUSTO);
-    expect(calcularProjeto({ ...ESCOPO, simuladorAcessos: 150 }, { ...PRECO, simuladorPessoaCiclo: 0 }, CUSTO).valorTabela)
+    expect(calcularProjeto({ ...ESCOPO, simuladores: [{ acessos: 150, precoPessoaCiclo: 0 }] }, PRECO, CUSTO).valorTabela)
       .toBe(sem.valorTabela);
     expect(sem.simuladores).toBe(0);
   });
 
-  it('o default da régua é zero, com 6 treinos por pessoa por ciclo', () => {
-    expect(ORCAMENTO_DEFAULTS.precoSimuladorPessoaCiclo).toBe(0);
-    expect(ORCAMENTO_DEFAULTS.treinosSimuladorPessoaCiclo).toBe(6);
+  it('o default é preço zero nos três, com 6 treinos (5 encontros na liderança) e 8 turnos', () => {
+    for (const s of ['vendas', 'atendimento', 'lideranca'] as const) {
+      expect(SIMULADORES_DEFAULT[s].precoPessoaCiclo).toBe(0);
+      expect(SIMULADORES_DEFAULT[s].turnosPorTreino).toBe(8);
+    }
+    expect(SIMULADORES_DEFAULT.vendas.treinosPessoaCiclo).toBe(6);
+    expect(SIMULADORES_DEFAULT.atendimento.treinosPessoaCiclo).toBe(6);
+    expect(SIMULADORES_DEFAULT.lideranca.treinosPessoaCiclo).toBe(5);
+    // A régua geral não carrega mais campo de simulador: um lugar só para cada número.
+    expect(Object.keys(ORCAMENTO_DEFAULTS).filter((k) => /simulador/i.test(k))).toEqual([]);
   });
 });
 
@@ -62,30 +82,149 @@ describe('custo dos simuladores', () => {
       .toBeCloseTo(100 * 6 * 0.155 * 5 * 5.12, 6);
   });
 
-  it('entra mesmo com preço zero: simulador de graça não é simulador sem custo', () => {
-    const acessos = acessosSimuladores({ ...semSimuladores(), vendas: 50 }, 100);
-    const custo = custoSimuladoresBrl({
-      acessos, treinosPessoaCiclo: ORCAMENTO_DEFAULTS.treinosSimuladorPessoaCiclo,
-      custoTreinoUsd: ORCAMENTO_DEFAULTS.custoTreinoSimuladorUsd, ciclos: 1, cotacao: ORCAMENTO_DEFAULTS.cotacao,
+  it('o treino custa o fixo mais o turno × turnos, e mais turnos custam mais', () => {
+    expect(custoTreinoUsd({ custoFixoTreinoUsd: 0.1, custoTurnoUsd: 0.0075, turnosPorTreino: 8 })).toBeCloseTo(0.16, 10);
+    const curto = custoTreinoUsd({ ...SIMULADORES_DEFAULT.vendas, turnosPorTreino: 8 });
+    const longo = custoTreinoUsd({ ...SIMULADORES_DEFAULT.vendas, turnosPorTreino: 20 });
+    expect(longo - curto).toBeCloseTo(12 * SIMULADORES_DEFAULT.vendas.custoTurnoUsd, 10);
+  });
+
+  it('os defaults reproduzem o pior caso medido em 8 turnos: vendas 0,16 · atendimento 0,22 · liderança 0,13', () => {
+    expect(custoTreinoUsd(SIMULADORES_DEFAULT.vendas)).toBeCloseTo(0.16, 3);
+    expect(custoTreinoUsd(SIMULADORES_DEFAULT.atendimento)).toBeCloseTo(0.2212, 4);
+    expect(custoTreinoUsd(SIMULADORES_DEFAULT.lideranca)).toBeCloseTo(0.13, 3);
+  });
+
+  it('cada simulador usa o SEU custo: o mesmo acesso custa diferente em cada um', () => {
+    const r = simuladoresDoOrcamento({
+      pessoas: { vendas: 100, atendimento: 100, lideranca: 100 },
+      pessoasDoPrograma: 100,
+      config: configSimuladoresPadrao(),
+      ciclos: 1,
+      cotacao: 5,
     });
-    expect(custo).toBeGreaterThan(0);
+    const [vendas, atendimento, lideranca] = r.itens;
+    expect([vendas.simulador, atendimento.simulador, lideranca.simulador]).toEqual(['vendas', 'atendimento', 'lideranca']);
+    expect(atendimento.custoBrl).toBeCloseTo(100 * 6 * 0.2212 * 5, 6);
+    expect(vendas.custoBrl).toBeCloseTo(100 * 6 * 0.16 * 5, 6);
+    expect(lideranca.custoBrl).toBeCloseTo(100 * 5 * 0.13 * 5, 6);
+    expect(r.custoBrl).toBeCloseTo(vendas.custoBrl + atendimento.custoBrl + lideranca.custoBrl, 6);
+    expect(atendimento.custoPessoaCicloBrl).toBeCloseTo(6 * 0.2212 * 5, 6);
+  });
+
+  it('entra mesmo com preço zero: simulador de graça não é simulador sem custo', () => {
+    const r = simuladoresDoOrcamento({
+      pessoas: { ...semSimuladores(), vendas: 50 },
+      pessoasDoPrograma: 100,
+      config: configSimuladoresPadrao(),
+      ciclos: 1,
+      cotacao: ORCAMENTO_DEFAULTS.cotacao,
+    });
+    expect(r.valorBrl).toBe(0);
+    expect(r.custoBrl).toBeGreaterThan(0);
   });
 
   it('acesso conta por simulador e nunca passa das pessoas do programa', () => {
     expect(acessosSimuladores({ vendas: 80, atendimento: 30, lideranca: 0 }, 100)).toBe(110);
     expect(acessosSimuladores({ vendas: 500, atendimento: 0, lideranca: 0 }, 100)).toBe(100);
     expect(acessosSimuladores({ vendas: -3, atendimento: Number.NaN, lideranca: 0 } as any, 100)).toBe(0);
+    const r = simuladoresDoOrcamento({
+      pessoas: { vendas: 500, atendimento: 30, lideranca: -3 },
+      pessoasDoPrograma: 100,
+      config: configSimuladoresPadrao(),
+      ciclos: 1,
+      cotacao: 5,
+    });
+    expect(r.itens.map((i) => i.acessos)).toEqual([100, 30, 0]);
+    expect(r.acessos).toBe(130);
+  });
+});
+
+describe('o card e o projeto fazem a MESMA conta', () => {
+  const config = configSimuladoresPadrao();
+  config.vendas.precoPessoaCiclo = 50;
+  config.atendimento.precoPessoaCiclo = 75;
+
+  it('o valor somado no card é o que o projeto cobra', () => {
+    const r = simuladoresDoOrcamento({
+      pessoas: { vendas: 40, atendimento: 25, lideranca: 10 }, pessoasDoPrograma: 100, config, ciclos: 3, cotacao: 5,
+    });
+    const projeto = calcularProjeto(
+      { ...ESCOPO, ciclos: 3, simuladores: r.itens.map((i) => ({ acessos: i.acessos, precoPessoaCiclo: config[i.simulador].precoPessoaCiclo })) },
+      PRECO,
+      CUSTO,
+    );
+    expect(projeto.simuladores).toBe(r.valorBrl);
+    expect(r.valorBrl).toBe(40 * 50 * 3 + 25 * 75 * 3);
+  });
+
+  it('no preço mínimo, a margem do simulador sozinho é exatamente a margem-alvo', () => {
+    const regua = { custoPessoaCicloBrl: 6.79, contingenciaPct: 10, impostosPct: 20, comissaoPct: 20 };
+    const minimo = precoMinimoSimuladorBrl({ ...regua, margemAlvoPct: 30 });
+    expect(minimo).toBeCloseTo(6.79 * 1.1 / 0.3, 10);
+    expect(margemSimuladorPct({ ...regua, precoPessoaCiclo: minimo })).toBeCloseTo(30, 10);
+
+    // E a mesma margem sai de `calcularProjeto` num projeto que só tem o simulador.
+    const acessos = 100;
+    const ciclos = 2;
+    const projeto = calcularProjeto(
+      { ...ESCOPO, ciclos, matrizesNovas: 0, simuladores: [{ acessos, precoPessoaCiclo: minimo }] },
+      { ...PRECO, setupGeral: 0, pessoaCiclo: 0, unidade: 0, margemAlvoPct: 30 },
+      { totalBrl: acessos * ciclos * regua.custoPessoaCicloBrl * 1.1, oneTimeBrl: 0, mesesPrograma: 4, percentualSobreReceita: 0.4 },
+    );
+    expect(projeto.margemPct).toBeCloseTo(30, 8);
+  });
+
+  it('sem sobra para a margem não há preço mínimo, e sem preço não há margem', () => {
+    expect(precoMinimoSimuladorBrl({
+      custoPessoaCicloBrl: 5, contingenciaPct: 10, impostosPct: 20, comissaoPct: 20, margemAlvoPct: 60,
+    })).toBe(Number.POSITIVE_INFINITY);
+    expect(margemSimuladorPct({
+      precoPessoaCiclo: 0, custoPessoaCicloBrl: 5, contingenciaPct: 10, impostosPct: 20, comissaoPct: 20,
+    })).toBeNull();
   });
 });
 
 describe('cenário salvo e escopo da proposta', () => {
-  it('cenário salvo antes dos simuladores abre com todos em zero e o preço padrão', () => {
+  it('cenário salvo antes dos simuladores abre com todos em zero e a régua padrão', () => {
     const antigo: any = { ...entradasPadrao(LISTAS) };
     delete antigo.simuladores;
-    delete antigo.pricing.precoSimuladorPessoaCiclo;
+    delete antigo.configSimuladores;
     const lido = normalizarEntradas(antigo, LISTAS)!;
     expect(lido.simuladores).toEqual(semSimuladores());
-    expect(lido.pricing.precoSimuladorPessoaCiclo).toBe(0);
+    expect(lido.configSimuladores).toEqual(configSimuladoresPadrao());
+  });
+
+  it('cenário salvo antes de 02/10 leva o preço e os treinos únicos para cada simulador', () => {
+    // A forma real das 3 linhas de `orcamento_cenarios` em 02/10/2026.
+    const antigo: any = {
+      ...entradasPadrao(LISTAS),
+      simuladores: { vendas: 100, atendimento: 0, lideranca: 100 },
+      pricing: { ...ORCAMENTO_DEFAULTS, precoSimuladorPessoaCiclo: 50, treinosSimuladorPessoaCiclo: 6, custoTreinoSimuladorUsd: 0.22 },
+    };
+    delete antigo.configSimuladores;
+    const lido = normalizarEntradas(antigo, LISTAS)!;
+    for (const s of ['vendas', 'atendimento', 'lideranca'] as const) {
+      expect(lido.configSimuladores[s].precoPessoaCiclo).toBe(50);
+      expect(lido.configSimuladores[s].treinosPessoaCiclo).toBe(6);
+      // O custo único antigo não é herdado: cada um abre com o seu medido.
+      expect(lido.configSimuladores[s].custoFixoTreinoUsd).toBe(SIMULADORES_DEFAULT[s].custoFixoTreinoUsd);
+    }
+    // E as chaves antigas não ressuscitam na régua geral.
+    expect('precoSimuladorPessoaCiclo' in lido.pricing).toBe(false);
+  });
+
+  it('a régua por simulador volta como foi gravada, e lixo cai no default', () => {
+    const config = configSimuladoresPadrao();
+    config.atendimento = { precoPessoaCiclo: 75, treinosPessoaCiclo: 4, turnosPorTreino: 12, custoFixoTreinoUsd: 0.2, custoTurnoUsd: 0.008 };
+    const gravado = { ...entradasPadrao(LISTAS), configSimuladores: config };
+    expect(normalizarEntradas(gravado, LISTAS)!.configSimuladores).toEqual(config);
+
+    const sujo: any = { ...entradasPadrao(LISTAS), configSimuladores: { vendas: { precoPessoaCiclo: 'x', turnosPorTreino: -4 }, lideranca: 7 } };
+    const lido = normalizarEntradas(sujo, LISTAS)!;
+    expect(lido.configSimuladores.vendas.precoPessoaCiclo).toBe(0);
+    expect(lido.configSimuladores.vendas.turnosPorTreino).toBe(0);
+    expect(lido.configSimuladores.lideranca).toEqual(SIMULADORES_DEFAULT.lideranca);
   });
 
   it('acesso gravado acima das pessoas do programa é limitado na leitura', () => {
