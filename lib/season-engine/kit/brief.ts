@@ -27,7 +27,7 @@ export interface DesafioBase {
   acao: string;
   /** Em quantos dias a ação é praticada (1 a 5). */
   dias: number;
-  /** O que conta como cumprido, em termos dos dias (ex.: "pelo menos 3 dos 5 dias"). */
+  /** O que conta como cumprido: SÓ a contagem, montada em código a partir de `dias` e do mínimo ("em pelo menos 3 dos 5 dias"). */
   limiar: string;
 }
 
@@ -164,10 +164,14 @@ export function parseDesafioBase(raw: string): DesafioBase | null {
   const p = extrairJson(raw);
   if (!p) return null;
   const acao = typeof p.acao === 'string' ? p.acao.trim() : '';
-  const limiar = typeof p.limiar === 'string' ? p.limiar.trim() : '';
   const dias = Number(p.dias);
-  if (acao.length < 8 || limiar.length < 8 || !Number.isInteger(dias) || dias < 1 || dias > 5) return null;
-  return { acao, dias, limiar };
+  const minimo = Number(p.minimo);
+  if (acao.length < 8 || !Number.isInteger(dias) || dias < 1 || dias > 5) return null;
+  if (!Number.isInteger(minimo) || minimo < 1 || minimo > dias) return null;
+  // O limiar é montado AQUI, não escrito pelo modelo: na 1ª execução real (02/10) três temas vieram com cláusulas extras
+  // ("3 dos 4 dias em que demandas chegarem, a triagem é feita no momento do recebimento"), que afrouxam a régua e
+  // carregam a ação duas vezes. Contagem pura é comparável entre temas e entre pessoas.
+  return { acao, dias, limiar: `em pelo menos ${minimo} dos ${dias} dias` };
 }
 
 /** Gera a âncora do desafio (neutra de perfil) a partir do núcleo. Uma chamada curta por TEMA, não por DISC. */
@@ -177,10 +181,10 @@ export async function gerarDesafioBase(p: GerarBriefParams, nucleo: KitBriefNucl
 Defina:
 - acao: UMA ação única, observável, que cabe na rotina real do cargo e aterra o núcleo do tema. Neutra de perfil: descreva o que se faz, não como cada pessoa prefere registrar.
 - dias: quantos dias da semana a ação é praticada, número inteiro de 1 a 5. Prefira 3 a 5, e menos só se a ação for naturalmente pontual.
-- limiar: o que conta como cumprido, em termos dos dias (por exemplo "em pelo menos 3 dos 5 dias"). Sem perfeccionismo: uma semana real tem imprevistos.
+- minimo: em quantos desses dias a ação precisa ter acontecido para contar como cumprida, número inteiro de 1 até "dias". Sem perfeccionismo: uma semana real tem imprevistos, então normalmente é um a menos que "dias". Só o número: a condição de cumprimento é ter feito a ação, sem cláusulas extras.
 
 Sem jargão, sem tom professoral. RETORNE APENAS JSON VÁLIDO:
-{"acao":"...","dias":3,"limiar":"..."}${p.perfilPublico ? blocoCalibracaoPublico(p.perfilPublico) : ''}`;
+{"acao":"...","dias":4,"minimo":3}${p.perfilPublico ? blocoCalibracaoPublico(p.perfilPublico) : ''}`;
   const user = `NÚCLEO DO TEMA:
 - Ideia central: ${nucleo.ideia_central}
 - Pontos-chave: ${nucleo.pontos_chave.join(' · ')}

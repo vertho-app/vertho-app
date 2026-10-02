@@ -9,6 +9,7 @@ import { resolverOuCriarBrief, parseDesafioBase, gerarDesafioBase, garantirDesaf
 
 const nucleo: KitBriefNucleo = { ideia_central: 'Proteger uma pausa na semana real', pontos_chave: ['a', 'b', 'c'], exemplo_ancora: 'Uma coordenadora entre dois turnos' };
 const base = { acao: 'Proteger uma pausa que já existe na rotina, sem demandas', dias: 4, limiar: 'em pelo menos 3 dos 4 dias' };
+const bruto = { acao: base.acao, dias: 4, minimo: 3 };
 const p: any = { competencia: 'Autocuidado', descritor: 'D4', cargo: 'Coordenação', contexto: 'generico', empresaId: 'e1' };
 const desafioJson = JSON.stringify({ desafio_texto: 'Proteja uma pausa em 4 dias.', acao_observavel: 'proteger a pausa', criterio_de_execucao: 'conta em quais dias cumpriu', por_que_cabe_na_semana: 'já existe na rotina' });
 
@@ -18,20 +19,24 @@ const desafioJson = JSON.stringify({ desafio_texto: 'Proteja uma pausa em 4 dias
  * prompt de cada DISC; só a forma varia.
  */
 describe('parseDesafioBase', () => {
-  it('aceita âncora válida e recusa ação curta, dias fora de 1 a 5 ou não inteiro, limiar curto, JSON ruim', () => {
-    expect(parseDesafioBase(JSON.stringify(base))).toEqual(base);
-    expect(parseDesafioBase('texto em volta ' + JSON.stringify(base) + ' fim')).toEqual(base);
-    for (const ruim of [{ ...base, acao: 'curta' }, { ...base, dias: 0 }, { ...base, dias: 6 }, { ...base, dias: 2.5 }, { ...base, dias: 'três' }, { ...base, limiar: 'x' }]) {
+  it('aceita âncora válida e recusa ação curta, dias fora de 1 a 5 ou não inteiro, mínimo fora de 1..dias, JSON ruim', () => {
+    expect(parseDesafioBase(JSON.stringify(bruto))).toEqual(base);
+    expect(parseDesafioBase('texto em volta ' + JSON.stringify(bruto) + ' fim')).toEqual(base);
+    for (const ruim of [{ ...bruto, acao: 'curta' }, { ...bruto, dias: 0 }, { ...bruto, dias: 6 }, { ...bruto, dias: 2.5 }, { ...bruto, dias: 'três' }, { ...bruto, minimo: 0 }, { ...bruto, minimo: 5 }, { ...bruto, minimo: 'x' }, { acao: bruto.acao, dias: 4 }]) {
       expect(parseDesafioBase(JSON.stringify(ruim)), JSON.stringify(ruim)).toBeNull();
     }
     expect(parseDesafioBase('não é json')).toBeNull();
+  });
+  it('o limiar é montado em CÓDIGO: cláusula extra escrita pelo modelo não entra (a régua fica comparável)', () => {
+    const r = parseDesafioBase(JSON.stringify({ ...bruto, limiar: 'em pelo menos 3 dos 4 dias em que demandas chegarem, a triagem é feita na hora' }));
+    expect(r!.limiar).toBe('em pelo menos 3 dos 4 dias');
   });
 });
 
 describe('gerarDesafioBase', () => {
   beforeEach(() => callAI.mockReset());
   it('reenvia quando a resposta é inválida e desiste com erro depois de 3 tentativas', async () => {
-    callAI.mockResolvedValueOnce('lixo').mockResolvedValueOnce(JSON.stringify(base));
+    callAI.mockResolvedValueOnce('lixo').mockResolvedValueOnce(JSON.stringify(bruto));
     expect(await gerarDesafioBase(p, nucleo)).toEqual(base);
     expect(callAI).toHaveBeenCalledTimes(2);
     callAI.mockReset(); callAI.mockResolvedValue('lixo');
@@ -50,7 +55,7 @@ describe('garantirDesafioBase', () => {
     expect(sb.escritas).toHaveLength(0);
   });
   it('brief antigo recebe a âncora e ela é PERSISTIDA no brief, sem perder o núcleo', async () => {
-    callAI.mockResolvedValue(JSON.stringify(base));
+    callAI.mockResolvedValue(JSON.stringify(bruto));
     const sb = criarSupabaseMock();
     const r = await garantirDesafioBase(sb.client, 'b1', p, nucleo);
     expect(r).toEqual({ ...nucleo, desafio_base: base });
@@ -58,7 +63,7 @@ describe('garantirDesafioBase', () => {
     expect(upd.payload.brief).toEqual({ ...nucleo, desafio_base: base });
   });
   it('falha ao gravar LANÇA (devolver sem gravar faria o próximo DISC gerar outra âncora)', async () => {
-    callAI.mockResolvedValue(JSON.stringify(base));
+    callAI.mockResolvedValue(JSON.stringify(bruto));
     const sb = criarSupabaseMock();
     sb.falharEm({ tabela: 'kit_briefs', op: 'update', mensagem: 'timeout' });
     await expect(garantirDesafioBase(sb.client, 'b1', p, nucleo)).rejects.toThrow(/timeout/);
@@ -94,7 +99,7 @@ describe('gerarKitDesafio: a âncora entra no prompt de cada perfil', () => {
 });
 
 describe('resolverOuCriarBrief garante a âncora nos DOIS caminhos', () => {
-  beforeEach(() => { callAI.mockReset(); callAI.mockResolvedValue(JSON.stringify(base)); });
+  beforeEach(() => { callAI.mockReset(); callAI.mockResolvedValue(JSON.stringify(bruto)); });
 
   it('brief REUSADO sem âncora (os 68 anteriores): recebe e persiste a âncora', async () => {
     const sb = criarSupabaseMock({ resolver: (t) => (t === 'kit_briefs' ? { id: 'b1', brief: nucleo, modulo_base_id: 'mb', archived_at: null } : null) });

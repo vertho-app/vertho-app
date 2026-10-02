@@ -108,7 +108,7 @@ export async function executarFluxo(
     if (id === 'ia4' || id === 'blueprint' || id === 'pdi') {
       const fila = id === 'ia4' ? await deps.ler.ia4() : null;
       const colabIds = id === 'blueprint' ? await deps.ler.blueprint() : id === 'pdi' ? await deps.ler.pdi() : [];
-      const total = id === 'ia4' ? fila!.itens.length + fila!.checkOnly.length : colabIds.length;
+      let total = id === 'ia4' ? fila!.itens.length + fila!.checkOnly.length : colabIds.length;
       if (total === 0) { e.estado = 'pulado'; e.detalhe = 'nada pendente'; await salvar(); continue; }
       e.total += total;
       if (dryRun) { e.estado = 'pulado'; e.detalhe = `simulação: ${total} ${id === 'ia4' ? 'resposta(s)' : 'pessoa(s)'} na fila`; await salvar(); continue; }
@@ -116,6 +116,10 @@ export async function executarFluxo(
       const aiConfig = id === 'ia4'
         ? aiConfigDe(prog.modelos!, 'ia4_avaliacao', prog.modelos!.ia4_check ? { checkModel: prog.modelos!.ia4_check } : {})
         : aiConfigDe(prog.modelos!, id === 'blueprint' ? 'blueprint_gerar' : 'pdi_individual');
+      // O lote da IA4 conta avaliação E check como itens (`progress.resultados`): o total da etapa passa para a MESMA
+      // unidade, senão a tela mostrava "2/1" (medido na 1ª execução real, 02/10). Só vale fora da simulação, que
+      // continua contando respostas.
+      if (id === 'ia4' && (aiConfig as any).checkModel) { const unidadesLote = fila!.itens.length * 2 + fila!.checkOnly.length; e.total += unidadesLote - total; total = unidadesLote; }
       const enf = await deps.lote(id === 'pdi' ? 'relatorios' : id, id === 'ia4'
         ? { itens: fila!.itens, checkOnly: fila!.checkOnly, aiConfig }
         : { colabIds, aiConfig });

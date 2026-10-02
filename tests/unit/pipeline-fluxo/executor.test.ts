@@ -343,3 +343,21 @@ describe('kit semanal (depois da trilha, sem vídeo)', () => {
     expect(m2.kitsEnfileirados).toHaveLength(0);
   });
 });
+
+describe('IA4: total na MESMA unidade do lote (avaliação e check contam como itens)', () => {
+  it('com modelo de check, 2 respostas + 1 só-check = 5 itens do lote (tela "5/5", não "5/3")', async () => {
+    const m = montar({ ia4: { itens: ['r1', 'r2'], checkOnly: ['r3'] } }, { aguardarJob: async () => ({ status: 'done', ok: 5, falhas: 0 }) });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'ia4')).toMatchObject({ estado: 'ok', total: 5, feitos: 5, falhas: 0 });
+  });
+  it('sem modelo de check, o total segue contando as respostas', async () => {
+    const m = montar({ ia4: { itens: ['r1', 'r2'] } }, { modelos: async () => ({ ia4_avaliacao: 'm' }), aguardarJob: async () => ({ status: 'done', ok: 2, falhas: 0 }) });
+    const r = await executarFluxo(params(), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'ia4')).toMatchObject({ total: 2, feitos: 2 });
+  });
+  it('simulação continua contando RESPOSTAS (nada vai ao lote)', async () => {
+    const m = montar({ ia4: { itens: ['r1', 'r2'], checkOnly: ['r3'] } });
+    const r = await executarFluxo(params({ dryRun: true }), null, m.deps, { orcamentoMs: 10_000 });
+    expect(etapa(r, 'ia4').total).toBe(3);
+  });
+});
