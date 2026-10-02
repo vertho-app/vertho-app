@@ -141,9 +141,15 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         }}
       >
         <AdminSidebar />
-        <div className="flex-1 flex flex-col overflow-hidden admin-shell-column">
+        {/* Quem rola é a JANELA (a raiz é `min-h-dvh`, cresce com o conteúdo).
+            Por isso nem a coluna nem o <main> podem ser contêiner de rolagem:
+            `overflow-hidden`/`overflow-y-auto` aqui não rolavam nada e prendiam
+            todo `sticky` das telas a um contêiner parado (a folha de decisão do
+            orçamento, a coluna da empresa). `overflow-x-clip` corta o que vaza
+            para o lado sem virar contêiner de rolagem. 02/10/2026. */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-x-clip admin-shell-column">
           <AdminHeader />
-          <main className="flex-1 overflow-y-auto admin-shell-main">
+          <main className="flex-1 min-w-0 admin-shell-main">
             <ConfirmDialogProvider>{children}</ConfirmDialogProvider>
           </main>
         </div>

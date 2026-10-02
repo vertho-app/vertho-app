@@ -161,3 +161,30 @@ Ajustes de amarração (nav/hub/i18n):
 1. **`podeVer` é default-open durante carregamento/erro** — se as permissões não carregarem, a UI se comporta como antes (mostra tudo). O custo é um flash cosmético para o sócio num hard reload; a alternativa (default-closed) esconderia menu do Master em falha transitória. O enforcement real segue 100% server-side (`requireAdminAction`), então não há risco de segurança.
 2. **Botões de IA: desabilitar com tooltip, não esconder** — o sócio precisa VER que o pipeline tem essas ações (transparência do processo); só não pode dispará-las. Danger zone: esconder, porque ali nada é aproveitável em leitura.
 3. **Curadoria de Cenário A NÃO precisou de tela nova** — a auditoria apontava assimetria A/B, mas `fase1?tab=cenarios` já tem regenerar/check/excluir por item e em lote. O problema era descoberta: o hub gerava (IA3) sem linkar a curadoria. Resolvido com o link "Curadoria de Cenários" na F1 (espelha o padrão da F4, que sempre linkou a curadoria do Cenário B).
+
+## Rolagem do shell e `sticky` (02/10/2026)
+
+**Quem rola o admin é a JANELA.** A raiz do `AdminShell` é `min-h-dvh` e cresce com o
+conteúdo, então nem a coluna nem o `<main>` rolam. Desde a criação do shell (26/05) a coluna
+tinha `overflow-hidden` e o `<main>` tinha `overflow-y-auto`: os dois não rolavam nada, mas
+são contêineres de rolagem, e todo `position: sticky` de tela se prendia a eles e ficava
+parado. Quem percebeu foi o Rodrigo, na folha de decisão do orçamento ("pode descer junto com
+a página?"). Medido no harness com o shell real: depois de rolar, o topo da folha ficava a
+-1805px da tela; com a correção, a 24px.
+
+Regra:
+- coluna `min-w-0 overflow-x-clip` (corta o que vaza para o lado sem virar contêiner de
+  rolagem) e `<main>` sem `overflow`;
+- não trocar o shell para o `<main>` rolar: capturas de página inteira (`fullPage` do
+  Playwright no Manual de Telas e nos `verify-*-ui`) dependem da janela rolar;
+- `sticky` que for mais alto que a tela precisa de `max-h-[calc(100dvh-3rem)]` e
+  `overflow-y-auto`, senão o fim dele só aparece no fim da página (é o caso da folha de
+  decisão);
+- a coluna direita da empresa (`/admin/empresas/[id]`) tinha `md:sticky` que nunca funcionou;
+  ela é mais alta que a tela e a zona de risco ficaria escondida, então saiu o `sticky` e a
+  tela segue como sempre foi.
+
+Efeito colateral aceito: uma tabela mais larga que a tela, sem `overflow-x-auto` próprio, que
+antes rolava de lado dentro do `<main>`, agora fica cortada. Medido no código: 17 das 57
+tabelas do admin não têm wrapper de rolagem nos 900 caracteres anteriores; quase todas são
+`w-full` e encolhem. Se alguma cortar, o conserto é o wrapper na própria tabela.

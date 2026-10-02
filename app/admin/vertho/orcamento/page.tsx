@@ -1347,8 +1347,10 @@ export default function OrcamentoPage() {
 
         </main>
 
-        {/* Folha de decisão sempre visível: preço, margem e risco de caixa. */}
-        <aside className="xl:sticky xl:top-6">
+        {/* Folha de decisão sempre visível: preço, margem e risco de caixa. Ela é
+            mais alta que a tela (gráfico, salvar, virar proposta): cabe na altura
+            da tela e rola por dentro, senão o fim dela só aparecia no fim da página. */}
+        <aside className="xl:sticky xl:top-6 xl:max-h-[calc(100dvh-3rem)] xl:overflow-y-auto xl:overscroll-contain xl:pr-1">
       <div className="rounded-sm border border-amber-300/30 bg-[#17150e] p-5 shadow-[0_22px_70px_rgba(0,0,0,0.22)]">
         <div className="mb-4 border-b border-amber-300/15 pb-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">Folha de decisão</p>

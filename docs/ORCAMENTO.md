@@ -224,6 +224,15 @@ projeto completo. Se a intenção comercial passar a ser “preço da matriz mai
 horas cobradas”, a fórmula precisa mudar; hoje ela **não** cobra R$ 4.000 pela
 nova nem R$ 1.500 pela adaptada.
 
+## A folha de decisão acompanha a rolagem
+
+Desde 02/10/2026 (pedido do Rodrigo: ajustar algo embaixo sem subir para ver o impacto), a
+folha de decisão fica presa ao topo da tela em telas largas (`xl`), com a altura da tela e
+rolagem própria: valor, parcela e margem ficam à vista, e o gráfico de caixa, "Salvar" e
+"Virar proposta" se alcançam rolando dentro dela. O `xl:sticky` já existia e não funcionava
+porque o shell do admin prendia o `sticky` a um contêiner que não rolava. A regra do shell
+está em `docs/REORGANIZACAO-ADMIN.md` (Rolagem do shell e `sticky`).
+
 ## Investimento por pessoa versus custo por pessoa
 
 São métricas diferentes e aparecem lado a lado na folha de decisão:

@@ -1127,7 +1127,11 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
           </div>
 
           {/* ── RIGHT COLUMN ── */}
-          <div className="md:w-[280px] md:shrink-0 self-start md:sticky md:top-6 flex flex-col gap-3">
+          {/* Sem `sticky` de propósito: ela tinha `md:sticky md:top-6`, que o shell
+              anulava (02/10/2026). Consertado o shell, ela passaria a acompanhar a
+              rolagem e, mais alta que a tela, esconderia a zona de risco até o fim
+              da página. Fica parada, como sempre se comportou. */}
+          <div className="md:w-[280px] md:shrink-0 self-start flex flex-col gap-3">
 
             {/* Status panel */}
             <div className="rounded-2xl overflow-hidden" style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.07)' }}>
