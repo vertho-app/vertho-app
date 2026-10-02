@@ -2585,7 +2585,14 @@
       "summary": "{done} de {total} respondieron",
       "scenariosSummary": "{done} de {total} respondidos",
       "missingCount": "{count} aún no respondieron",
-      "allDone": "Todos los colaboradores respondieron el diagnóstico"
+      "allDone": "Todos los colaboradores respondieron el diagnóstico",
+      "needsProfileCount": "· {count} sin perfil conductual",
+      "loadError": "Progreso no disponible: {error}",
+      "groups": {
+        "canAnswer": "Ya pueden responder ({count})",
+        "needsProfile": "Falta el perfil conductual ({count})",
+        "noCompetencies": "Cargo sin competencias definidas ({count}), fuera del conteo de escenarios"
+      }
     },
     "tabs": {
       "diagnostic": "Diagnóstico",

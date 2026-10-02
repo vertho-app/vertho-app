@@ -6,7 +6,9 @@ import type { AIConfig } from './ai-client';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { excludeInternalEmails } from '@/lib/internal-emails';
-import { hasDiscMapeado } from '@/lib/disc-status';
+import { lerPaginas } from '@/lib/db/ler-paginas';
+import type { PessoaDiagnostico } from '@/lib/diagnostico-progresso';
+import type { CargoMapeamento } from '@/lib/mapeamento-competencias';
 // Núcleo da IA4 (prompt + consolidação + persistência) vive em lib/ para a task
 // de lote e os scripts o chamarem sem passar por HTTP — este arquivo é
 // `'use server'`, onde todo export vira endpoint e só async é exportável.
@@ -263,29 +265,45 @@ export async function loadRespostasAvaliadas(empresaId: string) {
 }
 
 /**
- * Roster de colaboradores ELEGÍVEIS ao Diagnóstico — usado para calcular % de
- * diagnósticos/cenários realizados e listar quem falta. Exclui:
- * - contas internas (@vertho.ai);
- * - quem ainda NÃO fez o mapeamento comportamental (DISC), pré-requisito das
- *   próximas etapas. Sem DISC, o colaborador não é cobrado de diagnóstico nem
- *   de cenários (não infla o denominador).
+ * Quem o painel da Fase 2 cobra de Diagnóstico, com o que a conta por pessoa
+ * precisa (`lib/diagnostico-progresso.ts`): o cargo, para o Top 5, e o
+ * `perfil_dominante`, para o gate da ordem. Fora só contas internas (@vertho.ai)
+ * e o papel `rh`, que é o Admin da empresa e não participante.
  *
- * O cruzamento com quem já respondeu é feito na tela (via colaborador_id das
- * respostas).
+ * Até 02/10/2026 quem não tinha o Perfil comportamental era cortado AQUI e sumia
+ * da tela, nem no total nem em "faltam". Agora vem junto e a tela o separa,
+ * porque é justamente quem o RH precisa cobrar antes.
+ *
+ * Falha de leitura volta em `erro`, não como roster vazio: vazio esconde o card
+ * e se lê como "ninguém para cobrar".
  */
-export async function loadRosterDiagnostico(empresaId: string) {
+export async function loadRosterDiagnostico(empresaId: string): Promise<{
+  pessoas: PessoaDiagnostico[];
+  cargos: CargoMapeamento[];
+  perfilExternoFonte: string | null;
+  erro: string | null;
+}> {
   await requireAdminAction();
-  if (!empresaId) return [];
+  const vazio = { pessoas: [], cargos: [], perfilExternoFonte: null, erro: null };
+  if (!empresaId) return vazio;
   const tdb = tenantDb(empresaId);
-  const { data } = await excludeInternalEmails(
-    tdb.from('colaboradores')
-      .select('id, nome_completo, cargo, perfil_dominante, d_natural, i_natural, s_natural, c_natural')
-      .order('nome_completo')
-  );
-  // DISC realizado = perfil dominante + ao menos um eixo D/I/S/C preenchido.
-  return (data || [])
-    .filter((c: any) => hasDiscMapeado(c))
-    .map((c: any) => ({ id: c.id, nome_completo: c.nome_completo, cargo: c.cargo }));
+  const [pessoasRes, cargosRes, empresaRes] = await Promise.all([
+    lerPaginas<PessoaDiagnostico>((inicio, fim) => excludeInternalEmails(
+      tdb.from('colaboradores')
+        .select('id, nome_completo, cargo, perfil_dominante')
+        .neq('role', 'rh'),
+    ).order('nome_completo').order('id').range(inicio, fim)),
+    tdb.from('cargos_empresa').select('nome, top5_workshop'),
+    tdb.raw.from('empresas').select('sys_config').eq('id', empresaId).maybeSingle(),
+  ]);
+  const erro = pessoasRes.error || cargosRes.error || empresaRes.error;
+  if (erro) return { ...vazio, erro: erro.message || String(erro) };
+  return {
+    pessoas: pessoasRes.data || [],
+    cargos: cargosRes.data || [],
+    perfilExternoFonte: (empresaRes.data?.sys_config as any)?.perfil_externo_fonte ?? null,
+    erro: null,
+  };
 }
 
 // ── Relatórios ──────────────────────────────────────────────────────────────

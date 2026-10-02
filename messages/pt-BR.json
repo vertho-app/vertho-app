@@ -2585,7 +2585,14 @@
       "summary": "{done} de {total} responderam",
       "scenariosSummary": "{done} de {total} respondidos",
       "missingCount": "{count} ainda não responderam",
-      "allDone": "Todos os colaboradores responderam o diagnóstico"
+      "allDone": "Todos os colaboradores responderam o diagnóstico",
+      "needsProfileCount": "· {count} sem Perfil comportamental",
+      "loadError": "Progresso indisponível: {error}",
+      "groups": {
+        "canAnswer": "Já podem responder ({count})",
+        "needsProfile": "Falta o Perfil comportamental ({count})",
+        "noCompetencies": "Cargo sem competências definidas ({count}), fora da conta de cenários"
+      }
     },
     "tabs": {
       "diagnostic": "Diagnóstico",

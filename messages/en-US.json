@@ -2585,7 +2585,14 @@
       "summary": "{done} of {total} responded",
       "scenariosSummary": "{done} of {total} answered",
       "missingCount": "{count} haven't responded yet",
-      "allDone": "All team members completed the diagnosis"
+      "allDone": "All team members completed the diagnosis",
+      "needsProfileCount": "· {count} without a behavioral profile",
+      "loadError": "Progress unavailable: {error}",
+      "groups": {
+        "canAnswer": "Can respond now ({count})",
+        "needsProfile": "Behavioral profile missing ({count})",
+        "noCompetencies": "Role with no competencies defined ({count}), left out of the scenario count"
+      }
     },
     "tabs": {
       "diagnostic": "Diagnosis",

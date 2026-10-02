@@ -19,6 +19,7 @@ import { MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
 import { loadTrilhas } from '@/actions/trilhas-load';
 import VideoModal from '@/components/video-modal';
 import { nivelDaNota } from '@/lib/nivel-regua';
+import { progressoDiagnostico } from '@/lib/diagnostico-progresso';
 
 // Ícone por formato de conteúdo (consistente com dashboard do colab).
 const FORMATO_ICON = {
@@ -203,7 +204,9 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
   const [tab, setTab] = useState(searchParams.get('tab') || 'diagnostico');
   const [respostas, setRespostas] = useState([]);
   const [trilhas, setTrilhas] = useState([]);
-  const [roster, setRoster] = useState([]);
+  const [roster, setRoster] = useState<Awaited<ReturnType<typeof loadRosterDiagnostico>>>({
+    pessoas: [], cargos: [], perfilExternoFonte: null, erro: null,
+  });
   const [showFaltam, setShowFaltam] = useState(false);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState(null);
@@ -339,30 +342,29 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
     setFiltroCargo(''); setFiltroColab(''); setFiltroStatus(''); setFiltroNota('');
   }
 
-  // Progresso de diagnóstico:
-  // 1) por COLABORADOR — quem já respondeu (tem ≥1 resposta) vs roster.
-  // 2) por CENÁRIO — cada colaborador responde 2 cenários; mede o total de
-  //    cenários respondidos vs o esperado (roster × 2), com crédito parcial.
-  const CENARIOS_POR_COLAB = 2;
-  const respostasPorColab: Record<string, number> = {};
-  respostas.forEach((r: any) => {
-    if (r.colaborador_id) respostasPorColab[r.colaborador_id] = (respostasPorColab[r.colaborador_id] || 0) + 1;
-  });
-  // O progresso segue o filtro de CARGO — o único que existe dos dois lados
+  // Progresso de diagnóstico, régua em lib/diagnostico-progresso (testada):
+  // 1) por COLABORADOR: quem tem ≥1 resposta, sobre TODOS os participantes;
+  //    quem ainda não fez o Perfil entra no total, em grupo próprio.
+  // 2) por CENÁRIO: cada pessoa responde o Top 5 do CARGO dela (era 2 fixo).
+  // O progresso segue o filtro de CARGO, o único que existe dos dois lados
   // (roster e resposta). Com "Professor(a)" na tela, uma barra que conta a
   // empresa inteira responde outra pergunta. Status e nota são atributos da
   // RESPOSTA, não da pessoa, então não recortam o roster.
-  const rosterEscopo = filtroCargo ? roster.filter((c: any) => c.cargo === filtroCargo) : roster;
-  const realizados = rosterEscopo.filter((c: any) => (respostasPorColab[c.id] || 0) > 0);
-  const faltam = rosterEscopo.filter((c: any) => !(respostasPorColab[c.id] > 0));
-  const totalRoster = rosterEscopo.length;
+  const pessoasEscopo = filtroCargo ? roster.pessoas.filter((c) => c.cargo === filtroCargo) : roster.pessoas;
+  const prog = progressoDiagnostico(pessoasEscopo, roster.cargos, respostas, roster.perfilExternoFonte);
+  const realizados = prog.responderam;
+  const faltam = [...prog.podemResponder, ...prog.faltaPerfil, ...prog.semCompetencias];
+  const totalRoster = prog.total;
   const pctDiag = totalRoster > 0 ? Math.round((realizados.length / totalRoster) * 100) : 0;
 
-  const cenariosEsperados = totalRoster * CENARIOS_POR_COLAB;
-  const cenariosRespondidos = rosterEscopo.reduce(
-    (sum: number, c: any) => sum + Math.min(respostasPorColab[c.id] || 0, CENARIOS_POR_COLAB), 0,
-  );
+  const cenariosEsperados = prog.cenarios.esperados;
+  const cenariosRespondidos = prog.cenarios.respondidos;
   const pctCenarios = cenariosEsperados > 0 ? Math.round((cenariosRespondidos / cenariosEsperados) * 100) : 0;
+  const gruposFaltam = [
+    { chave: 'canAnswer', lista: prog.podemResponder, chip: 'bg-amber-400/10 text-amber-300 border-amber-400/20' },
+    { chave: 'needsProfile', lista: prog.faltaPerfil, chip: 'bg-white/[0.04] text-gray-300 border-white/10' },
+    { chave: 'noCompetencies', lista: prog.semCompetencias, chip: 'bg-white/[0.04] text-gray-400 border-white/10' },
+  ].filter((g) => g.lista.length > 0);
 
   if (loading) return <div className="flex items-center justify-center h-dvh"><Loader2 size={32} className="animate-spin text-cyan-400" /></div>;
 
@@ -397,6 +399,11 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
 
       {tab === 'diagnostico' && <>
       {/* Progresso de diagnóstico por colaborador */}
+      {roster.erro && (
+        <p className="mb-5 flex items-center gap-1 text-[11px] text-amber-400">
+          <AlertTriangle size={11} /> {tr('diagProgress.loadError', { error: roster.erro })}
+        </p>
+      )}
       {totalRoster > 0 && (() => {
         const barColor = (pct: number) => pct >= 80 ? 'bg-green-400' : pct >= 40 ? 'bg-cyan-400' : 'bg-amber-400';
         const txtColor = (pct: number) => pct >= 80 ? 'text-green-400' : pct >= 40 ? 'text-cyan-400' : 'text-amber-400';
@@ -433,23 +440,37 @@ export default function Fase2Page({ params }: { params: Promise<{ empresaId: str
             </div>
           </div>
           {faltam.length > 0 ? (
-            <button onClick={() => setShowFaltam(v => !v)}
-              className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition-colors">
-              <AlertTriangle size={11} />
-              {tr('diagProgress.missingCount', { count: faltam.length })}
-              <ChevronDown size={12} className={`transition-transform ${showFaltam ? 'rotate-180' : ''}`} />
-            </button>
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <button onClick={() => setShowFaltam(v => !v)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition-colors">
+                <AlertTriangle size={11} />
+                {tr('diagProgress.missingCount', { count: faltam.length })}
+                <ChevronDown size={12} className={`transition-transform ${showFaltam ? 'rotate-180' : ''}`} />
+              </button>
+              {prog.faltaPerfil.length > 0 && (
+                <span className="text-[11px] text-gray-500">{tr('diagProgress.needsProfileCount', { count: prog.faltaPerfil.length })}</span>
+              )}
+            </div>
           ) : (
             <p className="mt-1.5 flex items-center gap-1 text-[11px] font-semibold text-green-400">
               <CheckCircle size={11} /> {tr('diagProgress.allDone')}
             </p>
           )}
-          {showFaltam && faltam.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {faltam.map((c: any) => (
-                <span key={c.id} className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20">
-                  {c.nome_completo}{c.cargo && c.cargo !== '—' ? <span className="text-amber-400/50"> · {c.cargo}</span> : null}
-                </span>
+          {showFaltam && gruposFaltam.length > 0 && (
+            <div className="mt-2 space-y-2">
+              {gruposFaltam.map((g) => (
+                <div key={g.chave}>
+                  <p className="text-[10px] font-semibold text-gray-400 mb-1">
+                    {tr(`diagProgress.groups.${g.chave}`, { count: g.lista.length })}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {g.lista.map((c) => (
+                      <span key={c.id} className={`text-[10px] px-2 py-0.5 rounded-full border ${g.chip}`}>
+                        {c.nome_completo}{c.cargo && c.cargo !== '—' ? <span className="opacity-50"> · {c.cargo}</span> : null}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           )}
