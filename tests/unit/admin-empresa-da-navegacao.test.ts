@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { empresaDaNavegacao } from '@/app/admin/_shell/empresa-da-navegacao';
+import { empresaDaNavegacao, empresaDaRotaParaAdotar } from '@/app/admin/_shell/empresa-da-navegacao';
 
 /**
  * A régua que torna SIMÉTRICA a sincronização entre a URL e o filtro do header.
@@ -45,11 +45,48 @@ describe('AdminShell consome a régua', () => {
   const src = readFileSync(join(process.cwd(), 'app', 'admin', '_shell', 'AdminShell.tsx'), 'utf8');
 
   it('deriva routeEmpresaId por `empresaDaNavegacao`, com o query da URL', () => {
-    expect(src).toMatch(/import \{ empresaDaNavegacao \}/);
+    expect(src).toMatch(/import \{ empresaDaNavegacao\b/);
     expect(src).toMatch(/const routeEmpresaId = empresaDaNavegacao\(pathname, searchParams\?\.get\('empresa'\)\)/);
   });
 
   it('não voltou a casar o path na mão (era só metade da régua)', () => {
     expect(src).not.toMatch(/const routeEmpresaId = pathname\?\.match/);
+  });
+});
+
+/**
+ * "Todas as empresas" não podia ser escolhido numa tela escopada: o efeito comparava a
+ * rota com o FILTRO e o devolvia à empresa da URL. Agora só a MUDANÇA da navegação adota.
+ */
+describe('empresaDaRotaParaAdotar', () => {
+  const A = 'emp-a';
+  const B = 'emp-b';
+
+  it('rota nova e conhecida: adota', () => {
+    expect(empresaDaRotaParaAdotar(A, null, [A, B])).toBe(A);
+    expect(empresaDaRotaParaAdotar(B, A, [A, B])).toBe(B);
+  });
+
+  it('a rota já sincronizada NÃO re-adota, mesmo com o filtro em outro valor (o bug do "Todas")', () => {
+    expect(empresaDaRotaParaAdotar(A, A, [A, B])).toBeNull();
+  });
+
+  it('sem pedido da rota, ou empresa desconhecida: não adota', () => {
+    expect(empresaDaRotaParaAdotar(null, A, [A, B])).toBeNull();
+    expect(empresaDaRotaParaAdotar('fantasma', null, [A, B])).toBeNull();
+    expect(empresaDaRotaParaAdotar(A, null, [])).toBeNull();
+  });
+});
+
+describe('AdminShell: "Todas as empresas" sai da rota escopada', () => {
+  const src = readFileSync(join(process.cwd(), 'app', 'admin', '_shell', 'AdminShell.tsx'), 'utf8');
+
+  it('o efeito de volta usa a régua de mudança, não a divergência com o filtro', () => {
+    expect(src).toMatch(/empresaDaRotaParaAdotar\(/);
+    expect(src).not.toMatch(/routeEmpresaId !== empresaFiltro/);
+  });
+
+  it("escolher 'all' numa rota /admin/empresas/{id} navega para o painel global", () => {
+    expect(src).toMatch(/id === 'all' && m\)[\s\S]{0,200}router\.replace\('\/admin\/dashboard'\)/);
   });
 });

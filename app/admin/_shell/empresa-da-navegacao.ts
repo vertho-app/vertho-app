@@ -26,3 +26,25 @@ export function empresaDaNavegacao(pathname: string | null | undefined, empresaQ
   const daQuery = String(empresaQuery || '').trim();
   return daQuery || null;
 }
+
+/**
+ * Quando o header deve ADOTAR a empresa que a rota pede.
+ *
+ * Só quando a rota pede uma empresa que ainda NÃO foi sincronizada. A versão
+ * anterior comparava a rota com o FILTRO a cada render: escolher "Todas as
+ * empresas" mudava o filtro para 'all', a rota ainda dizia A (a URL só muda
+ * depois do `router.replace`) e o efeito devolvia o filtro para A. O usuário
+ * não conseguia sair de uma empresa numa tela escopada, e nada acusava.
+ *
+ * Quem decide é a MUDANÇA da navegação, nunca a divergência com o filtro:
+ * navegar para outra empresa (link, voltar) adota; escolher no header não.
+ */
+export function empresaDaRotaParaAdotar(
+  routeEmpresaId: string | null,
+  ultimaSincronizada: string | null,
+  idsConhecidos: string[],
+): string | null {
+  if (!routeEmpresaId) return null;
+  if (routeEmpresaId === ultimaSincronizada) return null;
+  return idsConhecidos.includes(routeEmpresaId) ? routeEmpresaId : null;
+}

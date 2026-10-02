@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { AdminShellContext } from './AdminShellContext';
-import { empresaDaNavegacao } from './empresa-da-navegacao';
+import { empresaDaNavegacao, empresaDaRotaParaAdotar } from './empresa-da-navegacao';
 import { loadAdminShellEmpresas, loadAdminShellPermissoes, type EmpresaLite, type AdminShellPermissoes } from './actions';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
@@ -24,6 +24,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [refreshing, setRefreshing] = useState(false);
   const [permissoes, setPermissoes] = useState<AdminShellPermissoes | null>(null);
   const refreshHandlerRef = useRef<(() => void | Promise<void>) | null>(null);
+  // Última empresa da ROTA que o header já adotou (ver `empresaDaRotaParaAdotar`).
+  const rotaSincronizadaRef = useRef<string | null>(null);
 
   // Carrega filtro persistido + lista de empresas + permissões no mount.
   useEffect(() => {
@@ -69,7 +71,11 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           router.replace(`${pathname}?${sp.toString()}`);
         }
       }
-    } else if (id === 'all' && !m) {
+    } else if (id === 'all' && m) {
+      // Rota escopada a UMA empresa não existe para "todas": sai para o painel global
+      // (sem isto o filtro ficava preso na empresa da rota).
+      router.replace('/admin/dashboard');
+    } else if (id === 'all') {
       // "Todas as empresas": remove o ?empresa= para o contexto voltar a null.
       const sp = new URLSearchParams(window.location.search);
       if (sp.get('empresa')) {
@@ -82,12 +88,16 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   // Sentido inverso: ao navegar direto pra uma empresa (link, voltar), o filtro do header
   // passa a refletir a empresa da rota. setState direto (sem navegar) p/ não recursar.
+  // Adota só quando a NAVEGAÇÃO muda de empresa, não quando o filtro diverge dela: senão
+  // escolher "Todas as empresas" era desfeito na hora (a URL ainda trazia a empresa).
   useEffect(() => {
-    if (routeEmpresaId && routeEmpresaId !== empresaFiltro && empresas.some((e) => e.id === routeEmpresaId)) {
-      setEmpresaFiltroState(routeEmpresaId);
-      try { localStorage.setItem(FILTER_KEY, routeEmpresaId); } catch {}
-    }
-  }, [routeEmpresaId, empresas, empresaFiltro]);
+    if (!routeEmpresaId) { rotaSincronizadaRef.current = null; return; }
+    const adotar = empresaDaRotaParaAdotar(routeEmpresaId, rotaSincronizadaRef.current, empresas.map((e) => e.id));
+    if (!adotar) return;
+    rotaSincronizadaRef.current = adotar;
+    setEmpresaFiltroState(adotar);
+    try { localStorage.setItem(FILTER_KEY, adotar); } catch {}
+  }, [routeEmpresaId, empresas]);
 
   // Se a empresa salva não existe mais (foi deletada), volta pra 'all'.
   useEffect(() => {
