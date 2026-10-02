@@ -123,6 +123,8 @@ export function custoSimuladoresBrl(p: {
 }
 
 export const MESES_POR_CICLO = 2;
+/** Parcela além das do programa (regra do Rodrigo, 02/10/2026): ciclos × 2 + 1. */
+export const PARCELAS_ALEM_DO_PROGRAMA = 1;
 export const PERFIS_DISC_POR_CARGO = 4;
 export const CONTEUDO_POR_FORMATO_DEFAULT = 12;
 
@@ -151,9 +153,14 @@ export function mesesDoPrograma(ciclos: number): number {
   return Math.max(1, Math.floor(Number(ciclos) || 1)) * MESES_POR_CICLO;
 }
 
-/** A forma de pagamento acompanha a entrega: uma parcela por mês de programa. */
+/**
+ * A forma de pagamento acompanha a entrega: uma parcela por mês de programa e
+ * mais uma (02/10/2026). Desde então parcelas ≠ duração: 5 ciclos são 10 meses
+ * de programa pagos em 11 parcelas. A infra e o custo da curva de exposição
+ * correm pelos MESES; o valor do projeto é dividido pelas parcelas.
+ */
 export function parcelasPorCiclos(ciclos: number): number {
-  return mesesDoPrograma(ciclos);
+  return mesesDoPrograma(ciclos) + PARCELAS_ALEM_DO_PROGRAMA;
 }
 
 /** Todo cargo que não exige uma matriz nova adapta uma matriz existente. */

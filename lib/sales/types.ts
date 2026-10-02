@@ -101,7 +101,7 @@ export type SalesProposal = {
   /**
    * 12/24/36 no formulário do RC (`CONTRACT_DURATIONS`); qualquer valor 1..360
    * quando vem do deal desk, onde a vigência É o número de parcelas do projeto
-   * (ciclos × 2). CHECK afrouxado na mig 254 — não restrinja de volta sem antes
+   * (ciclos × 2 + 1). CHECK afrouxado na mig 254 — não restrinja de volta sem antes
    * olhar `actions/sales/proposals-admin.ts`.
    */
   contract_duration_months: number | null;

@@ -3,7 +3,7 @@
  *
  * Os dois testes que justificam este arquivo existir:
  *
- * 1. O MAPEAMENTO DE VIGÊNCIA. O orçamento parcela por entrega (`ciclos × 2`);
+ * 1. O MAPEAMENTO DE VIGÊNCIA. O orçamento parcela por entrega (`ciclos × 2 + 1`);
  *    a proposta tinha CHECK IN (12,24,36). O mapeamento ingênuo — `monthly_value`
  *    = parcela do orçamento, vigência 12 — multiplica o contrato por 6, e é sobre
  *    `total_contract_value` que o aceite materializa comissão (9% + 12%). Um
@@ -132,7 +132,8 @@ describe('criarPropostaDeOrcamento — o mapeamento de dinheiro', () => {
     expect(r.success).toBe(true);
 
     const gravado = insertDeProposta();
-    // 2 parcelas (1 ciclo × 2) — NÃO 12. Se alguém "corrigir" para 12 meses,
+    // As 2 parcelas que o orçamento GRAVOU (regra de antes de 02/10: 1 ciclo × 2)
+    // — NÃO 12, e não recalculadas. Se alguém "corrigir" para 12 meses,
     // o total do contrato vira 6× o valor do projeto e a comissão junto.
     expect(gravado.contract_duration_months).toBe(2);
     expect(gravado.monthly_value).toBe(16000);

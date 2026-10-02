@@ -44,7 +44,7 @@ Representante, e as diferenças são decisões, não omissões:
 | Dono | `representante_id` obrigatório | **Nulo** — proposta da Vertho, sem RC |
 | Oportunidade | Exigida e aberta | Nenhuma (o deal desk orça antes do CRM) |
 | Nome do cliente | Vem de `sales_accounts` | `cliente_nome`, texto livre do orçamento |
-| Vigência | 12, 24 ou 36 (`CONTRACT_DURATIONS`) | **As parcelas do projeto** (`ciclos × 2`) |
+| Vigência | 12, 24 ou 36 (`CONTRACT_DURATIONS`) | **As parcelas do projeto** (`ciclos × 2 + 1`) |
 | Comissão | 9% aquisição + 12% recorrente no aceite | **Nenhuma** — sem RC não há quem receba |
 | Quatro olhos | RC submete, admin aprova | Quem cria aprova; `created_by_email` + `approved_by` registram |
 | Autor | O RC | O platform admin |
@@ -52,7 +52,8 @@ Representante, e as diferenças são decisões, não omissões:
 ### O mapeamento de vigência
 
 Os dois lados tinham eixos incompatíveis: o orçamento parcela por **entrega**
-(`parcelas = ciclos × 2`, então uma jornada de 7 semanas são 2 parcelas) e a
+(`parcelas = ciclos × 2 + 1` desde 02/10/2026, então uma jornada de 7 semanas são
+3 parcelas) e a
 proposta só aceitava 12/24/36. O mapeamento ingênuo — `monthly_value` = parcela
 do orçamento com vigência 12 — multiplica o contrato por **6×**, e é sobre
 `total_contract_value` que o aceite materializa comissão.
@@ -123,8 +124,8 @@ RC continua sendo operada só pelo Portal do Representante.
 |---|---|
 | Adesão | Sempre 100% das pessoas da base; não há card editável |
 | Jornada padrão | Jornada de 7 semanas e 1 competência |
-| Ciclos e parcelas | Cada ciclo gera 2 parcelas; o prazo divide, não multiplica o projeto |
-| Duração do programa | Igual às parcelas: ciclos × 2 meses (`mesesDoPrograma`) |
+| Ciclos e parcelas | Cada ciclo gera 2 parcelas, mais 1 (`ciclos × 2 + 1`); o prazo divide, não multiplica o projeto |
+| Duração do programa | Ciclos × 2 meses (`mesesDoPrograma`), uma a menos que as parcelas |
 | Simuladores | Pessoas com acesso a cada um (vendas, atendimento, liderança); zero = fora do escopo; nunca acima das pessoas do programa |
 | Matrizes adaptadas | `máx(0, cargos − matrizes novas)` |
 | Conteúdo | 48 peças por pessoa/ciclo: 12 vídeos, 12 podcasts, 12 textos e 12 cases |
@@ -202,7 +203,7 @@ custo all-in = custo operacional + contingência + comissão + impostos
 
 margem absoluta = valor final − custo all-in
 margem % = margem absoluta ÷ valor final
-parcela = valor final ÷ (ciclos × 2)
+parcela = valor final ÷ (ciclos × 2 + 1)
 ```
 
 O desconto máximo é calculado antes da negociação: é o maior desconto que ainda
@@ -328,12 +329,23 @@ vezes, porque preço e custo são por pessoa POR simulador (`acessosSimuladores`
 Testes: `tests/unit/orcamento-simuladores.test.ts` (validado por mutação: tirar
 os simuladores do valor derruba o teste).
 
-### Duração do programa = parcelas (17/09/2026)
+### Duração do programa (17/09/2026)
 
-`mesesDoPrograma(ciclos)` = ciclos × 2 = `parcelasPorCiclos(ciclos)`. Antes a
+`mesesDoPrograma(ciclos)` = ciclos × 2 (até 02/10, igual a `parcelasPorCiclos`). Antes a
 calculadora estimava por semanas (7 × ciclos ÷ 4,345), e uma proposta real dizia
 "8 meses de programa" ao lado de "10 parcelas". A infra é rateada por essa
 duração (5 ciclos: +R$ 996 a +R$ 1.992 de custo, menos de 0,13 ponto de margem
 num projeto de sete dígitos). O documento da proposta deriva a duração dos
 `ciclos`, não do `resultado.mesesPrograma` gravado, porque cenário salvo antes
 desta data congelou a conta antiga.
+
+### Uma parcela a mais (02/10/2026)
+
+Regra do dono: `parcelasPorCiclos(ciclos)` = ciclos × 2 + 1
+(`PARCELAS_ALEM_DO_PROGRAMA`). A partir daqui parcelas e duração deixam de ser o
+mesmo número: 5 ciclos são **10 meses de programa** pagos em **11 parcelas**.
+`mesesDoPrograma` não mudou, então a infra continua rateada pelos meses de
+entrega e a curva de exposição distribui o custo variável em 10 meses enquanto
+recebe em 11. O orçamento salvo carrega as parcelas do dia em
+`resultado.parcelas`, e a conversão em proposta lê esse valor: cenário salvo
+antes de 02/10 continua com `ciclos × 2` até ser salvo de novo.

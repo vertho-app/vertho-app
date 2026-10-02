@@ -160,8 +160,9 @@ async function auditar(email: string, acao: string, alvo: string, detalhes?: Rec
  * proposta herda a decisão do dia mesmo que a régua tenha mudado desde então.
  *
  * MAPEAMENTO DE VIGÊNCIA (decisão de 14/09/2026: preservar as parcelas)
- * O orçamento parcela por entrega — `parcelas = ciclos × 2`. Então:
- *   · `contract_duration_months` = parcelas (2 numa jornada de 7 semanas)
+ * O orçamento parcela por entrega — `parcelas = ciclos × 2 + 1` (até 02/10/2026,
+ * `ciclos × 2`; o orçamento salvo carrega as parcelas do dia). Então:
+ *   · `contract_duration_months` = parcelas (3 numa jornada de 7 semanas)
  *   · `monthly_value`            = valorTabela ÷ parcelas
  *   · `discount_requested`       = o desconto que a tela aplicou
  * Com isso `calculateProposalFinancials` devolve gross = valorTabela e

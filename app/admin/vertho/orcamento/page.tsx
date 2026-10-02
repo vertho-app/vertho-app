@@ -41,6 +41,7 @@ import {
   obterComissaoOrcamento,
   OPCOES_COMISSAO_ORCAMENTO,
   mesesDoPrograma,
+  PARCELAS_ALEM_DO_PROGRAMA,
   parcelasPorCiclos,
   ratearValorPorPessoa,
   reusoConteudoPorCelula,
@@ -98,7 +99,8 @@ const LISTAS_VALIDAS: ListasValidas = {
  *
  * O preço recorrente é por pessoa e por CICLO, e `parcelas` só divide. Desde
  * 12/09/2026, a forma de pagamento também deixa de ser uma dimensão solta:
- * cada ciclo contratado gera duas parcelas.
+ * cada ciclo contratado gera duas parcelas, e desde 02/10/2026 há uma a mais
+ * (ciclos × 2 + 1).
  */
 // Fonte única também usada na sugestão de preço das propostas comerciais.
 const PRECOS_DEFAULT = ORCAMENTO_DEFAULTS;
@@ -339,7 +341,7 @@ export default function OrcamentoPage() {
       (metodo === 'workshop' ? nClusters * pricing.horasWorkshop : 0);
     const custoHorasBrl = horasTotais * pricing.custoHora;
     const custoMsgBrl = pessoasAtivas * pricing.msgsPorPessoaCiclo * pricing.custoMsgUnitario * ciclos;
-    // Duração do programa (= parcelas, dois meses por ciclo): é por ela que a
+    // Duração do programa (dois meses por ciclo; as parcelas são uma a mais): é por ela que a
     // infra é rateada e o custo variável se distribui na exposição de caixa.
     const mesesPrograma = mesesDoPrograma(ciclos);
     const infra = infraFixaTotal();
@@ -938,13 +940,13 @@ export default function OrcamentoPage() {
           <FieldNumber locale={locale} icon={<Users size={14} />} label={t('scope.collaborators.label')} sub={t('scope.collaborators.sub')}
             value={nColabs} onChange={setNColabs} min={0} />
           <FieldNumber locale={locale} icon={<Calculator size={14} />} label="Ciclos entregues"
-            sub="cada ciclo gera 2 parcelas"
+            sub="cada ciclo gera 2 parcelas, mais 1"
             value={ciclosPorAno} onChange={setCiclosPorAno} min={1} />
           <CalculatedField
             icon={<Calculator size={14} />}
             label="Parcelas"
             value={calc.parcelas.toLocaleString(locale)}
-            sub={`${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'} × 2`}
+            sub={`${calc.ciclos} ${calc.ciclos === 1 ? 'ciclo' : 'ciclos'} × 2 + ${PARCELAS_ALEM_DO_PROGRAMA}`}
           />
           <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <label className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-gray-500 mb-1">

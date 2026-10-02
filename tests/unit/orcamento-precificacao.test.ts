@@ -81,16 +81,21 @@ describe('premissas comerciais do orçamento', () => {
     expect(ratearValorPorPessoa(6000, 0, 3)).toEqual({ contrato: 0, porCiclo: 0 });
   });
 
-  it('deriva duas parcelas por ciclo', () => {
-    expect(parcelasPorCiclos(1)).toBe(2);
-    expect(parcelasPorCiclos(3)).toBe(6);
+  it('deriva duas parcelas por ciclo, mais uma', () => {
+    // Regra do dono (02/10/2026): ciclos × 2 + 1.
+    expect(parcelasPorCiclos(1)).toBe(3);
+    expect(parcelasPorCiclos(3)).toBe(7);
+    expect(parcelasPorCiclos(5)).toBe(11);
   });
 
-  it('a duração do programa em meses é igual ao número de parcelas', () => {
+  it('a duração do programa são dois meses por ciclo, uma parcela a menos', () => {
     // Regra do dono (17/09/2026). A conta antiga por semanas dava 8 para 5 ciclos.
+    // A parcela extra (02/10/2026) não estica o programa: a infra é rateada
+    // pelos meses de entrega, não pelos meses de pagamento.
     expect(mesesDoPrograma(5)).toBe(10);
     for (const ciclos of [1, 2, 3, 4, 5, 6, 12]) {
-      expect(mesesDoPrograma(ciclos)).toBe(parcelasPorCiclos(ciclos));
+      expect(mesesDoPrograma(ciclos)).toBe(ciclos * 2);
+      expect(parcelasPorCiclos(ciclos)).toBe(mesesDoPrograma(ciclos) + 1);
     }
   });
 
