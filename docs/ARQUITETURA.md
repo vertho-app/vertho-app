@@ -814,6 +814,11 @@ bloqueia com `PERFIL_PESSOAL_PENDENTE` em `getDiagnosticoDoDia`, `salvarResposta
 (senão volta o beco desta seção) e quem **já respondeu algum cenário** (não tranca no meio). Falha de leitura bloqueia
 com `ORDEM_INDISPONIVEL`, nunca libera em silêncio. ⚠️ Nome na home: a fase 1 se chama "Diagnóstico" e é o PERFIL; a
 fase 2 ("Avaliação") é o que `getDiagnosticoDoDia` serve. Teste: `tests/unit/access-gates-diagnostico-ordem.test.ts`.
+O painel admin da Fase 2 lê o MESMO `canAccessDiagnosticoNaOrdem` para separar quem está barrado por essa ordem
+("Falta o Perfil comportamental") de quem já pode responder (`lib/diagnostico-progresso.ts`). Antes, o roster do card
+cortava quem não tinha DISC e essa pessoa sumia do total e da lista de quem falta, justo a que o RH precisa cobrar
+primeiro (Bowling, 02/10/2026: "1 de 13" com 14 pessoas). Denominador filtrado pelo pré-requisito esconde quem está
+travado no pré-requisito.
 
 **Preferências de aprendizagem (01/10/2026):** o formulário (8 formatos, 1 a 5 estrelas) é a última etapa do
 mapeamento DISC e só era gravado junto dele (`salvarPerfilComportamental`). Quem tem fonte externa nunca passava
@@ -1771,9 +1776,13 @@ Fora do `/vertho` mas de mesma natureza operacional:
   sem empresa selecionada). Não tem régua própria: cada linha e cada grupo chamam `carregarPanoramaRH`
   (a mesma da home do RH, com `colaboradorIds` no recorte), e o "mapeamento completo" deriva de
   `progressoMapeamentoPorPessoa` (`lib/mapeamento-competencias.ts`, `feitas === total`), então a faixa
-  parcial e o completo não divergem. As faixas "x de N" dependem do Top 5 do **cargo** (pode ter 1 ou
-  2 competências), então só comparam dentro do mesmo cargo; cargo sem Top 5 vira grupo à parte, e não
+  parcial e o completo não divergem. As faixas "x de N" dependem do Top 5 do **cargo** (o tamanho
+  varia: Macaé tem cargos com 1 e 2 competências, a Amazon Bowling tem **6** em todos, apesar do nome
+  `top5_workshop`), então só comparam dentro do mesmo cargo; cargo sem Top 5 vira grupo à parte, e não
   "0 de N". Exclui demos e `role='rh'`; só conta, não lista nomes.
+  O card **"Diagnóstico realizado"** de `/admin/empresas/[id]/fase2` usa a mesma régua desde 02/10/2026
+  (`lib/diagnostico-progresso.ts`): o esperado de cada pessoa é o Top 5 do cargo dela. Antes ele
+  multiplicava o roster por **2 fixo** e mostrava, na Bowling, "26 cenários" onde eram 84.
 
 As duas abas usam `?empresa=` e `tenantDb(empresaId)`. O roll-up compartilhado
 (`lib/engajamento/roll-up.ts`) também alimenta `/dashboard/gestor/engajamento`, recortado aos
