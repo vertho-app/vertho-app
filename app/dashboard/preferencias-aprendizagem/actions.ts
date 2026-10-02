@@ -2,7 +2,7 @@
 
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
-import { colunasDePreferencias, FORMATOS_PREFERENCIA } from '@/lib/access-gates';
+import { colunasDePreferencias, FORMATOS_PREFERENCIA, N_FORMATOS } from '@/lib/access-gates';
 
 /**
  * Preferências de aprendizagem já gravadas da PESSOA DA SESSÃO — para a tela abrir
@@ -28,7 +28,7 @@ export async function getMinhasPreferenciasAprendizagem() {
     const prefs: Record<string, number> = {};
     for (const f of FORMATOS_PREFERENCIA) {
       const v = Number((data as any)?.[f.coluna]);
-      prefs[f.id] = Number.isInteger(v) && v >= 1 && v <= 5 ? v : 0;
+      prefs[f.id] = Number.isInteger(v) && v >= 1 && v <= N_FORMATOS ? v : 0;
     }
     return { prefs };
   } catch (err: any) {
@@ -48,7 +48,7 @@ export async function getMinhasPreferenciasAprendizagem() {
 export async function salvarPreferenciasAprendizagem(prefs: Record<string, number>) {
   try {
     const colunas = colunasDePreferencias(prefs);
-    if (!colunas) return { success: false, error: 'Dê de 1 a 5 estrelas para todos os formatos.' };
+    if (!colunas) return { success: false, error: 'Ordene todos os formatos, sem repetir posição.' };
 
     const { getAuthenticatedEmailFromAction } = await import('@/lib/auth/action-context');
     const email = await getAuthenticatedEmailFromAction();

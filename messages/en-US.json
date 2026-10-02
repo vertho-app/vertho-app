@@ -1500,7 +1500,7 @@
       "progressTitle": "Learning Preferences",
       "lastStep": "Last Step",
       "title": "How do you learn best?",
-      "subtitle": "Give 1 to 5 stars for each format:",
+      "subtitle": "Rank the formats from the one that helps you learn most to the one that helps least:",
       "viewProfile": "SEE MY PROFILE →",
       "formats": {
         "video_short": "Short video (≤5 min)",
@@ -1511,6 +1511,11 @@
         "mentor": "Conversation with mentor (AI chat)",
         "case": "Case study"
       },
+      "rankTop": "Helps me most",
+      "rankBottom": "Helps me least",
+      "moveUp": "Move {format} up",
+      "moveDown": "Move {format} down",
+      "position": "Position {value}",
       "ratingLabel": "{format}: {value} out of 5 stars"
     },
     "calculating": {
@@ -3372,7 +3377,7 @@
   "LearningPreferencesPage": {
     "tag": "Learning preferences",
     "title": "How do you learn best?",
-    "subtitle": "Rate each format from 1 to 5 stars. We use this to choose how to deliver your content.",
+    "subtitle": "Rank the formats from the one that helps you learn most to the one that helps least. We use this to choose how to deliver your content.",
     "continue": "Continue",
     "loadError": "We couldn't load your preferences.",
     "saveError": "We couldn't save. Please try again."

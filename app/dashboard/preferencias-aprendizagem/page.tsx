@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
-import PreferenciasAprendizagemForm, { prefsVazias } from '@/components/preferencias-aprendizagem-form';
+import PreferenciasAprendizagemForm, { ordemInicial } from '@/components/preferencias-aprendizagem-form';
+import { prefsDeOrdem } from '@/lib/access-gates/preferencias-aprendizagem';
 import { getMinhasPreferenciasAprendizagem, salvarPreferenciasAprendizagem } from './actions';
 
 /**
@@ -16,7 +17,10 @@ import { getMinhasPreferenciasAprendizagem, salvarPreferenciasAprendizagem } fro
 export default function PreferenciasAprendizagemPage() {
   const t = useTranslations('LearningPreferencesPage');
   const router = useRouter();
-  const [prefs, setPrefs] = useState<Record<string, number>>(() => prefsVazias());
+  // Parte embaralhada; se já há uma ORDENAÇÃO gravada, parte dela. Notas em estrelas
+  // (quem respondeu antes) não são uma ordem e não pré-preenchem.
+  const [ordem, setOrdem] = useState<string[]>(() => ordemInicial().ordem);
+  const [confirmada, setConfirmada] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -25,8 +29,11 @@ export default function PreferenciasAprendizagemPage() {
     getMinhasPreferenciasAprendizagem()
       .then((r: any) => {
         if (!ativo) return;
-        if (r?.prefs) setPrefs(r.prefs);
-        else if (r?.error) toast.error(r.error);
+        if (r?.prefs) {
+          const ini = ordemInicial(r.prefs);
+          setOrdem(ini.ordem);
+          setConfirmada(ini.confirmada);
+        } else if (r?.error) toast.error(r.error);
       })
       .catch(() => { if (ativo) toast.error(t('loadError')); })
       .finally(() => { if (ativo) setLoading(false); });
@@ -34,12 +41,11 @@ export default function PreferenciasAprendizagemPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const allRated = Object.values(prefs).every(v => v > 0);
 
   async function salvar() {
     setSaving(true);
     try {
-      const r: any = await salvarPreferenciasAprendizagem(prefs);
+      const r: any = await salvarPreferenciasAprendizagem(prefsDeOrdem(ordem));
       if (!r?.success) { toast.error(r?.error || t('saveError')); setSaving(false); return; }
       router.replace('/dashboard/assessment');
     } catch (e: any) {
@@ -68,12 +74,12 @@ export default function PreferenciasAprendizagemPage() {
         <p className="text-[14px] text-gray-400 mb-5">{t('subtitle')}</p>
 
         <PreferenciasAprendizagemForm
-          value={prefs}
-          onChange={(id, star) => setPrefs(prev => ({ ...prev, [id]: star }))}
+          ordem={ordem}
+          onChange={(nova) => { setOrdem(nova); setConfirmada(true); }}
         />
 
         <button
-          disabled={!allRated || saving}
+          disabled={!confirmada || saving}
           onClick={salvar}
           className="mt-5 w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase disabled:opacity-30 transition-all flex items-center justify-center gap-2"
           style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}

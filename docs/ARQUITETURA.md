@@ -817,6 +817,15 @@ assessment. A regra é uma função pura em `lib/access-gates/preferencias-apren
 = false` sozinho NÃO conta (é estado da turma). Tenant com DISC nativo segue como antes. Testes:
 `preferencias-aprendizagem.test.ts` e `assessment-preferencias-aprendizagem.test.ts`.
 
+**Preferências por ORDENAÇÃO, não estrelas (02/10/2026):** com estrelas dava para marcar tudo igual — medido em
+248 pessoas, **46% tinham empate no topo** entre os 4 formatos que o motor lê (vídeo, áudio, texto, caso), e o empate
+se resolvia por ordem fixa (vídeo primeiro). Agora a pessoa ordena os 7 formatos (setas de subir/descer, como o ranking
+do DISC) na etapa do DISC e na tela avulsa. Grava `pref_*` de 7 (favorito) a 1 (último), sem empate
+(`prefsDeOrdem`/`colunasDePreferencias` em `lib/access-gates/preferencias-aprendizagem.ts`, que **recusa empate no servidor**).
+O motor só compara (`max`/`sort`), então não mudou. Quem respondeu em estrelas (1-5) **mantém o que tem, sem refazer**; a
+média do admin (`calcularRanking`) normaliza as duas escalas pessoa a pessoa. A tela parte embaralhada e só libera o botão
+depois que a pessoa mexe. "Vídeo longo" saiu da tela e `pref_video_longo` é zerada ao salvar.
+
 **PDF do relatório externo** (bucket `perfis-externos/<empresa_id>/<colab_id>.pdf`,
 coluna `colaboradores.perfil_externo_pdf_path`, URL assinada de 10 min):
 - gestor/RH: `app/dashboard/gestor/actions.ts::getPerfilExternoPdfUrl(colabId)` —

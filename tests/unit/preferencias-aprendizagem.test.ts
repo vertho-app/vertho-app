@@ -3,9 +3,13 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
 import {
   colunasDePreferencias,
   FORMATOS_PREFERENCIA,
+  N_FORMATOS,
+  ordemDePrefs,
   precisaPreferenciasAprendizagem,
+  prefsDeOrdem,
   usaMapeamentoComportamentalNativo,
 } from '@/lib/access-gates';
+import { calcularRanking } from '@/lib/preferencias-config';
 
 /**
  * PREFERÊNCIAS DE APRENDIZAGEM FORA DO DISC (01/10/2026).
@@ -16,7 +20,9 @@ import {
  * mapeamento de competências — e só para esse público.
  */
 
-const TODAS = Object.fromEntries(FORMATOS_PREFERENCIA.map((f) => [f.id, 4]));
+// Uma ORDENAÇÃO completa: o 1º formato da tela vale 7, o último 1 (sem repetir).
+const IDS = FORMATOS_PREFERENCIA.map((f) => f.id as string);
+const TODAS = prefsDeOrdem(IDS);
 
 describe('usaMapeamentoComportamentalNativo', () => {
   it('fonte externa de perfil = NÃO usa o DISC nativo', () => {
@@ -53,11 +59,32 @@ describe('precisaPreferenciasAprendizagem', () => {
   });
 });
 
+describe('ordenação em vez de estrelas', () => {
+  it('prefsDeOrdem: o primeiro vale N, o último 1, sem empate', () => {
+    const p = prefsDeOrdem(['case', 'video_short', 'text', 'audio', 'infographic', 'exercise', 'mentor']);
+    expect(p.case).toBe(N_FORMATOS);
+    expect(p.mentor).toBe(1);
+    expect(new Set(Object.values(p)).size).toBe(N_FORMATOS);
+  });
+
+  it('ordemDePrefs é a inversa de prefsDeOrdem', () => {
+    const ordem = ['mentor', 'case', 'video_short', 'text', 'audio', 'infographic', 'exercise'];
+    expect(ordemDePrefs(prefsDeOrdem(ordem))).toEqual(ordem);
+  });
+
+  it('🔴 estrelas (1-5, com empate) NÃO são uma ordem: não pré-preenchem a tela de quem respondeu antes', () => {
+    expect(ordemDePrefs({ video_short: 5, text: 5, audio: 3, infographic: 4, exercise: 5, mentor: 2, case: 1 })).toBeNull();
+    // mesmo sem repetir, 5 notas distintas em 7 formatos não fecham 1..7
+    expect(ordemDePrefs({ video_short: 5, text: 4, audio: 3, infographic: 2, exercise: 1, mentor: 0, case: 0 })).toBeNull();
+    expect(ordemDePrefs(null)).toBeNull();
+  });
+});
+
 describe('colunasDePreferencias', () => {
-  it('traduz os 7 formatos da tela para as colunas pref_* de colaboradores', () => {
+  it('traduz a ordenação para as colunas pref_* de colaboradores', () => {
     expect(colunasDePreferencias(TODAS)).toMatchObject({
-      pref_video_curto: 4, pref_texto: 4, pref_audio: 4,
-      pref_infografico: 4, pref_exercicio: 4, pref_mentor: 4, pref_estudo_caso: 4,
+      pref_video_curto: 7, pref_texto: 6, pref_audio: 5,
+      pref_infografico: 4, pref_exercicio: 3, pref_mentor: 2, pref_estudo_caso: 1,
     });
     expect(FORMATOS_PREFERENCIA).toHaveLength(7);
   });
@@ -69,15 +96,47 @@ describe('colunasDePreferencias', () => {
     expect(colunasDePreferencias({ ...TODAS, video_long: 5 })!.pref_video_longo).toBe(0);
   });
 
-  it('recusa formulário parcial, fora de 1..5 ou não inteiro — meio formulário não é preferência', () => {
+  it('🔴 recusa empate: marcar tudo igual (o defeito das estrelas) não passa, nem no servidor', () => {
+    expect(colunasDePreferencias(Object.fromEntries(IDS.map((id) => [id, 5])))).toBeNull();
+    expect(colunasDePreferencias({ ...TODAS, text: TODAS.video_short })).toBeNull();
+  });
+
+  it('recusa ordem parcial, fora de 1..N ou não inteira', () => {
     const { text: _omitido, ...faltando } = TODAS as Record<string, number>;
     expect(colunasDePreferencias(faltando)).toBeNull();
     expect(colunasDePreferencias({ ...TODAS, text: 0 })).toBeNull();
-    expect(colunasDePreferencias({ ...TODAS, text: 6 })).toBeNull();
+    expect(colunasDePreferencias({ ...TODAS, text: N_FORMATOS + 1 })).toBeNull();
     expect(colunasDePreferencias({ ...TODAS, text: 2.5 })).toBeNull();
     expect(colunasDePreferencias({ ...TODAS, text: '3' })).toBeNull();
     expect(colunasDePreferencias(null)).toBeNull();
     expect(colunasDePreferencias('x')).toBeNull();
+  });
+});
+
+describe('média do admin com as duas escalas (estrelas 1-5 e ordenação 1-7)', () => {
+  const linha = (o: Record<string, number>) => ({
+    pref_video_curto: 0, pref_video_longo: 0, pref_texto: 0, pref_audio: 0,
+    pref_infografico: 0, pref_exercicio: 0, pref_mentor: 0, pref_estudo_caso: 0, ...o,
+  });
+
+  it('quem ordenou entra normalizado para 1-5: o favorito (7) vale 5 e o último (1) vale 1', () => {
+    const r = calcularRanking([linha({ pref_video_curto: 7, pref_texto: 1, pref_audio: 4 })]);
+    const por = Object.fromEntries(r.map((x) => [x.key, x.media]));
+    expect(por.pref_video_curto).toBe(5);
+    expect(por.pref_texto).toBe(1);
+    expect(por.pref_audio).toBe(3);
+  });
+
+  it('🔴 estrelas continuam como estão — um 5 em estrelas não é rebaixado', () => {
+    const r = calcularRanking([linha({ pref_video_curto: 5, pref_texto: 2 })]);
+    const por = Object.fromEntries(r.map((x) => [x.key, x.media]));
+    expect(por.pref_video_curto).toBe(5);
+    expect(por.pref_texto).toBe(2);
+  });
+
+  it('mistura as duas escalas sem distorcer a média', () => {
+    const r = calcularRanking([linha({ pref_video_curto: 5 }), linha({ pref_video_curto: 7, pref_texto: 1 })]);
+    expect(Object.fromEntries(r.map((x) => [x.key, x.media])).pref_video_curto).toBe(5);
   });
 });
 
@@ -138,7 +197,7 @@ describe('actions da tela de preferências', () => {
     expect(r.error).toMatch(/timeout no pool/);
   });
 
-  it('a leitura devolve o que está gravado e zera o que é inválido (null, 0, 9)', async () => {
+  it('a leitura devolve o que está gravado e zera o que é inválido (null, 0, fora de 1..7)', async () => {
     const r: any = await acoes.getMinhasPreferenciasAprendizagem();
     expect(r.prefs).toEqual({
       video_short: 5, text: 0, audio: 3, infographic: 1, exercise: 2, mentor: 4, case: 0,

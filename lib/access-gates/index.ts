@@ -12,6 +12,9 @@ export {
   usaMapeamentoComportamentalNativo,
   precisaPreferenciasAprendizagem,
   colunasDePreferencias,
+  prefsDeOrdem,
+  ordemDePrefs,
+  N_FORMATOS,
   FORMATOS_PREFERENCIA,
   type FormatoPreferenciaId,
 } from './preferencias-aprendizagem';

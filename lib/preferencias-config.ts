@@ -15,13 +15,25 @@ export const PREFS = [
 
 export const COLS = PREFS.map(p => p.key).join(', ');
 
+// Desde 02/10/2026 a pessoa ORDENA os formatos (nota 1..7, sem repetir) em vez de dar estrelas
+// (1..5). Quem respondeu em estrelas mantém o que tem. A média por formato precisa de uma
+// escala só: a nota de quem ordenou é levada de 1..7 para 1..5 (linear), pessoa a pessoa.
+// Detecta pela própria linha — uma ordenação sempre contém 6 e 7; estrelas nunca passam de 5.
+const ESCALA_ESTRELAS = 5;
+const ESCALA_ORDEM = 7;
+function paraEstrelas(v: number, ordenou: boolean): number {
+  if (!ordenou) return v;
+  return 1 + ((v - 1) * (ESCALA_ESTRELAS - 1)) / (ESCALA_ORDEM - 1);
+}
+
 export function calcularRanking(rows) {
   const totais = Object.fromEntries(PREFS.map(p => [p.key, { soma: 0, n: 0 }]));
   for (const r of rows) {
+    const ordenou = PREFS.some(p => Number(r[p.key]) > ESCALA_ESTRELAS);
     for (const p of PREFS) {
       const v = Number(r[p.key]);
       if (Number.isFinite(v) && v > 0) {
-        totais[p.key].soma += v;
+        totais[p.key].soma += paraEstrelas(v, ordenou);
         totais[p.key].n += 1;
       }
     }

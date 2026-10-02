@@ -1500,7 +1500,7 @@
       "progressTitle": "Preferências de Aprendizagem",
       "lastStep": "Última Etapa",
       "title": "Como aprende melhor?",
-      "subtitle": "Dê de 1 a 5 estrelas para cada formato:",
+      "subtitle": "Ordene os formatos do que mais o ajuda a aprender ao que menos ajuda:",
       "viewProfile": "VER O MEU PERFIL →",
       "formats": {
         "video_short": "Vídeo curto (≤5 min)",
@@ -1511,6 +1511,11 @@
         "mentor": "Conversa com mentor (chat IA)",
         "case": "Estudo de caso"
       },
+      "rankTop": "Ajuda-me mais",
+      "rankBottom": "Ajuda-me menos",
+      "moveUp": "Subir {format}",
+      "moveDown": "Descer {format}",
+      "position": "Posição {value}",
       "ratingLabel": "{format}: {value} de 5 estrelas"
     },
     "calculating": {
@@ -3372,7 +3377,7 @@
   "LearningPreferencesPage": {
     "tag": "Preferências de aprendizagem",
     "title": "Como aprende melhor?",
-    "subtitle": "Dê de 1 a 5 estrelas a cada formato. Usamos isto para escolher como entregar os seus conteúdos.",
+    "subtitle": "Ordene os formatos do que mais o ajuda a aprender ao que menos ajuda. Usamos isto para escolher como entregar os seus conteúdos.",
     "continue": "Continuar",
     "loadError": "Não foi possível carregar as suas preferências.",
     "saveError": "Não foi possível guardar. Tente novamente."

@@ -10,7 +10,8 @@ import { ChevronUp, ChevronDown, Loader2, Check, Star, Play } from 'lucide-react
 import Image from 'next/image';
 import VideoModal from '@/components/video-modal';
 import BackButton from '@/components/back-button';
-import PreferenciasAprendizagemForm, { prefsVazias } from '@/components/preferencias-aprendizagem-form';
+import PreferenciasAprendizagemForm, { ordemInicial } from '@/components/preferencias-aprendizagem-form';
+import { prefsDeOrdem } from '@/lib/access-gates/preferencias-aprendizagem';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { normalizarDisc, computeLeadership, deriveProfile } from '@/lib/disc-mapeamento';
 import { TUTORIAIS_PLATAFORMA } from '@/lib/tutorial-videos';
@@ -192,8 +193,11 @@ export default function MapeamentoPage() {
   // Pairs answers: array of chosen factor per pair
   const [pairs1, setPairs1] = useState(() => Array(6).fill(null));
 
-  // Learning preferences
-  const [learnPrefs, setLearnPrefs] = useState(() => prefsVazias());
+  // Learning preferences: ordem dos formatos (do que mais ajuda ao que menos ajuda).
+  // Parte embaralhada e só libera o botão depois que a pessoa mexe: ordem sorteada
+  // e confirmada sem olhar seria dado inventado.
+  const [ordemPref, setOrdemPref] = useState(() => ordemInicial().ordem);
+  const [ordemTocada, setOrdemTocada] = useState(false);
 
   // Results
   const [saving, setSaving] = useState(false);
@@ -272,7 +276,7 @@ export default function MapeamentoPage() {
     const profile = deriveProfile(disc);
 
     const resultData = {
-      disc, lead, comp, profile, learnPrefs,
+      disc, lead, comp, profile, learnPrefs: prefsDeOrdem(ordemPref),
       rawData: { rank1, pairs1, formName, formGender },
     };
 
@@ -289,7 +293,7 @@ export default function MapeamentoPage() {
     // Em vez de ir direto pro relatório, mostra a tela de encerramento com o
     // vídeo da etapa. O botão dela leva pra tela consolidada (devolutiva).
     setPhase(PHASE.CLOSING);
-  }, [rank1, pairs1, learnPrefs, formName, formGender, t]);
+  }, [rank1, pairs1, ordemPref, formName, formGender, t]);
 
   /* ─── Navigation helpers ─── */
   const nextRankGroup = () => {
@@ -734,7 +738,7 @@ export default function MapeamentoPage() {
 
   /* ═══════════════════ LEARNING PREFERENCES ═══════════════════ */
   if (phase === PHASE.LEARNING) {
-    const allRated = Object.values(learnPrefs).every(v => v > 0);
+    const allRated = ordemTocada;
     return (
       <div className="mx-auto w-full max-w-5xl py-3" data-mapeamento="aprendizagem">
         {/* Progress header */}
@@ -752,8 +756,8 @@ export default function MapeamentoPage() {
         <p className="text-[14px] text-gray-400 mb-5">{t('learning.subtitle')}</p>
 
         <PreferenciasAprendizagemForm
-          value={learnPrefs}
-          onChange={(id, star) => setLearnPrefs(prev => ({ ...prev, [id]: star }))}
+          ordem={ordemPref}
+          onChange={(nova) => { setOrdemPref(nova); setOrdemTocada(true); }}
         />
 
         <button
