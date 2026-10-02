@@ -371,7 +371,9 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
 - NÃO tornar A pré-requisito de B sem perguntar **se existe tenant em que A nunca será satisfeito**
   (06/08: empresa com perfil externo OPQ32/Hogan nunca libera o DISC nativo, e o gate de cenários
   tornava o mapeamento inalcançável no Boehringer). Corrija no gate (`lib/access-gates/`), não só
-  nos botões. Detalhe: `docs/ARQUITETURA.md` §3.6.
+  nos botões. Detalhe: `docs/ARQUITETURA.md` §3.6. 🔑 E gate de ETAPA tem dois donos: a flag da
+  empresa/turma e o estado da PESSOA (02/10: com as duas flags ligadas a 4Life abria o Diagnóstico
+  sem Perfil — `lib/access-gates/diagnostico-ordem.ts`).
 - NÃO prometer confidencialidade que depende do **tamanho da turma** sem um piso de N. A tela do
   assessment diz "Confidencial · RH vê apenas dados agregados" — verdade com 200 pessoas, falsa com
   2: agregado de 2 não anonimiza ninguém. E **não existe limiar no código** que segure isso

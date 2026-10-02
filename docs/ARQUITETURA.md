@@ -805,6 +805,16 @@ toggles não cascateiam nesses tenants. Contrato em
 que A **nunca** será satisfeito. Se existir, B fica inalcançável lá — e o sintoma
 aparece como bug do usuário, não como configuração.
 
+**Ordem Perfil → Diagnóstico POR PESSOA (02/10/2026):** o gate acima só lê a config da empresa/turma (as duas
+flags). Ele nunca perguntou se a pessoa fez o Perfil, então com os dois liberados qualquer um abria os cenários
+antes do DISC (4Life: 3 pessoas). Decisão do dono: a ordem vale por pessoa. `lib/access-gates/diagnostico-ordem.ts`
+(`canAccessDiagnosticoNaOrdem` puro, `gateDiagnosticoDaPessoa` lê `perfil_dominante` + contagem de `respostas`)
+bloqueia com `PERFIL_PESSOAL_PENDENTE` em `getDiagnosticoDoDia`, `salvarRespostaDiagnostico`, `/api/assessment`
+(GET/POST), `/api/chat` e no link da fase 2 da home. Duas exceções, de propósito: empresa com `perfil_externo_fonte`
+(senão volta o beco desta seção) e quem **já respondeu algum cenário** (não tranca no meio). Falha de leitura bloqueia
+com `ORDEM_INDISPONIVEL`, nunca libera em silêncio. ⚠️ Nome na home: a fase 1 se chama "Diagnóstico" e é o PERFIL; a
+fase 2 ("Avaliação") é o que `getDiagnosticoDoDia` serve. Teste: `tests/unit/access-gates-diagnostico-ordem.test.ts`.
+
 **Preferências de aprendizagem (01/10/2026):** o formulário (8 formatos, 1 a 5 estrelas) é a última etapa do
 mapeamento DISC e só era gravado junto dele (`salvarPerfilComportamental`). Quem tem fonte externa nunca passava
 por essa etapa e ficava com `pref_* = 0`. Agora `getDiagnosticoDoDia` e `salvarRespostaDiagnostico` devolvem `precisaPreferencias` logo depois da
