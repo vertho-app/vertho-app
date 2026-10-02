@@ -10,6 +10,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  CUSTO_FIXO_TREINO_USD,
   CUSTO_TURNO_USD,
   ORCAMENTO_DEFAULTS,
   SIMULADORES_DEFAULT,
@@ -84,23 +85,28 @@ describe('custo dos simuladores', () => {
   });
 
   it('o treino custa o fixo mais o turno × turnos, e mais turnos custam mais', () => {
-    expect(custoTreinoUsd({ custoFixoTreinoUsd: 0.1, turnosPorTreino: 8 }, 0.0075)).toBeCloseTo(0.16, 10);
-    const curto = custoTreinoUsd({ ...SIMULADORES_DEFAULT.vendas, turnosPorTreino: 8 }, CUSTO_TURNO_USD.vendas);
-    const longo = custoTreinoUsd({ ...SIMULADORES_DEFAULT.vendas, turnosPorTreino: 20 }, CUSTO_TURNO_USD.vendas);
+    expect(custoTreinoUsd({ custoFixoTreinoUsd: 0.1, custoTurnoUsd: 0.0075, turnosPorTreino: 8 })).toBeCloseTo(0.16, 10);
+    const vendas = { custoFixoTreinoUsd: CUSTO_FIXO_TREINO_USD.vendas, custoTurnoUsd: CUSTO_TURNO_USD.vendas };
+    const curto = custoTreinoUsd({ ...vendas, turnosPorTreino: 8 });
+    const longo = custoTreinoUsd({ ...vendas, turnosPorTreino: 20 });
     expect(longo - curto).toBeCloseTo(12 * CUSTO_TURNO_USD.vendas, 10);
   });
 
-  it('os defaults reproduzem o pior caso medido em 8 turnos: vendas 0,16 · atendimento 0,22 · liderança 0,13', () => {
-    expect(custoTreinoUsd(SIMULADORES_DEFAULT.vendas, CUSTO_TURNO_USD.vendas)).toBeCloseTo(0.16, 3);
-    expect(custoTreinoUsd(SIMULADORES_DEFAULT.atendimento, CUSTO_TURNO_USD.atendimento)).toBeCloseTo(0.2212, 4);
-    expect(custoTreinoUsd(SIMULADORES_DEFAULT.lideranca, CUSTO_TURNO_USD.lideranca)).toBeCloseTo(0.13, 3);
+  it('os custos da plataforma reproduzem o pior caso medido em 8 turnos: vendas 0,16 · atendimento 0,22 · liderança 0,13', () => {
+    const treino = (s: 'vendas' | 'atendimento' | 'lideranca') => custoTreinoUsd({
+      custoFixoTreinoUsd: CUSTO_FIXO_TREINO_USD[s], custoTurnoUsd: CUSTO_TURNO_USD[s], turnosPorTreino: SIMULADORES_DEFAULT[s].turnosPorTreino,
+    });
+    expect(treino('vendas')).toBeCloseTo(0.16, 3);
+    expect(treino('atendimento')).toBeCloseTo(0.2212, 4);
+    expect(treino('lideranca')).toBeCloseTo(0.13, 3);
   });
 
-  it('o custo por turno é da plataforma: não existe na régua do cenário', () => {
-    // Decisão do Rodrigo (02/10/2026): não é campo editável no orçamento.
+  it('os dois custos do treino são da plataforma: não existem na régua do cenário', () => {
+    // Decisões do Rodrigo (02/10/2026): nenhum dos dois é campo editável no orçamento.
     for (const s of ['vendas', 'atendimento', 'lideranca'] as const) {
-      expect('custoTurnoUsd' in SIMULADORES_DEFAULT[s]).toBe(false);
+      expect(Object.keys(SIMULADORES_DEFAULT[s]).sort()).toEqual(['precoPessoaCiclo', 'treinosPessoaCiclo', 'turnosPorTreino']);
     }
+    expect(CUSTO_FIXO_TREINO_USD).toEqual({ vendas: 0.1, atendimento: 0.166, lideranca: 0.09 });
     expect(CUSTO_TURNO_USD).toEqual({ vendas: 0.0075, atendimento: 0.0069, lideranca: 0.005 });
   });
 
@@ -216,8 +222,8 @@ describe('cenário salvo e escopo da proposta', () => {
     for (const s of ['vendas', 'atendimento', 'lideranca'] as const) {
       expect(lido.configSimuladores[s].precoPessoaCiclo).toBe(50);
       expect(lido.configSimuladores[s].treinosPessoaCiclo).toBe(6);
-      // O custo único antigo não é herdado: cada um abre com o seu medido.
-      expect(lido.configSimuladores[s].custoFixoTreinoUsd).toBe(SIMULADORES_DEFAULT[s].custoFixoTreinoUsd);
+      // O custo único antigo não é herdado: custo é da plataforma, não do cenário.
+      expect(lido.configSimuladores[s]).toEqual({ ...SIMULADORES_DEFAULT[s], precoPessoaCiclo: 50, treinosPessoaCiclo: 6 });
     }
     // E as chaves antigas não ressuscitam na régua geral.
     expect('precoSimuladorPessoaCiclo' in lido.pricing).toBe(false);
@@ -225,7 +231,7 @@ describe('cenário salvo e escopo da proposta', () => {
 
   it('a régua por simulador volta como foi gravada, e lixo cai no default', () => {
     const config = configSimuladoresPadrao();
-    config.atendimento = { precoPessoaCiclo: 75, treinosPessoaCiclo: 4, turnosPorTreino: 12, custoFixoTreinoUsd: 0.2 };
+    config.atendimento = { precoPessoaCiclo: 75, treinosPessoaCiclo: 4, turnosPorTreino: 12 };
     const gravado = { ...entradasPadrao(LISTAS), configSimuladores: config };
     expect(normalizarEntradas(gravado, LISTAS)!.configSimuladores).toEqual(config);
 
@@ -236,26 +242,28 @@ describe('cenário salvo e escopo da proposta', () => {
     expect(lido.configSimuladores.lideranca).toEqual(SIMULADORES_DEFAULT.lideranca);
   });
 
-  it('custo por turno gravado no cenário (quando ainda era editável) é descartado e não muda a conta', () => {
-    // A forma real de um cenário salvo em 02/10 entre `0288ab0b` e esta mudança.
+  it('custos gravados no cenário (quando ainda eram editáveis) são descartados e não mudam a conta', () => {
+    // A forma real de um cenário salvo em 02/10 entre `0288ab0b` e estas mudanças.
     const gravado: any = {
       ...entradasPadrao(LISTAS),
       simuladores: { vendas: 100, atendimento: 0, lideranca: 0 },
       configSimuladores: {
         ...configSimuladoresPadrao(),
-        vendas: { ...SIMULADORES_DEFAULT.vendas, precoPessoaCiclo: 50, custoTurnoUsd: 0.5 },
+        vendas: { ...SIMULADORES_DEFAULT.vendas, precoPessoaCiclo: 50, custoFixoTreinoUsd: 0.9, custoTurnoUsd: 0.5 },
       },
     };
     const lido = normalizarEntradas(gravado, LISTAS)!;
+    expect('custoFixoTreinoUsd' in lido.configSimuladores.vendas).toBe(false);
     expect('custoTurnoUsd' in lido.configSimuladores.vendas).toBe(false);
     expect(lido.configSimuladores.vendas.precoPessoaCiclo).toBe(50);
 
-    // E mesmo que o objeto chegue à conta com a chave, ela usa o custo da plataforma.
+    // E mesmo que o objeto chegue à conta com as chaves, ela usa os custos da plataforma.
     const r = simuladoresDoOrcamento({
       pessoas: gravado.simuladores, pessoasDoPrograma: 100, config: gravado.configSimuladores, ciclos: 1, cotacao: 5,
     });
+    expect(r.itens[0].custoFixoTreinoUsd).toBe(CUSTO_FIXO_TREINO_USD.vendas);
     expect(r.itens[0].custoTurnoUsd).toBe(CUSTO_TURNO_USD.vendas);
-    expect(r.itens[0].custoTreinoUsd).toBeCloseTo(0.1 + 8 * CUSTO_TURNO_USD.vendas, 10);
+    expect(r.itens[0].custoTreinoUsd).toBeCloseTo(CUSTO_FIXO_TREINO_USD.vendas + 8 * CUSTO_TURNO_USD.vendas, 10);
   });
 
   it('acesso gravado acima das pessoas do programa é limitado na leitura', () => {

@@ -130,14 +130,13 @@ const COLUNA_SIMULADOR: Record<Simulador, string> = {
 };
 
 /** As linhas editáveis da tabela de simuladores, na ordem em que aparecem. */
-const LINHAS_SIMULADOR: { campo: keyof ConfigSimulador; rotulo: string; detalhe: string; casas?: number }[] = [
-  { campo: 'precoPessoaCiclo', rotulo: 'Preço / pessoa / ciclo', detalhe: 'R$ por acesso', casas: 2 },
+const LINHAS_SIMULADOR: { campo: keyof ConfigSimulador; rotulo: string; detalhe: string; decimais?: boolean }[] = [
+  { campo: 'precoPessoaCiclo', rotulo: 'Preço / pessoa / ciclo', detalhe: 'R$ por acesso', decimais: true },
   { campo: 'treinosPessoaCiclo', rotulo: 'Treinos / pessoa / ciclo', detalhe: 'por acesso' },
   { campo: 'turnosPorTreino', rotulo: 'Turnos / treino', detalhe: 'custo medido com 8' },
-  // US$ 0,166 no atendimento: com duas casas, sair do campo gravava 0,17.
-  { campo: 'custoFixoTreinoUsd', rotulo: 'Custo fixo / treino', detalhe: 'US$ · uma vez por treino', casas: 4 },
 ];
-// O custo por turno NÃO está aqui: é da plataforma (`CUSTO_TURNO_USD`), só exibido.
+// Os custos de IA do treino (fixo e por turno) NÃO estão aqui: são da plataforma
+// (`CUSTO_FIXO_TREINO_USD`, `CUSTO_TURNO_USD`), só exibidos.
 
 const CLASSE_INPUT_TABELA =
   'w-full min-w-0 rounded border border-white/10 bg-white/5 px-1.5 py-1 text-right text-xs tabular-nums text-white outline-none focus:border-cyan-500 sm:px-2 sm:text-sm';
@@ -1110,12 +1109,15 @@ export default function OrcamentoPage() {
                   celula={(i) => (
                     <InputNumero locale={locale} rotulo={`${l.rotulo} (${COLUNA_SIMULADOR[i.simulador]})`} className={CLASSE_INPUT_TABELA}
                       value={configSimuladores[i.simulador][l.campo]} min={0}
-                      allowDecimals={l.casas != null} casasDecimais={l.casas}
+                      allowDecimals={l.decimais}
                       onChange={(v) => setConfigSimulador(i.simulador, l.campo, v)} />
                   )} />
               ))}
             </tbody>
             <tbody className="border-t border-white/20">
+              <LinhaSimulador rotulo="Custo fixo / treino" detalhe="fixo da plataforma" itens={calc.simuladoresItens}
+                celula={(i) => moneyUSD(i.custoFixoTreinoUsd, locale)}
+                tom={() => 'text-gray-300'} />
               <LinhaSimulador rotulo="Custo / turno" detalhe="fixo da plataforma" itens={calc.simuladoresItens}
                 celula={(i) => moneyUSD(i.custoTurnoUsd, locale, 4)}
                 tom={() => 'text-gray-300'} />
@@ -1140,9 +1142,8 @@ export default function OrcamentoPage() {
         </div>
         <p className="mt-3 text-[10px] leading-relaxed text-gray-500">
           Custo fixo: no vendas, o cenário e a avaliação do gerente; no atendimento, a avaliação pela matriz; na liderança,
-          abertura, consequências e avaliação. Custo por turno é a conversa, um valor fixo da plataforma que o orçamento não
-          altera. Treinos: 2 por semana nas semanas 2, 4 e 6; a
-          liderança é uma jornada de 5 encontros, de 3 a 16 turnos cada.
+          abertura, consequências e avaliação. Custo por turno é a conversa. Os dois são da plataforma: o orçamento não os
+          altera. Treinos: 2 por semana nas semanas 2, 4 e 6; a liderança é uma jornada de 5 encontros, de 3 a 16 turnos cada.
         </p>
         <p className="mt-1 text-[10px] text-gray-500">
           Preço mínimo e margem usam o canal {calc.comissaoLabel} ({calc.comissaoPct.toFixed(0)}%), impostos de {pricing.impostosPct.toLocaleString(locale)}% e
@@ -1847,7 +1848,7 @@ function CalculatedField({
  * `FieldNumber` porque a tabela de simuladores usa o mesmo campo sem a caixa.
  */
 function InputNumero({
-  value, onChange, min = 0, max = Number.POSITIVE_INFINITY, allowDecimals = false, casasDecimais = 2, locale, className, rotulo,
+  value, onChange, min = 0, max = Number.POSITIVE_INFINITY, allowDecimals = false, locale, className, rotulo,
 }: {
   value: number;
   onChange: (v: number) => void;
@@ -1855,7 +1856,6 @@ function InputNumero({
   /** Teto aplicado no campo, para o texto não mostrar um número que a conta não usa. */
   max?: number;
   allowDecimals?: boolean;
-  casasDecimais?: number;
   locale: string;
   className: string;
   /** Nome acessível quando não há `<label>` em volta (célula de tabela). */
@@ -1864,7 +1864,7 @@ function InputNumero({
   const fmt = (n: number) =>
     n.toLocaleString(locale, {
       minimumFractionDigits: 0,
-      maximumFractionDigits: allowDecimals ? casasDecimais : 0,
+      maximumFractionDigits: allowDecimals ? 2 : 0,
     });
 
   function parseBR(s: string): number {

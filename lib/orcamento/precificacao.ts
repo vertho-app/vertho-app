@@ -119,19 +119,27 @@ export interface ConfigSimulador {
   treinosPessoaCiclo: number;
   /** Turnos de conversa por treino. O custo da conversa cresce com eles. */
   turnosPorTreino: number;
-  /** US$ das chamadas que rodam uma vez por treino (avaliação, preparo). */
-  custoFixoTreinoUsd: number;
 }
 
 export type ConfigSimuladores = Record<Simulador, ConfigSimulador>;
 
-/**
- * US$ das chamadas que rodam a cada turno (personagem, moderação). É custo da
- * PLATAFORMA, não do orçamento: decisão do Rodrigo (02/10/2026), não é campo
- * editável. Por isso mora aqui e não em `ConfigSimulador`: um valor gravado no
- * cenário (houve cenário salvo com ele entre 02/10, de manhã, e esta mudança) é
- * descartado na leitura, e a conta usa sempre este. Medição na nota abaixo.
+/*
+ * Os dois custos de IA de um treino são da PLATAFORMA, não do orçamento:
+ * decisões do Rodrigo de 02/10/2026 ("custo/turno é fixo", "o mesmo vale para
+ * custo fixo / treino"), não são campos editáveis. Por isso moram aqui e não em
+ * `ConfigSimulador`: o valor que um cenário gravou enquanto eles eram editáveis
+ * (02/10, a partir de `0288ab0b`) é descartado na leitura, e a conta usa sempre
+ * estes. Medição na nota de `SIMULADORES_DEFAULT`.
  */
+
+/** US$ das chamadas que rodam uma vez por treino (avaliação, preparo). */
+export const CUSTO_FIXO_TREINO_USD: Record<Simulador, number> = {
+  vendas: 0.1,
+  atendimento: 0.166,
+  lideranca: 0.09,
+};
+
+/** US$ das chamadas que rodam a cada turno (personagem, moderação). */
 export const CUSTO_TURNO_USD: Record<Simulador, number> = {
   vendas: 0.0075,
   atendimento: 0.0069,
@@ -152,9 +160,9 @@ export const CUSTO_TURNO_USD: Record<Simulador, number> = {
  * não é cortesia: a tela avisa quando um simulador entra no escopo sem preço.
  */
 export const SIMULADORES_DEFAULT: ConfigSimuladores = {
-  vendas: { precoPessoaCiclo: 0, treinosPessoaCiclo: 6, turnosPorTreino: 8, custoFixoTreinoUsd: 0.1 },
-  atendimento: { precoPessoaCiclo: 0, treinosPessoaCiclo: 6, turnosPorTreino: 8, custoFixoTreinoUsd: 0.166 },
-  lideranca: { precoPessoaCiclo: 0, treinosPessoaCiclo: 5, turnosPorTreino: 8, custoFixoTreinoUsd: 0.09 },
+  vendas: { precoPessoaCiclo: 0, treinosPessoaCiclo: 6, turnosPorTreino: 8 },
+  atendimento: { precoPessoaCiclo: 0, treinosPessoaCiclo: 6, turnosPorTreino: 8 },
+  lideranca: { precoPessoaCiclo: 0, treinosPessoaCiclo: 5, turnosPorTreino: 8 },
 };
 
 /** Cópia da régua dos simuladores: editar o cenário não edita o default. */
@@ -168,17 +176,15 @@ export function configSimuladoresPadrao(): ConfigSimuladores {
 const naoNegativo = (v: number) => Math.max(0, Number(v) || 0);
 
 /** US$ de um treino: o que roda uma vez mais o custo do turno × turnos. */
-export function custoTreinoUsd(
-  c: Pick<ConfigSimulador, 'custoFixoTreinoUsd' | 'turnosPorTreino'>,
-  custoTurnoUsd: number,
-): number {
-  return naoNegativo(c.custoFixoTreinoUsd) + naoNegativo(custoTurnoUsd) * naoNegativo(c.turnosPorTreino);
+export function custoTreinoUsd(p: { custoFixoTreinoUsd: number; custoTurnoUsd: number; turnosPorTreino: number }): number {
+  return naoNegativo(p.custoFixoTreinoUsd) + naoNegativo(p.custoTurnoUsd) * naoNegativo(p.turnosPorTreino);
 }
 
 export interface SimuladorNoOrcamento {
   simulador: Simulador;
   acessos: number;
-  /** O da plataforma (`CUSTO_TURNO_USD`), exibido sem edição. */
+  /** Os da plataforma (`CUSTO_FIXO_TREINO_USD`, `CUSTO_TURNO_USD`), exibidos sem edição. */
+  custoFixoTreinoUsd: number;
   custoTurnoUsd: number;
   custoTreinoUsd: number;
   /** R$ de IA de uma pessoa com acesso, num ciclo. */
@@ -205,10 +211,15 @@ export function simuladoresDoOrcamento(p: {
   const itens = SIMULADORES.map((s): SimuladorNoOrcamento => {
     const c = p.config[s];
     const acessos = Math.min(teto, Math.max(0, Math.floor(Number(p.pessoas[s]) || 0)));
-    const treino = custoTreinoUsd(c, CUSTO_TURNO_USD[s]);
+    const treino = custoTreinoUsd({
+      custoFixoTreinoUsd: CUSTO_FIXO_TREINO_USD[s],
+      custoTurnoUsd: CUSTO_TURNO_USD[s],
+      turnosPorTreino: c.turnosPorTreino,
+    });
     return {
       simulador: s,
       acessos,
+      custoFixoTreinoUsd: CUSTO_FIXO_TREINO_USD[s],
       custoTurnoUsd: CUSTO_TURNO_USD[s],
       custoTreinoUsd: treino,
       custoPessoaCicloBrl: naoNegativo(c.treinosPessoaCiclo) * treino * naoNegativo(p.cotacao),
