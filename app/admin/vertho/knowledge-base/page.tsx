@@ -21,6 +21,7 @@ const CATEGORIAS = [
   { id: 'cargos', label: 'Cargos' },
   { id: 'faq', label: 'FAQ' },
   { id: 'onboarding', label: 'Onboarding' },
+  { id: 'pensamento_estrategico', label: 'Pensamento Estratégico' },
   { id: 'outro', label: 'Outro' },
 ];
 
