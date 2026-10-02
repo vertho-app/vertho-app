@@ -325,3 +325,17 @@ com turma ativa tinham de 1.500 a 4.300 caracteres preenchidos. A lacuna era de 
   desta data segue sem a ficha (a data de criação separa), e editar a ficha depois não refaz o que
   já existe. Decisão do dono: valer só daqui para frente, sem regeneração.
 - Detalhe do bloco e da régua de casamento: `docs/CATALOGO-PROMPTS-IA.md` §12.6.
+
+## Atualização 02/10/2026 — contexto da empresa CORPORATIVA (`resolverContextoEmpresa`)
+
+O "PPP" que dá a lente de aplicação ao kit e ao conteúdo personalizado é `ppp_escolas.extracao`, e foi desenhado
+para escola. Empresa corporativa (Boehringer) usa o mesmo caminho, com três armadilhas:
+
+- **2+ registros disparam a "síntese municipal"**: prompt de rede de escolas ("ignore idiosincrasias", ≤2000
+  caracteres), que descarta justamente o que é específico de uma unidade. Para empresa corporativa mantenha
+  **UM registro** e mescle o conteúdo novo nele (Boehringer: cultura AAI + unidade JASCAYD).
+- **Teto de 2.500 caracteres** (`extracaoParaTexto(...).slice(0, 2500)`). Boehringer: 1.740 → 2.417 depois de
+  mesclar. Material técnico (mecanismo de ação, estudos) não cabe; para isso o caminho é o módulo-base.
+- **Só os campos do esquema de escola são renderizados** (instituição, comunidade/contexto, identidade, práticas
+  — só os NOMES —, gestão, infraestrutura, valores). Desafios, metas e vocabulário ficam no JSON e só aparecem no
+  visualizador do admin. Campo que só diz "Não declarado no documento" entra no texto como ruído: deixe vazio.

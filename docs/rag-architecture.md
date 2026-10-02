@@ -82,3 +82,16 @@ Antes da correção, a RPC híbrida falhou nas 48 consultas com `column referenc
 O reranker permanece desativado. Não há chamada adicional de reranking no fluxo de produção. Reavaliar com perguntas reais e rótulos de resposta antes de adicioná-lo.
 
 Preços publicados na avaliação: Voyage 4 large US$ 0,12/1 milhão de tokens; Voyage 3 large US$ 0,18. Fontes: [embeddings Voyage](https://docs.voyageai.com/docs/embeddings), [preços](https://docs.voyageai.com/docs/pricing), [pgvector](https://github.com/pgvector/pgvector).
+
+## Escopo da KB: o que ela NÃO faz (medido 02/10/2026)
+
+- **É por empresa e plana.** Não há coluna de competência: `categoria` aparece só no cabeçalho do trecho que
+  a IA recebe (`### título [categoria]`) e **não filtra a busca**. Quem direciona é o texto: a consulta da
+  Missão Prática é montada com competência + descritor e casa por similaridade.
+- **Sem corte de relevância.** `retrieveContext` devolve os k melhores que existirem. Com a KB do Boehringer em
+  2 documentos (Plano XP), a consulta de *Aprendizado Contínuo* devolveu os mesmos 2. O modelo é instruído a usar
+  o bloco só se for relevante; o ruído some quando a base cresce. Título claro e um assunto por documento.
+- **Quem lê a KB:** Tira-Dúvidas, reflexão/feedback da Missão e relatórios de Gestor/RH. **Não** a geração de
+  conteúdo, kit ou vídeo: essa lê módulos-base e o contexto da empresa (`resolverContextoEmpresa`, ver
+  `docs/KIT-SEMANAL.md`). Subir material na KB não muda os conteúdos gerados.
+- Upload de até 4 MB por arquivo; PDF que é diagrama sai embaralhado (o Plano XP foi transcrito da imagem).

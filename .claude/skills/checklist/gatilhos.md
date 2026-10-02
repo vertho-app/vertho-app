@@ -493,6 +493,7 @@ Detalhe: `docs/AMBIENTE-DEMO.md` · `docs/ARQUITETURA.md` §3.7 · memória `pro
 - 🔴 Antes de depurar "não funcionou": comparar o **SHA do último deployment** com `git log -1`.
   Push que não gera build, aba com bundle antigo (Skew Protection 12 h) e bug real produzem a
   **mesma tela**.
+- 🔴 **Pathspec leva o arquivo INTEIRO, e `--amend` não existe neste repo.** Antes de `git commit -- <arquivo>` num arquivo que outra sessão também edita (barrel `lib/access-gates/index.ts`, `messages/*.json`, `docs/ARQUITETURA.md`, `CLAUDE.md`), leia o `git diff <arquivo>`: só as SUAS linhas. Medido 02/10/2026: o barrel levou o `export` de um arquivo ainda untracked de outra sessão (typecheck vermelho em checkout limpo), e o `--amend` que tentei para consertar caiu no commit dela, porque o `HEAD` avançou no intervalo. Commit errado se conserta com commit NOVO; divergência com `reset --mixed origin/master` + recommit por pathspec e `git commit -C <sha>` para o commit alheio. Memória `feedback_git_add_seletivo`.
 - 🔴 Rodar `npm run test:unit` **inteiro**, não só o arquivo da mudança: os guards varrem o repo
   todo, então o vermelho pode não ter relação nenhuma com o seu diff — e você é quem vai encontrá-lo.
 - 🔴 **Depois** do push: `gh run list --limit 6 --json headSha,conclusion,workflowName`. `git push`

@@ -321,6 +321,8 @@ Mudar algo de zona é decisão do dono, registrada aqui (a tabela é a política
 ## NÃO fazer
 - NÃO escrever JavaScript — é **TypeScript**.
 - NÃO `git add -A`, `vercel --prod`, `cd && git`.
+- NÃO declarar lista de modelos de IA numa tela (`{ id: 'claude-…', label: … }`): o seletor lê `MODELOS_DISPONIVEIS` (`lib/ai-tasks.ts`). `Medido: 02/10/2026` — a tela do IA4 ficou sem Sonnet 5.5, Opus 5.5 e GPT 6.1 Sol, que o catálogo já tinha (eram 4 cópias: empresa, fase4, simulador + rota, PPP). O padrão de custo é constante EXPLÍCITA, nunca `[0]` do catálogo (hoje é o Opus 5.5). Guard: `tests/unit/security/seletor-modelos-catalogo-guard.test.ts`.
+- NÃO `git commit --amend` neste repo, e NÃO commitar por pathspec um arquivo que outra sessão também edita sem ler o `git diff <arquivo>`. `Medido: 02/10/2026` — (1) o pathspec leva o arquivo INTEIRO: o barrel `lib/access-gates/index.ts` levou o `export` de outra sessão cujo arquivo seguia untracked (quebraria o typecheck em checkout limpo); (2) o `--amend` reescreveu o commit de OUTRA sessão que tinha entrado por cima do meu `HEAD` no intervalo. Para integrar divergência: `git reset --mixed origin/master` + recommit por pathspec, e `git commit -C <sha>` para recriar o commit alheio com mensagem e autoria. Detalhe: memória `feedback_git_add_seletivo`.
 - NÃO query de colaborador por email direto — usar `findColabByEmail`.
 - NÃO confiar em `try/catch` para erro de query do **supabase-js** — ele **retorna** `{ error }`,
   não lança. Todo await de query tem que checar o retorno (`if (error)`), senão a falha passa
