@@ -16,10 +16,17 @@
  * slice(0,6) (dígito verificador). Ambas as fontes paginadas via
  * .range() (o cap 1000 do Supabase quebrava o merge). Scores LADO A
  * LADO — não há score combinado (unidades/modelos distintos).
+ *
+ * ⛔ A metade de empresas é acervo do Radar Empresas, bloco OFF-LINE desde
+ * 31/08/2026 (`lib/blocos-offline.ts`). A tela já não oferece a aba
+ * (`lib/mercado-potencial/secoes.ts`), mas este arquivo é `'use server'`: o
+ * export é endpoint HTTP e recusa na entrada até o bloco ser religado (R-108,
+ * 03/10/2026; o `blocos-offline-guard` exige o gate).
  */
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { calcularMercadoScores } from '@/lib/mercado-potencial/scoring';
+import { assertBlocoOnline } from '@/lib/blocos-offline';
 
 export interface PotencialFiltros {
   uf?: string;
@@ -73,6 +80,7 @@ async function fetchAll(makeQuery: (from: number, to: number) => any): Promise<a
 export async function loadPotencialCidades(
   f: PotencialFiltros = {},
 ): Promise<{ ok: true; rows: PotencialCidadeRow[]; total: number } | { error: string }> {
+  assertBlocoOnline('radarempresas');
   await requireAdminAction();
   const sb = await requireAdminSupabase();
   const busca = f.municipioBusca?.trim();

@@ -119,7 +119,9 @@ const PHASE_CONFIG = [
     { key: 'simular-disc',label: 'Simular Mapeamento Comportamental', icon: MessageSquare,ai: false },
     { key: 'perfis-disc', label: 'Perfis Comportamentais',      icon: Brain,        hrefFn: (id: string) => `/admin/empresas/${id}/perfis-comportamentais` },
     { key: 'envios',      label: 'Envios',                      icon: Send,         href: '/admin/whatsapp' },
-    { key: 'pulso',       label: 'Pulso de Desenvolvimento',    icon: Activity,     hrefFn: (id: string) => `/admin/empresas/${id}/pulso` },
+    // ⛔ 'pulso' saiu em 03/10/2026 (R-108): o card "Pulso de Desenvolvimento"
+    // levava a /admin/empresas/{id}/pulso, que responde 404 desde 31/08/2026
+    // (bloco OFF-LINE, lib/blocos-offline.ts). O guard procura /pulso agora.
   ]},
   { num: 2, icon: Bot, color: '#EF4444', groups: [
     { label: 'Diagnóstico', actions: [

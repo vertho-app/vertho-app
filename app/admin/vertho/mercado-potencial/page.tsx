@@ -15,6 +15,7 @@ import {
   refreshMercadoPotencial, type MercadoFilters,
 } from './actions';
 import UnificadoTab from './_components/unificado-tab';
+import { secoesDoMercado, secaoInicialDoMercado, type SecaoMercado } from '@/lib/mercado-potencial/secoes';
 
 type Tab = 'municipio' | 'rede' | 'escola';
 
@@ -42,8 +43,12 @@ const REDE_COR: Record<string, string> = {
  *  - tab `unificado` → "Potencial por Cidade" (empresas+escolas), movido de
  *                      /admin/vertho/potencial-cidades (rota antiga = redirect)
  * Tab inicial via `?tab=`, mesmo padrão de empresas/[empresaId]/fase1.
+ *
+ * ⛔ A tab `unificado` só existe com o Radar Empresas ligado: a metade de
+ * empresas dela é acervo desse bloco, off-line desde 31/08/2026. Quem decide
+ * é `lib/mercado-potencial/secoes.ts` (R-108, 03/10/2026).
  */
-type SecaoWorkspace = 'mercado' | 'unificado';
+type SecaoWorkspace = SecaoMercado;
 
 // Wrapper com Suspense: MercadoPotencialPageInner usa useSearchParams. Sem o
 // boundary, chegar via redirect() (ex.: /vertho/potencial-cidades → ?tab=unificado)
@@ -55,8 +60,8 @@ export default function MercadoPotencialPage() {
 function MercadoPotencialPageInner() {
   const searchParams = useSearchParams();
   const tNav = useTranslations('AdminDashboard.nav.labels');
-  const initialTab = searchParams.get('tab');
-  const [secao, setSecao] = useState<SecaoWorkspace>(initialTab === 'unificado' ? 'unificado' : 'mercado');
+  const [secao, setSecao] = useState<SecaoWorkspace>(secaoInicialDoMercado(searchParams.get('tab')));
+  const secoes = secoesDoMercado();
 
   return (
     <div className="min-h-full"
@@ -65,12 +70,13 @@ function MercadoPotencialPageInner() {
 
         <BackButton href="/admin/dashboard" />
 
-        {/* Tabs do workspace */}
+        {/* Tabs do workspace: com uma seção só, a barra não tem o que escolher. */}
+        {secoes.length > 1 && (
         <div className="flex gap-1 mb-5 p-1 rounded-xl border border-white/[0.06]" style={{ background: '#091D35' }}>
           {([
             { key: 'mercado', label: tNav('potentialMarket'), icon: TrendingUp, color: 'text-cyan-400' },
             { key: 'unificado', label: tNav('cityPotential'), icon: Layers, color: 'text-violet-400' },
-          ] as { key: SecaoWorkspace; label: string; icon: any; color: string }[]).map(tb => (
+          ] as { key: SecaoWorkspace; label: string; icon: any; color: string }[]).filter(tb => secoes.includes(tb.key)).map(tb => (
             <button key={tb.key} onClick={() => setSecao(tb.key)}
               className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold transition-all ${
                 secao === tb.key ? 'bg-white/[0.06] text-white' : 'text-gray-500 hover:text-gray-300'
@@ -80,10 +86,11 @@ function MercadoPotencialPageInner() {
             </button>
           ))}
         </div>
+        )}
 
-        {secao === 'mercado'
-          ? <MercadoTab />
-          : <UnificadoTab onOpenMercado={() => setSecao('mercado')} />}
+        {secao === 'unificado' && secoes.includes('unificado')
+          ? <UnificadoTab onOpenMercado={() => setSecao('mercado')} />
+          : <MercadoTab />}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { LoadingState, MetricCard, Surface } from '@/components/ui';
 import { loadAdminDashboard } from './actions';
 import { useAdminShell } from '../_shell/AdminShellContext';
 import { empresaGlyph, fmtNum as fmt, serifStyle as serif, monoStyle as mono } from '../_shell/nav-items';
+import { abaUnificadaDisponivel } from '@/lib/mercado-potencial/secoes';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Apenas o CONTEÚDO do dashboard. A casca (sidebar + header + filtro de empresa +
@@ -236,8 +237,13 @@ export default function AdminDashboardPage() {
                   {/* ⛔ Radar Empresas saiu em 31/08/2026 — bloco OFF-LINE
                       (lib/blocos-offline.ts). O atalho apontava para uma tela
                       que agora responde 404. */}
-                  <QuickAction onClick={() => router.push('/admin/vertho/mercado-potencial?tab=unificado')} icon={<Globe size={16} />} accent="#9e7bff"
-                    title={t('quickActions.cityPotential.title')} desc={t('quickActions.cityPotential.desc')} />
+                  {/* "Potencial por Cidade" junta empresas (acervo do Radar
+                      Empresas, off-line) e escolas: o atalho só existe com a
+                      aba existindo (R-108, lib/mercado-potencial/secoes.ts). */}
+                  {abaUnificadaDisponivel() && (
+                    <QuickAction onClick={() => router.push('/admin/vertho/mercado-potencial?tab=unificado')} icon={<Globe size={16} />} accent="#9e7bff"
+                      title={t('quickActions.cityPotential.title')} desc={t('quickActions.cityPotential.desc')} />
+                  )}
                   <QuickAction onClick={() => router.push('/admin/radar')} icon={<BarChart2 size={16} />} accent="#9e4edd"
                     title={t('quickActions.radar.title')} desc={t('quickActions.radar.desc')} />
                   <QuickAction onClick={() => router.push('/admin/vertho/orcamento')} icon={<Calculator size={16} />} accent="#f4b740"

@@ -14,6 +14,7 @@ import { readFileSync, existsSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { describe, it, expect } from 'vitest';
 import { BLOCOS_OFFLINE, blocoEstaOffline, assertBlocoOnline, BlocoOfflineError } from '@/lib/blocos-offline';
+import { abaUnificadaDisponivel, secoesDoMercado, secaoInicialDoMercado } from '@/lib/mercado-potencial/secoes';
 
 /** Layout (ou page) que fecha a superfície de cada bloco. */
 const PORTAS: Record<string, string[]> = {
@@ -41,6 +42,10 @@ const ACTIONS: Record<string, string[]> = {
   radarempresas: [
     'actions/radarempresas/busca.ts', 'actions/radarempresas/listas.ts',
     'actions/radarempresas/scoring.ts',
+    // A aba "Potencial por Cidade" do Mercado potencial lia o acervo do bloco
+    // (`radarempresas_cidades_agg`) e ficou de fora do desligamento de 31/08
+    // por morar em outra pasta (R-108, 03/10/2026).
+    'app/admin/vertho/potencial-cidades/actions.ts',
   ],
   // `actions/lead-comercial.ts` atende as DUAS campanhas (R-104, 03/10/2026): a
   // entrada repetida faz o gate continuar exigido enquanto qualquer uma das duas
@@ -48,6 +53,80 @@ const ACTIONS: Record<string, string[]> = {
   radarbett: ['app/admin/radar/funnel-bett/actions.ts', 'actions/lead-comercial.ts'],
   conarh: ['actions/lead-comercial.ts'],
 };
+
+// ── Links para telas fechadas (R-108, 03/10/2026) ─────────────────────────────
+// O teste de links mais abaixo nasceu procurando só radarbett, conarh e o
+// Radar Empresas, e só em `href`/`push`: não procurava /pulso nem /selecao, e
+// não via `hrefFn: (id) => \`...\``, que é o formato dos cards do pipeline. Foi
+// assim que o card "Pulso de Desenvolvimento" seguiu levando a um 404 por um mês.
+//
+// Um link é uma string em POSIÇÃO de link: `href`, `hrefFn`, `push`, `replace`,
+// `redirect*`, inclusive depois da seta de `hrefFn` e do `{` do JSX. String de
+// rota fora dessa posição (o mapa de páginas do Beto, por exemplo) não é convite.
+const LINK = /(?:\bhref\w*|\bpush|\breplace|\bredirect\w*)\s*[:=(]\s*\{?\s*(?:\([^)]*\)\s*=>\s*)?(['"`])((?:(?!\1).)*)\1/g;
+
+/** Rota de TELA de cada bloco, como ela aparece no destino de um link. */
+const ROTAS_FECHADAS: Record<string, RegExp> = {
+  pulso: /\/pulso(?=$|[/?#])/,
+  selecao: /\/(?:selecao|extracao-cargo)(?=$|[/?#])/,
+  radarbett: /\/(?:radarbett|radar\/bett)(?=$|[/?#])/,
+  conarh: /\/conarh(?=$|[/?#])/,
+  radarempresas: /\/admin\/vertho\/radarempresas(?=$|[/?#])/,
+};
+
+/** O próprio bloco pode se referenciar: é a navegação interna dele, atrás da mesma porta. */
+const DO_PROPRIO_BLOCO: Record<string, RegExp> = {
+  pulso: /(^|\/)(pulso|pulse)\//,
+  selecao: /\/(selecao|extracao-cargo)\//,
+  radarbett: /^app\/(radarbett|radar\/bett)\//,
+  conarh: /^app\/conarh\//,
+  radarempresas: /^app\/admin\/vertho\/radarempresas\//,
+};
+
+/**
+ * Links que existem DE PROPÓSITO porque o gate mora em quem alimenta a tela,
+ * não no arquivo do link. Cada um diz o motivo, e o guard confere que o gate
+ * continua lá (`prova`): exceção cuja premissa sumiu é link aberto sem ninguém
+ * ver. A lista só encolhe: exceção sem link a cobrir também reprova.
+ */
+const LINKS_COM_GATE_NO_LEITOR: Array<{
+  arquivo: string; bloco: string; motivo: string; gate: string; prova: (txt: string) => boolean;
+}> = [
+  {
+    arquivo: 'app/dashboard/page.tsx',
+    bloco: 'pulso',
+    motivo: 'o card de pulso pendente só desenha o que `carregarPulsosPendentes` devolve, e ela devolve [] ANTES da query com o Pulso off-line',
+    gate: 'lib/home/loaders.ts',
+    prova: (txt) => {
+      const inicio = txt.indexOf('export async function carregarPulsosPendentes');
+      if (inicio < 0) return false;
+      const corpo = txt.slice(inicio);
+      const gate = corpo.indexOf("if (blocoEstaOffline('pulso')) return [];");
+      const query = corpo.indexOf(".from('pulse_assignments')");
+      return gate > 0 && query > 0 && gate < query;
+    },
+  },
+];
+
+/** `.ts`/`.tsx` VERSIONADOS do produto (sem `tests/` e `scripts/`); null fora de repo git. */
+function arquivosDoProduto(): string[] | null {
+  let versionados: string[];
+  try {
+    versionados = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] })
+      .split('\0').filter(Boolean);
+  } catch { return null; }
+  return versionados.filter((f) =>
+    /\.(ts|tsx)$/.test(f) && !f.startsWith('tests/') && !f.startsWith('scripts/') && !f.includes('blocos-offline'));
+}
+
+/** Tira as linhas comentadas: é nelas que o motivo de cada remoção fica registrado. */
+function semComentarios(txt: string): string {
+  return txt.split('\n').filter((l) => !/^\s*(\/\/|\*|\{\/\*)/.test(l)).join('\n');
+}
+
+function destinosDeLink(txt: string): Array<{ trecho: string; destino: string }> {
+  return [...semComentarios(txt).matchAll(LINK)].map((m) => ({ trecho: m[0], destino: m[2] }));
+}
 
 const ROTAS_API_CONARH = [
   'app/api/conarh/artefato/route.ts', 'app/api/conarh/fila/route.ts',
@@ -201,5 +280,62 @@ describe('blocos off-line — ninguém convida para a porta fechada', () => {
       ofensores,
       'link para tela de bloco off-line — a pessoa clica e cai num 404: ' + ofensores.join(', '),
     ).toEqual([]);
+  });
+
+  it('🔴 nenhum link, inclusive `hrefFn`, para tela de Pulso, Seleção ou outro bloco off-line', () => {
+    const alvos = arquivosDoProduto();
+    if (!alvos) return; // fora de repo git: guard não se aplica
+    expect(alvos.length, 'a varredura precisa ver o produto, senão não prova nada').toBeGreaterThan(500);
+
+    const ofensores: string[] = [];
+    for (const f of alvos) {
+      let txt: string;
+      try { txt = readFileSync(f, 'utf-8'); } catch { continue; }
+      for (const { trecho, destino } of destinosDeLink(txt)) {
+        for (const [bloco, rota] of Object.entries(ROTAS_FECHADAS)) {
+          if (!blocoEstaOffline(bloco) || !rota.test(destino)) continue;
+          if (DO_PROPRIO_BLOCO[bloco].test(f)) continue;
+          if (LINKS_COM_GATE_NO_LEITOR.some((e) => e.arquivo === f && e.bloco === bloco)) continue;
+          ofensores.push(`${f} (${bloco}): ${trecho.slice(0, 90)}`);
+        }
+      }
+    }
+    expect(
+      ofensores,
+      'link para tela de bloco off-line: a pessoa clica e cai num 404. Tire o link, ou gate '
+      + 'pelo registro e declare a exceção com a prova do gate. Links:\n' + ofensores.join('\n'),
+    ).toEqual([]);
+  });
+
+  it('🔴 cada exceção de link tem o gate no leitor, e ainda é necessária', () => {
+    for (const e of LINKS_COM_GATE_NO_LEITOR) {
+      expect(e.prova(readFileSync(e.gate, 'utf-8')), `${e.arquivo}: o gate em ${e.gate} sumiu (${e.motivo})`).toBe(true);
+      const aindaLinka = destinosDeLink(readFileSync(e.arquivo, 'utf-8')).some((l) => ROTAS_FECHADAS[e.bloco].test(l.destino));
+      expect(aindaLinka, `${e.arquivo} não linka mais para ${e.bloco}: tire a exceção`).toBe(true);
+    }
+  });
+
+  it('🔴 a aba "Potencial por Cidade" (acervo do Radar Empresas) some com o bloco off-line', () => {
+    if (!blocoEstaOffline('radarempresas')) return;
+    expect(abaUnificadaDisponivel()).toBe(false);
+    expect(secoesDoMercado()).toEqual(['mercado']);
+    // Link salvo e o redirect da rota antiga abrem o mercado de escolas.
+    expect(secaoInicialDoMercado('unificado')).toBe('mercado');
+
+    // A tela decide pela régua, e quem CONVIDA para a aba consulta a mesma régua.
+    const workspace = readFileSync('app/admin/vertho/mercado-potencial/page.tsx', 'utf-8');
+    expect(workspace).toContain('secaoInicialDoMercado(');
+    expect(workspace).toContain('secoesDoMercado(');
+    const alvos = arquivosDoProduto();
+    if (!alvos) return;
+    // A rota antiga só redireciona para o workspace, que resolve a aba pela régua.
+    const REDIRECT_DA_ROTA_ANTIGA = 'app/admin/vertho/potencial-cidades/page.tsx';
+    const semRegua = alvos.filter((f) => {
+      if (f === REDIRECT_DA_ROTA_ANTIGA) return false;
+      const txt = readFileSync(f, 'utf-8');
+      const convida = destinosDeLink(txt).some((l) => /mercado-potencial\?tab=unificado/.test(l.destino));
+      return convida && !txt.includes('abaUnificadaDisponivel()');
+    });
+    expect(semRegua, 'atalho para a aba Unificado sem consultar abaUnificadaDisponivel(): ' + semRegua.join(', ')).toEqual([]);
   });
 });
