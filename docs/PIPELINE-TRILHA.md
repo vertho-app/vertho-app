@@ -317,13 +317,20 @@ O gate de sessão vive em `actions/temporadas.ts:73`, que só delega.
 
 ### Os 4 modos (`lib/season-engine/programa-config.ts`)
 
-| | `regular_single` | **`regular_duo`** (default) | `onboarding` | `piloto` |
+| | `regular_single` | `regular_duo` | `onboarding` | `piloto` |
 |---|---|---|---|---|
 | semanas | 14 | 14 | 10 | 3 |
 | slots de conteúdo | 1,2,3,5,6,7,9,10,11 | idem (9) | 2,3,5,6,8 | 1,2 |
 | missões | 4, 8, 12 | 4, 8, 12 | 4, 7, 9 | **nenhuma** |
 | avaliação | 13, 14 | 13, 14 | 10 | 3 |
 | competências | 1 | **2** | 5 | 1 |
+
+⚠️ Esta tabela é a dos 4 modos de 14 semanas e afins, e envelheceu: desde 03/10/2026 a escolha
+oferecida é **Jornada** (7 semanas, `PROGRAMA_JORNADA`, o padrão de quem não tem modo gravado:
+`PROGRAMA_MODO_PADRAO`), **Onboarding** e **Personalizado** (a Jornada com duração ajustável, 1 a 6
+semanas por competência, 1 ou 2 competências em sequência; `docs/MODO-PILOTO.md`). `regular_duo`,
+`regular_single` e `piloto` saíram da escolha e seguem no motor para quem já está neles. A duração
+de cada modo se lê em `lib/season-engine/programa-config.ts`.
 
 Resolução da **geração**: `resolverModoColab(colab, sys_config)` (`:255-263`) — override por
 colaborador vence o default da empresa. Resolução do **runtime**: `getProgramaConfigDaTrilha`

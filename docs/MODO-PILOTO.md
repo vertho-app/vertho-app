@@ -1,4 +1,16 @@
-# Modo Piloto — degustação de 2 semanas
+# Modo Piloto (descontinuado) e Modo Personalizado
+
+> ⛔ **03/10/2026: o Piloto não é mais oferecido** ("não temos mais degustação de jornada",
+> decisão do dono). Saiu da tela de escolha (aba Programa, override em Configurações → Equipe,
+> turma no admin-v2) e o servidor recusa gravação NOVA dele (`MODOS_OFERECIDOS` em
+> `programa-config.ts`, aplicado por `problemaNaChaveDePrograma`, `atualizarProgramaModo` e as
+> actions de turma). O motor segue servindo quem já está nele: trilhas carimbadas `piloto`, o
+> override de colaborador gravado e o `sys_config` de empresa gravado (`elo`). O E2E
+> "E2E Piloto (fluxos críticos)" não tem relação com este modo: o nome é do piloto da suíte E2E.
+> As seções sobre o Piloto abaixo descrevem a maquinaria que continua no motor.
+> O **Personalizado** (última seção) virou programa completo de duração ajustável na mesma data.
+
+# Modo Piloto: degustação de 2 semanas
 
 > **Não é produto novo — só config.** `programa_modo = 'piloto'` na mesma engine de trilha
 > (ver `ARQUITETURA.md §17`). Objetivo: o lead roda o **fluxo inteiro** (diagnóstico completo →
@@ -119,16 +131,23 @@ O modo resolve por **precedência de geração** (fonte única: `resolverModoCol
 
 1. `colaboradores.programa_modo` (override individual — Configurações → Equipe, select por pessoa)
 2. `empresas.sys_config.programa_modo` (default do tenant — Configurações → Programa)
-3. ausente → Regular DUO
+3. ausente → Jornada (`PROGRAMA_MODO_PADRAO`, desde 03/10/2026; antes era o Regular DUO). A
+   trilha legada SEM carimbo segue no DUO (`getProgramaConfigLegado`): ela nasceu nele.
+
+Desde 03/10/2026 só `jornada`, `onboarding` e `custom` aceitam gravação nova. `piloto`,
+`regular_duo`, `regular_single` (e a grafia antiga `regular`) seguem lidos; a tela mostra o valor
+gravado como "descontinuado" e não o troca sozinha ao salvar outra aba (`salvarConfig` valida só
+o que mudou).
 
 O rótulo resolvido é **carimbado** em `trilhas.programa_modo` na geração; o runtime
 (reflexão/fechamento/acumulada/report) lê **do carimbo** — trocar o modo da empresa não
 afeta trilha em andamento. Rótulos: `regular_duo` | `regular_single` | `onboarding` | `piloto`.
 Migrations: **153** (COMMENT sys_config) e **154** (colunas + COMMENTs).
 
-Fluxo típico de conversão: colaborador marcado `piloto` → roda a degustação → cliente fecha →
-troca o override (ou o default) → **regerar a temporada** (sobrescreve o plano na mesma trilha;
-o diagnóstico é reaproveitado, não se refaz).
+Fluxo de conversão (histórico, enquanto o Piloto era oferecido): colaborador marcado `piloto` →
+roda a degustação → cliente fecha → troca o override (ou o default) → regerar a temporada. Hoje a
+trilha de piloto concluída não é regerada por cima (`travaRegeracao`, `trilha_concluida`): a
+próxima precisa nascer como trilha nova.
 
 ## Prontidão (antes de liberar)
 
@@ -193,45 +212,106 @@ O E2E do piloto expôs e corrigiu **4 bugs latentes do regular**:
    direto — usuário em 2+ empresas → null. Usar sempre `findColabByEmail` (resolve o tenant).
 4. **Prompts com régua hardcoded**: scorer/check falavam "14 semanas" para qualquer modo.
 
-## Modo PERSONALIZADO — builder de degustação (22/07/2026)
+## Modo PERSONALIZADO: uma Jornada de duração ajustável (03/10/2026)
 
-O que era preset virou **dado**: a tela Configurações → Programa ganhou o card
-**Personalizado**, que deriva uma degustação sob medida de 3 inputs —
-`{semanas: 1–4, numCompetencias: 1–2, fechamento: S/N}` — sem deploy por demanda
-nova (motivação: demo UniAnchieta, 3 pessoas, 1 semana, sem avaliação final).
+Decisão do dono em 03/10/2026: o Personalizado deixou de ser o builder de degustação
+(22/07/2026, 1 a 4 semanas, competências em paralelo, regras do piloto) e virou **programa
+completo**: uma Jornada com a duração escolhida.
 
-**Arquitetura (as 3 decisões que importam):**
+**Os 3 inputs** (`sys_config.programa_custom`, MESMO formato de antes, validado por
+`parseProgramaCustom` ao salvar e na geração):
 
-1. **Snapshot congela a config** (mig 182): a geração deriva a `ProgramaConfig`
-   completa (`derivarConfigCustom`) e grava em `trilhas.programa_config`;
-   `resolverConfigDaTrilha` lê o snapshot com precedência MÁXIMA. Editar o
-   builder NÃO afeta trilha em andamento — mesma invariante do carimbo (154).
-   Presets seguem sem snapshot (config pela constante; "ligar flag no código
-   vale pro modo inteiro" preservado).
-2. **Config derivada, não campos livres**: a família é a degustação (sem
-   missões; mapeamentos DISC+técnico sempre ativos). A config derivada usa
-   `modo:'piloto'` internamente — herda seleção top-N por gap, entrega dupla,
-   e (com fechamento) acumulada + espelho + trava + arguição(4). O rótulo
-   carimbado é `custom`.
-3. **Sem fechamento** (`semanasAvaliacao: []`): a trilha CONCLUI ao concluir a
-   última semana de conteúdo (rota `/reflection`, `deveEncerrarSemFechamento` +
-   `montarReportDegustacao` — report modo piloto com `sem_fechamento:true`,
-   spec `degustacao-v1`, baseline sem notas). Tela de conclusão reusa a
-   variante piloto (PDF oculto); agregação do gestor já exclui.
+| input | valores | sentido |
+|---|---|---|
+| `semanas` | 1 a 6 (`CUSTOM_LIMITES`) | semanas de CONTEÚDO **por competência**; cada semana é a da Jornada (2 conteúdos e 1 desafio) |
+| `numCompetencias` | 1 ou 2 | competências **em sequência**, uma trilha cada |
+| `fechamento` | sim ou não | vale para as duas competências |
 
-**2 competências**: 2ª comp pela MESMA prioridade do DUO (foco do cargo →
-sys_config → top10, âncora 1º); top-(semanas) POR comp, 1 entrega de cada por
-semana (segunda=A, terça=B). Sem 2ª comp viável/avaliada → degrada pra 1 (não
-bloqueia). Prontidão verifica a âncora e avisa.
+Compatibilidade: o formato gravado não mudou, só o sentido de `semanas` com 2 competências (antes,
+semanas em paralelo com uma pílula de cada). A única empresa em `custom` em 03/10 (unianchieta,
+`{"semanas":1,"fechamento":false,"numCompetencias":1}`, 0 trilhas) tem 1 competência e mantém o
+sentido. Não havia trilha `custom` no banco, então nenhum snapshot antigo precisou de leitura dupla.
 
-**Efeitos colaterais pagos junto (valem pra todos os modos):**
-- Cron de envios agora pára no fim REAL do plano (`totalSemanasDoPlano`,
-  espelho-aware) — antes avançava cego até 14 nudgeando semanas inexistentes.
-- Prontidão é config-driven: Cenário B só é exigido quando o modo TEM fechamento.
-- Sanitizer de duração (`sanitizarNarrativaPiloto`) e `notaPrograma` do scorer
-  parametrizados por `slotsConteudo.length` (piloto=2 byte-igual).
+**A config de UMA trilha** (`derivarConfigCustom`) é a `PROGRAMA_JORNADA` com a duração trocada
+(6 semanas com fechamento é IGUAL à Jornada, e há teste disso):
 
-**Arquivos:** `lib/season-engine/programa-custom.ts` (derivação + parse +
-encerramento + report) · `trilha-core.ts` (`gerarTemporadaCustom`) ·
-`trilha-runtime.ts` (snapshot-aware + `totalSemanasDoPlano`) · migração 182 ·
-`tests/unit/custom/programa-custom.test.ts` (25 testes, validados por mutação).
+- `modo: 'regular'`. Era `'piloto'`, e isso ligava trava de piso, spec `piloto-v1`, relatório sem
+  nível e avanço e recusa do certificado. Agora nada disso vale para o Personalizado.
+- 2 conteúdos por semana, um desafio por competência, sem semana de missão, **sem checkpoint do
+  gestor** (como a Jornada, por desenho do produto em 04/09).
+- Com fechamento: semanas = N+1, avaliação em N+1, acumulada em N, arguição de 6 turnos. O
+  fechamento é uma semana própria do calendário, como a semana 7 da Jornada (sem o espelho de
+  calendário da degustação).
+- Sem fechamento: semanas = N, sem slot de avaliação, arguição desligada.
+- `numCompetencias: 1` por trilha.
+
+**A seleção de descritores** é a da Jornada, no MESMO caminho de código
+(`gerarTemporadaCoreHeadless`): blueprint quando existe, senão `selectDescriptors(assessment,
+slots)`, que distribui as semanas entre os descritores por lacuna. Não exige mais um descritor
+distinto por pílula (o gerador antigo exigia semanas × 2 e falhava com
+`piloto_descritores_insuficientes`; medido em 03/10, 646 de 739 pares pessoa e competência têm só
+6 descritores, então o teto real era 3 semanas).
+
+**2 competências em sequência: o mecanismo é o encadeamento da Jornada.** Cada competência é uma
+trilha (`numero_temporada` 1 e 2), com fechamento, relatório e certificado próprios.
+
+1. Na geração da 1ª trilha, `planejarTrilhaPersonalizada` (trilha-core) resolve as duas
+   competências (`resolverCompetenciasDoPersonalizado`: âncora primeiro, depois foco do cargo,
+   `sys_config.competencias_regular_duo`, top 10 do cargo) e exige o mapeamento das DUAS antes de
+   gerar. Não dando, **falha alto** com erro acionável (`custom_segunda_competencia` ou
+   `sem_assessment`) e nada é gravado. O gerador antigo rebaixava para 1 competência em silêncio.
+2. O snapshot (`trilhas.programa_config`) leva a sequência: `sequenciaPersonalizado:
+   { competencias: [A, B], posicao: 1 }`.
+3. Ao concluir a 1ª, `encadearProximaJornada` (o mesmo da Jornada) lê o snapshot e gera a 2ª com
+   `novaJornada: true` e `configPersonalizado` = o snapshot da 1ª com `posicao: 2`
+   (`configDaProximaCompetencia`). As regras são as CONGELADAS na 1ª trilha, não as da tela no
+   dia: o programa está em andamento. Terminada a 2ª, não há próxima.
+4. Regerar a MESMA trilha preserva a posição dela (regerar a 2ª não a transforma na 1ª de uma
+   sequência nova); a duração é re-derivada da tela, como sempre foi no custom regerado em custom.
+
+Por que o encadeamento e não as duas competências numa trilha só: é o que a Jornada já faz em
+produção (05/08), dá um fechamento, um relatório e um certificado por competência, e cada trilha
+continua com UMA competência, que é o que as telas, o relatório por competência e o certificado
+esperam. Entre a 1ª e a 2ª, a pessoa vê o que vê no fim de uma Jornada: a trilha concluída (com
+relatório e certificado) e a próxima começando na segunda-feira seguinte (`nextMondayISO`, ou a
+data da turma).
+
+**Onde a trilha conclui:**
+
+- Com fechamento: `gerarEvolutionReportCore` (o da Jornada): relatório com nível e avanço,
+  `encadearAposConclusao` em seguida.
+- Sem fechamento: a rota `/reflection`, ao concluir a última semana de conteúdo
+  (`deveEncerrarSemFechamento`), grava `montarReportSemFechamento`: `modo: 'sem_fechamento'`,
+  `sem_fechamento: true`, o ponto de partida (`baseline`) por descritor e NENHUMA nota de chegada.
+  Sem Cenário B não há medição de chegada, e o relatório diz que o avanço não foi medido em vez de
+  mostrar zero. Depois da resposta, `aposEncerramentoSemFechamento` relê a trilha e só encadeia se
+  ela concluiu de fato (o `update` da rota é dívida declarada do guard E11 e não lê o `{ error }`;
+  a releitura fecha o efeito). Se não concluiu, linha crítica `encerramento-sem-fechamento-falhou`.
+- Quem agrega evolução (painel do colaborador, RH, gestor) deixa de fora o relatório sem
+  fechamento pela mesma régua do piloto: `relatorioMedeEvolucao` (convergencia.ts).
+- Tela de conclusão: variante própria (`noClosing`), com o nível de partida por competência, os
+  momentos e o botão do certificado; o PDF da temporada responde 409 (não há avaliação para
+  imprimir).
+
+**Certificado:** emitido para o Personalizado com e sem fechamento (participação ≥ 75%), com a
+carga de `cargaHorariaDoCertificado(config.semanas)`, a config lida do snapshot: 6 semanas com
+fechamento = 24h (como a Jornada); 3 semanas sem fechamento = 10h; 1 semana = 3h. O Piloto
+continua sem certificado (`isTrilhaPiloto`).
+
+**Tela** (Configurações → Programa): semanas 1 a 6 ("por competência"), 1 ou 2 competências,
+fechamento sim ou não, e a prévia do calendário de cada competência. Prontidão
+(`verificarProntidaoPiloto`) usa a mesma seleção e resolve as duas competências.
+
+**Arquivos:** `lib/season-engine/programa-custom.ts` (limites, derivação, sequência, relatório sem
+fechamento) · `trilha-core.ts` (`planejarTrilhaPersonalizada`,
+`resolverCompetenciasDoPersonalizado`) · `encadear-jornada.ts` (`encadearAposConclusao`, ramo
+custom) · `encerramento-sem-fechamento.ts` · `trilha-runtime.ts` (snapshot-aware) ·
+`programa-config.ts` (`getProgramaConfigDaTrilha` lê o snapshot do custom quando vem no select) ·
+migração 182 · testes em `tests/unit/custom/` (validados por mutação).
+
+**Efeitos que continuam valendo da versão de 22/07** (para todos os modos): o cron de envios para
+no fim REAL do plano (`totalSemanasDoPlano`); a prontidão só exige Cenário B quando há fechamento.
+
+⚠️ **Limite herdado da Jornada:** a cadência (`fase4_envios`) não reinicia sozinha na trilha
+encadeada; ela segue o relógio da primeira e se encerra no fim dela. A segunda competência precisa
+de reinscrição na cadência (Envios), como a segunda Jornada hoje.
