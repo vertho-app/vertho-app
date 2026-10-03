@@ -42,8 +42,8 @@ export async function filaPdiEscopo(tdb: any, permitidos: Permitidos): Promise<s
   return f.pendentes.filter((id) => dentro(permitidos, id));
 }
 
-export async function filaTrilhaEscopo(tdb: any, permitidos: Permitidos): Promise<string[]> {
-  const c = await coletarEntradaPrevia(tdb, { permitidos });
+export async function filaTrilhaEscopo(tdb: any, permitidos: Permitidos, incluirInternos?: string[]): Promise<string[]> {
+  const c = await coletarEntradaPrevia(tdb, { permitidos, incluirInternos });
   if (c.error || !c.entrada) throw new Error(`fila da trilha: ${c.error || 'sem dados'}`);
   return idsTrilhaProntos(c.entrada);
 }

@@ -58,6 +58,12 @@ export interface ParamsFluxo {
   /** Restringe a estas etapas (teste); ausente = todas. */
   somente?: EtapaId[];
   criadoPor?: string | null;
+  /**
+   * Contas internas (`@vertho.ai`) que ESTE pedido inclui, por id. O padrão é excluí-las (não entram em estatística nem em
+   * fluxo). Só o script/servidor grava isto: `iniciarFluxoCompleto` não aceita o campo do cliente. Fica no `ia_jobs.params`,
+   * então todo fluxo que abriu a exceção deixa o rastro de quem foi incluído.
+   */
+  excecaoInternos?: string[];
 }
 
 export const TITULOS_ETAPA: Record<EtapaId, string> = {

@@ -30,6 +30,12 @@ export type EscopoColeta = {
   permitidos: Set<string> | null;
   /** Restringe a estes cargos (nomes exatos); vazio/ausente = todos. */
   cargos?: string[];
+  /**
+   * EXCEÇÃO explícita para contas internas da Vertho (`@vertho.ai`), que o fluxo exclui por padrão. Só entra o id que
+   * está nesta lista, e só quando quem monta o pedido a passa (script/servidor): a action exposta ao cliente NÃO a aceita.
+   * Existe para testar o fluxo ponta a ponta com uma conta da própria equipe num tenant real.
+   */
+  incluirInternos?: string[];
   /** Com isto a prévia também mede os kits faltantes (precisa do client RAW: enxerga kits globais). */
   kit?: { sb: any; empresaId: string; turmaId?: string | null };
 };
@@ -40,6 +46,13 @@ export async function coletarEntradaPrevia(tdb: any, escopo: EscopoColeta): Prom
     tdb.from('colaboradores').select('id, nome_completo, cargo, gestor_email, email'),
   ).order('id').range(de, ate));
   if (pessoasQ.error) return { error: `colaboradores: ${pessoasQ.error}` };
+  if (escopo.incluirInternos?.length) {
+    const ja = new Set<string>(pessoasQ.data.map((p: any) => p.id));
+    const extra = await lerTudoPaginado((de, ate) => tdb.from('colaboradores')
+      .select('id, nome_completo, cargo, gestor_email, email').in('id', escopo.incluirInternos).order('id').range(de, ate));
+    if (extra.error) return { error: `colaboradores (exceção de contas internas): ${extra.error}` };
+    for (const p of extra.data) if (!ja.has(p.id)) pessoasQ.data.push(p);
+  }
   const filtroCargo = new Set((escopo.cargos || []).filter(Boolean));
   const pessoasBrutas = pessoasQ.data
     .filter((p: any) => !escopo.permitidos || escopo.permitidos.has(p.id))

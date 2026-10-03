@@ -69,7 +69,7 @@ export const fluxoCompletoTask = task({
             blueprint: () => filaBlueprintEscopo(tdb, permitidos),
             auditoria: (alvo) => filaAuditoriaEscopo(tdb, alvo),
             pdi: () => filaPdiEscopo(tdb, permitidos),
-            trilha: () => filaTrilhaEscopo(tdb, permitidos),
+            trilha: () => filaTrilhaEscopo(tdb, permitidos, params.excecaoInternos),
             // RAW de propósito: a varredura do plano precisa enxergar também os kits GLOBAIS (empresa_id nulo).
             kit: () => filaKitEscopo(sb, empresaId, { turmaId: params.escopo?.turmaId, cargos: params.escopo?.cargos }),
           },
