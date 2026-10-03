@@ -26,3 +26,26 @@ export function focoDoCargo(cargo: CargoFocoRow | null | undefined): string[] {
     : (cargo.competencia_foco ? [cargo.competencia_foco.toString().trim()] : []);
   return [...new Set(base.filter(Boolean))];
 }
+
+/**
+ * As DUAS colunas do foco, sempre juntas (R-85, 03/10/2026). Havia dois escritores:
+ * `/admin/cargos` gravava as duas, e o seletor do pipeline (`salvarCompetenciaFoco`)
+ * gravava só `competencia_foco`. Como `focoDoCargo` prefere o array, PDI e blueprint
+ * seguiam o foco ANTIGO enquanto a trilha da Jornada (que lia a coluna simples) seguia
+ * o novo: os dois falavam de competências diferentes. Todo escritor passa por aqui.
+ */
+export function colunasDoFoco(foco: Array<string | null | undefined>): { competencias_foco: string[]; competencia_foco: string | null } {
+  const limpa = [...new Set(foco.map((s) => (s || '').toString().trim()).filter(Boolean))].slice(0, MAX_FOCO);
+  return { competencias_foco: limpa, competencia_foco: limpa[0] || null };
+}
+
+/**
+ * Trocar SÓ o foco principal (o seletor único do pipeline) sem perder o 2º definido em
+ * `/admin/cargos`: o escolhido vai para a frente e os outros seguem atrás. "Sem foco"
+ * limpa o cargo inteiro, que é o que a opção diz.
+ */
+export function focoComPrincipal(atual: CargoFocoRow | null | undefined, principal: string | null | undefined): string[] {
+  const p = (principal || '').toString().trim();
+  if (!p) return [];
+  return [p, ...focoDoCargo(atual).filter((c) => c !== p)].slice(0, MAX_FOCO);
+}

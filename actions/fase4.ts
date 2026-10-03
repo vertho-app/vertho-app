@@ -3,6 +3,7 @@
 import { requireAdminAction } from '@/lib/auth/action-context';
 import { idsDoEscopoOuFalhar, mensagemEscopoObrigatorio } from '@/lib/turmas/escopo';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
+import { colunasDoFoco, focoComPrincipal, focoDoCargo } from '@/lib/foco-cargo';
 
 // ── PDIs legados: REMOVIDOS em 27/08/2026 ──────────────────────────────────
 //
@@ -20,15 +21,28 @@ import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supaba
 
 // ── Salvar competência foco por cargo ───────────────────────────────────────
 
-export async function salvarCompetenciaFoco(empresaId: string, cargo: string, competenciaFoco: string) {
+// O seletor ÚNICO do pipeline troca o foco principal. Grava as DUAS colunas pela
+// mesma régua de `/admin/cargos` (`colunasDoFoco`, R-85): antes gravava só a coluna
+// simples, e PDI/blueprint (que leem o array) seguiam o foco antigo enquanto a trilha
+// seguia o novo. O 2º foco definido em `/admin/cargos` é preservado.
+export async function salvarCompetenciaFoco(empresaId: string, cargo: string, competenciaFoco: string | null) {
   const sb = await requireAdminSupabase('companies.manage');
   try {
-    const { error } = await sb.from('cargos_empresa')
-      .update({ competencia_foco: competenciaFoco })
+    const { data: atual, error: errLer } = await sb.from('cargos_empresa')
+      .select('competencia_foco, competencias_foco')
       .eq('empresa_id', empresaId)
-      .eq('nome', cargo);
+      .eq('nome', cargo)
+      .maybeSingle();
+    if (errLer) return { success: false, error: errLer.message };
+    if (!atual) return { success: false, error: `Cargo "${cargo}" não encontrado nesta empresa` };
+    const { data: gravados, error } = await sb.from('cargos_empresa')
+      .update(colunasDoFoco(focoComPrincipal(atual, competenciaFoco)))
+      .eq('empresa_id', empresaId)
+      .eq('nome', cargo)
+      .select('id');
     if (error) return { success: false, error: error.message };
-    return { success: true, message: `Competência foco "${competenciaFoco}" salva para ${cargo}` };
+    if (!gravados?.length) return { success: false, error: `Nada foi gravado para "${cargo}"` };
+    return { success: true, message: competenciaFoco ? `Competência foco "${competenciaFoco}" salva para ${cargo}` : `Foco removido de ${cargo}` };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -39,14 +53,16 @@ export async function salvarCompetenciaFoco(empresaId: string, cargo: string, co
 export async function loadCompetenciasFoco(empresaId: string) {
   const sb = await requireAdminSupabase();
   try {
-    const { data: cargos } = await sb.from('cargos_empresa')
-      .select('nome, competencia_foco, top5_workshop')
+    const { data: cargos, error: errCargos } = await sb.from('cargos_empresa')
+      .select('nome, competencia_foco, competencias_foco, top5_workshop')
       .eq('empresa_id', empresaId);
+    if (errCargos) return { success: false, error: errCargos.message };
 
-    // Top 5 por cargo (competências disponíveis para seleção)
+    // Top 5 por cargo (competências disponíveis para seleção). O foco mostrado é o
+    // que PDI e trilha USAM (`focoDoCargo`), não a coluna simples crua.
     const result = (cargos || []).map(c => ({
       cargo: c.nome,
-      competencia_foco: c.competencia_foco || null,
+      competencia_foco: focoDoCargo(c)[0] || null,
       top5: c.top5_workshop || [],
     }));
 

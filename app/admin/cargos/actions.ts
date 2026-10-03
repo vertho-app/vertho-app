@@ -1,7 +1,7 @@
 'use server';
 
 import { requireAdminSupabase } from '@/lib/admin-supabase';
-import { focoDoCargo, MAX_FOCO } from '@/lib/foco-cargo';
+import { focoDoCargo, colunasDoFoco } from '@/lib/foco-cargo';
 import { montarListaWorkshop, normalizarComp } from '@/lib/workshop-competencias';
 
 export async function loadEmpresas() {
@@ -213,12 +213,12 @@ export async function salvarCompetenciasFoco(cargoId: string, foco: string[]) {
   try {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-/i;
     if (!uuidRegex.test(cargoId)) return { success: false, error: 'Cargo precisa estar em cargos_empresa' };
-    const limpa = [...new Set((Array.isArray(foco) ? foco : []).map((s) => (s || '').toString().trim()).filter(Boolean))].slice(0, MAX_FOCO);
+    const colunas = colunasDoFoco(Array.isArray(foco) ? foco : []);
     // Predicado de tenant explícito: mutação restrita ao tenant da linha lida
     const { data: cargoLinha } = await sb.from('cargos_empresa').select('empresa_id').eq('id', cargoId).maybeSingle();
     if (!cargoLinha) return { success: false, error: 'Cargo não encontrado' };
     const { error } = await sb.from('cargos_empresa')
-      .update({ competencias_foco: limpa, competencia_foco: limpa[0] || null })
+      .update(colunas)
       .eq('id', cargoId)
       .eq('empresa_id', cargoLinha.empresa_id);
     if (error) return { success: false, error: error.message };

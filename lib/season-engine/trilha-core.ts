@@ -73,11 +73,15 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
       competenciaAlvo = trilhaExist?.competencia_foco;
     }
     if (!competenciaAlvo && colab.cargo) {
-      const { data: cargoEmp } = await tdb.from('cargos_empresa')
-        .select('competencia_foco')
+      // A MESMA régua de PDI e blueprint (`focoDoCargo`, o array antes da coluna
+      // simples), R-85: lendo só `competencia_foco` a trilha da Jornada podia seguir
+      // uma competência e o PDI da mesma pessoa outra.
+      const { data: cargoEmp, error: errCargoFoco } = await tdb.from('cargos_empresa')
+        .select('competencia_foco, competencias_foco')
         .eq('nome', colab.cargo)
         .maybeSingle();
-      competenciaAlvo = cargoEmp?.competencia_foco;
+      if (errCargoFoco) return { error: `Falha ao ler o foco do cargo: ${errCargoFoco.message}` };
+      competenciaAlvo = focoDoCargo(cargoEmp)[0];
     }
     if (!competenciaAlvo) return { error: 'Sem competência foco definida pra este colaborador' };
 
@@ -252,11 +256,21 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     // `conteudosPorSemana: 2` era config morta — quem consultava não existia.
     let blueprintInputsSingle: BlueprintTrilhaInputs | null = null;
     if ((programaConfig.conteudosPorSemana || 1) >= 2) {
-      const { data: bpRow } = await tdb.from('development_blueprints')
+      const { data: bpRow, error: errBp } = await tdb.from('development_blueprints')
         .select('blueprint')
         .eq('colaborador_id', colab.id)
         .order('gerado_em', { ascending: false })
         .limit(1).maybeSingle();
+      // Sem blueprint (ou sem conseguir lê-lo) a geração cai em `selectDescriptors`,
+      // que aloca um descritor por semana. Era calado (R-85): agora fica registrado.
+      if (errBp || !bpRow?.blueprint) {
+        console.warn(`[${programaConfig.modo}] sem blueprint (${errBp?.message || 'não gerado'}), fallback selectDescriptors`);
+        await registrarDegradacao({
+          fluxo: 'trilha', tipo: DEGRADACAO.BLUEPRINT_ADAPTER_FALLBACK, chave: colab.id,
+          empresaId: colab.empresa_id, colaboradorId: colab.id,
+          detalhe: { error: errBp?.message || 'sem blueprint', competencia: competenciaAlvo },
+        });
+      }
       if (bpRow?.blueprint) {
         const r = blueprintToTrilhaInputs(bpRow.blueprint, { [competenciaAlvo]: assessment as any }, programaConfig);
         if ('error' in r) {
@@ -534,11 +548,20 @@ export async function gerarTemporadaRegularDuo(args: {
   const blueprintDrivesTrilha = process.env.BLUEPRINT_DRIVES_TRILHA === '1'
     || cfgDuo.blueprint_drives_trilha === true;
   if (blueprintDrivesTrilha) {
-    const { data: bpRow } = await tdb.from('development_blueprints')
+    const { data: bpRow, error: errBp } = await tdb.from('development_blueprints')
       .select('blueprint')
       .eq('colaborador_id', colab.id)
       .order('gerado_em', { ascending: false })
       .limit(1).maybeSingle();
+    // Flag ligada e sem blueprint: o fallback fica registrado (R-85), não calado.
+    if (errBp || !bpRow?.blueprint) {
+      console.warn(`[DUO] sem blueprint (${errBp?.message || 'não gerado'}), fallback selectDescriptorsDuo`);
+      await registrarDegradacao({
+        fluxo: 'trilha', tipo: DEGRADACAO.BLUEPRINT_ADAPTER_FALLBACK, chave: colab.id,
+        empresaId: colab.empresa_id, colaboradorId: colab.id,
+        detalhe: { error: errBp?.message || 'sem blueprint' },
+      });
+    }
     if (bpRow?.blueprint) {
       const r = blueprintToTrilhaInputs(bpRow.blueprint, assessmentPorComp, programaConfig);
       if ('error' in r) {

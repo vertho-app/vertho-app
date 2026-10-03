@@ -1107,7 +1107,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                               <div key={c.cargo} className="flex items-center gap-2">
                                 <span className="text-xs text-white font-medium w-32 shrink-0">{c.cargo}</span>
                                 <select value={c.competencia_foco || ''}
-                                  onChange={async e => { const val = e.target.value || null; await salvarCompetenciaFoco(empresaId, c.cargo, val); setFocoData((prev: any) => prev.map((p: any) => p.cargo === c.cargo ? { ...p, competencia_foco: val } : p)); }}
+                                  onChange={async e => { const val = e.target.value || null; const r: any = await salvarCompetenciaFoco(empresaId, c.cargo, val); if (!r?.success) { addLog(`❌ ${r?.error}`, 'error'); return; } setFocoData((prev: any) => prev.map((p: any) => p.cargo === c.cargo ? { ...p, competencia_foco: val } : p)); }}
                                   className="flex-1 px-2 py-1.5 rounded-lg text-[11px] text-white border border-white/10 outline-none"
                                   style={{ background: '#091D35' }}>
                                   <option value="">{t('focus.noFocus')}</option>
