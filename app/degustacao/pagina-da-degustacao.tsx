@@ -4,6 +4,7 @@ import AberturaBeacon from './abertura-beacon';
 import DiagnosticoGuiado from './diagnostico-guiado';
 import GravacaoDaDegustacao from './gravacao-da-degustacao';
 import { copiaDaVersaoC } from '@/lib/demo/degustacao-desafios';
+import { GRAVACAO_LIGADA } from '@/lib/demo/degustacao-gravacao';
 import {
   carregarPaginaDaDegustacao,
   type CartaoDeVisao,
@@ -272,11 +273,14 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
         <p className="mt-10 text-[12px] leading-relaxed lg:mt-14 lg:text-[13px]" style={{ color: COR.texto3 }}>
           Acesso individual, ativo até {formatAcmeProspectExpiry(pagina.expiraEm)} (horário de Brasília).
         </p>
-        {/* Transparência: a C grava a navegação (telas vistas e cliques) para a
-            Vertho melhorar a experiência. Campos de texto ficam ocultos. */}
-        <p className="mt-2 text-[12px] leading-relaxed lg:text-[13px]" style={{ color: COR.texto3 }}>
-          Para melhorar esta experiência, registramos as telas que você vê e os cliques. Campos de texto ficam ocultos.
-        </p>
+        {/* Transparência: com a gravação LIGADA, a C registra a navegação (telas vistas e
+            cliques) para a Vertho melhorar a experiência. Desligada, o aviso some: dizer
+            que registra sem registrar seria afirmar o que não acontece. */}
+        {GRAVACAO_LIGADA && (
+          <p className="mt-2 text-[12px] leading-relaxed lg:text-[13px]" style={{ color: COR.texto3 }}>
+            Para melhorar esta experiência, registramos as telas que você vê e os cliques. Campos de texto ficam ocultos.
+          </p>
+        )}
 
         <AberturaBeacon passe={passe} />
         <GravacaoDaDegustacao codigo={pagina.codigo} onde="inicio" />

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import * as Sentry from '@sentry/nextjs';
 import {
+  GRAVACAO_LIGADA,
   GRAVACAO_TAG,
   GRAVACAO_TAMANHO_DA_ETIQUETA,
   entradaDaEtiqueta,
@@ -87,6 +88,8 @@ export default function GravacaoDaDegustacao({ codigo, onde }: {
   const pathname = usePathname();
 
   useEffect(() => {
+    // Interruptor geral (`degustacao-gravacao.ts`): desligado, nem o integrador carrega.
+    if (!GRAVACAO_LIGADA) return;
     if (!codigo) return;
     let cancelado = false;
     void (async () => {

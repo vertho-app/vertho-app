@@ -607,6 +607,16 @@ convite, o nome e o e-mail NUNCA vão como tag. Campos de texto mascarados, cont
 visível. Cada host abre outra sessão de gravação (confirmado em produção: 2 gravações para início +
 sala). A página avisa que registra telas e cliques.
 
+🔴 **DESLIGADA em 03/10/2026, por decisão do dono** (`GRAVACAO_LIGADA = false` em
+`lib/demo/degustacao-gravacao.ts`): ele vai testar a C à mão e cada visita gastaria uma das 50
+gravações do mês. No plano gratuito do Sentry não há pagamento de excedente (precisa de plano pago:
+Team a US$ 26/mês no anual, com 50 gravações incluídas e excedente a US$ 0,00375 por gravação em
+pay-as-you-go, conferido na página de preços em 03/10); passado o limite o servidor responde 429 e o
+SDK descarta, sem recuperar depois. Desligada: o integrador não carrega, a página não diz que
+registra telas e cliques e o painel não mostra a etiqueta. A captura de ERROS do Sentry segue
+ligada. Para religar: troque para `true` e suba (testes cobram que os três pontos obedeçam ao
+interruptor). Gravações já feitas (7, todas de QA) continuam no Sentry.
+
 🔴 `Medido 03/10/2026` em produção (e apontado pela revisão de segurança do commit): a primeira versão
 deixava o CÓDIGO DO CONVITE inteiro em `urls` e no `page.view` da gravação, porque o gancho só
 olhava campos aninhados do `payload`. Hoje a redação cobre os três lugares: o fluxo do rrweb

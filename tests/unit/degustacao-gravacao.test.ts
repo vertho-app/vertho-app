@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { semComentarios } from '../helpers/fonte';
 import {
+  GRAVACAO_LIGADA,
   GRAVACAO_TAMANHO_DA_ETIQUETA,
   entradaDaEtiqueta,
   redigirEventoDeGravacao,
@@ -200,5 +201,31 @@ describe('a gravação pausa onde a pessoa escreve', () => {
   it('o chat do Beto leva a máscara (o eco do que se escreve a ele)', () => {
     const fonte = readFileSync('components/beto-chat.tsx', 'utf8');
     expect(fonte).toMatch(/<div ref=\{scrollRef\} data-sentry-mask /);
+  });
+});
+
+describe('o interruptor da gravação (desligada em 03/10/2026 para não gastar a cota nos testes do dono)', () => {
+  it('existe, é booleano e a decisão está escrita ao lado dele', () => {
+    expect(typeof GRAVACAO_LIGADA).toBe('boolean');
+    const fonte = readFileSync('lib/demo/degustacao-gravacao.ts', 'utf8');
+    expect(fonte).toMatch(/export const GRAVACAO_LIGADA: boolean =/);
+    expect(fonte).toMatch(/Para religar: troque para `true`/);
+  });
+
+  it('🔴 o componente confere o interruptor ANTES de qualquer coisa do Sentry, então desligado nem o integrador carrega', () => {
+    const fonte = semComentarios(readFileSync('app/degustacao/gravacao-da-degustacao.tsx', 'utf8'));
+    const efeito = fonte.slice(fonte.indexOf('useEffect(() => {'));
+    const chave = efeito.indexOf('if (!GRAVACAO_LIGADA) return;');
+    expect(chave).toBeGreaterThan(-1);
+    expect(chave).toBeLessThan(efeito.indexOf('if (!codigo) return;'));
+    expect(chave).toBeLessThan(efeito.indexOf('Sentry.'));
+    expect(chave).toBeLessThan(efeito.indexOf('prepararReplay()'));
+  });
+
+  it('🔴 o aviso de que registra telas e cliques e a etiqueta do painel só existem com a gravação ligada (nada afirma o que não acontece)', () => {
+    const pagina = semComentarios(readFileSync('app/degustacao/pagina-da-degustacao.tsx', 'utf8'));
+    expect(pagina).toMatch(/\{GRAVACAO_LIGADA && \(\s*<p[^>]*>\s*Para melhorar esta experiência, registramos as telas/);
+    const painel = semComentarios(readFileSync('app/admin/demo/page.tsx', 'utf8'));
+    expect(painel).toMatch(/GRAVACAO_LIGADA && versaoC && experience\.gravacaoEtiqueta/);
   });
 });

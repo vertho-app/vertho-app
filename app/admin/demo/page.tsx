@@ -45,6 +45,7 @@ import {
   type DemoGuestProgress,
 } from '@/lib/demo/acme-prospect-config';
 import { desafioDoAlvo, desafioDoAmbiente } from '@/lib/demo/degustacao-desafios';
+import { GRAVACAO_LIGADA } from '@/lib/demo/degustacao-gravacao';
 
 type TenantSlug = 'acme-demo' | 'gruposinal' | 'escolas-acme';
 
@@ -677,7 +678,7 @@ export default function AdminDemoPage() {
                             <span>{experience.exploracaoRelevanteEm ? `Explorou conteúdo: ${experience.exploracaoAlvo} · ${formatProspectExpiry(experience.exploracaoRelevanteEm)}` : 'Sem exploração de conteúdo registrada'}</span>
                           )}
                           <span>{experience.contatoClicadoEm ? `Clicou no contato · ${formatProspectExpiry(experience.contatoClicadoEm)}` : 'Sem clique no contato'}</span>
-                          {versaoC && experience.gravacaoEtiqueta && (
+                          {GRAVACAO_LIGADA && versaoC && experience.gravacaoEtiqueta && (
                             <span title="No Sentry, em Replays, busque por esta etiqueta (tag demo_chave)">
                               Gravação: <code className="font-mono text-[10px] text-white/80">demo_chave:{experience.gravacaoEtiqueta}</code>
                             </span>
