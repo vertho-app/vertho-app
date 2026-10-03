@@ -26,7 +26,15 @@ describe('papel Admin Sócio', () => {
     }
   });
 
-  it('sócio não pode se auto-promover', () => {
+  /**
+   * Isto prova só o PAPEL BASE. O nome antigo ("sócio não pode se
+   * auto-promover") prometia comportamento, e em produção o papel tem
+   * `permissions.manage` por override desde 16/07: com ele o sócio se concede o
+   * que quiser. O dono decidiu em 03/10/2026 que isso é aceito (R-70 descartado:
+   * pode haver mais de um Master). O comportamento das actions, com override
+   * lido do banco, está em `security/permissoes-auditoria-acoes.test.ts`.
+   */
+  it('o papel BASE do sócio não inclui platform_admins.manage nem permissions.manage (override pode conceder)', () => {
     expect(BASE_ROLE_PERMISSIONS.socio).not.toContain('platform_admins.manage');
     expect(BASE_ROLE_PERMISSIONS.socio).not.toContain('permissions.manage');
   });
