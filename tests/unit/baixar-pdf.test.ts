@@ -47,9 +47,9 @@ describe('baixarPdf: só PDF vira arquivo', () => {
       cabecalhos: { 'content-disposition': `attachment; filename="vertho-evolucao-diretores-_-turma-1.pdf"; filename*=UTF-8''vertho-evolucao-diretores-%E2%80%94-turma-1-maca%C3%A9.pdf` },
     }));
     const r = await baixarPdf('/api/relatorios/evolucao/pdf', 'reserva.pdf', a.ambiente);
-    expect(r).toEqual({ ok: true, nome: 'vertho-evolucao-diretores-—-turma-1-macaé.pdf' });
+    expect(r).toEqual({ ok: true, nome: 'vertho-evolucao-diretores-\u2014-turma-1-macaé.pdf' });
     expect(a.salvar).toHaveBeenCalledTimes(1);
-    expect(a.salvar.mock.calls[0][1]).toBe('vertho-evolucao-diretores-—-turma-1-macaé.pdf');
+    expect(a.salvar.mock.calls[0][1]).toBe('vertho-evolucao-diretores-\u2014-turma-1-macaé.pdf');
   });
 
   it('PDF de octet-stream (Storage antigo) é aceito pelos bytes', async () => {

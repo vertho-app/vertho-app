@@ -61,7 +61,7 @@ describe('PDF executivo de evolução: nome no cabeçalho HTTP', () => {
 
   for (const modo of ['attachment', 'inline'] as const) {
     it(`🔴 ${modo}: turma com travessão devolve o PDF, sem ByteString error`, async () => {
-      estado.turma = { id: 't1', nome: 'Diretores — Turma 1' };
+      estado.turma = { id: 't1', nome: 'Diretores \u2014 Turma 1' };
       const r = await GET(pedido(`?turma=t1${modo === 'inline' ? '&view=inline' : ''}`));
       expect(r.status).toBe(200);
       expect(r.headers.get('content-type')).toBe('application/pdf');
@@ -73,7 +73,7 @@ describe('PDF executivo de evolução: nome no cabeçalho HTTP', () => {
   }
 
   it('empresa com travessão (Grupo Sinal), sem turma, também', async () => {
-    estado.empresa = 'Grupo Sinal — Demonstração';
+    estado.empresa = 'Grupo Sinal \u2014 Demonstração';
     const r = await GET(pedido());
     expect(r.status).toBe(200);
     expect(r.headers.get('content-disposition')).toContain('%E2%80%94-demonstra%C3%A7%C3%A3o.pdf');
