@@ -63,9 +63,9 @@ export function precisaBuscarParecer(pareceres: Record<string, unknown>, id: str
 }
 
 const fmtPct = (v: number | null | undefined, locale: string) =>
-  v == null ? '—' : `${Math.round(Number(v)).toLocaleString(locale)}%`;
+  v == null ? '-' : `${Math.round(Number(v)).toLocaleString(locale)}%`;
 const fmtNota = (v: number | null | undefined, locale: string) =>
-  v == null ? '—' : Number(v).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  v == null ? '-' : Number(v).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 function horaBr(iso: string, locale: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -181,7 +181,7 @@ export function ParecerPessoa({ p, metaNivel, exibeNota, exportar }: {
                   {c.parcial && <span className="ml-1 text-amber-300" title={t('sinalFracoAjuda', { n: c.descritores })}>· {t('sinalFraco')}</span>}
                 </span>
                 <span className="tabular-nums text-gray-400">
-                  {c.nivel != null ? t('nivel', { n: c.nivel }) : '—'}
+                  {c.nivel != null ? t('nivel', { n: c.nivel }) : '-'}
                   {exibeNota && c.media != null && <span className="text-gray-600"> ({fmtNota(c.media, locale)})</span>}
                 </span>
               </li>
@@ -445,7 +445,7 @@ export default function ProntidaoLiderancaView({ carregar, parecer, exportarPare
               <span className="text-sm text-white truncate">{l.nome} <span className="text-gray-500 text-xs">· {l.cargo || '—'}</span>{l.auditoriaPendente && <AlertTriangle size={11} className="inline ml-1 -mt-0.5 text-amber-300" />}</span>
               <span className="justify-self-center"><Pill q={l.quadrante} t={t} /></span>
               <span className="text-xs tabular-nums text-gray-300 text-right">
-                {l.posicao.nivelGeral != null ? t('nivel', { n: l.posicao.nivelGeral }) : '—'}
+                {l.posicao.nivelGeral != null ? t('nivel', { n: l.posicao.nivelGeral }) : '-'}
                 {exibeNota && <span className="block text-[10px] text-gray-600">{fmtNota(l.posicao.mediaGeral, locale)}</span>}
               </span>
               <span className="text-xs tabular-nums text-gray-300 text-right">{fmtPct(l.estilo.aderenciaPct, locale)}</span>

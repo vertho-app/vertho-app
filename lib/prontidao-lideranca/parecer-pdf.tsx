@@ -68,9 +68,9 @@ const s = StyleSheet.create({
 
 const DISCLAIMER = 'Apoio à decisão. Este documento organiza o que a pessoa demonstrou e o que o perfil dela indica, sem decidir por ninguém. O parecer é insumo da empresa; a decisão é dela.';
 /** Nível por extenso; nunca a nota (decisão 1 do dono). */
-const fmtNivel = (n: number | null | undefined) => (n == null ? '—' : `Nível ${n}`);
+const fmtNivel = (n: number | null | undefined) => (n == null ? '-' : `Nível ${n}`);
 /** Aderência em porcentagem inteira, sem casa decimal. */
-const fmtPct = (v: number | null | undefined) => (v == null ? '—' : `${Math.round(Number(v))}%`);
+const fmtPct = (v: number | null | undefined) => (v == null ? '-' : `${Math.round(Number(v))}%`);
 /** "meta: Nível 3", ou a meta do programa quando o corte não cai numa fronteira da régua. */
 const fmtMeta = (corte: number | null | undefined, metaNivel?: number | null) => {
   const n = metaNivel ?? nivelMeta(corte);
