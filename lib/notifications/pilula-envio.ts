@@ -3,8 +3,10 @@
  * entre o cron `triggerDiario` (actions/cron-jobs.ts) e disparos manuais.
  *
  * A pílula NÃO carrega o arquivo do conteúdo — ela leva um DEEP-LINK que abre o
- * app no formato PREFERIDO do colaborador (os demais formatos ficam disponíveis
- * lá dentro). O link usa a URL do TENANT (ex.: ibipeba.vertho.ai), não a genérica.
+ * app no formato PREFERIDO do colaborador. Lá dentro ficam os formatos da semana:
+ * desde 02/10/2026 o kit novo mostra só os 2 primeiros da preferência da pessoa,
+ * então o e-mail não pode prometer "todos os formatos" (ver `emailPilula`).
+ * O link usa a URL do TENANT (ex.: ibipeba.vertho.ai), não a genérica.
  *
  * Canais: WhatsApp (texto) + e-mail (SES/Resend). Ambos com o mesmo tema/formato.
  */
@@ -90,7 +92,7 @@ export function emailPilula(nome: string, e: any, opts: PilulaOpts): { subject: 
 <p>Sua <strong>Pílula de Aprendizagem — Semana ${opts.semana}</strong> já está disponível.</p>
 <p>Seu <strong>${labelFormato(opts.formato)}</strong> de hoje: <strong>${tema}</strong>.</p>
 <p style="margin:24px 0"><a href="${link}" style="background:#4338ca;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">Acessar minha pílula →</a></p>
-<p style="color:#666;font-size:14px">Todos os formatos ficam disponíveis na plataforma.</p>
+<p style="color:#666;font-size:14px">Os conteúdos e o desafio da semana ficam na plataforma.</p>
 <p style="color:#666;font-size:14px">— Equipe Vertho</p></div>`;
   return { subject, html };
 }
