@@ -1,6 +1,6 @@
 {
   "description": "E11 (auditoria 22/08) — estoque CONGELADO da classe \"error não checado\": o supabase-js retorna { data, error } e não lança, então quem ignora o retorno vira falha silenciosa. Chave = arquivo, valor = fingerprints (hash do trecho normalizado). Por fingerprint e não por contagem porque contagem deixa a dívida TROCAR DE LUGAR sem o guard ver (modo de falha documentado no E8). Esta lista SÓ ENCOLHE. Guard: tests/unit/security/error-nao-checado-guard.test.ts",
-  "total_declarado": 874,
+  "total_declarado": 865,
   "gerado_em": "2026-08-24",
   "allowlist": {
     "actions/adequacao-cargo.ts": {
@@ -655,10 +655,6 @@
       "94edfd03": 1,
       "fe4ccafa": 1
     },
-    "app/api/auth/magic-link-whatsapp/route.ts": {
-      "a2625321": 1,
-      "b58ba3ab": 1
-    },
     "app/api/auth/magic-link/route.ts": {
       "0215ca60": 1,
       "084cbc0d": 1,
@@ -671,15 +667,6 @@
       "3cd4cdd9": 1,
       "a93aec4b": 1,
       "b2606245": 1
-    },
-    "app/api/auth/phone-otp/request/route.ts": {
-      "b2606245": 1,
-      "f9747bfd": 1
-    },
-    "app/api/auth/phone-otp/verify/route.ts": {
-      "3cd4cdd9": 1,
-      "75e8121e": 1,
-      "8bcdd6dd": 1
     },
     "app/api/auth/signup/route.ts": {
       "3348a35a": 1,
@@ -853,10 +840,6 @@
     },
     "lib/audit.ts": {
       "daad68ae": 1
-    },
-    "lib/auth/request-context.ts": {
-      "65ba671c": 1,
-      "d6a56d0a": 1
     },
     "lib/authz.ts": {
       "16528740": 1,

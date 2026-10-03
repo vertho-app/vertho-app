@@ -1,18 +1,4 @@
 {
-  "description": "G-A5 (auditoria 22/08) — exports 'use server' que exigem uma permissão do papel `rh`, recebem id do CLIENTE e NÃO confrontam o tenant. Gate de permissão não é gate de tenant. Esta lista SÓ ENCOLHE, e cada entrada exige motivo escrito: allowlist sem motivo é dívida anônima. Os 20 exports do A5 saíram em 24/08 (Sprint 2) — sobraram os 3 do A4, que são defeito de FORMA em caminho MORTO. Guard: tests/unit/security/gate-permissao-guard.test.ts",
-  "allowlist": {
-    "actions/fase2.ts": {
-      "motivo": "A4 — defeito de FORMA com caminho MORTO: o action id não está no server-reference-manifest.json do build (verificado em 23/08) e não há chamador vivo. Corrigir junto de quem religar a tela; esta entrada tem de sair no mesmo commit.",
-      "exports": [
-        "dispararEmails"
-      ]
-    },
-    "actions/whatsapp-lote.ts": {
-      "motivo": "A4 — idem: ids ausentes do manifesto do build; o único importador (app/admin/whatsapp/page.tsx) importa e nunca invoca, resíduo da troca de mecanismo de 20/08. Sai no commit que religar a tela.",
-      "exports": [
-        "dispararLinksCIS",
-        "dispararRelatoriosLote"
-      ]
-    }
-  }
+  "description": "G-A5 (auditoria 22/08) — exports 'use server' que exigem uma permissão do papel `rh`, recebem id do CLIENTE e NÃO confrontam o tenant. Gate de permissão não é gate de tenant. Esta lista SÓ ENCOLHE, e cada entrada exige motivo escrito: allowlist sem motivo é dívida anônima. Os 20 exports do A5 saíram em 24/08 (Sprint 2) — sobraram os 3 do A4, que são defeito de FORMA em caminho MORTO. Guard: tests/unit/security/gate-permissao-guard.test.ts Em 03/10/2026 (R-73) assessments.dispatch saiu do papel rh e os três exports do A4 (dispararEmails, dispararLinksCIS, dispararRelatoriosLote) deixaram de ser achado: a lista está vazia.",
+  "allowlist": {}
 }
