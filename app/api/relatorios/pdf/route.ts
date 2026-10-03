@@ -44,15 +44,32 @@ export async function GET(request) {
     // Validações de acesso:
     // - Sempre exige mesma empresa (ou platform admin).
     // - Se relatório é individual, exige acesso ao colab (próprio/gestor/rh/admin).
-    // - Relatórios "gestor"/"rh" exigem role adequado na empresa (gestor/rh/admin).
+    // - Relatório do gestor: o DONO (o gestor de quem ele é) ou RH/admin.
+    // - Relatório de RH: só RH/admin.
+    //
+    // R-71 (revisão de 02/10/2026): até aqui bastava o PAPEL. Com o id em mãos,
+    // um gestor baixava o Relatório do Gestor de outro gestor (a leitura da
+    // equipe DELE, com nomes) e o Relatório RH da empresa. O id circula: está
+    // na URL do PDF que a tela abre.
     const tenantGuard = assertTenantAccess(auth, rel.empresa_id);
     if (tenantGuard) return tenantGuard;
 
+    const ehRhOuPlataforma = auth.isPlatformAdmin || auth.role === 'rh';
     if (rel.tipo === 'individual' && rel.colaborador_id) {
       const colabGuard = await assertColabAccess(auth, rel.colaborador_id);
       if (colabGuard) return colabGuard;
-    } else if (rel.tipo === 'gestor' || rel.tipo === 'rh'
-            || rel.tipo === 'pulso_executivo' || rel.tipo === 'pulso_complementar_nr1') {
+    } else if (rel.tipo === 'gestor') {
+      // `colaborador_id` do relatório do gestor é o PRÓPRIO gestor
+      // (`lib/relatorios/gestor-rh-core.ts`); nulo nunca casa com ninguém.
+      const ehDono = !!rel.colaborador_id && auth.colaborador?.id === rel.colaborador_id;
+      if (!ehRhOuPlataforma && !ehDono) {
+        return NextResponse.json({ error: 'relatório de outro gestor' }, { status: 403 });
+      }
+    } else if (rel.tipo === 'rh') {
+      if (!ehRhOuPlataforma) {
+        return NextResponse.json({ error: 'relatório de RH exige rh/admin' }, { status: 403 });
+      }
+    } else if (rel.tipo === 'pulso_executivo' || rel.tipo === 'pulso_complementar_nr1') {
       if (!auth.isPlatformAdmin && auth.role !== 'gestor' && auth.role !== 'rh') {
         return NextResponse.json({ error: 'relatório agregado exige gestor/rh/admin' }, { status: 403 });
       }

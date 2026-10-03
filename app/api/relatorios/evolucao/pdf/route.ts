@@ -24,8 +24,8 @@ import { resolverEmpresaDoRelatorio } from '@/lib/auth/empresa-do-relatorio';
  * 2. **O tenant vem da SESSÃO, nunca do browser** — com UMA exceção, e ela é
  *    gatada: a rota é nominal por natureza (nomes, cargos, notas), então
  *    `empresaId` vindo do cliente seria uma leitura cross-tenant de PII a um
- *    parâmetro de distância. Para gestor e RH continua sendo assim: o parâmetro
- *    é ignorado. Só `isPlatformAdmin` pode pedir outra empresa, porque é o
+ *    parâmetro de distância. Para o RH continua sendo assim: o parâmetro é
+ *    ignorado. Só `isPlatformAdmin` pode pedir outra empresa, porque é o
  *    alcance que ele já tem em toda a área /admin (onde a empresa vem da rota e
  *    o gate é o papel), e é de lá que o botão desta tela sai.
  *
@@ -37,10 +37,15 @@ export const maxDuration = 300;
 
 export async function GET(request: Request) {
   try {
-    // Agregado nominal do tenant: é documento de RH/gestor, não de participante.
+    // Agregado nominal da EMPRESA INTEIRA (nome, cargo, nível de partida e de
+    // chegada de cada pessoa): documento do RH e da plataforma, não do gestor.
+    // O gestor estava na lista até 03/10/2026 (R-09) e baixava pela URL o PDF
+    // de todo o tenant, sem recorte pela equipe; nenhuma tela dele aponta para
+    // cá (o botão vive só em /dashboard/relatorios, que exige `rh`, e em
+    // /admin/evolucao). A evolução do liderado sai pelo PDF individual.
     // O gate é `requireRole` (a régua do projeto), não um `if` de roles escrito
     // aqui — dois lugares decidindo acesso divergem no primeiro papel novo.
-    const auth = await requireRole(request, ['gestor', 'rh', 'admin']);
+    const auth = await requireRole(request, ['rh', 'admin']);
     if (auth instanceof Response) return auth;
 
     const { searchParams } = new URL(request.url);
@@ -48,7 +53,7 @@ export async function GET(request: Request) {
     const contentDisposition = searchParams.get('view') === 'inline' ? 'inline' : 'attachment';
 
     // `?empresa=` só vale para a plataforma (ver item 2 do cabeçalho); para
-    // gestor e RH o parâmetro é descartado. A guarda vem DEPOIS e mede o valor
+    // o RH o parâmetro é descartado. A guarda vem DEPOIS e mede o valor
     // RESOLVIDO: o platform admin desta base tem `empresaId` nulo na sessão, e
     // exigir a empresa da sessão antes de ler o parâmetro respondia
     // "sessão sem empresa" para o botão que informa a empresa na URL.

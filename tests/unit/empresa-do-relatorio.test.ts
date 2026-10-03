@@ -27,9 +27,10 @@ describe('de qual empresa é o relatório', () => {
       .toBe(EMPRESA_DA_ROTA);
   });
 
-  it('gestor e RH IGNORAM o parâmetro: a empresa é a da sessão', () => {
+  it('o RH IGNORA o parâmetro: a empresa é a da sessão', () => {
     // O documento é nominal (nomes, cargos, notas). Aceitar `empresaId` do
     // cliente seria leitura cross-tenant de PII a um parâmetro de distância.
+    // O gestor não chega aqui: a rota o recusa antes (R-09, teste abaixo).
     for (const auth of [{ empresaId: EMPRESA_DA_SESSAO }, { empresaId: EMPRESA_DA_SESSAO, isPlatformAdmin: false }]) {
       expect(resolverEmpresaDoRelatorio(auth, EMPRESA_DA_ROTA)).toBe(EMPRESA_DA_SESSAO);
     }
@@ -52,6 +53,14 @@ describe('de qual empresa é o relatório', () => {
 
 describe('a rota do consolidado usa a régua e guarda o valor resolvido', () => {
   const ROTA = readFileSync('app/api/relatorios/evolucao/pdf/route.ts', 'utf8');
+
+  it('o gate da rota é RH e plataforma: o gestor não está na lista (R-09)', () => {
+    // O consolidado é a empresa inteira, nominal. O comportamento (403) é
+    // provado em `tests/unit/security/evolucao-pdf-papel.test.ts`; aqui fica a
+    // trava de texto para quem ler a rota antes do teste.
+    expect(ROTA).toContain("requireRole(request, ['rh', 'admin'])");
+    expect(ROTA).not.toMatch(/requireRole\([^)]*'gestor'/);
+  });
 
   it('resolve antes de guardar, e guarda o que vai ser usado', () => {
     expect(ROTA).toContain('resolverEmpresaDoRelatorio(auth, searchParams.get(\'empresa\'))');

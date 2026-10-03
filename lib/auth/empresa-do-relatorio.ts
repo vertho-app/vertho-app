@@ -3,9 +3,10 @@
  *
  * Duas regras diferentes convivem numa rota nominal (nomes, cargos, notas):
  *
- *  · **gestor e RH**: a empresa vem da SESSÃO, sempre. Um `empresaId` escolhido
+ *  · **cliente (RH)**: a empresa vem da SESSÃO, sempre. Um `empresaId` escolhido
  *    pelo cliente seria leitura cross-tenant de PII a um parâmetro de distância,
- *    então aqui o parâmetro é lido e DESCARTADO.
+ *    então aqui o parâmetro é lido e DESCARTADO. Quem entra na rota é decidido
+ *    antes, pelo `requireRole` dela; o gestor ficou de fora em 03/10/2026 (R-09).
  *  · **platform admin**: a empresa vem da ROTA, que é como toda a área /admin
  *    funciona (a tela tem um filtro de empresa e o gate é o papel).
  *
