@@ -1552,6 +1552,12 @@
       "watchVideo": "Watch the closing video",
       "devolutiva": "Your feedback is on the next screen: take a moment to listen to it with attention and openness.",
       "viewProfile": "View my profile"
+    },
+    "saveError": {
+      "title": "We could not save your profile",
+      "text": "Your answers are still here, nothing was lost. Check your connection and try again.",
+      "retry": "Try again",
+      "retrying": "Saving..."
     }
   },
   "BehavioralProfile": {

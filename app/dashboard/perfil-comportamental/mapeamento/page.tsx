@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
@@ -15,6 +15,7 @@ import { prefsDeOrdem } from '@/lib/access-gates/preferencias-aprendizagem';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { normalizarDisc, computeLeadership, deriveProfile } from '@/lib/disc-mapeamento';
 import { TUTORIAIS_PLATAFORMA } from '@/lib/tutorial-videos';
+import { desfechoDoSalvamento } from '@/lib/disc-salvar-resultado';
 
 /* ───────────────────── DATA ───────────────────── */
 
@@ -157,6 +158,8 @@ const PHASE = {
   PAIRS1: 'pairs1',
   LEARNING: 'learning',
   CALCULATING: 'calculating',
+  // Falha ao gravar: as respostas ficam em memória e a pessoa tenta de novo (R-84).
+  SAVE_ERROR: 'saveError',
   CLOSING: 'closing',
   RESULTS: 'results',
 };
@@ -202,6 +205,9 @@ export default function MapeamentoPage() {
   // Results
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  // O resultado calculado, guardado para o "Tentar de novo" reenviar o MESMO
+  // (as 14 respostas não são pedidas outra vez).
+  const resultadoPendente = useRef<any>(null);
 
   // Load auth + nome do colaborador
   useEffect(() => {
@@ -280,20 +286,29 @@ export default function MapeamentoPage() {
       rawData: { rank1, pairs1, formName, formGender },
     };
 
-    // Save
-    setSaving(true);
-    try {
-      const res = await salvarPerfilComportamental(resultData);
-      if (!res.success) setSaveError(res.error || t('errors.save'));
-    } catch (e) {
-      setSaveError(e.message);
-    }
-    setSaving(false);
+    resultadoPendente.current = resultData;
+    await salvarResultado();
+  }, [rank1, pairs1, ordemPref, formName, formGender, t]);
 
+  /* ─── Save (e "Tentar de novo") ─── */
+  // Só segue para o encerramento ("Você mapeou o seu perfil!") quando o servidor
+  // GRAVOU. Antes a tela ia para lá em qualquer caso e o erro ficava num estado
+  // que nada mostrava (R-84).
+  async function salvarResultado() {
+    if (!resultadoPendente.current) return;
+    setSaving(true);
+    setSaveError('');
+    const desfecho = await desfechoDoSalvamento(() => salvarPerfilComportamental(resultadoPendente.current), t('errors.save'));
+    setSaving(false);
+    if (desfecho.fase === 'erro') {
+      setSaveError(desfecho.erro);
+      setPhase(PHASE.SAVE_ERROR);
+      return;
+    }
     // Em vez de ir direto pro relatório, mostra a tela de encerramento com o
     // vídeo da etapa. O botão dela leva pra tela consolidada (devolutiva).
     setPhase(PHASE.CLOSING);
-  }, [rank1, pairs1, ordemPref, formName, formGender, t]);
+  }
 
   /* ─── Navigation helpers ─── */
   const nextRankGroup = () => {
@@ -779,6 +794,26 @@ export default function MapeamentoPage() {
         <Loader2 size={48} className="animate-spin text-brand-400 mb-4" />
         <h2 className="text-lg font-bold text-white mb-1">{t('calculating.title')}</h2>
         <p className="text-sm text-gray-400">{t('calculating.subtitle')}</p>
+      </div>
+    );
+  }
+
+  /* ═══════════════════ SAVE_ERROR (falha ao gravar, com saída) ═══════════════════ */
+  if (phase === PHASE.SAVE_ERROR) {
+    return (
+      <div className="mx-auto w-full max-w-xl py-10 text-center" data-mapeamento-fase="erro-ao-salvar">
+        <h2 className="text-lg font-bold text-white mb-2">{t('saveError.title')}</h2>
+        <p className="text-sm text-gray-300 mb-2">{t('saveError.text')}</p>
+        {saveError && <p className="text-[11px] text-gray-500 mb-6">{saveError}</p>}
+        <button
+          onClick={() => salvarResultado()}
+          disabled={saving}
+          className="w-full py-4 rounded-xl font-bold text-[#0C1829] text-sm tracking-wider uppercase transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+          style={{ background: 'linear-gradient(135deg, #2DD4BF, #14B8A6)' }}
+        >
+          {saving && <Loader2 size={16} className="animate-spin" />}
+          {saving ? t('saveError.retrying') : t('saveError.retry')}
+        </button>
       </div>
     );
   }

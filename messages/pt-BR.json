@@ -1552,6 +1552,12 @@
       "watchVideo": "Assista ao vídeo de encerramento",
       "devolutiva": "Na próxima tela está a sua devolutiva: reserve um momento para ouvi-la com atenção e abertura.",
       "viewProfile": "Ver meu perfil"
+    },
+    "saveError": {
+      "title": "Não conseguimos salvar o seu perfil",
+      "text": "Suas respostas continuam aqui, nada se perdeu. Verifique a conexão e tente de novo.",
+      "retry": "Tentar de novo",
+      "retrying": "Salvando..."
     }
   },
   "BehavioralProfile": {
