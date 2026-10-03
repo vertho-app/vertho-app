@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser, requireRole, assertTenantAccess, assertColabAccess } from '@/lib/auth/request-context';
 import { csrfCheck } from '@/lib/csrf';
+import { canViewColabJourney } from '@/lib/authz';
 import { z } from 'zod';
 import { preverExclusaoPace, excluirCadastroComBackupPace } from '@/lib/simulador-vendas/exclusao';
 import { falha, json } from '@/lib/simulador-vendas/http';
@@ -32,6 +33,14 @@ function pickEditable(body: Record<string, any>): { fields: Record<string, any>;
   return { fields };
 }
 
+/**
+ * Colunas que a listagem devolve. R-11 (revisão de 02/10/2026): era
+ * `select('*')`, as ~100 colunas da pessoa (DISC, PDFs, telefones, notas) para
+ * cada linha da área inteira. Lista de pessoas não precisa disso; quem precisa
+ * de mais lê pelo fluxo próprio, com o gate dele.
+ */
+const COLUNAS_LISTAGEM = 'id, empresa_id, nome_completo, email, cargo, area_depto, role, gestor_nome, gestor_email';
+
 // GET lista colabs por empresa. Exige gestor/rh/admin da MESMA empresa.
 export async function GET(req: Request) {
   const auth = await requireRole(req, ['gestor', 'rh', 'admin']);
@@ -43,24 +52,30 @@ export async function GET(req: Request) {
   if (guard) return guard;
 
   const sb = createSupabaseAdmin();
-  let query = sb.from('colaboradores')
-    .select('*')
-    .eq('empresa_id', empresaId!)
-    .order('nome_completo');
-
-  // Gestor: restringir à mesma area_depto (fail closed se gestor sem área)
-  if (auth.role === 'gestor') {
-    const gestorArea = auth.colaborador?.area_depto;
-    if (!gestorArea) {
-      return NextResponse.json({ error: 'gestor sem area_depto definida' }, { status: 403 });
-    }
-    query = query.eq('area_depto', gestorArea);
+  // Paginado até a página curta: o PostgREST corta em 1.000 linhas calado, e
+  // para o gestor o recorte é feito AQUI, depois da leitura.
+  const linhas: any[] = [];
+  for (let de = 0; ; de += 1000) {
+    const { data, error } = await sb.from('colaboradores')
+      .select(COLUNAS_LISTAGEM)
+      .eq('empresa_id', empresaId!)
+      .order('nome_completo')
+      .order('id')
+      .range(de, de + 999);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    linhas.push(...(data || []));
+    if ((data || []).length < 1000) break;
   }
 
-  const { data, error } = await query;
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  // Gestor vê os LIDERADOS (e a si mesmo), pela régua única de
+  // `canViewColabJourney`: `gestor_email` igual, sem diferença de caixa, em
+  // código e nunca por `ilike`. Era `area_depto` (R-11): das 369 relações
+  // gestor e liderado do banco, só 61 têm a mesma área, então o gestor via
+  // quem é só da mesma área e não via o liderado de verdade.
+  if (auth.role === 'gestor' && !auth.isPlatformAdmin) {
+    return NextResponse.json(linhas.filter((c) => canViewColabJourney(auth, c)));
+  }
+  return NextResponse.json(linhas);
 }
 
 // POST cria colab. Exige rh/admin da MESMA empresa do body.
