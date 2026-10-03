@@ -118,17 +118,19 @@ export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
   // nenhuma tela do RH usa e que abriam, pelo action id, operação da Vertho:
   // `users.manage` (importar, editar papel e programa de colaborador),
   // `settings.company.manage` (o formulário de configurações da empresa),
-  // `knowledge_base.manage` (nenhum código a consulta) e `exports.run` (só o
-  // export de colaboradores do admin; os do RH são gatados por papel).
-  // Ficam, e por quê:
-  //  · `assessments.dispatch`: sem consumidor do RH, mas tirá-la exige encolher
-  //    a allowlist do `gate-permissao-guard` (config/), que é do dono;
-  //  · `content.manage`: a tela `/dashboard/treino-atendimento` do RH usa as
-  //    abas Cenários e Competências (`/api/recepcao/gestao`, `podeCenarios`).
+  // `knowledge_base.manage` (nenhum código a consulta), `exports.run` (só o
+  // export de colaboradores do admin; os do RH são gatados por papel) e
+  // `assessments.dispatch` (envio de links, PDFs em lote e WhatsApp: nenhum
+  // consumidor do RH; os três exports da allowlist do `gate-permissao-guard`
+  // deixam de ser achado e a entrada sai de config/ no mesmo pacote).
+  // Fica, e por quê: `content.manage`. A tela `/dashboard/treino-atendimento`
+  // do RH usa as abas Cenários e Competências (`/api/recepcao/gestao`,
+  // `podeCenarios`). Ela também abre, pelo action id, gerar conteúdo, kits e
+  // Cenários B; fechar isso pede uma chave própria para os cenários do
+  // simulador (decisão do dono).
   rh: [
     'users.view',
     'settings.locale.manage',
-    'assessments.dispatch',
     'assessments.answer',
     'reports.aggregate.view',
     'reports.individual.view',
