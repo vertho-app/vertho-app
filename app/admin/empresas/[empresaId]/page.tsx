@@ -22,7 +22,7 @@ import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulado
 import { enqueueIA2Batch, enqueueIA3Batch, enqueueIA4Batch, enqueueCenariosBBatch, enqueueBlueprintBatch, enqueueRelatoriosBatch, statusIAJob, cancelIAJob, listarJobsAtivosIA } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
 import { gerarRelatorioIndividual, gerarRelatoriosIndividuaisLote, gerarRelatorioGestor as gerarRelGestor, gerarRelatorioRH as gerarRelRH } from '@/actions/relatorios';
-import { resolveTaskModel, MODELOS_DISPONIVEIS, familiaDoModelo } from '@/lib/ai-tasks';
+import { resolveTaskModel, MODELOS_DECLARADOS, familiaDoModelo } from '@/lib/ai-tasks';
 import { loadCompetencias } from '@/app/admin/competencias/actions';
 import { iniciarEnviosTemporada, pausarEnviosTemporada } from '@/actions/envios-temporada';
 import { auditarBlueprint, filaAuditBlueprint } from '@/actions/blueprint';
@@ -42,8 +42,10 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // Lista DERIVADA do catálogo central (`MODELOS_DISPONIVEIS`): a cópia local ficou para
 // trás quando entraram o Sonnet 5.5, o Opus 5.5 e o GPT 6.1 Sol (02/10/2026). O guard
 // `seletor-modelos-catalogo-guard` impede que volte a existir lista fixa em tela.
+// R-45 (03/10/2026): só famílias declaradas na política de privacidade. Este seletor
+// serve IA4, relatórios, blueprint e evolução, que levam dado de pessoa.
 const PROVEDOR_DA_FAMILIA: Record<string, string> = { anthropic: 'claude', openai: 'openai', google: 'gemini' };
-const AI_MODELS = MODELOS_DISPONIVEIS.map((m) => ({
+const AI_MODELS = MODELOS_DECLARADOS.map((m) => ({
   ...m,
   provider: PROVEDOR_DA_FAMILIA[familiaDoModelo(m.id)] || familiaDoModelo(m.id),
 }));

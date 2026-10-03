@@ -132,7 +132,10 @@ async function chamar(id: string, maxTokens: number, options: any = {}) {
   const d = dialeto(id);
   if (d !== 'anthropic') prepararFetch(respostaFeliz(d, options.__resposta ?? {}));
   const { __resposta, ...opts } = options;
-  await callAI('SYSTEM', 'USER', { model: id }, maxTokens, { taskKey: 'teste_contrato', ...opts });
+  // `canario_contrato`: tarefa sintética e LIBERADA para provedor não declarado (R-45).
+  // Com uma tarefa restrita, o callAI trocaria qwen/kimi/muse/grok pelo default
+  // declarado e este eixo mediria o contrato de outro modelo.
+  await callAI('SYSTEM', 'USER', { model: id }, maxTokens, { taskKey: 'canario_contrato', ...opts });
   return corpoEnviado(id);
 }
 

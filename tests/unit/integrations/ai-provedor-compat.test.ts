@@ -43,6 +43,12 @@ vi.mock('@/lib/supabase', () => ({
 
 import { callAI, callAIChat } from '@/actions/ai-client';
 
+// R-45 (03/10/2026): provedor fora da política de privacidade só roda em tarefa
+// LIBERADA; em qualquer outra (ou sem taskKey) o callAI troca o modelo pelo default
+// declarado. Este arquivo testa o TRANSPORTE de cada provedor, então chama com a
+// tarefa do canário de contrato, que é sintética e está na lista de liberadas.
+const TAREFA = { taskKey: 'canario_contrato' };
+
 const ultima = () => mocks.chamadas[mocks.chamadas.length - 1];
 
 describe('ai-client · provedores OpenAI-compatible', () => {
@@ -55,13 +61,13 @@ describe('ai-client · provedores OpenAI-compatible', () => {
   });
 
   it('grok vai para a base da xAI com a chave da xAI — em callAI', async () => {
-    await callAI('SYS', 'USER', { model: 'grok-4.6' }, 512);
+    await callAI('SYS', 'USER', { model: 'grok-4.6' }, 512, TAREFA);
     expect(ultima().url).toBe('https://api.x.ai/v1/chat/completions');
     expect(ultima().auth).toBe('Bearer xai-teste');
   });
 
   it('grok vai para a base da xAI TAMBÉM em callAIChat — é o caminho do chat', async () => {
-    await callAIChat('SYS', [{ role: 'user', content: 'oi' }], { model: 'grok-4.6' }, 512);
+    await callAIChat('SYS', [{ role: 'user', content: 'oi' }], { model: 'grok-4.6' }, 512, TAREFA);
     expect(
       ultima().url,
       'gêmeo esquecido: o modelo funcionaria em callAI e morreria no chat',
@@ -70,7 +76,7 @@ describe('ai-client · provedores OpenAI-compatible', () => {
   });
 
   it('kimi continua na Moonshot e gpt continua na OpenAI', async () => {
-    await callAI('SYS', 'USER', { model: 'kimi-k3' }, 512);
+    await callAI('SYS', 'USER', { model: 'kimi-k3' }, 512, TAREFA);
     expect(ultima().url).toBe('https://api.moonshot.ai/v1/chat/completions');
     expect(ultima().auth).toBe('Bearer sk-kimi-teste');
 
@@ -80,7 +86,7 @@ describe('ai-client · provedores OpenAI-compatible', () => {
   });
 
   it('o ledger registra provider "xai", não "openai"', async () => {
-    await callAI('SYS', 'USER', { model: 'grok-4.6' }, 512);
+    await callAI('SYS', 'USER', { model: 'grok-4.6' }, 512, TAREFA);
     const linha = mocks.ledger[mocks.ledger.length - 1];
     expect(
       linha?.provider,
@@ -111,7 +117,7 @@ describe('ai-client · provedores OpenAI-compatible', () => {
    */
   it('todo OpenAI-compatible manda max_completion_tokens — sem lista de prefixos', async () => {
     for (const modelo of ['grok-4.6', 'kimi-k3', 'gpt-5.6-terra']) {
-      await callAI('SYS', 'USER', { model: modelo }, 777);
+      await callAI('SYS', 'USER', { model: modelo }, 777, TAREFA);
       expect(ultima().body.max_completion_tokens, `${modelo} ficou no campo legado`).toBe(777);
       expect(ultima().body.max_tokens, `${modelo} mandou os dois campos`).toBeUndefined();
     }
@@ -119,6 +125,6 @@ describe('ai-client · provedores OpenAI-compatible', () => {
 
   it('chave ausente falha com o nome da variável que falta', async () => {
     delete process.env.XAI_API_KEY;
-    await expect(callAI('SYS', 'USER', { model: 'grok-4.6' }, 512)).rejects.toThrow(/XAI_API_KEY/);
+    await expect(callAI('SYS', 'USER', { model: 'grok-4.6' }, 512, TAREFA)).rejects.toThrow(/XAI_API_KEY/);
   });
 });

@@ -14,7 +14,7 @@ import { fetchAuth } from '@/lib/auth/fetch-auth';
 import { ROOT_DOMAIN } from '@/lib/domain';
 import { CUSTOM_LIMITES } from '@/lib/season-engine/programa-custom';
 
-import { AI_TASKS, MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
+import { AI_TASKS, MODELOS_DISPONIVEIS, MODELOS_DECLARADOS, modelosPermitidosNaTarefa } from '@/lib/ai-tasks';
 import { ehModoDescontinuado, PROGRAMA_MODO_PADRAO } from '@/lib/season-engine/programa-config';
 const MODELOS = MODELOS_DISPONIVEIS;
 
@@ -785,7 +785,8 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
             <p className="text-[11px] text-gray-500 mb-3">{t('ai.defaultModelDesc')}</p>
             <select value={config.ai.modelo_padrao} onChange={e => updateAI('modelo_padrao', e.target.value)}
               className="w-full px-3 py-2.5 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40" style={{ background: '#091D35' }}>
-              {MODELOS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+              {/* R-45: o padrão vale para toda tarefa não pinada, inclusive as que levam dado de pessoa. */}
+              {MODELOS_DECLARADOS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
           </Panel>
 
@@ -815,7 +816,8 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                             className="px-2 py-1 rounded text-[11px] text-white border border-white/10 outline-none focus:border-cyan-400/40"
                             style={{ background: '#091D35', minWidth: 180 }}>
                             <option value="">{t('ai.useDefault', { model: MODELOS.find(m => m.id === config.ai.modelo_padrao)?.label || 'default' })}</option>
-                            {MODELOS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                            {/* R-45: provedor fora da política de privacidade só nas tarefas liberadas. */}
+                            {modelosPermitidosNaTarefa(task.key).map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                           </select>
                         </div>
                       );

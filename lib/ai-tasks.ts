@@ -195,8 +195,11 @@ export const MODELOS_DISPONIVEIS = [
   // segurança e também aparecem no histórico do ledger. Nenhum é default novo.
   { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
   { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
-  // ── Demais famílias (a diversidade é o ativo: é ela que viabiliza o par
-  //    cross-família quando o gerador não é Claude) ──
+  // ── Demais famílias: NÃO declaradas na política de privacidade (R-45) ──
+  // Ficam no catálogo para o canário de contrato e para as poucas tarefas que
+  // não levam dado de pessoa (`TAREFAS_LIBERADAS_FORA_DAS_DECLARADAS`, abaixo).
+  // Os seletores mostram estas opções só nessas tarefas, e a execução troca o
+  // modelo pelo default declarado em qualquer outra.
   { id: 'qwen3.8-max', label: 'Qwen3.8 Max' },
   { id: 'muse-spark-1.2', label: 'Muse Spark 1.2' },
   // Kimi K3 tinha rota (`kimi`), preço e chave na Vercel desde antes, mas nunca
@@ -437,6 +440,31 @@ function parceiroDual(taskKey: string): string | null {
 }
 
 export function resolveTaskModel(sysConfig, taskKey) {
+  return resolverModeloDaTarefa(sysConfig, taskKey).modelo;
+}
+
+/**
+ * `resolveTaskModel` com o que a régua de privacidade (R-45) descartou.
+ *
+ * O `sys_config.ai` de uma empresa pode apontar uma tarefa (ou o `modelo_padrao`)
+ * para um provedor que a política não declara. A tela e o `salvarConfig` já
+ * recusam isso; aqui é a rede para o que foi gravado antes da régua ou por outro
+ * caminho: o modelo é trocado pelo default declarado da tarefa e o descarte volta
+ * junto, para quem tem acesso ao servidor (`getModelForTask`) registrar a
+ * degradação. Puro de propósito: este módulo também é lido por tela.
+ */
+export function resolverModeloDaTarefa(
+  sysConfig: any,
+  taskKey: string,
+): { modelo: string; descartado: { modelo: string; origem: 'ai.modelos' | 'ai.modelo_padrao' | 'default' } | null } {
+  const bruto = resolverSemReguaDePrivacidade(sysConfig, taskKey);
+  if (modeloPermitidoNaTarefa(bruto, taskKey)) return { modelo: bruto, descartado: null };
+  const ai = sysConfig?.ai || {};
+  const origem = ai.modelos?.[taskKey] === bruto ? 'ai.modelos' : ai.modelo_padrao === bruto ? 'ai.modelo_padrao' : 'default';
+  return { modelo: modeloDeclaradoDaTarefa(taskKey), descartado: { modelo: bruto, origem } };
+}
+
+function resolverSemReguaDePrivacidade(sysConfig, taskKey) {
   const ai = sysConfig?.ai || {};
   const especifico = ai.modelos?.[taskKey];
   if (especifico) return especifico;
@@ -487,15 +515,25 @@ export function resolveTaskModel(sysConfig, taskKey) {
  */
 export async function getModelForTask(empresaId, taskKey) {
   if (!empresaId) return DEFAULT_TASK_MODELS[taskKey] || FALLBACK_GLOBAL;
+  let r: ReturnType<typeof resolverModeloDaTarefa>;
   try {
     const { createSupabaseAdmin } = await import('@/lib/supabase');
     const sb = createSupabaseAdmin();
     const { data } = await sb.from('empresas')
       .select('sys_config').eq('id', empresaId).maybeSingle();
-    return resolveTaskModel(data?.sys_config, taskKey);
+    r = resolverModeloDaTarefa(data?.sys_config, taskKey);
   } catch {
     return DEFAULT_TASK_MODELS[taskKey] || FALLBACK_GLOBAL;
   }
+  // Fora do try: a troca já aconteceu, e o registro nunca lança (lib/degradacao).
+  if (r.descartado) {
+    const { registrarModeloNaoDeclarado } = await import('@/lib/ai-regua-privacidade');
+    await registrarModeloNaoDeclarado({
+      pedido: r.descartado.modelo, usado: r.modelo, taskKey, empresaId,
+      onde: `getModelForTask (${r.descartado.origem})`,
+    });
+  }
+  return r.modelo;
 }
 
 /**
@@ -549,6 +587,11 @@ export async function validarModelosDoSysConfig(sysConfig: any): Promise<string[
       problemas.push(`${onde}: "${modelo}" não tem rota no ai-client — a chamada iria para a Anthropic e falharia etiquetada como Anthropic`);
     } else if (!MODELS[modelo]) {
       problemas.push(`${onde}: "${modelo}" não tem preço em ia-cost-catalog — a linha do ledger nasceria sem custo`);
+    } else if (onde === 'modelo_padrao' ? !familiaDeclarada(modelo) : !modeloPermitidoNaTarefa(modelo, onde)) {
+      // R-45: provedor fora da política de privacidade só nas tarefas liberadas. O
+      // `modelo_padrao` vale para todas as tarefas não pinadas, inclusive as que
+      // levam dado de pessoa, então ele só aceita família declarada.
+      problemas.push(`${onde}: "${modelo}" é de um provedor que a política de privacidade não declara (só Anthropic, OpenAI e Google), e esta tarefa leva ou pode levar dado de pessoa`);
     }
   }
   return problemas;
@@ -695,9 +738,112 @@ export function fallbackRespeitandoDual(
   const proibida = taskKey ? familiaDoParceiroDual(taskKey) : null;
   const famPrimario = familiaDoModelo(modeloPrimario);
   const serve = (m: string) => {
+    // R-45: o substituto também passa pela régua de privacidade. O preferido
+    // vem de env (`AI_FALLBACK_MODEL`), e uma env apontando para provedor não
+    // declarado mandaria dado de pessoa para lá justamente num outage.
+    if (!modeloPermitidoNaTarefa(m, taskKey)) return false;
     const f = familiaDoModelo(m);
     return f !== famPrimario && (proibida === null || f !== proibida);
   };
   if (serve(preferido)) return preferido;
   return escada.find(serve) ?? null;
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * Privacidade: em que provedor cada tarefa pode rodar (R-45, 03/10/2026)
+ * ────────────────────────────────────────────────────────────────────────────
+ * A política de privacidade (`app/privacidade`) declara Anthropic, OpenAI e
+ * Google como processadores de IA (a Voyage só gera embeddings, fora deste
+ * wrapper). Qwen (Alibaba), Kimi (Moonshot), Muse (Meta) e Grok (xAI) têm rota,
+ * preço e lugar no catálogo, e não estão declarados. Decisão do dono: RESTRINGIR,
+ * não declarar. Ledger de 90 dias medido em 03/10: esses quatro só rodaram em
+ * teste, comparação e canário; nenhuma funcionalidade de produção depende deles.
+ *
+ * A régua é uma lista de PERMISSÃO, não de proibição: só as tarefas abaixo, com
+ * a entrada conferida no prompt, podem rodar fora das famílias declaradas. Tarefa
+ * nova nasce restrita, e chamada sem `taskKey` também.
+ *
+ * Ficaram de fora, de propósito, as tarefas que não leem pessoa mas recebem o
+ * PPP: IA1, IA2, IA3 e o check, Cenários B e o check, kit, roteiros de conteúdo,
+ * vídeo do avatar e o brief da escola. A extração do PPP (`actions/ppp.ts`) não
+ * remove nome de gestor, então não dá para afirmar que esses prompts saem sem
+ * nome de pessoa. Liberar uma delas é acrescentar a linha com o motivo, depois de
+ * anonimizar o PPP ou de o dono aceitar o risco por escrito.
+ *
+ * Onde a régua vale: no seletor (`modelosPermitidosNaTarefa`, `MODELOS_DECLARADOS`),
+ * na gravação (`validarModelosDoSysConfig`), na resolução por tarefa
+ * (`resolverModeloDaTarefa`), no `callAI`/`callAIChat`, por onde o modelo
+ * realmente passa (`lib/ai-regua-privacidade.ts`), e na escada de fallback
+ * (`fallbackRespeitandoDual`).
+ */
+export const FAMILIAS_DECLARADAS: ReadonlySet<string> = new Set(['anthropic', 'openai', 'google']);
+
+/** Tarefas liberadas para provedor não declarado, cada uma com o que o prompt recebe. */
+export const TAREFAS_LIBERADAS_FORA_DAS_DECLARADAS: Readonly<Record<string, string>> = {
+  conteudo_tags:
+    'Classifica um micro-conteúdo: título, descrição, até 7.000 caracteres do texto dele e o catálogo de '
+    + 'competências (actions/conteudos.ts, sugerirTagsIA). Não lê pessoa nem PPP.',
+  conteudo_expansao_pdf:
+    'Expande o markdown de um conteúdo já gerado (actions/conteudos.ts, garantirMinimoPdf). Só o texto do conteúdo.',
+  conteudo_layout_plan:
+    'Plano de paginação do PDF: título, competência, descritor, formato e os blocos do conteúdo '
+    + '(lib/conteudo-layout-plan.ts). O colaboradorId vai só para o ledger.',
+  cenarios_lote_check:
+    'Audita até 20 cenários do banco: título, cargo, competência, 300 caracteres da descrição e metadados '
+    + '(actions/fase5/relatorios-envios.ts, checkCenarios). Sem PPP e sem resposta de pessoa.',
+  descritor_reancoragem:
+    'Casa nomes de descritores com a régua oficial (scripts/_mapear-descritores-oficiais.ts). Sem nota, '
+    + 'resposta ou pessoa.',
+  canario_contrato:
+    'Prompt sintético fixo do canário de contrato por modelo (scripts/_canario-contrato-modelos.ts). Sem dado de tenant.',
+};
+
+/** A família do modelo está na política de privacidade? Id de família desconhecida: não. */
+export function familiaDeclarada(modelId: string): boolean {
+  try {
+    return FAMILIAS_DECLARADAS.has(familiaDoModelo(modelId));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Este modelo pode rodar esta tarefa?
+ *
+ * `hasOwnProperty`, e não `in`: `'constructor' in {}` é verdadeiro, e uma
+ * `taskKey` com esse nome abriria a régua (a mesma pegadinha de `lib/videos-publicos.ts`).
+ */
+export function modeloPermitidoNaTarefa(modelId: string, taskKey?: string | null): boolean {
+  if (familiaDeclarada(modelId)) return true;
+  if (!taskKey || !Object.prototype.hasOwnProperty.call(TAREFAS_LIBERADAS_FORA_DAS_DECLARADAS, taskKey)) return false;
+  try {
+    familiaDoModelo(modelId);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * O default declarado de uma tarefa: o pino dela em `DEFAULT_TASK_MODELS`, se for de
+ * família declarada, ou o `FALLBACK_GLOBAL`. É para onde a régua troca o modelo.
+ * Para os auditores Dual-IA o pino já é cross-família, então a troca não cria eco.
+ */
+export function modeloDeclaradoDaTarefa(taskKey?: string | null): string {
+  const pino = taskKey && Object.prototype.hasOwnProperty.call(DEFAULT_TASK_MODELS, taskKey)
+    ? DEFAULT_TASK_MODELS[taskKey]
+    : null;
+  return pino && familiaDeclarada(pino) ? pino : FALLBACK_GLOBAL;
+}
+
+/** Opções do seletor de modelo de UMA tarefa (Configurações → IA, por tarefa). */
+export function modelosPermitidosNaTarefa(taskKey?: string | null) {
+  return MODELOS_DISPONIVEIS.filter((m) => modeloPermitidoNaTarefa(m.id, taskKey));
+}
+
+/**
+ * Opções de seletor que serve VÁRIAS tarefas ou o padrão da empresa: só famílias
+ * declaradas. É o caso do `modelo_padrao`, do pipeline da empresa, da Fase 4, do
+ * simulador e da extração de PPP: todos levam (ou podem levar) dado de pessoa.
+ */
+export const MODELOS_DECLARADOS = MODELOS_DISPONIVEIS.filter((m) => familiaDeclarada(m.id));

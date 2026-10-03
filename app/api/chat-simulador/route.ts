@@ -4,13 +4,14 @@ import { requireAdmin } from '@/lib/auth/request-context';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { comContexto } from '@/lib/execucao-contexto';
-import { MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
+import { MODELOS_DECLARADOS } from '@/lib/ai-tasks';
 
 // Modelos permitidos no simulador (ferramenta admin). Evita repassar um `model`
 // arbitrário do client ao provedor (escolha do modelo mais caro = abuso de custo).
 // = o catálogo central, o MESMO que a tela oferece (antes eram duas listas: modelo novo na tela
 // era recusado aqui). Continua sendo allowlist: um `model` fora do catálogo cai no padrão.
-const ALLOWED_MODELS = new Set<string>(MODELOS_DISPONIVEIS.map((m) => m.id));
+// R-45: só famílias declaradas na política de privacidade.
+const ALLOWED_MODELS = new Set<string>(MODELOS_DECLARADOS.map((m) => m.id));
 const MAX_SYSTEM_CHARS = 16000;
 
 // Orçamento de tempo DECLARADO (27/08). A rota não tinha `maxDuration`, então

@@ -12,7 +12,7 @@ import BackButton from '@/components/back-button';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { loadCenariosB } from '@/actions/fase5';
 import { checkCenarioBUm, regenerarCenarioB, regenerarERecheckarCenariosBLote } from '../actions';
-import { MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
+import { MODELOS_DECLARADOS } from '@/lib/ai-tasks';
 
 const CHECK_DIM_MAX: Record<string, number> = {
   // Check B 8 dimensões
@@ -43,8 +43,9 @@ const CHECK_DIM_LABEL_KEYS: Record<string, string> = {
   discriminante: 'discriminatingPower',
 };
 
-// Derivada do catálogo central (ver `seletor-modelos-catalogo-guard`).
-const AI_MODELS = MODELOS_DISPONIVEIS;
+// Derivada do catálogo central (ver `seletor-modelos-catalogo-guard`). Só famílias
+// declaradas (R-45): Cenários B recebem o PPP, que pode trazer nome de gestor.
+const AI_MODELS = MODELOS_DECLARADOS;
 
 export default function Fase4Page({ params }: { params: Promise<{ empresaId: string }> }) {
   const { empresaId } = use(params);

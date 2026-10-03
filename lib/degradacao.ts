@@ -398,10 +398,20 @@ export const DEGRADACAO = {
    * por `trigger/gerar-ia3-batch.ts`; chave = jobId.
    */
   LOTE_IA_FALLBACK_EXCESSIVO: 'lote-ia-fallback-excessivo',
+  /**
+   * IA: chegou para uma tarefa um modelo de provedor que a política de privacidade
+   * NÃO declara (Qwen, Kimi, Muse, Grok) e a tarefa não está na lista das liberadas
+   * (`TAREFAS_LIBERADAS_FORA_DAS_DECLARADAS`, lib/ai-tasks.ts). A chamada roda no
+   * default declarado da tarefa, então nada saiu para o provedor não declarado.
+   * `aviso`: a entrega segue; o que precisa de conserto é a configuração (o
+   * `sys_config.ai` da empresa, uma constante de código ou o `aiConfig` de quem
+   * chamou). R-45, 03/10/2026. Chave = `<taskKey>:<modelo pedido>`.
+   */
+  MODELO_NAO_DECLARADO: 'modelo-nao-declarado',
 } as const;
 export type DegradacaoTipo = (typeof DEGRADACAO)[keyof typeof DEGRADACAO];
 
-export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat' | 'demo' | 'votacao';
+export type DegradacaoFluxo = 'trilha' | 'build' | 'overlay' | 'contexto-empresa' | 'video' | 'envio' | 'chat' | 'demo' | 'votacao' | 'ia';
 export type DegradacaoSeveridade = 'info' | 'aviso' | 'critico';
 
 export interface DegradacaoInput {

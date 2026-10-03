@@ -35,6 +35,7 @@ import { isCapDeContaAIError, isRateLimitPorBilling } from '@/lib/ai-erros';
 import { PROVEDORES_OPENAI_COMPAT, ehOpenAICompat, conteudoOuFalhaAlto, usaMaxCompletionTokens } from '@/lib/ai-provedores';
 import { DEFAULT_COPILOTO_RESEARCH_MODEL, fallbackRespeitandoDual } from '@/lib/ai-tasks';
 import { contextoAtual, fracaoDoOrcamento } from '@/lib/execucao-contexto';
+import { modeloNaReguaDePrivacidade } from '@/lib/ai-regua-privacidade';
 import { buildGeminiGenerationConfig, type GeminiThinkingLevel } from '@/lib/gemini-generation-config';
 import { origemDaChamada } from '@/lib/origem-chamada';
 
@@ -207,7 +208,11 @@ async function withAIRetry<T>(fn: () => Promise<T>, label: string, max = 4): Pro
 const AI_FALLBACK_MODEL = process.env.AI_FALLBACK_MODEL || 'gpt-5.6-terra';
 // Escada consultada quando o preferido acima cairia na família do parceiro
 // Dual-IA da task. Ordem = quem tem mais cobertura de rota/preço primeiro.
-const AI_FALLBACK_ESCADA = ['gemini-3.8-flash', 'claude-sonnet-4-6', 'grok-4.6'];
+// R-45 (03/10/2026): só famílias declaradas na política de privacidade. O
+// `grok-4.6` saiu daqui: num outage ele recebia o prompt de qualquer tarefa,
+// inclusive as que levam dado de pessoa. `fallbackRespeitandoDual` também passa
+// cada candidato pela régua, o que cobre um `AI_FALLBACK_MODEL` de env.
+const AI_FALLBACK_ESCADA = ['gemini-3.8-flash', 'claude-sonnet-4-6'];
 
 // Rollout do Gemini 3.8: mantém o 3.7 como rede de segurança temporária. O
 // fallback fica no wrapper para cobrir tanto `callAI` quanto `callAIChat` e não
@@ -236,11 +241,17 @@ export async function callAI(
   maxTokens: number = 4096,
   options: AICallOptions = {},
 ): Promise<string> {
-  const model = aiConfig?.model || DEFAULT_MODEL;
   // Sem etiqueta: guarda de onde veio ANTES de qualquer await (mig 231).
   if (!options.taskKey && options._origemCodigo === undefined) {
     options = { ...options, _origemCodigo: origemDaChamada() };
   }
+  // R-45: o modelo passa pela régua de privacidade AQUI, porque é por aqui que ele
+  // realmente passa (tela, constante, script e `sys_config` chegam pelo `aiConfig`).
+  // Provedor não declarado numa tarefa não liberada vira o default declarado dela,
+  // com degradação registrada; não lança, porque isto é entrega.
+  const model = await modeloNaReguaDePrivacidade(aiConfig?.model || DEFAULT_MODEL, {
+    taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAI',
+  });
   if (options.responses) {
     return withAIRetry(() => callResponses(system, [{ role: 'user', content: user }], model, maxTokens, options), model, options.maxRetries ?? 0);
   }
@@ -313,11 +324,14 @@ export async function callAIChat(
   maxTokens: number = 4096,
   options: AICallOptions = {},
 ): Promise<string> {
-  const model = aiConfig?.model || DEFAULT_MODEL;
   // Sem etiqueta: guarda de onde veio ANTES de qualquer await (mig 231).
   if (!options.taskKey && options._origemCodigo === undefined) {
     options = { ...options, _origemCodigo: origemDaChamada() };
   }
+  // R-45: a mesma régua do gêmeo `callAI` (os dois caminhos, sempre).
+  const model = await modeloNaReguaDePrivacidade(aiConfig?.model || DEFAULT_MODEL, {
+    taskKey: options.taskKey, empresaId: options.empresaId, colaboradorId: options.colaboradorId, onde: 'callAIChat',
+  });
   if (options.responses) {
     return withAIRetry(() => callResponses(system, messages, model, maxTokens, options), model, options.maxRetries ?? 0);
   }

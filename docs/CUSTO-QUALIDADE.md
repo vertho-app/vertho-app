@@ -2710,3 +2710,27 @@ que ainda correspondiam à fonte; os 339 documentos/módulos restantes consumira
 aproximadamente US$ 0,001. Não confundir esse custo incremental com o custo completo do experimento.
 Arquitetura, consumidores, validação, backup e rollback: [rag-architecture.md](rag-architecture.md).
 
+## 03/10/2026: Qwen, Kimi, Muse e Grok só em tarefa sem dado de pessoa (R-45)
+
+A política de privacidade declara Anthropic, OpenAI e Google. Os outros quatro provedores
+continuam no catálogo (`MODELOS_DISPONIVEIS`), com preço e rota, mas deixaram de ser opção
+para tarefa que leva dado de pessoa: decisão do dono, restringir em vez de declarar. A régua,
+os pontos onde ela vale e a lista das tarefas liberadas estão em
+[FLUXO-DE-DADOS-PESSOAIS.md](FLUXO-DE-DADOS-PESSOAIS.md) §2.3; a fonte é
+`TAREFAS_LIBERADAS_FORA_DAS_DECLARADAS` em `lib/ai-tasks.ts`.
+
+O que muda para quem lê este log:
+
+- **Os pilotos e painéis acima com Qwen, Kimi e Muse são histórico**, não opção. Em IA3,
+  Cenários B, kit, roteiros e PDI eles não são mais selecionáveis (o PPP entra nesses
+  prompts e a extração não remove nome de gestor). Trocar o modelo de uma dessas tarefas para
+  um deles exige primeiro tirar a tarefa da restrição, com o motivo escrito ao lado.
+- **A escada de fallback perdeu o `grok-4.6`.** Ficou `gemini-3.8-flash` e `claude-sonnet-4-6`,
+  e um `AI_FALLBACK_MODEL` de env apontando para provedor não declarado é recusado pela régua.
+  Os pares Dual-IA continuam todos com substituto cross-família (`ai-fallback-dual.test.ts`).
+- **O seletor do FinOps (`/admin/vertho/simulador-custo`) segue com Muse e Kimi**: ele só
+  projeta custo, não chama modelo.
+- **Comparação entre modelos usa dado sintético ou mascarado.** Em julho e agosto, três
+  comparações mandaram ao Kimi o PDI de pessoas reais. Bake-off, piloto e leitura cega montam a
+  entrada com dado sintético ou passado pela máscara, mesmo entre provedores declarados; a
+  régua, sozinha, só garante que o provedor não declarado não recebe o dado.

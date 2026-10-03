@@ -4,11 +4,12 @@ import { useState, useRef, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { Loader2, Zap, Send, Trash2, ChevronDown, Settings } from 'lucide-react';
 import BackButton from '@/components/back-button';
-import { MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
+import { MODELOS_DECLARADOS } from '@/lib/ai-tasks';
 
 // Derivada do catálogo central (ver `seletor-modelos-catalogo-guard`). A rota
-// `/api/chat-simulador` valida contra a mesma lista.
-const MODELS = MODELOS_DISPONIVEIS;
+// `/api/chat-simulador` valida contra a mesma lista. Só famílias declaradas (R-45):
+// o system e as mensagens são texto livre de quem usa.
+const MODELS = MODELOS_DECLARADOS;
 const MODELO_PADRAO = 'claude-sonnet-5';
 
 const DEFAULT_SYSTEM = 'Voce e um assistente util e responde em portugues brasileiro.';

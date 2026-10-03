@@ -136,12 +136,41 @@ empresa (§2.3), e aí o provedor é o do modelo escolhido.
 | **OpenAI** | fallback de provedor, auditores cross-família, Batch API do check, transcrição (Whisper) | idem, `app/api/recepcao/voz` |
 | **Google** (Gemini) | Beto no WhatsApp (texto e áudio), síntese de voz (vídeo, devolutiva, podcast) | `lib/whatsapp/suporte-auto.ts`, `lib/gemini-tts.ts`, `worker-hetzner/` |
 | **Voyage** | vetores do acervo de conteúdo e da pergunta do Tira-Dúvidas | `lib/embeddings.ts`, `lib/rag.ts` |
-| Moonshot (Kimi), xAI (Grok), Alibaba (Qwen), Meta (Muse) | **selecionáveis** por tarefa na configuração da empresa; o Grok está na escada de fallback | `lib/ai-provedores.ts`, `lib/ai-tasks.ts` |
+| Moonshot (Kimi), xAI (Grok), Alibaba (Qwen), Meta (Muse) | **não declarados na política**. Desde 03/10/2026 (R-45) só rodam nas tarefas liberadas abaixo, nenhuma com dado de pessoa; fora da escada de fallback | `lib/ai-tasks.ts` (`TAREFAS_LIBERADAS_FORA_DAS_DECLARADAS`), `lib/ai-regua-privacidade.ts` |
 
-⚠️ A última linha é decisão pendente do dono (R-45): restringir as tarefas com dado pessoal às
-famílias declaradas na política, ou declarar estes provedores. Enquanto não decide, um tenant
-configurado para um deles manda o texto (mascarado nas linhas "sim" da §2.2) a um provedor que
-a política não cita.
+**Decisão do dono (R-45, 03/10/2026): restringir, não declarar.** Ledger de 90 dias medido no
+mesmo dia: os quatro só rodaram em teste, comparação e canário; nenhuma funcionalidade de
+produção dependia deles.
+
+- **A régua é uma lista de PERMISSÃO.** Só as tarefas em `TAREFAS_LIBERADAS_FORA_DAS_DECLARADAS`
+  (`lib/ai-tasks.ts`) aceitam provedor não declarado, cada uma com o que o prompt recebe escrito
+  ao lado: `conteudo_tags`, `conteudo_expansao_pdf`, `conteudo_layout_plan`,
+  `cenarios_lote_check`, `descritor_reancoragem` e o canário de contrato. Tarefa nova nasce
+  restrita, e chamada sem `taskKey` também.
+- **Ficaram de fora, de propósito, as tarefas que não leem pessoa mas recebem o PPP** (IA1, IA2,
+  IA3 e o check, Cenários B e o check, kit, roteiros de conteúdo, vídeo do avatar, brief da escola):
+  a extração do PPP (`actions/ppp.ts`) não remove nome de gestor, então não dá para afirmar que
+  esses prompts saem sem nome de pessoa. Liberar uma delas é acrescentar a linha com o motivo,
+  depois de anonimizar o PPP ou de o dono aceitar o risco por escrito.
+- **Onde vale.** Na escolha: o seletor por tarefa (Configurações da empresa → IA) só oferece o que
+  a tarefa permite, e os seletores que servem várias tarefas (modelo padrão, pipeline da empresa,
+  Fase 4, simulador do admin, extração de PPP) só oferecem Anthropic, OpenAI e Google; o
+  `salvarConfig` recusa o resto. Na execução: `callAI` e `callAIChat` trocam um modelo não
+  permitido pelo default declarado da tarefa e registram `modelo-nao-declarado` em
+  `degradacao_log` (sem lançar, porque é entrega); `getModelForTask` faz o mesmo com o
+  `sys_config` gravado. Na escada de fallback: o `grok-4.6` saiu, e um `AI_FALLBACK_MODEL` de
+  env não declarado também é recusado. Testes: `tests/unit/security/ia-provedor-nao-declarado.test.ts`.
+- **Comparação entre modelos usa dado SINTÉTICO ou MASCARADO.** Em julho e agosto, três
+  comparações mandaram ao Kimi o PDI de pessoas reais (levantamento da revisão de 02/10). E o aluno
+  sintético do simulador de temporada (`sim_aluno`) rodou 881 vezes no Kimi entre 24 e 27/08; no
+  código de hoje o histórico que ele recebe traz o primeiro nome e o cargo da pessoa real cuja
+  trilha é simulada (`lib/season-engine/simulador-core.ts`). Com a régua, essas chamadas cairiam no
+  default declarado. A regra que fica: bake-off, piloto e leitura cega entre modelos montam a
+  entrada com dado sintético ou passado pela máscara da §2.1, mesmo entre provedores declarados.
+- **Resíduo conhecido:** o Modo Cena (só em scripts) tem o leitor fixo em `grok-4.6`
+  (`lib/season-engine/cena/core.ts`, `MODELO_LEITOR`) e lê a fala do avaliado. A régua troca esse
+  modelo pelo default declarado (Claude), o que tira a independência de família entre o leitor e o
+  personagem. Se o Modo Cena voltar, o leitor precisa de um modelo declarado de outra família.
 
 ⚠️ **Pergunta que o jurídico vai fazer e a engenharia precisa responder:** os contratos com esses
 provedores incluem cláusula de **não-treinamento** com os dados enviados? Isso depende do plano
@@ -246,8 +275,8 @@ em 6 tenants. "Excluir os dados desta pessoa" não é uma operação única.
    e as mensagens de WhatsApp ainda não.
 6. **Z-API ainda ativa**: a política precisa refletir os dois caminhos de WhatsApp enquanto a
    migração não fecha.
-7. **Provedores de IA selecionáveis fora da política** (Kimi, Grok, Qwen, Muse): restringir ou
-   declarar, decisão do dono (R-45, §2.3).
+7. **Provedores de IA fora da política** (Kimi, Grok, Qwen, Muse): restritos em 03/10/2026 às
+   tarefas sem dado de pessoa, no seletor, na gravação, na execução e no fallback (R-45, §2.3).
 8. **Fluxos de IA ainda com nome** (§2.2, linhas "não" que não são "por desenho"): plano de
    desenvolvimento (blueprint), relatório comportamental e insights, Fase 5 e o simulador de
    conversas do admin. A conversa de mapeamento (`/api/chat`) não manda o nome, mas também não
