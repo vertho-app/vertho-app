@@ -44,4 +44,22 @@ describe('papel Admin Sócio', () => {
       expect(hasBasePermission(papel, 'program.configure'), papel).toBe(false);
     }
   });
+
+  /**
+   * R-73 (revisão de 02/10/2026) e a decisão de 24/08: "a Vertho opera, o
+   * cliente consome". Antes de tirar, o levantamento procurou os consumidores
+   * de cada permissão FORA de /admin e /admin-v2: nenhuma tela do RH usa as
+   * quatro abaixo, e elas abriam operação da Vertho pelo action id.
+   */
+  it('rh não opera: sem users.manage, settings.company.manage, knowledge_base.manage, exports.run', () => {
+    for (const p of ['users.manage', 'settings.company.manage', 'knowledge_base.manage', 'exports.run'] as const) {
+      expect(hasBasePermission('rh', p), p).toBe(false);
+    }
+  });
+
+  it('rh mantém o que a tela dele usa: content.manage (cenários do simulador de atendimento) e a leitura', () => {
+    for (const p of ['content.manage', 'users.view', 'reports.aggregate.view', 'reports.individual.view', 'journey.team.view'] as const) {
+      expect(hasBasePermission('rh', p), p).toBe(true);
+    }
+  });
 });

@@ -21,7 +21,13 @@ vi.mock('@/lib/admin-supabase', () => ({
   requireEmpresaSupabase: (...a: any[]) => gate(...(a as [])),
   requireAdminSupabase: vi.fn(),
 }));
-vi.mock('@/lib/auth/action-context', () => ({ getAuthenticatedEmailFromAction: vi.fn(async () => 'rh@cliente.com') }));
+// Quem pede: `podeConfigurarPrograma` lê a sessão e a permissão `program.configure`.
+const sessao = vi.hoisted(() => ({ ctx: { isPlatformAdmin: false, role: 'rh' } as any, perms: new Set<string>() }));
+vi.mock('@/lib/auth/action-context', () => ({
+  getAuthenticatedEmailFromAction: vi.fn(async () => 'rh@cliente.com'),
+  requireUserAction: vi.fn(async () => sessao.ctx),
+}));
+vi.mock('@/lib/permissions', () => ({ can: vi.fn(async (_ctx: any, p: string) => sessao.perms.has(p)) }));
 vi.mock('@/lib/audit', () => ({ logAdminAction: vi.fn() }));
 vi.mock('@/lib/ai-tasks', () => ({ validarModelosDoSysConfig: vi.fn(async () => []) }));
 vi.mock('next/cache', () => ({ updateTag: vi.fn(), unstable_cache: (fn: any) => fn, revalidateTag: vi.fn() }));
@@ -34,10 +40,17 @@ const gravadoNoBanco = (valor: any) => criarSupabaseMock({ resolver: (t) => (t =
 const payloadSalvo = () => sb.escritas.find((e) => e.tabela === 'empresas' && e.op === 'update')?.payload?.sys_config;
 
 describe('salvarConfig — chaves só-plataforma', () => {
-  beforeEach(() => { gate.mockClear(); });
+  beforeEach(() => {
+    gate.mockClear();
+    sessao.ctx = { isPlatformAdmin: false, role: 'rh' };
+    sessao.perms = new Set();
+  });
 
   it('a lista cobre contrato E programa', () => {
-    expect([...CHAVES_SO_PLATAFORMA]).toEqual(['modulos', 'prontidao_lideranca', 'simuladores_por_cargo']);
+    expect([...CHAVES_SO_PLATAFORMA]).toEqual([
+      'modulos', 'prontidao_lideranca', 'simuladores_por_cargo',
+      'programa_modo', 'programa_custom', 'competencias_onboarding',
+    ]);
   });
 
   it('preserva o que está GRAVADO e ignora o que o cliente mandou', async () => {
@@ -77,5 +90,88 @@ describe('salvarConfig — chaves só-plataforma', () => {
     const r: any = await salvarConfig('emp-A', { modulos: {} });
     expect(r.success).toBe(false);
     expect(sb.escritas).toHaveLength(0);
+  });
+});
+
+/**
+ * R-73 (revisão de 02/10/2026): `programa_modo`, `programa_custom` e
+ * `competencias_onboarding` entravam pelo formulário sem validação e sem
+ * estar na lista. Um modo desconhecido caía calado no DUO na próxima trilha.
+ * Agora são só-plataforma: passam pelo formulário apenas com
+ * `program.configure` (master) e com valor válido.
+ */
+describe('salvarConfig — chaves de PROGRAMA (R-73)', () => {
+  const GRAVADO = { programa_modo: 'jornada', programa_custom: { semanas: 2, numCompetencias: 1, fechamento: true }, cadencia: { dia: 'segunda' } };
+  // O update da trava otimista precisa "casar" a linha para a gravação contar como feita.
+  const gravadoQueAceita = (valor: any) => criarSupabaseMock({
+    resolver: (t) => (t === 'empresas' ? { sys_config: valor } : null),
+    escrita: () => [{ id: 'emp-A' }],
+  });
+  const master = () => {
+    sessao.ctx = { isPlatformAdmin: true, platformAdminRole: 'master', role: 'colaborador' };
+    sessao.perms = new Set(['program.configure', 'settings.company.manage']);
+  };
+
+  beforeEach(() => {
+    gate.mockClear();
+    sessao.ctx = { isPlatformAdmin: false, role: 'rh' };
+    sessao.perms = new Set(['settings.company.manage']);
+  });
+
+  it('🔴 sem `program.configure` (RH, Sócio) o programa gravado não muda', async () => {
+    sb = gravadoNoBanco(GRAVADO);
+    await salvarConfig('emp-A', {
+      programa_modo: 'regular_duo',
+      programa_custom: { semanas: 4, numCompetencias: 2, fechamento: false },
+      competencias_onboarding: ['Liderança'],
+      cadencia: { dia: 'quinta' },
+    });
+    expect(payloadSalvo()).toEqual({ ...GRAVADO, cadencia: { dia: 'quinta' } });
+  });
+
+  it('o mesmo vale para o Admin Sócio (plataforma sem a chave)', async () => {
+    sessao.ctx = { isPlatformAdmin: true, platformAdminRole: 'socio', role: 'colaborador' };
+    sb = gravadoNoBanco(GRAVADO);
+    await salvarConfig('emp-A', { ...GRAVADO, programa_modo: 'onboarding' });
+    expect(payloadSalvo().programa_modo).toBe('jornada');
+  });
+
+  it('master com `program.configure` troca o programa por um valor VÁLIDO', async () => {
+    master();
+    sb = gravadoQueAceita(GRAVADO);
+    const r: any = await salvarConfig('emp-A', { ...GRAVADO, programa_modo: 'custom', programa_custom: { semanas: 3, numCompetencias: 2, fechamento: false } });
+    expect(r.success).toBe(true);
+    expect(payloadSalvo()).toMatchObject({ programa_modo: 'custom', programa_custom: { semanas: 3, numCompetencias: 2, fechamento: false } });
+  });
+
+  it.each([
+    [{ programa_modo: 'regular' }, /Programa inválido/],
+    [{ programa_modo: 'quatorze_semanas' }, /Programa inválido/],
+    [{ programa_custom: { semanas: 9, numCompetencias: 1 } }, /personalizado inválido/],
+    [{ programa_custom: 'texto' }, /personalizado inválido/],
+    [{ competencias_onboarding: 'Liderança' }, /Onboarding inválidas/],
+    [{ competencias_onboarding: ['', 'Comunicação'] }, /Onboarding inválidas/],
+  ])('🔴 master com valor INVÁLIDO %j: recusa e não grava nada', async (mudanca, erro) => {
+    master();
+    sb = gravadoNoBanco(GRAVADO);
+    const r: any = await salvarConfig('emp-A', { ...GRAVADO, ...mudanca });
+    expect(r.success).toBe(false);
+    expect(r.error).toMatch(erro);
+    expect(sb.escritas).toHaveLength(0);
+  });
+
+  it('valor antigo inválido que NÃO mudou não trava o salvamento de outra aba', async () => {
+    master();
+    sb = gravadoQueAceita({ ...GRAVADO, programa_modo: 'regular' });
+    const r: any = await salvarConfig('emp-A', { ...GRAVADO, programa_modo: 'regular', cadencia: { dia: 'sexta' } });
+    expect(r.success).toBe(true);
+    expect(payloadSalvo()).toMatchObject({ programa_modo: 'regular', cadencia: { dia: 'sexta' } });
+  });
+
+  it('master também não grava pelo formulário as chaves de contrato (têm action própria)', async () => {
+    master();
+    sb = gravadoNoBanco({ modulos: { pulso: false } });
+    await salvarConfig('emp-A', { modulos: { pulso: true } });
+    expect(payloadSalvo()).toEqual({ modulos: { pulso: false } });
   });
 });

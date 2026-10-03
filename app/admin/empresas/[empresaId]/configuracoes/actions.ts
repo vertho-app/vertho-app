@@ -3,13 +3,24 @@
 import { validarModelosDoSysConfig } from '@/lib/ai-tasks';
 import { updateTag } from 'next/cache';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
-import { getAuthenticatedEmailFromAction } from '@/lib/auth/action-context';
+import { getAuthenticatedEmailFromAction, requireUserAction } from '@/lib/auth/action-context';
+import { can } from '@/lib/permissions';
 import { logAdminAction } from '@/lib/audit';
 import { addVercelDomain, removeVercelDomain } from '@/lib/vercel-domain';
 import { isAppLocale, locales } from '@/i18n/routing';
 import { TENANT_GLOSSARIO_CACHE_TAG, TENANT_LOCALE_CACHE_TAG } from '@/lib/i18n-server';
-import { CHAVES_SO_PLATAFORMA } from '@/lib/sys-config-plataforma';
+import { CHAVES_SO_PLATAFORMA, CHAVES_DE_PROGRAMA, problemaNaChaveDePrograma } from '@/lib/sys-config-plataforma';
 import { gravarSysConfig } from '@/lib/sys-config-escrita';
+
+/**
+ * Quem pede pode configurar o PROGRAMA da empresa (R-73)? `program.configure` é
+ * a chave exclusiva do master (`lib/permissions.ts`): o RH e o Admin Sócio não a
+ * têm, e para eles as chaves de programa ficam como estão gravadas.
+ */
+async function podeConfigurarPrograma(): Promise<boolean> {
+  const ctx = await requireUserAction();
+  return ctx.isPlatformAdmin === true && (await can(ctx, 'program.configure'));
+}
 
 export async function loadConfig(empresaId) {
   const sb = await requireAdminSupabase();
@@ -44,7 +55,7 @@ export async function salvarConfig(empresaId, sysConfig) {
   }
   // 🔴 CHAVES DE PLATAFORMA NÃO ENTRAM PELO OBJETO INTEIRO.
   //
-  // Esta action tem gate `settings.company.manage`, que o papel `rh` POSSUI, e
+  // Esta action tem gate `settings.company.manage`, que o papel `rh` possuía, e
   // num 'use server' todo export é endpoint HTTP: o cliente monta o payload. A
   // tela carrega o `sys_config` inteiro no state e devolve tudo — então
   // qualquer chave que decida CONTRATO ou PROGRAMA seria escrivível pelo RH
@@ -56,12 +67,28 @@ export async function salvarConfig(empresaId, sysConfig) {
   // plataforma entra AQUI no mesmo commit que a cria.
   // Guard: `tests/unit/security/sys-config-chaves-plataforma.test.ts`.
   //
+  // As chaves de PROGRAMA (R-73) são editadas por este mesmo formulário, na aba
+  // Programa: passam só para quem tem `program.configure` (o master) e só com
+  // valor válido. Para os demais, o que está gravado fica, como as outras.
+  //
   // A política roda DENTRO da mutação porque `gravarSysConfig` a reaplica sobre
   // o estado novo quando outro write entra no meio (trava otimista por
   // `updated_at`) — aplicar antes usaria um retrato velho do que está gravado.
+  const configuraPrograma = await podeConfigurarPrograma();
   const r = await gravarSysConfig(sb, empresaId, (gravado) => {
     const paraGravar: Record<string, any> = { ...(sysConfig || {}) };
     for (const chave of CHAVES_SO_PLATAFORMA) {
+      const doFormulario = configuraPrograma
+        && (CHAVES_DE_PROGRAMA as readonly string[]).includes(chave)
+        && chave in paraGravar;
+      if (doFormulario) {
+        // Só o que MUDOU é validado: um valor antigo, gravado antes da régua,
+        // não pode travar o salvamento de outra aba do formulário.
+        const mudou = JSON.stringify(paraGravar[chave]) !== JSON.stringify(gravado[chave]);
+        const problema = mudou ? problemaNaChaveDePrograma(chave as (typeof CHAVES_DE_PROGRAMA)[number], paraGravar[chave]) : null;
+        if (problema) return { erro: problema };
+        continue;
+      }
       if (chave in gravado) paraGravar[chave] = gravado[chave];
       else delete paraGravar[chave];
     }

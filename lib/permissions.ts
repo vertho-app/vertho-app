@@ -113,10 +113,20 @@ export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
     'sales_channel.view',
     'settings.locale.manage',
   ],
+  // Admin da empresa (cliente). Decisão do dono de 24/08/2026: "a Vertho opera,
+  // o cliente consome". R-73 (revisão de 02/10/2026): saíram as permissões que
+  // nenhuma tela do RH usa e que abriam, pelo action id, operação da Vertho:
+  // `users.manage` (importar, editar papel e programa de colaborador),
+  // `settings.company.manage` (o formulário de configurações da empresa),
+  // `knowledge_base.manage` (nenhum código a consulta) e `exports.run` (só o
+  // export de colaboradores do admin; os do RH são gatados por papel).
+  // Ficam, e por quê:
+  //  · `assessments.dispatch`: sem consumidor do RH, mas tirá-la exige encolher
+  //    a allowlist do `gate-permissao-guard` (config/), que é do dono;
+  //  · `content.manage`: a tela `/dashboard/treino-atendimento` do RH usa as
+  //    abas Cenários e Competências (`/api/recepcao/gestao`, `podeCenarios`).
   rh: [
     'users.view',
-    'users.manage',
-    'settings.company.manage',
     'settings.locale.manage',
     'assessments.dispatch',
     'assessments.answer',
@@ -125,8 +135,6 @@ export const BASE_ROLE_PERMISSIONS: Record<SystemRole, PermissionKey[]> = {
     'journey.own.view',
     'journey.team.view',
     'content.manage',
-    'knowledge_base.manage',
-    'exports.run',
   ],
   gestor: [
     'assessments.answer',
