@@ -40,11 +40,15 @@ cai no caminho legado — silenciosamente, que é o motivo da R13 existir.
 | 8 | `otp_acesso` | AUTHENTICATION | — (nome fixo no código) | Código de 6 dígitos do login por telefone | `app/api/auth/phone-otp/request/route.ts:83` |
 | 9 | `plano_desenvolvimento` | UTILITY | `plano` · `WHATSAPP_TEMPLATE_PLANO` | Relatório individual: pelo cron `avisar_planos` (só **depois do corte**) ou pela tela, sob demanda | `lib/notifications/avisar-plano-pronto.ts` · `/admin-v2/cliente` → "Planos (PDI)" |
 | 10 | `avaliacao_pendente` | UTILITY | — (nome fixo na tela) | Convite ao mapeamento comportamental pendente, independente de cenários | **tela de Envios** (aba WhatsApp) |
-| 11 | `avaliacao_final_pendente` ⏳ | UTILITY (a submeter) | `avaliacao_final` · `WHATSAPP_TEMPLATE_AVALIACAO_FINAL` | Semana acessível = a do Cenário B, sem nota e sem nota sendo gerada: **segunda** (abriu) e **quinta** (pendente) | `lib/fase4/trigger-diario-empresa.ts` (`enviarAberturaAvaliacaoFinal` e a quinta) |
+| 11 | `avaliacao_final_pendente` | UTILITY (APPROVED, medido 03/10/2026) | `avaliacao_final` · `WHATSAPP_TEMPLATE_AVALIACAO_FINAL` | Semana acessível = a do Cenário B, sem nota e sem nota sendo gerada: **segunda** (abriu) e **quinta** (pendente) | `lib/fase4/trigger-diario-empresa.ts` (`enviarAberturaAvaliacaoFinal` e a quinta) |
 
-🔑 **O nº 11 entrou na cadência em 03/10/2026 (R-89)**, e a env fica **ausente até o template
-estar APPROVED**. Sem ela, a semana da avaliação final não sai por WhatsApp (não há texto livre de
-propósito) e segue por e-mail e push, com a copy própria (`emailAvaliacaoFinal`,
+🔑 **O nº 11 entrou na cadência em 03/10/2026 (R-89)**. O template está **APPROVED/UTILITY** na Meta
+(pt_BR, sem divergência de `correct_category`; corpo e botão idênticos ao registro em
+`lib/whatsapp/templates.ts`) e a env `WHATSAPP_TEMPLATE_AVALIACAO_FINAL=avaliacao_final_pendente` foi gravada
+na Vercel (production) em 03/10/2026, a pedido do dono, **sem possibilidade de ler o valor de volta**
+(a Vercel a marca Sensitive sozinha): o observável é o R13 do health, que lista o papel `avaliacao_final`
+com nome, status e categoria vindos da Meta. Sem a env, a semana da avaliação final não sai por WhatsApp
+(não há texto livre de propósito) e segue por e-mail e push, com a copy própria (`emailAvaliacaoFinal`,
 `pushAvaliacaoFinal`). Antes, a segunda dessa semana não dizia nada e a quinta mandava
 `registro_evidencia`, que promete ajustar "as próximas semanas", que não existem. O papel já está na
 lista da R13 (`PAPEIS` em `lib/whatsapp/templates-ligados.ts`), então a categoria passa a ser
@@ -98,7 +102,7 @@ semana/slot, portanto uma semana não bloqueia a seguinte.
 | `registro_evidencia` | APPROVED/UTILITY | Semana acessível é de aplicação e ainda não foi concluída |
 | `retomada_trilha` | APPROVED/UTILITY | Cadência ativa e último carimbo de envio ocorreu há pelo menos 14 dias |
 | `encerramento_conteudo` | **PENDING/UTILITY** | Trilha ativa e semana acessível anterior à avaliação final; com o catálogo Meta carregado, fica indisponível enquanto pendente |
-| `avaliacao_final_pendente` | **NÃO SUBMETIDO** (16/09) | Semana acessível é a do Cenário B, sem nota e sem nota sendo gerada; indisponível na tela até APPROVED |
+| `avaliacao_final_pendente` | APPROVED/UTILITY (medido 03/10/2026; a doc dizia "não submetido" desde 16/09) | Semana acessível é a do Cenário B, sem nota e sem nota sendo gerada |
 | `trilha_concluida` | APPROVED/UTILITY | A trilha mais recente está concluída |
 
 A prévia expõe a mesma sequência usada no disparo:

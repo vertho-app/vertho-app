@@ -172,11 +172,11 @@ const ENV_DO_PAPEL: Record<PapelCadencia, string> = {
    * que não existem; e a segunda não dizia nada.
    *
    * O template é o `avaliacao_final_pendente` (só nome + botão para a semana do
-   * Cenário B). ⚠️ Em 16/09 ele não tinha sido submetido à Meta: até a chave
-   * existir (APPROVED), esta semana não sai por WhatsApp, e e-mail e push
-   * levam a copy certa. Não há caminho de texto livre de propósito: o canal de
-   * texto livre está morto desde 13/08 e cair no da evidência seria repetir a
-   * promessa falsa.
+   * Cenário B). Está APPROVED/UTILITY na Meta (medido em 03/10/2026; o comentário
+   * antigo dizia "não submetido", de 16/09). Sem a env, esta semana não sai por
+   * WhatsApp, e e-mail e push levam a copy certa. Não há caminho de texto livre
+   * de propósito: o canal de texto livre está morto desde 13/08 e cair no da
+   * evidência seria repetir a promessa falsa.
    */
   avaliacao_final: 'WHATSAPP_TEMPLATE_AVALIACAO_FINAL',
   /**
