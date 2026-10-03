@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, callAIChat } from '@/actions/ai-client';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
+import { assertDonoDaTrilha } from '@/lib/auth/dono-da-trilha';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { promptSocratic } from '@/lib/season-engine/prompts/socratic';
@@ -224,6 +225,10 @@ export async function POST(request) {
     }
     const guard = await assertColabAccess(auth, trilha.colaborador_id);
     if (guard) return guard;
+    // Toda ação desta rota escreve na conversa da pessoa (até o `init`, que
+    // grava a primeira fala da IA): só a própria pessoa (R-72).
+    const dono = assertDonoDaTrilha(auth, trilha.colaborador_id);
+    if (dono) return dono;
 
     // Gates (temporal com espelho + progressão) — fonte única em trilha-runtime
     const gate = await checarGatesSemana(sb, trilha, semana);

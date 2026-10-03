@@ -28,7 +28,8 @@ vi.mock('next/server', async (orig) => ({ ...(await orig<any>()), after: h.after
 vi.mock('@/lib/csrf', () => ({ csrfCheck: () => null }));
 vi.mock('@/lib/rate-limit', () => ({ aiLimiter: { check: async () => null } }));
 vi.mock('@/lib/auth/request-context', () => ({
-  requireUser: async () => ({ email: 'helmar@escola.br', empresaId: 'emp-1', role: 'colaborador' }),
+  // A sessão é a do dono da trilha (`col-1`): desde o R-72 só ela escreve.
+  requireUser: async () => ({ email: 'helmar@escola.br', empresaId: 'emp-1', role: 'colaborador', isPlatformAdmin: false, colaborador: { id: 'col-1' } }),
   assertColabAccess: async () => null,
 }));
 vi.mock('@/lib/supabase', () => ({ createSupabaseAdmin: () => h.sb.client }));

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAIChat } from '@/actions/ai-client';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
+import { assertDonoDaTrilha } from '@/lib/auth/dono-da-trilha';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { checarGatesSemana } from '@/lib/season-engine/trilha-runtime';
@@ -62,6 +63,10 @@ export async function POST(request) {
     }
     const guard = await assertColabAccess(auth, trilha.colaborador_id);
     if (guard) return guard;
+    // A pergunta fica gravada no histórico da pessoa e conta no teto diário
+    // dela: só a própria pessoa pergunta (R-72).
+    const dono = assertDonoDaTrilha(auth, trilha.colaborador_id);
+    if (dono) return dono;
 
     // Gates (temporal com espelho + progressão) — fonte única em trilha-runtime
     const gate = await checarGatesSemana(sb, trilha, semana);

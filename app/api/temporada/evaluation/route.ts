@@ -2,6 +2,7 @@ import { NextResponse, after } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { callAI, callAIChat } from '@/actions/ai-client';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
+import { assertDonoDaTrilha } from '@/lib/auth/dono-da-trilha';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { promptEvolutionQualitative, promptEvolutionQualitativeExtract, validateEvolutionExtract } from '@/lib/season-engine/prompts/evolution-qualitative';
@@ -29,6 +30,9 @@ export const maxDuration = 300;
  * precisam caber. `pontuarFechamento` distribui o que sobra entre scorer e check.
  */
 const PRAZO_FECHAMENTO_MS = 285_000;
+
+/** Ações que só LEEM o estado do fechamento: as únicas abertas a gestão e RH. */
+const ACOES_DE_LEITURA = new Set(['status', 'fechamento_status']);
 
 /**
  * POST /api/temporada/evaluation
@@ -101,6 +105,13 @@ export async function POST(request) {
     }
     const guard = await assertColabAccess(auth, trilha.colaborador_id);
     if (guard) return guard;
+    // Ler o estado é de quem acompanha; o resto ESCREVE na jornada (responder,
+    // abrir o cenário, arguir, pontuar, gerar o relatório) e é só da própria
+    // pessoa (R-72). A lista é das ações de leitura: ação nova nasce fechada.
+    if (!ACOES_DE_LEITURA.has(action)) {
+      const dono = assertDonoDaTrilha(auth, trilha.colaborador_id);
+      if (dono) return dono;
+    }
 
     if (action === 'generate_report') {
       // Núcleo headless: a sessão é do COLAB (assertColabAccess já validou o dono

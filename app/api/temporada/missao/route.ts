@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireUser, assertColabAccess } from '@/lib/auth/request-context';
+import { assertDonoDaTrilha } from '@/lib/auth/dono-da-trilha';
 import { aiLimiter } from '@/lib/rate-limit';
 import { csrfCheck } from '@/lib/csrf';
 import { checarGatesSemana } from '@/lib/season-engine/trilha-runtime';
@@ -58,6 +59,9 @@ export async function POST(request) {
     // Usuário precisa ter acesso ao colab da trilha (próprio, gestor/rh mesma empresa, ou admin).
     const guard = await assertColabAccess(auth, trilha.colaborador_id);
     if (guard) return guard;
+    // E o compromisso é da pessoa: gestão e RH acompanham, não escolhem por ela (R-72).
+    const dono = assertDonoDaTrilha(auth, trilha.colaborador_id);
+    if (dono) return dono;
 
     const semanaPlan = (trilha.temporada_plano || []).find(s => s.semana === Number(semana));
     if (!semanaPlan) return NextResponse.json({ error: 'semana fora do plano' }, { status: 400 });
