@@ -3,11 +3,17 @@
  * Relatório de Adequação ao Cargo — match dos colaboradores de um cargo com o
  * PERFIL IDEAL (gabarito). Agrega (lib/adequacao-cargo/aggregate) → narrativa IA
  * opcional (lib/adequacao-cargo/narrative) → PDF (lib/adequacao-cargo-pdf) →
- * Storage → URL.
+ * bucket PRIVADO → caminho + link da rota que autoriza no clique.
  */
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
 import { aggregateAdequacao } from '@/lib/adequacao-cargo/aggregate';
 import { renderAdequacaoCargoPDF } from '@/lib/adequacao-cargo-pdf';
+import {
+  hrefRelatorio,
+  interpretarRefRelatorio,
+  rotuloCargo,
+  salvarRelatorio,
+} from '@/lib/relatorios/relatorio-privado';
 
 /** Cargos da empresa que TÊM gabarito (perfil ideal) — alimenta o seletor da UI. */
 export async function listarCargosComGabarito(empresaId: string): Promise<{ cargos: string[] }> {
@@ -29,7 +35,7 @@ export async function gerarRelatorioAdequacao(
   empresaId: string,
   cargo: string,
   opts: { comAnaliseIA?: boolean; poolCompleto?: boolean; poolCargos?: string[] } = {},
-): Promise<{ success: boolean; url?: string; avaliados?: number; error?: string }> {
+): Promise<{ success: boolean; url?: string; caminho?: string; avaliados?: number; error?: string }> {
   try {
     if (!empresaId || !cargo) return { success: false, error: 'Empresa e cargo são obrigatórios.' };
     const sb = await requireEmpresaSupabase(empresaId, 'admin.access', 'gerarRelatorioAdequacao');
@@ -47,20 +53,22 @@ export async function gerarRelatorioAdequacao(
     // renderInput = o RESULTADO renderizável completo. É o que vira PDF E snapshot.
     const renderInput = { data, empresaNome: emp.nome, dataISO: new Date().toISOString(), narrativas };
     const buffer = await renderAdequacaoCargoPDF(renderInput);
-    const base = `final/adequacao-cargo/${empresaId}-${encodeURIComponent(cargo).replace(/%/g, '')}-${Date.now()}`;
-    const { error: upErr } = await sb.storage.from('conteudos')
-      .upload(`${base}.pdf`, Buffer.from(buffer), { contentType: 'application/pdf', upsert: true });
-    if (upErr) return { success: false, error: 'Falha ao salvar o PDF: ' + upErr.message };
+    // R-74: PDF e snapshot nomeiam pessoas (ranking por cargo). Vão para o bucket
+    // PRIVADO, em `{empresaId}/adequacao-cargo/{cargo}-{ts}`, e a tela recebe a
+    // rota que autoriza no clique, nunca uma URL pública.
+    const base = `${rotuloCargo(cargo)}-${Date.now()}`;
+    const pdf = await salvarRelatorio(sb.storage, empresaId, 'adequacao-cargo', `${base}.pdf`, Buffer.from(buffer), 'application/pdf');
+    if ('erro' in pdf) return { success: false, error: 'Falha ao salvar o PDF: ' + pdf.erro };
     // SNAPSHOT p/ reprodução (gatilho: TODA geração). Grava o renderInput já assado ao
     // lado do PDF. Reproduzir um relatório = reRenderAdequacaoFromSnapshot(este .json),
     // SEM tocar no motor → mesmo candidato nunca muda de status entre versões da régua.
     // Pega as 3 dimensões (régua+gabarito+código) de graça, pois é o output, não o input.
-    await sb.storage.from('conteudos')
-      .upload(`${base}.json`, Buffer.from(JSON.stringify(renderInput)), { contentType: 'application/json', upsert: true })
-      .catch(() => { /* snapshot é best-effort: falha não derruba a entrega do PDF */ });
-    const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(`${base}.pdf`);
+    // Best-effort: falha não derruba a entrega do PDF, mas fica no log (sem o
+    // snapshot o cargo não aparece no ranking do RH).
+    const snap = await salvarRelatorio(sb.storage, empresaId, 'adequacao-cargo', `${base}.json`, Buffer.from(JSON.stringify(renderInput)), 'application/json');
+    if ('erro' in snap) console.error('[adequacao-cargo] snapshot não salvo:', snap.erro);
 
-    return { success: true, url: publicUrl, avaliados: data.avaliados };
+    return { success: true, url: hrefRelatorio(pdf.caminho), caminho: pdf.caminho, avaliados: data.avaliados };
   } catch (e: any) {
     return { success: false, error: e?.message || 'Erro ao gerar o Relatório de Adequação ao Cargo.' };
   }
@@ -73,23 +81,29 @@ export async function gerarRelatorioAdequacao(
  * chama aggregateAdequacao nem nenhum módulo do motor: só baixa o JSON e re-renderiza
  * (reRenderAdequacaoFromSnapshot vive no módulo PDF, livre de motor).
  *
- * `jsonPath` = caminho do snapshot no bucket (o mesmo base do PDF, com `.json`).
+ * `jsonPath` = caminho do snapshot: o novo (`{empresaId}/adequacao-cargo/{nome}.json`,
+ * bucket privado) ou o antigo (`final/adequacao-cargo/{empresaId}-{nome}.json`).
+ * Qualquer outro caminho é recusado: antes do R-74 a action baixava o que o
+ * cliente pedisse do bucket `conteudos`.
  */
 export async function reproduzirRelatorioAdequacao(
   jsonPath: string,
-): Promise<{ success: boolean; url?: string; error?: string }> {
+): Promise<{ success: boolean; url?: string; caminho?: string; error?: string }> {
   try {
     const sb = await requireAdminSupabase('admin.access');
-    const dl = await sb.storage.from('conteudos').download(jsonPath);
+    const ref = interpretarRefRelatorio(jsonPath);
+    if (!ref || ref.tipo !== 'adequacao-cargo' || !ref.nome.endsWith('.json')) {
+      return { success: false, error: 'Caminho de snapshot inválido.' };
+    }
+    const dl = await sb.storage.from(ref.bucket).download(ref.caminho);
     if (dl.error || !dl.data) return { success: false, error: 'Snapshot não encontrado: ' + jsonPath };
     const snapshot = await dl.data.text();
     const { reRenderAdequacaoFromSnapshot } = await import('@/lib/adequacao-cargo-pdf');
     const buffer = await reRenderAdequacaoFromSnapshot(snapshot); // PURO: snapshot → PDF
-    const outPath = jsonPath.replace(/\.json$/, '') + `-repro-${Date.now()}.pdf`;
-    const up = await sb.storage.from('conteudos').upload(outPath, Buffer.from(buffer), { contentType: 'application/pdf', upsert: true });
-    if (up.error) return { success: false, error: 'Falha ao salvar o PDF reproduzido: ' + up.error.message };
-    const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(outPath);
-    return { success: true, url: publicUrl };
+    const nome = ref.nome.replace(/\.json$/, '') + `-repro-${Date.now()}.pdf`;
+    const up = await salvarRelatorio(sb.storage, ref.empresaId, 'adequacao-cargo', nome, Buffer.from(buffer), 'application/pdf');
+    if ('erro' in up) return { success: false, error: 'Falha ao salvar o PDF reproduzido: ' + up.erro };
+    return { success: true, url: hrefRelatorio(up.caminho), caminho: up.caminho };
   } catch (e: any) {
     return { success: false, error: e?.message || 'Erro ao reproduzir o relatório do snapshot.' };
   }

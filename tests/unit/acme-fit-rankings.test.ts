@@ -7,6 +7,7 @@ import {
 } from '@/lib/demo/acme-fit-rankings';
 import { ACME_DEMO_REPORT_DIRECTORY, ACME_DEMO_WITHOUT_PROFILE_KEYS } from '@/lib/demo/acme-rh-report-fixture';
 import { PERSONAS } from '@/lib/demo/reset-acme-demo';
+import { interpretarRefRelatorio } from '@/lib/relatorios/relatorio-privado';
 
 describe('rankings demonstrativos de adequação da ACME', () => {
   it('cobre os quatro cargos e as 28 pessoas que têm perfil comportamental', () => {
@@ -22,10 +23,12 @@ describe('rankings demonstrativos de adequação da ACME', () => {
     expect(people).toHaveLength(28);
   });
 
-  it('usa caminhos estáveis compatíveis com o leitor da tela do gestor', () => {
-    expect(acmeDemoFitRankingPath('empresa-123', 'Coordenador de Operações', 1788102000000)).toBe(
-      'final/adequacao-cargo/empresa-123-Coordenador20de20OperaC3A7C3B5es-1788102000000.json',
-    );
+  it('usa caminhos estáveis compatíveis com o leitor da tela do gestor (bucket privado, R-74)', () => {
+    const empresaId = '33333333-3333-4333-8333-333333333333';
+    const caminho = acmeDemoFitRankingPath(empresaId, 'Coordenador de Operações', 1788102000000);
+    expect(caminho).toBe(`${empresaId}/adequacao-cargo/Coordenador20de20OperaC3A7C3B5es-1788102000000.json`);
+    // O leitor (`listarArtefatosRelatorio`, via o parser comum) reconhece o caminho.
+    expect(interpretarRefRelatorio(caminho)).toMatchObject({ bucket: 'relatorios-pdf', empresaId, tipo: 'adequacao-cargo' });
   });
 
   it('mantém os perfis de variedade válidos e restritos ao diretório fictício', () => {

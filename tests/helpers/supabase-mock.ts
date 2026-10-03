@@ -49,6 +49,8 @@ export interface FalhaSpec {
    * teste media outra coisa que não a invariante que descreve.
    */
   quando?: (payload: any) => boolean;
+  /** Só para storage: o método que falha (`list`, `download`, `createSignedUrl`, `upload`, `remove`). */
+  metodo?: string;
 }
 
 export interface Escrita {
@@ -71,11 +73,20 @@ export interface Chamada {
   args: any[];
 }
 
+/** Uma chamada de storage, com o BUCKET: `{ bucket: 'relatorios-pdf', metodo: 'upload', args: [caminho, corpo, opcoes] }`. */
+export interface ChamadaStorage {
+  bucket: string;
+  metodo: string;
+  args: any[];
+}
+
 export interface SupabaseMock {
   client: any;
   escritas: Escrita[];
   /** Todos os elos encadeados, na ordem em que foram chamados. */
   chamadas: Chamada[];
+  /** Todas as chamadas de storage, na ordem, com o bucket. */
+  storageChamadas: ChamadaStorage[];
   falhas: FalhaSpec[];
   /** Programa uma falha. Pode ser chamada dentro do `it`, depois do `vi.mock`. */
   falharEm(spec: FalhaSpec): void;
@@ -114,11 +125,21 @@ export interface OpcoesMock {
    */
   escritaUnica?: (tabela: string, op: Operacao, payload: any, cadeia: Chamada[]) => any;
   falhas?: FalhaSpec[];
+  /**
+   * Storage programável. `list` devolve os itens (`{ name }`) de uma pasta de um
+   * bucket; `download` devolve o conteúdo em texto (`null` = objeto não existe).
+   * Sem isto: lista vazia e download com erro "sem cache" (o histórico).
+   */
+  storage?: {
+    list?: (bucket: string, pasta: string, opcoes?: any) => any[];
+    download?: (bucket: string, caminho: string) => string | null;
+  };
 }
 
 export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
   const escritas: Escrita[] = [];
   const chamadas: Chamada[] = [];
+  const storageChamadas: ChamadaStorage[] = [];
   const falhas: FalhaSpec[] = [...(opts.falhas || [])];
 
   const resolver = opts.resolver || (() => null);
@@ -194,17 +215,65 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
     return b;
   };
 
+  /**
+   * Storage: cada chamada fica registrada COM O BUCKET (`storageChamadas`).
+   *
+   * Nasceu no R-74 (03/10/2026): o defeito era o BUCKET (relatório nominal no
+   * `conteudos`, que é público), e um mock que não sabe em qual bucket se
+   * escreveu não consegue provar a correção. Falha de storage programa-se com
+   * `falharEm({ tabela: '__storage__' })` (qualquer bucket) ou
+   * `'__storage__:<bucket>'`, opcionalmente com `metodo` (`list`, `download`,
+   * `createSignedUrl`, `upload`, `remove`). O upload segue também com a regra
+   * histórica (`op: 'insert'`).
+   */
+  const falhaStorage = (bucket: string, metodo: string, op: Operacao): FalhaSpec | null =>
+    falhas.find(
+      (f) =>
+        (f.tabela === '__storage__' || f.tabela === `__storage__:${bucket}`) &&
+        (!f.metodo || f.metodo === metodo) &&
+        (!f.op || f.op === op),
+    ) || null;
+  const registrarStorage = (bucket: string, metodo: string, args: any[]) => {
+    storageChamadas.push({ bucket, metodo, args });
+  };
+
   const storage = {
-    from: () => ({
-      upload: vi.fn(async () => {
-        const f = acharFalha('__storage__', 'insert');
+    from: (bucket: string = '') => ({
+      upload: vi.fn(async (...args: any[]) => {
+        registrarStorage(bucket, 'upload', args);
+        const f = falhaStorage(bucket, 'upload', 'insert') || acharFalha('__storage__', 'insert');
         return f ? { data: null, error: erroDe(f) } : { data: { path: 'ok' }, error: null };
       }),
-      download: vi.fn(async () => ({ data: null, error: { message: 'sem cache' } })),
-      list: vi.fn(async () => ({ data: [], error: null })),
-      remove: vi.fn(async () => ({ data: null, error: null })),
-      getPublicUrl: (p: string) => ({ data: { publicUrl: `https://mock/${p}` } }),
-      createSignedUrl: vi.fn(async (p: string) => ({ data: { signedUrl: `https://signed/${p}` }, error: null })),
+      download: vi.fn(async (...args: any[]) => {
+        registrarStorage(bucket, 'download', args);
+        const f = falhaStorage(bucket, 'download', 'select');
+        if (f) return { data: null, error: erroDe(f) };
+        if (!opts.storage?.download) return { data: null, error: { message: 'sem cache' } };
+        const conteudo = opts.storage.download(bucket, args[0]);
+        return conteudo == null
+          ? { data: null, error: { message: 'Object not found' } }
+          : { data: new Blob([conteudo]), error: null };
+      }),
+      list: vi.fn(async (...args: any[]) => {
+        registrarStorage(bucket, 'list', args);
+        const f = falhaStorage(bucket, 'list', 'select');
+        if (f) return { data: null, error: erroDe(f) };
+        return { data: opts.storage?.list ? opts.storage.list(bucket, args[0], args[1]) : [], error: null };
+      }),
+      remove: vi.fn(async (...args: any[]) => {
+        registrarStorage(bucket, 'remove', args);
+        const f = falhaStorage(bucket, 'remove', 'delete');
+        return f ? { data: null, error: erroDe(f) } : { data: null, error: null };
+      }),
+      getPublicUrl: (p: string) => {
+        registrarStorage(bucket, 'getPublicUrl', [p]);
+        return { data: { publicUrl: `https://mock/${p}` } };
+      },
+      createSignedUrl: vi.fn(async (p: string, ...resto: any[]) => {
+        registrarStorage(bucket, 'createSignedUrl', [p, ...resto]);
+        const f = falhaStorage(bucket, 'createSignedUrl', 'select');
+        return f ? { data: null, error: erroDe(f) } : { data: { signedUrl: `https://signed/${p}` }, error: null };
+      }),
     }),
   };
 
@@ -214,6 +283,7 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
     client,
     escritas,
     chamadas,
+    storageChamadas,
     falhas,
     falharEm(spec: FalhaSpec) { falhas.push(spec); },
     usou(tabela: string, metodo: string, arg0?: any) {
@@ -221,6 +291,6 @@ export function criarSupabaseMock(opts: OpcoesMock = {}): SupabaseMock {
         (c) => c.tabela === tabela && c.metodo === metodo && (arg0 === undefined || c.args[0] === arg0),
       );
     },
-    reset() { escritas.length = 0; chamadas.length = 0; falhas.length = 0; },
+    reset() { escritas.length = 0; chamadas.length = 0; storageChamadas.length = 0; falhas.length = 0; },
   };
 }

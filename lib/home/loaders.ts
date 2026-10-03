@@ -3,6 +3,7 @@ import { recortarElencoDemo } from '@/lib/demo/elenco-visivel';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { getDashboardView } from '@/lib/authz';
 import { tenantDb } from '@/lib/tenant-db';
+import { hrefRelatorio, listarArtefatosRelatorio } from '@/lib/relatorios/relatorio-privado';
 import { isMapeamentoCenariosLiberado, isPerfilComportamentalLiberado } from '@/lib/votacao/status';
 import { FASE_FORA_DA_DEGUSTACAO, PROGRESSO, TRILHA } from '@/lib/status';
 import type { UserContext } from '@/types';
@@ -904,34 +905,36 @@ export async function carregarPanoramaRH(
  * Onde cada um mora é diferente, e é por isso que este loader existe:
  *  · RH        → linha em `relatorios` (tipo='rh'), PDF por `/api/relatorios/pdf`
  *                — rota que já autoriza `rh` do mesmo tenant;
- *  · DNA e PO  → arquivo em `conteudos/final/{dna,perfil-org}/{empresaId}-{ts}.pdf`,
- *                sem índice em tabela. Lista-se o diretório e filtra-se pelo
- *                PREFIXO do tenant — `search` do Storage é substring, então
- *                confiar só nele deixaria passar arquivo de outra empresa cujo
- *                nome contivesse o id.
+ *  · DNA e PO  → arquivo no bucket PRIVADO `relatorios-pdf/{empresaId}/{dna,perfil-org}/{ts}.pdf`
+ *                (R-74, 03/10/2026) ou, até a migração, na pasta antiga do bucket
+ *                público `conteudos/final/{dna,perfil-org}/{empresaId}-{ts}.pdf`.
+ *                Sem índice em tabela: lista-se a pasta da empresa, e na antiga
+ *                filtra-se pelo PREFIXO do tenant (`search` do Storage é
+ *                substring). A régua mora em `listarArtefatosRelatorio`.
+ *
+ * O link devolvido NÃO é do Storage: é a rota `/api/relatorios/organizacional`,
+ * que confere a sessão (RH da empresa ou platform admin) no clique e só então
+ * redireciona para um link assinado de 5 minutos. A tela promete "Leitura
+ * segura"; com a URL pública permanente isso não era verdade.
  *
  * `Medido em 25/08`: macae tem 1 DNA e 1 PO (nenhum RH); ibipeba tem os três.
  */
 export async function carregarRelatoriosGerenciais(empresaId: string) {
   const tdb = tenantDb(empresaId);
 
-  const maisRecenteNoStorage = async (pasta: string) => {
-    const { data, error } = await tdb.storage.from('conteudos').list(pasta, {
-      limit: 1000,
-      search: empresaId,
-    });
-    if (error) { console.error(`[relatorios-gerenciais] list ${pasta}:`, error.message); return null; }
-    const prefixo = `${empresaId}-`;
-    const arquivos = (data || [])
-      .filter((f: any) => f.name.startsWith(prefixo) && f.name.endsWith('.pdf'))
-      // O nome carrega o timestamp da geração — ordenar por ele evita depender
-      // de `created_at`, que o Storage nem sempre devolve preenchido.
-      .sort((a: any, b: any) => Number(b.name.slice(prefixo.length, -4)) - Number(a.name.slice(prefixo.length, -4)));
-    if (arquivos.length === 0) return null;
-    const nome = arquivos[0].name;
-    const { data: pub } = tdb.storage.from('conteudos').getPublicUrl(`${pasta}/${nome}`);
-    const ts = Number(nome.slice(prefixo.length, -4));
-    return { url: pub.publicUrl, em: Number.isFinite(ts) ? new Date(ts).toISOString() : null };
+  const maisRecenteNoStorage = async (tipo: 'dna' | 'perfil-org') => {
+    const { artefatos, erros } = await listarArtefatosRelatorio(tdb.storage, empresaId, tipo, '.pdf');
+    if (erros.length) console.error(`[relatorios-gerenciais] list ${tipo}:`, erros.join(' | '));
+    // O nome carrega o timestamp da geração; ordenar por ele evita depender de
+    // `created_at`, que o Storage nem sempre devolve preenchido. Só o nome que
+    // é SÓ timestamp (`rotulo === null`) é um documento da empresa.
+    const ultimo = artefatos.find((a) => a.rotulo === null);
+    if (!ultimo) return null;
+    return {
+      url: hrefRelatorio(ultimo.caminho),
+      urlDownload: hrefRelatorio(ultimo.caminho, { download: true }),
+      em: Number.isFinite(ultimo.ts) ? new Date(ultimo.ts).toISOString() : null,
+    };
   };
 
   const [rhRes, dna, perfilOrg] = await Promise.all([
@@ -941,8 +944,8 @@ export async function carregarRelatoriosGerenciais(empresaId: string) {
       .order('gerado_em', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    maisRecenteNoStorage('final/dna'),
-    maisRecenteNoStorage('final/perfil-org'),
+    maisRecenteNoStorage('dna'),
+    maisRecenteNoStorage('perfil-org'),
   ]);
 
   if (rhRes.error) console.error('[relatorios-gerenciais] relatorio de RH:', rhRes.error.message);

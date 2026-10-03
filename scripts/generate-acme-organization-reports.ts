@@ -6,6 +6,7 @@ import {
   buildAcmeOrganizationReportArtifacts,
   uploadAcmeOrganizationReportArtifacts,
 } from '../lib/demo/acme-organization-reports';
+import { BUCKET_RELATORIOS } from '../lib/relatorios/relatorio-privado';
 
 async function main() {
   const sb = createClient(
@@ -35,7 +36,7 @@ async function main() {
 
   const verified = process.argv.includes('--upload')
     ? await Promise.all([artifacts.profile, artifacts.dna].map(async (artifact) => {
-        const { data, error: downloadError } = await sb.storage.from('conteudos').download(artifact.path);
+        const { data, error: downloadError } = await sb.storage.from(BUCKET_RELATORIOS).download(artifact.path);
         if (downloadError) throw downloadError;
         const bytes = Buffer.from(await data.arrayBuffer());
         if (bytes.subarray(0, 4).toString() !== '%PDF') {

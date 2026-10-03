@@ -9,6 +9,7 @@ import {
 import { ACME_DEMO_REPORT_DIRECTORY } from '@/lib/demo/acme-rh-report-fixture';
 import { computeDiscCompetenciesNatural } from '@/lib/disc-competencias';
 import { deriveProfile } from '@/lib/disc-mapeamento';
+import { BUCKET_RELATORIOS } from '@/lib/relatorios/relatorio-privado';
 
 function behaviorFields(D: number, I: number, S: number, C: number) {
   const comp = computeDiscCompetenciesNatural({ D, I, S, C });
@@ -68,7 +69,7 @@ async function main() {
   const artifacts = await seedAcmeFitRankingSnapshots(sb, company.id, company.nome);
   const verified = [];
   for (const artifact of artifacts) {
-    const { data, error } = await sb.storage.from('conteudos').download(artifact.path);
+    const { data, error } = await sb.storage.from(BUCKET_RELATORIOS).download(artifact.path);
     if (error || !data) throw error || new Error(`snapshot não encontrado: ${artifact.path}`);
     const snapshot = JSON.parse(await data.text());
     const expected = ACME_DEMO_FIT_RANKING_ROLES.find((role) => role.cargo === artifact.cargo)?.expectedPeople;

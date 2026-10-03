@@ -10,6 +10,13 @@
 import { getUserContext } from '@/lib/authz';
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { requireAdminSupabase, requireEmpresaSupabase } from '@/lib/admin-supabase';
+import {
+  BUCKET_RELATORIOS,
+  assinarRelatorio,
+  listarArtefatosRelatorio,
+  rotuloCargo,
+  salvarRelatorio,
+} from '@/lib/relatorios/relatorio-privado';
 
 // O snapshot grava pesos[].bloco como LABEL acentuado ("Competência"), não a key.
 // Tudo aqui é keyed por LABEL pra casar com o snapshot.
@@ -28,7 +35,17 @@ async function ctxRh() {
   return { empresaId, ctx };
 }
 
-const cargoEnc = (c: string) => encodeURIComponent(c).replace(/%/g, '');
+// ── Snapshots: bucket privado + pasta antiga (R-74) ──────────────────────────
+// Os snapshots `.json` nomeiam pessoas. Desde o R-74 nascem no bucket PRIVADO
+// (`relatorios-pdf/{empresaId}/adequacao-cargo/{cargo}-{ts}.json`); os gerados
+// antes seguem em `conteudos/final/adequacao-cargo/{empresaId}-{cargo}-{ts}.json`
+// até a migração. A leitura enxerga os dois, e o cargo casa pelo rótulo EXATO
+// (antes um `startsWith` deixava "Professor" pegar o arquivo de "Professor-A").
+async function snapshotsDaEmpresa(sb: any, empresaId: string) {
+  const { artefatos, erros } = await listarArtefatosRelatorio(sb.storage, empresaId, 'adequacao-cargo', '.json');
+  if (erros.length) console.error('[ranking-adequacao] listagem de snapshots:', erros.join(' | '));
+  return { artefatos, falhou: erros.length > 0 && artefatos.length === 0 };
+}
 
 // ── Núcleo compartilhado (RH self-service E preview de admin) ────────────────
 async function _listarCargos(sb: any, empresaId: string, incluirVagas = false): Promise<string[]> {
@@ -38,9 +55,9 @@ async function _listarCargos(sb: any, empresaId: string, incluirVagas = false): 
   if (!incluirVagas) cq = cq.eq('eh_vaga', false);
   const { data: cargos } = await cq;
   const comGab = (cargos || []).filter((c: any) => c.gabarito?.tela4).map((c: any) => c.nome);
-  const { data: files } = await sb.storage.from('conteudos').list('final/adequacao-cargo', { limit: 1000, search: empresaId });
-  const nomes: string[] = (files || []).map((f: any) => String(f.name));
-  return comGab.filter((nome: string) => nomes.some((fn) => fn.startsWith(`${empresaId}-${cargoEnc(nome)}-`) && fn.endsWith('.json'))).sort((a: string, b: string) => a.localeCompare(b));
+  const { artefatos } = await snapshotsDaEmpresa(sb, empresaId);
+  const rotulos = new Set(artefatos.map((a) => a.rotulo));
+  return comGab.filter((nome: string) => rotulos.has(rotuloCargo(nome))).sort((a: string, b: string) => a.localeCompare(b));
 }
 
 /** Cargos da empresa que TÊM snapshot de ranking (relatório gerado) — RH. */
@@ -54,18 +71,21 @@ export async function listarCargosComRankingAdmin(empresaId: string): Promise<{ 
   return { cargos: await _listarCargos(sb, empresaId) };
 }
 
-async function ultimoSnapshot(sb: any, empresaId: string, cargo: string): Promise<any | null> {
-  const { data: files } = await sb.storage.from('conteudos').list('final/adequacao-cargo', { limit: 1000, search: empresaId });
-  const pref = `${empresaId}-${cargoEnc(cargo)}-`;
-  const jsons = (files || []).filter((f: any) => f.name.startsWith(pref) && f.name.endsWith('.json'))
-    .map((f: any) => ({ name: f.name, ts: Number(f.name.slice(pref.length, -'.json'.length)) || 0 }))
-    .sort((a: any, b: any) => b.ts - a.ts);
-  if (!jsons.length) return null;
-  const dl = await sb.storage.from('conteudos').download(`final/adequacao-cargo/${jsons[0].name}`);
-  if (dl.error || !dl.data) return null;
+const LEITURA_INDISPONIVEL = 'Não foi possível ler o ranking agora. Tente novamente em instantes.';
+
+async function ultimoSnapshot(sb: any, empresaId: string, cargo: string): Promise<{ snap: any | null; falhou: boolean }> {
+  const { artefatos, falhou } = await snapshotsDaEmpresa(sb, empresaId);
+  const rotulo = rotuloCargo(cargo);
+  const ultimo = artefatos.find((a) => a.rotulo === rotulo);
+  if (!ultimo) return { snap: null, falhou };
+  const dl = await sb.storage.from(ultimo.bucket).download(ultimo.caminho);
+  if (dl.error || !dl.data) {
+    console.error('[ranking-adequacao] download do snapshot:', ultimo.caminho, dl.error?.message);
+    return { snap: null, falhou: true };
+  }
   const parsed = JSON.parse(await dl.data.text());
-  if (parsed && typeof parsed === 'object') parsed.__ts = jsons[0].ts;
-  return parsed;
+  if (parsed && typeof parsed === 'object') parsed.__ts = ultimo.ts;
+  return { snap: parsed, falhou: false };
 }
 
 function gateTexto(e: any): string {
@@ -98,7 +118,8 @@ function _eixoDivergencia(pesos: { bloco: string; pct: number }[], elegiveisBloc
 }
 
 async function _getRanking(sb: any, empresaId: string, cargo: string): Promise<any> {
-  const snap = await ultimoSnapshot(sb, empresaId, cargo);
+  const { snap, falhou } = await ultimoSnapshot(sb, empresaId, cargo);
+  if (!snap?.data && falhou) return { success: false, error: LEITURA_INDISPONIVEL };
   if (!snap?.data) return { success: false, semSnapshot: true, error: 'Ranking ainda não disponível para este cargo (relatório não gerado).' };
   const data = snap.data;
   const temTracos = data.pessoas?.[0] && Array.isArray(data.pessoas[0].tracos);
@@ -132,7 +153,8 @@ async function _getRanking(sb: any, empresaId: string, cargo: string): Promise<a
 
 // ── EXPORT PDF (VIEW pura do snapshot; passa pessoas COMPLETAS ao template) ────
 async function _exportarPDF(sb: any, empresaId: string, cargo: string): Promise<{ success: true; url: string } | { success: false; error: string }> {
-  const snap = await ultimoSnapshot(sb, empresaId, cargo);
+  const { snap, falhou } = await ultimoSnapshot(sb, empresaId, cargo);
+  if (!snap?.data && falhou) return { success: false, error: LEITURA_INDISPONIVEL };
   if (!snap?.data) return { success: false, error: 'Ranking ainda não disponível para este cargo (relatório não gerado).' };
   const data = snap.data;
   const pesos: { bloco: string; pct: number }[] = data.perfilIdeal?.pesos || [];
@@ -160,12 +182,15 @@ async function _exportarPDF(sb: any, empresaId: string, cargo: string): Promise<
     narrativas: snap.narrativas || {},
   });
 
-  const path = `final/ranking-adequacao/${empresaId}-${cargoEnc(cargo)}-${snap.__ts || Date.now()}.pdf`;
-  const up = await sb.storage.from('conteudos').upload(path, buffer, { contentType: 'application/pdf', upsert: true });
-  if (up.error) return { success: false, error: `Falha ao salvar PDF: ${up.error.message}` };
-  const signed = await sb.storage.from('conteudos').createSignedUrl(path, 60 * 30);
-  if (signed.error || !signed.data?.signedUrl) return { success: false, error: 'Falha ao gerar link do PDF.' };
-  return { success: true, url: signed.data.signedUrl };
+  // R-74: o ranking é nominal. Ia para o bucket PÚBLICO `conteudos`, e o link
+  // assinado de 30 min era decoração: a URL pública do mesmo objeto abria sem
+  // sessão. Agora vai para o bucket PRIVADO, e o link (curto) é a única porta.
+  // Quem chega aqui já passou pelo gate (RH da sessão ou admin da empresa).
+  const up = await salvarRelatorio(sb.storage, empresaId, 'ranking-adequacao', `${rotuloCargo(cargo)}-${snap.__ts || Date.now()}.pdf`, buffer, 'application/pdf');
+  if ('erro' in up) return { success: false, error: `Falha ao salvar PDF: ${up.erro}` };
+  const assinado = await assinarRelatorio(sb.storage, { bucket: BUCKET_RELATORIOS, caminho: up.caminho });
+  if ('erro' in assinado) return { success: false, error: 'Falha ao gerar link do PDF.' };
+  return { success: true, url: assinado.url };
 }
 
 /** RH — exporta o PDF do ranking (empresa da sessão). */

@@ -13,14 +13,21 @@ import {
 } from '@/lib/demo/acme-rh-report-fixture';
 import { colaboradoresComMapeamentoCompleto } from '@/lib/mapeamento-competencias';
 import { ehDoElencoAcme } from '@/lib/demo/acme-elenco';
+import { BUCKET_RELATORIOS, caminhoRelatorio } from '@/lib/relatorios/relatorio-privado';
 
 export const ACME_DEMO_ORGANIZATION_REPORT_TIMESTAMP = Date.UTC(2026, 7, 30, 12, 0, 0);
 export const ACME_DEMO_ORGANIZATION_REPORT_DATE = '30/08/2026';
 
+/**
+ * Caminhos no bucket PRIVADO (R-74). O Perfil Organizacional da demo é o
+ * mesmo documento que o do cliente, com nome e DISC de cada persona: o leitor
+ * real (`carregarRelatoriosGerenciais`) só o encontra lá, e só o abre por link
+ * assinado depois de conferir a sessão.
+ */
 export function acmeDemoOrganizationReportPaths(empresaId: string) {
   return {
-    profile: `final/perfil-org/${empresaId}-${ACME_DEMO_ORGANIZATION_REPORT_TIMESTAMP}.pdf`,
-    dna: `final/dna/${empresaId}-${ACME_DEMO_ORGANIZATION_REPORT_TIMESTAMP}.pdf`,
+    profile: caminhoRelatorio(empresaId, 'perfil-org', `${ACME_DEMO_ORGANIZATION_REPORT_TIMESTAMP}.pdf`),
+    dna: caminhoRelatorio(empresaId, 'dna', `${ACME_DEMO_ORGANIZATION_REPORT_TIMESTAMP}.pdf`),
   };
 }
 
@@ -105,10 +112,10 @@ export async function uploadAcmeOrganizationReportArtifacts(
   artifacts: AcmeOrganizationReportArtifacts,
 ) {
   const uploads = await Promise.all([
-    sb.storage.from('conteudos').upload(artifacts.profile.path, Buffer.from(artifacts.profile.buffer), {
+    sb.storage.from(BUCKET_RELATORIOS).upload(artifacts.profile.path, Buffer.from(artifacts.profile.buffer), {
       contentType: 'application/pdf', cacheControl: '3600', upsert: true,
     }),
-    sb.storage.from('conteudos').upload(artifacts.dna.path, Buffer.from(artifacts.dna.buffer), {
+    sb.storage.from(BUCKET_RELATORIOS).upload(artifacts.dna.path, Buffer.from(artifacts.dna.buffer), {
       contentType: 'application/pdf', cacheControl: '3600', upsert: true,
     }),
   ]);

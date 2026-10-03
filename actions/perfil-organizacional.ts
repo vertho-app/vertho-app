@@ -3,11 +3,12 @@
  * Perfil Organizacional — gera o "DNA comportamental" (PDF coletivo) de uma
  * empresa a partir do mapeamento DISC (colaboradores). Agrega
  * (lib/perfil-organizacional/aggregate) → PDF (lib/perfil-organizacional-pdf)
- * → Storage → URL. Sem IA — tudo calculado.
+ * → bucket PRIVADO → caminho + link da rota que autoriza. Sem IA, tudo calculado.
  */
 import { requirePlataformaSupabase } from '@/lib/admin-supabase';
 import { aggregatePerfilOrg } from '@/lib/perfil-organizacional/aggregate';
 import { renderPerfilOrgPDF } from '@/lib/perfil-organizacional-pdf';
+import { hrefRelatorio, salvarRelatorio } from '@/lib/relatorios/relatorio-privado';
 
 function dataHoje(): string {
   const d = new Date();
@@ -16,7 +17,7 @@ function dataHoje(): string {
 
 export async function gerarPerfilOrganizacional(
   empresaId: string,
-): Promise<{ success: boolean; url?: string; avaliados?: number; error?: string }> {
+): Promise<{ success: boolean; url?: string; caminho?: string; avaliados?: number; error?: string }> {
   try {
     // R-63 (revisão de 02/10/2026): o gate era `admin.access`, que o Admin
     // Sócio tem. O Perfil não chama IA, mas gera e publica um PDF da empresa: é ação geradora,
@@ -32,13 +33,12 @@ export async function gerarPerfilOrganizacional(
     }
 
     const buffer = await renderPerfilOrgPDF({ empresaNome: emp.nome, dataRef: dataHoje(), p });
-    const storagePath = `final/perfil-org/${empresaId}-${Date.now()}.pdf`;
-    const { error: upErr } = await sb.storage.from('conteudos')
-      .upload(storagePath, Buffer.from(buffer), { contentType: 'application/pdf', upsert: true });
-    if (upErr) return { success: false, error: 'Falha ao salvar o PDF: ' + upErr.message };
-    const { data: { publicUrl } } = sb.storage.from('conteudos').getPublicUrl(storagePath);
+    // R-74: o PDF traz nome e DISC de cada pessoa. Vai para o bucket PRIVADO
+    // e a tela recebe a rota que autoriza no clique, nunca uma URL pública.
+    const salvo = await salvarRelatorio(sb.storage, empresaId, 'perfil-org', `${Date.now()}.pdf`, Buffer.from(buffer), 'application/pdf');
+    if ('erro' in salvo) return { success: false, error: 'Falha ao salvar o PDF: ' + salvo.erro };
 
-    return { success: true, url: publicUrl, avaliados: p.avaliados };
+    return { success: true, url: hrefRelatorio(salvo.caminho), caminho: salvo.caminho, avaliados: p.avaliados };
   } catch (e: any) {
     return { success: false, error: e?.message || 'Erro ao gerar o Perfil Organizacional.' };
   }

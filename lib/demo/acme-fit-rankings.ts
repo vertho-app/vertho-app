@@ -6,11 +6,16 @@ import {
 } from '@/lib/adequacao-cargo/aggregate';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import { calcularFitUnificado } from '@/lib/scoring/fit-v2-adapter';
+import { BUCKET_RELATORIOS, caminhoRelatorio, rotuloCargo } from '@/lib/relatorios/relatorio-privado';
 
 /**
  * Ranking demonstrativo da ACME. Cada reset cria uma fotografia nova: o JSON
  * contém IDs de colaboradores recém-criados e, portanto, não pode reutilizar um
  * path que a CDN ainda esteja servindo em cache.
+ *
+ * Desde o R-74 (03/10/2026) o snapshot mora no bucket PRIVADO, como o de
+ * qualquer cliente: é nominal, e o leitor da tela só o procura lá (e, até a
+ * migração, na pasta antiga do bucket público).
  */
 export const ACME_DEMO_FIT_RANKING_ROLES = [
   { cargo: 'Representante Comercial', expectedPeople: 11 },
@@ -58,10 +63,8 @@ export type DemoFitPrecomputeResult = {
   removedStale: number;
 };
 
-const cargoEnc = (cargo: string) => encodeURIComponent(cargo).replace(/%/g, '');
-
 export function acmeDemoFitRankingPath(empresaId: string, cargo: string, timestamp = Date.now()): string {
-  return `final/adequacao-cargo/${empresaId}-${cargoEnc(cargo)}-${timestamp}.json`;
+  return caminhoRelatorio(empresaId, 'adequacao-cargo', `${rotuloCargo(cargo)}-${timestamp}.json`);
 }
 
 function strongestBlock(person: PessoaAdequacao): string {
@@ -162,7 +165,7 @@ export async function uploadAcmeFitRankingArtifacts(
   artifacts: AcmeDemoFitRankingArtifact[],
 ): Promise<void> {
   for (const artifact of artifacts) {
-    const { error } = await sb.storage.from('conteudos').upload(
+    const { error } = await sb.storage.from(BUCKET_RELATORIOS).upload(
       artifact.path,
       Buffer.from(JSON.stringify(artifact.snapshot)),
       { contentType: 'application/json', cacheControl: '0', upsert: false },
@@ -175,19 +178,20 @@ export async function uploadAcmeFitRankingArtifacts(
   // manuais não têm `demoFixture: true` e são preservados. Sem esta limpeza, o
   // `list(... limit: 1000)` da tela alcançaria o teto após alguns meses de reset.
   const currentPaths = new Set(artifacts.map((artifact) => artifact.path));
+  const pasta = `${artifacts[0].empresaId}/adequacao-cargo`;
   const prefixes = artifacts.map((artifact) => artifact.path.slice(
-    'final/adequacao-cargo/'.length,
+    pasta.length + 1,
     artifact.path.lastIndexOf('-') + 1,
   ));
-  const { data: files, error: listError } = await sb.storage.from('conteudos')
-    .list('final/adequacao-cargo', { limit: 1000, search: artifacts[0].empresaId });
+  const { data: files, error: listError } = await sb.storage.from(BUCKET_RELATORIOS)
+    .list(pasta, { limit: 1000 });
   if (listError) throw new Error(`listar rankings antigos da ACME: ${listError.message}`);
 
   const stalePaths: string[] = [];
   for (const file of files || []) {
-    const path = `final/adequacao-cargo/${file.name}`;
+    const path = `${pasta}/${file.name}`;
     if (currentPaths.has(path) || !file.name.endsWith('.json') || !prefixes.some((prefix) => file.name.startsWith(prefix))) continue;
-    const { data, error } = await sb.storage.from('conteudos').download(path);
+    const { data, error } = await sb.storage.from(BUCKET_RELATORIOS).download(path);
     if (error || !data) continue;
     try {
       const snapshot = JSON.parse(await data.text());
@@ -195,7 +199,7 @@ export async function uploadAcmeFitRankingArtifacts(
     } catch { /* arquivo externo ou legado: preserva */ }
   }
   if (stalePaths.length) {
-    const { error } = await sb.storage.from('conteudos').remove(stalePaths);
+    const { error } = await sb.storage.from(BUCKET_RELATORIOS).remove(stalePaths);
     if (error) throw new Error(`limpar rankings demonstrativos antigos: ${error.message}`);
   }
 }

@@ -30,6 +30,13 @@ export type RhReportDocument = {
   id: string;
   kind: RhReportKind;
   url: string;
+  /**
+   * Link do botão "Baixar PDF", quando difere do de leitura. Perfil e DNA
+   * abrem por uma rota que redireciona para um link assinado de outro domínio
+   * (R-74), e ali o atributo `download` do link é ignorado: o download tem que
+   * vir pedido no próprio link assinado.
+   */
+  downloadUrl?: string;
   generatedAt: string | null;
   recipient: string | null;
   role: string | null;
@@ -244,10 +251,12 @@ export async function carregarCentralRelatoriosRH(
     },
     gerenciais.perfilOrg && {
       id: 'organization-profile', kind: 'perfil_org' as const, url: gerenciais.perfilOrg.url,
+      downloadUrl: gerenciais.perfilOrg.urlDownload,
       generatedAt: gerenciais.perfilOrg.em, recipient: companyResult.data?.nome || null, role: null,
     },
     gerenciais.dna && {
       id: 'organization-dna', kind: 'dna' as const, url: gerenciais.dna.url,
+      downloadUrl: gerenciais.dna.urlDownload,
       generatedAt: gerenciais.dna.em, recipient: companyResult.data?.nome || null, role: null,
     },
     // Evolução é o único card DERIVADO AO VIVO: não há linha em `relatorios`,
