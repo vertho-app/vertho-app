@@ -175,3 +175,33 @@ describe('as afirmações do papel vêm da comparação entre cenários', () => 
     expect(FONTE).not.toContain('quando a variação é negativa');
   });
 });
+
+/**
+ * A tela do RH anuncia o PDF antes do download (`RhReports.dashboard.evolution.exportHint`).
+ * A página "Como isto foi medido" saiu do PDF (teste acima), mas a chamada seguiu prometendo
+ * "a nota metodológica" nos 4 idiomas (R-14 da revisão de 02/10/2026): o RH baixava esperando
+ * uma página que não existe. A chamada tem que listar o que o PDF tem, e o PDF tem os próximos passos.
+ */
+describe('chamada da tela do RH para o PDF executivo', () => {
+  const LOCALES = ['pt-BR', 'pt-PT', 'es-ES', 'en-US'] as const;
+  const chamada = (locale: string): string => {
+    const json = JSON.parse(readFileSync(join(__dirname, '..', '..', 'messages', `${locale}.json`), 'utf8'));
+    return String(json?.RhReports?.dashboard?.evolution?.exportHint ?? '');
+  };
+
+  it('não promete nota metodológica em nenhum idioma', () => {
+    for (const locale of LOCALES) {
+      const texto = chamada(locale).toLowerCase();
+      expect(texto, locale).not.toBe('');
+      expect(texto, locale).not.toMatch(/metodol|methodolog/);
+    }
+  });
+
+  it('anuncia os próximos passos, que o PDF de fato traz', () => {
+    expect(FONTE).toContain('Próximos passos');
+    expect(chamada('pt-BR')).toContain('próximos passos');
+    expect(chamada('pt-PT')).toContain('próximos passos');
+    expect(chamada('es-ES')).toContain('próximos pasos');
+    expect(chamada('en-US')).toContain('next steps');
+  });
+});
