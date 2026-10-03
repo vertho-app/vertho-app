@@ -102,6 +102,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Erro ao criar cadastro' }, { status: 500 });
     }
 
+    // 🔴 `generateLink` NÃO cria usuário (R-76). Quem se cadastrava aqui era,
+    // por definição, um e-mail novo, sem conta no Auth: o link falhava sempre,
+    // a rota devolvia sucesso com aviso e a tela mostrava "Link enviado!". A
+    // porta do e-mail (`magic-link`) e a do WhatsApp já criavam a conta antes;
+    // esta era a terceira, e a única que não criava. Mesmo padrão delas: conta
+    // que já existe volta como erro "already registered" e segue.
+    try {
+      const { error: createErr } = await sb.auth.admin.createUser({ email, email_confirm: true });
+      if (createErr && !/already|registered|exists/i.test(createErr.message)) {
+        console.warn('[signup] createUser:', createErr.message);
+      }
+    } catch (e: any) {
+      console.warn('[signup] createUser:', e?.message || e);
+    }
+
     const redirect = resolveSafeAuthRedirect(req, redirectTo);
     const { data: linkData, error: linkErr } = await sb.auth.admin.generateLink({
       type: 'magiclink',

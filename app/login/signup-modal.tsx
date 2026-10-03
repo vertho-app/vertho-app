@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useLocale } from 'next-intl';
-import { chaveDoErroDoPedido } from '@/lib/auth/login-respostas';
+import { cadastroSemLink, chaveDoErroDoPedido } from '@/lib/auth/login-respostas';
 
 type Branding = {
   tenantName: string;
@@ -27,7 +27,8 @@ export default function SignupModal({
   redirectTo: string;
   branding: Branding;
   onClose: () => void;
-  onSuccess: () => void;
+  /** `semLink`: o cadastro foi criado, mas nenhum canal enviou o link (R-76). */
+  onSuccess: (resultado: { semLink: boolean }) => void;
 }) {
   const t = useTranslations('Login.signup');
   const tLogin = useTranslations('Login');
@@ -126,7 +127,7 @@ export default function SignupModal({
         setStatus('error');
         return;
       }
-      onSuccess();
+      onSuccess({ semLink: cadastroSemLink(data) });
     } catch (err: any) {
       setErrorMsg(t('errors.network', { message: err.message }));
       setStatus('error');

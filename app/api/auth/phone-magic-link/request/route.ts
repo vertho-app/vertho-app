@@ -7,6 +7,7 @@ import { resolveAppLocale } from '@/lib/i18n';
 import { sendAccessLink } from '@/lib/notifications/access-link-service';
 import { authLimiter, limitarPorDestino } from '@/lib/rate-limit';
 import { resolveSafeAuthRedirect } from '@/lib/auth/redirect';
+import { CODIGO_SEM_ORGANIZACAO } from '@/lib/auth/login-respostas';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,8 +31,23 @@ export async function POST(req: NextRequest) {
     }
     const e164 = check.e164;
 
+    // 🔴 Endereço genérico (`app.vertho.ai`): sem subdomínio não há organização,
+    // e a rota respondia `{ ok: true }` SEM enviar nada. A tela mostrava "Link
+    // enviado!" e a pessoa esperava um WhatsApp que nunca vinha (R-76). E ela
+    // chega lá: o `/entrar` sem parâmetro, ou com um ilegível, cai no login do
+    // endereço genérico.
+    //
+    // A resposta agora diz a verdade, e ela depende só do ENDEREÇO, nunca do
+    // número: não revela se o telefone existe. Descobrir a organização pelo
+    // número exigiria ler o cadastro de todas as empresas sem filtro, que o
+    // guard de leitura de tenant barra fora da allowlist (decisão do dono).
     const slug = getTenantSlug(req);
-    if (!slug) return NextResponse.json({ ok: true });
+    if (!slug) {
+      return NextResponse.json({
+        error: 'Por este endereço não conseguimos saber a sua organização pelo número. Entre com o seu e-mail ou pelo link de acesso que a sua organização enviou.',
+        codigo: CODIGO_SEM_ORGANIZACAO,
+      }, { status: 400 });
+    }
 
     // Teto por telefone (R-79): o limite por IP não segurava uma rajada de
     // templates pagos para o WhatsApp de uma pessoa vinda de IPs variados.

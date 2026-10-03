@@ -601,6 +601,7 @@ Os dois caminhos de login **nao sao equivalentes** pra quem nunca entrou:
 |---|---|---|---|
 | e-mail | `app/api/auth/magic-link/route.ts` | **SIM, desde 15/09/2026** — `admin.createUser` DEPOIS do gate de elegibilidade. Antes disso ia direto pro `generateLink` e devolvia *"Falha ao gerar link"* | e-mail **+** WhatsApp (`sendAccessLink`) |
 | telefone | `app/api/auth/phone-magic-link/request/route.ts:61` | **SIM** — `admin.createUser` antes do link | **so WhatsApp** (`channels:['whatsapp']`) |
+| auto-cadastro | `app/api/auth/signup/route.ts` | **SIM, desde 03/10/2026 (R-76)**. Antes o e-mail era novo por definicao, o link falhava sempre e a tela dizia "Link enviado!" | e-mail **+** WhatsApp |
 
 ⚠️ **A assimetria foi fechada, o import continua NAO criando conta.** Em 15/09/2026 a porta de
 e-mail passou a se auto-provisionar como a de telefone ja fazia, e o disparo em lote do admin
@@ -621,6 +622,11 @@ Duas consequencias que nao aparecem em log nenhum:
 2. As 3 rotas de telefone filtram `.eq('login_por_whatsapp', true)` e sao **anti-enumeracao**: com a
    flag `false` elas respondem sucesso generico e **nao enviam nada**. A pessoa espera um link que
    nunca foi disparado — e nao ha erro pra ninguem investigar.
+   Desde 03/10/2026 (R-76) a tela nao afirma mais o envio nesse caso: depois de pedir pelo
+   WhatsApp ela diz "Se este numero estiver cadastrado...", e no endereco generico a rota responde
+   que nao sabe a organizacao (resposta que depende do endereco, nao do numero). Descobrir a
+   organizacao pelo numero no endereco generico exige leitura de `colaboradores` sem filtro de
+   empresa, que o `tenant-read-guard` barra fora da allowlist: decisao do dono.
 
 **O sinal de quanto isso custa:** dos 126 diretores de Macae, os **89 com `auth.users` sao exatamente
 os 89 com `mapeamento_em`**. Conta ausente e indistinguivel de desengajamento no painel.

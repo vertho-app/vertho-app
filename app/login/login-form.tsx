@@ -9,7 +9,7 @@ import { locales } from '@/i18n/routing';
 import SignupModal from './signup-modal';
 import AvisoNavegadorEmbutido from '@/components/auth/aviso-navegador-embutido';
 import { ehCaminhoLocal } from '@/lib/auth/caminho-local';
-import { chaveDoErroDoPedido } from '@/lib/auth/login-respostas';
+import { chaveDoErroDoPedido, confirmacaoDoEnvio, type ConfirmacaoDoEnvio } from '@/lib/auth/login-respostas';
 
 // O painel da equipe Vertho não é um tenant: ele vive no endereço genérico
 // (`app.vertho.ai`), e é o `next` pedido — não o cadastro — que faz a sessão
@@ -18,7 +18,22 @@ import { chaveDoErroDoPedido } from '@/lib/auth/login-respostas';
 // `/login?redirect=/admin/dashboard`.
 const ehDestinoDoPainel = (path: string) => /^\/admin(-v2)?(\/|$|\?)/.test(path);
 
-export default function LoginForm({ branding, embutido = false, ios = false }: { branding: any; embutido?: boolean; ios?: boolean }) {
+export default function LoginForm({
+  branding,
+  embutido = false,
+  ios = false,
+  comOrganizacao = false,
+}: {
+  branding: any;
+  embutido?: boolean;
+  ios?: boolean;
+  /**
+   * A tela está no endereço de uma organização (subdomínio que resolveu). Só
+   * aí o check-email responde de verdade se o e-mail existe; no endereço
+   * genérico ele diz "existe" para qualquer um.
+   */
+  comOrganizacao?: boolean;
+}) {
   const t = useTranslations('Login');
   const common = useTranslations('Common');
   const locale = useLocale();
@@ -28,6 +43,9 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
   const [mode, setMode] = useState<'login' | 'password'>('login');
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
+  // O que a tela pode afirmar quando o pedido foi aceito (R-76): "Link
+  // enviado!" só quando ela sabe que o cadastro existe.
+  const [envio, setEnvio] = useState<ConfirmacaoDoEnvio>('enviado');
   const [errorMsg, setErrorMsg] = useState('');
   const [showSignup, setShowSignup] = useState(false);
   // Organizações do e-mail quando o login não vem de um subdomínio de tenant.
@@ -247,6 +265,9 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
         setErrorMsg(erroDoPedido(data));
         setStatus('error');
       } else if (data?.success) {
+        // Escolher a organização na lista conta como cadastro confirmado: a
+        // lista veio do cadastro.
+        setEnvio(confirmacaoDoEnvio('email', comOrganizacao || !!empresaSlug));
         setStatus('sent');
       } else {
         setErrorMsg(t('errors.sendLink'));
@@ -301,6 +322,9 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
         setStatus('error');
         return;
       }
+      // A porta do WhatsApp responde igual para número cadastrado e não
+      // cadastrado (anti-enumeração): a tela não sabe se algo saiu.
+      setEnvio(confirmacaoDoEnvio('whatsapp', false));
       setStatus('sent');
     } catch (err: any) {
       setErrorMsg(t('errors.network', { message: err.message }));
@@ -433,13 +457,29 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
           /* ── Link enviado ── */
           <div className="bg-white/10 rounded-xl p-6 border border-white/15">
             <div className="text-3xl mb-3">🔐</div>
-            <p className="font-semibold mb-1" style={{ color: fontColor || '#FFFFFF' }}>{t('linkSentTitle')}</p>
-            <p className="text-sm" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
-              {t.rich('linkSentDescription', {
-                email: (chunks) => <strong>{chunks}</strong>,
-                whatsapp: (chunks) => <strong>{chunks}</strong>,
-              })}
-            </p>
+            {envio === 'enviado' ? (
+              <>
+                <p className="font-semibold mb-1" style={{ color: fontColor || '#FFFFFF' }}>{t('linkSentTitle')}</p>
+                <p className="text-sm" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
+                  {t.rich('linkSentDescription', {
+                    email: (chunks) => <strong>{chunks}</strong>,
+                    whatsapp: (chunks) => <strong>{chunks}</strong>,
+                  })}
+                </p>
+              </>
+            ) : (
+              // Pedido aceito, sem a tela saber se o cadastro existe: afirmar
+              // "Link enviado!" seria prometer o que pode não ter saído (R-76).
+              <>
+                <p className="font-semibold mb-1" style={{ color: fontColor || '#FFFFFF' }}>{t('linkRequestedTitle')}</p>
+                <p className="text-sm" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
+                  {envio === 'se-cadastrado-whatsapp' ? t('linkRequestedWhatsapp') : t('linkRequestedEmail')}
+                </p>
+                <p className="mt-3 text-xs" style={{ color: fontColorSecondary || '#FFFFFF99' }}>
+                  {t('linkRequestedHint')}
+                </p>
+              </>
+            )}
             <button
               onClick={() => setStatus('idle')}
               className="mt-4 text-sm font-medium hover:underline"
@@ -550,8 +590,17 @@ export default function LoginForm({ branding, embutido = false, ios = false }: {
             accentColor: accentColor || '#34c5cc',
           }}
           onClose={() => setShowSignup(false)}
-          onSuccess={() => {
+          onSuccess={({ semLink }) => {
             setShowSignup(false);
+            if (semLink) {
+              // O cadastro existe, o link não saiu (R-76). Até 03/10/2026 a
+              // tela dizia "Link enviado!" aqui também. Fica no formulário, com
+              // o e-mail preenchido, para pedir de novo.
+              setAvisoLink(t('signup.createdWithoutLink'));
+              setStatus('idle');
+              return;
+            }
+            setEnvio('enviado');
             setStatus('sent');
           }}
         />

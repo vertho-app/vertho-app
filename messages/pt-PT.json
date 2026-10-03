@@ -582,6 +582,10 @@
     "linkSentTitle": "Link enviado!",
     "linkSentDescription": "Clique no link enviado para o seu <email>e-mail</email> ou <whatsapp>WhatsApp</whatsapp> para aceder ao seu ambiente de desenvolvimento.",
     "useAnotherEmail": "Usar outro e-mail",
+    "linkRequestedTitle": "Pedido recebido",
+    "linkRequestedEmail": "Se este e-mail estiver registado, o link de acesso chega dentro de instantes ao e-mail, e também ao WhatsApp quando houver um número no registo.",
+    "linkRequestedWhatsapp": "Se este número estiver registado para entrar pelo WhatsApp, o link de acesso chega dentro de instantes.",
+    "linkRequestedHint": "Não chegou em alguns minutos? Confirme o que escreveu ou fale com os recursos humanos da sua organização.",
     "linkErrors": {
       "expired": "O seu link de acesso expirou ou já foi utilizado — cada link é válido uma única vez. Peça um novo abaixo: chega no seu WhatsApp ou e-mail.",
       "unavailable": "Não conseguimos validar o seu link agora. Tente novamente dentro de instantes ou peça um novo abaixo."
@@ -597,7 +601,8 @@
       "sendCode": "Não foi possível enviar o código.",
       "invalidCodeLength": "Introduza o código de 6 dígitos.",
       "invalidCode": "Código inválido.",
-      "tooManyLinks": "Já pedimos muitos links para este contacto. Use o último que recebeu ou tente novamente mais tarde."
+      "tooManyLinks": "Já pedimos muitos links para este contacto. Use o último que recebeu ou tente novamente mais tarde.",
+      "whatsappNeedsOrganization": "A partir deste endereço não conseguimos saber a sua organização pelo número. Entre com o seu e-mail ou pelo link de acesso que a sua organização enviou."
     },
     "signup": {
       "eyebrow": "{tenantName} · registo",
@@ -621,6 +626,7 @@
       "creating": "A criar acesso...",
       "submit": "Criar acesso e enviar link",
       "consent": "Ao registar-se, concorda em receber o link de acesso por e-mail e WhatsApp.",
+      "createdWithoutLink": "O seu registo foi criado, mas o link de acesso não saiu agora. Toque em Entrar para receber um novo.",
       "errors": {
         "fullName": "Introduza o seu nome completo.",
         "phoneLength": "WhatsApp deve ter 11 dígitos (DDD + 9 + número). Introduziu {count}.",

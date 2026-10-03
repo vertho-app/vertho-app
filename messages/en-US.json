@@ -582,6 +582,10 @@
     "linkSentTitle": "Link sent!",
     "linkSentDescription": "Click the link sent to your <email>email</email> or <whatsapp>WhatsApp</whatsapp> to access your development environment.",
     "useAnotherEmail": "Use another email",
+    "linkRequestedTitle": "Request received",
+    "linkRequestedEmail": "If this email is registered, the access link will arrive shortly by email, and also on WhatsApp when there is a number on file.",
+    "linkRequestedWhatsapp": "If this number is registered to sign in through WhatsApp, the access link will arrive shortly.",
+    "linkRequestedHint": "Nothing after a few minutes? Check what you typed or talk to HR at your organization.",
     "linkErrors": {
       "expired": "Your access link expired or has already been used — each link works only once. Request a new one below: it arrives on your WhatsApp or email.",
       "unavailable": "We couldn't validate your link right now. Try again in a moment or request a new one below."
@@ -597,7 +601,8 @@
       "sendCode": "Could not send the code.",
       "invalidCodeLength": "Enter the 6-digit code.",
       "invalidCode": "Invalid code.",
-      "tooManyLinks": "Too many links have been requested for this contact. Use the latest one you received or try again later."
+      "tooManyLinks": "Too many links have been requested for this contact. Use the latest one you received or try again later.",
+      "whatsappNeedsOrganization": "From this address we cannot tell your organization from the number. Sign in with your email or through the access link your organization sent."
     },
     "signup": {
       "eyebrow": "{tenantName} · sign up",
@@ -621,6 +626,7 @@
       "creating": "Creating access...",
       "submit": "Create access and send link",
       "consent": "By signing up, you agree to receive the access link by email and WhatsApp.",
+      "createdWithoutLink": "Your account was created, but the access link could not be sent right now. Tap Enter to get a new one.",
       "errors": {
         "fullName": "Enter your full name.",
         "phoneLength": "WhatsApp must have 11 digits (area code + 9 + number). You entered {count}.",

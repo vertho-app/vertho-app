@@ -38,6 +38,7 @@ export default async function LoginPage() {
       branding={branding}
       embutido={ehNavegadorEmbutido(ua)}
       ios={ehIos(ua)}
+      comOrganizacao={!!tenant}
     />
   );
 }
