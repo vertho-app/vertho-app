@@ -11,6 +11,7 @@ import { carregarBlueprintResumo } from '@/lib/blueprint/resumo';
 import { resolverContextoSemanal } from '@/lib/fase4/contexto-semanal';
 import { buscarConteudosRelacionados, formatConteudosRelacionadosBloco } from '@/lib/conteudos-relacionados';
 import { formatarPaginaAtualParaBeto } from '@/lib/beto/pagina-atual';
+import { maskColaborador, maskTextPII, unmaskPII, type PIIMapas } from '@/lib/pii-masker';
 
 const SYSTEM_PROMPT_BASE = `Você é o BETO (Business Evolution & Talent Optimizer), um mentor de desenvolvimento profissional acolhedor e empático da plataforma Vertho Mentor IA.
 
@@ -58,6 +59,12 @@ export async function chatWithBeto(
   // chamadas de 383 entravam no ledger sem dono (medido 07/09/2026).
   let empresaId: string | null = null;
   let colaboradorId: string | null = null;
+  // Máscara da conversa (R-05/R-44, 03/10/2026): o Beto mandava o nome
+  // completo à IA. Agora vai o identificador, e o perfil, o plano e as falas
+  // passam pela mesma máscara das conversas da jornada; a resposta volta com o
+  // primeiro nome. Sem contexto (pessoa não encontrada), só e-mail, telefone e
+  // CPF saem das falas.
+  let pii: PIIMapas | null = null;
 
   // Contexto da Fase 4 (pílula atual) sempre escopado ao usuário autenticado.
   if (email) {
@@ -66,9 +73,12 @@ export async function chatWithBeto(
       if (ctx) {
         empresaId = ctx.colab?.empresa_id ?? null;
         colaboradorId = ctx.colab?.id ?? null;
+        const mascara = maskColaborador(ctx.colab);
+        pii = mascara.map;
         // Perfil comportamental real do colaborador (mesmos dados/cache do Relatório).
+        // A síntese do relatório comportamental fala com a pessoa pelo nome.
         const perfilBlock = ctx.colab ? buildPerfilComportamentalBlock(ctx.colab) : null;
-        if (perfilBlock) systemPrompt += `\n\n${perfilBlock}`;
+        if (perfilBlock) systemPrompt += `\n\n${maskTextPII(perfilBlock, pii)}`;
 
         // Conhecimento curado do descritor em foco (definição + régua + evidências).
         if (ctx.conhecimentoDescritor) systemPrompt += `\n\n${ctx.conhecimentoDescritor}`;
@@ -78,14 +88,14 @@ export async function chatWithBeto(
 
         // Plano de desenvolvimento (blueprint) — personaliza a orientação ao foco
         // e aos objetivos de 30 dias do colaborador.
-        if (ctx.blueprintResumo) systemPrompt += `\n\n${ctx.blueprintResumo}`;
+        if (ctx.blueprintResumo) systemPrompt += `\n\n${maskTextPII(ctx.blueprintResumo, pii)}`;
 
         // Saiba mais — outros conteúdos catalogados sobre o tema em foco, para o
         // Beto sugerir quando o colaborador pedir (sem inventar).
         if (ctx.conteudosBloco) systemPrompt += `\n\n${ctx.conteudosBloco}`;
 
         systemPrompt += `\n\nCONTEXTO DO COLABORADOR:
-Nome: ${ctx.nome}
+Nome: ${mascara.masked?.nome} (identificador da pessoa: use-o exatamente assim onde citaria o nome)
 Cargo: ${ctx.cargo || 'não informado'}
 ${ctx.pilulaAtual ? `\nPÍLULA DA SEMANA (Semana ${ctx.semana}):
 Título: ${ctx.pilulaAtual.titulo}
@@ -100,17 +110,19 @@ ${ctx.competenciaFoco ? `\nCOMPETÊNCIA EM FOCO: ${ctx.competenciaFoco}` : ''}`;
     }
   }
 
+  // As falas anteriores do Beto já foram exibidas com o nome: mascaram de novo.
   const messages: ChatMessage[] = [
-    ...history.slice(-10).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content } as ChatMessage)),
-    { role: 'user', content: userMessage },
+    ...history.slice(-10).map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: maskTextPII(m.content, pii) } as ChatMessage)),
+    { role: 'user', content: maskTextPII(userMessage, pii) },
   ];
 
   // callAIChat injeta a instrução de idioma conforme o locale do usuário (cookie
   // vertho-locale) — sem isto o Beto respondia sempre em PT, ignorando a língua
   // selecionada no painel.
-  return callAIChat(systemPrompt, messages, { model: 'claude-sonnet-4-6' }, 1000, {
+  const resposta = await callAIChat(systemPrompt, messages, { model: 'claude-sonnet-4-6' }, 1000, {
     taskKey: 'beto', empresaId, colaboradorId,
   });
+  return unmaskPII(resposta, pii);
 }
 
 /**

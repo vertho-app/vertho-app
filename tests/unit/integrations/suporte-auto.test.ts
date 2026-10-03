@@ -133,8 +133,11 @@ import {
   TEXTO_OFENSA,
   TEXTO_SOFRIMENTO,
 } from '@/lib/whatsapp/suporte-conduta';
+import { maskColaborador } from '@/lib/pii-masker';
 
 const ACME = 'emp-acme';
+/** Identificador com que o nome da Ana (`col-ana`) vai à IA. */
+const ALIAS_ANA = maskColaborador({ id: 'col-ana', nome_completo: 'Ana Souza' }).masked!.nome;
 
 function ia(campos: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -295,7 +298,9 @@ describe('suporte-auto · equipe @vertho.ai na ACME (piloto, inalterado)', () =>
     });
     expect(String(system)).toContain('Você é o Beto');
     expect(String(system)).toContain('Nunca use palavrão');
-    expect(String(user)).toContain('Rodrigo');
+    // Nome do cadastro vai como identificador (R-44, 03/10/2026).
+    expect(String(user)).toMatch(/"pessoa":\{"nome":"COLAB_[0-9A-F]{4}"/);
+    expect(String(user)).not.toContain('Rodrigo');
     expect(String(user)).toContain('"empresa":"Acme"');
     expect(String(user)).not.toContain('Empresa errada do resolver');
     expect(String(user)).toContain('"empresa_conhecida":true');
@@ -328,7 +333,8 @@ describe('suporte-auto · equipe @vertho.ai na ACME (piloto, inalterado)', () =>
     expect(String(user)).toContain('"modo":"tenant-piloto"');
     expect(String(user)).toContain('"empresa":"ACME"');
     expect(String(user)).toContain('"empresa_conhecida":true');
-    expect(String(user)).toContain('Rodrigo');
+    expect(String(user)).toMatch(/"pessoa":\{"nome":"COLAB_[0-9A-F]{4}"/);
+    expect(String(user)).not.toContain('Rodrigo');
     expect(options.colaboradorId).toBe('col-acme');
   });
 
@@ -506,8 +512,9 @@ describe('suporte-auto · qualquer colaborador (aberto em 22/09/2026)', () => {
     const [, user, , , options] = h.chamadasIA[0];
     expect(String(user)).toContain('"modo":"colaborador"');
     expect(String(user)).toContain('"empresa":"Prefeitura de Ibipeba"');
-    expect(String(user)).toContain('Ana Souza');
-    expect(String(user)).toContain('Professora');
+    // Nome do cadastro vai como identificador; o cargo segue (R-44, 03/10/2026).
+    expect(String(user)).toContain(`"pessoa":{"nome":"${ALIAS_ANA}","cargo":"Professora"}`);
+    expect(String(user)).not.toContain('Ana Souza');
     expect(options.empresaId).toBe('emp-ibipeba');
     expect(options.colaboradorId).toBe('col-ana');
     expect(options.geminiSafetySettings).toEqual(SAFETY_SETTINGS_SUPORTE);
@@ -517,6 +524,18 @@ describe('suporte-auto · qualquer colaborador (aberto em 22/09/2026)', () => {
       origem: 'suporte-auto',
       dedupeKey: 'suporte-auto:wamid.C1',
     }));
+  });
+
+  it('mensagem e histórico vão mascarados; a resposta sai com o primeiro nome', async () => {
+    h.recebidas = [{ wa_message_id: 'wamid.ANT', empresa_id: 'emp-ibipeba', tipo: 'text', texto: 'Oi, aqui é a Ana Souza', recebida_em: new Date().toISOString() }];
+    h.respostaIA = ia({ resposta: `Oi, ${ALIAS_ANA}! Gere um novo link em https://app.vertho.ai/entrar.` });
+    const r = await executarSuporteAuto({ ...colab, texto: 'Ana de novo: meu e-mail ana@escola.gov.br não entra' });
+    expect(r.enviou).toBe(true);
+    const [, user] = h.chamadasIA[0];
+    expect(String(user)).not.toMatch(/Ana|ana@/);
+    expect(String(user)).toContain(`MENSAGEM_ATUAL: ${ALIAS_ANA} de novo: meu e-mail [email] não entra`);
+    expect(String(user)).toContain(`Oi, aqui é a ${ALIAS_ANA}`);
+    expect(h.envios[0].input.texto).toContain('Oi, Ana!');
   });
 
   it('sem o pin da equipe, o colaborador é atendido do mesmo jeito', async () => {

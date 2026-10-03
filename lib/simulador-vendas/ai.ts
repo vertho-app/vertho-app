@@ -33,6 +33,7 @@ import { periodoVigente, podeEncerrar } from './prazo';
 import { normalizarRelatorio } from './normalizacao';
 import { usaMatrizPace } from './matriz-avaliacao';
 import { usaFontesDocumentais } from './fontes';
+import { maskColaborador, maskDeepPII, unmaskDeepPII, type PIIMapas } from '@/lib/pii-masker';
 
 const TAREFAS = {
   criador: 'sim_vendas_criador',
@@ -74,12 +75,35 @@ export async function snapshotPrompts(
   return Object.fromEntries(entries) as PromptSnapshot;
 }
 
+/**
+ * Máscara do nome do vendedor (R-44, 03/10/2026). O cenário pedia o nome
+ * completo como `{{username}}` e o guardava em `nome_vendedor`, e as etapas
+ * seguintes recebiam esse cenário: o nome ia ao provedor em toda chamada da
+ * sessão. Agora todo valor enviado passa pela máscara (o nome vira o
+ * identificador) e toda saída volta com o nome antes de validar e gravar.
+ *
+ * A volta devolve o NOME COMPLETO, não o primeiro: é o que `validarCenario`
+ * confere em `nome_vendedor` e o que o cenário sempre trouxe. Sem colaborador
+ * (admin treinando) o nome é o rótulo genérico "Vendedor": nada a mascarar, e
+ * mascarar a palavra apagaria "vendedor" de todo texto.
+ */
+export function mascaraDoVendedor(
+  c: Pick<Contexto, 'colaboradorId'>,
+  s: Pick<Estado, 'nomeVendedor'>,
+): PIIMapas | null {
+  const nome = String(s.nomeVendedor || '').trim();
+  if (!c.colaboradorId || !nome || nome === 'Vendedor') return null;
+  const { masked, map } = maskColaborador({ id: c.colaboradorId, nome_completo: nome });
+  return { ida: map.ida, volta: { [masked!.nome]: nome } };
+}
+
 export function gerador(
   c: Contexto,
   s: Estado,
   requestId: string,
   deadline = Date.now() + 270000,
 ): Gerar {
+  const pii = mascaraDoVendedor(c, s);
   return async <K extends Etapa>(
     etapa: K,
     valores: Record<string, unknown>,
@@ -87,6 +111,9 @@ export function gerador(
   ): Promise<Saidas[K]> => {
     const spec = s.prompts[etapa];
     const texto = await textoDoSnapshot(c.tdb, etapa, spec);
+    // Sem vendedor identificado, os valores seguem como sempre foram (as falas
+    // já chegam sem e-mail, telefone e CPF: `service.executar`).
+    const valoresIA = pii ? maskDeepPII(valores, pii) : valores;
     const mensagens = [
       PROMPT_VERSION,
       'pace-rnaves-2.1.2-vertho-6',
@@ -94,8 +121,8 @@ export function gerador(
       'pace-rnaves-2.1.2-vertho-4',
       'pace-rnaves-2.1.2-vertho-5',
     ].includes(spec.versao)
-      ? mensagensDoPrompt(texto, valores)
-      : { system: '', user: renderPrompt(texto, valores) };
+      ? mensagensDoPrompt(texto, valoresIA)
+      : { system: '', user: renderPrompt(texto, valoresIA) };
     const promptHash = hashPrompt(
       mensagens.system ? JSON.stringify(mensagens) : mensagens.user,
     );
@@ -240,7 +267,9 @@ export function gerador(
             },
           },
         );
-        const result = parse(JSON.parse(raw));
+        // Volta com o nome ANTES de validar e gravar: a tentativa aceita é a
+        // fonte da retomada, e quem a relê compara com o nome real.
+        const result = unmaskDeepPII(parse(JSON.parse(raw)), pii);
         validar?.(result);
         const saved = await c.tdb
           .from('sim_vendas_tentativas')

@@ -46,6 +46,7 @@
 
 import { callAI } from '@/actions/ai-client';
 import { parseJsonIA } from '@/lib/ai-json';
+import { maskColaborador, maskTextPII, unmaskPII } from '@/lib/pii-masker';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import { gateEnvioDemo } from '@/lib/demo/envio-guard';
 import { TRILHA } from '@/lib/status';
@@ -966,11 +967,21 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
     geminiInlineData = audio.inlineData;
   }
 
+  // Máscara do TEXTO (R-44, 03/10/2026): o nome do cadastro, a mensagem e o
+  // histórico iam crus ao Google. Agora vai o identificador, o histórico e a
+  // mensagem passam pela mesma máscara das conversas da jornada, e a resposta
+  // volta com o primeiro nome antes da checagem de conduta e do envio. O ÁUDIO
+  // segue inteiro: a voz não tem como ser mascarada, e isso está declarado na
+  // política e em docs/FLUXO-DE-DADOS-PESSOAIS.md.
+  const mascara = a.pessoa.nome
+    ? maskColaborador({ id: a.pessoa.id ?? undefined, nome_completo: a.pessoa.nome })
+    : null;
+  const pii = mascara?.map ?? null;
   const contexto = {
     modo: a.modo === 'interno' ? 'tenant-piloto' : 'colaborador',
     empresa: detalhes.empresaNome ?? (a.modo === 'interno' ? 'ACME' : e.empresaNome),
     empresa_conhecida: true,
-    pessoa: { nome: a.pessoa.nome, cargo: a.pessoa.cargo },
+    pessoa: { nome: mascara?.masked?.nome ?? null, cargo: a.pessoa.cargo },
     ja_conversou: jaConversou,
     aguardando_equipe: detalhes.aguardandoEquipe,
     ambiguidade: null,
@@ -978,11 +989,12 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
   };
   const mensagemAtual = e.tipo === 'audio'
     ? '[áudio do colaborador anexado nesta mensagem]'
-    : e.texto?.trim();
+    : maskTextPII(e.texto?.trim(), pii);
+  const historicoParaIA = detalhes.historico.map((t) => ({ ...t, texto: maskTextPII(t.texto, pii) }));
   const usuario = [
     `MENSAGEM_ATUAL: ${mensagemAtual}`,
     `CONTEXTO: ${JSON.stringify(contexto)}`,
-    `HISTORICO_RECENTE: ${JSON.stringify(detalhes.historico)}`,
+    `HISTORICO_RECENTE: ${JSON.stringify(historicoParaIA)}`,
   ].join('\n');
 
   let saida: SaidaIA | null = null;
@@ -1061,7 +1073,9 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
     texto = respostaEscalada(jaConversou, saida.motivo_humano);
     motivoOk = 'contencao-escala';
   } else {
-    const reprovada = verificarResposta(saida.resposta);
+    // Confere o que VAI sair: o texto já com o nome de volta.
+    const resposta = unmaskPII(saida.resposta, pii);
+    const reprovada = verificarResposta(resposta);
     if (reprovada) {
       await registrarConduta('resposta-reprovada', e, a.empresaId, a.pessoa.id, {
         motivo: reprovada.motivo,
@@ -1070,7 +1084,7 @@ export async function executarSuporteAuto(e: EntradaSuporte): Promise<ResultadoS
       texto = respostaContencao(e.texto, jaConversou, e.tipo);
       motivoOk = 'contencao-reprovada';
     } else {
-      texto = saida.resposta;
+      texto = resposta;
       motivoOk = `auto:${saida.intencao}`;
     }
   }

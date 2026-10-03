@@ -10,6 +10,7 @@ import { callAI } from '@/actions/ai-client';
 import { tenantDb } from '@/lib/tenant-db';
 import { gerador } from '@/lib/simulador-vendas/ai';
 import { hashPrompt } from '@/lib/simulador-vendas/prompts';
+import { maskColaborador } from '@/lib/pii-masker';
 const req = '20000000-0000-4000-8000-000000000002';
 const ctx = () =>
   ({
@@ -108,5 +109,51 @@ describe('checkpoint dos agentes PACE', () => {
     vi.mocked(callAI).mockReset().mockRejectedValue(new Error('fetch failed'));
     await expect(gerador(ctx(), estado(), req)('moderador', {})).rejects.toMatchObject({ status: 502 });
     expect(callAI).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+ * R-44 (03/10/2026): o nome completo do vendedor ia ao provedor como
+ * `{{username}}` e, guardado no cenário, voltava em toda etapa seguinte. Agora
+ * os valores vão mascarados e a saída volta com o nome antes de validar.
+ */
+describe('o nome do vendedor não vai à IA', () => {
+  const NOME = 'Ana Beatriz Souza';
+  const TEXTO = 'VENDEDOR: {{username}} DIZ: {{input_vendedor}}';
+  const comPrompt = (nomeVendedor = NOME) => {
+    const s = estado();
+    s.nomeVendedor = nomeVendedor;
+    s.prompts.moderador = { ...s.prompts.moderador, texto: TEXTO, hash: hashPrompt(TEXTO) };
+    return s;
+  };
+  beforeEach(() => {
+    sb = criarSupabaseMock({
+      resolver: (tabela) =>
+        tabela === 'sim_vendas_config'
+          ? { habilitado: true, periodo_inicio: '2020-01-01T00:00:00Z', periodo_fim: '2099-01-01T00:00:00Z' }
+          : null,
+    });
+  });
+
+  it('valores vão com o identificador; a saída validada e gravada volta com o nome', async () => {
+    const alias = maskColaborador({ id: 'colab-a', nome_completo: NOME }).masked!.nome;
+    vi.mocked(callAI).mockReset().mockResolvedValue(JSON.stringify({ ...semViolacao, motivo: `${alias} citou o preço` }));
+    const validar = vi.fn();
+    const r = await gerador(ctx(), comPrompt(), req)('moderador', {
+      username: NOME,
+      input_vendedor: 'Oi, aqui é a Ana Beatriz, meu e-mail é ana@loja.com',
+    }, validar);
+    const enviado = String(vi.mocked(callAI).mock.calls[0][1]);
+    expect(enviado).toBe(`VENDEDOR: ${alias} DIZ: Oi, aqui é a ${alias}, meu e-mail é [email]`);
+    expect(r.motivo).toBe(`${NOME} citou o preço`);
+    expect(validar).toHaveBeenCalledWith(expect.objectContaining({ motivo: `${NOME} citou o preço` }));
+    expect(sb.escritas.at(-1)?.payload.resultado.motivo).toBe(`${NOME} citou o preço`);
+  });
+
+  it('admin treinando ("Vendedor"): nada a mascarar, a palavra continua no texto', async () => {
+    vi.mocked(callAI).mockReset().mockResolvedValue(JSON.stringify(semViolacao));
+    const admin = { ...ctx(), colaboradorId: null } as unknown as Contexto;
+    await gerador(admin, comPrompt('Vendedor'), req)('moderador', { username: 'Vendedor', input_vendedor: 'o vendedor responde' });
+    expect(String(vi.mocked(callAI).mock.calls[0][1])).toBe('VENDEDOR: Vendedor DIZ: o vendedor responde');
   });
 });

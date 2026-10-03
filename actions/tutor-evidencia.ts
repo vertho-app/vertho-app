@@ -5,6 +5,7 @@ import { callAI } from './ai-client';
 import { extractJSON } from './utils';
 import { requireUserAction } from '@/lib/auth/action-context';
 import { resolverContextoSemanal } from '@/lib/fase4/contexto-semanal';
+import { maskColaborador, maskTextPII, unmaskDeepPII } from '@/lib/pii-masker';
 
 /**
  * Avalia a qualidade de uma evidência submetida pelo colaborador.
@@ -77,7 +78,11 @@ Tom do feedback: acolhedor, motivacional, especifico. Adapte ao perfil DISC:
 
 Responda APENAS com JSON valido.`;
 
-    const user = `Colaborador: ${colab?.nome_completo || 'Colaborador'}
+    // Avaliação SEM o nome (decisão 10b do dono, 03/10/2026): vai o
+    // identificador, a evidência passa pela máscara das conversas e o feedback
+    // volta com o primeiro nome antes de gravar e de aparecer na tela.
+    const { masked: colabMasked, map: pii } = maskColaborador(colab as any);
+    const user = `Colaborador: ${colabMasked?.nome || 'Colaborador'} (identificador da pessoa: use-o exatamente assim onde citaria o nome)
 Cargo: ${colab?.cargo || 'N/A'}
 Perfil DISC: ${colab?.perfil_dominante || 'N/A'}
 Competencia em foco: ${competenciaNome}
@@ -85,7 +90,7 @@ Semana: ${semana}
 Pilula da semana: ${pilulaAtual?.titulo || 'N/A'}
 
 Evidencia submetida:
-"${evidenciaTexto}"
+"${maskTextPII(evidenciaTexto, pii)}"
 
 Avalie e gere feedback:
 {
@@ -102,7 +107,7 @@ Avalie e gere feedback:
 }`;
 
     const resultado = await callAI(system, user, {}, 1024);
-    const avaliacao = await extractJSON(resultado);
+    const avaliacao = unmaskDeepPII(await extractJSON(resultado), pii);
 
     if (!avaliacao) {
       return { success: true, feedback: 'Obrigado pela sua evidência! Continue praticando.', pontos: 5, avaliacao: null };
