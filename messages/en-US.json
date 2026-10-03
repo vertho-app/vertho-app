@@ -703,6 +703,7 @@
     },
     "mainCta": {
       "today": "Start today's activity",
+      "startsOn": "Your journey starts on {date}",
       "vote": "Vote before the behavioral profile",
       "waitingProfile": "Awaiting release of behavioral profile",
       "waitingScenarios": "Waiting for scenario mapping release",
@@ -5051,7 +5052,7 @@
       "resultSummary": "{evaluated} of {total} competencies analyzed",
       "level": "Level",
       "score": "Score",
-      "analysisPending": "Analysis in progress",
+      "analysisPending": "Answer recorded. The analysis is released by the Vertho team and shows up here once it is ready",
       "analysisRunning": "Analysis in progress — your reading will be ready in a few minutes",
       "degustacaoTitle": "Answers recorded",
       "degustacaoSubtitle": "{name}, your reading is being prepared and takes a few minutes.",

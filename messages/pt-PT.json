@@ -703,6 +703,7 @@
     },
     "mainCta": {
       "today": "Iniciar atividade de hoje",
+      "startsOn": "A sua jornada começa em {date}",
       "vote": "Votar antes do perfil comportamental",
       "waitingProfile": "A aguardar libertação do perfil comportamental",
       "waitingScenarios": "A aguardar libertação do mapeamento de cenários",
@@ -4167,7 +4168,7 @@
       "resultSummary": "{evaluated} de {total} competências com análise concluída",
       "level": "Nível",
       "score": "Nota",
-      "analysisPending": "Análise em processamento",
+      "analysisPending": "Resposta registada. A análise é disponibilizada pela equipa Vertho e aparece aqui quando estiver pronta",
       "analysisRunning": "Análise em curso — a sua leitura fica pronta dentro de alguns minutos",
       "degustacaoTitle": "Respostas registadas",
       "degustacaoSubtitle": "{name}, a sua leitura está a ser preparada e demora alguns minutos.",

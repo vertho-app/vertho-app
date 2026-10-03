@@ -155,7 +155,8 @@ export async function carregarDashboardData(ctx: UserContext, shared?: HomeShare
   } else {
     const [trilhaAtivaRes, empCfgRes] = await Promise.all([
       sb.from('trilhas')
-        .select('competencia_foco, numero_temporada, status, temporada_plano')
+        // `data_inicio`: a home diz quando a jornada começa se a semana 1 ainda não abriu.
+        .select('competencia_foco, numero_temporada, status, temporada_plano, data_inicio')
         .eq('colaborador_id', colab.id)
         .order('criado_em', { ascending: false })
         .limit(1).maybeSingle(),

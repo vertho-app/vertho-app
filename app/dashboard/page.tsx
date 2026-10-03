@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { getSupabase } from '@/lib/supabase-browser';
 import {
   ArrowRight, Play, Loader2, Check,
@@ -16,6 +16,7 @@ import VideoModal from '@/components/video-modal';
 import { ContentThumb } from '@/components/content-thumb';
 import { getRecommendedContentHref } from '@/lib/home/recommended-content-link';
 import { descritorParaHumano } from '@/lib/descritor-humano';
+import { inicioDaJornadaAindaFuturo, formatarInicioDaJornada } from '@/lib/home/inicio-jornada';
 
 const BUNNY_LIBRARY = 636615;
 
@@ -67,6 +68,7 @@ function ProgressRing({ fase, pct }: { fase: number; pct: number }) {
 
 export default function DashboardHomePage() {
   const t = useTranslations('DashboardHome');
+  const locale = useLocale();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeVideo, setActiveVideo] = useState<any>(null);
@@ -183,6 +185,9 @@ export default function DashboardHomePage() {
   const totalSemanasTrilha = kpis?.pilula?.totalSemanas || 14;
   const pct = kpis?.fase?.concluida ? 100 : Math.round(((faseNum - 1) / 5) * 100 + (kpis?.pilula?.semana ? (kpis.pilula.semana / totalSemanasTrilha) * 20 : 0));
   const competencia = data.competenciaFoco;
+  // Trilha pronta, semana 1 ainda trancada (a trilha nasce na PRÓXIMA segunda):
+  // o CTA diz quando começa, em vez de "Iniciar atividade de hoje" (R-86).
+  const inicioFuturo = competencia ? inicioDaJornadaAindaFuturo(data?.temporada?.data_inicio) : null;
   const phaseTokens = PHASE_TOKENS[faseNum] ?? PHASE_TOKENS[2];
 
   const faseDescricoes: Record<number, string> = {
@@ -238,7 +243,11 @@ export default function DashboardHomePage() {
   }
 
   function mainCTALabel() {
-    if (competencia) return t('mainCta.today');
+    if (competencia) {
+      return inicioFuturo
+        ? t('mainCta.startsOn', { date: formatarInicioDaJornada(inicioFuturo, locale) })
+        : t('mainCta.today');
+    }
     if (perfilComportamentalBloqueado) {
       if (votacaoAberta?.votacaoAtiva && !votacaoAberta.jaVotou) return t('mainCta.vote');
       return t('mainCta.waitingProfile');
