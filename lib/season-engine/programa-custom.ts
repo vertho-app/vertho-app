@@ -1,47 +1,63 @@
 /**
- * Modo PERSONALIZADO (builder de degustação) — deriva uma ProgramaConfig
- * completa e validada a partir de 3 inputs (tela Configurações → Programa):
+ * Modo PERSONALIZADO: uma Jornada de duração ajustável (decisão do dono,
+ * 03/10/2026). Deriva uma ProgramaConfig completa e validada a partir de 3
+ * inputs (tela Configurações → Programa), gravados em
+ * `sys_config.programa_custom` no MESMO formato de antes:
  *
  *   { semanas, numCompetencias, fechamento }
  *
- * Família "degustação": 1–10 semanas de conteúdo, 1–2 competências, com ou sem
- * fechamento — SEM missões, mapeamentos (DISC + técnico) sempre ativos. Regular
- * e Onboarding continuam presets de código; este builder cobre a variabilidade
- * real (demos/pilotos curtos por lead), sem expor campos livres da config.
+ * - `semanas`: de 1 a 6 semanas de CONTEÚDO POR COMPETÊNCIA. Uma semana é a da
+ *   Jornada: 2 conteúdos e 1 desafio.
+ * - `numCompetencias`: 1 ou 2, EM SEQUÊNCIA (não em paralelo). Cada competência
+ *   é uma trilha própria, como as jornadas encadeadas: terminou a primeira, a
+ *   segunda nasce sozinha (`encadear-jornada.ts`). Com 2 competências e 6
+ *   semanas são 12 semanas de conteúdo, mais os fechamentos.
+ * - `fechamento`: opcional, e a escolha vale para as duas competências.
  *
- * A config derivada usa `modo: 'piloto'` — ela HERDA a maquinaria da
- * degustação (seleção top-N por gap, entrega dupla por semana, acumulada +
- * trava + espelho quando há fechamento). O que distingue é o RÓTULO carimbado
- * ('custom') + o snapshot em `trilhas.programa_config` (mig 182), que congela
- * as regras na geração — editar o builder não afeta trilha em andamento.
+ * O formato gravado não mudou, só o SENTIDO de `semanas` com 2 competências
+ * (antes eram semanas em paralelo, uma pílula de cada; agora são semanas de
+ * cada competência). A config gravada em produção em 03/10 (unianchieta,
+ * `{"semanas":1,"fechamento":false,"numCompetencias":1}`) tem 1 competência e
+ * continua válida com o mesmo sentido.
+ *
+ * Regras de PROGRAMA COMPLETO, não de degustação: a config derivada é
+ * `modo: 'regular'`, como a Jornada. Antes era `modo: 'piloto'`, e isso ligava
+ * a trava de piso, o spec 'piloto-v1', o relatório sem nível e avanço e a
+ * recusa do certificado. "Não temos mais degustação de jornada."
+ *
+ * O snapshot em `trilhas.programa_config` (mig 182) congela as regras na
+ * geração: editar a tela não afeta trilha em andamento. Trilha `custom` gerada
+ * antes de 03/10 (snapshot com `modo: 'piloto'`) segue rodando pelo snapshot
+ * dela, com a maquinaria da degustação, que continua no motor.
  *
  * Sem fechamento (`semanasAvaliacao: []`): não existe slot de avaliação no
- * plano; o encerramento acontece ao concluir a última semana de conteúdo
- * (rota /reflection → montarReportDegustacao), único caminho de conclusão que
- * não passa pelo Evolution Report do fechamento.
+ * plano; a trilha conclui ao concluir a última semana de conteúdo (rota
+ * /reflection → `montarReportSemFechamento`). Sem Cenário B não há medição de
+ * chegada: o relatório mostra o ponto de partida e diz que o avanço não foi
+ * medido, em vez de inventar um.
  */
 
-import type { ProgramaConfig } from './programa-config';
+import type { ProgramaConfig, SequenciaPersonalizado } from './programa-config';
 
 export interface ProgramaCustomInputs {
-  /** Semanas de CONTEÚDO (o fechamento, se houver, é um slot extra espelhado). */
+  /** Semanas de CONTEÚDO por competência (o fechamento, se houver, é uma semana a mais). */
   semanas: number;
+  /** 1 ou 2 competências, em sequência. */
   numCompetencias: number;
+  /** Fechamento (Cenário B, arguição e relatório de evolução) ao fim de cada competência. */
   fechamento: boolean;
 }
 
 export const CUSTOM_LIMITES = Object.freeze({
   semanasMin: 1,
-  semanasMax: 10,
+  semanasMax: 6,
   compsMin: 1,
   compsMax: 2,
 });
 
-export const DEGUSTACAO_SPEC_VERSION = 'degustacao-v1';
-
 /**
  * Valida/normaliza o JSONB `sys_config.programa_custom`. Retorna null quando
- * o shape não sustenta uma derivação segura — o caller decide o erro (geração
+ * o shape não sustenta uma derivação segura; o caller decide o erro (geração
  * explode explícito; UI cai no default do builder).
  */
 export function parseProgramaCustom(raw: unknown): ProgramaCustomInputs | null {
@@ -55,86 +71,121 @@ export function parseProgramaCustom(raw: unknown): ProgramaCustomInputs | null {
 }
 
 /**
- * Deriva a ProgramaConfig completa dos inputs. Lança em input fora dos
- * limites (defesa contra chamada sem parse) — nunca degrada silenciosamente.
- */
-/**
- * Onde o gestor avalia num programa MONTADO pelo cliente.
+ * Deriva a ProgramaConfig de UMA competência (uma trilha). Lança em input fora
+ * dos limites (defesa contra chamada sem parse): nunca degrada silenciosamente.
  *
- * As constantes de programa trazem as semanas escritas (DUO [5,10], jornada
- * [3,5]); o custom tem duração variável, então a proporção é calculada: ~1/3 e
- * ~2/3 do percurso de CONTEÚDO, sem repetir e sem passar do fim. Programas
- * muito curtos ficam com um checkpoint só — dois pontos numa jornada de duas
- * semanas seria cerimônia, não acompanhamento.
+ * É a Jornada (`PROGRAMA_JORNADA`) com a duração escolhida: `modo: 'regular'`,
+ * 2 conteúdos por semana, um desafio por competência, sem semana de missão,
+ * sem checkpoint do gestor (a Jornada não tem, por desenho do produto em
+ * 04/09/2026), acumulada na última semana de conteúdo e arguição de 6 turnos.
+ * O fechamento, quando existe, é uma semana própria no calendário, como a
+ * semana 7 da Jornada (sem o espelho de calendário da degustação).
+ *
+ * A sequência de competências NÃO entra aqui: ela é decidida na geração
+ * (`planejarTrilhaPersonalizada`, em trilha-core), que conhece o cargo e o
+ * mapeamento da pessoa.
  */
-function semanasCheckpointDe(semanasDeConteudo: number): number[] {
-  if (semanasDeConteudo < 3) return [];
-  const pontos = [Math.round(semanasDeConteudo / 3), Math.round((semanasDeConteudo * 2) / 3)];
-  return [...new Set(pontos)].filter((semana) => semana >= 1 && semana <= semanasDeConteudo);
-}
-
 export function derivarConfigCustom(inputs: ProgramaCustomInputs): ProgramaConfig {
   const valido = parseProgramaCustom(inputs);
   if (!valido) {
     throw new Error(
-      `programa_custom inválido: semanas ${CUSTOM_LIMITES.semanasMin}–${CUSTOM_LIMITES.semanasMax}, ` +
-      `competências ${CUSTOM_LIMITES.compsMin}–${CUSTOM_LIMITES.compsMax} (recebido: ${JSON.stringify(inputs)})`,
+      `programa_custom inválido: semanas de ${CUSTOM_LIMITES.semanasMin} a ${CUSTOM_LIMITES.semanasMax}, ` +
+      `competências de ${CUSTOM_LIMITES.compsMin} a ${CUSTOM_LIMITES.compsMax} (recebido: ${JSON.stringify(inputs)})`,
     );
   }
-  const { semanas, numCompetencias, fechamento } = valido;
+  const { semanas, fechamento } = valido;
   const slotsConteudo = Array.from({ length: semanas }, (_, i) => i + 1);
+
+  const base = {
+    modo: 'regular' as const,
+    semanasMissao: [],
+    semanasCheckpoint: [],
+    slotsConteudo,
+    blocosCobertos: {},
+    complexidadeMap: {},
+    nivelMetaAlvo: 3 as const,
+    // Por TRILHA. A segunda competência do programa é outra trilha, encadeada.
+    numCompetencias: 1,
+    conteudosPorSemana: 2,
+    desafioUnicoPorCompetencia: true,
+  };
 
   if (fechamento) {
     const semanaFech = semanas + 1;
     return {
-      modo: 'piloto',
+      ...base,
       semanas: semanaFech,
-      semanasMissao: [],
       semanasAvaliacao: [semanaFech],
-      semanasCheckpoint: semanasCheckpointDe(semanas),
       semanaCenarioB: semanaFech,
-      // Acumulada dispara ao concluir a ÚLTIMA semana de conteúdo (mesma
-      // maquinaria do piloto: task Trigger + gate no fechamento).
+      // Como na Jornada: sem semana de conversa qualitativa, a acumulada é a
+      // última semana de conteúdo (as evidências do fechamento vão até ela).
       semanaAcumulada: semanas,
-      slotsConteudo,
-      blocosCobertos: {},
-      complexidadeMap: {},
-      nivelMetaAlvo: 3,
-      numCompetencias,
-      conteudosPorSemana: 2,
-      // Uma tarefa por competência por semana (27/08/2026), como no piloto e na
-      // jornada. Com `numCompetencias >= 2` a régua devolve uma tarefa CADA —
-      // ela unifica por competência, não por semana (ver `manterUmDesafio`).
-      desafioUnicoPorCompetencia: true,
-      // Fechamento libera no CALENDÁRIO da última semana de conteúdo; o gate
-      // real é a progressão ("anterior concluída") — nunca espera semana extra.
-      semanaEspelhoCalendario: { [semanaFech]: semanas },
-      arguicao: { ativa: true, maxTurnos: 4 },
+      arguicao: { ativa: true, maxTurnos: 6 },
     };
   }
 
   return {
-    modo: 'piloto',
+    ...base,
     semanas,
-    semanasMissao: [],
     semanasAvaliacao: [],
-    semanasCheckpoint: semanasCheckpointDe(semanas),
-    // 0 = inalcançável (semana >= 1): sem slot de Cenário B e a acumulada
-    // nunca dispara — não há fechamento pra consumi-la.
+    // 0 = inalcançável (semana >= 1): sem slot de Cenário B e sem acumulada;
+    // não há fechamento para consumi-la.
     semanaCenarioB: 0,
     semanaAcumulada: 0,
-    slotsConteudo,
-    blocosCobertos: {},
-    complexidadeMap: {},
-    nivelMetaAlvo: 3,
-    numCompetencias,
-    conteudosPorSemana: 2,
-    desafioUnicoPorCompetencia: true,
     arguicao: { ativa: false, maxTurnos: 0 },
   };
 }
 
-/** Config de degustação SEM fechamento (encerra na última semana de conteúdo). */
+/**
+ * O programa Personalizado INTEIRO, para quem precifica (orçamento e proposta).
+ * `derivarConfigCustom` descreve UMA trilha, e cada competência é uma trilha
+ * própria em sequência: com 2 competências o programa dura e custa o dobro de
+ * uma. Ler `derivarConfigCustom(...).semanas` como duração do programa contaria
+ * só a primeira competência.
+ */
+export function resumoProgramaPersonalizado(inputs: ProgramaCustomInputs): {
+  porTrilha: ProgramaConfig;
+  trilhas: number;
+  semanasTotais: number;
+} {
+  const porTrilha = derivarConfigCustom(inputs);
+  const trilhas = inputs.numCompetencias;
+  return { porTrilha, trilhas, semanasTotais: porTrilha.semanas * trilhas };
+}
+
+/**
+ * Lê a sequência gravada no snapshot (JSONB é dado, não código). Competências
+ * distintas, de 1 a `CUSTOM_LIMITES.compsMax`, e posição dentro delas; fora
+ * disso, null (o caller trata como programa de uma competência só).
+ */
+export function parseSequenciaPersonalizado(raw: unknown): SequenciaPersonalizado | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as any;
+  if (!Array.isArray(r.competencias)) return null;
+  const competencias = r.competencias.filter((c: unknown) => typeof c === 'string' && c.trim().length > 0);
+  if (competencias.length !== r.competencias.length) return null;
+  if (competencias.length < 1 || competencias.length > CUSTOM_LIMITES.compsMax) return null;
+  if (new Set(competencias.map((c: string) => c.trim().toLowerCase())).size !== competencias.length) return null;
+  const posicao = Number(r.posicao);
+  if (!Number.isInteger(posicao) || posicao < 1 || posicao > competencias.length) return null;
+  return { competencias, posicao };
+}
+
+/**
+ * A config da PRÓXIMA competência do programa, a partir do snapshot da trilha
+ * que acabou de concluir: as mesmas regras (duração, fechamento) e a posição
+ * seguinte. null quando a trilha é a última (ou o programa tem uma só).
+ *
+ * As regras vêm do SNAPSHOT, e não da tela no dia do encadeamento: o programa
+ * está em andamento, e trocar a duração no meio dele seria reinterpretá-lo.
+ */
+export function configDaProximaCompetencia(snapshot: ProgramaConfig): ProgramaConfig | null {
+  const seq = parseSequenciaPersonalizado(snapshot?.sequenciaPersonalizado);
+  if (!seq || seq.posicao >= seq.competencias.length) return null;
+  return { ...snapshot, sequenciaPersonalizado: { competencias: seq.competencias, posicao: seq.posicao + 1 } };
+}
+
+/** Config SEM fechamento (encerra na última semana de conteúdo). */
 export function ehConfigSemFechamento(config: Pick<ProgramaConfig, 'semanasAvaliacao'>): boolean {
   return !config.semanasAvaliacao || config.semanasAvaliacao.length === 0;
 }
@@ -142,7 +193,8 @@ export function ehConfigSemFechamento(config: Pick<ProgramaConfig, 'semanasAvali
 /**
  * Encerramento sem fechamento: dispara quando a semana concluída é a última do
  * plano E o modo não tem slot de avaliação. Falso pra TODOS os presets
- * (semanasAvaliacao não-vazia) — por construção só o custom sem fechamento entra.
+ * (semanasAvaliacao não-vazia); por construção só o Personalizado sem
+ * fechamento entra.
  */
 export function deveEncerrarSemFechamento(
   config: Pick<ProgramaConfig, 'semanas' | 'semanasAvaliacao'>,
@@ -151,33 +203,39 @@ export function deveEncerrarSemFechamento(
   return ehConfigSemFechamento(config) && Number(semanaConcluida) === config.semanas;
 }
 
+/** Rótulo do relatório de quem concluiu SEM fechamento (não é piloto). */
+export const REPORT_MODO_SEM_FECHAMENTO = 'sem_fechamento';
+export const SEM_FECHAMENTO_SPEC_VERSION = 'personalizado-sem-fechamento-v1';
+
 /**
- * Report de encerramento da degustação SEM fechamento. Usa o shape do report
- * piloto (`modo:'piloto'`) de propósito: a tela de conclusão já tem a variante
- * sem delta e a agregação do gestor já EXCLUI esse modo. `sem_fechamento:true`
- * esconde o que não existe (PDF/avaliação); baseline = diagnóstico.
+ * Relatório de encerramento do Personalizado SEM fechamento.
+ *
+ * Programa completo, então NÃO usa o shape da degustação (`modo: 'piloto'`,
+ * que a tela rotula "Piloto concluído" e o certificado recusa). Também não usa
+ * o shape do relatório regular: sem Cenário B não existe nota de chegada, e
+ * `nota_pos` igual à de partida seria "estável" afirmado sem medição. O que
+ * há é o ponto de partida (`baseline`, do diagnóstico), e `sem_fechamento:
+ * true` diz a quem lê que o avanço não foi medido.
+ *
+ * Quem agrega evolução exclui este relatório pela mesma régua que exclui o do
+ * piloto (`relatorioMedeEvolucao`); o certificado não o recusa.
  */
-export function montarReportDegustacao(trilha: {
+export function montarReportSemFechamento(trilha: {
   competencia_foco?: string | null;
   descritores_selecionados?: any;
 }): Record<string, any> {
   const descritores = Array.isArray(trilha.descritores_selecionados) ? trilha.descritores_selecionados : [];
   return {
-    modo: 'piloto',
+    modo: REPORT_MODO_SEM_FECHAMENTO,
     sem_fechamento: true,
-    spec_version: DEGUSTACAO_SPEC_VERSION,
+    spec_version: SEM_FECHAMENTO_SPEC_VERSION,
     descritores: descritores.map((d: any) => ({
       competencia: d.competencia || trilha.competencia_foco || null,
       descritor: d.descritor,
       baseline: d.nota_atual ?? null,
-      nota_avaliacao: null,
-      nota_avaliacao_bruta: null,
-      piso_aplicado: false,
-      justificativa_cenario: null,
     })),
     resumo_avaliacao: null,
     nota_media_pos: null,
-    piso_aplicado: false,
   };
 }
 

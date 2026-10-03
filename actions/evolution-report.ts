@@ -5,6 +5,7 @@ import { requireAdminAction } from '@/lib/auth/action-context';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { gerarEvolutionReportCore } from '@/lib/season-engine/evolution-report-core';
 import { TRILHA } from '@/lib/status';
+import { relatorioMedeEvolucao } from '@/lib/season-engine/convergencia';
 
 /**
  * Action ADMIN do Evolution Report (tela de auditoria sem14) — SEMPRE gatada,
@@ -37,12 +38,13 @@ export async function loadEvolutionReportsEmpresa(empresaId: string) {
       .eq('status', TRILHA.CONCLUIDA)
       .not('evolution_report', 'is', null);
     // exclui trilhas de colaboradores internos @vertho.ai da agregação
-    // + relatórios de PILOTO (demonstração da avaliação, não medem evolução —
-    // entrariam sem convergência e poluiriam a distribuição do gestor)
+    // + relatórios que não medem evolução (PILOTO e Personalizado SEM
+    // fechamento: entrariam sem convergência e poluiriam a distribuição do
+    // gestor). Régua única: `relatorioMedeEvolucao`.
     const { data: internosEv } = await tdb.from('colaboradores').select('id').ilike('email', '%@vertho.ai');
     const internosEvSet = new Set((internosEv || []).map((c: any) => c.id));
     const trilhas = (trilhasRaw || []).filter((t: any) =>
-      !internosEvSet.has(t.colaborador_id) && t.evolution_report?.modo !== 'piloto');
+      !internosEvSet.has(t.colaborador_id) && relatorioMedeEvolucao(t.evolution_report));
 
     const ids = (trilhas || []).map(t => t.colaborador_id);
     // `email` entra porque é a chave do PDF individual

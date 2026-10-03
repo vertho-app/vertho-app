@@ -3,14 +3,14 @@
 import { createSupabaseAdmin } from '@/lib/supabase';
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail, canViewColabJourney } from '@/lib/authz';
-import { selectDescriptorsPiloto } from '@/lib/season-engine/select-descriptors';
+import { selectDescriptors, selectDescriptorsPiloto } from '@/lib/season-engine/select-descriptors';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
 import { entregaEhReal } from '@/lib/season-engine/week-gating';
 import { overlayKitNaSemana, formatoPreferido } from '@/lib/season-engine/kit/entrega-semana';
 import { topDoisFormatos } from '@/lib/season-engine/kit/formatos-por-preferencia';
 import { getProgramaConfigByModo, getProgramaConfigDaTrilha, resolverModoColab } from '@/lib/season-engine/programa-config';
 import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
-import { gerarTemporadaCoreHeadless, normalizarSemanas } from '@/lib/season-engine/trilha-core';
+import { gerarTemporadaCoreHeadless, normalizarSemanas, resolverCompetenciasDoPersonalizado } from '@/lib/season-engine/trilha-core';
 import type { AIConfig } from './ai-client';
 import { z } from 'zod';
 import { requireAdminAction, requireUserAction, getAuthenticatedEmailFromAction, assertTenantAccessAction } from '@/lib/auth/action-context';
@@ -112,7 +112,7 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
       c => modoPorColab.get(c.id) === 'piloto' || modoPorColab.get(c.id) === 'custom',
     );
     if (!colabs.length) {
-      throw new Error(`Nenhum colaborador resolveria pra piloto/personalizado (default da empresa: ${empresa?.sys_config?.programa_modo || 'regular DUO'}; nenhum override individual). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.`);
+      throw new Error(`Nenhum colaborador resolveria pra piloto/personalizado (default da empresa: ${empresa?.sys_config?.programa_modo || 'jornada, o padrão'}; nenhum override individual). Marque colaboradores em Configurações → Equipe ou mude o default do Programa.`);
     }
     const configPiloto = getProgramaConfigByModo('piloto');
     // Config do modo custom (builder) — derivada uma vez do sys_config da
@@ -127,6 +127,9 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
 
     const resultados: any[] = [];
     const conteudoCache: Record<string, any[]> = {};
+    // Personalizado com 2 competências: a resolução da 2ª é por (cargo, âncora),
+    // então uma consulta serve a todo mundo do mesmo cargo.
+    const competenciasPorCargoAncora = new Map<string, string[]>();
 
     // Batch (era 2 queries POR colaborador): trilhas mais recentes + cargos
     const colabIds = colabs.map((c: any) => c.id);
@@ -165,51 +168,82 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
       }
 
       // Competência âncora — MESMA resolução da geração (trilha → cargo)
-      const comp: string | undefined = compPorColab.get(colab.id) || (colab.cargo ? compPorCargo.get(colab.cargo) : undefined);
-      if (!comp) {
+      const ancora: string | undefined = compPorColab.get(colab.id) || (colab.cargo ? compPorCargo.get(colab.cargo) : undefined);
+      if (!ancora) {
         resultados.push({ colaborador: colab.nome_completo, pronto: false, bloqueadores: ['Sem competência foco resolvível (trilha/cargo)'] });
         continue;
       }
 
-      // Custom com 2 comps: cada semana leva 1 descritor POR comp — na âncora o
-      // esperado é 1/semana. Piloto/custom-single: conteudosPorSemana da mesma comp.
-      const duasComps = (cfg.numCompetencias || 1) >= 2;
-      const porSemana = duasComps ? 1 : (cfg.conteudosPorSemana || 2);
-      const esperado = (cfg.slotsConteudo?.length || 2) * porSemana;
-
-      const assessment = assessmentsPorColabComp.get(`${colab.id}|${comp}`) || [];
-      const top = selectDescriptorsPiloto(comp, assessment, cfg.slotsConteudo, porSemana);
-
       const bloqueadores: string[] = [];
       const avisos: string[] = [];
-      if (duasComps) {
-        avisos.push('2 competências: a prontidão verifica a comp âncora; sem a 2ª viável, a geração degrada pra 1 comp (não bloqueia)');
-      }
-      if (top.length < esperado) {
-        bloqueadores.push(`Só ${top.length}/${esperado} descritores avaliados distintos em "${comp}" — complete o mapeamento`);
+
+      // Descritores que a geração vai trabalhar, POR competência do programa.
+      //  - Piloto (descontinuado na tela, segue para quem está gravado nele):
+      //    top-N distintos por gap, N = semanas × conteúdos por semana.
+      //  - Personalizado (03/10/2026): a seleção da Jornada (`selectDescriptors`,
+      //    o fallback de quando não há blueprint), que distribui as semanas
+      //    entre os descritores por lacuna e NÃO exige um descritor por pílula.
+      //    Com 2 competências, a geração exige as duas resolvidas e mapeadas
+      //    antes de gerar a primeira; aqui é a mesma checagem, como bloqueador.
+      const alvos: { competencia: string; descritores: string[] }[] = [];
+      if (modoColab === 'custom') {
+        let comps = [ancora];
+        if ((inputsCustom?.numCompetencias || 1) >= 2) {
+          const chave = `${colab.cargo || ''}|${ancora}`;
+          if (!competenciasPorCargoAncora.has(chave)) {
+            competenciasPorCargoAncora.set(chave, await resolverCompetenciasDoPersonalizado(tdb, colab, ancora, empresa?.sys_config));
+          }
+          const resolvidas = competenciasPorCargoAncora.get(chave)!;
+          if (resolvidas.length < 2) {
+            bloqueadores.push(`Personalizado com 2 competências: o cargo "${colab.cargo || 'sem cargo'}" não tem uma 2ª competência além de "${ancora}". Defina as competências foco do cargo ou configure 1 competência.`);
+          } else {
+            comps = resolvidas;
+            avisos.push(`2 competências em sequência: "${comps[0]}" e depois "${comps[1]}" (a segunda nasce quando a primeira conclui)`);
+          }
+        }
+        for (const c of comps) {
+          const assessment = assessmentsPorColabComp.get(`${colab.id}|${c}`) || [];
+          if (!assessment.length) {
+            bloqueadores.push(`Sem avaliação (mapeamento) em "${c}": complete o mapeamento dessa competência`);
+            continue;
+          }
+          alvos.push({ competencia: c, descritores: selectDescriptors(assessment, cfg.slotsConteudo).map(d => d.descritor) });
+        }
+      } else {
+        const porSemana = cfg.conteudosPorSemana || 2;
+        const esperado = (cfg.slotsConteudo?.length || 2) * porSemana;
+        const assessment = assessmentsPorColabComp.get(`${colab.id}|${ancora}`) || [];
+        const top = selectDescriptorsPiloto(ancora, assessment, cfg.slotsConteudo, porSemana);
+        if (top.length < esperado) {
+          bloqueadores.push(`Só ${top.length}/${esperado} descritores avaliados distintos em "${ancora}": complete o mapeamento`);
+        }
+        alvos.push({ competencia: ancora, descritores: top.map(d => d.descritor) });
       }
 
-      // Conteúdos da competência (empresa OU global), 1 query por competência
-      if (!conteudoCache[comp]) {
-        const { data: conteudos } = await sbRaw.from('micro_conteudos')
-          .select('descritor, formato')
-          .eq('ativo', true).eq('competencia', comp)
-          .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
-        conteudoCache[comp] = conteudos || [];
-      }
-      const pool = conteudoCache[comp];
-      const formatosPool = new Set(pool.map((c: any) => c.formato));
+      for (const alvo of alvos) {
+        const comp = alvo.competencia;
+        // Conteúdos da competência (empresa OU global), 1 query por competência
+        if (!conteudoCache[comp]) {
+          const { data: conteudos } = await sbRaw.from('micro_conteudos')
+            .select('descritor, formato')
+            .eq('ativo', true).eq('competencia', comp)
+            .or(`empresa_id.eq.${empresaId},empresa_id.is.null`);
+          conteudoCache[comp] = conteudos || [];
+        }
+        const pool = conteudoCache[comp];
+        const formatosPool = new Set(pool.map((c: any) => c.formato));
 
-      for (const d of top) {
-        const doDescritor = pool.filter((c: any) => c.descritor === d.descritor);
-        if (doDescritor.length === 0 && pool.length === 0) {
-          bloqueadores.push(`"${d.descritor}": SEM formato-core (nenhum conteúdo da competência) — semana nasceria com fallback`);
-        } else if (doDescritor.length === 0) {
-          avisos.push(`"${d.descritor}": sem conteúdo próprio — reusa pool da competência (${[...formatosPool].join(', ')})`);
-        } else {
-          const formatosDesc = new Set(doDescritor.map((c: any) => c.formato));
-          const faltando = ['video', 'texto', 'audio', 'case'].filter(f => !formatosDesc.has(f));
-          if (faltando.length) avisos.push(`"${d.descritor}": opcionais faltando no switch (${faltando.join(', ')}) — ok, degrada`);
+        for (const descritor of alvo.descritores) {
+          const doDescritor = pool.filter((c: any) => c.descritor === descritor);
+          if (doDescritor.length === 0 && pool.length === 0) {
+            bloqueadores.push(`"${descritor}": SEM formato-core (nenhum conteúdo da competência), a semana nasceria com fallback`);
+          } else if (doDescritor.length === 0) {
+            avisos.push(`"${descritor}": sem conteúdo próprio, reusa o pool da competência (${[...formatosPool].join(', ')})`);
+          } else {
+            const formatosDesc = new Set(doDescritor.map((c: any) => c.formato));
+            const faltando = ['video', 'texto', 'audio', 'case'].filter(f => !formatosDesc.has(f));
+            if (faltando.length) avisos.push(`"${descritor}": opcionais faltando no switch (${faltando.join(', ')}), ok, degrada`);
+          }
         }
       }
 
@@ -223,9 +257,9 @@ const _verificarProntidaoPiloto = protectedAction('admin.access', ProntidaoInput
       resultados.push({
         colaborador: colab.nome_completo,
         cargo: colab.cargo,
-        competencia: comp,
+        competencia: alvos.map(a => a.competencia).join(' + ') || ancora,
         modo: modoColab,
-        descritores: top.map(d => d.descritor),
+        descritores: alvos.flatMap(a => a.descritores),
         pronto: bloqueadores.length === 0,
         bloqueadores,
         avisos,

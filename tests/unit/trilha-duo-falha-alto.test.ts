@@ -49,7 +49,9 @@ function sbRawMock() {
   return {
     from: vi.fn((table: string) => {
       if (table === 'colaboradores') return chainable([], COLAB);
-      if (table === 'empresas') return chainable([], { segmento: 'educacao', sys_config: {} });
+      // DUO GRAVADO explicitamente: desde 03/10/2026 o padrão de quem não tem
+      // modo é a Jornada, e o DUO segue só para quem está gravado nele.
+      if (table === 'empresas') return chainable([], { segmento: 'educacao', sys_config: { programa_modo: 'regular_duo' } });
       return chainable([], null);
     }),
   };

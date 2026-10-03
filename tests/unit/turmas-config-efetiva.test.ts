@@ -121,8 +121,9 @@ describe('resolverConfigEfetiva', () => {
   it('resolverModoDaTurma normaliza o rótulo como resolverModoColab', () => {
     expect(resolverModoDaTurma({ empresa: {}, turma: { programa_modo: 'jornada' } })).toBe('jornada');
     expect(resolverModoDaTurma({ empresa: { programa_modo: 'regular' } })).toBe('regular_duo');
-    expect(resolverModoDaTurma({ empresa: {} })).toBe('regular_duo');
-    expect(resolverModoDaTurma({ empresa: { programa_modo: 'xpto' } })).toBe('regular_duo');
+    // Padrão desde 03/10/2026: sem modo (ou modo desconhecido) é Jornada.
+    expect(resolverModoDaTurma({ empresa: {} })).toBe('jornada');
+    expect(resolverModoDaTurma({ empresa: { programa_modo: 'xpto' } })).toBe('jornada');
   });
 });
 

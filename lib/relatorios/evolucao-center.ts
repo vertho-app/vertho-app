@@ -1,6 +1,6 @@
 import { tenantDb } from '@/lib/tenant-db';
 import { PROGRESSO, TRILHA } from '@/lib/status';
-import { CONVERGENCIA, rotuloConvergencia, type Convergencia } from '@/lib/season-engine/convergencia';
+import { CONVERGENCIA, relatorioMedeEvolucao, rotuloConvergencia, type Convergencia } from '@/lib/season-engine/convergencia';
 import { nivelDaNota } from '@/lib/nivel-regua';
 import { fechoDoRelatorio } from '@/lib/season-engine/resumo-avaliacao';
 import { descritorParaHumano } from '@/lib/descritor-humano';
@@ -266,8 +266,9 @@ export function agregarEvolucao(
     const report = trilha.evolution_report;
     if (!report || !Array.isArray(report.descritores) || report.descritores.length === 0) continue;
     // Piloto não mede evolução (ver o cabeçalho). Ele grava `baseline`, e não
-    // `nota_pre`: entrar aqui viraria delta sobre campo ausente.
-    if (report.modo === 'piloto') continue;
+    // `nota_pre`: entrar aqui viraria delta sobre campo ausente. O Personalizado
+    // SEM fechamento grava a mesma forma (03/10/2026): mesma régua.
+    if (!relatorioMedeEvolucao(report)) continue;
 
     const linhasDaTrilha: EvolucaoDescritorLinha[] = report.descritores.map((d: any) => {
       const notaPre = Number(d.nota_pre ?? 0);

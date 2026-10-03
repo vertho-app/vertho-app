@@ -9,7 +9,8 @@
  */
 
 import { z } from 'zod';
-import { protectedAction } from '@/lib/auth/protected-action';
+import { protectedAction, DomainError } from '@/lib/auth/protected-action';
+import { problemaNaChaveDePrograma } from '@/lib/sys-config-plataforma';
 import { requireAdminSupabase } from '@/lib/admin-supabase';
 import { assertTenantAccessAction } from '@/lib/auth/action-context';
 import { logAdminAction } from '@/lib/audit';
@@ -20,6 +21,19 @@ const STATUS_TURMA = [
   TURMA.PLANEJADA, TURMA.DIAGNOSTICO, TURMA.TRILHAS_EM_GERACAO,
   TURMA.EM_JORNADA, TURMA.CONCLUIDA, TURMA.ARQUIVADA,
 ] as const;
+
+/**
+ * O programa da SAFRA passa pela mesma régua do programa da empresa
+ * (`problemaNaChaveDePrograma`): desde 03/10/2026 só Jornada, Onboarding e
+ * Personalizado aceitam gravação nova. Sem isto, a tela da empresa recusaria
+ * o Piloto e a da turma o gravaria, e a turma VENCE a empresa na geração
+ * (`resolverModoDaTurma`). Medido em 03/10: nenhuma turma tinha formato
+ * descontinuado gravado, então a recusa não trava ninguém que já existe.
+ */
+function assertProgramaDaTurma(sysConfig: Record<string, any> | undefined): void {
+  const problema = problemaNaChaveDePrograma('programa_modo', sysConfig?.programa_modo);
+  if (problema) throw new DomainError(problema, 'programa_invalido');
+}
 
 // ── Leitura ────────────────────────────────────────────────────────────────
 
@@ -114,6 +128,7 @@ const CriarInput = z.object({
 
 const _criarTurma = protectedAction('content.manage', CriarInput, async (ctx, input) => {
   await assertTenantAccessAction(ctx, input.empresaId);
+  assertProgramaDaTurma(input.sysConfig);
   const sb = await requireAdminSupabase();
 
   const { data, error } = await sb.from('turmas').insert({
@@ -147,6 +162,7 @@ const EditarInput = z.object({
 
 const _editarTurma = protectedAction('content.manage', EditarInput, async (ctx, input) => {
   await assertTenantAccessAction(ctx, input.empresaId);
+  assertProgramaDaTurma(input.sysConfig);
   const sb = await requireAdminSupabase();
 
   const patch: Record<string, any> = { updated_at: new Date().toISOString() };

@@ -32,6 +32,16 @@ export async function GET(request: Request) {
     const dados = await loadTemporadaConcluida(emailAlvo, trilhaId);
     if (dados.error) return NextResponse.json({ error: dados.error }, { status: 404 });
 
+    // Personalizado SEM fechamento (03/10/2026): não houve avaliação final, e o
+    // PDF da temporada é o documento dela (nível, avanço, cenário). Renderizar o
+    // layout regular sobre um relatório só com o ponto de partida imprimiria
+    // avanço e contadores vazios como se tivessem sido medidos. A tela não
+    // oferece o botão; esta recusa cobre o link direto. O certificado é outra
+    // rota e continua valendo.
+    if (dados.evolutionReport?.sem_fechamento === true && dados.evolutionReport?.modo !== 'piloto') {
+      return NextResponse.json({ error: 'Este programa foi concluído sem avaliação final: não há relatório em PDF. O certificado está disponível.' }, { status: 409 });
+    }
+
     // A marca é do TENANT, não da rota: cliente white-label recebe o PDF com o
     // logo dele e sem nenhuma identificação da Vertho, inclusive no nome do
     // arquivo, que é o que aparece na pasta de Downloads de quem recebe.

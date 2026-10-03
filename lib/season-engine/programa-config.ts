@@ -1,13 +1,13 @@
 /**
  * ProgramaConfig — parâmetros que diferenciam um "modo" do programa (regular x onboarding).
  *
- * Lido de `empresas.sys_config` (JSONB livre, sem CHECK no DB). Default = regular.
- * Fase 1 do Modo Onboarding: extrai hardcodes da engine para esta config. Nesta
- * fase NÃO existe ainda o template `onboarding` — toda empresa cai em regular.
- * O template Onboarding entra na Fase 2.
+ * Lido de `empresas.sys_config` (JSONB livre, sem CHECK no DB). Desde 03/10/2026
+ * o padrão de quem não tem `programa_modo` é a Jornada de 7 semanas
+ * (`PROGRAMA_MODO_PADRAO`); antes era o Regular DUO de 14.
  */
 
 import { TUTORIAIS_PLATAFORMA } from '@/lib/tutorial-videos';
+import { parseConfigSnapshot, parseProgramaCustom, derivarConfigCustom } from './programa-custom';
 
 export type ProgramaModo = 'regular' | 'onboarding' | 'piloto';
 export type ComplexidadeMissao = 'simples' | 'intermediario' | 'completo';
@@ -180,6 +180,21 @@ export interface ProgramaConfig {
    * ao atual. Fusão da nota (Fase B) e UI (Fase C) vêm depois; aqui só o motor.
    */
   arguicao?: { ativa: boolean; maxTurnos: number };
+  /**
+   * Personalizado com 2 competências EM SEQUÊNCIA (03/10/2026): a ordem das
+   * competências, decidida e validada na geração da PRIMEIRA trilha, e a
+   * posição (1 ou 2) DESTA trilha nela. Cada competência é uma trilha própria,
+   * como na Jornada; vive no snapshot (`trilhas.programa_config`) para o
+   * encadeamento abrir a segunda pela regra congelada na primeira, e não pelo
+   * que a tela disser no dia. undefined = programa de uma competência só.
+   */
+  sequenciaPersonalizado?: SequenciaPersonalizado;
+}
+
+/** Ver `ProgramaConfig.sequenciaPersonalizado`. `posicao` começa em 1. */
+export interface SequenciaPersonalizado {
+  competencias: string[];
+  posicao: number;
 }
 
 /**
@@ -262,9 +277,10 @@ export const PROGRAMA_ONBOARDING: ProgramaConfig = Object.freeze({
  * de descritores e as missões viram multi-competência. Isso mantém intactos
  * week-gating, progresso, dashboard week-view e Cenário B (sem 14).
  *
- * Default GLOBAL: toda empresa sem `programa_modo` cai aqui. Trilhas já
- * persistidas (single-comp) não são regeradas — o plano salvo é servido
- * como está; só nova geração usa DUO.
+ * Foi o default GLOBAL até 03/10/2026; hoje empresa sem `programa_modo` nasce
+ * na Jornada (`PROGRAMA_MODO_PADRAO`) e este formato saiu da tela de escolha
+ * (`MODOS_DESCONTINUADOS`). Continua no motor para as trilhas carimbadas
+ * `regular_duo` e para a trilha legada SEM carimbo (`getProgramaConfigLegado`).
  */
 export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
   modo: 'regular',
@@ -324,6 +340,11 @@ export const PROGRAMA_REGULAR_DUO: ProgramaConfig = Object.freeze({
  * na row da sem 2 (semanaAcumulada=2) — NÃO há semana de conversa qualitativa.
  * Sem missões. O fechamento do piloto carimba spec_version 'piloto-v1' e
  * aplica a trava de piso (nota_pos_exibido ≥ baseline) SÓ nesse caminho.
+ *
+ * ⛔ Não é mais oferecido (03/10/2026, "não temos mais degustação de jornada"):
+ * saiu da tela de escolha e o servidor recusa gravação nova dele. Segue no
+ * motor para as trilhas já carimbadas `piloto` e para quem já está gravado
+ * assim (override de colaborador, `sys_config` de empresa).
  */
 export const PROGRAMA_PILOTO: ProgramaConfig = Object.freeze({
   modo: 'piloto',
@@ -406,73 +427,145 @@ export const PROGRAMA_JORNADA: ProgramaConfig = Object.freeze({
 
 /**
  * Rótulos persistíveis de modo (colaboradores.programa_modo e
- * trilhas.programa_modo — migrations 154/182). Distintos de ProgramaModo:
- * 'regular' ambíguo vira 'regular_duo' | 'regular_single'. 'custom' = builder
- * de degustação — a config NÃO vem de constante: geração deriva de
+ * trilhas.programa_modo, migrations 154/182). Distintos de ProgramaModo:
+ * 'regular' ambíguo vira 'regular_duo' | 'regular_single'. 'custom' = o
+ * Personalizado: a config NÃO vem de constante; geração deriva de
  * `sys_config.programa_custom` e o runtime lê o snapshot
  * `trilhas.programa_config` (ver lib/season-engine/programa-custom.ts).
  */
 export type ProgramaModoLabel = 'jornada' | 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto' | 'custom';
 
 /**
- * Mapeia um rótulo de modo → template. Desconhecido/ausente → DUO
- * (fail-safe do default global, mesmo contrato do sys_config).
- * ⚠️ 'custom' NÃO resolve aqui (não há constante) — geração e runtime tratam
- * o label ANTES de chamar esta função (trilha-core / resolverConfigDaTrilha).
+ * O formato de quem não tem `programa_modo`: a Jornada de 7 semanas (decisão do
+ * dono, 03/10/2026). Até essa data era o Regular DUO de 14, que já não era o
+ * formato do produto (`Medido: 12/09/2026`, 112 de 152 trilhas eram jornada).
+ * As 15 empresas do banco tinham `programa_modo` gravado em 03/10, então a
+ * troca só alcança empresa NOVA.
+ */
+export const PROGRAMA_MODO_PADRAO = 'jornada' as const satisfies ProgramaModoLabel;
+
+/**
+ * Os formatos que a tela OFERECE e que o servidor aceita em gravação NOVA
+ * (03/10/2026): Jornada, Onboarding e Personalizado.
+ */
+export const MODOS_OFERECIDOS = ['jornada', 'onboarding', 'custom'] as const satisfies readonly ProgramaModoLabel[];
+
+/**
+ * Os formatos que SAÍRAM da escolha (03/10/2026) mas que o motor segue lendo:
+ * há trilhas carimbadas com eles (`regular_duo` em Ibipeba, `regular_single` na
+ * demo, `piloto` na acme) e registros gravados (override de colaborador,
+ * `sys_config` de empresa). Tirar o rótulo do tipo quebraria a leitura deles;
+ * sai só da escolha. `'regular'` é a grafia antiga do `regular_duo`.
+ */
+export const MODOS_DESCONTINUADOS = ['regular_duo', 'regular_single', 'piloto', 'regular'] as const;
+
+export type ModoDescontinuado = (typeof MODOS_DESCONTINUADOS)[number];
+
+/** O valor gravado é um formato que saiu da tela de escolha? */
+export function ehModoDescontinuado(modo: unknown): modo is ModoDescontinuado {
+  return (MODOS_DESCONTINUADOS as readonly unknown[]).includes(modo);
+}
+
+/**
+ * FONTE ÚNICA da leitura de um rótulo bruto (`sys_config`, override, turma)
+ * para a GERAÇÃO. Ausente ou desconhecido → `PROGRAMA_MODO_PADRAO`.
+ * `'regular'` (grafia antiga) → `'regular_duo'`.
+ */
+export function normalizarModoPrograma(bruto: unknown): ProgramaModoLabel {
+  if (bruto === 'jornada' || bruto === 'onboarding' || bruto === 'regular_single' || bruto === 'piloto' || bruto === 'custom') return bruto;
+  if (bruto === 'regular_duo' || bruto === 'regular') return 'regular_duo';
+  return PROGRAMA_MODO_PADRAO;
+}
+
+/**
+ * Mapeia um rótulo de modo → template. Ausente/desconhecido → a Jornada
+ * (`PROGRAMA_MODO_PADRAO`). `'regular'` é a grafia antiga do DUO.
+ * ⚠️ 'custom' NÃO tem constante: geração e runtime tratam o label ANTES de
+ * chamar esta função (trilha-core / resolverConfigDaTrilha /
+ * getProgramaConfigDaTrilha). Se chegar aqui sem snapshot, cai na Jornada, que
+ * é o formato do qual o Personalizado é a versão de duração ajustável.
  */
 export function getProgramaConfigByModo(modo?: string | null): ProgramaConfig {
   if (modo === 'jornada') return PROGRAMA_JORNADA;
   if (modo === 'onboarding') return PROGRAMA_ONBOARDING;
   if (modo === 'regular_single') return PROGRAMA_REGULAR;
   if (modo === 'piloto') return PROGRAMA_PILOTO;
-  return PROGRAMA_REGULAR_DUO;
+  if (modo === 'regular_duo' || modo === 'regular') return PROGRAMA_REGULAR_DUO;
+  return PROGRAMA_JORNADA;
 }
 
 /**
- * Resolve a config a partir do `sys_config` JSONB de uma empresa.
+ * Resolve a config do PROGRAMA DA EMPRESA a partir do `sys_config` (o que uma
+ * geração nova produziria). Consumidores: o blueprint (duração e semanas de
+ * avaliação do PDI) e o fallback das trilhas antigas.
  *
- * Default GLOBAL = Regular DUO (2 competências). Escape hatches por
- * `sys_config.programa_modo`:
- *   - 'jornada'         → PROGRAMA_JORNADA (7 sem: 6 conteúdo + avaliação,
- *                         1 competência, 1 desafio/semana; DUO = 2 em sequência)
+ *   - 'jornada'         → PROGRAMA_JORNADA (7 sem: 6 conteúdo + avaliação)
  *   - 'onboarding'      → PROGRAMA_ONBOARDING (10 sem, 5 comps, espiral)
- *   - 'regular_single'  → PROGRAMA_REGULAR (1 comp aprofundada — rollback
- *                         sem mexer em código, caso um cliente precise)
- *   - 'piloto'          → PROGRAMA_PILOTO (degustação 2 sem, 1 comp, 4 conteúdos)
- *   - ausente / outro   → PROGRAMA_REGULAR_DUO
+ *   - 'custom'          → derivada de `sys_config.programa_custom` (a config de
+ *                         UMA competência; `derivarConfigCustom`)
+ *   - 'regular_duo' / 'regular' / 'regular_single' / 'piloto' → as constantes
+ *                         descontinuadas (seguem lidas)
+ *   - ausente / outro   → PROGRAMA_JORNADA (padrão desde 03/10/2026)
  */
-export function getProgramaConfig(sysConfig?: { programa_modo?: string } | null): ProgramaConfig {
+export function getProgramaConfig(sysConfig?: { programa_modo?: string; programa_custom?: unknown } | null): ProgramaConfig {
+  if (sysConfig?.programa_modo === 'custom') {
+    const inputs = parseProgramaCustom(sysConfig.programa_custom);
+    if (inputs) return derivarConfigCustom(inputs);
+  }
   return getProgramaConfigByModo(sysConfig?.programa_modo);
 }
 
 /**
+ * Config de trilha LEGADA, sem carimbo (anterior à mig 154). Ela nasceu quando
+ * o padrão era o DUO de 14 semanas, e é isso que o plano dela tem (`Medido:
+ * 03/10/2026`, as 11 trilhas sem carimbo têm 14 entradas). Por isso o padrão
+ * NOVO (Jornada) não vale aqui: sem `programa_modo` reconhecido na empresa, ela
+ * segue no DUO, byte-igual a antes de 03/10. Mudar isto reinterpretaria trilha
+ * em andamento.
+ */
+export function getProgramaConfigLegado(sysConfig?: { programa_modo?: string } | null): ProgramaConfig {
+  const modo = sysConfig?.programa_modo;
+  if (modo === 'jornada' || modo === 'onboarding' || modo === 'regular_single' || modo === 'piloto') {
+    return getProgramaConfigByModo(modo);
+  }
+  return PROGRAMA_REGULAR_DUO;
+}
+
+/**
  * FONTE ÚNICA da precedência de GERAÇÃO: override do colaborador →
- * default da empresa → 'regular_duo'. Retorna o RÓTULO resolvido (o que
- * a geração carimba em trilhas.programa_modo) — nunca resolva o modo de
+ * default da empresa → `PROGRAMA_MODO_PADRAO`. Retorna o RÓTULO resolvido (o
+ * que a geração carimba em trilhas.programa_modo). Nunca resolva o modo de
  * outro jeito, senão o carimbo e o plano podem divergir.
  */
 export function resolverModoColab(
   colab?: { programa_modo?: string | null } | null,
   sysConfig?: { programa_modo?: string } | null,
 ): ProgramaModoLabel {
-  const bruto = colab?.programa_modo || sysConfig?.programa_modo;
-  if (bruto === 'jornada') return 'jornada';
-  if (bruto === 'onboarding' || bruto === 'regular_single' || bruto === 'piloto' || bruto === 'custom') return bruto;
-  if (bruto === 'regular_duo' || bruto === 'regular') return 'regular_duo';
-  return 'regular_duo';
+  return normalizarModoPrograma(colab?.programa_modo || sysConfig?.programa_modo);
 }
 
 /**
- * FONTE ÚNICA do RUNTIME: config da trilha pelo CARIMBO (trilhas.programa_modo,
- * gravado na geração — congela as regras). Trilha legada sem carimbo →
- * fallback pro sys_config da empresa (comportamento pré-154).
+ * FONTE ÚNICA do RUNTIME (síncrona): config da trilha pelo CARIMBO
+ * (trilhas.programa_modo, gravado na geração: congela as regras).
+ *
+ * - Personalizado: o snapshot `programa_config`, quando o chamador o
+ *   selecionou (é ele que tem a duração escolhida; o rótulo sozinho não tem).
+ * - Trilha legada sem carimbo → `getProgramaConfigLegado` (comportamento
+ *   pré-154, que é o DUO quando a empresa não diz outra coisa).
+ *
+ * A versão assíncrona, que busca o snapshot quando ele não veio no select, é
+ * `resolverConfigDaTrilha` (trilha-runtime).
  */
 export function getProgramaConfigDaTrilha(
-  trilha?: { programa_modo?: string | null } | null,
+  trilha?: { programa_modo?: string | null; programa_config?: unknown } | null,
   sysConfig?: { programa_modo?: string } | null,
 ): ProgramaConfig {
+  if (trilha?.programa_modo === 'custom') {
+    const snapshot = parseConfigSnapshot(trilha.programa_config);
+    if (snapshot) return snapshot;
+  }
   if (trilha?.programa_modo) return getProgramaConfigByModo(trilha.programa_modo);
-  return getProgramaConfig(sysConfig);
+  return getProgramaConfigLegado(sysConfig);
 }
 
 /**

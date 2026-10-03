@@ -3,7 +3,7 @@
 import { tenantDb } from '@/lib/tenant-db';
 import { findColabByEmail } from '@/lib/authz';
 import { TRILHA } from '@/lib/status';
-import { CONVERGENCIA } from '@/lib/season-engine/convergencia';
+import { CONVERGENCIA, relatorioMedeEvolucao } from '@/lib/season-engine/convergencia';
 
 /**
  * Evolução da PESSOA, lida de `trilhas.evolution_report`.
@@ -55,8 +55,10 @@ export async function loadEvolucao() {
   // `nota_pre`/`nota_pos`), então lê-lo com a régua regular produziria delta a
   // partir de campos ausentes, ou seja, "0,00 → 0,00" na tela de quem fez tudo
   // certo. Aqui ele entra como PONTO DE PARTIDA, sem delta e sem veredito.
-  const pilotos = comReport.filter((t: any) => t.evolution_report?.modo === 'piloto');
-  const regulares = comReport.filter((t: any) => t.evolution_report?.modo !== 'piloto');
+  // O Personalizado SEM fechamento (03/10/2026) grava a mesma forma pelo mesmo
+  // motivo (não houve Cenário B) e entra no mesmo grupo: `relatorioMedeEvolucao`.
+  const pilotos = comReport.filter((t: any) => !relatorioMedeEvolucao(t.evolution_report));
+  const regulares = comReport.filter((t: any) => relatorioMedeEvolucao(t.evolution_report));
 
   // Todos os descritores medidos, da temporada mais recente para a mais antiga.
   const descritores = regulares.flatMap((t: any) =>

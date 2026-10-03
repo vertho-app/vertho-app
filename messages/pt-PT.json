@@ -1875,6 +1875,13 @@
       "assessmentSection": "Avaliação de fecho (demonstração)",
       "assessmentNote": "Como a avaliação por cenário funciona na temporada completa. Em 2 semanas demonstra o método — não mede evolução.",
       "demoScore": "Nota da demonstração:"
+    },
+    "noClosing": {
+      "title": "{name}, concluiu o programa",
+      "subtitle": "{weeks, plural, one {# semana dedicada} other {# semanas dedicadas}} a <strong>{competency}</strong>.",
+      "note": "Este programa foi configurado sem avaliação final: o relatório mostra o seu ponto de partida, e o avanço não foi medido. O certificado vale normalmente.",
+      "baselineSection": "O seu ponto de partida",
+      "baselineNote": "Níveis mapeados no diagnóstico, antes do programa."
     }
   },
   "Voting": {
@@ -5204,11 +5211,9 @@
       "moduloProntidaoOn": "Ligado",
       "moduloProntidaoOff": "Desligado",
       "title": "Modo do programa",
-      "desc": "Regular = trilha de 14 semanas com até 2 competências em profundidade. Onboarding = 10 semanas em espiral cobrindo até 5 competências (recém-formados / autonomia supervisionada).",
+      "desc": "Jornada = 7 semanas, uma competência de cada vez (6 de conteúdo e a avaliação). Onboarding = 10 semanas em espiral cobrindo até 5 competências (recém-formados, autonomia supervisionada). Personalizado = uma Jornada com a duração que escolher.",
       "journey": "Jornada (7 semanas)",
       "journeyDesc": "6 semanas de conteúdo + avaliação · 1 competência · 1 tarefa por semana. DUO = 2 jornadas em sequência",
-      "regular": "Regular (14 semanas)",
-      "regularDesc": "Até 2 competências · nível-meta 3",
       "onboarding": "Onboarding (10 semanas)",
       "onboardingDesc": "5 competências · nível-meta 2",
       "onboardingNote": "Modo Onboarding ativo. Configure <code>sys_config.competencias_onboarding</code> (array de 5 nomes) ou rode IA1 pro cargo; a engine usa o top 5 do <code>top10_cargos</code> como fallback.",
@@ -5224,24 +5229,28 @@
       "blueprintOn": "Trilha dirigida pelo blueprint (ligado)",
       "blueprintOff": "Trilha padrão (blueprint desligado)",
       "blueprintHint": "Recomendado auditar o blueprint antes de ligar num piloto.",
-      "pilot": "Piloto",
-      "pilotDesc": "Degustação: 2 semanas, 1 competência, 4 conteúdos + fecho completo",
-      "pilotNote": "Piloto: diagnóstico completo (Mapeamento Comportamental, mapeamento técnico, DNA e Fit) corre inalterado. Trilha de 2 semanas com 2 conteúdos/semana (top-4 descritores por gap) e fecho com cenário + avaliação IA. A nota exibida nunca fica abaixo do baseline (trava de piso, bruto preservado no snapshot). Objetivo: percorrer o fluxo inteiro, não demonstrar evolução.",
-      "regularSingle": "Regular (single)",
-      "regularSingleDesc": "14 semanas, 1 competência aprofundada — escape hatch/rollback do DUO",
       "custom": "Personalizado",
-      "customDesc": "Degustação à medida: 1–10 semanas, 1–2 competências, com ou sem fecho",
-      "customSemanas": "Semanas",
+      "customDesc": "Jornada à medida: 1 a 6 semanas por competência, 1 ou 2 competências em sequência, com ou sem fecho",
+      "customSemanas": "Semanas por competência",
       "customComps": "Competências",
       "customFechamento": "Fecho",
       "customFechamentoOn": "Com fecho",
       "customFechamentoOff": "Sem fecho",
       "customMapeamentos": "Mapeamentos comportamental e técnico: sempre ativos — o diagnóstico é a porta de entrada do método.",
-      "customPreview": "Calendário derivado",
+      "customPreview": "Calendário ({weeks, plural, one {# semana} other {# semanas}} no total)",
       "customPreviewConteudo": "Sem {week} · Conteúdo (2 pílulas)",
-      "customPreviewFechamento": "Fecho — liberta com a semana {week}",
+      "customPreviewCompetencia": "Competência {n}",
+      "customPreviewFechamento": "Sem {week} · Fecho",
       "customPreviewEncerramento": "Termina ao concluir a semana {week}",
-      "customNote": "Personalizado: a geração deriva e CONGELA a configuração na trilha — alterar aqui depois não afeta trilhas em curso. Com fecho: Cenário B + avaliação IA + trava de piso (como no Piloto). Sem fecho: a trilha conclui ao terminar a última semana de conteúdo, sem avaliação final."
+      "customNote": "Programa completo, com as regras da Jornada: 2 conteúdos e 1 desafio por semana. Com fecho: Cenário B, avaliação com IA e relatório com nível e avanço. Sem fecho: a trilha conclui ao terminar a última semana de conteúdo, e o relatório mostra o ponto de partida, sem medir o avanço. Nos dois casos há certificado, com carga horária proporcional à duração. A geração congela a configuração na trilha: alterar aqui depois não afeta trilhas em curso.",
+      "customSequencia": "As competências vêm em sequência: a segunda começa sozinha quando a primeira termina, e cada uma tem o seu relatório e o seu certificado.",
+      "legacyCurrent": "Programa atual: {label}, descontinuado. Continua a valer para esta empresa até escolher um dos formatos acima, e as trilhas já geradas seguem pelo formato delas.",
+      "legacyOption": "{label}, descontinuado",
+      "legacy": {
+        "regularDuo": "Regular (14 semanas, DUO)",
+        "regularSingle": "Regular (14 semanas, 1 competência)",
+        "pilot": "Piloto (degustação)"
+      }
     },
     "language": {
       "title": "Idioma padrão da empresa",

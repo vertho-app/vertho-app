@@ -134,3 +134,71 @@ describe('encadeamento', () => {
     expect(r.competencia).toBe('Relacionamento com Clientes');
   });
 });
+
+/**
+ * Personalizado com 2 competências (03/10/2026): o MESMO encadeamento, mas a
+ * próxima competência é a 2ª da sequência gravada no snapshot da 1ª trilha
+ * (decidida e validada na geração), e as regras da 2ª são as do snapshot, não
+ * as da tela no dia. Terminada a 2ª, o programa acaba.
+ */
+describe('encadeamento do Personalizado', () => {
+  const snapshot = (posicao: number, competencias = ['Liderança', 'Comunicação']) => ({
+    modo: 'regular', semanas: 5, semanasMissao: [], semanasAvaliacao: [5], semanasCheckpoint: [],
+    semanaCenarioB: 5, semanaAcumulada: 4, slotsConteudo: [1, 2, 3, 4], blocosCobertos: {}, complexidadeMap: {},
+    nivelMetaAlvo: 3, numCompetencias: 1, conteudosPorSemana: 2, desafioUnicoPorCompetencia: true,
+    arguicao: { ativa: true, maxTurnos: 6 },
+    sequenciaPersonalizado: { competencias, posicao },
+  });
+  const trilhaCustom = (programa_config: any) => ({
+    ...TRILHA_JORNADA, programa_modo: 'custom', competencia_foco: 'Liderança', programa_config,
+  });
+
+  it('1ª de 2 concluída: gera a 2ª com novaJornada e as regras congeladas (posição 2)', async () => {
+    const gerar = vi.fn(async () => ({ ok: true, trilhaId: 't2' }));
+    const r = await encadearProximaJornada(sbFake({ id: 'c1' }), tdbFake({ trilhas: [trilhaCustom(snapshot(1))] }), 't1', gerar);
+    expect(r).toMatchObject({ encadeou: true, competencia: 'Comunicação', numeroTemporada: 2 });
+    expect(gerar).toHaveBeenCalledTimes(1);
+    const args = (gerar.mock.calls[0] as any[])[0];
+    expect(args).toMatchObject({ colaboradorId: 'c1', competencia: 'Comunicação', novaJornada: true, empresaIdEsperado: 'e1' });
+    expect(args.configPersonalizado.sequenciaPersonalizado).toEqual({ competencias: ['Liderança', 'Comunicação'], posicao: 2 });
+    expect(args.configPersonalizado.semanas).toBe(5);
+  });
+
+  it('2ª de 2 concluída: o programa acabou, nada é gerado', async () => {
+    const gerar = vi.fn();
+    const r = await encadearProximaJornada(sbFake({ id: 'c1' }), tdbFake({ trilhas: [trilhaCustom(snapshot(2))] }), 't1', gerar);
+    expect(r).toEqual({ encadeou: false, motivo: 'sem-proxima-competencia' });
+    expect(gerar).not.toHaveBeenCalled();
+  });
+
+  it('Personalizado de 1 competência (snapshot sem sequência) não encadeia', async () => {
+    const { sequenciaPersonalizado: _fora, ...semSequencia } = snapshot(1);
+    const gerar = vi.fn();
+    const r = await encadearProximaJornada(sbFake({ id: 'c1' }), tdbFake({ trilhas: [trilhaCustom(semSequencia)] }), 't1', gerar);
+    expect(r).toEqual({ encadeou: false, motivo: 'modo-nao-encadeia' });
+    expect(gerar).not.toHaveBeenCalled();
+  });
+
+  it('falha ao ler o snapshot: não encadeia e reporta "falhou" (não vira "programa de 1 competência")', async () => {
+    let chamadas = 0;
+    const tdb = {
+      from() {
+        const chain: any = {
+          select: () => chain,
+          eq: () => chain,
+          maybeSingle: async () => {
+            chamadas++;
+            return chamadas === 1
+              ? { data: trilhaCustom(snapshot(1)), error: null }
+              : { data: null, error: { message: 'timeout no pool' } };
+          },
+        };
+        return chain;
+      },
+    };
+    const gerar = vi.fn();
+    const r = await encadearProximaJornada(sbFake({ id: 'c1' }), tdb, 't1', gerar);
+    expect(r).toEqual({ encadeou: false, motivo: 'falhou' });
+    expect(gerar).not.toHaveBeenCalled();
+  });
+});

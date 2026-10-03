@@ -11,6 +11,7 @@ import { isAppLocale, locales } from '@/i18n/routing';
 import { TENANT_GLOSSARIO_CACHE_TAG, TENANT_LOCALE_CACHE_TAG } from '@/lib/i18n-server';
 import { CHAVES_SO_PLATAFORMA, CHAVES_DE_PROGRAMA, problemaNaChaveDePrograma } from '@/lib/sys-config-plataforma';
 import { gravarSysConfig } from '@/lib/sys-config-escrita';
+import { MODOS_OFERECIDOS, ehModoDescontinuado } from '@/lib/season-engine/programa-config';
 
 /**
  * Quem pede pode configurar o PROGRAMA da empresa (R-73)? `program.configure` é
@@ -318,8 +319,19 @@ export async function atualizarProgramaModo(colaboradorId, novoModo, empresaId) 
   const modo = novoModo || null;
   // A allowlist é o contrato: um modo que existe na engine mas não está aqui é
   // recusado no salvamento (foi o que aconteceu com 'jornada' em 05/08).
-  const validos = [null, 'jornada', 'regular_duo', 'regular_single', 'onboarding', 'piloto', 'custom'];
-  if (!validos.includes(modo)) return { success: false, error: 'Modo inválido. Use: herdar (vazio), jornada, regular_duo, regular_single, onboarding, piloto, custom' };
+  // Desde 03/10/2026 ela é a dos formatos OFERECIDOS: Regular (DUO e single) e
+  // Piloto seguem no motor para quem já está gravado neles, mas não se grava
+  // mais nenhum dos três. A tela mostra o valor descontinuado sem oferecê-lo, e
+  // um pedido montado à mão para gravá-lo cai aqui.
+  const validos = [null, ...MODOS_OFERECIDOS];
+  if (!validos.includes(modo)) {
+    return {
+      success: false,
+      error: ehModoDescontinuado(modo)
+        ? `O formato "${modo}" foi descontinuado e não aceita gravação nova. Use: herdar (vazio), ${MODOS_OFERECIDOS.join(', ')}`
+        : `Modo inválido. Use: herdar (vazio), ${MODOS_OFERECIDOS.join(', ')}`,
+    };
+  }
 
   // Update TENANT-SCOPED: o id sozinho permitiria mexer em colaborador de
   // outra empresa (defense-in-depth mesmo sendo gate de platform admin).

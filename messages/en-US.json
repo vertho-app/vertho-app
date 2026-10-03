@@ -1875,6 +1875,13 @@
       "assessmentSection": "Closing assessment (demonstration)",
       "assessmentNote": "How scenario-based assessment works in the full season. In 2 weeks it demonstrates the method — it does not measure growth.",
       "demoScore": "Demonstration score:"
+    },
+    "noClosing": {
+      "title": "{name}, you completed the program",
+      "subtitle": "{weeks, plural, one {# week dedicated} other {# weeks dedicated}} to <strong>{competency}</strong>.",
+      "note": "This program was set up without a final assessment: the report shows your starting point, and progress was not measured. The certificate is valid as usual.",
+      "baselineSection": "Your starting point",
+      "baselineNote": "Levels mapped in the diagnostic, before the program."
     }
   },
   "Voting": {
@@ -5204,11 +5211,9 @@
       "moduloProntidaoOn": "On",
       "moduloProntidaoOff": "Off",
       "title": "Program mode",
-      "desc": "Regular = 14-week track with up to 2 deeply developed competencies. Onboarding = 10 spiral weeks covering up to 5 competencies (new graduates / supervised autonomy).",
+      "desc": "Journey = 7 weeks, one competency at a time (6 content weeks and the assessment). Onboarding = 10 spiral weeks covering up to 5 competencies (new graduates, supervised autonomy). Custom = a Journey with the length you choose.",
       "journey": "Journey (7 weeks)",
       "journeyDesc": "6 content weeks + assessment · 1 competency · 1 task per week. DUO = 2 journeys back to back",
-      "regular": "Regular (14 weeks)",
-      "regularDesc": "Up to 2 competencies · target level 3",
       "onboarding": "Onboarding (10 weeks)",
       "onboardingDesc": "5 competencies · target level 2",
       "onboardingNote": "Onboarding mode is active. Configure <code>sys_config.competencias_onboarding</code> (array of 5 names) or run IA1 for the role; the engine uses the top 5 from <code>top10_cargos</code> as fallback.",
@@ -5224,24 +5229,28 @@
       "blueprintOn": "Blueprint-driven track (on)",
       "blueprintOff": "Default track (blueprint off)",
       "blueprintHint": "We recommend auditing the blueprint before enabling it in a pilot.",
-      "pilot": "Pilot",
-      "pilotDesc": "Tasting: 2 weeks, 1 competency, 4 content pieces + full closing",
-      "pilotNote": "Pilot: the full diagnostic (Behavioral Mapping, technical mapping, DNA, Fit) runs unchanged. A 2-week track with 2 content pieces/week (top-4 descriptors by gap) and a closing with scenario + AI assessment. The displayed score never drops below baseline (floor lock, raw score preserved in the snapshot). Goal: run the whole flow, not demonstrate growth.",
-      "regularSingle": "Regular (single)",
-      "regularSingleDesc": "14 weeks, 1 competency in depth — DUO escape hatch/rollback",
       "custom": "Custom",
-      "customDesc": "Tailored tasting: 1–10 weeks, 1–2 competencies, with or without final assessment",
-      "customSemanas": "Weeks",
+      "customDesc": "Tailored Journey: 1 to 6 weeks per competency, 1 or 2 competencies in sequence, with or without final assessment",
+      "customSemanas": "Weeks per competency",
       "customComps": "Competencies",
       "customFechamento": "Final assessment",
       "customFechamentoOn": "With final assessment",
       "customFechamentoOff": "Without final assessment",
       "customMapeamentos": "Behavioral and technical mappings: always on — the diagnostic is the entry point of the method.",
-      "customPreview": "Derived calendar",
+      "customPreview": "Calendar ({weeks, plural, one {# week} other {# weeks}} in total)",
       "customPreviewConteudo": "Wk {week} · Content (2 pills)",
-      "customPreviewFechamento": "Final assessment — unlocks with week {week}",
+      "customPreviewCompetencia": "Competency {n}",
+      "customPreviewFechamento": "Wk {week} · Final assessment",
       "customPreviewEncerramento": "Ends when week {week} is completed",
-      "customNote": "Custom: generation derives and FREEZES the configuration on the track — later edits here do not affect tracks in progress. With final assessment: Scenario B + AI scoring + floor lock (as in Pilot). Without it: the track completes when the last content week is done, with no final assessment."
+      "customNote": "A full program, with the Journey rules: 2 content pieces and 1 challenge per week. With final assessment: Scenario B, AI scoring and a report with level and progress. Without it: the track completes when the last content week is done, and the report shows the starting point without measuring progress. Both ways there is a certificate, with hours proportional to the length. Generation freezes the configuration on the track: later edits here do not affect tracks in progress.",
+      "customSequencia": "Competencies run in sequence: the second starts on its own when the first ends, and each one has its own report and certificate.",
+      "legacyCurrent": "Current program: {label}, discontinued. It stays in effect for this company until you choose one of the formats above, and tracks already generated keep their own format.",
+      "legacyOption": "{label}, discontinued",
+      "legacy": {
+        "regularDuo": "Regular (14 weeks, DUO)",
+        "regularSingle": "Regular (14 weeks, 1 competency)",
+        "pilot": "Pilot (tasting)"
+      }
     },
     "language": {
       "title": "Company default language",

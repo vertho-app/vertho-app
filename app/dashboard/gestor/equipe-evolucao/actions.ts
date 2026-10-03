@@ -164,7 +164,10 @@ export async function listarCheckpointsPendentes() {
   // As semanas de checkpoint saem do PROGRAMA de cada trilha: `[5, 10]` e do
   // programa de 14 semanas, e numa jornada de 7 a semana 10 nunca chega.
   const { data: trilhas, error: errTrilhas } = await sb.from('trilhas')
-    .select('id, colaborador_id, competencia_foco, numero_temporada, status, programa_modo')
+    // `programa_config`: o Personalizado guarda nele a duração (e não tem
+    // checkpoint, como a Jornada); o rótulo 'custom' sozinho não diz quantas
+    // semanas a trilha tem.
+    .select('id, colaborador_id, competencia_foco, numero_temporada, status, programa_modo, programa_config')
     .in('colaborador_id', colabs.map(c => c.id))
     .eq('status', 'ativa');
   // Sem checar, falha de banco vira "nenhum checkpoint pendente" — o card do
@@ -227,7 +230,7 @@ export async function salvarCheckpointGestor({ trilhaId, semana, avaliacao, obse
 
   const sb = createSupabaseAdmin();
   const { data: trilha, error: errTrilha } = await sb.from('trilhas')
-    .select('id, empresa_id, colaborador_id, programa_modo').eq('id', trilhaId).maybeSingle();
+    .select('id, empresa_id, colaborador_id, programa_modo, programa_config').eq('id', trilhaId).maybeSingle();
   // "Nao encontrada" e "a consulta falhou" levam a mensagens diferentes: sem
   // isto, um erro de banco viraria "Trilha nao encontrada" para o gestor.
   if (errTrilha) return { error: `Falha ao carregar a trilha: ${errTrilha.message}` };

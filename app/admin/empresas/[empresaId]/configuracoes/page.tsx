@@ -15,13 +15,30 @@ import { ROOT_DOMAIN } from '@/lib/domain';
 import { CUSTOM_LIMITES } from '@/lib/season-engine/programa-custom';
 
 import { AI_TASKS, MODELOS_DISPONIVEIS } from '@/lib/ai-tasks';
+import { ehModoDescontinuado, PROGRAMA_MODO_PADRAO } from '@/lib/season-engine/programa-config';
 const MODELOS = MODELOS_DISPONIVEIS;
+
+/**
+ * Os formatos que a tela OFERECE (03/10/2026): Jornada, Onboarding e
+ * Personalizado. Regular (14 semanas, DUO), Regular (single) e Piloto saíram
+ * da escolha; quem já está gravado neles vê o valor atual rotulado como
+ * descontinuado, e a tela não troca esse valor sozinha ao salvar outra coisa
+ * (o servidor só valida o que mudou: `salvarConfig`).
+ */
+const ROTULO_DESCONTINUADO: Record<string, string> = {
+  regular_duo: 'program.legacy.regularDuo',
+  regular: 'program.legacy.regularDuo',
+  regular_single: 'program.legacy.regularSingle',
+  piloto: 'program.legacy.pilot',
+};
 
 const DEFAULT_CONFIG = {
   ai: { modelo_padrao: 'claude-sonnet-4-6', modelos: {}, anthropic_key: null, gemini_key: null, openai_key: null, thinking: false },
   cadencia: { fase4_dia_pilula: 1, fase4_dia_pilula2: 2, fase4_dia_evidencia: 4, fase4_hora: 8, email_ativo: true, whatsapp_ativo: true },
   envios: { email_remetente: null, email_alias: null },
-  programa_modo: 'regular_duo' as 'jornada' | 'regular_duo' | 'regular_single' | 'onboarding' | 'piloto' | 'custom',
+  // Empresa sem formato gravado nasce na Jornada (o padrão do motor desde
+  // 03/10/2026). O tipo é string: o valor gravado pode ser um descontinuado.
+  programa_modo: PROGRAMA_MODO_PADRAO as string,
   programa_custom: { semanas: 1, numCompetencias: 1, fechamento: false },
   fase_carreira_default: null as null | 'junior' | 'pleno' | 'senior',
   blueprint_drives_trilha: false,
@@ -79,8 +96,10 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
       if (r.success) {
         setEmpresa(r.empresa);
         const sysConf = { ...(r.empresa.sys_config || {}) };
-        // Normaliza o legado: 'regular'/ausente = Regular DUO (contrato do motor)
-        if (!sysConf.programa_modo || sysConf.programa_modo === 'regular') sysConf.programa_modo = 'regular_duo';
+        // O valor GRAVADO fica como está, inclusive 'regular' (grafia antiga do
+        // DUO) e os formatos descontinuados: normalizar aqui faria o próximo
+        // "Salvar" de qualquer aba regravar o programa sem ninguém ter escolhido.
+        // Ausente cai no padrão do motor (DEFAULT_CONFIG).
         setConfig({ ...DEFAULT_CONFIG, ...sysConf });
         setDefaultLocale(r.empresa.default_locale || 'pt-BR');
         const ui = r.empresa.ui_config || {};
@@ -326,11 +345,15 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                       style={{ minWidth: '130px' }}>
                       <option value="">{t('team.programInherit')}</option>
                       <option value="jornada">{t('program.journey')}</option>
-                      <option value="regular_duo">Regular DUO</option>
-                      <option value="regular_single">Regular single</option>
-                      <option value="onboarding">Onboarding</option>
-                      <option value="piloto">{t('program.pilot')}</option>
+                      <option value="onboarding">{t('program.onboarding')}</option>
                       <option value="custom">{t('program.custom')}</option>
+                      {/* Valor gravado num formato que saiu da escolha: aparece,
+                          rotulado, mas não é oferecido (disabled). */}
+                      {ehModoDescontinuado(c.programa_modo) && (
+                        <option value={c.programa_modo} disabled>
+                          {t('program.legacyOption', { label: t(ROTULO_DESCONTINUADO[c.programa_modo]) })}
+                        </option>
+                      )}
                     </select>
                     {roleUpdating === c.id && <Loader2 size={14} className="animate-spin text-cyan-400 shrink-0" />}
                   </div>
@@ -351,10 +374,7 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
             <div className="grid grid-cols-2 gap-2">
               {[
                 { id: 'jornada', label: t('program.journey'), desc: t('program.journeyDesc') },
-                { id: 'regular_duo', label: t('program.regular'), desc: t('program.regularDesc') },
-                { id: 'regular_single', label: t('program.regularSingle'), desc: t('program.regularSingleDesc') },
                 { id: 'onboarding', label: t('program.onboarding'), desc: t('program.onboardingDesc') },
-                { id: 'piloto', label: t('program.pilot'), desc: t('program.pilotDesc') },
                 { id: 'custom', label: t('program.custom'), desc: t('program.customDesc') },
               ].map(opt => (
                 <button key={opt.id}
@@ -380,11 +400,11 @@ export default function ConfigPage({ params }: { params: Promise<{ empresaId: st
                 </p>
               </div>
             )}
-            {config.programa_modo === 'piloto' && (
-              <div className="flex items-start gap-2 mt-3 p-3 rounded-lg border border-cyan-400/20" style={{ background: 'rgba(6,182,212,0.06)' }}>
-                <CheckCircle size={13} className="text-cyan-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-cyan-300/85 leading-relaxed">
-                  {t('program.pilotNote')}
+            {ehModoDescontinuado(config.programa_modo) && (
+              <div className="flex items-start gap-2 mt-3 p-3 rounded-lg border border-amber-400/30" style={{ background: 'rgba(245,158,11,0.06)' }}>
+                <AlertTriangle size={13} className="text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                  {t('program.legacyCurrent', { label: t(ROTULO_DESCONTINUADO[config.programa_modo]) })}
                 </p>
               </div>
             )}
@@ -896,10 +916,12 @@ function Panel({ title, children }) {
 }
 
 /**
- * Builder do modo Personalizado (família degustação): 3 inputs → preview do
- * calendário derivado. Os mapeamentos (DISC + técnico) são sempre ativos na
- * Fase 1 — mostrados travados. A validação REAL é na geração
- * (derivarConfigCustom); aqui os controles já restringem aos limites.
+ * Builder do modo Personalizado (03/10/2026): uma Jornada de duração
+ * ajustável. 3 inputs (semanas de conteúdo POR competência, 1 ou 2
+ * competências em sequência, fechamento sim/não) e a prévia do calendário de
+ * cada competência. A validação REAL é no servidor (`parseProgramaCustom`, ao
+ * salvar) e na geração (`derivarConfigCustom`); aqui os controles já
+ * restringem aos limites, lidos de `CUSTOM_LIMITES` para a tela não divergir.
  */
 function CustomBuilder({ value, onChange, t }: {
   value: { semanas: number; numCompetencias: number; fechamento: boolean };
@@ -912,25 +934,27 @@ function CustomBuilder({ value, onChange, t }: {
     fechamento: !!value?.fechamento,
   };
   const set = (patch: Partial<typeof v>) => onChange({ ...v, ...patch });
-  const semanasPreview = Array.from({ length: v.semanas }, (_, i) => i + 1);
+  const faixa = (min: number, max: number) => Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const semanasPreview = faixa(1, v.semanas);
+  const competencias = faixa(1, v.numCompetencias);
+  const totalSemanas = v.numCompetencias * (v.semanas + (v.fechamento ? 1 : 0));
 
   const selectCls = 'px-3 py-2 rounded-lg text-sm text-white border border-white/10 outline-none focus:border-cyan-400/40';
   return (
     <div className="mt-3 p-3 rounded-lg border border-cyan-400/20 space-y-3" style={{ background: 'rgba(6,182,212,0.06)' }}>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <label className="flex flex-col gap-1">
           <span className="text-[10px] uppercase tracking-wide text-gray-400">{t('program.customSemanas')}</span>
           <select value={v.semanas} onChange={e => set({ semanas: Number(e.target.value) })}
             className={selectCls} style={{ background: '#091D35' }}>
-            {Array.from({ length: CUSTOM_LIMITES.semanasMax - CUSTOM_LIMITES.semanasMin + 1 }, (_, i) => CUSTOM_LIMITES.semanasMin + i)
-              .map(n => <option key={n} value={n}>{n}</option>)}
+            {faixa(CUSTOM_LIMITES.semanasMin, CUSTOM_LIMITES.semanasMax).map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-[10px] uppercase tracking-wide text-gray-400">{t('program.customComps')}</span>
           <select value={v.numCompetencias} onChange={e => set({ numCompetencias: Number(e.target.value) })}
             className={selectCls} style={{ background: '#091D35' }}>
-            {[1, 2].map(n => <option key={n} value={n}>{n}</option>)}
+            {faixa(CUSTOM_LIMITES.compsMin, CUSTOM_LIMITES.compsMax).map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
         <label className="flex flex-col gap-1">
@@ -945,23 +969,33 @@ function CustomBuilder({ value, onChange, t }: {
 
       <p className="text-[10px] text-gray-500">{t('program.customMapeamentos')}</p>
 
-      {/* Preview do calendário derivado */}
-      <div>
-        <p className="text-[10px] uppercase tracking-wide text-gray-400 mb-1.5">{t('program.customPreview')}</p>
-        <div className="flex flex-wrap gap-1.5">
-          {semanasPreview.map(s => (
-            <span key={s} className="px-2 py-1 rounded-md text-[10px] font-semibold border border-white/10 text-gray-300" style={{ background: '#091D35' }}>
-              {t('program.customPreviewConteudo', { week: s })}
-            </span>
-          ))}
-          <span className={`px-2 py-1 rounded-md text-[10px] font-semibold border ${v.fechamento ? 'border-purple-400/30 text-purple-300' : 'border-emerald-400/30 text-emerald-300'}`} style={{ background: '#091D35' }}>
-            {v.fechamento
-              ? t('program.customPreviewFechamento', { week: v.semanas })
-              : t('program.customPreviewEncerramento', { week: v.semanas })}
-          </span>
-        </div>
+      {/* Prévia do calendário: uma trilha por competência, em sequência */}
+      <div className="space-y-2">
+        <p className="text-[10px] uppercase tracking-wide text-gray-400">{t('program.customPreview', { weeks: totalSemanas })}</p>
+        {competencias.map(n => (
+          <div key={n}>
+            {v.numCompetencias > 1 && (
+              <p className="text-[10px] font-semibold text-gray-300 mb-1">{t('program.customPreviewCompetencia', { n })}</p>
+            )}
+            <div className="flex flex-wrap gap-1.5">
+              {semanasPreview.map(s => (
+                <span key={s} className="px-2 py-1 rounded-md text-[10px] font-semibold border border-white/10 text-gray-300" style={{ background: '#091D35' }}>
+                  {t('program.customPreviewConteudo', { week: s })}
+                </span>
+              ))}
+              <span className={`px-2 py-1 rounded-md text-[10px] font-semibold border ${v.fechamento ? 'border-purple-400/30 text-purple-300' : 'border-emerald-400/30 text-emerald-300'}`} style={{ background: '#091D35' }}>
+                {v.fechamento
+                  ? t('program.customPreviewFechamento', { week: v.semanas + 1 })
+                  : t('program.customPreviewEncerramento', { week: v.semanas })}
+              </span>
+            </div>
+          </div>
+        ))}
       </div>
 
+      {v.numCompetencias > 1 && (
+        <p className="text-[11px] text-cyan-300/85 leading-relaxed">{t('program.customSequencia')}</p>
+      )}
       <p className="text-[11px] text-cyan-300/85 leading-relaxed">{t('program.customNote')}</p>
     </div>
   );

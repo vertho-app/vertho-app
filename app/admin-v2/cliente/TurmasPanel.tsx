@@ -22,6 +22,7 @@ import {
 } from '@/actions/turmas';
 import type { PortfolioTurmas, TurmaResumo } from '@/lib/turmas/portfolio';
 import { TURMA, TURMA_ENCERRADAS } from '@/lib/status';
+import { MODOS_OFERECIDOS, ehModoDescontinuado } from '@/lib/season-engine/programa-config';
 
 // Rótulos e cores por status. As CHAVES saem de `lib/status.ts` (TURMA) — o
 // guard de literais existe porque o valor do progresso e o da turma vivem a um
@@ -38,7 +39,9 @@ const STATUS: Record<string, { classe: string; rotulo: string }> = {
 };
 
 const OPCOES_STATUS: string[] = Object.values(TURMA);
-const OPCOES_MODO = ['', 'jornada', 'regular_duo', 'regular_single', 'onboarding', 'piloto'];
+// Os formatos OFERECIDOS (03/10/2026): Jornada, Onboarding e Personalizado.
+// Regular (DUO e single) e Piloto saíram da escolha; a action recusa gravá-los.
+const OPCOES_MODO: string[] = ['', ...MODOS_OFERECIDOS];
 
 function fracao(parte: number, total: number): string {
   if (!total) return '0';
@@ -343,6 +346,8 @@ function FormTurma({
         <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-[var(--ink-faint)]">programa</span>
         <select className={campo} value={modo} onChange={(e) => setModo(e.target.value)}>
           {OPCOES_MODO.map((m) => <option key={m} value={m}>{m || 'herda da empresa'}</option>)}
+          {/* Valor gravado num formato descontinuado: aparece, mas não é oferecido. */}
+          {ehModoDescontinuado(modo) && <option value={modo} disabled>{`${modo} (descontinuado)`}</option>}
         </select>
       </label>
       <button

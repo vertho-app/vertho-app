@@ -32,6 +32,7 @@ vi.mock('@/lib/authz', () => ({
 }));
 
 import { loadCertificadoData } from '@/actions/certificado';
+import { derivarConfigCustom, montarReportSemFechamento } from '@/lib/season-engine/programa-custom';
 
 const base = (programa_modo: string | null, semanasNoPlano: number, extra: any = {}) => ({
   id: 't1', numero_temporada: 1, competencia_foco: 'Comunicação', competencias_foco: null,
@@ -55,6 +56,47 @@ describe('certificado: carga horária proporcional ao programa', () => {
     const r: any = await loadCertificadoData('ana@escola.test');
     expect(r.ok).toBe(true);
     expect(r.cargaHoraria).toBe(48);
+  });
+
+  /**
+   * Personalizado = programa completo desde 03/10/2026: emite certificado (antes
+   * herdava a regra da degustação) e a carga sai da duração do SNAPSHOT da
+   * trilha, que é a da competência daquela trilha (com 2 competências, cada
+   * trilha tem o seu certificado).
+   */
+  it('Personalizado de 6 semanas COM fechamento (7 no calendário) imprime 24h, como a Jornada', async () => {
+    const cfg = derivarConfigCustom({ semanas: 6, numCompetencias: 2, fechamento: true });
+    trilha = base('custom', 7, { programa_config: JSON.parse(JSON.stringify(cfg)), evolution_report: { descritores: [] } });
+    const r: any = await loadCertificadoData('ana@escola.test');
+    expect(r.ok).toBe(true);
+    expect(r.cargaHoraria).toBe(24);
+  });
+
+  it('Personalizado de 3 semanas SEM fechamento: certificado emitido (não é piloto), 10h', async () => {
+    const cfg = derivarConfigCustom({ semanas: 3, numCompetencias: 1, fechamento: false });
+    trilha = base('custom', 3, {
+      programa_config: JSON.parse(JSON.stringify(cfg)),
+      evolution_report: montarReportSemFechamento({ competencia_foco: 'Comunicação', descritores_selecionados: [{ descritor: 'D1', nota_atual: 2 }] }),
+    });
+    const r: any = await loadCertificadoData('ana@escola.test');
+    expect(r.motivo).not.toBe('piloto');
+    expect(r.ok).toBe(true);
+    expect(r.cargaHoraria).toBe(10); // 48 × 3 / 14 = 10,3
+  });
+
+  it('a config gravada da unianchieta (1 semana, sem fechamento) imprime 3h', async () => {
+    const cfg = derivarConfigCustom({ semanas: 1, numCompetencias: 1, fechamento: false });
+    trilha = base('custom', 1, { programa_config: JSON.parse(JSON.stringify(cfg)), evolution_report: montarReportSemFechamento({ descritores_selecionados: [] }) });
+    const r: any = await loadCertificadoData('ana@escola.test');
+    expect(r.ok).toBe(true);
+    expect(r.cargaHoraria).toBe(3);
+  });
+
+  it('REGRESSÃO: o Piloto (descontinuado, segue no motor) continua sem certificado', async () => {
+    trilha = base('piloto', 3, { evolution_report: { modo: 'piloto', descritores: [] } });
+    const r: any = await loadCertificadoData('ana@escola.test');
+    expect(r.ok).toBeUndefined();
+    expect(r.motivo).toBe('piloto');
   });
 
   it('Personalizado sem snapshot e sem config na empresa: falha de leitura, nenhum número impresso', async () => {

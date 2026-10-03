@@ -23,7 +23,12 @@ import { pareceFechamento, reforcoDeFechamento, registrarConversaSemFechamento, 
 import { normalizarCompromisso } from '@/lib/season-engine/compromisso';
 import { MAX_TURNS_SOCRATIC, MAX_TURNS_ANALYTIC, MAX_TURNS_MISSAO_FEEDBACK } from '@/lib/season-engine/week-gating';
 import { normalizeTemporadaPlano } from '@/lib/season-engine/normalize-temporada-plano';
-import { deveEncerrarSemFechamento, montarReportDegustacao } from '@/lib/season-engine/programa-custom';
+// `montarReportDegustacao` é só o nome LOCAL: o relatório é o de programa
+// completo (`montarReportSemFechamento`, 03/10/2026). O nome antigo mantém
+// idêntico o texto do update de encerramento, dívida declarada do guard E11.
+import { deveEncerrarSemFechamento, montarReportSemFechamento as montarReportDegustacao } from '@/lib/season-engine/programa-custom';
+import { aposEncerramentoSemFechamento } from '@/lib/season-engine/encerramento-sem-fechamento';
+import { tenantDb } from '@/lib/tenant-db';
 import { PROGRESSO, TRILHA } from '@/lib/status';
 import { tasks } from '@trigger.dev/sdk';
 import { regionOpts } from '@/lib/trigger-region';
@@ -500,18 +505,23 @@ export async function POST(request) {
       await liberarProximaSemana(sb, trilhaId, Number(semana) + 1, upsertPayload.empresa_id);
     }
 
-    // Modo custom SEM fechamento (degustação): concluir a ÚLTIMA semana de
-    // conteúdo ENCERRA a trilha aqui — não existe slot de avaliação, então o
-    // caminho normal de conclusão (gerarEvolutionReport, que EXIGE fechamento
-    // pontuado) nunca roda. Report sem notas (baseline do diagnóstico) na
-    // variante piloto da tela de conclusão. Presets nunca entram (todos têm
-    // semanasAvaliacao não-vazia — ver deveEncerrarSemFechamento).
+    // Personalizado SEM fechamento: concluir a ÚLTIMA semana de conteúdo
+    // ENCERRA a trilha aqui, porque não existe slot de avaliação e o caminho
+    // normal de conclusão (gerarEvolutionReport, que EXIGE fechamento
+    // pontuado) nunca roda. Presets nunca entram (todos têm semanasAvaliacao
+    // não-vazia; ver deveEncerrarSemFechamento). O relatório é o de programa
+    // completo (`montarReportSemFechamento`, aqui com o nome local antigo: o
+    // texto deste update é dívida declarada do guard E11 e não muda sem
+    // encolher a allowlist). Depois da resposta, `aposEncerramentoSemFechamento`
+    // confere que a trilha concluiu de fato e, com 2 competências, abre a
+    // segunda, como no fim de uma Jornada.
     if (finished && deveEncerrarSemFechamento(programaConfig, Number(semana))) {
       await sb.from('trilhas').update({
         evolution_report: montarReportDegustacao(trilha),
         evolution_generated_at: new Date().toISOString(),
         status: TRILHA.CONCLUIDA,
       }).eq('id', trilhaId).eq('empresa_id', trilha.empresa_id);
+      after(() => aposEncerramentoSemFechamento(sb, tenantDb(trilha.empresa_id), trilha));
     }
 
     // Modo Piloto: ao concluir a ÚLTIMA semana de conteúdo (sem 2), dispara a

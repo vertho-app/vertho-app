@@ -28,6 +28,7 @@
  */
 
 import { SPEC_CONFIG, type EstrategiaChave } from './chaves';
+import { normalizarModoPrograma } from '@/lib/season-engine/programa-config';
 
 export type ConfigBruta = Record<string, any> | null | undefined;
 
@@ -163,9 +164,7 @@ export function configEfetiva(fontes: FontesConfig): ConfigEfetiva {
  */
 export function resolverModoDaTurma(fontes: FontesConfig): string {
   const { config } = resolverConfigEfetiva(fontes);
-  const bruto = config.programa_modo;
-  if (bruto === 'jornada') return 'jornada';
-  if (bruto === 'onboarding' || bruto === 'regular_single' || bruto === 'piloto' || bruto === 'custom') return bruto;
-  if (bruto === 'regular_duo' || bruto === 'regular') return 'regular_duo';
-  return 'regular_duo';
+  // A mesma leitura de `resolverModoColab` (fonte única do rótulo): ausente ou
+  // desconhecido vira a Jornada desde 03/10/2026, não mais o DUO de 14.
+  return normalizarModoPrograma(config.programa_modo);
 }

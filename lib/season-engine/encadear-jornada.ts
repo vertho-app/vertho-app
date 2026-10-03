@@ -10,21 +10,39 @@
  * o que dá dois fechamentos independentes: o relatório da primeira não é
  * reescrito quando a segunda termina, e a pessoa fica com dois documentos.
  *
+ * O Personalizado com 2 competências (03/10/2026) usa o MESMO mecanismo, com
+ * duas diferenças: a próxima competência não é "a primeira do cargo que a
+ * pessoa ainda não fez", e sim a SEGUNDA da sequência decidida e validada na
+ * geração da primeira trilha (`sequenciaPersonalizado` no snapshot); e as
+ * regras da segunda (duração, fechamento) são as do snapshot da primeira, não
+ * as da tela no dia. Terminada a segunda, o programa acaba.
+ *
  * Quem chama: o fechamento, depois de marcar a trilha como concluída
- * (`evolution-report-core`). Best-effort — se a geração falhar, a jornada
- * concluída CONTINUA concluída e a degradação fica registrada; a próxima pode
- * ser gerada pelo admin, pelo caminho normal.
+ * (`evolution-report-core`), e o encerramento do Personalizado SEM fechamento
+ * (rota /reflection). Best-effort: se a geração falhar, a trilha concluída
+ * CONTINUA concluída e a degradação fica registrada.
  */
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
-import { getProgramaConfigDaTrilha } from './programa-config';
+import { getProgramaConfigDaTrilha, type ProgramaConfig } from './programa-config';
+import { configDaProximaCompetencia, parseConfigSnapshot } from './programa-custom';
 
 export interface ResultadoEncadeamento {
-  /** false quando não havia o que encadear — não é erro. */
+  /** false quando não havia o que encadear (não é erro). */
   encadeou: boolean;
   motivo?: 'modo-nao-encadeia' | 'sem-proxima-competencia' | 'falhou';
   competencia?: string;
   trilhaId?: string;
   numeroTemporada?: number;
+}
+
+/** Argumentos que o encadeamento passa ao gerador (`gerarTemporadaCoreHeadless`). */
+export interface ArgsGeracaoEncadeada {
+  colaboradorId: string;
+  competencia: string;
+  novaJornada: boolean;
+  empresaIdEsperado?: string;
+  /** Personalizado: a config da próxima competência, congelada da anterior. */
+  configPersonalizado?: ProgramaConfig;
 }
 
 /**
@@ -52,19 +70,87 @@ export function proximaCompetencia(doCargo: string[], jaFeitas: string[]): strin
 }
 
 /**
- * @param gerar injeção do gerador (`gerarTemporadaCoreHeadless`) — evita ciclo
+ * Gera a próxima trilha e devolve o resultado; falha vira degradação
+ * registrada, nunca exceção (a trilha concluída não se desfaz).
+ */
+async function gerarProxima(
+  trilha: { colaborador_id: string; empresa_id: string; numero_temporada?: number | null },
+  competencia: string,
+  gerar: (args: ArgsGeracaoEncadeada) => Promise<any>,
+  extras: { configPersonalizado?: ProgramaConfig } = {},
+): Promise<ResultadoEncadeamento> {
+  try {
+    const r = await gerar({
+      colaboradorId: trilha.colaborador_id,
+      competencia,
+      novaJornada: true,
+      empresaIdEsperado: trilha.empresa_id,
+      ...(extras.configPersonalizado ? { configPersonalizado: extras.configPersonalizado } : {}),
+    });
+    if (r?.error) throw new Error(r.error);
+    return {
+      encadeou: true,
+      competencia,
+      trilhaId: r?.trilhaId,
+      numeroTemporada: (trilha.numero_temporada || 1) + 1,
+    };
+  } catch (e: any) {
+    // A trilha concluída SEGUE concluída: o encadeamento é um extra que
+    // falhou, não um passo que desfaz o fechamento. Fica registrado para o
+    // health e para o admin.
+    await registrarDegradacao({
+      fluxo: 'build',
+      tipo: DEGRADACAO.JORNADA_ENCADEAMENTO_FALHOU,
+      chave: `${trilha.colaborador_id}:${(trilha.numero_temporada || 1) + 1}`,
+      empresaId: trilha.empresa_id,
+      detalhe: {
+        competencia,
+        erro: e?.message || String(e),
+        ...(extras.configPersonalizado ? { modo: 'custom' } : {}),
+      },
+    });
+    return { encadeou: false, motivo: 'falhou', competencia };
+  }
+}
+
+/**
+ * @param gerar injeção do gerador (`gerarTemporadaCoreHeadless`): evita ciclo
  *        de import com `trilha-core`, que importa este módulo indiretamente.
  */
 export async function encadearProximaJornada(
   sbRaw: any,
   tdb: any,
   trilhaId: string,
-  gerar: (args: { colaboradorId: string; competencia: string; novaJornada: boolean; empresaIdEsperado?: string }) => Promise<any>,
+  gerar: (args: ArgsGeracaoEncadeada) => Promise<any>,
 ): Promise<ResultadoEncadeamento> {
   const { data: trilha } = await tdb.from('trilhas')
     .select('id, colaborador_id, empresa_id, programa_modo, competencia_foco, numero_temporada')
     .eq('id', trilhaId).maybeSingle();
   if (!trilha) return { encadeou: false, motivo: 'falhou' };
+
+  // Personalizado: a sequência vem do snapshot, decidida na 1ª trilha. Leitura
+  // à parte (e com o `{ error }` lido) só para este modo: a jornada não precisa
+  // do snapshot, e falha aqui não pode virar "programa de uma competência só".
+  if (trilha.programa_modo === 'custom') {
+    const { data: comSnapshot, error: errSnapshot } = await tdb.from('trilhas')
+      .select('programa_config').eq('id', trilhaId).maybeSingle();
+    if (errSnapshot) {
+      await registrarDegradacao({
+        fluxo: 'build',
+        tipo: DEGRADACAO.JORNADA_ENCADEAMENTO_FALHOU,
+        chave: `${trilha.colaborador_id}:${(trilha.numero_temporada || 1) + 1}`,
+        empresaId: trilha.empresa_id,
+        detalhe: { modo: 'custom', erro: `snapshot da trilha: ${errSnapshot.message}` },
+      });
+      return { encadeou: false, motivo: 'falhou' };
+    }
+    const snapshot = parseConfigSnapshot(comSnapshot?.programa_config);
+    if (!snapshot?.sequenciaPersonalizado) return { encadeou: false, motivo: 'modo-nao-encadeia' };
+    const proxima = configDaProximaCompetencia(snapshot);
+    if (!proxima?.sequenciaPersonalizado) return { encadeou: false, motivo: 'sem-proxima-competencia' };
+    const { competencias, posicao } = proxima.sequenciaPersonalizado;
+    return gerarProxima(trilha, competencias[posicao - 1], gerar, { configPersonalizado: proxima });
+  }
 
   // Só a jornada encadeia. Nos modos de 14 semanas, concluir é o fim do ciclo.
   const config = getProgramaConfigDaTrilha(trilha);
@@ -98,31 +184,30 @@ export async function encadearProximaJornada(
   );
   if (!proxima) return { encadeou: false, motivo: 'sem-proxima-competencia' };
 
+  return gerarProxima(trilha, proxima, gerar);
+}
+
+/**
+ * Fim de trilha = começo da próxima, quando o modo encadeia (Jornada e
+ * Personalizado com 2 competências). Roda DEPOIS de a trilha estar marcada
+ * como concluída e nunca lança: falha vira degradação registrada
+ * (`jornada-encadeamento-falhou`). Nos outros modos é um no-op.
+ *
+ * O import do gerador é dinâmico porque `trilha-core` importa, em cadeia, quem
+ * importa este arquivo; estático fecharia o ciclo.
+ */
+export async function encadearAposConclusao(sbRaw: any, tdb: any, trilhaId: string): Promise<ResultadoEncadeamento | null> {
   try {
-    const r = await gerar({
-      colaboradorId: trilha.colaborador_id,
-      competencia: proxima,
-      novaJornada: true,
-      empresaIdEsperado: trilha.empresa_id,
-    });
-    if (r?.error) throw new Error(r.error);
-    return {
-      encadeou: true,
-      competencia: proxima,
-      trilhaId: r?.trilhaId,
-      numeroTemporada: (trilha.numero_temporada || 1) + 1,
-    };
+    const { gerarTemporadaCoreHeadless } = await import('./trilha-core');
+    const r = await encadearProximaJornada(sbRaw, tdb, trilhaId, (args) =>
+      gerarTemporadaCoreHeadless(sbRaw, args),
+    );
+    if (r.encadeou) {
+      console.log(`[encadeamento] trilha ${trilhaId} concluída → trilha ${r.numeroTemporada} em "${r.competencia}" (${r.trilhaId})`);
+    }
+    return r;
   } catch (e: any) {
-    // A jornada concluída SEGUE concluída — o encadeamento é um extra que
-    // falhou, não um passo que desfaz o fechamento. Fica registrado para o
-    // health e para o admin gerar pelo caminho normal.
-    await registrarDegradacao({
-      fluxo: 'build',
-      tipo: DEGRADACAO.JORNADA_ENCADEAMENTO_FALHOU,
-      chave: `${trilha.colaborador_id}:${(trilha.numero_temporada || 1) + 1}`,
-      empresaId: trilha.empresa_id,
-      detalhe: { competencia: proxima, erro: e?.message || String(e) },
-    });
-    return { encadeou: false, motivo: 'falhou', competencia: proxima };
+    console.error('[encadeamento] falhou:', e?.message || e);
+    return null;
   }
 }

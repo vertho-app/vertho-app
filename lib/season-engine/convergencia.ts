@@ -257,3 +257,21 @@ export function classificarConvergencia({
   // "manteve o patamar". Ver o cabeçalho de CONVERGENCIA.
   return CONVERGENCIA.ESTAVEL;
 }
+
+/**
+ * O relatório MEDE evolução (tem nota de partida E de chegada por descritor)?
+ *
+ * Dois relatórios gravam só o ponto de partida (`baseline`), sem `nota_pre`
+ * nem `nota_pos`: o da degustação (`modo: 'piloto'`) e o do Personalizado SEM
+ * fechamento (`sem_fechamento: true`, 03/10/2026), que conclui sem Cenário B.
+ * Quem agrega evolução tem que deixar os dois de fora pela MESMA régua: lido
+ * com a régua regular, viraria delta sobre campo ausente ("0,00 → 0,00") ou
+ * "estável" afirmado sem medição.
+ *
+ * Não confundir com o certificado: o do piloto é recusado (`isTrilhaPiloto`),
+ * o do Personalizado sem fechamento não, porque é programa completo.
+ */
+export function relatorioMedeEvolucao(report: { modo?: string | null; sem_fechamento?: unknown; [campo: string]: unknown } | null | undefined): boolean {
+  if (!report) return false;
+  return report.modo !== 'piloto' && report.sem_fechamento !== true;
+}

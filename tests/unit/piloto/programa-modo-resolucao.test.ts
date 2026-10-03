@@ -4,11 +4,14 @@ import {
   getProgramaConfig,
   getProgramaConfigDaTrilha,
   resolverModoColab,
+  PROGRAMA_JORNADA,
+  PROGRAMA_REGULAR_DUO,
 } from '@/lib/season-engine/programa-config';
 
 /**
  * Mig 154 — programa por COLABORADOR (geração) + carimbo na TRILHA (runtime).
- * Precedência de geração: colaborador → empresa → DUO.
+ * Precedência de geração: colaborador → empresa → Jornada (padrão desde
+ * 03/10/2026; antes era o DUO).
  * Runtime: carimbo da trilha → (legado) sys_config da empresa.
  */
 describe('getProgramaConfigByModo (rótulo → template)', () => {
@@ -18,10 +21,14 @@ describe('getProgramaConfigByModo (rótulo → template)', () => {
     expect(getProgramaConfigByModo('regular_single').numCompetencias).toBe(1);
     expect(getProgramaConfigByModo('regular_duo').numCompetencias).toBe(2);
   });
-  it('desconhecido/ausente → DUO (fail-safe do default global)', () => {
-    expect(getProgramaConfigByModo(null).numCompetencias).toBe(2);
-    expect(getProgramaConfigByModo(undefined).numCompetencias).toBe(2);
-    expect(getProgramaConfigByModo('xyz').numCompetencias).toBe(2);
+  it('desconhecido/ausente → Jornada (o padrão desde 03/10/2026)', () => {
+    expect(getProgramaConfigByModo(null)).toBe(PROGRAMA_JORNADA);
+    expect(getProgramaConfigByModo(undefined)).toBe(PROGRAMA_JORNADA);
+    expect(getProgramaConfigByModo('xyz')).toBe(PROGRAMA_JORNADA);
+  });
+  it("'regular' (grafia antiga) e 'regular_duo' seguem no DUO: trilha e registro gravados não mudam", () => {
+    expect(getProgramaConfigByModo('regular')).toBe(PROGRAMA_REGULAR_DUO);
+    expect(getProgramaConfigByModo('regular_duo')).toBe(PROGRAMA_REGULAR_DUO);
   });
   it('getProgramaConfig(sysConfig) delega pro mesmo mapeamento (sem drift)', () => {
     for (const modo of ['piloto', 'onboarding', 'regular_single', 'xyz', undefined] as any[]) {
@@ -45,14 +52,14 @@ describe('resolverModoColab (precedência de GERAÇÃO)', () => {
     expect(resolverModoColab(null, empresaPiloto)).toBe('piloto');
   });
 
-  it('nada definido → regular_duo (default global)', () => {
-    expect(resolverModoColab(null, null)).toBe('regular_duo');
-    expect(resolverModoColab({}, {})).toBe('regular_duo');
+  it('nada definido → jornada (empresa NOVA nasce na Jornada, 03/10/2026)', () => {
+    expect(resolverModoColab(null, null)).toBe('jornada');
+    expect(resolverModoColab({}, {})).toBe('jornada');
   });
 
-  it("'regular' legado da empresa normaliza pra regular_duo; desconhecido idem", () => {
+  it("'regular' legado da empresa normaliza pra regular_duo; desconhecido vai pro padrão", () => {
     expect(resolverModoColab(null, { programa_modo: 'regular' })).toBe('regular_duo');
-    expect(resolverModoColab({ programa_modo: 'xyz' }, null)).toBe('regular_duo');
+    expect(resolverModoColab({ programa_modo: 'xyz' }, null)).toBe('jornada');
   });
 });
 
@@ -64,6 +71,10 @@ describe('getProgramaConfigDaTrilha (carimbo do RUNTIME)', () => {
   });
   it('trilha legada sem carimbo → fallback pro sys_config (comportamento pré-154)', () => {
     expect(getProgramaConfigDaTrilha({ programa_modo: null }, { programa_modo: 'onboarding' }).modo).toBe('onboarding');
-    expect(getProgramaConfigDaTrilha(null, null).numCompetencias).toBe(2);
+    // O padrão NOVO (Jornada) não alcança a trilha sem carimbo: ela nasceu no
+    // DUO de 14 semanas e o plano dela tem 14 entradas (as 11 do banco, 03/10).
+    expect(getProgramaConfigDaTrilha(null, null)).toBe(PROGRAMA_REGULAR_DUO);
+    expect(getProgramaConfigDaTrilha({ programa_modo: null }, {})).toBe(PROGRAMA_REGULAR_DUO);
+    expect(getProgramaConfigDaTrilha({ programa_modo: null }, { programa_modo: 'regular' })).toBe(PROGRAMA_REGULAR_DUO);
   });
 });

@@ -184,9 +184,10 @@ describe('fronteira de custo do documento público', () => {
   });
 
   it('jornada desconhecida não vira promessa de 14 semanas', () => {
-    // `getProgramaConfigByModo` é fail-safe e devolve o Regular DUO para chave
-    // desconhecida. Num documento comercial isso seria uma promessa que ninguém
-    // precificou — aqui tem que sair null.
+    // `getProgramaConfigByModo` é fail-safe e devolve o padrão do motor (a
+    // Jornada, desde 03/10/2026) para chave desconhecida. Num documento
+    // comercial isso seria uma promessa que ninguém precificou: aqui tem que
+    // sair null.
     const pg = extrairProgramaDoOrcamento({
       entradas: { jornada: 'jornada_que_nao_existe_mais', conteudoColab: {} },
       resultado: { pessoas: 10, cargos: 2, ciclos: 1, unidades: 1, mesesPrograma: 3 },

@@ -102,8 +102,9 @@ describe('modo jornada', () => {
   it('o rótulo "jornada" resolve na geração e no runtime', () => {
     expect(getProgramaConfigByModo('jornada')).toBe(PROGRAMA_JORNADA);
     expect(resolverModoColab({ programa_modo: 'jornada' }, null)).toBe('jornada');
-    // Empresa no default segue no DUO de 14 semanas — a jornada é opt-in, e é
-    // isso que mantém as trilhas em andamento fora do caminho.
-    expect(getProgramaConfigByModo(null)).toBe(PROGRAMA_REGULAR_DUO);
+    // Desde 03/10/2026 a Jornada é o PADRÃO de quem não tem modo gravado. As
+    // trilhas em andamento seguem pelo carimbo; o DUO segue para 'regular_duo'.
+    expect(getProgramaConfigByModo(null)).toBe(PROGRAMA_JORNADA);
+    expect(getProgramaConfigByModo('regular_duo')).toBe(PROGRAMA_REGULAR_DUO);
   });
 });

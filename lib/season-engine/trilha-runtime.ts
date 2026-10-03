@@ -13,7 +13,7 @@
  * Qualquer mudança de regra de liberação/resolução acontece AQUI, uma vez.
  */
 
-import { getProgramaConfig, getProgramaConfigByModo, type ProgramaConfig } from './programa-config';
+import { getProgramaConfigByModo, getProgramaConfigLegado, type ProgramaConfig } from './programa-config';
 import { parseConfigSnapshot, parseProgramaCustom, derivarConfigCustom } from './programa-custom';
 import { avaliarAcessoSemana } from './week-gating';
 
@@ -59,9 +59,11 @@ export async function resolverConfigDaTrilha(
     throw new Error('Trilha em modo custom sem snapshot (trilhas.programa_config) e empresa sem programa_custom válido — regere a trilha.');
   }
   if (trilha.programa_modo) return getProgramaConfigByModo(trilha.programa_modo);
+  // Trilha legada SEM carimbo: a régua de antes de 03/10/2026 (padrão DUO), e
+  // não o padrão novo (Jornada), que reinterpretaria trilha em andamento.
   const { data: empresa } = await sb.from('empresas')
     .select('sys_config').eq('id', trilha.empresa_id).maybeSingle();
-  return getProgramaConfig(empresa?.sys_config);
+  return getProgramaConfigLegado(empresa?.sys_config);
 }
 
 /**

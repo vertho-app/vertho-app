@@ -4,9 +4,9 @@ import { buildSeason } from '@/lib/season-engine/build-season';
 import { blueprintToTrilhaInputs, type BlueprintTrilhaInputs } from '@/lib/blueprint/to-descriptors';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import { derivarPrioridadeFormatos } from '@/lib/season-engine/formato-preferido';
-import { getProgramaConfigByModo, type ProgramaConfig, type ProgramaModoLabel } from '@/lib/season-engine/programa-config';
+import { getProgramaConfigByModo, type ProgramaConfig, type ProgramaModoLabel, type SequenciaPersonalizado } from '@/lib/season-engine/programa-config';
 import { carregarContextoTurma, resolverModoDaTurma } from '@/lib/turmas';
-import { parseProgramaCustom, derivarConfigCustom } from '@/lib/season-engine/programa-custom';
+import { parseProgramaCustom, derivarConfigCustom, parseConfigSnapshot, parseSequenciaPersonalizado } from '@/lib/season-engine/programa-custom';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
 import type { AIConfig } from '@/actions/ai-client';
 import { PROGRESSO, TRILHA } from '@/lib/status';
@@ -38,7 +38,17 @@ export interface ContextoGeracaoTurma {
   config: Record<string, any>;
 }
 
-export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, competencia, aiConfig, empresaIdEsperado, novaJornada }: { colaboradorId?: string; competencia?: string; aiConfig?: any; empresaIdEsperado?: string; novaJornada?: boolean } = {}) {
+export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, competencia, aiConfig, empresaIdEsperado, novaJornada, configPersonalizado }: {
+  colaboradorId?: string; competencia?: string; aiConfig?: any; empresaIdEsperado?: string; novaJornada?: boolean;
+  /**
+   * Encadeamento do Personalizado (03/10/2026): a config da PRÓXIMA competência,
+   * vinda do snapshot da trilha que concluiu (`configDaProximaCompetencia`).
+   * Presente, a geração é Personalizado com essas regras, seja qual for o modo
+   * da empresa hoje: o programa está em andamento. Só caminho headless passa
+   * isto; a action `gerarTemporada` valida a entrada e não o aceita.
+   */
+  configPersonalizado?: ProgramaConfig;
+} = {}) {
   try {
     if (!colaboradorId) return { error: 'colaboradorId obrigatório' };
 
@@ -88,11 +98,14 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     };
 
     // Precedência de GERAÇÃO (fonte única): participação → turma → override do
-    // colaborador (legado) → default da empresa → DUO. O rótulo resolvido é
+    // colaborador (legado) → default da empresa → Jornada (padrão desde
+    // 03/10/2026, `PROGRAMA_MODO_PADRAO`). O rótulo resolvido é
     // CARIMBADO na trilha (programa_modo) — o runtime passa a ler de lá,
     // congelando as regras. Sem turma, `cfg` é a sys_config da empresa e o
     // resultado é byte-igual ao `resolverModoColab` anterior.
-    const modoResolvido = resolverModoDaTurma({ empresa: cfg, colaboradorLegado: colab }) as ProgramaModoLabel;
+    const modoResolvido = (configPersonalizado
+      ? 'custom'
+      : resolverModoDaTurma({ empresa: cfg, colaboradorLegado: colab })) as ProgramaModoLabel;
 
     // Trava de regeração ANTES de qualquer IA (lib/season-engine/trava-regeracao.ts):
     // regerar não reabre trilha concluída, não apaga snapshot de plano próprio e
@@ -106,24 +119,38 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     const trava = travaRegeracao(trilhaAtual, { modoNovo: modoResolvido, novaJornada, turmaMembroId: ctxTurma.turmaMembroId });
     if (trava) return { error: trava.mensagem, codigo: trava.codigo };
 
-    // ── Modo Personalizado (builder de degustação): config vem de DADO ────
-    // getProgramaConfigByModo NÃO resolve 'custom' (cairia no DUO de 14
-    // semanas) — deriva de sys_config.programa_custom, com erro explícito.
+    let programaConfig: ProgramaConfig = getProgramaConfigByModo(modoResolvido);
+    // Personalizado: o snapshot que vai para `trilhas.programa_config` (mig 182)
+    // e as competências do programa (1 ou 2, em sequência).
+    let snapshotConfig: ProgramaConfig | undefined;
+    let competenciasDoPrograma: string[] | undefined;
+
+    // ── Personalizado (03/10/2026): uma Jornada de duração ajustável ──────
+    // A config vem de DADO (sys_config.programa_custom; no encadeamento, o
+    // snapshot da trilha que concluiu) e a trilha segue o MESMO caminho da
+    // Jornada logo abaixo: uma competência por trilha, seleção por lacuna
+    // (blueprint ou `selectDescriptors`), carimbo 'custom' + snapshot. Antes
+    // ele herdava a maquinaria do piloto (trava de piso, sem certificado) e
+    // exigia um descritor distinto por pílula.
     if (modoResolvido === 'custom') {
-      const inputs = parseProgramaCustom(cfg?.programa_custom);
-      if (!inputs) {
-        return {
-          error: 'Modo Personalizado sem configuração válida (sys_config.programa_custom) — defina semanas/competências/fechamento em Configurações → Programa antes de gerar.',
-          codigo: 'custom_sem_config',
-        };
-      }
-      return await gerarTemporadaCustom({
-        colab, empresa, tdb, contexto, programaConfig: derivarConfigCustom(inputs), aiConfig, competenciaAlvo, turma,
+      // Regerar a MESMA linha preserva a posição dela no programa: regerar a
+      // 2ª competência não pode transformá-la na 1ª de uma sequência nova.
+      const linhaNova = !!novaJornada
+        || (!!ctxTurma.turmaMembroId && !!trilhaAtual?.turma_membro_id && trilhaAtual.turma_membro_id !== ctxTurma.turmaMembroId);
+      const sequenciaExistente = !linhaNova && trilhaAtual?.programa_modo === 'custom'
+        ? parseSequenciaPersonalizado(parseConfigSnapshot(trilhaAtual.programa_config)?.sequenciaPersonalizado)
+        : null;
+      const plano = await planejarTrilhaPersonalizada({
+        tdb, colab, cfg, competenciaAlvo, configCongelada: configPersonalizado, sequenciaExistente,
       });
+      if ('error' in plano) return plano;
+      programaConfig = plano.config;
+      snapshotConfig = plano.config;
+      competenciaAlvo = plano.competencia;
+      competenciasDoPrograma = plano.competencias;
     }
 
-    const programaConfig = getProgramaConfigByModo(modoResolvido);
-    const isOnboarding = programaConfig.modo === 'onboarding';
+    const isOnboarding = modoResolvido !== 'custom' && programaConfig.modo === 'onboarding';
 
     // ── Modo Onboarding: trilha multi-competência ────────────────────────
     if (isOnboarding) {
@@ -133,7 +160,8 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     }
 
     // ── Modo Piloto: degustação 2 semanas, 1 comp, 4 conteúdos ───────────
-    if (programaConfig.modo === 'piloto') {
+    // Descontinuado na tela (03/10/2026); segue para quem está gravado nele.
+    if (modoResolvido !== 'custom' && programaConfig.modo === 'piloto') {
       return await gerarTemporadaPiloto({
         colab, tdb, contexto, programaConfig, aiConfig, competenciaAlvo, turma,
       });
@@ -146,7 +174,7 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
     // sem ninguém saber. O escape explícito é programa_modo='regular_single'
     // por colaborador (mig 154). O catch externo converte o throw em
     // { error } — a mensagem chega ao admin por colaborador no lote.
-    if ((programaConfig.numCompetencias || 1) >= 2) {
+    if (modoResolvido !== 'custom' && (programaConfig.numCompetencias || 1) >= 2) {
       const duo = await gerarTemporadaRegularDuo({
         colab, empresa, tdb, sbRaw, contexto, programaConfig, aiConfig, competenciaAncora: competenciaAlvo, turma,
       });
@@ -273,7 +301,10 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
       // — semana 8 a 14 inexistentes, missões em 4/8/12 e fechamento na 14 que
       // nunca chega. O fallback DUO→single segue carimbando 'regular_single',
       // porque ali o plano gerado É o single de 14.
-      programaModo: modoResolvido === 'jornada' ? 'jornada' : 'regular_single',
+      // O Personalizado carimba 'custom' e grava o snapshot com a duração e a
+      // sequência dele; os presets não gravam snapshot (`undefined` limpa).
+      programaModo: modoResolvido === 'custom' ? 'custom' : modoResolvido === 'jornada' ? 'jornada' : 'regular_single',
+      programaConfig: snapshotConfig,
       semanas,
       descritoresSelecionados,
       turmaMembroId: ctxTurma.turmaMembroId,
@@ -287,6 +318,7 @@ export async function gerarTemporadaCoreHeadless(sbRaw: any, { colaboradorId, co
       trilhaId: persist.trilhaId,
       numeroTemporada: persist.numeroTemporada,
       competencia: competenciaAlvo,
+      ...(competenciasDoPrograma ? { competencias: competenciasDoPrograma, modo: 'custom' } : {}),
       descritores: descritoresSelecionados.length,
       semanas: semanas.length,
     };
@@ -588,7 +620,11 @@ export async function gerarTemporadaPiloto(args: {
   turma?: ContextoGeracaoTurma;
   colab: any; tdb: any; contexto: string;
   programaConfig: any; aiConfig?: AIConfig; competenciaAlvo: string;
-  /** Modo custom reusa esta maquinaria: carimba 'custom' + congela o snapshot. */
+  /**
+   * Carimbo e snapshot opcionais. O Personalizado usava esta maquinaria até
+   * 03/10/2026; hoje ele segue o caminho da Jornada e nenhum chamador passa
+   * estes dois. Ficam para não mudar a assinatura de um núcleo exportado.
+   */
   carimbo?: ProgramaModoLabel; snapshotConfig?: ProgramaConfig;
 }) {
   const { colab, tdb, contexto, programaConfig, aiConfig, competenciaAlvo, carimbo = 'piloto', snapshotConfig } = args;
@@ -657,51 +693,44 @@ export async function gerarTemporadaPiloto(args: {
 }
 
 /**
- * Modo PERSONALIZADO (builder de degustação — 1–4 semanas, 1–2 comps, com/sem
- * fechamento). A config já chega DERIVADA e validada (derivarConfigCustom);
- * aqui só se resolve a seleção e se persiste com carimbo 'custom' + SNAPSHOT
- * da config (trilhas.programa_config, mig 182 — congela as regras).
+ * Competências do Personalizado com 2 competências, na ORDEM em que serão
+ * percorridas: a âncora (a competência que a geração já resolveu: explícita,
+ * trilha, cargo) SEMPRE em 1º, depois a mesma prioridade do DUO: foco do cargo
+ * (fonte única com o PDI, mig 174), `sys_config.competencias_regular_duo`, top
+ * 10 do cargo. Comparação por texto normalizado, como no encadeamento da
+ * Jornada (`proximaCompetencia`): caixa ou espaço diferente não pode fazer a
+ * mesma competência ser servida duas vezes.
  *
- * 1 competência → delega direto à maquinaria do piloto (top-N por gap,
- * 2 entregas/semana da MESMA comp).
- * 2 competências → 2ª comp pela MESMA prioridade do DUO (foco do cargo →
- * sys_config → top10, âncora primeiro); top-(semanas) POR comp, 1 entrega de
- * cada por semana (segunda = comp A, terça = comp B). Sem 2ª comp viável ou
- * sem assessment/descritores dela → degrada pra 1 comp (avisa, não bloqueia —
- * mesmo contrato do fallback DUO→single).
+ * ⚠️ As três leituras não leem o `{ error }`: são o MESMO texto do gerador
+ * anterior do Personalizado, dívida DECLARADA do guard E11
+ * (`config/error-nao-checado-allowlist.json`). Reescrevê-las com o erro lido
+ * obrigaria a encolher a allowlist, que é zona do dono. Falha de leitura aqui
+ * não passa calada: vira "não há 2ª competência" e a geração FALHA alto
+ * (`planejarTrilhaPersonalizada`), só que com a causa errada na mensagem.
  */
-export async function gerarTemporadaCustom(args: {
-  turma?: ContextoGeracaoTurma;
-  colab: any; empresa: any; tdb: any; contexto: string;
-  programaConfig: ProgramaConfig; aiConfig?: AIConfig; competenciaAlvo: string;
-}): Promise<any> {
-  const { colab, empresa, tdb, contexto, programaConfig, aiConfig, competenciaAlvo } = args;
-
-  const degradarParaSingle = (motivo: string) => {
-    console.warn(`[gerarTemporadaCustom] 2 comps indisponível → degrada pra 1 (${competenciaAlvo}):`, motivo);
-    const configSingle = { ...programaConfig, numCompetencias: 1 };
-    return gerarTemporadaPiloto({
-      colab, tdb, contexto, programaConfig: configSingle, aiConfig, competenciaAlvo,
-      carimbo: 'custom', snapshotConfig: configSingle,
-    });
+export async function resolverCompetenciasDoPersonalizado(
+  tdb: any,
+  colab: { cargo?: string | null },
+  ancora: string,
+  cfg: Record<string, any> | null | undefined,
+): Promise<string[]> {
+  const unicas = (lista: unknown[]): string[] => {
+    const vistas = new Set<string>();
+    const out: string[] = [];
+    for (const c of lista) {
+      if (typeof c !== 'string' || !c.trim()) continue;
+      const chave = c.trim().toLowerCase();
+      if (vistas.has(chave)) continue;
+      vistas.add(chave);
+      out.push(c);
+    }
+    return out;
   };
 
-  if ((programaConfig.numCompetencias || 1) < 2) {
-    return gerarTemporadaPiloto({
-      colab, tdb, contexto, programaConfig, aiConfig, competenciaAlvo,
-      carimbo: 'custom', snapshotConfig: programaConfig,
-    });
-  }
-
-  // 2ª competência — prioridade espelhada do DUO, com a âncora SEMPRE em 1º.
   const { data: cargoFocoRow } = await tdb.from('cargos_empresa')
     .select('competencia_foco, competencias_foco').eq('nome', colab.cargo || '').maybeSingle();
-  let candidatas: string[] = [competenciaAlvo, ...focoDoCargo(cargoFocoRow)];
-  const cfgCustom = args.turma?.config ?? empresa?.sys_config ?? {};
-  if (Array.isArray(cfgCustom.competencias_regular_duo)) {
-    candidatas = [...candidatas, ...cfgCustom.competencias_regular_duo];
-  }
-  let comps = [...new Set<string>(candidatas.filter(Boolean))].slice(0, 2);
+  const doSysConfig = Array.isArray(cfg?.competencias_regular_duo) ? cfg!.competencias_regular_duo : [];
+  let comps = unicas([ancora, ...focoDoCargo(cargoFocoRow), ...doSysConfig]);
   if (comps.length < 2) {
     const { data: top10 } = await tdb.from('top10_cargos')
       .select('competencia_id, posicao')
@@ -712,76 +741,107 @@ export async function gerarTemporadaCustom(args: {
       const ids = top10.map((t: any) => t.competencia_id);
       const { data: cc } = await tdb.from('competencias').select('id, nome').in('id', ids);
       const mapa = Object.fromEntries((cc || []).map((c: any) => [c.id, c.nome]));
-      const nomesTop = top10.map((t: any) => mapa[t.competencia_id]).filter(Boolean);
-      comps = [...new Set<string>([competenciaAlvo, ...nomesTop].filter(Boolean))].slice(0, 2);
+      comps = unicas([...comps, ...top10.map((t: any) => mapa[t.competencia_id])]);
     }
   }
-  if (comps.length < 2) return degradarParaSingle('cargo sem 2ª competência resolvível');
+  return comps.slice(0, 2);
+}
 
-  // Assessment por comp (anti-viés: sem default 1.5). Âncora sem assessment =
-  // erro explícito (mesma mensagem do piloto); 2ª comp sem assessment = degrada.
-  const assessmentPorComp: Record<string, any[]> = {};
+export type PlanoPersonalizado =
+  | { config: ProgramaConfig; competencia: string; competencias: string[] }
+  | { error: string; codigo: string };
+
+/**
+ * Modo PERSONALIZADO (03/10/2026): decide a config DESTA trilha e a
+ * competência dela. A trilha em si sai pelo caminho da Jornada em
+ * `gerarTemporadaCoreHeadless` (seleção por lacuna, 2 conteúdos e 1 desafio
+ * por semana), com carimbo 'custom' e o snapshot desta config.
+ *
+ * Três entradas possíveis:
+ *  1. ENCADEAMENTO (`configCongelada`): a trilha da competência seguinte, com
+ *     as regras congeladas no snapshot da anterior. A competência é a da
+ *     posição gravada.
+ *  2. REGERAÇÃO da mesma trilha (`sequenciaExistente`): a duração vem da tela
+ *     de hoje (custom regerado em custom deriva o snapshot de novo, regra da
+ *     trava de regeração), mas a posição no programa e as competências não
+ *     mudam.
+ *  3. PRIMEIRA trilha: com 2 competências, resolve as duas e exige o
+ *     mapeamento das DUAS antes de gerar a primeira. Se não der, FALHA ALTO
+ *     com erro acionável (a régua de 28/07 para o DUO: na construção, nunca
+ *     rebaixar para 1 competência em silêncio). Antes o Personalizado
+ *     degradava para 1 sem avisar ninguém.
+ */
+export async function planejarTrilhaPersonalizada(args: {
+  tdb: any;
+  colab: { id: string; cargo?: string | null };
+  cfg: Record<string, any> | null | undefined;
+  competenciaAlvo: string;
+  configCongelada?: ProgramaConfig;
+  sequenciaExistente?: SequenciaPersonalizado | null;
+}): Promise<PlanoPersonalizado> {
+  const { tdb, colab, cfg, competenciaAlvo, configCongelada, sequenciaExistente } = args;
+
+  if (configCongelada) {
+    const seq = parseSequenciaPersonalizado(configCongelada.sequenciaPersonalizado);
+    if (!seq) {
+      return {
+        error: 'Encadeamento do Personalizado sem a sequência de competências no snapshot da trilha anterior. Nada foi gerado.',
+        codigo: 'custom_sem_sequencia',
+      };
+    }
+    return { config: configCongelada, competencia: seq.competencias[seq.posicao - 1], competencias: seq.competencias };
+  }
+
+  const inputs = parseProgramaCustom(cfg?.programa_custom);
+  if (!inputs) {
+    return {
+      error: 'Modo Personalizado sem configuração válida (sys_config.programa_custom). Defina semanas, competências e fechamento em Configurações → Programa antes de gerar.',
+      codigo: 'custom_sem_config',
+    };
+  }
+  const base = derivarConfigCustom(inputs);
+
+  if (sequenciaExistente) {
+    return {
+      config: { ...base, sequenciaPersonalizado: sequenciaExistente },
+      competencia: sequenciaExistente.competencias[sequenciaExistente.posicao - 1],
+      competencias: sequenciaExistente.competencias,
+    };
+  }
+
+  if (inputs.numCompetencias < 2) {
+    return { config: base, competencia: competenciaAlvo, competencias: [competenciaAlvo] };
+  }
+
+  const comps = await resolverCompetenciasDoPersonalizado(tdb, colab, competenciaAlvo, cfg);
+  if (comps.length < 2) {
+    return {
+      error: `O Personalizado está configurado com 2 competências, mas não há uma 2ª competência para o cargo "${colab.cargo || 'sem cargo'}" além de "${competenciaAlvo}". Defina as competências foco do cargo, ou configure o Personalizado com 1 competência. Nada foi gerado.`,
+      codigo: 'custom_segunda_competencia',
+    };
+  }
+
+  // O mapeamento das DUAS antes de gerar a primeira: a segunda nasce sozinha
+  // no fim da primeira, semanas depois, e descobrir lá que ela não tem
+  // avaliação deixaria a pessoa sem a segunda competência e sem ninguém saber.
+  // (Mesma leitura, e mesma dívida E11, do gerador anterior; ver acima.)
   for (const c of comps) {
     const { data } = await tdb.from('descriptor_assessments')
       .select('descritor, nota')
       .eq('colaborador_id', colab.id)
       .eq('competencia', c);
-    assessmentPorComp[c] = data || [];
+    if (!data?.length) {
+      return {
+        error: `O Personalizado está configurado com 2 competências ("${comps[0]}" e depois "${comps[1]}"), e o colaborador ainda não tem avaliação (descriptor_assessments) em "${c}". Rode o mapeamento dessa competência, ou configure o Personalizado com 1 competência. Nada foi gerado.`,
+        codigo: 'sem_assessment',
+      };
+    }
   }
-  if (assessmentPorComp[comps[0]].length === 0) {
-    return {
-      error: `Colaborador ainda não tem avaliação (descriptor_assessments) para "${comps[0]}". Rode a rodada de mapeamento antes de gerar a degustação.`,
-      codigo: 'sem_assessment',
-    };
-  }
-  if (assessmentPorComp[comps[1]].length === 0) return degradarParaSingle(`sem assessment pra ${comps[1]}`);
-
-  // Top-(semanas) por comp, 1 slot cada: semana i = [A_i, B_i] (segunda/terça).
-  const slots = programaConfig.slotsConteudo;
-  const selA = selectDescriptorsPiloto(comps[0], assessmentPorComp[comps[0]], slots, 1);
-  const selB = selectDescriptorsPiloto(comps[1], assessmentPorComp[comps[1]], slots, 1);
-  if (selA.length < slots.length) {
-    return {
-      error: `Degustação com 2 competências precisa de ${slots.length} descritores avaliados distintos em "${comps[0]}" — o colaborador tem ${selA.length}. Complete o mapeamento ou reduza as semanas.`,
-      codigo: 'piloto_descritores_insuficientes',
-    };
-  }
-  if (selB.length < slots.length) return degradarParaSingle(`só ${selB.length}/${slots.length} descritores avaliados em ${comps[1]}`);
-  const descritoresSelecionados = [...selA, ...selB];
-
-  const prioridadeFormatos = derivarPrioridadeFormatos(colab);
-  const semanas = await buildSeason({
-    descritoresSelecionados,
-    competencia: comps[0],
-    cargo: colab.cargo,
-    contexto,
-    prioridadeFormatos,
-    empresaId: colab.empresa_id,
-    aiConfig,
-    programaConfig,
-  });
-
-  const persist = await persistirTrilha(tdb, {
-    colaboradorId: colab.id,
-    competenciaFoco: comps[0],
-    competenciasFoco: comps,
-    programaModo: 'custom',
-    semanas,
-    descritoresSelecionados,
-    programaConfig,
-    turmaMembroId: args.turma?.turmaMembroId ?? null,
-    dataInicioTurma: args.turma?.dataInicioTurma ?? null,
-  });
-  if ('error' in persist) return { error: persist.error };
 
   return {
-    ok: true,
-    trilhaId: persist.trilhaId,
-    numeroTemporada: persist.numeroTemporada,
-    competencia: comps.join(' + '),
-    descritores: descritoresSelecionados.length,
-    semanas: semanas.length,
-    modo: 'custom',
+    config: { ...base, sequenciaPersonalizado: { competencias: comps, posicao: 1 } },
+    competencia: comps[0],
+    competencias: comps,
   };
 }
 

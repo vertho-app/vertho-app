@@ -37,10 +37,11 @@ export type ProposalPrograma = {
 /**
  * Rótulos de jornada que o orçamento sabe precificar.
  *
- * `getProgramaConfigByModo` é fail-safe: chave desconhecida devolve o Regular
- * DUO (14 semanas). Esse default serve à GERAÇÃO da trilha, onde cair no padrão
- * é melhor que quebrar — mas num documento comercial ele viraria uma promessa
- * de 14 semanas que ninguém precificou. Por isso a chave é conferida ANTES: se
+ * `getProgramaConfigByModo` é fail-safe: chave desconhecida devolve o padrão
+ * do motor (a Jornada de 7 semanas desde 03/10/2026; antes, o Regular DUO de
+ * 14). Esse default serve à GERAÇÃO da trilha, onde cair no padrão é melhor
+ * que quebrar, mas num documento comercial ele viraria uma promessa de
+ * semanas que ninguém precificou. Por isso a chave é conferida ANTES: se
  * não estiver nesta lista, `semanasPorCiclo` sai null e a página simplesmente
  * não fala em semanas.
  */

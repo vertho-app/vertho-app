@@ -10,6 +10,7 @@ import BackButton from '@/components/back-button';
 import ReactMarkdown from 'react-markdown';
 import { loadTemporadaConcluida } from '@/actions/temporada-concluida';
 import { descritorParaHumano } from '@/lib/descritor-humano';
+import { nivelDaNota } from '@/lib/nivel-regua';
 import RelatorioTemporadaConcluida from '@/components/temporada/relatorio-temporada-concluida';
 
 export default function TemporadaConcluidaPage() {
@@ -39,6 +40,100 @@ export default function TemporadaConcluidaPage() {
   const { colab, trilha, evolutionReport, momentos, missoes, sem14 } = data;
   const firstName = (colab.nome || '').split(' ')[0];
   const descritores = evolutionReport?.descritores || [];
+
+  // Personalizado SEM fechamento (03/10/2026): programa completo, concluído
+  // sem avaliação final. Mostra o ponto de partida (nível do diagnóstico, por
+  // competência) e o certificado, que vale; o avanço não foi medido, e a tela
+  // diz isso em vez de mostrar zero. Não é a variante do piloto: não há
+  // "degustação" nem "demonstração" aqui.
+  if (evolutionReport?.sem_fechamento === true && evolutionReport?.modo !== 'piloto') {
+    const niveisDePartida = nivelDePartidaPorCompetencia(descritores, trilha.competencia);
+    return (
+      <PageContainer>
+        <BackButton href={trilhaHistoricaId ? `/dashboard/jornada/historico/${encodeURIComponent(trilhaHistoricaId)}` : '/dashboard/temporada'} />
+        <div className="flex items-center justify-end mb-4">
+          <CertificadoButton
+            sb={sb}
+            numeroTemporada={trilha.numeroTemporada}
+            certificado={data.certificado}
+            trilhaId={trilhaHistoricaId}
+            label={t('downloadCertificate')}
+            errorLabel={t('certificateError')}
+            notEligibleLabel={(pct) => t('certificateNotEligible', { pct })}
+          />
+        </div>
+
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-2">
+            <Trophy size={18} className="text-amber-400" />
+            <span className="text-xs uppercase text-amber-400 tracking-widest font-bold">{t('hero.eyebrow', { number: trilha.numeroTemporada })}</span>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-white leading-tight mb-2">
+            {t('noClosing.title', { name: firstName })}
+          </h1>
+          <p className="text-sm text-gray-400">
+            {t.rich('noClosing.subtitle', {
+              weeks: trilha.totalSemanas,
+              competency: trilha.competencia,
+              strong: (chunks) => <span className="text-brand-400">{chunks}</span>,
+            })}
+          </p>
+          <p className="text-sm text-gray-300 mt-3">{t('noClosing.note')}</p>
+        </div>
+
+        <section className="mb-8">
+          <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-1">{t('noClosing.baselineSection')}</h2>
+          <p className="text-xs text-gray-500 mb-3">{t('noClosing.baselineNote')}</p>
+          {niveisDePartida.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {niveisDePartida.map((c) => (
+                <GlassCard key={c.competencia} className="border-brand-500/25 bg-brand-500/[0.05] border-l-4 border-l-brand-400">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-base font-bold text-white">{c.competencia}</p>
+                    <span className="text-sm text-brand-300 font-bold shrink-0">{t('level', { n: c.nivel })}</span>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+          )}
+          <div className="space-y-2">
+            {descritores.map((d, i) => (
+              <GlassCard key={i} className="border-brand-500/15">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-bold text-white">{descritorParaHumano(d.descritor)}</p>
+                  {d.baseline != null && (
+                    <span className="text-xs text-brand-300 font-bold shrink-0">{Number(d.baseline).toFixed(1)}/4.0</span>
+                  )}
+                </div>
+              </GlassCard>
+            ))}
+          </div>
+        </section>
+
+        {momentos.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-xs uppercase tracking-widest text-gray-400 mb-3">{t('sections.insights')}</h2>
+            <div className="space-y-2">
+              {momentos.map((m, i) => (
+                <GlassCard key={i} className="border-brand-500/15">
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 shrink-0 text-center">
+                      <p className="text-[9px] uppercase text-gray-500">{t('weekShort')}</p>
+                      <p className="text-lg font-extrabold text-brand-300">{m.semana}</p>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">{descritorParaHumano(m.descritor)}</p>
+                      <p className="text-sm text-gray-200 italic">💡 {m.insight}</p>
+                    </div>
+                  </div>
+                </GlassCard>
+              ))}
+            </div>
+          </section>
+        )}
+      </PageContainer>
+    );
+  }
 
   // Piloto: SEM bloco de evolução/delta — baseline como ponto de partida,
   // fechamento como demonstração da avaliação (2 semanas não medem evolução).
@@ -250,6 +345,27 @@ function PdfButton({ sb, numeroTemporada, trilhaId, label, errorLabel }) {
       <Download size={12} /> {label}
     </button>
   );
+}
+
+/**
+ * Nível de PARTIDA por competência, para o relatório sem fechamento: a régua
+ * oficial (`nivelDaNota`) aplicada à MÉDIA das notas do diagnóstico, como o
+ * relatório regular faz com o nível de chegada (`agruparPorCompetencia`).
+ * Descritor sem nota fica fora da média, em vez de puxá-la para baixo.
+ */
+function nivelDePartidaPorCompetencia(descritores: any[], competenciaDaTrilha: string) {
+  const porCompetencia = new Map<string, number[]>();
+  for (const d of descritores || []) {
+    const nota = Number(d?.baseline);
+    if (d?.baseline == null || !Number.isFinite(nota)) continue;
+    const competencia = String(d?.competencia || competenciaDaTrilha || '').trim();
+    if (!competencia) continue;
+    porCompetencia.set(competencia, [...(porCompetencia.get(competencia) || []), nota]);
+  }
+  return [...porCompetencia.entries()].map(([competencia, notas]) => ({
+    competencia,
+    nivel: nivelDaNota(notas.reduce((soma, n) => soma + n, 0) / notas.length),
+  }));
 }
 
 function Center({ children }) {

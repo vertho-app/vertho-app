@@ -3,33 +3,20 @@ import { tenantDb } from '@/lib/tenant-db';
 import { resolverConfigDaTrilha } from '@/lib/season-engine/trilha-runtime';
 import { PILOTO_SPEC_VERSION } from '@/lib/season-engine/piloto-trava';
 import { PROGRESSO, TRILHA } from '@/lib/status';
-import { encadearProximaJornada } from './encadear-jornada';
+import { encadearAposConclusao } from './encadear-jornada';
 // Régua de convergência em FONTE ÚNICA — o fixture da demo classifica pela
 // mesma função, senão a vitrine mostraria um veredito que o motor não produz.
 import { CONVERGENCIA, classificarConvergencia } from './convergencia';
 
 /**
- * Fim de jornada = começo da próxima (modo `jornada`, 05/08/2026). Roda DEPOIS
- * de a trilha estar marcada como concluída, e nunca derruba o fechamento: se a
- * geração falhar, a jornada concluída segue concluída e a degradação fica
- * registrada (`jornada-encadeamento-falhou`) para o admin gerar pelo caminho
- * normal. Nos outros modos é um no-op — concluir é o fim do ciclo.
- *
- * O import do gerador é dinâmico porque `trilha-core` importa este arquivo em
- * cadeia; estático fecharia o ciclo.
+ * Fim de trilha = começo da próxima, quando o modo encadeia (Jornada, desde
+ * 05/08/2026, e Personalizado com 2 competências, desde 03/10/2026). Roda
+ * DEPOIS de a trilha estar marcada como concluída, e nunca derruba o
+ * fechamento: a régua está em `encadearAposConclusao`, a mesma que o
+ * encerramento do Personalizado SEM fechamento usa na rota /reflection.
  */
 async function encadear(sbRaw: any, tdb: any, trilhaId: string): Promise<void> {
-  try {
-    const { gerarTemporadaCoreHeadless } = await import('./trilha-core');
-    const r = await encadearProximaJornada(sbRaw, tdb, trilhaId, (args) =>
-      gerarTemporadaCoreHeadless(sbRaw, args),
-    );
-    if (r.encadeou) {
-      console.log(`[jornada] trilha ${trilhaId} concluída → jornada ${r.numeroTemporada} em "${r.competencia}" (${r.trilhaId})`);
-    }
-  } catch (e: any) {
-    console.error('[jornada] encadeamento falhou:', e?.message || e);
-  }
+  await encadearAposConclusao(sbRaw, tdb, trilhaId);
 }
 
 /**

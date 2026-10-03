@@ -1875,6 +1875,13 @@
       "assessmentSection": "Evaluación de cierre (demostración)",
       "assessmentNote": "Así funciona la evaluación por escenario en la temporada completa. En 2 semanas demuestra el método — no mide evolución.",
       "demoScore": "Nota de la demostración:"
+    },
+    "noClosing": {
+      "title": "{name}, has concluido el programa",
+      "subtitle": "{weeks, plural, one {# semana dedicada} other {# semanas dedicadas}} a <strong>{competency}</strong>.",
+      "note": "Este programa se configuró sin evaluación final: el informe muestra tu punto de partida, y el avance no se midió. El certificado es válido de forma normal.",
+      "baselineSection": "Tu punto de partida",
+      "baselineNote": "Niveles mapeados en el diagnóstico, antes del programa."
     }
   },
   "Voting": {
@@ -5204,11 +5211,9 @@
       "moduloProntidaoOn": "Encendido",
       "moduloProntidaoOff": "Apagado",
       "title": "Modo del programa",
-      "desc": "Regular = ruta de 14 semanas con hasta 2 competencias en profundidad. Onboarding = 10 semanas en espiral cubriendo hasta 5 competencias (recién graduados / autonomía supervisada).",
+      "desc": "Jornada = 7 semanas, una competencia a la vez (6 de contenido y la evaluación). Onboarding = 10 semanas en espiral cubriendo hasta 5 competencias (recién graduados, autonomía supervisada). Personalizado = una Jornada con la duración que elijas.",
       "journey": "Jornada (7 semanas)",
       "journeyDesc": "6 semanas de contenido + evaluación · 1 competencia · 1 tarea por semana. DUO = 2 jornadas seguidas",
-      "regular": "Regular (14 semanas)",
-      "regularDesc": "Hasta 2 competencias · nivel objetivo 3",
       "onboarding": "Onboarding (10 semanas)",
       "onboardingDesc": "5 competencias · nivel objetivo 2",
       "onboardingNote": "Modo Onboarding activo. Configura <code>sys_config.competencias_onboarding</code> (array de 5 nombres) o ejecuta IA1 para el cargo; la engine usa el top 5 de <code>top10_cargos</code> como fallback.",
@@ -5224,24 +5229,28 @@
       "blueprintOn": "Ruta dirigida por el blueprint (activado)",
       "blueprintOff": "Ruta estándar (blueprint desactivado)",
       "blueprintHint": "Se recomienda auditar el blueprint antes de activarlo en un piloto.",
-      "pilot": "Piloto",
-      "pilotDesc": "Degustación: 2 semanas, 1 competencia, 4 contenidos + cierre completo",
-      "pilotNote": "Piloto: el diagnóstico completo (Mapeo Conductual, mapeo técnico, ADN, Fit) corre sin cambios. Ruta de 2 semanas con 2 contenidos/semana (top-4 descriptores por brecha) y cierre con escenario + evaluación IA. La nota mostrada nunca queda por debajo del baseline (tope mínimo, bruto preservado en el snapshot). Objetivo: recorrer el flujo completo, no demostrar evolución.",
-      "regularSingle": "Regular (single)",
-      "regularSingleDesc": "14 semanas, 1 competencia en profundidad — escape/rollback del DUO",
       "custom": "Personalizado",
-      "customDesc": "Degustación a medida: 1–10 semanas, 1–2 competencias, con o sin cierre",
-      "customSemanas": "Semanas",
+      "customDesc": "Jornada a medida: de 1 a 6 semanas por competencia, 1 o 2 competencias en secuencia, con o sin cierre",
+      "customSemanas": "Semanas por competencia",
       "customComps": "Competencias",
       "customFechamento": "Cierre",
       "customFechamentoOn": "Con cierre",
       "customFechamentoOff": "Sin cierre",
       "customMapeamentos": "Mapeos conductual y técnico: siempre activos — el diagnóstico es la puerta de entrada del método.",
-      "customPreview": "Calendario derivado",
+      "customPreview": "Calendario ({weeks, plural, one {# semana} other {# semanas}} en total)",
       "customPreviewConteudo": "Sem {week} · Contenido (2 píldoras)",
-      "customPreviewFechamento": "Cierre — se libera con la semana {week}",
+      "customPreviewCompetencia": "Competencia {n}",
+      "customPreviewFechamento": "Sem {week} · Cierre",
       "customPreviewEncerramento": "Termina al concluir la semana {week}",
-      "customNote": "Personalizado: la generación deriva y CONGELA la configuración en la ruta — cambiar aquí después no afecta rutas en curso. Con cierre: Escenario B + evaluación IA + tope de piso (como en el Piloto). Sin cierre: la ruta concluye al terminar la última semana de contenido, sin evaluación final."
+      "customNote": "Programa completo, con las reglas de la Jornada: 2 contenidos y 1 desafío por semana. Con cierre: Escenario B, evaluación con IA e informe con nivel y avance. Sin cierre: la ruta concluye al terminar la última semana de contenido, y el informe muestra el punto de partida, sin medir el avance. En los dos casos hay certificado, con carga horaria proporcional a la duración. La generación congela la configuración en la ruta: cambiar aquí después no afecta rutas en curso.",
+      "customSequencia": "Las competencias van en secuencia: la segunda empieza sola cuando termina la primera, y cada una tiene su informe y su certificado.",
+      "legacyCurrent": "Programa actual: {label}, descontinuado. Sigue vigente para esta empresa hasta que elijas uno de los formatos de arriba, y las rutas ya generadas continúan con su formato.",
+      "legacyOption": "{label}, descontinuado",
+      "legacy": {
+        "regularDuo": "Regular (14 semanas, DUO)",
+        "regularSingle": "Regular (14 semanas, 1 competencia)",
+        "pilot": "Piloto (degustación)"
+      }
     },
     "language": {
       "title": "Idioma predeterminado de la empresa",

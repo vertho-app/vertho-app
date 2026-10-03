@@ -39,6 +39,13 @@ export const DEGRADACAO = {
   PILOTO_DISTRIBUICAO_INCOMPLETA: 'piloto-distribuicao-incompleta',
   /** jornada: fechamento concluiu, mas a jornada seguinte não foi gerada (mig 199). */
   JORNADA_ENCADEAMENTO_FALHOU: 'jornada-encadeamento-falhou',
+  /**
+   * Personalizado SEM fechamento: a última semana de conteúdo concluiu, mas a
+   * trilha não foi marcada como concluída (o relatório não gravou). A pessoa
+   * terminou tudo e não vê o relatório nem o certificado; o admin precisa
+   * saber, porque não há um passo seguinte dela que tente de novo.
+   */
+  ENCERRAMENTO_SEM_FECHAMENTO_FALHOU: 'encerramento-sem-fechamento-falhou',
   /** contexto-empresa: síntese do PPP falhou → cai no PPP mais recente. */
   SINTESE_PPP_FALHOU: 'sintese-ppp-falhou',
   /** overlay: sem kit para o DISC da pessoa → mantém o conteúdo do build. */

@@ -97,16 +97,16 @@ describe('Onboarding — programa-config', () => {
   });
 
   describe('getProgramaConfig(sys_config)', () => {
-    it('default GLOBAL (sys_config null/vazio) → REGULAR DUO (2 comps)', () => {
-      expect(getProgramaConfig(null).numCompetencias).toBe(2);
-      expect(getProgramaConfig(undefined).numCompetencias).toBe(2);
-      expect(getProgramaConfig({}).numCompetencias).toBe(2);
+    it('padrão (sys_config null/vazio) → JORNADA de 7 semanas, 1 comp (desde 03/10/2026)', () => {
+      expect(getProgramaConfig(null).semanas).toBe(7);
+      expect(getProgramaConfig(undefined).semanas).toBe(7);
+      expect(getProgramaConfig({}).numCompetencias).toBe(1);
       expect(getProgramaConfig({}).modo).toBe('regular');
     });
-    it('programa_modo ausente/desconhecido → DUO (fail-safe pro novo default)', () => {
+    it('programa_modo desconhecido → Jornada (o padrão, não mais o DUO)', () => {
       const c = getProgramaConfig({ programa_modo: 'xyz' as any });
-      expect(c.numCompetencias).toBe(2);
-      expect(c.semanas).toBe(14);
+      expect(c.numCompetencias).toBe(1);
+      expect(c.semanas).toBe(7);
     });
     it('programa_modo="regular_single" → REGULAR single (escape hatch)', () => {
       const c = getProgramaConfig({ programa_modo: 'regular_single' });

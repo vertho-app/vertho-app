@@ -1,5 +1,5 @@
 import { parseProgramaCustom, CUSTOM_LIMITES } from '@/lib/season-engine/programa-custom';
-import type { ProgramaModoLabel } from '@/lib/season-engine/programa-config';
+import { MODOS_OFERECIDOS, ehModoDescontinuado, type ProgramaModoLabel } from '@/lib/season-engine/programa-config';
 
 /**
  * Chaves de `empresas.sys_config` que NÃO podem ser gravadas pelo formulário de
@@ -52,7 +52,12 @@ export type ChaveSoPlataforma = (typeof CHAVES_SO_PLATAFORMA)[number];
  */
 export const CHAVES_DE_PROGRAMA = ['programa_modo', 'programa_custom', 'competencias_onboarding'] as const satisfies readonly ChaveSoPlataforma[];
 
-/** Os rótulos que o motor reconhece (`ProgramaModoLabel`); qualquer outro vira DUO em silêncio. */
+/**
+ * Os rótulos que o motor reconhece (`ProgramaModoLabel`). NÃO é a lista do que
+ * se pode gravar: desde 03/10/2026 a gravação NOVA aceita só
+ * `MODOS_OFERECIDOS` (Jornada, Onboarding, Personalizado). Os outros três
+ * seguem lidos para quem já está gravado neles.
+ */
 export const MODOS_DE_PROGRAMA = ['jornada', 'regular_duo', 'regular_single', 'onboarding', 'piloto', 'custom'] as const satisfies readonly ProgramaModoLabel[];
 
 /** Teto de competências fixas do Onboarding: o motor usa as N primeiras, e N é pequeno. */
@@ -66,9 +71,13 @@ const MAX_COMPETENCIAS_ONBOARDING = 10;
 export function problemaNaChaveDePrograma(chave: (typeof CHAVES_DE_PROGRAMA)[number], valor: unknown): string | null {
   if (valor === undefined || valor === null) return null;
   if (chave === 'programa_modo') {
-    return (MODOS_DE_PROGRAMA as readonly unknown[]).includes(valor)
-      ? null
-      : `Programa inválido: "${String(valor)}". Use um destes: ${MODOS_DE_PROGRAMA.join(', ')}.`;
+    if ((MODOS_OFERECIDOS as readonly unknown[]).includes(valor)) return null;
+    // Descontinuado (03/10/2026): o motor lê, a gravação NOVA recusa. Quem já
+    // está gravado assim não passa por aqui, porque `salvarConfig` só valida o
+    // que MUDOU; é isso que deixa a empresa salvar outra aba sem trocar de formato.
+    return ehModoDescontinuado(valor)
+      ? `Programa inválido para gravação nova: "${String(valor)}" foi descontinuado. Use um destes: ${MODOS_OFERECIDOS.join(', ')}.`
+      : `Programa inválido: "${String(valor)}". Use um destes: ${MODOS_OFERECIDOS.join(', ')}.`;
   }
   if (chave === 'programa_custom') {
     return parseProgramaCustom(valor)
