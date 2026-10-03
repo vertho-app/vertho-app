@@ -46,6 +46,13 @@ export type DadosDoContato = {
   minhaCasa: string;
   /** `created_by_email` da linha do passaporte. */
   criadoPor?: string | null;
+  /**
+   * Versão C: os desafios que a pessoa viu, como FRASES prontas para entrar em
+   * "Um dos meus desafios hoje é ...". Ausente ou vazio mantém o texto da B.
+   */
+  desafios?: readonly string[];
+  /** Versão C: o desafio que ela escreveu com as próprias palavras (já limpo). */
+  outro?: string;
 };
 
 function primeiroNome(nome: string): string {
@@ -61,13 +68,27 @@ function primeiroNome(nome: string): string {
  * em metade dos casos (a mesma régua da cópia do convite). "Onde" a pessoa quer
  * ver vem escrito por extenso de cada ambiente, pela mesma razão.
  */
-export function mensagemDeContato({ nome, empresa, minhaCasa }: DadosDoContato): string {
+export function mensagemDeContato({ nome, empresa, minhaCasa, desafios, outro }: DadosDoContato): string {
   const identificacao = [primeiroNome(nome), String(empresa || '').trim() && `(${String(empresa).trim()})`]
     .filter(Boolean)
     .join(' ');
   const apresentacao = identificacao ? ` Aqui é ${identificacao}.` : '';
-  return `Olá!${apresentacao} Acabei de ver a Vertho por dentro e quero entender como isso funcionaria `
-    + `${String(minhaCasa || '').trim()}.`;
+  const casa = String(minhaCasa || '').trim();
+
+  const frases = (desafios || []).map((d) => String(d || '').trim()).filter(Boolean);
+  const proprio = String(outro || '').trim();
+  if (frases.length === 0 && !proprio) {
+    return `Olá!${apresentacao} Acabei de ver a Vertho por dentro e quero entender como isso funcionaria ${casa}.`;
+  }
+
+  // Versão C: a mensagem leva o que a pessoa viu, para quem atende já saber a conversa.
+  const itens = [...frases, ...(proprio ? [proprio] : [])];
+  const meio = itens.length === 1
+    ? (frases.length === 1
+      ? `Um dos meus desafios hoje é ${frases[0]}.`
+      : `Meu desafio hoje é: ${proprio}`)
+    : `Hoje, meus maiores desafios são:\n${itens.map((item, i) => `${i + 1}) ${item}`).join('\n')}`;
+  return `Olá!${apresentacao} Acabei de ver a Vertho por dentro.\n${meio}\nQuero entender como isso funcionaria ${casa}.`;
 }
 
 /** Link único do próximo passo: conversa certa, texto pronto, envio dela. */

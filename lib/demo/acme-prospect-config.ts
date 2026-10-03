@@ -1,3 +1,5 @@
+import { copiaDaVersaoC } from '@/lib/demo/degustacao-desafios';
+
 export const ACME_PROSPECT_ROLES = [
   {
     key: 'representante-comercial',
@@ -87,9 +89,14 @@ export function getPapelDaDegustacao(slug: string, key: unknown) {
  *   (`/degustacao`), que não cria sessão. Primeiro as visões prontas; o perfil
  *   comportamental vira convite opcional.
  *
+ * - `C` (03/10/2026, mig 273): um link só, para o DIAGNÓSTICO guiado. O lead
+ *   escolhe UM desafio, vê a resposta na sala e volta ao início; o perfil
+ *   comportamental é opcional e sempre o mapeamento completo. Nasceu da leitura
+ *   da B: 4 de 4 entraram pela sala do RH e 0 de 5 clicaram em falar com a Vertho.
+ *
  * Linha sem versão é A: é o que todo passaporte anterior à mig 256 foi.
  */
-export const DEGUSTACAO_VERSOES = ['A', 'B'] as const;
+export const DEGUSTACAO_VERSOES = ['A', 'B', 'C'] as const;
 export type DegustacaoVersao = typeof DEGUSTACAO_VERSOES[number];
 
 export type AcmeProspectExperienceInput = {
@@ -508,8 +515,23 @@ function primeiroNome(nome: string): string {
 export function buildDegustacaoConviteText(
   access: { nome: string; url: string; expiresAt: string },
   slug: string,
+  versao: DegustacaoVersao = 'B',
 ): string {
   const copia = copiaDaDegustacaoGuiada(slug);
+  if (versao === 'C') {
+    // C: o convite promete o que a página entrega, uma resposta para o desafio
+    // que pesa mais. Sem minuto em número, pela mesma régua da B.
+    return [
+      `Olá, ${primeiroNome(access.nome)}!`,
+      '',
+      `Preparei um acesso para você ver como a Vertho trata o que mais pesa no desenvolvimento ${copiaDaVersaoC(slug).convite}. `
+        + `Você escolhe o desafio e vê a resposta funcionando, ${copia.contexto}.`,
+      '',
+      access.url,
+      '',
+      `O link é só seu e fica ativo até ${formatAcmeProspectExpiry(access.expiresAt)} (horário de Brasília).`,
+    ].join('\n');
+  }
   return [
     `Olá, ${primeiroNome(access.nome)}!`,
     '',

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { criarSupabaseMock } from '../helpers/supabase-mock';
 import { isDemoPersonaEmail, isInternalEmail } from '@/lib/internal-emails';
+import { DEMO_TELEMETRY_VERSION, DEMO_TELEMETRY_VERSION_C } from '@/lib/demo/degustacao-metricas';
 
 let isDemo = true;
 const sb = criarSupabaseMock({
@@ -143,6 +144,24 @@ describe('experiência temporária de prospect no ACME', () => {
     expect(generateLink).not.toHaveBeenCalled();
   });
 
+  it('versão C: grava a versão e a telemetria PRÓPRIA, e o link é o curto da página (como a B)', async () => {
+    const result = await prepareAcmeProspectExperience({ ...validInput, versao: 'C' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const link = new URL(result.access.url);
+    expect(link.hostname).toBe('acme-demo.vertho.ai');
+    expect(link.pathname).toMatch(/^\/c\/[A-Za-z0-9_-]{24}$/);
+    expect(link.search).toBe('');
+    expect(result.access.versao).toBe('C');
+
+    const tracking = sb.escritas.find((write) => write.tabela === 'demo_prospect_sessions' && write.op === 'insert');
+    // a C não herda a telemetria da B: a "exploração" dela é o desafio escolhido
+    expect(tracking?.payload).toMatchObject({ experience_version: 'C', telemetry_version: DEMO_TELEMETRY_VERSION_C });
+    expect(tracking?.payload.telemetry_version).not.toBe(DEMO_TELEMETRY_VERSION);
+    expect(generateLink).not.toHaveBeenCalled();
+  });
+
   it('falha fechado antes de qualquer escrita quando o alvo não é tenant demo', async () => {
     isDemo = false;
     vi.spyOn(console, 'error').mockImplementationOnce(() => {});
@@ -214,12 +233,18 @@ describe('contratos puros da experiência ACME', () => {
     })).toEqual({ ok: false, error: 'Escolha um papel demonstrativo válido.' });
   });
 
-  it('aceita a versão B e RECUSA versão desconhecida (nunca vira A em silêncio)', () => {
+  it('aceita as versões B e C e RECUSA versão desconhecida (nunca vira A em silêncio)', () => {
     expect(validateAcmeProspectExperienceInput({ ...validInput, versao: 'B' })).toMatchObject({
       ok: true,
       value: { versao: 'B' },
     });
-    for (const versao of ['C', 'b', 1, true, { versao: 'B' }]) {
+    // A C entrou em 03/10/2026 (mig 273). Este teste afirmava que 'C' era recusada:
+    // a recusa passou para o que continua inválido, inclusive 'D' (a próxima).
+    expect(validateAcmeProspectExperienceInput({ ...validInput, versao: 'C' })).toMatchObject({
+      ok: true,
+      value: { versao: 'C' },
+    });
+    for (const versao of ['D', 'b', 'c', 1, true, { versao: 'B' }]) {
       expect(validateAcmeProspectExperienceInput({ ...validInput, versao })).toEqual({
         ok: false,
         error: 'Escolha uma versão de roteiro válida.',

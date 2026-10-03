@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { ArrowRight, Check, MessageCircle } from 'lucide-react';
 import AberturaBeacon from './abertura-beacon';
+import DiagnosticoGuiado from './diagnostico-guiado';
+import { copiaDaVersaoC } from '@/lib/demo/degustacao-desafios';
 import {
   carregarPaginaDaDegustacao,
   type CartaoDeVisao,
@@ -223,6 +225,56 @@ export async function PaginaDaDegustacaoView({ identificacao, aviso, hostname }:
 
   const { pessoal, passe } = pagina;
   const avisoTexto = aviso && Object.prototype.hasOwnProperty.call(AVISOS, aviso) ? AVISOS[aviso] : null;
+
+  /*
+    VERSÃO C (03/10/2026): em vez dos três cartões por papel, o lead escolhe UM
+    desafio, vê a resposta na sala e volta. O perfil comportamental é opcional e
+    é sempre o mapeamento completo (nada de versão curta, nada de cenário
+    avaliado no caminho). A B segue abaixo, intacta.
+  */
+  if (pagina.versao === 'C') {
+    const copiaC = copiaDaVersaoC(pagina.slug);
+    return (
+      <Moldura>
+        <DiagnosticoGuiado
+          passe={passe}
+          codigo={pagina.codigo}
+          primeiroNome={pagina.primeiroNome}
+          copia={copiaC}
+          desafios={pagina.desafios}
+          contato={{ titulo: pagina.contato.titulo, botao: pagina.contato.botao }}
+          aviso={avisoTexto ? <Aviso texto={avisoTexto} /> : null}
+        >
+          <section className="mt-8 lg:mt-12" aria-label="Seu perfil">
+            <Eyebrow>{pessoal.discFeito ? 'Sobre você' : 'Sobre você · opcional'}</Eyebrow>
+            <div
+              data-layout="cartao-pessoal"
+              className="rounded-2xl border p-5 lg:p-8"
+              style={{ background: COR.card, borderColor: COR.borda }}
+            >
+              <div className="lg:grid lg:grid-cols-[1fr_300px] lg:items-center lg:gap-10">
+                <div>
+                  <Titulo>{pessoal.discFeito ? 'Seu perfil comportamental está pronto' : 'Descubra o seu perfil comportamental'}</Titulo>
+                  {!pessoal.discFeito && <Texto>{copiaC.perfilTexto}</Texto>}
+                </div>
+                {pessoal.discFeito ? (
+                  <BotaoPessoal passe={passe} destino="perfil" secundario>Ver meu perfil</BotaoPessoal>
+                ) : (
+                  <BotaoPessoal passe={passe} destino="mapeamento" secundario>Descobrir meu perfil</BotaoPessoal>
+                )}
+              </div>
+            </div>
+          </section>
+        </DiagnosticoGuiado>
+
+        <p className="mt-10 text-[12px] leading-relaxed lg:mt-14 lg:text-[13px]" style={{ color: COR.texto3 }}>
+          Acesso individual, ativo até {formatAcmeProspectExpiry(pagina.expiraEm)} (horário de Brasília).
+        </p>
+
+        <AberturaBeacon passe={passe} />
+      </Moldura>
+    );
+  }
 
   const secaoVisoes = (
     <section className="mt-8 lg:mt-12" aria-label="Veja a plataforma por dentro">

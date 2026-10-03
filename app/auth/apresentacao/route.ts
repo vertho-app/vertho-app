@@ -11,6 +11,7 @@ import {
 } from '@/lib/demo/presentation';
 import { issueDemoPresentationTicket, verifyDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
 import { lerCodigoCurto, emitirCodigoCurto } from '@/lib/demo/degustacao-link-curto';
+import { CENA_PARAM, cenaDaSala } from '@/lib/demo/degustacao-desafios';
 import { autenticarPapelApresentacaoDemo } from '@/lib/demo/reset-acme-demo';
 import { recordAcmeProspectPresentationAccess } from '@/lib/demo/acme-prospect-tracking';
 
@@ -73,7 +74,15 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const destino = new URL(login.nextPath, req.url);
+  // Versão C: o convite abre a sala DIRETO na tela que responde ao desafio. O
+  // destino sai do mapa por CHAVE (`degustacao-desafios`), nunca da URL: chave
+  // desconhecida, de outro papel ou sem passe de convidado é ignorada em
+  // silêncio e a sala abre na casa, como sempre abriu.
+  const cena = ticketPayload.prospectSessionId
+    ? cenaDaSala(ticketPayload.tenant, role.key, req.nextUrl.searchParams.get(CENA_PARAM))
+    : null;
+  const destino = new URL(cena ? cena.caminho : login.nextPath, req.url);
+  if (cena) destino.searchParams.set(CENA_PARAM, cena.chave);
   // O shell guarda o passe em sessionStorage e remove este parâmetro da barra
   // de endereço. Ele precisa chegar uma vez a cada origem para que o próximo
   // salto do dropdown também seja automático.

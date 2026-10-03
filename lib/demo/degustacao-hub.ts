@@ -16,6 +16,22 @@ import {
   isDemoPresentationTenant,
 } from '@/lib/demo/presentation';
 import { issueDemoPresentationTicket } from '@/lib/demo/presentation-ticket';
+import {
+  CENA_PARAM,
+  desafiosDoAmbiente,
+  ordemDosDesafios,
+  type DesafioChave,
+  type IconeDoDesafio,
+} from '@/lib/demo/degustacao-desafios';
+
+/** Um desafio da versão C como o início o desenha: o link já abre a sala certa. */
+export type DesafioDoInicio = {
+  chave: DesafioChave;
+  icone: IconeDoDesafio;
+  tema: string;
+  titulo: string;
+  url: string;
+};
 
 export type CartaoDeVisao = {
   roleKey: AcmeProspectPresentationRoleKey;
@@ -36,11 +52,23 @@ export type PaginaDaDegustacao =
   | { status: 'expirado' | 'invalido' | 'indisponivel' }
   | {
       status: 'ok';
+      /**
+       * Qual página desenhar: B (três visões por papel) ou C (desafios). Linha
+       * A e qualquer valor desconhecido caem na B, que é o que sempre rendeu.
+       */
+      versao: 'B' | 'C';
+      /** Código do link curto desta sessão (a C monta o "Visto" e o contato com ele). */
+      codigo: string;
+      /** Ambiente (`acme-demo`, `escolas-acme`...): a C escolhe a cópia por ele. */
+      slug: string;
       primeiroNome: string;
       cargo: string;
       expiraEm: string;
       contexto: string;
+      /** Vazio na C: ela não tem os três cartões por papel. */
       visoes: CartaoDeVisao[];
+      /** Só na C: os desafios, na ordem DESTA sessão. */
+      desafios: DesafioDoInicio[];
       pessoal: EstadoPessoalDegustacao & { passo: PassoPessoalDegustacao };
       /** Próximo passo: conversa com quem convidou, com o texto pronto. */
       contato: { titulo: string; botao: string; url: string };
@@ -86,6 +114,7 @@ export async function carregarPaginaDaDegustacao(
     'gestor_accessed_at',
     'rh_accessed_at',
     'disc_completed_at',
+    'experience_version',
   ];
   const acesso = 'codigo' in identificacao
     ? await abrirAcessoPorCodigoCurto(identificacao.codigo, hostname, colunas)
@@ -156,7 +185,21 @@ export async function carregarPaginaDaDegustacao(
   }, acesso.slug);
 
   const copia = copiaDaDegustacaoGuiada(acesso.slug);
-  const visoes: CartaoDeVisao[] = copia.visoes.map((visao) => {
+  const versao: 'B' | 'C' = sessao.experience_version === 'C' ? 'C' : 'B';
+
+  // C: os desafios, na ordem DESTA sessão (a lista gira, para o primeiro clique
+  // medir prioridade e não posição). Cada link já abre a sala certa na cena
+  // certa; a chave atravessa a rota da sala, nunca um caminho.
+  const desafios: DesafioDoInicio[] = versao === 'C'
+    ? ordemDosDesafios(acesso.sessionId, desafiosDoAmbiente(acesso.slug)).map((desafio) => {
+      const url = new URL(demoPresentationAuthUrl(desafio.sala, ticket, undefined, acesso.slug));
+      url.searchParams.set(DEMO_PRESENTATION_RETURN_PARAM, acesso.codigo);
+      url.searchParams.set(CENA_PARAM, desafio.chave);
+      return { chave: desafio.chave, icone: desafio.icone, tema: desafio.tema, titulo: desafio.titulo, url: url.toString() };
+    })
+    : [];
+
+  const visoes: CartaoDeVisao[] = (versao === 'C' ? [] : copia.visoes).map((visao) => {
     // O código do link curto viaja junto para a sala mostrar "Voltar ao início".
     // A rota da sala só o repassa se ele for desta MESMA sessão do ticket.
     const url = new URL(demoPresentationAuthUrl(visao.roleKey, ticket, undefined, acesso.slug));
@@ -190,11 +233,15 @@ export async function carregarPaginaDaDegustacao(
   };
   return {
     status: 'ok',
+    versao,
+    codigo: acesso.codigo,
+    slug: acesso.slug,
     primeiroNome: nome.split(/\s+/)[0] || nome,
     cargo: String(sessao.cargo || ''),
     expiraEm: String(sessao.expires_at),
     contexto: copia.contexto,
     visoes,
+    desafios,
     pessoal: { ...estado, passo: passoPessoalDaDegustacao(estado) },
     contato: {
       titulo: copia.contato.titulo,

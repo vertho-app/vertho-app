@@ -25,6 +25,7 @@ import {
   primeiroCodigoDeConvidado,
   type LinkDaOrientacao,
 } from '@/lib/demo/degustacao-orientacao';
+import { CENA_PARAM, CENA_STORAGE_KEY } from '@/lib/demo/degustacao-desafios';
 
 const CHAVE_DISPENSA = 'vertho-degustacao-orientacao-dispensada';
 
@@ -42,15 +43,20 @@ export default function OrientacaoDaDegustacao({ papel, casa, texto, links }: {
   useEffect(() => {
     let daSessao: string | null = null;
     let dispensada = false;
+    let emCena = false;
     try {
       daSessao = window.sessionStorage.getItem(DEMO_PRESENTATION_RETURN_STORAGE_KEY);
       dispensada = window.sessionStorage.getItem(`${CHAVE_DISPENSA}:${papel}`) === '1';
+      // Quem veio pela versão C já tem o painel do desafio nesta sala (a rota guarda
+      // a chave). Duas dicas empilhadas na mesma tela seriam ruído.
+      emCena = window.sessionStorage.getItem(CENA_STORAGE_KEY) !== null;
     } catch {
       /* navegador sem sessionStorage: resta a URL da primeira tela */
     }
     const daUrl = new URLSearchParams(window.location.search).get(DEMO_PRESENTATION_RETURN_PARAM);
     const convidado = primeiroCodigoDeConvidado([daUrl, daSessao], CODIGO_CURTO_PATTERN);
-    setVisivel(Boolean(convidado) && !dispensada);
+    const veioDaCena = emCena || new URLSearchParams(window.location.search).has(CENA_PARAM);
+    setVisivel(Boolean(convidado) && !dispensada && !veioDaCena);
     // `pathname` entra de propósito: a pessoa volta para a casa depois de
     // explorar, e a dica precisa ser reavaliada ali (inclusive porque na
     // primeira tela o código só existia na URL).

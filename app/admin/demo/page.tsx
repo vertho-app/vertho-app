@@ -44,6 +44,7 @@ import {
   type DegustacaoVersao,
   type DemoGuestProgress,
 } from '@/lib/demo/acme-prospect-config';
+import { desafioDoAlvo, desafioDoAmbiente } from '@/lib/demo/degustacao-desafios';
 
 type TenantSlug = 'acme-demo' | 'gruposinal' | 'escolas-acme';
 
@@ -83,6 +84,10 @@ type LembreteView = { texto: string; url: string; convertidoParaB: boolean } | {
  * WhatsApp. A A continua aqui, inteira, a um clique.
  */
 const VERSOES_DO_ROTEIRO: Record<DegustacaoVersao, { rotulo: string; resumo: string }> = {
+  C: {
+    rotulo: 'C · diagnóstico guiado',
+    resumo: 'Um link para uma página que pergunta o que mais pesa no desenvolvimento do time. A pessoa escolhe UM desafio, vê a resposta na sala e volta. O perfil é opcional e completo. O painel mostra qual desafio veio primeiro.',
+  },
   B: {
     rotulo: 'B · convite guiado',
     resumo: 'Um link para uma página de boas-vindas. Comece pelo RH, depois explore gestor e colaborador; o perfil é opcional. O painel só marca "Abriu" com gente de verdade.',
@@ -378,7 +383,9 @@ export default function AdminDemoPage() {
       // em outro ambiente "sumia" da lista: aqui a lista passa a ser a dele.
       if (tenantSlug !== degustacaoSlug) selecionarTenant(degustacaoSlug as TenantSlug);
       else await carregarAndamento({ silencioso: true });
-      toast.success(prospectForm.versao === 'B' ? 'Convite guiado criado.' : 'Convite com as quatro perspectivas criado.');
+      toast.success(prospectForm.versao === 'C'
+        ? 'Convite do diagnóstico guiado criado.'
+        : prospectForm.versao === 'B' ? 'Convite guiado criado.' : 'Convite com as quatro perspectivas criado.');
     } catch (e: any) {
       toast.error(`Erro: ${e?.message || 'inesperado'}`);
     } finally {
@@ -387,8 +394,8 @@ export default function AdminDemoPage() {
   }
 
   function mensagemProspect(acesso: ProspectAccessView) {
-    return acesso.versao === 'B'
-      ? buildDegustacaoConviteText(acesso, acesso.slug)
+    return acesso.versao !== 'A'
+      ? buildDegustacaoConviteText(acesso, acesso.slug, acesso.versao)
       : buildAcmeProspectShareText(acesso);
   }
 
@@ -577,12 +584,27 @@ export default function AdminDemoPage() {
                     Boolean(experience.accessClosedAt)
                     || Date.parse(experience.expiresAt || '') <= (progressUpdatedAt?.getTime() || 0)
                   );
-                  const versaoB = comPassaporte && experience.versao === 'B';
+                  // B e C são os roteiros guiados (um link, página que não cria
+                  // sessão). Só a C tem o "Desafio" como marco próprio.
+                  const versaoC = comPassaporte && experience.versao === 'C';
+                  const versaoB = comPassaporte && (experience.versao === 'B' || experience.versao === 'C');
+                  const rotuloDaVersao = versaoC ? 'C' : versaoB ? 'B' : 'A';
                   // Quem entrou por cadastro não tem as visões 02–04: mostrá-las
                   // como "Aguardando" inventaria uma etapa que ninguém pode cumprir.
                   // Na B, "Abriu" é a abertura VERIFICADA (navegador de verdade ou
-                  // clique), na ordem em que a página oferece as coisas.
-                  const milestones: ReadonlyArray<readonly [string, string | null]> = versaoB
+                  // clique), na ordem em que a página oferece as coisas. Na C o
+                  // marco "Desafio" é o primeiro desafio escolhido, e a C não tem
+                  // situação do cargo no caminho (o cenário saiu dele).
+                  const milestones: ReadonlyArray<readonly [string, string | null]> = versaoC
+                    ? [
+                      ['Abriu', experience.conviteAbertoEm],
+                      ['Desafio', experience.exploracaoRelevanteEm ?? null],
+                      ['RH', experience.rhAccessedAt],
+                      ['Gestor', experience.gestorAccessedAt],
+                      ['Colaborador', experience.colaboradorAccessedAt],
+                      ['Perfil', experience.discCompletedAt],
+                    ]
+                    : versaoB
                     ? [
                       ['Abriu', experience.conviteAbertoEm],
                       ['RH', experience.rhAccessedAt],
@@ -622,10 +644,10 @@ export default function AdminDemoPage() {
                             </span>
                             {comPassaporte && (
                               <span
-                                title={VERSOES_DO_ROTEIRO[versaoB ? 'B' : 'A'].rotulo}
+                                title={VERSOES_DO_ROTEIRO[rotuloDaVersao].rotulo}
                                 className={`rounded-full border px-1.5 py-0.5 font-mono text-[7px] uppercase tracking-wide ${versaoB ? 'border-cyan-300/25 bg-cyan-300/[0.07] text-cyan-200/80' : 'border-white/10 bg-white/[0.04] text-white/40'}`}
                               >
-                                Versão {versaoB ? 'B' : 'A'}
+                                Versão {rotuloDaVersao}
                               </span>
                             )}
                           </div>
@@ -645,7 +667,15 @@ export default function AdminDemoPage() {
 
                       {comPassaporte && (
                         <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-white/65">
-                          <span>{experience.exploracaoRelevanteEm ? `Explorou conteúdo: ${experience.exploracaoAlvo} · ${formatProspectExpiry(experience.exploracaoRelevanteEm)}` : 'Sem exploração de conteúdo registrada'}</span>
+                          {versaoC ? (
+                            <span>
+                              {experience.exploracaoRelevanteEm
+                                ? `Primeiro desafio: ${desafioDoAmbiente(tenantSlug, desafioDoAlvo(experience.exploracaoAlvo))?.tema ?? experience.exploracaoAlvo} · ${formatProspectExpiry(experience.exploracaoRelevanteEm)}`
+                                : 'Ainda não escolheu um desafio'}
+                            </span>
+                          ) : (
+                            <span>{experience.exploracaoRelevanteEm ? `Explorou conteúdo: ${experience.exploracaoAlvo} · ${formatProspectExpiry(experience.exploracaoRelevanteEm)}` : 'Sem exploração de conteúdo registrada'}</span>
+                          )}
                           <span>{experience.contatoClicadoEm ? `Clicou no contato · ${formatProspectExpiry(experience.contatoClicadoEm)}` : 'Sem clique no contato'}</span>
                           {experience.testeInterno && <span>Teste interno</span>}
                         </div>
@@ -840,12 +870,16 @@ export default function AdminDemoPage() {
                     <span className="text-[9px] font-bold uppercase tracking-[0.18em]">Degustação individual</span>
                   </div>
                   <h2 className="text-sm font-bold text-white">
-                    {prospectForm.versao === 'B' ? 'Crie um convite guiado' : 'Crie um convite em quatro perspectivas'}
+                    {prospectForm.versao === 'C'
+                      ? 'Crie um diagnóstico guiado'
+                      : prospectForm.versao === 'B' ? 'Crie um convite guiado' : 'Crie um convite em quatro perspectivas'}
                   </h2>
                   <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-gray-400">
-                    {prospectForm.versao === 'B'
-                      ? 'A pessoa recebe um link só, começa pelo painel do RH, explora gestor e colaborador e, se quiser, descobre o próprio perfil.'
-                      : 'A pessoa começa do zero e depois conhece as visões prontas de colaborador, gestor e RH.'}
+                    {prospectForm.versao === 'C'
+                      ? 'A pessoa recebe um link só, escolhe o desafio que mais pesa no desenvolvimento do time, vê a resposta na sala e volta para escolher outro. O perfil é opcional.'
+                      : prospectForm.versao === 'B'
+                        ? 'A pessoa recebe um link só, começa pelo painel do RH, explora gestor e colaborador e, se quiser, descobre o próprio perfil.'
+                        : 'A pessoa começa do zero e depois conhece as visões prontas de colaborador, gestor e RH.'}
                   </p>
                 </div>
                 {/* Era um selo fixo dizendo "ACME": informava o ambiente e não
@@ -870,8 +904,8 @@ export default function AdminDemoPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-2 sm:grid-cols-2" role="group" aria-label="Versão do convite">
-                {(['B', 'A'] as const).map((versao) => {
+              <div className="mt-4 grid gap-2 sm:grid-cols-3" role="group" aria-label="Versão do convite">
+                {(['B', 'C', 'A'] as const).map((versao) => {
                   const ativa = prospectForm.versao === versao;
                   return (
                     <button
@@ -889,7 +923,14 @@ export default function AdminDemoPage() {
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-1 sm:grid-cols-4" aria-label="Perspectivas da experiência">
-                {(prospectForm.versao === 'B'
+                {(prospectForm.versao === 'C'
+                  ? [
+                    ['01', 'Desafio'],
+                    ['02', 'Resposta na sala'],
+                    ['03', 'Contato'],
+                    ['+', 'Seu perfil'],
+                  ]
+                  : prospectForm.versao === 'B'
                   ? [
                     ['01', 'RH'],
                     ['02', 'Gestor'],
@@ -1010,7 +1051,7 @@ export default function AdminDemoPage() {
 
                     <div className="my-4 border-t border-dashed border-white/10" />
 
-                    {prospectAccess.versao === 'B' ? (
+                    {prospectAccess.versao !== 'A' ? (
                       <div className="space-y-2" aria-label="Convite guiado do prospect">
                         <div className="flex items-start gap-3 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.045] px-3 py-3">
                           <span className="min-w-0 flex-1">
@@ -1083,7 +1124,7 @@ export default function AdminDemoPage() {
                       </button>
                     </div>
                     <p className="mt-3 text-[9px] leading-relaxed text-amber-200/65">
-                      {prospectAccess.versao === 'B'
+                      {prospectAccess.versao !== 'A'
                         ? 'O link é individual e REABRÍVEL até as 04h BRT de D+10. Abrir a página não cria sessão: o robô de preview do WhatsApp não marca nada, e "Abriu" só aparece quando uma pessoa interage. Vencido o prazo, o que ela fez continua no ambiente por 30 dias.'
                         : 'A etapa 01 usa um link individual REABRÍVEL: vale até as 04h BRT de D+10 e pode ser aberto quantas vezes forem precisas, retomando de onde a pessoa parou. Vencido o prazo, o acesso é revogado, mas o que ela fez continua no ambiente por 30 dias.'}
                     </p>

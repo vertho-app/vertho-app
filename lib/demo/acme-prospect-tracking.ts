@@ -317,7 +317,9 @@ export async function listDemoProspectProgress(slug: string, client?: any): Prom
     cargo: row.cargo,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
-    versao: row.experience_version === 'B' ? 'B' as const : 'A' as const,
+    // Três vias, nunca "B ou A": o que não é B virar A em silêncio esconderia a
+    // coorte C do painel e mandaria o lembrete tratá-la como roteiro antigo.
+    versao: row.experience_version === 'C' ? 'C' as const : row.experience_version === 'B' ? 'B' as const : 'A' as const,
     conviteAbertoEm: row.invite_opened_at ?? null,
     contatoClicadoEm: row.contact_clicked_at ?? null,
     exploracaoRelevanteEm: row.relevant_exploration_at ?? null,

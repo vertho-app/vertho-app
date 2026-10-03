@@ -17,6 +17,9 @@ import {
 } from '@/lib/demo/degustacao-orientacao';
 import { resolverPersonasDaOrientacao } from '@/lib/demo/degustacao-orientacao-servidor';
 import OrientacaoDaDegustacao from './orientacao-degustacao';
+import CenaDaDegustacao, { type CenaParaOPainel } from './cena-degustacao';
+import { caminhoBaseDaCena, desafiosDoAmbiente } from '@/lib/demo/degustacao-desafios';
+import { copiaDaDegustacaoGuiada } from '@/lib/demo/acme-prospect-config';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   await connection();
@@ -59,12 +62,36 @@ export default async function DashboardLayout({ children }: { children: React.Re
     )
     : [];
 
+  // Cenas da degustação C desta sala: só os desafios cuja resposta mora neste
+  // papel. Também só existem nos hosts de sala, então tenant de cliente não paga
+  // nada. Quem decide MOSTRAR é o cliente (chave na URL/sessão + código do convite).
+  const cenasDaSala: CenaParaOPainel[] = papelDaSala
+    ? desafiosDoAmbiente(papelDaSala.tenantSlug)
+      .filter((desafio) => desafio.sala === papelDaSala.key)
+      .map((desafio) => ({
+        chave: desafio.chave,
+        caminhoBase: caminhoBaseDaCena(desafio),
+        consulta: Object.fromEntries(new URLSearchParams(desafio.caminho.split('?')[1] || '')),
+        titulo: desafio.titulo,
+        pontos: desafio.pontos,
+        emGeral: desafio.emGeral,
+        com: desafio.com,
+      }))
+    : [];
+
   return (
     <DashboardShell theme={theme}>
       {mostrarPush ? (
         <div className="mb-4">
           <AtivarPush />
         </div>
+      ) : null}
+      {papelDaSala && cenasDaSala.length > 0 ? (
+        <CenaDaDegustacao
+          tenantSlug={papelDaSala.tenantSlug}
+          minhaCasa={copiaDaDegustacaoGuiada(papelDaSala.tenantSlug).contato.minhaCasa}
+          cenas={cenasDaSala}
+        />
       ) : null}
       {orientacao && linksDaDica.length > 0 && papelDaSala ? (
         <OrientacaoDaDegustacao

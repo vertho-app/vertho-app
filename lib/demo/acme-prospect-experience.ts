@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { DEMO_TELEMETRY_VERSION, ehTesteInterno } from '@/lib/demo/degustacao-metricas';
+import { DEMO_TELEMETRY_VERSION, DEMO_TELEMETRY_VERSION_C, ehTesteInterno } from '@/lib/demo/degustacao-metricas';
 import { tenantUrl } from '@/lib/domain';
 import { emitirPasseDegustacao } from '@/lib/demo/degustacao-passe';
 import { linkCurtoDaDegustacao } from '@/lib/demo/degustacao-link-curto';
@@ -188,9 +188,11 @@ export async function prepareAcmeProspectExperience(
       cargo: role.label,
       created_by_email: createdByEmail,
       expires_at: expiresAt,
-      // Só a B grava a versão: o payload da A continua EXATAMENTE o de antes da
-      // mig 256, e a coluna preenche 'A' pelo default.
+      // Só B e C gravam a versão: o payload da A continua EXATAMENTE o de antes da
+      // mig 256, e a coluna preenche 'A' pelo default. A C (mig 273) carrega a
+      // telemetria PRÓPRIA, porque a "exploração" dela é o desafio escolhido.
       ...(versao === 'B' ? { experience_version: 'B', telemetry_version: DEMO_TELEMETRY_VERSION } : {}),
+      ...(versao === 'C' ? { experience_version: 'C', telemetry_version: DEMO_TELEMETRY_VERSION_C } : {}),
       is_internal_test: parsed.value.testeInterno === true || ehTesteInterno(parsed.value.nome, parsed.value.empresa),
     });
     if (trackingError) {
@@ -238,7 +240,7 @@ export async function prepareAcmeProspectExperience(
         // o GET do robô carimbava o "acesso" de 6 dos 8 prospects entre 12 s e
         // 1 min 44 s depois da criação. E vai pelo link CURTO (`/c/<código>`,
         // 24 caracteres), não pelo passe inteiro, que passava de 150.
-        url: versao === 'B'
+        url: versao !== 'A'
           ? linkCurtoDaDegustacao(slug, sessionId)
           : tenantUrl(slug, `/auth/degustacao?passe=${encodeURIComponent(passe)}`),
       },

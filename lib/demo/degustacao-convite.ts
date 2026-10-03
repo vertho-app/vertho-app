@@ -56,7 +56,9 @@ export async function prepararConviteGuiado(slug: string, sessionId: string): Pr
   }
 
   let convertido = false;
-  if (sessao.experience_version !== 'B') {
+  // Só a A vira B. Com `!== 'B'` o lembrete REBAIXARIA um passaporte C para B
+  // (a página do lead trocaria no meio da conversa), e a coorte C perderia gente.
+  if (sessao.experience_version === 'A') {
     const { error: erroConversao } = await tdb.from('demo_prospect_sessions')
       .update({ experience_version: 'B' })
       .eq('session_id', sessionId);

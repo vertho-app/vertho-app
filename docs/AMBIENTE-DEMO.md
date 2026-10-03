@@ -554,6 +554,56 @@ do workspace no Turbopack para aceitar a junction de dependências do worktree;
 `next.config.mjs` foi restaurado. Evidências e backup anteriores à população estão
 em `output/degustacao-ajustes-20260921`, fora do repositório público.
 
+### Versão C: diagnóstico guiado (03/10/2026)
+
+**Por que existe.** `Medido 03/10/2026` nos 5 convites B reais (todos contatos próximos, amostra
+pequena): 4 de 4 entraram pela sala do RH (o "Comece por aqui"), os 3 com clique registrado foram
+na primeira pergunta da lista e 0 de 5 clicaram em falar com a Vertho. O retorno do André foi
+"um pouco complexa, mas vi potencial". A B mostra o mapa do produto por papel; a C parte da DOR.
+
+**O fluxo.** Um link curto (`/c/<código>`, o mesmo da B) abre uma página que pergunta o que mais pesa
+no desenvolvimento do time, com cinco desafios em primeira pessoa. O lead escolhe UM, cai na sala
+(RH, gestor ou participante) direto na tela que responde, com um painel ao lado explicando o que
+olhar, e volta ao início para escolher outro. O perfil comportamental é opcional e é sempre o
+mapeamento completo; o cenário avaliado não está no caminho. O botão de contato aparece no painel
+de cada resposta, no momento de maior valor, e a mensagem do WhatsApp já cita o desafio.
+
+| Peça | Onde |
+|---|---|
+| Os cinco desafios, a sala e a tela de cada um, os pontos, a ordem que gira por sessão, a limpeza do "outro desafio" | `lib/demo/degustacao-desafios.ts` (fonte única, lida pelo início e pelo painel) |
+| Início da C (cartões, "Visto", "Conte o seu desafio", cartão do perfil, contato) | `app/degustacao/diagnostico-guiado.tsx` + ramo `versao === 'C'` em `pagina-da-degustacao.tsx` |
+| Cena na sala: a rota abre `cena=<chave>` pelo MAPA, nunca por caminho vindo da URL | `app/auth/apresentacao/route.ts` |
+| Painel da cena (some fora do caminho da cena, recolhe, dispensa) | `app/dashboard/cena-degustacao.tsx`, montado em `app/dashboard/layout.tsx` |
+| Contato de dentro da sala (a rota do início exige a origem do convidado, e a sala é outra origem) | `app/auth/degustacao/contato-sala/route.ts` |
+| Contato do início com os desafios vistos e o "outro" | `app/auth/degustacao/contato/route.ts` + `lib/demo/degustacao-contato.ts` |
+
+**Banco.** Só a CHECK de `experience_version` (mig 273: `A`, `B`, `C`). Nenhuma coluna nova. O desafio
+escolhido primeiro fica em `relevant_exploration_target` como `dor-<chave>`, e o clique de contato em
+`contact_clicked_at`. Aplicar a 273 ANTES do deploy do código que grava `C`.
+
+**O que a "exploração relevante" mede na C.** O primeiro DESAFIO escolhido, não o primeiro conteúdo
+visto. Por isso a telemetria da C é própria (`DEMO_TELEMETRY_VERSION_C`) e a coorte é medida à parte
+(`metricasDegustacao(convidados, 'C')`). Na C a rota de exploração só aceita alvo `dor-*`: o beacon da
+própria tela (`engajamento`, `evolucao`...) dispara na mesma visita e disputaria a coluna. Nas
+outras versões `dor-*` nunca grava. O painel mostra "Primeiro desafio: <tema>".
+
+🔴 **Quatro pontos tratavam "não-B" como "A" em silêncio** e viraram três vias: a leitura do painel
+(`acme-prospect-tracking`), o lembrete (`degustacao-convite`, que REBAIXARIA a C para B com
+`!== 'B'`), a casa do convidado (`degustacao-casa`) e a coorte da métrica. O teste que afirmava
+que `'C'` era recusada (`acme-prospect-experience.test.ts`) foi atualizado de propósito.
+
+**A ordem dos cartões gira por sessão** (`parseInt(sessionId.slice(0,4),16) % 5`, sem storage):
+nos 5 convites B o primeiro clique foi sempre o primeiro item, então com ordem fixa o clique mede
+posição e não prioridade.
+
+**Verificação.** 21 mutações de código derrubaram cada uma o teste nomeado
+(base verde). Os pontos do painel descrevem a tela REAL: confira-os no ambiente de demonstração ao
+mexer nas telas citadas (`degustacao-desafios.ts`), porque nada no build acusa um ponto que a tela
+deixou de sustentar.
+
+**Fora da fatia 1** (pedem DDL ou decisão): página de resumo, "encaminhar para quem decide", a
+pergunta "foi fácil de entender?", tabela de eventos por passo e a gravação de tela (Sentry Replay), que entra em commit próprio
+
 ### Simuladores por papel e simulador de liderança (17/09/2026)
 
 **Quem treina e quem acompanha** (decisão do dono). Atendimento e vendas são

@@ -43,7 +43,8 @@ export async function hrefDaCasaDoConvidado(email: string | null | undefined): P
     if (error) throw new Error(error.message);
 
     const sessao = data as { experience_version?: string; expires_at: string; access_closed_at: string | null } | null;
-    if (!sessao || sessao.experience_version !== 'B' || sessao.access_closed_at) return null;
+    // B e C têm a página do roteiro como casa; só a A cai na home genérica.
+    if (!sessao || !['B', 'C'].includes(String(sessao.experience_version)) || sessao.access_closed_at) return null;
     const expiraEm = Date.parse(sessao.expires_at);
     if (!(expiraEm > Date.now())) return null;
 

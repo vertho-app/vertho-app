@@ -191,3 +191,62 @@ describe('renovação do passe na troca de papel', () => {
     expect(destino.searchParams.get('sala')).toBe('passe.do.convidado');
   });
 });
+
+describe('versão C: o convite abre a sala DIRETO na tela que responde ao desafio', () => {
+  const SID = '1234567890abcdef1234';
+  const abrir = async (host: string, cena: string | null, extra = '') => {
+    const url = new URL(`https://${host}/auth/apresentacao?ticket=passe.assinado${extra}`);
+    if (cena !== null) url.searchParams.set('cena', cena);
+    const res = await GET(new NextRequest(url));
+    return new URL(res.headers.get('location')!);
+  };
+
+  beforeEach(() => {
+    mocks.state.ticketValid = true;
+    mocks.state.ticketTenant = 'acme-demo';
+    mocks.state.prospectSessionId = SID;
+    mocks.gerarLogin.mockReset().mockResolvedValue({ ok: true, tokenHash: 'hashed-token', nextPath: '/dashboard/casa-do-papel' });
+  });
+
+  it('o destino sai do MAPA pela chave, mantém o ticket e leva a chave junto para o painel', async () => {
+    const destino = await abrir('rh-demo.vertho.ai', 'engajamento');
+    expect(destino.origin + destino.pathname).toBe('https://rh-demo.vertho.ai/dashboard/gestor/engajamento');
+    expect(destino.searchParams.get('cena')).toBe('engajamento');
+    expect(destino.searchParams.get('sala')).toBe('passe.assinado');
+    expect(destino.searchParams.get('tela')).toBe('computador');
+  });
+
+  it('a query do destino (DNA) sobrevive e a chave se soma a ela', async () => {
+    const destino = await abrir('rh-demo.vertho.ai', 'diagnostico');
+    expect(destino.pathname).toBe('/dashboard/relatorios');
+    expect(destino.searchParams.get('document')).toBe('organization-dna');
+    expect(destino.searchParams.get('cena')).toBe('diagnostico');
+  });
+
+  it('cada sala abre a cena do SEU papel (gestor e participante também)', async () => {
+    expect((await abrir('gestor-demo.vertho.ai', 'gestao')).pathname).toBe('/dashboard/gestor');
+    expect((await abrir('usuario-demo.vertho.ai', 'personalizacao')).pathname).toBe('/dashboard/temporada');
+  });
+
+  it('chave de OUTRO papel, desconhecida ou de protótipo é ignorada: a sala abre na casa, como sempre abriu', async () => {
+    for (const cena of ['gestao', 'constructor', '__proto__', '../../admin', 'https://evil.test', '', 'ENGAJAMENTO']) {
+      const destino = await abrir('rh-demo.vertho.ai', cena);
+      expect(destino.pathname, cena).toBe('/dashboard/casa-do-papel');
+      expect(destino.searchParams.has('cena'), cena).toBe(false);
+    }
+  });
+
+  it('sem convidado no ticket (apresentador da plataforma) a cena não existe', async () => {
+    mocks.state.prospectSessionId = undefined;
+    const destino = await abrir('rh-demo.vertho.ai', 'engajamento');
+    expect(destino.pathname).toBe('/dashboard/casa-do-papel');
+    expect(destino.searchParams.has('cena')).toBe(false);
+  });
+
+  it('o código de volta continua atravessando junto com a cena', async () => {
+    const codigo = emitirCodigoCurto('acme-demo', SID);
+    const destino = await abrir('rh-demo.vertho.ai', 'engajamento', `&volta=${codigo}`);
+    expect(destino.searchParams.get('volta')).toBe(codigo);
+    expect(destino.searchParams.get('cena')).toBe('engajamento');
+  });
+});
