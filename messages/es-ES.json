@@ -3480,6 +3480,17 @@
       "restore": "¿Restaurar {count, plural, one {# registro} other {# registros}} a sus tablas originales?",
       "empty": "¿Eliminar permanentemente los elementos con más de 30 días en la papelera?",
       "emptyWord": "VACIAR"
+    },
+    "readOnly": "Solo lectura: restaurar y vaciar la papelera requieren el permiso de gestionar la papelera.",
+    "loadError": "No se pudo cargar la papelera. Inténtalo de nuevo.",
+    "errors": {
+      "actionFailed": "El servidor rechazó o no completó la acción. Revisa tu permiso y el registro de auditoría."
+    },
+    "result": {
+      "restored": "{count, plural, one {# registro restaurado} other {# registros restaurados}}",
+      "partial": "{restored} restaurado(s); {pending} siguen en la papelera porque la tabla de origen los rechazó ({tables}). Restaura antes los registros de los que dependen e inténtalo de nuevo.",
+      "copiesKept": "Los registros volvieron, pero las copias no salieron de la papelera. No los restaures de nuevo: eso sobrescribiría la versión actual.",
+      "emptied": "{count, plural, =0 {Ningún elemento antiguo para eliminar} one {# elemento eliminado de la papelera} other {# elementos eliminados de la papelera}}"
     }
   },
   "AdminVoting": {
@@ -3767,6 +3778,7 @@
       "allCollaborators": "Todos los colaboradores",
       "allScope": "todos",
       "collaboratorFallback": "colaborador",
+      "actionFailed": "El servidor rechazó o no completó la acción. Revisa tu permiso y el registro de auditoría.",
       "confirmClear": "¿{item} ({scope})? Esta acción no se puede deshacer.",
       "individual": "(individual)",
       "confirmDeleteCompany": "ELIMINAR la empresa \"{name}\" y TODOS los datos?\n\nIRREVERSIBLE.",
@@ -5354,6 +5366,14 @@
     },
     "empty": "Todavía no hay registros.",
     "actions": {
+      "dados_limpar": "Datos: limpieza de registros",
+      "dados_limpar_cenarios_b": "Datos: limpieza de Escenarios B",
+      "dados_limpar_reavaliacao": "Datos: limpieza de sesiones de reevaluación",
+      "dados_limpar_mapeamento_competencias": "Datos: limpieza del mapeo de competencias",
+      "dados_limpar_mapeamento_comportamental": "Datos: limpieza del mapeo conductual",
+      "lixeira_restaurar": "Papelera: restauración",
+      "lixeira_esvaziar": "Papelera: vaciado",
+      "empresa_senha_teste": "Empresa: contraseña de prueba",
       "whatsapp_broadcast": "WhatsApp/Email — mensaje en lote",
       "whatsapp_magic_links": "WhatsApp — magic links de acceso",
       "envio_pdfs_lote": "WhatsApp — PDFs en lote",

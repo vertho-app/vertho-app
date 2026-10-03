@@ -129,80 +129,212 @@ export async function excluirEmpresa(empresaId: string, confirmacao?: string) {
   return { success: true };
 }
 
+// ── Limpeza de dados, lixeira e rastro (R-64 e R-65, revisão de 02/10/2026) ──
+//
+// Toda action desta seção grava em `admin_audit_log`, inclusive quando falha
+// no meio: era a parte mais destrutiva do admin e não deixava rastro nenhum.
+// Só `limparRegistros` (sem `fields` e sem `hardDelete`) passa pela lixeira;
+// zerar campos, os mapeamentos, os Cenários B e as sessões de reavaliação
+// apagam direto, e o FEATURES diz isso.
+
+/**
+ * Coluna que escopa cada tabela da limpeza por PESSOA. Tabela fora deste mapa
+ * não tem registro por pessoa: com uma pessoa escolhida, a limpeza é recusada
+ * antes de mexer em qualquer coisa.
+ *
+ * Antes eram três réguas diferentes no mesmo laço. O DELETE de `colaboradores`
+ * filtrava por `colaborador_id` (a tabela não tem a coluna) enquanto a cópia
+ * filtrava por `id`: a cópia ia para a lixeira, o DELETE falhava, e a lixeira
+ * guardava uma linha que continuava viva (restaurá-la depois sobrescreveria a
+ * versão atual). E `competencias` ignorava a pessoa: "Competências da empresa
+ * (individual)" apagava as competências da empresa inteira.
+ */
+const COLUNA_DA_PESSOA: Record<string, string> = {
+  colaboradores: 'id',
+  fit_resultados: 'colaborador_id',
+  relatorios: 'colaborador_id',
+  evolucao: 'colaborador_id',
+  evolucao_descritores: 'colaborador_id',
+  sessoes_avaliacao: 'colaborador_id',
+  respostas: 'colaborador_id',
+  banco_cenarios: 'colaborador_id',
+};
+const PAGINA_LEITURA = 1000;
+const LOTE_ESCRITA = 100;
+const RETENCAO_MINIMA_LIXEIRA_DIAS = 30;
+
+/** `hasOwnProperty`, nunca `in` nem lookup solto: o nome da tabela chega do cliente, e "constructor" casaria. */
+function colunaDaPessoa(tabela: string): string | null {
+  return Object.prototype.hasOwnProperty.call(COLUNA_DA_PESSOA, tabela) ? COLUNA_DA_PESSOA[tabela] : null;
+}
+
+function comEscopoDaPessoa(q: any, tabela: string, colaboradorId: string | null) {
+  return colaboradorId ? q.eq(colunaDaPessoa(tabela), colaboradorId) : q;
+}
+
+function emLotes<T>(itens: T[], tamanho: number): T[][] {
+  const lotes: T[][] = [];
+  for (let i = 0; i < itens.length; i += tamanho) lotes.push(itens.slice(i, i + tamanho));
+  return lotes;
+}
+
+/** Apaga itens da lixeira por id. `true` quando todos saíram. */
+async function tirarDaLixeira(sb: any, trashIds: string[]): Promise<boolean> {
+  for (const lote of emLotes(trashIds, LOTE_ESCRITA)) {
+    const { error } = await sb.from('trash').delete().in('id', lote);
+    if (error) {
+      console.error('[lixeira] não foi possível remover itens:', error.message);
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Copia para a lixeira e apaga da origem EXATAMENTE as linhas copiadas.
+ *
+ * Antes, a leitura da cópia não olhava o `error` nem paginava (o PostgREST corta
+ * em 1.000 linhas, calado), e o DELETE ia pelo filtro largo: uma leitura que
+ * caía, ou que passava de 1.000 linhas, apagava da origem o que nunca chegou à
+ * lixeira. Agora o DELETE vai pelos ids copiados. Se ele falhar, as cópias das
+ * linhas que continuam vivas saem da lixeira.
+ */
+async function moverParaLixeira(
+  sb: any,
+  p: { tabela: string; empresaId: string; colaboradorId: string | null; por: string },
+): Promise<{ movidos: number; erro?: string }> {
+  const { tabela, empresaId, colaboradorId, por } = p;
+
+  const linhas: any[] = [];
+  for (let de = 0; ; de += PAGINA_LEITURA) {
+    const { data, error } = await comEscopoDaPessoa(
+      sb.from(tabela).select('*').eq('empresa_id', empresaId), tabela, colaboradorId,
+    ).order('id').range(de, de + PAGINA_LEITURA - 1);
+    if (error) return { movidos: 0, erro: `Erro ao ler ${tabela} para a lixeira: ${error.message}` };
+    linhas.push(...(data || []));
+    if ((data || []).length < PAGINA_LEITURA) break;
+  }
+  if (!linhas.length) return { movidos: 0 };
+  if (linhas.some((l) => !l.id)) {
+    return { movidos: 0, erro: `${tabela}: há linha sem id, e sem id não dá para apagar só o que foi copiado` };
+  }
+
+  const copiaDoRegistro = new Map<string, string>();
+  for (const lote of emLotes(linhas, LOTE_ESCRITA)) {
+    const { data, error } = await sb.from('trash').insert(lote.map((l) => ({
+      empresa_id: empresaId,
+      tabela_origem: tabela,
+      registro_id: l.id,
+      payload: l,
+      deletado_por: por,
+      contexto: `Limpar ${tabela}${colaboradorId ? ' (colab)' : ' (empresa)'}`,
+    }))).select('id, registro_id');
+    if (error) {
+      const desfeito = await tirarDaLixeira(sb, [...copiaDoRegistro.values()]);
+      return {
+        movidos: 0,
+        erro: `Erro ao copiar ${tabela} para a lixeira: ${error.message}. Nada foi apagado de ${tabela}`
+          + (desfeito ? '.' : ', mas cópias parciais ficaram na lixeira: não as restaure.'),
+      };
+    }
+    for (const c of data || []) copiaDoRegistro.set(c.registro_id, c.id);
+  }
+
+  const ids = linhas.map((l) => l.id);
+  for (let i = 0; i < ids.length; i += LOTE_ESCRITA) {
+    const { error } = await sb.from(tabela).delete().eq('empresa_id', empresaId).in('id', ids.slice(i, i + LOTE_ESCRITA));
+    if (error) {
+      const vivos = ids.slice(i).map((id) => copiaDoRegistro.get(id)).filter(Boolean) as string[];
+      const desfeito = await tirarDaLixeira(sb, vivos);
+      return {
+        movidos: i,
+        erro: `Erro em ${tabela} (DELETE): ${error.message}. ${i} de ${ids.length} linha(s) foram para a lixeira`
+          + (desfeito ? '; as demais seguem na tabela.' : '; as cópias das demais ficaram na lixeira e NÃO devem ser restauradas.'),
+      };
+    }
+  }
+  return { movidos: ids.length };
+}
+
 export async function limparRegistros(empresaId, tabelas, colaboradorId = null, fields = null, opts: any = {}) {
-  await requireAdminAction('trash.manage');
+  const ctx = await requireAdminAction('trash.manage');
   const sb = await requireAdminSupabase();
   const { hardDelete = false } = opts;
+  const operacao = fields ? 'UPDATE (nullify)' : (hardDelete ? 'DELETE permanente' : 'soft DELETE (lixeira)');
+  const lista: string[] = Array.isArray(tabelas) ? tabelas.filter((t) => typeof t === 'string' && t) : [];
+  if (!empresaId || !lista.length) return { success: false, error: 'Informe a empresa e ao menos uma tabela.' };
+
+  if (colaboradorId) {
+    const semPessoa = lista.filter((t) => !colunaDaPessoa(t));
+    if (semPessoa.length) {
+      return {
+        success: false,
+        error: `Sem registro por pessoa em: ${semPessoa.join(', ')}. Nada foi limpo; para essas tabelas, escolha "Todos os colaboradores".`,
+      };
+    }
+  }
+
   let pdfsRemovidos = 0;
   let movidosLixeira = 0;
-  const operacao = fields ? 'UPDATE (nullify)' : (hardDelete ? 'DELETE permanente' : 'soft DELETE (lixeira)');
+  const concluidas: string[] = [];
+  const auditar = (resultado: 'ok' | 'parcial' | 'erro', extra: Record<string, any> = {}) => logAdminAction({
+    adminEmail: ctx.email, acao: 'dados.limpar', empresaId,
+    alvo: lista.join(', '),
+    detalhes: { operacao, tabelas: lista, colaboradorId, tabelasConcluidas: concluidas, movidosLixeira, pdfsRemovidos, ...extra },
+    resultado,
+  });
+  const falhar = async (mensagem: string) => {
+    await auditar(concluidas.length || movidosLixeira ? 'parcial' : 'erro', { erro: mensagem });
+    const ja = concluidas.length ? ` Já limpas antes da falha: ${concluidas.join(', ')}.` : '';
+    return { success: false, error: `${mensagem}${ja}` };
+  };
 
-  for (const t of tabelas) {
+  for (const t of lista) {
     // UPDATE nullify: zera campos sem deletar linhas (ex: zerar IA4 mantendo respostas)
     if (fields) {
-      let q = sb.from(t).update(fields).eq('empresa_id', empresaId);
-      if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas' && t !== 'colaboradores') {
-        q = q.eq('colaborador_id', colaboradorId);
-      } else if (colaboradorId && t === 'colaboradores') {
-        q = q.eq('id', colaboradorId);
-      }
-      const { error } = await q;
-      if (error) return { success: false, error: `Erro em ${t} (${operacao}): ${error.message}` };
+      const { error } = await comEscopoDaPessoa(sb.from(t).update(fields).eq('empresa_id', empresaId), t, colaboradorId);
+      if (error) return falhar(`Erro em ${t} (${operacao}): ${error.message}`);
+      concluidas.push(t);
       continue;
     }
 
-    // Antes de DELETE em 'relatorios' (hard), limpa PDFs órfãos
-    if (hardDelete && t === 'relatorios') {
-      let selectQ = sb.from('relatorios').select('pdf_path').eq('empresa_id', empresaId).not('pdf_path', 'is', null);
-      if (colaboradorId) selectQ = selectQ.eq('colaborador_id', colaboradorId);
-      const { data: rows } = await selectQ;
-      const paths = (rows || []).map(r => r.pdf_path).filter(Boolean);
-      if (paths.length) {
-        try { await sb.storage.from('relatorios-pdf').remove(paths); pdfsRemovidos = paths.length; }
-        catch (e) { console.error('[limparRegistros storage]', e.message); }
+    if (hardDelete) {
+      // Antes do DELETE permanente de 'relatorios', tira os PDFs do Storage:
+      // sem a linha, ninguém mais acha o arquivo.
+      if (t === 'relatorios') {
+        const { data: rows, error: lerErr } = await comEscopoDaPessoa(
+          sb.from('relatorios').select('pdf_path').eq('empresa_id', empresaId).not('pdf_path', 'is', null), t, colaboradorId,
+        );
+        if (lerErr) return falhar(`Erro ao listar os PDFs de relatorios: ${lerErr.message}`);
+        const paths = (rows || []).map((r: any) => r.pdf_path).filter(Boolean);
+        if (paths.length) {
+          const { error: rmErr } = await sb.storage.from('relatorios-pdf').remove(paths);
+          if (rmErr) return falhar(`Erro ao remover os PDFs de relatorios: ${rmErr.message}. Nada foi apagado de relatorios.`);
+          pdfsRemovidos += paths.length;
+        }
       }
+      const { error } = await comEscopoDaPessoa(sb.from(t).delete().eq('empresa_id', empresaId), t, colaboradorId);
+      if (error) return falhar(`Erro em ${t} (DELETE): ${error.message}`);
+      concluidas.push(t);
+      continue;
     }
 
-    // SOFT DELETE: copia rows pra trash, depois deleta da origem
-    if (!hardDelete) {
-      let selQ = sb.from(t).select('*').eq('empresa_id', empresaId);
-      if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas' && t !== 'colaboradores') {
-        selQ = selQ.eq('colaborador_id', colaboradorId);
-      } else if (colaboradorId && t === 'colaboradores') {
-        selQ = selQ.eq('id', colaboradorId);
-      }
-      const { data: rows } = await selQ;
-      if (rows && rows.length > 0) {
-        const trashRows = rows.map(r => ({
-          empresa_id: empresaId,
-          tabela_origem: t,
-          registro_id: r.id || null,
-          payload: r,
-          contexto: `Limpar ${t}${colaboradorId ? ' (colab)' : ' (empresa)'}`,
-        }));
-        const { error: trashErr } = await sb.from('trash').insert(trashRows);
-        if (trashErr) return { success: false, error: `Erro ao copiar pra lixeira (${t}): ${trashErr.message}` };
-        movidosLixeira += rows.length;
-      }
-    }
-
-    // DELETE da origem (após backup pra lixeira, se soft)
-    let q = sb.from(t).delete().eq('empresa_id', empresaId);
-    if (colaboradorId && t !== 'cargos' && t !== 'competencias' && t !== 'ppp_escolas') {
-      q = q.eq('colaborador_id', colaboradorId);
-    }
-    const { error } = await q;
-    if (error) return { success: false, error: `Erro em ${t} (DELETE): ${error.message}` };
+    const r = await moverParaLixeira(sb, { tabela: t, empresaId, colaboradorId, por: ctx.email });
+    movidosLixeira += r.movidos;
+    if (r.erro) return falhar(r.erro);
+    concluidas.push(t);
   }
+
+  await auditar('ok');
 
   const scope = colaboradorId ? '(colaborador)' : '(empresa)';
   let msg;
   if (fields) {
-    msg = `${tabelas.length} tabela(s) zeradas ${scope}`;
+    msg = `${lista.length} tabela(s) zeradas ${scope}`;
   } else if (hardDelete) {
-    msg = `${tabelas.length} tabela(s) APAGADAS PERMANENTEMENTE ${scope}`;
+    msg = `${lista.length} tabela(s) APAGADAS PERMANENTEMENTE ${scope}`;
   } else {
-    msg = `${movidosLixeira} registro(s) movidos pra lixeira ${scope} — restauráveis em /admin/lixeira`;
+    msg = `${movidosLixeira} registro(s) movidos pra lixeira ${scope}, restauráveis em /admin/lixeira`;
   }
   if (pdfsRemovidos > 0) msg += ` | ${pdfsRemovidos} PDF(s) removidos`;
   return { success: true, message: msg };
@@ -223,74 +355,162 @@ export async function listarLixeira(empresaId, opts: any = {}) {
 }
 
 /**
- * Restaura registros da lixeira (re-INSERT na tabela origem).
- * Pode passar IDs específicos ou critérios (tabela + intervalo de tempo).
+ * Ordem de restauração: a tabela apagada POR ÚLTIMO volta PRIMEIRO.
+ *
+ * A limpeza apaga o dependente antes do pai ("limpar tudo" vai de
+ * `fit_resultados` a `cargos_empresa`), então devolver na ordem inversa põe o
+ * pai de volta antes do filho que aponta para ele. Uma tabela que ainda assim
+ * for recusada fica na lixeira para uma segunda tentativa.
  */
-export async function restaurarDaLixeira(trashIds: any[] = []) {
-  await requireAdminAction('trash.manage');
+function gruposNaOrdemDeRestauracao(itens: any[]): { tabela: string; itens: any[] }[] {
+  const porTabela = new Map<string, any[]>();
+  for (const it of itens) {
+    const grupo = porTabela.get(it.tabela_origem) || [];
+    grupo.push(it);
+    porTabela.set(it.tabela_origem, grupo);
+  }
+  const ultimaExclusao = (grupo: any[]) => grupo.reduce((max, it) => (String(it.deletado_em || '') > max ? String(it.deletado_em || '') : max), '');
+  return [...porTabela.entries()]
+    .map(([tabela, grupo]) => ({ tabela, itens: grupo }))
+    .sort((a, b) => ultimaExclusao(b.itens).localeCompare(ultimaExclusao(a.itens)) || a.tabela.localeCompare(b.tabela));
+}
+
+/**
+ * Restaura registros da lixeira (upsert do payload na tabela de origem).
+ *
+ * R-64: com várias tabelas na seleção, uma tabela recusada (FK, coluna que
+ * mudou) apagava da lixeira TAMBÉM os itens dela, que não tinham voltado: o
+ * delete final usava todos os ids pedidos. Agora sai da lixeira só o que voltou
+ * para a origem, e o que falhou continua lá para nova tentativa.
+ */
+type RestauracaoResultado = {
+  success: boolean;
+  message?: string;
+  error?: string;
+  restaurados: number;
+  pendentes: number;
+  tabelasComErro: string[];
+  /** `false` quando os restaurados NÃO saíram da lixeira (restaurar de novo sobrescreveria a versão atual). */
+  copiasRemovidas: boolean;
+};
+
+export async function restaurarDaLixeira(trashIds: string[] = []): Promise<RestauracaoResultado> {
+  const ctx = await requireAdminAction('trash.manage');
   const sb = await requireAdminSupabase();
-  if (!trashIds.length) return { success: false, error: 'Nenhum ID informado' };
+  const ids = [...new Set((Array.isArray(trashIds) ? trashIds : []).filter((id) => typeof id === 'string' && id))];
+  if (!ids.length) return { success: false, error: 'Nenhum ID informado', restaurados: 0, pendentes: 0, tabelasComErro: [], copiasRemovidas: true };
 
-  const { data: items } = await sb.from('trash').select('*').in('id', trashIds);
-  if (!items?.length) return { success: false, error: 'Itens não encontrados na lixeira' };
+  const itens: any[] = [];
+  for (const lote of emLotes(ids, LOTE_ESCRITA)) {
+    const { data, error } = await sb.from('trash').select('id, empresa_id, tabela_origem, payload, deletado_em').in('id', lote);
+    if (error) {
+      return { success: false, error: `Não foi possível ler a lixeira: ${error.message}`, restaurados: 0, pendentes: ids.length, tabelasComErro: [], copiasRemovidas: true };
+    }
+    itens.push(...(data || []));
+  }
+  if (!itens.length) return { success: false, error: 'Itens não encontrados na lixeira', restaurados: 0, pendentes: 0, tabelasComErro: [], copiasRemovidas: true };
 
-  // Agrupa por tabela_origem e re-insere o payload
-  const porTabela = {};
-  for (const it of items) {
-    if (!porTabela[it.tabela_origem]) porTabela[it.tabela_origem] = [];
-    porTabela[it.tabela_origem].push(it.payload);
+  const grupos = gruposNaOrdemDeRestauracao(itens);
+  const voltaram: string[] = [];
+  const falhas: { tabela: string; itens: number; erro: string }[] = [];
+  for (const g of grupos) {
+    const { error } = await sb.from(g.tabela).upsert(g.itens.map((it) => it.payload));
+    if (error) { falhas.push({ tabela: g.tabela, itens: g.itens.length, erro: error.message }); continue; }
+    voltaram.push(...g.itens.map((it) => it.id));
   }
 
-  let restaurados = 0, erros = 0;
-  for (const [tabela, payloads] of Object.entries(porTabela) as [string, any[]][]) {
-    const { error } = await sb.from(tabela).upsert(payloads);
-    if (error) { erros++; console.error(`[restaurar ${tabela}]`, error.message); }
-    else restaurados += payloads.length;
-  }
+  // Sai da lixeira SÓ o que voltou. Se a remoção falhar, a cópia fica lá ao lado
+  // da linha viva, e restaurar de novo sobrescreveria a versão atual: isso tem
+  // que chegar ao operador, não só ao log.
+  const copiasRemovidas = await tirarDaLixeira(sb, voltaram);
+  const pendentes = itens.length - voltaram.length;
+  const empresas = [...new Set(itens.map((it) => it.empresa_id).filter(Boolean))];
 
-  // Remove da lixeira os que foram restaurados com sucesso
-  if (restaurados > 0) {
-    await sb.from('trash').delete().in('id', trashIds);
-  }
+  await logAdminAction({
+    adminEmail: ctx.email, acao: 'lixeira.restaurar',
+    empresaId: empresas.length === 1 ? empresas[0] : null,
+    alvo: `${itens.length} item(ns) da lixeira`,
+    detalhes: {
+      restaurados: voltaram.length, pendentes,
+      tabelas: grupos.map((g) => g.tabela), tabelasComErro: falhas,
+      copiasRemovidasDaLixeira: copiasRemovidas,
+      ...(empresas.length > 1 ? { empresas } : {}),
+    },
+    resultado: !falhas.length && copiasRemovidas ? 'ok' : (voltaram.length ? 'parcial' : 'erro'),
+  });
 
+  const partes = [`${voltaram.length} registro(s) restaurado(s)`];
+  if (falhas.length) partes.push(`${pendentes} seguem na lixeira (${falhas.map((f) => f.tabela).join(', ')})`);
+  if (!copiasRemovidas) partes.push('as cópias dos restaurados NÃO saíram da lixeira: não restaure de novo');
   return {
-    success: erros === 0,
-    message: `${restaurados} registro(s) restaurado(s)${erros ? ` · ${erros} tabela(s) com erro` : ''}`,
-    restaurados, erros,
+    success: !falhas.length && copiasRemovidas,
+    message: partes.join(' · '),
+    ...(voltaram.length ? {} : { error: partes.join(' · ') }),
+    restaurados: voltaram.length,
+    pendentes,
+    tabelasComErro: falhas.map((f) => f.tabela),
+    copiasRemovidas,
   };
 }
 
 /**
- * Esvazia lixeira permanentemente (hard delete dos itens em trash).
+ * Esvazia a lixeira permanentemente (hard delete dos itens antigos).
+ *
+ * O piso de 30 dias é o que a tela promete ("Esvaziar >30d"). O parâmetro chega
+ * do cliente: sem o piso, `dias = 0` apagava a lixeira inteira.
  */
-export async function esvaziarLixeira(empresaId, dias = 30) {
-  await requireAdminAction('trash.manage');
+export async function esvaziarLixeira(empresaId, dias = RETENCAO_MINIMA_LIXEIRA_DIAS) {
+  const ctx = await requireAdminAction('trash.manage');
   const sb = await requireAdminSupabase();
-  const corte = new Date(Date.now() - dias * 86400 * 1000).toISOString();
+  const diasEfetivos = Math.max(RETENCAO_MINIMA_LIXEIRA_DIAS, Math.floor(Number(dias)) || 0);
+  const corte = new Date(Date.now() - diasEfetivos * 86400 * 1000).toISOString();
   let q: any = sb.from('trash').delete().lt('deletado_em', corte);
   if (empresaId) q = q.eq('empresa_id', empresaId);
   const { error, count } = await q.select('id', { count: 'exact' });
+  await logAdminAction({
+    adminEmail: ctx.email, acao: 'lixeira.esvaziar', empresaId: empresaId || null,
+    alvo: `itens com mais de ${diasEfetivos} dias`,
+    detalhes: { dias: diasEfetivos, escopo: empresaId ? 'empresa' : 'todas', removidos: error ? null : (count ?? null), erro: error?.message ?? null },
+    resultado: error ? 'erro' : 'ok',
+  });
   if (error) return { success: false, error: error.message };
-  return { success: true, message: `${count || 0} item(s) >${dias}d removidos da lixeira` };
+  return { success: true, removidos: count || 0, message: `${count || 0} item(s) >${diasEfetivos}d removidos da lixeira` };
+}
+
+/** Rastro das limpezas que NÃO passam pela lixeira (apagam direto). */
+function auditarLimpezaDireta(
+  ctx: { email: string },
+  acao: string,
+  empresaId: string,
+  r: { removidos?: number | null; erro?: string | null; colaboradorId?: string | null; extra?: Record<string, any> },
+) {
+  return logAdminAction({
+    adminEmail: ctx.email, acao, empresaId,
+    alvo: r.colaboradorId ? 'colaborador' : 'empresa',
+    detalhes: { colaboradorId: r.colaboradorId ?? null, removidos: r.removidos ?? null, lixeira: false, erro: r.erro ?? null, ...(r.extra || {}) },
+    resultado: r.erro ? 'erro' : 'ok',
+  });
 }
 
 export async function limparCenariosB(empresaId) {
-  await requireAdminAction('trash.manage');
+  const ctx = await requireAdminAction('trash.manage');
   const sb = await requireAdminSupabase();
   const { error, count } = await sb.from('banco_cenarios')
     .delete({ count: 'exact' })
     .eq('empresa_id', empresaId)
     .eq('tipo_cenario', 'cenario_b');
+  await auditarLimpezaDireta(ctx, 'dados.limpar_cenarios_b', empresaId, { removidos: count, erro: error?.message });
   if (error) return { success: false, error: error.message };
   return { success: true, message: `${count || 0} cenário(s) B removido(s)` };
 }
 
 export async function limparReavaliacaoSessoes(empresaId) {
-  await requireAdminAction('trash.manage');
+  const ctx = await requireAdminAction('trash.manage');
   const sb = await requireAdminSupabase();
   const { error, count } = await sb.from('reavaliacao_sessoes')
     .delete({ count: 'exact' })
     .eq('empresa_id', empresaId);
+  await auditarLimpezaDireta(ctx, 'dados.limpar_reavaliacao', empresaId, { removidos: count, erro: error?.message });
   if (error) return { success: false, error: error.message };
   return { success: true, message: `${count || 0} sessão(ões) de reavaliação removida(s)` };
 }
@@ -300,13 +520,14 @@ export async function limparReavaliacaoSessoes(empresaId) {
 // uma competência já foi respondida — filtrar só canal='dashboard' deixava
 // respostas de simulação admin bloqueando a retomada do fluxo.
 export async function limparMapeamentoCompetencias(empresaId, colaboradorId = null) {
-  await requireAdminAction('trash.manage');
+  const ctx = await requireAdminAction('trash.manage');
   const sb = await requireAdminSupabase();
   let q = sb.from('respostas')
     .delete({ count: 'exact' })
     .eq('empresa_id', empresaId);
   if (colaboradorId) q = q.eq('colaborador_id', colaboradorId);
   const { error, count } = await q;
+  await auditarLimpezaDireta(ctx, 'dados.limpar_mapeamento_competencias', empresaId, { removidos: count, erro: error?.message, colaboradorId });
   if (error) return { success: false, error: error.message };
   const scope = colaboradorId ? '(colaborador)' : '(empresa)';
   return { success: true, message: `${count || 0} resposta(s) de mapeamento removida(s) ${scope}` };
@@ -470,19 +691,29 @@ async function emailsQueNaoPodemTerSenhaDeTeste(
 }
 
 export async function limparMapeamento(empresaId, colaboradorId = null) {
-  await requireAdminAction('trash.manage');
+  const ctx = await requireAdminAction('trash.manage');
   const sb = await requireAdminSupabase();
+  const acao = 'dados.limpar_mapeamento_comportamental';
 
-  // Antes de limpar: remove PDFs órfãos do Storage
+  // Antes de limpar: remove os PDFs do Storage. Falha aqui PARA antes de zerar
+  // as colunas: sem o caminho gravado, ninguém mais acharia o arquivo, e o PDF
+  // (relatório nominal) ficaria órfão no bucket.
   let pathQuery = sb.from('colaboradores')
     .select('comportamental_pdf_path').eq('empresa_id', empresaId)
     .not('comportamental_pdf_path', 'is', null);
   if (colaboradorId) pathQuery = pathQuery.eq('id', colaboradorId);
-  const { data: paths } = await pathQuery;
+  const { data: paths, error: pathsErr } = await pathQuery;
+  if (pathsErr) {
+    await auditarLimpezaDireta(ctx, acao, empresaId, { erro: `listar PDFs: ${pathsErr.message}`, colaboradorId });
+    return { success: false, error: `Não foi possível listar os PDFs do mapeamento: ${pathsErr.message}. Nada foi limpo.` };
+  }
   const pdfsParaRemover = (paths || []).map(r => r.comportamental_pdf_path).filter(Boolean);
   if (pdfsParaRemover.length > 0) {
-    try { await sb.storage.from('relatorios-pdf').remove(pdfsParaRemover); }
-    catch (e) { console.warn('[VERTHO] remover PDFs:', e.message); }
+    const { error: rmErr } = await sb.storage.from('relatorios-pdf').remove(pdfsParaRemover);
+    if (rmErr) {
+      await auditarLimpezaDireta(ctx, acao, empresaId, { erro: `remover PDFs: ${rmErr.message}`, colaboradorId });
+      return { success: false, error: `Não foi possível remover os PDFs do mapeamento: ${rmErr.message}. Nada foi limpo.` };
+    }
   }
 
   const campos = {
@@ -501,9 +732,13 @@ export async function limparMapeamento(empresaId, colaboradorId = null) {
     report_texts: null, report_generated_at: null,
     insights_executivos: null, insights_executivos_at: null,
   };
-  let query = sb.from('colaboradores').update(campos).eq('empresa_id', empresaId);
+  let query = sb.from('colaboradores').update(campos, { count: 'exact' }).eq('empresa_id', empresaId);
   if (colaboradorId) query = query.eq('id', colaboradorId);
   const { error, count } = await query;
+  await auditarLimpezaDireta(ctx, acao, empresaId, {
+    erro: error?.message, colaboradorId,
+    extra: { colaboradoresZerados: error ? null : (count ?? null), pdfsRemovidos: pdfsParaRemover.length },
+  });
   if (error) return { success: false, error: error.message };
   return { success: true, message: `Mapeamento limpo${colaboradorId ? ' (colaborador)' : ' (todos)'} · ${pdfsParaRemover.length} PDF(s) removidos` };
 }

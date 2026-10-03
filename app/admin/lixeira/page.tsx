@@ -9,15 +9,23 @@ import { listarBackups, executarBackupDiario } from '@/actions/backup';
 import AdminPageHeader from '@/components/admin/page-header';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 import { useEmpresaContexto } from '@/app/admin/_shell/useEmpresaContexto';
+import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 
 export default function LixeiraPage() {
   const locale = useLocale();
   const t = useTranslations('AdminTrash');
   const confirmDialog = useConfirm();
   const { empresaId } = useEmpresaContexto();
-  const [items, setItems] = useState([]);
+  // R-64: restaurar e esvaziar exigem `trash.manage` no servidor. Quem não tem
+  // (o Sócio, no papel base) via os botões, a action recusava lançando erro, e
+  // a tela ficava presa em "ocupado". Agora a tela só oferece o que a action
+  // aceita; a lista continua visível, como leitura.
+  const { podeVer } = useAdminShell();
+  const podeGerir = podeVer('trash.manage');
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selecionados, setSelecionados] = useState(new Set());
+  const [erroCarga, setErroCarga] = useState(false);
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [filtroTabela, setFiltroTabela] = useState('');
   const [backups, setBackups] = useState([]);
@@ -25,22 +33,35 @@ export default function LixeiraPage() {
 
   const carregar = async () => {
     setLoading(true);
-    const [r, b] = await Promise.all([
-      listarLixeira(empresaId),
-      listarBackups(),
-    ]);
-    setItems(r.items || []);
-    setBackups(b.backups || []);
-    setLoading(false);
+    try {
+      const [r, b] = await Promise.all([
+        listarLixeira(empresaId),
+        listarBackups(),
+      ]);
+      // Falha de leitura não pode aparecer como "Lixeira vazia".
+      setErroCarga(!r.success);
+      setItems(r.items || []);
+      setBackups(b.backups || []);
+    } catch {
+      setErroCarga(true);
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { carregar(); }, [empresaId]);
 
   async function handleBackupAgora() {
     setBusy(true);
-    const r = await executarBackupDiario();
-    setBusy(false);
-    if (r.error) toast.error(r.error); else toast.success(r.message);
+    try {
+      const r = await executarBackupDiario();
+      if (r.error) toast.error(r.error); else toast.success(r.message);
+    } catch {
+      toast.error(t('errors.actionFailed'));
+    } finally {
+      setBusy(false);
+    }
     await carregar();
   }
 
@@ -61,9 +82,19 @@ export default function LixeiraPage() {
     });
     if (!ok) return;
     setBusy(true);
-    const r = await restaurarDaLixeira([...selecionados]);
-    setBusy(false);
-    if (r.error) toast.error(r.error); else toast.success(r.message);
+    try {
+      const r = await restaurarDaLixeira([...selecionados]);
+      if (r.error) toast.error(r.error);
+      else if (!r.success) {
+        // Parte voltou e parte ficou: os que falharam SEGUEM na lixeira (R-64).
+        if (r.pendentes) toast.warning(t('result.partial', { restored: r.restaurados, pending: r.pendentes, tables: r.tabelasComErro.join(', ') }));
+        if (r.copiasRemovidas === false) toast.error(t('result.copiesKept'));
+      } else toast.success(t('result.restored', { count: r.restaurados }));
+    } catch {
+      toast.error(t('errors.actionFailed'));
+    } finally {
+      setBusy(false);
+    }
     setSelecionados(new Set());
     await carregar();
   }
@@ -78,9 +109,14 @@ export default function LixeiraPage() {
     });
     if (!ok) return;
     setBusy(true);
-    const r = await esvaziarLixeira(empresaId);
-    setBusy(false);
-    if (r.error) toast.error(r.error); else toast.success(r.message);
+    try {
+      const r = await esvaziarLixeira(empresaId);
+      if (r.error) toast.error(r.error); else toast.success(t('result.emptied', { count: r.removidos ?? 0 }));
+    } catch {
+      toast.error(t('errors.actionFailed'));
+    } finally {
+      setBusy(false);
+    }
     await carregar();
   }
 
@@ -99,13 +135,19 @@ export default function LixeiraPage() {
                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-cyan-400 border border-cyan-400/30 hover:bg-cyan-400/10">
                 {t('backups.button', { count: backups.length })}
               </button>
-              <button onClick={handleEsvaziar} disabled={busy}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50">
-                <Trash2 size={14} /> {t('actions.emptyOld')}
-              </button>
+              {podeGerir && (
+                <button onClick={handleEsvaziar} disabled={busy}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-red-400 border border-red-400/30 hover:bg-red-400/10 disabled:opacity-50">
+                  <Trash2 size={14} /> {t('actions.emptyOld')}
+                </button>
+              )}
             </>
           }
         />
+
+        {!podeGerir && (
+          <p className="mb-4 text-xs text-gray-400">{t('readOnly')}</p>
+        )}
 
         {/* Painel de backups */}
         {showBackups && (
@@ -145,7 +187,7 @@ export default function LixeiraPage() {
               <option key={t} value={t}>{t} ({items.filter(i => i.tabela_origem === t).length})</option>
             ))}
           </select>
-          {filtrados.length > 0 && (
+          {podeGerir && filtrados.length > 0 && (
             <>
               <button onClick={toggleAll} className="text-xs text-cyan-400 hover:text-cyan-300">
                 {selecionados.size === filtrados.length ? t('actions.unselectAll') : t('actions.selectAll')}
@@ -153,16 +195,20 @@ export default function LixeiraPage() {
               <span className="text-xs text-gray-500">{t('selected', { count: selecionados.size })}</span>
             </>
           )}
-          <button onClick={handleRestaurar} disabled={busy || selecionados.size === 0}
-            className="ml-auto flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/10 disabled:opacity-50">
-            {busy ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
-            {t('actions.restoreSelected')}
-          </button>
+          {podeGerir && (
+            <button onClick={handleRestaurar} disabled={busy || selecionados.size === 0}
+              className="ml-auto flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold text-emerald-400 border border-emerald-400/30 hover:bg-emerald-400/10 disabled:opacity-50">
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+              {t('actions.restoreSelected')}
+            </button>
+          )}
         </div>
 
         {/* Lista */}
         {loading ? (
           <div className="text-center py-12"><Loader2 size={24} className="animate-spin text-cyan-400 mx-auto" /></div>
+        ) : erroCarga ? (
+          <div className="text-center py-12 text-red-300 text-sm">{t('loadError')}</div>
         ) : filtrados.length === 0 ? (
           <div className="text-center py-12 text-gray-500 text-sm">{t('empty')}</div>
         ) : (
@@ -170,7 +216,7 @@ export default function LixeiraPage() {
             <table className="w-full text-xs">
               <thead className="bg-white/[0.04]">
                 <tr className="text-left text-[10px] uppercase text-gray-500">
-                  <th className="px-3 py-2 w-8"></th>
+                  {podeGerir && <th className="px-3 py-2 w-8"></th>}
                   <th className="px-3 py-2">{t('table.origin')}</th>
                   <th className="px-3 py-2">ID</th>
                   <th className="px-3 py-2">{t('table.context')}</th>
@@ -181,15 +227,18 @@ export default function LixeiraPage() {
                 {filtrados.map(it => {
                   const sel = selecionados.has(it.id);
                   return (
-                    <tr key={it.id} className={`hover:bg-white/[0.02] cursor-pointer ${sel ? 'bg-emerald-500/5' : ''}`}
+                    <tr key={it.id} className={`hover:bg-white/[0.02] ${podeGerir ? 'cursor-pointer' : ''} ${sel ? 'bg-emerald-500/5' : ''}`}
                       onClick={() => {
+                        if (!podeGerir) return;
                         const novo = new Set(selecionados);
                         if (sel) novo.delete(it.id); else novo.add(it.id);
                         setSelecionados(novo);
                       }}>
-                      <td className="px-3 py-2 text-center">
-                        <input type="checkbox" checked={sel} readOnly />
-                      </td>
+                      {podeGerir && (
+                        <td className="px-3 py-2 text-center">
+                          <input type="checkbox" checked={sel} readOnly />
+                        </td>
+                      )}
                       <td className="px-3 py-2 font-bold text-cyan-400">{it.tabela_origem}</td>
                       <td className="px-3 py-2 text-[10px] text-gray-500 font-mono">{it.registro_id?.slice(0, 8) || '—'}</td>
                       <td className="px-3 py-2 text-gray-300">{it.contexto || '—'}</td>

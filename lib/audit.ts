@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
 import { createSupabaseAdmin } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 /**
  * Trilha de auditoria de ações de platform admin.
@@ -34,7 +35,17 @@ export type AuditEntry = {
   adminUserId?: string | null;
 };
 
-export async function logAdminAction(entry: AuditEntry): Promise<void> {
+/**
+ * Devolve `true` quando a linha foi gravada.
+ *
+ * R-65 (revisão de 02/10/2026): o insert não olhava o `{ error }` que o
+ * supabase-js DEVOLVE (ele não lança), então uma auditoria perdida era
+ * indistinguível de uma gravada, e o `catch` abaixo nunca via nada. Continua
+ * sem lançar (a ação de negócio não para por causa do rastro), mas a perda vai
+ * para o `logger.error`, que encaminha ao Sentry: um rastro que falha em
+ * silêncio é a mesma coisa que não ter rastro.
+ */
+export async function logAdminAction(entry: AuditEntry): Promise<boolean> {
   try {
     let ip: string | null = null;
     let userAgent: string | null = null;
@@ -47,7 +58,7 @@ export async function logAdminAction(entry: AuditEntry): Promise<void> {
     }
 
     const sb = createSupabaseAdmin();
-    await sb.from('admin_audit_log').insert({
+    const { error } = await sb.from('admin_audit_log').insert({
       admin_email: entry.adminEmail,
       admin_user_id: entry.adminUserId ?? null,
       acao: entry.acao,
@@ -60,8 +71,27 @@ export async function logAdminAction(entry: AuditEntry): Promise<void> {
       ip,
       user_agent: userAgent,
     });
+    if (error) {
+      registrarPerda(entry, error.message);
+      return false;
+    }
+    return true;
   } catch (err: any) {
     // Auditoria nunca pode quebrar a ação que está auditando.
-    console.warn('[audit] falha ao registrar (não-bloqueante):', err?.message);
+    registrarPerda(entry, err?.message || String(err));
+    return false;
   }
+}
+
+/**
+ * Sem `detalhes` nem e-mail no aviso: eles podem carregar dado de pessoa, e o
+ * que o alarme precisa dizer é QUAL ação ficou sem rastro.
+ */
+function registrarPerda(entry: AuditEntry, mensagem: string) {
+  logger.error('audit', 'registro de auditoria não gravado', {
+    acao: entry.acao,
+    empresaId: entry.empresaId ?? null,
+    resultado: entry.resultado ?? 'ok',
+    erro: mensagem,
+  });
 }

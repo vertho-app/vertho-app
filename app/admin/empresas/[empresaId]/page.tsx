@@ -218,6 +218,14 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
   const { registerRefresh, podeVer } = useAdminShell();
   const podeExecutarIA = podeVer('ai.audit.regenerate');
   const podeGerenciarEmpresa = podeVer('companies.manage');
+  // Cada bloco da zona de perigo segue a permissão que a action dele exige
+  // (R-64): limpar dados pede `trash.manage`, senha de teste pede
+  // `users.manage`, excluir a empresa pede `companies.manage`. Com a zona
+  // inteira atrás de `companies.manage`, quem tinha só essa (o Sócio, por
+  // override) via os botões de limpar, a action recusava lançando erro e a
+  // zona ficava travada em "ocupado".
+  const podeLimparDados = podeVer('trash.manage');
+  const podeSenhaTeste = podeVer('users.manage');
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -1209,9 +1217,9 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
               </div>
             )}
 
-            {/* Danger zone — oculta para papéis sem companies.manage (sócio):
-                todas as ações aqui exigem esse poder no server (Fase 5) */}
-            {podeGerenciarEmpresa && (
+            {/* Danger zone: cada bloco aparece só para quem tem a permissão que
+                a action dele exige no server (ver podeLimparDados acima) */}
+            {(podeGerenciarEmpresa || podeLimparDados || (podeSenhaTeste && data?.empresa?.is_demo === true)) && (
             <div className="rounded-2xl overflow-hidden" style={{ background: '#0b1d36', border: '1px solid rgba(255,255,255,.07)' }}>
               <button
                 onClick={() => setShowDanger(!showDanger)}
@@ -1230,15 +1238,20 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                       para a conta GLOBAL da pessoa; num cliente real ela valeria
                       no login de verdade. A action recusa também, isto só tira o
                       convite da tela. */}
-                  {data?.empresa?.is_demo === true && (<>
+                  {podeSenhaTeste && data?.empresa?.is_demo === true && (<>
                   <p className="text-[9px] font-bold uppercase tracking-widest mt-3 mb-2" style={{ fontFamily: 'var(--font-mono, monospace)', color: 'rgba(52,197,204,.7)' }}>{t('danger.testTools')}</p>
                   <button disabled={dangerLoading}
                     onClick={async () => {
                       if (!(await confirmDialog({ title: t('danger.setTestPassword'), message: t('danger.confirmTestPassword'), severity: 'normal' }))) return;
                       setDangerLoading(true);
-                      const r = await definirSenhaTesteEmpresa(empresaId);
-                      if (r.success) addLog(`🔑 ${r.message}`, 'success'); else addLog(`❌ ${r.error}`, 'error');
-                      setDangerLoading(false);
+                      try {
+                        const r = await definirSenhaTesteEmpresa(empresaId);
+                        if (r.success) addLog(`🔑 ${r.message}`, 'success'); else addLog(`❌ ${r.error}`, 'error');
+                      } catch {
+                        addLog(`❌ ${t('danger.actionFailed')}`, 'error');
+                      } finally {
+                        setDangerLoading(false);
+                      }
                     }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold mb-3 transition-all disabled:opacity-30"
                     style={{ color: '#34c5cc', border: '1px solid rgba(52,197,204,.28)', background: 'rgba(52,197,204,.06)' }}>
@@ -1247,8 +1260,11 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                   </button>
                   </>)}
 
-                  <p className="text-[9px] font-bold uppercase tracking-widest mb-2" style={{ fontFamily: 'var(--font-mono, monospace)', color: 'rgba(239,68,68,.6)' }}>{t('danger.zone')}</p>
+                  {(podeLimparDados || podeGerenciarEmpresa) && (
+                    <p className="text-[9px] font-bold uppercase tracking-widest mb-2" style={{ fontFamily: 'var(--font-mono, monospace)', color: 'rgba(239,68,68,.6)' }}>{t('danger.zone')}</p>
+                  )}
 
+                  {podeLimparDados && (<>
                   {/* Escopo */}
                   <select value={dangerColabId}
                     onChange={e => setDangerColabId(e.target.value)}
@@ -1292,15 +1308,20 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                             });
                             if (!ok) return;
                             setDangerLoading(true);
-                            let r: any;
-                            if (item.action === 'mapeamento') r = await limparMapeamento(empresaId, dangerColabId || null);
-                            else if (item.action === 'mapeamentoComp') r = await limparMapeamentoCompetencias(empresaId, dangerColabId || null);
-                            else if (item.action === 'cenariosB') r = await limparCenariosB(empresaId);
-                            else if (item.action === 'reavSessoes') r = await limparReavaliacaoSessoes(empresaId);
-                            else r = await limparRegistros(empresaId, item.tabelas, dangerColabId || null, item.fields || null);
-                            if (r.success) { addLog(`🗑️ ${item.label} (${scope}) — ok`, 'success'); loadData(); }
-                            else addLog(`❌ ${item.label}: ${r.error}`, 'error');
-                            setDangerLoading(false);
+                            try {
+                              let r: any;
+                              if (item.action === 'mapeamento') r = await limparMapeamento(empresaId, dangerColabId || null);
+                              else if (item.action === 'mapeamentoComp') r = await limparMapeamentoCompetencias(empresaId, dangerColabId || null);
+                              else if (item.action === 'cenariosB') r = await limparCenariosB(empresaId);
+                              else if (item.action === 'reavSessoes') r = await limparReavaliacaoSessoes(empresaId);
+                              else r = await limparRegistros(empresaId, item.tabelas, dangerColabId || null, item.fields || null);
+                              if (r.success) { addLog(`🗑️ ${item.label} (${scope}): ${r.message || 'ok'}`, 'success'); loadData(); }
+                              else addLog(`❌ ${item.label}: ${r.error}`, 'error');
+                            } catch {
+                              addLog(`❌ ${item.label}: ${t('danger.actionFailed')}`, 'error');
+                            } finally {
+                              setDangerLoading(false);
+                            }
                           }}
                           className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[11px] font-medium border transition-all disabled:opacity-30 ${item.danger ? 'font-bold' : ''}`}
                           style={{
@@ -1315,7 +1336,9 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                       );
                     })}
                   </div>
+                  </>)}
 
+                  {podeGerenciarEmpresa && (
                   <button disabled={dangerLoading}
                     onClick={async () => {
                       setDangerLoading(true);
@@ -1341,6 +1364,7 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
                     {dangerLoading ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                     {t('danger.deleteCompany')}
                   </button>
+                  )}
                 </div>
               )}
             </div>

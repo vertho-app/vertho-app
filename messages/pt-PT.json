@@ -3480,6 +3480,17 @@
       "restore": "Restaurar {count, plural, one {# registo} other {# registos}} para as suas tabelas originais?",
       "empty": "Apagar permanentemente itens com mais de 30 dias na lixeira?",
       "emptyWord": "ESVAZIAR"
+    },
+    "readOnly": "Só de leitura: restaurar e esvaziar o lixo exigem a permissão de gerir o lixo.",
+    "loadError": "Não foi possível carregar o lixo. Tente novamente.",
+    "errors": {
+      "actionFailed": "O servidor recusou ou não concluiu a ação. Confirme a sua permissão e o registo de auditoria."
+    },
+    "result": {
+      "restored": "{count, plural, one {# registo restaurado} other {# registos restaurados}}",
+      "partial": "{restored} restaurado(s); {pending} continuam no lixo porque a tabela de origem recusou ({tables}). Restaure primeiro os registos de que dependem e tente novamente.",
+      "copiesKept": "Os registos voltaram, mas as cópias não saíram do lixo. Não os restaure novamente: isso substituiria a versão atual.",
+      "emptied": "{count, plural, =0 {Nenhum item antigo para remover} one {# item removido do lixo} other {# itens removidos do lixo}}"
     }
   },
   "AdminVoting": {
@@ -3767,6 +3778,7 @@
       "allCollaborators": "Todos os colaboradores",
       "allScope": "todos",
       "collaboratorFallback": "colaborador",
+      "actionFailed": "O servidor recusou ou não concluiu a ação. Confirme a sua permissão e o registo de auditoria.",
       "confirmClear": "{item} ({scope})? Esta ação não pode ser desfeita.",
       "individual": "(individual)",
       "confirmDeleteCompany": "EXCLUIR a empresa \"{name}\" e TODOS os dados?\n\nIRREVERSÍVEL.",
@@ -5354,6 +5366,14 @@
     },
     "empty": "Nenhum registo ainda.",
     "actions": {
+      "dados_limpar": "Dados: limpeza de registos",
+      "dados_limpar_cenarios_b": "Dados: limpeza de Cenários B",
+      "dados_limpar_reavaliacao": "Dados: limpeza de sessões de reavaliação",
+      "dados_limpar_mapeamento_competencias": "Dados: limpeza do mapeamento de competências",
+      "dados_limpar_mapeamento_comportamental": "Dados: limpeza do mapeamento comportamental",
+      "lixeira_restaurar": "Lixo: restauro",
+      "lixeira_esvaziar": "Lixo: esvaziamento",
+      "empresa_senha_teste": "Empresa: palavra-passe de teste",
       "whatsapp_broadcast": "WhatsApp/Email — mensagem em lote",
       "whatsapp_magic_links": "WhatsApp — magic-links de acesso",
       "envio_pdfs_lote": "WhatsApp — PDFs em lote",

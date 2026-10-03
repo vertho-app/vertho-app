@@ -3480,6 +3480,17 @@
       "restore": "Restore {count, plural, one {# registro} other {# registros}} to their original tables?",
       "empty": "Permanently delete items that are more than 30 days old in the trash?",
       "emptyWord": "EMPTY"
+    },
+    "readOnly": "Read only: restoring and emptying the trash require the manage trash permission.",
+    "loadError": "Could not load the trash. Try again.",
+    "errors": {
+      "actionFailed": "The server refused or did not complete the action. Check your permission and the audit log."
+    },
+    "result": {
+      "restored": "{count, plural, one {# record restored} other {# records restored}}",
+      "partial": "{restored} restored; {pending} stay in the trash because the source table refused them ({tables}). Restore the records they depend on first and try again.",
+      "copiesKept": "The records are back, but their copies did not leave the trash. Do not restore them again: that would overwrite the current version.",
+      "emptied": "{count, plural, =0 {No old items to remove} one {# item removed from the trash} other {# items removed from the trash}}"
     }
   },
   "AdminVoting": {
@@ -3767,6 +3778,7 @@
       "allCollaborators": "All team members",
       "allScope": "everyone",
       "collaboratorFallback": "team member",
+      "actionFailed": "The server refused or did not complete the action. Check your permission and the audit log.",
       "confirmClear": "{item} ({scope})? This action cannot be undone.",
       "individual": "(individual)",
       "confirmDeleteCompany": "DELETE company \"{name}\" and ALL data?\n\nIRREVERSIBLE.",
@@ -5354,6 +5366,14 @@
     },
     "empty": "No records yet.",
     "actions": {
+      "dados_limpar": "Data: records cleanup",
+      "dados_limpar_cenarios_b": "Data: B Scenarios cleanup",
+      "dados_limpar_reavaliacao": "Data: reassessment sessions cleanup",
+      "dados_limpar_mapeamento_competencias": "Data: competency mapping cleanup",
+      "dados_limpar_mapeamento_comportamental": "Data: behavioral mapping cleanup",
+      "lixeira_restaurar": "Trash: restore",
+      "lixeira_esvaziar": "Trash: empty",
+      "empresa_senha_teste": "Company: test password",
       "whatsapp_broadcast": "WhatsApp/Email — batch message",
       "whatsapp_magic_links": "WhatsApp — access magic links",
       "envio_pdfs_lote": "WhatsApp — batch PDFs",
