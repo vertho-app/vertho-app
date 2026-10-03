@@ -3590,7 +3590,9 @@
       "title": "Sugerencias de nuevas competencias"
     },
     "messages": {
-      "selectAtLeastOne": "Marca al menos 1 competencia para {role}"
+      "selectAtLeastOne": "Marca al menos 1 competencia para {role}",
+      "semCenarioAoLiberar": "Habilitado, pero {count} competencia(s) del Top 5 aún sin escenario aprobado: {list}. Quien llegue a ellas verá \"en preparación\" hasta que la IA3 los genere.",
+      "semCenarioNaoConferido": "Habilitado, pero no fue posible comprobar si existen todos los escenarios del Top 5. Revisa la cola de la IA3."
     }
   },
   "AdminSeasons": {
@@ -3848,6 +3850,10 @@
       "cancelLog": "Cancelado",
       "sidePdis": "PDIs",
       "existingTracksConfirm": "Ya existen {count} ruta(s). ¿Regenerar? ¿Continuar?",
+      "ia3NothingPending": "Ningún escenario pendiente: los {count} escenarios del Top 5 ya existen.",
+      "ia3RegenerateAllConfirm": "Los {count} escenarios del Top 5 ya existen. Regenerar TODOS vuelve a llamar a la IA para cada uno (costo) y reemplaza los que aún no tienen respuesta. ¿Confirmas?",
+      "ia3NoCompetency": "{count} nombre(s) del Top 5 sin competencia correspondiente en el cargo, que NO generan escenario: {list}",
+      "ia3LadderStep": "{name}: {score} pts, ronda {step} de {total} de la escalera ({rung})",
       "focusLoaded": "Competencias foco cargadas ({count} cargos)",
       "focusLoadError": "Error al cargar",
       "reportsQueue": "{count} informes para generar",

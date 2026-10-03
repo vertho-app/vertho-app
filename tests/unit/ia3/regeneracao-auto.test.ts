@@ -145,10 +145,12 @@ describe('ligações (guard de fonte)', () => {
     expect(f).toMatch(/regenerarAteLimiarIA3\(sb,\s*\{\s*cenarioId:/);
     expect(f).toMatch(/ORCAMENTO_ONDA3_MS/);
   });
-  it('a tela regenera automaticamente abaixo de 80, no máximo 3 rodadas, uma por request', () => {
+  // 03/10/2026 (R-82): o modo "Agora" anda a MESMA escada do lote, uma rodada por request, até 80 ou o fim dela.
+  it('a tela regenera automaticamente abaixo de 80 pela escada, uma rodada por request', () => {
     const f = lerFonte('app/admin/empresas/[empresaId]/page.tsx');
-    expect(f).toMatch(/rodada <= 3 && notaFinal < 80/);
-    expect(f).toMatch(/regenerarCenario\(r\.cenarioId\)/);
+    expect(f).toMatch(/notaFinal < 80 && r\.cenarioId/);
+    expect(f).toMatch(/regenerarCenarioNaEscada\(r\.cenarioId, passo\)/);
+    expect(f).toMatch(/if \(rg\.fim\) break;/);
   });
   it('o modelo padrão da geração é o Sonnet 5.5 e a task é PINADA (senão o modelo_padrao do tenant vence)', () => {
     const f = lerFonte('lib/ai-tasks.ts');

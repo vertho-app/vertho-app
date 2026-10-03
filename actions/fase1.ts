@@ -6,15 +6,15 @@ import { extractJSON } from './utils';
 import { requireAdminAction } from '@/lib/auth/action-context';
 import type { FaseCarreira } from '@/lib/season-engine/programa-config';
 import { requireAdminSupabase, requireEmpresaSupabase, requireLinhaSupabase } from '@/lib/admin-supabase';
-import { hasDiscMapeado } from '@/lib/disc-status';
 import {
   buscarContextoPPP, buscarValores,
   carregarContextoIA2, montarPromptIA2, validarGabaritoIA2, persistirGabaritoIA2,
   gerarGabaritosIA2Core,
 } from '@/lib/ia2-gabarito';
-import { gerarCenarioIA3Core, checkCenarioIA3Core, regenerarCenarioIA3ComTrava } from '@/lib/ia3-cenarios';
+import { gerarCenarioIA3Core, checkCenarioIA3Core, regenerarCenarioIA3ComTrava, passoDaEscadaIA3 } from '@/lib/ia3-cenarios';
 import { escopoTenantDaLinha } from '@/lib/tenant-predicado';
 import { casarSelecaoIA1 } from '@/lib/matriz-por-cargo';
+import { lerTudoPaginado } from '@/lib/paginacao';
 
 // ── IA1: Selecionar top 10 competências por cargo ───────────────────────────
 // Seleciona das competências JÁ CADASTRADAS na empresa (tabela competencias).
@@ -729,40 +729,53 @@ export async function listarFilaIA3(empresaId: string) {
     // competencia_id que o IA1 escolheu (estabilidade); senão, resolvemos pela
     // tabela `competencias` por (nome, cargo), preferindo a linha-competência
     // (cod_desc null) sobre as linhas de descritor.
-    const { data: top10All } = await tdb.from('top10_cargos')
+    const { data: top10All, error: errTop10 } = await tdb.from('top10_cargos')
       .select('cargo, competencia_id, competencia:competencias(id, nome, cod_comp)')
       .order('cargo')
       .order('posicao');
+    if (errTop10) return { success: false, error: `Não foi possível ler o Top 10: ${errTop10.message}` };
 
-    const { data: comps } = await tdb.from('competencias')
-      .select('id, nome, cod_comp, cargo, cod_desc');
+    // As três leituras que decidem POR AUSÊNCIA ("sem competência", "sem cenário",
+    // "sem PPP") são paginadas: o PostgREST corta em 1.000 linhas calado, e uma
+    // linha cortada viraria cenário regerado (custo) ou escola sem cenário.
+    const { data: comps, error: errComps } = await lerTudoPaginado(
+      (de, ate) => tdb.from('competencias').select('id, nome, cod_comp, cargo, cod_desc').order('id').range(de, ate),
+    );
+    if (errComps) return { success: false, error: `Não foi possível ler as competências: ${errComps}` };
     const compById = new Map<string, any>((comps || []).map((c: any) => [c.id, c]));
 
     // PPPs com colaboradores POR CARGO: cada cargo gera 1 cenário por PPP
     // distinto. Colaborador → escola → escola.ppp_escola_id. Escolas diferentes
     // com o MESMO PPP compartilham 1 cenário (sem duplicar). Sem escola, escola
     // sem PPP ou central → ppp null = cenário de rede.
-    const { data: escolas } = await tdb.from('escolas').select('id, ppp_escola_id');
+    const { data: escolas, error: errEscolas } = await tdb.from('escolas').select('id, ppp_escola_id');
+    if (errEscolas) return { success: false, error: `Não foi possível ler as escolas: ${errEscolas.message}` };
     const escolaPpp = new Map<string, string | null>((escolas || []).map((e: any) => [e.id, e.ppp_escola_id || null]));
     const { data: ppps } = await tdb.from('ppp_escolas').select('id, escola');
     const pppNome = new Map<string, string>((ppps || []).map((p: any) => [p.id, p.escola]));
-    // Só colaboradores com DISC mapeado contam para definir os PPPs-alvo de cada
-    // cargo (pré-requisito das próximas etapas). Cargos cujos colaboradores ainda
-    // não fizeram DISC caem no fallback "rede" (ver pppsAlvo abaixo) — nenhum
-    // cargo do Top 5 deixa de ter ao menos o cenário base.
-    const { data: colabsEsc } = await tdb.from('colaboradores')
-      .select('cargo, escola_id, perfil_dominante, d_natural, i_natural, s_natural, c_natural');
+    // PPPs-alvo = os das escolas de TODAS as pessoas do cargo (R-69, 03/10/2026).
+    // Até então só contava quem já tinha feito o DISC: a escola de quem chegava
+    // depois não tinha cenário próprio, e a pessoa recebia o de OUTRA escola (o
+    // `aptos[0]` do escolhedor, que também saiu). E o cenário de REDE é gerado
+    // sempre (ver pppsAlvo abaixo): é o que serve a quem não tem escola, ou cuja
+    // escola não tem PPP, ou cujo cenário próprio ainda não existe.
+    const { data: colabsEsc, error: errColabs } = await lerTudoPaginado(
+      (de, ate) => tdb.from('colaboradores').select('id, cargo, escola_id').order('id').range(de, ate),
+    );
+    if (errColabs) return { success: false, error: `Não foi possível ler as pessoas: ${errColabs}` };
     const cargoPpps = new Map<string, Set<string | null>>();
     for (const c of (colabsEsc || []) as any[]) {
-      if (!c.cargo || !hasDiscMapeado(c)) continue;
+      if (!c.cargo) continue;
       const ppp = c.escola_id ? (escolaPpp.get(c.escola_id) || null) : null;
       if (!cargoPpps.has(c.cargo)) cargoPpps.set(c.cargo, new Set());
       cargoPpps.get(c.cargo)!.add(ppp);
     }
 
     // Já gerados: indexa por (competencia|cod_comp)::cargo::ppp (ppp null = 'rede').
-    const { data: existentes } = await tdb.from('banco_cenarios')
-      .select('competencia_id, cargo, ppp_escola_id');
+    const { data: existentes, error: errExist } = await lerTudoPaginado(
+      (de, ate) => tdb.from('banco_cenarios').select('id, competencia_id, cargo, ppp_escola_id').order('id').range(de, ate),
+    );
+    if (errExist) return { success: false, error: `Não foi possível ler os cenários: ${errExist}` };
     const existSet = new Set<string>();
     for (const e of existentes || []) {
       const ppp = e.ppp_escola_id || 'rede';
@@ -774,19 +787,23 @@ export async function listarFilaIA3(empresaId: string) {
     const fila: any[] = [];
     const seen = new Set<string>();
     const semCompetencia: string[] = [];
+    // Nome do Top 5 x nome da competência: sem caixa, a MESMA régua do resolvedor que
+    // serve o cenário à pessoa (`resolverTop5ComCenario`, assessment-actions). Com o
+    // casamento exato daqui, "liderança pedagógica" no Top 5 não gerava cenário para
+    // "Liderança Pedagógica", em silêncio, e a pessoa ficava sem cenário (R-82).
+    const mesmoNome = (a: unknown, b: unknown) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
     for (const [cargo, nomes] of Object.entries(top5PorCargo)) {
-      // PPPs-alvo deste cargo (ao menos a rede, se não houver colaborador mapeado).
-      const pppsAlvo = Array.from(cargoPpps.get(cargo) || new Set<string | null>([null]));
-      if (!pppsAlvo.length) pppsAlvo.push(null);
+      // PPPs-alvo deste cargo, e a REDE sempre (null primeiro: é o que cobre todo mundo).
+      const pppsAlvo: (string | null)[] = [null, ...Array.from(cargoPpps.get(cargo) || []).filter((p) => p !== null)];
       for (const nome of (nomes as string[])) {
         let competencia_id: string | undefined;
         let cod_comp = '';
-        const t10 = (top10All || []).find((t: any) => t.cargo === cargo && t.competencia?.nome === nome);
+        const t10 = (top10All || []).find((t: any) => t.cargo === cargo && mesmoNome(t.competencia?.nome, nome));
         if (t10) {
           competencia_id = t10.competencia_id;
           cod_comp = t10.competencia?.cod_comp || '';
         } else {
-          const matches = (comps || []).filter((c: any) => c.cargo === cargo && c.nome === nome);
+          const matches = (comps || []).filter((c: any) => c.cargo === cargo && mesmoNome(c.nome, nome));
           if (!matches.length) { semCompetencia.push(`${cargo} › ${nome}`); continue; }
           const rep = matches.find((c: any) => !c.cod_desc) || matches[0];
           competencia_id = rep.id;
@@ -848,6 +865,29 @@ export async function regenerarCenario(cenarioId: string, aiConfig: AIConfig = {
     return await regenerarCenarioIA3ComTrava(sbRaw, { cenarioId, aiConfig });
   } catch (err) {
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * UMA rodada da ESCADA de regeneração (`ESCADA_IA3`), para o modo "Agora" da tela
+ * (R-82, 03/10/2026). Até então a escada (Sonnet com feedback, depois GPT do zero
+ * auditado pelo Sonnet, depois Opus) só rodava no LOTE; o modo "Agora" repetia 3
+ * vezes o primeiro degrau. A tela chama passo 0, 1, 2… até a nota chegar ao limiar
+ * ou `fim`; a trava (nunca piora) e a régua do auditor próprio são as do lote.
+ */
+export async function regenerarCenarioNaEscada(cenarioId: string, passo: number, aiConfig: AIConfig = {}): Promise<{
+  success: boolean; error?: string; message?: string; aplicado?: boolean; nota?: number;
+  notaAnterior?: number | null; status?: string; degrau?: string; totalPassos?: number; fim: boolean;
+}> {
+  try {
+    const sbRaw = await requireAdminSupabase('ai.audit.regenerate');
+    const p = passoDaEscadaIA3(Number(passo));
+    if (!p) return { success: true, aplicado: false, fim: true, message: 'Escada de regeneração esgotada' };
+    const r = await regenerarCenarioIA3ComTrava(sbRaw, { cenarioId, aiConfig, degrau: p.degrau });
+    return { ...r, degrau: p.degrau.id, totalPassos: p.total, fim: Number(passo) + 1 >= p.total };
+  } catch (err) {
+    // `fim` também no erro: sem ele, uma falha que se repete (sessão caída) prenderia a tela no laço.
+    return { success: false, error: err.message, fim: !passoDaEscadaIA3(Number(passo) + 1) };
   }
 }
 

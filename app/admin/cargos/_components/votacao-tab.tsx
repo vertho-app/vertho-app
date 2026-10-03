@@ -64,9 +64,16 @@ export default function VotacaoTab({ empresaId }: { empresaId: string }) {
 
   async function handleToggleCenarios() {
     setTogglingCenarios(true);
-    const r = await toggleMapeamentoCenarios(empresaId, !data.mapeamentoCenariosLiberado);
+    const r: any = await toggleMapeamentoCenarios(empresaId, !data.mapeamentoCenariosLiberado);
     setTogglingCenarios(false);
     flash(r.success ? r.message : r.error);
+    // Liberar não confere nada sozinho: o servidor devolve o que do Top 5 ainda não tem
+    // cenário (R-82), e quem liberou fica sabendo antes da pessoa.
+    if (r.success && r.semCenario?.length) {
+      toast.warning(t('messages.semCenarioAoLiberar', { count: r.semCenario.length, list: r.semCenario.map((x: any) => `${x.cargo} › ${x.competencia}`).join(', ') }), { duration: 15000 });
+    } else if (r.success && r.conferenciaFalhou) {
+      toast.warning(t('messages.semCenarioNaoConferido'));
+    }
     refresh();
   }
 

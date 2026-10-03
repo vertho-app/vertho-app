@@ -12,6 +12,7 @@ import { gravarSysConfig } from '@/lib/sys-config-escrita';
 import { montarCedula, normalizarCargoDaCedula, type Cedula } from '@/lib/votacao/cedula';
 import { ordenarRanking, somarVoto } from '@/lib/votacao/ranking';
 import { registrarDegradacao, DEGRADACAO } from '@/lib/degradacao';
+import { top5SemCenarioDeRede, type Top5SemCenario } from '@/lib/assessment/top5-sem-cenario';
 
 // Heurística leve pra classificar device a partir do user-agent.
 // Não tenta cobrir 100% dos casos — só os principais. Bots vão pra 'bot'.
@@ -246,9 +247,24 @@ export async function toggleMapeamentoCenarios(empresaId: string, liberado: bool
   });
 
   if (!r.ok) return { success: false, error: r.erro };
+
+  // Liberar não bloqueia por falta de cenário (a pessoa vê "em preparação" e segue nas
+  // que têm), mas AVISA quem liberou o que ainda falta gerar (R-82, 03/10/2026). Antes a
+  // liberação não conferia nada, e quem descobria era a pessoa, na tela.
+  let semCenario: Top5SemCenario[] | null = null;
+  let conferenciaFalhou = false;
+  if (liberado) {
+    const conf = await top5SemCenarioDeRede(tenantDb(empresaId), (r as any).sysConfig);
+    if ('error' in conf) {
+      conferenciaFalhou = true;
+      console.warn('[toggleMapeamentoCenarios] conferência dos cenários falhou:', conf.error);
+    } else semCenario = conf.faltam;
+  }
   return {
     success: true,
     message: liberado ? 'Mapeamento de cenários liberado' : 'Mapeamento de cenários bloqueado',
+    semCenario,
+    conferenciaFalhou,
   };
 }
 

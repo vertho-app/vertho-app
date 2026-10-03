@@ -3590,7 +3590,9 @@
       "title": "Suggestions for new skills"
     },
     "messages": {
-      "selectAtLeastOne": "Mark at least 1 competency for {role}"
+      "selectAtLeastOne": "Mark at least 1 competency for {role}",
+      "semCenarioAoLiberar": "Opened, but {count} Top 5 competency(ies) still have no approved scenario: {list}. Whoever reaches them will see \"being prepared\" until IA3 generates them.",
+      "semCenarioNaoConferido": "Opened, but we could not check whether all Top 5 scenarios exist. Check the IA3 queue."
     }
   },
   "AdminSeasons": {
@@ -3848,6 +3850,10 @@
       "cancelLog": "Canceled",
       "sidePdis": "PDIs",
       "existingTracksConfirm": "{count} track(s) already exist. Regenerate? Continue?",
+      "ia3NothingPending": "No pending scenarios: the {count} Top 5 scenarios already exist.",
+      "ia3RegenerateAllConfirm": "The {count} Top 5 scenarios already exist. Regenerating ALL calls the AI again for each one (cost) and replaces those that have no answers yet. Confirm?",
+      "ia3NoCompetency": "{count} Top 5 name(s) with no matching competency in the role, which do NOT generate a scenario: {list}",
+      "ia3LadderStep": "{name}: {score} pts, round {step} of {total} of the ladder ({rung})",
       "focusLoaded": "Focus competencies loaded ({count} roles)",
       "focusLoadError": "Error loading",
       "reportsQueue": "{count} reports to generate",

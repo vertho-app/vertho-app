@@ -46,11 +46,19 @@ describe('cenarioAtendeNotaMinima', () => {
 });
 
 describe('escolherCenarioDaCompetencia — PPP > rede > mais recente, SÓ entre os aptos', () => {
-  it('sem corte mantém a ordem histórica: PPP da pessoa > rede > primeiro', () => {
+  it('sem corte: PPP da pessoa > rede, e o mais recente dentro de cada um', () => {
     const rows = [cen('r1', 'c', 50), cen('p1', 'c', 50, 'P1'), cen('r2', 'c', 50)];
     expect(escolherCenarioDaCompetencia(rows, 'P1', null)?.id).toBe('p1');
     expect(escolherCenarioDaCompetencia(rows, 'PX', null)?.id).toBe('r1');
-    expect(escolherCenarioDaCompetencia([cen('a', 'c', 1, 'P2'), cen('b', 'c', 1, 'P3')], 'PX', null)?.id).toBe('a');
+    expect(escolherCenarioDaCompetencia(rows, null, null)?.id).toBe('r1');
+  });
+  // R-69 (03/10/2026): o último recurso era o 1º da lista, de QUALQUER escola. A pessoa respondia ao caso
+  // de outra escola, avaliada contra o PPP dos outros. Sem o da escola dela nem o de rede, não há cenário.
+  it('nunca o cenário de OUTRA escola: sem o da escola da pessoa nem o de rede, nenhum', () => {
+    const deOutras = [cen('a', 'c', 90, 'P2'), cen('b', 'c', 90, 'P3')];
+    expect(escolherCenarioDaCompetencia(deOutras, 'PX', null)).toBeNull();
+    expect(escolherCenarioDaCompetencia(deOutras, null, null)).toBeNull();
+    expect(selecionarCenariosElegiveis(deOutras, 'PX', null)).toEqual([]);
   });
   it('com corte, o PPP reprovado cede ao de rede aprovado (o apto vence a preferência)', () => {
     const rows = [cen('p1', 'c', 60, 'P1'), cen('rede', 'c', 88)];

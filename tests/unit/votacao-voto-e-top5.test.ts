@@ -13,11 +13,14 @@ import { criarSupabaseMock } from '../helpers/supabase-mock';
  */
 
 const CEDULA = ['Comunicação', 'Didática', 'Gestão de Sala', 'Interação com as Famílias', 'Planejamento', 'Avaliação'];
-const estado = { votacaoAtiva: true, updateNaoCasa: false, cadastro: [{ id: 'cg-1', nome: 'Coordenação Pedagógica' }] as any[] };
+const estado = { votacaoAtiva: true, updateNaoCasa: false, cenariosRede: [] as any[], cadastro: [{ id: 'cg-1', nome: 'Coordenação Pedagógica' }] as any[] };
 
 const sb = criarSupabaseMock({
   resolver: (tabela) => (tabela === 'empresas' ? { sys_config: { votacao_ativa: estado.votacaoAtiva } } : null),
-  lista: (tabela) => {
+  lista: (tabela, cols) => {
+    if (tabela === 'cargos_empresa' && cols.includes('top5_workshop')) return [{ nome: 'Professor(a)', top5_workshop: ['Didática', 'Planejamento'] }];
+    if (tabela === 'competencias') return [{ id: 'c-did', nome: 'Didática', cargo: 'Professor(a)' }, { id: 'c-pla', nome: 'Planejamento', cargo: 'Professor(a)' }];
+    if (tabela === 'banco_cenarios') return estado.cenariosRede;
     if (tabela === 'top10_cargos') return CEDULA.map((nome) => ({ cargo: 'Professor(a)', competencia: { nome, cod_comp: null, descricao: null, pilar: null } }));
     if (tabela === 'cargos_empresa') return estado.cadastro.map((c) => ({ nome: c.nome }));
     return [];
@@ -43,9 +46,11 @@ vi.mock('@/lib/auth/action-context', () => ({
 }));
 vi.mock('@/lib/admin-supabase', () => ({ requireAdminSupabase: vi.fn(), requireEmpresaSupabase: vi.fn() }));
 vi.mock('@/lib/home/loaders', () => ({ carregarVotacaoStatus: vi.fn() }));
-vi.mock('@/lib/sys-config-escrita', () => ({ gravarSysConfig: vi.fn() }));
+vi.mock('@/lib/sys-config-escrita', () => ({
+  gravarSysConfig: vi.fn(async (_sb: any, _e: string, fn: (c: any) => any) => ({ ok: true, sysConfig: fn({ votacao_ativa: false }) })),
+}));
 
-import { salvarVoto, loadCompetenciasParaVotar, aprovarTop5Votacao } from '@/actions/votacao';
+import { salvarVoto, loadCompetenciasParaVotar, aprovarTop5Votacao, toggleMapeamentoCenarios } from '@/actions/votacao';
 
 const votos = () => sb.escritas.filter((e) => e.tabela === 'votacao_competencias');
 const top5Gravados = () => sb.escritas.filter((e) => e.tabela === 'cargos_empresa');
@@ -54,6 +59,7 @@ beforeEach(() => {
   sb.reset();
   estado.votacaoAtiva = true;
   estado.updateNaoCasa = false;
+  estado.cenariosRede = [];
   estado.cadastro = [{ id: 'cg-1', nome: 'Coordenação Pedagógica' }];
 });
 
@@ -127,5 +133,25 @@ describe('aprovarTop5Votacao: falha alto quando não grava', () => {
     expect(top5Gravados()).toHaveLength(1); // o update foi tentado
     expect(r.success).toBe(false);
     expect(r.error).toMatch(/Nenhum cargo .* foi atualizado/);
+  });
+});
+
+describe('toggleMapeamentoCenarios: liberar avisa o que do Top 5 não tem cenário (R-82)', () => {
+  it('liberado com competência sem cenário de rede: devolve a lista, sem bloquear', async () => {
+    estado.cenariosRede = [{ id: 'x', competencia_id: 'c-did', cargo: 'Professor(a)', ppp_escola_id: null, nota_check: 90 }];
+    const r: any = await toggleMapeamentoCenarios('emp', true);
+    expect(r.success).toBe(true);
+    expect(r.semCenario).toEqual([{ cargo: 'Professor(a)', competencia: 'Planejamento' }]);
+  });
+
+  it('falha na conferência não desfaz a liberação, mas é dita', async () => {
+    sb.falharEm({ tabela: 'banco_cenarios', op: 'select', mensagem: 'pool' });
+    const r: any = await toggleMapeamentoCenarios('emp', true);
+    expect(r).toMatchObject({ success: true, conferenciaFalhou: true, semCenario: null });
+  });
+
+  it('bloquear não confere nada', async () => {
+    const r: any = await toggleMapeamentoCenarios('emp', false);
+    expect(r).toMatchObject({ success: true, semCenario: null, conferenciaFalhou: false });
   });
 });

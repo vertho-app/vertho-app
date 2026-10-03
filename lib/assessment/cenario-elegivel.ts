@@ -35,8 +35,14 @@ export function cenarioAtendeNotaMinima(cenario: { nota_check?: unknown } | null
 }
 
 /**
- * UM cenário para a competência: entre os que atendem o corte, PPP do colaborador > rede (sem PPP) > o
- * primeiro da lista (a ordem de entrada decide o "mais recente"). Nenhum atende → null (não serve).
+ * UM cenário para a competência: entre os que atendem o corte, PPP do colaborador > rede (sem PPP), e
+ * dentro de cada um o primeiro da lista (a ordem de entrada decide o "mais recente"). Nenhum → null.
+ *
+ * NUNCA o cenário de OUTRA escola (R-69, 03/10/2026). Até então o último recurso era `aptos[0]`: sem
+ * cenário da escola da pessoa nem de rede, ela respondia ao caso de outra escola, avaliada contra o PPP
+ * dos outros, sem nenhum aviso. Agora a competência fica sem cenário (a tela serve a próxima e registra
+ * a degradação), e o cenário de rede passou a ser gerado sempre (`listarFilaIA3`). Medido 03/10: só
+ * Ibipeba tem cenário por PPP, e nos 7 grupos dela o de rede existe, então nada some hoje.
  */
 export function escolherCenarioDaCompetencia<T extends { ppp_escola_id?: string | null; nota_check?: unknown }>(
   rows: T[] | null | undefined,
@@ -47,7 +53,7 @@ export function escolherCenarioDaCompetencia<T extends { ppp_escola_id?: string 
   if (!aptos.length) return null;
   return (pppEscolaId && aptos.find((r) => r.ppp_escola_id === pppEscolaId))
     || aptos.find((r) => !r.ppp_escola_id)
-    || aptos[0];
+    || null;
 }
 
 /** Um cenário por competência (agrupa por `competencia_id`); competência sem cenário apto sai da lista. */

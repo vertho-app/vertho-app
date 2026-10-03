@@ -10,20 +10,11 @@ import { buscarFilaIA4 } from '@/lib/ia4-fila';
 import { focoDoCargo } from '@/lib/foco-cargo';
 import { excludeInternalEmails } from '@/lib/internal-emails';
 import type { EntradaPrevia } from './previa';
+import { lerTudoPaginado } from '@/lib/paginacao';
 
-const PAGINA = 1000;
-
-/** Lê TODAS as linhas de uma consulta paginando com `.range`. A fábrica recebe o intervalo e devolve a consulta já ordenada. */
-export async function lerTudoPaginado(fabrica: (de: number, ate: number) => any): Promise<{ data: any[]; error?: string }> {
-  const out: any[] = [];
-  for (let de = 0; ; de += PAGINA) {
-    const { data, error } = await fabrica(de, de + PAGINA - 1);
-    if (error) return { data: out, error: error.message };
-    out.push(...(data || []));
-    if (!data || data.length < PAGINA) break;
-  }
-  return { data: out };
-}
+// A leitura paginada mora em `lib/paginacao.ts` (fonte única); reexportada porque
+// `actions/pipeline-fluxo.ts`, `filas.ts` e o teste a importam deste módulo.
+export { lerTudoPaginado };
 
 export type EscopoColeta = {
   /** `null` = sem restrição de turma (empresa com <= 1 turma ativa ou "empresa inteira" justificada). */

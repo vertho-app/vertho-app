@@ -906,28 +906,48 @@ export async function gerarEAuditarCandidataIA3(sbRaw: any, args: {
 
 export async function regenerarCenarioIA3ComTrava(sbRaw: any, args: {
   cenarioId: string; aiConfig?: AIConfig;
+  /**
+   * Degrau da ESCADA (`ESCADA_IA3`) que gera esta candidata: modelo, auditor e se recebe o
+   * feedback do campeão. Sem degrau, o comportamento histórico (task `ia3_cenarios`, com
+   * feedback, auditor da task `ia3_check`). É o que leva a escada ao modo "Agora" da tela,
+   * uma rodada por request (R-82, 03/10/2026).
+   */
+  degrau?: DegrauIA3;
+  limiar?: number;
 }): Promise<{
   success: boolean; error?: string; message?: string;
   aplicado?: boolean; nota?: number; notaAnterior?: number | null; status?: string;
 }> {
-  const { cenarioId, aiConfig = {} } = args;
+  const { cenarioId, aiConfig = {}, degrau } = args;
+  const limiar = args.limiar ?? IA3_LIMIAR_APROVACAO;
 
   const { data: cen } = await sbRaw.from('banco_cenarios').select('*').eq('id', cenarioId).single();
   if (!cen) return { success: false, error: 'Cenário não encontrado' };
   if (!cen.empresa_id) return { success: false, error: 'Cenário sem empresa_id (catálogo nacional)' };
 
-  const cand = await gerarEAuditarCandidataIA3(sbRaw, { cen, aiConfig });
+  // A mesma montagem do degrau que o lote usa (`regenerarAteLimiarIA3`): modelo do degrau,
+  // auditor próprio quando o gerador é da família do auditor da task, e "do zero" sem feedback.
+  const cfg = degrau && degrau.modelo !== 'task' ? { ...aiConfig, model: degrau.modelo } : aiConfig;
+  const cand = await gerarEAuditarCandidataIA3(sbRaw, {
+    cen, aiConfig: cfg, auditor: degrau?.auditor,
+    ...(degrau && !degrau.comFeedback ? { feedbackDe: {} } : {}),
+  });
   // `strict: false` não estreita união discriminada por `ok`: o cast é o estreitamento.
   if (!cand.ok) return { success: false, error: (cand as { ok: false; error: string }).error };
-  const { candidato, alternativas, normed, auditoria } = cand;
+  const { candidato, alternativas, normed, auditoria, escalaPropria } = cand;
 
   const notaAnterior: number | null = typeof cen.nota_check === 'number' ? cen.nota_check : null;
   const notaCandidata = normed.resultado.nota;
 
-  if (!travaRegeneracao(cen.nota_check, notaCandidata)) {
+  // Nota de OUTRO auditor (outra régua) não se compara com a do campeão: só vale se
+  // atingir o limiar na régua dele, como em `rodarRetentativasIA3`.
+  const promovida = escalaPropria ? notaCandidata >= limiar : travaRegeneracao(cen.nota_check, notaCandidata);
+  if (!promovida) {
     return {
       success: true, aplicado: false, nota: notaCandidata, notaAnterior,
-      message: `Regeneração DESCARTADA: candidata ${notaCandidata}pts < atual ${notaAnterior}pts — mantida a versão atual (trava: nunca piora).`,
+      message: escalaPropria
+        ? `Regeneração DESCARTADA: candidata ${notaCandidata}pts na régua de ${degrau?.auditor}, abaixo de ${limiar}: mantida a versão atual.`
+        : `Regeneração DESCARTADA: candidata ${notaCandidata}pts < atual ${notaAnterior}pts, mantida a versão atual (trava: nunca piora).`,
     };
   }
 
@@ -1056,6 +1076,23 @@ export const ESCADA_IA3: DegrauIA3[] = [
 ];
 
 export type RodadaEscadaIA3 = RodadaAutoIA3 & { degrau: string; modelo: string };
+
+/**
+ * A escada achatada em PASSOS (uma rodada cada), para quem não pode rodar a escada
+ * inteira numa chamada só: a tela do modo "Agora" faz uma rodada por request (teto de
+ * duração da Vercel). Passo fora da escada → null (acabou). Fonte única: o mesmo
+ * `ESCADA_IA3` do lote, então os dois modos percorrem os mesmos degraus.
+ */
+export function passoDaEscadaIA3(passo: number, degraus: DegrauIA3[] = ESCADA_IA3): { degrau: DegrauIA3; rodada: number; total: number } | null {
+  const total = degraus.reduce((s, d) => s + d.rodadas, 0);
+  if (!Number.isInteger(passo) || passo < 0 || passo >= total) return null;
+  let resto = passo;
+  for (const degrau of degraus) {
+    if (resto < degrau.rodadas) return { degrau, rodada: resto + 1, total };
+    resto -= degrau.rodadas;
+  }
+  return null;
+}
 
 /** Pura: percorre os degraus levando o campeão e o feedback dele; para ao atingir o limiar. */
 export async function rodarEscadaIA3<C>(args: {

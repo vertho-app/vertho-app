@@ -142,7 +142,14 @@ export async function enqueueIA2Batch(empresaId: string, aiConfig: AIConfig = {}
  * runner síncrono: pendentes; se tudo já gerado, regenera tudo) e dispara a
  * task `gerar-ia3-batch`. Gate de tenant AQUI; a task roda service-role.
  */
-export async function enqueueIA3Batch(empresaId: string, aiConfig: AIConfig & { checkModel?: string } = {}) {
+export async function enqueueIA3Batch(
+  empresaId: string,
+  aiConfig: AIConfig & { checkModel?: string } = {},
+  // Regenerar o banco INTEIRO quando nada está pendente só com pedido explícito (R-82,
+  // 03/10/2026): antes, clicar com tudo gerado regenerava todos os cenários, pagando IA
+  // e substituindo os que não tinham resposta, sem confirmação nenhuma.
+  opts: { regenerarTudo?: boolean } = {},
+) {
   try {
     if (!empresaId) return { success: false as const, error: 'empresaId obrigatório' };
     const sb = await requireEmpresaSupabase(empresaId, 'ai.audit.regenerate', 'enqueueIA3Batch');
@@ -153,8 +160,14 @@ export async function enqueueIA3Batch(empresaId: string, aiConfig: AIConfig & { 
     if (!fila?.success || !fila.data?.length) {
       return { success: false as const, error: fila?.error || 'Nenhuma competência na fila do IA3' };
     }
-    // Mesma seleção do runner síncrono: pendentes primeiro; tudo gerado → todos.
+    // Nome do Top 5 que não casou com nenhuma competência do cargo: não gera cenário,
+    // e a tela precisa dizer isso (antes ficava calado).
+    const semCompetencia: string[] = (fila as any).semCompetencia || [];
+    // Mesma seleção do runner síncrono: pendentes; tudo gerado → todos, SÓ se pedido.
     const pendentes = fila.data.filter((f: any) => !f.jaGerado);
+    if (!pendentes.length && !opts.regenerarTudo) {
+      return { success: true as const, jobId: null, total: 0, nadaPendente: true, jaGerados: fila.data.length, semCompetencia };
+    }
     const escolhidos = pendentes.length ? pendentes : fila.data;
     const items = escolhidos.map((f: any) => ({
       cargo: f.cargo, competencia_id: f.competencia_id,
@@ -178,7 +191,7 @@ export async function enqueueIA3Batch(empresaId: string, aiConfig: AIConfig & { 
       return { success: false as const, error: 'Não foi possível enfileirar: ' + (e?.message || e) };
     }
 
-    return { success: true as const, jobId: job.id, total: items.length };
+    return { success: true as const, jobId: job.id, total: items.length, semCompetencia };
   } catch (err: any) {
     return { success: false as const, error: err?.message || 'Erro' };
   }

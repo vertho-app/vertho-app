@@ -17,7 +17,7 @@ import BackButton from '@/components/back-button';
 import { useAdminShell } from '@/app/admin/_shell/AdminShellContext';
 import { useConfirm } from '@/components/admin/confirm-dialog';
 
-import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm, regenerarCenario } from '@/actions/fase1';
+import { loadTop10TodosCargos, adicionarTop10, removerTop10, loadGabaritosCargos, listarFilaIA3, rodarIA3Uma, checkCenarioUm, regenerarCenarioNaEscada } from '@/actions/fase1';
 import { listarPendentesSimulacao, simularUmaResposta } from '@/actions/simulador-conversas';
 import { enqueueIA2Batch, enqueueIA3Batch, enqueueIA4Batch, enqueueCenariosBBatch, enqueueBlueprintBatch, enqueueRelatoriosBatch, statusIAJob, cancelIAJob, listarJobsAtivosIA } from '@/actions/ia-pipeline-batch';
 import { simularMapeamentoDISCLote } from '@/actions/simulador-disc';
@@ -587,10 +587,24 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
       }
       if (actionKey === 'ia3') {
         // ── Em lote: Batch API (geração Claude −50% + check OpenAI −50%) ──
+        // Nome do Top 5 sem competência no cargo não gera cenário: diz, em vez de pular calado (R-82).
+        const avisarSemCompetencia = (lista: string[] | undefined) => {
+          if (lista?.length) addLog(`⚠ ${t('feedback.ia3NoCompetency', { count: lista.length, list: lista.join(', ') })}`, 'error');
+        };
         if (aiConfig?.modo === 'lote') {
           addLog('📦 IA3 em lote (Batch API −50%, assíncrono).', 'info');
-          const r: any = await enqueueIA3Batch(empresaId, aiConfig);
+          let r: any = await enqueueIA3Batch(empresaId, aiConfig);
           if (!r.success) { addLog(`❌ ${r.error}`, 'error'); setPendingAction(null); return; }
+          avisarSemCompetencia(r.semCompetencia);
+          // Tudo já gerado: regenerar o banco inteiro custa IA e substitui cenários, então só
+          // com confirmação explícita (antes acontecia sozinho, R-82).
+          if (r.nadaPendente) {
+            if (!(await confirmDialog({ title: label, message: t('feedback.ia3RegenerateAllConfirm', { count: r.jaGerados }), severity: 'danger' }))) {
+              addLog(t('feedback.ia3NothingPending', { count: r.jaGerados }), 'info'); setPendingAction(null); return;
+            }
+            r = await enqueueIA3Batch(empresaId, aiConfig, { regenerarTudo: true });
+            if (!r.success) { addLog(`❌ ${r.error}`, 'error'); setPendingAction(null); return; }
+          }
           if (!r.jobId) { addLog(`✅ ${r.message || 'Nada pendente'}`, 'success'); loadData(); refreshTop10(); setPendingAction(null); return; }
           addLog(`📋 ${r.total} cenário(s) no lote ${String(r.jobId).slice(0, 8)}… — rodando em segundo plano, pode seguir usando o pipeline.`, 'info');
           watchJob(r.jobId, 'IA3');
@@ -598,7 +612,12 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
         }
         const fila = await listarFilaIA3(empresaId);
         if (!fila?.success || !fila.data?.length) { addLog(`❌ ${fila?.error || 'Nenhuma competência na fila'}`, 'error'); setPendingAction(null); return; }
-        const items = fila.data.filter((f: any) => !f.jaGerado).length > 0 ? fila.data.filter((f: any) => !f.jaGerado) : fila.data;
+        avisarSemCompetencia((fila as any).semCompetencia);
+        const pendentesIA3 = fila.data.filter((f: any) => !f.jaGerado);
+        if (!pendentesIA3.length && !(await confirmDialog({ title: label, message: t('feedback.ia3RegenerateAllConfirm', { count: fila.data.length }), severity: 'danger' }))) {
+          addLog(t('feedback.ia3NothingPending', { count: fila.data.length }), 'info'); setPendingAction(null); return;
+        }
+        const items = pendentesIA3.length > 0 ? pendentesIA3 : fila.data;
         const checkModel = aiConfig?.checkModel;
         addLog(`📋 ${items.length} cenários para gerar${checkModel ? ' + validar' : ''}`, 'info');
         // Retry de blips transitórios (cold start / 502 → "unexpected response").
@@ -627,16 +646,20 @@ export default function EmpresaPipelinePage({ params }: { params: Promise<{ empr
             addLog(`🔍 [${i + 1}/${items.length}] Validando: ${item.nome}${escolaLbl} [${checkModel}]`, 'info');
             const cr = await tentar(() => checkCenarioUm(r.cenarioId || null, empresaId, item.cargo, item.competencia_id, checkModel));
             if (cr.success) {
-              // Regeneração AUTOMÁTICA (decisão 01/10/2026): abaixo de 80, até 3 rodadas com o feedback do
-              // check. Uma rodada por request (teto da Vercel); a trava do servidor nunca deixa piorar.
-              // Quem seguir abaixo de 80 fica "para revisão" — a tela não o dá como resolvido.
+              // Regeneração AUTOMÁTICA (decisão 01/10/2026): abaixo de 80, a MESMA escada do lote
+              // (Sonnet com feedback, GPT do zero auditado pelo Sonnet, Opus com feedback; R-82,
+              // 03/10/2026, antes o modo "Agora" repetia só o 1º degrau). Uma rodada por request
+              // (teto da Vercel); a trava do servidor nunca deixa piorar. Rodada que falha gasta a
+              // rodada e segue, como no lote. Quem seguir abaixo de 80 fica "para revisão".
               let notaFinal: number = cr.nota;
-              for (let rodada = 1; rodada <= 3 && notaFinal < 80 && r.cenarioId; rodada++) {
+              // Teto de segurança do laço (a escada tem menos passos; o servidor diz `fim`).
+              for (let passo = 0; passo < 20 && notaFinal < 80 && r.cenarioId; passo++) {
                 if (cancelRef.current) break;
-                addLog(`🔁 [${i + 1}/${items.length}] ${item.nome}: ${notaFinal}pts — regenerando com o feedback (${rodada}/3)`, 'info');
-                const rg = await tentar(() => regenerarCenario(r.cenarioId));
-                if (!rg.success) { addLog(`⚠ Regeneração ${item.nome}: ${rg.error}`, 'error'); break; }
-                if (rg.aplicado && typeof rg.nota === 'number') notaFinal = rg.nota;
+                const rg: any = await tentar(() => regenerarCenarioNaEscada(r.cenarioId, passo));
+                if (rg.success && rg.aplicado && typeof rg.nota === 'number') notaFinal = rg.nota;
+                if (rg.success && rg.degrau) addLog(`🔁 [${i + 1}/${items.length}] ${t('feedback.ia3LadderStep', { name: item.nome, score: notaFinal, step: passo + 1, total: rg.totalPassos, rung: rg.degrau })}`, 'info');
+                if (!rg.success) addLog(`⚠ Regeneração ${item.nome}: ${rg.error}`, 'error');
+                if (rg.fim) break;
               }
               if (notaFinal >= 90) { aprovados++; addLog(`✅ ${item.nome}: ${notaFinal}pts`, 'success'); }
               else if (notaFinal >= 80) { revisar++; addLog(`✔ ${item.nome}: ${notaFinal}pts (aprovado com ressalvas)`, 'info'); }
